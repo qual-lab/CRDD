@@ -1,6 +1,6 @@
 # CRDD Development Stack
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -94,11 +94,13 @@ Discovery
 
 ---
 
-# 3. Minimum Representative Deliverables
+# 3. Representative Artifact Views
+
+本章はDevelopment Stackを理解するための代表例であり、工程完了条件の正本ではない。Discovery、UX、IA、UI、SPEC、ArchitectureのEntry、変換、責務Coverage、Exit、Gate、Auditは各工程文書の`Phase Process Contract`に従う。Artifactは統合・分割できるため、以下の項目やファイルの存在だけで工程完了を判定してはならない。
 
 ## 3.1. Discovery / Strategy / UX
 
-最低限、次を持つ。
+代表的には次を扱う。
 
 ```text
 Origin / Problem Statement
@@ -138,7 +140,7 @@ Service Blueprintは、UXからIA、SPEC、Architectureへ接続する主要な�
 
 ## 3.2. IA / Structure
 
-Service Blueprintを受けて、最低限次を持つ。
+Service Blueprintを受けて、代表的には次を扱う。
 
 ```text
 Blueprint to Information Map
@@ -169,7 +171,7 @@ IAは画面一覧そのものではない。
 
 ## 3.3. UI / Skeleton
 
-承認済みScopeに対して、最低限次を持つ。
+承認済みScopeに対して、代表的には次を扱う。
 
 ```text
 Screen Inventory
@@ -217,7 +219,7 @@ Motionの基本値
 
 ## 3.4. Graphic / Surface
 
-承認済みUI Scopeに対して、最低限次を持つ。
+承認済みUI Scopeに対して、代表的には次を扱う。
 
 ```text
 全対象Screen・主要StateのFinal Visual
@@ -239,7 +241,7 @@ UIで定義されたScreen、State、Variantが、最終表現と必要素材に
 
 ## 3.5. Behavior Specification
 
-最低限次を持つ。
+代表的には次を扱う。
 
 ```text
 Feature / Use Case
@@ -257,7 +259,7 @@ UX Outcome、IA Intent、Design Intentまで同じ構文へ圧縮してはなら
 
 ## 3.6. Architecture
 
-最低限次を持つ。
+代表的には次を扱う。
 
 ```text
 System Context
@@ -275,7 +277,7 @@ OriginやUXと同一視しない。
 
 ## 3.7. Planning
 
-最低限次を持つ。
+代表的には次を扱う。
 
 ```text
 Task Breakdown
@@ -290,7 +292,7 @@ Change / Rollback Plan
 
 ## 3.8. Delivery / Verification
 
-最低限次を持つ。
+代表的には次を扱う。
 
 ```text
 Code / Configuration / Migration

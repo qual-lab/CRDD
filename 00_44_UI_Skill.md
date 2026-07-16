@@ -1,6 +1,6 @@
 # CRDD UI Skill
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Skill ID: `skill.ui.contract`
 Owner: Qual-Lab
@@ -8,11 +8,13 @@ Last Updated: 2026-07-16
 Related:
 - [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
+- [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
 - [00_40_Guided_Skill_Runtime.md](00_40_Guided_Skill_Runtime.md)
-
 - [00_46_Git_Markdown_Execution.md](00_46_Git_Markdown_Execution.md)
+- [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
+
 ---
 
 # 1. Purpose
@@ -54,7 +56,57 @@ Figma FrameをUI ContractそのものとみなすSkill
 
 ---
 
-# 3. Required Input
+# Phase Process Contract
+
+この節はUI工程の入口、変換、責務網羅、出口、Phase Gate、Auditの正本である。
+
+## Phase Entry Contract
+
+UIは対象Scope、UX Intent、IA Object / Responsibility / Navigation / State / Glossary、主要User Action、UI Obligation、Behavior Obligation、Coverage Summary、Open Gap、人間Review結果を受け取る。通常は[IAのExit and Handoff](00_43_IA_Skill.md#exit-and-handoff)から受け取る。
+
+## Transformation Contract
+
+UX IntentとIA責務を、利用者が認識・判断・操作・回復できるScreen / Surface、Flow、Information Priority、Action、Feedback、State、Accessibility、Variantへ変換する。Business RuleをUIで創作しない。
+
+## Required Responsibility Coverage
+
+対象Scope全体について、UI Index、Principle、Screen / Surface Inventory、Screen Flow、Wireframe / Prototype、UI Contract、Design Token、Component / Pattern、Visual / Asset / Motion、およびUI Quality Reviewを必要範囲で網羅する。全論理Screenと、Normal、Loading、Empty、Error、Permission、Disabled、Conflict等の適用状態、必要VariantをInventoryで追跡する。
+
+## Scope and Coverage State
+
+各Use Case / User Action、Screen / Surface、State、Variantを、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。見た目または一画面の完成をUI工程全体の完了と表現してはならない。
+
+## Human Decisions
+
+人間は情報優先度、主要Action、重要Trade-off、Visual Direction、Accessibility Risk、`Not Applicable`、部分Handoffを決定する。Behavior RuleやAuthorityが未決ならSPECまたは上位工程へ戻す。
+
+## Exit and Handoff
+
+実装またはDelivery Planningへの通常Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、対応するBehavior SpecificationとのPair Reviewを完了した場合に限る。部分Handoffには対象Scope、Gap、Risk、後続Ownerの人間承認を必要とする。
+
+## Phase Gate Criteria
+
+- IA Obligationと対象Use Case / User ActionへのTraceがある
+- Screen Inventoryが対象Scope、State、Variantを網羅しCoverageを示す
+- 情報、Action、Feedback、Loading / Empty / Error / Permission等が適用範囲で定義されている
+- Accessibility、Responsive / Platform Variant、Visual / Component責務が必要範囲で判定済みである
+- UI ContractとBehavior SpecificationのPairが整合する、または未決が明示される
+- Coverage Gapと部分Handoff承認が記録されている
+
+## Phase Audit Checklist
+
+- Screen / Surface、State、VariantのInventory漏れ
+- Screenshot / Figmaだけによる完了判定
+- UIによるBusiness Rule、Authority、State Transitionの創作
+- UI ContractとSPECのAction / Trigger、State、Failure、Recovery、Permissionの不一致
+- Coverage Summary、Open Gap、人間Review、Traceの欠落
+- 実装への暗黙Handoff
+
+---
+
+# 3. Runtime Input View
+
+Runtimeは[Phase Entry Contract](#phase-entry-contract)の全項目を読み込む。次は質問Queueを組み立てるためのCompact Viewであり、Entry Contractの代替ではない。
 
 ```text
 UX Outcome
@@ -228,7 +280,7 @@ ContractにあるがFigmaにない
 
 # 7. Professional Output
 
-`templates/04_UI_Contract_Template.md`へ以下を生成する。
+Projectの正本UI Artifactへ以下を生成する。物理的なファイル構成は`00_30_Product_Documentation.md`の配置例を利用してよい。
 
 ```text
 UI ID
@@ -254,6 +306,8 @@ Variant
 Figma / Prototype Reference
 pairs_with SPEC
 Open Question
+Coverage Summary
+Open Gap
 ```
 
 ---
@@ -379,13 +433,4 @@ Permission
 
 # 13. Exit Criteria
 
-```text
-Use Case／User Actionへ接続
-Preserved UX Intentが明示
-主要情報・Action・Feedbackが定義
-Loading / Empty / Error / Permissionを必要範囲で確認
-Behavior未決がOpen Question化
-Figma等Artifactへ参照可能
-SPECとのpairs_with候補がある
-人間Review済み
-```
+[Phase Gate Criteria](#phase-gate-criteria)を満たし、Coverage Stateと人間判断を記録したときにだけ、対象Scopeについて完了と表現できる。

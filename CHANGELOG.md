@@ -9,6 +9,18 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### v0.3.1 — Phase Contract Alignment (2026-07-16)
+
+Compared with v0.3.0, v0.3.1 changes the phase execution model as follows:
+
+- Makes the existing Discovery, UX, IA, UI, Behavior Specification, and Architecture documents authoritative for each phase's entry, transformation, responsibility coverage, human decisions, exit and handoff, gate criteria, and audit checklist.
+- Requires coverage of the full declared scope before advancing. A partial handoff is allowed only when a human explicitly records its scope, remaining gaps, risks, and owner; completion may no longer be inferred from a mostly finished artifact or feature.
+- Defines receiving phases as the owners of phase-entry contracts, so upstream exit rules reference the next phase's entry contract instead of maintaining duplicate handoff lists.
+- Changes Phase Gate, Document Audit, Guided Context Creation, Guided Skill Runtime, Agent I/O, and Context Transformation documents into shared mechanisms that consume phase-specific contracts rather than restating their criteria.
+- Recasts Product Documentation and Development Stack deliverable lists as optional artifact mappings. Files may be combined or split, but the phase's required responsibility coverage must be preserved.
+- Removes references to nonexistent phase template files and directs Skills to update the project's canonical phase artifacts.
+
+
 ### v0.3.0 — Stable IDs and Behavior Specifications (2026-07-16)
 
 Compared with v0.2.0, v0.3.0 changes the published CRDD model as follows:
@@ -79,6 +91,18 @@ First public release of CRDD, organized into four layers by numbering band.
 ---
 
 ## 日本語
+
+### v0.3.1 — 工程Contractの整合（2026-07-16）
+
+v0.3.0と比較して、v0.3.1では工程実行モデルを次のように変更した。
+
+- 既存のDiscovery、UX、IA、UI、Behavior Specification、Architecture文書を、各工程の入口、変換、責務Coverage、人間判断、出口・Handoff、Gate条件、Audit Checklistの正本とした。
+- 宣言した対象Scope全体を網羅するまで次工程へ進めないようにした。部分Handoffは、Scope、残るGap、Risk、Ownerを人間が明示した場合だけ許可し、一部ArtifactやFeatureの高い完成度から工程完了を推定しない。
+- 受信工程をPhase Entry ContractのOwnerとし、上流の出口はHandoff項目を重複定義せず、次工程のEntry Contractを参照するようにした。
+- Phase Gate、Document Audit、Guided Context Creation、Guided Skill Runtime、Agent I/O、Context Transformationを、工程固有条件を再定義せず各Phase Contractを利用する共通Mechanismへ整理した。
+- Product DocumentationとDevelopment Stackの成果物一覧を任意のArtifact配置例へ変更した。ファイルの統合・分割は許容するが、工程の責務Coverageを失ってはならない。
+- 存在しない工程Templateファイルへの参照を削除し、各SkillがProjectの正本工程Artifactを更新するようにした。
+
 
 ### v0.3.0 — 安定IDとBehavior Specificationの明確化（2026-07-16）
 

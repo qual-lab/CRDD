@@ -1,6 +1,6 @@
 # CRDD Guided Skill Runtime
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -396,7 +396,7 @@ Gate判定
 
 # 8. Skill Handoff Contract
 
-次のSkillへ渡す際は、最低限以下を含める。
+次のSkillへ渡す際は、受信工程の`Phase Entry Contract`を満たし、最低限以下を含める。Runtimeは工程固有の入力・成果・完了条件を再定義せず、選択した工程文書の`Phase Process Contract`を実行する。
 
 ```yaml
 handoff:
@@ -404,6 +404,18 @@ handoff:
   to_skill: skill.ia.structure
   scope:
     - feature: Important Topic Review
+  coverage_state: Partial — Human Authorized
+  coverage_summary:
+    complete:
+      - UX Outcome
+      - Critical Journey
+    open:
+      - Secondary actor journey
+      - Service Blueprint failure rows
+  human_authorization:
+    decision: IA may start for Important Topic Review only
+    accepted_risk: Secondary actor structure may require rework
+    owner: Product Owner
   accepted_context:
     - UX-000004@3
   preserve:
@@ -419,7 +431,7 @@ handoff:
 
 Handoffは成果物のリンクだけでは不十分。
 
-次担当が守るべき意味を明示する。
+次担当が守るべき意味、Coverage、未網羅項目、人間判断を明示する。通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たす場合に限る。`Partial — Human Authorized`は、対象Scope、Gap、Risk、Ownerを人間が明示した場合だけ使用できる。
 
 ---
 
@@ -464,7 +476,7 @@ Templateの上から順番に空欄を埋める。
 
 ## Hidden Completion
 
-AIが不足を補って成果物を完成扱いにする。
+AIが不足を補う、または一部Artifactの完成度から対象Scope全体を完成扱いにする。
 
 ## Session Lock-in
 
@@ -484,6 +496,8 @@ Reviewしたが変更しなかった判断が残らない。
 
 Skill Runは、次を満たしたとき終了できる。
 
+ここでいうRun終了は工程完了と同義ではない。工程完了は対象工程の`Phase Gate Criteria`でのみ判定する。
+
 ```text
 対象ScopeとRevisionが明確
 必要な核心質問を確認済み
@@ -494,6 +508,8 @@ Open QuestionとRiskが明示されている
 人間Reviewが実施されている
 Context ID、Relation、Statusが更新されている
 次のRouteまたは終了理由が明確
+対象工程のCoverage StateとOpen Gapが記録されている
+Handoff時は受信工程のPhase Entry Contractを満たしている
 再開が必要な場合はResume Snapshotがある
 ```
 

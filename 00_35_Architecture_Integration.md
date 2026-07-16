@@ -1,17 +1,21 @@
 # Architecture and Integration
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
 Related:
+- [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_32_Testing_Quality.md](00_32_Testing_Quality.md)
 - [00_34_Compatibility_Evolution.md](00_34_Compatibility_Evolution.md)
 - [00_30_Product_Documentation.md](00_30_Product_Documentation.md)
+- [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
 
 ---
 
 > このドキュメントはPractice Guide（推奨知見）である。
+>
+> Architectureを適用するProjectでは、本書の`Phase Process Contract`をArchitecture工程内の正本として使用する。
 
 ---
 
@@ -32,6 +36,54 @@ Related:
 Architectureは「どう実現するか」を扱う。
 「何が起きるべきか」は `04_Spec` に置き、「どう見えるか」は `05_UI` に置く。
 Architecture文書が機能仕様や画面文言を持ち始めた場合は、該当箇所を `04_Spec` または `05_UI` へ分離し、Architecture側からリンクする。
+
+---
+
+# Phase Process Contract
+
+この節はArchitecture工程の入口、変換、責務網羅、出口、Phase Gate、Auditの正本である。
+
+## Phase Entry Contract
+
+Architectureは対象Scope、Source REQ / UX / IA / UI / SPEC、品質属性、Security / Privacy / Compliance要求、既存System Context、技術制約、外部依存、Coverage Summary、Open Gap、人間Review結果を受け取る。上位Contextが部分Handoffの場合、その人間承認とRiskも必要である。
+
+## Transformation Contract
+
+Product Contextを、System / Component境界、Domain責務、Data / Interface Contract、State / Sequence、Security / Privacy、Quality Attribute、External Integration、Resilience、Implementation Boundary / Ruleへ変換する。技術都合で上位のIntentやBehaviorを暗黙に変更しない。
+
+## Required Responsibility Coverage
+
+対象Scope全体について、System Context、Domain / Component Boundary、Data Model、Interface / Integration、Source of Truth、State / Sequence、Security / Privacy / Compliance、Quality Attribute、Concurrency / Resilience、Observability、Migration / Compatibility、Implementation Rule、Traceを適用範囲で網羅する。
+
+## Scope and Coverage State
+
+各上位Contextと各Architecture責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。単一Diagramや主要Happy PathだけでArchitecture工程を完了扱いしない。
+
+## Human Decisions
+
+人間はSystem Boundary、Technology / Provider選択、Quality Trade-off、Security / Privacy Risk、Migration方針、`Not Applicable`、部分Handoffを決定する。上位Context変更が必要なら当該工程をReopenする。
+
+## Exit and Handoff
+
+Implementationへの通常Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、Implementation Ruleと未決事項のOwnerが明確な場合に限る。部分Handoffには対象Scope、Gap、Risk、暫定制約、後続Ownerの人間承認を必要とする。
+
+## Phase Gate Criteria
+
+- Source REQ / UX / IA / UI / SPECへのTraceがある
+- Boundary、Data / Interface、Security / Privacy、Quality Attribute、技術制約が対象Scopeで判定済みである
+- 主要Sequence、State、Failure、Concurrency、Resilienceが説明・検証可能である
+- 外部依存、Source of Truth、Migration / Compatibility、Observabilityが必要範囲で定義されている
+- Implementation Ruleと禁止事項が実装前に明示されている
+- Coverage Gapと部分Handoff承認が記録されている
+
+## Phase Audit Checklist
+
+- 上位ContextにTraceしないArchitecture判断
+- Boundary、Authority、Source of Truthの重複またはConflict
+- Failure、Concurrency、Security / Privacy、Migration、Observabilityの適用判定漏れ
+- DiagramだけでRule / Constraint / Rationaleがない状態
+- Architectureによる上位Intent / Behaviorの暗黙変更
+- Coverage Summary、Open Gap、人間Review、Implementation Ruleの欠落
 
 ---
 

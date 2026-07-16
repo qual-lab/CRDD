@@ -1,6 +1,6 @@
 # CRDD Context Transformation
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -21,6 +21,10 @@ Related:
 # Purpose
 
 本ドキュメントは、プロダクトの原点、課題、UX、IA、UI、SPEC、Architecture、Implementation、Verificationを、意味を失わず接続するための規範を定義する。
+
+本書は工程間に共通する変換原則を定義する。各工程のEntry、責務Coverage、Exit、Gate、Auditは工程文書の`Phase Process Contract`を正本とする。本書内の受け渡し項目は意味接続の説明であり、受信工程の`Phase Entry Contract`を置き換えない。
+
+境界では受信工程がEntry Contractを所有する。送信工程は同じ項目を別定義せず、受信工程のEntry Contractを満たしたことをCoverage Summaryとともに示す。
 
 CRDDでは、上流から下流へ進むことを、単なる文書作成や情報の転記として扱わない。
 
@@ -283,6 +287,8 @@ Prototype、Technical Spike、User Review、Implementationから得た学びに�
 
 ## 5.1 Discovery → UX
 
+正本の境界は[Discovery Exit and Handoff](00_17_Discovery.md#exit-and-handoff)と[UX Phase Entry Contract](00_42_UX_Skill.md#phase-entry-contract)である。
+
 ### Discoveryが受け持つもの
 
 ```text
@@ -324,6 +330,8 @@ Evidence、解釈、仮説を区別する
 ---
 
 ## 5.2 UX → IA
+
+正本の境界は[UX Exit and Handoff](00_42_UX_Skill.md#exit-and-handoff)と[IA Phase Entry Contract](00_43_IA_Skill.md#phase-entry-contract)である。
 
 ### IAが受け取るもの
 
@@ -374,6 +382,8 @@ IA上の構造が、UX上の行動とOutcomeを支えられることを確認す
 
 ## 5.3 IA → UI / SPEC
 
+正本の境界は[IA Exit and Handoff](00_43_IA_Skill.md#exit-and-handoff)、[UI Phase Entry Contract](00_44_UI_Skill.md#phase-entry-contract)、[Behavior Specification Phase Entry Contract](00_45_Behavior_Specification_Skill.md#phase-entry-contract)である。
+
 IAからUIとSPECへは、同じContextを異なる観点で渡す。
 
 ### UIへ渡すもの
@@ -410,6 +420,8 @@ IAで定義した責務を、複数画面や複数Featureへ無計画に重複�
 ---
 
 ## 5.4 UI ⇄ SPEC
+
+各側の完了条件は[UI Phase Gate Criteria](00_44_UI_Skill.md#phase-gate-criteria)と[Behavior Specification Phase Gate Criteria](00_45_Behavior_Specification_Skill.md#phase-gate-criteria)を正本とし、本節は相互変換の原則だけを扱う。
 
 UIとSPECは、対になるContractとして反復的に整合させる。
 
@@ -456,6 +468,8 @@ UIに現れる主要状態がSPECに存在しない、またはSPECに存在す�
 
 ## 5.5 UI / SPEC → Architecture
 
+正本の受信条件は[Architecture Phase Entry Contract](00_35_Architecture_Integration.md#phase-entry-contract)である。
+
 ### Architectureが受け取るもの
 
 ```text
@@ -496,6 +510,8 @@ Test Strategy
 ---
 
 ## 5.6 Architecture → Implementation
+
+正本の送信条件は[Architecture Exit and Handoff](00_35_Architecture_Integration.md#exit-and-handoff)である。
 
 ### Implementationが受け取るもの
 

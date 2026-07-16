@@ -1,6 +1,6 @@
 # CRDD End-to-End Context Continuity
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -178,6 +178,8 @@ CRDDは、その専門性を軽視しない。
 | Verification | 原点と要求を満たしたか | Evidence、学び、次のDecision |
 
 各層は、単に成果物を作るだけでは不十分である。
+
+本書はEnd-to-Endで共通する意味接続を示す。各工程の具体的なEntry、変換、責務Coverage、Exit、Gate、Auditは、その工程文書の`Phase Process Contract`を正本とする。
 
 各層は、最低限以下を明示する。
 

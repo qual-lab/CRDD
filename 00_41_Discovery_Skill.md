@@ -1,6 +1,6 @@
 # CRDD Discovery Skill
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Skill ID: `skill.discovery.frame`
 Owner: Qual-Lab
@@ -10,11 +10,13 @@ Related:
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
 - [00_40_Guided_Skill_Runtime.md](00_40_Guided_Skill_Runtime.md)
-
 - [00_46_Git_Markdown_Execution.md](00_46_Git_Markdown_Execution.md)
+
 ---
 
 # 1. Purpose
+
+本Skillは[Discovery Phase Process Contract](00_17_Discovery.md#phase-process-contract)を対話的に実行するAdapterである。入口、責務網羅、出口、Gate、Auditの正本は`00_17_Discovery.md`とし、本Skillはそれらを再定義しない。
 
 人間の原始的な思い、違和感、課題、観察、資料、解決案を、Whyを失わず次の活動へRoutingできるDiscovery Contextへ変換する。
 
@@ -55,6 +57,8 @@ AIがProduct Visionを創作するSkill
 ---
 
 # 3. Required Input
+
+Runtimeは[Discovery Phase Entry Contract](00_17_Discovery.md#phase-entry-contract)に従う。次は対話開始時のCompact Viewであり、同Contractの代替ではない。
 
 ```text
 人間の発言または依頼
@@ -266,7 +270,7 @@ Stakeholder Alignment
 
 # 7. Structured Output
 
-Discovery Skillは、`templates/01_Discovery_Context_Template.md`へ以下を生成する。
+Discovery SkillはProjectの正本Discovery Artifactへ、[Discovery Required Responsibility Coverage](00_17_Discovery.md#required-responsibility-coverage)を満たす情報を生成する。物理的なファイル構成は`00_30_Product_Documentation.md`の配置例を利用してよい。
 
 ```text
 Origin / Trigger
@@ -286,6 +290,8 @@ Non-goal
 Open Question
 Recommended Route
 Confidence
+Coverage Summary
+Open Gap
 ```
 
 ---
@@ -381,16 +387,7 @@ Business Model
 
 # 12. Exit Criteria
 
-```text
-OriginまたはRecovered Candidateの素性が明確
-ActorとProblemが理解可能
-Desired Outcome CandidateがSolutionから分離
-Preserved Principleが明示
-EvidenceとHypothesisが区別
-重要なOpen Questionが明示
-次のRouteが決定
-人間が変換結果をReview
-```
+[Discovery Phase Gate Criteria](00_17_Discovery.md#phase-gate-criteria)を満たし、Coverage Stateと人間判断を記録したときにだけ、対象Scopeについて完了と表現できる。
 
 ---
 

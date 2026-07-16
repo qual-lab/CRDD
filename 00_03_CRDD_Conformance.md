@@ -1,6 +1,6 @@
 # CRDD Conformance
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -267,6 +267,8 @@ paired_with
 ## PL-04. UX / IA / UI / SPEC Continuity
 
 UX、IA、UI、SPECを、独立して作成された無関係な成果物として扱ってはならない。
+
+各工程は、自工程の`Phase Process Contract`に従って対象Scope全体の責務Coverageを追跡しなければならない。一部Artifactの完成度だけで工程完了を宣言してはならない。部分Handoffは、対象Scope、未網羅項目、Risk、Ownerを人間が明示承認した場合に限る。
 
 少なくとも以下を説明できなければならない。
 

@@ -1,6 +1,6 @@
 # CRDD UI Contract and Behavior Specification
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -23,6 +23,8 @@ Related:
 # Purpose
 
 本ドキュメントは、利用者に見えるInteractionと、システム内部のBehaviorを、意味の切れた別成果物ではなく、同じProduct Intentを実現する対のContractとして定義・Reviewするための規範を定める。
+
+本書はUIとBehavior Specificationの相互整合だけを正本化する。UI工程のEntry、Coverage、Exit、Gate、Auditは[UI Phase Process Contract](00_44_UI_Skill.md#phase-process-contract)、Behavior Specification工程は[Behavior Specification Phase Process Contract](00_45_Behavior_Specification_Skill.md#phase-process-contract)を正本とする。
 
 CRDDでは、UIを見た目の説明だけにしない。
 SPECを内部処理の説明だけにしない。
@@ -456,6 +458,8 @@ Prototype上で操作できることは、System Behaviorが確定または実�
 ---
 
 # 13. Validation and Review Gate
+
+本節はPair Reviewの観点を定義する。工程完了とG4判定は[UI Phase Gate Criteria](00_44_UI_Skill.md#phase-gate-criteria)、[Behavior Specification Phase Gate Criteria](00_45_Behavior_Specification_Skill.md#phase-gate-criteria)、[Phase Gate G4](00_23_Phase_Gate_Approval.md#10-g4-ui-contract--behavior-specification-accepted)に従う。
 
 UI Contract／Behavior Specification Reviewでは、少なくとも以下を確認する。
 

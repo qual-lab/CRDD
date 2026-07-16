@@ -1,6 +1,6 @@
 # CRDD UX Skill
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Skill ID: `skill.ux.outcome`
 Owner: Qual-Lab
@@ -8,10 +8,12 @@ Last Updated: 2026-07-16
 Related:
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_17_Discovery.md](00_17_Discovery.md)
+- [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
 - [00_40_Guided_Skill_Runtime.md](00_40_Guided_Skill_Runtime.md)
 - [00_46_Git_Markdown_Execution.md](00_46_Git_Markdown_Execution.md)
+- [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
 ---
 
 # 1. Purpose
@@ -54,7 +56,68 @@ UI Wireframeを作るSkill
 
 ---
 
-# 3. Required Input
+# Phase Process Contract
+
+この節はUX工程の入口、変換、責務網羅、出口、Phase Gate、Auditの正本である。`00_30_Product_Documentation.md`は配置例を示すが、UX完了条件を定義しない。
+
+## Phase Entry Contract
+
+UXは、対象ScopeについてOrigin / Intent、Problem、Target Actor、Observed Situation、Evidence、Desired Outcome Candidate、Constraint、Open Question、Human-confirmed Routeを受け取る。通常は[DiscoveryのExit and Handoff](00_17_Discovery.md#exit-and-handoff)から受け取る。Problem、Actor、対象Scope、または人間確認が不足する場合はDiscoveryへ戻す。
+
+## Transformation Contract
+
+Discovery Contextを、Solutionから独立したUX Outcomeと、利用前後の変化、重要場面、体験原則、人間とSystem / AIの責任境界、Journey、Service Blueprint、成功とRiskへ変換する。画面、機能、Behavior RuleをUXの結論として先取りしない。
+
+## Required Responsibility Coverage
+
+対象Scope全体について、次を網羅する。
+
+- UX Foundation: Vision、Problem、Target Outcome、Experience Principle、Non-goal
+- Persona / Situation: Actor、Goal、Pain、能力、制約、Evidence、Confidence
+- Journey: Phase、Action、Thought、Emotion、Pain、Opportunity、Decision
+- Service Blueprint: User Action、Frontstage、Backstage、System / AI、Support、Evidence、Failure
+- Human / System / AI responsibility boundary
+- Success Signal、Validation Need、Risk、Avoided Experience
+- Discoveryの各対象Requirement / ProblemとUX成果のCoverage関係
+
+Service BlueprintはUXからIAへの必須Bridgeである。複数の責務を一つのArtifactへ統合してよいが、統合によって上記責務を失ってはならない。
+
+## Scope and Coverage State
+
+各対象Requirement / Problemと各責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`のいずれかで追跡する。`Not Applicable`には理由が必要である。単一Persona、単一Journey、または一部Featureが7〜8割できたことを「UX完了」と表現してはならない。
+
+## Human Decisions
+
+人間は対象Scope、価値原則、優先順位、重要Trade-off、受容するRisk、`Not Applicable`、部分Handoffを決定する。AIはCoverage Gapと選択肢を提示できるが、未網羅項目を暗黙に完了扱いしてはならない。
+
+## Exit and Handoff
+
+通常のIA Handoffは、対象Scopeが`Complete for Scope`であり、人間Reviewを通過し、[IA Phase Entry Contract](00_43_IA_Skill.md#phase-entry-contract)を満たす場合に限る。途中Handoffは、人間が対象Scope、未網羅項目、Risk、後続Ownerを明示して`Partial — Human Authorized`とした場合に限る。HandoffにはCoverage SummaryとOpen Gapを含める。
+
+## Phase Gate Criteria
+
+- 対象Scopeと対応するDiscovery Contextが明確である
+- Required Responsibility Coverageが対象Scope全体で判定済みである
+- UX OutcomeがSolutionから独立し、Before / AfterとCritical Momentが理解可能である
+- JourneyとService Blueprintが、利用者体験と提供責務を接続している
+- 人間とSystem / AIの責任境界、Avoided Experience、Success / Validation、Riskが明示されている
+- Gapが隠されず、部分Handoffなら人間承認が記録されている
+- IAのPhase Entry Contractを満たすHandoffが生成されている
+
+## Phase Audit Checklist
+
+- Discovery Scopeに対するPersona、Journey、Blueprint、Principle、Success / RiskのCoverage漏れ
+- Artifact統合による責務項目の欠落
+- 一部Featureの完成を工程全体の完了と誤認する表現
+- Coverage Summary、Open Gap、Human Review、Evidence / Traceの欠落
+- UX内でのUI、IA、SPEC、Architecture判断の先取り
+- IA Entry Contractとの不一致
+
+---
+
+# 3. Runtime Input View
+
+Runtimeは[Phase Entry Contract](#phase-entry-contract)の全項目を読み込む。次は質問Queueを組み立てるためのCompact Viewであり、Entry Contractの代替ではない。
 
 ```text
 Origin / Intent
@@ -203,7 +266,7 @@ AIはTrade-off案を提示するが、Priorityは人間へ戻す。
 
 # 7. Professional Output
 
-`templates/02_UX_Context_Template.md`へ以下を生成する。
+Projectの正本UX Artifactへ以下を生成する。物理的なファイル構成は`00_30_Product_Documentation.md`の配置例を利用してよいが、Artifactの分割数は完了条件ではない。
 
 ```text
 UX ID
@@ -218,10 +281,15 @@ Human Responsibility
 AI / System Responsibility
 Avoided Experience
 Journey / Scenario
+Persona / Situation
+Service Blueprint
 Success Signal
+Risk
 Assumption
 Validation Need
 Relation
+Coverage Summary
+Open Gap
 ```
 
 UX Outcomeは、実装方法を含めず、将来も残る表現を優先する。
@@ -304,7 +372,7 @@ SubagentはProposal、Evidence Gap、Assumption、Conflict、Open Questionを返
 
 # 11. Handoff to IA
 
-IAへ渡す内容:
+Handoffの可否と必須情報は[Exit and Handoff](#exit-and-handoff)および[IA Phase Entry Contract](00_43_IA_Skill.md#phase-entry-contract)に従う。少なくとも次を渡す。
 
 ```text
 Target Actor
@@ -315,6 +383,8 @@ Human / AI Responsibility
 主要Scenario
 Avoided Experience
 Open Question
+Coverage Summary
+Open Gap
 ```
 
 IAへ要求すること:
@@ -358,13 +428,4 @@ Priority
 
 # 13. Exit Criteria
 
-```text
-UX OutcomeがSolutionから独立
-Before / Afterが理解可能
-人間とAI／Systemの責任境界が明示
-Avoided Experienceが明示
-Success SignalまたはValidation Needがある
-Origin / ProblemへTrace可能
-人間Review済み
-IAへ渡すObligationが明確
-```
+[Phase Gate Criteria](#phase-gate-criteria)を満たし、Coverage Stateと人間判断を記録したときにだけ、対象Scopeについて完了と表現できる。

@@ -1,6 +1,6 @@
 # Product Documentation
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -25,6 +25,8 @@ Related:
 # 1. Purpose
 
 本ドキュメントは、プロダクトの原点と判断を、UX・IA・UI・SPEC・Architecture・Implementation・Verificationへ接続するための、成果物の責務境界と推奨構成を定義する。
+
+本書はArtifactの物理配置、命名、分割・統合例を示すPractice Guideであり、各工程の完了条件やPhase Gateの正本ではない。工程のEntry、変換、責務網羅、Coverage、Exit、Gate、Auditは各工程文書の`Phase Process Contract`に従う。表に示す複数Artifactは一つへ統合でき、一つのArtifactは複数へ分割できるが、工程文書が要求する責務Coverageを劣化させてはならない。
 
 CRDDにおけるProduct Documentationは、工程ごとに文書を作ること自体を目的としない。
 
@@ -272,16 +274,7 @@ Related:
 
 ## Discovery Handoff
 
-UXへ進む時点で、最低限以下を説明できるようにする。
-
-```text
-なぜ着手するのか
-誰または何が困っているのか
-何が観察事実で、何が仮説か
-何を実現したいのか
-何がまだ分からないのか
-次に何を検証するのか
-```
+Discoveryの完了とHandoffは[Discovery Exit and Handoff](00_17_Discovery.md#exit-and-handoff)に従い、UXへ進む場合は[UX Phase Entry Contract](00_42_UX_Skill.md#phase-entry-contract)を満たす。
 
 ---
 
@@ -291,9 +284,9 @@ UXへ進む時点で、最低限以下を説明できるようにする。
 
 CRDDでは、UXを画面設計の前段資料で終わらせない。UX成果物は、IA・UI・SPEC・Architectureへ引き継ぐ上流Contractとして扱う。
 
-## 6.1. Minimum Required UX Deliverables
+## 6.1. Suggested UX Artifact Mapping
 
-Product Lifecycle Profileでは、承認済みScopeについて最低限以下を持つ。
+次は[UX Required Responsibility Coverage](00_42_UX_Skill.md#required-responsibility-coverage)を配置する一例であり、ファイル数やファイル名を必須としない。
 
 | Artifact | Responsibility | Minimum Content |
 |---|---|---|
@@ -306,7 +299,7 @@ Product Lifecycle Profileでは、承認済みScopeについて最低限以下�
 
 ### Persona Rule
 
-Personaは必須成果物とするが、根拠のない人物像を創作してはならない。
+Persona / Situationの責務Coverageは必須だが、根拠のない人物像を創作してはならない。
 
 ```text
 Research Persona   = Evidenceに基づく
@@ -330,7 +323,7 @@ Journey Mapは、画面遷移図ではない。
 
 ### Service Blueprint Rule
 
-Service Blueprintは、UXからIA・SPEC・Architectureへ接続する必須の橋渡し成果物である。
+Service Blueprint責務は、UXからIA・SPEC・Architectureへ接続する必須の橋渡しである。正本の条件は[UX Phase Process Contract](00_42_UX_Skill.md#phase-process-contract)に従う。
 
 最低限、以下を対応づける。
 
@@ -372,19 +365,7 @@ Framework選択
 
 ## UX Handoff to IA
 
-IAへ渡す最低条件は以下である。
-
-```text
-PersonaまたはActor Model
-Journey Map
-Service Blueprint
-対象利用者と利用状況
-実現したいOutcome
-User Actionと主要Decision
-Frontstage / Backstage / System責任
-扱う必要がある情報とEvidence
-未検証の仮説と制約
-```
+UXの完了とHandoffは[UX Exit and Handoff](00_42_UX_Skill.md#exit-and-handoff)に従い、IAへ進む場合は[IA Phase Entry Contract](00_43_IA_Skill.md#phase-entry-contract)を満たす。
 
 ---
 
@@ -392,7 +373,9 @@ Frontstage / Backstage / System責任
 
 `03_IA`は、UXのPersona、Journey Map、Service Blueprintを、利用者が理解・探索・操作できる情報構造、Object、責務、関係、Navigationへ変換する。
 
-## 7.1. Minimum Required IA Deliverables
+## 7.1. Suggested IA Artifact Mapping
+
+次は[IA Required Responsibility Coverage](00_43_IA_Skill.md#required-responsibility-coverage)を配置する一例であり、ファイル数やファイル名を必須としない。
 
 | Artifact | Responsibility | Minimum Content |
 |---|---|---|
@@ -459,17 +442,7 @@ Backendの実装方式
 
 ## IA Handoff to UI / SPEC
 
-```text
-Blueprintと情報構造のMapping
-中心Objectと関係
-Information Hierarchy
-利用者が認識すべき情報優先度
-各SurfaceまたはScreenの責務
-主要Action、Navigation、User Flow
-検索・Filter・Historyの構造
-共通Stateと例外候補
-Glossary
-```
+IAの完了とHandoffは[IA Exit and Handoff](00_43_IA_Skill.md#exit-and-handoff)に従い、[UI Phase Entry Contract](00_44_UI_Skill.md#phase-entry-contract)および[Behavior Specification Phase Entry Contract](00_45_Behavior_Specification_Skill.md#phase-entry-contract)を満たす。
 
 ---
 
@@ -482,6 +455,8 @@ UI ContractとBehavior Specificationは、同一FeatureまたはUse Caseに対�
 ## 8.1. SPEC Starter Structure
 
 `04_Spec`は、Requirement、UX・IA・UIで表現された期待を、実装と検証に渡せるBehavior Specificationへ変換する。
+
+次は[Behavior Specification Required Responsibility Coverage](00_45_Behavior_Specification_Skill.md#required-responsibility-coverage)を配置する一例であり、ファイル数やファイル名を必須としない。
 
 | Artifact | Responsibility | Main Content |
 |---|---|---|
@@ -545,9 +520,9 @@ Graphic / Visual Design
 = Color、Typography、Icon、Illustration、Image、Effect、Motion、Final Visual
 ```
 
-### 8.2.1. Minimum Required UI Deliverables
+### 8.2.1. Suggested UI Artifact Mapping
 
-承認済みScope内の全Screen、主要State、必要Variantについて最低限以下を持つ。
+次は[UI Required Responsibility Coverage](00_44_UI_Skill.md#required-responsibility-coverage)を配置する一例である。対象Scope内のScreen、State、VariantのCoverageはファイル分割にかかわらず追跡する。
 
 | Artifact | Responsibility | Minimum Content |
 |---|---|---|
@@ -608,12 +583,12 @@ Variant
 Screen-specific Exception
 ```
 
-### 8.2.2. Minimum Required Graphic / Visual Deliverables
+### 8.2.2. Suggested Graphic / Visual Responsibility Mapping
 
 Graphic / Visual Designは、Wireframeへ色を付ける作業ではない。
 UI Structureを、Brand、視認性、感情、品質、実装可能性を持つ最終表現へ変換する。
 
-最低限以下を持つ。
+[UI Required Responsibility Coverage](00_44_UI_Skill.md#required-responsibility-coverage)に従い、該当する責務を次のように配置できる。
 
 ```text
 Scope内全Screen／主要StateのFinal Visual
@@ -729,6 +704,8 @@ UIに存在するActionへ対応SPECがない、またはSPECの状態がUIで�
 # 9. Architecture Starter Structure
 
 `06_Architecture`は、承認されたProduct Contractを、現在の制約・環境で成立させるTechnical Contractへ変換する。
+
+次は[Architecture Required Responsibility Coverage](00_35_Architecture_Integration.md#required-responsibility-coverage)を配置する一例であり、Architecture完了条件は同文書の[Phase Gate Criteria](00_35_Architecture_Integration.md#phase-gate-criteria)に従う。
 
 | Artifact | Responsibility | Main Content |
 |---|---|---|

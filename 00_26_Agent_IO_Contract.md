@@ -1,6 +1,6 @@
 # CRDD Agent Input / Output Contract
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -296,6 +296,8 @@ Source
 
 次の担当が必ず確認または実施すべきこと。
 
+工程間Handoffでは受信工程の`Phase Entry Contract`をInput Contractとして使用し、送信工程のCoverage Summary、Open Gap、Human Decisionを添える。Agentごとに工程固有の入力・完了条件を再定義してはならない。
+
 ```text
 次工程で確定すべき内容
 変更してはいけないIntent
@@ -316,6 +318,8 @@ Prototype結果
 ```
 
 成果物が存在することだけを完了根拠にしない。
+
+工程完了は対象工程の`Phase Gate Criteria`、Agent Run終了は本書のAgent Result Contractとして区別する。
 
 ---
 

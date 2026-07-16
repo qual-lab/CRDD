@@ -1,6 +1,6 @@
 # 00_CRDD Overview
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -165,27 +165,27 @@ AIが読みやすいMarkdown記述ルール
 | `00_18_UI_Behavior_Specification.md` | UI ContractとBehavior Specificationを対として定義・Reviewする規範 |
 | `00_19_Context_Traceability.md` | Contextの識別・関連づけ・変更追跡・影響分析の標準 |
 | `00_20_CRDD_Maintenance.md` | Feedback Loop、Repository Audit、CRDD Change / Versioningを含むCRDD自身の保守運用 |
-| `00_23_Phase_Gate_Approval.md` | 各専門層・Delivery段階を進めるPhase Gate・承認条件・停止条件・再開条件 |
+| `00_23_Phase_Gate_Approval.md` | 共通Gate状態・承認権限・Evidence・再開・Routing。工程固有条件は各Phase Process Contractを参照 |
 | `00_24_Change_Context_Package.md` | Change Package・Context Packageの責務・構造・Lifecycle・承認・分割・統合・検証・終了条件 |
 | `00_25_Gap_Validation_Impact.md` | Cross-layer Gap ValidationとImpact Analysisの目的・検査範囲・判定方法・責任・記録・終了条件 |
 | `00_26_Agent_IO_Contract.md` | AI Agent・人間の専門担当が作業する際のInput/Output/Authority/停止条件/拒否条件/Review条件 |
-| `00_27_Guided_Context_Creation.md` | 非専門家がAIとの対話でUX/IA/UI/SPEC/Architecture等の専門Contextを作るGuided Skill/Professional Templateの標準 |
+| `00_27_Guided_Context_Creation.md` | 非専門家との共通対話・確認・Routing標準。工程固有条件は各Phase Process Contractを参照 |
 | `CHANGELOG.md` | CRDD文書体系そのものの変更履歴 |
-| `00_30_Product_Documentation.md` | 新規プロダクトのUX/IA/Spec/UI/Architecture/Workflows/Release体系と最小構成 |
+| `00_30_Product_Documentation.md` | Product Artifactの責務と推奨配置・統合・分割例。工程完了条件は定義しない |
 | `00_31_Subagent_Practice.md` | サブエージェント構成の参考モデル（任意） |
 | `00_32_Testing_Quality.md` | テスト・品質保証・非機能要件の実践知見 |
 | `00_33_AI_Governance_Security.md` | AI Governance・セキュリティ・透明性の実践知見 |
 | `00_34_Compatibility_Evolution.md` | API・スキーマ・依存関係を安全に進化させる実践知見 |
-| `00_35_Architecture_Integration.md` | 設計表現規約・結合観点・同時実行/輻輳への備え |
+| `00_35_Architecture_Integration.md` | Architecture工程のEntry・変換・Coverage・Exit・Gate・Auditと実践規約 |
 | `00_40_Guided_Skill_Runtime.md` | Guided Skillの開始・中断・再開・確認・保存・Handoffを一貫実行する共通Runtime |
 | `00_41_Discovery_Skill.md` | 原始的な思い・違和感・課題・観察をDiscovery Contextへ変換するGuided Skill |
-| `00_42_UX_Skill.md` | Origin/Problem/EvidenceをOutcome・体験原則・成功状態へ変換するGuided Skill |
-| `00_43_IA_Skill.md` | UX OutcomeとDomain ContextをObject・責務・関係・Navigationへ変換するGuided Skill |
-| `00_44_UI_Skill.md` | UX OutcomeとIA StructureをUI Contractへ変換するGuided Skill |
-| `00_45_Behavior_Specification_Skill.md` | Feature/Use Case/IA/UI ContractをCondition・State・Behavior・Acceptance Criteriaへ変換するGuided Skill |
+| `00_42_UX_Skill.md` | UX工程のEntry・変換・責務Coverage・Exit・Gate・AuditとGuided Skill |
+| `00_43_IA_Skill.md` | IA工程のEntry・変換・責務Coverage・Exit・Gate・AuditとGuided Skill |
+| `00_44_UI_Skill.md` | UI工程のEntry・変換・責務Coverage・Exit・Gate・AuditとGuided Skill |
+| `00_45_Behavior_Specification_Skill.md` | SPEC工程のEntry・変換・責務Coverage・Exit・Gate・AuditとGuided Skill |
 | `00_46_Git_Markdown_Execution.md` | Claude Code／CodexでSkillを再現実行するための最小実行、Registry、Package / Promotion運用 |
 | `00_50_Subagent_Orchestration.md` | Guided Skill内でSubagentを安全に委譲・統合する軽量Guide |
-| `00_51_Document_Audit_Agent.md` | CRDD文書体系・参照・用語・Traceabilityを監査するDocument Audit AgentのGuide |
+| `00_51_Document_Audit_Agent.md` | 共通Audit実行・Finding・SeverityのGuide。工程監査は各Phase Audit Checklistを参照 |
 
 ---
 

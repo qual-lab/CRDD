@@ -1,6 +1,6 @@
 # CRDD Phase Gate and Approval
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -306,220 +306,33 @@ No Action / Archive
 
 # 7. G1: Origin / Problem Accepted
 
-## Purpose
+G1はDiscovery工程の完了判断である。Entry、変換、責務網羅、Review観点、Stop条件は[Discovery Phase Process Contract](00_17_Discovery.md#phase-process-contract)、判定条件は[Discovery Phase Gate Criteria](00_17_Discovery.md#phase-gate-criteria)を正本とする。
 
-何を守り、誰の何を解決し、なぜProductまたはChangeとして扱うのかを、人間が確認する。
-
-## Entry Context
-
-```text
-Origin / Intent
-ProblemまたはOpportunity
-主要Evidence
-対象User / Actor
-Desired Outcome候補
-Non-goal候補
-```
-
-## Review Questions
-
-```text
-本当に扱う価値がある問題か
-症状ではなく問題を捉えているか
-Solutionありきになっていないか
-誰の価値を優先するか
-何を犠牲にしてはならないか
-今回扱わないものは何か
-```
-
-## Exit Criteria
-
-```text
-Human OwnerがOrigin / Intentを確認している
-ProblemまたはOpportunityが説明できる
-主要Evidenceと不確実性が明示されている
-対象User / Actorが特定されている
-Desired Outcomeの方向が説明できる
-重要なNon-goalまたはScope境界がある
-```
-
-## Stop Conditions
-
-```text
-作る理由が実装案だけで説明されている
-解決対象が誰か不明
-Evidenceのない仮説が事実として扱われている
-Human Ownerが意味づけを確認していない
-```
-
-## Approval Authority
-
-Origin、Intent、優先する価値、Non-goalの最終承認は人間が行う。
-
-AIは承認してはならない。
+Gate Recordには対象Scope、Coverage State、Open Gap、Human Decision、次Routeを記録する。G0はRaw Contextを次の判断へ整える軽量な入口Gateであり、G1の代替ではない。
 
 ---
 
 # 8. G2: UX Direction Accepted
 
-## Purpose
+G2はUX工程の完了判断である。Entry、変換、責務網羅、Review観点、Stop条件は[UX Phase Process Contract](00_42_UX_Skill.md#phase-process-contract)、判定条件は[UX Phase Gate Criteria](00_42_UX_Skill.md#phase-gate-criteria)を正本とする。
 
-ProductまたはFeatureによって、利用者をどの状態へ変えるかを確認する。
-
-## Entry Context
-
-```text
-承認または確認されたOrigin / Problem
-対象User / Actor
-Current Situation
-Desired Outcome
-UX Hypothesis
-主要Constraint
-```
-
-## Review Questions
-
-```text
-利用前後の変化が説明できるか
-単なる機能一覧ではなくOutcomeになっているか
-利用者の行動、認識、感情のどこを変えるか
-成功と失敗をどう観察するか
-避けるべき体験は何か
-上流Intentを正しく受け継いでいるか
-```
-
-## Exit Criteria
-
-```text
-主要UX OutcomeまたはExperience Principleが存在する
-Current / Desiredの差が説明できる
-成功を観察する方法が定義または仮説化されている
-重要なPain、Risk、Anti-experienceが明示されている
-Origin / ProblemとのRelationを追跡できる
-Human OwnerがUXの方向を確認している
-```
-
-## Stop Conditions
-
-```text
-UXが画面案または機能案だけで表現されている
-誰の変化か不明
-上流Problemと無関係な体験目標になっている
-評価方法がなく、抽象語だけで終わっている
-```
+一部のPersona、Journey、Feature、または画面候補ができただけではG2を承認してはならない。Gate Recordには対象Discovery Scopeに対するCoverage Summary、Open Gap、Human Decision、IA Handoff状態を含める。
 
 ---
 
 # 9. G3: IA Coherence Accepted
 
-## Purpose
+G3はIA工程の完了判断である。Entry、変換、責務網羅、Review観点、Stop条件は[IA Phase Process Contract](00_43_IA_Skill.md#phase-process-contract)、判定条件は[IA Phase Gate Criteria](00_43_IA_Skill.md#phase-gate-criteria)を正本とする。
 
-UX Outcomeを成立させるための概念、情報、行動、責務、Navigationが一貫しているか確認する。
-
-## Entry Context
-
-```text
-UX Outcome / Principle
-主要Feature / Use Case候補
-対象Domainの概念
-既存IAまたはLegacy Structure
-Constraint
-```
-
-## Review Questions
-
-```text
-利用者が理解すべき主要Objectは何か
-概念の責務と境界が明確か
-同じものを複数名称で扱っていないか
-一覧、詳細、履歴、状態の関係が一貫しているか
-Navigationや情報優先度がUXを支えているか
-将来の変更へ耐えられる構造か
-```
-
-## Exit Criteria
-
-```text
-主要Object / Entity / Conceptが定義されている
-責務と関係が説明できる
-主要Use Caseと情報構造の対応が確認できる
-Navigationまたは情報到達構造が説明できる
-未決の構造問題と影響が明示されている
-UX ContextとのRelationを追跡できる
-```
-
-## Stop Conditions
-
-```text
-画面一覧だけでIAを代用している
-同一概念が矛盾した意味で使われている
-FeatureごとにObject定義が分裂している
-UX上重要な情報へ到達できない
-```
-
-## Approval Authority
-
-重要な概念境界、Navigation責務、共通Objectの変更は、人間または権限を委任された専門Ownerが承認する。
+Gate RecordにはUX Scope / Blueprintに対するCoverage Summary、Open Gap、Human Decision、UI / SPEC Handoff状態を含める。
 
 ---
 
 # 10. G4: UI Contract / Behavior Specification Accepted
 
-## Purpose
+G4はUIとBehavior SpecificationのPair完了判断である。UI側は[UI Phase Process Contract](00_44_UI_Skill.md#phase-process-contract)と[UI Phase Gate Criteria](00_44_UI_Skill.md#phase-gate-criteria)、SPEC側は[Behavior Specification Phase Process Contract](00_45_Behavior_Specification_Skill.md#phase-process-contract)と[Behavior Specification Phase Gate Criteria](00_45_Behavior_Specification_Skill.md#phase-gate-criteria)を正本とする。Pairの意味整合は[UI and Behavior Specification](00_18_UI_Behavior_Specification.md)に従う。
 
-同じFeature、Use Case、User Actionについて、人間に見える契約とSystemの振る舞いの契約が整合しているか確認する。
-
-## Entry Context
-
-```text
-対象Feature / Use Case / User Action
-UX Context
-IA Context
-UI Contract
-Behavior Specification
-State / Error / Permission条件
-Prototypeまたは必要なVisual Artifact
-```
-
-## Review Questions
-
-```text
-利用者が何を認識し、何を操作できるか
-操作前後に何が見えるか
-SystemはどのConditionで何を行うか
-UI StateとSystem Stateが対応しているか
-Loading / Empty / Error / Permission / Disabledが定義されているか
-AI提案、承認、実行、検証を混同していないか
-Acceptance Criteriaが検証可能か
-```
-
-## Exit Criteria
-
-```text
-UI ContractとBehavior Specificationが同じ対象へ接続されている
-主要ActionごとにTrigger、Feedback、Resultが対応している
-主要StateとTransitionが説明できる
-Error / Exception / Permission条件が定義されている
-未対応のUIまたはBehaviorが明示されている
-Acceptance Criteriaまたは検証方法が存在する
-UX / IAとのRelationを追跡できる
-```
-
-## Stop Conditions
-
-```text
-UIに存在する操作のBehaviorが未定義
-System StateがUIから認識できない
-SPECに存在する重要状態をUIが表現していない
-Figmaの見た目だけで仕様確定とみなしている
-曖昧なBehaviorを実装者判断へ丸投げしている
-```
-
-## Approval Authority
-
-重要な画面責務、利用者へのFeedback、状態遷移、権限、Acceptance Criteriaの変更は、人間が承認する。
-
-機械的な整合確認はAIまたはToolが実行してよい。
+Gate RecordにはIA Scopeに対する両側のCoverage Summary、Pair Gap、Open Rule、Human Decision、Delivery Handoff状態を含める。片側だけを完了扱いしてG4を承認してはならない。
 
 ---
 

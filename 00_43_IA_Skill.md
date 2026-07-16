@@ -1,6 +1,6 @@
 # CRDD IA Skill
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Skill ID: `skill.ia.structure`
 Owner: Qual-Lab
@@ -8,10 +8,12 @@ Last Updated: 2026-07-16
 Related:
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
+- [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
 - [00_40_Guided_Skill_Runtime.md](00_40_Guided_Skill_Runtime.md)
 - [00_46_Git_Markdown_Execution.md](00_46_Git_Markdown_Execution.md)
+- [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
 ---
 
 # 1. Purpose
@@ -53,7 +55,57 @@ DB SchemaをそのままUI構造へするSkill
 
 ---
 
-# 3. Required Input
+# Phase Process Contract
+
+この節はIA工程の入口、変換、責務網羅、出口、Phase Gate、Auditの正本である。
+
+## Phase Entry Contract
+
+IAは、対象Scope、Target Actor、UX Outcome、Persona / Situation、Journey、Service Blueprint、Critical Moment、Experience Principle、Human / System / AI責任、Success / Risk、Coverage Summary、Open Gap、人間Review結果を受け取る。通常は[UXのExit and Handoff](00_42_UX_Skill.md#exit-and-handoff)から受け取る。UXが部分Handoffの場合は、その人間承認と未網羅項目も必要である。
+
+## Transformation Contract
+
+UXの体験と提供責務を、利用者が理解・探索・操作できるObject、関係、Hierarchy、Grouping / Facet / Metadata、責務、Lifecycle、Navigation、用語へ変換する。ScreenやDB SchemaをIAの起点または代替物にしない。
+
+## Required Responsibility Coverage
+
+対象Scope全体について、Index、Blueprint-to-Information Map、Object Model、Information Structure、Responsibility Model、Navigation / User Flow、State Concept、Glossary、およびUI / SPECへのObligationを網羅する。
+
+## Scope and Coverage State
+
+各UX Scenario / Blueprint行と各IA責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。部分的なObject ModelだけでIA全体を完了扱いしてはならない。
+
+## Human Decisions
+
+人間は業務上のConcept、責務境界、Authority、用語、重要Navigation、`Not Applicable`、部分Handoffを決定する。Domain / Architecture判断が必要なConflictは確定せずEscalateする。
+
+## Exit and Handoff
+
+UI / SPECへの通常Handoffは対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[UI Phase Entry Contract](00_44_UI_Skill.md#phase-entry-contract)および[Behavior Specification Phase Entry Contract](00_45_Behavior_Specification_Skill.md#phase-entry-contract)を満たす場合に限る。部分Handoffには対象Scope、Gap、Risk、後続Ownerの人間承認を必要とする。
+
+## Phase Gate Criteria
+
+- UX ScopeとService BlueprintへのTraceが明確である
+- Object、関係、Hierarchy、Grouping / Finding、責務、Lifecycle、State、Navigation、Glossaryが対象Scopeで判定済みである
+- 同一責務の重複やConcept定義のConflictが解消または明示されている
+- UIとSPECへ必要なObligationが分離して渡される
+- Coverage Gapと部分Handoff承認が記録されている
+- UI / SPECのPhase Entry Contractを満たす
+
+## Phase Audit Checklist
+
+- UX Scenario / Blueprintに対応しないObjectまたは未変換行
+- Screen-first、Tree-first、DB-firstの構造
+- Object、Relation、Responsibility、Lifecycle、Navigation、Glossaryの欠落や重複
+- UI / SPEC Obligationの混同または欠落
+- Coverage Summary、Open Gap、人間Review、Traceの欠落
+- UI / SPEC Entry Contractとの不一致
+
+---
+
+# 3. Runtime Input View
+
+Runtimeは[Phase Entry Contract](#phase-entry-contract)の全項目を読み込む。次は質問Queueを組み立てるためのCompact Viewであり、Entry Contractの代替ではない。
 
 ```text
 UX Outcome
@@ -220,7 +272,7 @@ OwnershipまたはBounded Contextの判断が必要ならArchitecture／Domain E
 
 # 7. Professional Output
 
-`templates/03_IA_Context_Template.md`へ以下を生成する。
+Projectの正本IA Artifactへ以下を生成する。物理的なファイル構成は`00_30_Product_Documentation.md`の配置例を利用してよい。
 
 ```text
 IA ID
@@ -239,6 +291,8 @@ Expected UI Obligation
 Expected Behavior Obligation
 Open Question
 Relation
+Coverage Summary
+Open Gap
 ```
 
 ---
@@ -319,6 +373,8 @@ SubagentはProposal、Relation Gap、Responsibility Conflict、Open Questionを�
 
 # 11. Handoff to UI and SPEC
 
+Handoffの可否は[Exit and Handoff](#exit-and-handoff)に従い、受信側のPhase Entry Contractを満たす。次は内容の要約であり、完了条件の別定義ではない。
+
 ## UIへ
 
 ```text
@@ -376,14 +432,4 @@ Data Ownership
 
 # 13. Exit Criteria
 
-```text
-中心Objectが定義
-Object間Relationが理解可能
-主要責務が重複していない
-Lifecycleと重要Stateが明示
-Grouping / Finding方法が明示
-Navigationの目的が説明可能
-UX OutcomeへTrace可能
-UI / SPECへのObligationが明確
-人間Review済み
-```
+[Phase Gate Criteria](#phase-gate-criteria)を満たし、Coverage Stateと人間判断を記録したときにだけ、対象Scopeについて完了と表現できる。

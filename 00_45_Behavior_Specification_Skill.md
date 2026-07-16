@@ -1,6 +1,6 @@
 # CRDD Behavior Specification Skill
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Skill ID: `skill.spec.behavior`
 Owner: Qual-Lab
@@ -8,11 +8,13 @@ Last Updated: 2026-07-16
 Related:
 - [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
+- [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
 - [00_40_Guided_Skill_Runtime.md](00_40_Guided_Skill_Runtime.md)
-
 - [00_46_Git_Markdown_Execution.md](00_46_Git_Markdown_Execution.md)
+- [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
+
 ---
 
 # 1. Purpose
@@ -55,7 +57,57 @@ Business RuleをAIが創作するSkill
 
 ---
 
-# 3. Required Input
+# Phase Process Contract
+
+この節はBehavior Specification工程の入口、変換、責務網羅、出口、Phase Gate、Auditの正本である。
+
+## Phase Entry Contract
+
+SPECは対象Scope、Source REQ / UX / IA、Feature / Use Case / User Action、Actor / Authority、Object Lifecycle / State、Behavior Obligation、対応UI Contract候補、Coverage Summary、Open Gap、人間Review結果を受け取る。通常は[IAのExit and Handoff](00_43_IA_Skill.md#exit-and-handoff)から受け取り、UIと反復して整合させる。
+
+## Transformation Contract
+
+Behavior Obligationを、Trigger、Precondition、State、Behavior、Output / State Transition、Failure、Permission、Recovery、External Dependency、Quality Condition、Acceptance Criteriaへ変換する。UX OutcomeをBehavior構文へ圧縮せず、現行実装を無条件に正本化しない。
+
+## Required Responsibility Coverage
+
+対象Scopeの各Behaviorについて、Actor / Authority、Trigger、Precondition、State、Success、重要Failure / Exception、Permission、Idempotency、Cancel / Undo / Retry、External Dependency、Quality Condition、Acceptance Criteria、Test / Evidence Candidate、UI Pairを適用範囲で網羅する。
+
+## Scope and Coverage State
+
+各REQ / Use Case / User Action / Behavior Obligationと各Behavior責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。一つのHappy PathやEARS文だけでSPEC工程全体を完了扱いしてはならない。
+
+## Human Decisions
+
+人間はBusiness Rule、Authority、Risk Acceptance、不可逆処理、Fallback、`Not Applicable`、部分Handoffを決定する。AIは候補とGapを提示できるが、未決Ruleを推測で確定しない。
+
+## Exit and Handoff
+
+実装またはDelivery Planningへの通常Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、対応UIとのPair Reviewと検証可能なAcceptance Criteriaを持つ場合に限る。UIが存在しない場合はConsumer ContractまたはOperational Feedbackとの対応を示す。
+
+## Phase Gate Criteria
+
+- Source REQ / UX / IAと対象Use CaseへのTraceがある
+- Trigger、Condition、Behavior、Result、State、重要Exceptionが検証可能である
+- Permission、Idempotency、Recovery、External Dependency、Quality Conditionが適用範囲で判定済みである
+- UI ContractまたはConsumer Contractと整合する
+- Acceptance CriteriaとEvidence取得方法を定義できる
+- 未決Rule、Coverage Gap、部分Handoff承認が記録されている
+
+## Phase Audit Checklist
+
+- REQ / Use Case / Behavior Obligationの未変換
+- Happy Pathだけの仕様、曖昧な結果、観察不能なAcceptance
+- Failure、Permission、Recovery、Idempotency、Dependencyの適用判定漏れ
+- UI / Consumer Contractとの不一致
+- 実装挙動の無条件な正本化、UXのEARS化
+- Coverage Summary、Open Gap、人間Review、Traceの欠落
+
+---
+
+# 3. Runtime Input View
+
+Runtimeは[Phase Entry Contract](#phase-entry-contract)の全項目を読み込む。次は質問Queueを組み立てるためのCompact Viewであり、Entry Contractの代替ではない。
 
 ```text
 Feature / Use Case / User Action
@@ -302,7 +354,7 @@ Expected Behavior Specification Candidate
 
 # 8. Professional Output
 
-`templates/05_Behavior_Specification_Template.md`へ以下を生成する。
+Projectの正本Behavior Specification Artifactへ以下を生成する。物理的なファイル構成は`00_30_Product_Documentation.md`の配置例を利用してよい。
 
 ```text
 SPEC ID
@@ -327,6 +379,8 @@ Acceptance Criteria
 Test / Evidence Candidate
 pairs_with UI
 Open Question
+Coverage Summary
+Open Gap
 ```
 
 ---
@@ -450,14 +504,4 @@ Fallback Policy
 
 # 14. Exit Criteria
 
-```text
-SPEC IDと対象Use Caseが明確
-Trigger / Condition / Behavior / Resultが検証可能
-重要StateとExceptionが定義
-PermissionとRecoveryを必要範囲で確認
-EARSはBehavior領域に限定
-UI Contractとpairs_with
-Acceptance Criteriaがある
-未決RuleがOpen QuestionまたはDecisionへ接続
-人間Review済み
-```
+[Phase Gate Criteria](#phase-gate-criteria)を満たし、Coverage Stateと人間判断を記録したときにだけ、対象Scopeについて完了と表現できる。

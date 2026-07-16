@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.3.0 — Stable ID and Behavior Specification clarification release.** / **v0.3.0 — 安定IDとBehavior Specificationの明確化版。**
+Status: **v0.3.1 — Phase contract alignment release.** / **v0.3.1 — 工程Contract整合版。**
 See [CHANGELOG.md](CHANGELOG.md).
 
 **[English](#english)** | **[日本語](#日本語)**
@@ -37,6 +37,8 @@ Read [`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md) for the full princip
 5. For Git / Markdown execution, keep `CLAUDE.md` / `AGENTS.md` at the repository root, prepare the required Markdown Package / Registry documents, and follow [`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md).
 
 CRDD does not require any specific AI tool, subagent architecture, or tech stack. The Practice Guides (`00_30`–`00_35`) are optional, reusable patterns — not requirements.
+
+For Discovery, UX, IA, UI, Behavior Specification, and Architecture, each phase document is the authority for entry, transformation, responsibility coverage, exit, gate criteria, and audit checks. A phase may advance only when its full target scope is covered, or when a human explicitly authorizes a partial handoff with the remaining gaps and risks recorded.
 
 ### Repository Structure
 
@@ -107,6 +109,8 @@ CRDDは、Gitリポジトリそのものを Context Repository として扱う�
 5. Git / Markdownで実行する場合は、Repository Rootの`CLAUDE.md` / `AGENTS.md`を入口にし、必要なMarkdown Package / Registry文書を用意したうえで、[`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md)に従う。
 
 CRDDは特定のAIツール・Subagent構成・技術スタックを要求しない。Practice Guide（`00_30`〜`00_35`）は任意の再利用可能なパターンであり、必須要件ではない。
+
+Discovery、UX、IA、UI、Behavior Specification、Architectureでは、各工程文書をEntry、変換、責務Coverage、Exit、Gate、Auditの正本とする。対象Scope全体を網羅した場合、または残るGapとRiskを人間が明示して部分Handoffを承認した場合にのみ、次工程へ進める。
 
 ### リポジトリ構成
 

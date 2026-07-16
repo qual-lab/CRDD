@@ -1,6 +1,6 @@
 # CRDD Discovery
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -14,7 +14,9 @@ Related:
 - [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
+- [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_30_Product_Documentation.md](00_30_Product_Documentation.md)
+- [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
 
 ---
 
@@ -40,6 +42,56 @@ Discoveryは、CRDDの入口である。
 
 ただし、必ず最初に一度だけ行う工程ではない。
 新しい課題、顧客要求、技術制約、検証結果、Legacy分析によって、プロジェクトの途中から再びDiscoveryへ戻ってよい。
+
+---
+
+# Phase Process Contract
+
+この節はDiscovery工程の入口、変換、責務網羅、出口、Phase Gate、Auditの正本である。`00_41_Discovery_Skill.md`はこのContractを実行するための対話Adapterであり、独自の完了条件を持たない。
+
+## Phase Entry Contract
+
+Discoveryは、顧客の声、Idea、観測、Incident、法令変更、明確な仕様変更、曖昧な要求、既存挙動、運用上の困りごと等を、Raw SourceとProvenanceを保ったまま受け取る。入力時点でRequirement、Defect、Change、Solutionの分類確定を要求しない。
+
+## Transformation Contract
+
+入力を、Origin / Trigger、Raw Voice、Actor / Situation、Problem、Evidence、Interpretation / Hypothesis、Desired Outcome Candidate、Preserved Intent、Non-goal、Constraint、Open Question、Recommended Routeへ分離・構造化し、人間確認を経て必要な`REQ-*`を確立する。事実、解釈、仮説、提案を混同しない。
+
+## Required Responsibility Coverage
+
+対象Scopeについて、Input Source、Provenance、Actor / Situation、Problem / Pain、Evidenceと限界、Desired Outcome Candidate、Preserved Intent、Non-goal、Constraint / Assumption、Solution Candidate、Open Question、Routing、人間確認、および`REQ-*`の発行または非発行理由を網羅する。
+
+## Scope and Coverage State
+
+各入力・Problem・候補Requirementを、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。複数の入力がある場合、一件を整理しただけでDiscovery全体を完了扱いしない。
+
+## Human Decisions
+
+人間はOriginの意味、Problem Framing、価値、優先順位、Requirementへの昇格、Routing、Defect / Change分類、`Not Applicable`、部分Handoffを決定する。AIはWhy、重要度、Requirementを創作しない。
+
+## Exit and Handoff
+
+通常のUX Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[UX Phase Entry Contract](00_42_UX_Skill.md#phase-entry-contract)を満たす場合に限る。Research、Decision、Prototype、IA、Technical Spike、Roadmap等の別Routeでは、各受信先が必要とするContextを示す。部分Handoffには対象Scope、未網羅項目、Risk、後続Ownerの人間承認を必要とする。
+
+## Phase Gate Criteria
+
+- Raw Source、Origin、Provenanceが保持されている
+- Actor / Situation、Problem、Evidence、Interpretation / Hypothesisが分離されている
+- Desired Outcome CandidateとSolution Candidateが分離されている
+- Preserved Intent、Non-goal、Constraint、Open Questionが対象Scopeで判定済みである
+- `REQ-*`の発行または非発行理由とRecommended Routeが人間確認済みである
+- Coverage Gapと部分Handoff承認が記録されている
+- 選択した受信先のEntry Contractを満たす
+
+## Phase Audit Checklist
+
+- Raw Voice / Source / Provenanceの消失
+- AIが補ったWhy、重要度、Requirement
+- Fact、Interpretation、Hypothesis、Solutionの混同
+- 入力、Problem、候補Requirement、RouteのCoverage漏れ
+- `01_Discovery`と`99_Roadmap`の責務混同または文書移動
+- Coverage Summary、Open Gap、人間Review、Route根拠の欠落
+- 受信先Entry Contractとの不一致
 
 ---
 

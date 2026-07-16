@@ -18,6 +18,10 @@ Repository structure rules:
 - `00_CRDD/00_13_Human_AI_Responsibility.md`
 - `00_CRDD/00_14_AI_Change_Control.md`
 
+Discovery、UX、IA、UI、Behavior Specification、Architectureを実行・監査する場合は、対象工程文書の`Phase Process Contract`を正本として読むこと。各工程のEntry、変換、責務Coverage、Exit、Gate、Auditを別文書やAgent Promptで再定義しない。
+
+工程完了を宣言する前に、対象Scope全体のCoverage Stateを確認する。一部Artifactが完成していても未網羅項目があれば完了扱いしない。部分Handoffは、対象Scope、Gap、Risk、後続Ownerを人間が明示承認した場合に限る。Handoffは受信工程の`Phase Entry Contract`を満たすこと。
+
 Protected areas:
 - `00_CRDD`
 - `02_UX`

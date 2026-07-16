@@ -1,6 +1,6 @@
 # CRDD Change and Context Package
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -664,7 +664,7 @@ Package内で、必要なGateだけを選択する。
 Legacyの表示Bug修正
 G0 Discovery Framed: Combined
 G1 Origin / Problem Accepted: Recovered Contextで代替
-G2 UX Direction Accepted: Existing UXを参照
+G2 UX Direction Accepted: Existing G2 Approvalを参照（UX Scopeへ影響する場合はReopen）
 G3 IA Coherence Accepted: Not Impacted
 G4 UI Contract / Behavior Specification Accepted: Required
 G5 Delivery Plan Accepted: Required

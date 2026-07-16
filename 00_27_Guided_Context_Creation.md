@@ -1,6 +1,6 @@
 # CRDD Guided Context Creation
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -461,6 +461,17 @@ AIは、分類を利用者へすべて見せる必要はない。
 
 # 7. Skill Routing
 
+本書は共通の対話方法とRoutingだけを定義する。各工程のEntry、変換、成果責務、Coverage、Exit、Gate、Auditは工程文書の`Phase Process Contract`を正本とし、以下の工程別節は人間向け質問の例だけを示す。
+
+| Phase | Authority |
+|---|---|
+| Discovery | [00_17_Discovery.md](00_17_Discovery.md#phase-process-contract) |
+| UX | [00_42_UX_Skill.md](00_42_UX_Skill.md#phase-process-contract) |
+| IA | [00_43_IA_Skill.md](00_43_IA_Skill.md#phase-process-contract) |
+| UI | [00_44_UI_Skill.md](00_44_UI_Skill.md#phase-process-contract) |
+| Behavior Specification | [00_45_Behavior_Specification_Skill.md](00_45_Behavior_Specification_Skill.md#phase-process-contract) |
+| Architecture | [00_35_Architecture_Integration.md](00_35_Architecture_Integration.md#phase-process-contract) |
+
 一つのGuided Skillで全工程を完結させない。
 
 回答内容に応じて、次のSkillへRoutingする。
@@ -524,29 +535,11 @@ Delivery / Validation Skill
 
 ## Professional Output
 
-```text
-Origin / Intent
-Problem
-Actor
-Current Situation
-Current Workaround
-Desired Outcome
-Principle
-Constraint
-Evidence
-Hypothesis
-Solution Candidate
-Open Question
-Recommended Route
-```
+[Discovery Required Responsibility Coverage](00_17_Discovery.md#required-responsibility-coverage)に従う。
 
 ## Exit
 
-```text
-次に何を判断・調査・設計すべきかが明確
-OriginまたはRecovered Candidateの素性が明確
-重要な不確実性が明示
-```
+[Discovery Exit and Handoff](00_17_Discovery.md#exit-and-handoff)と[Phase Gate Criteria](00_17_Discovery.md#phase-gate-criteria)に従う。
 
 ---
 
@@ -570,28 +563,11 @@ AIやSystemに任せたいことは何ですか？
 
 ## Professional Output
 
-```text
-UX Outcome
-Experience Principle
-Before / After State
-Journey / Scenario
-Critical Moment
-Human Responsibility
-System / AI Responsibility
-Avoided Experience
-Success Signal
-Assumption
-Validation Need
-```
+[UX Required Responsibility Coverage](00_42_UX_Skill.md#required-responsibility-coverage)に従う。Persona、Journey、Service Blueprintを含む対象Scope全体のCoverageを確認する。
 
 ## Review Questions
 
-```text
-SolutionではなくOutcomeになっているか
-誰にとっての価値か明確か
-人間の思いが一般論へ薄まっていないか
-実装変更後も残る内容か
-```
+[UX Phase Audit Checklist](00_42_UX_Skill.md#phase-audit-checklist)に従う。
 
 ---
 
@@ -616,29 +592,11 @@ SolutionではなくOutcomeになっているか
 
 ## Professional Output
 
-```text
-Object / Entity
-Definition
-Relationship
-Responsibility
-Lifecycle
-State Concept
-Grouping
-Navigation
-Ownership / Authority
-Naming
-Expected UI Obligation
-Expected Behavior Obligation
-```
+[IA Required Responsibility Coverage](00_43_IA_Skill.md#required-responsibility-coverage)に従う。
 
 ## Review Questions
 
-```text
-System内部構造だけになっていないか
-利用者のMental Modelを説明できるか
-Objectと画面を同一視していないか
-責務境界が明確か
-```
+[IA Phase Audit Checklist](00_43_IA_Skill.md#phase-audit-checklist)に従う。
 
 ---
 
@@ -664,34 +622,11 @@ UXとIAを、利用者が認識・操作・理解・回復できるUI Contract�
 
 ## Professional Output
 
-```text
-UI Contract
-Visual Priority
-Information Group
-Action
-Trigger Reference
-Visible State
-Feedback
-Loading
-Empty
-Error
-Permission
-Disabled
-Conflict
-Cancel / Undo / Retry
-Accessibility
-Responsive / Variant Consideration
-Figma / Prototype Reference
-```
+[UI Required Responsibility Coverage](00_44_UI_Skill.md#required-responsibility-coverage)に従う。
 
 ## Review Questions
 
-```text
-見た目の説明だけになっていないか
-主要ActionとFeedbackがあるか
-IA責務を崩していないか
-Behaviorを無言で決めていないか
-```
+[UI Phase Audit Checklist](00_44_UI_Skill.md#phase-audit-checklist)に従う。
 
 ---
 
@@ -718,32 +653,11 @@ Feature、Use Case、UI Contract、Business Ruleを、検証可能なBehavior Sp
 
 ## Professional Output
 
-```text
-SPEC ID
-Trigger
-Precondition
-Actor / Authority
-Behavior
-State Transition
-Output
-Failure / Exception
-Permission
-Idempotency
-Cancel / Retry / Recovery
-Non-functional Condition
-Acceptance Criteria
-EARS Statement
-paired UI Contract
-```
+[Behavior Specification Required Responsibility Coverage](00_45_Behavior_Specification_Skill.md#required-responsibility-coverage)に従う。
 
 ## Review Questions
 
-```text
-条件と結果が検証可能か
-UI Actionと対応しているか
-Business RuleをAIが創作していないか
-UXやDesign IntentをEARSへ圧縮していないか
-```
+[Behavior Specification Phase Audit Checklist](00_45_Behavior_Specification_Skill.md#phase-audit-checklist)に従う。
 
 EARS等の構文は、このSkillのBehavior、Exception、Acceptance Criteriaで推奨する。
 
@@ -770,30 +684,11 @@ EARS等の構文は、このSkillのBehavior、Exception、Acceptance Criteria�
 
 ## Professional Output
 
-```text
-Architecture Context
-Component Boundary
-Data Ownership
-Data Flow
-API / Integration
-Security / Privacy Boundary
-Failure / Recovery
-Deployment
-Operation
-Observability
-Migration
-Replaceable Implementation Choice
-Trade-off
-Decision Candidate
-```
+[Architecture Required Responsibility Coverage](00_35_Architecture_Integration.md#required-responsibility-coverage)に従う。
 
 ## Review Questions
 
-```text
-Architectureが上流Contractを弱めていないか
-実装選択を永続的なProduct Principleにしていないか
-交換可能な部分と恒久的なConstraintを区別しているか
-```
+[Architecture Phase Audit Checklist](00_35_Architecture_Integration.md#phase-audit-checklist)に従う。
 
 ---
 

@@ -1,6 +1,6 @@
 # CRDD Document Audit Agent
 
-Version: v0.3.0
+Version: v0.3.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -85,6 +85,7 @@ Changed Files
 Affected Folder Index
 Canonical Artifact内のDecision / Rationale Sections
 Roadmap
+対象工程のPhase Process ContractとPhase Audit Checklist
 ```
 
 Document Audit Agentは、Scope外の文書を無制限に読ませるのではなく、監査目的に必要な範囲を明示されるべきである。
@@ -145,6 +146,19 @@ Recommended Handoff:
 ---
 
 # 4. Audit Categories
+
+工程成果物を監査する場合、Document Audit Agentは対象工程文書の`Phase Audit Checklist`を必ず読み、その工程の`Required Responsibility Coverage`、`Scope and Coverage State`、`Phase Gate Criteria`と照合する。共通Audit文書は工程固有のChecklistを複製しない。
+
+| Phase | Authoritative Audit Checklist |
+|---|---|
+| Discovery | [00_17_Discovery.md](00_17_Discovery.md#phase-audit-checklist) |
+| UX | [00_42_UX_Skill.md](00_42_UX_Skill.md#phase-audit-checklist) |
+| IA | [00_43_IA_Skill.md](00_43_IA_Skill.md#phase-audit-checklist) |
+| UI | [00_44_UI_Skill.md](00_44_UI_Skill.md#phase-audit-checklist) |
+| Behavior Specification | [00_45_Behavior_Specification_Skill.md](00_45_Behavior_Specification_Skill.md#phase-audit-checklist) |
+| Architecture | [00_35_Architecture_Integration.md](00_35_Architecture_Integration.md#phase-audit-checklist) |
+
+ファイルの存在、見出しの存在、または一部Artifactの高い完成度だけから工程完了を推定してはならない。対象Scope全体のCoverage Stateと、人間が承認した例外を検査する。
 
 ## 4.1 Structure Audit
 
@@ -338,6 +352,9 @@ Major 0件
 Trace切れなし
 Related切れなし
 水平展開漏れなし
+対象工程の責務Coverage漏れなし
+前工程Exitと次工程Entryの不一致なし
+Partial — Human AuthorizedのScope、Gap、Risk、Owner、Human Decision欠落なし
 Canonical Concept違反なし
 文書採番の不整合なし
 安定IDの付与漏れ・付与過剰・ファイル名への混入なし
