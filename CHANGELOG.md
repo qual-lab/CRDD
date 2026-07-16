@@ -9,6 +9,25 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### v0.4.0 — Document Architecture Consolidation (2026-07-17)
+
+Compared with v0.3.0, v0.4.0 changes the published CRDD model as follows:
+
+- Replaces the overlapping v0.3 document set with 22 responsibility-oriented authorities: Foundation (`00_00`–`00_03`), shared execution and operations (`00_10`–`00_19`), product phases (`00_21`–`00_29`), and audits (`00_51`–`00_53`). The `00_30`–`00_49` range is reserved instead of retaining a separate Practice Guide and Skill Execution layer.
+- Consolidates CRDD definition, end-to-end continuity, Human / AI authority, scoped Handoff approval, and the minimum Conformance boundary in `00_01_Principles.md`; limits `00_02_Terminology.md` to canonical definitions; and centralizes repository, Artifact, Evidence, Decision, Stable Context ID, and traceability rules in `00_03_Documentation.md`.
+- Consolidates Agent and Subagent delegation, authority, access, integration, and independent-review rules in `00_10_Agent.md`, without prescribing a fixed Agent topology. Consolidates the Skill lifecycle, guided interaction, status, resume, review, and Handoff contract in `00_11_Skill.md`, with Git and Markdown treated as optional execution adapters.
+- Reorganizes Discovery through Verification as a contiguous set of phase authorities. Each phase owns its entry, transformation, responsibility coverage, Human decisions, exit, Handoff, reopening conditions, and audit criteria; receiving phases own their entry contracts, and partial Handoff requires explicit Human approval of scope, gaps, risks, and ownership.
+- Keeps UI and Behavior Specification as parallel phases connected by `00_24_UI_Behavior_Specification.md`, then adds `00_28_Implementation.md` and establishes `00_29_Verification.md` as an independent phase. Architecture owns project implementation rules under `06_Architecture`, Implementation owns code and developer tests, and Verification evaluates the target revision without changing production code or weakening acceptance criteria.
+- Distributes Development Stack, Context Transformation, product-documentation coverage, governance, security, privacy, cost, compatibility, evolution, architecture integration, and testing responsibilities to the Principles, Documentation, and phase authorities that own them, removing the former standalone and overlapping documents without reducing their normative coverage.
+- Replaces Change Context Packages with lightweight Change trace logs in `90_Release/Changes/CHG-*.md`. A CHG record connects its trigger, expected and actual impact, affected canonical Context, implementation, verification, release disposition, and closure; `CHG-*` is an Artifact ID, not a Stable Context ID.
+- Adds `00_13_Release.md` for optional product-release handling after Verification, including Human Release Authority, Release Records, distribution references, release verification, and CHANGELOG boundaries. Adds `00_14_Workflow.md` and limits `07_Workflows` to repository-specific repeatable procedures rather than Change or Release records.
+- Consolidates CRDD's own learning, change approval, versioning, migration, released-error correction, and audit connections in `00_19_Maintenance.md`.
+- Replaces the standalone Phase Gate and Conformance documents with distributed phase criteria and three executor-independent audits: `00_51_Document_Audit.md`, `00_52_Conformance_Audit.md`, and `00_53_Gap_Impact_Audit.md`. The audits may be performed by a Human reviewer, parent Agent, or delegated Subagent.
+- Centralizes the existing v0.3 Stable Context ID, Evidence, and Decision rules without changing their semantics: the Stable Context ID set remains `REQ`, `UX`, `IA`, `UI`, and `SPEC`; Evidence remains inline or under the nearest parent `Evidence/`; Decision rationale remains with the resulting canonical Artifact; and `40_Develop` remains limited to implementation Artifacts rather than CRDD management Markdown.
+- Standardizes document headers and reference semantics: `Owner` precedes type-specific identity fields, `Related` filenames are ordered by Document Number, and runtime Context Selection adds authorities required by the active scope instead of treating `Related` as an exhaustive read set.
+- Rebuilds `00_00_Overview.md` and `README.md` as non-duplicating entry points; updates template `AGENTS.md` and `CLAUDE.md` for the consolidated architecture and scope-based Context Selection; removes `template/07_Workflows/Changes/`; and adds a CHG template under `template/90_Release/Changes/`.
+- This is a breaking documentation-architecture update. Adopters replace the v0.3 standard-document set and update entry-file references, while retaining project canonical Artifacts and existing Stable Context IDs unless their meaning changes.
+
 ### v0.3.0 — Stable IDs and Behavior Specifications (2026-07-16)
 
 Compared with v0.2.0, v0.3.0 changes the published CRDD model as follows:
@@ -79,6 +98,25 @@ First public release of CRDD, organized into four layers by numbering band.
 ---
 
 ## 日本語
+
+### v0.4.0 — 文書体系の統廃合（2026-07-17）
+
+v0.3.0と比較して、v0.4.0の公開CRDDモデルを次のように変更した。
+
+- 重複していたv0.3の文書群を、Foundation（`00_00`〜`00_03`）、共通実行・運用（`00_10`〜`00_19`）、Product工程（`00_21`〜`00_29`）、Audit（`00_51`〜`00_53`）からなる22の責務指向正本へ再編した。独立したPractice Guide層とSkill Execution層は残さず、`00_30`〜`00_49`を予約領域とした。
+- CRDDの定義、一気通貫のContext継続性、人間／AIのAuthority、Scope単位のHandoff承認、最低限のConformance境界を`00_01_Principles.md`へ統合した。`00_02_Terminology.md`はCanonical Definitionに限定し、Repository、Artifact、Evidence、Decision、Stable Context ID、Traceabilityの規則を`00_03_Documentation.md`へ集約した。
+- AgentとSubagentの委譲、Authority、Access、統合、独立Review規則を、固定Agent構成を前提としない`00_10_Agent.md`へ統合した。SkillのLifecycle、Guided Interaction、Status、再開、Review、Handoff契約を`00_11_Skill.md`へ統合し、GitとMarkdownは任意のExecution Adapterとした。
+- DiscoveryからVerificationまでを連続した工程正本へ再編した。各工程がEntry、Transformation、責務Coverage、人間判断、Exit、Handoff、Reopen条件、Audit Criteriaを所有し、受信工程が自身のEntry Contractを所有する。部分Handoffには、Scope、Gap、Risk、Ownerについて人間の明示的承認を必須とした。
+- UIとBehavior Specificationを`00_24_UI_Behavior_Specification.md`で接続する並行工程として維持し、`00_28_Implementation.md`を新設して、`00_29_Verification.md`を独立工程とした。Architectureは`06_Architecture`配下のProject実装規約、ImplementationはCodeとDeveloper Test、VerificationはProduction CodeやAcceptance Criteriaを変更しない対象Revisionの検証を担う。
+- Development Stack、Context Transformation、Product Documentation Coverage、Governance、Security、Privacy、Cost、Compatibility、Evolution、Architecture Integration、Testingの責務を、それぞれを所有するPrinciples、Documentation、工程正本へ分配した。旧来の独立文書と重複文書は、規範Coverageを劣化させずに廃止した。
+- Change Context Packageを、`90_Release/Changes/CHG-*.md`に置く軽量なChange Trace Logへ置き換えた。CHG RecordはTrigger、Expected／Actual Impact、影響するCanonical Context、Implementation、Verification、Release Disposition、Closeを接続する。`CHG-*`はStable Context IDではなくArtifact IDである。
+- Verification後に必要な場合だけ行うProduct Releaseについて、Human Release Authority、Release Record、配布物参照、Release Verification、CHANGELOG境界を定める`00_13_Release.md`を追加した。`00_14_Workflow.md`を追加し、`07_Workflows`をChange／Release記録ではなくRepository固有の反復可能な手順に限定した。
+- CRDD自体のLearning、変更承認、Versioning、Migration、公開済み誤りのCorrection、Audit接続を`00_19_Maintenance.md`へ統合した。
+- 独立したPhase Gate文書とConformance文書を、各工程へ分配したCriteriaと、実行主体に依存しない`00_51_Document_Audit.md`、`00_52_Conformance_Audit.md`、`00_53_Gap_Impact_Audit.md`へ置き換えた。Auditは人間Reviewer、親Agent、委譲されたSubagentのいずれでも実行できる。
+- v0.3のStable Context ID、Evidence、Decision規則を、Semanticsを変えずに集約した。Stable Context IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種、EvidenceはInlineまたは最も近い親Folderの`Evidence/`、Decision Rationaleは結果となるCanonical Artifact、`40_Develop`はCRDD管理用MarkdownではなくImplementation Artifactの配置先という規則を維持する。
+- 文書Headerと参照Semanticsを統一した。`Owner`を文書種別固有IDより前に置き、`Related`のファイル名をDocument Number順に並べ、実行時Context Selectionは`Related`を全読込一覧とみなさずActive Scopeに必要な正本を追加する。
+- `00_00_Overview.md`と`README.md`を重複しない入口として再構成し、templateの`AGENTS.md`と`CLAUDE.md`を統合後の文書体系とScope別Context Selectionへ更新した。`template/07_Workflows/Changes/`を削除し、`template/90_Release/Changes/`へCHG Templateを追加した。
+- 本Releaseは文書Architectureの破壊的変更である。採用Projectはv0.3の標準文書群をv0.4の文書群へ置き換えてEntry Fileの参照を更新する一方、ProjectのCanonical Artifactと既存Stable Context IDは、意味が変わらない限り維持する。
 
 ### v0.3.0 — 安定IDとBehavior Specificationの明確化（2026-07-16）
 
