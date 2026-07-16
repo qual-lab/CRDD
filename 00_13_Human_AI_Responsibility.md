@@ -2,12 +2,12 @@
 
 Version: v0.1.0
 Status: Stable
-Owner: Human
+Owner: Qual-Lab
 Last Updated: 2026-07-12
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
-- [00_31_Subagent_Practice_Guide.md](00_31_Subagent_Practice_Guide.md)（AI役割を専門Agentへ分割した具体構成）
+- [00_31_Subagent_Practice.md](00_31_Subagent_Practice.md)（AI役割を専門Agentへ分割した具体構成）
 
 ---
 
@@ -160,7 +160,7 @@ Security / Governance方針の確定
 AIはこれらについて提案してよい。
 しかし、確定判断は人間が行う。
 
-以降の Librarian / Strategist / Developer / Reviewer は、AIが担う役割を機能面から整理したものである。これらをサブエージェントとして分離・組織化する場合の具体的な構成は[`00_31_Subagent_Practice_Guide.md`](00_31_Subagent_Practice_Guide.md)を参照する（これは推奨される実践モデルの一例であり、CRDDの必須構造ではない）。
+以降の Librarian / Strategist / Developer / Reviewer は、AIが担う役割を機能面から整理したものである。これらをサブエージェントとして分離・組織化する場合の具体的な構成は[`00_31_Subagent_Practice.md`](00_31_Subagent_Practice.md)を参照する（これは推奨される実践モデルの一例であり、CRDDの必須構造ではない）。
 
 ---
 

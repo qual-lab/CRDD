@@ -2,12 +2,12 @@
 
 Version: v0.1.0
 Status: Stable
-Owner: Human
+Owner: Qual-Lab
 Last Updated: 2026-07-12
 Related:
-- [00_10_Context_Repository_Standard.md](00_10_Context_Repository_Standard.md)
+- [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
-- [00_12_Decision_Record_Standard.md](00_12_Decision_Record_Standard.md)
+- [00_12_Decision_Record.md](00_12_Decision_Record.md)
 
 ---
 
@@ -244,7 +244,7 @@ AI出力スキーマに影響した
 ```
 
 AIはDecision Logの下書きを作成してよい。
-ただし、Decisionの確定文言は人間が承認する。Decision Logの詳細な書式は[`00_12_Decision_Record_Standard.md`](00_12_Decision_Record_Standard.md)を参照する。
+ただし、Decisionの確定文言は人間が承認する。Decision Logの詳細な書式は[`00_12_Decision_Record.md`](00_12_Decision_Record.md)を参照する。
 
 ---
 
@@ -272,7 +272,7 @@ AIがEvidenceから重要な示唆を抽出した場合、以下のいずれか�
 99_Roadmap
 ```
 
-昇格は人間レビュー後に確定する。Evidence昇格の全体フローは[`00_11_Information_Type_and_Provenance.md`](00_11_Information_Type_and_Provenance.md)を参照する。
+昇格は人間レビュー後に確定する。Evidence昇格の全体フローは[`00_11_Information_Provenance.md`](00_11_Information_Provenance.md)を参照する。
 
 ## Generated Context Handling
 
@@ -281,12 +281,12 @@ AIが生成した要約、候補、推論、分類、再利用可能な知見は
 ```text
 Draft
 Candidate
-Review
+Reviewed
 Approved
 Superseded
 ```
 
-AIは `Draft` / `Candidate` / `Review` の作成・整理・更新を支援してよい。
+AIは `Draft` / `Candidate` / `Reviewed` の作成・整理・更新を支援してよい。
 ただし、`Approved` への昇格、または既存の `Approved` を置き換える判断は人間が行う。
 
 AI生成物を正本化する場合は、最低限以下を残す。

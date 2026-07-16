@@ -1,8 +1,8 @@
-# Testing and Quality Guide
+# Testing and Quality
 
-Version: v0.1.0
+Version: v0.2.0
 Status: Stable
-Owner: Shared
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
@@ -213,7 +213,98 @@ AI出力のサンプルを人間が A（そのまま使える）〜D（誤解を
 
 ---
 
-# 8. Non-functional Requirements
+
+# 8. Product Design Quality Gate
+
+Product Lifecycle Profileでは、実装品質だけでなく、UX・IA・UI・Graphic／Visual成果物の成立性も検証する。
+
+## 8.1. Deliverable Coverage
+
+以下は、承認済みScopeに対するCoverageとして管理する。
+
+```text
+PersonaまたはActor Model
+Journey Map
+Service Blueprint
+BlueprintとIAのMapping
+Screen Inventory
+全Screen Wireframe
+Screen Flow
+UI Contract
+Design Token
+Component / Layout Pattern
+全Screen／主要StateのFinal Visual
+Asset / Motion Package
+Behavior Requirement
+Acceptance Criteria
+```
+
+「全Screen」は、対象Feature／Change／Release Scope内の全Logical Screen、主要State、必要Variantを意味する。
+
+## 8.2. UI Usability Review
+
+UIは、最低限Nielsenの5 Usability Quality ComponentsでReviewする。
+
+| Component | Review Question |
+|---|---|
+| Learnability | 初回利用者が目的と開始方法を理解できるか |
+| Efficiency | 習熟後に不要な操作・探索なく達成できるか |
+| Memorability | 利用間隔が空いても再学習Costが過大でないか |
+| Errors | Errorを防止し、原因を理解し、回復できるか |
+| Satisfaction | 利用者が納得・安心して利用できるか |
+
+必要に応じて、Nielsenの10 Usability Heuristicsを詳細Checklistとして追加する。
+
+## 8.3. Universal Design Review
+
+最低限、Universal Designの7原則に照らして不必要な排除や操作負担がないか確認する。
+
+```text
+Equitable Use
+Flexibility in Use
+Simple and Intuitive Use
+Perceptible Information
+Tolerance for Error
+Low Physical Effort
+Size and Space for Approach and Use
+```
+
+## 8.4. Accessibility Review
+
+Universal DesignとAccessibilityは同一ではない。
+対象Platformに応じて、最低限以下を確認する。
+
+```text
+Colorだけに依存しない識別
+Contrast
+Text Scale / Expansion
+Keyboard / Focus
+Screen Reader / Semantic Label
+Error Identification
+Motion Reduction
+Touch / Pointer Target
+Locale / Reading Order
+```
+
+## 8.5. Evidence
+
+品質原則を記載しただけではVerifiedとしない。
+
+```text
+対象Screen / State / Variant
+Review基準
+Finding
+Severity
+Disposition
+Reviewer
+Evidence
+Last Reviewed
+```
+
+を追跡する。
+
+
+# 9. Non-functional Requirements
 
 機能要件だけでなく、以下のような非機能要件も設計段階で意識する。
 
@@ -222,14 +313,14 @@ AI出力のサンプルを人間が A（そのまま使える）〜D（誤解を
 アクセシビリティ
 スケーラビリティ
 可用性
-セキュリティ（詳細は00_33_AI_Governance_and_Security_Guideを参照）
+セキュリティ（詳細は00_33_AI_Governance_Securityを参照）
 ```
 
 非機能要件の詳細な基準は、プロダクトごとに `06_Architecture` 配下で具体化する。CRDDが求めるのは、非機能要件を「後から気づく」のではなく、設計段階で意識的に検討することである。
 
 ---
 
-# 9. Minimum Rule
+# 10. Minimum Rule
 
 最低限、以下を守る。
 
@@ -241,11 +332,13 @@ AI出力のサンプルを人間が A（そのまま使える）〜D（誤解を
 テストは種類を区別し、何を保証しているかを明確にする
 AI出力は自動テストと人間評価ゲートを組み合わせて判定する
 非機能要件を設計段階で検討する
+UX・IA・UI・Graphic成果物のScope Coverageを確認する
+UIをNielsen、Universal Design、Accessibilityの基準でReviewし、Evidenceを残す
 ```
 
 ---
 
-# 10. Final Principle
+# 11. Final Principle
 
 CRDDにおける品質保証は、「動いているように見える」ではなく、「動くと確認されている」を基準とする。
 

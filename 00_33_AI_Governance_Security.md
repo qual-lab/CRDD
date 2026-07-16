@@ -1,13 +1,13 @@
-# AI Governance and Security Guide
+# AI Governance and Security
 
 Version: v0.1.0
 Status: Stable
-Owner: Shared
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
-- [00_32_Testing_and_Quality_Guide.md](00_32_Testing_and_Quality_Guide.md)
+- [00_32_Testing_Quality.md](00_32_Testing_Quality.md)
 
 ---
 
@@ -123,7 +123,7 @@ System Promptでの注意書きに加えて、外部データを取得する際�
 
 # 6. Verified, Not Just Implemented
 
-セキュリティ・Governance関連の対応は、[`00_32_Testing_and_Quality_Guide.md`](00_32_Testing_and_Quality_Guide.md) の「Implemented vs Verified」原則を特に厳格に適用する。
+セキュリティ・Governance関連の対応は、[`00_32_Testing_Quality.md`](00_32_Testing_Quality.md) の「Implemented vs Verified」原則を特に厳格に適用する。
 
 ```text
 セキュリティ対応は、自動テスト（Security Fixture等）を通過するまで「対応済み」と表示しない

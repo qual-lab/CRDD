@@ -9,6 +9,17 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### v0.2.0 — Context Continuity and Git / Markdown Execution (2026-07-16)
+
+Compared with v0.1.0, v0.2.0 changes the published CRDD set as follows:
+
+- Completes the previously experimental Core Concepts / Terminology and Conformance definitions, and adds an end-to-end model of Context continuity and the CRDD Development Stack.
+- Extends the Core Standard from repository, provenance, decision, responsibility, change-control, and document rules to also cover Context transformation, Discovery, UI / Behavior contracts, and traceability.
+- Reorganizes the Operational layer around a single CRDD maintenance standard and adds phase-gate approval, Change Context Packages, gap / validation / impact handling, Agent I/O contracts, and guided Context creation.
+- Updates the optional Practice Guides, including the product documentation model and the minimum UX / IA / UI deliverables, and normalizes their canonical filenames.
+- Expands the four-band v0.1.0 document model with a `40`–`49` Git / Markdown Skill Execution layer and a `50`–`59` Agent Execution layer, covering Guided Skills, reproducible repository execution, Subagent orchestration, and document audit.
+- Aligns the repository entry point and starter template with the v0.2.0 structure, including `README.md` and the template `AGENTS.md` / `CLAUDE.md` instructions.
+
 ### v0.1.0 — Initial Public Release (2026-07-15)
 
 First public release of CRDD, organized into four layers by numbering band.
@@ -28,7 +39,7 @@ First public release of CRDD, organized into four layers by numbering band.
 - AI Change Control
 - Document Standard
 
-#### Operational (`00_20`–`00_22`)
+#### Operational (`00_20`–`00_27`)
 
 - Context Feedback Loop
 - Context Repository Audit
@@ -50,16 +61,20 @@ First public release of CRDD, organized into four layers by numbering band.
 - [TRADEMARK.md](TRADEMARK.md) — separate policy for the CRDD / Qual-Lab names and marks
 - [README.md](README.md) — entry point for this folder
 
-#### Known gaps (tracked for future releases)
-
-- `00_02_CRDD_Terminology.md` and `00_03_CRDD_Conformance.md` are outlines, not finished definitions
-- `00_22_CRDD_Change_and_Versioning.md` is an outline
-- Folder-system provisions not yet written: mandatory/optional folder rules, cross-cutting document placement, document split/merge criteria, temporary-information lifecycle, external (non-Markdown) file reference metadata, repository-level secret/PII handling
-- No consistent MUST/SHOULD/MAY normative-strength vocabulary applied across documents yet
-
 ---
 
 ## 日本語
+
+### v0.2.0 — Context継続性とGit / Markdown実行（2026-07-16）
+
+v0.1.0と比較して、v0.2.0の公開文書体系は次のように変わった。
+
+- ExperimentalだったCore Concepts / TerminologyとConformanceを確定し、Context継続性のEnd-to-EndモデルとCRDD Development Stackを加えた。
+- Repository、Provenance、Decision、責任分界、Change Control、Documentを扱っていたCore標準を、Context Transformation、Discovery、UI / Behavior Contract、Traceabilityまで拡張した。
+- Operational層を単一のCRDD Maintenance標準を中心に再構成し、Phase Gate Approval、Change Context Package、Gap / Validation / Impact、Agent I/O Contract、Guided Context Creationを定義した。
+- 任意のPractice Guideを更新し、Product DocumentationモデルとUX / IA / UIの最低成果物を拡充するとともに、正本ファイル名を統一した。
+- v0.1.0の4採番帯構成に、`40`〜`49` Git / Markdown Skill Execution層と`50`〜`59` Agent Execution層を加え、Guided Skill、再現可能なRepository実行、Subagent Orchestration、Document Auditを定義した。
+- `README.md`およびtemplateの`AGENTS.md` / `CLAUDE.md`を、v0.2.0のRepository構成と実行ルールに合わせた。
 
 ### v0.1.0 — 初回公開（2026-07-15）
 
@@ -80,7 +95,7 @@ CRDDの初回公開版。採番帯によって4層に構成されている。
 - AI Change Control
 - Document Standard
 
-#### Operational（`00_20`〜`00_22`）
+#### Operational（`00_20`〜`00_27`）
 
 - Context Feedback Loop
 - Context Repository Audit
@@ -101,10 +116,3 @@ CRDDの初回公開版。採番帯によって4層に構成されている。
 - [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) — 商用利用の定義と商用ライセンスの取得方法
 - [TRADEMARK.md](TRADEMARK.md) — CRDD / Qual-Lab名称・商標の別ポリシー
 - [README.md](README.md) — このフォルダの入口
-
-#### 既知の未対応事項（今後のリリースへ持ち越し）
-
-- `00_02_CRDD_Terminology.md`・`00_03_CRDD_Conformance.md`は骨子のみで、定義未確定
-- `00_22_CRDD_Change_and_Versioning.md`は骨子のみ
-- フォルダ体系側の条項が未執筆: 必須/任意フォルダのルール、Cross-cutting文書の置き場所、文書分割・統合基準、一時情報の寿命、外部ファイル（非Markdown）参照メタデータ、Repository自体のSecret/PII取扱い
-- 文書全体への一貫したMUST/SHOULD/MAY規範強度語彙の適用は未実施

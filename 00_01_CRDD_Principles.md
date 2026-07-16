@@ -2,7 +2,7 @@
 
 Version: v0.1.0
 Status: Stable
-Owner: Human
+Owner: Qual-Lab
 Last Updated: 2026-07-12
 Related:
 - [00_00_CRDD_Overview.md](00_00_CRDD_Overview.md)

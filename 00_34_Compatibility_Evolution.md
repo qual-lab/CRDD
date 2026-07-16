@@ -1,12 +1,12 @@
-# Compatibility and Evolution Guide
+# Compatibility and Evolution
 
 Version: v0.1.0
 Status: Stable
-Owner: Shared
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
-- [00_10_Context_Repository_Standard.md](00_10_Context_Repository_Standard.md)
-- [00_32_Testing_and_Quality_Guide.md](00_32_Testing_and_Quality_Guide.md)
+- [00_10_Context_Repository.md](00_10_Context_Repository.md)
+- [00_32_Testing_Quality.md](00_32_Testing_Quality.md)
 
 ---
 
@@ -76,7 +76,7 @@ DBスキーマ・データ構造を変更する場合、既存データとの整
 移行前にロールバック手段（バックアップ、あるいは移行の取り消し手順）を用意する
 ```
 
-[`00_10_Context_Repository_Standard.md`](00_10_Context_Repository_Standard.md)の「DBスキーマ変更は`95_Decisions`にDecision Logを残す」という既存ルールに対し、本節は「どう安全に移行するか」の実務原則を補う。
+[`00_10_Context_Repository.md`](00_10_Context_Repository.md)の「DBスキーマ変更は`95_Decisions`にDecision Logを残す」という既存ルールに対し、本節は「どう安全に移行するか」の実務原則を補う。
 
 ## Bad
 

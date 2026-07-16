@@ -1,13 +1,13 @@
-# Context Repository Standard
+# Context Repository
 
 Version: v0.1.0
 Status: Stable
-Owner: Human
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
 - [00_00_CRDD_Overview.md](00_00_CRDD_Overview.md)
-- [00_11_Information_Type_and_Provenance.md](00_11_Information_Type_and_Provenance.md)
-- [00_15_Document_Standard.md](00_15_Document_Standard.md)
+- [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
+- [00_15_Document.md](00_15_Document.md)
 
 ---
 
@@ -20,7 +20,7 @@ Context Repository は、単なるドキュメント置き場ではない。
 
 CRDDでは、AIが過去文脈を読み取り、人間が判断を継続できるように、プロジェクトの重要情報を人間にもAIにも可読な形で蓄積する。
 
-本書は、Repository構造・正本性・ファイル管理（Header/Status/Naming/Link/廃止）を扱う。Evidence昇格・Decision契機・文書Typeの分類・Roadmap吸収は[`00_11_Information_Type_and_Provenance.md`](00_11_Information_Type_and_Provenance.md)、可読性の書き方戦略は[`00_15_Document_Standard.md`](00_15_Document_Standard.md)を参照する。
+本書は、Repository構造・正本性・ファイル管理（Header/Status/Naming/Link/廃止）を扱う。Evidence昇格・Decision契機・文書Typeの分類・Roadmap吸収は[`00_11_Information_Provenance.md`](00_11_Information_Provenance.md)、可読性の書き方戦略は[`00_15_Document.md`](00_15_Document.md)を参照する。
 
 ---
 
@@ -210,7 +210,7 @@ AIが生成しただけの未レビュー文章
 
 ただし、これらを材料として使うことはできる。
 
-その場合は、要約・解釈・判断・出典を付けて、適切なフォルダへ昇格する。昇格の具体的な流れは[`00_11_Information_Type_and_Provenance.md`](00_11_Information_Type_and_Provenance.md)を参照する。
+その場合は、要約・解釈・判断・出典を付けて、適切なフォルダへ昇格する。昇格の具体的な流れは[`00_11_Information_Provenance.md`](00_11_Information_Provenance.md)を参照する。
 
 ---
 
@@ -222,11 +222,11 @@ AIが生成しただけの未レビュー文章
 # Title
 
 Version: 0.1
-Status: Draft / Review / Approved / Superseded / Deprecated
+Status: Draft / Reviewed / Approved / Superseded / Deprecated
 Owner: Human / AI Draft / Shared
 Last Updated: yyyy-mm-dd
 Related:
-- [Title](path/to/related_file.md)
+- Title: path/to/related_file.md
 ```
 
 ## Header Items
@@ -241,7 +241,11 @@ Related:
 
 Headerは、AIが文書の信頼度や状態を判断するためにも重要である。
 
-`Related:` は、GitHub上でもクリックできるよう、ファイル名の列挙ではなくMarkdownリンク `[Title](path/to/file.md)` の形式にする。
+`Related:` は、GitHub上でもクリックできるよう、ファイル名の列挙ではなくMarkdownリンク形式にする。
+例示用のplaceholderでは `Title: path/to/file.md` のように書き、実在しないパスをMarkdownリンクにしない。
+
+文書種別によって必要な場合は、標準Headerの後に拡張フィールドを追加してよい。
+例えばGuided Skill文書は `Skill ID:` を持ってよい。ただし、拡張フィールドは文書種別ごとに意味を定義し、同じ意味に複数の名前を使ってはならない。
 
 ---
 
@@ -252,7 +256,7 @@ Headerは、AIが文書の信頼度や状態を判断するためにも重要で
 | Status       | Meaning      |
 | ------------ | ------------ |
 | `Draft`      | 作成中。まだ正本ではない |
-| `Review`     | 確認中。判断前      |
+| `Reviewed`   | 確認済み。承認前 |
 | `Approved`   | 正本として扱う      |
 | `Superseded` | 後継文書に置き換え済み  |
 | `Deprecated` | 廃止済み。履歴として保持 |
@@ -341,7 +345,7 @@ Evidence → 昇格先Context
 文書同士の接続がないと、AIは文脈をたどりにくくなる。
 CRDDでは、リンクは単なる参照ではなく、Contextの経路である。
 
-リンクは`[Title](path/to/file.md)`形式のクリック可能なMarkdownリンクにする。ファイル名だけを列挙する書き方は避ける。
+リンクは`Title: path/to/file.md`形式のクリック可能なMarkdownリンクにする。ファイル名だけを列挙する書き方は避ける。
 
 ---
 
@@ -423,7 +427,7 @@ Superseded
 ```text
 Status: Superseded
 Superseded By:
-- [New Title](path/to/new_file.md)
+- New Title: path/to/new_file.md
 ```
 
 CRDDでは、過去の思想や判断の変遷も重要なContextである。

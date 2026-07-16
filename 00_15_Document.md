@@ -1,12 +1,12 @@
-# Document Standard
+# Document
 
-Version: v0.1.0
+Version: v0.2.0
 Status: Stable
-Owner: Human
-Last Updated: 2026-07-15
+Owner: Qual-Lab
+Last Updated: 2026-07-16
 Related:
-- [00_10_Context_Repository_Standard.md](00_10_Context_Repository_Standard.md)
-- [00_02_CRDD_Terminology.md](00_02_CRDD_Terminology.md)
+- [00_10_Context_Repository.md](00_10_Context_Repository.md)
+- [00_02_CRDD_Core_Concepts_and_Terminology.md](00_02_CRDD_Core_Concepts_and_Terminology.md)
 
 ---
 
@@ -27,7 +27,7 @@ AIが読める
 後から更新しやすい
 ```
 
-本書は「人間とAIが誤読しない文章構造」に絞る。文書のHeader・Status・Naming・Link・廃止といったファイル管理ルールは[`00_10_Context_Repository_Standard.md`](00_10_Context_Repository_Standard.md)を参照する。
+本書は「人間とAIが誤読しない文章構造」に絞る。文書のHeader・Status・Naming・Link・廃止といったファイル管理ルールは[`00_10_Context_Repository.md`](00_10_Context_Repository.md)を参照する。
 
 ---
 
@@ -158,16 +158,20 @@ AIも人間も、結論が先にある方が文脈を把握しやすい。
 
 ---
 
-# 7. Separate Fact, Interpretation, Decision
+# 7. Separate Observation, Evidence, Interpretation, Decision
 
-CRDD文書では、事実、解釈、判断を分ける。
+CRDD文書では、Observation、Evidence、Interpretation、Decisionを分ける。
 
 ## Recommended Structure
 
 ```text
-# Fact
+# Observation
 
-確認できている事実。
+観測・確認できている内容。
+
+# Evidence
+
+Observationを裏付けるSourceまたは根拠。
 
 # Interpretation
 
@@ -181,9 +185,13 @@ CRDD文書では、事実、解釈、判断を分ける。
 ## Example
 
 ```text
-# Fact
+# Observation
 
 Slack、Jira、Confluenceに情報が分散している。
+
+# Evidence
+
+対象ProjectのSource一覧と、各Toolに存在するMessage・Ticket・Page。
 
 # Interpretation
 
@@ -196,7 +204,7 @@ PMは重要な未決事項やリスクを見落としやすい。
 
 事実と判断が混ざると、後から方針変更しにくくなる。
 
-情報の種別（Fact/Evidence/Interpretation/Proposal/Decision等）の正式な定義は[`00_02_CRDD_Terminology.md`](00_02_CRDD_Terminology.md)を参照する。
+情報の種別（Observation/Evidence/Interpretation/Proposal/Decision等）の正式な定義は[`00_02_CRDD_Core_Concepts_and_Terminology.md`](00_02_CRDD_Core_Concepts_and_Terminology.md)を参照する。
 
 ---
 
@@ -241,7 +249,7 @@ PMは重要な未決事項やリスクを見落としやすい。
 | AIの挙動を説明する画面（設定変更はしない） | Governance / Trust画面 |
 
 用語が揺れると、AI検索や要約の精度が落ちる。
-新しい用語を導入する場合は、定義を明記する（正式なCRDD用語は[`00_02_CRDD_Terminology.md`](00_02_CRDD_Terminology.md)へ集約する）。
+新しい用語を導入する場合は、定義を明記する（正式なCRDD用語は[`00_02_CRDD_Core_Concepts_and_Terminology.md`](00_02_CRDD_Core_Concepts_and_Terminology.md)へ集約する）。
 
 ## Glossary
 
@@ -447,7 +455,7 @@ Date:
 # 8. Follow-up
 ```
 
-具体的な書式・記入例は[`00_12_Decision_Record_Standard.md`](00_12_Decision_Record_Standard.md)を参照する。
+具体的な書式・記入例は[`00_12_Decision_Record.md`](00_12_Decision_Record.md)を参照する。
 
 ## Design Document
 

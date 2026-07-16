@@ -1,14 +1,16 @@
-# Subagent Practice Guide (Reference Agent Model)
+# Subagent Practice
 
 Version: v0.1.0
 Status: Stable
-Owner: Shared
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
-- [00_12_Decision_Record_Standard.md](00_12_Decision_Record_Standard.md)
+- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_50_Subagent_Orchestration.md](00_50_Subagent_Orchestration.md)
+- [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
 
 ---
 
@@ -93,7 +95,9 @@ Context Facilitator
     │
     ├── Implementation Agent
     │
-    └── Conformance Reviewer
+    ├── Conformance Reviewer
+    │
+    └── CRDD Document Audit Agent
 ```
 
 Design CouncilとStrategistは、見ている粒度が異なる。
@@ -147,7 +151,7 @@ Context Facilitatorは対立を仲裁・判断しない
 Context Facilitatorは対立を Option 比較表へ構造化するだけに留める
 ```
 
-構造化には `00_12_Decision_Record_Standard.md` の「Alternatives Considered」形式を流用する。
+構造化には `00_12_Decision_Record.md` の「Alternatives Considered」形式を流用する。
 
 ```text
 ### Option A: ◯◯
@@ -319,7 +323,36 @@ Test
 
 ---
 
-# 10. 人間の役割
+# 10. CRDD Document Audit Agent
+
+CRDD Document Audit Agentは、実装差分ではなく、Context Repositoryの文書体系そのものを監査する。
+
+確認対象
+
+```text
+文書構造
+参照整合性
+用語
+規範語彙
+水平展開
+採番・識別子
+Traceability
+Status / Version
+README / Overview / CHANGELOG追従
+```
+
+を見る。
+
+重要なのは、「実装がContextどおりか」ではなく、「Context Repository自体がCRDD Standardどおりに保たれているか」である。
+
+CRDD Document Audit AgentはFindingを返す。
+Canonical Artifactを直接編集せず、Parent AgentがFindingを統合し、人間確認が必要なものを切り分ける。
+
+詳細なInput / Output Contractと監査カテゴリは[`00_51_Document_Audit_Agent.md`](00_51_Document_Audit_Agent.md)を参照する。
+
+---
+
+# 11. 人間の役割
 
 人間は、
 
@@ -335,7 +368,7 @@ AIが勝手に仕様を決定しない。
 
 ---
 
-# 11. 基本フロー
+# 12. 基本フロー
 
 ```text
 Human
@@ -359,9 +392,27 @@ Implementation Agent
 Conformance Reviewer
 ```
 
+文書体系そのものの監査が必要な場合は、Conformance Reviewerとは別にCRDD Document Audit Agentを起動する。
+
+```text
+Context Facilitator
+    │
+    ▼
+CRDD Document Audit Agent
+    │
+    ▼
+Audit Report
+    │
+    ▼
+Context Facilitator（Finding統合）
+    │
+    ▼
+Human Review / Parent Agent Fix
+```
+
 ---
 
-# 12. 発動条件
+# 13. 発動条件
 
 この構成は、すべての変更で毎回起動するものではない。
 
@@ -383,9 +434,11 @@ Architectureに影響する変更 → Architecture Viewを追加
 
 `00_CRDD` / `02_UX` / `95_Decisions` に影響する変更は、Design Councilの構成に関わらず、必ずContext Facilitator経由で人間承認を求める（[`00_14_AI_Change_Control.md`](00_14_AI_Change_Control.md)のProtected Areasルールが優先する）。
 
+README、Overview、CHANGELOG、Related、Status、採番、Traceabilityなど、Context Repositoryの文書体系に影響する変更では、必要に応じてCRDD Document Audit Agentを起動する。
+
 ---
 
-# 13. 実装モデルの一例
+# 14. 実装モデルの一例
 
 このAgent構成は、複数のAIツール（例: Claude Code、Codex CLI等）のカスタムAgent定義機能を使って具体化できる。以下は一実装例である。
 
@@ -399,6 +452,7 @@ ui-view
 architecture-view
 strategist
 conformance-reviewer
+crdd-document-auditor
 ```
 
 いずれも読み取り専用（ツール実行権限をAgent定義側で制限する）とし、所見の提示までを担当する。採用可否・実装方針の確定は行わない設計を、ツール実行権限のレベルで強制する。
@@ -421,7 +475,7 @@ Implementation Agent
 
 ---
 
-# 14. 設計原則
+# 15. 設計原則
 
 サブエージェントは、「役職」ではなく、「責務」で分割する。
 
@@ -430,26 +484,6 @@ Implementation Agent
 Context Facilitatorのみが全体を統合する。
 
 人間はContext Facilitatorとの対話を中心とし、各専門Agentと直接会話することを基本としない。
-
----
-
-# 15. 今後の拡張
-
-将来的には以下のAgentを追加できる。
-
-```text
-Project Coordinator
-Market Researcher
-Industry Analyst
-Customer Insight Agent
-PR Agent
-Sales Support Agent
-Context Curator
-```
-
-ただし、これらはCRDDの必須構成ではなく、プロジェクト規模に応じて段階的に導入する。
-
----
 
 # 16. Summary
 

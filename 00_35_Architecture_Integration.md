@@ -1,13 +1,13 @@
-# Architecture and Integration Guide
+# Architecture and Integration
 
 Version: v0.1.0
 Status: Stable
-Owner: Shared
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
-- [00_32_Testing_and_Quality_Guide.md](00_32_Testing_and_Quality_Guide.md)
-- [00_34_Compatibility_and_Evolution_Guide.md](00_34_Compatibility_and_Evolution_Guide.md)
-- [00_30_Product_Documentation_Guide.md](00_30_Product_Documentation_Guide.md)
+- [00_32_Testing_Quality.md](00_32_Testing_Quality.md)
+- [00_34_Compatibility_Evolution.md](00_34_Compatibility_Evolution.md)
+- [00_30_Product_Documentation.md](00_30_Product_Documentation.md)
 
 ---
 
@@ -37,7 +37,7 @@ Architecture文書が機能仕様や画面文言を持ち始めた場合は、�
 
 # 3. Design Representation Conventions
 
-CRDDでは、UML等の専用ツールを前提とした形式図を必須としない。テキストベースの表現を基本とする。理由は、[`00_15_Document_Standard.md`](00_15_Document_Standard.md)が定めるAI可読性・Git差分での追跡可能性を優先するためである。
+CRDDでは、UML等の専用ツールを前提とした形式図を必須としない。テキストベースの表現を基本とする。理由は、[`00_15_Document.md`](00_15_Document.md)が定めるAI可読性・Git差分での追跡可能性を優先するためである。
 
 ## System / Component Structure
 
@@ -312,7 +312,7 @@ UIが表示するデータは、取得した時点のスナップショットと
 これはセキュリティに限らず、業務上の利用可否・機能の有効/無効等、あらゆる状態判定に適用する
 ```
 
-セキュリティ境界に限定した同種の原則は[`00_33_AI_Governance_and_Security_Guide.md`](00_33_AI_Governance_and_Security_Guide.md)「Security Boundaries Are Default-On」を参照する。本節はそれをセキュリティ以外の状態判定一般へ拡張したものである。
+セキュリティ境界に限定した同種の原則は[`00_33_AI_Governance_Security.md`](00_33_AI_Governance_Security.md)「Security Boundaries Are Default-On」を参照する。本節はそれをセキュリティ以外の状態判定一般へ拡張したものである。
 
 ### Bad
 

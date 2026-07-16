@@ -2,12 +2,12 @@
 
 Version: v0.1.0
 Status: Stable
-Owner: Human
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
-- [00_10_Context_Repository_Standard.md](00_10_Context_Repository_Standard.md)
-- [00_12_Decision_Record_Standard.md](00_12_Decision_Record_Standard.md)
-- [00_02_CRDD_Terminology.md](00_02_CRDD_Terminology.md)
+- [00_10_Context_Repository.md](00_10_Context_Repository.md)
+- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_02_CRDD_Core_Concepts_and_Terminology.md](00_02_CRDD_Core_Concepts_and_Terminology.md)
 
 ---
 
@@ -17,7 +17,7 @@ Related:
 
 CRDDは「Contextを保存する方法論」である。何を事実として扱い、何をAIの解釈として扱い、何を人間の決定として扱うかという情報種別の区別と、それらがどう昇格していくかというライフサイクルが、方法論の核心に近い。
 
-各種別の正式な定義は[`00_02_CRDD_Terminology.md`](00_02_CRDD_Terminology.md)（Experimental）を参照する。本書はその運用ルールを扱う。
+各種別の正式な定義は[`00_02_CRDD_Core_Concepts_and_Terminology.md`](00_02_CRDD_Core_Concepts_and_Terminology.md)を参照する。本書はその運用ルールを扱う。
 
 ---
 
@@ -97,8 +97,8 @@ Evidenceを使う場合は、必ず出典または元資料を明示する。
 ```text
 # Evidence
 
-- [Competitor Research](../90_Evidence/Competitors/2026-07-xx_competitor_research.md)
-- [User Pain](../90_Evidence/User_Voices/2026-07-xx_user_pain.md)
+- Competitor Research: ../90_Evidence/Competitors/2026-07-xx_competitor_research.md
+- User Pain: ../90_Evidence/User_Voices/2026-07-xx_user_pain.md
 ```
 
 Evidenceを根拠に判断した場合は、`95_Decisions` からEvidenceへリンクする。

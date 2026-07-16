@@ -1,13 +1,13 @@
-# Decision Record Standard
+# Decision Record
 
 Version: v0.1.0
 Status: Stable
-Owner: Human
+Owner: Qual-Lab
 Last Updated: 2026-07-15
 Related:
-- [00_11_Information_Type_and_Provenance.md](00_11_Information_Type_and_Provenance.md)
+- [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
-- [../95_Decisions/](../95_Decisions/)
+- `95_Decisions/`
 
 ---
 
@@ -360,10 +360,10 @@ Decision Logには、必ず関連文書をリンクする。
 ## 7. Related Files
 
 - [CRDD Principles](../00_CRDD/00_01_CRDD_Principles.md)
-- [Product Origin](../02_UX/00_Product_Origin.md)
-- [Governance Spec](../04_Spec/04_XX_Governance.md)
-- [Governance UI](../05_UI/05_XX_Governance.md)
-- [ISMS AI Governance](../06_Architecture/06_XX_ISMS_AI_Governance.md)
+- Product Origin: ../02_UX/00_Product_Origin.md
+- Governance Spec: ../04_Spec/04_XX_Governance.md
+- Governance UI: ../05_UI/05_XX_Governance.md
+- ISMS AI Governance: ../06_Architecture/06_XX_ISMS_AI_Governance.md
 ```
 
 関連文書がないDecision Logは、AIが文脈をたどりにくい。
@@ -384,14 +384,14 @@ Status: Superseded
 
 ```text
 Superseded By:
-- [New Decision](2026-xx-xx_new_decision.md)
+- New Decision: 2026-xx-xx_new_decision.md
 ```
 
 新しいDecision Log側にも、置き換え元を記載する。
 
 ```text
 Supersedes:
-- [Old Decision](2026-xx-xx_old_decision.md)
+- Old Decision: 2026-xx-xx_old_decision.md
 ```
 
 CRDDでは、判断の変遷も重要なContextである。
@@ -418,15 +418,15 @@ Roadmap変更は、`99_Roadmap` の更新だけでなく、必要に応じて `9
 
 # 17. Decision Log and Evidence
 
-Evidenceを根拠に判断した場合、Decision LogからEvidenceへリンクする。Evidenceの昇格ルール全体は[`00_11_Information_Type_and_Provenance.md`](00_11_Information_Type_and_Provenance.md)を参照する。
+Evidenceを根拠に判断した場合、Decision LogからEvidenceへリンクする。Evidenceの昇格ルール全体は[`00_11_Information_Provenance.md`](00_11_Information_Provenance.md)を参照する。
 
 ## Example
 
 ```text
 ## 7. Related Files
 
-- [Competitor Research](../90_Evidence/Competitors/2026-07-xx_competitor_research.md)
-- [User Pain](../90_Evidence/User_Voices/2026-07-xx_user_pain.md)
+- Competitor Research: ../90_Evidence/Competitors/2026-07-xx_competitor_research.md
+- User Pain: ../90_Evidence/User_Voices/2026-07-xx_user_pain.md
 ```
 
 Evidenceは材料であり、Decision Logは判断である。
@@ -540,8 +540,8 @@ Decision:
 ## 7. Related Files
 
 - [CRDD Principles](../00_CRDD/00_01_CRDD_Principles.md)
-- [Product Origin](../02_UX/00_Product_Origin.md)
-- [Roadmap README](../99_Roadmap/README.md)
+- Product Origin: ../02_UX/00_Product_Origin.md
+- Roadmap README: ../99_Roadmap/README.md
 
 ---
 
