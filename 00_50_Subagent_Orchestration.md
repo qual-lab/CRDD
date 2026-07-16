@@ -1,6 +1,6 @@
 # CRDD Lightweight Subagent Orchestration
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -13,7 +13,7 @@ Related:
 - [00_42_UX_Skill.md](00_42_UX_Skill.md)
 - [00_43_IA_Skill.md](00_43_IA_Skill.md)
 - [00_44_UI_Skill.md](00_44_UI_Skill.md)
-- [00_45_Behavior_SPEC_Skill.md](00_45_Behavior_SPEC_Skill.md)
+- [00_45_Behavior_Specification_Skill.md](00_45_Behavior_Specification_Skill.md)
 - [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
 
 # Purpose
@@ -143,7 +143,7 @@ Evidence量が多い
 ```text
 Persona、Journey Map、Service Blueprintを別観点で確認する
 大量のInterview Logを複数範囲に分けて分析する
-UI ContractとBehavior Requirementを独立Reviewする
+UI ContractとBehavior Specificationを独立Reviewする
 Architecture ProposalをSecurity観点から別AgentがReviewする
 ```
 
@@ -467,7 +467,7 @@ CRDD Document Audit Agent
     = 文書体系、参照、用語、Traceability、Status、水平展開を確認する
 ```
 
-Parent Agentは、README、Overview、CHANGELOG、Related Links、Status、採番、Traceabilityに影響する変更では、必要に応じてCRDD Document Audit Agentへ監査を委譲する。
+Parent Agentは、README、Overview、CHANGELOG、Related Links、Status、文書採番、安定ID、Traceabilityに影響する変更では、必要に応じてCRDD Document Audit Agentへ監査を委譲する。
 
 CRDD Document Audit Agentへの委譲では、最低限以下を渡す。
 
@@ -529,10 +529,10 @@ Usability Review
 Accessibility Review
 ```
 
-## Behavior / SPEC
+## Behavior Specification
 
 ```text
-Behavior Requirement
+Behavior Specification
 State Transition
 Exception / Recovery
 Acceptance Criteria

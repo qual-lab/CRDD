@@ -1,12 +1,12 @@
-# CRDD Behavior / SPEC Skill
+# CRDD Behavior Specification Skill
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Skill ID: `skill.spec.behavior`
 Owner: Qual-Lab
 Last Updated: 2026-07-16
 Related:
-- [00_18_UI_Behavior_Contract.md](00_18_UI_Behavior_Contract.md)
+- [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
@@ -19,7 +19,7 @@ Related:
 
 Feature、Use Case、IA Lifecycle、UI Contract、Business Ruleを、検証可能なCondition、State、Behavior、Exception、Acceptance Criteriaへ変換する。
 
-Behavior / SPEC Skillは、UXやDesign Intentを機械的な構文へ変換するSkillではない。
+Behavior Specification Skillは、UXやDesign Intentを機械的な構文へ変換するSkillではない。
 
 ```text
 どの条件で
@@ -166,7 +166,7 @@ UXやDesign Intentはそのまま保持し、
 
 # 6. EARS Usage
 
-EARSは、Behavior Requirement、Exception、Acceptance Criteriaで利用する。
+EARSは、Behavior Specification、Exception、Acceptance Criteriaで利用する。
 
 ## Ubiquitous
 
@@ -238,7 +238,7 @@ Authority
 
 ```text
 UIはUndoを提供
-REQは不可逆
+SPECは不可逆
 ```
 
 どちらかを自動修正せず、G4 Reviewへ戻す。
@@ -295,17 +295,17 @@ Documented Behavior
 Implemented Behavior
 Observed Runtime Behavior
 Operational Practice
-Expected Contract Candidate
+Expected Behavior Specification Candidate
 ```
 
 ---
 
 # 8. Professional Output
 
-`templates/05_Behavior_Requirement_Template.md`へ以下を生成する。
+`templates/05_Behavior_Specification_Template.md`へ以下を生成する。
 
 ```text
-REQ ID
+SPEC ID
 Feature / Use Case / User Action
 Purpose
 Source UX / IA / UI
@@ -362,7 +362,7 @@ SystemはLocal Providerへ自動Fallbackせず、
 
 # 10. UI Pair Review
 
-REQごとに対応するUI Contractを確認する。
+SPECごとに対応するUI Contractを確認する。
 
 ```text
 Trigger ↔ Action
@@ -407,14 +407,14 @@ Behavior、State、Exception、Acceptance Criteriaを分けて検討する必要
 分離可能な観点:
 
 ```text
-Behavior Requirement
+Behavior Specification
 State Transition
 Exception / Recovery
 Acceptance Criteria
-UI / SPEC Pair Review
+UI Contract / SPEC Pair Review
 ```
 
-SubagentはRequirement Proposal、State Conflict、Exception Gap、Acceptance Gap、Open Questionを返す。Requirementの統合、UI Contractとの対応確認、正本文書更新はParent Agentが行う。
+SubagentはBehavior Specification Proposal、State Conflict、Exception Gap、Acceptance Gap、Open Questionを返す。Behavior Specificationの統合、UI Contractとの対応確認、正本文書更新はParent Agentが行う。
 
 ---
 
@@ -451,7 +451,7 @@ Fallback Policy
 # 14. Exit Criteria
 
 ```text
-REQ IDと対象Use Caseが明確
+SPEC IDと対象Use Caseが明確
 Trigger / Condition / Behavior / Resultが検証可能
 重要StateとExceptionが定義
 PermissionとRecoveryを必要範囲で確認

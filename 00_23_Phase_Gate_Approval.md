@@ -1,17 +1,17 @@
 # CRDD Phase Gate and Approval
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
 Related:
 - [00_03_CRDD_Conformance.md](00_03_CRDD_Conformance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_17_Discovery.md](00_17_Discovery.md)
-- [00_18_UI_Behavior_Contract.md](00_18_UI_Behavior_Contract.md)
+- [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 - [00_30_Product_Documentation.md](00_30_Product_Documentation.md)
 
@@ -90,7 +90,7 @@ Feature
 Use Case
 Change Package
 Release Scope
-Architecture Decision
+Architecture Artifact / Rationale
 Prototype / Experiment
 Legacy Reconstruction Scope
 ```
@@ -98,12 +98,12 @@ Legacy Reconstruction Scope
 例:
 
 ```text
-Gate Type: UI / Behavior Contract Accepted
+Gate Type: UI Contract / Behavior Specification Accepted
 Scope:
-- FTR-000012
-- UC-000012
+- Feature: Important Topic Review
+- Use Case: Topicの根拠を確認し次Actionを判断する
 - UI-000021
-- REQ-000044
+- SPEC-000044
 Revision: 3
 ```
 
@@ -111,7 +111,7 @@ Revision: 3
 
 ```text
 Feature A: Implementation Verified
-Feature B: UI / Behavior Contract In Review
+Feature B: UI Contract / Behavior Specification In Review
 Feature C: Discovery Framed
 ```
 
@@ -235,7 +235,7 @@ G0 Discovery Framed
 G1 Origin / Problem Accepted
 G2 UX Direction Accepted
 G3 IA Coherence Accepted
-G4 UI / Behavior Contract Accepted
+G4 UI Contract / Behavior Specification Accepted
 G5 Delivery Plan Accepted
 G6 Implementation Verified
 G7 Outcome / Learning Reviewed
@@ -463,7 +463,7 @@ UX上重要な情報へ到達できない
 
 ---
 
-# 10. G4: UI / Behavior Contract Accepted
+# 10. G4: UI Contract / Behavior Specification Accepted
 
 ## Purpose
 
@@ -476,7 +476,7 @@ UX上重要な情報へ到達できない
 UX Context
 IA Context
 UI Contract
-Behavior Requirement / SPEC
+Behavior Specification
 State / Error / Permission条件
 Prototypeまたは必要なVisual Artifact
 ```
@@ -496,7 +496,7 @@ Acceptance Criteriaが検証可能か
 ## Exit Criteria
 
 ```text
-UI ContractとBehavior Requirementが同じ対象へ接続されている
+UI ContractとBehavior Specificationが同じ対象へ接続されている
 主要ActionごとにTrigger、Feedback、Resultが対応している
 主要StateとTransitionが説明できる
 Error / Exception / Permission条件が定義されている
@@ -532,7 +532,7 @@ Figmaの見た目だけで仕様確定とみなしている
 ## Entry Context
 
 ```text
-対象UI / Behavior Contract
+対象UI Contract / Behavior Specification
 Architecture Context
 既存Code / System / Integration
 Implementation Plan
@@ -562,7 +562,7 @@ Implementation ScopeとBoundaryが定義されている
 Taskが検証可能な単位へ分解されている
 Test / Validation Planがある
 Migration / Rollbackが必要な場合は方針がある
-重要なArchitecture Decisionが人間承認されている
+重要なArchitecture ArtifactとDecision / Rationaleが人間承認されている
 ```
 
 ## Stop Conditions
@@ -600,7 +600,7 @@ Security / Governance境界
 
 ```text
 実装差分
-対象UI / Behavior / Architecture Contract
+対象UI Contract / Behavior Specification / Architecture Contract
 Test Result
 Static Analysis / Build Result
 Manual Verification Evidence
@@ -770,7 +770,7 @@ Origin / Intent / Product Principle
 Non-goalと重要Scope
 UX Direction
 重大なIA責務変更
-重要なUI / Behavior Contract
+重要なUI Contract / Behavior Specification
 Security / Governance / Privacy
 破壊的Data / Interface変更
 Roadmap優先順位
@@ -930,7 +930,7 @@ Legacyでは、最初のGate目的を「正解の承認」ではなく、**不�
 
 ```text
 Context / Intent
-UI / Behavior
+UI Contract / Behavior Specification
 Plan
 Verification
 Human Decision
@@ -981,10 +981,10 @@ Gate Recordは、Markdownまたは機械可読Registryで管理してよい。
 gate_id: GATE-000012
 gate_type: UI_BEHAVIOR_CONTRACT
 scope:
-  - FTR-000012
-  - UC-000012
+  - feature: Important Topic Review
+  - use_case: Topicの根拠を確認し次Actionを判断する
   - UI-000021
-  - REQ-000044
+  - SPEC-000044
 revision: 3
 status: CONDITIONALLY_APPROVED
 entry_context:
@@ -998,14 +998,14 @@ findings:
   - Offline表示は未決
 conditions:
   - id: COND-001
-    description: Offline時のUI / Behaviorを実装開始前に確定する
+    description: Offline時のUI Contract / Behavior Specificationを実装開始前に確定する
     owner: Human
     due_before: G5
 approver: Human
 reviewed_at: 2026-07-16
 evidence:
-  - ART-000031
-  - EVD-000017
+  - 05_UI/Evidence/Topic_Review_Capture.md
+  - 04_Spec/Evidence/Topic_Acceptance_Result.md
 reopen_triggers:
   - Permission model change
   - IA object responsibility change
@@ -1015,11 +1015,11 @@ reopen_triggers:
 
 ---
 
-# 21. Relation to Decision Log
+# 21. Relation to Decision / Rationale
 
-すべてのGate Resultに、独立したDecision Logを作る必要はない。
+すべてのGate Resultに、独立したDecision記録を作る必要はない。
 
-以下の場合は、`95_Decisions`へDecisionを残す。
+以下の場合は、判断結果となるCanonical ArtifactへDecision / Rationale Sectionを残す。
 
 ```text
 複数案から重要な選択を行った
@@ -1032,7 +1032,7 @@ Architecture / Security / Governance方針を決めた
 
 Gate Recordは「進める状態か」を記録する。
 
-Decision Logは「なぜその重要判断をしたか」を記録する。
+Decision / Rationale Sectionは「なぜその重要判断をし、成果物へ何を反映したか」を記録する。
 
 両者を混同しない。
 

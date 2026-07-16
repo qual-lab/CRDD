@@ -1,6 +1,6 @@
 # CRDD Discovery
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -11,7 +11,7 @@ Related:
 - [00_04_CRDD_End_to_End_Context_Continuity.md](00_04_CRDD_End_to_End_Context_Continuity.md)
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_30_Product_Documentation.md](00_30_Product_Documentation.md)
@@ -588,7 +588,7 @@ UXへ渡す場合、最低限以下を説明できるようにする。
 
 # 12. Decision and Promotion
 
-Discovery中に重要な選択を確定した場合は、必要に応じてDecision RecordへPromotionする。
+Discovery中に重要な選択を確定した場合は、Requirement等の成果物へ反映し、そのDecision / Rationale Sectionへ理由、Evidence、経緯を残す。
 
 例:
 
@@ -613,7 +613,7 @@ AIが推定したWhy
 Prototypeで一度成立した結果
 ```
 
-Promotionは、`00_11_Information_Provenance.md`および`00_12_Decision_Record.md`に従う。
+Promotionは、`00_11_Information_Provenance.md`および`00_12_Decision_Rationale.md`に従う。
 
 ---
 
@@ -692,7 +692,275 @@ Legacy Discoveryでは、追加で以下を確認する。
 
 ---
 
-# 15. Minimum Compliance
+# 15. Relationship Between `01_Discovery` and `99_Roadmap`
+
+## 15.1. Responsibility Boundary
+
+`01_Discovery`と`99_Roadmap`は、時間軸ではなく責務が異なる。
+
+| Folder | Responsibility | Authority |
+|---|---|---|
+| `01_Discovery` | 新しい発言、事実、法令、問題、要求候補、不確実性を受け取り、EvidenceとInterpretationを分離し、追跡すべきRequirementを確定する | Discovery Source、Evidence、`REQ-*`の正本 |
+| `99_Roadmap` | 採用済みの要求・改善・変更のうち、未着手または将来実施するものについて、優先順位、時期、依存関係、着手条件を示す | 将来実施計画の正本。Requirement、Specification、Designの正本ではない |
+
+```text
+01_Discovery = 何が分かり、何を満たす必要があるか
+99_Roadmap   = 採用済みの何を、いつ・どの順序で扱うか
+```
+
+すべてのDiscovery結果がRoadmapへ進むわけではない。
+
+```text
+今すぐ対応する      → 07_WorkflowsのChange Context Packageへ進む
+将来対応すると決める → 99_Roadmapへ参照を追加する
+追加調査が必要       → 01_Discoveryに留める
+採用しない           → 01_DiscoveryのDecision / Rationaleへ理由を残す
+既存仕様どおりの不具合 → 01や99を経由せずChange Context Packageへ進める
+```
+
+## 15.2. No Document Movement Between 01 and 99
+
+Discovery文書やEvidenceを`99_Roadmap`へ移動してはならない。Roadmap項目をRequirementやSpecificationの正本として扱ってもならない。
+
+```text
+01_Discovery/01_Product_Requirements.md#missed-important-topic
+  └─ REQ-000012
+
+99_Roadmap/01_Product_Roadmap.md#important-topic-review
+  ├─ Source Requirement: REQ-000012
+  ├─ Status: Planned
+  ├─ Target: Q4
+  └─ Start Condition: UX / feasibility review completed
+```
+
+Roadmap項目へCRDD標準Stable IDを付与しない。文書番号、Path、Anchor、必要なら外部IssueやProject IDで識別する。
+
+着手時はRoadmap文書を`07_Workflows`へ移動しない。Change Context Packageを作成し、RoadmapからPackageへリンクする。
+
+```text
+99_Roadmap/01_Product_Roadmap.md#important-topic-review
+  ↓ starts_as
+07_Workflows/Changes/03_Important_Topic_Review.md
+  ↓ reads / updates
+REQ-000012 → UX-* / IA-* / UI-* / SPEC-*
+```
+
+完了後もRoadmapを仕様正本にしない。RoadmapのStatusと成果物参照を更新し、確定内容は各Canonical Artifactへ残す。
+
+## 15.3. Stable ID Transition Rule
+
+経路上でStable IDを扱うときは、以下を守る。
+
+```text
+新しい独立した要求・意味単位     → 新しいREQ / UX / IA / UI / SPEC ID
+既存Contextの意味を保つ明確化     → 同じIDのRevision更新
+既存Contextを別の意味へ置き換える → 新IDを発行しsupersedesで旧IDへ接続
+Evidence、Roadmap、Architecture、Change、Test → Stable IDを発行せずArtifact参照
+```
+
+---
+
+# 16. Initial Development Routes
+
+## 16.1. Customer Interview → Idea → Human Decision
+
+顧客の発言やアイディアを、そのままRequirementまたはRoadmap項目にしない。
+
+```text
+01_Discovery/Evidence/Customer_Interview_01.md
+  ↓ interpretation / human decision
+01_Discovery/01_Product_Requirements.md
+  └─ REQ-000012: 利用者が重要事項を見落とさず確認できること
+       ├─ addresses ← UX-000004
+       └─ specified_by → SPEC-000044
+                            └─ pairs_with ← UI-000021
+```
+
+今すぐ作る場合:
+
+```text
+REQ-000012
+  ↓
+02_UX / 03_IA / 04_Spec / 05_UIのCanonical Artifact
+  ↓
+07_Workflows/Changes/01_Important_Topic_Review.md
+  ↓
+Architecture Artifact → Implementation → Verification
+```
+
+採用したが後で作る場合:
+
+```text
+REQ-000012
+  ↓ referenced_by
+99_Roadmap/01_Product_Roadmap.md#important-topic-review
+```
+
+Roadmapには要求本文を複製せず、REQ、期待Outcome、優先理由、着手条件を参照として持たせる。
+
+## 16.2. Legal or Regulatory Change During Development
+
+法令本文、施行日、解釈根拠はDiscovery Evidenceとして保存または外部正本へ固定参照する。
+
+```text
+01_Discovery/Evidence/Legal/2026_Regulation_Change.md
+  ↓ supports
+REQ-000020: 対象操作の監査記録を保持すること
+  ↓ specified_by
+SPEC-000061: 監査記録の生成・失敗時Behavior
+```
+
+即時対応が必要なら`07_Workflows`へ進み、将来の施行日に合わせるなら`99_Roadmap`へREQ参照と期限を置く。Roadmapだけに法的要求を書いてはならない。
+
+既存Requirementの意味を明確化するだけなら同じ`REQ-*`のRevisionを更新する。新しい法的義務なら新しい`REQ-*`を発行する。
+
+## 16.3. Explicit Specification Change
+
+変更要求の根拠を`01_Discovery`で確認し、Requirementが変わるかを先に判定する。
+
+```text
+Requirementも変わる
+  → 新規または更新REQ
+  → 影響するUX / IA / UI / SPECを更新
+
+Requirementは同じでBehaviorの明確化だけ
+  → 同じSPEC IDのRevisionを更新
+
+Behaviorの意味を置換する
+  → 新しいSPEC ID
+  → new SPEC supersedes old SPEC
+```
+
+着手済みならChange Context Packageへ、採用済みだが未着手ならRoadmapへ参照を追加する。
+
+## 16.4. Defect
+
+承認済みSPECまたはUIに対して実装が一致しないことが明確なら、新しいREQやRoadmap項目を必須としない。
+
+```text
+04_Spec/Evidence/Topic_Behavior_Failure.md
+  ↓ shows deviation from
+SPEC-000044 / UI-000021
+  ↓
+07_Workflows/Changes/04_Fix_Topic_Read_State.md
+  ↓
+Implementation / Test / Verification
+```
+
+修正を意図的に延期する場合だけ、RoadmapまたはBacklog Viewへ参照を置く。既存仕様が存在しない、または期待動作自体が未確定なら、単純なDefectとして扱わずDiscoveryへ戻す。
+
+## 16.5. Ambiguous Request: Defect or Specification Change Unknown
+
+曖昧な要求を直接Roadmapや実装へ渡さない。まず`01_Discovery`で分類する。
+
+```text
+01_Discovery/Evidence/Support_Request_27.md
+  ↓
+01_Discovery/03_Hypotheses_and_Questions.md#request-27
+  ├─ 現行SPECどおりでない        → Defect Route
+  ├─ 現行SPECは正しいが説明不足   → 同じIDの文書・Acceptance明確化
+  ├─ Requirementが新しい          → 新しいREQ Route
+  ├─ Behaviorの意味を変える       → 新しいSPEC + supersedes
+  └─ Evidence不足                 → Continue Discovery / Research
+```
+
+価値と対応方針が人間により採用され、かつ将来対応と決まるまで`99_Roadmap`へ昇格しない。
+
+---
+
+# 17. Maintenance Routes
+
+保守期でも`01_Discovery`は閉じない。新しい外部事実、要求、法令、不確実性の入口として継続利用する。一方、既存成果物との差分が明確な場合は、不要なDiscoveryやID発行を増やさない。
+
+## 17.1. Customer Interview → Idea → Human Decision
+
+```text
+01_Discovery/Evidence/Customer_Interview_18.md
+  ↓ compare with existing REQ / UX / IA / UI / SPEC
+```
+
+| Finding | Route |
+|---|---|
+| 既存Requirementを補強するEvidence | 既存`REQ-*`を維持し、Evidence参照またはRevisionを更新 |
+| 新しい独立要求 | 新しい`REQ-*`を発行 |
+| 既存要求を置き換える | 新しい`REQ-*`を発行し`supersedes` |
+| 採用済みで即時対応 | Canonical Artifact更新案 → Change Context Package |
+| 採用済みで将来対応 | `99_Roadmap`からREQと影響Contextを参照 |
+| 採用しない | Discovery成果物のDecision / Rationaleへ理由を残す |
+
+## 17.2. Legal or Regulatory Change During Maintenance
+
+```text
+Legal Source / Revision / Effective Date
+  ↓
+01_Discovery/Evidence/Legal/
+  ↓
+new or revised REQ-*
+  ↓ impact analysis
+existing UX / IA / UI / SPEC + Architecture Artifact
+```
+
+対応期限が現在Releaseより前なら、Roadmap待ちにせず緊急Change Context Packageへ進める。将来施行ならRoadmapへ期限、対象REQ、影響成果物、着手条件を記録する。
+
+## 17.3. Explicit Specification Change During Maintenance
+
+```text
+Change Trigger
+  ↓ requirement impact classification in 01_Discovery
+Existing REQ / UX / IA / UI / SPEC
+  ↓ same meaning       → same ID + Revision
+  ↓ semantic replace  → new ID + supersedes
+07_Workflows/Changes/<document-number>_<topic>.md
+  ↓
+Architecture / Implementation / Migration / Verification
+```
+
+変更を次期Releaseへ送る場合はRoadmapへ参照を置くが、変更後の仕様本文をRoadmapへ先行して正本化しない。
+
+## 17.4. Defect During Maintenance
+
+```text
+Incident / Test Failure / Support Evidence
+  ↓ compare with Approved UI / SPEC
+仕様との差分が明確
+  ↓
+Change Context Package → Fix → Regression Test → Evidence
+```
+
+既存`REQ-*`、`UI-*`、`SPEC-*`は、意味が変わらない限り維持する。修正結果、Test名、Evidence Path、ReleaseはArtifact参照で接続する。
+
+修正過程で「現行仕様そのものが不適切」と判明した場合はDefect Routeを中断し、Discoveryへ戻してRequirementまたはSpecification Changeとして再分類する。
+
+## 17.5. Ambiguous Request During Maintenance
+
+```text
+Support / Operation / Monitoring Input
+  ↓
+01_Discoveryで期待、現行仕様、実装事実を比較
+  ├─ Implementation deviation → Defect
+  ├─ Missing requirement      → new or revised REQ
+  ├─ Changed behavior intent  → revised/new SPEC
+  ├─ UX / IA / UI issue       → affected Stable Context update
+  └─ Not enough evidence      → Research / Observation
+```
+
+分類前に既存Stable IDの意味を書き換えたり、新しいIDを仮発行したりしない。Roadmapには「曖昧な要求」そのものを仕様として置かず、必要なら調査項目としてPathと着手条件だけを記録する。
+
+---
+
+# 18. Route Summary
+
+| Trigger | First Check | Stable ID Action | Immediate | Deferred |
+|---|---|---|---|---|
+| 顧客ヒアリング・アイディア | Evidenceと要求を分離 | 新規要求なら`REQ-*`。既存意味なら維持 | Canonical Artifact → Change Package | REQ参照をRoadmapへ |
+| 法改正 | Source、Revision、施行日、適用範囲 | 新義務なら`REQ-*`。Behaviorは`SPEC-*` | 緊急または期限付きChange Package | 期限とREQ参照をRoadmapへ |
+| 明確な仕様変更 | Requirementも変わるか | 同じ意味はRevision、置換は新ID + `supersedes` | Change Package | 影響ID参照をRoadmapへ |
+| 不具合 | Approved UI / SPECとの差分か | 原則ID維持 | Fix Change Package | 延期時だけRoadmap / Backlog参照 |
+| 仕様変更か曖昧 | 期待・仕様・実装事実を比較 | 分類まで新IDを発行しない | 分類後のRouteへ | 採用・延期決定後だけRoadmapへ |
+
+---
+
+# 19. Minimum Compliance
 
 CRDD Product Lifecycle ProfileでDiscoveryを適用する場合、最低限以下を満たす。
 
@@ -704,13 +972,18 @@ Problem / Desired Outcome / Solution Candidateを区別する
 不確実性とOpen Questionを明示する
 次に進むRouteを判断する
 次工程へ、Preserved Intentと未決事項を渡す
+01_DiscoveryをEvidence・不確実性・REQの入口として扱う
+99_Roadmapを採用済みで未着手の計画Viewとして扱う
+Discovery文書をRoadmapへ移動せず、RoadmapをRequirementやSpecificationの正本にしない
+Roadmap項目へCRDD標準Stable IDを付与しない
+不具合・仕様変更・曖昧な要求でStable IDを維持、改訂、置換する条件を区別する
 ```
 
 固定された質問票、専用Tool、特定のFile構成、特定のAI Agentに依存してはならない。
 
 ---
 
-# 16. Final Principle
+# 20. Final Principle
 
 ```text
 Discoveryは、AIが正しい答えを作る工程ではない。

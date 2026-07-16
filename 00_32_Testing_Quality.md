@@ -1,9 +1,9 @@
 # Testing and Quality
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-15
+Last Updated: 2026-07-16
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
@@ -235,7 +235,7 @@ Design Token
 Component / Layout Pattern
 全Screen／主要StateのFinal Visual
 Asset / Motion Package
-Behavior Requirement
+Behavior Specification
 Acceptance Criteria
 ```
 

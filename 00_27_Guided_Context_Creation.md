@@ -1,6 +1,6 @@
 # CRDD Guided Context Creation
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -10,7 +10,7 @@ Related:
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_17_Discovery.md](00_17_Discovery.md)
-- [00_18_UI_Behavior_Contract.md](00_18_UI_Behavior_Contract.md)
+- [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 - [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_24_Change_Context_Package.md](00_24_Change_Context_Package.md)
@@ -131,8 +131,10 @@ Professional Templateは、専門Contextを保存・Review・再利用するた�
 UX Outcome Template
 IA Object Model Template
 UI Contract Template
-Behavior Requirement Template
-Architecture Decision Template
+Behavior Specification Template
+Architecture Rationale Template
+Evidence Section / File Template
+Decision / Rationale Section Template
 Delivery Plan Template
 ```
 
@@ -174,7 +176,7 @@ Pain
 Desired Outcome
 Principle
 Constraint
-Evidence
+Evidence Candidate / Source Reference
 Hypothesis
 Open Question
 ```
@@ -191,7 +193,7 @@ Journey
 Object Model
 Navigation
 UI Contract
-Behavior Requirement
+Behavior Specification
 Acceptance Criteria
 Architecture Boundary
 ```
@@ -482,7 +484,7 @@ UX Skill
 ↓
 IA Skill
 ↓
-UI Skill ⇄ Behavior / SPEC Skill
+UI Skill ⇄ Behavior Specification Skill
 ↓
 Architecture Skill
 ↓
@@ -693,11 +695,11 @@ Behaviorを無言で決めていないか
 
 ---
 
-# 12. Behavior / SPEC Guided Skill
+# 12. Behavior Specification Guided Skill
 
 ## Goal
 
-Feature、Use Case、UI Contract、Business Ruleを、検証可能なBehavior Contractへ変換する。
+Feature、Use Case、UI Contract、Business Ruleを、検証可能なBehavior Specificationへ変換する。
 
 ## Human-friendly Questions
 
@@ -717,7 +719,7 @@ Feature、Use Case、UI Contract、Business Ruleを、検証可能なBehavior Co
 ## Professional Output
 
 ```text
-REQ ID
+SPEC ID
 Trigger
 Precondition
 Actor / Authority
@@ -858,7 +860,7 @@ Observed Behavior
 Operational Practice
 Difference
 Recovered Intent Candidate
-Expected Contract Candidate
+Expected Behavior Specification Candidate
 Confidence
 Risk
 Unknown
@@ -990,7 +992,7 @@ AIが専門Contextへ変換した後は、単なる「OKですか？」ではな
 
 ```text
 UIでは「根拠」と「次Action」を同じ視野へ置きます。
-一方、重要度の算出RuleはUIでは決めず、REQ側の未決事項として残します。
+一方、重要度の算出RuleはUIでは決めず、SPEC側の未決事項として残します。
 ```
 
 のように、責務境界も説明する。
@@ -1036,7 +1038,7 @@ skill:
     optional:
       - Existing UI
       - Pattern
-      - Behavior Requirement
+      - Behavior Specification
   questions:
     core:
       - first_information
@@ -1059,7 +1061,7 @@ skill:
     - preserved_intent
     - responsibility_boundary
   next:
-    - Behavior Skill
+    - Behavior Specification Skill
     - Prototype Skill
 ```
 
@@ -1071,16 +1073,19 @@ skill:
 
 ```text
 Context ID
+Context Type
 Title
 Purpose
 Status
 Revision
 Owner / Authority
 Source Context
+Source Artifact / Revision / Anchor
 Raw Voice Reference
 Preserved Intent
 Main Content
 Decision / Rationale
+Evidence / Limitation
 Assumption
 Open Question
 Confidence
@@ -1092,7 +1097,11 @@ Last Reviewed
 
 すべてのTemplateへ同じ項目を機械的に表示する必要はない。
 
+`Context ID`は、標準Stable ID対象であるREQ、UX、IA、UI、SPECのTemplateにだけ使用する。Architecture、Decision、Evidence、Change、Test等のTemplateはArtifact Reference、Path、Anchor、Revision、既存Toolの識別子を使用する。
+
 Registry、Front Matter、本文へ分散して保持してよい。
+
+Evidence TemplateはStable IDを要求せず、Source、Revisionまたは時点、取得条件、Provenance、支える成果物、Limitationを持つ。Evidenceファイルは利用する成果物に最も近い親Folderの`Evidence/`へ置く。Decision / Rationale TemplateもStable IDを要求せず、成果物へ反映した内容、Authority、Rationale、Alternatives、Evidence、Historyを同じCanonical Artifact内に保持する。
 
 ---
 

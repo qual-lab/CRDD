@@ -1,6 +1,6 @@
 # CRDD UX Skill
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Skill ID: `skill.ux.outcome`
 Owner: Qual-Lab
@@ -11,7 +11,6 @@ Related:
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
 - [00_40_Guided_Skill_Runtime.md](00_40_Guided_Skill_Runtime.md)
-
 - [00_46_Git_Markdown_Execution.md](00_46_Git_Markdown_Execution.md)
 ---
 

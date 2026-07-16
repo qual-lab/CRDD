@@ -1,13 +1,13 @@
 # AI Change Control
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-12
+Last Updated: 2026-07-16
 Related:
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 
 ---
 
@@ -72,12 +72,11 @@ AIによる編集は、以下の4段階に分ける。
 | `05_UI`           | Level 2       | UI表示・操作・文言の草案整理は可能。画面責務変更は承認必須 |
 | `06_Architecture` | Level 2       | 技術設計の草案・修正は可能。構成変更は承認必須      |
 | `07_Workflows`    | Level 2〜3     | 運用手順の草案・更新は可能。開発フローの方針変更は承認必須 |
-| `40_Develop`      | Level 3       | 実装計画、作業ログ、検証結果はAI編集可         |
-| `80_PR`           | Level 1〜2     | PR文案は作成可。外部公開表現は人間承認必須       |
-| `90_Evidence`     | Level 2〜3     | 要約・分類・Index作成は可能。解釈の正本化は承認必須 |
+| `40_Develop`      | Level 3       | Code、Configuration、Test等の実装変更。Repository RuleとReviewに従う |
 | `90_Release`      | Level 2〜3     | Release Evidence・要約作成は可能。Release可否判断は人間 |
-| `95_Decisions`    | Level 1       | Decision Logの下書きのみ。確定判断は人間   |
 | `99_Roadmap`      | Level 1〜2     | Roadmap案は作成可。優先順位確定は人間       |
+
+Evidenceの整理・Source参照追加はLevel 2〜3にできるが、Evidenceを根拠として成果物を変更する判断は人間Reviewを必要とする。重要判断が反映されたCanonical ArtifactとDecision / Rationale SectionはLevel 1であり、AIはDraftのみ作成できる。
 
 ---
 
@@ -120,8 +119,8 @@ AIはこれらについて、以下は行ってよい。
 AIが比較的安全に編集してよいものは以下である。
 
 ```text
-40_Develop配下の作業計画
-40_Develop配下の検証結果
+07_Workflows配下の作業計画
+Sourceと対象Revisionが明確なVerification Result Draft
 実装メモ
 テスト計画
 テスト結果
@@ -173,7 +172,7 @@ AIが編集または実装を行う場合、原則として以下の順に進め
 6. AIが差分を説明する
 7. AIが検証結果を残す
 8. 人間がレビューする
-9. 必要ならDecision Logへ反映する
+9. 必要なら成果物へ判断を反映しDecision / Rationaleを残す
 ```
 
 ---
@@ -222,15 +221,15 @@ AIが編集・実装を行った後は、以下の形式で結果を残す。
 
 ## Human Review Points
 
-## Need Decision Log
+## Need Decision / Rationale
 Yes / No
 ```
 
 ---
 
-# 11. Decision Log Requirement
+# 11. Decision / Rationale Requirement
 
-以下に該当するAI作業後は、`95_Decisions` にDecision Logを残す。
+以下に該当するAI作業後は、判断結果をCanonical Artifactへ反映し、同じ成果物のDecision / Rationale Sectionへ理由、Evidence、経緯を残す。
 
 ```text
 方針変更が発生した
@@ -243,14 +242,14 @@ AI出力スキーマに影響した
 プロダクトの思想やUXに影響した
 ```
 
-AIはDecision Logの下書きを作成してよい。
-ただし、Decisionの確定文言は人間が承認する。Decision Logの詳細な書式は[`00_12_Decision_Record.md`](00_12_Decision_Record.md)を参照する。
+AIは成果物の変更案とDecision / Rationale Sectionの下書きを作成してよい。
+ただし、判断結果と確定文言は人間が承認する。詳細な書式は[`00_12_Decision_Rationale.md`](00_12_Decision_Rationale.md)を参照する。
 
 ---
 
 # 12. Evidence Handling
 
-AIは `90_Evidence` の資料を要約・分類してよい。
+AIはSource Artifactを要約・分類し、最寄りの親FolderにEvidenceファイルのDraftを作成してよい。
 
 ただし、Evidenceをそのまま正本として扱ってはいけない。
 
@@ -263,13 +262,10 @@ Decision = 判断
 AIがEvidenceから重要な示唆を抽出した場合、以下のいずれかへ昇格案を作成する。
 
 ```text
-02_UX
-03_IA
-04_Spec
-05_UI
-06_Architecture
-95_Decisions
-99_Roadmap
+対象となるUX / IA / SPEC / UI / Architecture Context
+Decision / Rationale Section
+Roadmap
+Verification Record
 ```
 
 昇格は人間レビュー後に確定する。Evidence昇格の全体フローは[`00_11_Information_Provenance.md`](00_11_Information_Provenance.md)を参照する。
@@ -337,7 +333,7 @@ AIは以下を行ってはいけない。
 人間承認なしに重要判断を確定する
 既存方針を理由なく上書きする
 古い文書を削除する
-Decision Logを書き換えて判断履歴を消す
+Decision / Rationale Sectionを書き換えて判断履歴を消す
 Roadmap優先順位を勝手に変更する
 Security方針を緩める
 Governance方針を削除する
@@ -381,13 +377,13 @@ CRDDでは、過去の思想や判断の変遷も重要なContextである。
 
 ## Example 1: Develop Plan
 
-AIが `40_Develop/Sprint_xx/01_Implementation_Plan.md` を作成する。
+AIが `07_Workflows/Changes/01_Implementation_Plan.md` を作成する。
 
 ```text
 Allowed: Yes
 Level: Safe Edit
 Human Review: Recommended
-Decision Log: Usually not required
+Decision / Rationale: Usually not required
 ```
 
 ## Example 2: UX Philosophy Change
@@ -398,7 +394,7 @@ AIが `02_UX/01_Product_Philosophy.md` の思想を書き換える。
 Allowed: Draft only
 Level: Assisted Edit
 Human Review: Required
-Decision Log: Required
+Decision / Rationale: Required
 ```
 
 ## Example 3: Roadmap Priority Change
@@ -409,18 +405,18 @@ AIが `99_Roadmap` の優先順位を変更する。
 Allowed: Proposal only
 Level: Draft
 Human Review: Required
-Decision Log: Required
+Decision / Rationale: Required
 ```
 
 ## Example 4: Evidence Summary
 
-AIが競合調査資料を要約して `90_Evidence` にIndexを作る。
+AIが競合調査資料を要約し、`01_Discovery/Evidence/04_Competitor_Research.md`にSource、制限、関連Requirementを持つEvidenceファイルのDraftを作る。
 
 ```text
 Allowed: Yes
 Level: Safe Edit
 Human Review: Recommended
-Decision Log: Not required unless used for decision
+Decision / Rationale: Not required unless used for decision
 ```
 
 ## Example 5: Security Policy Change
@@ -431,7 +427,7 @@ AIがCloud AIへの送信範囲を変更する。
 Allowed: Proposal only
 Level: Draft
 Human Review: Required
-Decision Log: Required
+Decision / Rationale: Required
 ```
 
 ---
@@ -448,7 +444,7 @@ CRDD原則と矛盾していないか
 勝手に判断を確定していないか
 関連文書リンクがあるか
 テストまたは検証結果があるか
-Decision Logが必要ではないか
+Decision / Rationale Sectionが必要ではないか
 古い情報を破壊していないか
 過剰に複雑化していないか
 ```
@@ -460,11 +456,11 @@ Decision Logが必要ではないか
 最低限、以下を守る。
 
 ```text
-AIは00_CRDD、02_UX、95_Decisions、99_Roadmapを勝手に確定変更しない。
+AIは00_CRDD、02_UX、重要判断が反映されたApproved Canonical Artifact、99_Roadmapを勝手に確定変更しない。
 AIは実装前にPlanを出す。
 AIは変更後にResultを残す。
 人間は重要差分を確認する。
-重要判断は95_Decisionsへ残す。
+重要判断はCanonical Artifactへ反映し、理由、Evidence、経緯を同じ成果物へ残す。
 ```
 
 ---

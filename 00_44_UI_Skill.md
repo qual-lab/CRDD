@@ -1,12 +1,12 @@
 # CRDD UI Skill
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Skill ID: `skill.ui.contract`
 Owner: Qual-Lab
 Last Updated: 2026-07-16
 Related:
-- [00_18_UI_Behavior_Contract.md](00_18_UI_Behavior_Contract.md)
+- [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 - [00_26_Agent_IO_Contract.md](00_26_Agent_IO_Contract.md)
 - [00_27_Guided_Context_Creation.md](00_27_Guided_Context_Creation.md)
@@ -61,7 +61,7 @@ UX Outcome
 Experience Principle
 IA Object / Responsibility
 Feature / Use Case / User Action
-既知のBehavior Requirement
+既知のBehavior Specification
 Platform / Brand / Accessibility Constraint
 Existing Pattern / Component
 ```
@@ -252,7 +252,7 @@ Cancel / Undo / Retry
 Accessibility
 Variant
 Figma / Prototype Reference
-pairs_with REQ
+pairs_with SPEC
 Open Question
 ```
 
@@ -288,9 +288,9 @@ Figma Frameがあっても、Loading、Error、Permission、Feedbackが不明な
 
 ---
 
-# 9. UI / Behavior Pair Review
+# 9. UI Contract / Behavior Specification Pair Review
 
-UI Skill終了前に、REQがある場合は次を照合する。
+UI Skill終了前に、SPECがある場合は次を照合する。
 
 | UI | Behavior |
 |---|---|
@@ -324,7 +324,7 @@ UIでは決めないこと:
 重要度算出Rule、再試行上限、権限Rule。
 
 不足:
-REQ側でCancellation Behaviorが未定義。
+SPEC側でCancellation Behaviorが未定義。
 ```
 
 ---
@@ -354,7 +354,7 @@ SubagentはUI Proposal、Coverage Gap、Behavior Conflict、Accessibility Risk�
 
 ```text
 IA責務が曖昧
-UIと既存REQが重大に矛盾
+UIと既存SPECが重大に矛盾
 重要ActionのAuthorityが不明
 ```
 
@@ -386,6 +386,6 @@ Preserved UX Intentが明示
 Loading / Empty / Error / Permissionを必要範囲で確認
 Behavior未決がOpen Question化
 Figma等Artifactへ参照可能
-REQとのpairs_with候補がある
+SPECとのpairs_with候補がある
 人間Review済み
 ```

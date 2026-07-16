@@ -1,6 +1,6 @@
 # CRDD Guided Skill Runtime
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -56,12 +56,12 @@ skill_run:
   skill: skill.ux.outcome
   status: InProgress
   scope:
-    change: CHG-000045
+    change: 07_Workflows/Changes/04_Topic_Detail.md
     feature:
-      - FTR-000012
+      - Important Topic Review
   input_revision:
-    origin: ORG-000001@2
-    problem: PRB-000003@3
+    origin: 01_Discovery/00_Product_Origin.md@2
+    problem: 01_Discovery/01_Product_Requirements.md#decision-fragmentation@3
   mode: Standard
   current_step: HumanReview
   answered_topics:
@@ -388,7 +388,7 @@ Relation
 Review Package
 専門家所見
 Impact Analysis
-Decision Record
+Decision / Rationale Section
 Gate判定
 ```
 
@@ -403,7 +403,7 @@ handoff:
   from_skill: skill.ux.outcome
   to_skill: skill.ia.structure
   scope:
-    - FTR-000012
+    - feature: Important Topic Review
   accepted_context:
     - UX-000004@3
   preserve:
@@ -442,10 +442,10 @@ Result:
 UI-000021@4
 
 Open:
-REQ側のRetry上限
+SPEC側のRetry上限
 
 Next:
-Behavior Skill
+Behavior Specification Skill
 ```
 
 簡略化しても、参照Revision、守るIntent、未決、次Handoffを消してはならない。

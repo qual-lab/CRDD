@@ -1,6 +1,6 @@
 # CRDD Context Transformation
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -10,7 +10,7 @@ Related:
 - [00_04_CRDD_End_to_End_Context_Continuity.md](00_04_CRDD_End_to_End_Context_Continuity.md)
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_30_Product_Documentation.md](00_30_Product_Documentation.md)
 
@@ -80,10 +80,10 @@ Product Lifecycle Profileでは、以下を標準的なContext Flowとして扱�
 40_Develop
 Code、Configuration、Test、Buildとして具体化する
         ↓
-90_Evidence / 90_Release
-成立性と結果を検証する
+最寄りの親FolderにあるEvidence / 90_Release
+SourceとRevisionを伴うEvidenceにより成立性と結果を検証する
         ↓
-02_UX / 03_IA / 04_Spec / 05_UI / 06_Architecture / 95_Decisions / 99_Roadmap
+01_Discovery / 02_UX / 03_IA / 04_Spec / 05_UI / 06_Architecture / 99_Roadmap
 学び、変更、次の判断を適切なContextへ戻す
 ```
 
@@ -192,7 +192,7 @@ Verified Result → Evidenceとともに確定情報へ昇格する
 
 上流Contextだけでは一意に決まらず、その層で新しい選択を行った場合は、Transformation Decisionとして明示する。
 
-重大な価値、Scope、責務、契約、技術境界を変える判断は、必要に応じて`95_Decisions`へ記録する。
+重大な価値、Scope、責務、契約、技術境界を変える判断は、結果となるCanonical Artifactへ反映し、同じ成果物へ理由、Evidence、代替案、経緯を記録する。
 
 下流成果物の中へ判断を埋め込み、理由を失わせてはならない。
 
@@ -424,7 +424,7 @@ Loading / Empty / Error / Disabled / Permissionをどう表現するか
 文言と説明責任をどう担うか
 ```
 
-### Behavior Contract
+### Behavior Specification
 
 ```text
 どの条件で処理が開始されるか
@@ -460,7 +460,7 @@ UIに現れる主要状態がSPECに存在しない、またはSPECに存在す�
 
 ```text
 UI Contract
-Behavior Contract
+Behavior Specification
 State
 Input / Output
 Acceptance Criteria
@@ -501,7 +501,7 @@ Test Strategy
 
 ```text
 承認済みScope
-UI / Behavior Contract
+UI Contract / Behavior Specification
 Architecture Boundary
 Data / API / Security Contract
 実装規約
@@ -541,7 +541,7 @@ Known Limitation
 ```text
 Buildと基本動作
 Acceptance Criteria
-UI ContractとBehavior Contractの一致
+UI ContractとBehavior Specificationの一致
 Architecture BoundaryとSecurity Constraint
 UX上の期待する変化を阻害していないか
 Origin / Product Principleに反していないか
@@ -571,8 +571,8 @@ Verification Evidence
 
 | Context | Responsibility |
 |---|---|
-| `90_Evidence` | 変換と判断を支える根拠 |
-| `95_Decisions` | 層を越える重要判断、採用・却下・変更理由 |
+| Evidence | Source、Revision、取得条件とともに変換と判断を支える、最寄りの親Folderまたは成果物内の根拠 |
+| Decision / Rationale | Canonical Artifactへ反映した判断と、その採用・却下・変更理由 |
 | `99_Roadmap` | 未実装、将来候補、時期と優先順位 |
 | `07_Workflows` | 変換、Review、承認、検証をどう進めるか |
 

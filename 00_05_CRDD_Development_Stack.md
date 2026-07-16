@@ -1,6 +1,6 @@
 # CRDD Development Stack
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -89,8 +89,8 @@ Discovery
 | Architecture | Data、API、System Boundary、Security、Operation | UX 5層の後続 | `06_Architecture` |
 | Planning | Task、Dependency、Estimate、Milestone、Risk | UX 5層の後続 | `07_Workflows` / `99_Roadmap` |
 | Delivery | Code、Configuration、Migration、Release | UX 5層の後続 | `40_Develop` / `90_Release` |
-| Verification | Test、Review、Evidence、Outcome確認 | UX 5層の後続 | `40_Develop` / `90_Evidence` |
-| Learning | Decision、Knowledge、Roadmapへの還元 | 全層へのFeedback | `95_Decisions` / `99_Roadmap` |
+| Verification | Test、Review、Evidence、Outcome確認 | UX 5層の後続 | Test Artifact / `90_Release` / 最寄りの親FolderにあるEvidence |
+| Learning | Decision、Knowledge、Roadmapへの還元 | 全層へのFeedback | 責務を持つCanonical Artifact / `99_Roadmap` |
 
 ---
 
@@ -237,13 +237,13 @@ UIで定義されたScreen、State、Variantが、最終表現と必要素材に
 
 外部Source Masterを利用する場合、Figma、Illustrator、PSD、After Effects等のAuthorityとVersionをContext Repositoryから追跡可能にする。
 
-## 3.5. Behavior / SPEC
+## 3.5. Behavior Specification
 
 最低限次を持つ。
 
 ```text
 Feature / Use Case
-Behavior Requirement
+Behavior Specification
 Business Rule
 State Transition
 Permission
@@ -267,7 +267,7 @@ API / Integration Contract
 Security / Privacy Boundary
 Failure / Recovery
 Deployment / Operation
-Architecture Decision Record
+Architecture Artifact内のDecision / Rationale
 ```
 
 Architectureは、現在の環境で上流Contractを成立させる実現方法である。
@@ -387,7 +387,7 @@ Brand / Platform差分がRuleとして説明可能
 ## 4.5. Behavior / Delivery Quality
 
 ```text
-UI ContractとBehavior Contractが整合
+UI ContractとBehavior Specificationが整合
 Acceptance Criteriaが検証可能
 Architectureが承認済みContractを弱めていない
 Fresh Evidenceで現在Revisionを確認
@@ -451,7 +451,7 @@ Behavior / Acceptanceはどこにあるか
 UXの5層が成立しても、次が欠ければ製品は完成していない。
 
 ```text
-Behavior Contract
+Behavior Specification
 Technical Architecture
 Delivery Plan
 Implementation

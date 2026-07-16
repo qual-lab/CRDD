@@ -1,14 +1,14 @@
 # Subagent Practice
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-15
+Last Updated: 2026-07-16
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_50_Subagent_Orchestration.md](00_50_Subagent_Orchestration.md)
 - [00_51_Document_Audit_Agent.md](00_51_Document_Audit_Agent.md)
 
@@ -151,7 +151,7 @@ Context Facilitatorは対立を仲裁・判断しない
 Context Facilitatorは対立を Option 比較表へ構造化するだけに留める
 ```
 
-構造化には `00_12_Decision_Record.md` の「Alternatives Considered」形式を流用する。
+構造化には `00_12_Decision_Rationale.md` の「Alternatives」形式を流用する。
 
 ```text
 ### Option A: ◯◯
@@ -432,9 +432,9 @@ UX・IAにまたがる変更 → UX View + IA View
 Architectureに影響する変更 → Architecture Viewを追加
 ```
 
-`00_CRDD` / `02_UX` / `95_Decisions` に影響する変更は、Design Councilの構成に関わらず、必ずContext Facilitator経由で人間承認を求める（[`00_14_AI_Change_Control.md`](00_14_AI_Change_Control.md)のProtected Areasルールが優先する）。
+`00_CRDD` / `02_UX` / 重要判断が反映されたApproved Canonical Artifactに影響する変更は、Design Councilの構成に関わらず、必ずContext Facilitator経由で人間承認を求める（[`00_14_AI_Change_Control.md`](00_14_AI_Change_Control.md)のProtected Areasルールが優先する）。
 
-README、Overview、CHANGELOG、Related、Status、採番、Traceabilityなど、Context Repositoryの文書体系に影響する変更では、必要に応じてCRDD Document Audit Agentを起動する。
+README、Overview、CHANGELOG、Related、Status、文書採番、安定ID、Traceabilityなど、Context Repositoryの文書体系に影響する変更では、必要に応じてCRDD Document Audit Agentを起動する。
 
 ---
 
@@ -471,7 +471,7 @@ Implementation Agent
 
 プロダクトによっては、複数のAIツールを役割ごとに使い分けることもある。その具体的な役割分担（どの局面でどのツールを使うか）は本ドキュメントのスコープ外とし、プロダクト側の運用ドキュメントで別途整理する。
 
-導入するAgentの実装状態（実装済み・未実装・ツール名等）は、時間とともに変わる。この「今どのAgentが実際に動いているか」という進捗情報は、本Practice Guide側では管理せず、プロダクト側の`07_Workflows`または`95_Decisions`で管理する。
+導入するAgentの実装状態（実装済み・未実装・ツール名等）は、時間とともに変わる。この「今どのAgentが実際に動いているか」という進捗情報は、本Practice Guide側では管理せず、プロダクト側の`07_Workflows`で管理し、重要な採用・廃止判断は結果となる成果物内へ理由と経緯を残す。
 
 ---
 

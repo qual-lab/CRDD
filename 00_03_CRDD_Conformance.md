@@ -1,6 +1,6 @@
 # CRDD Conformance
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -11,7 +11,7 @@ Related:
 - [00_04_CRDD_End_to_End_Context_Continuity.md](00_04_CRDD_End_to_End_Context_Continuity.md)
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
 - [00_15_Document.md](00_15_Document.md)
@@ -126,7 +126,7 @@ Gitは標準的な実装手段として推奨するが、以下を満たす別�
 何へ影響するか
 ```
 
-すべての会話をDecision Recordへする必要はない。
+すべての会話をDecision / Rationaleとして成果物へ残す必要はない。
 後から同じ論点を再判断する可能性があるものを対象とする。
 
 ## C-05. Human Decision Authority
@@ -277,15 +277,15 @@ UI上の操作とFeedbackが、どのSPECへ対応するか
 SPECの状態と例外が、UIでどのように表現されるか
 ```
 
-## PL-05. UI and SPEC Paired Contract
+## PL-05. UI Contract and Behavior Specification Pairing
 
-ユーザーインターフェースを持つ対象では、UI ContractとBehavior Contractを対として確認しなければならない。
+ユーザーインターフェースを持つ対象では、UI ContractとBehavior Specificationを対として確認しなければならない。
 
 ```text
 UI Contract
 何が見え、何を操作でき、どのFeedbackを受けるか
 
-Behavior Contract
+Behavior Specification
 どの条件で、どの状態から、何が起き、何が返るか
 ```
 
@@ -306,7 +306,7 @@ Loading、Empty、Error、Permission、Disabled、Confirmation等の主要状態
 
 ```text
 SPECとAcceptance Criteriaを満たしたか
-UIとBehaviorが一致したか
+UI ContractとBehavior Specificationが一致したか
 UX上の期待する変化を損なっていないか
 OriginとProduct Principleへ反していないか
 新しい学びや前提変更が発生したか
@@ -396,7 +396,7 @@ AIを利用すること
 Subagent構成を採用すること
 特定のLLMやAgentを利用すること
 すべてのUX / IA / UI / SPEC文書を独立ファイルとして作ること
-すべての小さな判断をDecision Recordへすること
+すべての小さな判断へDecision / Rationale Sectionを作ること
 すべての変更に形式的な承認会議を設けること
 ```
 

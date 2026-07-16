@@ -1,6 +1,6 @@
 # 00_CRDD Overview
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -54,13 +54,12 @@ Persona・Journey・Service Blueprintから、IA、UI、Graphic／Visual、SPEC�
 05_UI          = Wireframe・Screen Flow・UI Contract・Design Token・Graphic／Visual・素材
 06_Architecture = システム構造・データ・API・AI・セキュリティ
 07_Workflows   = 開発・検証・リリースの進め方
-40_Develop     = 実装・検証
-80_PR          = 外部向け資料
-90_Evidence    = 根拠資料
-90_Release     = リリース判断の記録・根拠資料
-95_Decisions   = 判断履歴
+40_Develop     = Code・Configuration・Test等のImplementation Artifact
+90_Release     = Release Record・配布物・Release Verification
 99_Roadmap     = 未来計画
 ```
+
+Evidenceは成果物内、または最も近い親Folderの`Evidence/`へ置く。Decisionの結果はCanonical Artifactへ反映し、理由、Evidence、代替案、経緯を同じ成果物へ残す。Root直下へEvidence / Decisionの中央Folderを基本構成として作らない。
 
 `00_CRDD` は、特定プロダクト固有のUX思想そのものではない（プロダクトの思想は `02_UX` に置く）。フォルダ構成の詳細・V2移行ルール・各フォルダの正本性は[`00_10_Context_Repository.md`](00_10_Context_Repository.md)を参照する。
 
@@ -76,7 +75,7 @@ Context Repositoryの運用原則
 AIと人間の役割分担
 AIに編集させてよい範囲
 AIに破壊させないためのルール
-Decision Logの記録ルール
+成果物内のDecision / Rationale記録ルール
 Evidenceの昇格ルール
 AIが読みやすいMarkdown記述ルール
 ```
@@ -85,7 +84,9 @@ AIが読みやすいMarkdown記述ルール
 
 # ファイル構成
 
-`00_CRDD`は、性質の異なる4層＋付録で構成する。採番帯（10刻み）そのものが層を表す。
+`00_CRDD`は、性質の異なる6つの層で構成する。採番帯（10刻み）そのものが層を表す。
+
+この採番はCRDD文書の分類と順序を示すDocument Numberであり、文書内のContext Entityを追跡する安定IDではない。一つのCRDD文書に複数の安定IDが含まれてよい。
 
 ```text
 00-09  CRDDの全体定義（Overview / Principles / Terminology / Conformance）
@@ -107,13 +108,13 @@ AIが読みやすいMarkdown記述ルール
 │
 ├─ 00_10_Context_Repository.md
 ├─ 00_11_Information_Provenance.md
-├─ 00_12_Decision_Record.md
+├─ 00_12_Decision_Rationale.md
 ├─ 00_13_Human_AI_Responsibility.md
 ├─ 00_14_AI_Change_Control.md
 ├─ 00_15_Document.md
 ├─ 00_16_Context_Transformation.md
 ├─ 00_17_Discovery.md
-├─ 00_18_UI_Behavior_Contract.md
+├─ 00_18_UI_Behavior_Specification.md
 ├─ 00_19_Context_Traceability.md
 │
 ├─ 00_20_CRDD_Maintenance.md
@@ -135,7 +136,7 @@ AIが読みやすいMarkdown記述ルール
 ├─ 00_42_UX_Skill.md
 ├─ 00_43_IA_Skill.md
 ├─ 00_44_UI_Skill.md
-├─ 00_45_Behavior_SPEC_Skill.md
+├─ 00_45_Behavior_Specification_Skill.md
 ├─ 00_46_Git_Markdown_Execution.md
 ├─ 00_50_Subagent_Orchestration.md
 └─ 00_51_Document_Audit_Agent.md
@@ -155,13 +156,13 @@ AIが読みやすいMarkdown記述ルール
 | `00_05_CRDD_Development_Stack.md` | CRDDのDevelopment Stack全体定義（Discovery〜Learning）、Layer Mapping、最低成果物、品質基準、AI/人間の役割分担 |
 | `00_10_Context_Repository.md` | Repository構造・正本・保存対象・Header/Status/Naming/Link・更新・廃止 |
 | `00_11_Information_Provenance.md` | Evidence Promotion・Decision Rule・文書Type・Roadmap Absorption・Feature Adoption |
-| `00_12_Decision_Record.md` | 判断履歴の残し方（Decision Log） |
+| `00_12_Decision_Rationale.md` | 判断結果を成果物へ反映し、理由・Evidence・経緯を残す方法 |
 | `00_13_Human_AI_Responsibility.md` | 人間とAIの役割分担 |
 | `00_14_AI_Change_Control.md` | AIが編集してよい領域・してはいけない領域 |
 | `00_15_Document.md` | 人間とAIが誤読しない文章構造の書き方 |
 | `00_16_Context_Transformation.md` | 原点・課題・UX・IA・UI・SPEC・Architecture・Implementation・Verificationを意味を失わず接続する規範 |
 | `00_17_Discovery.md` | 未整理の思い・困りごと・観察・既存資料等をCRDDで扱えるContextへ変換するDiscovery規範 |
-| `00_18_UI_Behavior_Contract.md` | Interaction（UI）とBehavior（内部挙動）を対のContractとして定義・Reviewする規範 |
+| `00_18_UI_Behavior_Specification.md` | UI ContractとBehavior Specificationを対として定義・Reviewする規範 |
 | `00_19_Context_Traceability.md` | Contextの識別・関連づけ・変更追跡・影響分析の標準 |
 | `00_20_CRDD_Maintenance.md` | Feedback Loop、Repository Audit、CRDD Change / Versioningを含むCRDD自身の保守運用 |
 | `00_23_Phase_Gate_Approval.md` | 各専門層・Delivery段階を進めるPhase Gate・承認条件・停止条件・再開条件 |
@@ -181,7 +182,7 @@ AIが読みやすいMarkdown記述ルール
 | `00_42_UX_Skill.md` | Origin/Problem/EvidenceをOutcome・体験原則・成功状態へ変換するGuided Skill |
 | `00_43_IA_Skill.md` | UX OutcomeとDomain ContextをObject・責務・関係・Navigationへ変換するGuided Skill |
 | `00_44_UI_Skill.md` | UX OutcomeとIA StructureをUI Contractへ変換するGuided Skill |
-| `00_45_Behavior_SPEC_Skill.md` | Feature/Use Case/IA/UI ContractをCondition・State・Behavior・Acceptance Criteriaへ変換するGuided Skill |
+| `00_45_Behavior_Specification_Skill.md` | Feature/Use Case/IA/UI ContractをCondition・State・Behavior・Acceptance Criteriaへ変換するGuided Skill |
 | `00_46_Git_Markdown_Execution.md` | Claude Code／CodexでSkillを再現実行するための最小実行、Registry、Package / Promotion運用 |
 | `00_50_Subagent_Orchestration.md` | Guided Skill内でSubagentを安全に委譲・統合する軽量Guide |
 | `00_51_Document_Audit_Agent.md` | CRDD文書体系・参照・用語・Traceabilityを監査するDocument Audit AgentのGuide |
@@ -207,7 +208,7 @@ AIが読みやすいMarkdown記述ルール
    Blueprintを情報構造・Object・責務・Navigationへ変換
 
 5. 04_Spec / 05_UI
-   Behavior Contractと、Wireframe・Screen Flow・Graphic／Visualを対で設計
+   Behavior Specificationと、Wireframe・Screen Flow・Graphic／Visualを対で設計
 
 6. 06_Architecture
    技術構造・Data・API・AI・Security
@@ -220,7 +221,7 @@ AIが読みやすいMarkdown記述ルール
    現在地と今後の計画
 ```
 
-`40_Develop`は実装・検証の詳細であり、思想や設計を理解した後に必要に応じて参照する。
+`40_Develop`はCode、Configuration、Test等のImplementation Artifactであり、CRDD管理用Markdownの配置先にはしない。思想や設計を理解した後に、現在の実装事実を確認するため必要に応じて参照する。
 
 ---
 
@@ -258,7 +259,7 @@ CRDDにおける「完了条件（Working Software + Readable Context + Traceabl
 | `00_42_UX_Skill.md` | UX Skill定義 |
 | `00_43_IA_Skill.md` | IA Skill定義 |
 | `00_44_UI_Skill.md` | UI Skill定義 |
-| `00_45_Behavior_SPEC_Skill.md` | Behavior / SPEC Skill定義 |
+| `00_45_Behavior_Specification_Skill.md` | Behavior Specification Skill定義 |
 | `00_46_Git_Markdown_Execution.md` | Claude Code／CodexでSkillを再現実行するための最小実行、Registry、Package / Promotion運用 |
 
 ## 50-59: Agent Execution

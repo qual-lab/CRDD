@@ -1,9 +1,9 @@
 # Compatibility and Evolution
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-15
+Last Updated: 2026-07-16
 Related:
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_32_Testing_Quality.md](00_32_Testing_Quality.md)
@@ -76,7 +76,7 @@ DBスキーマ・データ構造を変更する場合、既存データとの整
 移行前にロールバック手段（バックアップ、あるいは移行の取り消し手順）を用意する
 ```
 
-[`00_10_Context_Repository.md`](00_10_Context_Repository.md)の「DBスキーマ変更は`95_Decisions`にDecision Logを残す」という既存ルールに対し、本節は「どう安全に移行するか」の実務原則を補う。
+[`00_10_Context_Repository.md`](00_10_Context_Repository.md)および[`00_12_Decision_Rationale.md`](00_12_Decision_Rationale.md)の「重要なDBスキーマ変更は成果物へ反映し理由と経緯を残す」というルールに対し、本節は「どう安全に移行するか」の実務原則を補う。
 
 ## Bad
 
@@ -91,6 +91,19 @@ DBスキーマ・データ構造を変更する場合、既存データとの整
 新しい列名の列を追加し、両方の列にデータを書き込む期間を設ける。読み取り側を新しい列名へ
 段階的に切り替え、旧列を参照するコードがなくなったことを確認してから旧列を削除する。
 ```
+
+## 4.1. Stable ID Evolution
+
+Canonical Term、Context Type名、Prefix規則が変更されても、既に発行済みの安定IDを見かけだけ揃える目的で改番してはならない。
+
+```text
+既存ID        = 安定参照として維持する
+Canonical Type = Registry Metadataで現在の意味を明示する
+新規ID        = 現行Prefix規則に従う
+意味の置換     = 新IDを発行し、supersedes Relationを記録する
+```
+
+v0.3.0で`Behavior Requirement`から`Behavior Specification`へCanonical Termを変更したため、新規のBehavior Specificationには`SPEC-*`を使用する。v0.2以前に同じ意味で発行済みの`REQ-*`はLegacy IDとして維持し、用語変更だけを理由に`SPEC-*`へ改番または複製しない。
 
 ---
 
@@ -137,7 +150,7 @@ DBスキーマ・データ構造を変更する場合、既存データとの整
 新しい依存を追加する前に、必要性・保守状況・ライセンスを確認する
 セキュリティ上の注意喚起（既知の脆弱性）があるライブラリは更新を優先する
 メジャーバージョンアップ（破壊的変更を含みうる更新）は、変更内容を確認してから取り込む
-依存の追加・大きな更新は、影響範囲が広い場合`95_Decisions`にDecision Logを残す
+依存の追加・大きな更新は、Architecture Artifactへ結果を反映しDecision / Rationale Sectionに理由、Evidence、経緯を残す
 ```
 
 ## Bad

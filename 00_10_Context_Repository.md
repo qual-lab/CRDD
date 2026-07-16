@@ -1,9 +1,9 @@
 # Context Repository
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-15
+Last Updated: 2026-07-16
 Related:
 - [00_00_CRDD_Overview.md](00_00_CRDD_Overview.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
@@ -99,11 +99,9 @@ CRDDの方法論自体の著作物（本文書群、図、テンプレート等�
 06_Architecture
 07_Workflows
 40_Develop
-80_PR
-90_Evidence
 90_Release
-95_Decisions
 99_Roadmap
+registry/（任意）
 ```
 
 ## Folder Responsibility
@@ -111,19 +109,25 @@ CRDDの方法論自体の著作物（本文書群、図、テンプレート等�
 | Folder            | Responsibility              |
 | ----------------- | ---------------------------- |
 | `00_CRDD`         | CRDD思想、Repository運用、AI利用ルール |
-| `01_Discovery`    | 課題発見、要求候補の受け皿              |
+| `01_Discovery`    | 課題発見、要求候補、調査記録、Source参照の受け皿 |
 | `02_UX`           | プロダクトの原点、Why、思想、体験設計       |
 | `03_IA`           | 情報構造、対象概念、画面責務、ナビゲーション       |
 | `04_Spec`         | 機能仕様、振る舞い、状態、例外、受け入れ条件      |
 | `05_UI`           | UI表示、操作、文言、画面別仕様             |
 | `06_Architecture` | システム構成、データ構造、AI構成、セキュリティ    |
-| `07_Workflows`    | 開発・検証・リリースの進め方              |
-| `40_Develop`      | 実装計画、開発ログ、テスト、検証結果          |
-| `80_PR`           | 外部向けPR資料、紹介資料、発信用コピー        |
-| `90_Evidence`     | 調査資料、参考資料、スクリーンショット、根拠資料    |
-| `90_Release`      | リリース判断の記録・根拠資料             |
-| `95_Decisions`    | 重要判断、方針変更、採用・却下理由           |
+| `07_Workflows`    | 開発・検証・リリースの進め方、Change Context Package |
+| `40_Develop`      | Code、Configuration、Test等のImplementation Artifact |
+| `90_Release`      | Release Record、配布物参照、Release Verification |
 | `99_Roadmap`      | Roadmap、Sprint計画、将来構想       |
+| `registry/`       | REQ / UX / IA / UI / SPECの安定IDとRelationを扱うMachine-readable Registry（任意） |
+
+Evidenceは独立した中央Context Storeへ集約しない。短いEvidenceは利用するCanonical Artifact内のEvidence Sectionへ記載し、資料として分離する場合は、利用する成果物に最も近い親Folder直下の`Evidence/`へ置く。Project Root直下へ`90_Evidence`等を基本構成として作ってはならない。
+
+Decisionの結果は、UX、IA、SPEC、UI、Architecture、Workflow等の責務を持つCanonical Artifactそのものである。採用理由、参照Evidence、代替案、変更経緯は、その成果物内のDecision / Rationale Sectionへ残す。Project Root直下へ`95_Decisions`等を基本構成として作らず、独立したDecision ContextやDecision IDも要求しない。
+
+`40_Develop`はCRDD管理用Markdownの保存先として使用しない。Implementation PlanとChange Context Packageは`07_Workflows`へ、Evidence資料は最も近い親Folderの`Evidence/`へ置く。Implementation固有のREADME等をCodeと同居させる場合も、そのREADMEをContextや判断理由の正本として暗黙に扱わない。
+
+`01_Discovery`は新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。`99_Roadmap`は採用済みだが未着手の内容について優先順位、時期、依存関係、着手条件を保持する。Discovery文書をRoadmapへ移動せず、Roadmap項目をRequirementまたはSpecificationの正本として扱わない。Roadmap項目は文書Path、Anchor、外部Issue等で識別し、CRDD標準Stable IDを発行しない。
 
 ## V2 Documentation Structure
 
@@ -291,6 +295,16 @@ Owner: Shared
 
 文書名は、AIと人間が意味を推測しやすい名前にする。
 
+ファイル名に付ける文書番号と、文書内のContext Entityへ付ける安定IDは別の識別体系として扱う。
+
+```text
+Document Number
+= Folder内の分類、順序、探索のためにArtifactへ付ける番号
+
+Stable Context ID
+= Artifactの場所に依存せず、追跡対象となる意味、責務、判断、仕様を識別するID
+```
+
 ## Good
 
 ```text
@@ -318,6 +332,31 @@ aaa.md
 日付 + 判断内容
 目的が分かる名前
 ```
+
+文書番号はFolderまたは文書体系内でのみ意味を持つ整理番号であり、Repository全体で不変なContext IDではない。文書体系の再構成、挿入、統合、分割に伴って変更してよい。
+
+安定IDをファイル名または文書Directory名へ埋め込んではならない。文書自体をArtifactとして安定識別する必要がある場合も、Artifact IDはHeaderまたはRegistryへ保持し、ファイル名とは分離する。
+
+```text
+Good:
+02_UX/01_Experience_Principles.md
+07_Workflows/Changes/01_Topic_Decision_Experience.md
+
+Bad:
+02_UX/UX-000004.md
+04_Spec/SPEC-000044.md
+```
+
+一つの文書には複数の安定IDを持つContext Entityを含めてよい。
+
+```text
+02_UX/01_Experience_Principles.md
+├─ UX-000001
+├─ UX-000002
+└─ UX-000004
+```
+
+文書の分割、統合、移動、名称変更、文書番号の変更だけを理由に、文書内の安定IDを変更してはならない。ContextとArtifactの接続は、Pathだけでなく必要に応じてAnchorとRevisionを使って管理する。
 
 日本語本文は問題ない。
 ただし、ファイル名はAI検索・Git管理・リンク参照しやすいように、英語ベースを基本とする。
@@ -351,35 +390,28 @@ CRDDでは、リンクは単なる参照ではなく、Contextの経路である
 
 # 12. Source Precedence and Conflict Rule
 
-文書間で内容が矛盾した場合、以下の順で正本性を判断する。
+文書間で内容が矛盾した場合、Folder番号だけで一律の優先順位を決めない。Property Authority、対象Revision、Status、Decision、Source、Freshnessに基づいて判断する。
 
 ```text
-00_CRDD
-↓
-95_Decisions
-↓
-02_UX
-↓
-03_IA
-↓
-04_Spec
-↓
-05_UI / 06_Architecture
-↓
-07_Workflows
-↓
-99_Roadmap
-↓
-90_Evidence
+CRDDの運用規則             → 00_CRDD
+Why・Outcome                → UX Authorityを持つCanonical Context
+Object・責務・Navigation    → IA Authorityを持つCanonical Context
+System Behavior            → Behavior Specification
+表示・操作・Feedback        → UI Contract
+技術境界・Data・API         → Architecture Context
+現在の実装事実              → Code / Configuration / Runtime
+観察・検証結果              → SourceとRevisionが明確なFresh Evidence
+採用・却下・例外判断         → 結果となるCanonical Artifact内のDecision / Rationale Section
+将来予定                    → Roadmap
 ```
 
 `99_Roadmap` は未来計画であり、完了済み機能の仕様正本ではない。
-実装・検証が完了した内容は、必要に応じて `04_Spec` / `05_UI` / `06_Architecture` / `95_Decisions` へ吸収する。
+実装・検証が完了した内容は、必要に応じて `04_Spec` / `05_UI` / `06_Architecture`、関連するVerification記録へ吸収する。
 
 古い文書が新しい判断と矛盾する場合は、黙って上書きせず、以下のいずれかを行う。
 
 ```text
-新しいDecision Logへリンクする
+新しい正本ArtifactのDecision / Rationale Sectionへリンクする
 StatusをDeprecatedまたはSupersededへ変更する
 後継文書を明記する
 移行中であることを明記する
@@ -400,7 +432,7 @@ StatusをDeprecatedまたはSupersededへ変更する
 単なる追記なのか
 ```
 
-重要な変更では、文書本文の更新だけでなく `95_Decisions` へ判断履歴を残す。
+重要な変更では、結果となるCanonical Artifactを更新し、その中へ判断理由、Evidence、代替案、経緯を残す。
 
 ---
 
@@ -473,11 +505,11 @@ AIの編集可能範囲そのもの（何を草案でき、何を確定変更し
 
 ```text
 重要な思想は 02_UX に残す
-重要な判断は 95_Decisions に残す
-実装作業は 40_Develop に残す
+重要な判断は結果となるCanonical Artifact内に理由・Evidence・経緯とともに残す
+実装事実はCode / Configuration / Testに残す
+Change Packageと実装計画は07_Workflowsに残す
 将来構想は 99_Roadmap に残す
-根拠資料は 90_Evidence に残す
-外部向け資料は 80_PR に残す
+EvidenceはSource、対象Revision、Provenanceとともに参照可能にする
 AIに実装させる前に関連文書を読ませる
 ```
 

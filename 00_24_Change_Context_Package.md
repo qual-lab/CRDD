@@ -1,6 +1,6 @@
 # CRDD Change and Context Package
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -8,12 +8,12 @@ Related:
 - [00_03_CRDD_Conformance.md](00_03_CRDD_Conformance.md)
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_17_Discovery.md](00_17_Discovery.md)
-- [00_18_UI_Behavior_Contract.md](00_18_UI_Behavior_Contract.md)
+- [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 - [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_30_Product_Documentation.md](00_30_Product_Documentation.md)
@@ -100,7 +100,7 @@ Context Packageは、特定の活動に必要な既存Contextを選択し、参�
 
 ```text
 UX設計のためのContext Package
-UI / Behavior ReviewのためのContext Package
+UI Contract / Behavior Specification ReviewのためのContext Package
 Architecture検討のためのContext Package
 AI実装Agentへ渡すContext Package
 Legacy解析のためのContext Package
@@ -128,12 +128,12 @@ Context Packageは正本ContextのCopyではない。
 
 ```yaml
 context_package:
-  purpose: UI / Behavior Contract Review
+  purpose: UI Contract / Behavior Specification Review
   scope:
-    - FTR-000012
-    - UC-000012
+    - feature: Important Topic Review
+    - use_case: Topicの根拠を確認し次Actionを判断する
   preserve:
-    - ORI-000001
+    - 01_Discovery/00_Product_Origin.md#product-intent
     - UX-000004
   references:
     - id: IA-000008
@@ -142,7 +142,7 @@ context_package:
     - id: UI-000021
       source: figma://file-key/node-id
       revision: approved-2026-07-15
-    - id: REQ-000044
+    - id: SPEC-000044
       source: 04_Spec/Topic_Behavior.md
       revision: 3
 ```
@@ -151,10 +151,10 @@ context_package:
 
 Change Packageは、一つの変更要求または変更目的について、開始から検証、学びの還元までを管理するDelivery Entityである。
 
-Change Packageには、`CHG` IDを付与する。
+Change Packageは、文書Path、文書番号、Issue、Pull Request等の既存識別子で追跡する。CRDD標準Stable IDは付与しない。
 
 ```text
-CHG-000123
+07_Workflows/Changes/01_Topic_Decision_Experience.md
 ```
 
 Change Packageは、少なくとも以下を接続する。
@@ -185,7 +185,7 @@ Feedback / Promotion / Closure
 |---|---|---|
 | Purpose | 作業に必要なContextを束ねる | 変更Lifecycle全体を追跡する |
 | Primary Nature | Input | Change Control Unit |
-| Stable ID | 必要に応じて付与 | 原則`CHG` IDを必須とする |
+| Identification | 一時的なPackage Keyを使用できる | 文書Path、Issue、Pull Request等で追跡する |
 | Authority | 正本への参照のみ | Scope、Decision、実行、検証を追跡する |
 | Mutation | 参照集合は更新できる | Package Revisionとして履歴管理する |
 | Completion | 作業終了後に破棄または保存可能 | Closed後も履歴として保持する |
@@ -244,7 +244,7 @@ Use Case変更
 User Action変更
 UX Outcome変更
 IA構造変更
-UI / Behavior Contract変更
+UI Contract / Behavior Specification変更
 Architecture変更
 Migration
 Refactoring
@@ -264,7 +264,7 @@ Documentation-only Change
 Bad:
 
 ```text
-CHG-000123
+Topic Decision Experience Change Package
 - InboxのUI改善
 - Database Migration
 - License文言修正
@@ -274,19 +274,19 @@ CHG-000123
 Good:
 
 ```text
-CHG-000123: Topic確認時の判断負荷を下げる
-CHG-000124: Topic IndexのDatabase Migration
-CHG-000125: License表示を更新する
-CHG-000126: Slack同期処理時間を短縮する
+Change 01: Topic確認時の判断負荷を下げる
+Change 02: Topic IndexのDatabase Migration
+Change 03: License表示を更新する
+Change 04: Slack同期処理時間を短縮する
 ```
 
 複数変更が同じ上位目的へ属する場合、Parent Changeを作成し、Child Packageへ分割してよい。
 
 ```text
-CHG-000120: Inbox Decision Experience Improvement
-├─ CHG-000123: Topic Detail UI / Behavior
-├─ CHG-000127: Priority Calculation
-└─ CHG-000128: Evidence Retrieval Performance
+Inbox Decision Experience Improvement
+├─ Change 01: Topic Detail UI Contract / Behavior Specification
+├─ Change 02: Priority Calculation
+└─ Change 03: Evidence Retrieval Performance
 ```
 
 ---
@@ -297,7 +297,7 @@ Change Packageは、最低限以下の情報を持つ。
 
 | Component | Meaning |
 |---|---|
-| `Change ID` | 安定した`CHG` ID |
+| `Change Reference` | Change PackageのPath、Issue、Pull Request等 |
 | `Title` | 人間が理解できる変更名称 |
 | `Primary Intent` | なぜ変更するか |
 | `Trigger` | 発見、要求、Evidence、Incident、Decision等 |
@@ -308,7 +308,7 @@ Change Packageは、最低限以下の情報を持つ。
 | `Target State` | 変更後に目指す状態 |
 | `Impact` | 上流、下流、横断影響 |
 | `Open Questions` | 未決事項、不確実性、仮説 |
-| `Decision` | 人間判断またはDecision Recordへの参照 |
+| `Decision` | 成果物へ反映する判断とDecision / Rationale Sectionへの参照 |
 | `Gate State` | 関連Phase Gateの状態 |
 | `Delivery Plan` | 実装、移行、作業順序、Dependency |
 | `Verification` | Acceptance、Test、Review、Evidence |
@@ -327,9 +327,9 @@ Change Packageは、最低限以下の情報を持つ。
 標準的なPackage構造例を以下に示す。
 
 ```text
-40_Develop/
+07_Workflows/
 └─ Changes/
-   └─ CHG-000123_Topic_Decision_Experience/
+   └─ 01_Topic_Decision_Experience/
       ├─ 00_Manifest.md
       ├─ 01_Brief.md
       ├─ 02_Context_References.md
@@ -346,7 +346,7 @@ Change Packageは、最低限以下の情報を持つ。
 Compact Packageでは、以下のように一つへまとめてよい。
 
 ```text
-40_Develop/Changes/CHG-000123.md
+07_Workflows/Changes/01_Topic_Decision_Experience.md
 ```
 
 外部Tool、Issue Tracker、DatabaseでPackageを管理する場合も、同じ情報責務を満たせばよい。
@@ -358,7 +358,7 @@ Package Manifestは、機械的な参照、影響分析、Agent実行、中断�
 例:
 
 ```yaml
-id: CHG-000123
+key: topic-decision-experience
 title: Topic確認時の判断負荷を下げる
 status: In Progress
 revision: 3
@@ -366,25 +366,25 @@ change_type: Enhancement
 primary_intent:
   - UX-000004
 trigger:
-  - EVD-000072
+  - 02_UX/Evidence/Topic_Decision_Observation.md
 scope:
   features:
-    - FTR-000012
+    - Important Topic Review
   use_cases:
-    - UC-000012
+    - Topicの根拠を確認し次Actionを判断する
   contexts:
     - IA-000008
     - UI-000021
-    - REQ-000044
+    - SPEC-000044
 non_scope:
   - Priority calculation logic
 relations:
   derived_from:
-    - PRB-000006
+    - 01_Discovery/01_Product_Requirements.md#decision-fragmentation
   implements:
-    - DEC-000031
+    - 05_UI/01_Topic_Detail.md#decision-rationale
   verified_by:
-    - TST-000087
+    - topic-detail.contract.test.ts
 phase_gates:
   G4: Approved
   G5: Approved
@@ -446,7 +446,7 @@ Primary Origin / Problem
 関連UX Outcome
 対象Feature / Use Case / User Action
 関連IA Context
-UI / Behavior Contract
+UI Contract / Behavior Specification
 有効なDecision
 Architecture Constraint
 既存Implementation Context
@@ -552,7 +552,7 @@ UX
 Feature / Use Case
 IA
 UI
-Behavior / SPEC
+Behavior Specification
 Architecture
 Data / API
 Security / Governance
@@ -605,7 +605,7 @@ Package StatusとPhase Gate Statusを同一視してはならない。
 
 ```text
 Change Package Status: In Progress
-G4 UI / Behavior Contract: Approved
+G4 UI Contract / Behavior Specification: Approved
 G5 Delivery Plan: Approved
 G6 Implementation Verification: Not Evaluated
 ```
@@ -666,7 +666,7 @@ G0 Discovery Framed: Combined
 G1 Origin / Problem Accepted: Recovered Contextで代替
 G2 UX Direction Accepted: Existing UXを参照
 G3 IA Coherence Accepted: Not Impacted
-G4 UI / Behavior Contract Accepted: Required
+G4 UI Contract / Behavior Specification Accepted: Required
 G5 Delivery Plan Accepted: Required
 G6 Implementation Verified: Required
 G7 Outcome / Learning Reviewed: Compact Review
@@ -680,15 +680,15 @@ Gateを見えない形で省略してはならない。
 
 # 13. Decision and Approval
 
-Change Packageに重要判断が含まれる場合、Decision Recordへ接続する。
+Change Packageに重要判断が含まれる場合、判断結果となるCanonical Artifactへ接続する。
 
-以下の判断は、Package内メモだけで完結させず、原則として`DEC` IDを持つDecision Recordへ昇格する。
+以下の判断は、Package内メモだけで完結させず、結果となる成果物へ反映し、そのDecision / Rationale Sectionへ理由、Evidence、経緯を残す。
 
 ```text
 OriginまたはProduct Principleを変更する
 複数案から重要な方針を選択する
 UX、IA、UI責務を大きく変更する
-Behavior ContractまたはAcceptanceを変更する
+Behavior SpecificationまたはAcceptanceを変更する
 Architecture境界、Data、Securityへ影響する
 互換性を破壊する
 重大Riskを受容する
@@ -776,7 +776,7 @@ Verificationは、実装が動くことだけを確認しない。
 
 ```text
 Contract Verification
-UI / Behavior / API / Data契約を満たすか
+UI Contract / Behavior Specification / API / Data契約を満たすか
 
 Intent Verification
 UX Outcomeまたは変更目的へ寄与したか
@@ -791,7 +791,7 @@ Governance Verification
 Security、Privacy、AI Policy、Authorityへ違反しないか
 ```
 
-Verification Evidenceには、`TST`または`EVD` IDを付与できる。
+VerificationはTest名、Run ID、Artifact Path、Revisionで追跡し、Evidenceは最寄りの親FolderにあるPathまたは外部Artifact参照を使用する。
 
 検証結果は、成功、失敗、未検証を分離する。
 
@@ -829,11 +829,11 @@ Deferred Scope
 Discovery / Evidence
 UX
 IA
-UI / Behavior Contract
+UI Contract / Behavior Specification
 Architecture
 Testing Guide
 Operation / Workflow
-Decision Record
+Decision / Rationaleを含むCanonical Artifact
 Roadmap
 CRDD Core / Practice GuideへのPromotion Candidate
 ```
@@ -866,7 +866,7 @@ Dependencyは、単なる作業順序だけでなく、Context確定順序を含
 例:
 
 ```text
-CHG-000128 depends_on CHG-000123
+Evidence Retrieval Change depends_on Topic Decision Experience Change
 理由: UIが必要とするEvidence構造が確定しないとRetrieval APIを確定できない
 ```
 
@@ -985,7 +985,7 @@ Change Package Closure
 AIへ作業を依頼する際は、最低限以下を渡す。
 
 ```text
-Change ID
+Change Reference
 Task Goal
 Current Package Revision
 Context Package
@@ -1026,7 +1026,7 @@ Decisionが既存Ruleで解決できる
 最低限:
 
 ```text
-Change ID
+Change Reference
 Why
 Scope / Non-scope
 Related Context
@@ -1041,7 +1041,7 @@ Result
 
 ```text
 複数Artifactまたは複数Task
-UI / Behavior Contract変更
+UI Contract / Behavior Specification変更
 人間承認が必要
 複数の専門層へ影響
 ```
@@ -1083,7 +1083,7 @@ Document量を増やすこと自体を品質としない。
 # 21. Example
 
 ```text
-CHG-000123
+Topic Decision Experience Change Package
 Title: Topic確認時の判断負荷を下げる
 Type: Enhancement
 Status: Ready for Verification
@@ -1093,12 +1093,12 @@ Primary Intent:
 - UX-000004 判断負荷を下げる
 
 Trigger:
-- EVD-000072 ユーザー観察で重要度と根拠の往復確認が発生
+- 02_UX/Evidence/Topic_Decision_Observation.md: 重要度と根拠の往復確認が発生
 
 Scope:
-- UC-000012 Topicの根拠を確認し、次Actionを判断する
+- Use Case: Topicの根拠を確認し、次Actionを判断する
 - UI-000021 Topic Detailの認識と操作
-- REQ-000044 Topic既読化Behavior
+- SPEC-000044 Topic既読化Behavior
 
 Non-scope:
 - Topicの重要度算出Logic
@@ -1109,7 +1109,7 @@ Must Preserve:
 - Evidence Sourceへ遡れる
 
 Decision:
-- DEC-000031 根拠と次Actionを同一視野へ配置する
+- 05_UI/01_Topic_Detail.md#decision-rationale: 根拠と次Actionを同一視野へ配置する
 
 Gate:
 - G4 Approved
@@ -1117,12 +1117,12 @@ Gate:
 - G6 In Review
 
 Verification:
-- TST-000087 Loading / Error / Permissionを含むUI Contract Test
-- EVD-000083 Headless DOM Test Result
+- topic-detail.contract.test.ts: Loading / Error / Permissionを含むUI Contract Test
+- 05_UI/Evidence/Topic_Detail_Headless_Result.md
 - Human Review: UX Intent確認
 
 Remaining:
-- Mobile LayoutはCHG-000129へDeferred
+- Mobile Layoutは99_Roadmap/01_Product_Roadmap.md#mobile-layoutへDeferred
 ```
 
 このPackageから、実装Agent向けにTaskごとのContext Packageを生成してよい。
@@ -1130,13 +1130,13 @@ Remaining:
 ```text
 Task 1 Context Package:
 - UI-000021
-- REQ-000044
-- ARC-000018
+- SPEC-000044
+- 06_Architecture/02_Topic_Pipeline.md#topic-detail-boundary
 - Existing Component Contract
-- TST-000087
+- topic-detail.contract.test.ts
 
 Task 2 Context Package:
-- REQ-000044
+- SPEC-000044
 - Database behavior
 - Existing read-state migration rule
 - Integration Test obligation
@@ -1193,11 +1193,11 @@ AI推定はHypothesisまたはRecovered Candidateとして明示する。
 CRDD Change Packageでは、最低限以下を守る。
 
 ```text
-重要変更には安定したChange IDを付ける。
+重要変更はChange PackageのPath、Issue、Pull Request等で追跡する。
 なぜ変更するかを実装内容と分離して記録する。
 変更対象と変更しない範囲を明示する。
 必要な上流ContextとDecisionへ接続する。
-UI / Behavior等のContract変更をTraceする。
+UI Contract / Behavior Specification等の変更をTraceする。
 実装前にVerification方法を定義する。
 実装結果と計画との差を記録する。
 重要判断は人間が承認する。

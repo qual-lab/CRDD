@@ -1,9 +1,9 @@
 # Architecture and Integration
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-15
+Last Updated: 2026-07-16
 Related:
 - [00_32_Testing_Quality.md](00_32_Testing_Quality.md)
 - [00_34_Compatibility_Evolution.md](00_34_Compatibility_Evolution.md)
@@ -116,7 +116,7 @@ Server-Push       = 提供側が任意のタイミングで呼び出し側へ通
 | `06_Architecture` | API、IPC、DB、処理順序、イベント通知、Provider境界 |
 
 Architectureは、SpecやUIを上書きしない。
-Architecture側で新しい制約が見つかった場合は、Spec/UIへフィードバックし、必要ならDecision Logへ残す。
+Architecture側で新しい制約が見つかった場合は、SPEC / UIへフィードバックし、Architecture Artifactへ結果を反映してDecision / Rationale Sectionに理由、Evidence、経緯を残す。
 
 ## External System Connector Boundary
 

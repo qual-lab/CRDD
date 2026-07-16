@@ -1,6 +1,6 @@
 # CRDD Gap Validation and Impact Analysis
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -8,11 +8,11 @@ Related:
 - [00_03_CRDD_Conformance.md](00_03_CRDD_Conformance.md)
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
-- [00_18_UI_Behavior_Contract.md](00_18_UI_Behavior_Contract.md)
+- [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 - [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_24_Change_Context_Package.md](00_24_Change_Context_Package.md)
@@ -30,7 +30,7 @@ CRDDでは、上流Context、専門成果物、実装、検証結果が個別に
 Originは変わったが、UXが更新されていない
 UXは変わったが、IAが古い構造のままである
 UIにActionがあるが、対応するBehaviorが存在しない
-REQは変更されたが、ArchitectureとCodeが追従していない
+SPECは変更されたが、ArchitectureとCodeが追従していない
 実装は動くが、承認済みContractとは異なる
 Testは通るが、現在のAcceptance Criteriaを検証していない
 新しいEvidenceが得られたが、元の仮説が更新されていない
@@ -87,8 +87,8 @@ Gapは、期待されるContext、Contract、Relation、Artifact、Evidenceの�
 
 ```text
 UX-000004をrealizesするUI Contractが存在しない
-UI-000021に対応するREQが存在しない
-REQ-000044の内容と実装挙動が異なる
+UI-000021に対応するSPECが存在しない
+SPEC-000044の内容と実装挙動が異なる
 承認済みRevisionと参照中のFigma Versionが異なる
 Acceptance Criteriaはあるが、verified_by Relationがない
 ```
@@ -102,7 +102,7 @@ Impactは、変更によって他のContextまたはDelivery対象へ影響が�
 ```text
 UX Outcome変更により、複数のIA Structureを再確認する必要がある
 共通UI Contract変更により、複数FeatureとVariantへ影響する
-REQ変更により、API、Data Migration、Test、Release Noteへ影響する
+SPEC変更により、API、Data Migration、Test、Release Noteへ影響する
 Implementation制約により、上流Contractの再判断が必要になる
 ```
 
@@ -131,7 +131,7 @@ UX
 Feature / Use Case / User Action
 IA
 UI Contract
-Behavior Requirement / SPEC
+Behavior Specification
 Architecture
 Implementation / Configuration
 Test
@@ -151,12 +151,12 @@ Origin / Problem → UX
 UX → IA
 UX / IA → Feature / Use Case
 IA → UI
-IA → REQ
-UI ⇄ REQ
-REQ → Architecture
+IA → SPEC
+UI ⇄ SPEC
+SPEC → Architecture
 Architecture → Implementation
-UI / REQ → Test / Evidence
-Implementation / Evidence → UX / IA / UI / REQ / Architecture
+UI / REQ / SPEC → Test / Evidence
+Implementation / Evidence → UX / IA / UI / REQ / SPEC / Architecture
 Change Package → Gate / Release / Roadmap
 ```
 
@@ -192,7 +192,7 @@ Brand / Permission / Offline差分が未定義
 複数のContextまたはArtifactが、同じ対象について異なる内容を示している状態。
 
 ```text
-UIでは取消可能だが、REQでは取消不可
+UIでは取消可能だが、SPECでは取消不可
 FigmaではActionが表示されるが、Permission Ruleでは利用不可
 文書と実装でDefault値が異なる
 ```
@@ -202,7 +202,7 @@ FigmaではActionが表示されるが、Permission Ruleでは利用不可
 参照しているVersion、Revision、Baselineが揃っていない状態。
 
 ```text
-UIはRevision 4だが、Review済みREQはRevision 2
+UIはRevision 4だが、Review済みSPECはRevision 2
 TestがSupersededされたAcceptance Criteriaを検証している
 ```
 
@@ -217,7 +217,7 @@ Legacy解析で推定したIntentが、確定Whyとして扱われている
 
 ## 4.6. Contract Gap
 
-UI ContractとBehavior Contractの対応が不足または矛盾している状態。
+UI ContractとBehavior Specificationの対応が不足または矛盾している状態。
 
 ```text
 ActionにTriggerがない
@@ -239,7 +239,7 @@ Architecture Boundaryを越えて直接参照している
 成立条件と、TestまたはEvidenceの間に不足がある状態。
 
 ```text
-REQはあるがTestがない
+SPECはあるがTestがない
 Testはあるが、現在のRevisionを検証していない
 Pass結果はあるが、Evidenceの取得条件が不明
 ```
@@ -285,7 +285,7 @@ Impact Analysisでは、少なくとも以下の観点を確認する。
 ```text
 Origin、Problem、UX Outcome、Principleが変更された
 IA Object、責務、Navigationが変更された
-UI ContractまたはBehavior Requirementが変更された
+UI ContractまたはBehavior Specificationが変更された
 共通Component、共通Rule、Architecture Boundaryが変更された
 新しいFeature、Use Case、Variant、Permissionが追加された
 既存Contextが廃止、統合、置換された
@@ -342,14 +342,14 @@ Release Scopeを固定しようとしている
 ```text
 UX-000004 changed
 ↓ realizes / supports
-FTR-000012
+Feature: Important Topic Review
 IA-000008
 UI-000021
-REQ-000044
+SPEC-000044
 ↓ implemented_by / verified_by
-ARC-000017
-TST-000032
-EVD-000019
+06_Architecture/02_Topic_Pipeline.md#priority-boundary
+topic-priority.acceptance.test.ts
+04_Spec/Evidence/Priority_Acceptance_Result.md
 ```
 
 Relation Graphは候補抽出のために利用する。
@@ -380,7 +380,7 @@ Relation欠落そのものがGapである可能性も確認する。
 ```text
 Relationが更新されたか
 参照Revisionが揃ったか
-UI / Behaviorが整合したか
+UI Contract / Behavior Specificationが整合したか
 ImplementationがContractを満たすか
 Testが現在のAcceptance Criteriaを検証するか
 Gate再評価が必要か
@@ -418,15 +418,15 @@ GroupingとNavigationがIAの責務を表現しているか
 一つの画面へ異なる責務を無理に押し込めていないか
 ```
 
-## 8.4. IA → Behavior Requirement
+## 8.4. IA → Behavior Specification
 
 ```text
 ObjectのLifecycleとState Transitionが定義されているか
 責務境界に対応するRuleとPermissionがあるか
-IA上の分類とREQ上のConditionが矛盾していないか
+IA上の分類とSPEC上のConditionが矛盾していないか
 ```
 
-## 8.5. UI ⇄ Behavior Requirement
+## 8.5. UI ⇄ Behavior Specification
 
 ```text
 主要ActionにTriggerとResultがあるか
@@ -482,7 +482,7 @@ Impact Candidateには、必要に応じて以下のLevelを付与する。
 | `L0 None` | 意味、Contract、実装、検証への影響なし |
 | `L1 Local` | 単一ContextまたはArtifact内で完結する |
 | `L2 Cross-artifact` | 同一専門層または複数Artifactへ影響する |
-| `L3 Cross-layer` | UX、IA、UI、REQ、Architecture等の複数層へ影響する |
+| `L3 Cross-layer` | UX、IA、UI、REQ、SPEC、Architecture等の複数層へ影響する |
 | `L4 Baseline / Release` | 承認済みBaseline、共通Contract、複数Feature、Releaseへ影響する |
 | `L5 Critical` | Origin、Safety、Security、法令、重大品質、不可逆Data等へ影響する |
 
@@ -503,7 +503,7 @@ L2:
 同一層の利用先、共通要素、関連Testを確認する。
 
 L3:
-上下流Context、UI / Behavior、Architecture、Verificationを横断確認する。
+上下流Context、UI Contract / Behavior Specification、Architecture、Verificationを横断確認する。
 
 L4:
 Gate、Baseline、Release Scope、Variant、Migrationを再評価する。
@@ -541,19 +541,19 @@ GapまたはImpact Findingには、以下のStatusを使用する。
 
 ```yaml
 finding:
-  id: GAP-000123
-  change: CHG-000045
+  key: gap-ui-cancellation-rule
+  change: 07_Workflows/Changes/04_Cancellation_Rule.md
   type: ContractGap
   status: Confirmed
   impact_level: L3
   source:
     - UI-000021
   affected_candidate:
-    - REQ-000044
-    - TST-000032
+    - SPEC-000044
+    - test: topic-cancellation.acceptance.test.ts
   description: >
     UIでは取消可能と表示しているが、
-    Behavior RequirementにCancellation Ruleが存在しない。
+    Behavior SpecificationにCancellation Ruleが存在しない。
   preserved_intent:
     - UX-000004
   disposition: Update Required
@@ -561,16 +561,16 @@ finding:
   gate_effect:
     - G4 Reopened
   evidence:
-    - EVD-000019
+    - 04_Spec/Evidence/Cancellation_Gap_Result.md
   resolution:
-    - REQ-000044 revision 4
-    - TST-000032 revision 2
+    - SPEC-000044 revision 4
+    - test: topic-cancellation.acceptance.test.ts revision 2
 ```
 
-専用の`GAP` IDを常に必須とする必要はない。
+GapへCRDD Stable IDを付与しない。成果物内のKey、Path、Anchor、Issue等で追跡する。
 
 軽微なFindingはChange Package内の一覧で管理してよい。
-複数Change、Gate、Releaseをまたいで追跡する価値がある場合は安定IDを付与する。
+複数Change、Gate、Releaseをまたいで追跡する場合は、Issue、Finding Key、Artifact Path等で識別する。
 
 ---
 
@@ -630,7 +630,7 @@ GapまたはImpactは、Phase Gateの評価Inputとなる。
 
 ```text
 承認済みContextの意味が変更された
-UI / Behavior ContractにConfirmed Gapがある
+UI Contract / Behavior SpecificationにConfirmed Gapがある
 Architectureが上流Contractを満たせない
 Acceptance CriteriaまたはVerification範囲が変更された
 新Evidenceにより重要なAssumptionが反証された
@@ -650,7 +650,7 @@ BaselineまたはRelease Scopeへ波及する
 ```text
 Context、Artifact、Revisionの差分を抽出する
 Relation Graphから影響候補を探索する
-UIとREQ、REQとTest等の対応不足を検出する
+UIとSPEC、REQ／SPECとTest等の対応不足を検出する
 古い参照、未接続Context、未検証Requirementを検出する
 Gap Type、Impact Level、Review Scopeを提案する
 既存Decisionと過去Findingを参照する
@@ -749,23 +749,23 @@ Changed Context
 
 ```text
 Changed:
-REQ-000044
+SPEC-000044
 
 Reviewed:
 UI-000021
-ARC-000017
-TST-000032
+06_Architecture/02_Topic_Pipeline.md#priority-boundary
+topic-priority.acceptance.test.ts
 
 Impact:
 UI変更なし。既存UI Contract内で成立。
 API ValidationとTest更新が必要。
 
 Resolved:
-ARC-000017 revision 3
-TST-000032 revision 2
+06_Architecture/02_Topic_Pipeline.md revision 3
+topic-priority.acceptance.test.ts revision 2
 
 Evidence:
-EVD-000019
+04_Spec/Evidence/Priority_Acceptance_Result.md
 ```
 
 規模を小さくすることは、Traceをなくすことを意味しない。
@@ -801,7 +801,7 @@ Risk-basedに範囲を選ぶ。
 
 ## 17.5. Fix Downstream Silently
 
-実装都合でREQ、UI、UXの意味を無言で変更する。
+実装都合でSPEC、REQ、UI、UXの意味を無言で変更する。
 
 上流判断へ戻す。
 

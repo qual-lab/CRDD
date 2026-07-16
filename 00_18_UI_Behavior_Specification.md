@@ -1,6 +1,6 @@
-# CRDD UI and Behavior Contract
+# CRDD UI Contract and Behavior Specification
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -9,7 +9,7 @@ Related:
 - [00_03_CRDD_Conformance.md](00_03_CRDD_Conformance.md)
 - [00_04_CRDD_End_to_End_Context_Continuity.md](00_04_CRDD_End_to_End_Context_Continuity.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_17_Discovery.md](00_17_Discovery.md)
@@ -31,7 +31,7 @@ SPECを内部処理の説明だけにしない。
 UI Contract
 利用者に何が見え、何を理解し、何を操作でき、どのようなFeedbackを受けるか
 
-Behavior Contract
+Behavior Specification
 どの条件・状態で処理が始まり、何が変化し、何が返り、失敗時にどう振る舞うか
 ```
 
@@ -41,7 +41,7 @@ Behavior Contract
 
 # 1. Basic Principle
 
-UI ContractとBehavior Contractは、以下の原則に従う。
+UI ContractとBehavior Specificationは、以下の原則に従う。
 
 ```text
 見えているActionには、対応するBehaviorが存在する。
@@ -49,10 +49,10 @@ UI ContractとBehavior Contractは、以下の原則に従う。
 利用者に見えない内部状態を、UIが事実のように推測しない。
 実装都合で、UIとBehaviorの意味を無言で分離しない。
 正常系だけでなく、待機・空・失敗・権限・取消・回復を対で定義する。
-UIとSPECの一致は、実装後ではなく設計時から確認する。
+UI ContractとBehavior Specificationの一致は、実装後ではなく設計時から確認する。
 ```
 
-UI ContractとBehavior Contractは、完全な一方向工程ではない。
+UI ContractとBehavior Specificationは、完全な一方向工程ではない。
 
 UIを具体化することで必要なStateやExceptionが発見されることがある。
 Behaviorを具体化することで必要な表示、確認、Recovery Actionが発見されることがある。
@@ -83,9 +83,9 @@ Figma等のVisual Artifactとの対応
 
 UI Contractは、特定のBackend方式、Database構造、通信方式を正本化しない。
 
-## 2.2. Behavior Contract Owns
+## 2.2. Behavior Specification Owns
 
-Behavior Contractは、主に以下を正本化する。
+Behavior Specificationは、主に以下を正本化する。
 
 ```text
 TriggerとPrecondition
@@ -101,7 +101,7 @@ Cancellation、Rollback、Idempotency
 Acceptance Criteria
 ```
 
-Behavior Contractは、Visual Layout、色、Typography、具体的なComponent表現を正本化しない。
+Behavior Specificationは、Visual Layout、色、Typography、具体的なComponent表現を正本化しない。
 
 ## 2.3. Shared Responsibility
 
@@ -125,7 +125,7 @@ Shared Responsibilityは、どちらか一方へ曖昧に委ねてはならな�
 
 # 3. Pairing Unit
 
-UI ContractとBehavior Contractの対応単位は、原則としてScreen単位ではなく、**Feature、Use Case、User Action、またはStateful Interaction単位**とする。
+UI ContractとBehavior Specificationの対応単位は、原則としてScreen単位ではなく、**Feature、Use Case、User Action、またはStateful Interaction単位**とする。
 
 一つのBehaviorが複数画面から利用される場合がある。
 一つの画面に複数Featureが存在する場合がある。
@@ -136,10 +136,10 @@ Screen A.md ⇄ Screen A Spec.md
 
 推奨される対応:
 Topicを承認するUI Contract
-    ⇄ Topic Approval Behavior Contract
+    ⇄ Topic Approval Behavior Specification
 
 Topicを検索するUI Contract
-    ⇄ Topic Search Behavior Contract
+    ⇄ Topic Search Behavior Specification
 ```
 
 単純な対象では、UIとBehaviorを一つのArtifactへ統合してよい。
@@ -149,11 +149,11 @@ Topicを検索するUI Contract
 
 ---
 
-# 4. Minimum Paired Contract
+# 4. Minimum UI Contract / Behavior Specification Pair
 
 重要なFeatureまたはInteractionでは、最低限以下を定義する。
 
-| Concern | UI Contract | Behavior Contract |
+| Concern | UI Contract | Behavior Specification |
 |---|---|---|
 | Purpose | 利用者が何を達成するか | Systemが何を成立させるか |
 | Source Context | UX・IA・Decisionとの関係 | UX・IA・Decisionとの関係 |
@@ -305,7 +305,7 @@ Partial Successをどう扱うか
 
 UIへProgressを表示する場合、実際には進捗を取得できないのに、確定的なPercentageを演出してはならない。
 
-Retryを提供する場合、Behavior ContractではIdempotencyまたは重複影響を明示する。
+Retryを提供する場合、Behavior SpecificationではIdempotencyまたは重複影響を明示する。
 
 ---
 
@@ -327,7 +327,7 @@ Retry、修正、問い合わせ等の次Action
 ```
 
 UIは、内部Error Codeをそのまま利用者へ表示することを正解としない。
-Behavior Contractは、すべてを「予期しないエラー」として一括処理しない。
+Behavior Specificationは、すべてを「予期しないエラー」として一括処理しない。
 
 Errorは必要に応じて分類する。
 
@@ -418,7 +418,7 @@ Exception
 Acceptance Criteria
 ```
 
-推奨利用領域は、Behavior Contract、SPEC、Acceptance Criteria、Test Designである。
+推奨利用領域は、Behavior Specification、Acceptance Criteria、Test Designである。
 
 UX Outcome、Experience Principle、IA Intent、Design Intentを、同じ構文へ圧縮してはならない。
 
@@ -437,7 +437,7 @@ the system shall record the approver, approval time, and approved revision.
 
 Figma等のDesign Artifactは、Layout、Visual、Component、Interaction表現の正本になり得る。
 
-ただし、FigmaだけでBehavior Contractが成立したとみなしてはならない。
+ただし、FigmaだけでBehavior Specificationが成立したとみなしてはならない。
 
 Context Repositoryには、最低限以下を接続する。
 
@@ -446,7 +446,7 @@ Context Repositoryには、最低限以下を接続する。
 Figma Link
 対象Frame / Component
 Authorityを持つProperty
-対応するBehavior Contract
+対応するBehavior Specification
 Versionまたは確認時点
 未反映・未確定事項
 ```
@@ -457,7 +457,7 @@ Prototype上で操作できることは、System Behaviorが確定または実�
 
 # 13. Validation and Review Gate
 
-UI／Behavior Contract Reviewでは、少なくとも以下を確認する。
+UI Contract／Behavior Specification Reviewでは、少なくとも以下を確認する。
 
 ## 13.1. Upstream Alignment
 
@@ -492,7 +492,7 @@ UIとBehaviorのどちらを何で検証するか明確か
 
 # 14. Reverse and Legacy Application
 
-Legacy／Brownfield環境では、UI、Code、実行結果からBehavior Contractを逆方向に復元してよい。
+Legacy／Brownfield環境では、UI、Code、実行結果からBehavior Specificationを逆方向に復元してよい。
 
 ただし、現在の挙動を意図された仕様と断定してはならない。
 
@@ -522,7 +522,7 @@ Known Defect / Inconsistency
 
 ## 15.1. UI-only Prototype
 
-価値仮説や操作性を検証するPrototypeでは、完全なBehavior Contractを作らず、Simulated Behaviorを利用してよい。
+価値仮説や操作性を検証するPrototypeでは、完全なBehavior Specificationを作らず、Simulated Behaviorを利用してよい。
 
 ただし、以下を明示する。
 
@@ -589,7 +589,7 @@ UI StateとSystem Stateを無条件に同一視しない
 不明な実行結果を成功または失敗へ無言で確定しない
 FigmaだけでBehaviorが確定したとみなさない
 EARSは主にSPEC以降のBehaviorとAcceptanceへ利用する
-実装前にUI／Behaviorの重大な不整合を解消する
+実装前にUI Contract／Behavior Specificationの重大な不整合を解消する
 実装後はFresh Evidenceにより両Contractを検証する
 ```
 
@@ -601,7 +601,7 @@ CRDDにおけるUIは、表面を整える工程ではない。
 SPECは、内部処理を列挙する工程ではない。
 
 UI Contractは、人間が製品を理解し、操作し、結果を判断するための契約である。
-Behavior Contractは、その期待をSystemが条件と状態に基づいて成立させるための契約である。
+Behavior Specificationは、その期待をSystemが条件と状態に基づいて成立させるための仕様である。
 
 ```text
 人間に見えることと、Systemで起きることを分離して設計する。

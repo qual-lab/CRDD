@@ -1,6 +1,6 @@
 # CRDD Agent Input / Output Contract
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -11,7 +11,7 @@ Related:
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
 - [00_16_Context_Transformation.md](00_16_Context_Transformation.md)
 - [00_17_Discovery.md](00_17_Discovery.md)
-- [00_18_UI_Behavior_Contract.md](00_18_UI_Behavior_Contract.md)
+- [00_18_UI_Behavior_Specification.md](00_18_UI_Behavior_Specification.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 - [00_23_Phase_Gate_Approval.md](00_23_Phase_Gate_Approval.md)
 - [00_24_Change_Context_Package.md](00_24_Change_Context_Package.md)
@@ -175,7 +175,7 @@ Problem
 UX Outcome
 IA Structure
 UI Contract
-Behavior Requirement
+Behavior Specification
 Architecture
 Decision
 Evidence
@@ -344,7 +344,7 @@ Agentは提案できるが、確定には人間または別Authorityの承認が
 ```text
 UX Outcomeの変更
 Feature Scopeの変更
-REQのBusiness Rule変更
+SPECのBusiness Rule変更
 Security Riskの受容
 Release延期
 ```
@@ -591,7 +591,7 @@ Lifecycle概念
 Navigation
 Grouping
 Naming Rationale
-Expected UI / REQ Obligation
+Expected UI / SPEC Obligation
 Trace to UX / Feature
 ```
 
@@ -673,7 +673,7 @@ UI Contract自体をEARSへ圧縮しない。
 
 ---
 
-# 11. Behavior / SPEC Agent Contract
+# 11. Behavior Specification Agent Contract
 
 ## Purpose
 
@@ -714,8 +714,8 @@ Scope、Priority、Risk受容
 ## Required Output
 
 ```text
-REQ ID
-Behavior Requirement
+SPEC ID
+Behavior Specification
 Condition
 Trigger
 State Transition
@@ -744,7 +744,7 @@ EARS等の構文は、Behavior、Exception、Acceptance Criteriaで推奨する�
 
 ## Purpose
 
-承認済みのUX、UI、REQ、Quality Attributeを、現在の技術と制約で成立させるArchitectureへ変換する。
+承認済みのUX、UI、Requirement、Behavior Specification、Quality Attributeを、現在の技術と制約で成立させるArchitectureへ変換する。
 
 ## Required Input
 
@@ -782,7 +782,7 @@ Product Scope変更
 ## Required Output
 
 ```text
-Architecture Decision
+Architecture Artifact Update / Decision / Rationale
 Component / Service Boundary
 Data Flow
 API Contract
@@ -791,7 +791,7 @@ Security Boundary
 Migration
 Operational Requirement
 Implementation Constraint
-Trace to REQ / UI / UX
+Trace to REQ / SPEC / UI / UX
 ```
 
 ## Reject / Stop
@@ -1190,7 +1190,7 @@ Relevant Constraint
 UX
 IA
 Use Case
-Relevant REQ
+Relevant SPEC
 Pattern / Component
 Platform Constraint
 ```
@@ -1209,7 +1209,7 @@ Quality Constraint
 ## Architecture Agent
 
 ```text
-Approved REQ
+Approved Requirement / SPEC
 UI Contract
 Quality Attribute
 Security / Integration
@@ -1265,15 +1265,15 @@ Trace、Risk、Handoff、Evidenceを含む終了条件を満たす必要があ�
 
 ```yaml
 agent_result:
-  id: AGR-000123
+  run_id: ui-agent-run-123
   agent_type: UI
-  change: CHG-000045
+  change: 07_Workflows/Changes/04_Topic_Detail.md
   scope:
-    - UC-000012
+    - use_case: Topicの根拠を確認し次Actionを判断する
   input_revision:
     ux: UX-000004@3
     ia: IA-000008@2
-    req: REQ-000044@1
+    spec: SPEC-000044@1
   status: CompletedWithOpenQuestions
   produced:
     - UI-000021@4
@@ -1282,15 +1282,15 @@ agent_result:
   decisions:
     - visual_hierarchy_updated
   escalations:
-    - REQ cancellation rule requires decision
+    - SPEC cancellation rule requires decision
   open_questions:
     - OQ-000031
   relations:
-    - UI-000021 pairs_with REQ-000044
+    - UI-000021 pairs_with SPEC-000044
   evidence:
-    - EVD-000019
+    - 05_UI/Evidence/Topic_Detail_Review.md
   next_handoff:
-    - BehaviorAgent
+    - BehaviorSpecificationAgent
 ```
 
 安定IDの実装方法は、対象RepositoryのRegistry設計に従う。
@@ -1321,12 +1321,12 @@ Role:
 UI Agent
 
 Scope:
-UC-000012
+Use Case: Topicの根拠を確認し次Actionを判断する
 
 Read:
 UX-000004@3
 IA-000008@2
-REQ-000044@1
+SPEC-000044@1
 
 Preserve:
 判断理由を同一視野で確認できること
@@ -1341,7 +1341,7 @@ Permission Rule
 Output:
 UI Contract revision
 Open Questions
-REQとの対応表
+SPECとの対応表
 ```
 
 簡略化しても、責務境界とInput Revisionを消してはならない。

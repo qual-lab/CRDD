@@ -1,6 +1,6 @@
 # Product Documentation
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -97,7 +97,7 @@ Propertyごとに、最も適切なArtifactが正本を持つ。
 
 | Property | Primary Authority Candidate |
 |---|---|
-| Origin、Why、価値、判断理由 | UX文書、Decision Record |
+| Origin、Why、価値、判断理由 | Discovery / UX文書と各成果物内のDecision / Rationale Section |
 | User Problem、Outcome、Experience Principle | UX文書 |
 | Object Model、Responsibility、Navigation | IA文書、Diagram |
 | Information Hierarchy、Wireframe、Screen Flow、Interaction、Component | UI文書、Figma等のDesign Artifact |
@@ -118,7 +118,7 @@ Versionまたは確認時点
 現在のStatus
 ```
 
-## 2.4. UI and SPEC Are Paired Contracts
+## 2.4. UI Contract and Behavior Specification Are Paired
 
 UIとSPECは完全な直列工程として扱わない。
 
@@ -126,7 +126,7 @@ UIとSPECは完全な直列工程として扱わない。
 UI Contract
 利用者に何が見え、何を操作でき、どんなFeedbackを受けるか
 
-Behavior Contract
+Behavior Specification
 どの条件・状態で何が起き、何が返されるか
 ```
 
@@ -166,7 +166,7 @@ Product Lifecycle Profileでは、以下を標準的な責務の流れとして�
 Service Blueprintを受け、対象概念、情報、行動、責務、Navigationを構造化する
         ↓
 05_UI ⇄ 04_Spec
-情報構造を見せるUI Contractと、System Behavior Contractを対で定義する
+情報構造を見せるUI Contractと、Behavior Specificationを対で定義する
         ↓
 05_UI / Graphic & Visual Design
 承認済みScopeの全Screen・主要Stateを最終Visualと素材へ展開する
@@ -175,16 +175,27 @@ Service Blueprintを受け、対象概念、情報、行動、責務、Navigatio
 現在の環境・制約で成立させる技術構造を選ぶ
         ↓
 40_Develop
-Plan、Code、Configuration、Testとして具体化する
+Code、Configuration、Migration、Testとして具体化する
         ↓
-90_Evidence / 90_Release
-成立性、利用結果、Release状態を記録する
+Verification / 90_Release
+各成果物に近接するEvidenceと、Source・Revisionを伴う成立性、利用結果、Release状態を記録する
         ↓
-UX / IA / UI / SPEC / Architecture / Decisions / Roadmap
+Discovery / UX / IA / UI / SPEC / Architecture / Roadmap
 学びと変更を適切なContextへ戻す
 ```
 
 このFlowは、固定された作業順を意味しない。
+
+`01_Discovery`と`99_Roadmap`はLifecycleの先頭と末尾を表す対称Folderではない。`01_Discovery`は新しいSource、Evidence、不確実性、Requirementの入口であり、`99_Roadmap`は採用済みだが未着手の内容について優先順位、時期、依存関係、着手条件を管理する。
+
+```text
+01_DiscoveryでREQを確定
+  ├─ 今すぐ対応 → 07_Workflows / Change Context Package
+  ├─ 将来対応   → 99_RoadmapからREQ・影響Contextを参照
+  └─ 未確定     → 01_DiscoveryでResearchを継続
+```
+
+Discovery ArtifactをRoadmapへ移動せず、RoadmapをRequirement、UX、IA、UI、SPECの正本にしない。Roadmap項目にはCRDD標準Stable IDを付与しない。
 
 ```text
 UI PrototypeからUX仮説を検証してよい
@@ -252,9 +263,10 @@ Related:
 |---|---|
 | `01_00_INDEX.md` | Discoveryの対象、読む順番、現在の主要論点 |
 | `01_01_Origin.md` | 始まりの経緯、作りたい理由、守りたい思い |
-| `01_02_Problem_and_Evidence.md` | 課題、観察、利用者の声、Evidence |
+| `01_02_Product_Requirements.md` | Discoveryから得たREQ、課題、制約、満たすべき条件 |
 | `01_03_Hypotheses_and_Questions.md` | 仮説、前提、不足情報、確認計画 |
 | `01_9X_Discovery_Brief.md` | UX・Research・Prototype等へ渡す要約 |
+| `Evidence/` | 調査、観察、利用者の声、Source資料 |
 
 小規模な対象では、これらを一つのDiscovery Briefへ統合してよい。
 
@@ -461,21 +473,21 @@ Glossary
 
 ---
 
-# 8. UI / SPEC Paired Documentation
+# 8. UI Contract / Behavior Specification Paired Documentation
 
-UIとSPECは、同一FeatureまたはUse Caseに対して対応関係を持たせる。
+UI ContractとBehavior Specificationは、同一FeatureまたはUse Caseに対して対応関係を持たせる。
 
 物理フォルダは`04_Spec`と`05_UI`に分けてよいが、設計・Reviewでは対のContractとして扱う。
 
 ## 8.1. SPEC Starter Structure
 
-`04_Spec`は、UX・IA・UIで表現された期待を、実装と検証に渡せるBehavior Contractへ変換する。
+`04_Spec`は、Requirement、UX・IA・UIで表現された期待を、実装と検証に渡せるBehavior Specificationへ変換する。
 
 | Artifact | Responsibility | Main Content |
 |---|---|---|
 | `04_00_INDEX.md` | Specの入口 | Scope、読む順番、Feature Map |
-| `04_01_Feature_Map.md` | 機能関係 | Feature ID、目的、対象Object、関連UI、Status |
-| `04_XX_<Feature>.md` | Behavior Contract | Trigger、Behavior、State、Input、Output、Exception |
+| `04_01_Feature_Map.md` | 機能関係 | Feature名、目的、対象Object、関連UI、Status |
+| `04_XX_<Feature>.md` | Behavior Specification | Trigger、Behavior、State、Input、Output、Exception |
 | `04_9X_Acceptance_Criteria.md` | 横断検証 | Acceptance、Quality Rule、Evidence Link |
 
 ### Feature Spec Template
@@ -690,7 +702,7 @@ Related:
 ## Feedback and Recovery
 ## Wording
 ## Accessibility / Responsiveness
-## Paired Behavior Contract
+## Paired Behavior Specification
 ## Wireframe / Figma / Visual Artifact
 ## Open Questions
 ```
@@ -699,7 +711,7 @@ Related:
 
 重要Featureでは、以下を対応づける。
 
-| Concern | UI Contract | Behavior Contract |
+| Concern | UI Contract | Behavior Specification |
 |---|---|---|
 | Trigger | 利用者が何を行うか | 処理開始条件 |
 | State | 何が見えるか | 内部状態と遷移 |
@@ -787,24 +799,22 @@ Completion Review Checklist
 
 ## 10.2. Develop
 
-`40_Develop`は、実装中のPlan、Task、作業Evidenceを扱う。
+`40_Develop`は、Code、Configuration、Migration、Test等のImplementation Artifactを扱う。CRDD管理用のPlan、Task、Decision、Evidence Markdownは配置しない。
 
 ```text
-実装計画
-変更対象とBoundary
-Task分解とDependency
-実行Log
-Test結果
-未解決事項
-Contextへ戻す学び
+Code
+Configuration
+Migration
+Automated Test
+Build対象
+実装固有のREADME
 ```
 
-Task管理Toolを併用してよい。
-ただし、重要なPlan、Boundary、判断、学びを外部Task Toolだけに閉じない。
+Plan、Change Context Package、Task分解、Boundary、作業上の未決は`07_Workflows`または外部Task Toolで扱う。ただし、重要なPlan、判断、学びを外部Task Toolだけに閉じない。
 
 ## 10.3. Evidence and Release
 
-`90_Evidence`は、検証に使った根拠と結果を扱う。
+Evidenceは成果物内のEvidence Section、または利用する成果物に最も近い親Folderの`Evidence/`で扱う。外部Artifactが正本の場合は固定Revisionを参照する。Root直下へ中央Evidence Folderを基本構成として作らない。
 `90_Release`は、どのVersionを何の確認に基づいて有効化・配布したかを扱う。
 
 ### Release Readiness Categories
@@ -819,7 +829,7 @@ Known Limitation
 Context Consistency
 ```
 
-### Release Evidence Record
+### Release Verification / Evidence
 
 ```text
 何を検証したか
@@ -847,8 +857,9 @@ Context Consistency
 | 最終Visual、素材、Icon、Motionをどう成立させるか | `05_UI`（Graphic / Visual Design） |
 | どの技術構造で成立させるか | `06_Architecture` |
 | 人間とAIがどう作業するか | `07_Workflows` |
-| 今回何を実装し、何を確認したか | `40_Develop` / `90_Evidence` |
-| なぜ採用・変更・却下したか | `95_Decisions` |
+| 今回何を実装したか | Code / Configuration / Test等のImplementation Artifact |
+| 何を確認し、何が根拠か | 関連するEvidence / Verification Record |
+| なぜ採用・変更・却下したか | 結果となるCanonical Artifact内のDecision / Rationale Section |
 | 次に何を行うか | `99_Roadmap` |
 
 同じTopicを複数Artifactが扱う場合、内容を重複コピーするのではなく、それぞれのProperty Authorityを保ち、意味のあるLinkで接続する。
@@ -865,7 +876,7 @@ Context Consistency
 Discovery / Product Brief
 UX・IA統合文書
 UI / SPEC統合Contract
-Architecture Decision
+Architecture Artifact with Decision / Rationale
 Implementation Plan
 Verification Record
 ```
@@ -875,18 +886,28 @@ Verification Record
 複数Feature、継続開発、複数関係者向け。
 
 ```text
-01_Discovery
-02_UX
-03_IA
-04_Spec
-05_UI
-06_Architecture
-07_Workflows
-40_Develop
-90_Evidence / Release
-95_Decisions
-99_Roadmap
+00_CRDD/
+01_Discovery/
+  └─ Evidence/
+02_UX/
+  └─ Evidence/
+03_IA/
+  └─ Evidence/
+04_Spec/
+  └─ Evidence/
+05_UI/
+  └─ Evidence/
+06_Architecture/
+  └─ Evidence/
+07_Workflows/
+  └─ Changes/
+40_Develop/
+90_Release/
+  └─ Evidence/
+99_Roadmap/
 ```
+
+`registry/`は複数文書・ToolからStable IDを機械処理する必要がある場合にだけ追加する。
 
 ## 12.3. Extended
 
@@ -920,7 +941,7 @@ IAはService Blueprintを情報構造、Object、Responsibility、Navigationへ�
 UIはScope内全ScreenのInventory、Wireframe、Screen Flow、最低限のDesign Token、Component / Patternを持つ
 Graphic / Visual DesignはScope内全Screen／主要StateのFinal Visualと必要Assetを網羅する
 UI品質はNielsenの5 Usability Quality Components、Universal Designの7原則、Accessibility等でReviewする
-UIとSPECは対のContractとして整合を確認する
+UI ContractとBehavior Specificationは対として整合を確認する
 Architectureは上流Contractを無断で弱めない
 実装開始時には、必要なArchitectureとImplementation Ruleを用意する
 完了判断はFresh Evidenceに基づく

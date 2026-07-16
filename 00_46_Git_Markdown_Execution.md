@@ -1,6 +1,6 @@
 # CRDD Git / Markdown Execution
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -282,10 +282,12 @@ Relation Registry
 
 Context Registryは、追跡対象Contextごとに最低限以下を保持する。
 
+Registryへ登録するStable IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`に限定する。Architecture、Decision、Evidence、Change、Test等はPath、Anchor、Revision、既存Toolの識別子で参照する。
+
 | Field | Required | Meaning |
 |---|---:|---|
 | `ID` | MUST | 安定ID |
-| `Type` | MUST | Core Context Typeまたは専門Context Type |
+| `Type` | MUST | REQ、UX、IA、UI、SPECのいずれか |
 | `Subtype` | SHOULD | UX Outcome、Experience Principle等 |
 | `Title` | MUST | 人間向け名称 |
 | `Status` | MUST | Candidate / Draft / Reviewed / Approved等 |
@@ -303,7 +305,7 @@ Context Registryは、追跡対象Contextごとに最低限以下を保持する
 ```markdown
 | ID | Type | Subtype | Title | Status | Revision | Owner | Source |
 |---|---|---|---|---|---:|---|---|
-| ORI-000001 | Origin | ProductIntent | 根拠ある計画判断 | Approved | 2 | Human | 01_Discovery/Origin.md |
+| REQ-000001 | Requirement | ProductNeed | 根拠ある判断支援が必要 | Approved | 2 | Human | 01_Discovery/01_Product_Requirements.md |
 ```
 
 ### 1.1. Registry and Source
@@ -317,6 +319,8 @@ Registryの内容と正本Artifactが矛盾する場合、意味内容は正本A
 登録単位はファイル単位ではなく、追跡価値のあるContext単位とする。
 
 一つのMarkdownに複数Contextがある場合、複数行を登録してよい。
+
+ファイル名の文書番号とContext Registryの安定IDを同一視してはならない。安定IDをファイル名へ埋め込まず、Registryの`Source`にはPathと、必要に応じてAnchorおよびRevisionを保持する。
 
 ---
 
@@ -339,7 +343,7 @@ Relation Registryは、最低限以下を保持する。
 ```markdown
 | From | Relation | To | Status | Source |
 |---|---|---|---|---|
-| UX-000010 | fulfills | ORI-000001 | Confirmed | 02_UX/02_01.md |
+| UX-000010 | addresses | REQ-000001 | Confirmed | 02_UX/02_01.md |
 ```
 
 ---
@@ -453,7 +457,7 @@ Expected Output
 最低限:
 
 ```text
-Change ID
+Change Reference
 Reason
 Scope
 Current State

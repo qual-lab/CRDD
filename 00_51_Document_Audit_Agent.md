@@ -1,6 +1,6 @@
 # CRDD Document Audit Agent
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -44,7 +44,8 @@ Document Audit Agent は次を担当する。
 用語監査
 規範語彙監査
 水平展開漏れ監査
-採番・識別子監査
+文書採番監査
+安定ID監査
 Traceability監査
 Status / Version監査
 Related / README / Overview / CHANGELOG追従確認
@@ -82,7 +83,7 @@ Related Links
 Core Standards
 Changed Files
 Affected Folder Index
-Decision Logs
+Canonical Artifact内のDecision / Rationale Sections
 Roadmap
 ```
 
@@ -220,31 +221,54 @@ AGENTS.md
 
 反映漏れがRepositoryの理解やAI実行に影響する場合はMajor以上のFindingとする。
 
-## 4.6 Identification Audit
+## 4.6 Document Naming and Numbering Audit
 
-Document Audit Agentは、番号やIDについて以下を確認する。
-
-```text
-番号が付いているか
-番号を付けるべきか
-番号を付けない判断が妥当か
-他文書から安定参照できるか
-Revisionを追えるか
-```
-
-採番が必要な例:
+Document Audit Agentは、Artifactを整理する文書番号とファイル名について以下を確認する。
 
 ```text
-他文書から参照される
-独立Revisionを持つ
-Approval対象
-Trace対象
-Change Impact対象
+文書体系またはFolder内の採番規則に従っているか
+重複番号、誤った採番帯、順序上の矛盾がないか
+番号を付けない判断が探索性を損なわないか
+ファイル名が文書の目的を表しているか
+安定IDがファイル名または文書Directory名へ埋め込まれていないか
 ```
 
-採番不要である場合も、その妥当性を報告する。
+文書番号はArtifactの分類、順序、探索のための番号であり、Context Entityの安定IDとして監査してはならない。
 
-## 4.7 Traceability Audit
+### Heading and Duplication Audit
+
+文書名だけでなく、見出しと規範定義の重複も確認する。
+
+```text
+コードブロック外で同一のHeading Anchorが重複し、直接Linkを曖昧にしていないか
+同じ見出し名を繰り返す場合、異なる親Sectionの配下で意味とScopeが明確か
+同じRuleまたはConceptが複数文書で正本として定義されていないか
+重複した規範定義を一つのAuthorityへ統合し、他文書から参照できるか
+例示やTemplateの反復が、規範定義の重複と誤認されない構造になっているか
+```
+
+同一語句の出現だけでFindingにはしない。親Section、Authority、Link先、規範性を比較し、探索または解釈が分岐する重複をFindingとする。
+
+## 4.7 Stable Context ID Audit
+
+Document Audit Agentは、Context Entityの安定IDについて以下を確認する。
+
+```text
+追跡価値のあるContextへ必要なIDが付与されているか
+標準Stable IDがREQ、UX、IA、UI、SPECの5種類に限定されているか
+Architecture、Decision、Evidence、Change、Testへ標準外Prefixを新規発行していないか
+一つの文書へ一つのIDを機械的に要求していないか
+一つの文書内にある複数Contextを独立して参照できるか
+IDが再利用または意味変更されていないか
+文書移動、名称変更、分割、統合、再採番だけを理由にIDが変更されていないか
+Path、Anchor、Revisionから正本Contextへ到達できるか
+Behavior Specificationへ新規発行するIDがSPEC Prefixを使用しているか
+Behavior Specificationの意味を持つ既存Legacy REQ IDが見かけを揃える目的だけで改番されていないか
+```
+
+安定IDを付けないContextがある場合も、追跡価値と変更Riskに照らした妥当性を報告する。
+
+## 4.8 Traceability Audit
 
 以下の接続を確認する。
 
@@ -252,6 +276,7 @@ Change Impact対象
 Origin
 Decision
 Requirement
+Behavior Specification
 Plan
 Implementation
 Verification
@@ -296,7 +321,7 @@ Concept変更
 MUST / SHOULD / MAYの意味変更
 Authority変更
 Status昇格
-採番新設
+安定ID体系またはPrefixの新設
 Decision変更
 Scope変更
 ```
@@ -314,7 +339,8 @@ Trace切れなし
 Related切れなし
 水平展開漏れなし
 Canonical Concept違反なし
-採番漏れ・採番過剰を確認済み
+文書採番の不整合なし
+安定IDの付与漏れ・付与過剰・ファイル名への混入なし
 Open QuestionがParent AgentまたはHuman Reviewへ渡されている
 ```
 
@@ -357,4 +383,4 @@ CRDD Document Audit Agentは、文書を修正するAgentではない。
 
 Repository全体がCRDD Standardへ適合しているかを継続監査する独立Review Agentである。
 
-Document Audit Agentは、文書構造、参照、用語、Traceability、水平展開、採番、Statusを確認し、Parent AgentとHuman Reviewが判断できるFindingを返す。
+Document Audit Agentは、文書構造、参照、用語、Traceability、水平展開、文書採番、安定ID、Statusを分けて確認し、Parent AgentとHuman Reviewが判断できるFindingを返す。

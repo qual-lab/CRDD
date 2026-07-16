@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.2.0 — Context continuity and Git / Markdown execution release.** / **v0.2.0 — Context継続性とGit / Markdown実行の整備版。**
+Status: **v0.3.0 — Stable ID and Behavior Specification clarification release.** / **v0.3.0 — 安定IDとBehavior Specificationの明確化版。**
 See [CHANGELOG.md](CHANGELOG.md).
 
 **[English](#english)** | **[日本語](#日本語)**
@@ -32,7 +32,7 @@ Read [`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md) for the full princip
 
 1. Read [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md), then [`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md).
 2. Read the Core Standard documents you need (`00_10`–`00_19`) — these describe the current Core Standard. Conformance criteria are defined in [`00_03_CRDD_Conformance.md`](00_03_CRDD_Conformance.md).
-3. Adopt the folder structure described in [`00_30_Product_Documentation.md`](00_30_Product_Documentation.md) for your own product (`02_UX`, `03_IA`, `04_Spec`, `05_UI`, `06_Architecture`, `07_Workflows`, `90_Release`, ...).
+3. Copy the [`template`](template) scaffold or adopt the folder structure described in [`00_30_Product_Documentation.md`](00_30_Product_Documentation.md). Place the CRDD standard documents in `00_CRDD/` when using the scaffold in another repository.
 4. Point your AI coding assistant (Claude Code, Codex, or similar) at this folder as required reading before non-trivial changes.
 5. For Git / Markdown execution, keep `CLAUDE.md` / `AGENTS.md` at the repository root, prepare the required Markdown Package / Registry documents, and follow [`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md).
 
@@ -41,6 +41,12 @@ CRDD does not require any specific AI tool, subagent architecture, or tech stack
 ### Repository Structure
 
 `00_CRDD` is organized into six layers by numbering band; the band itself signals the layer.
+
+These document numbers organize files; they are separate from stable IDs assigned to Context entities inside documents.
+
+Store Evidence inline or under the nearest parent folder's `Evidence/`. A decision's result is the approved canonical artifact; keep its rationale, evidence, alternatives, and history in that artifact. Do not use root-level Evidence or Decision folders as the default model. Standard Stable IDs are limited to `REQ`, `UX`, `IA`, `UI`, and `SPEC`. `40_Develop` is for implementation artifacts rather than CRDD management Markdown.
+
+`01_Discovery` receives new evidence, uncertainty, and requirements. `99_Roadmap` schedules accepted but deferred work by referencing those requirements and other Stable Contexts; Roadmap items do not receive CRDD Stable IDs.
 
 | Band | Layer | Meaning |
 |---|---|---|
@@ -96,7 +102,7 @@ CRDDは、Gitリポジトリそのものを Context Repository として扱う�
 
 1. [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md)を読み、次に[`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md)を読む。
 2. 必要なCore標準文書（`00_10`〜`00_19`）を読む——これらは現時点のCore標準を記述したものである。準拠条件は[`00_03_CRDD_Conformance.md`](00_03_CRDD_Conformance.md)に定義されている。
-3. 自分のプロダクト向けに、[`00_30_Product_Documentation.md`](00_30_Product_Documentation.md)に記載されたフォルダ構成（`02_UX`・`03_IA`・`04_Spec`・`05_UI`・`06_Architecture`・`07_Workflows`・`90_Release`等）を採用する。
+3. [`template`](template)のscaffoldをコピーするか、[`00_30_Product_Documentation.md`](00_30_Product_Documentation.md)のフォルダ構成を採用する。別Repositoryでscaffoldを使う場合は、CRDD標準文書を`00_CRDD/`へ配置する。
 4. 非自明な変更の前に、AIコーディングアシスタント（Claude Code、Codex等）へこのフォルダを必読資料として読み込ませる。
 5. Git / Markdownで実行する場合は、Repository Rootの`CLAUDE.md` / `AGENTS.md`を入口にし、必要なMarkdown Package / Registry文書を用意したうえで、[`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md)に従う。
 
@@ -105,6 +111,12 @@ CRDDは特定のAIツール・Subagent構成・技術スタックを要求しな
 ### リポジトリ構成
 
 `00_CRDD`は採番帯によって6つの層に分かれており、採番帯そのものが層を表す。
+
+この文書番号はファイルを整理するための採番であり、文書内のContext Entityへ付与する安定IDとは別の識別体系である。
+
+Evidenceは成果物内、または最も近い親Folderの`Evidence/`へ置く。Decisionの結果は承認済みCanonical Artifactであり、理由、Evidence、代替案、経緯を同じ成果物へ残す。Root直下のEvidence / Decision Folderは基本モデルにしない。標準Stable IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種類に限定する。`40_Develop`はImplementation Artifactの領域であり、CRDD管理用Markdownの配置先にはしない。
+
+`01_Discovery`は新しいEvidence、不確実性、Requirementの入口である。`99_Roadmap`は採用済みだが未着手の内容を、Requirementや他のStable Contextへの参照とともに計画する。Roadmap項目へCRDD Stable IDは付与しない。
 
 | 採番帯 | 層 | 意味 |
 |---|---|---|

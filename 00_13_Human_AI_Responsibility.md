@@ -1,9 +1,9 @@
 # Human and AI Responsibility
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-12
+Last Updated: 2026-07-16
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
@@ -131,7 +131,7 @@ fixture作成
 エラー原因の調査
 リファクタ案の作成
 PR文案作成
-Decision Logの下書き
+成果物内のDecision / Rationale Sectionの下書き
 Roadmap候補の整理
 ```
 
@@ -278,7 +278,7 @@ CRDD原則を壊していないか
 受入条件を満たしているか
 テストまたは検証結果があるか
 関連ドキュメントが更新されているか
-Decision Logが必要ではないか
+Decision / Rationale Sectionが必要ではないか
 Roadmapへの影響がないか
 ```
 
@@ -322,7 +322,7 @@ Context Repository Update
 Implementation
 ```
 
-重要な判断では、`95_Decisions` にDecision Logを残す。
+重要な判断では、結果となるCanonical Artifactへ内容を反映し、Decision / Rationale Sectionに理由・Evidence・経緯を残す。
 
 ## AI-Generated Context
 
@@ -422,7 +422,7 @@ AIは作業前に関連Contextを読む
 AIは実装前にPlanを出す
 AIは重要判断を確定しない
 人間はAIの差分を確認する
-重要判断は95_Decisionsへ残す
+重要判断は成果物へ反映し、理由・Evidence・経緯を同じ成果物に残す
 思想変更は02_UXへ反映する
 ```
 

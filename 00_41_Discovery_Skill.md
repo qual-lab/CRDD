@@ -1,6 +1,6 @@
 # CRDD Discovery Skill
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Skill ID: `skill.discovery.frame`
 Owner: Qual-Lab
@@ -140,7 +140,7 @@ Raw Voice
 
 ```text
 Observation
-Evidence
+Evidence Candidate / Source Reference
 Current Workflow
 Pain
 Frequency

@@ -1,6 +1,6 @@
 # CRDD End-to-End Context Continuity
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -268,7 +268,7 @@ SPECを設計することで、利用者へ見せるべき状態、操作制約�
 UI Contract
 利用者に何が見え、何を操作でき、どのようなFeedbackを受けるか
 
-Behavior Contract
+Behavior Specification
 どの条件で、どの状態から、何が起き、何が返されるか
 ```
 
@@ -335,7 +335,7 @@ CRDD Context Repository
 ├─ UX Contract
 ├─ IA Model
 ├─ UI Contract
-├─ Behavior Contract
+├─ Behavior Specification
 ├─ Architecture Constraints
 └─ Verification Criteria
         ↓

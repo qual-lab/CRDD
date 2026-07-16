@@ -1,6 +1,6 @@
 # CRDD Core Concepts and Terminology
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -9,7 +9,7 @@ Related:
 - [00_03_CRDD_Conformance.md](00_03_CRDD_Conformance.md)
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
 - [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
 - [00_15_Document.md](00_15_Document.md)
 - [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
@@ -73,6 +73,8 @@ Proposal
 Decision
   ↓ realized_by
 Requirement
+  ↓ specified_by（Behaviorを定義する場合）
+Behavior Specification
   ↓ planned_as
 Plan
   ↓ executed_as
@@ -91,7 +93,8 @@ Learning
 一つのHypothesisから複数Proposalを作成してよい
 ProposalをRejectedまたはDeferredとして保持してよい
 Decisionを複数Requirementが実現してよい
-Verification ResultからRequirement、UX、IA、Architecture等へ戻ってよい
+一つのRequirementを複数Behavior Specificationが具体化してよい
+Verification ResultからRequirement、Behavior Specification、UX、IA、Architecture等へ戻ってよい
 Learningから新しいObservation、Hypothesis、Proposalが生まれてよい
 ```
 
@@ -208,7 +211,7 @@ MUST NOT
 | Input | Proposal、Evidence、Interpretation、Principle、Constraint、Trade-off、Risk |
 | Output | Requirement、Plan、Scope、Principle Update、Exception、Rejected / Deferred Item |
 | Lifecycle | `Proposed` → `Approved` / `Rejected` / `Deferred` → `Active` → `Superseded` / `Reversed` |
-| Related Concepts | Proposal、Decision Record、Authority、Requirement、Rationale |
+| Related Concepts | Proposal、Canonical Artifact、Authority、Requirement、Rationale |
 | Alias | Approval、Adoption Decision、Rejection Decision。単なるAI RecommendationはDecisionではない。 |
 | MUST | Decision maker、日時、対象Scope、Rationale、主要Evidence、影響Contextを保持しなければならない。 |
 | MUST NOT | AIが自己承認してはならない。履歴を破壊的に上書きしてはならない。 |
@@ -217,19 +220,39 @@ MUST NOT
 
 | Field | Definition |
 |---|---|
-| Definition | Decision、Principle、法令、Contract、UX Outcome等を実現・遵守するために満たすべき条件。 |
-| Purpose | Product、System、Processが何を満たす必要があるかを、設計・実装・検証可能な形で定義する。 |
-| Created By | Human / Analyst / SPEC Agent / Expert。AIはDraftできる。 |
+| Definition | Discoveryで得た問題、Need、Evidence、法令、Contract、Constraint等から導かれる、Product、System、Processが満たすべき条件。 |
+| Purpose | Discoveryの結果を、UX、IA、UI、Behavior Specificationへ引き渡せる追跡可能な要求として定義する。 |
+| Created By | Human / Analyst / Discovery Agent / Expert。AIはDraftできる。 |
 | Authority | 対象ScopeのHuman Authorityが承認する。外部法令・Contract由来の場合は外部Authorityを保持する。 |
-| Input | Decision、Principle、UX、IA、UI Contract、法令、Contract、Constraint |
+| Input | Observation、Evidence、Problem、Need、Decision、Principle、法令、Contract、Constraint |
 | Output | Architecture、Plan、Implementation、Acceptance Criteria、Test |
 | Lifecycle | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Implemented` → `Verified` → `Superseded` / `Deprecated` |
-| Related Concepts | Decision、UI Contract、Behavior Contract、Acceptance Criteria、Verification Result |
-| Alias | Specification（詳細仕様を指す場合）、Need。Featureそのものとは区別する。 |
-| MUST | Source Decisionまたは正当なAuthorityへTrace可能でなければならない。検証可能性またはVerification方法を持たなければならない。 |
+| Related Concepts | Decision、UI Contract、Behavior Specification、Acceptance Criteria、Verification Result |
+| Alias | Need。Featureそのもの、または具体的な振る舞いを定義するBehavior Specificationとは区別する。 |
+| MUST | Discovery Source、Evidence、Decisionまたは正当なAuthorityへTrace可能でなければならない。検証可能性またはVerification方法を持たなければならない。 |
 | MUST NOT | 根拠のないAI推定を承認済みRequirementとして扱ってはならない。UX OutcomeやDesign IntentをBehavior構文だけへ圧縮してはならない。 |
 
-## 3.8. Plan
+## 3.8. Behavior Specification
+
+| Field | Definition |
+|---|---|
+| Definition | Feature、Use Case、User Action等について、特定のCondition、Trigger、State、Inputに対してSystemが何を行い、何を変更・出力し、例外・失敗・回復をどう扱うかを定義した検証可能な振る舞い仕様。 |
+| Purpose | Requirement、UX、IA、UI Contract、Business Ruleを、実装・検証へ渡せる具体的なSystem Behaviorへ変換する。 |
+| Created By | Human / Analyst / SPEC Agent / Expert。AIはDraftできる。 |
+| Authority | 対象ScopeのProductまたはDomain Authorityが意味を承認する。ArchitectureやImplementationは承認済みBehavior Specificationを無断で弱めない。 |
+| Input | Requirement、Decision、Feature、Use Case、User Action、IA、UI Contract、Business Rule、Constraint |
+| Output | Architecture、Implementation、Acceptance Criteria、Test、Evidence |
+| Lifecycle | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Implemented` → `Verified` → `Superseded` / `Deprecated` |
+| Related Concepts | Requirement、UI Contract、State、Business Rule、Acceptance Criteria、Verification Result |
+| Alias | SPEC。`Behavior Requirement`および`Behavior Contract`はCanonical Termとして使用しない。 |
+| MUST | Condition、Trigger、State、Behavior、Exception、AcceptanceまたはVerification方法を対象Riskに応じた粒度で持たなければならない。Source Requirementまたは正当なAuthorityへTrace可能でなければならない。 |
+| MUST NOT | Requirement、UX Outcome、UI表現、Architecture方式、実装詳細と同一視してはならない。 |
+
+Requirementは「何を満たす必要があるか」を定義し、Behavior Specificationは「どの条件と状態でSystemがどう振る舞うか」を定義する。
+
+Behavior Specificationが承認され、UI、Architecture、Implementation、Verificationの基準として利用される場合、契約的な役割を果たす。ただし、その役割を別のContext Typeである`Behavior Contract`として扱ってはならない。
+
+## 3.9. Plan
 
 | Field | Definition |
 |---|---|
@@ -245,39 +268,39 @@ MUST NOT
 | MUST | 対象Requirement、Scope、Dependency、完了条件、Ownerを追跡可能にしなければならない。 |
 | MUST NOT | 未承認のScope削減やRequirement変更を暗黙に含めてはならない。 |
 
-## 3.9. Implementation
+## 3.10. Implementation
 
 | Field | Definition |
 |---|---|
-| Definition | PlanとRequirementに基づいて作成・変更されたCode、Configuration、Design Asset、Content、Infrastructure、Process等の実体。 |
+| Definition | Plan、Requirement、Behavior Specificationに基づいて作成・変更されたCode、Configuration、Design Asset、Content、Infrastructure、Process等の実体。 |
 | Purpose | 採用済みContextを、動作・利用・評価可能な現実の成果へ変換する。 |
 | Created By | Human / AI Agent / Tool / System |
 | Authority | 作成Authorityと採用Authorityを分離してよい。ReleaseまたはBaselineへの採用はHuman Authorityが決める。 |
-| Input | Plan、Requirement、Architecture、UI / Graphic、Asset、Constraint |
+| Input | Plan、Requirement、Behavior Specification、Architecture、UI / Graphic、Asset、Constraint |
 | Output | Executable Artifact、Build、Release Candidate、Verification Target、Operational Change |
 | Lifecycle | `Created` → `Reviewed` → `Integrated` → `Released` / `Rejected` → `Superseded` / `Retired` |
-| Related Concepts | Artifact、Plan、Requirement、Architecture、Verification Result |
+| Related Concepts | Artifact、Plan、Requirement、Behavior Specification、Architecture、Verification Result |
 | Alias | Delivery、Code Change、Built Artifact。実装方法全体をCodeだけに限定しない。 |
-| MUST | 対応するPlanまたはRequirementへTrace可能でなければならない。Deviationと既知Limitを明示しなければならない。 |
+| MUST | 対応するPlan、Requirement、Behavior Specificationのうち該当するContextへTrace可能でなければならない。Deviationと既知Limitを明示しなければならない。 |
 | MUST NOT | 動作していることだけを理由に、上流DecisionやRequirementの正本として扱ってはならない。 |
 
-## 3.10. Verification Result
+## 3.11. Verification Result
 
 | Field | Definition |
 |---|---|
-| Definition | 対象RevisionのRequirement、Contract、Acceptance Criteria、Outcome等に対する検証結果とEvidence。 |
+| Definition | 対象RevisionのRequirement、Behavior Specification、Contract、Acceptance Criteria、Outcome等に対する検証結果とEvidence。 |
 | Purpose | ImplementationやContextが期待条件を満たすか、どの条件では満たさないかを明らかにする。 |
 | Created By | Human Reviewer / Test Agent / Tool / System / User Researcher |
 | Authority | 検証方法と対象に応じたReviewerまたはQuality Authority。AIは実行・整理できるがRisk受容を決められない。 |
-| Input | Requirement、Acceptance Criteria、Implementation、Environment、Test、Observation |
+| Input | Requirement、Behavior Specification、Acceptance Criteria、Implementation、Environment、Test、Observation |
 | Output | Pass / Fail / Blocked、Gap、Finding、Decision Input、Learning Candidate |
 | Lifecycle | `Planned` → `Executed` → `Reviewed` → `Accepted` / `Invalidated` / `Superseded` |
-| Related Concepts | Evidence、Requirement、Implementation、Gap、Learning |
+| Related Concepts | Evidence、Requirement、Behavior Specification、Implementation、Gap、Learning |
 | Alias | Test Result、Validation Result、Review Result。曖昧なResult単独表記は避ける。 |
 | MUST | 対象Revision、Environment、実行条件、結果、Evidenceを保持しなければならない。 |
 | MUST NOT | Test PassだけをProduct Outcome達成の証明として扱ってはならない。古いRevisionのResultを現行検証として再利用してはならない。 |
 
-## 3.11. Learning
+## 3.12. Learning
 
 | Field | Definition |
 |---|---|
@@ -405,7 +428,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 ## 4.9. Trace
 
-**Definition:** Context、Artifact、Decision、Requirement、Implementation、Verification等の由来・実現・制約・検証関係を追跡できるRelation。
+**Definition:** Context、Artifact、Decision、Requirement、Behavior Specification、Implementation、Verification等の由来・実現・制約・検証関係を追跡できるRelation。
 
 **Purpose:** 上流Intentから下流成果物へ、下流成果物から上流理由へ双方向に遡れるようにする。
 
@@ -524,6 +547,7 @@ Recovered ≠ Confirmed
 | Evidence | Proof | 数学的・法的な完全証明でない限りProofを避ける |
 | Context Repository | Documentation Repository | Context、Trace、Decisionを扱う場合にDocumentationだけへ狭めない |
 | Requirement | Feature | FeatureはProduct Scope単位、Requirementは満たす条件として区別する |
+| Behavior Specification | Requirement | Requirementは満たすべき条件、Behavior Specificationは条件と状態に応じたSystem Behaviorとして区別する |
 | Implementation | Code | Code以外のDesign Asset、Config、Infra、Processも含む |
 | Learning | Summary | 要約されただけではLearningへ昇格しない |
 
@@ -544,6 +568,7 @@ Recovered ≠ Confirmed
 | Proposal | Create / Review | Create / Recommend | Generate候補 | Humanが採否を決定 |
 | Decision | Create / Approve | Draft / Suggest only | — | Human Authority only |
 | Requirement | Create / Approve | Draft / Analyze | Constraint提供 | Humanまたは外部Authority |
+| Behavior Specification | Create / Approve | Draft / Analyze | Existing Behavior提供 | ProductまたはDomain Authority |
 | Plan | Create / Approve | Draft / Optimize | Schedule計算 | Human Owner |
 | Implementation | Create / Review / Adopt | Create / Modify | Execute / Build | Human Release / Baseline Authority |
 | Verification Result | Review / Accept | Execute / Analyze | Execute / Measure | Human Reviewer / Quality Authority |
@@ -568,7 +593,8 @@ MUST Superseded / Rejected / Deferred Contextの履歴を必要な期間保持�
 MUST NOT AIが重要Decision、Gate、Risk Acceptanceを自己承認する
 MUST NOT ObservationまたはInterpretationを、根拠なく確定Factとして登録する
 MUST NOT Artifactの存在だけでContextの意味・承認・検証を保証したとみなす
-SHOULD Core Context Typeへ安定ID、Revision、Relationを付与する
+SHOULD 複数成果物で継続追跡するREQ、UX、IA、UI、SPECへ安定ID、Revision、Relationを付与する
+MUST NOT Architecture、Decision、Evidence、Change、Test等へCRDD標準Stable IDを新規発行する
 SHOULD AliasではなくCanonical Termを正式文書とRegistryで使用する
 MAY 人間向けUIではIDや詳細StatusをProgressive Disclosureにより簡略表示する
 ```

@@ -1,183 +1,196 @@
-# Information Type and Provenance
+# Information Provenance
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-15
+Last Updated: 2026-07-16
 Related:
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
-- [00_02_CRDD_Core_Concepts_and_Terminology.md](00_02_CRDD_Core_Concepts_and_Terminology.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
+- [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
 
 ---
 
 # 1. Purpose
 
-本ドキュメントは、Context Repositoryに蓄積される情報の「種別（Type）」と「由来（Provenance）」の扱いを定義する。
+本書は、CRDDにおけるEvidenceの意味、配置、参照、鮮度、判断理由への反映方法を定義する。
 
-CRDDは「Contextを保存する方法論」である。何を事実として扱い、何をAIの解釈として扱い、何を人間の決定として扱うかという情報種別の区別と、それらがどう昇格していくかというライフサイクルが、方法論の核心に近い。
-
-各種別の正式な定義は[`00_02_CRDD_Core_Concepts_and_Terminology.md`](00_02_CRDD_Core_Concepts_and_Terminology.md)を参照する。本書はその運用ルールを扱う。
+Evidenceは独立したStable ID体系や中央Folderを作るための概念ではない。成果物の主張、要求、仕様、設計、検証結果を支える根拠である。
 
 ---
 
-# 2. Document Type
+# 2. Basic Principle
 
-Context Repository内の文書は、役割を明確にする。
+```text
+Evidence = 成果物の内容を支える根拠
+Source   = Evidenceの出所
+Decision = Evidenceや経緯を踏まえて成果物へ反映した判断
+```
 
-| Type         | Purpose                       | Example Folder             |
-| ------------ | ----------------------------- | --------------------------- |
-| Principle    | 原則・思想                         | `00_CRDD`, `02_UX`         |
-| Context      | 課題・背景・Why                     | `02_UX`, `90_Evidence`     |
-| Design       | UX / IA / UI / Architecture設計 | `02_UX`〜`06_Architecture`  |
-| Specification | 機能の振る舞い・状態・受け入れ条件 | `04_Spec`                  |
-| Decision     | 判断履歴                          | `95_Decisions`             |
-| Plan         | 開発計画・Sprint計画                 | `40_Develop`, `99_Roadmap` |
-| Verification | 検証結果                          | `40_Develop`               |
-| Evidence     | 根拠資料                          | `90_Evidence`              |
-| PR Material  | 外部向け資料                        | `80_PR`                    |
+Source Artifactを置いた、または外部Sourceへリンクしただけでは、根拠として十分とは限らない。利用目的に応じて、対象、取得条件、Revisionまたは時点、Provenance、既知の制限を明示する。
 
-各文書は、自分がどのTypeに属するかを明確にする。
+EvidenceそのものへCRDD標準のStable IDを付与しない。EvidenceはPath、URL、Artifact固有ID、Revision、Anchor等で参照する。
 
 ---
 
-# 3. Evidence Promotion Rule
+# 3. Evidence Placement
 
-`90_Evidence` に置いた資料は、置いただけでは正本にならない。
-
-Evidenceは材料であり、判断や設計に使われたときに、Contextとして昇格する。
-
-## Promotion Flow
+Evidenceは、利用する成果物に最も近い親Folderの下へ置く。
 
 ```text
-Raw Evidence
-↓
-Finding
-↓
-Context
-↓
-Decision / Design / Roadmap
+01_Discovery/
+├─ 01_Product_Requirements.md
+└─ Evidence/
+   ├─ Interview_Notes.md
+   └─ Market_Research.md
+
+02_UX/
+├─ 01_Experience_Principles.md
+└─ Evidence/
+   └─ Usability_Observation.md
+
+04_Spec/
+├─ 01_Topic_Behavior.md
+└─ Evidence/
+   └─ Existing_Behavior_Capture.md
+
+06_Architecture/
+├─ 01_System_Boundaries.md
+└─ Evidence/
+   └─ Runtime_Measurement.md
 ```
 
-## Example
+Project Root直下へ`90_Evidence`等の中央Evidence Folderを基本構成として作ってはならない。
 
-```text
-90_Evidence/Competitors/xxx.md
-↓
-02_UX/xx_User_Pain.md
-↓
-95_Decisions/2026-xx-xx_feature_priority.md
-↓
-99_Roadmap/xx_Roadmap.md
-```
-
-## Rule
-
-Evidenceを参照して重要判断を行った場合、必ず以下のいずれかに反映する。
-
-```text
-02_UX
-03_IA
-04_Spec
-05_UI
-06_Architecture
-95_Decisions
-99_Roadmap
-```
-
-Evidenceは「資料の墓場」にしない。
-重要な示唆は、必ずContextへ昇格する。
+複数領域で同じSourceを使う場合も、安易にRootへ移動しない。最も責任の近い親Folderに正本を置き、他の成果物から参照する。外部Systemが正本である場合は、各成果物から外部Artifactと固定Revisionへ直接リンクしてよい。
 
 ---
 
-# 4. Evidence Reference Rule
+# 4. Inline Evidence and Evidence Files
 
-Evidenceを使う場合は、必ず出典または元資料を明示する。
+Evidenceが短く、単一成果物だけで利用する場合は、成果物内の`Evidence` Sectionへ直接記載してよい。
 
-```text
-# Evidence
+```markdown
+## Evidence
 
-- Competitor Research: ../90_Evidence/Competitors/2026-07-xx_competitor_research.md
-- User Pain: ../90_Evidence/User_Voices/2026-07-xx_user_pain.md
+- Source: User interview summary
+- Observed at: 2026-07-10
+- Participants: 5 project managers
+- Finding: 4名が重要Topicの見落としを報告した
+- Limitations: 同一業種のみ
 ```
 
-Evidenceを根拠に判断した場合は、`95_Decisions` からEvidenceへリンクする。
-
-Evidenceは材料であり、Decisionは判断である。
-
-```text
-Evidence = 材料
-Decision = 判断
-Context = 判断可能な文脈
-```
+Evidenceが長い、画像やCaptureを伴う、複数成果物から参照する、独立したRevision管理が必要な場合は、最寄りの`Evidence/`へ分離する。
 
 ---
 
-# 5. Roadmap Absorption Rule
+# 5. Minimum Evidence Properties
 
-Roadmapは予定・優先順位・将来構想を扱う。
-完了した項目は、Roadmapに詳細を残し続けず、以下へ吸収する。
+Evidenceを成果物の根拠として使う場合、Riskに応じて以下を追跡可能にする。
 
-| Completed Content | Absorb Into |
+| Property | Meaning |
 |---|---|
-| 体験価値・ユーザー判断 | `02_UX` |
-| 情報構造・画面責務 | `03_IA` |
-| 機能の振る舞い・状態・例外 | `04_Spec` |
-| 表示・操作・文言 | `05_UI` |
-| DB・API・IPC・AI・Security | `06_Architecture` |
-| 開発・検証・Release手順 | `07_Workflows` |
-| 重要な判断理由 | `95_Decisions` |
-| 検証・Smoke Test・Release結果 | `90_Release` / `90_Evidence` |
+| Subject | 何を裏づけるEvidenceか |
+| Source | 元資料、観察対象、実行結果 |
+| Revision / Observed At | どのRevisionまたは時点か |
+| Conditions | 対象、Environment、取得・検証条件 |
+| Finding | 何が確認されたか |
+| Limitations | 適用範囲、未確認事項、偏り |
+| Provenance | Human、Observed、Tool、External等 |
+| Owner | 鮮度と利用判断を維持する責任者 |
 
-完了済みRoadmap文書は、吸収先が明確であれば削除してよい。
-ただし、判断履歴そのものは削除せず、必要に応じて `95_Decisions` に残す。
+Evidenceファイルの例:
 
----
-
-# 6. Feature Adoption Rule
-
-Roadmap上の構想やAIが整理した候補は、そのまま実装正本にはならない。
-
-ユーザーに見える新しい概念、画面、状態、用語、AI出力を実装する場合は、実装前または実装と同時に、最低限以下へ昇格する。
-
-| Content | Promote Into |
-|---|---|
-| 何を提供するか、どう振る舞うか | `04_Spec` |
-| ユーザーにどう見えるか、どう操作するか | `05_UI` |
-| どう実現するか、どのデータ・API・AI経路を使うか | `06_Architecture` |
-| なぜ採用したか、重要な代替案をなぜ捨てたか | `95_Decisions` |
-
-特に、AIが生成・抽出・提案する情報をプロダクト上の再利用可能な概念として扱う場合は、以下を明示する。
-
-```text
-何を候補として扱うのか
-いつ正本または採用済みになるのか
-誰が採用・却下を判断するのか
-根拠・出典・制限事項をどこに保持するのか
-ユーザーが誤って確定情報と受け取らない表示になっているか
-```
-
-AI生成物は、承認されるまでは候補である。
-候補を仕様・UI・DB・外部公開情報へ昇格する判断は、人間が行う。
-
----
-
-# 7. Minimum Rule
-
-最低限、以下を守る。
-
-```text
-各文書がどのDocument Typeに属するか明確にする
-Evidenceを根拠にした判断は、必ずいずれかのフォルダへ昇格させる
-Evidenceを引用する場合は出典をリンクする
-完了したRoadmap項目は吸収先を明示してから削除する
-AI生成物をユーザー向け確定情報として扱う前に、昇格の判断者・根拠・既知の制限を明示する
+```yaml
+subject: 未読の重要Topicを利用者が識別できるか
+source: usability-test/session-summary
+observed_at: 2026-07-10
+conditions:
+  participants: 5
+  prototype_revision: figma-42
+finding: 4名が優先Topicを正しく選択した
+limitations:
+  - 同一業種の参加者のみ
+provenance: Observed
+owner: UX Research
 ```
 
 ---
 
-# 8. Final Principle
+# 6. Discovery and Requirement
 
-情報は、種別と由来（どこから来て、誰が確認し、どこへ昇格したか）が分からなくなった瞬間に、Contextではなくただのデータになる。
+Discoveryで得た観察、調査、制約は、必要に応じて`01_Discovery/Evidence/`へ保存する。
 
-CRDDでは、情報の種別と由来を明示し続けることで、Context Repositoryを判断可能な状態に保つ。
+そこから、複数成果物で追跡する価値がある要求を`REQ-*`としてDiscovery成果物へ記録する。
+
+```text
+01_Discovery/Evidence/User_Interviews.md
+  ↓ supports
+REQ-000012 利用者が重要事項を見落とさず確認できること
+  ↓ specified_by
+SPEC-000044 未読重要Topicの表示・既読更新Behavior
+```
+
+EvidenceとRequirementを同一視してはならない。Evidenceは要求の根拠であり、RequirementはDiscoveryから得た「満たすべき条件」である。
+
+---
+
+# 7. Decision and Evidence
+
+Evidenceを根拠に判断した場合、判断結果となるCanonical Artifact内に、採用内容とEvidence参照を残す。
+
+```markdown
+## Decision / Rationale
+
+### Adopted
+重要Topicは通常Topicより先に表示する。
+
+### Why
+利用者が重要事項を見落とす問題を優先して解決するため。
+
+### Evidence
+- ../01_Discovery/Evidence/User_Interviews.md
+- Evidence/Priority_Prototype_Test.md
+
+### Alternatives / History
+- 時系列のみの表示は、重要事項を識別できないため不採用。
+```
+
+Evidenceは材料であり、成果物へ反映された内容が判断結果である。
+
+---
+
+# 8. Freshness and Replacement
+
+Evidenceは対象Revisionや時点が変わると陳腐化する。
+
+```text
+Current   = 現行成果物の判断に利用できる
+Stale     = 再確認が必要
+Replaced  = 新しいEvidenceに置き換えられた
+Invalid   = 条件不備等により根拠として利用できない
+```
+
+古いEvidenceを削除する必要はないが、現行成果物の根拠として参照し続ける場合は妥当性を再確認する。
+
+---
+
+# 9. Minimum Rules
+
+```text
+Evidenceは利用する成果物に最も近い親Folderの下へ置く
+Root直下へ中央Evidence Folderを基本構成として作らない
+短いEvidenceは成果物内へ記載してよい
+EvidenceへCRDD標準Stable IDを付けない
+Source、Revisionまたは時点、条件、Finding、Limitationsを追跡可能にする
+Discovery Evidenceから昇格した要求はREQ-*として追跡できる
+判断に使ったEvidenceは結果となる成果物のDecision / Rationale Sectionから参照する
+```
+
+---
+
+# 10. Final Principle
+
+Evidenceは集めるために存在するのではない。
+
+CRDDでは、Evidenceを必要な成果物の近くへ置き、要求、仕様、設計、検証の理由を後から確かめられるようにする。

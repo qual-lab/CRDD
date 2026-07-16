@@ -1,9 +1,9 @@
 # CRDD Principles
 
-Version: v0.1.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-12
+Last Updated: 2026-07-16
 Related:
 - [00_00_CRDD_Overview.md](00_00_CRDD_Overview.md)
 - [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
@@ -167,7 +167,7 @@ AIが変更した内容は差分で確認する
 ```text
 00_CRDD
 02_UX
-95_Decisions
+重要判断が反映されたApproved Canonical Artifact
 99_Roadmap
 ```
 

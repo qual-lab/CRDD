@@ -1,6 +1,6 @@
 # Document
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
@@ -119,7 +119,7 @@ CRDDでは、1文書1テーマを基本とする。
 01_Product_Philosophy.md
 02_User_Pain.md
 03_AI_Edit_Policy.md
-2026-07-06_CRDD_Adoption.md
+04_Product_Direction.md
 ```
 
 ## Bad
@@ -240,7 +240,7 @@ PMは重要な未決事項やリスクを見落としやすい。
 | Concept | Term               |
 | ------- | ------------------ |
 | 文脈正本    | Context Repository |
-| 判断履歴    | Decision Log       |
+| 判断履歴    | 結果となる成果物内のDecision / Rationale Section |
 | 根拠資料    | Evidence           |
 | 外部向け資料  | PR Material        |
 | 人間の判断点  | Human Decision     |
@@ -275,7 +275,7 @@ PMは重要な未決事項やリスクを見落としやすい。
 ## Good
 
 ```text
-`95_Decisions/2026-07-06_CRDD_Adoption.md` で決定した方針に従う。
+`02_UX/04_Product_Direction.md#decision-rationale`に記録された理由に基づく方針に従う。
 ```
 
 ## Bad
@@ -304,7 +304,7 @@ CRDDでは、文書間の明示的な接続を重視する。
 # Why Governance Is Independent Menu
 # Human and AI Responsibility
 # AI Change Control Boundary
-# Decision Log Requirement
+# Decision / Rationale Requirement
 ```
 
 ## Bad
@@ -323,7 +323,7 @@ CRDDでは、文書間の明示的な接続を重視する。
 ```text
 # Governance画面を独立メニューにする理由
 # AIに任せること／人間が判断すること
-# Decision Logを残す条件
+# Decision / Rationaleを残す条件
 ```
 
 見出しは1文書内で一貫したレベル（`#`はトップレベル節、`##`以下はその内側）を保つ。テンプレートや例をそのまま本文へ埋め込む場合は、実際の見出し構造と衝突しないよう、コードブロック内に収めるか見出しレベルを1段下げる。
@@ -428,34 +428,25 @@ Owner:
 # 5. Final Principle
 ```
 
-## Decision Document
+## Decision / Rationale Section
 
 ```text
-# Decision
+## Decision / Rationale
 
-Version:
-Status:
-Owner:
-Date:
+### Adopted
 
-# 1. Decision
+### Why
 
-# 2. Why
+### Evidence
 
-# 3. Context
+### Alternatives
 
-# 4. Alternatives Considered
+### Consequences
 
-# 5. Consequences
-
-# 6. Risks
-
-# 7. Related Files
-
-# 8. Follow-up
+### History
 ```
 
-具体的な書式・記入例は[`00_12_Decision_Record.md`](00_12_Decision_Record.md)を参照する。
+このSectionは判断結果となるCanonical Artifact内へ置く。独立したDecision文書を標準Patternとして作らない。具体的な書式・記入例は[`00_12_Decision_Rationale.md`](00_12_Decision_Rationale.md)を参照する。
 
 ## Design Document
 
@@ -481,7 +472,7 @@ Owner:
 # 7. Related Files
 ```
 
-## Develop Document
+## Change / Implementation Plan Document
 
 ```text
 # Title

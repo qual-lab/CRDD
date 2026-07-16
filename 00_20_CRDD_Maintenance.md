@@ -1,13 +1,13 @@
 # CRDD Maintenance
 
-Version: v0.2.0
+Version: v0.3.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-16
 Related:
 - [00_01_CRDD_Principles.md](00_01_CRDD_Principles.md)
 - [00_10_Context_Repository.md](00_10_Context_Repository.md)
-- [00_12_Decision_Record.md](00_12_Decision_Record.md)
+- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
 - [00_14_AI_Change_Control.md](00_14_AI_Change_Control.md)
 - [00_34_Compatibility_Evolution.md](00_34_Compatibility_Evolution.md)
 - [CHANGELOG.md](CHANGELOG.md)
@@ -114,7 +114,7 @@ CRDDは一方通行の思想供給ではない。プロダクト側の実践か�
 
 ### Step 4: 人間が承認する
 
-人間が内容を確認し、`Status: Approved`へ変更する。必要に応じて`95_Decisions`にDecision Logを残す（書式は[`00_12_Decision_Record.md`](00_12_Decision_Record.md)を参照）。
+人間が内容を確認し、`Status: Approved`へ変更する。重要判断は成果物へ反映し、そのDecision / Rationale Sectionへ理由、Evidence、経緯を残す（書式は[`00_12_Decision_Rationale.md`](00_12_Decision_Rationale.md)を参照）。
 
 ---
 
@@ -292,7 +292,7 @@ Document Status
 Last Updated
 CHANGELOG
 Git history
-Decision Log（必要な場合）
+Decision / Rationale Section（必要な場合）
 ```
 
 各CRDD文書は、自身のHeaderに`Version`、`Status`、`Last Updated`を持たなければならない。
@@ -317,7 +317,7 @@ v1.x  外部採用者に対して互換性説明が必要な段階
 Core Concept、Authority、MUST / MUST NOTの追加・変更
 Conformance条件の追加・変更
 Protected AreaまたはAI Change Controlの変更
-Repository構造、正本性、Trace、Decision Logの変更
+Repository構造、正本性、Trace、Decision / Rationale規則の変更
 Guided Skill RuntimeのInput / Output / Authority Boundaryの変更
 ```
 
@@ -354,7 +354,7 @@ CRDD自身の変更は、最低限以下に分類する。
 | Clarification | 既存Ruleの意味を明確化するが責務は変えない | `CHANGELOG`記録を推奨 |
 | Additive | 新しいConcept、Guide、Ruleを追加する | `CHANGELOG`記録、必要に応じてVersion更新 |
 | Normative Change | MUST / MUST NOT、Authority、Conformanceを変える | Human approval、Version更新、`CHANGELOG`記録 |
-| Breaking Change | 採用プロダクトの既存運用や準拠判定を変える | Human approval、Migration note、必要に応じてDecision Log |
+| Breaking Change | 採用プロダクトの既存運用や準拠判定を変える | Human approval、Migration note、必要に応じて成果物内Decision / Rationale |
 
 Breaking Changeかどうか迷う場合は、Breaking Changeとして扱う。
 
