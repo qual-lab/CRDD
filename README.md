@@ -7,151 +7,142 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.3.1 — Phase contract alignment release.** / **v0.3.1 — 工程Contract整合版。**
-See [CHANGELOG.md](CHANGELOG.md).
+Status: **v0.4.0 — Document Architecture Consolidation / 文書体系統廃合版**
 
-**[English](#english)** | **[日本語](#日本語)**
+**[English](#english)** | **[日本語](#日本語)** | **[Changelog](CHANGELOG.md)**
 
 ---
 
 ## English
 
-CRDD is a development methodology for the AI era. It keeps a product's Why, ideas, decisions, risks, and design intent in a human- and AI-readable Context Repository, so AI can reference that context to support specification, implementation, testing, and organization — while humans keep meaning, judgment, and responsibility.
-
-The Core Standard, conformance criteria, Core Concepts/Terminology, and the minimum CRDD change/versioning rules are available.
-
 ### What is CRDD?
 
-Most AI-assisted development speeds up implementation but lets a product's Why — the reasoning behind decisions, the alternatives it rejected, the risks it accepted — quietly decay in chat logs and pull request descriptions.
+AI-assisted development can accelerate implementation while quietly losing a product's Why: the origin of a need, the reasoning behind a decision, rejected alternatives, accepted risks, and design intent often decay in chat logs, tickets, and pull request descriptions.
 
-CRDD treats the Git repository itself as the Context Repository: the canonical, versioned, human-and-AI-readable record of why a product exists, what it decided, and what it's trying to become. AI is a capable collaborator inside that repository — it drafts, organizes, implements, and verifies — but it does not decide. Humans give meaning, set priorities, and own the outcome.
+CRDD is a development methodology that preserves and connects that context so humans, AI, and specialists can carry a product from discovery through verification without silently changing its meaning. In a Git-based project, the repository can serve as the canonical control plane for the Context Repository, while authoritative external artifacts remain connected through explicit references.
 
-Read [`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md) for the full principles, or [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md) for the complete map of this folder.
+AI may explore, organize, compare, draft, implement, and verify within its authority. Humans retain authority over meaning, value, priority, approval, risk acceptance, and final responsibility. CRDD does not require a particular AI tool, agent topology, document tool, or technology stack.
+
+The product transformation is connected end to end, but it is not a fixed waterfall:
+
+```text
+Discovery → UX → IA
+                  ↓
+        UI ⇄ Behavior Specification
+          └──────┬──────┘
+                 ↓
+           Architecture
+                 ↓
+           Implementation
+                 ↓
+            Verification
+                 ↓
+ Learning / Finding → affected Context
+```
+
+UI and Behavior Specification are parallel phases joined by a shared contract. Each phase advances only when the target scope is covered, or when a human explicitly approves a partial handoff with the remaining gaps, risks, owner, and reopen conditions recorded.
 
 ### Quick Start
 
-1. Read [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md), then [`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md).
-2. Read the Core Standard documents you need (`00_10`–`00_19`) — these describe the current Core Standard. Conformance criteria are defined in [`00_03_CRDD_Conformance.md`](00_03_CRDD_Conformance.md).
-3. Copy the [`template`](template) scaffold or adopt the folder structure described in [`00_30_Product_Documentation.md`](00_30_Product_Documentation.md). Place the CRDD standard documents in `00_CRDD/` when using the scaffold in another repository.
-4. Point your AI coding assistant (Claude Code, Codex, or similar) at this folder as required reading before non-trivial changes.
-5. For Git / Markdown execution, keep `CLAUDE.md` / `AGENTS.md` at the repository root, prepare the required Markdown Package / Registry documents, and follow [`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md).
+1. Read the [Overview](00_00_Overview.md), [Principles](00_01_Principles.md), [Terminology](00_02_Terminology.md), and [Documentation rules](00_03_Documentation.md).
+2. Copy the [`template/`](template) scaffold into the target project. Copy the released CRDD standard documents for the adopted version into its `00_CRDD/` folder and keep that version identifiable.
+3. Read the shared authorities required for the work (`00_10`–`00_19`) and the applicable phase authorities (`00_21`–`00_29`). Read the [shared UI / Behavior Specification contract](00_24_UI_Behavior_Specification.md) before either parallel phase.
+4. Use the project-root [`AGENTS.md`](template/AGENTS.md) or [`CLAUDE.md`](template/CLAUDE.md) as the AI entry point. Connect the active scope, target revision, canonical context, authority, applicable phase, and stop conditions instead of copying phase rules into prompts.
+5. Before claiming CRDD conformance, evaluate the applicable Core and Profile criteria with current evidence using the [Conformance Audit](00_52_Conformance_Audit.md).
 
-CRDD does not require any specific AI tool, subagent architecture, or tech stack. The Practice Guides (`00_30`–`00_35`) are optional, reusable patterns — not requirements.
+### Core Operating Boundaries
 
-For Discovery, UX, IA, UI, Behavior Specification, and Architecture, each phase document is the authority for entry, transformation, responsibility coverage, exit, gate criteria, and audit checks. A phase may advance only when its full target scope is covered, or when a human explicitly authorizes a partial handoff with the remaining gaps and risks recorded.
+- Document numbers organize CRDD standard files; they are not Stable Context IDs. Standard Stable Context IDs are limited to `REQ`, `UX`, `IA`, `UI`, and `SPEC`. `CHG-*` identifies a Change Trace artifact, not stable product context.
+- Keep Evidence inline or under the nearest parent folder's `Evidence/`. Reflect a Decision's result in the resulting Canonical Artifact and keep its rationale, evidence, alternatives, and history there. Do not use root-level Evidence or Decision folders as the default model.
+- Use `01_Discovery` for new evidence, uncertainty, and requirements. Use `99_Roadmap` for accepted but deferred work by referencing requirements and other context; Roadmap items do not receive CRDD Stable Context IDs.
+- Use `40_Develop` for code, configuration, migrations, build definitions, and tests—not for CRDD management Markdown.
+- Use `07_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
+- Treat governance, security, privacy, accessibility, compatibility, capacity, and cost as responsibilities of the applicable upstream and downstream phases rather than as detached end-stage checks.
 
-### Repository Structure
+The authoritative placement, artifact, Evidence, Decision, Stable Context ID, and traceability rules are in [Documentation](00_03_Documentation.md). The complete repository and document map is in the [Overview](00_00_Overview.md).
 
-`00_CRDD` is organized into six layers by numbering band; the band itself signals the layer.
+### Documentation Routes
 
-These document numbers organize files; they are separate from stable IDs assigned to Context entities inside documents.
-
-Store Evidence inline or under the nearest parent folder's `Evidence/`. A decision's result is the approved canonical artifact; keep its rationale, evidence, alternatives, and history in that artifact. Do not use root-level Evidence or Decision folders as the default model. Standard Stable IDs are limited to `REQ`, `UX`, `IA`, `UI`, and `SPEC`. `40_Develop` is for implementation artifacts rather than CRDD management Markdown.
-
-`01_Discovery` receives new evidence, uncertainty, and requirements. `99_Roadmap` schedules accepted but deferred work by referencing those requirements and other Stable Contexts; Roadmap items do not receive CRDD Stable IDs.
-
-| Band | Layer | Meaning |
-|---|---|---|
-| `00`–`09` | Overview | What CRDD is, its principles, terminology, conformance |
-| `10`–`19` | Core Standard | What a project must do to call itself CRDD |
-| `20`–`29` | Operational | How CRDD itself is maintained and evolved |
-| `30`–`39` | Practice Guide | Optional, reusable patterns and templates |
-| `40`–`49` | Git / Markdown Skill Execution | Guided Skill definitions and Git / Markdown execution protocol |
-| `50`–`59` | Agent Execution | Lightweight Subagent orchestration and document audit agent guidance |
-
-See [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md) for the full file list and each file's responsibility.
-
-### Documentation
-
-| Start here | For |
+| Need | Start here |
 |---|---|
-| [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md) | The full map of this folder |
-| [`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md) | Why CRDD exists, its core tenets |
-| [`00_02_CRDD_Core_Concepts_and_Terminology.md`](00_02_CRDD_Core_Concepts_and_Terminology.md) | Canonical concepts, terminology, responsibility, authority, and lifecycle terms |
-| [`00_03_CRDD_Conformance.md`](00_03_CRDD_Conformance.md) | What "CRDD-compliant" means |
-| [`00_05_CRDD_Development_Stack.md`](00_05_CRDD_Development_Stack.md) | CRDD's development stack from Discovery to Learning |
-| [`00_10_Context_Repository.md`](00_10_Context_Repository.md) | Repository structure, headers, naming, links |
-| [`00_13_Human_AI_Responsibility.md`](00_13_Human_AI_Responsibility.md) | The human/AI role split |
-| [`00_14_AI_Change_Control.md`](00_14_AI_Change_Control.md) | What AI may and may not edit unsupervised |
-| [`00_30_Product_Documentation.md`](00_30_Product_Documentation.md) | Starter folder/file templates for a new product |
-| [`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md) | Reproducible Claude Code / Codex execution using Git and Markdown |
-| [`00_50_Subagent_Orchestration.md`](00_50_Subagent_Orchestration.md) | Lightweight Subagent delegation and Parent Agent integration rules |
-| [`00_51_Document_Audit_Agent.md`](00_51_Document_Audit_Agent.md) | Document audit agent scope, findings, and CRDD repository audit contract |
+| Understand CRDD and its invariants | [Principles](00_01_Principles.md) |
+| See the complete repository and document map | [Overview](00_00_Overview.md) |
+| Resolve canonical concepts, status, and authority terms | [Terminology](00_02_Terminology.md) |
+| Structure repositories, artifacts, evidence, decisions, IDs, and traces | [Documentation](00_03_Documentation.md) |
+| Run or delegate AI work | [Agent](00_10_Agent.md) and [Skill](00_11_Skill.md) |
+| Trace a change, release a product, or define a repeatable workflow | [Change](00_12_Change.md), [Release](00_13_Release.md), and [Workflow](00_14_Workflow.md) |
+| Apply a product phase | Use the [phase authority map](00_00_Overview.md#33-product-phase-authorities), then read the applicable `00_21`–`00_29` authority |
+| Maintain the CRDD standard itself | [Maintenance](00_19_Maintenance.md) |
+| Audit documents, conformance, or cross-layer impact | [Document Audit](00_51_Document_Audit.md), [Conformance Audit](00_52_Conformance_Audit.md), and [Gap / Impact Audit](00_53_Gap_Impact_Audit.md) |
 
 ### License
 
-CRDD's documentation is licensed under [LICENSE](LICENSE) (CC BY-NC-SA 4.0, non-commercial use). For commercial use, see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). The names "CRDD," "Qual-Lab," and associated marks/logos are governed separately — see [TRADEMARK.md](TRADEMARK.md).
-
-See [CHANGELOG.md](CHANGELOG.md) for release history.
+CRDD's documentation and other copyrightable repository materials are licensed under [LICENSE](LICENSE) (CC BY-NC-SA 4.0) unless otherwise noted. For commercial use, see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). The names, marks, and logos associated with CRDD and Qual-Lab are governed separately by [TRADEMARK.md](TRADEMARK.md).
 
 ---
 
 ## 日本語
 
-CRDDは、AI時代のための開発方法論である。プロダクトのWhy、アイディア、判断、リスク、設計意図を、人間とAIが読み取れるContext Repositoryとして蓄積し、AIがその文脈を参照して仕様化・実装・テスト・整理を支援する。一方で、意味づけ・判断・責任は人間が持ち続ける。
-
-Core標準・準拠条件・Core Concepts/Terminology・CRDD自身の変更/バージョニング最小ルールは公開済みです。
-
 ### CRDDとは？
 
-多くのAI協働開発は実装速度を上げる一方で、プロダクトのWhy——判断の理由、却下した代替案、受け入れたリスク——をチャットログやPull Requestの説明文の中で静かに風化させてしまう。
+AI協働開発は実装を高速化できる一方で、ProductのWhy——要望の起点、判断理由、却下した代替案、受容したRisk、設計意図——をChat Log、Ticket、Pull Requestの中で静かに劣化させることがある。
 
-CRDDは、Gitリポジトリそのものを Context Repository として扱う。プロダクトがなぜ存在し、何を決め、何を目指しているかを記録した、正本・バージョン管理された、人間とAIの双方が読める記録である。AIはそのリポジトリの中で有能な協働者として振る舞う——草案を作り、整理し、実装し、検証する——が、判断は下さない。意味を与え、優先順位を決め、結果に責任を持つのは人間である。
+CRDDは、そのContextを保存・接続し、人間、AI、専門家が意味を無言で変えずにDiscoveryからVerificationまでProductを具体化できるようにする開発方法論である。Gitを利用するProjectでは、RepositoryをContext RepositoryのCanonical Control Planeとして利用し、Authorityを持つ外部Artifactも明示的な参照で接続できる。
 
-原則の全文は[`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md)、このフォルダ全体の地図は[`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md)を参照。
+AIはAuthorityの範囲内で探索、整理、比較、Draft、実装、検証を行える。人間は意味、価値、Priority、Approval、Risk受容、最終責任を保持する。CRDDは特定のAI Tool、Agent構成、文書Tool、技術Stackを要求しない。
+
+Product Transformationは一気通貫で接続するが、固定Waterfallではない。
+
+```text
+Discovery → UX → IA
+                  ↓
+        UI ⇄ Behavior Specification
+          └──────┬──────┘
+                 ↓
+           Architecture
+                 ↓
+           Implementation
+                 ↓
+            Verification
+                 ↓
+ Learning / Finding → 影響するContext
+```
+
+UIとBehavior Specificationは共有Contractで接続された並行工程である。対象Scopeを網羅した場合、または残るGap、Risk、Owner、Reopen条件を記録して人間が部分Handoffを明示承認した場合にのみ、次へ進める。
 
 ### クイックスタート
 
-1. [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md)を読み、次に[`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md)を読む。
-2. 必要なCore標準文書（`00_10`〜`00_19`）を読む——これらは現時点のCore標準を記述したものである。準拠条件は[`00_03_CRDD_Conformance.md`](00_03_CRDD_Conformance.md)に定義されている。
-3. [`template`](template)のscaffoldをコピーするか、[`00_30_Product_Documentation.md`](00_30_Product_Documentation.md)のフォルダ構成を採用する。別Repositoryでscaffoldを使う場合は、CRDD標準文書を`00_CRDD/`へ配置する。
-4. 非自明な変更の前に、AIコーディングアシスタント（Claude Code、Codex等）へこのフォルダを必読資料として読み込ませる。
-5. Git / Markdownで実行する場合は、Repository Rootの`CLAUDE.md` / `AGENTS.md`を入口にし、必要なMarkdown Package / Registry文書を用意したうえで、[`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md)に従う。
+1. [Overview](00_00_Overview.md)、[Principles](00_01_Principles.md)、[Terminology](00_02_Terminology.md)、[Documentation](00_03_Documentation.md)を読む。
+2. [`template/`](template)のScaffoldを対象Projectへコピーする。採用するReleaseのCRDD標準文書を`00_CRDD/`へコピーし、採用Versionを識別可能にする。
+3. 作業に必要な共通正本（`00_10`〜`00_19`）と対象工程の正本（`00_21`〜`00_29`）を読む。UIまたはBehavior Specificationへ進む前に、両者の[共有Contract](00_24_UI_Behavior_Specification.md)を読む。
+4. Project Rootの[`AGENTS.md`](template/AGENTS.md)または[`CLAUDE.md`](template/CLAUDE.md)をAIの入口とする。工程RuleをPromptへ複製せず、Active Scope、Target Revision、Canonical Context、Authority、対象工程、Stop条件を接続する。
+5. CRDD準拠を表明する前に、[Conformance Audit](00_52_Conformance_Audit.md)に従って、適用されるCore / Profile Criteriaを現行Evidenceで評価する。
 
-CRDDは特定のAIツール・Subagent構成・技術スタックを要求しない。Practice Guide（`00_30`〜`00_35`）は任意の再利用可能なパターンであり、必須要件ではない。
+### 主要な運用境界
 
-Discovery、UX、IA、UI、Behavior Specification、Architectureでは、各工程文書をEntry、変換、責務Coverage、Exit、Gate、Auditの正本とする。対象Scope全体を網羅した場合、または残るGapとRiskを人間が明示して部分Handoffを承認した場合にのみ、次工程へ進める。
+- Document NumberはCRDD標準文書の整理用であり、Stable Context IDではない。標準Stable Context IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`に限定する。`CHG-*`はChange TraceのArtifact IDであり、Product ContextのStable IDではない。
+- Evidenceは成果物内または最も近い親Folderの`Evidence/`へ置く。Decisionの結果は結果となるCanonical Artifactへ反映し、Rationale、Evidence、Alternative、Historyを同Artifactへ残す。Root直下のEvidence / Decision Folderを基本構成にしない。
+- 新しいEvidence、不確実性、Requirementは`01_Discovery`へ置く。採用済みだが未着手の内容はRequirementや他のContextを参照して`99_Roadmap`へ置き、Roadmap項目へCRDD Stable Context IDを付与しない。
+- `40_Develop`にはCode、Configuration、Migration、Build定義、Testを置き、CRDD管理用Markdownを置かない。
+- `07_Workflows`にはRepository固有の反復可能な作業手順を置く。Change Traceは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、Release Record、配布物参照、Release Verificationが必要なProjectでだけ使用する。
+- Governance、Security、Privacy、Accessibility、Compatibility、Capacity、Costは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
 
-### リポジトリ構成
+配置、Artifact、Evidence、Decision、Stable Context ID、Traceabilityの正本は[Documentation](00_03_Documentation.md)、Repositoryと文書体系の完全な地図は[Overview](00_00_Overview.md)を参照する。
 
-`00_CRDD`は採番帯によって6つの層に分かれており、採番帯そのものが層を表す。
+### 文書の導線
 
-この文書番号はファイルを整理するための採番であり、文書内のContext Entityへ付与する安定IDとは別の識別体系である。
-
-Evidenceは成果物内、または最も近い親Folderの`Evidence/`へ置く。Decisionの結果は承認済みCanonical Artifactであり、理由、Evidence、代替案、経緯を同じ成果物へ残す。Root直下のEvidence / Decision Folderは基本モデルにしない。標準Stable IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種類に限定する。`40_Develop`はImplementation Artifactの領域であり、CRDD管理用Markdownの配置先にはしない。
-
-`01_Discovery`は新しいEvidence、不確実性、Requirementの入口である。`99_Roadmap`は採用済みだが未着手の内容を、Requirementや他のStable Contextへの参照とともに計画する。Roadmap項目へCRDD Stable IDは付与しない。
-
-| 採番帯 | 層 | 意味 |
-|---|---|---|
-| `00`〜`09` | Overview | CRDDとは何か、原則、用語、準拠条件 |
-| `10`〜`19` | Core標準 | プロジェクトがCRDDを名乗るために満たすべきこと |
-| `20`〜`29` | Operational | CRDD自身がどう維持・進化するか |
-| `30`〜`39` | Practice Guide | 任意の再利用可能なパターン・テンプレート |
-| `40`〜`49` | Git / Markdown Skill Execution | Guided Skill定義、Git / Markdown実行Protocol |
-| `50`〜`59` | Agent Execution | 軽量Subagent Orchestration、文書監査Agent Guide |
-
-全ファイル一覧と各ファイルの責務は[`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md)を参照。
-
-### ドキュメント
-
-| ここから読む | 内容 |
+| 目的 | ここから読む |
 |---|---|
-| [`00_00_CRDD_Overview.md`](00_00_CRDD_Overview.md) | このフォルダ全体の地図 |
-| [`00_01_CRDD_Principles.md`](00_01_CRDD_Principles.md) | CRDDが存在する理由、基本信条 |
-| [`00_02_CRDD_Core_Concepts_and_Terminology.md`](00_02_CRDD_Core_Concepts_and_Terminology.md) | Core Concept・用語・責務・Authority・Lifecycle用語の正本 |
-| [`00_03_CRDD_Conformance.md`](00_03_CRDD_Conformance.md) | 「CRDD準拠」の意味 |
-| [`00_05_CRDD_Development_Stack.md`](00_05_CRDD_Development_Stack.md) | DiscoveryからLearningまでのCRDD Development Stack |
-| [`00_10_Context_Repository.md`](00_10_Context_Repository.md) | Repository構造、Header、命名、リンク |
-| [`00_13_Human_AI_Responsibility.md`](00_13_Human_AI_Responsibility.md) | 人間とAIの役割分担 |
-| [`00_14_AI_Change_Control.md`](00_14_AI_Change_Control.md) | AIが人間の確認なしに編集してよい範囲・してはいけない範囲 |
-| [`00_30_Product_Documentation.md`](00_30_Product_Documentation.md) | 新規プロダクト向けフォルダ・ファイルテンプレート |
-| [`00_46_Git_Markdown_Execution.md`](00_46_Git_Markdown_Execution.md) | Git / MarkdownのみでClaude Code／CodexへSkillを再現実行させる標準 |
-| [`00_50_Subagent_Orchestration.md`](00_50_Subagent_Orchestration.md) | Guided Skill内でSubagentを安全に委譲・統合する軽量Guide |
-| [`00_51_Document_Audit_Agent.md`](00_51_Document_Audit_Agent.md) | 文書監査AgentのScope、Finding、CRDD Repository監査Contract |
+| CRDDと不変条件を理解する | [Principles](00_01_Principles.md) |
+| Repositoryと文書体系の全体像を確認する | [Overview](00_00_Overview.md) |
+| Canonical Concept、Status、Authority用語を確認する | [Terminology](00_02_Terminology.md) |
+| Repository、Artifact、Evidence、Decision、ID、Traceを設計する | [Documentation](00_03_Documentation.md) |
+| AI作業を実行・委譲する | [Agent](00_10_Agent.md)と[Skill](00_11_Skill.md) |
+| Change、Product Release、反復Workflowを扱う | [Change](00_12_Change.md)、[Release](00_13_Release.md)、[Workflow](00_14_Workflow.md) |
+| Product工程を適用する | [工程正本Map](00_00_Overview.md#33-product-phase-authorities)から、該当する`00_21`〜`00_29`の正本を読む |
+| CRDD標準自体を保守する | [Maintenance](00_19_Maintenance.md) |
+| 文書、準拠、工程横断Impactを監査する | [Document Audit](00_51_Document_Audit.md)、[Conformance Audit](00_52_Conformance_Audit.md)、[Gap / Impact Audit](00_53_Gap_Impact_Audit.md) |
 
 ### ライセンス
 
-CRDDの文書は[LICENSE](LICENSE)（CC BY-NC-SA 4.0、非商用利用）の下でライセンスされる。商用利用については[COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)を参照。「CRDD」「Qual-Lab」の名称・関連する商標・ロゴは別途管理される——[TRADEMARK.md](TRADEMARK.md)を参照。
-
-リリース履歴は[CHANGELOG.md](CHANGELOG.md)を参照。
+CRDDの文書およびRepository内のその他の著作物は、特記がない限り[LICENSE](LICENSE)（CC BY-NC-SA 4.0）で提供する。商用利用は[COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)を参照する。CRDDおよびQual-Labに関連する名称、商標、ロゴは[TRADEMARK.md](TRADEMARK.md)で別に扱う。

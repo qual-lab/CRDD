@@ -1,25 +1,26 @@
-# CRDD Core Concepts and Terminology
+# CRDD Terminology
 
-Version: v0.3.0
+Version: v0.4.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-16
+Last Updated: 2026-07-17
 Related:
-- [00_00_CRDD_Overview.md](00_00_CRDD_Overview.md)
-- [00_03_CRDD_Conformance.md](00_03_CRDD_Conformance.md)
-- [00_10_Context_Repository.md](00_10_Context_Repository.md)
-- [00_11_Information_Provenance.md](00_11_Information_Provenance.md)
-- [00_12_Decision_Rationale.md](00_12_Decision_Rationale.md)
-- [00_13_Human_AI_Responsibility.md](00_13_Human_AI_Responsibility.md)
-- [00_15_Document.md](00_15_Document.md)
-- [00_19_Context_Traceability.md](00_19_Context_Traceability.md)
-- [00_20_CRDD_Maintenance.md](00_20_CRDD_Maintenance.md)
+- [00_00_Overview.md](00_00_Overview.md)
+- [00_01_Principles.md](00_01_Principles.md)
+- [00_03_Documentation.md](00_03_Documentation.md)
+- [00_10_Agent.md](00_10_Agent.md)
+- [00_11_Skill.md](00_11_Skill.md)
+- [00_12_Change.md](00_12_Change.md)
+- [00_13_Release.md](00_13_Release.md)
+- [00_14_Workflow.md](00_14_Workflow.md)
+- [00_19_Maintenance.md](00_19_Maintenance.md)
+- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
 
 ---
 
 # Purpose
 
-本ドキュメントは、CRDDで使用するCore Concept、Canonical Term、概念間の関係、基本的な責務とAuthorityの正本である。
+本ドキュメントは、CRDDで使用するCanonical Term、各Termの境界、基本的な責務とAuthority、Lifecycle / Status、Aliasの正本である。Context間を一気通貫で変換する概念モデルは[`00_01_Principles.md`](00_01_Principles.md)を正本とする。
 
 他のCRDD文書は、本書で定義された概念を再定義してはならない。専門領域固有の詳細な運用、Lifecycle、Approval、Schemaは各専門標準で定義してよいが、本書のCanonical Definitionと矛盾してはならない。
 
@@ -33,76 +34,11 @@ CRDD全体を横断するSupporting Concept
 Alias / Deprecated Term
 ```
 
----
-
-# 1. Normative Language
-
-本書では、RFC 2119 / RFC 8174の意味で、以下の規範強度語彙を使用する。
-
-| Term | Meaning |
-|---|---|
-| `MUST` / `しなければならない` | CRDD準拠に必須 |
-| `MUST NOT` / `してはならない` | CRDD準拠上禁止 |
-| `SHOULD` / `すべきである` | 原則として従う。従わない場合は理由を説明できること |
-| `SHOULD NOT` / `すべきではない` | 原則として避ける。採用する場合は理由を説明できること |
-| `MAY` / `してよい` | 任意の選択肢 |
-
-規範強度語彙は、大文字表記または上記の日本語表現で用いる場合にのみ規範的意味を持つ。
+本書を含むCRDD文書で用いる規範強度語彙の意味は、[`00_03_Documentation.md`](00_03_Documentation.md#48-normative-language)を正本とする。
 
 ---
 
-# 2. Context Lifecycle
-
-CRDDでは、Realityを直接Repositoryへ保存できるとは考えない。Repositoryへ保存されるのは、Realityについて観測・収集・解釈・判断・実行・検証されたContextである。
-
-標準的なContext Lifecycleを以下に示す。
-
-```text
-Reality
-  ↓ observed_as
-Observation
-  ↓ supported_by / captured_as
-Evidence
-  ↓ interpreted_as
-Interpretation
-  ↓ formulated_as
-Hypothesis
-  ↓ proposed_as
-Proposal
-  ↓ accepted_as
-Decision
-  ↓ realized_by
-Requirement
-  ↓ specified_by（Behaviorを定義する場合）
-Behavior Specification
-  ↓ planned_as
-Plan
-  ↓ executed_as
-Implementation
-  ↓ verified_by
-Verification Result
-  ↓ promoted_as
-Learning
-  └──────────────→ Discovery / Principle / Standard / New Proposal
-```
-
-この流れは、すべてのContextが必ず一方向に一段ずつ遷移することを意味しない。
-
-```text
-一つのEvidenceが複数Interpretationを支えてよい
-一つのHypothesisから複数Proposalを作成してよい
-ProposalをRejectedまたはDeferredとして保持してよい
-Decisionを複数Requirementが実現してよい
-一つのRequirementを複数Behavior Specificationが具体化してよい
-Verification ResultからRequirement、Behavior Specification、UX、IA、Architecture等へ戻ってよい
-Learningから新しいObservation、Hypothesis、Proposalが生まれてよい
-```
-
-Core Context Type同士の変換では、元Contextを破壊的に上書きせず、RelationとRevisionを保持しなければならない。
-
----
-
-# 3. Core Context Types
+# 1. Core Context Types
 
 各Core Context Typeは、以下の共通Fieldで定義する。
 
@@ -115,12 +51,11 @@ Input
 Output
 Lifecycle
 Related Concepts
-Alias
 MUST
 MUST NOT
 ```
 
-## 3.1. Observation
+## 1.1. Observation
 
 | Field | Definition |
 |---|---|
@@ -132,43 +67,40 @@ MUST NOT
 | Output | Evidence、Interpretation、Gap Finding、Research Question |
 | Lifecycle | `Captured` → `Reviewed` → `Accepted` / `Rejected` / `Superseded` |
 | Related Concepts | Evidence、Source、Provenance、Recovered Context |
-| Alias | Finding（単なる検出事実を指す場合）、Observed Fact。Canonical TermはObservation。 |
 | MUST | Source、取得時点、対象Scopeを追跡可能にしなければならない。観測内容と解釈を分離しなければならない。 |
 | MUST NOT | 原因、意図、一般化された結論をObservationとして確定してはならない。 |
 
-## 3.2. Evidence
+## 1.2. Evidence
 
 | Field | Definition |
 |---|---|
 | Definition | Observation、主張、Decision、Requirement、Verification Result等を裏付ける参照可能な根拠。 |
 | Purpose | Contextの信頼性、由来、再確認可能性を担保する。 |
 | Created By | Human / System / Tool / AIによる収集・索引化 |
-| Authority | Evidenceの内容を作成したSourceが一次Authority。CRDD上の採用・分類はHumanまたは承認済みRuleが担う。 |
+| Authority | Evidenceの内容と真正性はSourceに由来する。CRDD上の採用、分類、適用範囲、Freshness判断は対象ContextのOwner、Human Authority、または承認済みRuleが担う。 |
 | Input | Observation、文書、ログ、録画、Test結果、計測値、外部Source、Artifact |
 | Output | Interpretation、Hypothesis Evaluation、Decision Support、Verification Result |
 | Lifecycle | `Collected` → `Validated` → `Accepted` / `Expired` / `Invalidated` / `Superseded` |
 | Related Concepts | Observation、Source、Artifact、Provenance、Verification Result |
-| Alias | Proof（完全な証明を意味しない場合は非推奨）、Reference。 |
 | MUST | Source、対象、取得条件、Revisionまたは時点を追跡可能にしなければならない。 |
 | MUST NOT | EvidenceそのものをInterpretation、Decision、Requirementとして扱ってはならない。Source不明の主張をEvidenceと呼んではならない。 |
 
-## 3.3. Interpretation
+## 1.3. Interpretation
 
 | Field | Definition |
 |---|---|
 | Definition | ObservationまたはEvidenceに対する意味付け、説明、分類、因果候補。 |
 | Purpose | 観測された情報を、人間が検討・判断できる理解へ変換する。 |
 | Created By | Human / AI / Expert |
-| Authority | Human Reviewを必要とする。AIは複数案とConfidenceを提示できる。 |
+| Authority | Interpretationの作成者。Decision、Requirement、Canonical Contextへ昇格する場合は、対象AuthorityのReviewを必要とする。AIは複数案とConfidenceを提示できる。 |
 | Input | Observation、Evidence、既存Context、Domain Knowledge |
 | Output | Hypothesis、Proposal、Research Question、Gap Finding |
 | Lifecycle | `Draft` → `Reviewed` → `Accepted` / `Rejected` / `Superseded` |
 | Related Concepts | Evidence、Hypothesis、Confidence、Provenance |
-| Alias | Analysis、Inference（推論であることを明示する場合）。 |
 | MUST | 根拠となるObservationまたはEvidenceへTrace可能でなければならない。確実性を超えて断定してはならない。 |
 | MUST NOT | InterpretationをObservation、Evidence、Decisionとして表現してはならない。 |
 
-## 3.4. Hypothesis
+## 1.4. Hypothesis
 
 | Field | Definition |
 |---|---|
@@ -180,11 +112,10 @@ MUST NOT
 | Output | Research Plan、Experiment、Proposal、Validation Need |
 | Lifecycle | `Candidate` → `Under Validation` → `Supported` / `Refuted` / `Inconclusive` / `Superseded` |
 | Related Concepts | Interpretation、Proposal、Evidence、Verification Result、Learning |
-| Alias | Assumption（前提として一時採用する場合）、Theory Candidate。 |
 | MUST | 未検証であること、検証方法または不足Evidenceを明示しなければならない。 |
-| MUST NOT | 検証前にDecision、Requirement、Learningへ昇格してはならない。 |
+| MUST NOT | 検証前に確定Factまたは確立済みLearningとして扱ってはならない。DecisionやRequirementのInputにする場合は、未検証性、Risk、検証または見直し条件を隠してはならない。 |
 
-## 3.5. Proposal
+## 1.5. Proposal
 
 | Field | Definition |
 |---|---|
@@ -194,13 +125,12 @@ MUST NOT
 | Authority | AIは作成・推奨できる。採用AuthorityはHumanにある。 |
 | Input | Interpretation、Hypothesis、Evidence、Constraint、Principle、Requirement、Gap |
 | Output | Decision、Experiment、Prototype、Rejected / Deferred Proposal |
-| Lifecycle | `Candidate` → `Reviewed` → `Accepted as Decision` / `Rejected` / `Deferred` / `Superseded` |
+| Lifecycle | `Candidate` → `Reviewed` → `Promoted to Decision` / `Rejected` / `Deferred` / `Superseded` |
 | Related Concepts | Hypothesis、Decision、Alternative、Trade-off、Risk |
-| Alias | Idea、Solution Candidate、Recommendation、Option。正式記録ではProposalを使用する。 |
 | MUST | Decisionと明確に区別し、Statusと提案主体を保持しなければならない。重要Proposalでは根拠・代替案・Riskを示さなければならない。 |
 | MUST NOT | Human Approval前に採用済み方針として扱ってはならない。 |
 
-## 3.6. Decision
+## 1.6. Decision
 
 | Field | Definition |
 |---|---|
@@ -210,29 +140,27 @@ MUST NOT
 | Authority | Human Only。Authorityは対象Scopeに応じたOwner / Approverが持つ。 |
 | Input | Proposal、Evidence、Interpretation、Principle、Constraint、Trade-off、Risk |
 | Output | Requirement、Plan、Scope、Principle Update、Exception、Rejected / Deferred Item |
-| Lifecycle | `Proposed` → `Approved` / `Rejected` / `Deferred` → `Active` → `Superseded` / `Reversed` |
+| Lifecycle | `Recorded` → `Active` → `Superseded` / `Reversed` |
 | Related Concepts | Proposal、Canonical Artifact、Authority、Requirement、Rationale |
-| Alias | Approval、Adoption Decision、Rejection Decision。単なるAI RecommendationはDecisionではない。 |
-| MUST | Decision maker、日時、対象Scope、Rationale、主要Evidence、影響Contextを保持しなければならない。 |
+| MUST | Decision maker、日時、対象Scope、Decision Outcome、Rationale、主要Evidence、影響Contextを保持しなければならない。 |
 | MUST NOT | AIが自己承認してはならない。履歴を破壊的に上書きしてはならない。 |
 
-## 3.7. Requirement
+## 1.7. Requirement
 
 | Field | Definition |
 |---|---|
 | Definition | Discoveryで得た問題、Need、Evidence、法令、Contract、Constraint等から導かれる、Product、System、Processが満たすべき条件。 |
 | Purpose | Discoveryの結果を、UX、IA、UI、Behavior Specificationへ引き渡せる追跡可能な要求として定義する。 |
 | Created By | Human / Analyst / Discovery Agent / Expert。AIはDraftできる。 |
-| Authority | 対象ScopeのHuman Authorityが承認する。外部法令・Contract由来の場合は外部Authorityを保持する。 |
+| Authority | 対象ScopeのHuman AuthorityがProductへの採用、適用、優先度を決める。外部法令・Contract由来の義務そのものは外部Authorityを保持し、人間判断で由来を上書きしない。 |
 | Input | Observation、Evidence、Problem、Need、Decision、Principle、法令、Contract、Constraint |
-| Output | Architecture、Plan、Implementation、Acceptance Criteria、Test |
-| Lifecycle | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Implemented` → `Verified` → `Superseded` / `Deprecated` |
+| Output | UX / IA / UI / Behavior SpecificationへのObligation、Architecture Input、Plan、Verification Obligation |
+| Lifecycle | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Active` → `Superseded` / `Deprecated` / `Retired` |
 | Related Concepts | Decision、UI Contract、Behavior Specification、Acceptance Criteria、Verification Result |
-| Alias | Need。Featureそのもの、または具体的な振る舞いを定義するBehavior Specificationとは区別する。 |
 | MUST | Discovery Source、Evidence、Decisionまたは正当なAuthorityへTrace可能でなければならない。検証可能性またはVerification方法を持たなければならない。 |
-| MUST NOT | 根拠のないAI推定を承認済みRequirementとして扱ってはならない。UX OutcomeやDesign IntentをBehavior構文だけへ圧縮してはならない。 |
+| MUST NOT | 根拠のないAI推定を承認済みRequirementとして扱ってはならない。UX OutcomeやDesign IntentをBehavior構文だけへ圧縮してはならない。Implementation StatusやVerification StatusをRequirement自身のStatusとして流用してはならない。 |
 
-## 3.8. Behavior Specification
+## 1.8. Behavior Specification
 
 | Field | Definition |
 |---|---|
@@ -241,18 +169,17 @@ MUST NOT
 | Created By | Human / Analyst / SPEC Agent / Expert。AIはDraftできる。 |
 | Authority | 対象ScopeのProductまたはDomain Authorityが意味を承認する。ArchitectureやImplementationは承認済みBehavior Specificationを無断で弱めない。 |
 | Input | Requirement、Decision、Feature、Use Case、User Action、IA、UI Contract、Business Rule、Constraint |
-| Output | Architecture、Implementation、Acceptance Criteria、Test、Evidence |
-| Lifecycle | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Implemented` → `Verified` → `Superseded` / `Deprecated` |
+| Output | Architecture Input、Implementation Obligation、Acceptance Criteria、Verification Obligation |
+| Lifecycle | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Active` → `Superseded` / `Deprecated` / `Retired` |
 | Related Concepts | Requirement、UI Contract、State、Business Rule、Acceptance Criteria、Verification Result |
-| Alias | SPEC。`Behavior Requirement`および`Behavior Contract`はCanonical Termとして使用しない。 |
 | MUST | Condition、Trigger、State、Behavior、Exception、AcceptanceまたはVerification方法を対象Riskに応じた粒度で持たなければならない。Source Requirementまたは正当なAuthorityへTrace可能でなければならない。 |
-| MUST NOT | Requirement、UX Outcome、UI表現、Architecture方式、実装詳細と同一視してはならない。 |
+| MUST NOT | Requirement、UX Outcome、UI表現、Architecture方式、実装詳細と同一視してはならない。Implementation StatusやVerification StatusをBehavior Specification自身のStatusとして流用してはならない。 |
 
 Requirementは「何を満たす必要があるか」を定義し、Behavior Specificationは「どの条件と状態でSystemがどう振る舞うか」を定義する。
 
 Behavior Specificationが承認され、UI、Architecture、Implementation、Verificationの基準として利用される場合、契約的な役割を果たす。ただし、その役割を別のContext Typeである`Behavior Contract`として扱ってはならない。
 
-## 3.9. Plan
+## 1.9. Plan
 
 | Field | Definition |
 |---|---|
@@ -261,30 +188,28 @@ Behavior Specificationが承認され、UI、Architecture、Implementation、Ver
 | Created By | Human / Planning Agent / Team |
 | Authority | Human OwnerがScope、Priority、Schedule、Riskを承認する。 |
 | Input | Requirement、Architecture、Decision、Constraint、Impact Analysis、Resource |
-| Output | Task、Milestone、Change Package、Delivery Instruction、Verification Plan |
+| Output | Task、Milestone、Change Trace Reference、Delivery Instruction、Verification Plan |
 | Lifecycle | `Draft` → `Reviewed` → `Approved` → `In Progress` → `Completed` / `Cancelled` / `Superseded` |
-| Related Concepts | Requirement、Change Package、Task、Gate、Implementation |
-| Alias | Delivery Plan、Implementation Plan、Roadmap Item。Roadmap全体とは区別する。 |
+| Related Concepts | Requirement、Change Trace、Task、Gate、Implementation |
 | MUST | 対象Requirement、Scope、Dependency、完了条件、Ownerを追跡可能にしなければならない。 |
 | MUST NOT | 未承認のScope削減やRequirement変更を暗黙に含めてはならない。 |
 
-## 3.10. Implementation
+## 1.10. Implementation
 
 | Field | Definition |
 |---|---|
-| Definition | Plan、Requirement、Behavior Specificationに基づいて作成・変更されたCode、Configuration、Design Asset、Content、Infrastructure、Process等の実体。 |
+| Definition | 承認済みContext、Behavior Specification、Architecture、UI等に基づいて作成・変更されたCode、Configuration、Migration、Infrastructure、配布Content、Developer Test、Build等の実行可能または配布可能な実体。 |
 | Purpose | 採用済みContextを、動作・利用・評価可能な現実の成果へ変換する。 |
 | Created By | Human / AI Agent / Tool / System |
-| Authority | 作成Authorityと採用Authorityを分離してよい。ReleaseまたはBaselineへの採用はHuman Authorityが決める。 |
-| Input | Plan、Requirement、Behavior Specification、Architecture、UI / Graphic、Asset、Constraint |
-| Output | Executable Artifact、Build、Release Candidate、Verification Target、Operational Change |
-| Lifecycle | `Created` → `Reviewed` → `Integrated` → `Released` / `Rejected` → `Superseded` / `Retired` |
+| Authority | 作成Authorityと採用Authorityを分離してよい。Baselineへの統合はProjectのAgent / Review Contract、Releaseへの採用はHuman Release Authorityが決める。 |
+| Input | Plan、Requirement、Behavior Specification、Architecture、UI / Graphic、Asset、Constraint、Change Trace |
+| Output | Executable Artifact、Configuration、Migration、Developer Test、Build、Release Candidate、Verification Target |
+| Lifecycle | `Planned` → `In Progress` → `Implemented` → `Superseded` / `Retired` |
 | Related Concepts | Artifact、Plan、Requirement、Behavior Specification、Architecture、Verification Result |
-| Alias | Delivery、Code Change、Built Artifact。実装方法全体をCodeだけに限定しない。 |
 | MUST | 対応するPlan、Requirement、Behavior Specificationのうち該当するContextへTrace可能でなければならない。Deviationと既知Limitを明示しなければならない。 |
-| MUST NOT | 動作していることだけを理由に、上流DecisionやRequirementの正本として扱ってはならない。 |
+| MUST NOT | 動作していることだけを理由に、上流DecisionやRequirementの正本として扱ってはならない。`Implemented`を`Verified`または`Released`として扱ってはならない。 |
 
-## 3.11. Verification Result
+## 1.11. Verification Result
 
 | Field | Definition |
 |---|---|
@@ -294,13 +219,12 @@ Behavior Specificationが承認され、UI、Architecture、Implementation、Ver
 | Authority | 検証方法と対象に応じたReviewerまたはQuality Authority。AIは実行・整理できるがRisk受容を決められない。 |
 | Input | Requirement、Behavior Specification、Acceptance Criteria、Implementation、Environment、Test、Observation |
 | Output | Pass / Fail / Blocked、Gap、Finding、Decision Input、Learning Candidate |
-| Lifecycle | `Planned` → `Executed` → `Reviewed` → `Accepted` / `Invalidated` / `Superseded` |
+| Lifecycle | `Produced` → `Reviewed` → `Accepted` / `Invalidated` / `Superseded` |
 | Related Concepts | Evidence、Requirement、Behavior Specification、Implementation、Gap、Learning |
-| Alias | Test Result、Validation Result、Review Result。曖昧なResult単独表記は避ける。 |
 | MUST | 対象Revision、Environment、実行条件、結果、Evidenceを保持しなければならない。 |
-| MUST NOT | Test PassだけをProduct Outcome達成の証明として扱ってはならない。古いRevisionのResultを現行検証として再利用してはならない。 |
+| MUST NOT | Test PassだけをProduct Outcome達成の証明として扱ってはならない。古いRevisionのResultを現行検証として再利用してはならない。ResultのLifecycle、Verification Outcome、Human Acceptanceを同一Statusとして扱ってはならない。 |
 
-## 3.12. Learning
+## 1.12. Learning
 
 | Field | Definition |
 |---|---|
@@ -312,17 +236,16 @@ Behavior Specificationが承認され、UI、Architecture、Implementation、Ver
 | Output | Discovery Context、Principle Update、Practice、Rule、Proposal、Roadmap、Training Context |
 | Lifecycle | `Candidate` → `Reviewed` → `Promoted` / `Rejected` / `Deferred` → `Superseded` / `Deprecated` |
 | Related Concepts | Verification Result、Evidence、Practice、Rule、Proposal、Feedback Loop |
-| Alias | Lesson Learned、Insight、Knowledge Candidate。単なるSummaryはLearningではない。 |
 | MUST | Source Evidence、適用範囲、Confidence、Promotion先を保持しなければならない。 |
 | MUST NOT | Evidenceのない一般化やAI推定を確立済みLearningとして登録してはならない。 |
 
 ---
 
-# 4. Supporting Concepts
+# 2. Supporting Concepts
 
 Supporting Conceptは、Core Context Typeを保存・接続・実行・管理するための横断概念である。詳細な運用規則はRelated文書へ委譲する。
 
-## 4.1. Context
+## 2.1. Context
 
 **Definition:** CRDDで意味、理由、状態、関係、判断、要求、計画、実装、検証、学びとして扱われる、人間とAIが参照可能な情報単位。
 
@@ -334,19 +257,19 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** すべての情報を無差別にContext Repositoryの正本へ昇格してはならない。
 
-## 4.2. Context Repository
+## 2.2. Context Repository
 
 **Definition:** ProductのWhy、Context、Decision、Artifact参照、Trace、Versionを、人間とAIが継続利用できる形で管理するRepositoryまたは論理的な情報基盤。
 
 **Purpose:** Product Contextの継承、再現、判断、変更、検証の基盤となる。
 
-**Authority:** Repository Owner。詳細は`00_10_Context_Repository.md`を参照する。
+**Authority:** Repository Owner。詳細は[`00_03_Documentation.md`](00_03_Documentation.md)を参照する。
 
-**MUST:** Canonical Contextと外部ArtifactのAuthority / Source of Truthを明示する。
+**MUST:** Canonical Contextと外部ArtifactのProperty Authorityを明示する。
 
 **MUST NOT:** GitやMarkdownという媒体そのものを、すべてのPropertyの唯一の正本とみなしてはならない。
 
-## 4.3. Artifact
+## 2.3. Artifact
 
 **Definition:** 文書、Figma、Diagram、Code、Build、Asset、Log、動画等、Contextを表現・実装・検証する具体的な成果物。
 
@@ -358,47 +281,113 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** ArtifactとContextの意味を同一視してはならない。一つのArtifactに複数Contextが含まれてよい。
 
-## 4.4. Registry
+## 2.4. Canonical Artifact
 
-**Definition:** Context、Artifact、Relation、Status、Ownership、Version等を検索・検査・機械処理可能な形で管理する一覧またはData Store。
+**Definition:** 特定のContextまたはPropertyについて、Authoritative Sourceとして承認または宣言されたArtifact。Decisionの結果は、原則として結果となるCanonical Artifactへ反映される。
 
-**Purpose:** 多対多Relation、Lifecycle、Trace、Impact Analysisを安定して扱う。
+**Purpose:** 人間とAIが、現在有効な意味、状態、判断とその理由を同じ参照先から取得できるようにする。
 
-**Authority:** Registry Ownerまたは該当Context Authority。
+**Authority:** Artifact全体ではなく、対象PropertyごとのProperty Authorityに従う。Git外のArtifactもCanonicalになり得る。
 
-**MUST:** Registryが正本であるPropertyと、参照先が正本であるPropertyを区別する。
+**MUST:** 対象Property、Owner、Status、Revision、取得方法を必要な粒度で識別可能にする。
 
-**MUST NOT:** Registryの存在だけでContext内容の妥当性を保証したとみなしてはならない。
+**MUST NOT:** Draft、Copy、Index、Change Trace、Review Viewを、宣言や承認なしにCanonical Artifactとして扱ってはならない。
 
-## 4.5. Context Package
+## 2.5. Property Authority
 
-**Definition:** 特定の作業、Agent、Review、Changeに必要な既存Contextを、対象Revisionへの参照として束ねたInput Set。
+**Definition:** 特定のPropertyについて、競合時に最終参照するArtifact、System、外部Sourceと、その更新・承認責任の組合せ。
 
-**Purpose:** Repository全体を無差別に渡さず、必要なContext、Preserved Intent、Boundaryを明示する。
+**Purpose:** 一つのArtifactや媒体を万能な正本にせず、意味、Visual、Code、Test Result、Release等の責務を適切なSourceへ分ける。
 
-**Authority:** Packageを構成するOwner / Orchestrator。正本Authorityは参照元Contextに残る。
+**Authority:** 対象ScopeのHuman Authorityまたは正当に委任された外部Authorityが宣言する。
 
-**MUST:** Scope、Revision、Source、Preserved Intent、Known Uncertaintyを明示する。
+**MUST:** Property、Source、Owner、Revisionまたは有効時点、競合時の扱いを識別可能にする。
+
+**MUST NOT:** Folder番号、ファイル形式、Code、Markdown、Figma等の媒体だけから一律にAuthorityを推定してはならない。
+
+`Source of Truth`は一般語として使用できるが、CRDDではArtifact全体よりProperty Authorityを優先して表現する。詳細は[Documentation](00_03_Documentation.md#22-property-authority)を参照する。
+
+## 2.6. Artifact Reference
+
+**Definition:** Stable Context IDを付与しないArtifactまたは外部Sourceを、Path、Anchor、Revision、URL、Record ID、Checksum等で再識別する参照。
+
+**Purpose:** Architecture、Evidence、Decision、Change Trace、Implementation、Verification、Release、外部Artifactを、不要なStable Context IDを増やさず接続する。
+
+**Authority:** 参照先のProperty Authority。Reference自体は参照先のAuthorityを取得しない。
+
+**MUST:** Locatorと、判断・検証に必要なRevisionまたは時点を保持する。
+
+**MUST NOT:** `latest`、壊れやすいSession URL、曖昧なファイル名だけを重要ArtifactのReferenceにしてはならない。
+
+## 2.7. Stable Context ID
+
+**Definition:** Artifactの場所や文書番号から独立して、複数Artifactまたは工程をまたいで追跡する意味を識別するID。
+
+**Purpose:** 文書移動、統合、分割、実現手段の変更後も、同じContextのRelationと履歴を維持する。
+
+**Authority:** [Documentation](00_03_Documentation.md#8-stable-context-id)のAssignmentとAllocation規則に従うProjectの採番Authority。
+
+**MUST:** CRDD標準では、Assignment Criteriaを満たす`REQ`、`UX`、`IA`、`UI`、`SPEC`だけに使用する。
+
+**MUST NOT:** ファイル名、Document Number、`CHG-*`、Architecture、Decision、Evidence、Test、Release等のArtifact IDと同一視してはならない。
+
+## 2.8. Context Selection
+
+**Definition:** 特定の作業、Agent、Skill、Reviewに必要な既存Contextを、対象Revisionへの参照として選んだInput Set。
+
+**Purpose:** Repository全体を無差別に渡さず、必要なContext、Preserved Intent、Boundary、Known Uncertaintyを明示する。
+
+**Authority:** Selectionを構成するOwner、Invoker、Parent Agent、またはOrchestrator。正本Authorityは参照元Contextに残る。
+
+**MUST:** Purpose、Scope、Source、Revision、Preserved Intent、Known Uncertaintyを必要な粒度で明示する。
 
 **MUST NOT:** 正本Contextを複製して独立更新し、別の正本を作ってはならない。
 
-詳細は`00_24_Change_Context_Package.md`を参照する。
+`Context Package`はContext Selectionを保存・受け渡すArtifact表現として使用できるが、別のContext Typeではない。詳細なInput契約は[Agent](00_10_Agent.md)と[Skill](00_11_Skill.md)、参照規則は[Documentation](00_03_Documentation.md)を参照する。
 
-## 4.6. Agent
+## 2.9. Change Trace
 
-**Definition:** 特定の目的、Authority、Input / Output Contractに従って作業するHuman、AI、System、または複合実行主体。
+**Definition:** 一つのPrimary Change Intentについて、Trigger、Expected / Actual Impact、関連Context、実装、検証、Release帰属を`90_Release/Changes/CHG-*.md`で接続するTrace Artifact。
 
-**Purpose:** Skill、Plan、Task等を実行し、ContextやArtifactを生成・変換・検証する。
+**Purpose:** Ticket、Pull Request、Commitだけでは失われる変更理由と影響範囲を、Canonical ContextからRelease結果まで追跡可能にする。
 
-**Authority:** Agent ContractとHuman Authorityによって付与される。AI Agentは暗黙にHuman Authorityを持たない。
+**Authority:** Change Trace Owner。各PropertyのAuthorityは参照先のCanonical Artifact、工程、Human Authority、Release Authorityに残る。
 
-**MUST:** Role、Scope、Input、Output、Boundary、Stop / Escalation条件を重要作業で明示する。
+**MUST:** Trigger、Primary Intent、Expected / Actual Impact、関連Context、Implementation / Verification Reference、Canonical Context Update、Release Dispositionを必要な範囲で保持する。
 
-**MUST NOT:** 自身の専門責務を越える重要Decisionを自己承認してはならない。
+**MUST NOT:** Requirement、SPEC、Architecture、Phase Approval、Impact Audit、Verification、Git Log、CHANGELOG等の正本をChange Trace内へ複製して置き換えてはならない。
 
-詳細は`00_26_Agent_IO_Contract.md`を参照する。
+`CHG-*`はChange Traceを参照するArtifact IDであり、Stable Context ID Typeではない。詳細は[`00_12_Change.md`](00_12_Change.md)を参照する。
 
-## 4.7. Skill
+## 2.10. Workflow
+
+**Definition:** Repository内で反復する作業のTrigger、Input、順序、確認、停止、Handoffを定めたOperational Guide。
+
+**Purpose:** Repository固有の作業方法を再現可能にし、結果を適切なCanonical Artifact、Change Trace、Releaseへ返す。
+
+**Authority:** Workflow Owner。Workflow自体はProduct Decision、Phase Approval、Release ApprovalのAuthorityを持たない。
+
+**MUST:** Purpose、Trigger、Scope、Input Authority、Step、Validation、Stop条件、Output / Handoffを必要な粒度で持つ。
+
+**MUST NOT:** Product Context、Change Trace、Release Record、Agent / Skill共通規範を置き換えてはならない。
+
+詳細は[`00_14_Workflow.md`](00_14_Workflow.md)を参照する。
+
+## 2.11. Release
+
+**Definition:** 検証済みまたは明示的に条件付けされたDistribution Artifactを、特定Version、Environment、利用者へ配布または有効化するHuman DecisionとDelivery Event。
+
+**Purpose:** 対象CHG、配布物、Release Readiness、Known Limitation、Migration、Release結果を接続する。
+
+**Authority:** Project固有のHuman Release Authority。VerificationはRecommendationを返すがReleaseを自己承認しない。
+
+**MUST:** 対象Version / Environment、Included Scope、配布物、判断、条件、結果を必要な粒度で追跡可能にする。
+
+**MUST NOT:** Verification完了、Merge、Build成功をRelease承認またはRelease完了と同一視してはならない。
+
+ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。詳細は[`00_13_Release.md`](00_13_Release.md)を参照する。
+
+## 2.12. Skill
 
 **Definition:** 特定のContextをInputとして受け取り、質問・分析・変換・Reviewを通じて定義済みOutputへ導く再利用可能な作業方法。
 
@@ -410,9 +399,9 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** Skillの実行完了をPhase Gateの承認と同一視してはならない。
 
-詳細は`00_27_Guided_Context_Creation.md`を参照する。
+詳細は[`00_11_Skill.md`](00_11_Skill.md)を参照する。
 
-## 4.8. Phase Gate
+## 2.13. Phase Gate
 
 **Definition:** 特定のFeature、Change、Revisionを次の活動へ進めるか、人間が条件とEvidenceを確認して判断する境界。
 
@@ -424,9 +413,9 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** AIが重要Gateを自己承認してはならない。
 
-詳細は`00_23_Phase_Gate_Approval.md`を参照する。
+共通のHandoff不変条件は[Transformation Invariants](00_01_Principles.md#62-transformation-invariants)、実行時のRouteとHandoffは[Skill](00_11_Skill.md)、ArtifactのRevisionは[Documentation](00_03_Documentation.md)、変更のImpact Traceは[Change](00_12_Change.md)、工程固有条件とReopenは各工程文書の`Phase Gate Criteria`を参照する。
 
-## 4.9. Trace
+## 2.14. Trace
 
 **Definition:** Context、Artifact、Decision、Requirement、Behavior Specification、Implementation、Verification等の由来・実現・制約・検証関係を追跡できるRelation。
 
@@ -438,67 +427,73 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** ファイルLinkが存在するだけで意味的Traceが成立したとみなしてはならない。
 
-詳細は`00_19_Context_Traceability.md`を参照する。
-
-## 4.10. Source of Truth
-
-**Definition:** 特定のProperty、判断、Version、実行事実について、最終的に参照すべきAuthoritative Source。
-
-**Purpose:** 複数ArtifactやSystem間のConflictを解消する基準を持つ。
-
-**Authority:** Propertyごとに定義されたOwner / Authority。
-
-**MUST:** Source of TruthはArtifact全体ではなく、必要に応じてProperty単位で定義する。
-
-**MUST NOT:** Code、Markdown、Figma等の一媒体をすべてのPropertyの一律なSource of Truthとして扱ってはならない。
+詳細は[`00_03_Documentation.md`](00_03_Documentation.md)のStable Context IDとTraceabilityを参照する。
 
 ---
 
-# 5. Responsibility and Authority Terms
+# 3. Responsibility and Authority Terms
 
-## 5.1. Human
+## 3.1. Human
 
 価値、意味、Priority、Trade-off、Risk Acceptance、重要Decision、最終責任を担う人間主体。
 
 Humanはすべての作業を自ら行う必要はないが、AIまたはSystemへ委譲した作業の判断責任まで自動的に移転したとはみなさない。
 
-## 5.2. AI
+## 3.2. AI
 
 Contextの抽出、整理、比較、提案、Draft、変換、実装、検証支援を行う非人間主体。
 
 AIはProposalを作成してよいが、Human Authorityが必要なDecision、Gate、Risk Acceptanceを自己承認してはならない。
 
-## 5.3. System
+## 3.3. System
 
 定義済みRuleに従って観測、処理、保存、検証、通知等を行う実行主体。Systemの出力は、Rule、Environment、Versionを含むProvenanceを必要とする。
 
-## 5.4. Owner
+## 3.4. Owner
 
-Context、Artifact、Process、Registry等を維持し、更新・Review・廃止・Escalationを管理する主体。Ownerと最終Authorityは同一でなくてよい。
+Context、Artifact、Process、Index等を維持し、更新・Review・廃止・Escalationを管理する主体。Ownerと最終Authorityは同一でなくてよい。
 
-## 5.5. Authority
+## 3.5. Authority
 
 特定Scopeについて、採用、承認、却下、Risk受容、正本変更を最終決定できる権限。
 
 AuthorityはRole名だけでなく、対象Product、Property、Change、Release、期間によって定義する。
 
-## 5.6. Reviewer
+## 3.6. Reviewer
 
 ContextまたはArtifactが、Source、Contract、Quality、Boundary、Evidenceを満たすか確認し、Findingと推奨判断を返す主体。Reviewerは重要なRiskを自動受容しない。
 
-## 5.7. Approver
+## 3.7. Approver
 
 特定のContext、Gate、Baseline、Release等を正式採用するHuman Authority。AIはApproverになれない。
 
-## 5.8. Agent and Subagent
+## 3.8. Agent and Subagent
 
-Agentは定義済みContractに従う実行主体である。Subagentは、上位AgentまたはOrchestratorから限定されたScopeとContractを受けて作業するAgentである。
+Agentは、特定の目的、Authority、Input / Output Contractに従って作業するHuman、AI、System、または複合実行主体である。Skill、Plan、Task等を実行し、ContextやArtifactを生成・変換・検証する。
 
-Subagentは独立したAuthorityを意味しない。詳細な構成は`00_31_Subagent_Practice.md`の任意Practiceであり、CRDD Coreは特定のSubagent構成を要求しない。
+AgentのAuthorityはAgent ContractとHuman Authorityによって付与される。重要作業ではRole、Scope、Input、Output、Action Boundary、Stop / Escalation条件を明示し、自身の専門責務を越える重要Decisionを自己承認しない。
+
+Subagentは、Parent AgentまたはOrchestratorから限定されたScope、Context、Action Authority、Output Contractを受けて作業するAgentである。
+
+Subagentは独立したAuthorityを意味しない。詳細な委譲、Access、Result、統合、Promotion規定は[`00_10_Agent.md`](00_10_Agent.md)を参照し、CRDD Coreは特定のSubagent構成を要求しない。
 
 ---
 
-# 6. Lifecycle and Status Terms
+# 4. Lifecycle and Status Terms
+
+## 4.1. Flow and Lifecycle Boundaries
+
+CRDDでは、意味の異なる流れをすべて`Lifecycle`と呼ばない。
+
+| Canonical Term | Meaning | Authority |
+|---|---|---|
+| End-to-End Transformation Flow | Realityから得たContextの意味変化と、DiscoveryからVerificationまでの専門工程による具体化・Learning還元を接続する流れ | [Principles](00_01_Principles.md)、本書のContext Type定義、各工程文書 |
+| Change Trace | 一つの変更のTriggerから影響、実装、検証、Release帰属までの追跡 | [Change](00_12_Change.md) |
+| Skill / Agent Run | 一回の専門活動または委譲実行の開始からHandoffまで | [Skill](00_11_Skill.md)、[Agent](00_10_Agent.md) |
+| Workflow Execution | Repository固有の反復手順を一回実行し、結果をAuthorityへ返す流れ | [Workflow](00_14_Workflow.md) |
+| Release Flow | Release ReadinessからHuman Release Decision、配布・有効化、Release Verificationまでの流れ | [Release](00_13_Release.md) |
+
+## 4.2. Status Terms
 
 StatusはContext Type、Artifact、Document、Gate、Releaseによって意味が異なる。以下はCanonicalな共通意味であり、詳細な遷移は各専門標準へ委譲する。
 
@@ -506,15 +501,22 @@ StatusはContext Type、Artifact、Document、Gate、Releaseによって意味�
 |---|---|
 | `Candidate` | 検討対象として識別されたが、まだDraftまたは採用対象として確定していない |
 | `Draft` | 作成中であり、Authorityによる採用前 |
+| `Open` | 対象の追跡または処置が開始され、まだ終了していない |
+| `Not Started` | 対象Scopeの作業または検証をまだ開始していない |
 | `Reviewed` | 指定されたReviewerが確認済み。採用または承認を意味しない |
 | `Accepted` | 対象用途で使用することをHumanが認めた。Formal Approvalを必要としないContextにも使用する |
 | `Approved` | 定義済みAuthorityが正式承認した |
-| `Fixed` | 対象Revision、Version、Checksum等が変更不能なBaseline候補として固定された |
 | `Active` | 現在有効なContext、Baseline、Ruleとして使用されている |
+| `In Progress` | 対象Scopeの作業または処置を実行中 |
 | `Implemented` | 対応する実装が存在する。正しさや検証完了を意味しない |
 | `Verified` | 対象Revisionが定義済みVerificationを満たした |
+| `Released` | 特定Version / Environmentへ配布または有効化された |
+| `Completed` | Run、Plan、Workflow等の定義済み終了条件を満たした。工程完了やReleaseを自動的に意味しない |
+| `Closed` | 対象の結果、残課題、後続参照を処置し、追跡を終了した |
 | `Rejected` | 検討または採用対象から明示的に除外された |
 | `Deferred` | 今回は採用・実行せず、後続時点へ送られた |
+| `Cancelled` | 採用または実行を完了せず、明示的に終了した |
+| `Failed` | 実行を試みたが、定義済みResultまたはConditionを満たせなかった |
 | `Superseded` | 後続Revisionまたは別Contextに置き換えられた。履歴は保持する |
 | `Deprecated` | 使用を避けるべきだが、互換性等のため残っている |
 | `Retired` | 現在および将来の利用対象から廃止された |
@@ -528,75 +530,57 @@ StatusはContext Type、Artifact、Document、Gate、Releaseによって意味�
 ```text
 Reviewed ≠ Approved
 Implemented ≠ Verified
-Fixed ≠ Active
+Verified ≠ Released
+Completed ≠ Closed
 Accepted ≠ Decision（Context TypeとStatusは別概念）
 Stable ≠ Immutable
 Recovered ≠ Confirmed
 ```
 
+共通語だけでは対象を誤認する場合、Domainを付けて表す。
+
+```text
+Document Status
+Context Status
+Phase Coverage / Approval
+Implementation Status
+Verification Status / Result
+Agent Result / Skill Run Status
+Change Trace Status
+Release Status / Decision
+```
+
+`Not Verified`、`Partially Verified — Human Authorized`等は[Verification](00_29_Verification.md)、Release Readiness Recommendationは[Verification](00_29_Verification.md)、配布・有効化のRelease Decision / Statusは[Release](00_13_Release.md)、Agent ResultとSkill RunのStatusは[Agent](00_10_Agent.md)と[Skill](00_11_Skill.md)を正本とする。専門Statusを本表の共通語へ無理に丸めない。
+
 ---
 
-# 7. Canonical Aliases and Deprecated Terms
+# 5. Canonical Terms and Boundary Language
 
-| Canonical Term | Alias / Deprecated Term | Rule |
+| Canonical Term | Related / Deprecated Language | Boundary Rule |
 |---|---|---|
-| Observation | Fact | CRDD Context TypeとしてFactは原則使用しない。一般語としての「事実」は使用してよい |
+| Observation | Fact / Finding | Observationは解釈前の記録。FindingはContractとの差異を評価した結果であり、同義語にしない |
+| Evidence | Proof / Reference | EvidenceはSourceと取得条件を持つ根拠。Referenceだけ、または完全証明を意味しないProofと同一視しない |
+| Interpretation | Analysis / Inference | 根拠に対する意味付けであることとConfidenceを明示する |
+| Hypothesis | Assumption | Hypothesisは検証対象、Assumptionは作業上置いた前提。未検証である点が同じでも用途を区別する |
 | Proposal | Idea / Solution Candidate / Recommendation | Statusが採用前である限りProposalへ統一する |
 | Decision | Adopted Proposal / Approval | Human Authorityによる判断だけをDecisionと呼ぶ |
-| Verification Result | Result | Result単独は対象と意味が曖昧なため避ける |
-| Evidence | Proof | 数学的・法的な完全証明でない限りProofを避ける |
 | Context Repository | Documentation Repository | Context、Trace、Decisionを扱う場合にDocumentationだけへ狭めない |
-| Requirement | Feature | FeatureはProduct Scope単位、Requirementは満たす条件として区別する |
-| Behavior Specification | Requirement | Requirementは満たすべき条件、Behavior Specificationは条件と状態に応じたSystem Behaviorとして区別する |
-| Implementation | Code | Code以外のDesign Asset、Config、Infra、Processも含む |
+| Canonical Artifact | Draft / Copy / Index / View | 現在のAuthorityを持つArtifactだけをCanonicalと呼ぶ。参照用Viewは正本を置き換えない |
+| Property Authority | Source of Truth | CRDDでは媒体全体よりProperty単位のAuthoritative Sourceと更新責任を明示する |
+| Artifact Reference | Stable Context ID | Artifactの所在・Revisionを指すReferenceと、意味を追跡するStable Context IDを区別する |
+| Stable Context ID | Document Number / File Name / `CHG-*` | Stable Context IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`の意味識別子。文書やChange Traceの識別子ではない |
+| Context Selection | Context Package | Context PackageはSelectionを受け渡す表現であり、別のContext Typeや正本ではない |
+| Requirement | Need / Feature | NeedはSourceとなる必要、FeatureはProduct Scopeまたは実現単位、Requirementは満たすべき条件 |
+| Behavior Specification | Behavior Requirement / Behavior Contract / Requirement | Canonical TermはBehavior Specification。Requirementや契約的役割と別Context Typeとして区別する |
+| Plan | Roadmap Item / Workflow | Planは特定Scopeの実行計画、Roadmap Itemは採用済みDeferred Work、Workflowは反復可能な作業方法 |
+| Implementation | Code / Delivery | CodeだけでなくConfiguration、Migration、Infrastructure、Developer Test、Build等を含むが、Releaseとは区別する |
+| Verification Result | Test Result / Validation Result / Review Result / Result | 何をどのRevision・条件で検証したResultかを明示し、曖昧な`Result`を避ける |
 | Learning | Summary | 要約されただけではLearningへ昇格しない |
+| Change Trace | Change Record / Task / Pull Request | `CHG-*`は変更の意味と影響を追跡する。Task、PR、Git Log、CHANGELOGの代替ではない |
+| Workflow | Plan / Skill | WorkflowはRepository固有の反復手順、Planは個別Scopeの計画、Skillは再利用可能な専門作業方法 |
+| Release | Verification / Deployment | VerificationはReadinessを評価し、Deploymentは実行手段。ReleaseはHuman DecisionとDelivery Eventを含む |
+| Phase Gate | Skill Completion / Artifact Completion | Gateは対象Scope / RevisionへのHuman Handoff Decisionであり、Run終了や成果物完成から自動推定しない |
 
 新しいCore Termを導入する場合、使用前または同一Change内で本書へ定義・Alias・既存Termとの境界を追加しなければならない。
 
----
-
-# 8. Responsibility Matrix
-
-以下はCore Context Typeの作成・Review・承認に関する簡易Matrixである。Project固有のRASICやOwnershipは別途定義してよいが、この境界を弱めてはならない。
-
-| Context Type | Human | AI | System / Tool | Approval / Promotion Authority |
-|---|---|---|---|---|
-| Observation | Create / Review | Extract / Structure | Create | Humanまたは信頼されたSystem Rule |
-| Evidence | Collect / Validate | Discover / Index | Produce | HumanまたはSource Authority |
-| Interpretation | Create / Review | Create / Compare | — | Human Review |
-| Hypothesis | Create / Prioritize | Generate / Challenge | — | Humanが検証扱いを決定 |
-| Proposal | Create / Review | Create / Recommend | Generate候補 | Humanが採否を決定 |
-| Decision | Create / Approve | Draft / Suggest only | — | Human Authority only |
-| Requirement | Create / Approve | Draft / Analyze | Constraint提供 | Humanまたは外部Authority |
-| Behavior Specification | Create / Approve | Draft / Analyze | Existing Behavior提供 | ProductまたはDomain Authority |
-| Plan | Create / Approve | Draft / Optimize | Schedule計算 | Human Owner |
-| Implementation | Create / Review / Adopt | Create / Modify | Execute / Build | Human Release / Baseline Authority |
-| Verification Result | Review / Accept | Execute / Analyze | Execute / Measure | Human Reviewer / Quality Authority |
-| Learning | Create / Promote | Extract / Propose | Signal提供 | Human Repository / Standard Owner |
-
-本Matrixは、各Conceptの定義を補助するものであり、詳細なAgent Contract、RASIC、Property Responsibilityを置き換えない。
-
----
-
-# 9. Conformance Rules
-
-CRDD準拠のContext運用は、少なくとも以下を満たさなければならない。
-
-```text
-MUST Observation、Evidence、Interpretation、Hypothesis、Proposal、Decisionを区別する
-MUST ProposalとDecisionのStatusおよびAuthorityを区別する
-MUST DecisionにRationaleとHuman Authorityを持たせる
-MUST RequirementをSource Decisionまたは正当なAuthorityへTrace可能にする
-MUST ImplementationとVerification Resultを区別する
-MUST Recovered ContextにSourceとConfidenceを持たせる
-MUST Superseded / Rejected / Deferred Contextの履歴を必要な期間保持する
-MUST NOT AIが重要Decision、Gate、Risk Acceptanceを自己承認する
-MUST NOT ObservationまたはInterpretationを、根拠なく確定Factとして登録する
-MUST NOT Artifactの存在だけでContextの意味・承認・検証を保証したとみなす
-SHOULD 複数成果物で継続追跡するREQ、UX、IA、UI、SPECへ安定ID、Revision、Relationを付与する
-MUST NOT Architecture、Decision、Evidence、Change、Test等へCRDD標準Stable IDを新規発行する
-SHOULD AliasではなくCanonical Termを正式文書とRegistryで使用する
-MAY 人間向けUIではIDや詳細StatusをProgressive Disclosureにより簡略表示する
-```
-
-専門標準が本書より厳しい規則を定義することは許容する。本書より弱い責務境界やAuthorityを定義する場合は、CRDD CoreからのDeviationとして明示的なDecisionとRisk Acceptanceを必要とする。
+Core Context TypeごとのAuthorityと禁止事項は各定義を正本とする。CRDD適用Criteriaと評価方法は[Conformance Audit](00_52_Conformance_Audit.md)を参照し、本書に重複したChecklistを置かない。
