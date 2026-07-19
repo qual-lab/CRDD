@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.4.0 — Document Architecture Consolidation / 文書体系統廃合版**
+Status: **v0.4.1 — Decision Support and Roadmap Activation / 意思決定支援・ロードマップ発動版**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Changelog](CHANGELOG.md)**
 
