@@ -1,10 +1,10 @@
 # CRDD Conformance Audit
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
 Agent ID: `agent.conformance.audit`
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -108,12 +108,14 @@ Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、�
 | PL-01 | OriginからVerification / Learningまで、対象Scopeに必要な専門責務が意味を失わず接続される | [Principles](00_01_Principles.md)、[Discovery](00_21_Discovery.md)、[UX](00_22_UX.md)、[IA](00_23_IA.md)、[UI](00_25_UI.md)、[SPEC](00_26_Behavior_Specification.md)、[Architecture](00_27_Architecture.md)、[Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md)、[Gap / Impact Audit](00_53_Gap_Impact_Audit.md) | Source Context、Coverage、Handoff、Gap / Impact Finding、Verification |
 | PL-02 | 各主要ArtifactがSource、Preserved Intent、Decision / Definition、Downstream Obligation、Verificationを取得可能にする | [Documentation](00_03_Documentation.md) | Common Artifact Contractを満たすArtifactまたはIndex |
 | PL-03 | Context間の関係を単なる関連Linkではなく意味のあるRelationとして説明できる | [Documentation](00_03_Documentation.md) | Context / Relation Indexまたは同等のTrace |
-| PL-04 | Discovery、UX、IA、UI、SPECの責務Coverageと工程間Handoffを対象Scope全体で説明できる | [Discovery](00_21_Discovery.md)、[UX](00_22_UX.md)、[IA](00_23_IA.md)、[UI](00_25_UI.md)、[SPEC](00_26_Behavior_Specification.md)のPhase Process Contract | Coverage State、Open Gap、Human Review、Handoff |
+| PL-04 | Discovery、UX、IA、UI、SPECの責務Coverageと工程間Handoffを対象Scope全体で説明できる | [Discovery](00_21_Discovery.md)、[UX](00_22_UX.md)、[IA](00_23_IA.md)、[UI](00_25_UI.md)、[SPEC](00_26_Behavior_Specification.md)のPhase Process Contract | Coverage State、Unresolved Gap、Human Review、Handoff |
 | PL-05 | UI ContractとBehavior SpecificationがAction、State、Failure、Recovery、Permission等で整合する | [UI / Behavior Pair](00_24_UI_Behavior_Specification.md)、UI / SPEC Phase Contract | Pair Review、対応表、例外理由 |
 | PL-06 | 重要な工程境界をHuman Authorityが対象ScopeとRevisionに対して判断する | [Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants)、[Skill](00_11_Skill.md)、各工程の`Phase Gate Criteria` | Approval Record、Scope、Revision、Coverage、Human Decision |
 | PL-07 | 完了を実装動作だけでなく、Acceptance、UI / SPEC、UX Intent、Origin、Learningに対して検証する | [Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md)、各Phase Gate Criteria | Target Revision、Fresh Evidence、Verification Result、未達条件、Learning |
 | PL-08 | 外部Consumer、既存Data、Migration、容量制約があるScopeでは、観測可能なCompatibility / Capacity Behaviorと、それを成立させるArchitecture、移行、検証を接続する | [SPEC](00_26_Behavior_Specification.md)、[Architecture](00_27_Architecture.md)、[Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md) | Consumer Contract、Version / Migration Plan、Capacity Assumption、Rollback、Compatibility / Load Evidence |
 | PL-09 | AI、個人Data、外部Actionを含むScopeでは、Purpose、Consent、Trust、Human Control、Security Boundary、Privacy、Costを上流から実行・検証まで接続する | [Principles](00_01_Principles.md)、[Discovery](00_21_Discovery.md)、[UX](00_22_UX.md)、[IA](00_23_IA.md)、[UI](00_25_UI.md)、[SPEC](00_26_Behavior_Specification.md)、[Architecture](00_27_Architecture.md)、[Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md) | Purpose / Data Boundary、Consent Behavior、Trust Surface、Authority、Security / Privacy Design、Cost Guardrail、Fresh Verification |
+| PL-10 | 分析から生じる調整NeedをUXで抽出・分類し、利用者またはAuthorityが変更するものはIAのConfiguration Model、UIのSettings / Control Surface、SPECのConfiguration / Policy Behaviorへ、それ以外は固定Rule、自動適応、導出値、Technical Configuration、保留等の適切なObligationへ接続し、成立方式、実装、検証まで意味を失わない | [UX](00_22_UX.md)、[IA](00_23_IA.md)、[UI / Behavior Pair](00_24_UI_Behavior_Specification.md)、[UI](00_25_UI.md)、[SPEC](00_26_Behavior_Specification.md)、[Architecture](00_27_Architecture.md)、[Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md) | Control / Adaptation Need、Candidate Disposition、Configuration Candidate / Model、Downstream Obligation、UI / SPEC Pair、Default / Effective Value、Authority、Technical Configuration、変更・Reset / Recovery Contract、Fresh Verification |
+| PL-11 | 採用済みDeferred Workを単一のRoadmap Main Viewで管理し、必要時だけDetail Fileへ分ける。ItemはSource Context、Owner、Start Condition、再評価Triggerを持ち、着手時は現行ContextとImpactを再確認した`CHG-*`へ接続する。完了時はDetail固有情報をCanonical Artifactと適用されるCHG、Implementation、Verificationへ反映し、非適用理由または結果参照をMain Viewへ戻してDetail Fileを削除する。登録待ちは対象Itemへ限定し、無関係なRouteを停止しない | [Discovery](00_21_Discovery.md#63-roadmap-item-contract)、[Change](00_12_Change.md) | Roadmap Main View / Item、必要なDetail Reference、Human Deferral / Start Decision、Source Context、Owner、Start Condition、Re-evaluation Trigger、適用されるCHG / Result / Verification ReferenceまたはNot Applicable理由、Detail Cleanup Evidence |
 
 ---
 
@@ -136,7 +138,8 @@ Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、�
 | AD-13 | Skill DefinitionがEntry、Input、Authority Boundary、専門責務、Exit、Stop、Confirmation、Handoffを工程正本への参照として定義し、工程Contractを複製しない | [Skill](00_11_Skill.md)、各工程文書 | Skill Definition Contract、Process Authority参照、Authority Boundary、Entry / Exit / Handoff |
 | AD-14 | Guided Interactionが既知Contextの再質問、固定Questionnaire、未回答箇所のAI補完を避け、Source、AI変換、未決事項を区別する | [Skill](00_11_Skill.md) | Adaptive Queue、Raw Voice / Evidence、Transformation Summary、Open Question |
 | AD-15 | Paused、Blocked、またはFailedとなったSkill RunがInput Revision、完了済み内容、未検証変更、Side Effect、Rollback要否、再開地点を保持する | [Skill](00_11_Skill.md)、[Agent](00_10_Agent.md) | Resume Snapshot、Partial Result、Revision、Next Action |
-| AD-16 | Skill Handoffが対象Scope / Revision、Coverage、Open Gap、Preserved Intent、Obligation、受信側Entry、必要なHuman Authorizationを保持する | [Skill](00_11_Skill.md)、[Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants) | Handoff Record、Coverage Summary、Open Gap、Human Authorization、Receiving Entry Evidence |
+| AD-16 | Skill Handoffが対象Scope / Revision、Coverage、Unresolved Gap、Preserved Intent、Obligation、受信側Entry、必要なHuman Authorizationを保持する | [Skill](00_11_Skill.md)、[Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants) | Handoff Record、Coverage Summary、Unresolved Gap、Human Authorization、Receiving Entry Evidence |
+| AD-17 | Canonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractを変える問いでは、Agent / Skillや質問Labelを問わずDecision Support Contractを適用し、影響、Trade-off、評価基準とEvidenceに基づくRecommendation、Confidence / Uncertainty、推奨が変わる条件、保留影響をRiskとRuntime Scaleに応じて判断可能な言葉で提示する | [Agent](00_10_Agent.md)、[Skill](00_11_Skill.md) | Decision Support Summary、Recommendation / Alternative / Rationale / Evidence / Confidence / Revisit Condition |
 
 ---
 

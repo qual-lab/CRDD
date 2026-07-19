@@ -1,10 +1,10 @@
 # CRDD Behavior Specification
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.spec.behavior`
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -49,17 +49,18 @@ Behavior Specificationは対象Scopeについて、次を受け取る。
 - Source REQ / UX / IA、Preserved Intent、Non-goal
 - Feature / Use Case / User Action、Pairing Unit Candidate
 - Actor / Authority、IA Object / Relation / Lifecycle / State Concept
+- Configuration Candidate / Model、Owner / Authority、適用Scope、Inheritance / Override
 - Behavior Obligation、Business RuleまたはそのAuthority
 - 対応UI Contract Candidate、Consumer / Operational Feedback Candidate
 - Quality、Compatibility、Capacity、Privacy、Cost等のConstraint
-- IA Coverage Summary、Open Gap、Human Review Result
+- IA Coverage Summary、Unresolved Gap、Human Review Result
 - Existing Behavior / Code / Documentと、そのAuthority / Revision
 
 通常は[IAのExit and Handoff](00_23_IA.md#exit-and-handoff)から受け取り、UIと並行・反復して具体化する。Source Requirement、Behavior Obligation、Actor / Authority、対象Scope、人間Reviewが不足する場合はDiscovery、IA、Human Decisionへ戻す。IAが`Partial — Human Authorized`の場合は、承認されたScopeだけを扱い、未網羅項目、Risk、後続Ownerを引き継ぐ。
 
 ## Transformation Contract
 
-Behavior Obligationを、Actor / Authority、Trigger、Precondition、Input / Validation、State、Behavior、Output / State Transition、Failure / Exception、Permission、Idempotency、Cancel / Undo / Retry、External Dependency、Consumer Compatibility、Capacity / Quality Behavior、Acceptance Criteriaへ変換する。
+Behavior ObligationとConfiguration Candidateを、Actor / Authority、Trigger、Precondition、Input / Validation、Option / Default / Effective Value、State、Behavior、Output / State Transition、Failure / Exception、Permission、Idempotency、Cancel / Undo / Retry、External Dependency、Consumer Compatibility、Capacity / Quality Behavior、Acceptance Criteriaへ変換する。
 
 SPECはConsumerまたは利用者から観測可能な契約を定義し、Component構成、Server台数、Queue Size、Autoscaling、DB Connection、Cache、Provider選択等の成立方式を決めない。
 
@@ -78,7 +79,8 @@ SPECはConsumerまたは利用者から観測可能な契約を定義し、Compo
 | Compatibility | Consumer Contract、Version、Breaking / Non-breaking、Deprecation、Migration-period Behavior |
 | Capacity and Quality | Response / Completion Condition、Rate Limit、Queue / Reject / Throttle / Degrade、Quality Condition |
 | AI / Data / External Action | Consent State、Input Scope、Inference / Provenance、Human Approval、Privacy / Retention、Cost Guardrail、Action Limit |
-| Acceptance and Trace | Acceptance Criteria、Environment / Variant、Test / Evidence Candidate、UI / Consumer Pair、Coverage / Open Gap |
+| Configuration and Policy | Allowed Option / Range、Default Source、Effective Value、Scope、Inheritance / Override、Permission、Validation、Apply Timing、Side Effect、Reset / Rollback、Failure / Recovery、Audit |
+| Acceptance and Trace | Acceptance Criteria、Environment / Variant、Test / Evidence Candidate、UI / Consumer Pair、Coverage / Unresolved Gap |
 
 すべての責務を全Behaviorへ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。
 
@@ -90,7 +92,7 @@ SPECはConsumerまたは利用者から観測可能な契約を定義し、Compo
 
 ## Human Decisions
 
-人間はBusiness Rule、Actor / Authority、Permission、Risk Acceptance、不可逆処理、Fallback、Compatibility破壊、Cost / Quality Trade-off、`Not Applicable`、部分Handoffを決定する。AIは候補、Gap、Conflict、Acceptance案を提示できるが、未決RuleやAuthorityを推測で確定しない。
+人間はBusiness Rule、Actor / Authority、Permission、ConfigurationのDefault / Policy / Override、Risk Acceptance、不可逆処理、Fallback、Compatibility破壊、Cost / Quality Trade-off、`Not Applicable`、部分Handoffを決定する。AIは候補、Gap、Conflict、Acceptance案を提示できるが、未決Rule、Default、Policy、Authorityを推測で確定しない。
 
 ## Exit and Handoff
 
@@ -106,6 +108,7 @@ UIとBehavior Specificationは並行・反復して具体化してよい。UIか
 - 全Behavior ObligationとRequired Responsibility Coverageを対象Scopeで判定している
 - Actor / Authority、Trigger、Precondition、State、Behavior、Result、重要Failure / Exceptionが観察・検証可能である
 - Permission、Idempotency、Cancel / Undo / Retry、Dependency、Recoveryを適用範囲で判定している
+- Configuration CandidateのOption / Range、Default Source、Effective Value、Scope、Inheritance / Override、Permission、変更効果、Reset / Recoveryを定義している
 - Consumer Compatibility、Capacity / Quality Behavior、Migration-period Behaviorを必要範囲で定義している
 - AI / Personal Data ScopeではConsent、Inference / Provenance、External Action Authority、Privacy / Retention、Cost Guardrailが観測可能なBehaviorである
 - UI ContractまたはConsumer / Operational Contractと整合している
@@ -118,12 +121,13 @@ UIとBehavior Specificationは並行・反復して具体化してよい。UIか
 - REQ / Use Case / User Action / Behavior Obligationの未変換
 - Happy Pathだけの仕様、曖昧なResult、観察不能なAcceptance
 - Failure、Permission、Recovery、Idempotency、Cancel、Dependencyの適用判定漏れ
+- IA Configuration Candidateに対応するOption / Range、Default、Effective Value、Permission、Apply Timing、変更効果、Reset / Recoveryの欠落
 - Compatibility、Version、Deprecation、Migration-period Behavior、Capacity / Qualityの漏れ
 - UI / Consumer ContractとのAction、State、Failure、Recovery、Permissionの不一致
 - AI ScopeでConsentを表示だけにし、実行停止・取消・External Action Authorityを定義していない
 - SPECによるUX / UI Intent、Architecture方式、Implementation Detailの先取り
 - 現行CodeやObserved Behaviorの無条件な正本化、UX OutcomeのEARS化
-- Source Trace、Coverage Summary、Open Gap、Human Review、Decision / Rationaleの欠落
+- Source Trace、Coverage Summary、Unresolved Gap、Human Review、Decision / Rationaleの欠落
 - Architectureまたは実装への暗黙Handoff
 
 ---
@@ -175,7 +179,29 @@ ConsentはDialog表示ではなく実行条件である。未同意、状態不�
 
 外部Actionは[`00_01_Principles.md`](00_01_Principles.md)のProgressive Autonomyを、Read、Proposal、Human-approved Execution、限定自動実行等のBehaviorへ変換する。Authority、Rate、Amount、Target、Time、Cost、Confirmation、Idempotency、Cancel、Recovery、Auditの上限を定義する。
 
-## 2.5. EARS Usage
+## 2.5. Configuration and Policy Behavior
+
+IAのConfiguration Candidateを、観測・検証可能なBehaviorへ具体化する。
+
+```text
+Allowed Option / Range / Format
+Default Value and Default Source
+Current / Effective Value
+Applied Subject / Scope
+Inheritance / Override / Precedence
+Read / Change / Approve Authority
+Validation / Conflict
+Apply Timing / Propagation / Side Effect
+Cancel / Revert / Reset / Rollback
+Failure / Partial Apply / Recovery
+Audit / Evidence / Acceptance
+```
+
+`Default`は単なる初期画面値ではなく、未設定時にSystemが採用するBehaviorである。個人Preference、組織Policy、System Default、Temporary Overrideが競合する場合は、Precedenceと利用者へ返すEffective Valueを定義する。変更が非同期、段階反映、不可逆、既存Dataへ影響する場合は、適用時点、対象、部分失敗、Rollback / Recoveryを明示する。
+
+環境変数、Provider固有Parameter、Resource Size等が利用者・Consumerから観測できない成立方式だけである場合はArchitectureのTechnical Configurationへ渡す。Product Behavior、Availability、Quality、Cost、Privacyへ影響する部分はSPECの観測可能なContractとして残す。
+
+## 2.6. EARS Usage
 
 EARSはBehavior、Exception、Acceptance Criteriaを曖昧なく表すための任意の構文であり、すべてのSPECをEARSだけで記述する必要はない。
 
@@ -189,7 +215,7 @@ EARSはBehavior、Exception、Acceptance Criteriaを曖昧なく表すための�
 
 自然言語でもConditionとResultを明確にする。UX Outcome、Experience Principle、IA Intent、Visual / Design IntentをEARSへ圧縮しない。形式構文を使ってもSource Context、Rationale、Exception、Recoveryを失わせない。
 
-## 2.6. Acceptance Criteria and Evidence
+## 2.7. Acceptance Criteria and Evidence
 
 Acceptance Criteriaは、対象Revision、Input / Condition、観察可能なResult、重要Failure、Variant / Environment、Evidence取得方法を説明できるようにする。
 
@@ -205,7 +231,7 @@ SystemはLocal Providerへ自動Fallbackせず、
 
 AcceptanceはTest手順や実装方式そのものではない。VerificationがFresh Evidenceを取得できるContractを示し、実際の成立判定は[`00_29_Verification.md`](00_29_Verification.md)へ渡す。
 
-## 2.7. Legacy, Stable Context, Evidence, and Decision
+## 2.8. Legacy, Stable Context, Evidence, and Decision
 
 LegacyではDocumented Behavior、Implemented Behavior、Observed Runtime Behavior、Operational Practice、Expected Behavior Candidate、Recovered Intent Candidateを分離する。現行Codeや長期間の挙動を望ましい仕様と断定せず、人間確認または追加EvidenceまでCandidateとして扱う。
 
@@ -232,7 +258,7 @@ Behaviorの根拠は対象Artifact内または最も近い親Folderの`Evidence/
 | Load and Scope | REQ、IA Obligation、Pairing Unit、既存Behaviorを対応づける | SPEC Coverage Queue |
 | Frame | Actor、Authority、Trigger、Precondition、Stateを定義する | Behavior Boundary |
 | Specify | Behavior、Result、Transition、Failure、Recoveryを具体化する | Behavior Specification |
-| Harden | Permission、Idempotency、Dependency、Compatibility、Capacity、AI / Dataを判定する | Operational Contract |
+| Harden | Permission、Configuration / Policy、Idempotency、Dependency、Compatibility、Capacity、AI / Dataを判定する | Operational Contract |
 | Accept | Acceptance、Environment、Evidence Candidateを定義する | Verification Obligation |
 | Review and Handoff | Pair、Coverage、人間判断を確認する | Architecture Handoffまたは別Route |
 
@@ -247,6 +273,7 @@ Behaviorの根拠は対象Artifact内または最も近い親Folderの`Evidence/
 | Failure / Recovery | 何を保護し、返し、保持し、再試行・回復するか |
 | Cancel / Undo | 開始後の取消、完了後の復元は可能か |
 | Dependency | 外部Service、Network、AI Provider停止時にどうするか |
+| Configuration | 何を選べ、DefaultとEffective Valueは何で、誰がどのScopeへ変更し、いつ反映・回復するか |
 | Acceptance | どのCondition、Result、Evidenceで成立とするか |
 
 ## 3.4. Adaptive Route and Escalation
@@ -276,6 +303,7 @@ Subagentを使う場合は[`00_10_Agent.md`](00_10_Agent.md)に従い、State Tr
 - AIや現行CodeがBusiness Rule、Authority、Expected Behaviorを創作していない
 - Happy PathだけでなくFailure、Permission、Recovery、Dependencyを判定している
 - Compatibility、Capacity、AI / Consent / External ActionのRiskを隠していない
+- Configuration / PolicyのDefault、Effective Value、Authority、変更効果、Reset / RecoveryをUIと対応づけている
 - UI / Consumer ContractとのPair Conflictを明示している
 - 対象Scope全体のCoverageと部分承認範囲を誤認なく示している
 
@@ -284,7 +312,7 @@ Subagentを使う場合は[`00_10_Agent.md`](00_10_Agent.md)に従い、State Tr
 次はBehavior Specification責務をProject内で表現する標準Viewであり、独立File数を要求しない。
 
 ```text
-Scope / Coverage Summary / Open Gap
+Scope / Coverage Summary / Unresolved Gap
 Source REQ / UX / IA / Pairing Unit
 SPEC ID / Revision / Status
 Purpose / Preserved Intent / Non-goal
@@ -296,6 +324,7 @@ External Dependency / Consumer Contract
 Compatibility / Version / Migration-period Behavior
 Capacity / Quality Condition
 AI / Consent / Data / External Action / Cost Guardrail
+Configuration / Policy / Default / Effective Value / Scope / Inheritance / Override
 Acceptance Criteria / Environment / Evidence Candidate
 pairs_with UI / Consumer / Operational Feedback
 Decision / Rationale

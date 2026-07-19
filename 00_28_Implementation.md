@@ -1,10 +1,10 @@
 # CRDD Implementation
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -55,7 +55,7 @@ Implementationは対象Scopeについて次を受け取る。
 - Compatibility / Migration / Rollback、Capacity / Resource Constraint
 - Acceptance CriteriaとVerification Obligation
 - Environment、Dependency、Build / Deployment条件
-- Coverage Summary、Open Gap、人間Review結果
+- Coverage Summary、Unresolved Gap、人間Review結果
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。Source間にConflictがある場合は、優先順位を推測して実装しない。
 
@@ -82,7 +82,7 @@ ImplementationはBehavior、Acceptance、Authority、Data Meaning、Security Bou
 | Dependency / Build | Version、Lock、License / Security Constraint、Build / Package、生成物 |
 | Observability / Operation | Log、Metric、Trace、Alert用Signal、診断可能な状態 |
 | Developer Test / Check | Unit / Component / Contract / Integration、Regression、Static / Build Check |
-| Deviation and Handoff | Actual Impact、Known Limitation、Evidence、Verification Obligation、Open Gap |
+| Deviation and Handoff | Actual Impact、Known Limitation、Evidence、Verification Obligation、Unresolved Gap |
 
 すべてを全変更へ機械的に要求しない。適用しない責務は`Not Applicable`として理由と人間確認を残す。主要Happy Pathの動作や一部Test Passだけで対象Scope全体を完了扱いしない。
 
@@ -102,7 +102,7 @@ AIまたはImplementation担当は実装案、Rule案、Test、Deviation、Impac
 
 通常のVerification Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、Build / Static Checkと必要なDeveloper Testが成功し、[`00_29_Verification.md`](00_29_Verification.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
-Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitecture Rule、Developer Test / Check結果、実行 / 再現方法、Environment、Migration / Rollback、Deviation、Known Limitation、Implementation Evidence、Verification Obligation、Coverage State、Open Gapを渡す。
+Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitecture Rule、Developer Test / Check結果、実行 / 再現方法、Environment、Migration / Rollback、Deviation、Known Limitation、Implementation Evidence、Verification Obligation、Coverage State、Unresolved Gapを渡す。
 
 部分Handoffには、未実装・未確認Scope、Risk、暫定処置、受信先、後続Ownerの人間承認を必要とする。`Implemented`を`Verified`として渡さない。
 
@@ -158,7 +158,7 @@ Mechanical MigrationとSemantic Changeを同じBatchへ無自覚に混在させ�
 
 ## 2.3. Code, Configuration, Build, and Runtime
 
-CodeはArchitecture Boundary、Dependency Direction、Data / Interface Contract、Error / Logging Ruleに従う。ConfigurationはEnvironment差分、Default、Override、Secret参照、Feature FlagのAuthorityを明確にし、Codeと設定の組み合わせを再現可能にする。
+CodeはArchitecture Boundary、Dependency Direction、Data / Interface Contract、Error / Logging Ruleに従う。ConfigurationはEnvironment差分、Default、Override、Secret参照、Feature FlagのAuthorityを明確にし、Codeと設定の組み合わせを再現可能にする。利用者・組織向けPreference / Policy / SettingのOption、Default、Precedence、変更効果は承認済みSPECを実現し、Implementationで新しく決めない。Technical ConfigurationはArchitectureのBoundaryとRuleに従う。
 
 Dependencyは必要なVersionを宣言・固定し、Build / Packageが対象Revisionから再現できるようにする。Generated Code / ArtifactはSource、生成手順、更新条件を追跡し、手修正と再生成の競合を避ける。
 
@@ -294,7 +294,7 @@ Migration / Rollback / Compatibility
 Deviation / Known Limitation / Actual Impact
 Implementation Evidence
 Verification Obligation
-Coverage State / Open Gap / Human Review
+Coverage State / Unresolved Gap / Human Review
 ```
 
 Verification HandoffはこのViewを縮小再掲して受信条件を減らさず、Canonical Artifactへの参照とCoverage State付きで渡す。

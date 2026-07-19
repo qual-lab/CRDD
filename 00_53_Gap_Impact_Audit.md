@@ -1,9 +1,9 @@
 # CRDD Gap and Impact Audit
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -79,7 +79,7 @@ Changed Context / Artifact / Relation
 Target Revision / Baseline
 Applicable Phase Contracts
 Change Trace or Review Context
-Known Decision / Evidence / Open Gap
+Known Decision / Evidence / Unresolved Gap
 Expected Output / Handoff
 ```
 
@@ -99,7 +99,7 @@ Report全体のAudit Status、共通Finding Fields、Severity、Report Viewは[`
 | `affected_authority` | 再判断・修正・承認が必要なProperty / Phase / Human Authority |
 | `revalidation` | 修正後に必要なAudit / Review / Verification |
 
-Audit Reportは対象Scope / Revision、探索したRelation、未探索Scope、No Impact Decision、Deferred / Accepted Risk、Affected Phase / Release、Remaining Gapを示す。
+Audit Reportは対象Scope / Revision、探索したRelation、未探索Scope、No Impact Decision、Deferred / Accepted Risk、Affected Phase / Release、Unresolved Gapを示す。
 
 Audit Statusは次のように使う。適用Candidateが`No Impact`、`Covered by Existing Contract`、`Resolved`等へ根拠付きで判定され、未処理の重大Gapがなければ`Pass`、未解消GapがOwner・追跡先・Human Authority付きで限定されていれば`Conditional`、未解決Critical / Major Gapまたは正本Conflictがあれば`Fail`、意味的影響を判断できなければ`Blocked`とする。`Conditional`はGap解消やPhase / Release承認を意味しない。
 
@@ -325,7 +325,7 @@ Auditが独立Reportを返しても、FindingのDispositionと実行結果はCha
 
 `01_Discovery`は顧客Feedback、法令変更、明確な仕様変更、不具合、曖昧な要求等を分類し、Requirementと判断を確定する正本領域である。Impact Auditは下流差分から新しいRequirementを創作せず、Sourceと判断が不足する場合はDiscoveryへ戻す。
 
-`99_Roadmap`は、採用済みだが今回実行しないDeferred WorkのPriority、Target、Dependency、着手条件を扱う。Roadmap項目をRequirement、SPEC、Decisionの正本にしない。
+`99_Roadmap`は、採用済みだが今回実行しないDeferred WorkのPriority、Target、Dependency、着手条件を扱う。Roadmap項目をRequirement、SPEC、Decisionの正本にしない。Human AuthorityがRoadmap Routeを確定した場合は、[Roadmap Item Contract](00_21_Discovery.md#63-roadmap-item-contract)に従ってItemを実際に登録・更新し、Recommendationだけでは`Routed`または追跡済みと判定しない。
 
 ```text
 Source / Evidence
@@ -339,7 +339,7 @@ Source / Evidence
 
 ## 9.4. Closure
 
-ChangeまたはFindingをCloseする前に、必要な正本・Relation・Implementation・Verificationが更新され、Fresh Evidence、Deferred Scope、Accepted Risk、Learningが追跡可能か確認する。Merge、Build、Ticket完了だけをClosure Evidenceにしない。
+ChangeまたはFindingをCloseする前に、必要な正本・Relationと、適用されるImplementation / Verificationが更新され、非適用理由、Fresh Evidence、Deferred Scope、Accepted Risk、Learningが追跡可能か確認する。Roadmap Detail Fileを使用したScopeでは、Detail固有情報の正本反映、Main Viewの結果参照または非適用理由、Detail削除も確認する。Merge、Build、Ticket完了だけをClosure Evidenceにしない。
 
 ---
 
@@ -371,7 +371,7 @@ Changed Context / Revision
 Reviewed Relations / Scope
 Impact / No Impact and Rationale
 Action / Review / Verification Handoff
-Remaining Gap / Owner
+Unresolved Gap / Owner
 Evidence / Re-audit Result
 ```
 
@@ -418,10 +418,10 @@ FindingまたはChangeを`Resolved` / Closedにするには、適用範囲で次
 - 必要なPhase Decision、Handoff、Release Scopeが再評価されている
 - ImplementationとVerificationが現行Revisionへ対応している
 - Fresh Evidenceで解消状態を確認している
-- Deferred Scope、Accepted Risk、Remaining Gapが追跡可能である
+- Deferred Scope、Accepted Risk、Unresolved Gapが追跡可能である
 - Learningを該当Canonical Contextへ戻している
 
-完全なGapゼロを常に要求しない。残るGap、Risk、不確実性にScope、Owner、Authority、期限または再評価Triggerが必要である。
+完全なGapゼロを常に要求しない。残っている未解決事項（Unresolved Gap）、Risk、不確実性にScope、Owner、Authority、期限または再評価Triggerが必要である。
 
 ---
 

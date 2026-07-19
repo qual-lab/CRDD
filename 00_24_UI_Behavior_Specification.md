@@ -1,9 +1,9 @@
 # CRDD UI Contract and Behavior Specification
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -44,16 +44,17 @@ Pair Review
 Pair Reviewは対象Scopeについて、次を受け取る。
 
 - Source REQ / UX / IAと対象Revision
+- IA Configuration Candidate / Model、Owner / Authority、適用Scope、Inheritance / Override
 - Pairing Unit CandidateとなるFeature、Use Case、User Action、Stateful Interaction
 - 対象`UI-*`と`SPEC-*`、または各工程のDraft / Candidate
-- UI Coverage Summary、SPEC Coverage Summary、Open Gap、人間Review Result
+- UI Coverage Summary、SPEC Coverage Summary、Unresolved Gap、人間Review Result
 - 対象のUI Obligation、Behavior Obligation、例外候補
 
 片側が未着手でもReviewを開始し、他方に必要なObligationを発見してよい。ただし、未存在のContractをAIが推測で補完してPair成立扱いしない。
 
 ## 2.2. Pairing Transformation
 
-各Pairing Unitについて、UI側のAction、Presentation State、Feedback、Recoveryと、SPEC側のTrigger、Precondition、System State、Result、Failure、Recoveryを意味のあるRelationで対応づける。
+各Pairing Unitについて、UI側のAction、Presentation State、Feedback、Settings / Control、Recoveryと、SPEC側のTrigger、Precondition、System State、Result、Configuration / Policy Behavior、Failure、Recoveryを意味のあるRelationで対応づける。
 
 ```text
 Source Intent / Pairing Unit
@@ -74,7 +75,8 @@ Source Intent / Pairing Unit
 | Source / Purpose | 利用者のGoal、UX / IA Intent | Systemが成立させるResult、Source REQ / UX / IA |
 | Action / Trigger | 利用者または外部ActorのAction | Trigger、Actor、Authority |
 | Availability | Visible、Hidden、Disabled、理由 | Precondition、Permission、Feature / Dependency Availability |
-| Input | 入力、選択、Format、補助 | Validation、Default、Normalization、拒否条件 |
+| Input | 入力、選択、Format、補助 | Validation、Normalization、拒否条件 |
+| Settings / Policy | Current / Effective Value、適用Scope、継承 / Overrideの説明、変更・Reset Action | Option / Range、Default Source、Precedence、Permission、Apply / Reset / Recovery Behavior |
 | Processing | Loading、Progress、操作可否 | Processing State、Timeout、Concurrency、Partial Result |
 | State | Presentation State、Assuranceの見せ方 | Domain / System State、State Transition |
 | Success / Output | 完了Feedback、結果、次Action | Success条件、Output、永続化、Side Effect |
@@ -110,7 +112,7 @@ Pair Reviewは次を満たした場合に、対象Scopeについて完了でき�
 - 全Pairing UnitとRequired Pair Coverageを判定している
 - `UI-*`と`SPEC-*`のRelation、または承認済み例外を辿れる
 - Action / Trigger、State、Result、Failure、Permission、Recoveryの重要な不一致がない
-- Open Gap、`Not Applicable`、部分承認、Riskを記録している
+- Unresolved Gap、`Not Applicable`、部分承認、Riskを記録している
 - UIとSPECの各Phase Gateを独立して評価している
 - Acceptanceと取得予定Evidenceが両側で対応している
 
@@ -123,13 +125,14 @@ UIが存在しないBehavior、実Behaviorを持たないPrototype等は、5章�
 - Pairing Unitまたは対象`UI-*` / `SPEC-*`の未特定
 - Actionに対応しないTrigger、または利用者へ届かない重要Behavior
 - UI StateとSystem Stateの無条件な一対一化
+- Settings UIとSPECのOption、Default、Effective Value、Scope、Precedence、Permission、変更効果、Reset / Recoveryの不一致
 - Loading / Empty / Unknown / Failure / Permission / Conflict / Cancel / Recoveryの片側欠落
 - UIによるBusiness Rule、Authority、State Transitionの創作
 - SPECによるVisual、Information Priority、利用者向け文言の創作
 - AI Proposal、Human Approval、Execution、VerificationのStatus Meaning Collapse
 - FigmaやPrototypeだけによるBehavior確定、EARS文だけによるUI / UX確定
 - 片側の実装都合によるSource UX / IA Intentの無断変更
-- Pair Coverage、Open Gap、人間Review、例外理由、Verification対応の欠落
+- Pair Coverage、Unresolved Gap、人間Review、例外理由、Verification対応の欠落
 
 ---
 
@@ -145,6 +148,7 @@ UIとSPECが同じConcernを扱う場合も、Property Authorityは分離する�
 | State | Presentation / Assurance | Domain / System State | 利用者へ正しいMeaningが伝わるか |
 | Failure | Message・Recovery導線 | Failure条件・保護・回復処理 | 原因を断定しすぎず回復可能か |
 | Permission | 操作可否・説明 | Authorization Rule | 開示と実行制御が一致するか |
+| Settings / Policy | Current / Effective Value、Scope、変更・Reset Action、影響説明 | Option / Range、Default、Precedence、Permission、変更効果、Recovery | 利用者が実際に有効な値と変更結果を正しく理解・制御できるか |
 | Cancel / Undo | 利用可能なAction | Cancellation / Rollback Rule | UIが不可能な回復を約束しないか |
 | Acceptance | 利用者から観測する成立 | Systemから観測する成立 | 同じOutcomeを検証できるか |
 
@@ -225,7 +229,13 @@ Consentは表示だけで成立しない。UIの同意・変更・撤回Action�
 
 外部Actionでは、UIが対象、範囲、影響、Authorityを理解可能にし、SPECがRate、Amount、Target、Time、Approval、Idempotency、Cancel、Recovery、Auditを制御する。
 
-## 4.5. Verification Correspondence
+## 4.5. Settings and Policy Correspondence
+
+設定では、UIが表示するCurrent / Effective Value、Default / Inherited / Overridden / Policy-controlledのMeaning、適用Scope、変更Authority、Impact Preview、保存・反映・Reset Feedbackを、SPECのOption / Range、Default Source、Precedence、Permission、Apply Timing、Side Effect、Failure / Recoveryと対応づける。
+
+UIだけに存在する設定、SPECだけに存在して利用者または運用者が確認・制御できない設定を放置しない。IA Configuration Modelから意図的に固定した項目、直接UIを持たないPolicy / Operational Configurationは、理由、Authority、Consumer / Operational FeedbackとのPair例外を示す。
+
+## 4.6. Verification Correspondence
 
 AcceptanceはUIとSPECで同じ文章にする必要はない。UI側は利用者が認識・操作・回復できること、SPEC側はCondition、State、Behavior、ResultをFresh Evidenceで確認できることを定義する。
 
@@ -285,7 +295,7 @@ UI Contract Meaning
 Behavior Specification Meaning
 Consistency Result
 Coverage State
-Open Gap / Exception / Risk
+Unresolved Gap / Exception / Risk
 Decision / Rationale Reference
 Acceptance / Evidence Plan
 Human Review Result

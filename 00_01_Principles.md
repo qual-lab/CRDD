@@ -1,9 +1,9 @@
 # CRDD Principles
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_00_Overview.md](00_00_Overview.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -422,7 +422,7 @@ Hypothesis、Assumption、Open Questionを確定事項へ無言昇格しない
 
 Linkが存在するだけではContinuityにならない。重要な下流成果物から上流のIntentとDecisionへ遡れ、上流変更から影響する下流Artifactを確認できなければならない。Stable Context ID、Relation、Traceの表現は[`00_03_Documentation.md`](00_03_Documentation.md)を正本とする。
 
-工程完了やHandoffを、文書の存在、Skill Run終了、Artifactの高い完成度、Implementation完了、Test Passから自動推定しない。対象Scope / Revision、工程固有Criteria、Coverage、Gap、Assumption、Risk、受信側Entryを確認し、進む、条件付きで進む、戻す、Reopenする判断をHuman Authorityが行う。部分Handoffは、対象Scope、残るGap、Risk、Owner、Reopen条件、人間承認を明示した場合に限る。
+工程完了やHandoffを、文書の存在、Skill Run終了、Artifactの高い完成度、Implementation完了、Test Passから自動推定しない。対象Scope / Revision、工程固有Criteria、Coverage、Gap、Assumption、Risk、受信側Entryを確認し、進む、条件付きで進む、戻す、Reopenする判断をHuman Authorityが行う。部分Handoffは、対象Scope、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件、人間承認を明示した場合に限る。
 
 工程固有のEntry、Exit、Phase Gate Criteria、Reopenは各工程文書、Skill RunのRouteとHandoffは[`00_11_Skill.md`](00_11_Skill.md)、変更のTriggerとExpected / Actual Impactは[`00_12_Change.md`](00_12_Change.md)を正本とする。
 

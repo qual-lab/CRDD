@@ -9,6 +9,22 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### v0.4.1 — Decision Support and Roadmap Activation (2026-07-19)
+
+Compared with v0.4.0, v0.4.1 changes the published CRDD model as follows:
+
+- Strengthens guided Human decision support across both Agents and Skills. Questions that can change canonical meaning, scope, responsibility, defaults, priority, accepted risk, or downstream contracts must explain user, business, and product impact; compare meaningful alternatives; provide a recommendation with its decisive criteria, evidence or professional basis, confidence, uncertainty, reversal conditions, and deferral impact; and distinguish the AI recommendation from the Human decision. Compact, Standard, and Extended views preserve this content without forcing the same presentation size for every decision.
+- Separates `Undispositioned Gap`, `Unresolved Gap`, and `Open Question`. A Deferred, Accepted Risk, or Out-of-Scope disposition does not by itself resolve a Gap; unresolved work retains its disposition, owner, impact, next route, and resolution or reevaluation condition. Human-facing output must describe the unresolved matter and impact instead of presenting labels such as `Open Gap` alone.
+- Tightens phase completion and partial Handoff behavior. AI must evaluate the full active Discovery / phase scope and required responsibility coverage instead of inferring completion from one highly developed Artifact, one Skill Run, implementation completion, or passing tests. Partial Handoff remains item- and scope-specific, requires explicit Human authorization, and does not stop unrelated routes.
+- Adds an end-to-end configuration and adaptation path. UX extracts and classifies Control / Adaptation Needs without turning every variation into a user setting; IA owns configuration meaning, owner, subject, scope, and inheritance relationships; UI owns understandable Settings / Control surfaces; Behavior Specification owns options, defaults, precedence, permissions, effects, and recovery; Architecture owns the technical configuration mechanism; Implementation realizes it; and Verification checks the applicable variants and results.
+- Clarifies the UI / Behavior Specification phase layout by changing the starter paths from `04_Spec` and `05_UI` to `04_UI` and `05_SPEC`. The numbering remains an exploration order rather than an authority or waterfall order, and UI and Behavior Specification remain parallel, iterative phases joined by the shared Pair Contract. Adopters must rename these two project folders and update affected Artifact references.
+- Makes Roadmap routing executable rather than advisory. Accepted but deferred work must be registered in a single `99_Roadmap/01_Product_Roadmap.md` Main View, with optional Detail files only when needed for readability. Roadmap Items retain their source Context, owner, priority, target, dependencies, start condition, reevaluation trigger, risk, and Human decision reference; they move through Deferred, Ready for Start Review, Started, Completed, or Cancelled states under Project-specific Roadmap Authority.
+- Connects Roadmap activation to Change Trace and cleanup. A Human start decision creates a `CHG-*` after the current Context revision and impact are reevaluated. Completion returns applicable canonical Artifact, implementation, verification, and CHG references—or a reasoned `Not Applicable` result—to the Main View. Detail-only information is first promoted to its proper authority, then the completed Detail file is deleted rather than retained as a permanent Roadmap archive. Pending registration blocks only the affected Item, and normal execution reviews only Roadmap Items relevant to the active scope or a reached trigger.
+- Adds an integrated Overview flow connecting incoming triggers, Discovery, Human routing, Roadmap, Change Trace, selective phase start or reopening, UI / Behavior Specification pairing, Architecture, Implementation, Verification, optional Release, Learning, closure, and Roadmap Detail cleanup. Discovery and the starter Roadmap also contain focused lifecycle diagrams.
+- Extends Conformance and Gap / Impact Audit criteria for decision-support quality, configuration propagation, Roadmap registration and activation, item-scoped pending states, current-impact reassessment, result references, justified non-applicability, and Detail cleanup. The starter template now includes a non-normative `99_Roadmap/01_Product_Roadmap.md` Project view, while `template/AGENTS.md` and `template/CLAUDE.md` route Roadmap activity to the canonical Discovery and Change authorities without duplicating their rules.
+
+Stable Context ID semantics do not change in v0.4.1: the standard set remains `REQ`, `UX`, `IA`, `UI`, and `SPEC`; Roadmap Items, Detail files, Change Traces, Decisions, Evidence, Architecture, Implementation, and Verification do not receive additional CRDD Stable Context IDs.
+
 ### v0.4.0 — Document Architecture Consolidation (2026-07-17)
 
 Compared with v0.3.0, v0.4.0 changes the published CRDD model as follows:
@@ -98,6 +114,22 @@ First public release of CRDD, organized into four layers by numbering band.
 ---
 
 ## 日本語
+
+### v0.4.1 — 判断支援とRoadmapの実行化（2026-07-19）
+
+v0.4.0と比較して、v0.4.1の公開CRDDモデルを次のように変更した。
+
+- AgentとSkillに共通する人間判断支援を強化した。Canonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractを変える問いでは、利用者・業務・Productへの影響、判断価値のある代替案、主要Trade-off、評価基準、Evidenceまたは専門根拠、Confidence／Uncertainty、推奨が変わる条件、保留影響を示し、AIのRecommendationとHuman Decisionを分離する。Compact、Standard、Extendedの表示段階により、判断材料を失わずに小さな判断の可読性を維持する。
+- `Undispositioned Gap`、`Unresolved Gap`、`Open Question`を分離した。`Deferred`、`Accepted Risk`、`Out of Scope`等のDispositionだけではGap解消とみなさず、Disposition、Owner、Impact、次Route、解消または再評価条件を保持する。人間向け出力では`Open Gap`等のLabelだけを示さず、残っている未解決事項と影響を具体的に説明する。
+- 工程完了と部分Handoffを厳格化した。AIは、一つの完成度が高いArtifact、Skill Run終了、Implementation完了、Test Passから工程全体の完了を推定せず、ActiveなDiscovery／工程Scope全体とRequired Responsibility Coverageを評価する。部分HandoffはItem・Scope単位で人間の明示承認を必要とし、無関係なRouteを停止しない。
+- 設定・調整項目の一気通貫経路を追加した。UXはControl / Adaptation Needを抽出・分類し、すべてを利用者向け設定へ変換しない。IAはConfigurationの意味、Owner、Subject、Scope、Inheritance関係、UIは理解可能なSettings / Control Surface、Behavior SpecificationはOption、Default、Precedence、Permission、変更効果、Recovery、ArchitectureはTechnical Configurationの成立方式、Implementationは実現、Verificationは適用Variantと結果を担う。
+- starterのUI／Behavior Specification配置を`04_Spec`・`05_UI`から`04_UI`・`05_SPEC`へ変更した。番号は探索順であり、Authority順や固定Waterfallを意味しない。UIとBehavior SpecificationはShared Pair Contractで接続された並行・反復工程のままである。採用Projectは二つのFolderをRenameし、影響するArtifact Referenceを更新する必要がある。
+- Roadmap RouteをRecommendationではなく実行可能な契約にした。採用済みDeferred Workは、原則として単一の`99_Roadmap/01_Product_Roadmap.md` Main Viewへ登録し、可読性のため必要な場合だけDetail Fileへ分ける。Roadmap ItemはSource Context、Owner、Priority、Target、Dependency、Start Condition、再評価Trigger、Risk、人間判断参照を保持し、Project固有Roadmap Authorityの下で`Deferred`、`Ready for Start Review`、`Started`、`Completed`、`Cancelled`を遷移する。
+- Roadmapの着手をChange Traceと完了処理へ接続した。Human Start Decision後、現行Context RevisionとImpactを再評価して`CHG-*`を作成する。完了時は、適用されるCanonical Artifact、Implementation、Verification、CHGの参照、または理由付き`Not Applicable`をMain Viewへ戻す。Detail固有情報を適切な正本へ移管してからDetail Fileを削除し、恒久Roadmap Archiveにはしない。登録待ちは対象Itemだけを止め、通常実行ではActive Scopeまたは到達Triggerに関係するItemだけを再評価する。
+- Trigger、Discovery、人間Route判断、Roadmap、Change Trace、必要工程の開始・Reopen、UI／Behavior Specification Pair、Architecture、Implementation、Verification、任意Release、Learning、Close、Roadmap Detail削除を接続する統合Workflow図をOverviewへ追加した。Discoveryとstarter Roadmapにも、対象責務へ限定したLifecycle図を追加した。
+- ConformanceとGap / Impact Auditを拡張し、判断支援品質、Configuration伝播、Roadmap登録・着手、Item単位のPending、現行Impact再評価、結果参照、理由付き非適用、Detail削除を検査対象にした。starter templateへ非規範のProject Viewである`99_Roadmap/01_Product_Roadmap.md`を追加し、`template/AGENTS.md`と`template/CLAUDE.md`は規則を複製せずRoadmap ActivityをDiscovery／Change正本へ接続する構成にした。
+
+v0.4.1ではStable Context IDのSemanticsを変更しない。標準の5種は引き続き`REQ`、`UX`、`IA`、`UI`、`SPEC`であり、Roadmap Item、Detail File、Change Trace、Decision、Evidence、Architecture、Implementation、Verificationへ新しいCRDD Stable Context IDを追加しない。
 
 ### v0.4.0 — 文書体系の統廃合（2026-07-17）
 

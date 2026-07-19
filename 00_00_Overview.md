@@ -1,9 +1,9 @@
 # CRDD Overview
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -46,8 +46,8 @@ ProjectへCRDDを適用する場合、標準文書は原則として`00_CRDD/`�
 | `01_Discovery` | Origin、Problem、Source、Evidence、不確実性、Requirement | [Discovery](00_21_Discovery.md) |
 | `02_UX` | Actor、Outcome、Journey、Service Blueprint、Experience Principle | [UX](00_22_UX.md) |
 | `03_IA` | Object、Relation、Responsibility、Navigation、Information Structure | [IA](00_23_IA.md) |
-| `04_Spec` | Condition、State、Behavior、Exception、Acceptance | [Behavior Specification](00_26_Behavior_Specification.md) |
-| `05_UI` | Screen、Interaction、Feedback、Visual、Design Token、Asset | [UI](00_25_UI.md) |
+| `04_UI` | Screen、Interaction、Feedback、Visual、Design Token、Asset | [UI](00_25_UI.md) |
+| `05_SPEC` | Condition、State、Behavior、Exception、Acceptance | [Behavior Specification](00_26_Behavior_Specification.md) |
 | `06_Architecture` | System Boundary、Data、Interface、Quality、Security、Operation、Implementation Rule | [Architecture](00_27_Architecture.md) |
 | `07_Workflows` | Repository固有の反復可能な作業手順、Runbook、Handoff | [Workflow](00_14_Workflow.md) |
 | `40_Develop` | Code、Configuration、Migration、Build、Developer Test等のImplementation Artifact | [Implementation](00_28_Implementation.md) |
@@ -147,33 +147,74 @@ CRDD標準自体のVersion、CHANGELOG、Tag、Migrationは[`00_19_Maintenance.m
 
 その後、実行主体に応じて`00_10_Agent.md`と`00_11_Skill.md`を読み、対象作業に必要な`00_12`〜`00_19`および工程文書だけを追加する。AI Entry Fileはこれらの正本を複製せず、Active Scope、Target Revision、対象工程、Canonical Context、Authority、Stop条件へ接続する。
 
-## 4.2. Product Transformation Route
+## 4.2. Integrated Product, Change, Roadmap, and Learning Route
 
-工程文書の基本読順は次のとおりである。
+CRDDのProduct Transformation、Change、Roadmap、Release、Learningの関係は次のとおりである。
 
 ```text
-00_21 Discovery
-      ↓
-00_22 UX
-      ↓
-00_23 IA
-      ↓
-00_24 UI / Behavior Specification Shared Contract
-      ├──────────────┐
-      ↓              ↓
-00_25 UI  ⇄  00_26 Behavior Specification
-      └──────┬───────┘
-             ↓
-00_27 Architecture
-             ↓
-00_28 Implementation
-             ↓
-00_29 Verification
-             ↓
-Learning / Findingを責務を持つContextへ還元
+Evidence・要望・法改正・不具合・運用結果・監査結果・Learning
+                              │
+                    意味や要求が不明確か
+                      ┌───────┴───────┐
+                     Yes              No
+                      │                │
+               00_21 Discovery   分類済みTrigger
+                 ├─ 追加調査          │
+                 │  / Researchへ戻る  │
+                 └──────────┬─────────┘
+                            ↓
+                    Human Route Decision
+                    ├─ 採用しない → Decision / No Action
+                    ├─ 採用 + 延期
+                    │       ↓
+                    │  99_Roadmap Main
+                    │  └─ Detail（必要時）
+                    │       ↓
+                    │  Start Condition / Re-evaluation Trigger
+                    │       ↓
+                    │  Human Start Review
+                    │  ├─ 再延期 → Main / Trigger更新
+                    │  ├─ Cancel → Decision / Rationale
+                    │  └─ Start ─────────────────────┐
+                    └─ 今回実施 ─────────────────────┤
+                                                     ↓
+                                         90_Release/Changes/CHG-*
+                                             │
+                           必要な工程を開始またはReopen
+                                             ↓
+                 00_22 UX → 00_23 IA → 00_24 Pair Contract
+                                      ┌──────────┴──────────┐
+                                      ↓                     ↓
+                                00_25 UI   ⇄   00_26 Behavior Specification
+                                      └──────────┬──────────┘
+                                                 ↓
+                                      00_27 Architecture
+                                                 ↓
+                                      00_28 Implementation
+                                                 ↓
+                                      00_29 Verification
+                         ┌───────────────────────┼──────────────────────┐
+                    未達・新Gap             Ready / Conditional       Learning
+                         │                       │                      │
+                 該当工程 / CHGへ戻る       Releaseが必要か       責務を持つ
+                                             ┌──┴──┐          Canonical Contextへ
+                                            No    Yes                  │
+                                             │     │              必要ならDiscovery /
+                                             │  Human Release          Roadmap / CHG
+                                             │   Decision
+                                             │     ↓
+                                             │  00_13 / 90_Release
+                                             └──┬──┘
+                                                ↓
+                                正本・CHG・結果参照を更新してClose
+                                                ↓
+                             Roadmap起点ならMainをCompletedへ更新し
+                                  Detail固有情報を移管後にDetail削除
 ```
 
-これは固定WaterfallやProject全体の一括Statusを表さない。Feature、Use Case、Change、Release等のScopeごとに、反復、並行、上流Reopen、Technical Spike、部分Handoffを行ってよい。ただし、Artifactの一部完成やSkill Run終了から工程完了を推定してはならない。対象ScopeのRequired Responsibility Coverageを満たすか、残るGap、Risk、Owner、Reopen条件を明示してHuman Authorityが部分Handoffを承認した場合にのみ次へ進む。
+図の工程列は基本的な意味変換順を示す。すべてのChangeが全工程を通る意味ではなく、承認済みContextとImpactに応じて最も近い必要工程から開始またはReopenする。UIとBehavior Specificationは並行・反復し、Releaseは必要なProjectだけが使用する。
+
+これは固定WaterfallやProject全体の一括Statusを表さない。Feature、Use Case、Change、Release等のScopeごとに、反復、並行、上流Reopen、Technical Spike、部分Handoffを行ってよい。ただし、Artifactの一部完成やSkill Run終了から工程完了を推定してはならない。対象ScopeのRequired Responsibility Coverageを満たすか、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件を明示してHuman Authorityが部分Handoffを承認した場合にのみ次へ進む。
 
 ## 4.3. Cross-cutting Routes
 

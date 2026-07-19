@@ -1,9 +1,9 @@
 # CRDD Terminology
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_00_Overview.md](00_00_Overview.md)
 - [00_01_Principles.md](00_01_Principles.md)
@@ -15,6 +15,7 @@ Related:
 - [00_14_Workflow.md](00_14_Workflow.md)
 - [00_19_Maintenance.md](00_19_Maintenance.md)
 - [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
 
 ---
 
@@ -428,6 +429,26 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 **MUST NOT:** ファイルLinkが存在するだけで意味的Traceが成立したとみなしてはならない。
 
 詳細は[`00_03_Documentation.md`](00_03_Documentation.md)のStable Context IDとTraceabilityを参照する。
+
+## 2.15. Gap, Disposition, Unresolved Gap, and Open Question
+
+**Gap Definition:** 対象Scopeで必要な責務、Coverage、Trace、整合、Evidence、Decision、Artifact、またはVerificationが不足・矛盾・未確認であり、期待する状態との差があること。
+
+**Undispositioned Gap Definition:** 検出したGapのうち、対応、保留、Risk受容、対象外、影響なし等のDispositionを、必要なAuthorityがまだ決定していないもの。
+
+**Unresolved Gap Definition:** 検出したGapのうち、修正、根拠付き`Covered` / `No Impact`判定、または再検証によって解消を確認していないもの。`Deferred`、`Accepted Risk`、`Out of Scope`等のDispositionが決まっていても、対象Scope、より広いProduct Scope、将来Revisionのいずれかで解消または再評価が必要ならUnresolved Gapとして追跡する。
+
+**Open Question Definition:** 回答、調査、Evidence、または人間判断を必要とする未決の問い。Open QuestionはGapの原因または解消手段になり得るが、未作成Artifact、Coverage漏れ、正本Conflict、未検証状態そのものと同一ではない。
+
+**Purpose:** 未解決事項を曖昧な一語へ集約せず、何が不足し、なぜ必要で、進行へどう影響し、誰がどう解消するかを追跡可能にする。
+
+**Authority:** Gapの検出・分類候補は人間、AI、Audit、Verificationが作成できる。重要なDisposition、延期、Risk受容、Scope外判定は、対象PropertyまたはScopeのHuman Authorityが決定する。
+
+**MUST:** Unresolved Gapは、Type、Description、Reason、Impact、Disposition、Blocking / Non-blocking、Owner、Next Action / Route、ResolutionまたはReopen ConditionをRiskに応じて保持する。`Deferred`、`Accepted Risk`、`Out of Scope`では、判断したAuthority、適用Scope、期限または再評価Triggerも保持する。人間向けには「残っている未解決事項」等の自然なLabelと具体的な内容を示す。
+
+**MUST NOT:** `Open Gap`、`Gapあり`等のLabelだけを表示してはならない。Open Questionへの回答だけで、別に存在するCoverage、Conflict、Evidence、VerificationのGapまで解消したとみなしてはならない。
+
+Gap / Impact Audit固有のGap Type、Disposition、Impact Levelは[`00_53_Gap_Impact_Audit.md`](00_53_Gap_Impact_Audit.md)を参照する。
 
 ---
 

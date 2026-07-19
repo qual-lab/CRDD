@@ -1,10 +1,10 @@
 # CRDD Discovery
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -101,7 +101,7 @@ AI、個人Data、外部Actionを含むScopeでは、Purpose、Data Subject、Co
 
 Discoveryの出口は「文書が一つできた」状態ではなく、選択した受信先が必要とするContextを利用できる状態である。
 
-通常のUX Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[UX Phase Entry Contract](00_22_UX.md#phase-entry-contract)を満たす場合に限る。Research、Decision、Prototype、IA、UI / SPEC、Architecture / Technical Spike、Change Trace、Roadmap、No Action等へ進む場合は、それぞれの判断に必要なContextと未決事項を渡す。
+通常のUX Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[UX Phase Entry Contract](00_22_UX.md#phase-entry-contract)を満たす場合に限る。Research、Decision、Prototype、IA、UI / SPEC、Architecture / Technical Spike、Change Trace、Roadmap、No Action等へ進む場合は、それぞれの判断に必要なContextと未決事項を渡す。Roadmap Routeは、Human Authorityが延期を確認し、6.3のRoadmap Itemを実際に登録または更新して参照をDiscovery Resultへ戻すまで、その対象ItemのHandoffを完了としない。別のRequirement、Problem、RouteはCoverageを分け、Roadmap登録待ちだけを理由に無関係な対象まで停止しない。
 
 部分Handoffには、対象Scope、未網羅項目、Risk、受信先、後続Ownerに対する人間承認を必要とする。
 
@@ -112,7 +112,8 @@ Discoveryの出口は「文書が一つできた」状態ではなく、選択�
 - Desired Outcome CandidateとSolution Candidateを分離している
 - Preserved Intent、Non-goal、Constraint、Open Questionを対象Scopeで判定している
 - `REQ-*`の処置とRecommended Routeを人間が確認している
-- Coverage Summary、Open Gap、部分Handoff承認を記録している
+- Roadmap Routeでは採用済みREQまたはContextを参照するRoadmap Item、Owner、Start Condition、再評価Triggerを登録している
+- Coverage Summary、Unresolved Gap、部分Handoff承認を記録している
 - AI / Personal Data ScopeではGovernance、Privacy、Consent、Human Control、Cost制約を判定している
 - 選択した受信先のEntry Contractを満たす
 
@@ -125,8 +126,10 @@ Discoveryの出口は「文書が一つできた」状態ではなく、選択�
 - 顧客発言や現行実装を、そのままRequirementまたは正しい仕様にしていないか
 - `REQ-*`の発行・継続・改訂・置換・非発行の根拠と人間判断を辿れるか
 - `01_Discovery`と`99_Roadmap`の責務を混同し、文書を移動または本文を複製していないか
+- 採用済みDeferred Workを回答上のRecommendationだけで終え、Roadmap Itemを登録していない状態
+- Roadmap ItemにSource Context、Owner、Start Condition、再評価Triggerがない状態
 - Roadmap、Evidence、Decision、Change Trace、Testへ不要なStable IDを発行していないか
-- Coverage Summary、Open Gap、人間Review、Route根拠、受信先Entryのいずれかが欠落していないか
+- Coverage Summary、Unresolved Gap、人間Review、Route根拠、受信先Entryのいずれかが欠落していないか
 - AI / Personal Data ScopeでPurpose、Consent、Privacy、個人評価禁止Boundary、Human Control、Cost制約が未判定でないか
 
 ---
@@ -227,7 +230,7 @@ Legacyでは次を分離する。
 | Clarify | Routeを分けるために必要な不足だけを確認する | Open Question、Evidence Gap |
 | Frame | Origin、Problem、Outcome、Preserved Intentを対応づける | Discovery Brief Draft |
 | Decide | Requirement処置とRouteを人間が判断する | Decision / Rationale、Coverage |
-| Handoff | 受信先Entryへ必要Contextを渡す | Handoff Result |
+| Handoff | 受信先Entryを満たし、必要なRoute Artifactを登録・更新する | Handoff Result、Roadmap / Change等のArtifact Reference |
 
 固定された会議回数や逐次実行を要求しない。質問の目的はFormを埋めることではなく、次の判断を変える不確実性を減らすことである。
 
@@ -351,7 +354,7 @@ RouteはAIが提案してよいが、Scope、Priority、採用・却下、延期
   → interpretation / human decision
 01_Discovery/01_Product_Requirements.md#missed-important-topic
   └─ REQ-000012
-       → 02_UX / 03_IA / 04_Spec / 05_UIのCanonical Artifact
+       → 02_UX / 03_IA / 04_UI / 05_SPECのCanonical Artifact
        → 90_Release/Changes/CHG-000001_Important_Topic_Review.md
        → 06_Architecture → 40_DevelopのCode → Verification
 ```
@@ -369,7 +372,7 @@ REQ-000012
 明確なDefectの例:
 
 ```text
-04_Spec/Evidence/Topic_Behavior_Failure.md
+05_SPEC/Evidence/Topic_Behavior_Failure.md
   → shows deviation from SPEC-000044 / UI-000021
 90_Release/Changes/CHG-000004_Fix_Topic_Read_State.md
   → Implementation / Regression Test / Verification Evidence
@@ -407,7 +410,7 @@ REQ-000012
 ## 6.2. Transition Rules
 
 - 今すぐ対応する採用済み内容はChange Traceへ進む
-- 将来対応すると決めた内容だけRoadmapから対象REQと影響Contextを参照する
+- 将来対応すると決めた内容は、回答上のRecommendationだけで終えず、Roadmapから対象REQと影響Contextを参照する
 - 追加調査が必要な内容はDiscoveryに留める
 - 採用しない内容は決定結果となるDiscovery Artifactの`Decision / Rationale`へ理由を残す
 - 明確なDefectは不要なDiscoveryやREQを増やさずChange Traceへ進める
@@ -415,6 +418,77 @@ REQ-000012
 - 完了後の確定内容はCanonical Artifactへ残し、RoadmapはStatusと成果物参照だけを更新する
 
 Discovery文書やEvidenceをRoadmapへ移動せず、Requirement本文やSpecification本文をRoadmapへ複製しない。Roadmap項目へCRDD標準Stable Context IDを付与せず、文書番号、Path、Anchor、必要なら外部Issue / Project IDで識別する。
+
+## 6.3. Roadmap Item Contract
+
+Roadmap Itemは、Human Authorityが採用したが現在Scopeでは着手しない内容を、再評価と着手判断へ接続するPlan Viewである。AIはDraftと更新を行えるが、採用、延期、Priority、Target、着手、取消を自己承認しない。
+
+Roadmap Routeを確定する場合、既存Itemとの重複を確認し、次を一つのItemまたは外部Roadmap Toolの同等Recordへ保持する。
+
+```text
+Title / Artifact Reference
+Status
+Source REQ / Context
+Adopted Outcome / Preserved Intent
+Reason for Deferral
+Priority / Target
+Dependency
+Owner / Roadmap Authority
+Start Condition
+Review Date or Re-evaluation Trigger
+Known Risk / Unresolved Gap
+Human Decision / Rationale Reference
+Started CHG Reference
+Result / Canonical Artifact / Verification Reference
+```
+
+AIが対象Roadmapへ書き込むAction Authorityを持たない場合は、登録先、Draft Item、必要Authorityを提示し、対象Itemだけを`Pending Registration`としてHandoffする。登録済みまたはRoadmap Route完了と表現せず、権限を得た人間またはAgentが登録ReferenceをDiscovery Resultへ戻した時点で、そのItemを完了とする。他Itemの独立したRouteとHandoffは継続できる。
+
+Roadmap ItemをRequirement、SPEC、Design、Decisionの正本にせず、採用結果と理由は責務を持つCanonical Artifactへ残す。Roadmap ItemにはCRDD Stable Context IDを発行しない。
+
+Roadmapは原則として単一の`99_Roadmap/01_Product_Roadmap.md`をMain Viewとする。通常のItemはMain View内で完結させる。比較案、調査、Dependency、段階計画等の詳細がMain Viewの可読性を損なう場合だけ、Itemから参照する別のDetail Fileへ分けてよい。Detail FileはRoadmap Itemの補助であり、Requirement、Decision、SPEC、Design、Evidenceの正本または恒久Archiveにしない。Detail FileにもCRDD Stable Context IDを発行しない。
+
+## 6.4. Roadmap Lifecycle and Activation
+
+```text
+Discoveryで採用 + 今回は着手しない
+                │
+                ↓
+        Roadmap Main Viewへ登録
+          ├─ Action Authorityなし → Pending Registration
+          └─ 詳細が必要 → Detail Fileを参照
+                │
+      Start Condition / Re-evaluation Trigger
+                ↓
+        Ready for Start Review
+        ├─ 再延期 → Owner / Target / Trigger更新
+        ├─ Cancel → Decision / Rationale参照
+        └─ Human Start Decision
+                ↓
+              CHG-*
+                ↓
+      必要な工程 → Implementation → Verification
+                ↓
+      正本・CHG・適用される結果へDetail固有情報を反映
+                ↓
+      Main ViewへCompletedと結果参照 / 非適用理由を記録
+                ↓
+          Detail Fileを削除
+```
+
+| Status | Meaning | Required Action |
+|---|---|---|
+| `Deferred` | 採用済みだが現在は着手しない | Owner、Start Condition、再評価Triggerを保持する |
+| `Ready for Start Review` | Start Conditionまたは再評価Triggerへ到達した | 現行ContextとImpactを確認し、Human Authorityへ着手・再延期・取消を提示する |
+| `Started` | Human Authorityが着手を決めた | 新しい`CHG-*`を作成し、相互参照する |
+| `Completed` | 適用される対応と必要なVerificationを完了した | Main ViewへCanonical Artifactと、適用されるImplementation / Verificationを参照し、非適用理由を必要に応じて示してDetail Fileを削除する |
+| `Cancelled` | 採用後に実施しないと決めた | Human Decision、理由、影響を参照する |
+
+CRDDは時刻Schedulerや外部通知を必須としない。Project固有Roadmap Authorityは、計画Review、Change / Release計画、Dependency解消、期限到達、関連Evidence / Law / Riskの変化等、宣言したTriggerで対象Itemを再評価する。通常実行でRoadmap全件を無差別に読み込まず、Active Scopeと関係するItem、Triggerへ到達したItem、Dependency / Targetが今回計画と重なるItem、Roadmap Authorityが指定したItemを対象にする。Triggerへ到達したItemを自動的に`Started`へ昇格せず、Human Start Decisionを得る。
+
+着手時はRoadmap内容を実装指示として直接使用せず、Source Contextの現行RevisionとImpactを再確認し、[Change](00_12_Change.md)に従って`CHG-*`を作成する。再延期ではOwner、理由、Target、再評価Triggerを更新する。
+
+完了時は、Detail Fileにしか存在しない採用結果、Decision / Rationale、Evidence、Constraint、Known Riskを、責務を持つCanonical Artifactと、適用されるCHG、Implementation Artifact、Verification Resultへ反映する。Documentation-only、Research、No-code Operation等でImplementationまたはVerificationが適用されない場合は、無理にArtifactを作らずMain Viewへ`Not Applicable`理由を示す。Main ViewのItemへ`Completed`、適用されるCHG、結果Artifact、Verification Referenceを戻し、参照可能性を確認した後、Detail Fileを削除する。確定した意味をMain Viewへ複製せず、Detail Fileを完了記録やRoadmap Archiveとして残さない。Git履歴は削除前の経緯確認に利用できるが、正本反映の代替にしない。
 
 ---
 

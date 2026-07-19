@@ -1,10 +1,10 @@
 # CRDD Architecture
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -56,7 +56,7 @@ Architectureは、対象Scopeについて次を受け取る。
 - 既存System Context、Data、Interface、Operation、Deployment
 - Technology、Platform、Provider、Resource等の既知制約
 - 外部DependencyとConsumer
-- Coverage Summary、Open Gap、人間Review結果
+- Coverage Summary、Unresolved Gap、人間Review結果
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。上位Contextが矛盾する場合はArchitectureで都合よく解釈せず、該当Authorityへ戻す。
 
@@ -82,10 +82,11 @@ Architectureは観測可能なBehaviorを新しく決めない。技術的制約
 | Concurrency / Resilience | Idempotency、Contention、Timeout、Retry、Backpressure、Partial Failure、Shutdown |
 | Compatibility / Migration | Consumer、Schema、Version、移行期間、Rollback、廃止順序 |
 | Capacity / Infrastructure | 負荷前提、Resource、Quota、Scaling、Region、Deployment、Failure Domain |
+| Technical Configuration | Product Settingとの境界、保存・配布・優先順位の成立方式、Environment、Secret参照、Provider Parameter、Resource Size、Default / Override Authority |
 | Observability | Metric、Log、Trace、Alert、Audit、運用上の状態判定 |
 | Implementation Rule | Coding / Dependency / Boundary Rule、禁止事項、実行可能な検査への接続 |
 | Verification Enablement | Testability Seam、Environment条件、Load / Failure / Migration検証義務 |
-| Trace / Rationale | Source Context、Decision、Alternative、Constraint、Evidence、Open Gap |
+| Trace / Rationale | Source Context、Decision、Alternative、Constraint、Evidence、Unresolved Gap |
 
 すべてを全Scopeへ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。単一Diagram、主要Happy Path、Technology選定、Prototypeの完成だけでArchitecture完了としない。
 
@@ -105,7 +106,7 @@ AIは候補比較、Gap、Impact、設計案を提示できるが、上位Contra
 
 通常のImplementation Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[`00_28_Implementation.md`](00_28_Implementation.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
-Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、Data / Interface / Security Contract、Compatibility / Migration、Capacity / Operation、Implementation Rule、禁止事項、既知制約、Acceptance Criteria、Verification Obligation、Coverage State、Open Gapを渡す。
+Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、Data / Interface / Security Contract、Compatibility / Migration、Capacity / Operation、Technical Configuration、Implementation Rule、禁止事項、既知制約、Acceptance Criteria、Verification Obligation、Coverage State、Unresolved Gapを渡す。
 
 部分Handoffには、対象Scope、未定義設計、暫定制約、Risk、受信先、後続Ownerの人間承認を必要とする。Architecture不成立をCodeで暗黙解決させない。
 
@@ -116,6 +117,7 @@ Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、D
 - State / Sequence、Failure、Concurrency、Recoveryが説明・検証可能である
 - Security / Privacy / Compliance、Quality、Operation、Observabilityを適用範囲で定義している
 - Compatibility / Migration、Capacity / Infrastructure、Dependencyを適用範囲で定義している
+- Product SettingとTechnical Configurationを区別し、保存・配布・優先順位、Environment差分、Secret参照、Provider Parameter等を適用範囲で定義している
 - Implementation Rule、禁止事項、Verification Obligationが実装前に明確である
 - Decision / Rationale、Coverage Gap、部分Handoff承認が記録されている
 
@@ -124,11 +126,12 @@ Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、D
 - 上位ContextにTraceしないArchitecture判断
 - SPECが所有するBehaviorやUIが所有する表現のArchitecture内での再定義
 - Boundary、Authority、Data Ownership、Source of Truthの重複またはConflict
-- Failure、Concurrency、Security、Privacy、Migration、Capacity、Dependency、Operation、Observabilityの適用判定漏れ
+- Failure、Concurrency、Security、Privacy、Migration、Capacity、Dependency、Operation、Observability、Technical Configurationの適用判定漏れ
+- Product SettingとTechnical Configurationの混同、Default / Override AuthorityまたはEnvironment差分の未定義
 - Pattern、Technology、Providerを理由のない一律Ruleとして強制している状態
 - DiagramやCode ExampleだけでContract、Constraint、Rationaleがない状態
 - Test CaseをArchitectureが所有、またはTestability / Verification Obligationを未定義にしている状態
-- Coverage Summary、Open Gap、人間Review、Implementation Ruleの欠落
+- Coverage Summary、Unresolved Gap、人間Review、Implementation Ruleの欠落
 
 ---
 
@@ -194,6 +197,8 @@ Fail ClosedはAuthorization、Consent、安全、法的制約、不可逆Action�
 ## 2.6. Quality, Capacity, Infrastructure, and Operation
 
 SPECの観測可能なQuality ConditionとCapacity Behaviorを、負荷前提、Resource、Deployment、Operationへ変換する。
+
+利用者・組織が理解し変更するPreference / Policy / Settingの意味と観測可能なBehaviorはIA、UI、SPECを正本とする。Architectureは、それらを成立させる保存・配布・優先順位の技術方式と、環境変数、Secret参照、Provider Parameter、Resource Size等のTechnical Configurationを設計し、両者を無自覚に同じ設定体系へ混在させない。
 
 - Traffic、Concurrency、Data / Batch量、成長率、Peak、Seasonality
 - Latency、Throughput、Availability、Durability、Recovery、CostのTarget / Limit
@@ -316,6 +321,7 @@ Subagentを使う場合は[`00_10_Agent.md`](00_10_Agent.md)に従い、Data、S
 - Failure、Security、Privacy、Compatibility、CapacityのRiskを隠していない
 - PatternとTechnology選択にContext、Alternative、Trade-offがある
 - Operation、Migration、Rollback、Verificationを実装後回しにしていない
+- Product SettingとTechnical Configurationを区別し、成立方式とAuthorityを実装へ渡している
 - Partial / `Not Applicable`のScope、理由、Ownerが明確である
 
 ## 4.2. Architecture Artifact / Handoff View
@@ -323,7 +329,7 @@ Subagentを使う場合は[`00_10_Agent.md`](00_10_Agent.md)に従い、Data、S
 Artifactの分割方法は固定しないが、対象Scopeについて次を参照可能にする。
 
 ```text
-Scope / Coverage Summary / Open Gap
+Scope / Coverage Summary / Unresolved Gap
 Source UI / SPEC / Quality / Constraint
 System Context / Trust Boundary
 Domain / Component Responsibility
@@ -332,6 +338,7 @@ Interface / Integration / External Dependency
 State / Sequence / Concurrency / Recovery
 Security / Privacy / AI Boundary
 Quality / Capacity / Infrastructure / Operation
+Technical Configuration / Product Setting Boundary
 Compatibility / Migration / Rollback
 Implementation / Coding Rule
 Verification Obligation

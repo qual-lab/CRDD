@@ -5,13 +5,18 @@ Status: Open
 Owner: <Human or Team>
 Last Updated: yyyy-mm-dd
 
-> Copy this file, allocate a non-reusable sequence, and rename it to `CHG-<SEQUENCE>_<SHORT_NAME>.md`. `CHG-*` is a Change Trace Artifact ID, not a CRDD Stable Context ID.
+Authority: `00_CRDD/00_12_Change.md`
+
+> This is a non-normative Project Artifact template. Placement, ID allocation, lifecycle, closure, and authority follow the CRDD Change Trace authority above.
 
 ## Trigger / Origin
 
 - Type:
 - Source:
 - Reason:
+- Roadmap reference, if applicable:
+- Source Context revision:
+- Human start decision reference, if applicable:
 
 ## Primary Change Intent
 

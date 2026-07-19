@@ -1,9 +1,9 @@
 # CRDD Documentation
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_00_Overview.md](00_00_Overview.md)
 - [00_01_Principles.md](00_01_Principles.md)
@@ -96,8 +96,8 @@ Human Authorityへ判断を戻す
 01_Discovery
 02_UX
 03_IA
-04_Spec
-05_UI
+04_UI
+05_SPEC
 06_Architecture
 07_Workflows
 40_Develop
@@ -111,15 +111,15 @@ Human Authorityへ判断を戻す
 | `01_Discovery` | Origin、Problem、Source、Evidence、不確実性、Requirement | [Discovery](00_21_Discovery.md) |
 | `02_UX` | Actor、Outcome、Journey、Service Blueprint、Experience Principle | [UX](00_22_UX.md) |
 | `03_IA` | Object、Relation、Responsibility、Navigation、Domain用語 | [IA](00_23_IA.md) |
-| `04_Spec` | Condition、State、System Behavior、Exception、Acceptance | [Behavior Specification](00_26_Behavior_Specification.md) |
-| `05_UI` | Surface、Interaction、Feedback、Visual、UI Asset | [UI](00_25_UI.md) |
+| `04_UI` | Surface、Interaction、Feedback、Visual、UI Asset | [UI](00_25_UI.md) |
+| `05_SPEC` | Condition、State、System Behavior、Exception、Acceptance | [Behavior Specification](00_26_Behavior_Specification.md) |
 | `06_Architecture` | Boundary、Data、Interface、Quality、Security、Implementation Rule | [Architecture](00_27_Architecture.md) |
 | `07_Workflows` | Repository固有の反復可能な作業手順、Runbook、手順間Handoff | [Workflow](00_14_Workflow.md) |
 | `40_Develop` | Code、Configuration、Developer Test等のImplementation Artifact | [Implementation](00_28_Implementation.md) |
 | `90_Release` | `CHG-*` Change Trace、Release Record、CHANGELOG、配布物参照、Release Verification | [Change](00_12_Change.md)、[Release](00_13_Release.md)、Project固有のRelease Authority |
 | `99_Roadmap` | 採用済みDeferred WorkのPriority、Target、Dependency、着手条件 | Project固有のRoadmap Authority |
 
-工程固有のArtifact Mapping、Template、Coverageは上表のPhase / Process Authorityを正本とする。UI ContractとBehavior Specificationは対として接続するが、同じProperty Authorityへ統合しない。
+工程固有のArtifact Mapping、Template、Coverageは上表のPhase / Process Authorityを正本とする。`04_UI`と`05_SPEC`の番号は探索順であり、直列工程やAuthority優先度を意味しない。UI ContractとBehavior Specificationは並行・反復して対として接続するが、同じProperty Authorityへ統合しない。
 
 Evidenceの配置は6.2、Decisionの配置は7.1を正本とする。Repository構造へ中央Evidence Folderまたは中央Decision Folderを追加しない。
 
@@ -129,9 +129,9 @@ Evidenceの配置は6.2、Decisionの配置は7.1を正本とする。Repository
 
 ## 3.3. Discovery and Roadmap
 
-`01_Discovery`は新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。`99_Roadmap`は採用済みだが未着手の内容を、Requirementや他のContextへの参照とともに計画する。
+`01_Discovery`は新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。`99_Roadmap`は採用済みだが未着手の内容を、Requirementや他のContextへの参照とともに計画する。Roadmapは原則として単一の`99_Roadmap/01_Product_Roadmap.md`で管理し、比較、調査、依存関係等の詳細がMain Viewの可読性を損なう場合だけ別のDetail Fileへ分ける。Roadmap Itemの必須Context、Lifecycle、登録・再評価・着手・Detail削除条件は[Discovery](00_21_Discovery.md#63-roadmap-item-contract)を正本とする。
 
-Discovery文書をRoadmapへ移動せず、Roadmap項目をRequirementまたはSpecificationの正本として扱わない。Roadmap項目へCRDD標準Stable Context IDを発行せず、Path、Anchor、外部Issue等で識別する。
+Discovery文書をRoadmapへ移動せず、Roadmap項目をRequirementまたはSpecificationの正本として扱わない。Roadmap項目またはDetail FileへCRDD標準Stable Context IDを発行せず、Path、Anchor、外部Issue等で識別する。完了したDetail FileをRoadmap Archiveとして恒久保存しない。
 
 ---
 
@@ -244,7 +244,7 @@ Bad:
 memo.md
 latest.md
 02_UX/02.md
-04_Spec/new_specification.md
+05_SPEC/new_specification.md
 ```
 
 文書番号は再構成、挿入、統合、分割に伴って変更してよい。番号を文書の永続的な意味識別子として扱わない。
@@ -420,7 +420,7 @@ Riskが低い場合は`Adopted`、`Why`、`Evidence`へ縮小してよい。AI�
 Stable Context IDは、Artifactの場所に依存せず、複数Artifactまたは工程をまたいで追跡する意味を識別する。一つのArtifactに複数Stable Contextを含めてよい。
 
 ```text
-04_Spec/01_Topic_Behavior.md
+05_SPEC/01_Topic_Behavior.md
 ├─ SPEC-000041
 ├─ SPEC-000044
 └─ SPEC-000052
@@ -470,7 +470,7 @@ type: SPEC
 title: 未読重要Topicの既読更新
 status: Approved
 source:
-  artifact: 04_Spec/01_Topic_Behavior.md
+  artifact: 05_SPEC/01_Topic_Behavior.md
   anchor: mark-important-topic-as-read
 relations:
   - type: addresses

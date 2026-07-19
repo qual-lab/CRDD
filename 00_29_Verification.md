@@ -1,10 +1,10 @@
 # CRDD Verification
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -57,7 +57,7 @@ Verificationは対象Scopeについて次を受け取る。
 - Acceptance Criteria、Quality Condition、Verification Obligation
 - Environment、Configuration、Variant、Fixture / Test Data
 - Migration / Rollback、Compatibility、Capacity、Security等のRisk条件
-- Known Limitation、Open Gap、人間Review結果
+- Known Limitation、Unresolved Gap、人間Review結果
 
 Target、Expected Contract、Environment、Acceptanceのいずれかが特定できない場合、推測でPassせず`Blocked`または`Not Verified`として不足情報とOwnerを返す。
 
@@ -225,11 +225,12 @@ Severityは原因工程や修正優先度と同一ではない。Product Impact�
 
 ## 2.7. Product Context and Experience Verification
 
-各工程成果物の責務Coverageは、それぞれの`Required Responsibility Coverage`を正本とする。Verificationは対象ScopeのCoverage State、Open Gap、`Not Applicable`理由、人間承認を受け取り、実装結果が承認済みOutcomeと矛盾していないか確認する。工程文書の完全性そのものはDocument / Conformance Auditへ渡す。
+各工程成果物の責務Coverageは、それぞれの`Required Responsibility Coverage`を正本とする。Verificationは対象ScopeのCoverage State、Unresolved Gap、`Not Applicable`理由、人間承認を受け取り、実装結果が承認済みOutcomeと矛盾していないか確認する。工程文書の完全性そのものはDocument / Conformance Auditへ渡す。
 
 UI / Product Scopeでは、次を適用範囲で確認する。
 
 - UI ContractとBehavior SpecificationのPair整合
+- Preference / Policy / SettingのOption、Default / Effective Value、Scope、Inheritance / Override、Permission、変更・反映・Reset / RecoveryのPair整合
 - Screen、State、Variant、Role、Locale、Responsive条件
 - Usability、Error / Recovery、Content、Visual Hierarchy
 - Accessibility、Keyboard、Focus、Semantic、Contrast、Assistive Technology

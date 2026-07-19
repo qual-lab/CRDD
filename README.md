@@ -108,7 +108,7 @@ Discovery → UX → IA
  Learning / Finding → 影響するContext
 ```
 
-UIとBehavior Specificationは共有Contractで接続された並行工程である。対象Scopeを網羅した場合、または残るGap、Risk、Owner、Reopen条件を記録して人間が部分Handoffを明示承認した場合にのみ、次へ進める。
+UIとBehavior Specificationは共有Contractで接続された並行工程である。対象Scopeを網羅した場合、または残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件を記録して人間が部分Handoffを明示承認した場合にのみ、次へ進める。
 
 ### クイックスタート
 

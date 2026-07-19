@@ -1,9 +1,9 @@
 # CRDD Agent
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -169,6 +169,8 @@ Agentが決められるのは、明示された専門責務と承認済み境界
 
 同じRoleでも、AuthorityはProject、Property、Artifact、Change、Gate、Revision、期間によって変わる。Validation ProcedureやReview Findingも、AcceptanceまたはRisk受容を変更する場合はMay Decideではない。
 
+AgentがHuman Reviewを求める問いは、`確認`、`Clarification`、`Review`等のLabelにかかわらず、回答によってCanonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractが変わる場合、[SkillのDecision Support Contract](00_11_Skill.md#53-decision-support-contract)に従う。専門用語の二択やRecommendationだけをHuman Authorityへ渡さない。
+
 ## 3.2. Action Boundary
 
 判断権限と実行権限を混同しない。編集、Command実行、External System更新、Message送信、公開、Deploy、Release、Data Migration等は、対象と副作用に応じたAction Authorityを必要とする。
@@ -304,7 +306,7 @@ agent_result:
       relation: pairs_with
       target: SPEC-000044
   completion_evidence:
-    - 05_UI/Evidence/Topic_Detail_Review.md
+    - 04_UI/Evidence/Topic_Detail_Review.md
   changed_but_unverified: []
   remaining_side_effects: []
   rollback_required: false
@@ -367,7 +369,7 @@ Subagentは指定Contextを読み、Proposal、Finding、Gap、Conflict、Risk�
 8. Human Decision
 ```
 
-解消できない場合は、一致点、対立点、各案の根拠とRisk、判断論点、Parent AgentのRecommendationをHuman Reviewへ提示する。
+解消できない場合は、一致点、対立点、各案の根拠とRisk、判断論点、Parent AgentのRecommendationを、[Decision Support Contract](00_11_Skill.md#53-decision-support-contract)に従ってHuman Reviewへ提示する。
 
 ProposalからCanonical Contextへの一般的なPromotionは[Principles](00_01_Principles.md)を正本とする。Subagent Resultを直接`Approved`または`Decision`にせず、Parent Agentが統合対象、Trace、Conflict、Human Review Needを確認する。Canonical Artifactを直接編集できる範囲は同書のProgressive Autonomyと対象Agent Contractに従う。
 

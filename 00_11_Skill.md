@@ -1,9 +1,9 @@
 # CRDD Skill
 
-Version: v0.4.0
+Version: v0.4.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -295,7 +295,7 @@ Human Reviewまたは対象Contractに従い、責務を持つCanonical Artifact
 
 ## 4.8. Route, Close, or Pause
 
-次Route、Owner、必要Input、未解消Gapを示す。Skill Runを`Completed`にできるのは、Skill DefinitionのExit Conditionsを評価し、Result、Trace、Open Question、Risk、次Routeまたは終了理由を記録した場合に限る。Handoffする場合は6章を満たす。
+次Route、Owner、必要Input、Unresolved Gapを示す。Skill Runを`Completed`にできるのは、Skill DefinitionのExit Conditionsを評価し、Result、Trace、Open Question、Risk、次Routeまたは終了理由を記録した場合に限る。Handoffする場合は6章を満たす。
 
 ---
 
@@ -326,11 +326,46 @@ Raw Voiceを保持し、AIによる構造化結果と分ける
 SolutionをNeed、守る価値、代替可能部分へ分ける
 UnknownをHypothesis、Assumption、Needs Evidence、Open Questionとして保持する
 質問理由を責務、Gap、次判断と結び付けて説明する
+利用者・業務・Productへの影響を、専門構造や実装詳細より先に説明する
 ```
 
-回答が広い場合はAIが勝手に確定せず、理解を要約して次の一問へ進む。利用者へ分類作業やTemplate入力を要求しない。
+回答が広い場合はAIが勝手に確定せず、理解を要約して次の一問へ進む。利用者へ分類作業やTemplate入力を要求しない。Professional Term、Object分類、State名、技術方式をそのまま質問として返さず、PM、Director、顧客、利用者等がProduct上の違いとして判断できるHuman Conversation Layerへ変換する。
 
-## 5.3. Adaptive Routing
+## 5.3. Decision Support Contract
+
+Human Decisionを求める場合、または回答によってCanonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractが変わる確認・Clarification・Reviewを行う場合、AIは単に「AかBか」「分けるか統合するか」「よろしいですか」と質問せず、対象Riskと8.1のRuntime Scaleに応じて次を提示する。Labelを変えて本Contractを迂回しない。
+
+```text
+今回決めること
+なぜ今決める必要があるか
+利用者、業務、Productへの影響
+現行Contextと守るPrinciple / Constraint
+判断価値のあるOption
+各OptionのBenefit / Drawback / Risk
+AIのRecommendationとReason
+Recommendationを決めた評価基準とEvidence / 承認済みPrinciple
+Confidence / Uncertaintyと、推奨が変わる条件
+Reversibility / Revisit Condition
+保留した場合の影響
+Human Authorityへ確認する具体的な判断
+```
+
+AIは既存Context、専門知識、Riskから支持できるOptionをRecommendationとして先に示し、RecommendationとHuman Decisionを区別する。推奨では、守るOutcome / Principle、決め手となるTrade-off、Evidenceまたは専門根拠、Confidence / Uncertainty、推奨が逆転する条件またはRevisit Triggerを示す。価値の優先順位によって結論が変わる場合は条件付きRecommendationとし、架空の一意解を作らない。根拠が不足して推奨できない場合は、無理に中立な選択を投げ返さず、推奨不能の理由、必要なEvidence、Research / Expert Review Routeを示す。既存の承認済みPrincipleと委譲Authorityで一意に処理できる専門分類を、不要なHuman Decisionとして利用者へ転嫁しない。
+
+```text
+Bad:
+候補と確定Taskを別Objectにしますか？
+
+Decision-ready:
+AIが提案しただけの候補と、人間が引き受けた確定Taskを
+同じ扱いにすると、提案が義務に見え、担当・完了管理も曖昧になります。
+内部では分け、採用時に候補からTaskへつながる体験を推奨します。
+実装対象は増えますが、人間の責任境界を守れます。この方針を採用しますか？
+```
+
+Conversation / Structured Summaryを標準表示とし、Professional DetailとMachine-readable Detailは、判断に必要な場合または利用者が求めた場合に段階的に示す。簡略化してもSource、Uncertainty、Trade-off、Authority Boundaryを失わせない。
+
+## 5.4. Adaptive Routing
 
 回答と既存Contextに応じてQueueとRouteを変える。
 
@@ -346,7 +381,7 @@ Solutionが先に固定             → NeedとAlternative確認
 
 質問を続けること自体を目的にしない。別Skill、Research、Prototype、Expert Review、Decision、Gate Reviewへ移る方が有効ならRouteを変更する。
 
-## 5.4. Progressive Disclosure
+## 5.5. Progressive Disclosure
 
 | Level | View |
 |---|---|
@@ -369,12 +404,15 @@ Reviewでは単に「OKですか」と聞かず、対象Riskに応じて次を�
 今回の結論またはProduced Context
 保持したRaw Voice / Intent
 AIが変換または提案した部分
+Recommendation、Alternative、主要Trade-off
 別責務へ分離した内容
-未決事項、Gap、Risk
+未決事項、Unresolved Gap、Risk
 次へ進む場合の影響とCoverage State
 ```
 
 人間は、思いが失われていないか、AIが価値判断を追加していないか、前提が抜けていないか、対象Scopeについて採用またはHandoffできるかを確認する。
+
+Unresolved GapはCanonical Termだけを見出しや結論として表示せず、何が不足し、なぜ必要で、未解決のまま進む影響、Blocking / Non-blocking、Owner、Next Action / Routeを人間が理解できる言葉で示す。Open Question、未作成Artifact、Conflict、Evidence不足、未検証、延期Scopeを同じ一行へ潰さない。
 
 Reviewの厳密さは8章のScaleに従う。Compactでは要約と重要Gap、StandardではSource、Produced Context、Intent、Alternative、Relation、Extendedでは専門家所見、Impact、Decision / Rationale、Gate Evidenceを扱う。
 
@@ -422,7 +460,7 @@ handoff:
     - Secondary actor journey changes the object responsibility
 ```
 
-Handoffは成果物のLinkだけでは成立しない。通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たす場合に行う。`Partial — Human Authorized`は、対象Scope、Gap、Risk、Owner、Reopen条件を人間が明示した場合だけ使用できる。
+Handoffは成果物のLinkだけでは成立しない。通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たす場合に行う。`Partial — Human Authorized`は、対象Scope、Unresolved Gap、Risk、Owner、Reopen条件を人間が明示した場合だけ使用できる。
 
 AgentまたはSubagent間の委譲は[Agent](00_10_Agent.md)、ArtifactのRevisionは[Documentation](00_03_Documentation.md)、変更のImpact Traceは[Change](00_12_Change.md)、共通Handoff不変条件は[Principles](00_01_Principles.md)を正本とする。
 
@@ -472,7 +510,15 @@ Runtimeは独自のDocumentation Scaleを選定しない。[Documentation](00_03
 | Standard | Adaptive Queue、Professional Context、Trace、Review |
 | Extended | 複数Evidence、専門Review、Alternative、Impact、Gate Evidence |
 
-質問数やファイル数からScaleを変更せず、Scaleを品質等級として扱わない。
+Decision Supportの表示は、情報を失わず次のように段階化する。
+
+| Scale | Decision Support View |
+|---|---|
+| Compact | 今回決めること、利用者・業務・Productへの影響、Recommendationと決め手、主要なDownside、具体的な確認 |
+| Standard | Compactに加え、判断価値のあるAlternative、主要Trade-off、Reversibility、保留影響、Revisit Condition |
+| Extended | Standardに加え、Evidence、Confidence / Uncertainty、重大Risk、専門Reviewまたは追加調査、推奨が変わる条件 |
+
+CompactでもRecommendationの根拠と主要なDownsideを省略しない。質問数やファイル数からScaleを変更せず、Scaleを品質等級として扱わない。
 
 ## 8.2. Failure and Audit Boundary
 
