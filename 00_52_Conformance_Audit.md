@@ -1,6 +1,6 @@
 # CRDD Conformance Audit
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Agent ID: `agent.conformance.audit`
@@ -110,7 +110,7 @@ Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、�
 | PL-03 | Context間の関係を単なる関連Linkではなく意味のあるRelationとして説明できる | [Documentation](00_03_Documentation.md) | Context / Relation Indexまたは同等のTrace |
 | PL-04 | Discovery、UX、IA、UI、SPECの責務Coverageと工程間Handoffを対象Scope全体で説明できる | [Discovery](00_21_Discovery.md)、[UX](00_22_UX.md)、[IA](00_23_IA.md)、[UI](00_25_UI.md)、[SPEC](00_26_Behavior_Specification.md)のPhase Process Contract | Coverage State、Unresolved Gap、Human Review、Handoff |
 | PL-05 | UI ContractとBehavior SpecificationがAction、State、Failure、Recovery、Permission等で整合する | [UI / Behavior Pair](00_24_UI_Behavior_Specification.md)、UI / SPEC Phase Contract | Pair Review、対応表、例外理由 |
-| PL-06 | 重要な工程境界をHuman Authorityが対象ScopeとRevisionに対して判断する | [Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants)、[Skill](00_11_Skill.md)、各工程の`Phase Gate Criteria` | Approval Record、Scope、Revision、Coverage、Human Decision |
+| PL-06 | 各通常工程境界では、送信Exitと受信Entryを対象Revisionに対して独立Reviewし、移行に影響するFindingを責務工程で修正・再ReviewしたうえでHuman Authorityが判断する。Review省略または未解消Findingを伴う移行は明示的なHuman-directed Review Exceptionとして通常Passと区別する | [Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants)、[Independent Review](00_10_Agent.md#7-independent-review)、[Skill](00_11_Skill.md)、各工程の`Phase Gate Criteria` | Phase Transition Review Result、Reviewed Revision、Finding / Remediation / Re-review、Approval Record、Review Exception（該当時） |
 | PL-07 | 完了を実装動作だけでなく、Acceptance、UI / SPEC、UX Intent、Origin、Learningに対して検証する | [Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md)、各Phase Gate Criteria | Target Revision、Fresh Evidence、Verification Result、未達条件、Learning |
 | PL-08 | 外部Consumer、既存Data、Migration、容量制約があるScopeでは、観測可能なCompatibility / Capacity Behaviorと、それを成立させるArchitecture、移行、検証を接続する | [SPEC](00_26_Behavior_Specification.md)、[Architecture](00_27_Architecture.md)、[Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md) | Consumer Contract、Version / Migration Plan、Capacity Assumption、Rollback、Compatibility / Load Evidence |
 | PL-09 | AI、個人Data、外部Actionを含むScopeでは、Purpose、Consent、Trust、Human Control、Security Boundary、Privacy、Costを上流から実行・検証まで接続する | [Principles](00_01_Principles.md)、[Discovery](00_21_Discovery.md)、[UX](00_22_UX.md)、[IA](00_23_IA.md)、[UI](00_25_UI.md)、[SPEC](00_26_Behavior_Specification.md)、[Architecture](00_27_Architecture.md)、[Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md) | Purpose / Data Boundary、Consent Behavior、Trust Surface、Authority、Security / Privacy Design、Cost Guardrail、Fresh Verification |
@@ -126,7 +126,7 @@ Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、�
 | AD-01 | AI Agentが行動前にScope、Revision、関連Context、Decision、Rule、Constraint、責任者、判断Authority、Action Authority、Escalation先を確認する | [Agent](00_10_Agent.md)、[Skill](00_11_Skill.md) | Read Context、Active Scope、Target Revision、Owner / Invoker、Authority / Action Boundary、Escalation Target |
 | AD-02 | 重大または複数工程の変更前にGoal、In / Out Scope、Dependency、Risk、Verificationを明示する | [Agent](00_10_Agent.md)、[Skill](00_11_Skill.md) | AI Work Planまたは同等のExecution Contract |
 | AD-03 | AI変更をReview、中断、再開、切戻し可能な単位で実行し、停止時も変更済みArtifact、未検証状態、Side Effect、Rollback要否を返す | [Agent](00_10_Agent.md)、[Skill](00_11_Skill.md) | Boundary、Checkpoint、Partial Result、Rollback、Handoff |
-| AD-04 | 重要変更を生成・実装と分離した観点でReviewする | [Agent](00_10_Agent.md) | Independent Review、Finding、Review Result、Residual Risk |
+| AD-04 | 重要変更と工程移行候補を生成・実装と分離した観点でReviewする。AIによる工程移行Reviewは別Review Subagent、Clean Session / Agent、または人間Reviewerへ委譲し、Finding修正後は更新Revisionを再Reviewして、Audit Run完了をTarget Passへ流用しない | [Agent](00_10_Agent.md) | Delegation Contract、Independent Review、Finding、Remediation、Re-review Result、Residual Risk |
 | AD-05 | Artifact生成、Code動作、Test Pass、Agent Resultだけから工程完了を推測せず、変更後のFresh Evidenceと工程Criteriaを確認する | [Agent](00_10_Agent.md)、[Implementation](00_28_Implementation.md)、[Verification](00_29_Verification.md) | Test、Build、Static Check、Runtime / Visual Result、Phase Coverage / Gate Evidence |
 | AD-06 | 実装で変化した仕様、制約、既知制限、運用、Learningを関連Contextへ戻し、該当する変更のImpact Traceを更新する | [Skill](00_11_Skill.md)、[Change](00_12_Change.md) | Context Update、Change Trace、Proposal、Decision Candidate、Learning |
 | AD-07 | 特定Agent、LLM、IDE、SDD Tool、Subagent構成をCRDD準拠条件としない | [Principles](00_01_Principles.md) | Tool固有機能に依存しないAuthority / Artifact / Evidence |
@@ -138,7 +138,7 @@ Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、�
 | AD-13 | Skill DefinitionがEntry、Input、Authority Boundary、専門責務、Exit、Stop、Confirmation、Handoffを工程正本への参照として定義し、工程Contractを複製しない | [Skill](00_11_Skill.md)、各工程文書 | Skill Definition Contract、Process Authority参照、Authority Boundary、Entry / Exit / Handoff |
 | AD-14 | Guided Interactionが既知Contextの再質問、固定Questionnaire、未回答箇所のAI補完を避け、Source、AI変換、未決事項を区別する | [Skill](00_11_Skill.md) | Adaptive Queue、Raw Voice / Evidence、Transformation Summary、Open Question |
 | AD-15 | Paused、Blocked、またはFailedとなったSkill RunがInput Revision、完了済み内容、未検証変更、Side Effect、Rollback要否、再開地点を保持する | [Skill](00_11_Skill.md)、[Agent](00_10_Agent.md) | Resume Snapshot、Partial Result、Revision、Next Action |
-| AD-16 | Skill Handoffが対象Scope / Revision、Coverage、Unresolved Gap、Preserved Intent、Obligation、受信側Entry、必要なHuman Authorizationを保持する | [Skill](00_11_Skill.md)、[Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants) | Handoff Record、Coverage Summary、Unresolved Gap、Human Authorization、Receiving Entry Evidence |
+| AD-16 | Skill Handoffが対象Scope / Revision、Coverage、Unresolved Gap、Preserved Intent、Obligation、受信側Entry、Phase Transition Review Result、必要なHuman AuthorizationまたはReview Exceptionを保持する | [Skill](00_11_Skill.md)、[Independent Review](00_10_Agent.md#7-independent-review)、[Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants) | Handoff Record、Coverage Summary、Unresolved Gap、Transition Review / Reviewed Revision、Human Authorization、Receiving Entry Evidence、Review Exception（該当時） |
 | AD-17 | Canonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractを変える問いでは、Agent / Skillや質問Labelを問わずDecision Support Contractを適用し、影響、Trade-off、評価基準とEvidenceに基づくRecommendation、Confidence / Uncertainty、推奨が変わる条件、保留影響をRiskとRuntime Scaleに応じて判断可能な言葉で提示する | [Agent](00_10_Agent.md)、[Skill](00_11_Skill.md) | Decision Support Summary、Recommendation / Alternative / Rationale / Evidence / Confidence / Revisit Condition |
 
 ---
@@ -148,9 +148,9 @@ Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、�
 | Claim | Required Criteria |
 |---|---|
 | `CRDD Core Conformant` | C-01〜C-10 |
-| `CRDD Product Lifecycle Profile Conformant` | C-01〜C-10、PL-01〜PL-09 |
-| `CRDD Agentic Delivery Profile Conformant` | C-01〜C-10、AD-01〜AD-16 |
-| `CRDD Product Lifecycle + Agentic Delivery Conformant` | C-01〜C-10、PL-01〜PL-09、AD-01〜AD-16 |
+| `CRDD Product Lifecycle Profile Conformant` | C-01〜C-10、PL-01〜PL-11 |
+| `CRDD Agentic Delivery Profile Conformant` | C-01〜C-10、AD-01〜AD-17 |
+| `CRDD Product Lifecycle + Agentic Delivery Conformant` | C-01〜C-10、PL-01〜PL-11、AD-01〜AD-17 |
 
 「CRDD準拠」とだけ表明する場合は、少なくとも`CRDD Core Conformant`でなければならない。
 
@@ -193,9 +193,13 @@ Criteria AuthorityとなるCRDD文書の変更
 
 Conformance Audit Agentは、対象ScopeとRevisionについて適用Criteriaを評価し、Evidence、Finding、Claim Eligibility、再評価条件を返す専門Review Agentである。
 
+Subagentとして実行する標準Agent IDは`agent.conformance.audit`とする。Parent Agentは、Requested Claim、Claim Owner、Target Scope / Revision、Criteria Revision、適用Profile候補、利用可能Evidence、既知Deviation、Expected Output、Read-only、Return先を[`00_10_Agent.md`](00_10_Agent.md)のDelegation Contractへ指定する。Subagentは本書のConformance Reportを返し、Canonical Artifact、Criteria、Claimを変更しない。
+
 Document Auditは文書品質、Phase Auditは工程条件、Gap / Impact AuditはRelation横断影響、VerificationはProduct / Implementationの成立をそれぞれ正本とする。Conformance AuditはそれらのResultをEvidenceとして利用できるが、内容を再定義・自己承認しない。
 
 Audit AgentはCanonical Artifactを直接変更せず、Criteria Resultを都合よく補完せず、Human AuthorityのClaim発行、Deviation受容、Risk受容を代行しない。Criteria不成立はFindingとしてParent AgentとClaim Ownerへ渡す。
+
+RemediationはConformance Audit Runの外で行い、変更後Revisionに対して影響Criteriaを`agent.conformance.audit`または同等以上の独立Reviewerが再評価する。Audit Run完了、`Conditional`、到達可能なClaim候補の提示を、Requested ClaimのEligibilityまたはPhase Transition ReviewのPassとして扱わない。
 
 ---
 

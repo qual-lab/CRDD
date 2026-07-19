@@ -1,8 +1,9 @@
 # CRDD Gap and Impact Audit
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
+Agent ID: `agent.gap_impact.audit`
 Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
@@ -429,6 +430,8 @@ FindingまたはChangeを`Resolved` / Closedにするには、適用範囲で次
 
 Skill Runとして実行する場合は[`00_11_Skill.md`](00_11_Skill.md)、Agent / Subagentへ委譲する場合は[`00_10_Agent.md`](00_10_Agent.md)に従う。本書独自のAgent Lifecycleを作らない。
 
+Subagentとして実行する標準Agent IDは`agent.gap_impact.audit`とする。Parent Agentは、Trigger、Scope、Target Revision / Baseline、探索するRelation方向、送信 / 受信工程、Known Decision / Evidence / Gap、Applicable Standards、Expected Output、Read-only、Return先をDelegation Contractへ指定する。Subagentは本書のGap / Impact Audit Reportを返し、Canonical Artifact、Finding Disposition、Phase Decisionを変更しない。
+
 ```text
 Load Change Trace / Scope / Revision
 Identify Changed Meaning and Relations
@@ -439,7 +442,7 @@ Remediate outside Audit Run if authorized
 Re-audit affected Scope
 ```
 
-Parent AgentはSubagentごとのScope、Relation方向、使用する正本、Expected Outputを指定し、重複Candidate、Conflict、Impact Level、Authorityを統合する。Subagent ResultをそのままGap確定、No Impact、Risk受容、Phase / Release判断にしない。
+Parent AgentはSubagentごとのScope、Relation方向、使用する正本、Expected Outputを指定し、重複Candidate、Conflict、Impact Level、Authorityを統合する。Remediation後は変更後Revisionと影響Relationを再監査する。Subagent Result、Audit Run完了、FindingへのOwner付与をそのままGap解消、No Impact、Risk受容、Phase Transition Review Pass、Phase / Release判断にしない。
 
 ---
 

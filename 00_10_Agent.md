@@ -1,6 +1,6 @@
 # CRDD Agent
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-19
@@ -10,6 +10,7 @@ Related:
 - [00_03_Documentation.md](00_03_Documentation.md)
 - [00_11_Skill.md](00_11_Skill.md)
 - [00_12_Change.md](00_12_Change.md)
+- [00_29_Verification.md](00_29_Verification.md)
 - [00_51_Document_Audit.md](00_51_Document_Audit.md)
 - [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
 - [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
@@ -230,7 +231,7 @@ Role固有Contractは、共通Agent Contractへ対象工程・活動の正本を
 | Verification | [Verification](00_29_Verification.md) | Result、Fresh Evidence、Reproduction、Finding、Residual Risk | Acceptance変更、Production Fix、Risk受容、環境差異の無視、Test不能Contract |
 | Learning / Promotion | Provenance、Decision、Change、Validation | Learning、Source、Affected Context、Promotion Proposal、Confidence | Origin、Principle、Rule、Decision、Roadmap Priority変更 |
 
-一つのAgentが複数Roleを担当してよい。ただし、RoleごとのInput、判断、Output、Property Authority、Escalationを分離する。重要変更では作成とReviewを分け、同一Agentが兼務する場合もFresh Contextによる独立Review Passを設ける。
+一つのAgentが複数Roleを担当してよい。ただし、RoleごとのInput、判断、Output、Property Authority、Escalationを分離する。重要変更では作成とReviewを分ける。工程移行を伴わない低Riskな局所変更で同一Agentが兼務する場合もFresh Contextによる独立Review Passを設け、Phase Transition Reviewは7.1の別実行主体条件に従う。
 
 UI ContractとBehavior SpecificationはPairとして反復的に整合させる。一方の全成果物が完成するまで他方を開始できないという直列依存ではなく、対象ScopeとRevision、未確定事項、次に更新するAuthorityを明示して往復する。
 
@@ -379,7 +380,7 @@ ProposalからCanonical Contextへの一般的なPromotionは[Principles](00_01_
 
 # 7. Independent Review
 
-重要変更は、生成・実装と分離した観点でReviewする。Review Agentには作成者の内部思考を必須Inputとせず、Review Target、Expected Contract、Revision、Boundary、Acceptance、Known Riskを渡す。
+重要変更と工程移行候補は、生成・実装と分離した観点でReviewする。Review Agentには作成者の内部思考を必須Inputとせず、Review Target、Expected Contract、Revision、Boundary、Acceptance、Known Riskを渡す。
 
 ```text
 Creator
@@ -390,9 +391,82 @@ Creator
 → Human Decision
 ```
 
-Reviewerは作成者の結論を前提にせず、対象ArtifactとContractから独立してFindingを再構成できなければならない。同一AgentがReviewを兼ねる場合は、Fresh Context、独立したReview Pass、作成時の結論に依存しないCriteriaを使用する。高Risk変更では、作成者だけのSelf Reviewを独立Reviewとして扱わない。
+Reviewerは作成者の結論を前提にせず、対象ArtifactとContractから独立してFindingを再構成できなければならない。工程移行を伴わない低Riskな局所変更で同一AgentがReviewを兼ねる場合は、Fresh Context、独立したReview Pass、作成時の結論に依存しないCriteriaを使用する。Phase Transition Reviewは7.1の別実行主体条件に従い、高Risk変更では作成者だけのSelf Reviewを独立Reviewとして扱わない。
 
 Review AgentはFindingとRecommendationを返し、価値判断、Risk受容、Scope / Contract変更、Gate Approvalを自己確定しない。詳細な文書監査は[Document Audit](00_51_Document_Audit.md)、CRDD適用監査は[Conformance Audit](00_52_Conformance_Audit.md)、変更影響監査は[Gap / Impact Audit](00_53_Gap_Impact_Audit.md)を正本とする。
+
+## 7.1. Review Agent and Audit Subagent Roles
+
+作成・変換担当がAI Agentである場合、工程移行前のIndependent Reviewは別のReview Subagentへ委譲する。RuntimeがSubagentを利用できない場合は、作成時Contextを引き継がない別のClean Session / Agent、または人間Reviewerを使用する。同じActive Context内で作成担当が続けて行うSelf Reviewは、Phase Transition Reviewとして扱わない。独立した実行主体を用意できない場合、[Human-directed Review Exception](#73-human-directed-review-exception)なしに工程移行しない。
+
+工程移行を伴わない低Riskな局所変更では、Fresh Contextによる独立Passを使用できる。高Risk Scope、重大なAuthority変更、Safety / Security / Privacy / Legal、不可逆Data、重大Migrationでは、工程移行の有無にかかわらず作成担当だけのSelf Reviewで代替しない。
+
+次のRoleは新しいAuthorityやLifecycleではなく、6章のDelegation Contractを各Review正本へ写像する標準Adapterである。
+
+| Agent ID | Primary Authority | Primary Output |
+|---|---|---|
+| `agent.phase_transition.review` | 送信・受信工程のPhase Process Contract、本章 | Phase Transition Review Result |
+| `agent.document.audit` | [Document Audit](00_51_Document_Audit.md) | Audit Status、Finding、Remediation、Re-audit条件 |
+| `agent.conformance.audit` | [Conformance Audit](00_52_Conformance_Audit.md) | Criteria Result、Finding、Claim Eligibility |
+| `agent.gap_impact.audit` | [Gap / Impact Audit](00_53_Gap_Impact_Audit.md) | Relation横断Finding、Impact、Required Revalidation |
+| `agent.verification.review` | [Verification](00_29_Verification.md) | Verification Result、Fresh Evidence、Residual Risk |
+
+これらの`agent.*`は実行Role Adapterを選ぶための識別子であり、CRDD Stable Context ID、Artifact ID、Document Numberではない。中央Registry、専用Folder、恒久的なSubagent Instanceを要求しない。
+
+Audit Subagentは原則Read-onlyとし、Findingを確定して返す前に対象Artifactを修正しない。修正はParent Agentまたは明示的に許可されたRemediation Runが行い、同じRoleまたは同等以上の独立性を持つReviewerが修正後Revisionを再評価する。
+
+## 7.2. Phase Transition Review and Remediation Loop
+
+`agent.phase_transition.review`は、新しい工程Authorityを作らず、送信工程のExit / Phase Gate Criteria / Phase Audit Checklist、受信工程のEntry、共通Handoff不変条件を一つの移行ScopeとRevisionに対して評価する。意味的な波及探索が必要な場合は`agent.gap_impact.audit`、文書品質と直接Propagationの確認が必要な場合は`agent.document.audit`を限定Subtaskとして使用できる。
+
+```text
+Freeze Transition Scope and Target Revision
+→ Independent Review Subagent / Reviewer
+→ Finding、Evidence、Severity、Required Remediation
+→ Remediate in the Responsible Phase
+→ Freeze the Updated Revision
+→ Independent Re-review
+→ Target Pass
+→ Human Phase Decision
+→ Handoff
+```
+
+最低限、次をReview Inputとする。
+
+```text
+Sending Phase and Receiving Phase
+Transition Scope and Target Revision
+Source Context and Preserved Intent
+Required Responsibility Coverage and Coverage Summary
+Sending Exit / Gate / Audit Checklist
+Receiving Entry Contract
+Decision / Rationale、Evidence、Trace
+Unresolved Gap、Risk、Partial Scope
+Active Change Trace or applicable Baseline
+```
+
+通常Handoffへ進めるのは、対象Revisionについて、Severityにかかわらず未解消の移行影響Finding、Critical / Major Finding、正本Conflict、Entry不足、未処置Coverage Gapがなく、必要なRemediation後の再Reviewが`Pass`を返した場合に限る。移行へ影響しないMinor / Infoは、対象Scope内で根拠付き`No Impact`、`Not Applicable`、または解消済みと判定する。Audit Runが正常に完了して`Fail`または`Conditional`を返した状態は、Review完了ではあってもTarget Passではない。FindingのOwnerを受信工程へ付け替えるだけで移行条件を満たしたとみなさない。
+
+Review Resultは最低限、Review Agent ID、Reviewer、送信 / 受信工程、Scope、Target Revision、使用Criteria、Audit Status、Finding、Remediation、Re-reviewしたRevision、未Review範囲、Recommendationを取得可能にする。Review ResultへCRDD Stable Context IDを発行せず、対象Artifact、Handoff View、Change Trace等からArtifact Referenceで接続する。
+
+## 7.3. Human-directed Review Exception
+
+Independent Reviewの省略または未解消Findingを伴う移行は通常Routeではない。対象ScopeのHuman Authorityが明示的に要求した場合だけ、`review_exception`として次を記録する。
+
+```yaml
+review_exception:
+  directed_by: <Human Authority>
+  scope: <explicit transition scope>
+  target_revision: <unreviewed or conditionally reviewed revision>
+  skipped_review_or_findings: []
+  reason: <why transition cannot wait>
+  known_risk_and_impact: []
+  receiving_owner: <owner>
+  required_re_review: <condition / date / event>
+  expires_or_reopens_when: <condition>
+```
+
+例外はReview Pass、Finding解消、Risk受容、受信工程Entry充足を意味しない。AI、Parent Agent、Reviewerは利便性や日程だけを理由に例外を自己生成しない。Human Authorityも、自身がAuthorityを持たない法令、契約、専門承認、Security Boundaryを免除できない。部分Handoffでは移行対象Scopeを通常どおりReviewし、対象外Scopeを混入させない。
 
 ---
 

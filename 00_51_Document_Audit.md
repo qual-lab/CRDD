@@ -1,9 +1,10 @@
 # CRDD Document Audit
 
-Version: v0.4.0
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Agent ID: `agent.document.audit`
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
@@ -306,6 +307,8 @@ CriticalやMajorを検出したAuditも、必要な記録を返せば正常に�
 
 Document AuditをSkill、Agent、Subagentとして実行する場合は、[`00_11_Skill.md`](00_11_Skill.md)のRun Lifecycleと[`00_10_Agent.md`](00_10_Agent.md)のDelegation / Independent Reviewに従う。
 
+Subagentとして実行する標準Agent IDは`agent.document.audit`とする。Parent Agentは、Audit Purpose、対象Scope / Revision、Applicable Standards、直接Dependency、既知Finding、Expected Output、Read-only、Return先をDelegation Contractへ指定する。Subagentは本書のAudit Reportを返し、Canonical Artifactを変更しない。Phase Transition Reviewから呼び出された場合は、対象工程のPhase Audit ChecklistとHandoff Artifactが文書として取得可能かを評価し、Phase Approvalは返さない。
+
 ```text
 Load Scope / Revision / Standards
 Identify Authority and Direct Dependencies
@@ -317,9 +320,9 @@ Remediate outside Audit Run if authorized
 Re-audit changed Scope
 ```
 
-同一Agentが作成・修正・Auditを連続実行する場合は、Fresh Contextで対象Artifactと正本RuleからFindingを再構成する。高Risk変更では、作成者だけのSelf Reviewを独立Auditとして扱わない。
+同一Agentが作成・修正・Auditを連続実行する場合は、Fresh Contextで対象Artifactと正本RuleからFindingを再構成する。ただし、工程移行のIndependent Reviewでは同じActive Context内のSelf Reviewを使用せず、別Subagent、Clean Session / Agent、または人間Reviewerへ委譲する。高Risk変更では、作成者だけのSelf Reviewを独立Auditとして扱わない。
 
-Subagentへ委譲する場合、Parent AgentはAudit Scope、Revision、Applicable Standards、Expected Output、変更禁止を渡す。Parent Agentは複数Findingを統合し、Conflict、Severity、Authority、Remediationを再確認する。Subagent ResultをそのままDecision、Phase Approval、Conformance Claimにしない。
+Parent Agentは複数Findingを統合し、Conflict、Severity、Authority、Remediationを再確認する。修正はAudit Result確定後に責務を持つ工程またはRemediation Runで行い、`agent.document.audit`は修正後Revisionを再監査する。Subagent ResultまたはAudit Run完了をそのままDecision、Target Pass、Phase Approval、Conformance Claimにしない。
 
 ---
 

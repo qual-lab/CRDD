@@ -1,6 +1,6 @@
 # CRDD Skill
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-19
@@ -418,7 +418,7 @@ Reviewの厳密さは8章のScaleに従う。Compactでは要約と重要Gap、S
 
 ## 6.2. Skill Handoff Contract
 
-次のSkillへ渡す際は、受信工程のPhase Entry Contractを満たし、次を対象Riskに応じて保持する。工程固有のEntry、Coverage、Exitを本書で再記述しない。
+工程移行を伴う次のSkillへ渡す際は、受信工程のPhase Entry Contractを満たし、[`00_10_Agent.md`](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)のPhase Transition Reviewと必要なRemediation / Re-reviewを完了したうえで、次を対象Riskに応じて保持する。工程固有のEntry、Coverage、Exitを本書で再記述しない。同一工程内の調査、作成、限定Review等のSkill HandoffへPhase Transition Reviewを機械的に要求せず、Agent Contract、Skill Definition、Riskに応じたReviewを使用する。
 
 ```yaml
 handoff:
@@ -444,6 +444,12 @@ handoff:
   receiving_entry:
     authority: 00_23_IA.md#phase-entry-contract
     assessment: satisfied_for_stated_scope
+  transition_review:
+    role: agent.phase_transition.review
+    target_revision: UX-000004@3
+    result: Pass
+    finding_ids: []
+    re_reviewed_after_remediation: false
   preserve:
     - 人間が最終判断する
     - 根拠と提案を区別する
@@ -460,7 +466,9 @@ handoff:
     - Secondary actor journey changes the object responsibility
 ```
 
-Handoffは成果物のLinkだけでは成立しない。通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たす場合に行う。`Partial — Human Authorized`は、対象Scope、Unresolved Gap、Risk、Owner、Reopen条件を人間が明示した場合だけ使用できる。
+Handoffは成果物のLinkだけでは成立しない。工程間の通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たし、対象RevisionのPhase Transition Reviewが`Pass`の場合に行う。Findingがある場合は責務を持つ工程で修正し、修正後Revisionを再Reviewする。Audit Run完了、`Conditional`、Owner付与だけをPassとして扱わない。
+
+`Partial — Human Authorized`は、対象Scope、Unresolved Gap、Risk、Owner、Reopen条件を人間が明示した場合だけ使用できるが、承認された移行ScopeのIndependent Reviewを省略しない。Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)を対象Human Authorityが明示した場合だけ行い、通常HandoffまたはReview Passと表示しない。
 
 AgentまたはSubagent間の委譲は[Agent](00_10_Agent.md)、ArtifactのRevisionは[Documentation](00_03_Documentation.md)、変更のImpact Traceは[Change](00_12_Change.md)、共通Handoff不変条件は[Principles](00_01_Principles.md)を正本とする。
 

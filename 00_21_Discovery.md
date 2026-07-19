@@ -1,6 +1,6 @@
 # CRDD Discovery
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`
@@ -99,6 +99,8 @@ AI、個人Data、外部Actionを含むScopeでは、Purpose、Data Subject、Co
 
 ## Exit and Handoff
 
+通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはDiscoveryまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+
 Discoveryの出口は「文書が一つできた」状態ではなく、選択した受信先が必要とするContextを利用できる状態である。
 
 通常のUX Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[UX Phase Entry Contract](00_22_UX.md#phase-entry-contract)を満たす場合に限る。Research、Decision、Prototype、IA、UI / SPEC、Architecture / Technical Spike、Change Trace、Roadmap、No Action等へ進む場合は、それぞれの判断に必要なContextと未決事項を渡す。Roadmap Routeは、Human Authorityが延期を確認し、6.3のRoadmap Itemを実際に登録または更新して参照をDiscovery Resultへ戻すまで、その対象ItemのHandoffを完了としない。別のRequirement、Problem、RouteはCoverageを分け、Roadmap登録待ちだけを理由に無関係な対象まで停止しない。
@@ -116,6 +118,7 @@ Discoveryの出口は「文書が一つできた」状態ではなく、選択�
 - Coverage Summary、Unresolved Gap、部分Handoff承認を記録している
 - AI / Personal Data ScopeではGovernance、Privacy、Consent、Human Control、Cost制約を判定している
 - 選択した受信先のEntry Contractを満たす
+- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
 ## Phase Audit Checklist
 
@@ -131,6 +134,7 @@ Discoveryの出口は「文書が一つできた」状態ではなく、選択�
 - Roadmap、Evidence、Decision、Change Trace、Testへ不要なStable IDを発行していないか
 - Coverage Summary、Unresolved Gap、人間Review、Route根拠、受信先Entryのいずれかが欠落していないか
 - AI / Personal Data ScopeでPurpose、Consent、Privacy、個人評価禁止Boundary、Human Control、Cost制約が未判定でないか
+- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
 
@@ -524,6 +528,9 @@ Source、Provenance、Authority、根拠の限界、解釈、仮説
 
 ## Recommended Route and Human Confirmation
 選択Route、理由、却下・延期Route、受信先、人間判断
+
+## Phase Transition Review
+Review Role、対象Revision、Result、Finding / Remediation、再Review、Review Exception
 ```
 
 ## 7.2. Handoff Review

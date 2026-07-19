@@ -57,6 +57,10 @@ UIとBehavior Specificationは直列ではない。`00_24_UI_Behavior_Specificat
 
 工程完了を、ファイル作成、Artifactの高い完成度、Skill Run終了、Implementation完了、Test Passから推定しない。対象Scope全体のCoverage Stateを確認する。部分Handoffは、対象Scope、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件を記録し、Human Authorityが明示承認した場合に限る。Handoffは受信工程のEntry Contractを満たさなければならない。
 
+通常の工程移行前には、作成・変換担当から分離した`agent.phase_transition.review`を実行する。Subagentを利用できる場合は原則としてReview Subagentへ委譲し、送信工程のExit / Gate / Audit Checklist、受信工程のEntry、Coverage、Trace、Unresolved Gapを対象Revisionに対して確認する。Findingは責務を持つ工程で修正し、修正後Revisionを再Reviewして`Pass`を得るまで通常Handoffしない。Audit Run完了、`Conditional`、後工程へのOwner移管だけをPassとみなさない。
+
+Independent Reviewを省略できるのは、対象ScopeのHuman Authorityが明示的に要求し、`review_exception`として理由、未Review範囲、Risk、影響、Owner、再Review条件を記録した場合に限る。部分Handoffでも移行対象ScopeのReviewは省略しない。
+
 上流Contextの不足・矛盾・変更が判明した場合、下流Artifactで補完して確定せず、該当工程とHuman Authorityへ戻す。ImplementationまたはVerificationから得たLearning、Finding、Deviationは、責務を持つCanonical Contextと必要なChange Traceへ還元する。
 
 ## Action and Approval Boundary
@@ -72,6 +76,8 @@ UIとBehavior Specificationは直列ではない。`00_24_UI_Behavior_Specificat
 AgentまたはSubagentを使う場合は`00_CRDD/00_10_Agent.md`に従う。Guided Skillは`00_CRDD/00_11_Skill.md`と対象工程のSkill Adapterに従う。
 
 Subagentへは限定Scope、Input、Target Revision、Expected Output、禁止Action、Evidence、Return条件を渡す。SubagentはProposal、Draft、Finding、Evidenceを返せるが、Human Decision、Phase Handoff、Risk受容、Release、Conformance Claimを自己承認しない。
+
+Auditを委譲する場合は、`agent.document.audit`、`agent.conformance.audit`、`agent.gap_impact.audit`、工程移行Reviewでは`agent.phase_transition.review`のAgent Adapterを使用し、対象Audit正本をInputに含める。Audit SubagentはRead-onlyでFindingを返し、Parent Agentまたは別のRemediation Runが修正した後、対象Revisionを再監査する。
 
 Parent AgentはResult比較、Conflict解消、統合、Canonical Contextへの反映、Human Reviewへの接続に責任を持つ。Subagent Result、Summary、Test PassだけをVerifiedまたはApprovedとして扱わない。
 

@@ -1,6 +1,6 @@
 # CRDD Behavior Specification
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.spec.behavior`
@@ -54,6 +54,7 @@ Behavior Specificationは対象Scopeについて、次を受け取る。
 - 対応UI Contract Candidate、Consumer / Operational Feedback Candidate
 - Quality、Compatibility、Capacity、Privacy、Cost等のConstraint
 - IA Coverage Summary、Unresolved Gap、Human Review Result
+- IA → Behavior Specification Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
 - Existing Behavior / Code / Documentと、そのAuthority / Revision
 
 通常は[IAのExit and Handoff](00_23_IA.md#exit-and-handoff)から受け取り、UIと並行・反復して具体化する。Source Requirement、Behavior Obligation、Actor / Authority、対象Scope、人間Reviewが不足する場合はDiscovery、IA、Human Decisionへ戻す。IAが`Partial — Human Authorized`の場合は、承認されたScopeだけを扱い、未網羅項目、Risk、後続Ownerを引き継ぐ。
@@ -96,6 +97,8 @@ SPECはConsumerまたは利用者から観測可能な契約を定義し、Compo
 
 ## Exit and Handoff
 
+通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはBehavior Specificationまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+
 UIとBehavior Specificationは並行・反復して具体化してよい。UIからBehavior Gapを、SPECからFeedback / Recovery Gapを発見できるが、片側の進捗を他方またはPair Reviewの完了とみなさない。
 
 通常のArchitecture Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、UIがあるScopeでは[Pair Review](00_24_UI_Behavior_Specification.md#26-exit-and-pair-gate)を完了し、検証可能なAcceptanceを持ち、[Architecture Phase Entry Contract](00_27_Architecture.md#phase-entry-contract)を満たす場合に限る。
@@ -115,6 +118,7 @@ UIとBehavior Specificationは並行・反復して具体化してよい。UIか
 - Acceptance CriteriaとEvidence取得方法を定義している
 - Coverage Gap、`Not Applicable`、部分Handoff承認を記録している
 - Architecture Phase Entry Contractを満たす
+- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
 ## Phase Audit Checklist
 
@@ -129,6 +133,7 @@ UIとBehavior Specificationは並行・反復して具体化してよい。UIか
 - 現行CodeやObserved Behaviorの無条件な正本化、UX OutcomeのEARS化
 - Source Trace、Coverage Summary、Unresolved Gap、Human Review、Decision / Rationaleの欠落
 - Architectureまたは実装への暗黙Handoff
+- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
 
@@ -329,6 +334,7 @@ Acceptance Criteria / Environment / Evidence Candidate
 pairs_with UI / Consumer / Operational Feedback
 Decision / Rationale
 Human Review Result
+Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
 ```
 
 Architectureへの共同Handoff条件は[Pair Review Handoff](00_24_UI_Behavior_Specification.md#62-review-and-handoff)を正本とする。Behavior Specification側はこのViewへの参照とSPEC Coverage Stateを欠落なく渡す。

@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.4.1 — Decision Support and Roadmap Activation / 意思決定支援・ロードマップ発動版**
+Status: **v0.4.2 — Phase Transition Review Enforcement / 工程移行Review実行保証版**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Changelog](CHANGELOG.md)**
 
@@ -40,7 +40,7 @@ Discovery → UX → IA
  Learning / Finding → affected Context
 ```
 
-UI and Behavior Specification are parallel phases joined by a shared contract. Each phase advances only when the target scope is covered, or when a human explicitly approves a partial handoff with the remaining gaps, risks, owner, and reopen conditions recorded.
+UI and Behavior Specification are parallel phases joined by a shared contract. Before a normal phase transition, an independent reviewer evaluates the sending exit, receiving entry, coverage, trace, and unresolved gaps for the target revision. Transition-affecting findings are remediated in the responsible phase and the updated revision is re-reviewed before Human approval. Review may be skipped only through an explicit Human-directed exception that records the unreviewed scope, risk, owner, and required re-review; partial handoff does not itself waive review of the transferred scope.
 
 ### Quick Start
 
@@ -48,7 +48,8 @@ UI and Behavior Specification are parallel phases joined by a shared contract. E
 2. Copy the [`template/`](template) scaffold into the target project. Copy the released CRDD standard documents for the adopted version into its `00_CRDD/` folder and keep that version identifiable.
 3. Read the shared authorities required for the work (`00_10`–`00_19`) and the applicable phase authorities (`00_21`–`00_29`). Read the [shared UI / Behavior Specification contract](00_24_UI_Behavior_Specification.md) before either parallel phase.
 4. Use the project-root [`AGENTS.md`](template/AGENTS.md) or [`CLAUDE.md`](template/CLAUDE.md) as the AI entry point. Connect the active scope, target revision, canonical context, authority, applicable phase, and stop conditions instead of copying phase rules into prompts.
-5. Before claiming CRDD conformance, evaluate the applicable Core and Profile criteria with current evidence using the [Conformance Audit](00_52_Conformance_Audit.md).
+5. Before a phase transition, run the [Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop), remediate findings in the responsible phase, and re-review the updated revision before Human approval.
+6. Before claiming CRDD conformance, evaluate the applicable Core and Profile criteria with current evidence using the [Conformance Audit](00_52_Conformance_Audit.md).
 
 ### Core Operating Boundaries
 
@@ -108,7 +109,7 @@ Discovery → UX → IA
  Learning / Finding → 影響するContext
 ```
 
-UIとBehavior Specificationは共有Contractで接続された並行工程である。対象Scopeを網羅した場合、または残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件を記録して人間が部分Handoffを明示承認した場合にのみ、次へ進める。
+UIとBehavior Specificationは共有Contractで接続された並行工程である。通常の工程移行前には、送信工程のExit、受信工程のEntry、Coverage、Trace、Unresolved Gapを対象Revisionに対してIndependent Reviewする。移行に影響するFindingは責務工程で修正し、更新Revisionを再ReviewしてからHuman Approvalへ進む。Reviewを省略できるのは、未Review範囲、Risk、Owner、必要な再Reviewを記録したHuman-directed Exceptionがある場合だけであり、部分Handoff自体は移行ScopeのReviewを免除しない。
 
 ### クイックスタート
 
@@ -116,7 +117,8 @@ UIとBehavior Specificationは共有Contractで接続された並行工程であ
 2. [`template/`](template)のScaffoldを対象Projectへコピーする。採用するReleaseのCRDD標準文書を`00_CRDD/`へコピーし、採用Versionを識別可能にする。
 3. 作業に必要な共通正本（`00_10`〜`00_19`）と対象工程の正本（`00_21`〜`00_29`）を読む。UIまたはBehavior Specificationへ進む前に、両者の[共有Contract](00_24_UI_Behavior_Specification.md)を読む。
 4. Project Rootの[`AGENTS.md`](template/AGENTS.md)または[`CLAUDE.md`](template/CLAUDE.md)をAIの入口とする。工程RuleをPromptへ複製せず、Active Scope、Target Revision、Canonical Context、Authority、対象工程、Stop条件を接続する。
-5. CRDD準拠を表明する前に、[Conformance Audit](00_52_Conformance_Audit.md)に従って、適用されるCore / Profile Criteriaを現行Evidenceで評価する。
+5. 工程移行前に[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行し、責務工程でFindingを修正して更新Revisionを再Reviewした後にHuman Approvalへ進む。
+6. CRDD準拠を表明する前に、[Conformance Audit](00_52_Conformance_Audit.md)に従って、適用されるCore / Profile Criteriaを現行Evidenceで評価する。
 
 ### 主要な運用境界
 

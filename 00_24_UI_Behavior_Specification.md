@@ -1,6 +1,6 @@
 # CRDD UI Contract and Behavior Specification
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-19
@@ -48,6 +48,7 @@ Pair Reviewは対象Scopeについて、次を受け取る。
 - Pairing Unit CandidateとなるFeature、Use Case、User Action、Stateful Interaction
 - 対象`UI-*`と`SPEC-*`、または各工程のDraft / Candidate
 - UI Coverage Summary、SPEC Coverage Summary、Unresolved Gap、人間Review Result
+- Source IA Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
 - 対象のUI Obligation、Behavior Obligation、例外候補
 
 片側が未着手でもReviewを開始し、他方に必要なObligationを発見してよい。ただし、未存在のContractをAIが推測で補完してPair成立扱いしない。
@@ -107,6 +108,8 @@ AIは対応候補、不一致、欠落、選択肢を提示できるが、Busine
 
 ## 2.6. Exit and Pair Gate
 
+Pair GateをHumanへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Pairing Unit / Revisionへ実行する。Pair FindingはUI、Behavior Specification、または責務を持つ上流工程で修正し、両側の更新Revisionを再Reviewして`Pass`を得る。片側のReviewだけでPair全体をPassにせず、Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+
 Pair Reviewは次を満たした場合に、対象Scopeについて完了できる。
 
 - 全Pairing UnitとRequired Pair Coverageを判定している
@@ -133,6 +136,7 @@ UIが存在しないBehavior、実Behaviorを持たないPrototype等は、5章�
 - FigmaやPrototypeだけによるBehavior確定、EARS文だけによるUI / UX確定
 - 片側の実装都合によるSource UX / IA Intentの無断変更
 - Pair Coverage、Unresolved Gap、人間Review、例外理由、Verification対応の欠落
+- PairのIndependent Review未実施、片側だけのReview、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をPair Passとみなしていないか
 
 ---
 
@@ -299,6 +303,7 @@ Unresolved Gap / Exception / Risk
 Decision / Rationale Reference
 Acceptance / Evidence Plan
 Human Review Result
+Phase Transition Review Result / Reviewed UI and SPEC Revisions / Finding Disposition / Review Exception
 ```
 
 Pair Review Resultは、`Consistent`、`Gap`、`Conflict`、`Not Applicable`等をProject内で表現してよいが、UI / SPECのArtifact Status、Phase Approval、Verification Resultと混同しない。

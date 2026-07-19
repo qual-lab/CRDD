@@ -1,6 +1,6 @@
 # CRDD Terminology
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-19
@@ -483,6 +483,8 @@ AuthorityはRole名だけでなく、対象Product、Property、Change、Release
 ## 3.6. Reviewer
 
 ContextまたはArtifactが、Source、Contract、Quality、Boundary、Evidenceを満たすか確認し、Findingと推奨判断を返す主体。Reviewerは重要なRiskを自動受容しない。
+
+Independent Reviewでは、作成者の結論や内部思考ではなく、対象Scope、Revision、Source、適用Contract、Criteria、EvidenceからFindingを再構成する。独立性は必ず別人であることだけを意味しないが、AIが作成・変換した成果物のPhase Transition Reviewは、別Review Subagent、作成時Contextを引き継がないClean Session / Agent、または人間Reviewerが行う。同じActive Context内のSelf Reviewで代替しない。ReviewerはReview Resultを返すが、Phase Gateを承認しない。
 
 ## 3.7. Approver
 

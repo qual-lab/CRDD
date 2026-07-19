@@ -1,6 +1,6 @@
 # CRDD Architecture
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
@@ -57,6 +57,7 @@ Architectureは、対象Scopeについて次を受け取る。
 - Technology、Platform、Provider、Resource等の既知制約
 - 外部DependencyとConsumer
 - Coverage Summary、Unresolved Gap、人間Review結果
+- UI / SPEC → Architecture Phase Transition Review Result、Reviewed UI / SPEC Revisions、または明示された`review_exception`
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。上位Contextが矛盾する場合はArchitectureで都合よく解釈せず、該当Authorityへ戻す。
 
@@ -104,6 +105,8 @@ AIは候補比較、Gap、Impact、設計案を提示できるが、上位Contra
 
 ## Exit and Handoff
 
+通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはArchitectureまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+
 通常のImplementation Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[`00_28_Implementation.md`](00_28_Implementation.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
 Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、Data / Interface / Security Contract、Compatibility / Migration、Capacity / Operation、Technical Configuration、Implementation Rule、禁止事項、既知制約、Acceptance Criteria、Verification Obligation、Coverage State、Unresolved Gapを渡す。
@@ -120,6 +123,7 @@ Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、D
 - Product SettingとTechnical Configurationを区別し、保存・配布・優先順位、Environment差分、Secret参照、Provider Parameter等を適用範囲で定義している
 - Implementation Rule、禁止事項、Verification Obligationが実装前に明確である
 - Decision / Rationale、Coverage Gap、部分Handoff承認が記録されている
+- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
 ## Phase Audit Checklist
 
@@ -132,6 +136,7 @@ Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、D
 - DiagramやCode ExampleだけでContract、Constraint、Rationaleがない状態
 - Test CaseをArchitectureが所有、またはTestability / Verification Obligationを未定義にしている状態
 - Coverage Summary、Unresolved Gap、人間Review、Implementation Ruleの欠落
+- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
 
@@ -343,6 +348,7 @@ Compatibility / Migration / Rollback
 Implementation / Coding Rule
 Verification Obligation
 Decision / Rationale / Evidence / Human Review
+Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
 ```
 
 Implementation HandoffはこのViewを縮小再掲して受信条件を減らさず、Canonical Architecture Artifactへの参照とCoverage State付きで渡す。

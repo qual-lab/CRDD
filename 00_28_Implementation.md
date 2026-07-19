@@ -1,6 +1,6 @@
 # CRDD Implementation
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
@@ -56,6 +56,7 @@ Implementationは対象Scopeについて次を受け取る。
 - Acceptance CriteriaとVerification Obligation
 - Environment、Dependency、Build / Deployment条件
 - Coverage Summary、Unresolved Gap、人間Review結果
+- Architecture → Implementation Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。Source間にConflictがある場合は、優先順位を推測して実装しない。
 
@@ -100,6 +101,8 @@ AIまたはImplementation担当は実装案、Rule案、Test、Deviation、Impac
 
 ## Exit and Handoff
 
+通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはImplementationまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+
 通常のVerification Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、Build / Static Checkと必要なDeveloper Testが成功し、[`00_29_Verification.md`](00_29_Verification.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
 Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitecture Rule、Developer Test / Check結果、実行 / 再現方法、Environment、Migration / Rollback、Deviation、Known Limitation、Implementation Evidence、Verification Obligation、Coverage State、Unresolved Gapを渡す。
@@ -116,6 +119,7 @@ Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitect
 - Compatibility、Migration、Rollback、Resource Constraintを適用範囲で実装・確認している
 - Target Revision、Environment、実行方法、Deviation、Known Limitationが特定されている
 - Scope変更、上位変更、Risk受容、部分Handoffを人間判断へ戻している
+- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
 ## Phase Audit Checklist
 
@@ -127,6 +131,7 @@ Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitect
 - 実装固有Ruleが正本化されず、会話またはCode内だけに存在する
 - Developer Test結果または実装者確認を独立Verificationとして扱っている
 - Coverage Summary、Deviation、Known Limitation、Implementation Evidenceの欠落
+- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
 
@@ -295,6 +300,7 @@ Deviation / Known Limitation / Actual Impact
 Implementation Evidence
 Verification Obligation
 Coverage State / Unresolved Gap / Human Review
+Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
 ```
 
 Verification HandoffはこのViewを縮小再掲して受信条件を減らさず、Canonical Artifactへの参照とCoverage State付きで渡す。

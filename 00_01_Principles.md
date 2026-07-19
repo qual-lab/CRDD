@@ -1,6 +1,6 @@
 # CRDD Principles
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-19
@@ -424,7 +424,11 @@ Linkが存在するだけではContinuityにならない。重要な下流成果
 
 工程完了やHandoffを、文書の存在、Skill Run終了、Artifactの高い完成度、Implementation完了、Test Passから自動推定しない。対象Scope / Revision、工程固有Criteria、Coverage、Gap、Assumption、Risk、受信側Entryを確認し、進む、条件付きで進む、戻す、Reopenする判断をHuman Authorityが行う。部分Handoffは、対象Scope、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件、人間承認を明示した場合に限る。
 
-工程固有のEntry、Exit、Phase Gate Criteria、Reopenは各工程文書、Skill RunのRouteとHandoffは[`00_11_Skill.md`](00_11_Skill.md)、変更のTriggerとExpected / Actual Impactは[`00_12_Change.md`](00_12_Change.md)を正本とする。
+通常の工程移行前には、生成・更新担当から分離したIndependent Reviewで、送信工程のExit / Gate、受信工程のEntry、対象Scope全体のCoverage、Trace、Unresolved Gapを対象Revisionに対して評価する。移行に影響するFindingは、原則として送信側または責務を持つ工程で修正し、修正後Revisionを再ReviewしてからHuman Gateへ進む。Audit Runの完了、Findingの記録、後工程へのOwner移管だけをReview Passとみなさない。
+
+Independent Reviewを省略できるのは、対象ScopeのHuman Authorityが明示的に要求し、理由、未Review範囲、Risk、影響、Owner、再Review条件を記録した場合に限る。部分HandoffはReview省略を意味せず、移行するScope自体はReview対象とする。Human Authorityが明示的に受容していない不足を、後工程の通常作業へ暗黙に持ち越さない。
+
+工程固有のEntry、Exit、Phase Gate Criteria、Reopenは各工程文書、Independent ReviewとReview Subagentは[`00_10_Agent.md`](00_10_Agent.md)、Skill RunのRouteとHandoffは[`00_11_Skill.md`](00_11_Skill.md)、変更のTriggerとExpected / Actual Impactは[`00_12_Change.md`](00_12_Change.md)を正本とする。
 
 ---
 

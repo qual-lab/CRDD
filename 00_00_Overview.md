@@ -1,6 +1,6 @@
 # CRDD Overview
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-19
@@ -214,7 +214,7 @@ Evidence・要望・法改正・不具合・運用結果・監査結果・Learni
 
 図の工程列は基本的な意味変換順を示す。すべてのChangeが全工程を通る意味ではなく、承認済みContextとImpactに応じて最も近い必要工程から開始またはReopenする。UIとBehavior Specificationは並行・反復し、Releaseは必要なProjectだけが使用する。
 
-これは固定WaterfallやProject全体の一括Statusを表さない。Feature、Use Case、Change、Release等のScopeごとに、反復、並行、上流Reopen、Technical Spike、部分Handoffを行ってよい。ただし、Artifactの一部完成やSkill Run終了から工程完了を推定してはならない。対象ScopeのRequired Responsibility Coverageを満たすか、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件を明示してHuman Authorityが部分Handoffを承認した場合にのみ次へ進む。
+これは固定WaterfallやProject全体の一括Statusを表さない。Feature、Use Case、Change、Release等のScopeごとに、反復、並行、上流Reopen、Technical Spike、部分Handoffを行ってよい。ただし、Artifactの一部完成やSkill Run終了から工程完了を推定してはならない。通常の工程移行前には、送信Exitと受信Entryを対象Revisionに対してIndependent Reviewし、Findingを責務工程で修正して更新Revisionを再Reviewする。対象ScopeのRequired Responsibility CoverageとReview Passを満たすか、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件、Review Exceptionを明示してHuman Authorityが例外的な移行を承認した場合にのみ次へ進む。
 
 ## 4.3. Cross-cutting Routes
 
@@ -227,6 +227,7 @@ Evidence・要望・法改正・不具合・運用結果・監査結果・Learni
 | 文書品質を監査する | [Document Audit](00_51_Document_Audit.md) |
 | CRDD準拠を評価する | [Conformance Audit](00_52_Conformance_Audit.md) |
 | 変更の工程横断影響を調べる | [Gap / Impact Audit](00_53_Gap_Impact_Audit.md) |
+| 工程移行前に独立Reviewし、Findingを修正・再確認する | [AgentのPhase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)と送信・受信工程のPhase Process Contract |
 | CRDD標準自体を変更する | [Maintenance](00_19_Maintenance.md) |
 
 ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。Verificationの後に常に`90_Release`へ進むのではなく、配布・有効化を行うProjectで必要な場合にだけ、Human Release Decisionを経て使用する。

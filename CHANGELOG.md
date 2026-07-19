@@ -9,6 +9,21 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### v0.4.2 — Phase Transition Review Enforcement (2026-07-19)
+
+Compared with v0.4.1, v0.4.2 changes the published CRDD model as follows:
+
+- Makes an independent Phase Transition Review a required input before every normal phase Handoff. The review evaluates a fixed scope and revision against the sending phase's Exit Contract, Phase Gate Criteria, and Phase Audit Checklist, together with the receiving phase's Entry Contract.
+- Requires AI-created or AI-transformed output to be reviewed through a separately executed Review Subagent, a clean-context session or Agent, or a Human reviewer. Review performed only within the same Active Context that created the output does not qualify as independent Phase Transition Review.
+- Adds a mandatory pre-Handoff remediation loop. Transition-affecting findings return to the responsible phase for correction; the resulting revision must be frozen and reviewed again until it passes. Audit completion, a Conditional result, assignment of an owner, or transfer of a finding does not constitute Pass.
+- Defines an explicit Human-directed `review_exception` as the only route for skipping the review. The exception records the unreviewed scope and revision, reason, known risk and impact, owner, required re-review condition, and expiry or reopening condition. Partial Handoff does not waive review for the scope being transferred.
+- Defines tool-neutral execution role adapters for Phase Transition Review, Document Audit, Conformance Audit, Gap / Impact Audit, and Verification Review: `agent.phase_transition.review`, `agent.document.audit`, `agent.conformance.audit`, `agent.gap_impact.audit`, and `agent.verification.review`. These identifiers are execution roles rather than Stable Context IDs, Artifact IDs, or Document Numbers, and audit roles remain read-only and non-authoritative.
+- Wires the review result, reviewed revision, finding disposition, and any approved exception into the Entry, Exit, Phase Gate, Phase Audit Checklist, and Handoff View of Discovery through Verification, including the UI / Behavior Specification Pair Contract.
+- Aligns Conformance requirements PL-06, AD-04, and AD-16 with independent transition review and remediation, and corrects the Conformance claim ranges so that the already-defined PL-10, PL-11, and AD-17 requirements are included.
+- Aligns the Overview, repository entry points, starter Agent instructions, and all canonical document headers with the v0.4.2 Release Baseline.
+
+Stable Context ID semantics do not change in v0.4.2: the standard set remains `REQ`, `UX`, `IA`, `UI`, and `SPEC`.
+
 ### v0.4.1 — Decision Support and Roadmap Activation (2026-07-19)
 
 Compared with v0.4.0, v0.4.1 changes the published CRDD model as follows:
@@ -114,6 +129,21 @@ First public release of CRDD, organized into four layers by numbering band.
 ---
 
 ## 日本語
+
+### v0.4.2 — 工程移行Reviewの実行保証（2026-07-19）
+
+v0.4.1と比較して、v0.4.2の公開CRDDモデルを次のように変更した。
+
+- 通常の工程Handoff前に、独立したPhase Transition Reviewを必須入力とした。固定した対象範囲とRevisionについて、移行元工程のExit Contract、Phase Gate Criteria、Phase Audit Checklist、および移行先工程のEntry Contractをまとめて検証する。
+- AIが作成または変換した成果物は、別実行のReview Subagent、Active Contextを引き継がないSessionまたはAgent、もしくはHuman reviewerがReviewすることを必須とした。成果物を作成した同一Active Context内だけの自己Reviewは、独立したPhase Transition Reviewとして扱わない。
+- Handoff前の是正ループを必須化した。工程移行に影響するFindingは責任工程へ戻して修正し、新しいRevisionを固定してPassまで再Reviewする。Auditの実行完了、Conditional判定、Ownerの割当、またはFindingの移管だけではPassにならない。
+- Reviewを省略できる唯一の経路として、Humanが明示する`review_exception`を定義した。未Reviewの範囲とRevision、理由、既知のRiskとImpact、Owner、必須の再Review条件、失効または再開条件を記録する。Partial Handoffであっても、移管対象範囲のReviewは免除されない。
+- Phase Transition Review、Document Audit、Conformance Audit、Gap / Impact Audit、Verification Reviewについて、ツール非依存の実行Role Adapter `agent.phase_transition.review`、`agent.document.audit`、`agent.conformance.audit`、`agent.gap_impact.audit`、`agent.verification.review`を定義した。これらはStable Context ID、Artifact ID、Document Numberではなく、Audit Roleはread-onlyかつ非権限主体である。
+- DiscoveryからVerificationまでの各工程とUI / Behavior Specification Pair Contractについて、Review結果、対象Revision、Findingの対処状況、および承認済み例外をEntry、Exit、Phase Gate、Phase Audit Checklist、Handoff Viewへ接続した。
+- Conformance要件PL-06、AD-04、AD-16を独立Reviewと是正ループに合わせ、既に定義済みだったPL-10、PL-11、AD-17が適合宣言の対象範囲から漏れていた不整合を修正した。
+- Overview、リポジトリ入口、starter Agent指示、および全正本文書のヘッダーをv0.4.2 Release Baselineへ統一した。
+
+v0.4.2でStable Context IDの意味は変更しない。標準セットは引き続き`REQ`、`UX`、`IA`、`UI`、`SPEC`である。
 
 ### v0.4.1 — 判断支援とRoadmapの実行化（2026-07-19）
 

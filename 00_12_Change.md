@@ -1,6 +1,6 @@
 # CRDD Change Trace
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-19

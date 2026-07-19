@@ -1,6 +1,6 @@
 # CRDD Verification
 
-Version: v0.4.1
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`
@@ -58,6 +58,7 @@ Verificationは対象Scopeについて次を受け取る。
 - Environment、Configuration、Variant、Fixture / Test Data
 - Migration / Rollback、Compatibility、Capacity、Security等のRisk条件
 - Known Limitation、Unresolved Gap、人間Review結果
+- Implementation → Verification Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
 
 Target、Expected Contract、Environment、Acceptanceのいずれかが特定できない場合、推測でPassせず`Blocked`または`Not Verified`として不足情報とOwnerを返す。
 
@@ -102,6 +103,8 @@ Verification実行者はStatus、Severity、Required Fix、Recommendationを提�
 
 ## Exit and Handoff
 
+Release、Close、Roadmap、Reopen等の次Route候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはVerificationまたは原因側の責務工程で修正し、必要な再Verificationを含む修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+
 Verification Resultには、Target Scope / Revision / Environment、適用Contract、方法、結果、Coverage State、Finding、Fresh Evidence、未検証範囲、Residual Risk、Recommendation、Learning / Feedback先を含める。
 
 FailureまたはGapは、Production ArtifactならImplementation、Contract不足なら該当する上流工程、Architecture不足ならArchitecture、Scope / Risk / Release判断ならHuman Authorityへ戻す。Verification内で原因側の正本を無言修正しない。
@@ -118,6 +121,7 @@ Verification完了はRelease承認と同一ではない。VerificationはRelease
 - Finding、未検証範囲、Residual Risk、Known Limitationを隠していない
 - Fresh EvidenceとReproduction条件がTarget Revisionへ対応している
 - Learning、原因工程、再検証条件、Recommendationが特定されている
+- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediation、必要な再Verification、再Reviewが完了している
 
 ## Phase Audit Checklist
 
@@ -130,6 +134,7 @@ Verification完了はRelease承認と同一ではない。VerificationはRelease
 - Failure、Compatibility、Migration、Capacity、Security、Accessibilityの適用判定漏れ
 - `Failed` / `Blocked` / `Not Verified`を`Verified`へ混在させている
 - Evidence、Finding、Residual Risk、Learning、再検証条件の欠落
+- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
 
@@ -355,6 +360,7 @@ Finding / Severity / Impact / Owner / Disposition
 Unverified Scope / Known Limitation / Residual Risk
 Recommendation / Human Decision Required
 Learning / Feedback Route / Reverification Condition
+Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
 ```
 
 ## 4.3. Feedback and Reverification

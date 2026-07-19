@@ -1,9 +1,9 @@
 # CRDD Release
 
-Version: v0.4.0
+Version: v0.4.2
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-17
+Last Updated: 2026-07-19
 Related:
 - [00_01_Principles.md](00_01_Principles.md)
 - [00_02_Terminology.md](00_02_Terminology.md)
