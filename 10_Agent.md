@@ -1,19 +1,19 @@
 # CRDD Agent
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_29_Verification.md](00_29_Verification.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
-- [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [29_Verification.md](29_Verification.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -33,7 +33,7 @@ Agent Contractの目的はAgentを細かく分業することではない。誰�
 
 Skillは達成する専門活動とLifecycleを定義する。Agentは、そのSkillまたは限定Taskを、明示されたAuthorityとContextで実行する主体である。Agent文書で工程固有のEntry、Coverage、Exit、Gateを再定義しない。
 
-AIまたはAgentという名称だけではAuthorityを得ない。HumanとAIの一般的なAuthority、Progressive Autonomy、Change Safetyは[Principles](00_01_Principles.md)を正本とする。
+AIまたはAgentという名称だけではAuthorityを得ない。HumanとAIの一般的なAuthority、Progressive Autonomy、Change Safetyは[Principles](01_Principles.md)を正本とする。
 
 ---
 
@@ -170,7 +170,7 @@ Agentが決められるのは、明示された専門責務と承認済み境界
 
 同じRoleでも、AuthorityはProject、Property、Artifact、Change、Gate、Revision、期間によって変わる。Validation ProcedureやReview Findingも、AcceptanceまたはRisk受容を変更する場合はMay Decideではない。
 
-AgentがHuman Reviewを求める問いは、`確認`、`Clarification`、`Review`等のLabelにかかわらず、回答によってCanonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractが変わる場合、[SkillのDecision Support Contract](00_11_Skill.md#53-decision-support-contract)に従う。専門用語の二択やRecommendationだけをHuman Authorityへ渡さない。
+AgentがHuman Reviewを求める問いは、`確認`、`Clarification`、`Review`等のLabelにかかわらず、回答によってCanonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractが変わる場合、[SkillのDecision Support Contract](11_Skill.md#53-decision-support-contract)に従う。専門用語の二択やRecommendationだけをHuman Authorityへ渡さない。
 
 ## 3.2. Action Boundary
 
@@ -219,16 +219,16 @@ Role固有Contractは、共通Agent Contractへ対象工程・活動の正本を
 
 | Role | Authoritative Process | Main Responsibility | Must Escalate |
 |---|---|---|---|
-| Discovery | [Discovery](00_21_Discovery.md) | Raw Voice、Observation、Evidence、Problem、Requirement | Origin、最終価値、未確認のWhy、Feature Scope確定 |
-| UX | [UX](00_22_UX.md) | Outcome、Actor、Journey、Service Blueprint、Experience Principle、Success Signal | Target User、Problem、Priority、Principle Trade-off |
-| IA | [IA](00_23_IA.md) | Object、Relation、Responsibility、Lifecycle、Grouping、Navigation | Business Concept、Scope、Authority、重大なMental Model Conflict |
-| UI | [UI](00_25_UI.md) | UI Contract、State、Action、Feedback、Recovery、Accessibility、Visual / Variant | Behavior、Permission、Data Lifecycle、UX Outcome、Feature Scope |
-| Behavior Specification | [Behavior Specification](00_26_Behavior_Specification.md) | Condition、Trigger、State、Behavior、Exception、Acceptance | Business Rule、UX / UI Trade-off、Authority、Scope、Risk |
-| Architecture | [Architecture](00_27_Architecture.md) | Boundary、Data、API、Failure、Security、Migration、Operation | 上流Contract不成立、不可逆Migration、重大Risk、Cost / Schedule Trade-off |
+| Discovery | [Discovery](21_Discovery.md) | Raw Voice、Observation、Evidence、Problem、Requirement | Origin、最終価値、未確認のWhy、Feature Scope確定 |
+| UX | [UX](22_UX.md) | Outcome、Actor、Journey、Service Blueprint、Experience Principle、Success Signal | Target User、Problem、Priority、Principle Trade-off |
+| IA | [IA](23_IA.md) | Object、Relation、Responsibility、Lifecycle、Grouping、Navigation | Business Concept、Scope、Authority、重大なMental Model Conflict |
+| UI | [UI](25_UI.md) | UI Contract、State、Action、Feedback、Recovery、Accessibility、Visual / Variant | Behavior、Permission、Data Lifecycle、UX Outcome、Feature Scope |
+| Behavior Specification | [Behavior Specification](26_Behavior_Specification.md) | Condition、Trigger、State、Behavior、Exception、Acceptance | Business Rule、UX / UI Trade-off、Authority、Scope、Risk |
+| Architecture | [Architecture](27_Architecture.md) | Boundary、Data、API、Failure、Security、Migration、Operation | 上流Contract不成立、不可逆Migration、重大Risk、Cost / Schedule Trade-off |
 | Planning | Agent / Skill Contract、Project固有Workflow | Task、Boundary、Dependency、Owner、Verification、Rollback | Scope削減、Release延期、Risk受容、Contract変更 |
-| Implementation | [Implementation](00_28_Implementation.md) | Code、Configuration、Migration、Developer Test、Deviation、Evidence | Requirement、Architecture Boundary、Dependency、Data、Security、Scope変更 |
+| Implementation | [Implementation](28_Implementation.md) | Code、Configuration、Migration、Developer Test、Deviation、Evidence | Requirement、Architecture Boundary、Dependency、Data、Security、Scope変更 |
 | Review | Review Packageと対象Contract | Finding、Severity、Evidence、Required Fix、Residual Risk、Recommendation | 価値判断、Risk受容、Scope / Contract変更、工程承認 |
-| Verification | [Verification](00_29_Verification.md) | Result、Fresh Evidence、Reproduction、Finding、Residual Risk | Acceptance変更、Production Fix、Risk受容、環境差異の無視、Test不能Contract |
+| Verification | [Verification](29_Verification.md) | Result、Fresh Evidence、Reproduction、Finding、Residual Risk | Acceptance変更、Production Fix、Risk受容、環境差異の無視、Test不能Contract |
 | Learning / Promotion | Provenance、Decision、Change、Validation | Learning、Source、Affected Context、Promotion Proposal、Confidence | Origin、Principle、Rule、Decision、Roadmap Priority変更 |
 
 一つのAgentが複数Roleを担当してよい。ただし、RoleごとのInput、判断、Output、Property Authority、Escalationを分離する。重要変更では作成とReviewを分ける。工程移行を伴わない低Riskな局所変更で同一Agentが兼務する場合もFresh Contextによる独立Review Passを設け、Phase Transition Reviewは7.1の別実行主体条件に従う。
@@ -271,13 +271,14 @@ Transformation Summary
 Trace and Provenance
 Open Questions, Assumptions, Conflicts, and Risks
 Completion Evidence
+Propagation Check Result, Affected Context, and Remaining Candidate
 Conditions or Resume Point
 Handoff Obligations
 ```
 
 Produced Contextは新規、更新、変更なし、廃止・置換候補を区別する。Transformation Summaryは受け取ったInput、保持したIntent、具体化・変更した内容、判断できなかった内容を示す。
 
-TraceとRelationは[Documentation](00_03_Documentation.md)を正本とし、Source、Revision、事実、解釈、仮説、AI推定、Confidenceを区別する。作業が停止、失敗、または一部完了した場合も、変更済みArtifact、未完了Action、未検証状態、残るSide Effect、Rollback要否を隠さず返す。Artifactが存在するだけでは完了根拠にならない。
+TraceとRelationは[Documentation](03_Documentation.md)を正本とし、Source、Revision、事実、解釈、仮説、AI推定、Confidenceを区別する。作業が停止、失敗、または一部完了した場合も、変更済みArtifact、未完了Action、未検証状態、残るSide Effect、Rollback要否を隠さず返す。Artifactが存在するだけでは完了根拠にならない。
 
 ```yaml
 agent_result:
@@ -320,7 +321,7 @@ agent_result:
     - Behavior Specification Skill
 ```
 
-Resultは内部思考や一時Memoの全保存を要求しない。共有・継承価値のあるResult、Evidence、Assumption、Confidence、Conflict、Risk、Open Questionを返す。
+Resultは内部思考や一時Memoの全保存を要求しない。共有・継承価値のあるResult、Evidence、Assumption、Confidence、Conflict、Risk、Open Questionを返す。Human Decision、Constraint、Learning、Evidence、Findingを新規確定または変更したResultでは、Triggered Propagation Checkの要否、対象Revision、結果参照、更新した上流・同層Context、未処理Candidateまたは`propagation_exception`も返す。
 
 ---
 
@@ -370,9 +371,9 @@ Subagentは指定Contextを読み、Proposal、Finding、Gap、Conflict、Risk�
 8. Human Decision
 ```
 
-解消できない場合は、一致点、対立点、各案の根拠とRisk、判断論点、Parent AgentのRecommendationを、[Decision Support Contract](00_11_Skill.md#53-decision-support-contract)に従ってHuman Reviewへ提示する。
+解消できない場合は、一致点、対立点、各案の根拠とRisk、判断論点、Parent AgentのRecommendationを、[Decision Support Contract](11_Skill.md#53-decision-support-contract)に従ってHuman Reviewへ提示する。
 
-ProposalからCanonical Contextへの一般的なPromotionは[Principles](00_01_Principles.md)を正本とする。Subagent Resultを直接`Approved`または`Decision`にせず、Parent Agentが統合対象、Trace、Conflict、Human Review Needを確認する。Canonical Artifactを直接編集できる範囲は同書のProgressive Autonomyと対象Agent Contractに従う。
+ProposalからCanonical Contextへの一般的なPromotionは[Principles](01_Principles.md)を正本とする。Subagent Resultを直接`Approved`または`Decision`にせず、Parent Agentが統合対象、Trace、Conflict、Human Review Needを確認する。Canonical Artifactを直接編集できる範囲は同書のProgressive Autonomyと対象Agent Contractに従う。
 
 複数Agentが同じCanonical Artifactを並行編集する場合は、統合責任者を一人に定め、統合前にBase Revisionと競合を再確認する。
 
@@ -393,7 +394,7 @@ Creator
 
 Reviewerは作成者の結論を前提にせず、対象ArtifactとContractから独立してFindingを再構成できなければならない。工程移行を伴わない低Riskな局所変更で同一AgentがReviewを兼ねる場合は、Fresh Context、独立したReview Pass、作成時の結論に依存しないCriteriaを使用する。Phase Transition Reviewは7.1の別実行主体条件に従い、高Risk変更では作成者だけのSelf Reviewを独立Reviewとして扱わない。
 
-Review AgentはFindingとRecommendationを返し、価値判断、Risk受容、Scope / Contract変更、Gate Approvalを自己確定しない。詳細な文書監査は[Document Audit](00_51_Document_Audit.md)、CRDD適用監査は[Conformance Audit](00_52_Conformance_Audit.md)、変更影響監査は[Gap / Impact Audit](00_53_Gap_Impact_Audit.md)を正本とする。
+Review AgentはFindingとRecommendationを返し、価値判断、Risk受容、Scope / Contract変更、Gate Approvalを自己確定しない。詳細な文書監査は[Document Audit](51_Document_Audit.md)、CRDD適用監査は[Conformance Audit](52_Conformance_Audit.md)、変更影響監査は[Gap / Impact Audit](53_Gap_Impact_Audit.md)を正本とする。
 
 ## 7.1. Review Agent and Audit Subagent Roles
 
@@ -406,10 +407,10 @@ Review AgentはFindingとRecommendationを返し、価値判断、Risk受容、S
 | Agent ID | Primary Authority | Primary Output |
 |---|---|---|
 | `agent.phase_transition.review` | 送信・受信工程のPhase Process Contract、本章 | Phase Transition Review Result |
-| `agent.document.audit` | [Document Audit](00_51_Document_Audit.md) | Audit Status、Finding、Remediation、Re-audit条件 |
-| `agent.conformance.audit` | [Conformance Audit](00_52_Conformance_Audit.md) | Criteria Result、Finding、Claim Eligibility |
-| `agent.gap_impact.audit` | [Gap / Impact Audit](00_53_Gap_Impact_Audit.md) | Relation横断Finding、Impact、Required Revalidation |
-| `agent.verification.review` | [Verification](00_29_Verification.md) | Verification Result、Fresh Evidence、Residual Risk |
+| `agent.document.audit` | [Document Audit](51_Document_Audit.md) | Audit Status、Finding、Remediation、Re-audit条件 |
+| `agent.conformance.audit` | [Conformance Audit](52_Conformance_Audit.md) | Criteria Result、Finding、Claim Eligibility |
+| `agent.gap_impact.audit` | [Gap / Impact Audit](53_Gap_Impact_Audit.md) | Relation横断Finding、Impact、Required Revalidation |
+| `agent.verification.review` | [Verification](29_Verification.md) | Verification Result、Fresh Evidence、Residual Risk |
 
 これらの`agent.*`は実行Role Adapterを選ぶための識別子であり、CRDD Stable Context ID、Artifact ID、Document Numberではない。中央Registry、専用Folder、恒久的なSubagent Instanceを要求しない。
 
@@ -443,11 +444,12 @@ Receiving Entry Contract
 Decision / Rationale、Evidence、Trace
 Unresolved Gap、Risk、Partial Scope
 Active Change Trace or applicable Baseline
+Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
 ```
 
-通常Handoffへ進めるのは、対象Revisionについて、Severityにかかわらず未解消の移行影響Finding、Critical / Major Finding、正本Conflict、Entry不足、未処置Coverage Gapがなく、必要なRemediation後の再Reviewが`Pass`を返した場合に限る。移行へ影響しないMinor / Infoは、対象Scope内で根拠付き`No Impact`、`Not Applicable`、または解消済みと判定する。Audit Runが正常に完了して`Fail`または`Conditional`を返した状態は、Review完了ではあってもTarget Passではない。FindingのOwnerを受信工程へ付け替えるだけで移行条件を満たしたとみなさない。
+通常Handoffへ進めるのは、対象Revisionについて、発火したTriggered Propagation Checkが完了し、Severityにかかわらず未解消の移行影響Finding、Critical / Major Finding、正本Conflict、Entry不足、未処置Coverage Gapがなく、必要なRemediation後の再Reviewが`Pass`を返した場合に限る。移行へ影響しないMinor / Infoは、対象Scope内で根拠付き`No Impact`、`Not Applicable`、または解消済みと判定する。Audit Runが正常に完了して`Fail`または`Conditional`を返した状態は、Review完了ではあってもTarget Passではない。FindingのOwnerを受信工程へ付け替えるだけで移行条件を満たしたとみなさない。
 
-Review Resultは最低限、Review Agent ID、Reviewer、送信 / 受信工程、Scope、Target Revision、使用Criteria、Audit Status、Finding、Remediation、Re-reviewしたRevision、未Review範囲、Recommendationを取得可能にする。Review ResultへCRDD Stable Context IDを発行せず、対象Artifact、Handoff View、Change Trace等からArtifact Referenceで接続する。
+Review Resultは最低限、Review Agent ID、Reviewer、送信 / 受信工程、Scope、Target Revision、使用Criteria、Triggered Propagation Check Result、Audit Status、Finding、Remediation、Re-reviewしたRevision、未Review範囲、Recommendationを取得可能にする。Review ResultへCRDD Stable Context IDを発行せず、対象Artifact、Handoff View、Change Trace等からArtifact Referenceで接続する。
 
 ## 7.3. Human-directed Review Exception
 
@@ -467,6 +469,22 @@ review_exception:
 ```
 
 例外はReview Pass、Finding解消、Risk受容、受信工程Entry充足を意味しない。AI、Parent Agent、Reviewerは利便性や日程だけを理由に例外を自己生成しない。Human Authorityも、自身がAuthorityを持たない法令、契約、専門承認、Security Boundaryを免除できない。部分Handoffでは移行対象Scopeを通常どおりReviewし、対象外Scopeを混入させない。
+
+## 7.4. Triggered Propagation Check
+
+Human Decision、Constraint、Learning、Evidence、Findingが確定または変更されたとき、Parent Agentは、それが既存の上流・同層Context、Open Question、Unresolved Gap、Assumption、Decision、Constraintへ答えるか、制約するか、矛盾するかを判定する。意味的影響の可能性がある場合は、工程移行を待たず、別実行の`agent.gap_impact.audit`へ[Mandatory Propagation Trigger and Closure](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を委譲する。
+
+```text
+Freeze the New Decision / Constraint / Learning Revision
+→ Independent Gap / Impact Audit in reverse and lateral directions
+→ Match upstream Open Questions, Gaps, Assumptions, Decisions, Constraints
+→ Remediate in each Property Authority
+→ If upstream Context changed, traverse forward from the updated Revision
+→ Re-audit the affected Scope
+→ Propagation Pass or Human-directed Propagation Exception
+```
+
+作成・変換担当は、Relation候補を狭めるInputを作成してよいが、自身の記憶だけで「上流へ影響なし」と確定しない。Audit SubagentはRead-onlyでFindingを返し、Parent Agentまたは責務工程が正本を修正する。Phase Transition Reviewは、対象Revisionまでに発火したTriggered Propagation Checkが完了し、必要なRemediationと再監査が済んでいることを入力として確認する。Audit Runの完了、FindingへのOwner付与、下流ArtifactへのDecision記録だけをPropagation Passとして扱わない。
 
 ---
 
@@ -492,4 +510,4 @@ Tool権限はAgent Contractより広くても、AgentのAuthorityを拡張しな
 
 実装済みAgent一覧、導入進捗、Provider固有設定は本書ではなくProject側のWorkflowで管理する。
 
-Agent ContractとResultの適用監査は[Conformance Audit](00_52_Conformance_Audit.md)のAgentic Delivery Profile Criteriaを正本とする。
+Agent ContractとResultの適用監査は[Conformance Audit](52_Conformance_Audit.md)のAgentic Delivery Profile Criteriaを正本とする。

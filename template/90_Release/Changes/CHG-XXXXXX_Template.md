@@ -5,7 +5,7 @@ Status: Open
 Owner: <Human or Team>
 Last Updated: yyyy-mm-dd
 
-Authority: `00_CRDD/00_12_Change.md`
+Authority: `00_CRDD/12_Change.md`
 
 > This is a non-normative Project Artifact template. Placement, ID allocation, lifecycle, closure, and authority follow the CRDD Change Trace authority above.
 
@@ -36,6 +36,15 @@ Authority: `00_CRDD/00_12_Change.md`
 
 ## Decision / Approval References
 
+
+## Triggered Propagation Check
+
+- Source revision:
+- Audit result reference:
+- Upstream / peer canonical updates:
+- Downstream impact re-scan:
+- Re-audit result:
+- Propagation exception, if applicable:
 
 ## Implementation References
 

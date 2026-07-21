@@ -1,23 +1,24 @@
 # CRDD Architecture
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_24_UI_Behavior_Specification.md](00_24_UI_Behavior_Specification.md)
-- [00_25_UI.md](00_25_UI.md)
-- [00_26_Behavior_Specification.md](00_26_Behavior_Specification.md)
-- [00_28_Implementation.md](00_28_Implementation.md)
-- [00_29_Verification.md](00_29_Verification.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
+- [25_UI.md](25_UI.md)
+- [26_Behavior_Specification.md](26_Behavior_Specification.md)
+- [28_Implementation.md](28_Implementation.md)
+- [29_Verification.md](29_Verification.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -50,14 +51,15 @@ Architecture Artifactは現在の制約に対する選択結果であり、永�
 Architectureは、対象Scopeについて次を受け取る。
 
 - Source REQ / UX / IAへのTrace
-- 承認済みUI Contract / Behavior Specificationと[Pair Review](00_24_UI_Behavior_Specification.md#26-exit-and-pair-gate)結果
-- Quality、Compatibility、Capacity、Security、Privacy、Compliance、Costの条件
+- 承認済みUI Contract / Behavior Specificationと[Pair Review](24_UI_Behavior_Specification.md#26-exit-and-pair-gate)結果
+- 適用するQuality Concern ProfileとSource / Version / Scope、Quality、Compatibility、Capacity、Security、Privacy、Compliance、Costの条件
 - Acceptance CriteriaとVerification Obligation
 - 既存System Context、Data、Interface、Operation、Deployment
 - Technology、Platform、Provider、Resource等の既知制約
 - 外部DependencyとConsumer
 - Coverage Summary、Unresolved Gap、人間Review結果
 - UI / SPEC → Architecture Phase Transition Review Result、Reviewed UI / SPEC Revisions、または明示された`review_exception`
+- UI / SPEC / Pairで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。上位Contextが矛盾する場合はArchitectureで都合よく解釈せず、該当Authorityへ戻す。
 
@@ -103,11 +105,13 @@ Architectureは観測可能なBehaviorを新しく決めない。技術的制約
 
 AIは候補比較、Gap、Impact、設計案を提示できるが、上位Contract変更、Risk Acceptance、Authority、重大Trade-offを自己承認しない。
 
+ArchitectureのHuman Decision、Constraint、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を実行する。Discovery、UX、IA、UI、SPECのOpen Question、Unresolved Gap、Assumption、Decision、Constraintへ回答または影響するCandidateを探索し、各正本へ反映する。上流更新が生じた場合は、更新後RevisionからArchitecture以降へのImpactを再探索・再監査するまで通常完了としない。
+
 ## Exit and Handoff
 
-通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはArchitectureまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはArchitectureまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
-通常のImplementation Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[`00_28_Implementation.md`](00_28_Implementation.md#phase-entry-contract)の受信条件を満たす場合に限る。
+通常のImplementation Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[`28_Implementation.md`](28_Implementation.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
 Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、Data / Interface / Security Contract、Compatibility / Migration、Capacity / Operation、Technical Configuration、Implementation Rule、禁止事項、既知制約、Acceptance Criteria、Verification Obligation、Coverage State、Unresolved Gapを渡す。
 
@@ -119,10 +123,12 @@ Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、D
 - Boundary、Authority、Data Ownership、Source of Truth、Interfaceが判定済みである
 - State / Sequence、Failure、Concurrency、Recoveryが説明・検証可能である
 - Security / Privacy / Compliance、Quality、Operation、Observabilityを適用範囲で定義している
+- 適用するQuality ConcernをArchitecture上のQuality Attribute、成立方式、Verification Obligationへ処置している
 - Compatibility / Migration、Capacity / Infrastructure、Dependencyを適用範囲で定義している
 - Product SettingとTechnical Configurationを区別し、保存・配布・優先順位、Environment差分、Secret参照、Provider Parameter等を適用範囲で定義している
 - Implementation Rule、禁止事項、Verification Obligationが実装前に明確である
 - Decision / Rationale、Coverage Gap、部分Handoff承認が記録されている
+- 発火したTriggered Propagation Checkが`Pass`であり、必要な上流・同層正本更新と下流再探索・再監査が完了している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
 ## Phase Audit Checklist
@@ -136,6 +142,7 @@ Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、D
 - DiagramやCode ExampleだけでContract、Constraint、Rationaleがない状態
 - Test CaseをArchitectureが所有、またはTestability / Verification Obligationを未定義にしている状態
 - Coverage Summary、Unresolved Gap、人間Review、Implementation Ruleの欠落
+- Architecture Decision、Constraint、Learning、Evidence、Findingに対応する上流Open Question / Gap探索、正本反映、下流再探索、再監査の欠落
 - Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
@@ -266,7 +273,7 @@ ArchitectureへCRDD標準Stable Context IDを新規発行しない。Source `REQ
 
 ## 3.1. Runtime Authority
 
-`skill.architecture.integrate`は、本書のPhase Process Contractを[`00_11_Skill.md`](00_11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するArchitecture固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
+`skill.architecture.integrate`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するArchitecture固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
 
 ## 3.2. Architecture-specific Progression
 
@@ -311,7 +318,7 @@ ArchitectureへCRDD標準Stable Context IDを新規発行しない。Source `REQ
 | Risk、Cost、Compatibility破壊の受容が必要 | Human Authority |
 | Architectureは成立するが実装方法の選択が主題 | Implementation |
 
-Subagentを使う場合は[`00_10_Agent.md`](00_10_Agent.md)に従い、Data、Security、Capacity、Migration、Provider比較等の限定Scopeを委譲できる。Architecture全体の整合、Decision、Coverage、HandoffはParent Agentが統合し、人間確認を得る。
+Subagentを使う場合は[`10_Agent.md`](10_Agent.md)に従い、Data、Security、Capacity、Migration、Provider比較等の限定Scopeを委譲できる。Architecture全体の整合、Decision、Coverage、HandoffはParent Agentが統合し、人間確認を得る。
 
 ---
 
@@ -348,6 +355,7 @@ Compatibility / Migration / Rollback
 Implementation / Coding Rule
 Verification Obligation
 Decision / Rationale / Evidence / Human Review
+Triggered Propagation Check Result / Source Revision / Upstream Updates / Downstream Re-scan / Propagation Exception
 Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
 ```
 

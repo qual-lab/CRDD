@@ -1,17 +1,18 @@
 # CRDD Principles
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_00_Overview.md](00_00_Overview.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [00_Overview.md](00_Overview.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -28,7 +29,7 @@ Related:
 | 5. Human and AI Authority | 人間・AI・専門家の一般的な判断境界と変更権限 |
 | 6. End-to-End Context Continuity | Contextの意味変化、Product工程、工程別責務を双方向に接続する原則 |
 
-Canonical TermとContext Type / Statusは[`00_02_Terminology.md`](00_02_Terminology.md)、Artifact、Evidence、Decision / Rationale、Stable Context ID、Traceの表現・保存は[`00_03_Documentation.md`](00_03_Documentation.md)を正本とする。本書はそれらを再定義しない。
+Canonical TermとContext Type / Statusは[`02_Terminology.md`](02_Terminology.md)、Artifact、Evidence、Decision / Rationale、Stable Context ID、Traceの表現・保存は[`03_Documentation.md`](03_Documentation.md)を正本とする。本書はそれらを再定義しない。
 
 ---
 
@@ -97,7 +98,7 @@ Phase名の利用
 
 Core Criteriaが未評価または未達の場合は、`CRDD Conformant`ではなく`CRDD-Inspired`として扱う。
 
-詳細なCriteria、Required Evidence、Evaluation、Conformance Claimは[`00_52_Conformance_Audit.md`](00_52_Conformance_Audit.md)を正本とする。
+詳細なCriteria、Required Evidence、Evaluation、Conformance Claimは[`52_Conformance_Audit.md`](52_Conformance_Audit.md)を正本とする。
 
 ---
 
@@ -244,7 +245,7 @@ AIの機能的なRoleは固定Agent構成を要求しない。必要に応じて
 | Developer | Code、Test、Refactor、Impact説明を行う | 上流Contractを無言変更しない |
 | Reviewer | 不一致、Test不足、破壊的変更、更新漏れをFindingとして返す | Risk受容と最終承認を行わない |
 
-RoleのInput、Output、Stop、Escalation、統合は[`00_10_Agent.md`](00_10_Agent.md)を正本とする。
+RoleのInput、Output、Stop、Escalation、統合は[`10_Agent.md`](10_Agent.md)を正本とする。
 
 ### 5.2.2. AI Must Not Decide
 
@@ -276,7 +277,7 @@ AI / Expert Proposal
 
 AIの生成物は生成時点では正本ではない。Human Reviewで既存Context、Evidence、Uncertainty、影響、Authorityを確認し、採用した結果を責務を持つCanonical Artifactへ反映する。
 
-非自明な変更では、Authority、対象Scope / Revision、関連Contextを確認し、影響、Risk、Verification、Human Decision NeedをReview可能な形で示す。実行Contractは[Agent](00_10_Agent.md)と[Skill](00_11_Skill.md)、変更のImpact Traceは[Change](00_12_Change.md)を正本とする。
+非自明な変更では、Authority、対象Scope / Revision、関連Contextを確認し、影響、Risk、Verification、Human Decision NeedをReview可能な形で示す。実行Contractは[Agent](10_Agent.md)と[Skill](11_Skill.md)、変更のImpact Traceは[Change](12_Change.md)を正本とする。
 
 ## 5.4. Conflicting Evidence
 
@@ -320,7 +321,7 @@ Folder番号だけでLevelを決めない。Property Authority、Status、Revisi
 
 Authorityまたは対象Revisionが不明、Approved Contextが競合、Scope外または不可逆な変更が必要、Security / Privacy / Compatibility / Data Meaningへ影響する場合、AIは推測で進めず停止または限定し、必要なHuman Authorityへ戻す。
 
-AIは、古いContext、Decision / Rationale、Evidence、Stable IDを無言で削除・再利用・上書きしない。Status、Supersedes、History、Revisionは[Documentation](00_03_Documentation.md)、変更のTrigger、Impact、正本・実装・検証・Release間のTraceは[Change](00_12_Change.md)を正本とする。
+AIは、古いContext、Decision / Rationale、Evidence、Stable IDを無言で削除・再利用・上書きしない。Status、Supersedes、History、Revisionは[Documentation](03_Documentation.md)、変更のTrigger、Impact、正本・実装・検証・Release間のTraceは[Change](12_Change.md)を正本とする。
 
 ---
 
@@ -369,7 +370,7 @@ AI InferenceをHuman-confirmed Factとして保存しない
 
 作って終わりにしない。実装・検証・運用・利用から得た制約、失敗、結果、仮説の支持・反証を、責務を持つCanonical Contextへ戻し、必要に応じてChange TraceまたはRoadmapへ接続する。
 
-Context TypeとRelationの定義は[`00_02_Terminology.md`](00_02_Terminology.md)、ProvenanceとTraceは[`00_03_Documentation.md`](00_03_Documentation.md)を正本とする。
+Context TypeとRelationの定義は[`02_Terminology.md`](02_Terminology.md)、ProvenanceとTraceは[`03_Documentation.md`](03_Documentation.md)を正本とする。
 
 ## 6.1. Transformation Layers and Responsibility
 
@@ -390,7 +391,7 @@ Context TypeとRelationの定義は[`00_02_Terminology.md`](00_02_Terminology.md
 
 各工程のEntry、Transformation、Required Responsibility Coverage、Exit、Gate、Auditは各工程文書の`Phase Process Contract`を正本とする。
 
-UIとBehavior Specificationの相互Contractは[`00_24_UI_Behavior_Specification.md`](00_24_UI_Behavior_Specification.md)を正本とする。
+UIとBehavior Specificationの相互Contractは[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)を正本とする。
 
 ## 6.2. Transformation Invariants
 
@@ -420,7 +421,11 @@ Hypothesis、Assumption、Open Questionを確定事項へ無言昇格しない
 
 技術、工数、環境制約でIntentを満たせない場合、満たせないIntent、Constraint、Alternative、Impact、Recommendationを示し、Human Decisionへ戻す。
 
-Linkが存在するだけではContinuityにならない。重要な下流成果物から上流のIntentとDecisionへ遡れ、上流変更から影響する下流Artifactを確認できなければならない。Stable Context ID、Relation、Traceの表現は[`00_03_Documentation.md`](00_03_Documentation.md)を正本とする。
+Linkが存在するだけではContinuityにならない。重要な下流成果物から上流のIntentとDecisionへ遡れ、上流変更から影響する下流Artifactを確認できなければならない。Stable Context ID、Relation、Traceの表現は[`03_Documentation.md`](03_Documentation.md)を正本とする。
+
+Human Decision、Constraint、Learning、Evidence、Findingが新たに確定または変更され、それが既存の上流・同層Contextへ答え、制約し、矛盾し、または再評価を要求し得る場合、その時点で[Gap / Impact Audit](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)によるTriggered Propagation Checkを行う。下流Decisionを記録しただけでは伝播完了にならない。関連する上流のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索し、該当正本を更新するか、候補ごとに根拠付き`No Impact`または既存ContractでのCoverageを示す。上流更新が生じた場合は、そのRevisionから影響する下流Contextを再探索する。
+
+Triggered Propagation CheckのFindingは責務を持つ工程で修正し、更新後Revisionを再監査する。必須更新が正本へ反映されず、未処理Candidateが残る状態を工程完了、通常Handoff、Change Closure、Release Readinessとして扱わない。省略または未完了のまま進める場合は、対象Human Authorityが未伝播範囲、Risk、Owner、再監査条件を明示した`propagation_exception`として通常Passと区別する。
 
 工程完了やHandoffを、文書の存在、Skill Run終了、Artifactの高い完成度、Implementation完了、Test Passから自動推定しない。対象Scope / Revision、工程固有Criteria、Coverage、Gap、Assumption、Risk、受信側Entryを確認し、進む、条件付きで進む、戻す、Reopenする判断をHuman Authorityが行う。部分Handoffは、対象Scope、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件、人間承認を明示した場合に限る。
 
@@ -428,7 +433,7 @@ Linkが存在するだけではContinuityにならない。重要な下流成果
 
 Independent Reviewを省略できるのは、対象ScopeのHuman Authorityが明示的に要求し、理由、未Review範囲、Risk、影響、Owner、再Review条件を記録した場合に限る。部分HandoffはReview省略を意味せず、移行するScope自体はReview対象とする。Human Authorityが明示的に受容していない不足を、後工程の通常作業へ暗黙に持ち越さない。
 
-工程固有のEntry、Exit、Phase Gate Criteria、Reopenは各工程文書、Independent ReviewとReview Subagentは[`00_10_Agent.md`](00_10_Agent.md)、Skill RunのRouteとHandoffは[`00_11_Skill.md`](00_11_Skill.md)、変更のTriggerとExpected / Actual Impactは[`00_12_Change.md`](00_12_Change.md)を正本とする。
+工程固有のEntry、Exit、Phase Gate Criteria、Reopenは各工程文書、Independent ReviewとReview Subagentは[`10_Agent.md`](10_Agent.md)、Skill RunのRouteとHandoffは[`11_Skill.md`](11_Skill.md)、変更のTriggerとExpected / Actual Impactは[`12_Change.md`](12_Change.md)、Triggered Propagation Checkは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を正本とする。
 
 ---
 

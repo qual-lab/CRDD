@@ -1,24 +1,24 @@
 # CRDD Implementation
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_25_UI.md](00_25_UI.md)
-- [00_26_Behavior_Specification.md](00_26_Behavior_Specification.md)
-- [00_27_Architecture.md](00_27_Architecture.md)
-- [00_29_Verification.md](00_29_Verification.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
-- [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [25_UI.md](25_UI.md)
+- [26_Behavior_Specification.md](26_Behavior_Specification.md)
+- [27_Architecture.md](27_Architecture.md)
+- [29_Verification.md](29_Verification.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -57,6 +57,7 @@ Implementationは対象Scopeについて次を受け取る。
 - Environment、Dependency、Build / Deployment条件
 - Coverage Summary、Unresolved Gap、人間Review結果
 - Architecture → Implementation Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
+- Architectureで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。Source間にConflictがある場合は、優先順位を推測して実装しない。
 
@@ -99,11 +100,13 @@ ScopeにはCodeだけでなく、Configuration、Data、Migration、Generated Ar
 
 AIまたはImplementation担当は実装案、Rule案、Test、Deviation、Impactを提示できるが、これらを自己承認しない。
 
+Human Decision、Constraint、Deviation、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
+
 ## Exit and Handoff
 
-通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはImplementationまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはImplementationまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
-通常のVerification Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、Build / Static Checkと必要なDeveloper Testが成功し、[`00_29_Verification.md`](00_29_Verification.md#phase-entry-contract)の受信条件を満たす場合に限る。
+通常のVerification Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、Build / Static Checkと必要なDeveloper Testが成功し、[`29_Verification.md`](29_Verification.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
 Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitecture Rule、Developer Test / Check結果、実行 / 再現方法、Environment、Migration / Rollback、Deviation、Known Limitation、Implementation Evidence、Verification Obligation、Coverage State、Unresolved Gapを渡す。
 
@@ -119,6 +122,7 @@ Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitect
 - Compatibility、Migration、Rollback、Resource Constraintを適用範囲で実装・確認している
 - Target Revision、Environment、実行方法、Deviation、Known Limitationが特定されている
 - Scope変更、上位変更、Risk受容、部分Handoffを人間判断へ戻している
+- 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
 ## Phase Audit Checklist
@@ -131,6 +135,7 @@ Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitect
 - 実装固有Ruleが正本化されず、会話またはCode内だけに存在する
 - Developer Test結果または実装者確認を独立Verificationとして扱っている
 - Coverage Summary、Deviation、Known Limitation、Implementation Evidenceの欠落
+- 確定・変更したDecision、Constraint、Deviation、Learning、Evidence、Findingに対する上流・同層探索、正本反映、再監査が欠落していないか
 - Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
@@ -231,7 +236,7 @@ Architectureや上位Contractを変えるDecisionをImplementation Noteだけで
 
 ## 3.1. Runtime Authority
 
-`skill.implementation.realize`は、本書のPhase Process Contractを[`00_11_Skill.md`](00_11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するImplementation固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
+`skill.implementation.realize`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するImplementation固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
 
 ## 3.2. Implementation-specific Progression
 
@@ -265,7 +270,7 @@ Architectureや上位Contractを変えるDecisionをImplementation Noteだけで
 
 ## 3.4. Agent and Subagent Use
 
-AgentまたはSubagentへ委譲する場合は[`00_10_Agent.md`](00_10_Agent.md)に従い、Module、Migration、Developer Test、Impact調査等の限定Scopeを渡す。
+AgentまたはSubagentへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従い、Module、Migration、Developer Test、Impact調査等の限定Scopeを渡す。
 
 Parent Agentは変更Scope、禁止変更、Target Revision、Expected Output、Verification Obligationを明示し、結果をCanonical Contextへ統合して該当Change Traceへ接続する。Subagent Resultをそのまま`Verified`またはHuman Decisionにしない。
 
@@ -300,6 +305,7 @@ Deviation / Known Limitation / Actual Impact
 Implementation Evidence
 Verification Obligation
 Coverage State / Unresolved Gap / Human Review
+Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
 Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
 ```
 

@@ -1,17 +1,18 @@
 # CRDD Release
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_14_Workflow.md](00_14_Workflow.md)
-- [00_19_Maintenance.md](00_19_Maintenance.md)
-- [00_29_Verification.md](00_29_Verification.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [12_Change.md](12_Change.md)
+- [14_Workflow.md](14_Workflow.md)
+- [19_Maintenance.md](19_Maintenance.md)
+- [29_Verification.md](29_Verification.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -21,7 +22,7 @@ Related:
 
 ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。VerificationがRelease Readinessを評価し、Project固有のHuman Release Authorityが配布、有効化、延期、取消を判断する。本書はCI/CD、Branch戦略、Deploy手順、承認組織を一律に規定しない。
 
-CRDD自体のVersion、CHANGELOG、Tag、Migrationは[Maintenance](00_19_Maintenance.md)を正本とする。
+CRDD自体のVersion、CHANGELOG、Tag、Migrationは[Maintenance](19_Maintenance.md)を正本とする。
 
 ---
 
@@ -49,11 +50,11 @@ Project-specific Release Authority
 
 | Concern | Authority |
 |---|---|
-| Verification ResultとRelease Readiness Recommendation | [Verification](00_29_Verification.md) |
+| Verification ResultとRelease Readiness Recommendation | [Verification](29_Verification.md) |
 | 配布・有効化・延期・取消・Risk受容 | Project固有のHuman Release Authority |
-| Change単位の影響Trace | [Change Trace](00_12_Change.md) |
+| Change単位の影響Trace | [Change Trace](12_Change.md) |
 | Release Record、CHANGELOG、配布物参照 | 本書 |
-| 実際のBuild / Deploy / Rollback手順 | Project固有の[Workflow](00_14_Workflow.md)、CI/CD、Operations |
+| 実際のBuild / Deploy / Rollback手順 | Project固有の[Workflow](14_Workflow.md)、CI/CD、Operations |
 
 Verification完了はRelease承認を意味しない。Release Authorityは対象Version、Environment、対象CHG、残Risk、Rollback条件を識別して判断する。
 
@@ -73,7 +74,7 @@ Verification完了はRelease承認を意味しない。Release Authorityは対�
 └─ CHANGELOG.md
 ```
 
-- `Changes/`はChange Traceを置く。詳細は[Change Trace](00_12_Change.md)に従う。
+- `Changes/`はChange Traceを置く。詳細は[Change Trace](12_Change.md)に従う。
 - `Releases/`は複数CHG、配布物、判断、結果を一つのReleaseとして束ねる必要がある場合に使用する。
 - `Evidence/`は複数ChangeまたはRelease全体で使用するRelease Evidenceを置く。
 - `CHANGELOG.md`は利用者へ公開するRelease単位の変更要約を置く場合に使用する。
@@ -94,8 +95,10 @@ Included CHG References
 Excluded / Deferred CHG References
 Build / Distribution Artifact Reference
 Release Readiness Result
+Triggered Propagation Check Result / Propagation Exception
 Human Release Decision and Conditions
 Known Limitation / Residual Risk
+Human-centered Quality Finding / Exception Reference
 Migration / Compatibility / Rollback Reference
 Release Verification Result
 Released At
@@ -124,7 +127,9 @@ Release判断前に、対象Scopeに応じて次を確認する。
 Included CHGが`Ready for Release Handoff`または明示的にCondition付きである
 Build / Distribution Artifactを一意に識別できる
 Required VerificationとRelease Verificationが完了している
+Included Scopeで発火したTriggered Propagation Checkが完了し、必要な正本更新と再監査を辿れる。未完了の場合はHuman-directed `propagation_exception`として通常Readinessと区別されている
 Security、Privacy、Governance、License、Costの未解決事項を把握している
+適用するNormativeなHuman-centered Quality Criteriaが`Verified`または根拠付き`Not Applicable`である。未解決Findingまたは未評価Scopeを含む場合は、Human Authorityが対象Revision、理由、Mitigation、期限・再確認条件、Residual Riskを明示した例外として通常Readinessと区別している
 Compatibility、Migration、Rollback、Operational Readinessを確認している
 Known LimitationとResidual Riskが利用者または運用者へ伝達される
 CHANGELOGまたは同等のRelease Communicationが確認されている

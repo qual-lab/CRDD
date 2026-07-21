@@ -1,6 +1,6 @@
 # Product Roadmap
 
-Authority: `00_CRDD/00_21_Discovery.md` Section 6, `01_Discovery` and `99_Roadmap`
+Authority: `00_CRDD/21_Discovery.md` Section 6, `01_Discovery` and `99_Roadmap`
 
 本書はProject固有のRoadmap Main Viewであり、CRDD規範の正本ではない。Item Contract、Authority、Lifecycle、Main / Detail、着手、完了、Cleanupは上記正本に従う。
 

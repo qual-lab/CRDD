@@ -1,12 +1,12 @@
 # CLAUDE.md
 
 @AGENTS.md
-@00_CRDD/00_00_Overview.md
-@00_CRDD/00_01_Principles.md
-@00_CRDD/00_02_Terminology.md
-@00_CRDD/00_03_Documentation.md
-@00_CRDD/00_10_Agent.md
-@00_CRDD/00_11_Skill.md
+@00_CRDD/00_Overview.md
+@00_CRDD/01_Principles.md
+@00_CRDD/02_Terminology.md
+@00_CRDD/03_Documentation.md
+@00_CRDD/10_Agent.md
+@00_CRDD/11_Skill.md
 
 ## Claude Code Specific Rules
 
@@ -16,4 +16,5 @@
 - `00_CRDD`、Authority、Stable Context ID体系、Approved / Stable Canonical Artifact、Decision / Rationale、Acceptanceを変更する場合は、ImpactとPlanを示してユーザーの指示またはHuman Approvalを確認する。
 - Subagentを利用する場合も、Parent Agentが限定Scope、統合、Conflict解消、Canonical Context更新、Human Review提示に責任を持つ。
 - 工程移行前は原則として別Subagentに`agent.phase_transition.review`を実行させ、Findingの修正と修正後Revisionの再Reviewを完了してからHandoffする。Review省略は対象Human Authorityが明示した`review_exception`がある場合だけ認める。
+- Human Decision、Constraint、Learning、Evidence、Findingを確定・変更した時点でTriggered Propagation Checkの要否を必ず評価し、意味的影響候補がある場合は`agent.gap_impact.audit`を別Subagentへ委譲する。上流・同層正本への反映と下流Impactの再探索・再監査を完了し、未完了の伝播はHuman Authorityが明示した`propagation_exception`なしに通常完了としない。
 - 文書変更では必要に応じてDocument Audit、工程横断変更ではGap / Impact Audit、準拠表明ではConformance Audit、Product成立確認ではVerificationを使い分ける。

@@ -1,18 +1,18 @@
 # CRDD Change Trace
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_13_Release.md](00_13_Release.md)
-- [00_21_Discovery.md](00_21_Discovery.md)
-- [00_28_Implementation.md](00_28_Implementation.md)
-- [00_29_Verification.md](00_29_Verification.md)
-- [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [13_Release.md](13_Release.md)
+- [21_Discovery.md](21_Discovery.md)
+- [28_Implementation.md](28_Implementation.md)
+- [29_Verification.md](29_Verification.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -34,13 +34,13 @@ Change Traceは工程、Task管理、実装計画、Commit一覧、Pull Request�
 | Concern | Authority |
 |---|---|
 | ChangeのTrigger、Intent、Impact、関連Artifact、結果 | 本書 |
-| Artifact、Evidence、Decision / Rationale、Trace | [Documentation](00_03_Documentation.md) |
-| 作業手順 | [Workflow](00_14_Workflow.md) |
-| 工程固有のEntry / Exit / Gate | 各`00_21`〜`00_29`工程文書 |
-| Gap / Impact評価 | [Gap / Impact Audit](00_53_Gap_Impact_Audit.md) |
-| Implementation | [Implementation](00_28_Implementation.md) |
-| Verification | [Verification](00_29_Verification.md) |
-| Release判断、記録、CHANGELOG | [Release](00_13_Release.md) |
+| Artifact、Evidence、Decision / Rationale、Trace | [Documentation](03_Documentation.md) |
+| 作業手順 | [Workflow](14_Workflow.md) |
+| 工程固有のEntry / Exit / Gate | 各`21`〜`29`工程文書 |
+| Gap / Impact評価 | [Gap / Impact Audit](53_Gap_Impact_Audit.md) |
+| Implementation | [Implementation](28_Implementation.md) |
+| Verification | [Verification](29_Verification.md) |
+| Release判断、記録、CHANGELOG | [Release](13_Release.md) |
 
 ---
 
@@ -81,7 +81,7 @@ Roadmap項目の着手決定
 緊急対応またはReleased ProductへのCorrection
 ```
 
-曖昧な要求はChange Traceへ直接入れず、Discoveryで意味、Requirement、採否、優先度を整理する。明確なDefectは不要なRequirementを新設せず、対象Contractへの逸脱としてChange Traceへ進める。延期する採用事項は`99_Roadmap`へ置き、着手時にChange Traceを作成する。Roadmap起点のCHGは、Roadmap Reference、Source Contextの現行Revision、再評価したExpected Impact、Human Start Decisionを保持し、Roadmap ItemへCHG Referenceと`Started` Statusを戻す。CHGから未実施事項をRoadmapへ送る場合も、[Roadmap Item Contract](00_21_Discovery.md#63-roadmap-item-contract)に従って実際に登録し、RecommendationだけでChangeを閉じない。
+曖昧な要求はChange Traceへ直接入れず、Discoveryで意味、Requirement、採否、優先度を整理する。明確なDefectは不要なRequirementを新設せず、対象Contractへの逸脱としてChange Traceへ進める。延期する採用事項は`99_Roadmap`へ置き、着手時にChange Traceを作成する。Roadmap起点のCHGは、Roadmap Reference、Source Contextの現行Revision、再評価したExpected Impact、Human Start Decisionを保持し、Roadmap ItemへCHG Referenceと`Started` Statusを戻す。CHGから未実施事項をRoadmapへ送る場合も、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従って実際に登録し、RecommendationだけでChangeを閉じない。
 
 Typo、意味を変えないFormat、再生成可能な出力など、Release内容やCanonical Contextへ影響しない変更はCHGを省略できる。ただし、Commit数の少なさだけで省略を判断しない。
 
@@ -126,6 +126,7 @@ Expected Impact Scope
 Out of Scope / Must Not Change
 Affected Context and Artifact References
 Applicable Decision / Approval Reference
+Triggered Propagation Check Result / Propagation Exception
 Implementation Reference
 Verification Obligation / Result Reference
 Actual Impact and Deviation
@@ -185,6 +186,7 @@ CHANGELOGはGit履歴から生成または補助生成してよい。ただしGi
 ```text
 Actual Impactが記録されている
 確定内容がCanonical Artifactへ反映されている
+Human Decision、Constraint、Learning、Evidence、Findingから発火したTriggered Propagation Checkが完了し、必要な上流・同層正本更新と再監査を辿れる
 ImplementationとVerificationの対象Revisionが一致する
 Known Limitation / Residual RiskとOwnerを辿れる
 未実施事項が別CHGまたはRoadmapへ接続されている

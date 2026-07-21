@@ -1,20 +1,21 @@
 # CRDD Discovery
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_22_UX.md](00_22_UX.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [22_UX.md](22_UX.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -48,22 +49,16 @@ Discoveryは、Idea、Raw Voice、観測、Incident、法令変更、明確な�
 入力を次のContextへ分離・構造化し、人間確認を経て必要な`REQ-*`を確立する。
 
 ```text
-Origin / Trigger
-Raw Voice
-Actor / Situation
-Problem / Pain / Impact
-Evidence and Provenance
-Interpretation / Hypothesis
-Desired Outcome Candidate
-Preserved Intent / Value
-Non-goal
-Constraint / Assumption
-Solution Candidate
-Open Question
-Recommended Route
+Raw Voice / Observation / External Source
+  -> Evidence / Interpretation / Hypothesis
+  -> Problem / Opportunity
+  -> Need / Desired Outcome Candidate
+  -> Requirement Candidate
+  -> Human Adoption
+  -> REQ-*
 ```
 
-事実、解釈、仮説、提案を混同しない。解決案は捨てず、Problem、Outcome、Requirementから分離して保存する。
+この変換ではOrigin / Trigger、Actor / Situation、Preserved Intent / Value、Non-goal、Constraint / Assumption、Solution Candidate、Open Question、Recommended Routeも必要な粒度で保持する。事実、解釈、仮説、提案を混同しない。解決案は捨てず、Problem、Need / Outcome、Requirementから分離して保存する。
 
 ## Required Responsibility Coverage
 
@@ -72,10 +67,12 @@ Recommended Route
 - Source、Provenance、Authority、対象時点
 - Actor / Situation、Problem / Pain / Impact
 - Evidenceとその限界・Confidence、Interpretation、Hypothesis
-- Desired Outcome Candidate、Preserved Intent、Non-goal
+- Need / Desired Outcome Candidate、Preserved Intent、Non-goal
 - Constraint、Assumption、Solution Candidate、Open Question
 - Recommended Routeと人間確認
 - `REQ-*`の発行、既存`REQ-*`の継続・改訂・置換、または非発行理由
+- Requirement Candidateの個別品質と、対象ScopeにおけるRequirement SetのCoverage / Consistency
+- 適用するQuality Concern、非適用理由、後続工程へ渡すQuality Obligation
 
 AI、個人Data、外部Actionを含むScopeでは、Purpose、Data Subject、ConsentまたはLegal Basis、Privacy、個人評価禁止Boundary、Human Control、Security、Compliance、Cost / Budget制約も判定する。
 
@@ -95,15 +92,17 @@ AI、個人Data、外部Actionを含むScopeでは、Purpose、Data Subject、Co
 
 ## Human Decisions
 
-人間は、Originの意味、Problem Framing、価値、優先順位、Requirementへの昇格、Route、Defect / Change分類、`Not Applicable`、部分Handoffを決定する。AIは候補の抽出、分離、矛盾検出、質問、草案、関連Context提示を行ってよいが、Why、重要度、Requirement、法的判断を創作または自己承認しない。
+人間は、Originの意味、Problem Framing、Need / Outcome、必要性、優先順位、Requirementへの昇格、Quality Concernの適用、Conflictの解消、Route、Defect / Change分類、`Not Applicable`、部分Handoffを決定する。AIは候補の抽出、分離、曖昧性・複合Requirement・矛盾・Trace / Coverage Gapの検出、質問、草案、Quality Concern候補、関連Context提示を行ってよいが、Why、Need、重要度、Requirement、法的判断を創作または自己承認しない。
+
+Human Decision、Constraint、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
 
 ## Exit and Handoff
 
-通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはDiscoveryまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはDiscoveryまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 Discoveryの出口は「文書が一つできた」状態ではなく、選択した受信先が必要とするContextを利用できる状態である。
 
-通常のUX Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[UX Phase Entry Contract](00_22_UX.md#phase-entry-contract)を満たす場合に限る。Research、Decision、Prototype、IA、UI / SPEC、Architecture / Technical Spike、Change Trace、Roadmap、No Action等へ進む場合は、それぞれの判断に必要なContextと未決事項を渡す。Roadmap Routeは、Human Authorityが延期を確認し、6.3のRoadmap Itemを実際に登録または更新して参照をDiscovery Resultへ戻すまで、その対象ItemのHandoffを完了としない。別のRequirement、Problem、RouteはCoverageを分け、Roadmap登録待ちだけを理由に無関係な対象まで停止しない。
+通常のUX Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[UX Phase Entry Contract](22_UX.md#phase-entry-contract)を満たす場合に限る。Research、Decision、Prototype、IA、UI / SPEC、Architecture / Technical Spike、Change Trace、Roadmap、No Action等へ進む場合は、それぞれの判断に必要なContextと未決事項を渡す。Roadmap Routeは、Human Authorityが延期を確認し、6.3のRoadmap Itemを実際に登録または更新して参照をDiscovery Resultへ戻すまで、その対象ItemのHandoffを完了としない。別のRequirement、Problem、RouteはCoverageを分け、Roadmap登録待ちだけを理由に無関係な対象まで停止しない。
 
 部分Handoffには、対象Scope、未網羅項目、Risk、受信先、後続Ownerに対する人間承認を必要とする。
 
@@ -113,11 +112,13 @@ Discoveryの出口は「文書が一つできた」状態ではなく、選択�
 - Actor / Situation、Problem、Evidence、Interpretation / Hypothesisを分離している
 - Desired Outcome CandidateとSolution Candidateを分離している
 - Preserved Intent、Non-goal、Constraint、Open Questionを対象Scopeで判定している
-- `REQ-*`の処置とRecommended Routeを人間が確認している
+- `REQ-*`の処置、個別品質、Requirement SetのCoverage / Consistency、Recommended Routeを人間が確認している
+- 適用するQuality Concernと非適用理由を判定し、必要なQuality Obligationを後続工程へ渡している
 - Roadmap Routeでは採用済みREQまたはContextを参照するRoadmap Item、Owner、Start Condition、再評価Triggerを登録している
 - Coverage Summary、Unresolved Gap、部分Handoff承認を記録している
 - AI / Personal Data ScopeではGovernance、Privacy、Consent、Human Control、Cost制約を判定している
 - 選択した受信先のEntry Contractを満たす
+- 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
 ## Phase Audit Checklist
@@ -126,6 +127,8 @@ Discoveryの出口は「文書が一つできた」状態ではなく、選択�
 - AIがWhy、重要度、Requirement、法的義務を補っていないか
 - Fact、Interpretation、Hypothesis、Requirement Candidate、Solution Candidateを混同していないか
 - 全入力、Problem、候補Requirement、RouteをCoverageに含めたか
+- 個別Requirementが曖昧、複合的、不要にSolution依存、またはVerification不能なまま昇格していないか
+- Requirement SetでSource / Problem / Need、Actor、主要Scenario、例外、Data、Interface、Quality、法令・契約上のConstraintに未処置の抜けや矛盾がないか
 - 顧客発言や現行実装を、そのままRequirementまたは正しい仕様にしていないか
 - `REQ-*`の発行・継続・改訂・置換・非発行の根拠と人間判断を辿れるか
 - `01_Discovery`と`99_Roadmap`の責務を混同し、文書を移動または本文を複製していないか
@@ -134,6 +137,7 @@ Discoveryの出口は「文書が一つできた」状態ではなく、選択�
 - Roadmap、Evidence、Decision、Change Trace、Testへ不要なStable IDを発行していないか
 - Coverage Summary、Unresolved Gap、人間Review、Route根拠、受信先Entryのいずれかが欠落していないか
 - AI / Personal Data ScopeでPurpose、Consent、Privacy、個人評価禁止Boundary、Human Control、Cost制約が未判定でないか
+- 確定・変更したDecision、Constraint、Learning、Evidence、Findingに対する上流・同層探索、正本反映、再監査が欠落していないか
 - Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
@@ -178,6 +182,7 @@ Open Question:
 | `Hypothesis` | 未検証の説明または成立条件 |
 | `Confidence` | Evidenceの量、鮮度、代表性等に基づく現在の確からしさ |
 | `Problem / Pain / Impact` | 現在成立していない状態と影響 |
+| `Need` | Problemを解消しOutcomeへ近づくために必要な能力・結果・条件。独立ArtifactやStable IDは必須ではない |
 | `Desired Outcome Candidate` | Actor、業務、組織をどう変えたいか |
 | `Preserved Intent / Value` | 下流で失ってはいけない価値や判断基準 |
 | `Non-goal` | 今回目指さないこと |
@@ -192,7 +197,7 @@ Open Question:
 
 会話、Interview、Meeting Log、Support Log、業務手順、既存文書、Design Artifact、Issue、Code、Schema、API、Runtime Behavior、Log、Metric、Workaround、Incident、市場情報、Prototype、User Test等をSourceとして使用できる。
 
-Sourceが存在するだけでAuthorityを持つとは限らない。作成者、対象時点、適用範囲、現状との一致、取得方法を確認する。Evidenceは対象のCanonical Artifact内、または[`00_03_Documentation.md`](00_03_Documentation.md#62-inline-file-and-external-evidence)に従って最も近い親Folder配下の`Evidence/`へ置く。Repository Rootへ中央Evidence Folderを作らない。
+Sourceが存在するだけでAuthorityを持つとは限らない。作成者、対象時点、適用範囲、現状との一致、取得方法を確認する。Evidenceは対象のCanonical Artifact内、または[`03_Documentation.md`](03_Documentation.md#62-inline-file-and-external-evidence)に従って最も近い親Folder配下の`Evidence/`へ置く。Repository Rootへ中央Evidence Folderを作らない。
 
 Origin、Intent、Value、Non-negotiableは、人間が与えるか確認する。原始的または感情的な表現も、後から原点へ戻るためのSourceとして保持する。
 
@@ -219,7 +224,7 @@ Legacyでは次を分離する。
 
 ## 3.2. Runtime Authority
 
-`skill.discovery.frame`は、本書のPhase Process Contractを、[`00_11_Skill.md`](00_11_Skill.md)の共通Run Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するDiscovery固有Adapterである。
+`skill.discovery.frame`は、本書のPhase Process Contractを、[`11_Skill.md`](11_Skill.md)の共通Run Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するDiscovery固有Adapterである。
 
 開始時は「何を作るか」を急いで確定せず、なぜ今扱うのか、誰のどの状態を変えたいかを整理し、画面、機能、技術をSolution Candidateとして分離することを人間へ説明する。Legacyでは、文書やCodeを正しい仕様と決めつけず、観察事実と復元候補を分けることも説明する。
 
@@ -272,15 +277,42 @@ Evidenceが弱ければFactかHypothesisかを確認し、複数Problemは勝手
 
 Requirement Candidateを`REQ-*`へ昇格するには、少なくとも次を満たす。
 
-- 満たすべき独立した意味単位として説明できる
-- Origin、Problem、Outcome、SourceまたはEvidenceへTraceできる
+- 必要性とRationaleを説明できる
+- 満たすべき一つの独立した意味単位として説明できる
+- Origin、Problem、Need / Outcome、SourceまたはEvidenceへTraceできる
 - Candidate、Hypothesis、Solutionのいずれでもないことを確認している
-- Scope、対象、必要性、非発行または代替Routeとの差を説明できる
+- ScopeとObligationを負う対象を識別できる
+- 対象Riskと抽象度に対して十分に明確で、不必要にDesignまたは実装方式を固定していない
+- 実現可能性を説明できるか、未確認の成立Riskと確認Routeを明示している
+- Verification Obligation、または成立を確認する方法を後続工程で定義する責務を持つ
+- 非発行または代替Routeとの差を説明できる
 - 人間がRequirementとして採用している
 
 Research、Decision、Prototype、No Action等へ進むだけなら、`REQ-*`を発行しなくてよい。顧客一人の発言、AI要約、AI推定のWhy、現行実装、未承認案、Prototypeが一度成立した結果だけから自動昇格しない。
 
-## 4.2. Stable Context ID Action
+昇格したRequirementは、共通Artifact Contractを再定義せず、次を取得可能にする。すべてを一つのHeaderや一件一Fileへ機械的に配置する必要はない。
+
+```text
+REQ-* / Statement
+Origin: Source / Evidence / Problem / Need or Desired Outcome
+Rationale / Necessity
+Scope / Subject
+Disposition / Priority
+Assumption / Constraint / Risk / Conflict
+Verification Obligation
+Human Adoption Decision
+Relations / Revision
+```
+
+Requirementの抽象度を区別する必要がある場合はBusiness / Stakeholder / System / Software等を使用し、関心分類が必要な場合はFunctional / Quality / Interface / Data / Constraint / Transition等を別の軸として扱う。一つの`Requirement Type`へ異なる分類軸を混在させない。
+
+## 4.2. Requirement Set Quality and Quality Concern Profile
+
+個別Requirementが昇格条件を満たしても、対象ScopeのRequirement Setとして抜け、矛盾、組合せ上の実現不能があれば通常Handoffしない。Source、Problem、Need / Outcome、Actor、主要Scenario、例外、Data、Interface、法令・契約上のConstraint、選択したQuality Concernについて、`REQ-*`への昇格、別Route、延期、却下、`Not Applicable`のいずれかを人間が確認する。
+
+Quality Concernは全Projectへ固定Checklistとして強制しない。Product、Risk、法令、Contract、利用者、運用条件に応じて適用Profileを選び、Functional Suitability、Performance Efficiency、Compatibility、Interaction Capability、Reliability、Security、Maintainability、Flexibility、Safety等の候補から、適用項目、非適用理由、Source / Version、後続Obligationを記録する。ProjectがISO/IEC 25010等を採用する場合も、選択したScopeを明示し、参照しただけで全特性への準拠または網羅を主張しない。
+
+## 4.3. Stable Context ID Action
 
 | Finding | Action |
 |---|---|
@@ -293,15 +325,24 @@ Research、Decision、Prototype、No Action等へ進むだけなら、`REQ-*`を
 
 分類前に既存Stable IDの意味を書き換えたり、新IDを仮発行したりしない。
 
-## 4.3. Decision and Rationale
+## 4.4. Decision and Rationale
 
 対象利用者、Non-goal、Problemの優先、Requirement昇格、Route、Legacy挙動の維持等を決定した場合、決定結果となるCanonical Artifactの`Decision / Rationale`へAdopted Result、理由、Evidence、代替、経緯、影響を残す。Discoveryの作業メモや中央Decision Fileだけを正本にしない。
 
-## 4.4. Legal and Regulatory Source
+## 4.5. Legal and Regulatory Source
 
 法令変更では、法令本文または外部正本、Revision、施行日、Jurisdiction、適用範囲、解釈AuthorityをEvidenceとして保持する。AIの解釈だけで法的義務を確定しない。
 
 新しい義務なら新しい`REQ-*`、既存Requirementの意味を保つ明確化なら同じIDのRevisionを用いる。緊急または施行期限内の対応はChange Traceへ、採用済みで将来着手する対応はRoadmapへREQ参照と期限を置く。
+
+## 4.6. External Source Trace
+
+Sourceの書誌情報、Relation、Coverage Claimの意味は[OverviewのSource索引](00_Overview.md#36-external-foundations-and-source-trace)と[External Source Trace Rule](03_Documentation.md#49-external-source-trace)を正本とする。
+
+| Source | Relation | Applied Sections | Coverage |
+|---|---|---|---|
+| `ISO29148-2018` | `informed_by` | 4.1 Requirement Promotion、4.2 Requirement Set Quality | Current published edition as of 2026-07-21; revision work is underway; `Selected Concepts`; re-evaluate when replaced; no clause mapping or conformance claim |
+| `ISO25010-2023` | `informed_by` | 4.2 Quality Concern Profile | `Selected Concepts`; Project may adopt selected characteristics and Scope |
 
 ---
 
@@ -490,7 +531,7 @@ Discoveryで採用 + 今回は着手しない
 
 CRDDは時刻Schedulerや外部通知を必須としない。Project固有Roadmap Authorityは、計画Review、Change / Release計画、Dependency解消、期限到達、関連Evidence / Law / Riskの変化等、宣言したTriggerで対象Itemを再評価する。通常実行でRoadmap全件を無差別に読み込まず、Active Scopeと関係するItem、Triggerへ到達したItem、Dependency / Targetが今回計画と重なるItem、Roadmap Authorityが指定したItemを対象にする。Triggerへ到達したItemを自動的に`Started`へ昇格せず、Human Start Decisionを得る。
 
-着手時はRoadmap内容を実装指示として直接使用せず、Source Contextの現行RevisionとImpactを再確認し、[Change](00_12_Change.md)に従って`CHG-*`を作成する。再延期ではOwner、理由、Target、再評価Triggerを更新する。
+着手時はRoadmap内容を実装指示として直接使用せず、Source Contextの現行RevisionとImpactを再確認し、[Change](12_Change.md)に従って`CHG-*`を作成する。再延期ではOwner、理由、Target、再評価Triggerを更新する。
 
 完了時は、Detail Fileにしか存在しない採用結果、Decision / Rationale、Evidence、Constraint、Known Riskを、責務を持つCanonical Artifactと、適用されるCHG、Implementation Artifact、Verification Resultへ反映する。Documentation-only、Research、No-code Operation等でImplementationまたはVerificationが適用されない場合は、無理にArtifactを作らずMain Viewへ`Not Applicable`理由を示す。Main ViewのItemへ`Completed`、適用されるCHG、結果Artifact、Verification Referenceを戻し、参照可能性を確認した後、Detail Fileを削除する。確定した意味をMain Viewへ複製せず、Detail Fileを完了記録やRoadmap Archiveとして残さない。Git履歴は削除前の経緯確認に利用できるが、正本反映の代替にしない。
 
@@ -521,7 +562,10 @@ Source、Provenance、Authority、根拠の限界、解釈、仮説
 変えたい状態、守る価値、Non-goal
 
 ## Requirement and Solution Candidates
-候補の区別、採用済みREQへの参照、非発行理由
+Need / Outcome、候補の区別、採用済みREQへの参照、個別品質、非発行理由
+
+## Requirement Set and Quality Concern Coverage
+Source / Problem / Needに対する処置、Conflict、適用するQuality Concern、非適用理由、後続Obligation
 
 ## Constraints / Assumptions / Open Questions
 未決事項、確認Owner、確認方法
@@ -531,6 +575,9 @@ Source、Provenance、Authority、根拠の限界、解釈、仮説
 
 ## Phase Transition Review
 Review Role、対象Revision、Result、Finding / Remediation、再Review、Review Exception
+
+## Triggered Propagation Check
+Source Revision、探索した上流・同層Context、正本更新、下流再探索、再監査Result、Propagation Exception
 ```
 
 ## 7.2. Handoff Review

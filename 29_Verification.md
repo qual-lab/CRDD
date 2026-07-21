@@ -1,26 +1,28 @@
 # CRDD Verification
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_13_Release.md](00_13_Release.md)
-- [00_24_UI_Behavior_Specification.md](00_24_UI_Behavior_Specification.md)
-- [00_25_UI.md](00_25_UI.md)
-- [00_26_Behavior_Specification.md](00_26_Behavior_Specification.md)
-- [00_27_Architecture.md](00_27_Architecture.md)
-- [00_28_Implementation.md](00_28_Implementation.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
-- [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [13_Release.md](13_Release.md)
+- [22_UX.md](22_UX.md)
+- [23_IA.md](23_IA.md)
+- [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
+- [25_UI.md](25_UI.md)
+- [26_Behavior_Specification.md](26_Behavior_Specification.md)
+- [27_Architecture.md](27_Architecture.md)
+- [28_Implementation.md](28_Implementation.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -38,7 +40,7 @@ Accepted    = Verification ResultとResidual RiskをHuman Authorityが受容し�
 
 Code、Test、Documentの存在や実装者の完了宣言だけではVerifiedにならない。VerificationはQualityやAcceptanceを新しく決めず、基準が不足・矛盾・観測不能なら原因側の工程へFindingを返す。
 
-VerificationはDocument AuditやCRDD Conformance Auditの代替ではない。文書構造・規範適合は[`00_51_Document_Audit.md`](00_51_Document_Audit.md)と[`00_52_Conformance_Audit.md`](00_52_Conformance_Audit.md)、工程間Gap / Impactは[`00_53_Gap_Impact_Audit.md`](00_53_Gap_Impact_Audit.md)を正本とする。
+VerificationはDocument AuditやCRDD Conformance Auditの代替ではない。文書構造・規範適合は[`51_Document_Audit.md`](51_Document_Audit.md)と[`52_Conformance_Audit.md`](52_Conformance_Audit.md)、工程間Gap / Impactは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を正本とする。
 
 ---
 
@@ -55,10 +57,13 @@ Verificationは対象Scopeについて次を受け取る。
 - 該当するChange TraceとImplementation Artifact
 - Developer Test / Implementation Evidence
 - Acceptance Criteria、Quality Condition、Verification Obligation
+- 適用するQuality Concern ProfileとSource / Version / Scope
+- 適用するHuman-centered Quality Criteria View（Source、Version、Level、Platform、Scope、Normative / Informative）
 - Environment、Configuration、Variant、Fixture / Test Data
 - Migration / Rollback、Compatibility、Capacity、Security等のRisk条件
 - Known Limitation、Unresolved Gap、人間Review結果
 - Implementation → Verification Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
+- Implementationで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
 
 Target、Expected Contract、Environment、Acceptanceのいずれかが特定できない場合、推測でPassせず`Blocked`または`Not Verified`として不足情報とOwnerを返す。
 
@@ -78,7 +83,7 @@ Verificationは「TestがPassした」だけでなく、何を、どの条件で
 | Acceptance / Contract | REQ、UX Outcome、UI / SPEC、Architecture、Quality ConditionへのTrace |
 | Functional Behavior | Success、Boundary、Failure、Permission、Recovery、State、Side Effect |
 | Regression / Integration | 既存Behavior、Consumer、End-to-end Data Flow、変更Layer間の整合 |
-| Product Experience | UI / SPEC Pair、Usability、Accessibility、Visual / Content、UX Intent |
+| Product Experience | UX Outcome、Goal完了、認知負荷、IA Findability、UI / SPEC Pair、Usability、Accessibility Profile、Visual / Content |
 | Compatibility / Migration | 旧新Version、既存Data / Consumer、切替、再実行、Rollback、廃止 |
 | Capacity / Quality | Latency、Throughput、Availability、Recovery、Resource、Cost、劣化時Behavior |
 | Security / Privacy / AI | Authority、Consent、Data Flow、External Action、AI Output、Audit、Guardrail |
@@ -97,13 +102,15 @@ Verificationは「TestがPassした」だけでなく、何を、どの条件で
 
 ## Human Decisions
 
-人間はAcceptance変更、Risk受容、未検証ScopeのRelease、Environment差異の許容、Risk受容・例外を伴うFindingのDisposition、`Not Applicable`、条件付き完了、Residual Risk、Release / Rollbackを決定する。
+人間はAcceptance変更、Risk受容、未検証ScopeのRelease、Environment差異の許容、Risk受容・例外を伴うFindingのDisposition、Human-centered Criteriaの採用・非適用・例外、`Not Applicable`、条件付き完了、Residual Risk、Release / Rollbackを決定する。
 
 Verification実行者はStatus、Severity、Required Fix、Recommendationを提示できるが、Acceptanceを弱める、Production Artifactを修正する、Riskを自己受容する、Human Approvalを代行することはできない。
 
+Human Decision、Learning、Fresh Evidence、Finding、Known Limitationを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、原因側または回答先となる上流・同層Contextを更新し、更新後RevisionのImpactと必要な再Verificationを再監査するまで通常完了としない。
+
 ## Exit and Handoff
 
-Release、Close、Roadmap、Reopen等の次Route候補をHuman Gateへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはVerificationまたは原因側の責務工程で修正し、必要な再Verificationを含む修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+Release、Close、Roadmap、Reopen等の次Route候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはVerificationまたは原因側の責務工程で修正し、必要な再Verificationを含む修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 Verification Resultには、Target Scope / Revision / Environment、適用Contract、方法、結果、Coverage State、Finding、Fresh Evidence、未検証範囲、Residual Risk、Recommendation、Learning / Feedback先を含める。
 
@@ -118,9 +125,11 @@ Verification完了はRelease承認と同一ではない。VerificationはRelease
 - Riskに応じた自動Test、手動Review、Runtime / Visual / Load等を実行している
 - Success、Failure、Permission、Recovery、Regression、Variantを適用範囲で確認している
 - Compatibility、Migration、Capacity、Security、Accessibility等を適用範囲で確認している
+- Human-centered Quality CriteriaのSource、Version、Level、Platform、Scope、Normative / Informativeを識別し、対象Revisionへの結果とEvidenceを辿れる
 - Finding、未検証範囲、Residual Risk、Known Limitationを隠していない
 - Fresh EvidenceとReproduction条件がTarget Revisionへ対応している
 - Learning、原因工程、再検証条件、Recommendationが特定されている
+- 発火したTriggered Propagation Checkが`Pass`であり、必要な上流・同層正本更新、下流再探索、再監査・再Verification範囲が確定している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediation、必要な再Verification、再Reviewが完了している
 
 ## Phase Audit Checklist
@@ -132,8 +141,10 @@ Verification完了はRelease承認と同一ではない。VerificationはRelease
 - AcceptanceをTest結果へ合わせて弱めている
 - Testを通すためにProduction ArtifactをVerification側で変更している
 - Failure、Compatibility、Migration、Capacity、Security、Accessibilityの適用判定漏れ
+- Human-centered CriteriaのSource / Version / Scope不明、Informative Heuristicの無条件なRelease Block、Normative Criteriaの未評価または根拠のない非適用
 - `Failed` / `Blocked` / `Not Verified`を`Verified`へ混在させている
 - Evidence、Finding、Residual Risk、Learning、再検証条件の欠落
+- 確定・変更したDecision、Learning、Evidence、Finding、Known Limitationに対する上流・同層探索、正本反映、下流再探索、再監査の欠落
 - Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
 
 ---
@@ -167,7 +178,9 @@ evidence_reference    = 対象RevisionのEvidence
 last_verified_target  = 最後に検証したRevision / Environment
 ```
 
-## 2.3. Verification Method and Assurance Intent
+## 2.3. Verification, Validation, and Assurance Intent
+
+CRDDでは、承認済みRequirement、UI / SPEC、Architecture等のContractを対象Revisionが満たすかの確認をVerification、Problem、Need / Desired Outcome、利用者価値に対してProductの方向と結果が妥当かの確認をValidationとして区別する。Validationは人間または対象Domain / User Authorityの判断を含み得るが、抽象的な満足確認だけで下流ContractのVerificationを代替しない。VerificationがPassしても、SourceとなるNeed / Outcomeを満たさないEvidenceが得られた場合はLearningと上流Gapを返す。
 
 Test名やファイル分割ではなく、何を保証するための方法かを明確にする。
 
@@ -201,6 +214,7 @@ Fresh Evidenceは少なくとも次を識別できる。
 - Target Revision / Build / Artifact
 - Environment、Configuration、Variant、Fixture / Data条件
 - 対象Contract / Verification Obligation
+- 適用する外部CriteriaのSource / Version / Level / Platform / ScopeとCriterion Reference
 - Method、Command / Procedure、Tool Version
 - 実行日時、実行者またはAgent、Result
 - Log、Report、Screenshot、Metric等のEvidence Artifact
@@ -228,6 +242,8 @@ Residual Risk
 
 Severityは原因工程や修正優先度と同一ではない。Product Impact、Security / Privacy、Data Integrity、Recovery、Exposure、Workaround等から判断する。`Accepted Risk`、`Deferred`、`Not Reproducible`はPassではなく、人間Authority、理由、対象Scope、再評価Triggerを持つDispositionである。
 
+NormativeなHuman-centered Criteriaの例外またはRisk受容は、新しい`WAV-*`等のStable IDを発行せず、既存Finding、Change Trace、Canonical ArtifactまたはProjectの承認記録に残す。少なくともCriterion / Source Revision、対象Scope / Target Revision、理由、利用者影響とResidual Risk、Mitigation、Approver、失効日または失効条件、再確認Triggerを取得可能にする。期限切れ・条件不一致の例外を現行Passとして再利用しない。
+
 ## 2.7. Product Context and Experience Verification
 
 各工程成果物の責務Coverageは、それぞれの`Required Responsibility Coverage`を正本とする。Verificationは対象ScopeのCoverage State、Unresolved Gap、`Not Applicable`理由、人間承認を受け取り、実装結果が承認済みOutcomeと矛盾していないか確認する。工程文書の完全性そのものはDocument / Conformance Auditへ渡す。
@@ -236,12 +252,16 @@ UI / Product Scopeでは、次を適用範囲で確認する。
 
 - UI ContractとBehavior SpecificationのPair整合
 - Preference / Policy / SettingのOption、Default / Effective Value、Scope、Inheritance / Override、Permission、変更・反映・Reset / RecoveryのPair整合
+- UX OutcomeとGoal完了、不要な記憶・比較・判断負荷、System状態・変化・影響・次Actionの理解、Error予防・回復
+- IAのMental Model、Label、Browse / Search、現在位置、関連情報、Current / Historical / Deprecated、Progressive Disclosure
 - Screen、State、Variant、Role、Locale、Responsive条件
-- Usability、Error / Recovery、Content、Visual Hierarchy
-- Accessibility、Keyboard、Focus、Semantic、Contrast、Assistive Technology
+- Usability、Content、Visual Hierarchy、初心者と熟練者の経路
+- Accessibility Profileに基づくKeyboard、Focus、Semantic、Assistive Technology、Contrast、Text Scaling / Reflow、Reading Order、Target Size、Drag代替、Motion、Error Identification
 - UX Outcome、Origin、Product Principleを阻害していないこと
 
-詳細なUI評価基準は[UI and Visual Quality](00_25_UI.md#ui-and-visual-quality)を正本とする。VerificationはTarget Revisionに対するReview Method、Finding、Disposition、Evidenceを残す。
+Human-centered Quality Criteria Viewは新しいProperty Authorityではなく、UX、IA、UI、Behavior Specificationの正本と、Projectが採用した外部Criteriaを対象Scope向けに束ねたVerification Viewである。外部CriteriaはSource、Version、Level、Platform、Scope、Normative / Informativeを識別する。法令、契約、承認済みRequirement、Project ProfileによるCriteriaはNormativeとして評価し、一般HeuristicはProjectが採用しない限りInformativeなFindingとする。
+
+詳細なUI責務は[UI and Visual Quality](25_UI.md#ui-and-visual-quality)を正本とする。VerificationはCriterion単位で`Verified`、`Failed`、`Not Applicable`、`Not Evaluated`等の結果を持ってよいが、CRDD共通の新しいAudit Status体系や中央`Audits/` Folderを作らない。Target Revisionに対するMethod、Finding、Disposition、Evidenceを残す。
 
 ## 2.8. Compatibility, Migration, Capacity, and Quality Verification
 
@@ -279,9 +299,11 @@ AI Outputは機械判定可能なSchema、禁止条件、Referenceとの整合�
 
 VerificationはRelease対象、Distribution Artifact、Environment、Security / Governance / License、Known Limitation、Context Consistencyを確認し、`Ready`、`Conditional`、`Not Ready`等のRecommendationを返す。名称はProjectで定義してよい。
 
-Release Evidenceは対象Release Artifactの最も近い親Folderにある`Evidence/`または参照可能な外部Artifactへ置き、Target、Contract、Method、Result、未解決事項、Known Limitation、関連Decisionを識別可能にする。承認者・承認日は[Release](00_13_Release.md)とProject固有のHuman Release Authorityの記録であり、Verification実行者が代行しない。
+Release Evidenceは対象Release Artifactの最も近い親Folderにある`Evidence/`または参照可能な外部Artifactへ置き、Target、Contract、Method、Result、未解決事項、Known Limitation、関連Decisionを識別可能にする。承認者・承認日は[Release](13_Release.md)とProject固有のHuman Release Authorityの記録であり、Verification実行者が代行しない。
 
 Verification ResultをTest Logだけで閉じず、不具合、原因分類、新しい制約、仮説の支持・反証、変更すべき上流Context、再検証条件、次Release / Roadmap候補をCanonical Artifactへ戻し、該当Change Traceへ結果を接続する。
+
+Human-centered CriteriaのSource / Version / Level、対象Platform / Scope、UI / SPEC Pair、利用者影響のあるContent / Flow / State、Assistive Technologyまたは重要なEnvironmentが変わった場合は、影響するCriteriaを再評価する。Findingの修正、例外の失効、Riskまたは対象利用者の変化も再Verification Triggerとする。
 
 ## 2.11. Trace, Stable Context ID, and Decision Boundary
 
@@ -295,7 +317,7 @@ Verification ResultはAcceptanceやRelease Decisionそのものではない。Fi
 
 ## 3.1. Runtime Authority
 
-`skill.verification.assure`は、本書のPhase Process Contractを[`00_11_Skill.md`](00_11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するVerification固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
+`skill.verification.assure`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するVerification固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
 
 ## 3.2. Verification-specific Progression
 
@@ -325,7 +347,7 @@ Test数やPass率だけを進捗とみなさず、Required Responsibility Covera
 
 ## 3.4. Agent and Subagent Use
 
-AgentまたはSubagentへ委譲する場合は[`00_10_Agent.md`](00_10_Agent.md)に従い、Contract、UI / Visual、Accessibility、Security、Migration、Load等の限定Scopeを渡す。
+AgentまたはSubagentへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従い、Contract、UI / Visual、Accessibility、Security、Migration、Load等の限定Scopeを渡す。
 
 Parent AgentはTarget Revision、Expected Contract、Environment、Method、Evidence Requirementを明示し、結果を一つのCoverage Viewへ統合する。Subagentの自己申告、Test Pass、SummaryだけをEvidenceまたはHuman Acceptanceにしない。
 
@@ -339,6 +361,7 @@ Parent AgentはTarget Revision、Expected Contract、Environment、Method、Evid
 
 - Target、Contract、Environment、Evidenceが同じ検証対象へ対応している
 - Riskに対してMethodとCoverageが十分である
+- Human-centered Quality CriteriaのSource / Version / Level / Platform / Scope、Normative / Informative、結果が対応している
 - `Failed`、`Blocked`、`Not Verified`、Known Limitationを隠していない
 - FindingのSeverity、Impact、Owner、Disposition、再検証条件が明確である
 - Residual RiskとRelease RecommendationがEvidenceから説明できる
@@ -352,14 +375,17 @@ Artifactの分割方法は固定しないが、対象Scopeについて次を参�
 Target Scope / Revision / Baseline
 Environment / Configuration / Variant / Fixture
 Source Contract / Acceptance / Verification Obligation
+Human-centered Quality Criteria View / Criterion Result
 Method / Procedure / Tool
 Coverage State
 Expected / Actual / Result
 Fresh Evidence / Reproduction
 Finding / Severity / Impact / Owner / Disposition
+Exception / Authority / Mitigation / Expiry / Recheck Trigger
 Unverified Scope / Known Limitation / Residual Risk
 Recommendation / Human Decision Required
 Learning / Feedback Route / Reverification Condition
+Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
 Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
 ```
 

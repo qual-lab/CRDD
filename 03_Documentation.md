@@ -1,20 +1,21 @@
 # CRDD Documentation
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_00_Overview.md](00_00_Overview.md)
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_13_Release.md](00_13_Release.md)
-- [00_14_Workflow.md](00_14_Workflow.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [00_Overview.md](00_Overview.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [13_Release.md](13_Release.md)
+- [14_Workflow.md](14_Workflow.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -22,7 +23,7 @@ Related:
 
 本書は、CRDDにおけるRepository構造、ArtifactとDocumentの表現、Evidence、Decision / Rationale、Stable Context ID、Artifact Reference、Traceabilityの共通規則を定義するDocumentationの正本である。
 
-Context TypeとStatusのCanonical Definitionは[Terminology](00_02_Terminology.md)、人間とAIのAuthorityおよびEnd-to-End Context Continuityは[Principles](00_01_Principles.md)、Change Traceは[Change](00_12_Change.md)、Releaseは[Release](00_13_Release.md)、Repository固有の作業手順は[Workflow](00_14_Workflow.md)を正本とする。工程固有のEntry、Transformation、Required Responsibility Coverage、Exit、Gate、Auditは各工程文書を正本とし、本書で複製しない。
+Context TypeとStatusのCanonical Definitionは[Terminology](02_Terminology.md)、人間とAIのAuthorityおよびEnd-to-End Context Continuityは[Principles](01_Principles.md)、Change Traceは[Change](12_Change.md)、Releaseは[Release](13_Release.md)、Repository固有の作業手順は[Workflow](14_Workflow.md)を正本とする。工程固有のEntry、Transformation、Required Responsibility Coverage、Exit、Gate、Auditは各工程文書を正本とし、本書で複製しない。
 
 CRDD Documentationは文書量を増やすための規定ではない。人間とAIが、現在有効なContext、Source、判断理由、実装、検証、Learningを同じ意味で辿れる状態を作る。
 
@@ -39,7 +40,7 @@ Observation、Evidence、Interpretation、Hypothesis、Proposal、Decisionを混
 採用案と判断価値のあるAlternativeを区別する
 ```
 
-Canonical Termの定義は[Terminology](00_02_Terminology.md)を正本とし、本書で再定義しない。日本語本文を使用してよい。
+Canonical Termの定義は[Terminology](02_Terminology.md)を正本とし、本書で再定義しない。日本語本文を使用してよい。
 
 ---
 
@@ -47,7 +48,7 @@ Canonical Termの定義は[Terminology](00_02_Terminology.md)を正本とし、�
 
 ## 2.1. Context Repository
 
-Context Repositoryの定義と基本原則は[Principles](00_01_Principles.md)を正本とする。本書では、その論理的な情報基盤をRepository構造、Authority宣言、Artifact Reference、Relation、履歴として実現する規則を定める。
+Context Repositoryの定義と基本原則は[Principles](01_Principles.md)を正本とする。本書では、その論理的な情報基盤をRepository構造、Authority宣言、Artifact Reference、Relation、履歴として実現する規則を定める。
 
 CRDDの基本構成ではGit RepositoryをCanonical Control Planeとして使用する。ただし、すべてのPropertyをMarkdownへ複製することや、Gitだけを唯一のAuthorityとすることを意味しない。
 
@@ -108,15 +109,15 @@ Human Authorityへ判断を戻す
 | Folder | Product Context Responsibility | Phase / Process Authority |
 |---|---|---|
 | `00_CRDD` | CRDD原則、共通Contract、工程条項、監査規則 | `00_CRDD`内の該当Canonical Document |
-| `01_Discovery` | Origin、Problem、Source、Evidence、不確実性、Requirement | [Discovery](00_21_Discovery.md) |
-| `02_UX` | Actor、Outcome、Journey、Service Blueprint、Experience Principle | [UX](00_22_UX.md) |
-| `03_IA` | Object、Relation、Responsibility、Navigation、Domain用語 | [IA](00_23_IA.md) |
-| `04_UI` | Surface、Interaction、Feedback、Visual、UI Asset | [UI](00_25_UI.md) |
-| `05_SPEC` | Condition、State、System Behavior、Exception、Acceptance | [Behavior Specification](00_26_Behavior_Specification.md) |
-| `06_Architecture` | Boundary、Data、Interface、Quality、Security、Implementation Rule | [Architecture](00_27_Architecture.md) |
-| `07_Workflows` | Repository固有の反復可能な作業手順、Runbook、手順間Handoff | [Workflow](00_14_Workflow.md) |
-| `40_Develop` | Code、Configuration、Developer Test等のImplementation Artifact | [Implementation](00_28_Implementation.md) |
-| `90_Release` | `CHG-*` Change Trace、Release Record、CHANGELOG、配布物参照、Release Verification | [Change](00_12_Change.md)、[Release](00_13_Release.md)、Project固有のRelease Authority |
+| `01_Discovery` | Origin、Problem、Source、Evidence、不確実性、Requirement | [Discovery](21_Discovery.md) |
+| `02_UX` | Actor、Outcome、Journey、Service Blueprint、Experience Principle | [UX](22_UX.md) |
+| `03_IA` | Object、Relation、Responsibility、Navigation、Domain用語 | [IA](23_IA.md) |
+| `04_UI` | Surface、Interaction、Feedback、Visual、UI Asset | [UI](25_UI.md) |
+| `05_SPEC` | Condition、State、System Behavior、Exception、Acceptance | [Behavior Specification](26_Behavior_Specification.md) |
+| `06_Architecture` | Boundary、Data、Interface、Quality、Security、Implementation Rule | [Architecture](27_Architecture.md) |
+| `07_Workflows` | Repository固有の反復可能な作業手順、Runbook、手順間Handoff | [Workflow](14_Workflow.md) |
+| `40_Develop` | Code、Configuration、Developer Test等のImplementation Artifact | [Implementation](28_Implementation.md) |
+| `90_Release` | `CHG-*` Change Trace、Release Record、CHANGELOG、配布物参照、Release Verification | [Change](12_Change.md)、[Release](13_Release.md)、Project固有のRelease Authority |
 | `99_Roadmap` | 採用済みDeferred WorkのPriority、Target、Dependency、着手条件 | Project固有のRoadmap Authority |
 
 工程固有のArtifact Mapping、Template、Coverageは上表のPhase / Process Authorityを正本とする。`04_UI`と`05_SPEC`の番号は探索順であり、直列工程やAuthority優先度を意味しない。UI ContractとBehavior Specificationは並行・反復して対として接続するが、同じProperty Authorityへ統合しない。
@@ -129,7 +130,7 @@ Evidenceの配置は6.2、Decisionの配置は7.1を正本とする。Repository
 
 ## 3.3. Discovery and Roadmap
 
-`01_Discovery`は新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。`99_Roadmap`は採用済みだが未着手の内容を、Requirementや他のContextへの参照とともに計画する。Roadmapは原則として単一の`99_Roadmap/01_Product_Roadmap.md`で管理し、比較、調査、依存関係等の詳細がMain Viewの可読性を損なう場合だけ別のDetail Fileへ分ける。Roadmap Itemの必須Context、Lifecycle、登録・再評価・着手・Detail削除条件は[Discovery](00_21_Discovery.md#63-roadmap-item-contract)を正本とする。
+`01_Discovery`は新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。`99_Roadmap`は採用済みだが未着手の内容を、Requirementや他のContextへの参照とともに計画する。Roadmapは原則として単一の`99_Roadmap/01_Product_Roadmap.md`で管理し、比較、調査、依存関係等の詳細がMain Viewの可読性を損なう場合だけ別のDetail Fileへ分ける。Roadmap Itemの必須Context、Lifecycle、登録・再評価・着手・Detail削除条件は[Discovery](21_Discovery.md#63-roadmap-item-contract)を正本とする。
 
 Discovery文書をRoadmapへ移動せず、Roadmap項目をRequirementまたはSpecificationの正本として扱わない。Roadmap項目またはDetail FileへCRDD標準Stable Context IDを発行せず、Path、Anchor、外部Issue等で識別する。完了したDetail FileをRoadmap Archiveとして恒久保存しない。
 
@@ -195,7 +196,7 @@ Status: Draft
 Owner: Responsible Team or Human
 Last Updated: yyyy-mm-dd
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
+- [01_Principles.md](01_Principles.md)
 ```
 
 | Item | Meaning |
@@ -228,6 +229,17 @@ Last Updated = 人間向けの更新日表示
 ## 4.6. File Name and Document Number
 
 ファイル名は目的を推測できる英語ベースを基本とする。文書番号はFolderまたは文書体系内の分類、順序、探索に使用する。Stable Context IDとの境界は8.1を正本とする。
+
+`00_CRDD/`内のCRDD正本文書は、Folder番号をファイル名へ重ねず、二桁のDocument Numberを一度だけ先頭へ置く。本CRDD標準RepositoryのRootに置く配布・保守対象文書も同じ名前を使用する。
+
+```text
+Good: 00_CRDD/01_Principles.md
+Good: 00_CRDD/27_Architecture.md
+Bad:  00_CRDD/01_Principles.md
+Bad:  00_CRDD/27_Architecture.md
+```
+
+先頭の`00_CRDD`は配置Folder、`01`や`27`はそのFolder内のDocument Numberであり、連結した`01`や`27`をDocument Numberまたはファイル名として使用しない。
 
 ```text
 Document Number
@@ -273,13 +285,31 @@ CRDD文書では、RFC 2119 / RFC 8174の意味で、以下の規範強度語彙
 
 規範強度はRuleの強さを示し、Document Status、Property Authority、Human Approvalを代替しない。`Draft`または`Experimental`な文書に記載された`MUST`は、その文書自体が承認・適用されたことを意味しない。一方、`Stable`な文書の説明文が、規範語彙を伴わず自動的に必須Ruleになるわけでもない。適用可否は、対象Scope、Document Status、Property Authority、必要なHuman Approvalと合わせて判断する。
 
+## 4.9. External Source Trace
+
+CRDD Rule、構文、評価観点へ外部標準、論文、原則、Guidelineを実質的に使用する場合、[OverviewのSource索引](00_Overview.md#36-external-foundations-and-source-trace)と対象文書から、Source、Versionまたは発行日、Authoritative URL / DOI、Relation、適用Section、Coverageを取得可能にする。名称が似ていることだけを理由に、後から`derived_from`または出典として登録しない。
+
+| Relation | Meaning |
+|---|---|
+| `uses` | 語彙、構文、方法を直接使用する |
+| `derived_from` | Sourceの特定内容をCRDD Ruleへ変換する |
+| `aligned_with` | 整合を確認するが、準拠または完全な導出を主張しない |
+| `informed_by` | 設計、比較、Problem発見の参考にする |
+| `project_adopts` | 適用ProjectがSource、Version、Level、Platform、Scopeを選択する |
+
+Coverageは、少なくとも`Referenced`、`Selected Concepts`、`Clause-mapped`、`Fully Assessed`を区別する。`Referenced`または`Selected Concepts`はSource全体の網羅を意味しない。`aligned_with`または`informed_by`だけで準拠を主張しない。`Clause-mapped`または`Fully Assessed`を主張する場合は、適用Clause / Criterion、非適用理由、対応するCRDD Rule、対象Revision、評価Evidenceを追跡可能にする。
+
+Reference Keyは引用Labelであり、Stable Context ID、Document Number、Artifact IDではない。外部Sourceの本文をCRDDへ不必要に複製せず、長期参照に適したVersion付きURL、DOI、発行主体等を優先する。SourceのVersionまたは適用範囲が変わった場合は、影響するCRDD条項とProject Profileを再確認する。
+
+4.8の規範強度語彙は`RFC2119` / `RFC8174`を`uses`として使用し、選択した語彙だけを適用する。RFC全体への準拠または網羅は主張しない。
+
 ---
 
 # 5. Status, Update, and Retirement
 
 ## 5.1. Status
 
-StatusのCanonical Meaningは[Terminology](00_02_Terminology.md)を正本とする。Documentで主に使用するStatusは次のとおりである。
+StatusのCanonical Meaningは[Terminology](02_Terminology.md)を正本とする。Documentで主に使用するStatusは次のとおりである。
 
 | Status | Document Meaning |
 |---|---|
@@ -444,7 +474,7 @@ Stable IDをファイル名やDirectory名へ埋め込まない。Artifactの識
 | `UI` | 認識、操作、Feedback、StateのUI Contract |
 | `SPEC` | Condition、State、System Behavior、Exception、Acceptance |
 
-`ARC`、`DEC`、`EVD`、Test用のCRDD標準Stable Context Prefixを新規発行しない。`CHG-*`は[Change](00_12_Change.md)が定義するChange Trace用Artifact IDであり、本節のStable Context IDには含めない。Stable Context IDへ名称、画面名、日付、Release、Feature名を埋め込まない。
+`ARC`、`DEC`、`EVD`、Test用のCRDD標準Stable Context Prefixを新規発行しない。`CHG-*`は[Change](12_Change.md)が定義するChange Trace用Artifact IDであり、本節のStable Context IDには含めない。Stable Context IDへ名称、画面名、日付、Release、Feature名を埋め込まない。
 
 ## 8.3. Assignment and Allocation
 
@@ -486,7 +516,7 @@ last_updated: 2026-07-17
 
 Legacy Projectへ一括改番を要求しない。既存の非標準Prefixや旧意味のIDは履歴を破壊せず参照可能に保つが、新規標準Prefixとして発行しない。意味、責務、Contractが別物になる場合だけ新IDを発行し、旧IDを`supersedes`等で接続する。
 
-Version固有の変更内容とMigration Noteは[Maintenance](00_19_Maintenance.md)および`CHANGELOG.md`を正本とする。
+Version固有の変更内容とMigration Noteは[Maintenance](19_Maintenance.md)および`CHANGELOG.md`を正本とする。
 
 ---
 
@@ -537,13 +567,15 @@ Relation Indexを使用する場合はFrom、Relation、To、Statusを最低限�
 ## 9.4. Requirement to Verification
 
 ```text
+Source / Evidence / Problem / Need or Desired Outcome
+  -> REQ-000012
 REQ-000012 specified_by SPEC-000044
 UI-000021 pairs_with SPEC-000044
 SPEC-000044 implemented_by path/to/implementation
 SPEC-000044 verified_by test-or-evidence-reference
 ```
 
-一つのRequirementを複数SPECが具体化してよく、一つのSPECが複数Requirementへ寄与してよい。重要な下流成果物から上流のIntentとDecisionへ遡れ、上流変更から影響するArtifactを確認できなければならない。
+Traceは単一の固定Chainを要求しない。REQはDiscovery Source、Problem、Need / Desired Outcomeからの由来を辿れ、UX / IA / UI / SPECはそれぞれのProperty Authorityに従ってREQを変換する。一つのRequirementを複数SPECが具体化してよく、一つのSPECが複数Requirementへ寄与してよい。重要な下流成果物から上流のIntentとDecisionへ遡れ、上流変更から影響するArtifactを確認できなければならない。
 
 ---
 
@@ -577,8 +609,8 @@ LifecycleまたはApproverが異なる
 
 Principle DocumentはPurpose、Principle、Rule、Exampleを必要な粒度で持つ。Design / Definition ArtifactはSource Context、Preserved Intent、Scope / Non-goal、Decision / Definition、Constraint、Risk / Open Question、Downstream Obligation、Verificationを取得可能にする。
 
-Change TraceのTrigger、Intent、Expected / Actual Impact、Artifact Trace、Release帰属は[Change](00_12_Change.md)を正本とし、Documentation側に別Templateを作らない。Release RecordとCHANGELOGは[Release](00_13_Release.md)、作業手順は[Workflow](00_14_Workflow.md)に従う。
+Change TraceのTrigger、Intent、Expected / Actual Impact、Artifact Trace、Release帰属は[Change](12_Change.md)を正本とし、Documentation側に別Templateを作らない。Release RecordとCHANGELOGは[Release](13_Release.md)、作業手順は[Workflow](14_Workflow.md)に従う。
 
 ## 10.4. Validation and Audit
 
-本書は検査対象となるRuleを定義し、文書のAudit手順、Severity、Remediation Policy、Audit CompletionとTarget Statusは[Document Audit](00_51_Document_Audit.md)を正本とする。工程ArtifactのCoverageは各工程の`Phase Audit Checklist`、CRDDの最小適用条件と適用状態は[Conformance Audit](00_52_Conformance_Audit.md)、変更影響は[Gap / Impact Audit](00_53_Gap_Impact_Audit.md)に従う。
+本書は検査対象となるRuleを定義し、文書のAudit手順、Severity、Remediation Policy、Audit CompletionとTarget Statusは[Document Audit](51_Document_Audit.md)を正本とする。工程ArtifactのCoverageは各工程の`Phase Audit Checklist`、CRDDの最小適用条件と適用状態は[Conformance Audit](52_Conformance_Audit.md)、変更影響は[Gap / Impact Audit](53_Gap_Impact_Audit.md)に従う。

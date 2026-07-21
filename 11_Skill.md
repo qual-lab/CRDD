@@ -1,16 +1,17 @@
 # CRDD Skill
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [12_Change.md](12_Change.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -18,7 +19,7 @@ Related:
 
 本書は、CRDD Skillの共通定義と、Skillを開始、中断、再開、確認、保存、Handoffまで一貫して実行するSkill Runtimeの正本である。
 
-Skillは専門活動とLifecycleを定義する。AgentはSkillまたは限定Taskを、明示されたContext、Authority、Action Boundaryで実行する主体である。AgentのInput、Output、Authority、Access、委譲、Reviewは[Agent](00_10_Agent.md)を正本とする。
+Skillは専門活動とLifecycleを定義する。AgentはSkillまたは限定Taskを、明示されたContext、Authority、Action Boundaryで実行する主体である。AgentのInput、Output、Authority、Access、委譲、Reviewは[Agent](10_Agent.md)を正本とする。
 
 工程固有のEntry、Transformation、Required Responsibility Coverage、Exit、Gate、Audit、Artifactは各工程文書を正本とし、本書で再定義しない。本書は全Skillに共通する次の責務だけを持つ。
 
@@ -43,9 +44,9 @@ Guided Skillは固定Questionnaireではない。既存Contextを読み、次の
 skill:
   id: skill.ui.contract
   purpose: UXとIAをUI Contractへ変換する
-  process_authority: 00_25_UI.md
+  process_authority: 25_UI.md
   authority_boundary:
-    source: 00_10_Agent.md
+    source: 10_Agent.md
     may_propose:
       - UI Contract
     must_escalate:
@@ -59,7 +60,7 @@ skill:
       - IA Structure
       - Use Case
   responsibility_coverage:
-    source: 00_25_UI.md#required-responsibility-coverage
+    source: 25_UI.md#required-responsibility-coverage
   interaction:
     core_topics:
       - first_information
@@ -111,7 +112,7 @@ Professional Artifact
 = 専門Contextを保存、Review、継承する成果物
 ```
 
-Professional Artifactは利用者へ空欄を埋めさせるQuestionnaireではない。Skill、専門家、Agent、既存Artifactから更新する。Artifactの共通Property、Stable Context ID、Evidence、Decision、Relationは[Documentation](00_03_Documentation.md)を正本とし、本書で共通Artifact Templateを再定義しない。
+Professional Artifactは利用者へ空欄を埋めさせるQuestionnaireではない。Skill、専門家、Agent、既存Artifactから更新する。Artifactの共通Property、Stable Context ID、Evidence、Decision、Relationは[Documentation](03_Documentation.md)を正本とし、本書で共通Artifact Templateを再定義しない。
 
 ## 2.2. Professional Knowledge
 
@@ -196,9 +197,12 @@ skill_run:
     owner: Product Design Lead
     required_input: []
   result_summary: UX Outcome draft is ready for registration
+  propagation:
+    required: false
+    reason: no new approved meaning in this run
 ```
 
-重要なRunは、継続、Escalation、監査を担うRun Ownerと、実行した人間、Agent Contract、またはSystemを識別する。Stable Context IDを付与するのは[Documentation](00_03_Documentation.md)の対象とAssignment Criteriaを満たすREQ、UX、IA、UI、SPECだけである。その他のRun Result、Open Question、Architecture、Evidence、Decision、Change Trace、Test等はArtifact Referenceで識別する。
+重要なRunは、継続、Escalation、監査を担うRun Ownerと、実行した人間、Agent Contract、またはSystemを識別する。Stable Context IDを付与するのは[Documentation](03_Documentation.md)の対象とAssignment Criteriaを満たすREQ、UX、IA、UI、SPECだけである。その他のRun Result、Open Question、Architecture、Evidence、Decision、Change Trace、Test等はArtifact Referenceで識別する。
 
 ## 3.3. Pause, Failure, and Resume
 
@@ -291,11 +295,13 @@ Human Decision、Context採用、重要な意味変換、Phase Handoffを含む�
 
 Human Reviewまたは対象Contractに従い、責務を持つCanonical Artifact、Relation、Status、Artifact Reference、Open Questionを更新する。Stable Context IDは対象TypeとAssignment Criteriaを満たす場合だけ付与する。
 
-更新方法はCreate、Revise、Append Evidence、Open Question、Supersede Candidate、No Changeから選べる。重要な意味変更では既存Revisionを破壊的に上書きしない。Evidence、Decision、Status、Revision、Deletionは[Documentation](00_03_Documentation.md)、変更のTriggerとExpected / Actual Impactは[Change](00_12_Change.md)を正本とする。
+更新方法はCreate、Revise、Append Evidence、Open Question、Supersede Candidate、No Changeから選べる。重要な意味変更では既存Revisionを破壊的に上書きしない。Evidence、Decision、Status、Revision、Deletionは[Documentation](03_Documentation.md)、変更のTriggerとExpected / Actual Impactは[Change](12_Change.md)を正本とする。
+
+Human Decision、Constraint、Learning、Evidence、Findingを新たに確定または変更した場合は、登録直後に[Triggered Propagation Check](10_Agent.md#74-triggered-propagation-check)の要否を判定する。意味的影響の可能性がある場合は`agent.gap_impact.audit`または同等の独立ReviewerへRouteし、上流・同層のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索する。正本更新と再監査が必要なRunを、下流ArtifactへDecisionを記録しただけで`Completed`にしない。
 
 ## 4.8. Route, Close, or Pause
 
-次Route、Owner、必要Input、Unresolved Gapを示す。Skill Runを`Completed`にできるのは、Skill DefinitionのExit Conditionsを評価し、Result、Trace、Open Question、Risk、次Routeまたは終了理由を記録した場合に限る。Handoffする場合は6章を満たす。
+次Route、Owner、必要Input、Unresolved Gapを示す。Skill Runを`Completed`にできるのは、Skill DefinitionのExit Conditionsを評価し、Result、Trace、Open Question、Risk、次Routeまたは終了理由を記録し、発火したTriggered Propagation Checkが完了した場合に限る。未完了の伝播を伴う終了は`Conditional`、`Blocked`、`Escalated`、またはHuman-directed `propagation_exception`として通常完了と区別する。Handoffする場合は6章を満たす。
 
 ---
 
@@ -418,7 +424,7 @@ Reviewの厳密さは8章のScaleに従う。Compactでは要約と重要Gap、S
 
 ## 6.2. Skill Handoff Contract
 
-工程移行を伴う次のSkillへ渡す際は、受信工程のPhase Entry Contractを満たし、[`00_10_Agent.md`](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)のPhase Transition Reviewと必要なRemediation / Re-reviewを完了したうえで、次を対象Riskに応じて保持する。工程固有のEntry、Coverage、Exitを本書で再記述しない。同一工程内の調査、作成、限定Review等のSkill HandoffへPhase Transition Reviewを機械的に要求せず、Agent Contract、Skill Definition、Riskに応じたReviewを使用する。
+工程移行を伴う次のSkillへ渡す際は、受信工程のPhase Entry Contractを満たし、[`10_Agent.md`](10_Agent.md#72-phase-transition-review-and-remediation-loop)のPhase Transition Reviewと必要なRemediation / Re-reviewを完了したうえで、次を対象Riskに応じて保持する。工程固有のEntry、Coverage、Exitを本書で再記述しない。同一工程内の調査、作成、限定Review等のSkill HandoffへPhase Transition Reviewを機械的に要求せず、Agent Contract、Skill Definition、Riskに応じたReviewを使用する。
 
 ```yaml
 handoff:
@@ -442,7 +448,7 @@ handoff:
     accepted_risk: Secondary actor structure may require rework
     owner: Product Owner
   receiving_entry:
-    authority: 00_23_IA.md#phase-entry-contract
+    authority: 23_IA.md#phase-entry-contract
     assessment: satisfied_for_stated_scope
   transition_review:
     role: agent.phase_transition.review
@@ -466,11 +472,11 @@ handoff:
     - Secondary actor journey changes the object responsibility
 ```
 
-Handoffは成果物のLinkだけでは成立しない。工程間の通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たし、対象RevisionのPhase Transition Reviewが`Pass`の場合に行う。Findingがある場合は責務を持つ工程で修正し、修正後Revisionを再Reviewする。Audit Run完了、`Conditional`、Owner付与だけをPassとして扱わない。
+Handoffは成果物のLinkだけでは成立しない。工程間の通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たし、対象Revisionまでに発火したTriggered Propagation Checkが完了し、Phase Transition Reviewが`Pass`の場合に行う。Findingがある場合は責務を持つ工程で修正し、修正後Revisionを再監査・再Reviewする。Audit Run完了、`Conditional`、Owner付与だけをPassとして扱わない。
 
-`Partial — Human Authorized`は、対象Scope、Unresolved Gap、Risk、Owner、Reopen条件を人間が明示した場合だけ使用できるが、承認された移行ScopeのIndependent Reviewを省略しない。Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)を対象Human Authorityが明示した場合だけ行い、通常HandoffまたはReview Passと表示しない。
+`Partial — Human Authorized`は、対象Scope、Unresolved Gap、Risk、Owner、Reopen条件を人間が明示した場合だけ使用できるが、承認された移行ScopeのIndependent Reviewを省略しない。Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)を対象Human Authorityが明示した場合だけ行い、通常HandoffまたはReview Passと表示しない。
 
-AgentまたはSubagent間の委譲は[Agent](00_10_Agent.md)、ArtifactのRevisionは[Documentation](00_03_Documentation.md)、変更のImpact Traceは[Change](00_12_Change.md)、共通Handoff不変条件は[Principles](00_01_Principles.md)を正本とする。
+AgentまたはSubagent間の委譲は[Agent](10_Agent.md)、ArtifactのRevisionは[Documentation](03_Documentation.md)、変更のImpact Traceは[Change](12_Change.md)、共通Handoff不変条件は[Principles](01_Principles.md)を正本とする。
 
 ---
 
@@ -496,11 +502,11 @@ AgentまたはSubagent間の委譲は[Agent](00_10_Agent.md)、ArtifactのRevisi
 | Register | Canonical Artifact、Relation、Statusを更新する |
 | Route | 次のSkill、Research、Decision、Review、Gate、Pauseを示す |
 
-Context / RelationとContext Selectionの規則は[Documentation](00_03_Documentation.md)、Change Traceは[Change](00_12_Change.md)を正本とする。
+Context / RelationとContext Selectionの規則は[Documentation](03_Documentation.md)、Change Traceは[Change](12_Change.md)を正本とする。
 
 ## 7.3. Execution Result and Validation
 
-終了または中断時は3.2のSkill Run Recordを更新し、中断または失敗時は3.3のResume Snapshotを残す。Changed Files、Verification、Side Effect等の実行結果がある場合は[Agent Result](00_10_Agent.md)へ接続する。思考過程の全文は不要だが、判断に必要なEvidenceとReasoning Summaryを失わない。
+終了または中断時は3.2のSkill Run Recordを更新し、中断または失敗時は3.3のResume Snapshotを残す。Changed Files、Verification、Side Effect等の実行結果がある場合は[Agent Result](10_Agent.md)へ接続する。思考過程の全文は不要だが、判断に必要なEvidenceとReasoning Summaryを失わない。
 
 別Sessionの人間またはAgentが、現在地、Scope、Revision、責務Coverage、SourceとAI変換、未決事項、中断点を再現できなければならない。Tool固有Entry FileやWorking StateはCanonical Contextを置き換えない。
 
@@ -510,7 +516,7 @@ Context / RelationとContext Selectionの規則は[Documentation](00_03_Document
 
 ## 8.1. Runtime Scale
 
-Runtimeは独自のDocumentation Scaleを選定しない。[Documentation](00_03_Documentation.md)のScaleを使用し、本節ではSkill実行への影響だけを定義する。対象CHGがある場合は、そのImpact ScopeとReferenceを入力に含める。
+Runtimeは独自のDocumentation Scaleを選定しない。[Documentation](03_Documentation.md)のScaleを使用し、本節ではSkill実行への影響だけを定義する。対象CHGがある場合は、そのImpact ScopeとReferenceを入力に含める。
 
 | Scale | Runtime Execution |
 |---|---|
@@ -530,4 +536,4 @@ CompactでもRecommendationの根拠と主要なDownsideを省略しない。質
 
 ## 8.2. Failure and Audit Boundary
 
-共通Failureの検査は[Conformance Audit](00_52_Conformance_Audit.md)のAgentic Delivery Profile Criteriaを正本とする。工程固有Failureは各工程文書を正本とし、本書へ再掲しない。
+共通Failureの検査は[Conformance Audit](52_Conformance_Audit.md)のAgentic Delivery Profile Criteriaを正本とする。工程固有Failureは各工程文書を正本とし、本書へ再掲しない。

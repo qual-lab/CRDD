@@ -1,27 +1,27 @@
 # CRDD Terminology
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_00_Overview.md](00_00_Overview.md)
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_13_Release.md](00_13_Release.md)
-- [00_14_Workflow.md](00_14_Workflow.md)
-- [00_19_Maintenance.md](00_19_Maintenance.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
-- [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
+- [00_Overview.md](00_Overview.md)
+- [01_Principles.md](01_Principles.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [13_Release.md](13_Release.md)
+- [14_Workflow.md](14_Workflow.md)
+- [19_Maintenance.md](19_Maintenance.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
 # Purpose
 
-本ドキュメントは、CRDDで使用するCanonical Term、各Termの境界、基本的な責務とAuthority、Lifecycle / Status、Aliasの正本である。Context間を一気通貫で変換する概念モデルは[`00_01_Principles.md`](00_01_Principles.md)を正本とする。
+本ドキュメントは、CRDDで使用するCanonical Term、各Termの境界、基本的な責務とAuthority、Lifecycle / Status、Aliasの正本である。Context間を一気通貫で変換する概念モデルは[`01_Principles.md`](01_Principles.md)を正本とする。
 
 他のCRDD文書は、本書で定義された概念を再定義してはならない。専門領域固有の詳細な運用、Lifecycle、Approval、Schemaは各専門標準で定義してよいが、本書のCanonical Definitionと矛盾してはならない。
 
@@ -35,7 +35,7 @@ CRDD全体を横断するSupporting Concept
 Alias / Deprecated Term
 ```
 
-本書を含むCRDD文書で用いる規範強度語彙の意味は、[`00_03_Documentation.md`](00_03_Documentation.md#48-normative-language)を正本とする。
+本書を含むCRDD文書で用いる規範強度語彙の意味は、[`03_Documentation.md`](03_Documentation.md#48-normative-language)を正本とする。
 
 ---
 
@@ -158,7 +158,7 @@ MUST NOT
 | Output | UX / IA / UI / Behavior SpecificationへのObligation、Architecture Input、Plan、Verification Obligation |
 | Lifecycle | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Active` → `Superseded` / `Deprecated` / `Retired` |
 | Related Concepts | Decision、UI Contract、Behavior Specification、Acceptance Criteria、Verification Result |
-| MUST | Discovery Source、Evidence、Decisionまたは正当なAuthorityへTrace可能でなければならない。検証可能性またはVerification方法を持たなければならない。 |
+| MUST | 該当するDiscovery Source、Evidence、Problem、Need / Desired Outcome、Decisionまたは正当なAuthorityのいずれかへ必要な粒度でTrace可能でなければならない。対象Riskと抽象度に応じたVerification Obligation、または確認方法を後続工程で定義する責務を持たなければならない。 |
 | MUST NOT | 根拠のないAI推定を承認済みRequirementとして扱ってはならない。UX OutcomeやDesign IntentをBehavior構文だけへ圧縮してはならない。Implementation StatusやVerification StatusをRequirement自身のStatusとして流用してはならない。 |
 
 ## 1.8. Behavior Specification
@@ -264,7 +264,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **Purpose:** Product Contextの継承、再現、判断、変更、検証の基盤となる。
 
-**Authority:** Repository Owner。詳細は[`00_03_Documentation.md`](00_03_Documentation.md)を参照する。
+**Authority:** Repository Owner。詳細は[`03_Documentation.md`](03_Documentation.md)を参照する。
 
 **MUST:** Canonical Contextと外部ArtifactのProperty Authorityを明示する。
 
@@ -306,7 +306,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** Folder番号、ファイル形式、Code、Markdown、Figma等の媒体だけから一律にAuthorityを推定してはならない。
 
-`Source of Truth`は一般語として使用できるが、CRDDではArtifact全体よりProperty Authorityを優先して表現する。詳細は[Documentation](00_03_Documentation.md#22-property-authority)を参照する。
+`Source of Truth`は一般語として使用できるが、CRDDではArtifact全体よりProperty Authorityを優先して表現する。詳細は[Documentation](03_Documentation.md#22-property-authority)を参照する。
 
 ## 2.6. Artifact Reference
 
@@ -326,7 +326,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **Purpose:** 文書移動、統合、分割、実現手段の変更後も、同じContextのRelationと履歴を維持する。
 
-**Authority:** [Documentation](00_03_Documentation.md#8-stable-context-id)のAssignmentとAllocation規則に従うProjectの採番Authority。
+**Authority:** [Documentation](03_Documentation.md#8-stable-context-id)のAssignmentとAllocation規則に従うProjectの採番Authority。
 
 **MUST:** CRDD標準では、Assignment Criteriaを満たす`REQ`、`UX`、`IA`、`UI`、`SPEC`だけに使用する。
 
@@ -344,7 +344,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** 正本Contextを複製して独立更新し、別の正本を作ってはならない。
 
-`Context Package`はContext Selectionを保存・受け渡すArtifact表現として使用できるが、別のContext Typeではない。詳細なInput契約は[Agent](00_10_Agent.md)と[Skill](00_11_Skill.md)、参照規則は[Documentation](00_03_Documentation.md)を参照する。
+`Context Package`はContext Selectionを保存・受け渡すArtifact表現として使用できるが、別のContext Typeではない。詳細なInput契約は[Agent](10_Agent.md)と[Skill](11_Skill.md)、参照規則は[Documentation](03_Documentation.md)を参照する。
 
 ## 2.9. Change Trace
 
@@ -358,7 +358,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** Requirement、SPEC、Architecture、Phase Approval、Impact Audit、Verification、Git Log、CHANGELOG等の正本をChange Trace内へ複製して置き換えてはならない。
 
-`CHG-*`はChange Traceを参照するArtifact IDであり、Stable Context ID Typeではない。詳細は[`00_12_Change.md`](00_12_Change.md)を参照する。
+`CHG-*`はChange Traceを参照するArtifact IDであり、Stable Context ID Typeではない。詳細は[`12_Change.md`](12_Change.md)を参照する。
 
 ## 2.10. Workflow
 
@@ -372,7 +372,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** Product Context、Change Trace、Release Record、Agent / Skill共通規範を置き換えてはならない。
 
-詳細は[`00_14_Workflow.md`](00_14_Workflow.md)を参照する。
+詳細は[`14_Workflow.md`](14_Workflow.md)を参照する。
 
 ## 2.11. Release
 
@@ -386,7 +386,7 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **MUST NOT:** Verification完了、Merge、Build成功をRelease承認またはRelease完了と同一視してはならない。
 
-ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。詳細は[`00_13_Release.md`](00_13_Release.md)を参照する。
+ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。詳細は[`13_Release.md`](13_Release.md)を参照する。
 
 ## 2.12. Skill
 
@@ -400,7 +400,7 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 
 **MUST NOT:** Skillの実行完了をPhase Gateの承認と同一視してはならない。
 
-詳細は[`00_11_Skill.md`](00_11_Skill.md)を参照する。
+詳細は[`11_Skill.md`](11_Skill.md)を参照する。
 
 ## 2.13. Phase Gate
 
@@ -414,7 +414,7 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 
 **MUST NOT:** AIが重要Gateを自己承認してはならない。
 
-共通のHandoff不変条件は[Transformation Invariants](00_01_Principles.md#62-transformation-invariants)、実行時のRouteとHandoffは[Skill](00_11_Skill.md)、ArtifactのRevisionは[Documentation](00_03_Documentation.md)、変更のImpact Traceは[Change](00_12_Change.md)、工程固有条件とReopenは各工程文書の`Phase Gate Criteria`を参照する。
+共通のHandoff不変条件は[Transformation Invariants](01_Principles.md#62-transformation-invariants)、実行時のRouteとHandoffは[Skill](11_Skill.md)、ArtifactのRevisionは[Documentation](03_Documentation.md)、変更のImpact Traceは[Change](12_Change.md)、工程固有条件とReopenは各工程文書の`Phase Gate Criteria`を参照する。
 
 ## 2.14. Trace
 
@@ -428,7 +428,7 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 
 **MUST NOT:** ファイルLinkが存在するだけで意味的Traceが成立したとみなしてはならない。
 
-詳細は[`00_03_Documentation.md`](00_03_Documentation.md)のStable Context IDとTraceabilityを参照する。
+詳細は[`03_Documentation.md`](03_Documentation.md)のStable Context IDとTraceabilityを参照する。
 
 ## 2.15. Gap, Disposition, Unresolved Gap, and Open Question
 
@@ -448,7 +448,21 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 
 **MUST NOT:** `Open Gap`、`Gapあり`等のLabelだけを表示してはならない。Open Questionへの回答だけで、別に存在するCoverage、Conflict、Evidence、VerificationのGapまで解消したとみなしてはならない。
 
-Gap / Impact Audit固有のGap Type、Disposition、Impact Levelは[`00_53_Gap_Impact_Audit.md`](00_53_Gap_Impact_Audit.md)を参照する。
+Gap / Impact Audit固有のGap Type、Disposition、Impact Levelは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を参照する。
+
+## 2.16. Triggered Propagation Check
+
+**Definition:** Human Decision、Constraint、Learning、Evidence、Findingが新たに確定または変更された時点で、それが既存の上流・同層Contextへ答え、制約し、矛盾し、または再評価を要求するかを必ず評価し、発火時はGap / Impact Audit、必要な正本更新、再監査まで閉じる強制Route。
+
+**Purpose:** 下流Artifactへ結果を記録しただけで、既存のOpen Question、Unresolved Gap、Assumption、Decision、Constraintが古いまま残ることを防ぐ。
+
+**Authority:** Gap / Impact AuditはCandidateとFindingを返す。各Property Authorityが正本を更新し、対象Human Authorityが重要Dispositionまたは例外を判断する。
+
+**MUST:** Source Revisionから上流・同層を探索し、上流更新が生じた場合は更新後Revisionから下流Impactを再探索する。必須更新後は対象範囲を再監査する。
+
+**MUST NOT:** Audit Run完了、FindingへのOwner付与、下流Decisionの記録をPropagation Passとみなしてはならない。
+
+Human Authorityが未完了のまま進める場合は`propagation_exception`として、Source Revision、未伝播範囲、Risk / Impact、Owner、再監査条件、失効・Reopen条件を記録する。これはPass、No Impact、Gap解消、Risk受容を意味しない。詳細は[Gap / Impact Audit](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を参照する。
 
 ---
 
@@ -498,7 +512,7 @@ AgentのAuthorityはAgent ContractとHuman Authorityによって付与される�
 
 Subagentは、Parent AgentまたはOrchestratorから限定されたScope、Context、Action Authority、Output Contractを受けて作業するAgentである。
 
-Subagentは独立したAuthorityを意味しない。詳細な委譲、Access、Result、統合、Promotion規定は[`00_10_Agent.md`](00_10_Agent.md)を参照し、CRDD Coreは特定のSubagent構成を要求しない。
+Subagentは独立したAuthorityを意味しない。詳細な委譲、Access、Result、統合、Promotion規定は[`10_Agent.md`](10_Agent.md)を参照し、CRDD Coreは特定のSubagent構成を要求しない。
 
 ---
 
@@ -510,11 +524,11 @@ CRDDでは、意味の異なる流れをすべて`Lifecycle`と呼ばない。
 
 | Canonical Term | Meaning | Authority |
 |---|---|---|
-| End-to-End Transformation Flow | Realityから得たContextの意味変化と、DiscoveryからVerificationまでの専門工程による具体化・Learning還元を接続する流れ | [Principles](00_01_Principles.md)、本書のContext Type定義、各工程文書 |
-| Change Trace | 一つの変更のTriggerから影響、実装、検証、Release帰属までの追跡 | [Change](00_12_Change.md) |
-| Skill / Agent Run | 一回の専門活動または委譲実行の開始からHandoffまで | [Skill](00_11_Skill.md)、[Agent](00_10_Agent.md) |
-| Workflow Execution | Repository固有の反復手順を一回実行し、結果をAuthorityへ返す流れ | [Workflow](00_14_Workflow.md) |
-| Release Flow | Release ReadinessからHuman Release Decision、配布・有効化、Release Verificationまでの流れ | [Release](00_13_Release.md) |
+| End-to-End Transformation Flow | Realityから得たContextの意味変化と、DiscoveryからVerificationまでの専門工程による具体化・Learning還元を接続する流れ | [Principles](01_Principles.md)、本書のContext Type定義、各工程文書 |
+| Change Trace | 一つの変更のTriggerから影響、実装、検証、Release帰属までの追跡 | [Change](12_Change.md) |
+| Skill / Agent Run | 一回の専門活動または委譲実行の開始からHandoffまで | [Skill](11_Skill.md)、[Agent](10_Agent.md) |
+| Workflow Execution | Repository固有の反復手順を一回実行し、結果をAuthorityへ返す流れ | [Workflow](14_Workflow.md) |
+| Release Flow | Release ReadinessからHuman Release Decision、配布・有効化、Release Verificationまでの流れ | [Release](13_Release.md) |
 
 ## 4.2. Status Terms
 
@@ -573,7 +587,7 @@ Change Trace Status
 Release Status / Decision
 ```
 
-`Not Verified`、`Partially Verified — Human Authorized`等は[Verification](00_29_Verification.md)、Release Readiness Recommendationは[Verification](00_29_Verification.md)、配布・有効化のRelease Decision / Statusは[Release](00_13_Release.md)、Agent ResultとSkill RunのStatusは[Agent](00_10_Agent.md)と[Skill](00_11_Skill.md)を正本とする。専門Statusを本表の共通語へ無理に丸めない。
+`Not Verified`、`Partially Verified — Human Authorized`等は[Verification](29_Verification.md)、Release Readiness Recommendationは[Verification](29_Verification.md)、配布・有効化のRelease Decision / Statusは[Release](13_Release.md)、Agent ResultとSkill RunのStatusは[Agent](10_Agent.md)と[Skill](11_Skill.md)を正本とする。専門Statusを本表の共通語へ無理に丸めない。
 
 ---
 
@@ -606,4 +620,4 @@ Release Status / Decision
 
 新しいCore Termを導入する場合、使用前または同一Change内で本書へ定義・Alias・既存Termとの境界を追加しなければならない。
 
-Core Context TypeごとのAuthorityと禁止事項は各定義を正本とする。CRDD適用Criteriaと評価方法は[Conformance Audit](00_52_Conformance_Audit.md)を参照し、本書に重複したChecklistを置かない。
+Core Context TypeごとのAuthorityと禁止事項は各定義を正本とする。CRDD適用Criteriaと評価方法は[Conformance Audit](52_Conformance_Audit.md)を参照し、本書に重複したChecklistを置かない。

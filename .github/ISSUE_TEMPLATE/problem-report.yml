@@ -1,0 +1,89 @@
+name: Problem Report
+description: Report an error, contradiction, omission, broken link, or misleading CRDD behavior.
+title: "[Problem] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a CRDD problem. A report becomes Maintenance input; it is not automatically an accepted rule change. Do not include secrets, personal data, or material you cannot share publicly.
+
+  - type: input
+    id: version
+    attributes:
+      label: CRDD version or revision
+      description: Which released version, tag, commit, or document revision did you use?
+      placeholder: "v0.5.0 or commit SHA"
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Problem location
+      description: Identify the file, section, anchor, link, template, or workflow where the problem appears.
+      placeholder: "27_Architecture.md — Human Decisions"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current content or behavior
+      description: What does CRDD currently say or cause people or AI to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Contradiction, omission, or error
+      description: Explain what is wrong, missing, ambiguous, or inconsistent. Separate observation from interpretation where possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: User or AI impact
+      description: What misunderstanding, wrong decision, rework, missing artifact, unsafe behavior, or adoption difficulty can result?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected state
+      description: What should a person or AI be able to understand or do instead? A proposed wording change is optional.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or reproduction
+      description: Provide a minimal reproduction, actual event, comparison, screenshot, log excerpt, or authoritative reference when available. State limitations.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: apparent_classification
+    attributes:
+      label: Apparent change class
+      description: This is only your initial view; maintainers classify the actual impact.
+      options:
+        - Editorial — meaning should not change
+        - Clarification — existing meaning should become clearer
+        - Additive / Normative / Breaking impact may exist
+        - Unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add related issues, affected projects, workarounds, or anything else that helps evaluation.
+    validations:
+      required: false

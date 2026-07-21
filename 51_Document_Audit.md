@@ -1,19 +1,19 @@
 # CRDD Document Audit
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
 Agent ID: `agent.document.audit`
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_19_Maintenance.md](00_19_Maintenance.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
-- [00_53_Gap_Impact_Audit.md](00_53_Gap_Impact_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [19_Maintenance.md](19_Maintenance.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -145,7 +145,7 @@ Conformance Auditは本章のStatus、Finding Fields、Severity、Report Viewを
 
 ## 4.1. Structure and Format Audit
 
-CRDD標準文書とCanonical Markdown Documentでは、[Documentation Header](00_03_Documentation.md#44-markdown-header)に定めるHeaderと、Markdown構文、見出し階層、Code Fence、Table、Anchorを確認する。
+CRDD標準文書とCanonical Markdown Documentでは、[Documentation Header](03_Documentation.md#44-markdown-header)に定めるHeaderと、Markdown構文、見出し階層、Code Fence、Table、Anchorを確認する。
 
 その他のArtifactでは、媒体とRiskに応じてCommon Artifact Contractの情報を取得可能か確認し、同じMarkdown Headerを機械的に要求しない。
 
@@ -156,8 +156,10 @@ CRDD標準文書とCanonical Markdown Documentでは、[Documentation Header](00
 次を確認する。
 
 - Broken Link / Anchor、Related切れ、旧ファイル名、孤立Artifact
+- 外部Sourceを実質的に使用する場合のSource / Versionまたは発行日、Authoritative URL / DOI、Relation、適用Section、Coverage、および過大な準拠・網羅Claim
 - README、Overview、Folder Index等の探索導線
 - 文書体系またはFolder内の採番帯、重複番号、順序
+- `00_CRDD/`内でFolder番号を重ねた`00_01_*`等ではなく、`01_*`等の二桁Document Numberを一度だけ使用していること
 - ファイル名が目的を表し、Stable IDを埋め込んでいないこと
 - 文書移動・統合・削除後の参照元とTemplateの追従
 
@@ -165,9 +167,9 @@ CRDD標準文書とCanonical Markdown Documentでは、[Documentation Header](00
 
 ## 4.3. Terminology, Status, and Normative Audit
 
-[`00_02_Terminology.md`](00_02_Terminology.md)のCanonical Concept、Alias、Status、Authorityと一致するか確認する。特にObservation / Evidence、Proposal / Decision、Implemented / Verified / Accepted、Draft / Candidate / Reviewed / Approvedの混同を検出する。
+[`02_Terminology.md`](02_Terminology.md)のCanonical Concept、Alias、Status、Authorityと一致するか確認する。特にObservation / Evidence、Proposal / Decision、Implemented / Verified / Accepted、Draft / Candidate / Reviewed / Approvedの混同を検出する。
 
-規範強度語彙は[`00_03_Documentation.md`](00_03_Documentation.md#48-normative-language)を正本とする。`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`等を使う場合は、その強さが文書のStatus、Property Authority、人間判断と矛盾していないか確認する。日本語の義務表現も意味上のRuleとして評価し、英語Keywordの有無だけで規範性を判断しない。
+規範強度語彙は[`03_Documentation.md`](03_Documentation.md#48-normative-language)を正本とする。`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`等を使う場合は、その強さが文書のStatus、Property Authority、人間判断と矛盾していないか確認する。日本語の義務表現も意味上のRuleとして評価し、英語Keywordの有無だけで規範性を判断しない。
 
 Status、Version、Last Updated、Release / CHANGELOGの関係を適用範囲で確認する。AIや文書編集者がStatusを自己昇格していないか、Deprecated / Superseded Artifactの後継参照とMigrationがあるか、削除がDocumentationの廃止規則とHuman Approvalに従っているかを確認する。
 
@@ -227,7 +229,7 @@ Audit Criteria / Skill or Agent Adapter
 CHANGELOG / Migration Note（Releaseまたは利用者影響がある場合）
 ```
 
-Document Auditは既知の直接Propagationを確認する。Relation Graphを探索して未知の影響候補、再Review範囲、複数工程への意味変更を発見する必要がある場合は[`00_53_Gap_Impact_Audit.md`](00_53_Gap_Impact_Audit.md)へ渡す。
+Document Auditは既知の直接Propagationを確認する。Relation Graphを探索して未知の影響候補、再Review範囲、複数工程への意味変更を発見する必要がある場合は[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)へ渡す。
 
 ## 4.8. Phase-specific Audit Sources
 
@@ -235,15 +237,15 @@ Document Auditは既知の直接Propagationを確認する。Relation Graphを�
 
 | Scope | Authoritative Audit Source |
 |---|---|
-| Discovery | [00_21_Discovery.md](00_21_Discovery.md#phase-audit-checklist) |
-| UX | [00_22_UX.md](00_22_UX.md#phase-audit-checklist) |
-| IA | [00_23_IA.md](00_23_IA.md#phase-audit-checklist) |
-| UI / SPEC Pair | [00_24_UI_Behavior_Specification.md](00_24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
-| UI | [00_25_UI.md](00_25_UI.md#phase-audit-checklist) |
-| Behavior Specification | [00_26_Behavior_Specification.md](00_26_Behavior_Specification.md#phase-audit-checklist) |
-| Architecture | [00_27_Architecture.md](00_27_Architecture.md#phase-audit-checklist) |
-| Implementation | [00_28_Implementation.md](00_28_Implementation.md#phase-audit-checklist) |
-| Verification | [00_29_Verification.md](00_29_Verification.md#phase-audit-checklist) |
+| Discovery | [21_Discovery.md](21_Discovery.md#phase-audit-checklist) |
+| UX | [22_UX.md](22_UX.md#phase-audit-checklist) |
+| IA | [23_IA.md](23_IA.md#phase-audit-checklist) |
+| UI / SPEC Pair | [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
+| UI | [25_UI.md](25_UI.md#phase-audit-checklist) |
+| Behavior Specification | [26_Behavior_Specification.md](26_Behavior_Specification.md#phase-audit-checklist) |
+| Architecture | [27_Architecture.md](27_Architecture.md#phase-audit-checklist) |
+| Implementation | [28_Implementation.md](28_Implementation.md#phase-audit-checklist) |
+| Verification | [29_Verification.md](29_Verification.md#phase-audit-checklist) |
 
 ---
 
@@ -305,7 +307,7 @@ CriticalやMajorを検出したAuditも、必要な記録を返せば正常に�
 
 # 8. Audit Execution and Delegation
 
-Document AuditをSkill、Agent、Subagentとして実行する場合は、[`00_11_Skill.md`](00_11_Skill.md)のRun Lifecycleと[`00_10_Agent.md`](00_10_Agent.md)のDelegation / Independent Reviewに従う。
+Document AuditをSkill、Agent、Subagentとして実行する場合は、[`11_Skill.md`](11_Skill.md)のRun Lifecycleと[`10_Agent.md`](10_Agent.md)のDelegation / Independent Reviewに従う。
 
 Subagentとして実行する標準Agent IDは`agent.document.audit`とする。Parent Agentは、Audit Purpose、対象Scope / Revision、Applicable Standards、直接Dependency、既知Finding、Expected Output、Read-only、Return先をDelegation Contractへ指定する。Subagentは本書のAudit Reportを返し、Canonical Artifactを変更しない。Phase Transition Reviewから呼び出された場合は、対象工程のPhase Audit ChecklistとHandoff Artifactが文書として取得可能かを評価し、Phase Approvalは返さない。
 

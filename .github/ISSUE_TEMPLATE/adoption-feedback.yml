@@ -1,0 +1,75 @@
+name: Adoption Feedback
+description: Share evidence and operational learning from applying CRDD to a real project.
+title: "[Adoption Feedback] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing real adoption experience. Feedback may become a Learning Candidate, but project-specific practice is not automatically generalized into a CRDD rule. Do not disclose confidential project information.
+
+  - type: input
+    id: version
+    attributes:
+      label: CRDD version
+      description: Which released version or revision did the project adopt?
+      placeholder: "v0.5.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: project
+    attributes:
+      label: Project type and scale
+      description: Describe the product domain, greenfield or maintenance context, approximate team or repository scale, and AI or tool setup at a shareable level.
+    validations:
+      required: true
+
+  - type: textarea
+    id: helpful
+    attributes:
+      label: What helped
+      description: Which CRDD rules, artifacts, reviews, or workflows improved decisions, continuity, delivery, or verification?
+    validations:
+      required: true
+
+  - type: textarea
+    id: confusing
+    attributes:
+      label: What was difficult to understand
+      description: Identify terminology, documents, phase boundaries, prompts, or decisions that were unclear to people or AI.
+    validations:
+      required: true
+
+  - type: textarea
+    id: overhead
+    attributes:
+      label: Operational overhead
+      description: What took too much time, context loading, review effort, documentation, coordination, or maintenance? Include frequency or scale when possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: missing
+    attributes:
+      label: Missing or insufficient rule
+      description: What situation was not covered, or was covered too weakly to execute reliably?
+    validations:
+      required: false
+
+  - type: textarea
+    id: local_practice
+    attributes:
+      label: Project-specific practice you added
+      description: Describe templates, checks, agents, skills, conventions, or exceptions added locally and why they were needed.
+    validations:
+      required: false
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Outcomes, examples, and limitations
+      description: Share observable outcomes, before/after examples, failures, measurements, or important limits without exposing confidential data.
+    validations:
+      required: false

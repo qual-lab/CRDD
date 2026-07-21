@@ -1,20 +1,21 @@
 # CRDD UI Contract and Behavior Specification
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_23_IA.md](00_23_IA.md)
-- [00_25_UI.md](00_25_UI.md)
-- [00_26_Behavior_Specification.md](00_26_Behavior_Specification.md)
-- [00_27_Architecture.md](00_27_Architecture.md)
-- [00_29_Verification.md](00_29_Verification.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [23_IA.md](23_IA.md)
+- [25_UI.md](25_UI.md)
+- [26_Behavior_Specification.md](26_Behavior_Specification.md)
+- [27_Architecture.md](27_Architecture.md)
+- [29_Verification.md](29_Verification.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
+- [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
 ---
 
@@ -33,7 +34,7 @@ Pair Review
 = 両者が同じ意味を、各Property Authorityから矛盾なく表しているか
 ```
 
-本書は第三の工程、第三のProperty Authority、またはUIとSPECを統合した新しいStable Contextを作らない。UI工程のEntry、Coverage、Exit、Gate、Auditは[UI](00_25_UI.md#phase-process-contract)、Behavior Specification工程は[Behavior Specification](00_26_Behavior_Specification.md#phase-process-contract)を正本とする。
+本書は第三の工程、第三のProperty Authority、またはUIとSPECを統合した新しいStable Contextを作らない。UI工程のEntry、Coverage、Exit、Gate、Auditは[UI](25_UI.md#phase-process-contract)、Behavior Specification工程は[Behavior Specification](26_Behavior_Specification.md#phase-process-contract)を正本とする。
 
 ---
 
@@ -45,10 +46,12 @@ Pair Reviewは対象Scopeについて、次を受け取る。
 
 - Source REQ / UX / IAと対象Revision
 - IA Configuration Candidate / Model、Owner / Authority、適用Scope、Inheritance / Override
+- 適用するAccessibility Profileと代替操作Obligation
 - Pairing Unit CandidateとなるFeature、Use Case、User Action、Stateful Interaction
 - 対象`UI-*`と`SPEC-*`、または各工程のDraft / Candidate
 - UI Coverage Summary、SPEC Coverage Summary、Unresolved Gap、人間Review Result
 - Source IA Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
+- IA、UI、SPECで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
 - 対象のUI Obligation、Behavior Obligation、例外候補
 
 片側が未着手でもReviewを開始し、他方に必要なObligationを発見してよい。ただし、未存在のContractをAIが推測で補完してPair成立扱いしない。
@@ -88,6 +91,7 @@ Source Intent / Pairing Unit
 | Duplicate / Conflict | 二重操作防止、競合表示 | Idempotency、Conflict、Stale、Duplicate Result |
 | Data / Content | Source、Freshness、Masking、Label | Data Source、更新条件、Privacy、Retention、Result Meaning |
 | AI / External Action | Provenance、不確実性、人間確認、Consent | Inference State、Approval、Execution Authority、Provider Failure |
+| Accessible Operation | Keyboard / Focus / Semantic / Reading Order / Alternative Interaction | 入力方式に依存しないTrigger、同等のPermission / Result / Failure / Recovery、時間制限・入力保持 |
 | Verification | UI Acceptance、Visual / Interaction Evidence | Behavior Acceptance、Test / Log / Result Evidence |
 
 全ConcernをすべてのPairing Unitへ機械的に実装する必要はない。適用しないConcernは`Not Applicable`として理由と人間確認を残す。
@@ -106,9 +110,11 @@ UI CoverageとSPEC Coverageは別々に保持し、Pair Coverageへ合算して�
 
 AIは対応候補、不一致、欠落、選択肢を提示できるが、Business Rule、Authority、成功・失敗の意味、片側を正しいものとして自己決定しない。
 
+Pairに関するHuman Decision、Constraint、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、IA以前のContext、UI / SPEC両側、Architecture以降へのImpactを更新・再監査するまでPairを通常完了としない。
+
 ## 2.6. Exit and Pair Gate
 
-Pair GateをHumanへ提示する前に、[Phase Transition Review](00_10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Pairing Unit / Revisionへ実行する。Pair FindingはUI、Behavior Specification、または責務を持つ上流工程で修正し、両側の更新Revisionを再Reviewして`Pass`を得る。片側のReviewだけでPair全体をPassにせず、Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](00_10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+Pair GateをHumanへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Pairing Unit / Revisionへ実行する。Pair FindingはUI、Behavior Specification、または責務を持つ上流工程で修正し、両側の更新Revisionを再Reviewして`Pass`を得る。片側のReviewだけでPair全体をPassにせず、Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 Pair Reviewは次を満たした場合に、対象Scopeについて完了できる。
 
@@ -118,6 +124,7 @@ Pair Reviewは次を満たした場合に、対象Scopeについて完了でき�
 - Unresolved Gap、`Not Applicable`、部分承認、Riskを記録している
 - UIとSPECの各Phase Gateを独立して評価している
 - Acceptanceと取得予定Evidenceが両側で対応している
+- 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
 
 Pair Review完了だけではUI工程またはSPEC工程の完了にならない。反対に、UIまたはSPECの個別Gateは、該当するPair Reviewが未完了なら実装への通常Handoffを許可しない。
 
@@ -130,12 +137,14 @@ UIが存在しないBehavior、実Behaviorを持たないPrototype等は、5章�
 - UI StateとSystem Stateの無条件な一対一化
 - Settings UIとSPECのOption、Default、Effective Value、Scope、Precedence、Permission、変更効果、Reset / Recoveryの不一致
 - Loading / Empty / Unknown / Failure / Permission / Conflict / Cancel / Recoveryの片側欠落
+- Keyboard、Focus、Semantic、代替操作等をUIだけの表現とし、同等のTrigger、Result、Failure、RecoveryがSPEC側にない
 - UIによるBusiness Rule、Authority、State Transitionの創作
 - SPECによるVisual、Information Priority、利用者向け文言の創作
 - AI Proposal、Human Approval、Execution、VerificationのStatus Meaning Collapse
 - FigmaやPrototypeだけによるBehavior確定、EARS文だけによるUI / UX確定
 - 片側の実装都合によるSource UX / IA Intentの無断変更
 - Pair Coverage、Unresolved Gap、人間Review、例外理由、Verification対応の欠落
+- Pair Decision、Constraint、Learning、Evidence、Findingに対する上流・同層探索、両側の正本反映、下流再探索、再監査の欠落
 - PairのIndependent Review未実施、片側だけのReview、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をPair Passとみなしていないか
 
 ---
@@ -154,6 +163,7 @@ UIとSPECが同じConcernを扱う場合も、Property Authorityは分離する�
 | Permission | 操作可否・説明 | Authorization Rule | 開示と実行制御が一致するか |
 | Settings / Policy | Current / Effective Value、Scope、変更・Reset Action、影響説明 | Option / Range、Default、Precedence、Permission、変更効果、Recovery | 利用者が実際に有効な値と変更結果を正しく理解・制御できるか |
 | Cancel / Undo | 利用可能なAction | Cancellation / Rollback Rule | UIが不可能な回復を約束しないか |
+| Accessible Operation | 認識可能なSemantics、Keyboard / Focus、代替Interaction | 入力方式に依存しない条件、同等Result、時間制限、入力保持 | 特定の感覚・入力方式を使えない利用者にも同じOutcomeと回復が成立するか |
 | Acceptance | 利用者から観測する成立 | Systemから観測する成立 | 同じOutcomeを検証できるか |
 
 「Shared Concern」は共同所有を意味しない。各側が自分のPropertyを正本化し、Pair ReviewがRelationと整合を検査する。
@@ -293,6 +303,7 @@ Scope / Pairing Unit / Source Revision
 UI ID / Revision / Artifact Reference
 SPEC ID / Revision / Artifact Reference
 Pair Relation / Cardinality
+Applicable Accessibility Profile / Criteria
 
 Concern
 UI Contract Meaning
@@ -303,6 +314,7 @@ Unresolved Gap / Exception / Risk
 Decision / Rationale Reference
 Acceptance / Evidence Plan
 Human Review Result
+Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
 Phase Transition Review Result / Reviewed UI and SPEC Revisions / Finding Disposition / Review Exception
 ```
 
@@ -312,9 +324,9 @@ Pair Review Resultは、`Consistent`、`Gap`、`Conflict`、`Not Applicable`等�
 
 Reviewでは、対象ScopeのPair Coverage、重大な不一致、片側だけの推測、例外、Risk、各正本へ必要な修正を提示する。不一致の解消はUIまたはSPECのCanonical Artifactへ反映し、Pairing Viewだけを書き換えて終了しない。
 
-Architecture、Implementation、VerificationへのHandoffは、UIとSPECの各Phase Contract、Pair Gate、[Transformation Handoff Invariants](00_01_Principles.md#62-transformation-invariants)をすべて満たす。部分Handoffは対象Pairing Unit、未解決Concern、Risk、後続Ownerを人間が承認した場合に限る。
+Architecture、Implementation、VerificationへのHandoffは、UIとSPECの各Phase Contract、Pair Gate、[Transformation Handoff Invariants](01_Principles.md#62-transformation-invariants)をすべて満たす。部分Handoffは対象Pairing Unit、未解決Concern、Risk、後続Ownerを人間が承認した場合に限る。
 
-Architecture HandoffはUI / SPECのHandoff Viewを縮小再掲して受信条件を減らさず、[Architecture Phase Entry Contract](00_27_Architecture.md#phase-entry-contract)が要求する全Contextを、Canonical UI / SPEC Artifactへの参照と各Coverage State付きで渡す。
+Architecture HandoffはUI / SPECのHandoff Viewを縮小再掲して受信条件を減らさず、[Architecture Phase Entry Contract](27_Architecture.md#phase-entry-contract)が要求する全Contextを、Canonical UI / SPEC Artifactへの参照と各Coverage State付きで渡す。
 
 ## 6.3. Feedback and Change
 

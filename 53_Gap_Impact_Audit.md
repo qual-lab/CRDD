@@ -1,21 +1,21 @@
 # CRDD Gap and Impact Audit
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
 Agent ID: `agent.gap_impact.audit`
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_19_Maintenance.md](00_19_Maintenance.md)
-- [00_24_UI_Behavior_Specification.md](00_24_UI_Behavior_Specification.md)
-- [00_51_Document_Audit.md](00_51_Document_Audit.md)
-- [00_52_Conformance_Audit.md](00_52_Conformance_Audit.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [19_Maintenance.md](19_Maintenance.md)
+- [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
+- [51_Document_Audit.md](51_Document_Audit.md)
+- [52_Conformance_Audit.md](52_Conformance_Audit.md)
 
 ---
 
@@ -88,7 +88,7 @@ Input不足により意味的影響を判定できない場合、推測で埋め
 
 ## 3.2. Output
 
-Report全体のAudit Status、共通Finding Fields、Severity、Report Viewは[`00_51_Document_Audit.md`](00_51_Document_Audit.md#3-output)を再利用する。本AuditはFindingへ次を追加する。
+Report全体のAudit Status、共通Finding Fields、Severity、Report Viewは[`51_Document_Audit.md`](51_Document_Audit.md#3-output)を再利用する。本AuditはFindingへ次を追加する。
 
 | Field | Meaning |
 |---|---|
@@ -143,6 +143,63 @@ Shared Component / Consumer / Provider / Data / Variant
 - Handoff、過去Approval、Change Trace Closure、Release Readinessの再判断
 
 意味に影響しないEditorial Changeでは省略できる。省略はL0相当のNo Impact Decisionとして簡潔に理由を残す。
+
+## 4.3. Mandatory Propagation Trigger and Closure
+
+次のいずれかが新たに確定、変更、無効化された場合、Triggered Propagation Checkの要否を必ず評価する。既存Contextへ答え、制約し、矛盾し、または再評価を要求し得る場合は、工程移行を待たず本Auditを実行する。意味的影響がないため実行しない場合も、L0相当のNo Impact DecisionとしてSource Revisionと理由を残す。
+
+- Human DecisionまたはRisk Acceptance
+- 下流工程で判明したConstraint、Limitation、Conflict、Compatibility / Capacity条件
+- Prototype、Architecture、Implementation、Verification、Operationから得たLearning、Evidence、Finding
+- 既存のOpen Question、Unresolved Gap、Assumptionへ回答し得る確定事項
+- Canonical Contextの意味、Scope、Authority、Default、Priority、Obligationを変える結果
+
+最初にSource Revisionから上流方向と同層Relationを探索し、既存のOpen Question、Unresolved Gap、Assumption、Decision、Constraint、Downstream Obligationとの対応候補を列挙する。直接Relationがない場合も、同じScope、Actor、Use Case、Object、Action、Data、Quality、Riskを共有する候補を未探索のまま除外しない。候補ごとに`Update`、`Covered by Existing Contract`、`No Impact`、`Upstream Decision Required`、またはFindingを根拠付きで判定する。
+
+`Update`となったPropertyは責務を持つCanonical Artifactへ反映する。上流Contextの意味またはRevisionが変わった場合は、その更新点から下流方向へ再探索し、既存のUI / SPEC、Architecture、Implementation、Verification、Change / Releaseへの再設計・再承認・再検証範囲を判定する。Audit Reportまたは下流Decisionだけに結果を残して正本更新を代替しない。
+
+Triggered Propagation Checkは、次を満たした場合だけ`Pass`として閉じる。
+
+- 探索した上流・同層Relationと、理由付きの未探索範囲を示している
+- 対応CandidateがすべてDispositionされ、未処理Candidateがない
+- 必須更新が各Property AuthorityのCanonical Artifactへ反映されている
+- 上流更新から生じた下流Impactを再探索し、必要なRemediationとRevalidationを特定している
+- 修正後Revisionを再監査し、結果参照を対象Artifact、Handoff View、またはChange Traceから辿れる
+
+未完了のまま工程完了、通常Handoff、Change Closure、Release Readinessへ進めるのは、対象Human Authorityが明示した`propagation_exception`がある場合に限る。
+
+```yaml
+propagation_exception:
+  directed_by: <Human Authority>
+  source_revision: <decision / constraint / learning revision>
+  unpropagated_scope: []
+  known_risk_and_impact: []
+  owner: <remediation owner>
+  required_re_audit: <condition / date / event>
+  expires_or_reopens_when: <condition>
+```
+
+`propagation_exception`は`Pass`、No Impact、Gap解消、Risk受容を意味しない。Human Authorityの明示なしに、時間不足、工程移行、Owner移管を理由として自動生成しない。
+
+### Architecture Decision Example
+
+```text
+Discovery / UX / IA
+└─ Open Question: 保持期間、責任主体、利用者への説明が未確定
+                         ↓
+Architecture Human Decision / Confirmed Constraint
+└─ Provider制約、運用条件、実現可能な保持方式が確定
+                         ↓ immediately
+Triggered Propagation Check
+├─ 既存Open Question / Gap / Assumptionとの対応を探索
+├─ 技術Authority内の確定Constraintか、上流Human Decisionが必要かを分類
+├─ Discovery / UX / IA / UI / SPECの責務正本へFindingを返す
+└─ 正本更新後、Architecture / Implementation / Verification Impactを再探索
+                         ↓
+Re-audit Pass → 現在工程を継続またはPhase Transition Review
+```
+
+Architectureで決めたことを自動的に上流の価値・要求・利用者向け意味へ昇格しない。Architecture Authority内で確定したConstraintまたは回答は該当上流正本へ反映し、上流の価値判断が必要なら`Upstream Decision Required`として戻す。いずれの場合も、Architecture文書だけへDecisionを残して上流Open Questionを放置しない。
 
 ---
 
@@ -214,15 +271,15 @@ Relationがある対象をすべて変更せず、同じContract内で吸収で�
 
 | Boundary | Authoritative Audit Source |
 |---|---|
-| Origin / Problem → UX | [Discovery](00_21_Discovery.md#phase-audit-checklist)、[UX](00_22_UX.md#phase-audit-checklist) |
-| UX → IA | [UX](00_22_UX.md#phase-audit-checklist)、[IA](00_23_IA.md#phase-audit-checklist) |
-| IA → UI / SPEC | [IA](00_23_IA.md#phase-audit-checklist)、[UI](00_25_UI.md#phase-audit-checklist)、[SPEC](00_26_Behavior_Specification.md#phase-audit-checklist) |
-| UI ⇄ SPEC | [Pair Contract](00_24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
-| UI / SPEC → Architecture | [UI](00_25_UI.md#phase-audit-checklist)、[SPEC](00_26_Behavior_Specification.md#phase-audit-checklist)、[Architecture](00_27_Architecture.md#phase-audit-checklist) |
-| Architecture → Implementation | [Architecture](00_27_Architecture.md#phase-audit-checklist)、[Implementation](00_28_Implementation.md#phase-audit-checklist) |
-| Implementation → Verification | [Implementation](00_28_Implementation.md#phase-audit-checklist)、[Verification](00_29_Verification.md#phase-audit-checklist) |
-| Compatibility / Migration / Capacity | [SPEC](00_26_Behavior_Specification.md#phase-audit-checklist)、[Architecture](00_27_Architecture.md#phase-audit-checklist)、[Verification](00_29_Verification.md#phase-audit-checklist) |
-| Implementation / Evidence → Upstream | [Principles](00_01_Principles.md)、[Change](00_12_Change.md)、該当工程正本 |
+| Origin / Problem → UX | [Discovery](21_Discovery.md#phase-audit-checklist)、[UX](22_UX.md#phase-audit-checklist) |
+| UX → IA | [UX](22_UX.md#phase-audit-checklist)、[IA](23_IA.md#phase-audit-checklist) |
+| IA → UI / SPEC | [IA](23_IA.md#phase-audit-checklist)、[UI](25_UI.md#phase-audit-checklist)、[SPEC](26_Behavior_Specification.md#phase-audit-checklist) |
+| UI ⇄ SPEC | [Pair Contract](24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
+| UI / SPEC → Architecture | [UI](25_UI.md#phase-audit-checklist)、[SPEC](26_Behavior_Specification.md#phase-audit-checklist)、[Architecture](27_Architecture.md#phase-audit-checklist) |
+| Architecture → Implementation | [Architecture](27_Architecture.md#phase-audit-checklist)、[Implementation](28_Implementation.md#phase-audit-checklist) |
+| Implementation → Verification | [Implementation](28_Implementation.md#phase-audit-checklist)、[Verification](29_Verification.md#phase-audit-checklist) |
+| Compatibility / Migration / Capacity | [SPEC](26_Behavior_Specification.md#phase-audit-checklist)、[Architecture](27_Architecture.md#phase-audit-checklist)、[Verification](29_Verification.md#phase-audit-checklist) |
+| Implementation / Evidence → Upstream | [Principles](01_Principles.md)、[Change](12_Change.md)、該当工程正本 |
 
 Findingには使用した正本条件とRevisionを記録する。Phase Approvalは本Auditが行わず、Gap / Impact Resultを該当GateのInputとして返す。
 
@@ -295,7 +352,7 @@ Audit実行者は修正を同じAudit Pass内で行わない。Remediation後は
 
 ## 9.1. Change Trace
 
-非自明な変更では、Gap / Impact Resultを[`00_12_Change.md`](00_12_Change.md)のChange Traceへ接続する。
+非自明な変更では、Gap / Impact Resultを[`12_Change.md`](12_Change.md)のChange Traceへ接続する。
 
 ```text
 Changed Context / Meaning
@@ -326,7 +383,7 @@ Auditが独立Reportを返しても、FindingのDispositionと実行結果はCha
 
 `01_Discovery`は顧客Feedback、法令変更、明確な仕様変更、不具合、曖昧な要求等を分類し、Requirementと判断を確定する正本領域である。Impact Auditは下流差分から新しいRequirementを創作せず、Sourceと判断が不足する場合はDiscoveryへ戻す。
 
-`99_Roadmap`は、採用済みだが今回実行しないDeferred WorkのPriority、Target、Dependency、着手条件を扱う。Roadmap項目をRequirement、SPEC、Decisionの正本にしない。Human AuthorityがRoadmap Routeを確定した場合は、[Roadmap Item Contract](00_21_Discovery.md#63-roadmap-item-contract)に従ってItemを実際に登録・更新し、Recommendationだけでは`Routed`または追跡済みと判定しない。
+`99_Roadmap`は、採用済みだが今回実行しないDeferred WorkのPriority、Target、Dependency、着手条件を扱う。Roadmap項目をRequirement、SPEC、Decisionの正本にしない。Human AuthorityがRoadmap Routeを確定した場合は、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従ってItemを実際に登録・更新し、Recommendationだけでは`Routed`または追跡済みと判定しない。
 
 ```text
 Source / Evidence
@@ -408,6 +465,7 @@ Artifactを短くすることは、Trace、Authority、未解決事項を省略�
 - No Impact / CoveredにRationaleがある
 - Deferred / Accepted Riskに追跡先とHuman Authorityがある
 - Revalidation、Recommended Handoff、Audit Statusが示されている
+- Triggered Propagation Checkでは、対応する上流・同層Candidate、Canonical Artifactへの反映、上流更新後の下流再探索、または明示された`propagation_exception`を示している
 
 Confirmed Gapや未完了Remediationがあっても、必要なFindingを返せばAudit Runは完了できる。
 
@@ -421,6 +479,7 @@ FindingまたはChangeを`Resolved` / Closedにするには、適用範囲で次
 - Fresh Evidenceで解消状態を確認している
 - Deferred Scope、Accepted Risk、Unresolved Gapが追跡可能である
 - Learningを該当Canonical Contextへ戻している
+- Triggered Propagation Checkの未処理Candidateがなく、修正後Revisionの再監査結果を辿れる
 
 完全なGapゼロを常に要求しない。残っている未解決事項（Unresolved Gap）、Risk、不確実性にScope、Owner、Authority、期限または再評価Triggerが必要である。
 
@@ -428,7 +487,7 @@ FindingまたはChangeを`Resolved` / Closedにするには、適用範囲で次
 
 # 14. Audit Execution and Delegation
 
-Skill Runとして実行する場合は[`00_11_Skill.md`](00_11_Skill.md)、Agent / Subagentへ委譲する場合は[`00_10_Agent.md`](00_10_Agent.md)に従う。本書独自のAgent Lifecycleを作らない。
+Skill Runとして実行する場合は[`11_Skill.md`](11_Skill.md)、Agent / Subagentへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従う。本書独自のAgent Lifecycleを作らない。
 
 Subagentとして実行する標準Agent IDは`agent.gap_impact.audit`とする。Parent Agentは、Trigger、Scope、Target Revision / Baseline、探索するRelation方向、送信 / 受信工程、Known Decision / Evidence / Gap、Applicable Standards、Expected Output、Read-only、Return先をDelegation Contractへ指定する。Subagentは本書のGap / Impact Audit Reportを返し、Canonical Artifact、Finding Disposition、Phase Decisionを変更しない。
 

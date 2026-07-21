@@ -1,17 +1,17 @@
 # CRDD Workflow
 
-Version: v0.4.2
+Version: v0.5.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-19
+Last Updated: 2026-07-21
 Related:
-- [00_01_Principles.md](00_01_Principles.md)
-- [00_02_Terminology.md](00_02_Terminology.md)
-- [00_03_Documentation.md](00_03_Documentation.md)
-- [00_10_Agent.md](00_10_Agent.md)
-- [00_11_Skill.md](00_11_Skill.md)
-- [00_12_Change.md](00_12_Change.md)
-- [00_13_Release.md](00_13_Release.md)
+- [01_Principles.md](01_Principles.md)
+- [02_Terminology.md](02_Terminology.md)
+- [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+- [12_Change.md](12_Change.md)
+- [13_Release.md](13_Release.md)
 
 ---
 
@@ -85,7 +85,7 @@ Related Agent / Skill / Tool
 
 工程固有のEntry、Transformation、Exit、GateをWorkflowへ再定義しない。工程文書を参照し、Repository固有の実行順序とAdapterだけを記載する。
 
-Agentへ実行させる場合も、Authority、許可Action、停止条件、期待Outputは[Agent](00_10_Agent.md)に従う。Guided Skillとして実装する場合は[Skill](00_11_Skill.md)に従い、Workflow本文へRuntime Lifecycleを複製しない。
+Agentへ実行させる場合も、Authority、許可Action、停止条件、期待Outputは[Agent](10_Agent.md)に従う。Guided Skillとして実装する場合は[Skill](11_Skill.md)に従い、Workflow本文へRuntime Lifecycleを複製しない。
 
 ---
 

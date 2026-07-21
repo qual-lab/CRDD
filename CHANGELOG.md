@@ -9,6 +9,26 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### v0.5.0 — Context Propagation and Public Maintenance (2026-07-21)
+
+Compared with v0.4.2, v0.5.0 changes the published CRDD model as follows:
+
+- Enforces the existing transformation invariant that downstream Human decisions, constraints, learning, evidence, and findings must propagate back to affected upstream and peer context. A Triggered Propagation Check now scans unresolved questions, gaps, assumptions, decisions, and constraints; remediates the owning canonical artifacts; rescans forward impact; and re-audits before normal completion or phase transition.
+- Makes Gap / Impact Audit the independent execution route for mandatory propagation checks and adds explicit result, exception, remediation, and re-audit requirements. Recording a decision only in a downstream artifact, completing an audit run, or assigning a finding does not by itself complete propagation.
+- Renames the 22 canonical CRDD documents from the repeated `00_YY_*` pattern to a single two-digit Document Number such as `01_Principles.md`, `27_Architecture.md`, and `53_Gap_Impact_Audit.md`. Adopters updating to v0.5.0 must rename copied standard documents and update references; Document Numbers remain separate from Stable Context IDs.
+- Adds a bilingual, non-normative plain-language introduction and ten-term reading aid to the README while retaining `02_Terminology.md` as the canonical definition authority.
+- Adds `CONTRIBUTING.md`, Problem Report, Standard Change Proposal, and Adoption Feedback issue forms, and a pull request template. Public submissions enter CRDD Maintenance as candidates and do not become rules solely because they were proposed, discussed, voted on, or closed.
+- Clarifies Issue-driven Maintenance without prescribing a specific AI provider, Agent topology, label set, branch-protection implementation, or tracking tool. Intake type and change classification are separate; triage, execution authorization, and adoption or release approval remain distinct Human decisions; executable status does not itself invoke an executor or approve a protected change.
+- Connects tracked maintenance work to a tool-neutral scope, baseline, expected-result, review, audit, and stop contract; requires applicable propagation checks, independent review, finding remediation, re-review of the updated revision, and return of the final disposition to the intake source.
+- Adds a lightweight release disposition for tracked maintenance: `Integrated — Pending Release`, `Released`, or `Close without Release`. An issue may close after integration without claiming release; a target release or release-plan reference aggregates pending changes, and the CRDD GitHub repository may use a version milestone as an optional adapter without requiring it in adopting repositories.
+- Strengthens human-centered quality without adding a competing canonical document or central audit registry. UX owns goal completion, cognitive load, understandable state, error recovery, and inclusion outcomes; IA owns mental-model-aligned structure and findability; UI owns a versioned, scoped Accessibility Profile and interaction semantics; Behavior Specification owns equivalent alternative-operation behavior; Verification evaluates applicable normative and informative criteria with fresh evidence, time-bounded exceptions, and re-verification triggers; Release accounts for unresolved normative findings and residual risk.
+- Strengthens Requirements Engineering without adding a separate requirements authority, audit registry, folder tree, or Stable Context ID. Discovery now preserves the path from raw source through evidence, interpretation, problem, optional Need / Desired Outcome, Requirement Candidate, and Human adoption; gates individual promotion on necessity, singular meaning, trace, scope, appropriate abstraction, feasibility or explicit risk, and a Verification Obligation; and evaluates Requirement Set coverage, consistency, and jointly feasible scope. A project-selected Quality Concern Profile flows through Behavior Specification and Architecture into Verification, while Verification distinguishes contract conformance from validation against the originating Need / Desired Outcome.
+- Adds a minimal external-source trace model without creating another canonical document or ID system. The README points to an Overview source index; Documentation defines `uses`, `derived_from`, `aligned_with`, `informed_by`, and `project_adopts` relations and limits coverage claims; Discovery, UI, and Behavior Specification map only their explicitly used or project-selectable sources; Document Audit checks the trace when an external source is materially used. The index records ISO/IEC/IEEE 29148:2018, ISO/IEC/IEEE 15288:2023, ISO/IEC/IEEE 12207:2026, and ISO/IEC 25010:2023 as selected or background sources without claiming clause coverage or conformance.
+- Treats public intake files and repository controls as CRDD official-repository adapters rather than requirements for adopting product repositories or CRDD Conformance. The Overview and Maintenance impact paths include affected public guidance and intake adapters without adding them to the product-repository Document Audit contract.
+- Aligns all canonical document headers, README status, starter entry files, Change and Roadmap templates, references, and release-facing guidance with the v0.5.0 baseline.
+
+Stable Context ID semantics do not change in v0.5.0: the standard set remains `REQ`, `UX`, `IA`, `UI`, and `SPEC`. Issue identifiers, Change Traces, decisions, evidence, architecture, implementation, verification, and repository operation artifacts do not receive additional CRDD Stable Context IDs.
+
 ### v0.4.2 — Phase Transition Review Enforcement (2026-07-19)
 
 Compared with v0.4.1, v0.4.2 changes the published CRDD model as follows:
@@ -129,6 +149,26 @@ First public release of CRDD, organized into four layers by numbering band.
 ---
 
 ## 日本語
+
+### v0.5.0 — Context伝播と公開Maintenance（2026-07-21）
+
+v0.4.2と比較して、v0.5.0の公開CRDDモデルを次のように変更した。
+
+- 下流で確定・変更されたHuman Decision、Constraint、Learning、Evidence、Findingを、影響する上流・同層Contextへ戻す既存のTransformation Invariantを実行可能にした。Triggered Propagation Checkは、Open Question、Gap、Assumption、Decision、Constraintを探索し、責務を持つCanonical Artifactを修正し、下流Impactを再探索して、通常完了または工程移行前に再監査する。
+- Mandatory Propagation Checkの独立実行経路をGap / Impact Auditへ置き、結果、Exception、Remediation、再監査の要件を追加した。下流ArtifactへのDecision記録、Audit Run完了、FindingへのOwner付与だけではPropagation完了としない。
+- 22個のCRDD正本文書名を、重複した`00_YY_*`形式から、`01_Principles.md`、`27_Architecture.md`、`53_Gap_Impact_Audit.md`等の二桁Document Numberを一度だけ使用する形式へ変更した。v0.5.0へ更新する採用Repositoryは、コピー済み標準文書をRenameし、参照を更新する。Document NumberとStable Context IDは引き続き別の識別体系である。
+- READMEへ日英の非規範な平易説明と主要10用語の理解補助を追加した。正式な定義のAuthorityは`02_Terminology.md`に維持する。
+- `CONTRIBUTING.md`、Problem Report、Standard Change Proposal、Adoption FeedbackのIssue Form、およびPull Request Templateを追加した。公開提案はCRDD MaintenanceのCandidateとして扱い、提案、Discussion、投票、Issue CloseだけでRuleへ昇格しない。
+- 特定AI Provider、Agent構成、Label一式、Branch Protection実装、追跡Toolを規定せず、Issue-driven Maintenanceの境界を明確化した。受付種別とChange Classificationを分離し、Triage、Execution Authorization、Adoption / Release Approvalを異なるHuman Decisionとして扱う。実行可能Statusだけでは実行主体の起動またはProtected Change承認にならない。
+- 追跡対象Maintenanceを、Tool-neutralなScope、Baseline、Expected Result、Review、Audit、Stop Contractへ接続した。適用されるPropagation Check、Independent Review、Finding修正、更新Revisionの再Review、受付元への最終Disposition返却を完了経路へ追加した。
+- 追跡対象Maintenanceへ`Integrated — Pending Release`、`Released`、`Close without Release`の軽量なRelease Dispositionを追加した。Issueは統合後にRelease済みと表示せずCloseでき、Target ReleaseまたはRelease Plan Referenceで未Release変更を集約する。CRDD公式GitHub RepositoryではVersion Milestoneを任意Adapterとして使用できるが、採用Repositoryへ同じToolを要求しない。
+- 競合する正本文書や中央Audit Registryを増やさず、人間中心品質を強化した。UXはGoal完了、認知負荷、理解可能な状態、Error回復、包摂性Outcome、IAはMental Modelに沿う構造とFindability、UIはVersionとScopeを持つAccessibility ProfileとInteraction Semantics、Behavior Specificationは代替操作の同等Behaviorを所有する。Verificationは適用するNormative / Informative CriteriaをFresh Evidence、期限付き例外、再Verification Triggerとともに評価し、Releaseは未解決のNormative FindingとResidual Riskを確認する。
+- 独立した要求正本、Audit Registry、Folder Tree、Stable Context IDを追加せず、Requirements Engineeringを強化した。DiscoveryはRaw SourceからEvidence、Interpretation、Problem、任意のNeed / Desired Outcome、Requirement Candidate、Human Adoptionまでを保持する。個別Requirementの昇格には必要性、単一の意味、Trace、Scope、適切な抽象度、実現可能性または明示Risk、Verification Obligationを要求し、Requirement SetとしてCoverage、Consistency、組合せ上の実現可能性を評価する。Projectが選択したQuality Concern ProfileをBehavior Specification、Architecture、Verificationへ渡し、VerificationではContract適合確認と、元のNeed / Desired Outcomeに対するValidationを区別する。
+- 新しい正本文書またはID体系を作らず、最小の外部Source Traceを追加した。READMEはOverviewのSource索引へ案内し、Documentationは`uses`、`derived_from`、`aligned_with`、`informed_by`、`project_adopts`のRelationとCoverage Claimの境界を定義する。Discovery、UI、Behavior Specificationは、明示的に使用またはProjectで選択するSourceだけを対応づけ、Document Auditは外部Sourceを実質的に使用する場合のTraceを確認する。索引にはISO/IEC/IEEE 29148:2018、ISO/IEC/IEEE 15288:2023、ISO/IEC/IEEE 12207:2026、ISO/IEC 25010:2023を選択的または背景Sourceとして記載し、Clause網羅または準拠を主張しない。
+- Public Intake FileとRepository ControlをCRDD公式RepositoryのAdapterとして扱い、採用Product RepositoryまたはCRDD Conformanceの必須要件にしない。OverviewとMaintenanceの影響経路では追従対象に含めるが、Product Repository向けDocument Audit Contractへは追加しない。
+- すべての正本文書Header、README Status、Starter Entry File、Change / Roadmap Template、参照、公開案内をv0.5.0 Baselineへ整合させた。
+
+v0.5.0でStable Context IDのSemanticsは変更しない。標準Stable Context IDは引き続き`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種であり、Issue識別子、Change Trace、Decision、Evidence、Architecture、Implementation、Verification、Repository運用Artifactへ新しいCRDD Stable Context IDを追加しない。
 
 ### v0.4.2 — 工程移行Reviewの実行保証（2026-07-19）
 

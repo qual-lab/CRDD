@@ -1,0 +1,88 @@
+name: Standard Change Proposal
+description: Propose a change to a CRDD rule, authority, phase contract, audit, template contract, or conformance result.
+title: "[Standard Change] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A proposal is a Change Candidate, not an adopted CRDD rule. Qual-Lab makes the final classification and adoption decision through CRDD Maintenance. Normative and Breaking changes require Evidence, impact review, alternatives, audits, and Migration consideration. If you cannot complete an analysis field, state what is unknown; maintainers may enrich it during triage.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Current problem
+      description: What cannot be handled reliably under the current CRDD standard, and who is affected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Actual event or Evidence
+      description: Describe observed project behavior, repeated failures, an audit finding, external authority, reproduction, or other checkable support. Include CRDD version and known limitations.
+    validations:
+      required: true
+
+  - type: textarea
+    id: authority
+    attributes:
+      label: Affected documents and authorities
+      description: Identify likely canonical documents, Property Authorities, phase contracts, audits, templates, or conformance criteria. It is acceptable to mark uncertain items.
+      placeholder: "01_Principles.md; 27_Architecture.md; PL-xx; agent.* adapter"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed result
+      description: Explain the behavior, responsibility, or outcome that should change. Wording may be included, but do not provide wording alone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Compare meaningful alternatives, including keeping the current rule, and explain the trade-offs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: adopter_impact
+    attributes:
+      label: Existing adopter impact
+      description: What changes for existing repositories, artifacts, agents, skills, tools, workflows, conformance claims, or training?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: migration
+    attributes:
+      label: Migration need
+      description: Breaking impact requires explicit Migration consideration, including in v0.x.
+      options:
+        - Migration is likely required
+        - Migration may be conditionally required
+        - No Migration is expected, with rationale below
+        - Unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration_detail
+    attributes:
+      label: Migration and compatibility detail
+      description: Describe required actions, conditional actions, compatibility risks, or why no Migration is expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: uncertainty
+    attributes:
+      label: Uncertainty and decision conditions
+      description: What Evidence is missing, what are the proposal's limits, and what would change your recommendation?
+    validations:
+      required: false
