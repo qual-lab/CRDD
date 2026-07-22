@@ -1,9 +1,11 @@
-# CRDD Principles
+<a id="crdd-principles"></a>
 
-Version: v0.5.0
+# CRDD原則（Principles）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [00_Overview.md](00_Overview.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -16,7 +18,17 @@ Related:
 
 ---
 
-# Document Responsibility
+> この文書で分かること（非規範の案内）
+>
+> - CRDDとは何か、何を守る方法なのか
+> - 人間とAIがそれぞれ何を担うか
+> - 上流の目的を下流へ、下流の学びを上流へどうつなぐか
+> - 次工程へ進むときに誰が何を判断するか
+> - CRDD適用を名乗るための最低条件
+
+<a id="document-responsibility"></a>
+
+# 文書の責務（Document Responsibility）
 
 本書は、CRDDの存在理由、守る不変条件、人間とAIのAuthority、Context Continuity、工程遷移の原則を定義する。
 
@@ -33,7 +45,9 @@ Canonical TermとContext Type / Statusは[`02_Terminology.md`](02_Terminology.md
 
 ---
 
-# 1. CRDD and Context Repository
+<a id="1-crdd-and-context-repository"></a>
+
+# 1. CRDDとコンテキストリポジトリ
 
 CRDD（Context Repository-Driven Development）は、プロジェクトのWhyと人間の判断を失わず、AIと専門家がそのContextを参照してProductを一気通貫で具体化・検証できるようにする開発方法論である。
 
@@ -47,7 +61,9 @@ CRDDは、利用者・組織・権利者が作成したProject Record、業務�
 
 ---
 
-# 2. Purpose and Core Belief
+<a id="2-purpose-and-core-belief"></a>
+
+# 2. 目的と基本信条（Purpose and Core Belief）
 
 CRDDの目的は、開発速度だけを上げることではない。人間のIdea、意味、判断を劣化させずContext Repositoryへ継承し、AIが上流Contextを参照して下流作業を支援できるようにする。専門工程を分断ではなく意味変換として接続し、実装と利用から得たLearningを次の判断へ戻すことで、人間が市場理解、価値創出、重要判断へ集中できる状態を目指す。
 
@@ -80,7 +96,9 @@ CRDDはAIに人間の責任を渡す方法ではない。AIによって作業を
 
 ---
 
-# 3. CRDD Conformance Boundary
+<a id="3-crdd-conformance-boundary"></a>
+
+# 3. CRDD準拠の境界（CRDD Conformance Boundary）
 
 CRDD準拠を表明するには、CRDD Coreと対象活動に適用されるProfileをEvidenceに基づいて評価し、すべての必須Criteriaを満たさなければならない。
 
@@ -102,9 +120,13 @@ Core Criteriaが未評価または未達の場合は、`CRDD Conformant`では�
 
 ---
 
-# 4. What CRDD Preserves
+<a id="4-what-crdd-preserves"></a>
 
-## 4.1. Preserved Context
+# 4. CRDDが保持するもの（What CRDD Preserves）
+
+<a id="41-preserved-context"></a>
+
+## 4.1. 保持するコンテキスト（Preserved Context）
 
 実装やTestはAIで効率化しやすい。一方、何を作るべきか、なぜ作るのか、何を捨てるのかは、下流だけから決められない。だからCRDDは、実装方式より長く維持すべきContextを守る。
 
@@ -141,7 +163,9 @@ Delivery Adapter
 
 ImplementationまたはDelivery方式を交換しても、Origin、Product価値、Decision、Acceptanceを再利用・再評価できる状態を維持する。
 
-## 4.2. Tools Are Views and Execution Surfaces
+<a id="42-tools-are-views-and-execution-surfaces"></a>
+
+## 4.2. ToolはViewと実行面
 
 Jira、Redmine、GitHub Issues、Backlog、Figma、CI、Agent Runtime等は、Contextの表示・編集・実行Surfaceになり得る。
 
@@ -156,7 +180,9 @@ Code / CI          = Implementationと実行・検証事実のArtifact
 
 Tool内のPropertyが正本である場合は、そのAuthority、Revision、Context Repositoryからの参照を明示する。Ticketだけを見ても、なぜ必要か分からない状態を避ける。
 
-## 4.3. Definition of Done
+<a id="43-definition-of-done"></a>
+
+## 4.3. 完了の定義（Definition of Done）
 
 CRDDでは、Codeが動いたことだけを完了としない。
 
@@ -180,11 +206,15 @@ Origin、UX Intent、UI / SPEC、Architectureと既知の矛盾がない
 得たLearningが責務を持つContextへ戻っている
 ```
 
-## 4.4. Documents Are Not Enough
+<a id="44-documents-are-not-enough"></a>
+
+## 4.4. 文書だけでは足りない
 
 CRDDは文書量を増やす手法ではない。重要なのは、AIと人間が検索、比較、判断、変換、検証に利用できる粒度でContextを残すことである。
 
-### Weak
+<a id="weak"></a>
+
+### 弱い状態（Weak）
 
 ```text
 使いやすくする。
@@ -192,7 +222,9 @@ AIで便利にする。
 情報を整理する。
 ```
 
-### Strong
+<a id="strong"></a>
+
+### 強い状態（Strong）
 
 ```text
 Problem: 複数Toolへ情報が分散し、重要な未決事項とRiskを見落としやすい。
@@ -206,9 +238,13 @@ Non-goal: AIが重要判断を自動確定することではない。
 
 ---
 
-# 5. Human and AI Authority
+<a id="5-human-and-ai-authority"></a>
 
-## 5.1. Authority Principle
+# 5. 人間とAIの決定権限（Human and AI Authority）
+
+<a id="51-authority-principle"></a>
+
+## 5.1. 決定権限の原則（Authority Principle）
 
 ```text
 AI = Work Acceleration and Context Transformation
@@ -219,9 +255,13 @@ Repository = Context Continuity
 
 AIまたはAgentという名前だけではAuthorityを得ない。Authorityは対象Property、Scope、Revision、Human Decision、Agent Contractによって明示される。
 
-## 5.2. Authority Boundary
+<a id="52-authority-boundary"></a>
 
-### 5.2.1. AI May Do
+## 5.2. 決定権限の境界（Authority Boundary）
+
+<a id="521-ai-may-do"></a>
+
+### 5.2.1. AIが実行できること
 
 AIはAuthority Boundary内で次を行える。
 
@@ -247,7 +287,9 @@ AIの機能的なRoleは固定Agent構成を要求しない。必要に応じて
 
 RoleのInput、Output、Stop、Escalation、統合は[`10_Agent.md`](10_Agent.md)を正本とする。
 
-### 5.2.2. AI Must Not Decide
+<a id="522-ai-must-not-decide"></a>
+
+### 5.2.2. AIが決定してはならないこと
 
 AIはHuman Authorityなしに次を確定しない。
 
@@ -264,7 +306,9 @@ Acceptanceの弱体化、未検証ScopeのRelease
 CRDD原則、Authority、Conformance Boundary
 ```
 
-## 5.3. Proposal, Decision, Execution, Review
+<a id="53-proposal-decision-execution-review"></a>
+
+## 5.3. 提案・判断・実行・Review
 
 ```text
 AI / Expert Proposal
@@ -279,7 +323,9 @@ AIの生成物は生成時点では正本ではない。Human Reviewで既存Con
 
 非自明な変更では、Authority、対象Scope / Revision、関連Contextを確認し、影響、Risk、Verification、Human Decision NeedをReview可能な形で示す。実行Contractは[Agent](10_Agent.md)と[Skill](11_Skill.md)、変更のImpact Traceは[Change](12_Change.md)を正本とする。
 
-## 5.4. Conflicting Evidence
+<a id="54-conflicting-evidence"></a>
+
+## 5.4. 競合する根拠（Conflicting Evidence）
 
 AIの分析結果が、人間の報告や別Systemの記録等の信頼できるEvidenceと食い違う場合、一方を自動採用して他方を削除しない。
 
@@ -290,19 +336,25 @@ Freshness、取得条件、適用Scopeを示す
 AI Inference、Observed Fact、Human-confirmed Informationを区別する
 ```
 
-### Bad
+<a id="bad"></a>
+
+### 悪い例（Bad）
 
 ```text
 AIが「対応済み」と判定し、担当者の「未対応」という報告を上書きして確定表示する。
 ```
 
-### Good
+<a id="good"></a>
+
+### 良い例（Good）
 
 ```text
 両方をSource付きで表示し、「情報源が一致していない」と示して人間確認へ戻す。
 ```
 
-## 5.5. Progressive Autonomy
+<a id="55-progressive-autonomy"></a>
+
+## 5.5. 段階的な自律性（Progressive Autonomy）
 
 Context Repositoryまたは外部Systemへ変更を行うAI機能は、段階を飛ばして自律性を上げない。
 
@@ -317,7 +369,9 @@ Level 4: 検証済みの狭い低Risk ActionだけをAuthorized Safe Editとし�
 
 Folder番号だけでLevelを決めない。Property Authority、Status、Revision、Risk、Change Scopeに基づいて判断する。Code、Test、Evidence整理、Link修正であっても、上流Contractや保護された意味を変える場合はSafe Editではない。
 
-## 5.6. Change Safety
+<a id="56-change-safety"></a>
+
+## 5.6. 変更の安全性（Change Safety）
 
 Authorityまたは対象Revisionが不明、Approved Contextが競合、Scope外または不可逆な変更が必要、Security / Privacy / Compatibility / Data Meaningへ影響する場合、AIは推測で進めず停止または限定し、必要なHuman Authorityへ戻す。
 
@@ -325,9 +379,16 @@ AIは、古いContext、Decision / Rationale、Evidence、Stable IDを無言で�
 
 ---
 
-# 6. End-to-End Context Continuity
+<a id="6-end-to-end-context-continuity"></a>
 
-End-to-End Context Continuityとは、担当者、AI、Tool、技術、組織が変わっても、OriginからLearningまでの意味と判断を双方向に辿れる状態である。上流から下流へIntent、Constraint、Obligation、Reasonを伝え、下流から上流へLimitation、Conflict、Evidence、Learningを返す。Contextの意味変化と専門工程間の成果物変換を、別々のLifecycleではなく一つのEnd-to-End Transformation Flowとして接続する。
+# 6. 一気通貫のコンテキスト継続性（End-to-End Context Continuity）
+
+一気通貫のコンテキスト継続性（End-to-End Context Continuity）とは、担当者、AI、Tool、技術、組織が変わっても、OriginからLearningまでの意味と判断を双方向に辿れる状態である。
+
+- 上流から下流へ、Intent、Constraint、Obligation、Reasonを伝える
+- 下流から上流へ、Limitation、Conflict、Evidence、Learningを返す
+
+Contextの意味変化と専門工程間の成果物変換を、別々のLifecycleとして扱わず、一つのEnd-to-End Transformation Flowとして接続する。
 
 CRDDの一気通貫は、一人または一組織がすべてを担当することではない。専門領域が変わってもContextが分断されないことを意味する。
 
@@ -372,7 +433,9 @@ AI InferenceをHuman-confirmed Factとして保存しない
 
 Context TypeとRelationの定義は[`02_Terminology.md`](02_Terminology.md)、ProvenanceとTraceは[`03_Documentation.md`](03_Documentation.md)を正本とする。
 
-## 6.1. Transformation Layers and Responsibility
+<a id="61-transformation-layers-and-responsibility"></a>
+
+## 6.1. 変換層と責務（Transformation Layers and Responsibility）
 
 各専門領域は、上流Contextを次の領域で判断・検証できる形へ変換するTransformation Layerである。AI / Agentは候補作成、整理、検査、実行を支援し、Human / Expertは意味、採否、Trade-off、Risk、Acceptanceに責任を持つ。
 
@@ -393,7 +456,9 @@ Context TypeとRelationの定義は[`02_Terminology.md`](02_Terminology.md)、Pr
 
 UIとBehavior Specificationの相互Contractは[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)を正本とする。
 
-## 6.2. Transformation Invariants
+<a id="62-transformation-invariants"></a>
+
+## 6.2. 変換の不変条件（Transformation Invariants）
 
 各Transformationは、最低限次を取得可能にする。
 
@@ -423,21 +488,48 @@ Hypothesis、Assumption、Open Questionを確定事項へ無言昇格しない
 
 Linkが存在するだけではContinuityにならない。重要な下流成果物から上流のIntentとDecisionへ遡れ、上流変更から影響する下流Artifactを確認できなければならない。Stable Context ID、Relation、Traceの表現は[`03_Documentation.md`](03_Documentation.md)を正本とする。
 
-Human Decision、Constraint、Learning、Evidence、Findingが新たに確定または変更され、それが既存の上流・同層Contextへ答え、制約し、矛盾し、または再評価を要求し得る場合、その時点で[Gap / Impact Audit](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)によるTriggered Propagation Checkを行う。下流Decisionを記録しただけでは伝播完了にならない。関連する上流のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索し、該当正本を更新するか、候補ごとに根拠付き`No Impact`または既存ContractでのCoverageを示す。上流更新が生じた場合は、そのRevisionから影響する下流Contextを再探索する。
+人間による判断、制約、学び、根拠、Findingが確定または変更されたときは、変更影響の伝播確認（Triggered Propagation Check）が必要かを評価する。既存の上流・同層コンテキストへ答える、制約する、矛盾する、または再評価を求める可能性があれば、[Gap / Impact Audit](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を実行する。
 
-Triggered Propagation CheckのFindingは責務を持つ工程で修正し、更新後Revisionを再監査する。必須更新が正本へ反映されず、未処理Candidateが残る状態を工程完了、通常Handoff、Change Closure、Release Readinessとして扱わない。省略または未完了のまま進める場合は、対象Human Authorityが未伝播範囲、Risk、Owner、再監査条件を明示した`propagation_exception`として通常Passと区別する。
+伝播確認では次を行う。
 
-工程完了やHandoffを、文書の存在、Skill Run終了、Artifactの高い完成度、Implementation完了、Test Passから自動推定しない。対象Scope / Revision、工程固有Criteria、Coverage、Gap、Assumption、Risk、受信側Entryを確認し、進む、条件付きで進む、戻す、Reopenする判断をHuman Authorityが行う。部分Handoffは、対象Scope、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件、人間承認を明示した場合に限る。
+1. 関連する上流の未決の問い、未解決Gap、前提、判断、制約を探索する。
+2. 該当する正本を更新する。または、候補ごとに根拠付き`No Impact`か、既存Contractで対応済みであることを示す。
+3. 上流を更新した場合は、そのRevisionから影響する下流コンテキストを再探索する。
+4. Findingを責務工程で修正し、更新後Revisionを再監査する。
+
+下流の判断を記録しただけでは、伝播完了にならない。必須更新が正本へ反映されず、未処理Candidateが残る状態を、工程完了、通常Handoff、Change Closure、Release Readinessとして扱わない。
+
+未完了のまま進める場合は、対象の人間決定権限が`propagation_exception`を記録する。未伝播範囲、Risk、Owner、再監査条件を示し、通常のPassと区別する。
+
+次の事実だけから、工程完了やHandoffを自動推定してはならない。
+
+- 文書が存在する
+- Skill Runが終了した
+- Artifactの完成度が高い
+- Implementationが完了した
+- Testが`Pass`した
+
+Human Authorityは、対象Scope / Revision、工程固有Criteria、Coverage、Gap、Assumption、Risk、受信側Entryを確認する。そのうえで、進む、条件付きで進む、戻す、Reopenする、のいずれかを判断する。
+
+部分Handoffには、対象Scope、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件、人間承認を明示する。
 
 通常の工程移行前には、生成・更新担当から分離したIndependent Reviewで、送信工程のExit / Gate、受信工程のEntry、対象Scope全体のCoverage、Trace、Unresolved Gapを対象Revisionに対して評価する。移行に影響するFindingは、原則として送信側または責務を持つ工程で修正し、修正後Revisionを再ReviewしてからHuman Gateへ進む。Audit Runの完了、Findingの記録、後工程へのOwner移管だけをReview Passとみなさない。
 
 Independent Reviewを省略できるのは、対象ScopeのHuman Authorityが明示的に要求し、理由、未Review範囲、Risk、影響、Owner、再Review条件を記録した場合に限る。部分HandoffはReview省略を意味せず、移行するScope自体はReview対象とする。Human Authorityが明示的に受容していない不足を、後工程の通常作業へ暗黙に持ち越さない。
 
-工程固有のEntry、Exit、Phase Gate Criteria、Reopenは各工程文書、Independent ReviewとReview Subagentは[`10_Agent.md`](10_Agent.md)、Skill RunのRouteとHandoffは[`11_Skill.md`](11_Skill.md)、変更のTriggerとExpected / Actual Impactは[`12_Change.md`](12_Change.md)、Triggered Propagation Checkは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を正本とする。
+実行時の詳細は、次を正本とする。
+
+- 工程固有のEntry、Exit、Phase Gate Criteria、Reopen: 各工程文書
+- Independent ReviewとReview Subagent: [`10_Agent.md`](10_Agent.md)
+- Skill RunのRouteとHandoff: [`11_Skill.md`](11_Skill.md)
+- 変更のTriggerとExpected / Actual Impact: [`12_Change.md`](12_Change.md)
+- Triggered Propagation Check: [`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)
 
 ---
 
-# Minimum Principles
+<a id="minimum-principles"></a>
+
+# 最小原則（Minimum Principles）
 
 CRDDを実践するProjectは、最低限次を守る。
 
@@ -458,7 +550,9 @@ CRDD準拠はEvidenceとConformance Criteriaで評価する
 
 ---
 
-# Final Principle
+<a id="final-principle"></a>
+
+# 最終原則（Final Principle）
 
 コードは作り直せる。技術とToolは置き換えられる。
 

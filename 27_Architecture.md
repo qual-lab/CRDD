@@ -1,10 +1,10 @@
 # CRDD Architecture
 
-Version: v0.5.0
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -24,7 +24,17 @@ Related:
 
 > Architectureを適用するProjectでは、本書の`Phase Process Contract`をArchitecture工程内の正本として使用する。
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 上流の要求・UX・UI・仕様を技術構造へどう変換するか
+> - Boundary、Data、Interface、Quality、Securityをどう決めるか
+> - 下流で判明した制約を上流へどう返すか
+> - Coding Ruleや実装制約をどこへ置くか
+> - Implementationへ渡す前に何を確認するか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 Architectureは、承認済みProduct Contextを、現在の制約下で実現できるSystem Boundary、Data、Interface、Security、Quality、Operation、Implementation Ruleへ変換する工程である。
 
@@ -42,11 +52,15 @@ Architecture Artifactは現在の制約に対する選択結果であり、永�
 
 ---
 
-# Phase Process Contract
+<a id="phase-process-contract"></a>
+
+# 工程実行契約（Phase Process Contract）
 
 本章はArchitecture工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本Contractを設計判断とSkill実行へ具体化し、独自の完了条件を持たない。
 
-## Phase Entry Contract
+<a id="phase-entry-contract"></a>
+
+## 工程入口契約（Phase Entry Contract）
 
 Architectureは、対象Scopeについて次を受け取る。
 
@@ -63,13 +77,26 @@ Architectureは、対象Scopeについて次を受け取る。
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。上位Contextが矛盾する場合はArchitectureで都合よく解釈せず、該当Authorityへ戻す。
 
-## Transformation Contract
+<a id="transformation-contract"></a>
 
-Product Contextを、System / Domain / Component Boundary、Data / Interface Contract、Source of Truth、State / Sequence、Security / Privacy、Quality Attribute、External Integration、Compatibility / Migration、Capacity / Infrastructure、Concurrency / Resilience、Observability、Operation、Implementation Ruleへ変換する。
+## 変換契約（Transformation Contract）
+
+Product Contextを、実装と検証に使えるArchitecture Contextへ変換する。必要に応じて次を定義する。
+
+- System / Domain / Component Boundary
+- Data / Interface ContractとSource of Truth
+- State / Sequence
+- Security / PrivacyとQuality Attribute
+- External IntegrationとCompatibility / Migration
+- Capacity / InfrastructureとConcurrency / Resilience
+- ObservabilityとOperation
+- Implementation Rule
 
 Architectureは観測可能なBehaviorを新しく決めない。技術的制約からBehavior変更が必要な場合は、Behavior SpecificationまたはUIへFeedbackし、人間判断後のContractを設計へ反映する。
 
-## Required Responsibility Coverage
+<a id="required-responsibility-coverage"></a>
+
+## 必要な責務の網羅（Required Responsibility Coverage）
 
 対象Scope全体について、次の責務を適用範囲で判定する。
 
@@ -93,31 +120,62 @@ Architectureは観測可能なBehaviorを新しく決めない。技術的制約
 
 すべてを全Scopeへ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。単一Diagram、主要Happy Path、Technology選定、Prototypeの完成だけでArchitecture完了としない。
 
-## Scope and Coverage State
+<a id="scope-and-coverage-state"></a>
+
+## 対象範囲と網羅状態（Scope and Coverage State）
 
 各上位Contextと各Architecture責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
 
 対象ScopeはFeature名だけでなく、Actor、Data、Interface、Environment、Variant、Migration対象、既存Consumerを含めて特定する。Coverage Summaryは「設計文書がある」ではなく、必要な責務が判定済みかを示す。
 
-## Human Decisions
+<a id="human-decisions"></a>
+
+## 人間による判断（Human Decisions）
 
 人間はSystem / Trust Boundary、Technology / Provider選択、Data Ownership、Quality / Cost Trade-off、Security / Privacy Risk、Compatibility破壊、Migration / Rollback方針、重大Dependency、`Not Applicable`、部分Handoffを決定する。
 
 AIは候補比較、Gap、Impact、設計案を提示できるが、上位Contract変更、Risk Acceptance、Authority、重大Trade-offを自己承認しない。
 
-ArchitectureのHuman Decision、Constraint、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を実行する。Discovery、UX、IA、UI、SPECのOpen Question、Unresolved Gap、Assumption、Decision、Constraintへ回答または影響するCandidateを探索し、各正本へ反映する。上流更新が生じた場合は、更新後RevisionからArchitecture以降へのImpactを再探索・再監査するまで通常完了としない。
+Architectureで人間の判断、制約、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を実行する。
 
-## Exit and Handoff
+Discovery、UX、IA、UI、SPECにある次の項目へ答える、または影響するCandidateを探索する。
 
-通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはArchitectureまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+- Open QuestionとUnresolved Gap
+- AssumptionとDecision
+- Constraint
+
+見つかった結果は、それぞれの正本へ反映する。上流の正本を更新した場合は、更新後RevisionからArchitecture以降へのImpactを再探索・再監査するまで通常完了としない。
+
+<a id="exit-and-handoff"></a>
+
+## 完了条件と引渡し（Exit and Handoff）
+
+通常Handoff候補を人間のGateへ提示する前に、次を行う。
+
+1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響するFindingをArchitectureまたは責務を持つ工程で修正する。
+3. 修正後Revisionを再Reviewし、`Pass`を得る。
+
+Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 通常のImplementation Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、[`28_Implementation.md`](28_Implementation.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
-Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、Data / Interface / Security Contract、Compatibility / Migration、Capacity / Operation、Technical Configuration、Implementation Rule、禁止事項、既知制約、Acceptance Criteria、Verification Obligation、Coverage State、Unresolved Gapを渡す。
+Handoffでは、次を渡す。
+
+- 承認済みScopeとSource UI / SPEC
+- Architecture Boundary
+- Data / Interface / Security Contract
+- Compatibility / MigrationとCapacity / Operation
+- Technical ConfigurationとImplementation Rule
+- 禁止事項と既知制約
+- Acceptance CriteriaとVerification Obligation
+- Coverage StateとUnresolved Gap
 
 部分Handoffには、対象Scope、未定義設計、暫定制約、Risk、受信先、後続Ownerの人間承認を必要とする。Architecture不成立をCodeで暗黙解決させない。
 
-## Phase Gate Criteria
+<a id="phase-gate-criteria"></a>
+
+## 工程移行の判定基準（Phase Gate Criteria）
 
 - Source REQ / UX / IA / UI / SPECへTraceできる
 - Boundary、Authority、Data Ownership、Source of Truth、Interfaceが判定済みである
@@ -131,7 +189,9 @@ Handoffでは、承認済みScope、Source UI / SPEC、Architecture Boundary、D
 - 発火したTriggered Propagation Checkが`Pass`であり、必要な上流・同層正本更新と下流再探索・再監査が完了している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
-## Phase Audit Checklist
+<a id="phase-audit-checklist"></a>
+
+## 工程監査チェックリスト（Phase Audit Checklist）
 
 - 上位ContextにTraceしないArchitecture判断
 - SPECが所有するBehaviorやUIが所有する表現のArchitecture内での再定義
@@ -269,15 +329,19 @@ ArchitectureへCRDD標準Stable Context IDを新規発行しない。Source `REQ
 
 ---
 
-# 3. Guided Skill Adapter
+<a id="3-guided-skill-adapter"></a>
 
-## 3.1. Runtime Authority
+# 3. Skill実行Adapter（Guided Skill Adapter）
+
+<a id="31-runtime-authority"></a>
+
+## 3.1. 実行時の決定権限（Runtime Authority）
 
 `skill.architecture.integrate`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するArchitecture固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
 
 ## 3.2. Architecture-specific Progression
 
-| Step | Transformation | Output |
+| 手順 | 変換 | 出力 |
 |---|---|---|
 | Load | UI / SPEC、Quality、既存System、Constraintを対応づける | Architecture Coverage Queue |
 | Frame | System / Trust Boundary、Actor、Data、External Dependencyを定める | System Context |
@@ -292,7 +356,7 @@ ArchitectureへCRDD標準Stable Context IDを新規発行しない。Source `REQ
 
 専門用語を要求する前に、人間が答えられる言葉で不足Contextを確認する。
 
-| Topic | Question Intent |
+| 話題 | 質問の意図 |
 |---|---|
 | Boundary | どこで動き、誰・何と接続する必要があるか |
 | Data | 誰のDataを、どこへ、どの期間保存できるか |
@@ -309,7 +373,7 @@ ArchitectureへCRDD標準Stable Context IDを新規発行しない。Source `REQ
 
 次の場合は該当Authorityへ戻す。
 
-| Condition | Route |
+| 条件 | 移行先（Route） |
 |---|---|
 | Source Behavior、Quality Condition、Authorityが不明 | SPEC / Human Decision |
 | UIと実現可能なBehaviorがConflict | UI / SPEC Pair Review |
@@ -322,7 +386,9 @@ Subagentを使う場合は[`10_Agent.md`](10_Agent.md)に従い、Data、Securit
 
 ---
 
-# 4. Review, Handoff View, and Feedback
+<a id="4-review-handoff-view-and-feedback"></a>
+
+# 4. Review・引渡しView・Feedback
 
 ## 4.1. Architecture-specific Human Review
 
@@ -371,7 +437,9 @@ Architecture LearningがSPECやUIの観測可能なBehaviorを変える場合は
 
 ---
 
-# 5. Final Principle
+<a id="5-final-principle"></a>
+
+# 5. 最終原則（Final Principle）
 
 ArchitectureはDiagramやPatternを作って終わる工程ではない。
 

@@ -1,9 +1,11 @@
-# CRDD Change Trace
+<a id="crdd-change-trace"></a>
 
-Version: v0.5.0
+# CRDD変更トレース（Change Trace）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -16,7 +18,17 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 一つの変更がなぜ始まったかをどう残すか
+> - 変更前に影響範囲をどう見積もるか
+> - 正本、実装、検証、Releaseをどうつなぐか
+> - 変更中に増えた影響をどう反映するか
+> - Change Traceをいつ閉じられるか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、各Triggerから発生した一つの変更について、なぜ始まり、どのContextとArtifactへ影響し、何を実装・検証・Releaseしたかを辿るChange Traceの正本である。
 
@@ -81,7 +93,20 @@ Roadmap項目の着手決定
 緊急対応またはReleased ProductへのCorrection
 ```
 
-曖昧な要求はChange Traceへ直接入れず、Discoveryで意味、Requirement、採否、優先度を整理する。明確なDefectは不要なRequirementを新設せず、対象Contractへの逸脱としてChange Traceへ進める。延期する採用事項は`99_Roadmap`へ置き、着手時にChange Traceを作成する。Roadmap起点のCHGは、Roadmap Reference、Source Contextの現行Revision、再評価したExpected Impact、Human Start Decisionを保持し、Roadmap ItemへCHG Referenceと`Started` Statusを戻す。CHGから未実施事項をRoadmapへ送る場合も、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従って実際に登録し、RecommendationだけでChangeを閉じない。
+TriggerごとのRouteは次のとおりである。
+
+- 曖昧な要求はChange Traceへ直接入れない。Discoveryで意味、Requirement、採否、優先度を整理する
+- 明確なDefectは不要なRequirementを新設せず、対象Contractへの逸脱としてChange Traceへ進める
+- 採用したが延期する事項は`99_Roadmap`へ置き、着手時にChange Traceを作成する
+
+Roadmapから開始するCHGでは、次を保持する。
+
+- Roadmap Reference
+- Source Contextの現行Revision
+- 再評価したExpected Impact
+- Human Start Decision
+
+着手後は、Roadmap ItemへCHG Referenceと`Started` Statusを戻す。CHGから未実施事項をRoadmapへ送る場合も、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従って実際に登録する。RecommendationだけでChangeを閉じてはならない。
 
 Typo、意味を変えないFormat、再生成可能な出力など、Release内容やCanonical Contextへ影響しない変更はCHGを省略できる。ただし、Commit数の少なさだけで省略を判断しない。
 

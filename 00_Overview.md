@@ -1,9 +1,11 @@
-# CRDD Overview
+<a id="crdd-overview"></a>
 
-Version: v0.5.0
+# CRDD概要（Overview）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -13,11 +15,27 @@ Related:
 
 ---
 
-# Purpose
+> この文書で分かること（非規範の案内）
+>
+> - CRDDを最初にどこから読めばよいか
+> - Product Repositoryをどう構成するか
+> - 各正本文書がどの責務を持つか
+> - 変更・工程・監査をどのRouteへ渡すか
+> - 外部標準をどの範囲で参照しているか
+
+<a id="purpose"></a>
+
+# 目的（Purpose）
 
 本書は、CRDD（Context Repository-Driven Development）の入口、Repository全体の地図、CRDD標準文書の責務、基本的な読む順序を示すOverviewである。
 
-CRDDの定義・原則・人間とAIのAuthorityは[`01_Principles.md`](01_Principles.md)、Canonical Termは[`02_Terminology.md`](02_Terminology.md)、Repository・Artifact・Evidence・Decision・Stable Context ID・TraceabilityのRuleは[`03_Documentation.md`](03_Documentation.md)を正本とする。本書はそれらのRuleを再定義しない。本書の要約と正本文書が競合する場合は、対象Propertyの正本文書に従う。
+本書は、CRDD全体の入口と文書地図を提供する。詳細なRuleは、次の文書を正本とする。
+
+- CRDDの定義、原則、人間とAIのAuthority: [`01_Principles.md`](01_Principles.md)
+- Canonical Term: [`02_Terminology.md`](02_Terminology.md)
+- Repository、Artifact、Evidence、Decision、Stable Context ID、Traceability: [`03_Documentation.md`](03_Documentation.md)
+
+本書では、これらのRuleを再定義しない。本書の要約と正本文書が競合する場合は、対象Propertyを所有する正本文書に従う。
 
 ---
 
@@ -125,6 +143,8 @@ Stable Context IDの種類、付与境界、Document NumberおよびArtifact ID�
 | Artifact | Responsibility |
 |---|---|
 | `README.md` | CRDD標準Repositoryの公開入口とQuick Start |
+| Root `AGENTS.md` | CRDD標準自身をMaintenanceするAI向けの共通Repository Adapter |
+| Root `CLAUDE.md` | Root `AGENTS.md`を利用するClaude Code固有Adapter |
 | `CONTRIBUTING.md` | Public Feedback、Standard Change Proposal、Pull RequestをCRDD Maintenanceへ接続するContributor向け入口 |
 | `.github/ISSUE_TEMPLATE/` | Problem Report、Standard Change Proposal、Adoption Feedbackの構造化された受付Form |
 | `.github/pull_request_template.md` | Change分類、Evidence、Authority、Impact、Migration、Auditを確認するPull Request入口 |
@@ -139,7 +159,7 @@ CRDD標準自体のVersion、CHANGELOG、Tag、Migrationは[`19_Maintenance.md`]
 
 | Reference Key | Source / Authoritative Reference | Relation | Primary CRDD Application | Coverage |
 |---|---|---|---|---|
-| `RFC2119` / `RFC8174` | IETF / RFC Editor: [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) | `uses` | [Documentation — Normative Language](03_Documentation.md#48-normative-language) | `Selected Concepts`; normative vocabulary |
+| `BCP14` / `RFC2119` / `RFC8174` | IETF / RFC Editor: [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) | `uses` | [Documentation — Locale and Normative Language](03_Documentation.md#48-normative-language) | `Selected Concepts`; uppercase normative vocabulary and capitalization boundary |
 | `ISO29148-2018` | ISO / IEC / IEEE: [ISO/IEC/IEEE 29148:2018 Requirements engineering](https://www.iso.org/standard/72089.html) | `informed_by` | [Discovery — Requirement Promotion and Set Quality](21_Discovery.md#4-requirement-promotion-and-decision) | Current published edition as of 2026-07-21; revision work is underway; `Selected Concepts`; re-evaluate when replaced; no clause mapping or conformance claim |
 | `ISO15288-2023` | ISO / IEC / IEEE: [ISO/IEC/IEEE 15288:2023 System life cycle processes](https://www.iso.org/standard/81702.html) | `informed_by` | End-to-End Transformation and lifecycle process background | `Referenced`; no lifecycle model or conformance claim |
 | `ISO12207-2026` | ISO / IEC / IEEE: [ISO/IEC/IEEE 12207:2026 Software life cycle processes](https://www.iso.org/standard/90219.html) | `informed_by` | Software lifecycle process background | `Referenced`; no lifecycle model or conformance claim |
@@ -253,7 +273,17 @@ Any Phase: Human Decision / Constraint / Learning / Evidence / Finding
        Continue Current Phase or Phase Transition Review
 ```
 
-これは固定WaterfallやProject全体の一括Statusを表さない。Feature、Use Case、Change、Release等のScopeごとに、反復、並行、上流Reopen、Technical Spike、部分Handoffを行ってよい。ただし、Artifactの一部完成やSkill Run終了から工程完了を推定してはならない。下流でHuman Decision、Constraint、Learning、Evidence、Findingが確定または変更された時点では、Triggered Propagation Checkで上流・同層のOpen Question、Gap、Assumption、Decision、Constraintを探索し、必要な正本更新と再監査を行う。通常の工程移行前には、送信Exitと受信Entryを対象Revisionに対してIndependent Reviewし、Findingを責務工程で修正して更新Revisionを再Reviewする。対象ScopeのRequired Responsibility Coverage、Triggered Propagation Check、Review Passを満たすか、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件、明示的なExceptionをHuman Authorityが承認した場合にのみ次へ進む。
+この図は、固定WaterfallやProject全体の一括Statusを表さない。Feature、Use Case、Change、Release等のScopeごとに、反復、並行、上流工程のReopen、Technical Spike、部分Handoffを行ってよい。
+
+ただし、Artifactの一部が完成したことやSkill Runの終了だけから、工程完了を推定してはならない。
+
+- 下流で新しい判断、制約、学び、根拠、Findingが確定した場合は、変更影響の伝播確認を行う
+- 上流・同層のOpen Question、Gap、Assumption、Decision、Constraintへの影響を探索する
+- 必要な正本更新と再監査を完了する
+- 通常の工程移行前には、送信側のExitと受信側のEntryを対象Revisionに対してIndependent Reviewする
+- Findingは責務を持つ工程で修正し、更新Revisionを再Reviewする
+
+次へ進めるのは、対象ScopeのResponsibility Coverage、変更影響の伝播確認、Reviewの`Pass`を満たした場合である。未解決事項を残して進む場合は、Human AuthorityがUnresolved Gap、Risk、Owner、Reopen条件、適用するExceptionを明示的に承認する。
 
 ## 4.3. Cross-cutting Routes
 

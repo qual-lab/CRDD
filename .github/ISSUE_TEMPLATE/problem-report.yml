@@ -1,28 +1,29 @@
-name: Problem Report
-description: Report an error, contradiction, omission, broken link, or misleading CRDD behavior.
-title: "[Problem] "
-labels: []
+name: Problem Report / 問題報告
+description: Report an error, contradiction, omission, broken link, or misleading behavior. / 誤り、矛盾、不足、Link切れ、誤誘導を報告します。
+title: "[Problem / 問題] "
+labels: ["type:problem"]
 assignees: []
 body:
   - type: markdown
     attributes:
       value: |
         Thank you for reporting a CRDD problem. A report becomes Maintenance input; it is not automatically an accepted rule change. Do not include secrets, personal data, or material you cannot share publicly.
+        CRDDの問題報告はMaintenanceへのInputであり、自動的にRule変更として採用されるものではありません。秘密情報、個人Data、公開権限のない資料を記載しないでください。
 
   - type: input
     id: version
     attributes:
-      label: CRDD version or revision
-      description: Which released version, tag, commit, or document revision did you use?
-      placeholder: "v0.5.0 or commit SHA"
+      label: CRDD version or revision / CRDDのVersionまたはRevision
+      description: Which released version, tag, commit, or document revision did you use? / 使用したRelease、Tag、Commit、文書Revisionを記載してください。
+      placeholder: "v0.5.1 or commit SHA"
     validations:
       required: true
 
   - type: input
     id: location
     attributes:
-      label: Problem location
-      description: Identify the file, section, anchor, link, template, or workflow where the problem appears.
+      label: Problem location / 問題箇所
+      description: Identify the file, section, anchor, link, template, or workflow. / File、Section、Anchor、Link、Template、Workflowを特定してください。
       placeholder: "27_Architecture.md — Human Decisions"
     validations:
       required: true
@@ -30,60 +31,60 @@ body:
   - type: textarea
     id: current
     attributes:
-      label: Current content or behavior
-      description: What does CRDD currently say or cause people or AI to do?
+      label: Current content or behavior / 現在の記載または挙動
+      description: What does CRDD currently say or cause people or AI to do? / 現在のCRDDが何を記載し、人間やAIへどのような挙動を生じさせるかを示してください。
     validations:
       required: true
 
   - type: textarea
     id: problem
     attributes:
-      label: Contradiction, omission, or error
-      description: Explain what is wrong, missing, ambiguous, or inconsistent. Separate observation from interpretation where possible.
+      label: Contradiction, omission, or error / 矛盾・不足・誤り
+      description: Explain what is wrong, missing, ambiguous, or inconsistent. Separate observation from interpretation where possible. / 誤り、不足、曖昧さ、不整合を説明し、可能ならObservationとInterpretationを分けてください。
     validations:
       required: true
 
   - type: textarea
     id: impact
     attributes:
-      label: User or AI impact
-      description: What misunderstanding, wrong decision, rework, missing artifact, unsafe behavior, or adoption difficulty can result?
+      label: User or AI impact / 利用者またはAIへの影響
+      description: What misunderstanding, wrong decision, rework, missing artifact, unsafe behavior, or adoption difficulty can result? / 誤解、誤判断、手戻り、成果物不足、危険な挙動、導入困難への影響を示してください。
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected state
-      description: What should a person or AI be able to understand or do instead? A proposed wording change is optional.
+      label: Expected state / 期待する状態
+      description: What should a person or AI understand or do instead? Proposed wording is optional. / 人間やAIが代わりに何を理解・実行できるべきかを示してください。修正文案は任意です。
     validations:
       required: true
 
   - type: textarea
     id: evidence
     attributes:
-      label: Evidence or reproduction
-      description: Provide a minimal reproduction, actual event, comparison, screenshot, log excerpt, or authoritative reference when available. State limitations.
+      label: Evidence or reproduction / Evidenceまたは再現
+      description: Provide a reproduction, event, comparison, log, or authoritative reference when available. State limitations. / 可能なら最小再現、実際の事象、比較、画像、Log、Authority SourceとLimitを示してください。
     validations:
       required: false
 
   - type: dropdown
     id: apparent_classification
     attributes:
-      label: Apparent change class
-      description: This is only your initial view; maintainers classify the actual impact.
+      label: Apparent change class / 想定するChange分類
+      description: This is only your initial view; maintainers classify the actual impact. / 初期見解であり、実際の影響はMaintainerが分類します。
       options:
-        - Editorial — meaning should not change
-        - Clarification — existing meaning should become clearer
-        - Additive / Normative / Breaking impact may exist
-        - Unsure
+        - Editorial — meaning should not change / 意味を変えない
+        - Clarification — existing meaning becomes clearer / 既存の意味を明確化する
+        - Additive / Normative / Breaking impact may exist / 意味または責務が変わる可能性がある
+        - Unsure / 不明
     validations:
       required: true
 
   - type: textarea
     id: additional
     attributes:
-      label: Additional context
-      description: Add related issues, affected projects, workarounds, or anything else that helps evaluation.
+      label: Additional context / 追加Context
+      description: Add related issues, affected projects, workarounds, or other evaluation context. / 関連Issue、影響Project、Workaround等を記載してください。
     validations:
       required: false

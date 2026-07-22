@@ -1,9 +1,11 @@
-# CRDD Workflow
+<a id="crdd-workflow"></a>
 
-Version: v0.5.0
+# CRDD作業フロー（Workflow）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -15,7 +17,16 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - `07_Workflows`へ何を置くか
+> - WorkflowとRule、Change Trace、Release Recordの違い
+> - 反復手順に必要なTrigger、入力、確認、停止条件
+> - Workflowの結果をどの正本へ返すか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、`07_Workflows`へ置くRepository内の作業フロー文書の責務を定義する。
 

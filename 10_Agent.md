@@ -1,9 +1,9 @@
 # CRDD Agent
 
-Version: v0.5.0
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -17,7 +17,17 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - AgentやSubagentへ何を渡してよいか
+> - AIが実行できることと、人間へ戻す判断
+> - 委譲した結果をどう確認・統合するか
+> - 独立Reviewをどう成立させるか
+> - Agent実行を安全に停止・再開する条件
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、CRDDにおいてAI Agentまたは人間の専門担当が作業するときのInput、Output、Authority、実行境界、停止・拒否・Escalation、委譲、Review、統合責任を定義するAgent Contractの正本である。
 
@@ -170,7 +180,17 @@ Agentが決められるのは、明示された専門責務と承認済み境界
 
 同じRoleでも、AuthorityはProject、Property、Artifact、Change、Gate、Revision、期間によって変わる。Validation ProcedureやReview Findingも、AcceptanceまたはRisk受容を変更する場合はMay Decideではない。
 
-AgentがHuman Reviewを求める問いは、`確認`、`Clarification`、`Review`等のLabelにかかわらず、回答によってCanonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractが変わる場合、[SkillのDecision Support Contract](11_Skill.md#53-decision-support-contract)に従う。専門用語の二択やRecommendationだけをHuman Authorityへ渡さない。
+Agentが人間へ判断を求める場合は、質問のLabelにかかわらず[SkillのDecision Support Contract](11_Skill.md#53-decision-support-contract)に従う。`確認`、`Clarification`、`Review`と表現しても例外にはならない。
+
+このContractは、回答によって次が変わる場合に適用する。
+
+- Canonical Contextの意味またはScope
+- 責任、Default、Priority
+- Risk受容または下流Contract
+
+専門用語の二択やRecommendationだけをHuman Authorityへ渡してはならない。
+
+人間向けの説明、質問、判断支援、Result Summaryは、[Documentationのロケール規則](03_Documentation.md#481-利用者ロケールを優先した表示)に従う。利用者の主要ロケールで意味を先に説明し、必要な初出でCanonical English Termを併記する。Canonical Term、ID、File名、Schema Key / Valueを表示名と混同して変更しない。
 
 ## 3.2. Action Boundary
 
@@ -321,7 +341,14 @@ agent_result:
     - Behavior Specification Skill
 ```
 
-Resultは内部思考や一時Memoの全保存を要求しない。共有・継承価値のあるResult、Evidence、Assumption、Confidence、Conflict、Risk、Open Questionを返す。Human Decision、Constraint、Learning、Evidence、Findingを新規確定または変更したResultでは、Triggered Propagation Checkの要否、対象Revision、結果参照、更新した上流・同層Context、未処理Candidateまたは`propagation_exception`も返す。
+Resultは、内部思考や一時Memoの全保存を要求しない。共有・継承する価値があるResult、Evidence、Assumption、Confidence、Conflict、Risk、Open Questionを返す。
+
+新しい人間の判断、制約、学び、根拠、Findingを確定または変更したResultでは、次も返す。
+
+- 変更影響の伝播確認が必要か
+- 対象Revisionと結果参照
+- 更新した上流・同層Context
+- 未処理Candidateまたは`propagation_exception`
 
 ---
 
@@ -398,7 +425,14 @@ Review AgentはFindingとRecommendationを返し、価値判断、Risk受容、S
 
 ## 7.1. Review Agent and Audit Subagent Roles
 
-作成・変換担当がAI Agentである場合、工程移行前のIndependent Reviewは別のReview Subagentへ委譲する。RuntimeがSubagentを利用できない場合は、作成時Contextを引き継がない別のClean Session / Agent、または人間Reviewerを使用する。同じActive Context内で作成担当が続けて行うSelf Reviewは、Phase Transition Reviewとして扱わない。独立した実行主体を用意できない場合、[Human-directed Review Exception](#73-human-directed-review-exception)なしに工程移行しない。
+作成・変換担当がAI Agentである場合、工程移行前のIndependent Reviewは、別のReview Subagentへ委譲する。
+
+RuntimeがSubagentを利用できない場合は、次のいずれかを使用する。
+
+- 作成時Contextを引き継がないClean Session / Agent
+- 人間Reviewer
+
+同じActive Context内で作成担当が続けて行うSelf Reviewは、Phase Transition Reviewとして扱わない。独立した実行主体を用意できない場合は、[Human-directed Review Exception](#73-human-directed-review-exception)なしに工程移行しない。
 
 工程移行を伴わない低Riskな局所変更では、Fresh Contextによる独立Passを使用できる。高Risk Scope、重大なAuthority変更、Safety / Security / Privacy / Legal、不可逆Data、重大Migrationでは、工程移行の有無にかかわらず作成担当だけのSelf Reviewで代替しない。
 
@@ -418,7 +452,13 @@ Audit Subagentは原則Read-onlyとし、Findingを確定して返す前に対�
 
 ## 7.2. Phase Transition Review and Remediation Loop
 
-`agent.phase_transition.review`は、新しい工程Authorityを作らず、送信工程のExit / Phase Gate Criteria / Phase Audit Checklist、受信工程のEntry、共通Handoff不変条件を一つの移行ScopeとRevisionに対して評価する。意味的な波及探索が必要な場合は`agent.gap_impact.audit`、文書品質と直接Propagationの確認が必要な場合は`agent.document.audit`を限定Subtaskとして使用できる。
+`agent.phase_transition.review`は、新しい工程Authorityを作らない。一つの移行ScopeとRevisionに対して、次を評価する。
+
+- 送信工程のExit / Phase Gate Criteria / Phase Audit Checklist
+- 受信工程のEntry
+- 共通Handoff不変条件
+
+意味的な波及探索には`agent.gap_impact.audit`を使用できる。文書品質と直接Propagationの確認には、`agent.document.audit`を限定Subtaskとして使用できる。
 
 ```text
 Freeze Transition Scope and Target Revision
@@ -447,9 +487,24 @@ Active Change Trace or applicable Baseline
 Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
 ```
 
-通常Handoffへ進めるのは、対象Revisionについて、発火したTriggered Propagation Checkが完了し、Severityにかかわらず未解消の移行影響Finding、Critical / Major Finding、正本Conflict、Entry不足、未処置Coverage Gapがなく、必要なRemediation後の再Reviewが`Pass`を返した場合に限る。移行へ影響しないMinor / Infoは、対象Scope内で根拠付き`No Impact`、`Not Applicable`、または解消済みと判定する。Audit Runが正常に完了して`Fail`または`Conditional`を返した状態は、Review完了ではあってもTarget Passではない。FindingのOwnerを受信工程へ付け替えるだけで移行条件を満たしたとみなさない。
+通常の引渡しへ進めるのは、対象Revisionが次の条件をすべて満たす場合に限る。
 
-Review Resultは最低限、Review Agent ID、Reviewer、送信 / 受信工程、Scope、Target Revision、使用Criteria、Triggered Propagation Check Result、Audit Status、Finding、Remediation、Re-reviewしたRevision、未Review範囲、Recommendationを取得可能にする。Review ResultへCRDD Stable Context IDを発行せず、対象Artifact、Handoff View、Change Trace等からArtifact Referenceで接続する。
+- 発火した変更影響の伝播確認（Triggered Propagation Check）が完了している
+- 移行へ影響する未解消Findingが、Severityにかかわらず残っていない
+- Critical / Major Finding、正本Conflict、Entry不足、未処置のCoverage Gapがない
+- 必要な是正後の再Reviewが`Pass`を返している
+
+移行へ影響しないMinor / Info Findingは、対象Scope内で根拠付き`No Impact`、`Not Applicable`、または解消済みと判定する。Audit Runが`Fail`または`Conditional`を返した場合、実行自体は完了していても移行可能な`Pass`ではない。FindingのOwnerを受信工程へ変更するだけでは、移行条件を満たさない。
+
+Review Resultでは、少なくとも次を確認できるようにする。
+
+- Review Agent IDとReviewer
+- 送信工程、受信工程、対象Scope、Target Revision
+- 使用Criteriaと変更影響の伝播確認結果
+- Audit Status、Finding、是正内容、再ReviewしたRevision
+- 未Review範囲とRecommendation
+
+Review ResultへCRDD Stable Context IDを発行しない。対象Artifact、Handoff View、Change Trace等からArtifact Referenceで接続する。
 
 ## 7.3. Human-directed Review Exception
 
@@ -472,7 +527,15 @@ review_exception:
 
 ## 7.4. Triggered Propagation Check
 
-Human Decision、Constraint、Learning、Evidence、Findingが確定または変更されたとき、Parent Agentは、それが既存の上流・同層Context、Open Question、Unresolved Gap、Assumption、Decision、Constraintへ答えるか、制約するか、矛盾するかを判定する。意味的影響の可能性がある場合は、工程移行を待たず、別実行の`agent.gap_impact.audit`へ[Mandatory Propagation Trigger and Closure](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を委譲する。
+人間による判断、制約、学び、根拠、Findingが確定または変更された時点で、Parent Agentは変更影響の伝播確認が必要かを判断する。
+
+次のいずれかに該当する可能性があれば、工程移行を待たずに確認を実行する。
+
+- 既存の上流・同層ContextにあるOpen QuestionまたはUnresolved Gapへ答える
+- Assumption、Decision、Constraintを制約する
+- 既存Contextと矛盾する
+
+確認は、別実行の`agent.gap_impact.audit`へ[Mandatory Propagation Trigger and Closure](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を委譲する。
 
 ```text
 Freeze the New Decision / Constraint / Learning Revision
@@ -484,7 +547,13 @@ Freeze the New Decision / Constraint / Learning Revision
 → Propagation Pass or Human-directed Propagation Exception
 ```
 
-作成・変換担当は、Relation候補を狭めるInputを作成してよいが、自身の記憶だけで「上流へ影響なし」と確定しない。Audit SubagentはRead-onlyでFindingを返し、Parent Agentまたは責務工程が正本を修正する。Phase Transition Reviewは、対象Revisionまでに発火したTriggered Propagation Checkが完了し、必要なRemediationと再監査が済んでいることを入力として確認する。Audit Runの完了、FindingへのOwner付与、下流ArtifactへのDecision記録だけをPropagation Passとして扱わない。
+作成・変換担当は、探索するRelation候補を絞るInputを作成してよい。ただし、自身の記憶だけで「上流へ影響しない」と確定してはならない。
+
+- Audit SubagentはRead-onlyでFindingを返す
+- Parent Agentまたは責務工程が正本を修正する
+- Phase Transition Reviewは、必要な是正と再監査が済んでいることを確認する
+
+Audit Runの完了、FindingへのOwner付与、下流ArtifactへのDecision記録だけでは、伝播確認の`Pass`にならない。
 
 ---
 

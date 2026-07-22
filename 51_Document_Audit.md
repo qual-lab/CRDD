@@ -1,10 +1,12 @@
-# CRDD Document Audit
+<a id="crdd-document-audit"></a>
 
-Version: v0.5.0
+# CRDD文書監査（Document Audit）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
 Agent ID: `agent.document.audit`
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -17,7 +19,17 @@ Related:
 
 ---
 
-# Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 文書のLink、Anchor、構造、用語をどう監査するか
+> - 重複、正本競合、情報劣化をどう見つけるか
+> - 日本語表示とCanonical Termの意味一致をどう確認するか
+> - Findingへ何を記録し、誰へ修正を返すか
+> - 修正後RevisionをいつPassと判断できるか
+
+<a id="purpose-and-boundary"></a>
+
+# 目的と適用範囲（Purpose and Boundary）
 
 本書は、CRDD Repositoryの文書体系、参照、用語、Authority、Stable Context ID、Traceabilityを継続的に評価するDocument Auditの共通Contractである。
 
@@ -39,11 +51,12 @@ Document Audit Runは読取専用である。Findingと修正案を返し、Cano
 
 Document Auditは対象Scopeについて次を担当する。
 
-| Responsibility | Audit Focus |
+| 監査責務 | 確認する観点 |
 |---|---|
 | Structure | Header、Markdown、見出し、Artifact Contract、配置 |
 | Reference | Link、Anchor、Related、旧Path、Index / Overview |
 | Terminology | Canonical Term、Alias、Status、Concept境界 |
+| Readability | 主要ロケール、初出併記、平易な説明、義務の分離、表示名と識別子の境界 |
 | Normative / Authority | Rule強度、正本、責務境界、Human / AI Authority |
 | Duplication | 同じRuleの複数正本化、統合後の残存、意味の競合 |
 | Identification | 文書番号、ファイル名、Stable Context ID、Artifact Reference |
@@ -170,6 +183,16 @@ CRDD標準文書とCanonical Markdown Documentでは、[Documentation Header](03
 [`02_Terminology.md`](02_Terminology.md)のCanonical Concept、Alias、Status、Authorityと一致するか確認する。特にObservation / Evidence、Proposal / Decision、Implemented / Verified / Accepted、Draft / Candidate / Reviewed / Approvedの混同を検出する。
 
 規範強度語彙は[`03_Documentation.md`](03_Documentation.md#48-normative-language)を正本とする。`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`等を使う場合は、その強さが文書のStatus、Property Authority、人間判断と矛盾していないか確認する。日本語の義務表現も意味上のRuleとして評価し、英語Keywordの有無だけで規範性を判断しない。
+
+利用者ロケールを優先した表示では、次を確認する。
+
+- 初出時のローカル表示名とCanonical English Termが同じ概念を指す
+- 翻訳によってRule、Authority、Status、識別子、例外、完了条件が変わっていない
+- Canonical Term、ID、File名、Schema Key / Valueを表示名と混同して変更していない
+- 一文へ複数の独立した義務を詰め込み、適用条件や決定主体が読めなくなっていない
+- 専門用語だけで人間への質問・判断支援を完結させていない
+
+英語用語が残っていること、ローカライズしていないことだけをFindingにしない。対象読者の理解、意味保存、誤判断の可能性を評価する。
 
 Status、Version、Last Updated、Release / CHANGELOGの関係を適用範囲で確認する。AIや文書編集者がStatusを自己昇格していないか、Deprecated / Superseded Artifactの後継参照とMigrationがあるか、削除がDocumentationの廃止規則とHuman Approvalに従っているかを確認する。
 
@@ -309,7 +332,14 @@ CriticalやMajorを検出したAuditも、必要な記録を返せば正常に�
 
 Document AuditをSkill、Agent、Subagentとして実行する場合は、[`11_Skill.md`](11_Skill.md)のRun Lifecycleと[`10_Agent.md`](10_Agent.md)のDelegation / Independent Reviewに従う。
 
-Subagentとして実行する標準Agent IDは`agent.document.audit`とする。Parent Agentは、Audit Purpose、対象Scope / Revision、Applicable Standards、直接Dependency、既知Finding、Expected Output、Read-only、Return先をDelegation Contractへ指定する。Subagentは本書のAudit Reportを返し、Canonical Artifactを変更しない。Phase Transition Reviewから呼び出された場合は、対象工程のPhase Audit ChecklistとHandoff Artifactが文書として取得可能かを評価し、Phase Approvalは返さない。
+Subagentとして実行する標準Agent IDは`agent.document.audit`とする。Parent AgentはDelegation Contractへ次を指定する。
+
+- Audit Purposeと対象Scope / Revision
+- Applicable Standardsと直接Dependency
+- 既知FindingとExpected Output
+- Read-onlyであることとReturn先
+
+Subagentは本書のAudit Reportを返し、Canonical Artifactを変更しない。Phase Transition Reviewから呼び出された場合は、対象工程のPhase Audit ChecklistとHandoff Artifactを取得できるか評価する。Phase Approvalは返さない。
 
 ```text
 Load Scope / Revision / Standards

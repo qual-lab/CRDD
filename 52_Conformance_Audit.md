@@ -1,10 +1,12 @@
-# CRDD Conformance Audit
+<a id="crdd-conformance-audit"></a>
 
-Version: v0.5.0
+# CRDD準拠監査（Conformance Audit）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
 Agent ID: `agent.conformance.audit`
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -20,11 +22,23 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - CRDD準拠を何に基づいて評価するか
+> - CoreとProfileの適用範囲をどう決めるか
+> - CriteriaごとにどのEvidenceが必要か
+> - Audit完了と準拠Claimをどう区別するか
+> - 誰が最終的な準拠表明を行うか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、Project、Product、または組織的な開発活動がCRDDへの準拠を表明できるかを判定するCriteria、適用Profile、Evidence、Claimと、それらを実行するConformance Audit Contractを定義する。
 
 本書はConformance Criteriaと評価の正本であり、原則、用語、Artifact規定、工程Contract、Agent実行規定、品質規定は再定義しない。各Criteriaの詳細は参照先のAuthorityを正本とし、本書は次を保持する。
+
+利用者ロケールに合わせた表示は可読性の手段であり、特定言語への翻訳や英語用語の使用量だけをConformance Criteriaにしない。翻訳によって参照先Rule、Authority、Status、識別子、必須結果が変わった場合は、該当Criteriaの意味的不整合として評価する。
 
 ```text
 Criteria ID
@@ -195,7 +209,14 @@ Criteria AuthorityとなるCRDD文書の変更
 
 Conformance Audit Agentは、対象ScopeとRevisionについて適用Criteriaを評価し、Evidence、Finding、Claim Eligibility、再評価条件を返す専門Review Agentである。
 
-Subagentとして実行する標準Agent IDは`agent.conformance.audit`とする。Parent Agentは、Requested Claim、Claim Owner、Target Scope / Revision、Criteria Revision、適用Profile候補、利用可能Evidence、既知Deviation、Expected Output、Read-only、Return先を[`10_Agent.md`](10_Agent.md)のDelegation Contractへ指定する。Subagentは本書のConformance Reportを返し、Canonical Artifact、Criteria、Claimを変更しない。
+Subagentとして実行する標準Agent IDは`agent.conformance.audit`とする。Parent Agentは、[`10_Agent.md`](10_Agent.md)のDelegation Contractへ次を指定する。
+
+- Requested ClaimとClaim Owner
+- Target Scope / RevisionとCriteria Revision
+- 適用Profile候補、利用可能Evidence、既知Deviation
+- Expected Output、Read-onlyであること、Return先
+
+Subagentは本書のConformance Reportを返す。Canonical Artifact、Criteria、Claimは変更しない。
 
 Document Auditは文書品質、Phase Auditは工程条件、Gap / Impact AuditはRelation横断影響、VerificationはProduct / Implementationの成立をそれぞれ正本とする。Conformance AuditはそれらのResultをEvidenceとして利用できるが、内容を再定義・自己承認しない。
 

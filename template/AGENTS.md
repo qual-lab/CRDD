@@ -38,6 +38,15 @@
 
 対象Scopeと無関係な全標準文書を毎回読み込む必要はない。ただし、対象工程のEntry、Source Context、Handoff先、本文から参照されるAuthorityを確認し、必要な正本を未読のまま推定で代替しない。
 
+## Language and Readability
+
+- 利用者への説明、質問、判断支援は、利用者の主要ロケールで行う。
+- CRDD用語は初出時に「ローカル表示名（Canonical English Term）」で示し、同じ節で英語名を不必要に繰り返さない。
+- 結論と要点を先に示し、並列事項、条件、選択肢、完了条件は箇条書きまたは表で分ける。
+- 専門用語だけで説明を完結させず、Product、利用者、運用への影響を平易に説明する。
+- Canonical Term、Stable Context ID、Agent ID、File名、Schema Key / Value、Codeは無断で翻訳または変更しない。
+- 規範の強さを示す場合は、`00_CRDD/03_Documentation.md`の日本語表示とBCP 14 Keywordの対応に従う。
+
 ## Repository Structure Rules
 
 - Repository構造、Artifact記法、Evidence、Decision / Rationale、Stable Context ID、Artifact Reference、Traceabilityは`00_CRDD/03_Documentation.md`に従う。
@@ -63,7 +72,16 @@ Independent Reviewを省略できるのは、対象ScopeのHuman Authorityが明
 
 上流Contextの不足・矛盾・変更が判明した場合、下流Artifactで補完して確定せず、該当工程とHuman Authorityへ戻す。ImplementationまたはVerificationから得たLearning、Finding、Deviationは、責務を持つCanonical Contextと必要なChange Traceへ還元する。
 
-Human Decision、Constraint、Learning、Evidence、Findingを確定または変更した時点でTriggered Propagation Checkの要否を必ず評価し、意味的影響候補がある場合は工程移行を待たず`agent.gap_impact.audit`へ委譲する。上流・同層のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索し、責務を持つ正本を更新する。上流更新後は下流Impactを再探索し、修正後Revisionを再監査する。未完了の伝播はHuman Authorityが明示した`propagation_exception`なしに通常完了・Handoff・Closeとしない。
+人間の判断、制約、学び、根拠、Findingを確定または変更した時点で、Triggered Propagation Checkが必要かを必ず評価する。意味的影響の候補がある場合は、工程移行を待たず`agent.gap_impact.audit`へ委譲する。
+
+確認では次を行う。
+
+- 上流・同層のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索する
+- 責務を持つ正本を更新する
+- 上流更新後に下流Impactを再探索する
+- 修正後Revisionを再監査する
+
+未完了の伝播は、Human Authorityが明示した`propagation_exception`なしに通常完了・Handoff・Closeとしない。
 
 ## Action and Approval Boundary
 

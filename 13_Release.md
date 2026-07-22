@@ -1,9 +1,11 @@
-# CRDD Release
+<a id="crdd-release"></a>
 
-Version: v0.5.0
+# CRDDリリース（Release）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -16,7 +18,17 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - VerificationとRelease判断をどう分けるか
+> - 誰が配布・有効化を承認するか
+> - Release Recordへ何を残すか
+> - 未解決事項と残存Riskをどう扱うか
+> - Release後に何を確認するか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、CRDDを適用するProductにおけるReleaseの最小契約と`90_Release`の配置責務を定義する。
 

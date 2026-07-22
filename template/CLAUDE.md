@@ -13,8 +13,9 @@
 - 非自明な変更ではPlan modeを使い、Active Scope、Target Revision、参照したCanonical Context、Action Authority、Human Decisionが必要な点を示す。
 - 固定ImportはCRDDの基礎正本と共通Agent / Skill Contractに限定する。対象工程、Change、Roadmap、Release、Workflow、Maintenance、Auditの正本は`AGENTS.md`のContext Selection表に従って追加で読む。
 - `Related` Headerや固定Importにないことを、必要な正本を読まない理由にしない。対象Scopeと無関係な全標準文書を無差別に読み込まず、本文のAuthority LinkとHandoff先を追う。
+- 利用者の主要ロケール、用語の初出併記、平易な判断支援、Canonical Termを変更しない境界は`AGENTS.md`のLanguage and Readabilityに従う。
 - `00_CRDD`、Authority、Stable Context ID体系、Approved / Stable Canonical Artifact、Decision / Rationale、Acceptanceを変更する場合は、ImpactとPlanを示してユーザーの指示またはHuman Approvalを確認する。
 - Subagentを利用する場合も、Parent Agentが限定Scope、統合、Conflict解消、Canonical Context更新、Human Review提示に責任を持つ。
 - 工程移行前は原則として別Subagentに`agent.phase_transition.review`を実行させ、Findingの修正と修正後Revisionの再Reviewを完了してからHandoffする。Review省略は対象Human Authorityが明示した`review_exception`がある場合だけ認める。
-- Human Decision、Constraint、Learning、Evidence、Findingを確定・変更した時点でTriggered Propagation Checkの要否を必ず評価し、意味的影響候補がある場合は`agent.gap_impact.audit`を別Subagentへ委譲する。上流・同層正本への反映と下流Impactの再探索・再監査を完了し、未完了の伝播はHuman Authorityが明示した`propagation_exception`なしに通常完了としない。
+- 人間の判断、制約、学び、根拠、Findingを確定・変更した時点でTriggered Propagation Checkの要否を必ず評価する。意味的影響候補がある場合は`agent.gap_impact.audit`を別Subagentへ委譲し、上流・同層正本への反映、下流Impactの再探索、再監査まで完了する。未完了の伝播は、Human Authorityが明示した`propagation_exception`なしに通常完了としない。
 - 文書変更では必要に応じてDocument Audit、工程横断変更ではGap / Impact Audit、準拠表明ではConformance Audit、Product成立確認ではVerificationを使い分ける。

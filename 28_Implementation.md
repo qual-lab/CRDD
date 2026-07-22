@@ -1,10 +1,10 @@
 # CRDD Implementation
 
-Version: v0.5.0
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -24,7 +24,17 @@ Related:
 
 > Implementationを適用するProjectでは、本書の`Phase Process Contract`をImplementation工程内の正本として使用する。
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 承認済みContextとArchitectureを実装へどう変換するか
+> - Code、Configuration、Migration、Developer Testの責務
+> - 実装中に見つかったDeviationや制約をどこへ返すか
+> - 実装完了と検証完了をどう区別するか
+> - Verificationへ渡す前に何を確認するか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 Implementationは、承認済みContext、Behavior Specification、Architecture、および該当するChange Traceを、Code、Configuration、Migration、Developer Test、Build Artifactへ変換する工程である。
 
@@ -40,11 +50,15 @@ Implementation Exitは`Ready for Verification`であり、`Verified`または`Ac
 
 ---
 
-# Phase Process Contract
+<a id="phase-process-contract"></a>
+
+# 工程実行契約（Phase Process Contract）
 
 本章はImplementation工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本ContractをArtifact、Developer Test、Skill実行へ具体化し、独自の完了条件を持たない。
 
-## Phase Entry Contract
+<a id="phase-entry-contract"></a>
+
+## 工程入口契約（Phase Entry Contract）
 
 Implementationは対象Scopeについて次を受け取る。
 
@@ -61,13 +75,17 @@ Implementationは対象Scopeについて次を受け取る。
 
 部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。Source間にConflictがある場合は、優先順位を推測して実装しない。
 
-## Transformation Contract
+<a id="transformation-contract"></a>
+
+## 変換契約（Transformation Contract）
 
 承認済みContextを、Code、Configuration、Schema / Data Migration、Dependency / Build定義、Executable Rule、Developer Test、Generated / Package Artifact、Implementation Evidenceへ変換する。
 
 ImplementationはBehavior、Acceptance、Authority、Data Meaning、Security Boundary、Compatibility / Capacity Behaviorを新しく決めない。変更が必要な場合は、該当するSPEC、UI、Architecture、ChangeまたはHuman Decisionへ戻す。
 
-## Required Responsibility Coverage
+<a id="required-responsibility-coverage"></a>
+
+## 必要な責務の網羅（Required Responsibility Coverage）
 
 対象Scopeについて次の責務を適用範囲で判定する。
 
@@ -88,23 +106,35 @@ ImplementationはBehavior、Acceptance、Authority、Data Meaning、Security Bou
 
 すべてを全変更へ機械的に要求しない。適用しない責務は`Not Applicable`として理由と人間確認を残す。主要Happy Pathの動作や一部Test Passだけで対象Scope全体を完了扱いしない。
 
-## Scope and Coverage State
+<a id="scope-and-coverage-state"></a>
+
+## 対象範囲と網羅状態（Scope and Coverage State）
 
 各Implementation Obligationを、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
 
 ScopeにはCodeだけでなく、Configuration、Data、Migration、Generated Artifact、Dependency、Test、Consumer、Environmentを含める。変更していないLayerも、影響を受けるならCoverage対象である。
 
-## Human Decisions
+<a id="human-decisions"></a>
+
+## 人間による判断（Human Decisions）
 
 人間はScope変更、上位Contract変更、Architecture Boundary変更、重大Dependency追加、不可逆Migration、Security / Privacy Risk、Compatibility破壊、Cost / Schedule Trade-off、Risk受容、部分Handoffを決定する。
 
 AIまたはImplementation担当は実装案、Rule案、Test、Deviation、Impactを提示できるが、これらを自己承認しない。
 
-Human Decision、Constraint、Deviation、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
+人間による判断、制約、Deviation、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
 
-## Exit and Handoff
+<a id="exit-and-handoff"></a>
 
-通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはImplementationまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+## 完了条件と引渡し（Exit and Handoff）
+
+通常Handoff候補を人間のGateへ提示する前に、次を行う。
+
+1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響するFindingをImplementationまたは責務を持つ工程で修正する。
+3. 修正後Revisionを再Reviewし、`Pass`を得る。
+
+Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 通常のVerification Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、Build / Static Checkと必要なDeveloper Testが成功し、[`29_Verification.md`](29_Verification.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
@@ -112,7 +142,9 @@ Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitect
 
 部分Handoffには、未実装・未確認Scope、Risk、暫定処置、受信先、後続Ownerの人間承認を必要とする。`Implemented`を`Verified`として渡さない。
 
-## Phase Gate Criteria
+<a id="phase-gate-criteria"></a>
+
+## 工程移行の判定基準（Phase Gate Criteria）
 
 - Change Trace、UI / SPEC、Architecture、AcceptanceへTraceできる
 - Code、Configuration、Migration、Dependency、Developer Testが対象Scopeで整合している
@@ -125,7 +157,9 @@ Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitect
 - 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
-## Phase Audit Checklist
+<a id="phase-audit-checklist"></a>
+
+## 工程監査チェックリスト（Phase Audit Checklist）
 
 - Codeが上位ContractまたはArchitectureを無言で置換している
 - Testを通すためにAcceptance、Guard、Contractを弱めている
@@ -168,7 +202,16 @@ Mechanical MigrationとSemantic Changeを同じBatchへ無自覚に混在させ�
 
 ## 2.3. Code, Configuration, Build, and Runtime
 
-CodeはArchitecture Boundary、Dependency Direction、Data / Interface Contract、Error / Logging Ruleに従う。ConfigurationはEnvironment差分、Default、Override、Secret参照、Feature FlagのAuthorityを明確にし、Codeと設定の組み合わせを再現可能にする。利用者・組織向けPreference / Policy / SettingのOption、Default、Precedence、変更効果は承認済みSPECを実現し、Implementationで新しく決めない。Technical ConfigurationはArchitectureのBoundaryとRuleに従う。
+Codeは、Architecture Boundary、Dependency Direction、Data / Interface Contract、Error / Logging Ruleに従う。
+
+Configurationでは次を明確にし、Codeと設定の組み合わせを再現可能にする。
+
+- Environment差分
+- DefaultとOverride
+- Secret参照
+- Feature FlagのAuthority
+
+利用者・組織向けPreference / Policy / SettingのOption、Default、Precedence、変更効果は、承認済みSPECを実現する。Implementationで新しく決めてはならない。Technical ConfigurationはArchitectureのBoundaryとRuleに従う。
 
 Dependencyは必要なVersionを宣言・固定し、Build / Packageが対象Revisionから再現できるようにする。Generated Code / ArtifactはSource、生成手順、更新条件を追跡し、手修正と再生成の競合を避ける。
 
@@ -205,7 +248,7 @@ SecurityまたはPrivacy RuleをTestしにくいことを理由にGuardを省略
 
 Implementation担当は、変更を成立させるDeveloper TestをCodeとともに作成・更新する。
 
-| Purpose | Implementation Responsibility |
+| 目的 | 実装の責務 |
 |---|---|
 | Logic and State | Unit / Component Test、Boundary / Failure / Regression |
 | Contract | API / Event / Schema / Consumer Contract Test |
@@ -232,15 +275,19 @@ Architectureや上位Contractを変えるDecisionをImplementation Noteだけで
 
 ---
 
-# 3. Guided Skill Adapter
+<a id="3-guided-skill-adapter"></a>
 
-## 3.1. Runtime Authority
+# 3. Skill実行Adapter（Guided Skill Adapter）
+
+<a id="31-runtime-authority"></a>
+
+## 3.1. 実行時の決定権限（Runtime Authority）
 
 `skill.implementation.realize`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するImplementation固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
 
 ## 3.2. Implementation-specific Progression
 
-| Step | Transformation | Output |
+| 手順 | 変換 | 出力 |
 |---|---|---|
 | Load | Change Trace、UI / SPEC、Architecture、Rule、Target Revisionを対応づける | Implementation Coverage Queue |
 | Impact | Direct Changeと影響Artifact、Data、Consumer、Testを特定する | Impacted Scope |
@@ -255,7 +302,7 @@ Architectureや上位Contractを変えるDecisionをImplementation Noteだけで
 
 次の場合は実装を停止または承認済みScopeへ限定し、該当Authorityへ戻す。
 
-| Condition | Route |
+| 条件 | 移行先（Route） |
 |---|---|
 | SPECとArchitectureが矛盾、Acceptanceが観測不能 | SPEC / Architecture / Human Decision |
 | Architecture RuleまたはBoundaryが不足 | Architecture |
@@ -276,7 +323,9 @@ Parent Agentは変更Scope、禁止変更、Target Revision、Expected Output、
 
 ---
 
-# 4. Review, Handoff View, and Feedback
+<a id="4-review-handoff-view-and-feedback"></a>
+
+# 4. Review・引渡しView・Feedback
 
 ## 4.1. Implementation-specific Human Review
 
@@ -321,7 +370,9 @@ Verification Findingは原因に応じてImplementationへ戻る。修正後はT
 
 ---
 
-# 5. Final Principle
+<a id="5-final-principle"></a>
+
+# 5. 最終原則（Final Principle）
 
 Implementationは、設計をCodeへ写して終わる工程ではない。
 

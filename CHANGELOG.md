@@ -9,6 +9,22 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+### v0.5.1 — Standard Repository Operations, Migration, and Readability (2026-07-22)
+
+Compared with v0.5.0:
+
+- Adds root `AGENTS.md` and a minimal `CLAUDE.md` as tool-neutral adapters for maintaining the CRDD standard repository.
+- Defines scope, baseline, Human authority, stop conditions, review boundaries, and default Git handling for standard maintenance without requiring every Editorial change to create an Issue or run every Audit.
+- Adds bilingual migration guidance from v0.4.2 to v0.5.x. It covers document renames, the `00_00_Overview.md` exception, project Artifact and local-adapter preservation, reference validation, conditional Gap / Impact Audit, and rollback readiness.
+- Makes the three existing public Issue Forms bilingual without adding intake types or required fields. They assign only the three intake labels; status, classification, approval, and release control remain official-repository adapters rather than CRDD adoption requirements.
+- Defines locale-first documentation and AI communication without creating per-language canonical documents. The primary locale is used for reader-facing content; canonical English aliases and interoperable identifiers remain unchanged.
+- Aligns normative wording with BCP 14 (RFC 2119 and RFC 8174). Japanese-first text retains uppercase `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` where requirement strength must be explicit; lowercase English words do not acquire BCP 14 meaning.
+- Reworks Terminology with Japanese-first display names, canonical English aliases, one-line explanations, localized field labels, and examples for commonly confused concepts.
+- Reworks all 22 canonical documents for human readability without weakening their rules. They add short reading guides and separate dense rules into conclusions, conditions, responsibilities, exceptions, and completion criteria while retaining legacy heading anchors.
+- Adds locale and readability checks to Document Audit while keeping Conformance and Gap / Impact Audit focused on semantic consistency. Root and starter Agent instructions, README, Overview, and document headers are aligned with the v0.5.1 baseline.
+
+v0.5.1 does not change the phase model, Property Authority, Conformance boundary, required Artifact set, or Stable Context ID semantics. The standard Stable Context ID set remains `REQ`, `UX`, `IA`, `UI`, and `SPEC`.
+
 ### v0.5.0 — Context Propagation and Public Maintenance (2026-07-21)
 
 Compared with v0.4.2, v0.5.0 changes the published CRDD model as follows:
@@ -149,6 +165,22 @@ First public release of CRDD, organized into four layers by numbering band.
 ---
 
 ## 日本語
+
+### v0.5.1 — 標準Repository運用・Migration・可読性改善（2026-07-22）
+
+v0.5.0からの変更:
+
+- CRDD標準RepositoryをMaintenanceするためのTool非依存な実行Adapterとして、Root `AGENTS.md`と最小限の`CLAUDE.md`を追加した。
+- 標準MaintenanceのScope、Baseline、Human Authority、停止条件、Review境界、Gitの既定動作を定める一方、すべてのEditorial ChangeでIssue作成や全Audit実行を要求しない。
+- v0.4.2からv0.5.xへの日英Migration案内を追加した。正本文書のRename、`00_00_Overview.md`の例外、Project ArtifactとLocal Adapterの保持、参照・Anchor検証、条件付きGap / Impact Audit、任意のSubmodule・Change Trace運用、Rollback可能性を扱う。
+- 既存3種類の公開Issue Formを、受付種別や必須項目を増やさず日英併記にした。指定するLabelは`type:problem`、`type:standard-change`、`type:adoption-feedback`だけとし、Status、変更分類、承認、Release管理はCRDD採用要件ではなく公式RepositoryのAdapterとして維持する。
+- 言語ごとに別の正本を作らず、利用者ロケールを優先する文書・AI対話規則を追加した。説明、見出し、Field表示名、質問、判断支援は主要ロケールを優先する。正式英語名は共通Aliasとして保持し、ID、File名、Schema値、Codeは互換性を持つ識別子として翻訳しない。
+- 規範表現をBCP 14（RFC 2119およびRFC 8174）と対応付けた。日本語表示を先にしつつ、規範強度を明示する箇所では大文字の`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`を保持し、小文字英語へBCP 14の意味を付与しない。
+- Terminologyを、日本語表示名、正式英語Alias、一言説明、日本語Field名、混同しやすい概念の例で再構成した。
+- 22の正本文書を、Ruleを弱めず人間が読みやすい構成へ再編した。短い読書案内を追加し、密度の高い文章を結論、条件、責任、例外、完了条件へ分離した。変更した見出しでは旧Anchorを保持する。
+- Document Auditへロケールと可読性の検査を追加し、Conformance AuditとGap / Impact Auditでは翻訳量ではなく意味の一致を評価する。RootとStarterのAgent指示、README、Overview、全正本文書Headerをv0.5.1 Baselineへ揃えた。
+
+v0.5.1では、工程モデル、Property Authority、Conformance境界、必須Artifact集合、Stable Context IDの意味を変更しない。標準Stable Context IDは引き続き`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種である。
 
 ### v0.5.0 — Context伝播と公開Maintenance（2026-07-21）
 

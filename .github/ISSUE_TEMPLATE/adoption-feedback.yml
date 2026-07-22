@@ -1,75 +1,76 @@
-name: Adoption Feedback
-description: Share evidence and operational learning from applying CRDD to a real project.
-title: "[Adoption Feedback] "
-labels: []
+name: Adoption Feedback / 採用Feedback
+description: Share evidence and learning from applying CRDD to a real project. / 実ProjectへのCRDD適用から得たEvidenceとLearningを共有します。
+title: "[Adoption Feedback / 採用FB] "
+labels: ["type:adoption-feedback"]
 assignees: []
 body:
   - type: markdown
     attributes:
       value: |
         Thank you for sharing real adoption experience. Feedback may become a Learning Candidate, but project-specific practice is not automatically generalized into a CRDD rule. Do not disclose confidential project information.
+        実Projectの経験はLearning Candidateになり得ますが、Project固有運用が自動的にCRDD Ruleへ一般化されることはありません。秘密情報を記載しないでください。
 
   - type: input
     id: version
     attributes:
-      label: CRDD version
-      description: Which released version or revision did the project adopt?
-      placeholder: "v0.5.0"
+      label: CRDD version / CRDDのVersion
+      description: Which released version or revision did the project adopt? / Projectが採用したReleaseまたはRevisionを記載してください。
+      placeholder: "v0.5.1"
     validations:
       required: true
 
   - type: textarea
     id: project
     attributes:
-      label: Project type and scale
-      description: Describe the product domain, greenfield or maintenance context, approximate team or repository scale, and AI or tool setup at a shareable level.
+      label: Project type and scale / Projectの種類と規模
+      description: Describe domain, greenfield or maintenance context, approximate scale, and AI or tool setup at a shareable level. / 共有可能な範囲でDomain、新規・保守、規模、AI・Tool構成を示してください。
     validations:
       required: true
 
   - type: textarea
     id: helpful
     attributes:
-      label: What helped
-      description: Which CRDD rules, artifacts, reviews, or workflows improved decisions, continuity, delivery, or verification?
+      label: What helped / 役立った点
+      description: Which rules, artifacts, reviews, or workflows improved decisions, continuity, delivery, or verification? / 判断、継続性、Delivery、Verificationを改善したRule、Artifact、Review、Workflowを示してください。
     validations:
       required: true
 
   - type: textarea
     id: confusing
     attributes:
-      label: What was difficult to understand
-      description: Identify terminology, documents, phase boundaries, prompts, or decisions that were unclear to people or AI.
+      label: What was difficult to understand / 分かりにくかった点
+      description: Identify unclear terminology, documents, phase boundaries, prompts, or decisions. / 人間またはAIにとって不明確だった用語、文書、工程境界、Prompt、判断を示してください。
     validations:
       required: true
 
   - type: textarea
     id: overhead
     attributes:
-      label: Operational overhead
-      description: What took too much time, context loading, review effort, documentation, coordination, or maintenance? Include frequency or scale when possible.
+      label: Operational overhead / 運用負荷
+      description: What required too much time or coordination? Include frequency or scale when possible. / 過剰だった時間、Context読込、Review、文書、調整、Maintenance負荷を可能なら頻度・規模とともに示してください。
     validations:
       required: true
 
   - type: textarea
     id: missing
     attributes:
-      label: Missing or insufficient rule
-      description: What situation was not covered, or was covered too weakly to execute reliably?
+      label: Missing or insufficient rule / 不足していたRule
+      description: What was not covered, or was too weak to execute reliably? / 未対応または安定実行には弱すぎた状況を示してください。
     validations:
       required: false
 
   - type: textarea
     id: local_practice
     attributes:
-      label: Project-specific practice you added
-      description: Describe templates, checks, agents, skills, conventions, or exceptions added locally and why they were needed.
+      label: Project-specific practice you added / 独自に補った運用
+      description: Describe local templates, checks, agents, skills, conventions, or exceptions and why they were needed. / 追加したTemplate、Check、Agent、Skill、Convention、Exceptionと理由を示してください。
     validations:
       required: false
 
   - type: textarea
     id: evidence
     attributes:
-      label: Outcomes, examples, and limitations
-      description: Share observable outcomes, before/after examples, failures, measurements, or important limits without exposing confidential data.
+      label: Outcomes, examples, and limitations / 結果・例・Limit
+      description: Share observable outcomes, before/after examples, failures, measurements, or limits without confidential data. / 秘密情報を含めず、観測結果、Before / After、失敗、測定、Limitを共有してください。
     validations:
       required: false

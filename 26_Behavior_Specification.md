@@ -1,10 +1,10 @@
 # CRDD Behavior Specification
 
-Version: v0.5.0
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.spec.behavior`
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -23,7 +23,17 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 条件、Trigger、StateごとのSystem Behaviorをどう定めるか
+> - 例外、失敗、回復、権限、設定をどう仕様化するか
+> - UIとの対応と責務境界
+> - 実装・検証可能なAcceptanceをどう作るか
+> - Architectureへ渡す前に何を確認するか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 Behavior Specificationは、Requirement、UX / IA Intent、Feature、Use Case、User Action、Business Ruleを、検証可能なCondition、State、System Behavior、Result、Exception、Acceptanceへ変換する工程である。
 
@@ -40,11 +50,15 @@ Behavior SpecificationはRequirement、UX Outcome、UI表現、Architecture方�
 
 ---
 
-# Phase Process Contract
+<a id="phase-process-contract"></a>
+
+# 工程実行契約（Phase Process Contract）
 
 本章はBehavior Specification工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本ContractをArtifact構造とSkill実行へ具体化し、独自の完了条件を持たない。Artifactの統合・分割・配置は[`03_Documentation.md`](03_Documentation.md)に従う。
 
-## Phase Entry Contract
+<a id="phase-entry-contract"></a>
+
+## 工程入口契約（Phase Entry Contract）
 
 Behavior Specificationは対象Scopeについて、次を受け取る。
 
@@ -63,17 +77,29 @@ Behavior Specificationは対象Scopeについて、次を受け取る。
 
 通常は[IAのExit and Handoff](23_IA.md#exit-and-handoff)から受け取り、UIと並行・反復して具体化する。Source Requirement、Behavior Obligation、Actor / Authority、対象Scope、人間Reviewが不足する場合はDiscovery、IA、Human Decisionへ戻す。IAが`Partial — Human Authorized`の場合は、承認されたScopeだけを扱い、未網羅項目、Risk、後続Ownerを引き継ぐ。
 
-## Transformation Contract
+<a id="transformation-contract"></a>
 
-Behavior Obligation、Verification Obligation、Quality Concern、Configuration Candidateを、Actor / Authority、Trigger、Precondition、Input / Validation、Option / Default / Effective Value、State、Behavior、Output / State Transition、Failure / Exception、Permission、Idempotency、Cancel / Undo / Retry、External Dependency、Consumer Compatibility、Capacity / Quality Behavior、Acceptance Criteriaへ変換する。
+## 変換契約（Transformation Contract）
+
+Behavior Obligation、Verification Obligation、Quality Concern、Configuration Candidateを、検証可能な振る舞いへ変換する。必要に応じて次を定義する。
+
+- Actor / Authority、Trigger、Precondition
+- Input / Validation、Option / Default / Effective Value
+- State、Behavior、Output / State Transition
+- Failure / Exception、Permission、Idempotency
+- Cancel / Undo / Retry、External Dependency
+- Consumer Compatibility、Capacity / Quality Behavior
+- Acceptance Criteria
 
 SPECはConsumerまたは利用者から観測可能な契約を定義し、Component構成、Server台数、Queue Size、Autoscaling、DB Connection、Cache、Provider選択等の成立方式を決めない。
 
-## Required Responsibility Coverage
+<a id="required-responsibility-coverage"></a>
+
+## 必要な責務の網羅（Required Responsibility Coverage）
 
 対象Scopeの各REQ、Use Case、User Action、Behavior Obligationについて、次を網羅する。
 
-| Responsibility | Required Context |
+| 責務 | 必要なコンテキスト |
 |---|---|
 | Source and Scope | Source REQ / UX / IA、Purpose、Preserved Intent、Non-goal、Verification Obligation、Revision、Relation |
 | Actor and Entry | Actor / Authority、Trigger、Precondition、Feature Flag、Input / Validation |
@@ -89,21 +115,41 @@ SPECはConsumerまたは利用者から観測可能な契約を定義し、Compo
 
 すべての責務を全Behaviorへ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。
 
-## Scope and Coverage State
+<a id="scope-and-coverage-state"></a>
+
+## 対象範囲と網羅状態（Scope and Coverage State）
 
 各REQ / Use Case / User Action / Behavior Obligationと各SPEC責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
 
 一つのHappy Path、EARS文、State Diagram、API定義、既存Code、または対応UIの完成を、対象Scope全体のBehavior Specification完了と表現してはならない。
 
-## Human Decisions
+<a id="human-decisions"></a>
 
-人間はBusiness Rule、Actor / Authority、Permission、ConfigurationのDefault / Policy / Override、Risk Acceptance、不可逆処理、Fallback、Compatibility破壊、Cost / Quality Trade-off、`Not Applicable`、部分Handoffを決定する。AIは候補、Gap、Conflict、Acceptance案を提示できるが、未決Rule、Default、Policy、Authorityを推測で確定しない。
+## 人間による判断（Human Decisions）
 
-Human Decision、Constraint、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
+人間は次を決定する。
 
-## Exit and Handoff
+- Business Rule、Actor / Authority、Permission
+- ConfigurationのDefault / Policy / Override
+- Risk Acceptance、不可逆処理、Fallback
+- Compatibility破壊とCost / Quality Trade-off
+- `Not Applicable`と部分Handoff
 
-通常Handoff候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはBehavior Specificationまたは責務を持つ工程で修正し、修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+AIは候補、Gap、Conflict、Acceptance案を提示できる。ただし、未決Rule、Default、Policy、Authorityを推測で確定しない。
+
+人間による判断、制約、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
+
+<a id="exit-and-handoff"></a>
+
+## 完了条件と引渡し（Exit and Handoff）
+
+通常Handoff候補を人間のGateへ提示する前に、次を行う。
+
+1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響するFindingをBehavior Specificationまたは責務を持つ工程で修正する。
+3. 修正後Revisionを再Reviewし、`Pass`を得る。
+
+Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 UIとBehavior Specificationは並行・反復して具体化してよい。UIからBehavior Gapを、SPECからFeedback / Recovery Gapを発見できるが、片側の進捗を他方またはPair Reviewの完了とみなさない。
 
@@ -111,7 +157,9 @@ UIとBehavior Specificationは並行・反復して具体化してよい。UIか
 
 直接UIがない場合は、Consumer ContractまたはOperational Feedbackとの対応と、[Pair例外](24_UI_Behavior_Specification.md#52-behavior-without-direct-ui)の人間確認を示す。部分Handoffには、対象Scope、未定義Behavior / Exception / Acceptance、Pair Gap、Risk、受信先、後続Ownerの人間承認を必要とする。
 
-## Phase Gate Criteria
+<a id="phase-gate-criteria"></a>
+
+## 工程移行の判定基準（Phase Gate Criteria）
 
 - Source REQ / UX / IA、対象Use Case / User ActionへTraceできる
 - Source RequirementのVerification Obligationと適用Quality Concernを、観測可能なBehavior、Quality Condition、Acceptanceへ処置している
@@ -129,7 +177,9 @@ UIとBehavior Specificationは並行・反復して具体化してよい。UIか
 - 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
 
-## Phase Audit Checklist
+<a id="phase-audit-checklist"></a>
+
+## 工程監査チェックリスト（Phase Audit Checklist）
 
 - REQ / Use Case / User Action / Behavior Obligationの未変換
 - Happy Pathだけの仕様、曖昧なResult、観察不能なAcceptance
@@ -262,9 +312,13 @@ Behaviorの根拠は対象Artifact内または最も近い親Folderの`Evidence/
 
 ---
 
-# 3. Guided Skill Adapter
+<a id="3-guided-skill-adapter"></a>
 
-## 3.1. Runtime Authority
+# 3. Skill実行Adapter（Guided Skill Adapter）
+
+<a id="31-runtime-authority"></a>
+
+## 3.1. 実行時の決定権限（Runtime Authority）
 
 `skill.spec.behavior`は、Phase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するBehavior Specification固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycle、Artifact Registrationを再定義しない。
 
@@ -272,7 +326,7 @@ Behaviorの根拠は対象Artifact内または最も近い親Folderの`Evidence/
 
 ## 3.2. SPEC-specific Progression
 
-| Step | SPEC固有の変換 | Result |
+| 手順 | SPEC固有の変換 | Result |
 |---|---|---|
 | Load and Scope | REQ、IA Obligation、Pairing Unit、既存Behaviorを対応づける | SPEC Coverage Queue |
 | Frame | Actor、Authority、Trigger、Precondition、Stateを定義する | Behavior Boundary |
@@ -283,7 +337,7 @@ Behaviorの根拠は対象Artifact内または最も近い親Folderの`Evidence/
 
 ## 3.3. SPEC-specific Question Topics
 
-| Topic | Question Intent |
+| 話題 | 質問の意図 |
 |---|---|
 | Trigger / Actor | 何をきっかけに、誰がどのAuthorityで開始するか |
 | Precondition / State | 開始前に何が成立し、どのStateから始まるか |
@@ -297,7 +351,7 @@ Behaviorの根拠は対象Artifact内または最も近い親Folderの`Evidence/
 
 ## 3.4. Adaptive Route and Escalation
 
-| Condition | Route |
+| 条件 | 移行先（Route） |
 |---|---|
 | Source Requirement、Business Rule、Authorityが不明 | Discovery / Human Decision |
 | IA Object / Lifecycle / State Conceptが不明 | IA |
@@ -312,7 +366,9 @@ Subagentを使う場合は[`10_Agent.md`](10_Agent.md)に従い、State Transiti
 
 ---
 
-# 4. Review, Handoff View, and Feedback
+<a id="4-review-handoff-view-and-feedback"></a>
+
+# 4. Review・引渡しView・Feedback
 
 ## 4.1. SPEC-specific Human Review
 
@@ -366,14 +422,16 @@ UI、Architecture、実装、Verification、運用から、State、Failure、Rec
 
 Sourceの書誌情報、Relation、Coverage Claimの意味は[OverviewのSource索引](00_Overview.md#36-external-foundations-and-source-trace)と[External Source Trace Rule](03_Documentation.md#49-external-source-trace)を正本とする。
 
-| Source | Relation | Applied Sections | Coverage |
+| 情報源 | 関係 | 適用Section | 網羅範囲 |
 |---|---|---|---|
 | `EARS` | `uses` | 2.6 EARS Usage | `Selected Concepts`; optional syntax、no conformance claim |
 | `WCAG22` | `project_adopts` | 2.2 Alternative Operation、UI / SPEC Pair、Acceptance | When adopted, Project Profile selects applicable Criteria and Scope |
 
 ---
 
-# 5. Final Principle
+<a id="5-final-principle"></a>
+
+# 5. 最終原則（Final Principle）
 
 ```text
 Behavior Specificationは、Happy PathやEARS文を一つ書いて終わる工程ではない。

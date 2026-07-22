@@ -1,10 +1,12 @@
-# CRDD Gap and Impact Audit
+<a id="crdd-gap-and-impact-audit"></a>
 
-Version: v0.5.0
+# CRDD Gap・影響監査（Gap and Impact Audit）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
 Agent ID: `agent.gap_impact.audit`
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -19,7 +21,17 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 一つの変更が他工程や成果物へ与える影響をどう探すか
+> - 下流の判断・制約・学びを上流へどう伝播するか
+> - Gap候補と実際の影響をどう区別するか
+> - 更新、Review、影響なし、延期等を誰が判断するか
+> - 修正後にどこまで再監査するか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、変更後も上流Context、専門成果物、Implementation、Verificationの意味的接続を維持するため、Cross-layer Gap ValidationとImpact Analysisを実行するAudit Contractである。
 
@@ -29,6 +41,8 @@ Impact = 変更によって別Context、Artifact、判断、Releaseへ影響が�
 ```
 
 Gap ValidationとImpact Analysisは別々のLifecycleではない。変更または新Evidenceを起点にImpact Candidateを探索し、現在のGapか、変更が必要か、影響がないかを同じAuditで判定する。
+
+ローカル表示名や説明構造だけを変更した場合も、Canonical Term、Rule強度、Authority、Status、例外、Handoff、Consumerの解釈が保存されているかを比較する。表示差だけからProduct Impactを推定せず、意味が変わった場合にだけ影響候補として扱う。
 
 ```text
 Document Audit     = 既知の文書品質と直接Propagation
@@ -102,7 +116,14 @@ Report全体のAudit Status、共通Finding Fields、Severity、Report Viewは[`
 
 Audit Reportは対象Scope / Revision、探索したRelation、未探索Scope、No Impact Decision、Deferred / Accepted Risk、Affected Phase / Release、Unresolved Gapを示す。
 
-Audit Statusは次のように使う。適用Candidateが`No Impact`、`Covered by Existing Contract`、`Resolved`等へ根拠付きで判定され、未処理の重大Gapがなければ`Pass`、未解消GapがOwner・追跡先・Human Authority付きで限定されていれば`Conditional`、未解決Critical / Major Gapまたは正本Conflictがあれば`Fail`、意味的影響を判断できなければ`Blocked`とする。`Conditional`はGap解消やPhase / Release承認を意味しない。
+Audit Statusは次のように使う。
+
+- `Pass`: 適用Candidateが`No Impact`、`Covered by Existing Contract`、`Resolved`等へ根拠付きで判定され、未処理の重大Gapがない
+- `Conditional`: 未解消GapがOwner、追跡先、Human Authority付きで限定されている
+- `Fail`: 未解決のCritical / Major Gapまたは正本Conflictがある
+- `Blocked`: 意味的影響を判断できない
+
+`Conditional`は、Gap解消やPhase / Release承認を意味しない。
 
 Findingの記録先は原則としてChange Traceまたは対象Canonical Artifactとする。Gap / Impact Audit文書をProject固有の中央台帳にしない。FindingへCRDD標準Stable Context IDを発行せず、Report内Key、Issue、Path、Anchor等で追跡する。
 
@@ -154,7 +175,17 @@ Shared Component / Consumer / Provider / Data / Variant
 - 既存のOpen Question、Unresolved Gap、Assumptionへ回答し得る確定事項
 - Canonical Contextの意味、Scope、Authority、Default、Priority、Obligationを変える結果
 
-最初にSource Revisionから上流方向と同層Relationを探索し、既存のOpen Question、Unresolved Gap、Assumption、Decision、Constraint、Downstream Obligationとの対応候補を列挙する。直接Relationがない場合も、同じScope、Actor、Use Case、Object、Action、Data、Quality、Riskを共有する候補を未探索のまま除外しない。候補ごとに`Update`、`Covered by Existing Contract`、`No Impact`、`Upstream Decision Required`、またはFindingを根拠付きで判定する。
+最初にSource Revisionから上流方向と同層Relationを探索し、既存のOpen Question、Unresolved Gap、Assumption、Decision、Constraint、Downstream Obligationとの対応候補を列挙する。
+
+直接Relationがなくても、同じScope、Actor、Use Case、Object、Action、Data、Quality、Riskを共有する候補を未探索のまま除外しない。
+
+各候補を、根拠付きで次のいずれかへ判定する。
+
+- `Update`
+- `Covered by Existing Contract`
+- `No Impact`
+- `Upstream Decision Required`
+- Finding
 
 `Update`となったPropertyは責務を持つCanonical Artifactへ反映する。上流Contextの意味またはRevisionが変わった場合は、その更新点から下流方向へ再探索し、既存のUI / SPEC、Architecture、Implementation、Verification、Change / Releaseへの再設計・再承認・再検証範囲を判定する。Audit Reportまたは下流Decisionだけに結果を残して正本更新を代替しない。
 
@@ -383,7 +414,11 @@ Auditが独立Reportを返しても、FindingのDispositionと実行結果はCha
 
 `01_Discovery`は顧客Feedback、法令変更、明確な仕様変更、不具合、曖昧な要求等を分類し、Requirementと判断を確定する正本領域である。Impact Auditは下流差分から新しいRequirementを創作せず、Sourceと判断が不足する場合はDiscoveryへ戻す。
 
-`99_Roadmap`は、採用済みだが今回実行しないDeferred WorkのPriority、Target、Dependency、着手条件を扱う。Roadmap項目をRequirement、SPEC、Decisionの正本にしない。Human AuthorityがRoadmap Routeを確定した場合は、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従ってItemを実際に登録・更新し、Recommendationだけでは`Routed`または追跡済みと判定しない。
+`99_Roadmap`は、採用済みだが今回実行しないDeferred Workを扱う。Priority、Target、Dependency、着手条件を保持する。
+
+Roadmap項目をRequirement、SPEC、Decisionの正本にしてはならない。
+
+Human AuthorityがRoadmap Routeを確定した場合は、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従ってItemを実際に登録または更新する。Recommendationだけでは、`Routed`または追跡済みと判定しない。
 
 ```text
 Source / Evidence
@@ -397,7 +432,19 @@ Source / Evidence
 
 ## 9.4. Closure
 
-ChangeまたはFindingをCloseする前に、必要な正本・Relationと、適用されるImplementation / Verificationが更新され、非適用理由、Fresh Evidence、Deferred Scope、Accepted Risk、Learningが追跡可能か確認する。Roadmap Detail Fileを使用したScopeでは、Detail固有情報の正本反映、Main Viewの結果参照または非適用理由、Detail削除も確認する。Merge、Build、Ticket完了だけをClosure Evidenceにしない。
+ChangeまたはFindingをCloseする前に、次を確認する。
+
+- 必要な正本とRelationが更新されている
+- 適用されるImplementation / Verificationが更新されている
+- 非適用理由、Fresh Evidence、Deferred Scope、Accepted Risk、Learningを追跡できる
+
+Roadmap Detail Fileを使用したScopeでは、次も確認する。
+
+- Detail固有情報を責務正本へ反映した
+- Main Viewへ結果参照または非適用理由を戻した
+- Detail Fileを削除した
+
+Merge、Build、Ticket完了だけをClosure Evidenceにしてはならない。
 
 ---
 
@@ -489,7 +536,14 @@ FindingまたはChangeを`Resolved` / Closedにするには、適用範囲で次
 
 Skill Runとして実行する場合は[`11_Skill.md`](11_Skill.md)、Agent / Subagentへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従う。本書独自のAgent Lifecycleを作らない。
 
-Subagentとして実行する標準Agent IDは`agent.gap_impact.audit`とする。Parent Agentは、Trigger、Scope、Target Revision / Baseline、探索するRelation方向、送信 / 受信工程、Known Decision / Evidence / Gap、Applicable Standards、Expected Output、Read-only、Return先をDelegation Contractへ指定する。Subagentは本書のGap / Impact Audit Reportを返し、Canonical Artifact、Finding Disposition、Phase Decisionを変更しない。
+Subagentとして実行する標準Agent IDは`agent.gap_impact.audit`とする。Parent AgentはDelegation Contractへ次を指定する。
+
+- Trigger、Scope、Target Revision / Baseline
+- 探索するRelation方向と送信 / 受信工程
+- Known Decision / Evidence / GapとApplicable Standards
+- Expected Output、Read-onlyであること、Return先
+
+Subagentは本書のGap / Impact Audit Reportを返す。Canonical Artifact、Finding Disposition、Phase Decisionは変更しない。
 
 ```text
 Load Change Trace / Scope / Revision
@@ -501,7 +555,15 @@ Remediate outside Audit Run if authorized
 Re-audit affected Scope
 ```
 
-Parent AgentはSubagentごとのScope、Relation方向、使用する正本、Expected Outputを指定し、重複Candidate、Conflict、Impact Level、Authorityを統合する。Remediation後は変更後Revisionと影響Relationを再監査する。Subagent Result、Audit Run完了、FindingへのOwner付与をそのままGap解消、No Impact、Risk受容、Phase Transition Review Pass、Phase / Release判断にしない。
+Parent Agentは、SubagentごとにScope、Relation方向、使用する正本、Expected Outputを指定する。返された重複Candidate、Conflict、Impact Level、AuthorityはParent Agentが統合する。
+
+Remediation後は、変更後Revisionと影響Relationを再監査する。
+
+次の事実だけから、Gap解消、`No Impact`、Risk受容、Phase Transition Reviewの`Pass`、Phase / Release判断を推定してはならない。
+
+- Subagent Resultが返った
+- Audit Runが完了した
+- FindingへOwnerが付与された
 
 ---
 

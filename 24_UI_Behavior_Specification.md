@@ -1,9 +1,9 @@
 # CRDD UI Contract and Behavior Specification
 
-Version: v0.5.0
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -19,7 +19,17 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - UIと振る舞い仕様をなぜ並行して扱うか
+> - 表示・操作とSystem Behaviorの責務をどう分けるか
+> - 両方の成果物をどう対応付けるか
+> - 片方だけ完成したように見える状態をどう防ぐか
+> - Architectureへ渡す前に何を共同確認するか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、利用者に見えるUI ContractとSystemのBehavior Specificationが、同じProduct Intent、Feature、Use Case、User Action、Stateを矛盾なく成立させるためのPair Review Contractを定義する。
 
@@ -74,7 +84,7 @@ Source Intent / Pairing Unit
 
 対象Scopeの全Pairing Unitについて、次を判定する。
 
-| Concern | UI Contract Side | Behavior Specification Side |
+| 観点 | UI Contract側 | 振る舞い仕様側 |
 |---|---|---|
 | Source / Purpose | 利用者のGoal、UX / IA Intent | Systemが成立させるResult、Source REQ / UX / IA |
 | Action / Trigger | 利用者または外部ActorのAction | Trigger、Actor、Authority |
@@ -110,11 +120,17 @@ UI CoverageとSPEC Coverageは別々に保持し、Pair Coverageへ合算して�
 
 AIは対応候補、不一致、欠落、選択肢を提示できるが、Business Rule、Authority、成功・失敗の意味、片側を正しいものとして自己決定しない。
 
-Pairに関するHuman Decision、Constraint、Learning、Evidence、Findingを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、IA以前のContext、UI / SPEC両側、Architecture以降へのImpactを更新・再監査するまでPairを通常完了としない。
+Pairに関する人間の判断、制約、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、IA以前のContext、UI / SPECの両側、Architecture以降へのImpactを更新・再監査するまでPairを通常完了としない。
 
 ## 2.6. Exit and Pair Gate
 
-Pair GateをHumanへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Pairing Unit / Revisionへ実行する。Pair FindingはUI、Behavior Specification、または責務を持つ上流工程で修正し、両側の更新Revisionを再Reviewして`Pass`を得る。片側のReviewだけでPair全体をPassにせず、Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+Pair Gateを人間へ提示する前に、次を行う。
+
+1. 対象Pairing Unit / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. Pair FindingをUI、Behavior Specification、または責務を持つ上流工程で修正する。
+3. UIとBehavior Specificationの更新Revisionを再Reviewし、`Pass`を得る。
+
+片側のReviewだけでPair全体を`Pass`にしてはならない。Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 Pair Reviewは次を満たした場合に、対象Scopeについて完了できる。
 
@@ -155,7 +171,7 @@ UIが存在しないBehavior、実Behaviorを持たないPrototype等は、5章�
 
 UIとSPECが同じConcernを扱う場合も、Property Authorityは分離する。
 
-| Concern | UI Authority | SPEC Authority | Pair Review Focus |
+| 観点 | UIの決定権限 | SPECの決定権限 | Pair Reviewの焦点 |
 |---|---|---|---|
 | Action | 認識・操作・Feedback | Trigger・条件・Result | Actionが意図したBehaviorを開始するか |
 | State | Presentation / Assurance | Domain / System State | 利用者へ正しいMeaningが伝わるか |

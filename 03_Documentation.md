@@ -1,9 +1,11 @@
-# CRDD Documentation
+<a id="crdd-documentation"></a>
 
-Version: v0.5.0
+# CRDD文書規則（Documentation）
+
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -19,11 +21,29 @@ Related:
 
 ---
 
-# 1. Responsibility and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 文書や成果物をどこへ置き、何を正本として扱うか
+> - 根拠、判断理由、安定ID、参照関係をどう残すか
+> - 人間とAIの双方が読み違えにくい文書をどう書くか
+> - 規範の強さと、利用者の主要言語をどう表現するか
+> - 文書を更新、廃止、削除するときに何を守るか
+
+<a id="1-responsibility-and-boundary"></a>
+
+# 1. 責務と適用範囲（Responsibility and Boundary）
 
 本書は、CRDDにおけるRepository構造、ArtifactとDocumentの表現、Evidence、Decision / Rationale、Stable Context ID、Artifact Reference、Traceabilityの共通規則を定義するDocumentationの正本である。
 
-Context TypeとStatusのCanonical Definitionは[Terminology](02_Terminology.md)、人間とAIのAuthorityおよびEnd-to-End Context Continuityは[Principles](01_Principles.md)、Change Traceは[Change](12_Change.md)、Releaseは[Release](13_Release.md)、Repository固有の作業手順は[Workflow](14_Workflow.md)を正本とする。工程固有のEntry、Transformation、Required Responsibility Coverage、Exit、Gate、Auditは各工程文書を正本とし、本書で複製しない。
+本書が所有しない情報は、次の文書を正本とする。
+
+- Context TypeとStatusのCanonical Definition: [Terminology](02_Terminology.md)
+- 人間とAIのAuthority、一気通貫のContext継続性: [Principles](01_Principles.md)
+- Change Trace: [Change](12_Change.md)
+- Release: [Release](13_Release.md)
+- Repository固有の作業手順: [Workflow](14_Workflow.md)
+
+工程固有のEntry、Transformation、Required Responsibility Coverage、Exit、Gate、Auditは、各工程文書を正本とする。本書では複製しない。
 
 CRDD Documentationは文書量を増やすための規定ではない。人間とAIが、現在有効なContext、Source、判断理由、実装、検証、Learningを同じ意味で辿れる状態を作る。
 
@@ -32,7 +52,7 @@ DocumentとArtifactは、人間とAIの双方が誤読しにくい構造にす�
 ```text
 目的または結論を先に示す
 一つのDocumentまたはSectionへ一つの主題を置く
-Canonical Termを使用する
+主要ロケールの表示名を使い、必要な初出でCanonical Termを併記する
 曖昧な「これ」「それ」「最新」を避ける
 比較、Mapping、Status、AuthorityにはTableを使う
 並列Rule、条件、成果、確認項目にはListを使う
@@ -40,11 +60,13 @@ Observation、Evidence、Interpretation、Hypothesis、Proposal、Decisionを混
 採用案と判断価値のあるAlternativeを区別する
 ```
 
-Canonical Termの定義は[Terminology](02_Terminology.md)を正本とし、本書で再定義しない。日本語本文を使用してよい。
+Canonical Termの定義は[Terminology](02_Terminology.md)を正本とし、本書で再定義しない。本文は対象読者の主要ロケールを優先し、表示名とCanonical Termの境界は4.8に従う。
 
 ---
 
-# 2. Repository and Source of Truth
+<a id="2-repository-and-source-of-truth"></a>
+
+# 2. Repositoryと正本（Source of Truth）
 
 ## 2.1. Context Repository
 
@@ -88,7 +110,9 @@ Human Authorityへ判断を戻す
 
 ---
 
-# 3. Repository Structure and Placement
+<a id="3-repository-structure-and-placement"></a>
+
+# 3. Repository構造と配置
 
 ## 3.1. Basic Structure
 
@@ -130,13 +154,19 @@ Evidenceの配置は6.2、Decisionの配置は7.1を正本とする。Repository
 
 ## 3.3. Discovery and Roadmap
 
-`01_Discovery`は新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。`99_Roadmap`は採用済みだが未着手の内容を、Requirementや他のContextへの参照とともに計画する。Roadmapは原則として単一の`99_Roadmap/01_Product_Roadmap.md`で管理し、比較、調査、依存関係等の詳細がMain Viewの可読性を損なう場合だけ別のDetail Fileへ分ける。Roadmap Itemの必須Context、Lifecycle、登録・再評価・着手・Detail削除条件は[Discovery](21_Discovery.md#63-roadmap-item-contract)を正本とする。
+`01_Discovery`は、新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。
+
+`99_Roadmap`は、採用済みだが未着手の内容を、Requirementや他のContextへの参照とともに計画する。Roadmapは原則として単一の`99_Roadmap/01_Product_Roadmap.md`で管理する。比較、調査、依存関係等の詳細がMain Viewの可読性を損なう場合だけ、別のDetail Fileへ分ける。
+
+Roadmap Itemの必須Context、Lifecycle、登録・再評価・着手・Detail削除条件は、[Discovery](21_Discovery.md#63-roadmap-item-contract)を正本とする。
 
 Discovery文書をRoadmapへ移動せず、Roadmap項目をRequirementまたはSpecificationの正本として扱わない。Roadmap項目またはDetail FileへCRDD標準Stable Context IDを発行せず、Path、Anchor、外部Issue等で識別する。完了したDetail FileをRoadmap Archiveとして恒久保存しない。
 
 ---
 
-# 4. Artifact and Document Contract
+<a id="4-artifact-and-document-contract"></a>
+
+# 4. 成果物と文書の契約
 
 ## 4.1. Artifact and Context
 
@@ -269,19 +299,53 @@ LinkだけではContinuityにならない。重要な接続はRelationの意味�
 
 外部または長期参照されるHeadingやAnchorを変更する場合は、Repository内の参照元を同じ変更で更新する。参照元を更新できない場合は、旧Anchorを維持するか、旧参照から新しい位置を特定できる移行情報を残し、無言で参照を切断しない。
 
-## 4.8. Normative Language
+<a id="48-normative-language"></a>
 
-CRDD文書では、RFC 2119 / RFC 8174の意味で、以下の規範強度語彙を使用する。
+## 4.8. ロケールと規範表現（Normative Language）
 
-| Term | Meaning |
-|---|---|
-| `MUST` / `しなければならない` | 適用ScopeでCRDD準拠に必須 |
-| `MUST NOT` / `してはならない` | 適用ScopeでCRDD準拠上禁止 |
-| `SHOULD` / `すべきである` | 原則として従う。従わない場合は理由を説明できること |
-| `SHOULD NOT` / `すべきではない` | 原則として避ける。採用する場合は理由を説明できること |
-| `MAY` / `してよい` | 任意の選択肢 |
+### 4.8.1. 利用者ロケールを優先した表示
 
-英語の規範強度語彙は大文字表記の場合に規範的意味を持つ。日本語では表に示す表現に加え、意味上同等の明示的な義務・禁止・推奨・許可表現もRuleとして解釈する。
+説明文、見出し、表の項目名、質問、判断支援は、対象読者または利用者の主要ロケールを優先する。共通参照が必要なCRDD用語は、初出時または用語集で「ローカル表示名（Canonical English Term）」として示し、同じ節で英語名を不必要に繰り返さない。
+
+```yaml
+locale:
+  primary: ja-JP
+  canonical_term_language: en
+```
+
+この例は表示方針を示すものであり、すべてのArtifactへ同じMetadataを要求しない。
+
+ローカライズしてよいものは、説明文、見出し、表の表示項目名、状態の説明、読者への指示、流れと責務の説明である。Canonical Term、Stable Context ID、Agent ID、File名、Schema Key / Value、Code、外部規格の正式名称は、互換性を持つ識別子として無断で翻訳または変更しない。
+
+厳密さだけを理由に、説明を英語用語の連続へ圧縮しない。文書では次を優先する。
+
+- 結論または一言説明を先に示す
+- 条件、決定権限、禁止、例外、完了条件を必要に応じて分ける
+- 一文に複数の独立した義務を詰め込まない
+- 並列事項は箇条書きまたは表で示す
+- 専門用語だけで説明を完結させず、主要ロケールで平易な意味を添える
+
+CRDD標準文書は、正式な目的と適用範囲の前に、非規範の「この文書で分かること」を短く置いてよい。この案内は本文のRule、Authority、適用範囲を追加または変更しない。
+
+採用Projectは、対象利用者に適したロケールと表現方法を選べる。ローカライズの有無だけでCRDD Conformanceを判定しない。ただし、翻訳や表示名によってRule、Authority、Status、識別子、Handoffの意味が変わる場合は、不整合として扱う。
+
+### 4.8.2. 規範強度語彙
+
+CRDD文書では、BCP 14（RFC 2119およびRFC 8174）の意味で、選択した規範強度語彙を使用する。
+
+| 日本語表示 | Canonical Keyword | 意味 |
+|---|---|---|
+| 必須 | `MUST` | 適用範囲で例外を認めない絶対要件 |
+| 禁止 | `MUST NOT` | 適用範囲で例外を認めない絶対禁止 |
+| 推奨 | `SHOULD` | 原則として従う。逸脱する場合は、理由と影響を理解して比較する |
+| 原則禁止 | `SHOULD NOT` | 原則として避ける。実施する場合は、理由と影響を理解して比較する |
+| 任意 | `MAY` | 採用してもしなくてもよい選択肢 |
+
+英語のKeywordは、表に示す大文字表記の場合だけBCP 14の規範的意味を持つ。小文字の`must`、`should`等は通常の英語として扱う。日本語では、「しなければならない」「してはならない」「すべきである」「すべきではない」「してよい」等、意味上同等の明示的な表現もRuleとして解釈する。
+
+EARS等の外部構文、Code、Schema、引用に含まれる小文字の`shall`等は、その構文またはSourceの定義に従う。大文字でない語へBCP 14の意味を自動適用しない。
+
+`REQUIRED`、`SHALL`、`SHALL NOT`、`RECOMMENDED`、`NOT RECOMMENDED`、`OPTIONAL`はBCP 14上の対応語だが、CRDD本文では語彙を増やさず、原則として`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`を使用する。
 
 規範強度はRuleの強さを示し、Document Status、Property Authority、Human Approvalを代替しない。`Draft`または`Experimental`な文書に記載された`MUST`は、その文書自体が承認・適用されたことを意味しない。一方、`Stable`な文書の説明文が、規範語彙を伴わず自動的に必須Ruleになるわけでもない。適用可否は、対象Scope、Document Status、Property Authority、必要なHuman Approvalと合わせて判断する。
 
@@ -297,15 +361,26 @@ CRDD Rule、構文、評価観点へ外部標準、論文、原則、Guideline�
 | `informed_by` | 設計、比較、Problem発見の参考にする |
 | `project_adopts` | 適用ProjectがSource、Version、Level、Platform、Scopeを選択する |
 
-Coverageは、少なくとも`Referenced`、`Selected Concepts`、`Clause-mapped`、`Fully Assessed`を区別する。`Referenced`または`Selected Concepts`はSource全体の網羅を意味しない。`aligned_with`または`informed_by`だけで準拠を主張しない。`Clause-mapped`または`Fully Assessed`を主張する場合は、適用Clause / Criterion、非適用理由、対応するCRDD Rule、対象Revision、評価Evidenceを追跡可能にする。
+Coverageは、少なくとも次を区別する。
+
+- `Referenced`
+- `Selected Concepts`
+- `Clause-mapped`
+- `Fully Assessed`
+
+`Referenced`または`Selected Concepts`は、Source全体の網羅を意味しない。`aligned_with`または`informed_by`だけで準拠を主張してはならない。
+
+`Clause-mapped`または`Fully Assessed`を主張する場合は、適用Clause / Criterion、非適用理由、対応するCRDD Rule、対象Revision、評価Evidenceを追跡可能にする。
 
 Reference Keyは引用Labelであり、Stable Context ID、Document Number、Artifact IDではない。外部Sourceの本文をCRDDへ不必要に複製せず、長期参照に適したVersion付きURL、DOI、発行主体等を優先する。SourceのVersionまたは適用範囲が変わった場合は、影響するCRDD条項とProject Profileを再確認する。
 
-4.8の規範強度語彙は`RFC2119` / `RFC8174`を`uses`として使用し、選択した語彙だけを適用する。RFC全体への準拠または網羅は主張しない。
+4.8の規範強度語彙は`BCP14`（`RFC2119` / `RFC8174`）を`uses`として使用し、選択した語彙と大文字・小文字の境界だけを適用する。RFC全体への準拠または網羅は主張しない。
 
 ---
 
-# 5. Status, Update, and Retirement
+<a id="5-status-update-and-retirement"></a>
+
+# 5. 状態・更新・廃止
 
 ## 5.1. Status
 
@@ -344,7 +419,9 @@ Git履歴、Change Trace、または承認記録から削除理由を確認で�
 
 ---
 
-# 6. Evidence and Provenance
+<a id="6-evidence-and-provenance"></a>
+
+# 6. 根拠と来歴（Evidence and Provenance）
 
 ## 6.1. Evidence Boundary
 
@@ -389,7 +466,9 @@ Evidenceは取得時点、条件、対象Scope / Revisionを示す。Lifecycle S
 
 ---
 
-# 7. Decision and Rationale
+<a id="7-decision-and-rationale"></a>
+
+# 7. 判断と判断理由（Decision and Rationale）
 
 ## 7.1. Storage and Authority
 
@@ -443,7 +522,9 @@ Riskが低い場合は`Adopted`、`Why`、`Evidence`へ縮小してよい。AI�
 
 ---
 
-# 8. Stable Context ID
+<a id="8-stable-context-id"></a>
+
+# 8. 安定コンテキストID（Stable Context ID）
 
 ## 8.1. Boundary
 
@@ -520,7 +601,9 @@ Version固有の変更内容とMigration Noteは[Maintenance](19_Maintenance.md)
 
 ---
 
-# 9. Artifact Reference and Traceability
+<a id="9-artifact-reference-and-traceability"></a>
+
+# 9. 成果物参照と追跡可能性
 
 ## 9.1. Artifact Reference
 
@@ -579,7 +662,9 @@ Traceは単一の固定Chainを要求しない。REQはDiscovery Source、Proble
 
 ---
 
-# 10. Documentation Scale and Patterns
+<a id="10-documentation-scale-and-patterns"></a>
+
+# 10. 文書規模と構成Pattern
 
 ## 10.1. Scale
 
@@ -613,4 +698,9 @@ Change TraceのTrigger、Intent、Expected / Actual Impact、Artifact Trace、Re
 
 ## 10.4. Validation and Audit
 
-本書は検査対象となるRuleを定義し、文書のAudit手順、Severity、Remediation Policy、Audit CompletionとTarget Statusは[Document Audit](51_Document_Audit.md)を正本とする。工程ArtifactのCoverageは各工程の`Phase Audit Checklist`、CRDDの最小適用条件と適用状態は[Conformance Audit](52_Conformance_Audit.md)、変更影響は[Gap / Impact Audit](53_Gap_Impact_Audit.md)に従う。
+本書は、検査対象となるRuleを定義する。検査の実行方法は、次を正本とする。
+
+- 文書のAudit手順、Severity、Remediation Policy、Audit Completion、Target Status: [Document Audit](51_Document_Audit.md)
+- 工程ArtifactのCoverage: 各工程の`Phase Audit Checklist`
+- CRDDの最小適用条件と適用状態: [Conformance Audit](52_Conformance_Audit.md)
+- 変更影響: [Gap / Impact Audit](53_Gap_Impact_Audit.md)

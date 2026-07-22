@@ -1,10 +1,10 @@
 # CRDD Verification
 
-Version: v0.5.0
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -28,7 +28,17 @@ Related:
 
 > Verificationを適用するProjectでは、本書の`Phase Process Contract`をVerification工程内の正本として使用する。
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - 何を、どのRevisionとEnvironmentで検証するか
+> - Requirement、UX Outcome、UI、仕様、Architectureをどう確認するか
+> - Pass、Fail、Blocked、残存Riskをどう区別するか
+> - 検証結果から上流の未反映事項をどう見つけるか
+> - Release可否を誰へ、どのEvidence付きで推奨するか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 Verificationは、Implementation Artifactが承認済みContext、Acceptance、Architecture、Quality Conditionを満たすかを、Target RevisionとEnvironmentに対するFresh Evidenceで独立検証する工程である。
 
@@ -44,11 +54,15 @@ VerificationはDocument AuditやCRDD Conformance Auditの代替ではない。�
 
 ---
 
-# Phase Process Contract
+<a id="phase-process-contract"></a>
+
+# 工程実行契約（Phase Process Contract）
 
 本章はVerification工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本Contractを検証設計、Evidence、Finding、Skill実行へ具体化し、独自の完了条件を持たない。
 
-## Phase Entry Contract
+<a id="phase-entry-contract"></a>
+
+## 工程入口契約（Phase Entry Contract）
 
 Verificationは対象Scopeについて次を受け取る。
 
@@ -67,13 +81,17 @@ Verificationは対象Scopeについて次を受け取る。
 
 Target、Expected Contract、Environment、Acceptanceのいずれかが特定できない場合、推測でPassせず`Blocked`または`Not Verified`として不足情報とOwnerを返す。
 
-## Transformation Contract
+<a id="transformation-contract"></a>
+
+## 変換契約（Transformation Contract）
 
 Implementation ArtifactとImplementation Evidenceを、独立Test、Review、Runtime / Visual Observation、Comparison、Simulation、Load / Security / Migration Verification等によって、Verification Result、Fresh Evidence、Finding、Residual Risk、Recommendation、Learningへ変換する。
 
 Verificationは「TestがPassした」だけでなく、何を、どの条件で保証し、何を保証していないかを明示する。
 
-## Required Responsibility Coverage
+<a id="required-responsibility-coverage"></a>
+
+## 必要な責務の網羅（Required Responsibility Coverage）
 
 対象Scopeについて次の責務を適用範囲で判定する。
 
@@ -94,23 +112,42 @@ Verificationは「TestがPassした」だけでなく、何を、どの条件で
 
 すべてを全Scopeへ機械的に要求しない。適用しない責務は`Not Applicable`として理由と人間確認を残す。一つのTest Suite、Environment、Happy PathのPassだけで対象Scope全体をVerifiedとしない。
 
-## Scope and Coverage State
+<a id="scope-and-coverage-state"></a>
+
+## 対象範囲と網羅状態（Scope and Coverage State）
 
 各Verification Obligationを、`Verified`、`Failed`、`Partially Verified — Human Authorized`、`Blocked`、`Not Verified`、`Not Applicable`で追跡する。
 
 集約Statusは最も都合のよい結果へ丸めない。`Failed`、`Blocked`、`Not Verified`を含むScopeを単純な`Verified`として表示せず、対象、例外、Authority、Residual Riskを示す。
 
-## Human Decisions
+<a id="human-decisions"></a>
+
+## 人間による判断（Human Decisions）
 
 人間はAcceptance変更、Risk受容、未検証ScopeのRelease、Environment差異の許容、Risk受容・例外を伴うFindingのDisposition、Human-centered Criteriaの採用・非適用・例外、`Not Applicable`、条件付き完了、Residual Risk、Release / Rollbackを決定する。
 
 Verification実行者はStatus、Severity、Required Fix、Recommendationを提示できるが、Acceptanceを弱める、Production Artifactを修正する、Riskを自己受容する、Human Approvalを代行することはできない。
 
-Human Decision、Learning、Fresh Evidence、Finding、Known Limitationを確定または変更した時点で、[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)の要否を判定する。発火した場合は、原因側または回答先となる上流・同層Contextを更新し、更新後RevisionのImpactと必要な再Verificationを再監査するまで通常完了としない。
+人間の判断、学び、Fresh Evidence、Finding、Known Limitationを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。
 
-## Exit and Handoff
+確認が必要な場合は、次が完了するまで通常完了としない。
 
-Release、Close、Roadmap、Reopen等の次Route候補をHuman Gateへ提示する前に、[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を対象Scope / Revisionへ実行する。移行に影響するFindingはVerificationまたは原因側の責務工程で修正し、必要な再Verificationを含む修正後Revisionの再Reviewで`Pass`を得る。Review省略または未解消Findingを伴う移行は[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+- 原因側または回答先となる上流・同層Contextを更新する
+- 更新後RevisionのImpactを再監査する
+- 必要な再Verificationを行う
+
+<a id="exit-and-handoff"></a>
+
+## 完了条件と引渡し（Exit and Handoff）
+
+Release、Close、Roadmap、Reopen等の次Route候補を人間のGateへ提示する前に、次を行う。
+
+1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響するFindingをVerificationまたは原因側の責務工程で修正する。
+3. 必要な再Verificationを行う。
+4. 修正後Revisionを再Reviewし、`Pass`を得る。
+
+Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
 
 Verification Resultには、Target Scope / Revision / Environment、適用Contract、方法、結果、Coverage State、Finding、Fresh Evidence、未検証範囲、Residual Risk、Recommendation、Learning / Feedback先を含める。
 
@@ -118,7 +155,9 @@ FailureまたはGapは、Production ArtifactならImplementation、Contract不�
 
 Verification完了はRelease承認と同一ではない。VerificationはRelease Readinessを推奨し、人間またはRelease Authorityが配布・有効化を決定する。
 
-## Phase Gate Criteria
+<a id="phase-gate-criteria"></a>
+
+## 工程移行の判定基準（Phase Gate Criteria）
 
 - Target Scope、Revision、Baseline、Environment、Variantが特定されている
 - Acceptance、Contract、Quality Condition、Verification ObligationへTraceできる
@@ -132,7 +171,9 @@ Verification完了はRelease承認と同一ではない。VerificationはRelease
 - 発火したTriggered Propagation Checkが`Pass`であり、必要な上流・同層正本更新、下流再探索、再監査・再Verification範囲が確定している
 - 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediation、必要な再Verification、再Reviewが完了している
 
-## Phase Audit Checklist
+<a id="phase-audit-checklist"></a>
+
+## 工程監査チェックリスト（Phase Audit Checklist）
 
 - Implementation担当の説明、Testの存在、過去のPassだけを根拠にVerifiedとしている
 - Target Revision、Environment、Configuration、Fixture、Baselineが不明である
@@ -180,11 +221,18 @@ last_verified_target  = 最後に検証したRevision / Environment
 
 ## 2.3. Verification, Validation, and Assurance Intent
 
-CRDDでは、承認済みRequirement、UI / SPEC、Architecture等のContractを対象Revisionが満たすかの確認をVerification、Problem、Need / Desired Outcome、利用者価値に対してProductの方向と結果が妥当かの確認をValidationとして区別する。Validationは人間または対象Domain / User Authorityの判断を含み得るが、抽象的な満足確認だけで下流ContractのVerificationを代替しない。VerificationがPassしても、SourceとなるNeed / Outcomeを満たさないEvidenceが得られた場合はLearningと上流Gapを返す。
+CRDDではVerificationとValidationを区別する。
+
+- Verification: 対象Revisionが、承認済みRequirement、UI / SPEC、Architecture等のContractを満たすか確認する
+- Validation: Productの方向と結果が、Problem、Need / Desired Outcome、利用者価値に対して妥当か確認する
+
+Validationには、人間または対象Domain / User Authorityの判断が含まれ得る。ただし、抽象的な満足確認だけで下流ContractのVerificationを代替してはならない。
+
+Verificationが`Pass`しても、SourceとなるNeed / Outcomeを満たさないEvidenceが得られた場合は、Learningと上流Gapを返す。
 
 Test名やファイル分割ではなく、何を保証するための方法かを明確にする。
 
-| Method / Pattern | Assurance Intent |
+| 方法・Pattern | 確認したいこと |
 |---|---|
 | Unit / Component | Logic、State、Boundary、局所Failure |
 | Contract / Consumer | API、IPC、Event、Schema、互換性 |
@@ -242,7 +290,18 @@ Residual Risk
 
 Severityは原因工程や修正優先度と同一ではない。Product Impact、Security / Privacy、Data Integrity、Recovery、Exposure、Workaround等から判断する。`Accepted Risk`、`Deferred`、`Not Reproducible`はPassではなく、人間Authority、理由、対象Scope、再評価Triggerを持つDispositionである。
 
-NormativeなHuman-centered Criteriaの例外またはRisk受容は、新しい`WAV-*`等のStable IDを発行せず、既存Finding、Change Trace、Canonical ArtifactまたはProjectの承認記録に残す。少なくともCriterion / Source Revision、対象Scope / Target Revision、理由、利用者影響とResidual Risk、Mitigation、Approver、失効日または失効条件、再確認Triggerを取得可能にする。期限切れ・条件不一致の例外を現行Passとして再利用しない。
+NormativeなHuman-centered Criteriaの例外またはRisk受容には、新しい`WAV-*`等のStable IDを発行しない。既存Finding、Change Trace、Canonical Artifact、またはProjectの承認記録に残す。
+
+少なくとも次を取得可能にする。
+
+- Criterion / Source Revision
+- 対象Scope / Target Revision
+- 理由、利用者影響、Residual Risk
+- MitigationとApprover
+- 失効日または失効条件
+- 再確認Trigger
+
+期限切れまたは条件不一致の例外を、現行の`Pass`として再利用してはならない。
 
 ## 2.7. Product Context and Experience Verification
 
@@ -259,7 +318,16 @@ UI / Product Scopeでは、次を適用範囲で確認する。
 - Accessibility Profileに基づくKeyboard、Focus、Semantic、Assistive Technology、Contrast、Text Scaling / Reflow、Reading Order、Target Size、Drag代替、Motion、Error Identification
 - UX Outcome、Origin、Product Principleを阻害していないこと
 
-Human-centered Quality Criteria Viewは新しいProperty Authorityではなく、UX、IA、UI、Behavior Specificationの正本と、Projectが採用した外部Criteriaを対象Scope向けに束ねたVerification Viewである。外部CriteriaはSource、Version、Level、Platform、Scope、Normative / Informativeを識別する。法令、契約、承認済みRequirement、Project ProfileによるCriteriaはNormativeとして評価し、一般HeuristicはProjectが採用しない限りInformativeなFindingとする。
+Human-centered Quality Criteria Viewは、新しいProperty Authorityではない。UX、IA、UI、Behavior Specificationの正本と、Projectが採用した外部Criteriaを、対象Scope向けに束ねたVerification Viewである。
+
+外部Criteriaでは次を識別する。
+
+- SourceとVersion
+- LevelとPlatform
+- Scope
+- Normative / Informative
+
+法令、契約、承認済みRequirement、Project ProfileによるCriteriaはNormativeとして評価する。一般Heuristicは、Projectが採用しない限りInformativeなFindingとする。
 
 詳細なUI責務は[UI and Visual Quality](25_UI.md#ui-and-visual-quality)を正本とする。VerificationはCriterion単位で`Verified`、`Failed`、`Not Applicable`、`Not Evaluated`等の結果を持ってよいが、CRDD共通の新しいAudit Status体系や中央`Audits/` Folderを作らない。Target Revisionに対するMethod、Finding、Disposition、Evidenceを残す。
 
@@ -267,7 +335,7 @@ Human-centered Quality Criteria Viewは新しいProperty Authorityではなく�
 
 Quality Conditionと観測可能なCompatibility / Capacity BehaviorはBehavior Specification、成立方式はArchitectureを正本とする。Verificationは対象Scopeに応じて次をFresh Evidenceで確認する。
 
-| Area | Verification Focus |
+| 領域 | 検証の焦点 |
 |---|---|
 | Compatibility | 旧Consumer、既存Contract、新旧Version共存、Deprecation、Failure / Fallback |
 | Migration | Data Meaning / Count / Relation、Backfill、切替順序、再実行、Rollback、旧利用停止 |
@@ -313,15 +381,19 @@ Verification ResultはAcceptanceやRelease Decisionそのものではない。Fi
 
 ---
 
-# 3. Guided Skill Adapter
+<a id="3-guided-skill-adapter"></a>
 
-## 3.1. Runtime Authority
+# 3. Skill実行Adapter（Guided Skill Adapter）
+
+<a id="31-runtime-authority"></a>
+
+## 3.1. 実行時の決定権限（Runtime Authority）
 
 `skill.verification.assure`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するVerification固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
 
 ## 3.2. Verification-specific Progression
 
-| Step | Transformation | Output |
+| 手順 | 変換 | 出力 |
 |---|---|---|
 | Load | Target、Contract、Risk、Implementation Evidenceを対応づける | Verification Coverage Queue |
 | Plan | ObligationごとにMethod、Environment、Evidenceを定める | Verification Plan |
@@ -336,7 +408,7 @@ Test数やPass率だけを進捗とみなさず、Required Responsibility Covera
 
 次の場合はPassを推測せず、対象Scopeを`Blocked`または`Not Verified`として返す。
 
-| Condition | Route |
+| 条件 | 移行先（Route） |
 |---|---|
 | Target Revision / Artifactを特定できない | Implementation / Release Owner |
 | Acceptance / Quality Conditionが不足・矛盾・観測不能 | SPEC / Architecture / Human Decision |
@@ -353,7 +425,9 @@ Parent AgentはTarget Revision、Expected Contract、Environment、Method、Evid
 
 ---
 
-# 4. Review, Handoff View, and Feedback
+<a id="4-review-handoff-view-and-feedback"></a>
+
+# 4. Review・引渡しView・Feedback
 
 ## 4.1. Verification-specific Human Review
 
@@ -399,7 +473,9 @@ Release後のMonitoring、Incident、Support、顧客Feedbackから反証が得�
 
 ---
 
-# 5. Final Principle
+<a id="5-final-principle"></a>
+
+# 5. 最終原則（Final Principle）
 
 Verificationは、「動いているように見える」を「動くと確認された」へ変換する工程である。
 

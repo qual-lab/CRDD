@@ -1,9 +1,9 @@
 # CRDD Skill
 
-Version: v0.5.0
+Version: v0.5.1
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-21
+Last Updated: 2026-07-22
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -15,7 +15,17 @@ Related:
 
 ---
 
-# 1. Purpose and Boundary
+> この文書で分かること（非規範の案内）
+>
+> - Skillが受け取る入力と返す出力
+> - Skill実行中の質問、判断支援、状態管理
+> - 中断・再開・完了をどう区別するか
+> - Skill完了と工程承認を混同しない方法
+> - 次の工程やAgentへ何を引き渡すか
+
+<a id="1-purpose-and-boundary"></a>
+
+# 1. 目的と適用範囲（Purpose and Boundary）
 
 本書は、CRDD Skillの共通定義と、Skillを開始、中断、再開、確認、保存、Handoffまで一貫して実行するSkill Runtimeの正本である。
 
@@ -202,7 +212,14 @@ skill_run:
     reason: no new approved meaning in this run
 ```
 
-重要なRunは、継続、Escalation、監査を担うRun Ownerと、実行した人間、Agent Contract、またはSystemを識別する。Stable Context IDを付与するのは[Documentation](03_Documentation.md)の対象とAssignment Criteriaを満たすREQ、UX、IA、UI、SPECだけである。その他のRun Result、Open Question、Architecture、Evidence、Decision、Change Trace、Test等はArtifact Referenceで識別する。
+重要なRunでは、次の主体を識別する。
+
+- 継続、Escalation、監査を担うRun Owner
+- 実行した人間、Agent Contract、またはSystem
+
+Stable Context IDを付与するのは、[Documentation](03_Documentation.md)の対象とAssignment Criteriaを満たすREQ、UX、IA、UI、SPECだけである。
+
+Run Result、Open Question、Architecture、Evidence、Decision、Change Trace、Test等は、Stable Context IDを新設せずArtifact Referenceで識別する。
 
 ## 3.3. Pause, Failure, and Resume
 
@@ -297,11 +314,24 @@ Human Reviewまたは対象Contractに従い、責務を持つCanonical Artifact
 
 更新方法はCreate、Revise、Append Evidence、Open Question、Supersede Candidate、No Changeから選べる。重要な意味変更では既存Revisionを破壊的に上書きしない。Evidence、Decision、Status、Revision、Deletionは[Documentation](03_Documentation.md)、変更のTriggerとExpected / Actual Impactは[Change](12_Change.md)を正本とする。
 
-Human Decision、Constraint、Learning、Evidence、Findingを新たに確定または変更した場合は、登録直後に[Triggered Propagation Check](10_Agent.md#74-triggered-propagation-check)の要否を判定する。意味的影響の可能性がある場合は`agent.gap_impact.audit`または同等の独立ReviewerへRouteし、上流・同層のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索する。正本更新と再監査が必要なRunを、下流ArtifactへDecisionを記録しただけで`Completed`にしない。
+人間の判断、制約、学び、根拠、Findingを新たに確定または変更した場合は、登録直後に[変更影響の伝播確認](10_Agent.md#74-triggered-propagation-check)が必要かを判定する。
+
+意味的影響の可能性がある場合は、`agent.gap_impact.audit`または同等の独立ReviewerへRouteする。上流・同層のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索する。
+
+正本更新と再監査が必要なRunは、下流ArtifactへDecisionを記録しただけで`Completed`にしてはならない。
 
 ## 4.8. Route, Close, or Pause
 
-次Route、Owner、必要Input、Unresolved Gapを示す。Skill Runを`Completed`にできるのは、Skill DefinitionのExit Conditionsを評価し、Result、Trace、Open Question、Risk、次Routeまたは終了理由を記録し、発火したTriggered Propagation Checkが完了した場合に限る。未完了の伝播を伴う終了は`Conditional`、`Blocked`、`Escalated`、またはHuman-directed `propagation_exception`として通常完了と区別する。Handoffする場合は6章を満たす。
+終了または中断時は、次Route、Owner、必要Input、Unresolved Gapを示す。
+
+Skill Runを`Completed`にできるのは、次をすべて満たす場合に限る。
+
+- Skill DefinitionのExit Conditionsを評価している
+- Result、Trace、Open Question、Riskを記録している
+- 次Routeまたは終了理由を記録している
+- 発火した変更影響の伝播確認が完了している
+
+未完了の伝播を伴う終了は、`Conditional`、`Blocked`、`Escalated`、またはHuman-directed `propagation_exception`として通常完了と区別する。Handoffする場合は6章を満たす。
 
 ---
 
@@ -337,9 +367,13 @@ UnknownをHypothesis、Assumption、Needs Evidence、Open Questionとして保�
 
 回答が広い場合はAIが勝手に確定せず、理解を要約して次の一問へ進む。利用者へ分類作業やTemplate入力を要求しない。Professional Term、Object分類、State名、技術方式をそのまま質問として返さず、PM、Director、顧客、利用者等がProduct上の違いとして判断できるHuman Conversation Layerへ変換する。
 
+Human Conversation Layerは、[Documentationのロケール規則](03_Documentation.md#481-利用者ロケールを優先した表示)に従う。利用者の主要ロケールで結論と影響を説明し、Canonical English Termは初出または参照時に限って併記する。同じ節で英語名を不必要に繰り返さない。
+
 ## 5.3. Decision Support Contract
 
-Human Decisionを求める場合、または回答によってCanonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractが変わる確認・Clarification・Reviewを行う場合、AIは単に「AかBか」「分けるか統合するか」「よろしいですか」と質問せず、対象Riskと8.1のRuntime Scaleに応じて次を提示する。Labelを変えて本Contractを迂回しない。
+人間による判断（Human Decision）を求めるとき、AIは単に「AかBか」「分けるか統合するか」「よろしいですか」と質問しない。回答によってCanonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractが変わる確認・明確化・Reviewも同様である。
+
+AIは、対象Riskと8.1のRuntime Scaleに応じて次を提示する。質問のLabelを変えて、このContractを迂回してはならない。
 
 ```text
 今回決めること
@@ -356,7 +390,21 @@ Reversibility / Revisit Condition
 Human Authorityへ確認する具体的な判断
 ```
 
-AIは既存Context、専門知識、Riskから支持できるOptionをRecommendationとして先に示し、RecommendationとHuman Decisionを区別する。推奨では、守るOutcome / Principle、決め手となるTrade-off、Evidenceまたは専門根拠、Confidence / Uncertainty、推奨が逆転する条件またはRevisit Triggerを示す。価値の優先順位によって結論が変わる場合は条件付きRecommendationとし、架空の一意解を作らない。根拠が不足して推奨できない場合は、無理に中立な選択を投げ返さず、推奨不能の理由、必要なEvidence、Research / Expert Review Routeを示す。既存の承認済みPrincipleと委譲Authorityで一意に処理できる専門分類を、不要なHuman Decisionとして利用者へ転嫁しない。
+AIは、既存Context、専門知識、Riskから支持できる案をRecommendationとして先に示す。Recommendationと人間による最終判断を混同してはならない。
+
+推奨には次を含める。
+
+- 守るOutcomeまたはPrinciple
+- 結論を左右したTrade-off
+- Evidenceまたは専門的な根拠
+- ConfidenceとUncertainty
+- 推奨が変わる条件またはRevisit Trigger
+
+価値の優先順位によって結論が変わる場合は、条件付きで推奨する。架空の一意解を作ってはならない。
+
+根拠が不足して推奨できない場合は、利用者へ中立な選択だけを投げ返さない。推奨できない理由、追加で必要なEvidence、ResearchまたはExpert ReviewへのRouteを示す。
+
+承認済みPrincipleと委譲されたAuthorityによって一意に処理できる専門分類は、不要なHuman Decisionとして利用者へ転嫁しない。
 
 ```text
 Bad:
@@ -424,7 +472,14 @@ Reviewの厳密さは8章のScaleに従う。Compactでは要約と重要Gap、S
 
 ## 6.2. Skill Handoff Contract
 
-工程移行を伴う次のSkillへ渡す際は、受信工程のPhase Entry Contractを満たし、[`10_Agent.md`](10_Agent.md#72-phase-transition-review-and-remediation-loop)のPhase Transition Reviewと必要なRemediation / Re-reviewを完了したうえで、次を対象Riskに応じて保持する。工程固有のEntry、Coverage、Exitを本書で再記述しない。同一工程内の調査、作成、限定Review等のSkill HandoffへPhase Transition Reviewを機械的に要求せず、Agent Contract、Skill Definition、Riskに応じたReviewを使用する。
+工程を移行して次のSkillへ渡す場合は、次を満たす。
+
+- 受信工程のPhase Entry Contractを満たす
+- [`10_Agent.md`](10_Agent.md#72-phase-transition-review-and-remediation-loop)のPhase Transition Reviewを完了する
+- 必要な是正と再Reviewを完了する
+- 対象Riskに応じて、以下のHandoff情報を保持する
+
+工程固有のEntry、Coverage、Exitは本書で再記述しない。同一工程内の調査、作成、限定Review等には、Phase Transition Reviewを機械的に要求しない。Agent Contract、Skill Definition、Riskに応じたReviewを使用する。
 
 ```yaml
 handoff:
@@ -472,9 +527,18 @@ handoff:
     - Secondary actor journey changes the object responsibility
 ```
 
-Handoffは成果物のLinkだけでは成立しない。工程間の通常Handoffは送信工程が`Complete for Scope`で受信工程のEntry Contractを満たし、対象Revisionまでに発火したTriggered Propagation Checkが完了し、Phase Transition Reviewが`Pass`の場合に行う。Findingがある場合は責務を持つ工程で修正し、修正後Revisionを再監査・再Reviewする。Audit Run完了、`Conditional`、Owner付与だけをPassとして扱わない。
+引渡し（Handoff）は、成果物へのLinkだけでは成立しない。工程間の通常Handoffは、次の条件をすべて満たす場合に行う。
 
-`Partial — Human Authorized`は、対象Scope、Unresolved Gap、Risk、Owner、Reopen条件を人間が明示した場合だけ使用できるが、承認された移行ScopeのIndependent Reviewを省略しない。Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)を対象Human Authorityが明示した場合だけ行い、通常HandoffまたはReview Passと表示しない。
+- 送信工程が`Complete for Scope`である
+- 受信工程のEntry Contractを満たしている
+- 対象Revisionまでに発火した変更影響の伝播確認が完了している
+- Phase Transition Reviewが`Pass`である
+
+Findingがある場合は、責務を持つ工程で修正し、修正後Revisionを再監査・再Reviewする。Audit Runの完了、`Conditional`、Ownerの付与だけを`Pass`として扱わない。
+
+`Partial — Human Authorized`を使用できるのは、人間が対象Scope、Unresolved Gap、Risk、Owner、Reopen条件を明示した場合だけである。この場合も、承認された移行ScopeのIndependent Reviewは省略しない。
+
+Reviewの省略または未解消Findingを伴う移行には、対象Human Authorityによる[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)が必要である。その移行を通常HandoffまたはReviewの`Pass`と表示してはならない。
 
 AgentまたはSubagent間の委譲は[Agent](10_Agent.md)、ArtifactのRevisionは[Documentation](03_Documentation.md)、変更のImpact Traceは[Change](12_Change.md)、共通Handoff不変条件は[Principles](01_Principles.md)を正本とする。
 
