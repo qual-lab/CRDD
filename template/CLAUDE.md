@@ -14,6 +14,7 @@
 - 固定ImportはCRDDの基礎正本と共通Agent / Skill Contractに限定する。対象工程、Change、Roadmap、Release、Workflow、Maintenance、Auditの正本は`AGENTS.md`のContext Selection表に従って追加で読む。
 - `Related` Headerや固定Importにないことを、必要な正本を読まない理由にしない。対象Scopeと無関係な全標準文書を無差別に読み込まず、本文のAuthority LinkとHandoff先を追う。
 - 利用者の主要ロケール、用語の初出併記、平易な判断支援、Canonical Termを変更しない境界は`AGENTS.md`のLanguage and Readabilityに従う。
+- 人間が読むCanonical Artifact、Handoff View、Review Result、Decision Support Summaryを作成・更新した場合は、提示または通常Handoff前に`AGENTS.md`の可読性Self-checkを行う。誤読が判断や後続作業へ影響し得る場合はDocument Auditまたは同等の独立Reviewerへ渡す。
 - `00_CRDD`、Authority、Stable Context ID体系、Approved / Stable Canonical Artifact、Decision / Rationale、Acceptanceを変更する場合は、ImpactとPlanを示してユーザーの指示またはHuman Approvalを確認する。
 - Subagentを利用する場合も、Parent Agentが限定Scope、統合、Conflict解消、Canonical Context更新、Human Review提示に責任を持つ。
 - 工程移行前は原則として別Subagentに`agent.phase_transition.review`を実行させ、Findingの修正と修正後Revisionの再Reviewを完了してからHandoffする。Review省略は対象Human Authorityが明示した`review_exception`がある場合だけ認める。

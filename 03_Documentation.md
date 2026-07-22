@@ -325,6 +325,15 @@ locale:
 - 並列事項は箇条書きまたは表で示す
 - 専門用語だけで説明を完結させず、主要ロケールで平易な意味を添える
 
+本節はCRDD標準文書だけでなく、採用Projectで人間が読むCanonical Artifact、Handoff View、Review Result、Decision Support Summaryにも適用する。人間へ提示または通常Handoffする前に、作成・更新担当は対象Scopeについて次を軽量にSelf-checkする。
+
+- 結論、対象Scope、決定主体が先に理解できる
+- 条件、義務、禁止、例外、未解決事項、完了条件を区別できる
+- 専門用語を知らない対象読者でも、Product、利用者、運用への影響を判断できる
+- 表示名の変更によってCanonical Term、Rule、Authority、Status、識別子の意味を変えていない
+
+このSelf-checkはIndependent ReviewまたはDocument Auditの代替ではない。読み違いによって判断、実装、Verification、Risk受容、Handoffへ影響する可能性がある場合は、[Document Audit](51_Document_Audit.md)または同等の独立Reviewerへ渡す。
+
 CRDD標準文書は、正式な目的と適用範囲の前に、非規範の「この文書で分かること」を短く置いてよい。この案内は本文のRule、Authority、適用範囲を追加または変更しない。
 
 採用Projectは、対象利用者に適したロケールと表現方法を選べる。ローカライズの有無だけでCRDD Conformanceを判定しない。ただし、翻訳や表示名によってRule、Authority、Status、識別子、Handoffの意味が変わる場合は、不整合として扱う。

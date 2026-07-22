@@ -457,8 +457,11 @@ Audit Subagentは原則Read-onlyとし、Findingを確定して返す前に対�
 - 送信工程のExit / Phase Gate Criteria / Phase Audit Checklist
 - 受信工程のEntry
 - 共通Handoff不変条件
+- 対象Handoff Artifactが[Documentationの可読性Self-check](03_Documentation.md#481-利用者ロケールを優先した表示)を通過し、人間がScope、判断、義務、例外、未解決事項を読み違えない状態であること
 
 意味的な波及探索には`agent.gap_impact.audit`を使用できる。文書品質と直接Propagationの確認には、`agent.document.audit`を限定Subtaskとして使用できる。
+
+表記上の好みだけを理由に通常Handoffを止めない。一方、可読性の不足によってScope、Human Decision、Obligation、Exception、Risk、受信側Entryを誤解する可能性がある場合は、移行に影響するFindingとして責務工程へ戻す。必要に応じて`agent.document.audit`または同等の独立Reviewerが修正後Revisionを再評価する。
 
 ```text
 Freeze Transition Scope and Target Revision

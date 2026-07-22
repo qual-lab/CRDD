@@ -46,6 +46,8 @@
 - 専門用語だけで説明を完結させず、Product、利用者、運用への影響を平易に説明する。
 - Canonical Term、Stable Context ID、Agent ID、File名、Schema Key / Value、Codeは無断で翻訳または変更しない。
 - 規範の強さを示す場合は、`00_CRDD/03_Documentation.md`の日本語表示とBCP 14 Keywordの対応に従う。
+- 人間が読むCanonical Artifact、Handoff View、Review Result、Decision Support Summaryを作成・更新した場合は、人間への提示または通常Handoff前に`00_CRDD/03_Documentation.md`の可読性Self-checkを行う。
+- 読み違いがScope、Decision、Obligation、Exception、Risk、Verification、Handoffへ影響し得る場合は、表現上の好みとして処理せず、`agent.document.audit`または同等の独立Reviewerへ渡す。
 
 ## Repository Structure Rules
 
@@ -105,7 +107,7 @@ Parent AgentはResult比較、Conflict解消、統合、Canonical Contextへの�
 
 変更後は対象Scopeに応じて、文書Link / Anchor、用語、Authority、Coverage、Trace、Test、Verificationを確認する。
 
-- 文書体系、README / Overview / CHANGELOG、Related、Header、Document Number、Stable Context ID、Traceabilityに影響する場合は`00_CRDD/51_Document_Audit.md`を使用する。
+- 人間が読むCanonical Artifactを新規作成または実質的に更新した場合は、提示・Handoff前の可読性Self-checkを行う。誤読が判断や後続作業へ影響し得る場合、または文書体系、README / Overview / CHANGELOG、Related、Header、Document Number、Stable Context ID、Traceabilityに影響する場合は`00_CRDD/51_Document_Audit.md`を使用する。
 - CRDD準拠またはConformance Claimを評価する場合は`00_CRDD/52_Conformance_Audit.md`を使用する。
 - 複数工程、共有Artifact、Consumer、Data、Releaseへ影響する場合は`00_CRDD/53_Gap_Impact_Audit.md`を使用する。
 - Human Decision、Constraint、Learning、Evidence、Findingを確定・変更した場合は、同文書のTriggered Propagation Checkを必ず評価し、発火時は正本反映と再監査まで完了する。

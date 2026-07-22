@@ -21,7 +21,8 @@ Compared with v0.5.0:
 - Aligns normative wording with BCP 14 (RFC 2119 and RFC 8174). Japanese-first text retains uppercase `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` where requirement strength must be explicit; lowercase English words do not acquire BCP 14 meaning.
 - Reworks Terminology with Japanese-first display names, canonical English aliases, one-line explanations, localized field labels, and examples for commonly confused concepts.
 - Reworks all 22 canonical documents for human readability without weakening their rules. They add short reading guides and separate dense rules into conclusions, conditions, responsibilities, exceptions, and completion criteria while retaining legacy heading anchors.
-- Adds locale and readability checks to Document Audit while keeping Conformance and Gap / Impact Audit focused on semantic consistency. Root and starter Agent instructions, README, Overview, and document headers are aligned with the v0.5.1 baseline.
+- Applies locale and readability rules to human-facing Artifacts in adopting projects, not only to CRDD's own documents. A lightweight readability self-check runs before Human presentation or normal Handoff; misunderstanding that could affect decisions or downstream work triggers Document Audit or an equivalent independent review.
+- Keeps Conformance and Gap / Impact Audit focused on semantic consistency, and aligns root and starter Agent instructions, README, Overview, and document headers with the v0.5.1 baseline.
 
 v0.5.1 does not change the phase model, Property Authority, Conformance boundary, required Artifact set, or Stable Context ID semantics. The standard Stable Context ID set remains `REQ`, `UX`, `IA`, `UI`, and `SPEC`.
 
@@ -178,7 +179,8 @@ v0.5.0からの変更:
 - 規範表現をBCP 14（RFC 2119およびRFC 8174）と対応付けた。日本語表示を先にしつつ、規範強度を明示する箇所では大文字の`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`を保持し、小文字英語へBCP 14の意味を付与しない。
 - Terminologyを、日本語表示名、正式英語Alias、一言説明、日本語Field名、混同しやすい概念の例で再構成した。
 - 22の正本文書を、Ruleを弱めず人間が読みやすい構成へ再編した。短い読書案内を追加し、密度の高い文章を結論、条件、責任、例外、完了条件へ分離した。変更した見出しでは旧Anchorを保持する。
-- Document Auditへロケールと可読性の検査を追加し、Conformance AuditとGap / Impact Auditでは翻訳量ではなく意味の一致を評価する。RootとStarterのAgent指示、README、Overview、全正本文書Headerをv0.5.1 Baselineへ揃えた。
+- ロケールと可読性のRuleを、CRDD自身の文書だけでなく、採用Projectで人間が読むArtifactにも適用した。人間への提示または通常Handoff前に軽量な可読性Self-checkを行い、誤読が判断や後続作業へ影響し得る場合はDocument Auditまたは同等の独立Reviewへ渡す。
+- Conformance AuditとGap / Impact Auditでは翻訳量ではなく意味の一致を評価する。RootとStarterのAgent指示、README、Overview、全正本文書Headerをv0.5.1 Baselineへ揃えた。
 
 v0.5.1では、工程モデル、Property Authority、Conformance境界、必須Artifact集合、Stable Context IDの意味を変更しない。標準Stable Context IDは引き続き`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種である。
 

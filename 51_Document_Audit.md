@@ -31,7 +31,7 @@ Related:
 
 # 目的と適用範囲（Purpose and Boundary）
 
-本書は、CRDD Repositoryの文書体系、参照、用語、Authority、Stable Context ID、Traceabilityを継続的に評価するDocument Auditの共通Contractである。
+本書は、CRDD Repositoryの文書体系、参照、用語、Authority、Stable Context ID、Traceabilityを継続的に評価するDocument Auditの共通Contractである。CRDD標準Repositoryだけでなく、CRDDを採用するProject RepositoryのCanonical Artifact、Handoff View、Review Result等も、対象Scopeへ含めた場合は本書で監査する。
 
 ```text
 Document Audit     = 文書品質、参照、用語、Authority、Stable Context ID、Traceabilityの監査
@@ -193,6 +193,8 @@ CRDD標準文書とCanonical Markdown Documentでは、[Documentation Header](03
 - 専門用語だけで人間への質問・判断支援を完結させていない
 
 英語用語が残っていること、ローカライズしていないことだけをFindingにしない。対象読者の理解、意味保存、誤判断の可能性を評価する。
+
+表現の好みだけではFindingにしない。対象読者がScope、Decision、Obligation、Exception、Risk、Unresolved Gap、Handoff条件を誤解し、判断、実装、Verification、Risk受容、工程移行へ影響する可能性がある場合は、ImpactとSeverityを持つReadability Findingとして記録する。
 
 Status、Version、Last Updated、Release / CHANGELOGの関係を適用範囲で確認する。AIや文書編集者がStatusを自己昇格していないか、Deprecated / Superseded Artifactの後継参照とMigrationがあるか、削除がDocumentationの廃止規則とHuman Approvalに従っているかを確認する。
 
