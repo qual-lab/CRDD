@@ -1,10 +1,10 @@
-# CRDD Verification
+# CRDD検証工程（Verification）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -26,31 +26,31 @@ Related:
 
 ---
 
-> Verificationを適用するProjectでは、本書の`Phase Process Contract`をVerification工程内の正本として使用する。
+> 検証を適用するプロジェクトでは、本書の`Phase Process Contract`を検証工程内の正本として使用する。
 
 > この文書で分かること（非規範の案内）
 >
-> - 何を、どのRevisionとEnvironmentで検証するか
-> - Requirement、UX Outcome、UI、仕様、Architectureをどう確認するか
-> - Pass、Fail、Blocked、残存Riskをどう区別するか
+> - 何を、どの改訂版と環境で検証するか
+> - 要求、UX成果、UI、仕様、アーキテクチャをどう確認するか
+> - 合格、不合格、停止中、残存リスクをどう区別するか
 > - 検証結果から上流の未反映事項をどう見つけるか
-> - Release可否を誰へ、どのEvidence付きで推奨するか
+> - リリース可否を誰へ、どの根拠付きで推奨するか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-Verificationは、Implementation Artifactが承認済みContext、Acceptance、Architecture、Quality Conditionを満たすかを、Target RevisionとEnvironmentに対するFresh Evidenceで独立検証する工程である。
+検証は、実装成果物が承認済みコンテキスト、受入条件、アーキテクチャ、品質条件を満たすかを、対象改訂版と環境に対する新しい根拠で独立検証する工程である。
 
 ```text
-Implemented = 承認済みContractを実行可能Artifactへ具体化した状態
-Verified    = 特定RevisionとEnvironmentでContractの成立をEvidenceにより確認した状態
-Accepted    = Verification ResultとResidual RiskをHuman Authorityが受容した状態
+実装済み = 承認済み契約を実行可能成果物へ具体化した状態
+検証済み    = 特定改訂版と環境で契約の成立を根拠により確認した状態
+Accepted    = 検証結果と残存リスクを人間の決定権限者が受容した状態
 ```
 
-Code、Test、Documentの存在や実装者の完了宣言だけではVerifiedにならない。VerificationはQualityやAcceptanceを新しく決めず、基準が不足・矛盾・観測不能なら原因側の工程へFindingを返す。
+コード、テスト、文書の存在や実装者の完了宣言だけでは検証済みにならない。検証は品質や受入条件を新しく決めず、基準が不足・矛盾・観測不能なら原因側の工程へ指摘事項を返す。
 
-VerificationはDocument AuditやCRDD Conformance Auditの代替ではない。文書構造・規範適合は[`51_Document_Audit.md`](51_Document_Audit.md)と[`52_Conformance_Audit.md`](52_Conformance_Audit.md)、工程間Gap / Impactは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を正本とする。
+検証は文書監査やCRDD準拠監査の代替ではない。文書構造・規範適合は[`51_Document_Audit.md`](51_Document_Audit.md)と[`52_Conformance_Audit.md`](52_Conformance_Audit.md)、工程間不足／影響は[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を正本とする。
 
 ---
 
@@ -58,418 +58,437 @@ VerificationはDocument AuditやCRDD Conformance Auditの代替ではない。�
 
 # 工程実行契約（Phase Process Contract）
 
-本章はVerification工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本Contractを検証設計、Evidence、Finding、Skill実行へ具体化し、独自の完了条件を持たない。
+本章は検証工程の入口、変換、責務網羅範囲、出口、工程ゲート、監査の正本である。本章の規範性と運用規模は[文書化](03_Documentation.md#48-normative-language)に従う。後続章は本契約を検証設計、根拠、指摘事項、スキル実行へ具体化し、独自の完了条件を持たない。
 
 <a id="phase-entry-contract"></a>
 
 ## 工程入口契約（Phase Entry Contract）
 
-Verificationは対象Scopeについて次を受け取る。
+検証は対象範囲について次を受け取る。
 
-- Target Revision / Baselineと変更Scope
-- 承認済みREQ / UX / IA / UI / SPEC / Architecture
-- 該当するChange TraceとImplementation Artifact
-- Developer Test / Implementation Evidence
-- Acceptance Criteria、Quality Condition、Verification Obligation
-- 適用するQuality Concern ProfileとSource / Version / Scope
-- 適用するHuman-centered Quality Criteria View（Source、Version、Level、Platform、Scope、Normative / Informative）
-- Environment、Configuration、Variant、Fixture / Test Data
-- Migration / Rollback、Compatibility、Capacity、Security等のRisk条件
-- Known Limitation、Unresolved Gap、人間Review結果
-- Implementation → Verification Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
-- Implementationで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
+- 対象改訂版 / 基準版と変更対象範囲
+- 承認済みREQ / UX / IA / UI / SPEC / アーキテクチャ
+- 該当する変更トレースと実装成果物
+- 開発者テスト / 実装根拠
+- 受入基準、品質条件、検証義務
+- 適用する品質懸念プロファイルと情報源／バージョン／対象範囲
+- 適用する人間中心品質の基準表示（情報源、バージョン、適合レベル、対象プラットフォーム、対象範囲、規範／参考情報）
+- 環境、構成、環境差分、テストデータ / 初期状態
+- 移行 / ロールバック、互換性、処理能力、セキュリティ等のリスク条件
+- 既知の制約、未解決事項、人間レビュー結果
+- 実装→検証工程移行レビュー結果、レビュー済み改訂版、または明示された`review_exception`
+- 実装で発火した変更影響の伝播確認結果、情報源の改訂版、または明示された`propagation_exception`
 
-Target、Expected Contract、Environment、Acceptanceのいずれかが特定できない場合、推測でPassせず`Blocked`または`Not Verified`として不足情報とOwnerを返す。
+対象、期待する契約、環境、受入条件のいずれかが特定できない場合、推測で合格せず`Blocked`または`Not Verified`として不足情報と担当責任者を返す。
 
 <a id="transformation-contract"></a>
 
 ## 変換契約（Transformation Contract）
 
-Implementation ArtifactとImplementation Evidenceを、独立Test、Review、Runtime / Visual Observation、Comparison、Simulation、Load / Security / Migration Verification等によって、Verification Result、Fresh Evidence、Finding、Residual Risk、Recommendation、Learningへ変換する。
+実装成果物と実装の根拠を、独立テスト、レビュー、実行時／視覚的な観察、比較、シミュレーション、負荷 / セキュリティ / 移行検証等によって、検証結果、新しい根拠、指摘事項、残存リスク、推奨、学びへ変換する。
 
-Verificationは「TestがPassした」だけでなく、何を、どの条件で保証し、何を保証していないかを明示する。
+検証は「テストが`Pass`した」だけでなく、何を、どの条件で保証し、何を保証していないかを明示する。
 
 <a id="required-responsibility-coverage"></a>
 
 ## 必要な責務の網羅（Required Responsibility Coverage）
 
-対象Scopeについて次の責務を適用範囲で判定する。
+対象範囲について次の責務を適用範囲で判定する。
 
-| Responsibility | Verificationで明らかにすること |
+| 責務 | 検証で明らかにすること |
 |---|---|
-| Target and Baseline | Scope、Revision、Environment、Configuration、Fixture、比較対象 |
-| Acceptance / Contract | REQ、UX Outcome、UI / SPEC、Architecture、Quality ConditionへのTrace |
-| Functional Behavior | Success、Boundary、Failure、Permission、Recovery、State、Side Effect |
-| Regression / Integration | 既存Behavior、Consumer、End-to-end Data Flow、変更Layer間の整合 |
-| Product Experience | UX Outcome、Goal完了、認知負荷、IA Findability、UI / SPEC Pair、Usability、Accessibility Profile、Visual / Content |
-| Compatibility / Migration | 旧新Version、既存Data / Consumer、切替、再実行、Rollback、廃止 |
-| Capacity / Quality | Latency、Throughput、Availability、Recovery、Resource、Cost、劣化時Behavior |
-| Security / Privacy / AI | Authority、Consent、Data Flow、External Action、AI Output、Audit、Guardrail |
-| Environment / Variant | Platform、Locale、Role、Tenant、Feature、Provider、Configuration差 |
-| Evidence / Reproduction | Method、Procedure、Result、Artifact、Timestamp、再現条件 |
-| Finding / Risk | Severity、Impact、Owner、Disposition、Residual Risk、未検証範囲 |
-| Learning / Feedback | 原因工程、更新対象、再検証条件、Release / Roadmap候補 |
+| 対象と基準版 | 対象範囲、改訂版、環境、構成、テストデータ、比較対象 |
+| 受入条件／契約 | REQ、UX成果、UI / SPEC、アーキテクチャ、品質条件へのトレース |
+| 機能の振る舞い | 成功、境界、失敗、権限、回復、状態、副作用 |
+| 回帰／統合 | 既存の振る舞い、利用側、一気通貫のデータフロー、変更層間の整合 |
+| プロダクト体験 | UX成果、体験表現意図、目標完了、認知負荷、IAでの見つけやすさ、UI／SPECの対、ユーザビリティ、アクセシビリティプロファイル、視覚表現方針、UIテーマ、UI部品、論理画面、内容 |
+| 互換性／移行 | 新旧バージョン、既存データ / 利用側、切替、再実行、ロールバック、廃止 |
+| 処理能力／品質 | 遅延、処理量、可用性、回復、リソース、コスト、劣化時の振る舞い |
+| セキュリティ / プライバシー / AI | 決定権限、同意、データフロー、外部操作、AI出力、監査、保護策 |
+| 環境／差分 | プラットフォーム、ロケール、役割、テナント、機能、提供側、構成差 |
+| 根拠／再現 | 方法、手順、結果、成果物、時点、再現条件 |
+| 指摘事項／リスク | 重大度、影響、担当責任者、処置、残存リスク、未検証範囲 |
+| 学び／フィードバック | 原因工程、更新対象、再検証条件、リリース / ロードマップ候補 |
 
-すべてを全Scopeへ機械的に要求しない。適用しない責務は`Not Applicable`として理由と人間確認を残す。一つのTest Suite、Environment、Happy PathのPassだけで対象Scope全体をVerifiedとしない。
+すべてを全対象範囲へ機械的に要求しない。適用しない責務は`Not Applicable`として理由と人間確認を残す。一つのテスト一式、環境、正常経路の`Pass`だけで対象範囲全体を`Verified`としない。
 
 <a id="scope-and-coverage-state"></a>
 
 ## 対象範囲と網羅状態（Scope and Coverage State）
 
-各Verification Obligationを、`Verified`、`Failed`、`Partially Verified — Human Authorized`、`Blocked`、`Not Verified`、`Not Applicable`で追跡する。
+各検証義務を、`Verified`、`Failed`、`Partially Verified — Human Authorized`、`Blocked`、`Not Verified`、`Not Applicable`で追跡する。
 
-集約Statusは最も都合のよい結果へ丸めない。`Failed`、`Blocked`、`Not Verified`を含むScopeを単純な`Verified`として表示せず、対象、例外、Authority、Residual Riskを示す。
+集約状態は最も都合のよい結果へ丸めない。`Failed`、`Blocked`、`Not Verified`を含む対象範囲を単純な`Verified`として表示せず、対象、例外、決定権限、残存リスクを示す。
 
 <a id="human-decisions"></a>
 
 ## 人間による判断（Human Decisions）
 
-人間はAcceptance変更、Risk受容、未検証ScopeのRelease、Environment差異の許容、Risk受容・例外を伴うFindingのDisposition、Human-centered Criteriaの採用・非適用・例外、`Not Applicable`、条件付き完了、Residual Risk、Release / Rollbackを決定する。
+各項目の人間の決定権限者は、受入条件変更、リスク受容、未検証対象範囲のリリース、環境差異の許容、リスク受容・例外を伴う指摘事項の処置、人間中心の基準の採用・非適用・例外、`Not Applicable`、条件付き完了、残存リスク、リリース / ロールバックを決定する。
 
-Verification実行者はStatus、Severity、Required Fix、Recommendationを提示できるが、Acceptanceを弱める、Production Artifactを修正する、Riskを自己受容する、Human Approvalを代行することはできない。
+検証実行者は状態、重大度、必須修正、推奨を提示できるが、受入条件を弱める、本番環境成果物を修正する、リスクを自己受容する、人間の承認を代行することはできない。
 
-人間の判断、学び、Fresh Evidence、Finding、Known Limitationを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。
+対象項目の人間の決定権限者による判断、学び、新しい根拠、指摘事項、既知の制限を確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。
 
 確認が必要な場合は、次が完了するまで通常完了としない。
 
-- 原因側または回答先となる上流・同層Contextを更新する
-- 更新後RevisionのImpactを再監査する
-- 必要な再Verificationを行う
+- 原因側または回答先となる上流・同層コンテキストを更新する
+- 更新後改訂版の影響を再監査する
+- 必要な再検証を行う
 
 <a id="exit-and-handoff"></a>
 
 ## 完了条件と引渡し（Exit and Handoff）
 
-Release、Close、Roadmap、Reopen等の次Route候補を人間のGateへ提示する前に、次を行う。
+リリース、終了、ロードマップ、再開等の次の経路候補を人間のゲートへ提示する前に、次を行う。
 
-1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
-2. 移行に影響するFindingをVerificationまたは原因側の責務工程で修正する。
-3. 必要な再Verificationを行う。
-4. 修正後Revisionを再Reviewし、`Pass`を得る。
+1. 対象範囲／改訂版へ[独立した工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響する指摘事項を検証または原因側の責務工程で修正する。
+3. 必要な再検証を行う。
+4. 修正後改訂版を再レビューし、`Pass`を得る。
+5. 対象内容と次の経路を持つ人間の決定権限者が、内容とレビュー結果を確認して経路を決定する。
 
-Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+レビューの省略または未解消の指摘事項を伴う移行は、[人間が指示するレビュー例外](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常経路と区別して扱う。
 
-Verification Resultには、Target Scope / Revision / Environment、適用Contract、方法、結果、Coverage State、Finding、Fresh Evidence、未検証範囲、Residual Risk、Recommendation、Learning / Feedback先を含める。
+検証結果には、対象範囲／改訂版／環境、適用契約、方法、結果、網羅状態、指摘事項、新しい根拠、未検証範囲、残存リスク、推奨、学び／フィードバック先を含める。
 
-FailureまたはGapは、Production ArtifactならImplementation、Contract不足なら該当する上流工程、Architecture不足ならArchitecture、Scope / Risk / Release判断ならHuman Authorityへ戻す。Verification内で原因側の正本を無言修正しない。
+失敗または不足は、製品成果物なら実装、契約不足なら該当する上流工程、アーキテクチャ不足ならアーキテクチャ、対象範囲／リスク／リリース判断なら人間の決定権限へ戻す。検証内で原因側の正本を無言修正しない。
 
-Verification完了はRelease承認と同一ではない。VerificationはRelease Readinessを推奨し、人間またはRelease Authorityが配布・有効化を決定する。
+検証完了はリリース承認と同一ではない。検証はリリース準備状態を推奨し、人間またはリリースの決定権限が配布・有効化を決定する。
 
 <a id="phase-gate-criteria"></a>
 
 ## 工程移行の判定基準（Phase Gate Criteria）
 
-- Target Scope、Revision、Baseline、Environment、Variantが特定されている
-- Acceptance、Contract、Quality Condition、Verification ObligationへTraceできる
-- Riskに応じた自動Test、手動Review、Runtime / Visual / Load等を実行している
-- Success、Failure、Permission、Recovery、Regression、Variantを適用範囲で確認している
-- Compatibility、Migration、Capacity、Security、Accessibility等を適用範囲で確認している
-- Human-centered Quality CriteriaのSource、Version、Level、Platform、Scope、Normative / Informativeを識別し、対象Revisionへの結果とEvidenceを辿れる
-- Finding、未検証範囲、Residual Risk、Known Limitationを隠していない
-- Fresh EvidenceとReproduction条件がTarget Revisionへ対応している
-- Learning、原因工程、再検証条件、Recommendationが特定されている
-- 発火したTriggered Propagation Checkが`Pass`であり、必要な上流・同層正本更新、下流再探索、再監査・再Verification範囲が確定している
-- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediation、必要な再Verification、再Reviewが完了している
+- 対象範囲、改訂版、基準版、環境、環境差分が特定されている
+- 受入条件、契約、品質条件、検証義務へトレースできる
+- リスクに応じた自動テスト、手動レビュー、実行時／視覚 / 負荷等を実行している
+- 成功、失敗、権限、回復、回帰、環境差分を適用範囲で確認している
+- 互換性、移行、処理能力、セキュリティ、アクセシビリティ等を適用範囲で確認している
+- 人間中心品質の基準の情報源、バージョン、適合レベル、対象プラットフォーム、対象範囲、規範／参考情報を識別し、対象改訂版への結果と根拠を辿れる
+- 適用対象の体験表現意図、視覚表現方針、UIテーマ、UI部品／UI設計パターン（UI Design Pattern）、論理画面／表示状態／UI差分（UI Variant）を、対象ビルドと新しい視覚的根拠に対して検証している
+- 指摘事項、未検証範囲、残存リスク、既知の制約を隠していない
+- 新しい根拠と再現条件が対象改訂版へ対応している
+- 学び、原因工程、再検証条件、推奨が特定されている
+- 発火した変更影響の伝播確認が`Pass`であり、必要な上流・同層正本更新、下流再探索、再監査・再検証範囲が確定している
+- 対象改訂版の工程移行レビューが`Pass`であり、移行に影響する指摘事項の是正、必要な再検証、再レビューが完了している
 
 <a id="phase-audit-checklist"></a>
 
 ## 工程監査チェックリスト（Phase Audit Checklist）
 
-- Implementation担当の説明、Testの存在、過去のPassだけを根拠にVerifiedとしている
-- Target Revision、Environment、Configuration、Fixture、Baselineが不明である
-- Testの保証範囲と対象Contractが不明である
-- Happy Path、単一Role、単一Environmentだけを全Scopeへ一般化している
-- AcceptanceをTest結果へ合わせて弱めている
-- Testを通すためにProduction ArtifactをVerification側で変更している
-- Failure、Compatibility、Migration、Capacity、Security、Accessibilityの適用判定漏れ
-- Human-centered CriteriaのSource / Version / Scope不明、Informative Heuristicの無条件なRelease Block、Normative Criteriaの未評価または根拠のない非適用
+- 実装担当の説明、テストの存在、過去の合格だけを根拠に検証済みとしている
+- 対象改訂版、環境、構成、テストデータ、基準版が不明である
+- テストの保証範囲と対象契約が不明である
+- 正常パス、単一役割、単一環境だけを全対象範囲へ一般化している
+- 受入条件をテスト結果へ合わせて弱めている
+- テストを通すために本番環境成果物を検証側で変更している
+- 失敗、互換性、移行、処理能力、セキュリティ、アクセシビリティの適用判定漏れ
+- 人間中心の基準の情報源／バージョン／対象範囲が不明、参考ヒューリスティックによる無条件なリリース阻止、規範基準の未評価または根拠のない非適用
+- 代表論理画面、静止画、単一UIテーマ、機械的な画像差分だけから対象範囲全体の視覚品質成立を推定している
 - `Failed` / `Blocked` / `Not Verified`を`Verified`へ混在させている
-- Evidence、Finding、Residual Risk、Learning、再検証条件の欠落
-- 確定・変更したDecision、Learning、Evidence、Finding、Known Limitationに対する上流・同層探索、正本反映、下流再探索、再監査の欠落
-- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
+- 根拠、指摘事項、残存リスク、学び、再検証条件の欠落
+- 確定・変更した判断、学び、根拠、指摘事項、既知の制約に対する上流・同層探索、正本反映、下流再探索、再監査の欠落
+- 独立レビュー未実施、旧改訂版のレビュー流用、指摘事項未修正の持ち越し、監査実行完了を対象の合格とみなしていないか
 
 ---
 
-# 2. Verification Model
+# 2. 検証モデル
 
-## 2.1. Target, Expected Result, and Baseline
+## 2.1. 対象・期待結果・基準版
 
-Verificationは、次の三つを混同しない。
+検証は、次の三つを混同しない。
 
 ```text
-Target   = 実際に検証するRevision、Build、Artifact、Environment
-Expected = Acceptance、Contract、Quality Conditionが要求する結果
-Baseline = 回帰・差分・Migration前後比較に使う既知状態
+対象   = 実際に検証する改訂版、ビルド、成果物、環境
+想定 = 受入条件、契約、品質条件が要求する結果
+基準版 = 回帰・差分・移行前後比較に使う既知状態
 ```
 
-Branch名や「最新版」だけでTargetを表さず、Commit、Build、Package、Migration状態等から再識別できるようにする。Baselineは現行挙動であるだけでは正しさを保証しないため、Characterizationと承認済みExpected Resultを区別する。
+ブランチ名や「最新版」だけで対象を表さず、コミット、ビルド、パッケージ、移行状態等から再識別できるようにする。基準版は現行挙動であるだけでは正しさを保証しないため、特性整理と承認済みの期待結果を区別する。
 
-## 2.2. Independence and Verification Status
+## 2.2. 独立性と検証状態
 
-独立性とは、必ず別の人が実行することだけを意味しない。実装者の記憶や成功報告ではなく、Target、Contract、Method、Evidenceから結果を再判定できる状態をいう。
+独立性とは、必ず別の人が実行することだけを意味しない。実装者の記憶や成功報告ではなく、対象、契約、方法、根拠から結果を再判定できる状態をいう。
 
-小規模・低Risk変更では同じAgentがImplementationとVerificationを連続実行してよいが、Verification RunはFresh ContextでTarget、Contract、Revision、Acceptance、Known Riskを読み直す。高Risk Scopeでは別Agent、Subagent、専門家、人間Reviewer等による独立Reviewを使用する。
+小規模・低リスク変更では同じエージェントが実装と検証を連続実行してよいが、検証実行は新しいコンテキストで対象、契約、改訂版、受入条件、既知のリスクを読み直す。高リスクな対象範囲では別エージェント、サブエージェント、専門家、人間確認者等による独立レビューを使用する。
 
-多数のObligationを継続管理する場合は、実装状態と検証状態を別Propertyとして持つVerification Matrixを使ってよい。中央Registryや新しいFolderを必須とせず、対象Artifactから参照可能にする。
+多数の義務を継続管理する場合は、実装状態と検証状態を別項目として持つ検証マトリクスを使ってよい。中央登録簿や新しいフォルダを必須とせず、対象成果物から参照可能にする。
 
 ```text
 implementation_status = Not Started / In Progress / Implemented
 verification_status   = Not Verified / Blocked / Failed / Verified
-evidence_reference    = 対象RevisionのEvidence
-last_verified_target  = 最後に検証したRevision / Environment
+evidence_reference    = 対象改訂版の根拠
+last_verified_target  = 最後に検証した改訂版 / 環境
 ```
 
-## 2.3. Verification, Validation, and Assurance Intent
+## 2.3. 検証・妥当性確認・保証の意図
 
-CRDDではVerificationとValidationを区別する。
+CRDDでは検証と妥当性確認を区別する。
 
-- Verification: 対象Revisionが、承認済みRequirement、UI / SPEC、Architecture等のContractを満たすか確認する
-- Validation: Productの方向と結果が、Problem、Need / Desired Outcome、利用者価値に対して妥当か確認する
+- 検証: 対象改訂版が、承認済み要求、UI / SPEC、アーキテクチャ等の契約を満たすか確認する
+- 妥当性確認: プロダクトの方向と結果が、課題、必要性 / 望ましい成果、利用者価値に対して妥当か確認する
 
-Validationには、人間または対象Domain / User Authorityの判断が含まれ得る。ただし、抽象的な満足確認だけで下流ContractのVerificationを代替してはならない。
+妥当性確認には、人間または対象ドメイン／利用者の決定権限の判断が含まれ得る。ただし、抽象的な満足確認だけで下流契約の検証を代替してはならない。
 
-Verificationが`Pass`しても、SourceとなるNeed / Outcomeを満たさないEvidenceが得られた場合は、Learningと上流Gapを返す。
+検証が`Pass`しても、情報源となる必要性 / 成果を満たさない根拠が得られた場合は、学びと上流不足を返す。
 
-Test名やファイル分割ではなく、何を保証するための方法かを明確にする。
+テスト名やファイル分割ではなく、何を保証するための方法かを明確にする。
 
-| 方法・Pattern | 確認したいこと |
+| 検証方法 | 確認したいこと |
 |---|---|
-| Unit / Component | Logic、State、Boundary、局所Failure |
-| Contract / Consumer | API、IPC、Event、Schema、互換性 |
-| Integration / E2E | Layer間Data Flow、主要Outcome、External Boundary |
-| Characterization | 現在の観測挙動の固定と差分検出 |
-| Golden / Comparison | 承認済みまたは既知Fixtureとの差分検出 |
-| Simulation / Property | 多様・未知入力、Invariant、Pipeline頑健性 |
-| Runtime / Visual Review | 実描画、操作、Content、Environment固有挙動 |
-| Load / Soak / Failure Injection | Capacity、劣化、Recovery、Resilience |
-| Security / Privacy Review | Authority、Boundary、Data Flow、Abuse / Adversarial条件 |
-| Migration / Rollback Exercise | Data Meaning、切替、再実行、復旧 |
+| 単体テスト / 部品テスト | 論理、状態、境界、局所失敗 |
+| 契約 / 利用側 | API、IPC、イベント、スキーマ、互換性 |
+| 統合 / E2E | 層間データフロー、主要成果、外部境界 |
+| 特性整理 | 現在の観測挙動の固定と差分検出 |
+| 基準 / 比較 | 承認済みまたは既知テストデータとの差分検出 |
+| シミュレーション / 項目 | 多様・未知入力、不変条件、処理経路頑健性 |
+| 実行時／視覚レビュー | 実描画、操作、内容、環境固有挙動 |
+| 負荷／長時間／障害注入 | 処理能力、劣化、回復、回復力 |
+| セキュリティ / プライバシー レビュー | 決定権限、境界、データフロー、悪用 / 敵対的条件 |
+| 移行 / ロールバック演習 | データの意味、切替、再実行、復旧 |
 
-同じMethodが複数Intentを持ってよいが、保証していない範囲を隠さない。具体的なTest命名・Directory配置は`06_Architecture`のProject Ruleに従う。
+同じ方法が複数意図を持ってよいが、保証していない範囲を隠さない。具体的なテスト命名・ディレクトリ配置は`06_Architecture`のプロジェクト規則に従う。
 
-## 2.4. Developer Test and Independent Verification
+## 2.4. 開発者テストと独立検証
 
-Implementationは変更を成立させるDeveloper TestをCodeとともに作成する。Verificationは対象Revisionに対する独立検証を設計・実行し、保証不足を検出した場合は追加Testを作成してよい。
+実装は変更を成立させる開発者テストをコードとともに作成する。検証は対象改訂版に対する独立検証を設計・実行し、保証不足を検出した場合は追加テストを作成してよい。
 
-Testの技術形式や名称だけで両者を区別しない。同じE2E、Integration、Contract Testでも、目的、独立性、Authority、Target Evidenceが異なる。
+テストの技術形式や名称だけで両者を区別しない。同じE2E、統合、契約テストでも、目的、独立性、決定権限、対象根拠が異なる。
 
-VerificationがTest Codeを`40_Develop`またはProjectの通常Test配置へ追加することは許容する。ただし、Testを通すためにProduction Artifact、Acceptance、上流Contractを変更しない。Production FixはFindingとしてImplementationへ戻す。
+検証がテストコードを`40_Develop`またはプロジェクトの通常テスト配置へ追加することは許容する。ただし、テストを通すために本番環境成果物、受入条件、上流契約を変更しない。本番環境修正は指摘事項として実装へ戻す。
 
-## 2.5. Fresh Evidence and Reproduction
+## 2.5. 新しい根拠と再現
 
-Fresh Evidenceは少なくとも次を識別できる。
+新しい根拠は少なくとも次を識別できる。
 
-- Target Revision / Build / Artifact
-- Environment、Configuration、Variant、Fixture / Data条件
-- 対象Contract / Verification Obligation
-- 適用する外部CriteriaのSource / Version / Level / Platform / ScopeとCriterion Reference
-- Method、Command / Procedure、Tool Version
-- 実行日時、実行者またはAgent、Result
-- Log、Report、Screenshot、Metric等のEvidence Artifact
-- Reproduction条件と未検証範囲
+- 対象改訂版 / ビルド / 成果物
+- 環境、構成、環境差分、テストデータ / データ条件
+- 対象契約 / 検証義務
+- 適用する外部基準の情報源／バージョン／適合レベル／対象プラットフォーム／対象範囲と基準参照
+- 方法、コマンド／手順、ツールのバージョン
+- 実行日時、実行者またはエージェント、結果
+- ログ、報告、スクリーンショット、指標等の根拠成果物
+- 再現条件と未検証範囲
 
-Source、Binary、Configuration、Migration、Dependency、Environment、AcceptanceがEvidenceの適用性へ影響する形で変わった場合、過去Evidenceを自動的に現行RevisionのPassとして再利用しない。再利用可能性を判断し、必要範囲を再検証する。
+情報源、バイナリ、構成、移行、依存関係、環境、受入条件が根拠の適用性へ影響する形で変わった場合、過去根拠を自動的に現行改訂版の合格として再利用しない。再利用可能性を判断し、必要範囲を再検証する。
 
-Evidenceは対象Artifact内または最も近い親Folderの`Evidence/`へ置く。Root直下の中央Evidence Folderを前提にしない。外部CI、Test Management、Monitoring等を使う場合もArtifact Reference、Retention、Accessを明確にする。
+根拠は対象成果物内または最も近い親フォルダの`Evidence/`へ置く。ルート直下の中央根拠フォルダを前提にしない。外部CI、テスト管理、監視等を使う場合も成果物参照、保持期間、アクセス権を明確にする。
 
-## 2.6. Finding, Severity, and Disposition
+## 2.6. 指摘事項・重大度・処置
 
-Findingは単なるError Messageではなく、対象Contractに対する差異として記録する。
+指摘事項は単なるエラーメッセージではなく、対象契約に対する差異として記録する。
 
 ```text
-Finding ID or Artifact Reference
-Target / Environment
-Expected / Actual
-Reproduction / Evidence
-Impact / Affected Scope
-Severity / Confidence
-Likely Cause and Return Route
-Owner / Disposition / Reverification Condition
-Residual Risk
+指摘事項IDまたは成果物参照
+対象 / 環境
+想定 / 実際
+再現 / 根拠
+影響 / 影響を受ける対象範囲
+重大度 / 確信度
+可能性が高い原因と戻り経路
+担当責任者 / 処置 / 再検証条件
+残存リスク
 ```
 
-Severityは原因工程や修正優先度と同一ではない。Product Impact、Security / Privacy、Data Integrity、Recovery、Exposure、Workaround等から判断する。`Accepted Risk`、`Deferred`、`Not Reproducible`はPassではなく、人間Authority、理由、対象Scope、再評価Triggerを持つDispositionである。
+重大度は原因工程や修正優先度と同一ではない。プロダクトへの影響、セキュリティ / プライバシー、データ完全性、回復、露出、回避策等から判断する。`Accepted Risk`、`Deferred`、`Not Reproducible`は合格ではなく、人間決定権限、理由、対象範囲、再評価契機を持つ処置である。
 
-NormativeなHuman-centered Criteriaの例外またはRisk受容には、新しい`WAV-*`等のStable IDを発行しない。既存Finding、Change Trace、Canonical Artifact、またはProjectの承認記録に残す。
+規範的な人間中心の基準の例外またはリスク受容には、新しい`WAV-*`等の安定コンテキストIDを発行しない。既存指摘事項、変更トレース、正本成果物、またはプロジェクトの承認記録に残す。
 
 少なくとも次を取得可能にする。
 
-- Criterion / Source Revision
-- 対象Scope / Target Revision
-- 理由、利用者影響、Residual Risk
-- MitigationとApprover
+- 基準／情報源の改訂版
+- 対象範囲 / 対象改訂版
+- 理由、利用者影響、残存リスク
+- 軽減策と承認者
 - 失効日または失効条件
-- 再確認Trigger
+- 再確認契機
 
 期限切れまたは条件不一致の例外を、現行の`Pass`として再利用してはならない。
 
-## 2.7. Product Context and Experience Verification
+## 2.7. プロダクトコンテキストと体験の検証
 
-各工程成果物の責務Coverageは、それぞれの`Required Responsibility Coverage`を正本とする。Verificationは対象ScopeのCoverage State、Unresolved Gap、`Not Applicable`理由、人間承認を受け取り、実装結果が承認済みOutcomeと矛盾していないか確認する。工程文書の完全性そのものはDocument / Conformance Auditへ渡す。
+各工程成果物の責務網羅範囲は、それぞれの`Required Responsibility Coverage`を正本とする。検証は対象範囲の網羅状態、未解決事項、`Not Applicable`理由、人間承認を受け取り、実装結果が承認済み成果と矛盾していないか確認する。工程文書の完全性そのものは文書監査／準拠監査へ渡す。
 
-UI / Product Scopeでは、次を適用範囲で確認する。
+UI / プロダクトの対象範囲では、次を適用範囲で確認する。
 
-- UI ContractとBehavior SpecificationのPair整合
-- Preference / Policy / SettingのOption、Default / Effective Value、Scope、Inheritance / Override、Permission、変更・反映・Reset / RecoveryのPair整合
-- UX OutcomeとGoal完了、不要な記憶・比較・判断負荷、System状態・変化・影響・次Actionの理解、Error予防・回復
-- IAのMental Model、Label、Browse / Search、現在位置、関連情報、Current / Historical / Deprecated、Progressive Disclosure
-- Screen、State、Variant、Role、Locale、Responsive条件
-- Usability、Content、Visual Hierarchy、初心者と熟練者の経路
-- Accessibility Profileに基づくKeyboard、Focus、Semantic、Assistive Technology、Contrast、Text Scaling / Reflow、Reading Order、Target Size、Drag代替、Motion、Error Identification
-- UX Outcome、Origin、Product Principleを阻害していないこと
+- UI契約と振る舞い仕様の対整合
+- 選好 / 方針 / 設定の選択肢、既定値 / 実効値、対象範囲、継承 / 上書き、権限、変更・反映・リセット / 回復の対整合
+- UX成果と目標完了、不要な記憶・比較・判断負荷、システム状態・変化・影響・次の操作の理解、エラー予防・回復
+- IAのメンタルモデル、表示名、閲覧 / 検索、現在位置、関連情報、現在 / 過去 / 廃止予定、段階的開示
+- 論理画面、表示状態、UI差分、役割、ロケール、レスポンシブ対応条件
+- ユーザビリティ、内容、視覚的な優先構造、初心者と熟練者の経路
+- アクセシビリティプロファイルに基づくキーボード操作、フォーカス、意味構造、支援技術、コントラスト、文字拡大／リフロー、読み上げ順序、対象サイズ、ドラッグ代替、モーション、エラー識別
+- UX成果、起点、プロダクト原則を阻害していないこと
+- 体験表現意図の望む／避ける印象と、視覚表現方針の主要な判断基準を阻害していないこと
+- 対象の論理画面／表示状態／UI差分／UIテーマと画面一覧または[画面視覚一覧（Screen Visual Index）](25_UI.md#screen-visual-index)の網羅範囲が一致すること
+- UIテーマ間で情報優先度、意味、操作の優先順位、UI部品状態、アクセシビリティ義務が維持されること
+- UI部品の構造／項目／UI部品状態／UI差分／内容制約／アクセシビリティと、UI設計パターンの利用規則・例外が実装で成立すること
+- [外部視覚成果物（External Visual Artifact）](25_UI.md#external-visual-artifact)の改訂版、設計トークン／UI部品バージョン、ビルド改訂版、実行環境記録の対応と未解決差分を説明できること
 
-Human-centered Quality Criteria Viewは、新しいProperty Authorityではない。UX、IA、UI、Behavior Specificationの正本と、Projectが採用した外部Criteriaを、対象Scope向けに束ねたVerification Viewである。
+視覚検証（Visual Verification）では、リスクと対象範囲に応じて自動比較と人間または専門家によるレビューを組み合わせる。自動スクリーンショット差分、設計トークン値の一致、Figmaとの差分が機械的に`Pass`しても、情報優先度、意味、認知負荷、望む／避ける印象、アクセシビリティの成立を単独では証明しない。反対に、主観的な「好み」だけを指摘事項とせず、意図、契約、利用者影響、対象改訂版との関係を示す。
 
-外部Criteriaでは次を識別する。
+比較対象には、必要な範囲で設計トークン、UI部品の構造／状態／差分、レイアウト、UI素材、モーション、UIテーマの組合せ、外部視覚成果物、実行環境記録を含める。全プロダクトへ同じレビュー分類や中央視覚監査台帳を要求しない。
 
-- SourceとVersion
-- LevelとPlatform
-- Scope
-- Normative / Informative
+人間中心品質の基準表示は、新しい項目の決定権限ではない。UX、IA、UI、振る舞い仕様の正本と、プロジェクトが採用した外部基準を、対象範囲向けに束ねた検証表示である。
 
-法令、契約、承認済みRequirement、Project ProfileによるCriteriaはNormativeとして評価する。一般Heuristicは、Projectが採用しない限りInformativeなFindingとする。
+外部基準では次を識別する。
 
-詳細なUI責務は[UI and Visual Quality](25_UI.md#ui-and-visual-quality)を正本とする。VerificationはCriterion単位で`Verified`、`Failed`、`Not Applicable`、`Not Evaluated`等の結果を持ってよいが、CRDD共通の新しいAudit Status体系や中央`Audits/` Folderを作らない。Target Revisionに対するMethod、Finding、Disposition、Evidenceを残す。
+- 情報源とバージョン
+- レベルとプラットフォーム
+- 対象範囲
+- 規範／参考情報
 
-## 2.8. Compatibility, Migration, Capacity, and Quality Verification
+法令、契約、承認済み要求、プロジェクトプロファイルによる基準は規範として評価する。一般的なヒューリスティックは、プロジェクトが採用しない限り参考情報としての指摘事項とする。
 
-Quality Conditionと観測可能なCompatibility / Capacity BehaviorはBehavior Specification、成立方式はArchitectureを正本とする。Verificationは対象Scopeに応じて次をFresh Evidenceで確認する。
+詳細なUI責務は[UIと視覚品質](25_UI.md#ui-and-visual-quality)を正本とする。検証は基準単位で`Verified`、`Failed`、`Not Applicable`、`Not Evaluated`等の結果を持ってよいが、CRDD共通の新しい監査状態体系や中央の`Audits/`フォルダーを作らない。対象改訂版に対する方法、指摘事項、処置、根拠を残す。
+
+## 2.8. 互換性・移行・処理能力・品質の検証
+
+品質条件と観測可能な互換性 / 処理能力に関する振る舞いは振る舞い仕様、成立方式はアーキテクチャを正本とする。検証は対象範囲に応じて次を新しい根拠で確認する。
 
 | 領域 | 検証の焦点 |
 |---|---|
-| Compatibility | 旧Consumer、既存Contract、新旧Version共存、Deprecation、Failure / Fallback |
-| Migration | Data Meaning / Count / Relation、Backfill、切替順序、再実行、Rollback、旧利用停止 |
-| Capacity | Traffic、Concurrency、Data / Batch量、Peak、Latency、Throughput、完了時間 |
-| Resilience | Rate Limit、Queue、Backpressure、Load Shedding、Degraded Mode、Failover、Recovery |
-| Resource / Cost | Connection、Memory、Storage、Quota、Scaling、Alert、Budget Guardrail |
-| Quality | Availability、Durability、Accessibility、Maintainability等の適用Condition |
+| 互換性 | 旧利用側、既存契約、新旧バージョン共存、廃止、失敗 / 代替動作 |
+| 移行 | データの意味 / 件数 / 関係、補完処理、切替順序、再実行、ロールバック、旧利用停止 |
+| 処理能力 | トラフィック、並行処理、データ / バッチ量、ピーク、遅延、処理量、完了時間 |
+| 回復力 | レート制限、キュー、背圧制御、負荷遮断、縮退モード、フェイルオーバー、回復 |
+| リソース／コスト | 接続数、メモリ、ストレージ、割当上限、増減方法、警告、予算保護策 |
+| 品質 | 可用性、永続性、アクセシビリティ、保守性等の適用条件 |
 
-Backupの存在だけをRollback成功とみなさず、Riskに応じてRestoreまたはRollbackをExerciseする。単一平均値だけでPeak、劣化、回復を保証したことにしない。基準が不足またはTest不能なら、SPECまたはArchitectureへFindingを返す。
+バックアップの存在だけをロールバック成功とみなさず、リスクに応じて復元またはロールバックを実行する。単一平均値だけでピーク、劣化、回復を保証したことにしない。基準が不足またはテスト不能なら、SPECまたはアーキテクチャへ指摘事項を返す。
 
-## 2.9. Governance, Security, Privacy, AI, and Cost Verification
+## 2.9. ガバナンス・セキュリティ・プライバシー・AI・コストの検証
 
-Governance対応は、実装されたという説明ではなく、対象RevisionのFresh Evidenceで検証する。適用するBehavior / BoundaryはSPECとArchitectureを正本とし、次をRiskに応じて確認する。
+ガバナンス対応は、実装されたという説明ではなく、対象改訂版の新しい根拠で検証する。適用する振る舞い / 境界はSPECとアーキテクチャを正本とし、次をリスクに応じて確認する。
 
-- Consent、Authority、Permission、Tenant、External Action Limit
-- UI、API、Batch、Queue、Retry、Admin PathのBoundary一貫性
-- Provider、Log、Cache、Backupを含むData Flowと禁止Data
-- External Data / Instruction分離、Schema / Output Validation、Least Privilege
-- Observed Fact、AI Inference、Human-confirmed Informationの分離
-- Retention、Deletion、Correction、Consent Revocation
-- Rate / Amount / Target / Time / Cost Guardrail、Audit、Kill Switch
-- AI OutputのCorrectness、Safety、Usefulness、Uncertainty、Human Review条件
+- 同意、決定権限、操作権限、テナント、外部操作の制限
+- UI、API、バッチ、キュー、再試行、管理者パスの境界一貫性
+- 提供側、ログ、キャッシュ、バックアップを含むデータフローと禁止データ
+- 外部データ / 指示分離、スキーマ / 出力妥当性確認、最小権限
+- 観察済み事実、AIによる推論、人間確認済み情報の分離
+- 保持、削除、訂正、同意撤回
+- 比率 / 量 / 対象 / 時間 / コスト保護策、監査、緊急停止
+- AI出力の正確性、安全性、有用性、不確実性、人間によるレビュー条件
 
-AI Outputは機械判定可能なSchema、禁止条件、Referenceとの整合を自動化し、自然さ、有用性、誤解Risk等は承認済みRubricによるHuman / Expert Reviewを組み合わせる。固定の採点尺度や合格率をCRDD共通値として強制せず、SPECのAcceptanceとRiskから定める。Model、Prompt、Provider、Tool、Data条件が変わった場合は影響範囲を再検証する。
+AI出力は機械判定可能なスキーマ、禁止条件、参照との整合を自動化し、自然さ、有用性、誤解リスク等は承認済み評価基準による人間 / 専門家レビューを組み合わせる。固定の採点尺度や合格率をCRDD共通値として強制せず、SPECの受入条件とリスクから定める。モデル、プロンプト、提供側、ツール、データ条件が変わった場合は影響範囲を再検証する。
 
-未検証範囲は`Not Verified`として残し、SecurityやGovernance対応をImplementation説明だけで「対応済み」と表示しない。
+未検証範囲は`Not Verified`として残し、セキュリティやガバナンス対応を実装説明だけで「対応済み」と表示しない。
 
-## 2.10. Release Readiness and Learning
+## 2.10. リリース準備状態と学び
 
-VerificationはRelease対象、Distribution Artifact、Environment、Security / Governance / License、Known Limitation、Context Consistencyを確認し、`Ready`、`Conditional`、`Not Ready`等のRecommendationを返す。名称はProjectで定義してよい。
+検証はリリース対象、配布成果物、環境、セキュリティ／ガバナンス／ライセンス、既知の制限、コンテキスト整合性を確認し、`Ready`、`Conditional`、`Not Ready`等の推奨を返す。名称はプロジェクトで定義してよい。
 
-Release Evidenceは対象Release Artifactの最も近い親Folderにある`Evidence/`または参照可能な外部Artifactへ置き、Target、Contract、Method、Result、未解決事項、Known Limitation、関連Decisionを識別可能にする。承認者・承認日は[Release](13_Release.md)とProject固有のHuman Release Authorityの記録であり、Verification実行者が代行しない。
+リリース根拠は対象リリース成果物の最も近い親フォルダにある`Evidence/`または参照可能な外部成果物へ置き、対象、契約、方法、結果、未解決事項、既知の制限、関連判断を識別可能にする。承認者・承認日は[リリース](13_Release.md)とプロジェクト固有の人間のリリース決定権限の記録であり、検証実行者が代行しない。
 
-Verification ResultをTest Logだけで閉じず、不具合、原因分類、新しい制約、仮説の支持・反証、変更すべき上流Context、再検証条件、次Release / Roadmap候補をCanonical Artifactへ戻し、該当Change Traceへ結果を接続する。
+検証結果をテストログだけで閉じず、不具合、原因分類、新しい制約、仮説の支持・反証、変更すべき上流コンテキスト、再検証条件、次リリース / ロードマップ候補を正本成果物へ戻し、該当変更トレースへ結果を接続する。
 
-Human-centered CriteriaのSource / Version / Level、対象Platform / Scope、UI / SPEC Pair、利用者影響のあるContent / Flow / State、Assistive Technologyまたは重要なEnvironmentが変わった場合は、影響するCriteriaを再評価する。Findingの修正、例外の失効、Riskまたは対象利用者の変化も再Verification Triggerとする。
+次が変わった場合は、影響する基準を再評価する。
 
-## 2.11. Trace, Stable Context ID, and Decision Boundary
+- 人間中心の基準の情報源 / バージョン / レベル、対象プラットフォーム / 対象範囲
+- UI / SPECの対応関係、利用者影響のある内容 / フロー / 状態
+- 体験表現意図、視覚表現方針、UIテーマ／設計トークン、共通UI部品／UI設計パターン
+- 画面一覧、外部視覚成果物の改訂版、支援技術、重要な環境
 
-Verification、Finding、Evidence、TestへCRDD標準Stable Context IDを新規発行しない。Source `REQ-*` / `UX-*` / `IA-*` / `UI-*` / `SPEC-*`、Architecture、Implementation、Change Trace、ReleaseとはArtifact Referenceで接続する。
+指摘事項の修正、例外の失効、リスクまたは対象利用者の変化も再検証の契機とする。
 
-Verification ResultはAcceptanceやRelease Decisionそのものではない。FindingのDispositionとResidual Risk受容は責務を持つCanonical ArtifactまたはChange Traceへ、Release判断はRelease RecordへHuman AuthorityとRationaleを残す。
+## 2.11. 追跡・安定コンテキストID・判断の境界
+
+検証、指摘事項、根拠、テストへCRDD標準安定コンテキストIDを新規発行しない。情報源 `REQ-*` / `UX-*` / `IA-*` / `UI-*` / `SPEC-*`、アーキテクチャ、実装、変更トレース、リリースとは成果物参照で接続する。
+
+検証結果は受入条件やリリース判断そのものではない。指摘事項の処置と残存リスク受容は責務を持つ正本成果物または変更トレースへ、リリース判断はリリース記録へ人間の決定権限と判断理由を残す。
 
 ---
 
 <a id="3-guided-skill-adapter"></a>
 
-# 3. Skill実行Adapter（Guided Skill Adapter）
+# 3. スキル実行接続部（Guided Skill Adapter）
 
 <a id="31-runtime-authority"></a>
 
 ## 3.1. 実行時の決定権限（Runtime Authority）
 
-`skill.verification.assure`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するVerification固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
+`skill.verification.assure`は、本書の工程実行契約を[`11_Skill.md`](11_Skill.md)の実行の状態遷移、ガイド付き対話、人間によるレビュー、引き渡しに従って実行する検証固有接続部である。本書では実行状態、一時停止 / 再開、共通の質問規則、サブエージェントの状態遷移を再定義しない。
 
-## 3.2. Verification-specific Progression
+## 3.2. 検証固有の進行
 
 | 手順 | 変換 | 出力 |
 |---|---|---|
-| Load | Target、Contract、Risk、Implementation Evidenceを対応づける | Verification Coverage Queue |
-| Plan | ObligationごとにMethod、Environment、Evidenceを定める | Verification Plan |
-| Execute | Test、Review、Observation、Simulation等を実行する | Fresh Evidence |
-| Evaluate | Expected / Actual、Coverage、Finding、Residual Riskを判定する | Verification Result |
-| Route | Findingを原因工程とHuman Authorityへ返す | Disposition / Fix Route |
-| Learn | Outcome、制約、再検証条件を正本へ戻す | Learning / Recommendation |
+| 負荷 | 対象、契約、リスク、実装根拠を対応づける | 検証の網羅キュー |
+| 計画 | 義務ごとに方法、環境、根拠を定める | 検証計画 |
+| 実行 | テスト、レビュー、観察、シミュレーション等を実行する | 新しい根拠 |
+| 評価 | 期待 / 実際、網羅範囲、指摘事項、残存リスクを判定する | 検証結果 |
+| 経路 | 指摘事項を原因工程と人間の決定権限へ返す | 処置 / 修正経路 |
+| 学習 | 成果、制約、再検証条件を正本へ戻す | 学び / 推奨 |
 
-Test数やPass率だけを進捗とみなさず、Required Responsibility Coverageと対象Scopeで判定する。
+テスト数や合格率だけを進捗とみなさず、必要な責務の網羅と対象範囲で判定する。
 
-## 3.3. Stop, Block, and Escalation
+## 3.3. 停止・停止中・上位判断への移送
 
-次の場合はPassを推測せず、対象Scopeを`Blocked`または`Not Verified`として返す。
+次の場合は合格を推測せず、対象範囲を`Blocked`または`Not Verified`として返す。
 
 | 条件 | 移行先（Route） |
 |---|---|
-| Target Revision / Artifactを特定できない | Implementation / Release Owner |
-| Acceptance / Quality Conditionが不足・矛盾・観測不能 | SPEC / Architecture / Human Decision |
-| Environment、Fixture、Permission、Toolが不足 | Environment / Test Owner |
-| Production Artifactの修正が必要 | Implementation |
-| Coverageまたは上流Contextが不足 | Relevant Phase / Audit |
-| Residual Risk、Release例外、条件付き受容が必要 | Human / Release Authority |
+| 対象改訂版 / 成果物を特定できない | 実装 / リリース担当責任者 |
+| 受入条件 / 品質条件が不足・矛盾・観測不能 | SPEC / アーキテクチャ / 人間の判断 |
+| 環境、テストデータ、権限、ツールが不足 | 環境 / テストの担当責任者 |
+| 本番環境成果物の修正が必要 | 実装 |
+| 網羅範囲または上流コンテキストが不足 | 関係する工程／監査 |
+| 残存リスク、リリース例外、条件付き受容が必要 | 人間 / リリース決定権限 |
 
-## 3.4. Agent and Subagent Use
+## 3.4. エージェントとサブエージェントの使用
 
-AgentまたはSubagentへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従い、Contract、UI / Visual、Accessibility、Security、Migration、Load等の限定Scopeを渡す。
+エージェントまたはサブエージェントへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従い、契約、UI／視覚表現、アクセシビリティ、セキュリティ、移行、負荷等の限定対象範囲を渡す。
 
-Parent AgentはTarget Revision、Expected Contract、Environment、Method、Evidence Requirementを明示し、結果を一つのCoverage Viewへ統合する。Subagentの自己申告、Test Pass、SummaryだけをEvidenceまたはHuman Acceptanceにしない。
+親エージェントは対象改訂版、期待する契約、環境、方法、必要な根拠を明示し、結果を一つの網羅範囲表示へ統合する。サブエージェントの自己申告、テスト合格、要約だけを根拠または人間の受入条件にしない。
 
 ---
 
 <a id="4-review-handoff-view-and-feedback"></a>
 
-# 4. Review・引渡しView・Feedback
+# 4. レビュー・引き渡し表示・フィードバック
 
-## 4.1. Verification-specific Human Review
+## 4.1. 検証固有の人間レビュー
 
-人間Reviewでは少なくとも次を確認する。
+人間レビューでは少なくとも次を確認する。
 
-- Target、Contract、Environment、Evidenceが同じ検証対象へ対応している
-- Riskに対してMethodとCoverageが十分である
-- Human-centered Quality CriteriaのSource / Version / Level / Platform / Scope、Normative / Informative、結果が対応している
-- `Failed`、`Blocked`、`Not Verified`、Known Limitationを隠していない
-- FindingのSeverity、Impact、Owner、Disposition、再検証条件が明確である
-- Residual RiskとRelease RecommendationがEvidenceから説明できる
-- Implementation結果をHuman Acceptanceと同一視していない
+- 対象、契約、環境、根拠が同じ検証対象へ対応している
+- リスクに対して方法と網羅範囲が十分である
+- 人間中心品質の基準の情報源／バージョン／適合レベル／対象プラットフォーム／対象範囲、規範／参考情報、結果が対応している
+- `Failed`、`Blocked`、`Not Verified`、既知の制約を隠していない
+- 指摘事項の重大度、影響、担当責任者、処置、再検証条件が明確である
+- 残存リスクとリリース推奨が根拠から説明できる
+- 実装結果を人間の受入条件と同一視していない
 
-## 4.2. Verification Result / Handoff View
+## 4.2. 検証結果／引き渡し表示
 
-Artifactの分割方法は固定しないが、対象Scopeについて次を参照可能にする。
+成果物の分割方法は固定しないが、対象範囲について次を参照可能にする。
 
 ```text
-Target Scope / Revision / Baseline
-Environment / Configuration / Variant / Fixture
-Source Contract / Acceptance / Verification Obligation
-Human-centered Quality Criteria View / Criterion Result
-Method / Procedure / Tool
-Coverage State
-Expected / Actual / Result
-Fresh Evidence / Reproduction
-Finding / Severity / Impact / Owner / Disposition
-Exception / Authority / Mitigation / Expiry / Recheck Trigger
-Unverified Scope / Known Limitation / Residual Risk
-Recommendation / Human Decision Required
-Learning / Feedback Route / Reverification Condition
-Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
-Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
+対象範囲 / 改訂版 / 基準版
+環境 / 構成 / バリアント / テストデータ
+情報源契約 / 受入条件 / 検証義務
+人間中心品質の基準表示／基準ごとの結果
+方法 / 手順 / ツール
+網羅範囲状態
+想定 / 実際 / 結果
+新しい根拠 / 再現
+指摘事項 / 重大度 / 影響 / 担当責任者 / 処置
+例外 / 決定権限 / 緩和策 / 期限 / 再確認契機
+未検証範囲 / 既知制限 / 残存リスク
+推奨 / 人間による判断必須
+学び / フィードバック経路 / 再検証条件
+変更影響の伝播確認結果／情報源の改訂版／是正／伝播例外
+工程移行レビュー結果 / レビュー済み改訂版 / 指摘事項処置 / レビュー例外
 ```
 
-## 4.3. Feedback and Reverification
+## 4.3. フィードバックと再検証
 
-Findingは原因に応じてImplementation、Architecture、SPEC、UI、Discovery、Change Trace、Human Authorityへ戻す。修正または基準変更後はTarget RevisionとExpected Contractを更新し、以前のResultを自動的にPassへ変更しない。
+指摘事項は原因に応じて実装、アーキテクチャ、SPEC、UI、課題探索・要求形成、変更トレース、人間の決定権限へ戻す。修正または基準変更後は対象改訂版と期待する契約を更新し、以前の結果を自動的に合格へ変更しない。
 
-同じTargetへ追加Evidenceを得た場合は既存Resultへ追記できる。Target、Acceptance、Environment、Risk条件が意味を変えた場合は、新しいVerification Resultとして旧Resultとの適用関係を明確にする。
+同じ対象へ追加根拠を得た場合は既存結果へ追記できる。対象、受入条件、環境、リスク条件が意味を変えた場合は、新しい検証結果として旧結果との適用関係を明確にする。
 
-Release後のMonitoring、Incident、Support、顧客Feedbackから反証が得られた場合は、過去のVerification Resultを消さず、当時のTarget / Conditionでは成立していたのか、Coverage Gapだったのか、基準が変わったのかを分類して再検証する。
+リリース後の監視、インシデント、支援、顧客フィードバックから反証が得られた場合は、過去の検証結果を消さず、当時の対象 / 条件では成立していたのか、網羅範囲の不足だったのか、基準が変わったのかを分類して再検証する。
 
 ---
 
@@ -477,6 +496,6 @@ Release後のMonitoring、Incident、Support、顧客Feedbackから反証が得�
 
 # 5. 最終原則（Final Principle）
 
-Verificationは、「動いているように見える」を「動くと確認された」へ変換する工程である。
+検証は、「動いているように見える」を「動くと確認された」へ変換する工程である。
 
-Target、Contract、Environment、Evidence、未保証範囲を結び、実装結果とHuman Acceptanceの間に独立した判断材料を作る。
+対象、契約、環境、根拠、未保証範囲を結び、実装結果と人間の受入条件の間に独立した判断材料を作る。

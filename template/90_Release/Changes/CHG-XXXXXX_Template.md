@@ -1,71 +1,77 @@
-# Change Trace: <SHORT_NAME>
+# 変更トレース（Change Trace）: <SHORT_NAME>
 
-Change ID: `CHG-XXXXXX`
-Status: Open
-Owner: <Human or Team>
-Last Updated: yyyy-mm-dd
+変更ID: `CHG-XXXXXX`
+状態（Status）: `Open`
+担当責任者: <人間またはチーム>
+最終更新日: yyyy-mm-dd
 
-Authority: `00_CRDD/12_Change.md`
+<!--
+本文と見出しは、プロジェクトまたは対象成果物の主要ロケールで記述する。
+Changes、Evidence、CHG-*という英語識別子は本文言語を指定しない。
+外部根拠の原文、ファイル名、成果物ID、スキーマ実値は翻訳しない。
+-->
 
-> This is a non-normative Project Artifact template. Placement, ID allocation, lifecycle, closure, and authority follow the CRDD Change Trace authority above.
+正本規則: `00_CRDD/12_Change.md`
 
-## Trigger / Origin
+> これはプロジェクト成果物用の非規範的なひな型である。配置、IDの採番、状態遷移、完了処理、決定権限は、上記のCRDD変更トレース正本に従う。
 
-- Type:
-- Source:
-- Reason:
-- Roadmap reference, if applicable:
-- Source Context revision:
-- Human start decision reference, if applicable:
+## 契機 / 起点
 
-## Primary Change Intent
+- 種別:
+- 情報源:
+- 理由:
+- ロードマップ参照（該当する場合）:
+- 情報源コンテキストの改訂版:
+- 人間による着手判断の参照（該当する場合）:
 
-
-## Expected Impact
-
-- Contexts:
-- Artifacts:
-- Users / Operations:
-- Data / Interface / Migration:
-- Security / Privacy / Cost:
-
-## Out of Scope / Must Not Change
-
-- Out of scope:
-- Must not change:
-
-## Decision / Approval References
+## 主な変更意図
 
 
-## Triggered Propagation Check
+## 想定する影響
 
-- Source revision:
-- Audit result reference:
-- Upstream / peer canonical updates:
-- Downstream impact re-scan:
-- Re-audit result:
-- Propagation exception, if applicable:
+- コンテキスト:
+- 成果物:
+- 利用者 / 運用:
+- データ / インターフェース / 移行:
+- セキュリティ / プライバシー / コスト:
 
-## Implementation References
+## 対象外 / 変更してはならないこと
 
+- 対象外:
+- 変更してはならないこと:
 
-## Verification
-
-- Obligation:
-- Result reference:
-
-## Actual Impact / Deviation
+## 判断 / 承認の参照
 
 
-## Canonical Context Updates
+## 変更影響の伝播確認
+
+- 情報源の改訂版:
+- 監査結果の参照:
+- 上流 / 同層の正本更新:
+- 下流影響の再探索:
+- 再監査の結果:
+- 伝播例外（該当する場合）:
+
+## 実装の参照
 
 
-## Release
+## 検証
 
-- Target release:
-- Released in:
-- Disposition:
+- 検証義務:
+- 結果参照:
 
-## Known Limitation / Residual Risk
+## 実際の影響 / 逸脱
 
-## Follow-up / Roadmap
+
+## 正本コンテキストの更新
+
+
+## リリース
+
+- 対象リリース:
+- 収録リリース:
+- 処置:
+
+## 既知の制限 / 残るリスク
+
+## 後続対応 / ロードマップ

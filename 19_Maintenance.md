@@ -2,10 +2,10 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -23,87 +23,87 @@ Related:
 > この文書で分かること（非規範の案内）
 >
 > - CRDD標準の変更をどこから受け付けるか
-> - Issueや提案と、採用済みRuleをどう区別するか
-> - AIがどこまで変更でき、誰が採用とReleaseを決めるか
-> - 変更完了までに必要なReview、Audit、Migration
-> - Merge済み・Release待ちの変更をどう扱うか
+> - Issueや提案と、採用済み規則をどう区別するか
+> - AIがどこまで変更でき、誰が採用とリリースを決めるか
+> - 変更完了までに必要なレビュー、監査、移行
+> - 統合済み・リリース待ちの変更をどう扱うか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、CRDD標準自体へLearning、Correction、Normative Changeを反映し、Version、Release、Migrationとして安全に提供するMaintenanceの正本である。
+本書は、CRDD標準自体へ学び、修正、規範変更を反映し、バージョン、リリース、移行として安全に提供する保守の正本である。
 
 本書は、CRDD標準自身の次の対象を扱う。
 
-- Canonical DocumentとTemplate
-- Repository Entry FileとAudit Criteria
-- 公開説明とPublic Maintenance Input
-- Repository-level Intake AdapterとRelease Metadata
+- 正本文書とひな型
+- リポジトリ入口ファイルと監査基準
+- 公開説明と公開保守入力
+- リポジトリ単位受付接続部とリリースメタデータ
 
-CRDDを適用した個別Productの保守経路は、[Discovery](21_Discovery.md)、[Change](12_Change.md)、[Release](13_Release.md)を正本とする。本書では再定義しない。
+CRDDを適用した個別プロダクトの保守経路は、[課題探索・要求形成](21_Discovery.md)、[変更](12_Change.md)、[リリース](13_Release.md)を正本とする。本書では再定義しない。
 
 本書は次を定義する。
 
 ```text
-Maintenance InputとLearning Candidateの扱い
-Public Feedbackと追跡可能なIssueの境界
-CRDD標準へのPromotion条件
-CRDD Change Lifecycle
-Change分類とHuman Approval
-追跡対象Changeの実行Contract
-Release VersionとCHANGELOG
-採用RepositoryのVersion Pin、Migration、Correction
-Maintenance完了時のAudit接続
+保守入力と学び候補の扱い
+公開フィードバックと追跡可能なIssueの境界
+CRDD標準への昇格条件
+CRDD変更の状態遷移
+変更分類と人間の承認
+追跡対象変更の実行契約
+リリースバージョンとCHANGELOG
+採用リポジトリのバージョン固定、移行、修正
+保守完了時の監査接続
 ```
 
-文書表現、Status、Version / Revision / Baseline、削除は[Documentation](03_Documentation.md)、一般的なHuman / AI AuthorityとProgressive Autonomyは[Principles](01_Principles.md)、監査手順は各Audit文書を正本とする。
+文書表現、状態、バージョン / 改訂版 / 基準版、削除は[文書化](03_Documentation.md)、一般的な人間 / AIの決定権限と段階的自律性は[原則](01_Principles.md)、監査手順は各監査文書を正本とする。
 
-CRDD公式Repositoryが使用するIssue Form、Pull Request Template、Repository Rule、Entry File等は、本書を実装するRepository-level Adapterであり、本書のRuleを再定義しない。採用Repositoryとの境界は6.1に定める。
+CRDD公式リポジトリが使用するIssue形式、プルリクエストひな型、リポジトリ規則、入口ファイル等は、本書を実装するリポジトリ単位接続部であり、本書の規則を再定義しない。採用リポジトリとの境界は6.1に定める。
 
 ---
 
 <a id="2-maintenance-input-and-learning-promotion"></a>
 
-# 2. Maintenanceへの入力と学びの採用
+# 2. 保守への入力と学びの採用
 
 <a id="21-maintenance-input"></a>
 
-## 2.1. Maintenanceへの入力
+## 2.1. 保守への入力
 
-CRDD Maintenanceは、次をInputとして開始できる。
+CRDDの保守は、次を入力として開始できる。
 
 ```text
-Product実践から得られたLearningまたはFailure
-複数Projectで繰り返されたGap
-Document / Conformance / Gap Impact AuditのFinding
+プロダクト実践から得られた学びまたは失敗
+複数プロジェクトで繰り返された不足
+文書 / 準拠 / 不足影響監査の指摘事項
 CRDD文書間の矛盾、重複、責務不足
-外部Standard、法令、Tool、Delivery環境の変化
-利用者、採用者、ContributorからのFeedback
-Public Repositoryへ登録されたProblem、Proposal、Adoption Feedback
-公開済みReleaseの誤りまたはMigration不足
+外部標準、法令、ツール、提供環境の変化
+利用者、採用者、貢献者からのフィードバック
+公開リポジトリへ登録された課題、提案、採用フィードバック
+公開済みリリースの誤りまたは移行不足
 ```
 
-InputはそのままCRDD Ruleではない。Source、適用Scope、Evidence、再現条件、Confidence、既知のLimit、提案者、Promotion候補先を保持し、既存のIssue、Change Trace、またはArtifact Reference上の`Learning Candidate` / `Change Candidate`として評価する。CandidateへCRDD Stable IDを発行しない。
+入力はそのままCRDD規則ではない。情報源、適用対象範囲、根拠、再現条件、確信度、既知の制限、提案者、昇格候補先を保持し、既存のIssue、変更トレース、または成果物参照上の`Learning Candidate` / `Change Candidate`として評価する。候補へCRDD安定コンテキストIDを発行しない。
 
 <a id="22-generalization-and-ownership-check"></a>
 
 ## 2.2. 一般化と責務所有の確認
 
-Product固有のLearningをCRDDへPromotionする前に、次を確認する。
+プロダクト固有の学びをCRDDへ昇格する前に、次を確認する。
 
 ```text
 固有名詞を除いても問題と理由を説明できる
-別Productまたは別Domainでも責務とRiskが成立する
+別プロダクトまたは別ドメインでも責務とリスクが成立する
 一回限りの局所判断ではなく再利用価値がある
-既存CRDD Rule、工程Contract、Audit Criteriaと矛盾しない
+既存CRDD規則、工程契約、監査基準と矛盾しない
 CRDDの必須規範か、工程固有規則か、実践上の推奨かを区別できる
-変更を所有する既存Canonical Documentを特定できる
+変更を所有する既存正本文書を特定できる
 ```
 
-一つの事例だけでもCandidateにはできるが、一般RuleへのPromotionには、再発可能性、重大Risk、外部Authority、複数事例等の説明可能な根拠を必要とする。一般化できない内容はProduct側に残す。
+一つの事例だけでも候補にはできるが、一般規則への昇格には、再発可能性、重大リスク、外部決定権限、複数事例等の説明可能な根拠を必要とする。一般化できない内容はプロダクト側に残す。
 
-既存Canonical Documentへの統合を優先し、新しい正本文書をMaintenanceの既定動作として追加しない。既存責務へ統合できず、独立したProperty Authority、Lifecycle、Approver、利用者を持つ場合だけ、新規文書の必要性をImpact AnalysisとHuman Decisionの対象にする。
+既存正本文書への統合を優先し、新しい正本文書を保守の既定動作として追加しない。既存責務へ統合できず、独立した項目の決定権限、状態遷移、承認者、利用者を持つ場合だけ、新規文書の必要性を影響分析と人間の判断の対象にする。
 
 <a id="23-promotion-boundary"></a>
 
@@ -111,81 +111,81 @@ CRDDの必須規範か、工程固有規則か、実践上の推奨かを区別�
 
 AIは次を実行できる。
 
-- Candidateの抽出
+- 候補の抽出
 - 一般化案の作成
 - 重複の調査
 - 影響分析
-- 判断理由（Rationale）のDraft作成
+- 判断理由（Rationale）の下書き作成
 
-AIは、CRDD Ruleへの採用（Promotion）を自己承認してはならない。
+AIは、CRDD規則への採用（Promotion）を自己承認してはならない。
 
 ```text
-Product Learning / Audit Finding / Public Feedback
-→ Generalization and Ownership Check
-→ CRDD Change Candidate
-→ Impact and Conflict Review
-→ Human Decision when required
-→ Canonical Document Update
-→ Triggered Propagation Check
-→ Independent Review and Required Audit
-→ Release or Reasoned Close
+プロダクト学び / 監査指摘事項 / 公開フィードバック
+→ 一般化と所有権確認
+→ CRDD変更候補
+→ 影響と競合レビュー
+→ 必要な場合は人間による判断
+→ 正本文書更新
+→ 変更影響の伝播確認
+→ 独立レビューと必須監査
+→ リリースまたは理由付き終了
 ```
 
-採用結果は責務を持つCanonical Documentへ反映し、判断価値のある理由、Evidence、Alternative、影響は同ArtifactのDecision / Rationaleへ残す。AIがDraftを作成してもOwnerをAIへ置き換えず、Status昇格は対象文書のAuthorityとLifecycleに従う。
+採用結果は責務を持つ正本文書へ反映し、判断価値のある理由、根拠、代替案、影響は同成果物の判断 / 判断理由へ残す。AIが下書きを作成しても担当責任者をAIへ置き換えず、状態昇格は対象文書の決定権限と状態遷移に従う。
 
 <a id="24-public-maintenance-intake-and-issue-boundary"></a>
 
-## 2.4. Public Feedback受付とIssueの境界
+## 2.4. 公開フィードバック（Public Feedback）の受付とIssueの境界
 
-Public Feedbackは追跡可能なIssue Systemで受け付けられる。CRDD公式RepositoryではGitHub IssueをAdapterとして使用するが、本Contractは特定のIssue Providerへ依存しない。Issueは次を接続するMaintenance Working Surfaceである。
-
-```text
-Problem / Trigger / Observation / Evidence
-Affected Scope / Proposal / Alternative
-Triage and Human Decision Reference
-Implementation / Review / Release Reference
-Residual Risk / Follow-up
-```
-
-IssueはCRDD Rule、Canonical Document、Change Trace、Release Recordの代替ではない。Issueを読まなければ現在有効なCRDD Ruleを理解できない状態にせず、採用された結果、判断理由、影響、Migrationは責務を持つCanonical Artifactまたは必要な`CHG-*`へ反映する。Discussion、Comment、投票、AI Summary、IssueのCloseだけからRule採用を推定しない。
-
-受付時のIssue Typeと、採用時のChange Classificationは別の分類軸である。
+公開フィードバックは追跡可能なIssue管理システムで受け付けられる。CRDD公式リポジトリではGitHub Issueを接続部として使用するが、本契約は特定のIssue管理サービスへ依存しない。Issueは次を接続する保守の作業面である。
 
 ```text
-Issue Type            Change Classification
-Problem Report        Editorial
-Standard Change       Clarification
-Adoption Feedback     Additive
-                      Normative
-                      Breaking
+課題／契機／観察／根拠
+影響範囲／提案／代替案
+選別と人間による判断の参照
+実装／レビュー／リリースの参照
+残存リスク／後続対応
 ```
 
-Issue TypeからChange Classificationを自動決定しない。Public ContributorへImpact、Authority、Alternative、Migrationの完全な分析を要求せず、不足する分析はMaintainerまたは委譲された実行者がTriageで補える。ただし、NormativeまたはBreaking Changeの採用に必要なEvidenceとHuman Approvalを省略しない。
+IssueはCRDD規則、正本文書、変更トレース、リリース記録の代替ではない。Issueを読まなければ現在有効なCRDD規則を理解できない状態にせず、採用された結果、判断理由、影響、移行は責務を持つ正本成果物または必要な`CHG-*`へ反映する。議論、コメント、投票、AIによる要約、Issueの終了だけから規則の採用を推定しない。
+
+受付時のIssue種別と、採用時の変更分類は別の分類軸である。
+
+```text
+Issue種別              変更分類
+問題報告               編集上の変更
+標準変更               明確化
+採用フィードバック     追加
+                      規範
+                      破壊的
+```
+
+Issue種別から変更分類を自動決定しない。公開提案者へ影響、決定権限、代替案、移行の完全な分析を要求せず、不足する分析は保守担当者または委譲された実行者が整理で補える。ただし、規範または破壊的変更の採用に必要な根拠と人間の承認を省略しない。
 
 <a id="25-decision-boundaries-in-tracked-maintenance"></a>
 
-## 2.5. 追跡対象Maintenanceの判断境界
+## 2.5. 追跡対象となる保守の判断境界
 
-追跡可能なIssueまたはTaskを使用する場合、少なくとも次のDecisionを混同しない。
+追跡可能なIssueまたは作業を使用する場合、少なくとも次の判断を混同しない。
 
-| Decision | Meaning |
+| 判断 | 意味 |
 |---|---|
-| Triage Disposition | Candidateとして調査するか、Reject、Defer、Duplicate等へDispositionするか |
-| Execution Authorization | 固定したScope、Baseline、Classificationの範囲で変更作業を開始してよいか |
-| Adoption / Integration Decision | Review済み結果をCRDDへ採用し、対象BranchまたはBaselineへ統合するか |
-| Release Decision | 統合済み結果をどのVersionで公開するか |
+| 整理の処置 | 候補として調査するか、拒否、延期、重複等へ処置するか |
+| 実行許可 | 固定した対象範囲、基準版、分類の範囲で変更作業を開始してよいか |
+| 採用 / 統合判断 | レビュー済み結果をCRDDへ採用し、対象ブランチまたは基準版へ統合するか |
+| リリース判断 | 統合済み結果をどのバージョンで公開するか |
 
-各Decisionでは、次を識別可能にする。
+各判断では、次を識別可能にする。
 
 - 決定主体
-- 対象Scope
-- 対象RevisionまたはBaseline
+- 対象範囲
+- 対象改訂版または基準版
 - 結果
-- 理由またはRationale Reference
+- 理由または判断理由の参照
 
-同じScopeとRevisionを対象に連続して判断できる場合は、一つのReviewまたは記録で扱ってよい。ただし、統合済みであることからRelease済みと推定してはならない。
+同じ対象範囲と改訂版を対象に連続して判断できる場合は、一つのレビューまたは記録で扱ってよい。ただし、統合済みであることからリリース済みと推定してはならない。
 
-IssueのStatus、Label、Assignment、AIへの提示はDecisionの記録を補助できる。Protected Changeの承認、Risk Acceptance、Release Approval、実行主体の起動を単独では代替しない。
+Issueの状態、表示名、割当、AIへの提示は判断の記録を補助できる。保護対象変更の承認、リスク受容、リリース承認、実行主体の起動を単独では代替しない。
 
 ---
 
@@ -193,85 +193,85 @@ IssueのStatus、Label、Assignment、AIへの提示はDecisionの記録を補�
 
 # 3. CRDD変更の流れ（Change Lifecycle）
 
-非自明なCRDD変更は、次のLifecycleで扱う。
+非自明なCRDD変更は、次の状態遷移で扱う。
 
 ```text
-1. Intake / Issue
-2. Triage, Generalization, and Initial Disposition
-3. Classify and Locate Property Authority
-4. Check Existing Duplication and Conflict
-5. Define Scope, Baseline, Alternatives, and Impact
-6. Record Required Human Decision and Execution Authorization
-7. Draft Canonical Changes and Migration Need
-8. Update Documents, Templates, Adapters, and Public Guidance
-9. Complete Triggered Propagation Check when applicable
-10. Run Independent Review and Required Audits
-11. Remediate Findings and Re-review the Updated Revision
-12. Record CHANGELOG, Migration, and Release Evidence
-13. Obtain Required Human Adoption / Integration Decision
-14. Integrate or Close without Integration
-15. Record Release Disposition and Target Release
-16. Complete Release Readiness and Human Release Decision when releasing
-17. Return the Result to the Intake Source and Close or Follow Up
+1. 受付 / Issue
+2. 整理、一般化、初期処置
+3. 変更を分類し、項目の決定権限を特定
+4. 既存内容との重複と競合を確認
+5. 対象範囲、基準版、代替案、影響を定義
+6. 必要な人間による判断と実行許可を記録
+7. 正本変更と移行要否を下書き
+8. 文書、ひな型、接続部、公開案内を更新
+9. 該当する場合、変更影響の伝播確認を完了
+10. 独立レビューと必須監査を実行する
+11. 指摘事項を是正し、更新した改訂版を再レビュー
+12. CHANGELOG、移行、リリース根拠を記録
+13. 必要な人間による採用 / 統合判断を取得
+14. 統合、または統合せず終了
+15. リリース処置と対象リリースを記録
+16. リリースする場合は準備状況の確認と人間によるリリース判断を完了
+17. 結果を受付元へ戻し、終了または後続対応
 ```
 
-軽微なEditorial ChangeではCHGを省略し、既存Issue、Pull Request、Commit等で追跡できる。複数正本、Authority、Conformance、Template、Migration、Releaseへ影響する変更は、[Change](12_Change.md)に従う`90_Release/Changes/CHG-*.md`を使用する。
+軽微な編集上の変更ではCHGを省略し、既存Issue、プルリクエスト、コミット等で追跡できる。複数正本、決定権限、準拠、ひな型、移行、リリースへ影響する変更は、[変更](12_Change.md)に従う`90_Release/Changes/CHG-*.md`を使用する。
 
-Change Scopeは、対象文書だけでなく次の影響候補を確認する。
+変更対象範囲は、対象文書だけでなく次の影響候補を確認する。
 
 ```text
-Principles and Terminology
-Documentation and Stable Context ID
-Agent / Skill / Change Trace / Release
-Phase Process Contract and Audit Checklist
-Conformance / Document / Gap Impact Audit
-README / Overview / Related Links
-CONTRIBUTING / Issue Forms / Pull Request Template
-Template / CLAUDE.md / AGENTS.md / Tool Adapter
-CHANGELOG / Migration Note / Release Tag
+原則と用語
+文書化と安定コンテキストID
+エージェント / スキル / 変更トレース / リリース
+工程処理契約と監査チェックリスト
+準拠 / 文書 / 不足影響監査
+README / 概要 / 関連リンク
+CONTRIBUTING / Issueフォーム / プルリクエストひな型
+ひな型 / CLAUDE.md / AGENTS.md / ツール接続部
+CHANGELOG / 移行注記 / リリースタグ
 ```
 
-一部文書の編集完了からCRDD Change全体の完了を推定しない。更新不要と判断した影響先も、重要な場合はNo Change理由を残す。
+一部文書の編集完了からCRDD変更全体の完了を推定しない。更新不要と判断した影響先も、重要な場合は変更不要とした理由を残す。
 
 <a id="31-tracked-change-execution-contract"></a>
 
 ## 3.1. 追跡対象変更の実行契約
 
-Issue、Task、Change Trace等から変更を実行する前に、次を取得可能にする。保存場所やToolは固定しない。
+Issue、作業、変更トレース等から変更を実行する前に、次を取得可能にする。保存場所やツールは固定しない。
 
 ```text
-Intake / Task Reference
-Change Classificationまたは未確定であること
-Allowed Scope / Out of Scope
-Base Revision / Baseline
-Human Decision済みの範囲と未決事項
-Preserved Intent / Non-goal
-Expected Result
-Required Review / Audit
-Stop / Re-triage Condition
+受付 / タスク参照
+変更分類または未確定であること
+変更可能な範囲 / 対象外
+基準改訂版 / 基準版
+人間による判断済みの範囲と未決事項
+保持する意図 / 目指さないこと
+想定結果
+必須レビュー / 監査
+停止 / 再整理条件
 ```
 
-実行主体は[Agent](10_Agent.md)と[Skill](11_Skill.md)のAuthority、停止、Independent Reviewに従う。IssueやTaskが実行可能状態を示していても、それだけで自動実行、Scope外変更、Protected Change承認、最終Merge、Releaseを許可しない。
+実行主体は[エージェント](10_Agent.md)と[スキル](11_Skill.md)の決定権限、停止、独立レビューに従う。Issueや作業が実行可能状態を示していても、それだけで自動実行、対象範囲外変更、保護対象変更承認、最終統合、リリースを許可しない。
 
-作業中にScope外変更、より重大なClassification、Authority競合、複数解釈可能なHuman Decision、未確認Migration、Baseline変更、Security / Privacy / Legal Risk、必要Access不足を検出した場合は、安全に取得した結果を残して停止または再Triageする。
+作業中に対象範囲外変更、より重大な分類、決定権限競合、複数解釈可能な人間の判断、未確認移行、基準版変更、セキュリティ／プライバシー／法的リスク、必要アクセス権不足を検出した場合は、安全に取得した結果を残して停止または再整理する。
 
 <a id="32-integration-and-release-disposition"></a>
 
-## 3.2. 統合結果とRelease待ちの扱い
+## 3.2. 統合結果とリリース待ちの扱い
 
-IssueまたはTaskの進行StatusをRelease待ちのために増やし続けず、統合後は次のRelease Dispositionだけを記録する。Release DispositionはCRDD全体のLifecycle Statusではなく、当該変更と公開Releaseの関係を示す結果Fieldである。
+Issueまたは作業の進行状態をリリース待ちのために増やし続けず、統合後は次のリリースの処置だけを記録する。リリースの処置はCRDD全体の状態ではなく、当該変更と公開リリースの関係を示す結果項目である。
 
-| Release Disposition | Meaning |
+| リリースの処置 | 意味 |
 |---|---|
-| `Integrated — Pending Release` | 採用済みRevisionが対象BranchまたはBaselineへ統合されたが、まだ不変なRelease Versionへ含まれていない |
-| `Released` | 対象変更を含むRelease Version、Tag、または同等の不変識別子が公開された |
-| `Close without Release` | Reject、Duplicate、No Change、一般化しなかったFeedback、またはCRDD Releaseを必要としない理由付きClose |
+| `Integrated — Pending Release` | 採用済み改訂版が対象ブランチまたは基準版へ統合されたが、まだ不変なリリースバージョンへ含まれていない |
+| `Released` | 対象変更を含むリリースバージョン、タグ、または同等の不変識別子が公開された |
+| `Close without Release` | 拒否、重複、変更なし、一般化しなかったフィードバック、またはCRDDリリースを必要としない理由付き終了 |
 
-`Integrated — Pending Release`では、Merged RevisionまたはPull Request、Target ReleaseまたはRelease Plan Reference、変更したCanonical Artifact、既知のLimit / Riskを取得可能にする。Target Releaseが未定の場合は`Unscheduled`、Owner、Release再評価条件を示す。
+`Integrated — Pending Release`では、統合済み改訂版またはプルリクエスト、対象リリースまたはリリース計画参照、変更した正本成果物、既知の制限 / リスクを取得可能にする。対象リリースが未定の場合は`Unscheduled`、担当責任者、リリース再評価条件を示す。
 
-IssueまたはTaskは、統合結果と`Integrated — Pending Release`を返した時点でCloseしてよい。個別IssueをReleaseまでOpenに保つこと、Release後に再Openすること、各IssueへRelease完了Commentを追加することを要求しない。Release Scopeは、Milestone、Release Issue、CHANGELOG Draft、Release Record等の集約Viewから追跡する。
+Issueまたは作業は、統合結果と`Integrated — Pending Release`を返した時点で終了してよい。個別Issueをリリースまで未完了に保つこと、リリース後に再未完了すること、各Issueへリリース完了コメントを追加することを要求しない。リリース対象範囲は、マイルストーン、リリースIssue、CHANGELOG下書き、リリース記録等の集約表示から追跡する。
 
-CRDD公式GitHub RepositoryではTarget ReleaseごとのMilestoneを軽量なAdapterとして使用できる。Milestoneは本節の意味を実装する一例であり、採用Repositoryまたは他のIssue Systemへ同じ機能を要求しない。
+CRDD公式GitHubリポジトリでは対象リリースごとのマイルストーンを軽量な接続部として使用できる。マイルストーンは本節の意味を実装する一例であり、採用リポジトリまたは他のIssue管理システムへ同じ機能を要求しない。
 
 ---
 
@@ -279,122 +279,122 @@ CRDD公式GitHub RepositoryではTarget ReleaseごとのMilestoneを軽量なAda
 
 # 4. 変更分類と承認
 
-CRDD変更は、意図ではなくConsumer、Authority、Conformance、Migrationへの影響で分類する。
+CRDD変更は、意図ではなく利用側、決定権限、準拠、移行への影響で分類する。
 
-| Category | Meaning | Required Handling |
+| 分類 | 意味 | 必要な対応 |
 |---|---|---|
-| Editorial | Typo、表記、Link等を直し意味を変えない | Review、必要な機械検証 |
-| Clarification | 既存Ruleの意味を明確化し責務・適用結果を変えない | Review、影響が外部に見える場合はCHANGELOG |
-| Additive | 既存の必須責務やConformance結果を変えず、GuidanceまたはCapabilityを追加する | Impact確認、CHANGELOG、必要なVersion更新 |
-| Normative | MUST / MUST NOT、Authority、Property Responsibility、Conformanceを変える | Human Approval、Version更新、CHANGELOG、Audit |
-| Breaking | 既存Consumerの運用、Artifact、Tool Adapter、準拠判定、Migrationを変更する | Human Approval、Migration Note、Version更新、Audit、Release判断 |
+| 編集上 | 誤記、表記、リンク等を直し意味を変えない | セルフチェックと必要な機械検証。意味変更が疑われる場合だけレビュー |
+| 明確化 | 既存規則の意味を明確化し責務・適用結果を変えない | 影響に応じたレビュー。影響が外部に見える場合はCHANGELOG |
+| 追加 | 既存の必須責務や準拠結果を変えず、指針または能力を追加する | 影響確認、CHANGELOG、必要なバージョン更新 |
+| 規範 | MUST / MUST NOT、決定権限、項目の責務、準拠を変える | 人間の承認、バージョン更新、CHANGELOG、監査 |
+| 破壊的 | 既存利用側の運用、成果物、ツール接続部、準拠判定、移行を変更する | 人間の承認、移行注記、バージョン更新、監査、リリース判断 |
 
-意味を訂正するCorrectionも、結果が変わる場合はClarificationではなくAdditive、Normative、Breakingのいずれかへ分類する。判断に迷う場合は影響の大きい分類として扱い、Impact確認後に下げる。
+意味を訂正する修正も、結果が変わる場合は明確化ではなく追加、規範、破壊的のいずれかへ分類する。判断に迷う場合は影響の大きい分類として扱い、影響確認後に下げる。
 
-Human Approvalが必要なProtected Changeは[Principles](01_Principles.md)を正本とする。CRDD自身では、少なくとも次をProtected Changeとして扱う。
+人間の承認が必要な保護対象変更は[原則](01_Principles.md)を正本とする。CRDD自身では、少なくとも次を保護対象変更として扱う。
 
 ```text
-Principle、Conformance Boundary、Human / AI Authority
-Stable Context ID、Property Authority、Decision / Evidenceの意味
-Agent / Skill / ChangeのAuthorityまたは実行境界
-工程Entry、Coverage、Exit、Gate、Audit
-公開済みConsumerのMigrationまたは互換性
+原則、準拠境界、人間 / AIの決定権限
+安定コンテキストID、項目の決定権限、判断 / 根拠の意味
+エージェント / スキル / 変更の決定権限または実行境界
+工程入口、網羅範囲、出口、判定、監査
+公開済み利用側の移行または互換性
 ```
 
-AIは差分作成や検証を行えても、Protected Change、Risk Acceptance、Breaking分類の解除、Release Approvalを自己確定しない。文書のStatusは[Terminology](02_Terminology.md)、廃止・削除は[Documentation](03_Documentation.md)に従う。
+AIは差分作成や検証を行えても、保護対象変更、リスク受容、破壊的分類の解除、リリース承認を自己確定しない。文書の状態は[用語](02_Terminology.md)、廃止・削除は[文書化](03_Documentation.md)に従う。
 
-Repository-level Intake Adapter、Contributor Guide、Review Template等だけを変更する場合は、実際の影響で分類する。
+リポジトリ単位受付接続部、提案者ガイド、レビューひな型等だけを変更する場合は、実際の影響で分類する。
 
-次を変えない場合は、EditorialまたはClarificationとして扱える。
+次を変えない場合は、編集上または明確化として扱える。
 
-- CRDD Rule
-- Consumerの必須動作
-- AuthorityとConformance
-- Migration
+- CRDD規則
+- 利用側の必須動作
+- 決定権限と準拠
+- 移行
 
-Adapter変更によってMaintenanceの必須結果または採用Repositoryの責務を変える場合は、Diffが小さくてもAdditive、Normative、Breakingの該当分類へ上げる。
+接続部変更によって保守の必須結果または採用リポジトリの責務を変える場合は、差分が小さくても追加、規範、破壊的の該当分類へ上げる。
 
 ---
 
 <a id="5-release-version-and-changelog"></a>
 
-# 5. Release・Version・CHANGELOG
+# 5. リリース・バージョン・CHANGELOG
 
 <a id="51-release-version-and-revision"></a>
 
-## 5.1. Release VersionとRevision
+## 5.1. リリースバージョンと改訂版
 
-CRDDはRepository単位のRelease Versionを持ち、Git Tagまたは同等の不変なRelease識別子でBaselineを固定する。Canonical CRDD文書は、配布されるBaselineのRelease VersionをHeaderへ表示する。Git Commit等の内容識別はRevisionであり、Versionの代用ではない。
+CRDDはリポジトリ単位のリリースバージョンを持ち、Gitタグまたは同等の不変なリリース識別子で基準版を固定する。CRDD正本文書は、配布される基準版のリリースバージョンをヘッダーへ表示する。Gitコミット等の内容識別は改訂版であり、バージョンの代用ではない。
 
-Release Versionは`MAJOR.MINOR.PATCH`形式を使用する。
+リリースバージョンは`MAJOR.MINOR.PATCH`形式を使用する。
 
-| Part | Meaning |
+| 部分 | 意味 |
 |---|---|
-| MAJOR | v1.0.0以降で、既存採用者へ互換性を維持できないBreaking Change |
-| MINOR | 後方互換なCapability / Normative追加。v0.xではMigrationを伴うBreaking Changeを含み得る |
-| PATCH | 意味、Authority、Conformance、必要Migrationを変えないEditorial / Clarification |
+| MAJOR | v1.0.0以降で、既存採用者へ互換性を維持できない破壊的変更 |
+| MINOR | 後方互換な能力 / 規範追加。v0.xでは移行を伴う破壊的変更を含み得る |
+| PATCH | 意味、決定権限、準拠、必要移行を変えない編集上 / 明確化 |
 
-v0.xのMINORにBreaking Changeを含める場合も、Breaking表示とMigration Noteを省略しない。意味が変わるCorrectionをPATCHとして隠さない。
+v0.xのMINORに破壊的変更を含める場合も、破壊的表示と移行注記を省略しない。意味が変わる修正をPATCHとして隠さない。
 
 ## 5.2. CHANGELOG
 
-`CHANGELOG.md`はRelease間の外部公開可能な差分を記録する正本である。各Release Sectionは直前Releaseからの純粋な差分として書き、現在の構成と利用者への影響を説明する。
+`CHANGELOG.md`はリリース間の外部公開可能な差分を記録する正本である。各リリース節は直前リリースからの純粋な差分として書き、現在の構成と利用者への影響を説明する。
 
 次をCHANGELOGへ記録する。
 
 ```text
 追加、廃止、統合、名称または責務変更
-Normative / Breaking Change
-Conformance、Authority、Stable Context ID、Handoff、Migrationの変更
-利用方法、Template、Tool Adapterへ影響する変更
-Public FeedbackまたはMaintenance Intakeの利用方法へ影響する変更
+規範 / 破壊的変更
+準拠、決定権限、安定コンテキストID、引き渡し、移行の変更
+利用方法、ひな型、ツール接続部へ影響する変更
+公開フィードバックまたは保守受付の利用方法へ影響する変更
 採用者が対応または再確認すべき内容
 ```
 
-内部の試行錯誤、途中案、Commit一覧、同じ変更の旧説明をRelease差分として残さない。Editorial Changeは利用者影響がある場合だけまとめて記録できる。CHANGELOGはDecision / RationaleやGit履歴の代用ではない。
+内部の試行錯誤、途中案、コミット一覧、同じ変更の旧説明をリリース差分として残さない。編集上の変更は利用者影響がある場合だけまとめて記録できる。CHANGELOGは判断 / 判断理由やGit履歴の代用ではない。
 
 <a id="53-release-readiness"></a>
 
-## 5.3. Release準備状態（Release Readiness）
+## 5.3. リリース準備状態（Release Readiness）
 
-Release前に次を確認する。
+リリース前に次を確認する。
 
 ```text
-Release ScopeとVersionがHuman Authorityにより確定している
-Canonical CRDD文書のHeader VersionがRelease Baselineと一致している
-CHANGELOGが直前Releaseからの純粋差分になっている
-Breaking ChangeとMigration Needが明示されている
-README、Overview、Template、Entry File、Related Linkが追従している
-CONTRIBUTING、Issue Form、Pull Request Template等の影響を受けるIntake Adapterが追従している
-必要なAuditとValidationが完了している
-Finding修正後のRevisionが再Reviewされている
-Release Tagが対象Revisionを一意に固定する
-対象Releaseの`Integrated — Pending Release`をRelease Scope、CHANGELOG、除外理由のいずれかへ照合している
+リリース対象範囲とバージョンが人間の決定権限者により確定している
+CRDD正本文書のヘッダーバージョンがリリース基準版と一致している
+CHANGELOGが直前リリースからの純粋差分になっている
+破壊的変更と移行必要性が明示されている
+README、概要、ひな型、入口ファイル、関連リンクが追従している
+CONTRIBUTING、Issueフォーム、プルリクエストひな型等の影響を受ける受付接続部が追従している
+必要な監査と妥当性確認が完了している
+指摘事項修正後の改訂版が再レビューされている
+リリースタグが対象改訂版を一意に固定する
+対象リリースの`Integrated — Pending Release`をリリース対象範囲、CHANGELOG、除外理由のいずれかへ照合している
 ```
 
-公開済みTagを別Revisionへ付け替えない。Release後の誤りは6.3のCorrectionとして扱う。
+公開済みタグを別改訂版へ付け替えない。リリース後の誤りは6.3の修正として扱う。
 
 ---
 
 <a id="6-adoption-migration-and-correction"></a>
 
-# 6. 採用・Migration・Correction
+# 6. 採用・移行・修正
 
 <a id="61-version-pin-and-adoption"></a>
 
-## 6.1. Version固定と採用
+## 6.1. バージョン固定と採用
 
-CRDDを採用するRepositoryは、利用するRelease Tag、Commit、配布物Version等のBaselineを識別可能にする。常に最新Releaseへ即時追従する必要はなく、採用VersionとProject固有Deviationを明示して運用できる。
+CRDDを採用するリポジトリは、利用するリリースタグ、コミット、配布物バージョン等の基準版を識別可能にする。常に最新リリースへ即時追従する必要はなく、採用バージョンとプロジェクト固有逸脱を明示して運用できる。
 
-新Releaseの採用は、変更された規範、Project Artifact、Tool Adapter、Team運用への影響を確認して決める。Breaking Change、Conformance変更、Protected Meaning変更を機械的に上書きしない。
+新リリースの採用は、変更された規範、プロジェクト成果物、ツール接続部、チーム運用への影響を確認して決める。破壊的変更、準拠変更、保護対象意味変更を機械的に上書きしない。
 
-CRDD公式RepositoryのPublic Feedback受付、Issue System、Pull Request、Label、Branch Rule、Agent Entry等は公式Repositoryの運用Profileであり、採用Repositoryへ同一実装を要求しない。採用Repositoryは、必要なAuthority、Traceability、Review BoundaryをProjectに適したToolまたは運用で満たせる。
+CRDD公式リポジトリの公開フィードバック受付、Issue管理システム、プルリクエスト、表示名、ブランチ規則、エージェント入口等は公式リポジトリの運用プロファイルであり、採用リポジトリへ同一実装を要求しない。採用リポジトリは、必要な決定権限、追跡可能性、レビュー境界をプロジェクトに適したツールまたは運用で満たせる。
 
 <a id="62-migration-note"></a>
 
-## 6.2. Migration案内
+## 6.2. 移行案内
 
-Migrationが必要なReleaseは、CHANGELOGまたは参照先Artifactから次を取得可能にする。
+移行が必要なリリースは、CHANGELOGまたは参照先成果物から次を取得可能にする。
 
 ```yaml
 migration:
@@ -417,52 +417,52 @@ migration:
     - old runtime status may be interpreted as phase approval
 ```
 
-Migration NoteはすべてのProjectへ同じ作業を強制せず、必須Action、条件付きAction、対象外、延期時Riskを区別する。採用Project側では[Change](12_Change.md)に従ってImpactを追跡し、実際の作業は対象工程、Agent / Skill Contract、Project固有Workflowに従う。
+移行注記はすべてのプロジェクトへ同じ作業を強制せず、必須操作、条件付き操作、対象外、延期時リスクを区別する。採用プロジェクト側では[変更](12_Change.md)に従って影響を追跡し、実際の作業は対象工程、エージェント／スキル契約、プロジェクト固有作業手順に従う。
 
 <a id="63-released-error-and-correction"></a>
 
-## 6.3. 公開済みReleaseの誤りとCorrection
+## 6.3. 公開済みリリースの誤りと修正
 
-公開済みReleaseに誤りを発見した場合、公開Tagや過去CHANGELOGを無言で書き換えない。
+公開済みリリースに誤りを発見した場合、公開タグや過去CHANGELOGを無言で書き換えない。
 
 ```text
-誤りと影響するRelease / Scopeを記録する
-利用者へ影響する意味、Authority、Migrationを評価する
-必要なCorrection Releaseを発行する
-旧Releaseとの関係と既知RiskをCHANGELOGへ記録する
-必要に応じて旧ReleaseをDeprecatedまたはSupersededとして案内する
+誤りと影響するリリース / 対象範囲を記録する
+利用者へ影響する意味、決定権限、移行を評価する
+必要な修正リリースを発行する
+旧リリースとの関係と既知リスクをCHANGELOGへ記録する
+必要に応じて旧リリースを非推奨または置換済みとして案内する
 ```
 
-漏えい、個人情報、Security Risk等では、安全・法令上必要な削除や非公開化を優先し、実施理由と代替案内を可能な範囲で残す。
+漏えい、個人情報、セキュリティリスク等では、安全・法令上必要な削除や非公開化を優先し、実施理由と代替案内を可能な範囲で残す。
 
 ---
 
 <a id="7-maintenance-verification-and-closure"></a>
 
-# 7. Maintenanceの検証と完了
+# 7. 保守の検証と完了
 
-MaintenanceはAudit手順を独自に再定義せず、変更内容に応じて次を使用する。
+保守は監査手順を独自に再定義せず、変更内容に応じて次を使用する。
 
-| Verification Need | Authority |
+| 検証必要性 | 決定権限 |
 |---|---|
-| Link、Header、構成、用語、重複、README / Template追従 | [Document Audit](51_Document_Audit.md) |
-| CRDD適用CriteriaまたはConformance Claimへの影響 | [Conformance Audit](52_Conformance_Audit.md) |
-| 複数工程、Artifact、Consumer、Migrationへの波及 | [Gap / Impact Audit](53_Gap_Impact_Audit.md) |
-| Trigger、Expected / Actual Impact、正本・実装・検証・Release間のTrace | [Change](12_Change.md) |
-| 実行Boundary、停止、Rollback、Handoff | [Agent](10_Agent.md)、[Skill](11_Skill.md)、Project固有[Workflow](14_Workflow.md) |
-| Release判断、CHANGELOG、Release結果 | [Release](13_Release.md) |
-| Intakeと実行Scope、Issue Type / Change Classification、結果返却 | 本書2.4、2.5、3.1、3.2 |
+| リンク、ヘッダー、構成、用語、重複、README / ひな型追従 | [文書監査](51_Document_Audit.md) |
+| CRDD適用基準または準拠表明への影響 | [準拠監査](52_Conformance_Audit.md) |
+| 複数工程、成果物、利用側、移行への波及 | [不足／影響監査](53_Gap_Impact_Audit.md) |
+| 契機、想定／実際の影響、正本・実装・検証・リリース間のトレース | [変更](12_Change.md) |
+| 実行境界、停止、ロールバック、引き渡し | [エージェント](10_Agent.md)、[スキル](11_Skill.md)、プロジェクト固有[作業手順](14_Workflow.md) |
+| リリース判断、CHANGELOG、リリース結果 | [リリース](13_Release.md) |
+| 受付と実行対象範囲、Issue種別 / 変更分類、結果返却 | 本書2.4、2.5、3.1、3.2 |
 
-Editorial Changeは対象検証だけでCloseできる。NormativeまたはBreaking Changeは、対象Scope / Revision、Human Approval、Impact、Migration、Audit Result、CHANGELOG、Release判断が追跡可能になるまでCloseしない。
+編集上の変更は対象検証だけで終了できる。規範または破壊的変更は、対象範囲 / 改訂版、人間の承認、影響、移行、監査結果、CHANGELOG、リリース判断が追跡可能になるまで終了しない。
 
-Findingを検出しただけでは修正完了ではない。修正、意図的なNo Change、Deferred、Risk AcceptanceのいずれかをOwnerと理由付きでDispositionし、必要なCanonical Documentへ反映する。
+指摘事項を検出しただけでは修正完了ではない。修正、意図的な変更なし、延期、リスク受容のいずれかを担当責任者と理由付きで処置し、必要な正本文書へ反映する。
 
-追跡可能なIssueまたはTaskから開始したMaintenanceでは、CloseまたはFollow-up前に、適用範囲に応じて次を返す。
+追跡可能なIssueまたは作業から開始した保守では、終了または追跡対応前に、適用範囲に応じて次を返す。
 
 - 採否と、採用した変更
-- 採用しなかった主要Alternative
-- Canonical Artifact、Change、ReviewへのReference
-- Release DispositionとTarget ReleaseまたはRelease Plan Reference
-- Migration、Known Limitation、Residual Risk、Follow-up
+- 採用しなかった主要代替案
+- 正本成果物、変更、レビューへの参照
+- リリースの処置と対象リリースまたはリリース計画参照
+- 移行、既知の制約、残存リスク、追跡対応
 
-Issueを`Integrated — Pending Release`でCloseしても、Release済みと表示してはならない。Canonical Document、CHANGELOG、Migration Note、Release Evidenceの責務をIssueへ移さない。
+Issueを`Integrated — Pending Release`で終了しても、リリース済みと表示してはならない。正本文書、CHANGELOG、移行注記、リリース根拠の責務をIssueへ移さない。

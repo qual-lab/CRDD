@@ -9,6 +9,26 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v060-en"></a>
+
+### v0.6.0 — Practical Review, Human-Centered Quality, and Open Maintenance (2026-07-24)
+
+Compared with v0.5.1-p1:
+
+- Defines a practical operating scale for CRDD records. Small, reversible local work may close with a self-check; standard and extended operation add trace, impact, migration, and audit evidence only when the scope and risk require them. “Necessary granularity” now has explicit sufficiency conditions instead of implying more files or decomposition.
+- Simplifies phase-transition control to two stages: an independent review, followed by the responsible Human authority’s decision. When content authority and transition authority are the same person, one Human approval may cover both; separate approvals are required only for different authorities or applicable specialist approval.
+- Strengthens the existing backward-propagation rule. New Human decisions, constraints, learning, evidence, or findings trigger an explicit impact check so that downstream answers close or update affected upstream and peer questions before normal completion.
+- Strengthens Discovery and requirements engineering with source-to-requirement separation, promotion criteria for individual requirements, requirement-set quality, verification obligations, and a project-selected quality concern profile. The selected use of ISO/IEC/IEEE 29148:2018, ISO/IEC/IEEE 15288:2023, ISO/IEC/IEEE 12207:2026, and ISO/IEC 25010:2023 is recorded as `informed_by` or otherwise scoped relations, without claiming conformance.
+- Strengthens UX, IA, UI, and Behavior Specification for understandable decision support, configuration extraction, human-centered quality, experience-expression intent, visual direction, UI themes, UI components, UI design patterns, accessibility, and explicit UI-to-behavior correspondence. These responsibilities remain distributed to their owning phase documents rather than forming a new competing authority.
+- Makes canonical Japanese documents locale-first throughout. Human-facing headings, field labels, state explanations, and prose use Japanese display names; canonical English terms, identifiers, schema values, filenames, and BCP 14 keywords remain available where interoperability or normative strength requires them.
+- Adds plain-language entry guidance and a small-problem walkthrough to the README and Overview. Human readers can start without reading all canonical documents, while AI entry files continue to load the applicable authorities by scope.
+- Adds repository-specific AI entry adapters for GitHub Copilot at the CRDD root and in the starter template. These adapters do not become CRDD conformance requirements and do not prescribe a particular AI provider.
+- Clarifies CRDD’s public-feedback and self-maintenance route from problem or evidence through impact and alternatives, Human adoption, review, audit, integration, pending release, and release closure, while keeping Issue, label, branch, and pull-request mechanics specific to the official repository.
+- Changes the project license to Apache License 2.0 and adds a NOTICE and a separate trademark policy. Apache 2.0 governs the standard’s copyrighted content; the Qual-Lab and Qual names, logos, and related brand identifiers are not licensed as trademarks.
+- Aligns the canonical documents, audits, root and starter agent instructions, Change Trace and Roadmap templates, README, and document headers with the v0.6.0 baseline.
+
+v0.6.0 does not add a Stable Context ID type. The standard set remains `REQ`, `UX`, `IA`, `UI`, and `SPEC`.
+
 ### v0.5.1 — Standard Repository Operations, Migration, and Readability (2026-07-22)
 
 Compared with v0.5.0:
@@ -156,16 +176,38 @@ First public release of CRDD, organized into four layers by numbering band.
 - Compatibility and Evolution Guide
 - Architecture and Integration Guide
 
-#### Also included
+#### Also included at the v0.1.0 release
 
-- [LICENSE](LICENSE) — CC BY-NC-SA 4.0 for CRDD documentation and other copyrightable materials
-- [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) — what counts as commercial use, and how to obtain a commercial license
-- [TRADEMARK.md](TRADEMARK.md) — separate policy for the CRDD / Qual-Lab names and marks
-- [README.md](README.md) — entry point for this folder
+The following describes the historical v0.1.0 files and does not describe the current license:
+
+- `LICENSE` — CC BY-NC-SA 4.0 for CRDD documentation and other copyrightable materials at that release
+- `COMMERCIAL_LICENSE.md` — the commercial-license route used at that release
+- `TRADEMARK.md` — the separate policy for the CRDD / Qual-Lab names and marks
+- `README.md` — the entry point for that release
 
 ---
 
 ## 日本語
+
+<a id="changelog-v060-ja"></a>
+
+### v0.6.0 — 現実的なレビュー・人間中心品質・公開保守（2026-07-24）
+
+v0.5.1-p1からの変更:
+
+- CRDDの記録量を、簡潔・標準・拡張の運用規模で選べるようにした。小さく可逆な局所変更はセルフチェックで閉じられ、通常または高リスクの変更だけが対象範囲に応じたトレース、影響、移行、監査根拠を持つ。「必要な粒度」は、ファイルや分解を増やす意味ではなく、判断・実装・検証・引き渡しを再現できる最低条件として定義した。
+- 工程移行を、独立レビューと、責任を持つ人間の決定権限者による判断の二段階へ整理した。内容の決定権限者と工程移行の決定権限者が同じ場合は、一度の人間承認で両方を扱える。決定権限が異なる場合または専門承認が必要な場合だけ、人間の判断を分ける。
+- 既存の後方伝播規則を実行可能にした。人間の判断、制約、学び、根拠、指摘事項が確定または変更された時点で影響確認を行い、下流で得た答えを、影響する上流・同層の未決事項へ反映してから通常完了とする。
+- 課題探索・要求形成と要求工学を強化した。情報源から要求までの分離、個別要求の昇格基準、要求集合の品質、検証義務、プロジェクトが選ぶ品質観点プロファイルを追加した。ISO/IEC/IEEE 29148:2018、15288:2023、12207:2026、ISO/IEC 25010:2023は、準拠を主張せず、`informed_by`等の範囲を限定した関係で利用箇所を記録する。
+- UX、IA、UI、振る舞い仕様に、判断しやすい説明、設定候補の抽出、人間中心品質、体験表現意図、視覚表現方針、UIテーマ、UI部品、UI設計パターン、アクセシビリティ、UIと振る舞い仕様の明示的な対応関係を追加した。新しい競合正本は作らず、各観点を責務を持つ工程文書へ分配した。
+- 日本語の正本文書をロケール優先の表現へ統一した。人間向けの見出し、項目名、状態説明、本文は日本語表示を基本とし、相互運用や規範強度に必要な正式英語名、識別子、スキーマ値、ファイル名、BCP 14キーワードは維持した。
+- READMEと概要へ、平易な開始案内と小さな問題から始める例を追加した。人間は全正本文書を通読せずに開始でき、AI入口は対象範囲に必要な決定権限文書を選択して読む。
+- CRDD公式リポジトリと配布テンプレートへ、GitHub Copilot向けのAI入口接続部を追加した。この接続部はCRDD準拠要件ではなく、特定AI提供元の利用も要求しない。
+- CRDD自身の公開フィードバックと保守経路を、問題・根拠、影響と代替案、人間による採用、レビュー、監査、統合、リリース待ち、リリース完了まで接続した。Issue、ラベル、ブランチ、プルリクエストの運用は公式リポジトリ固有とし、採用先へ要求しない。
+- ライセンスをApache License 2.0へ変更し、NOTICEと商標方針を追加した。標準の著作物はApache 2.0で扱い、Qual-Lab、Qualの名称、ロゴ、関連ブランド識別子を商標として許諾するものではない。
+- 正本文書、監査、ルートと配布テンプレートのエージェント指示、変更トレースとロードマップのひな型、README、文書ヘッダーをv0.6.0基準版へ揃えた。
+
+v0.6.0では安定コンテキストIDの種類を追加しない。標準の種類は引き続き`REQ`、`UX`、`IA`、`UI`、`SPEC`である。
 
 ### v0.5.1 — 標準Repository運用・Migration・可読性改善（2026-07-22）
 
@@ -314,9 +356,11 @@ CRDDの初回公開版。採番帯によって4層に構成されている。
 - Compatibility and Evolution Guide
 - Architecture and Integration Guide
 
-#### あわせて含まれるもの
+#### v0.1.0リリースに含まれていたもの
 
-- [LICENSE](LICENSE) — CRDD文書等の著作物に対するCC BY-NC-SA 4.0
-- [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) — 商用利用の定義と商用ライセンスの取得方法
-- [TRADEMARK.md](TRADEMARK.md) — CRDD / Qual-Lab名称・商標の別ポリシー
-- [README.md](README.md) — このフォルダの入口
+次はv0.1.0当時の履歴であり、現在のライセンスを説明するものではない。
+
+- `LICENSE` — 当時のCRDD文書等の著作物に対するCC BY-NC-SA 4.0
+- `COMMERCIAL_LICENSE.md` — 当時使用していた商用ライセンスの取得経路
+- `TRADEMARK.md` — CRDD / Qual-Lab名称・商標の別ポリシー
+- `README.md` — 当時の入口

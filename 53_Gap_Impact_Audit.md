@@ -1,12 +1,12 @@
 <a id="crdd-gap-and-impact-audit"></a>
 
-# CRDD Gap・影響監査（Gap and Impact Audit）
+# CRDD不足・影響監査（Gap and Impact Audit）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Agent ID: `agent.gap_impact.audit`
-Last Updated: 2026-07-22
+エージェントID: `agent.gap_impact.audit`
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -25,183 +25,189 @@ Related:
 >
 > - 一つの変更が他工程や成果物へ与える影響をどう探すか
 > - 下流の判断・制約・学びを上流へどう伝播するか
-> - Gap候補と実際の影響をどう区別するか
-> - 更新、Review、影響なし、延期等を誰が判断するか
+> - 不足候補と実際の影響をどう区別するか
+> - 更新、レビュー、影響なし、延期等を誰が判断するか
 > - 修正後にどこまで再監査するか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、変更後も上流Context、専門成果物、Implementation、Verificationの意味的接続を維持するため、Cross-layer Gap ValidationとImpact Analysisを実行するAudit Contractである。
+本書は、変更後も上流コンテキスト、専門成果物、実装、検証の意味的接続を維持するため、工程横断の不足確認と影響分析を実行する監査契約である。
 
 ```text
-Gap    = 現在のContext、Contract、Relation、Artifact、Evidence間にある欠落・矛盾・古い状態
-Impact = 変更によって別Context、Artifact、判断、Releaseへ影響が及ぶ可能性
+不足   = 現在のコンテキスト、契約、関係、成果物、根拠の間にある欠落・矛盾・古い状態
+影響   = 変更によって別のコンテキスト、成果物、判断、リリースへ影響が及ぶ可能性
 ```
 
-Gap ValidationとImpact Analysisは別々のLifecycleではない。変更または新Evidenceを起点にImpact Candidateを探索し、現在のGapか、変更が必要か、影響がないかを同じAuditで判定する。
+不足確認と影響分析は別々の状態遷移ではない。変更または新しい根拠を起点に影響候補を探索し、現在の不足か、変更が必要か、影響がないかを同じ監査で判定する。
 
-ローカル表示名や説明構造だけを変更した場合も、Canonical Term、Rule強度、Authority、Status、例外、Handoff、Consumerの解釈が保存されているかを比較する。表示差だけからProduct Impactを推定せず、意味が変わった場合にだけ影響候補として扱う。
+ローカル表示名や説明構造だけを変更した場合も、正式用語、規則強度、決定権限、状態、例外、引き渡し、利用側の解釈が保存されているかを比較する。表示差だけからプロダクトへの影響を推定せず、意味が変わった場合にだけ影響候補として扱う。
 
 ```text
-Document Audit     = 既知の文書品質と直接Propagation
-Phase Audit        = 各工程のEntry、Coverage、Exit、Gate
-Conformance Audit  = C / PL / AD CriteriaとClaim Eligibility
-Gap / Impact Audit = Relationを横断した意味的Gap、影響候補、再Review範囲
-Verification       = Product / Implementationの成立をFresh Evidenceで確認
+文書監査     = 既知の文書品質と直接伝播
+工程監査           = 各工程の入口、網羅範囲、出口、ゲート
+準拠監査           = C／PL／AD基準と準拠表明の適格性
+不足／影響監査 = 関係を横断した意味的不足、影響候補、再レビュー範囲
+検証               = プロダクト／実装の成立を新しい根拠で確認
 ```
 
-本Auditは変更されたArtifactの一覧作成、全Repositoryの機械的再検証、Canonical Artifactの自動修正、Phase / Release Approvalの代替ではない。
+本監査は、変更された成果物の一覧作成、リポジトリ全体の機械的再検証、正本成果物の自動修正、工程／リリース承認の代替ではない。
 
-Gap / Impact Audit Runは読取専用である。Finding、Disposition Candidate、Required Update / Review / Verificationを返し、修正と承認はChange、該当工程、Human Authorityが行う。修正後は必要範囲を再監査する。
+不足／影響監査の実行は読取専用である。指摘事項、処置候補、必要な更新／レビュー／検証を返し、修正と承認は変更、該当工程、人間の決定権限が行う。修正後は必要範囲を再監査する。
 
 ---
 
-# 2. Audit Model and Authority
+# 2. 監査モデルと決定権限
 
-## 2.1. Core Principles
+## 2.1. 中核原則
 
-- Changed FileだけでImpactを判断しない
-- 上流から下流、下流から上流、共通要素・VariantへRelationを探索する
-- Relationを候補発見に使い、Relationだけで実影響を断定しない
-- Relationがないことを影響なしの根拠にせず、Relation欠落自体をGap候補とする
-- 未決、Hypothesis、Recovered Context、Observed Behaviorを確定Contextとして扱わない
-- No Impact、Covered、Deferred、Accepted Riskにも理由とAuthorityを残す
-- Gapを隠したままPhase Approval、Change Trace Closure、Releaseを行わない
-- Risk、共通性、不可逆性、Variant、Release影響に応じて探索範囲を調整する
+- 変更されたファイルだけで影響を判断しない
+- 上流から下流、下流から上流、共通要素・差分へ関係を探索する
+- 関係を候補発見に使い、関係だけで実影響を断定しない
+- 関係がないことを影響なしの根拠にせず、関係欠落自体を不足候補とする
+- 未決、仮説、復元したコンテキスト、観察された振る舞いを確定コンテキストとして扱わない
+- `No Impact`、`Covered by Existing Contract`、`Deferred`、`Accepted Risk`にも理由と決定権限を残す
+- 不足を隠したまま工程承認、変更トレースの完了、リリースを行わない
+- リスク、共通性、不可逆性、差分、リリース影響に応じて探索範囲を調整する
 
-Gapが見つかることはAudit失敗ではない。Gapを検出・分類し、OwnerとRouteを明らかにすることがAuditの成果である。
+不足が見つかることは監査失敗ではない。不足を検出・分類し、担当責任者と経路を明らかにすることが監査の成果である。
 
-## 2.2. Authority Boundary
+## 2.2. 決定権限の境界
 
-Audit実行者は、差分抽出、Relation探索、Candidate生成、比較、Gap Type / Impact Level / Dispositionの提案、定義済み基準による低Risk Finding分類を行える。
+監査実行者は、差分抽出、関係探索、候補生成、比較、不足の種類／影響レベル／処置の提案、定義済み基準による低リスクな指摘事項の分類を行える。
 
-Humanまたは該当Property Authorityは、価値、Scope、Priority、上位Intent、重要Gapの確定、重要なNo Impact、延期、Risk受容、Contract変更、Phase / Release判断を担う。
+人間または該当項目の決定権限者は、価値、対象範囲、優先順位、上位の意図、重要な不足の確定、重要な`No Impact`、延期、リスク受容、契約変更、工程／リリース判断を担う。
 
-Audit実行者は、上流Intentを推測して修正せず、専門Ownerの判断なしにContractを弱めず、Gapを隠すRelationやEvidenceを生成しない。
+監査実行者は、上流の意図を推測して修正せず、専門担当責任者の判断なしに契約を弱めず、不足を隠す関係や根拠を生成しない。
 
 ---
 
-# 3. Input and Output Contract
+# 3. 入出力契約
 
-## 3.1. Input
+## 3.1. 入力
 
 ```text
-Audit Trigger and Goal
-Active Scope / Out of Scope
-Changed Context / Artifact / Relation
-Target Revision / Baseline
-Applicable Phase Contracts
-Change Trace or Review Context
-Known Decision / Evidence / Unresolved Gap
-Expected Output / Handoff
+監査の契機と目的
+対象範囲／対象外
+変更したコンテキスト／成果物／関係
+対象改訂版／基準版
+適用する工程契約
+変更トレースまたはレビューのコンテキスト
+既知の判断／根拠／未解決事項
+期待する出力／引き渡し
 ```
 
-Input不足により意味的影響を判定できない場合、推測で埋めず`Blocked`として不足情報、Owner、Resume条件を返す。
+入力不足により意味的影響を判定できない場合、推測で埋めず`Blocked`として不足情報、担当責任者、再開条件を返す。
 
-## 3.2. Output
+## 3.2. 出力
 
-Report全体のAudit Status、共通Finding Fields、Severity、Report Viewは[`51_Document_Audit.md`](51_Document_Audit.md#3-output)を再利用する。本AuditはFindingへ次を追加する。
+監査報告全体の状態、共通の指摘事項項目、重大度、報告表示は[`51_Document_Audit.md`](51_Document_Audit.md#3-output)を再利用する。本監査は指摘事項へ次を追加する。
 
-| Field | Meaning |
+| 項目 | 意味 |
 |---|---|
-| `gap_type` | Continuity / Coverage / Consistency / Revision / Provenance / Contract / Implementation / Verification / Feedback |
+| `gap_type` | `Continuity`／`Coverage`／`Consistency`／`Revision`／`Provenance`／`Contract`／`Implementation`／`Verification`／`Feedback` |
 | `impact_level` | L0〜L5 |
-| `source_change` | 起点となったContext、Artifact、Relation、Evidence |
-| `affected_candidates` | Relation探索で得た影響候補 |
-| `disposition` | Update / Review / No Impact / Covered / Deferred / Accepted Risk / Upstream Decision / Out of Scope |
-| `affected_authority` | 再判断・修正・承認が必要なProperty / Phase / Human Authority |
-| `revalidation` | 修正後に必要なAudit / Review / Verification |
+| `source_change` | 起点となったコンテキスト、成果物、関係、根拠 |
+| `affected_candidates` | 関係探索で得た影響候補 |
+| `disposition` | `Update Required`／`Review Required`／`No Impact`／`Covered by Existing Contract`／`Deferred`／`Accepted Risk`／`Upstream Decision Required`／`Out of Scope` |
+| `affected_authority` | 再判断・修正・承認が必要な項目／工程／人間の決定権限 |
+| `revalidation` | 修正後に必要な監査／レビュー／検証 |
 
-Audit Reportは対象Scope / Revision、探索したRelation、未探索Scope、No Impact Decision、Deferred / Accepted Risk、Affected Phase / Release、Unresolved Gapを示す。
+監査報告は、対象範囲／改訂版、探索した関係、未探索範囲、`No Impact`の判断、`Deferred`／`Accepted Risk`、影響を受ける工程／リリース、未解決事項を示す。
 
-Audit Statusは次のように使う。
+監査状態は次のように使う。
 
-- `Pass`: 適用Candidateが`No Impact`、`Covered by Existing Contract`、`Resolved`等へ根拠付きで判定され、未処理の重大Gapがない
-- `Conditional`: 未解消GapがOwner、追跡先、Human Authority付きで限定されている
-- `Fail`: 未解決のCritical / Major Gapまたは正本Conflictがある
+- `Pass`: 適用候補が`No Impact`、`Covered by Existing Contract`、`Resolved`等へ根拠付きで判定され、未処理の重大不足がない
+- `Conditional`: 未解消不足が担当責任者、追跡先、人間の決定権限付きで限定されている
+- `Fail`: 未解決の重大 / メジャーな不足または正本競合がある
 - `Blocked`: 意味的影響を判断できない
 
-`Conditional`は、Gap解消やPhase / Release承認を意味しない。
+`Conditional`は、不足解消や工程 / リリース承認を意味しない。
 
-Findingの記録先は原則としてChange Traceまたは対象Canonical Artifactとする。Gap / Impact Audit文書をProject固有の中央台帳にしない。FindingへCRDD標準Stable Context IDを発行せず、Report内Key、Issue、Path、Anchor等で追跡する。
+指摘事項の記録先は原則として変更トレースまたは対象正本成果物とする。不足／影響監査文書をプロジェクト固有の中央台帳にしない。指摘事項へCRDD標準安定コンテキストIDを発行せず、監査報告内のキー、Issue、パス、アンカー等で追跡する。
 
-Evidenceは対象Artifact内または最も近い親Folderの`Evidence/`へ置く。重要なDispositionの結果とRationaleは結果となるCanonical Artifact、Change Trace、またはRelease Artifactへ残す。
+根拠は対象成果物内または最も近い親フォルダの`Evidence/`へ置く。重要な処置の結果と判断理由は、結果となる正本成果物、変更トレース、またはリリース成果物へ残す。
 
 ---
 
-# 4. Scope and Trigger
+# 4. 対象範囲と契機
 
-## 4.1. Validation Scope
+## 4.1. 妥当性確認の対象範囲
 
-対象Scopeは、変更されたContextだけでなく、Relation、共通性、Risk、Variant、Baseline、Release状態から決める。
+対象範囲は、変更されたコンテキストだけでなく、関係、共通性、リスク、差分、基準版、リリース状態から決める。
 
 ```text
-Origin / Problem / Decision / Evidence
+起点／問題／判断／根拠
 REQ / UX / IA / UI / SPEC
-Architecture / Implementation / Configuration
-Verification / Acceptance / Quality
-Change Trace / Phase Approval / Release / Roadmap
-Shared Component / Consumer / Provider / Data / Variant
+アーキテクチャ / 実装 / 構成
+検証 / 受入条件 / 品質
+変更トレース / 工程承認 / リリース／ロードマップ
+共有UI部品 / ドメイン部品 / 実行時部品 / 利用側 / 提供側 / データ / バリアント
+体験表現意図（Experience Expression Intent）/ 視覚表現方針（Visual Direction）/ UIテーマ（UI Theme）
+設計トークン（Design Token）/ UI設計パターン（UI Design Pattern）/ 外部視覚成果物（External Visual Artifact）
 ```
 
-すべての変更で全層を検査しない。対象外にする場合は、意味、Contract、Relation、Behavior、Verificationへ影響しない理由を説明できるようにする。
+すべての変更で全層を検査しない。対象外にする場合は、意味、契約、関係、振る舞い、検証へ影響しない理由を説明できるようにする。
 
-## 4.2. Trigger
+## 4.2. 契機
 
-次の場合に対象ScopeとRiskに応じて実行する。
+次の場合に対象範囲とリスクに応じて実行する。
 
-- Origin、Problem、Requirement、UX Outcome、Principleの変更
-- IA Object / Responsibility / Navigationの変更
-- UI Contract、Behavior Specification、Pair Relationの変更
-- 共通Component、Rule、Architecture Boundary、Data / Interfaceの変更
-- Feature、Use Case、Variant、Permission、Consumerの追加
-- Context、Contract、Artifactの廃止・統合・置換
-- 承認後の追加変更、Baseline / Release Scopeの変更
-- 法令、Security、Privacy、Compatibility、Capacity条件の変更
-- Legacy解析、Prototype、Test、Implementation、Operationからの新Evidence
-- Handoff、過去Approval、Change Trace Closure、Release Readinessの再判断
+- 起点、課題、要求、UX成果、原則の変更
+- IAのオブジェクト / 責務 / ナビゲーションの変更
+- UI契約、振る舞い仕様、両者の対応関係の変更
+- 体験表現意図、視覚表現方針、UIテーマ／設計トークン、共通UI部品／UI設計パターン、論理画面の対象範囲、外部視覚成果物の決定権限／改訂版変更
+- 共有UI部品、ドメイン部品、実行時部品、規則、アーキテクチャ境界、データ / インターフェースの変更
+- 機能、ユースケース、差分、権限、利用側の追加
+- コンテキスト、契約、成果物の廃止・統合・置換
+- 承認後の追加変更、基準版 / リリース対象範囲の変更
+- 法令、セキュリティ、プライバシー、互換性、処理能力条件の変更
+- 既存系解析、プロトタイプ、テスト、実装、操作からの新根拠
+- 引き渡し、過去承認、変更トレースの完了、リリース準備状況の再判断
 
-意味に影響しないEditorial Changeでは省略できる。省略はL0相当のNo Impact Decisionとして簡潔に理由を残す。
+意味に影響しない編集上の変更では省略できる。省略はL0相当の影響なし判断として簡潔に理由を残す。
 
-## 4.3. Mandatory Propagation Trigger and Closure
+<a id="43-mandatory-propagation-trigger-and-closure"></a>
 
-次のいずれかが新たに確定、変更、無効化された場合、Triggered Propagation Checkの要否を必ず評価する。既存Contextへ答え、制約し、矛盾し、または再評価を要求し得る場合は、工程移行を待たず本Auditを実行する。意味的影響がないため実行しない場合も、L0相当のNo Impact DecisionとしてSource Revisionと理由を残す。
+## 4.3. 必須となる伝播確認の契機と完了
 
-- Human DecisionまたはRisk Acceptance
-- 下流工程で判明したConstraint、Limitation、Conflict、Compatibility / Capacity条件
-- Prototype、Architecture、Implementation、Verification、Operationから得たLearning、Evidence、Finding
-- 既存のOpen Question、Unresolved Gap、Assumptionへ回答し得る確定事項
-- Canonical Contextの意味、Scope、Authority、Default、Priority、Obligationを変える結果
+次のいずれかが新たに確定、変更、無効化された場合、変更影響の伝播確認の要否を必ず評価する。既存コンテキストへ答え、制約し、矛盾し、または再評価を要求し得る場合は、工程移行を待たず本監査を実行する。意味的影響がないため実行しない場合も、L0相当の「影響なし」の判断として情報源の改訂版と理由を残す。
 
-最初にSource Revisionから上流方向と同層Relationを探索し、既存のOpen Question、Unresolved Gap、Assumption、Decision、Constraint、Downstream Obligationとの対応候補を列挙する。
+- 人間の判断またはリスク受容
+- 下流工程で判明した制約、競合、互換性 / 処理能力条件
+- プロトタイプ、アーキテクチャ、実装、検証、操作から得た学習、根拠、指摘事項
+- 既存の未決事項、未解決事項、仮定へ回答し得る確定事項
+- 正本コンテキストの意味、対象範囲、決定権限、既定値、優先順位、義務を変える結果
+- 視覚成果物で見つかった新しい論理画面、表示状態、UI規則、例外、アクセシビリティ制約、または視覚表現方針との競合
 
-直接Relationがなくても、同じScope、Actor、Use Case、Object、Action、Data、Quality、Riskを共有する候補を未探索のまま除外しない。
+最初に情報源の改訂版から上流方向と同層関係を探索し、既存の未決事項、未解決事項、仮定、判断、制約、下流への義務との対応候補を列挙する。
+
+直接関係がなくても、同じ対象範囲、アクター、ユースケース、オブジェクト、操作、データ、品質、リスクを共有する候補を未探索のまま除外しない。
 
 各候補を、根拠付きで次のいずれかへ判定する。
 
-- `Update`
+- `Update Required`
 - `Covered by Existing Contract`
 - `No Impact`
 - `Upstream Decision Required`
-- Finding
+- 指摘事項
 
-`Update`となったPropertyは責務を持つCanonical Artifactへ反映する。上流Contextの意味またはRevisionが変わった場合は、その更新点から下流方向へ再探索し、既存のUI / SPEC、Architecture、Implementation、Verification、Change / Releaseへの再設計・再承認・再検証範囲を判定する。Audit Reportまたは下流Decisionだけに結果を残して正本更新を代替しない。
+`Update Required`となった項目は責務を持つ正本成果物へ反映する。上流コンテキストの意味または改訂版が変わった場合は、その更新点から下流方向へ再探索し、既存のUI／SPEC、アーキテクチャ、実装、検証、変更／リリースへの再設計・再承認・再検証範囲を判定する。監査報告または下流判断だけに結果を残して正本更新を代替しない。
 
-Triggered Propagation Checkは、次を満たした場合だけ`Pass`として閉じる。
+変更影響の伝播確認は、次を満たした場合だけ`Pass`として閉じる。
 
-- 探索した上流・同層Relationと、理由付きの未探索範囲を示している
-- 対応CandidateがすべてDispositionされ、未処理Candidateがない
-- 必須更新が各Property AuthorityのCanonical Artifactへ反映されている
-- 上流更新から生じた下流Impactを再探索し、必要なRemediationとRevalidationを特定している
-- 修正後Revisionを再監査し、結果参照を対象Artifact、Handoff View、またはChange Traceから辿れる
+- 探索した上流・同層関係と、理由付きの未探索範囲を示している
+- 対応候補がすべて処置され、未処理候補がない
+- 必須更新が各項目の決定権限の正本成果物へ反映されている
+- 上流更新から生じた下流影響を再探索し、必要な是正と再妥当性確認を特定している
+- 修正後改訂版を再監査し、結果参照を対象成果物、引き渡し表示、または変更トレースから辿れる
 
-未完了のまま工程完了、通常Handoff、Change Closure、Release Readinessへ進めるのは、対象Human Authorityが明示した`propagation_exception`がある場合に限る。
+未完了のまま工程完了、通常引き渡し、変更の完了、リリース準備状況へ進めるのは、対象人間の決定権限が明示した`propagation_exception`がある場合に限る。
 
 ```yaml
 propagation_exception:
-  directed_by: <Human Authority>
+  directed_by: <人間の決定権限者>
   source_revision: <decision / constraint / learning revision>
   unpropagated_scope: []
   known_risk_and_impact: []
@@ -210,365 +216,365 @@ propagation_exception:
   expires_or_reopens_when: <condition>
 ```
 
-`propagation_exception`は`Pass`、No Impact、Gap解消、Risk受容を意味しない。Human Authorityの明示なしに、時間不足、工程移行、Owner移管を理由として自動生成しない。
+`propagation_exception`は`Pass`、影響なし、不足解消、リスク受容を意味しない。人間の決定権限の明示なしに、時間不足、工程移行、担当責任者移管を理由として自動生成しない。
 
-### Architecture Decision Example
+### アーキテクチャ判断の例
 
 ```text
-Discovery / UX / IA
-└─ Open Question: 保持期間、責任主体、利用者への説明が未確定
+課題探索・要求形成 / UX / IA
+└─ 未決事項: 保持期間、責任主体、利用者への説明が未確定
                          ↓
-Architecture Human Decision / Confirmed Constraint
-└─ Provider制約、運用条件、実現可能な保持方式が確定
-                         ↓ immediately
-Triggered Propagation Check
-├─ 既存Open Question / Gap / Assumptionとの対応を探索
-├─ 技術Authority内の確定Constraintか、上流Human Decisionが必要かを分類
-├─ Discovery / UX / IA / UI / SPECの責務正本へFindingを返す
-└─ 正本更新後、Architecture / Implementation / Verification Impactを再探索
+アーキテクチャにおける人間の判断／確認済みの制約
+└─ 提供元の制約、運用条件、実現可能な保持方式が確定
+                         ↓ 直ちに
+変更影響の伝播確認
+├─ 既存の未決事項／不足／仮定との対応を探索
+├─ 技術上の決定権限内で確定した制約か、上流の人間による判断が必要かを分類
+├─ 課題探索・要求形成／UX／IA／UI／SPECの責務正本へ指摘事項を返す
+└─ 正本更新後、アーキテクチャ／実装／検証への影響を再探索
                          ↓
-Re-audit Pass → 現在工程を継続またはPhase Transition Review
+再監査の`Pass` → 現在工程を継続、または工程移行レビュー
 ```
 
-Architectureで決めたことを自動的に上流の価値・要求・利用者向け意味へ昇格しない。Architecture Authority内で確定したConstraintまたは回答は該当上流正本へ反映し、上流の価値判断が必要なら`Upstream Decision Required`として戻す。いずれの場合も、Architecture文書だけへDecisionを残して上流Open Questionを放置しない。
+アーキテクチャで決めたことを自動的に上流の価値・要求・利用者向け意味へ昇格しない。アーキテクチャの決定権限内で確定した制約または回答は該当上流正本へ反映し、上流の価値判断が必要なら`Upstream Decision Required`として戻す。いずれの場合も、アーキテクチャ文書だけへ判断を残して上流未決事項を放置しない。
 
 ---
 
-# 5. Gap Types and Impact Dimensions
+# 5. 不足の種類と影響観点
 
-## 5.1. Gap Types
+## 5.1. 不足の種類
 
-| Type | Meaning | Example |
+| 種別 | 意味 | 例 |
 |---|---|---|
-| Continuity | 上流の意味が下流へ変換されない、または遡れない | UX Outcomeを実現するUI / Featureが不明 |
-| Coverage | 必要なContext、State、Exception、Variant、Testがない | SuccessだけでFailure / Recoveryがない |
-| Consistency | 同じ対象についてArtifact間のMeaningが異なる | UIは取消可、SPECは取消不可 |
-| Revision | Revision、Version、Baselineが揃っていない | TestがSuperseded Acceptanceを検証 |
-| Provenance | Source、Confidence、Fact / Hypothesis境界が不明 | Recovered Intentを確定Whyとして扱う |
-| Contract | Property間の対応が不足・矛盾する | UI ActionにSPEC Triggerがない |
-| Implementation | Contract / ArchitectureとCode / Configurationが異なる | 未承認Fallbackを実装している |
-| Verification | AcceptanceとTest / Evidenceの対象が一致しない | Pass Evidenceが現行Revisionでない |
-| Feedback | 下流のLearningが必要な上流Contextへ戻っていない | 技術制約がArchitectureだけに残る |
+| 継続性 | 上流の意味が下流へ変換されない、または遡れない | UX成果を実現するUI / 機能が不明 |
+| 網羅範囲 | 必要なコンテキスト、状態、例外、差分、テストがない | 成功だけで失敗 / 回復がない |
+| 一貫性 | 同じ対象について成果物間の意味が異なる | UIは取消可、SPECは取消不可 |
+| 改訂版 | 改訂版、バージョン、基準版が揃っていない | テストが置換済みの受入条件を検証 |
+| 来歴 | 情報源、確信度、事実 / 仮説境界が不明 | 回復済み意図を確定「なぜ」として扱う |
+| 契約 | 項目間の対応が不足・矛盾する | UI操作にSPECの契機がない |
+| 実装 | 契約 / アーキテクチャとコード / 構成が異なる | 未承認代替動作を実装している |
+| 検証 | 受入条件とテスト / 根拠の対象が一致しない | 合格根拠が現行改訂版でない |
+| フィードバック | 下流の学習が必要な上流コンテキストへ戻っていない | 技術制約がアーキテクチャだけに残る |
 
-一つのFindingに複数Typeが該当してよい。Typeを増やすより、原因、影響、Return Routeを明確にする。
+一つの指摘事項に複数種別が該当してよい。種別を増やすより、原因、影響、返却経路を明確にする。
 
-## 5.2. Impact Dimensions
+## 5.2. 影響観点
 
 少なくとも次を適用範囲で確認する。
 
-| Dimension | Review Focus |
+| 次元 | レビューの着眼点 |
 |---|---|
-| Intent / Scope | Origin、Actor、Value、Non-goal、Feature、Release範囲 |
-| Information / Interaction | Object、Navigation、Action、Feedback、State、Permission |
-| Behavior / Contract | Condition、Rule、Result、Failure、Compatibility |
-| Architecture / Data | Boundary、API、Data Meaning、Security、Migration、Dependency |
-| Implementation / Shared | Code、Configuration、Build、共通Component / Service、Consumer |
-| Variant | Role、Tenant、Brand、Platform、Locale、Provider |
-| Capacity / Quality | Traffic、Latency、Resource、Availability、Accessibility、Safety、Cost |
-| Verification | Acceptance、Test、Evidence、Environment、Review Scope |
-| Delivery / Authority | Phase Approval、Change Trace、Release、Schedule、Owner、Risk |
-| Learning | Decision、Canonical Context、Roadmapへ戻すべき知見 |
+| 意図 / 対象範囲 | 起点、アクター、値、目指さないこと、機能、リリース範囲 |
+| 情報 / 操作 | オブジェクト、ナビゲーション、操作、フィードバック、状態、権限 |
+| 振る舞い / 契約 | 条件、規則、結果、失敗、互換性 |
+| アーキテクチャ / データ | 境界、API、データの意味、セキュリティ、移行、依存関係 |
+| 実装／共有要素 | コード、構成、ビルド、共有UI部品、ドメイン部品、実行時部品、サービス、利用側 |
+| 差分 | 役割、テナント、ブランド、プラットフォーム、ロケール、提供側 |
+| 処理能力 / 品質 | トラフィック、遅延、リソース、可用性、アクセシビリティ、安全性、コスト |
+| 検証 | 受入条件、テスト、根拠、環境、レビュー対象範囲 |
+| 配布 / 決定権限 | 工程承認、変更トレース、リリース、予定、担当責任者、リスク |
+| 学習 | 判断、正本コンテキスト、ロードマップへ戻すべき知見 |
 
 ---
 
-# 6. Relation Traversal and Phase Sources
+# 6. 関係探索と工程別情報源
 
-## 6.1. Standard Directions
+## 6.1. 標準探索方向
 
 ```text
-Origin / Evidence / Decision -> REQ -> UX -> IA -> UI / SPEC
-UI <-> SPEC Pair
-UI / SPEC -> Architecture -> Implementation -> Verification
-Implementation / Verification / Operation -> affected upstream Context
-Change Trace -> Phase Approval / Release / Roadmap
-Shared Element -> Consumer / Variant / Feature
+起点／根拠／判断 -> REQ -> UX -> IA -> UI／SPEC
+UIとSPECの対応関係
+UI / SPEC -> アーキテクチャ -> 実装 -> 検証
+実装／検証／運用 -> 影響を受ける上流コンテキスト
+変更トレース -> 工程承認／リリース／ロードマップ
+共有要素 -> 利用先／バリアント／機能
 ```
 
-矢印は固定工程順ではない。変更またはEvidenceが下流から発生した場合は逆方向へ確認する。Stable Context ID、Semantic Relation、Artifact Reference、Change Trace / Commit、Test Result、Owner情報を組み合わせて候補を探索する。
+矢印は固定工程順ではない。変更または根拠が下流から発生した場合は逆方向へ確認する。安定コンテキストID、意味的な関係、成果物参照、変更トレース／コミット、テスト結果、担当責任者情報を組み合わせて候補を探索する。
 
-## 6.2. Traversal Rules
+## 6.2. 探索規則
 
-1. Changed Entity / Relation / Artifactと変更前後のMeaningを特定する
-2. Direct Relationを上下流へたどる
-3. Shared Element、Consumer、Variant、Baselineへ横断する
-4. Relation欠落、古いRevision、未接続ArtifactをGap Candidateへ追加する
-5. Candidateごとに実影響とDispositionを判定する
+1. 変更された要素／関係／成果物と変更前後の意味を特定する
+2. 直接関係を上下流へたどる
+3. 共有要素、利用側、差分、基準版へ横断する
+4. 関係欠落、古い改訂版、未接続成果物を不足候補へ追加する
+5. 候補ごとに実影響と処置を判定する
 
-Relationがある対象をすべて変更せず、同じContract内で吸収できるか確認する。Relationがない場合も、Naming、Interface、Data、Runtime Evidence等から暗黙依存を調べる。
+関係がある対象をすべて変更せず、同じ契約内で吸収できるか確認する。関係がない場合も、命名、インターフェース、データ、実行環境の根拠等から暗黙依存を調べる。
 
-## 6.3. Phase-specific Audit Sources
+## 6.3. 工程固有の監査情報源
 
-本Auditは工程固有のCoverageや品質条件を再定義しない。対象Scopeに応じ、各正本の`Required Responsibility Coverage`、`Phase Gate Criteria`、`Phase Audit Checklist`を読み、Boundary間の意味を比較する。
+本監査は工程固有の網羅範囲や品質条件を再定義しない。対象範囲に応じ、各正本の「必要な責務の網羅」「工程判定基準」「工程監査チェックリスト」を読み、工程境界間の意味を比較する。
 
-| Boundary | Authoritative Audit Source |
+| 工程境界 | 正式な監査情報源 |
 |---|---|
-| Origin / Problem → UX | [Discovery](21_Discovery.md#phase-audit-checklist)、[UX](22_UX.md#phase-audit-checklist) |
+| 起点 / 課題 → UX | [課題探索・要求形成](21_Discovery.md#phase-audit-checklist)、[UX](22_UX.md#phase-audit-checklist) |
 | UX → IA | [UX](22_UX.md#phase-audit-checklist)、[IA](23_IA.md#phase-audit-checklist) |
 | IA → UI / SPEC | [IA](23_IA.md#phase-audit-checklist)、[UI](25_UI.md#phase-audit-checklist)、[SPEC](26_Behavior_Specification.md#phase-audit-checklist) |
-| UI ⇄ SPEC | [Pair Contract](24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
-| UI / SPEC → Architecture | [UI](25_UI.md#phase-audit-checklist)、[SPEC](26_Behavior_Specification.md#phase-audit-checklist)、[Architecture](27_Architecture.md#phase-audit-checklist) |
-| Architecture → Implementation | [Architecture](27_Architecture.md#phase-audit-checklist)、[Implementation](28_Implementation.md#phase-audit-checklist) |
-| Implementation → Verification | [Implementation](28_Implementation.md#phase-audit-checklist)、[Verification](29_Verification.md#phase-audit-checklist) |
-| Compatibility / Migration / Capacity | [SPEC](26_Behavior_Specification.md#phase-audit-checklist)、[Architecture](27_Architecture.md#phase-audit-checklist)、[Verification](29_Verification.md#phase-audit-checklist) |
-| Implementation / Evidence → Upstream | [Principles](01_Principles.md)、[Change](12_Change.md)、該当工程正本 |
+| UI ⇄ SPEC | [Pair契約](24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
+| UI / SPEC → アーキテクチャ | [UI](25_UI.md#phase-audit-checklist)、[SPEC](26_Behavior_Specification.md#phase-audit-checklist)、[アーキテクチャ](27_Architecture.md#phase-audit-checklist) |
+| アーキテクチャ → 実装 | [アーキテクチャ](27_Architecture.md#phase-audit-checklist)、[実装](28_Implementation.md#phase-audit-checklist) |
+| 実装 → 検証 | [実装](28_Implementation.md#phase-audit-checklist)、[検証](29_Verification.md#phase-audit-checklist) |
+| 互換性 / 移行 / 処理能力 | [SPEC](26_Behavior_Specification.md#phase-audit-checklist)、[アーキテクチャ](27_Architecture.md#phase-audit-checklist)、[検証](29_Verification.md#phase-audit-checklist) |
+| 実装 / 根拠 → 上流 | [原則](01_Principles.md)、[変更](12_Change.md)、該当工程正本 |
 
-Findingには使用した正本条件とRevisionを記録する。Phase Approvalは本Auditが行わず、Gap / Impact Resultを該当GateのInputとして返す。
+指摘事項には使用した正本条件と改訂版を記録する。工程承認は本監査が行わず、不足／影響の結果を該当判定の入力として返す。
 
 ---
 
-# 7. Evaluation
+# 7. 評価
 
-## 7.1. Disposition
+## 7.1. 処置
 
-| Disposition | Meaning | Authority Boundary |
+| 処置 | 意味 | 決定権限の境界 |
 |---|---|---|
-| `Update Required` | Context、Artifact、Contract、Test等の変更が必要 | 対象Property Authority |
-| `Review Required` | 専門Ownerの判断が必要 | 専門Owner / Human |
-| `No Impact` | 意味上の影響がない | 重要ScopeではHuman Review |
-| `Covered by Existing Contract` | 現行Contract内で成立する | Contract Authorityを確認 |
-| `Deferred` | 後続Change / Releaseへ送る | Priority / Release Authority |
-| `Accepted Risk` | Gapを理解して一時的に受容する | Human Authority必須 |
-| `Upstream Decision Required` | 下流では決められない | 上流Property Authority |
-| `Out of Scope` | 今回のScope外 | 追跡先とOwnerを判定 |
+| `Update Required` | コンテキスト、成果物、契約、テスト等の変更が必要 | 対象項目の決定権限 |
+| `Review Required` | 専門担当責任者の判断が必要 | 専門担当責任者／人間 |
+| `No Impact` | 意味上の影響がない | 重要対象範囲では人間によるレビュー |
+| `Covered by Existing Contract` | 現行契約内で成立する | 契約の決定権限を確認 |
+| `Deferred` | 後続変更 / リリースへ送る | 優先順位 / リリース決定権限 |
+| `Accepted Risk` | 不足を理解して一時的に受容する | 人間の決定権限必須 |
+| `Upstream Decision Required` | 下流では決められない | 上流項目の決定権限へ戻す |
+| `Out of Scope` | 今回の対象範囲外 | 追跡先と担当責任者を判定 |
 
-`No Impact`と`False Positive`を混同しない。No Impactは変更候補を評価した結果、False PositiveはGap / Impact Candidate自体が成立しなかった結果である。
+`No Impact`と`False Positive`を混同しない。影響なしは変更候補を評価した結果、偽肯定は不足／影響候補自体が成立しなかった結果である。
 
-## 7.2. Impact Level
+## 7.2. 影響レベル
 
-| Level | Meaning | Review Guidance |
+| レベル | 意味 | レビューの目安 |
 |---|---|---|
-| `L0 None` | 意味、Contract、Implementation、Verificationへ影響なし | 省略理由またはNo Impactを残す |
-| `L1 Local` | 単一Context / Artifact内 | 対象ArtifactとDirect Relation |
-| `L2 Cross-artifact` | 同一専門層または複数Artifact | 利用先、共通要素、関連Test |
-| `L3 Cross-layer` | 複数工程・Property | 上下流、Pair、Architecture、Verification |
-| `L4 Baseline / Release` | Baseline、共通Contract、複数Feature、Release | Approval、Variant、Migration、Release再評価 |
-| `L5 Critical` | Origin、Safety、Security、法令、不可逆Data、重大品質 | 作業停止を含むHuman Decisionと独立Review |
+| `L0 None` | 意味、契約、実装、検証へ影響なし | 省略理由または影響なしを残す |
+| `L1 Local` | 単一コンテキスト / 成果物内 | 対象成果物と直接関係 |
+| `L2 Cross-artifact` | 同一専門層または複数成果物 | 利用先、共通要素、関連テスト |
+| `L3 Cross-layer` | 複数工程・項目 | 上下流、対、アーキテクチャ、検証 |
+| `L4 Baseline / Release` | 基準版、共通契約、複数機能、リリース | 承認、差分、移行、リリース再評価 |
+| `L5 Critical` | 起点、安全性、セキュリティ、法令、不可逆データ、重大品質 | 作業停止を含む人間の判断と独立レビュー |
 
-Impact Levelは工数やFinding Severityと別の軸である。小さなCode変更でも、Authority、Safety、不可逆処理へ影響すれば高Levelになり得る。
+影響レベルは工数や指摘事項の重大度と別の軸である。小さなコード変更でも、決定権限、安全性、不可逆処理へ影響すれば高いレベルになり得る。
 
-## 7.3. Finding Lifecycle
+## 7.3. 指摘事項の状態遷移
 
-| Status | Meaning |
+| 状態 | 意味 |
 |---|---|
-| `Candidate` | 未確認のGap / Impact候補 |
-| `Under Review` | 実影響とAuthorityを確認中 |
-| `Confirmed` | GapまたはImpactとして確認済み |
-| `False Positive` | Candidateが成立しなかった |
-| `Routed` | Owner、Change Trace、Phase、Release等の対応先へ引き渡した |
+| `Candidate` | 未確認の不足／影響候補 |
+| `Under Review` | 実影響と決定権限を確認中 |
+| `Confirmed` | 不足または影響として確認済み |
+| `False Positive` | 候補が成立しなかった |
+| `Routed` | 担当責任者、変更トレース、工程、リリース等の対応先へ引き渡した |
 | `Resolved` | 必要な変更と再検証が完了した |
-| `Superseded` | 後続FindingまたはChangeに置換された |
+| `Superseded` | 後続指摘事項または変更に置換された |
 
-`Deferred`と`Accepted Risk`はFinding StatusではなくDispositionである。延期またはRisk受容後も、Findingの対象、Authority、追跡先、期限、再評価Triggerを保持する。
-
----
-
-# 8. Audit Procedure
-
-```text
-1. Trigger、Goal、Scope、Revision、Baselineを固定する
-2. Changed Meaningと変更していない保証範囲を特定する
-3. Applicable Phase SourcesとRelationを選ぶ
-4. 上下流、Shared、Variant、Release方向へCandidateを探索する
-5. CandidateをGap Type、Impact Dimension、Levelで分類する
-6. Actual Impact、Disposition、Authority、Ownerを判定する
-7. Required Update / Review / Verificationと再評価条件を定める
-8. Audit Status、Finding、No Impact、未探索Scopeを返す
-```
-
-Audit実行者は修正を同じAudit Pass内で行わない。Remediation後は、Target Revisionを更新し、Relation、Phase Gate、Verification、Learningへの反映を再監査する。
+`Deferred`と`Accepted Risk`は指摘事項の状態ではなく処置である。延期またはリスク受容後も、指摘事項の対象、決定権限、追跡先、期限、再評価契機を保持する。
 
 ---
 
-# 9. Change Trace, Phase, Release, and Roadmap Integration
-
-## 9.1. Change Trace
-
-非自明な変更では、Gap / Impact Resultを[`12_Change.md`](12_Change.md)のChange Traceへ接続する。
+# 8. 監査手順
 
 ```text
-Changed Context / Meaning
-Impact Candidate / Confirmed Impact
-No Impact / Existing Contract Decision
-Required Update / Review / Verification
-Deferred Scope / Accepted Risk
-Affected Phase / Approval / Release
-Owner / Revalidation / Closure Evidence
+1. 契機、目的、対象範囲、改訂版、基準版を固定する
+2. 変更した意味と、変更していない保証範囲を特定する
+3. 適用する工程の情報源と関係を選ぶ
+4. 上下流、共有要素、差分、リリース方向へ候補を探索する
+5. 候補を不足の種類、影響の次元、レベルで分類する
+6. 実際の影響、処置、決定権限、担当責任者を判定する
+7. 必要な更新／レビュー／検証と再評価条件を定める
+8. 監査状態、指摘事項、影響なしの判断、未探索の対象範囲を返す
 ```
 
-Auditが独立Reportを返しても、FindingのDispositionと実行結果はChange Traceまたは対象Canonical Artifactへ還元する。
-
-## 9.2. Phase Approval and Reopening
-
-次の場合は、対象Scope / Revisionについて過去のPhase Decisionを再評価する。
-
-- 承認済みContextのMeaningが変わった
-- UI / SPEC PairにConfirmed Gapがある
-- Architectureが上位Contractを満たせない
-- AcceptanceまたはVerification Scopeが変わった
-- 新Evidenceが重要Assumptionを反証した
-- BaselineまたはRelease Scopeへ波及した
-
-すべてのGapでPhaseをReopenしない。既存Exit / Gateと承認判断へ影響しない場合は、理由とAuthorityを残して維持できる。
-
-## 9.3. Discovery and Roadmap Boundary
-
-`01_Discovery`は顧客Feedback、法令変更、明確な仕様変更、不具合、曖昧な要求等を分類し、Requirementと判断を確定する正本領域である。Impact Auditは下流差分から新しいRequirementを創作せず、Sourceと判断が不足する場合はDiscoveryへ戻す。
-
-`99_Roadmap`は、採用済みだが今回実行しないDeferred Workを扱う。Priority、Target、Dependency、着手条件を保持する。
-
-Roadmap項目をRequirement、SPEC、Decisionの正本にしてはならない。
-
-Human AuthorityがRoadmap Routeを確定した場合は、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従ってItemを実際に登録または更新する。Recommendationだけでは、`Routed`または追跡済みと判定しない。
-
-```text
-Source / Evidence
--> DiscoveryでRequirementまたはChangeを判断
--> 今回実行するScopeはChange / Phaseへ
--> 採用済みDeferred WorkだけをRoadmapへ
--> 着手時にCanonical Contextと現行Impactを再確認
-```
-
-`Out of Scope`や`Deferred`を追跡先なしでRoadmapへ送らない。Owner、理由、Source Context、再評価Triggerを持たせる。
-
-## 9.4. Closure
-
-ChangeまたはFindingをCloseする前に、次を確認する。
-
-- 必要な正本とRelationが更新されている
-- 適用されるImplementation / Verificationが更新されている
-- 非適用理由、Fresh Evidence、Deferred Scope、Accepted Risk、Learningを追跡できる
-
-Roadmap Detail Fileを使用したScopeでは、次も確認する。
-
-- Detail固有情報を責務正本へ反映した
-- Main Viewへ結果参照または非適用理由を戻した
-- Detail Fileを削除した
-
-Merge、Build、Ticket完了だけをClosure Evidenceにしてはならない。
+監査実行者は修正を同じ監査実行内で行わない。是正後は、対象改訂版を更新し、関係、工程ゲート、検証、学習への反映を再監査する。
 
 ---
 
-# 10. Legacy / Brownfield
+# 9. 変更トレース・工程・リリース・ロードマップとの統合
 
-Legacyでは次を分離する。
+## 9.1. 変更トレース
+
+非自明な変更では、不足／影響結果を[`12_Change.md`](12_Change.md)の変更トレースへ接続する。
 
 ```text
-Documented Behavior
-Implemented Behavior
-Observed Runtime Behavior
-Operational Practice
-Expected Behavior Candidate
-Recovered Intent Candidate
+変更したコンテキスト／意味
+影響候補／確認済みの影響
+影響なし／既存契約で扱えるという判断
+必要な更新／レビュー／検証
+延期した対象範囲／受容済みリスク
+影響を受ける工程／承認／リリース
+担当責任者／再検証／完了根拠
 ```
 
-現在動くCodeや古い文書を自動的に正本としない。差異をObservation、Candidate、Confirmed Contract、Bug、Debt、Unknownへ分類し、Source、Confidence、Compatibility、Human Decisionを保持する。
+監査が独立した監査報告を返しても、指摘事項の処置と実行結果は変更トレースまたは対象正本成果物へ還元する。
 
-すべてのGapを一度に解消せず、Safety / Security / Data Risk、重大不具合、変更予定Scope、Shared Service、運用依存、将来変更を妨げるBoundaryを優先する。未解消GapはOwnerと追跡先を持つDeferred ScopeまたはDebtとする。
+## 9.2. 工程承認と再開
+
+次の場合は、対象範囲 / 改訂版について過去の工程判断を再評価する。
+
+- 承認済みコンテキストの意味が変わった
+- UI／SPECの対に確認済みの不足がある
+- アーキテクチャが上位契約を満たせない
+- 受入条件または検証対象範囲が変わった
+- 新根拠が重要仮定を反証した
+- 基準版またはリリース対象範囲へ波及した
+
+すべての不足で工程を再開しない。既存出口 / ゲートと承認判断へ影響しない場合は、理由と決定権限を残して維持できる。
+
+## 9.3. 課題探索・要求形成とロードマップの境界
+
+`01_Discovery`は顧客フィードバック、法令変更、明確な仕様変更、不具合、曖昧な要求等を分類し、要求と判断を確定する正本領域である。影響監査は下流差分から新しい要求を創作せず、情報源と判断が不足する場合は課題探索・要求形成へ戻す。
+
+`99_Roadmap`は、採用済みだが今回は実行しない作業を扱う。優先順位、対象、依存関係、着手条件を保持する。
+
+ロードマップ項目を要求、SPEC、判断の正本にしてはならない。
+
+人間の決定権限がロードマップへの経路を確定した場合は、[Roadmap項目契約](21_Discovery.md#63-roadmap-item-contract)に従って項目を実際に登録または更新する。推奨だけでは、`Routed`または追跡済みと判定しない。
+
+```text
+情報源／根拠
+-> 課題探索・要求形成で要求または変更を判断
+-> 今回実行する対象範囲は変更トレース／工程へ
+-> 採用済みで延期した作業だけをロードマップへ
+-> 着手時に正本コンテキストと現在の影響を再確認
+```
+
+`Out of Scope`や`Deferred`を追跡先なしでロードマップへ送らない。担当責任者、理由、情報源コンテキスト、再評価契機を持たせる。
+
+## 9.4. 完了処理
+
+変更または指摘事項を終了する前に、次を確認する。
+
+- 必要な正本と関係が更新されている
+- 適用される実装／検証が更新されている
+- 非適用理由、新しい根拠、延期した対象範囲、受容済みリスク、学習を追跡できる
+
+ロードマップの詳細ファイルを使用した対象範囲では、次も確認する。
+
+- 詳細固有情報を責務正本へ反映した
+- 主要表示へ結果参照または非適用理由を戻した
+- 詳細ファイルを削除した
+
+統合、ビルド、チケット完了だけを完了根拠にしてはならない。
 
 ---
 
-# 11. Compact Operation
+# 10. 既存系／既存システムへの適用
 
-小規模変更では独立Reportを作らず、Change Trace、Issue、Pull Request等の既存Artifactへ次を残してよい。
+既存系では次を分離する。
 
 ```text
-Changed Context / Revision
-Reviewed Relations / Scope
-Impact / No Impact and Rationale
-Action / Review / Verification Handoff
-Unresolved Gap / Owner
-Evidence / Re-audit Result
+文書化された振る舞い
+実装された振る舞い
+実行時に観察された振る舞い
+運用上の慣行
+期待される振る舞いの候補
+復元した意図の候補
 ```
 
-Artifactを短くすることは、Trace、Authority、未解決事項を省略することではない。`40_Develop`へCRDD管理用Markdownを新設しない。
+現在動くコードや古い文書を自動的に正本としない。差異を観察、候補、確認済みの契約、不具合、技術的負債、不明へ分類し、情報源、確信度、互換性、人間の判断を保持する。
+
+すべての不足を一度に解消せず、安全性／セキュリティ／データのリスク、重大不具合、変更予定対象範囲、共有サービス、運用依存、将来変更を妨げる境界を優先する。未解消の不足は、担当責任者と追跡先を持つ延期対象または技術的負債とする。
 
 ---
 
-# 12. Anti-patterns
+# 11. 軽量運用
 
-| Anti-pattern | Problem |
+小規模変更では独立した監査報告を作らず、変更トレース、Issue、プルリクエスト等の既存成果物へ次を残してよい。
+
+```text
+変更したコンテキスト／改訂版
+レビューした関係／対象範囲
+影響／影響なしと判断理由
+操作／レビュー／検証の引き渡し
+未解決事項／担当責任者
+根拠／再監査結果
+```
+
+成果物を短くすることは、トレース、決定権限、未解決事項を省略することではない。`40_Develop`へCRDD管理用Markdownを新設しない。
+
+---
+
+# 12. 避けるべき運用
+
+| アンチパターン | 問題 |
 |---|---|
-| Changed File List Only | File差分と意味的Impact Scopeを同一視する |
-| Relation Equals Impact | Relation先をすべて変更対象とする |
-| No Relation Equals No Impact | Relation欠落の可能性を無視する |
-| Update Everything | Riskに関係なく全Artifactを同期し、運用を形骸化させる |
-| Fix Downstream Silently | 実装都合で上位Contractを無言変更する |
-| Pass Means Aligned | 古いAcceptanceや限定ScopeのTest Passを全体整合とみなす |
-| Ignore No-impact Decision | 同じ調査を繰り返し、判断理由を失う |
-| Hide Deferred Gap | Owner・追跡先なしでChangeをCloseする |
+| 変更ファイル一覧だけを見る | ファイル差分と意味的な影響範囲を同一視する |
+| 関係と影響を同一視する | 関係先をすべて変更対象とする |
+| 関係がなければ影響なしとみなす | 関係欠落の可能性を無視する |
+| すべてを更新する | リスクに関係なく全成果物を同期し、運用を形骸化させる |
+| 下流だけを黙って修正する | 実装都合で上位契約を無言変更する |
+| 合格なら整合済みとみなす | 古い受入条件や限定範囲のテスト合格を全体整合とみなす |
+| 影響なしの判断を記録しない | 同じ調査を繰り返し、影響なしの判断理由を失う |
+| 延期した不足を隠す | 担当責任者・追跡先なしで変更を終了する |
 
 ---
 
-# 13. Audit Completion and Gap Closure
+# 13. 監査完了と不足の解消
 
-## 13.1. Audit Run Completion
+## 13.1. 監査実行の完了
 
-次を満たしたとき、Gap / Impact Audit Runを完了できる。
+次を満たしたとき、不足／影響監査実行を完了できる。
 
-- Trigger、Scope、Revision、Baseline、適用Sourceが特定されている
-- 探索したRelationと未探索Scopeが明示されている
-- CandidateにResult、Disposition Candidate、`Not Evaluated`、またはBlocking理由がある
-- Confirmed FindingにImpact、Authority、Owner、Required Actionがある
-- No Impact / CoveredにRationaleがある
-- Deferred / Accepted Riskに追跡先とHuman Authorityがある
-- Revalidation、Recommended Handoff、Audit Statusが示されている
-- Triggered Propagation Checkでは、対応する上流・同層Candidate、Canonical Artifactへの反映、上流更新後の下流再探索、または明示された`propagation_exception`を示している
+- 契機、対象範囲、改訂版、基準版、適用情報源が特定されている
+- 探索した関係と未探索対象範囲が明示されている
+- 候補に結果、処置候補、`Not Evaluated`、または阻害理由がある
+- 確認済みの指摘事項に影響、決定権限、担当責任者、必要な操作がある
+- `No Impact`／`Covered by Existing Contract`に判断理由がある
+- `Deferred`／`Accepted Risk`に追跡先と人間の決定権限がある
+- 再検証、推奨する引き渡し、監査状態が示されている
+- 変更影響の伝播確認では、対応する上流・同層候補、正本成果物への反映、上流更新後の下流再探索、または明示された`propagation_exception`を示している
 
-Confirmed Gapや未完了Remediationがあっても、必要なFindingを返せばAudit Runは完了できる。
+確認済みの不足や未完了の是正があっても、必要な指摘事項を返せば監査実行は完了できる。
 
-## 13.2. Finding / Change Trace Closure
+## 13.2. 指摘事項／変更トレースの完了
 
-FindingまたはChangeを`Resolved` / Closedにするには、適用範囲で次を満たす。
+指摘事項または変更を`Resolved` / 終了済みにするには、適用範囲で次を満たす。
 
-- 必要なCanonical Context、Contract、Artifact、Relationが更新されている
-- 必要なPhase Decision、Handoff、Release Scopeが再評価されている
-- ImplementationとVerificationが現行Revisionへ対応している
-- Fresh Evidenceで解消状態を確認している
-- Deferred Scope、Accepted Risk、Unresolved Gapが追跡可能である
-- Learningを該当Canonical Contextへ戻している
-- Triggered Propagation Checkの未処理Candidateがなく、修正後Revisionの再監査結果を辿れる
+- 必要な正本コンテキスト、契約、成果物、関係が更新されている
+- 必要な工程判断、引き渡し、リリース対象範囲が再評価されている
+- 実装と検証が現行改訂版へ対応している
+- 新しい根拠で解消状態を確認している
+- 延期した対象範囲、受容済みリスク、未解決事項が追跡可能である
+- 学びを該当正本コンテキストへ戻している
+- 変更影響の伝播確認の未処理候補がなく、修正後改訂版の再監査結果を辿れる
 
-完全なGapゼロを常に要求しない。残っている未解決事項（Unresolved Gap）、Risk、不確実性にScope、Owner、Authority、期限または再評価Triggerが必要である。
+完全な不足ゼロを常に要求しない。残っている未解決事項（Unresolved Gap）、リスク、不確実性に対象範囲、担当責任者、決定権限、期限または再評価契機が必要である。
 
 ---
 
-# 14. Audit Execution and Delegation
+# 14. 監査実行と委譲
 
-Skill Runとして実行する場合は[`11_Skill.md`](11_Skill.md)、Agent / Subagentへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従う。本書独自のAgent Lifecycleを作らない。
+スキル実行として扱う場合は[`11_Skill.md`](11_Skill.md)、エージェント／サブエージェントへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従う。本書独自のエージェント状態遷移を作らない。
 
-Subagentとして実行する標準Agent IDは`agent.gap_impact.audit`とする。Parent AgentはDelegation Contractへ次を指定する。
+サブエージェントとして実行する標準エージェントIDは`agent.gap_impact.audit`とする。親エージェントは委譲契約へ次を指定する。
 
-- Trigger、Scope、Target Revision / Baseline
-- 探索するRelation方向と送信 / 受信工程
-- Known Decision / Evidence / GapとApplicable Standards
-- Expected Output、Read-onlyであること、Return先
+- 契機、対象範囲、対象改訂版 / 基準版
+- 探索する関係方向と送信 / 受信工程
+- 既知の判断／根拠／不足と適用する基準
+- 期待する出力、読取り専用であること、返却先
 
-Subagentは本書のGap / Impact Audit Reportを返す。Canonical Artifact、Finding Disposition、Phase Decisionは変更しない。
+サブエージェントは本書の不足／影響監査報告を返す。正本成果物、指摘事項の処置、工程判断は変更しない。
 
 ```text
-Load Change Trace / Scope / Revision
-Identify Changed Meaning and Relations
-Traverse Candidates
-Evaluate Gap / Impact / Disposition
-Return Finding / Authority / Revalidation
-Remediate outside Audit Run if authorized
-Re-audit affected Scope
+変更トレース／対象範囲／改訂版を読み込む
+変更した意味と関係を特定する
+候補を探索する
+不足／影響／処置を評価する
+指摘事項／決定権限／再検証を返す
+許可がある場合は監査実行の外で是正する
+影響範囲を再監査する
 ```
 
-Parent Agentは、SubagentごとにScope、Relation方向、使用する正本、Expected Outputを指定する。返された重複Candidate、Conflict、Impact Level、AuthorityはParent Agentが統合する。
+親エージェントは、サブエージェントごとに対象範囲、関係方向、使用する正本、期待する出力を指定する。返された重複候補、競合、影響レベル、決定権限は親エージェントが統合する。
 
-Remediation後は、変更後Revisionと影響Relationを再監査する。
+是正後は、変更後改訂版と影響関係を再監査する。
 
-次の事実だけから、Gap解消、`No Impact`、Risk受容、Phase Transition Reviewの`Pass`、Phase / Release判断を推定してはならない。
+次の事実だけから、不足解消、`No Impact`、リスク受容、工程移行レビューの`Pass`、工程／リリース判断を推定してはならない。
 
-- Subagent Resultが返った
-- Audit Runが完了した
-- FindingへOwnerが付与された
+- サブエージェントの結果が返った
+- 監査実行が完了した
+- 指摘事項へ担当責任者が付与された
 
 ---
 
-# 15. Final Principle
+# 15. 最終原則
 
-Gap / Impact Auditは、変更されたファイルではなく、変更後もContextの意味が上下流・横断方向へ接続されているかを確認する。
+不足／影響監査は、変更されたファイルではなく、変更後もコンテキストの意味が上下流・横断方向へ接続されているかを確認する。
 
-Relationで候補を広く見つけ、AuthorityとEvidenceで実影響を絞り、必要な範囲だけを再設計・再承認・再検証する。
+関係で候補を広く見つけ、決定権限と根拠で実影響を絞り、必要な範囲だけを再設計・再承認・再検証する。

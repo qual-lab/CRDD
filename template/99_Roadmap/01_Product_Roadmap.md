@@ -1,71 +1,71 @@
-# Product Roadmap
+# プロダクトロードマップ（Product Roadmap）
 
-Authority: `00_CRDD/21_Discovery.md` Section 6, `01_Discovery` and `99_Roadmap`
+決定権限: `00_CRDD/21_Discovery.md` 節 6, `01_Discovery` と `99_Roadmap`
 
-本書はProject固有のRoadmap Main Viewであり、CRDD規範の正本ではない。Item Contract、Authority、Lifecycle、Main / Detail、着手、完了、Cleanupは上記正本に従う。
+本書はプロジェクト固有のロードマップ主要表示であり、CRDD規範の正本ではない。項目契約、決定権限、状態遷移、主要 / 詳細、着手、完了、整理は上記正本に従う。
 
-## Roadmap Authority and Review
+## ロードマップの決定権限とレビュー
 
-Owner / Roadmap Authority:
+担当責任者／ロードマップの決定権限:
 
-Review Cadence or Workflow:
+レビュー周期または作業手順:
 
-Project-defined Review Targets / Re-evaluation Triggers:
+プロジェクト固有のレビュー対象 / 再評価契機:
 
 ```text
-Adopted + Deferred
+採用済み + 延期
         ↓
-Roadmap Main View ──→ Detail File（必要時のみ）
+ロードマップ主要表示 ──→ 詳細ファイル（必要時のみ）
         ↓
-Start Condition / Re-evaluation Trigger
+開始条件 / 再評価契機
         ↓
-Human Start Review
-  ├─ Re-defer / Cancel
-  └─ Start → CHG-* → 必要な工程 → Verification
+人間開始レビュー
+  ├─ 再延期 / 取消
+  └─ 開始 → CHG-* → 必要な工程 → 検証
                               ↓
                   正本と適用される結果へ反映
                               ↓
-                    Main ViewをCompletedへ更新
+                    主要表示を完了へ更新
                               ↓
-                  Detail Fileを使用した場合は削除
+                  詳細ファイルを使用した場合は削除
 ```
 
 ---
 
-## Roadmap Items
+## ロードマップ項目
 
-以下のBlockをItemごとに複製し、Placeholderを実際の値へ置き換える。空のPlaceholderをRoadmap Itemとして数えない。
+以下の区画を項目ごとに複製し、仮置きを実際の値へ置き換える。空の仮置きをロードマップ項目として数えない。
 
-### Topic Title
+### トピック名 / 成果物参照
 
-Status: Deferred
+状態（Status）: `Deferred`
 
-Source REQ / Context:
+情報源となるREQ / コンテキスト:
 
-Adopted Outcome / Preserved Intent:
+採用した成果 / 保持する意図:
 
-Reason for Deferral:
+延期理由:
 
-Priority / Target:
+優先度 / 対象時期:
 
-Dependency:
+依存関係:
 
-Owner / Roadmap Authority:
+担当責任者／ロードマップの決定権限:
 
-Start Condition:
+開始条件:
 
-Review Date or Re-evaluation Trigger:
+レビュー日または再評価契機:
 
-Known Risk / Unresolved Gap:
+既知のリスク / 未解決事項:
 
-Human Decision / Rationale Reference:
+人間による判断 / 判断理由の参照:
 
-Detail Reference, if needed:
+詳細参照（必要な場合）:
 
-Started CHG Reference:
+開始したCHGの参照:
 
-Result / Canonical Artifact / Verification Reference:
+結果 / 正本成果物 / 検証の参照:
 
-Not Applicable Reason, if any:
+非適用理由（該当する場合）:
 
-Notes:
+注記:

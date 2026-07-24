@@ -1,10 +1,10 @@
-# CRDD Behavior Specification
+# CRDD振る舞い仕様（Behavior Specification）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.spec.behavior`
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -25,28 +25,28 @@ Related:
 
 > この文書で分かること（非規範の案内）
 >
-> - 条件、Trigger、StateごとのSystem Behaviorをどう定めるか
+> - 条件、契機、システム状態ごとのシステムの振る舞いをどう定めるか
 > - 例外、失敗、回復、権限、設定をどう仕様化するか
 > - UIとの対応と責務境界
-> - 実装・検証可能なAcceptanceをどう作るか
-> - Architectureへ渡す前に何を確認するか
+> - 実装・検証可能な受入条件をどう作るか
+> - アーキテクチャへ渡す前に何を確認するか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-Behavior Specificationは、Requirement、UX / IA Intent、Feature、Use Case、User Action、Business Ruleを、検証可能なCondition、State、System Behavior、Result、Exception、Acceptanceへ変換する工程である。
+振る舞い仕様は、要求、UX / IAの意図、機能、ユースケース、利用者操作、業務規則を、検証可能な条件、システム状態、システムの振る舞い、結果、例外、受入条件へ変換する工程である。
 
 ```text
 どの条件で
-誰または何が、どのAuthorityにより
+誰または何が、どの決定権限により
 どの状態から何を行い
 何が変わり、何が返り
 失敗、競合、取消、回復時にどうなり
 何をもって成立と判断するか
 ```
 
-Behavior SpecificationはRequirement、UX Outcome、UI表現、Architecture方式、Codeの代替ではない。UXやDesign IntentをEARSへ機械変換したり、現行実装を正しい仕様として採用したり、AIがBusiness Ruleを創作したりしない。
+振る舞い仕様は要求、UX成果、UI表現、アーキテクチャ方式、コードの代替ではない。UXや設計意図をEARSへ機械変換したり、現行実装を正しい仕様として採用したり、AIが業務規則を創作したりしない。
 
 ---
 
@@ -54,378 +54,385 @@ Behavior SpecificationはRequirement、UX Outcome、UI表現、Architecture方�
 
 # 工程実行契約（Phase Process Contract）
 
-本章はBehavior Specification工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本ContractをArtifact構造とSkill実行へ具体化し、独自の完了条件を持たない。Artifactの統合・分割・配置は[`03_Documentation.md`](03_Documentation.md)に従う。
+本章は振る舞い仕様工程の入口、変換、責務網羅範囲、出口、工程ゲート、監査の正本である。本章の規範性と運用規模は[文書化](03_Documentation.md#48-normative-language)に従う。後続章は本契約を成果物構造とスキル実行へ具体化し、独自の完了条件を持たない。成果物の統合・分割・配置は同書に従う。
 
 <a id="phase-entry-contract"></a>
 
 ## 工程入口契約（Phase Entry Contract）
 
-Behavior Specificationは対象Scopeについて、次を受け取る。
+振る舞い仕様は対象範囲について、次を受け取る。
 
-- Source REQ / UX / IA、Preserved Intent、Non-goal、Verification Obligation
-- Feature / Use Case / User Action、Pairing Unit Candidate
-- Actor / Authority、IA Object / Relation / Lifecycle / State Concept
-- Configuration Candidate / Model、Owner / Authority、適用Scope、Inheritance / Override
-- Behavior Obligation、Business RuleまたはそのAuthority
-- 対応UI Contract Candidate、Consumer / Operational Feedback Candidate
-- 適用するAccessibility Profileと代替操作Obligation
-- 適用するQuality Concern Profile、Quality、Compatibility、Capacity、Privacy、Cost等のConstraint
-- IA Coverage Summary、Unresolved Gap、Human Review Result
-- IA → Behavior Specification Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
-- IA / SPECで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
-- Existing Behavior / Code / Documentと、そのAuthority / Revision
+- 情報源となるREQ / UX / IA、保持する意図、目指さないこと、検証義務
+- 機能 / ユースケース / 利用者操作、対応単位候補
+- アクター / 決定権限、IAオブジェクト / 関係 / 状態遷移 / 状態概念
+- 構成候補 / モデル、担当責任者 / 決定権限、適用対象範囲、継承 / 上書き
+- 振る舞い上の義務、業務規則またはその決定権限
+- 対応するUI契約候補、利用側 / 運用フィードバック候補
+- 適用するアクセシビリティプロファイルと代替操作義務
+- 適用する品質懸念プロファイル、品質、互換性、処理能力、プライバシー、コスト等の制約
+- IAの網羅範囲の要約、未解決事項、人間による判断結果
+- IA → 振る舞い仕様工程移行レビュー結果、レビュー済み改訂版、または明示された`review_exception`
+- IA／SPECで発火した変更影響の伝播確認結果、情報源の改訂版、または明示された`propagation_exception`
+- 既存の振る舞い / コード / 文書と、その決定権限 / 改訂版
 
-通常は[IAのExit and Handoff](23_IA.md#exit-and-handoff)から受け取り、UIと並行・反復して具体化する。Source Requirement、Behavior Obligation、Actor / Authority、対象Scope、人間Reviewが不足する場合はDiscovery、IA、Human Decisionへ戻す。IAが`Partial — Human Authorized`の場合は、承認されたScopeだけを扱い、未網羅項目、Risk、後続Ownerを引き継ぐ。
+通常は[IAの完了条件と引き渡し](23_IA.md#exit-and-handoff)から受け取り、UIと並行・反復して具体化する。情報源となる要求、振る舞いの義務、アクター／決定権限、対象範囲、人間レビューが不足する場合は課題探索・要求形成、IA、人間による判断へ戻す。IAが`Partial — Human Authorized`の場合は、承認された対象範囲だけを扱い、未網羅項目、リスク、後続担当責任者を引き継ぐ。
 
 <a id="transformation-contract"></a>
 
 ## 変換契約（Transformation Contract）
 
-Behavior Obligation、Verification Obligation、Quality Concern、Configuration Candidateを、検証可能な振る舞いへ変換する。必要に応じて次を定義する。
+振る舞い上の義務、検証上の義務、品質上の懸念、構成候補、UIから受け取るUIテーマ（UI Theme）／操作パターン（Interaction Pattern）／UI部品状態（UI Component State）の義務を、検証可能な振る舞いへ変換する。必要に応じて次を定義する。
 
-- Actor / Authority、Trigger、Precondition
-- Input / Validation、Option / Default / Effective Value
-- State、Behavior、Output / State Transition
-- Failure / Exception、Permission、Idempotency
-- Cancel / Undo / Retry、External Dependency
-- Consumer Compatibility、Capacity / Quality Behavior
-- Acceptance Criteria
+- アクター / 決定権限、契機、事前条件
+- 入力 / 妥当性確認、選択肢 / 既定値 / 実効値
+- システム状態、振る舞い、出力 / 状態遷移
+- 失敗 / 例外、権限、冪等性
+- 取消 / 元に戻す / 再試行、外部依存関係
+- 利用側互換性、処理能力 / 品質に関する振る舞い
+- 受入基準
 
-SPECはConsumerまたは利用者から観測可能な契約を定義し、Component構成、Server台数、Queue Size、Autoscaling、DB Connection、Cache、Provider選択等の成立方式を決めない。
+SPECは利用側または利用者から観測可能な契約を定義し、実行時部品構成、サーバー台数、キュー規模、自動スケーリング、DB接続、キャッシュ、提供側選択等の成立方式を決めない。
 
 <a id="required-responsibility-coverage"></a>
 
 ## 必要な責務の網羅（Required Responsibility Coverage）
 
-対象Scopeの各REQ、Use Case、User Action、Behavior Obligationについて、次を網羅する。
+対象範囲の各REQ、ユースケース、利用者操作、振る舞い上の義務について、次を網羅する。
 
 | 責務 | 必要なコンテキスト |
 |---|---|
-| Source and Scope | Source REQ / UX / IA、Purpose、Preserved Intent、Non-goal、Verification Obligation、Revision、Relation |
-| Actor and Entry | Actor / Authority、Trigger、Precondition、Feature Flag、Input / Validation |
-| State and Success | Current State、Behavior、Output、State Transition、Side Effect、Success Condition |
-| Failure and Recovery | Validation、Permission、Conflict、Timeout、Dependency Failure、Fallback、Retry、Recovery、入力保持、代替操作からの同等Result |
-| Integrity and Control | Idempotency、Concurrency、Duplicate、Cancel、Undo、Rollback / Compensation、Audit |
-| External Dependency | Consumer、Provider、Unavailable / Partial / Degraded Behavior、Observable Result |
-| Compatibility | Consumer Contract、Version、Breaking / Non-breaking、Deprecation、Migration-period Behavior |
-| Capacity and Quality | 適用するQuality Concern、Response / Completion Condition、Rate Limit、Queue / Reject / Throttle / Degrade、Quality Condition |
-| AI / Data / External Action | Consent State、Input Scope、Inference / Provenance、Human Approval、Privacy / Retention、Cost Guardrail、Action Limit |
-| Configuration and Policy | Allowed Option / Range、Default Source、Effective Value、Scope、Inheritance / Override、Permission、Validation、Apply Timing、Side Effect、Reset / Rollback、Failure / Recovery、Audit |
-| Acceptance and Trace | Acceptance Criteria、Environment / Variant、Test / Evidence Candidate、UI / Consumer Pair、Coverage / Unresolved Gap |
+| 情報源と対象範囲 | 情報源となるREQ / UX / IA、目的、保持する意図、目指さないこと、検証義務、改訂版、関係 |
+| アクターと入口 | アクター / 決定権限、契機、事前条件、機能フラグ、入力 / 妥当性確認 |
+| システム状態と成功 | 現在のシステム状態、振る舞い、出力、状態遷移、副作用、成功条件 |
+| 失敗と回復 | 妥当性確認、権限、競合、タイムアウト、依存関係の失敗、代替動作、再試行、回復、入力保持、代替操作からの同等結果 |
+| 完全性と制御 | 冪等性、並行処理、重複、取消、元に戻す、ロールバック / 補償、監査 |
+| 外部依存関係 | 利用側、提供側、利用不可 / 一部完了 / 縮退時の振る舞い、観察可能な結果 |
+| 互換性 | 利用側契約、バージョン、破壊的 / 非破壊、廃止、移行期間の振る舞い |
+| 処理能力と品質 | 適用する品質上の懸念、応答 / 完了条件、レート制限、キュー / 拒否 / 流量制限 / 縮退、品質条件 |
+| AI / データ / 外部操作 | 同意に関するシステム状態、入力対象範囲、推論 / 来歴、人間の承認、プライバシー / 保持期間、コスト保護策、操作上限 |
+| 構成と方針 | 許可された選択肢 / 範囲、既定値の情報源、実効値、対象範囲、継承 / 上書き、権限、妥当性確認、適用時点、副作用、リセット / ロールバック、失敗 / 回復、監査。UIテーマを選択・自動適用する場合は優先順位、永続化、未対応の組み合わせ、代替動作とUIテーマとの対 |
+| 受入条件とトレース | 受入基準、環境差分、テスト／根拠候補、UI／利用側対、網羅範囲／未解決事項 |
 
-すべての責務を全Behaviorへ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。
+すべての責務を全振る舞いへ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。
 
 <a id="scope-and-coverage-state"></a>
 
 ## 対象範囲と網羅状態（Scope and Coverage State）
 
-各REQ / Use Case / User Action / Behavior Obligationと各SPEC責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
+各REQ / ユースケース / 利用者操作 / 振る舞い上の義務と各SPEC責務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
 
-一つのHappy Path、EARS文、State Diagram、API定義、既存Code、または対応UIの完成を、対象Scope全体のBehavior Specification完了と表現してはならない。
+一つの正常パス、EARS文、システム状態図、API定義、既存コード、または対応UIの完成を、対象範囲全体の振る舞い仕様完了と表現してはならない。
 
 <a id="human-decisions"></a>
 
 ## 人間による判断（Human Decisions）
 
-人間は次を決定する。
+各項目について、その人間の決定権限者が次を決定する。
 
-- Business Rule、Actor / Authority、Permission
-- ConfigurationのDefault / Policy / Override
-- Risk Acceptance、不可逆処理、Fallback
-- Compatibility破壊とCost / Quality Trade-off
-- `Not Applicable`と部分Handoff
+- 業務規則、アクター／決定権限、操作権限
+- 構成の既定値 / 方針 / 上書き
+- リスク受容、不可逆処理、代替動作
+- 互換性破壊とコスト / 品質トレードオフ
+- `Not Applicable`と部分引き渡し
 
-AIは候補、Gap、Conflict、Acceptance案を提示できる。ただし、未決Rule、Default、Policy、Authorityを推測で確定しない。
+AIは候補、不足、競合、受入条件案を提示できる。ただし、未決規則、既定値、方針、決定権限を推測で確定しない。
 
-人間による判断、制約、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
+対象項目の人間の決定権限者による判断、制約、学び、根拠、指摘事項を確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層コンテキストと下流への影響を更新・再監査するまで通常完了としない。
 
 <a id="exit-and-handoff"></a>
 
 ## 完了条件と引渡し（Exit and Handoff）
 
-通常Handoff候補を人間のGateへ提示する前に、次を行う。
+通常引き渡し候補を人間のゲートへ提示する前に、次を行う。
 
-1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
-2. 移行に影響するFindingをBehavior Specificationまたは責務を持つ工程で修正する。
-3. 修正後Revisionを再Reviewし、`Pass`を得る。
+1. 対象範囲／改訂版へ[独立した工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響する指摘事項を振る舞い仕様または責務を持つ工程で修正する。
+3. 修正後改訂版を再レビューし、`Pass`を得る。
+4. 対象内容と工程移行の人間の決定権限者が、内容とレビュー結果を確認して移行を決定する。
 
-Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+レビューの省略または未解消の指摘事項を伴う移行は、[人間が指示するレビュー例外](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常経路と区別して扱う。
 
-UIとBehavior Specificationは並行・反復して具体化してよい。UIからBehavior Gapを、SPECからFeedback / Recovery Gapを発見できるが、片側の進捗を他方またはPair Reviewの完了とみなさない。
+UIと振る舞い仕様は並行・反復して具体化してよい。UIから振る舞いの不足を、SPECからフィードバック / 回復の不足を発見できるが、片側の進捗を他方または対応レビューの完了とみなさない。
 
-通常のArchitecture Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、UIがあるScopeでは[Pair Review](24_UI_Behavior_Specification.md#26-exit-and-pair-gate)を完了し、検証可能なAcceptanceを持ち、[Architecture Phase Entry Contract](27_Architecture.md#phase-entry-contract)を満たす場合に限る。
+通常のアーキテクチャへの引き渡しは、対象範囲が`Complete for Scope`で、対象内容とアーキテクチャへの移行を人間の決定権限者が承認し、UIがある対象範囲では[対応レビュー](24_UI_Behavior_Specification.md#26-exit-and-pair-gate)を完了し、検証可能な受入条件を持ち、[アーキテクチャ工程の入口契約](27_Architecture.md#phase-entry-contract)を満たす場合に限る。
 
-直接UIがない場合は、Consumer ContractまたはOperational Feedbackとの対応と、[Pair例外](24_UI_Behavior_Specification.md#52-behavior-without-direct-ui)の人間確認を示す。部分Handoffには、対象Scope、未定義Behavior / Exception / Acceptance、Pair Gap、Risk、受信先、後続Ownerの人間承認を必要とする。
+直接UIがない場合は、利用側契約または運用フィードバックとの対応と、[直接UIがない場合の例外](24_UI_Behavior_Specification.md#52-behavior-without-direct-ui)の人間確認を示す。部分引き渡しには、対象範囲、未定義振る舞い / 例外 / 受入条件、UIとの対応不足、リスク、受信先、後続担当責任者の人間承認を必要とする。
 
 <a id="phase-gate-criteria"></a>
 
 ## 工程移行の判定基準（Phase Gate Criteria）
 
-- Source REQ / UX / IA、対象Use Case / User ActionへTraceできる
-- Source RequirementのVerification Obligationと適用Quality Concernを、観測可能なBehavior、Quality Condition、Acceptanceへ処置している
-- 全Behavior ObligationとRequired Responsibility Coverageを対象Scopeで判定している
-- Actor / Authority、Trigger、Precondition、State、Behavior、Result、重要Failure / Exceptionが観察・検証可能である
-- Permission、Idempotency、Cancel / Undo / Retry、Dependency、Recoveryを適用範囲で判定している
-- Accessibility ProfileまたはUI Contractが代替操作を要求する場合、入力方式に依存しないTrigger、同等Result、Failure / Recovery、時間制限、入力保持を定義している
-- Configuration CandidateのOption / Range、Default Source、Effective Value、Scope、Inheritance / Override、Permission、変更効果、Reset / Recoveryを定義している
-- Consumer Compatibility、Capacity / Quality Behavior、Migration-period Behaviorを必要範囲で定義している
-- AI / Personal Data ScopeではConsent、Inference / Provenance、External Action Authority、Privacy / Retention、Cost Guardrailが観測可能なBehaviorである
-- UI ContractまたはConsumer / Operational Contractと整合している
-- Acceptance CriteriaとEvidence取得方法を定義している
-- Coverage Gap、`Not Applicable`、部分Handoff承認を記録している
-- Architecture Phase Entry Contractを満たす
-- 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
-- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
+- 情報源となるREQ / UX / IA、対象ユースケース / 利用者操作へトレースできる
+- 情報源となる要求の検証義務と適用品質上の懸念を、観測可能な振る舞い、品質条件、受入条件へ処置している
+- 全振る舞い上の義務と必要な責務の網羅を対象範囲で判定している
+- アクター / 決定権限、契機、事前条件、システム状態、振る舞い、結果、重要失敗 / 例外が観察・検証可能である
+- 権限、冪等性、取消 / 元に戻す / 再試行、依存関係、回復を適用範囲で判定している
+- アクセシビリティプロファイルまたはUI契約が代替操作を要求する場合、入力方式に依存しない契機、同等結果、失敗 / 回復、時間制限、入力保持を定義している
+- 構成候補の選択肢 / 範囲、既定値の情報源、実効値、対象範囲、継承 / 上書き、権限、変更効果、リセット / 回復を定義している
+- 利用側互換性、処理能力 / 品質に関する振る舞い、移行期間の振る舞いを必要範囲で定義している
+- AI / 個人データを扱う対象範囲では同意、推論 / 来歴、外部操作権限、プライバシー / 保持期間、コスト保護策が観測可能な振る舞いである
+- UI契約または利用先／運用契約と整合している
+- 受入基準と根拠取得方法を定義している
+- 網羅範囲の不足、`Not Applicable`、部分引き渡し承認を記録している
+- アーキテクチャ工程の入口契約を満たす
+- 発火した変更影響の伝播確認が`Pass`であり、必要な正本更新と再監査が完了している
+- 対象改訂版の工程移行レビューが`Pass`であり、移行に影響する指摘事項の是正と再レビューが完了している
 
 <a id="phase-audit-checklist"></a>
 
 ## 工程監査チェックリスト（Phase Audit Checklist）
 
-- REQ / Use Case / User Action / Behavior Obligationの未変換
-- Happy Pathだけの仕様、曖昧なResult、観察不能なAcceptance
-- Failure、Permission、Recovery、Idempotency、Cancel、Dependencyの適用判定漏れ
-- UI上のKeyboard、代替操作、時間延長、Error訂正を見た目だけで成立させ、対応BehaviorのTrigger、Result、保持、Recoveryが未定義
-- IA Configuration Candidateに対応するOption / Range、Default、Effective Value、Permission、Apply Timing、変更効果、Reset / Recoveryの欠落
-- Compatibility、Version、Deprecation、Migration-period Behavior、Capacity / Qualityの漏れ
-- Requirementから渡されたVerification Obligationまたは適用Quality Concernの未処置
-- UI / Consumer ContractとのAction、State、Failure、Recovery、Permissionの不一致
-- AI ScopeでConsentを表示だけにし、実行停止・取消・External Action Authorityを定義していない
-- SPECによるUX / UI Intent、Architecture方式、Implementation Detailの先取り
-- 現行CodeやObserved Behaviorの無条件な正本化、UX OutcomeのEARS化
-- Source Trace、Coverage Summary、Unresolved Gap、Human Review、Decision / Rationaleの欠落
-- Architectureまたは実装への暗黙Handoff
-- 確定・変更したDecision、Constraint、Learning、Evidence、Findingに対する上流・同層探索、正本反映、再監査が欠落していないか
-- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
+- REQ / ユースケース / 利用者操作 / 振る舞い上の義務の未変換
+- 正常パスだけの仕様、曖昧な結果、観察不能な受入条件
+- 失敗、権限、回復、冪等性、取消、依存関係の適用判定漏れ
+- UI上のキーボード、代替操作、時間延長、エラー訂正を見た目だけで成立させ、対応振る舞いの契機、結果、保持、回復が未定義
+- IAの構成候補に対応する選択肢 / 範囲、既定値、実効値、権限、適用時点、変更効果、リセット / 回復の欠落
+- 互換性、バージョン、廃止、移行期間の振る舞い、処理能力 / 品質の漏れ
+- 要求から渡された検証義務または適用品質上の懸念の未処置
+- UI / 利用側契約との操作、システム状態、失敗、回復、権限の不一致
+- AIを扱う対象範囲で同意を表示だけにし、実行停止・取消・外部操作権限を定義していない
+- SPECによるUX / UIの意図、アーキテクチャ方式、実装詳細の先取り
+- 現行コードや観察された振る舞いの無条件な正本化、UX成果のEARS化
+- 情報源のトレース、網羅範囲の要約、未解決事項、人間によるレビュー、判断 / 判断理由の欠落
+- アーキテクチャまたは実装への暗黙引き渡し
+- 確定・変更した判断、制約、学び、根拠、指摘事項に対する上流・同層探索、正本反映、再監査が欠落していないか
+- 独立レビュー未実施、旧改訂版のレビュー流用、指摘事項未修正の持ち越し、監査実行完了を対象の合格とみなしていないか
 
 ---
 
-# 2. Behavior Specification Model
+# 2. 振る舞い仕様モデル
 
-## 2.1. Behavior Unit, State, and Result
+## 2.1. 振る舞い単位・状態・結果
 
-Behavior Unitは、Feature、Use Case、User Action、Event、Scheduled Action等の意味ある処理単位である。Actor / Authority、Trigger、Precondition、Current State、Input、Behavior、Output / State Transition、Success Conditionを対応づける。
+振る舞い単位は、機能、ユースケース、利用者操作、イベント、予約操作等の意味ある処理単位である。アクター / 決定権限、契機、事前条件、現在のシステム状態、入力、振る舞い、出力 / 状態遷移、成功条件を対応づける。
 
-State名だけを列挙せず、各StateのMeaning、Entry / Exit Condition、許可Action、観測可能なResultを説明する。UIがある場合、Presentation Stateとの対応は[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)に従う。
+システム状態名だけを列挙せず、各システム状態の意味、入口 / 出口条件、許可操作、観測可能な結果を説明する。UIがある場合、表示状態との対応は[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)に従う。
 
-## 2.2. Failure, Recovery, and Integrity
+## 2.2. 失敗・回復・整合性
 
-重要Failureでは、発生条件、保護するData / State、利用者またはConsumerへ返すResult、入力保持、Retry / Fallback / Recovery、Log / Auditを定義する。
-
-```text
-Validation
-Authentication / Authorization
-Conflict / Stale
-Unavailable / Timeout
-External Dependency
-Data Integrity
-Unsupported State
-Unexpected Failure
-```
-
-二重実行や並行更新があり得る場合は、Idempotency、Duplicate Result、Conflict Detection、Retry Ruleを定義する。Cancel、Undo、Rollback、Compensationを区別し、不可逆なら理由と観測可能なResultを示す。
-
-Accessibility ProfileまたはUI ContractがKeyboard、代替Interaction、時間延長、Error訂正等を要求する場合、特定のPointer、Gesture、感覚入力だけをBehavior開始条件にしない。代替経路でも同じAuthority、Validation、Result、Failure、入力保持、Recoveryが成立するよう定義し、差異が必要なら理由と利用者影響を明示する。
-
-## 2.3. Consumer Compatibility and Capacity Behavior
-
-API、IPC、Event、Batch、Command等を外部Consumerが利用する場合、次を観測可能なContractとして定義する。
-
-- Field、Parameter、Status、Error、EventのMeaning
-- Breaking / Non-breaking Change、Version選択、Deprecated条件
-- 旧Versionの利用可能期間、移行中の共存Behavior
-- 廃止通知、Failure、Fallback、Recovery、対象Consumer
-- 既存DataやConsumerへのAcceptance Criteria
-
-CapacityまたはInfrastructure制約がConsumerへ見える場合は、Response / Completion Condition、同時実行やRequest量のQuality Condition、Rate Limit、Timeout、Queue / Reject / Throttle / Degrade、部分完了、Retry / Recoveryを定義する。
-
-SPECは成立させるべき観測可能なBehaviorとAcceptanceを定義する。Topology、Autoscaling、Queue実装、Database、Cache、Provider等の方式はArchitectureへ渡す。
-
-## 2.4. AI, Consent, Data, and External Action
-
-AI Behaviorでは、Input Scope、Data送信、Prompt / Model Boundary、Output Status、Confidence / Uncertainty、Source / Provenance、Human Review、Fallback、Provider Failure、保存・公開・実行条件を定義する。AI出力をDecisionまたは実行結果と同一視しない。
-
-ConsentはDialog表示ではなく実行条件である。未同意、状態不明、取消済み、期限切れ、Scope変更、保存失敗時の開始・停止・取消Behaviorを定義する。安全または法的にFail Closedが必要なScopeでは、その条件と利用者へ返すResultを明示する。
-
-外部Actionは[`01_Principles.md`](01_Principles.md)のProgressive Autonomyを、Read、Proposal、Human-approved Execution、限定自動実行等のBehaviorへ変換する。Authority、Rate、Amount、Target、Time、Cost、Confirmation、Idempotency、Cancel、Recovery、Auditの上限を定義する。
-
-## 2.5. Configuration and Policy Behavior
-
-IAのConfiguration Candidateを、観測・検証可能なBehaviorへ具体化する。
+重要失敗では、発生条件、保護するデータ / システム状態、利用者または利用側へ返す結果、入力保持、再試行 / 代替動作 / 回復、ログ / 監査を定義する。
 
 ```text
-Allowed Option / Range / Format
-Default Value and Default Source
-Current / Effective Value
-Applied Subject / Scope
-Inheritance / Override / Precedence
-Read / Change / Approve Authority
-Validation / Conflict
-Apply Timing / Propagation / Side Effect
-Cancel / Revert / Reset / Rollback
-Failure / Partial Apply / Recovery
-Audit / Evidence / Acceptance
+妥当性確認
+認証 / 認可
+競合 / 古い
+利用不能 / タイムアウト
+外部依存関係
+データ完全性
+未対応状態
+想定外失敗
 ```
 
-`Default`は単なる初期画面値ではなく、未設定時にSystemが採用するBehaviorである。個人Preference、組織Policy、System Default、Temporary Overrideが競合する場合は、Precedenceと利用者へ返すEffective Valueを定義する。変更が非同期、段階反映、不可逆、既存Dataへ影響する場合は、適用時点、対象、部分失敗、Rollback / Recoveryを明示する。
+二重実行や並行更新があり得る場合は、冪等性、重複判定結果、競合検出、再試行規則を定義する。取消、元に戻す、ロールバック、補償を区別し、不可逆なら理由と観測可能な結果を示す。
 
-環境変数、Provider固有Parameter、Resource Size等が利用者・Consumerから観測できない成立方式だけである場合はArchitectureのTechnical Configurationへ渡す。Product Behavior、Availability、Quality、Cost、Privacyへ影響する部分はSPECの観測可能なContractとして残す。
+アクセシビリティプロファイルまたはUI契約がキーボード、代替インタラクション、時間延長、エラー訂正等を要求する場合、特定の参照先、ジェスチャー、感覚入力だけを振る舞い開始条件にしない。代替経路でも同じ決定権限、妥当性確認、結果、失敗、入力保持、回復が成立するよう定義し、差異が必要なら理由と利用者影響を明示する。
 
-## 2.6. EARS Usage
+## 2.3. 利用側互換性と処理能力の振る舞い
 
-EARSはBehavior、Exception、Acceptance Criteriaを曖昧なく表すための任意の構文であり、すべてのSPECをEARSだけで記述する必要はない。
+API、IPC、イベント、バッチ、コマンド等を外部利用側が利用する場合、次を観測可能な契約として定義する。
 
-| Pattern | Form |
+- 項目、パラメータ、状態、エラー、イベントの意味
+- 破壊的 / 非破壊変更、バージョン選択、廃止予定条件
+- 旧バージョンの利用可能期間、移行中の共存振る舞い
+- 廃止通知、失敗、代替動作、回復、対象利用側
+- 既存データや利用側への受入基準
+
+処理能力またはインフラストラクチャ制約が利用側へ見える場合は、応答 / 完了条件、同時実行やリクエスト量の品質条件、レート制限、タイムアウト、キュー / 拒否 / 流量制限 / 縮退、部分完了、再試行 / 回復を定義する。
+
+SPECは成立させるべき観測可能な振る舞いと受入条件を定義する。構成、自動スケーリング、キュー実装、データベース、キャッシュ、提供側等の方式はアーキテクチャへ渡す。
+
+## 2.4. AI・同意・データ・外部操作
+
+AIの振る舞いでは、入力対象範囲、データ送信、プロンプト / モデル境界、出力状態、確信度 / 不確実性、情報源 / 来歴、人間によるレビュー、代替動作、提供側の失敗、保存・公開・実行条件を定義する。AI出力を判断または実行結果と同一視しない。
+
+同意は対話表示ではなく実行条件である。未同意、状態不明、取消済み、期限切れ、対象範囲変更、保存失敗時の開始・停止・取消振る舞いを定義する。安全または法的に不合格終了済みが必要な対象範囲では、その条件と利用者へ返す結果を明示する。
+
+外部操作は[`01_Principles.md`](01_Principles.md)の段階的自律性を、読み取り、提案、人間が承認した実行、限定自動実行等の振る舞いへ変換する。決定権限、頻度、量、対象、時間、コスト、確認、冪等性、取消、回復、監査の上限を定義する。
+
+## 2.5. 設定と方針の振る舞い
+
+IAの構成候補を、観測・検証可能な振る舞いへ具体化する。
+
+```text
+許可選択肢 / 範囲 / 形式
+既定値価値と既定値情報源
+現在 / 有効価値
+適用済み主体 / 対象範囲
+継承 / 上書き / 優先順位
+読み込み / 変更 / 承認決定権限
+妥当性確認 / 競合
+適用時機 / 伝播 / 側影響
+取消 / 差戻し / リセット / ロールバック
+失敗 / 部分適用 / 回復
+監査 / 根拠 / 受入条件
+```
+
+`Default`は単なる初期画面値ではなく、未設定時にシステムが採用する振る舞いである。個人選好、組織方針、システムの既定値、一時的上書きが競合する場合は、優先順位と利用者へ返す実効値を定義する。変更が非同期、段階反映、不可逆、既存データへ影響する場合は、適用時点、対象、部分失敗、ロールバック / 回復を明示する。
+
+環境変数、提供側固有パラメータ、リソース規模等が利用者・利用側から観測できない成立方式だけである場合はアーキテクチャの技術構成へ渡す。プロダクトの振る舞い、可用性、品質、コスト、プライバシーへ影響する部分はSPECの観測可能な契約として残す。
+
+UIテーマを利用者、OS、組織方針、利用状況等が選択する場合は、選択可能な差分軸、既定値の情報源、自動選択、優先順位、永続化、適用時点、リセット、未対応の組み合わせ、適用失敗時の代替動作 / 回復を本節で定義する。
+
+色や設計トークン値、UI部品の形状はUI、設計トークンのモードや実行環境切替方式はアーキテクチャに残す。SPECは観測可能な選択・適用結果だけを所有する。
+
+<a id="26-ears-usage"></a>
+
+## 2.6. EARSの使用
+
+EARSは振る舞い、例外、受入基準を曖昧なく表すための任意の構文であり、すべてのSPECをEARSだけで記述する必要はない。
+
+| EARSパターン | 形式 |
 |---|---|
 | Ubiquitous | `The system shall <response>.` |
 | Event-driven | `When <trigger>, the system shall <response>.` |
-| State-driven | `While <state>, the system shall <response>.` |
-| Unwanted Behavior | `If <unwanted condition>, then the system shall <response>.` |
+| 状態駆動 | `While <state>, the system shall <response>.` |
+| 望ましくない振る舞い | `If <unwanted condition>, then the system shall <response>.` |
 | Optional Feature | `Where <feature is enabled>, the system shall <response>.` |
 
-自然言語でもConditionとResultを明確にする。UX Outcome、Experience Principle、IA Intent、Visual / Design IntentをEARSへ圧縮しない。形式構文を使ってもSource Context、Rationale、Exception、Recoveryを失わせない。
+自然言語でも条件と結果を明確にする。UX成果、体験原則、IAの意図、視覚／設計意図をEARSへ圧縮しない。形式構文を使っても情報源コンテキスト、判断理由、例外、回復を失わせない。
 
-## 2.7. Acceptance Criteria and Evidence
+## 2.7. 受入条件と根拠
 
-Acceptance Criteriaは、対象Revision、Input / Condition、観察可能なResult、重要Failure、Variant / Environment、Evidence取得方法を説明できるようにする。
+受入基準は、対象改訂版、入力／条件、観察可能な結果、重要失敗、環境差分、根拠取得方法を説明できるようにする。
 
 ```text
-Weak:
+弱い:
 正しく動作すること。
 
-Observable:
-Cloud Providerが利用不可の状態でCognitionを実行した場合、
-SystemはLocal Providerへ自動Fallbackせず、
+観察可能:
+クラウド提供側が利用不可の状態で認知を実行した場合、
+システムはローカル提供側へ自動代替動作せず、
 利用不可状態と理由を返すこと。
 ```
 
-AcceptanceはTest手順や実装方式そのものではない。VerificationがFresh Evidenceを取得できるContractを示し、実際の成立判定は[`29_Verification.md`](29_Verification.md)へ渡す。
+受入条件はテスト手順や実装方式そのものではない。検証が新しい根拠を取得できる契約を示し、実際の成立判定は[`29_Verification.md`](29_Verification.md)へ渡す。
 
-## 2.8. Legacy, Stable Context, Evidence, and Decision
+## 2.8. 既存系・安定コンテキスト・根拠・判断
 
-LegacyではDocumented Behavior、Implemented Behavior、Observed Runtime Behavior、Operational Practice、Expected Behavior Candidate、Recovered Intent Candidateを分離する。現行Codeや長期間の挙動を望ましい仕様と断定せず、人間確認または追加EvidenceまでCandidateとして扱う。
+既存系では文書化された振る舞い、実装された振る舞い、観察された実行環境の振る舞い、運用上実務、期待する振る舞いの候補、復元した意図の候補を分離する。現行コードや長期間の挙動を望ましい仕様と断定せず、人間確認または追加根拠まで候補として扱う。
 
-`SPEC-*`は複数Artifactや工程から参照し、独立Review、置換、影響追跡を必要とするCondition、State、Behavior、Exception、Acceptance等の意味単位へ付与する。文書名・Feature名・EARS文・Test名・文書番号とStable Context IDを同一視せず、一つのBehavior Specification Artifact内に複数の`SPEC-*`が存在してよい。
+`SPEC-*`は複数成果物や工程から参照し、独立レビュー、置換、影響追跡を必要とする条件、システム状態、振る舞い、例外、受入条件等の意味単位へ付与する。文書名・機能名・EARS文・テスト名・文書番号と安定コンテキストIDを同一視せず、一つの振る舞い仕様成果物内に複数の`SPEC-*`が存在してよい。
 
-全Paragraph、全Acceptance、Evidence、Decision、Test、Architecture Section、実装処理へ機械的にSPEC IDを発行しない。SPECはSource `REQ-*` / `UX-*` / `IA-*`、`pairs_with UI-*`、Architecture、VerificationとRelationで接続する。
+全段落、全受入条件、根拠、判断、テスト、アーキテクチャ節、実装処理へ機械的にSPEC IDを発行しない。SPECは情報源となる`REQ-*` / `UX-*` / `IA-*`、`pairs_with UI-*`、アーキテクチャ、検証と関係で接続する。
 
-Behaviorの根拠は対象Artifact内または最も近い親Folderの`Evidence/`へ置く。Business Rule、Authority、Permission、不可逆処理、Fallback、Compatibility破壊、Risk受容の決定は、結果となるCanonical SPEC Artifactの`Decision / Rationale`へ理由、Evidence、代替、影響を残す。
+振る舞いの根拠は対象成果物内または最も近い親フォルダの`Evidence/`へ置く。業務規則、決定権限、操作権限、不可逆処理、代替動作、互換性破壊、リスク受容の決定は、結果となるSPECの正本成果物の`Decision / Rationale`へ理由、根拠、代替、影響を残す。
 
 ---
 
 <a id="3-guided-skill-adapter"></a>
 
-# 3. Skill実行Adapter（Guided Skill Adapter）
+# 3. スキル実行接続部（Guided Skill Adapter）
 
 <a id="31-runtime-authority"></a>
 
 ## 3.1. 実行時の決定権限（Runtime Authority）
 
-`skill.spec.behavior`は、Phase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するBehavior Specification固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycle、Artifact Registrationを再定義しない。
+`skill.spec.behavior`は、工程実行契約を[`11_Skill.md`](11_Skill.md)の実行の状態遷移、ガイド付き対話、人間によるレビュー、引き渡しに従って実行する振る舞い仕様固有接続部である。本書では実行状態、一時停止 / 再開、共通の質問規則、サブエージェントの状態遷移、成果物の登録を再定義しない。
 
-開始時は、Systemがどの条件と状態でどう振る舞い、成功、失敗、再試行をどう扱うかを定義し、UX / UI Intentは保持したまま検証可能なBehaviorだけを精密化することを説明する。
+開始時は、システムがどの条件と状態でどう振る舞い、成功、失敗、再試行をどう扱うかを定義し、UX / UIの意図は保持したまま検証可能な振る舞いだけを精密化することを説明する。
 
-## 3.2. SPEC-specific Progression
+## 3.2. SPEC固有の進行
 
-| 手順 | SPEC固有の変換 | Result |
+| 手順 | SPEC固有の変換 | 結果 |
 |---|---|---|
-| Load and Scope | REQ、IA Obligation、Pairing Unit、既存Behaviorを対応づける | SPEC Coverage Queue |
-| Frame | Actor、Authority、Trigger、Precondition、Stateを定義する | Behavior Boundary |
-| Specify | Behavior、Result、Transition、Failure、Recoveryを具体化する | Behavior Specification |
-| Harden | Permission、Configuration / Policy、Idempotency、Dependency、Compatibility、Capacity、AI / Dataを判定する | Operational Contract |
-| Accept | Acceptance、Environment、Evidence Candidateを定義する | Verification Obligation |
-| Review and Handoff | Pair、Coverage、人間判断を確認する | Architecture Handoffまたは別Route |
+| 読み込みと対象範囲 | REQ、IA義務、対応単位、既存振る舞いを対応づける | SPECの網羅キュー |
+| フレーム | アクター、決定権限、契機、事前条件、システム状態を定義する | 振る舞いの境界 |
+| 仕様化 | 振る舞い、結果、移行、失敗、回復を具体化する | 振る舞い仕様 |
+| 強化 | 権限、構成／方針、冪等性、依存関係、互換性、処理能力、AI／データを判定する | 運用契約 |
+| 受入 | 受入条件、環境、根拠候補を定義する | 検証義務 |
+| レビューと引き渡し | 対、網羅範囲、人間判断を確認する | アーキテクチャへの引き渡しまたは別経路 |
 
-## 3.3. SPEC-specific Question Topics
+## 3.3. SPEC固有の質問観点
 
 | 話題 | 質問の意図 |
 |---|---|
-| Trigger / Actor | 何をきっかけに、誰がどのAuthorityで開始するか |
-| Precondition / State | 開始前に何が成立し、どのStateから始まるか |
-| Behavior / Result | Systemが何を行い、Data / State / Outputがどう変わるか |
-| Processing | 処理中、二重実行、並行操作、進捗をどう扱うか |
-| Failure / Recovery | 何を保護し、返し、保持し、再試行・回復するか |
-| Cancel / Undo | 開始後の取消、完了後の復元は可能か |
-| Dependency | 外部Service、Network、AI Provider停止時にどうするか |
-| Configuration | 何を選べ、DefaultとEffective Valueは何で、誰がどのScopeへ変更し、いつ反映・回復するか |
-| Acceptance | どのCondition、Result、Evidenceで成立とするか |
+| 契機 / アクター | 何をきっかけに、誰がどの決定権限で開始するか |
+| 事前条件 / システム状態 | 開始前に何が成立し、どのシステム状態から始まるか |
+| 振る舞い / 結果 | システムが何を行い、データ / システム状態 / 出力がどう変わるか |
+| 処理中 | 処理中、二重実行、並行操作、進捗をどう扱うか |
+| 失敗 / 回復 | 何を保護し、返し、保持し、再試行・回復するか |
+| 取消 / 元に戻す | 開始後の取消、完了後の復元は可能か |
+| 依存関係 | 外部サービス、ネットワーク、AI提供側の停止時にどうするか |
+| 構成 | 何を選べ、既定値と実効値は何で、誰がどの対象範囲へ変更し、いつ反映・回復するか |
+| 受入条件 | どの条件、結果、根拠で成立とするか |
 
-## 3.4. Adaptive Route and Escalation
+## 3.4. 状況に応じた経路と上位判断への移送
 
 | 条件 | 移行先（Route） |
 |---|---|
-| Source Requirement、Business Rule、Authorityが不明 | Discovery / Human Decision |
-| IA Object / Lifecycle / State Conceptが不明 | IA |
-| UIとのAction / State / RecoveryがConflict | Pair Review |
-| 技術方式、Boundary、Capacity Designが主題 | Architecture / Technical Spike |
-| 現行BehaviorのAuthorityが不明 | Legacy Reverse / Research |
-| Acceptanceを観測可能にできない | Requirement / Behaviorの再整理 |
+| 情報源となる要求、業務規則、決定権限が不明 | 課題探索・要求形成 / 人間の判断 |
+| IAオブジェクト / 状態遷移 / 状態概念が不明 | IA |
+| UIとの操作 / システム状態 / 回復が競合 | 対応レビュー |
+| 技術方式、境界、処理能力設計が主題 | アーキテクチャ / 技術検証 |
+| 現行振る舞いの決定権限が不明 | 既存系逆方向 / 調査 |
+| 受入条件を観測可能にできない | 要求 / 振る舞いの再整理 |
 
-AIへScope、Permission、Data Retention、Risk Acceptance、不可逆処理、Fallback Policy、Compatibility破壊の最終決定を要求された場合は確定しない。
+AIへ対象範囲、権限、データ保持、リスク受容、不可逆処理、代替動作方針、互換性破壊の最終決定を要求された場合は確定しない。
 
-Subagentを使う場合は[`10_Agent.md`](10_Agent.md)に従い、State Transition、Failure / Recovery、Compatibility、Acceptance、Pair Consistency等の限定Scopeを委譲できる。Behavior Specification、Business Rule、Pair Review、Handoffの統合と人間確認はParent Agentが行う。
+サブエージェントを使う場合は[`10_Agent.md`](10_Agent.md)に従い、状態遷移、失敗 / 回復、互換性、受入条件、対応関係の整合性等の限定対象範囲を委譲できる。振る舞い仕様、業務規則、対応レビュー、引き渡しの統合と人間確認は親エージェントが行う。
 
 ---
 
 <a id="4-review-handoff-view-and-feedback"></a>
 
-# 4. Review・引渡しView・Feedback
+# 4. レビュー・引き渡し表示・フィードバック
 
-## 4.1. SPEC-specific Human Review
+## 4.1. SPEC固有の人間レビュー
 
-共通Review Contractは[`11_Skill.md`](11_Skill.md#61-human-review)に従う。SPEC Reviewでは追加で次を確認する。
+共通レビュー契約は[`11_Skill.md`](11_Skill.md#61-human-review)に従う。SPECレビューでは追加で次を確認する。
 
-- Source RequirementとPreserved IntentがBehaviorとAcceptanceへ残っている
-- AIや現行CodeがBusiness Rule、Authority、Expected Behaviorを創作していない
-- Happy PathだけでなくFailure、Permission、Recovery、Dependencyを判定している
-- UIまたはAccessibility Profileが要求する代替操作で、同じAuthority、Result、Failure、入力保持、Recoveryが成立する
-- Compatibility、Capacity、AI / Consent / External ActionのRiskを隠していない
-- Configuration / PolicyのDefault、Effective Value、Authority、変更効果、Reset / RecoveryをUIと対応づけている
-- UI / Consumer ContractとのPair Conflictを明示している
-- 対象Scope全体のCoverageと部分承認範囲を誤認なく示している
+- 情報源となる要求と保持する意図が振る舞いと受入条件へ残っている
+- AIや現行コードが業務規則、決定権限、期待する振る舞いを創作していない
+- 正常パスだけでなく失敗、権限、回復、依存関係を判定している
+- UIまたはアクセシビリティプロファイルが要求する代替操作で、同じ決定権限、結果、失敗、入力保持、回復が成立する
+- 互換性、処理能力、AI / 同意 / 外部操作のリスクを隠していない
+- 構成 / 方針の既定値、実効値、決定権限、変更効果、リセット / 回復をUIと対応づけている
+- UI / 利用側契約との対の競合を明示している
+- 対象範囲全体の網羅範囲と部分承認範囲を誤認なく示している
 
-## 4.2. Behavior Specification Artifact / Handoff View
+## 4.2. 振る舞い仕様成果物／引き渡し表示
 
-次はBehavior Specification責務をProject内で表現する標準Viewであり、独立File数を要求しない。
+次は振る舞い仕様責務をプロジェクト内で表現する標準表示であり、独立ファイル数を要求しない。
 
 ```text
-Scope / Coverage Summary / Unresolved Gap
-Source REQ / UX / IA / Pairing Unit
-SPEC ID / Revision / Status
-Purpose / Preserved Intent / Non-goal
-Actor / Authority / Trigger / Precondition / Input
-State / Behavior / Output / State Transition / Side Effect
-Failure / Exception / Permission / Recovery / Input Preservation
-Alternative Operation / Equivalent Result / Time Limit Behavior
-Idempotency / Concurrency / Cancel / Undo / Retry
-External Dependency / Consumer Contract
-Compatibility / Version / Migration-period Behavior
-Capacity / Quality Condition
-AI / Consent / Data / External Action / Cost Guardrail
-Configuration / Policy / Default / Effective Value / Scope / Inheritance / Override
-Acceptance Criteria / Environment / Evidence Candidate
-pairs_with UI / Consumer / Operational Feedback
-Decision / Rationale
-Human Review Result
-Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
-Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
+対象範囲 / 網羅範囲要約 / 未解決不足
+情報源となるREQ / UX / IA / 対応づけ単位
+SPEC ID / 改訂版 / 状態
+目的 / 保持する意図 / 目指さないこと
+アクター / 決定権限 / 契機 / 事前条件 / 入力
+状態 / 振る舞い / 出力 / 状態移行 / 側影響
+失敗 / 例外 / 権限 / 回復 / 入力保持
+代替運用 / 同等の結果 / 制限時間の振る舞い
+冪等性 / 並行性 / 取消 / 元に戻す操作 / 再試行
+外部依存関係 / 利用側契約
+互換性 / バージョン / 移行-期間振る舞い
+処理能力 / 品質条件
+AI / 同意 / データ / 外部操作 / コスト保護策
+構成 / 方針 / 既定値 / 有効価値 / 対象範囲 / 継承 / 上書き
+受入条件基準 / 環境 / 根拠候補
+`pairs_with` UI / 利用側 / 運用フィードバック
+判断 / 判断理由
+人間による判断結果
+変更影響の伝播確認結果／情報源の改訂版／是正／伝播例外
+工程移行レビュー結果 / レビュー済み改訂版 / 指摘事項処置 / レビュー例外
 ```
 
-Architectureへの共同Handoff条件は[Pair Review Handoff](24_UI_Behavior_Specification.md#62-review-and-handoff)を正本とする。Behavior Specification側はこのViewへの参照とSPEC Coverage Stateを欠落なく渡す。
+アーキテクチャへの共同引き渡し条件は[対応レビューの引き渡し](24_UI_Behavior_Specification.md#62-review-and-handoff)を正本とする。振る舞い仕様側はこの表示への参照とSPECの網羅状態を欠落なく渡す。
 
-## 4.3. Feedback to Behavior Specification
+## 4.3. 振る舞い仕様へのフィードバック
 
-UI、Architecture、実装、Verification、運用から、State、Failure、Recovery、Compatibility、Capacity、Acceptanceに関するLearningが得られた場合はSPECへ戻す。同じ意味の明確化は同じ`SPEC-*`のRevisionを更新し、意味を置換する場合は新しい`SPEC-*`を発行して`supersedes`で接続する。
+UI、アーキテクチャ、実装、検証、運用から、システム状態、失敗、回復、互換性、処理能力、受入条件に関する学びが得られた場合はSPECへ戻す。同じ意味の明確化は同じ`SPEC-*`の改訂版を更新し、意味を置換する場合は新しい`SPEC-*`を発行して`supersedes`で接続する。
 
-実装都合や既存CodeだけでBehavior Specificationを無断変更せず、Evidenceと人間判断を結果となるSPEC Artifactへ反映し、Pair Relation、Coverage、影響するArchitecture / Verificationを再確認する。
+実装都合や既存コードだけで振る舞い仕様を無断変更せず、根拠と人間判断を結果となるSPEC成果物へ反映し、UIとの対応関係、網羅範囲、影響するアーキテクチャ / 検証を再確認する。
 
-## 4.4. External Source Trace
+## 4.4. 外部出典の追跡
 
-Sourceの書誌情報、Relation、Coverage Claimの意味は[OverviewのSource索引](00_Overview.md#36-external-foundations-and-source-trace)と[External Source Trace Rule](03_Documentation.md#49-external-source-trace)を正本とする。
+情報源の書誌情報、関係、網羅範囲の表明の意味は[Overviewの情報源索引](00_Overview.md#36-external-foundations-and-source-trace)と[外部情報源の追跡規則](03_Documentation.md#49-external-source-trace)を正本とする。
 
-| 情報源 | 関係 | 適用Section | 網羅範囲 |
+| 情報源 | 関係 | 適用節 | 網羅範囲 |
 |---|---|---|---|
-| `EARS` | `uses` | 2.6 EARS Usage | `Selected Concepts`; optional syntax、no conformance claim |
-| `WCAG22` | `project_adopts` | 2.2 Alternative Operation、UI / SPEC Pair、Acceptance | When adopted, Project Profile selects applicable Criteria and Scope |
+| `EARS` | `uses` | 2.6 EARSの使用 | `Selected Concepts`（選択した概念）。構文の使用は任意で、準拠は表明しない |
+| `WCAG22` | `project_adopts` | 2.2 代替操作、UI / SPECの対応関係、受入条件 | 採用する場合、プロジェクトプロファイルで適用基準と対象範囲を選ぶ |
 
 ---
 
@@ -434,7 +441,7 @@ Sourceの書誌情報、Relation、Coverage Claimの意味は[OverviewのSource�
 # 5. 最終原則（Final Principle）
 
 ```text
-Behavior Specificationは、Happy PathやEARS文を一つ書いて終わる工程ではない。
-対象Scopeの全Requirement、Use Case、Behavior Obligationについて、
-条件、状態、結果、失敗、回復、AcceptanceをUI・Architecture・Verificationへ接続する。
+振る舞い仕様は、正常系やEARS文を一つ書いて終わる工程ではない。
+対象範囲の全要求、使用事例、振る舞い義務について、
+条件、状態、結果、失敗、回復、受入条件をUI・アーキテクチャ・検証へ接続する。
 ```

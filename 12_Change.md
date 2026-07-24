@@ -2,10 +2,10 @@
 
 # CRDD変更トレース（Change Trace）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -22,99 +22,99 @@ Related:
 >
 > - 一つの変更がなぜ始まったかをどう残すか
 > - 変更前に影響範囲をどう見積もるか
-> - 正本、実装、検証、Releaseをどうつなぐか
+> - 正本、実装、検証、リリースをどうつなぐか
 > - 変更中に増えた影響をどう反映するか
-> - Change Traceをいつ閉じられるか
+> - 変更トレースをいつ閉じられるか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、各Triggerから発生した一つの変更について、なぜ始まり、どのContextとArtifactへ影響し、何を実装・検証・Releaseしたかを辿るChange Traceの正本である。
+本書は、各契機から発生した一つの変更について、なぜ始まり、どのコンテキストと成果物へ影響し、何を実装・検証・リリースしたかを辿る変更トレースの正本である。
 
 ```text
-Trigger / Origin
-→ Change Intent
-→ Expected Impact
-→ Canonical Context / Implementation / Verification
-→ Actual Impact
-→ Release Disposition
+契機 / 起点
+→ 変更意図
+→ 想定影響
+→ 正本コンテキスト / 実装 / 検証
+→ 実際影響
+→ リリース処置
 ```
 
-Change Traceは工程、Task管理、実装計画、Commit一覧、Pull Request説明、Release CHANGELOGの代替ではない。これらをArtifact Referenceで接続し、変更の意味と影響範囲をReleaseから遡れるようにする。
+変更トレースは工程、作業管理、実装計画、コミット一覧、プルリクエスト説明、リリースCHANGELOGの代替ではない。これらを成果物参照で接続し、変更の意味と影響範囲をリリースから遡れるようにする。
 
-| Concern | Authority |
+| 懸念 | 決定権限 |
 |---|---|
-| ChangeのTrigger、Intent、Impact、関連Artifact、結果 | 本書 |
-| Artifact、Evidence、Decision / Rationale、Trace | [Documentation](03_Documentation.md) |
-| 作業手順 | [Workflow](14_Workflow.md) |
-| 工程固有のEntry / Exit / Gate | 各`21`〜`29`工程文書 |
-| Gap / Impact評価 | [Gap / Impact Audit](53_Gap_Impact_Audit.md) |
-| Implementation | [Implementation](28_Implementation.md) |
-| Verification | [Verification](29_Verification.md) |
-| Release判断、記録、CHANGELOG | [Release](13_Release.md) |
+| 変更の契機、意図、影響、関連成果物、結果 | 本書 |
+| 成果物、根拠、判断 / 判断理由、トレース | [文書化](03_Documentation.md) |
+| 作業手順 | [作業手順](14_Workflow.md) |
+| 工程固有の入口 / 出口 / ゲート | 各`21`〜`29`工程文書 |
+| 不足／影響評価 | [不足／影響監査](53_Gap_Impact_Audit.md) |
+| 実装 | [実装](28_Implementation.md) |
+| 検証 | [検証](29_Verification.md) |
+| リリース判断、記録、CHANGELOG | [リリース](13_Release.md) |
 
 ---
 
-# 2. Trigger and Route
+# 2. 変更の契機と経路
 
-Change Traceは、変更を実施すると決まった時点、または既に発生した変更をRelease対象として追跡する必要が生じた時点で作成する。
+変更トレースは、変更を実施すると決まった時点、または既に発生した変更をリリース対象として追跡する必要が生じた時点で作成する。
 
 ```text
-Evidence・要望・法改正・不具合・Roadmap・監査結果
+根拠・要望・法改正・不具合・ロードマップ・監査結果
                          │
              意味や要求が不明確か
                   ┌──────┴──────┐
-                 Yes            No
+                 はい            いいえ
                   │              │
-              Discovery          │
+              課題探索・要求形成          │
                   │              │
           採用・対応決定──────────┘
                          │
-                    Change Trace
+                    変更トレース
                          │
-       必要な工程の再開・実装・Verification
+       必要な工程の再開・実装・検証
                          │
-             正本への反映・学習・Close
+             正本への反映・学習・終了
                          │
-              必要ならReleaseへ引き渡す
+              必要ならリリースへ引き渡す
 ```
 
-主なTriggerは次のとおりである。
+主な契機は次のとおりである。
 
 ```text
-Discoveryで採用された要求・法改正・顧客要望
+課題探索・要求形成で採用された要求・法改正・顧客要望
 明確な仕様変更
-承認済み仕様からのDefect
-仕様変更かDefectか曖昧な要求をDiscoveryで分類した結果
-Roadmap項目の着手決定
-工程Review、Verification、Gap / Impact Auditの是正決定
-運用、Security、Privacy、Cost、Compatibility上の是正
-緊急対応またはReleased ProductへのCorrection
+承認済み仕様からの不具合
+仕様変更か不具合か曖昧な要求を課題探索・要求形成で分類した結果
+ロードマップ項目の着手決定
+工程レビュー、検証、不足 / 影響監査の是正決定
+運用、セキュリティ、プライバシー、コスト、互換性上の是正
+緊急対応またはリリース済みプロダクトへの修正
 ```
 
-TriggerごとのRouteは次のとおりである。
+契機ごとの経路は次のとおりである。
 
-- 曖昧な要求はChange Traceへ直接入れない。Discoveryで意味、Requirement、採否、優先度を整理する
-- 明確なDefectは不要なRequirementを新設せず、対象Contractへの逸脱としてChange Traceへ進める
-- 採用したが延期する事項は`99_Roadmap`へ置き、着手時にChange Traceを作成する
+- 曖昧な要求は変更トレースへ直接入れない。課題探索・要求形成で意味、要求、採否、優先度を整理する
+- 明確な不具合は不要な要求を新設せず、対象契約への逸脱として変更トレースへ進める
+- 採用したが延期する事項は`99_Roadmap`へ置き、着手時に変更トレースを作成する
 
-Roadmapから開始するCHGでは、次を保持する。
+ロードマップから開始するCHGでは、次を保持する。
 
-- Roadmap Reference
-- Source Contextの現行Revision
-- 再評価したExpected Impact
-- Human Start Decision
+- ロードマップ参照
+- 情報源コンテキストの現行改訂版
+- 再評価した想定影響
+- 人間による着手判断
 
-着手後は、Roadmap ItemへCHG Referenceと`Started` Statusを戻す。CHGから未実施事項をRoadmapへ送る場合も、[Roadmap Item Contract](21_Discovery.md#63-roadmap-item-contract)に従って実際に登録する。RecommendationだけでChangeを閉じてはならない。
+着手後は、ロードマップ項目へCHG参照を戻し、状態を`Started`へ更新する。CHGから未実施事項をロードマップへ送る場合も、[Roadmap項目契約](21_Discovery.md#63-roadmap-item-contract)に従って実際に登録する。推奨だけで変更を閉じてはならない。
 
-Typo、意味を変えないFormat、再生成可能な出力など、Release内容やCanonical Contextへ影響しない変更はCHGを省略できる。ただし、Commit数の少なさだけで省略を判断しない。
+誤記、意味を変えない形式、再生成可能な出力など、リリース内容や正本コンテキストへ影響しない変更はCHGを省略できる。ただし、コミット数の少なさだけで省略を判断しない。
 
 ---
 
-# 3. Placement and Change Trace ID
+# 3. 配置と変更トレースID
 
-Change Traceは原則として次へ配置する。
+変更トレースは原則として次へ配置する。
 
 ```text
 90_Release/
@@ -127,103 +127,105 @@ Change Traceは原則として次へ配置する。
 ファイル名は次の形式を使用する。
 
 ```text
-CHG-<SEQUENCE>_<SHORT_NAME>.md
+CHG-<順序>_<SHORT_NAME>.md
 ```
 
-`CHG-*`はChange Traceを一意に参照するためのArtifact IDであり、REQ、UX、IA、UI、SPECと同じStable Context IDではない。意味を持つContextへ付与せず、一つのChange Traceへ一つだけ付与する。番号は再利用せず、名称変更やファイル移動でも維持する。
+`CHG-*`は変更トレースを一意に参照するための成果物IDであり、REQ、UX、IA、UI、SPECと同じ安定コンテキストIDではない。意味を持つコンテキストへ付与せず、一つの変更トレースへ一つだけ付与する。番号は再利用せず、名称変更やファイル移動でも維持する。
 
-Change Traceに固有Evidenceがある場合は`90_Release/Changes/Evidence/`またはChange固有の子Folderへ置く。複数ChangeやRelease全体に関係するEvidenceは`90_Release/Evidence/`へ置く。Root直下へEvidence Folderを作らない。
+変更トレースに固有根拠がある場合は`90_Release/Changes/Evidence/`または変更固有の子フォルダへ置く。複数変更やリリース全体に関係する根拠は`90_Release/Evidence/`へ置く。ルート直下へ根拠フォルダを作らない。
+
+`Changes/`、`Evidence/`、`CHG-*`は配置・識別のための名前であり、本文言語を指定しない。CHG本文と、新たに作成する根拠の説明・要約は、[文書化のロケール規則](03_Documentation.md#481-locale-first-display)に従い、プロジェクトまたは対象成果物の主要ロケールで記述する。外部根拠の原文、ファイル名、成果物ID、スキーマ実値は翻訳しない。
 
 `07_Workflows`や`40_Develop`へCHG Markdownを置かない。
 
 ---
 
-# 4. Change Trace Contract
+# 4. 変更トレースの記録契約
 
 各CHGは最低限、次を取得可能にする。
 
 ```text
-Change Trace ID
-Status
-Trigger / Origin
-Primary Change Intent
-Expected Impact Scope
-Out of Scope / Must Not Change
-Affected Context and Artifact References
-Applicable Decision / Approval Reference
-Triggered Propagation Check Result / Propagation Exception
-Implementation Reference
-Verification Obligation / Result Reference
-Actual Impact and Deviation
-Canonical Context Update
-Known Limitation / Residual Risk
-Target Release / Released In / Release Disposition
-Follow-up / Roadmap Reference
+変更トレースID
+状態
+契機 / 起点
+主要な変更意図
+想定影響対象範囲
+対象外 / 変更禁止事項
+影響を受けるコンテキストと成果物参照
+適用される判断 / 承認参照
+変更影響の伝播確認結果 / 伝播例外
+実装参照
+検証義務 / 結果参照
+実際影響と逸脱
+正本コンテキスト更新
+既知制限 / 残存リスク
+対象リリース / リリース済みバージョン / リリース処置
+後続対応 / ロードマップ参照
 ```
 
-Expected Impact Scopeでは、影響し得る工程、Stable Context ID、Artifact、Data、Interface、Migration、Security、Privacy、Cost、Operation、Userを、判明している範囲で示す。実行後はActual Impactを更新し、見込みとの差、追加影響、影響なしと確認した範囲を残す。
+想定影響対象範囲では、影響し得る工程、安定コンテキストID、成果物、データ、インターフェース、移行、セキュリティ、プライバシー、コスト、操作、利用者を、判明している範囲で示す。実行後は実際の影響を更新し、見込みとの差、追加影響、影響なしと確認した範囲を残す。
 
-CHGはRequirement、UX、IA、UI、SPEC、Architecture、Decisionの正本にならない。確定結果は責務を持つCanonical Artifactへ反映し、CHGからPath、Anchor、RevisionまたはStable Context IDで参照する。
+CHGは要求、UX、IA、UI、SPEC、アーキテクチャ、判断の正本にならない。確定結果は責務を持つ正本成果物へ反映し、CHGからパス、アンカー、改訂版または安定コンテキストIDで参照する。
 
 ---
 
-# 5. Status and Revision
+# 5. 状態と改訂版
 
-| Status | Meaning |
+| 状態 | 意味 |
 |---|---|
-| `Open` | Triggerを受け、影響と実施内容を追跡中 |
-| `Ready for Verification` | 対象実装とVerification Obligationを識別可能 |
-| `Verified` | 対象RevisionのVerification Resultを取得済み |
-| `Ready for Release Handoff` | 正本反映、残Risk、Release帰属を確認し、Release Authorityへ引き渡せる |
-| `Released` | 対象Releaseで配布または有効化済み |
-| `Closed` | Release不要を含め、変更結果と追跡上の処置が完了 |
+| `Open` | 契機を受け、影響と実施内容を追跡中 |
+| `Ready for Verification` | 対象実装と検証義務を識別可能 |
+| `Verified` | 対象改訂版の検証結果を取得済み |
+| `Ready for Release Handoff` | 正本反映、残リスク、リリース帰属を確認し、リリース決定権限へ引き渡せる |
+| `Released` | 対象リリースで配布または有効化済み |
+| `Closed` | リリース不要を含め、変更結果と追跡上の処置が完了 |
 | `Cancelled` | 変更を実施せず終了 |
-| `Reopened` | 新Evidence、Regression、Scope変更等で再開 |
+| `Reopened` | 新根拠、回帰、対象範囲変更等で再開 |
 | `Superseded` | 別CHGへ置換 |
 
-CHGのStatusは工程承認、Task、Pull Request、Verification Result、Release判断と同一ではない。それぞれのAuthorityが返した結果を参照する。
+CHGの状態は工程承認、作業、プルリクエスト、検証結果、リリース判断と同一ではない。それぞれの決定権限が返した結果を参照する。
 
-Intent、Expected Impact、対象Baseline、Verification Obligation、Release帰属が変わった場合はCHGのRevisionまたはHistoryを更新する。Primary IntentまたはRelease / Rollback Boundaryが分かれる場合は新しいCHGへ分割し、相互参照する。
+意図、想定影響、対象基準版、検証義務、リリース帰属が変わった場合はCHGの改訂版または履歴を更新する。主な意図またはリリース / ロールバック境界が分かれる場合は新しいCHGへ分割し、相互参照する。
 
 ---
 
-# 6. Git, Pull Request, and CHANGELOG Boundary
+# 6. Git・プルリクエスト・CHANGELOGとの境界
 
-Git、Pull Request、CHG、CHANGELOGは次の責務を持つ。
+Git、プルリクエスト、CHG、CHANGELOGは次の責務を持つ。
 
-| Record | Primary Responsibility |
+| 記録 | 主な責務 |
 |---|---|
-| Git Commit | どのファイルがどのRevisionで変更されたか |
-| Pull Request | Review単位の差分、会話、Check、Merge結果 |
-| `CHG-*` | Trigger、変更意図、影響範囲、正本・実装・検証・Release間のTrace |
-| Release CHANGELOG | 利用者へ伝えるRelease単位の変更要約 |
+| Gitコミット | どのファイルがどの改訂版で変更されたか |
+| プルリクエスト | レビュー単位の差分、会話、確認、統合結果 |
+| `CHG-*` | 契機、変更意図、影響範囲、正本・実装・検証・リリース間のトレース |
+| リリースCHANGELOG | 利用者へ伝えるリリース単位の変更要約 |
 
-CHGへCommit一覧やDiffを転記しない。実装の範囲を識別するために必要なCommit、Pull Request、Build、Deployment等をReferenceする。
+CHGへコミット一覧や差分を転記しない。実装の範囲を識別するために必要なコミット、プルリクエスト、ビルド、デプロイ等を参照する。
 
-CHANGELOGはGit履歴から生成または補助生成してよい。ただしGit履歴だけでは利用者への意味、Breaking Change、Migration、既知制限、複数Commitにまたがる一つの変更を安定して復元できない場合がある。Release時は対象CHGとGit履歴を入力として編集し、CHG本文をそのまま複製しない。
+CHANGELOGはGit履歴から生成または補助生成してよい。ただしGit履歴だけでは利用者への意味、破壊的変更、移行、既知制限、複数コミットにまたがる一つの変更を安定して復元できない場合がある。リリース時は対象CHGとGit履歴を入力として編集し、CHG本文をそのまま複製しない。
 
 ---
 
-# 7. Closure
+# 7. 完了処理
 
-`Verified`だけではChange Traceを閉じない。次を確認する。
+`Verified`だけでは変更トレースを閉じない。次を確認する。
 
 ```text
-Actual Impactが記録されている
-確定内容がCanonical Artifactへ反映されている
-Human Decision、Constraint、Learning、Evidence、Findingから発火したTriggered Propagation Checkが完了し、必要な上流・同層正本更新と再監査を辿れる
-ImplementationとVerificationの対象Revisionが一致する
-Known Limitation / Residual RiskとOwnerを辿れる
-未実施事項が別CHGまたはRoadmapへ接続されている
-Roadmap起点ならMain Viewの元ItemへCHG、成果物、適用されるVerification Result、Statusを反映し、非適用項目には理由を示し、Roadmap Detail Fileにしかない情報を正本へ移した後にDetailを削除している
-Target Release、Released In、Release不要、取消のいずれかが明確である
+実際影響が記録されている
+確定内容が正本成果物へ反映されている
+人間による判断、制約、学び、根拠、指摘事項から発火した変更影響の伝播確認が完了し、必要な上流・同層正本更新と再監査を辿れる
+実装と検証の対象改訂版が一致する
+既知制限 / 残存リスクと担当責任者を辿れる
+未実施事項が別CHGまたはロードマップへ接続されている
+ロードマップ起点なら主要表示の元項目へCHG、成果物、適用される検証結果、状態を反映し、非適用項目には理由を示し、ロードマップ詳細ファイルにしかない情報を正本へ移した後に詳細を削除している
+対象リリース、リリース済みバージョン、リリース不要、取消のいずれかが明確である
 ```
 
-Release後にRegressionや新しい影響が判明した場合、同一Intentの追跡継続ならReopenし、別の是正Intentなら新しいCHGを作成して元CHGを参照する。
+リリース後に回帰や新しい影響が判明した場合、同一意図の追跡継続なら再開し、別の是正意図なら新しいCHGを作成して元CHGを参照する。
 
 ---
 
-# 8. Compact Example
+# 8. 最小例
 
 ```yaml
 change_id: CHG-000042
@@ -241,17 +243,17 @@ expected_impact:
     - batch
     - queue
 out_of_scope:
-  - Consent UIの全面Redesign
+  - 同意UIの全面再設計
 must_not_change:
   - 同意前は外部送信しない
 implementation:
   - pull-request-reference
 verification:
-  obligation: 未同意・取消済み・状態不明で全Execution Pathが停止する
+  obligation: 未同意・取消済み・状態不明では、すべての実行経路が停止する
   result: verification-result-reference
 actual_impact:
-  - SPECとArchitectureを更新
-  - BatchとQueueの起動Guardを変更
+  - SPECとアーキテクチャを更新
+  - バッチとキューの起動ガードを変更
 target_release: v1.4.0
 released_in: pending
 residual_risk: none-known
@@ -259,31 +261,31 @@ residual_risk: none-known
 
 ---
 
-# 9. Anti-patterns and Audit
+# 9. 避けるべき運用と監査
 
 ```text
-Commit一覧をCHG本文へ複製する
-CHGをTask Listまたは日報にする
+コミット一覧をCHG本文へ複製する
+CHGをタスク一覧または日報にする
 影響範囲を書かず変更結果だけを記録する
 正本を更新せずCHGだけを仕様の正本にする
-複数の無関係なIntentを一つのCHGへ入れる
-CHG番号をStable Context IDとして使用する
-Release後もTarget ReleaseやActual Impactを更新しない
+複数の無関係な意図を一つのCHGへ入れる
+CHG番号を安定コンテキストIDとして使用する
+リリース後も対象リリースや実際影響を更新しない
 ```
 
-Auditでは次を確認する。
+監査では次を確認する。
 
-- Trigger、Intent、Expected / Actual Impactを識別できる
-- 影響するCanonical Context、実装、Verificationを辿れる
-- Scope外と守る条件が明確である
-- CHGとGit / Pull Request / CHANGELOGが責務を重複していない
-- Release帰属またはRelease不要のDispositionがある
-- 残課題、Residual Risk、後続CHGを辿れる
+- 契機、意図、想定／実際の影響を識別できる
+- 影響する正本コンテキスト、実装、検証を辿れる
+- 対象範囲外と守る条件が明確である
+- CHGとGit / プルリクエスト / CHANGELOGが責務を重複していない
+- リリース帰属またはリリース不要の処置がある
+- 残課題、残存リスク、後続CHGを辿れる
 
 ---
 
-# 10. Final Principle
+# 10. 最終原則
 
-Change Traceは変更作業そのものではない。
+変更トレースは変更作業そのものではない。
 
-各TriggerからRelease結果まで、変更の意味と影響範囲を正本、実装、検証、Git履歴へ接続し、将来の人間とAIが変更理由を再構成できるようにするTrace Logである。
+各契機からリリース結果まで、変更の意味と影響範囲を正本、実装、検証、Git履歴へ接続し、将来の人間とAIが変更理由を再構成できるようにするトレースログである。

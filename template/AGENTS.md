@@ -1,8 +1,8 @@
 # AGENTS.md
 
-このRepositoryはCRDDで運用する。CRDD標準文書は`00_CRDD/`を正本とする。
+このリポジトリはCRDDで運用する。CRDD標準文書は`00_CRDD/`を正本とする。
 
-## Authority and Context Selection
+## 決定権限とコンテキスト選択
 
 非自明な作業では、最初に次の基礎正本を読む。
 
@@ -15,100 +15,110 @@
 00_CRDD/11_Skill.md
 ```
 
-`Related` Headerは直接関係する正本への探索導線であり、実行時Read Setの上限ではない。Active Scope、Target Revision、実行主体、対象工程、Change / Roadmap / Release / Workflow、Auditの必要性に応じて次を追加する。
+`Related`ヘッダーは直接関係する正本への探索導線であり、実行時に読む範囲の上限ではない。現在の対象範囲、対象改訂版、実行主体、対象工程、変更／ロードマップ／リリース／作業手順、監査の必要性に応じて次を追加する。
 
-| Scope / Activity | Required Authority |
+| 対象範囲／作業 | 参照する正本 |
 |---|---|
-| Change Trigger、Impact、実装・検証・Closeの追跡 | `00_CRDD/12_Change.md` |
-| Roadmap登録・再評価・延期・取消 | `00_CRDD/21_Discovery.md` |
-| Roadmap Itemの着手 | `00_CRDD/21_Discovery.md`と`00_CRDD/12_Change.md` |
-| Product Release、配布・有効化 | `00_CRDD/13_Release.md` |
+| 変更契機、影響、実装・検証・終了の追跡 | `00_CRDD/12_Change.md` |
+| ロードマップ登録・再評価・延期・取消 | `00_CRDD/21_Discovery.md` |
+| ロードマップ項目の着手 | `00_CRDD/21_Discovery.md`と`00_CRDD/12_Change.md` |
+| プロダクトリリース、配布・有効化 | `00_CRDD/13_Release.md` |
 | `07_Workflows`の反復可能な作業手順 | `00_CRDD/14_Workflow.md` |
-| CRDD標準自体の変更・Version・Migration | `00_CRDD/19_Maintenance.md` |
-| Discovery | `00_CRDD/21_Discovery.md` |
+| CRDD標準自体の変更・バージョン・移行 | `00_CRDD/19_Maintenance.md` |
+| 課題探索・要求形成工程（Discovery） | `00_CRDD/21_Discovery.md` |
 | UX | `00_CRDD/22_UX.md` |
 | IA | `00_CRDD/23_IA.md` |
-| UIまたはBehavior Specification | `00_CRDD/24_UI_Behavior_Specification.md`と、`25_UI.md`または`26_Behavior_Specification.md` |
-| Architecture | `00_CRDD/27_Architecture.md` |
-| Implementation | `00_CRDD/28_Implementation.md` |
-| Verification | `00_CRDD/29_Verification.md` |
+| UIまたは振る舞い仕様 | `00_CRDD/24_UI_Behavior_Specification.md`と、`25_UI.md`または`26_Behavior_Specification.md` |
+| アーキテクチャ | `00_CRDD/27_Architecture.md` |
+| 実装 | `00_CRDD/28_Implementation.md` |
+| 検証 | `00_CRDD/29_Verification.md` |
 | 文書品質・参照・重複の監査 | `00_CRDD/51_Document_Audit.md` |
 | CRDD準拠の評価 | `00_CRDD/52_Conformance_Audit.md` |
-| 工程横断Gap / Impactの探索 | `00_CRDD/53_Gap_Impact_Audit.md` |
+| 工程横断の不足／影響の探索 | `00_CRDD/53_Gap_Impact_Audit.md` |
 
-対象Scopeと無関係な全標準文書を毎回読み込む必要はない。ただし、対象工程のEntry、Source Context、Handoff先、本文から参照されるAuthorityを確認し、必要な正本を未読のまま推定で代替しない。
+対象範囲と無関係な全標準文書を毎回読み込む必要はない。ただし、対象工程の入口、情報源コンテキスト、引き渡し先、本文から参照される決定権限を確認し、必要な正本を未読のまま推定で代替しない。
 
-## Language and Readability
+## 言語と可読性
 
 - 利用者への説明、質問、判断支援は、利用者の主要ロケールで行う。
-- CRDD用語は初出時に「ローカル表示名（Canonical English Term）」で示し、同じ節で英語名を不必要に繰り返さない。
+- 新規作成・更新する人間可読成果物の本文も、リポジトリまたは対象成果物の主要ロケールで記述する。正本文書、CHG、根拠の説明・要約、ロードマップ、リリース記録、レビュー・監査結果を、`Changes/`、`Evidence/`、`CHG-*`等の英語識別子だけを理由に英語で作成しない。
+- 外部根拠の原文は保持し、追加する説明や要約だけを主要ロケールへ合わせる。成果物が別の主要ロケールを明示する場合はその指定を優先する。
+- CRDD用語は初出時に「ローカル表示名（Canonical English Term）」で示す。初出後の説明文、見出し、説明用の表ではローカル表示名を基本とし、英語名を不必要に繰り返さない。
+- 説明用の表と機械可読なスキーマを区別する。スキーマキー / 値、状態の実値、関係、コードは維持し、説明用表示名だけを英語項目名のように並べない。
 - 結論と要点を先に示し、並列事項、条件、選択肢、完了条件は箇条書きまたは表で分ける。
-- 専門用語だけで説明を完結させず、Product、利用者、運用への影響を平易に説明する。
-- Canonical Term、Stable Context ID、Agent ID、File名、Schema Key / Value、Codeは無断で翻訳または変更しない。
-- 規範の強さを示す場合は、`00_CRDD/03_Documentation.md`の日本語表示とBCP 14 Keywordの対応に従う。
-- 人間が読むCanonical Artifact、Handoff View、Review Result、Decision Support Summaryを作成・更新した場合は、人間への提示または通常Handoff前に`00_CRDD/03_Documentation.md`の可読性Self-checkを行う。
-- 読み違いがScope、Decision、Obligation、Exception、Risk、Verification、Handoffへ影響し得る場合は、表現上の好みとして処理せず、`agent.document.audit`または同等の独立Reviewerへ渡す。
+- 専門用語だけで説明を完結させず、プロダクト、利用者、運用への影響を平易に説明する。
+- 正式英語名、安定コンテキストID、エージェントID、ファイル名、スキーマキー / 値、コードは無断で翻訳または変更しない。
+- 規範の強さを示す場合は、`00_CRDD/03_Documentation.md`の日本語表示とBCP 14 キーワードの対応に従う。
+- 人間が読む正本成果物、引き渡し表示、レビュー結果、判断支援要約を作成・更新した場合は、人間への提示または通常の引き渡し前に`00_CRDD/03_Documentation.md`の可読性セルフチェックを行う。
+- 読み違いが対象範囲、判断、義務、例外、リスク、検証、引き渡しへ影響し得る場合は、表現上の好みとして処理せず、`agent.document.audit`または同等の独立した確認者へ渡す。
 
-## Repository Structure Rules
+## リポジトリ構成規則
 
-- Repository構造、Artifact記法、Evidence、Decision / Rationale、Stable Context ID、Artifact Reference、Traceabilityは`00_CRDD/03_Documentation.md`に従う。
-- Stable Context IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`だけに使用する。Document Number、`CHG-*`、Architecture、Decision、Evidence、Implementation、Test、Verificationへ流用しない。
-- Evidenceは利用する成果物内または最も近い親Folderの`Evidence/`へ置く。Repository Rootに中央Evidence Folderを作らない。
-- Decisionの結果は結果となるCanonical Artifactへ反映し、理由、Evidence、Alternative、Historyを同Artifactへ残す。Repository Rootに中央Decision Folderを作らない。
-- `01_Discovery`は新しいEvidence、不確実性、Requirementの入口とする。`99_Roadmap`は採用済みだが未着手のRequirementやContextを参照するProject固有の計画Viewとし、Roadmap ItemへCRDD Stable Context IDを付与しない。Roadmapの登録、Main / Detail、再評価、着手、完了、Cleanupは`00_CRDD/21_Discovery.md`を正本とする。
-- Change Traceは`90_Release/Changes/CHG-*.md`へ置く。`CHG-*`はChange TraceのArtifact IDであり、Stable Context IDではない。
-- `07_Workflows`にはRepository固有の反復可能な作業手順を置き、Change TraceやRelease Recordを置かない。
-- `40_Develop`にはCode、Configuration、Migration、Build、Test等のImplementation Artifactを置き、CRDD管理用Markdownを置かない。
+- リポジトリ構造、成果物記法、根拠、判断／判断理由、安定コンテキストID、成果物参照、追跡可能性は`00_CRDD/03_Documentation.md`に従う。
+- 安定コンテキストIDは`REQ`、`UX`、`IA`、`UI`、`SPEC`だけに使用する。文書番号、`CHG-*`、アーキテクチャ、判断、根拠、実装、テスト、検証へ流用しない。
+- 根拠は利用する成果物内または最も近い親フォルダの`Evidence/`へ置く。リポジトリルートに中央根拠フォルダを作らない。
+- 判断の結果は結果となる正本成果物へ反映し、理由、根拠、代替案、履歴を同成果物へ残す。リポジトリルートに中央判断フォルダを作らない。
+- `01_Discovery`は新しい根拠、不確実性、要求の入口とする。`99_Roadmap`は採用済みだが未着手の要求やコンテキストを参照するプロジェクト固有の計画表示とし、ロードマップ項目へCRDD安定コンテキストIDを付与しない。ロードマップの登録、主要表示／詳細、再評価、着手、完了、整理は`00_CRDD/21_Discovery.md`を正本とする。
+- 変更トレースは`90_Release/Changes/CHG-*.md`へ置く。`CHG-*`は変更トレースの成果物IDであり、安定コンテキストIDではない。
+- `07_Workflows`にはリポジトリ固有の反復可能な作業手順を置き、変更トレースやリリース記録を置かない。
+- `40_Develop`にはコード、構成、移行、ビルド、テスト等の実装成果物を置き、CRDD管理用Markdownを置かない。
 
-## Phase Execution and Handoff
+## 工程実行と引き渡し
 
-Discovery、UX、IA、UI、Behavior Specification、Architecture、Implementation、Verificationを実行・監査する場合は、対象工程文書のProcess Contractを正本とする。Entry、Transformation、Required Responsibility Coverage、Exit、Phase Gate Criteria、Audit ChecklistをPrompt、Workflow、Agent定義で再定義しない。
+課題探索・要求形成、UX、IA、UI、振る舞い仕様、アーキテクチャ、実装、検証を実行・監査する場合は、対象工程文書の工程契約を正本とする。入口、変換、必要な責務の網羅、出口、工程判定基準、監査チェックリストをプロンプト、作業手順、エージェント定義で再定義しない。
 
-UIとBehavior Specificationは直列ではない。`24_UI_Behavior_Specification.md`を共有Contractとして、`25_UI.md`と`26_Behavior_Specification.md`を相互参照しながら並行して進める。
+UIと振る舞い仕様は直列ではない。`24_UI_Behavior_Specification.md`を共有契約として、`25_UI.md`と`26_Behavior_Specification.md`を相互参照しながら並行して進める。
 
-工程完了を、ファイル作成、Artifactの高い完成度、Skill Run終了、Implementation完了、Test Passから推定しない。対象Scope全体のCoverage Stateを確認する。部分Handoffは、対象Scope、残っている未解決事項（Unresolved Gap）、Risk、Owner、Reopen条件を記録し、Human Authorityが明示承認した場合に限る。Handoffは受信工程のEntry Contractを満たさなければならない。
+工程完了を、ファイル作成、成果物の高い完成度、スキル実行終了、実装完了、テストの`Pass`から推定しない。対象範囲全体の網羅状態を確認する。部分的な引き渡しは、対象範囲、残っている未解決事項、リスク、担当責任者、再開条件を記録し、人間の決定権限者が明示承認した場合に限る。引き渡しは受信工程の入口契約を満たさなければならない。
 
-通常の工程移行前には、作成・変換担当から分離した`agent.phase_transition.review`を実行する。Subagentを利用できる場合は原則としてReview Subagentへ委譲し、送信工程のExit / Gate / Audit Checklist、受信工程のEntry、Coverage、Trace、Unresolved Gapを対象Revisionに対して確認する。Findingは責務を持つ工程で修正し、修正後Revisionを再Reviewして`Pass`を得るまで通常Handoffしない。Audit Run完了、`Conditional`、後工程へのOwner移管だけをPassとみなさない。
+通常の工程移行前には、作成・変換担当から分離した`agent.phase_transition.review`を実行する。サブエージェントを利用できる場合は原則としてレビュー用サブエージェントへ委譲し、送信工程の出口／判定／監査チェックリスト、受信工程の入口、網羅範囲、トレース、未解決事項を対象改訂版に対して確認する。指摘事項は責務を持つ工程で修正し、修正後の改訂版を再レビューして`Pass`を得るまで通常の引き渡しをしない。監査実行の完了、`Conditional`、後工程への担当責任者の移管だけを`Pass`とみなさない。
 
-Independent Reviewを省略できるのは、対象ScopeのHuman Authorityが明示的に要求し、`review_exception`として理由、未Review範囲、Risk、影響、Owner、再Review条件を記録した場合に限る。部分Handoffでも移行対象ScopeのReviewは省略しない。
+工程移行の標準は、次の二段階とする。
 
-上流Contextの不足・矛盾・変更が判明した場合、下流Artifactで補完して確定せず、該当工程とHuman Authorityへ戻す。ImplementationまたはVerificationから得たLearning、Finding、Deviationは、責務を持つCanonical Contextと必要なChange Traceへ還元する。
+1. AIまたは作成担当から分離した確認者が、独立した工程移行レビューを行う。
+2. 対象項目と工程移行の人間の決定権限者が、レビュー結果を確認し、内容の採用と移行を判断する。
 
-人間の判断、制約、学び、根拠、Findingを確定または変更した時点で、Triggered Propagation Checkが必要かを必ず評価する。意味的影響の候補がある場合は、工程移行を待たず`agent.gap_impact.audit`へ委譲する。
+内容の決定権限者と工程移行の決定権限者が同じ場合は、一度の人間承認にまとめてよい。決定権限が異なる場合、または法務、安全性、セキュリティ、プライバシー等の専門承認が必要な場合だけ、人間の判断を分ける。役職名や承認回数を機械的に増やさない。
+
+独立レビューを省略できるのは、対象範囲の人間の決定権限者が明示的に要求し、`review_exception`として理由、未レビュー範囲、リスク、影響、担当責任者、再レビュー条件を記録した場合に限る。部分的な引き渡しでも移行対象範囲のレビューは省略しない。
+
+上流コンテキストの不足・矛盾・変更が判明した場合、下流成果物で補完して確定せず、該当工程と人間の決定権限者へ戻す。実装または検証から得た学び、指摘事項、逸脱は、責務を持つ正本コンテキストと必要な変更トレースへ還元する。
+
+人間の判断、制約、学び、根拠、指摘事項を確定または変更した時点で、変更影響の伝播確認（Triggered Propagation Check）が必要かを必ず評価する。意味的影響の候補がある場合は、工程移行を待たず`agent.gap_impact.audit`へ委譲する。
 
 確認では次を行う。
 
-- 上流・同層のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索する
+- 上流・同層の未決事項、未解決事項、仮定、判断、制約を探索する
 - 責務を持つ正本を更新する
-- 上流更新後に下流Impactを再探索する
-- 修正後Revisionを再監査する
+- 上流更新後に下流への影響を再探索する
+- 修正後の改訂版を再監査する
 
-未完了の伝播は、Human Authorityが明示した`propagation_exception`なしに通常完了・Handoff・Closeとしない。
+未完了の伝播は、人間の決定権限者が明示した`propagation_exception`なしに通常完了・引き渡し・終了としない。
 
-## Action and Approval Boundary
+## 操作と承認の境界
 
-- AIは指定されたAction AuthorityとActive Scopeの範囲内で、分析、Draft、編集、実装、Test、Auditを行える。
-- AIはHuman Authorityが必要な意味、Priority、Scope、Risk受容、Phase Handoff、Release、Conformance Claimを自己承認しない。
-- `00_CRDD`、Authority、Stable Context ID体系、Approved / Stable Canonical Artifact、Decision / Rationale、Acceptanceを変更する場合は、作業前にImpactとPlanを示し、ユーザーの指示またはHuman Approvalを確認する。
-- 特定Folderだけを一律に保護対象とみなさない。Status、Property Authority、内容、Risk、変更Scopeで判断する。
-- 既存の未関連変更を削除・巻き戻し・整形しない。文書統合や削除では情報移管、参照元、Template、README / Overview / CHANGELOGへの影響を確認する。
+- AIは指定された操作権限と現在の対象範囲内で、分析、下書き、編集、実装、テスト、監査を行える。
+- AIは人間の決定権限が必要な意味、優先順位、対象範囲、リスク受容、工程の引き渡し、リリース、準拠表明を自己承認しない。
+- `00_CRDD`、決定権限、安定コンテキストID体系、承認済み／安定した正本成果物、判断／判断理由、受入条件を変更する場合は、作業前に影響と計画を示し、ユーザーの指示または人間の承認を確認する。
+- 特定フォルダだけを一律に保護対象とみなさない。状態、項目の決定権限、内容、リスク、変更対象範囲で判断する。
+- 既存の未関連変更を削除・巻き戻し・整形しない。文書統合や削除では情報移管、参照元、ひな型、README / 概要 / CHANGELOGへの影響を確認する。
 
-## Agent and Subagent Use
+## エージェントとサブエージェントの利用
 
-AgentまたはSubagentを使う場合は`00_CRDD/10_Agent.md`に従う。Guided Skillは`00_CRDD/11_Skill.md`と対象工程のSkill Adapterに従う。
+エージェントまたはサブエージェントを使う場合は`00_CRDD/10_Agent.md`に従う。ガイド付きスキルは`00_CRDD/11_Skill.md`と対象工程のスキル接続部に従う。
 
-Subagentへは限定Scope、Input、Target Revision、Expected Output、禁止Action、Evidence、Return条件を渡す。SubagentはProposal、Draft、Finding、Evidenceを返せるが、Human Decision、Phase Handoff、Risk受容、Release、Conformance Claimを自己承認しない。
+サブエージェントへは限定した対象範囲、入力、対象改訂版、期待する出力、禁止操作、根拠、返却条件を渡す。サブエージェントは提案、下書き、指摘事項、根拠を返せるが、人間による判断、工程の引き渡し、リスク受容、リリース、準拠表明を自己承認しない。
 
-Auditを委譲する場合は、`agent.document.audit`、`agent.conformance.audit`、`agent.gap_impact.audit`、工程移行Reviewでは`agent.phase_transition.review`のAgent Adapterを使用し、対象Audit正本をInputに含める。Audit SubagentはRead-onlyでFindingを返し、Parent Agentまたは別のRemediation Runが修正した後、対象Revisionを再監査する。
+監査を委譲する場合は、`agent.document.audit`、`agent.conformance.audit`、`agent.gap_impact.audit`、工程移行レビューでは`agent.phase_transition.review`のエージェント接続部を使用し、対象監査正本を入力に含める。監査用サブエージェントは読み取り専用で指摘事項を返し、親エージェントまたは別の修正実行が修正した後、対象改訂版を再監査する。
 
-Parent AgentはResult比較、Conflict解消、統合、Canonical Contextへの反映、Human Reviewへの接続に責任を持つ。Subagent Result、Summary、Test PassだけをVerifiedまたはApprovedとして扱わない。
+親エージェントは結果比較、競合解消、統合、正本コンテキストへの反映、人間によるレビューへの接続に責任を持つ。サブエージェントの結果、要約、テストの`Pass`だけを検証済みまたは承認済みとして扱わない。
 
-## Completion and Audit
+## 完了と監査
 
-変更後は対象Scopeに応じて、文書Link / Anchor、用語、Authority、Coverage、Trace、Test、Verificationを確認する。
+変更後は対象範囲に応じて、文書リンク／アンカー、用語、決定権限、網羅範囲、トレース、テスト、検証を確認する。
 
-- 人間が読むCanonical Artifactを新規作成または実質的に更新した場合は、提示・Handoff前の可読性Self-checkを行う。誤読が判断や後続作業へ影響し得る場合、または文書体系、README / Overview / CHANGELOG、Related、Header、Document Number、Stable Context ID、Traceabilityに影響する場合は`00_CRDD/51_Document_Audit.md`を使用する。
-- CRDD準拠またはConformance Claimを評価する場合は`00_CRDD/52_Conformance_Audit.md`を使用する。
-- 複数工程、共有Artifact、Consumer、Data、Releaseへ影響する場合は`00_CRDD/53_Gap_Impact_Audit.md`を使用する。
-- Human Decision、Constraint、Learning、Evidence、Findingを確定・変更した場合は、同文書のTriggered Propagation Checkを必ず評価し、発火時は正本反映と再監査まで完了する。
-- Productの成立確認は`00_CRDD/29_Verification.md`に従い、Document AuditやConformance Auditで代替しない。
+- 人間が読む正本成果物を新規作成または実質的に更新した場合は、提示・引き渡し前の可読性セルフチェックを行う。誤読が判断や後続作業へ影響し得る場合、または文書体系、README／概要／CHANGELOG、関連、ヘッダー、文書番号、安定コンテキストID、追跡可能性に影響する場合は`00_CRDD/51_Document_Audit.md`を使用する。
+- CRDD準拠または準拠表明を評価する場合は`00_CRDD/52_Conformance_Audit.md`を使用する。
+- 複数工程、共有成果物、利用側、データ、リリースへ影響する場合は`00_CRDD/53_Gap_Impact_Audit.md`を使用する。
+- 人間による判断、制約、学び、根拠、指摘事項を確定・変更した場合は、同文書の変更影響の伝播確認を必ず評価し、発火時は正本反映と再監査まで完了する。
+- プロダクトの成立確認は`00_CRDD/29_Verification.md`に従い、文書監査や準拠監査で代替しない。

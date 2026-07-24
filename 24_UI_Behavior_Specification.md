@@ -1,9 +1,9 @@
-# CRDD UI Contract and Behavior Specification
+# CRDD UI契約と振る舞い仕様の対応関係
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -22,339 +22,366 @@ Related:
 > この文書で分かること（非規範の案内）
 >
 > - UIと振る舞い仕様をなぜ並行して扱うか
-> - 表示・操作とSystem Behaviorの責務をどう分けるか
+> - 表示・操作とシステムの振る舞いの責務をどう分けるか
 > - 両方の成果物をどう対応付けるか
 > - 片方だけ完成したように見える状態をどう防ぐか
-> - Architectureへ渡す前に何を共同確認するか
+> - アーキテクチャへ渡す前に何を共同確認するか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、利用者に見えるUI ContractとSystemのBehavior Specificationが、同じProduct Intent、Feature、Use Case、User Action、Stateを矛盾なく成立させるためのPair Review Contractを定義する。
+本書は、利用者に見えるUI契約とシステムの振る舞い仕様が、同じプロダクト意図、機能、ユースケース、利用者操作、状態を矛盾なく成立させるための対応レビュー契約を定義する。
 
 ```text
-UI Contract
-= 利用者が何を認識し、判断し、操作し、どのFeedbackを受けるか
+UI契約
+= 利用者が何を認識し、判断し、操作し、どのフィードバックを受けるか
 
-Behavior Specification
+振る舞い仕様
 = どの条件と状態で処理が始まり、何が変化し、何が返り、失敗時にどう振る舞うか
 
-Pair Review
-= 両者が同じ意味を、各Property Authorityから矛盾なく表しているか
+対レビュー
+= 両者が同じ意味を、各項目の決定権限から矛盾なく表しているか
 ```
 
-本書は第三の工程、第三のProperty Authority、またはUIとSPECを統合した新しいStable Contextを作らない。UI工程のEntry、Coverage、Exit、Gate、Auditは[UI](25_UI.md#phase-process-contract)、Behavior Specification工程は[Behavior Specification](26_Behavior_Specification.md#phase-process-contract)を正本とする。
+本書は第三の工程、第三の項目の決定権限、またはUIとSPECを統合した新しい安定コンテキストを作らない。本書の対応レビュー契約は規範であり、規範強度と運用規模は[文書化](03_Documentation.md#48-normative-language)に従う。UI工程の入口、網羅範囲、完了条件、ゲート、監査は[UI](25_UI.md#phase-process-contract)、振る舞い仕様工程は[振る舞い仕様](26_Behavior_Specification.md#phase-process-contract)を正本とする。
 
 ---
 
-# 2. Pair Review Contract
+# 2. UI・振る舞い仕様の対応レビュー契約
 
-## 2.1. Entry Contract
+## 2.1. 入口契約
 
-Pair Reviewは対象Scopeについて、次を受け取る。
+対応レビューは対象範囲について、次を受け取る。
 
-- Source REQ / UX / IAと対象Revision
-- IA Configuration Candidate / Model、Owner / Authority、適用Scope、Inheritance / Override
-- 適用するAccessibility Profileと代替操作Obligation
-- Pairing Unit CandidateとなるFeature、Use Case、User Action、Stateful Interaction
-- 対象`UI-*`と`SPEC-*`、または各工程のDraft / Candidate
-- UI Coverage Summary、SPEC Coverage Summary、Unresolved Gap、人間Review Result
-- Source IA Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
-- IA、UI、SPECで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
-- 対象のUI Obligation、Behavior Obligation、例外候補
+- 情報源となるREQ / UX / IAと対象改訂版
+- IA設定候補／モデル、担当責任者／決定権限、適用対象範囲、継承／上書き
+- 適用するアクセシビリティプロファイルと代替操作の義務
+- 適用するUIテーマ（UI Theme）、操作パターン（Interaction Pattern）、UI部品状態（UI Component State）と視覚表現方針（Visual Direction）上の不変条件
+- 対応単位候補となる機能、ユースケース、利用者操作、状態を持つインタラクション
+- 対象`UI-*`と`SPEC-*`、または各工程の下書き／候補
+- UI網羅範囲の要約、SPEC網羅範囲の要約、未解決事項、人間レビュー結果
+- 情報源となるIA工程移行レビュー結果、レビュー済み改訂版、または明示された`review_exception`
+- IA、UI、SPECで発火した変更影響の伝播確認結果、情報源の改訂版、または明示された`propagation_exception`
+- 対象のUI上の義務、振る舞い上の義務、例外候補
 
-片側が未着手でもReviewを開始し、他方に必要なObligationを発見してよい。ただし、未存在のContractをAIが推測で補完してPair成立扱いしない。
+片側が未着手でもレビューを開始し、他方に必要な義務を発見してよい。ただし、存在しない契約をAIが推測で補完して対応関係が成立したと扱わない。
 
-## 2.2. Pairing Transformation
+## 2.2. 対応付け変換
 
-各Pairing Unitについて、UI側のAction、Presentation State、Feedback、Settings / Control、Recoveryと、SPEC側のTrigger、Precondition、System State、Result、Configuration / Policy Behavior、Failure、Recoveryを意味のあるRelationで対応づける。
+各対応単位について、次を意味のある関係で対応づける。
+
+- UI側: 操作、表示状態、フィードバック、設定／制御、UIテーマ、操作パターン、UI部品状態、回復
+- SPEC側: 発火条件、事前条件、システム状態、結果、設定／方針の振る舞い、失敗、回復
 
 ```text
-Source Intent / Pairing Unit
-├─ UI Contract: recognition / action / presentation / feedback
-└─ Behavior Specification: condition / state / behavior / result
+情報源意図 / 対応づけ単位
+├─ UI契約: 認識 / 操作 / 表示 / フィードバック
+└─ 振る舞い仕様: 条件 / 状態 / 振る舞い / 結果
                     ↓
-             Pair Consistency Result
+          対応関係の一貫性結果
 ```
 
-両者を同じ文体や一つのArtifactへ統合する必要はない。Property Authorityを保ったまま、不一致、欠落、例外、検証方法を明らかにする。
+両者を同じ文体や一つの成果物へ統合する必要はない。項目の決定権限を保ったまま、不一致、欠落、例外、検証方法を明らかにする。
 
-## 2.3. Required Pair Coverage
+## 2.3. 必要な対応関係の網羅範囲
 
-対象Scopeの全Pairing Unitについて、次を判定する。
+対象範囲のすべての対応単位について、次を判定する。
 
-| 観点 | UI Contract側 | 振る舞い仕様側 |
+| 観点 | UI契約側 | 振る舞い仕様側 |
 |---|---|---|
-| Source / Purpose | 利用者のGoal、UX / IA Intent | Systemが成立させるResult、Source REQ / UX / IA |
-| Action / Trigger | 利用者または外部ActorのAction | Trigger、Actor、Authority |
-| Availability | Visible、Hidden、Disabled、理由 | Precondition、Permission、Feature / Dependency Availability |
-| Input | 入力、選択、Format、補助 | Validation、Normalization、拒否条件 |
-| Settings / Policy | Current / Effective Value、適用Scope、継承 / Overrideの説明、変更・Reset Action | Option / Range、Default Source、Precedence、Permission、Apply / Reset / Recovery Behavior |
-| Processing | Loading、Progress、操作可否 | Processing State、Timeout、Concurrency、Partial Result |
-| State | Presentation State、Assuranceの見せ方 | Domain / System State、State Transition |
-| Success / Output | 完了Feedback、結果、次Action | Success条件、Output、永続化、Side Effect |
-| Empty / Unknown | 空・未取得・結果不明の意味 | Data不存在、未確定、照会・再確認Behavior |
-| Failure / Recovery | Message、保持内容、Retry / Support導線 | Failure分類、保護、Retry、Fallback、Recovery |
-| Permission | 操作可否、理由、情報開示 | Authorization、禁止時Result、Audit |
-| Cancel / Undo | 取消・復元ActionとFeedback | Cancellation、Rollback、Compensation、不可逆条件 |
-| Duplicate / Conflict | 二重操作防止、競合表示 | Idempotency、Conflict、Stale、Duplicate Result |
-| Data / Content | Source、Freshness、Masking、Label | Data Source、更新条件、Privacy、Retention、Result Meaning |
-| AI / External Action | Provenance、不確実性、人間確認、Consent | Inference State、Approval、Execution Authority、Provider Failure |
-| Accessible Operation | Keyboard / Focus / Semantic / Reading Order / Alternative Interaction | 入力方式に依存しないTrigger、同等のPermission / Result / Failure / Recovery、時間制限・入力保持 |
-| Verification | UI Acceptance、Visual / Interaction Evidence | Behavior Acceptance、Test / Log / Result Evidence |
+| 情報源／目的 | 利用者の目標、UX / IAの意図 | システムが成立させる結果、情報源となるREQ / UX / IA |
+| 操作／発火条件 | 利用者または外部アクターの操作 | 発火条件、アクター、決定権限 |
+| 利用可否 | 表示、非表示、無効、理由 | 事前条件、権限、機能／依存関係の利用可否 |
+| 入力 | 入力、選択、形式、補助 | 妥当性確認、正規化、拒否条件 |
+| 設定／方針 | 現在値／有効値、適用対象範囲、継承／上書きの説明、変更／リセット操作 | 選択肢／範囲、既定値の情報源、優先順位、権限、適用／リセット／回復の振る舞い |
+| UIテーマ | 現在／有効なUIテーマ、変更可能な差分軸、不変の意味、プレビュー／リセット／フィードバック | 選択／自動選択、既定値、優先順位、保存、適用、代替／回復 |
+| UI部品／UI設計パターン | UI部品状態、UI差分、インタラクションの見せ方、利用条件・例外 | 発火条件、状態の意味、結果、失敗／回復、例外条件 |
+| 処理中 | 読み込み中、進捗、操作可否 | 処理状態、タイムアウト、並行処理、部分結果 |
+| 状態 | 表示状態、保証の見せ方 | ドメイン / システム状態、状態遷移 |
+| 成功／出力 | 完了フィードバック、結果、次の操作 | 成功条件、出力、永続化、副作用 |
+| 空／不明 | 空・未取得・結果不明の意味 | データ不存在、未確定、照会・再確認の振る舞い |
+| 失敗／回復 | メッセージ、保持内容、再試行／支援導線 | 失敗分類、保護、再試行、代替、回復 |
+| 権限 | 操作可否、理由、情報開示 | 実行許可、禁止時の結果、監査 |
+| 取消／元に戻す | 取消・復元操作とフィードバック | 取消、ロールバック、補償、不可逆条件 |
+| 重複／競合 | 二重操作防止、競合表示 | 冪等性、競合、古い、重複時の結果 |
+| データ／内容 | 情報源、鮮度、マスキング、表示名 | データの情報源、更新条件、プライバシー、保持期間、結果の意味 |
+| AI／外部操作 | 来歴、不確実性、人間確認、同意 | 推定状態、承認、実行権限、提供側障害 |
+| 利用可能な操作 | キーボード / フォーカス / 意味 / 読み上げ順序 / 代替操作 | 入力方式に依存しない発火条件、同等の権限／結果／失敗／回復、時間制限・入力保持 |
+| 検証 | UIの受入条件、視覚／インタラクションの根拠 | 振る舞いの受入条件、テスト／ログ／結果の根拠 |
 
-全ConcernをすべてのPairing Unitへ機械的に実装する必要はない。適用しないConcernは`Not Applicable`として理由と人間確認を残す。
+全懸念をすべての対応単位へ機械的に実装する必要はない。適用しない懸念は`Not Applicable`として、対象項目の人間の決定権限者が理由と影響を確認する。
 
-## 2.4. Pair Coverage State
+## 2.4. 対応関係の網羅状態
 
-各Pairing UnitとConcernを、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
+各対応単位と懸念を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
 
-代表的な一画面、Happy Path、一つのAction、またはUI / SPECの片側が完成したことを、対象Scope全体のPair Review完了と表現してはならない。
+代表的な一画面、正常パス、一つの操作、またはUI / SPECの片側が完成したことを、対象範囲全体の対応レビュー完了と表現してはならない。
 
-UI CoverageとSPEC Coverageは別々に保持し、Pair Coverageへ合算して曖昧にしない。
+UIの網羅範囲とSPECの網羅範囲は別々に保持し、対応関係の網羅範囲へ合算して曖昧にしない。
 
-## 2.5. Human Decisions
+## 2.5. 人間による判断
 
-人間はPairing Unit、重要Stateの利用者向けMeaning、情報開示、不可逆Action、Recovery / Fallback、Risk Acceptance、Pair例外、`Not Applicable`、部分Handoffを決定する。
+各項目の人間の決定権限者は、対応単位、重要状態の利用者向け意味、情報開示、不可逆操作、回復 / 代替動作、リスク受容、対応レビューの例外、`Not Applicable`、部分引き渡しを決定する。
 
-AIは対応候補、不一致、欠落、選択肢を提示できるが、Business Rule、Authority、成功・失敗の意味、片側を正しいものとして自己決定しない。
+AIは対応候補、不一致、欠落、選択肢を提示できるが、業務規則、決定権限、成功・失敗の意味、片側を正しいものとして自己決定しない。
 
-Pairに関する人間の判断、制約、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、IA以前のContext、UI / SPECの両側、Architecture以降へのImpactを更新・再監査するまでPairを通常完了としない。
+対応関係について、対象項目の人間の決定権限者による判断、制約、学び、根拠、指摘事項を確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、IA以前のコンテキスト、UI / SPECの両側、アーキテクチャ以降への影響を更新・再監査するまで対応レビューを通常完了としない。
 
-## 2.6. Exit and Pair Gate
+<a id="26-exit-and-pair-gate"></a>
 
-Pair Gateを人間へ提示する前に、次を行う。
+## 2.6. 完了条件と対応レビュー判定
 
-1. 対象Pairing Unit / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
-2. Pair FindingをUI、Behavior Specification、または責務を持つ上流工程で修正する。
-3. UIとBehavior Specificationの更新Revisionを再Reviewし、`Pass`を得る。
+対応レビュー判定を人間へ提示する前に、次を行う。
 
-片側のReviewだけでPair全体を`Pass`にしてはならない。Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+1. 対象対応単位／改訂版へ[独立した工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 対応関係の指摘事項をUI、振る舞い仕様、または責務を持つ上流工程で修正する。
+3. UIと振る舞い仕様の更新改訂版を再レビューし、`Pass`を得る。
+4. 対象内容と工程移行の人間の決定権限者が、内容とレビュー結果を確認して移行を決定する。
 
-Pair Reviewは次を満たした場合に、対象Scopeについて完了できる。
+片側のレビューだけで対応関係全体を`Pass`にしてはならない。レビューの省略または未解消の指摘事項を伴う移行は、[人間が指示するレビュー例外](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常経路と区別して扱う。
 
-- 全Pairing UnitとRequired Pair Coverageを判定している
-- `UI-*`と`SPEC-*`のRelation、または承認済み例外を辿れる
-- Action / Trigger、State、Result、Failure、Permission、Recoveryの重要な不一致がない
-- Unresolved Gap、`Not Applicable`、部分承認、Riskを記録している
-- UIとSPECの各Phase Gateを独立して評価している
-- Acceptanceと取得予定Evidenceが両側で対応している
-- 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
+対応レビューは次を満たした場合に、対象範囲について完了できる。
 
-Pair Review完了だけではUI工程またはSPEC工程の完了にならない。反対に、UIまたはSPECの個別Gateは、該当するPair Reviewが未完了なら実装への通常Handoffを許可しない。
+- 全対応単位と必須の対応関係の網羅範囲を判定している
+- `UI-*`と`SPEC-*`の関係、または承認済み例外を辿れる
+- 操作 / 契機、状態、結果、失敗、権限、回復の重要な不一致がない
+- 適用対象のUIテーマ、操作パターン、UI部品状態がUIとSPECで対応し、視覚差分によって振る舞いの意味が変わっていない
+- 未解決事項、`Not Applicable`、部分承認、リスクを記録している
+- UIとSPECの各工程ゲートを独立して評価している
+- 受入条件と取得予定根拠が両側で対応している
+- 発火した変更影響の伝播確認が`Pass`であり、必要な正本更新と再監査が完了している
 
-UIが存在しないBehavior、実Behaviorを持たないPrototype等は、5章の例外条件を満たす場合に限りPair例外として扱う。
+対応レビュー完了だけではUI工程またはSPEC工程の完了にならない。反対に、UIまたはSPECの個別ゲートは、該当する対応レビューが未完了なら実装への通常引き渡しを許可しない。
 
-## 2.7. Pair Audit Checklist
+UIが存在しない振る舞い、実振る舞いを持たないプロトタイプ等は、5章の例外条件を満たす場合に限り対応レビューの例外として扱う。
 
-- Pairing Unitまたは対象`UI-*` / `SPEC-*`の未特定
-- Actionに対応しないTrigger、または利用者へ届かない重要Behavior
-- UI StateとSystem Stateの無条件な一対一化
-- Settings UIとSPECのOption、Default、Effective Value、Scope、Precedence、Permission、変更効果、Reset / Recoveryの不一致
-- Loading / Empty / Unknown / Failure / Permission / Conflict / Cancel / Recoveryの片側欠落
-- Keyboard、Focus、Semantic、代替操作等をUIだけの表現とし、同等のTrigger、Result、Failure、RecoveryがSPEC側にない
-- UIによるBusiness Rule、Authority、State Transitionの創作
-- SPECによるVisual、Information Priority、利用者向け文言の創作
-- AI Proposal、Human Approval、Execution、VerificationのStatus Meaning Collapse
-- FigmaやPrototypeだけによるBehavior確定、EARS文だけによるUI / UX確定
-- 片側の実装都合によるSource UX / IA Intentの無断変更
-- Pair Coverage、Unresolved Gap、人間Review、例外理由、Verification対応の欠落
-- Pair Decision、Constraint、Learning、Evidence、Findingに対する上流・同層探索、両側の正本反映、下流再探索、再監査の欠落
-- PairのIndependent Review未実施、片側だけのReview、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をPair Passとみなしていないか
+<a id="27-pair-audit-checklist"></a>
+
+## 2.7. 対応レビュー監査チェックリスト
+
+- 対応単位または対象`UI-*` / `SPEC-*`の未特定
+- 操作に対応しない契機、または利用者へ届かない重要振る舞い
+- UI状態とシステム状態の無条件な一対一化
+- 設定UIとSPECの選択肢、既定値、実効値、対象範囲、優先順位、権限、変更効果、リセット / 回復の不一致
+- UIテーマの選択、自動選択、既定値、優先順位、永続化、適用失敗、代替動作 / 回復の片側欠落
+- 操作パターンまたはUI部品状態の見た目だけがあり、契機、結果、失敗 / 回復がSPECにない
+- 読み込み中 / 空 / 不明 / 失敗 / 権限 / 競合 / 取消 / 回復の片側欠落
+- キーボード、フォーカス、意味、代替操作等をUIだけの表現とし、同等の契機、結果、失敗、回復がSPEC側にない
+- UIによる業務規則、決定権限、状態遷移の創作
+- SPECによる視覚表現、情報の優先順位、利用者向け文言の創作
+- AIの提案、人間の承認、実行、検証の状態の意味を混同する
+- Figmaやプロトタイプだけによる振る舞い確定、EARS文だけによるUI / UX確定
+- 片側の実装都合による情報源となるUX／IAの意図の無断変更
+- 対応関係の網羅範囲、未解決事項、人間レビュー、例外理由、検証対応の欠落
+- 対応関係に関する判断、制約、学習、根拠、指摘事項に対する上流・同層探索、両側の正本反映、下流再探索、再監査の欠落
+- 対応関係の独立レビュー未実施、片側だけのレビュー、旧改訂版のレビュー流用、指摘事項未修正の持ち越し、監査実行完了を対応レビュー合格とみなしていないか
 
 ---
 
-# 3. Property Authority and Pairing Relation
+# 3. 項目の決定権限と対応関係
 
-## 3.1. Separated Authority
+## 3.1. 分離された決定権限
 
-UIとSPECが同じConcernを扱う場合も、Property Authorityは分離する。
+UIとSPECが同じ懸念を扱う場合も、項目の決定権限は分離する。
 
-| 観点 | UIの決定権限 | SPECの決定権限 | Pair Reviewの焦点 |
+| 観点 | UIの決定権限 | SPECの決定権限 | 対応レビューの焦点 |
 |---|---|---|---|
-| Action | 認識・操作・Feedback | Trigger・条件・Result | Actionが意図したBehaviorを開始するか |
-| State | Presentation / Assurance | Domain / System State | 利用者へ正しいMeaningが伝わるか |
-| Failure | Message・Recovery導線 | Failure条件・保護・回復処理 | 原因を断定しすぎず回復可能か |
-| Permission | 操作可否・説明 | Authorization Rule | 開示と実行制御が一致するか |
-| Settings / Policy | Current / Effective Value、Scope、変更・Reset Action、影響説明 | Option / Range、Default、Precedence、Permission、変更効果、Recovery | 利用者が実際に有効な値と変更結果を正しく理解・制御できるか |
-| Cancel / Undo | 利用可能なAction | Cancellation / Rollback Rule | UIが不可能な回復を約束しないか |
-| Accessible Operation | 認識可能なSemantics、Keyboard / Focus、代替Interaction | 入力方式に依存しない条件、同等Result、時間制限、入力保持 | 特定の感覚・入力方式を使えない利用者にも同じOutcomeと回復が成立するか |
-| Acceptance | 利用者から観測する成立 | Systemから観測する成立 | 同じOutcomeを検証できるか |
+| 操作 | 認識・操作・フィードバック | 契機・条件・結果 | 操作が意図した振る舞いを開始するか |
+| 状態 | 提示 / 保証 | ドメイン / システム状態 | 利用者へ正しい意味が伝わるか |
+| 失敗 | メッセージ・回復導線 | 失敗条件・保護・回復処理 | 原因を断定しすぎず回復可能か |
+| 権限 | 操作可否・説明 | 認可規則 | 開示と実行制御が一致するか |
+| 設定 / 方針 | 現在 / 実効値、対象範囲、変更・リセット操作、影響説明 | 選択肢 / 範囲、既定値、優先順位、権限、変更効果、回復 | 利用者が実際に有効な値と変更結果を正しく理解・制御できるか |
+| UIテーマ | 現在／有効なUIテーマ、変更可能な差分軸、プレビュー、適用結果 | 選択／自動選択、既定値、優先順位、保存、代替／回復 | UIテーマ間で意味を維持し、実際の選択・適用結果を理解・回復できるか |
+| UI部品 / UI設計パターン | UI部品状態 / UI差分、インタラクション、利用規則、例外 | 契機、状態の意味、結果、失敗 / 回復 | 再利用表現が未定義振る舞いを暗黙に作らないか |
+| 取消 / 元に戻す | 利用可能な操作 | 取消 / ロールバック規則 | UIが不可能な回復を約束しないか |
+| 利用可能操作 | 認識可能な意味、キーボード / フォーカス、代替インタラクション | 入力方式に依存しない条件、同等結果、時間制限、入力保持 | 特定の感覚・入力方式を使えない利用者にも同じ成果と回復が成立するか |
+| 受入条件 | 利用者から観測する成立 | システムから観測する成立 | 同じ成果を検証できるか |
 
-「Shared Concern」は共同所有を意味しない。各側が自分のPropertyを正本化し、Pair ReviewがRelationと整合を検査する。
+「共有懸念」は共同所有を意味しない。各側が自分の項目を正本化し、対応レビューが関係と整合を検査する。
 
-## 3.2. Pairing Unit and Cardinality
+## 3.2. 対応単位と対応数
 
-Pairing Unitは原則としてFeature、Use Case、User Action、Stateful Interactionであり、Screen名やFile名ではない。
+対応単位は原則として機能、ユースケース、利用者操作、状態を持つインタラクションであり、画面名やファイル名ではない。
 
 ```text
 悪い対応:
-Screen A.md ⇄ Screen A Spec.md
+画面 Spec.md ⇄ 画面 A Spec.md
 
 意味に基づく対応:
-Topicを承認するUI Contract ⇄ Topic Approval Behavior Specification
-Topicを検索するUI Contract ⇄ Topic Search Behavior Specification
+論点を承認するUI契約 ⇄ 論点承認の振る舞い仕様
+論点を検索するUI契約 ⇄ 論点検索の振る舞い仕様
 ```
 
-一つのUI Actionが複数Behaviorを協調させる場合や、一つのBehaviorを複数Surfaceから利用する場合があるため、Pairは一対一に限定しない。Cardinalityと責務をRelationとして説明する。
+一つのUI操作が複数振る舞いを協調させる場合や、一つの振る舞いを複数画面領域から利用する場合があるため、対は一対一に限定しない。多重度と責務を関係として説明する。
 
-## 3.3. Stable Context and Artifact Boundary
+## 3.3. 安定コンテキストと成果物の境界
 
-Pairは既存の`UI-*`と`SPEC-*`を`pairs_with`等の意味あるRelationで接続する。Pairそのもの、Pairing Matrix、Review Resultへ新しいCRDD標準Stable Context IDを発行しない。文書番号やFile名へUI / SPEC IDを埋め込まない。
+対は既存の`UI-*`と`SPEC-*`を`pairs_with`等の意味ある関係で接続する。対そのもの、対応付けマトリクス、レビュー結果へ新しいCRDD標準安定コンテキストIDを発行しない。文書番号やファイル名へUI / SPEC IDを埋め込まない。
 
-Pairing MatrixはReview Viewであり、UI ContractまたはBehavior Specification本文の代替正本ではない。単純な対象では同一ArtifactへUIとSPECを併記してよいが、Property Authority、Stable Context、Revision、Coverageを区別する。
+対応付けマトリクスはレビュー表示であり、UI契約または振る舞い仕様本文の代替正本ではない。単純な対象では同一成果物へUIとSPECを併記してよいが、項目の決定権限、安定コンテキスト、改訂版、網羅範囲を区別する。
 
-## 3.4. Conflict Resolution
+## 3.4. 競合の解決
 
 不一致が見つかった場合、実装済み、詳細、作成日時が新しい等の理由だけで片側を優先しない。
 
 ```text
-Source UX / IA / REQとDecisionを確認する
-UI PropertyかSPEC Propertyかを確認する
-不足、誤り、意味変更、上流Conflictを分類する
-必要なHuman Decisionまたは上流再開を行う
-正本RevisionとPair Relationを更新する
+情報源となるUX / IA / REQと判断を確認する
+UI項目かSPEC項目かを確認する
+不足、誤り、意味変更、上流競合を分類する
+必要な人間による判断または上流再開を行う
+正本改訂版と対応関係を更新する
 ```
 
 ---
 
-# 4. Cross-contract Concerns
+# 4. 契約を横断する観点
 
-## 4.1. State and Assurance Correspondence
+## 4.1. 状態と保証の対応
 
-Presentation StateとDomain / System Stateは一対一とは限らない。重要なStateでは、内部で成立していること、利用者へ伝えること、その結果を何が保証するかを分ける。
+表示状態とドメイン / システム状態は一対一とは限らない。重要な状態では、内部で成立していること、利用者へ伝えること、その結果を何が保証するかを分ける。
 
 ```text
-Domain / System State = 内部で成立している状態
-Presentation State    = 利用者へ伝える状態
-Assurance State       = その結果を確認したEvidenceまたは確からしさ
+ドメイン / システム状態 = 内部で成立している状態
+表示状態    = 利用者へ伝える状態
+保証状態       = その結果を確認した根拠または確からしさ
 ```
 
-応答喪失等で結果が不明な場合、UIは成功・失敗を推測せず、SPECはUnknownを観測・再確認・回復できるBehaviorとして扱う。
+応答喪失等で結果が不明な場合、UIは成功・失敗を推測せず、SPECは不明を観測・再確認・回復できる振る舞いとして扱う。
 
-## 4.2. Action, Async, and Recovery
+## 4.2. 操作・非同期処理・回復
 
-主要Actionでは、操作可能条件、Trigger、即時Feedback、処理中操作、二重実行、成功・失敗、Cancel / Undo、次Actionを対応づける。
+主要操作では、操作可能条件、契機、即時フィードバック、処理中操作、二重実行、成功・失敗、取消 / 元に戻す、次操作を対応づける。
 
-ActionをHiddenまたはDisabledにする場合、機能の存在や利用不可理由を知らせる必要、代替手段、将来利用可能性と、情報開示によるSecurity RiskをUI / SPECの両側から判断する。
+操作を非表示または無効にする場合、機能の存在や利用不可理由を知らせる必要、代替手段、将来利用可能性と、情報開示によるセキュリティリスクをUI / SPECの両側から判断する。
 
-非同期処理では、Requested、Queued、Processing、Partial、Succeeded、Failed、Cancelled、Expired等から適用Stateを判断し、Progress、Timeout、再訪、Retry、Idempotency、部分完了を両側で整合させる。実際に取得できない進捗率をUIで演出しない。
+非同期処理では、要求済み、待機中、処理中、一部完了、成功、失敗、取消済み、期限切れ等から適用状態を判断し、進捗、タイムアウト、再訪、再試行、冪等性、部分完了を両側で整合させる。実際に取得できない進捗率をUIで演出しない。
 
-Rate Limit、Capacity不足、Dependency停止等でQueue、Reject、Throttle、Degradeが起こる場合、SPECの観測可能なBehaviorと、UIの待機・拒否・縮退・再試行Feedbackを対応づける。
+レート制限、処理能力不足、依存関係停止等でキュー、拒否、流量制限、縮退が起こる場合、SPECの観測可能な振る舞いと、UIの待機・拒否・縮退・再試行フィードバックを対応づける。
 
-削除、公開、送信、上書き、権限変更等では、ConfirmationだけをSafetyとみなさず、影響表示、Authority、不可逆条件、Rollback / Compensation、Audit Evidenceを対応づける。
+削除、公開、送信、上書き、権限変更等では、確認だけを安全性とみなさず、影響表示、決定権限、不可逆条件、ロールバック / 補償、監査根拠を対応づける。
 
-## 4.3. Failure, Data, and Wording
+## 4.3. 失敗・データ・表現
 
-重要Failureでは、発生条件、保護する対象、利用者へ伝えるMeaning、入力保持、Retry / Recovery、Support、Log / Evidenceを対応づける。内部Error Codeをそのまま表示せず、すべてを「予期しないエラー」へ潰さない。
+重要失敗では、発生条件、保護する対象、利用者へ伝える意味、入力保持、再試行 / 回復、支援、ログ / 根拠を対応づける。内部エラーコードをそのまま表示せず、すべてを「予期しないエラー」へ潰さない。
 
-表示Dataでは、Source、Freshness、欠損、Format、Localization、Privacy / Masking、更新条件を対応づける。UI文言は、SPECが保証しない成功、承認、保存、最新性を断定しない。
+表示データでは、情報源、鮮度、欠損、形式、ローカライズ、プライバシー / マスキング、更新条件を対応づける。UI文言は、SPECが保証しない成功、承認、保存、最新性を断定しない。
 
-## 4.4. AI, Consent, and External Action
+## 4.4. AI・同意・外部操作
 
-AI Scopeでは、AI Proposal、Human Reviewed、Approved、Execution Requested、Executed、Verified等の意味を必要範囲で分離する。UIはSource / Provenance、不確実性、人間確認、修正・却下を表現し、SPECはInput Scope、Inference、Approval条件、Provider Failure、保存・公開・実行条件を定義する。
+AIを扱う対象範囲では、AIの提案、人間レビュー済み、承認済み、実行要求済み、実行済み、検証済み等の意味を必要範囲で分離する。UIは情報源 / 来歴、不確実性、人間確認、修正・却下を表現し、SPECは入力対象範囲、推論、承認条件、提供側の失敗、保存・公開・実行条件を定義する。
 
-Consentは表示だけで成立しない。UIの同意・変更・撤回Actionと、SPECの開始条件、Scope、取消・期限切れ時の停止、失敗時Behaviorを対応づける。
+同意は表示だけで成立しない。UIの同意・変更・撤回操作と、SPECの開始条件、対象範囲、取消・期限切れ時の停止、失敗時振る舞いを対応づける。
 
-外部Actionでは、UIが対象、範囲、影響、Authorityを理解可能にし、SPECがRate、Amount、Target、Time、Approval、Idempotency、Cancel、Recovery、Auditを制御する。
+外部操作では、UIが対象、範囲、影響、決定権限を理解可能にし、SPECが比率、量、対象、時間、承認、冪等性、取消、回復、監査を制御する。
 
-## 4.5. Settings and Policy Correspondence
+## 4.5. 設定と方針の対応
 
-設定では、UIが表示するCurrent / Effective Value、Default / Inherited / Overridden / Policy-controlledのMeaning、適用Scope、変更Authority、Impact Preview、保存・反映・Reset Feedbackを、SPECのOption / Range、Default Source、Precedence、Permission、Apply Timing、Side Effect、Failure / Recoveryと対応づける。
+設定では、UIが表示する現在 / 実効値、既定値 / 継承値 / 上書き値 / 方針管理の意味、適用対象範囲、変更決定権限、影響の事前表示、保存・反映・リセット時のフィードバックを、SPECの選択肢 / 範囲、既定値の情報源、優先順位、権限、適用時点、副作用、失敗 / 回復と対応づける。
 
-UIだけに存在する設定、SPECだけに存在して利用者または運用者が確認・制御できない設定を放置しない。IA Configuration Modelから意図的に固定した項目、直接UIを持たないPolicy / Operational Configurationは、理由、Authority、Consumer / Operational FeedbackとのPair例外を示す。
+UIだけに存在する設定、SPECだけに存在して利用者または運用者が確認・制御できない設定を放置しない。IAの構成モデルから意図的に固定した項目、直接UIを持たない方針 / 運用構成は、理由、決定権限、利用先 / 運用フィードバックとの対応レビュー例外を示す。
 
-## 4.6. Verification Correspondence
+UIテーマを利用者、OS、組織方針等が選択する場合も本節を適用する。
 
-AcceptanceはUIとSPECで同じ文章にする必要はない。UI側は利用者が認識・操作・回復できること、SPEC側はCondition、State、Behavior、ResultをFresh Evidenceで確認できることを定義する。
+- UIは現在値、有効なUIテーマ、変更可能な差分軸、適用対象範囲、プレビュー、リセット、適用結果を示す。
+- SPECは既定値の情報源、自動選択、優先順位、永続化、適用時点、失敗時代替動作 / 回復を定義する。
 
-Pair Reviewは、同じSource Outcomeについて、どのUI EvidenceとBehavior Evidenceを組み合わせるかを示す。実装済み、Test Pass、Figma完成のいずれか一つをPair成立としない。
+単なる静的なブランド差分で選択振る舞いがない場合は、その理由を示して振る舞いとの対応を`Not Applicable`にできる。
 
-EARS等の正式構文はBehavior Specification、Figma等のVisual ArtifactはUIの各正本規則に従う。Pair Contractはそれらの詳細な作成規則を再定義しない。
+## 4.6. 検証の対応
+
+受入条件はUIとSPECで同じ文章にする必要はない。UI側は利用者が認識・操作・回復できること、SPEC側は条件、状態、振る舞い、結果を新しい根拠で確認できることを定義する。
+
+対応レビューは、同じ情報源となる成果について、どのUIの根拠と振る舞いの根拠を組み合わせるかを示す。実装済み、テストの合格、Figma完成のいずれか一つを対応成立としない。
+
+EARS等の正式構文は振る舞い仕様、Figma等の視覚成果物はUIの各正本規則に従う。対契約はそれらの詳細な作成規則を再定義しない。
 
 ---
 
-# 5. Exceptions and Legacy
+# 5. 例外と既存系
 
-## 5.1. UI-only or Simulated Prototype
+## 5.1. UIだけの対象または模擬プロトタイプ
 
-価値仮説や操作性を検証するPrototypeでは、完全なBehavior SpecificationなしにSimulated Behaviorを利用してよい。ただし、実BehaviorとSimulation、検証対象、未確定Behavior、使用禁止範囲を明示し、Pair Review完了または実装可能Contractと表現しない。
+価値仮説や操作性を検証するプロトタイプでは、完全な振る舞い仕様なしに模擬した振る舞いを利用してよい。ただし、実振る舞いとシミュレーション、検証対象、未確定振る舞い、使用禁止範囲を明示し、対応レビュー完了または実装可能契約と表現しない。
 
-## 5.2. Behavior without Direct UI
+<a id="52-behavior-without-direct-ui"></a>
 
-API、Batch、Background Job、Automation等で直接UIを持たない場合、UI側を`Not Applicable`にできる。Consumer Contract、Operational Feedback、監視、停止、回復、Audit Surfaceの必要性を判定し、人間が例外理由を確認する。
+## 5.2. 直接UIを持たない振る舞い
 
-## 5.3. Read-only or UI-local Concern
+API、バッチ、背景ジョブ、自動化等で直接UIを持たない場合、UI側を`Not Applicable`にできる。利用先契約、運用フィードバック、監視、停止、回復、監査用の表示面の必要性を判定し、人間が例外理由を確認する。
 
-Read-only Surfaceでも、Data Source、Freshness、Empty、Unknown、Failure、Permissionとの対応を確認する。
+## 5.3. 読取り専用またはUI内で完結する観点
 
-純粋なLayout、Visual、Client内の一時的なPresentation等で、System BehaviorとのPairが不要なConcernは`Not Applicable`にできる。ただし、Data、永続化、権限、共有State、外部Actionへ影響しないことを説明する。
+読取り専用の表示面でも、データの情報源、鮮度、空、未知、失敗、権限との対応を確認する。
 
-## 5.4. Reverse and Legacy Reconciliation
+純粋なレイアウト、視覚表現、クライアント内の一時的な提示等で、システムの振る舞いとの対が不要な懸念は`Not Applicable`にできる。ただし、データ、永続化、権限、共有状態、外部操作へ影響しないことを説明する。
 
-LegacyではObserved UI、Observed Runtime Behavior、Code / API / Data、Existing Document、OperationをEvidenceとしてPairを復元してよい。
+## 5.4. 逆引きと既存系の整合
+
+既存系では観察されたUI、観察された実行環境の振る舞い、コード / API / データ、既存文書、操作を根拠として対応関係を復元してよい。
 
 ```text
-Observed UI Contract Candidate
-Observed Behavior
-Documented Behavior
-Expected Contract Candidate
-Known Defect / Inconsistency
-Recovered Intent Candidate
+観察されたUI契約候補
+観察された振る舞い
+文書化済み振る舞い
+想定契約候補
+既知不具合 / 不整合
+回復済み意図候補
 ```
 
-現行UI、実装、長期間の運用を意図されたContractと断定しない。復元候補は人間確認または追加Evidenceを得るまで確定UI / SPECとして扱わない。
+現行UI、実装、長期間の運用を意図された契約と断定しない。復元候補は人間確認または追加根拠を得るまで確定UI / SPECとして扱わない。
 
 ---
 
-# 6. Pair Review View and Feedback
+# 6. 対応レビュー表示とフィードバック
 
-## 6.1. Standard Pairing View
+## 6.1. 標準対応付け表示
 
-次はPair Reviewを表現する標準Viewであり、独立Fileを要求しない。
+次は対応レビューを表現する標準表示であり、独立ファイルを要求しない。
 
 ```text
-Scope / Pairing Unit / Source Revision
-UI ID / Revision / Artifact Reference
-SPEC ID / Revision / Artifact Reference
-Pair Relation / Cardinality
-Applicable Accessibility Profile / Criteria
+対象範囲 / 対応づけ単位 / 情報源の改訂版
+UIのID / 改訂版 / 成果物参照
+SPEC ID / 改訂版 / 成果物参照
+対応関係 / 多重度
+適用されるアクセシビリティプロファイル / 基準
 
-Concern
-UI Contract Meaning
-Behavior Specification Meaning
-Consistency Result
-Coverage State
-Unresolved Gap / Exception / Risk
-Decision / Rationale Reference
-Acceptance / Evidence Plan
-Human Review Result
-Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
-Phase Transition Review Result / Reviewed UI and SPEC Revisions / Finding Disposition / Review Exception
+懸念
+UI契約の意味
+振る舞い仕様の意味
+一貫性結果
+網羅範囲状態
+未解決不足 / 例外 / リスク
+判断 / 判断理由参照
+受入条件 / 根拠計画
+人間による判断結果
+変更影響の伝播確認結果／情報源の改訂版／是正／伝播例外
+工程移行レビュー結果 / レビュー済みUI・SPEC改訂版 / 指摘事項の処置 / レビュー例外
 ```
 
-Pair Review Resultは、`Consistent`、`Gap`、`Conflict`、`Not Applicable`等をProject内で表現してよいが、UI / SPECのArtifact Status、Phase Approval、Verification Resultと混同しない。
+対応レビュー結果は、プロジェクト内で「整合」「不足」「競合」「非適用」等と表現してよい。`Consistent`、`Gap`、`Conflict`、`Not Applicable`は機械可読な値を必要とする場合の非規範例であり、CRDD共通の正式状態値ではない。UI / SPECの成果物状態、工程承認、検証結果と混同しない。
 
-## 6.2. Review and Handoff
+<a id="62-review-and-handoff"></a>
 
-Reviewでは、対象ScopeのPair Coverage、重大な不一致、片側だけの推測、例外、Risk、各正本へ必要な修正を提示する。不一致の解消はUIまたはSPECのCanonical Artifactへ反映し、Pairing Viewだけを書き換えて終了しない。
+## 6.2. レビューと引き渡し
 
-Architecture、Implementation、VerificationへのHandoffは、UIとSPECの各Phase Contract、Pair Gate、[Transformation Handoff Invariants](01_Principles.md#62-transformation-invariants)をすべて満たす。部分Handoffは対象Pairing Unit、未解決Concern、Risk、後続Ownerを人間が承認した場合に限る。
+レビューでは、対象範囲の対応関係の網羅範囲、重大な不一致、片側だけの推測、例外、リスク、各正本へ必要な修正を提示する。不一致の解消はUIまたはSPECの正本成果物へ反映し、対応付け表示だけを書き換えて終了しない。
 
-Architecture HandoffはUI / SPECのHandoff Viewを縮小再掲して受信条件を減らさず、[Architecture Phase Entry Contract](27_Architecture.md#phase-entry-contract)が要求する全Contextを、Canonical UI / SPEC Artifactへの参照と各Coverage State付きで渡す。
+アーキテクチャ、実装、検証への引き渡しは、UIとSPECの各工程の契約、対応レビュー判定、[変換・引き渡しの不変条件](01_Principles.md#62-transformation-invariants)をすべて満たす。部分引き渡しは、対象対応単位、未解決懸念、リスク、後続担当責任者を工程移行の人間の決定権限者が承認した場合に限る。
 
-## 6.3. Feedback and Change
+アーキテクチャへの引き渡しはUI／SPECの引き渡し表示を縮小再掲して受信条件を減らさず、[アーキテクチャ工程の入口契約](27_Architecture.md#phase-entry-contract)が要求する全コンテキストを、UI／SPECの正本成果物への参照と各網羅状態付きで渡す。
 
-UI具体化で新しいStateやRecoveryが必要と判明した場合はSPECへ、SPEC具体化で新しいFeedbackや操作が必要と判明した場合はUIへ戻す。Source UX / IA Intentが変わる場合は上流も再開する。
+## 6.3. フィードバックと変更
 
-実装、Verification、運用でPair Conflictを発見した場合、Observed Evidenceを保存し、UI / SPECのどちらが誤りか、両方の上流前提が誤りかを判断する。同じ意味の明確化は既存IDのRevision、意味の置換は新IDと`supersedes`を用い、`pairs_with` Relationと影響Contextを更新する。
+UI具体化で新しい状態や回復が必要と判明した場合はSPECへ、SPEC具体化で新しいフィードバックや操作が必要と判明した場合はUIへ戻す。情報源となるUX／IAの意図が変わる場合は上流も再開する。
+
+実装、検証、運用で対応関係の競合を発見した場合、観察された根拠を保存し、UI／SPECのどちらが誤りか、両方の上流前提が誤りかを判断する。同じ意味の明確化は既存IDの改訂版、意味の置換は新IDと`supersedes`を用い、`pairs_with`関係と影響コンテキストを更新する。
 
 ---
 
-# 7. Final Principle
+# 7. 最終原則
 
 ```text
-人間に見えることと、Systemで起きることは、別のProperty Authorityで設計する。
-しかし、同じProduct Intentを成立させる意味の上では切断しない。
+人間に見えることと、システムで起きることは、別の項目の決定権限で設計する。
+しかし、同じプロダクト意図を成立させる意味の上では切断しない。
 ```

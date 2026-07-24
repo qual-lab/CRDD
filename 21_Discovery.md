@@ -1,10 +1,10 @@
-# CRDD Discovery
+# CRDD課題探索・要求形成工程（Discovery）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -21,28 +21,28 @@ Related:
 
 > この文書で分かること（非規範の案内）
 >
-> - 要望、法改正、不具合、Evidence等をどう受け付けるか
+> - 要望、法改正、不具合、根拠等をどう受け付けるか
 > - 観察・根拠・解釈から要求へ進める条件
 > - 人間が何を採用、却下、延期するか
-> - 未着手項目をRoadmapへどう渡すか
+> - 未着手項目をロードマップへどう渡すか
 > - UXへ進む前に何を確認するか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-Discoveryは、未整理の思い、困りごと、観察、顧客の発言、法令変更、Incident、既存資料、要求候補、解決案、Legacy Systemの挙動を、次の判断に使えるContextへ変換する工程である。
+課題探索・要求形成は、未整理の思い、困りごと、観察、顧客の発言、法令変更、インシデント、既存資料、要求候補、解決案、既存系システムの挙動を、次の判断に使えるコンテキストへ変換する工程である。
 
 目的は、要求を大量に集めることや、AIが完成した企画書を作ることではない。
 
 ```text
-人間が持つ原始的な思いとRaw Sourceを失わずに残す
+人間が持つ原始的な思いと生の情報源を失わずに残す
 事実、解釈、仮説、要求候補、解決案を分離する
 分かっている範囲と不確実性を明示する
-必要なRequirementと、次に進む専門活動を人間が判断できる状態にする
+必要な要求と、次に進む専門活動を人間が判断できる状態にする
 ```
 
-DiscoveryはCRDDの入口だが、初期開発で一度だけ行う工程ではない。新しい課題、顧客の声、法令、検証結果、運用上の問題、Legacy分析から、開発中または保守中に再び開始してよい。
+課題探索・要求形成はCRDDの入口だが、初期開発で一度だけ行う工程ではない。新しい課題、顧客の声、法令、検証結果、運用上の問題、既存系分析から、開発中または保守中に再び開始してよい。
 
 ---
 
@@ -50,49 +50,49 @@ DiscoveryはCRDDの入口だが、初期開発で一度だけ行う工程では�
 
 # 工程実行契約（Phase Process Contract）
 
-本章はDiscovery工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本Contractの意味を再定義せず、Context構造、Skill実行、経路、保存場所へ具体化する。
+本章は課題探索・要求形成工程の入口、変換、責務網羅範囲、出口、工程ゲート、監査の正本である。本章の規範性と運用規模は[文書化](03_Documentation.md#48-normative-language)に従う。後続章は本契約の意味を再定義せず、コンテキスト構造、スキル実行、経路、保存場所へ具体化する。
 
 <a id="phase-entry-contract"></a>
 
 ## 工程入口契約（Phase Entry Contract）
 
-Discoveryは、Idea、Raw Voice、観測、Incident、法令変更、明確な仕様変更、曖昧な要求、既存挙動、運用上の困りごと等を、SourceとProvenanceを保ったまま受け取る。入力時点でRequirement、Defect、Change、Solutionへの分類確定を要求しない。
+課題探索・要求形成は、アイデア、生の声、観測、インシデント、法令変更、明確な仕様変更、曖昧な要求、既存挙動、運用上の困りごと等を、情報源と来歴を保ったまま受け取る。入力時点で要求、不具合、変更、解決策への分類確定を要求しない。
 
 <a id="transformation-contract"></a>
 
 ## 変換契約（Transformation Contract）
 
-入力を次のContextへ分離・構造化し、人間確認を経て必要な`REQ-*`を確立する。
+入力を次のコンテキストへ分離・構造化し、対象項目の人間の決定権限者による確認を経て必要な`REQ-*`を確立する。
 
 ```text
-Raw Voice / Observation / External Source
-  -> Evidence / Interpretation / Hypothesis
-  -> Problem / Opportunity
-  -> Need / Desired Outcome Candidate
-  -> Requirement Candidate
-  -> Human Adoption
+生の声 / 観察 / 外部情報源
+  -> 根拠 / 解釈 / 仮説
+  -> 課題 / 機会
+  -> 必要性 / 望ましい成果候補
+  -> 要求候補
+  -> 人間採用
   -> REQ-*
 ```
 
-この変換ではOrigin / Trigger、Actor / Situation、Preserved Intent / Value、Non-goal、Constraint / Assumption、Solution Candidate、Open Question、Recommended Routeも必要な粒度で保持する。事実、解釈、仮説、提案を混同しない。解決案は捨てず、Problem、Need / Outcome、Requirementから分離して保存する。
+この変換では起点／契機、アクター／利用状況、維持する意図／価値、目指さないこと、制約／仮定、解決案候補、未決事項、推奨経路も必要な粒度で保持する。事実、解釈、仮説、提案を混同しない。解決案は捨てず、課題、必要性／期待結果、要求から分離して保存する。
 
 <a id="required-responsibility-coverage"></a>
 
 ## 必要な責務の網羅（Required Responsibility Coverage）
 
-対象Scopeの各入力、Problem、候補Requirementについて、以下を判定する。
+対象範囲の各入力、課題、要求候補について、以下を判定する。
 
-- Source、Provenance、Authority、対象時点
-- Actor / Situation、Problem / Pain / Impact
-- Evidenceとその限界・Confidence、Interpretation、Hypothesis
-- Need / Desired Outcome Candidate、Preserved Intent、Non-goal
-- Constraint、Assumption、Solution Candidate、Open Question
-- Recommended Routeと人間確認
+- 情報源、来歴、決定権限、対象時点
+- アクター／利用状況、課題／困りごと／影響
+- 根拠とその限界・確信度、解釈、仮説
+- 必要性／期待結果候補、維持する意図、目指さないこと
+- 制約、仮定、解決案候補、未決事項
+- 推奨経路と人間確認
 - `REQ-*`の発行、既存`REQ-*`の継続・改訂・置換、または非発行理由
-- Requirement Candidateの個別品質と、対象ScopeにおけるRequirement SetのCoverage / Consistency
-- 適用するQuality Concern、非適用理由、後続工程へ渡すQuality Obligation
+- 要求候補の個別品質と、対象範囲における要求集合の網羅範囲／一貫性
+- 適用する品質観点、非適用理由、後続工程へ渡す品質上の義務
 
-AI、個人Data、外部Actionを含むScopeでは、Purpose、Data Subject、ConsentまたはLegal Basis、Privacy、個人評価禁止Boundary、Human Control、Security、Compliance、Cost / Budget制約も判定する。
+AI、個人データ、外部操作を含む対象範囲では、目的、データ主体、同意または法務根拠、プライバシー、個人評価禁止の境界、人間による制御、セキュリティ、コンプライアンス、コスト / 予算制約も判定する。
 
 <a id="scope-and-coverage-state"></a>
 
@@ -102,371 +102,374 @@ AI、個人Data、外部Actionを含むScopeでは、Purpose、Data Subject、Co
 
 | 状態値 | 意味 |
 |---|---|
-| `Complete for Scope` | 対象Scopeで必要な責務が判定済み |
-| `Partial — Human Authorized` | GapとRiskを明示し、人間が限定Handoffを承認 |
-| `Blocked` | 外部入力、Authority、Evidence等が不足し進行不能 |
+| `Complete for Scope` | 対象範囲で必要な責務が判定済み |
+| `Partial — Human Authorized` | 不足とリスクを明示し、人間が限定的な引き渡しを承認 |
+| `Blocked` | 外部入力、決定権限、根拠等が不足し進行不能 |
 | `Not Started` | 対象だが未着手 |
 | `Not Applicable` | 理由を人間が確認し対象外とした |
 
-複数のSource、Problem、候補Requirementがある場合、一件を整理しただけでDiscovery全体を完了扱いしない。Coverageは対象Scopeと項目を対応づけて示す。
+複数の情報源、課題、要求候補がある場合、一件を整理しただけで課題探索・要求形成全体を完了扱いしない。網羅範囲は対象範囲と項目を対応づけて示す。
 
 <a id="human-decisions"></a>
 
 ## 人間による判断（Human Decisions）
 
-人間は次を決定する。
+各項目について、その人間の決定権限者が次を決定する。
 
-- Originの意味、Problem Framing、Need / Outcome
-- 必要性、優先順位、Requirementへの昇格
-- Quality Concernの適用とConflictの解消
-- 次のRoute、Defect / Change分類
-- `Not Applicable`と部分Handoff
+- 起点の意味、課題枠組み、必要性 / 成果
+- 必要性、優先順位、要求への昇格
+- 品質上の懸念の適用と競合の解消
+- 次の経路、不具合 / 変更分類
+- `Not Applicable`と部分引き渡し
 
-AIは、候補の抽出と分離、曖昧性・複合Requirement・矛盾・Trace / Coverage Gapの検出、質問、草案、Quality Concern候補、関連Contextの提示を行ってよい。ただし、Why、Need、重要度、Requirement、法的判断を創作または自己承認しない。
+AIは、候補の抽出と分離、曖昧性・複合要求・矛盾・トレース / 網羅範囲の不足の検出、質問、草案、品質上の懸念候補、関連コンテキストの提示を行ってよい。ただし、「なぜ」、必要性、重要度、要求、法的判断を創作または自己承認しない。
 
-人間による判断、制約、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
+対象項目の人間の決定権限者による判断、制約、学び、根拠、指摘事項を確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層コンテキストと下流への影響を更新・再監査するまで通常完了としない。
 
 <a id="exit-and-handoff"></a>
 
 ## 完了条件と引渡し（Exit and Handoff）
 
-通常Handoff候補を人間のGateへ提示する前に、次を行う。
+通常引き渡し候補を人間のゲートへ提示する前に、次を行う。
 
-1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
-2. 移行に影響するFindingをDiscoveryまたは責務を持つ工程で修正する。
-3. 修正後Revisionを再Reviewし、`Pass`を得る。
+1. 対象範囲／改訂版へ[独立した工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響する指摘事項を課題探索・要求形成または責務を持つ工程で修正する。
+3. 修正後改訂版を再レビューし、`Pass`を得る。
+4. 対象内容と工程移行の人間の決定権限者が、内容とレビュー結果を確認して移行を決定する。
 
-Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+レビューの省略または未解消の指摘事項を伴う移行は、[人間が指示するレビュー例外](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常経路と区別して扱う。
 
-Discoveryの出口は「文書が一つできた」状態ではなく、選択した受信先が必要とするContextを利用できる状態である。
+課題探索・要求形成の出口は「文書が一つできた」状態ではなく、選択した受信先が必要とするコンテキストを利用できる状態である。
 
-通常のUX Handoffは、対象Scopeが次をすべて満たす場合に限る。
+通常のUXへの引き渡しは、対象範囲が次をすべて満たす場合に限る。
 
 - `Complete for Scope`である
-- 人間Reviewを通過している
-- [UX Phase Entry Contract](22_UX.md#phase-entry-contract)を満たしている
+- 対象内容とUXへの移行を、人間の決定権限者が承認している
+- [UX工程の入口契約](22_UX.md#phase-entry-contract)を満たしている
 
-Research、Decision、Prototype、IA、UI / SPEC、Architecture / Technical Spike、Change Trace、Roadmap、No Action等へ進む場合は、その判断に必要なContextと未決事項を渡す。
+調査、判断、プロトタイプ、IA、UI / SPEC、アーキテクチャ / 技術検証、変更トレース、ロードマップ、操作なし等へ進む場合は、その判断に必要なコンテキストと未決事項を渡す。
 
-Roadmap Routeでは、次が完了するまで対象ItemのHandoffを完了としない。
+ロードマップへの経路では、次が完了するまで対象項目の引き渡しを完了としない。
 
-1. Human Authorityが延期を確認する。
-2. 6.3のRoadmap Itemを実際に登録または更新する。
-3. 登録先の参照をDiscovery Resultへ戻す。
+1. 人間の決定権限が延期を確認する。
+2. 6.3のロードマップ項目を実際に登録または更新する。
+3. 登録先の参照を課題探索・要求形成結果へ戻す。
 
-別のRequirement、Problem、RouteはCoverageを分ける。Roadmap登録待ちだけを理由に、無関係な対象まで停止しない。
+別の要求、課題、経路は網羅範囲を分ける。ロードマップ登録待ちだけを理由に、無関係な対象まで停止しない。
 
-部分Handoffには、対象Scope、未網羅項目、Risk、受信先、後続Ownerに対する人間承認を必要とする。
+部分的な引き渡しには、対象範囲、未網羅項目、リスク、受信先、後続の担当責任者に対する人間承認を必要とする。
 
 <a id="phase-gate-criteria"></a>
 
 ## 工程移行の判定基準（Phase Gate Criteria）
 
-- Raw Source、Raw Voice、Origin、Provenanceを辿れる
-- Actor / Situation、Problem、Evidence、Interpretation / Hypothesisを分離している
-- Desired Outcome CandidateとSolution Candidateを分離している
-- Preserved Intent、Non-goal、Constraint、Open Questionを対象Scopeで判定している
-- `REQ-*`の処置、個別品質、Requirement SetのCoverage / Consistency、Recommended Routeを人間が確認している
-- 適用するQuality Concernと非適用理由を判定し、必要なQuality Obligationを後続工程へ渡している
-- Roadmap Routeでは採用済みREQまたはContextを参照するRoadmap Item、Owner、Start Condition、再評価Triggerを登録している
-- Coverage Summary、Unresolved Gap、部分Handoff承認を記録している
-- AI / Personal Data ScopeではGovernance、Privacy、Consent、Human Control、Cost制約を判定している
-- 選択した受信先のEntry Contractを満たす
-- 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
-- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
+- 生の情報源、生の声、起点、来歴を辿れる
+- アクター / 利用状況、課題、根拠、解釈 / 仮説を分離している
+- 期待成果候補と解決策候補を分離している
+- 保持する意図、目指さないこと、制約、未決事項を対象範囲で判定している
+- `REQ-*`の処置、個別品質、要求集合の網羅範囲 / 整合性、推奨経路を人間が確認している
+- 適用する品質上の懸念と非適用理由を判定し、必要な品質義務を後続工程へ渡している
+- ロードマップへの経路では、採用済みREQまたはコンテキストを参照するロードマップ項目、担当責任者、着手条件、再評価契機を登録している
+- 網羅範囲の要約、未解決事項、部分引き渡し承認を記録している
+- AI / 個人データを扱う対象範囲ではガバナンス、プライバシー、同意、人間による制御、コスト制約を判定している
+- 選択した受信先の入口契約を満たす
+- 発火した変更影響の伝播確認が`Pass`であり、必要な正本更新と再監査が完了している
+- 対象改訂版の工程移行レビューが`Pass`であり、移行に影響する指摘事項の是正と再レビューが完了している
 
 <a id="phase-audit-checklist"></a>
 
 ## 工程監査チェックリスト（Phase Audit Checklist）
 
-- Raw Source、Raw Voice、Provenanceまたは人間のOriginが消失していないか
-- AIがWhy、重要度、Requirement、法的義務を補っていないか
-- Fact、Interpretation、Hypothesis、Requirement Candidate、Solution Candidateを混同していないか
-- 全入力、Problem、候補Requirement、RouteをCoverageに含めたか
-- 個別Requirementが曖昧、複合的、不要にSolution依存、またはVerification不能なまま昇格していないか
-- Requirement SetでSource / Problem / Need、Actor、主要Scenario、例外、Data、Interface、Quality、法令・契約上のConstraintに未処置の抜けや矛盾がないか
-- 顧客発言や現行実装を、そのままRequirementまたは正しい仕様にしていないか
+- 生の情報源、生の声、来歴または人間の起点が消失していないか
+- AIが「なぜ」、重要度、要求、法的義務を補っていないか
+- 事実、解釈、仮説、要求候補、解決策候補を混同していないか
+- 全入力、課題、候補要求、経路を網羅範囲に含めたか
+- 個別要求が曖昧、複合的、不要に解決策依存、または検証不能なまま昇格していないか
+- 要求集合で情報源 / 課題 / 必要性、アクター、主要シナリオ、例外、データ、インターフェース、品質、法令・契約上の制約に未処置の抜けや矛盾がないか
+- 顧客発言や現行実装を、そのまま要求または正しい仕様にしていないか
 - `REQ-*`の発行・継続・改訂・置換・非発行の根拠と人間判断を辿れるか
 - `01_Discovery`と`99_Roadmap`の責務を混同し、文書を移動または本文を複製していないか
-- 採用済みDeferred Workを回答上のRecommendationだけで終え、Roadmap Itemを登録していない状態
-- Roadmap ItemにSource Context、Owner、Start Condition、再評価Triggerがない状態
-- Roadmap、Evidence、Decision、Change Trace、Testへ不要なStable IDを発行していないか
-- Coverage Summary、Unresolved Gap、人間Review、Route根拠、受信先Entryのいずれかが欠落していないか
-- AI / Personal Data ScopeでPurpose、Consent、Privacy、個人評価禁止Boundary、Human Control、Cost制約が未判定でないか
-- 確定・変更したDecision、Constraint、Learning、Evidence、Findingに対する上流・同層探索、正本反映、再監査が欠落していないか
-- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
+- 採用済み延期作業を回答上の推奨だけで終え、ロードマップ項目を登録していない状態
+- ロードマップ項目に情報源コンテキスト、担当責任者、開始条件、再評価契機がない状態
+- ロードマップ、根拠、判断、変更トレース、テストへ不要な安定コンテキストIDを発行していないか
+- 網羅範囲の要約、未解決事項、人間レビュー、経路根拠、受信先入口のいずれかが欠落していないか
+- AI / 個人データを扱う対象範囲で目的、同意、プライバシー、個人評価禁止境界、人間による制御、コスト制約が未判定でないか
+- 確定・変更した判断、制約、学び、根拠、指摘事項に対する上流・同層探索、正本反映、再監査が欠落していないか
+- 独立レビュー未実施、旧改訂版のレビュー流用、指摘事項未修正の持ち越し、監査実行完了を対象の合格とみなしていないか
 
 ---
 
-# 2. Discovery Context Model
+# 2. 課題探索・要求形成コンテキストモデル
 
-## 2.1. Discovery Is Not Requirement Gathering
+## 2.1. 課題探索・要求形成は要求の聞き取りだけではない
 
-思いつき、感情、違和感、顧客の発言、観察、既存の解決策、技術的可能性、未確認の推測、現行挙動は重要なInputだが、そのままRequirementではない。
+思いつき、感情、違和感、顧客の発言、観察、既存の解決策、技術的可能性、未確認の推測、現行挙動は重要な入力だが、そのまま要求ではない。
 
 ```text
-Raw Voice:
+生の声:
 「一覧画面にAI要約ボタンが欲しい」
 
-Evidence:
+根拠:
 利用者が一覧から詳細を一件ずつ開いて確認している。
 
-Interpretation:
+解釈:
 全体像を把握する負荷が高い可能性がある。
 
-Desired Outcome Candidate:
+望ましい成果候補:
 短時間で重要事項を把握し、確認対象を選べる。
 
-Solution Candidate:
+解決策候補:
 一覧画面のAI要約ボタン。
 
-Requirement Candidate:
+要求候補:
 重要事項の要約と、その根拠へアクセスできること。
 
-Open Question:
+未決事項:
 利用者への提示方法としてボタンが適切か。
 ```
 
-## 2.2. Context Separation
+## 2.2. コンテキストの分離
 
-| Context | Discoveryでの扱い |
+| コンテキスト | 課題探索・要求形成での扱い |
 |---|---|
 | `Raw Voice` | 実際の発言や表現。整理後の文章で置換しない |
 | `Origin / Trigger` | なぜ今扱うか。人間が記述または確認する |
-| `Observation / Evidence` | 観察、記録、Data、実行結果、資料、証言 |
-| `Interpretation` | Evidenceから読み取った意味。解釈主体を明らかにする |
+| `Observation / Evidence` | 観察、記録、データ、実行結果、資料、証言 |
+| `Interpretation` | 根拠から読み取った意味。解釈主体を明らかにする |
 | `Hypothesis` | 未検証の説明または成立条件 |
-| `Confidence` | Evidenceの量、鮮度、代表性等に基づく現在の確からしさ |
+| `Confidence` | 根拠の量、鮮度、代表性等に基づく現在の確からしさ |
 | `Problem / Pain / Impact` | 現在成立していない状態と影響 |
-| `Need` | Problemを解消しOutcomeへ近づくために必要な能力・結果・条件。独立ArtifactやStable IDは必須ではない |
-| `Desired Outcome Candidate` | Actor、業務、組織をどう変えたいか |
+| `Need` | 課題を解消し成果へ近づくために必要な能力・結果・条件。独立成果物や安定コンテキストIDは必須ではない |
+| `Desired Outcome Candidate` | アクター、業務、組織をどう変えたいか |
 | `Preserved Intent / Value` | 下流で失ってはいけない価値や判断基準 |
 | `Non-goal` | 今回目指さないこと |
 | `Constraint / Assumption` | 制約と、未確認の前提を区別する |
 | `Requirement Candidate` | 満たす必要がある可能性。未確定なら`REQ-*`を発行しない |
-| `Solution Candidate` | 現時点の実現案。ProblemやRequirementと同一視しない |
-| `Open Question` | 未決事項、確認Owner、確認方法 |
+| `Solution Candidate` | 現時点の実現案。課題や要求と同一視しない |
+| `Open Question` | 未決事項、確認担当責任者、確認方法 |
 
-すべてを空欄のないFormにする必要はない。ただし、重要な対象でFactとHypothesis、OutcomeとSolution、CandidateとApproved Contextを区別できない状態は認めない。
+すべてを空欄のない形式にする必要はない。ただし、重要な対象で事実と仮説、成果と解決策、候補と承認済みコンテキストを区別できない状態は認めない。
 
-## 2.3. Source, Evidence, and Authority
+## 2.3. 情報源・根拠・決定権限
 
-会話、Interview、Meeting Log、Support Log、業務手順、既存文書、Design Artifact、Issue、Code、Schema、API、Runtime Behavior、Log、Metric、Workaround、Incident、市場情報、Prototype、User Test等をSourceとして使用できる。
+会話、ヒアリング、会議ログ、支援ログ、業務手順、既存文書、設計成果物、Issue、コード、スキーマ、API、実行時の挙動、ログ、指標、回避策、インシデント、市場情報、プロトタイプ、ユーザーテスト等を情報源として使用できる。
 
-Sourceが存在するだけでAuthorityを持つとは限らない。作成者、対象時点、適用範囲、現状との一致、取得方法を確認する。Evidenceは対象のCanonical Artifact内、または[`03_Documentation.md`](03_Documentation.md#62-inline-file-and-external-evidence)に従って最も近い親Folder配下の`Evidence/`へ置く。Repository Rootへ中央Evidence Folderを作らない。
+情報源が存在するだけで決定権限を持つとは限らない。作成者、対象時点、適用範囲、現状との一致、取得方法を確認する。根拠は対象の正本成果物内、または[`03_Documentation.md`](03_Documentation.md#62-inline-file-and-external-evidence)に従って最も近い親フォルダ配下の`Evidence/`へ置く。リポジトリルートへ中央の`Evidence/`フォルダーを作らない。
 
-Origin、Intent、Value、Non-negotiableは、人間が与えるか確認する。原始的または感情的な表現も、後から原点へ戻るためのSourceとして保持する。
+起点、意図、価値、譲れない条件は、人間が与えるか確認する。原始的または感情的な表現も、後から原点へ戻るための情報源として保持する。
 
 ---
 
-# 3. Discovery Modes and Skill Adapter
+# 3. 課題探索・要求形成の実行方式とスキル接続部
 
-## 3.1. Greenfield and Legacy Reverse
+## 3.1. 新規開発と既存系からの逆引き
 
-新規対象では、Raw Idea / PainからOrigin、Problem、Evidence、Outcome、候補Routeへ進む。Legacy対象では、残存EvidenceからCurrent Behavior、Recovered Requirement Candidate、Recovered Intent Candidateを復元し、人間確認へ進む。
+新規対象では、未整理のアイデア／困りごとから起点、課題、根拠、望む結果、経路候補へ進む。既存系対象では、残っている根拠から現在の挙動、復元した要求候補、復元した意図候補を整理し、人間確認へ進む。
 
-Legacyでは次を分離する。
+既存系では次を分離する。
 
 ```text
 実際に起きていること
-文書に書かれていることと、そのAuthority
+文書に書かれていることと、その決定権限
 運用で回避していること
-意図またはRequirementだと考えられる候補
+意図または要求だと考えられる候補
 変更すると困る可能性
 不明な歴史
 ```
 
 現在の実装、長く動いている挙動、既存文書を、元の意図や望ましい仕様と決めつけない。復元内容は確認されるまで`Observed Behavior`、`Recovered Requirement Candidate`、`Recovered Intent Candidate`、`Historical Hypothesis`として扱う。
 
-## 3.2. Runtime Authority
+## 3.2. 実行時の決定権限
 
-`skill.discovery.frame`は、本書のPhase Process Contractを、[`11_Skill.md`](11_Skill.md)の共通Run Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するDiscovery固有Adapterである。
+`skill.discovery.frame`は、本書の工程実行契約を、[`11_Skill.md`](11_Skill.md)の共通実行の状態遷移、ガイド付き対話、人間によるレビュー、引き渡しに従って実行する課題探索・要求形成固有接続部である。
 
-開始時は「何を作るか」を急いで確定せず、なぜ今扱うのか、誰のどの状態を変えたいかを整理し、画面、機能、技術をSolution Candidateとして分離することを人間へ説明する。Legacyでは、文書やCodeを正しい仕様と決めつけず、観察事実と復元候補を分けることも説明する。
+開始時は「何を作るか」を急いで確定せず、なぜ今扱うのか、誰のどの状態を変えたいかを整理し、画面、機能、技術を解決策候補として分離することを人間へ説明する。既存系では、文書やコードを正しい仕様と決めつけず、観察事実と復元候補を分けることも説明する。
 
-本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycle、Artifact Registrationを再定義しない。Subagentを使用する場合も、Evidence Gap、Assumption、Conflict、Open Question等の限定Resultを返し、Discovery Contextの統合とHuman ReviewはParent Agentが担う。
+本書では実行状態、一時停止 / 再開、共通の質問規則、サブエージェントの状態遷移、成果物の登録を再定義しない。サブエージェントを使用する場合も、根拠不足、仮定、競合、未決事項等の限定結果を返し、課題探索・要求形成コンテキストの統合と人間によるレビューは親エージェントが担う。
 
-## 3.3. Discovery-specific Progression
+## 3.3. 課題探索・要求形成固有の進行
 
-| 手順 | Discovery固有の変換 | Result |
+| 手順 | 課題探索・要求形成固有の変換 | 結果 |
 |---|---|---|
-| Capture | Raw Sourceを評価で失わず取り込む | Source、Raw Voice、Provenance |
-| Separate | Fact、Interpretation、Hypothesis、Candidateを分ける | Context Map |
-| Clarify | Routeを分けるために必要な不足だけを確認する | Open Question、Evidence Gap |
-| Frame | Origin、Problem、Outcome、Preserved Intentを対応づける | Discovery Brief Draft |
-| Decide | Requirement処置とRouteを人間が判断する | Decision / Rationale、Coverage |
-| Handoff | 受信先Entryを満たし、必要なRoute Artifactを登録・更新する | Handoff Result、Roadmap / Change等のArtifact Reference |
+| 記録 | 生の情報源を評価で失わず取り込む | 情報源、生の声、来歴 |
+| 分離 | 事実、解釈、仮説、候補を分ける | コンテキスト対応表 |
+| 明確化 | 経路を分けるために必要な不足だけを確認する | 未決事項、根拠不足 |
+| フレーム | 起点、課題、成果、保持する意図を対応づける | 課題探索・要求形成概要下書き |
+| 判断 | 要求処置と経路を人間が判断する | 判断 / 判断理由、網羅範囲 |
+| 引き渡し | 受信先入口を満たし、必要な経路上の成果物を登録・更新する | 引き渡し結果、ロードマップ / 変更等の成果物参照 |
 
-固定された会議回数や逐次実行を要求しない。質問の目的はFormを埋めることではなく、次の判断を変える不確実性を減らすことである。
+固定された会議回数や逐次実行を要求しない。質問の目的は形式を埋めることではなく、次の判断を変える不確実性を減らすことである。
 
-## 3.4. Discovery-specific Question Topics
+## 3.4. 課題探索・要求形成固有の質問観点
 
-必要な項目だけを、回答済みContextを再質問せず確認する。
+必要な項目だけを、回答済みコンテキストを再質問せず確認する。
 
 | 話題 | 質問の意図 |
 |---|---|
-| Trigger | なぜ今、この対象を扱い始めたか |
-| Actor / Situation | 誰または何が、どの場面で影響を受けるか |
-| Concrete Evidence | 実際の事例、頻度、影響、Sourceは何か |
-| Current Workaround | 現在の対応と、そこで守られている価値は何か |
-| Desired Change | Feature名ではなく、何がどう変わればよいか |
-| Preserved Value | 便利になっても失ってはいけないことは何か |
-| Solution Candidate | 既存案と、その案でなくても守るべき目的は何か |
-| Unknown | 分からないこと、確認先、確認方法は何か |
+| 契機 | なぜ今、この対象を扱い始めたか |
+| アクター / 利用状況 | 誰または何が、どの場面で影響を受けるか |
+| 具体的な根拠 | 実際の事例、頻度、影響、情報源は何か |
+| 現在回避策 | 現在の対応と、そこで守られている価値は何か |
+| 望ましい変更 | 機能名ではなく、何がどう変わればよいか |
+| 保持済み値 | 便利になっても失ってはいけないことは何か |
+| 解決策候補 | 既存案と、その案でなくても守るべき目的は何か |
+| 不明 | 分からないこと、確認先、確認方法は何か |
 
-Evidenceが弱ければFactかHypothesisかを確認し、複数Problemは勝手に統合せずScopeを分ける。Stakeholderの価値が衝突する場合はDecisionへ、技術成立性が支配的ならTechnical Spikeへ、言葉だけで判断できなければPrototypeへRouteする。
+根拠が弱ければ事実か仮説かを確認し、複数課題は勝手に統合せず対象範囲を分ける。利害関係者の価値が衝突する場合は判断へ、技術成立性が支配的なら技術検証へ、言葉だけで判断できなければプロトタイプへ経路する。
 
-## 3.5. Stop and Escalation
+## 3.5. 停止と上位判断への移送
 
-次の場合、AIは確定またはHandoffを止め、人間または専門AuthorityへEscalateする。
+次の場合、AIは確定または引き渡しを止め、人間または専門決定権限へ上位判断へ移送する。
 
-- 人間のOriginと依頼されたSolutionが矛盾する
-- Stakeholderの価値、Scope、Priority、Risk Acceptanceが重大に衝突する
-- Evidence不足のまま判断すると法務、安全、Privacy、Security上のRiskがある
-- Business Model、法的適用、個人Data利用、外部Action Authorityの決定が必要である
+- 人間の起点と依頼された解決策が矛盾する
+- 利害関係者の価値、対象範囲、優先順位、リスク受容が重大に衝突する
+- 根拠不足のまま判断すると法務、安全、プライバシー、セキュリティ上のリスクがある
+- 業務モデル、法的適用、個人データ利用、外部操作権限の決定が必要である
 
 ---
 
-# 4. Requirement Promotion and Decision
+<a id="4-requirement-promotion-and-decision"></a>
 
-## 4.1. Promotion Criteria
+# 4. 要求への昇格と判断
 
-Requirement Candidateを`REQ-*`へ昇格するには、少なくとも次を満たす。
+## 4.1. 昇格基準
 
-- 必要性とRationaleを説明できる
+要求候補を`REQ-*`へ昇格するには、少なくとも次を満たす。
+
+- 必要性と判断理由を説明できる
 - 満たすべき一つの独立した意味単位として説明できる
-- Origin、Problem、Need / Outcome、SourceまたはEvidenceへTraceできる
-- Candidate、Hypothesis、Solutionのいずれでもないことを確認している
-- ScopeとObligationを負う対象を識別できる
-- 対象Riskと抽象度に対して十分に明確で、不必要にDesignまたは実装方式を固定していない
-- 実現可能性を説明できるか、未確認の成立Riskと確認Routeを明示している
-- Verification Obligation、または成立を確認する方法を後続工程で定義する責務を持つ
-- 非発行または代替Routeとの差を説明できる
-- 人間がRequirementとして採用している
+- 起点、課題、必要性 / 成果、情報源または根拠へトレースできる
+- 候補、仮説、解決策のいずれでもないことを確認している
+- 対象範囲と義務を負う対象を識別できる
+- 対象リスクと抽象度に対して十分に明確で、不必要に設計または実装方式を固定していない
+- 実現可能性を説明できるか、未確認の成立リスクと確認経路を明示している
+- 検証義務、または成立を確認する方法を後続工程で定義する責務を持つ
+- 非発行または代替経路との差を説明できる
+- 人間が要求として採用している
 
-Research、Decision、Prototype、No Action等へ進むだけなら、`REQ-*`を発行しなくてよい。顧客一人の発言、AI要約、AI推定のWhy、現行実装、未承認案、Prototypeが一度成立した結果だけから自動昇格しない。
+調査、判断、プロトタイプ、操作なし等へ進むだけなら、`REQ-*`を発行しなくてよい。顧客一人の発言、AI要約、AI推定の「なぜ」、現行実装、未承認案、プロトタイプが一度成立した結果だけから自動昇格しない。
 
-昇格したRequirementは、共通Artifact Contractを再定義せず、次を取得可能にする。すべてを一つのHeaderや一件一Fileへ機械的に配置する必要はない。
+昇格した要求は、共通成果物契約を再定義せず、次を取得可能にする。すべてを一つのヘッダーや一件一ファイルへ機械的に配置する必要はない。
 
 ```text
-REQ-* / Statement
-Origin: Source / Evidence / Problem / Need or Desired Outcome
-Rationale / Necessity
-Scope / Subject
-Disposition / Priority
-Assumption / Constraint / Risk / Conflict
-Verification Obligation
-Human Adoption Decision
-Relations / Revision
+REQ-* / 要求の記述
+起点: 情報源 / 根拠 / 課題 / 必要性または望ましい成果
+判断理由 / 必要性
+対象範囲 / 主体
+処置 / 優先順位
+仮定 / 制約 / リスク / 競合
+検証義務
+人間採用判断
+関係 / 改訂版
 ```
 
-Requirementの抽象度を区別する必要がある場合はBusiness / Stakeholder / System / Software等を使用し、関心分類が必要な場合はFunctional / Quality / Interface / Data / Constraint / Transition等を別の軸として扱う。一つの`Requirement Type`へ異なる分類軸を混在させない。
+要求の抽象度を区別する必要がある場合は業務 / 利害関係者 / システム / ソフトウェア等を使用し、関心分類が必要な場合は機能 / 品質 / インターフェース / データ / 制約 / 移行等を別の軸として扱う。一つの`Requirement Type`へ異なる分類軸を混在させない。
 
-## 4.2. Requirement Set Quality and Quality Concern Profile
+## 4.2. 要求集合の品質と品質観点プロファイル
 
-個別Requirementが昇格条件を満たしても、対象ScopeのRequirement Setとして抜け、矛盾、組合せ上の実現不能があれば通常Handoffしない。Source、Problem、Need / Outcome、Actor、主要Scenario、例外、Data、Interface、法令・契約上のConstraint、選択したQuality Concernについて、`REQ-*`への昇格、別Route、延期、却下、`Not Applicable`のいずれかを人間が確認する。
+個別要求が昇格条件を満たしても、対象範囲の要求集合として抜け、矛盾、組合せ上の実現不能があれば通常引き渡ししない。情報源、課題、必要性 / 成果、アクター、主要シナリオ、例外、データ、インターフェース、法令・契約上の制約、選択した品質上の懸念について、`REQ-*`への昇格、別経路、延期、却下、`Not Applicable`のいずれかを人間が確認する。
 
-Quality Concernは、すべてのProjectへ同じ固定Checklistとして強制しない。Product、Risk、法令、Contract、利用者、運用条件に応じて適用Profileを選ぶ。
+品質上の懸念は、すべてのプロジェクトへ同じ固定確認項目として強制しない。プロダクト、リスク、法令、契約、利用者、運用条件に応じて適用プロファイルを選ぶ。
 
-候補には、Functional Suitability、Performance Efficiency、Compatibility、Interaction Capability、Reliability、Security、Maintainability、Flexibility、Safety等がある。選択結果には次を記録する。
+候補には、機能適合性、性能効率、互換性、相互作用性、信頼性、セキュリティ、保守性、柔軟性、安全性等がある。選択結果には次を記録する。
 
 - 適用する項目
 - 非適用とする理由
-- Source / Version
-- 後続工程へ渡すObligation
+- 情報源 / バージョン
+- 後続工程へ渡す義務
 
-ProjectがISO/IEC 25010等を採用する場合も、選択したScopeを明示する。参照しただけで、全特性への準拠または網羅を主張してはならない。
+プロジェクトがISO/IEC 25010等を採用する場合も、選択した対象範囲を明示する。参照しただけで、全特性への準拠または網羅を主張してはならない。
 
-## 4.3. Stable Context ID Action
+## 4.3. 安定コンテキストIDの扱い
 
-| Finding | 対応 |
+| 指摘事項 | 対応 |
 |---|---|
-| 新しい独立Requirement | 新しい`REQ-*`を発行 |
-| 既存Requirementの意味を保つ明確化 | 同じ`REQ-*`のRevisionを更新 |
-| 既存Requirementを別の意味へ置換 | 新しい`REQ-*`を発行し`supersedes`で接続 |
-| Requirementは同じでBehaviorを明確化 | 対象`SPEC-*`を同じ意味の範囲で改訂 |
-| Behaviorの意味を置換 | 新しい`SPEC-*`を発行し`supersedes`で接続 |
-| Evidence、Roadmap、Architecture、Change Trace、Test | CRDD標準Stable Context IDを発行せずArtifact参照で接続 |
+| 新しい独立要求 | 新しい`REQ-*`を発行 |
+| 既存要求の意味を保つ明確化 | 同じ`REQ-*`の改訂版を更新 |
+| 既存要求を別の意味へ置換 | 新しい`REQ-*`を発行し`supersedes`で接続 |
+| 要求は同じで振る舞いを明確化 | 対象`SPEC-*`を同じ意味の範囲で改訂 |
+| 振る舞いの意味を置換 | 新しい`SPEC-*`を発行し`supersedes`で接続 |
+| 根拠、ロードマップ、アーキテクチャ、変更トレース、テスト | CRDD標準安定コンテキストIDを発行せず成果物参照で接続 |
 
-分類前に既存Stable IDの意味を書き換えたり、新IDを仮発行したりしない。
+分類前に既存の安定コンテキストIDの意味を書き換えたり、新しいIDを仮発行したりしない。
 
-## 4.4. Decision and Rationale
+## 4.4. 判断と判断理由
 
-対象利用者、Non-goal、Problemの優先、Requirement昇格、Route、Legacy挙動の維持等を決定した場合、決定結果となるCanonical Artifactの`Decision / Rationale`へAdopted Result、理由、Evidence、代替、経緯、影響を残す。Discoveryの作業メモや中央Decision Fileだけを正本にしない。
+対象利用者、目指さないこと、課題の優先、要求昇格、経路、既存系挙動の維持等を決定した場合、決定結果となる正本成果物の`Decision / Rationale`へ採用結果、理由、根拠、代替、経緯、影響を残す。課題探索・要求形成の作業メモや中央判断ファイルだけを正本にしない。
 
-## 4.5. Legal and Regulatory Source
+## 4.5. 法令・規制の情報源
 
-法令変更では、法令本文または外部正本、Revision、施行日、Jurisdiction、適用範囲、解釈AuthorityをEvidenceとして保持する。AIの解釈だけで法的義務を確定しない。
+法令変更では、法令本文または外部正本、改訂版、施行日、法域、適用範囲、解釈決定権限を根拠として保持する。AIの解釈だけで法的義務を確定しない。
 
-新しい義務なら新しい`REQ-*`、既存Requirementの意味を保つ明確化なら同じIDのRevisionを用いる。緊急または施行期限内の対応はChange Traceへ、採用済みで将来着手する対応はRoadmapへREQ参照と期限を置く。
+新しい義務なら新しい`REQ-*`、既存要求の意味を保つ明確化なら同じIDの改訂版を用いる。緊急または施行期限内の対応は変更トレースへ、採用済みで将来着手する対応はロードマップへREQ参照と期限を置く。
 
-## 4.6. External Source Trace
+## 4.6. 外部出典の追跡
 
-Sourceの書誌情報、Relation、Coverage Claimの意味は[OverviewのSource索引](00_Overview.md#36-external-foundations-and-source-trace)と[External Source Trace Rule](03_Documentation.md#49-external-source-trace)を正本とする。
+情報源の書誌情報、関係、網羅範囲の表明の意味は[Overviewの情報源索引](00_Overview.md#36-external-foundations-and-source-trace)と[外部情報源の追跡規則](03_Documentation.md#49-external-source-trace)を正本とする。
 
-| 情報源 | 関係 | 適用Section | 網羅範囲 |
+| 情報源 | 関係 | 適用節 | 網羅範囲 |
 |---|---|---|---|
-| `ISO29148-2018` | `informed_by` | 4.1 Requirement Promotion、4.2 Requirement Set Quality | Current published edition as of 2026-07-21; revision work is underway; `Selected Concepts`; re-evaluate when replaced; no clause mapping or conformance claim |
-| `ISO25010-2023` | `informed_by` | 4.2 Quality Concern Profile | `Selected Concepts`; Project may adopt selected characteristics and Scope |
+| `ISO29148-2018` | `informed_by` | 4.1 要求の昇格、4.2 要求集合の品質 | 2026-07-21時点の現行版。改訂作業中のため置換時に再評価する。`Selected Concepts`。条項対応または準拠は表明しない |
+| `ISO25010-2023` | `informed_by` | 4.2 品質懸念プロファイル | `Selected Concepts`（選択した概念）。プロジェクトは必要な品質特性と対象範囲を選択できる |
 
 ---
 
-# 5. Routing and Lifecycle Scenarios
+# 5. 経路選択と状態遷移のシナリオ
 
-## 5.1. Route Selection
+## 5.1. 経路選択
 
-| Route | 使用条件 |
+| 経路 | 使用条件 |
 |---|---|
-| `Continue Discovery / Research` | Problem、対象、外部事実、制度、利用者Evidenceが不足 |
+| `Continue Discovery / Research` | 課題、対象、外部事実、制度、利用者根拠が不足 |
 | `Decision` | 選択肢と判断材料があり、人間の価値判断が必要 |
-| `UX` | Actor、Situation、Problem、Desired Outcomeを体験設計へ変換できる |
-| `IA` | 承認済みIntentの範囲で概念、責務、情報構造の再設計が主題 |
-| `UI / SPEC` | 上流Intentが承認済みでInteraction / Behaviorの具体化が主題 |
+| `UX` | アクター、利用状況、課題、望ましい成果を体験設計へ変換できる |
+| `IA` | 承認済み意図の範囲で概念、責務、情報構造の再設計が主題 |
+| `UI / SPEC` | 上流意図が承認済みでインタラクション / 振る舞いの具体化が主題 |
 | `Prototype / Experiment` | 言葉だけでは仮説や成立性を判断できない |
 | `Architecture / Technical Spike` | 技術制約や成立性が主要な不確実性 |
-| `Existing Context Update` | 新規意味ではなく既存Contextの訂正、補足、明確化 |
-| `Change Trace` | 採用済みの変更または明確なDefectのTriggerと影響をReleaseまで追跡する |
-| `Roadmap Candidate` | Requirementを採用したが現時点では着手しない |
+| `Existing Context Update` | 新規意味ではなく既存コンテキストの訂正、補足、明確化 |
+| `Change Trace` | 採用済みの変更または明確な不具合の契機と影響をリリースまで追跡する |
+| `Roadmap Candidate` | 要求を採用したが現時点では着手しない |
 | `No Action / Archive` | 重複、誤認、対象外、または採用しないと人間が判断した |
 
-RouteはAIが提案してよいが、Scope、Priority、採用・却下、延期を伴う最終判断は人間が行う。Discoveryから必ずUXへ進む必要はない。
+経路はAIが提案してよいが、対象範囲、優先順位、採用・却下、延期を伴う最終判断は人間が行う。課題探索・要求形成から必ずUXへ進む必要はない。
 
-## 5.2. Classification Before Routing
+## 5.2. 経路選択前の分類
 
-| Trigger | 最初の確認 | 結果 |
+| 契機 | 最初の確認 | 結果 |
 |---|---|---|
-| 顧客ヒアリング / Idea | Raw Voice、Evidence、Problem、Requirement Candidateを分離 | 新規REQ、既存REQの補強、Research、No Action等 |
-| 法令変更 | Source、Revision、施行日、Jurisdiction、適用範囲 | 新規 / 改訂REQ、Impact確認、Change Trace / Roadmap |
-| 明確な仕様変更 | Requirementも変わるか、Behaviorだけか | REQ / SPEC処置とChange Trace / Roadmap |
-| 不具合 | Approved UI / SPECと実装事実の差が明確か | 明確ならIDを維持してDefect Change Trace |
-| 仕様変更か曖昧 | 期待、承認済み仕様、実装事実を比較 | 分類までDiscovery / Researchを継続 |
+| 顧客ヒアリング / アイデア | 生の声、根拠、課題、要求候補を分離 | 新規REQ、既存REQの補強、調査、操作なし等 |
+| 法令変更 | 情報源、改訂版、施行日、法域、適用範囲 | 新規 / 改訂REQ、影響確認、変更トレース / ロードマップ |
+| 明確な仕様変更 | 要求も変わるか、振る舞いだけか | REQ / SPEC処置と変更トレース / ロードマップ |
+| 不具合 | 承認済み UI / SPECと実装事実の差が明確か | 明確ならIDを維持して不具合の変更トレース |
+| 仕様変更か曖昧 | 期待、承認済み仕様、実装事実を比較 | 分類まで課題探索・要求形成 / 調査を継続 |
 
-現行仕様が存在しない、Authorityが不明、または期待動作自体が未確定なら、単純なDefectとして扱わない。修正中に現行仕様自体が不適切と判明した場合も、Defect Routeを止め、RequirementまたはSpecification Changeとして再分類する。
+現行仕様が存在しない、決定権限が不明、または期待動作自体が未確定なら、単純な不具合として扱わない。修正中に現行仕様自体が不適切と判明した場合も、不具合経路を止め、要求または仕様変更として再分類する。
 
-## 5.3. Initial Development and Maintenance Paths
+## 5.3. 初期開発と保守期の経路
 
-初期開発と保守期は同じ分類原則を使う。違いは既存Canonical Context、稼働中System、Release制約の有無である。
+初期開発と保守期は同じ分類原則を使う。違いは既存正本コンテキスト、稼働中システム、リリース制約の有無である。
 
-| Trigger | 初期開発 | 保守期 |
+| 契機 | 初期開発 | 保守期 |
 |---|---|---|
-| 顧客ヒアリング / Idea | Evidenceと人間判断から必要ならREQを確立し、直近の専門工程またはRoadmapへ | 既存REQ / UX / IA / UI / SPECと比較し、補強、改訂、置換、新規を判断 |
-| 法令変更 | 適用SourceからREQを確立し、期限に応じChangeまたはRoadmapへ | 稼働Releaseへの期限と影響を評価し、緊急Changeまたは期限付きRoadmapへ |
-| 明確な仕様変更 | Requirement影響を確認して対象Canonical ArtifactとChangeを更新 | 既存IDの意味、Compatibility、Migration、Release影響を確認してChangeへ |
-| 不具合 | Approved UI / SPECとの差が明確なら新REQなしでChangeへ | Incident / Test Evidenceを承認済みContextと比較し、IDを維持して修正・回帰検証 |
-| 仕様変更か曖昧 | 期待、仕様、実装事実をDiscoveryで比較し、分類後にRoute | Support / Operation / Monitoring Inputを同様に比較し、分類まで新IDやRoadmap昇格を行わない |
+| 顧客ヒアリング / アイデア | 根拠と人間判断から必要ならREQを確立し、直近の専門工程またはロードマップへ | 既存REQ / UX / IA / UI / SPECと比較し、補強、改訂、置換、新規を判断 |
+| 法令変更 | 適用情報源からREQを確立し、期限に応じ変更またはロードマップへ | 稼働リリースへの期限と影響を評価し、緊急変更または期限付きロードマップへ |
+| 明確な仕様変更 | 要求影響を確認して対象正本成果物と変更を更新 | 既存IDの意味、互換性、移行、リリース影響を確認して変更へ |
+| 不具合 | 承認済み UI / SPECとの差が明確なら新REQなしで変更へ | インシデント / テスト根拠を承認済みコンテキストと比較し、IDを維持して修正・回帰検証 |
+| 仕様変更か曖昧 | 期待、仕様、実装事実を課題探索・要求形成で比較し、分類後に経路 | 支援／運用／監視への入力を同様に比較し、分類まで新しいIDやロードマップ昇格を行わない |
 
-## 5.4. Representative Context Paths
+## 5.4. 代表的なコンテキスト経路
 
 顧客ヒアリングから採用し、すぐ着手する例:
 
 ```text
 01_Discovery/Evidence/Customer_Interview_01.md
-  → interpretation / human decision
+  → 解釈 / 人間による判断
 01_Discovery/01_Product_Requirements.md#missed-important-topic
   └─ REQ-000012
-       → 02_UX / 03_IA / 04_UI / 05_SPECのCanonical Artifact
+       → 02_UX / 03_IA / 04_UI / 05_SPECの正本成果物
        → 90_Release/Changes/CHG-000001_Important_Topic_Review.md
-       → 06_Architecture → 40_DevelopのCode → Verification
+       → 06_Architecture → 40_Developのコード → 検証
 ```
 
 採用したが後で着手する例:
@@ -479,215 +482,217 @@ REQ-000012
 90_Release/Changes/CHG-000003_Important_Topic_Review.md
 ```
 
-明確なDefectの例:
+明確な不具合の例:
 
 ```text
 05_SPEC/Evidence/Topic_Behavior_Failure.md
-  → shows deviation from SPEC-000044 / UI-000021
+  → SPEC-000044 / UI-000021からの逸脱を示す
 90_Release/Changes/CHG-000004_Fix_Topic_Read_State.md
-  → Implementation / Regression Test / Verification Evidence
+  → 実装 / 回帰テスト / 検証根拠
 ```
 
 曖昧な要求の例:
 
 ```text
 01_Discovery/Evidence/Support_Request_27.md
-  → compare Expected / Approved Specification / Observed Implementation
-  ├─ implementation deviation → Defect Change Trace
-  ├─ missing requirement      → new or revised REQ
-  ├─ changed behavior intent  → revised/new SPEC
-  └─ insufficient evidence    → Research / Observation
+  → 期待結果 / 承認済み仕様 / 観察された実装を比較
+  ├─ 実装逸脱 → 不具合変更トレース
+  ├─ 要求不足      → 新規または改訂REQ
+  ├─ 振る舞い意図の変更  → 改訂または新規SPEC
+  └─ 根拠不足    → 調査 / 観察
 ```
 
 ---
 
-# 6. `01_Discovery` and `99_Roadmap`
+# 6. `01_Discovery`と`99_Roadmap`
 
-## 6.1. Responsibility Boundary
+## 6.1. 責務の境界
 
 `01_Discovery`と`99_Roadmap`は時間軸ではなく責務が異なる。
 
-| Folder | 責務 | 決定権限 |
+| フォルダ | 責務 | 決定権限 |
 |---|---|---|
-| `01_Discovery` | Source、Evidence、不確実性、Requirement Candidateを受け取り、追跡すべきRequirementを確定する | Discovery Source、Evidence、`REQ-*` |
-| `99_Roadmap` | 採用済みだが未着手の内容についてPriority、Target、Dependency、Start Conditionを示す | 将来実施計画。Requirement、Specification、Designの正本ではない |
+| `01_Discovery` | 情報源、根拠、不確実性、要求候補を受け取り、追跡すべき要求を確定する | 課題探索・要求形成の情報源、根拠、`REQ-*` |
+| `99_Roadmap` | 採用済みだが未着手の内容について優先順位、対象、依存関係、開始条件を示す | 将来実施計画。要求、仕様、設計の正本ではない |
 
 ```text
 01_Discovery = 何が分かり、何を満たす必要があるか
 99_Roadmap   = 採用済みの何を、いつ・どの順序で扱うか
 ```
 
-## 6.2. Transition Rules
+## 6.2. 移行規則
 
-- 今すぐ対応する採用済み内容はChange Traceへ進む
-- 将来対応すると決めた内容は、回答上のRecommendationだけで終えず、Roadmapから対象REQと影響Contextを参照する
-- 追加調査が必要な内容はDiscoveryに留める
-- 採用しない内容は決定結果となるDiscovery Artifactの`Decision / Rationale`へ理由を残す
-- 明確なDefectは不要なDiscoveryやREQを増やさずChange Traceへ進める
-- 着手時もRoadmap文書を`90_Release`へ移動せず、新しいChange TraceへLinkする
-- 完了後の確定内容はCanonical Artifactへ残し、RoadmapはStatusと成果物参照だけを更新する
+- 今すぐ対応する採用済み内容は変更トレースへ進む
+- 将来対応すると決めた内容は、回答上の推奨だけで終えず、ロードマップから対象REQと影響コンテキストを参照する
+- 追加調査が必要な内容は課題探索・要求形成に留める
+- 採用しない内容は決定結果となる課題探索・要求形成成果物の`Decision / Rationale`へ理由を残す
+- 明確な不具合は不要な課題探索・要求形成やREQを増やさず変更トレースへ進める
+- 着手時もロードマップ文書を`90_Release`へ移動せず、新しい変更トレースへリンクする
+- 完了後の確定内容は正本成果物へ残し、ロードマップは状態と成果物参照だけを更新する
 
-Discovery文書やEvidenceをRoadmapへ移動せず、Requirement本文やSpecification本文をRoadmapへ複製しない。Roadmap項目へCRDD標準Stable Context IDを付与せず、文書番号、Path、Anchor、必要なら外部Issue / Project IDで識別する。
+課題探索・要求形成文書や根拠をロードマップへ移動せず、要求本文や仕様本文をロードマップへ複製しない。ロードマップ項目へCRDD標準安定コンテキストIDを付与せず、文書番号、パス、アンカー、必要なら外部Issue / プロジェクトIDで識別する。
 
-## 6.3. Roadmap Item Contract
+<a id="63-roadmap-item-contract"></a>
 
-Roadmap Itemは、Human Authorityが採用したが現在Scopeでは着手しない内容を、再評価と着手判断へ接続するPlan Viewである。AIはDraftと更新を行えるが、採用、延期、Priority、Target、着手、取消を自己承認しない。
+## 6.3. ロードマップ項目の記録契約
 
-Roadmap Routeを確定する場合、既存Itemとの重複を確認し、次を一つのItemまたは外部Roadmap Toolの同等Recordへ保持する。
+ロードマップ項目は、人間の決定権限が採用したが現在対象範囲では着手しない内容を、再評価と着手判断へ接続する計画表示である。AIは下書きと更新を行えるが、採用、延期、優先順位、対象、着手、取消を自己承認しない。
+
+ロードマップへの経路を確定する場合、既存項目との重複を確認し、次を一つの項目または外部ロードマップツールの同等記録へ保持する。
 
 ```text
-Title / Artifact Reference
-Status
-Source REQ / Context
-Adopted Outcome / Preserved Intent
-Reason for Deferral
-Priority / Target
-Dependency
-Owner / Roadmap Authority
-Start Condition
-Review Date or Re-evaluation Trigger
-Known Risk / Unresolved Gap
-Human Decision / Rationale Reference
-Started CHG Reference
-Result / Canonical Artifact / Verification Reference
+表題 / 成果物参照
+状態
+情報源となるREQ / コンテキスト
+採用済み成果 / 保持する意図
+延期理由
+優先順位 / 対象
+依存関係
+担当責任者 / ロードマップ決定権限
+開始条件
+レビュー日または再評価契機
+既知リスク / 未解決不足
+人間による判断 / 判断理由参照
+着手時のCHG参照
+結果 / 正本成果物 / 検証参照
 ```
 
-AIが対象Roadmapへ書き込むAction Authorityを持たない場合は、登録先、Draft Item、必要Authorityを提示し、対象Itemだけを`Pending Registration`としてHandoffする。登録済みまたはRoadmap Route完了と表現せず、権限を得た人間またはAgentが登録ReferenceをDiscovery Resultへ戻した時点で、そのItemを完了とする。他Itemの独立したRouteとHandoffは継続できる。
+AIが対象ロードマップへ書き込む操作権限を持たない場合は、登録先、項目の下書き、必要な決定権限を提示し、対象項目だけを`Pending Registration`として引き渡す。登録済みまたはロードマップへの経路が完了したと表現せず、権限を得た人間またはエージェントが登録参照を課題探索・要求形成結果へ戻した時点で、その項目を完了とする。他の項目の独立した経路と引き渡しは継続できる。
 
-Roadmap ItemをRequirement、SPEC、Design、Decisionの正本にせず、採用結果と理由は責務を持つCanonical Artifactへ残す。Roadmap ItemにはCRDD Stable Context IDを発行しない。
+ロードマップ項目を要求、SPEC、設計、判断の正本にせず、採用結果と理由は責務を持つ正本成果物へ残す。ロードマップ項目にはCRDD安定コンテキストIDを発行しない。
 
-Roadmapは原則として、単一の`99_Roadmap/01_Product_Roadmap.md`をMain Viewとする。通常のItemはMain View内で完結させる。
+ロードマップは原則として、単一の`99_Roadmap/01_Product_Roadmap.md`を主要表示とする。通常の項目は主要表示内で完結させる。
 
-比較案、調査、Dependency、段階計画等の詳細によってMain Viewが読みにくくなる場合だけ、Itemから参照するDetail Fileへ分けてよい。
+比較案、調査、依存関係、段階計画等の詳細によって主要表示が読みにくくなる場合だけ、項目から参照する詳細ファイルへ分けてよい。
 
-Detail Fileには次の制限がある。
+詳細ファイルには次の制限がある。
 
-- Roadmap Itemを補助するために使用する
-- Requirement、Decision、SPEC、Design、Evidenceの正本にしない
-- 恒久Archiveにしない
-- CRDD Stable Context IDを発行しない
+- ロードマップ項目を補助するために使用する
+- 要求、判断、SPEC、設計、根拠の正本にしない
+- 恒久保管にしない
+- CRDD安定コンテキストIDを発行しない
 
-## 6.4. Roadmap Lifecycle and Activation
+## 6.4. ロードマップの状態遷移と発動
 
 ```text
-Discoveryで採用 + 今回は着手しない
+課題探索・要求形成で採用 + 今回は着手しない
                 │
                 ↓
-        Roadmap Main Viewへ登録
-          ├─ Action Authorityなし → Pending Registration
-          └─ 詳細が必要 → Detail Fileを参照
+        ロードマップ主要表示へ登録
+          ├─ 操作権限なし → Pending Registration
+          └─ 詳細が必要 → 詳細ファイルを参照
                 │
-      Start Condition / Re-evaluation Trigger
+      開始条件 / 再評価契機
                 ↓
         Ready for Start Review
-        ├─ 再延期 → Owner / Target / Trigger更新
-        ├─ Cancel → Decision / Rationale参照
-        └─ Human Start Decision
+        ├─ 再延期 → 担当責任者 / 対象 / 契機更新
+        ├─ 取消 → 判断 / 判断理由参照
+        └─ 人間開始判断
                 ↓
               CHG-*
                 ↓
-      必要な工程 → Implementation → Verification
+      必要な工程 → 実装 → 検証
                 ↓
-      正本・CHG・適用される結果へDetail固有情報を反映
+      正本・CHG・適用される結果へ詳細固有情報を反映
                 ↓
-      Main ViewへCompletedと結果参照 / 非適用理由を記録
+      主要表示へ完了と結果参照 / 非適用理由を記録
                 ↓
-          Detail Fileを削除
+          詳細ファイルを削除
 ```
 
 | 状態値 | 意味 | 必要な対応 |
 |---|---|---|
-| `Deferred` | 採用済みだが現在は着手しない | Owner、Start Condition、再評価Triggerを保持する |
-| `Ready for Start Review` | Start Conditionまたは再評価Triggerへ到達した | 現行ContextとImpactを確認し、Human Authorityへ着手・再延期・取消を提示する |
-| `Started` | Human Authorityが着手を決めた | 新しい`CHG-*`を作成し、相互参照する |
-| `Completed` | 適用される対応と必要なVerificationを完了した | Main ViewへCanonical Artifactと、適用されるImplementation / Verificationを参照し、非適用理由を必要に応じて示してDetail Fileを削除する |
-| `Cancelled` | 採用後に実施しないと決めた | Human Decision、理由、影響を参照する |
+| `Deferred` | 採用済みだが現在は着手しない | 担当責任者、開始条件、再評価契機を保持する |
+| `Ready for Start Review` | 開始条件または再評価契機へ到達した | 現行コンテキストと影響を確認し、人間の決定権限へ着手・再延期・取消を提示する |
+| `Started` | 人間の決定権限が着手を決めた | 新しい`CHG-*`を作成し、相互参照する |
+| `Completed` | 適用される対応と必要な検証を完了した | 主要表示へ正本成果物と、適用される実装 / 検証を参照し、非適用理由を必要に応じて示して詳細ファイルを削除する |
+| `Cancelled` | 採用後に実施しないと決めた | 人間の判断、理由、影響を参照する |
 
-CRDDは時刻Schedulerや外部通知を必須としない。Project固有Roadmap Authorityは、宣言したTriggerで対象Itemを再評価する。Triggerには、計画Review、Change / Release計画、Dependency解消、期限到達、関連Evidence / Law / Riskの変化等がある。
+CRDDは時刻スケジューラや外部通知を必須としない。プロジェクト固有ロードマップの決定権限は、宣言した契機で対象項目を再評価する。契機には、計画レビュー、変更 / リリース計画、依存関係解消、期限到達、関連根拠 / 法令 / リスクの変化等がある。
 
-通常実行ではRoadmap全件を無差別に読み込まず、次のItemを対象にする。
+通常実行ではロードマップ全件を無差別に読み込まず、次の項目を対象にする。
 
-- Active Scopeと関係する
-- 再評価Triggerへ到達した
-- DependencyまたはTargetが今回の計画と重なる
-- Roadmap Authorityが指定した
+- 現在の対象範囲と関係する
+- 再評価契機へ到達した
+- 依存関係または対象が今回の計画と重なる
+- ロードマップの決定権限が指定した
 
-Triggerへ到達しただけでItemを`Started`へ昇格しない。人間による着手判断（Human Start Decision）を得る。
+契機へ到達しただけで項目を`Started`へ昇格しない。人間による着手判断（Human Start Decision）を得る。
 
-着手時はRoadmap内容を実装指示として直接使用せず、Source Contextの現行RevisionとImpactを再確認し、[Change](12_Change.md)に従って`CHG-*`を作成する。再延期ではOwner、理由、Target、再評価Triggerを更新する。
+着手時はロードマップ内容を実装指示として直接使用せず、情報源コンテキストの現行改訂版と影響を再確認し、[変更](12_Change.md)に従って`CHG-*`を作成する。再延期では担当責任者、理由、対象、再評価契機を更新する。
 
-Roadmap Itemの完了時は、次の順に処理する。
+ロードマップ項目の完了時は、次の順に処理する。
 
-1. Detail Fileだけにある採用結果、Decision / Rationale、Evidence、Constraint、Known Riskを、責務を持つCanonical Artifactへ反映する。
-2. 適用されるCHG、Implementation Artifact、Verification Resultを更新する。
-3. Main ViewのItemへ`Completed`、CHG、結果Artifact、Verification Referenceを戻す。
-4. すべての参照が有効であることを確認してから、Detail Fileを削除する。
+1. 詳細ファイルだけにある採用結果、判断 / 判断理由、根拠、制約、既知のリスクを、責務を持つ正本成果物へ反映する。
+2. 適用されるCHG、実装成果物、検証結果を更新する。
+3. 主要表示の項目へ`Completed`、CHG、結果成果物、検証参照を戻す。
+4. すべての参照が有効であることを確認してから、詳細ファイルを削除する。
 
-Documentation-only、Research、No-code Operation等でImplementationまたはVerificationが適用されない場合は、無理にArtifactを作らず、Main Viewへ`Not Applicable`の理由を示す。
+文書のみ、調査、ノーコード操作等で実装または検証が適用されない場合は、無理に成果物を作らず、主要表示へ`Not Applicable`の理由を示す。
 
-確定した意味をMain Viewへ複製せず、Detail Fileを完了記録やRoadmap Archiveとして残さない。Git履歴は削除前の経緯確認に利用できるが、正本反映の代替にはならない。
+確定した意味を主要表示へ複製せず、詳細ファイルを完了記録やロードマップ保管として残さない。Git履歴は削除前の経緯確認に利用できるが、正本反映の代替にはならない。
 
 ---
 
-# 7. Discovery Brief and Handoff
+# 7. 課題探索・要求形成概要と引き渡し
 
-## 7.1. Discovery Brief
+## 7.1. 課題探索・要求形成の概要（Discovery Brief）
 
-Discovery Briefは新しいAuthorityではなく、Phase Process Contractの結果を受信先へ渡すViewである。小規模Scopeでは一つの短いMarkdownまたは既存Canonical Artifact内のSectionでよい。
+課題探索・要求形成概要は新しい決定権限ではなく、工程実行契約の結果を受信先へ渡す表示である。小規模対象範囲では一つの短いMarkdownまたは既存正本成果物内の節でよい。
 
 ```text
-# Discovery Brief
+# 課題探索・要求形成の概要
 
-## Scope and Coverage
-対象、Coverage State、未網羅項目
+## 対象範囲と網羅範囲
+対象、網羅範囲状態、未網羅項目
 
-## Trigger / Origin and Raw Voice
+## 契機 / 起点と生の声
 何が始まりで、なぜ今扱うか、原始的な表現
 
-## Actor / Situation and Problem
+## アクター / 状況と課題
 誰または何が、どの状況で、何に困るか
 
-## Evidence / Interpretation / Hypothesis
-Source、Provenance、Authority、根拠の限界、解釈、仮説
+## 根拠 / 解釈 / 仮説
+情報源、来歴、決定権限、根拠の限界、解釈、仮説
 
-## Desired Outcome and Preserved Intent
-変えたい状態、守る価値、Non-goal
+## 望ましい成果と保持する意図
+変えたい状態、守る価値、目指さないこと
 
-## Requirement and Solution Candidates
-Need / Outcome、候補の区別、採用済みREQへの参照、個別品質、非発行理由
+## 要求と解決策候補
+必要性 / 成果、候補の区別、採用済みREQへの参照、個別品質、非発行理由
 
-## Requirement Set and Quality Concern Coverage
-Source / Problem / Needに対する処置、Conflict、適用するQuality Concern、非適用理由、後続Obligation
+## 要求集合と品質上の懸念の網羅
+情報源 / 課題 / 必要性に対する処置、競合、適用する品質上の懸念、非適用理由、後続義務
 
-## Constraints / Assumptions / Open Questions
-未決事項、確認Owner、確認方法
+## 制約 / 仮定 / 未決事項
+未決事項、確認担当責任者、確認方法
 
-## Recommended Route and Human Confirmation
-選択Route、理由、却下・延期Route、受信先、人間判断
+## 推奨経路と人間による確認
+選択経路、理由、却下・延期経路、受信先、人間判断
 
-## Phase Transition Review
-Review Role、対象Revision、Result、Finding / Remediation、再Review、Review Exception
+## 工程移行レビュー
+レビュー担当、対象改訂版、結果、指摘事項 / 是正、再レビュー、レビュー例外
 
-## Triggered Propagation Check
-Source Revision、探索した上流・同層Context、正本更新、下流再探索、再監査Result、Propagation Exception
+## 変更影響の伝播確認
+情報源の改訂版、探索した上流・同層コンテキスト、正本更新、下流再探索、再監査結果、伝播例外
 ```
 
-## 7.2. Handoff Review
+## 7.2. 引き渡しレビュー
 
-Handoff時は文章の完成度ではなく、受信先が次の判断を開始できるかを確認する。すべてのRequirement、解決策、技術方式、Open Questionの確定は要求しない。
+引き渡し時は文章の完成度ではなく、受信先が次の判断を開始できるかを確認する。すべての要求、解決策、技術方式、未決事項の確定は要求しない。
 
-UXへ渡す場合は、少なくとも、なぜ取り組むか、誰がどの状況で困るか、どう変われば成功か、何を守るか、EvidenceとHypothesis、未決事項を説明できなければならない。対象ScopeのDiscovery Coverageが完了していない場合は、通常完了を装わず、明示的な部分Handoff承認を得る。
+UXへ渡す場合は、少なくとも、なぜ取り組むか、誰がどの状況で困るか、どう変われば成功か、何を守るか、根拠と仮説、未決事項を説明できなければならない。対象範囲の課題探索・要求形成網羅範囲が完了していない場合は、通常完了を装わず、明示的な部分的引き渡しの承認を得る。
 
-Discoveryから戻るLearningは、元のSource、REQ、後続Contextとの関係を維持したまま、Evidence、Hypothesis、Decision / Rationale、Requirement Revisionへ反映する。
+課題探索・要求形成から戻る学びは、元の情報源、REQ、後続コンテキストとの関係を維持したまま、根拠、仮説、判断 / 判断理由、要求改訂版へ反映する。
 
 ---
 
-# 8. Final Principle
+# 8. 最終原則
 
 ```text
-Discoveryは、AIが正しい答えを作る工程ではない。
+課題探索・要求形成は、AIが正しい答えを作る工程ではない。
 人間が持つ思いと、現在分かっている現実を、
-次の判断へ進めるContextに変える工程である。
+次の判断へ進めるコンテキストに変える工程である。
 
 分からないことは、分からないまま残してよい。
 ただし、何が分からず、次にどう確かめるかは残す。

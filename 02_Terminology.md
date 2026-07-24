@@ -2,10 +2,10 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -34,18 +34,18 @@ Related:
 
 # 目的
 
-本ドキュメントは、CRDDで使用するCanonical Term、各Termの境界、基本的な責務とAuthority、Lifecycle / Status、Aliasの正本である。Context間を一気通貫で変換する概念モデルは[`01_Principles.md`](01_Principles.md)を正本とする。
+本ドキュメントは、CRDDで使用する正式英語名（Canonical Term）、各用語の境界、基本的な責務と決定権限、状態遷移／状態、別名の正本である。コンテキスト間を一気通貫で変換する概念モデルは[`01_Principles.md`](01_Principles.md)を正本とする。
 
-他のCRDD文書は、本書で定義された概念を再定義してはならない。専門領域固有の詳細な運用、Lifecycle、Approval、Schemaは各専門標準で定義してよいが、本書のCanonical Definitionと矛盾してはならない。
+他のCRDD文書は、本書で定義された概念を再定義してはならない。専門領域固有の詳細な運用、状態遷移、承認、スキーマは各専門標準で定義してよいが、本書の正式な定義と矛盾してはならない。
 
 本書は、CRDDに登場するすべての専門用語を網羅する百科事典ではない。以下を対象とする。
 
 ```text
-Core Context Type
-CRDD全体を横断するSupporting Concept
-責務・Authorityを表すCanonical Term
-主要なLifecycle / Status Term
-Alias / Deprecated Term
+中核となるコンテキスト種別
+CRDD全体を横断する補助概念
+責務・決定権限を表す正式用語
+主要な状態遷移／状態用語
+別名／非推奨用語
 ```
 
 本書を含むCRDD文書で用いる規範強度語彙の意味は、[`03_Documentation.md`](03_Documentation.md#48-normative-language)を正本とする。
@@ -78,17 +78,17 @@ Alias / Deprecated Term
 
 一言で言うと、**まだ原因や意味を決めていない、実際に見聞き・計測した事実**。
 
-例: 利用者の発言、操作Log、計測値、画面上で実際に起きた挙動。
+例: 利用者の発言、操作ログ、計測値、画面上で実際に起きた挙動。
 
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Observation` |
-| 定義 | 人間、System、Sensor、Tool、またはAIによる抽出が観測・記録した内容。意味付けや原因説明を含まない一次的な記述。 |
+| 定義 | 人間、システム、センサー、ツール、またはAIによる抽出が観測・記録した内容。意味付けや原因説明を含まない一次的な記述。 |
 | 目的 | 現実について確認可能な出来事、状態、発言、挙動をコンテキストリポジトリへ取り込む。 |
-| 作成主体 | 人間、System、Tool、Sensor、AIによる抽出 |
-| 決定権限 | 観察の採用者は人間または信頼されたSystem。AIは抽出・整形できるが、観測していない内容を追加できない。 |
-| 入力 | 現実、会話、Log、実行挙動、計測、画像、資料、運用実態 |
-| 出力 | 根拠、解釈、Gap Finding、調査事項 |
+| 作成主体 | 人間、システム、ツール、センサー、AIによる抽出 |
+| 決定権限 | 観察の採用者は人間または信頼されたシステム。AIは抽出・整形できるが、観測していない内容を追加できない。 |
+| 入力 | 現実、会話、ログ、実行挙動、計測、画像、資料、運用実態 |
+| 出力 | 根拠、解釈、不足の指摘事項、調査事項 |
 | 状態遷移 | `Captured` → `Reviewed` → `Accepted` / `Rejected` / `Superseded` |
 | 関連用語 | 根拠、情報源、来歴、復元されたコンテキスト |
 | 必須（MUST） | 情報源、取得時点、対象範囲を追跡できること。観察内容と解釈を分離すること。 |
@@ -100,20 +100,20 @@ Alias / Deprecated Term
 
 一言で言うと、**主張や判断が妥当かを後から確かめるための参照可能な材料**。
 
-例: 原文、Log、計測結果、Test結果、法令、録画。
+例: 原文、ログ、計測結果、テスト結果、法令、録画。
 
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Evidence` |
 | 定義 | 観察、主張、判断、要求、検証結果等を裏付ける参照可能な根拠。 |
 | 目的 | コンテキストの信頼性、由来、再確認可能性を担保する。 |
-| 作成主体 | 人間、System、Tool、AIによる収集・索引化 |
-| 決定権限 | 内容と真正性は情報源に由来する。CRDD上の採用、分類、適用範囲、鮮度判断は対象コンテキストのOwner、人間の決定権限、または承認済みRuleが担う。 |
-| 入力 | 観察、文書、Log、録画、Test結果、計測値、外部情報源、成果物 |
+| 作成主体 | 人間、システム、ツール、AIによる収集・索引化 |
+| 決定権限 | 内容と真正性は情報源に由来する。CRDD上の採用、分類、適用範囲、鮮度判断は対象コンテキストの担当責任者、人間の決定権限、または承認済み規則が担う。 |
+| 入力 | 観察、文書、ログ、録画、テスト結果、計測値、外部情報源、成果物 |
 | 出力 | 解釈、仮説評価、判断支援、検証結果 |
 | 状態遷移 | `Collected` → `Validated` → `Accepted` / `Expired` / `Invalidated` / `Superseded` |
 | 関連用語 | 観察、情報源、成果物、来歴、検証結果 |
-| 必須（MUST） | 情報源、対象、取得条件、Revisionまたは時点を追跡できること。 |
+| 必須（MUST） | 情報源、対象、取得条件、改訂版または時点を追跡できること。 |
 | 禁止（MUST NOT） | 根拠そのものを解釈、判断、要求として扱わないこと。情報源不明の主張を根拠と呼ばないこと。 |
 
 <a id="13-interpretation"></a>
@@ -130,12 +130,12 @@ Alias / Deprecated Term
 | 定義 | 観察または根拠に対する意味付け、説明、分類、因果候補。 |
 | 目的 | 観測された情報を、人間が検討・判断できる理解へ変換する。 |
 | 作成主体 | 人間、AI、専門家 |
-| 決定権限 | 解釈の作成者。判断、要求、正本コンテキストへ昇格する場合は、対象の決定権限によるReviewを必要とする。AIは複数案と確信度を提示できる。 |
-| 入力 | 観察、根拠、既存コンテキスト、Domain Knowledge |
-| 出力 | 仮説、提案、調査事項、Gap Finding |
+| 決定権限 | 解釈の作成者。判断、要求、正本コンテキストへ昇格する場合は、対象の決定権限によるレビューを必要とする。AIは複数案と確信度を提示できる。 |
+| 入力 | 観察、根拠、既存コンテキスト、専門領域の知識 |
+| 出力 | 仮説、提案、調査事項、不足の指摘事項 |
 | 状態遷移 | `Draft` → `Reviewed` → `Accepted` / `Rejected` / `Superseded` |
 | 関連用語 | 根拠、仮説、確信度、来歴 |
-| 必須（MUST） | 根拠となる観察または根拠へTraceできること。確実性を超えて断定しないこと。 |
+| 必須（MUST） | 根拠となる観察または根拠へ追跡できること。確実性を超えて断定しないこと。 |
 | 禁止（MUST NOT） | 解釈を観察、根拠、判断として表現しないこと。 |
 
 <a id="14-hypothesis"></a>
@@ -147,16 +147,16 @@ Alias / Deprecated Term
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Hypothesis` |
-| 定義 | EvidenceまたはInterpretationから導かれた、まだ検証されていない説明・予測・成立条件。 |
-| 目的 | 不確実な理解を明示し、Research、Prototype、Test、Proposalの対象にする。 |
-| 作成主体 | Human / AI / Expert |
-| 決定権限 | Humanが検証Priorityと採否を判断する。AIは生成・比較・反証候補提示を行える。 |
-| 入力 | Interpretation、Evidence、Observation、既存Learning |
-| 出力 | Research Plan、Experiment、Proposal、Validation Need |
+| 定義 | 根拠または解釈から導かれた、まだ検証されていない説明・予測・成立条件。 |
+| 目的 | 不確実な理解を明示し、調査、試作、テスト、提案の対象にする。 |
+| 作成主体 | 人間／AI／専門家 |
+| 決定権限 | 人間が検証優先順位と採否を判断する。AIは生成・比較・反証候補提示を行える。 |
+| 入力 | 解釈、根拠、観察、既存学び |
+| 出力 | 調査計画、実験、提案、妥当性確認の必要 |
 | 状態遷移 | `Candidate` → `Under Validation` → `Supported` / `Refuted` / `Inconclusive` / `Superseded` |
-| 関連用語 | Interpretation、Proposal、Evidence、Verification Result、Learning |
-| 必須（MUST） | 未検証であること、検証方法または不足Evidenceを明示しなければならない。 |
-| 禁止（MUST NOT） | 検証前に確定Factまたは確立済みLearningとして扱ってはならない。DecisionやRequirementのInputにする場合は、未検証性、Risk、検証または見直し条件を隠してはならない。 |
+| 関連用語 | 解釈、提案、根拠、検証結果、学び |
+| 必須（MUST） | 未検証であること、検証方法または不足根拠を明示しなければならない。 |
+| 禁止（MUST NOT） | 検証前に確定事実または確立済み学びとして扱ってはならない。判断や要求の入力にする場合は、未検証性、リスク、検証または見直し条件を隠してはならない。 |
 
 <a id="15-proposal"></a>
 
@@ -170,15 +170,15 @@ Alias / Deprecated Term
 |---|---|
 | 正式英語名 | `Proposal` |
 | 定義 | 採用前の解決案、方針案、設計案、選択肢、変更案。 |
-| 目的 | 人間が代替案、Trade-off、Riskを比較してDecisionを行えるようにする。 |
-| 作成主体 | Human / AI / Expert / Team |
-| 決定権限 | AIは作成・推奨できる。採用AuthorityはHumanにある。 |
-| 入力 | Interpretation、Hypothesis、Evidence、Constraint、Principle、Requirement、Gap |
-| 出力 | Decision、Experiment、Prototype、Rejected / Deferred Proposal |
+| 目的 | 人間が代替案、トレードオフ、リスクを比較して判断を行えるようにする。 |
+| 作成主体 | 人間／AI／専門家／チーム |
+| 決定権限 | AIは作成・推奨できる。採用決定権限は人間にある。 |
+| 入力 | 解釈、仮説、根拠、制約、原則、要求、不足 |
+| 出力 | 判断、実験、試作、却下／保留された提案 |
 | 状態遷移 | `Candidate` → `Reviewed` → `Promoted to Decision` / `Rejected` / `Deferred` / `Superseded` |
-| 関連用語 | Hypothesis、Decision、Alternative、Trade-off、Risk |
-| 必須（MUST） | Decisionと明確に区別し、Statusと提案主体を保持しなければならない。重要Proposalでは根拠・代替案・Riskを示さなければならない。 |
-| 禁止（MUST NOT） | Human Approval前に採用済み方針として扱ってはならない。 |
+| 関連用語 | 仮説、判断、代替案、トレードオフ、リスク |
+| 必須（MUST） | 判断と明確に区別し、状態と提案主体を保持しなければならない。重要提案では根拠・代替案・リスクを示さなければならない。 |
+| 禁止（MUST NOT） | 人間の承認前に採用済み方針として扱ってはならない。 |
 
 <a id="16-decision"></a>
 
@@ -186,69 +186,69 @@ Alias / Deprecated Term
 
 一言で言うと、**人間が何を採用、却下、延期するかを確定した記録**。
 
-例: 案Bを採用する、Riskを受容する、今回のReleaseには含めない。
+例: 案Bを採用する、リスクを受容する、今回のリリースには含めない。
 
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Decision` |
-| 定義 | Human Authorityが採用、却下、延期、例外許容、優先順位等を確定した判断。 |
-| 目的 | Productや組織が何を選び、なぜ選んだかを将来へ継承する。 |
-| 作成主体 | Human Authority。AIはDraftとDecision Candidateを作成できる。 |
-| 決定権限 | Human Only。Authorityは対象Scopeに応じたOwner / Approverが持つ。 |
-| 入力 | Proposal、Evidence、Interpretation、Principle、Constraint、Trade-off、Risk |
-| 出力 | Requirement、Plan、Scope、Principle Update、Exception、Rejected / Deferred Item |
+| 定義 | 人間の決定権限者が採用、却下、延期、例外許容、優先順位等を確定した判断。 |
+| 目的 | プロダクトや組織が何を選び、なぜ選んだかを将来へ継承する。 |
+| 作成主体 | 人間の決定権限者。AIは下書きと判断候補を作成できる。 |
+| 決定権限 | 人間のみ。決定権限は対象範囲に応じた担当責任者／承認者が持つ。 |
+| 入力 | 提案、根拠、解釈、原則、制約、トレードオフ、リスク |
+| 出力 | 要求、計画、対象範囲、原則の更新、例外、却下／延期した項目 |
 | 状態遷移 | `Recorded` → `Active` → `Superseded` / `Reversed` |
-| 関連用語 | Proposal、Canonical Artifact、Authority、Requirement、Rationale |
-| 必須（MUST） | Decision maker、日時、対象Scope、Decision Outcome、Rationale、主要Evidence、影響Contextを保持しなければならない。 |
+| 関連用語 | 提案、正本成果物、決定権限、要求、判断理由 |
+| 必須（MUST） | 判断者、日時、対象範囲、判断結果、判断理由、主要根拠、影響コンテキストを保持しなければならない。 |
 | 禁止（MUST NOT） | AIが自己承認してはならない。履歴を破壊的に上書きしてはならない。 |
 
 <a id="17-requirement"></a>
 
 ## 1.7. 要求（Requirement）
 
-一言で言うと、**Product、System、Processが満たす必要のある条件**。
+一言で言うと、**プロダクト、システム、プロセスが満たす必要のある条件**。
 
 例: 利用者が誤操作から復旧できること、法定期間ログを保持すること。
 
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Requirement` |
-| 定義 | Discoveryで得た問題、Need、Evidence、法令、Contract、Constraint等から導かれる、Product、System、Processが満たすべき条件。 |
-| 目的 | Discoveryの結果を、UX、IA、UI、Behavior Specificationへ引き渡せる追跡可能な要求として定義する。 |
-| 作成主体 | Human / Analyst / Discovery Agent / Expert。AIはDraftできる。 |
-| 決定権限 | 対象ScopeのHuman AuthorityがProductへの採用、適用、優先度を決める。外部法令・Contract由来の義務そのものは外部Authorityを保持し、人間判断で由来を上書きしない。 |
-| 入力 | Observation、Evidence、Problem、Need、Decision、Principle、法令、Contract、Constraint |
-| 出力 | UX / IA / UI / Behavior SpecificationへのObligation、Architecture Input、Plan、Verification Obligation |
+| 定義 | 課題探索・要求形成で得た問題、ニーズ、根拠、法令、契約、制約等から導かれる、プロダクト、システム、プロセスが満たすべき条件。 |
+| 目的 | 課題探索・要求形成の結果を、UX、IA、UI、振る舞い仕様へ引き渡せる追跡可能な要求として定義する。 |
+| 作成主体 | 人間／分析担当者／課題探索・要求形成エージェント／専門家。AIは下書きを作成できる。 |
+| 決定権限 | 対象範囲の人間の決定権限者がプロダクトへの採用、適用、優先度を決める。外部法令・契約由来の義務そのものは外部決定権限を保持し、人間判断で由来を上書きしない。 |
+| 入力 | 観察、根拠、問題、ニーズ、判断、原則、法令、契約、制約 |
+| 出力 | UX／IA／UI／振る舞い仕様への責務、アーキテクチャへの入力、計画、検証責務 |
 | 状態遷移 | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Active` → `Superseded` / `Deprecated` / `Retired` |
-| 関連用語 | Decision、UI Contract、Behavior Specification、Acceptance Criteria、Verification Result |
-| 必須（MUST） | 該当するDiscovery Source、Evidence、Problem、Need / Desired Outcome、Decisionまたは正当なAuthorityのいずれかへ必要な粒度でTrace可能でなければならない。対象Riskと抽象度に応じたVerification Obligation、または確認方法を後続工程で定義する責務を持たなければならない。 |
-| 禁止（MUST NOT） | 根拠のないAI推定を承認済みRequirementとして扱ってはならない。UX OutcomeやDesign IntentをBehavior構文だけへ圧縮してはならない。Implementation StatusやVerification StatusをRequirement自身のStatusとして流用してはならない。 |
+| 関連用語 | 判断、UI契約、振る舞い仕様、受入条件、検証結果 |
+| 必須（MUST） | 該当する課題探索・要求形成の情報源、根拠、問題、ニーズ／望む成果、判断または正当な決定権限のいずれかへ必要な粒度で追跡可能でなければならない。対象リスクと抽象度に応じた検証責務、または確認方法を後続工程で定義する責務を持たなければならない。 |
+| 禁止（MUST NOT） | 根拠のないAI推定を承認済み要求として扱ってはならない。UXの成果や設計意図を振る舞い構文だけへ圧縮してはならない。実装状態や検証状態を要求自身の状態として流用してはならない。 |
 
 <a id="18-behavior-specification"></a>
 
 ## 1.8. 振る舞い仕様（Behavior Specification）
 
-一言で言うと、**特定の条件や状態でSystemがどう振る舞うかを検証可能に定めたもの**。
+一言で言うと、**特定の条件や状態でシステムがどう振る舞うかを検証可能に定めたもの**。
 
 例: 未入力で保存した場合は保存せず、対象項目と修正方法を示す。
 
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Behavior Specification` |
-| 定義 | Feature、Use Case、User Action等について、特定のCondition、Trigger、State、Inputに対してSystemが何を行い、何を変更・出力し、例外・失敗・回復をどう扱うかを定義した検証可能な振る舞い仕様。 |
-| 目的 | Requirement、UX、IA、UI Contract、Business Ruleを、実装・検証へ渡せる具体的なSystem Behaviorへ変換する。 |
-| 作成主体 | Human / Analyst / SPEC Agent / Expert。AIはDraftできる。 |
-| 決定権限 | 対象ScopeのProductまたはDomain Authorityが意味を承認する。ArchitectureやImplementationは承認済みBehavior Specificationを無断で弱めない。 |
-| 入力 | Requirement、Decision、Feature、Use Case、User Action、IA、UI Contract、Business Rule、Constraint |
-| 出力 | Architecture Input、Implementation Obligation、Acceptance Criteria、Verification Obligation |
+| 定義 | 機能、利用事例、利用者操作等について、特定の条件、契機、状態、入力に対してシステムが何を行い、何を変更・出力し、例外・失敗・回復をどう扱うかを定義した検証可能な振る舞い仕様。 |
+| 目的 | 要求、UX、IA、UI契約、業務規則を、実装・検証へ渡せる具体的なシステムの振る舞いへ変換する。 |
+| 作成主体 | 人間／分析担当者／SPECエージェント／専門家。AIは下書きを作成できる。 |
+| 決定権限 | 対象範囲のプロダクトまたは専門領域の決定権限者が意味を承認する。アーキテクチャや実装は承認済み振る舞い仕様を無断で弱めない。 |
+| 入力 | 要求、判断、機能、利用事例、利用者操作、IA、UI契約、業務規則、制約 |
+| 出力 | アーキテクチャへの入力、実装上の責務、受入条件、検証責務 |
 | 状態遷移 | `Candidate` → `Draft` → `Reviewed` → `Approved` → `Active` → `Superseded` / `Deprecated` / `Retired` |
-| 関連用語 | Requirement、UI Contract、State、Business Rule、Acceptance Criteria、Verification Result |
-| 必須（MUST） | Condition、Trigger、State、Behavior、Exception、AcceptanceまたはVerification方法を対象Riskに応じた粒度で持たなければならない。Source Requirementまたは正当なAuthorityへTrace可能でなければならない。 |
-| 禁止（MUST NOT） | Requirement、UX Outcome、UI表現、Architecture方式、実装詳細と同一視してはならない。Implementation StatusやVerification StatusをBehavior Specification自身のStatusとして流用してはならない。 |
+| 関連用語 | 要求、UI契約、状態、業務規則、受入条件、検証結果 |
+| 必須（MUST） | 条件、契機、状態、振る舞い、例外、受入または検証方法を対象リスクに応じた粒度で持たなければならない。情報源となる要求または正当な決定権限へ追跡可能でなければならない。 |
+| 禁止（MUST NOT） | 要求、UXの成果、UI表現、アーキテクチャ方式、実装詳細と同一視してはならない。実装状態や検証状態を振る舞い仕様自身の状態として流用してはならない。 |
 
-Requirementは「何を満たす必要があるか」を定義し、Behavior Specificationは「どの条件と状態でSystemがどう振る舞うか」を定義する。
+要求は「何を満たす必要があるか」を定義し、振る舞い仕様は「どの条件と状態でシステムがどう振る舞うか」を定義する。
 
-Behavior Specificationが承認され、UI、Architecture、Implementation、Verificationの基準として利用される場合、契約的な役割を果たす。ただし、その役割を別のContext Typeである`Behavior Contract`として扱ってはならない。
+振る舞い仕様が承認され、UI、アーキテクチャ、実装、検証の基準として利用される場合、契約的な役割を果たす。ただし、その役割を別のコンテキスト種別である`Behavior Contract`として扱ってはならない。
 
 <a id="19-plan"></a>
 
@@ -259,16 +259,16 @@ Behavior Specificationが承認され、UI、Architecture、Implementation、Ver
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Plan` |
-| 定義 | RequirementやDecisionを実現するための順序、Scope、Task、Dependency、Owner、Gate、Verificationを定めた実行計画。 |
-| 目的 | 採用済みContextを、実行可能かつ中断・確認可能な作業へ変換する。 |
-| 作成主体 | Human / Planning Agent / Team |
-| 決定権限 | Human OwnerがScope、Priority、Schedule、Riskを承認する。 |
-| 入力 | Requirement、Architecture、Decision、Constraint、Impact Analysis、Resource |
-| 出力 | Task、Milestone、Change Trace Reference、Delivery Instruction、Verification Plan |
+| 定義 | 要求や判断を実現するための順序、対象範囲、作業、依存関係、担当責任者、判定条件、検証を定めた実行計画。 |
+| 目的 | 採用済みコンテキストを、実行可能かつ中断・確認可能な作業へ変換する。 |
+| 作成主体 | 人間／計画エージェント／チーム |
+| 決定権限 | 人間の担当責任者が対象範囲、優先順位、予定、リスクを承認する。 |
+| 入力 | 要求、アーキテクチャ、判断、制約、影響分析、資源 |
+| 出力 | 作業、マイルストーン、変更トレース参照、実行指示、検証計画 |
 | 状態遷移 | `Draft` → `Reviewed` → `Approved` → `In Progress` → `Completed` / `Cancelled` / `Superseded` |
-| 関連用語 | Requirement、Change Trace、Task、Gate、Implementation |
-| 必須（MUST） | 対象Requirement、Scope、Dependency、完了条件、Ownerを追跡可能にしなければならない。 |
-| 禁止（MUST NOT） | 未承認のScope削減やRequirement変更を暗黙に含めてはならない。 |
+| 関連用語 | 要求、変更トレース、作業、工程移行判定、実装 |
+| 必須（MUST） | 対象要求、対象範囲、依存関係、完了条件、担当責任者を追跡可能にしなければならない。 |
+| 禁止（MUST NOT） | 未承認の対象範囲削減や要求変更を暗黙に含めてはならない。 |
 
 <a id="110-implementation"></a>
 
@@ -279,38 +279,38 @@ Behavior Specificationが承認され、UI、Architecture、Implementation、Ver
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Implementation` |
-| 定義 | 承認済みContext、Behavior Specification、Architecture、UI等に基づいて作成・変更されたCode、Configuration、Migration、Infrastructure、配布Content、Developer Test、Build等の実行可能または配布可能な実体。 |
-| 目的 | 採用済みContextを、動作・利用・評価可能な現実の成果へ変換する。 |
-| 作成主体 | Human / AI Agent / Tool / System |
-| 決定権限 | 作成Authorityと採用Authorityを分離してよい。Baselineへの統合はProjectのAgent / Review Contract、Releaseへの採用はHuman Release Authorityが決める。 |
-| 入力 | Plan、Requirement、Behavior Specification、Architecture、UI / Graphic、Asset、Constraint、Change Trace |
-| 出力 | Executable Artifact、Configuration、Migration、Developer Test、Build、Release Candidate、Verification Target |
+| 定義 | 承認済みコンテキスト、振る舞い仕様、アーキテクチャ、UI等に基づいて作成・変更されたコード、構成、移行、インフラストラクチャ、配布内容、開発者テスト、ビルド等の実行可能または配布可能な実体。 |
+| 目的 | 採用済みコンテキストを、動作・利用・評価可能な現実の成果へ変換する。 |
+| 作成主体 | 人間／AIエージェント／ツール／システム |
+| 決定権限 | 作成権限と採用権限を分離してよい。基準版への統合はプロジェクトのエージェント／レビュー契約、リリースへの採用は人間のリリース決定権限者が決める。 |
+| 入力 | 計画、要求、振る舞い仕様、アーキテクチャ、UI、画像／音声／データ／モデル素材、制約、変更トレース |
+| 出力 | 実行可能成果物、構成、移行、開発者テスト、ビルド、リリース候補、検証対象 |
 | 状態遷移 | `Planned` → `In Progress` → `Implemented` → `Superseded` / `Retired` |
-| 関連用語 | Artifact、Plan、Requirement、Behavior Specification、Architecture、Verification Result |
-| 必須（MUST） | 対応するPlan、Requirement、Behavior Specificationのうち該当するContextへTrace可能でなければならない。Deviationと既知Limitを明示しなければならない。 |
-| 禁止（MUST NOT） | 動作していることだけを理由に、上流DecisionやRequirementの正本として扱ってはならない。`Implemented`を`Verified`または`Released`として扱ってはならない。 |
+| 関連用語 | 成果物、計画、要求、振る舞い仕様、アーキテクチャ、検証結果 |
+| 必須（MUST） | 対応する計画、要求、振る舞い仕様のうち該当するコンテキストへ追跡可能でなければならない。逸脱と既知の制限を明示しなければならない。 |
+| 禁止（MUST NOT） | 動作していることだけを理由に、上流判断や要求の正本として扱ってはならない。`Implemented`を`Verified`または`Released`として扱ってはならない。 |
 
 <a id="111-verification-result"></a>
 
 ## 1.11. 検証結果（Verification Result）
 
-一言で言うと、**特定Revisionが期待条件を満たしたかを、条件と根拠付きで示した結果**。
+一言で言うと、**特定の改訂版が期待条件を満たしたかを、条件と根拠付きで示した結果**。
 
-例: 対象Build、Environment、実行条件、Pass / Fail、確認に使った根拠。
+例: 対象ビルド、環境、実行条件、合格／不合格、確認に使った根拠。
 
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Verification Result` |
-| 定義 | 対象RevisionのRequirement、Behavior Specification、Contract、Acceptance Criteria、Outcome等に対する検証結果とEvidence。 |
-| 目的 | ImplementationやContextが期待条件を満たすか、どの条件では満たさないかを明らかにする。 |
-| 作成主体 | Human Reviewer / Test Agent / Tool / System / User Researcher |
-| 決定権限 | 検証方法と対象に応じたReviewerまたはQuality Authority。AIは実行・整理できるがRisk受容を決められない。 |
-| 入力 | Requirement、Behavior Specification、Acceptance Criteria、Implementation、Environment、Test、Observation |
-| 出力 | Pass / Fail / Blocked、Gap、Finding、Decision Input、Learning Candidate |
+| 定義 | 対象改訂版の要求、振る舞い仕様、契約、受入条件、成果等に対する検証結果と根拠。 |
+| 目的 | 実装やコンテキストが期待条件を満たすか、どの条件では満たさないかを明らかにする。 |
+| 作成主体 | 人間の確認者／テストエージェント／ツール／システム／利用者調査担当者 |
+| 決定権限 | 検証方法と対象に応じた確認者または品質の決定権限者。AIは実行・整理できるがリスク受容を決められない。 |
+| 入力 | 要求、振る舞い仕様、受入条件、実装、環境、テスト、観察 |
+| 出力 | `Pass`／`Fail`／`Blocked`、不足、指摘事項、判断への入力、学びの候補 |
 | 状態遷移 | `Produced` → `Reviewed` → `Accepted` / `Invalidated` / `Superseded` |
-| 関連用語 | Evidence、Requirement、Behavior Specification、Implementation、Gap、Learning |
-| 必須（MUST） | 対象Revision、Environment、実行条件、結果、Evidenceを保持しなければならない。 |
-| 禁止（MUST NOT） | Test PassだけをProduct Outcome達成の証明として扱ってはならない。古いRevisionのResultを現行検証として再利用してはならない。ResultのLifecycle、Verification Outcome、Human Acceptanceを同一Statusとして扱ってはならない。 |
+| 関連用語 | 根拠、要求、振る舞い仕様、実装、不足、学び |
+| 必須（MUST） | 対象改訂版、環境、実行条件、結果、根拠を保持しなければならない。 |
+| 禁止（MUST NOT） | テストの`Pass`だけをプロダクトの成果達成の証明として扱ってはならない。古い改訂版の結果を現行検証として再利用してはならない。結果の状態遷移、検証の成果、人間による受入を同一状態として扱ってはならない。 |
 
 <a id="112-learning"></a>
 
@@ -321,16 +321,16 @@ Behavior Specificationが承認され、UI、Architecture、Implementation、Ver
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Learning` |
-| 定義 | Observation、Verification Result、運用、Decision結果等から抽出され、将来再利用できる形に整理された知見。 |
-| 目的 | 同じ失敗・調査・判断を繰り返さず、Product、Method、Standard、Roadmapを改善する。 |
-| 作成主体 | Human / AIによる整理。正式PromotionはHuman Reviewを必要とする。 |
-| 決定権限 | 対象RepositoryまたはStandardのOwner。単一事例から一般Ruleへ昇格する場合は明示承認を必要とする。 |
-| 入力 | Verification Result、Operational Observation、Decision Outcome、Incident、Experiment、Retrospective |
-| 出力 | Discovery Context、Principle Update、Practice、Rule、Proposal、Roadmap、Training Context |
+| 定義 | 観察、検証結果、運用、判断結果等から抽出され、将来再利用できる形に整理された知見。 |
+| 目的 | 同じ失敗・調査・判断を繰り返さず、プロダクト、方法、標準、ロードマップを改善する。 |
+| 作成主体 | 人間／AIによる整理。正式な昇格には人間によるレビューを必要とする。 |
+| 決定権限 | 対象リポジトリまたは標準の担当責任者。単一事例から一般規則へ昇格する場合は明示承認を必要とする。 |
+| 入力 | 検証結果、運用上の観察、判断結果、インシデント、実験、振り返り |
+| 出力 | 課題探索・要求形成コンテキスト、原則の更新、実践方法、規則、提案、ロードマップ、教育用コンテキスト |
 | 状態遷移 | `Candidate` → `Reviewed` → `Promoted` / `Rejected` / `Deferred` → `Superseded` / `Deprecated` |
-| 関連用語 | Verification Result、Evidence、Practice、Rule、Proposal、Feedback Loop |
-| 必須（MUST） | Source Evidence、適用範囲、Confidence、Promotion先を保持しなければならない。 |
-| 禁止（MUST NOT） | Evidenceのない一般化やAI推定を確立済みLearningとして登録してはならない。 |
+| 関連用語 | 検証結果、根拠、実践方法、規則、提案、フィードバックループ |
+| 必須（MUST） | 情報源となる根拠、適用範囲、確信度、昇格先を保持しなければならない。 |
+| 禁止（MUST NOT） | 根拠のない一般化やAI推定を確立済み学びとして登録してはならない。 |
 
 ---
 
@@ -338,7 +338,7 @@ Behavior Specificationが承認され、UI、Architecture、Implementation、Ver
 
 # 2. 横断して使う概念（Supporting Concepts）
 
-Supporting Conceptは、Core Context Typeを保存・接続・実行・管理するための横断概念である。詳細な運用規則はRelated文書へ委譲する。
+補助概念（Supporting Concept）は、中核となるコンテキスト種別を保存・接続・実行・管理するための横断概念である。詳細な運用規則は関連文書へ委譲する。
 
 <a id="21-context"></a>
 
@@ -348,13 +348,13 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 **定義:** CRDDで意味、理由、状態、関係、判断、要求、計画、実装、検証、学びとして扱われる、人間とAIが参照可能な情報単位。
 
-**目的:** セッション、担当者、AI、Artifact、Releaseをまたいで、Productの意味と判断を継承する。
+**目的:** セッション、担当者、AI、成果物、リリースをまたいで、プロダクトの意味と判断を継承する。
 
-**決定権限:** Context Typeと対象Scopeに応じてHuman、System、外部Authorityが異なる。AIはAuthorityを自動取得しない。
+**決定権限:** コンテキスト種別と対象範囲に応じて人間、システム、外部決定権限が異なる。AIは決定権限を自動取得しない。
 
-**必須（MUST）:** Type、Source / Provenance、Status、Revision、Relationを必要な粒度で保持する。
+**必須（MUST）:** 種別、情報源／来歴、状態、改訂版、関係を必要な粒度で保持する。
 
-**禁止（MUST NOT）:** すべての情報を無差別にContext Repositoryの正本へ昇格してはならない。
+**禁止（MUST NOT）:** すべての情報を無差別にコンテキストリポジトリの正本へ昇格してはならない。
 
 <a id="22-context-repository"></a>
 
@@ -362,15 +362,15 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 一言で言うと、**目的、判断、設計、実装、検証、学びをつないで残す情報基盤**。
 
-**定義:** ProductのWhy、Context、Decision、Artifact参照、Trace、Versionを、人間とAIが継続利用できる形で管理するRepositoryまたは論理的な情報基盤。
+**定義:** プロダクトの目的、コンテキスト、判断、成果物参照、トレース、バージョンを、人間とAIが継続利用できる形で管理するリポジトリまたは論理的な情報基盤。
 
-**目的:** Product Contextの継承、再現、判断、変更、検証の基盤となる。
+**目的:** プロダクトコンテキストの継承、再現、判断、変更、検証の基盤となる。
 
-**決定権限:** Repository Owner。詳細は[`03_Documentation.md`](03_Documentation.md)を参照する。
+**決定権限:** リポジトリの担当責任者。詳細は[`03_Documentation.md`](03_Documentation.md)を参照する。
 
-**必須（MUST）:** Canonical Contextと外部ArtifactのProperty Authorityを明示する。
+**必須（MUST）:** 正本コンテキストと外部成果物の項目の決定権限を明示する。
 
-**禁止（MUST NOT）:** GitやMarkdownという媒体そのものを、すべてのPropertyの唯一の正本とみなしてはならない。
+**禁止（MUST NOT）:** GitやMarkdownという媒体そのものを、すべての項目の唯一の正本とみなしてはならない。
 
 <a id="23-artifact"></a>
 
@@ -378,15 +378,15 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 一言で言うと、**コンテキストを表現、実装、検証する具体的な媒体**。
 
-**定義:** 文書、Figma、Diagram、Code、Build、Asset、Log、動画等、Contextを表現・実装・検証する具体的な成果物。
+**定義:** 文書、Figma、図、コード、ビルド、画像／音声／データ／モデル素材、ビルド成果物、ログ、動画等、コンテキストを表現・実装・検証する具体的な成果物。
 
-**目的:** Contextを人間、AI、Systemが利用可能な形へ固定・参照する。
+**目的:** コンテキストを人間、AI、システムが利用可能な形へ固定・参照する。
 
-**決定権限:** Artifact TypeおよびPropertyごとに異なる。
+**決定権限:** 成果物種別および項目ごとに異なる。
 
-**必須（MUST）:** 安定した参照、Version / Revision、OwnerまたはSourceを必要な範囲で持つ。
+**必須（MUST）:** 安定した参照、バージョン／改訂版、担当責任者または情報源を必要な範囲で持つ。
 
-**禁止（MUST NOT）:** ArtifactとContextの意味を同一視してはならない。一つのArtifactに複数Contextが含まれてよい。
+**禁止（MUST NOT）:** 成果物とコンテキストの意味を同一視してはならない。一つの成果物に複数コンテキストが含まれてよい。
 
 <a id="24-canonical-artifact"></a>
 
@@ -394,15 +394,15 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 一言で言うと、**特定の情報について現在の正式な内容を持つ成果物**。
 
-**定義:** 特定のContextまたはPropertyについて、Authoritative Sourceとして承認または宣言されたArtifact。Decisionの結果は、原則として結果となるCanonical Artifactへ反映される。
+**定義:** 特定のコンテキストまたは項目について、正式な情報源として承認または宣言された成果物。判断の結果は、原則として結果となる正本成果物へ反映される。
 
 **目的:** 人間とAIが、現在有効な意味、状態、判断とその理由を同じ参照先から取得できるようにする。
 
-**決定権限:** Artifact全体ではなく、対象PropertyごとのProperty Authorityに従う。Git外のArtifactもCanonicalになり得る。
+**決定権限:** 成果物全体ではなく、対象項目ごとの決定権限に従う。Git外の成果物も正本になり得る。
 
-**必須（MUST）:** 対象Property、Owner、Status、Revision、取得方法を必要な粒度で識別可能にする。
+**必須（MUST）:** 対象項目、担当責任者、状態、改訂版、取得方法を必要な粒度で識別可能にする。
 
-**禁止（MUST NOT）:** Draft、Copy、Index、Change Trace、Review Viewを、宣言や承認なしにCanonical Artifactとして扱ってはならない。
+**禁止（MUST NOT）:** 下書き、複製、索引、変更トレース、レビュー用表示を、宣言や承認なしに正本成果物として扱ってはならない。
 
 <a id="25-property-authority"></a>
 
@@ -410,101 +410,101 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 一言で言うと、**特定項目の正解をどこで確認し、誰が変更・承認するかという組合せ**。
 
-**定義:** 特定のPropertyについて、競合時に最終参照するArtifact、System、外部Sourceと、その更新・承認責任の組合せ。
+**定義:** 特定の項目について、競合時に最終参照する成果物、システム、外部情報源と、その更新・承認責任の組合せ。
 
-**目的:** 一つのArtifactや媒体を万能な正本にせず、意味、Visual、Code、Test Result、Release等の責務を適切なSourceへ分ける。
+**目的:** 一つの成果物や媒体を万能な正本にせず、意味、視覚表現、コード、テスト結果、リリース等の責務を適切な情報源へ分ける。
 
-**決定権限:** 対象ScopeのHuman Authorityまたは正当に委任された外部Authorityが宣言する。
+**決定権限:** 対象範囲の人間の決定権限者または正当に委任された外部決定権限が宣言する。
 
-**必須（MUST）:** Property、Source、Owner、Revisionまたは有効時点、競合時の扱いを識別可能にする。
+**必須（MUST）:** 項目、情報源、担当責任者、改訂版または有効時点、競合時の扱いを識別可能にする。
 
-**禁止（MUST NOT）:** Folder番号、ファイル形式、Code、Markdown、Figma等の媒体だけから一律にAuthorityを推定してはならない。
+**禁止（MUST NOT）:** フォルダ番号、ファイル形式、コード、Markdown、Figma等の媒体だけから一律に決定権限を推定してはならない。
 
-`Source of Truth`は一般語として使用できるが、CRDDではArtifact全体よりProperty Authorityを優先して表現する。詳細は[Documentation](03_Documentation.md#22-property-authority)を参照する。
+`Source of Truth`は一般語として使用できるが、CRDDでは成果物全体より項目の決定権限を優先して表現する。詳細は[文書化](03_Documentation.md#22-property-authority)を参照する。
 
 <a id="26-artifact-reference"></a>
 
 ## 2.6. 成果物参照（Artifact Reference）
 
-一言で言うと、**安定IDを付けない成果物をPath、Revision、URL等で再識別する参照**。
+一言で言うと、**安定IDを付けない成果物をパス、改訂版、URL等で再識別する参照**。
 
-**定義:** Stable Context IDを付与しないArtifactまたは外部Sourceを、Path、Anchor、Revision、URL、Record ID、Checksum等で再識別する参照。
+**定義:** 安定コンテキストIDを付与しない成果物または外部情報源を、パス、アンカー、改訂版、URL、記録ID、チェックサム等で再識別する参照。
 
-**目的:** Architecture、Evidence、Decision、Change Trace、Implementation、Verification、Release、外部Artifactを、不要なStable Context IDを増やさず接続する。
+**目的:** アーキテクチャ、根拠、判断、変更トレース、実装、検証、リリース、外部成果物を、不要な安定コンテキストIDを増やさず接続する。
 
-**決定権限:** 参照先のProperty Authority。Reference自体は参照先のAuthorityを取得しない。
+**決定権限:** 参照先の項目の決定権限。成果物参照自体は参照先の決定権限を取得しない。
 
-**必須（MUST）:** Locatorと、判断・検証に必要なRevisionまたは時点を保持する。
+**必須（MUST）:** 参照位置と、判断・検証に必要な改訂版または時点を保持する。
 
-**禁止（MUST NOT）:** `latest`、壊れやすいSession URL、曖昧なファイル名だけを重要ArtifactのReferenceにしてはならない。
+**禁止（MUST NOT）:** `latest`、壊れやすいセッションURL、曖昧なファイル名だけを重要成果物の参照にしてはならない。
 
 <a id="27-stable-context-id"></a>
 
 ## 2.7. 安定コンテキストID（Stable Context ID）
 
-一言で言うと、**Fileが移動しても同じ意味を工程横断で追跡するID**。
+一言で言うと、**ファイルが移動しても同じ意味を工程横断で追跡するID**。
 
-**定義:** Artifactの場所や文書番号から独立して、複数Artifactまたは工程をまたいで追跡する意味を識別するID。
+**定義:** 成果物の場所や文書番号から独立して、複数成果物または工程をまたいで追跡する意味を識別するID。
 
-**目的:** 文書移動、統合、分割、実現手段の変更後も、同じContextのRelationと履歴を維持する。
+**目的:** 文書移動、統合、分割、実現手段の変更後も、同じコンテキストの関係と履歴を維持する。
 
-**決定権限:** [Documentation](03_Documentation.md#8-stable-context-id)のAssignmentとAllocation規則に従うProjectの採番Authority。
+**決定権限:** [文書化](03_Documentation.md#8-stable-context-id)の付与判定と採番規則に従うプロジェクトの採番決定権限。
 
-**必須（MUST）:** CRDD標準では、Assignment Criteriaを満たす`REQ`、`UX`、`IA`、`UI`、`SPEC`だけに使用する。
+**必須（MUST）:** CRDD標準では、付与基準を満たす`REQ`、`UX`、`IA`、`UI`、`SPEC`だけに使用する。
 
-**禁止（MUST NOT）:** ファイル名、Document Number、`CHG-*`、Architecture、Decision、Evidence、Test、Release等のArtifact IDと同一視してはならない。
+**禁止（MUST NOT）:** ファイル名、文書番号、`CHG-*`、アーキテクチャ、判断、根拠、テスト、リリース等の成果物IDと同一視してはならない。
 
 <a id="28-context-selection"></a>
 
 ## 2.8. コンテキスト選択（Context Selection）
 
-一言で言うと、**特定の作業に必要な既存情報を、対象Revision付きで選んだ入力集合**。
+一言で言うと、**特定の作業に必要な既存情報を、対象改訂版付きで選んだ入力集合**。
 
-**定義:** 特定の作業、Agent、Skill、Reviewに必要な既存Contextを、対象Revisionへの参照として選んだInput Set。
+**定義:** 特定の作業、エージェント、スキル、レビューに必要な既存コンテキストを、対象改訂版への参照として選んだ入力集合。
 
-**目的:** Repository全体を無差別に渡さず、必要なContext、Preserved Intent、Boundary、Known Uncertaintyを明示する。
+**目的:** リポジトリ全体を無差別に渡さず、必要なコンテキスト、保持する意図、境界、既知の不確実性を明示する。
 
-**決定権限:** Selectionを構成するOwner、Invoker、Parent Agent、またはOrchestrator。正本Authorityは参照元Contextに残る。
+**決定権限:** コンテキスト選択を構成する担当責任者、起動者、親エージェント、または統括担当。正本の決定権限は参照元コンテキストに残る。
 
-**必須（MUST）:** Purpose、Scope、Source、Revision、Preserved Intent、Known Uncertaintyを必要な粒度で明示する。
+**必須（MUST）:** 目的、対象範囲、情報源、改訂版、保持する意図、既知の不確実性を必要な粒度で明示する。
 
-**禁止（MUST NOT）:** 正本Contextを複製して独立更新し、別の正本を作ってはならない。
+**禁止（MUST NOT）:** 正本コンテキストを複製して独立更新し、別の正本を作ってはならない。
 
-`Context Package`はContext Selectionを保存・受け渡すArtifact表現として使用できるが、別のContext Typeではない。詳細なInput契約は[Agent](10_Agent.md)と[Skill](11_Skill.md)、参照規則は[Documentation](03_Documentation.md)を参照する。
+`Context Package`はコンテキスト選択を保存・受け渡す成果物表現として使用できるが、別のコンテキスト種別ではない。詳細な入力契約は[エージェント](10_Agent.md)と[スキル](11_Skill.md)、参照規則は[文書化](03_Documentation.md)を参照する。
 
 <a id="29-change-trace"></a>
 
 ## 2.9. 変更トレース（Change Trace）
 
-一言で言うと、**一つの変更理由から影響、実装、検証、Releaseまでをつなぐ記録**。
+一言で言うと、**一つの変更理由から影響、実装、検証、リリースまでをつなぐ記録**。
 
-**定義:** 一つのPrimary Change Intentについて、Trigger、Expected / Actual Impact、関連Context、実装、検証、Release帰属を`90_Release/Changes/CHG-*.md`で接続するTrace Artifact。
+**定義:** 一つの主要な変更意図について、契機、想定影響／実際の影響、関連コンテキスト、実装、検証、リリース帰属を`90_Release/Changes/CHG-*.md`で接続するトレース成果物。
 
-**目的:** Ticket、Pull Request、Commitだけでは失われる変更理由と影響範囲を、Canonical ContextからRelease結果まで追跡可能にする。
+**目的:** 課題票、プルリクエスト、コミットだけでは失われる変更理由と影響範囲を、正本コンテキストからリリース結果まで追跡可能にする。
 
-**決定権限:** Change Trace Owner。各PropertyのAuthorityは参照先のCanonical Artifact、工程、Human Authority、Release Authorityに残る。
+**決定権限:** 変更トレースの担当責任者。各項目の決定権限は参照先の正本成果物、工程、人間の決定権限者、リリース決定権限者に残る。
 
-**必須（MUST）:** Trigger、Primary Intent、Expected / Actual Impact、関連Context、Implementation / Verification Reference、Canonical Context Update、Release Dispositionを必要な範囲で保持する。
+**必須（MUST）:** 契機、主要な意図、想定影響／実際の影響、関連コンテキスト、実装／検証参照、正本コンテキストの更新、リリース処置を必要な範囲で保持する。
 
-**禁止（MUST NOT）:** Requirement、SPEC、Architecture、Phase Approval、Impact Audit、Verification、Git Log、CHANGELOG等の正本をChange Trace内へ複製して置き換えてはならない。
+**禁止（MUST NOT）:** 要求、SPEC、アーキテクチャ、工程承認、影響監査、検証、Gitログ、CHANGELOG等の正本を変更トレース内へ複製して置き換えてはならない。
 
-`CHG-*`はChange Traceを参照するArtifact IDであり、Stable Context ID Typeではない。詳細は[`12_Change.md`](12_Change.md)を参照する。
+`CHG-*`は変更トレースを参照する成果物IDであり、安定コンテキストIDの種別ではない。詳細は[`12_Change.md`](12_Change.md)を参照する。
 
 <a id="210-workflow"></a>
 
 ## 2.10. 作業フロー（Workflow）
 
-一言で言うと、**Repository内で繰り返す作業の開始条件、手順、確認、引渡しを定めたもの**。
+一言で言うと、**リポジトリ内で繰り返す作業の開始条件、手順、確認、引き渡しを定めたもの**。
 
-**定義:** Repository内で反復する作業のTrigger、Input、順序、確認、停止、Handoffを定めたOperational Guide。
+**定義:** リポジトリ内で反復する作業の契機、入力、順序、確認、停止、引き渡しを定めた運用手順。
 
-**目的:** Repository固有の作業方法を再現可能にし、結果を適切なCanonical Artifact、Change Trace、Releaseへ返す。
+**目的:** リポジトリ固有の作業方法を再現可能にし、結果を適切な正本成果物、変更トレース、リリースへ返す。
 
-**決定権限:** Workflow Owner。Workflow自体はProduct Decision、Phase Approval、Release ApprovalのAuthorityを持たない。
+**決定権限:** 作業フローの担当責任者。作業フロー自体はプロダクト判断、工程承認、リリース承認の決定権限を持たない。
 
-**必須（MUST）:** Purpose、Trigger、Scope、Input Authority、Step、Validation、Stop条件、Output / Handoffを必要な粒度で持つ。
+**必須（MUST）:** 目的、契機、対象範囲、入力の決定権限、手順、妥当性確認、停止条件、出力／引き渡しを必要な粒度で持つ。
 
-**禁止（MUST NOT）:** Product Context、Change Trace、Release Record、Agent / Skill共通規範を置き換えてはならない。
+**禁止（MUST NOT）:** プロダクトコンテキスト、変更トレース、リリース記録、エージェント／スキル共通規範を置き換えてはならない。
 
 詳細は[`14_Workflow.md`](14_Workflow.md)を参照する。
 
@@ -512,35 +512,35 @@ Supporting Conceptは、Core Context Typeを保存・接続・実行・管理す
 
 ## 2.11. リリース（Release）
 
-一言で言うと、**配布物を特定Versionや利用者へ提供・有効化する人間の判断と実行**。
+一言で言うと、**配布物を特定バージョンや利用者へ提供・有効化する人間の判断と実行**。
 
-**定義:** 検証済みまたは明示的に条件付けされたDistribution Artifactを、特定Version、Environment、利用者へ配布または有効化するHuman DecisionとDelivery Event。
+**定義:** 検証済みまたは明示的に条件付けされた配布成果物を、特定バージョン、環境、利用者へ配布または有効化する人間の判断と配布イベント。
 
-**目的:** 対象CHG、配布物、Release Readiness、Known Limitation、Migration、Release結果を接続する。
+**目的:** 対象CHG、配布物、リリース準備状況、既知の制約、移行、リリース結果を接続する。
 
-**決定権限:** Project固有のHuman Release Authority。VerificationはRecommendationを返すがReleaseを自己承認しない。
+**決定権限:** プロジェクト固有の人間のリリース決定権限者。検証は推奨案を返すがリリースを自己承認しない。
 
-**必須（MUST）:** 対象Version / Environment、Included Scope、配布物、判断、条件、結果を必要な粒度で追跡可能にする。
+**必須（MUST）:** 対象バージョン／環境、含める対象範囲、配布物、判断、条件、結果を必要な粒度で追跡可能にする。
 
-**禁止（MUST NOT）:** Verification完了、Merge、Build成功をRelease承認またはRelease完了と同一視してはならない。
+**禁止（MUST NOT）:** 検証完了、マージ、ビルド成功をリリース承認またはリリース完了と同一視してはならない。
 
-ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。詳細は[`13_Release.md`](13_Release.md)を参照する。
+リリースは課題探索・要求形成から検証までと同じ設計工程ではない。詳細は[`13_Release.md`](13_Release.md)を参照する。
 
 <a id="212-skill"></a>
 
 ## 2.12. スキル（Skill）
 
-一言で言うと、**特定の入力を質問・分析・変換・Reviewによって定義済み出力へ導く再利用可能な方法**。
+一言で言うと、**特定の入力を質問・分析・変換・レビューによって定義済み出力へ導く再利用可能な方法**。
 
-**定義:** 特定のContextをInputとして受け取り、質問・分析・変換・Reviewを通じて定義済みOutputへ導く再利用可能な作業方法。
+**定義:** 特定のコンテキストを入力として受け取り、質問・分析・変換・レビューを通じて定義済み出力へ導く再利用可能な作業方法。
 
-**目的:** 専門知識や判断手順を、人間・AI・Expertが再現可能な形へする。
+**目的:** 専門知識や判断手順を、人間・AI・専門家が再現可能な形へする。
 
-**決定権限:** Skill自体はAuthorityを持たない。実行者と対象ContextのAuthorityに従う。
+**決定権限:** スキル自体は決定権限を持たない。実行者と対象コンテキストの決定権限に従う。
 
-**必須（MUST）:** Purpose、Input、Output、Authority Boundary、終了条件を持つ。
+**必須（MUST）:** 目的、入力、出力、決定権限の境界、終了条件を持つ。
 
-**禁止（MUST NOT）:** Skillの実行完了をPhase Gateの承認と同一視してはならない。
+**禁止（MUST NOT）:** スキルの実行完了を工程ゲートの承認と同一視してはならない。
 
 詳細は[`11_Skill.md`](11_Skill.md)を参照する。
 
@@ -550,23 +550,23 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 
 一言で言うと、**対象を次の活動へ進めるか、人間が条件と根拠を確認して判断する境界**。
 
-**定義:** 特定のFeature、Change、Revisionを次の活動へ進めるか、人間が条件とEvidenceを確認して判断する境界。
+**定義:** 特定の機能、変更、改訂版を次の活動へ進めるか、人間が条件と根拠を確認して判断する境界。
 
-**目的:** 文書の存在ではなく、Contextの成熟度、Risk、未決、Verificationを基に進行を制御する。
+**目的:** 文書の存在ではなく、コンテキストの成熟度、リスク、未決事項、検証を基に進行を制御する。
 
-**決定権限:** Gateごとに定義されたHuman Approver。
+**決定権限:** 工程ゲートごとに定義された人間の承認者。
 
-**必須（MUST）:** Scope、対象Revision、Exit Criteria、判断、条件、残存Riskを保持する。
+**必須（MUST）:** 対象範囲、対象改訂版、出口条件、判断、条件、残存リスクを保持する。
 
-**禁止（MUST NOT）:** AIが重要Gateを自己承認してはならない。
+**禁止（MUST NOT）:** AIが重要な工程ゲートを自己承認してはならない。
 
-工程Gateに関係する詳細は、次を参照する。
+工程ゲートに関係する詳細は、次を参照する。
 
-- 共通のHandoff不変条件: [Transformation Invariants](01_Principles.md#62-transformation-invariants)
-- 実行時のRouteとHandoff: [Skill](11_Skill.md)
-- ArtifactのRevision: [Documentation](03_Documentation.md)
-- 変更のImpact Trace: [Change](12_Change.md)
-- 工程固有条件とReopen: 各工程文書の`Phase Gate Criteria`
+- 共通の引き渡し不変条件: [変換の不変条件](01_Principles.md#62-transformation-invariants)
+- 実行時の経路と引き渡し: [スキル](11_Skill.md)
+- 成果物の改訂版: [文書化](03_Documentation.md)
+- 変更の影響トレース: [変更](12_Change.md)
+- 工程固有条件と再開: 各工程文書の工程移行判定基準
 
 <a id="214-trace"></a>
 
@@ -574,17 +574,17 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 
 一言で言うと、**由来、判断、実現、制約、検証の関係を双方向にたどれる状態**。
 
-**定義:** Context、Artifact、Decision、Requirement、Behavior Specification、Implementation、Verification等の由来・実現・制約・検証関係を追跡できるRelation。
+**定義:** コンテキスト、成果物、判断、要求、振る舞い仕様、実装、検証等の由来・実現・制約・検証関係を追跡できる関係。
 
-**目的:** 上流Intentから下流成果物へ、下流成果物から上流理由へ双方向に遡れるようにする。
+**目的:** 上流の意図から下流成果物へ、下流成果物から上流理由へ双方向に遡れるようにする。
 
-**決定権限:** RelationのOwnerまたは対象Context Authority。
+**決定権限:** 関係の担当責任者または対象コンテキストの決定権限者。
 
-**必須（MUST）:** Relationの意味、Source / Target、対象Revisionを必要な粒度で保持する。
+**必須（MUST）:** 関係の意味、情報源／対象、対象改訂版を必要な粒度で保持する。
 
-**禁止（MUST NOT）:** ファイルLinkが存在するだけで意味的Traceが成立したとみなしてはならない。
+**禁止（MUST NOT）:** ファイルへのリンクが存在するだけで意味的なトレースが成立したとみなしてはならない。
 
-詳細は[`03_Documentation.md`](03_Documentation.md)のStable Context IDとTraceabilityを参照する。
+詳細は[`03_Documentation.md`](03_Documentation.md)の安定コンテキストIDとトレーサビリティを参照する。
 
 <a id="215-gap-disposition-unresolved-gap-and-open-question"></a>
 
@@ -592,50 +592,50 @@ ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。�
 
 一言で言うと、**期待する状態との差と、その差をどう扱い、いつ解消・再評価するかの記録**。
 
-**差分（Gap）の定義:** 対象範囲で必要な責務、網羅性、Trace、整合、根拠、判断、成果物、または検証が不足・矛盾・未確認であり、期待する状態との差があること。
+**差分（不足）の定義:** 対象範囲で必要な責務、網羅性、トレース、整合、根拠、判断、成果物、または検証が不足・矛盾・未確認であり、期待する状態との差があること。
 
-**未処置Gap（Undispositioned Gap）の定義:** 検出したGapのうち、対応、保留、Risk受容、対象外、影響なし等の処置を、必要な決定権限がまだ決定していないもの。
+**未処置不足（Undispositioned Gap）の定義:** 検出した不足のうち、対応、保留、リスク受容、対象外、影響なし等の処置を、必要な決定権限がまだ決定していないもの。
 
-**未解決Gap（Unresolved Gap）の定義:** 検出したGapのうち、修正、根拠付き`Covered` / `No Impact`判定、または再検証によって解消を確認していないもの。`Deferred`、`Accepted Risk`、`Out of Scope`等の処置が決まっていても、対象範囲、より広いProduct範囲、将来Revisionのいずれかで解消または再評価が必要なら未解決Gapとして追跡する。
+**未解決不足（未解決事項）の定義:** 検出した不足のうち、修正、根拠付き`Covered` / `No Impact`判定、または再検証によって解消を確認していないもの。`Deferred`、`Accepted Risk`、`Out of Scope`等の処置が決まっていても、対象範囲、より広いプロダクト範囲、将来改訂版のいずれかで解消または再評価が必要なら未解決不足として追跡する。
 
-**未決の問い（Open Question）の定義:** 回答、調査、根拠、または人間判断を必要とする問い。未決の問いはGapの原因または解消手段になり得るが、未作成成果物、網羅漏れ、正本競合、未検証状態そのものと同一ではない。
+**未決の問い（未決事項）の定義:** 回答、調査、根拠、または人間判断を必要とする問い。未決の問いは不足の原因または解消手段になり得るが、未作成成果物、網羅漏れ、正本競合、未検証状態そのものと同一ではない。
 
 **目的:** 未解決事項を曖昧な一語へ集約せず、何が不足し、なぜ必要で、進行へどう影響し、誰がどう解消するかを追跡可能にする。
 
-**決定権限:** Gapの検出・分類候補は人間、AI、Audit、Verificationが作成できる。重要なDisposition、延期、Risk受容、Scope外判定は、対象PropertyまたはScopeのHuman Authorityが決定する。
+**決定権限:** 不足の検出・分類候補は人間、AI、監査、検証が作成できる。重要な処置、延期、リスク受容、対象範囲外判定は、対象項目または対象範囲の人間の決定権限者が決定する。
 
-**必須（MUST）:** Unresolved Gapは、Riskに応じて次を保持する。
+**必須（MUST）:** 未解決事項は、リスクに応じて次を保持する。
 
-- Type、Description、Reason、Impact
-- DispositionとBlocking / Non-blocking
-- OwnerとNext Action / Route
-- ResolutionまたはReopen Condition
+- 種別、説明、理由、影響
+- 処置と進行を妨げるかどうか
+- 担当責任者と次の操作／経路
+- 解消条件または再開条件
 
-`Deferred`、`Accepted Risk`、`Out of Scope`では、判断したAuthority、適用Scope、期限または再評価Triggerも保持する。
+`Deferred`、`Accepted Risk`、`Out of Scope`では、判断した決定権限、適用対象範囲、期限または再評価の契機も保持する。
 
-人間向けにはCanonical Termだけを表示せず、「残っている未解決事項」等の自然なLabelと具体的な内容を示す。
+人間向けには正式英語名だけを表示せず、「残っている未解決事項」等の自然な表示名と具体的な内容を示す。
 
-**禁止（MUST NOT）:** `Open Gap`、`Gapあり`等のLabelだけを表示してはならない。Open Questionへの回答だけで、別に存在するCoverage、Conflict、Evidence、VerificationのGapまで解消したとみなしてはならない。
+**禁止（MUST NOT）:** `Open Gap`、`Gapあり`等の表示名だけを示してはならない。未決事項への回答だけで、別に存在する網羅範囲、競合、根拠、検証の不足まで解消したとみなしてはならない。
 
-Gap / Impact Audit固有のGap Type、Disposition、Impact Levelは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を参照する。
+不足／影響監査固有の不足種別、処置、影響レベルは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)を参照する。
 
 <a id="216-triggered-propagation-check"></a>
 
 ## 2.16. 変更影響の伝播確認（Triggered Propagation Check）
 
-一言で言うと、**新しい判断や学びが既存の上流・同層情報へ反映されているかを閉じるまで確認するRoute**。
+一言で言うと、**新しい判断や学びが既存の上流・同層情報へ反映されているかを、閉じるまで確認する経路**。
 
-**定義:** 新しい人間の判断、制約、学び、根拠、Findingが、既存の上流・同層Contextへ影響するかを必ず評価するRoute。影響する場合は、Gap / Impact Audit、必要な正本更新、再監査まで完了させる。
+**定義:** 新しい人間の判断、制約、学び、根拠、指摘事項が、既存の上流・同層コンテキストへ影響するかを必ず評価する経路。影響する場合は、不足／影響監査、必要な正本更新、再監査まで完了させる。
 
-**目的:** 下流Artifactへ結果を記録しただけで、既存のOpen Question、Unresolved Gap、Assumption、Decision、Constraintが古いまま残ることを防ぐ。
+**目的:** 下流成果物へ結果を記録しただけで、既存の未決事項、未解決事項、仮定、判断、制約が古いまま残ることを防ぐ。
 
-**決定権限:** Gap / Impact AuditはCandidateとFindingを返す。各Property Authorityが正本を更新し、対象Human Authorityが重要Dispositionまたは例外を判断する。
+**決定権限:** 不足／影響監査は候補と指摘事項を返す。各項目の決定権限者が正本を更新し、対象範囲の人間の決定権限者が重要な処置または例外を判断する。
 
-**必須（MUST）:** Source Revisionから上流・同層を探索し、上流更新が生じた場合は更新後Revisionから下流Impactを再探索する。必須更新後は対象範囲を再監査する。
+**必須（MUST）:** 情報源の改訂版から上流・同層を探索し、上流更新が生じた場合は更新後の改訂版から下流影響を再探索する。必須更新後は対象範囲を再監査する。
 
-**禁止（MUST NOT）:** Audit Run完了、FindingへのOwner付与、下流Decisionの記録をPropagation Passとみなしてはならない。
+**禁止（MUST NOT）:** 監査実行の完了、指摘事項への担当責任者付与、下流判断の記録を伝播確認の`Pass`とみなしてはならない。
 
-Human Authorityが未完了のまま進める場合は`propagation_exception`として、Source Revision、未伝播範囲、Risk / Impact、Owner、再監査条件、失効・Reopen条件を記録する。これはPass、No Impact、Gap解消、Risk受容を意味しない。詳細は[Gap / Impact Audit](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を参照する。
+人間の決定権限者が未完了のまま進める場合は`propagation_exception`として、情報源の改訂版、未伝播範囲、リスク／影響、担当責任者、再監査条件、失効・再開条件を記録する。これは`Pass`、`No Impact`、不足解消、リスク受容を意味しない。詳細は[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を参照する。
 
 ## 2.17. ロケールと表示名（Locale and Display Name）
 
@@ -648,11 +648,202 @@ Human Authorityが未完了のまま進める場合は`propagation_exception`と
 | Primary Locale | 文書、説明、質問、判断支援を読む人の主要ロケール |
 | Localized Display Name | Primary Localeに合わせて表示する概念名 |
 
-日本語では、例えば`Observation`というCanonical Termを「観察（Observation）」と表示する。初出後は同じ節で「観察」を使用できる。
+日本語では、例えば`Observation`という正式英語名を「観察（Observation）」と表示する。初出後は「観察」を基本表示とする。正式英語名を再掲するのは、意味の境界、別用語との比較、スキーマや識別子との対応を明確にする場合である。
 
-**必須（MUST）:** Localized Display NameからCanonical TermとCanonical Conceptを特定でき、翻訳前後でRule、Authority、Status、Relationを同じ意味に保つ。
+既存概念の日本語表示は、次を基本とする。この表は新しいコンテキスト種別や正本を追加せず、本文で用いる表示名を揃えるためのものである。
 
-**禁止（MUST NOT）:** 言語ごとに別の正本を作らない。Localized Display Nameへの変換を理由に、Stable Context ID、Agent ID、File名、Schema Key / Value、Codeを変更しない。
+| Canonical Termまたは共通英語表現 | 日本語での基本表示 |
+|---|---|
+| Context | コンテキスト |
+| Context Repository | コンテキストリポジトリ |
+| Canonical Artifact | 正本成果物 |
+| Canonical Context | 正本コンテキスト |
+| Artifact | 成果物 |
+| Artifact Reference | 成果物参照 |
+| Property Authority | 項目の決定権限 |
+| Authority | 決定権限 |
+| Scope | 対象範囲 |
+| Source | 情報源 |
+| Contract | 契約 |
+| Rule | 規則 |
+| Evidence | 根拠 |
+| Observation | 観察 |
+| Interpretation | 解釈 |
+| Proposal | 提案 |
+| Decision | 判断 |
+| Rationale | 判断理由 |
+| Requirement | 要求 |
+| Verification Result | 検証結果 |
+| Finding | 指摘事項 |
+| Gap / Unresolved Gap | 不足／未解決事項 |
+| Exception | 例外 |
+| Coverage / Coverage State | 網羅範囲／網羅状態 |
+| Handoff | 引き渡し |
+| Review / Independent Review | レビュー／独立レビュー |
+| Audit | 監査 |
+| Risk | リスク |
+| Impact | 影響 |
+| Baseline | 基準版 |
+| Revision | 改訂版 |
+| Status | 状態 |
+| Trigger | 契機、または発火条件 |
+| Result | 結果 |
+| Failure / Recovery | 失敗／回復 |
+| Acceptance | 受入条件 |
+| Recommendation | 推奨案 |
+| Disposition | 処置 |
+| Migration | 移行 |
+| Validation | 妥当性確認 |
+| Constraint | 制約 |
+| Preserved Intent | 保持する意図 |
+| Non-goal | 目指さないこと |
+| Responsibility | 責務 |
+| Owner | 担当責任者 |
+| Reviewer | 確認者 |
+| Approver | 承認者 |
+| Lifecycle | 状態遷移、またはライフサイクル |
+| Entry / Exit | 入口／出口 |
+| Validation / Verification | 妥当性確認／検証 |
+| Change Trace | 変更トレース |
+| Input / Output | 入力／出力 |
+| Action | 操作 |
+| Completion | 完了 |
+| Role | 役割 |
+| Priority | 優先順位 |
+| Alternative | 代替案 |
+| Conflict | 競合 |
+| Freshness | 鮮度 |
+
+同じ英語表現でも領域によって意味が異なる場合は、単純に置換しない。次の単独語は、対象の種類を示す表示名へ限定する。
+
+| 単独では使わない語 | 文脈に応じた表示 |
+|---|---|
+| `State` | 表示状態、UI部品状態、業務状態、専門領域状態、システム状態 |
+| `Variant` | UI差分、環境差分、構成差分、提供者差分 |
+| `Component` | UI部品、専門領域部品、実行時部品 |
+| `Pattern` | UI設計パターン、EARSパターン、アーキテクチャ設計パターン |
+| `Asset` | UI素材、成果物、配布物 |
+| `Screen` | 論理画面、表示画面 |
+| `Visual` | 視覚表現、視覚成果物、視覚品質 |
+
+UI・視覚表現に関する基本表示は、次を使用する。
+
+| Canonical Termまたは共通英語表現 | 日本語での基本表示 |
+|---|---|
+| Visual Direction | 視覚表現方針 |
+| UI Theme | UIテーマ |
+| Final Visual | 最終視覚表現 |
+| External Visual Artifact | 外部視覚成果物 |
+| Logical Screen | 論理画面 |
+| Presentation State | 表示状態 |
+| UI Component | UI部品 |
+| UI Component State | UI部品状態 |
+| UI Variant | UI差分 |
+| UI Design Pattern | UI設計パターン |
+| Design Token | 設計トークン |
+| UI Asset | UI素材 |
+| Accessibility | アクセシビリティ |
+| Usability | ユーザビリティ |
+| Feedback | フィードバック |
+| Visual Quality | 視覚品質 |
+| Screen Inventory | 画面一覧 |
+| Screen Visual Index | 画面視覚一覧 |
+
+技術上の正式名称、コード、スキーマ、API等では英語表現を維持できる。人間向けの説明語として使う場合は、例えば`Security`を「セキュリティ」、`Privacy`を「プライバシー」、`Performance`を「性能」、`Compatibility`を「互換性」、`Capacity`を「処理能力」、`Configuration`を「構成」、`Environment`を「環境」、`Dependency`を「依存関係」と表示する。
+
+**必須（MUST）:** ローカル表示名（Localized Display Name）から正式英語名と共通概念を特定でき、翻訳前後で規則、決定権限、状態、関係を同じ意味に保つ。
+
+**禁止（MUST NOT）:** 言語ごとに別の正本を作らない。ローカル表示名への変換を理由に、安定コンテキストID、エージェントID、ファイル名、スキーマキー／値、コードを変更しない。
+
+<a id="218-experience-expression-intent"></a>
+
+## 2.18. 体験表現意図（Experience Expression Intent）
+
+一言で言うと、**利用者にプロダクトをどのような存在・雰囲気・関係性として感じてほしいかを表すUXコンテキスト**。
+
+**定義:** 対象利用者と利用状況について、望む印象・感情・認知状態、人間・システム・AIの関係性、避ける印象や誤認、表現上の目指さないことを示すコンテキスト。具体的な色、フォント、UI部品、レイアウト等の視覚属性は決定しない。
+
+**目的:** UXの成果と体験原則を、UIが表現へ変換するときに守る印象、関係性、心理的安全性、目指さないことへ接続する。
+
+**決定権限:** UXが候補と下流への責務を整理し、プロダクト価値と利用者への影響を負う人間が対象範囲を決定する。
+
+**関連用語:** UXの成果、体験原則、視覚表現方針、保持する意図
+
+**必須（MUST）:** 適用する場合は、対象利用者／利用状況、情報源となる成果／原則、望む印象／避ける印象、下流への責務、適用対象範囲を追跡できるようにする。
+
+**禁止（MUST NOT）:** 「現代的」「簡素」等の形容詞だけで成立扱いにせず、具体的な色、フォント、UI部品、UIテーマ、レイアウトをUXの決定として先取りしない。
+
+<a id="219-visual-direction"></a>
+
+## 2.19. 視覚表現方針（Visual Direction）
+
+一言で言うと、**体験表現意図を、UIで一貫して判断できる視覚表現の基準へ変換したコンテキスト**。
+
+**定義:** 情報優先度、色、書体、形状、密度、構図、図像、画像表現、動き等について、採用する表現原則、避ける表現、制約、評価基準を示すUIコンテキスト。参考画像、ムードボード、代表画面のいずれか一つだけでは成立しない。
+
+**目的:** 体験表現意図を、UIテーマ、UI部品、UI設計パターン、論理画面、最終視覚表現（Final Visual）へ一貫して適用・評価できる判断基準へ変換する。
+
+**決定権限:** UIが候補、比較、適用結果を整理し、プロダクトの表現と重要トレードオフに責任を持つ人間が採用を決定する。
+
+**関連用語:** 体験表現意図、UI契約、UIテーマ、成果物参照
+
+**必須（MUST）:** 情報源となる体験表現意図、採用する表現原則、視覚表現上の目指さないこと、制約、評価基準、対象範囲を取得可能にする。
+
+**禁止（MUST NOT）:** ムードボード、参考画像、Figma、代表画面、好みのいずれか一つを視覚表現方針全体の代替にしない。
+
+<a id="220-theme"></a>
+
+## 2.20. UIテーマ（UI Theme）
+
+一言で言うと、**同じ情報・操作の意味を保ったまま、許可された表現属性を切り替える構成**。
+
+**正式英語名:** `UI Theme`
+
+**定義:** 外観、ブランド、コントラスト、動き等の一つ以上の差分軸について、変更可能な属性、維持する意味、既定値、適用対象範囲を定めたUIコンテキスト。UIテーマの選択・継承・保存・リセット・代替動作等の観測可能な振る舞いは振る舞い仕様が所有し、成立方式はアーキテクチャが所有する。
+
+**目的:** 許可された視覚差分を管理しながら、情報・操作・状態の意味とアクセシビリティを維持する。
+
+**決定権限:** UIは変更可能な視覚属性と不変条件を所有する。振る舞い仕様は選択・自動適用・保存・代替動作を、アーキテクチャは設計トークン／モード／実行時の成立方式を所有する。重要な既定値、ブランド、アクセシビリティ、利用者影響は人間が決定する。
+
+**関連用語:** 視覚表現方針、UI契約、振る舞い仕様、構成、UI差分
+
+**必須（MUST）:** UIテーマを採用する場合は、UIテーマ間で維持する情報優先度、意味、操作の優先順位、UI部品状態、アクセシビリティ上の責務を識別できるようにする。
+
+**禁止（MUST NOT）:** 視覚差分だけから別の要求、振る舞い、決定権限を暗黙に作らない。UIテーマが存在しない対象範囲へ機械的にUIテーマ成果物を要求しない。
+
+<a id="221-ui-component"></a>
+
+## 2.21. UI部品（UI Component）
+
+一言で言うと、**利用者インターフェースで再利用する、表示と操作の意味を持つ部品**。
+
+**正式英語名:** `UI Component`
+
+**定義:** UI契約、視覚属性、状態、操作、内容の制約、アクセシビリティ上の責務を、複数の論理画面または利用箇所で再利用できる単位としてまとめたもの。
+
+**目的:** アーキテクチャ上の専門領域部品や実行時部品、検証の部品テストと区別しながら、UIの再利用単位と利用条件を追跡する。
+
+**関連用語:** UI契約、UI設計パターン、UI部品状態、設計トークン、UIテーマ
+
+**必須（MUST）:** `Component`だけで意味が曖昧になる文脈では、UI部品、専門領域部品、実行時部品、部品テスト等、対象を識別できる名称を使わなければならない。
+
+<a id="222-ui-design-pattern"></a>
+
+## 2.22. UI設計パターン（UI Design Pattern）
+
+一言で言うと、**同じUI上の課題、責務、意味、適用条件に繰り返し使える設計上の解決方法**。
+
+**正式英語名:** `UI Design Pattern`
+
+**定義:** 複数のUI対象範囲で再利用する、構造、視覚表現、操作、フィードバック、状態、利用条件または例外の組合せ。主にレイアウトパターン、視覚パターン、操作パターンへ具体化する。
+
+**目的:** EARSパターン、アーキテクチャパターン、検証方法パターン等と区別し、UIで再利用する設計判断の意味と適用範囲を保つ。
+
+**関連用語:** UI部品、操作パターン、視覚パターン、UI契約、振る舞い仕様
+
+**必須（MUST）:** 同じ問題、責務、意味、適用条件を再利用するときに定義しなければならない。操作や状態を含む場合は、振る舞い仕様と対応づけなければならない。
+
+**禁止（MUST NOT）:** 見た目が似ているだけのものを共通UI設計パターンとして扱ってはならない。UI以外のパターンを無条件にこの用語へ統合してはならない。
 
 ---
 
@@ -664,69 +855,69 @@ Human Authorityが未完了のまま進める場合は`propagation_exception`と
 
 ## 3.1. 人間（Human）
 
-価値、意味、Priority、Trade-off、Risk Acceptance、重要Decision、最終責任を担う人間主体。
+価値、意味、優先順位、トレードオフ、リスク受容、重要判断、最終責任を担う人間主体。
 
-Humanはすべての作業を自ら行う必要はないが、AIまたはSystemへ委譲した作業の判断責任まで自動的に移転したとはみなさない。
+人間はすべての作業を自ら行う必要はないが、AIまたはシステムへ委譲した作業の判断責任まで自動的に移転したとはみなさない。
 
 ## 3.2. AI
 
-Contextの抽出、整理、比較、提案、Draft、変換、実装、検証支援を行う非人間主体。
+コンテキストの抽出、整理、比較、提案、下書き、変換、実装、検証支援を行う非人間主体。
 
-AIはProposalを作成してよいが、Human Authorityが必要なDecision、Gate、Risk Acceptanceを自己承認してはならない。
+AIは提案を作成してよいが、人間の決定権限者が必要な判断、工程移行、リスク受容を自己承認してはならない。
 
 <a id="33-system"></a>
 
 ## 3.3. システム（System）
 
-定義済みRuleに従って観測、処理、保存、検証、通知等を行う実行主体。Systemの出力は、Rule、Environment、Versionを含むProvenanceを必要とする。
+定義済み規則に従って観測、処理、保存、検証、通知等を行う実行主体。システムの出力は、規則、環境、バージョンを含む来歴を必要とする。
 
 <a id="34-owner"></a>
 
 ## 3.4. 維持責任者（Owner）
 
-Context、Artifact、Process、Index等を維持し、更新・Review・廃止・Escalationを管理する主体。Ownerと最終Authorityは同一でなくてよい。
+コンテキスト、成果物、プロセス、索引等を維持し、更新・レビュー・廃止・上位判断への移送を管理する主体。担当責任者と最終決定権限は同一でなくてよい。
 
 <a id="35-authority"></a>
 
 ## 3.5. 決定権限（Authority）
 
-特定Scopeについて、採用、承認、却下、Risk受容、正本変更を最終決定できる権限。
+特定対象範囲について、採用、承認、却下、リスク受容、正本変更を最終決定できる権限。
 
-AuthorityはRole名だけでなく、対象Product、Property、Change、Release、期間によって定義する。
+決定権限は役割名だけでなく、対象プロダクト、項目、変更、リリース、期間によって定義する。
 
 <a id="36-reviewer"></a>
 
 ## 3.6. 確認者（Reviewer）
 
-ContextまたはArtifactが、Source、Contract、Quality、Boundary、Evidenceを満たすか確認し、Findingと推奨判断を返す主体。Reviewerは重要なRiskを自動受容しない。
+コンテキストまたは成果物が、情報源、契約、品質、境界、根拠を満たすか確認し、指摘事項と推奨判断を返す主体。確認者は重要なリスクを自動受容しない。
 
-Independent Reviewでは、作成者の結論や内部思考に依存しない。対象Scope、Revision、Source、適用Contract、Criteria、EvidenceからFindingを再構成する。
+独立レビューでは、作成者の結論や内部思考に依存しない。対象範囲、改訂版、情報源、適用契約、基準、根拠から指摘事項を再構成する。
 
-独立性は、必ず別人であることだけを意味しない。AIが作成・変換した成果物のPhase Transition Reviewは、次のいずれかが行う。
+独立性は、必ず別人であることだけを意味しない。AIが作成・変換した成果物の工程移行レビューは、次のいずれかが行う。
 
-- 別のReview Subagent
-- 作成時Contextを引き継がないClean Session / Agent
-- 人間Reviewer
+- 別のレビュー用サブエージェント
+- 作成時コンテキストを引き継がない新しいセッション／エージェント
+- 人間確認者
 
-同じActive Context内のSelf Reviewで代替してはならない。ReviewerはReview Resultを返すが、Phase Gateは承認しない。
+同じ作業中コンテキスト内の自己レビューで代替してはならない。確認者はレビュー結果を返すが、工程ゲートは承認しない。
 
 <a id="37-approver"></a>
 
 ## 3.7. 承認者（Approver）
 
-特定のContext、Gate、Baseline、Release等を正式採用するHuman Authority。AIはApproverになれない。
+特定のコンテキスト、工程移行、基準版、リリース等を正式採用する人間の決定権限者。AIは承認者になれない。
 
 <a id="38-agent-and-subagent"></a>
 
-## 3.8. AgentとSubagent
+## 3.8. エージェントとサブエージェント（Agent and Subagent）
 
-Agentは、特定の目的、Authority、Input / Output Contractに従って作業するHuman、AI、System、または複合実行主体である。Skill、Plan、Task等を実行し、ContextやArtifactを生成・変換・検証する。
+エージェントは、特定の目的、決定権限、入出力契約に従って作業する人間、AI、システム、または複合実行主体である。スキル、計画、作業等を実行し、コンテキストや成果物を生成・変換・検証する。
 
-AgentのAuthorityはAgent ContractとHuman Authorityによって付与される。重要作業ではRole、Scope、Input、Output、Action Boundary、Stop / Escalation条件を明示し、自身の専門責務を越える重要Decisionを自己承認しない。
+エージェントの決定権限はエージェント契約と人間の決定権限者によって付与される。重要作業では役割、対象範囲、入力、出力、操作境界、停止／上位判断への移送条件を明示し、自身の専門責務を越える重要判断を自己承認しない。
 
-Subagentは、Parent AgentまたはOrchestratorから限定されたScope、Context、Action Authority、Output Contractを受けて作業するAgentである。
+サブエージェントは、親エージェントまたは統括担当から限定された対象範囲、コンテキスト、操作権限、出力契約を受けて作業するエージェントである。
 
-Subagentは独立したAuthorityを意味しない。詳細な委譲、Access、Result、統合、Promotion規定は[`10_Agent.md`](10_Agent.md)を参照し、CRDD Coreは特定のSubagent構成を要求しない。
+サブエージェントは独立した決定権限を意味しない。詳細な委譲、アクセス、結果、統合、昇格規定は[`10_Agent.md`](10_Agent.md)を参照し、CRDD中核規則は特定のサブエージェント構成を要求しない。
 
 ---
 
@@ -742,45 +933,45 @@ CRDDでは、意味の異なる流れをすべて`Lifecycle`と呼ばない。
 
 | 正式な流れ | 意味 | 決定権限・正本 |
 |---|---|---|
-| End-to-End Transformation Flow | Realityから得たContextの意味変化と、DiscoveryからVerificationまでの専門工程による具体化・Learning還元を接続する流れ | [Principles](01_Principles.md)、本書のContext Type定義、各工程文書 |
-| Change Trace | 一つの変更のTriggerから影響、実装、検証、Release帰属までの追跡 | [Change](12_Change.md) |
-| Skill / Agent Run | 一回の専門活動または委譲実行の開始からHandoffまで | [Skill](11_Skill.md)、[Agent](10_Agent.md) |
-| Workflow Execution | Repository固有の反復手順を一回実行し、結果をAuthorityへ返す流れ | [Workflow](14_Workflow.md) |
-| Release Flow | Release ReadinessからHuman Release Decision、配布・有効化、Release Verificationまでの流れ | [Release](13_Release.md) |
+| 一気通貫の変換フロー | 現実から得たコンテキストの意味変化と、課題探索・要求形成から検証までの専門工程による具体化・学び還元を接続する流れ | [原則](01_Principles.md)、本書のコンテキスト種別定義、各工程文書 |
+| 変更トレース | 一つの変更の契機から影響、実装、検証、リリース帰属までの追跡 | [変更](12_Change.md) |
+| スキル／エージェント実行 | 一回の専門活動または委譲実行の開始から引き渡しまで | [スキル](11_Skill.md)、[エージェント](10_Agent.md) |
+| 作業フローの実行 | リポジトリ固有の反復手順を一回実行し、結果を決定権限へ返す流れ | [作業フロー](14_Workflow.md) |
+| リリースの流れ | リリース準備状況から人間によるリリース判断、配布・有効化、リリース検証までの流れ | [リリース](13_Release.md) |
 
 <a id="42-status-terms"></a>
 
 ## 4.2. 状態用語（Status Terms）
 
-StatusはContext Type、Artifact、Document、Gate、Releaseによって意味が異なる。以下はCanonicalな共通意味であり、詳細な遷移は各専門標準へ委譲する。
+状態はコンテキスト種別、成果物、文書、工程ゲート、リリースによって意味が異なる。以下は正式な共通意味であり、詳細な遷移は各専門標準へ委譲する。
 
-| 状態値（Status） | 正式な意味 |
+| 状態値（状態） | 正式な意味 |
 |---|---|
-| `Candidate` | 検討対象として識別されたが、まだDraftまたは採用対象として確定していない |
-| `Draft` | 作成中であり、Authorityによる採用前 |
+| `Candidate` | 検討対象として識別されたが、まだ`Draft`または採用対象として確定していない |
+| `Draft` | 作成中であり、決定権限による採用前 |
 | `Open` | 対象の追跡または処置が開始され、まだ終了していない |
-| `Not Started` | 対象Scopeの作業または検証をまだ開始していない |
-| `Reviewed` | 指定されたReviewerが確認済み。採用または承認を意味しない |
-| `Accepted` | 対象用途で使用することをHumanが認めた。Formal Approvalを必要としないContextにも使用する |
-| `Approved` | 定義済みAuthorityが正式承認した |
-| `Active` | 現在有効なContext、Baseline、Ruleとして使用されている |
-| `In Progress` | 対象Scopeの作業または処置を実行中 |
+| `Not Started` | 対象範囲の作業または検証をまだ開始していない |
+| `Reviewed` | 指定された確認者が確認済み。採用または承認を意味しない |
+| `Accepted` | 対象用途で使用することを人間が認めた。正式承認を必要としないコンテキストにも使用する |
+| `Approved` | 定義済み決定権限が正式承認した |
+| `Active` | 現在有効なコンテキスト、基準版、規則として使用されている |
+| `In Progress` | 対象範囲の作業または処置を実行中 |
 | `Implemented` | 対応する実装が存在する。正しさや検証完了を意味しない |
-| `Verified` | 対象Revisionが定義済みVerificationを満たした |
-| `Released` | 特定Version / Environmentへ配布または有効化された |
-| `Completed` | Run、Plan、Workflow等の定義済み終了条件を満たした。工程完了やReleaseを自動的に意味しない |
+| `Verified` | 対象改訂版が定義済みの検証を満たした |
+| `Released` | 特定バージョン／環境へ配布または有効化された |
+| `Completed` | 実行、計画、作業フロー等の定義済み終了条件を満たした。工程完了やリリースを自動的に意味しない |
 | `Closed` | 対象の結果、残課題、後続参照を処置し、追跡を終了した |
 | `Rejected` | 検討または採用対象から明示的に除外された |
 | `Deferred` | 今回は採用・実行せず、後続時点へ送られた |
 | `Cancelled` | 採用または実行を完了せず、明示的に終了した |
-| `Failed` | 実行を試みたが、定義済みResultまたはConditionを満たせなかった |
-| `Superseded` | 後続Revisionまたは別Contextに置き換えられた。履歴は保持する |
+| `Failed` | 実行を試みたが、定義済みの結果または条件を満たせなかった |
+| `Superseded` | 後続改訂版または別コンテキストに置き換えられた。履歴は保持する |
 | `Deprecated` | 使用を避けるべきだが、互換性等のため残っている |
 | `Retired` | 現在および将来の利用対象から廃止された |
-| `Recovered` | Legacy等から復元された候補で、由来とConfidenceの明示が必要 |
-| `Blocked` | 外部判断、不足Context、Dependency等により進行できない |
+| `Recovered` | 既存資産や旧環境等から復元された候補で、由来と確信度の明示が必要 |
+| `Blocked` | 外部判断、不足コンテキスト、依存関係等により進行できない |
 | `Experimental` | 試験段階で、互換性や内容の安定を保証しない |
-| `Stable` | 対象Scopeで基本構造が安定し、通常利用可能。将来変更されないことを意味しない |
+| `Stable` | 対象範囲で基本構造が安定し、通常利用可能。将来変更されないことを意味しない |
 
 以下を混同してはならない。
 
@@ -789,12 +980,12 @@ Reviewed ≠ Approved
 Implemented ≠ Verified
 Verified ≠ Released
 Completed ≠ Closed
-Accepted ≠ Decision（Context TypeとStatusは別概念）
+Accepted ≠ Decision（コンテキスト種別と状態は別概念）
 Stable ≠ Immutable
 Recovered ≠ Confirmed
 ```
 
-共通語だけでは対象を誤認する場合、Domainを付けて表す。
+共通語だけでは対象を誤認する場合、対象領域名を付けて表す。
 
 ```text
 Document Status
@@ -807,14 +998,14 @@ Change Trace Status
 Release Status / Decision
 ```
 
-専門Statusは、次の文書を正本とする。
+専門状態は、次の文書を正本とする。
 
-- `Not Verified`、`Partially Verified — Human Authorized`: [Verification](29_Verification.md)
-- Release Readiness Recommendation: [Verification](29_Verification.md)
-- 配布・有効化のRelease Decision / Status: [Release](13_Release.md)
-- Agent ResultとSkill RunのStatus: [Agent](10_Agent.md)、[Skill](11_Skill.md)
+- `Not Verified`、`Partially Verified — Human Authorized`: [検証](29_Verification.md)
+- リリース準備状況の推奨案: [検証](29_Verification.md)
+- 配布・有効化のリリース判断／状態: [リリース](13_Release.md)
+- エージェントの結果とスキル実行の状態: [エージェント](10_Agent.md)、[スキル](11_Skill.md)
 
-これらの専門Statusを、本表の共通語へ無理に丸めない。
+これらの専門状態を、本表の共通語へ無理に丸めない。
 
 ---
 
@@ -822,31 +1013,36 @@ Release Status / Decision
 
 # 5. 正式用語と境界表現（Canonical Terms and Boundary Language）
 
-| 正式英語名 | 関連・廃止予定の表現 | 境界規則 |
+| 日本語表示名（正式英語名） | 関連・廃止予定の表現 | 境界規則 |
 |---|---|---|
-| Observation | Fact / Finding | Observationは解釈前の記録。FindingはContractとの差異を評価した結果であり、同義語にしない |
-| Evidence | Proof / Reference | EvidenceはSourceと取得条件を持つ根拠。Referenceだけ、または完全証明を意味しないProofと同一視しない |
-| Interpretation | Analysis / Inference | 根拠に対する意味付けであることとConfidenceを明示する |
-| Hypothesis | Assumption | Hypothesisは検証対象、Assumptionは作業上置いた前提。未検証である点が同じでも用途を区別する |
-| Proposal | Idea / Solution Candidate / Recommendation | Statusが採用前である限りProposalへ統一する |
-| Decision | Adopted Proposal / Approval | Human Authorityによる判断だけをDecisionと呼ぶ |
-| Context Repository | Documentation Repository | Context、Trace、Decisionを扱う場合にDocumentationだけへ狭めない |
-| Canonical Artifact | Draft / Copy / Index / View | 現在のAuthorityを持つArtifactだけをCanonicalと呼ぶ。参照用Viewは正本を置き換えない |
-| Property Authority | Source of Truth | CRDDでは媒体全体よりProperty単位のAuthoritative Sourceと更新責任を明示する |
-| Artifact Reference | Stable Context ID | Artifactの所在・Revisionを指すReferenceと、意味を追跡するStable Context IDを区別する |
-| Stable Context ID | Document Number / File Name / `CHG-*` | Stable Context IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`の意味識別子。文書やChange Traceの識別子ではない |
-| Context Selection | Context Package | Context PackageはSelectionを受け渡す表現であり、別のContext Typeや正本ではない |
-| Requirement | Need / Feature | NeedはSourceとなる必要、FeatureはProduct Scopeまたは実現単位、Requirementは満たすべき条件 |
-| Behavior Specification | Behavior Requirement / Behavior Contract / Requirement | Canonical TermはBehavior Specification。Requirementや契約的役割と別Context Typeとして区別する |
-| Plan | Roadmap Item / Workflow | Planは特定Scopeの実行計画、Roadmap Itemは採用済みDeferred Work、Workflowは反復可能な作業方法 |
-| Implementation | Code / Delivery | CodeだけでなくConfiguration、Migration、Infrastructure、Developer Test、Build等を含むが、Releaseとは区別する |
-| Verification Result | Test Result / Validation Result / Review Result / Result | 何をどのRevision・条件で検証したResultかを明示し、曖昧な`Result`を避ける |
-| Learning | Summary | 要約されただけではLearningへ昇格しない |
-| Change Trace | Change Record / Task / Pull Request | `CHG-*`は変更の意味と影響を追跡する。Task、PR、Git Log、CHANGELOGの代替ではない |
-| Workflow | Plan / Skill | WorkflowはRepository固有の反復手順、Planは個別Scopeの計画、Skillは再利用可能な専門作業方法 |
-| Release | Verification / Deployment | VerificationはReadinessを評価し、Deploymentは実行手段。ReleaseはHuman DecisionとDelivery Eventを含む |
-| Phase Gate | Skill Completion / Artifact Completion | Gateは対象Scope / RevisionへのHuman Handoff Decisionであり、Run終了や成果物完成から自動推定しない |
+| 観察（`Observation`） | `Fact` / `Finding` | 観察は解釈前の記録。指摘事項は契約との差異を評価した結果であり、同義語にしない |
+| 根拠（`Evidence`） | `Proof` / `Reference` | 根拠は情報源と取得条件を持つ。参照だけ、または完全証明を意味しない`Proof`と同一視しない |
+| 解釈（`Interpretation`） | `Analysis` / `Inference` | 根拠に対する意味付けであることと確信度を明示する |
+| 仮説（`Hypothesis`） | `Assumption` | 仮説は検証対象、前提は作業上置いた条件。未検証である点が同じでも用途を区別する |
+| 提案（`Proposal`） | `Idea` / `Solution Candidate` / `Recommendation` | 状態が採用前である限り、提案として扱う |
+| 判断（`Decision`） | `Adopted Proposal` / `Approval` | 人間の決定権限者による判断だけを判断として扱う |
+| コンテキストリポジトリ（`Context Repository`） | `Documentation Repository` | コンテキスト、トレース、判断を扱う場合に、文書だけを置く場所へ意味を狭めない |
+| 正本成果物（`Canonical Artifact`） | `Draft` / `Copy` / `Index` / `View` | 現在の決定権限を持つ成果物だけを正本と呼ぶ。参照用の表示は正本を置き換えない |
+| 項目の決定権限（`Property Authority`） | `Source of Truth` | 媒体全体ではなく、項目単位の正しい情報源と更新責任を明示する |
+| 成果物参照（`Artifact Reference`） | `Stable Context ID` | 成果物の所在・改訂版を指す参照と、意味を追跡する安定コンテキストIDを区別する |
+| 安定コンテキストID（`Stable Context ID`） | `Document Number` / `File Name` / `CHG-*` | `REQ`、`UX`、`IA`、`UI`、`SPEC`の意味識別子。文書や変更トレースの識別子ではない |
+| コンテキスト選択（`Context Selection`） | `Context Package` | コンテキストパッケージは選択結果を受け渡す表現であり、別のコンテキスト種別や正本ではない |
+| 要求（`Requirement`） | `Need` / `Feature` | 必要は情報源となる必要性、機能はプロダクトの対象範囲または実現単位、要求は満たすべき条件 |
+| 振る舞い仕様（`Behavior Specification`） | `Behavior Requirement` / `Behavior Contract` / `Requirement` | 正式用語は振る舞い仕様。要求や契約上の役割と区別する |
+| 計画（`Plan`） | `Roadmap Item` / `Workflow` | 計画は特定範囲の実行計画、ロードマップ項目は採用済みの延期作業、作業フローは反復可能な作業方法 |
+| 実装（`Implementation`） | `Code` / `Delivery` | コードだけでなく構成、移行、基盤、開発者テスト、ビルド等を含むが、リリースとは区別する |
+| 検証結果（`Verification Result`） | `Test Result` / `Validation Result` / `Review Result` / `Result` | 何をどの改訂版・条件で検証した結果かを明示し、曖昧な`Result`を避ける |
+| 学び（`Learning`） | `Summary` | 要約されただけでは学びへ昇格しない |
+| 変更トレース（`Change Trace`） | `Change Record` / `Task` / `Pull Request` | `CHG-*`は変更の意味と影響を追跡する。タスク、プルリクエスト、Gitログ、CHANGELOGの代替ではない |
+| 作業フロー（`Workflow`） | `Plan` / `Skill` | 作業フローはリポジトリ固有の反復手順、計画は個別範囲の計画、スキルは再利用可能な専門作業方法 |
+| リリース（`Release`） | `Verification` / `Deployment` | 検証は準備状態を評価し、デプロイは実行手段。リリースは人間の判断と配布・有効化を含む |
+| 工程ゲート（`Phase Gate`） | `Skill Completion` / `Artifact Completion` | 対象範囲・改訂版への人間の引き渡し判断。実行終了や成果物完成から自動推定しない |
+| 体験表現意図（`Experience Expression Intent`） | 世界観意図 / `Product Personality` / `Visual Style` | 利用者に与えたい印象・感情・関係性を表すUXコンテキスト。具体的な視覚項目を決める視覚表現方針とは区別する |
+| 視覚表現方針（`Visual Direction`） | `Mood Board` / `Visual Language` / `Final Visual` | 体験表現意図を視覚判断の基準へ変換するUIコンテキスト。参考資料、表現規則、個別の視覚結果だけで代替しない |
+| UIテーマ（`UI Theme`） | `Theme` / `Visual Theme` / `Brand Variant` / `Display Variant` / `Color Set` | 同じ情報・操作の意味を保つ、UIに適用する許可済みの差分構成。異なる要求や振る舞いを持つバリエーションと無条件に同一視しない |
+| UI部品（`UI Component`） | `Component` / `Domain Component` / `Runtime Component` | UIの再利用部品だけをUI部品と呼ぶ。アーキテクチャの構成要素や部品テストと混同しない |
+| UI設計パターン（`UI Design Pattern`） | `Pattern` / `EARS Pattern` / `Architecture Pattern` | UI上の課題と適用条件を再利用する設計方法。UI以外のパターンと、見た目が似ているだけの例を含めない |
 
 新しいCore Termを導入する場合、使用前または同一Change内で本書へ定義・Alias・既存Termとの境界を追加しなければならない。
 
-Core Context TypeごとのAuthorityと禁止事項は各定義を正本とする。CRDD適用Criteriaと評価方法は[Conformance Audit](52_Conformance_Audit.md)を参照し、本書に重複したChecklistを置かない。
+中核となるコンテキスト種別ごとの決定権限と禁止事項は各定義を正本とする。CRDD適用基準と評価方法は[準拠監査](52_Conformance_Audit.md)を参照し、本書に重複した確認項目を置かない。

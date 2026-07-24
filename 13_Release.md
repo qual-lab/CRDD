@@ -2,10 +2,10 @@
 
 # CRDDリリース（Release）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -20,139 +20,139 @@ Related:
 
 > この文書で分かること（非規範の案内）
 >
-> - VerificationとRelease判断をどう分けるか
+> - 検証とリリース判断をどう分けるか
 > - 誰が配布・有効化を承認するか
-> - Release Recordへ何を残すか
-> - 未解決事項と残存Riskをどう扱うか
-> - Release後に何を確認するか
+> - リリース記録へ何を残すか
+> - 未解決事項と残存リスクをどう扱うか
+> - リリース後に何を確認するか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、CRDDを適用するProductにおけるReleaseの最小契約と`90_Release`の配置責務を定義する。
+本書は、CRDDを適用するプロダクトにおけるリリースの最小契約と`90_Release`の配置責務を定義する。
 
-ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。VerificationがRelease Readinessを評価し、Project固有のHuman Release Authorityが配布、有効化、延期、取消を判断する。本書はCI/CD、Branch戦略、Deploy手順、承認組織を一律に規定しない。
+リリースは課題探索・要求形成から検証までと同じ設計工程ではない。検証がリリース準備状況を評価し、プロジェクト固有の人間のリリース決定権限が配布、有効化、延期、取消を判断する。本書はCI/CD、ブランチ戦略、デプロイ手順、承認組織を一律に規定しない。
 
-CRDD自体のVersion、CHANGELOG、Tag、Migrationは[Maintenance](19_Maintenance.md)を正本とする。
+CRDD自体のバージョン、CHANGELOG、タグ、移行は[保守](19_Maintenance.md)を正本とする。
 
 ---
 
-# 2. Release Flow and Authority
+# 2. リリースの流れと決定権限
 
 ```text
-Verified Change / Build Artifact
-→ Release Readiness Evaluation
-→ Human Release Decision
-→ Distribution / Activation
-→ Release Verification
-→ Release Record and Learning
+検証済み変更 / ビルド成果物
+→ リリース準備状況の評価
+→ 人間リリース判断
+→ 配布 / 有効化
+→ リリース検証
+→ リリース記録と学び
 ```
 
-Release判断と`90_Release`の関係は次のとおりである。
+リリース判断と`90_Release`の関係は次のとおりである。
 
 ```text
-Verification
-    ↓ Release Readiness recommendation
-Project-specific Release Authority
+検証
+    ↓ リリース準備状況の推奨
+プロジェクト固有のリリース決定権限
     ↓ 承認・配布・有効化
 90_Release（必要な場合のみ）
-    └ Release Record・配布物参照・Release Verification
+    └ リリース記録・配布物参照・リリース検証
 ```
 
-| Concern | Authority |
+| 懸念 | 決定権限 |
 |---|---|
-| Verification ResultとRelease Readiness Recommendation | [Verification](29_Verification.md) |
-| 配布・有効化・延期・取消・Risk受容 | Project固有のHuman Release Authority |
-| Change単位の影響Trace | [Change Trace](12_Change.md) |
-| Release Record、CHANGELOG、配布物参照 | 本書 |
-| 実際のBuild / Deploy / Rollback手順 | Project固有の[Workflow](14_Workflow.md)、CI/CD、Operations |
+| 検証結果とリリース準備状況の推奨 | [検証](29_Verification.md) |
+| 配布・有効化・延期・取消・リスク受容 | プロジェクト固有の人間のリリース決定権限 |
+| 変更単位の影響トレース | [変更トレース](12_Change.md) |
+| リリース記録、CHANGELOG、配布物参照 | 本書 |
+| 実際のビルド / デプロイ / ロールバック手順 | プロジェクト固有の[作業手順](14_Workflow.md)、CI/CD、運用 |
 
-Verification完了はRelease承認を意味しない。Release Authorityは対象Version、Environment、対象CHG、残Risk、Rollback条件を識別して判断する。
+検証完了はリリース承認を意味しない。リリース決定権限は対象バージョン、環境、対象CHG、残リスク、ロールバック条件を識別して判断する。
 
 ---
 
-# 3. Placement
+# 3. 配置
 
-必要なArtifactだけを`90_Release`へ置く。
+必要な成果物だけを`90_Release`へ置く。
 
 ```text
 90_Release/
 ├─ Changes/
 │  └─ CHG-000001_<SHORT_NAME>.md
 ├─ Releases/
-│  └─ <VERSION>_Release.md
+│  └─ <バージョン>_Release.md
 ├─ Evidence/
 └─ CHANGELOG.md
 ```
 
-- `Changes/`はChange Traceを置く。詳細は[Change Trace](12_Change.md)に従う。
-- `Releases/`は複数CHG、配布物、判断、結果を一つのReleaseとして束ねる必要がある場合に使用する。
-- `Evidence/`は複数ChangeまたはRelease全体で使用するRelease Evidenceを置く。
-- `CHANGELOG.md`は利用者へ公開するRelease単位の変更要約を置く場合に使用する。
+- `Changes/`は変更トレースを置く。詳細は[変更トレース](12_Change.md)に従う。
+- `Releases/`は複数CHG、配布物、判断、結果を一つのリリースとして束ねる必要がある場合に使用する。
+- `Evidence/`は複数変更またはリリース全体で使用するリリース根拠を置く。
+- `CHANGELOG.md`は利用者へ公開するリリース単位の変更要約を置く場合に使用する。
 
-すべてのProjectへ全FolderやRelease Recordの作成を要求しない。単一Artifactで十分な場合は空の構造を増やさない。ただし、CHGを使用する場合の配置先は`90_Release/Changes/`とする。
+すべてのプロジェクトへ全フォルダやリリース記録の作成を要求しない。単一成果物で十分な場合は空の構造を増やさない。ただし、CHGを使用する場合の配置先は`90_Release/Changes/`とする。
 
 ---
 
-# 4. Release Record Contract
+# 4. リリース記録の契約
 
-独立したRelease Recordを作る場合は、最低限次を取得可能にする。
+独立したリリース記録を作る場合は、最低限次を取得可能にする。
 
 ```text
-Release Version / Identifier
-Status
-Release Scope and Target Environment
-Included CHG References
-Excluded / Deferred CHG References
-Build / Distribution Artifact Reference
-Release Readiness Result
-Triggered Propagation Check Result / Propagation Exception
-Human Release Decision and Conditions
-Known Limitation / Residual Risk
-Human-centered Quality Finding / Exception Reference
-Migration / Compatibility / Rollback Reference
-Release Verification Result
-Released At
-Follow-up / Learning
+リリースバージョン / 識別子
+状態
+リリース対象範囲と対象環境
+含まれるCHG参照
+除外 / 延期するCHG参照
+ビルド / 配布成果物参照
+リリース準備状況の結果
+変更影響の伝播確認結果 / 伝播例外
+人間リリース判断と条件
+既知の制限 / 残存リスク
+人間中心品質の指摘事項 / 例外参照
+移行 / 互換性 / ロールバック参照
+リリース検証結果
+リリース日時
+後続対応 / 学び
 ```
 
-Release Recordは各CHGの影響説明、Verification Result、配布物、運用手順を全文複製せず、Referenceで束ねる。
+リリース記録は各CHGの影響説明、検証結果、配布物、運用手順を全文複製せず、参照で束ねる。
 
 ---
 
-# 5. CHANGELOG and Git
+# 5. CHANGELOGとGit
 
-Release CHANGELOGは利用者視点でAdded、Changed、Fixed、Deprecated、Removed、Security、Migration等を要約する。内部Task、Commit、ファイル移動をそのまま列挙しない。
+リリースCHANGELOGは利用者視点で追加済み、変更済み、修正済み、廃止予定、削除済み、セキュリティ、移行等を要約する。内部作業、コミット、ファイル移動をそのまま列挙しない。
 
-Git LogからCHANGELOGを生成または補助生成してよい。対象ReleaseのGit Rangeに加えて、Included CHG、Breaking Change、Migration、Known Limitation、Security Noticeを確認する。生成結果はHuman Release Authorityまたは指定Reviewerが公開前に確認する。
+Git履歴からCHANGELOGを生成または補助生成してよい。対象リリースのGit範囲に加えて、含まれるCHG、破壊的変更、移行、既知の制限、セキュリティ通知を確認する。生成結果は人間のリリース決定権限または指定確認者が公開前に確認する。
 
-CHGはCHANGELOGの下書きではない。CHGは変更のTrace、CHANGELOGはRelease利用者への通知を担う。
+CHGはCHANGELOGの下書きではない。CHGは変更のトレース、CHANGELOGはリリース利用者への通知を担う。
 
 ---
 
-# 6. Release Readiness and Completion
+# 6. リリース準備状態と完了
 
-Release判断前に、対象Scopeに応じて次を確認する。
+リリース判断前に、対象範囲に応じて次を確認する。
 
 ```text
-Included CHGが`Ready for Release Handoff`または明示的にCondition付きである
-Build / Distribution Artifactを一意に識別できる
-Required VerificationとRelease Verificationが完了している
-Included Scopeで発火したTriggered Propagation Checkが完了し、必要な正本更新と再監査を辿れる。未完了の場合はHuman-directed `propagation_exception`として通常Readinessと区別されている
-Security、Privacy、Governance、License、Costの未解決事項を把握している
-適用するNormativeなHuman-centered Quality Criteriaが`Verified`または根拠付き`Not Applicable`である。未解決Findingまたは未評価Scopeを含む場合は、Human Authorityが対象Revision、理由、Mitigation、期限・再確認条件、Residual Riskを明示した例外として通常Readinessと区別している
-Compatibility、Migration、Rollback、Operational Readinessを確認している
-Known LimitationとResidual Riskが利用者または運用者へ伝達される
-CHANGELOGまたは同等のRelease Communicationが確認されている
+含まれるCHGが`Ready for Release Handoff`または明示的に条件付きである
+ビルド / 配布成果物を一意に識別できる
+必須検証とリリース検証が完了している
+含まれる対象範囲で発火した変更影響の伝播確認が完了し、必要な正本更新と再監査を辿れる。未完了の場合は人間が指示した`propagation_exception`として通常準備状況と区別されている
+セキュリティ、プライバシー、ガバナンス、ライセンス、コストの未解決事項を把握している
+適用する規範的な人間中心品質基準が`Conformant`または根拠付き`Not Applicable`である。未解決指摘事項または未評価対象範囲を含む場合は、人間の決定権限者が対象改訂版、理由、緩和策、期限・再確認条件、残存リスクを明示した例外として通常準備状況と区別している
+互換性、移行、ロールバック、運用準備状況を確認している
+既知の制限と残存リスクが利用者または運用者へ伝達される
+CHANGELOGまたは同等のリリース情報が確認されている
 ```
 
-Release後は実際のVersion、時刻、対象Environment、結果をRelease Recordと該当CHGへ反映する。Failure、Rollback、RegressionはEvidenceを残し、必要に応じて新しいCHG、Reopen、Discovery、Roadmapへ戻す。
+リリース後は実際のバージョン、時刻、対象環境、結果をリリース記録と該当CHGへ反映する。失敗、ロールバック、回帰は根拠を残し、必要に応じて新しいCHG、再開、課題探索・要求形成、ロードマップへ戻す。
 
 ---
 
-# 7. Final Principle
+# 7. 最終原則
 
 `90_Release`は開発工程を複製する場所ではない。
 
-変更、検証済み配布物、人間のRelease判断、利用者への通知、Release結果を接続し、何がどのReleaseへ入ったかを再構成できる最小のDelivery Contextである。
+変更、検証済み配布物、人間のリリース判断、利用者への通知、リリース結果を接続し、何がどのリリースへ入ったかを再構成できる最小の配布コンテキストである。

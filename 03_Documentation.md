@@ -2,10 +2,10 @@
 
 # CRDD文書規則（Documentation）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -33,88 +33,90 @@ Related:
 
 # 1. 責務と適用範囲（Responsibility and Boundary）
 
-本書は、CRDDにおけるRepository構造、ArtifactとDocumentの表現、Evidence、Decision / Rationale、Stable Context ID、Artifact Reference、Traceabilityの共通規則を定義するDocumentationの正本である。
+本書は、CRDDにおけるリポジトリ構造、成果物と文書の表現、根拠、判断 / 判断理由、安定コンテキストID、成果物参照、追跡可能性の共通規則を定義する文書化の正本である。
 
 本書が所有しない情報は、次の文書を正本とする。
 
-- Context TypeとStatusのCanonical Definition: [Terminology](02_Terminology.md)
-- 人間とAIのAuthority、一気通貫のContext継続性: [Principles](01_Principles.md)
-- Change Trace: [Change](12_Change.md)
-- Release: [Release](13_Release.md)
-- Repository固有の作業手順: [Workflow](14_Workflow.md)
+- コンテキスト種別と状態の正式な定義: [用語](02_Terminology.md)
+- 人間とAIの決定権限、一気通貫のコンテキスト継続性: [原則](01_Principles.md)
+- 変更トレース: [変更](12_Change.md)
+- リリース: [リリース](13_Release.md)
+- リポジトリ固有の作業手順: [作業手順](14_Workflow.md)
 
-工程固有のEntry、Transformation、Required Responsibility Coverage、Exit、Gate、Auditは、各工程文書を正本とする。本書では複製しない。
+工程固有の入口、変換、必要な責務の網羅、出口、ゲート、監査は、各工程文書を正本とする。本書では複製しない。
 
-CRDD Documentationは文書量を増やすための規定ではない。人間とAIが、現在有効なContext、Source、判断理由、実装、検証、Learningを同じ意味で辿れる状態を作る。
+CRDD文書化は文書量を増やすための規定ではない。人間とAIが、現在有効なコンテキスト、情報源、判断理由、実装、検証、学びを同じ意味で辿れる状態を作る。
 
-DocumentとArtifactは、人間とAIの双方が誤読しにくい構造にする。
+文書と成果物は、人間とAIの双方が誤読しにくい構造にする。
 
 ```text
 目的または結論を先に示す
-一つのDocumentまたはSectionへ一つの主題を置く
-主要ロケールの表示名を使い、必要な初出でCanonical Termを併記する
+一つの文書または節へ一つの主題を置く
+主要ロケールの表示名を使い、必要な初出で正式英語名を併記する
 曖昧な「これ」「それ」「最新」を避ける
-比較、Mapping、Status、AuthorityにはTableを使う
-並列Rule、条件、成果、確認項目にはListを使う
-Observation、Evidence、Interpretation、Hypothesis、Proposal、Decisionを混同しない
-採用案と判断価値のあるAlternativeを区別する
+比較、対応表、状態、決定権限には表を使う
+並列規則、条件、成果、確認項目には一覧を使う
+観察、根拠、解釈、仮説、提案、判断を混同しない
+採用案と、比較する価値のある代替案を区別する
 ```
 
-Canonical Termの定義は[Terminology](02_Terminology.md)を正本とし、本書で再定義しない。本文は対象読者の主要ロケールを優先し、表示名とCanonical Termの境界は4.8に従う。
+正式英語名の定義は[用語](02_Terminology.md)を正本とし、本書で再定義しない。本文は対象読者の主要ロケールを優先し、表示名と正式英語名の境界は4.8に従う。
 
 ---
 
 <a id="2-repository-and-source-of-truth"></a>
 
-# 2. Repositoryと正本（Source of Truth）
+# 2. リポジトリと正本（Source of Truth）
 
-## 2.1. Context Repository
+## 2.1. コンテキストリポジトリ
 
-Context Repositoryの定義と基本原則は[Principles](01_Principles.md)を正本とする。本書では、その論理的な情報基盤をRepository構造、Authority宣言、Artifact Reference、Relation、履歴として実現する規則を定める。
+コンテキストリポジトリの定義と基本原則は[原則](01_Principles.md)を正本とする。本書では、その論理的な情報基盤をリポジトリ構造、決定権限宣言、成果物参照、関係、履歴として実現する規則を定める。
 
-CRDDの基本構成ではGit RepositoryをCanonical Control Planeとして使用する。ただし、すべてのPropertyをMarkdownへ複製することや、Gitだけを唯一のAuthorityとすることを意味しない。
-
-```text
-Git Repository
-= Repository内Canonical Context
-+ Property Authorityの宣言
-+ 外部Artifactへの安定した参照
-+ Relation、Review、変更履歴
-```
-
-## 2.2. Property Authority
-
-Source of TruthはArtifact全体ではなく、必要に応じてProperty単位で定義する。
-
-Repository内の工程別PropertyとPhase / Process Authorityは3.1の構造表を正本とする。Current ImplementationはCode、Configuration、Runtimeを、Verification Resultは対象RevisionとEnvironmentが明確なFresh EvidenceをAuthorityとする。Repository外のArtifactがAuthorityを持つ場合は、対象Propertyと参照方法を宣言する。
-
-Jira、Redmine、GitHub Issues、Backlog等は通常Task Viewであり、Change Traceそのものではない。必要な場合は`CHG-*`からArtifact Referenceで接続する。Figma等はVisual PropertyのAuthorityになり得る。外部Document、Data Store、CI、Test Systemも、Property、Source、Revision、Access方法を明示すればAuthorityまたはEvidenceになり得る。
-
-Git履歴は差分と時系列のEvidenceであり、判断理由そのものを自動的に説明しない。重要なRationaleは責務を持つCanonical Artifactへ残す。
-
-## 2.3. Conflict Resolution
-
-ConflictはFolder番号だけで解決しない。Property Authority、対象Scope、Revision、Status、Decision、Source、Freshnessを比較する。
-
-古いContextと新しい判断が競合する場合、一方を無言で上書きしない。次のいずれかを行う。
+CRDDの基本構成ではGitリポジトリを正本制御面として使用する。ただし、すべての項目をMarkdownへ複製することや、Gitだけを唯一の決定権限とすることを意味しない。
 
 ```text
-Authorityを持つCanonical Artifactへ判断結果とRationaleを反映する
-新旧ContextをRelationで接続する
-StatusをSuperseded / Deprecated / Retiredへ変更する
-移行中、Conflict、再確認条件を明示する
-Human Authorityへ判断を戻す
+Gitリポジトリ
+= リポジトリ内正本コンテキスト
++ 項目の決定権限の宣言
++ 外部成果物への安定した参照
++ 関係、レビュー、変更履歴
 ```
 
-宣言された外部Authorityを取得できない、削除された、またはRevisionを確認できない場合は、最後に検証できたArtifact Reference、確認時点、参照不能である事実を保持する。検証不能な複製を無言でAuthorityへ昇格せず、代替Authorityの指定または復旧判断をHuman Authorityへ戻す。
+<a id="22-property-authority"></a>
+
+## 2.2. 項目の決定権限
+
+正本となる情報源（Source of Truth）は成果物全体ではなく、必要に応じて項目単位で定義する。
+
+リポジトリ内の工程別項目と工程／処理の決定権限は3.1の構造表を正本とする。現在の実装はコード、構成、実行環境を、検証結果は対象改訂版と環境が明確な新しい根拠を決定権限とする。リポジトリ外の成果物が決定権限を持つ場合は、対象項目と参照方法を宣言する。
+
+Jira、Redmine、GitHub Issues、バックログ等は通常タスク表示であり、変更トレースそのものではない。必要な場合は`CHG-*`から成果物参照で接続する。Figma等は視覚表現の項目の決定権限になり得る。外部文書、データ保存、CI、テストシステムも、項目、情報源、改訂版、アクセス方法を明示すれば決定権限または根拠になり得る。
+
+Git履歴は差分と時系列の根拠であり、判断理由そのものを自動的に説明しない。重要な判断理由は責務を持つ正本成果物へ残す。
+
+## 2.3. 競合の解決
+
+競合はフォルダ番号だけで解決しない。項目の決定権限、対象範囲、改訂版、状態、判断、情報源、情報の新しさを比較する。
+
+古いコンテキストと新しい判断が競合する場合、一方を無言で上書きしない。次のいずれかを行う。
+
+```text
+決定権限を持つ正本成果物へ判断結果と判断理由を反映する
+新旧コンテキストを関係で接続する
+状態を置換済み / 非推奨 / 廃止へ変更する
+移行中、競合、再確認条件を明示する
+人間の決定権限者へ判断を戻す
+```
+
+宣言された外部決定権限を取得できない、削除された、または改訂版を確認できない場合は、最後に検証できた成果物参照、確認時点、参照不能である事実を保持する。検証不能な複製を無言で決定権限へ昇格せず、代替決定権限の指定または復旧判断を人間の決定権限者へ戻す。
 
 ---
 
 <a id="3-repository-structure-and-placement"></a>
 
-# 3. Repository構造と配置
+# 3. リポジトリ構造と配置
 
-## 3.1. Basic Structure
+## 3.1. 基本構造
 
 ```text
 00_CRDD
@@ -130,37 +132,39 @@ Human Authorityへ判断を戻す
 99_Roadmap
 ```
 
-| Folder | Product Context Responsibility | Phase / Process Authority |
+| フォルダ | プロダクトコンテキストの責務 | 工程／処理の決定権限 |
 |---|---|---|
-| `00_CRDD` | CRDD原則、共通Contract、工程条項、監査規則 | `00_CRDD`内の該当Canonical Document |
-| `01_Discovery` | Origin、Problem、Source、Evidence、不確実性、Requirement | [Discovery](21_Discovery.md) |
-| `02_UX` | Actor、Outcome、Journey、Service Blueprint、Experience Principle | [UX](22_UX.md) |
-| `03_IA` | Object、Relation、Responsibility、Navigation、Domain用語 | [IA](23_IA.md) |
-| `04_UI` | Surface、Interaction、Feedback、Visual、UI Asset | [UI](25_UI.md) |
-| `05_SPEC` | Condition、State、System Behavior、Exception、Acceptance | [Behavior Specification](26_Behavior_Specification.md) |
-| `06_Architecture` | Boundary、Data、Interface、Quality、Security、Implementation Rule | [Architecture](27_Architecture.md) |
-| `07_Workflows` | Repository固有の反復可能な作業手順、Runbook、手順間Handoff | [Workflow](14_Workflow.md) |
-| `40_Develop` | Code、Configuration、Developer Test等のImplementation Artifact | [Implementation](28_Implementation.md) |
-| `90_Release` | `CHG-*` Change Trace、Release Record、CHANGELOG、配布物参照、Release Verification | [Change](12_Change.md)、[Release](13_Release.md)、Project固有のRelease Authority |
-| `99_Roadmap` | 採用済みDeferred WorkのPriority、Target、Dependency、着手条件 | Project固有のRoadmap Authority |
+| `00_CRDD` | CRDD原則、共通契約、工程条項、監査規則 | `00_CRDD`内の該当正本文書 |
+| `01_Discovery` | 起点、問題、情報源、根拠、不確実性、要求 | [課題探索・要求形成](21_Discovery.md) |
+| `02_UX` | 利用者または役割、成果、利用者体験の流れ、サービスブループリント、体験原則 | [UX](22_UX.md) |
+| `03_IA` | 情報オブジェクト、関係、責務、ナビゲーション、ドメイン用語 | [IA](23_IA.md) |
+| `04_UI` | 表示面、操作、フィードバック、視覚表現、UI素材 | [UI](25_UI.md) |
+| `05_SPEC` | 条件、状態、システムの振る舞い、例外、受入条件 | [振る舞い仕様](26_Behavior_Specification.md) |
+| `06_Architecture` | 境界、データ、インターフェース、品質、セキュリティ、実装規則 | [アーキテクチャ](27_Architecture.md) |
+| `07_Workflows` | リポジトリ固有の反復可能な作業手順、運用手順、手順間引き渡し | [作業手順](14_Workflow.md) |
+| `40_Develop` | コード、構成、開発者テスト等の実装成果物 | [実装](28_Implementation.md) |
+| `90_Release` | `CHG-*` 変更トレース、リリース記録、CHANGELOG、配布物参照、リリース検証 | [変更](12_Change.md)、[リリース](13_Release.md)、プロジェクト固有のリリースの決定権限 |
+| `99_Roadmap` | 採用済みで延期した作業の優先順位、対象、依存関係、着手条件 | プロジェクト固有のロードマップの決定権限 |
 
-工程固有のArtifact Mapping、Template、Coverageは上表のPhase / Process Authorityを正本とする。`04_UI`と`05_SPEC`の番号は探索順であり、直列工程やAuthority優先度を意味しない。UI ContractとBehavior Specificationは並行・反復して対として接続するが、同じProperty Authorityへ統合しない。
+工程固有の成果物対応、ひな型、網羅範囲は上表の工程／処理の決定権限を正本とする。`04_UI`と`05_SPEC`の番号は探索順であり、直列工程や決定権限優先度を意味しない。UI契約と振る舞い仕様は並行・反復して対として接続するが、同じ項目の決定権限へ統合しない。
 
-Evidenceの配置は6.2、Decisionの配置は7.1を正本とする。Repository構造へ中央Evidence Folderまたは中央Decision Folderを追加しない。
+根拠の配置は6.2、判断の配置は7.1を正本とする。リポジトリ構造へ中央根拠フォルダまたは中央判断フォルダを追加しない。
 
-## 3.2. Implementation Placement
+## 3.2. 実装の配置
 
-`40_Develop`はCRDD管理用Markdownの保存先として使用しない。Change Traceは`90_Release/Changes/`、Repository固有の反復作業手順は`07_Workflows`へ置く。Implementation Planは使用するProject固有ToolまたはWorkflowから参照し、CRDD標準の恒久Folderを追加しない。Code固有READMEを実装と同居させる場合も、Contextや判断理由の正本として暗黙に扱わない。
+`40_Develop`はCRDD管理用Markdownの保存先として使用しない。変更トレースは`90_Release/Changes/`、リポジトリ固有の反復作業手順は`07_Workflows`へ置く。実装計画は使用するプロジェクト固有ツールまたは作業手順から参照し、CRDD標準の恒久フォルダを追加しない。コード固有READMEを実装と同居させる場合も、コンテキストや判断理由の正本として暗黙に扱わない。
 
-## 3.3. Discovery and Roadmap
+<a id="33-discovery-and-roadmap"></a>
 
-`01_Discovery`は、新しいSource、Evidence、不確実性、Requirementの入口であり、`REQ-*`の正本を保持する。
+## 3.3. 課題探索・要求形成とロードマップ
 
-`99_Roadmap`は、採用済みだが未着手の内容を、Requirementや他のContextへの参照とともに計画する。Roadmapは原則として単一の`99_Roadmap/01_Product_Roadmap.md`で管理する。比較、調査、依存関係等の詳細がMain Viewの可読性を損なう場合だけ、別のDetail Fileへ分ける。
+`01_Discovery`は、新しい情報源、根拠、不確実性、要求の入口であり、`REQ-*`の正本を保持する。
 
-Roadmap Itemの必須Context、Lifecycle、登録・再評価・着手・Detail削除条件は、[Discovery](21_Discovery.md#63-roadmap-item-contract)を正本とする。
+`99_Roadmap`は、採用済みだが未着手の内容を、要求や他のコンテキストへの参照とともに計画する。ロードマップは原則として単一の`99_Roadmap/01_Product_Roadmap.md`で管理する。比較、調査、依存関係等の詳細が主要表示の可読性を損なう場合だけ、別の詳細ファイルへ分ける。
 
-Discovery文書をRoadmapへ移動せず、Roadmap項目をRequirementまたはSpecificationの正本として扱わない。Roadmap項目またはDetail FileへCRDD標準Stable Context IDを発行せず、Path、Anchor、外部Issue等で識別する。完了したDetail FileをRoadmap Archiveとして恒久保存しない。
+ロードマップ項目の必須コンテキスト、状態遷移、登録・再評価・着手・詳細削除条件は、[課題探索・要求形成](21_Discovery.md#63-roadmap-item-contract)を正本とする。
+
+課題探索・要求形成文書をロードマップへ移動せず、ロードマップ項目を要求または仕様の正本として扱わない。ロードマップ項目または詳細ファイルへCRDD標準安定コンテキストIDを発行せず、パス、アンカー、外部Issue等で識別する。完了した詳細ファイルをロードマップ保管として恒久保存しない。
 
 ---
 
@@ -168,55 +172,57 @@ Discovery文書をRoadmapへ移動せず、Roadmap項目をRequirementまたはS
 
 # 4. 成果物と文書の契約
 
-## 4.1. Artifact and Context
+## 4.1. 成果物とコンテキスト
 
-ArtifactはContextを表現、保存、実行、検証する媒体である。ArtifactとContextの意味を同一視しない。一つのArtifactに複数Contextを含めても、一つのContextを複数Artifactで表現してもよい。
+成果物はコンテキストを表現、保存、実行、検証する媒体である。成果物とコンテキストの意味を同一視しない。一つの成果物に複数コンテキストを含めても、一つのコンテキストを複数成果物で表現してもよい。
 
-CRDDが要求するのは責務Coverageであり、固定ファイル数ではない。
-
-```text
-統合時もSectionとProperty Authorityを区別する
-分割時もSource ContextとRelationを保つ
-配置変更だけでStable Contextの意味を変えない
-一部Artifactの完成度から工程全体の完了を推定しない
-```
-
-## 4.2. Connected Contract
-
-重要Artifactは独立した説明資料ではなく、上流Contextを受け取り、専門責務へ変換し、下流へ義務を渡すContractとして扱う。
+CRDDが要求するのは責務網羅範囲であり、固定ファイル数ではない。
 
 ```text
-Source Context
-→ Preserved Intent
-→ Decision / Definition
-→ Downstream Obligation
-→ Verification
+統合時も節と項目の決定権限を区別する
+分割時も情報源コンテキストと関係を保つ
+配置変更だけで安定コンテキストの意味を変えない
+一部成果物の完成度から工程全体の完了を推定しない
 ```
 
-## 4.3. Common Artifact Contract
+## 4.2. 接続された契約
 
-重要ArtifactはRiskと責務に応じて次を取得可能にする。
+重要成果物は独立した説明資料ではなく、上流コンテキストを受け取り、専門責務へ変換し、下流へ義務を渡す契約として扱う。
 
 ```text
-Title / Purpose
-Status / Version / Revision
-Owner / Property Authority
-Source Context / Artifact Reference
-Preserved Intent / Non-goal
-Decision / Definition
-Assumption / Open Question
-Downstream Obligation
-Evidence / Limitation
-Relation
-Verification
-Last Reviewed
+情報源コンテキスト
+→ 保持する意図
+→ 判断 / 定義
+→ 下流への義務
+→ 検証
 ```
 
-すべてを同じHeaderやTemplateへ機械的に表示する必要はない。Header、本文、Index、Code、外部Toolへ分散してよいが、Authorityと取得方法を識別できなければならない。Canonical Markdown Documentでは4.4以降の表現規則を使用し、他媒体では同等のPropertyを媒体に適した形で保持する。
+## 4.3. 共通成果物契約
 
-## 4.4. Markdown Header
+重要成果物はリスクと責務に応じて次を取得可能にする。
 
-CRDD標準文書は、次のHeaderを持たなければならない。Canonical Markdown Documentは、Document TypeとRiskに応じて同等のPropertyをHeader、本文、Indexまたは管理Systemから取得可能にする。すべてのArtifactへ同一Headerを機械的に要求しない。
+```text
+表題 / 目的
+状態 / バージョン / 改訂版
+担当責任者 / 項目の決定権限
+情報源コンテキスト / 成果物参照
+保持する意図 / 目指さないこと
+判断 / 定義
+仮定 / 未決事項
+下流への義務
+根拠 / 制限
+関係
+検証
+最終レビュー済み
+```
+
+すべてを同じヘッダーやひな型へ機械的に表示する必要はない。ヘッダー、本文、索引、コード、外部ツールへ分散してよいが、決定権限と取得方法を識別できなければならない。正本Markdown文書では4.4以降の表現規則を使用し、他媒体では同等の項目を媒体に適した形で保持する。
+
+<a id="44-markdown-header"></a>
+
+## 4.4. Markdownヘッダー
+
+CRDD標準文書は、次のヘッダーを持たなければならない。正本Markdown文書は、文書種別とリスクに応じて同等の項目をヘッダー、本文、索引または管理システムから取得可能にする。すべての成果物へ同一ヘッダーを機械的に要求しない。
 
 ```markdown
 # Title
@@ -229,60 +235,60 @@ Related:
 - [01_Principles.md](01_Principles.md)
 ```
 
-| Item | Meaning |
+| 項目 | 意味 |
 |---|---|
-| `Version` | 公開または運用上識別する文書Version |
-| `Status` | 文書の現在状態。Canonical MeaningはTerminologyに従う |
-| `Owner` | 維持、Review、廃止、Escalationを管理する人間または組織 |
-| `Last Updated` | 内容を最後に更新した日。Revisionの代用ではない |
-| `Related` | 直接参照する正本、依存Contract、主要Handoff先へのクリック可能なLink |
+| `Version` | 公開または運用上識別する文書バージョン |
+| `Status` | 文書の現在状態。正本としての意味は用語に従う |
+| `Owner` | 維持、レビュー、廃止、上位判断への移送を管理する人間または組織 |
+| `Last Updated` | 内容を最後に更新した日。改訂版の代用ではない |
+| `Related` | 直接参照する正本、依存契約、主要引き渡し先へのクリック可能なリンク |
 
-CRDD標準文書のHeaderは、`Version`、`Status`、`Owner`、Document Type固有の識別Field、`Last Updated`、`Related`の順を基本とする。`Related`は実行時Read Setの全列挙ではなく、直接関係する正本への探索導線である。CRDD標準文書はDocument Numberの昇順に並べ、Link Textにも実ファイル名を示す。`CHANGELOG.md`等の番号を持たないRepository-level Artifactは番号付き文書の後へ置く。
+CRDD標準文書のヘッダーは、`Version`、`Status`、`Owner`、文書種別固有の識別項目、`Last Updated`、`Related`の順を基本とする。`Related`は実行時読み取り集合の全列挙ではなく、直接関係する正本への探索導線である。CRDD標準文書は文書番号の昇順に並べ、リンクテキストにも実ファイル名を示す。`CHANGELOG.md`等の番号を持たないリポジトリ単位の成果物は番号付き文書の後へ置く。
 
-実行時Read Setは、Overview、Principles、Terminology、Documentationを基礎に、Active Scope、Target Revision、実行主体、対象工程、Change / Release / Workflow、Auditの必要性に応じて追加する。`Related`にないことを、必要な正本を読まない理由にしてはならない。一方、対象Scopeと無関係な全標準文書を常時読み込み、Authorityや現行Contextの識別を曖昧にしない。
+実行時に読む範囲は、概要、原則、用語、文書化を基礎に、現在の対象範囲、対象改訂版、実行主体、対象工程、変更／リリース／作業手順、監査の必要性に応じて追加する。`Related`にないことを、必要な正本を読まない理由にしてはならない。一方、対象範囲と無関係な全標準文書を常時読み込み、決定権限や現行コンテキストの識別を曖昧にしない。
 
-OwnerとAuthor、AI利用、Reviewer、Approverを混同しない。必要な場合は`Authority`、`Revision`、`Reviewed By`、`Approved By`、`Drafted By`等を、Document Typeごとに意味を定義して追加する。
+担当責任者と作成者、AI利用、確認者、承認者を混同しない。必要な場合は`Authority`、`Revision`、`Reviewed By`、`Approved By`、`Drafted By`等を、文書種別ごとに意味を定義して追加する。
 
-AIが草案を作成しても、Ownerを`AI Draft`へ置き換えない。未承認案は`Status: Draft`とし、必要に応じて`Drafted By: AI`またはProvenanceを記録する。AIは自分のDraftをHuman Approvedとして確定しない。
+AIが草案を作成しても、担当責任者を`AI Draft`へ置き換えない。未承認案は`Status: Draft`とし、必要に応じて`Drafted By: AI`または来歴を記録する。AIは自分の下書きを人間による承認として確定しない。
 
-## 4.5. Version, Revision, Baseline, and Date
+## 4.5. バージョン・改訂版・基準版・日付
 
 ```text
-Version      = 公開・配布・運用上の版
-Revision     = Git Commit、Artifact Revision等の特定可能な内容状態
-Baseline     = ReviewやVerification対象として固定したRevision Set
-Last Updated = 人間向けの更新日表示
+バージョン      = 公開・配布・運用上の版
+改訂版     = Git コミット、成果物改訂版等の特定可能な内容状態
+基準版     = レビューや検証対象として固定した改訂版集合
+最終更新日時 = 人間向けの更新日表示
 ```
 
-`latest`や日付だけを、対象Revisionの代用にしない。Verification、Evidence、Approval、外部Artifact参照では必要な粒度でRevisionまたはBaselineを示す。
+`latest`や日付だけを、対象改訂版の代用にしない。検証、根拠、承認、外部成果物参照では必要な粒度で改訂版または基準版を示す。
 
-## 4.6. File Name and Document Number
+## 4.6. ファイル名と文書番号
 
-ファイル名は目的を推測できる英語ベースを基本とする。文書番号はFolderまたは文書体系内の分類、順序、探索に使用する。Stable Context IDとの境界は8.1を正本とする。
+ファイル名は目的を推測できる英語ベースを基本とする。文書番号はフォルダまたは文書体系内の分類、順序、探索に使用する。安定コンテキストIDとの境界は8.1を正本とする。
 
-`00_CRDD/`内のCRDD正本文書は、Folder番号をファイル名へ重ねず、二桁のDocument Numberを一度だけ先頭へ置く。本CRDD標準RepositoryのRootに置く配布・保守対象文書も同じ名前を使用する。
+`00_CRDD/`内のCRDD正本文書は、フォルダ番号をファイル名へ重ねず、二桁の文書番号を一度だけ先頭へ置く。本CRDD標準リポジトリのルートに置く配布・保守対象文書も同じ名前を使用する。
 
 ```text
-Good: 00_CRDD/01_Principles.md
-Good: 00_CRDD/27_Architecture.md
-Bad:  00_CRDD/01_Principles.md
-Bad:  00_CRDD/27_Architecture.md
+良い例: 00_CRDD/01_Principles.md
+良い例: 00_CRDD/27_Architecture.md
+悪い例:  00_CRDD/00_01_Principles.md
+悪い例:  00_CRDD/00_27_Architecture.md
 ```
 
-先頭の`00_CRDD`は配置Folder、`01`や`27`はそのFolder内のDocument Numberであり、連結した`01`や`27`をDocument Numberまたはファイル名として使用しない。
+先頭の`00_CRDD`は配置フォルダ、`01`や`27`はそのフォルダ内の文書番号であり、連結した`01`や`27`を文書番号またはファイル名として使用しない。
 
 ```text
-Document Number
-= Folderまたは文書体系内の分類、順序、探索用番号
+文書番号
+= フォルダまたは文書体系内の分類、順序、探索用番号
 ```
 
 ```text
-Good:
+良い例:
 02_UX/01_Experience_Principles.md
 07_Workflows/01_Document_Review.md
 90_Release/Changes/CHG-000042_Topic_Decision_Experience.md
 
-Bad:
+悪い例:
 memo.md
 latest.md
 02_UX/02.md
@@ -291,21 +297,46 @@ latest.md
 
 文書番号は再構成、挿入、統合、分割に伴って変更してよい。番号を文書の永続的な意味識別子として扱わない。
 
-## 4.7. Heading and Link
+## 4.7. 見出しとリンク
 
-Headingは内容と責務を示し、同一Document内で曖昧または重複するAnchorを避ける。実在するRepository文書は、内容を推測できるLink Textと相対Markdown Linkで参照する。存在しないTemplate PathはLinkにせずplaceholderとして示す。
+見出しは内容と責務を示し、同一文書内で曖昧または重複するアンカーを避ける。実在するリポジトリ文書は、内容を推測できるリンクテキストと相対Markdownリンクで参照する。存在しないひな型パスはリンクにせず、仮の記載であることを示す。
 
-LinkだけではContinuityにならない。重要な接続はRelationの意味、対象Revision、Source / Targetを必要な粒度で示す。
+リンクだけでは継続性にならない。重要な接続は関係の意味、対象改訂版、情報源 / 対象を必要な粒度で示す。
 
-外部または長期参照されるHeadingやAnchorを変更する場合は、Repository内の参照元を同じ変更で更新する。参照元を更新できない場合は、旧Anchorを維持するか、旧参照から新しい位置を特定できる移行情報を残し、無言で参照を切断しない。
+外部または長期参照される見出しやアンカーを変更する場合は、リポジトリ内の参照元を同じ変更で更新する。参照元を更新できない場合は、旧アンカーを維持するか、旧参照から新しい位置を特定できる移行情報を残し、無言で参照を切断しない。
 
 <a id="48-normative-language"></a>
 
 ## 4.8. ロケールと規範表現（Normative Language）
 
+<a id="481-locale-first-display"></a>
+
 ### 4.8.1. 利用者ロケールを優先した表示
 
-説明文、見出し、表の項目名、質問、判断支援は、対象読者または利用者の主要ロケールを優先する。共通参照が必要なCRDD用語は、初出時または用語集で「ローカル表示名（Canonical English Term）」として示し、同じ節で英語名を不必要に繰り返さない。
+説明文、見出し、表の項目名、質問、判断支援は、対象読者または利用者の主要ロケールを優先する。AIまたは人間が新規作成・更新する人間可読成果物の本文にも同じ規則を適用する。
+
+対象には次を含む。
+
+- 正本成果物
+- 変更トレース
+- 根拠の説明・要約
+- ロードマップ
+- リリース記録
+- レビュー・監査結果
+- 引き渡し表示
+
+共通参照が必要なCRDD用語は、文書または意味のまとまりでの初出時に「ローカル表示名（Canonical English Term）」として示す。初出後の説明ではローカル表示名を基本とし、英語名を不必要に繰り返さない。
+
+本文の主要ロケールは、次の順に決める。
+
+1. 対象成果物に明示されたロケール
+2. プロジェクトまたはリポジトリに明示された主要ロケール
+3. 対象読者について人間が確認したロケール
+4. 有効な既存本文で一貫して使われているロケール
+
+利用者との会話は利用者の主要ロケールを優先する。会話の言語だけを理由に、別の対象読者へ配布する成果物の言語を変更しない。優先順位が競合し、誤読が判断や引き渡しへ影響する場合は、AIが推測せず対象成果物の担当責任者へ確認する。
+
+`Changes/`、`Evidence/`、`CHG-*`等のディレクトリ名、ファイル名、成果物IDが英語であることから、本文の言語を英語と推定してはならない。外部根拠の原文は翻訳せず保持できるが、追加する説明、要約、判断への接続は対象読者の主要ロケールで記述する。
 
 ```yaml
 locale:
@@ -313,9 +344,43 @@ locale:
   canonical_term_language: en
 ```
 
-この例は表示方針を示すものであり、すべてのArtifactへ同じMetadataを要求しない。
+この例は表示方針を示すものであり、すべての成果物（Artifact）へ同じメタデータを要求しない。
 
-ローカライズしてよいものは、説明文、見出し、表の表示項目名、状態の説明、読者への指示、流れと責務の説明である。Canonical Term、Stable Context ID、Agent ID、File名、Schema Key / Value、Code、外部規格の正式名称は、互換性を持つ識別子として無断で翻訳または変更しない。
+表示の扱いは次のように分ける。
+
+| 記載対象 | 基本の表示 | 英語名を示す場合 |
+|---|---|---|
+| 説明文、見出し、説明用の表 | 主要ロケールの表示名 | 初出、意味の境界、別用語との比較で必要な場合 |
+| 読者への質問、判断支援、完了条件 | 主要ロケールの自然な表現 | 正確な用語参照が判断に必要な場合 |
+| 正式英語名 | ローカル表示名を基本とし、正式英語名を別名として保持 | 初出または正式名を確認する箇所 |
+| 安定コンテキストID、エージェントID、ファイル名 | 定義済みの識別子 | 翻訳しない |
+| スキーマキー / 値、関係、状態の実値、コード、コマンド | 実際に使用する値 | 説明を主要ロケールで添えてよいが、値を翻訳しない |
+| 外部規格、ツール、API、プロトコルの正式名称 | 正式名称 | 必要に応じて主要ロケールの説明を添える |
+| 図、例、ひな型 | 説明用なら主要ロケール | 機械処理、スキーマ、実在インターフェースを表す部分は実値を維持 |
+| 新規作成・更新するCHG、根拠、レビュー、監査、リリース等の本文 | プロジェクトまたは対象成果物の主要ロケール | 原文引用、正式名称、実値は維持 |
+
+次の区分で、翻訳または表示名への変換の要否を判定する。
+
+| 区分 | 扱い |
+|---|---|
+| `02_Terminology.md`に日本語表示名がある中核語 | 初出後の本文、見出し、説明用の表では日本語表示名を使用する |
+| `State`、`Pattern`、`Component`、`Variant`、`Asset`、`Screen`、`Visual`等の曖昧な単独語 | 対象の種類を示す限定名へ置き換える |
+| 工程名 | 一般的な活動を表す場合は、主要ロケールで意味が伝わる表示名を使用する。正式英語名は初出時の別名として保持する |
+| 略語、プロダクト固有名 | 正式名を維持できる。周囲の説明語は主要ロケールで書く |
+| API、DB、CI/CD、E2E、JSON、YAML等の一般的な技術識別 | 無理に翻訳しない。初見の読者に必要なら説明を添える |
+| 外部規格、ツール、製品、プロトコルの正式名称 | 正式名称を維持する |
+| スキーマキー / 値、状態実値、関係実値、ID、コード、コマンド | 翻訳または表記変更しない |
+| 技術概念を説明する一般語 | 説明の理解を助ける場合は、日本語または定着したカタカナ表記を使用する |
+
+`Authority`、`Scope`、`Context`、`Artifact`、`Evidence`、`Contract`、`Review`、`Revision`、`Decision`、`Risk`等を、正式用語であることだけを理由に日本語本文で常用しない。正式英語名を参照可能にする責務と、本文を英語中心にすることは別である。
+
+説明用の表と機械可読なスキーマを区別する。説明用の表で`Trigger`、`Result`、`Failure`等を英語の項目名のように並べる必要はない。実際のスキーマキーまたは交換形式を示す場合は、コードフェンスまたは実値であることが分かる表記を使用する。
+
+工程名が一般的な活動を表す場合は、主要ロケールだけで責務が分かる表示名を使用する。日本語版の`Discovery`は、課題を見つけるだけでなく要求として形成する責務まで含むため、「課題探索・要求形成」を表示名とする。READMEや当該工程の正本など、英語名との対応を示す入口では、初出を「課題探索・要求形成工程（Discovery）」としてよい。通常の本文では、文脈に応じて「課題探索・要求形成」または「課題探索・要求形成工程」と書く。ファイル名、フォルダ名、スキーマ値、エージェントID等に含まれる正式英語名は変更しない。
+
+略語、プロダクト固有名、定着した専門名等、翻訳によって意味や識別性が弱くなる名称は保持してよい。ただし、日本語文中で英語名を並べるだけにせず、名称と説明語を区別する。
+
+正式英語名、安定コンテキストID、エージェントID、ファイル名、スキーマキー / 値、コード、外部規格の正式名称は、互換性を持つ識別子として無断で翻訳または変更しない。正式英語名を保持することは、主要ロケールの本文で正式英語名だけを常用することを意味しない。
 
 厳密さだけを理由に、説明を英語用語の連続へ圧縮しない。文書では次を優先する。
 
@@ -325,24 +390,26 @@ locale:
 - 並列事項は箇条書きまたは表で示す
 - 専門用語だけで説明を完結させず、主要ロケールで平易な意味を添える
 
-本節はCRDD標準文書だけでなく、採用Projectで人間が読むCanonical Artifact、Handoff View、Review Result、Decision Support Summaryにも適用する。人間へ提示または通常Handoffする前に、作成・更新担当は対象Scopeについて次を軽量にSelf-checkする。
+本節はCRDD標準文書だけでなく、採用プロジェクトで人間が読む正本成果物、引き渡し用表示、レビュー結果、判断支援の要約にも適用する。人間へ提示または通常の引き渡しを行う前に、作成・更新担当は対象範囲について次を軽量に自己確認する。
 
-- 結論、対象Scope、決定主体が先に理解できる
+- 結論、対象範囲、決定主体が先に理解できる
 - 条件、義務、禁止、例外、未解決事項、完了条件を区別できる
-- 専門用語を知らない対象読者でも、Product、利用者、運用への影響を判断できる
-- 表示名の変更によってCanonical Term、Rule、Authority、Status、識別子の意味を変えていない
+- 専門用語を知らない対象読者でも、プロダクト、利用者、運用への影響を判断できる
+- 表示名の変更によって正式用語、規則、決定権限、状態、識別子の意味を変えていない
+- 初出後も英語名だけを繰り返し、日本語表示名へ戻っていない箇所がない
+- 説明用の表とスキーマキー / 値を区別している
 
-このSelf-checkはIndependent ReviewまたはDocument Auditの代替ではない。読み違いによって判断、実装、Verification、Risk受容、Handoffへ影響する可能性がある場合は、[Document Audit](51_Document_Audit.md)または同等の独立Reviewerへ渡す。
+この自己確認は独立レビューまたは文書監査（Document Audit）の代替ではない。読み違いによって判断、実装、検証、リスク受容、引き渡しへ影響する可能性がある場合は、[文書監査](51_Document_Audit.md)または同等の独立レビュアーへ渡す。
 
-CRDD標準文書は、正式な目的と適用範囲の前に、非規範の「この文書で分かること」を短く置いてよい。この案内は本文のRule、Authority、適用範囲を追加または変更しない。
+CRDD標準文書は、正式な目的と適用範囲の前に、非規範の「この文書で分かること」を短く置いてよい。この案内は本文の規則、決定権限、適用範囲を追加または変更しない。
 
-採用Projectは、対象利用者に適したロケールと表現方法を選べる。ローカライズの有無だけでCRDD Conformanceを判定しない。ただし、翻訳や表示名によってRule、Authority、Status、識別子、Handoffの意味が変わる場合は、不整合として扱う。
+採用プロジェクトは、対象利用者に適したロケールと表現方法を選べる。ローカライズの有無だけでCRDD準拠を判定しない。ただし、翻訳や表示名によって規則、決定権限、状態、識別子、引き渡しの意味が変わる場合は、不整合として扱う。
 
 ### 4.8.2. 規範強度語彙
 
 CRDD文書では、BCP 14（RFC 2119およびRFC 8174）の意味で、選択した規範強度語彙を使用する。
 
-| 日本語表示 | Canonical Keyword | 意味 |
+| 日本語表示 | 正式キーワード | 意味 |
 |---|---|---|
 | 必須 | `MUST` | 適用範囲で例外を認めない絶対要件 |
 | 禁止 | `MUST NOT` | 適用範囲で例外を認めない絶対禁止 |
@@ -350,38 +417,75 @@ CRDD文書では、BCP 14（RFC 2119およびRFC 8174）の意味で、選択し
 | 原則禁止 | `SHOULD NOT` | 原則として避ける。実施する場合は、理由と影響を理解して比較する |
 | 任意 | `MAY` | 採用してもしなくてもよい選択肢 |
 
-英語のKeywordは、表に示す大文字表記の場合だけBCP 14の規範的意味を持つ。小文字の`must`、`should`等は通常の英語として扱う。日本語では、「しなければならない」「してはならない」「すべきである」「すべきではない」「してよい」等、意味上同等の明示的な表現もRuleとして解釈する。
+英語のキーワードは、表に示す大文字表記の場合だけBCP 14の規範的意味を持つ。小文字の`must`、`should`等は通常の英語として扱う。日本語では、「しなければならない」「してはならない」「すべきである」「すべきではない」「してよい」等、意味上同等の明示的な表現も規則として解釈する。
 
-EARS等の外部構文、Code、Schema、引用に含まれる小文字の`shall`等は、その構文またはSourceの定義に従う。大文字でない語へBCP 14の意味を自動適用しない。
+EARS等の外部構文、コード、スキーマ、引用に含まれる小文字の`shall`等は、その構文または情報源の定義に従う。大文字でない語へBCP 14の意味を自動適用しない。
 
 `REQUIRED`、`SHALL`、`SHALL NOT`、`RECOMMENDED`、`NOT RECOMMENDED`、`OPTIONAL`はBCP 14上の対応語だが、CRDD本文では語彙を増やさず、原則として`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`を使用する。
 
-規範強度はRuleの強さを示し、Document Status、Property Authority、Human Approvalを代替しない。`Draft`または`Experimental`な文書に記載された`MUST`は、その文書自体が承認・適用されたことを意味しない。一方、`Stable`な文書の説明文が、規範語彙を伴わず自動的に必須Ruleになるわけでもない。適用可否は、対象Scope、Document Status、Property Authority、必要なHuman Approvalと合わせて判断する。
+規範強度は規則の強さを示し、文書状態、項目の決定権限、人間の承認を代替しない。`Draft`または`Experimental`な文書に記載された`MUST`は、その文書自体が承認・適用されたことを意味しない。一方、`Stable`な文書の説明文が、規範語彙を伴わず自動的に必須規則になるわけでもない。適用可否は、対象範囲、文書状態、項目の決定権限、必要な人間の承認と合わせて判断する。
 
-## 4.9. External Source Trace
+工程文書で「工程実行契約（Phase Process Contract）」と明示された章は規範である。適用対象範囲では、次を必須要件として扱う。
 
-CRDD Rule、構文、評価観点へ外部標準、論文、原則、Guidelineを実質的に使用する場合、[OverviewのSource索引](00_Overview.md#36-external-foundations-and-source-trace)と対象文書から、Source、Versionまたは発行日、Authoritative URL / DOI、Relation、適用Section、Coverageを取得可能にする。名称が似ていることだけを理由に、後から`derived_from`または出典として登録しない。
+- 工程入口契約の必須入力
+- 必要な責務の網羅
+- 完了条件と引き渡し
+- 工程移行の判定基準
 
-| Relation | Meaning |
+変換契約は、満たす結果と保持する意味を規定する。特定の文書分割、ツール、会議、エージェント構成まで固定しない。`Not Applicable`または部分適用が許される項目では、対象項目の人間の決定権限者が理由と影響を確認する。
+
+工程監査チェックリストは、契約の充足を調べる診断表示である。チェックリストの存在だけで新しい義務を追加せず、監査を実行しただけで契約を満たしたとみなさない。例、非規範の案内、判断支援の候補は、規則または正式な状態値として再利用しない。
+
+<a id="483-realistic-recording-and-sufficiency"></a>
+
+### 4.8.3. 現実的な記録量と十分性
+
+記録量と確認方法は、変更や成果物の実際の影響に合わせる。文書の長さ、項目数、ファイル数を品質指標にしない。
+
+| 運用規模 | 主な対象 | 最小の扱い |
+|---|---|---|
+| 簡潔 | 意味を変えない編集、可逆で局所的な変更、単一成果物内の明白な修正 | 対象、変更理由、確認結果をIssue、プロンプト、成果物またはコミットから取得できればよい |
+| 標準 | 正本の意味、利用者体験、仕様、実装、検証に影響する通常の変更 | 対象範囲、情報源、判断、影響、検証、未解決事項、必要なレビューを追跡する |
+| 拡張 | 複数工程、決定権限、準拠、法務、安全性、セキュリティ、プライバシー、不可逆データ、重大移行に影響する変更 | 独立レビュー、関係横断の影響確認、移行・回復条件、必要な監査を明示する |
+
+最初から最大の運用規模を選ばない。途中で影響が広がった場合は運用規模を上げ、既に得た結果を再利用する。小さな変更を拡張運用へ機械的に載せず、重大変更をファイル差分の小ささだけで簡潔運用へ落とさない。
+
+「必要な粒度」は、別の担当者またはAIが次を行える最小の詳しさをいう。
+
+- 対象範囲と対象外を区別する
+- 情報源、判断結果、決定権限者を特定する
+- 後続の実装または検証に必要な義務を取り出す
+- 失敗、例外、未解決事項、再確認条件を見落とさない
+- 対象改訂版に対して結果を再確認する
+
+追加の記述が判断、実装、検証、リスク、引き渡しのいずれも変えず、上の条件を既に満たす場合は、それ以上の分解や別ファイル作成を要求しない。満たさない場合は、影響する箇所だけを具体化する。
+
+<a id="49-external-source-trace"></a>
+
+## 4.9. 外部出典の追跡
+
+CRDD規則、構文、評価観点へ外部標準、論文、原則、ガイドラインを実質的に使用する場合、[Overviewの情報源索引](00_Overview.md#36-external-foundations-and-source-trace)と対象文書から、情報源、バージョンまたは発行日、正本URL / DOI、関係、適用節、網羅範囲を取得可能にする。名称が似ていることだけを理由に、後から`derived_from`または出典として登録しない。
+
+| 関係 | 意味 |
 |---|---|
 | `uses` | 語彙、構文、方法を直接使用する |
-| `derived_from` | Sourceの特定内容をCRDD Ruleへ変換する |
+| `derived_from` | 情報源の特定内容をCRDD規則へ変換する |
 | `aligned_with` | 整合を確認するが、準拠または完全な導出を主張しない |
-| `informed_by` | 設計、比較、Problem発見の参考にする |
-| `project_adopts` | 適用ProjectがSource、Version、Level、Platform、Scopeを選択する |
+| `informed_by` | 設計、比較、問題発見の参考にする |
+| `project_adopts` | 適用プロジェクトが情報源、バージョン、レベル、プラットフォーム、対象範囲を選択する |
 
-Coverageは、少なくとも次を区別する。
+網羅範囲は、少なくとも次を区別する。
 
 - `Referenced`
 - `Selected Concepts`
 - `Clause-mapped`
 - `Fully Assessed`
 
-`Referenced`または`Selected Concepts`は、Source全体の網羅を意味しない。`aligned_with`または`informed_by`だけで準拠を主張してはならない。
+`Referenced`または`Selected Concepts`は、情報源全体の網羅を意味しない。`aligned_with`または`informed_by`だけで準拠を主張してはならない。
 
-`Clause-mapped`または`Fully Assessed`を主張する場合は、適用Clause / Criterion、非適用理由、対応するCRDD Rule、対象Revision、評価Evidenceを追跡可能にする。
+`Clause-mapped`または`Fully Assessed`を主張する場合は、適用条項 / 基準、非適用理由、対応するCRDD規則、対象改訂版、評価根拠を追跡可能にする。
 
-Reference Keyは引用Labelであり、Stable Context ID、Document Number、Artifact IDではない。外部Sourceの本文をCRDDへ不必要に複製せず、長期参照に適したVersion付きURL、DOI、発行主体等を優先する。SourceのVersionまたは適用範囲が変わった場合は、影響するCRDD条項とProject Profileを再確認する。
+参照キーは引用表示名であり、安定コンテキストID、文書番号、成果物IDではない。外部情報源の本文をCRDDへ不必要に複製せず、長期参照に適したバージョン付きURL、DOI、発行主体等を優先する。情報源のバージョンまたは適用範囲が変わった場合は、影響するCRDD条項とプロジェクトプロファイルを再確認する。
 
 4.8の規範強度語彙は`BCP14`（`RFC2119` / `RFC8174`）を`uses`として使用し、選択した語彙と大文字・小文字の境界だけを適用する。RFC全体への準拠または網羅は主張しない。
 
@@ -391,40 +495,40 @@ Reference Keyは引用Labelであり、Stable Context ID、Document Number、Art
 
 # 5. 状態・更新・廃止
 
-## 5.1. Status
+## 5.1. 状態
 
-StatusのCanonical Meaningは[Terminology](02_Terminology.md)を正本とする。Documentで主に使用するStatusは次のとおりである。
+状態の正本意味は[用語](02_Terminology.md)を正本とする。文書で主に使用する状態は次のとおりである。
 
-| Status | Document Meaning |
+| 状態 | 文書意味 |
 |---|---|
 | `Draft` | 作成中で、採用前 |
-| `Reviewed` | 指定Reviewerが確認済み。承認を意味しない |
-| `Approved` | 定義済みAuthorityが対象用途で正式承認した |
-| `Stable` | 対象Scopeで通常利用可能。将来不変を意味しない |
-| `Superseded` | 後続DocumentまたはContextに置き換えられた |
+| `Reviewed` | 指定確認者が確認済み。承認を意味しない |
+| `Approved` | 定義済み決定権限が対象用途で正式承認した |
+| `Stable` | 対象範囲で通常利用可能。将来不変を意味しない |
+| `Superseded` | 後続文書またはコンテキストに置き換えられた |
 | `Deprecated` | 使用を避けるが、互換性や履歴のため残す |
 | `Retired` | 現在および将来の利用対象から廃止された |
 
-Document Statusを、内部に含まれる全Context、実装、VerificationのStatusへ自動伝播させない。
+文書状態を、内部に含まれる全コンテキスト、実装、検証の状態へ自動伝播させない。
 
-## 5.2. Update and History
+## 5.2. 更新と履歴
 
-重要な更新では、何が、なぜ、どのAuthorityとEvidenceに基づき変わり、どのScopeとArtifactへ影響するかを説明可能にする。結果となるCanonical Artifactを更新し、Git履歴だけで理由や影響範囲を再現できない場合はDecision / RationaleまたはChange Traceへ残す。
+重要な更新では、何が、なぜ、どの決定権限と根拠に基づき変わり、どの対象範囲と成果物へ影響するかを説明可能にする。結果となる正本成果物を更新し、Git履歴だけで理由や影響範囲を再現できない場合は判断 / 判断理由または変更トレースへ残す。
 
-## 5.3. Superseded, Deprecated, and Deletion
+## 5.3. 置換・非推奨・削除
 
-古い文書は原則として保持し、無断で削除しない。現在も履歴または参照先として価値がある場合は`Superseded`、`Deprecated`、`Retired`を使用し、後継がある場合はLinkする。
+古い文書は原則として保持し、無断で削除しない。現在も履歴または参照先として価値がある場合は`Superseded`、`Deprecated`、`Retired`を使用し、後継がある場合はリンクする。
 
 文書整備、重複統合、責務移管、誤生成物の除去等により、残すことが重複、矛盾、誤参照の原因になる場合は、人間の承認により削除できる。削除前に次を確認する。
 
 ```text
-固有のContext、Decision / Rationale、Evidence、Historyが移管または不要と判断されている
-Link、Index、Related、Artifact Referenceが更新されている
-後継Canonical ArtifactとAuthorityが明確である
-Git履歴、Change Trace、または承認記録から削除理由を確認できる
+固有のコンテキスト、判断／判断理由、根拠、履歴が移管済み、または不要と判断されている
+リンク、索引、`関連`、成果物参照が更新されている
+後継の正本成果物と決定権限が明確である
+Git履歴、変更トレース、または承認記録から削除理由を確認できる
 ```
 
-機密情報、個人情報、権利侵害、Security Risk等では、通常の履歴保持より安全、法令、契約上の要請を優先する。
+機密情報、個人情報、権利侵害、セキュリティリスク等では、通常の履歴保持より安全、法令、契約上の要請を優先する。
 
 ---
 
@@ -432,21 +536,23 @@ Git履歴、Change Trace、または承認記録から削除理由を確認で�
 
 # 6. 根拠と来歴（Evidence and Provenance）
 
-## 6.1. Evidence Boundary
+## 6.1. 根拠の境界
 
-Evidenceは確認可能な根拠であり、Interpretation、Requirement、Decisionと同一ではない。Raw Voice、Observation、法令、既存資料、Log、Test Result等をEvidenceとして利用し、人間の解釈と判断を経てCanonical Contextへ反映する。
+根拠は確認可能な情報であり、解釈、要求、判断と同一ではない。利用者の生の声、観察、法令、既存資料、ログ、テスト結果等を根拠として利用し、人間の解釈と判断を経て正本コンテキストへ反映する。
 
-長大な生Log、文脈のないScreenshot、出典不明のMemo、AIが生成した未検証推測を、そのままCanonical Contextへ昇格しない。必要なSource、要約、条件、解釈、限界を付ける。
+長大な生ログ、文脈のないスクリーンショット、出典不明のメモ、AIが生成した未検証推測を、そのまま正本コンテキストへ昇格しない。必要な情報源、要約、条件、解釈、限界を付ける。
 
-## 6.2. Inline, File, and External Evidence
+<a id="62-inline-file-and-external-evidence"></a>
 
-短く一つのArtifactだけで使うEvidenceはInlineにできる。複数Artifactから参照する、量が多い、独立Reviewや再現が必要な場合は最寄りの`Evidence/`、または外部Artifactを使用する。
+## 6.2. 本文内・ファイル・外部の根拠
 
-External Evidenceは複製を必須にしない。外部Artifact ID、URL、Revision、取得時点、Authority、Access条件を必要な粒度で保持する。
+短く一つの成果物だけで使う根拠は本文内に記載できる。複数成果物から参照する、量が多い、独立レビューや再現が必要な場合は最寄りの`Evidence/`、または外部成果物を使用する。
 
-## 6.3. Minimum Evidence Properties
+外部の根拠は複製を必須にしない。外部成果物ID、URL、改訂版、取得時点、決定権限、アクセス条件を必要な粒度で保持する。
 
-Evidenceを成果物の根拠として使う場合、Riskに応じて次を追跡可能にする。
+## 6.3. 根拠の最小項目
+
+根拠を成果物の根拠として使う場合、リスクに応じて次を追跡可能にする。
 
 ```yaml
 evidence:
@@ -465,13 +571,13 @@ evidence:
   owner: UX Research
 ```
 
-必要に応じてConsent / Legal Basis、Confidentiality、Access、Redaction、Retention、Deletion条件も保持する。Evidence専用のCRDD Stable IDは要求せず、Artifact Referenceで追跡する。
+必要に応じて同意 / 法務根拠、機密性、アクセス、墨消し、保持期間、削除条件も保持する。根拠専用のCRDD安定コンテキストIDは要求せず、成果物参照で追跡する。
 
-## 6.4. Freshness, Conflict, and Lifecycle
+## 6.4. 新鮮さ・競合・状態遷移
 
-Evidenceは取得時点、条件、対象Scope / Revisionを示す。Lifecycle StatusはTerminologyのEvidence定義に従い、独自の同義Statusを増やさない。
+根拠は取得時点、条件、対象範囲／改訂版を示す。根拠の状態遷移は用語集の定義に従い、独自の同義状態を増やさない。
 
-新Evidenceが旧Evidenceと食い違う場合、旧記録を黙って削除しない。Freshness、条件差、適用範囲、Source、Conflict、置換関係を示し、必要なHuman Decisionへ戻す。
+新しい根拠が古い根拠と食い違う場合、古い記録を黙って削除しない。情報の新しさ、条件差、適用範囲、情報源、競合、置換関係を示し、必要な人間の判断へ戻す。
 
 ---
 
@@ -479,29 +585,31 @@ Evidenceは取得時点、条件、対象Scope / Revisionを示す。Lifecycle S
 
 # 7. 判断と判断理由（Decision and Rationale）
 
-## 7.1. Storage and Authority
+## 7.1. 記録場所と決定権限
 
-Decisionの結果は、結果となるCanonical Artifactへ反映する。理由、Evidence、Alternative、Consequences、Historyを同ArtifactのDecision / Rationale Sectionへ残す。
+判断の結果は、結果となる正本成果物へ反映する。理由、根拠、代替案、影響、履歴を同成果物の判断／判断理由の節へ残す。
 
-複数Artifactへ影響する場合は、判断責任を持つ主Artifactを一つ定め、他のArtifactからPathとAnchorで参照する。同じRationaleを複数箇所で手動管理しない。
+複数成果物へ影響する場合は、判断責任を持つ主成果物を一つ定め、他の成果物からパスとアンカーで参照する。同じ判断理由を複数箇所で手動管理しない。
 
-Architecture Decision Record等の領域固有形式を使用してよいが、全Decisionを集めるRoot直下の中央台帳や、CRDD標準Decision ID体系として扱わない。
+アーキテクチャ判断記録等の領域固有形式を使用してよいが、全判断を集めるルート直下の中央台帳や、CRDD標準の判断ID体系として扱わない。
 
-## 7.2. When to Record
+## 7.2. 記録する時点
 
 ```text
-OriginまたはProduct Principleへ影響する
+起点またはプロダクト原則へ影響する
 複数案から重要方針を選ぶ
-UX、IA、UI、Behavior、Architectureの責務やContractを変更する
-Compatibilityを破壊する
-重大Riskを受容する
+UX、IA、UI、振る舞い、アーキテクチャの責務や契約を変更する
+互換性を破壊する
+重大なリスクを受容する
 将来同じ理由を再利用する
-既存Decisionを置き換える
+既存の判断を置き換える
 ```
 
-軽微な誤字、意味を変えない整形、既存Ruleどおりの機械変更へ重いRationaleを要求しない。
+軽微な誤字、意味を変えない整形、既存規則どおりの機械変更へ重い判断理由を要求しない。
 
-## 7.3. Minimum Structure
+## 7.3. 最小構造
+
+次は実際に使用するテンプレートの項目名であり、識別子として英語表記を維持する。
 
 ```markdown
 ## Decision / Rationale
@@ -525,9 +633,9 @@ Compatibilityを破壊する
 変更日、Authority、置換前判断、再検討条件
 ```
 
-Riskが低い場合は`Adopted`、`Why`、`Evidence`へ縮小してよい。AIはCandidate、Alternative、Impact、Rationale Draftを整理できるが、Human Decisionとして自己承認しない。
+リスクが低い場合は`Adopted`、`Why`、`Evidence`へ縮小してよい。AIは候補、代替案、影響、判断理由の下書きを整理できるが、人間の判断として自己承認しない。
 
-判断が変わった場合、旧判断、変更理由、新Evidence、Authority、影響範囲、再検討条件を追跡可能にする。
+判断が変わった場合、旧判断、変更理由、新根拠、決定権限、影響範囲、再検討条件を追跡可能にする。
 
 ---
 
@@ -535,9 +643,9 @@ Riskが低い場合は`Adopted`、`Why`、`Evidence`へ縮小してよい。AI�
 
 # 8. 安定コンテキストID（Stable Context ID）
 
-## 8.1. Boundary
+## 8.1. 境界
 
-Stable Context IDは、Artifactの場所に依存せず、複数Artifactまたは工程をまたいで追跡する意味を識別する。一つのArtifactに複数Stable Contextを含めてよい。
+安定コンテキストIDは、成果物の場所に依存せず、複数成果物または工程をまたいで追跡する意味を識別する。一つの成果物に複数安定コンテキストを含めてよい。
 
 ```text
 05_SPEC/01_Topic_Behavior.md
@@ -546,43 +654,43 @@ Stable Context IDは、Artifactの場所に依存せず、複数Artifactまた�
 └─ SPEC-000052
 ```
 
-Document NumberはArtifactの分類・順序・探索用であり、Stable IDとは別の名前空間である。文書移動、名称変更、統合、分割、再採番だけを理由にStable IDを変更しない。
+文書番号は成果物の分類・順序・探索用であり、安定コンテキストIDとは別の名前空間である。文書移動、名称変更、統合、分割、再採番だけを理由に安定コンテキストIDを変更しない。
 
-Stable IDをファイル名やDirectory名へ埋め込まない。Artifactの識別は文書番号またはArtifact Reference、Artifact内で追跡する意味の識別はStable IDが担う。
+安定コンテキストIDをファイル名やディレクトリ名へ埋め込まない。成果物の識別は文書番号または成果物参照、成果物内で追跡する意味の識別は安定コンテキストIDが担う。
 
-## 8.2. Standard Format and Prefix
+## 8.2. 標準形式と接頭辞
 
 ```text
-<PREFIX>-<SEQUENCE>
+<PREFIX>-<順序>
 ```
 
-| Prefix | Meaning |
+| 接頭辞 | 意味 |
 |---|---|
-| `REQ` | Discoveryで確定したRequirement |
-| `UX` | UX Outcome、Experience Principle等 |
-| `IA` | Object、Responsibility、Navigation等 |
-| `UI` | 認識、操作、Feedback、StateのUI Contract |
-| `SPEC` | Condition、State、System Behavior、Exception、Acceptance |
+| `REQ` | 課題探索・要求形成で確定した要求 |
+| `UX` | UX成果、体験原則等 |
+| `IA` | 情報オブジェクト、責務、ナビゲーション等 |
+| `UI` | 認識、操作、フィードバック、状態のUI契約 |
+| `SPEC` | 条件、状態、システムの振る舞い、例外、受入条件 |
 
-`ARC`、`DEC`、`EVD`、Test用のCRDD標準Stable Context Prefixを新規発行しない。`CHG-*`は[Change](12_Change.md)が定義するChange Trace用Artifact IDであり、本節のStable Context IDには含めない。Stable Context IDへ名称、画面名、日付、Release、Feature名を埋め込まない。
+`ARC`、`DEC`、`EVD`、テスト用のCRDD標準安定コンテキストIDの接頭辞を新規発行しない。`CHG-*`は[変更](12_Change.md)が定義する変更トレース用成果物IDであり、本節の安定コンテキストIDには含めない。安定コンテキストIDへ名称、画面名、日付、リリース、機能名を埋め込まない。
 
-## 8.3. Assignment and Allocation
+## 8.3. 発行と採番
 
 次のいずれかに該当するREQ、UX、IA、UI、SPECへ付与する。
 
 ```text
-複数Artifactから参照される
+複数成果物から参照される
 別専門層へ変換される
-独立Review、承認、置換される
+独立レビュー、承認、置換される
 変更影響を長期追跡する
 同じ意味を再発見する必要がある
 ```
 
-生の会話、一時Memo、全Paragraph、全Figma Layer、Evidence File、Decision Section、Architectureの全Section、実装内部処理へ機械的に付与しない。
+生の会話、一時メモ、全段落、全Figmaレイヤー、根拠ファイル、判断の節、アーキテクチャの全節、実装内部処理へ機械的に付与しない。
 
-採番方法は特定FolderやRegistryを要求しない。ただし、Projectは採番責任を持つHuman、Team、またはToolと採番手順を明示する。Repository内でPrefixごとの重複を防ぎ、発行済み・Superseded・Retiredを含むSequenceを再利用しない。並行発行時は一つのAllocator、Index、Tool、またはReview手順で衝突を防ぐ。
+採番方法は特定フォルダや登録簿を要求しない。ただし、プロジェクトは採番責任を持つ人間、チーム、またはツールと採番手順を明示する。リポジトリ内で接頭辞ごとの重複を防ぎ、発行済み・置換済み・廃止済みを含む連番を再利用しない。並行発行時は一つの採番担当、索引、ツール、またはレビュー手順で衝突を防ぐ。
 
-## 8.4. Minimum Context Record
+## 8.4. コンテキストの最小記録
 
 ```yaml
 id: SPEC-000044
@@ -600,13 +708,13 @@ relations:
 last_updated: 2026-07-17
 ```
 
-最低限、ID、Type、Title、Status、Sourceを持ち、必要に応じてOwner、Authority、Revision、Relation、Last Reviewedを持つ。Status Lifecycleは各Context TypeのCanonical Definitionに従い、Stable ID専用の一律Lifecycleを作らない。
+最低限、ID、種別、表題、状態、情報源を持ち、必要に応じて担当責任者、決定権限、改訂版、関係、最終レビュー済みを持つ。状態遷移は各コンテキスト種別の正式な定義に従い、安定コンテキストID専用の一律状態遷移を作らない。
 
-## 8.5. Legacy IDs
+## 8.5. 旧ID
 
-Legacy Projectへ一括改番を要求しない。既存の非標準Prefixや旧意味のIDは履歴を破壊せず参照可能に保つが、新規標準Prefixとして発行しない。意味、責務、Contractが別物になる場合だけ新IDを発行し、旧IDを`supersedes`等で接続する。
+既存系プロジェクトへ一括改番を要求しない。既存の非標準接頭辞や旧意味のIDは履歴を破壊せず参照可能に保つが、新規標準接頭辞として発行しない。意味、責務、契約が別物になる場合だけ新IDを発行し、旧IDを`supersedes`等で接続する。
 
-Version固有の変更内容とMigration Noteは[Maintenance](19_Maintenance.md)および`CHANGELOG.md`を正本とする。
+バージョン固有の変更内容と移行メモは[保守](19_Maintenance.md)および`CHANGELOG.md`を正本とする。
 
 ---
 
@@ -614,11 +722,11 @@ Version固有の変更内容とMigration Noteは[Maintenance](19_Maintenance.md)
 
 # 9. 成果物参照と追跡可能性
 
-## 9.1. Artifact Reference
+## 9.1. 成果物参照
 
-Stable IDを付与しないArchitecture、Evidence、Decision、Change Trace、Implementation、Test、Release、外部ArtifactはArtifact Referenceで接続する。
+安定コンテキストIDを付与しないアーキテクチャ、根拠、判断、変更トレース、実装、テスト、リリース、外部成果物は成果物参照で接続する。
 
-Riskと媒体に応じて次を識別可能にする。
+リスクと媒体に応じて次を識別可能にする。
 
 ```yaml
 artifact_reference:
@@ -631,35 +739,35 @@ artifact_reference:
   last_verified: 2026-07-17
 ```
 
-Git ArtifactではPath、Anchor、Commit / Revision、外部SystemではURL、Record ID、Version、取得方法等を使用する。`latest`、ファイル名だけ、壊れやすいSession URLだけで重要Artifactを参照しない。
+Git成果物ではパス、アンカー、コミット / 改訂版、外部システムではURL、記録ID、バージョン、取得方法等を使用する。`latest`、ファイル名だけ、壊れやすいセッションURLだけで重要成果物を参照しない。
 
-## 9.2. Standard Relations
+## 9.2. 標準関係
 
-| Relation | Meaning |
+| 関係 | 意味 |
 |---|---|
-| `derived_from` | 上流Contextから変換・具体化された |
-| `addresses` | Requirementの解決へ寄与する |
-| `realizes` | UX Outcomeや原則を実現する |
-| `specified_by` | RequirementがBehavior Specificationで具体化される |
-| `pairs_with` | UI ContractとBehavior Specificationが対応する |
+| `derived_from` | 上流コンテキストから変換・具体化された |
+| `addresses` | 要求の解決へ寄与する |
+| `realizes` | UX成果や原則を実現する |
+| `specified_by` | 要求が振る舞い仕様で具体化される |
+| `pairs_with` | UI契約と振る舞い仕様が対応する |
 | `constrains` | 下流へ守る条件を与える |
-| `depends_on` | 成立に別Contextを必要とする |
-| `supersedes` | 新Contextが旧Contextを置き換える |
-| `implemented_by` | Stable ContextをImplementation Artifactへ接続する |
-| `verified_by` | ContextまたはArtifactをVerification Evidenceへ接続する |
+| `depends_on` | 成立に別コンテキストを必要とする |
+| `supersedes` | 新コンテキストが旧コンテキストを置き換える |
+| `implemented_by` | 安定コンテキストを実装成果物へ接続する |
+| `verified_by` | コンテキストまたは成果物を検証根拠へ接続する |
 
-RelationはSource、Target、意味、対象Revisionを必要な粒度で保持する。新しい同義Relationを無制限に増やさず、標準Relationで表現できない場合は意味を定義する。
+関係は情報源、対象、意味、対象改訂版を必要な粒度で保持する。新しい同義関係を無制限に増やさず、標準関係で表現できない場合は意味を定義する。
 
-## 9.3. Index
+## 9.3. 索引
 
-Stable Contextの所在と状態を一覧化するIndexを置いてよいが、特定Directoryは要求しない。Indexは正本全文のCopyではなく、ID、Type、Title、Status、Sourceを発見するViewである。
+安定コンテキストの所在と状態を一覧化する索引を置いてよいが、特定ディレクトリは要求しない。索引は正本全文の複製ではなく、ID、種別、表題、状態、情報源を発見する表示である。
 
-Relation Indexを使用する場合はFrom、Relation、To、Statusを最低限持ち、必要に応じてSource、Revision、Change Trace、Notesを持つ。IndexとCanonical Artifactが競合した場合、宣言されたProperty Authorityへ戻す。
+関係索引を使用する場合は情報源、関係、対象、状態を最低限持ち、必要に応じて改訂版、変更トレース、注記を持つ。索引と正本成果物が競合した場合、宣言された項目の決定権限へ戻す。
 
-## 9.4. Requirement to Verification
+## 9.4. 要求から検証まで
 
 ```text
-Source / Evidence / Problem / Need or Desired Outcome
+情報源／根拠／問題／ニーズまたは望ましい成果
   -> REQ-000012
 REQ-000012 specified_by SPEC-000044
 UI-000021 pairs_with SPEC-000044
@@ -667,49 +775,49 @@ SPEC-000044 implemented_by path/to/implementation
 SPEC-000044 verified_by test-or-evidence-reference
 ```
 
-Traceは単一の固定Chainを要求しない。REQはDiscovery Source、Problem、Need / Desired Outcomeからの由来を辿れ、UX / IA / UI / SPECはそれぞれのProperty Authorityに従ってREQを変換する。一つのRequirementを複数SPECが具体化してよく、一つのSPECが複数Requirementへ寄与してよい。重要な下流成果物から上流のIntentとDecisionへ遡れ、上流変更から影響するArtifactを確認できなければならない。
+追跡は単一の固定連鎖を要求しない。REQは課題探索・要求形成の情報源、問題、ニーズ／望ましい成果からの由来を辿れ、UX／IA／UI／SPECはそれぞれの項目の決定権限に従ってREQを変換する。一つの要求を複数SPECが具体化してよく、一つのSPECが複数要求へ寄与してよい。重要な下流成果物から上流の意図と判断へ遡れ、上流変更から影響する成果物を確認できなければならない。
 
 ---
 
 <a id="10-documentation-scale-and-patterns"></a>
 
-# 10. 文書規模と構成Pattern
+# 10. 文書規模と構成パターン
 
-## 10.1. Scale
+## 10.1. 規模
 
-| Scale | Use | Documentation |
+| 規模 | 用途 | 文書化 |
 |---|---|---|
-| Compact | 小規模、単一Scope、既知Rule内 | 既存ArtifactのSection更新、短いRationale、必要Trace |
-| Standard | 通常Feature、複数Artifact、人間Review | Common Artifact Contract、Phase Coverage、Change Trace、Verification |
-| Extended | 高Risk、複数Stakeholder、Migration、Legacy大規模 | 複数Evidence、Baseline、Alternative、専門Review、Impact、Release Evidence |
+| 簡易 | 小規模、単一対象範囲、既知規則内 | 既存成果物の節更新、短い判断理由、必要トレース |
+| 標準 | 通常の機能、複数成果物、人間レビュー | 共通成果物契約、工程の網羅範囲、変更トレース、検証 |
+| 拡張 | 高リスク、複数関係者、移行、既存系大規模 | 複数根拠、基準版、代替案、専門レビュー、影響、リリース根拠 |
 
-規模は行数やファイル数ではなく、Risk、Authority、Context量、再現性、判断負荷に合わせる。`Scale`をConformance Profileまたは品質等級として扱わない。
+規模は行数やファイル数ではなく、リスク、決定権限、コンテキスト量、再現性、判断負荷に合わせる。`規模`を準拠プロファイルまたは品質等級として扱わない。
 
-## 10.2. Separation Guide
+## 10.2. 分割の判断
 
-次の場合はArtifactまたはSectionを分ける。
+次の場合は成果物または節を分ける。
 
 ```text
-Property Authorityが異なる
-LifecycleまたはApproverが異なる
+項目の決定権限が異なる
+状態遷移または承認者が異なる
 更新頻度が大きく異なる
-独立Reviewや再利用が必要である
-一つのArtifactでは責務境界を誤読する
+独立レビューや再利用が必要である
+一つの成果物では責務境界を誤読する
 ```
 
-単に長い、担当Agentが異なる、Templateが別という理由だけで正本を増やさない。
+単に長い、担当エージェントが異なる、ひな型が別という理由だけで正本を増やさない。
 
-## 10.3. Patterns
+## 10.3. 構成パターン
 
-Principle DocumentはPurpose、Principle、Rule、Exampleを必要な粒度で持つ。Design / Definition ArtifactはSource Context、Preserved Intent、Scope / Non-goal、Decision / Definition、Constraint、Risk / Open Question、Downstream Obligation、Verificationを取得可能にする。
+原則文書は目的、原則、規則、例を必要な粒度で持つ。設計／定義成果物は情報源コンテキスト、保持する意図、対象範囲／目指さないこと、判断／定義、制約、リスク／未決事項、下流への義務、検証を取得可能にする。
 
-Change TraceのTrigger、Intent、Expected / Actual Impact、Artifact Trace、Release帰属は[Change](12_Change.md)を正本とし、Documentation側に別Templateを作らない。Release RecordとCHANGELOGは[Release](13_Release.md)、作業手順は[Workflow](14_Workflow.md)に従う。
+変更トレースの契機、意図、想定／実際の影響、成果物のトレース、リリース帰属は[変更](12_Change.md)を正本とし、文書化側に別ひな型を作らない。リリース記録とCHANGELOGは[リリース](13_Release.md)、作業手順は[作業手順](14_Workflow.md)に従う。
 
-## 10.4. Validation and Audit
+## 10.4. 妥当性確認と監査
 
-本書は、検査対象となるRuleを定義する。検査の実行方法は、次を正本とする。
+本書は、検査対象となる規則を定義する。検査の実行方法は、次を正本とする。
 
-- 文書のAudit手順、Severity、Remediation Policy、Audit Completion、Target Status: [Document Audit](51_Document_Audit.md)
-- 工程ArtifactのCoverage: 各工程の`Phase Audit Checklist`
-- CRDDの最小適用条件と適用状態: [Conformance Audit](52_Conformance_Audit.md)
-- 変更影響: [Gap / Impact Audit](53_Gap_Impact_Audit.md)
+- 文書の監査手順、重大度、是正方針、監査完了、対象状態: [文書監査](51_Document_Audit.md)
+- 工程成果物の網羅範囲: 各工程の`Phase Audit Checklist`
+- CRDDの最小適用条件と適用状態: [準拠監査](52_Conformance_Audit.md)
+- 変更影響: [不足／影響監査](53_Gap_Impact_Audit.md)

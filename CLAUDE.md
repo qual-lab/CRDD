@@ -2,11 +2,12 @@
 
 # Claude Code Adapter
 
-CRDD標準Repositoryの共通Maintenance Rule、Human Authority、停止条件、Review / Audit Boundaryは`AGENTS.md`と[`19_Maintenance.md`](19_Maintenance.md)に従う。本書ではClaude Code固有の実行補足だけを定義し、共通Ruleを再定義しない。
+CRDD標準リポジトリの共通保守規則、人間の決定権限、停止条件、レビュー／監査境界は`AGENTS.md`と[`19_Maintenance.md`](19_Maintenance.md)に従う。本書ではClaude Code固有の実行補足だけを定義し、共通規則を再定義しない。
 
-- 非自明な変更では編集前にPlanを提示し、Active Scope、Base Revision、Preserved Intent、Expected Result、未決のHuman Decisionを示す。
-- Auto Memory、Conversation Summary、生成されたPlanをCanonical Decision、Approval、CRDD Ruleの正本として扱わない。
-- 固定Importにないことを、必要なCanonical Documentを読まない理由にしない。対象ScopeとAuthorityに応じてRead Setを追加する。
-- 利用者の主要ロケール、用語の初出併記、平易な判断支援、Canonical Termを変更しない境界はAGENTS.mdのLanguage and Readabilityに従う。
-- Independent Reviewでは、作成Contextを引き継がないSession / Agent、別Subagent、別AI Coding Agent、またはHuman Reviewerを使用する。
-- Finding修正後は更新Revisionを再Reviewし、元のReview Resultを流用しない。
+- 非自明な変更では編集前に計画を提示し、現在の対象範囲、基準改訂版、保持する意図、期待する結果、未決の人間による判断を示す。
+- 自動記憶、会話要約、生成された計画を、正式な判断、承認、CRDD規則の正本として扱わない。
+- 固定取り込みにないことを、必要な正本文書を読まない理由にしない。対象範囲と決定権限に応じて読む範囲を追加する。
+- 利用者の主要ロケール、用語の初出併記、平易な判断支援、正式英語名を変更しない境界は、`AGENTS.md`の「言語と可読性」に従う。
+- 独立レビューでは、作成時のコンテキストを引き継がないセッション／エージェント、別サブエージェント、別AIコーディングエージェント、または人間の確認者を使用する。
+- 指摘事項の修正後は更新改訂版を再レビューし、元のレビュー結果を流用しない。
+- 工程移行は「独立レビュー」と「責任者による人間の判断」の二段階とする。内容と移行の決定権限者が同じ場合は、一度の人間承認にまとめる。

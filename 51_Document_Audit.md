@@ -2,11 +2,11 @@
 
 # CRDD文書監査（Document Audit）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Agent ID: `agent.document.audit`
-Last Updated: 2026-07-22
+エージェントID: `agent.document.audit`
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -21,347 +21,355 @@ Related:
 
 > この文書で分かること（非規範の案内）
 >
-> - 文書のLink、Anchor、構造、用語をどう監査するか
+> - 文書のリンク、アンカー、構造、用語をどう監査するか
 > - 重複、正本競合、情報劣化をどう見つけるか
-> - 日本語表示とCanonical Termの意味一致をどう確認するか
-> - Findingへ何を記録し、誰へ修正を返すか
-> - 修正後RevisionをいつPassと判断できるか
+> - 日本語表示と正式用語の意味一致をどう確認するか
+> - 指摘事項へ何を記録し、誰へ修正を返すか
+> - 修正後改訂版をいつ合格と判断できるか
 
 <a id="purpose-and-boundary"></a>
 
 # 目的と適用範囲（Purpose and Boundary）
 
-本書は、CRDD Repositoryの文書体系、参照、用語、Authority、Stable Context ID、Traceabilityを継続的に評価するDocument Auditの共通Contractである。CRDD標準Repositoryだけでなく、CRDDを採用するProject RepositoryのCanonical Artifact、Handoff View、Review Result等も、対象Scopeへ含めた場合は本書で監査する。
+本書は、CRDDリポジトリの文書体系、参照、用語、決定権限、安定コンテキストID、追跡可能性を継続的に評価する文書監査の共通契約である。CRDD標準リポジトリだけでなく、CRDDを採用するプロジェクトリポジトリの正本成果物、引き渡し表示、レビュー結果等も、対象範囲へ含めた場合は本書で監査する。
 
 ```text
-Document Audit     = 文書品質、参照、用語、Authority、Stable Context ID、Traceabilityの監査
-Phase Audit        = 各工程のEntry、Coverage、Exit、Gate条件の監査
-Conformance Audit  = C / PL / AD CriteriaとConformance Claimの監査
-Gap / Impact Audit = Relationを横断したGap、影響候補、再Review範囲の監査
-Verification       = Product / ImplementationがContractを満たすかのFresh Evidenceによる検証
+文書監査     = 文書品質、参照、用語、決定権限、安定コンテキストID、追跡可能性の監査
+工程監査        = 各工程の入口、網羅範囲、出口、判定条件の監査
+準拠監査  = C / PL / AD 基準と準拠表明の監査
+不足 / 影響監査 = 関係を横断した不足、影響候補、再レビュー範囲の監査
+検証       = プロダクト / 実装が契約を満たすかの新しい根拠による検証
 ```
 
-Document Auditは成果物作成、工程承認、Conformance Claim、変更影響分析、Product Verificationの代替ではない。対象工程の文書品質を監査するためPhase Audit Checklistを参照できるが、Phase Gateを自己承認しない。
+文書監査は成果物作成、工程承認、準拠表明、変更影響分析、プロダクト検証の代替ではない。対象工程の文書品質を監査するため工程監査チェックリストを参照できるが、工程ゲートを自己承認しない。
 
-Document Audit Runは読取専用である。Findingと修正案を返し、Canonical Artifactの変更はParent Agent、人間、または明示的に承認されたRemediation Runが行う。同一Task内で監査と修正を続ける場合も、Audit Resultを確定してから修正し、再監査する。
+文書監査実行は読取専用である。指摘事項と修正案を返し、正本成果物の変更は親エージェント、人間、または明示的に承認された是正実行が行う。同一作業内で監査と修正を続ける場合も、監査結果を確定してから修正し、再監査する。
 
 ---
 
-# 1. Audit Responsibility and Authority
+# 1. 監査責務と決定権限
 
-Document Auditは対象Scopeについて次を担当する。
+文書監査は対象範囲について次を担当する。
 
 | 監査責務 | 確認する観点 |
 |---|---|
-| Structure | Header、Markdown、見出し、Artifact Contract、配置 |
-| Reference | Link、Anchor、Related、旧Path、Index / Overview |
-| Terminology | Canonical Term、Alias、Status、Concept境界 |
-| Readability | 主要ロケール、初出併記、平易な説明、義務の分離、表示名と識別子の境界 |
-| Normative / Authority | Rule強度、正本、責務境界、Human / AI Authority |
-| Duplication | 同じRuleの複数正本化、統合後の残存、意味の競合 |
-| Identification | 文書番号、ファイル名、Stable Context ID、Artifact Reference |
-| Traceability | Source、Decision、Context Relation、Implementation、Verificationへの到達 |
-| Propagation | 変更で直接影響する既知文書、Template、Entry Fileの追従 |
-| Lifecycle | Status、Version、Deprecation、Superseded、Release整合 |
+| 構造 | ヘッダー、Markdown、見出し、成果物契約、配置 |
+| 参照 | リンク、アンカー、関連、旧パス、索引 / 概要 |
+| 用語 | 正式用語、別名、状態、概念境界 |
+| 可読性 | 主要ロケール、初出併記、平易な説明、義務の分離、表示名と識別子の境界 |
+| 規範 / 決定権限 | 規則強度、正本、責務境界、人間 / AIの決定権限 |
+| 重複 | 同じ規則の複数正本化、統合後の残存、意味の競合 |
+| 識別 | 文書番号、ファイル名、安定コンテキストID、成果物参照 |
+| 追跡可能性 | 情報源、判断、コンテキスト関係、実装、検証への到達 |
+| 伝播 | 変更で直接影響する既知文書、ひな型、入口ファイルの追従 |
+| 状態遷移 | 状態、バージョン、廃止、置換済み、リリース整合 |
 
-Audit実行者は、Finding、Evidence、Impact、Severity、Recommendation、Remediation Eligibilityを返す。定義済み基準によるFinding分類は行えるが、Authority変更、Decision、Risk受容、Status昇格、Phase Approvalを自己確定しない。
+監査実行者は、指摘事項、根拠、影響、重大度、推奨、是正の可否を返す。定義済み基準による指摘事項分類は行えるが、決定権限変更、判断、リスク受容、状態昇格、工程承認を自己確定しない。
 
 ---
 
-# 2. Input and Audit Scope
+# 2. 入力と監査対象範囲
 
-Document Auditは最低限、次をInputとする。
+文書監査は最低限、次を入力とする。
 
 ```text
-Audit Purpose
-Target Scope and Revision
-Changed Files or Target Artifacts
-Applicable Standards / Phase Sources
-Known Decision / Change Trace
-Requested Depth and Output
+監査目的
+対象範囲と改訂版
+変更されたファイルまたは対象成果物
+適用される標準 / 工程の情報源
+既知判断 / 変更トレース
+依頼された深さと出力
 ```
 
-監査Scopeは、対象ファイルだけでなく、直接参照、参照元、正本Authority、既知のPropagation先を含める。Repository全体Auditでない限り、Scope外の文書を無制限に読み、未確認領域までPassと推定しない。
+監査対象範囲は、対象ファイルだけでなく、直接参照、参照元、正本決定権限、既知の伝播先を含める。リポジトリ全体監査でない限り、対象範囲外の文書を無制限に読み、未確認領域まで合格と推定しない。
 
-Audit実行者は、親から渡されたRead Setだけを機械的に信頼せず、Broken Link、Authority、Term、Propagationを判定するために必要な直接Dependencyを追加で読める。Relation Graphの広範な探索が必要になった場合はGap / Impact AuditへHandoffする。
+監査実行者は、親から渡された読み取り集合だけを機械的に信頼せず、破損リンク、決定権限、用語、伝播を判定するために必要な直接依存関係を追加で読める。関係グラフの広範な探索が必要になった場合は不足／影響監査へ引き渡しする。
 
-## 2.1. Context-sensitive Read Set
+## 2.1. コンテキストに応じた読取り対象
 
-対象Scopeに応じて次から必要なものを読む。
+対象範囲に応じて次から必要なものを読む。
 
-- README、Overview、対象Folder Index
+- README、概要、対象フォルダ索引
 - Terminology、Documentation、Principles
-- 対象ArtifactとRelated先・参照元
-- 対象工程のPhase Process Contract / Phase Audit Checklist
-- Change Trace、Decision / Rationale、Known Finding
-- Template、CLAUDE.md、AGENTS.md等のRepository Entry File
-- Maintenance、CHANGELOG、Release情報
+- 対象成果物と関連先・参照元
+- 対象工程の工程実行契約 / 工程監査チェックリスト
+- 変更トレース、判断／判断理由、既知の指摘事項
+- ひな型、CLAUDE.md、AGENTS.md等のリポジトリ入口ファイル
+- 保守、CHANGELOG、リリース情報
 
-CHANGELOGは公開Release、利用者影響、Migration、Normative Change等で必要な場合に確認する。すべてのEditorial Changeへ機械的な追記を要求しない。
+CHANGELOGは公開リリース、利用者影響、移行、規範変更等で必要な場合に確認する。すべての編集上の変更へ機械的な追記を要求しない。
 
 ---
 
-# 3. Output
+<a id="3-output"></a>
 
-Document Auditは、一つのAudit Reportを返す。
+# 3. 出力
 
-## 3.1. Audit Status
+文書監査は、一つの監査報告を返す。
 
-| Status | Meaning |
+## 3.1. 監査状態
+
+| 状態 | 意味 |
 |---|---|
-| `Pass` | 適用Checkを評価し、未解決Critical / Majorがなく、残るMinor / InfoにDispositionがある |
-| `Conditional` | 対象を限定した例外または未解決事項があり、条件・Owner・Human Authorityが明確である |
-| `Fail` | 未解決Critical / Major、正本競合、重大Trace切れ等により対象を合格と評価できない |
-| `Blocked` | Scope、Revision、Authority、Artifact等が不足し、必要な評価を完了できない |
+| `Pass` | 適用確認を評価し、未解決重大 / メジャーがなく、残るマイナー / 情報に処置がある |
+| `Conditional` | 対象を限定した例外または未解決事項があり、条件・担当責任者・人間の決定権限が明確である |
+| `Fail` | 未解決重大 / メジャー、正本競合、重大トレース切れ等により対象を合格と評価できない |
+| `Blocked` | 対象範囲、改訂版、決定権限、成果物等が不足し、必要な評価を完了できない |
 
-Audit StatusはFinding Severityと別の軸である。Audit Runが正常に完了して`Fail`を返すことも、評価不能の理由を揃えて`Blocked`を返すこともできる。
+監査状態は指摘事項の重大度と別の軸である。監査実行が正常に完了して`Fail`を返すことも、評価不能の理由を揃えて`Blocked`を返すこともできる。
 
-## 3.2. Finding Fields
+<a id="32-finding-fields"></a>
 
-各Findingは最低限、次を持つ。
+## 3.2. 指摘事項の項目
 
-| Field | Meaning |
+各指摘事項は最低限、次を持つ。
+
+| 項目 | 意味 |
 |---|---|
-| `finding_id` | Audit Report内で一意なLocal Key。CRDD標準Stable Context IDではない |
+| `finding_id` | 監査報告内で一意なローカルキー。CRDD標準安定コンテキストIDではない |
 | `severity` | Critical / Major / Minor / Info |
-| `category` | Structure / Reference / Terminology / Normative / Authority / Duplication / Propagation / Identification / Traceability / Lifecycle |
-| `target` | File、Anchor、Artifact Reference等の対象 |
-| `rule_reference` | 判定に使用した正本RuleまたはContract |
+| `category` | `Structure` / `Reference` / `Terminology` / `Readability` / `Normative` / `Authority` / `Duplication` / `Propagation` / `Identification` / `Traceability` / `Lifecycle` |
+| `target` | ファイル、アンカー、成果物参照等の対象 |
+| `rule_reference` | 判定に使用した正本規則または契約 |
 | `evidence` | 再確認できる根拠 |
-| `impact` | 放置した場合の影響とScope |
-| `recommendation` | 推奨対応またはHandoff |
-| `remediation` | Safe Mechanical / Review Required / Human Decision Required |
+| `impact` | 放置した場合の影響と対象範囲 |
+| `recommendation` | 推奨対応または引き渡し |
+| `remediation` | `Safe Mechanical` / `Review Required` / `Human Decision Required` |
 | `owner` | 次の対応責任 |
-| `status` | Open / Accepted for Remediation / Resolved / Deferred / False Positive等 |
+| `status` | `Open`／`Accepted for Remediation`／`Resolved`／`Deferred`／`False Positive`等 |
 
-FindingへCRDD標準Stable Context IDを発行しない。Audit Report内Key、Issue、Change Trace、Artifact Path等で追跡する。
+指摘事項へCRDD標準安定コンテキストIDを発行しない。監査報告内のキー、Issue、変更トレース、成果物パス等で追跡する。
 
-## 3.3. Report View
+## 3.3. 報告表示
 
 ```text
-Audit Purpose / Scope / Revision
-Applicable Standards and Read Set
-Status / Summary
-Checks Performed / Not Evaluated / Not Applicable
-Findings
-Traceability Gaps
-Direct Propagation Gaps
-Open Questions / Blocking Conditions
-Recommended Handoff / Re-audit Condition
+監査目的 / 対象範囲 / 改訂版
+適用される標準と読み込み集合
+状態 / 要約
+実施した確認 / 未評価 / 適用外
+指摘事項
+追跡可能性不足
+直接伝播の不足
+未決事項 / 阻害条件
+推奨引き渡し / 再監査条件
 ```
 
-Conformance Auditは本章のStatus、Finding Fields、Severity、Report Viewを再利用し、`criterion_id`等の固有Fieldだけを追加する。
+準拠監査は本章の状態、指摘事項項目、重大度、報告表示を再利用し、`criterion_id`等の固有項目だけを追加する。
 
 ---
 
-# 4. Audit Categories
+# 4. 監査分類
 
-## 4.1. Structure and Format Audit
+## 4.1. 構造と形式の監査
 
-CRDD標準文書とCanonical Markdown Documentでは、[Documentation Header](03_Documentation.md#44-markdown-header)に定めるHeaderと、Markdown構文、見出し階層、Code Fence、Table、Anchorを確認する。
+CRDD標準文書と正本Markdown文書では、[文書ヘッダー](03_Documentation.md#44-markdown-header)に定めるヘッダーと、Markdown構文、見出し階層、コードフェンス、表、アンカーを確認する。
 
-その他のArtifactでは、媒体とRiskに応じてCommon Artifact Contractの情報を取得可能か確認し、同じMarkdown Headerを機械的に要求しない。
+その他の成果物では、媒体とリスクに応じて共通成果物契約の情報を取得可能か確認し、同じMarkdownヘッダーを機械的に要求しない。
 
-空Section、孤立した例、同じ内容のSummary / Minimum Rule、見出しだけ残った統合跡、情報粒度を失った過度な要約も確認する。
+空の節、孤立した例、同じ内容の要約／最小規則、見出しだけ残った統合跡、情報粒度を失った過度な要約も確認する。
 
-## 4.2. Reference, Naming, and Numbering Audit
+## 4.2. 参照・命名・採番の監査
 
 次を確認する。
 
-- Broken Link / Anchor、Related切れ、旧ファイル名、孤立Artifact
-- 外部Sourceを実質的に使用する場合のSource / Versionまたは発行日、Authoritative URL / DOI、Relation、適用Section、Coverage、および過大な準拠・網羅Claim
-- README、Overview、Folder Index等の探索導線
-- 文書体系またはFolder内の採番帯、重複番号、順序
-- `00_CRDD/`内でFolder番号を重ねた`00_01_*`等ではなく、`01_*`等の二桁Document Numberを一度だけ使用していること
-- ファイル名が目的を表し、Stable IDを埋め込んでいないこと
-- 文書移動・統合・削除後の参照元とTemplateの追従
+- 破損リンク / アンカー、関連切れ、旧ファイル名、孤立成果物
+- 外部情報源を実質的に使用する場合の情報源 / バージョンまたは発行日、正本 URL / DOI、関係、適用節、網羅範囲、および過大な準拠・網羅表明
+- README、概要、フォルダ索引等の探索導線
+- 文書体系またはフォルダ内の採番帯、重複番号、順序
+- `00_CRDD/`内でフォルダ番号を重ねた`00_01_*`等ではなく、`01_*`等の二桁文書番号を一度だけ使用していること
+- ファイル名が目的を表し、安定コンテキストIDを埋め込んでいないこと
+- 文書移動・統合・削除後の参照元とひな型の追従
 
-文書番号はArtifactの分類、順序、探索用であり、Stable Context IDと同じ名前空間として監査しない。
+文書番号は成果物の分類、順序、探索用であり、安定コンテキストIDと同じ名前空間として監査しない。
 
-## 4.3. Terminology, Status, and Normative Audit
+## 4.3. 用語・状態・規範表現の監査
 
-[`02_Terminology.md`](02_Terminology.md)のCanonical Concept、Alias、Status、Authorityと一致するか確認する。特にObservation / Evidence、Proposal / Decision、Implemented / Verified / Accepted、Draft / Candidate / Reviewed / Approvedの混同を検出する。
+[`02_Terminology.md`](02_Terminology.md)の正式概念、別名、状態、決定権限と一致するか確認する。特に観察 / 根拠、提案 / 判断、実装済み / 検証済み / 受入済み、下書き / 候補 / レビュー済み / 承認済みの混同を検出する。
 
-規範強度語彙は[`03_Documentation.md`](03_Documentation.md#48-normative-language)を正本とする。`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`等を使う場合は、その強さが文書のStatus、Property Authority、人間判断と矛盾していないか確認する。日本語の義務表現も意味上のRuleとして評価し、英語Keywordの有無だけで規範性を判断しない。
+規範強度語彙は[`03_Documentation.md`](03_Documentation.md#48-normative-language)を正本とする。`MUST`、`MUST NOT`、`SHOULD`、`SHOULD NOT`、`MAY`等を使う場合は、その強さが文書の状態、項目の決定権限、人間判断と矛盾していないか確認する。日本語の義務表現も意味上の規則として評価し、英語キーワードの有無だけで規範性を判断しない。
 
 利用者ロケールを優先した表示では、次を確認する。
 
-- 初出時のローカル表示名とCanonical English Termが同じ概念を指す
-- 翻訳によってRule、Authority、Status、識別子、例外、完了条件が変わっていない
-- Canonical Term、ID、File名、Schema Key / Valueを表示名と混同して変更していない
+- 初出時のローカル表示名と正式英語名が同じ概念を指す
+- 初出後の説明文、見出し、説明用の表がローカル表示名を基本とし、英語名だけへ戻っていない
+- 新規作成・更新したCHG、根拠の説明・要約、ロードマップ、リリース記録、レビュー・監査結果が、対象成果物の主要ロケールに従っている
+- `Changes/`、`Evidence/`、`CHG-*`等の英語識別子から本文言語を推定していない
+- 翻訳によって規則、決定権限、状態、識別子、例外、完了条件が変わっていない
+- 正式用語、ID、ファイル名、スキーマキー / 値を表示名と混同して変更していない
+- 説明用表示名とスキーマキー / 値を区別し、機械可読な実値だけを維持している
 - 一文へ複数の独立した義務を詰め込み、適用条件や決定主体が読めなくなっていない
 - 専門用語だけで人間への質問・判断支援を完結させていない
 
-英語用語が残っていること、ローカライズしていないことだけをFindingにしない。対象読者の理解、意味保存、誤判断の可能性を評価する。
+英語用語が残っていること、ローカライズしていないことだけを指摘事項にしない。対象読者の理解、意味保存、誤判断の可能性を評価する。
 
-表現の好みだけではFindingにしない。対象読者がScope、Decision、Obligation、Exception、Risk、Unresolved Gap、Handoff条件を誤解し、判断、実装、Verification、Risk受容、工程移行へ影響する可能性がある場合は、ImpactとSeverityを持つReadability Findingとして記録する。
+表現の好みだけでは指摘事項にしない。対象読者が対象範囲、判断、義務、例外、リスク、未解決事項、引き渡し条件を誤解し、判断、実装、検証、リスク受容、工程移行へ影響する可能性がある場合は、影響と重大度を持つ可読性の指摘事項として記録する。
 
-Status、Version、Last Updated、Release / CHANGELOGの関係を適用範囲で確認する。AIや文書編集者がStatusを自己昇格していないか、Deprecated / Superseded Artifactの後継参照とMigrationがあるか、削除がDocumentationの廃止規則とHuman Approvalに従っているかを確認する。
+状態、バージョン、最終更新済み、リリース／CHANGELOGの関係を適用範囲で確認する。AIや文書編集者が状態を自己昇格していないか、非推奨／置換済み成果物の後継参照と移行があるか、削除が文書化の廃止規則と人間の承認に従っているかを確認する。
 
-## 4.4. Authority, Duplication, and Information Preservation Audit
+## 4.4. 決定権限・重複・情報保持の監査
 
-同じRuleまたはConceptが複数文書で正本化されていないか、入口・変換・出口・Gateが異なるAuthorityから競合していないか確認する。
+同じ規則または概念が複数文書で正本化されていないか、入口・変換・出口・ゲートが異なる決定権限から競合していないか確認する。
 
 ```text
-同じ見出しや定義が別Sectionで説明量だけ変えて反復されていないか
-共通Ruleを各工程へコピーし、更新元が分岐していないか
-工程固有Ruleが共通文書へ移り、専門的な条件を失っていないか
-統合・短縮で例外、Authority、適用条件、Evidence、Handoffが消えていないか
-例示やTemplateがCanonical Ruleと異なる別規則になっていないか
+同じ見出しや定義が別節で説明量だけ変えて反復されていないか
+共通規則を各工程へコピーし、更新元が分岐していないか
+工程固有規則が共通文書へ移り、専門的な条件を失っていないか
+統合・短縮で例外、決定権限、適用条件、根拠、引き渡しが消えていないか
+例示やひな型が正本規則と異なる別規則になっていないか
 ```
 
-同一語句の出現だけでFindingにしない。親Section、目的、Authority、規範性、参照関係を比較し、探索または判断が分岐する重複をFindingとする。
+同一語句の出現だけで指摘事項にしない。親節、目的、決定権限、規範性、参照関係を比較し、探索または判断が分岐する重複を指摘事項とする。
 
-## 4.5. Stable Context ID and Artifact Reference Audit
+## 4.5. 安定コンテキストIDと成果物参照の監査
 
 次を確認する。
 
-- CRDD標準Stable Context IDが`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種類に限定されている
-- 追跡価値のある対象Contextへ必要最小限のIDが付与されている
-- Architecture、Decision、Evidence、Change、Implementation、Test、Verification、Findingへ標準外Prefixを新規発行していない
-- 一文書一ID、全Paragraph、全Test等への機械的付与を要求していない
-- 一つのArtifact内にある複数Contextを独立参照できる
-- IDの再利用、意味の上書き、ファイル名・Directory名への埋め込みがない
+- CRDD標準安定コンテキストIDが`REQ`、`UX`、`IA`、`UI`、`SPEC`の5種類に限定されている
+- 追跡価値のある対象コンテキストへ必要最小限のIDが付与されている
+- アーキテクチャ、判断、根拠、変更、実装、テスト、検証、指摘事項へ標準外接頭辞を新規発行していない
+- 一文書一ID、全段落、全テスト等への機械的付与を要求していない
+- 一つの成果物内にある複数コンテキストを独立参照できる
+- IDの再利用、意味の上書き、ファイル名・ディレクトリ名への埋め込みがない
 - 移動、名称変更、統合、分割、再採番だけを理由に改番していない
-- Stable IDを持たないArtifactがPath、Anchor、Revision等のArtifact Referenceで接続されている
-- Behavior Specificationの新規IDは`SPEC-*`で、Legacy IDを見かけだけで改番していない
+- 安定コンテキストIDを持たない成果物がパス、アンカー、改訂版等の成果物参照で接続されている
+- 振る舞い仕様の新規IDは`SPEC-*`で、既存系 IDを見かけだけで改番していない
 
-## 4.6. Traceability Audit
+## 4.6. 追跡可能性の監査
 
-対象Scopeに応じて、次のRelationを意味付きで追跡できるか確認する。
+対象範囲に応じて、次の関係を意味付きで追跡できるか確認する。
 
 ```text
-Origin / Evidence / Decision
+起点 / 根拠 / 判断
 REQ -> UX -> IA -> UI / SPEC
-UI <-> SPEC Pair
-SPEC / UI -> Architecture -> Implementation -> Verification
-Change / Finding / Learning -> affected Canonical Context
+UIとSPECの対応関係
+SPEC / UI -> アーキテクチャ -> 実装 -> 検証
+変更 / 指摘事項 / 学び -> 影響を受ける正本コンテキスト
 ```
 
-単なるRelated Linkの存在だけでTrace成立とせず、どのContextをどのRelationで接続するか確認する。Trace切れは切断位置、影響、必要なAuthorityをFindingとして返す。
+単なる関連リンクの存在だけでトレース成立とせず、どのコンテキストをどの関係で接続するか確認する。トレース切れは切断位置、影響、必要な決定権限を指摘事項として返す。
 
-Evidenceが対象Artifact内または最も近い親Folderの`Evidence/`にあり、Root直下の中央Evidence Folderを基本構成にしていないか確認する。Decisionの結果とRationaleがCanonical Artifactへ反映され、全DecisionをRoot直下の中央台帳へ複製していないかも確認する。
+根拠が対象成果物内または最も近い親フォルダの`Evidence/`にあり、ルート直下の中央根拠フォルダを基本構成にしていないか確認する。判断の結果と判断理由が正本成果物へ反映され、全判断をルート直下の中央台帳へ複製していないかも確認する。
 
-## 4.7. Direct Propagation Audit
+## 4.7. 直接伝播の監査
 
-変更内容から直接影響すると分かる既知の文書、Template、Entry Fileが追従しているか確認する。
+変更内容から直接影響すると分かる既知の文書、ひな型、入口ファイルが追従しているか確認する。
 
 ```text
-README / Overview / Folder Index
-Related Documents / Cross References
-Template / CLAUDE.md / AGENTS.md
-Audit Criteria / Skill or Agent Adapter
-CHANGELOG / Migration Note（Releaseまたは利用者影響がある場合）
+README / 概要 / フォルダ索引
+関連文書 / 横断参照
+ひな型 / CLAUDE.md / AGENTS.md
+監査基準 / スキルまたはエージェント接続部
+CHANGELOG / 移行注記（リリースまたは利用者影響がある場合）
 ```
 
-Document Auditは既知の直接Propagationを確認する。Relation Graphを探索して未知の影響候補、再Review範囲、複数工程への意味変更を発見する必要がある場合は[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)へ渡す。
+文書監査は既知の直接伝播を確認する。関係グラフを探索して未知の影響候補、再レビュー範囲、複数工程への意味変更を発見する必要がある場合は[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)へ渡す。
 
-## 4.8. Phase-specific Audit Sources
+## 4.8. 工程固有の監査情報源
 
-工程Artifactを対象に含む場合は、該当正本の`Required Responsibility Coverage`、`Scope and Coverage State`、`Phase Gate Criteria`、`Phase Audit Checklist`を読む。Document Auditはこれらを複製せず、文書として取得可能か、内部整合しているか、対象ArtifactにGapがあるかを報告する。Phase ApprovalはHuman Authorityへ残す。
+工程成果物を対象に含む場合は、該当正本の「必要な責務の網羅」「対象範囲と網羅状態」「工程ゲート基準」「工程監査チェックリスト」を読む。文書監査はこれらを複製せず、文書として取得可能か、内部整合しているか、対象成果物に不足があるかを報告する。工程承認は人間の決定権限へ残す。
 
-| Scope | Authoritative Audit Source |
+| 対象範囲 | 正式な監査情報源 |
 |---|---|
-| Discovery | [21_Discovery.md](21_Discovery.md#phase-audit-checklist) |
+| 課題探索・要求形成工程（Discovery） | [21_Discovery.md](21_Discovery.md#phase-audit-checklist) |
 | UX | [22_UX.md](22_UX.md#phase-audit-checklist) |
 | IA | [23_IA.md](23_IA.md#phase-audit-checklist) |
-| UI / SPEC Pair | [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
+| UI / SPECの対応関係 | [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md#27-pair-audit-checklist) |
 | UI | [25_UI.md](25_UI.md#phase-audit-checklist) |
-| Behavior Specification | [26_Behavior_Specification.md](26_Behavior_Specification.md#phase-audit-checklist) |
-| Architecture | [27_Architecture.md](27_Architecture.md#phase-audit-checklist) |
-| Implementation | [28_Implementation.md](28_Implementation.md#phase-audit-checklist) |
-| Verification | [29_Verification.md](29_Verification.md#phase-audit-checklist) |
+| 振る舞い仕様 | [26_Behavior_Specification.md](26_Behavior_Specification.md#phase-audit-checklist) |
+| アーキテクチャ | [27_Architecture.md](27_Architecture.md#phase-audit-checklist) |
+| 実装 | [28_Implementation.md](28_Implementation.md#phase-audit-checklist) |
+| 検証 | [29_Verification.md](29_Verification.md#phase-audit-checklist) |
 
 ---
 
-# 5. Severity
+# 5. 重大度
 
-| Severity | Meaning |
+| 重大度 | 意味 |
 |---|---|
-| `Critical` | 正本喪失、Authority破壊、重大な誤承認、回復困難なTrace / Provenance破壊につながる |
-| `Major` | Repository整合性、工程判断、AI / Human実行、重要なCoverageへ実質的に影響する |
+| `Critical` | 正本喪失、決定権限破壊、重大な誤承認、回復困難なトレース / 来歴破壊につながる |
+| `Major` | リポジトリ整合性、工程判断、AI / 人間実行、重要な網羅範囲へ実質的に影響する |
 | `Minor` | 意味を大きく変えない局所的な形式、明瞭性、軽微な参照不整合 |
 | `Info` | 必須修正ではない改善提案または観察事項 |
 
-Severityは修正工数、ファイル数、好みだけで決めない。Authority、意味、Scope、Propagation、回復可能性、誤判断Riskから評価する。
+重大度は修正工数、ファイル数、好みだけで決めない。決定権限、意味、対象範囲、伝播、回復可能性、誤判断リスクから評価する。
 
 ---
 
-# 6. Remediation Policy
+# 6. 是正方針
 
-`remediation`は修正可能性を示すFieldであり、Audit実行者へ変更権限を与えない。
+`remediation`は修正可能性を示す項目であり、監査実行者へ変更権限を与えない。
 
-| Class | Example | Execution Boundary |
+| 区分 | 例 | 実行境界 |
 |---|---|---|
-| Safe Mechanical | 明白なBroken Link、表記揺れ、Header / Anchor整形 | Parentまたは承認済みRemediation Runが適用し、再監査する |
-| Review Required | Related追加、Section移動、重複統合、Template / Overview追従 | Authorityと情報保存をReviewして適用する |
-| Human Decision Required | Concept、Normative Rule、Authority、Status、Stable ID体系、Scope、Decision変更 | Human Authorityの判断前に適用しない |
+| 安全機械的 | 明白な破損リンク、表記揺れ、ヘッダー / アンカー整形 | 親または承認済み是正実行が適用し、再監査する |
+| レビュー必須 | 関連追加、節移動、重複統合、ひな型 / 概要追従 | 決定権限と情報保存をレビューして適用する |
+| 人間の判断が必要 | 概念、規範規則、決定権限、状態、安定ID体系、対象範囲、判断変更 | 人間の決定権限の判断前に適用しない |
 
-自動修正Toolが利用可能でも、推測を伴うLink先、意味を変える用語置換、削除、統合、規範強度変更をSafe Mechanicalとして扱わない。
-
----
-
-# 7. Audit Completion and Target Status
-
-## 7.1. Audit Run Completion
-
-次を満たしたとき、Audit Run自体を完了できる。
-
-- Audit Purpose、Scope、Revision、適用Standardが記録されている
-- 適用CheckにResult、Finding、`Not Evaluated`、または`Not Applicable`がある
-- FindingにEvidence、Impact、Recommendation、Ownerがある
-- Blocked項目に不足情報とHandoff先がある
-- 未確認ScopeとAudit Statusが明示されている
-- Re-audit条件とRecommended Handoffが示されている
-
-CriticalやMajorを検出したAuditも、必要な記録を返せば正常に完了できる。
-
-## 7.2. Target Pass Conditions
-
-対象文書またはScopeを`Pass`と評価するには、少なくとも次を満たす。
-
-- 未解決Critical / Majorがない
-- Broken Link、正本競合、重大Trace切れがない
-- 適用するAuthority、Stable Context ID、Phase Sourceと矛盾しない
-- 直接Propagation漏れがない
-- 未確認Scope、Minor / Info、例外にDispositionがある
-
-条件付き例外がある場合は`Conditional`とし、Scope、Risk、Owner、Human Authority、再評価Triggerを記録する。
+自動修正ツールが利用可能でも、推測を伴うリンク先、意味を変える用語置換、削除、統合、規範強度変更を安全機械的として扱わない。
 
 ---
 
-# 8. Audit Execution and Delegation
+# 7. 監査完了と対象状態
 
-Document AuditをSkill、Agent、Subagentとして実行する場合は、[`11_Skill.md`](11_Skill.md)のRun Lifecycleと[`10_Agent.md`](10_Agent.md)のDelegation / Independent Reviewに従う。
+## 7.1. 監査実行の完了
 
-Subagentとして実行する標準Agent IDは`agent.document.audit`とする。Parent AgentはDelegation Contractへ次を指定する。
+次を満たしたとき、監査実行自体を完了できる。
 
-- Audit Purposeと対象Scope / Revision
-- Applicable Standardsと直接Dependency
-- 既知FindingとExpected Output
-- Read-onlyであることとReturn先
+- 監査目的、対象範囲、改訂版、適用標準が記録されている
+- 適用確認に結果、指摘事項、`Not Evaluated`、または`Not Applicable`がある
+- 指摘事項に根拠、影響、推奨、担当責任者がある
+- 停止中項目に不足情報と引き渡し先がある
+- 未確認対象範囲と監査状態が明示されている
+- 再監査条件と推奨する引き渡しが示されている
 
-Subagentは本書のAudit Reportを返し、Canonical Artifactを変更しない。Phase Transition Reviewから呼び出された場合は、対象工程のPhase Audit ChecklistとHandoff Artifactを取得できるか評価する。Phase Approvalは返さない。
+重大やメジャーを検出した監査も、必要な記録を返せば正常に完了できる。
+
+## 7.2. 対象の合格条件
+
+対象文書または対象範囲を`Pass`と評価するには、少なくとも次を満たす。
+
+- 未解決重大 / メジャーがない
+- 破損リンク、正本競合、重大トレース切れがない
+- 適用する決定権限、安定コンテキストID、工程情報源と矛盾しない
+- 直接伝播漏れがない
+- 未確認対象範囲、マイナー / 情報、例外に処置がある
+
+条件付き例外がある場合は`Conditional`とし、対象範囲、リスク、担当責任者、人間の決定権限、再評価契機を記録する。
+
+---
+
+# 8. 監査実行と委譲
+
+文書監査をスキル、エージェント、サブエージェントとして実行する場合は、[`11_Skill.md`](11_Skill.md)の実行の状態遷移と[`10_Agent.md`](10_Agent.md)の委譲 / 独立レビューに従う。
+
+サブエージェントとして実行する標準エージェントIDは`agent.document.audit`とする。親エージェントは委譲契約へ次を指定する。
+
+- 監査目的と対象範囲 / 改訂版
+- 適用対象標準と直接依存関係
+- 既知指摘事項と期待する出力
+- 読取り専用であることと返却先
+
+サブエージェントは本書の監査報告を返し、正本成果物を変更しない。工程移行レビューから呼び出された場合は、対象工程の工程監査チェックリストと引き渡し成果物を取得できるか評価する。工程承認は返さない。
 
 ```text
-Load Scope / Revision / Standards
-Identify Authority and Direct Dependencies
-Run Applicable Audit Categories
-Record Evidence and Findings
-Determine Audit Status
-Return Remediation and Handoff
-Remediate outside Audit Run if authorized
-Re-audit changed Scope
+対象範囲／改訂版／基準を読み込む
+決定権限と直接依存を特定する
+適用する監査区分を実行する
+根拠と指摘事項を記録する
+監査状態を判定する
+是正と引き渡しを返す
+許可がある場合は監査実行の外で是正する
+変更した対象範囲を再監査する
 ```
 
-同一Agentが作成・修正・Auditを連続実行する場合は、Fresh Contextで対象Artifactと正本RuleからFindingを再構成する。ただし、工程移行のIndependent Reviewでは同じActive Context内のSelf Reviewを使用せず、別Subagent、Clean Session / Agent、または人間Reviewerへ委譲する。高Risk変更では、作成者だけのSelf Reviewを独立Auditとして扱わない。
+同一エージェントが作成・修正・監査を連続実行する場合は、新しいコンテキストで対象成果物と正本規則から指摘事項を再構成する。ただし、工程移行の独立レビューでは同じ現在のコンテキスト内の自己レビューを使用せず、別サブエージェント、整理セッション / エージェント、または人間確認者へ委譲する。高リスク変更では、作成者だけの自己レビューを独立監査として扱わない。
 
-Parent Agentは複数Findingを統合し、Conflict、Severity、Authority、Remediationを再確認する。修正はAudit Result確定後に責務を持つ工程またはRemediation Runで行い、`agent.document.audit`は修正後Revisionを再監査する。Subagent ResultまたはAudit Run完了をそのままDecision、Target Pass、Phase Approval、Conformance Claimにしない。
+親エージェントは複数指摘事項を統合し、競合、重大度、決定権限、是正を再確認する。修正は監査結果確定後に責務を持つ工程または是正実行で行い、`agent.document.audit`は修正後改訂版を再監査する。サブエージェントの結果または監査実行完了をそのまま判断、対象の合格、工程承認、準拠表明にしない。
 
 ---
 
-# 9. Final Principle
+# 9. 最終原則
 
-Document Auditは、文書を直したことではなく、何をどの正本に照らして確認し、どのGapが残るかを明らかにする。
+文書監査は、文書を直したことではなく、何をどの正本に照らして確認し、どの不足が残るかを明らかにする。
 
-Findingを修正から分離し、修正後に再監査することで、文書体系の整合とAuthorityを保つ。
+指摘事項を修正から分離し、修正後に再監査することで、文書体系の整合と決定権限を保つ。

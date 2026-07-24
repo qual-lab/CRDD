@@ -2,10 +2,10 @@
 
 # CRDD作業フロー（Workflow）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -20,49 +20,49 @@ Related:
 > この文書で分かること（非規範の案内）
 >
 > - `07_Workflows`へ何を置くか
-> - WorkflowとRule、Change Trace、Release Recordの違い
-> - 反復手順に必要なTrigger、入力、確認、停止条件
-> - Workflowの結果をどの正本へ返すか
+> - 作業手順と規則、変更トレース、リリース記録の違い
+> - 反復手順に必要な契機、入力、確認、停止条件
+> - 作業手順の結果をどの正本へ返すか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、`07_Workflows`へ置くRepository内の作業フロー文書の責務を定義する。
+本書は、`07_Workflows`へ置くリポジトリ内の作業フロー文書の責務を定義する。
 
-Workflowは、このRepositoryで反復して行う作業の順序、入力、実行条件、確認、停止、引き渡しを示すOperational Guideである。Product Context、Change Trace、Release Record、Code、Agent / Skillの共通規範を置き換えない。
+作業手順は、このリポジトリで反復して行う作業の順序、入力、実行条件、確認、停止、引き渡しを示す運用上ガイドである。プロダクトコンテキスト、変更トレース、リリース記録、コード、エージェント / スキルの共通規範を置き換えない。
 
 ---
 
-# 2. What Belongs in `07_Workflows`
+# 2. `07_Workflows`に置くもの
 
-次のようなRepository固有の作業フローを置ける。
+次のようなリポジトリ固有の作業フローを置ける。
 
 ```text
-文書更新とReviewの進め方
-Stable Context ID採番のRepository固有手順
-Auditの実行順序と結果の引き渡し
-Release準備で使用するRepository固有手順
-Migration、生成、同期、公開のRunbook
-複数ToolまたはRoleを接続する反復可能な作業手順
+文書更新とレビューの進め方
+安定コンテキストID採番のリポジトリ固有手順
+監査の実行順序と結果の引き渡し
+リリース準備で使用するリポジトリ固有手順
+移行、生成、同期、公開の運用手順
+複数ツールまたは役割を接続する反復可能な作業手順
 ```
 
 次は置かない。
 
 ```text
-Requirement、UX、IA、UI、SPEC、Architectureの正本
-CHG-* Change Trace
-Release RecordまたはRelease CHANGELOG
-実装CodeやTest Code
-一時的な個人メモ、日報、完了済みTask一覧
-Agent / Skill全体へ適用する共通規範
+要求、UX、IA、UI、SPEC、アーキテクチャの正本
+CHG-* 変更トレース
+リリース記録またはリリースCHANGELOG
+実装コードやテストコード
+一時的な個人メモ、日報、完了済みタスク一覧
+エージェント / スキル全体へ適用する共通規範
 ```
 
-Workflow実行によって生じた製品変更は`90_Release/Changes/CHG-*.md`へ、確定した設計結果は該当Canonical Artifactへ、Release結果は`90_Release`へ戻す。
+作業手順実行によって生じた製品変更は`90_Release/Changes/CHG-*.md`へ、確定した設計結果は該当正本成果物へ、リリース結果は`90_Release`へ戻す。
 
 ---
 
-# 3. Placement and Naming
+# 3. 配置と命名
 
 ```text
 07_Workflows/
@@ -71,63 +71,63 @@ Workflow実行によって生じた製品変更は`90_Release/Changes/CHG-*.md`�
 └─ Evidence/
 ```
 
-Workflow文書はRepository内の検索・表示用Document Numberを使用してよい。`CHG-*`、REQ、UX、IA、UI、SPECのIDをファイル名として流用しない。WorkflowにCRDD Stable Context IDは付与しない。
+作業手順文書はリポジトリ内の検索・表示用文書番号を使用してよい。`CHG-*`、REQ、UX、IA、UI、SPECのIDをファイル名として流用しない。作業手順にCRDD安定コンテキストIDは付与しない。
 
-Workflow固有の実行根拠が必要な場合は最も近い`Evidence/`へ置く。実行のたびに恒久的なLogをMarkdownで増やすことは要求しない。CI Log、Issue、Pull Request、CHG、Release Record等の適切なArtifactを参照する。
+作業手順固有の実行根拠が必要な場合は最も近い`Evidence/`へ置く。実行のたびに恒久的なログをMarkdownで増やすことは要求しない。CIログ、Issue、プルリクエスト、CHG、リリース記録等の適切な成果物を参照する。
 
 ---
 
-# 4. Workflow Contract
+# 4. 作業フローの記録契約
 
-Workflow文書は、必要な粒度で次を取得可能にする。
+作業手順文書は、必要な粒度で次を取得可能にする。
 
 ```text
-Purpose
-Trigger / When to Run
-Scope / Non-goal
-Required Input and Authority
-Roles / Human Decision Point
-Ordered Steps
-Validation / Expected Result
-Stop / Failure / Rollback Condition
-Output and Handoff Destination
-Related Agent / Skill / Tool
+目的
+契機 / 実行時期
+対象範囲 / 目指さないこと
+必須入力と決定権限
+役割 / 人間による判断時点
+順序付き手順
+妥当性確認 / 想定結果
+停止 / 失敗 / ロールバック条件
+出力と引き渡し先
+関連エージェント / スキル / ツール
 ```
 
-工程固有のEntry、Transformation、Exit、GateをWorkflowへ再定義しない。工程文書を参照し、Repository固有の実行順序とAdapterだけを記載する。
+工程固有の入口、変換、出口、ゲートを作業手順へ再定義しない。工程文書を参照し、リポジトリ固有の実行順序と接続部だけを記載する。
 
-Agentへ実行させる場合も、Authority、許可Action、停止条件、期待Outputは[Agent](10_Agent.md)に従う。Guided Skillとして実装する場合は[Skill](11_Skill.md)に従い、Workflow本文へRuntime Lifecycleを複製しない。
+エージェントへ実行させる場合も、決定権限、許可操作、停止条件、期待出力は[エージェント](10_Agent.md)に従う。ガイド付きスキルとして実装する場合は[スキル](11_Skill.md)に従い、作業手順本文へ実行時の状態遷移を複製しない。
 
 ---
 
-# 5. Lifecycle
+# 5. 状態遷移
 
-Workflowは作業方法が変わった時に更新する。個別変更の完了を理由にWorkflowをClosedへしない。
+作業手順は作業方法が変わった時に更新する。個別変更の完了を理由に作業手順を終了済みへしない。
 
 ```text
-Draft → Active → Deprecated → Retired
+下書き → 有効 → 非推奨 → 廃止
 ```
 
-実際のRepository運用と一致しないWorkflowはActiveのまま放置せず、更新、Deprecated、Retiredのいずれかにする。後継がある場合はLinkする。
+実際のリポジトリ運用と一致しない作業手順は有効のまま放置せず、更新、廃止予定、廃止済みのいずれかにする。後継がある場合はリンクする。
 
 ---
 
-# 6. Anti-patterns and Audit
+# 6. 避けるべき運用と監査
 
 ```text
-個別FeatureのTask Listを恒久Workflowにする
-CHGと同じ影響TraceをWorkflowへ記録する
-工程正本やAgent / Skill規範をCopyする
-実行結果を正本へ戻さずWorkflow内だけに残す
-Trigger、停止条件、Outputのない手順一覧にする
+個別機能のタスク一覧を恒久作業手順にする
+CHGと同じ影響追跡を作業手順へ記録する
+工程正本やエージェント / スキル規範を複製する
+実行結果を正本へ戻さず作業手順内だけに残す
+契機、停止条件、出力のない手順一覧にする
 ```
 
-Auditでは、Repository固有の反復手順であること、参照Authorityが明確であること、結果のHandoff先があること、他の正本と責務が重複していないことを確認する。
+監査では、リポジトリ固有の反復手順であること、参照決定権限が明確であること、結果の引き渡し先があること、他の正本と責務が重複していないことを確認する。
 
 ---
 
-# 7. Final Principle
+# 7. 最終原則
 
-Workflowは何を決めたかを保存する正本ではない。
+作業手順は何を決めたかを保存する正本ではない。
 
-このRepositoryで、誰またはどのAgentが、どのAuthorityを参照し、どの順序で作業し、どこへ結果を返すかを再現可能にする実行ガイドである。
+このリポジトリで、誰またはどのエージェントが、どの決定権限を参照し、どの順序で作業し、どこへ結果を返すかを再現可能にする実行ガイドである。

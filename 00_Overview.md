@@ -2,10 +2,10 @@
 
 # CRDD概要（Overview）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -18,286 +18,295 @@ Related:
 > この文書で分かること（非規範の案内）
 >
 > - CRDDを最初にどこから読めばよいか
-> - Product Repositoryをどう構成するか
+> - プロダクトリポジトリをどう構成するか
 > - 各正本文書がどの責務を持つか
-> - 変更・工程・監査をどのRouteへ渡すか
+> - 変更・工程・監査をどの経路へ渡すか
 > - 外部標準をどの範囲で参照しているか
 
 <a id="purpose"></a>
 
 # 目的（Purpose）
 
-本書は、CRDD（Context Repository-Driven Development）の入口、Repository全体の地図、CRDD標準文書の責務、基本的な読む順序を示すOverviewである。
+本書は、CRDD（Context Repository-Driven Development）の入口、リポジトリ全体の地図、CRDD標準文書の責務、基本的な読む順序を示す概要である。
 
-本書は、CRDD全体の入口と文書地図を提供する。詳細なRuleは、次の文書を正本とする。
+本書は、CRDD全体の入口と文書地図を提供する。詳細な規則は、次の文書を正本とする。
 
-- CRDDの定義、原則、人間とAIのAuthority: [`01_Principles.md`](01_Principles.md)
-- Canonical Term: [`02_Terminology.md`](02_Terminology.md)
-- Repository、Artifact、Evidence、Decision、Stable Context ID、Traceability: [`03_Documentation.md`](03_Documentation.md)
+- CRDDの定義、原則、人間とAIの決定権限: [`01_Principles.md`](01_Principles.md)
+- 正式用語: [`02_Terminology.md`](02_Terminology.md)
+- リポジトリ、成果物、根拠、判断、安定コンテキストID、追跡可能性: [`03_Documentation.md`](03_Documentation.md)
 
-本書では、これらのRuleを再定義しない。本書の要約と正本文書が競合する場合は、対象Propertyを所有する正本文書に従う。
+本書では、これらの規則を再定義しない。本書の要約と正本文書が競合する場合は、対象項目を所有する正本文書に従う。
 
 ---
 
-# 1. Quick Orientation
+<a id="1-quick-orientation"></a>
 
-CRDDは、ProjectのWhyと人間の判断を失わず、AIと専門家がそのContextを参照してProductを一気通貫で具体化・検証できるようにする開発方法論である。
+# 1. 最初に把握すること（Quick Orientation）
+
+CRDDは、プロジェクトの「なぜ」と人間の判断を失わず、AIと専門家がそのコンテキストを参照してプロダクトを一気通貫で具体化・検証できるようにする開発方法論である。
 
 ```text
 作業をAIへ。
 判断を人間へ。
-思想をContext Repositoryへ。
+思想をコンテキストリポジトリへ。
 ```
 
-Context Repositoryは単なる文書置き場ではない。Origin、Intent、Decision、Evidence、Contract、Artifact Reference、Implementation、Verification、Learningを、人間とAIが継続利用できるように接続する情報基盤である。Git RepositoryはそのCanonical Control Planeになり得るが、Git、Markdown、Folder構成、AI Toolの採用だけでCRDD準拠になるわけではない。
+コンテキストリポジトリは単なる文書置き場ではない。起点、意図、判断、根拠、契約、成果物参照、実装、検証、学びを、人間とAIが継続利用できるように接続する情報基盤である。Gitリポジトリはその正本の制御基盤になり得るが、Git、Markdown、フォルダ構成、AIツールの採用だけでCRDD準拠になるわけではない。
 
-CRDD準拠は、対象ScopeとRevisionに適用されるCriteriaおよびEvidenceによって評価する。詳細は[`52_Conformance_Audit.md`](52_Conformance_Audit.md)を参照する。
+CRDD準拠は、対象範囲と改訂版に適用される基準および根拠によって評価する。詳細は[`52_Conformance_Audit.md`](52_Conformance_Audit.md)を参照する。
 
 ---
 
-# 2. Product Context Repository Map
+# 2. プロダクトコンテキストリポジトリの構成
 
-ProjectへCRDDを適用する場合、標準文書は原則として`00_CRDD/`に置く。本CRDD標準Repositoryでは、配布・保守対象である同文書群をRepository Rootに置く。
+プロジェクトへCRDDを適用する場合、標準文書は原則として`00_CRDD/`に置く。本CRDD標準リポジトリでは、配布・保守対象である同文書群をリポジトリルートに置く。
 
-| Location | Primary Responsibility | Authority |
+| 場所 | 主な責務 | 決定権限 |
 |---|---|---|
-| `00_CRDD` | CRDD標準、共通実行Contract、工程条項、Audit Contract | 各正本文書（本書の3章を入口とする） |
-| `01_Discovery` | Origin、Problem、Source、Evidence、不確実性、Requirement | [Discovery](21_Discovery.md) |
-| `02_UX` | Actor、Outcome、Journey、Service Blueprint、Experience Principle | [UX](22_UX.md) |
-| `03_IA` | Object、Relation、Responsibility、Navigation、Information Structure | [IA](23_IA.md) |
-| `04_UI` | Screen、Interaction、Feedback、Visual、Design Token、Asset | [UI](25_UI.md) |
-| `05_SPEC` | Condition、State、Behavior、Exception、Acceptance | [Behavior Specification](26_Behavior_Specification.md) |
-| `06_Architecture` | System Boundary、Data、Interface、Quality、Security、Operation、Implementation Rule | [Architecture](27_Architecture.md) |
-| `07_Workflows` | Repository固有の反復可能な作業手順、Runbook、Handoff | [Workflow](14_Workflow.md) |
-| `40_Develop` | Code、Configuration、Migration、Build、Developer Test等のImplementation Artifact | [Implementation](28_Implementation.md) |
-| `90_Release` | Change Trace、Release Record、CHANGELOG、配布物参照、Release Verification | [Change](12_Change.md)、[Release](13_Release.md) |
-| `99_Roadmap` | 採用済みだが未着手のRequirementやContextを参照する将来計画 | [Documentation](03_Documentation.md#33-discovery-and-roadmap) |
+| `00_CRDD` | CRDD標準、共通実行契約、工程条項、監査契約 | 各正本文書（本書の3章を入口とする） |
+| `01_Discovery` | 起点、課題、情報源、根拠、不確実性、要求 | [課題探索・要求形成](21_Discovery.md) |
+| `02_UX` | アクター、成果、利用者体験の流れ、サービスブループリント、体験原則、体験表現意図（Experience Expression Intent） | [UX](22_UX.md) |
+| `03_IA` | オブジェクト、関係、責務、ナビゲーション、情報構造 | [IA](23_IA.md) |
+| `04_UI` | 論理画面（Logical Screen）、インタラクション、フィードバック、視覚表現方針（Visual Direction）、UIテーマ（UI Theme）、UI部品（UI Component）/ UI設計パターン（UI Design Pattern）、最終視覚表現（Final Visual）、UI素材（UI Asset） | [UI](25_UI.md) |
+| `05_SPEC` | 条件、システム状態、振る舞い、例外、受入条件 | [振る舞い仕様](26_Behavior_Specification.md) |
+| `06_Architecture` | システム境界、データ、インターフェース、品質、セキュリティ、操作、実装規則 | [アーキテクチャ](27_Architecture.md) |
+| `07_Workflows` | リポジトリ固有の反復可能な作業手順、運用手順、引き渡し | [作業手順](14_Workflow.md) |
+| `40_Develop` | コード、構成、移行、ビルド、開発者テスト等の実装成果物 | [実装](28_Implementation.md) |
+| `90_Release` | 変更トレース、リリース記録、CHANGELOG、配布物参照、リリース検証 | [変更](12_Change.md)、[リリース](13_Release.md) |
+| `99_Roadmap` | 採用済みだが未着手の要求やコンテキストを参照する将来計画 | [文書化](03_Documentation.md#33-discovery-and-roadmap) |
 
-UIとBehavior Specificationは直列工程ではない。両者は[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)を共有Contractとして、相互参照しながら並行して具体化する。
+UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)を共有契約として、相互参照しながら並行して具体化する。
 
-Evidenceは成果物内、または最も近い親Folderの`Evidence/`へ置く。Decisionの結果は結果となるCanonical Artifactへ反映し、Rationale、Evidence、Alternative、Historyを同Artifactへ残す。Root直下に中央Evidence Folderまたは中央Decision Folderを基本構成として設けない。詳細は[Documentation](03_Documentation.md)を正本とする。
+根拠は成果物内、または最も近い親フォルダの`Evidence/`へ置く。判断の結果は結果となる正本成果物へ反映し、判断理由、根拠、代替案、履歴を同成果物へ残す。ルート直下に中央根拠フォルダまたは中央判断フォルダを基本構成として設けない。詳細は[文書化](03_Documentation.md)を正本とする。
 
-`40_Develop`はImplementation Artifactの領域であり、CRDD管理用Markdownの配置先にしない。Code固有README等を実装と同居させる場合も、上流Contextや判断理由の正本として暗黙に扱わない。
+`40_Develop`は実装成果物の領域であり、CRDD管理用Markdownの配置先にしない。コード固有README等を実装と同居させる場合も、上流コンテキストや判断理由の正本として暗黙に扱わない。
 
 ---
 
-# 3. CRDD Standard Map
+# 3. CRDD標準文書の構成
 
-## 3.1. Document Number Bands
+## 3.1. 文書番号の区分
 
-文書番号は、CRDD文書の責務、分類、読む順序を補助するDocument Numberである。文書内のContext Entityを追跡するStable Context IDとは別の識別体系であり、一つの文書に複数のStable Context IDが含まれてよい。
+文書番号は、CRDD文書の責務、分類、読む順序を補助する文書番号である。文書内のコンテキスト要素を追跡する安定コンテキストIDとは別の識別体系であり、一つの文書に複数の安定コンテキストIDが含まれてよい。
 
-| Band | Responsibility |
+| 帯域 | 責務 |
 |---|---|
-| `00`–`09` | 基礎規範：Overview、Principles、Terminology、Documentation |
-| `10`–`19` | 共通実行・Delivery・CRDD保守：Agent、Skill、Change、Release、Workflow、Maintenance |
-| `20`–`29` | Product工程条項とUI／Behavior Specification横断Contract |
+| `00`–`09` | 基礎規範：概要、原則、用語、文書化 |
+| `10`–`19` | 共通実行・提供・CRDD保守：エージェント、スキル、変更、リリース、作業手順、保守 |
+| `20`–`29` | プロダクト工程条項とUI／振る舞い仕様横断契約 |
 | `30`–`49` | 予約 |
-| `50`–`59` | 横断Audit Contract |
+| `50`–`59` | 横断監査契約 |
 
-Stable Context IDの種類、付与境界、Document NumberおよびArtifact IDとの違いは[`03_Documentation.md`](03_Documentation.md#8-stable-context-id)を正本とする。`CHG-*`はChange TraceのArtifact IDであり、Stable Context IDではない。
+安定コンテキストIDの種類、付与境界、文書番号および成果物IDとの違いは[`03_Documentation.md`](03_Documentation.md#8-stable-context-id)を正本とする。`CHG-*`は変更トレースの成果物IDであり、安定コンテキストIDではない。
 
-## 3.2. Foundation and Shared Authorities
+## 3.2. 基礎原則と横断する決定権限
 
-| File | Responsibility |
+| ファイル | 責務 |
 |---|---|
-| `00_Overview.md` | CRDDへの入口、Repository Map、文書責務、読む順序 |
-| `01_Principles.md` | CRDDの定義、基本信条、Conformance境界、人間／AI Authority、Context Continuity、工程遷移原則 |
-| `02_Terminology.md` | Core Context Type、Supporting Concept、責務・Authority、Lifecycle / Status Term、Alias |
-| `03_Documentation.md` | Repository、Artifact、文書記法、Evidence、Decision、Stable Context ID、Artifact Reference、Traceability |
-| `10_Agent.md` | Agent共通Input / Output、Authority、委譲、Subagent統合、Review |
-| `11_Skill.md` | Skill共通Lifecycle、Route、中断・再開、Review、Handoff、Git / Markdown実行Profile |
-| `12_Change.md` | `90_Release/Changes/CHG-*.md`によるTrigger、変更意図、Expected / Actual Impact、実装、検証、CloseのTrace |
-| `13_Release.md` | Product Releaseの最小Contract、Human Release Authority、Release Record、CHANGELOG、Release Verification |
-| `14_Workflow.md` | `07_Workflows`へ置くRepository固有の反復可能な作業手順とHandoff |
-| `19_Maintenance.md` | CRDD自身の変更、Learning Promotion、Version、Migration、Correction、Audit接続 |
+| `00_Overview.md` | CRDDへの入口、リポジトリ対応表、文書責務、読む順序 |
+| `01_Principles.md` | CRDDの定義、基本信条、準拠境界、人間／AIの決定権限、コンテキスト継続性、工程遷移原則 |
+| `02_Terminology.md` | 中核コンテキスト種別、補助概念、責務・決定権限、状態遷移 / 状態用語、別名 |
+| `03_Documentation.md` | リポジトリ、成果物、文書記法、根拠、判断、安定コンテキストID、成果物参照、追跡可能性 |
+| `10_Agent.md` | エージェント共通入力 / 出力、決定権限、委譲、サブエージェント統合、レビュー |
+| `11_Skill.md` | スキル共通状態遷移、経路、中断・再開、レビュー、引き渡し、Git / Markdownの実行プロファイル |
+| `12_Change.md` | `90_Release/Changes/CHG-*.md`による契機、変更意図、想定／実際の影響、実装、検証、終了のトレース |
+| `13_Release.md` | プロダクトリリースの最小契約、人間のリリース決定権限、リリース記録、CHANGELOG、リリース検証 |
+| `14_Workflow.md` | `07_Workflows`へ置くリポジトリ固有の反復可能な作業手順と引き渡し |
+| `19_Maintenance.md` | CRDD自身の変更、学びの昇格、版、移行、修正、監査接続 |
 
-## 3.3. Product Phase Authorities
+<a id="33-product-phase-authorities"></a>
 
-`21`〜`23`および`25`〜`29`は、その工程のEntry、Transformation、Required Responsibility Coverage、Exit、Phase Gate Criteria、Audit Checklist、Guided Skill Adapterを一体として定義する。`24`は独立工程ではなく、UIとBehavior SpecificationのPair Review Contractである。
+## 3.3. プロダクト工程ごとの決定権限
 
-| File | Responsibility |
+`21`〜`23`および`25`〜`29`は、その工程の入口、変換、必要な責務の網羅、出口、工程判定基準、監査チェックリスト、ガイド付きスキル接続部を一体として定義する。`24`は独立工程ではなく、UIと振る舞い仕様の対応レビュー契約である。
+
+| ファイル | 責務 |
 |---|---|
-| `21_Discovery.md` | Discovery、Source / Evidence、不確実性、REQ昇格、Route |
-| `22_UX.md` | Actor、Outcome、Journey、Service Blueprint、Experience Principle、UX Coverage |
-| `23_IA.md` | Object、Relation、Responsibility、Navigation、Information Structure |
-| `24_UI_Behavior_Specification.md` | UIとBehavior Specificationの相互参照、Pair、整合性、共同Reviewを定める横断Contract |
-| `25_UI.md` | Screen、Interaction、State / Variant、Visual、Asset、Accessibility、UI Coverage |
-| `26_Behavior_Specification.md` | Condition、State、Rule、Exception、Failure、Acceptance、SPEC Coverage |
-| `27_Architecture.md` | System設計、Data、Interface、Quality、Security、Operation、Compatibility、Implementation Rule |
-| `28_Implementation.md` | Code、Configuration、Migration、Build、Developer Test、Deviation、Implementation Evidence |
-| `29_Verification.md` | 独立Test / Review、Fresh Evidence、Finding、Verification Result、Release Readiness Recommendation、Learning |
+| `21_Discovery.md` | 課題探索・要求形成、情報源 / 根拠、不確実性、REQ昇格、経路 |
+| `22_UX.md` | アクター、成果、利用者体験の流れ、サービスブループリント、体験原則、体験表現意図、UXの網羅範囲 |
+| `23_IA.md` | オブジェクト、関係、責務、ナビゲーション、情報構造 |
+| `24_UI_Behavior_Specification.md` | UIと振る舞い仕様の相互参照、対、整合性、共同レビューを定める横断契約 |
+| `25_UI.md` | 視覚表現方針、論理画面、インタラクション、表示状態 / UI差分、UIテーマ、UI部品 / UI設計パターン、最終視覚表現、UI素材、アクセシビリティ、UIの網羅範囲 |
+| `26_Behavior_Specification.md` | 条件、システム状態、規則、例外、失敗、受入条件、SPECの網羅範囲 |
+| `27_Architecture.md` | システム設計、データ、インターフェース、品質、セキュリティ、操作、互換性、実装規則 |
+| `28_Implementation.md` | コード、構成、移行、ビルド、開発者テスト、逸脱、実装根拠 |
+| `29_Verification.md` | 独立テスト / レビュー、新しい根拠、指摘事項、検証結果、リリース準備状況の推奨、学び |
 
-## 3.4. Audit Authorities
+## 3.4. 監査の決定権限
 
-| File | Responsibility |
+| ファイル | 責務 |
 |---|---|
-| `51_Document_Audit.md` | 文書構造、参照、用語、Authority、情報保存、TraceabilityのAudit |
-| `52_Conformance_Audit.md` | CRDD Core / Profile Criteria、Required Evidence、Evaluation、Claim Eligibility |
-| `53_Gap_Impact_Audit.md` | Relationを横断するGap / Impact探索、Disposition、再Review・再検証範囲 |
+| `51_Document_Audit.md` | 文書構造、参照、用語、決定権限、情報保存、追跡可能性の監査 |
+| `52_Conformance_Audit.md` | CRDD中核／プロファイル基準、必要な根拠、評価、準拠表明の適格性 |
+| `53_Gap_Impact_Audit.md` | 関係を横断する不足／影響探索、処置、再レビュー・再検証範囲 |
 
-## 3.5. Repository-level Companion Artifacts
+## 3.5. リポジトリ全体を補助する成果物
 
-次はCRDD標準Repository自身の公開・保守に使用するCompanion Artifactであり、CRDDを適用するProduct Repositoryへ同じ受付Fileの配置を要求するものではない。
+次はCRDD標準リポジトリ自身の公開・保守に使用する補助成果物であり、CRDDを適用するプロダクトリポジトリへ同じ受付ファイルの配置を要求するものではない。
 
-| Artifact | Responsibility |
+| 成果物 | 責務 |
 |---|---|
-| `README.md` | CRDD標準Repositoryの公開入口とQuick Start |
-| Root `AGENTS.md` | CRDD標準自身をMaintenanceするAI向けの共通Repository Adapter |
-| Root `CLAUDE.md` | Root `AGENTS.md`を利用するClaude Code固有Adapter |
-| `CONTRIBUTING.md` | Public Feedback、Standard Change Proposal、Pull RequestをCRDD Maintenanceへ接続するContributor向け入口 |
-| `.github/ISSUE_TEMPLATE/` | Problem Report、Standard Change Proposal、Adoption Feedbackの構造化された受付Form |
-| `.github/pull_request_template.md` | Change分類、Evidence、Authority、Impact、Migration、Auditを確認するPull Request入口 |
-| `CHANGELOG.md` | CRDD標準自体のVersion間変更履歴。Product固有のCHANGELOGとは別に扱う |
-| `template/` | ProjectへCRDDを導入するためのScaffoldとAI Entry File |
+| `README.md` | CRDD標準リポジトリの公開入口と簡易開始 |
+| ルート `AGENTS.md` | CRDD標準自身を保守するAI向けの共通リポジトリ接続部 |
+| ルート `CLAUDE.md` | ルート `AGENTS.md`を利用するClaude Code固有の接続規則 |
+| `.github/copilot-instructions.md` | ルート正本と保守境界へ接続するGitHub Copilot固有の補助接続部 |
+| `CONTRIBUTING.md` | 公開フィードバック、標準変更提案、プルリクエストをCRDD保守へ接続する提案者向け入口 |
+| `.github/ISSUE_TEMPLATE/` | 問題報告、標準変更提案、採用フィードバックの構造化された受付形式 |
+| `.github/pull_request_template.md` | 変更分類、根拠、決定権限、影響、移行、監査を確認するプルリクエスト入口 |
+| `CHANGELOG.md` | CRDD標準自体のバージョン間変更履歴。プロダクト固有のCHANGELOGとは別に扱う |
+| `template/` | プロジェクトへCRDDを導入するためのひな型とAI入口ファイル |
 
-CRDD標準自体のVersion、CHANGELOG、Tag、Migrationは[`19_Maintenance.md`](19_Maintenance.md)を正本とする。Product固有ReleaseのCHANGELOGは[`13_Release.md`](13_Release.md)に従う。
+CRDD標準自体のバージョン、CHANGELOG、タグ、移行は[`19_Maintenance.md`](19_Maintenance.md)を正本とする。プロダクト固有リリースのCHANGELOGは[`13_Release.md`](13_Release.md)に従う。
 
-## 3.6. External Foundations and Source Trace
+<a id="36-external-foundations-and-source-trace"></a>
 
-次は、CRDDが明示的に使用または参考にする外部Sourceの中央索引である。RelationとCoverageの意味、個別条項での記載Ruleは[`03_Documentation.md`](03_Documentation.md#49-external-source-trace)を正本とする。Reference Keyは引用を簡潔にするためのLabelであり、Stable Context ID、Document Number、Artifact IDではない。
+## 3.6. 外部の基準と出典追跡
 
-| Reference Key | Source / Authoritative Reference | Relation | Primary CRDD Application | Coverage |
+次は、CRDDが明示的に使用または参考にする外部情報源の中央索引である。関係と網羅範囲の意味、個別条項での記載規則は[`03_Documentation.md`](03_Documentation.md#49-external-source-trace)を正本とする。参照キーは引用を簡潔にするための表示名であり、安定コンテキストID、文書番号、成果物IDではない。
+
+| 参照キー | 情報源／正式な参照先 | 関係 | CRDDでの主な適用先 | 網羅範囲 |
 |---|---|---|---|---|
-| `BCP14` / `RFC2119` / `RFC8174` | IETF / RFC Editor: [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) | `uses` | [Documentation — Locale and Normative Language](03_Documentation.md#48-normative-language) | `Selected Concepts`; uppercase normative vocabulary and capitalization boundary |
-| `ISO29148-2018` | ISO / IEC / IEEE: [ISO/IEC/IEEE 29148:2018 Requirements engineering](https://www.iso.org/standard/72089.html) | `informed_by` | [Discovery — Requirement Promotion and Set Quality](21_Discovery.md#4-requirement-promotion-and-decision) | Current published edition as of 2026-07-21; revision work is underway; `Selected Concepts`; re-evaluate when replaced; no clause mapping or conformance claim |
-| `ISO15288-2023` | ISO / IEC / IEEE: [ISO/IEC/IEEE 15288:2023 System life cycle processes](https://www.iso.org/standard/81702.html) | `informed_by` | End-to-End Transformation and lifecycle process background | `Referenced`; no lifecycle model or conformance claim |
-| `ISO12207-2026` | ISO / IEC / IEEE: [ISO/IEC/IEEE 12207:2026 Software life cycle processes](https://www.iso.org/standard/90219.html) | `informed_by` | Software lifecycle process background | `Referenced`; no lifecycle model or conformance claim |
-| `ISO25010-2023` | ISO / IEC: [ISO/IEC 25010:2023 Product quality model](https://www.iso.org/standard/78176.html) | `informed_by` | Discovery Quality Concern Profile、SPEC、Architecture、Verification | `Selected Concepts`; Project may adopt selected characteristics and Scope |
-| `EARS` | Mavin, Wilkinson, Harwood, Novak (2009): [Easy Approach to Requirements Syntax](https://doi.org/10.1109/RE.2009.9) | `uses` | [Behavior Specification — EARS Usage](26_Behavior_Specification.md#26-ears-usage) | `Selected Concepts`; optional syntax、no conformance claim |
-| `NIELSEN-HEURISTICS` | Nielsen Norman Group: [10 Usability Heuristics for User Interface Design](https://www.nngroup.com/articles/ten-usability-heuristics/) | `informed_by` | [UI and Visual Quality](25_UI.md#ui-and-visual-quality) | `Referenced`; Informative Reference |
-| `UNIVERSAL-DESIGN` | NC State University, Center for Universal Design: [The Principles of Universal Design, Version 2.0](https://design.ncsu.edu/research/center-for-universal-design/) | `informed_by` | [UI and Visual Quality](25_UI.md#ui-and-visual-quality) | `Selected Concepts`; no conformance claim |
-| `WCAG22` | W3C: [Web Content Accessibility Guidelines (WCAG) 2.2](https://www.w3.org/TR/WCAG22/) | `project_adopts` | UI Accessibility Profile、Behavior Specification、Verification | `Referenced`; when adopted, Project Profile selects Level, Platform, and Scope |
+| `BCP14` / `RFC2119` / `RFC8174` | IETF / RFC Editor: [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119)、[RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) | `uses` | [文書化 — ロケールと規範表現](03_Documentation.md#48-normative-language) | `Selected Concepts`。大文字の規範語彙と大文字・小文字の境界 |
+| `ISO29148-2018` | ISO / IEC / IEEE: [ISO/IEC/IEEE 29148:2018 Requirements engineering](https://www.iso.org/standard/72089.html) | `informed_by` | [課題探索・要求形成 — 要求の昇格と集合品質](21_Discovery.md#4-requirement-promotion-and-decision) | 2026-07-21時点の現行版。改訂作業中のため置換時に再評価する。`Selected Concepts`。条項対応または準拠は表明しない |
+| `ISO15288-2023` | ISO / IEC / IEEE: [ISO/IEC/IEEE 15288:2023 Systems and software engineering — System life cycle processes](https://www.iso.org/standard/81702.html) | `informed_by` | 一気通貫の変換とライフサイクルプロセスの背景 | `Referenced`（参照のみ）。ライフサイクルモデルや準拠は表明しない |
+| `ISO12207-2026` | ISO / IEC / IEEE: [ISO/IEC/IEEE 12207:2026 Software life cycle processes](https://www.iso.org/standard/90219.html) | `informed_by` | ソフトウェアライフサイクルプロセスの背景 | `Referenced`（参照のみ）。特定のライフサイクルモデルまたは準拠は表明しない |
+| `ISO25010-2023` | ISO / IEC: [ISO/IEC 25010:2023 Product quality model](https://www.iso.org/standard/78176.html) | `informed_by` | 課題探索・要求形成の品質懸念プロファイル、SPEC、アーキテクチャ、検証 | `Selected Concepts`（選択した概念）。プロジェクトは必要な品質特性と対象範囲を選択できる |
+| `EARS` | Mavin, Wilkinson, Harwood, Novak (2009): [Easy Approach to Requirements Syntax](https://doi.org/10.1109/RE.2009.9) | `uses` | [振る舞い仕様 — EARSの使用](26_Behavior_Specification.md#26-ears-usage) | `Selected Concepts`（選択した概念）。構文の使用は任意で、準拠は表明しない |
+| `NIELSEN-HEURISTICS` | Nielsen Norman Group: [10 Usability Heuristics for User Interface Design](https://www.nngroup.com/articles/ten-usability-heuristics/) | `informed_by` | [UIと視覚品質](25_UI.md#ui-and-visual-quality) | `Referenced`（参照のみ）。参考情報として使用する |
+| `UNIVERSAL-DESIGN` | NC State University, Center for Universal Design: [The Principles of Universal Design, Version 2.0](https://design.ncsu.edu/research/center-for-universal-design/) | `informed_by` | [UIと視覚品質](25_UI.md#ui-and-visual-quality) | `Selected Concepts`。準拠は表明しない |
+| `WCAG22` | W3C: [Web Content Accessibility Guidelines (WCAG) 2.2](https://www.w3.org/TR/WCAG22/) | `project_adopts` | UIアクセシビリティプロファイル、振る舞い仕様、検証 | `Referenced`（参照のみ）。採用時はプロジェクトのプロファイルで適合レベル、対象プラットフォーム、対象範囲を選択する |
 
-本索引は、外部SourceをCRDDのAuthorityへ置き換えたり、CRDDが各Sourceへ準拠していると宣言したりするものではない。Sourceの全Clause / Criterionを網羅したと主張するには、適用範囲、非適用理由、CRDD条項、検証EvidenceをClause / Criterion単位で対応づける。
+本索引は、外部情報源をCRDDの決定権限へ置き換えたり、CRDDが各情報源へ準拠していると宣言したりするものではない。情報源の全条項 / 基準を網羅したと主張するには、適用範囲、非適用理由、CRDD条項、検証根拠を条項 / 基準単位で対応づける。
 
 ---
 
-# 4. Reading and Execution Routes
+# 4. 読み方と実行経路
 
-## 4.1. Foundation Route
+## 4.1. 基礎原則を読む経路
 
-新しく参加する人間またはAIは、最初に次を読む。
+人間が初めて読む場合は、本書の「最初に把握すること」と、対象作業の工程案内から始める。用語は分からないときに[用語集](02_Terminology.md)で確認し、文書配置や記録方法が必要になったときに[文書化](03_Documentation.md)を参照する。全基礎文書の通読を作業開始条件にしない。
+
+AIまたはCRDD運用を設計する担当者は、対象範囲を決める前提として次の基礎正本を読む。
 
 ```text
-00 Overview
+00 概要
   ↓
-01 Principles
+01 原則
   ↓
-02 Terminology
+02 用語
   ↓
-03 Documentation
+03 文書化
 ```
 
-その後、実行主体に応じて`10_Agent.md`と`11_Skill.md`を読み、対象作業に必要な`12`〜`19`および工程文書だけを追加する。AI Entry Fileはこれらの正本を複製せず、Active Scope、Target Revision、対象工程、Canonical Context、Authority、Stop条件へ接続する。
+その後、実行主体に応じて`10_Agent.md`と`11_Skill.md`を読み、対象作業に必要な`12`〜`19`および工程文書だけを追加する。AI入口ファイルはこれらの正本を複製せず、現在の対象範囲、対象改訂版、対象工程、正本コンテキスト、決定権限、停止条件へ接続する。
 
-## 4.2. Integrated Product, Change, Roadmap, and Learning Route
+## 4.2. プロダクト・変更・ロードマップ・学びをつなぐ経路
 
-CRDDのProduct Transformation、Change、Roadmap、Release、Learningの関係は次のとおりである。
+CRDDのプロダクト変換、変更、ロードマップ、リリース、学びの関係は次のとおりである。
 
 ```text
-Evidence・要望・法改正・不具合・運用結果・監査結果・Learning
+根拠・要望・法改正・不具合・運用結果・監査結果・学び
                               │
                     意味や要求が不明確か
                       ┌───────┴───────┐
-                     Yes              No
+                     はい              いいえ
                       │                │
-               21 Discovery   分類済みTrigger
+               21 課題探索・要求形成   分類済みの契機
                  ├─ 追加調査          │
-                 │  / Researchへ戻る  │
+                 │  / 調査へ戻る  │
                  └──────────┬─────────┘
                             ↓
-                    Human Route Decision
-                    ├─ 採用しない → Decision / No Action
+                    人間による経路判断
+                    ├─ 採用しない → 判断 / 対応なし
                     ├─ 採用 + 延期
                     │       ↓
-                    │  99_Roadmap Main
-                    │  └─ Detail（必要時）
+                    │  99_Roadmap 主要表示
+                    │  └─ 詳細（必要時）
                     │       ↓
-                    │  Start Condition / Re-evaluation Trigger
+                    │  着手条件 / 再評価契機
                     │       ↓
-                    │  Human Start Review
-                    │  ├─ 再延期 → Main / Trigger更新
-                    │  ├─ Cancel → Decision / Rationale
-                    │  └─ Start ─────────────────────┐
+                    │  人間による着手判断
+                    │  ├─ 再延期 → 主要 / 契機更新
+                    │  ├─ 取消 → 判断 / 判断理由
+                    │  └─ 着手 ─────────────────────┐
                     └─ 今回実施 ─────────────────────┤
                                                      ↓
                                          90_Release/Changes/CHG-*
                                              │
-                           必要な工程を開始またはReopen
+                           必要な工程を開始または再開
                                              ↓
-                 22 UX → 23 IA → 24 Pair Contract
+                 22 UX → 23 IA → 24 UI・振る舞い仕様の共有契約
                                       ┌──────────┴──────────┐
                                       ↓                     ↓
-                                25 UI   ⇄   26 Behavior Specification
+                                25 UI   ⇄   26 振る舞い仕様
                                       └──────────┬──────────┘
                                                  ↓
-                                      27 Architecture
+                                      27 アーキテクチャ
                                                  ↓
-                                      28 Implementation
+                                      28 実装
                                                  ↓
-                                      29 Verification
+                                      29 検証
                          ┌───────────────────────┼──────────────────────┐
-                    未達・新Gap             Ready / Conditional       Learning
+                    未達・新たな不足         準備完了 / Conditional       学び
                          │                       │                      │
-                 該当工程 / CHGへ戻る       Releaseが必要か       責務を持つ
-                                             ┌──┴──┐          Canonical Contextへ
-                                            No    Yes                  │
-                                             │     │              必要ならDiscovery /
-                                             │  Human Release          Roadmap / CHG
-                                             │   Decision
+                 該当工程 / CHGへ戻る       リリースが必要か       責務を持つ
+                                            ┌──┴──┐          正本コンテキストへ
+                                            いいえ    はい                  │
+                                             │     │              必要なら課題探索・要求形成 /
+                                             │  人間による            ロードマップ / CHG
+                                             │  リリース判断
                                              │     ↓
                                              │  13 / 90_Release
                                              └──┬──┘
                                                 ↓
-                                正本・CHG・結果参照を更新してClose
+                                正本・CHG・結果参照を更新して終了
                                                 ↓
-                             Roadmap起点ならMainをCompletedへ更新し
-                                  Detail固有情報を移管後にDetail削除
+                             ロードマップ起点なら主要を完了へ更新し
+                                  詳細固有情報を移管後に詳細削除
 ```
 
-図の工程列は基本的な意味変換順を示す。すべてのChangeが全工程を通る意味ではなく、承認済みContextとImpactに応じて最も近い必要工程から開始またはReopenする。UIとBehavior Specificationは並行・反復し、Releaseは必要なProjectだけが使用する。
+図の工程列は基本的な意味変換順を示す。すべての変更が全工程を通る意味ではなく、承認済みコンテキストと影響に応じて最も近い必要工程から開始または再開する。UIと振る舞い仕様は並行・反復し、リリースは必要なプロジェクトだけが使用する。
 
 ```text
-Any Phase: Human Decision / Constraint / Learning / Evidence / Finding
+任意の工程: 人間による判断 / 制約 / 学び / 根拠 / 指摘事項
                               ↓
-              Triggered Propagation Check
-                ↙ reverse          lateral ↘
-       Upstream Open Question   Peer Context / Pair
-       Gap / Assumption         Conflict / Obligation
+              変更影響の伝播確認
+                ↙ 逆方向          同層方向 ↘
+       上流の未決事項     同層コンテキスト / 対
+       不足 / 仮定         競合 / 義務
                 ↘                    ↙
-          Canonical Artifact Remediation
+          正本成果物の是正
                               ↓
-          Forward Impact Re-scan / Revalidation
+          下流影響の再探索 / 再検証
                               ↓
-       Continue Current Phase or Phase Transition Review
+       現在の工程を継続、または工程移行レビュー
 ```
 
-この図は、固定WaterfallやProject全体の一括Statusを表さない。Feature、Use Case、Change、Release等のScopeごとに、反復、並行、上流工程のReopen、Technical Spike、部分Handoffを行ってよい。
+この図は、固定ウォーターフォールやプロジェクト全体の一括状態を表さない。機能、ユースケース、変更、リリース等の対象範囲ごとに、反復、並行、上流工程の再開、技術検証、部分引き渡しを行ってよい。
 
-ただし、Artifactの一部が完成したことやSkill Runの終了だけから、工程完了を推定してはならない。
+ただし、成果物の一部が完成したことやスキル実行の終了だけから、工程完了を推定してはならない。
 
-- 下流で新しい判断、制約、学び、根拠、Findingが確定した場合は、変更影響の伝播確認を行う
-- 上流・同層のOpen Question、Gap、Assumption、Decision、Constraintへの影響を探索する
+- 下流で新しい判断、制約、学び、根拠、指摘事項が確定した場合は、変更影響の伝播確認を行う
+- 上流・同層の未決事項、不足、仮定、判断、制約への影響を探索する
 - 必要な正本更新と再監査を完了する
-- 通常の工程移行前には、送信側のExitと受信側のEntryを対象Revisionに対してIndependent Reviewする
-- Findingは責務を持つ工程で修正し、更新Revisionを再Reviewする
+- 通常の工程移行前には、送信側の出口と受信側の入口を対象改訂版に対して独立レビューする
+- 指摘事項は責務を持つ工程で修正し、更新改訂版を再レビューする
 
-次へ進めるのは、対象ScopeのResponsibility Coverage、変更影響の伝播確認、Reviewの`Pass`を満たした場合である。未解決事項を残して進む場合は、Human AuthorityがUnresolved Gap、Risk、Owner、Reopen条件、適用するExceptionを明示的に承認する。
+次へ進めるのは、対象範囲の責務の網羅、変更影響の伝播確認、レビューの`Pass`を満たした場合である。未解決事項を残して進む場合は、人間の決定権限が未解決事項、リスク、担当責任者、再開条件、適用する例外を明示的に承認する。
 
-## 4.3. Cross-cutting Routes
+## 4.3. 横断経路
 
-| Need | Route |
+| 用途 | 経路 |
 |---|---|
-| 変更Triggerから影響・実装・検証・Closeを追跡する | [Change](12_Change.md)に従い、必要な`CHG-*`を`90_Release/Changes/`へ置く |
-| Repository固有の反復作業を定義する | [Workflow](14_Workflow.md)に従い、`07_Workflows`へ置く |
-| 検証済みRevisionを配布・有効化する | [Verification](29_Verification.md)のReadiness RecommendationをProject固有Release Authorityへ渡し、必要な場合だけ[Release](13_Release.md)に従う |
-| 採用済みだが未着手の内容を計画する | Requirementや関連Contextを参照して`99_Roadmap`へ置く |
-| 文書品質を監査する | [Document Audit](51_Document_Audit.md) |
-| CRDD準拠を評価する | [Conformance Audit](52_Conformance_Audit.md) |
-| Human Decision、Constraint、Learning、Evidence、Findingの確定・変更を上流／同層へ伝播する | [Gap / Impact AuditのTriggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を即時実行し、正本更新後に再監査する |
-| その他の変更について工程横断影響を調べる | [Gap / Impact Audit](53_Gap_Impact_Audit.md) |
-| 工程移行前に独立Reviewし、Findingを修正・再確認する | [AgentのPhase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)と送信・受信工程のPhase Process Contract |
-| CRDD標準自体を変更する | [Maintenance](19_Maintenance.md) |
+| 変更契機から影響・実装・検証・終了を追跡する | [変更](12_Change.md)に従い、必要な`CHG-*`を`90_Release/Changes/`へ置く |
+| リポジトリ固有の反復作業を定義する | [作業手順](14_Workflow.md)に従い、`07_Workflows`へ置く |
+| 検証済み改訂版を配布・有効化する | [検証](29_Verification.md)のリリース準備状況の推奨をプロジェクト固有リリース決定権限へ渡し、必要な場合だけ[リリース](13_Release.md)に従う |
+| 採用済みだが未着手の内容を計画する | 要求や関連コンテキストを参照して`99_Roadmap`へ置く |
+| 文書品質を監査する | [文書監査](51_Document_Audit.md) |
+| CRDD準拠を評価する | [準拠監査](52_Conformance_Audit.md) |
+| 人間の判断、制約、学び、根拠、指摘事項の確定・変更を上流／同層へ伝播する | [不足／影響監査の変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を即時実行し、正本更新後に再監査する |
+| その他の変更について工程横断影響を調べる | [不足／影響監査](53_Gap_Impact_Audit.md) |
+| 工程移行前に独立レビューし、指摘事項を修正・再確認する | [エージェントの工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)と送信・受信工程の工程実行契約 |
+| CRDD標準自体を変更する | [保守](19_Maintenance.md) |
 
-ReleaseはDiscoveryからVerificationまでと同じ設計工程ではない。Verificationの後に常に`90_Release`へ進むのではなく、配布・有効化を行うProjectで必要な場合にだけ、Human Release Decisionを経て使用する。
+リリースは課題探索・要求形成から検証までと同じ設計工程ではない。検証の後に常に`90_Release`へ進むのではなく、配布・有効化を行うプロジェクトで必要な場合にだけ、人間によるリリース判断を経て使用する。

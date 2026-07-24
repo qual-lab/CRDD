@@ -16,16 +16,20 @@ Public feedback follows the existing [CRDD Maintenance](19_Maintenance.md) autho
 
 ```text
 Problem / Evidence
-→ Scope, Authority, and Impact Review
-→ Alternative Comparison
-→ CRDD Change Decision
-→ Canonical Document and Adapter Updates
-→ Triggered Propagation Check when applicable
-→ Independent Review, Required Audits, and Remediation
-→ Release or Reasoned Close
+→ Scope, authority, and impact review
+→ Alternative comparison
+→ Human CRDD change decision
+→ Canonical document and adapter updates
+→ Triggered propagation check when required
+→ Independent review, required audits, and remediation
+→ Release or reasoned closure
 ```
 
 An issue, proposal, vote, or pull request does not by itself change CRDD. Qual-Lab owns the CRDD standard and makes the final adoption, classification, release, and rejection decisions. Contributors provide valuable problems, evidence, alternatives, implementation proposals, and review input.
+
+### Contribution licensing
+
+Unless you explicitly mark a submission as "Not a Contribution," a contribution intentionally submitted for inclusion in CRDD is provided under the [Apache License 2.0](LICENSE), consistent with Section 5 of that license. Submit only material that you have the right to contribute. Submission does not grant rights to CRDD, Qual-Lab, Qual, or related names and logos; see [TRADEMARK.md](TRADEMARK.md).
 
 ### Choose the right intake
 
@@ -110,98 +114,102 @@ In the CRDD GitHub repository, a target-version milestone may collect closed iss
 
 ## 日本語
 
-### Contributionの境界
+### 貢献の境界
 
-Public Feedbackは、既存の[CRDD Maintenance](19_Maintenance.md)のAuthorityとLifecycleへ接続する。
+公開フィードバックは、既存の[CRDDメンテナンス](19_Maintenance.md)の決定権限と状態遷移へ接続する。
 
 ```text
-Problem / Evidence
-→ Scope・Authority・Impact確認
-→ Alternative比較
+問題 / 根拠
+→ 対象範囲・決定権限・影響確認
+→ 代替案比較
 → CRDD変更判断
-→ Canonical Document・Adapter更新
-→ 必要な場合はTriggered Propagation Check
-→ Independent Review・必要なAudit・Finding修正
-→ Releaseまたは理由付きClose
+→ 正本文書・接続部更新
+→ 必要な場合は変更影響の伝播確認
+→ 独立レビュー・必要な監査・指摘事項修正
+→ リリースまたは理由付き終了
 ```
 
-Issue、提案、投票、Pull RequestだけでCRDD Ruleが変更されることはない。CRDD標準のOwnerはQual-Labであり、採用、分類、Release、却下の最終判断を行う。ContributorはProblem、Evidence、Alternative、実装案、Reviewを提供できる。
+Issue、提案、投票、プルリクエストだけでCRDD規則が変更されることはない。CRDD標準の担当責任者はQual-Labであり、採用、分類、リリース、却下の最終判断を行う。貢献者は問題、根拠、代替案、実装案、レビューを提供できる。
+
+### 貢献物のライセンス
+
+提出時に「Not a Contribution（貢献物ではない）」と明示しない限り、CRDDへの採用を意図して提出された貢献物は、[Apache License 2.0](LICENSE)第5条に従い、同ライセンスで提供される。提出者は、自らが提供する権利を持つ内容だけを提出する。提出によってCRDD、Qual-Lab、Qual、関連する名称またはロゴの使用権は付与されない。詳細は[TRADEMARK.md](TRADEMARK.md)を参照する。
 
 ### 受付種別
 
-次の3種類のIssue Formを使う。
+次の3種類のIssue形式を使う。
 
-- **Problem Report:** 誤字、Link切れ、矛盾、責務不足、曖昧なRule、人間やAIを誤誘導する記述を報告する。
-- **Standard Change Proposal:** Rule、Authority、工程Contract、Audit Criteria、Agent / Skill境界、Template Contract、Conformance結果の変更を提案する。
-- **Adoption Feedback:** 公開済みCRDD Versionを実Projectへ適用して実際に起きたことを共有する。
+- **問題報告:** 誤字、リンク切れ、矛盾、責務不足、曖昧な規則、人間やAIを誤誘導する記述を報告する。
+- **標準変更提案:** 規則、決定権限、工程契約、監査基準、エージェント / スキル境界、ひな型契約、準拠結果の変更を提案する。
+- **採用フィードバック:** 公開済みCRDDバージョンを実プロジェクトへ適用して実際に起きたことを共有する。
 
-受付種別はMaintenanceへ何が入ったかを表し、結果となるChangeがEditorial、Clarification、Additive、Normative、Breakingのどれかを決定しない。実際の影響に基づきMaintainerがTriageで分類する。
+受付種別はメンテナンスへ何が入ったかを表し、結果となる変更が編集上の、明確化、追加、規範的な、破壊的のどれかを決定しない。実際の影響に基づき保守担当者が整理で分類する。
 
-一般的な質問は通常Issue、または利用可能な場合はGitHub Discussionsで扱う。質問専用Formは現時点では設けない。
+一般的な質問は通常Issue、または利用可能な場合はGitHub Discussionsで扱う。質問専用形式は現時点では設けない。
 
-顧客の秘密情報、個人Data、Credential、非公開Source Code、共有権限のないEvidenceを記載しない。機微なEvidenceは適切に抽象化するか、公開前に利用可能な非公開経路でMaintainerへ相談する。
+顧客の秘密情報、個人データ、認証情報、非公開ソースコード、共有権限のない根拠を記載しない。機微な根拠は適切に抽象化するか、公開前に利用可能な非公開経路で保守担当者へ相談する。
 
 ### 小さな修正
 
-明らかな誤字、内部Link切れ、Formatting不具合等、意味を変えない修正はProblem Reportまたは限定的なPull Requestから直接提出できる。
+明らかな誤字、内部リンク切れ、書式不具合等、意味を変えない修正は問題報告または限定的なプルリクエストから直接提出できる。
 
-対象Fileと、なぜ意味を変えないかを説明する。Diffが小さいという理由だけでEditorialに分類しない。責務、Authority、Requirement、Gate、Audit、Conformance、採用者が行う作業を変える場合はEditorialではない。
+対象ファイルと、なぜ意味を変えないかを説明する。差分が小さいという理由だけで「編集上の変更」に分類しない。責務、決定権限、要求、ゲート、監査、準拠、採用者が行う作業を変える場合は、編集上の変更ではない。
 
 ### Standard Change
 
-Normative ChangeまたはBreaking Changeでは、Maintainerが既に方向性を確認している場合を除き、大きなPull Requestを作る前にStandard Change Proposalを提出する。最低限、次を示す。
+規範的な変更または破壊的変更では、保守担当者が既に方向性を確認している場合を除き、大きなプルリクエストを作る前に標準変更提案を提出する。最低限、次を示す。
 
-- 現在のProblemと、人間またはAIへの影響
-- 実際の事象、再現、外部Authority等のEvidence
-- 影響するCanonical DocumentとProperty Authority
+- 現在の問題と、人間またはAIへの影響
+- 実際の事象、再現、外部決定権限等の根拠
+- 影響する正本文書と項目の決定権限
 - 文言だけでなく、変更後に成立させたい結果
-- 意味のあるAlternativeと、それを採らない理由
-- 既存採用者、Tool、Template、Conformanceへの影響
-- Migrationの必要性
-- 不確実性、Limit、Recommendationが変わる条件
+- 意味のある代替案と、それを採らない理由
+- 既存採用者、ツール、ひな型、準拠への影響
+- 移行の必要性
+- 不確実性、制限、推奨が変わる条件
 
-一つのProject事例でもCandidateは開始できる。ただし一般RuleへPromotionするには、再発性、重大Risk、外部Authority、複数Product / Domainへの適用可能性等、一般化できる理由が必要である。
+一つのプロジェクト事例でも候補は開始できる。ただし一般規則へ昇格するには、再発性、重大リスク、外部決定権限、複数プロダクト / ドメインへの適用可能性等、一般化できる理由が必要である。
 
-### Decisionと実行
+### 判断と実行
 
-初期Triage、固定したScopeとBaselineで作業を始める許可、最終的な採用またはRelease Approvalを区別する。IssueのStatus、Label、Assignment、Proposalだけで三つのDecisionがすべて成立したり、変更作業が自動的に開始されたりすることはない。
+初期整理、固定した対象範囲と基準版で作業を始める許可、最終的な採用またはリリース承認を区別する。Issueの状態、表示名、割当、提案だけで三つの判断がすべて成立したり、変更作業が自動的に開始されたりすることはない。
 
-非自明な変更を実装する前に、Issue、Task、または参照するChange Recordから、Allowed / Out of Scope、Base Revision、Preserved Intent / Non-goal、Expected Result、未決のHuman Decision、必要なReview / Audit、停止・再Triage条件を識別可能にする。Scope、Classification、Authority、Migration Impact、Baselineが実質的に変わった場合は、変更を暗黙に拡張せずTriageへ戻す。
+非自明な変更を実装する前に、Issue、タスク、または参照する変更記録から、変更可能な範囲／対象外、基準改訂版、保持する意図／非目標、期待結果、未決の人間判断、必要なレビュー／監査、停止・再整理条件を識別可能にする。対象範囲、変更分類、決定権限、移行影響、基準版が実質的に変わった場合は、変更を暗黙に拡張せず整理へ戻す。
 
-### Change分類
+### 変更分類
 
-正式な分類とApproval Ruleは[Maintenance](19_Maintenance.md#4-change-classification-and-approval)を正本とする。概要は次のとおり。
+正式な分類と承認規則は[メンテナンス](19_Maintenance.md#4-change-classification-and-approval)を正本とする。概要は次のとおり。
 
-| Category | Contributor向けの意味 |
+| 分類 | 貢献者向けの意味 |
 |---|---|
-| Editorial | 意味や期待動作を変えず、表記、誤字、Linkを修正する |
-| Clarification | 責務や適用結果を変えず、既存Ruleを理解しやすくする |
-| Additive | 既存の必須結果を変えず、互換性のあるGuidanceやCapabilityを追加する |
-| Normative | 必須動作、Authority、責務、Gate、Audit、Conformanceを変更する |
-| Breaking | 既存採用者、Artifact、Tool、Conformance Claimに移行または変更を要求する |
+| 編集上の | 意味や期待動作を変えず、表記、誤字、リンクを修正する |
+| 明確化 | 責務や適用結果を変えず、既存規則を理解しやすくする |
+| 追加 | 既存の必須結果を変えず、互換性のある指針や能力を追加する |
+| 規範的な | 必須動作、決定権限、責務、ゲート、監査、準拠を変更する |
+| 破壊的 | 既存採用者、成果物、ツール、準拠表明に移行または変更を要求する |
 
-Impact確認後にMaintainerが分類を変更する場合がある。CRDDが`v0.x`であっても、Breaking ChangeではMigrationを検討する。
+影響確認後に保守担当者が分類を変更する場合がある。CRDDが`v0.x`であっても、破壊的変更では移行を検討する。
 
 ### Pull Request
 
-Pull Requestを提出する前に、次を確認する。
+プルリクエストを提出する前に、次を確認する。
 
-1. 単独で完結するEditorial修正を除き、関連IssueをLinkする。
-2. 一つのPull Requestに一つの主要な変更Intentを置く。
-3. 競合する新しい正本を増やさず、責務を持つCanonical Documentを更新する。
-4. 適用範囲に応じてREADME、Overview、Related、Template、Agent指示、Audit Criteria、Migration Guidanceを追従させる。
-5. 承認済み変更で必要とされない限り、旧Rationale、Stable Context ID、過去CHANGELOGを破壊しない。
-6. Link、Anchor、構造、および適用されるAuditを確認する。
-7. 未解決ImpactとMaintainerの判断が必要な点を隠さない。
+1. 単独で完結する編集上の修正を除き、関連Issueをリンクする。
+2. 一つのプルリクエストに一つの主要な変更意図を置く。
+3. 競合する新しい正本を増やさず、責務を持つ正本文書を更新する。
+4. 適用範囲に応じてREADME、概要、関連、ひな型、エージェント指示、監査基準、移行指針を追従させる。
+5. 承認済み変更で必要とされない限り、旧判断理由、安定コンテキストID、過去CHANGELOGを破壊しない。
+6. リンク、アンカー、構造、および適用される監査を確認する。
+7. 未解決影響と保守担当者の判断が必要な点を隠さない。
 
-RepositoryのPull Request Templateを使用する。十分に整理されたPull Requestでも、Evidence、一般化、Authority、Compatibility、Release Impactが採用を支持しない場合は変更または却下されることがある。
+リポジトリのプルリクエストひな型を使用する。十分に整理されたプルリクエストでも、根拠、一般化、決定権限、互換性、リリースへの影響が採用を支持しない場合は変更または却下されることがある。
 
-### Reviewと最終判断
+### レビューと最終判断
 
-Maintainerは追加Evidenceの依頼、Scope縮小、論点分離、Alternative採用、分類変更、延期、非採用Closeを行える。Dispositionと理由は、必要に応じてIssue、Pull Request、結果となるCanonical Artifact、Release Recordから追跡可能にする。
+保守担当者は追加根拠の依頼、対象範囲縮小、論点分離、代替案採用、分類変更、延期、非採用終了を行える。処置と理由は、必要に応じてIssue、プルリクエスト、結果となる正本成果物、リリース記録から追跡可能にする。
 
-採用された非自明な変更はCRDD自身の変更経路へ入る。Releasedとする前に、Canonical Update、必要なAudit、CHANGELOG、Migration検討、Release判断を完了しなければならず、実装Issueを先にCloseしてもRelease責務は免除されない。
+採用された非自明な変更はCRDD自身の変更経路へ入る。公開済みとする前に、正本更新、必要な監査、CHANGELOG、移行検討、リリース判断を完了しなければならず、実装Issueを先に終了してもリリース責務は免除されない。
 
-採用変更をMergeした後は、公開までIssueをOpenに保たず、`Integrated — Pending Release`としてCloseできる。Merged Pull RequestまたはRevision、変更したCanonical Artifact、Target ReleaseまたはRelease Plan Reference、Known Limitation / Riskを記録する。MergeはReleaseを意味せず、`Released`は対象Versionまたは同等の不変Release識別子が公開された後だけ使用する。Reject、Duplicate、No Change、一般化しなかったFeedback等は、理由付き`Close without Release`とする。
+採用変更を統合した後は、公開までIssueを未完了に保たず、`Integrated — Pending Release`として終了できる。統合済みプルリクエストまたは改訂版、変更した正本成果物、対象リリースまたはリリース計画参照、既知の制約／リスクを記録する。統合はリリースを意味せず、`Released`は対象バージョンまたは同等の不変リリース識別子が公開された後だけ使用する。拒否、重複、変更なし、一般化しなかったフィードバック等は、理由付き`Close without Release`とする。
 
-CRDD公式GitHub Repositoryでは、Target VersionのMilestoneへClose済みIssueとMerged Pull Requestを集約し、Tag公開後にMilestoneをCloseできる。個別Issueの再OpenやRelease完了Commentは要求しない。MilestoneはRepository Adapterであり、CRDD採用要件ではない。
+CRDD公式GitHubリポジトリでは、対象バージョンのマイルストーンへ終了済みIssueと統合済みプルリクエストを集約し、タグ公開後にマイルストーンを終了できる。個別Issueの再未完了やリリース完了コメントは要求しない。マイルストーンはリポジトリ接続部であり、CRDD採用要件ではない。

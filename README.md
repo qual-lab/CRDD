@@ -3,11 +3,11 @@
 **Context Repository-Driven Development**
 
 ```text
-作業をAIへ。判断を人間へ。思想をContext Repositoryへ。
+作業をAIへ。判断を人間へ。思想をコンテキストリポジトリへ。
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.5.1 — Standard Repository Operations, Migration, and Readability / 標準Repository運用・Migration・可読性改善版**
+Status: **v0.6.0 — Practical Review, Human-Centered Quality, and Open Maintenance / 現実的なレビュー・人間中心品質・公開保守版**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -34,6 +34,7 @@ CRDD is not only a way to make AI write code. It keeps why something is being bu
 - AI supports research, organization, comparison, documentation, implementation, and verification.
 - Humans remain responsible for value, priority, adoption or rejection, risk, and final decisions.
 - Requirements, UX, IA, UI, behavior specifications, architecture, implementation, and verification stay connected.
+- Intended experience is carried into visual direction, themes, reusable patterns, components, screens, and verification instead of ending as a mood board or representative mockup.
 - Unknowns remain visible instead of being silently filled in by AI.
 - The authoritative place is selected for each kind of information, rather than treating one whole document as correct about everything.
 
@@ -92,15 +93,37 @@ The authoritative source index, relationship, and stated coverage are listed in 
 
 ### Quick Start
 
-1. Read the [Overview](00_Overview.md), [Principles](01_Principles.md), [Terminology](02_Terminology.md), and [Documentation rules](03_Documentation.md).
+Humans do not need to read every canonical document before starting. Read this section and the [Overview orientation](00_Overview.md#1-quick-orientation); use [Terminology](02_Terminology.md) and [Documentation](03_Documentation.md) as references when a term or recording rule is needed. AI and people designing CRDD operation should load the canonical foundation set.
+
+1. Read the [Overview orientation](00_Overview.md#1-quick-orientation) and identify the first problem or request to handle.
 2. Copy the [`template/`](template) scaffold into the target project. Copy the released CRDD standard documents for the adopted version into its `00_CRDD/` folder and keep that version identifiable.
-3. Read the shared authorities required for the work (`10`–`19`) and the applicable phase authorities (`21`–`29`). Read the [shared UI / Behavior Specification contract](24_UI_Behavior_Specification.md) before either parallel phase.
+3. Let the AI entry point load the canonical foundation set, the shared authorities required for the work (`10`–`19`), and only the applicable phase authorities (`21`–`29`). Read the [shared UI / Behavior Specification contract](24_UI_Behavior_Specification.md) before either parallel phase.
 4. Use the project-root [`AGENTS.md`](template/AGENTS.md) or [`CLAUDE.md`](template/CLAUDE.md) as the AI entry point. Connect the active scope, target revision, canonical context, authority, applicable phase, and stop conditions instead of copying phase rules into prompts.
 5. When a decision, constraint, learning, evidence, or finding is established or changed, evaluate and, when triggered, complete the [Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure) before treating the result as complete.
 6. Before a phase transition, run the [Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop), remediate findings in the responsible phase, and re-review the updated revision before Human approval.
 7. Before claiming CRDD conformance, evaluate the applicable Core and Profile criteria with current evidence using the [Conformance Audit](52_Conformance_Audit.md).
 
-### Updating from v0.4.2 to v0.5.x
+### Start one small problem
+
+This non-normative example shows the minimum flow; it does not require a separate file for every line.
+
+```text
+A customer says, "Important notices are easy to miss."
+  ↓
+Keep the interview note inline or in the nearest 01_Discovery/Evidence/
+  ↓
+Separate what was heard, the interpretation, and solution ideas
+  ↓
+Draft a requirement candidate and show uncertainty
+  ↓
+The responsible Human adopts, defers, rejects, or asks for more evidence
+  ↓
+Only the adopted scope proceeds to UX
+```
+
+For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+
+### Historical migration guide: v0.4.2 to v0.5.x
 
 v0.5.0 renamed the canonical CRDD documents. The general filename migration is:
 
@@ -160,9 +183,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a normative or breaking
 
 ### License
 
-Unless otherwise noted, CRDD documentation and other copyrightable repository materials are licensed under [LICENSE](LICENSE) (CC BY-NC-SA 4.0).
+Unless otherwise noted, CRDD documentation and other copyrightable repository materials are licensed under the [Apache License 2.0](LICENSE).
 
-For commercial use, see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). The names, marks, and logos associated with CRDD and Qual-Lab are governed separately by [TRADEMARK.md](TRADEMARK.md).
+The Apache License 2.0 permits commercial use under its terms. It does not grant trademark rights. The CRDD, Qual-Lab, and Qual names, their logos, and related brand elements are governed separately by [TRADEMARK.md](TRADEMARK.md).
+
+Previously published releases remain governed by the license distributed with each release; adopting Apache License 2.0 does not revoke permissions already granted for those releases.
 
 ---
 
@@ -170,86 +195,109 @@ For commercial use, see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). The name
 
 ### CRDDとは？
 
-AI協働開発は実装を高速化できる一方で、ProductのWhy——要望の起点、判断理由、却下した代替案、受容したRisk、設計意図——をChat Log、Ticket、Pull Requestの中で静かに劣化させることがある。
+AI協働開発は実装を高速化できる一方で、プロダクトの「なぜ」——要望の起点、判断理由、却下した代替案、受容したリスク、設計意図——をチャットログ、チケット、プルリクエストの中で静かに劣化させることがある。
 
-CRDDは、そのContextを保存・接続し、人間、AI、専門家が意味を無言で変えずにDiscoveryからVerificationまでProductを具体化できるようにする開発方法論である。Gitを利用するProjectでは、RepositoryをContext RepositoryのCanonical Control Planeとして利用し、Authorityを持つ外部Artifactも明示的な参照で接続できる。
+CRDDは、そのコンテキストを保存・接続し、人間、AI、専門家が意味を無言で変えずに課題探索・要求形成工程（Discovery）から検証までプロダクトを具体化できるようにする開発方法論である。Gitを利用するプロジェクトでは、リポジトリをコンテキストリポジトリの正本制御基盤として利用し、決定権限を持つ外部成果物も明示的な参照で接続できる。
 
-AIはAuthorityの範囲内で探索、整理、比較、Draft、実装、検証を行える。人間は意味、価値、Priority、Approval、Risk受容、最終責任を保持する。CRDDは特定のAI Tool、Agent構成、文書Tool、技術Stackを要求しない。
+AIは決定権限の範囲内で探索、整理、比較、下書き、実装、検証を行える。人間は意味、価値、優先順位、承認、リスク受容、最終責任を保持する。CRDDは特定のAIツール、エージェント構成、文書ツール、技術スタックを要求しない。
 
 ### CRDDを簡単に言うと
 
-CRDDは、AIにCodeを書かせるためだけの方法ではない。なぜ作るのか、誰の何を変えたいのか、何をなぜ決めたのかをRepositoryへ残し、人間やAIが後から同じ意味を理解できるようにする方法である。
+CRDDは、AIにコードを書かせるためだけの方法ではない。なぜ作るのか、誰の何を変えたいのか、何をなぜ決めたのかをリポジトリへ残し、人間やAIが後から同じ意味を理解できるようにする方法である。
 
 - AIは、調査、整理、比較、文書化、実装、検証を支援する。
-- 人間は、価値、優先順位、採用・却下、Risk、最終判断に責任を持つ。
-- Requirement、UX、IA、UI、Behavior Specification、Architecture、Implementation、Verificationを接続する。
+- 人間は、価値、優先順位、採用・却下、リスク、最終判断に責任を持つ。
+- 要求、UX、IA、UI、振る舞い仕様、アーキテクチャ、実装、検証を接続する。
+- UXで定めた印象や関係性を、視覚表現方針（Visual Direction）、UIテーマ（UI Theme）、UI設計パターン（UI Design Pattern）、UI部品（UI Component）、全対象論理画面（Logical Screen）の最終視覚表現（Final Visual）、実装結果の検証まで接続する。
 - 分からないことをAIが勝手に補わず、未決事項として残す。
-- 成果物全体を一つの正解とせず、情報の種類ごとにAuthorityを定める。
+- 成果物全体を一つの正解とせず、情報の種類ごとに決定権限を定める。
 
 | CRDD用語 | 初めて読む人向けの説明 |
 |---|---|
-| Context Repository | なぜ作るか、判断、設計、実装、検証、Learningをつないで残す場所 |
-| Canonical Artifact | 特定の情報について、現在の正式な内容を持つ成果物 |
-| Property Authority | 特定の項目を決める権限を持つ人、Role、または成果物 |
-| Preserved Intent | 下流へ進んでも失ってはいけない目的、価値、Non-goal |
-| Responsibility Coverage | その工程が考えるべきことを必要なScopeで確認した状態 |
-| Phase Transition Review | 次工程へ渡す前に、抜けや矛盾を独立した視点で確認すること |
-| Evidence | 主張、解釈、判断を確認するための根拠 |
-| Handoff | Context、責務、Risk、未決事項を保ったまま次の活動へ渡すこと |
-| Stable Context ID | Fileが移動・再編されても同じ意味を追跡するためのID |
-| Change Trace | 変更理由、影響、実装、検証、Release上の処置をつないだ記録 |
+| コンテキストリポジトリ（Context Repository） | なぜ作るか、判断、設計、実装、検証、学びをつないで残す場所 |
+| 正本成果物 | 特定の情報について、現在の正式な内容を持つ成果物 |
+| 項目の決定権限（Property Authority） | 特定の項目を決める権限を持つ人、役割、または成果物 |
+| 保持する意図（Preserved Intent） | 下流へ進んでも失ってはいけない目的、価値、目指さないこと |
+| 責務の網羅状態（Responsibility Coverage） | その工程が考えるべきことを必要な対象範囲で確認した状態 |
+| 工程移行レビュー | 次工程へ渡す前に、抜けや矛盾を独立した視点で確認すること |
+| 根拠 | 主張、解釈、判断を確認するための根拠 |
+| 引き渡し | コンテキスト、責務、リスク、未決事項を保ったまま次の活動へ渡すこと |
+| 安定コンテキストID（Stable Context ID） | ファイルが移動・再編されても同じ意味を追跡するためのID |
+| 変更トレース | 変更理由、影響、実装、検証、リリース上の処置をつないだ記録 |
 
-この表は非規範の理解補助であり、別の定義を作るものではない。正式な定義は[Terminology](02_Terminology.md)を正本とし、表現が異なる場合は正本に従う。
+この表は非規範の理解補助であり、別の定義を作るものではない。正式な定義は[用語](02_Terminology.md)を正本とし、表現が異なる場合は正本に従う。
 
-Product Transformationは一気通貫で接続するが、固定Waterfallではない。
+プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 
 ```text
-Discovery → UX → IA
+課題探索・要求形成 → UX → IA
                   ↓
-        UI ⇄ Behavior Specification
+        UI ⇄ 振る舞い仕様
           └──────┬──────┘
                  ↓
-           Architecture
+           アーキテクチャ
                  ↓
-           Implementation
+           実装
                  ↓
-            Verification
+            検証
                  ↓
- Learning / Finding → 影響するContext
+ 学び／指摘事項 → 影響するコンテキスト
 ```
 
-UIとBehavior Specificationは、共有Contractで接続された並行工程である。
+UIと振る舞い仕様は、共有契約で接続された並行工程である。
 
-下流で新しい判断、制約、学び、根拠、Findingが生じた場合は、その場で上流や同じ工程への影響を確認する。影響があれば、責務を持つ正本を更新し、下流への影響も改めて検証する。
+下流で新しい判断、制約、学び、根拠、指摘事項が生じた場合は、その場で上流や同じ工程への影響を確認する。影響があれば、責務を持つ正本を更新し、下流への影響も改めて検証する。
 
 通常の工程移行前には、作成担当とは別の視点で次を確認する。
 
 - 送信工程の完了条件を満たしているか
 - 受信工程を開始できる状態か
-- 対象Scopeに抜けや矛盾がないか
+- 対象範囲に抜けや矛盾がないか
 - 未解決事項と影響範囲が明確か
 
-問題は責務を持つ工程で修正し、修正後の内容を再Reviewしてから人間の承認へ進む。未完了の確認を残して進む場合は、人間が例外、Risk、Owner、再確認条件を明示する。部分Handoffだけを理由に、移行するScopeの確認を省略してはならない。
+問題は責務を持つ工程で修正し、修正後の内容を再レビューしてから人間の承認へ進む。未完了の確認を残して進む場合は、人間が例外、リスク、担当責任者、再確認条件を明示する。部分引き渡しだけを理由に、移行する対象範囲の確認を省略してはならない。
 
 ### 外部標準・参考原則
 
-CRDDは、Requirement記法、Usability、Accessibility、設計原則、規範語彙等のSourceを、必要な範囲で使用または参考にする。参照していることだけでは、そのSourceを完全に網羅または準拠していることを意味しない。
+CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設計原則、規範語彙等の情報源を、必要な範囲で使用または参考にする。参照していることだけでは、その情報源を完全に網羅または準拠していることを意味しない。
 
-正式なSource索引、CRDDとの関係、Coverageは[External Foundations and Source Trace](00_Overview.md#36-external-foundations-and-source-trace)を参照する。Trace Ruleは[Documentation](03_Documentation.md#49-external-source-trace)を正本とする。
+正式な情報源索引、CRDDとの関係、網羅範囲は[外部基盤と情報源の追跡](00_Overview.md#36-external-foundations-and-source-trace)を参照する。追跡規則は[文書化](03_Documentation.md#49-external-source-trace)を正本とする。
 
 ### クイックスタート
 
-1. [Overview](00_Overview.md)、[Principles](01_Principles.md)、[Terminology](02_Terminology.md)、[Documentation](03_Documentation.md)を読む。
-2. [`template/`](template)のScaffoldを対象Projectへコピーする。採用するReleaseのCRDD標準文書を`00_CRDD/`へコピーし、採用Versionを識別可能にする。
-3. 作業に必要な共通正本（`10`〜`19`）と対象工程の正本（`21`〜`29`）を読む。UIまたはBehavior Specificationへ進む前に、両者の[共有Contract](24_UI_Behavior_Specification.md)を読む。
-4. Project Rootの[`AGENTS.md`](template/AGENTS.md)または[`CLAUDE.md`](template/CLAUDE.md)をAIの入口とする。工程RuleをPromptへ複製せず、Active Scope、Target Revision、Canonical Context、Authority、対象工程、Stop条件を接続する。
-5. Decision、Constraint、Learning、Evidence、Findingを確定・変更したときは[Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を評価し、発火した場合は通常完了とする前に正本反映と再監査まで終える。
-6. 工程移行前に[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行し、責務工程でFindingを修正して更新Revisionを再Reviewした後にHuman Approvalへ進む。
-7. CRDD準拠を表明する前に、[Conformance Audit](52_Conformance_Audit.md)に従って、適用されるCore / Profile Criteriaを現行Evidenceで評価する。
+人間は、開始前にすべての正本文書を通読する必要はない。この節と[概要の「最初に把握すること」](00_Overview.md#1-quick-orientation)から始め、分からない用語は[用語集](02_Terminology.md)、配置や記録方法は[文書化](03_Documentation.md)で必要時に確認する。AIとCRDD運用を設計する担当者は、基礎正本一式を読む。
 
-### v0.4.2からv0.5.xへの更新
+1. [概要の「最初に把握すること」](00_Overview.md#1-quick-orientation)を読み、最初に扱う問題または要望を一つ決める。
+2. [`template/`](template)のひな型を対象プロジェクトへコピーする。採用するリリースのCRDD標準文書を`00_CRDD/`へコピーし、採用バージョンを識別可能にする。
+3. AI入口から基礎正本、作業に必要な共通正本（`10`〜`19`）、対象工程の正本（`21`〜`29`）だけを読む。UIまたは振る舞い仕様へ進む前に、両者の[共有契約](24_UI_Behavior_Specification.md)を読む。
+4. プロジェクト直下の[`AGENTS.md`](template/AGENTS.md)または[`CLAUDE.md`](template/CLAUDE.md)をAIの入口とする。工程規則を指示文へ複製せず、作業対象、対象改訂版、正本コンテキスト、決定権限、対象工程、停止条件を接続する。
+5. 判断、制約、学び、根拠、指摘事項を確定・変更したときは[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を評価し、発火した場合は通常完了とする前に正本反映と再監査まで終える。
+6. 工程移行前に[工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行し、責務工程で指摘事項を修正して更新改訂版を再レビューした後に人間の承認へ進む。
+7. CRDD準拠を表明する前に、[準拠監査](52_Conformance_Audit.md)に従って、適用される中核／プロファイル基準を現行根拠で評価する。
 
-v0.5.0ではCRDD正本文書のFile名を変更した。基本的な移行Ruleは次のとおり。
+### 小さな問題を一つ始める
+
+次は非規範の最小例であり、一行ごとに別ファイルを作る必要はない。
+
+```text
+顧客から「重要なお知らせを見落としやすい」と聞いた
+  ↓
+ヒアリング記録を本文内または最寄りの01_Discovery/Evidence/へ残す
+  ↓
+聞いた事実、解釈、解決案を分ける
+  ↓
+不確実性を示した要求候補を作る
+  ↓
+責任者が採用、延期、却下、追加調査を決める
+  ↓
+採用した対象範囲だけをUXへ渡す
+```
+
+v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+
+### 過去の移行案内: v0.4.2からv0.5.xへの更新
+
+v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移行規則は次のとおり。
 
 ```text
 00_YY_Name.md -> YY_Name.md
@@ -258,51 +306,53 @@ v0.5.0ではCRDD正本文書のFile名を変更した。基本的な移行Rule�
 00_00_Overview.md -> 00_Overview.md
 ```
 
-Projectを無条件に上書きせず、明示的なMigrationとして適用する。
+プロジェクトを無条件に上書きせず、明示的な移行として適用する。
 
-1. 現在PinしているCRDD Release、Project固有Deviation、移行先v0.5.xを記録する。
-2. `00_CRDD/`の公開標準文書一式を更新する。Project所有Artifactは保持し、再適用が必要なProject固有Adapter変更を識別する。
-3. 旧正本File名をRenameし、Project Rootの`AGENTS.md`／`CLAUDE.md`、Product文書、Workflow、Prompt、Template、外部Toolの固定参照を更新する。
-4. Local MarkdownのLink / Anchorを確認し、[Document Audit](51_Document_Audit.md)を実行する。
-5. 意味、Authority、工程Handoff、Consumer Behavior、Artifact間Traceへ影響し得る場合だけ[Gap / Impact Audit](53_Gap_Impact_Audit.md)を実行する。
-6. CRDDをSubmoduleとして採用している場合だけPointerを更新する。MigrationがProject運用、Authority、Product Context、Verificationへ実質的に影響する場合だけProject側Change Traceへ記録する。
+1. 現在固定しているCRDDリリース、プロジェクト固有の差異、移行先v0.5.xを記録する。
+2. `00_CRDD/`の公開標準文書一式を更新する。プロジェクト所有の成果物は保持し、再適用が必要なプロジェクト固有の接続変更を識別する。
+3. 旧正本ファイル名を変更し、プロジェクト直下の`AGENTS.md`／`CLAUDE.md`、プロダクト文書、作業手順、指示文、ひな型、外部ツールの固定参照を更新する。
+4. ローカルMarkdownのリンクとアンカーを確認し、[文書監査](51_Document_Audit.md)を実行する。
+5. 意味、決定権限、工程引き渡し、利用側の振る舞い、成果物間の追跡関係へ影響し得る場合だけ[不足／影響監査](53_Gap_Impact_Audit.md)を実行する。
+6. CRDDをサブモジュールとして採用している場合だけ参照先を更新する。移行がプロジェクト運用、決定権限、プロダクトコンテキスト、検証へ実質的に影響する場合だけ、プロジェクト側の変更トレースへ記録する。
 
-Migration検証がPassするまでは、以前PinしていたReleaseへ戻せる状態を保つ。公式Repository Rootの[`AGENTS.md`](AGENTS.md)と[`CLAUDE.md`](CLAUDE.md)はCRDD標準自身のMaintenance用であり、採用Projectは引き続き[`template/`](template)のEntry Fileを使用する。
+移行検証に合格するまでは、以前固定していたリリースへ戻せる状態を保つ。公式リポジトリ直下の[`AGENTS.md`](AGENTS.md)と[`CLAUDE.md`](CLAUDE.md)はCRDD標準自身の保守用であり、採用プロジェクトは引き続き[`template/`](template)の入口ファイルを使用する。
 
 ### 主要な運用境界
 
-- `00_CRDD/`内の正本文書名は`01_Principles.md`、`27_Architecture.md`のように二桁Document Numberを一度だけ使用し、Folder番号を重ねた`00_01_*`、`00_27_*`にはしない。Document NumberはStable Context IDではない。標準Stable Context IDは`REQ`、`UX`、`IA`、`UI`、`SPEC`に限定する。`CHG-*`はChange TraceのArtifact IDであり、Product ContextのStable IDではない。
-- Evidenceは成果物内または最も近い親Folderの`Evidence/`へ置く。Decisionの結果は結果となるCanonical Artifactへ反映し、Rationale、Evidence、Alternative、Historyを同Artifactへ残す。Root直下のEvidence / Decision Folderを基本構成にしない。
-- 新しいEvidence、不確実性、Requirementは`01_Discovery`へ置く。採用済みだが未着手の内容はRequirementや他のContextを参照して`99_Roadmap`へ置き、Roadmap項目へCRDD Stable Context IDを付与しない。
-- `40_Develop`にはCode、Configuration、Migration、Build定義、Testを置き、CRDD管理用Markdownを置かない。
-- `07_Workflows`にはRepository固有の反復可能な作業手順を置く。Change Traceは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、Release Record、配布物参照、Release Verificationが必要なProjectでだけ使用する。
-- Governance、Security、Privacy、Accessibility、Compatibility、Capacity、Costは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
-- CRDD正本文書は読者の主要ロケールを優先する。正式英語名は共通Aliasとして保持し、Stable Context ID、Agent ID、File名、Schema Key / Value、Codeは翻訳しない。規範強度を曖昧にできない箇所では、BCP 14 Keywordを併記する。
+- `00_CRDD/`内の正本文書名は`01_Principles.md`、`27_Architecture.md`のように二桁の文書番号を一度だけ使用し、フォルダ番号を重ねた`00_01_*`、`00_27_*`にはしない。文書番号は安定コンテキストIDではない。標準の安定コンテキストIDは`REQ`、`UX`、`IA`、`UI`、`SPEC`に限定する。`CHG-*`は変更トレースの成果物IDであり、プロダクトコンテキストの安定IDではない。
+- 根拠は成果物内または最も近い親フォルダの`Evidence/`へ置く。判断の結果は結果となる正本成果物へ反映し、判断理由、根拠、代替案、履歴を同じ成果物へ残す。リポジトリ直下の根拠／判断フォルダを基本構成にしない。
+- 新しい根拠、不確実性、要求は`01_Discovery`へ置く。採用済みだが未着手の内容は、要求や他のコンテキストを参照して`99_Roadmap`へ置き、ロードマップ項目へCRDD安定コンテキストIDを付与しない。
+- `40_Develop`にはコード、構成、移行、ビルド定義、テストを置き、CRDD管理用Markdownを置かない。
+- `07_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
+- ガバナンス、セキュリティ、プライバシー、アクセシビリティ、互換性、処理能力、コストは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
+- CRDD正本文書は読者の主要ロケールを優先する。用語は初出時に日本語表示名と正式英語名を併記し、その後の説明文、見出し、説明用の表では日本語表示名を基本とする。正式英語名は共通の別名として保持し、安定コンテキストID、エージェントID、ファイル名、スキーマのキー／値、コードは翻訳しない。規範強度を曖昧にできない箇所では、BCP 14キーワードを併記する。
 
-配置、Artifact、Evidence、Decision、Stable Context ID、Traceabilityの正本は[Documentation](03_Documentation.md)、Repositoryと文書体系の完全な地図は[Overview](00_Overview.md)を参照する。
+配置、成果物、根拠、判断、安定コンテキストID、追跡可能性の正本は[文書化](03_Documentation.md)、リポジトリと文書体系の完全な地図は[概要](00_Overview.md)を参照する。
 
 ### 文書の導線
 
 | 目的 | ここから読む |
 |---|---|
-| CRDDと不変条件を理解する | [Principles](01_Principles.md) |
-| Repositoryと文書体系の全体像を確認する | [Overview](00_Overview.md) |
-| Canonical Concept、Status、Authority用語を確認する | [Terminology](02_Terminology.md) |
-| Repository、Artifact、Evidence、Decision、ID、Traceを設計する | [Documentation](03_Documentation.md) |
-| AI作業を実行・委譲する | [Agent](10_Agent.md)と[Skill](11_Skill.md) |
-| Change、Product Release、反復Workflowを扱う | [Change](12_Change.md)、[Release](13_Release.md)、[Workflow](14_Workflow.md) |
-| Product工程を適用する | [工程正本Map](00_Overview.md#33-product-phase-authorities)から、該当する`21`〜`29`の正本を読む |
-| CRDD標準自体を保守する | [Maintenance](19_Maintenance.md) |
-| v0.4.2採用Repositoryをv0.5.xへ移行する | [v0.4.2からv0.5.xへの更新](#v042からv05xへの更新) |
-| 文書、準拠、工程横断Impactを監査する | [Document Audit](51_Document_Audit.md)、[Conformance Audit](52_Conformance_Audit.md)、[Gap / Impact Audit](53_Gap_Impact_Audit.md) |
-| 問題報告、Rule変更提案、採用Feedbackを行う | [Contributing](CONTRIBUTING.md) |
+| CRDDと不変条件を理解する | [原則](01_Principles.md) |
+| リポジトリと文書体系の全体像を確認する | [概要](00_Overview.md) |
+| 正式概念、状態、決定権限の用語を確認する | [用語](02_Terminology.md) |
+| リポジトリ、成果物、根拠、判断、ID、追跡関係を設計する | [文書化](03_Documentation.md) |
+| AI作業を実行・委譲する | [エージェント](10_Agent.md)と[スキル](11_Skill.md) |
+| 変更、プロダクトリリース、反復作業を扱う | [変更](12_Change.md)、[リリース](13_Release.md)、[作業手順](14_Workflow.md) |
+| プロダクト工程を適用する | [工程正本一覧](00_Overview.md#33-product-phase-authorities)から、該当する`21`〜`29`の正本を読む |
+| CRDD標準自体を保守する | [保守](19_Maintenance.md) |
+| v0.4.2採用リポジトリをv0.5.xへ移行する | [v0.4.2からv0.5.xへの更新](#v042からv05xへの更新) |
+| 文書、準拠、工程横断影響を監査する | [文書監査](51_Document_Audit.md)、[準拠監査](52_Conformance_Audit.md)、[不足／影響監査](53_Gap_Impact_Audit.md) |
+| 問題報告、規則変更提案、採用フィードバックを行う | [コントリビューションガイド](CONTRIBUTING.md) |
 
 ### Contribution
 
-公開のProblem Report、Standard Change Proposal、Adoption Feedback、Pull Requestを受け付ける。ただし、提案されたこと自体はCRDDへの採用を意味しない。
+公開の問題報告（Problem Report）、標準変更提案（Standard Change Proposal）、採用フィードバック（Adoption Feedback）、プルリクエストを受け付ける。ただし、提案されたこと自体はCRDDへの採用を意味しない。
 
-提案は、Evidence、Impact、Alternative、Authority、Audit、Releaseを確認する[CRDD Maintenance](19_Maintenance.md)の経路へ接続する。Normative ChangeまたはBreaking Changeを提案する前に、[CONTRIBUTING.md](CONTRIBUTING.md)を確認する。
+提案は、根拠、影響、代替案、決定権限、監査、リリースを確認する[CRDDの保守](19_Maintenance.md)の経路へ接続する。規範変更（Normative Change）または破壊的変更（Breaking Change）を提案する前に、[CONTRIBUTING.md](CONTRIBUTING.md)を確認する。
 
 ### ライセンス
 
-CRDDの文書およびRepository内のその他の著作物は、特記がない限り[LICENSE](LICENSE)（CC BY-NC-SA 4.0）で提供する。商用利用は[COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)を参照する。CRDDおよびQual-Labに関連する名称、商標、ロゴは[TRADEMARK.md](TRADEMARK.md)で別に扱う。
+CRDDの文書およびリポジトリ内のその他の著作物は、特記がない限り[Apache License 2.0](LICENSE)で提供する。同ライセンスの条件に従う商用利用も認められるが、商標権は付与されない。CRDD、Qual-Lab、Qualの名称、ロゴおよび関連するブランド要素は[TRADEMARK.md](TRADEMARK.md)で別に扱う。
+
+過去に公開したリリースには、各リリースに同梱されたライセンスが引き続き適用される。Apache License 2.0への切替は、過去のリリースについて既に付与された許諾を取り消すものではない。

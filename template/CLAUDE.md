@@ -8,15 +8,17 @@
 @00_CRDD/10_Agent.md
 @00_CRDD/11_Skill.md
 
-## Claude Code Specific Rules
+## Claude Code固有規則
 
-- 非自明な変更ではPlan modeを使い、Active Scope、Target Revision、参照したCanonical Context、Action Authority、Human Decisionが必要な点を示す。
-- 固定ImportはCRDDの基礎正本と共通Agent / Skill Contractに限定する。対象工程、Change、Roadmap、Release、Workflow、Maintenance、Auditの正本は`AGENTS.md`のContext Selection表に従って追加で読む。
-- `Related` Headerや固定Importにないことを、必要な正本を読まない理由にしない。対象Scopeと無関係な全標準文書を無差別に読み込まず、本文のAuthority LinkとHandoff先を追う。
-- 利用者の主要ロケール、用語の初出併記、平易な判断支援、Canonical Termを変更しない境界は`AGENTS.md`のLanguage and Readabilityに従う。
-- 人間が読むCanonical Artifact、Handoff View、Review Result、Decision Support Summaryを作成・更新した場合は、提示または通常Handoff前に`AGENTS.md`の可読性Self-checkを行う。誤読が判断や後続作業へ影響し得る場合はDocument Auditまたは同等の独立Reviewerへ渡す。
-- `00_CRDD`、Authority、Stable Context ID体系、Approved / Stable Canonical Artifact、Decision / Rationale、Acceptanceを変更する場合は、ImpactとPlanを示してユーザーの指示またはHuman Approvalを確認する。
-- Subagentを利用する場合も、Parent Agentが限定Scope、統合、Conflict解消、Canonical Context更新、Human Review提示に責任を持つ。
-- 工程移行前は原則として別Subagentに`agent.phase_transition.review`を実行させ、Findingの修正と修正後Revisionの再Reviewを完了してからHandoffする。Review省略は対象Human Authorityが明示した`review_exception`がある場合だけ認める。
-- 人間の判断、制約、学び、根拠、Findingを確定・変更した時点でTriggered Propagation Checkの要否を必ず評価する。意味的影響候補がある場合は`agent.gap_impact.audit`を別Subagentへ委譲し、上流・同層正本への反映、下流Impactの再探索、再監査まで完了する。未完了の伝播は、Human Authorityが明示した`propagation_exception`なしに通常完了としない。
-- 文書変更では必要に応じてDocument Audit、工程横断変更ではGap / Impact Audit、準拠表明ではConformance Audit、Product成立確認ではVerificationを使い分ける。
+- 非自明な変更では計画モードを使い、現在の対象範囲、対象改訂版、参照した正本コンテキスト、操作権限、人間による判断が必要な点を示す。
+- 固定取り込みはCRDDの基礎正本と共通エージェント／スキル契約に限定する。対象工程、変更、ロードマップ、リリース、作業手順、保守、監査の正本は`AGENTS.md`のコンテキスト選択表に従って追加で読む。
+- `Related`ヘッダーや固定取り込みにないことを、必要な正本を読まない理由にしない。対象範囲と無関係な全標準文書を無差別に読み込まず、本文の決定権限リンクと引き渡し先を追う。
+- 利用者の主要ロケール、用語の初出併記、平易な判断支援、正式英語名を変更しない境界は`AGENTS.md`の「言語と可読性」に従う。
+- CHG、根拠の説明・要約、正本文書、レビュー・監査結果等の本文も`AGENTS.md`の主要ロケール規則に従う。`Changes/`、`Evidence/`、`CHG-*`等の英語識別子から本文言語を推定しない。
+- 人間が読む正本成果物、引き渡し表示、レビュー結果、判断支援要約を作成・更新した場合は、提示または通常の引き渡し前に`AGENTS.md`の可読性セルフチェックを行う。誤読が判断や後続作業へ影響し得る場合は文書監査または同等の独立した確認者へ渡す。
+- `00_CRDD`、決定権限、安定コンテキストID体系、承認済み／安定した正本成果物、判断／判断理由、受入条件を変更する場合は、影響と計画を示してユーザーの指示または人間の承認を確認する。
+- サブエージェントを利用する場合も、親エージェントが限定した対象範囲、統合、競合解消、正本コンテキスト更新、人間によるレビューへの提示に責任を持つ。
+- 工程移行前は原則として別サブエージェントに`agent.phase_transition.review`を実行させ、指摘事項の修正と修正後改訂版の再レビューを完了してから引き渡す。レビュー省略は対象の人間の決定権限者が明示した`review_exception`がある場合だけ認める。
+- 工程移行は「独立レビュー」と「責任者による人間の判断」の二段階とする。内容と移行の決定権限者が同じ場合は、一度の人間承認で両方を判断してよい。決定権限が異なる場合または専門承認が必要な場合だけ、人間の判断を分ける。
+- 人間の判断、制約、学び、根拠、指摘事項を確定・変更した時点で、変更影響の伝播確認の要否を必ず評価する。意味的影響候補がある場合は`agent.gap_impact.audit`を別サブエージェントへ委譲し、上流・同層正本への反映、下流影響の再探索、再監査まで完了する。未完了の伝播は、人間の決定権限者が明示した`propagation_exception`なしに通常完了としない。
+- 文書変更では必要に応じて文書監査、工程横断変更では不足／影響監査、準拠表明では準拠監査、プロダクト成立確認では検証を使い分ける。

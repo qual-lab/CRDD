@@ -1,10 +1,10 @@
-# CRDD Implementation
+# CRDD実装工程（Implementation）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
-Last Updated: 2026-07-22
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -22,31 +22,31 @@ Related:
 
 ---
 
-> Implementationを適用するProjectでは、本書の`Phase Process Contract`をImplementation工程内の正本として使用する。
+> 実装を適用するプロジェクトでは、本書の`Phase Process Contract`を実装工程内の正本として使用する。
 
 > この文書で分かること（非規範の案内）
 >
-> - 承認済みContextとArchitectureを実装へどう変換するか
-> - Code、Configuration、Migration、Developer Testの責務
-> - 実装中に見つかったDeviationや制約をどこへ返すか
+> - 承認済みコンテキストとアーキテクチャを実装へどう変換するか
+> - コード、構成、移行、開発者テストの責務
+> - 実装中に見つかった逸脱や制約をどこへ返すか
 > - 実装完了と検証完了をどう区別するか
-> - Verificationへ渡す前に何を確認するか
+> - 検証へ渡す前に何を確認するか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-Implementationは、承認済みContext、Behavior Specification、Architecture、および該当するChange Traceを、Code、Configuration、Migration、Developer Test、Build Artifactへ変換する工程である。
+実装は、承認済みコンテキスト、振る舞い仕様、アーキテクチャ、および該当する変更トレースを、コード、構成、移行、開発者テスト、ビルド成果物へ変換する工程である。
 
 ```text
-Architecture   = 実装が従うBoundary、Contract、Constraint、Ruleを定義する
-Implementation = それらを実行可能Artifactへ具体化する
-Verification   = 対象RevisionでContractが成立したか独立して確認する
+アーキテクチャ   = 実装が従う境界、契約、制約、規則を定義する
+実装 = それらを実行可能成果物へ具体化する
+検証   = 対象改訂版で契約が成立したか独立して確認する
 ```
 
-動くCodeは上位ContractやArchitectureの代替ではない。実装中に不足、矛盾、成立不能、未承認変更を発見した場合は、Codeで暗黙解決せず、Observed Fact、Impact、Optionを該当Authorityへ戻す。
+動くコードは上位契約やアーキテクチャの代替ではない。実装中に不足、矛盾、成立不能、未承認変更を発見した場合は、コードで暗黙解決せず、観察済み事実、影響、選択肢を該当決定権限へ戻す。
 
-Implementation Exitは`Ready for Verification`であり、`Verified`または`Accepted`ではない。
+実装の出口は`Ready for Verification`であり、`Verified`または`Accepted`ではない。
 
 ---
 
@@ -54,222 +54,226 @@ Implementation Exitは`Ready for Verification`であり、`Verified`または`Ac
 
 # 工程実行契約（Phase Process Contract）
 
-本章はImplementation工程の入口、変換、責務Coverage、出口、Phase Gate、Auditの正本である。後続章は本ContractをArtifact、Developer Test、Skill実行へ具体化し、独自の完了条件を持たない。
+本章は実装工程の入口、変換、責務網羅範囲、出口、工程ゲート、監査の正本である。本章の規範性と運用規模は[文書化](03_Documentation.md#48-normative-language)に従う。後続章は本契約を成果物、開発者テスト、スキル実行へ具体化し、独自の完了条件を持たない。
 
 <a id="phase-entry-contract"></a>
 
 ## 工程入口契約（Phase Entry Contract）
 
-Implementationは対象Scopeについて次を受け取る。
+実装は対象範囲について次を受け取る。
 
-- 該当するChange Traceと対象Revision / Baseline
-- 承認済みUI Contract / Behavior Specification
-- Architecture Boundary、Implementation / Coding Rule、禁止事項
-- Data / Interface / Security / Operation Contract
-- Compatibility / Migration / Rollback、Capacity / Resource Constraint
-- Acceptance CriteriaとVerification Obligation
-- Environment、Dependency、Build / Deployment条件
-- Coverage Summary、Unresolved Gap、人間Review結果
-- Architecture → Implementation Phase Transition Review Result、Reviewed Revision、または明示された`review_exception`
-- Architectureで発火したTriggered Propagation Check Result、Source Revision、または明示された`propagation_exception`
+- 該当する変更トレースと対象改訂版 / 基準版
+- 承認済みUI契約、視覚表現方針（Visual Direction）、適用するUIテーマ（UI Theme）/ UI部品（UI Component）/ UI設計パターン（UI Design Pattern）/ [外部視覚成果物（External Visual Artifact）](25_UI.md#external-visual-artifact)、振る舞い仕様
+- アーキテクチャ境界、実装 / コーディング規則、禁止事項
+- データ／インターフェース／セキュリティ／運用契約
+- 互換性 / 移行 / ロールバック、処理能力 / リソース制約
+- 受入基準と検証義務
+- 環境、依存関係、ビルド / デプロイ条件
+- 網羅範囲の要約、未解決事項、人間レビュー結果
+- アーキテクチャ→実装工程移行レビュー結果、レビュー済み改訂版、または明示された`review_exception`
+- アーキテクチャで発火した変更影響の伝播確認結果、情報源の改訂版、または明示された`propagation_exception`
 
-部分Handoffの場合は、承認されたScope、未決事項、暫定制約、Risk、後続Owner、人間承認も必要である。Source間にConflictがある場合は、優先順位を推測して実装しない。
+部分引き渡しの場合は、承認された対象範囲、未決事項、暫定制約、リスク、後続担当責任者、人間承認も必要である。情報源間に競合がある場合は、優先順位を推測して実装しない。
 
 <a id="transformation-contract"></a>
 
 ## 変換契約（Transformation Contract）
 
-承認済みContextを、Code、Configuration、Schema / Data Migration、Dependency / Build定義、Executable Rule、Developer Test、Generated / Package Artifact、Implementation Evidenceへ変換する。
+承認済みコンテキストを、コード、構成、スキーマ / データ移行、依存関係 / ビルド定義、実行可能な規則、開発者テスト、生成済み / パッケージ成果物、実装根拠へ変換する。
 
-ImplementationはBehavior、Acceptance、Authority、Data Meaning、Security Boundary、Compatibility / Capacity Behaviorを新しく決めない。変更が必要な場合は、該当するSPEC、UI、Architecture、ChangeまたはHuman Decisionへ戻す。
+実装は振る舞い、受入条件、決定権限、データの意味、セキュリティ境界、互換性 / 処理能力に関する振る舞いを新しく決めない。変更が必要な場合は、該当するSPEC、UI、アーキテクチャ、変更または人間の判断へ戻す。
 
 <a id="required-responsibility-coverage"></a>
 
 ## 必要な責務の網羅（Required Responsibility Coverage）
 
-対象Scopeについて次の責務を適用範囲で判定する。
+対象範囲について次の責務を適用範囲で判定する。
 
-| Responsibility | Implementationで明らかにすること |
+| 責務 | 実装で明らかにすること |
 |---|---|
-| Scope and Trace | Change Trace、UI / SPEC、Architecture、Acceptance、変更対象へのTrace |
-| Code and Boundary | Module、Dependency Direction、公開Interface、禁止Boundaryの遵守 |
-| Configuration / Environment | Default、Environment差分、Secret参照、Feature / Runtime設定 |
-| Data / Interface | Schema、Serialization、Validation、API / Event Contract、Source of Truthの遵守 |
-| Behavior / Failure | Success、Failure、Recovery、Permission、Cancel、Fallback、Side Effect |
-| Concurrency / Resource | Idempotency、Transaction、Timeout、Retry、Contention、Quota、Cleanup |
-| Security / Privacy / AI | Guard、Data Minimization、Authority、Consent、External Action、Audit |
-| Migration / Compatibility | Migration Code、Deploy順序、Rollback、既存Data / Consumer保護 |
-| Dependency / Build | Version、Lock、License / Security Constraint、Build / Package、生成物 |
-| Observability / Operation | Log、Metric、Trace、Alert用Signal、診断可能な状態 |
-| Developer Test / Check | Unit / Component / Contract / Integration、Regression、Static / Build Check |
-| Deviation and Handoff | Actual Impact、Known Limitation、Evidence、Verification Obligation、Unresolved Gap |
+| 対象範囲とトレース | 変更トレース、UI / SPEC、アーキテクチャ、受入条件、変更対象へのトレース |
+| コードと境界 | モジュール、依存方向、公開インターフェース、禁止境界の遵守 |
+| 構成 / 環境 | 既定値、環境差分、シークレット参照、機能 / 実行環境設定 |
+| データ／インターフェース | スキーマ、直列化、妥当性確認、API／イベント契約、正本の遵守 |
+| 振る舞い / 失敗 | 成功、失敗、回復、権限、取消、代替動作、副作用 |
+| UI／視覚表現の実現 | 視覚表現方針、UIテーマ／設計トークン（Design Token）、UI部品／UI設計パターン、論理画面／表示状態／UI差分（UI Variant）、UI素材／モーション、アクセシビリティ、外部視覚成果物の改訂版との対応 |
+| 並行処理 / リソース | 冪等性、トランザクション、タイムアウト、再試行、競合、割当上限、整理 |
+| セキュリティ / プライバシー / AI | 保護、データ最小化、決定権限、同意、外部操作、監査 |
+| 移行 / 互換性 | 移行コード、デプロイ順序、ロールバック、既存データ / 利用先の保護 |
+| 依存関係 / ビルド | バージョン、ロック、ライセンス / セキュリティ制約、ビルド / パッケージ、生成物 |
+| 可観測性 / 操作 | ログ、指標、トレース、警告用兆候、診断可能な状態 |
+| 開発者テスト／確認 | 単体テスト／部品テスト／契約テスト／結合テスト、回帰テスト、静的／ビルド確認 |
+| 逸脱と引き渡し | 実際の影響、既知の制約、根拠、検証義務、未解決事項 |
 
-すべてを全変更へ機械的に要求しない。適用しない責務は`Not Applicable`として理由と人間確認を残す。主要Happy Pathの動作や一部Test Passだけで対象Scope全体を完了扱いしない。
+すべてを全変更へ機械的に要求しない。適用しない責務は`Not Applicable`として理由と人間確認を残す。主要正常パスの動作や一部テスト合格だけで対象範囲全体を完了扱いしない。
 
 <a id="scope-and-coverage-state"></a>
 
 ## 対象範囲と網羅状態（Scope and Coverage State）
 
-各Implementation Obligationを、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
+各実装義務を、`Complete for Scope`、`Partial — Human Authorized`、`Blocked`、`Not Started`、`Not Applicable`で追跡する。
 
-ScopeにはCodeだけでなく、Configuration、Data、Migration、Generated Artifact、Dependency、Test、Consumer、Environmentを含める。変更していないLayerも、影響を受けるならCoverage対象である。
+対象範囲にはコードだけでなく、構成、データ、移行、生成成果物、依存関係、テスト、利用側、環境を含める。変更していない層も、影響を受けるなら網羅範囲対象である。
 
 <a id="human-decisions"></a>
 
 ## 人間による判断（Human Decisions）
 
-人間はScope変更、上位Contract変更、Architecture Boundary変更、重大Dependency追加、不可逆Migration、Security / Privacy Risk、Compatibility破壊、Cost / Schedule Trade-off、Risk受容、部分Handoffを決定する。
+各項目の人間の決定権限者は、対象範囲変更、上位契約変更、アーキテクチャ境界変更、重大依存関係追加、不可逆移行、セキュリティ / プライバシーリスク、互換性破壊、コスト / 予定トレードオフ、リスク受容、部分引き渡しを決定する。
 
-AIまたはImplementation担当は実装案、Rule案、Test、Deviation、Impactを提示できるが、これらを自己承認しない。
+AIまたは実装担当は実装案、規則案、テスト、逸脱、影響を提示できるが、これらを自己承認しない。
 
-人間による判断、制約、Deviation、学び、根拠、Findingを確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層Contextと下流Impactを更新・再監査するまで通常完了としない。
+対象項目の人間の決定権限者による判断、制約、逸脱、学び、根拠、指摘事項を確定または変更した時点で、[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)が必要かを判定する。確認が必要な場合は、関連する上流・同層コンテキストと下流への影響を更新・再監査するまで通常完了としない。
 
 <a id="exit-and-handoff"></a>
 
 ## 完了条件と引渡し（Exit and Handoff）
 
-通常Handoff候補を人間のGateへ提示する前に、次を行う。
+通常引き渡し候補を人間のゲートへ提示する前に、次を行う。
 
-1. 対象Scope / Revisionへ[Phase Transition Review](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
-2. 移行に影響するFindingをImplementationまたは責務を持つ工程で修正する。
-3. 修正後Revisionを再Reviewし、`Pass`を得る。
+1. 対象範囲／改訂版へ[独立した工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)を実行する。
+2. 移行に影響する指摘事項を実装または責務を持つ工程で修正する。
+3. 修正後改訂版を再レビューし、`Pass`を得る。
+4. 対象内容と工程移行の人間の決定権限者が、内容とレビュー結果を確認して移行を決定する。
 
-Reviewの省略または未解消Findingを伴う移行は、[Human-directed Review Exception](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常Routeと区別して扱う。
+レビューの省略または未解消の指摘事項を伴う移行は、[人間が指示するレビュー例外](10_Agent.md#73-human-directed-review-exception)がある場合だけ通常経路と区別して扱う。
 
-通常のVerification Handoffは、対象Scopeが`Complete for Scope`で、人間Reviewを通過し、Build / Static Checkと必要なDeveloper Testが成功し、[`29_Verification.md`](29_Verification.md#phase-entry-contract)の受信条件を満たす場合に限る。
+通常の検証への引き渡しは、対象範囲が`Complete for Scope`で、対象内容と検証への移行を人間の決定権限者が承認し、ビルド / 静的確認と必要な開発者テストが成功し、[`29_Verification.md`](29_Verification.md#phase-entry-contract)の受信条件を満たす場合に限る。
 
-Handoffでは、Target Scope / Revision、変更Artifact、適用したArchitecture Rule、Developer Test / Check結果、実行 / 再現方法、Environment、Migration / Rollback、Deviation、Known Limitation、Implementation Evidence、Verification Obligation、Coverage State、Unresolved Gapを渡す。
+引き渡しでは、対象範囲 / 改訂版、変更成果物、適用したアーキテクチャ規則、開発者テスト / 確認結果、実行 / 再現方法、環境、移行 / ロールバック、逸脱、既知の制約、実装根拠、検証義務、網羅状態、未解決事項を渡す。
 
-部分Handoffには、未実装・未確認Scope、Risk、暫定処置、受信先、後続Ownerの人間承認を必要とする。`Implemented`を`Verified`として渡さない。
+部分引き渡しには、未実装・未確認対象範囲、リスク、暫定処置、受信先、後続担当責任者の人間承認を必要とする。`Implemented`を`Verified`として渡さない。
 
 <a id="phase-gate-criteria"></a>
 
 ## 工程移行の判定基準（Phase Gate Criteria）
 
-- Change Trace、UI / SPEC、Architecture、AcceptanceへTraceできる
-- Code、Configuration、Migration、Dependency、Developer Testが対象Scopeで整合している
-- Architecture Boundary、Implementation Rule、Security / Data Contractを遵守している
-- Success、Failure、Recovery、Permission、Concurrency、Observabilityを適用範囲で実装している
-- Build、Static Check、必要なDeveloper Testが対象Revisionで成功している
-- Compatibility、Migration、Rollback、Resource Constraintを適用範囲で実装・確認している
-- Target Revision、Environment、実行方法、Deviation、Known Limitationが特定されている
-- Scope変更、上位変更、Risk受容、部分Handoffを人間判断へ戻している
-- 発火したTriggered Propagation Checkが`Pass`であり、必要な正本更新と再監査が完了している
-- 対象RevisionのPhase Transition Reviewが`Pass`であり、移行に影響するFindingのRemediationと再Reviewが完了している
+- 変更トレース、UI / SPEC、アーキテクチャ、受入条件へトレースできる
+- コード、構成、移行、依存関係、開発者テストが対象範囲で整合している
+- アーキテクチャ境界、実装規則、セキュリティ / データ契約を遵守している
+- 成功、失敗、回復、権限、並行処理、可観測性を適用範囲で実装している
+- UI対象では、視覚表現方針、UIテーマ／設計トークン、UI部品／UI設計パターン、論理画面／表示状態／UI差分、UI素材／モーション、アクセシビリティを承認済みUIとアーキテクチャに従って実装している
+- ビルド、静的確認、必要な開発者テストが対象改訂版で成功している
+- 互換性、移行、ロールバック、リソース制約を適用範囲で実装・確認している
+- 対象改訂版、環境、実行方法、逸脱、既知の制約が特定されている
+- 対象範囲変更、上位変更、リスク受容、部分引き渡しを人間判断へ戻している
+- 発火した変更影響の伝播確認が`Pass`であり、必要な正本更新と再監査が完了している
+- 対象改訂版の工程移行レビューが`Pass`であり、移行に影響する指摘事項の是正と再レビューが完了している
 
 <a id="phase-audit-checklist"></a>
 
 ## 工程監査チェックリスト（Phase Audit Checklist）
 
-- Codeが上位ContractまたはArchitectureを無言で置換している
-- Testを通すためにAcceptance、Guard、Contractを弱めている
-- Codeだけを変更し、Configuration、Migration、Generated Artifact、Test、Consumer影響が追従していない
-- Error、Permission、Recovery、Concurrency、Cleanup、Observabilityの実装漏れ
-- 共有Component、Schema、API変更の既存Data / Consumer / Layer影響漏れ
-- 実装固有Ruleが正本化されず、会話またはCode内だけに存在する
-- Developer Test結果または実装者確認を独立Verificationとして扱っている
-- Coverage Summary、Deviation、Known Limitation、Implementation Evidenceの欠落
-- 確定・変更したDecision、Constraint、Deviation、Learning、Evidence、Findingに対する上流・同層探索、正本反映、再監査が欠落していないか
-- Independent Review未実施、旧RevisionのReview流用、Finding未修正の持ち越し、Audit Run完了をTarget Passとみなしていないか
+- コードが上位契約またはアーキテクチャを無言で置換している
+- テストを通すために受入条件、保護、契約を弱めている
+- コードだけを変更し、構成、移行、生成成果物、テスト、利用側影響が追従していない
+- エラー、権限、回復、並行処理、整理、可観測性の実装漏れ
+- 共有UI部品／共有実行環境部品、スキーマ、API変更の既存データ／利用側／層への影響漏れ
+- 視覚表現方針、UIテーマ／設計トークン、UI部品／UI設計パターン、外部視覚成果物の改訂版との差分を実装都合で無言変更している
+- 実装固有規則が正本化されず、会話またはコード内だけに存在する
+- 開発者テスト結果または実装者確認を独立検証として扱っている
+- 網羅範囲の要約、逸脱、既知の制約、実装根拠の欠落
+- 確定・変更した判断、制約、逸脱、学び、根拠、指摘事項に対する上流・同層探索、正本反映、再監査が欠落していないか
+- 独立レビュー未実施、旧改訂版のレビュー流用、指摘事項未修正の持ち越し、監査実行完了を対象の合格とみなしていないか
 
 ---
 
-# 2. Implementation Model
+# 2. 実装モデル
 
-## 2.1. Rule Authority and Artifact Placement
+## 2.1. 規則の決定権限と成果物の配置
 
-Project固有のCoding RuleとImplementation RuleのCanonical Markdownは`06_Architecture`へ置く。ArchitectureはRuleの意味、適用Scope、理由、禁止事項、例外承認、検査方法を所有する。
+プロジェクト固有のコーディング規則と実装規則の正本Markdownは`06_Architecture`へ置く。アーキテクチャは規則の意味、適用対象範囲、理由、禁止事項、例外承認、検査方法を所有する。
 
-`40_Develop`またはProjectの通常実装領域には、Source Code、Test Code、Configuration、Migration、Build / Package定義、Linter / Formatter / Compiler設定、Generated Artifactを置く。CRDD管理用Markdownの配置先にしない。
+`40_Develop`またはプロジェクトの通常実装領域には、情報源となるコード、テストコード、構成、移行、ビルド / パッケージ定義、リンター / フォーマッター / コンパイラ設定、生成成果物を置く。CRDD管理用Markdownの配置先にしない。
 
-Implementation担当は不足Ruleの案とRationaleを`06_Architecture`の該当Artifactへ提案・追記してよい。ただし、Boundary、Technology、Dependency、Security、Data、Compatibility等を変えるRuleは、Architecture AuthorityとHuman Reviewなしに確定しない。
+実装担当は不足規則の案と判断理由を`06_Architecture`の該当成果物へ提案・追記してよい。ただし、境界、技術、依存関係、セキュリティ、データ、互換性等を変える規則は、アーキテクチャの決定権限と人間によるレビューなしに確定しない。
 
 ```text
-Ruleの意味とAuthority = Architecture / Human
-Code・Test・強制設定   = Implementation
-適合性と成立の判定    = Verification / Human
+規則の意味と決定権限 = アーキテクチャ / 人間
+コード・テスト・強制設定   = 実装
+適合性と成立の判定    = 検証 / 人間
 ```
 
-Linter、Formatter、Type Checker、Static Analyzer、Build Check等の実行可能な強制手段はImplementation Artifactとして配置し、対応するArchitecture RuleへTraceする。
+リンター、フォーマッター、型検査、静的解析ツール、ビルド確認等の実行可能な強制手段は実装成果物として配置し、対応するアーキテクチャ規則へトレースする。
 
-## 2.2. Scope, Impact, and Change Discipline
+## 2.2. 対象範囲・影響・変更規律
 
-変更前に、直接変更するArtifactと、影響を受けるModule、Screen、Consumer、Data、Interface、Configuration、Migration、Test、Operationを特定する。共有Component、Schema、API、Ruleの変更は、局所変更として扱わない。
+変更前に、直接変更する成果物と、影響を受けるモジュール、論理画面、利用側、データ、インターフェース、構成、移行、テスト、操作を特定する。共有UI部品または実行環境部品、スキーマ、API、規則の変更は、局所変更として扱わない。
 
-Mechanical MigrationとSemantic Changeを同じBatchへ無自覚に混在させない。混在する場合は差分、Review順序、Rollback、Verificationを分離して説明し、該当CHGのExpected / Actual Impactへ反映する。重複Logicを発見した場合は、意味上のAuthorityと影響を確認し、共通責務へ統合するか、分離理由を残す。
+機械的な移行と意味上の変更を同じバッチへ無自覚に混在させない。混在する場合は差分、レビュー順序、ロールバック、検証を分離して説明し、該当CHGの想定／実際の影響へ反映する。重複処理を発見した場合は、意味上の決定権限と影響を確認し、共通責務へ統合するか、分離理由を残す。
 
-実装中にScope外変更が必要になった場合は、ついでに変更せずChange ScopeとImpactを更新する。
+実装中に対象範囲外変更が必要になった場合は、ついでに変更せず変更対象範囲と影響を更新する。
 
-## 2.3. Code, Configuration, Build, and Runtime
+## 2.3. コード・設定・ビルド・実行環境
 
-Codeは、Architecture Boundary、Dependency Direction、Data / Interface Contract、Error / Logging Ruleに従う。
+コードは、アーキテクチャ境界、依存方向、データ / インターフェース契約、エラー / ログ記録規則に従う。
 
-Configurationでは次を明確にし、Codeと設定の組み合わせを再現可能にする。
+構成では次を明確にし、コードと設定の組み合わせを再現可能にする。
 
-- Environment差分
-- DefaultとOverride
-- Secret参照
-- Feature FlagのAuthority
+- 環境差分
+- 既定値と上書き
+- シークレット参照
+- 機能フラグの決定権限
 
-利用者・組織向けPreference / Policy / SettingのOption、Default、Precedence、変更効果は、承認済みSPECを実現する。Implementationで新しく決めてはならない。Technical ConfigurationはArchitectureのBoundaryとRuleに従う。
+利用者・組織向け選好 / 方針 / 設定の選択肢、既定値、優先順位、変更効果は、承認済みSPECを実現する。実装で新しく決めてはならない。技術構成はアーキテクチャの境界と規則に従う。
 
-Dependencyは必要なVersionを宣言・固定し、Build / Packageが対象Revisionから再現できるようにする。Generated Code / ArtifactはSource、生成手順、更新条件を追跡し、手修正と再生成の競合を避ける。
+依存関係は必要なバージョンを宣言・固定し、ビルド / パッケージが対象改訂版から再現できるようにする。生成済みコード / 成果物は情報源、生成手順、更新条件を追跡し、手修正と再生成の競合を避ける。
 
-Hot Reload対象外のProcess、Cache、Generated Code、Migration、Build Artifact等を変更した場合は、変更が反映された実RuntimeまたはBuild ArtifactでDeveloper Checkを行う。この確認は独立Verificationの代替ではない。
+即時再読み込み対象外の処理、キャッシュ、生成済みコード、移行、ビルド成果物等を変更した場合は、変更が反映された実実行環境またはビルド成果物で開発者確認を行う。この確認は独立検証の代替ではない。
 
-## 2.4. Behavior, State, Failure, and Resource Control
+## 2.4. 振る舞い・状態・失敗・リソース制御
 
-Happy Pathだけでなく、Boundary、Empty、Unknown、Failure、Permission、Conflict、Stale、Retry、Cancel、Concurrent Execution、Dependency停止を適用範囲で実装する。
+正常パスだけでなく、境界、空、不明、失敗、権限、競合、古い、再試行、取消、並行実行、依存関係停止を適用範囲で実装する。
 
-Idempotency、Transaction、Lock、Queue、Timeout、Backoff、Cleanup、Graceful Shutdown、Partial Failure、Backpressureは、SPECとArchitectureが定めるBehavior / Recovery Contractに従う。実装しやすさを理由にAtomicityやRecovery Meaningを変更しない。
+冪等性、トランザクション、ロック、キュー、タイムアウト、再試行間隔、整理、安全な停止、部分失敗、背圧制御は、SPECとアーキテクチャが定める振る舞い / 回復契約に従う。実装しやすさを理由に原子性や回復の意味を変更しない。
 
-複数Layerをまたぐ変更では、DB、API、Event / IPC、UI、External Providerの実際のData FlowをDeveloper Testで確認する。特定LayerのUnit Testだけで全体成立を推測しない。
+複数層をまたぐ変更では、DB、API、イベント / IPC、UI、外部提供側の実際のデータフローを開発者テストで確認する。特定層の単体テストだけで全体成立を推測しない。
 
-## 2.5. Migration, Compatibility, and Rollback
+## 2.5. 移行・互換性・ロールバック
 
-MigrationはSchema / Data変換だけでなく、Code、Configuration、Consumer、Deploy順序、Backfill、Feature Flag、Rollbackを一つの実行Sequenceとして扱う。
+移行はスキーマ / データ変換だけでなく、コード、構成、利用側、デプロイ順序、補完処理、機能フラグ、ロールバックを一つの実行連番として扱う。
 
-既存DataとConsumerを使ったDeveloper Testを行い、再実行、部分失敗、中断、旧新Version共存を適用範囲で確認する。破壊的変更やRollback不能が判明した場合は、暫定Codeで隠さずArchitecture / Change Trace / Human Decisionへ戻す。
+既存データと利用側を使った開発者テストを行い、再実行、部分失敗、中断、旧新バージョン共存を適用範囲で確認する。破壊的変更やロールバック不能が判明した場合は、暫定コードで隠さずアーキテクチャ / 変更トレース / 人間の判断へ戻す。
 
-## 2.6. Governance, Security, Privacy, and AI Enforcement
+## 2.6. ガバナンス・セキュリティ・プライバシー・AI制御
 
-Consent、Permission、Data Boundary、External Action Authorityは、該当ScopeのUI表示だけでなく実行経路のGuardとして実装する。
+同意、権限、データ境界、外部操作権限は、該当対象範囲のUI表示だけでなく実行経路の保護として実装する。
 
-- UI、API、Batch、Queue、Retry、Admin Pathで同じAuthorityを強制する
-- 許可されたDataだけを取得・保存・送信する
-- External DataとTrusted Instructionを構造的に分離する
-- Action Scope、Target、Amount、Rate、Time、Costを実行時に検証する
-- Source、Actor、Approval、Execution、ResultをAudit可能にする
-- Guardの判定不能時BehaviorをSPEC / Architectureどおりに実装する
+- UI、API、バッチ、キュー、再試行、管理者パスで同じ決定権限を強制する
+- 許可されたデータだけを取得・保存・送信する
+- 外部データと信頼済み指示を構造的に分離する
+- 操作対象範囲、対象、量、比率、時間、コストを実行時に検証する
+- 情報源、アクター、承認、実行、結果を監査可能にする
+- 保護の判定不能時振る舞いをSPEC / アーキテクチャどおりに実装する
 
-SecurityまたはPrivacy RuleをTestしにくいことを理由にGuardを省略したり、Default-on Boundaryを無断でFeature Flagから無効化したりしない。不足ContractはSPEC / Architectureへ戻す。
+セキュリティまたはプライバシー規則をテストしにくいことを理由に保護を省略したり、既定で有効な境界を無断で機能フラグから無効化したりしない。不足契約はSPEC / アーキテクチャへ戻す。
 
-## 2.7. Developer Test and Independent Verification
+## 2.7. 開発者テストと独立検証
 
-Implementation担当は、変更を成立させるDeveloper TestをCodeとともに作成・更新する。
+実装担当は、変更を成立させる開発者テストをコードとともに作成・更新する。
 
 | 目的 | 実装の責務 |
 |---|---|
-| Logic and State | Unit / Component Test、Boundary / Failure / Regression |
-| Contract | API / Event / Schema / Consumer Contract Test |
-| Integration | 変更したLayer、Data Flow、External BoundaryのIntegration Test |
-| Migration | 既存Data、再実行、Rollback、旧新共存のDeveloper Test |
-| Executable Rule | Static Check、Build、Type / Security / Dependency Check |
-| Runtime | 対象Build / ProcessでのDeveloper Smoke Check |
+| 論理と状態 | 単体テスト／部品テスト、境界／失敗／回帰テスト |
+| 契約 | API / イベント / スキーマ / 利用側契約テスト |
+| 統合 | 変更した層、データフロー、外部境界の結合テスト |
+| 移行 | 既存データ、再実行、ロールバック、旧新共存の開発者テスト |
+| 実行可能な規則 | 静的確認、ビルド、種別 / セキュリティ / 依存関係確認 |
+| 実行環境 | 対象ビルド / 処理での開発者スモーク確認 |
 
-Testの技術形式だけではImplementationとVerificationを区別できない。同じE2EやIntegration Testでも、実装を支えるDeveloper Testと、対象Revisionに対する独立Acceptance / AssuranceではAuthorityとEvidenceが異なる。
+テストの技術形式だけでは実装と検証を区別できない。同じE2Eや結合テストでも、実装を支える開発者テストと、対象改訂版に対する独立受入条件 / 保証では決定権限と根拠が異なる。
 
-VerificationはDeveloper Testを再実行・再利用してよいが、実装者の成功報告だけで成立判定しない。Implementation担当も、Acceptance / E2Eという名称だけを理由にTest作成をVerificationへ丸投げしない。
+検証は開発者テストを再実行・再利用してよいが、実装者の成功報告だけで成立判定しない。実装担当も、受入条件 / E2Eという名称だけを理由にテスト作成を検証へ丸投げしない。
 
-Test CodeはImplementation Artifactとして`40_Develop`またはProjectの通常Test配置へ置く。Test Purpose、対象Contract、Fixture、Environment、Revisionを追跡可能にする。
+テストコードは実装成果物として`40_Develop`またはプロジェクトの通常テスト配置へ置く。テスト目的、対象契約、テストデータ、環境、改訂版を追跡可能にする。
 
-## 2.8. Trace, Evidence, Decision, and Deviation
+## 2.8. 追跡・根拠・判断・逸脱
 
-ImplementationへCRDD標準Stable Context IDを新規発行しない。Source `REQ-*` / `UX-*` / `IA-*` / `UI-*` / `SPEC-*`、Architecture、Change Trace、VerificationとはArtifact Reference、Commit、Pull Request、Test Result等で接続する。
+実装へCRDD標準安定コンテキストIDを新規発行しない。情報源 `REQ-*` / `UX-*` / `IA-*` / `UI-*` / `SPEC-*`、アーキテクチャ、変更トレース、検証とは成果物参照、コミット、プルリクエスト、テスト結果等で接続する。
 
-Implementation Evidenceは対象Revision、Environment、Command / Procedure、Result、Artifact Locationを識別できるようにし、対象Artifact内または最も近い親Folderの`Evidence/`へ置く。Verification EvidenceとはAuthorityとPurposeを区別する。
+実装根拠は対象改訂版、環境、コマンド / 手順、結果、成果物の場所を識別できるようにし、対象成果物内または最も近い親フォルダの`Evidence/`へ置く。検証根拠とは決定権限と目的を区別する。
 
-Architectureや上位Contractを変えるDecisionをImplementation Noteだけで確定しない。実装固有の選択、Deviation、Known Limitationは、結果となるCode / Configurationと、Change Trace、Pull Request、Canonical Architecture Artifact等の適切な既存Artifactへ理由、Impact、Evidence、Ownerを残す。
+アーキテクチャや上位契約を変える判断を実装注記だけで確定しない。実装固有の選択、逸脱、既知の制約は、結果となるコード／構成と、変更トレース、プルリクエスト、アーキテクチャの正本成果物等の適切な既存成果物へ理由、影響、根拠、担当責任者を残す。
 
 `40_Develop`へCRDD管理用Markdownを新設しない。
 
@@ -277,96 +281,96 @@ Architectureや上位Contractを変えるDecisionをImplementation Noteだけで
 
 <a id="3-guided-skill-adapter"></a>
 
-# 3. Skill実行Adapter（Guided Skill Adapter）
+# 3. スキル実行接続部（Guided Skill Adapter）
 
 <a id="31-runtime-authority"></a>
 
 ## 3.1. 実行時の決定権限（Runtime Authority）
 
-`skill.implementation.realize`は、本書のPhase Process Contractを[`11_Skill.md`](11_Skill.md)のRun Lifecycle、Guided Interaction、Human Review、Handoffに従って実行するImplementation固有Adapterである。本書ではRun Status、Pause / Resume、共通Question Rule、Subagent Lifecycleを再定義しない。
+`skill.implementation.realize`は、本書の工程実行契約を[`11_Skill.md`](11_Skill.md)の実行の状態遷移、ガイド付き対話、人間によるレビュー、引き渡しに従って実行する実装固有接続部である。本書では実行状態、一時停止 / 再開、共通の質問規則、サブエージェントの状態遷移を再定義しない。
 
-## 3.2. Implementation-specific Progression
+## 3.2. 実装固有の進行
 
 | 手順 | 変換 | 出力 |
 |---|---|---|
-| Load | Change Trace、UI / SPEC、Architecture、Rule、Target Revisionを対応づける | Implementation Coverage Queue |
-| Impact | Direct Changeと影響Artifact、Data、Consumer、Testを特定する | Impacted Scope |
-| Implement | Code、Configuration、Migration、Executable Ruleを具体化する | Implementation Artifact |
-| Exercise | Developer Test、Static / Build Check、Runtime Checkを行う | Implementation Evidence |
-| Reconcile | Deviation、Known Limitation、Actual Impactを正本へ戻す | Updated Context / Proposal |
-| Handoff | Revision、Environment、Evidence、Verification Obligationを渡す | Ready for Verification |
+| 負荷 | 変更トレース、UI / SPEC、アーキテクチャ、規則、対象改訂版を対応づける | 実装の網羅キュー |
+| 影響 | 直接変更と影響成果物、データ、利用側、テストを特定する | 影響を受ける対象範囲 |
+| 実装 | コード、構成、移行、実行可能な規則を具体化する | 実装成果物 |
+| 実行 | 開発者テスト、静的 / ビルド確認、実行時確認を行う | 実装根拠 |
+| 整合 | 逸脱、既知の制約、実際の影響を正本へ戻す | 更新したコンテキスト / 提案 |
+| 引き渡し | 改訂版、環境、根拠、検証義務を渡す | 検証の準備完了 |
 
-ファイル数、差分量、Test数を進捗とみなさず、Required Responsibility Coverageと対象Scopeで判定する。
+ファイル数、差分量、テスト数を進捗とみなさず、必要な責務の網羅と対象範囲で判定する。
 
-## 3.3. Stop, Return, and Escalation
+## 3.3. 停止・差戻し・上位判断への移送
 
-次の場合は実装を停止または承認済みScopeへ限定し、該当Authorityへ戻す。
+次の場合は実装を停止または承認済み対象範囲へ限定し、該当決定権限へ戻す。
 
 | 条件 | 移行先（Route） |
 |---|---|
-| SPECとArchitectureが矛盾、Acceptanceが観測不能 | SPEC / Architecture / Human Decision |
-| Architecture RuleまたはBoundaryが不足 | Architecture |
-| 安全なMigration / Rollbackが成立しない | Architecture / Change Trace / Human Decision |
-| Secret、Permission、Environmentが不足 | Environment Owner / Human Authority |
-| Scope外の共有Component変更が必要 | Change Trace / Impact Review |
-| Security / Privacy / Compatibilityを弱める必要がある | Relevant Authority / Human Decision |
-| Resource / Cost制約でCapacity Behaviorを満たせない | Architecture / SPEC / Human Decision |
-| 新しいBusiness Ruleが必要 | Discovery / SPEC / Human Decision |
+| SPECとアーキテクチャが矛盾、受入条件が観測不能 | SPEC / アーキテクチャ / 人間の判断 |
+| アーキテクチャ規則または境界が不足 | アーキテクチャ |
+| 安全な移行 / ロールバックが成立しない | アーキテクチャ / 変更トレース / 人間の判断 |
+| シークレット、権限、環境が不足 | 環境担当責任者 / 人間の決定権限 |
+| 対象範囲外の共有UI部品／共有実行環境部品変更が必要 | 変更トレース／影響レビュー |
+| セキュリティ / プライバシー / 互換性を弱める必要がある | 関係する決定権限 / 人間の判断 |
+| リソース / コスト制約で処理能力に関する振る舞いを満たせない | アーキテクチャ / SPEC / 人間の判断 |
+| 新しい業務規則が必要 | 課題探索・要求形成 / SPEC / 人間の判断 |
 
-暫定実装でConflictを隠さず、Observed Fact、Impact、Option、Recommendation、必要なHuman Decisionを返す。
+暫定実装で競合を隠さず、観察済み事実、影響、選択肢、推奨、必要な人間の判断を返す。
 
-## 3.4. Agent and Subagent Use
+## 3.4. エージェントとサブエージェントの使用
 
-AgentまたはSubagentへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従い、Module、Migration、Developer Test、Impact調査等の限定Scopeを渡す。
+エージェントまたはサブエージェントへ委譲する場合は[`10_Agent.md`](10_Agent.md)に従い、モジュール、移行、開発者テスト、影響調査等の限定対象範囲を渡す。
 
-Parent Agentは変更Scope、禁止変更、Target Revision、Expected Output、Verification Obligationを明示し、結果をCanonical Contextへ統合して該当Change Traceへ接続する。Subagent Resultをそのまま`Verified`またはHuman Decisionにしない。
+親エージェントは変更対象範囲、禁止変更、対象改訂版、期待する出力、検証義務を明示し、結果を正本コンテキストへ統合して該当変更トレースへ接続する。サブエージェントの結果をそのまま`Verified`または人間の判断にしない。
 
 ---
 
 <a id="4-review-handoff-view-and-feedback"></a>
 
-# 4. Review・引渡しView・Feedback
+# 4. レビュー・引き渡し表示・フィードバック
 
-## 4.1. Implementation-specific Human Review
+## 4.1. 実装固有の人間レビュー
 
-人間Reviewでは少なくとも次を確認する。
+人間レビューでは少なくとも次を確認する。
 
-- 上位ContractとArchitectureをCode都合で弱めていない
-- 変更Scopeと共有Artifact、Data、ConsumerへのImpactが一致している
-- Security、Migration、Compatibility、CapacityのRiskを隠していない
-- Developer Testが変更したBehavior、Failure、Boundaryを扱っている
-- Deviation、Known Limitation、未実装Scopeが明確である
+- 上位契約とアーキテクチャをコード都合で弱めていない
+- 変更対象範囲と共有成果物、データ、利用側への影響が一致している
+- セキュリティ、移行、互換性、処理能力のリスクを隠していない
+- 開発者テストが変更した振る舞い、失敗、境界を扱っている
+- 逸脱、既知の制約、未実装対象範囲が明確である
 - `Ready for Verification`を`Verified`としていない
 
-## 4.2. Implementation Artifact / Handoff View
+## 4.2. 実装成果物／引き渡し表示
 
-Artifactの分割方法は固定しないが、対象Scopeについて次を参照可能にする。
+成果物の分割方法は固定しないが、対象範囲について次を参照可能にする。
 
 ```text
-Target Scope / Revision / Baseline
-Source Change Trace / UI / SPEC / Architecture
-Changed Code / Configuration / Migration / Dependency / Build
-Implemented Obligation / Architecture Rule Applied
-Developer Test / Static / Build / Runtime Check Result
-Environment / Execution / Reproduction Method
-Migration / Rollback / Compatibility
-Deviation / Known Limitation / Actual Impact
-Implementation Evidence
-Verification Obligation
-Coverage State / Unresolved Gap / Human Review
-Triggered Propagation Check Result / Source Revision / Remediation / Propagation Exception
-Phase Transition Review Result / Reviewed Revision / Finding Disposition / Review Exception
+対象範囲 / 改訂版 / 基準版
+情報源変更トレース / UI / SPEC / アーキテクチャ
+変更されたコード / 構成 / 移行 / 依存関係 / ビルド
+実装済み義務 / アーキテクチャ規則適用済み
+開発者テスト / 静的 / ビルド / 実行時確認結果
+環境 / 実行 / 再現方法
+移行 / ロールバック / 互換性
+逸脱 / 既知制限 / 実際影響
+実装根拠
+検証義務
+網羅範囲状態 / 未解決不足 / 人間レビュー
+変更影響の伝播確認結果／情報源の改訂版／是正／伝播例外
+工程移行レビュー結果 / レビュー済み改訂版 / 指摘事項処置 / レビュー例外
 ```
 
-Verification HandoffはこのViewを縮小再掲して受信条件を減らさず、Canonical Artifactへの参照とCoverage State付きで渡す。
+検証への引き渡しはこの表示を縮小再掲して受信条件を減らさず、正本成果物への参照と網羅状態付きで渡す。
 
-## 4.3. Feedback from Implementation
+## 4.3. 実装からのフィードバック
 
-実装から得た成立条件、技術制約、Failure Mode、実測値、Dependency制約、Migration Riskは、Architecture、SPEC、UI、ChangeへFindingまたはProposalとして戻す。
+実装から得た成立条件、技術制約、失敗モード、実測値、依存関係制約、移行リスクは、アーキテクチャ、SPEC、UI、変更へ指摘事項または提案として戻す。
 
-Implementation担当に上位Artifactの編集権限があっても、意味上のAuthorityを代替しない。上位変更が承認されるまで、Codeを新しい正本として扱わない。
+実装担当に上位成果物の編集権限があっても、意味上の決定権限を代替しない。上位変更が承認されるまで、コードを新しい正本として扱わない。
 
-Verification Findingは原因に応じてImplementationへ戻る。修正後はTarget RevisionとImplementation Evidenceを更新し、以前のVerification Resultを自動的にPassへ変更しない。
+検証の指摘事項は原因に応じて実装へ戻る。修正後は対象改訂版と実装根拠を更新し、以前の検証結果を自動的に合格へ変更しない。
 
 ---
 
@@ -374,6 +378,6 @@ Verification Findingは原因に応じてImplementationへ戻る。修正後はT
 
 # 5. 最終原則（Final Principle）
 
-Implementationは、設計をCodeへ写して終わる工程ではない。
+実装は、設計をコードへ写して終わる工程ではない。
 
-上位Contractを守って実行可能Artifactへ変換し、実装から得た学びを正しいAuthorityへ戻し、独立して検証できる状態を作る。
+上位契約を守って実行可能成果物へ変換し、実装から得た学びを正しい決定権限へ戻し、独立して検証できる状態を作る。

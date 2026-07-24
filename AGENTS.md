@@ -1,59 +1,63 @@
-# CRDD Standard Repository AI Entry
+# CRDD標準リポジトリのAI入口
 
-このRepositoryはCRDD標準自身を管理する。Projectへ配布するStarter Ruleは`template/AGENTS.md`であり、本書はQual-Lab / CRDD公式RepositoryのMaintenance Adapterである。採用Repositoryへ同じIssue、Branch、Pull Request、Label、Agent構成を要求しない。
+このリポジトリはCRDD標準自身を管理する。プロジェクトへ配布する導入用規則は`template/AGENTS.md`であり、本書はQual-Lab / CRDD公式リポジトリのメンテナンス接続部である。採用リポジトリへ同じIssue、ブランチ、プルリクエスト、表示名、エージェント構成を要求しない。
 
-## Authority and Context Selection
+## 決定権限とコンテキスト選択
 
-CRDD標準のMaintenanceでは、最初に次を確認する。
+CRDD標準の保守では、最初に次を確認する。
 
 - [`19_Maintenance.md`](19_Maintenance.md)
-- 変更対象Propertyを所有するCanonical Document
-- 対象Scope、Base Revision / Baseline、Expected Result、Preserved Intent / Non-goal
-- Human Decision済みの範囲と未決事項
-- Change Classification、Migration Need、必要なReview / Audit
+- 変更対象項目を所有する正本文書
+- 対象範囲、基準改訂版または基準版、期待する結果、保持する意図、目指さないこと
+- 人間による判断済みの範囲と未決事項
+- 変更分類、移行の要否、必要なレビュー／監査
 
-IssueまたはTaskが存在する場合は、本文、Comment、Status、関連Pull Request、Base Revisionを確認する。明らかなEditorial Changeでは、Humanから与えられたTaskとCommit等から同じ情報を取得できれば、新しいIssueを機械的に要求しない。Issue、Label、Assignment、ProposalだけからExecution Authorization、Adoption、Releaseを推定しない。
+Issueまたはタスクが存在する場合は、本文、コメント、状態、関連プルリクエスト、基準改訂版を確認する。明らかな編集上の変更では、人間から与えられたタスクとコミット等から同じ情報を取得できれば、新しいIssueを機械的に要求しない。Issue、表示名、割当、提案だけから実行許可、採用、リリースを推定しない。
 
-`Related` HeaderはRead Setの上限ではない。Authority、直接参照、参照元、Template、README / Overview / CHANGELOG、Public Intake Adapter等、変更の意味と影響を判定するために必要なContextを追加で読む。
+`Related`ヘッダーは読む範囲の上限ではない。決定権限、直接参照、参照元、ひな型、README／概要／CHANGELOG、公開受付接続部等、変更の意味と影響を判定するために必要なコンテキストを追加で読む。
 
-## Language and Readability
+## 言語と可読性
 
 - 利用者への説明、質問、判断支援は、利用者の主要ロケールで行う。
-- CRDD用語は初出時に「ローカル表示名（Canonical English Term）」で示し、同じ節で英語名を不必要に繰り返さない。
+- 新規作成・更新する人間可読成果物の本文も、リポジトリまたは対象成果物の主要ロケールで記述する。`Changes/`、`Evidence/`、`CHG-*`等の英語識別子から本文言語を推定しない。
+- CRDD用語は初出時に「ローカル表示名（Canonical English Term）」で示す。初出後の説明文、見出し、説明用の表ではローカル表示名を基本とし、英語名を不必要に繰り返さない。
+- 説明用の表と機械可読なスキーマを区別する。スキーマのキー／値、状態実値、関係、コードは維持し、説明用表示名だけを英語項目名のように並べない。
 - 結論と要点を先に示し、並列事項、条件、選択肢、完了条件は箇条書きまたは表で分ける。
-- 専門用語だけで説明を完結させず、Product、利用者、運用への影響を平易に説明する。
-- Canonical Term、Stable Context ID、Agent ID、File名、Schema Key / Value、Codeは無断で翻訳または変更しない。
-- 規範の強さを示す場合は、[Documentation](03_Documentation.md#48-normative-language)の日本語表示とBCP 14 Keywordの対応に従う。
+- 専門用語だけで説明を完結させず、プロダクト、利用者、運用への影響を平易に説明する。
+- 正式英語名、安定コンテキストID、エージェントID、ファイル名、スキーマのキー／値、コードは無断で翻訳または変更しない。
+- 規範の強さを示す場合は、[文書化](03_Documentation.md#48-normative-language)の日本語表示とBCP 14 キーワードの対応に従う。
 
-## Decision and Action Boundary
+## 判断と操作の境界
 
-Triage Disposition、Execution Authorization、Adoption / Integration Decision、Release Decisionを区別する。
+整理の処置、実行許可、採用／統合判断、リリース判断を区別する。
 
-AIは承認されたScopeで調査、比較、Draft、編集、検証、Finding提示を行えるが、次を自己決定しない。
+AIは承認された対象範囲で調査、比較、下書き、編集、検証、指摘事項の提示を行えるが、次を自己決定しない。
 
-- Protected Changeの採用または最終統合
-- Authority、Conformance、Stable Context ID Semanticsの変更
-- Risk AcceptanceまたはBreaking Changeの解除
-- Pull Requestの最終承認
-- Version、Release Scope、Releaseの確定
+- 保護対象変更の採用または最終統合
+- 決定権限、準拠基準、安定コンテキストIDの意味の変更
+- リスク受容または破壊的変更の解除
+- プルリクエストの最終承認
+- バージョン、リリース対象範囲、リリースの確定
 
-Scope外変更、Classificationの重大化、Authority競合、複数解釈可能なHuman Decision、未確認Migration、Baseline変更、Security / Privacy / Legal Risk、必要Access不足を検出した場合は、安全に得た結果と未決事項を残して停止または再Triageする。
+対象範囲外の変更、変更分類の重大化、決定権限の競合、複数解釈可能な人間の判断、未確認の移行、基準版の変更、セキュリティ／プライバシー／法的リスク、必要なアクセス不足を検出した場合は、安全に得た結果と未決事項を残して停止または再整理する。
 
-## Change and Branch Boundary
+## 変更とブランチの境界
 
-Protectedまたは非自明な変更は、原則としてBranchとPull Requestを使用し、作成・変更担当から分離したReviewerへ渡す。Human Authorityが明示したRelease、緊急Correction、または限定操作は、Repository Rule、対象Scope、Base Revision、必要な記録に従って実行できる。
+保護対象または非自明な変更は、原則としてブランチとプルリクエストを使用し、作成・変更担当から分離した確認者へ渡す。人間の決定権限者が明示したリリース、緊急修正、または限定操作は、リポジトリ規則、対象範囲、基準改訂版、必要な記録に従って実行できる。
 
-Pull Requestを使う場合も、MergeをReleaseとみなさない。統合後は`Integrated — Pending Release`、`Released`、`Close without Release`のいずれかを、対象VersionまたはRelease Plan Referenceとともに返す。
+プルリクエストを使う場合も、統合をリリースとみなさない。統合後は`Integrated — Pending Release`、`Released`、`Close without Release`のいずれかを、対象バージョンまたはリリース計画参照とともに返す。
 
-## Review, Audit, and Completion
+## レビュー・監査・完了
 
-Change Classification、Authority、影響範囲、Riskに応じて適用するReviewとAuditを選ぶ。すべての変更へ全Auditを機械的に要求しない。
+変更分類、決定権限、影響範囲、リスクに応じて適用するレビューと監査を選ぶ。すべての変更へ全監査を機械的に要求しない。
 
-- 文書構造、Link / Anchor、用語、Authority、重複、Header、Version、Related、直接Propagationは[`51_Document_Audit.md`](51_Document_Audit.md)
-- CRDD Conformance CriteriaまたはClaim Eligibilityへの影響は[`52_Conformance_Audit.md`](52_Conformance_Audit.md)
-- 複数正本、工程、Consumer、Migration、Relation横断Impactは[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)
-- CRDD標準自身のVersion、Migration、Correction、Release Closureは[`19_Maintenance.md`](19_Maintenance.md)
+- 文書構造、リンク／アンカー、用語、決定権限、重複、ヘッダー、バージョン、関連、直接伝播は[`51_Document_Audit.md`](51_Document_Audit.md)
+- CRDD準拠基準または準拠表明の可否への影響は[`52_Conformance_Audit.md`](52_Conformance_Audit.md)
+- 複数正本、工程、利用先、移行、関係横断の影響は[`53_Gap_Impact_Audit.md`](53_Gap_Impact_Audit.md)
+- CRDD標準自身のバージョン、移行、修正、リリース完了処理は[`19_Maintenance.md`](19_Maintenance.md)
 
-非自明またはProtectedな変更ではIndependent Reviewを行う。Findingは責務を持つArtifactで修正し、更新Revisionを再Reviewする。Audit Run完了、FindingへのOwner付与、Pull Request作成だけをPassまたはAdoptionとみなさない。
+非自明または保護対象の変更では独立レビューを行う。指摘事項は責務を持つ成果物で修正し、更新した改訂版を再レビューする。監査実行の完了、指摘事項への担当責任者の付与、プルリクエスト作成だけを`Pass`または採用とみなさない。
 
-完了時は、変更内容、理由、影響、Validation / Audit Result、Migration、残Risk、Human Decisionが必要な点、Release Dispositionを取得可能にする。既存の未関連変更、公開済みTag、過去CHANGELOGを無断で巻き戻しまたは書き換えない。
+標準の工程移行は、独立レビューと、人間の決定権限者による判断の二段階とする。内容の採用と工程移行を同じ決定権限者が担う場合は、一度の人間承認にまとめる。決定権限が異なる場合または専門承認が必要な場合だけ、人間の判断を分ける。
+
+完了時は、変更内容、理由、影響、妥当性確認／監査結果、移行、残るリスク、人間による判断が必要な点、リリースの処置を取得可能にする。既存の未関連変更、公開済みタグ、過去CHANGELOGを無断で巻き戻しまたは書き換えない。

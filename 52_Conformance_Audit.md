@@ -2,11 +2,11 @@
 
 # CRDD準拠監査（Conformance Audit）
 
-Version: v0.5.1
+Version: v0.6.0
 Status: Stable
 Owner: Qual-Lab
-Agent ID: `agent.conformance.audit`
-Last Updated: 2026-07-22
+エージェントID: `agent.conformance.audit`
+Last Updated: 2026-07-24
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -25,143 +25,143 @@ Related:
 > この文書で分かること（非規範の案内）
 >
 > - CRDD準拠を何に基づいて評価するか
-> - CoreとProfileの適用範囲をどう決めるか
-> - CriteriaごとにどのEvidenceが必要か
-> - Audit完了と準拠Claimをどう区別するか
+> - 中核とプロファイルの適用範囲をどう決めるか
+> - 基準ごとにどの根拠が必要か
+> - 監査完了と準拠表明をどう区別するか
 > - 誰が最終的な準拠表明を行うか
 
 <a id="1-purpose-and-boundary"></a>
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、Project、Product、または組織的な開発活動がCRDDへの準拠を表明できるかを判定するCriteria、適用Profile、Evidence、Claimと、それらを実行するConformance Audit Contractを定義する。
+本書は、プロジェクト、プロダクト、または組織的な開発活動がCRDDへの準拠を表明できるかを判定する基準、適用プロファイル、根拠、表明と、それらを実行する準拠監査契約を定義する。
 
-本書はConformance Criteriaと評価の正本であり、原則、用語、Artifact規定、工程Contract、Agent実行規定、品質規定は再定義しない。各Criteriaの詳細は参照先のAuthorityを正本とし、本書は次を保持する。
+本書は準拠基準と評価の正本であり、原則、用語、成果物規定、工程契約、エージェント実行規定、品質規定は再定義しない。各基準の詳細は参照先の決定権限を正本とし、本書は次を保持する。
 
-利用者ロケールに合わせた表示は可読性の手段であり、特定言語への翻訳や英語用語の使用量だけをConformance Criteriaにしない。翻訳によって参照先Rule、Authority、Status、識別子、必須結果が変わった場合は、該当Criteriaの意味的不整合として評価する。
+利用者ロケールに合わせた表示は可読性の手段であり、特定言語への翻訳や英語用語の使用量だけを準拠基準にしない。翻訳によって参照先規則、決定権限、状態、識別子、必須結果が変わった場合は、該当基準の意味的不整合として評価する。
 
 ```text
-Criteria ID
-Applicable Profile
-Conformance Assertion
-Authority
-Required Evidence
-Evaluation Result
+基準ID
+適用されるプロファイル
+準拠表明
+決定権限
+必須根拠
+評価結果
 ```
 
 規範強度語彙は[`03_Documentation.md`](03_Documentation.md#48-normative-language)を正本とする。
 
-Conformance AuditはCriteria ResultとClaim Eligibilityを返す読取専用Reviewである。外部へ準拠を表明するClaimは、対象ScopeとRevisionに責任を持つHumanまたは組織AuthorityがAudit Resultを確認して記録する。Audit Agentが自分の評価だけでClaimを発行しない。
+準拠監査は基準ごとの結果と準拠表明の適格性を返す読取り専用レビューである。外部への準拠表明は、対象範囲と改訂版に責任を持つ人間または組織の決定権限者が監査結果を確認して記録する。監査エージェントが自分の評価だけで準拠表明を発行しない。
 
 ---
 
-# 2. Conformance Model
+# 2. 準拠モデル
 
-CRDDは成熟度Levelではなく、Coreと適用Profileで準拠を判定する。
+CRDDは成熟度レベルではなく、中核と適用プロファイルで準拠を判定する。
 
-| Set | Applicability |
+| 基準集合 | 適用対象 |
 |---|---|
-| CRDD Core | CRDD準拠を表明するすべての活動 |
-| Product Lifecycle Profile | OriginからUX、IA、UI、SPEC、Architecture、Implementation、Verificationまでを扱う活動 |
-| Agentic Delivery Profile | AI Agentが設計、実装、Test、Review、修正を主体的に行う活動 |
+| CRDD中核 | CRDD準拠を表明するすべての活動 |
+| プロダクトライフサイクルプロファイル | 起点からUX、IA、UI、SPEC、アーキテクチャ、実装、検証までを扱う活動 |
+| エージェント型提供プロファイル | AIエージェントが設計、実装、テスト、レビュー、修正を主体的に行う活動 |
 
-ProfileはCoreへ追加して適用する。Profileだけを満たしてもCore未準拠ならCRDD準拠ではない。両Profileに該当する活動は両方を適用する。
+プロファイルは中核へ追加して適用する。プロファイルだけを満たしても中核未準拠ならCRDD準拠ではない。両プロファイルに該当する活動は両方を適用する。
 
-Profile Applicabilityは対象活動の実態で決め、都合の悪いCriteriaを避けるためにProfileを外してはならない。Audit実行者は適用Profileと理由を提示し、Claim Ownerが対象Scopeとともに確認する。特定Toolや文書名が異なっても、同等のAuthority、Artifact、Evidence、Lifecycleを示せる場合はCriteriaを評価できる。
+プロファイル適用可否は対象活動の実態で決め、都合の悪い基準を避けるためにプロファイルを外してはならない。監査実行者は適用プロファイルと理由を提示し、準拠表明の担当責任者が対象範囲とともに確認する。特定ツールや文書名が異なっても、同等の決定権限、成果物、根拠、状態遷移を示せる場合は基準を評価できる。
 
 ---
 
-# 3. Evaluation Contract
+# 3. 評価契約
 
-各適用Criteriaは、対象ScopeとRevisionを固定して評価する。
+各適用基準は、対象範囲と改訂版を固定して評価する。
 
-| Field | Meaning |
+| 項目 | 意味 |
 |---|---|
-| Criteria | 本書のCriteria ID |
-| Scope | 評価対象Project、Product、Change、Release等 |
-| Revision | 評価した正本RevisionまたはBaseline |
-| Criteria Revision | 評価に使用したCRDD Versionまたは本書Revision |
-| Authority | Criteria詳細の参照先 |
-| Evidence | 判定を再確認できるArtifact、履歴、Result、Record |
-| Result | `Conformant`、`Non-conformant`、`Not Evaluated`、`Not Applicable` |
-| Finding | 不足、矛盾、Risk、改善事項 |
-| Reviewer | 評価主体 |
-| Reviewed At | 評価時点 |
+| 基準 | 本書の基準 ID |
+| 対象範囲 | 評価対象プロジェクト、プロダクト、変更、リリース等 |
+| 改訂版 | 評価した正本改訂版または基準版 |
+| 基準の改訂版 | 評価に使用したCRDDバージョンまたは本書改訂版 |
+| 決定権限 | 基準詳細の参照先 |
+| 根拠 | 判定を再確認できる成果物、履歴、結果、記録 |
+| 結果 | `Conformant`、`Non-conformant`、`Not Evaluated`、`Not Applicable` |
+| 指摘事項 | 不足、矛盾、リスク、改善事項 |
+| 確認者 | 評価主体 |
+| レビュー日時 | 評価時点 |
 
-`Not Applicable`はProfile Criteriaの条件または対象Scopeに明確に適用されない場合だけ使用し、理由を必要とする。Core Criteriaへ原則として使用せず、適用Criteriaの未評価、Evidence不足、担当不在を`Not Applicable`で回避してはならない。
+`Not Applicable`はプロファイル基準の条件または対象範囲に明確に適用されない場合だけ使用し、理由を必要とする。中核基準へ原則として使用せず、適用基準の未評価、根拠不足、担当不在を`Not Applicable`で回避してはならない。
 
-Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、既知Limitを説明できなければならない。古いAudit ResultやArtifactの存在だけを現行Revisionの根拠として再利用しない。
+根拠は対象範囲と改訂版への適用性、決定権限、取得時点、既知制限を説明できなければならない。古い監査結果や成果物の存在だけを現行改訂版の根拠として再利用しない。
 
-専用監査文書は必須ではない。ただし準拠を表明する場合、各適用CriteriaのEvidenceへ到達できなければならない。
+専用監査文書は必須ではない。ただし準拠を表明する場合、各適用基準の根拠へ到達できなければならない。
 
-`C-*`、`PL-*`、`AD-*`は本書内のCriteria Keyであり、Project Contextへ付与するCRDD標準Stable Context IDではない。
+`C-*`、`PL-*`、`AD-*`は本書内の基準キーであり、プロジェクトコンテキストへ付与するCRDD標準安定コンテキストIDではない。
 
 ---
 
-# 4. CRDD Core Criteria
+# 4. CRDD中核基準
 
-| ID | Conformance Assertion | Authority | Required Evidence |
+| ID | 準拠表明 | 決定権限 | 必要な根拠 |
 |---|---|---|---|
-| C-01 | Origin、対象Actor、Intent、守る価値、Non-goalを再確認できる | [Principles](01_Principles.md)、対象Discovery / UX Artifact | Origin / Intentを持つCanonical ArtifactとRevision |
-| C-02 | Repository LevelでProperty Authority、正本位置、状態、履歴、探索経路を人間とAIが識別できる | [Documentation](03_Documentation.md) | Repository構造、Property Authority、Status、Revision、History、Index |
-| C-03 | Observation、Evidence、Interpretation、AI推定、Hypothesis、Decisionを区別し、Provenanceを追跡できる | [Terminology](02_Terminology.md)、[Documentation](03_Documentation.md) | Source、取得条件、Revision / 時点、Provenance、Limitation |
-| C-04 | 重要Decisionの結果、理由、Authority、Evidence、影響を結果Artifactから追跡できる | [Documentation](03_Documentation.md) | Canonical ArtifactのDecision / Rationaleと関連Evidence |
-| C-05 | 価値判断、重要Decision、Approval、Risk受容、最終責任をHuman Authorityが保持する | [Principles](01_Principles.md) | Human Review / Approval、Authority、未承認AI Draftの区別 |
-| C-06 | 重要Contextの変更理由、影響、承認、置換履歴を確認できる | [Documentation](03_Documentation.md)、[Change](12_Change.md) | Change Trace、Impact、Approval、History、Supersedes |
-| C-07 | Artifact LevelでContextのSource、意味、理由、関連先を読み取れる | [Documentation](03_Documentation.md) | Common Artifact Contract、明示的Relation、Semantic Separation |
-| C-08 | 現在のImplementationやToolをOriginそのものとせず、別実現手段を再評価できる | [Principles](01_Principles.md) | Preserved Intent、Constraint、Alternative、Implementation Relation |
-| C-09 | Verification、運用、失敗、Reviewから得たLearningを必要な上流Contextへ戻せる | [Principles](01_Principles.md)、[Verification](29_Verification.md) | Verification Result、Learning、更新ArtifactまたはProposal |
-| C-10 | C-01からC-09の適用結果と根拠を説明できる | 本書 | Criteria別EvaluationとEvidence Reference |
+| C-01 | 起点、対象アクター、意図、守る価値、目指さないことを再確認できる | [原則](01_Principles.md)、対象となる課題探索・要求形成工程 / UXの成果物 | 起点 / 意図を持つ正本成果物と改訂版 |
+| C-02 | リポジトリレベルで項目の決定権限、正本位置、状態、履歴、探索経路を人間とAIが識別できる | [文書化](03_Documentation.md) | リポジトリ構造、項目の決定権限、状態、改訂版、履歴、索引 |
+| C-03 | 観察、根拠、解釈、AI推定、仮説、判断を区別し、来歴を追跡できる | [用語](02_Terminology.md)、[文書化](03_Documentation.md) | 情報源、取得条件、改訂版 / 時点、来歴、制約 |
+| C-04 | 重要判断の結果、理由、決定権限、根拠、影響を結果成果物から追跡できる | [文書化](03_Documentation.md) | 正本成果物の判断 / 判断理由と関連根拠 |
+| C-05 | 価値判断、重要判断、承認、リスク受容、最終責任を人間の決定権限が保持する | [原則](01_Principles.md) | 人間によるレビュー / 承認、決定権限、未承認のAI下書きの区別 |
+| C-06 | 重要コンテキストの変更理由、影響、承認、置換履歴を確認できる | [文書化](03_Documentation.md)、[変更](12_Change.md) | 変更トレース、影響、承認、履歴、置換関係 |
+| C-07 | 成果物単位でコンテキストの情報源、意味、理由、関連先を読み取れる | [文書化](03_Documentation.md) | 共通成果物契約、明示的関係、意味の分離 |
+| C-08 | 現在の実装やツールを起点そのものとせず、別の実現手段を再評価できる | [原則](01_Principles.md) | 保持する意図、制約、代替案、実装との関係 |
+| C-09 | 検証、運用、失敗、レビューから得た学びを必要な上流コンテキストへ戻せる | [原則](01_Principles.md)、[検証](29_Verification.md) | 検証結果、学び、更新成果物または提案 |
+| C-10 | C-01からC-09の適用結果と根拠を説明できる | 本書 | 基準別の評価と根拠参照 |
 
 ---
 
-# 5. Product Lifecycle Profile Criteria
+# 5. プロダクトライフサイクルプロファイル基準
 
-| ID | Conformance Assertion | Authority | Required Evidence |
+| ID | 準拠表明 | 決定権限 | 必要な根拠 |
 |---|---|---|---|
-| PL-01 | OriginからVerification / Learningまで、対象Scopeに必要な専門責務が意味を失わず接続される | [Principles](01_Principles.md)、[Discovery](21_Discovery.md)、[UX](22_UX.md)、[IA](23_IA.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[Architecture](27_Architecture.md)、[Implementation](28_Implementation.md)、[Verification](29_Verification.md)、[Gap / Impact Audit](53_Gap_Impact_Audit.md) | Source Context、Coverage、Handoff、Gap / Impact Finding、Verification |
-| PL-02 | 各主要ArtifactがSource、Preserved Intent、Decision / Definition、Downstream Obligation、Verificationを取得可能にする | [Documentation](03_Documentation.md) | Common Artifact Contractを満たすArtifactまたはIndex |
-| PL-03 | Context間の関係を単なる関連Linkではなく意味のあるRelationとして説明できる | [Documentation](03_Documentation.md) | Context / Relation Indexまたは同等のTrace |
-| PL-04 | Discovery、UX、IA、UI、SPECの責務Coverageと工程間Handoffを対象Scope全体で説明できる | [Discovery](21_Discovery.md)、[UX](22_UX.md)、[IA](23_IA.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)のPhase Process Contract | Coverage State、Unresolved Gap、Human Review、Handoff |
-| PL-05 | UI ContractとBehavior SpecificationがAction、State、Failure、Recovery、Permission等で整合する | [UI / Behavior Pair](24_UI_Behavior_Specification.md)、UI / SPEC Phase Contract | Pair Review、対応表、例外理由 |
-| PL-06 | 各通常工程境界では、送信Exitと受信Entryを対象Revisionに対して独立Reviewし、移行に影響するFindingを責務工程で修正・再ReviewしたうえでHuman Authorityが判断する。Review省略または未解消Findingを伴う移行は明示的なHuman-directed Review Exceptionとして通常Passと区別する | [Transformation Handoff Invariants](01_Principles.md#62-transformation-invariants)、[Independent Review](10_Agent.md#7-independent-review)、[Skill](11_Skill.md)、各工程の`Phase Gate Criteria` | Phase Transition Review Result、Reviewed Revision、Finding / Remediation / Re-review、Approval Record、Review Exception（該当時） |
-| PL-07 | 完了を実装動作だけでなく、Acceptance、UI / SPEC、UX Intent、Origin、Learningに対して検証する | [Implementation](28_Implementation.md)、[Verification](29_Verification.md)、各Phase Gate Criteria | Target Revision、Fresh Evidence、Verification Result、未達条件、Learning |
-| PL-08 | 外部Consumer、既存Data、Migration、容量制約があるScopeでは、観測可能なCompatibility / Capacity Behaviorと、それを成立させるArchitecture、移行、検証を接続する | [SPEC](26_Behavior_Specification.md)、[Architecture](27_Architecture.md)、[Implementation](28_Implementation.md)、[Verification](29_Verification.md) | Consumer Contract、Version / Migration Plan、Capacity Assumption、Rollback、Compatibility / Load Evidence |
-| PL-09 | AI、個人Data、外部Actionを含むScopeでは、Purpose、Consent、Trust、Human Control、Security Boundary、Privacy、Costを上流から実行・検証まで接続する | [Principles](01_Principles.md)、[Discovery](21_Discovery.md)、[UX](22_UX.md)、[IA](23_IA.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[Architecture](27_Architecture.md)、[Implementation](28_Implementation.md)、[Verification](29_Verification.md) | Purpose / Data Boundary、Consent Behavior、Trust Surface、Authority、Security / Privacy Design、Cost Guardrail、Fresh Verification |
-| PL-10 | 分析から生じる調整NeedをUXで抽出・分類し、利用者またはAuthorityが変更するものはIAのConfiguration Model、UIのSettings / Control Surface、SPECのConfiguration / Policy Behaviorへ、それ以外は固定Rule、自動適応、導出値、Technical Configuration、保留等の適切なObligationへ接続し、成立方式、実装、検証まで意味を失わない | [UX](22_UX.md)、[IA](23_IA.md)、[UI / Behavior Pair](24_UI_Behavior_Specification.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[Architecture](27_Architecture.md)、[Implementation](28_Implementation.md)、[Verification](29_Verification.md) | Control / Adaptation Need、Candidate Disposition、Configuration Candidate / Model、Downstream Obligation、UI / SPEC Pair、Default / Effective Value、Authority、Technical Configuration、変更・Reset / Recovery Contract、Fresh Verification |
-| PL-11 | 採用済みDeferred Workを単一のRoadmap Main Viewで管理し、必要時だけDetail Fileへ分ける。ItemはSource Context、Owner、Start Condition、再評価Triggerを持ち、着手時は現行ContextとImpactを再確認した`CHG-*`へ接続する。完了時はDetail固有情報をCanonical Artifactと適用されるCHG、Implementation、Verificationへ反映し、非適用理由または結果参照をMain Viewへ戻してDetail Fileを削除する。登録待ちは対象Itemへ限定し、無関係なRouteを停止しない | [Discovery](21_Discovery.md#63-roadmap-item-contract)、[Change](12_Change.md) | Roadmap Main View / Item、必要なDetail Reference、Human Deferral / Start Decision、Source Context、Owner、Start Condition、Re-evaluation Trigger、適用されるCHG / Result / Verification ReferenceまたはNot Applicable理由、Detail Cleanup Evidence |
-| PL-12 | Human Decision、Constraint、Learning、Evidence、Findingの確定・変更時にTriggered Propagation Checkの要否を評価し、発火時は上流・同層のOpen Question、Unresolved Gap、Assumption、Decision、Constraintを探索する。必要な正本更新後は更新Revisionから下流Impactを再探索し、再監査する。未完了の伝播はHuman-directed `propagation_exception`として通常Passと区別する | [Transformation Invariants](01_Principles.md#62-transformation-invariants)、[Gap / Impact Audit](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)、各工程の`Phase Gate Criteria` | Source Revision、Trigger Evaluation / No Impact理由、Gap / Impact Audit Result、探索Relation / Candidate / Disposition、Canonical Artifact Update、Downstream Re-scan、Re-audit Result、Propagation Exception（該当時） |
+| PL-01 | 起点から検証／学びまで、対象範囲に必要な専門責務が意味を失わず接続される | [原則](01_Principles.md)、[課題探索・要求形成](21_Discovery.md)、[UX](22_UX.md)、[IA](23_IA.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[アーキテクチャ](27_Architecture.md)、[実装](28_Implementation.md)、[検証](29_Verification.md)、[不足／影響監査](53_Gap_Impact_Audit.md) | 情報源コンテキスト、網羅範囲、引き渡し、不足／影響の指摘事項、検証 |
+| PL-02 | 各主要成果物が情報源、保持する意図、判断 / 定義、下流への義務、検証を取得可能にする | [文書化](03_Documentation.md) | 共通成果物契約を満たす成果物または索引 |
+| PL-03 | コンテキスト間の関係を単なる関連リンクではなく意味のある関係として説明できる | [文書化](03_Documentation.md) | コンテキスト / 関係索引または同等のトレース |
+| PL-04 | 課題探索・要求形成、UX、IA、UI、SPECの責務網羅範囲と工程間の引き渡しを対象範囲全体で説明できる。体験表現意図（Experience Expression Intent）、視覚表現方針（Visual Direction）、UIテーマ（UI Theme）等は各工程契約で適用対象と判定された範囲に限る | [課題探索・要求形成](21_Discovery.md)、[UX](22_UX.md)、[IA](23_IA.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)の工程実行契約 | 網羅状態、適用・非適用理由、未解決事項、人間レビュー、引き渡し |
+| PL-05 | UI契約と振る舞い仕様が操作、表示状態とドメイン／システム状態、失敗、回復、権限、適用するUIテーマ／操作パターン／UI部品状態等で整合する | [UI / 振る舞い仕様の対応関係](24_UI_Behavior_Specification.md)、UI / SPEC工程契約 | 対応レビュー、対応表、例外理由 |
+| PL-06 | 各通常工程境界では、送信出口と受信入口を対象改訂版に対して独立レビューし、移行に影響する指摘事項を責務工程で修正・再レビューしたうえで人間の決定権限が判断する。内容と移行の決定権限者が同じ場合は、一度の人間承認で両方を判断してよい。レビュー省略または未解消指摘事項を伴う移行は、人間が明示的に指示したレビュー例外として通常の合格と区別する | [変換・引き渡しの不変条件](01_Principles.md#62-transformation-invariants)、[独立レビュー](10_Agent.md#7-independent-review)、[スキル](11_Skill.md)、各工程の`Phase Gate Criteria` | 工程移行レビュー結果、レビュー済み改訂版、指摘事項／是正／再レビュー、承認記録、レビュー例外（該当時） |
+| PL-07 | 完了を実装動作だけでなく、受入条件、UI / SPEC、UXの意図、起点、学びに対して検証する | [実装](28_Implementation.md)、[検証](29_Verification.md)、各工程判定基準 | 対象改訂版、新しい根拠、検証結果、未達条件、学び |
+| PL-08 | 外部利用側、既存データ、移行、容量制約がある対象範囲では、観測可能な互換性 / 処理能力に関する振る舞いと、それを成立させるアーキテクチャ、移行、検証を接続する | [SPEC](26_Behavior_Specification.md)、[アーキテクチャ](27_Architecture.md)、[実装](28_Implementation.md)、[検証](29_Verification.md) | 利用側契約、バージョン / 移行計画、処理能力の仮定、ロールバック、互換性 / 負荷の根拠 |
+| PL-09 | AI、個人データ、外部操作を含む対象範囲では、目的、同意、信頼、人間による制御、セキュリティ境界、プライバシー、コストを上流から実行・検証まで接続する | [原則](01_Principles.md)、[課題探索・要求形成](21_Discovery.md)、[UX](22_UX.md)、[IA](23_IA.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[アーキテクチャ](27_Architecture.md)、[実装](28_Implementation.md)、[検証](29_Verification.md) | 目的 / データ境界、同意の振る舞い、信頼画面領域、決定権限、セキュリティ / プライバシー設計、コスト保護策、最新検証 |
+| PL-10 | 分析から生じる調整必要性をUXで抽出・分類し、利用者または決定権限が変更するものはIAの構成モデル、UIの設定 / 操作画面、SPECの構成 / 方針の振る舞いへ、それ以外は固定規則、自動適応、導出値、技術構成、保留等の適切な義務へ接続し、成立方式、実装、検証まで意味を失わない | [UX](22_UX.md)、[IA](23_IA.md)、[UI / 振る舞い仕様の対応関係](24_UI_Behavior_Specification.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[アーキテクチャ](27_Architecture.md)、[実装](28_Implementation.md)、[検証](29_Verification.md) | 調整・適応の必要性、処置候補、構成候補 / モデル、下流への義務、UI / SPECの対応関係、既定値 / 実効値、決定権限、技術構成、変更・リセット / 回復契約、最新検証 |
+| PL-11 | 採用済み延期した作業を単一のロードマップの主要表示で管理し、必要時だけ詳細ファイルへ分ける。項目は情報源コンテキスト、担当責任者、開始条件、再評価契機を持ち、着手時は現行コンテキストと影響を再確認した`CHG-*`へ接続する。完了時は詳細固有情報を正本成果物と適用されるCHG、実装、検証へ反映し、非適用理由または結果参照を主要表示へ戻して詳細ファイルを削除する。登録待ちは対象項目へ限定し、無関係な経路を停止しない | [課題探索・要求形成](21_Discovery.md#63-roadmap-item-contract)、[変更](12_Change.md) | ロードマップの主要表示 / 項目、必要な詳細参照、人間による延期 / 着手判断、情報源コンテキスト、担当責任者、開始条件、再評価契機、適用されるCHG / 結果 / 検証参照または`Not Applicable`の理由、詳細整理根拠 |
+| PL-12 | 人間の判断、制約、学び、根拠、指摘事項の確定・変更時に変更影響の伝播確認の要否を評価し、発火時は上流・同層の未決事項、未解決事項、仮定、判断、制約を探索する。必要な正本更新後は更新改訂版から下流影響を再探索し、再監査する。未完了の伝播は人間が指示した`propagation_exception`として通常の`Pass`と区別する | [変換の不変条件](01_Principles.md#62-transformation-invariants)、[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)、各工程の`Phase Gate Criteria` | 情報源の改訂版、契機の評価／影響なしの理由、不足／影響監査の結果、探索した関係／候補／処置、正本成果物の更新、下流の再探索、再監査結果、伝播例外（該当時） |
 
 ---
 
-# 6. Agentic Delivery Profile Criteria
+# 6. エージェント型提供プロファイル基準
 
-| ID | Conformance Assertion | Authority | Required Evidence |
+| ID | 準拠表明 | 決定権限 | 必要な根拠 |
 |---|---|---|---|
-| AD-01 | AI Agentが行動前にScope、Revision、関連Context、Decision、Rule、Constraint、責任者、判断Authority、Action Authority、Escalation先を確認する | [Agent](10_Agent.md)、[Skill](11_Skill.md) | Read Context、Active Scope、Target Revision、Owner / Invoker、Authority / Action Boundary、Escalation Target |
-| AD-02 | 重大または複数工程の変更前にGoal、In / Out Scope、Dependency、Risk、Verificationを明示する | [Agent](10_Agent.md)、[Skill](11_Skill.md) | AI Work Planまたは同等のExecution Contract |
-| AD-03 | AI変更をReview、中断、再開、切戻し可能な単位で実行し、停止時も変更済みArtifact、未検証状態、Side Effect、Rollback要否を返す | [Agent](10_Agent.md)、[Skill](11_Skill.md) | Boundary、Checkpoint、Partial Result、Rollback、Handoff |
-| AD-04 | 重要変更と工程移行候補を生成・実装と分離した観点でReviewする。AIによる工程移行Reviewは別Review Subagent、Clean Session / Agent、または人間Reviewerへ委譲し、Finding修正後は更新Revisionを再Reviewして、Audit Run完了をTarget Passへ流用しない | [Agent](10_Agent.md) | Delegation Contract、Independent Review、Finding、Remediation、Re-review Result、Residual Risk |
-| AD-05 | Artifact生成、Code動作、Test Pass、Agent Resultだけから工程完了を推測せず、変更後のFresh Evidenceと工程Criteriaを確認する | [Agent](10_Agent.md)、[Implementation](28_Implementation.md)、[Verification](29_Verification.md) | Test、Build、Static Check、Runtime / Visual Result、Phase Coverage / Gate Evidence |
-| AD-06 | 実装で変化した仕様、制約、既知制限、運用、Learningを関連Contextへ戻し、該当する変更のImpact Traceを更新する | [Skill](11_Skill.md)、[Change](12_Change.md) | Context Update、Change Trace、Proposal、Decision Candidate、Learning |
-| AD-07 | 特定Agent、LLM、IDE、SDD Tool、Subagent構成をCRDD準拠条件としない | [Principles](01_Principles.md) | Tool固有機能に依存しないAuthority / Artifact / Evidence |
-| AD-08 | AgentまたはSubagentへ渡すContextとAccessを必要最小限にし、委譲によって権限を拡張しない | [Agent](10_Agent.md)、[Principles](01_Principles.md) | Access Boundary、Redaction、Credential / Environment制約、Delegation Contract |
-| AD-09 | 並行または長時間作業ではAction直前と統合前にScope、Authority、Base Revisionの変化を確認する | [Agent](10_Agent.md) | Revision Recheck、Conflict確認、Rebase / Re-review / Escalation記録 |
-| AD-10 | Agent ResultがOutcome、Trace、Open Question、ConditionまたはResume Point、Handoff、未検証状態を区別し、Outcomeを工程Statusへ流用しない | [Agent](10_Agent.md) | Agent Result、Result Outcome、Condition / Resume Point、Trace、Handoff |
-| AD-11 | Subagent利用時にParent AgentがResult比較、Conflict解消、統合、Promotion、Human Reviewへの接続を担う | [Agent](10_Agent.md) | Delegation Contract、Parent Integration、Conflict Record、Promotion / Review Evidence |
-| AD-12 | Skill RunのOwner / Executor、Status、Current Step、Next Route、Produced Artifact Statusを分離し、Run完了を工程完了へ流用しない | [Skill](11_Skill.md) | Skill Run Record、Run Owner / Executor、Run Status、Current Step、Route、Artifact Status |
-| AD-13 | Skill DefinitionがEntry、Input、Authority Boundary、専門責務、Exit、Stop、Confirmation、Handoffを工程正本への参照として定義し、工程Contractを複製しない | [Skill](11_Skill.md)、各工程文書 | Skill Definition Contract、Process Authority参照、Authority Boundary、Entry / Exit / Handoff |
-| AD-14 | Guided Interactionが既知Contextの再質問、固定Questionnaire、未回答箇所のAI補完を避け、Source、AI変換、未決事項を区別する | [Skill](11_Skill.md) | Adaptive Queue、Raw Voice / Evidence、Transformation Summary、Open Question |
-| AD-15 | Paused、Blocked、またはFailedとなったSkill RunがInput Revision、完了済み内容、未検証変更、Side Effect、Rollback要否、再開地点を保持する | [Skill](11_Skill.md)、[Agent](10_Agent.md) | Resume Snapshot、Partial Result、Revision、Next Action |
-| AD-16 | Skill Handoffが対象Scope / Revision、Coverage、Unresolved Gap、Preserved Intent、Obligation、受信側Entry、Phase Transition Review Result、必要なHuman AuthorizationまたはReview Exceptionを保持する | [Skill](11_Skill.md)、[Independent Review](10_Agent.md#7-independent-review)、[Transformation Handoff Invariants](01_Principles.md#62-transformation-invariants) | Handoff Record、Coverage Summary、Unresolved Gap、Transition Review / Reviewed Revision、Human Authorization、Receiving Entry Evidence、Review Exception（該当時） |
-| AD-17 | Canonical Contextの意味、Scope、責任、Default、Priority、Risk受容、下流Contractを変える問いでは、Agent / Skillや質問Labelを問わずDecision Support Contractを適用し、影響、Trade-off、評価基準とEvidenceに基づくRecommendation、Confidence / Uncertainty、推奨が変わる条件、保留影響をRiskとRuntime Scaleに応じて判断可能な言葉で提示する | [Agent](10_Agent.md)、[Skill](11_Skill.md) | Decision Support Summary、Recommendation / Alternative / Rationale / Evidence / Confidence / Revisit Condition |
-| AD-18 | Agent / SkillがHuman Decision、Constraint、Learning、Evidence、Findingを確定・変更した場合、Triggered Propagation Checkの要否を必ず評価し、発火時は工程移行を待たず`agent.gap_impact.audit`または同等の独立ReviewerへRouteする。正本Remediationと再監査の結果をRun / Agent ResultおよびHandoffへ接続する | [Agent](10_Agent.md#74-triggered-propagation-check)、[Skill](11_Skill.md)、[Gap / Impact Audit](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure) | Agent Result / Skill Run、Trigger Evaluation / No Impact理由、Propagation Route、Audit Result、Remediation / Re-audit、Handoff Result、Propagation Exception（該当時） |
+| AD-01 | AIエージェントが行動前に対象範囲、改訂版、関連コンテキスト、判断、規則、制約、責任者、判断の決定権限、操作権限、上位判断への移送先を確認する | [エージェント](10_Agent.md)、[スキル](11_Skill.md) | 読取りコンテキスト、現在の対象範囲、対象改訂版、担当責任者 / 依頼者、決定権限 / 操作境界、上位判断への移送対象 |
+| AD-02 | 重大または複数工程の変更前に目的、対象内／対象外、依存関係、リスク、検証を明示する | [エージェント](10_Agent.md)、[スキル](11_Skill.md) | AI作業計画または同等の実行契約 |
+| AD-03 | AI変更をレビュー、中断、再開、切戻し可能な単位で実行し、停止時も変更済み成果物、未検証状態、副作用、ロールバック要否を返す | [エージェント](10_Agent.md)、[スキル](11_Skill.md) | 境界、確認地点、部分的な結果、ロールバック、引き渡し |
+| AD-04 | 重要変更と工程移行候補を生成・実装と分離した観点でレビューする。AIによる工程移行レビューは別のレビュー用サブエージェント、新しいセッション／エージェント、または人間確認者へ委譲し、指摘事項修正後は更新改訂版を再レビューして、監査実行完了を対象の`Pass`へ流用しない | [エージェント](10_Agent.md) | 委譲契約、独立レビュー、指摘事項、是正、再レビュー結果、残存リスク |
+| AD-05 | 成果物生成、コード動作、テストの合格、エージェント結果だけから工程完了を推測せず、変更後の新しい根拠と工程基準を確認する | [エージェント](10_Agent.md)、[実装](28_Implementation.md)、[検証](29_Verification.md) | テスト、ビルド、静的確認、実行時／視覚検証結果、工程の網羅範囲／ゲート根拠 |
+| AD-06 | 実装で変化した仕様、制約、既知制限、運用、学びを関連コンテキストへ戻し、該当する変更の影響トレースを更新する | [スキル](11_Skill.md)、[変更](12_Change.md) | コンテキスト更新、変更トレース、提案、判断候補、学び |
+| AD-07 | 特定エージェント、LLM、IDE、SDDツール、サブエージェント構成をCRDD準拠条件としない | [原則](01_Principles.md) | ツール固有機能に依存しない決定権限 / 成果物 / 根拠 |
+| AD-08 | エージェントまたはサブエージェントへ渡すコンテキストとアクセス権を必要最小限にし、委譲によって権限を拡張しない | [エージェント](10_Agent.md)、[原則](01_Principles.md) | アクセス権境界、墨消し、認証情報 / 環境制約、委譲契約 |
+| AD-09 | 並行または長時間作業では操作直前と統合前に対象範囲、決定権限、基準改訂版の変化を確認する | [エージェント](10_Agent.md) | 改訂版の再確認、競合確認、リベース／再レビュー／エスカレーションの記録 |
+| AD-10 | エージェント結果が成果、トレース、未決事項、条件または再開地点、引き渡し、未検証状態を区別し、成果を工程状態へ流用しない | [エージェント](10_Agent.md) | エージェント結果、結果となる成果、条件 / 再開地点、トレース、引き渡し |
+| AD-11 | サブエージェント利用時に親エージェントが結果比較、競合解消、統合、昇格、人間によるレビューへの接続を担う | [エージェント](10_Agent.md) | 委譲契約、親エージェントによる統合、競合記録、昇格／レビューの根拠 |
+| AD-12 | スキル実行の担当責任者／実行者、状態、現在の手順、次の経路、生成した成果物の状態を分離し、実行完了を工程完了へ流用しない | [スキル](11_Skill.md) | スキル実行記録、実行の担当責任者／実行者、実行状態、現在の手順、経路、成果物の状態 |
+| AD-13 | スキル定義が入口、入力、決定権限の境界、専門責務、出口、停止、確認、引き渡しを工程正本への参照として定義し、工程契約を複製しない | [スキル](11_Skill.md)、各工程文書 | スキル定義契約、処理決定権限参照、決定権限の境界、入口／出口／引き渡し |
+| AD-14 | ガイド付き対話が既知コンテキストの再質問、固定質問票、未回答箇所のAI補完を避け、情報源、AI変換、未決事項を区別する | [スキル](11_Skill.md) | 適応型の質問列、利用者の生の声／根拠、変換の要約、未決事項 |
+| AD-15 | `Paused`、`Blocked`、または`Failed`となったスキル実行が、入力改訂版、完了済み内容、未検証変更、副作用、ロールバック要否、再開地点を保持する | [スキル](11_Skill.md)、[エージェント](10_Agent.md) | 再開時点の記録、部分的な結果、改訂版、次の操作 |
+| AD-16 | スキルの引き渡しが対象範囲 / 改訂版、網羅範囲、未解決事項、保持する意図、義務、受信側入口、工程移行レビュー結果、必要な人間の許可またはレビュー例外を保持する | [スキル](11_Skill.md)、[独立レビュー](10_Agent.md#7-independent-review)、[変換・引き渡しの不変条件](01_Principles.md#62-transformation-invariants) | 引き渡し記録、網羅範囲の要約、未解決事項、工程移行レビュー / レビュー済み改訂版、人間の許可、受信側の入口根拠、レビュー例外（該当時） |
+| AD-17 | 正本コンテキストの意味、対象範囲、責任、既定値、優先順位、リスク受容、下流契約を変える問いでは、エージェント / スキルや質問表示名を問わず判断支援契約を適用し、影響、トレードオフ、評価基準と根拠に基づく推奨、確信度 / 不確実性、推奨が変わる条件、保留影響をリスクと実行環境規模に応じて判断可能な言葉で提示する | [エージェント](10_Agent.md)、[スキル](11_Skill.md) | 判断支援の要約、推奨 / 代替案 / 判断理由 / 根拠 / 確信度 / 再確認条件 |
+| AD-18 | エージェント／スキルが人間の判断、制約、学習、根拠、指摘事項を確定・変更した場合、変更影響の伝播確認の要否を必ず評価し、発火時は工程移行を待たず`agent.gap_impact.audit`または同等の独立確認者へ渡す。正本是正と再監査の結果をスキル実行／エージェント結果および引き渡しへ接続する | [エージェント](10_Agent.md#74-triggered-propagation-check)、[スキル](11_Skill.md)、[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure) | エージェント結果／スキル実行、契機の評価／影響なしの理由、伝播先、監査結果、是正／再監査、引き渡し結果、伝播例外（該当時） |
 
 ---
 
-# 7. Conformance Claims
+# 7. 準拠表明
 
-| Claim | Required Criteria |
+| 準拠表明 | 必須基準 |
 |---|---|
 | `CRDD Core Conformant` | C-01〜C-10 |
 | `CRDD Product Lifecycle Profile Conformant` | C-01〜C-10、PL-01〜PL-12 |
@@ -170,112 +170,112 @@ Evidenceは対象ScopeとRevisionへの適用性、Authority、取得時点、�
 
 「CRDD準拠」とだけ表明する場合は、少なくとも`CRDD Core Conformant`でなければならない。
 
-`CRDD-Inspired`はConformance Claimではなく、Coreの全Criteriaを満たさない、または未評価である活動がCRDDの一部を採用していることを示す説明である。
+`CRDD-Inspired`は準拠表明ではなく、中核の全基準を満たさない、または未評価である活動がCRDDの一部を採用していることを示す説明である。
 
-Requested ClaimのEligibilityは次で判定する。
+要求された準拠表明の適格性は次で判定する。
 
-| Eligibility | Condition |
+| 適格性 | 条件 |
 |---|---|
-| `Eligible` | Required Criteriaがすべて`Conformant`、またはProfile内の条件付きCriteriaが理由付き`Not Applicable`である |
-| `Not Eligible` | Required Criteriaに`Non-conformant`がある、Core Criteriaを適用外にしている、または必要Profileを評価対象から外している |
-| `Undetermined` | Required Criteriaに`Not Evaluated`、Blocking条件、Evidence不足がある |
+| `Eligible` | 必須基準がすべて`Conformant`、またはプロファイル内の条件付き基準が理由付き`Not Applicable`である |
+| `Not Eligible` | 必須基準に`Non-conformant`がある、中核基準を適用外にしている、または必要なプロファイルを評価対象から外している |
+| `Undetermined` | 必須基準に`Not Evaluated`、阻害条件、根拠不足がある |
 
-Document Auditの`Conditional` StatusやHuman-approved Deviationがあっても、未達のRequired CriteriaをConformantへ変換しない。条件付き運用を記録する場合も、Requested Claimが`Eligible`でなければ準拠表明しない。
+文書監査の`Conditional`状態や、人間が承認した逸脱があっても、未達の必須基準を`Conformant`へ変換しない。条件付き運用を記録する場合も、要求された準拠表明が`Eligible`でなければ準拠表明しない。
 
-特定のFolder番号、GitHub、Markdown、AI、Agent、LLM、Subagent、Design Toolの採用だけでは準拠根拠にならない。代替方式を使用してよいが、適用CriteriaとEvidenceを満たす必要がある。
+特定のフォルダ番号、GitHub、Markdown、AI、エージェント、LLM、サブエージェント、設計ツールの採用だけでは準拠根拠にならない。代替方式を使用してよいが、適用基準と根拠を満たす必要がある。
 
 ---
 
-# 8. Deviation and Review
+# 8. 逸脱とレビュー
 
-Required Criteriaを満たさない状態を、Deviationの記録だけでConformantにしてはならない。未準拠Criteria、Risk、改善計画、Ownerを記録し、`CRDD-Inspired`または該当しないClaimを使用する。
+必須基準を満たさない状態を、逸脱の記録だけで`Conformant`にしてはならない。未準拠の基準、リスク、改善計画、担当責任者を記録し、`CRDD-Inspired`または該当しない準拠表明を使用する。
 
-少なくとも次の変化があれば、影響するCriteriaを再評価する。
+少なくとも次の変化があれば、影響する基準を再評価する。
 
 ```text
-CRDD導入または適用Profile変更
-重要Phase、Baseline、Releaseの開始・完了
-Repository構造またはProperty Authorityの大幅変更
-AI Agent、Delivery方式、主要Toolの変更
-重大事故、手戻り、Intentとの不整合
-Criteria AuthorityとなるCRDD文書の変更
+CRDD導入または適用プロファイル変更
+重要工程、基準版、リリースの開始・完了
+リポジトリ構造または項目の決定権限の大幅変更
+AIエージェント、提供方式、主要ツールの変更
+重大事故、手戻り、意図との不整合
+基準決定権限となるCRDD文書の変更
 ```
 
-準拠は固定認定ではなく、対象ScopeとRevisionに対する評価結果である。
+準拠は固定認定ではなく、対象範囲と改訂版に対する評価結果である。
 
 ---
 
-# 9. Conformance Audit Execution Boundary
+# 9. 準拠監査の実行境界
 
-Conformance Audit Agentは、対象ScopeとRevisionについて適用Criteriaを評価し、Evidence、Finding、Claim Eligibility、再評価条件を返す専門Review Agentである。
+準拠監査エージェントは、対象範囲と改訂版について適用基準を評価し、根拠、指摘事項、準拠表明の適格性、再評価条件を返す専門レビューエージェントである。
 
-Subagentとして実行する標準Agent IDは`agent.conformance.audit`とする。Parent Agentは、[`10_Agent.md`](10_Agent.md)のDelegation Contractへ次を指定する。
+サブエージェントとして実行する標準エージェントIDは`agent.conformance.audit`とする。親エージェントは、[`10_Agent.md`](10_Agent.md)の委譲契約へ次を指定する。
 
-- Requested ClaimとClaim Owner
-- Target Scope / RevisionとCriteria Revision
-- 適用Profile候補、利用可能Evidence、既知Deviation
-- Expected Output、Read-onlyであること、Return先
+- 要求された準拠表明と、その担当責任者
+- 対象範囲 / 改訂版と基準の改訂版
+- 適用プロファイル候補、利用可能な根拠、既知の逸脱
+- 期待する出力、読取り専用であること、返却先
 
-Subagentは本書のConformance Reportを返す。Canonical Artifact、Criteria、Claimは変更しない。
+サブエージェントは本書の準拠監査報告を返す。正本成果物、基準、準拠表明は変更しない。
 
-Document Auditは文書品質、Phase Auditは工程条件、Gap / Impact AuditはRelation横断影響、VerificationはProduct / Implementationの成立をそれぞれ正本とする。Conformance AuditはそれらのResultをEvidenceとして利用できるが、内容を再定義・自己承認しない。
+文書監査は文書品質、工程監査は工程条件、不足／影響監査は関係横断影響、検証はプロダクト / 実装の成立をそれぞれ正本とする。準拠監査はそれらの結果を根拠として利用できるが、内容を再定義・自己承認しない。
 
-Audit AgentはCanonical Artifactを直接変更せず、Criteria Resultを都合よく補完せず、Human AuthorityのClaim発行、Deviation受容、Risk受容を代行しない。Criteria不成立はFindingとしてParent AgentとClaim Ownerへ渡す。
+監査エージェントは正本成果物を直接変更せず、基準ごとの結果を都合よく補完せず、人間の決定権限による準拠表明の発行、逸脱受容、リスク受容を代行しない。基準不成立は指摘事項として親エージェントと準拠表明の担当責任者へ渡す。
 
-RemediationはConformance Audit Runの外で行い、変更後Revisionに対して影響Criteriaを`agent.conformance.audit`または同等以上の独立Reviewerが再評価する。Audit Run完了、`Conditional`、到達可能なClaim候補の提示を、Requested ClaimのEligibilityまたはPhase Transition ReviewのPassとして扱わない。
+是正は準拠監査実行の外で行い、変更後の改訂版に対して影響を受ける基準を`agent.conformance.audit`または同等以上の独立確認者が再評価する。監査実行の完了、`Conditional`、到達可能な準拠表明候補の提示を、要求された準拠表明の適格性または工程移行レビューの`Pass`として扱わない。
 
 ---
 
-# 10. Required Input and Read Set
+# 10. 必要な入力と読取り対象
 
-最低限、次をInputとして受け取る。
+最低限、次を入力として受け取る。
 
 ```text
-Audit Goal
-Target Scope
-Target Revision / Baseline
-Applicable CRDD / Criteria Revision
-Requested Conformance Claim
-Claim Owner / Human or Organizational Authority
-ProjectのContext Repositoryと対象Artifact
-利用可能なEvidence / Verification Result
-既存のDeviation、Finding、Conformance Result
+監査目標
+対象範囲
+対象改訂版 / 基準版
+適用されるCRDD / 基準改訂版
+依頼された準拠表明
+表明担当責任者 / 人間または組織決定権限
+プロジェクトのコンテキストリポジトリと対象成果物
+利用可能な根拠／検証結果
+既存の逸脱、指摘事項、準拠結果
 ```
 
-Conformance Audit Agentは、最初に[`01_Principles.md`](01_Principles.md)のConformance Boundary、本書のConformance ModelとEvaluation Contract、[`51_Document_Audit.md`](51_Document_Audit.md)のAudit Status / Finding Fields / Report View / Severityを読む。
+準拠監査エージェントは、最初に[`01_Principles.md`](01_Principles.md)の準拠境界、本書の準拠モデルと評価契約、[`51_Document_Audit.md`](51_Document_Audit.md)の監査状態、指摘事項の項目、報告表示、重大度を読む。
 
-その後、適用CriteriaのAuthority列に示された文書と、Evidenceが存在するProject Artifactだけを対象Scopeに応じて読む。Repository全体を無制限に読み、未指定Scopeの準拠まで推定してはならない。
+その後、適用基準の決定権限列に示された文書と、根拠が存在するプロジェクト成果物だけを対象範囲に応じて読む。リポジトリ全体を無制限に読み、未指定対象範囲の準拠まで推定してはならない。
 
 ---
 
-# 11. Audit Procedure
+# 11. 監査手順
 
 ```text
-1. Target ScopeとRevisionを固定する
-2. Coreと適用Profileを判定する
-3. 適用するC / PL / AD Criteriaを列挙する
-4. 各Criteriaの参照Authorityを読む
-5. Project ArtifactからRequired Evidenceを収集する
-6. CriteriaごとにResultと根拠を記録する
-7. Non-conformant、Not Evaluated、根拠不足をFindingへ変換する
-8. Requested ClaimのEligibilityを判定する
-9. 到達可能なClaim候補またはCRDD-Inspiredを提示する
-10. Deviation、Owner、再評価Trigger、Recommended Handoffを返す
+1. 対象範囲と改訂版を固定する
+2. 中核と適用プロファイルを判定する
+3. 適用するC / PL / AD 基準を列挙する
+4. 各基準の参照決定権限を読む
+5. プロジェクト成果物から必要な根拠を収集する
+6. 基準ごとに結果と根拠を記録する
+7. `Non-conformant`、`Not Evaluated`、根拠不足を指摘事項へ変換する
+8. 要求された準拠表明の適格性を判定する
+9. 到達可能な表明候補または`CRDD-Inspired`を提示する
+10. 逸脱、担当責任者、再評価契機、推奨引き渡しを返す
 ```
 
-ファイル、Folder、Template、Tool、AI、Agentが存在するだけでCriteriaを`Conformant`にしてはならない。Artifactの一部完成から対象Scope全体を推定せず、Evidenceが現行Revisionへ適用できるかを確認する。
+ファイル、フォルダ、ひな型、ツール、AI、エージェントが存在するだけで基準を`Conformant`にしてはならない。成果物の一部完成から対象範囲全体を推定せず、根拠が現行改訂版へ適用できるかを確認する。
 
-`Not Applicable`には適用外理由を必要とする。Evidence不足、未読、未評価、担当不在を`Not Applicable`として処理してはならない。
+`Not Applicable`には適用外理由を必要とする。根拠不足、未読、未評価、担当不在を`Not Applicable`として処理してはならない。
 
-Document AuditのStatusは次のように使用する。Requested Claimが`Eligible`で全評価が完了した場合は`Pass`、`Not Eligible`なら`Fail`、`Undetermined`なら原則`Blocked`とする。`Conditional`はAudit ScopeやRemediation条件を表すために使えても、Conformance Claimの適格性を意味しない。
+文書監査の状態は次のように使用する。要求された準拠表明が`Eligible`で全評価が完了した場合は`Pass`、`Not Eligible`なら`Fail`、`Undetermined`なら原則`Blocked`とする。`Conditional`は監査対象範囲や是正条件を表すために使えても、準拠表明の適格性を意味しない。
 
 ---
 
-# 12. Output Contract
+# 12. 出力契約
 
-Report全体のStatus、Summary、Finding形式、Severity、Open Questions、Recommended Handoffは[`51_Document_Audit.md`](51_Document_Audit.md#3-output)を再利用し、本書へ複製しない。
+監査報告全体の状態、要約、指摘事項形式、重大度、未決事項、推奨する引き渡しは[`51_Document_Audit.md`](51_Document_Audit.md#3-output)を再利用し、本書へ複製しない。
 
-Conformance Auditでは、Reportへ次を追加する。
+準拠監査では、報告へ次を追加する。
 
 ```yaml
 audit_type: conformance
@@ -301,38 +301,38 @@ reviewed_at: <date-time>
 reviewer: <human or agent reference>
 ```
 
-Criteria Resultは`Conformant`、`Non-conformant`、`Not Evaluated`、`Not Applicable`を使用する。Finding Severityとは別の軸であり、Criteria ResultをSeverityへ置き換えない。
+基準ごとの結果は`Conformant`、`Non-conformant`、`Not Evaluated`、`Not Applicable`を使用する。指摘事項の重大度とは別の軸であり、基準ごとの結果を重大度へ置き換えない。
 
-Findingは`criterion_id`を追加Fieldとして持ち、その他のFieldとSeverityは[`51_Document_Audit.md`](51_Document_Audit.md#32-finding-fields)に従う。
+指摘事項は`criterion_id`を追加項目として持ち、その他の項目と重大度は[`51_Document_Audit.md`](51_Document_Audit.md#32-finding-fields)に従う。
 
-Conformance Result、Finding、EvidenceへCRDD標準Stable Context IDを新規発行しない。Audit Reportは対象Claim、Change Trace、Release Artifactから参照可能にし、Evidenceは対象Artifact内または最も近い親Folderの`Evidence/`へ置く。Root直下へ中央Conformance Folderを作らない。
+準拠結果、指摘事項、根拠へCRDD標準安定コンテキストIDを新規発行しない。監査報告は対象となる準拠表明、変更トレース、リリース成果物から参照可能にし、根拠は対象成果物内または最も近い親フォルダの`Evidence/`へ置く。ルート直下へ中央準拠フォルダを作らない。
 
 ---
 
-# 13. Audit Completion and Claim Handoff
+# 13. 監査完了と準拠表明の引き渡し
 
-次を満たしたとき、Conformance Auditを完了できる。
+次を満たしたとき、準拠監査を完了できる。
 
 ```text
-Target ScopeとRevisionが固定されている
-評価に使用したCRDD / Criteria Revisionが固定されている
-適用Profileと全適用Criteriaが列挙されている
-全適用CriteriaにResultがある
-Conformant Resultに再確認可能なEvidenceがある
-Non-conformant / Not EvaluatedにFindingまたはBlocking理由がある
-Not Applicableに適用外理由がある
-Requested ClaimのEligibilityと理由が明示されている
-Deviation、Open Question、再評価TriggerがHandoffされている
+対象範囲と改訂版が固定されている
+評価に使用したCRDD / 基準改訂版が固定されている
+適用プロファイルと全適用基準が列挙されている
+全適用基準に結果がある
+`Conformant`の結果に再確認可能な根拠がある
+`Non-conformant`／`Not Evaluated`に指摘事項または阻害理由がある
+`Not Applicable`に適用外理由がある
+要求された準拠表明の適格性と理由が明示されている
+逸脱、未決事項、再評価契機が引き渡されている
 ```
 
-Audit完了はConformantまたはClaim発行を意味しない。`Not Eligible`または`Undetermined`を正しく返したReportも完了したAuditである。
+監査完了は準拠または表明発行を意味しない。`Not Eligible`または`Undetermined`を正しく返した報告も完了した監査である。
 
-Claim Ownerは`Eligible` Result、対象Scope / Revision、適用Profile、Evidence、既知Limit、再評価Triggerを確認してClaimを記録する。対象RevisionまたはCriteria Authorityが変わった場合、既存Claimを自動継承せず影響Criteriaを再評価する。
+準拠表明の担当責任者は`Eligible`という結果、対象範囲／改訂版、適用プロファイル、根拠、既知の制限、再評価契機を確認して準拠表明を記録する。対象改訂版または基準の決定権限が変わった場合、既存の準拠表明を自動継承せず、影響を受ける基準を再評価する。
 
 ---
 
-# 14. Final Principle
+# 14. 最終原則
 
-Conformance Auditは、CRDDらしく見えることではなく、対象ScopeとRevisionが適用CriteriaをEvidenceで満たすかを評価する。
+準拠監査は、CRDDらしく見えることではなく、対象範囲と改訂版が適用基準を根拠で満たすかを評価する。
 
-Audit ResultとClaim発行を分けることで、Agentによる自己認定を防ぎ、準拠表明の責任を明確にする。
+監査結果と表明発行を分けることで、エージェントによる自己認定を防ぎ、準拠表明の責任を明確にする。
