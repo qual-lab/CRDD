@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.6.1 — Lightweight Discovery Candidate Holding / 軽量な未採用候補の保持**
+Status: **v0.6.2 — Lightweight Baseline Adoption Assessment / 軽量な基準版採用評価**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -121,6 +121,8 @@ The responsible Human adopts, defers, rejects, or asks for more evidence
 Only the adopted scope proceeds to UX
 ```
 
+Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption Assessment](19_Maintenance.md#62-baseline-adoption-assessment). Compare every intervening release, evaluate semantic, AI-behavior, conformance, phase-contract, and adapter impacts, and apply only the migration, audits, Change Traces, or verification that the project actually needs. Updating a submodule pointer or `00_CRDD/` copy alone does not activate the new baseline.
+
 For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
 <a id="historical-migration-v042-v05x-en"></a>
@@ -171,6 +173,7 @@ The authoritative placement, artifact, Evidence, Decision, Stable Context ID, an
 | Trace a change, release a product, or define a repeatable workflow | [Change](12_Change.md), [Release](13_Release.md), and [Workflow](14_Workflow.md) |
 | Apply a product phase | Use the [phase authority map](00_Overview.md#33-product-phase-authorities), then read the applicable `21`–`29` authority |
 | Maintain the CRDD standard itself | [Maintenance](19_Maintenance.md) |
+| Evaluate and adopt a newer CRDD baseline | [Baseline Adoption Assessment](19_Maintenance.md#62-baseline-adoption-assessment) |
 | Migrate a v0.4.2 adoption to v0.5.x | [Historical migration guide: v0.4.2 to v0.5.x](#historical-migration-v042-v05x-en) |
 | Audit documents, conformance, or cross-layer impact | [Document Audit](51_Document_Audit.md), [Conformance Audit](52_Conformance_Audit.md), and [Gap / Impact Audit](53_Gap_Impact_Audit.md) |
 | Report a problem, propose a standard change, or share adoption feedback | [Contributing](CONTRIBUTING.md) |
@@ -295,6 +298,8 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 採用した対象範囲だけをUXへ渡す
 ```
 
+採用しているCRDD基準版を変更する前に、軽量な[基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment)を行う。途中の各リリース差分を確認し、意味、AI挙動、準拠、工程契約、接続部への影響を評価して、プロジェクトに必要な移行、監査、変更トレース、検証だけを実施する。サブモジュールポインタまたは`00_CRDD/`の文書を更新しただけでは、新しい基準版を有効化したことにならない。
+
 v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
 <a id="historical-migration-v042-v05x-ja"></a>
@@ -345,6 +350,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 | 変更、プロダクトリリース、反復作業を扱う | [変更](12_Change.md)、[リリース](13_Release.md)、[作業手順](14_Workflow.md) |
 | プロダクト工程を適用する | [工程正本一覧](00_Overview.md#33-product-phase-authorities)から、該当する`21`〜`29`の正本を読む |
 | CRDD標準自体を保守する | [保守](19_Maintenance.md) |
+| 新しいCRDD基準版の差分を評価して採用する | [基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment) |
 | v0.4.2採用リポジトリをv0.5.xへ移行する | [過去の移行案内: v0.4.2からv0.5.xへの更新](#historical-migration-v042-v05x-ja) |
 | 文書、準拠、工程横断影響を監査する | [文書監査](51_Document_Audit.md)、[準拠監査](52_Conformance_Audit.md)、[不足／影響監査](53_Gap_Impact_Audit.md) |
 | 問題報告、規則変更提案、採用フィードバックを行う | [コントリビューションガイド](CONTRIBUTING.md) |

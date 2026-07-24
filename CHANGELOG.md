@@ -9,6 +9,21 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v062-en"></a>
+
+### v0.6.2 — Lightweight Baseline Adoption Assessment (2026-07-24)
+
+Compared with v0.6.1:
+
+- Makes the existing baseline-adoption rule executable through a lightweight Baseline Adoption Assessment before a project activates a different CRDD tag, commit, submodule reference, distributed document set, local standard patch, or conformance baseline.
+- Evaluates semantic, AI-behavior, conformance, phase-contract, and artifact / adapter / operational differences rather than treating file replacement or a submodule pointer update as adoption completion.
+- Keeps the assessment proportional. It requires no dedicated file, folder, schema, Delta ID, fixed status lifecycle, Change Trace, or full audit set. Existing Issues, pull requests, Change Traces, workflows, or migration records may carry the result.
+- Separates the candidate baseline from the active baseline. AI may read the candidate for assessment and adaptation, but it does not become the governing completion or conformance baseline until the responsible Human authority activates it.
+- Requires only affected conformance criteria to be reevaluated and routes uncertain cross-artifact or AI-behavior impact to Gap / Impact Audit. Previous conformance results are not copied to a changed baseline without an applicability decision.
+- Updates the Overview, README, starter agent guidance, Maintenance, Conformance Audit, and Gap / Impact Audit with the same adoption route.
+
+Adoption impact: no project artifact migration, new Stable Context ID, phase-contract change, conformance-criterion change, mandatory Audit, or mandatory Change Trace is introduced. A project moving to v0.6.2 records the previous and candidate baselines, checks applicable release differences and local adapters, and obtains the responsible Human activation decision. Additional migration, audits, or verification are conditional on detected impact.
+
 <a id="changelog-v061-en"></a>
 
 ### v0.6.1 — Lightweight Discovery Candidate Holding (2026-07-24)
@@ -213,6 +228,21 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v062-ja"></a>
+
+### v0.6.2 — 軽量な基準版採用評価（2026-07-24）
+
+v0.6.1からの変更:
+
+- 採用プロジェクトがCRDDのタグ、コミット、サブモジュール参照、配布文書一式、標準へのプロジェクト固有差分、準拠評価基準を変更するとき、既存の基準版採用規則を軽量な基準版採用評価として実行できるようにした。
+- ファイル差し替えやサブモジュールポインタ更新を採用完了とせず、意味、AI挙動、準拠、工程契約、成果物・接続部・運用の差分を評価する。
+- 専用ファイル、専用フォルダ、固定スキーマ、差分ID、固定状態遷移、変更トレース、全監査を一律に要求しない。既存のIssue、プルリクエスト、変更トレース、作業手順、移行記録から結果を取得できればよい。
+- 採用候補の基準版と現在有効な基準版を分離した。AIは評価・適応作業のために候補版を読めるが、責任を持つ人間が有効化するまでは、正式な完了条件または準拠根拠として扱わない。
+- 影響する準拠基準だけを再評価し、工程横断またはAI挙動への不明な影響だけを不足／影響監査へ接続する。旧基準版の準拠結果を、適用性判断なしに新基準版へ引き継がない。
+- 概要、README、導入用エージェント指示、保守、準拠監査、不足／影響監査を同じ採用経路へ揃えた。
+
+採用側への影響: プロジェクト成果物の移行、新しい安定コンテキストID、工程契約変更、準拠基準変更、必須監査、必須変更トレースは追加しない。v0.6.2へ更新するプロジェクトは、現在版と候補版、関係するリリース差分、プロジェクト固有接続部を確認し、責任を持つ人間が有効化を判断する。追加の移行、監査、検証は、検出した影響がある場合だけ実施する。
 
 <a id="changelog-v061-ja"></a>
 

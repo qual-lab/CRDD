@@ -2,7 +2,7 @@
 
 # CRDD作業フロー（Workflow）
 
-Version: v0.6.1
+Version: v0.6.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-24

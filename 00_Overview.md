@@ -2,7 +2,7 @@
 
 # CRDD概要（Overview）
 
-Version: v0.6.1
+Version: v0.6.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-24
@@ -112,7 +112,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `12_Change.md` | `90_Release/Changes/CHG-*.md`による契機、変更意図、想定／実際の影響、実装、検証、終了のトレース |
 | `13_Release.md` | プロダクトリリースの最小契約、人間のリリース決定権限、リリース記録、CHANGELOG、リリース検証 |
 | `14_Workflow.md` | `07_Workflows`へ置くリポジトリ固有の反復可能な作業手順と引き渡し |
-| `19_Maintenance.md` | CRDD自身の変更、学びの昇格、版、移行、修正、監査接続 |
+| `19_Maintenance.md` | CRDD自身の変更、学びの昇格、版、採用プロジェクトの基準版評価、移行、修正、監査接続 |
 
 <a id="33-product-phase-authorities"></a>
 
@@ -156,7 +156,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `CHANGELOG.md` | CRDD標準自体のバージョン間変更履歴。プロダクト固有のCHANGELOGとは別に扱う |
 | `template/` | プロジェクトへCRDDを導入するためのひな型とAI入口ファイル |
 
-CRDD標準自体のバージョン、CHANGELOG、タグ、移行は[`19_Maintenance.md`](19_Maintenance.md)を正本とする。プロダクト固有リリースのCHANGELOGは[`13_Release.md`](13_Release.md)に従う。
+CRDD標準自体のバージョン、CHANGELOG、タグ、移行と、採用プロジェクトにおけるCRDD基準版の評価・有効化は[`19_Maintenance.md`](19_Maintenance.md)を正本とする。プロダクト固有リリースのCHANGELOGは[`13_Release.md`](13_Release.md)に従う。
 
 <a id="36-external-foundations-and-source-trace"></a>
 
@@ -316,6 +316,7 @@ CRDDのプロダクト変換、変更、ロードマップ、リリース、学�
 | 採用済みだが未着手の内容を計画する | 要求や関連コンテキストを参照して`99_Roadmap`へ置く |
 | 文書品質を監査する | [文書監査](51_Document_Audit.md) |
 | CRDD準拠を評価する | [準拠監査](52_Conformance_Audit.md) |
+| 採用プロジェクトでCRDD基準版の差分を評価し、有効化を判断する | [保守の基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment) |
 | 人間の判断、制約、学び、根拠、指摘事項の確定・変更を上流／同層へ伝播する | [不足／影響監査の変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を即時実行し、正本更新後に再監査する |
 | その他の変更について工程横断影響を調べる | [不足／影響監査](53_Gap_Impact_Audit.md) |
 | 工程移行前に独立レビューし、指摘事項を修正・再確認する | [エージェントの工程移行レビュー](10_Agent.md#72-phase-transition-review-and-remediation-loop)と送信・受信工程の工程実行契約 |
