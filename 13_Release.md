@@ -2,7 +2,7 @@
 
 # CRDDリリース（Release）
 
-Version: v0.6.0
+Version: v0.6.1
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-24

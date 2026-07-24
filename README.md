@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.6.0-p1 — README Anchor Correction / READMEアンカー修正版**
+Status: **v0.6.1 — Lightweight Discovery Candidate Holding / 軽量な未採用候補の保持**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -151,7 +151,7 @@ Until migration verification passes, keep the previous pinned release recoverabl
 
 - Within `00_CRDD/`, canonical filenames use the two-digit document number once, such as `01_Principles.md` and `27_Architecture.md`; do not repeat the folder number as `00_01_*` or `00_27_*`. Document numbers are not Stable Context IDs. Standard Stable Context IDs are limited to `REQ`, `UX`, `IA`, `UI`, and `SPEC`. `CHG-*` identifies a Change Trace artifact, not stable product context.
 - Keep Evidence inline or under the nearest parent folder's `Evidence/`. Reflect a Decision's result in the resulting Canonical Artifact and keep its rationale, evidence, alternatives, and history there. Do not use root-level Evidence or Decision folders as the default model.
-- Use `01_Discovery` for new evidence, uncertainty, and requirements. Use `99_Roadmap` for accepted but deferred work by referencing requirements and other context; Roadmap items do not receive CRDD Stable Context IDs.
+- Use `01_Discovery` for new evidence, uncertainty, and requirements. It may also hold unadopted inputs for later reconsideration without a mandatory candidate file, identifier, or status model. Use `99_Roadmap` only for accepted but deferred work by referencing requirements and other context; Roadmap items do not receive CRDD Stable Context IDs.
 - Use `40_Develop` for code, configuration, migrations, build definitions, and tests—not for CRDD management Markdown.
 - Use `07_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
 - Treat governance, security, privacy, accessibility, compatibility, capacity, and cost as responsibilities of the applicable upstream and downstream phases rather than as detached end-stage checks.
@@ -325,7 +325,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 - `00_CRDD/`内の正本文書名は`01_Principles.md`、`27_Architecture.md`のように二桁の文書番号を一度だけ使用し、フォルダ番号を重ねた`00_01_*`、`00_27_*`にはしない。文書番号は安定コンテキストIDではない。標準の安定コンテキストIDは`REQ`、`UX`、`IA`、`UI`、`SPEC`に限定する。`CHG-*`は変更トレースの成果物IDであり、プロダクトコンテキストの安定IDではない。
 - 根拠は成果物内または最も近い親フォルダの`Evidence/`へ置く。判断の結果は結果となる正本成果物へ反映し、判断理由、根拠、代替案、履歴を同じ成果物へ残す。リポジトリ直下の根拠／判断フォルダを基本構成にしない。
-- 新しい根拠、不確実性、要求は`01_Discovery`へ置く。採用済みだが未着手の内容は、要求や他のコンテキストを参照して`99_Roadmap`へ置き、ロードマップ項目へCRDD安定コンテキストIDを付与しない。
+- 新しい根拠、不確実性、要求は`01_Discovery`へ置く。未採用の入力を後から再検討するため、候補ファイル、識別子、固定状態を必須にせず任意に保持してよい。採用済みだが未着手の内容だけを、要求や他のコンテキストを参照して`99_Roadmap`へ置き、ロードマップ項目へCRDD安定コンテキストIDを付与しない。
 - `40_Develop`にはコード、構成、移行、ビルド定義、テストを置き、CRDD管理用Markdownを置かない。
 - `07_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
 - ガバナンス、セキュリティ、プライバシー、アクセシビリティ、互換性、処理能力、コストは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。

@@ -9,6 +9,20 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v061-en"></a>
+
+### v0.6.1 — Lightweight Discovery Candidate Holding (2026-07-24)
+
+Compared with v0.6.0-p1:
+
+- Clarifies an optional holding view within Discovery for unadopted inputs that are not being analyzed now but may merit later reconsideration.
+- Separates unadopted held candidates, Human-adopted deferred Roadmap items, and changes that require a `CHG-*`. Holding or researching a candidate alone does not authorize implementation or create a Change Trace.
+- Keeps the practice lightweight: no mandatory candidate file, folder, template, standard `CAND-*` identifier, fixed status model, owner, deadline, or full-pool review is added.
+- Allows current work to finish without processing unrelated held candidates. Only candidates related to the active scope, a reached reconsideration trigger, or a Human selection normally need review.
+- Updates the Overview and Change Trace flow diagrams and aligns the Discovery, Documentation, Change, README, and starter agent guidance with the clarified route.
+
+This release does not add a mandatory phase, artifact, Stable Context ID, fixed candidate lifecycle, or full-pool audit, and it does not require migration of existing project artifacts. When optional candidate holding is used, it is evaluated within the existing Discovery contract.
+
 <a id="changelog-v060-p1-en"></a>
 
 ### v0.6.0-p1 — README Anchor Correction (2026-07-24)
@@ -199,6 +213,20 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v061-ja"></a>
+
+### v0.6.1 — 軽量な未採用候補の保持（2026-07-24）
+
+v0.6.0-p1からの変更:
+
+- 今すぐ分析しないが後から再検討する価値がある未採用入力を、課題探索・要求形成内で任意に保持できることを明確にした。
+- 未採用の保持候補、人間が採用して延期したロードマップ項目、`CHG-*`を必要とする変更を分離した。候補の保持や調査だけでは、実装を許可せず変更トレースも作成しない。
+- 候補ファイル、専用フォルダ、ひな型、標準`CAND-*`識別子、固定状態、担当者、期限、全候補の一括確認を必須にせず、軽量な運用を維持した。
+- 現在の対象範囲と無関係な保持候補を処理せずに、活動中の作業を完了できるようにした。通常確認するのは、現在の対象範囲、到達した再検討契機、または人間の指定に関係する候補だけである。
+- 概要と変更トレースのフロー図を更新し、課題探索・要求形成、文書化、変更、README、導入用エージェント指示を明確になった経路へ揃えた。
+
+このリリースでは、必須工程、必須成果物、安定コンテキストID、固定された候補の状態遷移、全候補の一括監査を追加せず、既存プロジェクト成果物の移行も要求しない。任意の候補保持を使用する場合だけ、既存の課題探索・要求形成契約の中で確認する。
 
 <a id="changelog-v060-p1-ja"></a>
 

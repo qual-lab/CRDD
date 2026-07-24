@@ -1,6 +1,6 @@
 # CRDD振る舞い仕様（Behavior Specification）
 
-Version: v0.6.0
+Version: v0.6.1
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.spec.behavior`
