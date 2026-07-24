@@ -9,6 +9,17 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v060-p1-en"></a>
+
+### v0.6.0-p1 — README Anchor Correction (2026-07-24)
+
+Compared with v0.6.0:
+
+- Repairs the two same-document links from the English and Japanese entry tables to the historical v0.4.2-to-v0.5.x migration guidance.
+- Adds stable explicit anchors for both language sections so future wording changes do not break these links.
+
+This patch does not change CRDD rules, phase contracts, conformance, Stable Context IDs, templates, or adopting-project migration requirements.
+
 <a id="changelog-v060-en"></a>
 
 ### v0.6.0 — Practical Review, Human-Centered Quality, and Open Maintenance (2026-07-24)
@@ -188,6 +199,17 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v060-p1-ja"></a>
+
+### v0.6.0-p1 — READMEアンカー修正（2026-07-24）
+
+v0.6.0からの変更:
+
+- 英語・日本語の入口表から、過去のv0.4.2→v0.5.x移行案内へ移動する同一文書内リンク2件を修正した。
+- 見出しの文言を将来変更してもリンクが切れないよう、両言語の移行案内へ安定した明示アンカーを追加した。
+
+このパッチでは、CRDD規則、工程契約、準拠、安定コンテキストID、ひな型、採用プロジェクトの移行要件を変更しない。
 
 <a id="changelog-v060-ja"></a>
 

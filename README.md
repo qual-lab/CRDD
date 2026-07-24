@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.6.0 — Practical Review, Human-Centered Quality, and Open Maintenance / 現実的なレビュー・人間中心品質・公開保守版**
+Status: **v0.6.0-p1 — README Anchor Correction / READMEアンカー修正版**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -123,6 +123,8 @@ Only the adopted scope proceeds to UX
 
 For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
+<a id="historical-migration-v042-v05x-en"></a>
+
 ### Historical migration guide: v0.4.2 to v0.5.x
 
 v0.5.0 renamed the canonical CRDD documents. The general filename migration is:
@@ -169,7 +171,7 @@ The authoritative placement, artifact, Evidence, Decision, Stable Context ID, an
 | Trace a change, release a product, or define a repeatable workflow | [Change](12_Change.md), [Release](13_Release.md), and [Workflow](14_Workflow.md) |
 | Apply a product phase | Use the [phase authority map](00_Overview.md#33-product-phase-authorities), then read the applicable `21`–`29` authority |
 | Maintain the CRDD standard itself | [Maintenance](19_Maintenance.md) |
-| Migrate a v0.4.2 adoption to v0.5.x | [Updating from v0.4.2 to v0.5.x](#updating-from-v042-to-v05x) |
+| Migrate a v0.4.2 adoption to v0.5.x | [Historical migration guide: v0.4.2 to v0.5.x](#historical-migration-v042-v05x-en) |
 | Audit documents, conformance, or cross-layer impact | [Document Audit](51_Document_Audit.md), [Conformance Audit](52_Conformance_Audit.md), and [Gap / Impact Audit](53_Gap_Impact_Audit.md) |
 | Report a problem, propose a standard change, or share adoption feedback | [Contributing](CONTRIBUTING.md) |
 
@@ -295,6 +297,8 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 
 v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
+<a id="historical-migration-v042-v05x-ja"></a>
+
 ### 過去の移行案内: v0.4.2からv0.5.xへの更新
 
 v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移行規則は次のとおり。
@@ -341,7 +345,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 | 変更、プロダクトリリース、反復作業を扱う | [変更](12_Change.md)、[リリース](13_Release.md)、[作業手順](14_Workflow.md) |
 | プロダクト工程を適用する | [工程正本一覧](00_Overview.md#33-product-phase-authorities)から、該当する`21`〜`29`の正本を読む |
 | CRDD標準自体を保守する | [保守](19_Maintenance.md) |
-| v0.4.2採用リポジトリをv0.5.xへ移行する | [v0.4.2からv0.5.xへの更新](#v042からv05xへの更新) |
+| v0.4.2採用リポジトリをv0.5.xへ移行する | [過去の移行案内: v0.4.2からv0.5.xへの更新](#historical-migration-v042-v05x-ja) |
 | 文書、準拠、工程横断影響を監査する | [文書監査](51_Document_Audit.md)、[準拠監査](52_Conformance_Audit.md)、[不足／影響監査](53_Gap_Impact_Audit.md) |
 | 問題報告、規則変更提案、採用フィードバックを行う | [コントリビューションガイド](CONTRIBUTING.md) |
 
