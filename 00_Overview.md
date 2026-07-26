@@ -2,10 +2,10 @@
 
 # CRDD概要（Overview）
 
-Version: v0.6.2
+Version: v0.7.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-24
+Last Updated: 2026-07-25
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -66,8 +66,8 @@ CRDD準拠は、対象範囲と改訂版に適用される基準および根拠�
 | `00_CRDD` | CRDD標準、共通実行契約、工程条項、監査契約 | 各正本文書（本書の3章を入口とする） |
 | `01_Discovery` | 起点、課題、情報源、根拠、不確実性、要求 | [課題探索・要求形成](21_Discovery.md) |
 | `02_UX` | アクター、成果、利用者体験の流れ、サービスブループリント、体験原則、体験表現意図（Experience Expression Intent） | [UX](22_UX.md) |
-| `03_IA` | オブジェクト、関係、責務、ナビゲーション、情報構造 | [IA](23_IA.md) |
-| `04_UI` | 論理画面（Logical Screen）、インタラクション、フィードバック、視覚表現方針（Visual Direction）、UIテーマ（UI Theme）、UI部品（UI Component）/ UI設計パターン（UI Design Pattern）、最終視覚表現（Final Visual）、UI素材（UI Asset） | [UI](25_UI.md) |
+| `03_IA` | オブジェクト、関係、責務、ナビゲーション、情報構造、情報提示の意味構造（Information Presentation Model） | [IA](23_IA.md) |
+| `04_UI` | 論理画面（Logical Screen）、具体的な表示構造（Presentation Realization）、インタラクション、フィードバック、視覚表現方針（Visual Direction）、UIテーマ（UI Theme）、UI部品（UI Component）/ UI設計パターン（UI Design Pattern）、デザインシステム参照実装（Design System Reference）、最終視覚表現（Final Visual）、UI素材（UI Asset） | [UI](25_UI.md) |
 | `05_SPEC` | 条件、システム状態、振る舞い、例外、受入条件 | [振る舞い仕様](26_Behavior_Specification.md) |
 | `06_Architecture` | システム境界、データ、インターフェース、品質、セキュリティ、操作、実装規則 | [アーキテクチャ](27_Architecture.md) |
 | `07_Workflows` | リポジトリ固有の反復可能な作業手順、運用手順、引き渡し | [作業手順](14_Workflow.md) |
@@ -124,9 +124,9 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 |---|---|
 | `21_Discovery.md` | 課題探索・要求形成、情報源 / 根拠、不確実性、REQ昇格、経路 |
 | `22_UX.md` | アクター、成果、利用者体験の流れ、サービスブループリント、体験原則、体験表現意図、UXの網羅範囲 |
-| `23_IA.md` | オブジェクト、関係、責務、ナビゲーション、情報構造 |
+| `23_IA.md` | オブジェクト、関係、責務、ナビゲーション、情報構造、情報提示の意味構造 |
 | `24_UI_Behavior_Specification.md` | UIと振る舞い仕様の相互参照、対、整合性、共同レビューを定める横断契約 |
-| `25_UI.md` | 視覚表現方針、論理画面、インタラクション、表示状態 / UI差分、UIテーマ、UI部品 / UI設計パターン、最終視覚表現、UI素材、アクセシビリティ、UIの網羅範囲 |
+| `25_UI.md` | 視覚表現方針、論理画面、具体的な表示構造、インタラクション、表示状態 / UI差分、UIテーマ、UI部品 / UI設計パターン、デザインシステム参照実装、最終視覚表現、UI素材、アクセシビリティ、UIの網羅範囲 |
 | `26_Behavior_Specification.md` | 条件、システム状態、規則、例外、失敗、受入条件、SPECの網羅範囲 |
 | `27_Architecture.md` | システム設計、データ、インターフェース、品質、セキュリティ、操作、互換性、実装規則 |
 | `28_Implementation.md` | コード、構成、移行、ビルド、開発者テスト、逸脱、実装根拠 |

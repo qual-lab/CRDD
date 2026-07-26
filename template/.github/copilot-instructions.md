@@ -52,10 +52,13 @@ CRDD標準文書は`00_CRDD/`を正本とし、リポジトリ固有の作業規
 UI作業では、適用範囲に応じて次の接続を維持すること。
 
 * UXの体験意図
-* IAのオブジェクト、責務、優先順位
+* IAのオブジェクト、責務、情報の優先度
+* 情報提示の意味構造（Information Presentation Model）
 * UI契約
 * 視覚表現方針（Visual Direction）
-* UIテーマ（UI Theme）、設計トークン（Design Token）、UI設計パターン（UI Design Pattern）、UI部品（UI Component）
+* 具体的な表示構造（Presentation Realization）
+* UIテーマ（UI Theme）、デザイントークン（Design Token）、UI設計パターン（UI Design Pattern）、UI部品（UI Component）
+* デザインシステム参照実装（Design System Reference）
 * 論理画面（Logical Screen）、表示状態（Presentation State）、UI差分（UI Variant）
 * 振る舞い仕様（Behavior Specification）
 * 外部視覚成果物（External Visual Artifact）
@@ -89,14 +92,14 @@ AIは承認された対象範囲内で、分析、提案、下書き、編集、
 * アーキテクチャ上の重要なトレードオフ
 * リスク受容
 * 工程の引き渡し
-* Release
+* リリース
 * CRDD準拠の表明
 
 複数案が成立する場合は、推奨案、理由、代替案、影響、未決事項を人間へ提示すること。
 
 ## 言語と可読性
 
-利用者への説明、質問、判断支援と、新規作成・更新する人間可読成果物の本文は、利用者またはリポジトリの主要ロケールで記述すること。CHG、根拠の説明・要約、正本文書、レビュー・監査結果を、`Changes/`、`Evidence/`、`CHG-*`等の英語識別子だけを理由に英語で作成しないこと。CRDD用語は初出時に「ローカル表示名（Canonical English Term）」で示し、その後の説明文、見出し、説明用の表ではローカル表示名を基本とすること。
+利用者への説明、質問、判断支援と、新規作成・更新する人間可読成果物の本文は、利用者またはリポジトリの主要ロケールで記述すること。CHG、根拠の説明・要約、正本文書、レビュー・監査結果を、`Changes/`、`Evidence/`、`CHG-*`等の英語識別子だけを理由に英語で作成しないこと。CRDD用語は初出時に「ローカル表示名（Canonical Term）」で示し、その後の説明文、見出し、説明用の表ではローカル表示名を基本とすること。
 
 スキーマキー / 値、状態の実値、関係、安定コンテキストID、エージェントID、ファイル名、コードは翻訳しないこと。説明用の項目名と機械可読な実値を区別すること。
 

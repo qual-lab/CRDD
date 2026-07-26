@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.6.2 — Lightweight Baseline Adoption Assessment / 軽量な基準版採用評価**
+Status: **v0.7.0 — Information Presentation Model and Design System Reference / 情報提示の意味構造とデザインシステム参照実装**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -121,9 +121,11 @@ The responsible Human adopts, defers, rejects, or asks for more evidence
 Only the adopted scope proceeds to UX
 ```
 
-Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption Assessment](19_Maintenance.md#62-baseline-adoption-assessment). Compare every intervening release, evaluate semantic, AI-behavior, conformance, phase-contract, and adapter impacts, and apply only the migration, audits, Change Traces, or verification that the project actually needs. Updating a submodule pointer or `00_CRDD/` copy alone does not activate the new baseline.
+Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption Assessment](19_Maintenance.md#62-baseline-adoption-assessment). Compare every intervening release, evaluate semantic, AI-behavior, conformance, phase-contract, and adapter impacts, and apply only the migration, audits, Change Traces, or verification that the project actually needs. Adopting with no action is possible, but only as a `Not Applicable` with a reason confirmed by the responsible human authority — not as a default. Updating a submodule pointer or `00_CRDD/` copy alone does not activate the new baseline.
 
-For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+Where a baseline update includes any difference classified normative or breaking, or any release whose CHANGELOG declares migration required, adoption is not complete until the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar is met — this applies to adopting with no action just as much as to adopting after remediation — and a `Conformant` claim cannot be recorded against that baseline before then. The bar's fifth point, an independent review, is carried out by Document Audit or Gap / Impact Audit, not by Conformance Audit.
+
+v0.7.0 contains breaking changes and requires migration — review the [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) and its migration note. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
 <a id="historical-migration-v042-v05x-en"></a>
 
@@ -188,11 +190,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a normative or breaking
 
 ### License
 
-Unless otherwise noted, CRDD documentation and other copyrightable repository materials are licensed under the [Apache License 2.0](LICENSE).
+CRDD is licensed under the [Apache License 2.0](LICENSE). This covers the documentation and every other copyrightable material in this repository. Trademarks are carved out: the CRDD, Qual-Lab, and Qual names, their logos, and related brand elements are governed separately by [TRADEMARK.md](TRADEMARK.md), because Apache License 2.0 grants no trademark rights beyond the limited use its Section 6 allows.
 
-The Apache License 2.0 permits commercial use under its terms. It does not grant trademark rights. The CRDD, Qual-Lab, and Qual names, their logos, and related brand elements are governed separately by [TRADEMARK.md](TRADEMARK.md).
+Commercial use is permitted under the terms of the Apache License 2.0. No separate commercial copyright license from Qual-Lab is required; the trademark terms above still apply.
 
-Previously published releases remain governed by the license distributed with each release; adopting Apache License 2.0 does not revoke permissions already granted for those releases.
+Every version of CRDD is available under the Apache License 2.0, including releases originally distributed under CC BY-NC-SA 4.0. Qual-Lab authored that content and provides it under these terms. Permissions granted to recipients under the earlier license were never revoked and remain valid.
 
 ---
 
@@ -298,9 +300,11 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 採用した対象範囲だけをUXへ渡す
 ```
 
-採用しているCRDD基準版を変更する前に、軽量な[基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment)を行う。途中の各リリース差分を確認し、意味、AI挙動、準拠、工程契約、接続部への影響を評価して、プロジェクトに必要な移行、監査、変更トレース、検証だけを実施する。サブモジュールポインタまたは`00_CRDD/`の文書を更新しただけでは、新しい基準版を有効化したことにならない。
+採用しているCRDD基準版を変更する前に、軽量な[基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment)を行う。途中の各リリース差分を確認し、意味、AI挙動、準拠、工程契約、接続部への影響を評価して、プロジェクトに必要な移行、監査、変更トレース、検証だけを実施する。対応なしで採用することもできるが、それは既定の扱いではなく、責任を持つ人間の決定権限者が確認した理由を伴う`Not Applicable`としてのみ成立する。サブモジュールポインタまたは`00_CRDD/`の文書を更新しただけでは、新しい基準版を有効化したことにならない。
 
-v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+基準版更新に含まれる差分のいずれかが規範もしくは破壊的に分類される場合、またはいずれかのリリースのCHANGELOGが移行を必要と明示する場合、[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たすまで採用は完了せず、その基準版への`Conformant`表明も記録できない。これは対応なしで採用する場合にも適用する。同条件の5点目の独立レビューは、文書監査または不足／影響監査で実施し、準拠監査では実施しない。
+
+v0.7.0は破壊的変更を含み、移行を必要とする。[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)と移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
 <a id="historical-migration-v042-v05x-ja"></a>
 
@@ -363,6 +367,8 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 ### ライセンス
 
-CRDDの文書およびリポジトリ内のその他の著作物は、特記がない限り[Apache License 2.0](LICENSE)で提供する。同ライセンスの条件に従う商用利用も認められるが、商標権は付与されない。CRDD、Qual-Lab、Qualの名称、ロゴおよび関連するブランド要素は[TRADEMARK.md](TRADEMARK.md)で別に扱う。
+CRDDは[Apache License 2.0](LICENSE)で提供する。文書およびリポジトリ内のその他の著作物すべてが対象である。商標は対象から除く。CRDD、Qual-Lab、Qualの名称、ロゴおよび関連するブランド要素は[TRADEMARK.md](TRADEMARK.md)で別に扱う。Apache License 2.0は、第6条が認める限定的な使用を超える商標権を付与しないためである。
 
-過去に公開したリリースには、各リリースに同梱されたライセンスが引き続き適用される。Apache License 2.0への切替は、過去のリリースについて既に付与された許諾を取り消すものではない。
+同ライセンスの条件に従う商用利用は認められる。Qual-Labとの別の商用著作権ライセンス契約は必要ない。上記の商標の条件は引き続き適用される。
+
+当初CC BY-NC-SA 4.0で配布したリリースを含め、CRDDの全バージョンをApache License 2.0で提供する。該当する内容はQual-Labが著作したものであり、この条件で提供する。旧ライセンスで取得した利用者へ既に付与した許諾は取り消しておらず、そのまま有効である。

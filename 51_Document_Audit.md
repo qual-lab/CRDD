@@ -2,11 +2,11 @@
 
 # CRDD文書監査（Document Audit）
 
-Version: v0.6.2
+Version: v0.7.0
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.document.audit`
-Last Updated: 2026-07-24
+Last Updated: 2026-07-25
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -99,6 +99,8 @@ Related:
 
 CHANGELOGは公開リリース、利用者影響、移行、規範変更等で必要な場合に確認する。すべての編集上の変更へ機械的な追記を要求しない。
 
+[移行完了の条件](19_Maintenance.md#621-migration-completeness)が求める独立レビューの接続先として本監査を使用する場合は、文書配置、リンク、アンカー、用語、ヘッダーの追従を対象に、移行後の成果物で意味の欠損が生じていないかを指摘事項として返す。本監査は同条件の5点目だけを担当し、既存資産の棚卸し、各資産の処遇、移行先の追跡、着手待ち資産の有無（1点目から4点目）は判定しない。これらを含めて確認する必要がある場合、および工程横断の意味変更や複数成果物への影響は[不足／影響監査](53_Gap_Impact_Audit.md)へ渡す。本監査の結果が5点目の充足根拠になるのは、対象範囲について監査状態が`Pass`であり、意味の欠損に関する未解決の重大 / メジャーな指摘事項が残っていない場合に限る。`Conditional`、`Fail`、`Blocked`は5点目の充足として扱わない。
+
 ---
 
 <a id="3-output"></a>
@@ -137,6 +139,19 @@ CHANGELOGは公開リリース、利用者影響、移行、規範変更等で�
 | `remediation` | `Safe Mechanical` / `Review Required` / `Human Decision Required` |
 | `owner` | 次の対応責任 |
 | `status` | `Open`／`Accepted for Remediation`／`Resolved`／`Deferred`／`False Positive`等 |
+
+`remediation`を`Safe Mechanical`または`Review Required`と判定した指摘事項では、[境界付き修正提案（Bounded Remediation Proposal）](10_Agent.md#bounded-remediation-proposal)に従い、次も返す。`Human Decision Required`の指摘事項でも、選択肢ごとの修正案を示せる場合は同じ項目を返す。
+
+| 項目 | 意味 |
+|---|---|
+| `root_cause` | なぜ発生したか。表面の不備だけを記録しない |
+| `expected_state` | 修正後に成立していてほしい状態 |
+| `proposed_change` | 対象箇所を一意に特定できる修正案。文章成果物では原則として検索文字列と置換文字列、または同等の指示 |
+| `preserve_unchanged` | 変更してはならない範囲 |
+| `verify` | 修正後の確認方法 |
+| `confidence` | 確信度と、その根拠または不足している情報 |
+
+安全な修正案を確定できない場合は、`proposed_change`を推測で埋めず、`confidence`と不足している情報を示す。この場合は`remediation`を`Human Decision Required`とする。当該指摘事項に必要な評価を完了できないときは、その指摘事項を`Not Evaluated`として阻害理由と引き渡し先を示す。3.1の監査状態を`Blocked`とするのは、この阻害によって対象範囲について必要な評価自体を完了できない場合に限る。本書の項目を再利用する監査は`remediation`も併せて保持する。不足／影響監査の`disposition`は`remediation`を置き換えず、処置先と決定権限を示す追加項目である。したがって本節の追加項目が必要かは、いずれの監査でも`remediation`の値で判定する。複数の妥当な選択肢がある場合は一つを自己決定せず、選択肢ごとの結果、影響範囲、リスク、修正案を示す。
 
 指摘事項へCRDD標準安定コンテキストIDを発行しない。監査報告内のキー、Issue、変更トレース、成果物パス等で追跡する。
 
@@ -318,11 +333,14 @@ CHANGELOG / 移行注記（リリースまたは利用者影響がある場合�
 - 監査目的、対象範囲、改訂版、適用標準が記録されている
 - 適用確認に結果、指摘事項、`Not Evaluated`、または`Not Applicable`がある
 - 指摘事項に根拠、影響、推奨、担当責任者がある
+- `remediation`が`Safe Mechanical`または`Review Required`の指摘事項に、3.2が定める境界付き修正提案の項目がある。確定できない場合は`Human Decision Required`として確信度と不足情報がある
 - 停止中項目に不足情報と引き渡し先がある
 - 未確認対象範囲と監査状態が明示されている
 - 再監査条件と推奨する引き渡しが示されている
 
 重大やメジャーを検出した監査も、必要な記録を返せば正常に完了できる。
+
+本監査が複数監査の一つとして実行される場合は、[複数監査の統合と監査間是正方針レビュー（Cross-Audit Remediation Reconciliation）](10_Agent.md#75-audit-aggregation-and-reconciliation)に従う。対象成果物を修正せず、他の監査が終了する前に自身の指摘事項だけを根拠として是正を開始しない。親エージェントが統合修正方針を再提示した場合は、文書構造、参照、用語、決定権限、重複、直接伝播の観点から、自身の指摘事項が解消されるか、重複を消した結果として必要な意味まで失われないかを確認して回答する。
 
 ## 7.2. 対象の合格条件
 
