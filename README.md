@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.7.0 — Information Presentation Model and Design System Reference / 情報提示の意味構造とデザインシステム参照実装**
+Status: **v0.8.0 — Open Work Registry and Progress Model / 未完了作業の登録簿と進捗管理**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -125,7 +125,7 @@ Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption
 
 Where a baseline update includes any difference classified normative or breaking, or any release whose CHANGELOG declares migration required, adoption is not complete until the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar is met — this applies to adopting with no action just as much as to adopting after remediation — and a `Conformant` claim cannot be recorded against that baseline before then. The bar's fifth point, an independent review, is carried out by Document Audit or Gap / Impact Audit, not by Conformance Audit.
 
-v0.7.0 contains breaking changes and requires migration — review the [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) and its migration note. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+v0.8.0 and v0.7.0 each contain breaking changes and require migration — review the [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en) and the [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
 <a id="historical-migration-v042-v05x-en"></a>
 
@@ -155,7 +155,7 @@ Until migration verification passes, keep the previous pinned release recoverabl
 
 - Within `00_CRDD/`, canonical filenames use the two-digit document number once, such as `01_Principles.md` and `27_Architecture.md`; do not repeat the folder number as `00_01_*` or `00_27_*`. Document numbers are not Stable Context IDs. Standard Stable Context IDs are limited to `REQ`, `UX`, `IA`, `UI`, and `SPEC`. `CHG-*` identifies a Change Trace artifact, not stable product context.
 - Keep Evidence inline or under the nearest parent folder's `Evidence/`. Reflect a Decision's result in the resulting Canonical Artifact and keep its rationale, evidence, alternatives, and history there. Do not use root-level Evidence or Decision folders as the default model.
-- Use `01_Discovery` for new evidence, uncertainty, and requirements. It may also hold unadopted inputs for later reconsideration without a mandatory candidate file, identifier, or status model. Use `99_Roadmap` only for accepted but deferred work by referencing requirements and other context; Roadmap items do not receive CRDD Stable Context IDs.
+- Use `01_Discovery` for new evidence, uncertainty, and requirements. It may also hold unadopted inputs for later reconsideration without a mandatory candidate file, identifier, or status model. Use `99_Roadmap` as an Open Work Registry that indexes uncompleted work—ideas, deferred requirements, defects, technical debt, migrations, unresolved audit findings, and in-flight Change Traces—by existence, current state, and reference, while meaning, evidence, and rationale stay in the owning Canonical Artifact. Registration alone does not mean adoption, priority, or permission to execute. Roadmap items do not receive CRDD Stable Context IDs.
 - Use `40_Develop` for code, configuration, migrations, build definitions, and tests—not for CRDD management Markdown.
 - Use `07_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
 - Treat governance, security, privacy, accessibility, compatibility, capacity, and cost as responsibilities of the applicable upstream and downstream phases rather than as detached end-stage checks.
@@ -173,6 +173,7 @@ The authoritative placement, artifact, Evidence, Decision, Stable Context ID, an
 | Structure repositories, artifacts, evidence, decisions, IDs, and traces | [Documentation](03_Documentation.md) |
 | Run or delegate AI work | [Agent](10_Agent.md) and [Skill](11_Skill.md) |
 | Trace a change, release a product, or define a repeatable workflow | [Change](12_Change.md), [Release](13_Release.md), and [Workflow](14_Workflow.md) |
+| Track progress and health across any development method | [Progress](15_Progress.md) |
 | Apply a product phase | Use the [phase authority map](00_Overview.md#33-product-phase-authorities), then read the applicable `21`–`29` authority |
 | Maintain the CRDD standard itself | [Maintenance](19_Maintenance.md) |
 | Evaluate and adopt a newer CRDD baseline | [Baseline Adoption Assessment](19_Maintenance.md#62-baseline-adoption-assessment) |
@@ -304,7 +305,7 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 
 基準版更新に含まれる差分のいずれかが規範もしくは破壊的に分類される場合、またはいずれかのリリースのCHANGELOGが移行を必要と明示する場合、[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たすまで採用は完了せず、その基準版への`Conformant`表明も記録できない。これは対応なしで採用する場合にも適用する。同条件の5点目の独立レビューは、文書監査または不足／影響監査で実施し、準拠監査では実施しない。
 
-v0.7.0は破壊的変更を含み、移行を必要とする。[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)と移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+v0.8.0とv0.7.0はいずれも破壊的変更を含み、移行を必要とする。[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)と[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
 <a id="historical-migration-v042-v05x-ja"></a>
 
@@ -334,7 +335,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 - `00_CRDD/`内の正本文書名は`01_Principles.md`、`27_Architecture.md`のように二桁の文書番号を一度だけ使用し、フォルダ番号を重ねた`00_01_*`、`00_27_*`にはしない。文書番号は安定コンテキストIDではない。標準の安定コンテキストIDは`REQ`、`UX`、`IA`、`UI`、`SPEC`に限定する。`CHG-*`は変更トレースの成果物IDであり、プロダクトコンテキストの安定IDではない。
 - 根拠は成果物内または最も近い親フォルダの`Evidence/`へ置く。判断の結果は結果となる正本成果物へ反映し、判断理由、根拠、代替案、履歴を同じ成果物へ残す。リポジトリ直下の根拠／判断フォルダを基本構成にしない。
-- 新しい根拠、不確実性、要求は`01_Discovery`へ置く。未採用の入力を後から再検討するため、候補ファイル、識別子、固定状態を必須にせず任意に保持してよい。採用済みだが未着手の内容だけを、要求や他のコンテキストを参照して`99_Roadmap`へ置き、ロードマップ項目へCRDD安定コンテキストIDを付与しない。
+- 新しい根拠、不確実性、要求は`01_Discovery`へ置く。未採用の入力を後から再検討するため、候補ファイル、識別子、固定状態を必須にせず任意に保持してよい。`99_Roadmap`は未完了作業の登録簿とし、アイデア、延期した要求、不具合、技術負債、移行、未解決の監査指摘、進行中の変更トレースの存在、現在状態、参照先を横断して索引する。意味、根拠、判断理由は責務を持つ正本成果物へ残す。登録簿への登録だけでは、採用、優先順位の確定、実行の許可を意味しない。ロードマップ項目へCRDD安定コンテキストIDを付与しない。
 - `40_Develop`にはコード、構成、移行、ビルド定義、テストを置き、CRDD管理用Markdownを置かない。
 - `07_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
 - ガバナンス、セキュリティ、プライバシー、アクセシビリティ、互換性、処理能力、コストは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
@@ -352,6 +353,7 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 | リポジトリ、成果物、根拠、判断、ID、追跡関係を設計する | [文書化](03_Documentation.md) |
 | AI作業を実行・委譲する | [エージェント](10_Agent.md)と[スキル](11_Skill.md) |
 | 変更、プロダクトリリース、反復作業を扱う | [変更](12_Change.md)、[リリース](13_Release.md)、[作業手順](14_Workflow.md) |
+| 開発方式を問わず進捗と健全性を把握する | [進捗管理](15_Progress.md) |
 | プロダクト工程を適用する | [工程正本一覧](00_Overview.md#33-product-phase-authorities)から、該当する`21`〜`29`の正本を読む |
 | CRDD標準自体を保守する | [保守](19_Maintenance.md) |
 | 新しいCRDD基準版の差分を評価して採用する | [基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment) |

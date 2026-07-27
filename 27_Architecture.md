@@ -1,10 +1,10 @@
 # CRDDアーキテクチャ工程
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
-Last Updated: 2026-07-25
+Last Updated: 2026-07-26
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)

@@ -1,10 +1,10 @@
 # CRDD検証工程（Verification）
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`
-Last Updated: 2026-07-25
+Last Updated: 2026-07-26
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -13,6 +13,7 @@ Related:
 - [11_Skill.md](11_Skill.md)
 - [12_Change.md](12_Change.md)
 - [13_Release.md](13_Release.md)
+- [15_Progress.md](15_Progress.md)
 - [22_UX.md](22_UX.md)
 - [23_IA.md](23_IA.md)
 - [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
@@ -387,6 +388,10 @@ AI出力は機械判定可能なスキーマ、禁止条件、参照との整合
 リリース根拠は対象リリース成果物の最も近い親フォルダにある`Evidence/`または参照可能な外部成果物へ置き、対象、契約、方法、結果、未解決事項、既知の制限、関連判断を識別可能にする。承認者・承認日は[リリース](13_Release.md)とプロジェクト固有の人間のリリース決定権限の記録であり、検証実行者が代行しない。
 
 検証結果をテストログだけで閉じず、不具合、原因分類、新しい制約、仮説の支持・反証、変更すべき上流コンテキスト、再検証条件、次リリース / ロードマップ候補を正本成果物へ戻し、該当変更トレースへ結果を接続する。
+
+検証結果とリリース準備状態の推奨は、[進捗管理](15_Progress.md#35-evidence)における進捗と完了の根拠になる。進捗指標を、検証完了の判定根拠にしない。
+
+対象改訂版で対応しない未達条件、既知の制限、残った不具合、次リリース候補は、現在の対象範囲の中で完結する見込みかどうかにかかわらず、検証結果の文章内だけに残さず、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)の項目または変更トレースへ接続する。後続対応を必要としない情報として終了する場合は、[未完了事項の後続追跡](01_Principles.md#unresolved-follow-up-tracking)に従う。検証は登録先と必要な決定権限を示すが、採用、優先順位、着手、リスク受容を自己決定しない。
 
 次が変わった場合は、影響する基準を再評価する。
 

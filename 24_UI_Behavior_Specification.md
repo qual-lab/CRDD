@@ -1,13 +1,14 @@
 # CRDD UI契約と振る舞い仕様の対応関係
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-25
+Last Updated: 2026-07-26
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [03_Documentation.md](03_Documentation.md)
+- [15_Progress.md](15_Progress.md)
 - [23_IA.md](23_IA.md)
 - [25_UI.md](25_UI.md)
 - [26_Behavior_Specification.md](26_Behavior_Specification.md)
@@ -124,6 +125,8 @@ UI契約
 代表的な一画面、正常パス、一つの操作、またはUI / SPECの片側が完成したことを、対象範囲全体の対応レビュー完了と表現してはならない。
 
 UIの網羅範囲とSPECの網羅範囲は別々に保持し、対応関係の網羅範囲へ合算して曖昧にしない。
+
+対応関係の網羅状態を進捗として集約する場合は[進捗管理の対の成立度](15_Progress.md#8-ui-spec-pair-readiness)に従う。UIと振る舞い仕様の進捗の平均を、対の成立度として扱わない。
 
 ## 2.5. 人間による判断
 

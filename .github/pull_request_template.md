@@ -76,7 +76,7 @@ Target release / release-plan reference:
 
 ## Unresolved matters and maintainer decisions
 
-<!-- List remaining uncertainty, risk, rejected alternatives worth preserving, and decisions that Qual-Lab must make. -->
+<!-- List remaining uncertainty, risk, rejected alternatives worth preserving, and decisions that Qual-Lab must make. Listing an item here does not complete its tracking: for anything that still needs action, a decision, rechecking, or monitoring, give the trackable destination it is connected to, or the human decision authority and reason for closing it. See `01_Principles.md` (Unresolved Follow-up Tracking). -->
 
 ## Contributor acknowledgement
 

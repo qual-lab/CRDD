@@ -2,11 +2,11 @@
 
 # CRDD文書監査（Document Audit）
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.document.audit`
-Last Updated: 2026-07-25
+Last Updated: 2026-07-26
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -339,6 +339,8 @@ CHANGELOG / 移行注記（リリースまたは利用者影響がある場合�
 - 再監査条件と推奨する引き渡しが示されている
 
 重大やメジャーを検出した監査も、必要な記録を返せば正常に完了できる。
+
+対象改訂版で解消しない指摘事項は、現在の対象範囲の中で完結する見込みかどうかにかかわらず、監査結果の文章内だけに残さず、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)の項目または変更トレースへ接続する。後続対応を必要としない情報として終了する場合は、[未完了事項の後続追跡](01_Principles.md#unresolved-follow-up-tracking)に従う。監査は登録先と必要な決定権限を示すが、採用、優先順位、着手を自己決定しない。
 
 本監査が複数監査の一つとして実行される場合は、[複数監査の統合と監査間是正方針レビュー（Cross-Audit Remediation Reconciliation）](10_Agent.md#75-audit-aggregation-and-reconciliation)に従う。対象成果物を修正せず、他の監査が終了する前に自身の指摘事項だけを根拠として是正を開始しない。親エージェントが統合修正方針を再提示した場合は、文書構造、参照、用語、決定権限、重複、直接伝播の観点から、自身の指摘事項が解消されるか、重複を消した結果として必要な意味まで失われないかを確認して回答する。
 

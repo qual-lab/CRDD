@@ -1,10 +1,10 @@
 # CRDD実装工程（Implementation）
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.implementation.realize`
-Last Updated: 2026-07-25
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -62,6 +62,7 @@ Related:
 
 実装は対象範囲について次を受け取る。
 
+- 情報源となるREQ / UX / IAへのトレース
 - 該当する変更トレースと対象改訂版 / 基準版
 - 承認済みUI契約、視覚表現方針（Visual Direction）、適用するUIテーマ（UI Theme）/ UI部品（UI Component）/ UI設計パターン（UI Design Pattern）/ [外部視覚成果物（External Visual Artifact）](25_UI.md#external-visual-artifact)、振る舞い仕様
 - プラットフォーム非依存の[デザインシステム参照実装（Design System Reference）](25_UI.md#design-system-reference)。対象プラットフォームへの変換は実装が担う
@@ -276,6 +277,8 @@ AIまたは実装担当は実装案、規則案、テスト、逸脱、影響を
 実装根拠は対象改訂版、環境、コマンド / 手順、結果、成果物の場所を識別できるようにし、対象成果物内または最も近い親フォルダの`Evidence/`へ置く。検証根拠とは決定権限と目的を区別する。
 
 アーキテクチャや上位契約を変える判断を実装注記だけで確定しない。実装固有の選択、逸脱、既知の制約は、結果となるコード／構成と、変更トレース、プルリクエスト、アーキテクチャの正本成果物等の適切な既存成果物へ理由、影響、根拠、担当責任者を残す。
+
+実装完了時に、逸脱、既知の制約または未実装対象範囲が残り、対応、判断、再確認または監視を必要とする場合は、[原則](01_Principles.md#unresolved-follow-up-tracking)が定める後続追跡の不変条件に従って処置する。本書では接続先、理由付き終了または判断対象への接続の要件を繰り返さない。
 
 `40_Develop`へCRDD管理用Markdownを新設しない。
 

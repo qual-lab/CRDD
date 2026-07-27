@@ -2,11 +2,11 @@
 
 # CRDD準拠監査（Conformance Audit）
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.conformance.audit`
-Last Updated: 2026-07-25
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -15,6 +15,7 @@ Related:
 - [11_Skill.md](11_Skill.md)
 - [12_Change.md](12_Change.md)
 - [13_Release.md](13_Release.md)
+- [15_Progress.md](15_Progress.md)
 - [19_Maintenance.md](19_Maintenance.md)
 - [28_Implementation.md](28_Implementation.md)
 - [29_Verification.md](29_Verification.md)
@@ -89,7 +90,7 @@ CRDDは成熟度レベルではなく、中核と適用プロファイルで準�
 | 確認者 | 評価主体 |
 | レビュー日時 | 評価時点 |
 
-`Not Applicable`はプロファイル基準の条件または対象範囲に明確に適用されない場合だけ使用し、理由を必要とする。中核基準へ原則として使用せず、適用基準の未評価、根拠不足、担当不在を`Not Applicable`で回避してはならない。
+`Not Applicable`は、プロファイル基準について、宣言された適用条件を満たさない場合、またはその基準が統制する成果物、工程もしくは能力が対象範囲に存在しない場合に限り使用できる。理由と対象範囲を取得可能にしなければならない。中核基準へ原則として使用せず、適用基準の未評価、根拠不足、担当不在を`Not Applicable`で回避してはならない。
 
 根拠は対象範囲と改訂版への適用性、決定権限、取得時点、既知制限を説明できなければならない。古い監査結果や成果物の存在だけを現行改訂版の根拠として再利用しない。
 
@@ -134,8 +135,11 @@ CRDD基準版を変更する場合は、[基準版採用評価](19_Maintenance.m
 | PL-08 | 外部利用側、既存データ、移行、容量制約がある対象範囲では、観測可能な互換性 / 処理能力に関する振る舞いと、それを成立させるアーキテクチャ、移行、検証を接続する | [SPEC](26_Behavior_Specification.md)、[アーキテクチャ](27_Architecture.md)、[実装](28_Implementation.md)、[検証](29_Verification.md) | 利用側契約、バージョン / 移行計画、処理能力の仮定、ロールバック、互換性 / 負荷の根拠 |
 | PL-09 | AI、個人データ、外部操作を含む対象範囲では、目的、同意、信頼、人間による制御、セキュリティ境界、プライバシー、コストを上流から実行・検証まで接続する | [原則](01_Principles.md)、[課題探索・要求形成](21_Discovery.md)、[UX](22_UX.md)、[IA](23_IA.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[アーキテクチャ](27_Architecture.md)、[実装](28_Implementation.md)、[検証](29_Verification.md) | 目的 / データ境界、同意の振る舞い、信頼画面領域、決定権限、セキュリティ / プライバシー設計、コスト保護策、最新検証 |
 | PL-10 | 分析から生じる調整必要性をUXで抽出・分類し、利用者または決定権限が変更するものはIAの構成モデル、UIの設定 / 操作画面、SPECの構成 / 方針の振る舞いへ、それ以外は固定規則、自動適応、導出値、技術構成、保留等の適切な義務へ接続し、成立方式、実装、検証まで意味を失わない | [UX](22_UX.md)、[IA](23_IA.md)、[UI / 振る舞い仕様の対応関係](24_UI_Behavior_Specification.md)、[UI](25_UI.md)、[SPEC](26_Behavior_Specification.md)、[アーキテクチャ](27_Architecture.md)、[実装](28_Implementation.md)、[検証](29_Verification.md) | 調整・適応の必要性、処置候補、構成候補 / モデル、下流への義務、UI / SPECの対応関係、既定値 / 実効値、決定権限、技術構成、変更・リセット / 回復契約、最新検証 |
-| PL-11 | 採用済み延期した作業を単一のロードマップの主要表示で管理し、必要時だけ詳細ファイルへ分ける。項目は情報源コンテキスト、担当責任者、開始条件、再評価契機を持ち、着手時は現行コンテキストと影響を再確認した`CHG-*`へ接続する。完了時は詳細固有情報を正本成果物と適用されるCHG、実装、検証へ反映し、非適用理由または結果参照を主要表示へ戻して詳細ファイルを削除する。登録待ちは対象項目へ限定し、無関係な経路を停止しない | [課題探索・要求形成](21_Discovery.md#63-roadmap-item-contract)、[変更](12_Change.md) | ロードマップの主要表示 / 項目、必要な詳細参照、人間による延期 / 着手判断、情報源コンテキスト、担当責任者、開始条件、再評価契機、適用されるCHG / 結果 / 検証参照または`Not Applicable`の理由、詳細整理根拠 |
+| PL-11 | 未完了の作業、課題、アイデア、変更候補、是正事項を単一の未完了作業の登録簿から横断して確認でき、必要時だけ詳細ファイルへ分ける。参照行、生成、投影、動的集約のいずれで実現する場合も、対象集合の場所、対象、対象時点、アクセス方法、正本成果物へ戻る経路を辿れる再現可能な取得手順を取得可能にする。各項目について適用される状態軸を識別し、判断状態と対応状態の両方が適用される場合は一つの状態へ統合せず分離して追跡できる。採否、保留、優先順位の判断を受ける項目には判断状態を適用する。変更トレース参照、明確な不具合、承認済み是正その他、別の正本または人間の判断によって実行根拠が確定している項目は、判断状態を重複保持せず、対応状態と実行根拠への参照を保持してよい。この場合、実行根拠となる正本または人間の判断へ到達できる。項目は情報源コンテキストまたは責務を持つ正本成果物への参照を持ち、判断状態が`Exploring`、`Held`もしくは`Adopted`の項目および後続対応が必要な実行・参照項目は担当責任者、再評価契機も持ち、着手時は現行コンテキストと影響を再確認した`CHG-*`へ接続する。登録簿は索引として扱い、意味、根拠、判断理由、確定結果を複製しない。完了時は詳細固有情報を正本成果物と適用されるCHG、実装、検証へ反映し、非適用理由または結果参照を主要表示へ戻して詳細ファイルを削除する。登録待ちは対象項目へ限定し、無関係な経路を停止しない | [課題探索・要求形成](21_Discovery.md#62-registry-scope-and-registration)、[判断状態と対応状態](21_Discovery.md#63-decision-state-and-work-state)、[ロードマップ項目の記録契約](21_Discovery.md#64-roadmap-item-contract)、[変更](12_Change.md) | 登録簿の対象集合と再現可能な取得手順（場所 / 対象 / 対象時点 / アクセス方法 / 正本成果物へ戻る経路）、項目種別と適用される状態軸、判断状態 / 対応状態の分離、判断状態を適用しない項目の実行根拠への参照、必要な詳細参照、人間による延期 / 着手判断、情報源コンテキストまたは責務を持つ正本成果物への参照、判断状態が`Exploring`、`Held`もしくは`Adopted`の項目および後続対応が必要な実行・参照項目の担当責任者 / 再評価契機、適用されるCHG / 結果 / 検証参照または`Not Applicable`の理由、詳細整理根拠 |
 | PL-12 | 人間の判断、制約、学び、根拠、指摘事項の確定・変更時に変更影響の伝播確認の要否を評価し、発火時は上流・同層の未決事項、未解決事項、仮定、判断、制約を探索する。必要な正本更新後は更新改訂版から下流影響を再探索し、再監査する。未完了の伝播は人間が指示した`propagation_exception`として通常の`Pass`と区別する | [変換の不変条件](01_Principles.md#62-transformation-invariants)、[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)、各工程の`Phase Gate Criteria` | 情報源の改訂版、契機の評価／影響なしの理由、不足／影響監査の結果、探索した関係／候補／処置、正本成果物の更新、下流の再探索、再監査結果、伝播例外（該当時） |
+| PL-13 | 対応が完了していない事項を、現在の対象範囲の中で完結する見込みかどうかにかかわらず、未完了作業の登録簿から発見・集計できる。登録は手動転記を要求せず、参照行、生成、投影、動的集約のいずれで満たしてもよい。未採用のアイデア、不具合、技術負債、移行の着手待ち資産、未解決の監査指摘、検証で見つかった残件、変更トレースから分離した後続対応、進行中の変更トレースを、成果物本文、引き渡し表示、変更トレース本文、プルリクエスト、コード注記、リリース記録または監査結果の文章内だけに残して閉じない。部分引き渡し後に残る未解決事項、実装完了時に残る未実装対象範囲、リリース時に残る既知の制限を含む。[原則](01_Principles.md#unresolved-follow-up-tracking)が定める後続追跡の不変条件を満たし、後続対応を必要としない情報として人間の決定権限が理由、受容した影響またはリスク、および再評価が不要であることまたは再評価が必要になる条件とともに終了させた事項は、登録簿に存在しないことをもって不適合としない | [原則](01_Principles.md#unresolved-follow-up-tracking)、[課題探索・要求形成](21_Discovery.md#62-registry-scope-and-registration)、[変更](12_Change.md) | 登録簿の項目または参照行、登録の実現方式と再現可能な取得手順、登録対象の判定根拠、未実施事項の接続先、完了済みとして登録対象から外した事項の判定根拠、後続対応を必要としない情報として終了させた事項の人間の決定権限・理由・受容した影響またはリスク・再評価が不要であることまたは再評価が必要になる条件 |
+| PL-14 | CRDDの責務に基づく進捗を報告する場合、進捗の対象単位、適用責務、対応状態、根拠を取得可能にし、進捗と健全性を分離して示す。重み付き進捗率、工程進捗、完了予測を用いる場合は、重みまたは仮定を指定した決定権限、重みまたは仮定の内容と適用対象範囲、算出規則、算出時点と参照した根拠を取得可能にする。AIが推定した進捗、完了予測、適用責務または進捗項目の`Not Applicable`を人間の確認なく確定しない。CRDDの責務に基づく進捗を報告しない対象範囲では、3節の使用条件に従い、本基準の結果を`Not Applicable`として記録し、その理由と対象範囲を取得可能にする | [進捗管理](15_Progress.md) | ライフサイクル単位と適用責務、対応状態、責務別進捗、進捗の根拠、健全性の判定信号、派生指標を用いた場合の決定権限・重みまたは仮定の内容と適用対象範囲・算出規則・算出時点と参照した根拠、AIの算出結果または適用責務・進捗項目の`Not Applicable`を確定した人間の確認記録、本基準を`Not Applicable`とした理由と対象範囲 |
+| PL-15 | 進捗指標を、工程移行、検証完了、リリース可否、リスク受容または人間の承認の判定根拠にしない。CRDDの責務に基づく進捗を報告するかどうかにかかわらず適用する | [進捗管理](15_Progress.md#1-purpose-and-boundary)、[工程の網羅状態との対応](15_Progress.md#63-phase-coverage-mapping)、[配置と避けるべき運用](15_Progress.md#10-placement-and-anti-patterns)、各工程の`Phase Gate Criteria`、[検証](29_Verification.md)、[リリース](13_Release.md) | 工程移行の判定記録、検証結果、リリース判断記録、リスク受容の記録、人間の承認記録。これらに進捗指標が判定根拠として現れていないこと |
 
 ---
 
@@ -162,7 +166,7 @@ CRDD基準版を変更する場合は、[基準版採用評価](19_Maintenance.m
 | AD-17 | 正本コンテキストの意味、対象範囲、責任、既定値、優先順位、リスク受容、下流契約を変える問いでは、エージェント / スキルや質問表示名を問わず判断支援契約を適用し、影響、トレードオフ、評価基準と根拠に基づく推奨、確信度 / 不確実性、推奨が変わる条件、保留影響をリスクと実行環境規模に応じて判断可能な言葉で提示する | [エージェント](10_Agent.md)、[スキル](11_Skill.md) | 判断支援の要約、推奨 / 代替案 / 判断理由 / 根拠 / 確信度 / 再確認条件 |
 | AD-18 | エージェント／スキルが人間の判断、制約、学習、根拠、指摘事項を確定・変更した場合、変更影響の伝播確認の要否を必ず評価し、発火時は工程移行を待たず`agent.gap_impact.audit`または同等の独立確認者へ渡す。正本是正と再監査の結果をスキル実行／エージェント結果および引き渡しへ接続する | [エージェント](10_Agent.md#74-triggered-propagation-check)、[スキル](11_Skill.md)、[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure) | エージェント結果／スキル実行、契機の評価／影響なしの理由、伝播先、監査結果、是正／再監査、引き渡し結果、伝播例外（該当時） |
 | AD-19 | 独立レビューと監査は、修正可能と判定した指摘事項を、修正担当が意味を再解釈せずに適用できる境界付き修正提案（Bounded Remediation Proposal）として返す。原因、期待する正しい状態、対象箇所を一意に特定できる修正案、変更してはならない範囲、確認方法、確信度を添え、安全な修正案を確定できない場合は推測で確定せず、確信度と不足している情報を示す | [エージェント](10_Agent.md#bounded-remediation-proposal)、[文書監査](51_Document_Audit.md#32-finding-fields) | 指摘事項の修正提案項目、判定不能とした場合の確信度と不足情報、複数選択肢を人間の決定権限者へ移送した記録 |
-| AD-20 | 一つの対象範囲へ複数の監査を実行する場合、監査集合の開始前に対象範囲、対象改訂版、必須監査の一覧を固定し、全監査の終了まで対象成果物を修正せず、統合した修正方針を修正の開始前に指摘元の各監査へ再提示する。複数監査を実行しない対象範囲では、理由付きで`Not Applicable`とする | [エージェント](10_Agent.md#75-audit-aggregation-and-reconciliation) | 監査集合の対象範囲／対象改訂版／必須監査一覧、統合修正方針、各監査の再提示への回答、修正後の再監査結果、または`Not Applicable`の理由 |
+| AD-20 | 一つの対象範囲へ複数の監査を実行する場合、監査集合の開始前に対象範囲、対象改訂版、必須監査の一覧を固定し、全監査の終了まで対象成果物を修正せず、統合した修正方針を修正の開始前に指摘元の各監査へ再提示する。複数監査を実行しない対象範囲では、3節の使用条件に従い、本基準の結果を`Not Applicable`として記録し、その理由と対象範囲を取得可能にする | [エージェント](10_Agent.md#75-audit-aggregation-and-reconciliation) | 監査集合の対象範囲／対象改訂版／必須監査一覧、統合修正方針、各監査の再提示への回答、修正後の再監査結果、または本基準を`Not Applicable`とした理由と対象範囲 |
 
 ---
 
@@ -171,9 +175,9 @@ CRDD基準版を変更する場合は、[基準版採用評価](19_Maintenance.m
 | 準拠表明 | 必須基準 |
 |---|---|
 | `CRDD Core Conformant` | C-01〜C-10 |
-| `CRDD Product Lifecycle Profile Conformant` | C-01〜C-10、PL-01〜PL-12 |
+| `CRDD Product Lifecycle Profile Conformant` | C-01〜C-10、PL-01〜PL-15 |
 | `CRDD Agentic Delivery Profile Conformant` | C-01〜C-10、AD-01〜AD-20 |
-| `CRDD Product Lifecycle + Agentic Delivery Conformant` | C-01〜C-10、PL-01〜PL-12、AD-01〜AD-20 |
+| `CRDD Product Lifecycle + Agentic Delivery Conformant` | C-01〜C-10、PL-01〜PL-15、AD-01〜AD-20 |
 
 「CRDD準拠」とだけ表明する場合は、少なくとも`CRDD Core Conformant`でなければならない。
 
@@ -197,8 +201,8 @@ CRDD基準版を変更する場合は、[基準版採用評価](19_Maintenance.m
 
 | 適格性 | 条件 |
 |---|---|
-| `Eligible` | 次の両方を満たす。(1) 各必須基準が`Conformant`であるか、プロファイル内の条件付き基準として理由付き`Not Applicable`である。いずれにも該当しない必須基準が一つでもあれば満たさない。(2) 移行完了要件が`Not Applicable`である、または移行完了要件の対象で[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たしている |
-| `Not Eligible` | 必須基準に`Non-conformant`がある、中核基準を適用外にしている、条件付きでない必須基準を`Not Applicable`にしている、必要なプロファイルを評価対象から外している、または移行完了要件の対象で[移行完了の条件](19_Maintenance.md#621-migration-completeness)が未達である |
+| `Eligible` | 次の両方を満たす。(1) 各必須基準が`Conformant`であるか、3節が定める`Not Applicable`の使用条件を満たすプロファイル基準の`Not Applicable`であり、理由と対象範囲を取得可能にしている。いずれにも該当しない必須基準が一つでもあれば満たさない。(2) 移行完了要件が`Not Applicable`である、または移行完了要件の対象で[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たしている |
+| `Not Eligible` | 必須基準に`Non-conformant`がある、中核基準を適用外にしている、宣言された適用条件を満たし、かつ統制する成果物、工程または能力が対象範囲に存在する必須基準を`Not Applicable`にしている、必要なプロファイルを評価対象から外している、または移行完了要件の対象で[移行完了の条件](19_Maintenance.md#621-migration-completeness)が未達である |
 | `Undetermined` | 必須基準に`Not Evaluated`、阻害条件、根拠不足がある、移行完了要件の対象かどうかを判定できていない、または移行完了要件の対象で[移行完了の条件](19_Maintenance.md#621-migration-completeness)の充足を確認できていない |
 
 文書監査の`Conditional`状態や、人間が承認した逸脱があっても、未達の必須基準を`Conformant`へ変換しない。条件付き運用を記録する場合も、要求された準拠表明が`Eligible`でなければ準拠表明しない。
@@ -289,7 +293,7 @@ AIエージェント、提供方式、主要ツールの変更
 
 ファイル、フォルダ、ひな型、ツール、AI、エージェントが存在するだけで基準を`Conformant`にしてはならない。成果物の一部完成から対象範囲全体を推定せず、根拠が現行改訂版へ適用できるかを確認する。
 
-`Not Applicable`には適用外理由を必要とする。根拠不足、未読、未評価、担当不在を`Not Applicable`として処理してはならない。
+`Not Applicable`には適用外理由と対象範囲を必要とする。根拠不足、未読、未評価、担当不在を`Not Applicable`として処理してはならない。
 
 文書監査の状態は次のように使用する。要求された準拠表明が`Eligible`で全評価が完了した場合は`Pass`、`Not Eligible`なら`Fail`、`Undetermined`なら原則`Blocked`とする。`Conditional`は監査対象範囲や是正条件を表すために使えても、準拠表明の適格性を意味しない。
 
@@ -330,7 +334,7 @@ reviewer: <human or agent reference>
 
 移行完了要件の項目は次を使用する。`migration_completeness_applicable`は、[移行完了の条件](19_Maintenance.md#621-migration-completeness)の対象判定の結果を示し、対象なら`In Scope`、対象でないなら`Out of Scope`、対象かを判定できないなら`Undetermined`とする。`migration_completeness_result`は、充足を確認できた場合`Met`、同条件のいずれかの項目が未達の場合`Not Met`、対象だが充足を確認できていない場合`Unconfirmed`、`applicable`が`Out of Scope`の場合`Not Applicable`とする。充足を確認した対象範囲が要求された準拠表明の対象範囲を包含していない場合は、全体を`Unconfirmed`とし、充足済みの対象範囲と不足する対象範囲を`migration_completeness_note`へ示す。`applicable`が`Undetermined`の場合は`Unconfirmed`とする。いずれの場合も理由を`migration_completeness_note`へ残す。これらは基準ごとの結果とは別の項目であり、`criteria_results`の結果値へ置き換えない。
 
-基準ごとの結果は`Conformant`、`Non-conformant`、`Not Evaluated`、`Not Applicable`を使用する。指摘事項の重大度とは別の軸であり、基準ごとの結果を重大度へ置き換えない。
+基準ごとの結果は`Conformant`、`Non-conformant`、`Not Evaluated`、`Not Applicable`を使用する。`Not Applicable`とした基準は、`criteria_results`の該当項目の`not_applicable_reason`へ、適用外理由と対象範囲を残す。指摘事項の重大度とは別の軸であり、基準ごとの結果を重大度へ置き換えない。
 
 指摘事項は`criterion_id`を追加項目として持ち、その他の項目と重大度は[`51_Document_Audit.md`](51_Document_Audit.md#32-finding-fields)に従う。
 
@@ -349,7 +353,7 @@ reviewer: <human or agent reference>
 全適用基準に結果がある
 `Conformant`の結果に再確認可能な根拠がある
 `Non-conformant`／`Not Evaluated`に指摘事項または阻害理由がある
-`Not Applicable`に適用外理由がある
+`Not Applicable`に適用外理由と対象範囲がある
 `remediation`が`Safe Mechanical`または`Review Required`の指摘事項に、境界付き修正提案の項目がある
 移行完了要件の対象かを判定し、対象の場合は移行完了の条件の充足結果がある。対象かを判定できない場合は、その理由がある
 要求された準拠表明の適格性と理由が明示されている
@@ -357,6 +361,8 @@ reviewer: <human or agent reference>
 ```
 
 監査完了は準拠または表明発行を意味しない。`Not Eligible`または`Undetermined`を正しく返した報告も完了した監査である。
+
+対象改訂版で解消しない指摘事項、逸脱、未決事項は、現在の対象範囲の中で完結する見込みかどうかにかかわらず、監査結果の文章内だけに残さず、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)の項目または変更トレースへ接続する。後続対応を必要としない情報として終了する場合は、[未完了事項の後続追跡](01_Principles.md#unresolved-follow-up-tracking)に従う。監査は登録先と必要な決定権限を示すが、採用、優先順位、着手、逸脱受容を自己決定しない。
 
 本監査が複数監査の一つとして実行される場合は、[複数監査の統合と監査間是正方針レビュー（Cross-Audit Remediation Reconciliation）](10_Agent.md#75-audit-aggregation-and-reconciliation)に従う。対象成果物を修正せず、他の監査が終了する前に自身の指摘事項だけを根拠として是正を開始しない。親エージェントが統合修正方針を再提示した場合は、修正後も準拠基準を満たせるか、準拠根拠が削除または弱体化されないか、基準の意味を修正側が変更していないか、既存の準拠表明を再評価する必要があるかを確認して回答する。
 

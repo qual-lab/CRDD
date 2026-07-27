@@ -2,11 +2,11 @@
 
 # CRDD不足・影響監査（Gap and Impact Audit）
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.gap_impact.audit`
-Last Updated: 2026-07-25
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -219,6 +219,8 @@ propagation_exception:
   required_re_audit: <condition / date / event>
   expires_or_reopens_when: <condition>
 ```
+
+`unpropagated_scope`が空でない場合、その未伝播範囲は例外記録の中だけに残さず、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)の項目または変更トレースへ接続する。登録は再監査義務、失効条件、受け入れた既知リスクを置き換えない。
 
 `propagation_exception`は`Pass`、影響なし、不足解消、リスク受容を意味しない。人間の決定権限の明示なしに、時間不足、工程移行、担当責任者移管を理由として自動生成しない。
 
@@ -444,21 +446,24 @@ UI / SPEC -> アーキテクチャ -> 実装 -> 検証
 
 `01_Discovery`は顧客フィードバック、法令変更、明確な仕様変更、不具合、曖昧な要求等を分類し、要求と判断を確定する正本領域である。影響監査は下流差分から新しい要求を創作せず、情報源と判断が不足する場合は課題探索・要求形成へ戻す。
 
-`99_Roadmap`は、採用済みだが今回は実行しない作業を扱う。優先順位、対象、依存関係、着手条件を保持する。
+`99_Roadmap`は、未完了の作業、課題、アイデア、変更候補、是正事項の存在、現在状態、参照先を横断して示す[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)である。今回実行しない作業だけを扱う場所ではない。
 
-ロードマップ項目を要求、SPEC、判断の正本にしてはならない。
+ロードマップ項目を要求、SPEC、判断の正本にしてはならない。登録簿は索引であり、意味、根拠、判断理由、確定結果を複製しない。
 
-人間の決定権限がロードマップへの経路を確定した場合は、[Roadmap項目契約](21_Discovery.md#63-roadmap-item-contract)に従って項目を実際に登録または更新する。推奨だけでは、`Routed`または追跡済みと判定しない。
+人間の決定権限がロードマップへの経路を確定した場合は、[Roadmap項目契約](21_Discovery.md#64-roadmap-item-contract)に従って項目を実際に登録または更新する。推奨だけでは、`Routed`または追跡済みと判定しない。
 
 ```text
 情報源／根拠
 -> 課題探索・要求形成で要求または変更を判断
--> 今回実行する対象範囲は変更トレース／工程へ
--> 採用済みで延期した作業だけをロードマップへ
+-> 未完了事項は現在の対象範囲の内外を問わず登録簿から発見可能にする
+-> 今回実行する対象範囲は変更トレース／工程へ接続し、登録簿ではその参照を保持
+-> 完了済みまたは人間が理由付きで終了した事項だけを登録対象から外す
 -> 着手時に正本コンテキストと現在の影響を再確認
 ```
 
 `Out of Scope`や`Deferred`を追跡先なしでロードマップへ送らない。担当責任者、理由、情報源コンテキスト、再評価契機を持たせる。
+
+本監査が返した指摘事項のうち、対象改訂版で解消しない事項は、現在の対象範囲の中で完結する見込みかどうかにかかわらず、監査結果の文章内だけに残さず、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)の項目または変更トレースへ接続する。後続対応を必要としない情報として終了する場合は、[未完了事項の後続追跡](01_Principles.md#unresolved-follow-up-tracking)に従う。監査は登録簿へ項目を登録する経路と必要な決定権限を示すが、採用、優先順位、着手を自己決定しない。
 
 <a id="95-closure"></a>
 

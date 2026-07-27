@@ -2,16 +2,17 @@
 
 # CRDDリリース（Release）
 
-Version: v0.7.0
+Version: v0.8.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-25
+Last Updated: 2026-07-26
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [03_Documentation.md](03_Documentation.md)
 - [12_Change.md](12_Change.md)
 - [14_Workflow.md](14_Workflow.md)
+- [15_Progress.md](15_Progress.md)
 - [19_Maintenance.md](19_Maintenance.md)
 - [29_Verification.md](29_Verification.md)
 - [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
@@ -144,8 +145,11 @@ CHGはCHANGELOGの下書きではない。CHGは変更のトレース、CHANGELO
 適用する規範的な人間中心品質基準が`Conformant`または根拠付き`Not Applicable`である。未解決指摘事項または未評価対象範囲を含む場合は、人間の決定権限者が対象改訂版、理由、緩和策、期限・再確認条件、残存リスクを明示した例外として通常準備状況と区別している
 互換性、移行、ロールバック、運用準備状況を確認している
 既知の制限と残存リスクが利用者または運用者へ伝達される
+既知の制限のうち、利用者への開示だけで完結せず、将来の修正、再評価または監視を必要とするものが、[未完了事項の後続追跡](01_Principles.md#unresolved-follow-up-tracking)に従って接続されている
 CHANGELOGまたは同等のリリース情報が確認されている
 ```
+
+リリース単位で進捗を集約する場合は[進捗管理](15_Progress.md#7-aggregation)に従う。進捗指標を、本節のリリース準備状態の確認またはリリース判断の判定根拠にしない。集約の有無を問わない。
 
 リリース後は実際のバージョン、時刻、対象環境、結果をリリース記録と該当CHGへ反映する。失敗、ロールバック、回帰は根拠を残し、必要に応じて新しいCHG、再開、課題探索・要求形成、ロードマップへ戻す。
 
