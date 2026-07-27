@@ -1,15 +1,16 @@
 # CRDDエージェント（Agent）
 
-Version: v0.8.0
+Version: v0.9.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-26
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [03_Documentation.md](03_Documentation.md)
 - [11_Skill.md](11_Skill.md)
 - [12_Change.md](12_Change.md)
+- [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [29_Verification.md](29_Verification.md)
 - [51_Document_Audit.md](51_Document_Audit.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
@@ -459,7 +460,7 @@ delegation:
 
 実行環境がサブエージェントを利用できない場合は、次のいずれかを使用する。
 
-- 作成時コンテキストを引き継がない整理セッション / エージェント
+- 作成時コンテキストを引き継がない新しいセッション／エージェント
 - 人間確認者
 
 同じ現在のコンテキスト内で作成担当が続けて行う自己レビューは、工程移行レビューとして扱わない。独立した実行主体を用意できない場合は、[人間が指示したレビュー例外](#73-human-directed-review-exception)なしに工程移行しない。
@@ -470,11 +471,11 @@ delegation:
 
 | エージェントID | 主な決定権限 | 主な出力 |
 |---|---|---|
-| `agent.phase_transition.review` | 送信・受信工程の工程実行契約、本章 | 工程移行レビュー結果 |
+| `agent.phase_transition.review` | 送信・受信工程の工程実行契約、送信工程または対象共有契約の専門品質基準、本章 | 契約確認と専門品質確認を含む工程移行レビュー結果 |
 | `agent.document.audit` | [文書監査](51_Document_Audit.md) | 監査状態、指摘事項、是正、再監査条件 |
 | `agent.conformance.audit` | [準拠監査](52_Conformance_Audit.md) | 基準ごとの結果、指摘事項、準拠表明の適格性 |
 | `agent.gap_impact.audit` | [不足／影響監査](53_Gap_Impact_Audit.md) | 関係横断指摘事項、影響、必須再妥当性確認 |
-| `agent.verification.review` | [検証](29_Verification.md) | 検証結果、新しい根拠、残存リスク |
+| `agent.verification.review` | [品質保証](16_Quality_Assurance.md)、[検証](29_Verification.md) | 検証設計、検証結果、新しい根拠、検証義務の評価、残存リスク |
 
 これらの`agent.*`は実行役割接続部を選ぶための識別子であり、CRDD安定コンテキストID、成果物ID、文書番号ではない。中央台帳、専用フォルダ、恒久的なサブエージェント実体を要求しない。
 
@@ -484,12 +485,30 @@ delegation:
 
 ## 7.2. 工程移行レビューと是正反復
 
-`agent.phase_transition.review`は、新しい工程決定権限を作らない。一つの移行対象範囲と改訂版に対して、次を評価する。
+`agent.phase_transition.review`は、新しい工程決定権限を作らない。一つの移行対象範囲と改訂版に対して、次の二つの観点を一つの工程移行レビューとして評価する。
+
+**契約確認**
 
 - 送信工程の出口 / 工程判定基準 / 工程監査チェックリスト
 - 受信工程の入口
 - 共通引き渡し不変条件
 - 対象の引き渡し成果物が[Documentationの可読性セルフチェック](03_Documentation.md#481-locale-first-display)を通過し、人間が対象範囲、判断、義務、例外、未解決事項を読み違えない状態であること
+
+**専門品質確認（Specialist Quality Review）**
+
+- 送信工程または対象となる共有契約が所有する網羅範囲に含まれる、対象範囲へ適用される専門観点
+- 送信工程または対象となる共有契約の監査チェックリストが求める、内容の妥当性と品質
+- 受信工程が入力として利用できる具体性、一貫性、判断可能性
+
+専門品質確認は、工程移行レビューの中で工程または共有契約に固有の内容を評価する観点であり、新しい工程、監査、承認段階または人間の決定権限を追加しない。評価基準の正本は各工程文書または共有契約に置き、本書へ専門基準を複製しない。
+
+品質保証成果物を対象に含む場合は、検証義務と検証意図を条件の所有工程、観測要件を条件の所有工程とアーキテクチャ、検証項目・網羅規則・評価規則を品質保証／検証と該当工程、開発者テストを実装、独立検証の設計と結果を必要な専門性を持つ独立確認者の観点で評価する。すべてを一人へ機械的に割り当てず、一人で評価できる観点と追加委譲が必要な観点を[品質保証成果物の専門品質確認](16_Quality_Assurance.md#3-specialist-review)に従って区別する。
+
+一人の独立した確認者が、契約と必要な専門観点を評価でき、その根拠を説明できる場合は、一人でレビューしてよい。必要な専門観点の一部を十分に評価できない場合は、その範囲だけを別のサブエージェント、作成時コンテキストを引き継がない新しいセッション／エージェント、または人間確認者へ委譲し、結果を一つの工程移行レビューへ統合する。
+
+専門性の根拠は観点ごとに取得可能にする。対象観点に関する知識・経験を示す参照可能な実績、評価方法と対象への適用、権威ある参照基準を適用できることの説明、比較可能な過去評価等から、対象範囲を評価できる理由を示す。役職名、エージェント名、モデル名、ツール名、単なる「経験あり」「理解済み」という自己申告、使用基準または対象成果物の再列挙だけでは評価能力の根拠にならない。
+
+評価能力の根拠を説明できない専門観点は、評価済みとして数えない。必要な専門観点を評価できない範囲が残る場合、通常の`Pass`を返さない。人間がその状態で移行を求める場合は、[人間が指示したレビュー例外](#73-human-directed-review-exception)として扱う。
 
 意味的な波及探索には`agent.gap_impact.audit`を使用できる。文書品質と直接伝播の確認には、`agent.document.audit`を限定子タスクとして使用できる。
 
@@ -499,7 +518,7 @@ delegation:
 
 ```text
 1. 独立した工程移行レビュー（independent_review）
-   送信側出口、受信側入口、網羅範囲、未解決事項を評価する
+   契約と、工程または対象共有契約固有の専門品質を評価する
                      ↓
    指摘事項があれば責務工程で是正し、更新改訂版を再レビューする
                      ↓
@@ -521,6 +540,7 @@ delegation:
 移行対象範囲と対象改訂版
 情報源コンテキストと保持する意図
 必須責務網羅範囲と網羅範囲要約
+対象範囲へ適用する専門観点、それを評価できる確認者、観点ごとの評価能力の根拠
 送信出口 / 判定 / 監査チェックリスト
 受信入口契約
 判断 / 判断理由、根拠、追跡
@@ -532,6 +552,7 @@ delegation:
 通常の引渡しへ進めるのは、対象改訂版が次の条件をすべて満たす場合に限る。
 
 - 発火した変更影響の伝播確認（Triggered Propagation Check）が完了している
+- 対象範囲へ必要な専門観点がすべて評価され、評価できない範囲が残っていない
 - 移行へ影響する未解消指摘事項が、重大度にかかわらず残っていない
 - 重大／メジャーの指摘事項、正本競合、入口不足、未処置の網羅範囲の不足がない
 - 必要な是正後の再レビューが`Pass`を返している
@@ -542,6 +563,7 @@ delegation:
 
 - レビューエージェントIDと確認者
 - 送信工程、受信工程、対象範囲、対象改訂版
+- 必要な専門観点、各観点を担当した確認者、評価能力の根拠、使用基準、参照した根拠、評価結果
 - 使用基準と変更影響の伝播確認結果
 - 監査状態、指摘事項、是正内容、再レビューした改訂版
 - 未レビュー範囲と推奨
@@ -552,6 +574,10 @@ delegation:
 independent_review:
   reviewer: <independent reviewer>
   target_revision: <reviewed revision>
+  specialist_coverage:
+    required: <対象範囲へ必要な専門観点>
+    reviewed: <観点、確認者、評価能力の根拠、使用基準、根拠、結果>
+    unreviewed: <none or uncovered scope>
   result: <Pass / Conditional / Fail>
 human_decision:
   authority: <対象内容と工程移行の人間の決定権限者>
@@ -566,7 +592,7 @@ human_decision:
 
 ## 7.3. 人間が指示するレビュー例外
 
-独立レビューの省略または未解消指摘事項を伴う移行は通常経路ではない。対象範囲の人間の決定権限が明示的に要求した場合だけ、`review_exception`として次を記録する。
+独立レビューの省略、未評価の必須専門観点、または未解消指摘事項を伴う移行は通常経路ではない。対象範囲の人間の決定権限が明示的に要求した場合だけ、`review_exception`として次を記録する。
 
 ```yaml
 review_exception:
@@ -574,6 +600,7 @@ review_exception:
   scope: <explicit transition scope>
   target_revision: <unreviewed or conditionally reviewed revision>
   skipped_review_or_findings: []
+  unreviewed_specialist_scope: []
   reason: <why transition cannot wait>
   known_risk_and_impact: []
   receiving_owner: <owner>
@@ -581,7 +608,7 @@ review_exception:
   expires_or_reopens_when: <condition>
 ```
 
-`skipped_review_or_findings`が空でない場合、その未解消指摘事項は例外記録の中だけに残さず、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)の項目または変更トレースへ接続する。登録は再レビュー義務、失効条件、受け入れた既知リスクを置き換えない。部分引き渡しで残る未解決事項、リスク、担当責任者、再開条件についても、引き渡し後に対応、判断、再確認または監視が必要な場合は[未完了事項の後続追跡](01_Principles.md#unresolved-follow-up-tracking)に従い、同じ接続先へ接続する。
+`skipped_review_or_findings`または`unreviewed_specialist_scope`が空でない場合、その未解消指摘事項または未評価の専門観点は例外記録の中だけに残さず、[未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)の項目または変更トレースへ接続する。登録は再レビュー義務、失効条件、受け入れた既知リスクを置き換えない。部分引き渡しで残る未解決事項、リスク、担当責任者、再開条件についても、引き渡し後に対応、判断、再確認または監視が必要な場合は[未完了事項の後続追跡](01_Principles.md#unresolved-follow-up-tracking)に従い、同じ接続先へ接続する。
 
 例外はレビュー合格、指摘事項解消、リスク受容、受信工程入口充足を意味しない。AI、親エージェント、確認者は利便性や日程だけを理由に例外を自己生成しない。人間の決定権限も、自身が決定権限を持たない法令、契約、専門承認、セキュリティ境界を免除できない。部分引き渡しでは移行対象範囲を通常どおりレビューし、対象外対象範囲を混入させない。
 

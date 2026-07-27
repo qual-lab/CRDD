@@ -2,16 +2,17 @@
 
 # CRDD変更トレース（Change Trace）
 
-Version: v0.8.0
+Version: v0.9.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-26
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [03_Documentation.md](03_Documentation.md)
 - [13_Release.md](13_Release.md)
 - [15_Progress.md](15_Progress.md)
+- [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [21_Discovery.md](21_Discovery.md)
 - [28_Implementation.md](28_Implementation.md)
 - [29_Verification.md](29_Verification.md)
@@ -173,7 +174,7 @@ CHG-<順序>_<SHORT_NAME>.md
 適用される判断 / 承認参照
 変更影響の伝播確認結果 / 伝播例外
 実装参照
-検証義務 / 結果参照
+検証義務 / 検証設計 / 結果 / Quality Center参照
 実際影響と逸脱
 正本コンテキスト更新
 既知制限 / 残存リスク

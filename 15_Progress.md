@@ -2,7 +2,7 @@
 
 # CRDD進捗管理（Progress）
 
-Version: v0.8.0
+Version: v0.9.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-27
@@ -13,6 +13,7 @@ Related:
 - [11_Skill.md](11_Skill.md)
 - [12_Change.md](12_Change.md)
 - [13_Release.md](13_Release.md)
+- [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [21_Discovery.md](21_Discovery.md)
 - [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
 - [29_Verification.md](29_Verification.md)
@@ -44,10 +45,12 @@ CRDDは特定の開発方式を要求しない。段階型、リスク駆動の�
 | 変更の契機、影響、実装、検証、終了の追跡 | [変更](12_Change.md) |
 | リリース準備状況、リリース判断、リリース記録 | [リリース](13_Release.md) |
 | 各工程の入口、変換、必要な責務の網羅、出口、工程移行の判定基準 | `21`〜`29`の各工程文書 |
-| 検証結果、リリース準備状態の推奨 | [検証](29_Verification.md) |
+| 検証義務、検証設計、検証結果、現在の品質状態、Quality Center | [品質保証](16_Quality_Assurance.md)、[検証](29_Verification.md) |
 | 個別のスキル実行状態 | [スキル](11_Skill.md) |
 
 進捗情報は、これらの正本から導く二次情報である。進捗管理を理由に、要求、判断、設計、検証結果の正本を置き換えない。
+
+Quality Centerに表示する検証計画対実績や割合は、品質保証の網羅状態と未成立を理解するための表示である。作業がどれだけ進んだかを示す進捗指標とは別に扱い、どちらからも品質成立またはリリース可否を自動推定しない。
 
 進捗指標を、工程移行、検証完了、リリース可否、リスク受容または人間の承認の判定根拠にしない。これらの判断は、対象成果物、工程固有の基準、検証結果、残存リスクおよび人間の決定権限に基づいて行う。進捗指標は、状況把握、確認対象の選定、レビュー契機および予測に使用できる。この禁止は、CRDDの責務に基づく進捗を報告するかどうかにかかわらず適用する。本書のその他の規定は、CRDDの責務に基づく進捗を報告する対象範囲へ適用する。6.3と10章は本項を各対象について具体化したものであり、本項の適用範囲を狭めない。
 

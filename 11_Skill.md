@@ -1,15 +1,16 @@
 # CRDDスキル（Skill）
 
-Version: v0.8.0
+Version: v0.9.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-26
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [03_Documentation.md](03_Documentation.md)
 - [10_Agent.md](10_Agent.md)
 - [12_Change.md](12_Change.md)
+- [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
 - [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
@@ -188,7 +189,7 @@ skill_run:
   input_revision:
     - artifact: 01_Discovery/00_Product_Origin.md
       revision: 2
-    - artifact: 01_Discovery/01_Product_Requirements.md
+    - artifact: 01_Discovery/01_Product_Discovery.md
       anchor: decision-fragmentation
       revision: 3
   completed_topics:
@@ -483,7 +484,8 @@ AIが変換または提案した部分
 工程を移行して次のスキルへ渡す場合は、次を満たす。
 
 - 受信工程の入口契約を満たす
-- [`10_Agent.md`](10_Agent.md#72-phase-transition-review-and-remediation-loop)の工程移行レビューを完了する
+- [`10_Agent.md`](10_Agent.md#72-phase-transition-review-and-remediation-loop)に従い、契約確認と対象工程または対象共有契約に必要な専門品質確認を含む工程移行レビューを完了する
+- 対象工程が追加・更新した検証義務、検証意図、検証観点と、検証設計への接続を[品質保証](16_Quality_Assurance.md)に従って取得可能にする
 - 必要な是正と再レビューを完了する
 - 対象リスクに応じて、以下の引き渡し情報を保持する
 
@@ -516,6 +518,26 @@ handoff:
   independent_review:
     role: agent.phase_transition.review
     target_revision: UX-000004@3
+    specialist_coverage:
+      required:
+        - id: primary_user_outcome
+          criterion: 22_UX.md「基礎」「成功と学び」
+        - id: primary_journey_validity
+          criterion: 22_UX.md「利用者体験の流れ」
+      reviewed:
+        - perspective: primary_user_outcome
+          reviewer: <independent reviewer>
+          capability_basis: 対象REQ、利用者根拠、UX成果を照合する評価方法と、その方法を対象へ適用した所見
+          criteria: 22_UX.md「基礎」「成功と学び」と工程監査チェックリスト
+          evidence: UX-000004@3
+          result: Pass
+        - perspective: primary_journey_validity
+          reviewer: <independent reviewer>
+          capability_basis: 主要ジャーニーの目標、困りごと、重要場面、成功条件を照合する評価方法と、その方法を対象へ適用した所見
+          criteria: 22_UX.md「利用者体験の流れ」と工程監査チェックリスト
+          evidence: UX-000004@3
+          result: Pass
+      unreviewed: []
     result: Pass
     finding_ids: []
     re_reviewed_after_remediation: false
@@ -529,10 +551,16 @@ handoff:
     - 根拠と提案を区別する
   obligations:
     - トピック / 根拠 / 判断の責務を分離する
+  quality_assurance:
+    obligation_references:
+      - UX-000004#verification-obligations
+    verification_design_reference: 08_Quality/Verification_Design.md
+    unresolved_verification_viewpoints:
+      - Secondary actor journey
   open_questions:
     - description: 重要度の算出規則は未決
       source:
-        artifact: 02_UX/01_Experience_Principles.md
+        artifact: 02_UX/01_User_Experience.md
         anchor: important-topic-principle
   must_not_decide:
     - 重要度の算出規則
@@ -540,12 +568,14 @@ handoff:
     - Secondary actor journey changes the object responsibility
 ```
 
+`specialist_coverage.required`には、対象範囲へ適用した具体的な専門観点または該当する網羅項目への参照を置く。工程名や節名だけで済ませず、`reviewed`の各結果、確認者、評価能力の根拠、使用基準、参照した根拠と対応づける。評価能力の根拠を説明できない観点は`reviewed`へ含めず、`unreviewed`として追加委譲またはレビュー例外へ接続する。
+
 引渡し（Handoff）は、成果物へのリンクだけでは成立しない。工程間の通常引き渡しは、次の条件をすべて満たす場合に行う。
 
 - 送信工程が`Complete for Scope`である
 - 受信工程の入口契約を満たしている
 - 対象改訂版までに発火した変更影響の伝播確認が完了している
-- 工程移行レビューが`Pass`である
+- 工程移行レビューが、対象範囲へ必要な専門観点をすべて含んだうえで`Pass`である
 - 対象内容と工程移行の人間の決定権限者が、レビュー結果を基に内容の採用と移行を決定している
 
 指摘事項がある場合は、責務を持つ工程で修正し、修正後改訂版を再監査・再レビューする。監査実行の完了、`Conditional`、担当責任者の付与だけを`Pass`として扱わない。
@@ -554,7 +584,7 @@ handoff:
 
 レビューの省略または未解消指摘事項を伴う移行には、対象人間の決定権限による[人間が指示したレビュー例外](10_Agent.md#73-human-directed-review-exception)が必要である。その移行を通常引き渡しまたはレビューの`Pass`と表示してはならない。
 
-エージェントまたはサブエージェント間の委譲は[エージェント](10_Agent.md)、成果物の改訂版は[文書化](03_Documentation.md)、変更の影響トレースは[変更](12_Change.md)、共通引き渡し不変条件は[原則](01_Principles.md)を正本とする。
+エージェントまたはサブエージェント間の委譲は[エージェント](10_Agent.md)、成果物の改訂版は[文書化](03_Documentation.md)、変更の影響トレースは[変更](12_Change.md)、品質保証成果物の接続は[品質保証](16_Quality_Assurance.md)、共通引き渡し不変条件は[原則](01_Principles.md)を正本とする。
 
 ---
 

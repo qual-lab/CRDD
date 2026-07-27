@@ -2,7 +2,7 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.8.0
+Version: v0.9.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-27
@@ -16,6 +16,7 @@ Related:
 - [13_Release.md](13_Release.md)
 - [14_Workflow.md](14_Workflow.md)
 - [15_Progress.md](15_Progress.md)
+- [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [19_Maintenance.md](19_Maintenance.md)
 - [23_IA.md](23_IA.md)
 - [25_UI.md](25_UI.md)
@@ -304,16 +305,16 @@ CRDD全体を横断する補助概念
 | 項目 | 内容 |
 |---|---|
 | 正式英語名 | `Verification Result` |
-| 定義 | 対象改訂版の要求、振る舞い仕様、契約、受入条件、成果等に対する検証結果と根拠。 |
+| 定義 | 固定した対象、改訂版、条件、環境および時点に対して実行した検証項目の結果と、それらに基づく検証義務の評価を保持する履歴成果物。 |
 | 目的 | 実装やコンテキストが期待条件を満たすか、どの条件では満たさないかを明らかにする。 |
 | 作成主体 | 人間の確認者／テストエージェント／ツール／システム／利用者調査担当者 |
 | 決定権限 | 検証方法と対象に応じた確認者または品質の決定権限者。AIは実行・整理できるがリスク受容を決められない。 |
-| 入力 | 要求、振る舞い仕様、受入条件、実装、環境、テスト、観察 |
-| 出力 | `Pass`／`Fail`／`Blocked`、不足、指摘事項、判断への入力、学びの候補 |
+| 入力 | 検証義務、検証設計、要求、振る舞い仕様、受入条件、実装、環境、テスト、レビュー、計測、観察 |
+| 出力 | 検証項目結果、検証義務の評価、不足、指摘事項、残存リスク、判断への入力、学びの候補 |
 | 状態遷移 | `Produced` → `Reviewed` → `Accepted` / `Invalidated` / `Superseded` |
-| 関連用語 | 根拠、要求、振る舞い仕様、実装、不足、学び |
-| 必須（MUST） | 対象改訂版、環境、実行条件、結果、根拠を保持しなければならない。 |
-| 禁止（MUST NOT） | テストの`Pass`だけをプロダクトの成果達成の証明として扱ってはならない。古い改訂版の結果を現行検証として再利用してはならない。結果の状態遷移、検証の成果、人間による受入を同一状態として扱ってはならない。 |
+| 関連用語 | 検証義務、検証設計、検証項目、現在の品質状態、根拠、要求、実装、不足、学び |
+| 必須（MUST） | 対象改訂版、環境、実行条件、検証項目結果、検証義務の評価、根拠を保持しなければならない。判断またはリリースに使用した後は履歴として保持しなければならない。 |
+| 禁止（MUST NOT） | テストの`Pass`だけをプロダクトの成果達成の証明として扱ってはならない。確定済み結果を後の実行結果で上書きしてはならない。古い改訂版の結果を現行検証として再利用してはならない。結果の状態遷移、検証の成果、人間による受入を同一状態として扱ってはならない。 |
 
 <a id="112-learning"></a>
 
@@ -677,12 +678,23 @@ CRDD全体を横断する補助概念
 | Rationale | 判断理由 |
 | Requirement | 要求 |
 | Verification Result | 検証結果 |
+| Quality Strategy | 品質戦略 |
+| Verification Obligation | 検証義務 |
+| Verification Intent | 検証意図 |
+| Verification Design | 検証設計 |
+| Verification Item | 検証項目 |
+| Verification Procedure | 検証手順 |
+| Verification Result Summary | 検証結果要約 |
+| Current Quality Status | 現在の品質状態 |
+| Quality Center | Quality Center |
+| Branch Coverage | 分岐網羅率 |
 | Finding | 指摘事項 |
 | Gap / Unresolved Gap | 不足／未解決事項 |
 | Exception | 例外 |
 | Coverage / Coverage State | 網羅範囲／網羅状態 |
 | Handoff | 引き渡し |
 | Review / Independent Review | レビュー／独立レビュー |
+| Specialist Quality Review | 専門品質確認 |
 | Audit | 監査 |
 | Risk | リスク |
 | Impact | 影響 |
@@ -1111,6 +1123,150 @@ IAでは、投影は、UIが画面上でどう見せるか（Tabsで切り替え
 
 **関連用語:** [進捗中核（Progress Core）](#233-progress-core)、[健全性（Health）](#234-health)、工程ゲート（Phase Gate）
 
+<a id="236-specialist-quality-review"></a>
+
+## 2.36. 専門品質確認（Specialist Quality Review）
+
+一言で言うと、**次工程へ渡す内容または共有契約の対応関係が、その工程または契約の専門的な目的を実際に満たしているかを独立した視点で確かめること**。
+
+**正式英語名:** `Specialist Quality Review`
+
+**定義:** 工程移行レビューの中で、送信工程または対象となる共有契約が所有する網羅範囲と監査チェックリストを基準に、対象範囲の内容が専門的に妥当で、受信工程が利用できる品質かを評価する確認。契約欄が埋まっていることだけでなく、その内容が利用者、プロダクト、設計、実装または検証の目的に照らして成立しているかを扱う。
+
+**目的:** 形式上は工程契約を満たしていても、工程固有の分析、設計または検証が浅いまま後工程へ進むことを防ぐ。
+
+**決定権限:** 確認者は指摘事項、根拠、是正案、レビュー結果を返す。内容の採用、工程移行、リスク受容は人間の決定権限者が判断する。専門品質確認は、新しい承認段階または専門承認の決定権限を追加しない。
+
+**運用境界:** 一人の独立した確認者が必要な専門観点を評価でき、その根拠を説明できるなら、契約確認とまとめて実行してよい。足りない観点だけを別の確認者へ委譲できる。観点ごとに、担当確認者、使用基準、参照した根拠、評価結果、および評価能力の根拠を取得可能にする。評価能力の根拠は、対象観点に関する知識・経験を示す参照可能な実績、評価方法と対象への適用、権威ある参照基準を適用できることの説明、比較可能な過去評価等から、対象範囲を評価できる理由を示す。役職名、エージェント名、モデル名、ツール名、単なる「経験あり」「理解済み」という自己申告、使用基準または対象成果物の再列挙だけでは評価能力の根拠にならない。
+
+**関連用語:** 独立レビュー、確認者（Reviewer）、工程移行レビュー（Phase Transition Review）、必要な責務の網羅（Required Responsibility Coverage）
+
+実行契約、合格条件、レビュー例外は[工程移行レビューと是正反復](10_Agent.md#72-phase-transition-review-and-remediation-loop)を正本とする。
+
+<a id="237-quality-strategy"></a>
+
+## 2.37. 品質戦略（Quality Strategy）
+
+一言で言うと、**何を品質として重視し、どのリスクをどの方法と独立性で確認するかを定める横断方針**。
+
+**正式英語名:** `Quality Strategy`
+
+**定義:** 対象プロダクトまたは対象範囲の品質目標、品質リスク、工程別責任、検証方法、環境、独立性、根拠、例外およびリスク受容の方針を定める成果物。
+
+**境界:** 各工程が決定権限を持つ品質条件を新しく決めたり、個別の検証義務を一括して緩和したりしない。詳細は[品質保証](16_Quality_Assurance.md#51-quality-strategy)を正本とする。
+
+<a id="238-verification-obligation"></a>
+
+## 2.38. 検証義務（Verification Obligation）
+
+一言で言うと、**対象範囲で成立しなければならない、確認可能な品質条件**。
+
+**正式英語名:** `Verification Obligation`
+
+**定義:** 要求、UX、IA、UI、振る舞い仕様、アーキテクチャ等が定義した、検証によって成立状態を評価する義務。
+
+**決定権限:** 条件を定義した工程成果物が正本となる。中央の一覧、検証設計または検証結果は検証義務の意味を無断変更しない。
+
+**関連用語:** 検証意図、検証設計、検証結果、項目の決定権限
+
+<a id="239-verification-intent"></a>
+
+## 2.39. 検証意図（Verification Intent）
+
+一言で言うと、**その確認で、どの不確実性またはリスクを減らし、何を判断できるようにしたいか**。
+
+**正式英語名:** `Verification Intent`
+
+**定義:** 検証義務を確認する目的と、減らしたい不確実性またはリスク、得たい判断材料を説明する検証設計の要素。
+
+**境界:** 独立した正本成果物、状態または安定コンテキストIDではない。検証意図だけから、条件を所有する工程の検証義務を新設、変更または緩和しない。意味と責務境界は[品質保証](16_Quality_Assurance.md#11-verification-obligation-and-intent)を正本とする。
+
+<a id="240-verification-design"></a>
+
+## 2.40. 検証設計（Verification Design）
+
+一言で言うと、**検証義務を、なぜ、何によって、どの条件で確認し、どう評価するかを定めること**。
+
+**正式英語名:** `Verification Design`
+
+**定義:** 検証義務への参照、検証意図、検証項目、観測要件、検証手順、網羅規則、評価規則、必要な根拠、対象外および再検証条件を接続する品質保証成果物。
+
+**境界:** テストケースだけに限定せず、各工程の検証観点、実装の開発者テスト、独立検証を一つの責務モデルで接続する。詳細は[品質保証](16_Quality_Assurance.md#52-verification-design)を正本とする。
+
+<a id="241-verification-item"></a>
+
+## 2.41. 検証項目（Verification Item）
+
+一言で言うと、**独立して計画、実行、結果記録できる検証活動の単位**。
+
+**正式英語名:** `Verification Item`
+
+**定義:** 検証義務を確認するために実施する、テストケース、開発者テスト、専門家レビュー、ユーザビリティ評価、計測、分析、静的解析、視覚品質レビュー、アクセシビリティ監査等の活動単位。
+
+**出力:** 検証項目結果を生成する。検証項目結果は評価規則を介して検証義務の評価へ反映する。
+
+**境界:** 検証手順は、検証項目を実施する条件、入力、操作、観測方法および判定方法である。検証項目と検証手順を同一視しない。
+
+<a id="242-verification-procedure"></a>
+
+## 2.42. 検証手順（Verification Procedure）
+
+一言で言うと、**一つの検証項目を、どの条件と方法で再現可能に実施するか**。
+
+**正式英語名:** `Verification Procedure`
+
+**定義:** 検証項目を実施するための条件、入力、操作、観測方法、使用するツールおよび判定方法。
+
+**境界:** 何を独立した検証活動として扱うかを示す検証項目と区別する。専門家レビュー等で定型操作が少ない場合も、確認観点、入力、使用基準、観測または判断方法を取得可能にする。意味と責務境界は[品質保証](16_Quality_Assurance.md#12-verification-item-and-procedure)を正本とする。
+
+<a id="243-verification-result-summary"></a>
+
+## 2.43. 検証結果要約（Verification Result Summary）
+
+一言で言うと、**一回または一つの実行集合の検証結果を、人間が短時間で理解するための要約**。
+
+**正式英語名:** `Verification Result Summary`
+
+**定義:** 一つの検証結果または検証実行集合について、結論、対象、主な結果、未検証範囲、指摘事項および残存リスクを示す説明。
+
+**境界:** 複数の義務、結果、指摘事項、計画と実績を横断するQuality Centerを代替しない。意味と責務境界は[品質保証](16_Quality_Assurance.md#14-result-summary-and-quality-center)を正本とする。
+
+<a id="244-current-quality-status"></a>
+
+## 2.44. 現在の品質状態（Current Quality Status）
+
+一言で言うと、**現在の対象へ適用できる検証結果を集約した、現在時点の品質状態**。
+
+**正式英語名:** `Current Quality Status`
+
+**定義:** 現在の対象、検証義務、適用条件および無効化条件に照らして、適用可能な検証結果から導く派生状態。
+
+**境界:** 正本または過去履歴ではない。対象変更によって以前の結果が要再確認（Stale）になっても、過去の検証結果を変更しない。
+
+<a id="245-quality-center"></a>
+
+## 2.45. Quality Center
+
+一言で言うと、**現在の品質状況、計画対実績、残存リスクと詳細参照を一か所で確認する入口**。
+
+**正式英語名:** `Quality Center`
+
+**定義:** 複数の検証義務、検証設計、検証結果、指摘事項、計画および実績を横断し、現在の品質状態を人間とAIへ表示する派生表示。
+
+**境界:** 品質情報の新しい正本にならず、件数または割合だけで品質、工程移行、リスク受容またはリリース可否を決定しない。表示契約は[品質保証](16_Quality_Assurance.md#55-quality-center)を正本とする。
+
+<a id="246-branch-coverage"></a>
+
+## 2.46. 分岐網羅率（Branch Coverage）
+
+一言で言うと、**単体試験等で、測定対象の判断分岐をどこまで実行したかを示す割合**。
+
+**正式英語名:** `Branch Coverage`
+
+**定義:** 使用する測定ツールと設定が識別した対象分岐のうち、対象改訂版に対する試験で到達した分岐の割合。
+
+**境界:** 分母はツール、言語、計測設定、除外によって変わり得るため、割合だけを比較しない。分岐網羅率`100%`は測定対象の全分岐へ到達したことを示すが、要求、重要状態、組合せ、失敗回復、専門品質またはリリース可否の成立を単独では証明しない。目標、未達、除外の規則は[品質保証](16_Quality_Assurance.md#52-verification-design)を正本とする。
+
 ---
 
 <a id="3-responsibility-and-authority-terms"></a>
@@ -1322,9 +1478,20 @@ Progress Work State
 | 進捗中核（`Progress Core`） | `Progress` / `Metrics` | 開発方式を問わず共通に持つ進捗情報の一式。指標そのものではなく、指標を導く入力である |
 | 健全性（`Health`） | `Status` / `Progress` | 進捗の度合いとは独立に判定する。進捗率へ丸め込まない |
 | 進捗指標（`Progress Indicator`） | `Progress Core` / `Health` / `Phase Gate` | 状態分布、進捗率、予測等、進捗情報から導く二次情報。進捗中核や健全性そのものではなく、工程移行、検証完了、リリース、リスク受容または人間の承認の判定根拠にしない。意味と利用境界は[進捗管理](15_Progress.md)を正本とする |
+| 専門品質確認（`Specialist Quality Review`） | `Phase Transition Review` / `Expert Approval` / `Document Audit` | 工程移行レビューに含まれる工程固有の品質確認。独立した第三の承認、専門家による最終承認、文書監査の別名ではない。基準と実行境界は[工程移行レビューと是正反復](10_Agent.md#72-phase-transition-review-and-remediation-loop)を正本とする |
 | 実行方式（`Execution Method`） | `Profile` / 開発方式 | 開発の進め方を指す。段階型、リスク駆動の反復型、時間枠型の反復、継続フロー型、保守運用等を含む。意味と接続契約の正本は[進捗管理の実行方式の接続契約](15_Progress.md#9-execution-method-mapping)とする。工程文書が使う「工程の実行方式（新規／既存系、スキル接続）」とは別概念である。`プロファイル`は本体系で複数の対象を指す。準拠監査のプロファイルは準拠基準集合、アクセシビリティプロファイルは適用する人間中心品質基準の情報源とレベル、品質懸念プロファイルは対象範囲へ適用する品質観点の集合、実行プロファイルはスキル実行の様式、運用プロファイルは公式リポジトリの運用方式を指し、いずれも実行方式とは別概念である |
 | 実装（`Implementation`） | `Code` / `Delivery` | コードだけでなく構成、移行、基盤、開発者テスト、ビルド等を含むが、リリースとは区別する |
 | 検証結果（`Verification Result`） | `Test Result` / `Validation Result` / `Review Result` / `Result` | 何をどの改訂版・条件で検証した結果かを明示し、曖昧な`Result`を避ける |
+| 品質戦略（`Quality Strategy`） | `Quality Requirement` / `Verification Design` / `Release Criteria` | プロジェクトまたは対象範囲の品質保証方針を示す。個別の品質条件、検証方法、リリース判断基準そのものではない。意味と責務境界は[品質保証](16_Quality_Assurance.md#51-quality-strategy)を正本とする |
+| 検証義務（`Verification Obligation`） | `Verification Intent` / `Test Case` / `Acceptance Result` | 成立しなければならない品質条件を示す。確認理由、実施方法、確認済みという結果と区別する。意味と責務境界は[品質保証](16_Quality_Assurance.md#11-verification-obligation-and-intent)を正本とする |
+| 検証意図（`Verification Intent`） | `Verification Obligation` / `Verification Goal` / `Risk` | 確認によって減らしたい不確実性またはリスクと、得たい判断材料を示す。成立条件そのもの、新しい正本成果物または独立した状態ではない。意味と責務境界は[品質保証](16_Quality_Assurance.md#11-verification-obligation-and-intent)を正本とする |
+| 検証設計（`Verification Design`） | `Test Design` / `Test Plan` / `Verification Result` | テストだけでなくレビュー、計測、分析等を含む確認方法の設計を示す。実行計画または実行結果と同一視しない。意味と責務境界は[品質保証](16_Quality_Assurance.md#5-artifact-model)を正本とする |
+| 検証項目（`Verification Item`） | `Verification Procedure` / `Test Case` / `Verification Obligation` | 独立して計画、実行、結果記録できる検証活動の単位を示す。実施手順、テストケースだけに限定した呼称、成立条件そのものと区別する。意味と責務境界は[品質保証](16_Quality_Assurance.md#12-verification-item-and-procedure)を正本とする |
+| 検証手順（`Verification Procedure`） | `Verification Item` / `Test Case` / `Workflow` | 一つの検証項目を実施する条件、入力、操作、観測方法および判定方法を示す。独立して計画・結果記録する活動単位や、リポジトリ固有の反復手順とは区別する。意味と責務境界は[品質保証](16_Quality_Assurance.md#12-verification-item-and-procedure)を正本とする |
+| 検証結果要約（`Verification Result Summary`） | `Verification Result` / `Current Quality Status` / `Quality Center` | 一回または一つの実行集合の結果を短く説明する。履歴成果物そのもの、現在へ適用できる結果の集約、対象全体の統合入口を代替しない。意味と責務境界は[品質保証](16_Quality_Assurance.md#14-result-summary-and-quality-center)を正本とする |
+| 現在の品質状態（`Current Quality Status`） | `Verification Result` / `Progress Indicator` / `Release Decision` | 現在の対象へ適用可能な検証結果を集約した派生状態である。過去の結果、進捗指標、人間によるリリース判断を置き換えない。意味と責務境界は[品質保証](16_Quality_Assurance.md#13-verification-result-and-current-quality-status)を正本とする |
+| Quality Center | `Verification Result Summary` / `Dashboard` / `Quality Registry` | 現在の品質状態と詳細参照へ到達する統合入口であり、一回の結果要約、表示技術、品質情報の新しい中央正本ではない。意味と責務境界は[品質保証](16_Quality_Assurance.md#14-result-summary-and-quality-center)を正本とする |
+| 分岐網羅率（`Branch Coverage`） | `Line Coverage` / `Condition Coverage` / 品質成立 | 測定対象の分岐へ到達した割合を示す。行網羅率、条件網羅率、または品質全体の成立と同一視しない。目標、未達、除外の規則は[品質保証](16_Quality_Assurance.md#52-verification-design)を正本とする |
 | 学び（`Learning`） | `Summary` | 要約されただけでは学びへ昇格しない |
 | 変更トレース（`Change Trace`） | `Change Record` / `Task` / `Pull Request` | `CHG-*`は変更の意味と影響を追跡する。タスク、プルリクエスト、Gitログ、CHANGELOGの代替ではない |
 | 作業フロー（`Workflow`） | `Plan` / `Skill` | 作業フローはリポジトリ固有の反復手順、計画は個別範囲の計画、スキルは再利用可能な専門作業方法 |

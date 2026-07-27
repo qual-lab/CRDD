@@ -2,10 +2,10 @@
 
 # CRDD作業フロー（Workflow）
 
-Version: v0.8.0
+Version: v0.9.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-26
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)

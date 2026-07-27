@@ -2,10 +2,10 @@
 
 # CRDDリリース（Release）
 
-Version: v0.8.0
+Version: v0.9.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-26
+Last Updated: 2026-07-27
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -13,6 +13,7 @@ Related:
 - [12_Change.md](12_Change.md)
 - [14_Workflow.md](14_Workflow.md)
 - [15_Progress.md](15_Progress.md)
+- [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [19_Maintenance.md](19_Maintenance.md)
 - [29_Verification.md](29_Verification.md)
 - [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
@@ -63,13 +64,13 @@ CRDD自体のバージョン、CHANGELOG、タグ、移行は[保守](19_Mainten
 
 | 懸念 | 決定権限 |
 |---|---|
-| 検証結果とリリース準備状況の推奨 | [検証](29_Verification.md) |
+| 現在の品質状態、Quality Center、検証結果とリリース準備状況の推奨 | [品質保証](16_Quality_Assurance.md)、[検証](29_Verification.md) |
 | 配布・有効化・延期・取消・リスク受容 | プロジェクト固有の人間のリリース決定権限 |
 | 変更単位の影響トレース | [変更トレース](12_Change.md) |
 | リリース記録、CHANGELOG、配布物参照 | 本書 |
 | 実際のビルド / デプロイ / ロールバック手順 | プロジェクト固有の[作業手順](14_Workflow.md)、CI/CD、運用 |
 
-検証完了はリリース承認を意味しない。リリース決定権限は対象バージョン、環境、対象CHG、残リスク、ロールバック条件を識別して判断する。
+検証完了はリリース承認を意味しない。リリース決定権限はQuality Centerを現在状態への入口として使用し、対象バージョン、環境、対象CHG、検証結果、未検証範囲、残存リスク、ロールバック条件を識別して判断する。件数、成功率または進捗率だけでリリース可否を決めない。
 
 ---
 

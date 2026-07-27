@@ -9,6 +9,48 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v090-en"></a>
+
+### v0.9.0 — Specialist Quality Review, Cross-phase Quality Assurance, and Stable Phase Entries (2026-07-27)
+
+**This release contains breaking changes.** It adds specialist-quality review to phase transitions, introduces a cross-phase quality-assurance artifact model, and fixes the entry structure from Discovery through Architecture and Quality Assurance. Migration is required for adopting projects that use those phases, phase transitions, or the Product Lifecycle Profile.
+
+Compared with v0.8.0:
+
+- Adds Specialist Quality Review as a defined part of `agent.phase_transition.review`. It uses the coverage and audit checklist owned by the sending phase or applicable shared contract; it does not create a new phase, audit, approval stage, or source of truth.
+- Keeps the two-stage transition model: an independent phase-transition review followed by the responsible Human decision. The specialist check belongs to the independent review, so this release does not add a third approval.
+- Allows one independent reviewer to perform both contract and specialist checks when that reviewer can evaluate the required perspectives and explain the basis. Only missing perspectives are delegated to another subagent, a new session or agent that does not inherit the creation context, or a Human reviewer. CRDD does not require a fixed number of reviewers, a permanent specialist agent, a job title, a model, or a tool.
+- Requires the review to make the required specialist perspectives, assigned reviewer, capability basis, criteria, consulted artifacts or evidence, result, and any unreviewed scope retrievable. Relevant knowledge or experience demonstrated by retrievable work, an evaluation method applied to the target, an authoritative reference applied competently, or comparable prior evaluation may establish the basis. A role label, agent name, model name, tool name, unsupported self-claim, or repetition of the checklist and target artifact does not.
+- Prohibits a normal `Pass` while a required specialist perspective remains unreviewed. A Human authority may still direct transition through the existing `review_exception`, which remains distinct from `Pass` and must state the unreviewed scope, risk, owner, and re-review condition.
+- Connects the rule to every phase contract from Discovery through Verification and to the shared UI / Behavior Specification contract. Each phase and the shared contract keep ownership of their own specialist criteria; no common checklist duplicates those criteria. The shared-contract review does not replace the UI or Behavior Specification phase reviews, and neither individual phase review replaces the shared-contract review.
+- Updates the common skill handoff contract, official-repository adapters (`AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md`), and distributed adapters (`template/AGENTS.md`, `template/CLAUDE.md`, and `template/.github/copilot-instructions.md`) so implementations carry specialist coverage in the existing review and handoff path.
+- Extends conformance criteria PL-05, PL-06, AD-04, and AD-16. Document Audit verifies that specialist-review records are retrievable but does not decide domain quality. Gap / Impact Audit checks that required specialist responsibility did not disappear across a phase or shared-contract boundary but does not replace the specialist review.
+- Adds `Specialist Quality Review`, `Quality Strategy`, `Verification Obligation`, `Verification Intent`, `Verification Design`, `Verification Item`, `Verification Procedure`, `Verification Result Summary`, `Current Quality Status`, and `Quality Center` to `02_Terminology.md`, with boundaries that keep conditions, reasons, methods, history, current state, and aggregate display separate.
+- Adds `16_Quality_Assurance.md` as the common contract for Quality Strategy, phase-owned Verification Obligations, Verification Design, Verification Items, immutable Verification Results, Current Quality Status, and the human-readable Quality Center. Verification is not limited to test cases; expert review, measurement, analysis, usability evaluation, visual review, and accessibility audit can be Verification Items.
+- Adds the fixed `08_Quality/Quality_Center.md`, `Quality_Strategy.md`, `Verification_Design.md`, and `Verification_Results/` structure. Application depth changes the amount of documentation, review, and evidence—not the file split. Obligations remain canonical in their owning phase artifacts, and retained evidence remains with the nearest owning artifact inside the repository; omitted raw outputs carry a repository-local summary and reproduction contract.
+- Adds one fixed entry artifact for each phase from Discovery through Architecture: `01_Product_Discovery.md`, `01_User_Experience.md`, `01_Information_Architecture.md`, `01_User_Interface.md`, `01_Behavior_Specification.md`, and `01_Architecture.md` in their respective phase folders. Application depth changes content, review, evidence, and linked-detail depth rather than the entry name or basic split. The entry is the phase-wide canonical summary and discovery entry, not a links-only index: it directly retains scope, coverage, major conclusions and decisions, verification obligations, unresolved matters, and downstream obligations while referencing authoritative detail without duplicating it.
+- Defines a tool-neutral logical record contract connecting strategy, phase-owned obligations, design, items, results, current status, and the Quality Center. The contract uses repository paths, anchors, commits, and artifact-local references. Artifact-local keys are used only when repeated cross-artifact or cross-result references would otherwise be unstable; v0.9.0 adds no `VO-*`, `VI-*`, `VR-*`, or other Stable Context ID type and mandates no YAML schema or central numbering registry.
+- Keeps QA operable within the CRDD repository. CI, measurement, and test-execution tools may be used, but current quality status, rationale, unverified scope, residual risk, and reproduction methods remain understandable from repository artifacts. External links and run IDs are supplementary and do not become the sole QA record or an external QA source of truth.
+- Sets branch coverage at `100%` as the default unit-test target where unit testing applies. A shortfall or exclusion must identify the measured scope, numerator, denominator, actual rate, concrete reason, residual risk, alternative verification, responsible owner, required Human decision, and reevaluation condition. A `100%` value does not by itself establish quality or release readiness.
+- Requires Quality Center to show the current target, conclusion, user and operational impact, plan versus actual, numerator, denominator, percentages, variance reasons, unmapped obligations, required-but-unplanned specialist checks, high-risk failures, residual risk, and source references. Failed, blocked, and stale scope also shows its reason, impact, owner, and clearance or reverification condition. Percentages never decide quality or release authority by themselves.
+- Separates Verification Item Results from Verification Obligation Assessment. Finalized results used for a decision, transition, or release are immutable; additional execution creates a new related result. Current Quality Status is derived and marks results that no longer apply as `Stale` without rewriting history.
+- Adds Product Lifecycle criterion PL-16 and connects the model through every phase's responsibility coverage, transition criteria, and audit checklist, as well as Change, Progress, Release, Agent review, Document Audit, and Gap / Impact Audit.
+- Does not change Stable Context ID types, phase order, or Human decision authority. QA artifact-local references and tool run IDs do not become CRDD Stable Context IDs.
+
+Adoption impact: projects updating from v0.8.0 must update phase-review prompts, agent or skill definitions, and handoff records so future reviews include both contract and specialist coverage. Applied phases from Discovery through Architecture also add or map their fixed entry artifact without duplicating already authoritative detail. This applies to in-flight transitions, newly started transitions, and completed scope that is reopened, materially revised, or reused as input to a new transition. It does not require a bulk re-review of completed, inactive scope that will not be reused.
+
+Migration note (v0.8.0 → v0.9.0):
+
+- Classification / migration required: `change_classification: breaking`, `migration_required: true`.
+- Required: update the existing phase-transition review path to identify the target scope's applicable specialist perspectives; assign reviewers able to evaluate them; record the capability basis, criteria, consulted artifacts or evidence, result, and unreviewed scope for each perspective; treat a perspective without a capability basis as unreviewed; remediate findings and re-review the updated revision before Human approval. UI / Behavior Specification scope also evaluates the shared contract separately from each phase. Add the fixed phase entry artifacts for every applied phase from Discovery through Architecture without duplicating their detailed canonical content. Add the fixed `08_Quality` structure, connect phase-owned obligations to Verification Design and skill handoffs, retain finalized Verification Results, and provide a Quality Center that exposes plan-versus-actual counts and percentages with their denominators and variance reasons. Where unit testing applies, set branch coverage to the default `100%` target and record the full exception contract for any shortfall or exclusion. Re-evaluate PL-01, PL-02, PL-05, PL-06, PL-16, AD-04, and AD-16 before recording a `Conformant` claim against v0.9.0.
+- Conditional: use additional reviewers only where one independent reviewer cannot cover all applicable perspectives. Apply the new review contract to in-flight, future, reopened, materially revised, or reused phase scope. Closed, inactive scope needs no retroactive review unless it becomes input to a new decision or transition.
+- Out of scope: no third approval, fixed team, permanent specialist agent, mandatory QA tool, new Stable Context ID type, or automatic release decision is introduced.
+- Verification: run Document Audit for terminology, links, adapters, fixed phase entries, QA artifact boundaries, and retrievable review fields; Conformance Audit for PL-01, PL-02, PL-05, PL-06, PL-16, AD-04, and AD-16; and Gap / Impact Audit for propagation across all phase and shared contracts, phase-owned obligations, Verification Design, Current Quality Status, and Quality Center. Review representative transition and quality records to confirm that uncovered specialist scope, a missing capability basis, unmapped obligations, or required-but-unplanned specialist checks cannot produce a normal `Pass` or a misleading 100% quality claim.
+- Rollback / recovery: keep v0.8.0 active until the review path and affected adapters are updated and the Migration Completeness bar is met.
+- Known risk if deferred: a phase can continue to pass on contract completeness while domain-level errors, weak analysis, or unusable design decisions remain undetected until a later phase.
+
+---
+
 <a id="changelog-v080-en"></a>
 
 ### v0.8.0 — Open Work Registry and Progress Model (2026-07-26)
@@ -343,6 +385,48 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v090-ja"></a>
+
+### v0.9.0 — 専門品質確認・工程横断品質保証・工程固定入口（2026-07-27）
+
+**本リリースは破壊的変更を含む。** 工程移行へ専門品質確認を追加し、工程横断の品質保証成果物モデルを導入するとともに、課題探索・要求形成からアーキテクチャおよび品質保証までの入口構造を固定する。これらの工程、工程移行、またはプロダクトライフサイクルプロファイルを使用する採用プロジェクトでは移行が必要である。
+
+v0.8.0からの変更:
+
+- 専門品質確認（Specialist Quality Review）を`agent.phase_transition.review`の構成要素として追加した。評価基準には送信工程または対象となる共有契約が所有する網羅範囲と監査チェックリストを使用し、新しい工程、監査、承認段階、正本は作らない。
+- 工程移行は、独立した工程移行レビューと、責任を持つ人間による判断の二段階のままとした。専門品質確認は独立レビューに含まれるため、三段階目の承認は追加しない。
+- 一人の独立した確認者が契約と必要な専門観点を評価でき、その根拠を説明できるなら、一人でまとめて確認できる。不足する観点だけを別のサブエージェント、作成時コンテキストを引き継がない新しいセッション／エージェント、または人間確認者へ委譲する。固定人数、恒久的な専門エージェント、役職、モデル、ツールを要求しない。
+- 必要な専門観点、担当確認者、評価能力の根拠、使用基準、参照した成果物または根拠、評価結果、未評価範囲を取得可能にする。参照可能な実績で示す関連知識・経験、対象へ適用した評価方法、権威ある参照基準を適切に適用できること、比較可能な過去評価等を能力根拠にできる。役割名、エージェント名、モデル名、ツール名、単なる自己申告、使用基準または対象成果物の再列挙だけを専門性の根拠としない。
+- 必要な専門観点が未評価のまま通常の`Pass`とすることを禁止した。人間の決定権限者は既存の`review_exception`で移行を指示できるが、これは`Pass`とは区別し、未評価範囲、リスク、担当責任者、再レビュー条件を残す。
+- 課題探索・要求形成から検証までの全工程契約と、UI／振る舞い仕様の共有契約へ接続した。専門基準は各工程文書と共有契約が引き続き所有し、共通チェックリストへ複製しない。共有契約のレビューはUIまたは振る舞い仕様の個別工程レビューを代替せず、個別工程レビューも共有契約のレビューを代替しない。
+- 共通スキル引き渡し契約、公式リポジトリ接続部（`AGENTS.md`、`CLAUDE.md`、`.github/copilot-instructions.md`）、配布接続部（`template/AGENTS.md`、`template/CLAUDE.md`、`template/.github/copilot-instructions.md`）を更新し、既存のレビュー／引き渡し経路で専門観点の網羅を保持するようにした。
+- 準拠基準PL-05、PL-06、AD-04、AD-16を拡張した。文書監査は専門レビュー記録を取得できるか確認するが、工程固有の専門品質を判定しない。不足／影響監査は工程または共有契約の境界で専門責務が脱落していないか確認するが、専門品質確認を代替しない。
+- `02_Terminology.md`へ専門品質確認、品質戦略、検証義務、検証意図、検証設計、検証項目、検証手順、検証結果要約、現在の品質状態、Quality Centerを追加した。条件、確認理由、方法、履歴、現在状態、横断表示の責務を分離し、工程移行レビュー全体、専門家承認、文書監査との境界も明示した。
+- `16_Quality_Assurance.md`を追加し、品質戦略、各工程が所有する検証義務、検証設計、検証項目、不変な検証結果、現在の品質状態、人間向けQuality Centerの共通契約を定義した。検証をテストケースに限定せず、専門家レビュー、計測、分析、ユーザビリティ評価、視覚品質レビュー、アクセシビリティ監査等を検証項目として扱える。
+- `08_Quality/Quality_Center.md`、`Quality_Strategy.md`、`Verification_Design.md`、`Verification_Results/`の固定構成を追加した。適用の深さではファイル分割を変えず、記述、レビュー、根拠の深さを変える。検証義務は所有工程の正本へ、保存する根拠はリポジトリ内の最も近い所有成果物へ残す。保存しない生の出力には、リポジトリ内の要約と再現契約を残す。
+- 課題探索・要求形成からアーキテクチャまでの各工程へ、各工程フォルダ内の`01_Product_Discovery.md`、`01_User_Experience.md`、`01_Information_Architecture.md`、`01_User_Interface.md`、`01_Behavior_Specification.md`、`01_Architecture.md`という固定入口を追加した。適用の深さでは入口名や基本のファイル分割を変えず、本文、レビュー、根拠、詳細参照の深さを変える。固定入口はリンクだけの索引ではなく、工程全体の主要正本兼探索入口として、対象範囲、網羅状態、主要な結論と判断、検証義務、未解決事項、次工程への義務を直接保持する。詳細な正本成果物は内容を複製せず参照する。
+- 品質戦略、工程が所有する検証義務、検証設計、検証項目、検証結果、現在の品質状態、Quality Centerを接続する、ツール非依存の論理記録契約を追加した。リポジトリ内のパス、アンカー、コミット、成果物内の局所参照を使用する。局所キーは、複数成果物または複数結果からの反復参照が不安定になる場合だけ使用し、`VO-*`、`VI-*`、`VR-*`等の新しい安定コンテキストID、固定YAMLスキーマ、中央採番登録簿は追加しない。
+- QAをCRDDリポジトリ内で運用可能にした。CI、計測基盤、テスト実行ツールを使用しても、品質状態、判断理由、未検証範囲、残存リスク、再現方法はリポジトリ内の成果物から理解できるようにする。外部リンクまたは実行IDは補助情報であり、唯一の品質保証記録または外部QA正本にしない。
+- 単体試験が適用される場合の分岐網羅率`100%`を既定目標とした。未達または除外がある場合は、測定対象、分母、分子、実測値、具体的理由、残るリスク、代替確認、担当責任者、必要な人間判断、再確認条件を示す。`100%`という値だけで品質またはリリース準備完了とは判定しない。
+- Quality Centerへ、現在対象、結論、利用者・運用への影響、計画対実績、分母、分子、割合、差異理由、検証項目へ未対応の義務、必須だが未計画の専門品質確認、重大な不成立、残存リスク、正本参照を求める。不成立、停止、要再確認の対象には、理由、影響、担当責任者、解除または再検証条件も示す。割合だけで品質またはリリースを判断しない。
+- 検証項目結果と検証義務の評価を分離した。判断、工程移行またはリリースに使用した確定済み結果は変更せず、追加実行では関係を持つ新しい結果を作る。現在の品質状態は派生表示とし、適用不能になった結果を履歴変更なしに`Stale`として扱う。
+- プロダクトライフサイクル基準PL-16を追加し、各工程の必要な責務の網羅、工程移行の判定基準、工程監査チェックリスト、および変更、進捗、リリース、エージェントレビュー、文書監査、不足／影響監査へ品質保証モデルを接続した。
+- 安定コンテキストIDの種類、工程順、人間の決定権限は変更しない。品質保証成果物内の局所参照またはツール実行IDをCRDD安定コンテキストIDにしない。
+
+採用側への影響: v0.8.0から更新するプロジェクトは、今後の工程移行レビューが契約確認と専門品質確認の両方を含むように、レビュー用の指示、エージェント／スキル定義、引き渡し記録を更新する。課題探索・要求形成からアーキテクチャまでで適用する工程には、既に正本である詳細を複製せず、固定入口を追加または対応づける。進行中、新規、再開、実質的に改訂した工程移行、および新しい工程移行の入力として再利用する対象範囲へ適用する。完了済みで再利用しない休止対象範囲を一括再レビューする必要はない。
+
+移行注記（v0.8.0 → v0.9.0）:
+
+- 分類／移行要否: `change_classification: breaking`、`migration_required: true`。
+- 必須: 既存の工程移行レビュー経路を更新し、対象範囲へ適用する専門観点を特定する。各観点を評価できる確認者を割り当て、評価能力の根拠、使用基準、参照した成果物または根拠、評価結果、未評価範囲を残す。能力根拠を説明できない観点は未評価として扱う。UI／振る舞い仕様の対象範囲では、各工程と共有契約を別々に評価する。指摘事項を是正し、更新改訂版を再レビューしてから人間の承認へ進む。適用する課題探索・要求形成からアーキテクチャまでの各工程へ固定入口を追加し、詳細な正本内容を重複させずに接続する。固定した`08_Quality`構造を追加し、各工程が所有する検証義務を検証設計とスキル引き渡しへ接続し、確定済み検証結果を履歴として保持し、Quality Centerで計画対実績、件数、割合、分母、差異理由を確認可能にする。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外の完全な例外記録を残す。v0.9.0への`Conformant`表明前にPL-01、PL-02、PL-05、PL-06、PL-16、AD-04、AD-16を再評価する。
+- 条件付き: 一人の独立した確認者がすべての適用観点を扱えない場合だけ、追加の確認者を使用する。進行中、今後、再開、実質的に改訂、または再利用する工程対象範囲へ新契約を適用する。完了済みで休止中の対象範囲は、新しい判断や工程移行の入力にしない限り遡及レビューを要しない。
+- 対象外: 三段階目の承認、固定チーム、恒久的な専門エージェント、必須の品質保証ツール、新しい安定コンテキストID種類、割合による自動リリース判断は追加しない。
+- 確認: 用語、リンク、接続部、工程の固定入口、品質保証成果物の責務境界、レビュー項目の取得可能性を文書監査で確認する。PL-01、PL-02、PL-05、PL-06、PL-16、AD-04、AD-16を準拠監査で確認する。全工程契約、UI／振る舞い仕様の共有契約、工程所有の検証義務、検証設計、現在の品質状態、Quality Centerへの伝播を不足／影響監査で確認する。代表的な工程移行記録と品質保証記録を用い、未評価の専門観点、評価能力の根拠がない観点、検証項目へ未対応の義務、必須だが未計画の専門品質確認がある状態で、通常の`Pass`または誤解を招く品質100%表示にならないことを確認する。
+- 切戻し／回復: レビュー経路と該当接続部の更新、および移行完了の条件を満たすまでv0.8.0を有効な基準版として維持する。
+- 延期した場合の既知リスク: 契約欄だけが揃った状態で工程を通過し、専門的な誤り、浅い分析、後工程で利用できない設計判断が後から判明する。
+
+---
 
 <a id="changelog-v080-ja"></a>
 
