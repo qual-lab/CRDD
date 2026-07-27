@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.9.0 — Specialist Quality Review, Cross-phase Quality Assurance, and Stable Phase Entries / 専門品質確認・工程横断品質保証・工程固定入口**
+Status: **v0.10.0 — Pre-1.0 Structure, Human Guidance, and Deterministic Checks / v1.0前構造整理・人間向け案内・機械確認**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -94,6 +94,38 @@ CRDD uses selected requirements, usability, accessibility, design-principle, and
 
 The authoritative source index, relationship, and stated coverage are listed in [External Foundations and Source Trace](00_Overview.md#36-external-foundations-and-source-trace). Trace rules are defined in [Documentation](03_Documentation.md#49-external-source-trace).
 
+### What humans need to know
+
+You do not need to memorize every CRDD rule before starting. Keep these five responsibilities:
+
+1. Explain what should change, for whom, and why.
+2. Ask AI for a recommendation with reasons, benefits, drawbacks, uncertainty, and alternatives—not an unexplained A/B choice.
+3. Humans decide value, priority, adoption or rejection, risk acceptance, phase transition, and release.
+4. Do not let unknowns or unresolved findings disappear behind a completed document or task.
+5. Check the route selected by AI: affected phases, independent review, audits, and remaining Human decisions.
+
+Give AI at least:
+
+```text
+The problem or change to handle
+The affected users and desired outcome
+Known evidence, constraints, and uncertainty
+What may change and what must remain unchanged
+Decisions already made and decisions still needed
+```
+
+AI should select and load the responsible canonical documents, compare alternatives, update the approved scope, maintain verification obligations, and run the necessary checks. It should return the selected route in a form a Human can inspect:
+
+```text
+Change classification
+Affected or reopened phases and shared responsibilities
+Independent review and audits to run
+Major audits not selected and why
+Human decisions still required
+```
+
+The [human-readable route table](00_Overview.md#44-change-route-selection) shows the common combinations. It is a navigation aid; the linked canonical rules govern.
+
 ### Quick Start
 
 Humans do not need to read every canonical document before starting. Read this section and the [Overview orientation](00_Overview.md#1-quick-orientation); use [Terminology](02_Terminology.md) and [Documentation](03_Documentation.md) as references when a term or recording rule is needed. AI and people designing CRDD operation should load the canonical foundation set.
@@ -128,7 +160,7 @@ Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption
 
 Where a baseline update includes any difference classified normative or breaking, or any release whose CHANGELOG declares migration required, adoption is not complete until the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar is met — this applies to adopting with no action just as much as to adopting after remediation — and a `Conformant` claim cannot be recorded against that baseline before then. The bar's fifth point, an independent review, is carried out by Document Audit or Gap / Impact Audit, not by Conformance Audit.
 
-v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and require migration — review the [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
 <a id="historical-migration-v042-v05x-en"></a>
 
@@ -154,6 +186,31 @@ Adopt the release as an explicit migration instead of overwriting a project blin
 
 Until migration verification passes, keep the previous pinned release recoverable. The official-repository root [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) maintain CRDD itself; adopting projects continue to use the [`template/`](template) entry files.
 
+### AI Precheck
+
+The distributed template includes `tools/crdd_check.mjs`. In normal use, the parent AI agent runs it once against a fixed revision before independent review or an audit set; users do not need to run it manually.
+
+```text
+node tools/crdd_check.mjs
+node tools/crdd_check.mjs --json
+node tools/crdd_check.mjs --json --summary
+node tools/crdd_check.mjs --references <PATH> --summary
+```
+
+When CRDD itself is mounted at `00_CRDD/` as a Git submodule and the checker has not been copied to the project root, run it from the project root and identify that root explicitly:
+
+```text
+node 00_CRDD/template/tools/crdd_check.mjs --root . --json --summary
+```
+
+In this layout, the checker treats the submodule as the adopted baseline boundary. It checks project links and anchors that point into the baseline, but does not mix the baseline's complete internal file set with project-owned files. The omitted baseline internals are reported as unchecked. To inspect the baseline itself, run the checker separately with `--root 00_CRDD`; do not use project `--scope` to cross the submodule boundary. Symbolic links and junctions are not followed during repository inspection; affected targets are rejected or reported as unchecked.
+
+Without `--scope`, the checker inspects the whole repository; this is the default for independent review, audit sets, and release readiness. `--scope <PATH>` is reserved for an explicitly bounded intermediate check. A scoped run expands to direct inbound and outbound Markdown references, keeps repository-wide invariants such as structure and explicit Stable Context ID uniqueness, and reports what remains unchecked. It is not evidence of a full-repository precheck.
+
+The parent agent passes the target scope, target revision, checker revision, findings, unperformed checks, execution time, and summary metrics to each reviewer as shared input. Reviewers do not repeat the same deterministic check unless that result is missing, stale, incomplete, or for a different scope. After the target files, scope, or checker changes, the parent agent runs it once again for the new revision.
+
+The checker is an efficiency aid, not a conformance authority. If Node.js or the supplied implementation is unavailable, the AI may perform an equivalent check and report what remains unchecked. A checker pass does not replace independent review, specialist-quality review, or any CRDD audit.
+
 ### Core Operating Boundaries
 
 - Within `00_CRDD/`, canonical filenames use the two-digit document number once, such as `01_Principles.md` and `27_Architecture.md`; do not repeat the folder number as `00_01_*` or `00_27_*`. Document numbers are not Stable Context IDs. Standard Stable Context IDs are limited to `REQ`, `UX`, `IA`, `UI`, and `SPEC`. `CHG-*` identifies a Change Trace artifact, not stable product context.
@@ -161,8 +218,9 @@ Until migration verification passes, keep the previous pinned release recoverabl
 - Use `01_Discovery` for new evidence, uncertainty, and requirements. It may also hold unadopted inputs for later reconsideration without a mandatory candidate file, identifier, or status model. Use `99_Roadmap` as an Open Work Registry that indexes uncompleted work—ideas, deferred requirements, defects, technical debt, migrations, unresolved audit findings, and in-flight Change Traces—by existence, current state, and reference, while meaning, evidence, and rationale stay in the owning Canonical Artifact. Registration alone does not mean adoption, priority, or permission to execute. Roadmap items do not receive CRDD Stable Context IDs.
 - Keep one fixed entry artifact for each phase from Discovery through Architecture, using the paths defined by [Documentation](03_Documentation.md#31-basic-structure). Change the depth of writing, review, evidence, and linked detail—not the entry name or basic file split—when risk or complexity changes. The entry is not a links-only index: it directly states phase-wide scope, coverage, major conclusions and decisions, verification obligations, unresolved matters, and downstream obligations. It references authoritative detail without duplicating it into a second source of truth.
 - Use `40_Develop` for code, configuration, migrations, build definitions, and tests—not for CRDD management Markdown.
-- Use `08_Quality` for the Quality Center, quality strategy, verification design, and immutable verification-result history. Keep phase-owned obligations and evidence in their owning artifacts. Quality status, rationale, unverified scope, residual risk, and reproduction methods must remain understandable from the repository even when CI or test tools are used; an external link or run ID is not the QA record. Where unit testing applies, use `100%` branch coverage as the default target and explain every shortfall or exclusion with its scope, residual risk, alternative verification, owner, and reevaluation condition.
-- Use `07_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
+- Use `07_Quality` for the Quality Center, quality strategy, verification design, and immutable verification-result history. Keep phase-owned obligations and evidence in their owning artifacts. Quality status, rationale, unverified scope, residual risk, and reproduction methods must remain understandable from the repository even when CI or test tools are used; an external link or run ID is not the QA record. Where unit testing applies, use `100%` branch coverage as the default target and explain every shortfall or exclusion with its scope, residual risk, alternative verification, owner, and reevaluation condition.
+- Use `19_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
+- Before independent review or an audit set, the parent AI agent runs `node tools/crdd_check.mjs` or an equivalent deterministic check once for the fixed target revision and shares the result. The supplied implementation is optional and does not replace Document Audit, specialist-quality review, Conformance Audit, or Gap / Impact Audit.
 - Treat governance, security, privacy, accessibility, compatibility, capacity, and cost as responsibilities of the applicable upstream and downstream phases rather than as detached end-stage checks.
 - Published CRDD documents prioritize the reader's primary locale. Canonical English terms remain common aliases; Stable Context IDs, Agent IDs, filenames, schema keys and values, and code are not translated. BCP 14 keywords remain visible where normative strength must be unambiguous.
 
@@ -213,7 +271,7 @@ AI協働開発は実装を高速化できる一方で、プロダクトの「な
 
 CRDDは、そのコンテキストを保存・接続し、人間、AI、専門家が意味を無言で変えずに課題探索・要求形成工程（Discovery）から検証までプロダクトを具体化できるようにする開発方法論である。Gitを利用するプロジェクトでは、リポジトリをコンテキストリポジトリの正本制御基盤として利用し、決定権限を持つ外部成果物も明示的な参照で接続できる。
 
-品質保証は最後にテストを実行する活動ではない。各工程が自身の品質条件について検証義務と検証観点を育て、テスト、レビュー、計測、分析、利用者評価等によって確認する。人間は`08_Quality/Quality_Center.md`から、現在の結論、計画対実績、件数、割合、差異理由、重大な問題、残存リスクと詳細参照を確認できる。
+品質保証は最後にテストを実行する活動ではない。各工程が自身の品質条件について検証義務と検証観点を育て、テスト、レビュー、計測、分析、利用者評価等によって確認する。人間は`07_Quality/Quality_Center.md`から、現在の結論、計画対実績、件数、割合、差異理由、重大な問題、残存リスクと詳細参照を確認できる。
 
 AIは決定権限の範囲内で探索、整理、比較、下書き、実装、検証を行える。人間は意味、価値、優先順位、承認、リスク受容、最終責任を保持する。CRDDは特定のAIツール、エージェント構成、文書ツール、技術スタックを要求しない。
 
@@ -282,6 +340,38 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 
 正式な情報源索引、CRDDとの関係、網羅範囲は[外部基盤と情報源の追跡](00_Overview.md#36-external-foundations-and-source-trace)を参照する。追跡規則は[文書化](03_Documentation.md#49-external-source-trace)を正本とする。
 
+### 人間が知っておくこと
+
+開始前にCRDDの全規則を暗記する必要はない。人間は、まず次の五つを押さえればよい。
+
+1. 誰の何を、なぜ変えたいかをAIへ伝える。
+2. AIには、理由のないA／B質問ではなく、推奨案、理由、利点、欠点、不確実性、代替案を求める。
+3. 価値、優先順位、採用・却下、リスク受容、工程移行、リリースは人間が決める。
+4. 不明点や未解決の指摘事項を、文書やタスクの完了によって見えなくしない。
+5. AIが選んだ変更経路、対象工程、独立レビュー、監査、人間の判断事項を確認する。
+
+AIへは少なくとも次を渡す。
+
+```text
+扱いたい問題または変更
+影響する利用者と期待する結果
+分かっている根拠、制約、不確実性
+変更してよい範囲と維持するもの
+判断済みの事項と、これから人間が決める事項
+```
+
+AIは、責務を持つ正本文書の選択、代替案の比較、承認された範囲の更新、検証義務の維持、必要な確認を担当できる。AIは選択した経路を、少なくとも次の形で人間へ示す。
+
+```text
+変更分類
+影響または再開する工程と共通責務
+実行する独立レビューと監査
+実行しない主な監査と理由
+残っている人間の判断事項
+```
+
+よく使う組み合わせは[人間向けの変更経路判断表](00_Overview.md#44-change-route-selection)から確認できる。この表は案内であり、最終的な規則は表から接続する正本文書に従う。
+
 ### クイックスタート
 
 人間は、開始前にすべての正本文書を通読する必要はない。この節と[概要の「最初に把握すること」](00_Overview.md#1-quick-orientation)から始め、分からない用語は[用語集](02_Terminology.md)、配置や記録方法は[文書化](03_Documentation.md)で必要時に確認する。AIとCRDD運用を設計する担当者は、基礎正本一式を読む。
@@ -316,7 +406,7 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 
 基準版更新に含まれる差分のいずれかが規範もしくは破壊的に分類される場合、またはいずれかのリリースのCHANGELOGが移行を必要と明示する場合、[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たすまで採用は完了せず、その基準版への`Conformant`表明も記録できない。これは対応なしで採用する場合にも適用する。同条件の5点目の独立レビューは、文書監査または不足／影響監査で実施し、準拠監査では実施しない。
 
-v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、移行を必要とする。[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
 <a id="historical-migration-v042-v05x-ja"></a>
 
@@ -342,6 +432,31 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 移行検証に合格するまでは、以前固定していたリリースへ戻せる状態を保つ。公式リポジトリ直下の[`AGENTS.md`](AGENTS.md)と[`CLAUDE.md`](CLAUDE.md)はCRDD標準自身の保守用であり、採用プロジェクトは引き続き[`template/`](template)の入口ファイルを使用する。
 
+### AIによる事前確認
+
+配布用ひな型には`tools/crdd_check.mjs`が含まれる。通常は、独立レビューまたは監査集合の前に親AIエージェントが固定した対象改訂版へ一度実行する。利用者が手動で実行する必要はない。
+
+```text
+node tools/crdd_check.mjs
+node tools/crdd_check.mjs --json
+node tools/crdd_check.mjs --json --summary
+node tools/crdd_check.mjs --references <PATH> --summary
+```
+
+CRDD本体を`00_CRDD/`へGitサブモジュールとして配置し、チェッカーをプロジェクトルートへコピーしていない場合は、プロジェクトルートから対象ルートを明示して実行する。
+
+```text
+node 00_CRDD/template/tools/crdd_check.mjs --root . --json --summary
+```
+
+この配置では、`00_CRDD/`を採用済み基準の境界として扱う。適用先文書から基準文書へのリンクとアンカーは確認するが、基準文書の内部ファイル全体をプロジェクト所有ファイルへ混在させない。確認対象から外した基準文書内部は未確認範囲として表示する。基準文書自体を確認するときは`--root 00_CRDD`で別に実行し、適用先の`--scope`でサブモジュール境界をまたがない。リポジトリ確認ではシンボリックリンクとジャンクションをたどらず、該当対象を拒否するか未確認範囲として表示する。
+
+`--scope`を指定しない場合はリポジトリ全体を確認する。独立レビュー、監査集合、リリース準備では、これを既定とする。`--scope <PATH>`は、修正途中など、明示的に限定した中間確認だけに使用する。範囲指定時も、直接の参照元・参照先へ確認範囲を広げ、基本構造や明示された安定コンテキストIDの一意性等の全体不変条件を確認し、未確認範囲を表示する。範囲指定結果を全体確認済みとして扱わない。
+
+親エージェントは、対象範囲、対象改訂版、チェッカーの改訂版、指摘、実行できなかった確認、実行時点、確認件数を共通入力として各確認者へ渡す。確認者は、結果がない、失効している、不足している、または対象範囲が異なる場合を除き、同じ機械確認を繰り返さない。対象ファイル、対象範囲またはチェッカーを変更した場合は、親エージェントが新しい改訂版へ一度再実行する。
+
+チェッカーはAIの確認負荷を減らす補助であり、準拠を決める正本ではない。Node.jsまたは配布実装を利用できない場合は、AIが同等の確認を行い、未確認事項を示せばよい。チェッカーの合格は、独立レビュー、専門品質確認またはCRDD監査を代替しない。
+
 ### 主要な運用境界
 
 - `00_CRDD/`内の正本文書名は`01_Principles.md`、`27_Architecture.md`のように二桁の文書番号を一度だけ使用し、フォルダ番号を重ねた`00_01_*`、`00_27_*`にはしない。文書番号は安定コンテキストIDではない。標準の安定コンテキストIDは`REQ`、`UX`、`IA`、`UI`、`SPEC`に限定する。`CHG-*`は変更トレースの成果物IDであり、プロダクトコンテキストの安定IDではない。
@@ -349,8 +464,9 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 - 新しい根拠、不確実性、要求は`01_Discovery`へ置く。未採用の入力を後から再検討するため、候補ファイル、識別子、固定状態を必須にせず任意に保持してよい。`99_Roadmap`は未完了作業の登録簿とし、アイデア、延期した要求、不具合、技術負債、移行、未解決の監査指摘、進行中の変更トレースの存在、現在状態、参照先を横断して索引する。意味、根拠、判断理由は責務を持つ正本成果物へ残す。登録簿への登録だけでは、採用、優先順位の確定、実行の許可を意味しない。ロードマップ項目へCRDD安定コンテキストIDを付与しない。
 - 課題探索・要求形成からアーキテクチャまでは、[文書化](03_Documentation.md#31-basic-structure)が定める工程ごとの固定入口を使用する。リスクや複雑性が変わっても入口名や基本のファイル分割を変えず、同じ入口内の記述、レビュー、根拠、詳細参照の深さを調整する。固定入口はリンクだけの索引ではなく、工程全体の対象範囲、網羅状態、主要な結論と判断、検証義務、未解決事項、次工程への義務を直接示す。詳細な正本成果物の内容は複製せず、決定権限、改訂版、現在状態、参照を示す。
 - `40_Develop`にはコード、構成、移行、ビルド定義、テストを置き、CRDD管理用Markdownを置かない。
-- `08_Quality`には品質戦略、検証設計、確定済み検証結果とQuality Centerを置く。検証義務や根拠を中央へ複製しない。CIやテスト実行ツールを使っても、品質状態、判断理由、未検証範囲、残存リスク、再現方法はリポジトリ内から理解できるようにし、外部リンクや実行IDだけを品質保証記録にしない。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外ごとに対象、残るリスク、代替確認、担当責任者、再確認条件を明示する。
-- `07_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
+- `07_Quality`には品質戦略、検証設計、確定済み検証結果とQuality Centerを置く。検証義務や根拠を中央へ複製しない。CIやテスト実行ツールを使っても、品質状態、判断理由、未検証範囲、残存リスク、再現方法はリポジトリ内から理解できるようにし、外部リンクや実行IDだけを品質保証記録にしない。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外ごとに対象、残るリスク、代替確認、担当責任者、再確認条件を明示する。
+- `19_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
+- 独立レビューまたは監査集合の前に、親AIエージェントが固定した対象改訂版へ`node tools/crdd_check.mjs`または同等の機械確認を一度実行し、結果を共有する。配布実装の利用は任意であり、文書監査、専門品質確認、準拠監査または不足／影響監査を代替しない。
 - ガバナンス、セキュリティ、プライバシー、アクセシビリティ、互換性、処理能力、コストは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
 - CRDD正本文書は読者の主要ロケールを優先する。用語は初出時に日本語表示名と正式英語名を併記し、その後の説明文、見出し、説明用の表では日本語表示名を基本とする。正式英語名は共通の別名として保持し、安定コンテキストID、エージェントID、ファイル名、スキーマのキー／値、コードは翻訳しない。規範強度を曖昧にできない箇所では、BCP 14キーワードを併記する。
 

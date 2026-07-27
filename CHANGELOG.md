@@ -9,6 +9,41 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0100-en"></a>
+
+### v0.10.0 — Pre-1.0 Structure, Human Guidance, and Deterministic Checks (2026-07-27)
+
+**This release contains breaking changes.** It finalizes the pre-v1.0 placement of cross-phase quality artifacts and repository-specific workflows, makes AI route selection visible to humans, preserves all canonical terminology while adding reading classifications, and adds an optional deterministic checker. Migration is required for projects using the v0.9.0 template paths.
+
+Compared with v0.9.0:
+
+- Renames the fixed quality-assurance folder from `08_Quality` to `07_Quality`. The Quality Center, Quality Strategy, Verification Design, and immutable Verification Results keep the same responsibilities; the change places cross-phase quality before optional operational areas without treating quality as a post-implementation phase.
+- Renames `07_Workflows` to `19_Workflows`. Repository-specific repeatable procedures remain separate from product context, Change Traces, Release Records, agents, and skills. Positions `08` through `18` are reserved for future cross-phase artifacts or shared operational areas and are not created by the standard template.
+- Updates canonical documents, conformance criterion PL-16, phase templates, distributed AI adapters, examples, and current public guidance to use `07_Quality` and `19_Workflows`. Historical CHANGELOG entries retain the paths used by their releases.
+- Keeps every canonical term and definition in `02_Terminology.md`. Adds reading classifications—core, supporting, and display/derived—to help people and AI choose a reading order without weakening, deleting, or turning supporting terms into informal aliases.
+- Adds a human-readable change-route table to `00_Overview.md`. It connects common change types to affected phases, independent review, Document Audit, Conformance Audit, Gap / Impact Audit, baseline adoption, verification, and Human release authority without creating a new source of authority.
+- Extends `10_Agent.md`, conformance criterion AD-02, and the root and distributed `AGENTS.md` entry points so AI shows the proposed change classification, affected or reopened phases and shared responsibilities, selected independent review and audits, major audits not selected and why, and remaining Human decisions.
+- Adds a bilingual “What humans need to know” section to README. Humans can start with five responsibilities and a small input contract while AI selects canonical context, compares alternatives, maintains verification obligations, and returns an inspectable route.
+- Adds the Node.js standard-library-only `template/tools/crdd_check.mjs` reference implementation, with no external package dependencies, so adopting projects receive the checker with the template. Full-repository checking is the default; explicit `--scope` checks retain repository-wide invariants, expand to direct Markdown references, and report unchecked areas. The checker uses Git's tracked and non-ignored untracked file set when available, reports exclusions and unperformed checks, rejects invalid targets and options, and does not read links outside the target repository. When `00_CRDD/` is an adopted-baseline submodule, it validates project links and anchors into that baseline without mixing all baseline internals into the project-owned file set, and reports the omitted internals as unchecked. Summary output records execution time and checked counts, reference-map output helps AI select semantic reading targets, and deterministic checks cover Stable Context IDs in filenames, duplicate explicit ID definitions, Change Trace placement, and branch-coverage numerator / denominator / percentage arithmetic where numeric values are present. Before independent review or an audit set, the parent AI runs it once for the fixed target revision and shares the result; reviewers repeat it only when the result is missing, stale, incomplete, or for a different scope. The root `tools/crdd_check.mjs` invokes the distributed implementation for CRDD-standard maintenance. A tool pass does not replace semantic review or any CRDD audit, and use of this implementation is not a conformance requirement.
+- Prevents the checker from following symbolic links or junctions during discovery, link and anchor checking, scope selection, reference-map generation, canonical-document inspection, or structure inspection. Adds a real Git-submodule integration test and rejects an uninitialized `00_CRDD` submodule instead of reporting a successful project check.
+- Does not add a phase, Stable Context ID type, mandatory tool, audit, approval stage, or canonical artifact. Folder numbers do not define a waterfall or authority priority.
+
+Migration note (v0.9.0 → v0.10.0):
+
+- Classification / migration required: `change_classification: breaking`, `migration_required: true`.
+- Required: move `08_Quality/` to `07_Quality/`; move `07_Workflows/` to `19_Workflows/`; update project-owned references, AI adapters, workflow procedures, QA references, scripts, and external links; do not create standard folders for `08` through `18`; run link and anchor checks; review C-02 and PL-16, and AD-01 / AD-02 when the Agentic Delivery Profile applies, before recording a `Conformant` claim against v0.10.0.
+- Conditional: update generated views, CI configuration, prompts, or external-tool paths only where they reference the old folders. Existing content and history inside the moved folders are retained; the move does not require rewriting QA meaning or workflow content.
+- Out of scope: no new QA source of truth, workflow state model, Stable Context ID, mandatory Python runtime, third approval, or universal audit bundle is introduced.
+- Verification: run `node tools/crdd_check.mjs` or equivalent deterministic checks, then Document Audit for current references, folders, versions, terminology classification, README, adapters, and templates; Gap / Impact Audit for adopter migration and cross-artifact path effects; Conformance Audit for the affected criteria when a v0.10.0 conformance claim is made.
+  - Reference-checker quality record — target revision: the v0.10.0 release candidate described by this entry; measurement target: `template/tools/crdd_check.mjs`; environment and command: Node.js v22.18.0 built-in V8 coverage on Windows, `node --test --experimental-test-coverage --test-reporter=lcov tools/crdd_check.test.mjs`.
+  - Result: 68 tests passed; line coverage was 1,274 / 1,274 (100%); branch coverage was 199 / 199 (100%). No source, line, or branch was removed from the coverage denominator.
+  - Test design: ordinary fixtures cover supported repository modes and output paths. A test-only Node.js preload injects filesystem races, metadata failures, special filesystem objects, Git discovery failures, and unsafe Git file lists at the child-process boundary. Fallback discovery records the affected path as both an error and an unchecked area when a directory disappears, changes type, becomes a link, is replaced, or cannot be read; it does not convert an empty scan into success. The distributed checker does not import the injector and retains no test-only runtime switch or external package dependency.
+  - Residual scope and reevaluation: 100% structural coverage does not prove semantic correctness or every operating-system implementation. Real Git-submodule and Windows-junction integration tests supplement the injected failures, and independent Document, Conformance, and Gap / Impact audits remain required before release. Rerun the full suite and coverage measurement after checker, Git-discovery, filesystem-boundary, output-contract, supported Node.js, or supported operating-system changes.
+- Rollback / recovery: keep v0.9.0 active until both folders and all affected references are migrated and the Migration Completeness bar is met.
+- Known risk if deferred: quality artifacts or workflow procedures may become undiscoverable, AI may write to obsolete paths, and a repository may claim v0.10.0 while still using the v0.9.0 structure.
+
+---
+
 <a id="changelog-v090-en"></a>
 
 ### v0.9.0 — Specialist Quality Review, Cross-phase Quality Assurance, and Stable Phase Entries (2026-07-27)
@@ -385,6 +420,41 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0100-ja"></a>
+
+### v0.10.0 — v1.0前構造整理・人間向け案内・機械確認（2026-07-27）
+
+**このリリースは破壊的変更を含む。** v1.0前に、工程横断の品質保証成果物とリポジトリ固有作業手順の配置を確定し、AIが選択する変更経路を人間から確認可能にした。全正式用語を保持したまま読取り分類を追加し、任意の決定論的チェッカーを追加した。v0.9.0のひな型パスを使用するプロジェクトでは移行が必要である。
+
+v0.9.0からの変更:
+
+- 品質保証の固定フォルダを`08_Quality`から`07_Quality`へ変更した。Quality Center、品質戦略、検証設計、確定済み検証結果の責務は変えず、品質保証を実装後の工程として扱うことなく、任意の運用領域より前へ配置した。
+- `07_Workflows`を`19_Workflows`へ変更した。リポジトリ固有の反復可能な作業手順は、プロダクトコンテキスト、変更トレース、リリース記録、エージェント、スキルから分離したままとする。`08`〜`18`は将来の工程横断成果物または共通運用領域のために予約し、標準ひな型では作成しない。
+- 正本文書、準拠基準PL-16、工程ひな型、配布用AI入口、例、現在の公開案内を`07_Quality`と`19_Workflows`へ追従させた。過去のCHANGELOGは各リリースで使用したパスを維持する。
+- `02_Terminology.md`の正式用語と定義を一つも削除せず、中核概念、補助概念、表示／派生概念の読取り分類を追加した。分類は人間とAIが読む順序を選ぶためのものであり、補助用語の正式性や意味を弱めない。
+- `00_Overview.md`へ人間向けの変更経路判断表を追加した。よくある変更種類から、影響工程、独立レビュー、文書監査、準拠監査、不足／影響監査、基準版採用、検証、人間のリリース決定権限へ接続する。新しい決定権限は作らない。
+- `10_Agent.md`、準拠基準AD-02、ルートと配布用の`AGENTS.md`を更新し、AIが変更分類、影響または再開する工程と共通責務、実行する独立レビューと監査、実行しない主な監査と理由、残る人間判断を示すようにした。
+- READMEへ日英の「人間が知っておくこと」を追加した。人間は五つの責務と小さな入力契約から開始でき、AIは正本コンテキストの選択、代替案比較、検証義務の維持、確認可能な経路の提示を担当できる。
+- Node.js標準ライブラリだけで動作し、外部パッケージを必要としない参照実装`template/tools/crdd_check.mjs`を追加し、採用プロジェクトへひな型と一緒に配布する。リポジトリ全体の確認を既定とし、明示的な`--scope`では全体不変条件を維持しながら直接のMarkdown参照へ範囲を広げ、未確認範囲を表示する。Gitを利用できる場合は追跡対象と無視されていない未追跡ファイルを確認対象とし、除外範囲と未実施項目を表示する。不正な対象やオプションを成功扱いせず、対象リポジトリ外のリンク先を読み取らない。`00_CRDD/`が採用済み基準のサブモジュールである場合は、適用先から基準文書へのリンクとアンカーを確認しながら、基準文書内部の全ファイルを適用先の所有ファイル集合へ混在させず、除外した内部範囲を未確認として表示する。実行時点と確認件数をサマリーへ出力し、参照関係表示によってAIが意味確認の読取り対象を絞れるようにした。安定コンテキストIDを含むファイル名、明示されたID定義の重複、変更トレースの配置、および数値が記載された分岐網羅率の分母・分子・割合も決定論的に確認する。独立レビューまたは監査集合の前に、親AIが固定した対象改訂版へ一度実行して結果を共有し、結果がない、失効している、不足している、または対象範囲が異なる場合を除き、各確認者は同じ機械確認を繰り返さない。ルートの`tools/crdd_check.mjs`はCRDD標準保守時に配布実装を呼び出す。ツールの合格は意味レビューまたはCRDD監査を代替せず、配布実装の利用を準拠条件にしない。
+- チェッカーがファイル探索、リンク／アンカー確認、範囲指定、参照関係表示、正本文書確認、構造確認でシンボリックリンクまたはジャンクションをたどらないようにした。実物のGitサブモジュールを使う統合試験を追加し、未初期化の`00_CRDD`サブモジュールを適用先確認の成功として扱わない。
+- 新しい工程、安定コンテキストID種別、必須ツール、監査、承認段階、正本成果物は追加していない。フォルダ番号はウォーターフォールまたは決定権限の優先度を表さない。
+
+移行注記（v0.9.0 → v0.10.0）:
+
+- 分類／移行要否: `change_classification: breaking`、`migration_required: true`。
+- 必須: `08_Quality/`を`07_Quality/`へ、`07_Workflows/`を`19_Workflows/`へ移動する。プロジェクト所有の参照、AI入口、作業手順、品質保証参照、スクリプト、外部リンクを更新する。`08`〜`18`をCRDD標準フォルダとして作成しない。リンクとアンカーを確認する。v0.10.0への`Conformant`表明前にC-02とPL-16を、エージェント型提供プロファイルを使用する場合はAD-01とAD-02も再評価する。
+- 条件付き: 旧フォルダを参照する場合だけ、生成表示、CI設定、指示文、外部ツールのパスを更新する。移動するフォルダ内の既存内容と履歴は保持し、品質保証または作業手順の意味を書き直す必要はない。
+- 対象外: 新しい品質保証正本、作業フロー状態モデル、安定コンテキストID、必須Python実行環境、第三の承認、全監査の一律実行は導入しない。
+- 検証: `node tools/crdd_check.mjs`または同等の決定論的確認を行う。現在参照、フォルダ、版、用語分類、README、AI入口、ひな型について文書監査を行う。採用側の移行と成果物横断パス影響について不足／影響監査を行う。v0.10.0の準拠を表明する場合は影響する基準を準拠監査する。
+  - 参照チェッカーの品質記録 — 対象改訂版: 本項目が示すv0.10.0リリース候補。測定対象: `template/tools/crdd_check.mjs`。環境とコマンド: Windows上のNode.js v22.18.0組み込みV8カバレッジ、`node --test --experimental-test-coverage --test-reporter=lcov tools/crdd_check.test.mjs`。
+  - 結果: 68件の試験に合格した。行網羅率は1,274 / 1,274（100%）、分岐網羅率は199 / 199（100%）だった。測定分母から除外したソース、行、分岐はない。
+  - 試験設計: 通常の試験用リポジトリで、対応する配置方式と出力経路を確認する。試験専用のNode.js事前読込により、ファイルシステム上の競合、メタデータ障害、特殊ファイル、Git探索失敗、安全でないGitファイル一覧を子プロセス境界へ注入する。フォールバック探索中にフォルダが消失、型変更、リンク化、置換または読取不能となった場合は、対象パスをエラーと未確認範囲の両方へ記録し、空の確認結果を成功へ変換しない。配布用チェッカーはこの注入器を読み込まず、試験専用の実行時切替や外部パッケージ依存を持たない。
+  - 残る範囲と再評価: 構造的な網羅率100%は、意味上の正しさまたは全OS実装を単独で証明しない。実物のGitサブモジュールとWindowsジャンクションを使う統合試験で障害注入を補い、リリース前の独立した文書監査、準拠監査、不足／影響監査を引き続き必要とする。チェッカー、Git探索、ファイルシステム境界、出力契約、対応Node.js、対応OSを変更した後は、全試験と網羅率測定を再実行する。
+- 切戻し／復旧: 両フォルダと影響参照の移行、および移行完了の条件を満たすまでv0.9.0を有効な基準版として維持する。
+- 延期時の既知リスク: 品質保証成果物または作業手順を発見できず、AIが旧パスへ書き込み、v0.9.0構造のままv0.10.0への準拠を表明する可能性がある。
+
+---
 
 <a id="changelog-v090-ja"></a>
 

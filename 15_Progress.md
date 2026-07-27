@@ -2,7 +2,7 @@
 
 # CRDD進捗管理（Progress）
 
-Version: v0.9.0
+Version: v0.10.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-27

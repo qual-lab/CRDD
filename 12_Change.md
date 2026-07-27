@@ -2,7 +2,7 @@
 
 # CRDD変更トレース（Change Trace）
 
-Version: v0.9.0
+Version: v0.10.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-27
@@ -155,7 +155,7 @@ CHG-<順序>_<SHORT_NAME>.md
 
 `Changes/`、`Evidence/`、`CHG-*`は配置・識別のための名前であり、本文言語を指定しない。CHG本文と、新たに作成する根拠の説明・要約は、[文書化のロケール規則](03_Documentation.md#481-locale-first-display)に従い、プロジェクトまたは対象成果物の主要ロケールで記述する。外部根拠の原文、ファイル名、成果物ID、スキーマ実値は翻訳しない。
 
-`07_Workflows`や`40_Develop`へCHG Markdownを置かない。
+`19_Workflows`や`40_Develop`へCHG Markdownを置かない。
 
 ---
 

@@ -1,6 +1,6 @@
 # CRDDスキル（Skill）
 
-Version: v0.9.0
+Version: v0.10.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-27
@@ -554,7 +554,7 @@ handoff:
   quality_assurance:
     obligation_references:
       - UX-000004#verification-obligations
-    verification_design_reference: 08_Quality/Verification_Design.md
+    verification_design_reference: 07_Quality/Verification_Design.md
     unresolved_verification_viewpoints:
       - Secondary actor journey
   open_questions:

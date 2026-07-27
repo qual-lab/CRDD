@@ -2,7 +2,7 @@
 
 # CRDD作業フロー（Workflow）
 
-Version: v0.9.0
+Version: v0.10.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-27
@@ -19,7 +19,7 @@ Related:
 
 > この文書で分かること（非規範の案内）
 >
-> - `07_Workflows`へ何を置くか
+> - `19_Workflows`へ何を置くか
 > - 作業手順と規則、変更トレース、リリース記録の違い
 > - 反復手順に必要な契機、入力、確認、停止条件
 > - 作業手順の結果をどの正本へ返すか
@@ -28,13 +28,13 @@ Related:
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、`07_Workflows`へ置くリポジトリ内の作業フロー文書の責務を定義する。
+本書は、`19_Workflows`へ置くリポジトリ内の作業フロー文書の責務を定義する。
 
 作業手順は、このリポジトリで反復して行う作業の順序、入力、実行条件、確認、停止、引き渡しを示す運用上ガイドである。プロダクトコンテキスト、変更トレース、リリース記録、コード、エージェント / スキルの共通規範を置き換えない。
 
 ---
 
-# 2. `07_Workflows`に置くもの
+# 2. `19_Workflows`に置くもの
 
 次のようなリポジトリ固有の作業フローを置ける。
 
@@ -65,7 +65,7 @@ CHG-* 変更トレース
 # 3. 配置と命名
 
 ```text
-07_Workflows/
+19_Workflows/
 ├─ 01_Document_Review.md
 ├─ 02_Release_Preparation.md
 └─ Evidence/
