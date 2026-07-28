@@ -2,14 +2,16 @@
 
 # CRDD変更トレース（Change Trace）
 
-Version: v0.10.0
+Version: v0.11.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-27
+Last Updated: 2026-07-28
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [03_Documentation.md](03_Documentation.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
 - [13_Release.md](13_Release.md)
 - [15_Progress.md](15_Progress.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
@@ -44,6 +46,8 @@ Related:
 ```
 
 変更トレースは工程、作業管理、実装計画、コミット一覧、プルリクエスト説明、リリースCHANGELOGの代替ではない。これらを成果物参照で接続し、変更の意味と影響範囲をリリースから遡れるようにする。
+
+変更トレース、レビューまたは監査の指摘事項から人間による判断が必要になっても、指摘事項やトレース項目をそのまま質問へ変換しない。フロントまたは親エージェントは、[エージェントの判断と操作の境界](10_Agent.md#31-decision-boundary)に従って事項を分類し、人間による判断だけを[判断支援契約](11_Skill.md#53-decision-support-contract)に従って提示する。AIが承認済み範囲で一意に修正できる事項を、不要な人間判断へ転嫁しない。
 
 | 懸念 | 決定権限 |
 |---|---|

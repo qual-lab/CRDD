@@ -9,6 +9,37 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0110-en"></a>
+
+### v0.11.0 — Human Decision Presentation and Audit Finding Synthesis (2026-07-28)
+
+This release strengthens the existing decision-support and audit-aggregation contracts. It does not add a phase, artifact, Stable Context ID, audit type, or competing source of truth.
+
+Compared with v0.10.0:
+
+- Makes the first Human-facing decision view lead with what must be decided, the AI recommendation, why the decision is needed now, what changes for users, business, product, delivery, cost, and risk, the recommendation's main drawback, and what remains if it is deferred or rejected.
+- Keeps Change Trace references, audit names, finding IDs, target revisions, affected canonical artifacts, reopened phases, and re-audit details traceable without making them the center of the initial decision view.
+- Prevents progressive disclosure from hiding material safety, security, privacy, legal, irreversibility, uncertainty, residual-risk, or authority-conflict information.
+- Limits a simple Yes / No confirmation to genuinely binary decisions whose main drawback and rejection effect have already been explained. Conditional recommendations and independently selectable matters remain separate choices.
+- Requires the parent agent to classify audit, review, and Change Trace outcomes into deterministic AI remediation, genuine Human decisions, and report-only information before asking a Human.
+- Allows findings to be grouped into one Human decision only when they share the same root cause, decision authority, decision timing, and inseparable adoption outcome. The relationship from the decision back to every source finding and affected artifact remains traceable.
+- Updates Agentic Delivery conformance criteria AD-17 and AD-20, the official and distributed AI adapters, and the public Human guide to carry the same behavior without duplicating the canonical contracts.
+- Corrects the optional reference checker so the CRDD official repository may keep its own Change Traces under root `90_Release/Changes/` while still accepting distributed template Change Traces under `template/90_Release/Changes/`. Adopting repositories continue to use root `90_Release/Changes/`.
+- Reference-checker quality record — target revision: the v0.11.0 release candidate described by this entry; measurement target: `template/tools/crdd_check.mjs`; environment and command: Node.js v22.18.0 built-in V8 coverage on Windows, `node --test --experimental-test-coverage --test-reporter=lcov tools/crdd_check.test.mjs`.
+- Result: 69 tests passed; line coverage was 1,277 / 1,277 (100%); branch coverage was 201 / 201 (100%). Five consecutive measurements produced the same result. No source, line, or branch was removed from the coverage denominator.
+
+Adoption impact: this is a normative, non-structural change. Existing product artifacts, folder layouts, Stable Context IDs, and schemas do not require bulk rewriting. Adopting projects must update their AI entry points, prompts, skills, or equivalent operating instructions so future Human decisions—especially those produced from CHG work, reviews, or integrated audits—use the new presentation and synthesis rules.
+
+Migration note (v0.10.0 → v0.11.0):
+
+- `migration_required: true`
+- `change_classification: normative`
+- Required: update AI-facing instructions that present Human decisions or forward review / audit findings; ensure deterministic remediation is not delegated to Humans, independently selectable decisions are not bundled, and CRDD execution details remain traceable behind the decision summary.
+- Conditional: revise reusable prompt templates, agent definitions, skills, or workflow documents only where they currently expose findings one by one, lead with internal CRDD metadata, use unexplained technical choices, or reduce non-binary decisions to Yes / No.
+- Not required: rename or move project folders, rewrite existing canonical product artifacts, issue new Stable Context IDs, introduce a new decision artifact, or re-run completed inactive audits solely because of this release.
+- Verification: exercise representative Human decisions produced from a CHG, a standalone review, and an integrated audit; confirm the initial view is impact-first, the source findings remain traceable, material risks are not hidden, and AD-17 / AD-20 are re-evaluated before a v0.11.0 Agentic Delivery conformance claim.
+- Known risk if deferred: front AI may continue exposing audit and repository-internal detail at the same granularity as Human choices, increasing cognitive load and encouraging uninformed, bundled, or unnecessary decisions.
+
 <a id="changelog-v0100-en"></a>
 
 ### v0.10.0 — Pre-1.0 Structure, Human Guidance, and Deterministic Checks (2026-07-27)
@@ -420,6 +451,37 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0110-ja"></a>
+
+### v0.11.0 — 人間判断提示・監査指摘統合（2026-07-28）
+
+本リリースは、既存の判断支援契約と複数監査の統合契約を強化する。新しい工程、成果物、安定コンテキストID、監査種類、競合する正本は追加しない。
+
+v0.10.0からの変更:
+
+- 人間への最初の判断表示を、今回決めること、AIの推奨、なぜ今必要か、利用者・業務・プロダクト・計画・費用・リスクへの変化、推奨の主な短所、保留または不採用時に残る問題の順で示す。
+- 変更トレース参照、監査名、指摘事項ID、対象改訂版、影響する正本、再開工程、再監査詳細を追跡可能に保ちつつ、最初の判断表示の中心にしない。
+- 段階的な情報開示によって、安全性、セキュリティ、プライバシー、法務、不可逆性、強い不確実性、残存リスク、決定権限の競合を隠すことを禁止する。
+- 単純なYes／No確認を、実質的に二値で、主な短所と不採用時の影響を説明済みの判断へ限定する。条件付き推奨や別々に採否できる事項は分離する。
+- 親エージェントが、監査、レビュー、変更トレース上の事項を、AIが一意に修正できる事項、人間による判断が必要な事項、報告のみの事項へ分類してから人間へ提示する。
+- 同じ根本原因、決定権限者、判断時点、不可分な採否を持つ指摘だけを一つの人間判断へ統合できるようにする。判断から元の全指摘事項と影響する成果物への関係は保持する。
+- エージェント型提供プロファイルの準拠基準AD-17／AD-20、公式・配布AI入口、人間向け公開案内へ同じ挙動を伝播し、判断支援の正本は増やさない。
+- 任意の参照チェッカーを修正し、CRDD公式リポジトリ自身の変更トレースをルートの`90_Release/Changes/`へ、配布ひな型の変更トレースを`template/90_Release/Changes/`へ置けるようにする。採用リポジトリは従来どおりルートの`90_Release/Changes/`を使用する。
+- 参照チェッカーの品質記録 — 対象改訂版: 本項目が示すv0.11.0リリース候補。測定対象: `template/tools/crdd_check.mjs`。環境とコマンド: Windows上のNode.js v22.18.0組み込みV8カバレッジ、`node --test --experimental-test-coverage --test-reporter=lcov tools/crdd_check.test.mjs`。
+- 結果: 69件の試験に合格した。行網羅率は1,277 / 1,277（100%）、分岐網羅率は201 / 201（100%）だった。5回連続で同じ結果を再現した。測定分母から除外したソース、行、分岐はない。
+
+採用への影響: 本リリースは構造を変えない規範変更である。既存のプロダクト成果物、フォルダ構成、安定コンテキストID、スキーマを一括して書き換える必要はない。採用プロジェクトは、今後の人間判断、特にCHG作業、レビューまたは統合監査から生じる判断へ新しい提示・統合規則を適用できるよう、AI入口、プロンプト、スキルまたは同等の運用指示を更新する。
+
+移行注記（v0.10.0 → v0.11.0）:
+
+- `migration_required: true`
+- `change_classification: normative`
+- 必須: 人間判断を提示する、またはレビュー／監査指摘を転送するAI向け指示を更新する。AIが一意に修正できる事項を人間へ転嫁せず、別々に採否できる判断を束ねず、CRDD実行詳細を判断要約から追跡できるようにする。
+- 条件付き: 指摘事項を一件ずつ提示する、CRDD内部情報から説明を始める、説明のない専門的選択肢を示す、または非二値の判断をYes／Noへ縮約する、再利用可能なプロンプト、エージェント定義、スキル、作業手順だけを改訂する。
+- 不要: プロジェクトフォルダの改名・移動、既存の正本プロダクト成果物の一括書換え、新しい安定コンテキストIDの発行、新しい判断成果物の導入、本リリースだけを理由とする完了済み・非活動監査の再実行。
+- 検証: CHG、単独レビュー、統合監査から生じる代表的な人間判断を確認し、初期表示が影響中心であること、元の指摘事項へ追跡できること、重大情報が隠れていないことを確認する。v0.11.0に対するエージェント型提供プロファイル準拠表明の前にAD-17／AD-20を再評価する。
+- 延期時の既知リスク: フロントAIが監査情報やリポジトリ内部情報を人間判断と同じ粒度で提示し続け、認知負荷が高まり、十分に理解されない判断、抱き合わせ判断、不要な判断転嫁を招く可能性がある。
 
 <a id="changelog-v0100-ja"></a>
 

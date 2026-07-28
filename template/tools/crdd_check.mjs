@@ -962,10 +962,13 @@ for (const file of allFiles) {
     );
   }
   if (/^CHG-[^.]+\.md$/u.test(path.basename(file))) {
-    const expected = repositoryMode === "official"
-      ? path.join(root, "template", "90_Release", "Changes")
-      : path.join(root, "90_Release", "Changes");
-    if (!isWithin(expected, file)) {
+    const expected = [
+      path.join(root, "90_Release", "Changes"),
+      ...(repositoryMode === "official"
+        ? [path.join(root, "template", "90_Release", "Changes")]
+        : []),
+    ];
+    if (!expected.some((directory) => isWithin(directory, file))) {
       add(
         "error",
         "change-trace-placement",

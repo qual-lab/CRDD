@@ -206,6 +206,20 @@ test("変更トレースの誤配置を検出する", () => {
   );
 });
 
+test("公式リポジトリ自身の変更トレースを正規配置として扱う", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.11.0\n");
+  write(path.join(root, "README.md"), "Status: v0.11.0\n");
+  write(
+    path.join(root, "90_Release", "Changes", "CHG-000001.md"),
+    "# change\n",
+  );
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report?.findings));
+  assert.equal(result.report.findings.length, 0);
+});
+
 test("参照関係を重複回数付きで集約する", () => {
   const root = fixture();
   makeStructure(root);
