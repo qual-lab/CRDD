@@ -415,16 +415,207 @@ function discoverProjectFiles() {
   };
 }
 
+function markdownCodePointBefore(value, index) {
+  return Array.from(value.slice(0, index)).at(-1) ?? "";
+}
+
+function markdownCodePointAfter(value, index) {
+  return Array.from(value.slice(index)).at(0) ?? "";
+}
+
+function markdownWhitespace(value) {
+  return value === "" || /[\t\n\f\r\p{Zs}]/u.test(value);
+}
+
+function markdownPunctuation(value) {
+  return (
+    value !== "" &&
+    (/\p{P}/u.test(value) ||
+      /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/u.test(value))
+  );
+}
+
+function underscoreFlanking(value, index, length) {
+  const previous = markdownCodePointBefore(value, index);
+  const next = markdownCodePointAfter(value, index + length);
+  const previousWhitespace = markdownWhitespace(previous);
+  const nextWhitespace = markdownWhitespace(next);
+  const previousPunctuation = markdownPunctuation(previous);
+  const nextPunctuation = markdownPunctuation(next);
+  return {
+    left:
+      !nextWhitespace &&
+      (!nextPunctuation || previousWhitespace || previousPunctuation),
+    right:
+      !previousWhitespace &&
+      (!previousPunctuation || nextWhitespace || nextPunctuation),
+    previousPunctuation,
+    nextPunctuation,
+  };
+}
+
+function underscoreCanOpen(value, index, length) {
+  const flanking = underscoreFlanking(value, index, length);
+  return (
+    flanking.left &&
+    (!flanking.right || flanking.previousPunctuation)
+  );
+}
+
+function underscoreCanClose(value, index, length) {
+  const flanking = underscoreFlanking(value, index, length);
+  return (
+    flanking.right &&
+    (!flanking.left || flanking.nextPunctuation)
+  );
+}
+
+function delimiterRunLength(value, start, character) {
+  let end = start;
+  while (value[end] === character) end += 1;
+  return end - start;
+}
+
+function closingDelimiter(value, delimiter, start) {
+  const underscore = delimiter.startsWith("_");
+  let index = value.indexOf(delimiter, start);
+  while (index >= 0) {
+    const exactRun =
+      !underscore ||
+      delimiterRunLength(value, index, "_") === delimiter.length;
+    if (
+      exactRun &&
+      (!underscore || underscoreCanClose(value, index, delimiter.length))
+    ) {
+      return index;
+    }
+    index = value.indexOf(delimiter, index + 1);
+  }
+  return -1;
+}
+
+function backtickRunLength(value, start) {
+  let end = start;
+  while (value[end] === "`") end += 1;
+  return end - start;
+}
+
+function closingBackticks(value, start, length) {
+  let index = start;
+  while (index < value.length) {
+    if (value[index] !== "`") {
+      index += 1;
+      continue;
+    }
+    const candidateLength = backtickRunLength(value, index);
+    if (candidateLength === length) return index;
+    index += candidateLength;
+  }
+  return -1;
+}
+
+function normalizedCodeSpan(value) {
+  const normalized = value.replace(/[ \t\r\n]+/gu, " ");
+  if (/^ \S(?:.*\S)? $/u.test(normalized)) {
+    return normalized.slice(1, -1);
+  }
+  return normalized;
+}
+
+function githubHeadingText(value) {
+  let result = "";
+  let index = 0;
+  while (index < value.length) {
+    if (
+      value[index] === "\\" &&
+      index + 1 < value.length &&
+      /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/u.test(value[index + 1])
+    ) {
+      result += value[index + 1];
+      index += 2;
+      continue;
+    }
+
+    if (value[index] === "`") {
+      const length = backtickRunLength(value, index);
+      const close = closingBackticks(value, index + length, length);
+      if (close >= 0) {
+        result += normalizedCodeSpan(value.slice(index + length, close));
+        index = close + length;
+        continue;
+      }
+    }
+
+    const html = value.slice(index).match(/^<\/?[A-Za-z][^>]*>/u);
+    if (html) {
+      index += html[0].length;
+      continue;
+    }
+
+    const image = value.startsWith("![", index);
+    if (image || value[index] === "[") {
+      const labelStart = index + (image ? 2 : 1);
+      const labelEnd = value.indexOf("]", labelStart);
+      if (labelEnd >= 0) {
+        const targetStart = labelEnd + 1;
+        const targetOpen = value[targetStart];
+        const targetClose = targetOpen === "(" ? ")" : targetOpen === "[" ? "]" : "";
+        const targetEnd = targetClose
+          ? value.indexOf(targetClose, targetStart + 1)
+          : -1;
+        if (targetEnd >= 0) {
+          result += githubHeadingText(value.slice(labelStart, labelEnd));
+          index = targetEnd + 1;
+          continue;
+        }
+      }
+    }
+
+    let delimiter = "";
+    if (value[index] === "_") {
+      const length = delimiterRunLength(value, index, "_");
+      if (length > 2) {
+        result += value.slice(index, index + length);
+        index += length;
+        continue;
+      }
+      delimiter = "_".repeat(length);
+    } else {
+      delimiter = ["**", "~~", "*"].find((item) =>
+        value.startsWith(item, index)
+      ) ?? "";
+    }
+    if (
+      delimiter &&
+      (!delimiter.startsWith("_") ||
+        underscoreCanOpen(value, index, delimiter.length))
+    ) {
+      const close = closingDelimiter(
+        value,
+        delimiter,
+        index + delimiter.length,
+      );
+      if (close >= 0) {
+        result += githubHeadingText(
+          value.slice(index + delimiter.length, close),
+        );
+        index = close + delimiter.length;
+        continue;
+      }
+    }
+
+    result += value[index];
+    index += 1;
+  }
+  return result;
+}
+
 function githubAnchor(value) {
-  return value
-    .replace(/<[^>]+>/g, "")
-    .replace(/`([^`]*)`/g, "$1")
+  return githubHeadingText(value)
     .trim()
     .toLowerCase()
-    .replaceAll(" ", "-")
-    .replace(/[^\p{L}\p{N}_\-\u0080-\uFFFF]/gu, "")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/[^\p{L}\p{M}\p{N}_\- ]/gu, "")
+    .replaceAll(" ", "-");
 }
 
 function anchorsFor(file) {
@@ -433,13 +624,20 @@ function anchorsFor(file) {
   for (const match of text.matchAll(/<a\s+id=["']([^"']+)["']\s*>\s*<\/a>/gi)) {
     anchors.add(match[1]);
   }
-  const seen = new Map();
+  const generated = new Set();
+  const occurrences = new Map();
   for (const match of text.matchAll(/^#{1,6}\s+(.+?)\s*#*\s*$/gm)) {
     const base = githubAnchor(match[1]);
     if (!base) continue;
-    const count = seen.get(base) ?? 0;
-    anchors.add(count === 0 ? base : `${base}-${count}`);
-    seen.set(base, count + 1);
+    let count = occurrences.get(base) ?? 0;
+    let anchor = count === 0 ? base : `${base}-${count}`;
+    while (generated.has(anchor)) {
+      count += 1;
+      anchor = `${base}-${count}`;
+    }
+    occurrences.set(base, count + 1);
+    generated.add(anchor);
+    anchors.add(anchor);
   }
   return anchors;
 }

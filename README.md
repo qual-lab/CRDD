@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.11.0 — Human Decision Presentation and Audit Finding Synthesis / 人間判断提示・監査指摘統合**
+Status: **v0.11.1 — GitHub Anchor Checker Compatibility / GitHubアンカーチェッカー互換性修正**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
