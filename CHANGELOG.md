@@ -9,6 +9,34 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0111-en"></a>
+
+### v0.11.1 — GitHub Anchor Checker Compatibility (2026-07-29)
+
+This patch corrects the optional reference checker's GitHub Markdown heading-anchor validation. It does not change a CRDD rule, phase, artifact, folder, Stable Context ID, decision authority, audit, or conformance criterion.
+
+Compared with v0.11.0:
+
+- Removes full-width and non-ASCII punctuation from generated anchors while retaining Japanese and other Unicode letters, combining marks, and numbers.
+- Preserves consecutive hyphens and leading or trailing hyphens produced by GitHub's anchor-generation order instead of collapsing or trimming them.
+- Uses visible label text for the supported simple, non-nested forms of inline code, links, images, emphasis, and strikethrough before generating the anchor. This lightweight checker is not a complete GFM inline parser; HTML comments, nested link or image labels and destinations, and complex crossing or nested delimiters are outside its guaranteed parsing scope.
+- Assigns duplicate-heading suffixes against all previously generated heading anchors. A sequence such as `Foo`, `Foo-1`, `Foo` therefore resolves to `foo`, `foo-1`, and `foo-2`.
+- Adds regression cases for Japanese punctuation, consecutive spaces, leading emoji removal, formatted headings, and colliding duplicate suffixes.
+- Keeps the checker standard-library-only and optional. A checker pass still does not replace semantic review or establish CRDD conformance.
+- Reference-checker quality record — target revision: the v0.11.1 release candidate described by this entry; measurement target: `template/tools/crdd_check.mjs`; environment and command: Node.js v22.18.0 built-in V8 coverage on Windows, `node --test --experimental-test-coverage --test-reporter=lcov tools/crdd_check.test.mjs`.
+- Result: 75 tests passed; line coverage was 1,475 / 1,475 (100%); branch coverage was 280 / 280 (100%). No checker source line or branch was removed from the coverage denominator.
+
+Adoption impact: replace the distributed checker when GitHub-compatible Markdown anchor validation is used. No product artifact or repository migration is required.
+
+Migration note (v0.11.0 → v0.11.1):
+
+- `migration_required: false`
+- `change_classification: clarification`
+- Required: none for CRDD artifacts, folder layouts, Stable Context IDs, schemas, AI adapters, or conformance claims.
+- Conditional: update `template/tools/crdd_check.mjs` or the adopted copy when the project relies on its Markdown anchor findings.
+- Out of scope: product-scoped `90_Release/<product>/Changes/` placement and Change Trace ID namespacing are not introduced. The v0.10.0 migration from `07_Workflows` to `19_Workflows` remains unchanged.
+- Verification: run the checker regression suite and a full repository check, then perform independent review, Document Audit, and Gap / Impact Audit for the fixed revision.
+
 <a id="changelog-v0110-en"></a>
 
 ### v0.11.0 — Human Decision Presentation and Audit Finding Synthesis (2026-07-28)
@@ -451,6 +479,34 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0111-ja"></a>
+
+### v0.11.1 — GitHubアンカーチェッカー互換性修正（2026-07-29）
+
+本パッチは、任意の参照チェッカーによるGitHub Markdown見出しアンカー検証を修正する。CRDDの規範、工程、成果物、フォルダ、安定コンテキストID、決定権限、監査、準拠基準は変更しない。
+
+v0.11.0からの変更:
+
+- 日本語等のUnicode文字、結合文字、数字は維持し、全角を含む句読点と記号を生成アンカーから除去する。
+- GitHubの生成順序で生じる連続ハイフンと先頭・末尾ハイフンを圧縮または除去せず、そのまま維持する。
+- 対応する単純・非入れ子のインラインコード、リンク、画像、強調、取消線から表示文字を取得してアンカーを生成する。この軽量チェッカーは完全なGFMインライン解析器ではなく、HTMLコメント、入れ子のリンク／画像ラベルやリンク先、複雑に交差・入れ子になる区切りの正確な判定は保証しない。
+- 重複見出しの接尾辞を、それ以前に生成した全見出しアンカーとの衝突を避けて採番する。`Foo`、`Foo-1`、`Foo`の順なら、`foo`、`foo-1`、`foo-2`となる。
+- 日本語句読点、連続スペース、先頭絵文字の除去、装飾付き見出し、重複接尾辞の衝突に対する回帰試験を追加する。
+- チェッカーはNode.js標準ライブラリだけで動作し、任意利用のままとする。合格しても意味レビューを代替せず、CRDD準拠を証明しない。
+- 参照チェッカーの品質記録 — 対象改訂版: 本項目が示すv0.11.1リリース候補。測定対象: `template/tools/crdd_check.mjs`。環境とコマンド: Windows上のNode.js v22.18.0組み込みV8カバレッジ、`node --test --experimental-test-coverage --test-reporter=lcov tools/crdd_check.test.mjs`。
+- 結果: 75件の試験に合格した。行網羅率は1,475 / 1,475（100%）、分岐網羅率は280 / 280（100%）だった。チェッカーのソース行または分岐を測定分母から除外していない。
+
+採用への影響: GitHub互換のMarkdownアンカー検証を利用する場合だけ、配布チェッカーを差し替える。プロダクト成果物またはリポジトリの移行は不要である。
+
+移行注記（v0.11.0 → v0.11.1）:
+
+- `migration_required: false`
+- `change_classification: clarification`
+- 必須: CRDD成果物、フォルダ構成、安定コンテキストID、スキーマ、AI入口、準拠表明に対する作業はない。
+- 条件付き: プロジェクトがMarkdownアンカーの指摘を利用する場合は、`template/tools/crdd_check.mjs`または採用済みのコピーを更新する。
+- 対象外: 製品別の`90_Release/<product>/Changes/`配置と変更IDの名前空間は導入しない。v0.10.0で定めた`07_Workflows`から`19_Workflows`への移行も変更しない。
+- 検証: チェッカーの回帰試験とリポジトリ全体の機械確認を実行し、固定改訂版に対する独立レビュー、文書監査、不足／影響監査を行う。
 
 <a id="changelog-v0110-ja"></a>
 
