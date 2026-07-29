@@ -1,6 +1,6 @@
 # CRDDスキル（Skill）
 
-Version: v0.11.1
+Version: v0.11.2
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-29

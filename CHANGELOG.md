@@ -9,6 +9,35 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0112-en"></a>
+
+### v0.11.2 — First-Pass Review and Audit Completeness (2026-07-29)
+
+This patch strengthens the completeness of the first independent review or audit so existing problems are less likely to appear piecemeal across repeated remediation cycles. It does not remove re-review, weaken safety stops, or guarantee that one pass can discover every issue.
+
+Compared with v0.11.1:
+
+- Requires an independent reviewer or auditor to identify the applicable checks and complete one first-pass scan before finalizing findings, unless a safety, authority, access, or other defined stop condition requires immediate escalation.
+- Separates candidate collection from finding confirmation. Reviewers collect candidates across the applicable checks, search horizontally for the same cause in related structures, references, templates, AI entry points, and parallel responsibilities, then consolidate duplicates and root causes before returning one report.
+- Makes review coverage retrievable: applicable checks, reviewed and unreviewed scope, horizontal-search scope and result, and the population, selection method, and limitation of any sampling.
+- Prevents one early major finding from silently leaving the remaining applicable checks unevaluated. Unreviewed scope remains explicit and cannot be treated as `Pass`.
+- Requires the parent agent or remediation owner to confirm that all agreed remediations were applied and self-checked before submitting the updated revision for re-review.
+- Classifies a new candidate found during re-review as caused by the remediation, newly observable after remediation, brought into scope by an approved scope expansion, or missed in the first review. A first-pass miss is not mislabeled as a remediation side effect.
+- Keeps re-review focused on resolving existing findings, remediation side effects, affected relationships, and clear first-pass omissions rather than using every cycle to add unrelated improvements without limit.
+- Adds Agentic Delivery criterion AD-21 and carries the same behavior through the official and distributed AI adapters. Document, Conformance, and Gap / Impact Audits connect their procedures and completion evidence to the common contract instead of creating new audit types.
+
+Adoption impact: this is a normative, non-structural change. Existing product artifacts, folders, Stable Context IDs, and schemas do not require migration. Projects using CRDD review or audit agents should update their AI-facing instructions before claiming the v0.11.2 Agentic Delivery Profile.
+
+Migration note (v0.11.1 → v0.11.2):
+
+- `migration_required: true` for the Agentic Delivery Profile; no product-artifact or folder migration is required.
+- `change_classification: normative`
+- Required: update review and audit prompts, agent definitions, skills, or equivalent instructions so the first pass covers all applicable checks, records review coverage, performs bounded horizontal search, and classifies new re-review candidates.
+- Conditional: update stored audit-report templates only when they cannot record reviewed scope, unreviewed scope, horizontal search, sampling limitations, or re-review classification.
+- Not required: add an audit type, create a permanent report file, add an approval stage, rewrite completed inactive audit history, rename folders, or issue new Stable Context IDs.
+- Verification: inventory the review and audit paths actually used by the adopting project under the baseline-adoption assessment, then run every path affected by this instruction update against a fixed revision. When several paths are used, give them the same fixed revision. Do not add an otherwise unused audit solely for this migration. Confirm each first-pass report identifies its applicable checks and coverage before remediation begins, then re-review the corrected revision where required and classify any new candidates.
+- Known limitation: model capability, inaccessible evidence, and genuinely latent interactions can still require another cycle. The rule improves first-pass discipline without representing review coverage as a mathematical guarantee of defect absence.
+
 <a id="changelog-v0111-en"></a>
 
 ### v0.11.1 — GitHub Anchor Checker Compatibility (2026-07-29)
@@ -479,6 +508,35 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0112-ja"></a>
+
+### v0.11.2 — 初回レビュー・監査の網羅性（2026-07-29）
+
+このパッチは、既存の問題が是正と再確認のたびに小出しになる状態を減らすため、独立レビューと監査の初回確認の網羅性を強化する。再レビューや安全上の停止を廃止せず、一回ですべての問題を発見できるとは表明しない。
+
+v0.11.1からの変更:
+
+- 安全、決定権限、アクセスその他の停止条件によって直ちに上位判断へ移送する必要がある場合を除き、独立確認者が適用する確認観点を特定し、指摘事項を確定する前に初回の一次走査を完了することを要求した。
+- 候補収集と指摘事項の確定を分離した。適用観点を横断して候補を集め、同じ原因が及び得る構造、参照、ひな型、AI入口、並行責務を水平探索し、重複と共通原因を整理してから一つの報告として返す。
+- 適用した確認観点、確認済み／未評価範囲、水平探索の範囲と結果、サンプリングを使用した場合の母集団、選択方法、限界を取得可能にした。
+- 早い段階で重大な指摘を見つけても、残る適用観点を暗黙に未評価のまま終了しないようにした。未評価範囲を明示せず`Pass`として扱えない。
+- 親エージェントまたは是正担当が、合意した修正の全数適用とセルフチェックを確認してから、更新した改訂版を再レビューへ渡すようにした。
+- 再レビューで見つけた新規候補を、「今回の修正によって新たに発生した」「今回の修正によって初めて確認可能になった」「承認された対象範囲の拡大によって確認対象になった」「初回レビュー／監査時から存在したが見落としていた」のいずれかへ分類する。初回の見落としを修正の副作用として扱わない。
+- 再レビューを、既存指摘の解消、修正の副作用、影響を受ける関係、明らかな初回見落としへ集中させ、各往復で無関係な改善を無制限に追加しない。
+- エージェント型提供プロファイルへAD-21を追加し、公式・配布AI入口へ同じ挙動を接続した。文書監査、準拠監査、不足／影響監査は新しい監査種別を作らず、共通契約を各手順と完了根拠から参照する。
+
+適用への影響: 規範的だが構造変更ではない。既存のプロダクト成果物、フォルダ、安定コンテキストID、スキーマの移行は不要である。CRDDのレビュー／監査エージェントを使うプロジェクトは、v0.11.2のエージェント型提供プロファイルを表明する前にAI向け指示を更新する。
+
+移行注記（v0.11.1 → v0.11.2）:
+
+- `migration_required: true`（エージェント型提供プロファイル）。プロダクト成果物やフォルダの移行は不要。
+- `change_classification: normative`
+- 必須: レビュー／監査のプロンプト、エージェント定義、スキルまたは同等の指示を更新し、初回に適用観点を走査し、確認範囲を記録し、境界のある水平探索を行い、再レビューの新規候補を分類できるようにする。
+- 条件付き: 保存する監査報告ひな型が、確認済み／未評価範囲、水平探索、サンプリングの限界、再レビュー分類を記録できない場合だけ更新する。
+- 不要: 監査種別、恒久的な監査報告ファイル、承認段階の追加、完了済みで非活動の監査履歴の書き換え、フォルダ名変更、安定コンテキストIDの追加。
+- 確認: 基準版採用評価に従って採用側が実際に使用するレビュー／監査経路を棚卸しし、今回の指示更新の影響を受ける経路を固定改訂版へ実行する。複数経路を使う場合は同じ固定改訂版を渡し、この移行のためだけに未使用の監査を追加しない。各初回報告が是正開始前に適用観点と確認範囲を示すことを確認し、必要な経路では修正済み改訂版を再レビューして、新しい候補があれば分類する。
+- 既知の限界: モデル能力、取得できない根拠、修正後に初めて現れる相互作用によって、追加の往復が必要になる場合はある。本規則は初回確認の規律を改善するものであり、問題が存在しないことを数学的に保証しない。
 
 <a id="changelog-v0111-ja"></a>
 
