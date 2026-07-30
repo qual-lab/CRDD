@@ -2,10 +2,10 @@
 
 # CRDD原則（Principles）
 
-Version: v0.11.3
+Version: v0.11.4
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-30
+Last Updated: 2026-07-31
 Related:
 - [00_Overview.md](00_Overview.md)
 - [02_Terminology.md](02_Terminology.md)

@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.11.3 — Hierarchical Checker Compatibility / 階層構造に対するChecker互換性**
+Status: **v0.11.4 — Gitlink Submodule Verification / gitlinkサブモジュール検証**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 

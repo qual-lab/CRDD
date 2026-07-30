@@ -21,7 +21,9 @@ const root = process.env.CRDD_CHECK_FAULT_ROOT
 const originalLstatSync = fs.lstatSync;
 const originalStatSync = fs.statSync;
 const originalReaddirSync = fs.readdirSync;
+const originalReadFileSync = fs.readFileSync;
 const originalRelative = path.relative;
+const originalSpawnSync = childProcess.spawnSync;
 let targetLstatCalls = 0;
 let targetDirectoryRead = false;
 
@@ -109,6 +111,17 @@ if (fault === "lstat-replaced-after-read") {
   };
 }
 
+if (fault === "read-file-error") {
+  fs.readFileSync = function injectedReadFileError(value, ...rest) {
+    if (isTarget(value)) {
+      throw Object.assign(new Error("injected read failure"), {
+        code: "EACCES",
+      });
+    }
+    return originalReadFileSync.call(fs, value, ...rest);
+  };
+}
+
 if (fault === "stat-special") {
   fs.statSync = function injectedSpecialStat(value, ...rest) {
     if (isTarget(value)) {
@@ -159,7 +172,37 @@ if (fault === "git-list-custom") {
     if (command !== "git") {
       throw new Error(`Unexpected command during injected Git list: ${command}`);
     }
+    if (
+      arguments_[0] === "config" &&
+      process.env.CRDD_CHECK_FAULT_GIT_CONFIG_FAILED === "1"
+    ) {
+      return {
+        status: 2,
+        stdout: "",
+        stderr: "injected Git config parse failure",
+      };
+    }
+    if (
+      arguments_[0] === "config" &&
+      process.env.CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT !== undefined
+    ) {
+      return {
+        status: 0,
+        stdout: `${process.env.CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT}\0`,
+        stderr: "",
+      };
+    }
     if (arguments_.includes("ls-files")) {
+      if (arguments_.includes("--stage")) {
+        const injectedStages = JSON.parse(
+          process.env.CRDD_CHECK_FAULT_GIT_STAGE_JSON || "[]",
+        );
+        return {
+          status: 0,
+          stdout: `${injectedStages.join("\0")}\0`,
+          stderr: "",
+        };
+      }
       const injectedFiles = JSON.parse(
         process.env.CRDD_CHECK_FAULT_GIT_LIST_JSON || "[]",
       );
@@ -174,6 +217,88 @@ if (fault === "git-list-custom") {
       return { status: 0, stdout: `${root}\n`, stderr: "" };
     }
     return { status: 1, stdout: "", stderr: "not a separate Git root" };
+  };
+}
+
+if (fault === "baseline-head-failed") {
+  childProcess.spawnSync = function injectedBaselineHeadFailure(
+    command,
+    arguments_,
+    options,
+  ) {
+    if (
+      command === "git" &&
+      arguments_?.[0] === "-C" &&
+      isTarget(arguments_[1]) &&
+      arguments_.includes("--verify") &&
+      arguments_.includes("HEAD")
+    ) {
+      return {
+        status: 2,
+        stdout: "",
+        stderr: "injected baseline HEAD access failure",
+      };
+    }
+    return originalSpawnSync.call(
+      childProcess,
+      command,
+      arguments_,
+      options,
+    );
+  };
+}
+
+if (fault === "baseline-root-case-changed") {
+  childProcess.spawnSync = function injectedBaselineRootCase(
+    command,
+    arguments_,
+    options,
+  ) {
+    const result = originalSpawnSync.call(
+      childProcess,
+      command,
+      arguments_,
+      options,
+    );
+    if (
+      command === "git" &&
+      arguments_?.[0] === "-C" &&
+      isTarget(arguments_[1]) &&
+      arguments_.includes("--show-toplevel") &&
+      result.status === 0
+    ) {
+      return {
+        ...result,
+        stdout: result.stdout.toUpperCase(),
+      };
+    }
+    return result;
+  };
+}
+
+if (fault === "git-stage-failed") {
+  childProcess.spawnSync = function injectedGitStageFailure(
+    command,
+    arguments_,
+    options,
+  ) {
+    if (
+      command === "git" &&
+      arguments_?.includes("ls-files") &&
+      arguments_.includes("--stage")
+    ) {
+      return {
+        status: 2,
+        stdout: "",
+        stderr: "injected Git index mode failure",
+      };
+    }
+    return originalSpawnSync.call(
+      childProcess,
+      command,
+      arguments_,
+      options,
+    );
   };
 }
 
