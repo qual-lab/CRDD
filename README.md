@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.11.2 — First-Pass Review and Audit Completeness / 初回レビュー・監査の網羅性**
+Status: **v0.11.3 — Hierarchical Checker Compatibility / 階層構造に対するChecker互換性**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 

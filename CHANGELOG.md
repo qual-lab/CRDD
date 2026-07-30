@@ -9,6 +9,33 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0113-en"></a>
+
+### v0.11.3 — Hierarchical Checker Compatibility (2026-07-30)
+
+This patch fixes false Change Trace placement errors when the optional checker runs against a repository-specific hierarchical layout. It does not change CRDD's canonical Change Trace placement, ID namespace, conformance criteria, or migration requirements.
+
+Compared with v0.11.2:
+
+- Retains recursive Markdown checking regardless of repository depth and adds regression coverage for deeply nested files.
+- Recognizes `CHG-*.md` beneath a `Changes/` directory at any depth under `90_Release`, including repository-specific monorepo layouts, without a product registry or configuration file.
+- Continues to reject Change Trace candidates named `CHG-*.md` outside a `Changes/` hierarchy, while excluding supporting files under `Evidence/` from that filename-only judgment.
+- Does not misclassify supporting files under any `Evidence/` directory merely because their filenames or metadata contain a related `CHG-*`.
+- Detects a standard Change Trace definition mistakenly placed under `Evidence/` when its canonical heading and declared Change ID are both present.
+- Keeps Stable Context IDs globally unique and keeps the required basic repository folders unchanged.
+
+Adoption impact: checker users may replace the previous checker and remove local false-positive workarounds. Projects that do not use the checker are unaffected.
+
+Migration note (v0.11.2 → v0.11.3):
+
+- `migration_required: false`
+- `change_classification: clarification`
+- Required: none.
+- Conditional: repositories using the supplied checker may update it to remove the false placement findings.
+- Not required: move files, renumber IDs, add configuration, change conformance claims, or change Stable Context IDs.
+- Verification: 83 checker regression tests pass; the checker source has 1,537 / 1,537 covered lines and 291 / 291 covered branches. Full checks report 0 errors and 0 warnings for CRDD, and 0 errors for all 292 Markdown files in Qual Suite. Independent Document Audit and Gap / Impact Audit passed on the corrected revision. Conformance Audit was not selected because no conformance criterion changed; an independent conformance-impact recheck confirmed this boundary.
+- Known limitation: accepting a path for mechanical inspection does not make that repository-specific layout a CRDD canonical placement or conformance decision.
+
 <a id="changelog-v0112-en"></a>
 
 ### v0.11.2 — First-Pass Review and Audit Completeness (2026-07-29)
@@ -508,6 +535,33 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0113-ja"></a>
+
+### v0.11.3 — 階層構造に対するChecker互換性（2026-07-30）
+
+このパッチは、任意Checkerがリポジトリ固有の階層構造を確認するときに、正当な変更関連ファイルを誤配置として報告する不具合を修正する。CRDDの変更トレース正本配置、ID名前空間、準拠基準、移行要否は変更しない。
+
+v0.11.2からの変更:
+
+- リポジトリの深さにかかわらずMarkdownを再帰検査する既存挙動を維持し、深い階層の回帰試験を追加した。
+- 製品台帳や設定ファイルを追加せず、`90_Release`配下の任意階層にある`Changes/`以下の`CHG-*.md`を、リポジトリ固有の配置として機械確認できる。
+- `Changes/`階層外にある`CHG-*.md`の変更トレース候補は引き続き誤配置として報告する。ただし、`Evidence/`配下の関連ファイルはファイル名だけで変更トレースと判定しない。
+- 任意の`Evidence/`配下にあるファイルは、関連CHGをファイル名やメタデータに含むだけで変更トレースと誤認しない。
+- 標準の変更トレース見出しと宣言IDを併せ持つ本文を`Evidence/`へ誤配置した場合は検出する。
+- 安定コンテキストIDのリポジトリ全体一意性と、基本フォルダ必須の規則は変更しない。
+
+採用への影響: 配布Checkerを使うリポジトリはCheckerを更新し、誤検知回避のローカル処置を除去できる。Checkerを使わないリポジトリには影響しない。
+
+移行注記（v0.11.2 → v0.11.3）:
+
+- `migration_required: false`
+- `change_classification: clarification`
+- 必須: なし。
+- 条件付き: 配布Checkerを使うリポジトリは、誤配置の偽陽性を解消するため更新できる。
+- 不要: ファイル移動、ID再採番、設定追加、準拠表明の変更、安定コンテキストIDの変更。
+- 検証: Checker回帰試験83件はすべて合格し、Checker本体は行1,537 / 1,537、分岐291 / 291を網羅した。全体確認はCRDDでError 0／Warning 0、Qual Suiteの全292 MarkdownでError 0となった。修正版に対する独立文書監査と不足／影響監査は合格した。準拠基準を変更しないため準拠監査は選択せず、独立した準拠影響の再確認によってこの境界を確認した。
+- 既知の制限: Checkerが機械確認のためにパスを受け入れることは、そのリポジトリ固有配置をCRDDの正本配置または準拠判断にするものではない。
 
 <a id="changelog-v0112-ja"></a>
 

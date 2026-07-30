@@ -130,6 +130,58 @@ const add = (severity, code, file, message) =>
 const relative = (file) => path.relative(root, file).replaceAll("\\", "/") || ".";
 const read = (file) => fs.readFileSync(file, "utf8");
 
+const releaseRoots = [
+  path.join(root, "90_Release"),
+  ...(repositoryMode === "official"
+    ? [path.join(root, "template", "90_Release")]
+    : []),
+];
+const recognizedChangeTracePatterns = [
+  "90_Release/**/Changes/**/CHG-*.md",
+  ...(repositoryMode === "official"
+    ? ["template/90_Release/**/Changes/**/CHG-*.md"]
+    : []),
+];
+
+function changeTraceRootFor(file) {
+  for (const releaseRoot of releaseRoots) {
+    if (!isWithin(releaseRoot, file)) continue;
+    const parts = path.relative(releaseRoot, file).split(path.sep);
+    const directories = parts.slice(0, -1);
+    const changesIndex = directories.findIndex(
+      (part) => part.toLocaleLowerCase("en-US") === "changes",
+    );
+    if (changesIndex < 0) continue;
+    return path.join(
+      releaseRoot,
+      ...directories.slice(0, changesIndex + 1),
+    );
+  }
+  return null;
+}
+
+function isEvidenceFile(file) {
+  return path.relative(root, file)
+    .split(path.sep)
+    .slice(0, -1)
+    .some((part) => part.toLocaleLowerCase("en-US") === "evidence");
+}
+
+function declaredChangeTraceId(file) {
+  const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
+  return header.match(
+    /^(?:Change ID|変更ID|change_id)\s*[:：]\s*`?(CHG-[A-Za-z0-9-]+)/imu,
+  )?.[1] || null;
+}
+
+function hasChangeTraceDefinitionSignature(file) {
+  const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
+  const hasStandardHeading =
+    /^#\s*(?:Change Trace(?=$|[:：(（])|変更トレース(?=$|[:：(（]))/imu
+      .test(header);
+  return Boolean(declaredChangeTraceId(file) && hasStandardHeading);
+}
+
 function walk(
   directory,
   predicate,
@@ -1160,18 +1212,26 @@ for (const file of allFiles) {
     );
   }
   if (/^CHG-[^.]+\.md$/u.test(path.basename(file))) {
-    const expected = [
-      path.join(root, "90_Release", "Changes"),
-      ...(repositoryMode === "official"
-        ? [path.join(root, "template", "90_Release", "Changes")]
-        : []),
-    ];
-    if (!expected.some((directory) => isWithin(directory, file))) {
+    if (isEvidenceFile(file)) {
+      if (hasChangeTraceDefinitionSignature(file)) {
+        add(
+          "error",
+          "change-trace-placement",
+          relative(file),
+          "A file under Evidence contains a Change Trace header. " +
+            "Move the Change Trace definition into its owning Changes tree, " +
+            "or remove the Change Trace header from supporting evidence.",
+        );
+      }
+      continue;
+    }
+    if (!changeTraceRootFor(file)) {
       add(
         "error",
         "change-trace-placement",
         relative(file),
-        "Place CHG-*.md under 90_Release/Changes/.",
+        `The checker cannot recognize this Change Trace path in repository mode ${repositoryMode}. ` +
+          `Recognized inspection paths: ${recognizedChangeTracePatterns.join(", ")}.`,
       );
     }
   }
@@ -1391,6 +1451,8 @@ const warnings = findings.filter((item) => item.severity === "warning").length;
 const report = {
   check_mode: requestedScope.length === 0 ? "full" : "scoped",
   repository_mode: repositoryMode,
+  change_trace_layout: "hierarchy-tolerant",
+  recognized_change_trace_paths: recognizedChangeTracePatterns,
   discovery_source: discovery.source,
   discovery_git_failure: discovery.git_failure,
   baseline_submodule: discovery.baseline_submodule,
@@ -1412,7 +1474,7 @@ const report = {
     "central root folders",
     "stable ID filename prohibition",
     "explicit stable ID definition uniqueness",
-    "Change Trace placement",
+    "Change Trace inspection-path recognition (not canonical placement validation)",
     "branch coverage arithmetic where numeric values are present",
     "symbolic link and junction boundary",
   ],
