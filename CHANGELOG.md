@@ -9,6 +9,36 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0114-en"></a>
+
+### v0.11.4 — Gitlink Submodule Verification (2026-07-31)
+
+This patch fixes false adopted-baseline errors caused by inferring submodule state from `.gitmodules` and a nested Git command without verifying the parent index gitlink. It does not change CRDD's baseline-adoption, folder, Stable Context ID, conformance, or migration rules.
+
+Compared with v0.11.3:
+
+- Reads parent-index stage data and recognizes normal stage-0 mode `160000` entries as Gitlink submodule boundaries; conflicted entries remain unverified.
+- Reports the adopted `00_CRDD` baseline through separate states for `.gitmodules` declaration, indexed Gitlink and OID, worktree presence, Git-directory accessibility, readable HEAD and HEAD-to-Gitlink revision match.
+- Verifies that Git commands executed at `00_CRDD` resolve to that worktree itself, rather than silently using the parent repository.
+- Uses Git's own configuration parser for `.gitmodules` when available and compares filesystem paths with platform-correct case semantics.
+- Treats unreadable `.gitmodules` data or malformed Git configuration output as unverified, rather than as proof that a declaration is missing.
+- Distinguishes `baseline-gitlink-missing`, `baseline-submodule-not-initialized`, `baseline-submodule-unverified`, `baseline-submodule-revision-mismatch` and a missing `.gitmodules` declaration instead of collapsing them into one initialization error.
+- Does not treat a nested Git repository or a `.gitmodules` entry alone as proof of a submodule.
+- Does not report links into other uninitialized Gitlink boundaries as broken project links; it marks those targets as uninspected and requires direct checking from the initialized submodule root.
+- In filesystem fallback mode, does not claim that a readable `.git` marker proves the parent-index Gitlink or HEAD revision.
+
+Adoption impact: repositories using the supplied checker may replace it to obtain accurate Gitlink and baseline-revision diagnostics. Automation that branches on exact finding codes must recognize the separated diagnostics. JSON consumers should use `baseline_submodule_state` for details; the compatibility field `baseline_submodule_initialized` is `true` when the worktree, Git directory and HEAD are readable, `false` only when an indexed Gitlink has no worktree, and `null` when not applicable or unverified. No project artifact, ID, folder or CRDD conformance change is required.
+
+Migration note (v0.11.3 → v0.11.4):
+
+- `migration_required: false`
+- `change_classification: clarification`
+- Required: none.
+- Conditional: update the optional checker where automated CRDD baseline or other submodule checks are used.
+- Not required: move files, change submodule layout, renumber IDs, change conformance claims or alter baseline-activation decisions.
+- Verification: 100 regression tests pass; the checker source has 100% line and branch coverage. Full CRDD checking reports 0 errors and 0 warnings.
+- Known limitation: when Git index modes or submodule metadata cannot be read, the checker reports the baseline as unverified; it does not infer a verified state from filesystem markers.
+
 <a id="changelog-v0113-en"></a>
 
 ### v0.11.3 — Hierarchical Checker Compatibility (2026-07-30)
@@ -535,6 +565,36 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0114-ja"></a>
+
+### v0.11.4 — gitlinkサブモジュール検証（2026-07-31）
+
+このパッチは、親indexのgitlinkを確認せず、`.gitmodules`と入れ子のGitコマンドだけからサブモジュール状態を推定することで生じる、採用基準の誤エラーを修正する。CRDDの基準版採用、フォルダ、安定コンテキストID、準拠、移行の規則は変更しない。
+
+v0.11.3からの変更:
+
+- 親indexのstage情報を読み、通常のstage 0にあるmode `160000`の項目をgitlinkサブモジュール境界として認識する。競合中の項目は未確認のまま扱う。
+- 採用基準`00_CRDD`について、`.gitmodules`宣言、index上のgitlinkとOID、worktreeの存在、Git directoryへのアクセス、HEAD取得、HEADとgitlink revisionの一致を別々の状態として返す。
+- `00_CRDD`で実行したGitコマンドが親リポジトリではなく、そのworktree自身を解決したことを確認する。
+- Gitを利用できる場合はGit自身の設定解析で`.gitmodules`を読み、ファイルシステムのパスはOSに合った大文字・小文字規則で比較する。
+- `.gitmodules`を読めない場合またはGit設定の出力形式が不正な場合は、宣言欠落と断定せず未確認として扱う。
+- すべてを未初期化へ丸めず、`baseline-gitlink-missing`、`baseline-submodule-not-initialized`、`baseline-submodule-unverified`、`baseline-submodule-revision-mismatch`、`.gitmodules`宣言欠落を区別する。
+- 入れ子のGitリポジトリまたは`.gitmodules`記載だけを、サブモジュールの証明として扱わない。
+- 他の未初期化gitlink境界へのリンクをプロジェクトの破損リンクとして報告せず、未確認対象として示し、初期化したサブモジュールrootからの直接確認を求める。
+- ファイルシステムfallbackでは、読める`.git` markerだけから親indexのgitlinkやHEAD revisionを検証済みとしない。
+
+採用への影響: 配布Checkerを使うリポジトリは、正確なgitlink・基準revision診断を得るためCheckerを更新できる。finding codeの完全一致で分岐する自動化は、分離した診断への対応を確認する。JSONの詳細診断には`baseline_submodule_state`を使用する。互換項目`baseline_submodule_initialized`は、worktree、Git directory、HEADを読めた場合に`true`、index上のgitlinkを確認できたがworktreeがない場合だけ`false`、非該当または未確認の場合は`null`となる。プロジェクト成果物、ID、フォルダ、CRDD準拠の変更は不要である。
+
+移行注記（v0.11.3 → v0.11.4）:
+
+- `migration_required: false`
+- `change_classification: clarification`
+- 必須: なし。
+- 条件付き: CRDD基準または他のサブモジュールを自動確認する場合は任意Checkerを更新する。
+- 不要: ファイル移動、サブモジュール構成変更、ID再採番、準拠表明変更、基準版有効化判断の変更。
+- 検証: 回帰試験100件はすべて合格し、Checker本体は行・分岐ともに100%を網羅した。CRDD全体確認はError 0／Warning 0となった。
+- 既知の制限: Git index modeまたはサブモジュールmetadataを読めない場合、Checkerは基準を未確認として報告し、ファイルシステムmarkerから検証済み状態を推定しない。
 
 <a id="changelog-v0113-ja"></a>
 

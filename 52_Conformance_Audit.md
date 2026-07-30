@@ -2,11 +2,11 @@
 
 # CRDD準拠監査（Conformance Audit）
 
-Version: v0.11.3
+Version: v0.11.4
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.conformance.audit`
-Last Updated: 2026-07-30
+Last Updated: 2026-07-31
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)

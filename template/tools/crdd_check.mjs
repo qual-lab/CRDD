@@ -83,6 +83,10 @@ function pathContainsSymbolicLink(target) {
   return false;
 }
 
+function samePath(left, right) {
+  return path.relative(path.resolve(left), path.resolve(right)) === "";
+}
+
 function isInitializedBaselineWithoutGit(baselineRoot) {
   const gitMarker = path.join(baselineRoot, ".git");
   if (pathContainsSymbolicLink(gitMarker)) return false;
@@ -99,29 +103,154 @@ function isInitializedBaselineWithoutGit(baselineRoot) {
   return lstatIfPresent(gitDirectory)?.isDirectory() === true;
 }
 
+function decodeGitConfigValue(value) {
+  const trimmed = value.trim();
+  let result = "";
+  let quoted = false;
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const character = trimmed[index];
+    if (character === "\\") {
+      const escaped = trimmed[index + 1];
+      if (escaped === undefined) return null;
+      const replacements = {
+        b: "\b",
+        n: "\n",
+        t: "\t",
+        "\\": "\\",
+        '"': '"',
+        "#": "#",
+        ";": ";",
+      };
+      if (!(escaped in replacements)) return null;
+      result += replacements[escaped];
+      index += 1;
+      continue;
+    }
+    if (character === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if (!quoted && (character === "#" || character === ";")) break;
+    result += character;
+  }
+  if (quoted) return null;
+  return result.trim();
+}
+
+function fallbackDeclaredSubmodulePaths(file) {
+  const stat = lstatIfPresent(file);
+  if (
+    !stat ||
+    stat.isFile() !== true ||
+    pathContainsSymbolicLink(file)
+  ) {
+    return {
+      paths: [],
+      readable: !stat,
+    };
+  }
+  let content;
+  try {
+    content = fs.readFileSync(file, "utf8");
+  }
+  catch {
+    return {
+      paths: [],
+      readable: false,
+    };
+  }
+  let inSubmoduleSection = false;
+  const result = [];
+  for (const line of content.split(/\r?\n/u)) {
+    const section = line.match(
+      /^\s*\[\s*([^\]\s]+)(?:\s+[^\]]+)?\]\s*(?:[;#].*)?$/u,
+    );
+    if (section) {
+      inSubmoduleSection = section[1].toLowerCase() === "submodule";
+      continue;
+    }
+    if (!inSubmoduleSection) continue;
+    const assignment = line.match(/^\s*path\s*=\s*(.*?)\s*$/iu);
+    if (!assignment) continue;
+    const value = decodeGitConfigValue(assignment[1]);
+    if (value !== null && value !== "") result.push(value);
+  }
+  return {
+    paths: [...new Set(result)],
+    readable: true,
+  };
+}
+
 const gitmodules = path.join(root, ".gitmodules");
-const declaresBaselineSubmodule = Boolean(
-  lstatIfPresent(gitmodules)?.isFile() &&
-  !pathContainsSymbolicLink(gitmodules) &&
-  /^\s*path\s*=\s*00_CRDD\s*$/mu.test(fs.readFileSync(gitmodules, "utf8")),
+const fallbackGitmodules = fallbackDeclaredSubmodulePaths(gitmodules);
+const gitmodulesStat = lstatIfPresent(gitmodules);
+const gitmodulesReadableFile =
+  gitmodulesStat?.isFile() === true &&
+  !pathContainsSymbolicLink(gitmodules);
+const gitmodulesResult =
+  gitmodulesReadableFile
+    ? spawnSync(
+        "git",
+        [
+          "config",
+          "-z",
+          "--file",
+          gitmodules,
+          "--get-regexp",
+          "^submodule\\..*\\.path$",
+        ],
+        { encoding: "utf8" },
+      )
+    : null;
+let gitConfiguredSubmodules = [];
+let gitConfigOutputValid = gitmodulesResult?.status === 0;
+if (gitmodulesResult?.status === 0) {
+  for (const entry of gitmodulesResult.stdout.split("\0").filter(Boolean)) {
+    const separator = entry.indexOf("\n");
+    if (separator < 0) {
+      gitConfigOutputValid = false;
+      gitConfiguredSubmodules = [];
+      break;
+    }
+    gitConfiguredSubmodules.push(entry.slice(separator + 1));
+  }
+}
+const gitmodulesParsed =
+  !gitmodulesStat ||
+  (gitmodulesReadableFile &&
+    (gitmodulesResult?.status === 1 || gitConfigOutputValid));
+const declaredSubmodules = gitmodulesParsed
+  ? gitmodulesResult?.status === 0
+    ? gitConfiguredSubmodules
+    : []
+  : fallbackGitmodules.paths;
+const declaresBaselineSubmodule = declaredSubmodules.some(
+  (item) => item.replaceAll("\\", "/") === "00_CRDD",
 );
-const baselineEntryStat = lstatIfPresent(path.join(root, "00_CRDD"));
+const baselineDeclarationState = gitmodulesParsed
+  ? declaresBaselineSubmodule
+  : null;
+const baselineCandidateRoot = path.join(root, "00_CRDD");
+const baselineEntryStat = lstatIfPresent(baselineCandidateRoot);
 const baselineEntryExists = Boolean(baselineEntryStat);
 const baselineEntryIsDirectory =
   baselineEntryStat?.isDirectory() === true &&
   baselineEntryStat.isSymbolicLink() === false;
+const baselineDeclarationCandidate =
+  declaresBaselineSubmodule ||
+  (!gitmodulesParsed && baselineEntryExists);
 const officialTemplateRoot = path.join(root, "template");
 const hasOfficialRepositorySignals =
   Boolean(lstatIfPresent(officialTemplateRoot)) &&
   Boolean(lstatIfPresent(path.join(root, "01_Principles.md")));
-const repositoryMode =
-  baselineEntryExists || declaresBaselineSubmodule
+let repositoryMode =
+  baselineEntryExists || baselineDeclarationCandidate
   ? "adopter"
   : hasOfficialRepositorySignals
     ? "official"
     : "generic";
-const adoptedBaselineRoot =
-  repositoryMode === "adopter" ? path.join(root, "00_CRDD") : null;
+let adoptedBaselineRoot =
+  repositoryMode === "adopter" ? baselineCandidateRoot : null;
 
 /** @type {{severity:string, code:string, path:string, message:string}[]} */
 const findings = [];
@@ -130,13 +259,13 @@ const add = (severity, code, file, message) =>
 const relative = (file) => path.relative(root, file).replaceAll("\\", "/") || ".";
 const read = (file) => fs.readFileSync(file, "utf8");
 
-const releaseRoots = [
+let releaseRoots = [
   path.join(root, "90_Release"),
   ...(repositoryMode === "official"
     ? [path.join(root, "template", "90_Release")]
     : []),
 ];
-const recognizedChangeTracePatterns = [
+let recognizedChangeTracePatterns = [
   "90_Release/**/Changes/**/CHG-*.md",
   ...(repositoryMode === "official"
     ? ["template/90_Release/**/Changes/**/CHG-*.md"]
@@ -189,6 +318,7 @@ function walk(
   excluded = [],
   excludedLinks = [],
   unavailableDirectories = new Set(),
+  excludedPaths = new Set(),
 ) {
   function fail(code, message) {
     const target = relative(directory);
@@ -278,6 +408,13 @@ function walk(
       excludedLinks.push(relative(current));
       continue;
     }
+    if (
+      entry.isDirectory() &&
+      excludedPaths.has(path.resolve(current))
+    ) {
+      excluded.push(relative(current));
+      continue;
+    }
     if (entry.isDirectory() && excludedDirectories.has(entry.name)) {
       excluded.push(relative(current));
       continue;
@@ -291,6 +428,7 @@ function walk(
           excluded,
           excludedLinks,
           unavailableDirectories,
+          excludedPaths,
         ),
       );
     }
@@ -337,27 +475,158 @@ function discoverProjectFiles() {
       { encoding: "utf8" },
     );
     if (list.status === 0) {
-      let baselineSubmodule = declaresBaselineSubmodule;
-      let baselineSubmoduleInitialized = !declaresBaselineSubmodule;
-      if (
-        adoptedBaselineRoot &&
-        baselineEntryIsDirectory &&
-        !pathContainsSymbolicLink(adoptedBaselineRoot)
-      ) {
-        const baselineRootResult = spawnSync(
-          "git",
-          ["-C", adoptedBaselineRoot, "rev-parse", "--show-toplevel"],
-          { encoding: "utf8" },
-        );
-        const separateBaselineGitRoot =
-          baselineRootResult.status === 0 &&
-          path.resolve(baselineRootResult.stdout.trim()) ===
-            path.resolve(adoptedBaselineRoot) &&
-          path.resolve(adoptedBaselineRoot) !== gitRoot;
-        baselineSubmodule =
-          baselineSubmodule || separateBaselineGitRoot;
-        baselineSubmoduleInitialized = separateBaselineGitRoot;
+      const staged = spawnSync(
+        "git",
+        [
+          "-C",
+          gitRoot,
+          "ls-files",
+          "--stage",
+          "-z",
+          "--",
+          relativeRoot,
+        ],
+        { encoding: "utf8" },
+      );
+      let stagedOutputValid = staged.status === 0;
+      const parsedGitlinkEntries = [];
+      const conflictedGitlinkRoots = new Set();
+      if (staged.status === 0) {
+        for (const entry of staged.stdout.split("\0").filter(Boolean)) {
+          const separator = entry.indexOf("\t");
+          const metadata = separator < 0
+            ? null
+            : entry
+              .slice(0, separator)
+              .match(/^(\d{6}) ([0-9a-f]{40,64}) ([0-3])$/iu);
+          if (!metadata) {
+            stagedOutputValid = false;
+            break;
+          }
+          const [, mode, oid, stageNumber] = metadata;
+          if (mode !== "160000") continue;
+          const target = path.resolve(
+            gitRoot,
+            entry.slice(separator + 1),
+          );
+          if (!isWithin(root, target)) continue;
+          if (stageNumber !== "0") {
+            conflictedGitlinkRoots.add(target);
+            continue;
+          }
+          parsedGitlinkEntries.push({
+            path: target,
+            oid: oid.toLowerCase(),
+          });
+        }
       }
+      const gitlinkEntries = stagedOutputValid
+        ? parsedGitlinkEntries.sort((a, b) =>
+            a.path.localeCompare(b.path),
+          )
+        : [];
+      const conflictedGitlinks = stagedOutputValid
+        ? [...conflictedGitlinkRoots].sort()
+        : [];
+      const declaredGitlinkCandidates = declaredSubmodules
+        .map((item) => path.resolve(root, item))
+        .filter((item) => isWithin(root, item));
+      const gitlinks = [...new Set(
+        stagedOutputValid
+          ? [
+              ...gitlinkEntries.map((entry) => entry.path),
+              ...conflictedGitlinks,
+            ]
+          : declaredGitlinkCandidates,
+      )].sort();
+      const baselineGitlink = gitlinkEntries.find(
+        (entry) =>
+          samePath(entry.path, baselineCandidateRoot),
+      ) ?? null;
+      const baselineGitlinkConflicted = conflictedGitlinks.some(
+        (entry) =>
+          samePath(entry, baselineCandidateRoot),
+      );
+      const baselineGitlinkIndexed =
+        stagedOutputValid && !baselineGitlinkConflicted
+          ? Boolean(baselineGitlink)
+          : null;
+      const baselineSubmodule =
+        baselineDeclarationCandidate ||
+        baselineGitlinkIndexed === true ||
+        baselineGitlinkConflicted;
+      const baselineWorktreePresent = baselineSubmodule
+        ? baselineEntryIsDirectory &&
+          !pathContainsSymbolicLink(baselineCandidateRoot)
+        : null;
+      const baselineTopLevel = baselineWorktreePresent === true
+        ? spawnSync(
+            "git",
+            ["-C", baselineCandidateRoot, "rev-parse", "--show-toplevel"],
+            { encoding: "utf8" },
+          )
+        : null;
+      const baselineOwnRepository =
+        baselineTopLevel?.status === 0 &&
+        samePath(baselineTopLevel.stdout.trim(), baselineCandidateRoot);
+      const baselineGitDirectory = baselineOwnRepository
+        ? spawnSync(
+            "git",
+            ["-C", baselineCandidateRoot, "rev-parse", "--absolute-git-dir"],
+            { encoding: "utf8" },
+          )
+        : null;
+      const baselineHead = baselineOwnRepository
+        ? spawnSync(
+            "git",
+            ["-C", baselineCandidateRoot, "rev-parse", "--verify", "HEAD"],
+            { encoding: "utf8" },
+          )
+        : null;
+      const baselineGitdirAccessible =
+        baselineOwnRepository && baselineGitDirectory?.status === 0;
+      const baselineHeadReadable =
+        baselineOwnRepository &&
+        baselineHead?.status === 0 &&
+        /^[0-9a-f]{40,64}$/iu.test(baselineHead.stdout.trim());
+      const baselineHeadOid = baselineHeadReadable
+        ? baselineHead.stdout.trim().toLowerCase()
+        : null;
+      const baselineGitlinkOid =
+        baselineGitlink?.oid?.toLowerCase() ?? null;
+      const baselineHeadMatchesGitlink =
+        baselineHeadReadable && baselineGitlinkOid
+          ? baselineHeadOid === baselineGitlinkOid
+          : null;
+      const baselineSubmoduleInitialized = !baselineSubmodule
+        ? null
+        : baselineGitlinkIndexed === true &&
+            baselineWorktreePresent === false
+          ? false
+          : baselineGitdirAccessible && baselineHeadReadable
+            ? true
+            : null;
+      const baselineSubmoduleState = {
+        declared: baselineSubmodule ? baselineDeclarationState : null,
+        gitlink_indexed: baselineSubmodule ? baselineGitlinkIndexed : null,
+        gitlink_conflicted: baselineSubmodule
+          ? baselineGitlinkConflicted
+          : null,
+        gitlink_oid: baselineSubmodule ? baselineGitlinkOid : null,
+        worktree_present: baselineWorktreePresent,
+        gitdir_accessible: baselineWorktreePresent === true
+          ? baselineGitdirAccessible
+          : baselineWorktreePresent === false
+            ? false
+            : null,
+        head_readable: baselineWorktreePresent === true
+          ? baselineHeadReadable
+          : baselineWorktreePresent === false
+            ? false
+            : null,
+        head_oid: baselineHeadOid,
+        head_matches_gitlink: baselineHeadMatchesGitlink,
+      };
       const skippedSymbolicLinks = [];
       const files = list.stdout
         .split("\0")
@@ -376,10 +645,16 @@ function discoverProjectFiles() {
         files,
         source: "git",
         git_failure: null,
+        gitlink_detection:
+          stagedOutputValid
+            ? conflictedGitlinks.length > 0
+              ? "git-index-conflicted"
+              : "git-index"
+            : "unavailable",
+        gitlinks,
         baseline_submodule: baselineSubmodule,
-        baseline_submodule_initialized: baselineSubmodule
-          ? baselineSubmoduleInitialized
-          : null,
+        baseline_submodule_initialized: baselineSubmoduleInitialized,
+        baseline_submodule_state: baselineSubmoduleState,
         exclusions: [
           "Git-ignored files",
           ...(skippedSymbolicLinks.length > 0
@@ -388,9 +663,17 @@ function discoverProjectFiles() {
           ...(baselineSubmodule
             ? ["Adopted CRDD baseline submodule contents"]
             : []),
+          ...(gitlinks.length > 0
+            ? ["Gitlink submodule contents"]
+            : []),
         ],
         unchecked: [
           "Git-ignored files",
+          ...(staged.status === 0
+            ? gitlinks.map((item) =>
+                `Gitlink submodule boundary: ${relative(item)}`,
+              )
+            : ["Gitlink detection unavailable: Git index modes were not read"]),
           ...(baselineSubmodule
             ? [
                 "Adopted CRDD baseline submodule contents, except baseline version headers and targets directly referenced by project documents",
@@ -421,16 +704,34 @@ function discoverProjectFiles() {
     "venv",
     "vendor",
   ]);
-  if (declaresBaselineSubmodule) excludedNames.add("00_CRDD");
+  const fallbackGitlinks = declaredSubmodules
+    .map((item) => path.resolve(root, item))
+    .filter((item) => isWithin(root, item));
+  const fallbackGitlinkPaths = new Set(fallbackGitlinks);
   const excluded = [];
   const excludedLinks = [];
   const unavailableDirectories = new Set();
   const fallbackBaselineInitialized =
-    declaresBaselineSubmodule &&
-    adoptedBaselineRoot &&
+    baselineDeclarationCandidate &&
     baselineEntryIsDirectory &&
-    !pathContainsSymbolicLink(adoptedBaselineRoot) &&
-    isInitializedBaselineWithoutGit(adoptedBaselineRoot);
+    !pathContainsSymbolicLink(baselineCandidateRoot) &&
+    isInitializedBaselineWithoutGit(baselineCandidateRoot);
+  const fallbackBaselineState = {
+    declared: baselineDeclarationCandidate ? baselineDeclarationState : null,
+    gitlink_indexed: null,
+    gitlink_conflicted: null,
+    gitlink_oid: null,
+    worktree_present: baselineDeclarationCandidate
+      ? baselineEntryIsDirectory &&
+        !pathContainsSymbolicLink(baselineCandidateRoot)
+      : null,
+    gitdir_accessible: baselineDeclarationCandidate
+      ? fallbackBaselineInitialized
+      : null,
+    head_readable: null,
+    head_oid: null,
+    head_matches_gitlink: null,
+  };
   return {
     files: walk(
       root,
@@ -439,13 +740,15 @@ function discoverProjectFiles() {
       excluded,
       excludedLinks,
       unavailableDirectories,
+      fallbackGitlinkPaths,
     ),
     source: "walk-fallback",
     git_failure: gitFailure,
-    baseline_submodule: declaresBaselineSubmodule,
-    baseline_submodule_initialized: declaresBaselineSubmodule
-      ? fallbackBaselineInitialized
-      : null,
+    gitlink_detection: "unavailable",
+    gitlinks: fallbackGitlinks,
+    baseline_submodule: baselineDeclarationCandidate,
+    baseline_submodule_initialized: null,
+    baseline_submodule_state: fallbackBaselineState,
     exclusions: [
       ...[...excludedNames].sort(),
       ...(excludedLinks.length > 0
@@ -457,13 +760,17 @@ function discoverProjectFiles() {
       excludedLinks.length > 0 ||
       unavailableDirectories.size > 0
       ? [
+          "Gitlink detection unavailable: Git index modes were not read",
           ...excluded.map((item) => `Fallback excluded: ${item}`),
           ...excludedLinks.map((item) => `Symbolic link excluded: ${item}`),
           ...[...unavailableDirectories].map(
             (item) => `Fallback discovery unavailable: ${item}`,
           ),
         ]
-      : ["Git file selection unavailable; fallback directory exclusions applied."],
+      : [
+          "Git file selection unavailable; fallback directory exclusions applied.",
+          "Gitlink detection unavailable: Git index modes were not read",
+        ],
   };
 }
 
@@ -806,16 +1113,81 @@ function resolveLocalTarget(source, raw) {
 }
 
 const discovery = discoverProjectFiles();
-if (
-  discovery.baseline_submodule &&
-  !discovery.baseline_submodule_initialized
-) {
-  add(
-    "error",
-    "baseline-submodule-not-initialized",
-    "00_CRDD",
-    "Initialize the adopted CRDD baseline submodule before checking the project.",
-  );
+if (discovery.baseline_submodule && repositoryMode !== "adopter") {
+  repositoryMode = "adopter";
+  adoptedBaselineRoot = baselineCandidateRoot;
+  releaseRoots = [path.join(root, "90_Release")];
+  recognizedChangeTracePatterns = [
+    "90_Release/**/Changes/**/CHG-*.md",
+  ];
+}
+const gitlinkRoots = discovery.gitlinks;
+function gitlinkRootFor(target) {
+  return gitlinkRoots.find((item) => isWithin(item, target)) ?? null;
+}
+const baselineState = discovery.baseline_submodule_state;
+if (discovery.baseline_submodule) {
+  if (baselineState.declared === null) {
+    add(
+      "error",
+      "baseline-submodule-unverified",
+      "00_CRDD",
+      "The checker could not verify the .gitmodules declaration for the adopted baseline.",
+    );
+  }
+  else if (baselineState.gitlink_indexed === false) {
+    add(
+      "error",
+      "baseline-gitlink-missing",
+      "00_CRDD",
+      "The adopted baseline is declared in .gitmodules, but the parent Git index does not contain a mode 160000 gitlink at 00_CRDD.",
+    );
+  }
+  else if (baselineState.gitlink_indexed === null) {
+    add(
+      "error",
+      "baseline-submodule-unverified",
+      "00_CRDD",
+      "The checker could not verify a normal mode 160000 parent-index gitlink for the adopted baseline. Resolve index conflicts or metadata access failures and run the check again.",
+    );
+  }
+  else {
+    if (baselineState.declared === false) {
+      add(
+        "error",
+        "baseline-submodule-declaration-missing",
+        "00_CRDD",
+        "The parent Git index contains a mode 160000 gitlink at 00_CRDD, but .gitmodules does not declare that path.",
+      );
+    }
+    if (baselineState.worktree_present === false) {
+      add(
+        "error",
+        "baseline-submodule-not-initialized",
+        "00_CRDD",
+        "Initialize the adopted CRDD baseline submodule before checking the project.",
+      );
+    }
+    else if (
+      baselineState.gitdir_accessible !== true ||
+      baselineState.head_readable !== true
+    ) {
+      add(
+        "error",
+        "baseline-submodule-unverified",
+        "00_CRDD",
+        "The baseline worktree exists, but the checker could not verify that it is the 00_CRDD Git worktree or read its Git directory and HEAD. Fix access to the repository metadata and run the check again.",
+      );
+    }
+    else if (baselineState.head_matches_gitlink === false) {
+      add(
+        "error",
+        "baseline-submodule-revision-mismatch",
+        "00_CRDD",
+        `The baseline worktree HEAD ${baselineState.head_oid} does not match the parent-index gitlink ${baselineState.gitlink_oid}.`,
+      );
+    }
+  }
 }
 const allFiles = discovery.files;
 const allFileSet = new Set(allFiles);
@@ -839,6 +1211,17 @@ for (const scope of requestedScope) {
   }
   if (pathContainsSymbolicLink(scope)) {
     cliError(`--scope must not traverse a symbolic link: ${relative(scope)}`);
+  }
+  const scopeGitlink = gitlinkRootFor(scope);
+  const scopeIsInAdoptedBaseline =
+    scopeGitlink &&
+    discovery.baseline_submodule &&
+    adoptedBaselineRoot &&
+    samePath(scopeGitlink, adoptedBaselineRoot);
+  if (scopeGitlink && !scopeIsInAdoptedBaseline) {
+    cliError(
+      `--scope points into a Gitlink submodule. Run the checker with --root ${relative(scopeGitlink)} after initializing that submodule.`,
+    );
   }
   if (!fs.existsSync(scope)) {
     console.error(`--scope does not exist: ${scope}`);
@@ -918,6 +1301,24 @@ for (const record of linkRecords) {
     );
     uncheckedItems.add(
       `Symbolic link target from ${relative(source)}: ${raw}`,
+    );
+    continue;
+  }
+  const targetGitlink = gitlinkRootFor(target);
+  const targetIsInAdoptedBaseline =
+    targetGitlink &&
+    discovery.baseline_submodule &&
+    adoptedBaselineRoot &&
+    samePath(targetGitlink, adoptedBaselineRoot);
+  if (targetGitlink && !targetIsInAdoptedBaseline) {
+    add(
+      "warning",
+      "gitlink-target-unchecked",
+      relative(source),
+      raw,
+    );
+    uncheckedItems.add(
+      `Gitlink target not inspected from ${relative(source)}: ${raw}`,
     );
     continue;
   }
@@ -1301,6 +1702,12 @@ if (structureRoot) {
       );
     }
     else if (!requiredStat) {
+      if (gitlinkRootFor(requiredPath) === requiredPath) {
+        uncheckedItems.add(
+          `Required structure entry is an uninitialized Gitlink submodule: ${relative(requiredPath)}`,
+        );
+        continue;
+      }
       add(
         "error",
         "missing-crdd-folder",
@@ -1380,6 +1787,17 @@ if (referencesValue) {
       `--references must not traverse a symbolic link: ${relative(referenceTarget)}`,
     );
   }
+  const referenceGitlink = gitlinkRootFor(referenceTarget);
+  const referenceIsInAdoptedBaseline =
+    referenceGitlink &&
+    discovery.baseline_submodule &&
+    adoptedBaselineRoot &&
+    samePath(referenceGitlink, adoptedBaselineRoot);
+  if (referenceGitlink && !referenceIsInAdoptedBaseline) {
+    cliError(
+      `--references points into a Gitlink submodule. Run the checker with --root ${relative(referenceGitlink)} after initializing that submodule.`,
+    );
+  }
   if (!fs.existsSync(referenceTarget)) {
     cliError(`--references does not exist: ${referencesValue}`);
   }
@@ -1451,12 +1869,15 @@ const warnings = findings.filter((item) => item.severity === "warning").length;
 const report = {
   check_mode: requestedScope.length === 0 ? "full" : "scoped",
   repository_mode: repositoryMode,
+  gitlink_detection: discovery.gitlink_detection,
+  gitlink_boundaries: gitlinkRoots.map(relative),
   change_trace_layout: "hierarchy-tolerant",
   recognized_change_trace_paths: recognizedChangeTracePatterns,
   discovery_source: discovery.source,
   discovery_git_failure: discovery.git_failure,
   baseline_submodule: discovery.baseline_submodule,
   baseline_submodule_initialized: discovery.baseline_submodule_initialized,
+  baseline_submodule_state: discovery.baseline_submodule_state,
   discovery_exclusions: discovery.exclusions,
   root,
   requested_scope: requestedScope.map(relative),
@@ -1476,6 +1897,7 @@ const report = {
     "explicit stable ID definition uniqueness",
     "Change Trace inspection-path recognition (not canonical placement validation)",
     "branch coverage arithmetic where numeric values are present",
+    "Gitlink submodule boundary recognition",
     "symbolic link and junction boundary",
   ],
   unchecked: [
@@ -1497,6 +1919,7 @@ const report = {
     related_blocks_checked: relatedBlocks,
     versioned_documents_checked: versioned.length,
     stable_ids_observed: stableIdOccurrences.size,
+    gitlinks_observed: gitlinkRoots.length,
     explicit_stable_id_definitions: stableIdDefinitions.size,
     numeric_rows_checked: numericRowsChecked,
     errors,

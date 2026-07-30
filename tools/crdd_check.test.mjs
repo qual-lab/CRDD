@@ -46,6 +46,53 @@ function write(file, content = "") {
   fs.writeFileSync(file, content, "utf8");
 }
 
+function initializeGit(root) {
+  const initialized = spawnSync("git", ["init", "--quiet", root], {
+    encoding: "utf8",
+  });
+  assert.equal(initialized.status, 0, initialized.stderr);
+}
+
+function addGitlink(root, relativePath) {
+  const tree = spawnSync("git", ["-C", root, "mktree"], {
+    encoding: "utf8",
+    input: "",
+  });
+  assert.equal(tree.status, 0, tree.stderr);
+  const commit = spawnSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=crdd-test@example.invalid",
+      "commit-tree",
+      tree.stdout.trim(),
+      "-m",
+      "gitlink fixture",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(commit.status, 0, commit.stderr);
+  const updated = spawnSync(
+    "git",
+    [
+      "-C",
+      root,
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      "160000",
+      commit.stdout.trim(),
+      relativePath,
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(updated.status, 0, updated.stderr);
+}
+
 function run(root, ...extra) {
   const result = spawnSync(
     process.execPath,
@@ -106,6 +153,20 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
       (finding) => finding.code === "readme-version-mismatch",
     ),
   );
+});
+
+test("Git管理された公式リポジトリではbaseline状態を非該当として返す", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.11.4\n");
+  write(path.join(root, "README.md"), "Status: v0.11.4\n");
+  initializeGit(root);
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.repository_mode, "official");
+  assert.equal(result.report.baseline_submodule, false);
+  assert.equal(result.report.baseline_submodule_state.worktree_present, null);
 });
 
 test("採用先の製品READMEはCRDD基準版と比較しない", () => {
@@ -645,7 +706,7 @@ test("Git一覧取得失敗を生の標準エラーなしで分類する", () =>
   assert.doesNotMatch(result.stdout, /index file|fatal:/iu);
 });
 
-test("00_CRDDサブモジュールへのリンクを誤検知せず境界を報告する", () => {
+test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しない", () => {
   const root = fixture();
   makeStructure(root);
   assert.equal(
@@ -673,25 +734,27 @@ test("00_CRDDサブモジュールへのリンクを誤検知せず境界を報�
 
   const result = run(root);
   assert.equal(result.status, 0);
-  assert.equal(result.report.baseline_submodule, true);
-  assert.equal(result.report.metrics.anchors_checked, 1);
+  assert.equal(result.report.baseline_submodule, false);
+  assert.equal(result.report.baseline_submodule_state.declared, null);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, null);
+  assert.equal(result.report.metrics.anchors_checked, 0);
   assert.equal(
     result.report.findings.some(
       (finding) => finding.code === "excluded-local-link",
     ),
-    false,
+    true,
   );
-  assert.ok(
+  assert.equal(
     result.report.unchecked.some((item) =>
       item.includes("baseline submodule contents"),
     ),
+    false,
   );
 
   const references = run(root, "--references", "00_CRDD/01_Principles.md");
-  assert.equal(references.status, 0);
-  assert.equal(references.report.references.inbound[0].source, "README.md");
+  assert.equal(references.status, 2);
 
-  const invalidScope = runRaw(
+  const scope = runRaw(
     "--root",
     root,
     "--scope",
@@ -699,7 +762,7 @@ test("00_CRDDサブモジュールへのリンクを誤検知せず境界を報�
     "--json",
     "--summary",
   );
-  assert.equal(invalidScope.status, 2);
+  assert.equal(scope.status, 0, scope.stderr);
 });
 
 test("未初期化の00_CRDDサブモジュールを成功扱いしない", () => {
@@ -724,10 +787,557 @@ test("未初期化の00_CRDDサブモジュールを成功扱いしない", () =
   assert.equal(result.status, 1);
   assert.equal(result.report.repository_mode, "adopter");
   assert.equal(result.report.baseline_submodule, true);
+  assert.equal(result.report.baseline_submodule_initialized, null);
+  assert.equal(result.report.baseline_submodule_state.declared, true);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, false);
+  assert.equal(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-not-initialized",
+    ),
+    false,
+  );
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-gitlink-missing",
+    ),
+  );
+});
+
+test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  addGitlink(root, "00_CRDD");
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule, true);
+  assert.equal(result.report.baseline_submodule_state.declared, false);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, true);
+  assert.ok(result.report.baseline_submodule_state.gitlink_oid);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-declaration-missing",
+    ),
+  );
+});
+
+test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する", () => {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "00_CRDD"), { recursive: true });
+  initializeGit(root);
+  addGitlink(root, "00_CRDD");
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.repository_mode, "adopter");
+  assert.equal(result.report.baseline_submodule, true);
   assert.equal(result.report.baseline_submodule_initialized, false);
+  assert.equal(result.report.baseline_submodule_state.declared, false);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, true);
+  assert.equal(result.report.baseline_submodule_state.worktree_present, false);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-declaration-missing",
+    ),
+  );
   assert.ok(
     result.report.findings.some(
       (finding) => finding.code === "baseline-submodule-not-initialized",
+    ),
+  );
+});
+
+test("gitlink位置の通常ディレクトリから親GitのHEADを読まない", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  addGitlink(root, "00_CRDD");
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "00_CRDD"]',
+      '\tpath = "00_CRDD"',
+      "\turl = https://example.invalid/CRDD.git",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_initialized, null);
+  assert.equal(result.report.baseline_submodule_state.declared, true);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, true);
+  assert.equal(result.report.baseline_submodule_state.worktree_present, true);
+  assert.equal(result.report.baseline_submodule_state.gitdir_accessible, false);
+  assert.equal(result.report.baseline_submodule_state.head_readable, false);
+  assert.equal(result.report.baseline_submodule_state.head_oid, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
+  assert.equal(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-revision-mismatch",
+    ),
+    false,
+  );
+});
+
+test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  addGitlink(root, "00_CRDD");
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      "[core]",
+      "\tpath = 00_CRDD",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_state.declared, false);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-declaration-missing",
+    ),
+  );
+});
+
+test("gitmodulesのコメント開始をGit自身の解釈で判定する", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  addGitlink(root, "00_CRDD");
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "00_CRDD"]',
+      "\tpath = 00_CRDD#comment",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_state.declared, true);
+  assert.equal(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-declaration-missing",
+    ),
+    false,
+  );
+});
+
+test("gitmodulesの引用値に続く文字を切り捨てない", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  addGitlink(root, "00_CRDD");
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "00_CRDD"]',
+      '\tpath = "00_CRDD"garbage',
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_state.declared, false);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-declaration-missing",
+    ),
+  );
+});
+
+test("gitmodulesの空値・不正な引用符・行末コメントを安全に解釈する", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "empty"]',
+      '\tpath = ""',
+      '[submodule "malformed"]',
+      '\tpath = "00_CRDD',
+      '[submodule "component"]',
+      "\tpath = 40_Develop/component # local component",
+      '[submodule "escaped-comment"]',
+      "\tpath = 40_Develop/component\\#literal",
+      '[submodule "trailing-escape"]',
+      "\tpath = 40_Develop/trailing\\",
+      '[submodule "invalid-escape"]',
+      "\tpath = 40_Develop/invalid\\q",
+    ].join("\n"),
+  );
+  write(
+    path.join(root, "README.md"),
+    "[component](40_Develop/component/README.md)\n",
+  );
+
+  const result = runWithFault(root, "git-stage-failed", root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule, true);
+  assert.equal(result.report.baseline_submodule_state.declared, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
+  assert.deepEqual(
+    result.report.gitlink_boundaries,
+    [
+      "40_Develop/component",
+      "40_Develop/component#literal",
+    ],
+  );
+});
+
+test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "00_CRDD"]',
+      "\tpath = 00_CRDD",
+      "\turl = https://example.invalid/CRDD.git",
+    ].join("\n"),
+  );
+  write(
+    path.join(root, "00_CRDD", "01_Principles.md"),
+    "Version: v0.11.4\n",
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_state.declared, true);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, false);
+  assert.equal(result.report.baseline_submodule_state.worktree_present, true);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-gitlink-missing",
+    ),
+  );
+});
+
+test("親indexのmodeを読めない場合はgitlink欠落と断定しない", () => {
+  const source = fixture();
+  initializeGit(source);
+  write(path.join(source, "01_Principles.md"), "Version: v0.11.4\n");
+  assert.equal(
+    spawnSync("git", ["-C", source, "add", "."], { encoding: "utf8" }).status,
+    0,
+  );
+  assert.equal(
+    spawnSync(
+      "git",
+      [
+        "-C",
+        source,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "fixture",
+      ],
+      { encoding: "utf8" },
+    ).status,
+    0,
+  );
+  const root = fixture();
+  for (const folder of requiredFolders.filter((name) => name !== "00_CRDD")) {
+    fs.mkdirSync(path.join(root, folder), { recursive: true });
+  }
+  initializeGit(root);
+  const added = spawnSync(
+    "git",
+    [
+      "-c",
+      "protocol.file.allow=always",
+      "-C",
+      root,
+      "submodule",
+      "add",
+      "--quiet",
+      source,
+      "00_CRDD",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(added.status, 0, added.stderr);
+
+  const result = runWithFault(root, "git-stage-failed", root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.gitlink_detection, "unavailable");
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
+  assert.equal(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-gitlink-missing",
+    ),
+    false,
+  );
+});
+
+test("競合中のgitlinkを確定Revisionとして扱わない", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "00_CRDD"]',
+      "\tpath = 00_CRDD",
+      "\turl = https://example.invalid/CRDD.git",
+    ].join("\n"),
+  );
+
+  const result = runWithFault(
+    root,
+    "git-list-custom",
+    root,
+    {
+      CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
+      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+        "160000 1111111111111111111111111111111111111111 2\t00_CRDD",
+        "160000 2222222222222222222222222222222222222222 3\t00_CRDD",
+      ]),
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.equal(result.report.gitlink_detection, "git-index-conflicted");
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, null);
+  assert.equal(result.report.baseline_submodule_state.gitlink_conflicted, true);
+  assert.equal(result.report.baseline_submodule_state.gitlink_oid, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
+  assert.equal(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-gitlink-missing",
+    ),
+    false,
+  );
+});
+
+test("gitmodulesを検証できない場合は宣言欠落と断定しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "00_CRDD"]',
+      "\tpath = 00_CRDD",
+    ].join("\n"),
+  );
+
+  const result = runWithFault(
+    root,
+    "git-list-custom",
+    root,
+    {
+      CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
+      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+        "160000 1111111111111111111111111111111111111111 0\t00_CRDD",
+      ]),
+      CRDD_CHECK_FAULT_GIT_CONFIG_FAILED: "1",
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_state.declared, null);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, true);
+  assert.equal(result.report.baseline_submodule_initialized, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
+  assert.equal(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-declaration-missing",
+    ),
+    false,
+  );
+});
+
+test("git configの不正な出力をsubmodule宣言として採用しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "00_CRDD"]',
+      "\tpath = 00_CRDD",
+    ].join("\n"),
+  );
+
+  const result = runWithFault(
+    root,
+    "git-list-custom",
+    root,
+    {
+      CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
+      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+        "160000 1111111111111111111111111111111111111111 0\t00_CRDD",
+      ]),
+      CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT:
+        "submodule.00_CRDD.path-without-value-separator",
+    },
+  );
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_state.declared, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
+  assert.equal(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-declaration-missing",
+    ),
+    false,
+  );
+});
+
+test("未初期化gitlink配下へのリンクを破損リンクと誤認しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  addGitlink(root, "40_Develop/component");
+  write(
+    path.join(root, "README.md"),
+    "[component](40_Develop/component/README.md)\n",
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.gitlink_detection, "git-index");
+  assert.deepEqual(
+    result.report.gitlink_boundaries,
+    ["40_Develop/component"],
+  );
+  assert.equal(result.report.metrics.gitlinks_observed, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "gitlink-target-unchecked",
+    ),
+  );
+  assert.equal(
+    result.report.findings.some(
+      (finding) => finding.code === "broken-link",
+    ),
+    false,
+  );
+  assert.ok(
+    result.report.unchecked.some((item) =>
+      item.includes("Gitlink target not inspected"),
+    ),
+  );
+
+  const scoped = runRaw(
+    "--root",
+    root,
+    "--scope",
+    "40_Develop/component",
+    "--json",
+    "--summary",
+  );
+  assert.equal(scoped.status, 2);
+  assert.match(scoped.stderr, /Gitlink submodule/u);
+
+  const references = runRaw(
+    "--root",
+    root,
+    "--references",
+    "40_Develop/component/README.md",
+    "--json",
+    "--summary",
+  );
+  assert.equal(references.status, 2);
+  assert.match(references.stderr, /Gitlink submodule/u);
+});
+
+test("index modeを読めなくても宣言済みsubmodule境界を破損リンクにしない", () => {
+  const root = fixture();
+  makeStructure(root);
+  initializeGit(root);
+  write(
+    path.join(root, ".gitmodules"),
+    [
+      '[submodule "component"]',
+      '\tpath = "40_Develop/component"',
+      "\turl = https://example.invalid/component.git",
+    ].join("\n"),
+  );
+  write(
+    path.join(root, "README.md"),
+    "[component](40_Develop/component/README.md)\n",
+  );
+
+  const result = runWithFault(root, "git-stage-failed", root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.gitlink_detection, "unavailable");
+  assert.deepEqual(
+    result.report.gitlink_boundaries,
+    ["40_Develop/component"],
+  );
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "gitlink-target-unchecked",
+    ),
+  );
+  assert.equal(
+    result.report.findings.some(
+      (finding) => finding.code === "broken-link",
+    ),
+    false,
+  );
+});
+
+test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  fs.rmSync(path.join(root, "40_Develop"), { recursive: true });
+  initializeGit(root);
+  addGitlink(root, "40_Develop");
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "missing-crdd-folder" &&
+        finding.message === "40_Develop",
+    ),
+    false,
+  );
+  assert.ok(
+    result.report.unchecked.some((item) =>
+      item.includes("Required structure entry is an uninitialized Gitlink"),
     ),
   );
 });
@@ -873,9 +1483,132 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   assert.equal(report.repository_mode, "adopter");
   assert.equal(report.baseline_submodule, true);
   assert.equal(report.baseline_submodule_initialized, true);
+  assert.equal(report.baseline_submodule_state.declared, true);
+  assert.equal(report.baseline_submodule_state.gitlink_indexed, true);
+  assert.equal(report.baseline_submodule_state.worktree_present, true);
+  assert.equal(report.baseline_submodule_state.gitdir_accessible, true);
+  assert.equal(report.baseline_submodule_state.head_readable, true);
+  assert.equal(report.baseline_submodule_state.head_matches_gitlink, true);
+  assert.equal(
+    report.baseline_submodule_state.head_oid,
+    report.baseline_submodule_state.gitlink_oid,
+  );
   assert.equal(report.metrics.anchors_checked, 1);
   assert.equal(report.metrics.errors, 0);
   assert.equal(report.metrics.warnings, 0);
+
+  const baselineScope = runRaw(
+    "--root",
+    root,
+    "--scope",
+    "00_CRDD",
+    "--json",
+    "--summary",
+  );
+  assert.equal(baselineScope.status, 2);
+  assert.match(baselineScope.stderr, /adopted CRDD baseline submodule/u);
+
+  const baselineReferences = run(
+    root,
+    "--references",
+    "00_CRDD/01_Principles.md",
+  );
+  assert.equal(baselineReferences.status, 0, baselineReferences.stderr);
+  assert.equal(
+    baselineReferences.report.references.inbound[0].source,
+    "README.md",
+  );
+
+  if (process.platform === "win32") {
+    const caseChanged = runWithFault(
+      root,
+      "baseline-root-case-changed",
+      path.join(root, "00_CRDD"),
+    );
+    assert.equal(caseChanged.status, 0, caseChanged.stderr);
+    assert.equal(
+      caseChanged.report.baseline_submodule_state.gitdir_accessible,
+      true,
+    );
+    assert.equal(
+      caseChanged.report.baseline_submodule_state.head_matches_gitlink,
+      true,
+    );
+  }
+
+  const unverified = runWithFault(
+    root,
+    "baseline-head-failed",
+    path.join(root, "00_CRDD"),
+  );
+  assert.equal(unverified.status, 1);
+  assert.equal(
+    unverified.report.baseline_submodule_state.worktree_present,
+    true,
+  );
+  assert.equal(
+    unverified.report.baseline_submodule_state.gitdir_accessible,
+    true,
+  );
+  assert.equal(
+    unverified.report.baseline_submodule_state.head_readable,
+    false,
+  );
+  assert.ok(
+    unverified.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
+  assert.equal(
+    unverified.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-not-initialized",
+    ),
+    false,
+  );
+
+  write(
+    path.join(root, "00_CRDD", "Mismatch.md"),
+    "# mismatch\n",
+  );
+  assert.equal(
+    spawnSync("git", ["-C", path.join(root, "00_CRDD"), "add", "."], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  const advanced = spawnSync(
+    "git",
+    [
+      "-C",
+      path.join(root, "00_CRDD"),
+      "-c",
+      "user.name=CRDD Test",
+      "-c",
+      "user.email=crdd-test@example.invalid",
+      "commit",
+      "--quiet",
+      "-m",
+      "advance submodule",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(advanced.status, 0, advanced.stderr);
+  const mismatched = run(root);
+  assert.equal(mismatched.status, 1);
+  assert.equal(
+    mismatched.report.baseline_submodule_initialized,
+    true,
+  );
+  assert.equal(
+    mismatched.report.baseline_submodule_state.head_matches_gitlink,
+    false,
+  );
+  assert.ok(
+    mismatched.report.findings.some(
+      (finding) =>
+        finding.code === "baseline-submodule-revision-mismatch",
+    ),
+  );
 });
 
 test("構造上の欠落・旧配置・予約領域・中央集約をまとめて検出する", () => {
@@ -1113,7 +1846,7 @@ test("a required CRDD structure entry must be a directory", () => {
   );
 });
 
-test("fallback recognizes a safe real submodule gitdir file", () => {
+test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにしない", () => {
   const root = fixture();
   const noGitPath = fixture();
   makeStructure(root);
@@ -1138,10 +1871,48 @@ test("fallback recognizes a safe real submodule gitdir file", () => {
   );
 
   const result = runWithEnv(root, { PATH: noGitPath });
-  assert.equal(result.status, 0);
+  assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule, true);
-  assert.equal(result.report.baseline_submodule_initialized, true);
+  assert.equal(result.report.baseline_submodule_initialized, null);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, null);
+  assert.equal(result.report.baseline_submodule_state.gitdir_accessible, true);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
   assert.equal(result.report.discovery_source, "walk-fallback");
+});
+
+test("gitmodulesを読めないfallbackは例外終了せず未確認にする", () => {
+  const root = fixture();
+  const noGitPath = fixture();
+  makeStructure(root);
+  const gitmodules = path.join(root, ".gitmodules");
+  write(
+    gitmodules,
+    [
+      '[submodule "00_CRDD"]',
+      "\tpath = 00_CRDD",
+    ].join("\n"),
+  );
+
+  const result = runWithFault(
+    root,
+    "read-file-error",
+    gitmodules,
+    { PATH: noGitPath },
+  );
+  assert.equal(result.status, 1);
+  assert.equal(result.report.discovery_source, "walk-fallback");
+  assert.equal(result.report.baseline_submodule, true);
+  assert.equal(result.report.baseline_submodule_initialized, null);
+  assert.equal(result.report.baseline_submodule_state.declared, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
 });
 
 test("fallback rejects an invalid submodule gitdir file", () => {
@@ -1160,10 +1931,10 @@ test("fallback rejects an invalid submodule gitdir file", () => {
 
   const result = runWithEnv(root, { PATH: noGitPath });
   assert.equal(result.status, 1);
-  assert.equal(result.report.baseline_submodule_initialized, false);
+  assert.equal(result.report.baseline_submodule_initialized, null);
   assert.ok(
     result.report.findings.some(
-      (finding) => finding.code === "baseline-submodule-not-initialized",
+      (finding) => finding.code === "baseline-submodule-unverified",
     ),
   );
 });
@@ -1190,10 +1961,10 @@ test("fallback rejects a linked submodule git marker", () => {
 
   const result = runWithEnv(root, { PATH: noGitPath });
   assert.equal(result.status, 1);
-  assert.equal(result.report.baseline_submodule_initialized, false);
+  assert.equal(result.report.baseline_submodule_initialized, null);
   assert.ok(
     result.report.findings.some(
-      (finding) => finding.code === "baseline-submodule-not-initialized",
+      (finding) => finding.code === "baseline-submodule-unverified",
     ),
   );
 });
@@ -1403,7 +2174,7 @@ test("an anchor-only Markdown link resolves to its source file", () => {
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
 
-test("fallback recognizes a non-linked git metadata directory", () => {
+test("fallbackではGit metadataディレクトリだけで初期化済みにしない", () => {
   const root = fixture();
   const noGitPath = fixture();
   makeStructure(root);
@@ -1418,8 +2189,14 @@ test("fallback recognizes a non-linked git metadata directory", () => {
   fs.mkdirSync(path.join(root, "00_CRDD", ".git"), { recursive: true });
 
   const result = runWithEnv(root, { PATH: noGitPath });
-  assert.equal(result.status, 0);
-  assert.equal(result.report.baseline_submodule_initialized, true);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.baseline_submodule_initialized, null);
+  assert.equal(result.report.baseline_submodule_state.gitlink_indexed, null);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "baseline-submodule-unverified",
+    ),
+  );
 });
 
 test("fallback rejects a gitdir reference outside the target root", () => {
@@ -1438,7 +2215,7 @@ test("fallback rejects a gitdir reference outside the target root", () => {
 
   const result = runWithEnv(root, { PATH: noGitPath });
   assert.equal(result.status, 1);
-  assert.equal(result.report.baseline_submodule_initialized, false);
+  assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
 test("fallback rejects a gitdir reference that is not a directory", () => {
@@ -1461,7 +2238,7 @@ test("fallback rejects a gitdir reference that is not a directory", () => {
 
   const result = runWithEnv(root, { PATH: noGitPath });
   assert.equal(result.status, 1);
-  assert.equal(result.report.baseline_submodule_initialized, false);
+  assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
 test("clean non-JSON summary output does not require a reference map", () => {
@@ -1538,7 +2315,7 @@ test("a special filesystem object cannot initialize a fallback baseline", () => 
     { PATH: noGitPath },
   );
   assert.equal(result.status, 1);
-  assert.equal(result.report.baseline_submodule_initialized, false);
+  assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
 test("a special filesystem object is not accepted as a reference target", () => {
@@ -1596,9 +2373,14 @@ test("Git file discovery rejects outside, missing, and linked entries", () => {
         "Missing.md",
         "../outside.md",
       ]),
+      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+        "malformed-stage-entry",
+        "160000 1111111111111111111111111111111111111111 0\t../outside-submodule",
+      ]),
     },
   );
   assert.equal(result.status, 0);
+  assert.equal(result.report.gitlink_detection, "unavailable");
   assert.ok(
     result.report.discovery_exclusions.includes(
       "Symbolic links and junctions",
@@ -1661,7 +2443,7 @@ test("fallback rejects a gitdir directory reached through a junction", () => {
 
   const result = runWithEnv(root, { PATH: noGitPath });
   assert.equal(result.status, 1);
-  assert.equal(result.report.baseline_submodule_initialized, false);
+  assert.equal(result.report.baseline_submodule_initialized, null);
 });
 
 test("empty heading anchors are ignored", () => {
