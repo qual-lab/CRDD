@@ -206,6 +206,180 @@ test("変更トレースの誤配置を検出する", () => {
   );
 });
 
+test("90_Release配下でもChangesツリー外の変更トレースを拒否する", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "product-a", "archive", "CHG-000001.md"),
+    "# change\n",
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "change-trace-placement",
+    ),
+  );
+});
+
+test("階層化した変更領域の変更トレースと近接根拠を機械確認できる", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "product-a", "Changes", "CHG-000001.md"),
+    "# change\n",
+  );
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "product-a",
+      "Changes",
+      "Evidence",
+      "CHG-000001_Verification.md",
+    ),
+    "# evidence\n",
+  );
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(
+    result.report.change_trace_layout,
+    "hierarchy-tolerant",
+  );
+  assert.deepEqual(
+    result.report.recognized_change_trace_paths,
+    ["90_Release/**/Changes/**/CHG-*.md"],
+  );
+  assert.ok(
+    result.report.global_checks.includes(
+      "Change Trace inspection-path recognition (not canonical placement validation)",
+    ),
+  );
+});
+
+test("深いEvidence階層のMarkdownも内容を検査する", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "product-a",
+      "Changes",
+      "Evidence",
+      "review",
+      "screens",
+      "Result.md",
+    ),
+    "[missing](Missing.md)\n",
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "broken-link" &&
+        finding.path.endsWith("Result.md"),
+    ),
+  );
+});
+
+test("Changes配下へ入れ子にした変更トレース定義を検査できる", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "product-a",
+      "Changes",
+      "archive",
+      "CHG-000001.md",
+    ),
+    "# change\n",
+  );
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+});
+
+test("二段以上の階層にある変更トレースを検査できる", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "group-a",
+      "product-a",
+      "Changes",
+      "CHG-000001.md",
+    ),
+    "# change\n",
+  );
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+});
+
+test("Evidence配下のCHG名ファイルを変更トレース定義と誤認しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  const evidenceFiles = [
+    [
+      "CHG-000001_Interview.md",
+      "# 変更トレース検証結果\n\nChange ID: CHG-000001\n状態（Status）: Verified\n",
+    ],
+    [
+      "CHG-000002_Review.md",
+      "# 変更トレース レビュー\n\n変更ID: CHG-000002\n",
+    ],
+    [
+      "CHG-000003_Verification.md",
+      "# Change Trace verification result\n\nChange ID: CHG-000003\n",
+    ],
+  ];
+  for (const [name, content] of evidenceFiles) {
+    write(
+      path.join(root, "01_Discovery", "Evidence", "interviews", name),
+      content,
+    );
+  }
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+});
+
+test("Evidence配下へ誤配置した変更トレース本文を検出する", () => {
+  const root = fixture();
+  makeStructure(root);
+  const definitions = [
+    ["CHG-000001_Heading.md", "# Change Trace\n\nChange ID: CHG-000001\n"],
+    [
+      "CHG-000002_Localized.md",
+      "# 変更トレース（Change Trace）: example\n\n変更ID: CHG-000002\n",
+    ],
+  ];
+  for (const [name, content] of definitions) {
+    write(
+      path.join(
+        root,
+        "90_Release",
+        "product-a",
+        "Changes",
+        "Evidence",
+        name,
+      ),
+      content,
+    );
+  }
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(
+    result.report.findings.filter(
+      (finding) => finding.code === "change-trace-placement",
+    ).length,
+    2,
+  );
+});
+
 test("公式リポジトリ自身の変更トレースを正規配置として扱う", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -214,6 +388,30 @@ test("公式リポジトリ自身の変更トレースを正規配置として�
   write(
     path.join(root, "90_Release", "Changes", "CHG-000001.md"),
     "# change\n",
+  );
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report?.findings));
+  assert.equal(result.report.findings.length, 0);
+});
+
+test("公式リポジトリの配布ひな型変更トレースを正規配置として扱う", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.11.0\n");
+  write(path.join(root, "README.md"), "Status: v0.11.0\n");
+  write(
+    path.join(root, "90_Release", "Changes", "CHG-XXXXXX_Official.md"),
+    "# official change\n",
+  );
+  write(
+    path.join(
+      root,
+      "template",
+      "90_Release",
+      "Changes",
+      "CHG-XXXXXX_Template.md",
+    ),
+    "# change template\n",
   );
   const result = run(root);
   assert.equal(result.status, 0, JSON.stringify(result.report?.findings));
