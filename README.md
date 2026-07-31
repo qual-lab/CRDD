@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.11.4 — Gitlink Submodule Verification / gitlinkサブモジュール検証**
+Status: **v0.12.0 — Pre-execution Alignment Check / 着手前整合確認**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -162,7 +162,7 @@ Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption
 
 Where a baseline update includes any difference classified normative or breaking, or any release whose CHANGELOG declares migration required, adoption is not complete until the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar is met — this applies to adopting with no action just as much as to adopting after remediation — and a `Conformant` claim cannot be recorded against that baseline before then. The bar's fifth point, an independent review, is carried out by Document Audit or Gap / Impact Audit, not by Conformance Audit.
 
-v0.11.0 contains a normative AI-interaction change and requires migration; review the [v0.11.0 changelog](CHANGELOG.md#changelog-v0110-en) and its migration note. v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and also require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+v0.12.0 contains a normative pre-execution alignment change and requires migration; review the [v0.12.0 changelog](CHANGELOG.md#changelog-v0120-en) and its migration note. v0.11.0 contains a normative AI-interaction change and also requires migration; review the [v0.11.0 changelog](CHANGELOG.md#changelog-v0110-en) and its migration note. v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and also require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
 <a id="historical-migration-v042-v05x-en"></a>
 
@@ -410,7 +410,7 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 
 基準版更新に含まれる差分のいずれかが規範もしくは破壊的に分類される場合、またはいずれかのリリースのCHANGELOGが移行を必要と明示する場合、[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たすまで採用は完了せず、その基準版への`Conformant`表明も記録できない。これは対応なしで採用する場合にも適用する。同条件の5点目の独立レビューは、文書監査または不足／影響監査で実施し、準拠監査では実施しない。
 
-v0.11.0はAI対話に関する規範変更を含み、移行を必要とする。[v0.11.0の変更履歴](CHANGELOG.md#changelog-v0110-ja)と移行注記を確認する。v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、同じく移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+v0.12.0は着手前整合確認に関する規範変更を含み、移行を必要とする。[v0.12.0の変更履歴](CHANGELOG.md#changelog-v0120-ja)と移行注記を確認する。v0.11.0はAI対話に関する規範変更を含み、同じく移行を必要とする。[v0.11.0の変更履歴](CHANGELOG.md#changelog-v0110-ja)と移行注記を確認する。v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、同じく移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
 <a id="historical-migration-v042-v05x-ja"></a>
 
