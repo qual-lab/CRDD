@@ -2,7 +2,7 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.11.4
+Version: v0.12.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-31
@@ -1474,6 +1474,7 @@ Progress Work State
 | デザインシステム参照実装（`Design System Reference`） | `デザインシステム` / `画面視覚一覧` | 見た目と操作感を確認するための実行可能な参照。デザインシステムそのものやその台帳ではなく、論理画面ごとの視覚一覧でもない |
 | 境界付き修正提案（`Bounded Remediation Proposal`） | `提案` / `推奨案` | 独立レビューまたは監査が指摘事項へ添える是正案。中核コンテキスト種別の提案（`Proposal`）ではなく、採用、実行許可、リスク受容を意味しない |
 | 監査間是正方針レビュー（`Cross-Audit Remediation Reconciliation`） | `独立レビュー` / `再監査` | 修正前に統合修正方針を指摘元監査へ確認させる工程。成果物そのものを評価する独立レビューや、修正後の再監査を代替しない |
+| 着手前整合確認（`Pre-execution Alignment Check`） | `計画確認` / `独立レビュー` / `不足・影響監査` / `承認` | 非自明な変更の初回編集前に、計画を現在の正本、参照関係、保持する意図、影響候補、必要な専門観点、用語・表現と照合する活動。結果は`着手可`、`計画修正`、`判断待ち・停止`を使用する。これらはエージェント実行結果、監査の`Pass`／`Fail`、人間の承認結果、工程ゲートの状態ではない。実行条件、委譲、統合、停止、完成後確認との境界は[着手前整合確認](10_Agent.md#pre-execution-alignment-check)を正本とする |
 | 変更影響の伝播確認（`Triggered Propagation Check`） | `Review` / `Audit` / `Regression Test` | 確定・変更した判断、制約、学び、根拠、指摘事項が上流・同層へ及ぶかを探索し、正本を更新して下流を再探索する処置。工程移行レビューでも回帰テストでもない。契機と完了は[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を正本とする |
 | 項目の決定権限（`Property Authority`） | `Source of Truth` | 媒体全体ではなく、項目単位の正しい情報源と更新責任を明示する |
 | 成果物参照（`Artifact Reference`） | `Stable Context ID` | 成果物の所在・改訂版を指す参照と、意味を追跡する安定コンテキストIDを区別する |
