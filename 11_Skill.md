@@ -1,6 +1,6 @@
 # CRDDスキル（Skill）
 
-Version: v0.11.4
+Version: v0.12.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-31
@@ -167,6 +167,8 @@ skill:
 
 機械可読な`current_step`は、`SelectSkill`、`Orient`、`LoadContext`、`ConfirmScope`、`AssessGap`、`Interact`、`Transform`、`DetectConflict`、`HumanReview`、`Register`、`DetermineRoute`、`CloseOrPause`を使用する。
 
+着手前整合確認は新しい`current_step`ではなく、計画の不足と影響を再評価する`AssessGap`として記録する。対話または読み取り専用分析によって計画が具体化した後に`AssessGap`へ再び移り、確認結果を統合してから`Transform`へ進んでよい。
+
 機械可読な`route.type`は、`Continue`、`Research`、`Decision`、`ExpertReview`、`Skill`、`Prototype`、`GateReview`、`Pause`、`Close`を使用する。
 
 `Completed`はスキル実行の終了だけを表し、生成した成果物の`Reviewed`や`Approved`、工程完了、判定承認、変更トレースの完了を意味しない。
@@ -259,7 +261,7 @@ resume:
 2. 読み込みコンテキスト
 3. 対象範囲と改訂版を確認
 4. 不足を評価し作業待ち行列を作る
-5. 対話または分析
+5. 対話または読み取り専用分析で計画を具体化し、[エージェント](10_Agent.md#pre-execution-alignment-check)の条件に従って、必要な場合は着手前整合確認として不足と影響を`AssessGap`で再評価
 6. 変換
 7. 不足と競合を検出
 8. 必要な場合は人間によるレビュー
@@ -288,6 +290,8 @@ resume:
 | 延期 | 現在対象範囲では扱わない |
 
 キュー項目はトピック、理由、優先順位、情報源不足、状態を必要な粒度で持つ。質問数やひな型充足率を品質指標にしない。
+
+正本または人間可読成果物を実質的に変更する非自明な計画では、変換または編集の前に[着手前整合確認](10_Agent.md#pre-execution-alignment-check)へ接続する。親エージェントは軽量照合を行い、必要な専門観点を親エージェントだけでは確認できない場合、または同節が定める高影響条件に該当する場合だけ、読み取り専用の確認者へ委譲する。探索、質問、計画を具体化する読み取り専用分析へ、確認段階を機械的に追加しない。
 
 ## 4.4. 対話・取得・変換
 

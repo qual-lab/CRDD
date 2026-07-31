@@ -9,6 +9,36 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0120-en"></a>
+
+### v0.12.0 — Pre-execution Alignment Check (2026-07-31)
+
+This release adds a lightweight alignment check before the first edit of a non-trivial change. Its purpose is to catch missing canonical context, affected references, specialist viewpoints, terminology and migration concerns before they return as piecemeal findings during final review. It does not add a new audit, approval gate, permanent artifact, Stable Context ID or mandatory subagent.
+
+Compared with v0.11.4:
+
+- Requires the parent agent to decide whether the pre-execution alignment check is needed and, when it is, compare the proposed plan with the current canonical context before the first edit.
+- Keeps the parent agent's lightweight review as the default. Read-only reviewers are used only when the parent cannot verify a necessary specialist viewpoint or the change can affect multiple canonical artifacts, phases, authorities, migration decisions or major risks.
+- Requires all selected reviewer results and unreviewed scope to be consolidated into one plan before editing begins, except for defined stop, escalation and critical-containment actions.
+- Distinguishes the defined results `着手可`, `計画修正` and `判断待ち・停止` from audit `Pass` or `Fail`, approval, risk acceptance and phase-gate states.
+- Re-presents a revised plan only to affected reviewers when its confirmed scope, meaning, authority, dependencies, specialist conditions, classification, migration, risk or protected compatibility boundary changes. Mechanical application of an agreed fix does not trigger another planning loop.
+- Maps the check to a renewed `AssessGap` activity after dialogue or read-only analysis has made the plan concrete; it does not add a new Skill state or lifecycle phase.
+- Adds a locale-first wording check for changes to human-readable names, terminology boundaries and specialist explanations.
+- Aligns the official and distributed AI entry points and updates Agentic Delivery criterion AD-02, while preserving final independent review, required audits and human decision authority.
+
+Adoption impact: this is a normative, non-structural change. An adopting project updating an existing CRDD baseline to v0.12.0 is subject to the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar. It inventories the in-scope existing artifacts, adapters and operations, decides the disposition of each, completes every required action without leaving work waiting to start, and uses an independent review suited to the affected scope to confirm that meaning was not lost before activation. This also applies when no relevant AI operation exists or the project adopts with no action; in that case the inventory supports explicit retained or not-applicable dispositions rather than an unchecked exemption. Initial adoption has no earlier baseline to migrate, but still requires the baseline-adoption assessment and human activation decision. Existing product artifacts, folders, Stable Context IDs, completed phase results and historical Change Traces do not require blanket migration. Projects that use AI for non-trivial changes or claim the v0.12.0 Agentic Delivery Profile must additionally ensure that their AI entry point or equivalent operating procedure performs the same pre-edit decision and records either the applicable exemption or the completed alignment result.
+
+Migration note (v0.11.4 → v0.12.0):
+
+- `migration_required: true`
+- `change_classification: normative`
+- Required for every existing-baseline update: perform the baseline-adoption assessment and satisfy the Migration Completeness bar before activation. A no-action or no-relevant-AI result still requires an inventory, a disposition for every in-scope asset, completion of required actions, and an independent meaning-preservation review appropriate to the affected scope.
+- Required when AI is used for non-trivial changes or the v0.12.0 Agentic Delivery Profile is claimed: review the AI entry points, prompts, agent definitions, skills or equivalent procedures. Add or connect the pre-execution alignment check when an equivalent parent-agent check is absent, and re-evaluate AD-02.
+- Conditional: update stored work-plan or review templates only when they cannot record the check decision, an exemption and its reason, reviewed viewpoints, plan changes and unreviewed scope.
+- Not required: add an audit type, approval gate, permanent planning document, specialist for every change, subagent, folder, Stable Context ID, or rewrite completed inactive work. Core and Product Lifecycle criteria are unchanged and do not require re-evaluation solely because of this release, unless the adopting project's own impact assessment finds another affected dependency.
+- Verification: the full CRDD checker reports 0 errors and 0 warnings. Independent agent-operation review, Document Audit and Gap / Impact with conformance-impact review pass with no unresolved findings.
+- Known limitation: the rule reduces preventable planning omissions but cannot guarantee that one review finds every defect. Its effectiveness still depends on available context, reviewer capability and model instruction-following.
+
 <a id="changelog-v0114-en"></a>
 
 ### v0.11.4 — Gitlink Submodule Verification (2026-07-31)
@@ -565,6 +595,36 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0120-ja"></a>
+
+### v0.12.0 — 着手前整合確認（2026-07-31）
+
+本リリースは、非自明な変更の初回編集前に軽量な「着手前整合確認」を追加する。完成後のレビューで、正本コンテキスト、影響先、専門観点、用語、移行上の見落としが細切れに見つかる状況を減らすことが目的である。新しい監査、承認ゲート、恒久成果物、安定コンテキストID、必須サブエージェントは追加しない。
+
+v0.11.4からの変更:
+
+- 親エージェントは着手前整合確認の要否を判定し、必要な場合は初回編集前に変更計画を現在の正本コンテキストと照合する。
+- 親エージェントによる軽量確認を基本とする。必要な専門観点を親だけでは確認できない場合、または複数正本、複数工程、決定権限、移行、重大リスクへ波及し得る場合だけ、不足する観点を読み取り専用の確認者へ委譲する。
+- 確認者を選定した場合は、定義済みの停止、移送、重大リスクへの限定処置を除き、全確認結果と未評価範囲を一つの計画へ統合するまで編集を開始しない。
+- `着手可`、`計画修正`、`判断待ち・停止`を、監査の`Pass`／`Fail`、承認、リスク受容、工程ゲート状態から分離する。
+- 統合後の計画が、確認済みの対象範囲、意味、決定権限、依存関係、専門条件、変更分類、移行、リスク、保護する互換性境界を変える場合だけ、影響する確認者へ再提示する。合意済み修正の機械的な適用では計画確認を繰り返さない。
+- 対話や読み取り専用分析で計画を具体化した後の`AssessGap`再評価として接続し、新しいSkill状態やライフサイクル工程を増やさない。
+- 人間可読な名称、用語境界、専門説明を変更する場合の、主要ロケールを優先した表現確認を追加する。
+- 公式・配布AI入口とエージェント型提供基準AD-02を揃え、完成後の独立レビュー、必要な監査、人間の決定権限は維持する。
+
+採用への影響: 本リリースは構造を変えない規範変更である。既存のCRDD基準版からv0.12.0へ更新する採用プロジェクトは、[移行完了の条件](19_Maintenance.md#621-migration-completeness)の対象となる。対象範囲内の既存成果物、接続部、運用を棚卸しし、各資産の処遇を決め、必要な処置を着手待ちなく完了し、影響範囲に適した独立レビューで意味の欠損がないことを確認してから有効化する。該当するAI運用がない場合や対応なしで採用する場合も対象であり、棚卸しを根拠に据置または対象外の処遇を明示し、無確認の免除としない。初回採用は移行元の基準版がないため移行完了の条件の対象外だが、基準版採用評価と人間による有効化判断は必要である。既存のプロダクト成果物、フォルダ、安定コンテキストID、完了済み工程結果、過去の変更トレースを一括移行する必要はない。非自明な変更へAIを使用する、またはv0.12.0のエージェント型提供プロファイルを表明するプロジェクトは、AI入口または同等の作業手順が、初回編集前の要否判定と、適用した省略条件または実施結果を取得できることも確認する。
+
+移行注記（v0.11.4 → v0.12.0）:
+
+- `migration_required: true`
+- `change_classification: normative`
+- 既存基準版から更新する全採用先で必須: 基準版採用評価を行い、有効化前に移行完了の条件を満たす。対応なしまたは該当AI運用なしの場合も、対象資産の棚卸し、全資産の処遇、必要処置の完了、影響範囲に適した意味欠損確認の独立レビューを必要とする。
+- 非自明な変更へAIを使用する、またはv0.12.0のエージェント型提供プロファイルを表明する場合に必須: AI入口、プロンプト、エージェント定義、スキルまたは同等の作業手順を確認する。同等の親エージェント確認がなければ着手前整合確認へ接続し、AD-02を再評価する。
+- 条件付き: 保存する作業計画またはレビューひな型が、要否、省略条件と理由、確認観点、計画への反映、未評価範囲を記録できない場合だけ更新する。
+- 不要: 新しい監査、承認ゲート、恒久計画書、全変更への専門家やサブエージェント、フォルダ、安定コンテキストIDの追加、完了済みで非活動の作業の書き換え。中核およびプロダクトライフサイクルの基準は変更していないため、採用プロジェクト自身の影響評価で別の依存影響が見つからない限り、本リリースだけを理由に再評価しない。
+- 確認: CRDD全体Checkerでエラー0・警告0を確認した。エージェント運用の独立レビュー、文書監査、不足／影響および準拠影響確認は未解決指摘0件で合格した。
+- 既知の限界: 本規則は防止可能な計画上の見落としを減らすが、一回のレビューですべての問題を検出することは保証しない。利用可能なコンテキスト、確認者の能力、モデルの指示追従に依存する。
 
 <a id="changelog-v0114-ja"></a>
 
