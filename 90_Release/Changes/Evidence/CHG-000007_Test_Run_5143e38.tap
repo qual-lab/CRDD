@@ -1,0 +1,690 @@
+TAP version 13
+# Subtest: 公式リポジトリではREADMEと正本文書の版を比較する
+ok 1 - 公式リポジトリではREADMEと正本文書の版を比較する
+  ---
+  duration_ms: 155.6115
+  type: 'test'
+  ...
+# Subtest: Git管理された公式リポジトリではbaseline状態を非該当として返す
+ok 2 - Git管理された公式リポジトリではbaseline状態を非該当として返す
+  ---
+  duration_ms: 317.3382
+  type: 'test'
+  ...
+# Subtest: 採用先の製品READMEはCRDD基準版と比較しない
+ok 3 - 採用先の製品READMEはCRDD基準版と比較しない
+  ---
+  duration_ms: 143.2347
+  type: 'test'
+  ...
+# Subtest: 採用先のCRDD正本文書間の版不一致は検出する
+ok 4 - 採用先のCRDD正本文書間の版不一致は検出する
+  ---
+  duration_ms: 146.1908
+  type: 'test'
+  ...
+# Subtest: 安定コンテキストIDを含むファイル名を拒否する
+ok 5 - 安定コンテキストIDを含むファイル名を拒否する
+  ---
+  duration_ms: 134.0173
+  type: 'test'
+  ...
+# Subtest: 範囲指定でも全体不変条件を確認し、部分確認を明示する
+ok 6 - 範囲指定でも全体不変条件を確認し、部分確認を明示する
+  ---
+  duration_ms: 149.3603
+  type: 'test'
+  ...
+# Subtest: 全体確認は実行情報と件数を返す
+ok 7 - 全体確認は実行情報と件数を返す
+  ---
+  duration_ms: 145.0148
+  type: 'test'
+  ...
+# Subtest: 明示された安定コンテキストID定義の重複を検出する
+ok 8 - 明示された安定コンテキストID定義の重複を検出する
+  ---
+  duration_ms: 149.5674
+  type: 'test'
+  ...
+# Subtest: 変更トレースの誤配置を検出する
+ok 9 - 変更トレースの誤配置を検出する
+  ---
+  duration_ms: 136.8746
+  type: 'test'
+  ...
+# Subtest: 90_Release配下でもChangesツリー外の変更トレースを拒否する
+ok 10 - 90_Release配下でもChangesツリー外の変更トレースを拒否する
+  ---
+  duration_ms: 131.734
+  type: 'test'
+  ...
+# Subtest: 階層化した変更領域の変更トレースと近接根拠を機械確認できる
+ok 11 - 階層化した変更領域の変更トレースと近接根拠を機械確認できる
+  ---
+  duration_ms: 137.0661
+  type: 'test'
+  ...
+# Subtest: 深いEvidence階層のMarkdownも内容を検査する
+ok 12 - 深いEvidence階層のMarkdownも内容を検査する
+  ---
+  duration_ms: 134.8694
+  type: 'test'
+  ...
+# Subtest: Changes配下へ入れ子にした変更トレース定義を検査できる
+ok 13 - Changes配下へ入れ子にした変更トレース定義を検査できる
+  ---
+  duration_ms: 132.6554
+  type: 'test'
+  ...
+# Subtest: 二段以上の階層にある変更トレースを検査できる
+ok 14 - 二段以上の階層にある変更トレースを検査できる
+  ---
+  duration_ms: 140.5318
+  type: 'test'
+  ...
+# Subtest: Evidence配下のCHG名ファイルを変更トレース定義と誤認しない
+ok 15 - Evidence配下のCHG名ファイルを変更トレース定義と誤認しない
+  ---
+  duration_ms: 146.2153
+  type: 'test'
+  ...
+# Subtest: Evidence配下へ誤配置した変更トレース本文を検出する
+ok 16 - Evidence配下へ誤配置した変更トレース本文を検出する
+  ---
+  duration_ms: 148.1427
+  type: 'test'
+  ...
+# Subtest: 公式リポジトリ自身の変更トレースを正規配置として扱う
+ok 17 - 公式リポジトリ自身の変更トレースを正規配置として扱う
+  ---
+  duration_ms: 145.6621
+  type: 'test'
+  ...
+# Subtest: 公式リポジトリの配布ひな型変更トレースを正規配置として扱う
+ok 18 - 公式リポジトリの配布ひな型変更トレースを正規配置として扱う
+  ---
+  duration_ms: 144.3584
+  type: 'test'
+  ...
+# Subtest: 参照関係を重複回数付きで集約する
+ok 19 - 参照関係を重複回数付きで集約する
+  ---
+  duration_ms: 146.2444
+  type: 'test'
+  ...
+# Subtest: 分岐網羅率の分母・分子・割合の不整合を検出する
+ok 20 - 分岐網羅率の分母・分子・割合の不整合を検出する
+  ---
+  duration_ms: 134.2977
+  type: 'test'
+  ...
+# Subtest: 不正なCLI入力を終了コード2で拒否する
+ok 21 - 不正なCLI入力を終了コード2で拒否する
+  ---
+  duration_ms: 293.1557
+  type: 'test'
+  ...
+# Subtest: 適用先では無関係なtemplateフォルダより00_CRDDを優先する
+ok 22 - 適用先では無関係なtemplateフォルダより00_CRDDを優先する
+  ---
+  duration_ms: 148.328
+  type: 'test'
+  ...
+# Subtest: 同一ファイル内の安定コンテキストID重複定義を検出する
+ok 23 - 同一ファイル内の安定コンテキストID重複定義を検出する
+  ---
+  duration_ms: 133.6833
+  type: 'test'
+  ...
+# Subtest: ルート外リンクを読み取らず未確認として返す
+ok 24 - ルート外リンクを読み取らず未確認として返す
+  ---
+  duration_ms: 134.0641
+  type: 'test'
+  ...
+# Subtest: Git無視ファイルを除外し未追跡・非無視ファイルを確認する
+ok 25 - Git無視ファイルを除外し未追跡・非無視ファイルを確認する
+  ---
+  duration_ms: 280.9051
+  type: 'test'
+  ...
+# Subtest: 英語の分岐網羅率と不正な測定値を検出する
+ok 26 - 英語の分岐網羅率と不正な測定値を検出する
+  ---
+  duration_ms: 136.6968
+  type: 'test'
+  ...
+# Subtest: コードフェンス内の疑似リンクと表を検査しない
+ok 27 - コードフェンス内の疑似リンクと表を検査しない
+  ---
+  duration_ms: 144.3893
+  type: 'test'
+  ...
+# Subtest: 旧JSON配列と非JSONサマリーの互換性を維持する
+ok 28 - 旧JSON配列と非JSONサマリーの互換性を維持する
+  ---
+  duration_ms: 246.2876
+  type: 'test'
+  ...
+# Subtest: 不正なURIエンコードを例外にせず警告する
+ok 29 - 不正なURIエンコードを例外にせず警告する
+  ---
+  duration_ms: 145.8698
+  type: 'test'
+  ...
+# Subtest: 存在しない参照マップ対象を終了コード2で拒否する
+ok 30 - 存在しない参照マップ対象を終了コード2で拒否する
+  ---
+  duration_ms: 133.7813
+  type: 'test'
+  ...
+# Subtest: リポジトリ内のディレクトリリンクを検査対象外と誤認しない
+ok 31 - リポジトリ内のディレクトリリンクを検査対象外と誤認しない
+  ---
+  duration_ms: 154.2493
+  type: 'test'
+  ...
+# Subtest: Git未導入と非Git対象のフォールバック理由を区別する
+ok 32 - Git未導入と非Git対象のフォールバック理由を区別する
+  ---
+  duration_ms: 209.0151
+  type: 'test'
+  ...
+# Subtest: Git一覧取得失敗を生の標準エラーなしで分類する
+ok 33 - Git一覧取得失敗を生の標準エラーなしで分類する
+  ---
+  duration_ms: 236.439
+  type: 'test'
+  ...
+# Subtest: gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しない
+ok 34 - gitlinkでない入れ子Gitリポジトリをサブモジュールと誤認しない
+  ---
+  duration_ms: 765.081
+  type: 'test'
+  ...
+# Subtest: 未初期化の00_CRDDサブモジュールを成功扱いしない
+ok 35 - 未初期化の00_CRDDサブモジュールを成功扱いしない
+  ---
+  duration_ms: 330.8567
+  type: 'test'
+  ...
+# Subtest: 00_CRDDのgitlinkとgitmodules宣言を別々に検証する
+ok 36 - 00_CRDDのgitlinkとgitmodules宣言を別々に検証する
+  ---
+  duration_ms: 478.5316
+  type: 'test'
+  ...
+# Subtest: worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する
+ok 37 - worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する
+  ---
+  duration_ms: 440.4096
+  type: 'test'
+  ...
+# Subtest: gitlink位置の通常ディレクトリから親GitのHEADを読まない
+ok 38 - gitlink位置の通常ディレクトリから親GitのHEADを読まない
+  ---
+  duration_ms: 538.442
+  type: 'test'
+  ...
+# Subtest: submodule節外のpathをgitmodules宣言と誤認しない
+ok 39 - submodule節外のpathをgitmodules宣言と誤認しない
+  ---
+  duration_ms: 529.8455
+  type: 'test'
+  ...
+# Subtest: gitmodulesのコメント開始をGit自身の解釈で判定する
+ok 40 - gitmodulesのコメント開始をGit自身の解釈で判定する
+  ---
+  duration_ms: 533.5245
+  type: 'test'
+  ...
+# Subtest: gitmodulesの引用値に続く文字を切り捨てない
+ok 41 - gitmodulesの引用値に続く文字を切り捨てない
+  ---
+  duration_ms: 524.4812
+  type: 'test'
+  ...
+# Subtest: gitmodulesの空値・不正な引用符・行末コメントを安全に解釈する
+ok 42 - gitmodulesの空値・不正な引用符・行末コメントを安全に解釈する
+  ---
+  duration_ms: 350.9451
+  type: 'test'
+  ...
+# Subtest: gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しない
+ok 43 - gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しない
+  ---
+  duration_ms: 398.764
+  type: 'test'
+  ...
+# Subtest: 親indexのmodeを読めない場合はgitlink欠落と断定しない
+ok 44 - 親indexのmodeを読めない場合はgitlink欠落と断定しない
+  ---
+  duration_ms: 1958.704
+  type: 'test'
+  ...
+# Subtest: 競合中のgitlinkを確定Revisionとして扱わない
+ok 45 - 競合中のgitlinkを確定Revisionとして扱わない
+  ---
+  duration_ms: 109.2189
+  type: 'test'
+  ...
+# Subtest: gitmodulesを検証できない場合は宣言欠落と断定しない
+ok 46 - gitmodulesを検証できない場合は宣言欠落と断定しない
+  ---
+  duration_ms: 92.7442
+  type: 'test'
+  ...
+# Subtest: git configの不正な出力をsubmodule宣言として採用しない
+ok 47 - git configの不正な出力をsubmodule宣言として採用しない
+  ---
+  duration_ms: 95.7654
+  type: 'test'
+  ...
+# Subtest: 未初期化gitlink配下へのリンクを破損リンクと誤認しない
+ok 48 - 未初期化gitlink配下へのリンクを破損リンクと誤認しない
+  ---
+  duration_ms: 879.8992
+  type: 'test'
+  ...
+# Subtest: index modeを読めなくても宣言済みsubmodule境界を破損リンクにしない
+ok 49 - index modeを読めなくても宣言済みsubmodule境界を破損リンクにしない
+  ---
+  duration_ms: 300.0623
+  type: 'test'
+  ...
+# Subtest: 必須領域自体が未初期化gitlinkでも欠落と誤認しない
+ok 50 - 必須領域自体が未初期化gitlinkでも欠落と誤認しない
+  ---
+  duration_ms: 427.9848
+  type: 'test'
+  ...
+# Subtest: シンボリックリンク経由のルート外参照を読み取らない
+ok 51 - シンボリックリンク経由のルート外参照を読み取らない
+  ---
+  duration_ms: 395.1941
+  type: 'test'
+  ...
+# Subtest: 実物のGitサブモジュール内チェッカーから適用先を確認する
+ok 52 - 実物のGitサブモジュール内チェッカーから適用先を確認する
+  ---
+  duration_ms: 4104.2767
+  type: 'test'
+  ...
+# Subtest: 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出する
+ok 53 - 構造上の欠落・旧配置・予約領域・中央集約をまとめて検出する
+  ---
+  duration_ms: 167.7761
+  type: 'test'
+  ...
+# Subtest: 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱う
+ok 54 - 外部リンクと山括弧リンクと公式ひな型の正本読替えを扱う
+  ---
+  duration_ms: 167.3286
+  type: 'test'
+  ...
+# Subtest: 範囲指定を直接の参照元と参照先へ広げる
+ok 55 - 範囲指定を直接の参照元と参照先へ広げる
+  ---
+  duration_ms: 148.2727
+  type: 'test'
+  ...
+# Subtest: 正本文書ルートのジャンクションを拒否する
+ok 56 - 正本文書ルートのジャンクションを拒否する
+  ---
+  duration_ms: 148.2429
+  type: 'test'
+  ...
+# Subtest: 範囲指定のルート外と存在しない対象を拒否する
+ok 57 - 範囲指定のルート外と存在しない対象を拒否する
+  ---
+  duration_ms: 269.891
+  type: 'test'
+  ...
+# Subtest: 参照マップのルート外とGit対象外ファイルを拒否する
+ok 58 - 参照マップのルート外とGit対象外ファイルを拒否する
+  ---
+  duration_ms: 522.1271
+  type: 'test'
+  ...
+# Subtest: 公式ひな型ルートのジャンクションを拒否する
+ok 59 - 公式ひな型ルートのジャンクションを拒否する
+  ---
+  duration_ms: 143.1513
+  type: 'test'
+  ...
+# Subtest: 非JSON出力に指摘と参照マップを表示する
+ok 60 - 非JSON出力に指摘と参照マップを表示する
+  ---
+  duration_ms: 224.7388
+  type: 'test'
+  ...
+# Subtest: checker root must be a real directory rather than a junction
+ok 61 - checker root must be a real directory rather than a junction
+  ---
+  duration_ms: 83.1321
+  type: 'test'
+  ...
+# Subtest: a regular file at 00_CRDD is reported without traversal
+ok 62 - a regular file at 00_CRDD is reported without traversal
+  ---
+  duration_ms: 139.7185
+  type: 'test'
+  ...
+# Subtest: a regular file at the official template root is reported without traversal
+ok 63 - a regular file at the official template root is reported without traversal
+  ---
+  duration_ms: 131.3458
+  type: 'test'
+  ...
+# Subtest: a required CRDD structure entry must be a directory
+ok 64 - a required CRDD structure entry must be a directory
+  ---
+  duration_ms: 145.2236
+  type: 'test'
+  ...
+# Subtest: fallbackではgitdirが読めても親indexのgitlinkを検証済みにしない
+ok 65 - fallbackではgitdirが読めても親indexのgitlinkを検証済みにしない
+  ---
+  duration_ms: 101.5506
+  type: 'test'
+  ...
+# Subtest: gitmodulesを読めないfallbackは例外終了せず未確認にする
+ok 66 - gitmodulesを読めないfallbackは例外終了せず未確認にする
+  ---
+  duration_ms: 97.3051
+  type: 'test'
+  ...
+# Subtest: fallback rejects an invalid submodule gitdir file
+ok 67 - fallback rejects an invalid submodule gitdir file
+  ---
+  duration_ms: 99.4444
+  type: 'test'
+  ...
+# Subtest: fallback rejects a linked submodule git marker
+ok 68 - fallback rejects a linked submodule git marker
+  ---
+  duration_ms: 98.3527
+  type: 'test'
+  ...
+# Subtest: a generic repository does not require the CRDD template structure
+ok 69 - a generic repository does not require the CRDD template structure
+  ---
+  duration_ms: 125.5914
+  type: 'test'
+  ...
+# Subtest: duplicate headings use the same suffixes as GitHub anchors
+ok 70 - duplicate headings use the same suffixes as GitHub anchors
+  ---
+  duration_ms: 158.5193
+  type: 'test'
+  ...
+# Subtest: heading anchors remove Japanese punctuation without removing Japanese text
+ok 71 - heading anchors remove Japanese punctuation without removing Japanese text
+  ---
+  duration_ms: 150.654
+  type: 'test'
+  ...
+# Subtest: heading anchors preserve consecutive, leading, and trailing hyphens
+ok 72 - heading anchors preserve consecutive, leading, and trailing hyphens
+  ---
+  duration_ms: 157.516
+  type: 'test'
+  ...
+# Subtest: heading anchors use rendered Markdown text
+ok 73 - heading anchors use rendered Markdown text
+  ---
+  duration_ms: 148.4593
+  type: 'test'
+  ...
+# Subtest: heading anchors preserve literal underscores outside emphasis
+ok 74 - heading anchors preserve literal underscores outside emphasis
+  ---
+  duration_ms: 149.128
+  type: 'test'
+  ...
+# Subtest: heading anchors use visible labels from common inline Markdown
+ok 75 - heading anchors use visible labels from common inline Markdown
+  ---
+  duration_ms: 146.4788
+  type: 'test'
+  ...
+# Subtest: duplicate heading suffixes avoid anchors generated by another heading
+ok 76 - duplicate heading suffixes avoid anchors generated by another heading
+  ---
+  duration_ms: 148.5578
+  type: 'test'
+  ...
+# Subtest: an anchor-only Markdown link resolves to its source file
+ok 77 - an anchor-only Markdown link resolves to its source file
+  ---
+  duration_ms: 143.7069
+  type: 'test'
+  ...
+# Subtest: fallbackではGit metadataディレクトリだけで初期化済みにしない
+ok 78 - fallbackではGit metadataディレクトリだけで初期化済みにしない
+  ---
+  duration_ms: 94.5925
+  type: 'test'
+  ...
+# Subtest: fallback rejects a gitdir reference outside the target root
+ok 79 - fallback rejects a gitdir reference outside the target root
+  ---
+  duration_ms: 95.3476
+  type: 'test'
+  ...
+# Subtest: fallback rejects a gitdir reference that is not a directory
+ok 80 - fallback rejects a gitdir reference that is not a directory
+  ---
+  duration_ms: 100.4751
+  type: 'test'
+  ...
+# Subtest: clean non-JSON summary output does not require a reference map
+ok 81 - clean non-JSON summary output does not require a reference map
+  ---
+  duration_ms: 134.9892
+  type: 'test'
+  ...
+# Subtest: unexpected filesystem metadata failures are not treated as missing files
+ok 82 - unexpected filesystem metadata failures are not treated as missing files
+  ---
+  duration_ms: 88.3832
+  type: 'test'
+  ...
+# Subtest: a structure root removed during inspection becomes a structured finding
+ok 83 - a structure root removed during inspection becomes a structured finding
+  ---
+  duration_ms: 148.5673
+  type: 'test'
+  ...
+# Subtest: a special filesystem object cannot initialize a fallback baseline
+ok 84 - a special filesystem object cannot initialize a fallback baseline
+  ---
+  duration_ms: 94.3616
+  type: 'test'
+  ...
+# Subtest: a special filesystem object is not accepted as a reference target
+ok 85 - a special filesystem object is not accepted as a reference target
+  ---
+  duration_ms: 132.6228
+  type: 'test'
+  ...
+# Subtest: Git repository discovery failures use the explicit fallback reason
+ok 86 - Git repository discovery failures use the explicit fallback reason
+  ---
+  duration_ms: 174.0684
+  type: 'test'
+  ...
+# Subtest: Git file discovery rejects outside, missing, and linked entries
+ok 87 - Git file discovery rejects outside, missing, and linked entries
+  ---
+  duration_ms: 90.3667
+  type: 'test'
+  ...
+# Subtest: symbolic-boundary helper fails closed when a target resolves outside
+ok 88 - symbolic-boundary helper fails closed when a target resolves outside
+  ---
+  duration_ms: 92.3208
+  type: 'test'
+  ...
+# Subtest: fallback rejects a gitdir directory reached through a junction
+ok 89 - fallback rejects a gitdir directory reached through a junction
+  ---
+  duration_ms: 97.7223
+  type: 'test'
+  ...
+# Subtest: empty heading anchors are ignored
+ok 90 - empty heading anchors are ignored
+  ---
+  duration_ms: 142.6171
+  type: 'test'
+  ...
+# Subtest: finding order falls back to the message when other keys are equal
+ok 91 - finding order falls back to the message when other keys are equal
+  ---
+  duration_ms: 152.6151
+  type: 'test'
+  ...
+# Subtest: clean Git summary renders a null discovery failure as none
+ok 92 - clean Git summary renders a null discovery failure as none
+  ---
+  duration_ms: 290.6928
+  type: 'test'
+  ...
+# Subtest: fallback fails closed when the root disappears before directory walking
+ok 93 - fallback fails closed when the root disappears before directory walking
+  ---
+  duration_ms: 114.4581
+  type: 'test'
+  ...
+# Subtest: reference maps omit external links
+ok 94 - reference maps omit external links
+  ---
+  duration_ms: 141.0575
+  type: 'test'
+  ...
+# Subtest: fallback reports a nested directory that disappears before recursion
+ok 95 - fallback reports a nested directory that disappears before recursion
+  ---
+  duration_ms: 102.7874
+  type: 'test'
+  ...
+# Subtest: fallback distinguishes nested metadata, type, and link races
+ok 96 - fallback distinguishes nested metadata, type, and link races
+  ---
+  duration_ms: 268.6155
+  type: 'test'
+  ...
+# Subtest: fallback distinguishes directory-list failures
+ok 97 - fallback distinguishes directory-list failures
+  ---
+  duration_ms: 272.3027
+  type: 'test'
+  ...
+# Subtest: fallback rejects a directory removed after its entries are read
+ok 98 - fallback rejects a directory removed after its entries are read
+  ---
+  duration_ms: 92.741
+  type: 'test'
+  ...
+# Subtest: reference maps aggregate links for a directory target
+ok 99 - reference maps aggregate links for a directory target
+  ---
+  duration_ms: 137.3743
+  type: 'test'
+  ...
+# Subtest: child-process fault injection records a directory replacement
+ok 100 - child-process fault injection records a directory replacement
+  ---
+  duration_ms: 98.1425
+  type: 'test'
+  ...
+# Subtest: recognizable remediation tables validate a resolved row
+ok 101 - recognizable remediation tables validate a resolved row
+  ---
+  duration_ms: 144.2638
+  type: 'test'
+  ...
+# Subtest: recognizable remediation tables reject fixed and premature resolution
+ok 102 - recognizable remediation tables reject fixed and premature resolution
+  ---
+  duration_ms: 148.1944
+  type: 'test'
+  ...
+# Subtest: recognizable remediation tables require restart information for blockers
+ok 103 - recognizable remediation tables require restart information for blockers
+  ---
+  duration_ms: 137.2121
+  type: 'test'
+  ...
+# Subtest: remediation tables support outer-pipe-free GFM and pipes inside cells
+ok 104 - remediation tables support outer-pipe-free GFM and pipes inside cells
+  ---
+  duration_ms: 133.9441
+  type: 'test'
+  ...
+# Subtest: remediation tables report a missing state axis
+ok 105 - remediation tables report a missing state axis
+  ---
+  duration_ms: 139.5855
+  type: 'test'
+  ...
+# Subtest: resolved remediation rejects inconsistent progress and blocker axes
+ok 106 - resolved remediation rejects inconsistent progress and blocker axes
+  ---
+  duration_ms: 148.4624
+  type: 'test'
+  ...
+# Subtest: generic review tables are not treated as remediation tables
+ok 107 - generic review tables are not treated as remediation tables
+  ---
+  duration_ms: 135.0348
+  type: 'test'
+  ...
+# Subtest: generic tables with two short state aliases are not remediation tables
+ok 108 - generic tables with two short state aliases are not remediation tables
+  ---
+  duration_ms: 137.0876
+  type: 'test'
+  ...
+# Subtest: explicit remediation context detects a missing state axis without auxiliary columns
+ok 109 - explicit remediation context detects a missing state axis without auxiliary columns
+  ---
+  duration_ms: 143.1667
+  type: 'test'
+  ...
+# Subtest: canonical English remediation headers are recognized
+ok 110 - canonical English remediation headers are recognized
+  ---
+  duration_ms: 145.3024
+  type: 'test'
+  ...
+# Subtest: branch coverage tables use one parser for GFM headers and rows
+ok 111 - branch coverage tables use one parser for GFM headers and rows
+  ---
+  duration_ms: 140.6849
+  type: 'test'
+  ...
+1..111
+# tests 111
+# suites 0
+# pass 111
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 28133.3425
+# start of coverage report
+# --------------------------------------------------------------------------------
+# file                            | line % | branch % | funcs % | uncovered lines
+# --------------------------------------------------------------------------------
+# template                        |        |          |         | 
+#  tools                          |        |          |         | 
+#   crdd_check.mjs                | 100.00 |   100.00 |   96.84 | 
+# tools                           |        |          |         | 
+#  crdd_check_fault_injector.cjs  |  98.69 |    90.00 |   92.31 | 133 166 173-174
+#  crdd_check.test.mjs            |  99.97 |    97.06 |   99.05 | 1333
+# --------------------------------------------------------------------------------
+# all files                       |  99.91 |    97.97 |   97.89 | 
+# --------------------------------------------------------------------------------
+# end of coverage report

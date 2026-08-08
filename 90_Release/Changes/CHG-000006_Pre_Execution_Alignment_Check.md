@@ -1,7 +1,7 @@
 # 変更トレース: 着手前整合確認
 
 変更トレースID: `CHG-000006`
-状態: `Ready for Release Handoff`
+状態: `Released`
 担当責任者: Qual-Lab
 最終更新日: 2026-07-31
 
@@ -129,11 +129,14 @@ CRDDの運用で、完成後の独立レビューや監査が同じ対象を複�
 
 ## 後続対応 / ロードマップ
 
-- featureからdevelop、developからmainへの統合と、`v0.12.0`タグの公開を完了する
+- featureからdevelop、developからmainへの統合を完了した
 - 実運用後に、監査往復の減少と着手前確認の過不足を評価する
 
 ## リリース
 
 - 対象バージョン: `v0.12.0`
-- 現在の処置: `Ready for Release Handoff`
+- 収録リリース: `v0.12.0`
+- 現在の処置: `Released`
+- 統合: [PR #6](https://github.com/qual-lab/CRDD/pull/6)
+- 公開識別子: `v0.12.0`タグ
 - 人間の決定権限者が`v0.12.0`としてのリリース作業を承認済み

@@ -1015,6 +1015,46 @@ function withoutFencedCode(text) {
     .join("\n");
 }
 
+function markdownTableCells(line) {
+  const value = line.trim();
+  if (!value.includes("|")) return null;
+  const cells = [""];
+  let codeDelimiter = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "\\" && index + 1 < value.length) {
+      cells[cells.length - 1] += value[index + 1];
+      index += 1;
+      continue;
+    }
+    if (value[index] === "`") {
+      let length = 1;
+      while (value[index + length] === "`") length += 1;
+      if (codeDelimiter === 0) codeDelimiter = length;
+      else if (codeDelimiter === length) codeDelimiter = 0;
+      cells[cells.length - 1] += "`".repeat(length);
+      index += length - 1;
+      continue;
+    }
+    if (value[index] === "|" && codeDelimiter === 0) {
+      cells.push("");
+      continue;
+    }
+    cells[cells.length - 1] += value[index];
+  }
+  if (value.startsWith("|")) cells.shift();
+  if (value.endsWith("|") && !value.endsWith("\\|")) cells.pop();
+  return cells.map((cell) => cell.trim().replaceAll("`", ""));
+}
+
+function markdownTableSeparator(line, expectedCells) {
+  const cells = markdownTableCells(line);
+  return (
+    cells !== null &&
+    cells.length === expectedCells &&
+    cells.every((cell) => /^:?-+:?$/u.test(cell))
+  );
+}
+
 function safeDecode(value) {
   try {
     return { value: decodeURIComponent(value), error: false };
@@ -1509,11 +1549,8 @@ let numericRowsChecked = 0;
 for (const file of allMarkdownFiles) {
   const lines = withoutFencedCode(read(file)).split(/\r?\n/u);
   for (let index = 0; index < lines.length - 2; index += 1) {
-    if (!lines[index].startsWith("|")) continue;
-    const headers = lines[index]
-      .split("|")
-      .slice(1, -1)
-      .map((cell) => cell.trim());
+    const headers = markdownTableCells(lines[index]);
+    if (!headers) continue;
     const numeratorIndex = headers.findIndex((header) =>
       ["到達分岐数（分子）", "Covered Branches (Numerator)"].includes(header),
     );
@@ -1527,15 +1564,13 @@ for (const file of allMarkdownFiles) {
       numeratorIndex < 0 ||
       denominatorIndex < 0 ||
       percentageIndex < 0 ||
-      !/^\|(?:\s*:?-+:?\s*\|)+\s*$/u.test(lines[index + 1])
+      !markdownTableSeparator(lines[index + 1], headers.length)
     ) {
       continue;
     }
-    for (let row = index + 2; row < lines.length && lines[row].startsWith("|"); row += 1) {
-      const cells = lines[row]
-        .split("|")
-        .slice(1, -1)
-        .map((cell) => cell.trim().replaceAll("`", ""));
+    for (let row = index + 2; row < lines.length; row += 1) {
+      const cells = markdownTableCells(lines[row]);
+      if (!cells) break;
       const values = [
         cells[numeratorIndex] ?? "",
         cells[denominatorIndex] ?? "",
@@ -1598,6 +1633,153 @@ for (const file of allMarkdownFiles) {
           `line ${row + 1}: ${numerator}/${denominator} is ${expected.toFixed(2)}%, not ${percentage}%.`,
         );
       }
+    }
+  }
+}
+
+const remediationHeaderAliases = {
+  progress: ["処置進捗", "Remediation Progress"],
+  blocker: ["阻害状態", "Remediation Blocker State", "Blocker State"],
+  resolution: ["解消判定", "Remediation Resolution Verdict", "Resolution"],
+  acceptance: ["受入条件", "Acceptance"],
+  oracle: ["判定方法", "Oracle"],
+  evidence: ["根拠", "Evidence"],
+  review: ["独立再レビュー", "Independent Review"],
+  current: ["現在状態への反映", "Current Projection"],
+  blockerReason: ["阻害理由", "Blocker Reason"],
+  requiredInput: ["必要事項", "Required Input"],
+  owner: ["担当責任者", "Owner"],
+  restart: ["再開条件", "Restart Condition"],
+};
+const remediationPlaceholder = /^(?:|[-—–]|N\/A|TBD|TODO|None|なし|未定|未取得|未確認|対象外)$/iu;
+let remediationRowsChecked = 0;
+for (const file of allMarkdownFiles) {
+  const lines = withoutFencedCode(read(file)).split(/\r?\n/u);
+  for (let index = 0; index < lines.length - 2; index += 1) {
+    const headers = markdownTableCells(lines[index]);
+    if (!headers) continue;
+    const column = (name) =>
+      headers.findIndex((header) => remediationHeaderAliases[name].includes(header));
+    const progressIndex = column("progress");
+    const blockerIndex = column("blocker");
+    const resolutionIndex = column("resolution");
+    const stateColumnCount = [progressIndex, blockerIndex, resolutionIndex]
+      .filter((target) => target >= 0).length;
+    let precedingHeading = "";
+    for (let previous = index - 1; previous >= 0; previous -= 1) {
+      if (/^\s*#{1,6}\s+/u.test(lines[previous])) {
+        precedingHeading = lines[previous];
+        break;
+      }
+    }
+    const explicitRemediationContext =
+      /(?:是正|remediation)/iu.test(precedingHeading) ||
+      headers.some((header) => ["是正対象", "Remediation Target"].includes(header));
+    if (
+      (
+        stateColumnCount !== 3 &&
+        !(
+          stateColumnCount >= 1 &&
+          explicitRemediationContext
+        )
+      ) ||
+      !markdownTableSeparator(lines[index + 1], headers.length)
+    ) {
+      continue;
+    }
+    const missingStateColumns = [
+      ["progress", progressIndex],
+      ["blocker", blockerIndex],
+      ["resolution", resolutionIndex],
+    ].filter(([, target]) => target < 0);
+    if (missingStateColumns.length > 0) {
+      add(
+        "error",
+        "remediation-state-columns-missing",
+        relative(file),
+        `line ${index + 1}: missing ${missingStateColumns.map(([name]) => remediationHeaderAliases[name][0]).join(", ")}.`,
+      );
+    }
+    const optionalColumns = Object.fromEntries(
+      Object.keys(remediationHeaderAliases).map((name) => [name, column(name)]),
+    );
+    for (let row = index + 2; row < lines.length; row += 1) {
+      const cells = markdownTableCells(lines[row]);
+      if (!cells) break;
+      if (cells.every((cell) => cell === "")) continue;
+      remediationRowsChecked += 1;
+      const progress = progressIndex >= 0 ? (cells[progressIndex] ?? "") : "";
+      const blocker = blockerIndex >= 0 ? (cells[blockerIndex] ?? "") : "";
+      const resolution = resolutionIndex >= 0 ? (cells[resolutionIndex] ?? "") : "";
+      const location = `line ${row + 1}`;
+      if (/^fixed$/iu.test(progress) || /^fixed$/iu.test(resolution)) {
+        add(
+          "error",
+          "ambiguous-remediation-state",
+          relative(file),
+          `${location}: fixed must not be used as a remediation progress or resolution value.`,
+        );
+      }
+      if (progressIndex >= 0 && !["Identified", "Planned", "Applied", "Self-checked"].includes(progress)) {
+        add(
+          "error",
+          "remediation-progress-value",
+          relative(file),
+          `${location}: remediation progress must be Identified, Planned, Applied, or Self-checked.`,
+        );
+      }
+      if (blockerIndex >= 0 && !["None", "Blocked"].includes(blocker)) {
+        add(
+          "error",
+          "remediation-blocker-value",
+          relative(file),
+          `${location}: blocker state must be None or Blocked.`,
+        );
+      }
+      if (resolutionIndex >= 0 && !["Open", "Resolved"].includes(resolution)) {
+        add(
+          "error",
+          "remediation-resolution-value",
+          relative(file),
+          `${location}: resolution must be Open or Resolved.`,
+        );
+      }
+      const requireValues = (names, code, condition) => {
+        if (!condition) return;
+        const missing = names.filter((name) => {
+          const targetIndex = optionalColumns[name];
+          return targetIndex < 0 || remediationPlaceholder.test(cells[targetIndex] ?? "");
+        });
+        if (missing.length > 0) {
+          add(
+            "error",
+            code,
+            relative(file),
+            `${location}: missing ${missing.map((name) => remediationHeaderAliases[name][0]).join(", ")}.`,
+          );
+        }
+      };
+      requireValues(
+        ["acceptance", "oracle", "evidence", "review", "current"],
+        "premature-remediation-resolution",
+        resolution === "Resolved",
+      );
+      if (
+        resolution === "Resolved" &&
+        (progress !== "Self-checked" || blocker !== "None")
+      ) {
+        add(
+          "error",
+          "inconsistent-remediation-state",
+          relative(file),
+          `${location}: Resolved requires Self-checked progress and a None blocker state.`,
+        );
+      }
+      requireValues(
+        ["blockerReason", "requiredInput", "owner", "restart"],
+        "incomplete-remediation-blocker",
+        blocker === "Blocked",
+      );
     }
   }
 }
@@ -1897,6 +2079,7 @@ const report = {
     "explicit stable ID definition uniqueness",
     "Change Trace inspection-path recognition (not canonical placement validation)",
     "branch coverage arithmetic where numeric values are present",
+    "remediation state and early-resolution fields in recognizable tables",
     "Gitlink submodule boundary recognition",
     "symbolic link and junction boundary",
   ],
@@ -1922,6 +2105,7 @@ const report = {
     gitlinks_observed: gitlinkRoots.length,
     explicit_stable_id_definitions: stableIdDefinitions.size,
     numeric_rows_checked: numericRowsChecked,
+    remediation_rows_checked: remediationRowsChecked,
     errors,
     warnings,
   },

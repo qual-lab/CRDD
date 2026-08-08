@@ -2,10 +2,10 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.12.0
+Version: v0.13.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-31
+Last Updated: 2026-08-08
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -1474,6 +1474,9 @@ Progress Work State
 | デザインシステム参照実装（`Design System Reference`） | `デザインシステム` / `画面視覚一覧` | 見た目と操作感を確認するための実行可能な参照。デザインシステムそのものやその台帳ではなく、論理画面ごとの視覚一覧でもない |
 | 境界付き修正提案（`Bounded Remediation Proposal`） | `提案` / `推奨案` | 独立レビューまたは監査が指摘事項へ添える是正案。中核コンテキスト種別の提案（`Proposal`）ではなく、採用、実行許可、リスク受容を意味しない |
 | 監査間是正方針レビュー（`Cross-Audit Remediation Reconciliation`） | `独立レビュー` / `再監査` | 修正前に統合修正方針を指摘元監査へ確認させる工程。成果物そのものを評価する独立レビューや、修正後の再監査を代替しない |
+| 是正処置進捗（`Remediation Progress`） | `Work State` / `Finding Status` / `fixed` | 一つの是正対象について、特定から修正担当の確認までの進み方を`Identified` / `Planned` / `Applied` / `Self-checked`で示す。対応状態、指摘事項の状態、解消判定とは別の軸であり、値の意味は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)を正本とする。是正表では短い表示名`処置進捗`を使用できる |
+| 是正阻害状態（`Remediation Blocker State`） | `Blocker` / 監査結果の`Blocked` | 一つの是正対象を現在進められるかを`None` / `Blocked`で示す。停止理由そのもの、監査を完了できない結果、対応状態とは別の軸である。`Blocked`では理由、必要事項、担当責任者、再開条件を伴い、意味は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)を正本とする。是正表では短い表示名`阻害状態`を使用できる |
+| 是正解消判定（`Remediation Resolution Verdict`） | `Finding Status` / Review `Pass` / `fixed` | 根本原因と合意した対象範囲の解消条件が成立したかを`Open` / `Resolved`で示す。個別指摘の`Resolved`は、対象全体のレビュー、監査または工程ゲートの`Pass`を意味しない。成立条件は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)を正本とする。是正表では短い表示名`解消判定`を使用できる |
 | 着手前整合確認（`Pre-execution Alignment Check`） | `計画確認` / `独立レビュー` / `不足・影響監査` / `承認` | 非自明な変更の初回編集前に、計画を現在の正本、参照関係、保持する意図、影響候補、必要な専門観点、用語・表現と照合する活動。結果は`着手可`、`計画修正`、`判断待ち・停止`を使用する。これらはエージェント実行結果、監査の`Pass`／`Fail`、人間の承認結果、工程ゲートの状態ではない。実行条件、委譲、統合、停止、完成後確認との境界は[着手前整合確認](10_Agent.md#pre-execution-alignment-check)を正本とする |
 | 変更影響の伝播確認（`Triggered Propagation Check`） | `Review` / `Audit` / `Regression Test` | 確定・変更した判断、制約、学び、根拠、指摘事項が上流・同層へ及ぶかを探索し、正本を更新して下流を再探索する処置。工程移行レビューでも回帰テストでもない。契機と完了は[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を正本とする |
 | 項目の決定権限（`Property Authority`） | `Source of Truth` | 媒体全体ではなく、項目単位の正しい情報源と更新責任を明示する |
