@@ -13,7 +13,7 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ### v0.13.0 — Complete Multi-location Remediation (2026-08-08)
 
-This release standardizes how a parent agent applies an agreed remediation across every affected location before re-review. It closes the gap between a complete audit finding and an incomplete repair without adding another audit, approval gate, permanent artifact, Stable Context ID, or canonical term.
+This release standardizes how a parent agent applies an agreed remediation across every affected location before re-review. It closes the gap between a complete audit finding and an incomplete repair without adding another audit, approval gate, permanent remediation artifact, or Stable Context ID. Three auxiliary terms distinguish remediation progress, blocker state, and resolution verdict from existing status systems.
 
 Compared with v0.12.0:
 
@@ -21,21 +21,29 @@ Compared with v0.12.0:
 - Requires every identified target to be accounted for as repaired, verified unchanged, excluded with a reason, waiting for a Human decision, or unable to apply or verify with a reason and restart condition.
 - Uses the reviewer's root cause, expected state, and horizontal-search scope as input. The remediation owner does not repeat the semantic audit; ambiguity, count mismatch, or scope expansion returns to the responsible reviewer or Human authority.
 - Records counts only for a finite, traceable population and keeps the population basis and target-level dispositions available. A matching edit count or checker pass alone does not prove complete remediation.
+- Separates remediation progress (`Identified`, `Planned`, `Applied`, `Self-checked`), blocker state (`None`, `Blocked`), and resolution verdict (`Open`, `Resolved`). The ambiguous value `fixed` is not used as remediation progress or a resolution verdict.
+- Allows `Resolved` only when contract-level coverage, observable acceptance criteria, an evaluation method, fresh evidence for the same fixed revision, independent re-review, current-record propagation, and treatment of recurrence and newly found issues are available.
+- Requires contract dimensions and combination constraints to be identified before reducing the population. Finite spaces enumerate all logical combinations; non-finite or impractically large spaces record the selection method, exclusions, unreviewed range, and limits. High-risk reductions receive independent review.
+- Separates pre-freeze contracts and planned coverage from post-freeze execution evidence and current review or phase state. Fixed content is not rewritten to represent later current state or to self-reference its own hash.
+- Strengthens fresh-evidence identity and reproducibility while allowing sensitive, large, or non-command evidence to retain a reasoned summary and re-identification path instead of mandatory stdout or stderr.
+- Extends the optional checker to inspect recognizable remediation tables for invalid state values, premature `Resolved` verdicts, and incomplete blocker information. Alternative record formats remain valid and are reviewed semantically.
 - Adds a pre-re-review self-check for stale wording, direct references, derived materials, unexpected differences, deterministic checks, and unresolved items.
 - Keeps a lightweight path for one obvious local mechanical correction and reuses the existing Document Audit, Gap / Impact Audit, and Agentic Delivery criterion AD-21.
 
-Adoption impact: this is a normative, non-structural change. Existing-baseline adoption is subject to the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar. Projects that use AI to apply review or audit findings, or claim the Agentic Delivery Profile, must ensure that their parent-agent entry point or equivalent procedure enumerates multi-location remediation targets and reconciles each disposition before re-review. Existing product artifacts, folders, Stable Context IDs, completed reviews, and historical Change Traces do not require blanket rewriting.
+Adoption impact: this is a breaking, non-structural change. Existing-baseline adoption is subject to the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar. Projects that use AI to apply review or audit findings, or claim the Agentic Delivery Profile, must ensure that their parent-agent entry point or equivalent procedure enumerates multi-location remediation targets and reconciles each disposition before re-review. Projects that use CRDD quality assurance re-evaluate PL-16 for current or newly generated evidence and its generation procedure. Existing product artifacts, folders, Stable Context IDs, completed reviews, historical Change Traces, and inactive historical evidence do not require blanket rewriting.
 
 Migration note (v0.12.0 → v0.13.0):
 
 - `migration_required: true`
-- `change_classification: normative`
+- `change_classification: breaking`
 - Required for every existing-baseline update: perform the baseline-adoption assessment and satisfy the Migration Completeness bar before activation. Initial adoption has no earlier baseline to migrate.
-- Required when AI applies review or audit findings, or when the Agentic Delivery Profile is claimed: review the AI entry point, prompt, agent definition, skill, or equivalent procedure; connect the multi-location target inventory and target-by-target reconciliation when no equivalent procedure exists; re-evaluate AD-21.
+- Required when AI applies review or audit findings, or when the Agentic Delivery Profile is claimed: review the AI entry point, prompt, agent definition, skill, or equivalent procedure; connect the contract-level target inventory, separated progress/blocker/resolution axes, `Resolved` evidence bar, and target-by-target reconciliation when no equivalent procedure exists; re-evaluate AD-21.
+- Required when CRDD quality assurance is used: review the separation of fixed content from post-freeze current records and the identity and reproducibility information for current or newly generated evidence; re-evaluate PL-16. PL-01 is re-evaluated only when the project's own impact assessment finds that phase-to-quality connections also change.
 - Conditional: update stored remediation-plan or review templates only when they cannot retain the population basis, concrete targets, dispositions, verification results, and unreviewed scope.
-- Not required: add an audit type, approval stage, permanent remediation document, dedicated file, Stable Context ID, specialist for every repair, or rewrite completed inactive work. Core and Product Lifecycle criteria do not require re-evaluation solely because of this release unless the project's own impact assessment finds another affected dependency.
-- Verification: the full deterministic check reports 0 errors and 0 warnings across 55 Markdown files, 1,211 local links, 437 anchors, and 24 versioned documents. Independent agent-operation review, Document Audit, and Gap / Impact with conformance-impact review pass with no unresolved findings.
-- Known limitation: the rule reduces application omissions but cannot prove that a reviewer found every relevant location. Its effectiveness still depends on the initial horizontal search, available context, reviewer capability, and instruction-following.
+- Not required: add an audit type, approval stage, permanent remediation document, dedicated file, Stable Context ID, specialist for every repair, rewrite completed inactive work, or re-evaluate Core criteria solely because of this release.
+- Candidate evidence: the [Change Trace](90_Release/Changes/CHG-000007_Multi_Location_Remediation.md) records a Human-provided adopter trial report for experiment baseline commit `cb510e6261fd44775d843c6e40fa7f737fb7a158`. The trial was partially effective: it exposed omissions and unreviewed scope but also found recurring root causes. Raw adopter records are not available in this repository, so the report supports reopening the candidate but does not by itself prove resolution or a quantitative improvement.
+- Verification: deterministic checks and independent agent-operation, Document Audit, and Gap / Impact with conformance-impact review are rerun on the revised candidate before release.
+- Known limitation: the rule can reduce early closure and application omissions but cannot prove that a reviewer discovered every relevant contract dimension. Its effectiveness still depends on available context, reviewer capability, evidence quality, and instruction-following.
 
 <a id="changelog-v0120-en"></a>
 
@@ -628,7 +636,7 @@ The following describes the historical v0.1.0 files and does not describe the cu
 
 ### v0.13.0 — 複数箇所の是正適用（2026-08-08）
 
-本リリースでは、合意した修正を親エージェントが再レビュー前にすべての影響箇所へ適用する手順を標準化する。監査の指摘自体は十分でも修正適用が一部に留まる問題を、新しい監査、承認段階、恒久成果物、安定コンテキストID、正式用語を増やさずに解消する。
+本リリースでは、合意した修正を親エージェントが再レビュー前にすべての影響箇所へ適用する手順を標準化する。監査の指摘自体は十分でも修正適用が一部に留まる問題を、新しい監査、承認段階、恒久的な是正成果物、安定コンテキストIDを増やさずに解消する。既存状態体系との混同を避けるため、処置進捗、阻害状態、解消判定の三つを補助的な正式用語として登録する。
 
 v0.12.0からの変更:
 
@@ -636,21 +644,29 @@ v0.12.0からの変更:
 - 各対象を、修正、確認して変更不要、理由付き対象外、人間判断待ち、適用不能または確認不能として理由と再開条件を記録、のいずれかへ処置する。
 - 監査またはレビューが示した根本原因、期待する状態、水平探索範囲を入力として使う。修正担当は意味監査を重複実行せず、曖昧さ、件数不一致、対象範囲の拡大を検出した場合は確認者または人間の決定権限者へ戻す。
 - 有限で追跡可能な母集団に限って件数を示し、母集団の根拠と対象別処置を保持する。編集件数の一致またはチェッカー合格だけでは網羅的な是正を証明しない。
+- 処置進捗（`Identified`、`Planned`、`Applied`、`Self-checked`）、阻害状態（`None`、`Blocked`）、解消判定（`Open`、`Resolved`）を分けた。曖昧な`fixed`を処置進捗または解消判定の値として使用しない。
+- 契約母集団、観測可能な受入条件、合否判定方法、同じ固定改訂版の新しい根拠、独立再レビュー、現在状態への伝播、再発と新規指摘の処置を確認した場合だけ`Resolved`にできるようにした。
+- 母集団を縮約する前に契約次元と組合せ制約を特定し、有限な場合は全論理組合せを把握するようにした。非有限または実用上巨大な空間では、選択方法、除外、未評価範囲、限界を残す。高リスク領域の縮約は独立レビュー対象とする。
+- 固定前の契約・予定網羅範囲と、固定後の実行根拠・現在のレビュー／工程状態を分離した。固定後結果で固定本文を書き換えたり、自己参照Hashを作ったりしない。
+- 新しい根拠の対象同一性と再現可能性を強化しつつ、機密、大容量、コマンドを使わない検証では、stdout／stderrの一律保存ではなく、保持しない理由と再識別方法を認めた。
+- 任意チェッカーを拡張し、認識可能な是正表について、不正な状態値、根拠が揃う前の`Resolved`、阻害情報の不足を検出できるようにした。別の記録形式も引き続き使用でき、意味の妥当性はレビューで確認する。
 - 再レビュー前のセルフチェックへ、旧表現、直接参照、派生物、想定外差分、機械確認、未完了事項の照合を追加した。
 - 単一の明らかな局所修正は軽量に扱い、既存の文書監査、不足／影響監査、Agentic Delivery基準`AD-21`を再利用する。
 
-採用への影響: 本変更は構造を変えない規範変更であり、既存基準版からの採用は[移行完了の条件](19_Maintenance.md#621-migration-completeness)の対象となる。AIがレビューまたは監査の指摘事項を修正するプロジェクト、またはAgentic Deliveryプロファイルを表明するプロジェクトは、親AI入口または同等の手順が複数箇所の是正対象を列挙し、再レビュー前に対象別の処置結果を照合することを確認する。既存のプロダクト成果物、フォルダ、安定コンテキストID、完了済みレビュー、過去の変更トレースを一律に書き換える必要はない。
+採用への影響: 本変更は構造を変えない破壊的変更であり、既存基準版からの採用は[移行完了の条件](19_Maintenance.md#621-migration-completeness)の対象となる。AIがレビューまたは監査の指摘事項を修正するプロジェクト、またはAgentic Deliveryプロファイルを表明するプロジェクトは、親AI入口または同等の手順が複数箇所の是正対象を列挙し、再レビュー前に対象別の処置結果を照合することを確認する。CRDDの品質保証を使用するプロジェクトは、現在または今後生成する根拠と生成手順について`PL-16`を再評価する。既存のプロダクト成果物、フォルダ、安定コンテキストID、完了済みレビュー、過去の変更トレース、現在状態へ使わない過去根拠を一律に書き換える必要はない。
 
 移行注記（v0.12.0 → v0.13.0）:
 
 - `migration_required: true`
-- `change_classification: normative`
+- `change_classification: breaking`
 - すべての既存基準版更新で必須: 有効化前に基準版採用評価を行い、移行完了の条件を満たす。初回採用には移行元となる以前の基準版はない。
-- AIがレビューまたは監査の指摘を修正する場合、またはAgentic Deliveryプロファイルを表明する場合は必須: AI入口、プロンプト、エージェント定義、スキルまたは同等手順を確認する。同等の複数箇所の対象一覧と対象別照合がない場合は追加し、`AD-21`を再評価する。
+- AIがレビューまたは監査の指摘を修正する場合、またはAgentic Deliveryプロファイルを表明する場合は必須: AI入口、プロンプト、エージェント定義、スキルまたは同等手順を確認する。同等の契約単位の対象一覧、進捗／阻害／解消の分離、`Resolved`の根拠条件、対象別照合がない場合は追加し、`AD-21`を再評価する。
+- CRDDの品質保証を使用する場合は必須: 固定本文と固定後の現在記録の分離、および現在へ使う根拠または今後生成する根拠の識別・再現情報を確認し、`PL-16`を再評価する。工程と品質保証の接続まで変わる場合だけ`PL-01`も再評価する。
 - 条件付き: 保存済みの是正計画またはレビューテンプレートが、母集団の根拠、具体的な対象、処置、確認結果、未確認範囲を保持できない場合だけ更新する。
-- 不要: 新しい監査種別、承認段階、恒久的な是正文書、専用ファイル、安定コンテキストID、すべての修正への専門家、完了済みで非アクティブな作業の書換え。本リリースだけを理由に中核基準またはProduct Lifecycle基準を再評価する必要はない。ただし、プロジェクト自身の影響評価で別の依存が見つかった場合を除く。
-- 検証: 全体の機械確認は55 Markdown、1,211ローカルリンク、437アンカー、24版管理文書を確認し、Error 0／Warning 0。エージェント運用の独立レビュー、文書監査、不足／影響監査と準拠影響確認は、いずれも未解決指摘0件で`Pass`。
-- 既知制限: 本規則は修正適用の漏れを減らすが、初回レビューがすべての影響箇所を発見したことまでは証明しない。効果は最初の水平探索、利用可能なコンテキスト、確認者の能力、指示追従に依存する。
+- 不要: 新しい監査種別、承認段階、恒久的な是正文書、専用ファイル、安定コンテキストID、すべての修正への専門家、完了済みで非アクティブな作業の書換え、本リリースだけを理由とする中核基準の再評価。
+- 候補版の根拠: [変更トレース](90_Release/Changes/CHG-000007_Multi_Location_Remediation.md)は、実験基準コミット`cb510e6261fd44775d843c6e40fa7f737fb7a158`について人間から提供された適用先試行報告を保持する。試行は修正漏れと未評価範囲の発見には有効だったが、根本原因の再発も確認された。適用先のRaw Evidenceは本リポジトリから参照できないため、この報告は候補再開の根拠にはなるが、解消または定量効果を単独では証明しない。
+- 検証: 改訂した候補へ、全体の機械確認、エージェント運用の独立レビュー、文書監査、不足／影響監査と準拠影響確認を再実行する。
+- 既知制限: 本規則は早期完了と修正適用の漏れを減らせるが、確認者がすべての契約次元を発見したことまでは証明しない。効果は利用可能なコンテキスト、確認者の能力、根拠の品質、指示追従に依存する。
 
 <a id="changelog-v0120-ja"></a>
 
