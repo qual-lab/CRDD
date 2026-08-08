@@ -2,10 +2,10 @@
 
 # CRDD概要（Overview）
 
-Version: v0.12.0
+Version: v0.13.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-31
+Last Updated: 2026-08-08
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -336,6 +336,7 @@ CRDDのプロダクト変換、変更、ロードマップ、リリース、学�
 | 未完了の作業、課題、アイデア、是正事項を横断して把握する | [課題探索・要求形成の未完了作業の登録簿](21_Discovery.md#62-registry-scope-and-registration)に従い、存在、現在状態、参照先を`99_Roadmap`へ置く |
 | 文書品質を監査する | [文書監査](51_Document_Audit.md) |
 | CRDD準拠を評価する | [準拠監査](52_Conformance_Audit.md) |
+| 監査またはレビューで合意した修正を、参照、ひな型、例示等へ漏れなく反映する | [エージェントの複数箇所へ及ぶ是正対象の列挙と照合](10_Agent.md#multi-location-remediation)に従い、修正前に影響箇所を列挙し、修正後に各箇所の処置結果を照合してから再監査へ渡す |
 | 採用プロジェクトでCRDD基準版の差分を評価し、有効化を判断する | [保守の基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment) |
 | 人間の判断、制約、学び、根拠、指摘事項の確定・変更を上流／同層へ伝播する | [不足／影響監査の変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を即時実行し、正本更新後に再監査する |
 | その他の変更について工程横断影響を調べる | [不足／影響監査](53_Gap_Impact_Audit.md) |

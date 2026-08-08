@@ -2,7 +2,7 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.12.0
+Version: v0.13.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-31
