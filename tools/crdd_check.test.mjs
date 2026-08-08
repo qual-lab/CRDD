@@ -2703,3 +2703,229 @@ test("child-process fault injection records a directory replacement", () => {
     ),
   );
 });
+
+test("recognizable remediation tables validate a resolved row", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# 是正対象一覧",
+      "",
+      "| 対象 | 処置進捗 | 阻害状態 | 解消判定 | 受入条件 | 判定方法 | 根拠 | 独立再レビュー | 現在状態への反映 |",
+      "|---|---|---|---|---|---|---|---|---|",
+      "| A | Self-checked | None | Resolved | 表示される | 画面確認 | Result.md | reviewer: Pass | Current.md |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.metrics.remediation_rows_checked, 1);
+});
+
+test("recognizable remediation tables reject fixed and premature resolution", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# Remediation Target Inventory",
+      "",
+      "| Target | Remediation Progress | Blocker State | Resolution | Acceptance | Oracle | Evidence | Independent Review |",
+      "|---|---|---|---|---|---|---|---|",
+      "| A | fixed | None | Resolved | TBD | - | | 未確認 |",
+      "",
+      "| Target | Remediation Progress | Blocker State | Resolution | Acceptance | Oracle | Evidence | Independent Review | Current Projection |",
+      "|---|---|---|---|---|---|---|---|---|",
+      "| B | Applied | None | Resolved | observed | comparison | Result.md | reviewer: Pass |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(result.report.findings.some((finding) => finding.code === "ambiguous-remediation-state"));
+  assert.ok(result.report.findings.some((finding) => finding.code === "remediation-progress-value"));
+  assert.ok(result.report.findings.some((finding) => finding.code === "premature-remediation-resolution"));
+});
+
+test("recognizable remediation tables require restart information for blockers", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# 是正対象一覧",
+      "",
+      "| 対象 | 処置進捗 | 阻害状態 | 解消判定 | 阻害理由 | 必要事項 | 担当責任者 | 再開条件 |",
+      "|---|---|---|---|---|---|---|---|",
+      "| A | Applied | Blocked | Open | 人間判断待ち | 判断 | - | 未定 |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(result.report.findings.some((finding) => finding.code === "incomplete-remediation-blocker"));
+});
+
+test("remediation tables support outer-pipe-free GFM and pipes inside cells", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# 是正対象一覧",
+      "",
+      "   対象 | 処置進捗 | 阻害状態 | 解消判定 | 受入条件 | 判定方法 | 根拠 | 独立再レビュー | 現在状態への反映",
+      "   ---|---|---|---|---|---|---|---|---",
+      "   A | Self-checked | None | Resolved | 表示 \\| 非表示 | `left|right`を比較 | Result.md | reviewer: Pass | Current.md",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.metrics.remediation_rows_checked, 1);
+});
+
+test("remediation tables report a missing state axis", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# 是正対象一覧",
+      "",
+      "| 対象 | 処置進捗 | 解消判定 | 受入条件 |",
+      "|---|---|---|---|",
+      "| A | Applied | Open | 表示される |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(result.report.findings.some((finding) => finding.code === "remediation-state-columns-missing"));
+});
+
+test("resolved remediation rejects inconsistent progress and blocker axes", () => {
+  const root = fixture();
+  makeStructure(root);
+  const closure = "| observed | comparison | Result.md | reviewer: Pass | Current.md |";
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# Remediation Target Inventory",
+      "",
+      "| Target | Remediation Progress | Blocker State | Resolution | Acceptance | Oracle | Evidence | Independent Review | Current Projection |",
+      "|---|---|---|---|---|---|---|---|---|",
+      `| A | Identified | None | Resolved ${closure}`,
+      `| B | Planned | None | Resolved ${closure}`,
+      `| C | Applied | None | Resolved ${closure}`,
+      `| D | Self-checked | Blocked | Resolved ${closure}`,
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(
+    result.report.findings.filter((finding) => finding.code === "inconsistent-remediation-state").length,
+    4,
+  );
+});
+
+test("generic review tables are not treated as remediation tables", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "01_Discovery", "Review.md"),
+    [
+      "# Review Summary",
+      "",
+      "| Resolution | Independent Review |",
+      "|---|---|",
+      "| Accepted | reviewer: Pass |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.metrics.remediation_rows_checked, 0);
+});
+
+test("generic tables with two short state aliases are not remediation tables", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "01_Discovery", "Review.md"),
+    [
+      "# Review",
+      "",
+      "| Item | Blocker State | Resolution |",
+      "|---|---|---|",
+      "| X | None | Accepted |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.metrics.remediation_rows_checked, 0);
+});
+
+test("explicit remediation context detects a missing state axis without auxiliary columns", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# Remediation Target Inventory",
+      "",
+      "| Remediation Target | Remediation Progress | Resolution |",
+      "|---|---|---|",
+      "| A | Applied | Open |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 1);
+  const finding = result.report.findings.find(
+    (item) => item.code === "remediation-state-columns-missing",
+  );
+  assert.ok(finding);
+  assert.match(finding.message, /阻害状態/u);
+});
+
+test("canonical English remediation headers are recognized", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "90_Release", "Changes", "Remediation.md"),
+    [
+      "# Remediation Target Inventory",
+      "",
+      "| Target | Remediation Progress | Remediation Blocker State | Remediation Resolution Verdict | Acceptance | Oracle | Evidence | Independent Review | Current Projection |",
+      "|---|---|---|---|---|---|---|---|---|",
+      "| A | Self-checked | None | Resolved | observed | comparison | Result.md | reviewer: Pass | Current.md |",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.metrics.remediation_rows_checked, 1);
+});
+
+test("branch coverage tables use one parser for GFM headers and rows", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(
+    path.join(root, "07_Quality", "Coverage.md"),
+    [
+      "# Coverage",
+      "",
+      "   `Target|Variant` | Covered Branches (Numerator) | Total Branches (Denominator) | Measured Rate",
+      "   ---|---|---|---",
+      "   A \\| B | 3 | 4 | 75%",
+    ].join("\n"),
+  );
+
+  const result = run(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.metrics.numeric_rows_checked, 1);
+});
