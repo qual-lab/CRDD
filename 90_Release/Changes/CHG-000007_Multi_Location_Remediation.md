@@ -1,7 +1,7 @@
 # 変更トレース: 複数箇所の是正適用
 
 変更トレースID: `CHG-000007`
-状態: `Ready for Release Handoff`
+状態: `Ready for Verification`
 担当責任者: Qual-Lab
 最終更新日: 2026-08-08
 
@@ -89,17 +89,17 @@
 
 | 対象 | 処置 | 処置進捗 | 阻害状態 | 解消判定 | 受入条件 | 判定方法 | 根拠 | 独立再レビュー | 現在状態への反映 |
 |---|---|---|---|---|---|---|---|---|---|
-| 用語集 | 修正 | Self-checked | None | Resolved | 3状態軸と既存状態の境界が一意 | 用語登録規則との照合 | `02_Terminology.md` | 文書監査／不足・影響・準拠影響監査 `Pass` | 本CHG |
-| エージェント正本 | 修正 | Self-checked | None | Resolved | 母集団、3軸、解消条件、新規指摘分類が成立 | 代表ケースと水平検索 | `10_Agent.md` | エージェント運用独立レビュー `Pass` | 本CHG |
-| 品質保証正本 | 修正 | Self-checked | None | Resolved | 固定前後の所有と新しい根拠要件が明瞭 | `PL-16`との照合 | `16_Quality_Assurance.md` | 文書監査／不足・影響・準拠影響監査 `Pass` | 本CHG／`PL-16` |
-| 保守正本 | 修正 | Self-checked | None | Resolved | 影響箇所と処置結果を編集計画へ接続 | 正本間照合 | `19_Maintenance.md` | 文書監査／不足・影響・準拠影響監査 `Pass` | 本CHG |
-| 文書／不足・影響監査 | 修正 | Self-checked | None | Resolved | 水平探索、縮約、現在状態を監査可能 | 監査契約との照合 | `51_Document_Audit.md`、`53_Gap_Impact_Audit.md` | 文書監査／不足・影響・準拠影響監査 `Pass` | 本CHG |
-| 準拠監査 | 修正 | Self-checked | None | Resolved | `AD-21`と`PL-16`が正本変更を反映 | 基準・必要根拠・移行の照合 | `52_Conformance_Audit.md` | 不足・影響・準拠影響監査 `Pass` | 本CHG／準拠基準 |
-| Root／Template AI入口 | 修正 | Self-checked | None | Resolved | 親エージェントが同じ解消条件を使用 | 正本参照と日英境界の照合 | `AGENTS.md`、`template/AGENTS.md` | エージェント運用独立レビュー `Pass` | 本CHG |
-| README／概要 | 修正 | Self-checked | None | Resolved | 人間向け説明と変更経路が正本に一致 | 公開要約との照合 | `README.md`、`00_Overview.md` | 文書監査／不足・影響・準拠影響監査 `Pass` | 本CHG |
-| Checker／回帰試験 | 修正 | Self-checked | None | Resolved | GFM表、列不足、状態矛盾、早期解消を検出 | 111回帰試験と網羅率 | Checker結果、回帰試験結果 | エージェント運用独立レビュー `Pass` | 本CHG |
-| 版／変更履歴／移行 | 修正 | Self-checked | None | Resolved | v0.13.0純粋差分、breaking、`AD-21`／`PL-16`移行が一致 | 英日差分と保守規則の照合 | `CHANGELOG.md` | 文書監査／不足・影響・準拠影響監査 `Pass` | 本CHG |
-| 変更トレース／試行根拠 | 修正 | Self-checked | None | Resolved | 履歴と現在状態を分離し、試行数値へ辿れる | 本表、Evidence、状態欄の照合 | 本CHG、試行報告 | 3系統の独立再確認 `Pass` | 本CHG |
+| 用語集 | 修正 | Self-checked | None | Open | 3状態軸と既存状態の境界が一意 | 用語登録規則との照合 | `02_Terminology.md` | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
+| エージェント正本 | 修正 | Self-checked | None | Open | 母集団、3軸、解消条件、新規指摘分類が成立 | 代表ケースと水平検索 | `10_Agent.md` | 固定改訂版の再レビュー待ち | 固定後Review Recordへ接続予定 |
+| 品質保証正本 | 修正 | Self-checked | None | Open | 固定前後の所有と新しい根拠要件が明瞭 | `PL-16`との照合 | `16_Quality_Assurance.md` | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
+| 保守正本 | 修正 | Self-checked | None | Open | 影響箇所と処置結果を編集計画へ接続 | 正本間照合 | `19_Maintenance.md` | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
+| 文書／不足・影響監査 | 修正 | Self-checked | None | Open | 水平探索、縮約、現在状態を監査可能 | 監査契約との照合 | `51_Document_Audit.md`、`53_Gap_Impact_Audit.md` | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
+| 準拠監査 | 修正 | Self-checked | None | Open | `AD-21`と`PL-16`が正本変更を反映 | 基準・必要根拠・移行の照合 | `52_Conformance_Audit.md` | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
+| Root／Template AI入口 | 修正 | Self-checked | None | Open | 親エージェントが同じ解消条件を使用 | 正本参照と日英境界の照合 | `AGENTS.md`、`template/AGENTS.md` | 固定改訂版の再レビュー待ち | 固定後Review Recordへ接続予定 |
+| README／概要 | 修正 | Self-checked | None | Open | 人間向け説明と変更経路が正本に一致 | 公開要約との照合 | `README.md`、`00_Overview.md` | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
+| Checker／回帰試験 | 修正 | Self-checked | None | Open | GFM表、列不足、状態矛盾、早期解消を検出 | 111回帰試験と網羅率 | Checker結果、回帰試験結果 | 固定改訂版のコード再レビュー待ち | 固定後Review Recordへ接続予定 |
+| 版／変更履歴／移行 | 修正 | Self-checked | None | Open | v0.13.0純粋差分、breaking、`AD-21`／`PL-16`移行が一致 | 英日差分と保守規則の照合 | `CHANGELOG.md` | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
+| 変更トレース／試行根拠 | 修正 | Self-checked | None | Open | 履歴と現在状態を分離し、試行数値へ辿れる | 本表、Evidence、状態欄の照合 | 本CHG、試行報告 | 固定改訂版の再監査待ち | 固定後Review Recordへ接続予定 |
 
 ## 検証計画
 
@@ -147,10 +147,10 @@
 - 適用先の効果測定: 同一R28固定版に対する10件の独立レビュー／監査はすべて`Fail`。R27の根本原因8件は8件とも再発した
 - 一方、28処置への事前分解により、修正漏れ、未評価、新規見落としを具体的に発見できた。統合したR29是正方針は10確認者すべて`Accept with Conditions`、`Reject` 0、直接競合0。R28の104 Pathは変更していない
 - 効果測定の結論: 部分的に有効。対象列挙は有効だが、`Applied`と`Resolved`を分け、受入条件、合否判定方法、固定後の新しい根拠、独立再レビュー、現在状態への伝播まで確認しなければ早期完了を防げない
-- 上記の適用先指摘は本CHGの再開理由であり、v0.13.0改訂候補では処置を適用した。同一の固定改訂版に対する最終独立再確認で再発および通常ゲートを停止する新規指摘がなかったため、11対象の解消判定を`Resolved`とした
+- 上記の適用先指摘は本CHGの再開理由であり、v0.13.0改訂候補では処置を適用した。固定後の実行記録と独立確認記録をリポジトリ内へ保持していないため、11対象の解消判定は`Open`とする
 - 改訂候補のChecker回帰試験: 111件すべて合格。Checker本体は行100%、分岐100%を確認した
 - 改訂候補の全体Checker: 56 Markdown、1,223ローカルリンク、444アンカー、24版管理文書、是正表11行を確認し、Error 0／Warning 0
-- 改訂候補の最終独立再確認: エージェント運用独立レビュー、文書監査、不足／影響・準拠影響監査はすべて`Pass`。未解決指摘0件、新規候補4分類はすべて0件
+- これまでの会話上の最終独立再確認は、固定対象、確認者、能力根拠、使用基準、確認範囲、未評価範囲および完全結果をリポジトリ内から再構成できないため、解消根拠へ使用しない
 
 ## 既知制限 / 残存リスク
 
@@ -163,7 +163,7 @@
 
 - Qual-Labの人間の決定権限者は、正式タグを増やさず、featureブランチの確定コミットを適用先で固定してリリース前検証を行うと判断した。実験基準コミット`cb510e6261fd44775d843c6e40fa7f737fb7a158`の試行は完了した
 - 担当責任者: Qual-Lab
-- 次の処置: v0.13.0のリリース判断へ引き渡す
+- 次の処置: 本状態をコミットして固定改訂版とし、Checker／回帰試験の実行記録と3系統の独立確認記録を固定後Evidenceとして取得する
 - 確認観点: 複数箇所の修正漏れ、再監査の往復、単一箇所の軽微修正への負荷、対象一覧作成の過剰負荷
 - 完了条件: 正式リリースを妨げる破綻がないことを人間の決定権限者が確認する。削減率の定量保証は正式リリースの必須条件にしない
 - 再評価条件: 試行で規範の意味、軽量性、AI入口または準拠基準へ影響する問題が見つかった場合は、本CHGを更新して必要な正本と監査を再開する
@@ -173,6 +173,6 @@
 
 - 対象バージョン: `v0.13.0`
 - 収録リリース: 未確定
-- 現在の処置: `Ready for Release Handoff`
+- 現在の処置: `Ready for Verification`
 - 統合: 未確定
 - 公開識別子: 未確定
