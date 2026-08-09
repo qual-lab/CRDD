@@ -9,6 +9,41 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0140-en"></a>
+
+### v0.14.0 — Convergent Remediation and Evidence Identity (2026-08-10)
+
+This release strengthens convergence after a finding has been discovered. It preserves the meaning of the original finding, separates contract coverage from consumer coverage, distinguishes a verification oracle from evidence that each consumer actually used it, and makes Git the default identity source for fixed evidence. It does not add a mandatory remediation file, manifest, audit type, approval stage, profile, Stable Context ID, or external QA tool.
+
+Compared with v0.13.0:
+
+- Keeps an issued finding's identifier, target, rule, observed facts, root cause, and original expected state as history. A remediation item cannot silently replace the finding with another defect or with evidence acquisition.
+- Records a correction or supersession separately when a finding was wrong or incomplete, including the correction reason, correct meaning, affected remediation and evidence, reevaluation scope, and crosswalk to the original finding.
+- Separates the contract population—the state, input, branch, permission, failure, persistence, and other combinations that can change a result—from the consumer population that interprets, transforms, stores, renders, transmits, executes, or verifies that contract.
+- Requires each contract target to connect to every applicable consumer's remediation, result, or reasoned non-applicability. A matching file count does not prove either population complete.
+- Separates verification-oracle consistency, application to a reference harness or verifier, application to the product implementation, and execution results for individual consumers. A correct verification oracle or harness does not prove product behavior.
+- Uses Git repository identity, object format, Commit OID, path set, expected gitlink OIDs, observed HEAD and Root Tree, per-path object identity, index/worktree differences, and submodule state to distinguish declared, observed, and executed targets.
+- Uses Commit OIDs as the normal first choice. Additional manifests are limited to subsets, dirty state, submodules, external inputs, or non-Git artifacts and must define a reproducible byte-level derivation when used.
+- Separates semantic updates to a current record from record-only additions such as links, OIDs, timestamps, or reviewers. Record-only updates receive a terminal lightweight link, identity, and tamper check instead of recursively creating another audit target.
+- Stops repeated local patching when the same root cause recurs across reviews, phases, or consumers, and returns to the shared authority, contract, generator, verification oracle, consumer map, or current-state projection.
+- Aligns Document Audit, Gap / Impact Audit, Product Lifecycle criterion PL-16, Agentic Delivery criterion AD-21, official and distributed AI entry points, Overview, Terminology, and public guidance with these boundaries.
+
+Adoption impact: this is a breaking, non-structural change. Existing-baseline adoption is subject to the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar. Projects that apply v0.13-style multi-location remediation or claim Agentic Delivery re-evaluate AD-21 and their finding/remediation procedure. Projects that use CRDD quality assurance re-evaluate PL-16, fixed-evidence target identity, current-record closure, contract/consumer coverage, and verification-oracle/consumer-result separation. Historical findings and evidence do not require blanket rewriting, but an active finding cannot be repurposed, and newly generated current evidence must follow the new identity boundary.
+
+Migration note (v0.13.0 → v0.14.0):
+
+- `migration_required: true`
+- `change_classification: breaking`
+- Required for every existing-baseline update: perform the baseline-adoption assessment and satisfy Migration Completeness before activation. Initial adoption has no earlier baseline to migrate.
+- Required when AI applies findings or Agentic Delivery is claimed: review the AI entry point or equivalent procedure; preserve finding meaning, separate contract and consumer populations, keep remediation crosswalks, and switch repeated recurrence to structural remediation; re-evaluate AD-21.
+- Required when CRDD quality assurance is used: review current fixed-evidence procedures and current records; use Git-centered declared/observed/execution target identity where applicable, separate the verification oracle and consumer execution evidence, and apply the terminal record-only check; re-evaluate PL-16.
+- Conditional: update active remediation and evidence templates only when they cannot retain the new boundaries. Existing historical records remain historical and are not rewritten solely for format alignment.
+- Not required: add a mandatory resolution-package file, custom manifest for normal clean Git commits, new audit, approval gate, profile, external test system, folder, Stable Context ID, or blanket rewrite of closed historical findings and evidence.
+- Rollback / recovery: keep the currently active v0.13.0 baseline and procedures until Migration Completeness and Human activation are complete. When reverting a partial application, restore the v0.13.0 AI entry point and evidence procedure; retain records created by the v0.14.0 candidate as candidate history instead of deleting them.
+- Known risk if deferred: finding meaning may be repurposed, affected consumers may remain unaccounted for, verification-oracle results may be mistaken for consumer execution evidence, declared and executed targets may be confused, and current-record verification may continue recursively.
+- Verification: run the full CRDD checker once for the fixed candidate, then independent agent-operation review, Document Audit, and Gap / Impact with conformance-impact review. The checker supports deterministic structure only and does not decide finding meaning, population completeness, verification-oracle validity, or consumer behavior.
+- Known limitation: these rules improve traceability and convergence but cannot discover an unknown consumer or prove an incorrect verification oracle correct. The result still depends on explicit system boundaries, reviewer capability, and available evidence.
+
 <a id="changelog-v0130-en"></a>
 
 ### v0.13.0 — Complete Multi-location Remediation (2026-08-08)
@@ -631,6 +666,41 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0140-ja"></a>
+
+### v0.14.0 — 収束する是正と根拠同一性（2026-08-10）
+
+本リリースは、指摘事項を発見した後の是正を一度で収束させる力を強化する。元の指摘事項の意味を保持し、契約の網羅と利用側の網羅を分け、合否判定方法の存在と各利用側が実際にその結果どおり動いた根拠を区別する。固定後の根拠ではGitを標準の対象同一性として使う。必須の是正ファイル、Manifest、監査種別、承認段階、プロファイル、安定コンテキストID、外部QAツールは追加しない。
+
+v0.13.0からの変更:
+
+- 発行済みの指摘事項の識別子、対象、判定規則、確認事実、根本原因、当時の期待状態を履歴として保持する。是正対象が指摘事項を別の不備や根拠取得へ置き換えることを禁止する。
+- 指摘事項が誤りまたは不完全だった場合は、訂正理由、正しい意味、影響する是正と根拠、再評価範囲、元の指摘事項との対応関係を、訂正または置換として別に残す。
+- 結果を変え得る状態、入力、分岐、権限、失敗、保存等の契約母集団と、その契約を解釈、変換、保存、表示、送信、実行または検証する利用側母集団を分離する。
+- 契約対象ごとに、該当する全利用側の是正、結果または理由付き非該当判定へ接続する。ファイル数の一致だけでは、どちらの母集団も網羅したとみなさない。
+- 合否判定方法自体の整合性、参照用実行環境または検証器への適用、プロダクト実装への適用、各利用側の実行結果を分離する。正しい判定方法や参照用検証器だけでプロダクト挙動を証明しない。
+- Gitのリポジトリ識別情報、Object Format、Commit OID、対象Path集合、期待gitlink OID、Observed HEAD、Root Tree、PathごとのObject、Index／Worktree差分、Submodule状態によって、宣言対象、実観測対象、実行対象を区別する。
+- 通常はCommit OIDを第一選択とする。追加Manifestは、部分集合、dirty状態、Submodule、外部入力またはGit外成果物に限定し、使用時はByte列まで再導出可能な規則を持たせる。
+- 現在状態の意味を変える更新と、参照、OID、時刻、確認者等だけを加える記録更新を分離する。記録更新は、参照実在性、対象同一性、改変有無の軽量確認で終了し、新たな監査対象を再帰的に作らない。
+- 同じ根本原因がレビュー、工程または利用側で再発する場合は、局所修正を重ねず、決定権限、共通契約、生成器、判定方法、利用側一覧または現在状態への投影へ戻る。
+- 文書監査、不足／影響監査、プロダクトライフサイクル基準PL-16、エージェント型提供基準AD-21、公式／配布AI入口、概要、用語集、公開案内を同じ境界へ整合した。
+
+採用影響: 本変更は非構造的な破壊的変更である。既存基準版の採用には[移行完了の条件](19_Maintenance.md#621-migration-completeness)を適用する。v0.13型の複数箇所是正を使うプロジェクトまたはエージェント型提供を表明するプロジェクトは、AD-21と指摘事項／是正手順を再評価する。CRDD品質保証を使うプロジェクトは、PL-16、固定後根拠の対象同一性、現在記録の終了、契約／利用側網羅、判定方法／利用側結果の分離を再評価する。過去の指摘事項と根拠を一括して書き換える必要はないが、進行中の指摘事項を別の意味へ流用せず、新しく生成する現在根拠には新しい同一性境界を適用する。
+
+移行注記（v0.13.0 → v0.14.0）:
+
+- `migration_required: true`
+- `change_classification: breaking`
+- すべての既存基準版更新で必須: 基準版採用評価を行い、有効化前に移行完了の条件を満たす。初回採用には移行元がない。
+- AIが指摘事項を是正する場合、またはエージェント型提供を表明する場合に必須: AI入口または同等手順を確認し、指摘事項の意味保存、契約／利用側母集団の分離、是正の対応関係、再発時の構造是正を接続し、AD-21を再評価する。
+- CRDD品質保証を使う場合に必須: 現行の固定後根拠手順と現在記録を確認し、該当時はGit中心の宣言対象／実観測対象／実行対象、判定方法と利用側実行根拠の分離、記録更新の終了確認を適用し、PL-16を再評価する。
+- 条件付き: 進行中の是正または根拠ひな型が新しい境界を保持できない場合だけ更新する。完了済みの履歴記録は形式合わせだけを理由に書き換えない。
+- 不要: 必須の解消パッケージファイル、通常のcleanなGit Commitに対する独自Manifest、新しい監査、承認段階、プロファイル、外部テスト管理システム、フォルダ、安定コンテキストID、完了済み履歴の一括書き換え。
+- 復旧: 移行完了の条件と人間による有効化が終わるまで、現在有効なv0.13.0基準版と運用手順を維持する。部分適用を戻す場合はv0.13.0のAI入口と根拠手順へ戻し、v0.14.0候補で作成した履歴は削除せず候補記録として保持する。
+- 延期時の既知リスク: 指摘事項の意味変更、利用側漏れ、合否判定方法の結果を利用側実行結果へ流用すること、宣言対象と実行対象の取り違え、現在記録の確認連鎖が終了しないことが残り得る。
+- 検証: 固定候補へCRDDチェッカー全体を一度実行した後、エージェント運用の独立レビュー、文書監査、不足／影響と準拠影響の監査を実行する。チェッカーは決定論的な構造だけを補助し、指摘事項の意味、母集団の完全性、判定方法の正しさ、利用側挙動を決定しない。
+- 既知の制限: 本規則は追跡可能性と収束性を改善するが、未知の利用側を発見したり、誤った判定方法を正しいと証明したりはできない。結果は明示されたシステム境界、確認者の能力、利用可能な根拠に依存する。
 
 <a id="changelog-v0130-ja"></a>
 
