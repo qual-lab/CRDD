@@ -9,6 +9,43 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0150-en"></a>
+
+### v0.15.0 — Communication and Context Dependency (2026-08-10)
+
+This release adds two reusable contracts without turning communication into another product phase or prescribing a Git topology. Communication connects canonical product context to audience-specific claims, generated projections, Human publication decisions, immutable publication history, and measured learning candidates. Context Dependency distinguishes inherited meaning from versioned executable artifacts and makes adopted versions, local overrides, consumers, update impact, and recovery explicit.
+
+Compared with v0.14.0:
+
+- Adds `17_Communication.md` as the authority for audience, purpose, claims and evidence, Design Direction, publication decisions, Publication Records, measurement, observations, hypotheses, and learning candidates.
+- Keeps Communication out of the linear phase sequence. Discovery, UX, IA, UI, Quality Assurance, and Release retain their existing authority while contributing to or consuming the shared contract.
+- Adds the optional `80_Communication/01_Communication.md` entry artifact. Repositories that do not communicate externally do not create the folder, and repositories that do use it split SEO, landing pages, presentations, performance measurement, or other details only when needed.
+- Separates a Communication Projection that can be generated from current context from a Publication Record of what was actually approved and published. A later projection does not overwrite publication history.
+- Requires claims to remain connected to applicable evidence, conditions, source revisions, and unverified scope. AI may draft and compare but does not approve publication, legal or trademark conclusions, privacy or security disclosure, brand decisions, or risk acceptance.
+- Routes measured reactions through measurement, observation, hypothesis, learning candidate, and Human decision. Click-through, conversion, search, or other response does not become Product Truth or a requirement automatically.
+- Defines Design Direction as a shared alignment contract among UX, IA, UI, and Communication rather than a new phase or final visual specification. It can also be used for product UI, presentations, Web, or documentation without external publication and does not by itself require `80_Communication`.
+- Adds `18_Context_Dependency.md` to distinguish semantic Context Dependency from versioned Artifact Dependency. Its full contract applies to context dependencies, artifact dependencies whose meaning, contract, adopted version, or update decision must be coordinated across independently managed consumers within the adopting organization, and artifact dependencies requiring explicit management for material quality, security, privacy, legal, license, compatibility, or recovery risk. Ordinary and transitive implementation dependencies may remain in architecture, package-manager, lockfile, or SBOM authorities.
+- Treats same-repository folders, separate repositories, packages, registries, Git references, and submodules as implementation options selected by lifecycle, authority, release, access, reuse, and recovery needs. None is the universal inheritance model.
+- Adds conditional Product Lifecycle criteria PL-17 and PL-18. PL-18 does not activate merely because an ordinary package or transitive dependency exists. They require reasoned `Not Applicable` results when Communication or managed-dependency capability is absent, without requiring empty artifacts, a new conformance profile, a manifest, or new Stable Context IDs.
+
+Adoption impact: this is a breaking, capability-scoped change. Existing-baseline adoption is subject to [Migration Completeness](19_Maintenance.md#621-migration-completeness). Every Product Lifecycle conformance claim evaluates the new PL-17 and PL-18 criteria, but projects without external communication or managed project-specific dependencies may record reasoned non-applicability instead of creating artifacts. Ordinary or transitive implementation dependencies identify their existing architecture or dependency-management authority; dependencies requiring cross-consumer coordination within the adopting organization and materially risky dependencies are promoted to the full contract. Projects using either capability review the affected canonical artifacts, AI entry points, current publication or dependency records, verification obligations, and consumer impact.
+
+Migration note (v0.14.0 → v0.15.0):
+
+- `migration_required: true`
+- `change_classification: breaking`
+- Required for every existing-baseline update: perform the baseline-adoption assessment and satisfy Migration Completeness before activation. Initial adoption has no earlier baseline to migrate.
+- Required for Product Lifecycle conformance: evaluate PL-17 and PL-18 for the claimed scope. Record a reason and scope for `Not Applicable`; absence of a folder alone is not the reason.
+- Required when external communication is used: inventory current communication entry points, active claims, generated outputs, published artifacts or records, approval boundaries, measurements, and learning feedback. Add or update `80_Communication/01_Communication.md` only when the capability applies, and connect current records without rewriting closed publication history solely for format alignment.
+- Required when context dependencies or managed artifact dependencies are used: inventory adopted sources and versions, local overrides, consumers, update procedures, verification impact, migration, recovery, and deferred risk. Ordinary and transitive implementation dependencies may use architecture, package-manager, lockfile, or SBOM records; promote them only when the adopting organization must coordinate meaning, contract, adopted version, or update decisions across independently managed consumers, or when they carry material risk. An upstream API contract, separate provider authority, or independent provider release alone does not trigger the full contract. If applicability cannot yet be determined, keep the evaluation pending rather than treating it as `Not Applicable` or fully contracted. Preserve the distinction between CRDD baseline adoption under Maintenance and project-specific dependency updates under Context Dependency.
+- Conditional automation: dependency updates may run without a new Human decision only inside a pre-approved dependency set, version range, verification criteria, stop conditions, result-recording rule, and recovery method. Boundary escape, failed or unavailable verification, or material compatibility, security, privacy, license, or consumer impact returns to Human decision.
+- Conditional: update AI entry points, workflows, templates, quality artifacts, or Change Traces only where current operations cannot preserve claim/evidence, projection/publication, learning, dependency, override, consumer, and update boundaries.
+- Not required: create `80_Communication` for a repository that does not use the capability; split every campaign into a repository; adopt a submodule, package, CMS, design tool, or external QA system; create a new conformance profile, Stable Context ID, mandatory manifest, or fixed set of medium-specific files; rewrite closed historical publications or dependency decisions solely for formatting.
+- Rollback / recovery: keep the currently active v0.14.0 baseline and procedures until Migration Completeness and Human activation are complete. When reverting a partial application, restore the v0.14.0 AI entry point and PL-01–PL-16 evaluation scope, preserve candidate publication and dependency records as history, and restore the previously active dependency versions or publication controls identified by the adopting project.
+- Known risk if deferred: unsupported claims may remain disconnected from evidence, current generated output may be confused with what was published, market response may be promoted to a requirement without Human judgment, dependency versions or overrides may be ambiguous, and dependency updates may leave consumers or prior verification stale.
+- Verification: run the full CRDD checker once for the fixed candidate, then independent agent-operation review, Document Audit, and Gap / Impact with conformance-impact review. Representative cases cover non-applicability, a lightweight single communication entry, detailed communication artifacts, publication history, market-learning feedback, same-repository and separate-repository dependencies, overrides, and dependency updates.
+- Known limitation: the contracts cannot discover every external publication or implicit dependency, prove a claim true without adequate evidence, or infer legal, brand, privacy, security, and market causality judgments. Results depend on declared system boundaries, available evidence, reviewer capability, and Human authority.
+
 <a id="changelog-v0140-en"></a>
 
 ### v0.14.0 — Convergent Remediation and Evidence Identity (2026-08-10)
@@ -666,6 +703,43 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0150-ja"></a>
+
+### v0.15.0 — 外部コミュニケーションとコンテキスト依存（2026-08-10）
+
+本リリースは、外部コミュニケーションを新しいプロダクト工程にせず、Git構造も固定せずに再利用できる二つの共通契約を追加する。外部コミュニケーションは、正本コンテキストを受け手別の主張、生成可能な表現、人間の公開判断、公開履歴、測定から得た学び候補へ接続する。コンテキスト依存は、別の正本が持つ意味の参照と、実行に使用する版付き成果物を区別し、採用版、ローカル上書き、利用側、更新影響、復旧を明示する。
+
+v0.14.0からの変更:
+
+- `17_Communication.md`を追加し、受け手、目的、主張と根拠、デザイン方針、公開判断、公開済み記録、測定、観察、仮説、学び候補の決定権限を定義した。
+- 外部コミュニケーションを直列工程にしない。課題探索・要求形成、UX、IA、UI、品質保証、リリースは既存の決定権限を維持し、共有契約へ必要な情報を提供または利用する。
+- 任意の入口`80_Communication/01_Communication.md`を追加した。外部コミュニケーションを扱わないRepositoryはフォルダを作らず、扱う場合もSEO、LP、プレゼンテーション、効果測定等の詳細は必要なときだけ分割する。
+- 現在のコンテキストから生成できる外部向け投影と、実際に承認・公開した内容を保持する公開済み記録を分離した。後の投影で公開履歴を上書きしない。
+- 主張を適用可能な根拠、条件、情報源改訂版、未確認範囲へ接続する。AIは下書き、比較、照合を支援できるが、公開、法務・商標判断、プライバシー・セキュリティ上の開示、ブランド判断、リスク受容を自己承認しない。
+- 外部反応を、測定、観察、仮説、学び候補、人間判断の順で扱う。クリック率、転換、検索その他の反応をプロダクト上の事実または要求へ自動昇格しない。
+- デザイン方針をUX、IA、UI、外部コミュニケーション間の共有整合契約とし、新工程または最終視覚仕様にはしない。外部公開のないプロダクトUI、プレゼンテーション、Web、文書でも使用でき、デザイン方針だけを理由に`80_Communication`を要求しない。
+- `18_Context_Dependency.md`を追加し、意味を参照するコンテキスト依存と、版付き実行成果物を参照する成果物依存を分離した。完全契約はコンテキスト依存、採用組織の独立管理利用側間で意味・契約・採用版・更新判断の横断調整を必要とする成果物依存、および重大な品質・セキュリティ・プライバシー・法務・ライセンス・互換性・復旧リスクにより明示管理する成果物依存へ適用する。通常・推移依存はアーキテクチャ、パッケージ管理、lockfile、SBOM等を正本にできる。
+- 同一Repository、別Repository、パッケージ、成果物レジストリ、Git参照、Submoduleを、ライフサイクル、決定権限、公開、アクセス、再利用、復旧から選ぶ実現候補とした。いずれも共通の継承方式として固定しない。
+- 条件付きのプロダクトライフサイクル基準PL-17とPL-18を追加した。通常のパッケージまたは推移依存が存在するだけではPL-18を発火させない。外部コミュニケーションまたは管理対象依存が存在しない場合は理由付き`Not Applicable`を使用でき、空成果物、新しい準拠プロファイル、Manifest、安定コンテキストIDを要求しない。
+
+採用への影響: 本変更は適用機能を限定できる破壊的変更である。既存基準版の採用には[移行完了の条件](19_Maintenance.md#621-migration-completeness)を適用する。すべてのプロダクトライフサイクル準拠表明で新しいPL-17とPL-18を評価するが、外部コミュニケーションまたは管理対象のプロジェクト固有依存がない場合は、成果物を作らず理由付き非適用を記録できる。通常・推移依存は既存の依存管理正本を示し、採用組織の独立管理利用側間で横断調整を必要とする依存または重大リスクへ達した依存だけを完全契約へ昇格する。いずれかを使用する場合は、影響する正本、AI入口、現在の公開／依存記録、検証義務、利用側影響を確認する。
+
+移行注記（v0.14.0 → v0.15.0）:
+
+- `migration_required: true`
+- `change_classification: breaking`
+- すべての既存基準版更新で必須: 基準版採用評価を行い、有効化前に移行完了の条件を満たす。初回採用には移行元がない。
+- プロダクトライフサイクル準拠で必須: 表明対象範囲についてPL-17とPL-18を評価する。`Not Applicable`では理由と対象範囲を示し、フォルダがないことだけを理由にしない。
+- 外部コミュニケーションを使用する場合に必須: 現在の入口、使用中の主張、生成物、公開済み成果物または記録、公開判断の境界、測定、学びの還流を棚卸しする。適用する場合だけ`80_Communication/01_Communication.md`を追加または更新し、完了済み公開履歴を形式合わせだけの理由で書き換えず現在記録へ接続する。
+- コンテキスト依存または管理対象成果物依存を使用する場合に必須: 採用している依存元と版、ローカル上書き、利用側、更新手順、検証影響、移行、復旧、延期時リスクを棚卸しする。通常・推移依存は既存の依存管理正本を使用でき、採用組織が独立管理利用側間で意味・契約・採用版・更新判断を横断調整する必要がある場合か、重大リスクがある場合だけ完全契約へ昇格する。外部提供元とのAPI契約、別権限、独立リリースだけでは昇格させず、該当性を判定できない場合は確認待ちとする。CRDD基準版採用は保守、プロジェクト固有依存はコンテキスト依存を正本とする境界を維持する。
+- 条件付きの自動化: 依存更新は、事前承認した対象、版範囲、検証条件、停止条件、結果記録、復旧方法の内側だけ、新しい人間判断なしで実行できる。範囲逸脱、検証失敗・確認不能、または重大な互換性、セキュリティ、プライバシー、ライセンス、利用側影響が生じた場合は人間判断へ戻す。
+- 条件付き: 現行運用で主張／根拠、投影／公開、学び、依存、上書き、利用側、更新の境界を保持できない場合だけ、AI入口、作業手順、ひな型、品質成果物または変更トレースを更新する。
+- 不要: 外部コミュニケーションを使用しないRepositoryへの`80_Communication`追加、全キャンペーンの別Repository化、Submodule、パッケージ、CMS、デザインツール、外部QAシステムの導入、新しい準拠プロファイル、安定コンテキストID、必須Manifest、媒体別固定ファイル一式、完了済み公開／依存判断の形式目的の書き換え。
+- 復旧: 移行完了の条件と人間による有効化が終わるまで、現在有効なv0.14.0基準版と手順を維持する。部分適用を戻す場合はv0.14.0のAI入口とPL-01〜PL-16の評価範囲へ戻し、候補版で作成した公開／依存記録は履歴として保持し、採用プロジェクトが特定した以前の依存版または公開統制へ戻す。
+- 延期時の既知リスク: 主張が根拠から切れたままになる、現在生成できる表現と実際に公開した内容を混同する、外部反応を人間判断なしに要求へ昇格する、依存版または上書きが曖昧になる、依存更新によって利用側または過去の検証結果が古くなる可能性がある。
+- 検証: 固定候補へCRDDチェッカー全体を一度実行した後、エージェント運用の独立レビュー、文書監査、不足／影響と準拠影響の監査を実行する。代表ケースとして、非適用、軽量な単一入口、詳細成果物、公開履歴、市場学習、同一／別Repository依存、上書き、依存更新を確認する。
+- 既知の制限: 本契約は、宣言されていない全公開成果物または暗黙依存を必ず発見したり、十分な根拠なしに主張を正しいと証明したり、法務、ブランド、プライバシー、セキュリティ、市場因果を判断したりはできない。結果は明示したシステム境界、利用可能な根拠、確認者の能力、人間の決定権限に依存する。
 
 <a id="changelog-v0140-ja"></a>
 

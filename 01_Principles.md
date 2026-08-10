@@ -2,10 +2,10 @@
 
 # CRDD原則（Principles）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [00_Overview.md](00_Overview.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -14,6 +14,8 @@ Related:
 - [11_Skill.md](11_Skill.md)
 - [12_Change.md](12_Change.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [17_Communication.md](17_Communication.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
 - [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
 
@@ -453,11 +455,14 @@ AIによる推定を人間が確認した事実として保存しない
 | 計画 / 変更 | 何をどの対象範囲と順序で進めるか → 作業、依存関係、確約、変更トレース | 作業、依存関係、選択肢整理 | 対象範囲、優先順位、確約、リスク受容 |
 | 実装 | 今回どう具体化したか → コード、構成、移行、開発者テスト | コード、構成、移行、開発者テスト | 重要変更承認、逸脱判断 |
 | 検証 | 起点と契約を満たしたか → 新しい根拠、指摘事項、残存リスク、学び | テスト、レビュー、根拠、指摘事項 | 受入条件、残存リスク、リリース判断 |
+| 外部コミュニケーション | 誰へ何をどの根拠で伝えるか → 主張、目的別表現、公開済み記録、測定 | 受け手・表現候補、根拠照合、測定整理 | 主張の採用、公開可否・時期、専門リスク、結果責任 |
 | 学び / フィードバック | 何を次の判断へ戻すか → 昇格候補、正本コンテキスト更新、新しい提案 | 根拠整理、昇格候補 | 何を変更・標準化・継承するか |
 
 各工程の入口、変換、必要な責務の網羅、完了条件、ゲート、監査は各工程文書の`Phase Process Contract`を正本とする。
 
 UIと振る舞い仕様の相互契約は[`24_UI_Behavior_Specification.md`](24_UI_Behavior_Specification.md)を正本とする。
+
+外部向け表現と公開後の学びは[`17_Communication.md`](17_Communication.md)、別の基準またはRepositoryが所有する意味と成果物への依存は[`18_Context_Dependency.md`](18_Context_Dependency.md)を正本とする。外部反応または依存先の新しい版を、人間判断なしに要求、正本コンテキストまたは現在有効な版へ昇格しない。
 
 <a id="62-transformation-invariants"></a>
 
