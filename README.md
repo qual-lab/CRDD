@@ -9,6 +9,8 @@ Work to AI. Judgment to humans. Thought to the Context Repository.
 
 Status: **v0.17.0 — Expert Exploration, Convergence, and External Information Boundary / 専門探索・収束と外部情報境界**
 
+> **Branch note / ブランチ注記:** This feature branch also contains a non-normative CRDD v2 Architecture Candidate. The released standard remains v0.17.0; the v2 documents do not change current conformance, adoption, or authority. / このfeatureブランチには非規範のCRDD v2 Architecture Candidateも含まれる。公開済み標準は引き続きv0.17.0であり、v2文書は現在の準拠、採用、決定権限を変更しない。See / 参照: [v2 Concept](99_Roadmap/01_CRDD_v2_Concept.md).
+
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
 ---
@@ -52,6 +54,60 @@ CRDD is not only a way to make AI write code. It keeps why something is being bu
 | Change Trace | A record connecting a change's reason, impact, implementation, verification, and release disposition |
 
 This table is a non-normative reading aid. The canonical definitions remain in [Terminology](02_Terminology.md); if wording differs, the canonical definition governs.
+
+### What you can do and where to start
+
+Use this non-normative map to choose an entry point. The linked canonical contracts determine applicability, authority, evidence, review, and completion.
+
+| You want to | CRDD helps connect | Start here |
+|---|---|---|
+| Turn an idea or problem into an adopted direction | observation, evidence, hypotheses, alternatives, uncertainty, and Human adoption | [Discovery](21_Discovery.md) |
+| Design an experience and information structure | desired outcomes, journeys, failure and recovery, domain objects, vocabulary, and findability | [UX](22_UX.md) and [IA](23_IA.md) |
+| Create UI, graphic, or 3D expression | interaction, visual craft, rendered critique, material and spatial expression, and Human convergence | [UI](25_UI.md) and the [shared UI/spec contract](24_UI_Behavior_Specification.md) |
+| Specify observable behavior | states, events, transitions, permissions, failure, recovery, and acceptance conditions | [Behavior Specification](26_Behavior_Specification.md) |
+| Make a technical decision | drivers, assumptions, alternatives, trade-offs, sensitivity, failure, and revisit triggers | [Architecture](27_Architecture.md) |
+| Implement an adopted change | before/after state, preserved invariants, affected consumers, coherent change, and verification | [Implementation](28_Implementation.md) |
+| Establish whether the result actually holds | obligations, population, exclusions, oracle, evidence, results, and remaining risk | [Verification](29_Verification.md) and [Quality Assurance](16_Quality_Assurance.md) |
+| Prepare and publish external communication | audience, claims, evidence, projection, Human publication gate, measurement, and learning | [Communication](17_Communication.md) |
+| Manage shared context or artifact dependencies | authority, adopted version, consumers, update, override, risk, and recovery | [Context Dependency](18_Context_Dependency.md) |
+| Control AI, tools, and external research | authority, skill, delegation, information classification, permitted processing boundary, and untrusted input | [Agent](10_Agent.md), [Skill](11_Skill.md), and [Principles](01_Principles.md#external-information-boundary) |
+| Change or migrate CRDD operation | change reason, affected contracts and consumers, evidence, audits, migration, release, and rollback | [Change](12_Change.md) and [Maintenance](19_Maintenance.md) |
+
+Choose the shortest route that matches the work:
+
+- New product or unresolved problem: begin with [Discovery](21_Discovery.md).
+- Adopt CRDD in an existing repository: use [Quick Start](#quick-start) and the initial-adoption instruction below.
+- Change an existing product or CRDD artifact: use the [change route table](00_Overview.md#44-change-route-selection).
+- Update an adopted CRDD baseline: use the [baseline adoption assessment](19_Maintenance.md#62-baseline-adoption-assessment).
+- Add optional Communication or managed Dependency capability only when its applicability conditions are met.
+- Research externally or connect a tool only after resolving the permitted processing and information boundary.
+
+### What CRDD does not do
+
+- It does not turn product development into a fixed waterfall or require every phase for every change.
+- It does not treat more Markdown, options, agents, reviews, or checklists as evidence of quality.
+- It does not let AI silently decide value, priority, adoption, risk acceptance, publication, or release.
+- It does not treat a generated artifact, completed task, checker pass, or self-review as proof that the intended result holds.
+- It does not require a specific AI product, model, agent topology, MCP server, Git layout, design tool, or runtime.
+- It does not send repository context, unpublished information, personal data, secrets, or identifying combinations to external services merely because a connector is available.
+- It does not make optional Communication, dependency, visual, or specialist capabilities mandatory for repositories where they do not apply.
+- It does not replace specialist judgment with a fixed number of alternatives or a declaration that exploration was performed.
+
+### Future Architecture Candidate on this branch
+
+The v2 candidate asks how existing CRDD context can be reevaluated proactively without turning CRDD into a fixed workflow engine or granting uncontrolled autonomy.
+
+```text
+Trigger → Think → Controlled Effect → Verify → Learn
+```
+
+Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and Authority Safety, Background versus Human Decision separation, and Operation Health. They are future, non-normative design material—not part of v0.17.0 conformance:
+
+- [Concept and vision](99_Roadmap/01_CRDD_v2_Concept.md)
+- [Responsibility boundaries](99_Roadmap/02_CRDD_v2_Responsibility_Boundary.md)
+- [Activation profiles and reference implementation](99_Roadmap/03_CRDD_v2_PoC_Plan.md)
+- [Autonomous safety architecture](99_Roadmap/04_CRDD_v2_Autonomous_Safety_Architecture.md)
+- [Operation health and Human interface](99_Roadmap/05_CRDD_v2_Operation_Health_and_Human_Interface.md)
 
 The product transformation is connected end to end, but it is not a fixed waterfall:
 
@@ -339,6 +395,60 @@ CRDDは、AIにコードを書かせるためだけの方法ではない。な�
 | 変更トレース | 変更理由、影響、実装、検証、リリース上の処置をつないだ記録 |
 
 この表は非規範の理解補助であり、別の定義を作るものではない。正式な定義は[用語](02_Terminology.md)を正本とし、表現が異なる場合は正本に従う。
+
+### できることと開始場所
+
+次の表は目的から入口を選ぶための非規範案内である。適用条件、決定権限、根拠、レビュー、完了条件はリンク先の正本に従う。
+
+| やりたいこと | CRDDが接続するもの | 開始場所 |
+|---|---|---|
+| アイデアや問題を採用可能な方向へ育てる | 観察、根拠、仮説、代替、不確実性、人間による採否 | [課題探索・要求形成](21_Discovery.md) |
+| 体験と情報構造を設計する | 期待結果、行程、失敗と回復、ドメイン対象、利用者語彙、見つけやすさ | [UX](22_UX.md)と[IA](23_IA.md) |
+| UI、グラフィック、3D表現を作る | 操作、視覚制作、表示成果物の批評、材質・空間表現、人間による収束 | [UI](25_UI.md)と[UI／仕様共有契約](24_UI_Behavior_Specification.md) |
+| 観測可能な振る舞いを定める | 状態、イベント、遷移、権限、失敗、回復、受入条件 | [振る舞い仕様](26_Behavior_Specification.md) |
+| 技術判断を行う | 設計要因、前提、代替、トレードオフ、感度、失敗、再評価契機 | [アーキテクチャ](27_Architecture.md) |
+| 採用済み変更を実装する | 変更前後、保持する不変条件、影響利用側、閉じた変更、検証 | [実装](28_Implementation.md) |
+| 結果が本当に成立するか確認する | 義務、母集団、除外、合否判定方法、根拠、結果、残存リスク | [検証](29_Verification.md)と[品質保証](16_Quality_Assurance.md) |
+| 外部説明を準備・公開する | 受け手、主張、根拠、投影、人間の公開承認、測定、学び | [外部コミュニケーション](17_Communication.md) |
+| 共有コンテキストや成果物依存を管理する | 決定権限、採用版、利用側、更新、上書き、リスク、復旧 | [コンテキスト依存](18_Context_Dependency.md) |
+| AI、Tool、外部調査を統制する | 決定権限、スキル、委譲、情報分類、許可した処理境界、信頼していない入力 | [エージェント](10_Agent.md)、[スキル](11_Skill.md)、[原則](01_Principles.md#external-information-boundary) |
+| CRDD運用を変更・移行する | 変更理由、影響契約と利用側、根拠、監査、移行、リリース、復旧 | [変更](12_Change.md)と[保守](19_Maintenance.md) |
+
+扱う仕事に合う最短の入口を選ぶ。
+
+- 新しいプロダクトまたは未解決の問題: [課題探索・要求形成](21_Discovery.md)から始める。
+- 既存RepositoryへCRDDを導入: [クイックスタート](#クイックスタート)と後段の初回導入指示例を使う。
+- 既存プロダクトまたはCRDD成果物を変更: [変更経路案内表](00_Overview.md#44-change-route-selection)を使う。
+- 採用中のCRDD基準版を更新: [基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment)を使う。
+- 任意のCommunicationまたは管理対象依存機能は、適用条件を満たす場合だけ追加する。
+- 外部調査またはTool接続は、許可した処理境界と情報境界を確定してから行う。
+
+### CRDDがしないこと
+
+- プロダクト開発を固定Waterfallにせず、すべての変更へ全工程を要求しない。
+- Markdown、選択肢、Agent、レビュー、チェック項目が多いことを品質の根拠にしない。
+- 価値、優先順位、採否、リスク受容、公開、リリースをAIが無言で決めることを認めない。
+- 生成済み成果物、完了タスク、Checker合格、自己レビューだけを、意図した結果の成立根拠にしない。
+- 特定のAI製品、モデル、Agent構成、MCP Server、Git配置、Design Tool、Runtimeを必須化しない。
+- Connectorが存在するだけで、Repository Context、未公開情報、個人情報、Secretまたは識別可能な組合せを外部Serviceへ送らない。
+- 適用しないRepositoryへ、任意のCommunication、依存、視覚制作または専門機能を要求しない。
+- 固定案数や「探索した」という申告を専門判断の代わりにしない。
+
+### このbranchの将来Architecture候補
+
+v2候補は、CRDDを固定Workflow Engineへ変えたり無制御な自律性を与えたりせず、既存のCRDD Contextを能動的に再評価する方法を扱う。
+
+```text
+Trigger → Think → Controlled Effect → Verify → Learn
+```
+
+候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
+
+- [Conceptと全体像](99_Roadmap/01_CRDD_v2_Concept.md)
+- [責務境界](99_Roadmap/02_CRDD_v2_Responsibility_Boundary.md)
+- [Activation ProfileとReference Implementation](99_Roadmap/03_CRDD_v2_PoC_Plan.md)
+- [自律安全Architecture](99_Roadmap/04_CRDD_v2_Autonomous_Safety_Architecture.md)
+- [Operation HealthとHuman Interface](99_Roadmap/05_CRDD_v2_Operation_Health_and_Human_Interface.md)
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 
