@@ -1,6 +1,6 @@
 # CRDD課題探索・要求形成工程（Discovery）
 
-Version: v0.15.0
+Version: v0.16.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`

@@ -155,6 +155,154 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
   );
 });
 
+test("公式CHANGELOGの現行移行注記に英日必須境界を要求する", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- Required: example",
+      "- Conditional: example",
+      "- Not required: example",
+      "- Verification: example",
+      "- Known limitation: example",
+      "### v0.15.0 — Prior",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- 必須: 例",
+      "- 条件付き: 例",
+      "- 不要: 例",
+      "- 復旧: 例",
+      "- 延期時の既知リスク: 例",
+      "- 検証: 例",
+      "- 既知の制限: 例",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  const finding = result.report.findings.find(
+    (item) => item.code === "migration-note-incomplete",
+  );
+  assert.ok(finding);
+  assert.match(finding.message, /Rollback \/ recovery/);
+  assert.match(finding.message, /Known risk if deferred/);
+});
+
+test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- Required: example",
+      "- Conditional: example",
+      "- Not required: example",
+      "- Rollback / recovery: example",
+      "- Known risk if deferred: example",
+      "- Verification: example",
+      "- Known limitation: example",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- 必須: 例",
+      "- 条件付き: 例",
+      "- 不要: 例",
+      "- 復旧: 例",
+      "- 延期時の既知リスク: 例",
+      "- 検証: 例",
+      "- 既知の制限: 例",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) =>
+      ["current-changelog-release-missing", "migration-note-incomplete"].includes(item.code)),
+    false,
+  );
+});
+
+test("公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返す", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
+  ));
+});
+
+test("公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返す", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.15.0 — 例",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
+  ));
+});
+
+test("移行不要の現行英日リリースには移行注記区分を要求しない", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) => item.code === "migration-note-incomplete"),
+    false,
+  );
+});
+
 test("Git管理された公式リポジトリではbaseline状態を非該当として返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));

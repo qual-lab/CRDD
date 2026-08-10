@@ -1476,6 +1476,87 @@ if (
   }
 }
 
+const changelog = path.join(root, "CHANGELOG.md");
+if (
+  lstatIfPresent(changelog)?.isFile() &&
+  !pathContainsSymbolicLink(changelog) &&
+  versions.size === 1 &&
+  repositoryMode === "official"
+) {
+  const currentVersion = [...versions][0];
+  const lines = read(changelog).split(/\r?\n/u);
+  const releaseSection = (languageHeading) => {
+    const languageStart = lines.findIndex((line) => line === `## ${languageHeading}`);
+    if (languageStart < 0) return null;
+    let languageEnd = lines.length;
+    for (let index = languageStart + 1; index < lines.length; index += 1) {
+      if (/^##\s+/u.test(lines[index])) {
+        languageEnd = index;
+        break;
+      }
+    }
+    const releaseStart = lines.findIndex(
+      (line, index) =>
+        index > languageStart &&
+        index < languageEnd &&
+        line.startsWith(`### ${currentVersion} `),
+    );
+    if (releaseStart < 0) return null;
+    let releaseEnd = languageEnd;
+    for (let index = releaseStart + 1; index < languageEnd; index += 1) {
+      if (/^###\s+/u.test(lines[index])) {
+        releaseEnd = index;
+        break;
+      }
+    }
+    return lines.slice(releaseStart, releaseEnd).join("\n");
+  };
+  const requiredMigrationMarkers = {
+    English: [
+      "`change_classification:",
+      "Required",
+      "Conditional",
+      "Not required",
+      "Rollback / recovery:",
+      "Known risk if deferred:",
+      "Verification:",
+      "Known limitation:",
+    ],
+    日本語: [
+      "`change_classification:",
+      "必須:",
+      "条件付き:",
+      "不要:",
+      "復旧:",
+      "延期時の既知リスク:",
+      "検証:",
+      "既知の制限:",
+    ],
+  };
+  for (const [languageHeading, markers] of Object.entries(requiredMigrationMarkers)) {
+    const section = releaseSection(languageHeading);
+    if (!section) {
+      add(
+        "error",
+        "current-changelog-release-missing",
+        "CHANGELOG.md",
+        `${languageHeading}: ${currentVersion} release section is missing.`,
+      );
+      continue;
+    }
+    if (!section.includes("`migration_required: true`")) continue;
+    const missing = markers.filter((marker) => !section.includes(marker));
+    if (missing.length > 0) {
+      add(
+        "error",
+        "migration-note-incomplete",
+        "CHANGELOG.md",
+        `${languageHeading}: ${currentVersion} migration note is missing ${missing.join(", ")}.`,
+      );
+    }
+  }
+}
+
 let relatedBlocks = 0;
 for (const file of markdownFiles) {
   const lines = read(file).split(/\r?\n/u);
@@ -2072,6 +2153,7 @@ const report = {
     requestedScope.length > 0 && markdownFiles.length > 100,
   global_checks: [
     "canonical document versions",
+    "current bilingual release and migration-note completeness",
     "repository structure",
     "legacy and reserved folders",
     "central root folders",
