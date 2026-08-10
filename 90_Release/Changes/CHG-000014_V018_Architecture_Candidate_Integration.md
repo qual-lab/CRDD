@@ -6,8 +6,8 @@
 最終更新日: 2026-08-11
 対象系列: v0.18.x
 対象バージョン: v0.18.0 Candidate
-変更分類: `normative`／`breaking`（統合差分としての候補、未確定）
-リリースレベル: 未確定
+変更分類: `breaking`（統合差分としての候補、最終確認前）
+リリースレベル: `MINOR`（候補、最終確認前）
 `migration_required`: `true`（規範変更候補。Architecture Candidateの同居だけからは発火しない）
 
 正本規則: [変更](../../12_Change.md)
@@ -98,7 +98,7 @@ renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との�
 2. Document Audit: rename、相互リンク、README英日、CHG一意性、用語、正本重複、候補とRelease境界を含む。
 3. Gap／Impact＋Conformance Audit: 契約母集団、利用側母集団、現行v0.17.0準拠非影響、移行候補および非規範Architecture境界を含む。
 
-現在状態は`Ready for Verification`である。対象Versionはv0.18.0 Candidateへ確定したが、固定後Identity、Checker、3監査、最終分類、移行、CHANGELOG、main統合、タグ、公開およびReleaseは未完了であり、取得前にPassまたはRelease Handoffを先取りしない。
+現在状態は`Ready for Verification`である。対象Versionはv0.18.0 Candidateへ確定し、統合差分の最上位分類は`breaking`（候補）、リリースレベルは`MINOR`（候補）である。固定後Identity、Checker、3監査、分類の最終確認、正式移行内容、CHANGELOG、CandidateからStableへの昇格、main統合、タグ、公開およびReleaseは未完了であり、取得前にPassまたはRelease Handoffを先取りしない。
 
 初回統合固定候補`c9ba7579165865052024f3904ff9f5d86db48e90`では、全体Checker自体は155ファイル、Markdown 112件、ローカルリンク1,649件、アンカー551件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件を確認し、Error 0／Warning 0だった。一方、固定時の`git diff --check`で旧文書から継承した3箇所の行末空白を検出したため、この固定候補とChecker結果は現在判定へ使用せず`Invalidated`とする。行末空白だけを是正した新固定版へCheckerと3監査を取り直す。
 
@@ -126,3 +126,22 @@ renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との�
 その後、人間の決定権限者は統合候補の対象Versionをv0.18.0へ変更した。この変更は、Candidateヘッダー契約、26正本文書、README英日、3つのCHGおよび7 Architecture文書の名称・Target・相互参照へ影響するため、`9d9d92c`および`32f9780`のCheckerとレビュー結果を現在の合否、v0.18.0 Candidateの解消、準拠またはRelease根拠へ流用しない。現在の変更は`Applied`であり、新固定版のCheckerと3監査が完了するまで`Resolved`または`Pass`としない。
 
 v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。内訳は、候補ヘッダーを揃える26正本文書、README、CHG-000012〜000014、renameする7 Architecture文書、候補と公開基準を区別するChecker実装およびそのテストである。Checkerは`Candidate`の場合に26文書の`Released Baseline`一致を確認し、現行Release検査には候補Versionではなく公開基準を使用する。これはCandidateを準拠またはRelease済みと判定する機構ではない。
+
+第4統合固定候補はCommit `a83decc2c0fb9e714191df070105e8737c89c0cd`、Tree `db1cd23724602263647e3b5ad2983743160aef9f`である。全体Checkerは155ファイル、Markdown 112件、ローカルリンク1,649件、アンカー551件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件をError 0／Warning 0で確認し、Checkerテスト141件はすべてPass、`git diff --check`はcleanだった。
+
+同固定候補への監査結果は次のとおりである。
+
+- Agent／Architecture Review: `Fail`。`AG-V018-001`（Major）としてCandidateの共通意味と文書固有意味の競合、`AG-V018-002`（Major）としてCandidateからStableへの変更を同一固定改訂版として扱うIdentity誤認を検出した。いずれもv0.18.0再基準化で新たに発生した指摘である。
+- Document Audit: `Fail`。`DOC-V018-01`（Major）として、CHG-000013の一部が対象Version決定前の「Version未確定」を残していることを検出した。v0.18.0再基準化で新たに発生した指摘である。
+- Gap／Impact＋Conformance Audit: `Fail`。`GCI-018-01`（Major）として`AG-V018-001`と同じCandidate意味競合、`GCI-018-02`（Minor）として統合候補の最上位分類とリリースレベルが対象Version決定へ追従していないことを検出した。いずれもv0.18.0再基準化で新たに発生した指摘である。
+
+3監査にFailが含まれるため、第4統合固定候補、Checker、テストおよび監査集合全体を`Invalidated`とし、現在の合否、Finding解消、準拠、Release HandoffまたはRelease根拠へ流用しない。機械確認とテストの実行事実、個別監査結果および数値は履歴として保持する。
+
+統合修正方針は3監査へ編集前に再提示し、競合、追加の人間判断または停止条件なしで受理された。適用した処置は次のとおりであり、この時点では`Applied`であって`Resolved`または`Pass`ではない。
+
+1. `02`のCandidateをLifecycle順序に依存しない共通意味へ修正し、`03`で文書固有のCandidate状態へ接続した。
+2. Candidateからリリース準備版、最終Stable版へ進むたびに新しい改訂版を固定し、旧確認結果を流用せず、最終確認済みIdentityを人間のRelease判断とタグへ一致させるLifecycleを`03`、`19`、`51`へ反映した。
+3. CheckerでCandidate以外に残る`Released Baseline`を拒否し、DraftとStableの負例を追加した。
+4. CHG-000013を対象Version決定済みの現在状態へ統一し、本CHGの統合分類を`breaking`（候補）、リリースレベルを`MINOR`（候補）へ更新した。
+
+現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、上記Findingを`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、main統合、タグ、公開またはReleaseを先取りしない。

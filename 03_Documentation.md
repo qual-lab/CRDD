@@ -312,7 +312,7 @@ CRDD標準文書のヘッダーは、`Version`、`Status`、`Released Baseline`�
 
 AIが草案を作成しても、担当責任者を`AI Draft`へ置き換えない。未承認案は`Status: Draft`とし、必要に応じて`Drafted By: AI`または来歴を記録する。AIは自分の下書きを人間による承認として確定しない。
 
-`Status: Candidate`は、人間の決定権限者が対象リリース候補を選択し、文書集合を固定して検証している状態を示す。編集途中または対象版未決定の`Draft`とは区別するが、`Stable`、`Released`、main統合、タグ作成、採用または準拠表明を意味しない。候補文書は`Released Baseline`を併記し、候補内容を公開済み基準の内容として扱わせてはならない。リリース時は`Status: Stable`へ変更し、候補専用の`Released Baseline`を削除する。
+`Status: Candidate`は、人間の決定権限者が対象リリース候補を選択し、文書集合を固定して検証している状態を示す。編集途中または対象版未決定の`Draft`とは区別するが、`Approved`、`Active`、`Stable`、`Released`、main統合、タグ作成、採用または準拠表明を意味しない。候補文書は`Released Baseline`を併記し、候補内容を公開済み基準の内容として扱わせてはならない。リリース準備またはリリース判断により`Status: Stable`への変更や候補専用の`Released Baseline`の削除を行うと、新しい改訂版が生じる。候補固定版の確認結果をその改訂版へ流用せず、[保守](19_Maintenance.md#51-release-version-and-revision)に従って必要な確認を行う。
 
 ## 4.5. バージョン・改訂版・基準版・日付
 
@@ -576,6 +576,7 @@ CRDD規則、構文、評価観点へ外部標準、論文、原則、ガイド�
 
 | 状態 | 文書意味 |
 |---|---|
+| `Candidate` | 人間が対象リリース候補を選択し、文書集合を固定して検証中。`Stable`、`Released`または準拠を意味しない。詳細は[候補ヘッダー契約](#44-markdown-header)に従う |
 | `Draft` | 作成中で、採用前 |
 | `Reviewed` | 指定確認者が確認済み。承認を意味しない |
 | `Approved` | 定義済み決定権限が対象用途で正式承認した |

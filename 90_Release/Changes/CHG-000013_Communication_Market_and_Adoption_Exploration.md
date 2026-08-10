@@ -28,7 +28,7 @@ Qual-Labの人間の決定権限者は、統合候補を基点に次を実装し
 - Communicationを、媒体制作の整理だけでなく市場と採用行動を発見できる専門契約へ改善する。
 - 外部調査、対象者への接触または広告実行を自動許可しない。
 - 非規範Architecture構想自体は規範正本へ混入させない。
-- v0.18.0の対象範囲、移行、CHANGELOG、main統合、タグおよびReleaseは、内容の収束後に別途判断する。
+- 対象Versionはv0.18.0 Candidateとして決定済みである。最終Release範囲、CandidateからStableへの昇格、正式な変更分類と移行内容、CHANGELOG、main統合、タグ、公開およびReleaseは、内容の収束後に別途判断する。
 - Communicationの基本コンテキストから市場・採用探索固有項目を外し、複合発火条件が成立する場合だけ追加する。
 - Discoveryが市場、対象セグメント、採用行動および機会の正本を持ち、Communicationが受け手、メッセージ、媒体、成果物、導線、公開後測定を持つ責務境界へ揃える。
 - 固定ファネルを設けず、外部行動を促す場合の提供準備、反応から原因を短絡しない還流、人間対象調査と説得の最低安全境界を今回の軽量契約へ含める。
@@ -88,7 +88,7 @@ READMEの参照元から規範変更へ採用したのは、目的から正本�
 | 公開案内 | `00`とREADME英日へ目的別入口と具体的指示例を追加 |
 | 共通スキル | `11`は既存の専門探索・収束契約を正本として参照し、Communication固有知識を複製しないため変更不要 |
 | 他工程 | UX、IA、UI、SPEC、Architecture、Implementation、VerificationはCommunication固有変更の決定権限を持たず、既存参照で追従するため変更不要 |
-| CHANGELOG／版表示 | 対象リリースの人間判断後に更新する。今回の候補編集では先取りしない |
+| CHANGELOG／版表示 | 対象VersionとCandidate表示はv0.18.0へ更新済み。CHANGELOG、Stable表示、正式移行注記、main統合、タグ、公開およびReleaseは別途判断する |
 
 ### 5.3. 代表ケース
 
@@ -138,7 +138,7 @@ READMEの参照元から規範変更へ採用したのは、目的から正本�
 
 ## 6. 移行候補
 
-- 対象リリース確定後、既存Communication適用先は、受け手・訴求・媒体・広告・市場反応を新設・変更し、かつ採用形成を目的とする範囲でDiscovery市場探索が接続されているか評価する。
+- v0.18.0 Candidateを正式Releaseへ進める場合、既存Communication適用先は、受け手・訴求・媒体・広告・市場反応を新設・変更し、かつ採用形成を目的とする範囲でDiscovery市場探索が接続されているか評価する。
 - 進行中または再開する採用探索と測定へ適用し、閉じた公開履歴を形式合わせだけで書き換えない。
 - 固定人数、固定媒体順またはプロジェクト固有の広告指標が既存手順にある場合、それ自体をCRDD要件と誤認させず、判断根拠と適用範囲を再評価する。
 - Communication非適用Repositoryへ新しい成果物を追加しない。
@@ -185,4 +185,4 @@ READMEの参照元から規範変更へ採用したのは、目的から正本�
 
 本変更は、Current Decision Setおよび非規範v0.18.0 Architecture Candidateと同じ統合branchへ意味mergeした。暫定`CHG-000012`から`CHG-000013`への再採番以外に、旧候補Commitの履歴を書き換えていない。旧固定候補`04350294ff4031af09893edf21c136cbadbb01be`のCheckerおよび監査結果は統合候補の現在判定へ流用しない。
 
-現在状態は`Ready for Verification`であり、統合差分へ共通機械確認と独立監査を取り直す。対象Release、Version、最終変更分類、移行、CHANGELOG、main統合、公開およびReleaseは未確定である。
+現在状態は`Ready for Verification`であり、統合差分へ共通機械確認と独立監査を取り直す。対象Versionは`v0.18.0 Candidate`として決定済みである。最終Release範囲、CandidateからStableへの昇格、最終変更分類、正式移行内容、CHANGELOG、main統合、タグ、公開およびReleaseは未確定である。

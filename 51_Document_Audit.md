@@ -68,7 +68,7 @@ Related:
 | 伝播 | 変更で直接影響する既知文書、ひな型、入口ファイルの追従 |
 | 状態遷移 | 状態、バージョン、廃止、置換済み、リリース整合 |
 
-対象リリース候補を監査する場合は、CRDD正本文書全体で`Version`、`Status: Candidate`、`Released Baseline`および`Last Updated`が対象改訂版と整合し、候補内容を公開済み基準または準拠可能なリリースとして誤認させないことを確認する。リリース監査では、候補専用の`Released Baseline`が処置され、`Status: Stable`、CHANGELOG、移行注記、リリース識別子が同じ基準版へ揃っていることを確認する。
+対象リリース候補を監査する場合は、CRDD正本文書全体で`Version`、`Status: Candidate`、`Released Baseline`および`Last Updated`が対象改訂版と整合し、候補内容を公開済み基準または準拠可能なリリースとして誤認させないことを確認する。リリース監査では、[保守](19_Maintenance.md#51-release-version-and-revision)に従い、Candidate後のリリース準備とメタデータ変更が新しい改訂版を生むこと、Candidate固定版の確認結果を別Identityへ流用していないこと、候補専用の`Released Baseline`が処置され、`Status: Stable`、CHANGELOG、移行注記およびリリース識別子が確認済みの最終改訂版へ揃い、タグがその改訂版を一意に指すことを確認する。
 
 監査実行者は、指摘事項、根拠、影響、重大度、推奨、是正の可否を返す。定義済み基準による指摘事項分類は行えるが、決定権限変更、判断、リスク受容、状態昇格、工程承認を自己確定しない。
 

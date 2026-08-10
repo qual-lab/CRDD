@@ -1469,6 +1469,16 @@ if (versions.size > 1) {
 const candidateDocuments = canonicalDocumentStates.filter(
   ({ status }) => status === "Candidate",
 );
+for (const { file, status, releasedBaseline } of canonicalDocumentStates) {
+  if (status !== "Candidate" && releasedBaseline) {
+    add(
+      "error",
+      "released-baseline-outside-candidate",
+      relative(file),
+      `Released Baseline is only valid for Status: Candidate; found Status: ${status ?? "missing"}.`,
+    );
+  }
+}
 let candidateReleasedBaseline = null;
 if (candidateDocuments.length > 0) {
   if (candidateDocuments.length !== canonicalDocumentStates.length) {

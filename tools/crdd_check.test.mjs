@@ -326,6 +326,23 @@ test("Candidate文書のReleased Baseline欠落を拒否する", () => {
   );
 });
 
+for (const status of ["Draft", "Stable"]) {
+  test(`${status}文書に残ったReleased Baselineを拒否する`, () => {
+    const root = fixture();
+    makeStructure(path.join(root, "template"));
+    write(
+      path.join(root, "01_Principles.md"),
+      `Version: v0.17.0\nStatus: ${status}\nReleased Baseline: v0.16.0\n`,
+    );
+    const result = run(root);
+    assert.ok(
+      result.report.findings.some(
+        (item) => item.code === "released-baseline-outside-candidate",
+      ),
+    );
+  });
+}
+
 test("公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
