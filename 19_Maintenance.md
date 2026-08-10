@@ -2,7 +2,7 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.16.0
+Version: v0.17.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-08-10

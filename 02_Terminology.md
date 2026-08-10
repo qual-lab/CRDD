@@ -2,7 +2,7 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.16.0
+Version: v0.17.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-08-10
@@ -1472,6 +1472,9 @@ Progress Work State
 | 外部向け投影（`Communication Projection`） | `Published Artifact` / `Publication Record` / `Generated Output` | 現在のコンテキストから受け手と目的に応じて生成または更新できる表現候補。公開済みであること、公開判断、公開時点の内容を意味しない。正本は[生成可能な表現と公開済み記録](17_Communication.md#6-projection-and-publication) |
 | 公開済み記録（`Publication Record`） | `Communication Projection` / `Release Record` / `Latest Output` | 実際に外部へ公開した成果物、版、公開先、公開時点、情報源改訂版、承認決定権限等を保持する記録。現在生成できる表現やプロダクトリリース記録で置き換えない。正本は[生成可能な表現と公開済み記録](17_Communication.md#6-projection-and-publication) |
 | デザイン方針（`Design Direction`） | `Visual Direction` / `Design Specification` / `Phase` | 目的、望ましい認知、情報の優先度とその視覚表現の整合をUX、IA、UI、外部コミュニケーション間で維持する共有契約。独立工程、最終視覚仕様、UIが所有する視覚表現方針ではない。正本は[デザイン方針](17_Communication.md#5-design-direction) |
+| 専門探索・収束契約（`Expert Exploration and Convergence Contract`） | `Brainstorming` / `Option Count` / `Expert Review` | 専門判断を新設、変更または採用するときに、判断を変え得る不確実性、工程固有レンズ、パターン・原理・反例、候補合成、批評・反証、保持条件、残存不確実性および収束を一つの推論骨格で扱う共通契約。固定案数、活動申告、独立レビューそのものまたは軽量経路ではない。正本は[専門探索・収束契約](11_Skill.md#23-expert-exploration-and-convergence-contract) |
+| 視覚制作と材質・空間表現（`Visual Craft and Material / Spatial Expression`） | `UI Phase` / `Graphic Checklist` / `3D Phase` | UI、グラフィック、イラスト、画像、アイコン、モーション、プレゼンテーション、2D／3D素材等について、意図、参照原理、実物化、比較、批評、材質・空間上の成立および人間判断を扱う専門レンズ。固定スタイル規則、新しい直列工程または特定制作ツールではない。正本は[視覚制作と材質・空間表現](11_Skill.md#24-visual-craft-and-material-spatial-expression) |
+| 外部情報境界（`External Information Boundary`） | `Web Search Policy` / `External Publication` / `Network Permission` | 内部コンテキストから外部サービスへの送信と、外部から内部への取得を分け、機密性・識別可能性・最小化・信頼性・命令境界を制御する双方向の信頼境界。検索だけ、公開成果物だけまたはネットワーク許可だけへ狭めない。正本は[外部情報境界](01_Principles.md#external-information-boundary) |
 | コンテキスト依存（`Context Dependency`） | `Repository Inheritance` / `Git Dependency` / `Copy` | 別のコンテキストリポジトリまたは基準が所有する意味、原則、規則、判断、設計方針、契約等を版と適用範囲を伴って参照する関係。Git構造、ファイルコピー、自動Mergeまたは成果物依存と同一視しない。正本は[コンテキスト依存](18_Context_Dependency.md) |
 | 成果物依存（`Artifact Dependency`） | `Context Dependency` / `Package Dependency` | 実行、配布、生成または表示に使用するパッケージ、実行時部品、デザイントークン、素材・配布物、スキーマ等の版付き成果物を参照する関係。パッケージ等は実現方式の一つであり、関連する意味または規則の採用を自動的に意味しない。概念に該当することとPL-18の完全契約が発火することは同義ではなく、適用境界は[二種類の依存関係](18_Context_Dependency.md#2-two-dependency-types)を正本とする |
 | 作業モード（`Mode`） | `UI Theme Mode` / `Design Token Mode` / `Degraded Mode` | 同じ対象を異なる作業目的で見るIA上の意味単位。UIテーマやデザイントークンの技術モード、および運用上の縮退／失敗モードとは別概念。作業モードを指すときは「作業モード」と表示し、「モード」だけにしない。意味の正本は[情報提示の意味構造](23_IA.md#28-information-presentation-model)とする |
