@@ -287,7 +287,7 @@ cost:
 quota_usage:
 ```
 
-これは固定Schemaではない。対象リスクと利用目的に応じて省略または別表現を使用できる。ただし、Provider変更が結果の有効性、情報境界、CapabilityまたはVerificationへ影響した場合、その差を失わせない。
+これは固定Propertyまたは固定Schemaを要求しない。対象リスクと利用目的に応じて別表現を使用できる。ただし、Execution BoundaryまたはEligibility DecisionがResultの有効性、情報境界、Capability、AuthorityまたはVerification Requirementに影響する場合、その対象Boundary、適用したPolicyおよび判定根拠を再構成可能でなければならない。
 
 ---
 
