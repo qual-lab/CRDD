@@ -21,7 +21,7 @@ Machine-heavy
   観測、差分、重複排除、Policy、検証、記録、集約
 
 Human-light
-  Direction、Canonical Change、External Effect、Residual Risk、例外
+  Direction、Canonical Change、新しい処理境界・Authority変更・残存リスク受容を要するExternal Send、Publication、Production、Financial／Legal Effect、例外
 ```
 
 AIの背景活動を人間へそのまま投影しない。Human InterfaceはActivity FeedではなくDecision Queueを中心候補とする。
@@ -45,12 +45,14 @@ Verify
   ↓
 Outcome Routing
   ├─ No impact            → Record / End
-  ├─ Policy-contained     → Complete / Record
+  ├─ Policy-contained Completion → Complete / Record
   ├─ Duplicate / Rejected → Aggregate / End
   └─ Decision required    → Human Decision Lane
 ```
 
 Background Laneは、人間判断を回避する経路ではない。既存PolicyとAuthorityで一意に解決できる結果だけを終了または完了へ進める。Policy不明、Authority競合、重大Risk、検証不能を`No impact`へ丸めない。
+
+Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)に従う。Background Laneで終了できることから、Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
 
 ### 2.2. Human Decision Lane
 
@@ -58,13 +60,16 @@ Background Laneは、人間判断を回避する経路ではない。既存Polic
 
 - ProductまたはDesign Direction変更
 - Canonical Context変更
-- External Send、Publication、Production、Financial、Legal Effect
+- 新しい処理境界、Authority変更または残存リスク受容を必要とするExternal Send
+- Publication、Production、Financial、Legal Effect
 - Residual Risk Acceptance
 - Policy AmbiguityまたはAuthority Conflict
 - Circuit Breakerと再開判断
 - 自律OperationのActivation、権限拡張、Pause解除、廃止
 
 人間にはActivity全体ではなく、今回決めること、推奨、根拠、主な選択肢、影響、Risk、保留時の状態を示す。
+
+許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、Policy-contained executionとして処理できる。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
 
 ---
 

@@ -118,14 +118,16 @@ Agent Execution
   ↓
 Operation Result
   ↓
-Independent Verification
+Verification
+  ↓
+Independent Review when required
   ↓
 Human Gate / Policy-contained Completion
 ```
 
 EligibilityとOptimizationを一つのScoreへ統合しない。Security、Privacy、Authority、Contract、必要CapabilityまたはVerification Requirementを満たさない候補は、CostやAvailabilityが優れていてもEligible Setへ入れない。
 
-`Policy-contained Completion`は、事前承認されたOperationについて、必要な結果と検証が許可範囲内で完了し、そのRunを終了できる状態を意味する。Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを自動的に成立させない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)のPromotion Policyを別途適用する。
+Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)に従う。Provider Routingはこの一般境界を再定義せず、各Execution BoundaryのEligibility、Result、Verificationおよび必要なIndependent Reviewを接続する。
 
 ---
 

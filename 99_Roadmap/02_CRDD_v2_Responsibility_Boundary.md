@@ -96,7 +96,7 @@ Operationは処理順序ではなく、Goal、Context、Authority、Expected Out
 
 ---
 
-## 4. Operation Goal Contract
+## 4. Operation Contract
 
 ```yaml
 operation:
@@ -119,7 +119,7 @@ operation:
 
 これは固定Schemaではない。少なくとも次を取得可能にする方向を検証する。
 
-- 契機の意図と再評価理由
+- 参照元となる再評価契約または起動原因への接続
 - Goalと対象コンテキスト
 - 必須または期待する結果
 - 利用できる能力と禁止された能力
@@ -131,7 +131,7 @@ operation:
 
 ### 4.1. 仕様とActivationの分離
 
-Operation Contractは将来利用し得るTrigger、Capability、Authority、Resultを表現できるようにする。一方、各採用先が有効化する範囲はActivation Profileで制限する。
+Operation Contractは起動後に利用し得るCapability、Authority、Required Outcome、Result expectationを表現できるようにする。Trigger条件、再評価理由および再評価対象はRe-evaluation Contractが所有し、Operation Contractへ複製しない。一方、各採用先が有効化するTrigger、Capability、Authority等の範囲はActivation Profileで制限する。
 
 ```text
 Operation Contract
@@ -204,7 +204,13 @@ Operation Resultそれ自体は、原則として同一対象・同一原因の�
 
 Silent Failureを減らすため、「問題なし」という結論にも探索範囲、対象外、利用不能なコンテキスト、残存不確実性、収束理由を要求する。活動を実施したという自己申告だけで結果を成立させない。
 
-### 4.4. Identity、Reference、Provenance、Authority
+### 4.4. Policy-contained Completion
+
+`Policy-contained Completion`は、事前承認されたOperationについて、必要なResultとVerificationが許可範囲内で成立し、そのRunを終了できる実行上の境界を意味する。Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを自動的に成立させない。
+
+これは新しい第一級成果物、独立した状態軸または承認段階ではない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)のPromotion Policyを別途適用する。Policy、Authority、必須Result、Verificationまたは未解決Riskを確認できないRunを、`Policy-contained Completion`へ丸めない。
+
+### 4.5. Identity、Reference、Provenance、Authority
 
 本書は実行時の責務分離を所有し、将来互換の意味上の合成関係は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)へ接続する。
 
@@ -367,7 +373,8 @@ Proposal / Authorized Execution
 - Handoff
 - Escalation
 - Conflict Resolution
-- Independent Verification
+- Verification
+- Independent Reviewの適用条件と独立性
 
 複数Agentを使うこと自体を品質や独立性の根拠にしない。
 

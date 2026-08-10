@@ -42,7 +42,7 @@ Activation Profileは探索深度や品質をAgentに選ばせる仕組みでは
 ```text
 CRDD Repository
 + Re-evaluation Contract candidate
-+ Operation Goal Contract candidate
++ Operation Contract candidate
 + README / AGENTS guidance
 + Coding Agent Automation
 ```
@@ -273,7 +273,7 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 - Planner／Executor／Reviewerを固定Flowにせず、必要な責務だけを構成できるか
 - 別ProviderのReviewerがExecutorの結論を流用せず、対象と基準からFindingを独立再構成できるか
 - Routing Policy、Eligibility Policy revision、Eligibility Decision、Execution Boundary、Context Projection、Permission、Fallback、Verification、Costを必要な粒度で再構成できるか
-- Policy-contained CompletionがRun終了だけを成立させ、Promotion PolicyなしにCanonical State、Risk AcceptanceまたはHuman Authorityを成立させないか
+- [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)がRun終了だけを成立させ、Promotion PolicyなしにCanonical State、Risk AcceptanceまたはHuman Authorityを成立させないか
 - Hard Cost／Effect Budget Ceilingまたは実行に必要なQuota／Rate-limitを満たさない候補を不適格とし、Eligible Set内だけでEstimated CostとQuota Efficiencyを比較するか
 - RoutingがCostを下げても品質、見逃し、人間負荷またはRecovery burdenを悪化させていないか
 
@@ -372,7 +372,7 @@ Architectureは将来候補まで表現可能にし、最初のReference Impleme
 ## 10. 次の具体的処置
 
 1. 週次プロダクトレビューの読み取り専用Operation候補を一つ設計する。
-2. Re-evaluation Goal、Authority、停止条件、結果契約の最小表現を比較する。
+2. Re-evaluation Contractの理由、対象、条件、`operation_ref`と、参照先Operation ContractのGoal、Authority、停止条件、Result expectationを分離した最小表現を比較する。
 3. Coding Agent Automationで時間契機を作り、特定Providerへ規範を固定しない。
 4. 合成コンテキストで情報不足、権限不足、Prompt Injection、再帰起動、停止、回復を検証する。
 5. 判断価値、誤起動、見逃し、費用、人間確認負荷を測定する。

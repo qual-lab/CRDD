@@ -134,7 +134,7 @@ Context Access、Effect Boundary、Candidate／Canonical分離、Prepare／Verif
 
 ### 4.4. BackgroundとHuman Decisionの分離
 
-Runtimeが解決できる影響なし、重複、Policy内処理、拒否を人間へ逐次通知せず、Direction、Canonical Change、External Effect、Residual Risk、Policy Ambiguity等だけをDecision Queueへ送る。
+Runtimeが解決できる影響なし、重複、Policy内処理、拒否を人間へ逐次通知せず、Direction、Canonical Change、新しい処理境界・Authority変更・残存リスク受容を必要とするExternal Send、Publication、Production、Financial／Legal Effect、Policy Ambiguity等だけをDecision Queueへ送る。許可した処理境界内のExternal Sendを、外部送信であることだけから毎回の人間判断へ送らない。
 
 ### 4.5. Operation Healthと適応
 
