@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
 import { runDoctor } from "../src/core/doctor.mjs";
+import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.mjs";
 
 function printHelp() {
   process.stdout.write(`Coordinator Runtime 1.0 (implementation candidate)\n\n`);
   process.stdout.write(`Usage:\n`);
   process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
+  process.stdout.write(`  coordinator doctor --recover-isolation <recovery-id> [--json]\n`);
 }
 
 const [, , command, ...args] = process.argv;
@@ -15,23 +17,26 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
   process.exitCode = 0;
 } else if (command === "doctor") {
   try {
-    const report = runDoctor({ activeIsolation: args.includes("--isolation") });
+    const recoveryIndex = args.indexOf("--recover-isolation");
+    const report = recoveryIndex >= 0
+      ? recoverDockerIsolationProbe(args[recoveryIndex + 1])
+      : runDoctor({ activeIsolation: args.includes("--isolation") });
     if (args.includes("--json")) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {
       process.stdout.write(`Coordinator environment: ${report.status}\n`);
-      for (const [name, provider] of Object.entries(report.providers)) {
+      for (const [name, provider] of Object.entries(report.providers ?? {})) {
         process.stdout.write(`- ${name}: ${provider.located ? "located" : "not found"}; active probe not executed\n`);
       }
-      process.stdout.write(`- credential values recorded: no\n`);
-      process.stdout.write(`- filesystem enforcement: ${report.filesystem.enforcement}\n`);
-      process.stdout.write(`- provider egress allowlist: ${report.egress.providerAllowlist}\n`);
-      process.stdout.write(`- blockers: ${report.blockers.length}\n`);
-      for (const blocker of report.blockers) {
+      if (report.credentials) process.stdout.write(`- credential values recorded: no\n`);
+      if (report.filesystem) process.stdout.write(`- filesystem enforcement: ${report.filesystem.enforcement}\n`);
+      if (report.egress) process.stdout.write(`- provider egress allowlist: ${report.egress.providerAllowlist}\n`);
+      process.stdout.write(`- blockers: ${(report.blockers ?? []).length}\n`);
+      for (const blocker of report.blockers ?? []) {
         process.stdout.write(`  - ${blocker.id}: ${blocker.reason}\n`);
       }
     }
-    process.exitCode = report.status === "ready" ? 0 : 2;
+    process.exitCode = ["ready", "recovered"].includes(report.status) ? 0 : 2;
   } catch (error) {
     const reason = typeof error?.message === "string" && /^[a-z0-9_]+$/u.test(error.message)
       ? error.message

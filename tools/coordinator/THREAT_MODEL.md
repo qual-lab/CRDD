@@ -81,11 +81,17 @@ CLI未導入、認証未確認、Filesystem境界未強制、Credential隔離未
 
 将来のActive Probe Adapterは、Filesystem、Credential、EgressおよびProcess境界を先に強制し、同じ隔離環境内でだけProviderを起動する。Windowsでは発見した`.exe`、`.cmd`または`.bat`の種別、複数候補、空白を含むPathおよび引数境界を決定論的に扱い、shell injectionを許さない。生stdout／stderrは正規化前に永続化しない。現在の受動診断結果をActive Probe、認証または利用可能性の根拠へ流用しない。
 
-Fake Provider隔離Probeは固定Digest image、read-only root filesystem、全Linux Capability削除、`no-new-privileges`、PID上限、非root UIDおよび`--network=none`を使用する。mount対象は`workspace/`、`provider-home/`、`tmp/`だけであり、`events/`、`projection/`、`management/`、通常User Home、Credential StoreおよびDocker socketを渡さない。Probe結果は許可領域の書込み、管理領域の非公開、Credential名の非継承、専用Home／tmpおよびNetwork遮断をすべて満たす場合だけ`confirmed`とする。Probe containerにはRuntime生成の一意な名前とownership labelを付ける。timeoutまたは失敗後も同じlabelを持つcontainerだけを回収し、所有を確認できないcontainerを削除しない。
+Fake Provider隔離Probeは固定Digest image、read-only root filesystem、全Linux Capability削除、`no-new-privileges`、PID上限、非root UIDおよび`--network=none`を使用する。mount対象は`workspace/`、`provider-home/`、`tmp/`だけであり、`events/`、`projection/`、`management/`、通常User Home、Credential StoreおよびDocker socketを渡さない。mount元はfactory発行objectからmodule-privateなCapabilityとして作成し、各childの実Path、親、名前、`dev`、`ino`および`birthtimeNs`をcreate直前、start直前およびProbe終了後に照合する。公開Path、同形object、link／junctionまたは同名replacementを所有根拠にしない。
+
+Docker CLIのTrust Anchorは、固定install root、`docker.exe`、Docker Incの有効なAuthenticode署名を確認した実体、および承認済みSHA-256の組合せである。Runtime PolicyはQual-Labが所有し、Docker Desktop更新でHashまたは実体Identityが変わった場合は自動採用せず、再評価まで`docker_cli_untrusted`として停止する。PATH、通常環境変数、Docker ContextまたはProvider出力から上書きできない。Docker子プロセスにはPATH、通常Home、Credential／Context／TLS関連環境を渡さず、固定named pipeと空の専用Docker設定だけを使う。Nodeの検査からspawnまでを敵対的なHost管理者から完全防御するものではなく、Host／Docker Desktop管理者はTrust Boundaryに含む。
+
+Probe containerは`docker create`が返した64桁container IDを一次Identityとし、名前とownership labelは補助情報に限定する。起動前に同じIDの名前、label、image、entrypoint／command、3 mount、Network、read-only root、Capability、security option、PID上限、user、privileged／device非追加をinspectし、一件でも不一致ならstartしない。cleanupも同じIDだけを対象にし、削除後にID不存在と同名／同label残留なしを確認する。Docker daemonへ同権限を持つHost主体はTrust Boundaryに含み、名前またはlabelだけを敵対的daemon利用者への所有証明としない。
+
+container不存在を確認できるまでHost側Operation領域を削除しない。cleanup不確定時は現在Userの一時領域内に、推測困難なrecovery token、root／child実体Identity、container ID、engine、imageおよび所有情報を持つ記録を保持する。記録にはCredential、生出力または一般Host Pathを含めない。明示recoveryは固定一時親、non-link、実体Identity、token、同一containerの全inspect条件を再確認し、同一Fake Probeのcontainer、marker、Operation childの順でだけ処置する。不一致または部分失敗では記録を保持して`blocked`とし、caller指定IDや未知containerを削除しない。現在UserとDocker daemonへ同権限を持つHost主体をこの回復記録のTrust Boundaryに含む。
 
 このFake ProbeはProvider endpoint限定Egressを証明しない。`--network=none`は外部送信を遮断するが公式Providerを利用不能にするため、Provider用Egress allowlistが未実装である限り`execution.egress`は`blocked`のままとする。Fake Probeの合格をProvider認証、active probe、lifecycleまたは実Operationの許可へ流用しない。
 
-現在のIdentity照合は、Providerを起動しない受動事前診断のcleanup境界である。Path検査から削除までの敵対的な同時置換を完全に防ぐ証明ではない。将来Active Probeを実装する場合は、Provider process treeの終了確認後にcleanupし、Providerからtemporary parentへ到達できないOS Sandbox／ACLまたは同等境界を先に成立させて、cleanup競合を再評価する。
+現在のIdentity照合はFake ProviderとHost一時領域に対する境界であり、Path検査から削除までの敵対的な同時置換を完全に防ぐ証明ではない。実Provider Active Probeを実装する場合は、Provider process treeの終了確認後にcleanupし、Providerからtemporary parentへ到達できないOS Sandbox／ACLまたは同等境界を先に成立させて、cleanup競合を再評価する。
 
 ## 6. 非対象
 

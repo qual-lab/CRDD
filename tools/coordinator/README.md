@@ -20,11 +20,14 @@ Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のロ
 node tools/coordinator/bin/coordinator.mjs doctor
 node tools/coordinator/bin/coordinator.mjs doctor --json
 node tools/coordinator/bin/coordinator.mjs doctor --isolation --json
+node tools/coordinator/bin/coordinator.mjs doctor --recover-isolation <recovery-id> --json
 ```
 
 `doctor`は受動事前診断（passive preflight）である。CLIをインストール、認証または起動せず、PATH上の候補、ローカルGit／Repository、Operation専用領域および未実装の隔離条件を列挙する。Providerの絶対Path、生出力またはVersion出力は保持しない。認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
 
-`doctor --isolation`は、Runtime 1.0で唯一対応する実行基盤であるDocker DesktopのLinux container内にFake Providerを起動する。固定DigestのProbe image、read-only root filesystem、全Capability削除、`no-new-privileges`、PID上限および`--network=none`を使用し、Operation専用の`workspace/`、`provider-home/`、`tmp/`だけをmountする。Codex／Claude Code、認証、外部Provider endpointまたは対象Repositoryの変更は実行しない。
+`doctor --isolation`は、Runtime 1.0で唯一対応する実行基盤であるDocker DesktopのLinux container内にFake Providerを起動する。Docker CLIは固定install root、Docker Incの有効なAuthenticode署名を確認して選択した固定Hashおよび実体Identityへ照合し、PATH候補やDocker Contextから差し替えない。固定DigestのProbe image、read-only root filesystem、全Capability削除、`no-new-privileges`、PID上限および`--network=none`を使用し、Operation専用の`workspace/`、`provider-home/`、`tmp/`だけをmountする。Codex／Claude Code、認証、外部Provider endpointまたは対象Repositoryの変更は実行しない。
+
+Probe containerは`create`で得たcontainer IDと全Security属性を起動前に照合し、同じIDだけを回収する。container不存在を確認できない場合はHost側のmount元を保持し、安全な`recovery-id`だけを返す。明示recoveryは同じIDと所有記録を再確認できたFake Probeだけを処置し、未知containerまたは一般Docker操作へ拡張しない。
 
 Fake Provider Gateの合格は、DockerによるFilesystem／Credential Path／Network遮断の成立だけを示す。Provider endpoint限定Egress、公式CLIの導入・認証、自動更新／Telemetry、Session再開、timeout／cancelおよびprocess tree終了が確認されるまでは全体を`blocked`とし、実Operationへ進めない。
 

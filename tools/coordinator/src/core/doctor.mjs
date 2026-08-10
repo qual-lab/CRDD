@@ -198,6 +198,7 @@ function reportableFilesystemPolicy(policy, root) {
 export function runDoctor(options = {}) {
   const activeIsolation = options.activeIsolation === true;
   const owned = createOwnedOperationDirectories();
+  let retainOperationDirectories = false;
   try {
     const providerEnvironment = createProviderEnvironment(process.env, owned.directories);
     const credentialNames = credentialEnvironmentNamesPresent(process.env);
@@ -208,8 +209,9 @@ export function runDoctor(options = {}) {
     );
 
     const isolation = activeIsolation
-      ? runDockerIsolationProbe(owned.directories)
+      ? runDockerIsolationProbe(owned)
       : { status: "not_implemented", reason: "filesystem_boundary_not_enforced" };
+    retainOperationDirectories = isolation.retainOperationDirectories === true;
     const checks = [
       check("runtime.node", nodeSupported() ? "confirmed" : "blocked", nodeSupported() ? null : "node_22_or_newer_required"),
       check("repository.git", repository.gitAvailable ? "confirmed" : "blocked", repository.gitAvailable ? null : "git_unavailable"),
@@ -261,11 +263,14 @@ export function runDoctor(options = {}) {
         providerAllowlist: "not_implemented",
         fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated"
       },
+      recovery: retainOperationDirectories
+        ? { required: true, recoveryId: isolation.recoveryId ?? null, reason: isolation.reason }
+        : { required: false },
       providers,
       checks,
       blockers: readiness.blockers
     };
   } finally {
-    cleanupOwnedOperationDirectories(owned);
+    if (!retainOperationDirectories) cleanupOwnedOperationDirectories(owned);
   }
 }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,15 +14,22 @@ import {
 } from "../src/core/doctor.mjs";
 import {
   cleanupOwnedOperationDirectories,
+  createOwnedMountCapability,
   createOperationDirectories,
   createOwnedOperationDirectories,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
-  describeFilesystemPolicy
+  describeFilesystemPolicy,
+  verifyOwnedMountCapability
 } from "../src/security/execution-environment.mjs";
 import {
-  dockerIsolationArguments,
-  normalizeDockerIsolationResult
+  dockerCreateArgumentsForFixture,
+  evaluateDockerCliCandidateForFixture,
+  normalizeContainerAbsence,
+  normalizeContainerCreation,
+  normalizeDockerIsolationResult,
+  recoverDockerIsolationProbe,
+  validateContainerInspect
 } from "../src/security/docker-isolation.mjs";
 
 function confirmedChecks() {
@@ -260,7 +268,7 @@ test("Docker隔離Probeは固定Digestと最小権限を使う", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-docker-args-"));
   try {
     const directories = createOperationDirectories(root);
-    const args = dockerIsolationArguments(directories, "test-id");
+    const args = dockerCreateArgumentsForFixture(directories, "test-id");
     assert.deepEqual(args.slice(0, 2), ["-H", "npipe:////./pipe/dockerDesktopLinuxEngine"]);
     assert.equal(args.includes("--network=none"), true);
     assert.equal(args.includes("--read-only"), true);
@@ -294,4 +302,98 @@ test("Docker隔離Probe結果は全境界成立時だけconfirmedになる", () 
   }
   assert.equal(normalizeDockerIsolationResult({ status: 0, stdout: "not-json" }).status, "blocked");
   assert.equal(normalizeDockerIsolationResult({ status: 1, stdout: JSON.stringify(complete) }).status, "blocked");
+});
+
+test("Docker mount capabilityはfactory所有objectだけを受理しchild置換を拒否する", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-mount-capability-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    assert.throws(() => createOwnedMountCapability({ directories: owned.directories }), /identity_required/u);
+    const capability = createOwnedMountCapability(owned);
+    const verified = verifyOwnedMountCapability(capability);
+    owned.directories.workspace = parent;
+    assert.equal(verifyOwnedMountCapability(capability).workspace, verified.workspace);
+    const original = `${verified.workspace}-original`;
+    fs.renameSync(verified.workspace, original);
+    fs.mkdirSync(verified.workspace);
+    assert.throws(() => verifyOwnedMountCapability(capability), /replaced/u);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("Docker CLI候補は固定root、非link実体、承認Hashの全一致だけを受理する", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-docker-cli-"));
+  try {
+    const executable = path.join(root, "docker.exe");
+    fs.writeFileSync(executable, "trusted fixture", "utf8");
+    const sha256 = createHash("sha256").update(fs.readFileSync(executable)).digest("hex").toUpperCase();
+    assert.equal(evaluateDockerCliCandidateForFixture({ installRoot: root, executableName: "docker.exe", sha256 }), true);
+    assert.equal(evaluateDockerCliCandidateForFixture({ installRoot: root, executableName: "docker.exe", sha256: "0".repeat(64) }), false);
+    const linked = path.join(root, "linked.exe");
+    try { fs.symlinkSync(executable, linked, "file"); }
+    catch (error) {
+      if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) return t.skip(`link fixture unavailable: ${error.code}`);
+      throw error;
+    }
+    assert.equal(evaluateDockerCliCandidateForFixture({ installRoot: root, executableName: "linked.exe", sha256 }), false);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+function secureInspectFixture(id, probeId, mounts) {
+  const probeSource = dockerCreateArgumentsForFixture(mounts, probeId).at(-1);
+  return {
+    Id: id,
+    Name: `/crdd-coordinator-probe-${probeId}`,
+    Config: {
+      Labels: { "crdd.coordinator.probe": probeId },
+      Image: "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+      User: "65532:65532",
+      Entrypoint: ["python"],
+      Cmd: ["-c", probeSource]
+    },
+    HostConfig: { NetworkMode: "none", ReadonlyRootfs: true, Privileged: false, PidsLimit: 64, CapDrop: ["ALL"], CapAdd: null, Devices: [], SecurityOpt: ["no-new-privileges"] },
+    Mounts: [
+      { Type: "bind", Source: mounts.workspace, Destination: "/operation/workspace", RW: true },
+      { Type: "bind", Source: mounts.providerHome, Destination: "/operation/provider-home", RW: true },
+      { Type: "bind", Source: mounts.tmp, Destination: "/operation/tmp", RW: true }
+    ]
+  };
+}
+
+test("container inspectはIdentityと全Security属性の一致を要求する", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-inspect-"));
+  try {
+    const directories = createOperationDirectories(root);
+    const id = "a".repeat(64);
+    const probeId = "00000000-0000-4000-8000-000000000000";
+    const inspect = secureInspectFixture(id, probeId, directories);
+    assert.equal(validateContainerInspect(inspect, { id, probeId, mounts: directories }), true);
+    for (const mutate of [
+      (value) => { value.Id = "b".repeat(64); },
+      (value) => { value.HostConfig.NetworkMode = "host"; },
+      (value) => { value.HostConfig.Privileged = true; },
+      (value) => { value.Mounts.push({ Type: "bind", Source: root, Destination: "/extra", RW: true }); }
+    ]) {
+      const changed = structuredClone(inspect);
+      mutate(changed);
+      assert.equal(validateContainerInspect(changed, { id, probeId, mounts: directories }), false);
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("Fake Probe recoveryはcaller指定Pathや不正tokenを受理しない", () => {
+  const result = recoverDockerIsolationProbe("C:\\workspace\\not-owned");
+  assert.equal(result.status, "blocked");
+  assert.equal(JSON.stringify(result).includes("C:\\workspace"), false);
+});
+
+test("container createとabsence確認はtimeout、malformed ID、残留をfail closedにする", () => {
+  assert.equal(normalizeContainerCreation({ status: 0, stdout: `${"a".repeat(64)}\n` }).status, "confirmed");
+  assert.equal(normalizeContainerCreation({ status: 0, stdout: "not-an-id" }).status, "blocked");
+  assert.equal(normalizeContainerCreation({ status: null, error: { code: "ETIMEDOUT" }, stdout: "" }).status, "blocked");
+  assert.equal(normalizeContainerAbsence({ status: 1 }, { status: 0, stdout: "" }).status, "confirmed");
+  assert.equal(normalizeContainerAbsence({ status: 0 }, { status: 0, stdout: "" }).status, "blocked");
+  assert.equal(normalizeContainerAbsence({ status: 1 }, { status: 0, stdout: "still-present" }).status, "blocked");
+  assert.equal(normalizeContainerAbsence({ status: 1 }, { status: 1, stdout: "" }).status, "blocked");
 });

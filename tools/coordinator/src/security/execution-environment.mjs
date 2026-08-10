@@ -18,6 +18,7 @@ const WINDOWS_RUNTIME_ENV = Object.freeze(["COMSPEC", "PATHEXT", "SYSTEMDRIVE", 
 const POSIX_RUNTIME_ENV = Object.freeze(["LANG", "LC_ALL", "LC_CTYPE", "SHELL"]);
 const OWNED_PREFIX = "crdd-coordinator-doctor-";
 const OWNED_IDENTITIES = new WeakMap();
+const MOUNT_CAPABILITIES = new WeakMap();
 
 function readFilesystemIdentity(root) {
   const metadata = fs.lstatSync(root, { bigint: true });
@@ -39,6 +40,39 @@ function readFilesystemIdentity(root) {
 
 function sameFilesystemIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino && left.birthtimeNs === right.birthtimeNs;
+}
+
+function directorySnapshot(directory, parent, name) {
+  const realParent = fs.realpathSync(parent);
+  const realDirectory = fs.realpathSync(directory);
+  if (
+    path.dirname(realDirectory) !== realParent ||
+    path.basename(realDirectory) !== name
+  ) {
+    throw new Error("owned_operation_mount_boundary_failed");
+  }
+  return Object.freeze({
+    parent: realParent,
+    root: realDirectory,
+    name,
+    filesystem: readFilesystemIdentity(realDirectory)
+  });
+}
+
+function validateDirectorySnapshot(snapshot) {
+  const realParent = fs.realpathSync(snapshot.parent);
+  const realDirectory = fs.realpathSync(snapshot.root);
+  const filesystem = readFilesystemIdentity(snapshot.root);
+  if (
+    realParent !== snapshot.parent ||
+    realDirectory !== snapshot.root ||
+    path.dirname(realDirectory) !== realParent ||
+    path.basename(realDirectory) !== snapshot.name ||
+    !sameFilesystemIdentity(filesystem, snapshot.filesystem)
+  ) {
+    throw new Error("owned_operation_mount_replaced");
+  }
+  return snapshot.root;
 }
 
 function copyIfPresent(target, source, name) {
@@ -79,6 +113,16 @@ export function createOwnedOperationDirectories(temporaryParent = os.tmpdir()) {
   }));
   try {
     owned.directories = createOperationDirectories(realRoot);
+    const identity = OWNED_IDENTITIES.get(owned);
+    OWNED_IDENTITIES.set(owned, Object.freeze({
+      ...identity,
+      mounts: Object.freeze({
+        workspace: directorySnapshot(owned.directories.workspace, realRoot, "workspace"),
+        providerHome: directorySnapshot(owned.directories.providerHome, realRoot, "provider-home"),
+        tmp: directorySnapshot(owned.directories.tmp, realRoot, "tmp"),
+        management: directorySnapshot(owned.directories.management, realRoot, "management")
+      })
+    }));
     return owned;
   } catch (error) {
     try {
@@ -88,6 +132,28 @@ export function createOwnedOperationDirectories(temporaryParent = os.tmpdir()) {
     }
     throw error;
   }
+}
+
+export function createOwnedMountCapability(owned) {
+  const identity = owned && typeof owned === "object" ? OWNED_IDENTITIES.get(owned) : null;
+  if (!identity?.mounts || owned.root !== identity.root || owned.parent !== identity.parent) {
+    throw new Error("owned_operation_mount_identity_required");
+  }
+  for (const snapshot of Object.values(identity.mounts)) validateDirectorySnapshot(snapshot);
+  const capability = Object.freeze({ kind: "owned_operation_mounts" });
+  MOUNT_CAPABILITIES.set(capability, identity.mounts);
+  return capability;
+}
+
+export function verifyOwnedMountCapability(capability) {
+  const mounts = capability && typeof capability === "object" ? MOUNT_CAPABILITIES.get(capability) : null;
+  if (!mounts) throw new Error("owned_operation_mount_capability_required");
+  return Object.freeze({
+    workspace: validateDirectorySnapshot(mounts.workspace),
+    providerHome: validateDirectorySnapshot(mounts.providerHome),
+    tmp: validateDirectorySnapshot(mounts.tmp),
+    management: validateDirectorySnapshot(mounts.management)
+  });
 }
 
 export function cleanupOwnedOperationDirectories(owned) {
@@ -110,6 +176,9 @@ export function cleanupOwnedOperationDirectories(owned) {
       !sameFilesystemIdentity(currentFilesystem, identity.filesystem)
     ) {
       throw new Error("owned_operation_directory_replaced");
+    }
+    if (identity.mounts) {
+      for (const snapshot of Object.values(identity.mounts)) validateDirectorySnapshot(snapshot);
     }
   } catch (error) {
     OWNED_IDENTITIES.delete(owned);
