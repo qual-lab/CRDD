@@ -1,0 +1,227 @@
+# CRDD v2構想 — 能動的・自律的なCRDD
+
+Status: Concept / Future Candidate  
+Target: CRDD v2.x Candidate  
+Related: [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [実証計画](03_CRDD_v2_PoC_Plan.md)
+
+> 本書は非規範の将来構想である。現在のCRDD v0.17.0、将来のv1.x、準拠基準、採用側の責務を変更しない。ここに記載した契約、成果物、状態、ツール、実行方式は、独立した変更・検証・人間判断を経るまでCRDD標準ではない。
+
+---
+
+## 1. 中心仮説
+
+CRDD v1までの中心は、人間とAIが同じコンテキストリポジトリ（Context Repository）を参照し、思想、意図、根拠、判断を失わずに専門工程、実装、検証、学びまで接続することである。
+
+v2では新しい専門工程や第一級成果物を大量に追加するのではなく、既存のコンテキスト、ロードマップ、判断、根拠、学び、エージェント、スキルをAI自身が継続的に利用し、必要な再評価、提案、許可された実行を開始できるかを検証する。
+
+```text
+v1
+Reality → Human Trigger → AI → CRDD → Work → Result → Learning
+
+v2候補
+Reality / Time / Event / Condition
+        ↓
+      Trigger
+        ↓
+       AI
+        ↓
+      CRDD
+        ↓
+Re-evaluate / Propose / Authorized Action
+        ↓
+Result / Evidence / Learning
+        └──────────────────────→ CRDD
+```
+
+技術的な中心原則は次のとおりである。
+
+> `IF A THEN B`ではなく、`IF A THEN THINK`を扱う。
+
+契機は結果や推論順序を固定しない。AIが考え始める理由、対象、権限、停止条件、期待結果を固定し、その時点のCRDDコンテキストから必要な探索と専門思考を形成させる。
+
+---
+
+## 2. v0〜v1系列との分離
+
+| ブランチ | 役割 | 変更の扱い |
+|---|---|---|
+| `codex/series/v0-v1` | v0.17.0以降からv1安定化までの系列 | 現行規範の改善、修正、実運用、v1昇格判断を扱う |
+| `codex/feature/v2-trigger-driven-autonomous-context-operation` | v2構想と実証 | 将来候補、試作、評価結果を保持し、現行標準として公開しない |
+
+v1.0.0への昇格は、v0〜v1系列の実運用が安定したと人間の決定権限者が判断した場合だけ行う。v2の進行を理由にv1昇格を早めない。
+
+同期方向は次に固定する。
+
+```text
+mainの公開結果
+      ↓
+codex/series/v0-v1
+      ↓ merge
+codex/feature/v2-trigger-driven-autonomous-context-operation
+```
+
+- v0〜v1系列の変更は、公開結果または同期対象Commitをv2 featureへmergeする。
+- merge履歴を残し、取り込んだ変更を再構成可能にする。
+- v2固有の構想、試作、状態、用語をv0〜v1系列へ自動的に逆流させない。
+- 競合時は共有する現行契約についてv0〜v1系列を基準とし、v2候補側を適応させる。
+- 同期できない場合は、未同期範囲、理由、影響、再開条件をv2側で取得可能にする。
+
+v2候補を現行系列へ採用するときは、branch mergeだけで採用とみなさない。独立した変更トレース、対象バージョン、移行、準拠影響、専門確認、人間判断を必要とする。
+
+---
+
+## 3. v1とv2の違い
+
+| CRDD v1候補 | CRDD v2候補 |
+|---|---|
+| 人間が主な開始契機を持つ | 人間、時間、イベント、状態が開始契機になり得る |
+| AIが必要時にコンテキストを読む | AIが契機に応じてコンテキストを再評価する |
+| 人間が工程を開始する | AIも工程の再開を提案または許可範囲で開始できる |
+| ロードマップと学びを保持する | ロードマップと学びが次の再評価へ接続する |
+| エージェントが専門支援する | 責務と権限を持つエージェント構成を検証する |
+| 人間の決定権限を中心に守る | 人間の決定権限を維持し、実績に基づく統制済み自律性を検証する |
+| 要求起点 | 能動的な再評価候補 |
+| 生きたコンテキストリポジトリ | 継続的に再解釈されるコンテキストリポジトリ |
+
+v2は、人間を排除する構想ではない。AIが状況収集、差分把握、再評価候補、根拠整理を担い、人間が価値、方向、優先順位、重要判断、リスク受容へ集中できる状態を目指す。
+
+---
+
+## 4. 4本柱
+
+### 4.1. 運用・再評価契機契約
+
+CRDDが「いつ、なぜ、何をもう一度考える必要があるか」を表現し、Runtimeがその条件を検知してAIを起動できるようにする。
+
+### 4.2. 統制された決定権限
+
+初期は既存のHuman Authorityを維持する。実績、安全性、影響、可逆性、検証可能性、費用、セキュリティ、プライバシーを根拠として、限定的な操作だけを将来候補として評価する。
+
+### 4.3. エージェント組織
+
+エージェント数ではなく、役割、責務、コンテキスト範囲、権限、委譲、引き渡し、Escalation、競合解決を扱う。
+
+### 4.4. 継続的な学びと再評価
+
+結果と学びを保存するだけでなく、影響する判断、ロードマップ、Discovery、品質状態を再評価する契機へ接続する。ただし学びを自動的に原則化せず、採用は既存の決定権限へ戻す。
+
+---
+
+## 5. 再評価契約
+
+単純なTrigger Contractより、再評価契約（Re-evaluation Contract）として捉える。
+
+> 何が起きたら、なぜ、どのコンテキストをもう一度考える必要があるか。
+
+```yaml
+reevaluation:
+  target: product_direction
+  reason: current assumptions may no longer hold
+  conditions:
+    - meaningful_environment_change
+    - new_user_evidence
+    - review_interval_reached
+  expected_outcomes:
+    - assumption_validity
+    - meaningful_changes
+    - affected_decisions
+    - roadmap_implications
+    - recommended_next_actions
+  authority:
+    proposal: ai
+    roadmap_change: human
+```
+
+これは固定Schemaではない。少なくとも、再評価理由、対象、条件、期待結果、権限、停止、根拠、記録先を取得可能にする方向を比較する。
+
+イベント自体を固定Actionへ直結しない。例えばPull Requestの統合後は、まず意味変化を評価し、影響がなければ終了し、意味が変わった場合だけ適切な再評価へ接続する。
+
+---
+
+## 6. Living Repository
+
+v1までのリポジトリは、人間とAIが参照する生きたコンテキストリポジトリである。v2候補ではさらに、時間、イベント、状態変化を契機に再解釈され、現実とのずれを発見し、次の思考を開始できる状態を検証する。
+
+Repository自身が常駐Processを持つ必要はない。
+
+```text
+Repository
+   ↓
+Trigger
+   ↓
+AIが現在状態を再評価
+   ↓
+Proposal / Authorized Action
+   ↓
+Evidence / Learning
+   └────────────────→ Repository
+```
+
+一般的な知識ベースとの違いは、情報検索だけでなく、意味変化の検出、再評価、根拠付き提案、学びへの循環までを契約対象にする点にある。
+
+---
+
+## 7. 新設しないもの
+
+v0.17.0時点のCRDDには、Observation、Evidence、Interpretation、Hypothesis、Discovery、Decision、Roadmap、Re-evaluation Trigger、Learning等がすでに存在する。
+
+そのため、現時点では次を新しい第一級成果物として追加しない。
+
+- Opportunity専用正本
+- Evidence Modelの重複正本
+- Decision Historyの重複正本
+- RoadmapまたはLearningの代替物
+- Expert Agent専用の新工程
+- 既存Independent ReviewやSecurity Boundaryの代替物
+- 固定Workflow、固定Runtime、固定MCP、固定Provider
+
+必要なのは新しい名前ではなく、既存概念をAI自身が能動的に利用し、再評価できることかを実証することである。
+
+---
+
+## 8. CRDD自身の改善候補
+
+Productだけでなく、CRDD運用も観察対象にできる。
+
+```text
+複数Changeの手戻りを分析
+   ↓
+同じ工程間Findingが反復
+   ↓
+単発ミスか契約不足かを探索
+   ↓
+CRDD改善候補を提示
+```
+
+AIがCRDD Coreを自己変更することとは分離する。Core変更は、現行のAuthority、Change、Review、Audit、Releaseを通る別変更である。
+
+---
+
+## 9. 設計原則
+
+1. 仕事は定型化しても、思考は定型化しない。
+2. 契機は結果を決めず、考え始める理由を与える。
+3. CRDDは「なぜ・何を」、Runtimeは「いつ・どう起動するか」を持つ。
+4. 接続可能であることをAuthorityとみなさない。
+5. AIの自律性は、コンテキストとGovernanceがある範囲でだけ成立する。
+6. 何も変える必要がないことも正しい結果として扱う。
+7. CRDD自身を巨大なRuntime、Scheduler、Queue、Worker、MCP Serverへ変えない。
+8. 特定のAI製品、Protocol、Provider、課金方式へ固定しない。
+9. 外部情報境界、最小権限、Human Gate、検証、回復を自律性より先に守る。
+
+---
+
+## 10. 到達像
+
+v2が目指すのは、AIへ毎回仕事を依頼する状態から、AIが重要な変化を見つけ、許可範囲で分析と検証を進め、人間には重要な判断だけを根拠とともに求める状態への移行である。
+
+```text
+昨日から複数の変化を検出
+  ├─ 影響なし：根拠付きで終了
+  ├─ 許可範囲内：分析・検証済み
+  └─ Directionへ影響：人間判断を要求
+```
+
+v1は「AIとプロダクトを作る」ための安定した土台を目指す。v2候補は、その土台の上で「AIとプロダクトを継続的に育てる」運用を検証する。
+
+実証の詳細は[CRDD v2実証計画](03_CRDD_v2_PoC_Plan.md)に置く。
