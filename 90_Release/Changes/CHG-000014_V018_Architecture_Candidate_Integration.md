@@ -201,3 +201,16 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 統合修正では、§5.3のタグ項目を、Release前には予定タグ対象と統合後の確認済み最終Identityの一致および承認後の付与計画を確認し、タグの実在とIdentity一致はRelease後に軽量記録確認する表現へ置換した。処置は`Applied`であり、新固定版の監査前に`Resolved`または`Pass`と扱わない。
 
 現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、`DOC-V018-R04`を`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
+
+第9統合固定候補はCommit `c0e0e49b4e5187a29eff8efaafc4ed59f269e18a`、Tree `7762a579387a9e1c486815491d82d5fd27d21bbd`である。全体Checkerは155ファイル、Markdown 112件、ローカルリンク1,653件、アンカー555件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件をError 0／Warning 0で確認し、Checkerテスト143件はすべてPass、`git diff --check`はcleanだった。同固定候補へのAgent／Architecture Review、Document Audit、Gap／Impact＋Conformance Auditはいずれも`Pass`、未解決Finding 0件だった。
+
+その後の利用側再レビューは`Conditional`であり、次のMedium 2件を提示した。
+
+1. 公開済みv0.17.0を採用する導線はあるが、v0.18.0 Candidateを採用せず隔離評価し、差分、接続部、既存成果物への影響、復旧方法を記録する利用導線が不足している。
+2. README英日のCommunication指示例が正本契約を過剰に複製し、依頼の主要目的、変更可能範囲および停止条件を読みにくくしている。
+
+後続レビューで未処置の利用側不足が確認されたため、第9統合固定候補とその機械確認および3監査結果は実行履歴として保持するが、修正後候補の現在判定、Release ReadinessまたはRelease根拠へ流用しない。利用側再レビューは、候補識別、Coordinatorの非Runtime境界および既存CheckerをPass範囲として保持し、設計の根本変更を要求していない。
+
+統合修正ではREADME英日に、v0.17.0を有効な公開基準として維持し、v0.18.0 Candidateを復旧可能な隔離branchまたは検証用Repositoryでだけ評価し、候補Identity、対象能力、許可操作、差分、接続部、既存成果物への影響および結果を記録する案内を追加した。Candidateを完了、準拠、採用またはRelease根拠にせず、非規範Architecture Candidateは別途許可されたRuntimeまたはPoCがない限り設計上のシミュレーションとして扱う。Communication指示例は`17_Communication.md`の入口契約と条件成立時の`21_Discovery.md`参照へ短縮し、対象範囲、許可した処理境界、現在の判断集合、未承認の公開、接触、外部調査、広告および費用執行の停止だけを入力例に残した。処置は`Applied`であり、新固定版の再確認前に`Resolved`または`Pass`と扱わない。
+
+現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび必要な独立監査を取り直すまで、利用側再レビューの2件を解消済みとせず、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
