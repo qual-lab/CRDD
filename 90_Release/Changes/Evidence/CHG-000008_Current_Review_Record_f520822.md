@@ -10,8 +10,8 @@
 - 処置進捗: `Self-checked`
 - 阻害状態: `None`
 - 解消判定: `Resolved`
-- CHGの現在状態: `Integrated — Pending Release`
-- リリース判断: Qual-Labの人間の決定権限者がv0.14.0の統合とリリース実行を承認。公開実行待ち
+- CHGの現在状態: `Released`
+- リリース判断: Qual-Labの人間の決定権限者による承認に基づき、v0.14.0の統合と公開を完了
 - 担当責任者: Qual-Lab
 - 更新日: 2026-08-10
 
@@ -73,15 +73,16 @@
 ## リリース記録
 
 - リリースバージョン: `v0.14.0`
-- 公開識別子: 注釈付き`v0.14.0`タグを作成予定
-- 状態: `Integrated — Pending Release`
+- 公開識別子: 注釈付き`v0.14.0`タグ
+- 状態: `Released`
 - リリース対象: CRDD標準リポジトリのv0.14.0変更、固定後Evidence、Current Review Record
 - 対象環境: GitHub上の`qual-lab/CRDD`公開リポジトリ
 - 含まれる変更: `CHG-000008`
 - 除外: 未追跡の`CRDD_Introduction.pptx`。本リリースの対象コミット、配布物、検証に含めない
 - feature → develop: [PR #13](https://github.com/qual-lab/CRDD/pull/13)、統合コミット`6a12c593204c3a1a36f2374975ad04d259580fd3`
 - develop → main: [PR #14](https://github.com/qual-lab/CRDD/pull/14)、統合コミット`5558662c01d1dd7170fbb0307119059293cea191`
-- リリース前記録 → main: 未実施
+- リリース前記録 → main: [PR #15](https://github.com/qual-lab/CRDD/pull/15)、統合コミット`133e27843ffb4686d31d3bb59d8f0fbf2a692aa9`
+- 配布成果物: mainコミット`133e27843ffb4686d31d3bb59d8f0fbf2a692aa9`と、そのコミットを指す`v0.14.0`タグ
 - リリース準備状況: 分離worktreeによる全体Checker、3系統独立確認、Current Record終端確認を完了。未解決Finding 0
 - 変更影響の伝播: 正本、AI入口、README、CHANGELOG、監査基準、準拠基準、移行案内へ反映済み。未処置の伝播例外なし
 - 人間の判断: Qual-Labの人間の決定権限者が2026-08-10に統合とリリース実行を承認
@@ -89,8 +90,9 @@
 - 人間中心品質: プロダクトのUX／IA／UI成果物を変更しないため、プロダクト固有の人間中心品質確認は`Not Applicable`
 - 移行／互換性: `breaking`、`migration_required: true`。`CHANGELOG.md`のv0.14.0移行注記に従い、全既存基準版でMigration Completenessを実施し、該当時に`AD-21`／`PL-16`を再評価する
 - ロールバック参照: `v0.13.0`タグ。Migration Completenessと人間による有効化が終わるまではv0.13.0の基準版と手順を維持する
-- リリース日: 未確定（予定: 2026-08-10）
+- リリース検証: localとremoteの注釈付きタグobjectは`0773179fb2670b980ed80a9962cd1ba4433e4311`、peeled tagはともに`133e27843ffb4686d31d3bb59d8f0fbf2a692aa9`を指す
+- リリース日: 2026-08-10
 
 ## 次の処置
 
-本記録をmainへ統合した後、その統合コミットへ注釈付き`v0.14.0`タグを作成してremoteへ公開する。公開識別子とremote参照を確認できるまで`Released`へ進めない。
+正式リリース後に新しい運用データまたは適用先の問題が得られた場合は、新しい根拠を伴う別の変更契機として評価する。
