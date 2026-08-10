@@ -187,3 +187,17 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 統合修正では、§5.3へ、設定されたRelease対象branchと統合決定権限、Release判断前の統合、統合後Commit／Treeの固定、Identity変化と全Release差分に応じた必要確認、判断またはタグ付与までのbranch HEAD／最終Identity不変を確認する一項目を追加した。条件を確認できない場合はRelease Readinessを成立させず、再固定と必要な確認へ戻る。処置は`Applied`であり、新固定版の監査前に`Resolved`または`Pass`と扱わない。
 
 現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、`GCI-V018-R03`を`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
+
+第8統合固定候補はCommit `75297a803a4d7b563192b2b24a7592170f58fcbb`、Tree `64866edb2403a9ef2bd31b43b637898582ab1dba`である。全体Checkerは155ファイル、Markdown 112件、ローカルリンク1,653件、アンカー555件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件をError 0／Warning 0で確認し、Checkerテスト143件はすべてPass、`git diff --check`はcleanだった。
+
+同固定候補への監査結果は次のとおりである。
+
+- Agent／Architecture Review: `Pass`。未解決Finding 0件。
+- Document Audit: `Fail`。`DOC-V018-R04`（Major）は、§5.3のRelease前チェックリストが既存行でタグ実在を要求するよう読め、§5.1および`51`のRelease承認後タグ付与と循環することを指摘した。
+- Gap／Impact＋Conformance Audit: `Pass`。未解決Finding 0件。
+
+必須監査集合にFailが含まれるため、第8統合固定候補、Checker、テストおよび監査集合全体を`Invalidated`とし、現在の合否、Finding解消、準拠、Release HandoffまたはRelease根拠へ流用しない。個別のPassは実行履歴として保持し、Failへ書き換えない。`DOC-V018-R04`は初回監査時から存在したが見落としていた指摘である。
+
+統合修正では、§5.3のタグ項目を、Release前には予定タグ対象と統合後の確認済み最終Identityの一致および承認後の付与計画を確認し、タグの実在とIdentity一致はRelease後に軽量記録確認する表現へ置換した。処置は`Applied`であり、新固定版の監査前に`Resolved`または`Pass`と扱わない。
+
+現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、`DOC-V018-R04`を`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
