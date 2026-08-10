@@ -61,7 +61,7 @@ CRDD Coreは必要なCapability、Context、Authority、Expected Outcome、Verif
 
 - 許可するProvider、Model、tenant、region、処理目的
 - 保持、削除、二次利用、学習利用、再委託の条件
-- Capability根拠、Reliability基準、Cost／Quota上限
+- Capability根拠、Reliability基準、Hard Cost／Effect Budget Ceiling、Quota／Rate-limitの実行可能条件
 - Fallback候補と再評価条件
 - Human Gate、停止、例外、再開Authority
 
@@ -99,7 +99,10 @@ Eligibility Gate
   ├ Required Capability
   ├ Tool / Context Access
   ├ Security / Privacy / Contract
-  └ Verification Requirement
+  ├ Verification Requirement
+  ├ Hard Cost / Effect Budget Ceiling
+  ├ Available Quota / Rate-limit Feasibility
+  └ Required Execution Capacity
   ↓
 Eligible Execution Set
   ↓
@@ -107,8 +110,9 @@ Optimization
   ├ Demonstrated Reliability
   ├ Task Fitness
   ├ Availability / Latency
-  ├ Cost
-  └ Quota / Credit
+  ├ Estimated Cost
+  ├ Quota / Credit Efficiency
+  └ Concentration / Availability Balance
   ↓
 Agent Execution
   ↓
@@ -120,6 +124,8 @@ Human Gate / Policy-contained Completion
 ```
 
 EligibilityとOptimizationを一つのScoreへ統合しない。Security、Privacy、Authority、Contract、必要CapabilityまたはVerification Requirementを満たさない候補は、CostやAvailabilityが優れていてもEligible Setへ入れない。
+
+`Policy-contained Completion`は、事前承認されたOperationについて、必要な結果と検証が許可範囲内で完了し、そのRunを終了できる状態を意味する。Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを自動的に成立させない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)のPromotion Policyを別途適用する。
 
 ---
 
@@ -133,7 +139,8 @@ EligibilityはProviderまたはModelの自己申告、ブランド、評判ま�
 - Required Capabilityを示す評価、実績または検証可能な根拠
 - 必要なTool、Repository、Environmentへの最小Access
 - Output、Evidence、Verificationの取得可能性
-- 対象Revision、Cost／Effect Budget、停止・回復条件
+- 対象Revision、Hard Cost／Effect Budget Ceiling、停止・回復条件
+- 実行に必要なAvailable Quota、Rate-limit、時間または計算資源
 
 Capabilityを確認できない候補を「おそらく同等」としてFallbackへ使用しない。判定情報不足は低ScoreではなくIneligibleまたはHuman Decisionとする。
 
@@ -146,8 +153,8 @@ Eligible Set内では、対象Operationと採用側Policyに従い次を比較�
 - Demonstrated Reliabilityと過去の検証結果
 - Task Fitnessと必要な専門能力
 - Availability、Latency、Context Window、Tool Fitness
-- 実行Cost、Quota、Credit、Rate Limit
-- Provider集中、Fallback頻度、運用上の回復性
+- Estimated CostとQuota／Credit Efficiency
+- Provider集中、Availability Balance、Fallback頻度、運用上の回復性
 
 Cost、QuotaまたはCreditの分散は、品質と安全を満たす候補間の運用最適化である。CRDDの目的、品質根拠、Provider採用理由またはSecurity例外にしない。
 
@@ -260,14 +267,19 @@ Fallbackに必要Capabilityがなく、Verificationで差を閉じられない�
 
 ProviderまたはModelを成果物のIdentity、品質またはAuthorityにしない。一方、どのRuntime条件でResultが生成されたかは、再現、失効、比較、Fallback評価に必要な範囲で追跡する。
 
+Execution ProvenanceはProvider Identityではなく、Eligibility判定済みExecution Boundaryと、そのPolicy Decisionを再構成可能にする。
+
 概念候補：
 
 ```yaml
 routing_policy_revision:
+eligibility_policy_revision:
+eligibility_decision_ref:
+execution_boundary_ref:
 selected_provider:
 selected_model:
 selection_reason:
-context_projection:
+context_projection_ref:
 granted_permissions:
 fallback_history:
 verification_result:

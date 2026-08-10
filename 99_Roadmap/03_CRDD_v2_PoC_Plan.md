@@ -272,7 +272,9 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 - Provider AのResultをProvider Bへ渡す際、新しいContext Transferとして処理境界を評価し、外部境界を跨ぐ場合はExternal Sendとして扱うか
 - Planner／Executor／Reviewerを固定Flowにせず、必要な責務だけを構成できるか
 - 別ProviderのReviewerがExecutorの結論を流用せず、対象と基準からFindingを独立再構成できるか
-- Routing Policy、Context Projection、Permission、Fallback、Verification、Costを必要な粒度で再構成できるか
+- Routing Policy、Eligibility Policy revision、Eligibility Decision、Execution Boundary、Context Projection、Permission、Fallback、Verification、Costを必要な粒度で再構成できるか
+- Policy-contained CompletionがRun終了だけを成立させ、Promotion PolicyなしにCanonical State、Risk AcceptanceまたはHuman Authorityを成立させないか
+- Hard Cost／Effect Budget Ceilingまたは実行に必要なQuota／Rate-limitを満たさない候補を不適格とし、Eligible Set内だけでEstimated CostとQuota Efficiencyを比較するか
 - RoutingがCostを下げても品質、見逃し、人間負荷またはRecovery burdenを悪化させていないか
 
 ---

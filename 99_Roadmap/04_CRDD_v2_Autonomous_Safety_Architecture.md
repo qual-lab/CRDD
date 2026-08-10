@@ -303,6 +303,7 @@ CRDD Core候補は安全不変条件を所有し、実装方式を固定しな�
 15. Safety、Privacy、Authority、Contractまたは必須CapabilityをOptimization Scoreで相殺しない。
 16. Providerへの送信許可、Context Projection、AuthorityまたはTool AccessをFallback先へ流用しない。
 17. Providerの相違をIndependent Reviewの成立根拠にしない。
+18. Policy-contained CompletionからCanonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
 
 将来互換の表現と現在の利用許可の分離は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)に置く。本書は、その分離がEffect確定前にRuntimeで強制されることを扱う。
 
@@ -325,6 +326,7 @@ CRDD Core候補は安全不変条件を所有し、実装方式を固定しな�
 - 低Costだが情報境界を満たさないProviderをRouting候補に入れ、Eligibility Gateが拒否する。
 - Primary ProviderからFallback先へ同じContextを無条件再送しようとし、再Eligibility判定で停止する。
 - 別ProviderのReview結果だけを独立性の根拠にし、対象から再構成できなければIndependent Reviewとして扱わない。
+- Policy-contained Completionへ到達したRunからCanonical Promotionを直接要求し、Promotion Policyがなければ確定を拒否する。
 
 PoCの合格は「Agentが危険なことをしなかった」ではなく、「Agentが危険なEffectを要求してもRuntimeが確定を防ぎ、理由とEvidenceを残した」ことで評価する。
 
