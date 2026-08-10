@@ -199,6 +199,7 @@ function reportableFilesystemPolicy(policy, root) {
 export function runDoctor(options = {}) {
   const activeIsolation = options.activeIsolation === true;
   const owned = createOwnedOperationDirectories();
+  const initialHostRecoveryId = getOwnedHostRecoveryId(owned);
   let retainOperationDirectories = false;
   try {
     const providerEnvironment = createProviderEnvironment(process.env, owned.directories);
@@ -212,7 +213,9 @@ export function runDoctor(options = {}) {
     const isolation = activeIsolation
       ? runDockerIsolationProbe(owned)
       : { status: "not_implemented", reason: "filesystem_boundary_not_enforced" };
-    retainOperationDirectories = isolation.retainOperationDirectories === true;
+    retainOperationDirectories = activeIsolation
+      ? isolation.hostCleanupCompleted !== true
+      : false;
     const checks = [
       check("runtime.node", nodeSupported() ? "confirmed" : "blocked", nodeSupported() ? null : "node_22_or_newer_required"),
       check("repository.git", repository.gitAvailable ? "confirmed" : "blocked", repository.gitAvailable ? null : "git_unavailable"),
@@ -271,8 +274,7 @@ export function runDoctor(options = {}) {
       checks,
       blockers: readiness.blockers
     };
-    if (!retainOperationDirectories) {
-      const hostRecoveryId = isolation.hostRecoveryId ?? getOwnedHostRecoveryId(owned);
+    if (!activeIsolation) {
       try {
         cleanupOwnedOperationDirectories(owned);
       } catch {
@@ -284,14 +286,14 @@ export function runDoctor(options = {}) {
         report.blockers = cleanupReadiness.blockers;
         report.recovery = {
           required: true,
-          recoveryId: hostRecoveryId,
+          recoveryId: initialHostRecoveryId,
           reason: "host_operation_cleanup_failed"
         };
       }
     }
     return report;
   } catch (error) {
-    if (!retainOperationDirectories) {
+    if (!activeIsolation && !retainOperationDirectories) {
       try { cleanupOwnedOperationDirectories(owned); } catch { /* recovery marker remains external */ }
     }
     throw error;

@@ -27,14 +27,25 @@ import {
   verifyOwnedMountCapability
 } from "../src/security/execution-environment.mjs";
 import {
+  classifyRecoveryChildren,
   dockerCreateArgumentsForFixture,
   evaluateDockerCliCandidateForFixture,
   normalizeContainerAbsence,
   normalizeContainerCreation,
   normalizeDockerIsolationResult,
+  normalizeHostCleanupResult,
   recoverDockerIsolationProbe,
   validateContainerInspect
 } from "../src/security/docker-isolation.mjs";
+
+function recordedIdentity(target) {
+  const metadata = fs.lstatSync(target, { bigint: true });
+  return {
+    dev: metadata.dev.toString(),
+    ino: metadata.ino.toString(),
+    birthtimeNs: metadata.birthtimeNs.toString()
+  };
+}
 
 function confirmedChecks() {
   return REQUIRED_CHECK_IDS.map((id) => ({ id, status: "confirmed", reason: null }));
@@ -493,4 +504,56 @@ test("Host recoveryは既知projectionの部分削除を許容する", () => {
   const recovered = recoverOwnedOperationDirectories(token);
   assert.equal(recovered.status, "recovered");
   assert.equal(fs.existsSync(owned.root), false);
+});
+
+test("passive cleanupはmarker改変を現在Hashとして再信頼しない", () => {
+  const owned = createOwnedOperationDirectories();
+  const token = getOwnedHostRecoveryId(owned);
+  const nonce = token.split(".")[2];
+  const marker = path.join(os.tmpdir(), "crdd-coordinator-recovery-v1", `host-${createHash("sha256").update(nonce).digest("hex")}.json`);
+  const original = fs.readFileSync(marker, "utf8");
+  const changed = JSON.parse(original);
+  changed.state = "docker_absent_confirmed";
+  fs.writeFileSync(marker, `${JSON.stringify(changed)}\n`, "utf8");
+  assert.throws(() => getOwnedHostRecoveryId(owned), /record_mismatch/u);
+  assert.throws(() => cleanupOwnedOperationDirectories(owned), /record_mismatch/u);
+  assert.equal(fs.existsSync(owned.root), true);
+  assert.equal(recoverOwnedOperationDirectories(token).status, "blocked");
+  fs.writeFileSync(marker, original, "utf8");
+  cleanupOwnedOperationDirectories(owned);
+});
+
+test("Docker recovery child分類は既知child欠落を許容し未知entryを拒否する", () => {
+  const owned = createOwnedOperationDirectories();
+  const token = getOwnedHostRecoveryId(owned);
+  const identities = {
+    workspace: recordedIdentity(owned.directories.workspace),
+    "provider-home": recordedIdentity(owned.directories.providerHome),
+    tmp: recordedIdentity(owned.directories.tmp),
+    events: recordedIdentity(owned.directories.events),
+    projection: recordedIdentity(owned.directories.projection),
+    management: recordedIdentity(owned.directories.management)
+  };
+  fs.rmSync(owned.directories.events, { recursive: true, force: false });
+  const partial = classifyRecoveryChildren(owned.root, identities);
+  assert.equal(partial.present.includes("events"), false);
+  assert.equal(partial.present.includes("management"), true);
+  const unknown = path.join(owned.root, "unknown.txt");
+  fs.writeFileSync(unknown, "keep", "utf8");
+  assert.throws(() => classifyRecoveryChildren(owned.root, identities), /unknown_child/u);
+  fs.rmSync(unknown);
+  assert.equal(recoverOwnedOperationDirectories(token).status, "recovered");
+});
+
+test("Docker不存在確定後のHost cleanup失敗は更新後Host tokenを返す", () => {
+  const hostToken = `host.crdd-coordinator-doctor-test.${"a".repeat(8)}-${"b".repeat(4)}-${"c".repeat(4)}-${"d".repeat(4)}-${"e".repeat(12)}.${"f".repeat(64)}`;
+  const normalized = normalizeHostCleanupResult(
+    { status: "blocked", reason: "host_recovery_unknown_child" },
+    hostToken,
+    { status: "confirmed" },
+    "probe"
+  );
+  assert.equal(normalized.status, "blocked");
+  assert.equal(normalized.recoveryId, hostToken);
+  assert.equal(normalized.hostCleanupCompleted, false);
 });

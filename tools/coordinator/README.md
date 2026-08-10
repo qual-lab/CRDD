@@ -31,7 +31,11 @@ Probe containerは`create`で得たcontainer IDと全Security属性を起動前�
 
 Host回収記録は再帰削除するOperation rootの外に保持する。Dockerへのcreate送信後は、上記3軸で不存在を確定するまでHost回収を直接実行できない。明示recoveryは、Docker container回収、3軸不存在確認、Host root回収、root不存在確認、外部marker消費の順に限定し、未知container、caller指定Pathまたは一般Docker操作へ拡張しない。通常実行またはcleanup中の例外も、Pathや生出力を含まない`blocked`結果と回復IDへ正規化する。
 
+受動診断の`host_only` cleanupとDocker送信後のcleanupは分離する。受動診断は作成直後に固定したHost記録Hashだけを信頼し、現在markerを再Hashして改変後の状態を正当化しない。Docker送信後は、container不存在未確認なら`docker.*`、3軸不存在確認とHost marker更新後なら更新後の`host.*`だけを実行用回復IDとして返す。Host cleanupに失敗しても古いDocker回復IDへ戻さない。active isolationの各終了経路は、Host cleanup完了または現在有効な回復ID付き`blocked`のどちらかを返す。
+
 3軸不存在の成功は、同じProbe、container、Operation root、Docker CLIおよび送信開始時のHost記録へ結び付いたmodule-privateかつ一回限りのCapabilityとして扱う。公開token、owned objectまたは状態文字列だけではHost回収を解禁できない。Host rootを削除する前には、Runtimeが作成した6 childすべてのIdentityとroot直下entry集合を確認し、既知childの部分的不在だけを許容する。未知entry、link／junctionまたは同名replacementは推測削除しない。
+
+明示Docker recoveryでは、root直下が既知6 childの部分集合であり、存在するchildのIdentityが一致することを確認したうえで、まず3軸不存在を照会する。containerが不存在なら、`events/`、`projection/`またはmount childの既知欠落を理由にHost回復を止めない。containerが残る場合だけ、mount 3件と`management/`の存在・Identityを必須にして同じcontainerを回収する。`management/`、回復記録、未知entryまたは置換childを確認できない場合は推測せず停止する。
 
 Fake Provider Gateの合格は、DockerによるFilesystem／Credential Path／Network遮断の成立だけを示す。Provider endpoint限定Egress、公式CLIの導入・認証、自動更新／Telemetry、Session再開、timeout／cancelおよびprocess tree終了が確認されるまでは全体を`blocked`とし、実Operationへ進めない。
 

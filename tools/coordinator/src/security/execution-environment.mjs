@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
+import { loadHostRecoveryRecordByToken } from "./host-recovery-record.mjs";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -194,7 +195,7 @@ export function createOwnedOperationDirectories(temporaryParent = os.tmpdir()) {
     return owned;
   } catch (error) {
     try {
-      cleanupOwnedOperationDirectories(owned);
+      rollbackInitializingOperationDirectories(owned);
     } catch {
       throw new Error("owned_operation_directory_initialization_cleanup_blocked", { cause: error });
     }
@@ -205,9 +206,8 @@ export function createOwnedOperationDirectories(temporaryParent = os.tmpdir()) {
 export function getOwnedHostRecoveryId(owned) {
   const identity = owned && typeof owned === "object" ? OWNED_IDENTITIES.get(owned) : null;
   if (!identity?.hostRecovery?.recordHash) throw new Error("owned_operation_directory_identity_required");
-  const { serialized } = readCurrentOwnedHostRecord(identity);
-  const recordHash = createHash("sha256").update(serialized).digest("hex");
-  return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${recordHash}`;
+  validatePrivateHostRecoveryRecord(identity, "host_only");
+  return expectedHostRecoveryToken(identity);
 }
 
 function readCurrentOwnedHostRecord(identity) {
@@ -217,6 +217,59 @@ function readCurrentOwnedHostRecord(identity) {
   const record = JSON.parse(serialized);
   if (record.schema !== "crdd-coordinator-host-recovery/v1" || record.rootName !== path.basename(identity.root)) throw new Error("host_recovery_record_mismatch");
   return { record, serialized };
+}
+
+function expectedHostRecoveryToken(identity) {
+  return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${identity.hostRecovery.recordHash}`;
+}
+
+function validatePrivateHostRecoveryRecord(identity, expectedState) {
+  const { record, serialized } = readCurrentOwnedHostRecord(identity);
+  const actualHash = createHash("sha256").update(serialized).digest("hex");
+  if (
+    actualHash !== identity.hostRecovery.recordHash ||
+    record.state !== expectedState ||
+    identity.hostRecovery.state !== expectedState ||
+    record.rootName !== path.basename(identity.root)
+  ) {
+    throw new Error("host_recovery_record_mismatch");
+  }
+  if (!identityMatchesRecord(identity.root, record.rootIdentity)) throw new Error("host_recovery_record_mismatch");
+  for (const [name, snapshot] of Object.entries(identity.children ?? {})) {
+    const recorded = record.childIdentities?.[name];
+    if (!recorded || recorded.pathName !== snapshot.name) throw new Error("host_recovery_record_mismatch");
+    if (
+      BigInt(recorded.dev) !== snapshot.filesystem.dev ||
+      BigInt(recorded.ino) !== snapshot.filesystem.ino ||
+      BigInt(recorded.birthtimeNs) !== snapshot.filesystem.birthtimeNs
+    ) throw new Error("host_recovery_record_mismatch");
+  }
+  return record;
+}
+
+function rollbackInitializingOperationDirectories(owned) {
+  const identity = owned && typeof owned === "object" ? OWNED_IDENTITIES.get(owned) : null;
+  if (!identity || identity.hostRecovery.state !== "initializing") {
+    cleanupOwnedOperationDirectories(owned);
+    return;
+  }
+  const realRoot = fs.realpathSync(identity.root);
+  if (
+    realRoot !== identity.root ||
+    fs.realpathSync(identity.parent) !== identity.parent ||
+    path.dirname(realRoot) !== identity.parent ||
+    !path.basename(realRoot).startsWith(identity.prefix) ||
+    !sameFilesystemIdentity(readFilesystemIdentity(realRoot), identity.filesystem)
+  ) throw new Error("owned_operation_directory_replaced");
+  const allowed = new Set(["workspace", "provider-home", "tmp", "events", "projection", "management"]);
+  for (const entry of fs.readdirSync(realRoot, { withFileTypes: true })) {
+    if (!allowed.has(entry.name) || !entry.isDirectory() || entry.isSymbolicLink()) {
+      throw new Error("owned_operation_unknown_child");
+    }
+  }
+  fs.rmSync(realRoot, { recursive: true, force: false });
+  if (fs.existsSync(realRoot)) throw new Error("owned_operation_directory_cleanup_incomplete");
+  OWNED_IDENTITIES.delete(owned);
 }
 
 export function createOwnedMountCapability(owned) {
@@ -281,11 +334,7 @@ export function cleanupOwnedOperationDirectories(owned) {
     if (["owned_operation_directory_replaced", "owned_operation_child_replaced", "owned_operation_unknown_child"].includes(error?.message)) throw error;
     throw new Error("owned_operation_directory_replaced");
   }
-  const currentHostRecord = readCurrentOwnedHostRecord(identity).record;
-  if (currentHostRecord.state === "docker_submission_started") {
-    throw new Error("host_cleanup_requires_container_absence");
-  }
-  if (!["host_only", "docker_absent_confirmed"].includes(currentHostRecord.state)) throw new Error("host_recovery_state_invalid");
+  validatePrivateHostRecoveryRecord(identity, "host_only");
   fs.rmSync(identity.root, { recursive: true, force: false });
   if (fs.existsSync(identity.root)) throw new Error("owned_operation_directory_cleanup_incomplete");
   OWNED_IDENTITIES.delete(owned);
@@ -300,24 +349,15 @@ export function cleanupOwnedOperationDirectories(owned) {
   }
 }
 
-function parseHostRecoveryToken(token) {
-  const match = /^host\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\.([0-9a-f-]{36})\.([0-9a-f]{64})$/u.exec(token ?? "");
-  if (!match) throw new Error("host_recovery_token_invalid");
-  return { rootName: match[1], nonce: match[2], recordHash: match[3] };
-}
-
 function loadHostRecoveryRecord(token) {
-  const parsed = parseHostRecoveryToken(token);
-  const parent = fs.realpathSync(os.tmpdir());
-  const recovery = ensureHostRecoveryDirectory(parent);
-  const marker = path.join(recovery.directory, `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`);
-  const markerMetadata = fs.lstatSync(marker);
-  if (!markerMetadata.isFile() || markerMetadata.isSymbolicLink()) throw new Error("host_recovery_record_replaced");
-  const serialized = fs.readFileSync(marker, "utf8");
-  if (createHash("sha256").update(serialized).digest("hex") !== parsed.recordHash) throw new Error("host_recovery_record_mismatch");
-  const record = JSON.parse(serialized);
-  if (record.schema !== "crdd-coordinator-host-recovery/v1" || record.rootName !== parsed.rootName) throw new Error("host_recovery_record_mismatch");
-  return { parsed, parent, recovery, marker, record };
+  const loaded = loadHostRecoveryRecordByToken(token);
+  return {
+    parsed: loaded.parsed,
+    parent: loaded.parent,
+    recovery: { directory: loaded.directory },
+    marker: loaded.marker,
+    record: loaded.record
+  };
 }
 
 export function recoverOwnedOperationDirectories(token) {
