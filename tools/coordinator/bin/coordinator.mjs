@@ -20,16 +20,15 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
   } else {
     process.stdout.write(`Coordinator environment: ${report.status}\n`);
     for (const [name, provider] of Object.entries(report.providers)) {
-      const state = provider.gate.ready ? "ready" : "blocked";
-      process.stdout.write(`- ${name}: ${state}`);
-      if (provider.gate.blockers.length > 0) {
-        process.stdout.write(` (${provider.gate.blockers.join(", ")})`);
-      }
-      process.stdout.write("\n");
+      process.stdout.write(`- ${name}: ${provider.located ? "located" : "not found"}; active probe not executed\n`);
     }
     process.stdout.write(`- credential values recorded: no\n`);
     process.stdout.write(`- filesystem enforcement: ${report.filesystem.enforcement}\n`);
     process.stdout.write(`- provider egress allowlist: ${report.egress.providerAllowlist}\n`);
+    process.stdout.write(`- blockers: ${report.blockers.length}\n`);
+    for (const blocker of report.blockers) {
+      process.stdout.write(`  - ${blocker.id}: ${blocker.reason}\n`);
+    }
   }
   process.exitCode = report.status === "ready" ? 0 : 2;
 } else {

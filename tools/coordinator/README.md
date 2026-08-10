@@ -21,7 +21,7 @@ node tools/coordinator/bin/coordinator.mjs doctor
 node tools/coordinator/bin/coordinator.mjs doctor --json
 ```
 
-`doctor`はCLIをインストールまたは認証せず、現在の環境でProvider隔離Gateを成立させられるかを診断する。Gateが成立しない場合は非ゼロ終了し、後続Operationを開始しない。
+`doctor`は受動事前診断（passive preflight）である。CLIをインストール、認証または起動せず、PATH上の候補、ローカルGit／Repository、Operation専用領域および未実装の隔離条件を列挙する。Providerの絶対Path、生出力またはVersion出力は保持しない。認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
 
 ## 開発者確認
 

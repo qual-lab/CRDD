@@ -43,6 +43,7 @@ runtime-state/
 - Provider子プロセスは`workspace/`、`provider-home/`、`tmp/`だけを書き込める。
 - Credential Broker／AdapterだけがCredential Storeを必要最小限で読み取る。
 - Provider子プロセスへCredential StoreのPath、通常User Home、他Operationまたは元RepositoryのGit metadataを見せない。
+- 診断用領域はRuntimeが当該runで`mkdtemp`した一意なchildだけを所有し、終了時も同じIdentityと親境界を確認してchildだけを削除する。既存parent、sibling、呼出側指定Path、symlinkまたはjunctionを再帰削除しない。
 
 ## 4. 主要脅威と制御
 
@@ -60,6 +61,8 @@ runtime-state/
 
 ## 5. 成立性Gate
 
+現在の`doctor`は受動事前診断であり、Providerプロセス、認証、NetworkまたはRepository変更を実行しない。`where`／`which`等の外部locatorも起動せず、Runtime自身がPATHとPATHEXTをFilesystem APIで確認する。絶対Path、locatorの生出力またはProvider Versionは診断結果へ保持しない。
+
 初回Gateは次を個別に返す。
 
 - NodeとローカルGitの利用可否
@@ -70,7 +73,11 @@ runtime-state/
 - 許可Provider endpointだけに限定するEgress強制機構の有無
 - Providerの自動更新、Telemetry、Session再開、timeout／cancelの確認状態
 
+各必須項目は`confirmed`、`blocked`、`not_implemented`または`unknown`で保持する。自動更新、Telemetry、Session再開、timeout、cancelおよびprocess tree終了は個別に評価し、Providerごとの認証・発見状態と混ぜない。Operation領域の作成成功と主体別Filesystem強制、Credential環境名の除去とCredential Store／Helperを含む隔離強制も別の項目とする。全必須項目が観測により`confirmed`となるまで全体は`blocked`である。
+
 CLI未導入、認証未確認、Filesystem境界未強制、Credential隔離未強制またはEgress未強制を、利用可能または安全と推定しない。Gateは不足を人間判断へ誤変換せず、阻害理由と必要な後続処置を返す。
+
+将来のActive Probe Adapterは、Filesystem、Credential、EgressおよびProcess境界を先に強制し、同じ隔離環境内でだけProviderを起動する。Windowsでは発見した`.exe`、`.cmd`または`.bat`の種別、複数候補、空白を含むPathおよび引数境界を決定論的に扱い、shell injectionを許さない。生stdout／stderrは正規化前に永続化しない。現在の受動診断結果をActive Probe、認証または利用可能性の根拠へ流用しない。
 
 ## 6. 非対象
 

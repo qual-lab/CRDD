@@ -100,11 +100,20 @@ Hash入力はProtocolで、改行、Unicode／文字コード、パス区切り�
 
 ## 9. 現在状態
 
-初回実装Gateとして`doctor`とFake Probeを実装し、6件の局所試験、リポジトリ全体Checkerおよび差分形式確認を実行した。`doctor`は次を検出し、現在状態を`blocked`として正しく閉じた。
+初回実装Gateの安全是正を適用した。現在の`doctor`は受動事前診断であり、Provider、認証、NetworkまたはRepository変更を実行しない。PATH／PATHEXTはFilesystem APIで調べ、絶対Path、生出力またはVersionを保持しない。Node、Git／Repository Identity、Operation領域、Providerごとの発見・認証・active probe・自動更新・Telemetry・Session再開・timeout・cancel・process tree終了、Filesystem、Credential環境、Credential Store隔離およびEgressを個別状態として返す。実観測で全項目が`confirmed`となるまで全体は`blocked`である。
 
-- 隔離HomeではCodex Desktop同梱の`codex`を子プロセスとして起動できない。
-- `claude`コマンドは現在の実行環境で見つからない。
-- Credential関連環境変数の非継承は確認したが、Credential Store／Helperを含む隔離の強制は未実装である。
-- 主体別Filesystem境界とProvider endpoint限定Egressの強制は未実装である。
+現在の観測では、Provider候補の有無にかかわらず、認証とactive probeは未評価、主体別Filesystem境界、Credential Store／Helperを含む隔離、Provider endpoint限定EgressおよびProcess lifecycle確認は未実装である。Credential関連環境変数の非継承はCredential隔離の強制とは別に記録する。この結果はProvider CLIの導入、認証または利用許可を要求する人間判断へ変換しない。Gateの停止条件に従い、Protocol、Operation Storeまたは実Provider Adapterへは進めない。
 
-この結果はProvider CLIの導入、認証または利用許可を要求する人間判断へ変換しない。Gateの停止条件に従い、Protocol、Operation Storeまたは実Provider Adapterへは進めない。Architecture事前レビューは`Pass`だが、本実装候補の独立レビューと固定後確認は未完了である。Provider CLIの導入・認証、実Provider実行、Repository変更、Runtime配布およびReleaseは未実施である。
+Architecture事前レビューは`Pass`だが、本実装候補の安全是正は`Applied`であり、独立再確認前に`Resolved`または成立性Gate完成と扱わない。Provider CLIの導入・認証、実Provider実行、Repository変更、Runtime配布およびReleaseは未実施である。
+
+## 10. 初回固定候補の監査履歴
+
+初回固定候補Commit `993e13ab9734f52f0c1feaf88eac83a30c653871`、Tree `5f7ed1a6dce140b5d6b25a67f9545b1367f356d8`に対して、Coordinator局所試験6件、Checker試験143件、全体Checker Error 0／Warning 0を共通入力とし、次の独立確認を行った。
+
+| 確認 | 実績 | 主な指摘 |
+|---|---|---|
+| Agent／Architecture／Security Review | `Fail` | 隔離前Provider起動、Ready条件の自己申告、Path／生出力、Windows active起動境界 |
+| Document Audit | `Fail` | 文書の必須Gate母集団が状態計算へ未接続 |
+| Gap／Impact＋Conformance境界監査 | `Fail` | 隔離前Provider起動、所有不明directoryの再帰削除 |
+
+一件でも`Fail`を含むため、この固定候補と監査集合全体は`Invalidated`であり、現在の合否、指摘解消、後続実装またはReleaseの根拠へ流用しない。Providerを起動しない受動診断、全必須項目のfail-closed集約、Runtimeが当該runで作成した一時childだけのcleanup、Path／Raw出力非保持および将来Active Probe受入条件へ是正を適用した。各処置は`Applied`であり、新しい固定版への局所試験、全体Checkerおよび同じ独立確認集合が完了するまで`Resolved`としない。

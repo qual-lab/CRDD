@@ -3,88 +3,186 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  createOperationDirectories,
-  createProbeRoot,
+  cleanupOwnedOperationDirectories,
+  createOwnedOperationDirectories,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy
 } from "../security/execution-environment.mjs";
 
-function commandLocator(platform) {
-  return platform === "win32" ? "where.exe" : "which";
+export const CHECK_STATUS = Object.freeze([
+  "confirmed",
+  "blocked",
+  "not_implemented",
+  "unknown"
+]);
+
+const PROVIDERS = Object.freeze(["codex", "claude"]);
+const PROVIDER_CHECKS = Object.freeze([
+  "discovery",
+  "authentication",
+  "active_probe",
+  "auto_update",
+  "telemetry",
+  "session_resume",
+  "timeout",
+  "cancel",
+  "process_tree_termination"
+]);
+
+function requiredCheckIds() {
+  const ids = [
+    "runtime.node",
+    "repository.git",
+    "repository.identity",
+    "operation.directories",
+    "execution.filesystem",
+    "execution.credential_environment",
+    "execution.credential_isolation",
+    "execution.egress"
+  ];
+  for (const provider of PROVIDERS) {
+    for (const check of PROVIDER_CHECKS) {
+      ids.push(`provider.${provider}.${check}`);
+    }
+  }
+  return ids;
 }
 
-export function probeCommand(command, options = {}) {
-  const platform = options.platform ?? process.platform;
-  const environment = options.environment ?? process.env;
-  const runner = options.runner ?? spawnSync;
-  const locate = runner(commandLocator(platform), [command], {
-    encoding: "utf8",
-    env: environment,
-    windowsHide: true
-  });
+export const REQUIRED_CHECK_IDS = Object.freeze(requiredCheckIds());
 
-  if (locate.status !== 0) {
-    return {
-      command,
-      located: false,
-      runnable: false,
-      path: null,
-      version: null,
-      reason: "command_not_found"
-    };
+function check(id, status, reason, followUp = null) {
+  return { id, status, reason, followUp };
+}
+
+export function evaluateReadiness(checks) {
+  const expected = new Set(REQUIRED_CHECK_IDS);
+  const seen = new Set();
+  const blockers = [];
+
+  for (const item of checks) {
+    if (!item || typeof item.id !== "string" || !expected.has(item.id)) {
+      blockers.push({ id: item?.id ?? null, reason: "unknown_check" });
+      continue;
+    }
+    if (seen.has(item.id)) {
+      blockers.push({ id: item.id, reason: "duplicate_check" });
+      continue;
+    }
+    seen.add(item.id);
+    if (!CHECK_STATUS.includes(item.status)) {
+      blockers.push({ id: item.id, reason: "invalid_status" });
+      continue;
+    }
+    if (item.status !== "confirmed") {
+      blockers.push({ id: item.id, reason: item.reason ?? item.status });
+    }
   }
 
-  const locatedPath = String(locate.stdout ?? "")
-    .split(/\r?\n/u)
-    .map((value) => value.trim())
-    .find(Boolean) ?? null;
+  for (const id of REQUIRED_CHECK_IDS) {
+    if (!seen.has(id)) blockers.push({ id, reason: "missing_check" });
+  }
 
-  const version = runner(command, ["--version"], {
-    encoding: "utf8",
-    env: environment,
-    windowsHide: true,
-    timeout: options.timeout ?? 10_000
-  });
-
-  const versionText = `${version.stdout ?? ""}\n${version.stderr ?? ""}`.trim();
   return {
-    command,
-    located: true,
-    runnable: version.status === 0,
-    path: locatedPath,
-    version: version.status === 0 ? versionText : null,
-    reason: version.status === 0 ? null : version.error?.code ?? `exit_${version.status}`
+    status: blockers.length === 0 ? "ready" : "blocked",
+    blockers
   };
 }
 
-function probeGitRepository(cwd, runner = spawnSync) {
-  const execute = (args) => runner("git", args, {
+function pathValue(environment) {
+  return environment.PATH ?? environment.Path ?? "";
+}
+
+function candidateExtensions(platform, environment) {
+  if (platform !== "win32") return [""];
+  const configured = environment.PATHEXT ?? ".COM;.EXE;.BAT;.CMD";
+  return configured.split(";").filter(Boolean).map((value) => value.toLowerCase());
+}
+
+function commandFormat(candidate) {
+  const extension = path.extname(candidate).toLowerCase().replace(/^\./u, "");
+  return extension || "native";
+}
+
+export function discoverCommand(command, options = {}) {
+  const platform = options.platform ?? process.platform;
+  const environment = options.environment ?? process.env;
+  const fileSystem = options.fileSystem ?? fs;
+  const candidates = [];
+
+  for (const directory of pathValue(environment).split(path.delimiter).filter(Boolean)) {
+    for (const extension of candidateExtensions(platform, environment)) {
+      const candidate = path.join(directory, `${command}${extension}`);
+      try {
+        const metadata = fileSystem.lstatSync(candidate);
+        if (!metadata.isFile() || metadata.isSymbolicLink()) continue;
+        if (platform !== "win32" && (metadata.mode & 0o111) === 0) continue;
+        candidates.push({ format: commandFormat(candidate) });
+      } catch (error) {
+        if (error?.code !== "ENOENT" && error?.code !== "ENOTDIR") {
+          return { located: false, candidateCount: 0, formats: [], reason: "discovery_failed" };
+        }
+      }
+    }
+  }
+
+  return {
+    located: candidates.length > 0,
+    candidateCount: candidates.length,
+    formats: [...new Set(candidates.map((candidate) => candidate.format))].sort(),
+    reason: candidates.length > 0 ? null : "command_not_found"
+  };
+}
+
+function probeGitRepository(cwd) {
+  const execute = (args) => spawnSync("git", args, {
     cwd,
     encoding: "utf8",
-    windowsHide: true
+    windowsHide: true,
+    timeout: 10_000
   });
   const commit = execute(["rev-parse", "HEAD"]);
   const tree = execute(["rev-parse", "HEAD^{tree}"]);
   const status = execute(["status", "--porcelain=v1", "-z"]);
 
   return {
-    available: commit.status === 0 && tree.status === 0 && status.status === 0,
+    gitAvailable: commit.error == null,
+    identityAvailable: commit.status === 0 && tree.status === 0 && status.status === 0,
     headCommit: commit.status === 0 ? commit.stdout.trim() : null,
     headTree: tree.status === 0 ? tree.stdout.trim() : null,
     workingState: status.status === 0 && status.stdout.length === 0 ? "clean" : "dirty_or_unknown"
   };
 }
 
-function makeFilesystemPolicyReportable(policy, probeRoot) {
-  const relative = (value) => path.relative(probeRoot, value).replaceAll("\\", "/");
+function nodeSupported() {
+  const major = Number.parseInt(process.versions.node.split(".")[0], 10);
+  return Number.isInteger(major) && major >= 22;
+}
+
+function providerChecks(name, discovery) {
+  return [
+    check(
+      `provider.${name}.discovery`,
+      discovery.located ? "confirmed" : "blocked",
+      discovery.reason,
+      discovery.located ? null : "install_or_select_provider_outside_runtime"
+    ),
+    check(`provider.${name}.authentication`, "unknown", "authentication_not_evaluated"),
+    check(`provider.${name}.active_probe`, "not_implemented", "isolation_required_before_provider_spawn"),
+    check(`provider.${name}.auto_update`, "not_implemented", "provider_lifecycle_probe_not_implemented"),
+    check(`provider.${name}.telemetry`, "not_implemented", "provider_lifecycle_probe_not_implemented"),
+    check(`provider.${name}.session_resume`, "not_implemented", "provider_lifecycle_probe_not_implemented"),
+    check(`provider.${name}.timeout`, "not_implemented", "provider_lifecycle_probe_not_implemented"),
+    check(`provider.${name}.cancel`, "not_implemented", "provider_lifecycle_probe_not_implemented"),
+    check(`provider.${name}.process_tree_termination`, "not_implemented", "provider_lifecycle_probe_not_implemented")
+  ];
+}
+
+function reportableFilesystemPolicy(policy, root) {
+  const relative = (value) => path.relative(root, value).replaceAll("\\", "/");
   return {
-    coordinatorRuntime: {
-      write: policy.coordinatorRuntime.write.map(relative)
-    },
-    repositoryAdapter: {
-      write: policy.repositoryAdapter.write.map(relative)
-    },
+    coordinatorRuntime: { write: policy.coordinatorRuntime.write.map(relative) },
+    repositoryAdapter: { write: policy.repositoryAdapter.write.map(relative) },
     providerProcess: {
       write: policy.providerProcess.write.map(relative),
       deny: policy.providerProcess.deny.map(relative)
@@ -93,79 +191,59 @@ function makeFilesystemPolicyReportable(policy, probeRoot) {
   };
 }
 
-export function evaluateProviderGate(provider, enforcement) {
-  const blockers = [];
-  if (!provider.located) blockers.push("command_not_found");
-  if (provider.located && !provider.runnable) blockers.push("command_not_runnable_in_isolated_home");
-  if (!enforcement.filesystem) blockers.push("filesystem_boundary_not_enforced");
-  if (!enforcement.credentials) blockers.push("credential_isolation_not_enforced");
-  if (!enforcement.providerEgress) blockers.push("provider_egress_allowlist_not_enforced");
+export function runDoctor() {
+  const owned = createOwnedOperationDirectories();
+  try {
+    const providerEnvironment = createProviderEnvironment(process.env, owned.directories);
+    const credentialNames = credentialEnvironmentNamesPresent(process.env);
+    const forwardedCredentialNames = credentialEnvironmentNamesPresent(providerEnvironment);
+    const repository = probeGitRepository(process.cwd());
+    const providers = Object.fromEntries(
+      PROVIDERS.map((name) => [name, discoverCommand(name)])
+    );
 
-  return {
-    ready: blockers.length === 0,
-    blockers
-  };
-}
+    const checks = [
+      check("runtime.node", nodeSupported() ? "confirmed" : "blocked", nodeSupported() ? null : "node_22_or_newer_required"),
+      check("repository.git", repository.gitAvailable ? "confirmed" : "blocked", repository.gitAvailable ? null : "git_unavailable"),
+      check("repository.identity", repository.identityAvailable ? "confirmed" : "blocked", repository.identityAvailable ? null : "repository_identity_unavailable"),
+      check("operation.directories", "confirmed", "owned_operation_directories_created"),
+      check("execution.filesystem", "not_implemented", "filesystem_boundary_not_enforced"),
+      check(
+        "execution.credential_environment",
+        forwardedCredentialNames.length === 0 ? "confirmed" : "blocked",
+        forwardedCredentialNames.length === 0 ? null : "credential_environment_filter_failed"
+      ),
+      check("execution.credential_isolation", "not_implemented", "credential_store_isolation_not_enforced"),
+      check("execution.egress", "not_implemented", "provider_egress_allowlist_not_enforced"),
+      ...providerChecks("codex", providers.codex),
+      ...providerChecks("claude", providers.claude)
+    ];
+    const readiness = evaluateReadiness(checks);
 
-export function runDoctor(options = {}) {
-  const cwd = options.cwd ?? process.cwd();
-  const baseEnvironment = options.environment ?? process.env;
-  const runner = options.runner ?? spawnSync;
-  const probeRoot = options.probeRoot ?? createProbeRoot();
-  const directories = createOperationDirectories(probeRoot);
-  const providerEnvironment = createProviderEnvironment(baseEnvironment, directories);
-  const filesystemPolicy = describeFilesystemPolicy(directories);
-  const exposedCredentialNames = credentialEnvironmentNamesPresent(baseEnvironment);
-  const forwardedCredentialNames = credentialEnvironmentNamesPresent(providerEnvironment);
-
-  const enforcement = options.enforcement ?? {
-    filesystem: false,
-    credentials: false,
-    providerEgress: false
-  };
-
-  const providers = {};
-  for (const command of ["codex", "claude"]) {
-    const probe = probeCommand(command, {
-      environment: providerEnvironment,
-      platform: options.platform,
-      runner,
-      timeout: options.timeout
-    });
-    providers[command] = {
-      ...probe,
-      gate: evaluateProviderGate(probe, enforcement)
+    return {
+      reportVersion: 2,
+      diagnosticMode: "passive_preflight",
+      status: readiness.status,
+      platform: process.platform,
+      node: { version: process.version, supported: nodeSupported() },
+      repository,
+      credentials: {
+        detectedNames: credentialNames,
+        forwardedNames: forwardedCredentialNames,
+        valuesRecorded: false,
+        environmentFiltered: forwardedCredentialNames.length === 0,
+        isolationEnforcement: "not_implemented"
+      },
+      filesystem: {
+        policy: reportableFilesystemPolicy(describeFilesystemPolicy(owned.directories), owned.root),
+        enforcement: "not_implemented"
+      },
+      egress: { providerAllowlist: "not_implemented" },
+      providers,
+      checks,
+      blockers: readiness.blockers
     };
+  } finally {
+    cleanupOwnedOperationDirectories(owned);
   }
-
-  const report = {
-    reportVersion: 1,
-    status: Object.values(providers).every((provider) => provider.gate.ready) ? "ready" : "blocked",
-    platform: options.platform ?? process.platform,
-    node: process.version,
-    repository: probeGitRepository(cwd, runner),
-    credentials: {
-      detectedNames: exposedCredentialNames,
-      forwardedNames: forwardedCredentialNames,
-      valuesRecorded: false,
-      environmentFiltered: forwardedCredentialNames.length === 0,
-      enforcement: enforcement.credentials ? "enforced" : "not_implemented"
-    },
-    filesystem: {
-      probeRoot,
-      policy: makeFilesystemPolicyReportable(filesystemPolicy, probeRoot),
-      enforcement: enforcement.filesystem ? "enforced" : "not_implemented"
-    },
-    egress: {
-      providerAllowlist: enforcement.providerEgress ? "enforced" : "not_implemented"
-    },
-    providers
-  };
-
-  if (options.retainProbeRoot !== true) {
-    fs.rmSync(probeRoot, { recursive: true, force: true });
-    report.filesystem.probeRoot = null;
-  }
-
-  return report;
 }
