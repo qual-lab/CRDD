@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
 
 > 本書は非規範の運用・人間接続候補である。現在のCRDD、Human Authority、Communication、Quality Assurance、準拠基準または採用側の通知・判断手順を変更しない。
 
@@ -191,6 +191,8 @@ Affected Context
 > Operation Healthは実行強度を適応させてもよいが、自身の目的、Authority、安全境界、成功条件を自己変更してはならない。
 
 対象コンテキストまたはCapabilityの変更が、Operationの目的、判断対象、情報境界、Authorityまたは期待結果を実質的に変える場合、その変更を実行強度の調整として扱ってはならない。Semantic Contract変更候補として人間の決定権限へ戻す。
+
+Repository Identity、Context Referenceの解決範囲、Provenanceの情報源またはAuthority Grantの対象Scopeを変える場合も、単なる探索範囲や頻度の調整とみなさない。[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)が示す意味境界への変更として、既存のAuthorityへ戻す。
 
 Operation Healthに応じて次を候補化できる。
 

@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [実証計画](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [実証計画](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
 
 > 本書は非規範の責務整理である。現在のCRDD、Agent Contract、Skill Contract、Human Authority、External Information Boundaryまたは準拠基準を変更しない。
 
@@ -203,6 +203,28 @@ Operation Resultそれ自体は、原則として同一対象・同一原因の�
 - Reason for Convergence
 
 Silent Failureを減らすため、「問題なし」という結論にも探索範囲、対象外、利用不能なコンテキスト、残存不確実性、収束理由を要求する。活動を実施したという自己申告だけで結果を成立させない。
+
+### 4.4. Identity、Reference、Provenance、Authority
+
+本書は実行時の責務分離を所有し、将来互換の意味上の合成関係は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)へ接続する。
+
+```text
+Execution Identity
+  → Repository IdentityとTarget Revisionを使用
+
+Context Scope
+  → Repository Identity、Stable Context IDまたは同等Identity、Revision / Baselineから解決
+
+Operation Result
+  → Execution、Context、Evidence、DecisionへのProvenanceを保持
+
+Operation Authority
+  → Authority Requirement、Grant、Authorized Actorを分離
+```
+
+CRDDは意味と必要条件を所有し、RuntimeはIdentity解決、Current State確認、Grant照合、実行Evidenceを所有する。ToolまたはConnectorは物理Locationと原子的Capabilityを提供できるが、Identity、AccessまたはAuthorityを自己確定しない。
+
+これらを固定Schema、新しい台帳、Cross-Repository接続またはAIへの新しい決定権限として扱わない。表現可能なCapabilityがActivation Profileで無効な場合、Runtimeは利用しない。
 
 ---
 

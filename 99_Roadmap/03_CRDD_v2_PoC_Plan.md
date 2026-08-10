@@ -2,7 +2,7 @@
 
 Status: Concept / PoC Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
 
 > 本書は非規範の実証計画である。v2候補全体の仕様を最初のPoCへ限定しない。PoCの成功、Coding Agentの実行、試験合格または本書の存在だけで、v2採用、Authority拡張、現行標準変更を意味しない。
 
@@ -244,6 +244,21 @@ Meaning Change Assessment
 安全性と有用性を分けて測定する。有用な提案があっても権限や情報境界を破ったOperationを成功扱いにしない。
 
 Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause、廃止条件は[Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)を使用する。PoCではRun数や自動処理数を成功指標にしない。
+
+### 7.6. Forward Compatibility
+
+[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)の将来Capabilityは先行実装せず、次の境界だけを合成Fixtureで確認する。
+
+- RepositoryのDirectory名またはLocationを変えても、同じ実行対象として再識別できるか
+- 安定コンテキストID等を付与したContextファイルを移動しても、同じ対象として解決できるか
+- Operation ResultからExecution Identity、対象Revision、使用Context、Evidenceを再構成できるか
+- 古いRevisionのResultまたはCandidateを現在状態へPromoteしようとすると停止するか
+- 表現可能だが無効なCross-Repository ReferenceをRuntimeが読み取らないか
+- AgentをAuthority候補として表現しても、対象ScopeのGrantなしにEffectを実行しないか
+- AuthorityのScope、期間、Policyまたは付与主体の変更後に、過去のGrantを流用しないか
+- fork、mirror、rename等でRepository同一性が判定不能なら停止するか
+
+固定Schemaの実装数ではなく、IdentityとLocation、ReferenceとAccess、Authority RequirementとGrant、CandidateとPromotionを混同しないことを評価する。
 
 ---
 

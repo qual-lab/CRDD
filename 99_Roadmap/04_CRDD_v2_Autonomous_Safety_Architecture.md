@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
 
 > 本書は非規範の安全Architecture候補である。現在のCRDD v0.17.0、Human Authority、External Information Boundary、Agent Contract、準拠基準または採用側の権限を変更しない。用語、状態、成果物、Policy、Runtime機構は、独立した変更・検証・人間判断を経るまでCRDD標準ではない。
 
@@ -298,6 +298,10 @@ CRDD Core候補は安全不変条件を所有し、実装方式を固定しな�
 10. 実行者の自己申告だけでVerify、Promote、Recoverまたは再開としない。
 11. 失敗を検出できず回復経路もないEffectを自律実行へ昇格させない。
 12. Activation Profileは安全契約を省略せず、許可するEffectだけを狭める。
+13. `Representable ≠ Enabled ≠ Accessible ≠ Authorized ≠ Promoted`を維持し、前段の成立から後段を推定しない。
+14. 未解決または未知のRepository Identity、Context Reference、Authority型を無視してEffectを許可しない。
+
+将来互換の表現と現在の利用許可の分離は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)に置く。本書は、その分離がEffect確定前にRuntimeで強制されることを扱う。
 
 ---
 
