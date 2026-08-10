@@ -7,7 +7,7 @@
 Work to AI. Judgment to humans. Thought to the Context Repository.
 ```
 
-Status: **v0.13.0 — Complete Multi-location Remediation / 複数箇所の是正適用**
+Status: **v0.14.0 — Convergent Remediation and Evidence Identity / 収束する是正と根拠同一性**
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -110,6 +110,10 @@ When one agreed remediation affects several passages, references, templates, gui
 
 Editing or self-checking a target means the remediation was applied; it does not mean the problem is resolved. AI should report progress, blockers, and resolution separately. Resolution requires observable acceptance criteria, a decision method, fresh evidence for the same fixed revision, independent re-review, and propagation to the current records used by the project.
 
+For remediation that crosses several locations, AI preserves the original finding's meaning and checks two separate populations: the contract cases that can change the result, and every consumer that uses those cases. A correct verification oracle or reference harness does not prove that the product and each consumer behaved correctly. Repeated recurrence should move the work back to the shared contract, generator, verification oracle, authority, or consumer map instead of adding another local patch.
+
+Git-managed evidence normally identifies declared, observed, and execution targets with Git object format and OIDs. Extra manifests are reserved for subsets, dirty state, submodules, external inputs, or non-Git artifacts. Adding links, OIDs, timestamps, or reviewers to an already settled current record receives a lightweight reference check and then stops; changing its meaning triggers reevaluation.
+
 Give AI at least:
 
 ```text
@@ -166,7 +170,7 @@ Before changing an adopted CRDD baseline, run the lightweight [Baseline Adoption
 
 Where a baseline update includes any difference classified normative or breaking, or any release whose CHANGELOG declares migration required, adoption is not complete until the [Migration Completeness](19_Maintenance.md#621-migration-completeness) bar is met — this applies to adopting with no action just as much as to adopting after remediation — and a `Conformant` claim cannot be recorded against that baseline before then. The bar's fifth point, an independent review, is carried out by Document Audit or Gap / Impact Audit, not by Conformance Audit.
 
-v0.13.0 contains a breaking change for complete multi-location remediation and requires migration; review the [v0.13.0 changelog](CHANGELOG.md#changelog-v0130-en) and its migration note. v0.12.0 contains a normative pre-execution alignment change and also requires migration; review the [v0.12.0 changelog](CHANGELOG.md#changelog-v0120-en) and its migration note. v0.11.0 contains a normative AI-interaction change and also requires migration; review the [v0.11.0 changelog](CHANGELOG.md#changelog-v0110-en) and its migration note. v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and also require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
+v0.14.0 contains a breaking change for convergent remediation and evidence identity and requires migration; review the [v0.14.0 changelog](CHANGELOG.md#changelog-v0140-en) and its migration note. v0.13.0 contains a breaking change for complete multi-location remediation and also requires migration; review the [v0.13.0 changelog](CHANGELOG.md#changelog-v0130-en) and its migration note. v0.12.0 contains a normative pre-execution alignment change and also requires migration; review the [v0.12.0 changelog](CHANGELOG.md#changelog-v0120-en) and its migration note. v0.11.0 contains a normative AI-interaction change and also requires migration; review the [v0.11.0 changelog](CHANGELOG.md#changelog-v0110-en) and its migration note. v0.10.0, v0.9.0, v0.8.0, and v0.7.0 contain breaking changes and also require migration — review the [v0.10.0 changelog](CHANGELOG.md#changelog-v0100-en), [v0.9.0 changelog](CHANGELOG.md#changelog-v090-en), [v0.8.0 changelog](CHANGELOG.md#changelog-v080-en), and [v0.7.0 changelog](CHANGELOG.md#changelog-v070-en) with their migration notes. For migration from v0.5.1-p1 to v0.6.0, review the [v0.6.0 changelog](CHANGELOG.md#changelog-v060-en) and apply only the changes relevant to the adopting project.
 
 <a id="historical-migration-v042-v05x-en"></a>
 
@@ -360,6 +364,10 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 
 一つの合意済み修正が複数の記述、参照、ひな型、ガイド、例示へ及ぶ場合、AIは編集前に具体的な対象を一覧化する。再レビュー前には、各対象を、修正済み、確認して変更不要、理由付き対象外、人間判断待ち、適用不能または確認不能として理由と再開条件を記録、のいずれかへ照合する。単一箇所の明らかな修正は簡潔に扱い、新しい監査や承認を増やさない。
 
+複数箇所へ及ぶ是正では、元の指摘事項の意味を変えず、結果を変え得る契約の組合せと、その契約を使う利用側を別々に確認する。正しい期待値や参照用の検証器があるだけでは、プロダクトや各利用側が正しく動いた証明にはならない。同じ原因が再発する場合は局所修正を重ねず、共通契約、生成器、判定方法、決定権限または利用側一覧へ戻る。
+
+Git管理対象の根拠では、通常はGitのObject FormatとOIDを使って、確認予定の対象、実際に観測した対象、結果を生成した対象を区別する。追加Manifestは、部分集合、dirty状態、Submodule、外部入力またはGit外成果物で必要な範囲に限る。確定済みの現在記録へ参照、OID、時刻、確認者だけを追記した場合は軽量な参照確認で終了し、意味が変わった場合だけ再評価する。
+
 対象を編集またはセルフチェックした状態は「適用済み」であり、「解消済み」ではない。AIは処置の進み方、阻害要因、解消判定を分けて示す。解消には、観測可能な受入条件、合否判定方法、同じ固定改訂版に対する新しい根拠と独立再レビュー、プロジェクトが参照する現在状態への反映が必要になる。
 
 AIへは少なくとも次を渡す。
@@ -418,7 +426,7 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 
 基準版更新に含まれる差分のいずれかが規範もしくは破壊的に分類される場合、またはいずれかのリリースのCHANGELOGが移行を必要と明示する場合、[移行完了の条件](19_Maintenance.md#621-migration-completeness)を満たすまで採用は完了せず、その基準版への`Conformant`表明も記録できない。これは対応なしで採用する場合にも適用する。同条件の5点目の独立レビューは、文書監査または不足／影響監査で実施し、準拠監査では実施しない。
 
-v0.13.0は複数箇所への是正適用に関する破壊的変更を含み、移行を必要とする。[v0.13.0の変更履歴](CHANGELOG.md#changelog-v0130-ja)と移行注記を確認する。v0.12.0は着手前整合確認に関する規範変更を含み、同じく移行を必要とする。[v0.12.0の変更履歴](CHANGELOG.md#changelog-v0120-ja)と移行注記を確認する。v0.11.0はAI対話に関する規範変更を含み、同じく移行を必要とする。[v0.11.0の変更履歴](CHANGELOG.md#changelog-v0110-ja)と移行注記を確認する。v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、同じく移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
+v0.14.0は収束する是正と根拠同一性に関する破壊的変更を含み、移行を必要とする。[v0.14.0の変更履歴](CHANGELOG.md#changelog-v0140-ja)と移行注記を確認する。v0.13.0は複数箇所への是正適用に関する破壊的変更を含み、同じく移行を必要とする。[v0.13.0の変更履歴](CHANGELOG.md#changelog-v0130-ja)と移行注記を確認する。v0.12.0は着手前整合確認に関する規範変更を含み、同じく移行を必要とする。[v0.12.0の変更履歴](CHANGELOG.md#changelog-v0120-ja)と移行注記を確認する。v0.11.0はAI対話に関する規範変更を含み、同じく移行を必要とする。[v0.11.0の変更履歴](CHANGELOG.md#changelog-v0110-ja)と移行注記を確認する。v0.10.0、v0.9.0、v0.8.0、v0.7.0はいずれも破壊的変更を含み、同じく移行を必要とする。[v0.10.0の変更履歴](CHANGELOG.md#changelog-v0100-ja)、[v0.9.0の変更履歴](CHANGELOG.md#changelog-v090-ja)、[v0.8.0の変更履歴](CHANGELOG.md#changelog-v080-ja)、[v0.7.0の変更履歴](CHANGELOG.md#changelog-v070-ja)、およびそれぞれの移行注記を確認する。v0.5.1-p1からv0.6.0へ移行する場合は、[v0.6.0の変更履歴](CHANGELOG.md#changelog-v060-ja)を確認し、採用プロジェクトに関係する変更だけを適用する。
 
 <a id="historical-migration-v042-v05x-ja"></a>
 

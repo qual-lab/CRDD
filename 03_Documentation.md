@@ -2,7 +2,7 @@
 
 # CRDD文書規則（Documentation）
 
-Version: v0.13.0
+Version: v0.14.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-07-31
