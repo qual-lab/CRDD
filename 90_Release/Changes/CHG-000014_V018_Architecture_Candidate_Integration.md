@@ -159,3 +159,17 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 統合修正では、Candidate準備版、最終Stable候補版、最終Release判断およびタグの順序を一意化した。人間が対象Candidate版と許可する機械的遷移をリリース計画で事前に特定した場合だけ最終Stable候補版を作成し、その作成自体をRelease判断としない。最終Commit／Treeへ必要な確認を行い、人間はそのIdentityを対象に一度だけReleaseを判断し、承認時だけ同じIdentityへタグを付与する。宣言外差分または確認失敗は停止して再判断へ戻し、タグ後のIdentity確認は軽量な結果記録とする。`19`をLifecycle正本、`51`をRelease前後の監査利用側、`52`を準拠非推定の利用側として更新した。
 
 現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checkerおよび3監査を取り直すまで、`AG-V018-R01`、`DOC-V018-R01`および`GCI-018-R01`を`Resolved`とせず、Release Handoffを先取りしない。
+
+第6統合固定候補はCommit `6dcf4637ae4a6d4e8937ab2c24e1a1f7859fe68c`、Tree `ae55571786106c893bc0fcbf2666ee427517537b`である。全体Checkerは155ファイル、Markdown 112件、ローカルリンク1,653件、アンカー555件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件をError 0／Warning 0で確認し、Checkerテスト143件はすべてPass、`git diff --check`はcleanだった。
+
+同固定候補への監査結果は次のとおりである。
+
+- Agent／Architecture Review: `Fail`。`AG-V018-R02`（Major）は、最終Release候補を確認した後にRelease対象branchへ統合するとCommit／Treeが変わり得るため、人間の最終Release判断とタグが統合前Identityを指し得ることを指摘した。
+- Document Audit: `Pass`。未解決Finding 0件。
+- Gap／Impact＋Conformance Audit: `Pass`。未解決Finding 0件。
+
+必須監査集合にFailが含まれるため、第6統合固定候補、Checker、テストおよび監査集合全体を`Invalidated`とし、現在の合否、Finding解消、準拠、Release HandoffまたはRelease根拠へ流用しない。個別のPassは実行履歴として保持するが、Failへ書き換えず、集合全体の合否とは分ける。`AG-V018-R02`は第5候補の是正によって新たに発生した指摘である。
+
+統合修正では、設定されたRelease対象branchと統合権限を取得し、対象branchへの統合を最終Release判断より前へ移した。統合前source、対象branchの事前HEAD、統合後Commit／Tree、公開基準からの全Release差分、対象CHGおよび宣言外差分を確認し、Identity変化時は差分種別に応じて新固定版へCheckerと必要な監査を取り直す。対象branchが不明、競合またはアクセス不能なら`main`へ暗黙fallbackせず停止する。人間のRelease判断は統合後に確認済みの最終Identityを一度だけ対象とし、承認後のタグも同じIdentityを指す。処置は`Applied`であり、新固定版の監査前に`Resolved`または`Pass`と扱わない。
+
+現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、`AG-V018-R02`を`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
