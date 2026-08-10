@@ -2,6 +2,7 @@
 
 import { runDoctor } from "../src/core/doctor.mjs";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.mjs";
+import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.mjs";
 
 function printHelp() {
   process.stdout.write(`Coordinator Runtime 1.0 (implementation candidate)\n\n`);
@@ -19,7 +20,9 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
   try {
     const recoveryIndex = args.indexOf("--recover-isolation");
     const report = recoveryIndex >= 0
-      ? recoverDockerIsolationProbe(args[recoveryIndex + 1])
+      ? String(args[recoveryIndex + 1] ?? "").startsWith("host.")
+        ? recoverOwnedOperationDirectories(args[recoveryIndex + 1])
+        : recoverDockerIsolationProbe(args[recoveryIndex + 1])
       : runDoctor({ activeIsolation: args.includes("--isolation") });
     if (args.includes("--json")) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -41,7 +44,11 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
     const reason = typeof error?.message === "string" && /^[a-z0-9_]+$/u.test(error.message)
       ? error.message
       : "diagnostic_failed";
-    process.stderr.write(`Coordinator diagnostic failed: ${reason}\n`);
+    if (args.includes("--json")) {
+      process.stdout.write(`${JSON.stringify({ status: "blocked", reason })}\n`);
+    } else {
+      process.stderr.write(`Coordinator diagnostic failed: ${reason}\n`);
+    }
     process.exitCode = 2;
   }
 } else {

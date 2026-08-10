@@ -7,7 +7,8 @@ import {
   createOwnedOperationDirectories,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
-  describeFilesystemPolicy
+  describeFilesystemPolicy,
+  getOwnedHostRecoveryId
 } from "../security/execution-environment.mjs";
 import {
   DOCKER_ISOLATION_PROFILE,
@@ -238,7 +239,7 @@ export function runDoctor(options = {}) {
     ];
     const readiness = evaluateReadiness(checks);
 
-    return {
+    const report = {
       reportVersion: 2,
       diagnosticMode: activeIsolation ? "docker_fake_provider_probe" : "passive_preflight",
       status: readiness.status,
@@ -270,7 +271,29 @@ export function runDoctor(options = {}) {
       checks,
       blockers: readiness.blockers
     };
-  } finally {
-    if (!retainOperationDirectories) cleanupOwnedOperationDirectories(owned);
+    if (!retainOperationDirectories) {
+      const hostRecoveryId = getOwnedHostRecoveryId(owned);
+      try {
+        cleanupOwnedOperationDirectories(owned);
+      } catch {
+        const filesystemCheck = report.checks.find((item) => item.id === "execution.filesystem");
+        filesystemCheck.status = "blocked";
+        filesystemCheck.reason = "host_operation_cleanup_failed";
+        const cleanupReadiness = evaluateReadiness(report.checks);
+        report.status = "blocked";
+        report.blockers = cleanupReadiness.blockers;
+        report.recovery = {
+          required: true,
+          recoveryId: hostRecoveryId,
+          reason: "host_operation_cleanup_failed"
+        };
+      }
+    }
+    return report;
+  } catch (error) {
+    if (!retainOperationDirectories) {
+      try { cleanupOwnedOperationDirectories(owned); } catch { /* recovery marker remains external */ }
+    }
+    throw error;
   }
 }

@@ -5,7 +5,11 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  confirmHostRecoveryDockerAbsence,
   createOwnedMountCapability,
+  getOwnedHostRecoveryId,
+  recoverOwnedOperationDirectories,
+  setOwnedDockerRecoveryState,
   verifyOwnedMountCapability
 } from "./execution-environment.mjs";
 
@@ -173,14 +177,14 @@ function dockerEnvironment(management) {
 }
 
 function recoveryToken(rootName, probeId, nonce, recordHash) {
-  return `${rootName}.${probeId}.${nonce}.${recordHash}`;
+  return `docker.${rootName}.${probeId}.${nonce}.${recordHash}`;
 }
 
 function recoveryRecordPath(management) {
   return path.join(management, RECOVERY_FILE);
 }
 
-function writeRecoveryRecord(mounts, probeId, nonce, containerId = null) {
+function writeRecoveryRecord(mounts, probeId, nonce, hostRecoveryId, containerId = null) {
   const root = path.dirname(mounts.management);
   const rootName = path.basename(root);
   if (!rootName.startsWith(OPERATION_PREFIX) || fs.realpathSync(path.dirname(root)) !== fs.realpathSync(os.tmpdir())) throw new Error("docker_recovery_boundary_failed");
@@ -196,6 +200,7 @@ function writeRecoveryRecord(mounts, probeId, nonce, containerId = null) {
     container: { id: containerId, name: containerName(probeId), label: `${OWNERSHIP_LABEL}=${probeId}` },
     engine: "docker_desktop_linux_named_pipe",
     image: PROBE_IMAGE,
+    hostRecoveryId,
     createdAt: new Date().toISOString()
   };
   const target = recoveryRecordPath(mounts.management);
@@ -245,10 +250,17 @@ export function normalizeContainerCreation(execution) {
   return { status: "confirmed", id: execution.stdout.trim() };
 }
 
-export function normalizeContainerAbsence(inspectExecution, listingExecution) {
-  const inspectAbsent = !inspectExecution?.error && inspectExecution?.status !== 0;
-  const listingEmpty = !listingExecution?.error && listingExecution?.status === 0 && typeof listingExecution.stdout === "string" && listingExecution.stdout.trim().length === 0;
-  return inspectAbsent && listingEmpty
+function normalizedIdSet(execution) {
+  if (execution?.error || execution?.status !== 0 || typeof execution?.stdout !== "string" || Buffer.byteLength(execution.stdout, "utf8") > MAX_OUTPUT_BYTES) return null;
+  const lines = execution.stdout.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+  if (lines.some((line) => !validContainerId(line)) || new Set(lines).size !== lines.length) return null;
+  return new Set(lines);
+}
+
+export function normalizeContainerAbsence(idExecution, nameExecution, labelExecution) {
+  const sets = [idExecution, nameExecution, labelExecution].map(normalizedIdSet);
+  const confirmed = sets.every((set) => set instanceof Set && set.size === 0);
+  return confirmed
     ? { status: "confirmed", reason: "docker_probe_absence_confirmed" }
     : { status: "blocked", reason: "docker_probe_absence_unconfirmed" };
 }
@@ -298,9 +310,11 @@ function inspectOwnedContainer(cli, environment, capability, mounts) {
 }
 
 function containerAbsent(cli, environment, identity) {
-  const inspect = dockerCommand(cli, environment, ["container", "inspect", identity.id]);
-  const listing = dockerCommand(cli, environment, ["container", "ls", "--all", "--quiet", "--filter", `name=^/${containerName(identity.probeId)}$`, "--filter", `label=${OWNERSHIP_LABEL}=${identity.probeId}`]);
-  return normalizeContainerAbsence(inspect, listing).status === "confirmed";
+  const common = ["container", "ls", "--all", "--quiet", "--no-trunc"];
+  const id = dockerCommand(cli, environment, [...common, "--filter", `id=${identity.id}`]);
+  const name = dockerCommand(cli, environment, [...common, "--filter", `name=^/${containerName(identity.probeId)}$`]);
+  const label = dockerCommand(cli, environment, [...common, "--filter", `label=${OWNERSHIP_LABEL}=${identity.probeId}`]);
+  return normalizeContainerAbsence(id, name, label).status === "confirmed";
 }
 
 function cleanupOwnedContainer(cli, environment, capability, mounts) {
@@ -330,6 +344,7 @@ export function runDockerIsolationProbe(owned) {
   let environment;
   let containerCapability = null;
   let recoveryId = null;
+  let hostRecoveryId = getOwnedHostRecoveryId(owned);
   const recoveryNonce = randomUUID();
   let result = blocked("docker_isolation_probe_failed");
   try {
@@ -339,7 +354,8 @@ export function runDockerIsolationProbe(owned) {
     environment = dockerEnvironment(mounts.management);
     if (!verifyLocalLinuxEngine(cli, environment)) return blocked("local_docker_desktop_linux_engine_required");
     mounts = verifyOwnedMountCapability(mountCapability);
-    recoveryId = writeRecoveryRecord(mounts, probeId, recoveryNonce, null);
+    hostRecoveryId = setOwnedDockerRecoveryState(owned, "docker_submission_started");
+    recoveryId = writeRecoveryRecord(mounts, probeId, recoveryNonce, hostRecoveryId, null);
     const creation = dockerCommand(cli, environment, dockerCreateArgumentsForFixture(mounts, probeId).slice(2), 30_000);
     const normalizedCreation = normalizeContainerCreation(creation);
     if (normalizedCreation.status !== "confirmed") {
@@ -348,7 +364,7 @@ export function runDockerIsolationProbe(owned) {
     const identity = Object.freeze({ id: normalizedCreation.id, probeId });
     containerCapability = Object.freeze({ kind: "owned_docker_probe" });
     CONTAINER_IDENTITIES.set(containerCapability, identity);
-    recoveryId = writeRecoveryRecord(mounts, probeId, recoveryNonce, identity.id);
+    recoveryId = writeRecoveryRecord(mounts, probeId, recoveryNonce, hostRecoveryId, identity.id);
     mounts = verifyOwnedMountCapability(mountCapability);
     if (!inspectOwnedContainer(cli, environment, containerCapability, mounts)) {
       result = { ...blocked("docker_container_security_profile_mismatch", probeId, true), recoveryId };
@@ -362,11 +378,15 @@ export function runDockerIsolationProbe(owned) {
     result = { ...blocked(normalizeFailure(error), probeId, recoveryId !== null || containerCapability !== null), recoveryId };
   } finally {
     if (containerCapability && cli && environment && mounts) {
-      const cleanup = cleanupOwnedContainer(cli, environment, containerCapability, mounts);
-      if (!cleanup.confirmed) result = { ...blocked(cleanup.reason, probeId, true), recoveryId };
-      else {
-        try { removeRecoveryRecord(mounts); }
-        catch { result = { ...blocked("docker_recovery_record_replaced", probeId, true), recoveryId }; }
+      try {
+        const cleanup = cleanupOwnedContainer(cli, environment, containerCapability, mounts);
+        if (!cleanup.confirmed) result = { ...blocked(cleanup.reason, probeId, true), recoveryId };
+        else {
+          hostRecoveryId = setOwnedDockerRecoveryState(owned, "docker_absent_confirmed");
+          result = { ...result, hostRecoveryId, retainOperationDirectories: false, cleanup: "confirmed" };
+        }
+      } catch {
+        result = { ...blocked("docker_probe_cleanup_failed", probeId, true), recoveryId };
       }
     }
   }
@@ -374,7 +394,7 @@ export function runDockerIsolationProbe(owned) {
 }
 
 function parseRecoveryToken(token) {
-  const match = /^(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\.([0-9a-f-]{36})\.([0-9a-f-]{36})\.([0-9a-f]{64})$/u.exec(token ?? "");
+  const match = /^docker\.(crdd-coordinator-doctor-[A-Za-z0-9_-]+)\.([0-9a-f-]{36})\.([0-9a-f-]{36})\.([0-9a-f]{64})$/u.exec(token ?? "");
   if (!match) throw new Error("docker_recovery_token_invalid");
   return { rootName: match[1], probeId: match[2], nonce: match[3], recordHash: match[4] };
 }
@@ -408,18 +428,23 @@ export function recoverDockerIsolationProbe(token) {
     const environment = dockerEnvironment(recovery.children.management);
     const identity = { id: recovery.record.container.id, probeId: recovery.record.probeId };
     if (identity.id) {
-      const capability = Object.freeze({ kind: "recovered_docker_probe" });
-      CONTAINER_IDENTITIES.set(capability, Object.freeze(identity));
-      const inspect = inspectOwnedContainer(cli, environment, capability, recovery.children);
-      if (!inspect) return { status: "blocked", reason: "docker_recovery_container_mismatch", recoveryId: token };
-      const cleanup = cleanupOwnedContainer(cli, environment, capability, recovery.children);
-      if (!cleanup.confirmed) return { status: "blocked", reason: cleanup.reason, recoveryId: token };
+      if (!containerAbsent(cli, environment, identity)) {
+        const capability = Object.freeze({ kind: "recovered_docker_probe" });
+        CONTAINER_IDENTITIES.set(capability, Object.freeze(identity));
+        const inspect = inspectOwnedContainer(cli, environment, capability, recovery.children);
+        if (!inspect) return { status: "blocked", reason: "docker_recovery_container_mismatch", recoveryId: token };
+        const cleanup = cleanupOwnedContainer(cli, environment, capability, recovery.children);
+        if (!cleanup.confirmed) return { status: "blocked", reason: cleanup.reason, recoveryId: token };
+      }
     } else {
-      const listing = dockerCommand(cli, environment, ["container", "ls", "--all", "--quiet", "--filter", `name=^/${recovery.record.container.name}$`, "--filter", `label=${recovery.record.container.label}`]);
-      if (listing.error || listing.status !== 0 || listing.stdout.trim().length !== 0) return { status: "blocked", reason: "docker_recovery_container_identity_unknown", recoveryId: token };
+      return { status: "blocked", reason: "docker_recovery_container_identity_unknown", recoveryId: token };
     }
-    fs.rmSync(recovery.root, { recursive: true, force: false });
-    return { status: "recovered", reason: "docker_probe_recovery_completed" };
+    const host = confirmHostRecoveryDockerAbsence(recovery.record.hostRecoveryId);
+    if (host.status !== "confirmed") return { status: "blocked", reason: host.reason, recoveryId: token };
+    const recovered = recoverOwnedOperationDirectories(host.recoveryId);
+    return recovered.status === "recovered"
+      ? { status: "recovered", reason: "docker_probe_recovery_completed" }
+      : { status: "blocked", reason: recovered.reason, recoveryId: token };
   } catch (error) {
     return { status: "blocked", reason: normalizeFailure(error, "docker_probe_recovery_failed") };
   }

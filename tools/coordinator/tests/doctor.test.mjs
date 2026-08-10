@@ -20,6 +20,9 @@ import {
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
+  getOwnedHostRecoveryId,
+  recoverOwnedOperationDirectories,
+  setOwnedDockerRecoveryState,
   verifyOwnedMountCapability
 } from "../src/security/execution-environment.mjs";
 import {
@@ -392,8 +395,44 @@ test("container createとabsence確認はtimeout、malformed ID、残留をfail 
   assert.equal(normalizeContainerCreation({ status: 0, stdout: `${"a".repeat(64)}\n` }).status, "confirmed");
   assert.equal(normalizeContainerCreation({ status: 0, stdout: "not-an-id" }).status, "blocked");
   assert.equal(normalizeContainerCreation({ status: null, error: { code: "ETIMEDOUT" }, stdout: "" }).status, "blocked");
-  assert.equal(normalizeContainerAbsence({ status: 1 }, { status: 0, stdout: "" }).status, "confirmed");
-  assert.equal(normalizeContainerAbsence({ status: 0 }, { status: 0, stdout: "" }).status, "blocked");
-  assert.equal(normalizeContainerAbsence({ status: 1 }, { status: 0, stdout: "still-present" }).status, "blocked");
-  assert.equal(normalizeContainerAbsence({ status: 1 }, { status: 1, stdout: "" }).status, "blocked");
+  const empty = { status: 0, stdout: "" };
+  assert.equal(normalizeContainerAbsence(empty, empty, empty).status, "confirmed");
+  for (const index of [0, 1, 2]) {
+    const queries = [empty, empty, empty];
+    queries[index] = { status: 0, stdout: `${"b".repeat(64)}\n` };
+    assert.equal(normalizeContainerAbsence(...queries).status, "blocked");
+  }
+  assert.equal(normalizeContainerAbsence({ status: 1, stdout: "" }, empty, empty).status, "blocked");
+  assert.equal(normalizeContainerAbsence(empty, { status: 0, stdout: "not-an-id" }, empty).status, "blocked");
+  assert.equal(normalizeContainerAbsence(empty, empty, { status: 0, stdout: `${"c".repeat(64)}\n${"c".repeat(64)}\n` }).status, "blocked");
+});
+
+test("Docker不存在未確認時はHost recoveryを直接実行できない", () => {
+  const owned = createOwnedOperationDirectories();
+  setOwnedDockerRecoveryState(owned, "docker_submission_started");
+  const token = getOwnedHostRecoveryId(owned);
+  const blocked = recoverOwnedOperationDirectories(token);
+  assert.deepEqual(blocked, { status: "blocked", reason: "host_recovery_requires_docker_absence" });
+  setOwnedDockerRecoveryState(owned, "docker_absent_confirmed");
+  const recovered = recoverOwnedOperationDirectories(getOwnedHostRecoveryId(owned));
+  assert.equal(recovered.status, "recovered");
+  assert.equal(fs.existsSync(owned.root), false);
+});
+
+test("Host recoveryは部分削除済みchildを許容し残存rootを回収する", () => {
+  const owned = createOwnedOperationDirectories();
+  const token = getOwnedHostRecoveryId(owned);
+  fs.rmSync(owned.directories.tmp, { recursive: true, force: false });
+  const recovered = recoverOwnedOperationDirectories(token);
+  assert.equal(recovered.status, "recovered");
+  assert.equal(fs.existsSync(owned.root), false);
+});
+
+test("Host recoveryはroot削除済みでも外部markerを安全に完了する", () => {
+  const owned = createOwnedOperationDirectories();
+  const token = getOwnedHostRecoveryId(owned);
+  fs.rmSync(owned.root, { recursive: true, force: false });
+  const recovered = recoverOwnedOperationDirectories(token);
+  assert.deepEqual(recovered, { status: "recovered", reason: "host_root_already_absent" });
+  assert.equal(recoverOwnedOperationDirectories(token).status, "blocked");
 });
