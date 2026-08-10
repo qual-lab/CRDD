@@ -1,10 +1,10 @@
 # CRDD振る舞い仕様（Behavior Specification）
 
-Version: v0.16.0
+Version: v0.17.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.spec.behavior`
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -352,6 +352,12 @@ EARSは振る舞い、例外、受入基準を曖昧なく表すための任意�
 | レビューと引き渡し | 対、網羅範囲、人間判断を確認する | アーキテクチャへの引き渡しまたは別経路 |
 
 ## 3.3. SPEC固有の質問観点
+
+### 振る舞い合成（Behavioral Synthesis）
+
+[専門探索・収束契約](11_Skill.md#23-expert-exploration-and-convergence-contract)を、振る舞い仕様では正常経路と例外欄を埋めるためでなく、利用者成果とシステム完全性を両立する振る舞い候補を合成するために使う。契機と期待結果から、即時失敗、再試行、待機、部分成功、代替、利用者への確認、取消、補償、縮退等のうち有力な意味を比較し、失敗意味、回復意味、人間の制御、整合性および副作用で批評する。
+
+技術方式を仕様上の振る舞いへ無断で昇格せず、再試行、タイムアウト、冪等性、補償、競合解消等の既知パターンは候補生成の語彙として使用する。障害、並行、取消、部分結果または回復について利用者とシステムの結果を変え得る未評価の振る舞いが残る場合は収束済みとしない。
 
 | 話題 | 質問の意図 |
 |---|---|

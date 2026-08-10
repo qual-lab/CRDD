@@ -1,0 +1,73 @@
+{
+  "check_mode": "full",
+  "repository_mode": "official",
+  "gitlink_detection": "git-index",
+  "gitlink_boundaries": [],
+  "change_trace_layout": "hierarchy-tolerant",
+  "recognized_change_trace_paths": [
+    "90_Release/**/Changes/**/CHG-*.md",
+    "template/90_Release/**/Changes/**/CHG-*.md"
+  ],
+  "discovery_source": "git",
+  "discovery_git_failure": null,
+  "baseline_submodule": false,
+  "baseline_submodule_initialized": null,
+  "baseline_submodule_state": {
+    "declared": null,
+    "gitlink_indexed": null,
+    "gitlink_conflicted": null,
+    "gitlink_oid": null,
+    "worktree_present": null,
+    "gitdir_accessible": null,
+    "head_readable": null,
+    "head_oid": null,
+    "head_matches_gitlink": null
+  },
+  "discovery_exclusions": [
+    "Git-ignored files"
+  ],
+  "root": "C:\\project\\CRDD-IR\\v017-d0e8dc8",
+  "requested_scope": [],
+  "expanded_scope": [
+    "."
+  ],
+  "expanded_scope_file_count": 94,
+  "expanded_scope_truncated": false,
+  "global_checks": [
+    "canonical document versions",
+    "current bilingual release and migration-note completeness",
+    "repository structure",
+    "legacy and reserved folders",
+    "central root folders",
+    "stable ID filename prohibition",
+    "explicit stable ID definition uniqueness",
+    "Change Trace inspection-path recognition (not canonical placement validation)",
+    "branch coverage arithmetic where numeric values are present",
+    "remediation state and early-resolution fields in recognizable tables",
+    "Gitlink submodule boundary recognition",
+    "symbolic link and junction boundary"
+  ],
+  "unchecked": [
+    "Git-ignored files"
+  ],
+  "executed_at": "2026-08-10T09:44:32.247Z",
+  "duration_ms": 1218,
+  "metrics": {
+    "files_discovered": 129,
+    "markdown_files_discovered": 94,
+    "markdown_files_checked": 94,
+    "local_links_checked": 1478,
+    "anchors_checked": 520,
+    "related_blocks_checked": 26,
+    "versioned_documents_checked": 26,
+    "stable_ids_observed": 8,
+    "gitlinks_observed": 0,
+    "explicit_stable_id_definitions": 0,
+    "numeric_rows_checked": 0,
+    "remediation_rows_checked": 54,
+    "errors": 0,
+    "warnings": 0
+  },
+  "findings": [],
+  "references": null
+}
