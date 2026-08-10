@@ -700,8 +700,10 @@ CRDDの品質保証記録は、リポジトリ内だけで現在状態、判断�
 
 固定後に新しく取得した根拠として扱う場合は、少なくとも次を取得可能にする。
 
-- 宣言した対象。リポジトリの識別情報、GitのObject Format、Commit OID、対象Path集合またはPathspec、および対象内にSubmoduleがある場合の期待gitlink OID
-- 実際に観測した対象。Observed HEAD OID、Root Tree OID、対象PathごとのmodeとBlob／Tree／gitlink OID、Index差分、Worktree差分、対象内の未追跡状態、結果へ影響するignoredまたはGit外入力の有無と識別情報、および対象内にSubmoduleがある場合のHEADとdirty状態
+- Git管理対象を根拠にする場合の宣言対象。リポジトリの識別情報、GitのObject Format、Commit OID、対象Path集合またはPathspec、および対象内にSubmoduleがある場合の期待gitlink OID
+- Git管理対象を根拠にする場合の実観測対象。Observed HEAD OID、Root Tree OID、Index差分、Worktree差分、対象内の未追跡状態、結果へ影響するignoredまたはGit外入力の有無と識別情報、および対象内にSubmoduleがある場合のHEADとdirty状態
+- Git管理対象の部分集合、未Commit変更またはSubmodule等、Commit OIDだけでは対象を表せない場合の対象Pathごとのmode、Blob／Tree／gitlink OIDまたは差分
+- 外部入力またはGit外成果物を対象または結果へ影響する入力として使う場合の入力Hash、再識別情報または再現可能なManifest
 - 入力、実行主体、実行環境、結果確認主体等、結果を変え得る要素の識別情報
 - 実行方法。コマンド実行型では実行コマンド
 - 実行環境またはツールの版
@@ -712,7 +714,7 @@ CRDDの品質保証記録は、リポジトリ内だけで現在状態、判断�
 - 想定外、未評価、取得不能、証明できない範囲
 - 出力のハッシュ、チェックサムまたは同等の改変・取り違え確認方法
 
-cleanなリポジトリ全体を固定する通常の確認では、Object Format、Commit OID、Observed HEADとの一致、Root Tree OID、および結果へ影響するdirty状態またはGit外入力がないことの確認で十分とする。Gitのハッシュ方式を`SHA-1`または`SHA-256`へ固定せず、Object FormatとOIDの組で示す。対象Pathごとのmode／OIDは、部分集合、未Commit変更、Submodule、外部入力またはGit外成果物等、Commit OIDだけで対象を表せない範囲に限って追加する。Submoduleを対象に含む場合は、親リポジトリの期待gitlink OIDに加え、実際のSubmodule HEADとdirty状態を確認する。
+未コミット変更のない（cleanな）リポジトリ全体を固定する通常の確認では、Object Format、Commit OID、Observed HEADとの一致、Root Tree OID、および結果へ影響するdirty状態またはGit外入力がないことの確認で十分とする。Gitのハッシュ方式を`SHA-1`または`SHA-256`へ固定せず、Object FormatとOIDの組で示す。Commit OIDだけでは対象を表せない場合の追加情報は、前項の対象種別に応じて取得する。Submoduleを対象に含む場合は、親リポジトリの期待gitlink OIDに加え、実際のSubmodule HEADとdirty状態を確認する。
 
 独自Manifestを使う場合は、再導出に必要な版、対象Pathの表現、区切り、並び順、大小文字とUnicodeの扱い、改行、末尾改行、集約へ渡す正確なByte列および独立した再導出方法を取得可能にする。これらを再現できない集約Hashを、対象同一性の十分な根拠として扱わない。
 
