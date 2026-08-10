@@ -4,13 +4,13 @@
 
 - 変更トレース: [`CHG-000010`](../CHG-000010_First_Pass_Convergence.md)
 - 固定本文の状態: `Ready for Verification`（固定時点の履歴）
-- 現在の処置: `Integrated — Pending Release`
+- 現在の処置: `Released`
 - 対象Release: `v0.16.0`
 - 変更分類: `breaking`
 - 移行要否: `true`
-- リリース判断: Qual-Labの人間の決定権限者がv0.16.0の統合とリリース実行を承認。公開実行待ち
-- 統合: mainへの本文と固定後Evidenceの統合を完了
-- 公開識別子: 注釈付き`v0.16.0`タグを作成予定
+- リリース判断: Qual-Labの人間の決定権限者による承認に基づき、v0.16.0の統合と公開を完了
+- 統合: mainへの本文、固定後Evidenceおよびリリース前記録の統合を完了
+- 公開識別子: 注釈付き`v0.16.0`タグ
 
 固定本文へ固定後結果を書き戻さず、本記録が再接続後のChecker、試験、独立レビュー、監査および現在状態を所有する。`Ready for Release Handoff`と対象是正の`Resolved`は、main統合、タグ公開またはリリース完了を意味しない。
 
@@ -80,15 +80,16 @@
 ## リリース記録
 
 - リリースバージョン: `v0.16.0`
-- 公開識別子: 注釈付き`v0.16.0`タグを作成予定
-- 状態: `Integrated — Pending Release`
+- 公開識別子: 注釈付き`v0.16.0`タグ
+- 状態: `Released`
 - リリース対象: CRDD標準リポジトリのv0.16.0変更、再接続後の固定後Evidence、Current Review Record
 - 対象環境: GitHub上の`qual-lab/CRDD`公開リポジトリ
 - 含まれる変更: `CHG-000010`
 - 除外: 未追跡の`CRDD_Introduction.pptx`。本リリースの対象コミット、配布物、検証に含めない
 - feature → develop: [PR #21](https://github.com/qual-lab/CRDD/pull/21)、統合コミット`ba4fc18ea15afee7bd6f61ffa8f17103585f51f4`
 - develop → main: [PR #22](https://github.com/qual-lab/CRDD/pull/22)、統合コミット`9053c0164fa75410538fde9933691e98181a8b91`
-- リリース前記録 → main: 未実施
+- リリース前記録 → main: [PR #23](https://github.com/qual-lab/CRDD/pull/23)、統合コミット`f46b81cd66e059d5d55b4de0369869298160c2c4`
+- 配布成果物: mainコミット`f46b81cd66e059d5d55b4de0369869298160c2c4`と、そのコミットを指す`v0.16.0`タグ
 - リリース準備状況: 公開済みv0.15.0へ再接続後、分離worktreeによる全体Checker、139回帰試験、3系統独立確認、Current Record終端確認を完了。未解決Finding 0
 - 変更影響の伝播: 正本、AI入口、CONTRIBUTING、README、CHANGELOG、監査基準、準拠基準、CHGひな型、Checkerへ反映済み。未処置の伝播例外なし
 - 人間の判断: Qual-Labの人間の決定権限者が2026-08-10に順次リリースを承認し、v0.15.0公開後にv0.16.0の統合とリリース実行を承認
@@ -96,8 +97,9 @@
 - 人間中心品質: プロダクトのUX／IA／UI成果物を直接変更しないため、プロダクト固有の人間中心品質確認は`Not Applicable`
 - 移行／互換性: `breaking`、`migration_required: true`。`CHANGELOG.md`のv0.16.0移行注記に従い、Migration Completenessを実施し、該当時に`PL-16`／`AD-02`／`AD-21`を再評価する
 - ロールバック参照: `v0.15.0`タグ。Migration Completenessと人間による有効化が終わるまではv0.15.0の基準版と手順を維持する
-- リリース日: 未確定（予定: 2026-08-10）
+- リリース検証: localとremoteの注釈付きタグobjectは`a4abf20045fcc63ef5e62e472b160cd50eafda93`、peeled tagはともに`f46b81cd66e059d5d55b4de0369869298160c2c4`を指す
+- リリース日: 2026-08-10
 
 ## 次の処置
 
-本記録をmainへ統合した後、その統合コミットへ注釈付き`v0.16.0`タグを作成してremoteへ公開する。公開識別子とremote参照を確認できるまで`Released`へ進めない。
+正式リリース後に、固定候補差替え回数、監査往復、処理時間、新規Finding数または採用先の問題が得られた場合は、新しい根拠を伴う別の変更契機として評価する。
