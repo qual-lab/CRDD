@@ -11,7 +11,7 @@ import {
   recoverOwnedOperationDirectories,
   verifyOwnedMountCapability
 } from "./execution-environment.mjs";
-import { transitionHostRecoveryState } from "./host-recovery-record.mjs";
+import { formatHostRecoveryToken, loadHostRecoveryRecordByToken } from "./host-recovery-record.mjs";
 
 const PROBE_IMAGE = "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
 const MAX_OUTPUT_BYTES = 64 * 1024;
@@ -179,6 +179,18 @@ function dockerEnvironment(management) {
 
 function recoveryToken(rootName, probeId, nonce, recordHash) {
   return `docker.${rootName}.${probeId}.${nonce}.${recordHash}`;
+}
+
+function transitionHostRecoveryState(hostRecoveryId, expectedState, nextState) {
+  const loaded = loadHostRecoveryRecordByToken(hostRecoveryId);
+  if (loaded.record.state !== expectedState) throw new Error("host_recovery_state_invalid");
+  const updated = { ...loaded.record, state: nextState };
+  const serialized = `${JSON.stringify(updated)}\n`;
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
+  fs.renameSync(temporary, loaded.marker);
+  return formatHostRecoveryToken(loaded.parsed.rootName, loaded.parsed.nonce, recordHash);
 }
 
 function beginDockerSubmission(hostRecoveryId) {
@@ -365,7 +377,7 @@ function verifyLocalLinuxEngine(cli, environment) {
   return !execution.error && execution.status === 0 && execution.stdout.trim() === "linux";
 }
 
-function blocked(reason, probeId = null, retainOperationDirectories = false, recoveryId = null) {
+function blocked(reason, probeId = null, retainOperationDirectories = false, recoveryId = null, manualRecoveryRequired = false) {
   return {
     status: "blocked",
     reason,
@@ -373,8 +385,21 @@ function blocked(reason, probeId = null, retainOperationDirectories = false, rec
     retainOperationDirectories,
     hostCleanupCompleted: false,
     recoveryId,
+    manualRecoveryRequired,
     cleanup: retainOperationDirectories ? "unconfirmed" : "not_required_or_confirmed"
   };
+}
+
+export function normalizeDockerProbeFailure(error, probeId, state) {
+  if (state.rollbackFailed === true) {
+    return blocked("docker_submission_rollback_failed", probeId, true, null, true);
+  }
+  return blocked(
+    normalizeFailure(error),
+    probeId,
+    state.submissionStarted,
+    state.submissionStarted ? state.recoveryId : state.hostRecoveryId
+  );
 }
 
 function finishHostRecovery(hostRecoveryId, baseResult, probeId) {
@@ -408,6 +433,7 @@ export function runDockerIsolationProbe(owned) {
   let recoveryId = null;
   let hostRecoveryId = getOwnedHostRecoveryId(owned);
   let submissionStarted = false;
+  let rollbackFailed = false;
   const recoveryNonce = randomUUID();
   let result = blocked("docker_isolation_probe_failed");
   try {
@@ -424,8 +450,12 @@ export function runDockerIsolationProbe(owned) {
       try {
         recoveryId = writeRecoveryRecord(mounts, probeId, recoveryNonce, hostRecoveryId, null);
       } catch (error) {
-        hostRecoveryId = cancelDockerSubmissionBeforeCreate(hostRecoveryId);
-        submissionStarted = false;
+        try {
+          hostRecoveryId = cancelDockerSubmissionBeforeCreate(hostRecoveryId);
+          submissionStarted = false;
+        } catch {
+          rollbackFailed = true;
+        }
         throw error;
       }
       const creation = dockerCommand(cli, environment, dockerCreateArgumentsForFixture(mounts, probeId).slice(2), 30_000);
@@ -450,7 +480,12 @@ export function runDockerIsolationProbe(owned) {
       }
     }
   } catch (error) {
-    result = blocked(normalizeFailure(error), probeId, submissionStarted, submissionStarted ? recoveryId : hostRecoveryId);
+    result = normalizeDockerProbeFailure(error, probeId, {
+      submissionStarted,
+      recoveryId,
+      hostRecoveryId,
+      rollbackFailed
+    });
   } finally {
     if (containerCapability && cli && environment && mounts) {
       try {

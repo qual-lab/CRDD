@@ -34,6 +34,11 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
       if (report.credentials) process.stdout.write(`- credential values recorded: no\n`);
       if (report.filesystem) process.stdout.write(`- filesystem enforcement: ${report.filesystem.enforcement}\n`);
       if (report.egress) process.stdout.write(`- provider egress allowlist: ${report.egress.providerAllowlist}\n`);
+      if (report.recovery?.manualRecoveryRequired === true) {
+        process.stdout.write(`- recovery: automatic recovery ID unavailable; manual safety action required (${report.recovery.reason})\n`);
+      } else if (report.recovery?.required === true && report.recovery.recoveryId) {
+        process.stdout.write(`- recovery: run doctor --recover-isolation with the returned recovery ID\n`);
+      }
       process.stdout.write(`- blockers: ${(report.blockers ?? []).length}\n`);
       for (const blocker of report.blockers ?? []) {
         process.stdout.write(`  - ${blocker.id}: ${blocker.reason}\n`);

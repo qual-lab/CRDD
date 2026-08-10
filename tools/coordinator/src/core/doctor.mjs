@@ -268,7 +268,12 @@ export function runDoctor(options = {}) {
         fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated"
       },
       recovery: retainOperationDirectories
-        ? { required: true, recoveryId: isolation.recoveryId ?? null, reason: isolation.reason }
+        ? {
+            required: true,
+            recoveryId: isolation.recoveryId ?? null,
+            reason: isolation.reason,
+            manualRecoveryRequired: isolation.manualRecoveryRequired === true
+          }
         : { required: false },
       providers,
       checks,

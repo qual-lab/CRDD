@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import * as executionEnvironment from "../src/security/execution-environment.mjs";
+import * as hostRecoveryRecord from "../src/security/host-recovery-record.mjs";
 
 import {
   CHECK_STATUS,
@@ -33,6 +34,7 @@ import {
   normalizeContainerAbsence,
   normalizeContainerCreation,
   normalizeDockerIsolationResult,
+  normalizeDockerProbeFailure,
   normalizeHostCleanupResult,
   recoverDockerIsolationProbe,
   validateContainerInspect
@@ -422,11 +424,37 @@ test("container createとabsence確認はtimeout、malformed ID、残留をfail 
 test("Docker不存在を自己申告する公開APIを持たない", () => {
   assert.equal("setOwnedDockerRecoveryState" in executionEnvironment, false);
   assert.equal("confirmHostRecoveryDockerAbsence" in executionEnvironment, false);
+  assert.equal("transitionHostRecoveryState" in hostRecoveryRecord, false);
   const owned = createOwnedOperationDirectories();
   const token = getOwnedHostRecoveryId(owned);
   const recovered = recoverOwnedOperationDirectories(token);
   assert.equal(recovered.status, "recovered");
   assert.equal(fs.existsSync(owned.root), false);
+});
+
+test("Docker submission recordとrollbackの二重失敗は手動回復までfail closedにする", () => {
+  const result = normalizeDockerProbeFailure(new Error("docker_recovery_record_failed"), "fixture-probe", {
+    submissionStarted: true,
+    recoveryId: null,
+    hostRecoveryId: "host.internal-token-must-not-leak",
+    rollbackFailed: true
+  });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "docker_submission_rollback_failed");
+  assert.equal(result.retainOperationDirectories, true);
+  assert.equal(result.hostCleanupCompleted, false);
+  assert.equal(result.recoveryId, null);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(JSON.stringify(result).includes("internal-token"), false);
+
+  const cancelled = normalizeDockerProbeFailure(new Error("docker_recovery_record_failed"), "fixture-probe", {
+    submissionStarted: false,
+    recoveryId: null,
+    hostRecoveryId: "host.fixture-token",
+    rollbackFailed: false
+  });
+  assert.equal(cancelled.recoveryId, "host.fixture-token");
+  assert.equal(cancelled.manualRecoveryRequired, false);
 });
 
 test("Host recoveryは部分削除済みchildを許容し残存rootを回収する", () => {

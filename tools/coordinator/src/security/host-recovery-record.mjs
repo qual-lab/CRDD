@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -37,16 +37,4 @@ export function loadHostRecoveryRecordByToken(token) {
     throw new Error("host_recovery_record_mismatch");
   }
   return { parsed, parent, directory: realDirectory, marker, record, serialized };
-}
-
-export function transitionHostRecoveryState(token, expectedState, nextState) {
-  const loaded = loadHostRecoveryRecordByToken(token);
-  if (loaded.record.state !== expectedState) throw new Error("host_recovery_state_invalid");
-  const updated = { ...loaded.record, state: nextState };
-  const serialized = `${JSON.stringify(updated)}\n`;
-  const recordHash = createHash("sha256").update(serialized).digest("hex");
-  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
-  fs.renameSync(temporary, loaded.marker);
-  return formatHostRecoveryToken(loaded.parsed.rootName, loaded.parsed.nonce, recordHash);
 }
