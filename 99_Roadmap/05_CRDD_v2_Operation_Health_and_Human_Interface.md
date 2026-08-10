@@ -190,6 +190,8 @@ Affected Context
 
 > Operation Healthは実行強度を適応させてもよいが、自身の目的、Authority、安全境界、成功条件を自己変更してはならない。
 
+対象コンテキストまたはCapabilityの変更が、Operationの目的、判断対象、情報境界、Authorityまたは期待結果を実質的に変える場合、その変更を実行強度の調整として扱ってはならない。Semantic Contract変更候補として人間の決定権限へ戻す。
+
 Operation Healthに応じて次を候補化できる。
 
 - 実行頻度を下げるまたは上げる
