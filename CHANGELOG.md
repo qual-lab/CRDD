@@ -22,8 +22,8 @@ Compared with v0.13.0:
 - Separates the contract population—the state, input, branch, permission, failure, persistence, and other combinations that can change a result—from the consumer population that interprets, transforms, stores, renders, transmits, executes, or verifies that contract.
 - Requires each contract target to connect to every applicable consumer's remediation, result, or reasoned non-applicability. A matching file count does not prove either population complete.
 - Separates verification-oracle consistency, application to a reference harness or verifier, application to the product implementation, and execution results for individual consumers. A correct verification oracle or harness does not prove product behavior.
-- Uses Git repository identity, object format, Commit OID, path set, expected gitlink OIDs, observed HEAD and Root Tree, per-path object identity, index/worktree differences, and submodule state to distinguish declared, observed, and executed targets.
-- Uses Commit OIDs as the normal first choice. Additional manifests are limited to subsets, dirty state, submodules, external inputs, or non-Git artifacts and must define a reproducible byte-level derivation when used.
+- Uses Git repository identity, object format, Commit OID, path set, expected gitlink OIDs, observed HEAD and Root Tree, per-path object identity when needed, index/worktree differences, and submodule state to distinguish declared, observed, and executed targets. A clean whole-repository target normally needs only its object format, Commit OID, matching observed HEAD, Root Tree OID, and confirmation that no result-affecting dirty or non-Git input exists.
+- Uses Commit OIDs as the normal first choice. Per-path identity and additional manifests are limited to subsets, uncommitted changes, submodules, external inputs, or non-Git artifacts and must define a reproducible byte-level derivation when used. An observed target may stand for the execution target only when it is observed immediately before execution in the same run and remains unchanged until result generation finishes; otherwise the before and after identities are recorded separately.
 - Separates semantic updates to a current record from record-only additions such as links, OIDs, timestamps, or reviewers. Record-only updates receive a terminal lightweight link, identity, and tamper check instead of recursively creating another audit target.
 - Stops repeated local patching when the same root cause recurs across reviews, phases, or consumers, and returns to the shared authority, contract, generator, verification oracle, consumer map, or current-state projection.
 - Aligns Document Audit, Gap / Impact Audit, Product Lifecycle criterion PL-16, Agentic Delivery criterion AD-21, official and distributed AI entry points, Overview, Terminology, and public guidance with these boundaries.
@@ -680,8 +680,8 @@ v0.13.0からの変更:
 - 結果を変え得る状態、入力、分岐、権限、失敗、保存等の契約母集団と、その契約を解釈、変換、保存、表示、送信、実行または検証する利用側母集団を分離する。
 - 契約対象ごとに、該当する全利用側の是正、結果または理由付き非該当判定へ接続する。ファイル数の一致だけでは、どちらの母集団も網羅したとみなさない。
 - 合否判定方法自体の整合性、参照用実行環境または検証器への適用、プロダクト実装への適用、各利用側の実行結果を分離する。正しい判定方法や参照用検証器だけでプロダクト挙動を証明しない。
-- Gitのリポジトリ識別情報、Object Format、Commit OID、対象Path集合、期待gitlink OID、Observed HEAD、Root Tree、PathごとのObject、Index／Worktree差分、Submodule状態によって、宣言対象、実観測対象、実行対象を区別する。
-- 通常はCommit OIDを第一選択とする。追加Manifestは、部分集合、dirty状態、Submodule、外部入力またはGit外成果物に限定し、使用時はByte列まで再導出可能な規則を持たせる。
+- Gitのリポジトリ識別情報、Object Format、Commit OID、対象Path集合、期待gitlink OID、Observed HEAD、Root Tree、必要時のPathごとのObject、Index／Worktree差分、Submodule状態によって、宣言対象、実観測対象、実行対象を区別する。cleanなリポジトリ全体では、Object Format、Commit OID、Observed HEADとの一致、Root Tree OID、結果へ影響するdirty状態またはGit外入力がないことの確認を最小Identityとする。
+- 通常はCommit OIDを第一選択とする。PathごとのIdentityと追加Manifestは、部分集合、未Commit変更、Submodule、外部入力またはGit外成果物に限定し、使用時はByte列まで再導出可能な規則を持たせる。実観測対象を実行対象として扱う場合は、同一Runの実行直前に観測し、結果生成まで不変であることを確認する。それ以外は実行前後のIdentityを分けて記録する。
 - 現在状態の意味を変える更新と、参照、OID、時刻、確認者等だけを加える記録更新を分離する。記録更新は、参照実在性、対象同一性、改変有無の軽量確認で終了し、新たな監査対象を再帰的に作らない。
 - 同じ根本原因がレビュー、工程または利用側で再発する場合は、局所修正を重ねず、決定権限、共通契約、生成器、判定方法、利用側一覧または現在状態への投影へ戻る。
 - 文書監査、不足／影響監査、プロダクトライフサイクル基準PL-16、エージェント型提供基準AD-21、公式／配布AI入口、概要、用語集、公開案内を同じ境界へ整合した。
