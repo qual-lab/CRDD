@@ -2,7 +2,7 @@
 
 # CRDDコンテキスト依存（Context Dependency）
 
-Version: v0.15.0
+Version: v0.16.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-08-10

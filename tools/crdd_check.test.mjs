@@ -155,6 +155,472 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
   );
 });
 
+function currentChangelogFixture(englishLines, japaneseLines) {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      ...englishLines,
+      "### v0.15.0 — Prior",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      ...japaneseLines,
+      "### v0.15.0 — 過去",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  return root;
+}
+
+test("公式CHANGELOGの現行移行注記に英日必須境界を要求する", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- Required: example",
+      "- Conditional: example",
+      "- Not required: example",
+      "- Verification: example",
+      "- Known limitation: example",
+      "### v0.15.0 — Prior",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- 必須: 例",
+      "- 条件付き: 例",
+      "- 不要: 例",
+      "- 復旧: 例",
+      "- 延期時の既知リスク: 例",
+      "- 検証: 例",
+      "- 既知の制限: 例",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  const finding = result.report.findings.find(
+    (item) => item.code === "migration-note-incomplete",
+  );
+  assert.ok(finding);
+  assert.match(finding.message, /Rollback \/ recovery/);
+  assert.match(finding.message, /Known risk if deferred/);
+});
+
+test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- Required: example",
+      "- Conditional: example",
+      "- Not required: example",
+      "- Rollback / recovery: example",
+      "- Known risk if deferred: example",
+      "- Verification: example",
+      "- Known limitation: example",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- 必須: 例",
+      "- 条件付き: 例",
+      "- 不要: 例",
+      "- 復旧: 例",
+      "- 延期時の既知リスク: 例",
+      "- 検証: 例",
+      "- 既知の制限: 例",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) =>
+      ["current-changelog-release-missing", "migration-note-incomplete"].includes(item.code)),
+    false,
+  );
+});
+
+test("公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返す", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
+  ));
+});
+
+test("公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返す", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.15.0 — 例",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
+  ));
+});
+
+test("移行不要の現行英日リリースには移行注記区分を要求しない", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      "- `migration_required: false`",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) => item.code === "migration-note-incomplete"),
+    false,
+  );
+});
+
+test("現行移行要否の欠落を判定不能として返す", () => {
+  const root = currentChangelogFixture([], ["- `migration_required: false`"]);
+  const result = run(root);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "migration-status-undetermined" && /English/u.test(item.message),
+  ));
+});
+
+test("現行移行要否の不正値を判定不能として返す", () => {
+  const root = currentChangelogFixture(
+    ["- `migration_required: maybe`"],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some((item) => item.code === "migration-status-undetermined"));
+});
+
+test("現行移行要否の同値重複を判定不能として返す", () => {
+  const root = currentChangelogFixture(
+    ["- `migration_required: false`", "- `migration_required: false`"],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some((item) => item.code === "migration-status-undetermined"));
+});
+
+test("現行移行要否の競合宣言を判定不能として返す", () => {
+  const root = currentChangelogFixture(
+    ["- `migration_required: true`", "- `migration_required: false`"],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some((item) => item.code === "migration-status-undetermined"));
+});
+
+test("現行英日移行要否の不一致を返す", () => {
+  const root = currentChangelogFixture(
+    ["- `migration_required: true`"],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some((item) => item.code === "migration-status-mismatch"));
+});
+
+test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
+  const categoriesEn = [
+    "- Required: example", "- Conditional: example", "- Not required: example",
+    "- Rollback / recovery: example", "- Known risk if deferred: example",
+    "- Verification: example", "- Known limitation: example",
+  ];
+  const categoriesJa = [
+    "- 必須: 例", "- 条件付き: 例", "- 不要: 例", "- 復旧: 例",
+    "- 延期時の既知リスク: 例", "- 検証: 例", "- 既知の制限: 例",
+  ];
+  const root = currentChangelogFixture(
+    ["```yaml", "migration_required: true # current", "change_classification: breaking", "```", ...categoriesEn],
+    ["```yml", "migration_required: true", "change_classification: breaking", "```", ...categoriesJa],
+  );
+  const result = run(root);
+  assert.equal(result.report.findings.some((item) => [
+    "migration-status-undetermined", "migration-status-mismatch", "migration-note-incomplete",
+  ].includes(item.code)), false);
+});
+
+test("説明文中の移行語を宣言として扱わない", () => {
+  const root = currentChangelogFixture(
+    ["This example says migration_required: false in prose."],
+    ["本文の例に migration_required: false と書く。"],
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.filter((item) => item.code === "migration-status-undetermined").length,
+    2,
+  );
+});
+
+test("非YAML fence内の移行宣言を判定データとして扱わない", () => {
+  const root = currentChangelogFixture(
+    ["```text", "- `migration_required: false`", "```"],
+    ["```markdown", "- `migration_required: false`", "```"],
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.filter((item) => item.code === "migration-status-undetermined").length,
+    2,
+  );
+});
+
+test("非YAML fence内の移行注記区分を成立根拠へ流用しない", () => {
+  const fencedEnglish = [
+    "```text", "- Required: example", "- Conditional: example", "- Not required: example",
+    "- Rollback / recovery: example", "- Known risk if deferred: example",
+    "- Verification: example", "- Known limitation: example", "```",
+  ];
+  const fencedJapanese = [
+    "```text", "- 必須: 例", "- 条件付き: 例", "- 不要: 例", "- 復旧: 例",
+    "- 延期時の既知リスク: 例", "- 検証: 例", "- 既知の制限: 例", "```",
+  ];
+  const result = run(currentChangelogFixture(
+    ["- `migration_required: true`", "- `change_classification: breaking`", ...fencedEnglish],
+    ["- `migration_required: true`", "- `change_classification: breaking`", ...fencedJapanese],
+  ));
+  assert.equal(
+    result.report.findings.filter((item) => item.code === "migration-note-incomplete").length,
+    2,
+  );
+});
+
+test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
+  const example = ["```", "- `migration_required: true`", "```"];
+  const result = run(currentChangelogFixture(
+    ["- `migration_required: false`", ...example],
+    ["- `migration_required: false`", ...example],
+  ));
+  assert.equal(
+    result.report.findings.some((item) =>
+      ["migration-status-undetermined", "migration-status-mismatch"].includes(item.code)),
+    false,
+  );
+});
+
+test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
+  const root = currentChangelogFixture(
+    ["   ~~~YAML", "migration_required: false", "   ~~~"],
+    ["~~~YML", "migration_required: false", "~~~~"],
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) => item.code === "migration-status-undetermined"),
+    false,
+  );
+});
+
+test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () => {
+  const example = ["````text", "```", "- `migration_required: true`", "````"];
+  const result = run(currentChangelogFixture(
+    ["- `migration_required: false`", ...example],
+    ["- `migration_required: false`", ...example],
+  ));
+  assert.equal(
+    result.report.findings.some((item) => item.code === "migration-status-undetermined"),
+    false,
+  );
+});
+
+test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さない", () => {
+  const root = currentChangelogFixture(
+    ["```text", "- `migration_required: false`"],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
+  ));
+});
+
+test("YAML fence内の言語見出しと現行Release見出しを構造として扱わない", () => {
+  const root = currentChangelogFixture(
+    [
+      "```yaml", "## 日本語", "### v0.16.0 — fenced", "migration_required: false", "```",
+      "- `migration_required: false`",
+    ],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) => item.code === "current-changelog-release-missing"),
+    false,
+  );
+});
+
+test("同じ言語区分の重複を一部採用せずエラーにする", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
+  write(path.join(root, "README.md"), "Status: **v0.16.0**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English", "### v0.16.0 — First", "- `migration_required: false`",
+      "## English", "### v0.16.0 — Second", "- `migration_required: false`",
+      "## 日本語", "### v0.16.0 — 一つ目", "- `migration_required: false`",
+      "## 日本語", "### v0.16.0 — 二つ目", "- `migration_required: false`",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /English.*found 2/u.test(item.message),
+  ));
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /日本語.*found 2/u.test(item.message),
+  ));
+});
+
+test("非YAML fence内の言語見出しと現行Release見出しを無視する", () => {
+  const root = currentChangelogFixture(
+    [
+      "~~~markdown", "## English", "## 日本語", "### v0.16.0 — fenced",
+      "- `migration_required: true`", "~~~", "- `migration_required: false`",
+    ],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) => item.code === "current-changelog-release-missing"),
+    false,
+  );
+  assert.equal(
+    result.report.findings.some((item) => item.code === "migration-status-undetermined"),
+    false,
+  );
+});
+
+test("現行リリース節の重複をエラーにする", () => {
+  const root = currentChangelogFixture(
+    ["- `migration_required: false`", "### v0.16.0 — Duplicate", "- `migration_required: false`"],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "current-changelog-release-missing" && /found 2/u.test(item.message),
+  ));
+});
+
+test("過去リリースの宣言を現行リリースへ流用しない", () => {
+  const root = currentChangelogFixture([], []);
+  const result = run(root);
+  assert.equal(
+    result.report.findings.filter((item) => item.code === "migration-status-undetermined").length,
+    2,
+  );
+});
+
+test("現行英日変更分類の不一致を返す", () => {
+  const completeEn = [
+    "- `migration_required: true`", "- `change_classification: breaking`",
+    "- Required: example", "- Conditional: example", "- Not required: example",
+    "- Rollback / recovery: example", "- Known risk if deferred: example",
+    "- Verification: example", "- Known limitation: example",
+  ];
+  const completeJa = [
+    "- `migration_required: true`", "- `change_classification: normative`",
+    "- 必須: 例", "- 条件付き: 例", "- 不要: 例", "- 復旧: 例",
+    "- 延期時の既知リスク: 例", "- 検証: 例", "- 既知の制限: 例",
+  ];
+  const result = run(currentChangelogFixture(completeEn, completeJa));
+  assert.ok(result.report.findings.some((item) => item.code === "migration-status-mismatch"));
+});
+
+test("移行が必要な現行節の変更分類欠落を判定不能として返す", () => {
+  const categoriesEn = [
+    "- `migration_required: true`", "- Required: example", "- Conditional: example",
+    "- Not required: example", "- Rollback / recovery: example",
+    "- Known risk if deferred: example", "- Verification: example", "- Known limitation: example",
+  ];
+  const categoriesJa = [
+    "- `migration_required: true`", "- `change_classification: breaking`", "- 必須: 例",
+    "- 条件付き: 例", "- 不要: 例", "- 復旧: 例", "- 延期時の既知リスク: 例",
+    "- 検証: 例", "- 既知の制限: 例",
+  ];
+  const result = run(currentChangelogFixture(categoriesEn, categoriesJa));
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "migration-status-undetermined" && /change_classification/u.test(item.message),
+  ));
+});
+
+test("移行が必要な現行節の変更分類重複を判定不能として返す", () => {
+  const categoriesEn = [
+    "- `migration_required: true`", "- `change_classification: breaking`",
+    "- `change_classification: breaking`", "- Required: example", "- Conditional: example",
+    "- Not required: example", "- Rollback / recovery: example",
+    "- Known risk if deferred: example", "- Verification: example", "- Known limitation: example",
+  ];
+  const categoriesJa = [
+    "- `migration_required: true`", "- `change_classification: breaking`", "- 必須: 例",
+    "- 条件付き: 例", "- 不要: 例", "- 復旧: 例", "- 延期時の既知リスク: 例",
+    "- 検証: 例", "- 既知の制限: 例",
+  ];
+  const result = run(currentChangelogFixture(categoriesEn, categoriesJa));
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "migration-status-undetermined" && /change_classification/u.test(item.message),
+  ));
+});
+
+test("閉じていないYAML宣言を判定不能として返す", () => {
+  const root = currentChangelogFixture(
+    ["```yaml", "migration_required: false"],
+    ["- `migration_required: false`"],
+  );
+  const result = run(root);
+  assert.ok(result.report.findings.some(
+    (item) => item.code === "migration-status-undetermined" && /unclosed-yaml-fence/u.test(item.message),
+  ));
+});
+
 test("Git管理された公式リポジトリではbaseline状態を非該当として返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));
@@ -177,6 +643,30 @@ test("採用先の製品READMEはCRDD基準版と比較しない", () => {
   const result = run(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.findings.length, 0);
+});
+
+test("採用先では公式CHANGELOG専用の移行宣言検査を発火しない", () => {
+  const root = fixture();
+  makeStructure(root);
+  write(path.join(root, "00_CRDD", "01_Principles.md"), "Version: v0.16.0\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English", "### v0.16.0 — Product", "```text",
+      "- `migration_required: true`", "```",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) =>
+      [
+        "current-changelog-release-missing",
+        "migration-status-undetermined",
+        "migration-status-mismatch",
+        "migration-note-incomplete",
+      ].includes(item.code)),
+    false,
+  );
 });
 
 test("採用先のCRDD正本文書間の版不一致は検出する", () => {

@@ -9,6 +9,39 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0160-en"></a>
+
+### v0.16.0 — First-Pass Convergence (2026-08-10)
+
+This release improves the probability that a non-trivial change reaches independent review as one coherent fixed candidate. It does not introduce a shadow route, a model-trust score, a record-field whitelist, sampling-based approval, or a lighter audit class. Instead, it strengthens preparation before freeze and gives the first independent review explicit counterexamples to reconstruct.
+
+Compared with v0.15.0:
+
+- Requires a non-trivial change to identify both its contract population and its consumer population before editing, including the canonical authorities, direct projections, templates, AI entry points, public guidance, migration records, and current-state views that can preserve or degrade the meaning.
+- Requires representative activating, non-activating, boundary, and insufficient-information cases when a conditional rule controls applicability, escalation, status, conformance, migration, or Human decision. The insufficient-information case cannot be silently treated as activation, non-applicability, or completion.
+- Separates four things that had repeatedly collapsed into one sentence: the concept definition, the activation condition, the handling of an undecidable case, and the result vocabulary used after evaluation.
+- Adds a pre-freeze reconciliation against the actual diff. The parent agent compares the planned populations and cases with changed files, unchanged consumers, references, generated views, migration text, and current-state projections before fixing the review target.
+- Makes the first independent review reconstruct the same four case types and check direct consumers rather than waiting for a first finding to reveal the missing branch.
+- Extends verification design and Document, Conformance, and Gap / Impact audits to preserve these boundaries without creating another audit, approval gate, permanent artifact, profile, Stable Context ID, or external QA dependency.
+- Extends the optional checker only where the rule is deterministic: the official repository must have exactly one current English and Japanese CHANGELOG release section, each with one valid and matching `migration_required` declaration. A migration-requiring release must also have one matching change classification and expose the required structured migration-note categories. Missing, invalid, duplicate, or bilingual-conflicting declarations are errors; prose and prior releases are not declarations. Checker success still proves only implemented checks.
+
+Adoption impact: this is a breaking, non-structural Agentic Delivery and maintenance change. Existing-baseline adoption is subject to [Migration Completeness](19_Maintenance.md#621-migration-completeness). Projects that use AI for non-trivial maintenance or claim Agentic Delivery re-evaluate their pre-execution planning, first-review input, and AD-02 evidence. Projects that verify conditional rules through CRDD quality assurance re-evaluate PL-16; first independent reviews of newly introduced or changed conditional rules re-evaluate AD-21. Existing closed changes and historical review records are not rewritten solely to match the new preparation format.
+
+Migration note (v0.15.0 → v0.16.0):
+
+- `migration_required: true`
+- `change_classification: breaking`
+- Required: for non-trivial AI-assisted changes, identify contract and consumer populations, record activating, non-activating, boundary, and insufficient-information cases for conditional rules, and reconcile them against the actual diff before fixing the candidate.
+- Required for Agentic Delivery conformance: re-evaluate AD-02 and ensure the change execution record or equivalent evidence can show the populations, representative cases, pre-freeze reconciliation, and unresolved mismatches.
+- Required when CRDD quality assurance verifies a conditional rule: re-evaluate PL-16 so Verification Design and Evidence distinguish the definition, activation, undecidable handling, formal result, and the four representative case types.
+- Required for the first independent review of an introduced or changed conditional rule: re-evaluate AD-21 so the reviewer reconstructs the four case types and consumers from the canonical authority rather than reusing the implementation plan.
+- Conditional: update local AI entry points, change templates, verification design, or audit procedures only when they cannot preserve these inputs or reconstruct the four cases. Projects that do not use the supplied checker may use an equivalent deterministic confirmation and state its limits.
+- Not required: create a new audit, approval stage, permanent convergence artifact, field whitelist, shadow workflow, random-sampling gate, model capability score, or lighter review path; rerun completed historical changes; reduce any currently required independent review or specialist check.
+- Rollback / recovery: keep the currently active v0.15.0 baseline and procedures until Migration Completeness and Human activation are complete. If a partial adoption is reverted, restore the v0.15.0 AI entry and change-execution procedure, retain candidate records as history, and return in-flight changes to their previously recorded review boundary.
+- Known risk if deferred: conditional rules may still be repaired one counterexample at a time; unchanged consumers, templates, migration notes, or current-state projections may be discovered only after freeze; review loops and replacement Evidence may therefore continue even when the edited rule looks locally correct.
+- Verification: run the full checker and its complete regression and coverage suite for one fixed candidate, then perform independent agent-operation review, Document Audit, and Gap / Impact with conformance-impact review against the same target. Each semantic review reconstructs the four representative case types and checks contract and consumer populations.
+- Known limitation: explicit cases and pre-freeze reconciliation improve convergence but cannot prove that an unknown consumer has been discovered, that a semantic judgment is correct, or that every reviewer interprets an ambiguous domain identically. Human authority and independent specialist review remain necessary where applicable.
+
 <a id="changelog-v0150-en"></a>
 
 ### v0.15.0 — Communication and Context Dependency (2026-08-10)
@@ -703,6 +736,39 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0160-ja"></a>
+
+### v0.16.0 — 初回固定候補の収束性（2026-08-10）
+
+このリリースは、非自明な変更を一つの整合した固定候補として独立確認へ渡せる確率を高める。シャドウ経路、モデルへの信頼度、記録項目のホワイトリスト、抜き取り承認または軽量監査区分は導入しない。固定前の準備を強化し、初回の独立確認が再構成する反例を明示する。
+
+v0.15.0からの主な変更:
+
+- 非自明な変更では、編集前に契約母集団と利用側母集団を特定する。意味を保持または劣化させ得る正本、直接投影、ひな型、AI入口、公開案内、移行記録および現在状態表示を含める。
+- 条件付き規則が適用、昇格、状態、準拠、移行または人間判断を支配する場合、発火例、非発火例、境界例、情報不足例を記録する。情報不足を発火、非該当または完了へ黙って丸めない。
+- 一つの文へ混在しやすかった概念定義、発火条件、判定不能時の扱い、評価後の結果語彙を分ける。
+- 固定前に実差分との全数照合を行う。親エージェントは計画した母集団と代表例を、変更ファイル、変更していない利用側、参照、生成表示、移行記述および現在状態投影と照合してから確認対象を固定する。
+- 初回の独立確認は、最初の指摘で欠けた分岐を知るのを待たず、同じ4種類の代表例を再構成して直接利用側を確認する。
+- 検証設計、文書監査、準拠監査および不足／影響監査へ同じ境界を接続する。新しい監査、承認段階、恒久成果物、準拠プロファイル、安定コンテキストIDまたは外部QA依存は追加しない。
+- 任意Checkerは安全に決定できる範囲だけを拡張する。公式リポジトリの現行英日CHANGELOG節が各1件あり、有効な`migration_required`が各1件で一致することを確認する。移行が必要な場合は変更分類の一致と構造化された必須区分も確認し、欠落、不正、重複または英日競合をエラーにする。説明文や過去リリースは宣言へ流用しない。Checker合格は実装済み検査だけを証明する。
+
+採用影響: これはAgentic Deliveryと保守手順に対する非構造的な破壊的変更である。既存基準版からの採用には[移行完了の条件](19_Maintenance.md#621-migration-completeness)を適用する。非自明な保守をAIで行う、またはAgentic Deliveryを表明するプロジェクトは、着手前計画、初回確認入力およびAD-02の根拠を再評価する。CRDD品質保証で条件規範を検証する場合はPL-16、条件規範を新設・変更した対象の初回独立確認ではAD-21も再評価する。完了済みの変更や過去の確認記録を、新しい準備形式へ合わせるためだけに書き換えない。
+
+移行注記（v0.15.0 → v0.16.0）:
+
+- `migration_required: true`
+- `change_classification: breaking`
+- 必須: AIが支援する非自明な変更では、契約母集団と利用側母集団を特定し、条件付き規則の発火例、非発火例、境界例、情報不足例を記録し、候補固定前に実差分と照合する。
+- Agentic Delivery準拠で必須: AD-02を再評価し、変更実行記録または同等の根拠から、母集団、代表例、固定前照合および未解消の不一致を取得可能にする。
+- CRDD品質保証で条件規範を検証する場合に必須: PL-16を再評価し、検証設計と根拠から定義、発火条件、判定不能時の扱い、正式結果および4種類の代表例を取得可能にする。
+- 新設・変更した条件規範の初回独立確認で必須: AD-21を再評価し、実装計画を流用せず、確認者が正本から4種類の代表例と利用側を再構成する。
+- 条件付き: ローカルAI入口、変更ひな型、検証設計または監査手順がこれらの入力を保持できず、4種類の例を再構成できない場合だけ更新する。配布Checkerを使わない場合は、同等の決定論的確認と限界を示してよい。
+- 不要: 新しい監査、承認段階、恒久的な収束成果物、項目ホワイトリスト、シャドウ運用、抜き取り承認、モデル能力点数または軽量確認経路を追加すること。完了済み履歴の再実行、現在必要な独立確認または専門確認の削減。
+- 復旧: 移行完了と人間による有効化が終わるまで、現在有効なv0.15.0基準版と手順を維持する。部分適用を戻す場合はv0.15.0のAI入口と変更実行手順へ戻し、候補記録は履歴として保持し、進行中の変更を直前に記録された確認境界へ戻す。
+- 延期時の既知リスク: 条件付き規則を反例ごとに修正し続け、変更していない利用側、ひな型、移行注記または現在状態投影が固定後に初めて見つかる可能性が残る。局所規則が正しく見えても確認往復と根拠差替えが続き得る。
+- 検証: 一つの固定候補へ全体Checker、全回帰試験および網羅率確認を実行し、同じ対象へ独立エージェント運用レビュー、文書監査、不足／影響・準拠影響監査を行う。各意味確認は4種類の代表例を再構成し、契約母集団と利用側母集団を確認する。
+- 既知の制限: 代表例と固定前照合は収束性を高めるが、未知の利用側を必ず発見すること、意味判断の正しさ、曖昧な専門領域を全確認者が同じように解釈することは保証できない。適用される場合、人間の決定権限と独立した専門確認は引き続き必要である。
 
 <a id="changelog-v0150-ja"></a>
 
