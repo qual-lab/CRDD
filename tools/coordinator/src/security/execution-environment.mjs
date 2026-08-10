@@ -110,7 +110,7 @@ function hostRecordContent(identity, state) {
     state,
     rootName: path.basename(identity.root),
     rootIdentity: serializableIdentity(identity.root),
-    childIdentities: Object.fromEntries(Object.entries(identity.mounts).map(([name, snapshot]) => [name, {
+    childIdentities: Object.fromEntries(Object.entries(identity.children).map(([name, snapshot]) => [name, {
       pathName: snapshot.name,
       ...serializableIdentity(snapshot.root)
     }])),
@@ -177,14 +177,18 @@ export function createOwnedOperationDirectories(temporaryParent = os.tmpdir()) {
   try {
     owned.directories = createOperationDirectories(realRoot);
     const identity = OWNED_IDENTITIES.get(owned);
+    const children = Object.freeze({
+      workspace: directorySnapshot(owned.directories.workspace, realRoot, "workspace"),
+      providerHome: directorySnapshot(owned.directories.providerHome, realRoot, "provider-home"),
+      tmp: directorySnapshot(owned.directories.tmp, realRoot, "tmp"),
+      events: directorySnapshot(owned.directories.events, realRoot, "events"),
+      projection: directorySnapshot(owned.directories.projection, realRoot, "projection"),
+      management: directorySnapshot(owned.directories.management, realRoot, "management")
+    });
     OWNED_IDENTITIES.set(owned, Object.freeze({
       ...identity,
-      mounts: Object.freeze({
-        workspace: directorySnapshot(owned.directories.workspace, realRoot, "workspace"),
-        providerHome: directorySnapshot(owned.directories.providerHome, realRoot, "provider-home"),
-        tmp: directorySnapshot(owned.directories.tmp, realRoot, "tmp"),
-        management: directorySnapshot(owned.directories.management, realRoot, "management")
-      })
+      children,
+      mounts: Object.freeze({ workspace: children.workspace, providerHome: children.providerHome, tmp: children.tmp })
     }));
     owned.hostRecoveryId = writeHostRecoveryRecord(owned, OWNED_IDENTITIES.get(owned), "host_only");
     return owned;
@@ -198,40 +202,57 @@ export function createOwnedOperationDirectories(temporaryParent = os.tmpdir()) {
   }
 }
 
-export function setOwnedDockerRecoveryState(owned, state) {
-  if (!["docker_submission_started", "docker_absent_confirmed"].includes(state)) throw new Error("host_recovery_state_invalid");
-  const identity = OWNED_IDENTITIES.get(owned);
-  if (!identity) throw new Error("owned_operation_directory_identity_required");
-  owned.hostRecoveryId = writeHostRecoveryRecord(owned, identity, state);
-  return owned.hostRecoveryId;
-}
-
 export function getOwnedHostRecoveryId(owned) {
   const identity = owned && typeof owned === "object" ? OWNED_IDENTITIES.get(owned) : null;
   if (!identity?.hostRecovery?.recordHash) throw new Error("owned_operation_directory_identity_required");
-  return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${identity.hostRecovery.recordHash}`;
+  const { serialized } = readCurrentOwnedHostRecord(identity);
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${recordHash}`;
+}
+
+function readCurrentOwnedHostRecord(identity) {
+  const metadata = fs.lstatSync(identity.hostRecovery.record);
+  if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error("host_recovery_record_replaced");
+  const serialized = fs.readFileSync(identity.hostRecovery.record, "utf8");
+  const record = JSON.parse(serialized);
+  if (record.schema !== "crdd-coordinator-host-recovery/v1" || record.rootName !== path.basename(identity.root)) throw new Error("host_recovery_record_mismatch");
+  return { record, serialized };
 }
 
 export function createOwnedMountCapability(owned) {
   const identity = owned && typeof owned === "object" ? OWNED_IDENTITIES.get(owned) : null;
-  if (!identity?.mounts || owned.root !== identity.root || owned.parent !== identity.parent) {
+  if (!identity?.children || owned.root !== identity.root || owned.parent !== identity.parent) {
     throw new Error("owned_operation_mount_identity_required");
   }
-  for (const snapshot of Object.values(identity.mounts)) validateDirectorySnapshot(snapshot);
+  for (const snapshot of Object.values(identity.children)) validateDirectorySnapshot(snapshot);
   const capability = Object.freeze({ kind: "owned_operation_mounts" });
-  MOUNT_CAPABILITIES.set(capability, identity.mounts);
+  MOUNT_CAPABILITIES.set(capability, identity.children);
   return capability;
 }
 
 export function verifyOwnedMountCapability(capability) {
-  const mounts = capability && typeof capability === "object" ? MOUNT_CAPABILITIES.get(capability) : null;
-  if (!mounts) throw new Error("owned_operation_mount_capability_required");
-  return Object.freeze({
-    workspace: validateDirectorySnapshot(mounts.workspace),
-    providerHome: validateDirectorySnapshot(mounts.providerHome),
-    tmp: validateDirectorySnapshot(mounts.tmp),
-    management: validateDirectorySnapshot(mounts.management)
-  });
+  const children = capability && typeof capability === "object" ? MOUNT_CAPABILITIES.get(capability) : null;
+  if (!children) throw new Error("owned_operation_mount_capability_required");
+  return Object.freeze(Object.fromEntries(Object.entries(children).map(([name, snapshot]) => [name, validateDirectorySnapshot(snapshot)])));
+}
+
+function validateOwnedChildSet(root, children) {
+  const known = new Set(Object.values(children).map((snapshot) => snapshot.name));
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!known.has(entry.name)) throw new Error("owned_operation_unknown_child");
+  }
+  for (const snapshot of Object.values(children)) {
+    try {
+      const metadata = fs.lstatSync(snapshot.root);
+      if (!metadata.isDirectory() || metadata.isSymbolicLink()) throw new Error("owned_operation_child_replaced");
+      validateDirectorySnapshot(snapshot);
+    } catch (error) {
+      if (error?.code === "ENOENT") continue;
+      if (["owned_operation_child_replaced", "owned_operation_mount_replaced"].includes(error?.message)) throw new Error("owned_operation_child_replaced");
+      throw error;
+    }
+  }
 }
 
 export function cleanupOwnedOperationDirectories(owned) {
@@ -255,16 +276,16 @@ export function cleanupOwnedOperationDirectories(owned) {
     ) {
       throw new Error("owned_operation_directory_replaced");
     }
-    if (identity.mounts) {
-      for (const snapshot of Object.values(identity.mounts)) validateDirectorySnapshot(snapshot);
-    }
+    if (identity.children) validateOwnedChildSet(identity.root, identity.children);
   } catch (error) {
-    if (error?.message === "owned_operation_directory_replaced") throw error;
+    if (["owned_operation_directory_replaced", "owned_operation_child_replaced", "owned_operation_unknown_child"].includes(error?.message)) throw error;
     throw new Error("owned_operation_directory_replaced");
   }
-  if (identity.hostRecovery.state === "docker_submission_started") {
+  const currentHostRecord = readCurrentOwnedHostRecord(identity).record;
+  if (currentHostRecord.state === "docker_submission_started") {
     throw new Error("host_cleanup_requires_container_absence");
   }
+  if (!["host_only", "docker_absent_confirmed"].includes(currentHostRecord.state)) throw new Error("host_recovery_state_invalid");
   fs.rmSync(identity.root, { recursive: true, force: false });
   if (fs.existsSync(identity.root)) throw new Error("owned_operation_directory_cleanup_incomplete");
   OWNED_IDENTITIES.delete(owned);
@@ -299,23 +320,6 @@ function loadHostRecoveryRecord(token) {
   return { parsed, parent, recovery, marker, record };
 }
 
-export function confirmHostRecoveryDockerAbsence(token) {
-  try {
-    const loaded = loadHostRecoveryRecord(token);
-    if (loaded.record.state !== "docker_submission_started") throw new Error("host_recovery_state_invalid");
-    const updated = { ...loaded.record, state: "docker_absent_confirmed" };
-    const serialized = `${JSON.stringify(updated)}\n`;
-    const recordHash = createHash("sha256").update(serialized).digest("hex");
-    const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
-    fs.writeFileSync(temporary, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
-    fs.renameSync(temporary, loaded.marker);
-    return { status: "confirmed", recoveryId: `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${recordHash}` };
-  } catch (error) {
-    const allowed = new Set(["host_recovery_token_invalid", "host_recovery_record_replaced", "host_recovery_record_mismatch", "host_recovery_state_invalid"]);
-    return { status: "blocked", reason: allowed.has(error?.message) ? error.message : "host_recovery_failed" };
-  }
-}
-
 export function recoverOwnedOperationDirectories(token) {
   try {
     const { parsed, parent, marker, record } = loadHostRecoveryRecord(token);
@@ -327,17 +331,26 @@ export function recoverOwnedOperationDirectories(token) {
       return { status: "recovered", reason: "host_root_already_absent" };
     }
     if (fs.realpathSync(root) !== root || path.dirname(root) !== parent || !identityMatchesRecord(root, record.rootIdentity)) throw new Error("host_recovery_root_replaced");
+    const known = new Set(Object.values(record.childIdentities).map((child) => child.pathName));
+    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+      if (!known.has(entry.name)) throw new Error("host_recovery_unknown_child");
+    }
     for (const child of Object.values(record.childIdentities)) {
       const target = path.join(root, child.pathName);
-      if (!fs.existsSync(target)) continue;
-      if (fs.realpathSync(target) !== target || path.dirname(target) !== root || !identityMatchesRecord(target, child)) throw new Error("host_recovery_child_replaced");
+      try {
+        const metadata = fs.lstatSync(target);
+        if (!metadata.isDirectory() || metadata.isSymbolicLink() || fs.realpathSync(target) !== target || path.dirname(target) !== root || !identityMatchesRecord(target, child)) throw new Error("host_recovery_child_replaced");
+      } catch (error) {
+        if (error?.code === "ENOENT") continue;
+        throw error;
+      }
     }
     fs.rmSync(root, { recursive: true, force: false });
     if (fs.existsSync(root)) throw new Error("host_recovery_cleanup_incomplete");
     fs.rmSync(marker);
     return { status: "recovered", reason: "host_cleanup_recovered" };
   } catch (error) {
-    const allowed = new Set(["host_recovery_token_invalid", "host_recovery_record_replaced", "host_recovery_record_mismatch", "host_recovery_requires_docker_absence", "host_recovery_state_invalid", "host_recovery_root_replaced", "host_recovery_child_replaced", "host_recovery_cleanup_incomplete"]);
+    const allowed = new Set(["host_recovery_token_invalid", "host_recovery_record_replaced", "host_recovery_record_mismatch", "host_recovery_requires_docker_absence", "host_recovery_state_invalid", "host_recovery_root_replaced", "host_recovery_child_replaced", "host_recovery_unknown_child", "host_recovery_cleanup_incomplete"]);
     return { status: "blocked", reason: allowed.has(error?.message) ? error.message : "host_recovery_failed" };
   }
 }

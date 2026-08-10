@@ -272,7 +272,7 @@ export function runDoctor(options = {}) {
       blockers: readiness.blockers
     };
     if (!retainOperationDirectories) {
-      const hostRecoveryId = getOwnedHostRecoveryId(owned);
+      const hostRecoveryId = isolation.hostRecoveryId ?? getOwnedHostRecoveryId(owned);
       try {
         cleanupOwnedOperationDirectories(owned);
       } catch {

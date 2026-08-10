@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import * as executionEnvironment from "../src/security/execution-environment.mjs";
+
 import {
   CHECK_STATUS,
   REQUIRED_CHECK_IDS,
@@ -22,7 +24,6 @@ import {
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
-  setOwnedDockerRecoveryState,
   verifyOwnedMountCapability
 } from "../src/security/execution-environment.mjs";
 import {
@@ -407,14 +408,12 @@ test("container createとabsence確認はtimeout、malformed ID、残留をfail 
   assert.equal(normalizeContainerAbsence(empty, empty, { status: 0, stdout: `${"c".repeat(64)}\n${"c".repeat(64)}\n` }).status, "blocked");
 });
 
-test("Docker不存在未確認時はHost recoveryを直接実行できない", () => {
+test("Docker不存在を自己申告する公開APIを持たない", () => {
+  assert.equal("setOwnedDockerRecoveryState" in executionEnvironment, false);
+  assert.equal("confirmHostRecoveryDockerAbsence" in executionEnvironment, false);
   const owned = createOwnedOperationDirectories();
-  setOwnedDockerRecoveryState(owned, "docker_submission_started");
   const token = getOwnedHostRecoveryId(owned);
-  const blocked = recoverOwnedOperationDirectories(token);
-  assert.deepEqual(blocked, { status: "blocked", reason: "host_recovery_requires_docker_absence" });
-  setOwnedDockerRecoveryState(owned, "docker_absent_confirmed");
-  const recovered = recoverOwnedOperationDirectories(getOwnedHostRecoveryId(owned));
+  const recovered = recoverOwnedOperationDirectories(token);
   assert.equal(recovered.status, "recovered");
   assert.equal(fs.existsSync(owned.root), false);
 });
@@ -435,4 +434,63 @@ test("Host recoveryはroot削除済みでも外部markerを安全に完了する
   const recovered = recoverOwnedOperationDirectories(token);
   assert.deepEqual(recovered, { status: "recovered", reason: "host_root_already_absent" });
   assert.equal(recoverOwnedOperationDirectories(token).status, "blocked");
+});
+
+test("Host cleanupはeventsとprojectionを含む6 childを所有確認する", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-all-children-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    const original = `${owned.root}-events-original`;
+    fs.renameSync(owned.directories.events, original);
+    fs.mkdirSync(owned.directories.events);
+    assert.throws(() => cleanupOwnedOperationDirectories(owned), /replaced/u);
+    assert.equal(fs.existsSync(original), true);
+    assert.equal(fs.existsSync(owned.directories.events), true);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("Host cleanupはroot直下の未知entryを推測削除しない", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-unknown-child-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    const unknown = path.join(owned.root, "unknown.txt");
+    fs.writeFileSync(unknown, "keep", "utf8");
+    assert.throws(() => cleanupOwnedOperationDirectories(owned), /unknown_child/u);
+    assert.equal(fs.readFileSync(unknown, "utf8"), "keep");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("Host cleanupはprojectionのlink置換を拒否する", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-linked-projection-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    const original = `${owned.root}-projection-original`;
+    const target = path.join(parent, "projection-target");
+    fs.renameSync(owned.directories.projection, original);
+    fs.mkdirSync(target);
+    try {
+      fs.symlinkSync(target, owned.directories.projection, process.platform === "win32" ? "junction" : "dir");
+    } catch (error) {
+      if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) return t.skip(`link fixture unavailable: ${error.code}`);
+      throw error;
+    }
+    assert.throws(() => cleanupOwnedOperationDirectories(owned), /replaced/u);
+    assert.equal(fs.existsSync(original), true);
+    assert.equal(fs.existsSync(target), true);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("Host recoveryは既知projectionの部分削除を許容する", () => {
+  const owned = createOwnedOperationDirectories();
+  const token = getOwnedHostRecoveryId(owned);
+  fs.rmSync(owned.directories.projection, { recursive: true, force: false });
+  const recovered = recoverOwnedOperationDirectories(token);
+  assert.equal(recovered.status, "recovered");
+  assert.equal(fs.existsSync(owned.root), false);
 });

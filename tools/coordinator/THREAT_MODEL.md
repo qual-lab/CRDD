@@ -91,6 +91,10 @@ container不存在を確認できるまでHost側Operation領域を削除しな�
 
 明示recoveryは固定一時親、外部Host marker、non-link、実体Identity、tokenおよび同一containerの全inspect条件を再確認する。処置順はDocker cleanup、ID／名前／labelの3軸不存在確認、Docker記録の状態確定、Host root cleanup、root不存在確認、外部Host marker消費とする。Host childが既に不存在なら部分回収済みとして扱えるが、存在するchildのlink化またはIdentity不一致では削除しない。Docker IDを取得できなかった場合は遅延createを否定できないため、一回の空照会からHost削除へ進まず`blocked`を維持する。例外または部分失敗では外部記録を保持し、caller指定ID／Pathや未知containerを削除しない。現在UserとDocker daemonへ同権限を持つHost主体をこの回復記録のTrust Boundaryに含む。
 
+3軸不存在Oracleの成功は、同一実行内のProbe ID、64桁container ID、Operation root、Docker CLI Capabilityおよび`docker_submission_started`のHost記録Hashへ結び付いたmodule-privateな一回限りのCapabilityにする。Capabilityを公開結果へ含めず、token、owned object、状態名、同形objectまたは別Probeの結果から復元しない。Host記録の原子的更新に成功した後だけ消費し、更新失敗時は送信開始状態と回復情報を保持する。非export化は誤用防止であり、同じHost権限でソースを変更できる主体への完全なSecurity境界とはしない。
+
+Operation rootのcleanup所有母集団は、factoryが作成する`workspace/`、`provider-home/`、`tmp/`、`events/`、`projection/`および`management/`の6 childである。Docker mount対象は前3件だけであり、管理領域を昇格させない。通常cleanupとHost recoveryはroot直下を列挙し、現在entryが既知6件の部分集合で、存在する各childが保存Identity、directory種別、non-link、親および実Pathへ一致する場合だけ再帰削除する。既知childの不存在は部分回収として許容するが、未知file／directory／link、dangling linkまたは置換childは拒否する。
+
 このFake ProbeはProvider endpoint限定Egressを証明しない。`--network=none`は外部送信を遮断するが公式Providerを利用不能にするため、Provider用Egress allowlistが未実装である限り`execution.egress`は`blocked`のままとする。Fake Probeの合格をProvider認証、active probe、lifecycleまたは実Operationの許可へ流用しない。
 
 現在のIdentity照合はFake ProviderとHost一時領域に対する境界であり、Path検査から削除までの敵対的な同時置換を完全に防ぐ証明ではない。実Provider Active Probeを実装する場合は、Provider process treeの終了確認後にcleanupし、Providerからtemporary parentへ到達できないOS Sandbox／ACLまたは同等境界を先に成立させて、cleanup競合を再評価する。
