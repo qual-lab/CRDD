@@ -1,8 +1,8 @@
-# CRDD v2候補 — Operation HealthとHuman Interface
+# CRDD v1 Architecture Candidate — Operation HealthとHuman Interface
 
-Status: Concept / Future Candidate  
-Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
+Status: Concept / Non-normative Architecture Candidate
+Target: CRDD v1.x Architecture Candidate
+Related: [v1候補構想](01_CRDD_v1_Concept.md), [責務境界](02_CRDD_v1_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v1_PoC_Plan.md), [自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md), [Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の運用・人間接続候補である。現在のCRDD、Human Authority、Communication、Quality Assurance、準拠基準または採用側の通知・判断手順を変更しない。
 
@@ -10,7 +10,7 @@ Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibi
 
 ## 1. Success Principle
 
-v2候補の価値は、AIの起動回数、自動処理件数、Agent数または自動化率では測らない。
+本Architecture Candidateの価値は、AIの起動回数、自動処理件数、Agent数または自動化率では測らない。
 
 > 自律Operationは、人間の判断負荷を増やすだけなら成功ではない。
 
@@ -54,7 +54,7 @@ Outcome Routing
 
 Background Laneは、人間判断を回避する経路ではない。既存PolicyとAuthorityで一意に解決できる結果だけを終了または完了へ進める。Policy不明、Authority競合、重大Risk、検証不能を`No impact`へ丸めない。
 
-Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)に従う。Background Laneで終了できることから、Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
+Run終了の意味は[Policy-contained Completion](02_CRDD_v1_Responsibility_Boundary.md#45-policy-contained-completion)に従う。Background Laneで終了できることから、Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
 
 ### 2.2. Human Decision Lane
 
@@ -71,13 +71,13 @@ Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Bou
 
 人間にはActivity全体ではなく、今回決めること、推奨、根拠、主な選択肢、影響、Risk、保留時の状態を示す。
 
-許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification Requirement等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、既存Policy内の実行として処理できる。Runを終了するときは、必要なResultとVerificationが成立したことを確認し、[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)に従う。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
+許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification Requirement等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、既存Policy内の実行として処理できる。Runを終了するときは、必要なResultとVerificationが成立したことを確認し、[Policy-contained Completion](02_CRDD_v1_Responsibility_Boundary.md#45-policy-contained-completion)に従う。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
 
 ---
 
 ## 3. Decision Queue
 
-Decision Queueは新しい必須成果物または固定UIを意味しない。[Coordinatorによる結果統合](02_CRDD_v2_Responsibility_Boundary.md#44-coordinatorによる結果統合)を経て、現在の対象改訂版から再構成された現在の判断集合を表示するHuman Interface候補である。複数Runの結果、未解決事項または人間判断候補をそのままQueue項目へ変換しない。
+Decision Queueは新しい必須成果物または固定UIを意味しない。[Coordinatorによる結果統合](02_CRDD_v1_Responsibility_Boundary.md#44-coordinatorによる結果統合)を経て、現在の対象改訂版から再構成された現在の判断集合を表示するHuman Interface候補である。複数Runの結果、未解決事項または人間判断候補をそのままQueue項目へ変換しない。
 
 人間判断は、同じ決定権限者と同じ判断時点を持ち、独立して保留または採否できず、分離すると意味または結果が壊れる場合だけ一つにまとめる。根本原因と対象Identityは重複排除、来歴、是正統合または影響範囲の判断に利用できるが、人間判断をまとめる必須条件にしない。判断が残らなければ、人間による判断が現在は不要であることを明示し、形式的な承認を要求しない。
 
@@ -199,7 +199,7 @@ Affected Context
 
 単一の指標を最適化しない。例えば通知を減らして見逃しが増えた場合、人間負荷低下を成功とみなさない。安全性、有用性、見逃し、人間負荷、費用を分けて評価する。
 
-ProviderまたはCreditの均等分散も成功条件にしない。Hard Cost／Effect Budget Ceiling違反または実行Capacity不足はEligibilityの拒否として扱い、Estimated CostやQuota／Credit Efficiencyとは別のHealth信号にする。Eligibilityを満たす候補間でCost／Quota集中を改善できても、品質、安全性、情報境界、見逃しまたは人間負荷が悪化するRoutingを採用しない。詳細は[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)に置く。
+ProviderまたはCreditの均等分散も成功条件にしない。Hard Cost／Effect Budget Ceiling違反または実行Capacity不足はEligibilityの拒否として扱い、Estimated CostやQuota／Credit Efficiencyとは別のHealth信号にする。Eligibilityを満たす候補間でCost／Quota集中を改善できても、品質、安全性、情報境界、見逃しまたは人間負荷が悪化するRoutingを採用しない。詳細は[Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)に置く。
 
 ---
 
@@ -209,7 +209,7 @@ ProviderまたはCreditの均等分散も成功条件にしない。Hard Cost／
 
 対象コンテキストまたはCapabilityの変更が、Operationの目的、判断対象、情報境界、Authorityまたは期待結果を実質的に変える場合、その変更を実行強度の調整として扱ってはならない。Semantic Contract変更候補として人間の決定権限へ戻す。
 
-Repository Identity、Context Referenceの解決範囲、Provenanceの情報源またはAuthority Grantの対象Scopeを変える場合も、単なる探索範囲や頻度の調整とみなさない。[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)が示す意味境界への変更として、既存のAuthorityへ戻す。
+Repository Identity、Context Referenceの解決範囲、Provenanceの情報源またはAuthority Grantの対象Scopeを変える場合も、単なる探索範囲や頻度の調整とみなさない。[Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md)が示す意味境界への変更として、既存のAuthorityへ戻す。
 
 Operation Healthに応じて次を候補化できる。
 

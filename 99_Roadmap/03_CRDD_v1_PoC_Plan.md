@@ -1,16 +1,16 @@
-# CRDD v2候補 — Activation ProfileとReference Implementation
+# CRDD v1 Architecture Candidate — Activation ProfileとReference Implementation
 
-Status: Concept / PoC Candidate  
-Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
+Status: Concept / Non-normative PoC Candidate
+Target: CRDD v1.x Architecture Candidate
+Related: [v1候補構想](01_CRDD_v1_Concept.md), [責務境界](02_CRDD_v1_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v1_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)
 
-> 本書は非規範の実証計画である。v2候補全体の仕様を最初のPoCへ限定しない。PoCの成功、Coding Agentの実行、試験合格または本書の存在だけで、v2採用、Authority拡張、現行標準変更を意味しない。
+> 本書は非規範の実証計画である。v1 Architecture Candidate全体の仕様を最初のPoCへ限定しない。PoCの成功、Coding Agentの実行、試験合格または本書の存在だけで、本候補の規範採用、Authority拡張、現行標準変更を意味しない。
 
 ---
 
 ## 1. Core Architectureと最初のActivationを分ける
 
-v2候補は、Re-evaluation、Operation、Runtime境界、Execution Identity、安全制御、Authority、Tool境界、Result、Learning、次回再評価を全体として定義する。
+本Architecture Candidateは、Re-evaluation、Operation、Runtime境界、Execution Identity、安全制御、Authority、Tool境界、Result、Learning、次回再評価を全体として定義する。
 
 最初の実運用は、その全体から許可する能力と権限を限定したActivation Profileである。
 
@@ -243,11 +243,11 @@ Meaning Change Assessment
 
 安全性と有用性を分けて測定する。有用な提案があっても権限や情報境界を破ったOperationを成功扱いにしない。
 
-Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause、廃止条件は[Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)を使用する。PoCではRun数や自動処理数を成功指標にしない。
+Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause、廃止条件は[Operation HealthとHuman Interface](05_CRDD_v1_Operation_Health_and_Human_Interface.md)を使用する。PoCではRun数や自動処理数を成功指標にしない。
 
 ### 7.6. Forward Compatibility
 
-[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)の将来Capabilityは先行実装せず、次の境界だけを合成Fixtureで確認する。
+[Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md)の将来Capabilityは先行実装せず、次の境界だけを合成Fixtureで確認する。
 
 - 同じLogical Repositoryのcloneまたはworktreeを別Instanceとして識別しつつ、同じ論理対象へ接続できるか
 - 安定コンテキストID等を付与したContextファイルを移動しても、同じ対象として解決できるか
@@ -264,7 +264,7 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 
 ### 7.7. Agent／Provider Routing
 
-[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)のProvider数またはRouting数ではなく、次を合成Fixtureで確認する。
+[Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)のProvider数またはRouting数ではなく、次を合成Fixtureで確認する。
 
 - Authority、Information Boundary、CapabilityまたはVerification Requirementを満たさないProviderを、低CostでもEligibility Gateが拒否するか
 - Eligible Set内でだけReliability、Fitness、Availability、Cost、Quotaを比較するか
@@ -273,13 +273,13 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 - Planner／Executor／Reviewerを固定Flowにせず、必要な責務だけを構成できるか
 - 別ProviderのReviewerがExecutorの結論を流用せず、対象と基準からFindingを独立再構成できるか
 - Routing Policy、Eligibility Policy revision、Eligibility Decision、Execution Boundary、Context Projection、Permission、Fallback、Verification、Costを必要な粒度で再構成できるか
-- [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)がRun終了だけを成立させ、Promotion PolicyなしにCanonical State、Risk AcceptanceまたはHuman Authorityを成立させないか
+- [Policy-contained Completion](02_CRDD_v1_Responsibility_Boundary.md#45-policy-contained-completion)がRun終了だけを成立させ、Promotion PolicyなしにCanonical State、Risk AcceptanceまたはHuman Authorityを成立させないか
 - Hard Cost／Effect Budget Ceilingまたは実行に必要なQuota／Rate-limitを満たさない候補を不適格とし、Eligible Set内だけでEstimated CostとQuota Efficiencyを比較するか
 - RoutingがCostを下げても品質、見逃し、人間負荷またはRecovery burdenを悪化させていないか
 
 ### 7.8. Coordinator Result Integration
 
-[Coordinatorによる結果統合](02_CRDD_v2_Responsibility_Boundary.md#44-coordinatorによる結果統合)を、固定Agent構成ではなく次の合成Fixtureで確認する。
+[Coordinatorによる結果統合](02_CRDD_v1_Responsibility_Boundary.md#44-coordinatorによる結果統合)を、固定Agent構成ではなく次の合成Fixtureで確認する。
 
 - 判断が残らないExecutor Resultを報告またはPolicy内完了へ接続し、形式承認を要求しないか
 - Executorが直接承認を要求しても、その要求をAuthorityとして採用せず現在の判断集合を再構成するか
@@ -327,11 +327,11 @@ PoCの成功や過去の一回承認から、新しい判断・操作権限を�
 
 ## 9. Activation Profile候補
 
-以下はv2の品質成熟度や工程省略を表すLevelではない。採用先が有効化するTrigger、接続、操作権限の範囲を表すProfile候補である。上位Profileへの移行は自動ではなく、各段階で人間判断、根拠、検証、回復条件を必要とする。
+以下は本候補の品質成熟度や工程省略を表すLevelではない。採用先が有効化するTrigger、接続、操作権限の範囲を表すProfile候補である。上位Profileへの移行は自動ではなく、各段階で人間判断、根拠、検証、回復条件を必要とする。
 
 ### Profile 0 — 構想と境界
 
-- v0〜v1系列とv2 featureの分離
+- 公開済み基準、v1規範変更候補、非規範Architecture Candidateの分離
 - コンテキスト契機と実行契機の分離
 - Operation Goalと固定Workflowの分離
 - Human Authority、External Information Boundary、停止条件の維持
@@ -390,9 +390,9 @@ Architectureは将来候補まで表現可能にし、最初のReference Impleme
 3. Coding Agent Automationで時間契機を作り、特定Providerへ規範を固定しない。
 4. 合成コンテキストで情報不足、権限不足、Prompt Injection、再帰起動、停止、回復を検証する。
 5. 判断価値、誤起動、見逃し、費用、人間確認負荷を測定する。
-6. v0〜v1系列の変更をv2 featureへmergeし、共有契約との差分を再評価する。
-7. 失敗を隠さず、v2候補に不足する契約、能力、根拠として残す。
+6. v1規範変更候補または公開基準が変わった場合は、本候補との意味差を新しい変更として再評価する。
+7. 失敗を隠さず、本候補に不足する契約、能力、根拠として残す。
 
 PoCの目的は成功を演出することではない。Triggerさえ与えればAIが有益な仕事を開始できるという中心仮説を、反証可能な形で評価することである。
 
-安全性のPoCでは、Agentが危険操作を避けたという結果だけを根拠にしない。[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)が定める候補状態分離、Policy拒否、対象同一性不一致、累積予算超過、Circuit Breaker、回復の各境界を、Agentの判断とは独立したRuntime Evidenceで確認する。
+安全性のPoCでは、Agentが危険操作を避けたという結果だけを根拠にしない。[自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md)が定める候補状態分離、Policy拒否、対象同一性不一致、累積予算超過、Circuit Breaker、回復の各境界を、Agentの判断とは独立したRuntime Evidenceで確認する。

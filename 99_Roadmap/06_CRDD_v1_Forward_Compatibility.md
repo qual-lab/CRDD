@@ -1,8 +1,8 @@
-# CRDD v2候補 — Forward Compatibility
+# CRDD v1 Architecture Candidate — Forward Compatibility
 
-Status: Concept / Future Candidate  
-Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
+Status: Concept / Non-normative Architecture Candidate
+Target: CRDD v1.x Architecture Candidate
+Related: [v1候補構想](01_CRDD_v1_Concept.md), [責務境界](02_CRDD_v1_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v1_PoC_Plan.md), [自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v1_Operation_Health_and_Human_Interface.md), [Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の将来互換Architecture候補である。現在のCRDD v0.17.0、安定コンテキストID、Human Authority、External Information Boundary、準拠基準または採用側のRepository構成を変更しない。ここで表現できる将来能力は、独立した採用・検証・人間判断を経るまで有効化または許可されない。
 
@@ -10,9 +10,9 @@ Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibi
 
 ## 1. 目的
 
-v2候補は、一つのCRDD Repositoryを基本的なコンテキスト境界として、再評価、候補形成、許可範囲内の実行、検証、学びを行う。
+本Architecture Candidateは、一つのCRDD Repositoryを基本的なコンテキスト境界として、再評価、候補形成、許可範囲内の実行、検証、学びを行う。
 
-将来、複数Repositoryやより広い業務範囲へ接続するとしても、v2でその能力を先行実装しない。一方、v2の実行Identity、参照、由来、決定権限を物理Locationや現在の実行主体へ固定し、将来Core Contractの全面変更が必要になる状態も避ける。
+将来、複数Repositoryやより広い業務範囲へ接続するとしても、本候補でその能力を先行実装しない。一方、本候補の実行Identity、参照、由来、決定権限を物理Locationや現在の実行主体へ固定し、将来Core Contractの全面変更が必要になる状態も避ける。
 
 中心原則は次のとおりである。
 
@@ -22,7 +22,7 @@ Forward Compatibilityは、現在のScope、アクセス、操作または決定
 
 ---
 
-## 2. v2で確保する四つの接続点
+## 2. 本候補で確保する四つの接続点
 
 ### 2.1. Repository Identity
 
@@ -38,7 +38,7 @@ Repository Instance Identity
 
 複数Instanceが同じLogical Repositoryを指していても、各Instanceが同じアクセス権、書込権、Promotion AuthorityまたはCurrent Stateを持つとは限らない。内容が同じであること、同じremoteを参照すること、または物理的に複製されたことだけからLogical Identityを決めない。
 
-v2では`Current Logical Repository = Current Context Boundary`を基本としてよい。Cross-Repository Operationは行わない。ただし、Execution Identity、重複抑止、Current State解決でLogical Repositoryと実行に使用したInstanceを再識別できるようにする。
+本候補では`Current Logical Repository = Current Context Boundary`を基本としてよい。Cross-Repository Operationは行わない。ただし、Execution Identity、重複抑止、Current State解決でLogical Repositoryと実行に使用したInstanceを再識別できるようにする。
 
 固定Schemaや全Repositoryへの新しい識別子ファイルは要求しない。対象リスクに応じて、既存のRepository設定、採用記録、Runtime設定または同等の根拠から再構成できればよい。
 
@@ -94,7 +94,7 @@ Resolver
   IdentityからLocationをどう解決するか
 ```
 
-v2のResolverはLocal Fileだけを返してよい。MCP、Remote Storeまたは別Repositoryを解決できる表現があっても、その接続が有効または許可済みであることを意味しない。
+本候補のResolverはLocal Fileだけを返してよい。MCP、Remote Storeまたは別Repositoryを解決できる表現があっても、その接続が有効または許可済みであることを意味しない。
 
 RevisionまたはBaselineが不変対象を指すのか、Current Stateへ解決する可変参照なのかを区別する。古いRevision、移動後に解決不能な参照、競合するIdentityを推測で現在状態へ丸めない。
 
@@ -140,7 +140,7 @@ Authorized Actor
 
 役割名だけではAuthority Grantにならない。対象リスクに応じて、対象範囲、許可する判断・操作、対象Revision、期間または失効条件、付与主体、委譲可否、必要なHuman Gateを取得可能にする。
 
-Actorの種別を将来拡張可能に表現できても、現在AIへ新しいAuthorityを与えることを意味しない。v2では、Product／Design Direction、Canonical Context変更、Risk Acceptance、External Publication、Production、Financial Action、Legal／Consent、Authority変更、Security Boundary変更、CRDD Core変更等の既存Human Gateを維持する。
+Actorの種別を将来拡張可能に表現できても、現在AIへ新しいAuthorityを与えることを意味しない。本候補では、Product／Design Direction、Canonical Context変更、Risk Acceptance、External Publication、Production、Financial Action、Legal／Consent、Authority変更、Security Boundary変更、CRDD Core変更等の既存Human Gateを維持する。
 
 ---
 
@@ -166,7 +166,7 @@ Representable
 
 前段の成立から後段を推定しない。未知のIdentity、Reference、Authority型または拡張情報をRuntimeが理解できない場合、それを無視してEffectを許可せず、対象EffectについてFail Closedとする。未知情報を保持して後続へ渡すことと、その意味に基づいて操作することも分ける。
 
-ProviderまたはModelはExecution Provenanceの一部になり得るが、Repository Identity、Context Identity、Authorityまたは成果物の意味そのものではない。Providerを変更できることから、そのProviderへのアクセス、送信、実行またはReview独立性を推定しない。安全なRoutingの責務は[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)に置く。
+ProviderまたはModelはExecution Provenanceの一部になり得るが、Repository Identity、Context Identity、Authorityまたは成果物の意味そのものではない。Providerを変更できることから、そのProviderへのアクセス、送信、実行またはReview独立性を推定しない。安全なRoutingの責務は[Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)に置く。
 
 ---
 
@@ -184,9 +184,9 @@ ProviderまたはModelはExecution Provenanceの一部になり得るが、Repos
 
 ---
 
-## 5. v2で先行実装しないCapability
+## 5. 本候補で先行実装しないCapability
 
-Forward Compatibilityを理由として、v2へ次を追加しない。
+Forward Compatibilityを理由として、本候補へ次を追加しない。
 
 - Cross-Repository Contextの自律読取または自律実行
 - Repository間の変更自動伝播
@@ -202,7 +202,7 @@ CRDD自身の改善候補は、`Observe → Analyze → Propose → Human / Auth
 
 ## 6. 将来互換性の確認候補
 
-v2のReference Implementationでは、将来Capabilityを実装する代わりに、現在の契約が次を満たすか確認する。
+本候補のReference Implementationでは、将来Capabilityを実装する代わりに、現在の契約が次を満たすか確認する。
 
 1. 同じLogical Repositoryのcloneまたはworktreeを別Instanceとして識別しつつ、同じ論理対象へ接続できる。
 2. 安定コンテキストID等を付与したContextファイルを移動しても、同じ対象として解決できる。
@@ -229,7 +229,7 @@ v2のReference Implementationでは、将来Capabilityを実装する代わり�
 
 ## 8. 結論
 
-v2で先に確保するのは、将来機能ではなく次の意味上の接続点である。
+本候補で先に確保するのは、将来機能ではなく次の意味上の接続点である。
 
 ```text
 Repository Identity
@@ -238,4 +238,4 @@ Provenance
 Authority Requirement / Grant / Authorized Actor
 ```
 
-これにより、v2はSingle Repository Autonomous Operationという現在の責務を維持しながら、将来の拡張時にIdentity、Reference、Provenance、Authorityを全面的に作り直す危険を減らす。
+これにより、本候補はSingle Repository Autonomous Operationという現在の責務を維持しながら、将来の拡張時にIdentity、Reference、Provenance、Authorityを全面的に作り直す危険を減らす。

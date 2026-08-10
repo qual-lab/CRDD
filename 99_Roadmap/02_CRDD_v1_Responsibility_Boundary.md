@@ -1,8 +1,8 @@
-# CRDD v2候補 — 責務境界
+# CRDD v1 Architecture Candidate — 責務境界
 
-Status: Concept / Future Candidate  
-Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [実証計画](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
+Status: Concept / Non-normative Architecture Candidate
+Target: CRDD v1.x Architecture Candidate
+Related: [v1候補構想](01_CRDD_v1_Concept.md), [実証計画](03_CRDD_v1_PoC_Plan.md), [自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v1_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の責務整理である。現在のCRDD、Agent Contract、Skill Contract、Human Authority、External Information Boundaryまたは準拠基準を変更しない。
 
@@ -22,7 +22,7 @@ Authority = 誰が何を判断・操作できるか
 Human     = 価値、方向、責任、リスク受容
 ```
 
-CRDD v2候補はこれらを一つの巨大Platformへ統合せず、意味と実行を分けたまま接続する。
+本Architecture Candidateはこれらを一つの巨大Platformへ統合せず、意味と実行を分けたまま接続する。
 
 ---
 
@@ -224,11 +224,11 @@ Coordinatorは結果を、少なくとも次の既存経路へ接続する。
 
 `Policy-contained Completion`は、事前承認されたOperationについて、必要なResultとVerificationが許可範囲内で成立し、そのRunを終了できる実行上の境界を意味する。Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを自動的に成立させない。
 
-これは新しい第一級成果物、独立した状態軸または承認段階ではない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)のPromotion Policyを別途適用する。Policy、Authority、必須Result、Verificationまたは未解決Riskを確認できないRunを、`Policy-contained Completion`へ丸めない。
+これは新しい第一級成果物、独立した状態軸または承認段階ではない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md)のPromotion Policyを別途適用する。Policy、Authority、必須Result、Verificationまたは未解決Riskを確認できないRunを、`Policy-contained Completion`へ丸めない。
 
 ### 4.6. Identity、Reference、Provenance、Authority
 
-本書は実行時の責務分離を所有し、将来互換の意味上の合成関係は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)へ接続する。
+本書は実行時の責務分離を所有し、将来互換の意味上の合成関係は[Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md)へ接続する。
 
 ```text
 Execution Identity
@@ -346,7 +346,7 @@ Operation Goal
 Reasoning / Result
 ```
 
-ただしCRDD v2を特定製品専用にしない。必要能力を示し、製品、CLI、API、MCP、将来Runtimeは交換可能なAdapterとして扱う。
+ただし本Architecture Candidateを特定製品専用にしない。必要能力を示し、製品、CLI、API、MCP、将来Runtimeは交換可能なAdapterとして扱う。
 
 READMEやAGENTS.mdは導入方法と起動例を案内できるが、CRDD Coreの意味正本や固定Promptにしない。
 
@@ -394,7 +394,7 @@ Proposal / Authorized Execution
 
 複数Agentを使うこと自体を品質や独立性の根拠にしない。
 
-複数のAgent、ModelまたはProviderへWorkを割り当てる場合、CRDDは必要Context、Authority、Capability、期待結果、Verification Requirementを所有する。採用側Policyは利用可能なExecution Boundaryを定め、RuntimeはEligibility GateとEligible Set内のOptimizationを実行する。Provider Adapterは固有APIと入出力変換を担う。このRouting責務は[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)に置く。
+複数のAgent、ModelまたはProviderへWorkを割り当てる場合、CRDDは必要Context、Authority、Capability、期待結果、Verification Requirementを所有する。採用側Policyは利用可能なExecution Boundaryを定め、RuntimeはEligibility GateとEligible Set内のOptimizationを実行する。Provider Adapterは固有APIと入出力変換を担う。このRouting責務は[Agent & Provider Orchestration](07_CRDD_v1_Agent_and_Provider_Orchestration.md)に置く。
 
 Planner、Executor、ReviewerはOptional Profileであり、基本Roleまたは固定Flowではない。Providerが異なることをIndependent Reviewの根拠にせず、Task／Result／Reviewの実行表現を既存ContractのRuntime Projectionとして扱う。
 
@@ -449,7 +449,7 @@ AIが自律的に行える初期候補：
 
 契機駆動Operationの安全性をAgentの自己申告だけへ依存させない。
 
-実行前後の安全契約、候補状態と正本状態の分離、実行効果の分類、Policy評価、対象同一性の再確認、累積予算、停止と回復は[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)に置く。本書はCRDD、Runtime、Tool、Authorityの責務分離を所有し、安全文書はその境界を再定義しない。
+実行前後の安全契約、候補状態と正本状態の分離、実行効果の分類、Policy評価、対象同一性の再確認、累積予算、停止と回復は[自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md)に置く。本書はCRDD、Runtime、Tool、Authorityの責務分離を所有し、安全文書はその境界を再定義しない。
 
 ---
 
@@ -461,4 +461,4 @@ AIが自律的に行える初期候補：
 - Context Dependency：Runtime、MCP、外部Toolの依存と権限を管理し、接続結果を無条件流用しない。
 - CRDD Maintenance：運用上の手戻りから改善候補を作れるが、Coreを自動変更しない。
 
-Background Lane、Decision Queue、通知集約、運用健全性、頻度変更、Pause、廃止の責務は[Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)に置く。Operation Contractが目的と期待結果を所有し、Health評価はOperationの意味や採用判断を自己変更しない。
+Background Lane、Decision Queue、通知集約、運用健全性、頻度変更、Pause、廃止の責務は[Operation HealthとHuman Interface](05_CRDD_v1_Operation_Health_and_Human_Interface.md)に置く。Operation Contractが目的と期待結果を所有し、Health評価はOperationの意味や採用判断を自己変更しない。

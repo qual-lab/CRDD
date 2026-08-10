@@ -9,7 +9,7 @@ Work to AI. Judgment to humans. Thought to the Context Repository.
 
 Status: **v0.17.0 — Expert Exploration, Convergence, and External Information Boundary / 専門探索・収束と外部情報境界**
 
-> **Branch note / ブランチ注記:** This feature branch also contains a non-normative CRDD v2 Architecture Candidate. The released standard remains v0.17.0; the v2 documents do not change current conformance, adoption, or authority. / このfeatureブランチには非規範のCRDD v2 Architecture Candidateも含まれる。公開済み標準は引き続きv0.17.0であり、v2文書は現在の準拠、採用、決定権限を変更しない。See / 参照: [v2 Concept](99_Roadmap/01_CRDD_v2_Concept.md).
+> **Branch note / ブランチ注記:** This branch is an integrated v1 candidate. It contains normative change candidates for the Current Decision Set and Communication, plus a non-normative v1 Architecture Candidate. The released standard remains v0.17.0; co-location does not establish v1 conformance, adoption, authority, automatic AI loading, or release. / このbranchは統合v1候補である。現在の判断集合とCommunicationの規範変更候補に加え、非規範のv1 Architecture Candidateを含む。公開済み標準は引き続きv0.17.0であり、同じbranchにあることからv1準拠、採用、決定権限、AIによる自動読込またはReleaseは成立しない。See / 参照: [v1 Architecture Candidate](99_Roadmap/01_CRDD_v1_Concept.md).
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -93,9 +93,9 @@ Choose the shortest route that matches the work:
 - It does not make optional Communication, dependency, visual, or specialist capabilities mandatory for repositories where they do not apply.
 - It does not replace specialist judgment with a fixed number of alternatives, interviewees, impressions, or a declaration that exploration was performed.
 
-### Future Architecture Candidate on this branch
+### Integrated v1 candidate on this branch
 
-The v2 candidate asks how existing CRDD context can be reevaluated proactively without turning CRDD into a fixed workflow engine or granting uncontrolled autonomy.
+The non-normative v1 Architecture Candidate asks how existing CRDD context can be reevaluated proactively without turning CRDD into a fixed workflow engine or granting uncontrolled autonomy.
 
 ```text
 Trigger → Think → Controlled Effect → Verify → Learn
@@ -103,15 +103,15 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and Authority Safety, Background versus Human Decision separation, and Operation Health. They are future, non-normative design material—not part of v0.17.0 conformance:
 
-The v1 development candidate narrows Human requests to a Current Decision Set derived from the current revision. The v2 candidate extends that boundary across multiple executions: a Coordinator integrates Executor, Reviewer, Provider, and Run results before passing only the current decision set to a Human interface. Neither candidate makes a Coordinator product, agent layout, queue UI, or autonomous approval mandatory. The synchronized v1 candidate remains a development dependency, not an adopted or released baseline; later v1 changes require a fresh semantic comparison here.
+The integrated v1 candidate combines normative change candidates for Current Decision Set and Communication with non-normative architecture material. The architecture material extends the decision boundary across multiple executions: a Coordinator integrates Executor, Reviewer, Provider, and Run results before passing only the current decision set to a Human interface. It does not make a Coordinator product, agent layout, queue UI, autonomous approval, or runtime capability mandatory. Changes to the normative candidates or released baseline require a new semantic comparison; the former feature branches are provenance, not continuing synchronization sources.
 
-- [Concept and vision](99_Roadmap/01_CRDD_v2_Concept.md)
-- [Responsibility boundaries](99_Roadmap/02_CRDD_v2_Responsibility_Boundary.md)
-- [Activation profiles and reference implementation](99_Roadmap/03_CRDD_v2_PoC_Plan.md)
-- [Autonomous safety architecture](99_Roadmap/04_CRDD_v2_Autonomous_Safety_Architecture.md)
-- [Operation health and Human interface](99_Roadmap/05_CRDD_v2_Operation_Health_and_Human_Interface.md)
-- [Forward compatibility](99_Roadmap/06_CRDD_v2_Forward_Compatibility.md)
-- [Agent and provider orchestration](99_Roadmap/07_CRDD_v2_Agent_and_Provider_Orchestration.md)
+- [Concept and vision](99_Roadmap/01_CRDD_v1_Concept.md)
+- [Responsibility boundaries](99_Roadmap/02_CRDD_v1_Responsibility_Boundary.md)
+- [Activation profiles and reference implementation](99_Roadmap/03_CRDD_v1_PoC_Plan.md)
+- [Autonomous safety architecture](99_Roadmap/04_CRDD_v1_Autonomous_Safety_Architecture.md)
+- [Operation health and Human interface](99_Roadmap/05_CRDD_v1_Operation_Health_and_Human_Interface.md)
+- [Forward compatibility](99_Roadmap/06_CRDD_v1_Forward_Compatibility.md)
+- [Agent and provider orchestration](99_Roadmap/07_CRDD_v1_Agent_and_Provider_Orchestration.md)
 
 The product transformation is connected end to end, but it is not a fixed waterfall:
 
@@ -438,9 +438,9 @@ CRDDは、AIにコードを書かせるためだけの方法ではない。な�
 - 適用しないRepositoryへ、任意のCommunication、依存、視覚制作または専門機能を要求しない。
 - 固定案数、固定面談人数、固定表示数や「探索した」という申告を専門判断の代わりにしない。
 
-### このbranchの将来Architecture候補
+### このbranchの統合v1候補
 
-v2候補は、CRDDを固定Workflow Engineへ変えたり無制御な自律性を与えたりせず、既存のCRDD Contextを能動的に再評価する方法を扱う。
+非規範のv1 Architecture Candidateは、CRDDを固定Workflow Engineへ変えたり無制御な自律性を与えたりせず、既存のCRDD Contextを能動的に再評価する方法を扱う。
 
 ```text
 Trigger → Think → Controlled Effect → Verify → Learn
@@ -448,15 +448,15 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
 
-v1開発候補は、現在の改訂版から現在の判断集合を導き、人間への判断要求を絞る。v2候補はこの境界を複数実行へ拡張し、CoordinatorがExecutor、Reviewer、Providerおよび各Runの結果を統合してから、現在の判断集合だけをHuman Interfaceへ渡す。いずれの候補も、特定Coordinator製品、Agent構成、Queue UIまたは自律承認を必須にしない。同期したv1候補は開発依存であり、採用済みまたはReleasedの基準ではない。v1候補が変わった場合は、v2側で意味差を改めて確認する。
+統合v1候補は、現在の判断集合とCommunicationの規範変更候補に、非規範のArchitecture資料を組み合わせる。Architecture資料は判断境界を複数実行へ拡張し、CoordinatorがExecutor、Reviewer、Providerおよび各Runの結果を統合してから、現在の判断集合だけをHuman Interfaceへ渡す。特定Coordinator製品、Agent構成、Queue UI、自律承認またはRuntime Capabilityを必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
 
-- [Conceptと全体像](99_Roadmap/01_CRDD_v2_Concept.md)
-- [責務境界](99_Roadmap/02_CRDD_v2_Responsibility_Boundary.md)
-- [Activation ProfileとReference Implementation](99_Roadmap/03_CRDD_v2_PoC_Plan.md)
-- [自律安全Architecture](99_Roadmap/04_CRDD_v2_Autonomous_Safety_Architecture.md)
-- [Operation HealthとHuman Interface](99_Roadmap/05_CRDD_v2_Operation_Health_and_Human_Interface.md)
-- [Forward Compatibility](99_Roadmap/06_CRDD_v2_Forward_Compatibility.md)
-- [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v2_Agent_and_Provider_Orchestration.md)
+- [Conceptと全体像](99_Roadmap/01_CRDD_v1_Concept.md)
+- [責務境界](99_Roadmap/02_CRDD_v1_Responsibility_Boundary.md)
+- [Activation ProfileとReference Implementation](99_Roadmap/03_CRDD_v1_PoC_Plan.md)
+- [自律安全Architecture](99_Roadmap/04_CRDD_v1_Autonomous_Safety_Architecture.md)
+- [Operation HealthとHuman Interface](99_Roadmap/05_CRDD_v1_Operation_Health_and_Human_Interface.md)
+- [Forward Compatibility](99_Roadmap/06_CRDD_v1_Forward_Compatibility.md)
+- [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v1_Agent_and_Provider_Orchestration.md)
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 
