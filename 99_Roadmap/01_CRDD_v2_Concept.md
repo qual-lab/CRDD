@@ -39,6 +39,37 @@ Result / Evidence / Learning
 
 契機は結果や推論順序を固定しない。AIが考え始める理由、対象、権限、停止条件、期待結果を固定し、その時点のCRDDコンテキストから必要な探索と専門思考を形成させる。
 
+### 1.1. 仕様は全体を定義し、運用は段階的に有効化する
+
+v2候補では、将来の実行形態をPoCの大きさへ縮めない。Re-evaluation、Operation、Runtime境界、Execution Identity、安全制御、Authority、Tool境界、Operation Result、Learning、次回再評価までの全体契約を、相互に矛盾しない一つのArchitecture候補として先に定義する。
+
+一方、定義されていることを自律実行の許可とみなさない。
+
+> 仕様対象は全体を閉じ、権限とRuntime利用は段階的に有効化する。
+
+初期Reference Implementationが読み取り専用の定期助言だけであっても、v2全体をそのProfileへ限定しない。逆に、将来の操作が契約上表現されていても、Activation Profileと人間判断が許可するまでは利用できない。
+
+Activation Profileは品質契約、探索、検証、情報境界を省略する経路ではない。下位Profileは利用できる能力と権限を狭めるだけであり、Agentの自己申告によって上位Profileへ移行できない。
+
+### 1.2. 3層Architecture
+
+```text
+Layer 1 — Semantic Contract
+  Re-evaluation / Operation / Authority
+  Expected Outcome / Learning
+
+Layer 2 — Execution Contract
+  Run Identity / Current State Resolution / Trigger Cause
+  Duplicate and Recursion Protection / Timeout / Retry
+  Execution Evidence / Result
+
+Layer 3 — Runtime Adapter
+  Coding Agent Automation / CLI / CI / MCP
+  Dedicated Runtime / Future Adapter
+```
+
+Layer 1はCRDDが意味を所有する。Layer 2はCRDDとRuntimeの境界を定める。Layer 3はCRDD外の交換可能な実装である。Reference ImplementationはLayer 3の一例であり、Layer 1または2の正本にならない。
+
 ---
 
 ## 2. v0〜v1系列との分離
@@ -208,6 +239,8 @@ AIがCRDD Coreを自己変更することとは分離する。Core変更は、�
 7. CRDD自身を巨大なRuntime、Scheduler、Queue、Worker、MCP Serverへ変えない。
 8. 特定のAI製品、Protocol、Provider、課金方式へ固定しない。
 9. 外部情報境界、最小権限、Human Gate、検証、回復を自律性より先に守る。
+10. Capabilityが存在することを、利用権限、情報送信権限、Operation Authorityとみなさない。
+11. Execution IdentityとCurrent Stateを確定できないOperationを、現在状態への有効な実行として扱わない。
 
 ---
 

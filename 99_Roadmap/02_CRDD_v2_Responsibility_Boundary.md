@@ -125,6 +125,81 @@ operation:
 
 ファイル探索順、使用スキル、推論経路をTypeScriptや固定Promptへ埋め込まない。
 
+### 4.1. 仕様とActivationの分離
+
+Operation Contractは将来利用し得るTrigger、Capability、Authority、Resultを表現できるようにする。一方、各採用先が有効化する範囲はActivation Profileで制限する。
+
+```text
+Operation Contract
+  表現できる意味・能力・権限の全体
+
+Activation Profile
+  今回の採用先で実際に有効なTrigger・能力・権限
+```
+
+ProfileはOperation Contractの必須結果、停止条件、根拠、探索・収束、セキュリティを省略しない。権限を狭めることはできるが、定義済みであることを理由に権限を広げない。
+
+### 4.2. Execution Contract
+
+すべてのOperationに共通する実行境界候補として、次を取得可能にする。
+
+```text
+Execution Identity
+├ Repository identity
+├ Branch or equivalent context
+├ Target revision
+├ Baseline
+├ Operation ID
+├ Run ID
+├ Trigger cause
+└ Parent run ID, when delegated or derived
+
+Current State Resolution
+├ Current canonical context
+├ Adopted versus candidate state
+├ Current authority
+├ Stale or invalidated evidence
+└ Unavailable or conflicting context
+
+Execution Safety
+├ Duplicate suppression
+├ Recursion protection
+├ Concurrency boundary
+├ Time and cost boundary
+├ Retry policy
+├ Failure and recovery
+└ Execution evidence
+```
+
+Execution Identityは特定Git製品への固定を意味しない。Gitを使う場合はRepository、branch、Commit、baseline等で再識別でき、他のRuntimeでは同等の不変な対象識別を持つ。
+
+Operation開始時に現在状態を確定できない場合、不足または競合を残して停止する。古い履歴、失効したEvidence、未採用候補を現在状態へ丸めない。
+
+Operation Resultそれ自体は、原則として同一対象・同一原因の同一Operationを即時再発火しない。再評価が必要なら、次回再評価候補として記録し、別のTrigger評価を経る。Runtimeは少なくとも`operation + repository + target revision`相当の実行キー、同時実行境界、Retry上限、終了状態を扱えるようにする。
+
+### 4.3. Operation Result Contract
+
+結果は提案の文章だけでなく、実行対象、探索範囲、根拠、停止、次回候補を再構成可能にする。
+
+候補：
+
+- Execution IdentityとTrigger Cause
+- Current State
+- Meaningful Changes
+- EvidenceとFinding
+- Recommendation
+- Decision Required
+- Action ExecutedとVerification
+- Learning Candidate
+- Next Re-evaluation Candidate
+- Explored Scope
+- Excluded Scope
+- Unavailable Context
+- Remaining Uncertainty
+- Reason for Convergence
+
+Silent Failureを減らすため、「問題なし」という結論にも探索範囲、対象外、利用不能なコンテキスト、残存不確実性、収束理由を要求する。活動を実施したという自己申告だけで結果を成立させない。
+
 ---
 
 ## 5. CRDD、Runtime、Tool
@@ -186,6 +261,22 @@ RuntimeまたはAdapterは、AIが選択できる原子的能力を提供でき�
 | Forbidden | Operationから利用不可 | シークレット取込み、未許可送信、無断の破壊的削除 |
 
 委譲、Subagent、MCP、プラグインによって権限を増やさない。
+
+Capabilityを実行するまでの境界は次の順序で確認する。
+
+```text
+Tool Capability
+   ↓
+Agent Permission
+   ↓
+Context and Information Boundary
+   ↓
+Operation Authority
+   ↓
+Actual Action
+```
+
+Toolが`publish`、`delete`、`deploy`等を公開していることは、Agentによる呼出し許可を意味しない。
 
 ---
 
