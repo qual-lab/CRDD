@@ -105,6 +105,25 @@ Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and 
 
 The integrated v1 candidate combines normative change candidates for Current Decision Set and Communication with non-normative architecture material. The architecture material extends the decision boundary across multiple executions: a Coordinator integrates Executor, Reviewer, Provider, and Run results before passing only the current decision set to a Human interface. It does not make a Coordinator product, agent layout, queue UI, autonomous approval, or runtime capability mandatory. Changes to the normative candidates or released baseline require a new semantic comparison; the former feature branches are provenance, not continuing synchronization sources.
 
+#### What this candidate does not provide by itself
+
+This candidate defines the rules for connecting automation safely; it is not an automation runtime. By itself, it does not provide:
+
+- a Scheduler or Event Listener that starts Operations;
+- MCP installation, connection configuration, authentication, or credential management;
+- a multi-agent or multi-provider runtime, automatic routing, or fallback execution;
+- automatic file edits, commits, pushes, publication, external contact, spending, or Production effects;
+- a persistent Decision Queue, continuous Operation Health monitoring, or Runtime enforcement; or
+- automatic approval, Promotion, Risk Acceptance, or Human Authority.
+
+An external adapter such as a Codex scheduled task, MCP client or server, CLI, CI job, or webhook may supply a trigger or capability. Connecting one does not by itself enable or authorize its operations. The selected Operation must still establish its Context, Capability, Authority, prohibited operations, Verification, Stop conditions, and applicable Human Gate.
+
+```text
+Representable != Enabled != Accessible != Authorized != Promoted
+```
+
+For example, a Codex scheduled task may explicitly start a read-only weekly review. The candidate defines what that review may read, what result it must return, and where it must stop; it does not register the schedule or grant write, publication, or external-send authority.
+
 - [Concept and vision](99_Roadmap/01_CRDD_v1_Concept.md)
 - [Responsibility boundaries](99_Roadmap/02_CRDD_v1_Responsibility_Boundary.md)
 - [Activation profiles and reference implementation](99_Roadmap/03_CRDD_v1_PoC_Plan.md)
@@ -449,6 +468,25 @@ Trigger → Think → Controlled Effect → Verify → Learn
 候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
 
 統合v1候補は、現在の判断集合とCommunicationの規範変更候補に、非規範のArchitecture資料を組み合わせる。Architecture資料は判断境界を複数実行へ拡張し、CoordinatorがExecutor、Reviewer、Providerおよび各Runの結果を統合してから、現在の判断集合だけをHuman Interfaceへ渡す。特定Coordinator製品、Agent構成、Queue UI、自律承認またはRuntime Capabilityを必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
+
+#### この候補が単独では提供しないもの
+
+この候補は、自動化を安全に接続するための規則を定義するものであり、自動化Runtimeそのものではない。この候補だけでは、次を提供しない。
+
+- Operationを起動するSchedulerまたはEvent Listener
+- MCPの導入、接続設定、認証またはCredential管理
+- Multi-Agent／Multi-Provider Runtime、自動RoutingまたはFallback実行
+- ファイル編集、commit、push、公開、外部接触、費用執行またはProduction Effectの自動実行
+- 永続Decision Queue、Operation Healthの常時監視またはRuntime Enforcement
+- 自動承認、Promotion、Risk AcceptanceまたはHuman Authority
+
+Codex Scheduled Task、MCP Client／Server、CLI、CI JobまたはWebhook等の外部Adapterは、TriggerまたはCapabilityを提供できる。ただし、接続したことだけでは、その操作は有効化も許可もされない。対象Operationは、Context、Capability、Authority、禁止操作、Verification、停止条件および適用するHuman Gateを引き続き成立させなければならない。
+
+```text
+Representable != Enabled != Accessible != Authorized != Promoted
+```
+
+例えば、Codex Scheduled Taskから読み取り専用の週次レビューを明示的に開始できる。この候補が定めるのは、そのレビューが何を読み、どのResultを返し、どこで停止するかであり、Scheduleの登録や、書き込み、公開または外部送信のAuthorityを与えることではない。
 
 - [Conceptと全体像](99_Roadmap/01_CRDD_v1_Concept.md)
 - [責務境界](99_Roadmap/02_CRDD_v1_Responsibility_Boundary.md)
