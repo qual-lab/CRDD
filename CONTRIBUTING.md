@@ -70,7 +70,7 @@ One project example may be enough to start a candidate. Promotion into a general
 
 Maintainers distinguish initial triage, authorization to work within a fixed scope and baseline, and final adoption or release approval. An issue status, label, assignment, or proposal does not by itself provide all three decisions or start an automated change.
 
-Before non-trivial implementation, the issue, task, or linked change record should identify the allowed and excluded scope, base revision, preserved intent and non-goal, expected result, unresolved Human decisions, required review and audits, and stop or re-triage conditions. If the scope, classification, authority, migration impact, or baseline changes materially, return for triage instead of silently expanding the change.
+Before maintainers begin an accepted non-trivial implementation, the issue, task, or linked change record should identify the allowed and excluded scope, base revision, preserved intent and non-goal, expected result, unresolved Human decisions, required review and audits, and stop or re-triage conditions. The maintainer then follows the [pre-execution alignment check](10_Agent.md#pre-execution-alignment-check) and CRDD's [tracked change execution contract](19_Maintenance.md#31-tracked-change-execution-contract), including the applicable contract and consumer populations, representative cases for changed conditional rules, and reconciliation with the actual diff before fixing the review target. This does not require an external proposer to supply those execution records at issue intake. If the scope, classification, authority, migration impact, or baseline changes materially, return for triage instead of silently expanding the change.
 
 ### Change classification
 
@@ -174,7 +174,7 @@ Issue、提案、投票、プルリクエストだけでCRDD規則が変更さ�
 
 初期整理、固定した対象範囲と基準版で作業を始める許可、最終的な採用またはリリース承認を区別する。Issueの状態、表示名、割当、提案だけで三つの判断がすべて成立したり、変更作業が自動的に開始されたりすることはない。
 
-非自明な変更を実装する前に、Issue、タスク、または参照する変更記録から、変更可能な範囲／対象外、基準改訂版、保持する意図／非目標、期待結果、未決の人間判断、必要なレビュー／監査、停止・再整理条件を識別可能にする。対象範囲、変更分類、決定権限、移行影響、基準版が実質的に変わった場合は、変更を暗黙に拡張せず整理へ戻す。
+保守担当者が採用済みの非自明な変更の実装を始める前に、Issue、タスク、または参照する変更記録から、変更可能な範囲／対象外、基準改訂版、保持する意図／非目標、期待結果、未決の人間判断、必要なレビュー／監査、停止・再整理条件を識別可能にする。そのうえで[着手前整合確認](10_Agent.md#pre-execution-alignment-check)とCRDDの[追跡対象変更の実行契約](19_Maintenance.md#31-tracked-change-execution-contract)に従い、該当する契約母集団と利用側母集団、変更する条件規範の代表例、固定前の実差分照合を扱う。Issue受付時の外部提案者へ、これらの実行記録を常時要求しない。対象範囲、変更分類、決定権限、移行影響、基準版が実質的に変わった場合は、変更を暗黙に拡張せず整理へ戻す。
 
 ### 変更分類
 
