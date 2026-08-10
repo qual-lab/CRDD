@@ -23,9 +23,9 @@ Compared with v0.15.0:
 - Adds a pre-freeze reconciliation against the actual diff. The parent agent compares the planned populations and cases with changed files, unchanged consumers, references, generated views, migration text, and current-state projections before fixing the review target.
 - Makes the first independent review reconstruct the same four case types and check direct consumers rather than waiting for a first finding to reveal the missing branch.
 - Extends verification design and Document, Conformance, and Gap / Impact audits to preserve these boundaries without creating another audit, approval gate, permanent artifact, profile, Stable Context ID, or external QA dependency.
-- Extends the optional checker only where the rule is deterministic: the official repository's current English and Japanese CHANGELOG release sections must exist, and a release declaring `migration_required: true` must expose the required migration-note categories. Checker success still proves only implemented checks.
+- Extends the optional checker only where the rule is deterministic: the official repository must have exactly one current English and Japanese CHANGELOG release section, each with one valid and matching `migration_required` declaration. A migration-requiring release must also have one matching change classification and expose the required structured migration-note categories. Missing, invalid, duplicate, or bilingual-conflicting declarations are errors; prose and prior releases are not declarations. Checker success still proves only implemented checks.
 
-Adoption impact: this is a breaking, non-structural Agentic Delivery and maintenance change. Existing-baseline adoption is subject to [Migration Completeness](19_Maintenance.md#621-migration-completeness). Projects that use AI for non-trivial maintenance or claim Agentic Delivery re-evaluate their pre-execution planning, first-review input, and AD-02 evidence. Existing closed changes and historical review records are not rewritten solely to match the new preparation format.
+Adoption impact: this is a breaking, non-structural Agentic Delivery and maintenance change. Existing-baseline adoption is subject to [Migration Completeness](19_Maintenance.md#621-migration-completeness). Projects that use AI for non-trivial maintenance or claim Agentic Delivery re-evaluate their pre-execution planning, first-review input, and AD-02 evidence. Projects that verify conditional rules through CRDD quality assurance re-evaluate PL-16; first independent reviews of newly introduced or changed conditional rules re-evaluate AD-21. Existing closed changes and historical review records are not rewritten solely to match the new preparation format.
 
 Migration note (v0.15.0 → v0.16.0):
 
@@ -33,6 +33,8 @@ Migration note (v0.15.0 → v0.16.0):
 - `change_classification: breaking`
 - Required: for non-trivial AI-assisted changes, identify contract and consumer populations, record activating, non-activating, boundary, and insufficient-information cases for conditional rules, and reconcile them against the actual diff before fixing the candidate.
 - Required for Agentic Delivery conformance: re-evaluate AD-02 and ensure the change execution record or equivalent evidence can show the populations, representative cases, pre-freeze reconciliation, and unresolved mismatches.
+- Required when CRDD quality assurance verifies a conditional rule: re-evaluate PL-16 so Verification Design and Evidence distinguish the definition, activation, undecidable handling, formal result, and the four representative case types.
+- Required for the first independent review of an introduced or changed conditional rule: re-evaluate AD-21 so the reviewer reconstructs the four case types and consumers from the canonical authority rather than reusing the implementation plan.
 - Conditional: update local AI entry points, change templates, verification design, or audit procedures only when they cannot preserve these inputs or reconstruct the four cases. Projects that do not use the supplied checker may use an equivalent deterministic confirmation and state its limits.
 - Not required: create a new audit, approval stage, permanent convergence artifact, field whitelist, shadow workflow, random-sampling gate, model capability score, or lighter review path; rerun completed historical changes; reduce any currently required independent review or specialist check.
 - Rollback / recovery: keep the currently active v0.15.0 baseline and procedures until Migration Completeness and Human activation are complete. If a partial adoption is reverted, restore the v0.15.0 AI entry and change-execution procedure, retain candidate records as history, and return in-flight changes to their previously recorded review boundary.
@@ -749,9 +751,9 @@ v0.15.0からの主な変更:
 - 固定前に実差分との全数照合を行う。親エージェントは計画した母集団と代表例を、変更ファイル、変更していない利用側、参照、生成表示、移行記述および現在状態投影と照合してから確認対象を固定する。
 - 初回の独立確認は、最初の指摘で欠けた分岐を知るのを待たず、同じ4種類の代表例を再構成して直接利用側を確認する。
 - 検証設計、文書監査、準拠監査および不足／影響監査へ同じ境界を接続する。新しい監査、承認段階、恒久成果物、準拠プロファイル、安定コンテキストIDまたは外部QA依存は追加しない。
-- 任意Checkerは安全に決定できる範囲だけを拡張する。公式リポジトリの現行リリースについて英日CHANGELOG節の存在を確認し、`migration_required: true`の場合は移行注記の必須区分を確認する。Checker合格は実装済み検査だけを証明する。
+- 任意Checkerは安全に決定できる範囲だけを拡張する。公式リポジトリの現行英日CHANGELOG節が各1件あり、有効な`migration_required`が各1件で一致することを確認する。移行が必要な場合は変更分類の一致と構造化された必須区分も確認し、欠落、不正、重複または英日競合をエラーにする。説明文や過去リリースは宣言へ流用しない。Checker合格は実装済み検査だけを証明する。
 
-採用影響: これはAgentic Deliveryと保守手順に対する非構造的な破壊的変更である。既存基準版からの採用には[移行完了の条件](19_Maintenance.md#621-migration-completeness)を適用する。非自明な保守をAIで行う、またはAgentic Deliveryを表明するプロジェクトは、着手前計画、初回確認入力およびAD-02の根拠を再評価する。完了済みの変更や過去の確認記録を、新しい準備形式へ合わせるためだけに書き換えない。
+採用影響: これはAgentic Deliveryと保守手順に対する非構造的な破壊的変更である。既存基準版からの採用には[移行完了の条件](19_Maintenance.md#621-migration-completeness)を適用する。非自明な保守をAIで行う、またはAgentic Deliveryを表明するプロジェクトは、着手前計画、初回確認入力およびAD-02の根拠を再評価する。CRDD品質保証で条件規範を検証する場合はPL-16、条件規範を新設・変更した対象の初回独立確認ではAD-21も再評価する。完了済みの変更や過去の確認記録を、新しい準備形式へ合わせるためだけに書き換えない。
 
 移行注記（v0.15.0 → v0.16.0）:
 
@@ -759,6 +761,8 @@ v0.15.0からの主な変更:
 - `change_classification: breaking`
 - 必須: AIが支援する非自明な変更では、契約母集団と利用側母集団を特定し、条件付き規則の発火例、非発火例、境界例、情報不足例を記録し、候補固定前に実差分と照合する。
 - Agentic Delivery準拠で必須: AD-02を再評価し、変更実行記録または同等の根拠から、母集団、代表例、固定前照合および未解消の不一致を取得可能にする。
+- CRDD品質保証で条件規範を検証する場合に必須: PL-16を再評価し、検証設計と根拠から定義、発火条件、判定不能時の扱い、正式結果および4種類の代表例を取得可能にする。
+- 新設・変更した条件規範の初回独立確認で必須: AD-21を再評価し、実装計画を流用せず、確認者が正本から4種類の代表例と利用側を再構成する。
 - 条件付き: ローカルAI入口、変更ひな型、検証設計または監査手順がこれらの入力を保持できず、4種類の例を再構成できない場合だけ更新する。配布Checkerを使わない場合は、同等の決定論的確認と限界を示してよい。
 - 不要: 新しい監査、承認段階、恒久的な収束成果物、項目ホワイトリスト、シャドウ運用、抜き取り承認、モデル能力点数または軽量確認経路を追加すること。完了済み履歴の再実行、現在必要な独立確認または専門確認の削減。
 - 復旧: 移行完了と人間による有効化が終わるまで、現在有効なv0.15.0基準版と手順を維持する。部分適用を戻す場合はv0.15.0のAI入口と変更実行手順へ戻し、候補記録は履歴として保持し、進行中の変更を直前に記録された確認境界へ戻す。

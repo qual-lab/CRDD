@@ -1485,9 +1485,9 @@ if (
 ) {
   const currentVersion = [...versions][0];
   const lines = read(changelog).split(/\r?\n/u);
-  const releaseSection = (languageHeading) => {
+  const releaseSections = (languageHeading) => {
     const languageStart = lines.findIndex((line) => line === `## ${languageHeading}`);
-    if (languageStart < 0) return null;
+    if (languageStart < 0) return [];
     let languageEnd = lines.length;
     for (let index = languageStart + 1; index < lines.length; index += 1) {
       if (/^##\s+/u.test(lines[index])) {
@@ -1495,58 +1495,144 @@ if (
         break;
       }
     }
-    const releaseStart = lines.findIndex(
-      (line, index) =>
-        index > languageStart &&
-        index < languageEnd &&
-        line.startsWith(`### ${currentVersion} `),
-    );
-    if (releaseStart < 0) return null;
-    let releaseEnd = languageEnd;
-    for (let index = releaseStart + 1; index < languageEnd; index += 1) {
-      if (/^###\s+/u.test(lines[index])) {
-        releaseEnd = index;
-        break;
-      }
+    const starts = [];
+    for (let index = languageStart + 1; index < languageEnd; index += 1) {
+      if (lines[index].startsWith(`### ${currentVersion} `)) starts.push(index);
     }
-    return lines.slice(releaseStart, releaseEnd).join("\n");
+    return starts.map((releaseStart) => {
+      let releaseEnd = languageEnd;
+      for (let index = releaseStart + 1; index < languageEnd; index += 1) {
+        if (/^###\s+/u.test(lines[index])) {
+          releaseEnd = index;
+          break;
+        }
+      }
+      return lines.slice(releaseStart, releaseEnd);
+    });
+  };
+  // Only a complete bullet inline-code declaration or a key inside a closed
+  // yaml/yml fence is data. Prose, block quotes, other fences, and prior
+  // release sections are intentionally not declarations.
+  const declarations = (sectionLines, key, validValues) => {
+    const attempts = [];
+    let yaml = false;
+    let yamlClosed = true;
+    for (const line of sectionLines) {
+      if (!yaml && /^\s*```ya?ml\s*$/iu.test(line)) {
+        yaml = true;
+        yamlClosed = false;
+        continue;
+      }
+      if (yaml && /^\s*```\s*$/u.test(line)) {
+        yaml = false;
+        yamlClosed = true;
+        continue;
+      }
+      let match = null;
+      if (yaml) {
+        match = line.match(new RegExp(`^\\s*${key}:\\s*([^#\\s]+)\\s*(?:#.*)?$`, "u"));
+      } else {
+        match = line.match(new RegExp(`^\\s*[-*+]\\s+\`${key}:\\s*([^\`]*)\`\\s*$`, "u"));
+      }
+      if (match) attempts.push(match[1].trim());
+    }
+    if (!yamlClosed) return { valid: false, reason: "unclosed-yaml-fence" };
+    if (attempts.length !== 1 || !validValues.includes(attempts[0])) {
+      return { valid: false, reason: attempts.length === 0 ? "missing" : "invalid-or-multiple" };
+    }
+    return { valid: true, value: attempts[0] };
   };
   const requiredMigrationMarkers = {
     English: [
-      "`change_classification:",
-      "Required",
-      "Conditional",
-      "Not required",
-      "Rollback / recovery:",
-      "Known risk if deferred:",
-      "Verification:",
-      "Known limitation:",
+      [/^\s*[-*+]\s+Required(?:\s+for\s+[^:]+)?:/u, "Required"],
+      [/^\s*[-*+]\s+Conditional(?:\s+[^:]+)?:/u, "Conditional"],
+      [/^\s*[-*+]\s+Not required:/u, "Not required"],
+      [/^\s*[-*+]\s+Rollback \/ recovery:/u, "Rollback / recovery"],
+      [/^\s*[-*+]\s+Known risk if deferred:/u, "Known risk if deferred"],
+      [/^\s*[-*+]\s+Verification:/u, "Verification"],
+      [/^\s*[-*+]\s+Known limitation:/u, "Known limitation"],
     ],
     日本語: [
-      "`change_classification:",
-      "必須:",
-      "条件付き:",
-      "不要:",
-      "復旧:",
-      "延期時の既知リスク:",
-      "検証:",
-      "既知の制限:",
+      [/^\s*[-*+]\s+(?:[^:]+で)?必須:/u, "必須"],
+      [/^\s*[-*+]\s+条件付き(?:[^:]*)?:/u, "条件付き"],
+      [/^\s*[-*+]\s+不要:/u, "不要"],
+      [/^\s*[-*+]\s+復旧:/u, "復旧"],
+      [/^\s*[-*+]\s+延期時の既知リスク:/u, "延期時の既知リスク"],
+      [/^\s*[-*+]\s+検証:/u, "検証"],
+      [/^\s*[-*+]\s+既知の制限:/u, "既知の制限"],
     ],
   };
-  for (const [languageHeading, markers] of Object.entries(requiredMigrationMarkers)) {
-    const section = releaseSection(languageHeading);
-    if (!section) {
+  const sections = {};
+  for (const languageHeading of Object.keys(requiredMigrationMarkers)) {
+    const candidates = releaseSections(languageHeading);
+    if (candidates.length !== 1) {
       add(
         "error",
         "current-changelog-release-missing",
         "CHANGELOG.md",
-        `${languageHeading}: ${currentVersion} release section is missing.`,
+        `${languageHeading}: expected exactly one ${currentVersion} release section; found ${candidates.length}.`,
       );
       continue;
     }
-    if (!section.includes("`migration_required: true`")) continue;
-    const missing = markers.filter((marker) => !section.includes(marker));
-    if (missing.length > 0) {
+    sections[languageHeading] = candidates[0];
+  }
+  const migration = {};
+  for (const [languageHeading, section] of Object.entries(sections)) {
+    const parsed = declarations(section, "migration_required", ["true", "false"]);
+    if (!parsed.valid) {
+      add(
+        "error",
+        "migration-status-undetermined",
+        "CHANGELOG.md",
+        `${languageHeading}: ${currentVersion} migration_required is ${parsed.reason}.`,
+      );
+      continue;
+    }
+    migration[languageHeading] = parsed.value;
+  }
+  if (Object.keys(migration).length === 2 && migration.English !== migration.日本語) {
+    add(
+      "error",
+      "migration-status-mismatch",
+      "CHANGELOG.md",
+      `English=${migration.English}, 日本語=${migration.日本語}.`,
+    );
+  } else if (migration.English === "true" && migration.日本語 === "true") {
+    const classifications = {};
+    for (const [languageHeading, section] of Object.entries(sections)) {
+      const parsed = declarations(
+        section,
+        "change_classification",
+        ["editorial", "clarification", "additive", "normative", "breaking"],
+      );
+      if (!parsed.valid) {
+        add(
+          "error",
+          "migration-status-undetermined",
+          "CHANGELOG.md",
+          `${languageHeading}: ${currentVersion} change_classification is ${parsed.reason}.`,
+        );
+        continue;
+      }
+      classifications[languageHeading] = parsed.value;
+    }
+    if (
+      Object.keys(classifications).length === 2 &&
+      classifications.English !== classifications.日本語
+    ) {
+      add(
+        "error",
+        "migration-status-mismatch",
+        "CHANGELOG.md",
+        `English classification=${classifications.English}, 日本語 classification=${classifications.日本語}.`,
+      );
+    }
+    for (const [languageHeading, markers] of Object.entries(requiredMigrationMarkers)) {
+      const section = sections[languageHeading];
+      const missing = markers
+        .filter(([pattern]) => !section.some((line) => pattern.test(line)))
+        .map(([, label]) => label);
+      if (missing.length === 0) continue;
       add(
         "error",
         "migration-note-incomplete",

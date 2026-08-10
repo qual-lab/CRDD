@@ -33,13 +33,13 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 
 ## 3. 想定する影響
 
-- 正本: `00_Overview.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`19_Maintenance.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
+- 正本: `00_Overview.md`、`02_Terminology.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`19_Maintenance.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 - AI入口: `AGENTS.md`、`template/AGENTS.md`
 - ひな型: `template/90_Release/Changes/CHG-XXXXXX_Template.md`
 - 任意Checker: `template/tools/crdd_check.mjs`、`tools/crdd_check.test.mjs`
-- 公開案内と移行: `README.md`、`CHANGELOG.md`
+- 公開保守入口、案内と移行: `CONTRIBUTING.md`、`README.md`、`CHANGELOG.md`
 - 版表示: 26正本文書
-- 準拠影響: Agentic Delivery基準AD-02の根拠を再評価する。CoreとProduct Lifecycleの基準数、工程順、成果物構造、安定コンテキストIDは変更しない。
+- 準拠影響: 条件規範を品質保証で扱う場合はPL-16、非自明なAI変更ではAD-02、条件規範を変更した対象の初回独立確認ではAD-21を再評価する。Core、Product LifecycleまたはAgentic Deliveryの基準数、工程順、成果物構造、安定コンテキストIDは変更しない。
 
 ## 4. 対象外と変更禁止
 
@@ -69,12 +69,32 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 | 公式AI入口 | 着手前の母集団、4例、固定前照合を案内する |
 | 配布AI入口 | 採用先でも同じ境界を案内する |
 | 変更トレースひな型 | 非自明な変更だけで軽量に取得できる節を追加する |
-| 準拠基準AD-02 | 計画、実差分、代表例および未解消不一致を根拠に含める |
+| 準拠基準PL-16／AD-02／AD-21 | 検証設計、編集前計画と固定前照合、初回独立再構成へ責務を分けて接続する |
+| 公開保守入口 | 採用済み変更の実行時だけ`10_Agent`／`19_Maintenance`へ接続し、Issue受付の外部提案者へ代表例等を常時要求しない |
 | README英日 | 監査削減ではない目的と運用を同じ意味で案内する |
 | CHANGELOG英日 | breaking、移行、復旧、延期時リスク、検証、限界を取得可能にする |
 | 26正本文書 | v0.16.0の版表示へ揃える。意味変更のない文書は内容更新日を変えない |
 
-### 5.3. 代表例
+### 5.3. 固定前の実差分照合結果
+
+| 利用側または変更群 | 実際の処置 |
+|---|---|
+| `00_Overview.md` | 人間向け経路要約に限定し、非自明／軽微の操作条件を`10_Agent.md`へ委譲した |
+| `02_Terminology.md` | 契約母集団／利用側母集団を、一般の非自明変更と複数箇所是正の両方へ接続した |
+| `10_Agent.md`、`16_Quality_Assurance.md`、`19_Maintenance.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md` | 単一正本、検証可能性、固定前照合、初回独立再構成、監査観点を責務別に更新した |
+| root／template `AGENTS.md` | 公式／配布AI入口を同じ正本境界へ更新した |
+| root／template `CLAUDE.md`、root／template `.github/copilot-instructions.md` | 各`AGENTS.md`を正本入口として参照するため、本文重複なしで追従することを確認し変更不要とした |
+| `CONTRIBUTING.md`英日 | 採用済み変更の実行を`10_Agent`／`19_Maintenance`へ接続し、Issue受付の軽量性を保持した |
+| Issue受付契約、PRひな型、`12_Change.md` | Issue受付は提案段階、PRひな型は提出時確認、`12_Change`はCHG最小記録契約を所有するため、4例の実行義務を重複させず変更不要とした |
+| `template/90_Release/Changes/CHG-XXXXXX_Template.md` | `10_Agent`への正本参照、実差分処置、未解消不一致の記録欄を追加した |
+| `README.md`、`CHANGELOG.md`英日 | 目的、採用影響、条件付きPL-16／AD-21、移行、復旧、延期時リスクを同じ意味で更新した |
+| `template/tools/crdd_check.mjs`、`tools/crdd_check.test.mjs` | 現行英日Release節、移行要否／分類の判定不能・不一致、構造化区分を決定論的に確認した |
+| `CHG-000010_*_3b26d56`の固定後根拠3件 | 初回固定候補の実行事実を履歴として保持し、実行記録を`Invalidated`として現在判定への流用を禁止した |
+| 版表示のみの正本文書 | 26正本文書の対象集合をリポジトリのVersionヘッダーから全数照合し、意味を変えない文書はVersionだけ更新した |
+
+最終固定前の変更集合は基準Commitとの差分から再導出する。現在の実差分は、内容／入口／Checker等35ファイルと、初回固定候補の履歴根拠3ファイルの計38ファイルであり、上表の変更、既存参照で追従、理由付き変更不要のいずれかへ対応している。確認待ち0件、未解消不一致0件である。今後の修正で集合が変わった場合は、この件数と処置を固定前に再照合する。
+
+### 5.4. 代表例
 
 | 種別 | 例 | 期待結果 |
 |---|---|---|
@@ -94,8 +114,9 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 ## 7. 移行
 
 - `migration_required: true`
-- 既存基準版の更新はMigration Completenessを満たし、人間が有効化するまでv0.15.0を維持する。
-- AIによる非自明な保守またはAgentic Delivery表明では、着手前計画、変更実行記録、初回独立確認入力およびAD-02を再評価する。
+- 本v0.16.0候補の初回作成時点で、公開中の基準版はv0.14.0、v0.15.0は未公開候補である。人間のリリース承認後にv0.15.0を先に公開し、そのmainへv0.16.0を再接続して新しいCommit／Tree／根拠／3系統確認を取得する。
+- v0.16.0の採用開始時はMigration Completenessを満たし、人間が有効化するまで公開済みv0.15.0を維持する。
+- AIによる非自明な保守またはAgentic Delivery表明ではAD-02を再評価する。条件規範を品質保証で検証する場合はPL-16、条件規範を新設・変更した対象の初回独立確認ではAD-21も条件付きで再評価する。
 - 完了済み履歴を一括で書き換えない。進行中の手順が新しい母集団、4種類の例または固定前照合を保持できない場合だけ更新する。
 - 部分適用を戻す場合はv0.15.0の入口と実行手順へ戻し、候補記録を削除せず履歴として保持する。
 
@@ -106,14 +127,21 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 - Checkerは実装した決定論的検査だけを証明し、意味の正しさ、監査能力または準拠を代替しない。
 - 実運用での固定候補差替え回数、監査往復、処理時間および新規Finding数の改善効果は、リリース後の新しい運用データで別変更契機として評価する。
 
-## 9. 現在の処置
+## 9. 初回固定候補の監査履歴
 
-規範、AI入口、ひな型、Checker、英日公開案内および移行記録をv0.16.0候補へ反映した。現在状態は`Ready for Verification`であり、固定コミット、固定後Checker、独立確認、統合、リリース判断および公開識別子は未確定である。
+- 固定候補: Commit `3b26d562e4dca594caf2193cdb5caad15297ba1b`、Tree `6572c8a1291a58f903b6ec275d97a6dde2b7a1db`
+- 共通機械根拠: `CHG-000010_Verification_Run_Record_3b26d56.md`、Checker JSON、TAP
+- 統合Finding: Agent Major 2件、Document Major 2件／Minor 1件、Gap／Conformance Major 2件／Minor 1件
+- 処置: 単一正本、既知利用側、PL-16／AD-02／AD-21、Checkerの判定不能／英日不一致、公開基準版とリリース順を一括修正する。旧固定候補の結果は当時の履歴として保持し、現在の解消判定またはRelease Handoffへ流用しない。
 
-## 10. リリース
+## 10. 現在の処置
+
+初回監査集合の統合修正を適用中である。現在状態は`Ready for Verification`であり、新しい固定コミット、固定後Checker、独立確認、統合、リリース判断および公開識別子は未確定である。
+
+## 11. リリース
 
 - 対象リリース: v0.16.0
 - 収録リリース: 未確定
 - 統合: 未実施
 - 公開識別子: 未確定
-- 次の処置: 固定候補の機械確認と独立確認を完了し、人間のリリース判断へ引き渡す
+- 次の処置: 統合修正を新しい候補として固定し機械確認と独立確認を完了する。人間の承認後、v0.15.0を先に公開し、そのmainへv0.16.0を再接続して最終確認する
