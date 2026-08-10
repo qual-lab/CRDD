@@ -141,7 +141,7 @@ The [human-readable route table](00_Overview.md#44-change-route-selection) shows
 Humans do not need to read every canonical document before starting. Read this section and the [Overview orientation](00_Overview.md#1-quick-orientation); use [Terminology](02_Terminology.md) and [Documentation](03_Documentation.md) as references when a term or recording rule is needed. AI and people designing CRDD operation should load the canonical foundation set.
 
 1. Read the [Overview orientation](00_Overview.md#1-quick-orientation) and identify the first problem or request to handle.
-2. Copy the [`template/`](template) scaffold into the target project. Copy the released CRDD standard documents for the adopted version into its `00_CRDD/` folder and keep that version identifiable.
+2. Copy the base scaffold from [`template/`](template) into the target project, excluding the optional `template/80_Communication` capability folder. Add that folder as root `80_Communication` only when Human scope selection says external communication applies. Design Direction alone does not activate it. Copy the released CRDD standard documents for the adopted version into `00_CRDD/` and keep that version identifiable.
 3. Let the AI entry point load the canonical foundation set, the shared authorities required for the work (`10`–`19`), and only the applicable phase authorities (`21`–`29`). Read the [shared UI / Behavior Specification contract](24_UI_Behavior_Specification.md) before either parallel phase.
 4. Use the project-root [`AGENTS.md`](template/AGENTS.md) or [`CLAUDE.md`](template/CLAUDE.md) as the AI entry point. Connect the active scope, target revision, canonical context, authority, applicable phase, and stop conditions instead of copying phase rules into prompts.
 5. When a decision, constraint, learning, evidence, or finding is established or changed, evaluate and, when triggered, complete the [Triggered Propagation Check](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure) before treating the result as complete.
@@ -230,7 +230,7 @@ The checker is an efficiency aid, not a conformance authority. If Node.js or the
 - Use `40_Develop` for code, configuration, migrations, build definitions, and tests—not for CRDD management Markdown.
 - Use `07_Quality` for the Quality Center, quality strategy, verification design, and immutable verification-result history. Keep phase-owned obligations and evidence in their owning artifacts. Quality status, rationale, unverified scope, residual risk, and reproduction methods must remain understandable from the repository even when CI or test tools are used; an external link or run ID is not the QA record. Where unit testing applies, use `100%` branch coverage as the default target and explain every shortfall or exclusion with its scope, residual risk, alternative verification, owner, and reevaluation condition.
 - When external communication is part of the repository, use `80_Communication/01_Communication.md` as the single entry. Separate generated projections from published records, connect claims to evidence, and treat measured reactions as observations or learning candidates until a human adopts them. Repositories without this capability do not create the folder.
-- Distinguish semantic context dependencies from versioned artifact dependencies. Record the adopted version, local overrides, consumers, update impact, and recovery without making a repository, submodule, or package layout mandatory.
+- Distinguish semantic context dependencies from versioned artifact dependencies. Apply the full contract to context dependencies and artifact dependencies that cross shared boundaries or require explicit management for material risk. Ordinary and transitive implementation dependencies may remain in architecture or package-management authorities. Do not make a repository, submodule, or package layout mandatory.
 - Use `19_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
 - Before independent review or an audit set, the parent AI agent runs `node tools/crdd_check.mjs` or an equivalent deterministic check once for the fixed target revision and shares the result. The supplied implementation is optional and does not replace Document Audit, specialist-quality review, Conformance Audit, or Gap / Impact Audit.
 - Treat governance, security, privacy, accessibility, compatibility, capacity, and cost as responsibilities of the applicable upstream and downstream phases rather than as detached end-stage checks.
@@ -401,7 +401,7 @@ AIは、責務を持つ正本文書の選択、代替案の比較、承認され
 人間は、開始前にすべての正本文書を通読する必要はない。この節と[概要の「最初に把握すること」](00_Overview.md#1-quick-orientation)から始め、分からない用語は[用語集](02_Terminology.md)、配置や記録方法は[文書化](03_Documentation.md)で必要時に確認する。AIとCRDD運用を設計する担当者は、基礎正本一式を読む。
 
 1. [概要の「最初に把握すること」](00_Overview.md#1-quick-orientation)を読み、最初に扱う問題または要望を一つ決める。
-2. [`template/`](template)のひな型を対象プロジェクトへコピーする。採用するリリースのCRDD標準文書を`00_CRDD/`へコピーし、採用バージョンを識別可能にする。
+2. [`template/`](template)から任意機能の`template/80_Communication`を除く基礎ひな型を対象プロジェクトへコピーする。人間が外部コミュニケーションを適用すると判断した場合だけ、同フォルダをプロジェクト直下の`80_Communication`として追加する。デザイン方針だけの利用では追加しない。採用するリリースのCRDD標準文書を`00_CRDD/`へコピーし、採用バージョンを識別可能にする。
 3. AI入口から基礎正本、作業に必要な共通正本（`10`〜`19`）、対象工程の正本（`21`〜`29`）だけを読む。UIまたは振る舞い仕様へ進む前に、両者の[共有契約](24_UI_Behavior_Specification.md)を読む。
 4. プロジェクト直下の[`AGENTS.md`](template/AGENTS.md)または[`CLAUDE.md`](template/CLAUDE.md)をAIの入口とする。工程規則を指示文へ複製せず、作業対象、対象改訂版、正本コンテキスト、決定権限、対象工程、停止条件を接続する。
 5. 判断、制約、学び、根拠、指摘事項を確定・変更したときは[変更影響の伝播確認](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を評価し、発火した場合は通常完了とする前に正本反映と再監査まで終える。
@@ -490,7 +490,7 @@ node 00_CRDD/template/tools/crdd_check.mjs --root . --json --summary
 - `40_Develop`にはコード、構成、移行、ビルド定義、テストを置き、CRDD管理用Markdownを置かない。
 - `07_Quality`には品質戦略、検証設計、確定済み検証結果とQuality Centerを置く。検証義務や根拠を中央へ複製しない。CIやテスト実行ツールを使っても、品質状態、判断理由、未検証範囲、残存リスク、再現方法はリポジトリ内から理解できるようにし、外部リンクや実行IDだけを品質保証記録にしない。単体試験が適用される場合は分岐網羅率`100%`を既定目標とし、未達または除外ごとに対象、残るリスク、代替確認、担当責任者、再確認条件を明示する。
 - 外部コミュニケーションを扱う場合だけ`80_Communication/01_Communication.md`を単一入口として使う。生成可能な表現と公開済み記録を分け、主張を根拠へ接続し、外部反応は人間が採用するまで観察または学び候補として扱う。扱わないRepositoryにはフォルダを作らない。
-- 意味を参照するコンテキスト依存と、版付き成果物を使う成果物依存を区別する。採用版、ローカル上書き、利用側、更新影響、復旧を記録し、Repository、Submodule、Packageのいずれかを共通方式として固定しない。
+- 意味を参照するコンテキスト依存と、版付き成果物を使う成果物依存を区別する。完全な依存契約はコンテキスト依存、共有境界をまたぐ成果物依存、または重大リスクにより明示管理する成果物依存へ適用する。通常・推移依存は既存のアーキテクチャやパッケージ管理を正本にでき、存在だけで個別CHGや都度の人間判断を要求しない。Repository、Submodule、パッケージのいずれかを共通方式として固定しない。
 - `19_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
 - 独立レビューまたは監査集合の前に、親AIエージェントが固定した対象改訂版へ`node tools/crdd_check.mjs`または同等の機械確認を一度実行し、結果を共有する。配布実装の利用は任意であり、文書監査、専門品質確認、準拠監査または不足／影響監査を代替しない。
 - ガバナンス、セキュリティ、プライバシー、アクセシビリティ、互換性、処理能力、コストは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
