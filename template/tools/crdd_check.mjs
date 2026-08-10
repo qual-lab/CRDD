@@ -1485,58 +1485,130 @@ if (
 ) {
   const currentVersion = [...versions][0];
   const lines = read(changelog).split(/\r?\n/u);
+  // Parse fenced code once so headings, declarations, and migration-note
+  // categories all use the same Markdown structure boundary. Only fence-free
+  // lines and data inside a closed yaml/yml fence can be semantic inputs.
+  const markdown = (() => {
+    const entries = [];
+    const fences = [];
+    let activeFence = null;
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (activeFence) {
+        const closing = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/u);
+        if (
+          closing &&
+          closing[1][0] === activeFence.marker &&
+          closing[1].length >= activeFence.length
+        ) {
+          entries.push({ index, text: line, outside: false, fenceId: activeFence.id });
+          activeFence.end = index;
+          activeFence.closed = true;
+          activeFence = null;
+        } else {
+          const entry = { index, text: line, outside: false, fenceId: activeFence.id };
+          entries.push(entry);
+          activeFence.contents.push(entry);
+        }
+        continue;
+      }
+      const opening = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+      const validOpening =
+        opening && !(opening[1][0] === "`" && opening[2].includes("`"));
+      if (!validOpening) {
+        entries.push({ index, text: line, outside: true, fenceId: null });
+        continue;
+      }
+      const fence = {
+        id: fences.length,
+        marker: opening[1][0],
+        length: opening[1].length,
+        language: opening[2].trim().split(/\s+/u)[0].toLowerCase(),
+        start: index,
+        end: null,
+        closed: false,
+        contents: [],
+      };
+      fences.push(fence);
+      activeFence = fence;
+      entries.push({ index, text: line, outside: false, fenceId: fence.id });
+    }
+    return { entries, fences };
+  })();
+  const outsideEntries = markdown.entries.filter((entry) => entry.outside);
   const releaseSections = (languageHeading) => {
-    const languageStart = lines.findIndex((line) => line === `## ${languageHeading}`);
-    if (languageStart < 0) return [];
+    const languageStarts = outsideEntries.filter(
+      (entry) => entry.text === `## ${languageHeading}`,
+    );
+    if (languageStarts.length !== 1) {
+      return { languageCount: languageStarts.length, releases: [] };
+    }
+    const languageStart = languageStarts[0].index;
     let languageEnd = lines.length;
-    for (let index = languageStart + 1; index < lines.length; index += 1) {
-      if (/^##\s+/u.test(lines[index])) {
-        languageEnd = index;
+    for (const entry of outsideEntries) {
+      if (entry.index > languageStart && /^##\s+/u.test(entry.text)) {
+        languageEnd = entry.index;
         break;
       }
     }
-    const starts = [];
-    for (let index = languageStart + 1; index < languageEnd; index += 1) {
-      if (lines[index].startsWith(`### ${currentVersion} `)) starts.push(index);
-    }
-    return starts.map((releaseStart) => {
+    const starts = outsideEntries
+      .filter(
+        (entry) =>
+          entry.index > languageStart &&
+          entry.index < languageEnd &&
+          entry.text.startsWith(`### ${currentVersion} `),
+      )
+      .map((entry) => entry.index);
+    const releases = starts.map((releaseStart) => {
       let releaseEnd = languageEnd;
-      for (let index = releaseStart + 1; index < languageEnd; index += 1) {
-        if (/^###\s+/u.test(lines[index])) {
-          releaseEnd = index;
+      for (const entry of outsideEntries) {
+        if (
+          entry.index > releaseStart &&
+          entry.index < languageEnd &&
+          /^###\s+/u.test(entry.text)
+        ) {
+          releaseEnd = entry.index;
           break;
         }
       }
-      return lines.slice(releaseStart, releaseEnd);
+      return {
+        start: releaseStart,
+        end: releaseEnd,
+        entries: markdown.entries.filter(
+          (entry) => entry.index >= releaseStart && entry.index < releaseEnd,
+        ),
+      };
     });
+    return { languageCount: 1, releases };
   };
   // Only a complete bullet inline-code declaration or a key inside a closed
   // yaml/yml fence is data. Prose, block quotes, other fences, and prior
   // release sections are intentionally not declarations.
-  const declarations = (sectionLines, key, validValues) => {
+  const declarations = (section, key, validValues) => {
     const attempts = [];
-    let yaml = false;
-    let yamlClosed = true;
-    for (const line of sectionLines) {
-      if (!yaml && /^\s*```ya?ml\s*$/iu.test(line)) {
-        yaml = true;
-        yamlClosed = false;
-        continue;
-      }
-      if (yaml && /^\s*```\s*$/u.test(line)) {
-        yaml = false;
-        yamlClosed = true;
-        continue;
-      }
-      let match = null;
-      if (yaml) {
-        match = line.match(new RegExp(`^\\s*${key}:\\s*([^#\\s]+)\\s*(?:#.*)?$`, "u"));
-      } else {
-        match = line.match(new RegExp(`^\\s*[-*+]\\s+\`${key}:\\s*([^\`]*)\`\\s*$`, "u"));
-      }
+    for (const entry of section.entries.filter((candidate) => candidate.outside)) {
+      const match = entry.text.match(
+        new RegExp(`^\\s*[-*+]\\s+\`${key}:\\s*([^\`]*)\`\\s*$`, "u"),
+      );
       if (match) attempts.push(match[1].trim());
     }
-    if (!yamlClosed) return { valid: false, reason: "unclosed-yaml-fence" };
+    const yamlFences = markdown.fences.filter(
+      (fence) =>
+        fence.start >= section.start &&
+        fence.start < section.end &&
+        ["yaml", "yml"].includes(fence.language),
+    );
+    if (yamlFences.some((fence) => !fence.closed)) {
+      return { valid: false, reason: "unclosed-yaml-fence" };
+    }
+    for (const fence of yamlFences) {
+      for (const entry of fence.contents) {
+        const match = entry.text.match(
+          new RegExp(`^\\s*${key}:\\s*([^#\\s]+)\\s*(?:#.*)?$`, "u"),
+        );
+        if (match) attempts.push(match[1].trim());
+      }
+    }
     if (attempts.length !== 1 || !validValues.includes(attempts[0])) {
       return { valid: false, reason: attempts.length === 0 ? "missing" : "invalid-or-multiple" };
     }
@@ -1564,17 +1636,26 @@ if (
   };
   const sections = {};
   for (const languageHeading of Object.keys(requiredMigrationMarkers)) {
-    const candidates = releaseSections(languageHeading);
-    if (candidates.length !== 1) {
+    const located = releaseSections(languageHeading);
+    if (located.languageCount !== 1) {
       add(
         "error",
         "current-changelog-release-missing",
         "CHANGELOG.md",
-        `${languageHeading}: expected exactly one ${currentVersion} release section; found ${candidates.length}.`,
+        `${languageHeading}: expected exactly one language section; found ${located.languageCount}.`,
       );
       continue;
     }
-    sections[languageHeading] = candidates[0];
+    if (located.releases.length !== 1) {
+      add(
+        "error",
+        "current-changelog-release-missing",
+        "CHANGELOG.md",
+        `${languageHeading}: expected exactly one ${currentVersion} release section; found ${located.releases.length}.`,
+      );
+      continue;
+    }
+    sections[languageHeading] = located.releases[0];
   }
   const migration = {};
   for (const [languageHeading, section] of Object.entries(sections)) {
@@ -1629,8 +1710,11 @@ if (
     }
     for (const [languageHeading, markers] of Object.entries(requiredMigrationMarkers)) {
       const section = sections[languageHeading];
+      const sectionLines = section.entries
+        .filter((entry) => entry.outside)
+        .map((entry) => entry.text);
       const missing = markers
-        .filter(([pattern]) => !section.some((line) => pattern.test(line)))
+        .filter(([pattern]) => !sectionLines.some((line) => pattern.test(line)))
         .map(([, label]) => label);
       if (missing.length === 0) continue;
       add(
