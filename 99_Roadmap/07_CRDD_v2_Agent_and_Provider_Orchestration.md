@@ -267,7 +267,7 @@ Fallbackに必要Capabilityがなく、Verificationで差を閉じられない�
 - Hard Iteration Cap
 - Circuit BreakerとHuman Decision条件
 
-差戻しは、責務を持つ対象と必要変更を特定し、更新後の対象改訂版で再実行・再検証する。古いResultまたはReviewを現在判定へ流用せず、同一提案・同一Findingの反復、時間、Cost、Quota、Effectおよび回数の上限を確認する。同じ原因が再発し局所差戻しで収束しない場合は、契約、生成、検証または利用側の構造是正へ戻す。
+差戻しは、責務を持つ対象と必要変更を特定し、更新後の対象改訂版を固定して再実行・再検証する。その対象契約、変更分類およびリスクからIndependent Reviewの適用要否を再評価する。正式なFindingを是正した場合は、作成責務から分離した確認者が、Executorの要約ではなく同じ更新後固定改訂版、基準およびEvidenceから独立再レビューし、その結果をCoordinatorが再統合する。`Applied`、自己確認、Verification、古いResult／Reviewまたは完了申告だけでFindingを`Resolved`にしない。Findingがなく、既存契約上Reviewが非該当の軽量Operationには新しいReviewや擬似的な`Resolved`を追加しない。古いResultとReviewは履歴として保持するが現在判定へ流用せず、同一提案・同一Findingの反復、時間、Cost、Quota、Effectおよび回数の上限を確認する。同じ原因が再発し局所差戻しで収束しない場合は、契約、生成、検証または利用側の構造是正へ戻す。
 
 上限到達時に全会話を人間へ送らず、未解決差分、反復原因、影響、現在必要な判断、推奨処置だけをCoordinatorが統合する。将来に判断が必要な事項は、担当責任者、再評価契機、保留影響および元Result／Finding／Evidenceを既存の追跡先へ接続し、現在のDecision Queueへ出さない。Modelが申告するConfidenceは補助信号にできるが、Authority、必須Evidenceまたは安全条件の代替にしない。
 

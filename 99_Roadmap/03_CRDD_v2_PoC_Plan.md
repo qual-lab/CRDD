@@ -284,11 +284,12 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 - 判断が残らないExecutor Resultを報告またはPolicy内完了へ接続し、形式承認を要求しないか
 - Executorが直接承認を要求しても、その要求をAuthorityとして採用せず現在の判断集合を再構成するか
 - ExecutorとReviewerが競合するとき、多数決せず対象、基準、Evidenceおよび未評価範囲を保持して再検証または判断へ接続するか
-- Independent Reviewが不要な軽量OperationへReviewを機械的に追加せず、必要なReviewが未実施なら完了またはPromotionへ進めないか
+- 正式なFindingをExecutorが是正した場合、更新後の対象改訂版を固定して再実行・再検証し、作成責務から分離した確認者が同じ固定改訂版、基準およびEvidenceから独立再レビューするまで、自己確認、Verification、古いReviewまたは完了申告だけで`Resolved`、Policy-contained CompletionまたはPromotionへ進めないか
+- Findingがなく、既存契約上Independent Reviewが非該当の軽量Operationには、新しいReview、承認、状態または成果物を追加せず、擬似的な`Resolved`を作らずに既存の完了条件へ進めるか
 - 複数結果から現在判断が0件なら人間判断不要と明示し、独立して保留できる2件は分け、異なる原因でも不可分な1件はまとめるか
 - 将来判断を現在のDecision Queueから外しても、担当責任者、再評価契機、保留影響および元Evidenceを既存の追跡先へ残すか
 - 未解決の重大リスク、Authority競合または検証不能をDigestへ埋めず停止・移送するか
-- 差戻し後の新しい改訂版で再検証し、古いResultを失効させ、反復時はBudget、Circuit Breakerまたは構造是正へ接続するか
+- 差戻し後の新しい改訂版で再検証し、古いResultと古いReviewを履歴として保持しつつ現在判定へ流用せず、反復時はBudget、Circuit Breakerまたは構造是正へ接続するか
 
 ---
 

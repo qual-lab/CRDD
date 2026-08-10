@@ -212,13 +212,13 @@ Coordinatorは、Executor、Reviewer、Providerまたは複数Runが返した結
 
 Coordinatorは結果を、少なくとも次の既存経路へ接続する。
 
-- Authority、停止条件、収束条件およびBudgetの範囲でAIが一意に是正できる事項は、責務を持つ実行主体へ戻して再実行・再検証する。
+- Authority、停止条件、収束条件およびBudgetの範囲でAIが一意に是正できる事項は、責務を持つ実行主体へ戻し、更新後の対象改訂版を固定して再実行・再検証する。その対象契約、変更分類およびリスクからIndependent Reviewの適用要否を再評価し、正式なFindingを是正した場合は、[既存の解消契約](../10_Agent.md#multi-location-remediation)に従い、作成責務から分離した確認者が同じ更新後固定改訂版、基準およびEvidenceから独立再レビューする。`Applied`、自己確認、Verification、古いResult／Reviewまたは実行主体の完了申告だけでFindingを`Resolved`にしない。
 - 解消済み事項は、是正結果と実際の影響を報告するが、現在の判断要求へ戻さない。
 - 報告のみの事項は追跡可能な詳細へ置き、現在の判断集合へ含めない。
 - 将来に判断、再確認または監視が必要な事項は、担当責任者、再評価契機、保留影響および元のResult／Finding／Evidenceを既存の未完了事項、Roadmapまたは変更トレースへ接続し、現在のDecision Queueへ出さない。
 - 現在も人間の決定権限が必要な事項だけを現在の判断集合へ残す。未解決の重大リスク、不可逆性、Authority競合または検証不能は通常の集約へ埋めず、既存の停止・移送経路へ接続する。
 
-複数結果が競合する場合はProvider数、Agent数または多数決で結論を選ばず、対象、基準、Evidence、未評価範囲および残存不確実性を保持して、再検証または人間判断へ接続する。この統合責務は新しい成果物、状態軸、承認段階、固定Schema、中央判断台帳またはCoordinatorへの新しい決定権限を作らない。単一主体が複数責務を担うOperationでも、同じ意味境界を適用できる。
+複数結果が競合する場合はProvider数、Agent数または多数決で結論を選ばず、対象、基準、Evidence、未評価範囲および残存不確実性を保持して、再検証、必要な独立再レビューまたは人間判断へ接続する。Findingがなく、既存契約上Independent Reviewが非該当の軽量Operationには、新しいReview、承認、状態または成果物を追加せず、既存の完了条件を用いる。この経路に擬似的な`Resolved`を作らない。この統合責務は新しい成果物、状態軸、承認段階、固定Schema、中央判断台帳またはCoordinatorへの新しい決定権限を作らない。単一主体が複数責務を担うOperationでも、同じ意味境界を適用できる。
 
 ### 4.5. Policy-contained Completion
 
