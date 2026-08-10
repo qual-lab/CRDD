@@ -1,0 +1,16 @@
+{
+  "name": "@qual-lab/crdd-coordinator",
+  "version": "0.0.0-development",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "coordinator": "./bin/coordinator.mjs"
+  },
+  "scripts": {
+    "doctor": "node ./bin/coordinator.mjs doctor",
+    "test": "node --test ./tests/doctor.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

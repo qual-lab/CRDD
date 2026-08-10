@@ -1,0 +1,82 @@
+# Coordinator Runtime 1.0 Threat Model
+
+Status: Implementation Candidate
+
+本書は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)の実装固有脅威モデルである。CRDDのHuman Authority、External Information Boundary、Independent Reviewまたは準拠条件を再定義しない。
+
+## 1. 保護対象
+
+- 対象Repositoryと元worktreeの内容、Git metadataおよびIdentity
+- Operation Packet、Authority Grant、Candidate RevisionおよびReview対象
+- Immutable Event Log、Projection、Leaseおよび完了判定
+- Credential、Internal／Restricted情報およびProvider送信範囲
+- 他Operation、他Repository、通常User Homeおよび外部接続先
+
+## 2. 信頼境界
+
+| 境界 | 信頼するもの | 信頼しないもの |
+|---|---|---|
+| Runtime Core | 検証済みSchema、Profile、Policy、Event追記処理 | Agentの自己申告、Providerの`Pass`、自然言語だけのAuthority |
+| Repository Adapter | 固定したGit入力とRuntimeからの許可 | dirty変更の暗黙取込み、ProviderによるGit metadata操作 |
+| Provider Adapter | 正規化処理と明示Capability | 生出力、Provider固有Session、利用可能というだけのAuthority |
+| Provider子プロセス | 確定Packet内の限定処理 | Filesystem、Network、Credential、外部Repositoryへの一般アクセス |
+| Reviewer | 固定対象と基準からの独立再構成 | Executorの要約、旧Candidate RevisionのReview |
+
+## 3. Operation専用領域
+
+```text
+runtime-state/
+└─ operations/
+   └─ OP-000001/
+      ├─ provider-home/
+      ├─ workspace/
+      ├─ tmp/
+      ├─ events/
+      ├─ projection/
+      └─ management/
+```
+
+主体別の許可は次のとおりである。
+
+- Runtime Coreだけが`events/`、`projection/`および`management/`を書き込む。
+- Repository Adapterだけが隔離workspaceの作成・破棄に必要なGit metadataを操作する。
+- Provider子プロセスは`workspace/`、`provider-home/`、`tmp/`だけを書き込める。
+- Credential Broker／AdapterだけがCredential Storeを必要最小限で読み取る。
+- Provider子プロセスへCredential StoreのPath、通常User Home、他Operationまたは元RepositoryのGit metadataを見せない。
+
+## 4. 主要脅威と制御
+
+| 脅威 | 主制御 | 補助制御 | 失敗時 |
+|---|---|---|---|
+| AgentがAuthorityを自己拡張 | Runtimeが実効Packetを確定 | Schema、Event | Operation拒否 |
+| Providerが監査履歴を改変 | `events/`／`projection/`／`management/`をProvider書込み範囲外にする | Hash、事後検査 | Operation失敗 |
+| 未承認push／外部Repository更新 | Credential／SSH Agent／Provider連携を渡さず、許可外Egressを拒否 | Process command拒否、refs事後照合 | Operation拒否 |
+| Secretまたは内部情報の永続化 | 正規化、分類、Redaction後だけ永続化 | 保存量上限 | Result拒否 |
+| dirty変更の暗黙混入 | 書込みOperationはHEADから隔離 | source dirty記録 | 依存時はBlocker |
+| 古いReviewの流用 | Candidate Revision Identity一致を要求 | Stale Event | 再Verification／Review |
+| Provider完了後のRuntime crash | Lease、Idempotency Key、Result Fingerprint、workspace照合 | Provider resume Capability | 自動再実行せず復旧 |
+| Path case衝突 | 元Pathとcase sensitivityを保持し衝突検査 | Manifest照合 | Snapshot拒否 |
+| Provider限定Egressを強制不能 | Capability Gate | read-only縮退は情報境界成立時だけ | Operation拒否 |
+
+## 5. 成立性Gate
+
+初回Gateは次を個別に返す。
+
+- NodeとローカルGitの利用可否
+- Codex／Claude Codeコマンドの検出と専用Homeでの起動可否
+- Provider子プロセスへ渡すCredential関連環境名の除去
+- Operation専用Home、workspace、tmp、events、projection、managementの作成可否
+- 主体別Filesystem強制機構の有無
+- 許可Provider endpointだけに限定するEgress強制機構の有無
+- Providerの自動更新、Telemetry、Session再開、timeout／cancelの確認状態
+
+CLI未導入、認証未確認、Filesystem境界未強制、Credential隔離未強制またはEgress未強制を、利用可能または安全と推定しない。Gateは不足を人間判断へ誤変換せず、阻害理由と必要な後続処置を返す。
+
+## 6. 非対象
+
+- 外部Effectの実行または回復
+- Remote Repository操作
+- 複数Provider RoutingまたはRole交換
+- Git以外のRepository Backend
+- Raw Provider Logの保管
+- 汎用Migrationまたは複数Protocol Reader
