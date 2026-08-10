@@ -9,6 +9,46 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0170-en"></a>
+
+### v0.17.0 — Expert Exploration, Convergence, and External Information Boundary (2026-08-10)
+
+This release adds a shared reasoning contract for producing strong expert candidates before Human judgment and an External Information Boundary for controlling information across research and connected-tool boundaries. It extends CRDD from preserving adopted decisions into structuring how AI and specialists retrieve patterns, synthesize alternatives, critique or falsify them, refine the result, and explain why further exploration is unlikely to change the decision. It does not define taste as fixed values, require a fixed option count, create a lighter route, treat “explored” and “converged” as evidence, or permit internal Context to be copied into queries, prompts, attachments, or tool inputs outside an authorized processing boundary.
+
+Compared with v0.16.0:
+
+- Adds the Expert Exploration and Convergence Contract to `11_Skill.md`. Expert decisions identify decision-changing uncertainty, use phase-specific lenses and pattern knowledge, synthesize credible candidates or explain why the current direction is the only credible one, critique weaknesses and conflicts with preserved conditions, expose remaining uncertainty, and justify convergence.
+- Adds Decision-changing Evidence to Discovery, Experience Synthesis to UX, Structural Synthesis to IA, Behavioral Synthesis to Behavior Specification, Architecture Synthesis to Architecture, implementation strategy and reverse-diff critique to Implementation, and Verification / Evidence Strategy to Verification.
+- Adds shared Visual Craft and Material / Spatial Expression guidance for UI, graphic, illustration, imagery, iconography, motion, presentation, and 2D / 3D assets without creating another serial phase. It treats composition, hierarchy, rhythm, typography, color, personality, form and silhouette, material response, scale, geometry and edges, object history and cause-based wear, lighting, camera, spatial context, technical fitness, and physical plausibility plus perceptual / contextual / artistic truth as critique lenses rather than fixed style rules.
+- Allows an initially unexplained Human sense of visual discomfort to trigger a hypothesis and comparison, but not to become an automatic verdict. Human taste, brand judgment, publication approval, and artistic adoption remain Human authorities.
+- Allows AI to identify a meaningful differentiation opportunity after the current direction is viable, but only as a proposal that separates conventional and differentiated scope, preserved conditions, expected value, cognitive and adoption cost, risk, and the required Human decision. It does not authorize AI to break an adopted principle, intent, contract, brand direction, or design direction.
+- Strengthens Architecture from Drivers / Trade-off evaluation to Drivers → Synthesis → Evaluation. Pattern names are candidate-generation vocabulary, not answers; boundary reasoning, state ownership, failure-first reasoning, sensitivity, reversibility, and premortem distinguish credible structural strategies.
+- Requires quality assurance and independent specialist review to evaluate actual artifacts and explainable reasoning results rather than option counts, activity logs, checklists, self-declared completion, or a single viewport.
+- Adds non-normative README instructions for initial CRDD adoption, baseline migration, every product lifecycle phase, Communication, managed dependency, visual craft, and 3D material / spatial expression.
+- Adds conditional Product Lifecycle criterion PL-19. It applies when an expert decision is created, changed, or adopted. Record-only updates do not invent expert alternatives, and no new fixed artifact, schema, Stable Context ID, audit type, approval stage, tool, or model-specific route is required.
+- Adds the External Information Boundary to `01_Principles.md` and Core criterion C-11. An authorized processing boundary is identified from information class, purpose and action, destination or tenant, actors, retention, secondary use, retransmission, applicable contract or law, residual risk, and the authorized decision-maker as warranted by risk; it is not inferred from “internal,” private, signed-in, installed, or one-off approval. Inside that boundary, only information authorized for the purpose is sent in the minimum necessary amount. Research outside it uses a separately constructed, redacted, abstracted, and minimized Context; when classification, authorization, boundary conditions, or safe abstraction is uncertain, transmission stops for Human decision.
+- Treats information classification as inherited unless explicitly overridden and protects derived or combined information at the same or higher sensitivity where reidentification risk increases. Secret values are not Context; agents receive references to runtime-injected secrets only when required.
+- Treats presence inside an authorized boundary or tool as insufficient to grant instruction, decision, or action authority. Content is a permitted instruction only when the agent contract, an authenticated actor, and the authorized purpose and action separately establish that authority; otherwise it remains untrusted Evidence. Prompt injection, poisoned documents or tools, cross-agent leakage, privilege expansion, sensitive inference, hallucinated authority, unsafe actions, and external-tool supply-chain risk are evaluated through Architecture, Implementation, Verification, and Quality Assurance. Delegation does not expand privilege, and important security invariants use runtime enforcement and synthetic boundary tests where available instead of agent self-attestation.
+
+Adoption impact: this is a breaking, non-structural Core, Product Lifecycle, and AI-execution change. Existing-baseline adoption is subject to [Migration Completeness](19_Maintenance.md#621-migration-completeness). Core claims evaluate C-11 and Product Lifecycle claims evaluate PL-19. Projects update active phase skills, quality evidence, AI entry points, local guidance, information classification, external-service connections, tool privileges, and security verification only where the existing project cannot preserve the new contracts. Closed historical work is not rewritten solely to match the new explanation format.
+
+Migration note (v0.16.0 → v0.17.0):
+
+- `migration_required: true`
+- `change_classification: breaking`
+- Required: perform the baseline-adoption assessment and satisfy Migration Completeness before activating v0.17.0. Record the adopted source, project-owned adaptations, affected active work, Human activation decision, and rollback boundary.
+- Required for Product Lifecycle conformance: evaluate PL-19 for the claimed scope. For expert decisions created, changed, or adopted after activation, preserve explainable uncertainty, lens and pattern use, candidate synthesis, critique or falsification, remaining uncertainty, and convergence evidence.
+- Required for Core conformance: evaluate C-11 for the claimed scope. Identify the connection population, applicable information classes and inheritance, derived or combined information risk, authorized processing boundaries, boundary-external connections, agent and tool privileges, external-input instruction authority, supply-chain assets, security invariants, enforcement, verification, audit, revocation, and recovery. A scope with no connection still records a zero population and reevaluation trigger rather than treating C-11 as not applicable or creating an empty artifact.
+- Required before enabling external research or connected tools: identify the purpose and action, information class, destination, actors, retention and secondary use, retransmission, applicable authority, and other conditions warranted by risk. Inside an authorized processing boundary, send only authorized information in the minimum necessary amount. Outside it, construct a separate minimum Context by redaction plus abstraction, check combination-based reidentification and destination authorization, and retain the Human decision where residual disclosure risk cannot be safely resolved. Authorization for one purpose, service, tenant, or publication destination is not reused for another. External results do not acquire instruction authority merely by being inside a connected tool.
+- Required for active or reopened phase work: update local phase instructions, skill adapters, quality strategy or verification design only when current project artifacts cannot preserve the applicable lens. Do not rewrite closed phase artifacts merely for format alignment.
+- Conditional for visual work: when UI, graphic, presentation, motion, or 2D / 3D asset decisions are in scope, connect Visual Craft results to the owning UI, Communication, quality, or project artifact and retain Human aesthetic and brand authority. Use multiple viewing conditions only where they can change the decision.
+- Conditional for staged implementation: use compatibility bridges, parallel states, dual operations, or feature switching only when the specific migration risk requires them and Human-approved scope, duration, comparison, consistency, stop, rollback, cost, and removal conditions exist. They are not a lighter default route.
+- Not required: a fixed number of alternatives, a permanent exploration document, new phase folders, new audits or approvals, a model capability score, a checklist-based aesthetic verdict, a specific design / 3D / security tool, a broker implementation, a security label on every file, transmission of real secrets for testing, or retrospective rewriting of completed history.
+- Rollback / recovery: until Migration Completeness and Human activation finish, keep the current v0.16.0 baseline and procedures active. If partial adoption is reversed, restore v0.16.0 AI and phase adapters, preserve v0.17.0 candidate records as history, and return active work to its last recorded decision and verification boundary.
+- Known risk if deferred: AI may continue to fill phase artifacts correctly while failing to generate credible opportunities, experience structures, visual directions, behaviors, architectures, implementation strategies, or verification evidence. It may also disclose identifiable internal Context through external queries or tools, accept malicious external instructions, or use over-privileged or unassessed dependencies. Humans may remain the hidden rescue layer, causing late rework, repeated critique loops, or security incidents.
+- Verification: run the full repository checker on one fixed revision, then independently review agent operation, document quality, and gap / impact plus conformance impact. Reconstruct representative existing-direction, multiple-candidate, insufficient-information, visual / 3D, record-only, no-connection, authorized private processing, safely abstracted public research, authorized publication to a specified destination, authorization-reuse rejection, blocked identifiable query, malicious external instruction, stale boundary condition, least-privilege, and supply-chain cases from the canonical rules. Use synthetic sensitive-like fixtures, never real secrets, for boundary tests.
+- Known limitation: these contracts improve the quality and inspectability of expert exploration and the systematic control of external information flow, but cannot guarantee originality, taste, domain expertise, complete pattern knowledge, correct causal inference, perfect secret or personal-data detection, the trustworthiness of every external service, or absolute security. Runtime enforcement depends on project capabilities. Human authority and qualified specialist review remain necessary where the scope requires them.
+
 <a id="changelog-v0160-en"></a>
 
 ### v0.16.0 — First-Pass Convergence (2026-08-10)
@@ -736,6 +776,46 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0170-ja"></a>
+
+### v0.17.0 — 専門探索・収束と外部情報境界（2026-08-10）
+
+本リリースは、人間の判断へ渡す前に有力な専門候補を作る共通推論契約と、外部調査・接続ツールを介する情報流通を制御する外部情報境界を追加する。採用済み判断を守るだけでなく、AIと専門担当がパターンを検索し、候補を合成し、批評または反証し、修正し、追加探索が判断を変えにくい理由を説明できるようにする。センスを固定値へ変換せず、固定案数、軽量経路、「探索済み」「収束済み」という自己申告を根拠にせず、許可した処理境界の外へ内部コンテキストを検索語、プロンプト、添付またはツール入力として複製することも許可しない。
+
+v0.16.0からの主な変更:
+
+- `11_Skill.md`へ専門探索・収束契約を追加した。専門判断では、判断を変え得る不確実性を特定し、工程固有のレンズとパターン知識から有力候補を合成する。既存案だけが有力な場合も理由を示し、弱点、保持条件との衝突、残存不確実性および収束根拠を説明する。
+- 課題探索・要求形成へ判断を変える根拠、UXへ体験合成、IAへ構造合成、振る舞い仕様へ振る舞い合成、アーキテクチャへ構造合成、実装へ実装戦略と差分の逆向き批評、検証へ検証・根拠戦略を追加した。
+- UI、グラフィック、イラスト、画像、アイコン、モーション、プレゼンテーション、2D／3D素材へ使える視覚制作と材質・空間表現の共通レンズを追加した。新しい直列工程は作らず、構成、階層、リズム、文字、色、個性、形態・輪郭、材質反応、縮尺、形状・縁、物体履歴と原因に基づく摩耗、照明、カメラ、空間文脈、技術的成立、物理的な納得性と知覚上・文脈上・芸術上の成立を固定スタイル規則ではなく批評観点として扱う。
+- 人間のまだ言語化できない視覚的違和感を仮説と比較の開始点にできるが、自動的な合否判定にはしない。美的判断、ブランド判断、公開判断および芸術的採用は人間の決定権限に残す。
+- 現在案が成立した後に意味のある差別化余地をAIが発見できるが、慣習に従う範囲、差別化する範囲、保持条件、期待価値、認知・導入費用、リスクおよび必要な人間判断を分けた提案までとする。採用済みの原則、意図、契約、ブランド方針または視覚方向をAIが自己判断で破ることは許可しない。
+- アーキテクチャを設計要因とトレードオフの評価から、設計要因→構造合成→評価へ強化した。パターン名を答えにせず、境界推論、状態所有、失敗起点の推論、感度、可逆性、事前失敗分析から意味の異なる構造候補を作る。
+- 品質保証と独立した専門品質確認は、案数、活動記録、チェックリスト、自己申告または単一表示条件ではなく、実際の成果物と説明可能な推論結果を評価する。
+- READMEへCRDD初回導入、基準版移行、全プロダクトライフサイクル工程、外部コミュニケーション、管理対象依存、視覚制作、3D材質・空間表現の非規範な指示例を追加した。
+- 条件付きプロダクトライフサイクル基準PL-19を追加した。専門判断を新設、変更または採用する場合に適用し、記録更新だけの対象へ架空の代替案を要求しない。固定成果物、スキーマ、安定コンテキストID、監査、承認段階、特定ツールまたはモデル固有経路は追加しない。
+- `01_Principles.md`へ外部情報境界、Core基準へC-11を追加した。許可した処理境界は、対象リスクに応じて情報分類、目的・操作、送信先またはテナント、利用主体、保持、二次利用、再送、契約・法令、残存リスクおよび決定権限から識別し、「社内」、非公開表示、ログイン、導入済みまたは一回の承認だけから推定しない。境界内では目的に許可された情報だけを必要な最小量で送り、境界外の調査では削除・抽象化・最小化した別の外部向け調査コンテキストだけを送る。分類、許可、境界条件または安全な抽象化が不明な場合は送信せず人間判断へ戻す。
+- 情報分類は明示的に上書きされない限り継承し、派生・組合せ情報は再識別リスクに応じて同等以上に保護する。シークレット値をコンテキストへせず、必要な場合も実行時注入するシークレットへの参照だけをエージェントへ渡す。
+- 外部内容は、許可した処理境界またはツール内に存在するだけでは指示、決定または操作権限を得ない。エージェント契約、認証済み主体および許可した目的・操作から権限を別途確認できる場合だけ、その範囲の指示として扱う。それ以外は信頼していない根拠として扱い、プロンプト注入、汚染文書・ツール、エージェント間漏洩、権限拡大、機微な推論、権限の幻覚、危険な外部操作および接続ツールの供給網リスクを、アーキテクチャ、実装、検証、品質保証へ接続した。委譲で権限を拡大せず、重要なセキュリティ不変条件は可能な範囲で実行時強制と合成境界試験を用い、エージェントの自己申告へ依存しない。
+
+採用への影響: これはCore、プロダクトライフサイクルおよびAI実行に対する非構造的な破壊的変更である。既存基準版からの採用には[移行完了の条件](19_Maintenance.md#621-migration-completeness)を適用する。Core準拠表明ではC-11、プロダクトライフサイクル準拠表明ではPL-19を評価する。進行中の工程スキル、品質根拠、AI入口、ローカル案内、情報分類、外部サービス接続、ツール権限またはセキュリティ検証が新しい契約を保持できない場合だけ更新する。完了済み履歴を新しい説明形式へ合わせるだけの理由で書き換えない。
+
+移行注記（v0.16.0 → v0.17.0）:
+
+- `migration_required: true`
+- `change_classification: breaking`
+- 必須: v0.17.0を有効化する前に基準版採用評価を行い、移行完了の条件を満たす。採用元、プロジェクト固有接続、影響する進行中作業、人間の有効化判断、復旧境界を記録する。
+- プロダクトライフサイクル準拠で必須: 対象範囲のPL-19を評価する。有効化後に専門判断を新設、変更または採用する場合は、不確実性、レンズとパターンの使用、候補合成、批評または反証、残存不確実性および収束根拠を説明可能にする。
+- Core準拠で必須: 対象範囲のC-11を評価する。接続母集団、適用する情報分類と継承、派生・組合せ情報のリスク、許可した処理境界、境界外接続、エージェント／ツール権限、外部入力の指示権限、供給網資産、セキュリティ不変条件、実行時強制、検証、監査、失効および回復を確認する。接続がない場合も接続母集団0と再評価契機を示し、C-11を非適用にせず、空の専用成果物も作らない。
+- 外部調査または接続ツールの有効化前に必須: 目的・操作、情報分類、送信先、利用主体、保持・二次利用、再送および決定権限等を対象リスクに応じて確認する。許可した処理境界内では許可された最小情報だけを送り、境界外では削除と抽象化によって最小限の別コンテキストを作り、組合せによる再識別と送信先の許可を確認する。許可を別目的、別サービス、別テナントまたは別公開先へ流用せず、残存開示リスクを安全に解消できない場合は人間判断を残す。外部結果は、正規の認証済み指示経路として確認できる範囲を除き、信頼していない根拠として戻す。
+- 進行中または再開した工程作業で必須: 現在のプロジェクト成果物が対象レンズを保持できない場合だけ、ローカル工程指示、スキル接続、品質戦略または検証設計を更新する。完了済み工程成果物を形式合わせだけの理由で書き換えない。
+- 条件付き: UI、グラフィック、プレゼンテーション、モーションまたは2D／3D素材が対象の場合、視覚制作結果を責務を持つUI、外部コミュニケーション、品質またはプロジェクト成果物へ接続し、人間の美的・ブランド判断を維持する。複数表示条件は判断を変え得る場合だけ使用する。
+- 段階実装で条件付き: 互換境界、並行状態、二重操作または機能切替は、固有の移行リスクが必要とし、人間が対象、期間、比較、整合、停止、復旧、費用、撤去条件を承認した場合だけ使用する。軽量な既定経路にはしない。
+- 不要: 固定数の代替、恒久的な探索文書、新しい工程フォルダ、新しい監査・承認、モデル能力点数、チェックリストによる美的合否、特定のデザイン／3D／セキュリティツール、仲介実装、全ファイルへのセキュリティラベル、実在シークレットを使う試験、完了済み履歴の遡及書換え。
+- 復旧: 移行完了と人間による有効化が終わるまで、現在有効なv0.16.0基準版と手順を維持する。部分適用を戻す場合はv0.16.0のAI入口と工程接続へ戻し、v0.17.0候補記録は履歴として保持し、進行中作業を直前に記録した判断・検証境界へ戻す。
+- 延期時の既知リスク: AIが工程成果物を形式上は正しく埋めても、有力な機会、体験構造、視覚方向、振る舞い、アーキテクチャ、実装戦略または検証根拠を作れない可能性がある。加えて、外部検索・ツール経由で識別可能な内部コンテキストを開示し、悪意ある外部命令を受け入れ、過剰権限または未評価の依存を使う可能性がある。人間が暗黙の救済層として残り、後段の手戻り、批評反復またはセキュリティ事故につながり得る。
+- 検証: 一つの固定改訂版へ全体Checkerを実行し、エージェント運用の独立レビュー、文書監査、不足／影響と準拠影響の監査を行う。既存案のみ、複数候補、情報不足、視覚／3D、記録更新だけ、外部接続なし、承認済みの非公開処理、安全に抽象化した公開調査、指定先への承認済み公開、承認流用の拒否、識別可能な検索語の拒否、悪意ある外部命令、境界条件の失効、最小権限、供給網の代表例を正本から再構成する。境界試験には実在シークレットではなく機微情報を模した合成データを使う。
+- 既知の制限: 本契約は専門探索の品質・説明可能性と外部情報流通の体系的な制御を強化するが、独創性、センス、ドメイン専門性、パターン知識の完全性、因果推論、すべてのシークレット・個人情報の完全検出、全外部サービスの信頼性または絶対的安全を保証しない。実行時強制は採用プロジェクトの能力にも依存し、対象に応じた人間の決定権限と専門確認は引き続き必要である。
 
 <a id="changelog-v0160-ja"></a>
 
