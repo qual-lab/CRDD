@@ -43,6 +43,8 @@ Policy Check
   ↓
 Verify
   ↓
+Coordinator Result Integration
+  ↓
 Outcome Routing
   ├─ No impact            → Record / End
   ├─ Policy-contained Completion → Complete / Record
@@ -52,7 +54,7 @@ Outcome Routing
 
 Background Laneは、人間判断を回避する経路ではない。既存PolicyとAuthorityで一意に解決できる結果だけを終了または完了へ進める。Policy不明、Authority競合、重大Risk、検証不能を`No impact`へ丸めない。
 
-Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)に従う。Background Laneで終了できることから、Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
+Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)に従う。Background Laneで終了できることから、Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
 
 ### 2.2. Human Decision Lane
 
@@ -69,13 +71,15 @@ Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Bou
 
 人間にはActivity全体ではなく、今回決めること、推奨、根拠、主な選択肢、影響、Risk、保留時の状態を示す。
 
-許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification Requirement等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、既存Policy内の実行として処理できる。Runを終了するときは、必要なResultとVerificationが成立したことを確認し、[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)に従う。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
+許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification Requirement等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、既存Policy内の実行として処理できる。Runを終了するときは、必要なResultとVerificationが成立したことを確認し、[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)に従う。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
 
 ---
 
 ## 3. Decision Queue
 
-Decision Queueは新しい必須成果物または固定UIを意味しない。複数Runから生じた人間判断を、同じ根本原因、決定権限者、判断時点、対象Identityに応じて集約できるHuman Interface候補である。
+Decision Queueは新しい必須成果物または固定UIを意味しない。[Coordinatorによる結果統合](02_CRDD_v2_Responsibility_Boundary.md#44-coordinatorによる結果統合)を経て、現在の対象改訂版から再構成された現在の判断集合を表示するHuman Interface候補である。複数Runの結果、未解決事項または人間判断候補をそのままQueue項目へ変換しない。
+
+人間判断は、同じ決定権限者と同じ判断時点を持ち、独立して保留または採否できず、分離すると意味または結果が壊れる場合だけ一つにまとめる。根本原因と対象Identityは重複排除、来歴、是正統合または影響範囲の判断に利用できるが、人間判断をまとめる必須条件にしない。判断が残らなければ、人間による判断が現在は不要であることを明示し、形式的な承認を要求しない。
 
 ```text
 Autonomous Operations: 100

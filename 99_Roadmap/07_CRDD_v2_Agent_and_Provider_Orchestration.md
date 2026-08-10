@@ -122,12 +122,14 @@ Verification
   ↓
 Independent Review when required
   ↓
+Coordinator Result Integration
+  ↓
 Human Gate / Policy-contained Completion
 ```
 
 EligibilityとOptimizationを一つのScoreへ統合しない。Security、Privacy、Authority、Contract、必要CapabilityまたはVerification Requirementを満たさない候補は、CostやAvailabilityが優れていてもEligible Setへ入れない。
 
-Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)に従う。Provider Routingはこの一般境界を再定義せず、各Execution BoundaryのEligibility、Result、Verificationおよび必要なIndependent Reviewを接続する。
+Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)に従う。Provider Routingはこの一般境界を再定義せず、各Execution BoundaryのEligibility、Result、Verificationおよび必要なIndependent Reviewを接続する。人間判断へ進む前に[Coordinatorによる結果統合](02_CRDD_v2_Responsibility_Boundary.md#44-coordinatorによる結果統合)を適用する。
 
 ---
 
@@ -185,6 +187,8 @@ Agent Resultは、実際の差分、Result、Evidence、Unresolved Items、Unava
 
 Review Resultは、対象、基準、Finding、Evidence、必要な変更、人間判断事項、未評価範囲を返す。AI Reviewerの`Pass`を採用、Risk Acceptance、PromotionまたはHuman Authorityの代替にしない。
 
+Executor、ReviewerまたはProviderが返す人間判断事項、承認要求、完了申告または`Pass`は、Coordinatorへ渡す結果候補であり、人間への直接的な質問、承認要求またはDecision Queue項目ではない。Coordinatorは現在の対象改訂版、Result、Evidence、Verification、Policy結果および解消状態を照合し、[判断支援契約](../11_Skill.md#53-decision-support-contract)に従って現在の判断集合を再構成する。Coordinator自身も採用、Risk Acceptance、PromotionまたはHuman Authorityを取得しない。
+
 固定YAML、固定ファイルまたは全Agent会話の保存を要求しない。人間または後続Operationが、なぜその結果になったかを必要な粒度で再構成できる情報だけをCRDDへ還流する。
 
 ---
@@ -201,7 +205,9 @@ Optional Profile
     ↓ Result
   Reviewer
     ↓ Finding / Verification
-  Human Gate or Policy-contained Completion
+  Coordinator Result Integration
+    ├─ Current Decision Set → Human Gate
+    └─ Policy-contained Outcome → Policy-contained Completion
 ```
 
 単純Operationでは同じ主体が複数責務を担える。工程移行、重大Risk、保護対象変更等でIndependent Reviewが必要な場合は、現行の独立性条件を維持する。
@@ -261,7 +267,9 @@ Fallbackに必要Capabilityがなく、Verificationで差を閉じられない�
 - Hard Iteration Cap
 - Circuit BreakerとHuman Decision条件
 
-上限到達時に全会話を人間へ送らず、未解決差分、反復原因、影響、必要判断、推奨処置だけをDecision Queueへ集約する。Modelが申告するConfidenceは補助信号にできるが、Authority、必須Evidenceまたは安全条件の代替にしない。
+差戻しは、責務を持つ対象と必要変更を特定し、更新後の対象改訂版で再実行・再検証する。古いResultまたはReviewを現在判定へ流用せず、同一提案・同一Findingの反復、時間、Cost、Quota、Effectおよび回数の上限を確認する。同じ原因が再発し局所差戻しで収束しない場合は、契約、生成、検証または利用側の構造是正へ戻す。
+
+上限到達時に全会話を人間へ送らず、未解決差分、反復原因、影響、現在必要な判断、推奨処置だけをCoordinatorが統合する。将来に判断が必要な事項は、担当責任者、再評価契機、保留影響および元Result／Finding／Evidenceを既存の追跡先へ接続し、現在のDecision Queueへ出さない。Modelが申告するConfidenceは補助信号にできるが、Authority、必須Evidenceまたは安全条件の代替にしない。
 
 ---
 

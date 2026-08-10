@@ -103,6 +103,8 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and Authority Safety, Background versus Human Decision separation, and Operation Health. They are future, non-normative design material—not part of v0.17.0 conformance:
 
+The v1 development candidate narrows Human requests to a Current Decision Set derived from the current revision. The v2 candidate extends that boundary across multiple executions: a Coordinator integrates Executor, Reviewer, Provider, and Run results before passing only the current decision set to a Human interface. Neither candidate makes a Coordinator product, agent layout, queue UI, or autonomous approval mandatory. The synchronized v1 candidate remains a development dependency, not an adopted or released baseline; later v1 changes require a fresh semantic comparison here.
+
 - [Concept and vision](99_Roadmap/01_CRDD_v2_Concept.md)
 - [Responsibility boundaries](99_Roadmap/02_CRDD_v2_Responsibility_Boundary.md)
 - [Activation profiles and reference implementation](99_Roadmap/03_CRDD_v2_PoC_Plan.md)
@@ -445,6 +447,8 @@ Trigger → Think → Controlled Effect → Verify → Learn
 ```
 
 候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
+
+v1開発候補は、現在の改訂版から現在の判断集合を導き、人間への判断要求を絞る。v2候補はこの境界を複数実行へ拡張し、CoordinatorがExecutor、Reviewer、Providerおよび各Runの結果を統合してから、現在の判断集合だけをHuman Interfaceへ渡す。いずれの候補も、特定Coordinator製品、Agent構成、Queue UIまたは自律承認を必須にしない。同期したv1候補は開発依存であり、採用済みまたはReleasedの基準ではない。v1候補が変わった場合は、v2側で意味差を改めて確認する。
 
 - [Conceptと全体像](99_Roadmap/01_CRDD_v2_Concept.md)
 - [責務境界](99_Roadmap/02_CRDD_v2_Responsibility_Boundary.md)

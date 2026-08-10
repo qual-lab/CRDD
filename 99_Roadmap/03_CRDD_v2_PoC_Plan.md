@@ -273,9 +273,22 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 - Planner／Executor／Reviewerを固定Flowにせず、必要な責務だけを構成できるか
 - 別ProviderのReviewerがExecutorの結論を流用せず、対象と基準からFindingを独立再構成できるか
 - Routing Policy、Eligibility Policy revision、Eligibility Decision、Execution Boundary、Context Projection、Permission、Fallback、Verification、Costを必要な粒度で再構成できるか
-- [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)がRun終了だけを成立させ、Promotion PolicyなしにCanonical State、Risk AcceptanceまたはHuman Authorityを成立させないか
+- [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)がRun終了だけを成立させ、Promotion PolicyなしにCanonical State、Risk AcceptanceまたはHuman Authorityを成立させないか
 - Hard Cost／Effect Budget Ceilingまたは実行に必要なQuota／Rate-limitを満たさない候補を不適格とし、Eligible Set内だけでEstimated CostとQuota Efficiencyを比較するか
 - RoutingがCostを下げても品質、見逃し、人間負荷またはRecovery burdenを悪化させていないか
+
+### 7.8. Coordinator Result Integration
+
+[Coordinatorによる結果統合](02_CRDD_v2_Responsibility_Boundary.md#44-coordinatorによる結果統合)を、固定Agent構成ではなく次の合成Fixtureで確認する。
+
+- 判断が残らないExecutor Resultを報告またはPolicy内完了へ接続し、形式承認を要求しないか
+- Executorが直接承認を要求しても、その要求をAuthorityとして採用せず現在の判断集合を再構成するか
+- ExecutorとReviewerが競合するとき、多数決せず対象、基準、Evidenceおよび未評価範囲を保持して再検証または判断へ接続するか
+- Independent Reviewが不要な軽量OperationへReviewを機械的に追加せず、必要なReviewが未実施なら完了またはPromotionへ進めないか
+- 複数結果から現在判断が0件なら人間判断不要と明示し、独立して保留できる2件は分け、異なる原因でも不可分な1件はまとめるか
+- 将来判断を現在のDecision Queueから外しても、担当責任者、再評価契機、保留影響および元Evidenceを既存の追跡先へ残すか
+- 未解決の重大リスク、Authority競合または検証不能をDigestへ埋めず停止・移送するか
+- 差戻し後の新しい改訂版で再検証し、古いResultを失効させ、反復時はBudget、Circuit Breakerまたは構造是正へ接続するか
 
 ---
 

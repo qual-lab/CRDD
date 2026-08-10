@@ -303,7 +303,9 @@ CRDD Core候補は安全不変条件を所有し、実装方式を固定しな�
 15. Safety、Privacy、Authority、Contractまたは必須CapabilityをOptimization Scoreで相殺しない。
 16. Providerへの送信許可、Context Projection、AuthorityまたはTool AccessをFallback先へ流用しない。
 17. Providerの相違をIndependent Reviewの成立根拠にしない。
-18. [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)からCanonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
+18. [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)からCanonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを推定しない。
+19. Executor、Reviewer、ProviderまたはCoordinatorのResult、Finding、承認要求、多数決、完了申告または`Pass`からHuman Authority、Promotion、Risk Acceptanceまたは採用を推定しない。
+20. 古い対象改訂版の統合結果を現在の判断へ流用せず、重大リスク、Authority競合または検証不能を通常の集約、重複排除またはDigestへ埋めない。
 
 将来互換の表現と現在の利用許可の分離は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)に置く。本書は、その分離がEffect確定前にRuntimeで強制されることを扱う。
 
@@ -326,7 +328,9 @@ CRDD Core候補は安全不変条件を所有し、実装方式を固定しな�
 - 低Costだが情報境界を満たさないProviderをRouting候補に入れ、Eligibility Gateが拒否する。
 - Primary ProviderからFallback先へ同じContextを無条件再送しようとし、再Eligibility判定で停止する。
 - 別ProviderのReview結果だけを独立性の根拠にし、対象から再構成できなければIndependent Reviewとして扱わない。
-- [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)へ到達したRunからCanonical Promotionを直接要求し、Promotion Policyがなければ確定を拒否する。
+- [Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#45-policy-contained-completion)へ到達したRunからCanonical Promotionを直接要求し、Promotion Policyがなければ確定を拒否する。
+- ExecutorまたはReviewerが人間承認を直接要求し、Coordinatorが現在の対象改訂版から判断要否を再構成せずにHuman Gateへ送ろうとした場合に拒否する。
+- 古いRevisionのResult、解消済みFindingまたはProvider多数決を現在判断へ流用しようとした場合に停止し、重大リスクはDigestを待たず移送する。
 
 PoCの合格は「Agentが危険なことをしなかった」ではなく、「Agentが危険なEffectを要求してもRuntimeが確定を防ぎ、理由とEvidenceを残した」ことで評価する。
 

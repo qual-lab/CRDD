@@ -204,13 +204,29 @@ Operation Resultそれ自体は、原則として同一対象・同一原因の�
 
 Silent Failureを減らすため、「問題なし」という結論にも探索範囲、対象外、利用不能なコンテキスト、残存不確実性、収束理由を要求する。活動を実施したという自己申告だけで結果を成立させない。
 
-### 4.4. Policy-contained Completion
+### 4.4. Coordinatorによる結果統合
+
+Coordinatorは、Executor、Reviewer、Providerまたは複数Runが返した結果を、人間への質問または採用済みの結論へ直接変換しない。Execution Identity、対象改訂版、Current State、Evidence、Verification、Policy結果、未評価範囲および結果の有効性を照合し、競合、重複、失効した結果、解消済み事項、報告のみの事項を分ける。
+
+人間判断候補は、[判断支援契約](../11_Skill.md#53-decision-support-contract)に従い、現在の対象改訂版から**現在の判断集合（Current Decision Set）**として再構成する。監査またはレビューでは現在の固定改訂版を用いる。ExecutorまたはReviewerが`Decision Required`、承認要求または`Pass`を返しても、その申告からHuman Authority、採用、Risk Acceptance、Promotionまたは質問件数を推定しない。
+
+Coordinatorは結果を、少なくとも次の既存経路へ接続する。
+
+- Authority、停止条件、収束条件およびBudgetの範囲でAIが一意に是正できる事項は、責務を持つ実行主体へ戻して再実行・再検証する。
+- 解消済み事項は、是正結果と実際の影響を報告するが、現在の判断要求へ戻さない。
+- 報告のみの事項は追跡可能な詳細へ置き、現在の判断集合へ含めない。
+- 将来に判断、再確認または監視が必要な事項は、担当責任者、再評価契機、保留影響および元のResult／Finding／Evidenceを既存の未完了事項、Roadmapまたは変更トレースへ接続し、現在のDecision Queueへ出さない。
+- 現在も人間の決定権限が必要な事項だけを現在の判断集合へ残す。未解決の重大リスク、不可逆性、Authority競合または検証不能は通常の集約へ埋めず、既存の停止・移送経路へ接続する。
+
+複数結果が競合する場合はProvider数、Agent数または多数決で結論を選ばず、対象、基準、Evidence、未評価範囲および残存不確実性を保持して、再検証または人間判断へ接続する。この統合責務は新しい成果物、状態軸、承認段階、固定Schema、中央判断台帳またはCoordinatorへの新しい決定権限を作らない。単一主体が複数責務を担うOperationでも、同じ意味境界を適用できる。
+
+### 4.5. Policy-contained Completion
 
 `Policy-contained Completion`は、事前承認されたOperationについて、必要なResultとVerificationが許可範囲内で成立し、そのRunを終了できる実行上の境界を意味する。Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを自動的に成立させない。
 
 これは新しい第一級成果物、独立した状態軸または承認段階ではない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)のPromotion Policyを別途適用する。Policy、Authority、必須Result、Verificationまたは未解決Riskを確認できないRunを、`Policy-contained Completion`へ丸めない。
 
-### 4.5. Identity、Reference、Provenance、Authority
+### 4.6. Identity、Reference、Provenance、Authority
 
 本書は実行時の責務分離を所有し、将来互換の意味上の合成関係は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)へ接続する。
 
