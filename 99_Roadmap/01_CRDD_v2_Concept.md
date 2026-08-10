@@ -152,6 +152,20 @@ Agent OrganizationとContinuous Learningは、この5本柱を支える横断能
 
 > 何が起きたら、なぜ、どのコンテキストをもう一度考える必要があるか。
 
+所有境界は次のとおりである。
+
+```text
+Re-evaluation Contract
+  Why / When / What should be reconsidered
+  → operation_ref
+
+Operation Contract
+  What capability is invoked after reconsideration starts
+  → Goal / Context / Expected Outcome / Authority / Stop
+```
+
+Re-evaluation Contractは、起動後のGoal、期待結果またはAuthorityを複製しない。同じOperationをSchedule、Event、Condition等の複数契機から参照できるようにする。
+
 ```yaml
 reevaluation:
   target: product_direction
@@ -160,18 +174,10 @@ reevaluation:
     - meaningful_environment_change
     - new_user_evidence
     - review_interval_reached
-  expected_outcomes:
-    - assumption_validity
-    - meaningful_changes
-    - affected_decisions
-    - roadmap_implications
-    - recommended_next_actions
-  authority:
-    proposal: ai
-    roadmap_change: human
+  operation_ref: product-direction-review
 ```
 
-これは固定Schemaではない。少なくとも、再評価理由、対象、条件、期待結果、権限、停止、根拠、記録先を取得可能にする方向を比較する。
+これは固定Schemaではない。少なくとも、再評価理由、対象、条件、参照するOperationを取得可能にする方向を比較する。Operation側がGoal、期待結果、Authority、停止、根拠、記録先を所有する。
 
 イベント自体を固定Actionへ直結しない。例えばPull Requestの統合後は、まず意味変化を評価し、影響がなければ終了し、意味が変わった場合だけ適切な再評価へ接続する。
 

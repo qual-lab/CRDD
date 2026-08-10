@@ -44,6 +44,8 @@ CRDDが所有する意味側の候補である。
 - 同じFindingまたは手戻り原因の反復
 - ロードマップの再評価条件成立
 
+コンテキスト契機を再評価契約として表す場合、その責務は`Why / When / What should be reconsidered`と参照するOperationまでとする。起動後のGoal、Expected Outcome、Authority、Stop ConditionはOperation Contractが所有し、再評価契約へ複製しない。
+
 ### 2.2. 実行契機
 
 Runtimeが所有する検知・起動方式である。
@@ -89,6 +91,8 @@ Skillは専門探索、合成、批評、反証、収束を支える認知能力
 - 外部コミュニケーション結果レビュー
 
 Operationは処理順序ではなく、Goal、Context、Authority、Expected Outcome、Stop Conditionを持つ候補である。SkillとOperationを重複正本化しない。
+
+複数のSchedule、Event、Conditionから同じOperationを参照できる。OperationはTrigger条件や再評価理由を再定義せず、起動後に使用するCapabilityと成立すべきOutcomeを所有する。
 
 ---
 

@@ -312,7 +312,7 @@ PoCの成功や過去の一回承認から、新しい判断・操作権限を�
 
 ### Profile 4 — Governed Execution
 
-- 可逆で、目的、権限、送信先、停止、回復が取得可能な操作だけを候補化
+- 失敗影響を限定でき、検出可能で、RecoveryまたはCompensating Actionが成立し、Effect Boundary内で検証可能な操作だけを候補化
 - 外部公開、本番、費用、法務、権限変更はHuman Gateを維持
 
 ### Profile 5 — Agent Organization

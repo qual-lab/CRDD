@@ -188,6 +188,8 @@ Affected Context
 
 ## 8. Adaptive Operation
 
+> Operation Healthは実行強度を適応させてもよいが、自身の目的、Authority、安全境界、成功条件を自己変更してはならない。
+
 Operation Healthに応じて次を候補化できる。
 
 - 実行頻度を下げるまたは上げる
@@ -199,7 +201,7 @@ Operation Healthに応じて次を候補化できる。
 - OperationをPauseする
 - Operationを再設計または廃止する
 
-Operationが自分のHealth結果を根拠に、自動で権限拡張、Profile昇格、Policy変更を行わない。低Riskで事前承認された頻度調整等を自動化する場合も、許可範囲、上限、Verification、Rollback、再評価条件を持つ。
+Operationが自分のHealth結果を根拠に、自動で目的変更、権限拡張、Profile昇格、Policy変更、安全境界変更または成功条件変更を行わない。低Riskで事前承認された頻度調整等を自動化する場合も、許可範囲、上限、Verification、Rollback、再評価条件を持つ。
 
 ---
 
