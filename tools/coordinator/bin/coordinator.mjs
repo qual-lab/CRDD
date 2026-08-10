@@ -5,7 +5,7 @@ import { runDoctor } from "../src/core/doctor.mjs";
 function printHelp() {
   process.stdout.write(`Coordinator Runtime 1.0 (implementation candidate)\n\n`);
   process.stdout.write(`Usage:\n`);
-  process.stdout.write(`  coordinator doctor [--json]\n`);
+  process.stdout.write(`  coordinator doctor [--json] [--isolation]\n`);
 }
 
 const [, , command, ...args] = process.argv;
@@ -15,7 +15,7 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
   process.exitCode = 0;
 } else if (command === "doctor") {
   try {
-    const report = runDoctor();
+    const report = runDoctor({ activeIsolation: args.includes("--isolation") });
     if (args.includes("--json")) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {

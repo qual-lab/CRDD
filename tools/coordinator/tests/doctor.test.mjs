@@ -19,6 +19,10 @@ import {
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy
 } from "../src/security/execution-environment.mjs";
+import {
+  dockerIsolationArguments,
+  normalizeDockerIsolationResult
+} from "../src/security/docker-isolation.mjs";
 
 function confirmedChecks() {
   return REQUIRED_CHECK_IDS.map((id) => ({ id, status: "confirmed", reason: null }));
@@ -250,4 +254,44 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.checks.some((item) => item.id.endsWith(".active_probe") && item.status === "not_implemented"), true);
   assert.equal(serialized.includes("OPENAI_API_KEY="), false);
   assert.equal(serialized.includes("ANTHROPIC_API_KEY="), false);
+});
+
+test("Docker隔離Probeは固定Digestと最小権限を使う", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-docker-args-"));
+  try {
+    const directories = createOperationDirectories(root);
+    const args = dockerIsolationArguments(directories, "test-id");
+    assert.deepEqual(args.slice(0, 2), ["-H", "npipe:////./pipe/dockerDesktopLinuxEngine"]);
+    assert.equal(args.includes("--network=none"), true);
+    assert.equal(args.includes("--read-only"), true);
+    assert.equal(args.includes("--cap-drop=ALL"), true);
+    assert.equal(args.includes("--security-opt=no-new-privileges"), true);
+    assert.equal(args.includes("crdd-coordinator-probe-test-id"), true);
+    assert.equal(args.includes("crdd.coordinator.probe=test-id"), true);
+    assert.equal(args.some((value) => value.startsWith("python@sha256:")), true);
+    const mounts = args.flatMap((value, index) => value === "--mount" ? [args[index + 1]] : []);
+    assert.equal(mounts.some((value) => value.includes("events")), false);
+    assert.equal(mounts.some((value) => value.includes("projection")), false);
+    assert.equal(mounts.some((value) => value.includes("management")), false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Docker隔離Probe結果は全境界成立時だけconfirmedになる", () => {
+  const complete = {
+    marker: "crdd-coordinator-isolation-v1",
+    allowed_writes: { workspace: true, "provider-home": true, tmp: true },
+    runtime_paths_absent: true,
+    credential_names_absent: true,
+    network_blocked: true,
+    home_isolated: true,
+    tmp_isolated: true
+  };
+  assert.equal(normalizeDockerIsolationResult({ status: 0, stdout: JSON.stringify(complete) }).status, "confirmed");
+  for (const key of ["runtime_paths_absent", "credential_names_absent", "network_blocked", "home_isolated", "tmp_isolated"]) {
+    assert.equal(normalizeDockerIsolationResult({ status: 0, stdout: JSON.stringify({ ...complete, [key]: false }) }).status, "blocked", key);
+  }
+  assert.equal(normalizeDockerIsolationResult({ status: 0, stdout: "not-json" }).status, "blocked");
+  assert.equal(normalizeDockerIsolationResult({ status: 1, stdout: JSON.stringify(complete) }).status, "blocked");
 });

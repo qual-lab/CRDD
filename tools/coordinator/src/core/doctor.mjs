@@ -9,6 +9,10 @@ import {
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy
 } from "../security/execution-environment.mjs";
+import {
+  DOCKER_ISOLATION_PROFILE,
+  runDockerIsolationProbe
+} from "../security/docker-isolation.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -191,7 +195,8 @@ function reportableFilesystemPolicy(policy, root) {
   };
 }
 
-export function runDoctor() {
+export function runDoctor(options = {}) {
+  const activeIsolation = options.activeIsolation === true;
   const owned = createOwnedOperationDirectories();
   try {
     const providerEnvironment = createProviderEnvironment(process.env, owned.directories);
@@ -202,19 +207,30 @@ export function runDoctor() {
       PROVIDERS.map((name) => [name, discoverCommand(name)])
     );
 
+    const isolation = activeIsolation
+      ? runDockerIsolationProbe(owned.directories)
+      : { status: "not_implemented", reason: "filesystem_boundary_not_enforced" };
     const checks = [
       check("runtime.node", nodeSupported() ? "confirmed" : "blocked", nodeSupported() ? null : "node_22_or_newer_required"),
       check("repository.git", repository.gitAvailable ? "confirmed" : "blocked", repository.gitAvailable ? null : "git_unavailable"),
       check("repository.identity", repository.identityAvailable ? "confirmed" : "blocked", repository.identityAvailable ? null : "repository_identity_unavailable"),
       check("operation.directories", "confirmed", "owned_operation_directories_created"),
-      check("execution.filesystem", "not_implemented", "filesystem_boundary_not_enforced"),
+      check("execution.filesystem", isolation.status, isolation.reason),
       check(
         "execution.credential_environment",
         forwardedCredentialNames.length === 0 ? "confirmed" : "blocked",
         forwardedCredentialNames.length === 0 ? null : "credential_environment_filter_failed"
       ),
-      check("execution.credential_isolation", "not_implemented", "credential_store_isolation_not_enforced"),
-      check("execution.egress", "not_implemented", "provider_egress_allowlist_not_enforced"),
+      check(
+        "execution.credential_isolation",
+        activeIsolation && isolation.status === "confirmed" ? "confirmed" : "not_implemented",
+        activeIsolation && isolation.status === "confirmed" ? "credential_paths_not_mounted_in_fake_probe" : "credential_store_isolation_not_enforced"
+      ),
+      check(
+        "execution.egress",
+        activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_implemented",
+        activeIsolation && isolation.status === "confirmed" ? "provider_endpoint_allowlist_not_configured" : "provider_egress_allowlist_not_enforced"
+      ),
       ...providerChecks("codex", providers.codex),
       ...providerChecks("claude", providers.claude)
     ];
@@ -222,7 +238,7 @@ export function runDoctor() {
 
     return {
       reportVersion: 2,
-      diagnosticMode: "passive_preflight",
+      diagnosticMode: activeIsolation ? "docker_fake_provider_probe" : "passive_preflight",
       status: readiness.status,
       platform: process.platform,
       node: { version: process.version, supported: nodeSupported() },
@@ -232,13 +248,19 @@ export function runDoctor() {
         forwardedNames: forwardedCredentialNames,
         valuesRecorded: false,
         environmentFiltered: forwardedCredentialNames.length === 0,
-        isolationEnforcement: "not_implemented"
+        isolationEnforcement: activeIsolation && isolation.status === "confirmed"
+          ? "confirmed_for_fake_probe"
+          : "not_implemented"
       },
       filesystem: {
         policy: reportableFilesystemPolicy(describeFilesystemPolicy(owned.directories), owned.root),
-        enforcement: "not_implemented"
+        enforcement: isolation.status,
+        profile: activeIsolation ? DOCKER_ISOLATION_PROFILE : null
       },
-      egress: { providerAllowlist: "not_implemented" },
+      egress: {
+        providerAllowlist: "not_implemented",
+        fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated"
+      },
       providers,
       checks,
       blockers: readiness.blockers
