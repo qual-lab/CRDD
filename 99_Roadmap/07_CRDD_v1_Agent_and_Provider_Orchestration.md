@@ -2,7 +2,7 @@
 
 Status: Concept / Non-normative Architecture Candidate
 Target: CRDD v1.x Architecture Candidate
-Subtitle: Safe Context Routing Across Execution Boundaries  
+Subtitle: Safe Context Routing Across Execution Boundaries
 Related: [v1候補構想](01_CRDD_v1_Concept.md), [責務境界](02_CRDD_v1_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v1_PoC_Plan.md), [自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v1_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md)
 
 > 本書は非規範のAgent／Provider Orchestration候補である。現在のCRDD v0.17.0、Human Authority、Independent Review、External Information Boundary、準拠基準または採用側のProvider契約を変更しない。特定Provider、Model、Agent構成、固定Schemaまたは複数Agentの利用をCRDD準拠条件にしない。
@@ -31,8 +31,9 @@ CRDD Context
 
 中心原則は次のとおりである。
 
-> **Safety / Privacy / AuthorityはOptimization対象にしない。**  
-> **Provider difference ≠ Review independence.**  
+> **Safety / Privacy / AuthorityはOptimization対象にしない。**
+>
+> **Provider difference ≠ Review independence.**
 > **Providerへの送信許可 ≠ Fallback先への送信許可.**
 
 ---

@@ -99,3 +99,5 @@ renameだけでなく、旧系列分離、同期方向、v1対v2比較、Target�
 3. Gap／Impact＋Conformance Audit: 契約母集団、利用側母集団、現行v0.17.0準拠非影響、移行候補および非規範Architecture境界を含む。
 
 現在状態は`Ready for Verification`である。固定後Identity、Checker、3監査、対象Version、最終分類、移行、CHANGELOG、main統合、公開およびReleaseは未完了であり、取得前にPassまたはRelease Handoffを先取りしない。
+
+初回統合固定候補`c9ba7579165865052024f3904ff9f5d86db48e90`では、全体Checker自体は155ファイル、Markdown 112件、ローカルリンク1,649件、アンカー551件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件を確認し、Error 0／Warning 0だった。一方、固定時の`git diff --check`で旧文書から継承した3箇所の行末空白を検出したため、この固定候補とChecker結果は現在判定へ使用せず`Invalidated`とする。行末空白だけを是正した新固定版へCheckerと3監査を取り直す。
