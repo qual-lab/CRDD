@@ -173,3 +173,17 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 統合修正では、設定されたRelease対象branchと統合権限を取得し、対象branchへの統合を最終Release判断より前へ移した。統合前source、対象branchの事前HEAD、統合後Commit／Tree、公開基準からの全Release差分、対象CHGおよび宣言外差分を確認し、Identity変化時は差分種別に応じて新固定版へCheckerと必要な監査を取り直す。対象branchが不明、競合またはアクセス不能なら`main`へ暗黙fallbackせず停止する。人間のRelease判断は統合後に確認済みの最終Identityを一度だけ対象とし、承認後のタグも同じIdentityを指す。処置は`Applied`であり、新固定版の監査前に`Resolved`または`Pass`と扱わない。
 
 現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、`AG-V018-R02`を`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
+
+第7統合固定候補はCommit `7653cb25737880d6415ad4881d773e9637cd4526`、Tree `cec106cd91ea6029dce9232bbf6dce795cda47aa`である。全体Checkerは155ファイル、Markdown 112件、ローカルリンク1,653件、アンカー555件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件をError 0／Warning 0で確認し、Checkerテスト143件はすべてPass、`git diff --check`はcleanだった。
+
+同固定候補への監査結果は次のとおりである。
+
+- Agent／Architecture Review: `Pass`。未解決Finding 0件。
+- Document Audit: `Pass`。未解決Finding 0件。
+- Gap／Impact＋Conformance Audit: `Fail`。`GCI-V018-R03`（Major）は、§5.1の対象branch統合後Identity契約が、同じ正本の§5.3 Release Readinessチェックリストへ伝播していないことを指摘した。
+
+必須監査集合にFailが含まれるため、第7統合固定候補、Checker、テストおよび監査集合全体を`Invalidated`とし、現在の合否、Finding解消、準拠、Release HandoffまたはRelease根拠へ流用しない。個別のPassは実行履歴として保持し、Failへ書き換えない。`GCI-V018-R03`は第6候補の是正によって新たに発生した指摘である。
+
+統合修正では、§5.3へ、設定されたRelease対象branchと統合決定権限、Release判断前の統合、統合後Commit／Treeの固定、Identity変化と全Release差分に応じた必要確認、判断またはタグ付与までのbranch HEAD／最終Identity不変を確認する一項目を追加した。条件を確認できない場合はRelease Readinessを成立させず、再固定と必要な確認へ戻る。処置は`Applied`であり、新固定版の監査前に`Resolved`または`Pass`と扱わない。
+
+現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、`GCI-V018-R03`を`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
