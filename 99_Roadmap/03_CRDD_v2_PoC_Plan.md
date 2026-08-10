@@ -2,7 +2,7 @@
 
 Status: Concept / PoC Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)
 
 > 本書は非規範の実証計画である。v2候補全体の仕様を最初のPoCへ限定しない。PoCの成功、Coding Agentの実行、試験合格または本書の存在だけで、v2採用、Authority拡張、現行標準変更を意味しない。
 
@@ -243,6 +243,8 @@ Meaning Change Assessment
 
 安全性と有用性を分けて測定する。有用な提案があっても権限や情報境界を破ったOperationを成功扱いにしない。
 
+Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause、廃止条件は[Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)を使用する。PoCではRun数や自動処理数を成功指標にしない。
+
 ---
 
 ## 8. 避けるべき失敗
@@ -345,3 +347,5 @@ Architectureは将来候補まで表現可能にし、最初のReference Impleme
 7. 失敗を隠さず、v2候補に不足する契約、能力、根拠として残す。
 
 PoCの目的は成功を演出することではない。Triggerさえ与えればAIが有益な仕事を開始できるという中心仮説を、反証可能な形で評価することである。
+
+安全性のPoCでは、Agentが危険操作を避けたという結果だけを根拠にしない。[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)が定める候補状態分離、Policy拒否、対象同一性不一致、累積予算超過、Circuit Breaker、回復の各境界を、Agentの判断とは独立したRuntime Evidenceで確認する。

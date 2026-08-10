@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [実証計画](03_CRDD_v2_PoC_Plan.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [実証計画](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)
 
 > 本書は非規範の責務整理である。現在のCRDD、Agent Contract、Skill Contract、Human Authority、External Information Boundaryまたは準拠基準を変更しない。
 
@@ -396,6 +396,8 @@ AIが自律的に行える初期候補：
 
 契機駆動Operationの安全性をAgentの自己申告だけへ依存させない。
 
+実行前後の安全契約、候補状態と正本状態の分離、実行効果の分類、Policy評価、対象同一性の再確認、累積予算、停止と回復は[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)に置く。本書はCRDD、Runtime、Tool、Authorityの責務分離を所有し、安全文書はその境界を再定義しない。
+
 ---
 
 ## 12. 既存責務との接続
@@ -405,3 +407,5 @@ AIが自律的に行える初期候補：
 - Verification／QA：Finding、陳腐化、反復原因を探索し、単純な失敗→再試行へ縮退させない。
 - Context Dependency：Runtime、MCP、外部Toolの依存と権限を管理し、接続結果を無条件流用しない。
 - CRDD Maintenance：運用上の手戻りから改善候補を作れるが、Coreを自動変更しない。
+
+Background Lane、Decision Queue、通知集約、運用健全性、頻度変更、Pause、廃止の責務は[Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)に置く。Operation Contractが目的と期待結果を所有し、Health評価はOperationの意味や採用判断を自己変更しない。

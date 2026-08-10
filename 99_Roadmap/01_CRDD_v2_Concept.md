@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [実証計画](03_CRDD_v2_PoC_Plan.md)
+Related: [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [実証計画](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)
 
 > 本書は非規範の将来構想である。現在のCRDD v0.17.0、将来のv1.x、準拠基準、採用側の責務を変更しない。ここに記載した契約、成果物、状態、ツール、実行方式は、独立した変更・検証・人間判断を経るまでCRDD標準ではない。
 
@@ -118,23 +118,31 @@ v2は、人間を排除する構想ではない。AIが状況収集、差分把�
 
 ---
 
-## 4. 4本柱
+## 4. 5本柱
 
-### 4.1. 運用・再評価契機契約
+### 4.1. 再評価・契機契約
 
 CRDDが「いつ、なぜ、何をもう一度考える必要があるか」を表現し、Runtimeがその条件を検知してAIを起動できるようにする。
 
-### 4.2. 統制された決定権限
+### 4.2. Operation Contract
 
-初期は既存のHuman Authorityを維持する。実績、安全性、影響、可逆性、検証可能性、費用、セキュリティ、プライバシーを根拠として、限定的な操作だけを将来候補として評価する。
+目的、対象、期待結果、Authority、停止条件、次の再評価への接続を持ち、固定WorkflowではなくGoal Contractとして継続業務を表現する。
 
-### 4.3. エージェント組織
+### 4.3. EffectとAuthorityの安全性
 
-エージェント数ではなく、役割、責務、コンテキスト範囲、権限、委譲、引き渡し、Escalation、競合解決を扱う。
+Context Access、Effect Boundary、Candidate／Canonical分離、Prepare／Verify／Promote、Runtime Enforcementを接続する。初期は既存のHuman Authorityを維持し、限定操作の自律化は別の根拠と人間判断を必要とする。
 
-### 4.4. 継続的な学びと再評価
+### 4.4. BackgroundとHuman Decisionの分離
 
-結果と学びを保存するだけでなく、影響する判断、ロードマップ、Discovery、品質状態を再評価する契機へ接続する。ただし学びを自動的に原則化せず、採用は既存の決定権限へ戻す。
+Runtimeが解決できる影響なし、重複、Policy内処理、拒否を人間へ逐次通知せず、Direction、Canonical Change、External Effect、Residual Risk、Policy Ambiguity等だけをDecision Queueへ送る。
+
+### 4.5. Operation Healthと適応
+
+自律Operation自身の判断価値、見逃し、ノイズ、費用、人間確認負荷を品質対象とし、頻度低下、契機変更、Pause、再設計、廃止まで扱う。
+
+> 自律Operationは、人間の判断負荷を増やすだけなら成功ではない。
+
+Agent OrganizationとContinuous Learningは、この5本柱を支える横断能力として扱う。Agent数や実行回数を自律性の価値とみなさず、学びを自動的に原則化しない。
 
 ---
 
@@ -241,6 +249,12 @@ AIがCRDD Coreを自己変更することとは分離する。Core変更は、�
 9. 外部情報境界、最小権限、Human Gate、検証、回復を自律性より先に守る。
 10. Capabilityが存在することを、利用権限、情報送信権限、Operation Authorityとみなさない。
 11. Execution IdentityとCurrent Stateを確定できないOperationを、現在状態への有効な実行として扱わない。
+
+安全性の中心原則は次のとおりである。
+
+> 自律性は思考と候補形成に広く与え、実行効果の確定はPolicyとRuntimeで統制する。
+
+短く表す場合は、`Think broadly. Effect narrowly.`とする。ただし、思考に利用できるコンテキストもAuthorityと外部情報境界の内側に限られる。詳細は[自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md)に置く。
 
 ---
 
