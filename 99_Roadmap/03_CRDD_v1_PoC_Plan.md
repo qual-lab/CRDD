@@ -287,8 +287,9 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 - 正式なFindingをExecutorが是正した場合、更新後の対象改訂版を固定して再実行・再検証し、作成責務から分離した確認者が同じ固定改訂版、基準およびEvidenceから独立再レビューするまで、自己確認、Verification、古いReviewまたは完了申告だけで`Resolved`、Policy-contained CompletionまたはPromotionへ進めないか
 - Findingがなく、既存契約上Independent Reviewが非該当の軽量Operationには、新しいReview、承認、状態または成果物を追加せず、擬似的な`Resolved`を作らずに既存の完了条件へ進めるか
 - 複数結果から現在判断が0件なら人間判断不要と明示し、独立して保留できる2件は分け、異なる原因でも不可分な1件はまとめるか
-- 将来判断を現在のDecision Queueから外しても、担当責任者、再評価契機、保留影響および元Evidenceを既存の追跡先へ残すか
-- 未解決の重大リスク、Authority競合または検証不能をDigestへ埋めず停止・移送するか
+- 将来判断が現在の作業、Gate、停止判断、採用／却下、重大Risk受容または不可逆Effectへ影響せず、安全に独立保留でき、かつ担当責任者、再評価契機、保留影響および元Evidenceへ追跡できる場合だけ、現在のDecision Queueから除外するか
+- 将来判断の保留条件または現在影響が不明な場合は、不足情報と確認先を示し、`Not Applicable`、報告のみまたは非表示へ落とさず現在判定から除外しないか
+- 現在の作業またはGateを阻害する判断、停止判断、未解決の重大リスク、残存Risk受容、不可逆Effect、Authority競合または検証不能をDecision Queueの詳細へ埋めず、元Evidenceを保持して現在の判断集合または既存の停止・移送経路へ接続するか
 - 差戻し後の新しい改訂版で再検証し、古いResultと古いReviewを履歴として保持しつつ現在判定へ流用せず、反復時はBudget、Circuit Breakerまたは構造是正へ接続するか
 
 ---

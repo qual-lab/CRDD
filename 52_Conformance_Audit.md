@@ -6,7 +6,7 @@ Version: v0.17.0
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.conformance.audit`
-Last Updated: 2026-08-10
+Last Updated: 2026-08-11
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)

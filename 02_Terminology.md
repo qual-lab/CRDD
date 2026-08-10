@@ -5,7 +5,7 @@
 Version: v0.17.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-08-10
+Last Updated: 2026-08-11
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)

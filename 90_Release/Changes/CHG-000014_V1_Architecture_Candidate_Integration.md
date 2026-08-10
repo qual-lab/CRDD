@@ -101,3 +101,22 @@ renameだけでなく、旧系列分離、同期方向、v1対v2比較、Target�
 現在状態は`Ready for Verification`である。固定後Identity、Checker、3監査、対象Version、最終分類、移行、CHANGELOG、main統合、公開およびReleaseは未完了であり、取得前にPassまたはRelease Handoffを先取りしない。
 
 初回統合固定候補`c9ba7579165865052024f3904ff9f5d86db48e90`では、全体Checker自体は155ファイル、Markdown 112件、ローカルリンク1,649件、アンカー551件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件を確認し、Error 0／Warning 0だった。一方、固定時の`git diff --check`で旧文書から継承した3箇所の行末空白を検出したため、この固定候補とChecker結果は現在判定へ使用せず`Invalidated`とする。行末空白だけを是正した新固定版へCheckerと3監査を取り直す。
+
+第2統合固定候補はCommit `b94d02ec0d9dd804fc21a063959468f7d9b5509f`、Tree `0da44f44e12d6637750bffd97d5b57556bfb4f02`、base差分26ファイルである。`git diff --check`はcleanで、全体Checkerは155ファイル、Markdown 112件、ローカルリンク1,649件、アンカー551件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件を確認し、Error 0／Warning 0だった。
+
+同固定候補への監査結果は次のとおりである。
+
+- Agent／Architecture Review: `Fail`。`AG-V1-INT-001`（Major）として、Current Decision Set正本で強化した将来判断の安全な独立保留条件がArchitecture Candidateの3利用側へ伝播していないことを検出し、今回の統合修正によって新たに発生した指摘と分類した。
+- Document Audit: `Conditional`。`DOC-V1I-01`（Minor）として、実質変更した正本文書10件の`Last Updated`が旧日のままであることを検出した。第2候補に対する初回監査Findingであり、無効化済み第1候補との比較では初回監査時から存在した見落としに相当する。
+- Gap／Impact＋Conformance Audit: `Fail`。`GCI-V1-001`（Major）として`AG-V1-INT-001`と同じ根本原因を検出し、今回の統合修正によって新たに発生した指摘と分類した。
+
+監査集合にFailとConditionalが含まれるため、第2統合固定候補、Checkerおよび3監査結果の全体を`Invalidated`とし、現在の合否、Finding解消、Release Handoff、対象Version、移行またはRelease根拠へ流用しない。Checkerの実行事実と数値は履歴としてのみ保持する。
+
+統合修正方針は3監査へ編集前に再提示し、競合、追加の人間判断または停止条件なしで受理された。適用した処置は次のとおりであり、この時点では`Applied`であって`Resolved`または`Pass`ではない。
+
+1. `02`と`07`で、将来判断を現在の作業等へ影響せず、安全に独立保留でき、追跡4項目へ接続できる場合だけ現在のDecision Queueから除外するAND条件へ統一した。
+2. `03`のFixtureを、安全保留の正例、条件・影響不明の負例、現在影響・重大Risk・不可逆Effect・Authority競合等の停止／移送例へ分けた。
+3. `00`、`02`、`10`、`11`、`16`、`17`、`21`、`51`、`52`、`53`の`Last Updated`だけを2026-08-11へ更新し、Version、Status、規範本文、CHANGELOG、mainおよびReleaseは変更しなかった。
+4. `11`の意味正本、`01`／`05`等の参照利用側、非規範Architecture境界、新成果物・状態・Authority・Schemaを追加しない境界を維持した。
+
+第2候補のbase差分母集団26ファイルに対し、上記処置でメタデータおよびArchitecture利用側を更新した。現在状態は引き続き`Ready for Verification`であり、新固定Commit／Tree、全体Checkerおよび3監査を取り直すまで、既知Findingを`Resolved`としない。
