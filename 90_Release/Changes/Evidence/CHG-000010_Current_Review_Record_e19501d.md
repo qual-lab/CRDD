@@ -28,8 +28,8 @@
 | Evidence | SHA-256 | 用途 |
 | --- | --- | --- |
 | [`CHG-000010_Checker_Run_e19501d.json`](CHG-000010_Checker_Run_e19501d.json) | `A641E30225D447AFE703C962AE1DF7A7380640270F29AD920B77F6CD8E7697D2` | Checker完全結果 |
-| [`CHG-000010_Test_Run_e19501d.tap`](CHG-000010_Test_Run_e19501d.tap) | `06F1733BFEA39BACA1DD873FD043E87B0237D25598E1FCB20DDE36C6D580319C` | 139回帰試験と網羅率の完全結果 |
-| [`CHG-000010_Verification_Run_Record_e19501d.md`](CHG-000010_Verification_Run_Record_e19501d.md) | `DC3AE2BA3C0237A094926D28D1690011CABF313E84CD0E005A924327BE1E4012` | 対象同一性、実行条件、母集団、結果 |
+| [`CHG-000010_Test_Run_e19501d.tap`](CHG-000010_Test_Run_e19501d.tap) | `303F11A665634256C7CBD07136307F6AB904C1A918C00D72CC8B6CDF63EFB882` | 139回帰試験と網羅率の完全結果 |
+| [`CHG-000010_Verification_Run_Record_e19501d.md`](CHG-000010_Verification_Run_Record_e19501d.md) | `625D0BAEE0C27B6CD98826DF01544ECE1EDB03E0903245E33876596560D608CE` | 対象同一性、実行条件、母集団、結果 |
 | [`CHG-000010_Agent_Review_e19501d.md`](CHG-000010_Agent_Review_e19501d.md) | `D57EAB5AB95E42967F2DAB4ED070CEA20A56681C0E35B61162F660DAC0A94656` | エージェント運用独立レビュー |
 | [`CHG-000010_Document_Audit_e19501d.md`](CHG-000010_Document_Audit_e19501d.md) | `87F0C06E83157A046B8E8642C6F39B4369E3435724956C13342CA4C761FD479A` | 文書監査 |
 | [`CHG-000010_Gap_Conformance_Audit_e19501d.md`](CHG-000010_Gap_Conformance_Audit_e19501d.md) | `E2BC05BC9FD187E78328B8A1A830B4AE6A07A1262922D1C0964DFEE9974E2BEA` | 不足／影響および準拠影響監査 |
@@ -48,6 +48,8 @@
 - 初回レビュー／監査時から存在した見落とし: 0件
 
 初回監査集合の8件と第2監査集合の2件は、元の意味と発生履歴をCHGおよび旧固定版の記録へ保持したまま、現行固定版で全件`Resolved`と確認した。旧`3b26d56...`および`dbe718c...`のChecker、試験、監査結果は現行固定版のPassへ流用していない。
+
+独立監査後の終端差分検査で、TAPの網羅率表5行に生成由来の末尾空白を確認した。試験結果を変えずに空白だけを除き、Run Recordへ監査時Hashと整形後Hashを併記した。この記録形式だけの更新は固定対象、判定、Finding、Risk、未評価範囲を変更していない。
 
 ## 解消判定
 
