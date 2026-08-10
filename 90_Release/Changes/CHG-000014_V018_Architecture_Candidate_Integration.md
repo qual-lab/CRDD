@@ -145,3 +145,17 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 4. CHG-000013を対象Version決定済みの現在状態へ統一し、本CHGの統合分類を`breaking`（候補）、リリースレベルを`MINOR`（候補）へ更新した。
 
 現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび3監査を取り直すまで、上記Findingを`Resolved`とせず、最終分類、正式移行内容、CHANGELOG、Stable化、main統合、タグ、公開またはReleaseを先取りしない。
+
+第5統合固定候補はCommit `38b9904e8109c0fcf2a8776658331642bec3d7da`、Tree `c542cb126558c86e06a51afecdf0de0b35516cc9`である。全体Checkerは155ファイル、Markdown 112件、ローカルリンク1,652件、アンカー554件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件をError 0／Warning 0で確認し、Checkerテスト143件はすべてPass、`git diff --check`はcleanだった。
+
+同固定候補への監査結果は次のとおりである。
+
+- Agent／Architecture Review: `Fail`。前回5件の解消を確認したうえで、`AG-V018-R01`（Major）としてRelease判断と最終Identityの時間順序が一意でないことを検出した。
+- Document Audit: `Fail`。前回Findingの解消を確認したうえで、同根の`DOC-V018-R01`（Major）として最終Identityが存在する前後でRelease判断が矛盾することを検出した。
+- Gap／Impact＋Conformance Audit: `Fail`。前回Findingの解消を確認したうえで、同根の`GCI-018-R01`（Major）としてRelease判断が二重化し得るAuthority／Identity矛盾を検出した。
+
+3監査に同根のFailが含まれるため、第5統合固定候補、Checker、テストおよび監査集合全体を`Invalidated`とし、現在の合否、Finding解消、準拠、Release HandoffまたはRelease根拠へ流用しない。新規候補はいずれも前回是正によって新たに発生した指摘であり、処置は次の新固定版で再監査されるまで`Applied`に留める。
+
+統合修正では、Candidate準備版、最終Stable候補版、最終Release判断およびタグの順序を一意化した。人間が対象Candidate版と許可する機械的遷移をリリース計画で事前に特定した場合だけ最終Stable候補版を作成し、その作成自体をRelease判断としない。最終Commit／Treeへ必要な確認を行い、人間はそのIdentityを対象に一度だけReleaseを判断し、承認時だけ同じIdentityへタグを付与する。宣言外差分または確認失敗は停止して再判断へ戻し、タグ後のIdentity確認は軽量な結果記録とする。`19`をLifecycle正本、`51`をRelease前後の監査利用側、`52`を準拠非推定の利用側として更新した。
+
+現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checkerおよび3監査を取り直すまで、`AG-V018-R01`、`DOC-V018-R01`および`GCI-018-R01`を`Resolved`とせず、Release Handoffを先取りしない。

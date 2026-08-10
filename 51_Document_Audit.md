@@ -68,7 +68,7 @@ Related:
 | 伝播 | 変更で直接影響する既知文書、ひな型、入口ファイルの追従 |
 | 状態遷移 | 状態、バージョン、廃止、置換済み、リリース整合 |
 
-対象リリース候補を監査する場合は、CRDD正本文書全体で`Version`、`Status: Candidate`、`Released Baseline`および`Last Updated`が対象改訂版と整合し、候補内容を公開済み基準または準拠可能なリリースとして誤認させないことを確認する。リリース監査では、[保守](19_Maintenance.md#51-release-version-and-revision)に従い、Candidate後のリリース準備とメタデータ変更が新しい改訂版を生むこと、Candidate固定版の確認結果を別Identityへ流用していないこと、候補専用の`Released Baseline`が処置され、`Status: Stable`、CHANGELOG、移行注記およびリリース識別子が確認済みの最終改訂版へ揃い、タグがその改訂版を一意に指すことを確認する。
+対象リリース候補を監査する場合は、CRDD正本文書全体で`Version`、`Status: Candidate`、`Released Baseline`および`Last Updated`が対象改訂版と整合し、候補内容を公開済み基準または準拠可能なリリースとして誤認させないことを確認する。リリース判断前の監査では、[保守](19_Maintenance.md#51-release-version-and-revision)に従い、Candidate後のリリース準備とメタデータ変更が新しい改訂版を生むこと、Candidate固定版の確認結果を別Identityへ流用していないこと、最終Release候補の差分が人間の承認済みリリース計画と宣言済み機械的遷移の範囲だけであること、候補専用の`Released Baseline`が処置され、`Status: Stable`、README、CHANGELOG、移行注記、公開情報および予定タグ対象が確認済みの最終Commit／Treeへ揃うことを確認する。この時点ではタグの存在を要求しない。宣言外差分、意味差、対象ずれまたは確認失敗があれば停止して人間判断へ戻す。人間のRelease判断は既に存在する確認済み最終Identityを一意に対象とし、承認時だけ同じIdentityへタグを付ける。Release実行後は、実際のタグまたは公開識別子がその承認済みIdentityを指すことを軽量に記録確認し、ずれをPass扱いにしない。この結果確認を新たな全面意味監査の再帰にしない。
 
 監査実行者は、指摘事項、根拠、影響、重大度、推奨、是正の可否を返す。定義済み基準による指摘事項分類は行えるが、決定権限変更、判断、リスク受容、状態昇格、工程承認を自己確定しない。
 

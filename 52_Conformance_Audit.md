@@ -100,7 +100,7 @@ CRDDは成熟度レベルではなく、中核と適用プロファイルで準�
 
 CRDD基準版を変更する場合は、[基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment)で準拠差分を確認する。以前の準拠結果または準拠表明を、新しい基準版へ自動的に引き継がない。[移行完了の条件](19_Maintenance.md#621-migration-completeness)の対象となる基準版更新では、同条件を満たさないまま、新基準版への準拠表明（`Conformant`等）を発行してはならない。同条件の対象範囲は[`19_Maintenance.md`](19_Maintenance.md#621-migration-completeness)を正本とし、本書では再定義しない。未完了の移行は、対象範囲・既知リスク・再評価契機を明示した`CRDD-Inspired`等の限定的な表明にとどめる。
 
-`Status: Candidate`のCRDD文書集合は、対象リリース候補の評価入力として使用できるが、`Released Baseline`、CHANGELOG、移行完了、リリース判断および不変なリリース識別子が成立する前に、対象候補版への`Conformant`、公開済みまたは`Stable`という表明を発行してはならない。Candidateの存在、Checker合格または監査合格だけから準拠またはリリースを推定しない。
+`Status: Candidate`のCRDD文書集合は、対象リリース候補の評価入力として使用できるが、Candidateの存在、Checker合格または監査合格だけから準拠またはリリースを推定しない。[保守](19_Maintenance.md#51-release-version-and-revision)に従う最終Release候補は、文書内容とリリースメタデータが確認可能な状態まで安定したことを示すため`Status: Stable`を使用できるが、`Stable`だけでは`Released`、`Active`、`Conformant`、公開済みまたは採用済みを意味しない。CHANGELOG、移行完了、人間のRelease判断および不変なRelease識別子が同じ確認済み最終Identityへ成立する前に、対象候補版への`Conformant`または公開済みという表明を発行してはならない。Candidate固定版の監査結果を、Identityが異なる最終Stable版の根拠へ流用しない。
 
 すべての基準を一律に再監査する必要はない。基準の意味、適用プロファイル、必要な根拠、評価条件または既存根拠の適用性が変わる基準だけを再評価する。影響しないと判断した基準は、比較した基準版と理由を取得可能にする。未評価または未解決の基準を、旧基準版の結果だけで新基準版へ`Conformant`として扱わない。
 
