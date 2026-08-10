@@ -1,6 +1,6 @@
 # CRDD検証工程（Verification）
 
-Version: v0.13.0
+Version: v0.14.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`

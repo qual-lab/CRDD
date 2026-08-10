@@ -2,10 +2,10 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.13.0
+Version: v0.14.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-08-08
+Last Updated: 2026-08-10
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -1477,6 +1477,12 @@ Progress Work State
 | 是正処置進捗（`Remediation Progress`） | `Work State` / `Finding Status` / `fixed` | 一つの是正対象について、特定から修正担当の確認までの進み方を`Identified` / `Planned` / `Applied` / `Self-checked`で示す。対応状態、指摘事項の状態、解消判定とは別の軸であり、値の意味は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)を正本とする。是正表では短い表示名`処置進捗`を使用できる |
 | 是正阻害状態（`Remediation Blocker State`） | `Blocker` / 監査結果の`Blocked` | 一つの是正対象を現在進められるかを`None` / `Blocked`で示す。停止理由そのもの、監査を完了できない結果、対応状態とは別の軸である。`Blocked`では理由、必要事項、担当責任者、再開条件を伴い、意味は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)を正本とする。是正表では短い表示名`阻害状態`を使用できる |
 | 是正解消判定（`Remediation Resolution Verdict`） | `Finding Status` / Review `Pass` / `fixed` | 根本原因と合意した対象範囲の解消条件が成立したかを`Open` / `Resolved`で示す。個別指摘の`Resolved`は、対象全体のレビュー、監査または工程ゲートの`Pass`を意味しない。成立条件は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)を正本とする。是正表では短い表示名`解消判定`を使用できる |
+| 指摘事項の意味保存（`Finding Meaning Preservation`） | `Finding Status` / `Evidence Closure` | 発行済みの指摘事項の識別子、対象、判定規則、確認事実、根本原因および当時の期待状態を履歴として保持する規則。是正対象または根拠の識別ではなく、指摘事項を別の不備へ意味変更しないための境界である。訂正または置換は元の記録を上書きせず、対応関係を残す。正本は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)と[文書監査の指摘事項](51_Document_Audit.md#32-finding-fields) |
+| 契約母集団（`Contract Population`） | `Consumer Population` / 対象ファイル一覧 | 結果を変え得る状態、入力、分岐、権限、失敗等の契約次元と組合せの対象集合。契約を使う利用側の集合やファイル数とは別に確認する。正本は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation) |
+| 利用側母集団（`Consumer Population`） | `Contract Population` / 参照元一覧 | 契約を解釈、変換、保存、表示、送信、実行または検証する正本、実装、接続面、生成器、参照実装、検証器等の対象集合。契約母集団の各対象との対応を保持する。正本は[複数箇所へ及ぶ是正](10_Agent.md#multi-location-remediation)と[不足／影響監査](53_Gap_Impact_Audit.md#52-impact-perspectives) |
+| 合否判定方法（`Verification Oracle`） | `Test Result` / `Consumer Result` / `Oracle` | 観測結果を期待結果と比較して合否を決める検証上の基準。判定方法自体の整合性は、参照用実行環境、プロダクト実装または各利用側がその基準どおり動いた根拠ではない。証明境界は[品質保証](16_Quality_Assurance.md#16-oracle-and-consumer-proof-boundary)を正本とする |
+| 宣言対象・実観測対象・実行対象（`Declared, Observed, and Execution Target Identity`） | `Commit Hash` / `Manifest Hash` / `Execution Identity` | 確認予定の対象、実際に観測したリポジトリ状態、結果を生成した実行対象を分けて識別する境界。実行主体、ジョブまたは実行記録の識別子とは別概念である。Git管理対象ではObject FormatとOIDを使い、部分集合、dirty状態、Submoduleまたは外部入力だけに追加識別情報を用いる。正本は[品質保証の検証結果](16_Quality_Assurance.md#53-verification-result) |
+| 意味更新と記録更新（`Semantic Update and Record-only Update`） | `Current Record Update` / `Re-audit` | 現在状態の対象、判定、指摘事項、リスクまたは未評価範囲を変える更新と、確定済み結果への参照、OID、時刻、確認者等だけを追記する更新の区別。前者は再評価し、後者は軽量な参照確認で終了できる。正本は[品質保証の固定](16_Quality_Assurance.md#25-meaning-of-baseline) |
 | 着手前整合確認（`Pre-execution Alignment Check`） | `計画確認` / `独立レビュー` / `不足・影響監査` / `承認` | 非自明な変更の初回編集前に、計画を現在の正本、参照関係、保持する意図、影響候補、必要な専門観点、用語・表現と照合する活動。結果は`着手可`、`計画修正`、`判断待ち・停止`を使用する。これらはエージェント実行結果、監査の`Pass`／`Fail`、人間の承認結果、工程ゲートの状態ではない。実行条件、委譲、統合、停止、完成後確認との境界は[着手前整合確認](10_Agent.md#pre-execution-alignment-check)を正本とする |
 | 変更影響の伝播確認（`Triggered Propagation Check`） | `Review` / `Audit` / `Regression Test` | 確定・変更した判断、制約、学び、根拠、指摘事項が上流・同層へ及ぶかを探索し、正本を更新して下流を再探索する処置。工程移行レビューでも回帰テストでもない。契機と完了は[不足／影響監査](53_Gap_Impact_Audit.md#43-mandatory-propagation-trigger-and-closure)を正本とする |
 | 項目の決定権限（`Property Authority`） | `Source of Truth` | 媒体全体ではなく、項目単位の正しい情報源と更新責任を明示する |
