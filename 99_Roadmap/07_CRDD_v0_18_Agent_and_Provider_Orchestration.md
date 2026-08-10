@@ -1,9 +1,9 @@
-# CRDD v1 Architecture Candidate — Agent & Provider Orchestration
+# CRDD v0.18.0 Architecture Candidate — Agent & Provider Orchestration
 
 Status: Concept / Non-normative Architecture Candidate
-Target: CRDD v1.x Architecture Candidate
+Target: CRDD v0.18.0 Architecture Candidate
 Subtitle: Safe Context Routing Across Execution Boundaries
-Related: [v1候補構想](01_CRDD_v1_Concept.md), [責務境界](02_CRDD_v1_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v1_PoC_Plan.md), [自律安全Architecture](04_CRDD_v1_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v1_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v1_Forward_Compatibility.md)
+Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md)
 
 > 本書は非規範のAgent／Provider Orchestration候補である。現在のCRDD v0.17.0、Human Authority、Independent Review、External Information Boundary、準拠基準または採用側のProvider契約を変更しない。特定Provider、Model、Agent構成、固定Schemaまたは複数Agentの利用をCRDD準拠条件にしない。
 
@@ -130,7 +130,7 @@ Human Gate / Policy-contained Completion
 
 EligibilityとOptimizationを一つのScoreへ統合しない。Security、Privacy、Authority、Contract、必要CapabilityまたはVerification Requirementを満たさない候補は、CostやAvailabilityが優れていてもEligible Setへ入れない。
 
-Run終了の意味は[Policy-contained Completion](02_CRDD_v1_Responsibility_Boundary.md#45-policy-contained-completion)に従う。Provider Routingはこの一般境界を再定義せず、各Execution BoundaryのEligibility、Result、Verificationおよび必要なIndependent Reviewを接続する。人間判断へ進む前に[Coordinatorによる結果統合](02_CRDD_v1_Responsibility_Boundary.md#44-coordinatorによる結果統合)を適用する。
+Run終了の意味は[Policy-contained Completion](02_CRDD_v0_18_Responsibility_Boundary.md#45-policy-contained-completion)に従う。Provider Routingはこの一般境界を再定義せず、各Execution BoundaryのEligibility、Result、Verificationおよび必要なIndependent Reviewを接続する。人間判断へ進む前に[Coordinatorによる結果統合](02_CRDD_v0_18_Responsibility_Boundary.md#44-coordinatorによる結果統合)を適用する。
 
 ---
 
@@ -319,9 +319,9 @@ Credit消費の均等化を目的にしない。あるProviderへ集中するこ
 
 ---
 
-## 14. 公開基準と統合v1候補の境界
+## 14. 公開基準と統合v0.18.0候補の境界
 
-公開済みv0.17.0とv1規範変更候補は、Provider非依存のContext、責務、Agent Contract、Acceptance Criteria、Result、Evidence、Human Gateを成立させる。Multi-Agent Orchestratorまたは複数Providerを必須にしない。
+公開済みv0.17.0とv0.18.0規範変更候補は、Provider非依存のContext、責務、Agent Contract、Acceptance Criteria、Result、Evidence、Human Gateを成立させる。Multi-Agent Orchestratorまたは複数Providerを必須にしない。
 
 本Architecture Candidateは、その土台を複数のExecution Boundaryへ安全にRouting、Fallback、Verifyし、ResultとProvenanceを還流する非規範Architectureを扱う。同じ統合branchにあることから規範採用、準拠、Authorityまたは実行許可を推定しない。
 

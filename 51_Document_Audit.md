@@ -2,8 +2,9 @@
 
 # CRDD文書監査（Document Audit）
 
-Version: v0.17.0
-Status: Stable
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Qual-Lab
 エージェントID: `agent.document.audit`
 Last Updated: 2026-08-11
@@ -66,6 +67,8 @@ Related:
 | 追跡可能性 | 情報源、判断、コンテキスト関係、実装、検証への到達 |
 | 伝播 | 変更で直接影響する既知文書、ひな型、入口ファイルの追従 |
 | 状態遷移 | 状態、バージョン、廃止、置換済み、リリース整合 |
+
+対象リリース候補を監査する場合は、CRDD正本文書全体で`Version`、`Status: Candidate`、`Released Baseline`および`Last Updated`が対象改訂版と整合し、候補内容を公開済み基準または準拠可能なリリースとして誤認させないことを確認する。リリース監査では、候補専用の`Released Baseline`が処置され、`Status: Stable`、CHANGELOG、移行注記、リリース識別子が同じ基準版へ揃っていることを確認する。
 
 監査実行者は、指摘事項、根拠、影響、重大度、推奨、是正の可否を返す。定義済み基準による指摘事項分類は行えるが、決定権限変更、判断、リスク受容、状態昇格、工程承認を自己確定しない。
 

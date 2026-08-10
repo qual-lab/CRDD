@@ -2,10 +2,11 @@
 
 # CRDD文書規則（Documentation）
 
-Version: v0.17.0
-Status: Stable
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-10
+Last Updated: 2026-08-11
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -285,8 +286,9 @@ CRDD標準文書は、次のヘッダーを持たなければならない。正�
 ```markdown
 # Title
 
-Version: v1.0.0
-Status: Draft
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Responsible Team or Human
 Last Updated: yyyy-mm-dd
 Related:
@@ -295,13 +297,14 @@ Related:
 
 | 項目 | 意味 |
 |---|---|
-| `Version` | 公開または運用上識別する文書バージョン |
+| `Version` | 公開または運用上識別する文書バージョン。`Candidate`では、人間が選択した対象リリース候補を示す |
 | `Status` | 文書の現在状態。正本としての意味は用語に従う |
+| `Released Baseline` | `Candidate`が比較、移行および回復の基準とする直近の公開済みCRDD版。候補の採用済み版または現在の準拠版を意味しない |
 | `Owner` | 維持、レビュー、廃止、上位判断への移送を管理する人間または組織 |
 | `Last Updated` | 内容を最後に更新した日。改訂版の代用ではない |
 | `Related` | 直接参照する正本、依存契約、主要引き渡し先へのクリック可能なリンク |
 
-CRDD標準文書のヘッダーは、`Version`、`Status`、`Owner`、文書種別固有の識別項目、`Last Updated`、`Related`の順を基本とする。`Related`は実行時読み取り集合の全列挙ではなく、直接関係する正本への探索導線である。CRDD標準文書は文書番号の昇順に並べ、リンクテキストにも実ファイル名を示す。`CHANGELOG.md`等の番号を持たないリポジトリ単位の成果物は番号付き文書の後へ置く。
+CRDD標準文書のヘッダーは、`Version`、`Status`、`Released Baseline`（`Candidate`の場合）、`Owner`、文書種別固有の識別項目、`Last Updated`、`Related`の順を基本とする。`Related`は実行時読み取り集合の全列挙ではなく、直接関係する正本への探索導線である。CRDD標準文書は文書番号の昇順に並べ、リンクテキストにも実ファイル名を示す。`CHANGELOG.md`等の番号を持たないリポジトリ単位の成果物は番号付き文書の後へ置く。
 
 実行時に読む範囲は、概要、原則、用語、文書化を基礎に、現在の対象範囲、対象改訂版、実行主体、対象工程、変更／リリース／作業手順、監査の必要性に応じて追加する。`Related`にないことを、必要な正本を読まない理由にしてはならない。一方、対象範囲と無関係な全標準文書を常時読み込み、決定権限や現行コンテキストの識別を曖昧にしない。
 
@@ -309,10 +312,12 @@ CRDD標準文書のヘッダーは、`Version`、`Status`、`Owner`、文書種�
 
 AIが草案を作成しても、担当責任者を`AI Draft`へ置き換えない。未承認案は`Status: Draft`とし、必要に応じて`Drafted By: AI`または来歴を記録する。AIは自分の下書きを人間による承認として確定しない。
 
+`Status: Candidate`は、人間の決定権限者が対象リリース候補を選択し、文書集合を固定して検証している状態を示す。編集途中または対象版未決定の`Draft`とは区別するが、`Stable`、`Released`、main統合、タグ作成、採用または準拠表明を意味しない。候補文書は`Released Baseline`を併記し、候補内容を公開済み基準の内容として扱わせてはならない。リリース時は`Status: Stable`へ変更し、候補専用の`Released Baseline`を削除する。
+
 ## 4.5. バージョン・改訂版・基準版・日付
 
 ```text
-バージョン      = 公開・配布・運用上の版
+バージョン      = 公開・配布・運用上の版。Candidateでは対象リリース候補
 改訂版     = Git コミット、成果物改訂版等の特定可能な内容状態
 基準版     = レビューや検証対象として固定した改訂版集合
 最終更新日時 = 人間向けの更新日表示

@@ -2,8 +2,9 @@
 
 # CRDD準拠監査（Conformance Audit）
 
-Version: v0.17.0
-Status: Stable
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Qual-Lab
 エージェントID: `agent.conformance.audit`
 Last Updated: 2026-08-11
@@ -98,6 +99,8 @@ CRDDは成熟度レベルではなく、中核と適用プロファイルで準�
 根拠は対象範囲と改訂版への適用性、決定権限、取得時点、既知制限を説明できなければならない。古い監査結果や成果物の存在だけを現行改訂版の根拠として再利用しない。
 
 CRDD基準版を変更する場合は、[基準版採用評価](19_Maintenance.md#62-baseline-adoption-assessment)で準拠差分を確認する。以前の準拠結果または準拠表明を、新しい基準版へ自動的に引き継がない。[移行完了の条件](19_Maintenance.md#621-migration-completeness)の対象となる基準版更新では、同条件を満たさないまま、新基準版への準拠表明（`Conformant`等）を発行してはならない。同条件の対象範囲は[`19_Maintenance.md`](19_Maintenance.md#621-migration-completeness)を正本とし、本書では再定義しない。未完了の移行は、対象範囲・既知リスク・再評価契機を明示した`CRDD-Inspired`等の限定的な表明にとどめる。
+
+`Status: Candidate`のCRDD文書集合は、対象リリース候補の評価入力として使用できるが、`Released Baseline`、CHANGELOG、移行完了、リリース判断および不変なリリース識別子が成立する前に、対象候補版への`Conformant`、公開済みまたは`Stable`という表明を発行してはならない。Candidateの存在、Checker合格または監査合格だけから準拠またはリリースを推定しない。
 
 すべての基準を一律に再監査する必要はない。基準の意味、適用プロファイル、必要な根拠、評価条件または既存根拠の適用性が変わる基準だけを再評価する。影響しないと判断した基準は、比較した基準版と理由を取得可能にする。未評価または未解決の基準を、旧基準版の結果だけで新基準版へ`Conformant`として扱わない。
 

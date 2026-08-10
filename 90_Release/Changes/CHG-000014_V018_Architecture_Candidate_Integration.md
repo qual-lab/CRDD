@@ -1,11 +1,11 @@
-# 変更トレース: v1候補の統合とArchitecture Candidate再基準化
+# 変更トレース: v0.18.0候補の統合とArchitecture Candidate再基準化
 
 変更トレースID: `CHG-000014`
 状態: `Ready for Verification`
 担当責任者: Qual-Lab
 最終更新日: 2026-08-11
-対象系列: v1
-対象バージョン: 未確定
+対象系列: v0.18.x
+対象バージョン: v0.18.0 Candidate
 変更分類: `normative`／`breaking`（統合差分としての候補、未確定）
 リリースレベル: 未確定
 `migration_required`: `true`（規範変更候補。Architecture Candidateの同居だけからは発火しない）
@@ -14,17 +14,17 @@
 
 ## 1. 人間による判断と目的
 
-Qual-Labの人間の決定権限者は、Current Decision Set候補とCommunication候補を一つのv1候補branchへ統合し、旧v2の7文書をv1 Architecture Candidateとして再基準化することを承認した。
+Qual-Labの人間の決定権限者は、Current Decision Set候補とCommunication候補を一つの統合候補branchへまとめ、旧v2からv1候補へ再基準化した7文書を、v0.18.0 Architecture Candidateとして評価することを承認した。
 
-この判断は候補の統合であり、v1.0.0、現行準拠、Architectureの規範採用、Authority拡張、Runtime有効化、main統合、CHANGELOGまたはReleaseの承認ではない。
+この判断は対象Versionと候補表示の決定であり、v0.18.0準拠、Architectureの規範採用、Authority拡張、Runtime有効化、main統合、CHANGELOG、タグまたはReleaseの承認ではない。
 
 ## 2. 統合した来歴
 
 | 系列 | Source Commit | 統合時の扱い |
 |---|---|---|
-| Current Decision Set | `dd617e7f15d413e363d041b0008922ebe89d811c` | v1規範変更候補として統合し、人間レビューの追加2指摘を最新版へ是正 |
-| Communication | `04350294ff4031af09893edf21c136cbadbb01be` | v1規範変更候補として意味mergeし、暫定CHG IDを再採番 |
-| 旧v2 Architecture | `cd9795d885f3500ab2ef43a25c37c3737fd01e21` | 7文書を非規範v1 Architecture Candidateへ再基準化 |
+| Current Decision Set | `dd617e7f15d413e363d041b0008922ebe89d811c` | v1系列候補として統合した来歴を保持し、v0.18.0規範変更候補として再識別 |
+| Communication | `04350294ff4031af09893edf21c136cbadbb01be` | v1系列候補として意味mergeした来歴を保持し、v0.18.0規範変更候補として再識別 |
+| 旧v2 Architecture | `cd9795d885f3500ab2ef43a25c37c3737fd01e21` | 旧v1 Architecture Candidateを経て、7文書を非規範v0.18.0 Architecture Candidateへ再基準化 |
 
 旧系列のCommitとmerge履歴は来歴として保持するが、旧branchを継続同期元、自動上書き元、採用基準またはReleased baselineとして扱わない。今後の変更は、公開基準、規範変更候補、Architecture Candidate間の意味差を新しい変更として評価する。
 
@@ -43,24 +43,24 @@ Communicationの旧IDと旧ファイル名はsource Commitを解釈する来歴�
 | 区分 | 内容 | 現在成立しないもの |
 |---|---|---|
 | 公開済みCRDD v0.17.0 | 現在の公開基準 | 本候補による自動変更 |
-| v1規範変更候補 | Current Decision Set、Communication | v1準拠、対象Version、移行完了、main統合、Release |
-| v1 Architecture Candidate | Re-evaluation、Operation、Coordinator、Runtime安全、Operation Health、Forward Compatibility、Provider Routing | 規範採用、AI自動読込、Authority、Capability有効化、固定製品・UI・Agent構成 |
+| v0.18.0規範変更候補 | Current Decision Set、Communication、Candidate文書表示契約 | v0.18.0準拠、移行完了、main統合、タグ、Release |
+| v0.18.0 Architecture Candidate | Re-evaluation、Operation、Coordinator、Runtime安全、Operation Health、Forward Compatibility、Provider Routing | 規範採用、AI自動読込、Authority、Capability有効化、固定製品・UI・Agent構成 |
 
 同じbranch、Commit、READMEまたはRoadmapに存在することを、後段の成立根拠にしない。
 
 ## 5. Architecture文書のrenameと意味変更
 
-| 旧名称 | 現名称 |
-|---|---|
-| `01_CRDD_v2_Concept.md` | `01_CRDD_v1_Concept.md` |
-| `02_CRDD_v2_Responsibility_Boundary.md` | `02_CRDD_v1_Responsibility_Boundary.md` |
-| `03_CRDD_v2_PoC_Plan.md` | `03_CRDD_v1_PoC_Plan.md` |
-| `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` |
-| `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` |
-| `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` |
-| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` |
+| 旧v2名称 | 統合時の旧v1名称 | 現名称 |
+|---|---|---|
+| `01_CRDD_v2_Concept.md` | `01_CRDD_v1_Concept.md` | `01_CRDD_v0_18_Concept.md` |
+| `02_CRDD_v2_Responsibility_Boundary.md` | `02_CRDD_v1_Responsibility_Boundary.md` | `02_CRDD_v0_18_Responsibility_Boundary.md` |
+| `03_CRDD_v2_PoC_Plan.md` | `03_CRDD_v1_PoC_Plan.md` | `03_CRDD_v0_18_PoC_Plan.md` |
+| `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` | `04_CRDD_v0_18_Autonomous_Safety_Architecture.md` |
+| `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` | `05_CRDD_v0_18_Operation_Health_and_Human_Interface.md` |
+| `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` | `06_CRDD_v0_18_Forward_Compatibility.md` |
+| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | `07_CRDD_v0_18_Agent_and_Provider_Orchestration.md` |
 
-renameだけでなく、旧系列分離、同期方向、v1対v2比較、Target、相互リンクおよびREADME英日を、公開済みv0.17.0、v1規範変更候補、非規範v1 Architecture Candidateの境界へ再基準化した。
+renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との来歴、Target、相互リンクおよびREADME英日を、公開済みv0.17.0、v0.18.0規範変更候補、非規範v0.18.0 Architecture Candidateの境界へ再基準化した。
 
 ## 6. 契約母集団と代表ケース
 
@@ -78,7 +78,7 @@ renameだけでなく、旧系列分離、同期方向、v1対v2比較、Target�
 | 境界、AuthorityまたはCurrent Revisionが不明 | Fail Closedとし、人間または再評価へ戻す |
 | 正式Findingを是正 | 更新固定改訂版、再検証、必要な独立再レビューを経るまで`Resolved`にしない |
 | Findingなし・Review非該当の軽量Operation | 新しいReview、承認、状態または擬似`Resolved`を追加しない |
-| Architecture Candidateが同じbranchに存在 | v1準拠、規範採用、Authority、Runtime実装またはReleaseを成立させない |
+| Architecture Candidateが同じbranchに存在 | v0.18.0準拠、規範採用、Authority、Runtime実装またはReleaseを成立させない |
 
 ## 7. 変更禁止範囲
 
@@ -86,7 +86,7 @@ renameだけでなく、旧系列分離、同期方向、v1対v2比較、Target�
 - Current Decision SetまたはCommunicationの片側を、重複利用側の競合解消で失わない。
 - 新しい成果物、状態軸、承認段階、中央台帳、固定Schema、固定Coordinator製品、Queue UIまたはAgent構成を要求しない。
 - Human Authority、External Information Boundary、Independent Review、Promotion、Policy-contained Completionを弱めない。
-- 公開済みタグ、過去CHANGELOG、main、正本文書のVersionを変更しない。
+- 公開済みタグ、過去CHANGELOGまたはmainを変更しない。正本文書はv0.18.0 Candidateとして識別するが、StableまたはReleasedとして扱わない。
 
 ## 8. 固定と検証
 
@@ -98,7 +98,7 @@ renameだけでなく、旧系列分離、同期方向、v1対v2比較、Target�
 2. Document Audit: rename、相互リンク、README英日、CHG一意性、用語、正本重複、候補とRelease境界を含む。
 3. Gap／Impact＋Conformance Audit: 契約母集団、利用側母集団、現行v0.17.0準拠非影響、移行候補および非規範Architecture境界を含む。
 
-現在状態は`Ready for Verification`である。固定後Identity、Checker、3監査、対象Version、最終分類、移行、CHANGELOG、main統合、公開およびReleaseは未完了であり、取得前にPassまたはRelease Handoffを先取りしない。
+現在状態は`Ready for Verification`である。対象Versionはv0.18.0 Candidateへ確定したが、固定後Identity、Checker、3監査、最終分類、移行、CHANGELOG、main統合、タグ、公開およびReleaseは未完了であり、取得前にPassまたはRelease Handoffを先取りしない。
 
 初回統合固定候補`c9ba7579165865052024f3904ff9f5d86db48e90`では、全体Checker自体は155ファイル、Markdown 112件、ローカルリンク1,649件、アンカー551件、Related 26件、版付き文書26件、安定コンテキストID 8件、是正行64件を確認し、Error 0／Warning 0だった。一方、固定時の`git diff --check`で旧文書から継承した3箇所の行末空白を検出したため、この固定候補とChecker結果は現在判定へ使用せず`Invalidated`とする。行末空白だけを是正した新固定版へCheckerと3監査を取り直す。
 
@@ -120,3 +120,9 @@ renameだけでなく、旧系列分離、同期方向、v1対v2比較、Target�
 4. `11`の意味正本、`01`／`05`等の参照利用側、非規範Architecture境界、新成果物・状態・Authority・Schemaを追加しない境界を維持した。
 
 第2候補のbase差分母集団26ファイルに対し、上記処置でメタデータおよびArchitecture利用側を更新した。現在状態は引き続き`Ready for Verification`であり、新固定Commit／Tree、全体Checkerおよび3監査を取り直すまで、既知Findingを`Resolved`としない。
+
+第3統合固定候補はCommit `9d9d92c4bac1a90dde25ae165cb5ec443b8abf69`、Tree `01fbbd8e8b9f0e9e4a3df4839cd0ef7406df7ad5`であり、全体CheckerはError 0／Warning 0、Agent／Architecture Review、Document Audit、Gap／Impact＋Conformance Auditはいずれも`Pass`だった。続くCommit `32f9780555f63acaa9a098b7917237e6b9f4e3b3`では、Architecture Candidateが単独では提供しないRuntime能力と、外部Adapterの接続がAuthorityを意味しない境界をREADME英日へ追加し、局所独立レビューは`Pass`だった。
+
+その後、人間の決定権限者は統合候補の対象Versionをv0.18.0へ変更した。この変更は、Candidateヘッダー契約、26正本文書、README英日、3つのCHGおよび7 Architecture文書の名称・Target・相互参照へ影響するため、`9d9d92c`および`32f9780`のCheckerとレビュー結果を現在の合否、v0.18.0 Candidateの解消、準拠またはRelease根拠へ流用しない。現在の変更は`Applied`であり、新固定版のCheckerと3監査が完了するまで`Resolved`または`Pass`としない。
+
+v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。内訳は、候補ヘッダーを揃える26正本文書、README、CHG-000012〜000014、renameする7 Architecture文書、候補と公開基準を区別するChecker実装およびそのテストである。Checkerは`Candidate`の場合に26文書の`Released Baseline`一致を確認し、現行Release検査には候補Versionではなく公開基準を使用する。これはCandidateを準拠またはRelease済みと判定する機構ではない。

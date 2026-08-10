@@ -1428,6 +1428,7 @@ else {
   docsRoot = requestedDocsRoot;
 }
 const versioned = [];
+const canonicalDocumentStates = [];
 if (docsRoot) {
   for (const name of fs.readdirSync(docsRoot)) {
     if (!/^\d{2}_.+\.md$/u.test(name)) continue;
@@ -1442,8 +1443,16 @@ if (docsRoot) {
       continue;
     }
     if (!lstatIfPresent(file)?.isFile()) continue;
-    const match = read(file).match(/^Version:\s*(v[0-9]\S*)\s*$/m);
+    const content = read(file);
+    const match = content.match(/^Version:\s*(v[0-9]\S*)\s*$/m);
     if (match) versioned.push([file, match[1]]);
+    canonicalDocumentStates.push({
+      file,
+      version: match?.[1] ?? null,
+      status: content.match(/^Status:\s*(\S.*)\s*$/m)?.[1]?.trim() ?? null,
+      releasedBaseline:
+        content.match(/^Released Baseline:\s*(v[0-9]\S*)\s*$/m)?.[1] ?? null,
+    });
   }
 }
 const versions = new Set(versioned.map(([, version]) => version));
@@ -1455,6 +1464,50 @@ if (versions.size > 1) {
       relative(file),
       `Version: ${version}; found ${JSON.stringify([...versions].sort())}`,
     );
+  }
+}
+const candidateDocuments = canonicalDocumentStates.filter(
+  ({ status }) => status === "Candidate",
+);
+let candidateReleasedBaseline = null;
+if (candidateDocuments.length > 0) {
+  if (candidateDocuments.length !== canonicalDocumentStates.length) {
+    for (const { file, status } of canonicalDocumentStates) {
+      add(
+        "error",
+        "candidate-status-mismatch",
+        relative(file),
+        `Status: ${status ?? "missing"}; all canonical documents must be Candidate together.`,
+      );
+    }
+  }
+  const baselines = new Set(
+    candidateDocuments.map(({ releasedBaseline }) => releasedBaseline).filter(Boolean),
+  );
+  if (
+    baselines.size !== 1 ||
+    candidateDocuments.some(({ releasedBaseline }) => !releasedBaseline)
+  ) {
+    for (const { file, releasedBaseline } of candidateDocuments) {
+      add(
+        "error",
+        "candidate-released-baseline-mismatch",
+        relative(file),
+        `Released Baseline: ${releasedBaseline ?? "missing"}; found ${JSON.stringify([...baselines].sort())}`,
+      );
+    }
+  } else {
+    candidateReleasedBaseline = [...baselines][0];
+    if (versions.has(candidateReleasedBaseline)) {
+      for (const { file } of candidateDocuments) {
+        add(
+          "error",
+          "candidate-version-equals-released-baseline",
+          relative(file),
+          `Candidate Version and Released Baseline must differ: ${candidateReleasedBaseline}.`,
+        );
+      }
+    }
   }
 }
 const readme = path.join(root, "README.md");
@@ -1483,7 +1536,7 @@ if (
   versions.size === 1 &&
   repositoryMode === "official"
 ) {
-  const currentVersion = [...versions][0];
+  const currentVersion = candidateReleasedBaseline ?? [...versions][0];
   const lines = read(changelog).split(/\r?\n/u);
   // Parse fenced code once so headings, declarations, and migration-note
   // categories all use the same Markdown structure boundary. Only fence-free

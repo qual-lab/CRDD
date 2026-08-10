@@ -260,6 +260,72 @@ test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
   );
 });
 
+test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(
+    path.join(root, "01_Principles.md"),
+    [
+      "Version: v0.17.0",
+      "Status: Candidate",
+      "Released Baseline: v0.16.0",
+    ].join("\n"),
+  );
+  write(path.join(root, "README.md"), "Status: **v0.17.0 Candidate**\n");
+  write(
+    path.join(root, "CHANGELOG.md"),
+    [
+      "## English",
+      "### v0.16.0 — Example",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- Required: example",
+      "- Conditional: example",
+      "- Not required: example",
+      "- Rollback / recovery: example",
+      "- Known risk if deferred: example",
+      "- Verification: example",
+      "- Known limitation: example",
+      "## 日本語",
+      "### v0.16.0 — 例",
+      "- `migration_required: true`",
+      "- `change_classification: breaking`",
+      "- 必須: 例",
+      "- 条件付き: 例",
+      "- 不要: 例",
+      "- 復旧: 例",
+      "- 延期時の既知リスク: 例",
+      "- 検証: 例",
+      "- 既知の制限: 例",
+    ].join("\n"),
+  );
+  const result = run(root);
+  assert.equal(
+    result.report.findings.some((item) =>
+      [
+        "candidate-released-baseline-mismatch",
+        "current-changelog-release-missing",
+      ].includes(item.code)),
+    false,
+    JSON.stringify(result.report.findings),
+  );
+});
+
+test("Candidate文書のReleased Baseline欠落を拒否する", () => {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(
+    path.join(root, "01_Principles.md"),
+    "Version: v0.17.0\nStatus: Candidate\n",
+  );
+  const result = run(root);
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "candidate-released-baseline-mismatch",
+    ),
+  );
+});
+
 test("公式CHANGELOGに日本語区分がない場合は現行リリース欠落を返す", () => {
   const root = fixture();
   makeStructure(path.join(root, "template"));

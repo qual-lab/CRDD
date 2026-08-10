@@ -2,8 +2,9 @@
 
 # CRDD用語集（Terminology）
 
-Version: v0.17.0
-Status: Stable
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Qual-Lab
 Last Updated: 2026-08-11
 Related:

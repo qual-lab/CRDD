@@ -2,10 +2,11 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.17.0
-Status: Stable
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-10
+Last Updated: 2026-08-11
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -347,7 +348,9 @@ AIは差分作成や検証を行えても、保護対象変更、リスク受容
 
 ## 5.1. リリースバージョンと改訂版
 
-CRDDはリポジトリ単位のリリースバージョンを持ち、Gitタグまたは同等の不変なリリース識別子で基準版を固定する。CRDD正本文書は、配布される基準版のリリースバージョンをヘッダーへ表示する。Gitコミット等の内容識別は改訂版であり、バージョンの代用ではない。
+CRDDはリポジトリ単位のリリースバージョンを持ち、Gitタグまたは同等の不変なリリース識別子で基準版を固定する。CRDD正本文書は、配布される基準版のリリースバージョンをヘッダーへ表示する。対象リリース候補を人間の決定権限者が選択し、固定して検証する期間は、`Version`に対象候補版、`Status: Candidate`、`Released Baseline`に直近の公開済み版を併記できる。この候補表示は、公開、採用、準拠、main統合、タグ作成またはリリース判断を代替しない。Gitコミット等の内容識別は改訂版であり、バージョンの代用ではない。
+
+リリース時は、同じ固定改訂版で正本文書の`Version`を対象リリースへ統一し、`Status: Stable`へ変更し、候補専用の`Released Baseline`を削除する。CHANGELOG、移行注記、リリース判断およびタグも同じリリース基準版へ照合する。候補を延期または不採用としても、直近の公開済み基準、公開タグまたは過去CHANGELOGを書き換えない。
 
 リリースバージョンは`MAJOR.MINOR.PATCH`形式を使用する。
 
@@ -395,6 +398,7 @@ v0.xのMINORに破壊的変更を含める場合も、破壊的表示と移行�
 ```text
 リリース対象範囲とバージョンが人間の決定権限者により確定している
 CRDD正本文書のヘッダーバージョンがリリース基準版と一致している
+候補時の`Status: Candidate`と`Released Baseline`が処置され、リリース基準版では`Status: Stable`になっている
 CHANGELOGが直前リリースからの純粋差分になっている
 破壊的変更と移行必要性が明示されている
 移行が必要なリリースでは、6.3の移行注記が`migration_required`と`change_classification`を含んでいる
