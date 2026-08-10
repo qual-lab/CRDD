@@ -109,6 +109,7 @@ Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and 
 - [Autonomous safety architecture](99_Roadmap/04_CRDD_v2_Autonomous_Safety_Architecture.md)
 - [Operation health and Human interface](99_Roadmap/05_CRDD_v2_Operation_Health_and_Human_Interface.md)
 - [Forward compatibility](99_Roadmap/06_CRDD_v2_Forward_Compatibility.md)
+- [Agent and provider orchestration](99_Roadmap/07_CRDD_v2_Agent_and_Provider_Orchestration.md)
 
 The product transformation is connected end to end, but it is not a fixed waterfall:
 
@@ -451,6 +452,7 @@ Trigger → Think → Controlled Effect → Verify → Learn
 - [自律安全Architecture](99_Roadmap/04_CRDD_v2_Autonomous_Safety_Architecture.md)
 - [Operation HealthとHuman Interface](99_Roadmap/05_CRDD_v2_Operation_Health_and_Human_Interface.md)
 - [Forward Compatibility](99_Roadmap/06_CRDD_v2_Forward_Compatibility.md)
+- [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v2_Agent_and_Provider_Orchestration.md)
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 

@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の将来互換Architecture候補である。現在のCRDD v0.17.0、安定コンテキストID、Human Authority、External Information Boundary、準拠基準または採用側のRepository構成を変更しない。ここで表現できる将来能力は、独立した採用・検証・人間判断を経るまで有効化または許可されない。
 
@@ -162,6 +162,8 @@ Representable
 | Promoted | 検証済み候補がCurrent／Canonical Stateへ正式に反映されている |
 
 前段の成立から後段を推定しない。未知のIdentity、Reference、Authority型または拡張情報をRuntimeが理解できない場合、それを無視してEffectを許可せず、対象EffectについてFail Closedとする。未知情報を保持して後続へ渡すことと、その意味に基づいて操作することも分ける。
+
+ProviderまたはModelはExecution Provenanceの一部になり得るが、Repository Identity、Context Identity、Authorityまたは成果物の意味そのものではない。Providerを変更できることから、そのProviderへのアクセス、送信、実行またはReview独立性を推定しない。安全なRoutingの責務は[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)に置く。
 
 ---
 

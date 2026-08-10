@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の運用・人間接続候補である。現在のCRDD、Human Authority、Communication、Quality Assurance、準拠基準または採用側の通知・判断手順を変更しない。
 
@@ -179,10 +179,16 @@ Affected Context
 | False positive rate | 重要でないものを重要とした割合 |
 | Missed trigger rate | 人間が後から発見した重要契機 |
 | Cost per useful finding | 有益な発見あたりの時間・モデル・Tool費用 |
+| Routing rejection rate | Eligibilityを満たさず拒否したRouting候補と理由 |
+| Fallback effectiveness | Fallbackの成功、失敗、再評価費用、品質差 |
+| Provider concentration | 単一Execution Boundaryへの依存と障害影響 |
+| Context transfer burden | Provider間の投影、再送信、再検証で増えた費用と人間負荷 |
 | Circuit breaker frequency | 自律実行停止の頻度と原因 |
 | Recovery burden | 失敗の検出、回復、人間対応に要した費用 |
 
 単一の指標を最適化しない。例えば通知を減らして見逃しが増えた場合、人間負荷低下を成功とみなさない。安全性、有用性、見逃し、人間負荷、費用を分けて評価する。
+
+ProviderまたはCreditの均等分散も成功条件にしない。Eligibilityを満たす候補間でCost／Quota集中を改善できても、品質、安全性、情報境界、見逃しまたは人間負荷が悪化するRoutingを採用しない。詳細は[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)に置く。
 
 ---
 

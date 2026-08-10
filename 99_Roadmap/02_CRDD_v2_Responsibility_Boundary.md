@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [実証計画](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [実証計画](03_CRDD_v2_PoC_Plan.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の責務整理である。現在のCRDD、Agent Contract、Skill Contract、Human Authority、External Information Boundaryまたは準拠基準を変更しない。
 
@@ -370,6 +370,10 @@ Proposal / Authorized Execution
 - Independent Verification
 
 複数Agentを使うこと自体を品質や独立性の根拠にしない。
+
+複数のAgent、ModelまたはProviderへWorkを割り当てる場合、CRDDは必要Context、Authority、Capability、期待結果、Verification Requirementを所有する。採用側Policyは利用可能なExecution Boundaryを定め、RuntimeはEligibility GateとEligible Set内のOptimizationを実行する。Provider Adapterは固有APIと入出力変換を担う。このRouting責務は[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)に置く。
+
+Planner、Executor、ReviewerはOptional Profileであり、基本Roleまたは固定Flowではない。Providerが異なることをIndependent Reviewの根拠にせず、Task／Result／Reviewの実行表現を既存ContractのRuntime Projectionとして扱う。
 
 ---
 

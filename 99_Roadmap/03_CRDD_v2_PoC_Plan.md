@@ -2,7 +2,7 @@
 
 Status: Concept / PoC Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v2_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の実証計画である。v2候補全体の仕様を最初のPoCへ限定しない。PoCの成功、Coding Agentの実行、試験合格または本書の存在だけで、v2採用、Authority拡張、現行標準変更を意味しない。
 
@@ -262,6 +262,19 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 
 固定Schemaの実装数ではなく、IdentityとLocation、ReferenceとAccess、Authority RequirementとGrant、CandidateとPromotionを混同しないことを評価する。
 
+### 7.7. Agent／Provider Routing
+
+[Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)のProvider数またはRouting数ではなく、次を合成Fixtureで確認する。
+
+- Authority、Information Boundary、CapabilityまたはVerification Requirementを満たさないProviderを、低CostでもEligibility Gateが拒否するか
+- Eligible Set内でだけReliability、Fitness、Availability、Cost、Quotaを比較するか
+- Fallback先について送信許可、Context Projection、Tool Access、Capabilityを再評価するか
+- Provider AのResultをProvider Bへ渡す際、新しいContext Transferとして処理境界を評価し、外部境界を跨ぐ場合はExternal Sendとして扱うか
+- Planner／Executor／Reviewerを固定Flowにせず、必要な責務だけを構成できるか
+- 別ProviderのReviewerがExecutorの結論を流用せず、対象と基準からFindingを独立再構成できるか
+- Routing Policy、Context Projection、Permission、Fallback、Verification、Costを必要な粒度で再構成できるか
+- RoutingがCostを下げても品質、見逃し、人間負荷またはRecovery burdenを悪化させていないか
+
 ---
 
 ## 8. 避けるべき失敗
@@ -337,6 +350,7 @@ PoCの成功や過去の一回承認から、新しい判断・操作権限を�
 - 必要な専門観点だけを分担
 - 独立性、権限、引き渡し、競合解決を評価
 - Agent数を品質根拠にしない
+- 複数Providerを使う場合もEligibility Gateを先に適用し、Cost／QuotaはEligible Set内だけで最適化
 
 ### 将来候補 — Continuous Product Evolution
 

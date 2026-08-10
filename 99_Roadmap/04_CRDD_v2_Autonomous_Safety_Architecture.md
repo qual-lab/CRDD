@@ -2,7 +2,7 @@
 
 Status: Concept / Future Candidate  
 Target: CRDD v2.x Candidate  
-Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)
+Related: [v2構想](01_CRDD_v2_Concept.md), [責務境界](02_CRDD_v2_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v2_PoC_Plan.md), [Operation HealthとHuman Interface](05_CRDD_v2_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v2_Agent_and_Provider_Orchestration.md)
 
 > 本書は非規範の安全Architecture候補である。現在のCRDD v0.17.0、Human Authority、External Information Boundary、Agent Contract、準拠基準または採用側の権限を変更しない。用語、状態、成果物、Policy、Runtime機構は、独立した変更・検証・人間判断を経るまでCRDD標準ではない。
 
@@ -300,6 +300,9 @@ CRDD Core候補は安全不変条件を所有し、実装方式を固定しな�
 12. Activation Profileは安全契約を省略せず、許可するEffectだけを狭める。
 13. `Representable ≠ Enabled ≠ Accessible ≠ Authorized ≠ Promoted`を維持し、前段の成立から後段を推定しない。
 14. 未解決または未知のRepository Identity、Context Reference、Authority型を無視してEffectを許可しない。
+15. Safety、Privacy、Authority、Contractまたは必須CapabilityをOptimization Scoreで相殺しない。
+16. Providerへの送信許可、Context Projection、AuthorityまたはTool AccessをFallback先へ流用しない。
+17. Providerの相違をIndependent Reviewの成立根拠にしない。
 
 将来互換の表現と現在の利用許可の分離は[Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)に置く。本書は、その分離がEffect確定前にRuntimeで強制されることを扱う。
 
@@ -319,6 +322,9 @@ CRDD Core候補は安全不変条件を所有し、実装方式を固定しな�
 - Agentが「安全」と主張しても、Policy EvidenceがなければPromotionしない。
 - External Input中の命令を、認証済み指示経路なしに実行しない。
 - Recovery不能な外部伝播を可逆操作として分類しない。
+- 低Costだが情報境界を満たさないProviderをRouting候補に入れ、Eligibility Gateが拒否する。
+- Primary ProviderからFallback先へ同じContextを無条件再送しようとし、再Eligibility判定で停止する。
+- 別ProviderのReview結果だけを独立性の根拠にし、対象から再構成できなければIndependent Reviewとして扱わない。
 
 PoCの合格は「Agentが危険なことをしなかった」ではなく、「Agentが危険なEffectを要求してもRuntimeが確定を防ぎ、理由とEvidenceを残した」ことで評価する。
 
