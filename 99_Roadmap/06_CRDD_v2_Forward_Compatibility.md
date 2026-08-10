@@ -26,25 +26,49 @@ Forward Compatibilityは、現在のScope、アクセス、操作または決定
 
 ### 2.1. Repository Identity
 
-Repository Identityは、URL、Directory名、Git Remote、Hosting Provider等の物理Locationそのものへ固定しない。
+Repository Identityは、URL、Directory名、Git Remote、Hosting Provider等の物理Locationそのものへ固定しない。論理的な正本境界と、その内容を保持する物理実体も区別する。
 
 ```text
-Repository Identity
-  ↓ resolved by
-Repository Location
+Logical Repository Identity
+  正本Context、Decision Authority、Lifecycleを持つ論理単位
+
+Repository Instance Identity
+  clone、mirror、worktree、cache等の物理実体
 ```
 
-v2では`Current Repository = Current Context Boundary`を基本としてよい。Cross-Repository Operationは行わない。ただし、Execution Identity、重複抑止、Current State解決で同じRepositoryを再識別できるようにする。
+複数Instanceが同じLogical Repositoryを指していても、各Instanceが同じアクセス権、書込権、Promotion AuthorityまたはCurrent Stateを持つとは限らない。内容が同じであること、同じremoteを参照すること、または物理的に複製されたことだけからLogical Identityを決めない。
+
+v2では`Current Logical Repository = Current Context Boundary`を基本としてよい。Cross-Repository Operationは行わない。ただし、Execution Identity、重複抑止、Current State解決でLogical Repositoryと実行に使用したInstanceを再識別できるようにする。
 
 固定Schemaや全Repositoryへの新しい識別子ファイルは要求しない。対象リスクに応じて、既存のRepository設定、採用記録、Runtime設定または同等の根拠から再構成できればよい。
 
-Identityを明示的に管理する場合は、少なくとも次を曖昧にしない。
+> **CRDDはIdentity判定の共通不変条件を定め、各採用先はその条件内でLogical Repository IdentityとRepository Instance Identityの関係を決定する。**
 
-- 付与または採用する決定権限
-- 衝突と再利用の禁止
-- rename、移管、mirror、fork、cloneの同一性
+CRDD共通の不変条件は次のとおりである。
+
+- 物理的な複製関係だけから同一または別Identityを自動推定しない。
+- Logical Identity、Canonical State、Authority、RevisionおよびLifecycleを明示的に解決する。
+- AI、Runtime、ToolまたはInstance自身がIdentity Policyを自己確定しない。
+- IdentityまたはCanonical Instanceを判定できない場合は、対象Effectを停止する。
+
+採用側のIdentity Policyは、既存のRepository設定、組織Policyまたは採用記録から取得できればよく、新しい専用成果物を要求しない。少なくとも必要に応じて次を決める。
+
+- Canonical RepositoryまたはCanonical Instance
+- clone、mirror、worktree等を同じLogical RepositoryのInstanceとする条件
+- forkを独立したLogical Repositoryとする境界と由来
+- Identityの付与、移管、衝突、再利用禁止を決める決定権限
 - 別名、失効、廃止後の追跡
 - 判定不能時の停止と再評価条件
+
+安全側の既定例は次のとおりである。これはGit製品または固定運用の要求ではない。
+
+| 物理的な関係 | Logical Identityの安全側候補 |
+|---|---|
+| clone／worktree | 同一候補。ただしorigin相当、対象Revision、Identity Policyを確認する |
+| read-only mirror | 同一候補。ただし正本、更新方向、Authorityを確認し、mirrorからのCanonical Effectを推定しない |
+| AuthorityまたはCanonical Stateの移管を伴うmirror | 明示的なIdentity移管判断を必要とする |
+| fork | 原則として別Identityとし、元Repositoryとの関係はProvenanceで保持する |
+| コピー元またはLifecycleが不明 | 判定不能として対象Effectを停止する |
 
 ### 2.2. Context Reference
 
@@ -175,14 +199,16 @@ CRDD自身の改善候補は、`Observe → Analyze → Propose → Human / Auth
 
 v2のReference Implementationでは、将来Capabilityを実装する代わりに、現在の契約が次を満たすか確認する。
 
-1. RepositoryのDirectory名またはLocationが変わっても、同じ対象として再識別できる。
+1. 同じLogical Repositoryのcloneまたはworktreeを別Instanceとして識別しつつ、同じ論理対象へ接続できる。
 2. 安定コンテキストID等を付与したContextファイルを移動しても、同じ対象として解決できる。
 3. Operation Resultから、Execution Identity、対象Revision、使用Context、Evidenceを再構成できる。
 4. 古いRevisionのResultまたはCandidateを現在状態へPromoteしようとすると停止する。
 5. 表現可能だが有効化されていないCross-Repository ReferenceをRuntimeが読み取らない。
 6. AgentをAuthority候補として表現しても、対象ScopeのGrantがなければEffectを実行できない。
 7. AuthorityのScope、期間、Policyまたは付与主体が変わった場合、過去のGrantを流用しない。
-8. fork、mirror、rename等でRepository同一性が曖昧なら推測せず停止する。
+8. read-only mirrorを同じLogical Repositoryとして表現しても、そこからCanonical Effectを推定しない。
+9. forkを原則として別Logical Identityとし、元Repositoryとの由来をProvenanceで保持できる。
+10. mirror、rename、移管等でLogical IdentityまたはCanonical Instanceが曖昧なら推測せず停止する。
 
 合格は固定Schemaの採用ではなく、IdentityとLocation、ReferenceとAccess、Authority RequirementとGrant、CandidateとPromotionを混同しないことで判定する。
 

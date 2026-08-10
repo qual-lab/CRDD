@@ -249,14 +249,16 @@ Operation Healthの評価、Decision Queue、通知集約、頻度変更、Pause
 
 [Forward Compatibility](06_CRDD_v2_Forward_Compatibility.md)の将来Capabilityは先行実装せず、次の境界だけを合成Fixtureで確認する。
 
-- RepositoryのDirectory名またはLocationを変えても、同じ実行対象として再識別できるか
+- 同じLogical Repositoryのcloneまたはworktreeを別Instanceとして識別しつつ、同じ論理対象へ接続できるか
 - 安定コンテキストID等を付与したContextファイルを移動しても、同じ対象として解決できるか
 - Operation ResultからExecution Identity、対象Revision、使用Context、Evidenceを再構成できるか
 - 古いRevisionのResultまたはCandidateを現在状態へPromoteしようとすると停止するか
 - 表現可能だが無効なCross-Repository ReferenceをRuntimeが読み取らないか
 - AgentをAuthority候補として表現しても、対象ScopeのGrantなしにEffectを実行しないか
 - AuthorityのScope、期間、Policyまたは付与主体の変更後に、過去のGrantを流用しないか
-- fork、mirror、rename等でRepository同一性が判定不能なら停止するか
+- read-only mirrorを同じLogical Repositoryとして表現しても、そこからCanonical Effectを推定しないか
+- forkを原則として別Logical Identityとし、元Repositoryとの関係をProvenanceで保持できるか
+- mirror、rename、移管等でLogical IdentityまたはCanonical Instanceを判定不能なら停止するか
 
 固定Schemaの実装数ではなく、IdentityとLocation、ReferenceとAccess、Authority RequirementとGrant、CandidateとPromotionを混同しないことを評価する。
 

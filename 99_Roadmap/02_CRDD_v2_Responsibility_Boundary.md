@@ -210,7 +210,7 @@ Silent Failureを減らすため、「問題なし」という結論にも探索
 
 ```text
 Execution Identity
-  → Repository IdentityとTarget Revisionを使用
+  → Logical Repository Identity、Repository Instance Identity、Target Revisionを使用
 
 Context Scope
   → Repository Identity、Stable Context IDまたは同等Identity、Revision / Baselineから解決
@@ -222,7 +222,7 @@ Operation Authority
   → Authority Requirement、Grant、Authorized Actorを分離
 ```
 
-CRDDは意味と必要条件を所有し、RuntimeはIdentity解決、Current State確認、Grant照合、実行Evidenceを所有する。ToolまたはConnectorは物理Locationと原子的Capabilityを提供できるが、Identity、AccessまたはAuthorityを自己確定しない。
+CRDDは意味とIdentity判定の共通不変条件を所有し、採用側はその条件内でLogical RepositoryとInstanceの関係を決める。Runtimeは採用済みIdentity Policyに基づくIdentity解決、Current State確認、Grant照合、実行Evidenceを所有する。ToolまたはConnectorは物理Locationと原子的Capabilityを提供できるが、Identity、AccessまたはAuthorityを自己確定しない。
 
 これらを固定Schema、新しい台帳、Cross-Repository接続またはAIへの新しい決定権限として扱わない。表現可能なCapabilityがActivation Profileで無効な場合、Runtimeは利用しない。
 
