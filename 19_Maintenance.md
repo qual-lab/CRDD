@@ -2,7 +2,7 @@
 
 # CRDD標準の保守（Maintenance）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
 Last Updated: 2026-08-10
@@ -14,6 +14,8 @@ Related:
 - [12_Change.md](12_Change.md)
 - [13_Release.md](13_Release.md)
 - [14_Workflow.md](14_Workflow.md)
+- [17_Communication.md](17_Communication.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
 - [51_Document_Audit.md](51_Document_Audit.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
 - [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
@@ -411,6 +413,8 @@ CONTRIBUTING、Issueフォーム、プルリクエストひな型等の影響を
 ## 6.1. バージョン固定と採用
 
 CRDDを採用するリポジトリは、利用するリリースタグ、コミット、配布物バージョン等の基準版を識別可能にする。常に最新リリースへ即時追従する必要はなく、採用バージョンとプロジェクト固有逸脱を明示して運用できる。
+
+CRDD標準自身の基準版採用、移行、復旧は本書を正本とする。プロジェクト固有の親子関係、共通基盤、共有ルールまたは成果物依存は[コンテキスト依存](18_Context_Dependency.md)を正本とする。CRDD基準版の更新を一般の依存更新だけで完了させず、一般の依存更新へ本書固有の準拠表明または移行完了要件を無条件に持ち込まない。
 
 新リリースの採用は、変更された規範、プロジェクト成果物、ツール接続部、チーム運用への影響を確認して決める。破壊的変更、準拠変更、保護対象意味変更を機械的に上書きしない。
 

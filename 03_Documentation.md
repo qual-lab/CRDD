@@ -2,10 +2,10 @@
 
 # CRDD文書規則（Documentation）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [00_Overview.md](00_Overview.md)
 - [01_Principles.md](01_Principles.md)
@@ -17,6 +17,8 @@ Related:
 - [14_Workflow.md](14_Workflow.md)
 - [15_Progress.md](15_Progress.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [17_Communication.md](17_Communication.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
 - [25_UI.md](25_UI.md)
 - [51_Document_Audit.md](51_Document_Audit.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
@@ -136,6 +138,7 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 08〜18（予約。フォルダは作らない）
 19_Workflows
 40_Develop
+80_Communication（外部コミュニケーションを扱う場合だけ作成）
 90_Release
 99_Roadmap
 ```
@@ -153,6 +156,7 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 | `08`〜`18` | 将来の工程横断成果物または共通運用領域のための予約。現在はフォルダを作らない | CRDD標準の該当する将来の正本文書 |
 | `19_Workflows` | リポジトリ固有の反復可能な作業手順、運用手順、手順間引き渡し | [作業手順](14_Workflow.md) |
 | `40_Develop` | コード、構成、開発者テスト等の実装成果物 | [実装](28_Implementation.md) |
+| `80_Communication` | 外部コミュニケーションの目的、受け手、主張と根拠、公開済み記録、測定と学び候補。この共通契約を使用する場合だけ作成する | [外部コミュニケーション](17_Communication.md) |
 | `90_Release` | `CHG-*` 変更トレース、リリース記録、CHANGELOG、配布物参照、リリース検証 | [変更](12_Change.md)、[リリース](13_Release.md)、プロジェクト固有のリリースの決定権限 |
 | `99_Roadmap` | 未完了の作業、課題、アイデア、変更候補、是正事項の存在、現在状態、参照先 | プロジェクト固有ロードマップの決定権限 |
 
@@ -169,6 +173,8 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 
 予約した`08`〜`18`に独自フォルダを追加する場合は、CRDD標準の基本構造とみなさない。プロジェクト固有拡張として、責務、決定権限、参照元、移行影響を明示する。
 
+`80_Communication`もプロダクト工程の次段ではない。外部向け成果物、公開判断または公開後の学びを扱うRepositoryでだけ使用する任意の共通領域である。適用する場合は`80_Communication/01_Communication.md`を固定入口とし、対象範囲、主要な結論、公開状態、未決事項、詳細成果物への参照を入口から理解できるようにする。SEO、LP、プレゼンテーション、効果測定等の詳細は、情報量、決定権限、更新頻度または独立レビューの必要性が入口の可読性を損なう場合だけ分割する。媒体別の全ファイルまたは全サブフォルダを共通構造として要求しない。
+
 課題探索・要求形成からアーキテクチャまでを適用する場合は、工程ごとに次の固定入口を使用する。入口は、その工程の責務、現在の網羅状態、未解決事項、判断、検証義務および詳細成果物への参照を一か所から辿るための主要な正本成果物である。
 
 ```text
@@ -178,6 +184,12 @@ Git履歴は差分と時系列の根拠であり、判断理由そのものを�
 04_UI/01_User_Interface.md
 05_SPEC/01_Behavior_Specification.md
 06_Architecture/01_Architecture.md
+```
+
+外部コミュニケーションを適用する場合の固定入口は次とする。
+
+```text
+80_Communication/01_Communication.md
 ```
 
 固定入口を、詳細成果物へのリンクだけを並べた索引にしてはならない。対象範囲、網羅状態の要約、工程全体へ適用する主要な結論と判断、検証義務、未解決事項、次工程への義務は、固定入口の本文から直接理解できるようにする。詳細な定義、図、個別対象、根拠または独立した判断は、責務を持つ詳細成果物へ分けてよい。固定入口はその詳細を全文複製せず、決定権限、改訂版、現在状態および参照を示す。

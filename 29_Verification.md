@@ -1,10 +1,10 @@
 # CRDD検証工程（Verification）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.verification.assure`
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -15,6 +15,8 @@ Related:
 - [13_Release.md](13_Release.md)
 - [15_Progress.md](15_Progress.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [17_Communication.md](17_Communication.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
 - [22_UX.md](22_UX.md)
 - [23_IA.md](23_IA.md)
 - [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
@@ -42,7 +44,7 @@ Related:
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-検証は、実装成果物が承認済みコンテキスト、受入条件、アーキテクチャ、品質条件を満たすかを、対象改訂版と環境に対する新しい根拠で独立検証する工程である。
+検証は、実装成果物が承認済みコンテキスト、受入条件、アーキテクチャ、品質条件を満たすかを、対象改訂版と環境に対する新しい根拠で独立検証する工程である。外部コミュニケーションまたは依存関係を適用する場合は、主張と根拠、公開版、宣言した依存版、上書き、実際の利用側等の成立も対象に応じて検証する。公開済みであること、外部指標が良好であること、依存先自身の検証が合格したことだけを、ローカルな対象の検証済み状態へ流用しない。
 
 ```text
 実装済み = 承認済み契約を実行可能成果物へ具体化した状態

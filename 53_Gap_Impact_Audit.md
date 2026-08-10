@@ -2,7 +2,7 @@
 
 # CRDD不足・影響監査（Gap and Impact Audit）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
 エージェントID: `agent.gap_impact.audit`
@@ -15,6 +15,8 @@ Related:
 - [11_Skill.md](11_Skill.md)
 - [12_Change.md](12_Change.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [17_Communication.md](17_Communication.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
 - [19_Maintenance.md](19_Maintenance.md)
 - [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
 - [51_Document_Audit.md](51_Document_Audit.md)
@@ -290,6 +292,8 @@ propagation_exception:
 | 処理能力 / 品質 | トラフィック、遅延、リソース、可用性、アクセシビリティ、安全性、コスト |
 | 検証 | 品質戦略、検証義務、検証設計、検証項目、評価規則、単体試験の分岐網羅率と未達／除外の処置、検証結果、現在の品質状態、Quality Center、根拠、環境、専門品質確認の対象範囲 |
 | 配布 / 決定権限 | 工程承認、変更トレース、リリース、予定、担当責任者、リスク |
+| 外部コミュニケーション | 受け手、目的、主張と根拠、デザイン方針、外部向け投影、公開済み記録、訂正・撤回、測定と学び候補 |
+| 依存関係 | コンテキスト／成果物の種別、参照版、上書き、競合、利用側、更新・延期・復旧、過去根拠の有効性 |
 | 学習 | 判断、正本コンテキスト、ロードマップへ戻すべき知見 |
 
 高影響、複数工程、複数の利用側、複数の出力先、権限境界、Privacy、Securityまたは不可逆操作へ及ぶ変更では、上表を次の横断観点へ展開して確認する。
@@ -327,6 +331,8 @@ UI / SPEC -> アーキテクチャ -> 実装 -> 検証
 実装／検証／運用 -> 影響を受ける上流コンテキスト
 変更トレース -> 工程承認／リリース／ロードマップ
 共有要素 -> 利用先／バリアント／機能
+外部コミュニケーション -> 主張／公開成果物／測定 -> 学び候補／責務を持つ正本
+依存元コンテキスト／成果物 -> ローカルな上書き／利用側／検証／公開成果物
 ```
 
 矢印は固定工程順ではない。変更または根拠が下流から発生した場合は逆方向へ確認する。安定コンテキストID、意味的な関係、成果物参照、変更トレース／コミット、テスト結果、担当責任者情報を組み合わせて候補を探索する。
@@ -358,6 +364,8 @@ UI／振る舞い仕様の対応関係を対象に含む場合は、UI工程、�
 | 実装 → 検証 | [実装](28_Implementation.md#phase-audit-checklist)、[検証](29_Verification.md#phase-audit-checklist) |
 | 互換性 / 移行 / 処理能力 | [SPEC](26_Behavior_Specification.md#phase-audit-checklist)、[アーキテクチャ](27_Architecture.md#phase-audit-checklist)、[検証](29_Verification.md#phase-audit-checklist) |
 | 実装 / 根拠 → 上流 | [原則](01_Principles.md)、[変更](12_Change.md)、該当工程正本 |
+| 正本／根拠 → 外部表現 → 公開後の学び | [外部コミュニケーション](17_Communication.md)、[課題探索・要求形成](21_Discovery.md)、該当正本 |
+| 依存元の更新 → 上書き／利用側／再検証 | [コンテキスト依存](18_Context_Dependency.md)、[変更](12_Change.md)、[品質保証](16_Quality_Assurance.md) |
 
 指摘事項には使用した正本条件と改訂版を記録する。工程承認は本監査が行わず、不足／影響の結果を該当判定の入力として返す。
 

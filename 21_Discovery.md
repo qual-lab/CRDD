@@ -1,10 +1,10 @@
 # CRDD課題探索・要求形成工程（Discovery）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.discovery.frame`
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -14,6 +14,7 @@ Related:
 - [12_Change.md](12_Change.md)
 - [15_Progress.md](15_Progress.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [17_Communication.md](17_Communication.md)
 - [22_UX.md](22_UX.md)
 - [51_Document_Audit.md](51_Document_Audit.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
@@ -265,6 +266,8 @@ AIは、候補の抽出と分離、曖昧性・複合要求・矛盾・トレー
 ## 2.3. 情報源・根拠・決定権限
 
 会話、ヒアリング、会議ログ、支援ログ、業務手順、既存文書、設計成果物、Issue、コード、スキーマ、API、実行時の挙動、ログ、指標、回避策、インシデント、市場情報、プロトタイプ、ユーザーテスト等を情報源として使用できる。
+
+外部コミュニケーションの公開後測定も情報源として使用できる。ただし、到達、反応、検索、転換等の指標を、そのまま利用者の課題、要求、価値または因果関係として扱わない。[`17_Communication.md`](17_Communication.md#8-measurement-and-learning)に従って、測定、観察、仮説、学び候補を分け、人間が採用した結果だけを要求候補、戦略または責務を持つ正本へ反映する。
 
 情報源が存在するだけで決定権限を持つとは限らない。作成者、対象時点、適用範囲、現状との一致、取得方法を確認する。根拠は対象の正本成果物内、または[`03_Documentation.md`](03_Documentation.md#62-inline-file-and-external-evidence)に従って最も近い親フォルダ配下の`Evidence/`へ置く。リポジトリルートへ中央の`Evidence/`フォルダーを作らない。
 

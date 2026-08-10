@@ -1,10 +1,10 @@
 # CRDDアーキテクチャ工程
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
 Skill ID: `skill.architecture.integrate`
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -12,6 +12,7 @@ Related:
 - [10_Agent.md](10_Agent.md)
 - [11_Skill.md](11_Skill.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
 - [24_UI_Behavior_Specification.md](24_UI_Behavior_Specification.md)
 - [25_UI.md](25_UI.md)
 - [26_Behavior_Specification.md](26_Behavior_Specification.md)
@@ -229,6 +230,8 @@ AIは候補比較、不足、影響、設計案を提示できるが、上位契
 システムコンテキストでは、システム、アクター、外部システム、信頼境界、主要なデータフローを示す。ドメイン部品／実行時部品ごとに責務、決定権限、依存方向、公開インターフェースを定義し、同じ責務を複数の実行時部品が暗黙に所有しないようにする。
 
 外部サービス、提供側、プラットフォーム固有処理は、交換・隔離・テストの必要性がある場合に接続部／提供側境界へ閉じ込める。すべての依存関係へ形式的な抽象化を追加せず、交換可能性、リスク、テスト可能性、提供側固有制約から判断する。
+
+別のRepositoryまたは共通基盤との関係では、意味、原則、規則等を参照する[コンテキスト依存](18_Context_Dependency.md)と、Package、Component、Schema等を使用する成果物依存を分ける。アーキテクチャは成果物依存の実現方式、実行時境界、失敗・回復、セキュリティ、運用を所有するが、参照元コンテキストの意味、版、上書きの決定権限を技術依存へ置き換えない。
 
 ```text
 外部利用側 -> インターフェース境界 -> ドメイン責務 -> データ決定権限

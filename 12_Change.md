@@ -2,10 +2,10 @@
 
 # CRDD変更トレース（Change Trace）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -15,6 +15,8 @@ Related:
 - [13_Release.md](13_Release.md)
 - [15_Progress.md](15_Progress.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [17_Communication.md](17_Communication.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
 - [21_Discovery.md](21_Discovery.md)
 - [28_Implementation.md](28_Implementation.md)
 - [29_Verification.md](29_Verification.md)
@@ -34,7 +36,7 @@ Related:
 
 # 1. 目的と適用範囲（Purpose and Boundary）
 
-本書は、各契機から発生した一つの変更について、なぜ始まり、どのコンテキストと成果物へ影響し、何を実装・検証・リリースしたかを辿る変更トレースの正本である。
+本書は、各契機から発生した一つの変更について、なぜ始まり、どのコンテキストと成果物へ影響し、何を実装・検証・リリースしたかを辿る変更トレースの正本である。外部コミュニケーションまたは依存関係を変更する場合は、主張、公開済み成果物、学び候補、参照版、上書き、利用側、移行・復旧への影響も同じ変更の対象範囲へ含める。
 
 ```text
 契機 / 起点
