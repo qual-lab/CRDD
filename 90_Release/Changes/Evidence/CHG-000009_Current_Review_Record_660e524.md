@@ -4,13 +4,13 @@
 
 - 変更トレース: [`CHG-000009`](../CHG-000009_Communication_and_Context_Dependency.md)
 - 固定本文の状態: `Ready for Verification`（固定時点の履歴）
-- 現在の処置: `Ready for Release Handoff`
+- 現在の処置: `Released`
 - 対象Release: `v0.15.0`
 - 変更分類: `breaking`
 - 移行要否: `true`
-- リリース判断: 未実施
-- 統合: 未実施
-- 公開識別子: 未確定
+- リリース判断: Qual-Labの人間の決定権限者による承認に基づき、v0.15.0の統合と公開を完了
+- 統合: mainへの本文およびリリース前記録の統合を完了
+- 公開識別子: 注釈付き`v0.15.0`タグ
 
 固定本文へ固定後結果を書き戻さず、本記録が固定後のChecker、独立レビュー、監査および現在状態を所有する。`Ready for Release Handoff`は、人間による統合またはリリース判断を代替しない。
 
@@ -76,6 +76,29 @@
 
 これらは今回の固定版に残る未解決Findingではない。新しい運用データまたは専門判断により規則変更が必要になった場合は、現在の変更を遡及変更せず別の変更契機として扱う。
 
+## リリース記録
+
+- リリースバージョン: `v0.15.0`
+- 公開識別子: 注釈付き`v0.15.0`タグ
+- 状態: `Released`
+- リリース対象: CRDD標準リポジトリのv0.15.0変更、固定後Evidence、Current Review Record
+- 対象環境: GitHub上の`qual-lab/CRDD`公開リポジトリ
+- 含まれる変更: `CHG-000009`
+- 除外: 未追跡の`CRDD_Introduction.pptx`。本リリースの対象コミット、配布物、検証に含めない
+- feature → develop: [PR #17](https://github.com/qual-lab/CRDD/pull/17)、統合コミット`3f6073ab39f4d7031cac3da462d282a763fd90ed`
+- develop → main: [PR #18](https://github.com/qual-lab/CRDD/pull/18)、統合コミット`040c7727943f7ee6757de7d11d715a27e338d5cf`
+- リリース前記録 → main: [PR #19](https://github.com/qual-lab/CRDD/pull/19)、統合コミット`caab4aec6c5f3bc4d9b39bc4f18ed67cf121db18`
+- 配布成果物: mainコミット`caab4aec6c5f3bc4d9b39bc4f18ed67cf121db18`と、そのコミットを指す`v0.15.0`タグ
+- リリース準備状況: 分離worktreeによる全体Checker、3系統独立確認、Current Record終端確認を完了。未解決Finding 0
+- 変更影響の伝播: 正本、AI入口、README、CHANGELOG、監査基準、準拠基準、移行案内へ反映済み。未処置の伝播例外なし
+- 人間の判断: Qual-Labの人間の決定権限者が2026-08-10に統合とリリース実行を承認
+- 既知の制限／残存リスク: 本記録の「未評価範囲と既知の限界」を参照。外部適用結果と実運用効果はリリース阻害条件にしない
+- 人間中心品質: プロダクトのUX／IA／UI成果物を直接変更しないため、プロダクト固有の人間中心品質確認は`Not Applicable`
+- 移行／互換性: `breaking`、`migration_required: true`。`CHANGELOG.md`のv0.15.0移行注記に従い、全既存基準版でMigration Completenessを実施し、該当時に`PL-17`／`PL-18`を再評価する
+- ロールバック参照: `v0.14.0`タグ。Migration Completenessと人間による有効化が終わるまではv0.14.0の基準版と手順を維持する
+- リリース検証: localとremoteの注釈付きタグobjectは`d48cdd7d9f5b07f7171e8c57d3471aa43b0b8470`、peeled tagはともに`caab4aec6c5f3bc4d9b39bc4f18ed67cf121db18`を指す
+- リリース日: 2026-08-10
+
 ## 次の処置
 
-人間の決定権限者へv0.15.0候補の統合・リリース判断を引き渡す。承認される場合は、リポジトリ規則に従ってfeatureからdevelop、developからmainへの統合、mainの確定Commitへのタグ作成とremote公開確認を行う。公開確認までは`Released`としない。
+正式リリース後に新しい運用データまたは適用先の問題が得られた場合は、新しい根拠を伴う別の変更契機として評価する。
