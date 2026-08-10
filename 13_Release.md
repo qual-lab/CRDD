@@ -2,10 +2,10 @@
 
 # CRDDリリース（Release）
 
-Version: v0.14.0
+Version: v0.15.0
 Status: Stable
 Owner: Qual-Lab
-Last Updated: 2026-07-31
+Last Updated: 2026-08-10
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -14,6 +14,7 @@ Related:
 - [14_Workflow.md](14_Workflow.md)
 - [15_Progress.md](15_Progress.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
+- [17_Communication.md](17_Communication.md)
 - [19_Maintenance.md](19_Maintenance.md)
 - [29_Verification.md](29_Verification.md)
 - [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
@@ -120,6 +121,8 @@ CRDD自体のバージョン、CHANGELOG、タグ、移行は[保守](19_Mainten
 ```
 
 リリース記録は各CHGの影響説明、検証結果、配布物、運用手順を全文複製せず、参照で束ねる。
+
+[公開済み記録](17_Communication.md#6-projection-and-publication)は、外部コミュニケーション成果物を実際に公開した事実を保持する。プロダクトの配布または有効化を示すリリース記録とは同一ではない。外部成果物の公開自体が本書のリリースに該当する場合は、公開済み記録とリリース記録を相互参照し、公開先、公開版、判断、時点を二重に正本化しない。
 
 ---
 
