@@ -146,6 +146,7 @@ test("owned childだけを削除しtemporary parentとsiblingを保持する", (
     assert.equal(fs.existsSync(root), false);
     assert.equal(fs.readFileSync(sibling, "utf8"), "keep");
     assert.equal(fs.existsSync(parent), true);
+    assert.throws(() => cleanupOwnedOperationDirectories(owned), /identity_required/u);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
@@ -158,6 +159,79 @@ test("所有IdentityがないPathをcleanupしない", () => {
   try {
     assert.throws(() => cleanupOwnedOperationDirectories({ root: parent, parent: path.dirname(parent) }));
     assert.equal(fs.readFileSync(content, "utf8"), "keep");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("正しいprefixを持つ既存directoryでも偽owned objectでは削除しない", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-fake-owner-"));
+  const target = fs.mkdtempSync(path.join(parent, "crdd-coordinator-doctor-"));
+  const content = path.join(target, "keep.txt");
+  fs.writeFileSync(content, "keep", "utf8");
+  try {
+    assert.throws(() => cleanupOwnedOperationDirectories({ root: target, parent }), /identity_required/u);
+    assert.equal(fs.readFileSync(content, "utf8"), "keep");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("owned objectのpublic Pathを書き換えても別directoryを削除しない", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-mutated-owner-"));
+  const other = path.join(parent, "other");
+  fs.mkdirSync(other);
+  fs.writeFileSync(path.join(other, "keep.txt"), "keep", "utf8");
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    owned.root = other;
+    assert.throws(() => cleanupOwnedOperationDirectories(owned), /replaced/u);
+    assert.equal(fs.readFileSync(path.join(other, "keep.txt"), "utf8"), "keep");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("owned childを同名の別directoryへ置換してもreplacementを削除しない", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-replaced-owner-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    const original = `${owned.root}-original`;
+    fs.renameSync(owned.root, original);
+    fs.mkdirSync(owned.root);
+    const replacementContent = path.join(owned.root, "replacement.txt");
+    const originalContent = path.join(original, "original.txt");
+    fs.writeFileSync(replacementContent, "replacement", "utf8");
+    fs.writeFileSync(originalContent, "original", "utf8");
+    assert.throws(() => cleanupOwnedOperationDirectories(owned), /replaced/u);
+    assert.equal(fs.readFileSync(replacementContent, "utf8"), "replacement");
+    assert.equal(fs.readFileSync(originalContent, "utf8"), "original");
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("owned childをjunctionへ置換した場合は対象を削除しない", (t) => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-linked-owner-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    const original = `${owned.root}-original`;
+    const target = path.join(parent, "junction-target");
+    fs.renameSync(owned.root, original);
+    fs.mkdirSync(target);
+    fs.writeFileSync(path.join(target, "keep.txt"), "keep", "utf8");
+    try {
+      fs.symlinkSync(target, owned.root, process.platform === "win32" ? "junction" : "dir");
+    } catch (error) {
+      if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) {
+        t.skip(`link fixture unavailable: ${error.code}`);
+        return;
+      }
+      throw error;
+    }
+    assert.throws(() => cleanupOwnedOperationDirectories(owned), /replaced/u);
+    assert.equal(fs.readFileSync(path.join(target, "keep.txt"), "utf8"), "keep");
+    assert.equal(fs.existsSync(original), true);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }

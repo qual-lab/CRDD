@@ -16,6 +16,29 @@ export const CREDENTIAL_ENV_NAMES = Object.freeze([
 const WINDOWS_RUNTIME_ENV = Object.freeze(["COMSPEC", "PATHEXT", "SYSTEMDRIVE", "SYSTEMROOT", "WINDIR"]);
 const POSIX_RUNTIME_ENV = Object.freeze(["LANG", "LC_ALL", "LC_CTYPE", "SHELL"]);
 const OWNED_PREFIX = "crdd-coordinator-doctor-";
+const OWNED_IDENTITIES = new WeakMap();
+
+function readFilesystemIdentity(root) {
+  const metadata = fs.lstatSync(root, { bigint: true });
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n
+  ) {
+    throw new Error("owned_operation_directory_identity_unavailable");
+  }
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs
+  });
+}
+
+function sameFilesystemIdentity(left, right) {
+  return left.dev === right.dev && left.ino === right.ino && left.birthtimeNs === right.birthtimeNs;
+}
 
 function copyIfPresent(target, source, name) {
   if (typeof source[name] === "string") target[name] = source[name];
@@ -46,37 +69,54 @@ export function createOwnedOperationDirectories(temporaryParent = os.tmpdir()) {
   if (path.dirname(realRoot) !== parent || !path.basename(realRoot).startsWith(OWNED_PREFIX)) {
     throw new Error("owned_operation_directory_boundary_failed");
   }
+  const owned = { parent, root: realRoot, directories: null };
+  OWNED_IDENTITIES.set(owned, Object.freeze({
+    parent,
+    root: realRoot,
+    prefix: OWNED_PREFIX,
+    filesystem: readFilesystemIdentity(realRoot)
+  }));
   try {
-    return {
-      parent,
-      root: realRoot,
-      directories: createOperationDirectories(realRoot)
-    };
+    owned.directories = createOperationDirectories(realRoot);
+    return owned;
   } catch (error) {
-    fs.rmSync(realRoot, { recursive: true, force: true });
+    try {
+      cleanupOwnedOperationDirectories(owned);
+    } catch {
+      throw new Error("owned_operation_directory_initialization_cleanup_blocked", { cause: error });
+    }
     throw error;
   }
 }
 
 export function cleanupOwnedOperationDirectories(owned) {
-  if (!owned || typeof owned.root !== "string" || typeof owned.parent !== "string") {
+  const identity = owned && typeof owned === "object" ? OWNED_IDENTITIES.get(owned) : null;
+  if (!identity) {
     throw new Error("owned_operation_directory_identity_required");
   }
-  if (!fs.existsSync(owned.root)) return;
-  const metadata = fs.lstatSync(owned.root);
-  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+  try {
+    if (owned.root !== identity.root || owned.parent !== identity.parent) {
+      throw new Error("owned_operation_directory_replaced");
+    }
+    const realRoot = fs.realpathSync(identity.root);
+    const realParent = fs.realpathSync(identity.parent);
+    const currentFilesystem = readFilesystemIdentity(identity.root);
+    if (
+      realRoot !== identity.root ||
+      realParent !== identity.parent ||
+      path.dirname(realRoot) !== realParent ||
+      !path.basename(realRoot).startsWith(identity.prefix) ||
+      !sameFilesystemIdentity(currentFilesystem, identity.filesystem)
+    ) {
+      throw new Error("owned_operation_directory_replaced");
+    }
+  } catch (error) {
+    OWNED_IDENTITIES.delete(owned);
+    if (error?.message === "owned_operation_directory_replaced") throw error;
     throw new Error("owned_operation_directory_replaced");
   }
-  const realRoot = fs.realpathSync(owned.root);
-  const realParent = fs.realpathSync(owned.parent);
-  if (
-    realRoot !== owned.root ||
-    path.dirname(realRoot) !== realParent ||
-    !path.basename(realRoot).startsWith(OWNED_PREFIX)
-  ) {
-    throw new Error("owned_operation_directory_boundary_failed");
-  }
-  fs.rmSync(realRoot, { recursive: true, force: true });
+  OWNED_IDENTITIES.delete(owned);
+  fs.rmSync(identity.root, { recursive: true, force: true });
 }
 
 export function createProviderEnvironment(baseEnvironment, directories) {

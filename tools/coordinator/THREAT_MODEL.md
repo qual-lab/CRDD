@@ -43,7 +43,7 @@ runtime-state/
 - Provider子プロセスは`workspace/`、`provider-home/`、`tmp/`だけを書き込める。
 - Credential Broker／AdapterだけがCredential Storeを必要最小限で読み取る。
 - Provider子プロセスへCredential StoreのPath、通常User Home、他Operationまたは元RepositoryのGit metadataを見せない。
-- 診断用領域はRuntimeが当該runで`mkdtemp`した一意なchildだけを所有し、終了時も同じIdentityと親境界を確認してchildだけを削除する。既存parent、sibling、呼出側指定Path、symlinkまたはjunctionを再帰削除しない。
+- 診断用領域はRuntimeが当該runで`mkdtemp`した一意なchildだけを所有する。所有Capabilityと作成時の`dev`／`ino`／`birthtimeNs`はmodule-privateに保持し、終了時に同じobject、実体Identity、親境界、実Path、prefix、directory種別および非linkをすべて確認してchildだけを一回削除する。Pathまたはprefixだけを所有根拠にせず、既存parent、sibling、呼出側指定Path、symlinkまたはjunctionを再帰削除しない。
 
 ## 4. 主要脅威と制御
 
@@ -78,6 +78,8 @@ runtime-state/
 CLI未導入、認証未確認、Filesystem境界未強制、Credential隔離未強制またはEgress未強制を、利用可能または安全と推定しない。Gateは不足を人間判断へ誤変換せず、阻害理由と必要な後続処置を返す。
 
 将来のActive Probe Adapterは、Filesystem、Credential、EgressおよびProcess境界を先に強制し、同じ隔離環境内でだけProviderを起動する。Windowsでは発見した`.exe`、`.cmd`または`.bat`の種別、複数候補、空白を含むPathおよび引数境界を決定論的に扱い、shell injectionを許さない。生stdout／stderrは正規化前に永続化しない。現在の受動診断結果をActive Probe、認証または利用可能性の根拠へ流用しない。
+
+現在のIdentity照合は、Providerを起動しない受動事前診断のcleanup境界である。Path検査から削除までの敵対的な同時置換を完全に防ぐ証明ではない。将来Active Probeを実装する場合は、Provider process treeの終了確認後にcleanupし、Providerからtemporary parentへ到達できないOS Sandbox／ACLまたは同等境界を先に成立させて、cleanup競合を再評価する。
 
 ## 6. 非対象
 
