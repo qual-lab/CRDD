@@ -69,7 +69,7 @@ Run終了の意味は[Policy-contained Completion](02_CRDD_v2_Responsibility_Bou
 
 人間にはActivity全体ではなく、今回決めること、推奨、根拠、主な選択肢、影響、Risk、保留時の状態を示す。
 
-許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、Policy-contained executionとして処理できる。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
+許可した処理境界内で、対象OperationのAuthority、目的、送信先、情報分類、最小化、Verification Requirement等をPolicyが確認できるExternal Sendは、外部送信であることだけを理由に毎回Human Decision Laneへ送らず、既存Policy内の実行として処理できる。Runを終了するときは、必要なResultとVerificationが成立したことを確認し、[Policy-contained Completion](02_CRDD_v2_Responsibility_Boundary.md#44-policy-contained-completion)に従う。許可を別目的、別送信先、別Provider、別tenantまたは別Operationへ流用せず、境界条件の変更または判定情報不足はHuman Decisionへ戻す。Publicationその他の既存Human Gateは維持する。
 
 ---
 
