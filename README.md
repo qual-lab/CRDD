@@ -104,7 +104,7 @@ You do not need to memorize every CRDD rule before starting. Keep these five res
 4. Do not let unknowns or unresolved findings disappear behind a completed document or task.
 5. Check the route selected by AI: affected phases, independent review, audits, and remaining Human decisions.
 
-When an audit, review, or Change Trace produces many findings, AI should not turn every finding into a separate Human question. It should first integrate the results, separate deterministic remediation from genuine Human decisions and report-only information, and group only findings that depend on the same inseparable decision. For each Human decision, AI should lead with what must be decided, its recommendation, why the decision is needed now, what changes for users, business, the product, delivery, cost, and risk, the recommendation's main drawback, and what remains if the recommendation is not adopted. Finding IDs, files, phases, and audit details remain traceable but normally follow this decision summary.
+When an audit, review, or Change Trace produces many findings, AI should not turn every finding into a separate Human question. After remediation and re-review, it recomputes the current decision set from the current fixed revision, excluding resolved findings, deterministic AI remediation, and report-only information. If nothing remains, it says that no Human decision is currently required instead of asking for procedural approval. Remaining decisions are split when they can be independently deferred and combined only when separating them would change their meaning. AI leads with what was learned, what was fixed, the actual impact, what still must be decided, its recommendation, why the decision is needed now, the main drawback, and what remains if it is deferred or rejected. Finding IDs, files, phases, and audit details remain traceable but normally follow this decision summary.
 
 When one agreed remediation affects several passages, references, templates, guides, or examples, AI should list those concrete targets before editing. Before re-review, it should reconcile every target as updated, verified unchanged, excluded with a reason, waiting for a Human decision, or unable to apply or verify with a reason and restart condition. A simple local correction remains simple; this check does not create another audit or approval step.
 
@@ -389,7 +389,7 @@ CRDDは、要求記法、ユーザビリティ、アクセシビリティ、設�
 4. 不明点や未解決の指摘事項を、文書やタスクの完了によって見えなくしない。
 5. AIが選んだ変更経路、対象工程、独立レビュー、監査、人間の判断事項を確認する。
 
-監査、レビュー、変更トレースから多数の指摘事項が出ても、AIは指摘ごとに人間へ質問しない。全結果を統合し、AIが一意に修正できる事項、人間による判断が必要な事項、報告のみの事項へ分け、同じ不可分な判断に依存する指摘だけをまとめる。人間判断では、今回決めること、推奨、なぜ今必要か、利用者・業務・プロダクト・計画・費用・リスクへの変化、推奨の主な短所、不採用時に残る問題を先に示す。指摘事項ID、対象ファイル、工程、監査等の詳細は追跡可能に保ち、判断要約の後から確認できるようにする。
+監査、レビュー、変更トレースから多数の指摘事項が出ても、AIは指摘ごとに人間へ質問しない。是正と再レビュー後の現在の固定改訂版から現在の判断集合を再計算し、解消済み事項、AIが一意に修正できる事項、報告のみの事項を除く。判断が残らなければ「現在、人間による判断は必要ありません」と示し、形式的な進行承認を求めない。残る判断は、独立して保留できるなら分け、分離すると意味が壊れる場合だけまとめる。人間には、今回分かったこと、対応結果、実際の影響、現在も決めること、推奨、なぜ今必要か、主な短所、保留または不採用時に残る問題を先に示す。指摘事項ID、対象ファイル、工程、監査等の詳細は追跡可能に保ち、判断要約の後から確認できるようにする。
 
 一つの合意済み修正が複数の記述、参照、ひな型、ガイド、例示へ及ぶ場合、AIは編集前に具体的な対象を一覧化する。再レビュー前には、各対象を、修正済み、確認して変更不要、理由付き対象外、人間判断待ち、適用不能または確認不能として理由と再開条件を記録、のいずれかへ照合する。単一箇所の明らかな修正は簡潔に扱い、新しい監査や承認を増やさない。
 

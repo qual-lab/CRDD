@@ -64,7 +64,7 @@ CRDD全体を横断する補助概念
 |---|---|---|
 | 中核概念 | CRDD全体の意味、コンテキスト、決定権限、追跡、状態を理解するために先に読む用語 | 第1章、コンテキスト、コンテキストリポジトリ、成果物、正本成果物、項目の決定権限、安定コンテキストID、コンテキスト選択、変更トレース、工程ゲート、トレース、不足と未解決事項、変更影響の伝播確認、第3章、第4章 |
 | 補助概念 | 特定の工程、作業、表示、品質保証または監査で中核概念を具体化する用語 | 成果物参照、作業フロー、リリース、スキル、ロケールと表示名、UX／IA／UIの専門用語、投影、監査是正、未完了作業の登録簿、判断状態、対応状態、進捗管理、専門品質確認、品質戦略、検証義務、検証意図、検証設計、検証項目、検証手順、分岐網羅率 |
-| 表示／派生概念 | 正本情報から導く状態、要約、指標または統合入口を表す用語。新しい正本を作らない | 進捗中核、健全性、進捗指標、検証結果要約、現在の品質状態、Quality Center |
+| 表示／派生概念 | 正本情報から導く状態、要約、指標または統合入口を表す用語。新しい正本を作らない | 進捗中核、健全性、進捗指標、検証結果要約、現在の品質状態、Quality Center、現在の判断集合 |
 
 分類だけから、その用語の適用要否を判断しない。対象工程、成果物または監査で用語が参照される場合は、分類にかかわらず該当定義を読む。異なるAI、モデルまたはツールへ切り替える場合も、補助概念や表示／派生概念を独自の一般語へ置き換えず、本書の正式英語名と境界を共通参照にする。
 
@@ -701,6 +701,7 @@ CRDD全体を横断する補助概念
 | Verification Result Summary | 検証結果要約 |
 | Current Quality Status | 現在の品質状態 |
 | Quality Center | Quality Center |
+| Current Decision Set | 現在の判断集合 |
 | Branch Coverage | 分岐網羅率 |
 | Finding | 指摘事項 |
 | Gap / Unresolved Gap | 不足／未解決事項 |
@@ -1269,9 +1270,21 @@ IAでは、投影は、UIが画面上でどう見せるか（Tabsで切り替え
 
 **境界:** 品質情報の新しい正本にならず、件数または割合だけで品質、工程移行、リスク受容またはリリース可否を決定しない。表示契約は[品質保証](16_Quality_Assurance.md#55-quality-center)を正本とする。
 
-<a id="246-branch-coverage"></a>
+<a id="246-current-decision-set"></a>
 
-## 2.46. 分岐網羅率（Branch Coverage）
+## 2.46. 現在の判断集合（Current Decision Set）
+
+一言で言うと、**現在の対象改訂版から、人間が今も決める必要のある事項だけを再構成した表示時点の集合**。
+
+**正式英語名:** `Current Decision Set`
+
+**定義:** 是正、再レビューおよび現在状態を反映した対象改訂版から、解消済み事項、AIが一意に修正できる事項および報告のみの事項を除き、現在も人間の決定権限を必要とする事項を導く派生集合。
+
+**境界:** 新しい成果物、状態軸、承認段階、固定スキーマまたは中央判断台帳ではない。監査またはレビューでは現在の固定改訂版から導き、意味と提示契約は[判断支援契約](11_Skill.md#53-decision-support-contract)を正本とする。
+
+<a id="247-branch-coverage"></a>
+
+## 2.47. 分岐網羅率（Branch Coverage）
 
 一言で言うと、**単体試験等で、測定対象の判断分岐をどこまで実行したかを示す割合**。
 
@@ -1524,6 +1537,7 @@ Progress Work State
 | 検証結果要約（`Verification Result Summary`） | `Verification Result` / `Current Quality Status` / `Quality Center` | 一回または一つの実行集合の結果を短く説明する。履歴成果物そのもの、現在へ適用できる結果の集約、対象全体の統合入口を代替しない。意味と責務境界は[品質保証](16_Quality_Assurance.md#14-result-summary-and-quality-center)を正本とする |
 | 現在の品質状態（`Current Quality Status`） | `Verification Result` / `Progress Indicator` / `Release Decision` | 現在の対象へ適用可能な検証結果を集約した派生状態である。過去の結果、進捗指標、人間によるリリース判断を置き換えない。意味と責務境界は[品質保証](16_Quality_Assurance.md#13-verification-result-and-current-quality-status)を正本とする |
 | Quality Center | `Verification Result Summary` / `Dashboard` / `Quality Registry` | 現在の品質状態と詳細参照へ到達する統合入口であり、一回の結果要約、表示技術、品質情報の新しい中央正本ではない。意味と責務境界は[品質保証](16_Quality_Assurance.md#14-result-summary-and-quality-center)を正本とする |
+| 現在の判断集合（`Current Decision Set`） | `Finding List` / `Approval Queue` / `Decision Registry` | 現在も人間が決める事項だけを対象改訂版から導く表示時点の派生集合であり、指摘事項の履歴、承認待ち一覧または判断の中央正本ではない。意味と提示契約は[判断支援契約](11_Skill.md#53-decision-support-contract)を正本とする |
 | 分岐網羅率（`Branch Coverage`） | `Line Coverage` / `Condition Coverage` / 品質成立 | 測定対象の分岐へ到達した割合を示す。行網羅率、条件網羅率、または品質全体の成立と同一視しない。目標、未達、除外の規則は[品質保証](16_Quality_Assurance.md#52-verification-design)を正本とする |
 | 学び（`Learning`） | `Summary` | 要約されただけでは学びへ昇格しない |
 | 変更トレース（`Change Trace`） | `Change Record` / `Task` / `Pull Request` | `CHG-*`は変更の意味と影響を追跡する。タスク、プルリクエスト、Gitログ、CHANGELOGの代替ではない |
