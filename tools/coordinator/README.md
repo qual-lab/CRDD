@@ -61,7 +61,7 @@ Runtime 1.0の正式なAuthority取得方式は、Runtime管理領域内の固�
 
 Runtime Rootの既定候補は`<repository>/.crdd-runtime/`とし、別の場所を使う場合の指定契約は`--runtime-root`または`CRDD_COORDINATOR_ROOT`による絶対Pathとする。優先順はCLI、環境、Repository既定である。OS別の暗黙保存先へ分散保存しない。現在は選択Core候補だけで、CLI optionと環境読取りは未接続である。機能は既定で無効であり、Directoryの存在、override指定またはRepository内設定だけでは有効化しない。明示的なenable要求とRuntime所有activation記録が必要で、Root選択Core候補はCapabilityを発行しない。
 
-`.crdd-runtime/**`はGitの追跡有無にかかわらずCandidate Revision、Operation入力およびProvider mountへ含めない。ignoreは誤commit防止の補助であり、Filesystem安全境界ではない。`disable`は新規Operationを停止する制御とし、保存データの削除は別の明示操作に分離する。現在はRootの作成、Git exclude処置、Path保護およびactivation記録の永続化を実装していない。
+`.crdd-runtime/**`はGitの追跡有無にかかわらずCandidate Revision、Operation入力およびProvider mountへ含めない。ignoreは誤commit防止の補助であり、Filesystem安全境界ではない。明示enable時に選択RootがRepository内なら、Repository Adapterがroot相対の完全一致entryを`.git/info/exclude`へ冪等に追加し、tracked `.gitignore`は変更しない。Repository外overrideにはGit excludeを追加しない。書込み後の確認に失敗した場合はactivationを`blocked`にする。現在はこのlocal exclude候補の生成だけを実装し、Git directoryの解決とmetadata書込みは未実装である。`disable`は新規Operationを停止する制御とし、保存データの削除は別の明示操作に分離する。Rootの作成、Path保護およびactivation記録の永続化も未実装である。
 
 過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。Trust Anchor Loader CoreはRegistryをJavaScript値へ展開する前に131072 byteの上限を強制する。File Bundleを実際に読み取るRuntime所有Path Adapterは未実装であり、その入口でも取得量、選択済みRoot、Provider非到達、所有主体／権限および実体Identityを別途強制する。
 

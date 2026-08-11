@@ -28,7 +28,7 @@ function pathCandidate(value) {
   return typeof value === "string" &&
     value.length > 0 &&
     value.length <= 4_096 &&
-    !value.includes("\0") &&
+    !/[\u0000-\u001f\u007f]/u.test(value) &&
     path.isAbsolute(value);
 }
 

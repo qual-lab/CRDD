@@ -69,6 +69,8 @@ test("相対Path、NUL、長すぎるPathおよび未知activationを拒否す�
     "runtime_root_override_invalid");
   assert.equal(selectRuntimeRootCandidate(input({ environmentOverride: `${environmentRoot}\0bad` })).reason,
     "runtime_root_override_invalid");
+  assert.equal(selectRuntimeRootCandidate(input({ environmentOverride: `${environmentRoot}\nbad` })).reason,
+    "runtime_root_override_invalid");
   assert.equal(selectRuntimeRootCandidate(input({ cliOverride: path.resolve("a".repeat(4_096)) })).reason,
     "runtime_root_override_invalid");
   assert.equal(selectRuntimeRootCandidate(input({ activationIntent: "enabled" })).reason,

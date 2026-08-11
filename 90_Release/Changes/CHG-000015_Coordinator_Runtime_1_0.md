@@ -283,3 +283,11 @@ Root選択Core候補はabsolute Pathの構文、CLI／環境／既定の優先�
 局所処置として、説明契約へCLI／環境接続未実装、Operation入力除外、無効化の意味と未実装、無効化による非削除、明示データ削除未実装を追加し、Core試験と`doctor`試験で全項目を固定した。Threat ModelもOperation入力除外および無効化／削除分離を、Path／Operation統合、無効化、削除が未実装である境界とともに保持する。本処置は`Applied`／`Self-checked`であり、新しいCommit／Treeに対する機械確認と3独立再確認前に`Resolved`としない。
 
 最終固定Commit `fdab76962460bfa9c59f6a9c5678f0b7a098e5cc`／Tree `129d703d8930a19227ce6391c6ef2db64cb80867`へのAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding 0で完了した。結果は[`CHG-000015_Current_Review_Record_fdab769.md`](Evidence/CHG-000015_Current_Review_Record_fdab769.md)へ記録する。`DOC-ROOT-001`はRoot選択Core候補と直接利用側の固定範囲で解消した。一方、CLI／環境接続、Path／Operation除外の実強制、activation、無効化、削除、Capabilityおよび実Operationは未実装で、全体Gateは`blocked`を維持する。
+
+### Git local exclude Core候補
+
+Qual-Labは、明示enable時に選択RootがRepository内ならRepository Adapterがroot相対の完全一致entryを`.git/info/exclude`へ冪等に追加し、tracked `.gitignore`を自動変更しない方式を承認した。Repository外overrideにはGit excludeを追加しない。書込みまたは書込み後確認に失敗した場合はactivationを`blocked`にする。ignoreは誤commit防止の補助であり、Candidate Revision、Operation入力またはProvider mount除外のSecurity境界にしない。この判断はGit metadata更新方式を固定するもので、機能有効化、Authority Capability、実Operation、採用またはReleaseの承認ではない。
+
+local exclude Core候補は、Root選択入力をplain-data境界で再検証し、明示enable候補だけを受理する。Repository内Rootにはroot相対でanchoredなdirectory patternを生成し、space、glob記号、`#`および`!`をescapeする。Repository外Rootはexclude不要、Repository root自体およびRepository直下の`.git`配下はRootとして不許可とし、制御文字を含むPathも拒否する。結果へ絶対Pathを含めず、Git metadata書込みまたはCapabilityを発行しない。`doctor`は`.git/info/exclude`、tracked `.gitignore`非変更、冪等書込み、書込み後確認、失敗時block、Git directory解決／metadata書込み未実装を表示する。
+
+実Repository AdapterはRepository Identity、Git directoryの配置と実体、non-link／non-reparse、既存exclude内容、同時更新および書込み後のexact entryを確認する必要がある。通常Repository、linked worktree、submodule等のGit directory形態をどこまでRuntime 1.0で正式対応するかは、このCore候補では決定しない。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にlocal exclude処置完了、activation成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。

@@ -21,6 +21,7 @@ import { describeAuthorityTrustLoaderContract } from "../security/authority-trus
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
 import { describeRuntimeRootContract } from "../security/runtime-root-profile.mjs";
+import { describeGitLocalExcludeContract } from "../security/git-local-exclude.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -271,6 +272,7 @@ export function runDoctor(options = {}) {
         profile: activeIsolation ? DOCKER_ISOLATION_PROFILE : null
       },
       runtimeRoot: describeRuntimeRootContract(),
+      gitLocalExclude: describeGitLocalExcludeContract(),
       egress: {
         providerAllowlist: "not_implemented",
         fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated",
