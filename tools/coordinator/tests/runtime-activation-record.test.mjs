@@ -135,6 +135,27 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
   assert.equal(contract.activationEffect, "not_implemented");
   assert.equal(contract.localOnboardingContract, "implemented_candidate_contract_only");
+  assert.equal(contract.onboardingReadinessProjection,
+    "implemented_candidate_contract_only");
+  assert.deepEqual(contract.requiredProvisioningTargetKinds, [
+    "shared_authority_root_platform_scope",
+    "repository_scoped_runtime_root_activation_precondition"
+  ]);
+  assert.equal(contract.onboardingReadiness, "blocked");
+  assert.deepEqual(contract.onboardingBlockingDependencies, [
+    "platform_provisioner_verification",
+    "platform_provisioner_effect",
+    "provision_receipt_contract",
+    "provision_receipt_verification",
+    "authority_root_resolution_from_provisioning_record",
+    "root_protection_platform_adapters",
+    "runtime_root_provisioning_effect",
+    "authority_root_provisioning_effect",
+    "activation_effect",
+    "activation_path_identity_binding",
+    "activation_atomic_persistence",
+    "run_scoped_capability"
+  ]);
   assert.equal(contract.disabledRepositoryExperience, "no_runtime_specific_effect");
   assert.equal(contract.firstPlatformSetup,
     "verify_signed_platform_provisioner_and_provision_shared_authority_root_target");
@@ -165,6 +186,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   ]);
   assert.equal(contract.platformProvisionerVerification, "not_implemented");
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
+  assert.equal(contract.provisionReceiptContract, "not_implemented");
   assert.equal(contract.provisionReceiptVerification, "not_implemented");
   assert.equal(contract.authorityRootResolutionFromProvisioningRecord, "not_implemented");
   assert.equal(contract.authorityRootExplicitPathContractPreserved, true);

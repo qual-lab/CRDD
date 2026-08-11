@@ -42,6 +42,24 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
 ).get;
+const ONBOARDING_PROVISIONING_TARGET_KINDS = Object.freeze([
+  "shared_authority_root_platform_scope",
+  "repository_scoped_runtime_root_activation_precondition"
+]);
+const ONBOARDING_BLOCKING_DEPENDENCIES = Object.freeze([
+  "platform_provisioner_verification",
+  "platform_provisioner_effect",
+  "provision_receipt_contract",
+  "provision_receipt_verification",
+  "authority_root_resolution_from_provisioning_record",
+  "root_protection_platform_adapters",
+  "runtime_root_provisioning_effect",
+  "authority_root_provisioning_effect",
+  "activation_effect",
+  "activation_path_identity_binding",
+  "activation_atomic_persistence",
+  "run_scoped_capability"
+]);
 
 function blocked(reason) {
   return Object.freeze({
@@ -166,6 +184,10 @@ export function describeRuntimeActivationContract() {
     activationCommandGrammar: "implemented_candidate",
     activationEffect: "not_implemented",
     localOnboardingContract: "implemented_candidate_contract_only",
+    onboardingReadinessProjection: "implemented_candidate_contract_only",
+    requiredProvisioningTargetKinds: ONBOARDING_PROVISIONING_TARGET_KINDS,
+    onboardingReadiness: "blocked",
+    onboardingBlockingDependencies: ONBOARDING_BLOCKING_DEPENDENCIES,
     disabledRepositoryExperience: "no_runtime_specific_effect",
     firstPlatformSetup:
       "verify_signed_platform_provisioner_and_provision_shared_authority_root_target",
@@ -193,6 +215,7 @@ export function describeRuntimeActivationContract() {
     ]),
     platformProvisionerVerification: "not_implemented",
     platformProvisionerEffect: "not_implemented",
+    provisionReceiptContract: "not_implemented",
     provisionReceiptVerification: "not_implemented",
     authorityRootResolutionFromProvisioningRecord: "not_implemented",
     authorityRootExplicitPathContractPreserved: true,

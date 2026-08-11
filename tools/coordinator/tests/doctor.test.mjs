@@ -318,6 +318,27 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.activationEffect, "not_implemented");
   assert.equal(report.runtimeActivation.localOnboardingContract,
     "implemented_candidate_contract_only");
+  assert.equal(report.runtimeActivation.onboardingReadinessProjection,
+    "implemented_candidate_contract_only");
+  assert.deepEqual(report.runtimeActivation.requiredProvisioningTargetKinds, [
+    "shared_authority_root_platform_scope",
+    "repository_scoped_runtime_root_activation_precondition"
+  ]);
+  assert.equal(report.runtimeActivation.onboardingReadiness, "blocked");
+  assert.deepEqual(report.runtimeActivation.onboardingBlockingDependencies, [
+    "platform_provisioner_verification",
+    "platform_provisioner_effect",
+    "provision_receipt_contract",
+    "provision_receipt_verification",
+    "authority_root_resolution_from_provisioning_record",
+    "root_protection_platform_adapters",
+    "runtime_root_provisioning_effect",
+    "authority_root_provisioning_effect",
+    "activation_effect",
+    "activation_path_identity_binding",
+    "activation_atomic_persistence",
+    "run_scoped_capability"
+  ]);
   assert.equal(report.runtimeActivation.disabledRepositoryExperience,
     "no_runtime_specific_effect");
   assert.equal(report.runtimeActivation.firstPlatformSetup,
@@ -346,6 +367,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   ]);
   assert.equal(report.runtimeActivation.platformProvisionerVerification, "not_implemented");
   assert.equal(report.runtimeActivation.platformProvisionerEffect, "not_implemented");
+  assert.equal(report.runtimeActivation.provisionReceiptContract, "not_implemented");
   assert.equal(report.runtimeActivation.provisionReceiptVerification, "not_implemented");
   assert.equal(report.runtimeActivation.authorityRootResolutionFromProvisioningRecord,
     "not_implemented");
