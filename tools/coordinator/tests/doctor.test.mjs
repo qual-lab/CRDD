@@ -316,6 +316,28 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.activationCommand, "dedicated_activate_required");
   assert.equal(report.runtimeActivation.activationCommandGrammar, "implemented_candidate");
   assert.equal(report.runtimeActivation.activationEffect, "not_implemented");
+  assert.equal(report.runtimeActivation.localOnboardingContract,
+    "implemented_candidate_contract_only");
+  assert.equal(report.runtimeActivation.disabledRepositoryExperience,
+    "no_runtime_specific_effect");
+  assert.equal(report.runtimeActivation.firstPlatformSetup,
+    "verify_signed_platform_provisioner_and_provision_shared_authority_root_target");
+  assert.equal(report.runtimeActivation.repositoryActivationEntry,
+    "single_coordinator_activate_command_target");
+  assert.equal(report.runtimeActivation.normalRunAdministratorElevation,
+    "not_required_after_verified_provision_and_activation_target");
+  assert.equal(report.runtimeActivation.normalRunPathInput,
+    "not_required_after_verified_provision_and_activation_target");
+  assert.equal(report.runtimeActivation.normalRunManualAclConfiguration,
+    "not_required_after_verified_provision_and_activation_target");
+  assert.equal(report.runtimeActivation.restartPrompt,
+    "not_required_when_protection_identity_and_activation_are_valid_target");
+  assert.equal(report.runtimeActivation.platformProvisionerVerification, "not_implemented");
+  assert.equal(report.runtimeActivation.platformProvisionerEffect, "not_implemented");
+  assert.equal(report.runtimeActivation.provisionReceiptVerification, "not_implemented");
+  assert.equal(report.runtimeActivation.authorityRootResolutionFromProvisioningRecord,
+    "not_implemented");
+  assert.equal(report.runtimeActivation.authorityRootExplicitPathContractPreserved, true);
   assert.equal(report.runtimeActivation.disableCommandGrammar, "implemented_candidate");
   assert.equal(report.runtimeActivation.disableEffect, "not_implemented");
   assert.equal(report.runtimeActivation.doctorEnableIsActivation, false);

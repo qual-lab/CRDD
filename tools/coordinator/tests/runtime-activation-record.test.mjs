@@ -134,6 +134,42 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.activationCommand, "dedicated_activate_required");
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
   assert.equal(contract.activationEffect, "not_implemented");
+  assert.equal(contract.localOnboardingContract, "implemented_candidate_contract_only");
+  assert.equal(contract.disabledRepositoryExperience, "no_runtime_specific_effect");
+  assert.equal(contract.firstPlatformSetup,
+    "verify_signed_platform_provisioner_and_provision_shared_authority_root_target");
+  assert.equal(contract.authorityProvisioningScope,
+    "shared_platform_scope_reusable_across_repositories_target");
+  assert.equal(contract.repositoryActivationEntry, "single_coordinator_activate_command_target");
+  assert.equal(contract.runtimeRootProvisioningEffectOwner,
+    "dedicated_platform_provisioner_target");
+  assert.equal(contract.normalRunAdministratorElevation,
+    "not_required_after_verified_provision_and_activation_target");
+  assert.equal(contract.normalRunPathInput,
+    "not_required_after_verified_provision_and_activation_target");
+  assert.equal(contract.normalRunManualAclConfiguration,
+    "not_required_after_verified_provision_and_activation_target");
+  assert.equal(contract.restartPrompt,
+    "not_required_when_protection_identity_and_activation_are_valid_target");
+  assert.equal(contract.protectionChangeBehavior,
+    "fail_closed_and_direct_to_reverification_or_reprovision");
+  assert.deepEqual(contract.reverificationTriggers, [
+    "platform_provisioner_or_signature_or_trust_change",
+    "runtime_or_provisioner_principal_change",
+    "root_identity_or_protection_metadata_change"
+  ]);
+  assert.deepEqual(contract.reprovisionTriggers, [
+    "required_root_missing_or_replaced",
+    "required_writer_or_runtime_read_only_protection_mismatch",
+    "authority_root_identity_changed"
+  ]);
+  assert.equal(contract.platformProvisionerVerification, "not_implemented");
+  assert.equal(contract.platformProvisionerEffect, "not_implemented");
+  assert.equal(contract.provisionReceiptVerification, "not_implemented");
+  assert.equal(contract.authorityRootResolutionFromProvisioningRecord, "not_implemented");
+  assert.equal(contract.authorityRootExplicitPathContractPreserved, true);
+  assert.equal(contract.runtimeRootProvisioningEffect, "not_implemented");
+  assert.equal(contract.authorityRootProvisioningEffect, "not_implemented");
   assert.equal(contract.disableCommandGrammar, "implemented_candidate");
   assert.equal(contract.disableEffect, "not_implemented");
   assert.equal(contract.doctorEnableIsActivation, false);

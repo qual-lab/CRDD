@@ -165,6 +165,38 @@ export function describeRuntimeActivationContract() {
     activationCommand: "dedicated_activate_required",
     activationCommandGrammar: "implemented_candidate",
     activationEffect: "not_implemented",
+    localOnboardingContract: "implemented_candidate_contract_only",
+    disabledRepositoryExperience: "no_runtime_specific_effect",
+    firstPlatformSetup:
+      "verify_signed_platform_provisioner_and_provision_shared_authority_root_target",
+    authorityProvisioningScope: "shared_platform_scope_reusable_across_repositories_target",
+    repositoryActivationEntry: "single_coordinator_activate_command_target",
+    runtimeRootProvisioningEffectOwner: "dedicated_platform_provisioner_target",
+    runtimeRootProvisioningScope: "per_repository_during_activation_or_precondition_target",
+    normalRunAdministratorElevation:
+      "not_required_after_verified_provision_and_activation_target",
+    normalRunPathInput: "not_required_after_verified_provision_and_activation_target",
+    normalRunManualAclConfiguration:
+      "not_required_after_verified_provision_and_activation_target",
+    restartPrompt: "not_required_when_protection_identity_and_activation_are_valid_target",
+    protectionChangeBehavior: "fail_closed_and_direct_to_reverification_or_reprovision",
+    reverificationTriggers: Object.freeze([
+      "platform_provisioner_or_signature_or_trust_change",
+      "runtime_or_provisioner_principal_change",
+      "root_identity_or_protection_metadata_change"
+    ]),
+    reprovisionTriggers: Object.freeze([
+      "required_root_missing_or_replaced",
+      "required_writer_or_runtime_read_only_protection_mismatch",
+      "authority_root_identity_changed"
+    ]),
+    platformProvisionerVerification: "not_implemented",
+    platformProvisionerEffect: "not_implemented",
+    provisionReceiptVerification: "not_implemented",
+    authorityRootResolutionFromProvisioningRecord: "not_implemented",
+    authorityRootExplicitPathContractPreserved: true,
+    runtimeRootProvisioningEffect: "not_implemented",
+    authorityRootProvisioningEffect: "not_implemented",
     disableCommandGrammar: "implemented_candidate",
     disableEffect: "not_implemented",
     doctorEnableIsActivation: false,
