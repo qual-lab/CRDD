@@ -190,6 +190,11 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
     "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
   assert.equal(contract.callerObservationsAreAuthority, false);
   assert.equal(contract.protectionPolicyCore, "implemented_candidate_claim_only");
+  assert.equal(contract.posixRuntimeRootModePrecheck,
+    "implemented_candidate_observation_only");
+  assert.equal(contract.posixOwnerModeAdapter, "not_implemented");
+  assert.equal(contract.posixAclVerification, "not_implemented");
+  assert.equal(contract.runtimePrincipalBinding, "not_implemented");
   assert.equal(contract.windowsDaclAdapter, "not_implemented");
   assert.equal(contract.posixOwnerModeAdapter, "not_implemented");
   assert.equal(contract.persistentVolumeAdapter, "not_implemented");

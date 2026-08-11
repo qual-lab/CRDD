@@ -27,6 +27,7 @@ import { describeRuntimeActivationContract } from "../security/runtime-activatio
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.mjs";
 import {
   describeRuntimeRootPathIdentityContract,
+  inspectPosixRuntimeRootModePrecheckCandidate,
   inspectRuntimeRootPathIdentityCandidate
 } from "../security/runtime-root-path-identity.mjs";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.mjs";
@@ -294,6 +295,15 @@ export function runDoctor(options = {}) {
     const runtimeRootEvaluation = normalizedOptions.runtimeRootRequest === null
       ? selectRuntimeRootCandidate(runtimeRootInput)
       : inspectRuntimeRootPathIdentityCandidate(runtimeRootInput);
+    const runtimeRootProtectionPrecheck = normalizedOptions.runtimeRootRequest === null
+      ? Object.freeze({
+        status: "not_evaluated",
+        reason: "runtime_feature_not_enabled",
+        summary: null,
+        filesystemEffectIssued: false,
+        runtimeCapabilityIssued: false
+      })
+      : inspectPosixRuntimeRootModePrecheckCandidate(runtimeRootInput);
     const isolation = activeIsolation
       ? runDockerIsolationProbe(owned)
       : { status: "not_implemented", reason: "filesystem_boundary_not_enforced" };
@@ -355,6 +365,7 @@ export function runDoctor(options = {}) {
       runtimeActivation: describeRuntimeActivationContract(),
       rootProtectionPolicy: describeRootProtectionPolicyContract(),
       runtimeRootEvaluation,
+      runtimeRootProtectionPrecheck,
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
       gitLocalExclude: describeGitLocalExcludeContract(),
       egress: {

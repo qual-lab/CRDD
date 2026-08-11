@@ -301,6 +301,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRootPathIdentity.existingRootRequired, true);
   assert.equal(report.runtimeRootPathIdentity.rootCreationIssued, false);
   assert.equal(report.runtimeRootPathIdentity.pathObjectIdentityVerification, "implemented_candidate");
+  assert.equal(report.runtimeRootPathIdentity.posixRuntimeRootModePrecheck,
+    "implemented_candidate_observation_only");
+  assert.equal(report.runtimeRootPathIdentity.posixRuntimeRootModeVerification, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.posixAclVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.ownerAclVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.fullParentChainVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.localExcludeIntegration,
@@ -329,13 +333,17 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.rootProtectionPolicy.authorityRootProtection,
     "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
   assert.equal(report.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
+  assert.equal(report.rootProtectionPolicy.posixRuntimeRootModePrecheck,
+    "implemented_candidate_observation_only");
   assert.equal(report.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
+  assert.equal(report.rootProtectionPolicy.posixAclVerification, "not_implemented");
   assert.equal(report.rootProtectionPolicy.persistentVolumeAdapter, "not_implemented");
   assert.equal(report.rootProtectionPolicy.pathBinding, "not_implemented");
   assert.equal(report.rootProtectionPolicy.activationIntegration, "not_implemented");
   assert.equal(report.rootProtectionPolicy.runtimeCapabilityIssued, false);
   assert.equal(report.runtimeRootEvaluation.status, "blocked");
   assert.equal(report.runtimeRootEvaluation.reason, "runtime_feature_not_enabled");
+  assert.equal(report.runtimeRootProtectionPrecheck.status, "not_evaluated");
   assert.equal(report.checks.some((item) => item.id === "runtime.root" && item.status === "blocked"), true);
   assert.deepEqual(report.repositoryGitLayout.supportedWorktreeForms, [
     "normal_worktree",
@@ -427,6 +435,8 @@ test("doctorは明示enable要求だけを既存RootのPath Identity候補へ接
   assert.equal(report.runtimeRootEvaluation.status, "candidate");
   assert.equal(report.runtimeRootEvaluation.summary.location, "repository_default_location");
   assert.equal(report.runtimeRootEvaluation.runtimeCapabilityIssued, false);
+  assert.equal(report.runtimeRootProtectionPrecheck.status, "blocked");
+  assert.equal(report.runtimeRootProtectionPrecheck.runtimeCapabilityIssued, false);
   assert.equal(report.checks.find((item) => item.id === "runtime.root").reason,
     "runtime_root_activation_record_not_implemented");
   assert.equal(report.status, "blocked");

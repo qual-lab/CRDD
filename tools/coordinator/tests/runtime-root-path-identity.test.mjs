@@ -7,6 +7,7 @@ import test from "node:test";
 import * as runtimeRootPathIdentityModule from "../src/security/runtime-root-path-identity.mjs";
 import {
   describeRuntimeRootPathIdentityContract,
+  inspectPosixRuntimeRootModePrecheckCandidate,
   inspectRuntimeRootPathIdentityCandidate
 } from "../src/security/runtime-root-path-identity.mjs";
 
@@ -32,8 +33,28 @@ test("Path Identity module does not expose a generic session, descriptor, token,
     "RUNTIME_ROOT_PATH_IDENTITY_CONTRACT_REVISION",
     "applyGitLocalExcludeWithInitialRootSnapshotCandidate",
     "describeRuntimeRootPathIdentityContract",
+    "inspectPosixRuntimeRootModePrecheckCandidate",
     "inspectRuntimeRootPathIdentityCandidate"
   ]);
+});
+
+test("POSIX Runtime Root mode precheckは成功しても総合検証をblockedに保つ", (t) => {
+  const repositoryRoot = temporaryDirectory(t);
+  const root = path.join(repositoryRoot, ".crdd-runtime");
+  fs.mkdirSync(root);
+  if (process.platform !== "win32") fs.chmodSync(root, 0o700);
+  const result = inspectPosixRuntimeRootModePrecheckCandidate(input(repositoryRoot));
+  assert.equal(result.status, "blocked");
+  assert.equal(result.runtimeCapabilityIssued, false);
+  assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
+  if (process.platform === "win32") {
+    assert.equal(result.reason, "posix_runtime_root_mode_precheck_platform_unsupported");
+  } else if (result.reason === "posix_runtime_root_protection_verification_incomplete") {
+    assert.equal(result.summary.modePrecheck, "passed_candidate");
+    assert.equal(result.summary.posixAclVerification, "not_implemented");
+    assert.equal(result.summary.runtimePrincipalBinding, "not_implemented");
+  }
 });
 
 test("Repository既定RootのFilesystem object候補をPath非出力で確認する", (t) => {
@@ -308,6 +329,11 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
   assert.equal(contract.pathObjectIdentityVerification, "implemented_candidate");
   assert.equal(contract.realpathContainmentVerification, "implemented_candidate");
   assert.equal(contract.rootProtectionPolicyCore, "implemented_candidate_claim_only");
+  assert.equal(contract.posixRuntimeRootModePrecheck,
+    "implemented_candidate_observation_only");
+  assert.equal(contract.posixRuntimeRootModeVerification, "not_implemented");
+  assert.equal(contract.posixAclVerification, "not_implemented");
+  assert.equal(contract.runtimePrincipalBinding, "not_implemented");
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.fullParentChainVerification, "not_implemented");
   assert.equal(contract.localExcludeIntegration, "implemented_candidate_initial_snapshot_binding");
