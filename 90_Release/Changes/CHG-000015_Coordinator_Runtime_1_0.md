@@ -433,3 +433,7 @@ Evidence Commit `01b1c2fc08adced6303e2dbdf9a6982b18b6a247`のCurrent Decision Se
 `GCI-ACTIVATION-COMMAND-001`への処置として、Runtime Root／Authority Rootの各軸でCLI指定がある場合は同じ軸の環境値を選択／検証対象から外し、後続selectorへ`null`として渡す。CLI指定がない場合だけ環境値を検証し、Runtime Rootは環境値もなければRepository既定、Authority Rootは両方ない場合だけ明示Path欠落へ閉じる。一方の軸のCLI指定は他方の不正環境値を隠さず、`disable`はAuthority Rootを参照しない。README／Threat Modelも、選択される環境値だけが検証対象であることへ揃える。
 
 局所試験はRuntime／Authority両軸のCLI優先、片軸だけの不正環境値、CLIなしの不正環境値、`disable`のRuntime軸、`--json`付きC0／DEL／4097文字、非JSON負例、exit `2`／`64`およびPath非漏洩を確認する。既存command別grammar、3結果、doctor／recovery、Effect非発火、Authority／Capability非昇格、Gate `blocked`および非Release境界は変更しない。
+
+固定Commit `0734703e6735045247be3694fee50fed8c751fa6`／Tree `868e69d6baea17312fbf17aabc833d85e1b6bdc7`を対象に、Agent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditを新規に実行し、3件とも`Pass`、Finding `0`を得た。共通入力はCoordinator `176 / 176 Pass`、Checker `143 / 143 Pass`、全体Checker Error `0`／Warning `0`、diff／worktree cleanである。現在記録は[`CHG-000015_Current_Review_Record_0734703.md`](Evidence/CHG-000015_Current_Review_Record_0734703.md)へ接続する。
+
+この新固定版により、`AG-ACTIVATION-CLI-001`、`DOC-ACTIVATION-002`および`GCI-ACTIVATION-COMMAND-001`は、activate／disable CLI grammar候補と直接利用側の固定範囲で`Resolved`と判定する。旧`0e3bcd8`以前の監査集合は各時点の履歴として保持するが、現在判定へ流用しない。これはCLI Effect、原子的永続化、Path／owner／ACL、disable／cancel実処理、run-scoped Capability、Provider／Operation、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開の成立を意味せず、Execution Environment Gateは`blocked`を維持する。
