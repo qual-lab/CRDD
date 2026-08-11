@@ -15,12 +15,13 @@ const OBSERVATION_KEYS = new Set([
   "linkOrReparseObserved",
   "runtimeReadAllowed",
   "runtimeWriteAllowed",
-  "provisionerWriteAllowed",
+  "writeAuthority",
   "untrustedWriteAllowed"
 ]);
 const ROOT_ROLES = new Set(["runtime", "authority"]);
 const PLATFORM_FAMILIES = new Set(["windows", "posix"]);
 const FILESYSTEM_CLASSES = new Set(["local", "persistent_volume"]);
+const WRITE_AUTHORITIES = new Set(["runtime_principal_only", "provisioner_principal_only"]);
 const INPUT_TOKEN_LENGTH = 32;
 
 function response(status, reason, policy = null) {
@@ -33,21 +34,26 @@ function response(status, reason, policy = null) {
   });
 }
 
-function booleanObservations(rawObservations) {
+function normalizeObservations(rawObservations) {
   const observations = snapshotPlainRecord(rawObservations, OBSERVATION_KEYS);
-  if (!observations || [...OBSERVATION_KEYS].some((key) => typeof observations[key] !== "boolean")) {
+  if (!observations || [...OBSERVATION_KEYS].filter((key) => key !== "writeAuthority")
+    .some((key) => typeof observations[key] !== "boolean") ||
+    typeof observations.writeAuthority !== "string" ||
+    observations.writeAuthority.length === 0 ||
+    observations.writeAuthority.length > INPUT_TOKEN_LENGTH ||
+    !WRITE_AUTHORITIES.has(observations.writeAuthority)) {
     return null;
   }
   return observations;
 }
 
-function policySummary(rootRole, platformFamily, filesystemClass) {
+function policySummary(rootRole, platformFamily, filesystemClass, requiredWriteAuthority) {
   return Object.freeze({
     rootRole,
     platformFamily,
     filesystemClass,
     runtimeAccess: rootRole === "runtime" ? "read_write" : "read_only",
-    writeAuthority: rootRole === "runtime" ? "runtime_principal" : "provisioner_principal",
+    requiredWriteAuthority,
     untrustedWriteAllowed: false,
     absolutePathReported: false
   });
@@ -70,7 +76,7 @@ export function evaluateRootProtectionPolicyCandidate(rawInput) {
     if (!FILESYSTEM_CLASSES.has(input.filesystemClass)) {
       return response("blocked", "root_protection_filesystem_unsupported");
     }
-    const observations = booleanObservations(input.observations);
+    const observations = normalizeObservations(input.observations);
     if (!observations) return response("blocked", "root_protection_observations_invalid");
     if (!observations.rootExists) return response("blocked", "root_protection_root_missing");
     if (!observations.stableIdentityObserved) {
@@ -83,18 +89,20 @@ export function evaluateRootProtectionPolicyCandidate(rawInput) {
       return response("blocked", "root_protection_untrusted_write_rejected");
     }
     if (input.rootRole === "runtime" &&
-        (!observations.runtimeReadAllowed || !observations.runtimeWriteAllowed)) {
+        (!observations.runtimeReadAllowed || !observations.runtimeWriteAllowed ||
+         observations.writeAuthority !== "runtime_principal_only")) {
       return response("blocked", "runtime_root_access_policy_not_satisfied");
     }
     if (input.rootRole === "authority" &&
         (!observations.runtimeReadAllowed || observations.runtimeWriteAllowed ||
-         !observations.provisionerWriteAllowed)) {
+         observations.writeAuthority !== "provisioner_principal_only")) {
       return response("blocked", "authority_root_access_policy_not_satisfied");
     }
     return response(
       "candidate",
       "root_protection_platform_adapter_verification_required",
-      policySummary(input.rootRole, input.platformFamily, input.filesystemClass)
+      policySummary(input.rootRole, input.platformFamily, input.filesystemClass,
+        observations.writeAuthority)
     );
   } catch {
     return response("blocked", "root_protection_input_invalid");
@@ -109,6 +117,9 @@ export function describeRootProtectionPolicyContract() {
     inputTokenLength: INPUT_TOKEN_LENGTH,
     supportedPlatformFamilies: Object.freeze(["windows", "posix"]),
     supportedFilesystemClasses: Object.freeze(["local", "persistent_volume"]),
+    writeAuthorityValues: Object.freeze(["runtime_principal_only", "provisioner_principal_only"]),
+    runtimePrincipalMeaning: "selected_user_or_service_runtime_principal",
+    provisionerPrincipalMeaning: "approved_admin_or_installer_provisioning_authority_set",
     unsupportedFilesystemClasses: Object.freeze(["network", "removable", "special", "unknown"]),
     runtimeRootProtection: "runtime_read_write_and_no_untrusted_write",
     authorityRootProtection: "provisioner_write_runtime_read_only_and_no_untrusted_write",

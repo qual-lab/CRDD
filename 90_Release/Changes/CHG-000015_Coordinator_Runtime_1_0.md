@@ -400,6 +400,8 @@ Runtime Root内の固定`activation.json`候補は、Repository／Root Identity�
 
 Authority RootはRuntime主体だけが書込み可能でProviderから到達不能という共通保護結果を要求し、Windows DACL、POSIX owner／modeおよびserver volume policyはPlatform Adapterの実装差とする。安定Identity、owner／ACLまたはFilesystem特性を確認できない場合は`blocked`へ閉じる。Root作成はPlatform Adapterが安全な権限を強制できる場合に限り、外部事前Provisionも同じ結果を検証する。OS名だけで成立を推定しない。
 
+この段落のAuthority Root writerおよびRoot作成方針は、後続のクロスプラットフォームRoot保護に関するQual-Lab承認によって`superseded`となり、現在の設計、実装、監査またはRelease判断へ使用しない。現在契約は、Authority Rootをadmin／installerが事前Provisionし、`provisioner_principal_only`だけが書込み、Runtime主体は読取り専用とする。Runtime自身はRoot作成または権限変更を行わない。
+
 最初の処置として、OS暗黙値を持たないAuthority Root選択Core候補と、activation recordのcanonical byte／Hash Core候補を追加する。選択結果へ絶対Pathを保持せず、recordはCredential、生PathまたはAuthorityを保持しない。原子的書込み、Path／owner／ACL照合、専用CLI Effect、disable遷移、Candidate Revision／Operation／Provider除外の実強制、run-scoped CapabilityおよびProvider起動は未実装である。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前に`Resolved`、activation成立、Runtime完成、採用、準拠、移行、StableまたはReleaseとして扱わない。
 
 固定Commit `4b115520a5d26ee8c2f16fb413061aa9736e6a1a`／Tree `9dfaed65e6ab787d02cb290cf92e981350ca2705`に対するAgent／Architecture／Security Reviewは`Pass`、Document Auditは`DOC-ACTIVATION-001` Majorにより`Fail`、Gap／Impact＋Conformance Auditは`GCI-ACTIVATION-001` Minorにより`Fail`であった。個別結果は履歴として保持するが監査集合全体は`Invalidated`であり、AgentのPassを現在判定、解消、後続実装またはReleaseへ流用しない。`DOC-ACTIVATION-001`は新Lifecycle契約の追加で生じた直接利用側への伝播漏れ、`GCI-ACTIVATION-001`は今回変更で新たに発生した直接object入力の処理量境界として分類する。
@@ -461,3 +463,9 @@ Qual-Labは、次段階のクロスプラットフォームRoot保護結果を�
 この決定を受け、実Platform Adapterの前段として共通Root保護方針Core候補を追加する。入力はRoot role、Platform family、Filesystem classおよび既存Root／安定Identity／link・reparse／主体別read・writeの観測claimをexact plain-dataで受理する。Runtime RootはRuntime read/write、Authority Rootはprovisioner writeかつRuntime read-onlyを要求し、いずれも非承認主体writeを拒否する。`windows`／`posix`と`local`／`persistent_volume`だけを候補化し、それ以外、情報不足、動的shapeまたは不正値を固定理由で`blocked`へ閉じる。
 
 caller supplied観測はAuthorityではなく、成功結果も`root_protection_platform_adapter_verification_required`の`candidate`に限る。新CoreはFilesystemを読まず、Path、SID、UID、GID、mode、DACLまたはraw errorを保持しない。Root作成／権限変更、Windows DACL Adapter、POSIX owner／mode Adapter、persistent volume Adapter、Path binding、atomic persistence、activation、Capability、ProviderおよびOperationは未実装のままで、Gateを`blocked`に保つ。既存Root／Authority選択、Root Identity、File Bundle、activation record、doctorは同じPolicy contractを参照する利用側とし、CLI、transition、local excludeまたはatomic writerへ接続しない。本処置は`Applied`／`Self-checked`であり、新固定版の全体Checkerおよび3独立監査前に実Path／ACL確認、activation成立、Runtime完成またはReleaseへ用いない。
+
+固定Commit `d76857b45cf51accb71c3d82e3c1454c6fded2c1`／Tree `5e2734dd8d0ac4545a1a73d120097add0aaec9ae`に対する監査は、Agent／Architecture／Security Reviewが`AG-ROOT-PROTECTION-001` Majorにより`Fail`、Document Auditが`DOC-ROOT-PROTECTION-001` Majorにより`Fail`、Gap／Impact＋Conformance Auditが`GCI-ROOT-PROTECTION-001` Majorおよび`GCI-ROOT-PROTECTION-002` Minorにより`Fail`であった。個別結果とseverityは履歴として保持するが、監査集合全体は`Invalidated`であり、現在判定または後続実装へ流用しない。Agentは今回変更による新規発生、Documentは修正起因、Gapは今回変更による新規発生として分類しており、この分類差を改変しない。
+
+4 Findingの同根は、writer Authorityを独立boolean claimで表現して排他性を固定できなかったことと、Authority Rootの旧逆向き説明を現在契約から失効させなかったことである。処置として`provisionerWriteAllowed`を廃止し、観測claimへ排他的な`writeAuthority`を追加する。Runtime Rootは`runtime_principal_only`、Authority Rootは`provisioner_principal_only`だけを候補化し、返却する`requiredWriteAuthority`は照合したPolicy要求であって実ACL確認済みとは扱わない。Threat Modelは現在契約へ訂正し、旧CHG判断は履歴を残したまま後続承認による`superseded`／現在不使用へ接続する。
+
+caller claim／candidate境界、Platform Adapter／Path／ACL／Effect／Capability未実装、unsupported Filesystem fail closed、Gate `blocked`および非Release境界は変更しない。本処置は`Applied`／`Self-checked`であり、新固定版の3独立再監査前は未`Resolved`とする。

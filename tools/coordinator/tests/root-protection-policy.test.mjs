@@ -13,7 +13,7 @@ function observations(overrides = {}) {
     linkOrReparseObserved: false,
     runtimeReadAllowed: true,
     runtimeWriteAllowed: true,
-    provisionerWriteAllowed: true,
+    writeAuthority: "runtime_principal_only",
     untrustedWriteAllowed: false,
     ...overrides
   };
@@ -36,6 +36,7 @@ test("WindowsとPOSIXのlocal／persistent volume claimを候補に限定する"
       assert.equal(runtime.status, "candidate");
       assert.equal(runtime.reason, "root_protection_platform_adapter_verification_required");
       assert.equal(runtime.policy.runtimeAccess, "read_write");
+      assert.equal(runtime.policy.requiredWriteAuthority, "runtime_principal_only");
       assert.equal(runtime.policy.absolutePathReported, false);
       assert.equal(runtime.filesystemEffectIssued, false);
       assert.equal(runtime.runtimeCapabilityIssued, false);
@@ -44,11 +45,14 @@ test("WindowsとPOSIXのlocal／persistent volume claimを候補に限定する"
         rootRole: "authority",
         platformFamily,
         filesystemClass,
-        observations: observations({ runtimeWriteAllowed: false })
+        observations: observations({
+          runtimeWriteAllowed: false,
+          writeAuthority: "provisioner_principal_only"
+        })
       }));
       assert.equal(authority.status, "candidate");
       assert.equal(authority.policy.runtimeAccess, "read_only");
-      assert.equal(authority.policy.writeAuthority, "provisioner_principal");
+      assert.equal(authority.policy.requiredWriteAuthority, "provisioner_principal_only");
       assert.equal(authority.runtimeCapabilityIssued, false);
     }
   }
@@ -78,15 +82,20 @@ test("欠落、Identity不明、linkおよび非承認書込みを拒否する",
 });
 
 test("Runtime RootとAuthority Rootの主体別access policyを区別する", () => {
-  for (const override of [{ runtimeReadAllowed: false }, { runtimeWriteAllowed: false }]) {
+  for (const override of [
+    { runtimeReadAllowed: false },
+    { runtimeWriteAllowed: false },
+    { writeAuthority: "provisioner_principal_only" }
+  ]) {
     assert.equal(evaluateRootProtectionPolicyCandidate(input({
       observations: observations(override)
     })).reason, "runtime_root_access_policy_not_satisfied");
   }
   for (const override of [
-    { runtimeReadAllowed: false, runtimeWriteAllowed: false },
-    { runtimeWriteAllowed: true },
-    { runtimeWriteAllowed: false, provisionerWriteAllowed: false }
+    { runtimeReadAllowed: false, runtimeWriteAllowed: false,
+      writeAuthority: "provisioner_principal_only" },
+    { runtimeWriteAllowed: true, writeAuthority: "provisioner_principal_only" },
+    { runtimeWriteAllowed: false, writeAuthority: "runtime_principal_only" }
   ]) {
     assert.equal(evaluateRootProtectionPolicyCandidate(input({
       rootRole: "authority",
@@ -113,6 +122,14 @@ test("exact plain-data以外と欠落観測を処置前に拒否する", () => {
   assert.equal(evaluateRootProtectionPolicyCandidate(input({ observations: nested })).reason,
     "root_protection_observations_invalid");
   assert.equal(getterCalls, 0);
+  const writerAccessor = observations();
+  Object.defineProperty(writerAccessor, "writeAuthority", {
+    enumerable: true,
+    get() { getterCalls += 1; return "runtime_principal_only"; }
+  });
+  assert.equal(evaluateRootProtectionPolicyCandidate(input({ observations: writerAccessor })).reason,
+    "root_protection_observations_invalid");
+  assert.equal(getterCalls, 0);
 
   const extra = input();
   extra.extra = true;
@@ -125,6 +142,10 @@ test("exact plain-data以外と欠落観測を処置前に拒否する", () => {
   const missing = observations();
   delete missing.rootExists;
   assert.equal(evaluateRootProtectionPolicyCandidate(input({ observations: missing })).reason,
+    "root_protection_observations_invalid");
+  const missingWriter = observations();
+  delete missingWriter.writeAuthority;
+  assert.equal(evaluateRootProtectionPolicyCandidate(input({ observations: missingWriter })).reason,
     "root_protection_observations_invalid");
   assert.equal(evaluateRootProtectionPolicyCandidate(new Proxy(input(), {})).reason,
     "root_protection_input_invalid");
@@ -142,6 +163,9 @@ test("exact plain-data以外と欠落観測を処置前に拒否する", () => {
     "root_protection_input_invalid");
   assert.equal(evaluateRootProtectionPolicyCandidate(input({ rootRole: null })).reason,
     "root_protection_input_invalid");
+  assert.equal(evaluateRootProtectionPolicyCandidate(input({
+    observations: observations({ writeAuthority: "unknown" })
+  })).reason, "root_protection_observations_invalid");
 });
 
 test("通常、null-prototypeおよびfreeze済みinputを受理する", () => {
@@ -158,6 +182,8 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
   assert.deepEqual(contract.supportedPlatformFamilies, ["windows", "posix"]);
   assert.equal(contract.inputTokenLength, 32);
   assert.deepEqual(contract.supportedFilesystemClasses, ["local", "persistent_volume"]);
+  assert.deepEqual(contract.writeAuthorityValues,
+    ["runtime_principal_only", "provisioner_principal_only"]);
   assert.equal(contract.callerObservationsAreAuthority, false);
   assert.equal(contract.protectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.windowsDaclAdapter, "not_implemented");
