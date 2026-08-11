@@ -401,3 +401,11 @@ Runtime Root内の固定`activation.json`候補は、Repository／Root Identity�
 Authority RootはRuntime主体だけが書込み可能でProviderから到達不能という共通保護結果を要求し、Windows DACL、POSIX owner／modeおよびserver volume policyはPlatform Adapterの実装差とする。安定Identity、owner／ACLまたはFilesystem特性を確認できない場合は`blocked`へ閉じる。Root作成はPlatform Adapterが安全な権限を強制できる場合に限り、外部事前Provisionも同じ結果を検証する。OS名だけで成立を推定しない。
 
 最初の処置として、OS暗黙値を持たないAuthority Root選択Core候補と、activation recordのcanonical byte／Hash Core候補を追加する。選択結果へ絶対Pathを保持せず、recordはCredential、生PathまたはAuthorityを保持しない。原子的書込み、Path／owner／ACL照合、専用CLI Effect、disable遷移、Candidate Revision／Operation／Provider除外の実強制、run-scoped CapabilityおよびProvider起動は未実装である。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前に`Resolved`、activation成立、Runtime完成、採用、準拠、移行、StableまたはReleaseとして扱わない。
+
+固定Commit `4b115520a5d26ee8c2f16fb413061aa9736e6a1a`／Tree `9dfaed65e6ab787d02cb290cf92e981350ca2705`に対するAgent／Architecture／Security Reviewは`Pass`、Document Auditは`DOC-ACTIVATION-001` Majorにより`Fail`、Gap／Impact＋Conformance Auditは`GCI-ACTIVATION-001` Minorにより`Fail`であった。個別結果は履歴として保持するが監査集合全体は`Invalidated`であり、AgentのPassを現在判定、解消、後続実装またはReleaseへ流用しない。`DOC-ACTIVATION-001`は新Lifecycle契約の追加で生じた直接利用側への伝播漏れ、`GCI-ACTIVATION-001`は今回変更で新たに発生した直接object入力の処理量境界として分類する。
+
+`DOC-ACTIVATION-001`への処置として、Runtime Rootとactivation recordの`disableSemantics`を`stop_new_operations_and_safely_cancel_in_flight`へ統一する。READMEは契約上の新規Operation停止／進行中Operationのsafe cancel／recoveryと、現在の永続遷移／Operation結合未実装を分離して説明する。保存データ非削除とdelete別操作は維持する。
+
+`GCI-ACTIVATION-001`への処置として、activation入力上限の一意な正本へ`canonicalUtcLength: 24`を加え、文字列型と4桁年canonical UTCの正確な長さをDate解析、canonical化、byte計測およびHash計算より前に確認する。23／25文字、巨大文字列、offset、date-only、非文字列および不正日付を例外なしの固定`blocked`へ閉じ、24文字の正常値とactive／disabled境界を回帰確認する。
+
+両処置は`Applied`／`Self-checked`であり、新固定版のCoordinator全試験、Checker、全体Checkerおよび同じ3独立監査が完了するまで未`Resolved`とする。persistent activation、Authority Root分離、候補／Capability分離、原子的永続化／Path／ACL／専用Effect未実装、Gate `blocked`および非Release境界は変更しない。

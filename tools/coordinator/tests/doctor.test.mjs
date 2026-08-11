@@ -288,7 +288,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRoot.candidateRevisionIncludesRuntimeRoot, false);
   assert.equal(report.runtimeRoot.operationInputIncludesRuntimeRoot, false);
   assert.equal(report.runtimeRoot.providerMountAllowed, false);
-  assert.equal(report.runtimeRoot.disableSemantics, "stop_new_operations");
+  assert.equal(report.runtimeRoot.disableSemantics, "stop_new_operations_and_safely_cancel_in_flight");
   assert.equal(report.runtimeRoot.disableImplementation, "not_implemented");
   assert.equal(report.runtimeRoot.disableDeletesStoredData, false);
   assert.equal(report.runtimeRoot.runtimeDataDeletion, "not_implemented");

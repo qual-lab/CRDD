@@ -91,7 +91,7 @@ export function describeRuntimeRootContract() {
     candidateRevisionIncludesRuntimeRoot: false,
     operationInputIncludesRuntimeRoot: false,
     providerMountAllowed: false,
-    disableSemantics: "stop_new_operations",
+    disableSemantics: "stop_new_operations_and_safely_cancel_in_flight",
     disableImplementation: "not_implemented",
     disableDeletesStoredData: false,
     runtimeDataDeletion: "not_implemented",

@@ -85,7 +85,14 @@ test("初版と後続版、activeとdisabledの状態境界を固定する", () 
 
 test("非canonical時刻、余分／欠落field、accessorおよびProxyを拒否する", () => {
   for (const value of [
+    record({ activatedAt: "2026-08-11T00:00:00.00Z" }),
+    record({ activatedAt: "2026-08-11T00:00:00.0000Z" }),
+    record({ activatedAt: "x".repeat(1_000_000) }),
     record({ activatedAt: "2026-08-11T09:00:00+09:00" }),
+    record({ activatedAt: "2026-08-11" }),
+    record({ activatedAt: "2026-02-30T00:00:00.000Z" }),
+    record({ activatedAt: 0 }),
+    record({ status: "disabled", disabledAt: "x".repeat(1_000_000) }),
     { ...record(), extra: true },
     (() => { const value = record(); delete value.registryHash; return value; })()
   ]) assert.equal(compileRuntimeActivationRecordCandidate(value).status, "blocked");
@@ -130,5 +137,6 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.disableSemantics, "stop_new_operations_and_safely_cancel_in_flight");
   assert.equal(contract.deleteIsSeparateOperation, true);
   assert.equal(contract.atomicPersistence, "not_implemented");
+  assert.equal(contract.canonicalUtcLength, 24);
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

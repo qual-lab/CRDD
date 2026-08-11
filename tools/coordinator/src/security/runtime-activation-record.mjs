@@ -5,7 +5,11 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 export const RUNTIME_ACTIVATION_CONTRACT = "crdd-coordinator/runtime-activation-record";
 export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 1;
 export const RUNTIME_ACTIVATION_FILE = "activation.json";
-export const RUNTIME_ACTIVATION_INPUT_LIMITS = Object.freeze({ rawBytes: 8_192, identifierLength: 128 });
+export const RUNTIME_ACTIVATION_INPUT_LIMITS = Object.freeze({
+  rawBytes: 8_192,
+  identifierLength: 128,
+  canonicalUtcLength: 24
+});
 
 const HASH = /^[a-f0-9]{64}$/u;
 const ACTIVATION_ID = /^ACTIVATION-[0-9]{6,}$/u;
@@ -58,7 +62,9 @@ function canonicalJson(value) {
 }
 
 function canonicalUtc(value) {
-  if (typeof value !== "string") return false;
+  if (typeof value !== "string" || value.length !== RUNTIME_ACTIVATION_INPUT_LIMITS.canonicalUtcLength) {
+    return false;
+  }
   const parsed = new Date(value);
   return Number.isFinite(Date.prototype.getTime.call(parsed)) && parsed.toISOString() === value;
 }
@@ -162,6 +168,7 @@ export function describeRuntimeActivationContract() {
     deleteIsSeparateOperation: true,
     deleteImplementation: "not_implemented",
     canonicalRecordCore: "implemented_candidate",
+    canonicalUtcLength: RUNTIME_ACTIVATION_INPUT_LIMITS.canonicalUtcLength,
     atomicPersistence: "not_implemented",
     pathIdentityBinding: "not_implemented",
     ownerAclVerification: "not_implemented",

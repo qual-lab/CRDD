@@ -109,7 +109,7 @@ test("Root選択Coreはignore、Path保護、activationまたはCapabilityを成
   assert.equal(contract.candidateRevisionIncludesRuntimeRoot, false);
   assert.equal(contract.operationInputIncludesRuntimeRoot, false);
   assert.equal(contract.providerMountAllowed, false);
-  assert.equal(contract.disableSemantics, "stop_new_operations");
+  assert.equal(contract.disableSemantics, "stop_new_operations_and_safely_cancel_in_flight");
   assert.equal(contract.disableImplementation, "not_implemented");
   assert.equal(contract.disableDeletesStoredData, false);
   assert.equal(contract.runtimeDataDeletion, "not_implemented");
