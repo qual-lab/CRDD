@@ -43,10 +43,18 @@ Fake Provider Gateの合格は、DockerによるFilesystem／Credential Path／N
 
 Runtime 1.0はWindows上のDocker DesktopとLinux containerだけを正式対象とする。WindowsネイティブProvider実行、Git Bash直接実行、通常WSLディストリビューション、別Container RuntimeまたはDockerなしのfallbackを互換性要件にしない。Provider CLIは後続で専用imageへ導入し、Host側のCodex／Claude設定またはCredentialを暗黙に再利用しない。
 
+## Provider隔離Profile
+
+Provider隔離Profile（Provider Isolation Profile）は、実行権限そのものではなく、Runtimeが照合するAuthority入力候補である。CRDD版ごとのJSONを作らず、Runtime契約`crdd-coordinator/provider-isolation-profile`の改訂番号だけを持つ。CRDD基準版の変更とRuntime契約の破壊的変更を同じ互換処理へ混在させない。
+
+ProfileはProvider、期限付きAuthority Grant、Credential Brokerの不透明な参照、および人間が承認したHTTPS Originの完全一致集合だけを保持する。Credential値、Credential StoreのPath、wildcard、HTTP、任意Path付きURLまたは未対応Providerを受理しない。正規化後のProfileはSHA-256で固定し、Docker隔離、Credential Broker、Provider endpoint ProxyおよびEgress強制の実測結果が同じProfileへ揃うまで実行可能とは扱わない。
+
+Runtime 1.0の書込みOperationはDockerを唯一の正式Isolation Backendとし、Host、Git Bash、通常WSLまたは`local-restricted`へ縮退しない。`fake`は決定論的試験専用であり、実Provider、実Credentialまたは実送信先の利用許可にならない。現在はProxyとCredential Brokerが未実装のため、Profile検証に合格しても全体Gateは`blocked`のままである。
+
 ## 開発者確認
 
 ```shell
-node --test tools/coordinator/tests/doctor.test.mjs
+npm test --prefix tools/coordinator
 ```
 
 Runtime 1.0のその他のCLIは、成立性Gate、Protocol、状態不変条件および永続Storeが固定されるまで提供しない。

@@ -14,6 +14,7 @@ import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe
 } from "../security/docker-isolation.mjs";
+import { describeProviderIsolationContract } from "../security/provider-isolation-profile.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -265,7 +266,10 @@ export function runDoctor(options = {}) {
       },
       egress: {
         providerAllowlist: "not_implemented",
-        fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated"
+        fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated",
+        isolationProfileContract: describeProviderIsolationContract(),
+        activation: "blocked",
+        activationReason: "approved_profile_proxy_and_credential_broker_required"
       },
       recovery: retainOperationDirectories
         ? {
