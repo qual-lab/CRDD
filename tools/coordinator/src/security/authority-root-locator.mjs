@@ -13,7 +13,7 @@ export const AUTHORITY_ROOT_LOCATOR_INPUT_LIMITS = Object.freeze({
 });
 
 const HASH = /^[a-f0-9]{64}$/u;
-const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9]|LPT[1-9])$/iu;
+const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9\u00b9\u00b2\u00b3]|LPT[1-9\u00b9\u00b2\u00b3])$/iu;
 const LOCATOR_KEYS = new Set([
   "contract",
   "contractRevision",

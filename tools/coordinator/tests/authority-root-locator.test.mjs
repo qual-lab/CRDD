@@ -117,8 +117,14 @@ test("Path、Hash、ID、revisionの不正値をfail closedにする", () => {
         "C:\\CONOUT$",
         "C:\\COM1.log",
         "C:\\com9",
+        "C:\\COM¹",
+        "C:\\com².txt",
+        "C:\\CoM³.data",
         "C:\\LPT1.txt",
-        "C:\\lpt9"
+        "C:\\lpt9",
+        "C:\\LPT¹.log",
+        "C:\\lpt²",
+        "C:\\LpT³.txt"
       ]
     : ["relative", "//srv/authority", "/srv/../authority", "/srv/authority/"];
   for (const authorityRootAbsolutePath of paths) {
@@ -146,8 +152,10 @@ test("Path、Hash、ID、revisionの不正値をfail closedにする", () => {
       "C:\\CONSOLE",
       "C:\\COM0",
       "C:\\COM10",
+      "C:\\COM⁴",
       "C:\\LPT0",
-      "C:\\LPT10"
+      "C:\\LPT10",
+      "C:\\LPT⁴"
     ]) assert.equal(compileAuthorityRootLocatorCandidate(locator({
       authorityRootAbsolutePath
     })).status, "candidate");
