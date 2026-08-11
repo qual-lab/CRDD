@@ -301,9 +301,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRootPathIdentity.existingRootRequired, true);
   assert.equal(report.runtimeRootPathIdentity.rootCreationIssued, false);
   assert.equal(report.runtimeRootPathIdentity.pathObjectIdentityVerification, "implemented_candidate");
-  assert.equal(report.runtimeRootPathIdentity.posixRuntimeRootModePrecheck,
-    "implemented_candidate_observation_only");
-  assert.equal(report.runtimeRootPathIdentity.posixRuntimeRootModeVerification, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.posixRuntimeRootPrecheckEntry,
+    "implemented_fail_closed");
+  assert.equal(report.runtimeRootPathIdentity.posixRuntimeRootModeObservation, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.filesystemClassVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.posixAclVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.ownerAclVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.fullParentChainVerification, "not_implemented");
@@ -333,8 +334,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.rootProtectionPolicy.authorityRootProtection,
     "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
   assert.equal(report.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
-  assert.equal(report.rootProtectionPolicy.posixRuntimeRootModePrecheck,
-    "implemented_candidate_observation_only");
+  assert.equal(report.rootProtectionPolicy.posixRuntimeRootPrecheckEntry,
+    "implemented_fail_closed");
+  assert.equal(report.rootProtectionPolicy.posixRuntimeRootModeObservation, "not_implemented");
   assert.equal(report.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
   assert.equal(report.rootProtectionPolicy.posixAclVerification, "not_implemented");
   assert.equal(report.rootProtectionPolicy.persistentVolumeAdapter, "not_implemented");

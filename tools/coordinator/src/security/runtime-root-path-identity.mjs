@@ -2,9 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
-import {
-  evaluatePosixRuntimeRootModeObservationForInternalUse
-} from "./posix-root-mode-precheck-internal.mjs";
 import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
@@ -53,12 +50,6 @@ function directoryIdentity(metadata) {
 function sameIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino &&
     left.birthtimeNs === right.birthtimeNs;
-}
-
-function sameProtectionMetadata(left, right) {
-  return sameIdentity(directoryIdentity(left), directoryIdentity(right)) &&
-    left.uid === right.uid && left.gid === right.gid && left.mode === right.mode &&
-    left.ctimeNs === right.ctimeNs;
 }
 
 function directorySnapshot(target) {
@@ -237,77 +228,15 @@ export function inspectPosixRuntimeRootModePrecheckCandidate(rawInput) {
       runtimeCapabilityIssued: false
     });
   }
-  let descriptor = null;
-  try {
-    if (typeof process.geteuid !== "function" ||
-        fs.constants.O_DIRECTORY === undefined || fs.constants.O_NOFOLLOW === undefined) {
-      throw new Error("posix_mode_precheck_runtime_unsupported");
-    }
-    const effectiveUid = process.geteuid();
-    if (!Number.isSafeInteger(effectiveUid) || effectiveUid < 0) {
-      throw new Error("posix_mode_precheck_identity_unavailable");
-    }
-    const session = createIdentitySession(rawInput);
-    verifyIdentitySession(session);
-    descriptor = fs.openSync(session.targets.root,
-      fs.constants.O_RDONLY | fs.constants.O_DIRECTORY | fs.constants.O_NOFOLLOW);
-    const before = fs.fstatSync(descriptor, { bigint: true });
-    if (!sameIdentity(session.snapshots.root.identity, directoryIdentity(before))) {
-      throw new Error("posix_mode_precheck_identity_changed");
-    }
-    const evaluation = evaluatePosixRuntimeRootModeObservationForInternalUse({
-      ownerUid: before.uid,
-      effectiveUid: BigInt(effectiveUid),
-      mode: before.mode
-    });
-    const after = fs.fstatSync(descriptor, { bigint: true });
-    if (!sameProtectionMetadata(before, after)) {
-      throw new Error("posix_mode_precheck_metadata_changed");
-    }
-    fs.closeSync(descriptor);
-    descriptor = null;
-    verifyIdentitySession(session);
-    if (!evaluation.passed) {
-      return Object.freeze({
-        status: "blocked",
-        reason: "posix_runtime_root_mode_precheck_not_satisfied",
-        summary: null,
-        absolutePathReported: false,
-        filesystemIdentityReported: false,
-        filesystemEffectIssued: false,
-        runtimeCapabilityIssued: false
-      });
-    }
-    return Object.freeze({
-      status: "blocked",
-      reason: "posix_runtime_root_protection_verification_incomplete",
-      summary: Object.freeze({
-        modePrecheck: "passed_candidate",
-        processIdentityObservation: "current_effective_uid_only",
-        runtimePrincipalBinding: "not_implemented",
-        posixAclVerification: "not_implemented",
-        filesystemClassVerification: "not_implemented"
-      }),
-      absolutePathReported: false,
-      filesystemIdentityReported: false,
-      filesystemEffectIssued: false,
-      runtimeCapabilityIssued: false
-    });
-  } catch {
-    return Object.freeze({
-      status: "blocked",
-      reason: "posix_runtime_root_mode_precheck_blocked",
-      summary: null,
-      absolutePathReported: false,
-      filesystemIdentityReported: false,
-      filesystemEffectIssued: false,
-      runtimeCapabilityIssued: false
-    });
-  } finally {
-    if (descriptor !== null) {
-      try { fs.closeSync(descriptor); } catch { /* public result remains blocked */ }
-    }
-  }
+  return Object.freeze({
+    status: "blocked",
+    reason: "posix_runtime_root_filesystem_class_verification_required",
+    summary: null,
+    absolutePathReported: false,
+    filesystemIdentityReported: false,
+    filesystemEffectIssued: false,
+    runtimeCapabilityIssued: false
+  });
 }
 
 export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(rawInput) {
@@ -371,8 +300,8 @@ export function describeRuntimeRootPathIdentityContract() {
     realpathContainmentVerification: "implemented_candidate",
     rootProtectionPolicyContract: ROOT_PROTECTION_POLICY_CONTRACT,
     rootProtectionPolicyCore: "implemented_candidate_claim_only",
-    posixRuntimeRootModePrecheck: "implemented_candidate_observation_only",
-    posixRuntimeRootModeVerification: "not_implemented",
+    posixRuntimeRootPrecheckEntry: "implemented_fail_closed",
+    posixRuntimeRootModeObservation: "not_implemented",
     posixAclVerification: "not_implemented",
     runtimePrincipalBinding: "not_implemented",
     filesystemClassVerification: "not_implemented",
