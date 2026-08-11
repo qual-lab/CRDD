@@ -83,6 +83,19 @@ test("Rootまたはparent欠落とRepository root同値をblockedへ閉じる", 
   })).status, "blocked");
 });
 
+test("Repositoryを内包する直接parentまたは上位祖先を外部Rootにしない", (t) => {
+  const container = temporaryDirectory(t);
+  const upper = path.join(container, "upper");
+  const repositoryRoot = path.join(upper, "repository");
+  fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"), { recursive: true });
+  assert.equal(inspectRuntimeRootPathIdentityCandidate(input(repositoryRoot, {
+    cliOverride: upper
+  })).status, "blocked");
+  assert.equal(inspectRuntimeRootPathIdentityCandidate(input(repositoryRoot, {
+    cliOverride: container
+  })).status, "blocked");
+});
+
 test("Root linkとlexical／real containment差をblockedへ閉じる", (t) => {
   const repositoryRoot = temporaryDirectory(t);
   const outside = temporaryDirectory(t, "crdd-linked-root-");
@@ -93,6 +106,66 @@ test("Root linkとlexical／real containment差をblockedへ閉じる", (t) => {
     throw error;
   }
   assert.equal(inspectRuntimeRootPathIdentityCandidate(input(repositoryRoot)).status, "blocked");
+});
+
+test("lexical disjointからreal Root包含へ変わるalias差をblockedへ閉じる", (t) => {
+  const container = temporaryDirectory(t);
+  const realRoot = path.join(container, "ancestor");
+  const repositoryRoot = path.join(realRoot, "repository");
+  const lexicalRoot = path.join(container, "external");
+  fs.mkdirSync(repositoryRoot, { recursive: true });
+  fs.mkdirSync(lexicalRoot);
+  const lexicalIdentity = fs.lstatSync(lexicalRoot, { bigint: true });
+  const originalLstat = fs.lstatSync;
+  const originalRealpath = fs.realpathSync.native;
+  fs.lstatSync = function(target, options) {
+    if (target === realRoot && options?.bigint === true) return lexicalIdentity;
+    return originalLstat.call(fs, target, options);
+  };
+  fs.realpathSync.native = function(target) {
+    if (target === lexicalRoot) return realRoot;
+    return originalRealpath.call(fs.realpathSync, target);
+  };
+  try {
+    const result = inspectRuntimeRootPathIdentityCandidate(input(repositoryRoot, {
+      cliOverride: lexicalRoot
+    }));
+    assert.equal(result.status, "blocked");
+    assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
+  } finally {
+    fs.lstatSync = originalLstat;
+    fs.realpathSync.native = originalRealpath;
+  }
+});
+
+test("lexical Root包含からreal disjointへ変わるalias差をblockedへ閉じる", (t) => {
+  const container = temporaryDirectory(t);
+  const lexicalRoot = path.join(container, "ancestor");
+  const repositoryRoot = path.join(lexicalRoot, "repository");
+  const realRoot = path.join(container, "external");
+  fs.mkdirSync(repositoryRoot, { recursive: true });
+  fs.mkdirSync(realRoot);
+  const lexicalIdentity = fs.lstatSync(lexicalRoot, { bigint: true });
+  const originalLstat = fs.lstatSync;
+  const originalRealpath = fs.realpathSync.native;
+  fs.lstatSync = function(target, options) {
+    if (target === realRoot && options?.bigint === true) return lexicalIdentity;
+    return originalLstat.call(fs, target, options);
+  };
+  fs.realpathSync.native = function(target) {
+    if (target === lexicalRoot) return realRoot;
+    return originalRealpath.call(fs.realpathSync, target);
+  };
+  try {
+    const result = inspectRuntimeRootPathIdentityCandidate(input(repositoryRoot, {
+      cliOverride: lexicalRoot
+    }));
+    assert.equal(result.status, "blocked");
+    assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
+  } finally {
+    fs.lstatSync = originalLstat;
+    fs.realpathSync.native = originalRealpath;
+  }
 });
 
 test("検査中のRoot replacementをcandidateへ流用しない", (t) => {

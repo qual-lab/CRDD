@@ -70,13 +70,18 @@ function selectedPath(input) {
     path.join(input.repositoryRoot, DEFAULT_REPOSITORY_RUNTIME_DIRECTORY);
 }
 
-function relation(parent, child) {
-  const relative = path.relative(parent, child);
-  if (relative === "" || relative === ".") return "same";
-  if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) {
-    return "outside";
-  }
-  return "inside";
+function isStrictlyInside(relative) {
+  return relative !== "" && relative !== "." && !path.isAbsolute(relative) &&
+    relative !== ".." && !relative.startsWith(`..${path.sep}`);
+}
+
+function classifyContainment(repository, root) {
+  const repositoryToRoot = path.relative(repository, root);
+  if (repositoryToRoot === "" || repositoryToRoot === ".") return "same";
+  if (isStrictlyInside(repositoryToRoot)) return "root_inside_repository";
+  const rootToRepository = path.relative(root, repository);
+  if (isStrictlyInside(rootToRepository)) return "root_contains_repository";
+  return "disjoint";
 }
 
 function samePath(left, right) {
@@ -113,21 +118,21 @@ export function inspectRuntimeRootPathIdentityCandidate(rawInput) {
     if (!samePath(path.dirname(root.realPath), parent.realPath)) {
       throw new Error("runtime_root_parent_mismatch");
     }
-    const lexicalRelation = relation(repositoryTarget, rootTarget);
-    const realRelation = relation(repository.realPath, root.realPath);
-    if (lexicalRelation !== realRelation || realRelation === "same") {
+    const lexicalRelation = classifyContainment(repositoryTarget, rootTarget);
+    const realRelation = classifyContainment(repository.realPath, root.realPath);
+    if (lexicalRelation !== realRelation || realRelation === "same" ||
+        realRelation === "root_contains_repository") {
       throw new Error("runtime_root_containment_ambiguous");
     }
 
     let location;
-    if (realRelation === "inside" && sameIdentity(repository.identity, parent.identity) &&
+    if (realRelation === "root_inside_repository" &&
+        sameIdentity(repository.identity, parent.identity) &&
         path.basename(root.realPath) === DEFAULT_REPOSITORY_RUNTIME_DIRECTORY) {
       location = "repository_default_location";
-    } else if (realRelation === "inside" &&
-        relation(repository.realPath, parent.realPath) !== "outside") {
+    } else if (realRelation === "root_inside_repository") {
       location = "repository_internal_custom";
-    } else if (realRelation === "outside" &&
-        relation(repository.realPath, parent.realPath) === "outside") {
+    } else if (realRelation === "disjoint") {
       location = "repository_external_override";
     } else {
       throw new Error("runtime_root_containment_ambiguous");
