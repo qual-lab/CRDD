@@ -281,3 +281,5 @@ Root選択Core候補はabsolute Pathの構文、CLI／環境／既定の優先�
 固定`17603adcbfc06eaccbde0cdbce05acf8d8f13750`／Tree`b453b759ed04692693e221bd69ac041533ac0797`に対するAgent／Architecture／Security Reviewは`Pass`、Gap／Impact＋Conformance Auditは`Pass`、Document Auditは`Fail`であった。Document Auditは`DOC-ROOT-001`として、CLI／環境接続未実装、Operation入力除外、無効化と削除の分離および双方の未実装がCore説明契約と`doctor`試験へ完全に伝播していないことを検出した。この監査集合全体は`Invalidated`であり、各Passを現在判定へ流用しない。Findingは今回変更で新たに発生した伝播漏れとして記録する。
 
 局所処置として、説明契約へCLI／環境接続未実装、Operation入力除外、無効化の意味と未実装、無効化による非削除、明示データ削除未実装を追加し、Core試験と`doctor`試験で全項目を固定した。Threat ModelもOperation入力除外および無効化／削除分離を、Path／Operation統合、無効化、削除が未実装である境界とともに保持する。本処置は`Applied`／`Self-checked`であり、新しいCommit／Treeに対する機械確認と3独立再確認前に`Resolved`としない。
+
+最終固定Commit `fdab76962460bfa9c59f6a9c5678f0b7a098e5cc`／Tree `129d703d8930a19227ce6391c6ef2db64cb80867`へのAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding 0で完了した。結果は[`CHG-000015_Current_Review_Record_fdab769.md`](Evidence/CHG-000015_Current_Review_Record_fdab769.md)へ記録する。`DOC-ROOT-001`はRoot選択Core候補と直接利用側の固定範囲で解消した。一方、CLI／環境接続、Path／Operation除外の実強制、activation、無効化、削除、Capabilityおよび実Operationは未実装で、全体Gateは`blocked`を維持する。
