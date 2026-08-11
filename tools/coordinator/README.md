@@ -51,6 +51,12 @@ ProfileはProvider、許可済みAuthority Registryを選ぶためのGrant参照
 
 Runtime 1.0の書込みOperationはDockerを唯一の正式Isolation Backendとし、Host、Git Bash、通常WSLまたは`local-restricted`へ縮退しない。`fake`は決定論的試験専用であり、実Provider、実Credentialまたは実送信先の利用許可にならない。現在はAuthority Grant Verifier、ProxyおよびCredential Brokerが未実装のため、Profile候補を作成できても全体Gateは`blocked`のままである。
 
+## Provider Egress Proxy
+
+Provider Egress ProxyのPolicy候補は、構造検証済みProfile候補から要求Originのhostnameを取り出すが、Authority確認済みPolicyへ昇格しない。許可候補は`CONNECT`、完全一致hostnameおよびport `443`だけであり、通常HTTP method、wildcard、別port、IP literal、userinfo、末尾dotまたは別hostnameを拒否する。DNS結果は空、不正、loopback、private、link-local、documentation、multicast等を拒否し、Runtime Proxyによる実強制前は候補のままとする。
+
+正式TopologyではProvider containerをOperation専用のinternal Docker Networkだけへ接続し、外部Networkへ直接接続しない。ProxyだけがOperation internal Networkと専用Egress Networkへ接続し、Docker socket、Host NetworkまたはHost fallbackを使用しない。現在はPolicy判定とTopology契約だけが実装済みで、Proxy process、Network作成、DNS／TLS実測およびAuthority Capability結合は未実装である。Docker Desktop local Linux Engineも現在確認できないため、`execution.egress`と全体Gateは`blocked`を維持する。
+
 ## 開発者確認
 
 ```shell
