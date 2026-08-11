@@ -55,7 +55,7 @@ Authority Grant Verifier Core候補は、Authority Registry候補を固定契約
 
 過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。このCoreの上限は受理済みJavaScript値に対する追加の正規化、並べ替えおよびHash処理を制限するものであり、将来のTrust Anchor LoaderはファイルやTransportをJavaScript値へ展開する前にも読込みbyte上限を強制する。
 
-Profile、Registryおよび評価ContextはJSON相当のplain dataだけを受理する。動的getter、Proxy、symbol、独自prototype、疎配列または余分な配列propertyを含む入力は値を実行・再読せず`blocked`にする。検査済みのproperty descriptorから作った固定snapshotだけを、正規化、比較およびHashへ使用する。
+Profile、Registry、および評価Contextのrecord／array構造は、JSON相当のplain dataだけを受理する。評価Contextの`now`だけは型付き値の例外として、Context recordから一度取得した有効な`Date`、またはcanonical UTC文字列を受理し、canonical UTC文字列へ変換して以後の評価に使用する。動的getter、Proxy、symbol、独自prototype、疎配列または余分な配列propertyを含む入力は値を実行・再読せず`blocked`にする。検査済みのproperty descriptorから作った固定snapshotだけを、正規化、比較およびHashへ使用する。
 
 ## Provider Egress Proxy
 
