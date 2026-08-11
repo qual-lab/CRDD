@@ -6,7 +6,8 @@ import {
   AUTHORITY_ROOT_LOCATOR_INPUT_LIMITS,
   compileAuthorityRootLocatorCandidate,
   decodeAuthorityRootLocatorCandidate,
-  describeAuthorityRootLocatorContract
+  describeAuthorityRootLocatorContract,
+  evaluateAuthorityRootLocatorActivationBindingCandidate
 } from "../src/security/authority-root-locator.mjs";
 
 const validPath = process.platform === "win32" ? "C:\\CRDD\\authority" : "/srv/crdd/authority";
@@ -200,6 +201,49 @@ test("locator contractは固定Repository配置と未実装Effectを公開する
   assert.equal(contract.filesystemRead, "not_implemented");
   assert.equal(contract.filesystemWrite, "not_implemented");
   assert.equal(contract.resolver, "not_implemented");
+  assert.equal(contract.activationBindingComparisonCore, "implemented_candidate");
+  assert.equal(contract.activeActivationBinding, "not_implemented");
   assert.equal(contract.runtimeAuthorityConferred, false);
   assert.equal(contract.runtimeCapabilityIssued, false);
+});
+
+test("locator activation binding compares only the five shared fields", () => {
+  const value = locator();
+  const expected = {
+    repositoryIdentityHash: value.repositoryIdentityHash,
+    runtimeRootIdentityHash: value.runtimeRootIdentityHash,
+    activationId: value.activationId,
+    activationRevision: value.activationRevision,
+    activationRecordHash: value.activationRecordHash
+  };
+  const result = evaluateAuthorityRootLocatorActivationBindingCandidate(value, expected);
+  assert.equal(result.status, "candidate");
+  assert.equal(result.pairContentMatched, true);
+  assert.equal(result.provisioningRecordVerification, "not_implemented");
+  assert.equal(result.runtimeAuthorityConferred, false);
+  assert.equal(result.runtimeCapabilityIssued, false);
+  assert.equal(JSON.stringify(result).includes(value.authorityRootAbsolutePath), false);
+  assert.equal(JSON.stringify(result).includes(value.repositoryIdentityHash), false);
+  for (const [key, replacement] of [
+    ["repositoryIdentityHash", "6".repeat(64)],
+    ["runtimeRootIdentityHash", "7".repeat(64)],
+    ["activationId", "ACTIVATION-000002"],
+    ["activationRevision", 3],
+    ["activationRecordHash", "8".repeat(64)]
+  ]) {
+    assert.equal(evaluateAuthorityRootLocatorActivationBindingCandidate(value, {
+      ...expected,
+      [key]: replacement
+    }).reason, "authority_root_locator_activation_binding_mismatch");
+  }
+
+  let getterCalls = 0;
+  const accessor = { ...expected };
+  Object.defineProperty(accessor, "activationRecordHash", {
+    enumerable: true,
+    get() { getterCalls += 1; return value.activationRecordHash; }
+  });
+  assert.equal(evaluateAuthorityRootLocatorActivationBindingCandidate(value, accessor).reason,
+    "authority_root_locator_activation_binding_input_invalid");
+  assert.equal(getterCalls, 0);
 });

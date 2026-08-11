@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 
 import { describeAuthorityRootLocatorContract } from "./authority-root-locator.mjs";
+import { describeRuntimeActivationLocatorBindingContract } from
+  "./runtime-activation-locator-binding-contract.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -66,6 +68,7 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
 function deriveOnboardingReadiness(implementation) {
   const rootProtection = implementation.rootProtectionPolicy;
   const locator = implementation.authorityRootLocator;
+  const activationLocatorBinding = implementation.activationLocatorBinding;
   const dependency = (name, sources) => Object.freeze({
     name,
     sources: Object.freeze(sources),
@@ -83,7 +86,10 @@ function deriveOnboardingReadiness(implementation) {
       locator.resolver,
       locator.provisioningRecordVerification,
       locator.authorityRootIdentityVerification,
-      locator.activeActivationBinding
+      locator.activeActivationBinding,
+      activationLocatorBinding.provisioningRecordVerification,
+      activationLocatorBinding.filesystemCurrentRecordRead,
+      activationLocatorBinding.activeActivationBinding
     ]),
     dependency("root_protection_platform_adapters", [
       rootProtection.windowsDaclAdapter,
@@ -105,7 +111,9 @@ function deriveOnboardingReadiness(implementation) {
     dependency("activation_atomic_persistence", [
       implementation.atomicPersistence,
       locator.filesystemWrite,
-      locator.atomicPersistence
+      locator.atomicPersistence,
+      activationLocatorBinding.atomicPersistence,
+      activationLocatorBinding.crashRecovery
     ]),
     dependency("run_scoped_capability", [
       implementation.runScopedCapability,
@@ -247,6 +255,7 @@ export function decodeRuntimeActivationRecordCandidate(input) {
 export function describeRuntimeActivationContract() {
   const rootProtectionPolicy = describeRootProtectionPolicyContract();
   const authorityRootLocator = describeAuthorityRootLocatorContract();
+  const activationLocatorBinding = describeRuntimeActivationLocatorBindingContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -262,7 +271,8 @@ export function describeRuntimeActivationContract() {
     runScopedCapability: "not_implemented",
     runtimeCapabilityIssued: false,
     rootProtectionPolicy,
-    authorityRootLocator
+    authorityRootLocator,
+    activationLocatorBinding
   });
   const onboarding = deriveOnboardingReadiness(implementation);
   return Object.freeze({
@@ -284,6 +294,7 @@ export function describeRuntimeActivationContract() {
     authorityRootPathReuseTarget:
       "explicit_path_resolved_from_verified_provisioning_record_target",
     authorityRootLocator: implementation.authorityRootLocator,
+    activationLocatorBinding: implementation.activationLocatorBinding,
     provisioningRecordRole: "future_verified_platform_setup_record_target",
     provisionReceiptRelationship: "undecided",
     platformProvisionerManifestRelationship: "undecided",

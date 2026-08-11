@@ -27,6 +27,13 @@ const LOCATOR_KEYS = new Set([
   "activationRevision",
   "activationRecordHash"
 ]);
+const ACTIVATION_BINDING_KEYS = new Set([
+  "repositoryIdentityHash",
+  "runtimeRootIdentityHash",
+  "activationId",
+  "activationRevision",
+  "activationRecordHash"
+]);
 const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
@@ -124,6 +131,18 @@ function candidate(canonical) {
   });
 }
 
+function bindingResponse(status, reason, pairContentMatched = false) {
+  return Object.freeze({
+    status,
+    reason,
+    pairContentMatched,
+    provisioningRecordVerification: "not_implemented",
+    filesystemEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
+}
+
 export function compileAuthorityRootLocatorCandidate(rawLocator) {
   try {
     const compiled = compileInternal(rawLocator);
@@ -158,6 +177,32 @@ export function decodeAuthorityRootLocatorCandidate(input) {
   }
 }
 
+export function evaluateAuthorityRootLocatorActivationBindingCandidate(rawLocator, rawExpected) {
+  try {
+    const expected = snapshotPlainRecord(rawExpected, ACTIVATION_BINDING_KEYS);
+    if (!expected ||
+        !hash(expected.repositoryIdentityHash) ||
+        !hash(expected.runtimeRootIdentityHash) ||
+        !isRuntimeActivationIdCandidate(expected.activationId) ||
+        !positiveRevision(expected.activationRevision) ||
+        !hash(expected.activationRecordHash)) {
+      return bindingResponse("blocked", "authority_root_locator_activation_binding_input_invalid");
+    }
+    const compiled = compileInternal(rawLocator);
+    if (!compiled) {
+      return bindingResponse("blocked", "authority_root_locator_invalid");
+    }
+    const locator = compiled.locator;
+    if ([...ACTIVATION_BINDING_KEYS].some((key) => locator[key] !== expected[key])) {
+      return bindingResponse("blocked", "authority_root_locator_activation_binding_mismatch");
+    }
+    return bindingResponse("candidate",
+      "authority_root_locator_activation_binding_candidate", true);
+  } catch {
+    return bindingResponse("blocked", "authority_root_locator_activation_binding_input_invalid");
+  }
+}
+
 export function describeAuthorityRootLocatorContract() {
   return Object.freeze({
     contract: AUTHORITY_ROOT_LOCATOR_CONTRACT,
@@ -175,6 +220,7 @@ export function describeAuthorityRootLocatorContract() {
     resolver: "not_implemented",
     provisioningRecordVerification: "not_implemented",
     authorityRootIdentityVerification: "not_implemented",
+    activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
