@@ -23,57 +23,135 @@ function validAbsolutePath(value) {
     !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
-function directoryRealpath(target) {
-  const metadata = fs.lstatSync(target, { bigint: true });
-  if (!metadata.isDirectory() || metadata.isSymbolicLink() ||
-      metadata.dev <= 0n || metadata.ino <= 0n || metadata.birthtimeNs <= 0n) {
+function identity(metadata, expectedType) {
+  const typeValid = expectedType === "file" ? metadata.isFile() : metadata.isDirectory();
+  if (!typeValid || metadata.isSymbolicLink() || metadata.dev <= 0n ||
+      metadata.ino <= 0n || metadata.birthtimeNs <= 0n) {
     throw new Error("repository_git_layout_invalid");
   }
-  return fs.realpathSync.native(target);
+  return Object.freeze({
+    type: expectedType,
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+    size: metadata.size,
+    mtimeNs: metadata.mtimeNs,
+    ctimeNs: metadata.ctimeNs
+  });
 }
 
-function readControlFile(target) {
-  const metadata = fs.lstatSync(target, { bigint: true });
-  if (!metadata.isFile() || metadata.isSymbolicLink() ||
-      metadata.size <= 0n || metadata.size > BigInt(MAX_CONTROL_FILE_BYTES)) {
+function sameIdentity(left, right) {
+  return left.type === right.type && left.dev === right.dev && left.ino === right.ino &&
+    left.birthtimeNs === right.birthtimeNs && left.size === right.size &&
+    left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs;
+}
+
+function verifySnapshot(snapshot) {
+  const current = identity(fs.lstatSync(snapshot.realPath, { bigint: true }), snapshot.identity.type);
+  if (!sameIdentity(snapshot.identity, current) || fs.realpathSync.native(snapshot.realPath) !== snapshot.realPath) {
+    throw new Error("repository_git_layout_changed");
+  }
+}
+
+function directoryRealpath(target) {
+  const before = identity(fs.lstatSync(target, { bigint: true }), "directory");
+  const realPath = fs.realpathSync.native(target);
+  const resolved = identity(fs.lstatSync(realPath, { bigint: true }), "directory");
+  const after = identity(fs.lstatSync(target, { bigint: true }), "directory");
+  if (!sameIdentity(before, resolved) || !sameIdentity(before, after)) {
+    throw new Error("repository_git_layout_changed");
+  }
+  return Object.freeze({ realPath, identity: before });
+}
+
+function readControlFile(target, parentSnapshots = []) {
+  for (const parent of parentSnapshots) verifySnapshot(parent);
+  const pathBefore = identity(fs.lstatSync(target, { bigint: true }), "file");
+  if (pathBefore.size <= 0n || pathBefore.size > BigInt(MAX_CONTROL_FILE_BYTES)) {
     throw new Error("repository_git_control_file_invalid");
   }
-  const decoded = UTF8.decode(fs.readFileSync(target));
+  const noFollow = process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
+  let descriptor = null;
+  let failure = null;
+  let bytes = null;
+  try {
+    descriptor = fs.openSync(target, fs.constants.O_RDONLY | noFollow);
+    const descriptorBefore = identity(fs.fstatSync(descriptor, { bigint: true }), "file");
+    if (!sameIdentity(pathBefore, descriptorBefore) || descriptorBefore.size > BigInt(MAX_CONTROL_FILE_BYTES)) {
+      throw new Error("repository_git_control_file_changed");
+    }
+    const buffer = Buffer.alloc(MAX_CONTROL_FILE_BYTES + 1);
+    let offset = 0;
+    while (offset < buffer.length) {
+      const read = fs.readSync(descriptor, buffer, offset, buffer.length - offset, null);
+      if (read === 0) break;
+      offset += read;
+    }
+    if (offset > MAX_CONTROL_FILE_BYTES || BigInt(offset) !== descriptorBefore.size) {
+      throw new Error("repository_git_control_file_changed");
+    }
+    const descriptorAfter = identity(fs.fstatSync(descriptor, { bigint: true }), "file");
+    const pathAfter = identity(fs.lstatSync(target, { bigint: true }), "file");
+    if (!sameIdentity(descriptorBefore, descriptorAfter) || !sameIdentity(descriptorBefore, pathAfter)) {
+      throw new Error("repository_git_control_file_changed");
+    }
+    bytes = Object.freeze({ value: Buffer.from(buffer.subarray(0, offset)),
+      snapshot: Object.freeze({ realPath: fs.realpathSync.native(target), identity: descriptorAfter }) });
+  } catch (error) {
+    failure = error;
+  } finally {
+    if (descriptor !== null) {
+      try { fs.closeSync(descriptor); }
+      catch (error) { failure ??= error; }
+    }
+  }
+  if (failure || bytes === null) throw failure ?? new Error("repository_git_control_file_invalid");
+  for (const parent of parentSnapshots) verifySnapshot(parent);
+  verifySnapshot(bytes.snapshot);
+  const decoded = UTF8.decode(bytes.value);
   if (decoded.charCodeAt(0) === 0xfeff) {
     throw new Error("repository_git_control_file_invalid");
   }
   const line = decoded.endsWith("\r\n") ? decoded.slice(0, -2)
     : decoded.endsWith("\n") ? decoded.slice(0, -1) : decoded;
   if (line.length === 0 || /[\u0000-\u001f\u007f]/u.test(line)) throw new Error("repository_git_control_file_invalid");
-  return line;
+  return Object.freeze({ line, snapshot: bytes.snapshot });
 }
 
-function verifyRegularFile(target, maximumBytes) {
+function regularFileSnapshot(target, maximumBytes, parentSnapshots = []) {
+  for (const parent of parentSnapshots) verifySnapshot(parent);
   const metadata = fs.lstatSync(target, { bigint: true });
-  if (!metadata.isFile() || metadata.isSymbolicLink() ||
-      metadata.size <= 0n || metadata.size > BigInt(maximumBytes)) {
+  const fileIdentity = identity(metadata, "file");
+  if (fileIdentity.size <= 0n || fileIdentity.size > BigInt(maximumBytes)) {
     throw new Error("repository_git_layout_invalid");
   }
+  const snapshot = Object.freeze({ realPath: fs.realpathSync.native(target), identity: fileIdentity });
+  verifySnapshot(snapshot);
+  for (const parent of parentSnapshots) verifySnapshot(parent);
+  return snapshot;
 }
 
-function optionalCommonDirectory(gitDirectory) {
-  const marker = path.join(gitDirectory, "commondir");
+function optionalCommonDirectory(gitDirectorySnapshot, graph) {
+  const marker = path.join(gitDirectorySnapshot.realPath, "commondir");
   try {
-    const value = readControlFile(marker);
-    return directoryRealpath(path.isAbsolute(value) ? value : path.resolve(gitDirectory, value));
+    const control = readControlFile(marker, [gitDirectorySnapshot]);
+    graph.push(control.snapshot);
+    const value = control.line;
+    return directoryRealpath(path.isAbsolute(value) ? value : path.resolve(gitDirectorySnapshot.realPath, value));
   } catch (error) {
     if (error?.code === "ENOENT") return null;
     throw error;
   }
 }
 
-function verifyExistingExcludeBoundary(commonDirectory) {
-  const info = path.join(commonDirectory, "info");
-  try { directoryRealpath(info); }
+function verifyExistingExcludeBoundary(commonDirectorySnapshot, graph) {
+  const info = path.join(commonDirectorySnapshot.realPath, "info");
+  let infoSnapshot;
+  try { infoSnapshot = directoryRealpath(info); graph.push(infoSnapshot); }
   catch (error) { if (error?.code === "ENOENT") return; throw error; }
   try {
-    const metadata = fs.lstatSync(path.join(info, "exclude"), { bigint: true });
-    if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error("repository_git_exclude_boundary_invalid");
+    graph.push(regularFileSnapshot(path.join(infoSnapshot.realPath, "exclude"), Number.MAX_SAFE_INTEGER,
+      [commonDirectorySnapshot, infoSnapshot]));
   } catch (error) { if (error?.code !== "ENOENT") throw error; }
 }
 
@@ -86,8 +164,10 @@ export function inspectRepositoryGitLayoutCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
     if (!input || !validAbsolutePath(input.repositoryRoot)) return response("blocked", "repository_git_layout_input_invalid");
+    const graph = [];
     const repositoryRoot = directoryRealpath(input.repositoryRoot);
-    const marker = path.join(repositoryRoot, ".git");
+    graph.push(repositoryRoot);
+    const marker = path.join(repositoryRoot.realPath, ".git");
     const markerMetadata = fs.lstatSync(marker, { bigint: true });
     if (markerMetadata.isSymbolicLink()) return response("blocked", "repository_git_marker_link_rejected");
 
@@ -97,18 +177,23 @@ export function inspectRepositoryGitLayoutCandidate(rawInput) {
       gitDirectory = directoryRealpath(marker);
       kind = "normal_worktree";
     } else if (markerMetadata.isFile()) {
-      const control = readControlFile(marker);
-      if (!control.startsWith("gitdir: ")) return response("blocked", "repository_git_file_invalid");
-      const value = control.slice("gitdir: ".length);
+      const control = readControlFile(marker, [repositoryRoot]);
+      graph.push(control.snapshot);
+      if (!control.line.startsWith("gitdir: ")) return response("blocked", "repository_git_file_invalid");
+      const value = control.line.slice("gitdir: ".length);
       if (value.length === 0 || /[\u0000-\u001f\u007f]/u.test(value)) return response("blocked", "repository_git_file_invalid");
-      gitDirectory = directoryRealpath(path.isAbsolute(value) ? value : path.resolve(repositoryRoot, value));
+      gitDirectory = directoryRealpath(path.isAbsolute(value) ? value : path.resolve(repositoryRoot.realPath, value));
       kind = "gitfile_worktree";
     } else return response("blocked", "repository_git_marker_invalid");
 
-    const commonDirectory = optionalCommonDirectory(gitDirectory) ?? gitDirectory;
-    readControlFile(path.join(gitDirectory, "HEAD"));
-    verifyRegularFile(path.join(commonDirectory, "config"), 1024 * 1024);
-    verifyExistingExcludeBoundary(commonDirectory);
+    graph.push(gitDirectory);
+    const commonDirectory = optionalCommonDirectory(gitDirectory, graph) ?? gitDirectory;
+    if (commonDirectory !== gitDirectory) graph.push(commonDirectory);
+    const head = readControlFile(path.join(gitDirectory.realPath, "HEAD"), [gitDirectory]);
+    graph.push(head.snapshot);
+    graph.push(regularFileSnapshot(path.join(commonDirectory.realPath, "config"), 1024 * 1024, [commonDirectory]));
+    verifyExistingExcludeBoundary(commonDirectory, graph);
+    for (const snapshot of graph) verifySnapshot(snapshot);
     if (kind === "gitfile_worktree" && commonDirectory !== gitDirectory) kind = "linked_worktree";
     return response("candidate", "repository_git_layout_resolved_candidate", summary(kind));
   } catch (error) {

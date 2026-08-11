@@ -303,3 +303,7 @@ Qual-LabはRuntime 1.0の対象候補を通常worktree、linked worktreeおよ�
 Repository Identity、親Path chain、case／Unicode alias、Git extension、実Git解決結果との照合、metadataの同時・原子的・冪等書込みおよび事後確認は未実装である。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にRepository Adapter完成、activation成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。
 
 linked worktreeでは`info/exclude`がcommon Git directoryに属し、同じRepositoryの他worktreeへも同じpatternが適用される。既定`/.crdd-runtime/`以外のRepository内custom Rootをlinked worktreeで許可するか、共有影響を避けて拒否するかは実書込み前のCurrent Decision Setとして保持する。判断前にmetadata書込み、activationまたは実Operationを開始しない。
+
+固定Commit `9977fc25d0621be2e637487708f27d377edab60f`／Tree `43bf4b7fdd5291ac241a511ffc53bda14f88440e`へのAgent／Architecture／Security Reviewは`AG-REPO-LAYOUT-001` Majorにより`Fail`、Document AuditとGap／Impact＋Conformance Auditは`Pass`であった。個別結果は履歴として保持するが監査集合全体は`Invalidated`であり、個別Passを現在判定、解消、後続実装またはRelease根拠へ流用しない。Findingは初回固定版から存在した見落としで、control fileの上限確認と実読取りが別openであり、directoryのlstatとrealpathも同じ実体Identityへ結合していなかった。
+
+局所処置として、`.git` file、`commondir`および`HEAD`を同一handleから最大値+1 byteまでbounded readし、Path／handleの読取り前後に種別、`dev`、`ino`、`birthtimeNs`、size、`mtimeNs`および`ctimeNs`を照合する。Repository root、Git directory、common Git directoryおよび確認対象entryのIdentityを子確認前後と最終候補返却前にも再照合する。上限超過、short read、grow／shrink、置換、linkまたはclose失敗をPath／生内容なしの`blocked`へ閉じる。この処置はCore自身の読取り安定性に限定し、完全Repository Identity、parent chain、metadata書込みAuthorityまたはCapabilityを成立させない。処置は`Applied`／`Self-checked`であり、新固定版の独立再確認前に`Resolved`としない。

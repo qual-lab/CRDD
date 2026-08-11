@@ -73,6 +73,83 @@ test("Git directoryのHEADまたは共通configが欠落する候補を拒否す
   assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "blocked");
 });
 
+test("control fileは上限ちょうどを受理し上限+1を拒否する", (t) => {
+  const repositoryRoot = temporaryRoot(t);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  const head = path.join(repositoryRoot, ".git", "HEAD");
+  fs.writeFileSync(head, "a".repeat(4096), "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "candidate");
+  fs.writeFileSync(head, "a".repeat(4097), "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "blocked");
+});
+
+test("lstat後にcontrol fileを同名の別実体へ置換しても読まない", (t) => {
+  const repositoryRoot = temporaryRoot(t);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  const marker = path.join(repositoryRoot, ".git");
+  const originalOpen = fs.openSync;
+  let replaced = false;
+  fs.openSync = function(target, ...args) {
+    if (!replaced && target === path.join(marker, "HEAD")) {
+      replaced = true;
+      fs.renameSync(target, `${target}.original`);
+      fs.writeFileSync(target, "b".repeat(4097), "utf8");
+    }
+    return originalOpen.call(fs, target, ...args);
+  };
+  try { assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "blocked"); }
+  finally { fs.openSync = originalOpen; }
+});
+
+test("同一handleの読取り中にsizeが変わる場合はblockedへ閉じる", (t) => {
+  const repositoryRoot = temporaryRoot(t);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  const originalRead = fs.readSync;
+  let changed = false;
+  fs.readSync = function(descriptor, ...args) {
+    if (!changed) {
+      changed = true;
+      fs.ftruncateSync(descriptor, 1);
+    }
+    return originalRead.call(fs, descriptor, ...args);
+  };
+  try { assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "blocked"); }
+  finally { fs.readSync = originalRead; }
+});
+
+test("realpath解決中にRepository directoryを別実体へ置換しても候補化しない", (t) => {
+  const parent = temporaryRoot(t);
+  const repositoryRoot = path.join(parent, "repository");
+  fs.mkdirSync(repositoryRoot);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  const originalNative = fs.realpathSync.native;
+  let replaced = false;
+  fs.realpathSync.native = function(target, ...args) {
+    if (!replaced && target === repositoryRoot) {
+      replaced = true;
+      fs.renameSync(repositoryRoot, `${repositoryRoot}.original`);
+      fs.mkdirSync(repositoryRoot);
+      makeGitDirectory(path.join(repositoryRoot, ".git"));
+    }
+    return originalNative.call(fs.realpathSync, target, ...args);
+  };
+  try { assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "blocked"); }
+  finally { fs.realpathSync.native = originalNative; }
+});
+
+test("control fileのclose失敗を成功へ流用しない", (t) => {
+  const repositoryRoot = temporaryRoot(t);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  const originalClose = fs.closeSync;
+  let failed = false;
+  fs.closeSync = function(descriptor) {
+    originalClose.call(fs, descriptor);
+    if (!failed) { failed = true; throw new Error("fixture-close-failure"); }
+  };
+  try { assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "blocked"); }
+  finally { fs.closeSync = originalClose; }
+});
+
 test("Git markerのlinkを拒否する", (t) => {
   const parent = temporaryRoot(t);
   const target = path.join(parent, "target.git");

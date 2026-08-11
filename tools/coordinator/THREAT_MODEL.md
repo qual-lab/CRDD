@@ -123,6 +123,8 @@ Qual-Labは、明示enable時に選択RootがRepository内ならRepository Adapt
 
 Runtime 1.0のRepository形態候補は通常worktree、linked worktreeおよび対象自身がsubmodule等の`.git` file形式であるworktreeとし、bare Repositoryを拒否する。Filesystem解決Core候補は`.git` directory／fileと`commondir`を上限付きで読み、non-linkなGit directoryおよびcommon Git directoryを解決し、既存`info/exclude`境界のlinkを拒否する。これはRepository Identity、親chain、case／Unicode alias、Git拡張またはmetadata書込みAuthorityの成立を意味しない。実AdapterはGitの最終解決結果とFilesystem実体を再照合するまで書き込まない。
 
+control fileはPathを上限確認後に再度無制限読取りせず、同一file handleから最大値+1 byteまで読む。Path側とhandle側、読取り前後の種別、`dev`、`ino`、`birthtimeNs`、size、`mtimeNs`および`ctimeNs`が一致し、上限内でEOFまで取得できたbyteだけを解釈する。Repository root、Git directoryおよびcommon Git directoryも子entry確認の前後と最終候補返却前に実体Identityを再照合する。これは同権限Hostによる全parent chainの敵対的TOCTOUを完全防御するものではなく、親chain、case／Unicode alias、Repository Identity、Git拡張およびmetadata書込みAuthorityは実Adapterの未実装境界に残す。
+
 `info/exclude`は`$GIT_COMMON_DIR`に属するため、linked worktreeでは同じcommon Git directoryを使う他worktreeにもpatternが適用される。既定`/.crdd-runtime/`以外のRepository内custom Rootをlinked worktreeで許可するか、共有影響を避けて拒否するかは実書込み前の判断事項とする。候補Coreの解決成功から、この共有影響の受容またはmetadata書込み許可を推定しない。
 
 有効化と処置は対象Repositoryだけへ限定する。親RepositoryがCRDD submoduleを参照するだけの場合、submodule側を変更しない。CRDD-Communication等の別Repositoryを読取り依存にする場合も変更しない。別Repositoryを変更対象にする場合はRoot、activation、exclude、Candidate RevisionおよびOperationを分離し、Runtime Rootを共有しない。複数Repositoryへの同時書込みOperationは未対応であり、依存参照から暗黙に対象を拡張しない。
