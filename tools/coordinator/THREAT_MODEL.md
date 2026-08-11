@@ -111,7 +111,11 @@ Authority Grant VerifierはRuntimeまたは人間が事前に許可したRegistr
 
 Egress Policy候補は生Profileを内部Validatorへ通し、内部で生成した正規ProfileとHashからだけ完全一致hostnameを導出する。呼出側の検証済みという自己申告、HashまたはProfile objectを信頼せず、Authorityまたは通信許可を自己成立させない。Proxyは`CONNECT`と文字列として厳密なport `443`だけを受け、正規化済みASCII hostnameを許可候補集合へ完全一致させる。IP literal、userinfo、末尾dot、leading zero／符号／空白／制御文字を含むport、別method／port／hostnameを拒否する。
 
-DNS address分類は[IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)および[IANA IPv6 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml)の2025-10-09更新版を2026-08-11に確認して固定する。採用列は`Globally Reachable`であり、最長prefix一致した値が`true`の場合だけ候補とする。`false`、空欄、`N/A`、未分類、parse不整合は拒否する。Registry外のprotocol non-unicast、deprecated IPv4-compatible／site-local IPv6も保守的に拒否し、IPv4-mapped IPv6はbinary正規化後にIPv4規則へ還元する。固定表のSHA-256を実装から取得可能にし、Runtime contract revision変更、IANA registry更新またはendpoint E2E不一致を再確認契機とする。表を自動更新して信頼境界を変更しない。
+DNS address分類は[IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)および[IANA IPv6 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml)の2025-10-09更新版、[IANA IPv6 Global Unicast Address Space](https://www.iana.org/assignments/ipv6-unicast-address-assignments/ipv6-unicast-address-assignments.xhtml)の2025-10-10更新版、ならびに[IANA IPv6 Address Space](https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml)の2025-10-23更新版を2026-08-11に確認して固定する。Special-purposeの採用列は`Globally Reachable`、Global Unicastの採用列は`Status=ALLOCATED`である。
+
+判定順はbinary parse、IPv4-mapped／compatible／NAT64識別、Special-purpose最長prefix一致、IPv6 Global Unicast割当一致、既定拒否とする。mappedと`64:ff9b::/96`は下位32 bitをIPv4規則へ還元し、compatibleは拒否する。Special-purpose一致が`false`、空欄または`N/A`ならAllocation一致で再許可しない。IPv4はSpecial-purpose非一致だけを通常候補、IPv6はSpecial-purposeで明示許可された範囲または`ALLOCATED` prefixだけを候補とし、未掲載、`RESERVED`、未分類、parse不整合を拒否する。
+
+固定snapshotのSHA-256は、正本から選択・正規化して埋め込んだmetadataと全prefix entryを対象とし、IANA raw file自体のHashではない。entry件数も取得可能にし、Runtime contract revision変更、各IANA registry更新またはendpoint E2E不一致を再確認契機とする。表を自動更新して信頼境界を変更しない。
 
 DNS解決結果はすべてのaddressを検査し、空、不正または非global addressが一件でもあれば接続しない。Policy fixtureの合格をDNS rebinding対策または実通信許可と扱わず、後続Proxyは検査済みbinary addressへ直接接続してhostnameを再解決しないことを受入条件とする。
 

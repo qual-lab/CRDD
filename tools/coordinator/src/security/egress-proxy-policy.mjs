@@ -7,12 +7,20 @@ export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;
 
 const REGISTRY_METADATA = Object.freeze({
-  registryLastUpdated: "2025-10-09",
+  specialPurposeRegistryLastUpdated: "2025-10-09",
+  ipv6GlobalUnicastRegistryLastUpdated: "2025-10-10",
+  ipv6AddressSpaceRegistryLastUpdated: "2025-10-23",
   reviewedAt: "2026-08-11",
   ipv4Registry: "https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml",
   ipv6Registry: "https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml",
-  decisionField: "Globally Reachable",
-  unknownDecision: "deny"
+  ipv6GlobalUnicastRegistry: "https://www.iana.org/assignments/ipv6-unicast-address-assignments/ipv6-unicast-address-assignments.xhtml",
+  ipv6AddressSpaceRegistry: "https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml",
+  specialPurposeDecisionField: "Globally Reachable",
+  ipv6AllocationDecisionField: "Status=ALLOCATED",
+  ipv4NoSpecialPurposeMatchDecision: "candidate",
+  ipv6NoAllocatedGlobalUnicastMatchDecision: "deny",
+  matchedUnknownValueDecision: "deny",
+  snapshotHashScope: "normalized metadata and embedded prefix entries"
 });
 
 // More-specific entries override their parents. `null` is an IANA N/A/blank
@@ -76,6 +84,18 @@ const SPECIAL_PURPOSE_ENTRIES = Object.freeze([
   [6, "ff00::/8", false, "protocol-non-unicast"]
 ]);
 
+// IANA IPv6 Global Unicast Address Space entries whose Status is ALLOCATED.
+// RESERVED rows and unlisted portions of 2000::/3 are intentionally absent.
+const IPV6_ALLOCATED_ENTRIES = Object.freeze([
+  "2001::/23", "2001:200::/23", "2001:400::/23", "2001:600::/23", "2001:800::/22",
+  "2001:c00::/23", "2001:e00::/23", "2001:1200::/23", "2001:1400::/22", "2001:1800::/23",
+  "2001:1a00::/23", "2001:1c00::/22", "2001:2000::/19", "2001:4000::/23", "2001:4200::/23",
+  "2001:4400::/23", "2001:4600::/23", "2001:4800::/23", "2001:4a00::/23", "2001:4c00::/23",
+  "2001:5000::/20", "2001:8000::/19", "2001:a000::/20", "2001:b000::/20", "2002::/16",
+  "2003::/18", "2400::/12", "2410::/12", "2600::/12", "2610::/23", "2620::/23",
+  "2630::/12", "2800::/12", "2a00::/12", "2a10::/12", "2c00::/12"
+]);
+
 function blocked(reason) {
   return Object.freeze({ status: "blocked", reason, policy: null });
 }
@@ -132,8 +152,12 @@ const CIDR_RULES = Object.freeze(SPECIAL_PURPOSE_ENTRIES
   .map((entry) => parseCidr(...entry))
   .sort((a, b) => b.prefixLength - a.prefixLength));
 
+const IPV6_ALLOCATED_RULES = Object.freeze(IPV6_ALLOCATED_ENTRIES
+  .map((cidr) => parseCidr(6, cidr, true, "iana-ipv6-global-unicast-allocated"))
+  .sort((a, b) => b.prefixLength - a.prefixLength));
+
 const SPECIAL_PURPOSE_REGISTRY_SNAPSHOT_SHA256 = createHash("sha256")
-  .update(JSON.stringify({ metadata: REGISTRY_METADATA, entries: SPECIAL_PURPOSE_ENTRIES }))
+  .update(JSON.stringify({ metadata: REGISTRY_METADATA, specialPurposeEntries: SPECIAL_PURPOSE_ENTRIES, ipv6AllocatedEntries: IPV6_ALLOCATED_ENTRIES }))
   .digest("hex");
 
 function cidrMatch(value, bits, rule) {
@@ -141,25 +165,37 @@ function cidrMatch(value, bits, rule) {
   return (shift === 0n ? value : (value >> shift) << shift) === rule.prefix;
 }
 
-function globallyReachable(family, value) {
+function longestMatch(family, value, rules) {
   const bits = family === 4 ? 32 : 128;
-  const match = CIDR_RULES.find((rule) => rule.family === family && cidrMatch(value, bits, rule));
+  return rules.find((rule) => rule.family === family && cidrMatch(value, bits, rule)) ?? null;
+}
+
+function globallyReachableIpv4(value) {
+  const match = longestMatch(4, value, CIDR_RULES);
   return match ? match.globallyReachable === true : true;
+}
+
+function globallyReachableIpv6(value) {
+  const special = longestMatch(6, value, CIDR_RULES);
+  if (special) return special.globallyReachable === true;
+  return longestMatch(6, value, IPV6_ALLOCATED_RULES) != null;
 }
 
 function classifyAddress(address) {
   if (typeof address !== "string" || address.includes("%")) return null;
   if (net.isIP(address) === 4) {
     const value = parseIpv4(address);
-    return value == null ? null : globallyReachable(4, value);
+    return value == null ? null : globallyReachableIpv4(value);
   }
   if (net.isIP(address) !== 6) return null;
   const value = parseIpv6(address);
   if (value == null) return null;
   const high96 = value >> 32n;
-  if (high96 === 0xffffn) return globallyReachable(4, value & 0xffffffffn);
+  if (high96 === 0xffffn) return globallyReachableIpv4(value & 0xffffffffn);
   if (high96 === 0n) return false;
-  return globallyReachable(6, value);
+  const nat64Prefix = parseIpv6("64:ff9b::") >> 32n;
+  if (high96 === nat64Prefix) return globallyReachableIpv4(value & 0xffffffffn);
+  return globallyReachableIpv6(value);
 }
 
 export function compileEgressProxyPolicyCandidate(rawProfile) {
@@ -240,6 +276,8 @@ export function describeSpecialPurposeRegistrySnapshot() {
   return Object.freeze({
     ...REGISTRY_METADATA,
     snapshotSha256: SPECIAL_PURPOSE_REGISTRY_SNAPSHOT_SHA256,
+    specialPurposeEntryCount: SPECIAL_PURPOSE_ENTRIES.length,
+    ipv6AllocatedEntryCount: IPV6_ALLOCATED_ENTRIES.length,
     matching: "longest_prefix",
     mappedIpv6: "evaluate_as_ipv4",
     compatibleIpv6: "deny"
