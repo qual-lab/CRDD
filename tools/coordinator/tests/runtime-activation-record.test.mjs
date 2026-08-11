@@ -156,6 +156,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "activation_atomic_persistence",
     "run_scoped_capability"
   ]);
+  assert.equal(new Set(contract.onboardingBlockingDependencies).size,
+    contract.onboardingBlockingDependencies.length);
   assert.equal(contract.disabledRepositoryExperience, "no_runtime_specific_effect");
   assert.equal(contract.firstPlatformSetup,
     "verify_signed_platform_provisioner_and_provision_shared_authority_root_target");
@@ -211,6 +213,13 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
   assert.equal(contract.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
   assert.equal(contract.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
+  assert.equal(contract.rootProtectionPolicy.posixAclVerification, "not_implemented");
+  assert.equal(contract.rootProtectionPolicy.runtimePrincipalBinding, "not_implemented");
+  assert.equal(contract.rootProtectionPolicy.persistentVolumeAdapter, "not_implemented");
+  assert.equal(contract.rootProtectionPolicy.filesystemClassVerification, "not_implemented");
+  assert.equal(contract.rootProtectionPolicy.pathBinding, "not_implemented");
+  assert.equal(contract.rootProtectionPolicy.activationIntegration, "not_implemented");
+  assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.atomicPersistence, "not_implemented");
   assert.equal(contract.canonicalUtcLength, 24);
   assert.equal(contract.runtimeCapabilityIssued, false);

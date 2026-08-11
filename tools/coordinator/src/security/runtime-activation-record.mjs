@@ -46,20 +46,63 @@ const ONBOARDING_PROVISIONING_TARGET_KINDS = Object.freeze([
   "shared_authority_root_platform_scope",
   "repository_scoped_runtime_root_activation_precondition"
 ]);
-const ONBOARDING_BLOCKING_DEPENDENCIES = Object.freeze([
-  "platform_provisioner_verification",
-  "platform_provisioner_effect",
-  "provision_receipt_contract",
-  "provision_receipt_verification",
-  "authority_root_resolution_from_provisioning_record",
-  "root_protection_platform_adapters",
-  "runtime_root_provisioning_effect",
-  "authority_root_provisioning_effect",
-  "activation_effect",
-  "activation_path_identity_binding",
-  "activation_atomic_persistence",
-  "run_scoped_capability"
-]);
+
+function deriveOnboardingReadiness(implementation) {
+  const rootProtection = implementation.rootProtectionPolicy;
+  const dependency = (name, sources) => Object.freeze({
+    name,
+    sources: Object.freeze(sources),
+    readinessSufficientValues: null
+  });
+  const dependencies = [
+    dependency("platform_provisioner_verification",
+      [implementation.platformProvisionerVerification]),
+    dependency("platform_provisioner_effect", [implementation.platformProvisionerEffect]),
+    dependency("provision_receipt_contract", [implementation.provisionReceiptContract]),
+    dependency("provision_receipt_verification", [implementation.provisionReceiptVerification]),
+    dependency("authority_root_resolution_from_provisioning_record",
+      [implementation.authorityRootResolutionFromProvisioningRecord]),
+    dependency("root_protection_platform_adapters", [
+      rootProtection.windowsDaclAdapter,
+      rootProtection.posixOwnerModeAdapter,
+      rootProtection.posixAclVerification,
+      rootProtection.runtimePrincipalBinding,
+      rootProtection.persistentVolumeAdapter,
+      rootProtection.filesystemClassVerification,
+      rootProtection.pathBinding,
+      rootProtection.activationIntegration,
+      implementation.ownerAclVerification
+    ]),
+    dependency("runtime_root_provisioning_effect",
+      [implementation.runtimeRootProvisioningEffect]),
+    dependency("authority_root_provisioning_effect",
+      [implementation.authorityRootProvisioningEffect]),
+    dependency("activation_effect", [implementation.activationEffect]),
+    dependency("activation_path_identity_binding", [implementation.pathIdentityBinding]),
+    dependency("activation_atomic_persistence", [implementation.atomicPersistence]),
+    dependency("run_scoped_capability", [
+      implementation.runScopedCapability,
+      implementation.runtimeCapabilityIssued
+    ])
+  ];
+
+  // No readiness-sufficient value has been approved for any dependency yet.
+  // Keeping the source values attached to each dependency makes future removal
+  // an explicit contract change instead of treating candidate or unknown values
+  // as sufficient by omission.
+  const blockers = dependencies
+    .filter(({ sources, readinessSufficientValues }) =>
+      sources.length === 0 ||
+      sources.some((value) => value === undefined) ||
+      readinessSufficientValues === null ||
+      sources.length !== readinessSufficientValues.length ||
+      sources.some((value, index) => !readinessSufficientValues[index].includes(value)))
+    .map(({ name }) => name);
+  return Object.freeze({
+    readiness: blockers.length > 0 ? "blocked" : "not_implemented",
+    blockers: Object.freeze(blockers)
+  });
+}
 
 function blocked(reason) {
   return Object.freeze({
@@ -175,6 +218,24 @@ export function decodeRuntimeActivationRecordCandidate(input) {
 }
 
 export function describeRuntimeActivationContract() {
+  const rootProtectionPolicy = describeRootProtectionPolicyContract();
+  const implementation = Object.freeze({
+    activationEffect: "not_implemented",
+    platformProvisionerVerification: "not_implemented",
+    platformProvisionerEffect: "not_implemented",
+    provisionReceiptContract: "not_implemented",
+    provisionReceiptVerification: "not_implemented",
+    authorityRootResolutionFromProvisioningRecord: "not_implemented",
+    runtimeRootProvisioningEffect: "not_implemented",
+    authorityRootProvisioningEffect: "not_implemented",
+    atomicPersistence: "not_implemented",
+    pathIdentityBinding: "not_implemented",
+    ownerAclVerification: "not_implemented",
+    runScopedCapability: "not_implemented",
+    runtimeCapabilityIssued: false,
+    rootProtectionPolicy
+  });
+  const onboarding = deriveOnboardingReadiness(implementation);
   return Object.freeze({
     contract: RUNTIME_ACTIVATION_CONTRACT,
     contractRevision: RUNTIME_ACTIVATION_CONTRACT_REVISION,
@@ -182,12 +243,12 @@ export function describeRuntimeActivationContract() {
     persistence: "repository_scoped_persistent",
     activationCommand: "dedicated_activate_required",
     activationCommandGrammar: "implemented_candidate",
-    activationEffect: "not_implemented",
+    activationEffect: implementation.activationEffect,
     localOnboardingContract: "implemented_candidate_contract_only",
     onboardingReadinessProjection: "implemented_candidate_contract_only",
     requiredProvisioningTargetKinds: ONBOARDING_PROVISIONING_TARGET_KINDS,
-    onboardingReadiness: "blocked",
-    onboardingBlockingDependencies: ONBOARDING_BLOCKING_DEPENDENCIES,
+    onboardingReadiness: onboarding.readiness,
+    onboardingBlockingDependencies: onboarding.blockers,
     disabledRepositoryExperience: "no_runtime_specific_effect",
     firstPlatformSetup:
       "verify_signed_platform_provisioner_and_provision_shared_authority_root_target",
@@ -213,14 +274,15 @@ export function describeRuntimeActivationContract() {
       "required_writer_or_runtime_read_only_protection_mismatch",
       "verified_provisioning_record_authority_root_identity_mismatch"
     ]),
-    platformProvisionerVerification: "not_implemented",
-    platformProvisionerEffect: "not_implemented",
-    provisionReceiptContract: "not_implemented",
-    provisionReceiptVerification: "not_implemented",
-    authorityRootResolutionFromProvisioningRecord: "not_implemented",
+    platformProvisionerVerification: implementation.platformProvisionerVerification,
+    platformProvisionerEffect: implementation.platformProvisionerEffect,
+    provisionReceiptContract: implementation.provisionReceiptContract,
+    provisionReceiptVerification: implementation.provisionReceiptVerification,
+    authorityRootResolutionFromProvisioningRecord:
+      implementation.authorityRootResolutionFromProvisioningRecord,
     authorityRootExplicitPathContractPreserved: true,
-    runtimeRootProvisioningEffect: "not_implemented",
-    authorityRootProvisioningEffect: "not_implemented",
+    runtimeRootProvisioningEffect: implementation.runtimeRootProvisioningEffect,
+    authorityRootProvisioningEffect: implementation.authorityRootProvisioningEffect,
     disableCommandGrammar: "implemented_candidate",
     disableEffect: "not_implemented",
     doctorEnableIsActivation: false,
@@ -235,11 +297,11 @@ export function describeRuntimeActivationContract() {
     reactivationTransitionPolicy: "not_implemented",
     disabledOriginTransitionPolicy: "not_implemented",
     canonicalUtcLength: RUNTIME_ACTIVATION_INPUT_LIMITS.canonicalUtcLength,
-    rootProtectionPolicy: describeRootProtectionPolicyContract(),
-    atomicPersistence: "not_implemented",
-    pathIdentityBinding: "not_implemented",
-    ownerAclVerification: "not_implemented",
-    runScopedCapability: "not_implemented",
-    runtimeCapabilityIssued: false
+    rootProtectionPolicy: implementation.rootProtectionPolicy,
+    atomicPersistence: implementation.atomicPersistence,
+    pathIdentityBinding: implementation.pathIdentityBinding,
+    ownerAclVerification: implementation.ownerAclVerification,
+    runScopedCapability: implementation.runScopedCapability,
+    runtimeCapabilityIssued: implementation.runtimeCapabilityIssued
   });
 }
