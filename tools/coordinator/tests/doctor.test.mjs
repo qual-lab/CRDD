@@ -277,6 +277,15 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.checks.some((item) => item.id === "execution.credential_isolation" && item.status === "not_implemented"), true);
   assert.equal(report.checks.some((item) => item.id === "execution.egress" && item.status === "not_implemented"), true);
   assert.equal(report.checks.some((item) => item.id.endsWith(".active_probe") && item.status === "not_implemented"), true);
+  assert.equal(report.runtimeRoot.defaultRepositoryDirectory, ".crdd-runtime");
+  assert.equal(report.runtimeRoot.featureDefault, "disabled");
+  assert.equal(report.runtimeRoot.explicitEnableRequired, true);
+  assert.equal(report.runtimeRoot.directoryExistenceActivates, false);
+  assert.equal(report.runtimeRoot.gitIgnoreIsSecurityBoundary, false);
+  assert.equal(report.runtimeRoot.providerMountAllowed, false);
+  assert.equal(report.runtimeRoot.runtimePathAdapter, "not_implemented");
+  assert.equal(report.runtimeRoot.activationRecordPersistence, "not_implemented");
+  assert.equal(report.runtimeRoot.runtimeCapabilityIssued, false);
   assert.equal(report.egress.isolationProfileContract.validationState, "candidate");
   assert.equal(report.egress.isolationProfileContract.authorityVerification, "not_implemented");
   assert.equal(report.egress.activation, "blocked");

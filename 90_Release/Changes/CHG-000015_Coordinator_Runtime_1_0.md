@@ -269,3 +269,11 @@ Bundleは`bundle.json`、`trust-policy.json`、`authority-registry.json`の固�
 固定版Commit `a639d87aa334bf11d5ec8d603850a2b64d3b5549`、Tree `aeb794060cb435f7a8f5611521b0608025c23511`への3独立確認はすべて`Pass`、Finding 0で完了した。固定結果は[`CHG-000015_Current_Review_Record_a639d87.md`](Evidence/CHG-000015_Current_Review_Record_a639d87.md)へ記録する。固定3ファイル、byte／canonical／Hash／状態境界、PrelaunchへのBundle Identity結合、Capability非発行およびGate `blocked`はCore候補と直接利用側の固定範囲で独立確認済みである。
 
 次段階では、Windows正式配置のmachine-wide root、導入／更新主体、Runtime読取り主体およびACLモデルをQual-Labが決定する。推奨は`%ProgramData%\Qual-Lab\CRDD\Coordinator\authority\active`を固定root、`NT SERVICE\CRDDCoordinator`をread-only Runtime主体とし、`SYSTEM`／`Administrators`だけへ書込みを許可する方式である。判断前にPath Adapter、Authority Capability、Provider起動結合、Proxy、Brokerまたは実Operationを開始しない。全体Gateは`blocked`を維持し、本結果をRuntime完成、利用許可、採用、準拠、移行、Stable、Releaseまたは公開へ流用しない。
+
+### Runtime Root選択・明示activation Core候補
+
+Qual-Labは、Windows固有のmachine-wide rootをRuntime 1.0のArchitectureへ固定しない方針を決定した。直前の`%ProgramData%`／Windows service案は検討履歴として保持するが、現在案へ不流用とする。既定Root候補は`<repository>/.crdd-runtime/`とし、特定の場所へ移す場合の指定契約を`--runtime-root`または`CRDD_COORDINATOR_ROOT`による絶対Pathとする。優先順はCLI、環境、Repository既定とし、OS別の暗黙保存先を設けない。serverでは同じ契約へ永続Volumeを指定できる。現在のCLI optionおよび環境読取りは未接続である。この判断は保存場所の選択方式を固定するもので、機能の有効化、Authority Capability、Provider起動、採用またはReleaseの承認ではない。
+
+機能は既定で無効とする。Directoryの存在、override、ignored状態またはRepository内設定だけでは有効化せず、明示的なenable要求とRuntime所有activation記録を要求する。`disable`は新規Operation停止とし、データ削除は別の明示操作へ分離する。`.crdd-runtime/**`はGitの追跡状態に関係なくCandidate Revision、Operation入力およびProvider mountへ含めない。ignoreは誤commit防止の補助であり、安全性の主根拠にしない。
+
+Root選択Core候補はabsolute Pathの構文、CLI／環境／既定の優先順および明示enable intentだけを検査し、絶対PathをdoctorやEvidenceへ保持しない。accessor、Proxy、相対Path、NUL、過大Pathまたは未知activationを固定理由の`blocked`へ閉じる。CoreはFilesystemへ触れず、Root作成、tracked／exclude状態、realpath／link、Provider非到達、所有主体／権限、同時所有、activation記録またはCapabilityを成立させない。`doctor`は既定無効、明示enable必須およびPath Adapter／activation記録未実装を表示し、全体Gateを`blocked`に保つ。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にRuntime Root実装完了、機能有効、Authority成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。

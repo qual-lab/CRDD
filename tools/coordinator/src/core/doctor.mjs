@@ -20,6 +20,7 @@ import { describeAuthorityGrantVerifierContract } from "../security/authority-gr
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
+import { describeRuntimeRootContract } from "../security/runtime-root-profile.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -269,6 +270,7 @@ export function runDoctor(options = {}) {
         enforcement: isolation.status,
         profile: activeIsolation ? DOCKER_ISOLATION_PROFILE : null
       },
+      runtimeRoot: describeRuntimeRootContract(),
       egress: {
         providerAllowlist: "not_implemented",
         fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated",

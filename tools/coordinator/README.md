@@ -59,7 +59,11 @@ Trust Anchor Loader Core候補は、Registry入力を上限付きbyte列とし�
 
 Runtime 1.0の正式なAuthority取得方式は、Runtime管理領域内の固定ローカルFile Bundleだけとする。Bundleは`bundle.json`、`trust-policy.json`、`authority-registry.json`の3ファイルで構成し、Manifestのrevision、状態、前版Hash、Policy HashおよびRegistry Hashをcanonical byteから固定する。File Bundle Core候補は3ファイルの構造とHashを検証するが、実際の配置Path、所有主体／ACL、link禁止、原子的置換、単調な有効化・取消をまだ強制しないため、結果は`candidate`で全体Gateは`blocked`のままである。IPC／Network TransportはRuntime 1.0の正式取得方式に含めない。
 
-過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。Trust Anchor Loader CoreはRegistryをJavaScript値へ展開する前に131072 byteの上限を強制する。File Bundleを実際に読み取るRuntime所有Path Adapterは未実装であり、その入口でも取得量、固定Path、所有主体／ACLおよび実体Identityを別途強制する。
+Runtime Rootの既定候補は`<repository>/.crdd-runtime/`とし、別の場所を使う場合の指定契約は`--runtime-root`または`CRDD_COORDINATOR_ROOT`による絶対Pathとする。優先順はCLI、環境、Repository既定である。OS別の暗黙保存先へ分散保存しない。現在は選択Core候補だけで、CLI optionと環境読取りは未接続である。機能は既定で無効であり、Directoryの存在、override指定またはRepository内設定だけでは有効化しない。明示的なenable要求とRuntime所有activation記録が必要で、Root選択Core候補はCapabilityを発行しない。
+
+`.crdd-runtime/**`はGitの追跡有無にかかわらずCandidate Revision、Operation入力およびProvider mountへ含めない。ignoreは誤commit防止の補助であり、Filesystem安全境界ではない。`disable`は新規Operationを停止する制御とし、保存データの削除は別の明示操作に分離する。現在はRootの作成、Git exclude処置、Path保護およびactivation記録の永続化を実装していない。
+
+過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。Trust Anchor Loader CoreはRegistryをJavaScript値へ展開する前に131072 byteの上限を強制する。File Bundleを実際に読み取るRuntime所有Path Adapterは未実装であり、その入口でも取得量、選択済みRoot、Provider非到達、所有主体／権限および実体Identityを別途強制する。
 
 Profile、Registry、および評価Contextのrecord／array構造は、JSON相当のplain dataだけを受理する。評価Contextの`now`だけは型付き値の例外として、Context recordから一度取得した有効な`Date`、またはcanonical UTC文字列を受理し、canonical UTC文字列へ変換して以後の評価に使用する。動的getter、Proxy、symbol、独自prototype、疎配列または余分な配列propertyを含む入力は値を実行・再読せず`blocked`にする。検査済みのproperty descriptorから作った固定snapshotだけを、正規化、比較およびHashへ使用する。
 
