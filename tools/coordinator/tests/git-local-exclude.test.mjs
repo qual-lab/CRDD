@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  applyGitLocalExcludeCandidate,
   compileGitLocalExcludeCandidate,
   describeGitLocalExcludeContract
 } from "../src/security/git-local-exclude.mjs";
@@ -155,7 +156,7 @@ test("accessorとProxyを実行せずblockedへ閉じる", (t) => {
   assert.equal(proxyCalls, 0);
 });
 
-test("local exclude CoreはGit metadata書込みやCapabilityを成立させない", () => {
+test("local exclude契約はmetadata書込み候補とactivation未実装を分離する", () => {
   const contract = describeGitLocalExcludeContract();
   assert.equal(contract.repositoryContainedRootBackend, ".git/info/exclude");
   assert.equal(contract.repositoryExternalRootRequiresExclude, false);
@@ -169,6 +170,119 @@ test("local exclude CoreはGit metadata書込みやCapabilityを成立させな�
   assert.equal(contract.linkedWorktreeDefaultRootAllowed, true);
   assert.equal(contract.linkedWorktreeRepositoryContainedCustomRootAllowed, false);
   assert.equal(contract.linkedWorktreeExternalOverrideAllowed, true);
-  assert.equal(contract.metadataWriteIntegration, "not_implemented");
+  assert.equal(contract.metadataWriteIntegration, "implemented_candidate");
+  assert.equal(contract.metadataWriteActivationIntegration, "not_implemented");
+  assert.equal(contract.maximumExcludeBytes, 131072);
+  assert.equal(contract.existingGitInfoDirectoryRequired, true);
   assert.equal(contract.runtimeCapabilityIssued, false);
+});
+
+test("Adapter候補は既存内容を保ち完全一致entryを冪等更新する", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+  fs.writeFileSync(exclude, "# local rules\n/build/\n", "utf8");
+  const first = applyGitLocalExcludeCandidate(input(repositoryRoot));
+  assert.equal(first.status, "candidate");
+  assert.equal(first.gitMetadataWriteIssued, true);
+  assert.equal(first.gitMetadataWriteVerified, true);
+  assert.equal(fs.readFileSync(exclude, "utf8"), "# local rules\n/build/\n/.crdd-runtime/\n");
+  const second = applyGitLocalExcludeCandidate(input(repositoryRoot));
+  assert.equal(second.status, "candidate");
+  assert.equal(second.gitMetadataWriteIssued, false);
+  assert.equal(second.gitMetadataWriteVerified, true);
+  assert.equal(JSON.stringify(first).includes(repositoryRoot), false);
+});
+
+test("空または未作成excludeを作成し外部overrideではmetadataを書かない", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+  fs.writeFileSync(exclude, "");
+  assert.equal(applyGitLocalExcludeCandidate(input(repositoryRoot)).status, "candidate");
+  assert.equal(fs.readFileSync(exclude, "utf8"), "/.crdd-runtime/\n");
+  fs.unlinkSync(exclude);
+  assert.equal(applyGitLocalExcludeCandidate(input(repositoryRoot)).status, "candidate");
+  const before = fs.readdirSync(path.join(repositoryRoot, ".git", "info"));
+  const external = applyGitLocalExcludeCandidate(input(repositoryRoot, {
+    cliOverride: path.join(path.dirname(repositoryRoot), "external-runtime")
+  }));
+  assert.equal(external.status, "candidate");
+  assert.equal(external.gitMetadataWriteIssued, false);
+  assert.deepEqual(fs.readdirSync(path.join(repositoryRoot, ".git", "info")), before);
+});
+
+test("既存lock、過大exclude、linkをblockedへ閉じる", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const info = path.join(repositoryRoot, ".git", "info");
+  const exclude = path.join(info, "exclude");
+  const lock = path.join(info, ".crdd-runtime-exclude.lock");
+  fs.writeFileSync(lock, "unknown", "utf8");
+  assert.equal(applyGitLocalExcludeCandidate(input(repositoryRoot)).status, "blocked");
+  assert.equal(fs.readFileSync(lock, "utf8"), "unknown");
+  fs.unlinkSync(lock);
+  fs.writeFileSync(exclude, "x".repeat(131073), "utf8");
+  assert.equal(applyGitLocalExcludeCandidate(input(repositoryRoot)).status, "blocked");
+  fs.unlinkSync(exclude);
+  const target = path.join(info, "target");
+  fs.writeFileSync(target, "safe\n", "utf8");
+  try { fs.symlinkSync(target, exclude, "file"); }
+  catch (error) { if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) return; throw error; }
+  assert.equal(applyGitLocalExcludeCandidate(input(repositoryRoot)).status, "blocked");
+});
+
+test("書込み中の変化とclose失敗を成功へ流用しない", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const lock = path.join(repositoryRoot, ".git", "info", ".crdd-runtime-exclude.lock");
+  const originalWrite = fs.writeSync;
+  let changed = false;
+  fs.writeSync = function(descriptor, buffer, offset, length, position) {
+    const written = originalWrite.call(fs, descriptor, buffer, offset, length, position);
+    if (!changed) { changed = true; fs.ftruncateSync(descriptor, Math.max(0, written - 1)); }
+    return written;
+  };
+  try { assert.equal(applyGitLocalExcludeCandidate(input(repositoryRoot)).status, "blocked"); }
+  finally { fs.writeSync = originalWrite; }
+  assert.equal(fs.existsSync(lock), false);
+  const originalClose = fs.closeSync;
+  let failed = false;
+  fs.closeSync = function(descriptor) {
+    originalClose.call(fs, descriptor);
+    if (!failed) { failed = true; throw new Error("fixture-close-failure"); }
+  };
+  try { assert.equal(applyGitLocalExcludeCandidate(input(repositoryRoot)).status, "blocked"); }
+  finally { fs.closeSync = originalClose; }
+  assert.equal(failed, true);
+  assert.equal(fs.existsSync(lock), false);
+});
+
+test("置換後の検証失敗は書込み済みblockedとして返す", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+  const originalRename = fs.renameSync;
+  let replaced = false;
+  fs.renameSync = function(source, destination) {
+    originalRename.call(fs, source, destination);
+    if (!replaced) {
+      replaced = true;
+      fs.writeFileSync(destination, "/different-entry/\n", "utf8");
+    }
+  };
+  let result;
+  try { result = applyGitLocalExcludeCandidate(input(repositoryRoot)); }
+  finally { fs.renameSync = originalRename; }
+  assert.equal(result.status, "blocked");
+  assert.equal(result.gitMetadataWriteIssued, true);
+  assert.equal(result.gitMetadataWriteVerified, false);
+  assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
+  assert.equal(fs.readFileSync(exclude, "utf8"), "/different-entry/\n");
+});
+
+test("linked worktreeはcommon excludeだけを更新する", (t) => {
+  const repositoryRoot = linkedRepository(t);
+  const result = applyGitLocalExcludeCandidate(input(repositoryRoot));
+  assert.equal(result.status, "candidate");
+  const gitDirectory = fs.readFileSync(path.join(repositoryRoot, ".git"), "utf8")
+    .slice("gitdir: ".length).trim();
+  const commonDirectory = path.resolve(gitDirectory, "../..");
+  assert.equal(fs.readFileSync(path.join(commonDirectory, "info", "exclude"), "utf8"), "/.crdd-runtime/\n");
+  assert.equal(fs.existsSync(path.join(gitDirectory, "info", "exclude")), false);
 });

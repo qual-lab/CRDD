@@ -1,7 +1,11 @@
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
-import { inspectRepositoryGitLayoutCandidate } from "./repository-git-layout.mjs";
+import {
+  resolveRepositoryGitLayout,
+  summarizeRepositoryGitLayout,
+  writeRepositoryLocalExclude
+} from "./repository-git-layout-internal.mjs";
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   selectRuntimeRootCandidate
@@ -18,12 +22,13 @@ const INPUT_KEYS = new Set([
 ]);
 const EXPLICIT_ENABLE = "explicit_enable_request";
 
-function response(status, reason, plan = null) {
+function response(status, reason, plan = null, write = {}) {
   return Object.freeze({
     status,
     reason,
     plan,
-    gitMetadataWriteIssued: false,
+    gitMetadataWriteIssued: write.gitMetadataWriteIssued === true,
+    gitMetadataWriteVerified: write.gitMetadataWriteVerified === true,
     runtimeCapabilityIssued: false
   });
 }
@@ -80,11 +85,9 @@ export function compileGitLocalExcludeCandidate(rawInput) {
       }));
     }
 
-    const layoutCandidate = inspectRepositoryGitLayoutCandidate({ repositoryRoot: input.repositoryRoot });
-    if (layoutCandidate.status !== "candidate") {
-      return response("blocked", "repository_git_layout_candidate_required");
-    }
-    if (layoutCandidate.layout.kind === "linked_worktree" &&
+    const layout = resolveRepositoryGitLayout(input.repositoryRoot);
+    const layoutSummary = summarizeRepositoryGitLayout(layout);
+    if (layoutSummary.kind === "linked_worktree" &&
         location.relative !== DEFAULT_REPOSITORY_RUNTIME_DIRECTORY) {
       return response("blocked", "linked_worktree_repository_custom_root_rejected");
     }
@@ -104,7 +107,51 @@ export function compileGitLocalExcludeCandidate(rawInput) {
       trackedGitignoreModificationAllowed: false
     }));
   } catch {
-    return response("blocked", "git_local_exclude_input_invalid");
+    return response("blocked", "repository_git_layout_candidate_required");
+  }
+}
+
+export function applyGitLocalExcludeCandidate(rawInput) {
+  let writeIssued = false;
+  try {
+    const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
+    if (!input) return response("blocked", "git_local_exclude_input_invalid");
+    const rootCandidate = selectRuntimeRootCandidate(input);
+    if (rootCandidate.status !== "candidate" || input.activationIntent !== EXPLICIT_ENABLE) {
+      return response("blocked", "runtime_root_enable_candidate_required");
+    }
+    const location = repositoryRelativePath(input.repositoryRoot, selectedRoot(input));
+    if (location.kind === "repository_root") {
+      return response("blocked", "runtime_root_must_not_equal_repository_root");
+    }
+    if (location.kind === "outside") {
+      return response("candidate", "repository_external_root_needs_no_git_exclude", Object.freeze({
+        excludeRequired: false,
+        excludeEntry: null,
+        trackedGitignoreModificationAllowed: false
+      }), { gitMetadataWriteVerified: true });
+    }
+    const firstSegment = location.relative.split(path.sep)[0];
+    if (firstSegment.toLocaleLowerCase("en-US") === ".git") {
+      return response("blocked", "runtime_root_git_metadata_overlap");
+    }
+    const excludeEntry = exactExcludeEntry(location.relative);
+    if (excludeEntry === null) return response("blocked", "git_local_exclude_entry_invalid");
+    const layout = resolveRepositoryGitLayout(input.repositoryRoot);
+    if (layout.kind === "linked_worktree" && location.relative !== DEFAULT_REPOSITORY_RUNTIME_DIRECTORY) {
+      return response("blocked", "linked_worktree_repository_custom_root_rejected");
+    }
+    const result = writeRepositoryLocalExclude(layout, excludeEntry);
+    writeIssued = result.changed;
+    return response("candidate", "git_local_exclude_write_verified_candidate", Object.freeze({
+      excludeRequired: true,
+      excludeEntry,
+      trackedGitignoreModificationAllowed: false
+    }), { gitMetadataWriteIssued: result.changed, gitMetadataWriteVerified: result.verified });
+  } catch (error) {
+    writeIssued ||= error?.writeIssued === true;
+    return response("blocked", "git_local_exclude_update_blocked", null,
+      { gitMetadataWriteIssued: writeIssued, gitMetadataWriteVerified: false });
   }
 }
 
@@ -124,7 +171,10 @@ export function describeGitLocalExcludeContract() {
     linkedWorktreeDefaultRootAllowed: true,
     linkedWorktreeRepositoryContainedCustomRootAllowed: false,
     linkedWorktreeExternalOverrideAllowed: true,
-    metadataWriteIntegration: "not_implemented",
+    metadataWriteIntegration: "implemented_candidate",
+    metadataWriteActivationIntegration: "not_implemented",
+    maximumExcludeBytes: 131072,
+    existingGitInfoDirectoryRequired: true,
     runtimeCapabilityIssued: false
   });
 }

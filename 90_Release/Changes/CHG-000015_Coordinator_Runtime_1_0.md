@@ -323,3 +323,13 @@ local exclude Core候補は、Repository内Rootの場合に既存Filesystem解�
 固定Commit `b0856c99d45b43e995cb76d1e0b5b7ee938bcfe7`／Tree `3911b781c8170a802841657ed00c778d65133f0b`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_b0856c9.md`](Evidence/CHG-000015_Current_Review_Record_b0856c9.md)とし、`AG-LINKED-ROOT-001`、`DOC-LINKED-ROOT-001`および`GCI-ROOT-LINKED-001`は同固定範囲で`Resolved`と判定する。
 
 この解消はlinked worktree Root方針の候補判定に限定する。metadata書込み、activation、Capability、実Operation、Runtime完成、採用、準拠、移行、StableまたはReleaseを成立させない。追加の人間判断はなく、次段階の条件と停止境界は現在記録のCurrent Decision Setへ保持する。
+
+### 限定Repository parserとlocal exclude書込みAdapter候補
+
+実書込み前の着手前整合確認により、従来Threat Modelが要求した「Gitの最終解決結果との照合」を外部Git CLIで行う場合、実行ファイルの絶対Path、実体Identity、承認Hashおよび更新時再承認が別のTrust Anchor判断を必要とすることを確認した。Qual-Labは、Windows固有管理やOS別Git配置を増やさないため、Runtime 1.0では外部Git CLIをAuthorityとして起動せず、内蔵の限定Filesystem parserを正式なmetadata配置Authorityとする方針を承認した。短所として、Gitとして有効でも未知format、extension、設定includeまたは特殊worktree構成を保守的に拒否する。Git CLI方式への自動fallbackは設けない。この判断はmetadata配置方式を固定するもので、activation、Capability、実Operation、採用またはReleaseの承認ではない。
+
+限定parserは通常worktree、linked worktreeおよび対象自身がsubmodule等の`.git` file形式であるworktreeだけを対象とする。`.git`、`commondir`、`HEAD`およびcommon `config`を上限付き同一handleから読み、Path／handle／parent graphの実体Identityを前後照合する。`config`はRepository format version 0、非bare、`extensions`、`include`、`includeIf`および`core.worktree`なしだけを受理する。未知構文、重複Authority key、未対応format／extensionは`repository_git_config_unsupported`へ閉じる。結果へPathまたはconfig内容を保持しない。
+
+local exclude書込みAdapter候補は、Root選択、限定layout、linked worktree既定Root制約およびexact entryを同一呼出しで再検証する。Repository外overrideはGit metadataへ触れない。Repository内ではcommon Git directoryの既存`info` directoryだけを対象とし、tracked `.gitignore`、参照submodule、別Repositoryまたは複数Repositoryへ処置を広げない。既存`exclude`は131072 byte上限、non-linkおよびIdentity前後一致を要求する。完全一致entryがなければ固定lockを排他的に作成し、既存内容を保持して同期後に置換し、再読取りbyte一致とexact entryを確認する。既存lock、link、上限超過、Identity変化、同時更新、short write、close失敗、置換または事後確認失敗はPath／生内容なしの`blocked`へ閉じ、未知lockを推測削除しない。
+
+本処置は限定parserとmetadata書込みCore候補までである。同一権限Host主体による検査直後の敵対的置換、case／Unicode alias、parent chain、owner／ACL、crash durability、CLI／環境override接続、activation、Candidate Revision／Operation／Provider除外の実強制、Capabilityまたは実Operationを成立させない。既存Git `info` directoryがない場合は推測作成せず`blocked`とする。`doctor`は限定parser／metadata書込み候補とactivation結合未実装を分離し、全体Gateを`blocked`に保つ。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にAdapter完成、activation成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。

@@ -73,6 +73,23 @@ test("Git directoryのHEADまたは共通configが欠落する候補を拒否す
   assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "blocked");
 });
 
+test("限定Repository formatだけをAuthority候補として受理する", (t) => {
+  const repositoryRoot = temporaryRoot(t);
+  const gitDirectory = path.join(repositoryRoot, ".git");
+  makeGitDirectory(gitDirectory);
+  const config = path.join(gitDirectory, "config");
+  fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 1\n[extensions]\n\tworktreeConfig = true\n", "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason, "repository_git_config_unsupported");
+  fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 0\n\tworktree = ../other\n", "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason, "repository_git_config_unsupported");
+  fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 0\n[include]\n\tpath = ../shared\n", "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason, "repository_git_config_unsupported");
+  fs.writeFileSync(config, "[core \"not-the-core-section\"]\n\trepositoryformatversion = 0\n", "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason, "repository_git_config_unsupported");
+  fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 0\n\tbare = false\n\tignorecase = true\n", "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status, "candidate");
+});
+
 test("control fileは上限ちょうどを受理し上限+1を拒否する", (t) => {
   const repositoryRoot = temporaryRoot(t);
   makeGitDirectory(path.join(repositoryRoot, ".git"));
@@ -181,7 +198,10 @@ test("Repository形態contractは参照Repository非変更と未実装境界を�
   assert.equal(contract.referencedRepositoriesModified, false);
   assert.equal(contract.multiRepositoryWriteOperationSupported, false);
   assert.equal(contract.filesystemResolutionCore, "implemented_candidate");
-  assert.equal(contract.repositoryIdentityVerification, "not_implemented");
-  assert.equal(contract.metadataWriteIntegration, "not_implemented");
+  assert.equal(contract.supportedRepositoryFormat, "version_0_without_extensions_or_includes");
+  assert.equal(contract.gitCliAuthorityRequired, false);
+  assert.equal(contract.repositoryIdentityVerification, "implemented_narrow_parser_candidate");
+  assert.equal(contract.metadataWriteIntegration, "implemented_candidate");
+  assert.equal(contract.metadataWriteActivationIntegration, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

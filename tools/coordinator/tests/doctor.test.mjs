@@ -304,8 +304,11 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.repositoryGitLayout.referencedRepositoriesModified, false);
   assert.equal(report.repositoryGitLayout.multiRepositoryWriteOperationSupported, false);
   assert.equal(report.repositoryGitLayout.filesystemResolutionCore, "implemented_candidate");
-  assert.equal(report.repositoryGitLayout.repositoryIdentityVerification, "not_implemented");
-  assert.equal(report.repositoryGitLayout.metadataWriteIntegration, "not_implemented");
+  assert.equal(report.repositoryGitLayout.supportedRepositoryFormat, "version_0_without_extensions_or_includes");
+  assert.equal(report.repositoryGitLayout.gitCliAuthorityRequired, false);
+  assert.equal(report.repositoryGitLayout.repositoryIdentityVerification, "implemented_narrow_parser_candidate");
+  assert.equal(report.repositoryGitLayout.metadataWriteIntegration, "implemented_candidate");
+  assert.equal(report.repositoryGitLayout.metadataWriteActivationIntegration, "not_implemented");
   assert.equal(report.repositoryGitLayout.runtimeCapabilityIssued, false);
   assert.equal(report.gitLocalExclude.repositoryContainedRootBackend, ".git/info/exclude");
   assert.equal(report.gitLocalExclude.repositoryExternalRootRequiresExclude, false);
@@ -319,7 +322,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.gitLocalExclude.linkedWorktreeDefaultRootAllowed, true);
   assert.equal(report.gitLocalExclude.linkedWorktreeRepositoryContainedCustomRootAllowed, false);
   assert.equal(report.gitLocalExclude.linkedWorktreeExternalOverrideAllowed, true);
-  assert.equal(report.gitLocalExclude.metadataWriteIntegration, "not_implemented");
+  assert.equal(report.gitLocalExclude.metadataWriteIntegration, "implemented_candidate");
+  assert.equal(report.gitLocalExclude.metadataWriteActivationIntegration, "not_implemented");
+  assert.equal(report.gitLocalExclude.maximumExcludeBytes, 131072);
+  assert.equal(report.gitLocalExclude.existingGitInfoDirectoryRequired, true);
   assert.equal(report.gitLocalExclude.runtimeCapabilityIssued, false);
   assert.equal(report.egress.isolationProfileContract.validationState, "candidate");
   assert.equal(report.egress.isolationProfileContract.authorityVerification, "not_implemented");
