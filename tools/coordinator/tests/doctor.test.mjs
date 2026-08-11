@@ -279,10 +279,18 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.checks.some((item) => item.id.endsWith(".active_probe") && item.status === "not_implemented"), true);
   assert.equal(report.runtimeRoot.defaultRepositoryDirectory, ".crdd-runtime");
   assert.equal(report.runtimeRoot.featureDefault, "disabled");
+  assert.equal(report.runtimeRoot.cliOverrideIntegration, "not_implemented");
+  assert.equal(report.runtimeRoot.environmentOverrideIntegration, "not_implemented");
   assert.equal(report.runtimeRoot.explicitEnableRequired, true);
   assert.equal(report.runtimeRoot.directoryExistenceActivates, false);
   assert.equal(report.runtimeRoot.gitIgnoreIsSecurityBoundary, false);
+  assert.equal(report.runtimeRoot.candidateRevisionIncludesRuntimeRoot, false);
+  assert.equal(report.runtimeRoot.operationInputIncludesRuntimeRoot, false);
   assert.equal(report.runtimeRoot.providerMountAllowed, false);
+  assert.equal(report.runtimeRoot.disableSemantics, "stop_new_operations");
+  assert.equal(report.runtimeRoot.disableImplementation, "not_implemented");
+  assert.equal(report.runtimeRoot.disableDeletesStoredData, false);
+  assert.equal(report.runtimeRoot.runtimeDataDeletion, "not_implemented");
   assert.equal(report.runtimeRoot.runtimePathAdapter, "not_implemented");
   assert.equal(report.runtimeRoot.activationRecordPersistence, "not_implemented");
   assert.equal(report.runtimeRoot.runtimeCapabilityIssued, false);

@@ -277,3 +277,7 @@ Qual-Labは、Windows固有のmachine-wide rootをRuntime 1.0のArchitectureへ�
 機能は既定で無効とする。Directoryの存在、override、ignored状態またはRepository内設定だけでは有効化せず、明示的なenable要求とRuntime所有activation記録を要求する。`disable`は新規Operation停止とし、データ削除は別の明示操作へ分離する。`.crdd-runtime/**`はGitの追跡状態に関係なくCandidate Revision、Operation入力およびProvider mountへ含めない。ignoreは誤commit防止の補助であり、安全性の主根拠にしない。
 
 Root選択Core候補はabsolute Pathの構文、CLI／環境／既定の優先順および明示enable intentだけを検査し、絶対PathをdoctorやEvidenceへ保持しない。accessor、Proxy、相対Path、NUL、過大Pathまたは未知activationを固定理由の`blocked`へ閉じる。CoreはFilesystemへ触れず、Root作成、tracked／exclude状態、realpath／link、Provider非到達、所有主体／権限、同時所有、activation記録またはCapabilityを成立させない。`doctor`は既定無効、明示enable必須およびPath Adapter／activation記録未実装を表示し、全体Gateを`blocked`に保つ。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にRuntime Root実装完了、機能有効、Authority成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。
+
+固定`17603adcbfc06eaccbde0cdbce05acf8d8f13750`／Tree`b453b759ed04692693e221bd69ac041533ac0797`に対するAgent／Architecture／Security Reviewは`Pass`、Gap／Impact＋Conformance Auditは`Pass`、Document Auditは`Fail`であった。Document Auditは`DOC-ROOT-001`として、CLI／環境接続未実装、Operation入力除外、無効化と削除の分離および双方の未実装がCore説明契約と`doctor`試験へ完全に伝播していないことを検出した。この監査集合全体は`Invalidated`であり、各Passを現在判定へ流用しない。Findingは今回変更で新たに発生した伝播漏れとして記録する。
+
+局所処置として、説明契約へCLI／環境接続未実装、Operation入力除外、無効化の意味と未実装、無効化による非削除、明示データ削除未実装を追加し、Core試験と`doctor`試験で全項目を固定した。Threat ModelもOperation入力除外および無効化／削除分離を、Path／Operation統合、無効化、削除が未実装である境界とともに保持する。本処置は`Applied`／`Self-checked`であり、新しいCommit／Treeに対する機械確認と3独立再確認前に`Resolved`としない。

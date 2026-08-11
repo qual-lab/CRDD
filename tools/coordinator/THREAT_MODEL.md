@@ -117,7 +117,9 @@ Runtime 1.0で正式に扱うAuthority取得方式はRuntime管理領域内の�
 
 Runtime Rootの既定候補はRepository直下の`.crdd-runtime`、明示overrideの指定契約と優先順はCLI、環境、Repository既定とする。選択は絶対Pathの構文候補だけを扱い、絶対Path自体をdoctor／Evidenceへ出力しない。OS別の暗黙rootを設けず、serverでは同じ契約へ永続Volumeの絶対Pathを指定できる。現在のCLIおよび環境読取りはこのCoreへ未接続である。Directoryの存在、`--runtime-root`、環境変数、ignored状態またはRepository内ファイルをactivationの根拠にしない。明示enable要求も候補にすぎず、Runtime所有activation記録の原子的永続化と再検証が成立するまでCapabilityを発行しない。
 
-`.crdd-runtime`はCandidate Revision、Repository Snapshot、Provider mountおよびProvider可視Pathの母集団から常に除外する。`.gitignore`または`.git/info/exclude`は誤commit防止の補助であり、強制境界にしない。既存のtracked entry、symlink／junction、Provider mountとの包含関係、Repository Identity差または別Runtimeによる同時所有はfail closedにしなければならない。現在のRoot選択CoreはFilesystemへ触れず、Root作成、exclude更新、Path保護、activation記録、disableおよび削除を実行しない。
+`.crdd-runtime`はCandidate Revision、Repository Snapshot、Operation入力、Provider mountおよびProvider可視Pathの母集団から常に除外する。`.gitignore`または`.git/info/exclude`は誤commit防止の補助であり、強制境界にしない。既存のtracked entry、symlink／junction、Provider mountとの包含関係、Repository Identity差または別Runtimeによる同時所有はfail closedにしなければならない。現在のRoot選択CoreはFilesystemへ触れず、Root作成、exclude更新、Path／Operation統合による除外強制、Path保護またはactivation記録を実行しない。
+
+無効化は新規Operationの開始を止める意味とし、保存済みRuntimeデータを削除しない。データ削除は別の明示操作である。無効化処理とデータ削除処理はいずれも現在未実装であり、Root選択Coreの契約値を実行可能な操作または削除Authorityとして扱わない。
 
 実Path Adapterは、選択済みRootと3ファイル名、root／親／各fileのrealpath containment、non-link／non-reparse、所有主体と権限、作成時・読取り時の実体Identity、取得量、同一Bundle snapshot、原子的置換および旧版からの単調なrevision／Hash chainをProvider起動直前に確認しなければならない。Windows DACL、POSIX owner／modeまたはserver volume policyはPlatform Adapterの実装差であり、Protocolは同じ保護結果を要求する。現在はこのPath／権限／activation境界が未実装であり、File Bundle Core候補、caller supplied Pathまたは一致HashだけではAuthority Capabilityを発行しない。
 
