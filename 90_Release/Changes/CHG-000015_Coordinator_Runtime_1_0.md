@@ -391,3 +391,13 @@ CLI grammar、CLI／環境優先順、非opt-in、既存／欠落／外部Root�
 固定Commit `c4af67a2c070985c0511e68539239afe5d54abd4`／Tree `a00269b14f7d7bbfd838df28d744c688c91f6158`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_c4af67a.md`](Evidence/CHG-000015_Current_Review_Record_c4af67a.md)とする。`AG-ROOT-CLI-001`、`DOC-ROOT-CLI-001`および`GCI-ROOT-INTEGRATION-001`はネスト入力snapshotと初回Root Identityへのlocal exclude適用Run結合の固定範囲で`Resolved`と判定する。
 
 この解消はowner／ACL、全parent chain、特殊Filesystem、activation、Authority File Bundleの実Path Adapter、Candidate Revision／Operation／Provider除外の実強制、Capabilityまたは実Operationを成立させない。旧`8b3931a`以前の結果は履歴としてのみ保持し、現在判定へ流用しない。次段階と人間判断の再開条件は現在記録のCurrent Decision Setへ保持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### 永続activationと共有Authority Rootの決定
+
+Qual-Labは、Runtime 1.0のactivationをRepository単位の永続状態とし、診断用`doctor --enable-runtime`とは別の専用`activate`操作で実行する方針を承認した。Runtime Rootは従来どおり既定`<repository>/.crdd-runtime/`または明示overrideを使用し、Authority BundleはRepository内Runtime Rootから物理的に分離した共有可能なAuthority Rootへ置く。Authority RootにはWindows／macOS／Linux固有の暗黙既定値を設けず、CLIまたは環境から絶対Pathを明示する。同じ契約をserver volumeにも使用する。
+
+Runtime Root内の固定`activation.json`候補は、Repository／Root Identity、Bundle／Policy／RegistryのID、revisionおよびHash、activation revision／前版Hash、状態とcanonical UTC時刻を結合する。Bundle Identityが変わった場合は古いactivationを自動追随させず、再activationを要求する。`disable`は新規Operationを停止し、進行中Operationを安全なcancel／recovery契約へ渡す永続遷移とする。保存データを削除せず、deleteは別の明示的な不可逆操作として今回実装しない。
+
+Authority RootはRuntime主体だけが書込み可能でProviderから到達不能という共通保護結果を要求し、Windows DACL、POSIX owner／modeおよびserver volume policyはPlatform Adapterの実装差とする。安定Identity、owner／ACLまたはFilesystem特性を確認できない場合は`blocked`へ閉じる。Root作成はPlatform Adapterが安全な権限を強制できる場合に限り、外部事前Provisionも同じ結果を検証する。OS名だけで成立を推定しない。
+
+最初の処置として、OS暗黙値を持たないAuthority Root選択Core候補と、activation recordのcanonical byte／Hash Core候補を追加する。選択結果へ絶対Pathを保持せず、recordはCredential、生PathまたはAuthorityを保持しない。原子的書込み、Path／owner／ACL照合、専用CLI Effect、disable遷移、Candidate Revision／Operation／Provider除外の実強制、run-scoped CapabilityおよびProvider起動は未実装である。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前に`Resolved`、activation成立、Runtime完成、採用、準拠、移行、StableまたはReleaseとして扱わない。

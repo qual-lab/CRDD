@@ -21,7 +21,9 @@ import { describeAuthorityGrantVerifierContract } from "../security/authority-gr
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
+import { describeAuthorityRootContract } from "../security/authority-root-profile.mjs";
 import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.mjs";
+import { describeRuntimeActivationContract } from "../security/runtime-activation-record.mjs";
 import {
   describeRuntimeRootPathIdentityContract,
   inspectRuntimeRootPathIdentityCandidate
@@ -349,6 +351,7 @@ export function runDoctor(options = {}) {
       },
       runtimeRoot: describeRuntimeRootContract(),
       runtimeRootPathIdentity: describeRuntimeRootPathIdentityContract(),
+      runtimeActivation: describeRuntimeActivationContract(),
       runtimeRootEvaluation,
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
       gitLocalExclude: describeGitLocalExcludeContract(),
@@ -359,6 +362,7 @@ export function runDoctor(options = {}) {
         authorityVerifier: describeAuthorityGrantVerifierContract(),
         authorityTrustLoader: describeAuthorityTrustLoaderContract(),
         authorityFileBundle: describeAuthorityFileBundleContract(),
+        authorityRoot: describeAuthorityRootContract(),
         authorityPrelaunchVerifier: describeAuthorityPrelaunchVerifierContract(),
         proxyTopology: describeEgressProxyTopology(),
         activation: "blocked",

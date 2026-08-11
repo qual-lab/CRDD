@@ -294,6 +294,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRoot.runtimeDataDeletion, "not_implemented");
   assert.equal(report.runtimeRoot.runtimePathAdapter, "not_implemented");
   assert.equal(report.runtimeRoot.runtimePathObjectIdentityCore, "implemented_candidate");
+  assert.equal(report.runtimeRoot.activationRecordCore, "implemented_candidate");
   assert.equal(report.runtimeRoot.activationRecordPersistence, "not_implemented");
   assert.equal(report.runtimeRoot.runtimeCapabilityIssued, false);
   assert.equal(report.runtimeRootPathIdentity.existingRootRequired, true);
@@ -305,6 +306,12 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "implemented_candidate_initial_snapshot_binding");
   assert.equal(report.runtimeRootPathIdentity.activationIntegration, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.runtimeCapabilityIssued, false);
+  assert.equal(report.runtimeActivation.persistence, "repository_scoped_persistent");
+  assert.equal(report.runtimeActivation.activationCommand, "dedicated_activate_required");
+  assert.equal(report.runtimeActivation.doctorEnableIsActivation, false);
+  assert.equal(report.runtimeActivation.bundleIdentityChangeRequiresReactivation, true);
+  assert.equal(report.runtimeActivation.atomicPersistence, "not_implemented");
+  assert.equal(report.runtimeActivation.runtimeCapabilityIssued, false);
   assert.equal(report.runtimeRootEvaluation.status, "blocked");
   assert.equal(report.runtimeRootEvaluation.reason, "runtime_feature_not_enabled");
   assert.equal(report.checks.some((item) => item.id === "runtime.root" && item.status === "blocked"), true);
@@ -361,6 +368,12 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.egress.authorityFileBundle.monotonicActivation, "not_implemented");
   assert.equal(report.egress.authorityFileBundle.runtimeCapabilityIssued, false);
   assert.equal(report.egress.authorityFileBundle.ipcOrNetworkTransportSupported, false);
+  assert.equal(report.egress.authorityRoot.defaultPath, null);
+  assert.equal(report.egress.authorityRoot.osImplicitDefaultAllowed, false);
+  assert.equal(report.egress.authorityRoot.sharedAcrossRepositories, true);
+  assert.equal(report.egress.authorityRoot.runtimeRootMayContainAuthorityBundle, false);
+  assert.equal(report.egress.authorityRoot.runtimePathAdapter, "not_implemented");
+  assert.equal(report.egress.authorityRoot.runtimeCapabilityIssued, false);
   assert.equal(report.egress.authorityPrelaunchVerifier.runtimeClockRead, "implemented_candidate");
   assert.equal(report.egress.authorityPrelaunchVerifier.prelaunchReverificationCore, "implemented_candidate");
   assert.equal(report.egress.authorityPrelaunchVerifier.providerLaunchIntegration, "not_implemented");
