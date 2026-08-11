@@ -387,3 +387,7 @@ CLI grammar、CLI／環境優先順、非opt-in、既存／欠落／外部Root�
 `GCI-ROOT-INTEGRATION-001`への処置として、local exclude専用のPath Identity統合処置を追加する。一回の適用Runで最初に確認したRepository、選択Root、直近parent、lexical／realpath包含分類、選択元および位置分類を固定し、Git layout確認後、書込み直前、書込み後、または外部overrideの完了直前を必ず同じ初回snapshotへ照合する。別の正常directoryへの同名置換を新しい基準として採用しない。書込み前の不一致はmetadataを書かず、書込み後の不一致は`gitMetadataWriteIssued`の実績を保持して`blocked`とし、暗黙rollbackしない。汎用callback、Identity descriptor、tokenまたはCapabilityを公開しない。
 
 ネスト入力、Repository／parent／Rootの書込み前後置換、外部override、Path／Identity非出力および既存回帰を局所試験へ追加する。この処置は`Applied`／`Self-checked`であり、新固定版の全体Checkerと同じ3独立確認が完了するまで各Findingを`Resolved`としない。同一権限Hostによる各Filesystem呼出し間の最終race、owner／ACL、全parent chain、特殊Filesystem、activation、Candidate Revision／Operation／Provider除外の実強制、Capabilityまたは実Operationは未実装のままであり、全体Gate、採用、準拠、移行、StableおよびReleaseは`blocked`を維持する。
+
+固定Commit `c4af67a2c070985c0511e68539239afe5d54abd4`／Tree `a00269b14f7d7bbfd838df28d744c688c91f6158`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_c4af67a.md`](Evidence/CHG-000015_Current_Review_Record_c4af67a.md)とする。`AG-ROOT-CLI-001`、`DOC-ROOT-CLI-001`および`GCI-ROOT-INTEGRATION-001`はネスト入力snapshotと初回Root Identityへのlocal exclude適用Run結合の固定範囲で`Resolved`と判定する。
+
+この解消はowner／ACL、全parent chain、特殊Filesystem、activation、Authority File Bundleの実Path Adapter、Candidate Revision／Operation／Provider除外の実強制、Capabilityまたは実Operationを成立させない。旧`8b3931a`以前の結果は履歴としてのみ保持し、現在判定へ流用しない。次段階と人間判断の再開条件は現在記録のCurrent Decision Setへ保持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
