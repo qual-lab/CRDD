@@ -320,7 +320,8 @@ export function describeAuthorityGrantVerifierContract() {
     coreValidation: "implemented_candidate",
     canonicalRegistryByteLoader: "implemented_candidate",
     runtimeTrustPolicyActivation: "not_implemented",
-    prelaunchReverification: "not_implemented",
+    prelaunchReverificationCore: "implemented_candidate",
+    providerLaunchIntegration: "not_implemented",
     runtimeCapabilityIssued: false,
     selfAssertedRegistryAcceptedAsAuthority: false
   });

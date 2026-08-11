@@ -247,3 +247,9 @@ Authority Registryの信頼入口を次段へ進めるため、上限付きcanon
 本Coreへcallerが渡したPolicyは、Runtime所有Policyの導入、所有権、取消、有効化またはAuthorityを成立させない。結果は`candidate`、Capability未発行とし、実ファイル／Transport Adapter、Policyの配布・取消、Runtime所有時計による起動直前再確認、Proxy、Brokerおよび実Providerが未実装の間は全体Gateを`blocked`に保つ。doctorはcanonical byte loader Core候補とRuntime Trust Policy未有効化を別々に表示する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にTrust Anchor Loader完成、Authority成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。
 
 固定版Commit `5d1d3373f21041aad0a5eddf0c31af69b396770e`、Tree `69a5d95ff18fd730a5fdb33242144d359cdba578`への3独立確認はすべて`Pass`、Finding 0で完了した。固定結果は[`CHG-000015_Current_Review_Record_5d1d337.md`](Evidence/CHG-000015_Current_Review_Record_5d1d337.md)へ記録する。Parse前budget、Runtime所有copy、canonical Registry byte境界、Trust Policy候補照合およびcaller Policy非Authority境界はTrust Anchor Loader Core候補と直接利用側の固定範囲で独立確認済みである。一方、Runtime所有Trust Policyの永続正本、取得／所有／配布／取消／有効化、file／IPC／Transport Adapter、起動直前再確認およびAuthority Capabilityは未実装で、全体Gateは`blocked`を維持する。本結果をRuntime完成、利用許可、採用、準拠、移行、Stable、Releaseまたは公開へ流用しない。
+
+### 起動直前Authority再確認Core候補
+
+Trust Policyの具体的な正本・配布方式を自己決定せずに進められる次段として、Runtimeプロセス時計を用いる起動直前再確認Core候補を追加する。呼出側ContextはOperation IDとScope IDだけを持ち、時刻field、accessor、Proxyまたは余分fieldを受理しない。Coreは同一呼出し内でcanonical Registry byte、Trust Policy候補、Profile、Grant、Operation、Scope、有効期間およびIdentityを再検証し、Trust Policy ID／revision／Hash、Registry Identity、Grant revision、Profile Hash、確認時刻および有効期限を固定した候補を返す。失効、未発効、取消・置換、Trust Policy不一致またはRegistry Identity差は`blocked`へ閉じる。
+
+この候補はAuthority Capabilityではなく、Provider起動へ再利用可能な許可でもない。Runtime所有Trust Policyの永続正本、取得／所有／配布／取消／有効化、file／IPC／Transport Adapter、Provider起動直前の同一制御経路への結合、ProxyおよびCredential Brokerは未実装のままとする。`doctor`は再確認Core候補とProvider起動結合未実装を分けて表示し、全体Gateを`blocked`に保つ。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前に起動直前再確認完成、Authority成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。

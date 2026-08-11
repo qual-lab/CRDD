@@ -89,7 +89,8 @@ test("Core候補はAuthority Capabilityを発行しない", () => {
   assert.equal(contract.coreValidation, "implemented_candidate");
   assert.equal(contract.canonicalRegistryByteLoader, "implemented_candidate");
   assert.equal(contract.runtimeTrustPolicyActivation, "not_implemented");
-  assert.equal(contract.prelaunchReverification, "not_implemented");
+  assert.equal(contract.prelaunchReverificationCore, "implemented_candidate");
+  assert.equal(contract.providerLaunchIntegration, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
 });
 

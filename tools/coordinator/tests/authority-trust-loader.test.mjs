@@ -156,7 +156,8 @@ test("Loader Core候補はcaller PolicyをAuthority Capabilityへ昇格しない
   assert.equal(contract.canonicalRegistryByteLoader, "implemented_candidate");
   assert.equal(contract.runtimeTrustPolicyOwnership, "not_implemented");
   assert.equal(contract.runtimeTrustPolicyActivation, "not_implemented");
-  assert.equal(contract.prelaunchReverification, "not_implemented");
+  assert.equal(contract.prelaunchReverificationCore, "implemented_candidate");
+  assert.equal(contract.providerLaunchIntegration, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
   assert.equal(contract.callerSuppliedPolicyAcceptedAsAuthority, false);
 });

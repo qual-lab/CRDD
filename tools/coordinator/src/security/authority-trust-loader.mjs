@@ -106,7 +106,8 @@ export function describeAuthorityTrustLoaderContract() {
     canonicalRegistryByteLoader: "implemented_candidate",
     runtimeTrustPolicyOwnership: "not_implemented",
     runtimeTrustPolicyActivation: "not_implemented",
-    prelaunchReverification: "not_implemented",
+    prelaunchReverificationCore: "implemented_candidate",
+    providerLaunchIntegration: "not_implemented",
     runtimeCapabilityIssued: false,
     callerSuppliedPolicyAcceptedAsAuthority: false
   });
