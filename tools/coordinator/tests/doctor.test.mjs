@@ -331,6 +331,12 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   ]);
   assert.equal(report.runtimeActivation.authorityRootPathReuseTarget,
     "explicit_path_resolved_from_verified_provisioning_record_target");
+  assert.equal(report.runtimeActivation.provisioningRecordRole,
+    "future_verified_platform_setup_record_target");
+  assert.equal(report.runtimeActivation.provisionReceiptRelationship, "undecided");
+  assert.equal(report.runtimeActivation.platformProvisionerManifestRelationship, "undecided");
+  assert.equal(report.runtimeActivation.authorityFileBundleManifestRelationship,
+    "separate_existing_artifact");
   assert.equal(report.runtimeActivation.authorityRootCurrentSelectionContract,
     "cli_then_environment_explicit_path_until_verified_record_resolver_implemented");
   assert.equal(report.runtimeActivation.runRevalidationRequired, true);
@@ -342,8 +348,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
     "repository_runtime_root_identity_protection_and_selected_principal_binding",
     "persistent_active_activation_record_identity_and_repository_binding",
-    "helper_signature_trust_principal_root_and_protection_metadata_unchanged",
-    "all_onboarding_implementation_dependencies_satisfied"
+    "helper_signature_trust_principal_root_and_protection_metadata_unchanged"
   ]);
   assert.equal(report.runtimeActivation.onboardingReadyTransition, "not_implemented");
   assert.equal(report.runtimeActivation.onboardingReadinessProjection,
