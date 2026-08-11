@@ -24,11 +24,14 @@ function validAbsolutePath(value) {
 
 function parsePathCommandArguments(rawArguments, options) {
   const snapshot = snapshotPlainArray(rawArguments, MAXIMUM_ARGUMENTS);
-  if (snapshot.status !== "ok" || snapshot.value.some((value) => !validToken(value))) {
+  if (snapshot.status !== "ok") {
     return commandResponse("blocked", `${options.command}_arguments_invalid`, null, false, true);
   }
   const argumentsList = snapshot.value;
   const jsonRequested = argumentsList.includes("--json");
+  if (argumentsList.some((value) => !validToken(value))) {
+    return commandResponse("blocked", `${options.command}_arguments_invalid`, null, jsonRequested, true);
+  }
   const allowed = new Set(["--json", "--runtime-root", ...(options.allowAuthorityRoot ? ["--authority-root"] : [])]);
   const seen = new Set();
   let json = false;
@@ -54,7 +57,7 @@ function parsePathCommandArguments(rawArguments, options) {
     else authorityCliOverride = value;
   }
 
-  const runtimeEnvironmentOverride = options.runtimeEnvironmentRoot === undefined
+  const runtimeEnvironmentOverride = runtimeCliOverride !== null || options.runtimeEnvironmentRoot === undefined
     ? null
     : options.runtimeEnvironmentRoot;
   if (runtimeEnvironmentOverride !== null && !validAbsolutePath(runtimeEnvironmentOverride)) {
@@ -62,7 +65,7 @@ function parsePathCommandArguments(rawArguments, options) {
   }
   let authorityEnvironmentOverride = null;
   if (options.allowAuthorityRoot) {
-    authorityEnvironmentOverride = options.authorityEnvironmentRoot === undefined
+    authorityEnvironmentOverride = authorityCliOverride !== null || options.authorityEnvironmentRoot === undefined
       ? null
       : options.authorityEnvironmentRoot;
     if (authorityEnvironmentOverride !== null && !validAbsolutePath(authorityEnvironmentOverride)) {

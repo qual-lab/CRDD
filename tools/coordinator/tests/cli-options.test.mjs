@@ -139,9 +139,9 @@ test("activateはRuntime RootとAuthority RootをCLI優先で正規化する", (
   ], envRuntime, envAuthority);
   assert.equal(parsed.status, "ok");
   assert.equal(parsed.value.runtimeRootRequest.cliOverride, cliRuntime);
-  assert.equal(parsed.value.runtimeRootRequest.environmentOverride, envRuntime);
+  assert.equal(parsed.value.runtimeRootRequest.environmentOverride, null);
   assert.equal(parsed.value.authorityRootRequest.cliOverride, cliAuthority);
-  assert.equal(parsed.value.authorityRootRequest.environmentOverride, envAuthority);
+  assert.equal(parsed.value.authorityRootRequest.environmentOverride, null);
   assert.equal(parsed.value.authorityRootRequest.activationIntent, "explicit_activate_request");
 });
 
@@ -197,13 +197,37 @@ test("disableはRuntime RootのCLI、環境、Repository既定候補を分離す
   const cli = parseDisableArguments(["--runtime-root", cliRoot], envRoot);
   assert.equal(cli.status, "ok");
   assert.equal(cli.value.runtimeRootRequest.cliOverride, cliRoot);
-  assert.equal(cli.value.runtimeRootRequest.environmentOverride, envRoot);
+  assert.equal(cli.value.runtimeRootRequest.environmentOverride, null);
   assert.equal(cli.value.authorityRootRequest, null);
 
   const fallback = parseDisableArguments([], undefined);
   assert.equal(fallback.status, "ok");
   assert.equal(fallback.value.runtimeRootRequest.cliOverride, null);
   assert.equal(fallback.value.runtimeRootRequest.environmentOverride, null);
+});
+
+test("CLI overrideは同じRoot軸の不正環境値だけを選択対象外にする", () => {
+  const runtimeRoot = path.resolve("runtime");
+  const authorityRoot = path.resolve("authority");
+
+  const bothCli = parseActivateArguments([
+    "--runtime-root", runtimeRoot,
+    "--authority-root", authorityRoot
+  ], "invalid-runtime", "invalid-authority");
+  assert.equal(bothCli.status, "ok");
+  assert.equal(bothCli.value.runtimeRootRequest.environmentOverride, null);
+  assert.equal(bothCli.value.authorityRootRequest.environmentOverride, null);
+
+  assert.equal(parseActivateArguments([
+    "--runtime-root", runtimeRoot
+  ], "invalid-runtime", "invalid-authority").reason, "authority_root_environment_invalid");
+  assert.equal(parseActivateArguments([
+    "--authority-root", authorityRoot
+  ], "invalid-runtime", "invalid-authority").reason, "runtime_root_environment_invalid");
+
+  const disable = parseDisableArguments(["--runtime-root", runtimeRoot], "invalid-runtime");
+  assert.equal(disable.status, "ok");
+  assert.equal(disable.value.runtimeRootRequest.environmentOverride, null);
 });
 
 test("実activateとdisableはPathを表示せずEffect未実装でblockedにする", () => {
@@ -273,4 +297,62 @@ test("実activateは選択不成立をexit 2、CLI誤用をexit 64で返す", ()
   assert.equal(invalid.status, 64);
   assert.equal(JSON.parse(invalid.stdout).reason, "disable_arguments_invalid");
   assert.equal(invalid.stdout.includes("secret-authority"), false);
+});
+
+test("実CLIはshadowed環境値を無視し選択対象の不正環境値だけをblockedにする", () => {
+  const executable = COORDINATOR_EXECUTABLE;
+  const runtimeRoot = path.resolve("runtime-cli");
+  const authorityRoot = path.resolve("authority-cli");
+  const invalidEnvironment = {
+    ...process.env,
+    CRDD_COORDINATOR_ROOT: "invalid-runtime",
+    CRDD_COORDINATOR_AUTHORITY_ROOT: "invalid-authority"
+  };
+  const activate = spawnSync(process.execPath, [
+    executable, "activate",
+    "--runtime-root", runtimeRoot,
+    "--authority-root", authorityRoot,
+    "--json"
+  ], { env: invalidEnvironment, encoding: "utf8", windowsHide: true });
+  assert.equal(activate.status, 2);
+  assert.equal(JSON.parse(activate.stdout).reason, "runtime_activation_effect_not_implemented");
+
+  const disable = spawnSync(process.execPath, [
+    executable, "disable", "--runtime-root", runtimeRoot, "--json"
+  ], { env: invalidEnvironment, encoding: "utf8", windowsHide: true });
+  assert.equal(disable.status, 2);
+  assert.equal(JSON.parse(disable.stdout).reason, "runtime_disable_effect_not_implemented");
+
+  const badAuthority = spawnSync(process.execPath, [
+    executable, "activate", "--runtime-root", runtimeRoot, "--json"
+  ], { env: invalidEnvironment, encoding: "utf8", windowsHide: true });
+  assert.equal(badAuthority.status, 2);
+  assert.equal(JSON.parse(badAuthority.stdout).reason, "authority_root_environment_invalid");
+
+  const badRuntime = spawnSync(process.execPath, [
+    executable, "activate", "--authority-root", authorityRoot, "--json"
+  ], { env: invalidEnvironment, encoding: "utf8", windowsHide: true });
+  assert.equal(badRuntime.status, 2);
+  assert.equal(JSON.parse(badRuntime.stdout).reason, "runtime_root_environment_invalid");
+});
+
+test("安全にsnapshotできた不正tokenでもJSON要求と非漏洩を維持する", () => {
+  const executable = COORDINATOR_EXECUTABLE;
+  const invalidValues = ["line\nbreak", `del${String.fromCharCode(0x7f)}value`, "x".repeat(4_097)];
+  for (const command of ["activate", "disable"]) {
+    for (const value of invalidValues) {
+      const result = spawnSync(process.execPath, [
+        executable, command, "--json", "--runtime-root", value
+      ], { encoding: "utf8", windowsHide: true });
+      assert.equal(result.status, 64);
+      assert.equal(JSON.parse(result.stdout).reason, `${command}_arguments_invalid`);
+      assert.equal(result.stdout.includes(value), false);
+    }
+  }
+  const nonJson = spawnSync(process.execPath, [
+    executable, "disable", "--runtime-root", "line\nbreak"
+  ], { encoding: "utf8", windowsHide: true });
+  assert.equal(nonJson.status, 64);
+  assert.equal(nonJson.stdout.startsWith("Coordinator disable: blocked"), true);
+  assert.equal(nonJson.stdout.includes("line\nbreak"), false);
 });

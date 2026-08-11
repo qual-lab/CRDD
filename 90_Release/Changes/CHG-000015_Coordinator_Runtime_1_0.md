@@ -423,3 +423,13 @@ Evidence Commit `01b1c2fc08adced6303e2dbdf9a6982b18b6a247`のCurrent Decision Se
 妥当な要求も現在は`runtime_activation_effect_not_implemented`または`runtime_disable_effect_not_implemented`として`blocked`にする。JSON／通常出力はcommand種別、固定reason、Effect非発火およびCapability未発行だけを示し、Path、環境値、cwd、Filesystem Identityまたはraw tokenを保持しない。専用commandからRootの`lstat`／`realpath`／作成、local exclude、Authority Bundle読取り、activation record生成／Hash／永続化、disable遷移、Candidate Revision／Operation／Provider除外、Capability、ProviderまたはOperationを発火しない。
 
 公開contractは`activationCommandGrammar`／`disableCommandGrammar`の実装済み候補と、`activationEffect`／`disableEffect`／`atomicPersistence`の未実装を別軸へ分離する。局所試験はcommand別grammar、CLI／環境優先、Authority Root欠落、不正環境値、通常／JSONのPath非漏洩、exit code `2`／`64`およびdoctor／recovery非回帰を確認する。本処置は`Applied`／`Self-checked`であり、新固定版の全体Checkerと同じ3独立確認前にcommand Effect、activation成立、Capability、Runtime完成、採用、準拠、移行、StableまたはReleaseとして扱わない。
+
+固定Commit `0e3bcd8be666336122ef5a59d22b1448389d7cea`／Tree `1770322a06d5bc872507875b68fd7e96f42c20b0`に対する監査は、Agent／Architecture／Security Reviewが`Fail`（`AG-ACTIVATION-CLI-001` Minor）、Document Auditが`Conditional`（`DOC-ACTIVATION-002` Minor）、Gap／Impact＋Conformance Auditが`Fail`（`GCI-ACTIVATION-COMMAND-001` Minor）であった。3結果は個別履歴として保持するが、監査集合全体は`Invalidated`であり、現在判定、後続実装またはReleaseへ流用しない。前2件は各監査の初回固定版走査で検出し、GCIは今回修正によって新たに発生したFindingとして分類する。現在処置は`Applied`／`Self-checked`であり、新固定版の同じ3独立確認前は未`Resolved`とする。
+
+`AG-ACTIVATION-CLI-001`への処置として、安全な引数配列snapshotの失敗と個別token検査失敗を分離する。snapshot成立後は所有配列から`--json`完全一致を先に確定し、その後に型、空、4096文字、C0／DELを検査する。`--json`付きの不正tokenは構造化usage error／exit `64`へ閉じ、Pathまたはraw値を返さない。snapshot自体が成立しない場合はraw入力からJSON要求を推定しない。
+
+`DOC-ACTIVATION-002`への処置として、READMEの現在コマンド一覧へCLI helpと同じ`activate`／`disable`形式を追加し、直後にgrammar／診断入口だけが実装済み候補でEffectは常に`blocked`、Filesystem／record／Capability非発火であることを維持する。
+
+`GCI-ACTIVATION-COMMAND-001`への処置として、Runtime Root／Authority Rootの各軸でCLI指定がある場合は同じ軸の環境値を選択／検証対象から外し、後続selectorへ`null`として渡す。CLI指定がない場合だけ環境値を検証し、Runtime Rootは環境値もなければRepository既定、Authority Rootは両方ない場合だけ明示Path欠落へ閉じる。一方の軸のCLI指定は他方の不正環境値を隠さず、`disable`はAuthority Rootを参照しない。README／Threat Modelも、選択される環境値だけが検証対象であることへ揃える。
+
+局所試験はRuntime／Authority両軸のCLI優先、片軸だけの不正環境値、CLIなしの不正環境値、`disable`のRuntime軸、`--json`付きC0／DEL／4097文字、非JSON負例、exit `2`／`64`およびPath非漏洩を確認する。既存command別grammar、3結果、doctor／recovery、Effect非発火、Authority／Capability非昇格、Gate `blocked`および非Release境界は変更しない。
