@@ -269,7 +269,7 @@ export function runDoctor(options = {}) {
         fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated",
         isolationProfileContract: describeProviderIsolationContract(),
         activation: "blocked",
-        activationReason: "approved_profile_proxy_and_credential_broker_required"
+        activationReason: "authority_verifier_proxy_and_credential_broker_not_implemented"
       },
       recovery: retainOperationDirectories
         ? {
