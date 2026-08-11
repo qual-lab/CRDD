@@ -101,6 +101,20 @@ test("linked worktreeは既定Rootだけを共有exclude候補にする", (t) =>
   assert.equal(defaultResult.status, "candidate");
   assert.equal(defaultResult.plan.excludeEntry, "/.crdd-runtime/");
 
+  const cliDefaultResult = compileGitLocalExcludeCandidate(input(repositoryRoot, {
+    cliOverride: path.join(repositoryRoot, ".crdd-runtime")
+  }));
+  assert.equal(cliDefaultResult.status, "candidate");
+  assert.equal(cliDefaultResult.plan.excludeEntry, "/.crdd-runtime/");
+  assert.equal(JSON.stringify(cliDefaultResult).includes(repositoryRoot), false);
+
+  const environmentDefaultResult = compileGitLocalExcludeCandidate(input(repositoryRoot, {
+    environmentOverride: path.join(repositoryRoot, ".crdd-runtime")
+  }));
+  assert.equal(environmentDefaultResult.status, "candidate");
+  assert.equal(environmentDefaultResult.plan.excludeEntry, "/.crdd-runtime/");
+  assert.equal(JSON.stringify(environmentDefaultResult).includes(repositoryRoot), false);
+
   const customResult = compileGitLocalExcludeCandidate(input(repositoryRoot, {
     cliOverride: path.join(repositoryRoot, "custom-runtime")
   }));

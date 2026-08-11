@@ -2,7 +2,10 @@ import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { inspectRepositoryGitLayoutCandidate } from "./repository-git-layout.mjs";
-import { selectRuntimeRootCandidate } from "./runtime-root-profile.mjs";
+import {
+  DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
+  selectRuntimeRootCandidate
+} from "./runtime-root-profile.mjs";
 
 export const GIT_LOCAL_EXCLUDE_CONTRACT = "crdd-coordinator/git-local-exclude";
 export const GIT_LOCAL_EXCLUDE_CONTRACT_REVISION = 1;
@@ -81,7 +84,8 @@ export function compileGitLocalExcludeCandidate(rawInput) {
     if (layoutCandidate.status !== "candidate") {
       return response("blocked", "repository_git_layout_candidate_required");
     }
-    if (layoutCandidate.layout.kind === "linked_worktree" && rootCandidate.selection.customRootSelected) {
+    if (layoutCandidate.layout.kind === "linked_worktree" &&
+        location.relative !== DEFAULT_REPOSITORY_RUNTIME_DIRECTORY) {
       return response("blocked", "linked_worktree_repository_custom_root_rejected");
     }
 

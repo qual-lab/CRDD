@@ -315,3 +315,7 @@ linked worktreeでは`info/exclude`がcommon Git directoryに属し、同じRepo
 Qual-Labは、linked worktreeでは既定`<repository>/.crdd-runtime/`だけをRepository内Rootとしてcommon `info/exclude`へ追加可能とし、Repository内custom Rootを拒否する推奨案を承認した。custom配置が必要な場合はRepository外overrideを使用し、Git excludeを追加しない。この決定は共有ignoreの影響を既定名だけに限定するもので、metadata書込み、activation、Capability、実Operation、採用またはReleaseの承認ではない。
 
 local exclude Core候補は、Repository内Rootの場合に既存Filesystem解決Coreを再実行し、呼出側のworktree種別自己申告を受理しない。linked worktreeの既定Rootは従来の完全一致entry候補を返し、Repository内custom Rootは`linked_worktree_repository_custom_root_rejected`で`blocked`、Repository外overrideはexclude不要の候補へ閉じる。contractと`doctor`はこの3境界を公開する。処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前に`Resolved`、metadata書込み可能、activation成立またはRuntime完成としない。
+
+固定Commit `1da5108e82393211f54c7fa715638cf952ffbc74`／Tree `e11e3148abe3531d063e6a4b8410ea28b0343b29`へのAgent／Architecture／Security Reviewは`AG-LINKED-ROOT-001` Minorにより`Fail`、Document Auditは`DOC-LINKED-ROOT-001` Minorにより`Conditional`、Gap／Impact＋Conformance Auditは`GCI-ROOT-LINKED-001` Minorにより`Fail`であった。3件は同じ原因を指す。個別の発生分類はAgentが初回見落とし、DocumentとGapが修正起因として記録した。個別結果を履歴として保持するが、監査集合全体は`Invalidated`であり、現在判定、解消、後続実装またはRelease根拠へ流用しない。
+
+原因はlinked worktreeの許可対象を実際のRoot位置ではなくoverride指定元で判定したことで、CLIまたは環境から既定`<repository>/.crdd-runtime/`を明示した場合も誤って拒否した点にある。処置として、`runtime-root-profile.mjs`が所有する既存の既定Directory定数とRepository相対Pathを完全一致で比較する。無指定、CLI同値指定および環境同値指定は同じ`/.crdd-runtime/`候補を返し、真のRepository内custom Rootは拒否、Repository外overrideはexclude不要候補を維持する。処置は`Applied`／`Self-checked`であり、新固定版の3独立再確認前に`Resolved`としない。
