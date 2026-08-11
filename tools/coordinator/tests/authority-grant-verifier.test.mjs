@@ -78,7 +78,7 @@ test("Registry候補を正規化して固定Hashを生成する", () => {
 test("Grant照合はOperationとScopeを含む候補根拠を返す", () => {
   const result = evaluateAuthorityGrantCandidate(profile(), registry(), context);
   assert.equal(result.status, "candidate");
-  assert.equal(result.reason, "trusted_registry_loader_and_prelaunch_reverification_required");
+  assert.equal(result.reason, "runtime_trust_policy_activation_and_prelaunch_reverification_required");
   assert.equal(result.verification.operationId, context.operationId);
   assert.equal(result.verification.scopeId, context.scopeId);
   assert.equal(result.verification.validUntil, "2026-08-12T00:00:00.000Z");
@@ -87,7 +87,8 @@ test("Grant照合はOperationとScopeを含む候補根拠を返す", () => {
 test("Core候補はAuthority Capabilityを発行しない", () => {
   const contract = describeAuthorityGrantVerifierContract();
   assert.equal(contract.coreValidation, "implemented_candidate");
-  assert.equal(contract.trustedRegistryLoader, "not_implemented");
+  assert.equal(contract.canonicalRegistryByteLoader, "implemented_candidate");
+  assert.equal(contract.runtimeTrustPolicyActivation, "not_implemented");
   assert.equal(contract.prelaunchReverification, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

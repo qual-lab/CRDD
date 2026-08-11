@@ -49,11 +49,13 @@ Provider隔離Profile（Provider Isolation Profile）は、実行権限そのも
 
 ProfileはProvider、許可済みAuthority Registryを選ぶためのGrant参照候補、Credential BrokerのGrant参照候補、および要求されたHTTPS Originの完全一致集合だけを保持する。Credential値、Credential StoreのPath、wildcard、HTTP、任意Path付きURLまたは未対応Providerを受理しない。構造検証結果は`candidate`であり、人間承認、Authority成立、`accepted`、`confirmed`または実行可能の別名ではない。正規化後のProfile Hashは要求候補の同一性だけを固定し、Authorityの証明には使用しない。
 
-Runtime 1.0の書込みOperationはDockerを唯一の正式Isolation Backendとし、Host、Git Bash、通常WSLまたは`local-restricted`へ縮退しない。`fake`は決定論的試験専用であり、実Provider、実Credentialまたは実送信先の利用許可にならない。現在はAuthority Grant VerifierのTrust Anchor Loaderと起動直前再確認、ProxyおよびCredential Brokerが未実装のため、Profile候補を作成できても全体Gateは`blocked`のままである。
+Runtime 1.0の書込みOperationはDockerを唯一の正式Isolation Backendとし、Host、Git Bash、通常WSLまたは`local-restricted`へ縮退しない。`fake`は決定論的試験専用であり、実Provider、実Credentialまたは実送信先の利用許可にならない。現在はRuntime所有Trust Policyの導入・有効化と起動直前再確認、ProxyおよびCredential Brokerが未実装のため、Profile候補を作成できても全体Gateは`blocked`のままである。
 
-Authority Grant Verifier Core候補は、Authority Registry候補を固定契約、Registry revision、UTC観測時刻、Grant集合およびSHA-256へ正規化する。Profile候補との照合では、Grantのactive状態、有効期間、Provider、要求Origin、Credential Grant参照、Operation ID、Scope IDおよびProfile Hashの完全一致を要求する。構造と内容の照合結果は`candidate`であり、自己申告Registryを信頼済み正本へ昇格させない。Runtime所有のTrust Anchor Loaderと、Provider起動直前の取消・置換・期限再確認が未実装であるため、Authority Capabilityは発行せず全体Gateを`blocked`に保つ。
+Authority Grant Verifier Core候補は、Authority Registry候補を固定契約、Registry revision、UTC観測時刻、Grant集合およびSHA-256へ正規化する。Profile候補との照合では、Grantのactive状態、有効期間、Provider、要求Origin、Credential Grant参照、Operation ID、Scope IDおよびProfile Hashの完全一致を要求する。構造と内容の照合結果は`candidate`であり、自己申告Registryを信頼済み正本へ昇格させない。
 
-過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。このCoreの上限は受理済みJavaScript値に対する追加の正規化、並べ替えおよびHash処理を制限するものであり、将来のTrust Anchor LoaderはファイルやTransportをJavaScript値へ展開する前にも読込みbyte上限を強制する。
+Trust Anchor Loader Core候補は、Registry入力を上限付きbyte列として受け、厳密UTF-8、BOMなし、末尾空白を含まないcanonical JSONと、正規化後Registry Hashの一致を確認する。Trust Policy候補はRuntime契約`crdd-coordinator/authority-trust-policy`の`contractRevision: 1`、Policy ID／revision／状態、Registry ID／revision／Hashだけを保持する。callerが渡したPolicyとの完全一致は候補Identityを固定するだけであり、Runtime所有Policyの導入、所有権、取消または有効化を証明しない。したがって結果は`candidate`、Authority Capabilityは未発行であり、全体Gateを`blocked`に保つ。
+
+過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。Trust Anchor Loader CoreはRegistryをJavaScript値へ展開する前に131072 byteの上限を強制する。実ファイル、IPCまたはTransportからbyte列を取得するRuntime所有Adapterは未実装であり、その入口でも取得量とPath／Channel Authorityを別途強制する。
 
 Profile、Registry、および評価Contextのrecord／array構造は、JSON相当のplain dataだけを受理する。評価Contextの`now`だけは型付き値の例外として、Context recordから一度取得した有効な`Date`、またはcanonical UTC文字列を受理し、canonical UTC文字列へ変換して以後の評価に使用する。動的getter、Proxy、symbol、独自prototype、疎配列または余分な配列propertyを含む入力は値を実行・再読せず`blocked`にする。検査済みのproperty descriptorから作った固定snapshotだけを、正規化、比較およびHashへ使用する。
 

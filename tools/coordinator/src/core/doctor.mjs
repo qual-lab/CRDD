@@ -17,6 +17,7 @@ import {
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.mjs";
 import { describeEgressProxyTopology } from "../security/egress-proxy-policy.mjs";
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.mjs";
+import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -271,9 +272,10 @@ export function runDoctor(options = {}) {
         fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated",
         isolationProfileContract: describeProviderIsolationContract(),
         authorityVerifier: describeAuthorityGrantVerifierContract(),
+        authorityTrustLoader: describeAuthorityTrustLoaderContract(),
         proxyTopology: describeEgressProxyTopology(),
         activation: "blocked",
-        activationReason: "trusted_registry_loader_prelaunch_reverification_proxy_and_credential_broker_not_implemented"
+        activationReason: "runtime_trust_policy_activation_prelaunch_reverification_proxy_and_credential_broker_not_implemented"
       },
       recovery: retainOperationDirectories
         ? {

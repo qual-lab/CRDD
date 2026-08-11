@@ -239,3 +239,9 @@ ProfileとAuthority Verifierへ共通plain-data snapshot境界を追加する。
 READMEの説明を、Profile、Registryおよび評価Contextのrecord／array構造に適用するplain-data境界と、`context.now`だけに許可する型付き値の例外へ分離する。`now`はContext recordから一度取得した有効な`Date`またはcanonical UTC文字列だけを受理し、canonical UTC文字列へ変換して評価する。本処置は`Applied`／`Self-checked`であり、新固定版の3独立確認前に`GCI-AUTH-REG-012`を`Resolved`としない。コード、Threat Model、試験、snapshot helper、`candidate`、Capability未発行、Gate `blocked`およびRelease非先取りは変更しない。
 
 最終固定版Commit `61c9404d816778ac484c82825540248e00d163c7`、Tree `de204588db69a3c1a7e845c1a17fbcb38f3ed083`への3独立確認はすべて`Pass`、Finding 0で完了した。固定結果は[`CHG-000015_Current_Review_Record_61c9404.md`](Evidence/CHG-000015_Current_Review_Record_61c9404.md)へ記録する。`AG-AUTH-REG-001`、`AG-AUTH-REG-002`、`AG-AUTH-REG-003`および`GCI-AUTH-REG-012`はAuthority Grant Verifier Core候補と直接利用側の固定範囲で独立確認済みである。一方、Trust Anchor Loader、起動直前再確認、Authority Capability、Proxy、Broker、実Providerおよび実Operationは未実装または未評価であり、全体Gateは`blocked`を維持する。本結果をRuntime完成、利用許可、採用、準拠、移行、Stable、Releaseまたは公開へ流用しない。
+
+### Trust Anchor Loader Core候補
+
+Authority Registryの信頼入口を次段へ進めるため、上限付きcanonical byte loaderとTrust Policy候補照合を追加する。Registry byte列は131072 byte以下に制限してからstrict UTF-8、BOMなし、canonical JSON完全一致、Registry契約および正規化後Hashを確認する。Trust Policy候補はRuntime契約名と`contractRevision: 1`、Policy ID／revision／状態、Registry ID／revision／Hashだけを持ち、用途外field、accessor、Proxy、非active状態またはIdentity差をfail closedにする。CRDD版別JSON、未知Readerまたは互換Migrationを追加しない。
+
+本Coreへcallerが渡したPolicyは、Runtime所有Policyの導入、所有権、取消、有効化またはAuthorityを成立させない。結果は`candidate`、Capability未発行とし、実ファイル／Transport Adapter、Policyの配布・取消、Runtime所有時計による起動直前再確認、Proxy、Brokerおよび実Providerが未実装の間は全体Gateを`blocked`に保つ。doctorはcanonical byte loader Core候補とRuntime Trust Policy未有効化を別々に表示する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にTrust Anchor Loader完成、Authority成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。

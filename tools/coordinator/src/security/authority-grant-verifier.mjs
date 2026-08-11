@@ -17,8 +17,13 @@ const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
 const CANONICAL_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype),
+  "byteLength"
+).get;
 export const AUTHORITY_REGISTRY_INPUT_LIMITS = Object.freeze({
   grantCount: 64,
+  rawBytes: 131_072,
   canonicalBytes: 131_072
 });
 const TOP_LEVEL_KEYS = new Set([
@@ -217,6 +222,30 @@ export function validateAuthorityRegistryCandidate(candidate) {
   }
 }
 
+export function decodeCanonicalAuthorityRegistryBytes(input) {
+  try {
+    if (!Buffer.isBuffer(input)) return blocked("authority_registry_bytes_required");
+    const inputLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, input, []);
+    if (inputLength > AUTHORITY_REGISTRY_INPUT_LIMITS.rawBytes) {
+      return blocked("authority_registry_raw_bytes_exceeded");
+    }
+    const bytes = Buffer.allocUnsafe(inputLength);
+    Uint8Array.prototype.set.call(bytes, input);
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (source.charCodeAt(0) === 0xfeff) return blocked("authority_registry_bytes_invalid");
+    const parsed = JSON.parse(source);
+    const result = validateAuthorityRegistryCandidate(parsed);
+    if (result.status !== "candidate") return blocked("authority_registry_bytes_invalid");
+    const canonical = canonicalJson(result.registry);
+    if (!Buffer.prototype.equals.call(bytes, Buffer.from(canonical, "utf8"))) {
+      return blocked("authority_registry_bytes_noncanonical");
+    }
+    return result;
+  } catch {
+    return blocked("authority_registry_bytes_invalid");
+  }
+}
+
 function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, context = {}) {
   const profileResult = validateProviderIsolationProfile(rawProfile);
   if (profileResult.status !== "candidate") return blocked("authority_profile_invalid");
@@ -269,7 +298,7 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
   });
   return Object.freeze({
     status: "candidate",
-    reason: "trusted_registry_loader_and_prelaunch_reverification_required",
+    reason: "runtime_trust_policy_activation_and_prelaunch_reverification_required",
     registry: registryResult.registry,
     registryHash: registryResult.registryHash,
     verification
@@ -289,7 +318,8 @@ export function describeAuthorityGrantVerifierContract() {
     contract: AUTHORITY_REGISTRY_CONTRACT,
     contractRevision: AUTHORITY_REGISTRY_CONTRACT_REVISION,
     coreValidation: "implemented_candidate",
-    trustedRegistryLoader: "not_implemented",
+    canonicalRegistryByteLoader: "implemented_candidate",
+    runtimeTrustPolicyActivation: "not_implemented",
     prelaunchReverification: "not_implemented",
     runtimeCapabilityIssued: false,
     selfAssertedRegistryAcceptedAsAuthority: false
