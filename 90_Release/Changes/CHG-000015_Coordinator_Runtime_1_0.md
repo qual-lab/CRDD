@@ -409,3 +409,7 @@ Authority RootはRuntime主体だけが書込み可能でProviderから到達不
 `GCI-ACTIVATION-001`への処置として、activation入力上限の一意な正本へ`canonicalUtcLength: 24`を加え、文字列型と4桁年canonical UTCの正確な長さをDate解析、canonical化、byte計測およびHash計算より前に確認する。23／25文字、巨大文字列、offset、date-only、非文字列および不正日付を例外なしの固定`blocked`へ閉じ、24文字の正常値とactive／disabled境界を回帰確認する。
 
 両処置は`Applied`／`Self-checked`であり、新固定版のCoordinator全試験、Checker、全体Checkerおよび同じ3独立監査が完了するまで未`Resolved`とする。persistent activation、Authority Root分離、候補／Capability分離、原子的永続化／Path／ACL／専用Effect未実装、Gate `blocked`および非Release境界は変更しない。
+
+固定Commit `4bcc17ccb6ba9b50374bb8a4069b2148f281fe19`／Tree `a5d9dcccd8efe109a01a08da96c738c82762bc04`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_4bcc17c.md`](Evidence/CHG-000015_Current_Review_Record_4bcc17c.md)とする。`DOC-ACTIVATION-001`および`GCI-ACTIVATION-001`はdisable lifecycleとactivation時刻入力境界の固定範囲で`Resolved`と判定する。
+
+この解消は原子的永続化、Authority Root／Runtime Rootの実Path／owner／ACL、専用activate／disable Effect、Candidate Revision／Operation／Provider除外の実強制、run-scoped Capabilityまたは実Operationを成立させない。旧`4b11552`以前の結果は履歴としてのみ保持し、現在判定へ流用しない。次段階と人間判断の再開条件は現在記録のCurrent Decision Setへ保持し、Gate `blocked`、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開の非成立を維持する。
