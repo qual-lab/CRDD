@@ -319,3 +319,7 @@ local exclude Core候補は、Repository内Rootの場合に既存Filesystem解�
 固定Commit `1da5108e82393211f54c7fa715638cf952ffbc74`／Tree `e11e3148abe3531d063e6a4b8410ea28b0343b29`へのAgent／Architecture／Security Reviewは`AG-LINKED-ROOT-001` Minorにより`Fail`、Document Auditは`DOC-LINKED-ROOT-001` Minorにより`Conditional`、Gap／Impact＋Conformance Auditは`GCI-ROOT-LINKED-001` Minorにより`Fail`であった。3件は同じ原因を指す。個別の発生分類はAgentが初回見落とし、DocumentとGapが修正起因として記録した。個別結果を履歴として保持するが、監査集合全体は`Invalidated`であり、現在判定、解消、後続実装またはRelease根拠へ流用しない。
 
 原因はlinked worktreeの許可対象を実際のRoot位置ではなくoverride指定元で判定したことで、CLIまたは環境から既定`<repository>/.crdd-runtime/`を明示した場合も誤って拒否した点にある。処置として、`runtime-root-profile.mjs`が所有する既存の既定Directory定数とRepository相対Pathを完全一致で比較する。無指定、CLI同値指定および環境同値指定は同じ`/.crdd-runtime/`候補を返し、真のRepository内custom Rootは拒否、Repository外overrideはexclude不要候補を維持する。処置は`Applied`／`Self-checked`であり、新固定版の3独立再確認前に`Resolved`としない。
+
+固定Commit `b0856c99d45b43e995cb76d1e0b5b7ee938bcfe7`／Tree `3911b781c8170a802841657ed00c778d65133f0b`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_b0856c9.md`](Evidence/CHG-000015_Current_Review_Record_b0856c9.md)とし、`AG-LINKED-ROOT-001`、`DOC-LINKED-ROOT-001`および`GCI-ROOT-LINKED-001`は同固定範囲で`Resolved`と判定する。
+
+この解消はlinked worktree Root方針の候補判定に限定する。metadata書込み、activation、Capability、実Operation、Runtime完成、採用、準拠、移行、StableまたはReleaseを成立させない。追加の人間判断はなく、次段階の条件と停止境界は現在記録のCurrent Decision Setへ保持する。
