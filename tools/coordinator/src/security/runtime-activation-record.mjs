@@ -46,6 +46,19 @@ const ONBOARDING_PROVISIONING_TARGET_KINDS = Object.freeze([
   "shared_authority_root_platform_scope",
   "repository_scoped_runtime_root_activation_precondition"
 ]);
+const ONBOARDING_RUNTIME_PRINCIPAL_MODES = Object.freeze([
+  "local_interactive_selected_user",
+  "server_dedicated_service_account"
+]);
+const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
+  "verified_current_provisioning_record_and_platform_provisioner_trust_identity",
+  "explicit_authority_root_path_resolved_from_verified_provisioning_record",
+  "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
+  "repository_runtime_root_identity_protection_and_selected_principal_binding",
+  "persistent_active_activation_record_identity_and_repository_binding",
+  "helper_signature_trust_principal_root_and_protection_metadata_unchanged",
+  "all_onboarding_implementation_dependencies_satisfied"
+]);
 
 function deriveOnboardingReadiness(implementation) {
   const rootProtection = implementation.rootProtectionPolicy;
@@ -245,6 +258,22 @@ export function describeRuntimeActivationContract() {
     activationCommandGrammar: "implemented_candidate",
     activationEffect: implementation.activationEffect,
     localOnboardingContract: "implemented_candidate_contract_only",
+    onboardingPolicyDecision: "human_approved_contract_only",
+    runtimeAuthorityConferredByOnboardingPolicy: false,
+    platformProvisionerDistributionTarget:
+      "official_signed_platform_provisioner_distributed_with_coordinator_target",
+    platformProvisioningScope:
+      "platform_scope_once_while_verified_provisioning_identity_valid_target",
+    runtimePrincipalModes: ONBOARDING_RUNTIME_PRINCIPAL_MODES,
+    authorityRootPathReuseTarget:
+      "explicit_path_resolved_from_verified_provisioning_record_target",
+    authorityRootCurrentSelectionContract:
+      "cli_then_environment_explicit_path_until_verified_record_resolver_implemented",
+    runRevalidationRequired: true,
+    onboardingReadyRule:
+      "all_implementation_dependencies_and_current_run_evidence_confirmed",
+    onboardingCurrentRunEvidenceRequirements: ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS,
+    onboardingReadyTransition: "not_implemented",
     onboardingReadinessProjection: "implemented_candidate_contract_only",
     requiredProvisioningTargetKinds: ONBOARDING_PROVISIONING_TARGET_KINDS,
     onboardingReadiness: onboarding.readiness,

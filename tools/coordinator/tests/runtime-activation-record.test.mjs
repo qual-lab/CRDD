@@ -135,6 +135,33 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
   assert.equal(contract.activationEffect, "not_implemented");
   assert.equal(contract.localOnboardingContract, "implemented_candidate_contract_only");
+  assert.equal(contract.onboardingPolicyDecision, "human_approved_contract_only");
+  assert.equal(contract.runtimeAuthorityConferredByOnboardingPolicy, false);
+  assert.equal(contract.platformProvisionerDistributionTarget,
+    "official_signed_platform_provisioner_distributed_with_coordinator_target");
+  assert.equal(contract.platformProvisioningScope,
+    "platform_scope_once_while_verified_provisioning_identity_valid_target");
+  assert.deepEqual(contract.runtimePrincipalModes, [
+    "local_interactive_selected_user",
+    "server_dedicated_service_account"
+  ]);
+  assert.equal(contract.authorityRootPathReuseTarget,
+    "explicit_path_resolved_from_verified_provisioning_record_target");
+  assert.equal(contract.authorityRootCurrentSelectionContract,
+    "cli_then_environment_explicit_path_until_verified_record_resolver_implemented");
+  assert.equal(contract.runRevalidationRequired, true);
+  assert.equal(contract.onboardingReadyRule,
+    "all_implementation_dependencies_and_current_run_evidence_confirmed");
+  assert.deepEqual(contract.onboardingCurrentRunEvidenceRequirements, [
+    "verified_current_provisioning_record_and_platform_provisioner_trust_identity",
+    "explicit_authority_root_path_resolved_from_verified_provisioning_record",
+    "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
+    "repository_runtime_root_identity_protection_and_selected_principal_binding",
+    "persistent_active_activation_record_identity_and_repository_binding",
+    "helper_signature_trust_principal_root_and_protection_metadata_unchanged",
+    "all_onboarding_implementation_dependencies_satisfied"
+  ]);
+  assert.equal(contract.onboardingReadyTransition, "not_implemented");
   assert.equal(contract.onboardingReadinessProjection,
     "implemented_candidate_contract_only");
   assert.deepEqual(contract.requiredProvisioningTargetKinds, [
