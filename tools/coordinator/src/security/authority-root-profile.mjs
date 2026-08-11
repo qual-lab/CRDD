@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
 
 export const AUTHORITY_ROOT_CONTRACT = "crdd-coordinator/authority-root-profile";
 export const AUTHORITY_ROOT_CONTRACT_REVISION = 1;
@@ -61,6 +62,8 @@ export function describeAuthorityRootContract() {
     sharedAcrossRepositories: true,
     runtimeRootMayContainAuthorityBundle: false,
     providerMountAllowed: false,
+    rootProtectionPolicyContract: ROOT_PROTECTION_POLICY_CONTRACT,
+    rootProtectionPolicyCore: "implemented_candidate_claim_only",
     runtimePathAdapter: "not_implemented",
     ownerAclVerification: "not_implemented",
     runtimeCapabilityIssued: false

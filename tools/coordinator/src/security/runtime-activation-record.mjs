@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 
 export const RUNTIME_ACTIVATION_CONTRACT = "crdd-coordinator/runtime-activation-record";
 export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 1;
@@ -178,6 +179,7 @@ export function describeRuntimeActivationContract() {
     reactivationTransitionPolicy: "not_implemented",
     disabledOriginTransitionPolicy: "not_implemented",
     canonicalUtcLength: RUNTIME_ACTIVATION_INPUT_LIMITS.canonicalUtcLength,
+    rootProtectionPolicy: describeRootProtectionPolicyContract(),
     atomicPersistence: "not_implemented",
     pathIdentityBinding: "not_implemented",
     ownerAclVerification: "not_implemented",

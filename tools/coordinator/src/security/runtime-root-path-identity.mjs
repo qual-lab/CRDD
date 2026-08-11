@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   selectRuntimeRootCandidate
@@ -274,6 +275,8 @@ export function describeRuntimeRootPathIdentityContract() {
     rootDeletionIssued: false,
     pathObjectIdentityVerification: "implemented_candidate",
     realpathContainmentVerification: "implemented_candidate",
+    rootProtectionPolicyContract: ROOT_PROTECTION_POLICY_CONTRACT,
+    rootProtectionPolicyCore: "implemented_candidate_claim_only",
     ownerAclVerification: "not_implemented",
     fullParentChainVerification: "not_implemented",
     localExcludeIntegration: "implemented_candidate_initial_snapshot_binding",

@@ -307,6 +307,7 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
   assert.equal(contract.rootDeletionIssued, false);
   assert.equal(contract.pathObjectIdentityVerification, "implemented_candidate");
   assert.equal(contract.realpathContainmentVerification, "implemented_candidate");
+  assert.equal(contract.rootProtectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.fullParentChainVerification, "not_implemented");
   assert.equal(contract.localExcludeIntegration, "implemented_candidate_initial_snapshot_binding");

@@ -70,6 +70,7 @@ test("Authority Root contractは共有外部Trust Rootと未実装Path境界を�
   assert.equal(contract.sharedAcrossRepositories, true);
   assert.equal(contract.runtimeRootMayContainAuthorityBundle, false);
   assert.equal(contract.providerMountAllowed, false);
+  assert.equal(contract.rootProtectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.runtimePathAdapter, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

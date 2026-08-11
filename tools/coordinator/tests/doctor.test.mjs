@@ -292,6 +292,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRoot.disableImplementation, "not_implemented");
   assert.equal(report.runtimeRoot.disableDeletesStoredData, false);
   assert.equal(report.runtimeRoot.runtimeDataDeletion, "not_implemented");
+  assert.equal(report.runtimeRoot.rootProtectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(report.runtimeRoot.runtimePathAdapter, "not_implemented");
   assert.equal(report.runtimeRoot.runtimePathObjectIdentityCore, "implemented_candidate");
   assert.equal(report.runtimeRoot.activationRecordCore, "implemented_candidate");
@@ -321,6 +322,14 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.disabledOriginTransitionPolicy, "not_implemented");
   assert.equal(report.runtimeActivation.atomicPersistence, "not_implemented");
   assert.equal(report.runtimeActivation.runtimeCapabilityIssued, false);
+  assert.equal(report.rootProtectionPolicy.protectionPolicyCore,
+    "implemented_candidate_claim_only");
+  assert.equal(report.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
+  assert.equal(report.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
+  assert.equal(report.rootProtectionPolicy.persistentVolumeAdapter, "not_implemented");
+  assert.equal(report.rootProtectionPolicy.pathBinding, "not_implemented");
+  assert.equal(report.rootProtectionPolicy.activationIntegration, "not_implemented");
+  assert.equal(report.rootProtectionPolicy.runtimeCapabilityIssued, false);
   assert.equal(report.runtimeRootEvaluation.status, "blocked");
   assert.equal(report.runtimeRootEvaluation.reason, "runtime_feature_not_enabled");
   assert.equal(report.checks.some((item) => item.id === "runtime.root" && item.status === "blocked"), true);
@@ -371,6 +380,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.egress.authorityTrustLoader.runtimeTrustPolicyActivation, "not_implemented");
   assert.equal(report.egress.authorityTrustLoader.runtimeCapabilityIssued, false);
   assert.equal(report.egress.authorityFileBundle.canonicalBundleCore, "implemented_candidate");
+  assert.equal(report.egress.authorityFileBundle.rootProtectionPolicyCore,
+    "implemented_candidate_claim_only");
   assert.equal(report.egress.authorityFileBundle.runtimeManagedPath, "not_implemented");
   assert.equal(report.egress.authorityFileBundle.ownerAclVerification, "not_implemented");
   assert.equal(report.egress.authorityFileBundle.atomicReplacement, "not_implemented");
@@ -381,6 +392,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.egress.authorityRoot.osImplicitDefaultAllowed, false);
   assert.equal(report.egress.authorityRoot.sharedAcrossRepositories, true);
   assert.equal(report.egress.authorityRoot.runtimeRootMayContainAuthorityBundle, false);
+  assert.equal(report.egress.authorityRoot.rootProtectionPolicyCore,
+    "implemented_candidate_claim_only");
   assert.equal(report.egress.authorityRoot.runtimePathAdapter, "not_implemented");
   assert.equal(report.egress.authorityRoot.runtimeCapabilityIssued, false);
   assert.equal(report.egress.authorityPrelaunchVerifier.runtimeClockRead, "implemented_candidate");

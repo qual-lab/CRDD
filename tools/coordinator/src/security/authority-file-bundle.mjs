@@ -6,6 +6,7 @@ import {
 } from "./authority-trust-loader.mjs";
 import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
 
 export const AUTHORITY_FILE_BUNDLE_CONTRACT = "crdd-coordinator/authority-file-bundle";
 export const AUTHORITY_FILE_BUNDLE_CONTRACT_REVISION = 1;
@@ -145,6 +146,8 @@ export function describeAuthorityFileBundleContract() {
     fixedFiles: AUTHORITY_FILE_BUNDLE_FILES,
     canonicalBundleCore: "implemented_candidate",
     runtimeManagedPath: "not_implemented",
+    rootProtectionPolicyContract: ROOT_PROTECTION_POLICY_CONTRACT,
+    rootProtectionPolicyCore: "implemented_candidate_claim_only",
     ownerAclVerification: "not_implemented",
     atomicReplacement: "not_implemented",
     monotonicActivation: "not_implemented",

@@ -145,6 +145,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.disabledOriginTransitionPolicy, "not_implemented");
   assert.equal(contract.disableSemantics, "stop_new_operations_and_safely_cancel_in_flight");
   assert.equal(contract.deleteIsSeparateOperation, true);
+  assert.equal(contract.rootProtectionPolicy.protectionPolicyCore,
+    "implemented_candidate_claim_only");
+  assert.equal(contract.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
+  assert.equal(contract.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
   assert.equal(contract.atomicPersistence, "not_implemented");
   assert.equal(contract.canonicalUtcLength, 24);
   assert.equal(contract.runtimeCapabilityIssued, false);

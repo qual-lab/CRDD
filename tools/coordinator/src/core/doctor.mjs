@@ -24,6 +24,7 @@ import { describeAuthorityFileBundleContract } from "../security/authority-file-
 import { describeAuthorityRootContract } from "../security/authority-root-profile.mjs";
 import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.mjs";
 import { describeRuntimeActivationContract } from "../security/runtime-activation-record.mjs";
+import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.mjs";
 import {
   describeRuntimeRootPathIdentityContract,
   inspectRuntimeRootPathIdentityCandidate
@@ -352,6 +353,7 @@ export function runDoctor(options = {}) {
       runtimeRoot: describeRuntimeRootContract(),
       runtimeRootPathIdentity: describeRuntimeRootPathIdentityContract(),
       runtimeActivation: describeRuntimeActivationContract(),
+      rootProtectionPolicy: describeRootProtectionPolicyContract(),
       runtimeRootEvaluation,
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
       gitLocalExclude: describeGitLocalExcludeContract(),

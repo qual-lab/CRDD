@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
 
 export const RUNTIME_ROOT_CONTRACT = "crdd-coordinator/runtime-root-profile";
 export const RUNTIME_ROOT_CONTRACT_REVISION = 1;
@@ -95,6 +96,8 @@ export function describeRuntimeRootContract() {
     disableImplementation: "not_implemented",
     disableDeletesStoredData: false,
     runtimeDataDeletion: "not_implemented",
+    rootProtectionPolicyContract: ROOT_PROTECTION_POLICY_CONTRACT,
+    rootProtectionPolicyCore: "implemented_candidate_claim_only",
     runtimePathAdapter: "not_implemented",
     runtimePathObjectIdentityCore: "implemented_candidate",
     activationRecordCore: "implemented_candidate",

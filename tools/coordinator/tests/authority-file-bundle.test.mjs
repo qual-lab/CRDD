@@ -185,6 +185,7 @@ test("File Bundle CoreはPath／ACL／activationまたはCapabilityを成立さ�
   const contract = describeAuthorityFileBundleContract();
   assert.equal(contract.canonicalBundleCore, "implemented_candidate");
   assert.deepEqual(contract.fixedFiles, AUTHORITY_FILE_BUNDLE_FILES);
+  assert.equal(contract.rootProtectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.runtimeManagedPath, "not_implemented");
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.atomicReplacement, "not_implemented");

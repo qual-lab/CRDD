@@ -113,6 +113,7 @@ test("Root選択Coreはignore、Path保護、activationまたはCapabilityを成
   assert.equal(contract.disableImplementation, "not_implemented");
   assert.equal(contract.disableDeletesStoredData, false);
   assert.equal(contract.runtimeDataDeletion, "not_implemented");
+  assert.equal(contract.rootProtectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.runtimePathAdapter, "not_implemented");
   assert.equal(contract.runtimePathObjectIdentityCore, "implemented_candidate");
   assert.equal(contract.activationRecordPersistence, "not_implemented");
