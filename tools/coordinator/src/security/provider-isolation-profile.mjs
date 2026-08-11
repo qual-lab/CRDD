@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { snapshotPlainArray, snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 
 export const PROVIDER_ISOLATION_CONTRACT = "crdd-coordinator/provider-isolation-profile";
 export const PROVIDER_ISOLATION_CONTRACT_REVISION = 1;
@@ -26,19 +27,6 @@ const TOP_LEVEL_KEYS = new Set([
 
 function blocked(reason) {
   return Object.freeze({ status: "blocked", reason, profile: null, profileHash: null });
-}
-
-function exactKeys(value, allowed) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) return false;
-  const seen = new Set();
-  for (const key in value) {
-    if (!Object.prototype.hasOwnProperty.call(value, key) || !allowed.has(key)) return false;
-    seen.add(key);
-    if (seen.size > allowed.size) return false;
-  }
-  return seen.size === allowed.size;
 }
 
 function matches(value, pattern) {
@@ -83,43 +71,50 @@ function canonicalJson(value) {
 }
 
 function validateProviderIsolationProfileInternal(candidate) {
-  if (!exactKeys(candidate, TOP_LEVEL_KEYS)) return blocked("profile_shape_invalid");
-  if (
-    candidate.contract !== PROVIDER_ISOLATION_CONTRACT ||
-    candidate.contractRevision !== PROVIDER_ISOLATION_CONTRACT_REVISION
-  ) return blocked("profile_contract_mismatch");
-  if (!matches(candidate.profileId, PROFILE_ID)) return blocked("profile_id_invalid");
-  if (!SUPPORTED_PROVIDERS.has(candidate.provider)) return blocked("provider_not_supported");
-
+  const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
+  if (!top) return blocked("profile_shape_invalid");
   const authorityKeys = new Set(["registryId", "grantRef"]);
-  if (!exactKeys(candidate.authority, authorityKeys)) return blocked("authority_shape_invalid");
+  const authority = snapshotPlainRecord(top.authority, authorityKeys);
+  if (!authority) return blocked("authority_shape_invalid");
+  const credentialKeys = new Set(["brokerId", "grantRef"]);
+  const credentialGrant = snapshotPlainRecord(top.credentialGrant, credentialKeys);
+  if (!credentialGrant) return blocked("credential_grant_shape_invalid");
+  const egressKeys = new Set(["origins"]);
+  const egress = snapshotPlainRecord(top.egress, egressKeys);
+  if (!egress) return blocked("egress_shape_invalid");
+  const originsResult = snapshotPlainArray(egress.origins, PROVIDER_INPUT_LIMITS.originCount);
+  if (originsResult.status !== "ok") {
+    return blocked(originsResult.reason === "array_length_exceeded"
+      ? "egress_origin_count_exceeded" : "egress_shape_invalid");
+  }
+  const rawOrigins = originsResult.value;
   if (
-    !matches(candidate.authority.registryId, AUTHORITY_REGISTRY_ID) ||
-    !matches(candidate.authority.grantRef, AUTHORITY_GRANT_REF)
+    top.contract !== PROVIDER_ISOLATION_CONTRACT ||
+    top.contractRevision !== PROVIDER_ISOLATION_CONTRACT_REVISION
+  ) return blocked("profile_contract_mismatch");
+  if (!matches(top.profileId, PROFILE_ID)) return blocked("profile_id_invalid");
+  if (!SUPPORTED_PROVIDERS.has(top.provider)) return blocked("provider_not_supported");
+
+  if (
+    !matches(authority.registryId, AUTHORITY_REGISTRY_ID) ||
+    !matches(authority.grantRef, AUTHORITY_GRANT_REF)
   ) return blocked("authority_reference_invalid");
 
-  const credentialKeys = new Set(["brokerId", "grantRef"]);
-  if (!exactKeys(candidate.credentialGrant, credentialKeys)) return blocked("credential_grant_shape_invalid");
   if (
-    !matches(candidate.credentialGrant.brokerId, CREDENTIAL_BROKER_ID) ||
-    !matches(candidate.credentialGrant.grantRef, CREDENTIAL_GRANT_REF)
+    !matches(credentialGrant.brokerId, CREDENTIAL_BROKER_ID) ||
+    !matches(credentialGrant.grantRef, CREDENTIAL_GRANT_REF)
   ) {
     return blocked("credential_grant_reference_invalid");
   }
 
-  const egressKeys = new Set(["origins"]);
-  if (!exactKeys(candidate.egress, egressKeys)) return blocked("egress_shape_invalid");
-  if (!Array.isArray(candidate.egress.origins) || candidate.egress.origins.length === 0) {
+  if (rawOrigins.length === 0) {
     return blocked("egress_origins_required");
   }
-  if (candidate.egress.origins.length > PROVIDER_INPUT_LIMITS.originCount) {
-    return blocked("egress_origin_count_exceeded");
-  }
-  if (candidate.egress.origins.some((origin) =>
+  if (rawOrigins.some((origin) =>
     typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)) {
     return blocked("egress_origin_length_exceeded");
   }
-  const origins = candidate.egress.origins.map(normalizeOrigin);
+  const origins = rawOrigins.map(normalizeOrigin);
   if (origins.some((origin) => origin == null)) return blocked("egress_origin_invalid");
   const uniqueOrigins = [...new Set(origins)].sort();
   if (uniqueOrigins.length !== origins.length) return blocked("egress_origin_duplicate");
@@ -127,10 +122,10 @@ function validateProviderIsolationProfileInternal(candidate) {
   const profile = Object.freeze({
     contract: PROVIDER_ISOLATION_CONTRACT,
     contractRevision: PROVIDER_ISOLATION_CONTRACT_REVISION,
-    profileId: candidate.profileId,
-    provider: candidate.provider,
-    authority: Object.freeze({ ...candidate.authority }),
-    credentialGrant: Object.freeze({ ...candidate.credentialGrant }),
+    profileId: top.profileId,
+    provider: top.provider,
+    authority: Object.freeze({ registryId: authority.registryId, grantRef: authority.grantRef }),
+    credentialGrant: Object.freeze({ brokerId: credentialGrant.brokerId, grantRef: credentialGrant.grantRef }),
     egress: Object.freeze({ origins: Object.freeze(uniqueOrigins) }),
     requiredCapabilities: Object.freeze([
       "authority_grant_verification",

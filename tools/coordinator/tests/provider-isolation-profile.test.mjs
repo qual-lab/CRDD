@@ -82,7 +82,32 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
   const throwing = candidate();
   Object.defineProperty(throwing, "profileId", { enumerable: true, get() { throw new Error("raw"); } });
   assert.doesNotThrow(() => validateProviderIsolationProfile(throwing));
-  assert.equal(validateProviderIsolationProfile(throwing).reason, "profile_input_invalid");
+  assert.equal(validateProviderIsolationProfile(throwing).reason, "profile_shape_invalid");
+});
+
+test("Profile入口はtop、nested、array accessorを実行しない", () => {
+  for (const location of ["top", "nested", "array"]) {
+    let calls = 0;
+    const value = candidate();
+    if (location === "top") {
+      Object.defineProperty(value, "authority", {
+        enumerable: true,
+        get() { calls += 1; return { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" }; }
+      });
+    } else if (location === "nested") {
+      Object.defineProperty(value.authority, "grantRef", {
+        enumerable: true,
+        get() { calls += 1; return calls === 1 ? "AUTH-000001" : "sk-proj-malicious"; }
+      });
+    } else {
+      Object.defineProperty(value.egress.origins, "0", {
+        enumerable: true,
+        get() { calls += 1; return calls === 1 ? "https://api.example.test" : "https://other.test"; }
+      });
+    }
+    assert.equal(validateProviderIsolationProfile(value).status, "blocked", location);
+    assert.equal(calls, 0, location);
+  }
 });
 
 test("Provider tokenらしい値を参照fieldへ偽装できない", () => {

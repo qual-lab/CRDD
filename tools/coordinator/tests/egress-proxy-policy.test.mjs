@@ -62,6 +62,17 @@ test("Profile budget超過はPolicy経路でも例外なくblockedにする", ()
   assert.equal(compileEgressProxyPolicyCandidate(excessive).status, "blocked");
 });
 
+test("Profile accessorはPolicy経路でも実行しない", () => {
+  let calls = 0;
+  const value = rawProfile();
+  Object.defineProperty(value, "egress", {
+    enumerable: true,
+    get() { calls += 1; return { origins: ["https://api.example.test"] }; }
+  });
+  assert.equal(compileEgressProxyPolicyCandidate(value).status, "blocked");
+  assert.equal(calls, 0);
+});
+
 test("CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にする", () => {
   const policy = compileEgressProxyPolicyCandidate(rawProfile()).policy;
   assert.equal(evaluateProxyConnectForFixture(policy, { method: "CONNECT", authority: "api.example.test:443" }).decision, "candidate");

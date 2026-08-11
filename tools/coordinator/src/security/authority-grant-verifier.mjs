@@ -4,6 +4,7 @@ import {
   PROVIDER_INPUT_LIMITS,
   validateProviderIsolationProfile
 } from "./provider-isolation-profile.mjs";
+import { snapshotPlainArray, snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 
 export const AUTHORITY_REGISTRY_CONTRACT = "crdd-coordinator/authority-registry";
 export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 1;
@@ -52,19 +53,6 @@ function blocked(reason) {
   });
 }
 
-function exactKeys(value, allowed) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  if (prototype !== Object.prototype && prototype !== null) return false;
-  const seen = new Set();
-  for (const key in value) {
-    if (!Object.prototype.hasOwnProperty.call(value, key) || !allowed.has(key)) return false;
-    seen.add(key);
-    if (seen.size > allowed.size) return false;
-  }
-  return seen.size === allowed.size;
-}
-
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -90,14 +78,11 @@ function normalizeNow(value) {
 }
 
 function normalizeOrigins(origins) {
-  if (
-    !Array.isArray(origins) || origins.length === 0 ||
-    origins.length > PROVIDER_INPUT_LIMITS.originCount ||
-    origins.some((origin) =>
-      typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)
-  ) return null;
+  const result = snapshotPlainArray(origins, PROVIDER_INPUT_LIMITS.originCount);
+  if (result.status !== "ok" || result.value.length === 0 || result.value.some((origin) =>
+    typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)) return null;
   const normalized = [];
-  for (const origin of origins) {
+  for (const origin of result.value) {
     let parsed;
     try {
       parsed = new URL(origin);
@@ -124,81 +109,89 @@ function normalizeOrigins(origins) {
 }
 
 function normalizeGrant(grant) {
-  if (!exactKeys(grant, GRANT_KEYS)) return null;
-  if (
-    typeof grant.grantRef !== "string" ||
-    grant.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength || !GRANT_REF.test(grant.grantRef) ||
-    !Number.isSafeInteger(grant.grantRevision) || grant.grantRevision < 1 ||
-    !["active", "revoked", "replaced"].includes(grant.status) ||
-    !["codex", "claude"].includes(grant.provider) ||
-    typeof grant.operationId !== "string" ||
-    grant.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength || !OPERATION_ID.test(grant.operationId) ||
-    typeof grant.scopeId !== "string" ||
-    grant.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength || !SCOPE_ID.test(grant.scopeId) ||
-    typeof grant.profileHash !== "string" || !HASH.test(grant.profileHash)
-  ) return null;
-  const validFrom = normalizedUtc(grant.validFrom);
-  const expiresAt = normalizedUtc(grant.expiresAt);
-  if (!validFrom || !expiresAt || validFrom >= expiresAt) return null;
-  const origins = normalizeOrigins(grant.origins);
+  const snapshot = snapshotPlainRecord(grant, GRANT_KEYS);
+  if (!snapshot) return null;
+  const credentialGrant = snapshotPlainRecord(
+    snapshot.credentialGrant,
+    new Set(["brokerId", "grantRef"])
+  );
+  if (!credentialGrant) return null;
+  const origins = normalizeOrigins(snapshot.origins);
   if (!origins) return null;
-  if (!exactKeys(grant.credentialGrant, new Set(["brokerId", "grantRef"]))) return null;
   if (
-    typeof grant.credentialGrant.brokerId !== "string" ||
-    grant.credentialGrant.brokerId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !BROKER_ID.test(grant.credentialGrant.brokerId) ||
-    typeof grant.credentialGrant.grantRef !== "string" ||
-    grant.credentialGrant.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !CREDENTIAL_GRANT_REF.test(grant.credentialGrant.grantRef)
+    typeof snapshot.grantRef !== "string" ||
+    snapshot.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength || !GRANT_REF.test(snapshot.grantRef) ||
+    !Number.isSafeInteger(snapshot.grantRevision) || snapshot.grantRevision < 1 ||
+    !["active", "revoked", "replaced"].includes(snapshot.status) ||
+    !["codex", "claude"].includes(snapshot.provider) ||
+    typeof snapshot.operationId !== "string" ||
+    snapshot.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength || !OPERATION_ID.test(snapshot.operationId) ||
+    typeof snapshot.scopeId !== "string" ||
+    snapshot.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength || !SCOPE_ID.test(snapshot.scopeId) ||
+    typeof snapshot.profileHash !== "string" || !HASH.test(snapshot.profileHash)
+  ) return null;
+  const validFrom = normalizedUtc(snapshot.validFrom);
+  const expiresAt = normalizedUtc(snapshot.expiresAt);
+  if (!validFrom || !expiresAt || validFrom >= expiresAt) return null;
+  if (
+    typeof credentialGrant.brokerId !== "string" ||
+    credentialGrant.brokerId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !BROKER_ID.test(credentialGrant.brokerId) ||
+    typeof credentialGrant.grantRef !== "string" ||
+    credentialGrant.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !CREDENTIAL_GRANT_REF.test(credentialGrant.grantRef)
   ) return null;
   return Object.freeze({
-    grantRef: grant.grantRef,
-    grantRevision: grant.grantRevision,
-    status: grant.status,
+    grantRef: snapshot.grantRef,
+    grantRevision: snapshot.grantRevision,
+    status: snapshot.status,
     validFrom,
     expiresAt,
-    provider: grant.provider,
+    provider: snapshot.provider,
     origins: Object.freeze(origins),
-    credentialGrant: Object.freeze({ ...grant.credentialGrant }),
-    operationId: grant.operationId,
-    scopeId: grant.scopeId,
-    profileHash: grant.profileHash
+    credentialGrant: Object.freeze({ brokerId: credentialGrant.brokerId, grantRef: credentialGrant.grantRef }),
+    operationId: snapshot.operationId,
+    scopeId: snapshot.scopeId,
+    profileHash: snapshot.profileHash
   });
 }
 
 function validateAuthorityRegistryCandidateInternal(candidate) {
-  if (!exactKeys(candidate, TOP_LEVEL_KEYS)) return blocked("authority_registry_shape_invalid");
+  const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
+  if (!top) return blocked("authority_registry_shape_invalid");
+  const grantsResult = snapshotPlainArray(top.grants, AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount);
+  if (grantsResult.status !== "ok") {
+    return blocked(grantsResult.reason === "array_length_exceeded"
+      ? "authority_registry_grant_count_exceeded" : "authority_registry_shape_invalid");
+  }
   if (
-    candidate.contract !== AUTHORITY_REGISTRY_CONTRACT ||
-    candidate.contractRevision !== AUTHORITY_REGISTRY_CONTRACT_REVISION
+    top.contract !== AUTHORITY_REGISTRY_CONTRACT ||
+    top.contractRevision !== AUTHORITY_REGISTRY_CONTRACT_REVISION
   ) return blocked("authority_registry_contract_mismatch");
   if (
-    typeof candidate.registryId !== "string" ||
-    candidate.registryId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !REGISTRY_ID.test(candidate.registryId)
+    typeof top.registryId !== "string" ||
+    top.registryId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !REGISTRY_ID.test(top.registryId)
   ) {
     return blocked("authority_registry_id_invalid");
   }
-  if (!Number.isSafeInteger(candidate.registryRevision) || candidate.registryRevision < 1) {
+  if (!Number.isSafeInteger(top.registryRevision) || top.registryRevision < 1) {
     return blocked("authority_registry_revision_invalid");
   }
-  const observedAt = normalizedUtc(candidate.observedAt);
+  const observedAt = normalizedUtc(top.observedAt);
   if (!observedAt) return blocked("authority_registry_observed_at_invalid");
-  if (!Array.isArray(candidate.grants) || candidate.grants.length === 0) {
+  if (grantsResult.value.length === 0) {
     return blocked("authority_registry_grants_required");
   }
-  if (candidate.grants.length > AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount) {
-    return blocked("authority_registry_grant_count_exceeded");
-  }
-  const grants = candidate.grants.map(normalizeGrant);
+  const grants = grantsResult.value.map(normalizeGrant);
   if (grants.some((grant) => grant == null)) return blocked("authority_registry_grant_invalid");
   const identities = grants.map((grant) => grant.grantRef);
   if (new Set(identities).size !== identities.length) return blocked("authority_registry_grant_duplicate");
   const registry = Object.freeze({
     contract: AUTHORITY_REGISTRY_CONTRACT,
     contractRevision: AUTHORITY_REGISTRY_CONTRACT_REVISION,
-    registryId: candidate.registryId,
-    registryRevision: candidate.registryRevision,
+    registryId: top.registryId,
+    registryRevision: top.registryRevision,
     observedAt,
     grants: Object.freeze([...grants].sort((left, right) =>
       left.grantRef.localeCompare(right.grantRef) || left.grantRevision - right.grantRevision))
@@ -229,15 +222,16 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
   if (profileResult.status !== "candidate") return blocked("authority_profile_invalid");
   const registryResult = validateAuthorityRegistryCandidate(rawRegistry);
   if (registryResult.status !== "candidate") return blocked("authority_registry_invalid");
+  const contextSnapshot = snapshotPlainRecord(context, new Set(["operationId", "scopeId", "now"]));
   if (
-    !context || typeof context !== "object" || Array.isArray(context) ||
-    !exactKeys(context, new Set(["operationId", "scopeId", "now"])) ||
-    typeof context.operationId !== "string" ||
-    context.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength || !OPERATION_ID.test(context.operationId) ||
-    typeof context.scopeId !== "string" ||
-    context.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength || !SCOPE_ID.test(context.scopeId)
+    !contextSnapshot || typeof contextSnapshot.operationId !== "string" ||
+    contextSnapshot.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !OPERATION_ID.test(contextSnapshot.operationId) ||
+    typeof contextSnapshot.scopeId !== "string" ||
+    contextSnapshot.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !SCOPE_ID.test(contextSnapshot.scopeId)
   ) return blocked("authority_context_invalid");
-  const now = normalizeNow(context.now);
+  const now = normalizeNow(contextSnapshot.now);
   if (!now) return blocked("authority_now_invalid");
   if (registryResult.registry.observedAt > now) return blocked("authority_registry_observation_in_future");
   if (profileResult.profile.authority.registryId !== registryResult.registry.registryId) {
@@ -256,7 +250,7 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
   if (canonicalJson(grant.credentialGrant) !== canonicalJson(profileResult.profile.credentialGrant)) {
     return blocked("authority_credential_grant_mismatch");
   }
-  if (grant.operationId !== context.operationId || grant.scopeId !== context.scopeId) {
+  if (grant.operationId !== contextSnapshot.operationId || grant.scopeId !== contextSnapshot.scopeId) {
     return blocked("authority_operation_scope_mismatch");
   }
   if (grant.profileHash !== profileResult.profileHash) return blocked("authority_profile_hash_mismatch");
@@ -268,8 +262,8 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
     registryHash: registryResult.registryHash,
     grantRef: grant.grantRef,
     grantRevision: grant.grantRevision,
-    operationId: context.operationId,
-    scopeId: context.scopeId,
+    operationId: contextSnapshot.operationId,
+    scopeId: contextSnapshot.scopeId,
     evaluatedAt: now,
     validUntil: grant.expiresAt
   });

@@ -190,7 +190,7 @@ test("Registryの巨大IDとOriginを正規化処理前に拒否する", () => {
   const throwing = registry();
   Object.defineProperty(throwing, "registryId", { enumerable: true, get() { throw new Error("raw"); } });
   assert.doesNotThrow(() => validateAuthorityRegistryCandidate(throwing));
-  assert.equal(validateAuthorityRegistryCandidate(throwing).reason, "authority_registry_input_invalid");
+  assert.equal(validateAuthorityRegistryCandidate(throwing).reason, "authority_registry_shape_invalid");
 });
 
 test("評価時刻は有効なDateまたはcanonical UTC文字列だけを受理する", () => {
@@ -213,5 +213,36 @@ test("評価時刻は有効なDateまたはcanonical UTC文字列だけを受理
       evaluateAuthorityGrantCandidate(profile(), registry(), { ...context, now }).reason,
       "authority_now_invalid"
     );
+  }
+});
+
+test("RegistryとContextのaccessorを実行せずblockedへ閉じる", () => {
+  for (const location of ["top", "grant", "array", "context"]) {
+    let calls = 0;
+    const rawRegistry = registry();
+    const rawContext = { ...context };
+    if (location === "top") {
+      Object.defineProperty(rawRegistry, "registryId", {
+        enumerable: true,
+        get() { calls += 1; return calls === 1 ? "AUTHREG-000001" : "AUTHREG-999999"; }
+      });
+    } else if (location === "grant") {
+      Object.defineProperty(rawRegistry.grants[0], "grantRef", {
+        enumerable: true,
+        get() { calls += 1; return calls === 1 ? "AUTH-000001" : "AUTH-999999"; }
+      });
+    } else if (location === "array") {
+      Object.defineProperty(rawRegistry.grants, "0", {
+        enumerable: true,
+        get() { calls += 1; return calls === 1 ? registry().grants[0] : { grantRef: "AUTH-999999" }; }
+      });
+    } else {
+      Object.defineProperty(rawContext, "now", {
+        enumerable: true,
+        get() { calls += 1; return calls === 1 ? context.now : "2099-01-01T00:00:00.000Z"; }
+      });
+    }
+    assert.equal(evaluateAuthorityGrantCandidate(profile(), rawRegistry, rawContext).status, "blocked", location);
+    assert.equal(calls, 0, location);
   }
 });
