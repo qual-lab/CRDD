@@ -451,3 +451,7 @@ Evidence Commit `546221d8b37ff8c677d6b71c7ab9823025b821e1`のCurrent Decision Se
 `GCI-ACTIVATION-TRANSITION-001`への処置として、前版／次版の個別妥当性確認と初版規則の後は、前版`disabled`、次版`active`、`active`から`disabled`のrevision上限、disable不変条件の順で評価する。これにより最大revisionでも`active`から`active`は再activation policy未実装、`disabled`起点はdisabled-origin policy未実装へ閉じ、revision exhaustionは実装済み候補である`active`から`disabled`だけへ適用する。MAX_SAFE-1からMAX_SAFEの正常境界、最大revisionの3遷移種別および既存負例を試験で固定する。
 
 公開contract、許可遷移2件、既存decoder／compiler、candidate出力、Filesystem Effect／persistence／Capability非発火、CLI、Gate `blocked`、非規範／Release境界は変更しない。
+
+固定Commit `c9a7a21afcedff654e51d728d15e5c0194107849`／Tree `4a9dfb0e09c4d96857cfd09e722284bee6c645a1`を対象に、Agent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditを新規に実行し、3件とも`Pass`、Finding `0`を得た。共通入力はCoordinator `183 / 183 Pass`、Checker `143 / 143 Pass`、全体Checker Error `0`／Warning `0`、diff／worktree cleanである。`DOC-ACTIVATION-TRANSITION-001`と`GCI-ACTIVATION-TRANSITION-001`はこの固定範囲で`Resolved`と判定する。旧`30aee201`以前の監査集合は履歴として保持し、現在判定へ流用しない。現在記録は[`CHG-000015_Current_Review_Record_c9a7a21.md`](Evidence/CHG-000015_Current_Review_Record_c9a7a21.md)へ接続する。
+
+確認済み範囲は初版`active`、`active`から`disabled`、Hash再計算、revision増分、Identity／Authority／時刻不変条件および最大revisionの判定順に限る。再activation、disabled起点の遷移、原子的永続化、Path／owner／ACL、実CLI Effect、cancel／recovery、Capability、Provider／Operationは未実装または未評価で、Gateは`blocked`を維持する。本解消はRuntime完成、採用、準拠、移行、Stable、Releaseまたは公開を意味しない。
