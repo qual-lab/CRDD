@@ -308,6 +308,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRootPathIdentity.runtimeCapabilityIssued, false);
   assert.equal(report.runtimeActivation.persistence, "repository_scoped_persistent");
   assert.equal(report.runtimeActivation.activationCommand, "dedicated_activate_required");
+  assert.equal(report.runtimeActivation.activationCommandGrammar, "implemented_candidate");
+  assert.equal(report.runtimeActivation.activationEffect, "not_implemented");
+  assert.equal(report.runtimeActivation.disableCommandGrammar, "implemented_candidate");
+  assert.equal(report.runtimeActivation.disableEffect, "not_implemented");
   assert.equal(report.runtimeActivation.doctorEnableIsActivation, false);
   assert.equal(report.runtimeActivation.bundleIdentityChangeRequiresReactivation, true);
   assert.equal(report.runtimeActivation.atomicPersistence, "not_implemented");

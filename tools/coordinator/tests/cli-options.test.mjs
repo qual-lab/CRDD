@@ -6,7 +6,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { parseDoctorArguments } from "../src/core/cli-options.mjs";
+import {
+  parseActivateArguments,
+  parseDisableArguments,
+  parseDoctorArguments
+} from "../src/core/cli-options.mjs";
 
 const COORDINATOR_EXECUTABLE = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)), "../bin/coordinator.mjs"
@@ -121,4 +125,152 @@ test("実CLIは不正grammarを処置前に安全なusage errorへ閉じる", ()
     reason: "runtime_root_requires_enable_request"
   });
   assert.equal(result.stdout.includes(secretLikePath), false);
+});
+
+test("activateはRuntime RootとAuthority RootをCLI優先で正規化する", () => {
+  const cliRuntime = path.resolve("cli-runtime");
+  const envRuntime = path.resolve("env-runtime");
+  const cliAuthority = path.resolve("cli-authority");
+  const envAuthority = path.resolve("env-authority");
+  const parsed = parseActivateArguments([
+    "--json",
+    "--runtime-root", cliRuntime,
+    "--authority-root", cliAuthority
+  ], envRuntime, envAuthority);
+  assert.equal(parsed.status, "ok");
+  assert.equal(parsed.value.runtimeRootRequest.cliOverride, cliRuntime);
+  assert.equal(parsed.value.runtimeRootRequest.environmentOverride, envRuntime);
+  assert.equal(parsed.value.authorityRootRequest.cliOverride, cliAuthority);
+  assert.equal(parsed.value.authorityRootRequest.environmentOverride, envAuthority);
+  assert.equal(parsed.value.authorityRootRequest.activationIntent, "explicit_activate_request");
+});
+
+test("activateはAuthority Root欠落と不正環境値をusage errorと区別する", () => {
+  const missing = parseActivateArguments([], undefined, undefined);
+  assert.equal(missing.status, "blocked");
+  assert.equal(missing.reason, "authority_root_explicit_path_required");
+  assert.equal(missing.usageError, false);
+
+  for (const parsed of [
+    parseActivateArguments([], "relative-runtime", path.resolve("authority")),
+    parseActivateArguments([], undefined, "relative-authority")
+  ]) {
+    assert.equal(parsed.status, "blocked");
+    assert.equal(parsed.usageError, false);
+  }
+});
+
+test("activateとdisableはcommand固有grammarを厳密に分離する", () => {
+  const root = path.resolve("runtime");
+  const authority = path.resolve("authority");
+  for (const args of [
+    ["--json", "--json"],
+    ["--runtime-root"],
+    ["--runtime-root", "relative"],
+    ["--runtime-root", root, "--runtime-root", root],
+    ["--authority-root", authority, "--authority-root", authority],
+    ["--enable-runtime"],
+    ["--recover-isolation", "host.safe"],
+    ["--runtime-root", path.resolve("bad\nroot")],
+    ["--runtime-root", `${path.parse(path.resolve("root")).root}${"x".repeat(4_097)}`],
+    ["extra"]
+  ]) {
+    const parsed = parseActivateArguments(args, undefined, authority);
+    assert.equal(parsed.status, "blocked");
+    assert.equal(parsed.usageError, true);
+  }
+  for (const args of [
+    ["--authority-root", authority],
+    ["--isolation"],
+    ["--enable-runtime"],
+    ["--runtime-root", root, "extra"]
+  ]) {
+    const parsed = parseDisableArguments(args, undefined);
+    assert.equal(parsed.status, "blocked");
+    assert.equal(parsed.usageError, true);
+  }
+});
+
+test("disableはRuntime RootのCLI、環境、Repository既定候補を分離する", () => {
+  const cliRoot = path.resolve("cli-runtime");
+  const envRoot = path.resolve("env-runtime");
+  const cli = parseDisableArguments(["--runtime-root", cliRoot], envRoot);
+  assert.equal(cli.status, "ok");
+  assert.equal(cli.value.runtimeRootRequest.cliOverride, cliRoot);
+  assert.equal(cli.value.runtimeRootRequest.environmentOverride, envRoot);
+  assert.equal(cli.value.authorityRootRequest, null);
+
+  const fallback = parseDisableArguments([], undefined);
+  assert.equal(fallback.status, "ok");
+  assert.equal(fallback.value.runtimeRootRequest.cliOverride, null);
+  assert.equal(fallback.value.runtimeRootRequest.environmentOverride, null);
+});
+
+test("実activateとdisableはPathを表示せずEffect未実装でblockedにする", () => {
+  const executable = COORDINATOR_EXECUTABLE;
+  const runtimeRoot = path.resolve("do-not-report-runtime");
+  const authorityRoot = path.resolve("do-not-report-authority");
+  const environment = {
+    ...process.env,
+    CRDD_COORDINATOR_ROOT: runtimeRoot,
+    CRDD_COORDINATOR_AUTHORITY_ROOT: authorityRoot
+  };
+  for (const command of ["activate", "disable"]) {
+    const result = spawnSync(process.execPath, [executable, command, "--json"], {
+      env: environment,
+      encoding: "utf8",
+      windowsHide: true
+    });
+    assert.equal(result.status, 2);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.status, "blocked");
+    assert.equal(report.command, command);
+    assert.equal(report.runtimeCapabilityIssued, false);
+    assert.equal(result.stdout.includes(runtimeRoot), false);
+    assert.equal(result.stdout.includes(authorityRoot), false);
+  }
+});
+
+test("activateとdisableの妥当な要求はFilesystem内容を変更しない", (t) => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-control-no-effect-"));
+  t.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
+  const repository = path.join(fixture, "repository");
+  const runtimeRoot = path.join(repository, ".crdd-runtime");
+  const authorityRoot = path.join(fixture, "authority");
+  fs.mkdirSync(repository);
+  const before = fs.readdirSync(fixture).sort();
+  const environment = {
+    ...process.env,
+    CRDD_COORDINATOR_AUTHORITY_ROOT: authorityRoot
+  };
+  for (const command of ["activate", "disable"]) {
+    const result = spawnSync(process.execPath, [
+      COORDINATOR_EXECUTABLE, command, "--runtime-root", runtimeRoot, "--json"
+    ], { cwd: repository, env: environment, encoding: "utf8", windowsHide: true });
+    assert.equal(result.status, 2);
+  }
+  assert.deepEqual(fs.readdirSync(fixture).sort(), before);
+  assert.equal(fs.existsSync(runtimeRoot), false);
+  assert.equal(fs.existsSync(authorityRoot), false);
+});
+
+test("実activateは選択不成立をexit 2、CLI誤用をexit 64で返す", () => {
+  const executable = COORDINATOR_EXECUTABLE;
+  const environment = { ...process.env };
+  delete environment.CRDD_COORDINATOR_ROOT;
+  delete environment.CRDD_COORDINATOR_AUTHORITY_ROOT;
+  const missing = spawnSync(process.execPath, [executable, "activate", "--json"], {
+    env: environment,
+    encoding: "utf8",
+    windowsHide: true
+  });
+  assert.equal(missing.status, 2);
+  assert.equal(JSON.parse(missing.stdout).reason, "authority_root_explicit_path_required");
+
+  const invalid = spawnSync(process.execPath, [
+    executable, "disable", "--authority-root", path.resolve("secret-authority"), "--json"
+  ], { env: environment, encoding: "utf8", windowsHide: true });
+  assert.equal(invalid.status, 64);
+  assert.equal(JSON.parse(invalid.stdout).reason, "disable_arguments_invalid");
+  assert.equal(invalid.stdout.includes("secret-authority"), false);
 });

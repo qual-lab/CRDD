@@ -413,3 +413,13 @@ Authority RootはRuntime主体だけが書込み可能でProviderから到達不
 固定Commit `4bcc17ccb6ba9b50374bb8a4069b2148f281fe19`／Tree `a5d9dcccd8efe109a01a08da96c738c82762bc04`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_4bcc17c.md`](Evidence/CHG-000015_Current_Review_Record_4bcc17c.md)とする。`DOC-ACTIVATION-001`および`GCI-ACTIVATION-001`はdisable lifecycleとactivation時刻入力境界の固定範囲で`Resolved`と判定する。
 
 この解消は原子的永続化、Authority Root／Runtime Rootの実Path／owner／ACL、専用activate／disable Effect、Candidate Revision／Operation／Provider除外の実強制、run-scoped Capabilityまたは実Operationを成立させない。旧`4b11552`以前の結果は履歴としてのみ保持し、現在判定へ流用しない。次段階と人間判断の再開条件は現在記録のCurrent Decision Setへ保持し、Gate `blocked`、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開の非成立を維持する。
+
+### 専用activate／disable command grammar候補
+
+Evidence Commit `01b1c2fc08adced6303e2dbdf9a6982b18b6a247`のCurrent Decision Setに従い、追加の人間判断なしで専用`activate`／`disable`のCLI grammar候補へ進む。旧`4bcc17c`の3独立確認はAuthority Root選択／activation record canonical Core候補の履歴としてのみ保持し、本差分の合否へ流用しない。
+
+`activate`は`--json`、`--runtime-root <absolute-path>`および`--authority-root <absolute-path>`だけ、`disable`は`--json`と`--runtime-root <absolute-path>`だけを受理する。未知／重複option、値欠落、余剰token、相対Path、制御文字または4096文字超過のCLI値は処置前のusage errorへ閉じる。Runtime RootはCLI、`CRDD_COORDINATOR_ROOT`、Repository既定の順、Authority RootはCLI、`CRDD_COORDINATOR_AUTHORITY_ROOT`の順とし、Authority RootにOS暗黙既定を設けない。Authority Root欠落または不正環境値はCLI誤用と区別した`blocked`とする。`disable`はAuthority Root optionまたは環境値を受理／使用しない。doctor／recovery／isolation用optionを専用commandへ混入させず、既存grammarを緩めない。
+
+妥当な要求も現在は`runtime_activation_effect_not_implemented`または`runtime_disable_effect_not_implemented`として`blocked`にする。JSON／通常出力はcommand種別、固定reason、Effect非発火およびCapability未発行だけを示し、Path、環境値、cwd、Filesystem Identityまたはraw tokenを保持しない。専用commandからRootの`lstat`／`realpath`／作成、local exclude、Authority Bundle読取り、activation record生成／Hash／永続化、disable遷移、Candidate Revision／Operation／Provider除外、Capability、ProviderまたはOperationを発火しない。
+
+公開contractは`activationCommandGrammar`／`disableCommandGrammar`の実装済み候補と、`activationEffect`／`disableEffect`／`atomicPersistence`の未実装を別軸へ分離する。局所試験はcommand別grammar、CLI／環境優先、Authority Root欠落、不正環境値、通常／JSONのPath非漏洩、exit code `2`／`64`およびdoctor／recovery非回帰を確認する。本処置は`Applied`／`Self-checked`であり、新固定版の全体Checkerと同じ3独立確認前にcommand Effect、activation成立、Capability、Runtime完成、採用、準拠、移行、StableまたはReleaseとして扱わない。

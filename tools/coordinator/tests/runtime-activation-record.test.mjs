@@ -132,6 +132,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
   const contract = describeRuntimeActivationContract();
   assert.equal(contract.persistence, "repository_scoped_persistent");
   assert.equal(contract.activationCommand, "dedicated_activate_required");
+  assert.equal(contract.activationCommandGrammar, "implemented_candidate");
+  assert.equal(contract.activationEffect, "not_implemented");
+  assert.equal(contract.disableCommandGrammar, "implemented_candidate");
+  assert.equal(contract.disableEffect, "not_implemented");
   assert.equal(contract.doctorEnableIsActivation, false);
   assert.equal(contract.bundleIdentityChangeRequiresReactivation, true);
   assert.equal(contract.disableSemantics, "stop_new_operations_and_safely_cancel_in_flight");
