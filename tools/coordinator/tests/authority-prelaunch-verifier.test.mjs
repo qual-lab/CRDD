@@ -6,11 +6,15 @@ import {
   validateAuthorityRegistryCandidate
 } from "../src/security/authority-grant-verifier.mjs";
 import {
+  AUTHORITY_FILE_BUNDLE_CONTRACT
+} from "../src/security/authority-file-bundle.mjs";
+import {
   describeAuthorityPrelaunchVerifierContract,
   reverifyAuthorityBeforeProviderLaunch
 } from "../src/security/authority-prelaunch-verifier.mjs";
 import {
-  AUTHORITY_TRUST_POLICY_CONTRACT
+  AUTHORITY_TRUST_POLICY_CONTRACT,
+  decodeCanonicalAuthorityTrustPolicyBytes
 } from "../src/security/authority-trust-loader.mjs";
 import {
   PROVIDER_ISOLATION_CONTRACT,
@@ -75,39 +79,58 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
     registryHash: validated.registryHash,
     ...policyOverrides
   };
-  return { rawProfile, registryBytes, trustPolicy };
+  const trustPolicyBytes = Buffer.from(canonicalJson(trustPolicy), "utf8");
+  const decodedPolicy = decodeCanonicalAuthorityTrustPolicyBytes(trustPolicyBytes);
+  assert.equal(decodedPolicy.status, "candidate");
+  const manifest = {
+    contract: AUTHORITY_FILE_BUNDLE_CONTRACT,
+    contractRevision: 1,
+    bundleId: "AUTHBUNDLE-000001",
+    bundleRevision: 1,
+    status: "active",
+    previousBundleHash: null,
+    trustPolicyHash: decodedPolicy.trustPolicyHash,
+    registryHash: validated.registryHash
+  };
+  const bundle = {
+    manifestBytes: Buffer.from(canonicalJson(manifest), "utf8"),
+    trustPolicyBytes,
+    registryBytes
+  };
+  return { rawProfile, bundle, trustPolicy };
 }
 
 const context = Object.freeze({ operationId: "OP-000001", scopeId: "SCOPE-000001" });
 
 test("Runtime時計でGrantを起動直前に再確認する候補を作る", () => {
   const before = Date.now();
-  const { rawProfile, registryBytes, trustPolicy } = fixture();
+  const { rawProfile, bundle, trustPolicy } = fixture();
   const result = reverifyAuthorityBeforeProviderLaunch(
     rawProfile,
-    registryBytes,
-    trustPolicy,
+    bundle,
     context
   );
   const after = Date.now();
   assert.equal(result.status, "candidate");
-  assert.equal(result.reason, "runtime_owned_trust_policy_activation_required");
+  assert.equal(result.reason, "runtime_file_bundle_path_acl_and_activation_required");
   assert.equal(result.runtimeCapabilityIssued, false);
   assert.equal(result.verification.operationId, context.operationId);
   assert.equal(result.verification.scopeId, context.scopeId);
   assert.equal(result.verification.trustPolicyId, trustPolicy.policyId);
   assert.equal(result.verification.trustPolicyRevision, trustPolicy.policyRevision);
   assert.match(result.verification.trustPolicyHash, /^[a-f0-9]{64}$/u);
+  assert.equal(result.verification.bundleId, "AUTHBUNDLE-000001");
+  assert.equal(result.verification.bundleRevision, 1);
+  assert.match(result.verification.bundleHash, /^[a-f0-9]{64}$/u);
   const checkedAt = Date.parse(result.verification.prelaunchCheckedAt);
   assert.ok(before <= checkedAt && checkedAt <= after);
 });
 
 test("呼出側時刻を受理せず固定Contextだけを使う", () => {
-  const { rawProfile, registryBytes, trustPolicy } = fixture();
+  const { rawProfile, bundle } = fixture();
   assert.equal(reverifyAuthorityBeforeProviderLaunch(
     rawProfile,
-    registryBytes,
-    trustPolicy,
+    bundle,
     { ...context, now: "2099-01-01T00:00:00.000Z" }
   ).reason, "prelaunch_authority_context_invalid");
 
@@ -119,8 +142,7 @@ test("呼出側時刻を受理せず固定Contextだけを使う", () => {
   });
   assert.equal(reverifyAuthorityBeforeProviderLaunch(
     rawProfile,
-    registryBytes,
-    trustPolicy,
+    bundle,
     accessor
   ).status, "blocked");
   assert.equal(getterCalls, 0);
@@ -133,23 +155,28 @@ test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", ()
   });
   const expiredResult = reverifyAuthorityBeforeProviderLaunch(
     expired.rawProfile,
-    expired.registryBytes,
-    expired.trustPolicy,
+    expired.bundle,
     context
   );
   assert.equal(expiredResult.status, "blocked");
   assert.equal(expiredResult.reason, "authority_grant_outside_validity");
   assert.equal(expiredResult.runtimeCapabilityIssued, false);
 
-  const mismatch = fixture({}, { registryHash: "a".repeat(64) });
+  const mismatch = fixture();
+  const mismatchedBundle = {
+    ...mismatch.bundle,
+    manifestBytes: Buffer.from(mismatch.bundle.manifestBytes.toString("utf8").replace(
+      /"registryHash":"[a-f0-9]{64}"/u,
+      `"registryHash":"${"a".repeat(64)}"`
+    ), "utf8")
+  };
   const mismatchResult = reverifyAuthorityBeforeProviderLaunch(
     mismatch.rawProfile,
-    mismatch.registryBytes,
-    mismatch.trustPolicy,
+    mismatchedBundle,
     context
   );
   assert.equal(mismatchResult.status, "blocked");
-  assert.equal(mismatchResult.reason, "prelaunch_authority_trust_input_invalid");
+  assert.equal(mismatchResult.reason, "prelaunch_authority_file_bundle_invalid");
   assert.equal(mismatchResult.runtimeCapabilityIssued, false);
 });
 
@@ -159,6 +186,7 @@ test("Core候補はProvider起動やAuthority Capabilityを成立させない", 
   assert.equal(contract.prelaunchReverificationCore, "implemented_candidate");
   assert.equal(contract.providerLaunchIntegration, "not_implemented");
   assert.equal(contract.runtimeTrustPolicyActivation, "not_implemented");
+  assert.equal(contract.authorityFileBundleCore, "implemented_candidate");
   assert.equal(contract.runtimeCapabilityIssued, false);
   assert.equal(contract.callerSuppliedTimeAccepted, false);
   assert.equal(contract.candidateReusableAsCapability, false);

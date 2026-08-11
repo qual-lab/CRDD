@@ -19,6 +19,7 @@ import { describeEgressProxyTopology } from "../security/egress-proxy-policy.mjs
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.mjs";
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
+import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -274,10 +275,11 @@ export function runDoctor(options = {}) {
         isolationProfileContract: describeProviderIsolationContract(),
         authorityVerifier: describeAuthorityGrantVerifierContract(),
         authorityTrustLoader: describeAuthorityTrustLoaderContract(),
+        authorityFileBundle: describeAuthorityFileBundleContract(),
         authorityPrelaunchVerifier: describeAuthorityPrelaunchVerifierContract(),
         proxyTopology: describeEgressProxyTopology(),
         activation: "blocked",
-        activationReason: "runtime_trust_policy_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented"
+        activationReason: "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented"
       },
       recovery: retainOperationDirectories
         ? {

@@ -8,6 +8,8 @@ import {
 } from "../src/security/authority-grant-verifier.mjs";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
+  AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
+  decodeCanonicalAuthorityTrustPolicyBytes,
   describeAuthorityTrustLoaderContract,
   loadAuthorityRegistryTrustCandidate
 } from "../src/security/authority-trust-loader.mjs";
@@ -151,9 +153,31 @@ test("Registry Bufferの上書きpropertyを参照せずRuntime所有copyを使�
   assert.equal(calls, 0);
 });
 
+test("Trust Policy byte列も所有copy、canonical形式および独立上限を要求する", () => {
+  const { policy } = fixture();
+  const bytes = Buffer.from(canonicalJson(policy), "utf8");
+  let calls = 0;
+  Object.defineProperties(bytes, {
+    length: { value: AUTHORITY_TRUST_POLICY_INPUT_LIMITS.rawBytes + 1 },
+    byteLength: { get() { calls += 1; throw new Error("raw"); } },
+    equals: { get() { calls += 1; throw new Error("raw"); } }
+  });
+  assert.equal(decodeCanonicalAuthorityTrustPolicyBytes(bytes).status, "candidate");
+  assert.equal(calls, 0);
+
+  for (const input of [
+    Buffer.concat([Buffer.from(canonicalJson(policy), "utf8"), Buffer.from("\n")]),
+    Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(canonicalJson(policy), "utf8")]),
+    Buffer.alloc(AUTHORITY_TRUST_POLICY_INPUT_LIMITS.rawBytes + 1, 0x20)
+  ]) {
+    assert.equal(decodeCanonicalAuthorityTrustPolicyBytes(input).status, "blocked");
+  }
+});
+
 test("Loader Core候補はcaller PolicyをAuthority Capabilityへ昇格しない", () => {
   const contract = describeAuthorityTrustLoaderContract();
   assert.equal(contract.canonicalRegistryByteLoader, "implemented_candidate");
+  assert.equal(contract.canonicalTrustPolicyByteLoader, "implemented_candidate");
   assert.equal(contract.runtimeTrustPolicyOwnership, "not_implemented");
   assert.equal(contract.runtimeTrustPolicyActivation, "not_implemented");
   assert.equal(contract.prelaunchReverificationCore, "implemented_candidate");

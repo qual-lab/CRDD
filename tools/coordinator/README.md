@@ -57,7 +57,9 @@ Trust Anchor Loader Core候補は、Registry入力を上限付きbyte列とし�
 
 起動直前Authority再確認Core候補は、呼出側から時刻を受け取らず、Runtimeプロセスが保持する時計関数を一度だけ読み取る。同じ呼出しの中でcanonical Registry byte、Trust Policy候補、Profile、Grant、OperationおよびScopeを再検証し、現在時刻がGrantの`validFrom <= now < expiresAt`を満たす場合だけ固定された再確認候補を返す。結果はTrust Policy ID／revision／Hash、Registry Identity、Grant revision、Profile Hash、Operation／Scopeおよび確認時刻へ結び付くが、再利用可能なAuthority Capabilityではない。Runtime所有Trust Policyの有効化とProvider起動経路への直結が未実装のため、Core候補だけでProviderを起動しない。
 
-過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。Trust Anchor Loader CoreはRegistryをJavaScript値へ展開する前に131072 byteの上限を強制する。実ファイル、IPCまたはTransportからbyte列を取得するRuntime所有Adapterは未実装であり、その入口でも取得量とPath／Channel Authorityを別途強制する。
+Runtime 1.0の正式なAuthority取得方式は、Runtime管理領域内の固定ローカルFile Bundleだけとする。Bundleは`bundle.json`、`trust-policy.json`、`authority-registry.json`の3ファイルで構成し、Manifestのrevision、状態、前版Hash、Policy HashおよびRegistry Hashをcanonical byteから固定する。File Bundle Core候補は3ファイルの構造とHashを検証するが、実際の配置Path、所有主体／ACL、link禁止、原子的置換、単調な有効化・取消をまだ強制しないため、結果は`candidate`で全体Gateは`blocked`のままである。IPC／Network TransportはRuntime 1.0の正式取得方式に含めない。
+
+過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。Trust Anchor Loader CoreはRegistryをJavaScript値へ展開する前に131072 byteの上限を強制する。File Bundleを実際に読み取るRuntime所有Path Adapterは未実装であり、その入口でも取得量、固定Path、所有主体／ACLおよび実体Identityを別途強制する。
 
 Profile、Registry、および評価Contextのrecord／array構造は、JSON相当のplain dataだけを受理する。評価Contextの`now`だけは型付き値の例外として、Context recordから一度取得した有効な`Date`、またはcanonical UTC文字列を受理し、canonical UTC文字列へ変換して以後の評価に使用する。動的getter、Proxy、symbol、独自prototype、疎配列または余分な配列propertyを含む入力は値を実行・再読せず`blocked`にする。検査済みのproperty descriptorから作った固定snapshotだけを、正規化、比較およびHashへ使用する。
 

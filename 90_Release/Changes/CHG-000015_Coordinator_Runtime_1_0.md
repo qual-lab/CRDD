@@ -257,3 +257,11 @@ Trust Policyの具体的な正本・配布方式を自己決定せずに進め�
 固定版Commit `15fdcb2b84db68fb991f32e4da9ba76f0f5732f7`、Tree `05eb6eec43dca984ecec0e6bec5b57e631ec61eb`への3独立確認はすべて`Pass`、Finding 0で完了した。固定結果は[`CHG-000015_Current_Review_Record_15fdcb2.md`](Evidence/CHG-000015_Current_Review_Record_15fdcb2.md)へ記録する。Runtime時計、同一呼出し再検証、候補Identity結合、失効／取消／置換のfail closedおよびCapability非発行境界は、このCore候補と直接利用側の固定範囲で独立確認済みである。
 
 次段階では、Runtime所有Trust Policy／Authority Registryの正本取得方式と導入・更新・取消AuthorityをQual-Labが決定する。推奨はRuntime管理領域内の固定ローカルfile bundleを1.0の唯一の正式取得方式とし、IPC／Network Transportを1.0後へ送ることである。判断前にAuthority Capability、Provider起動結合、Proxy、Brokerまたは実Operationを開始しない。全体Gateは`blocked`を維持し、本結果をRuntime完成、利用許可、採用、準拠、移行、Stable、Releaseまたは公開へ流用しない。
+
+### Runtime所有Authority File Bundle Core候補
+
+Qual-Labは、Runtime 1.0の正式なAuthority取得方式をRuntime管理領域内の固定ローカルFile Bundleに限定し、IPC／Network Transportを1.0後へ送る方針を決定した。この判断は実装範囲を固定するものであり、Authority Capability、Provider起動、採用、準拠またはReleaseの承認ではない。
+
+Bundleは`bundle.json`、`trust-policy.json`、`authority-registry.json`の固定3ファイルで構成する。Manifestは`crdd-coordinator/authority-file-bundle`、`contractRevision: 1`、Bundle ID／revision／状態、前版Bundle Hash、Trust Policy HashおよびRegistry Hashだけを持つ。Manifestは4096 byte、Trust Policyは4096 byte、Registryは131072 byteを上限とし、strict UTF-8、BOMなし、末尾空白を含まないcanonical JSON完全一致を要求する。初版は前版Hashを`null`、後続版は64桁Hashとし、activeなManifestとPolicyおよび3ファイル間のHash一致だけを候補へ固定する。accessor、Proxy、余分field、非canonical byte、inactive状態またはHash差は固定理由の`blocked`へ閉じる。
+
+本CoreはPathを読み取らず、Runtime管理root、所有主体／ACL、link／reparse禁止、実体Identity、同一snapshot、原子的置換または単調な有効化・取消を成立させない。これらを実装するRuntime所有Path AdapterとProvider起動直前の再読取りが未実装である間、結果は`candidate`、Capability未発行、全体Gate `blocked`とする。`doctor`はFile Bundle Core候補とPath／ACL／activation未実装を分けて表示する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にAuthority取得完成、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。

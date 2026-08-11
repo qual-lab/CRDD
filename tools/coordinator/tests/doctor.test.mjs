@@ -285,13 +285,20 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.egress.authorityTrustLoader.canonicalRegistryByteLoader, "implemented_candidate");
   assert.equal(report.egress.authorityTrustLoader.runtimeTrustPolicyActivation, "not_implemented");
   assert.equal(report.egress.authorityTrustLoader.runtimeCapabilityIssued, false);
+  assert.equal(report.egress.authorityFileBundle.canonicalBundleCore, "implemented_candidate");
+  assert.equal(report.egress.authorityFileBundle.runtimeManagedPath, "not_implemented");
+  assert.equal(report.egress.authorityFileBundle.ownerAclVerification, "not_implemented");
+  assert.equal(report.egress.authorityFileBundle.atomicReplacement, "not_implemented");
+  assert.equal(report.egress.authorityFileBundle.monotonicActivation, "not_implemented");
+  assert.equal(report.egress.authorityFileBundle.runtimeCapabilityIssued, false);
+  assert.equal(report.egress.authorityFileBundle.ipcOrNetworkTransportSupported, false);
   assert.equal(report.egress.authorityPrelaunchVerifier.runtimeClockRead, "implemented_candidate");
   assert.equal(report.egress.authorityPrelaunchVerifier.prelaunchReverificationCore, "implemented_candidate");
   assert.equal(report.egress.authorityPrelaunchVerifier.providerLaunchIntegration, "not_implemented");
   assert.equal(report.egress.authorityPrelaunchVerifier.runtimeCapabilityIssued, false);
   assert.equal(
     report.egress.activationReason,
-    "runtime_trust_policy_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented"
+    "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented"
   );
   assert.equal(serialized.includes("OPENAI_API_KEY="), false);
   assert.equal(serialized.includes("ANTHROPIC_API_KEY="), false);

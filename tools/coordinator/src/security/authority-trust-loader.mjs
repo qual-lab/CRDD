@@ -8,6 +8,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 
 export const AUTHORITY_TRUST_POLICY_CONTRACT = "crdd-coordinator/authority-trust-policy";
 export const AUTHORITY_TRUST_POLICY_CONTRACT_REVISION = 1;
+export const AUTHORITY_TRUST_POLICY_INPUT_LIMITS = Object.freeze({ rawBytes: 4_096 });
 
 const POLICY_ID = /^AUTHPOL-[0-9]{6,}$/u;
 const REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
@@ -22,6 +23,10 @@ const POLICY_KEYS = new Set([
   "registryRevision",
   "registryHash"
 ]);
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype),
+  "byteLength"
+).get;
 
 function blocked(reason) {
   return Object.freeze({
@@ -41,6 +46,38 @@ function canonicalJson(value) {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+export function decodeCanonicalAuthorityTrustPolicyBytes(input) {
+  try {
+    if (!Buffer.isBuffer(input)) return blocked("authority_trust_policy_bytes_required");
+    const inputLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, input, []);
+    if (inputLength > AUTHORITY_TRUST_POLICY_INPUT_LIMITS.rawBytes) {
+      return blocked("authority_trust_policy_raw_bytes_exceeded");
+    }
+    const bytes = Buffer.allocUnsafe(inputLength);
+    Uint8Array.prototype.set.call(bytes, input);
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (source.charCodeAt(0) === 0xfeff) return blocked("authority_trust_policy_bytes_invalid");
+    const parsed = JSON.parse(source);
+    const trustPolicy = validateTrustPolicyCandidate(parsed);
+    if (!trustPolicy) return blocked("authority_trust_policy_bytes_invalid");
+    const canonical = canonicalJson(trustPolicy);
+    if (!Buffer.prototype.equals.call(bytes, Buffer.from(canonical, "utf8"))) {
+      return blocked("authority_trust_policy_bytes_noncanonical");
+    }
+    return Object.freeze({
+      status: "candidate",
+      reason: "runtime_owned_trust_policy_activation_required",
+      registry: null,
+      registryHash: trustPolicy.registryHash,
+      trustPolicy,
+      trustPolicyHash: createHash("sha256").update(canonical).digest("hex"),
+      runtimeCapabilityIssued: false
+    });
+  } catch {
+    return blocked("authority_trust_policy_bytes_invalid");
+  }
 }
 
 function validateTrustPolicyCandidate(candidate) {
@@ -104,6 +141,7 @@ export function describeAuthorityTrustLoaderContract() {
     contract: AUTHORITY_TRUST_POLICY_CONTRACT,
     contractRevision: AUTHORITY_TRUST_POLICY_CONTRACT_REVISION,
     canonicalRegistryByteLoader: "implemented_candidate",
+    canonicalTrustPolicyByteLoader: "implemented_candidate",
     runtimeTrustPolicyOwnership: "not_implemented",
     runtimeTrustPolicyActivation: "not_implemented",
     prelaunchReverificationCore: "implemented_candidate",
