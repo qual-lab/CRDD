@@ -9,6 +9,8 @@ import {
   describeAuthorityRootLocatorContract,
   evaluateAuthorityRootLocatorActivationBindingCandidate
 } from "../src/security/authority-root-locator.mjs";
+import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
+  "../src/security/runtime-activation-locator-binding-contract.mjs";
 
 const validPath = process.platform === "win32" ? "C:\\CRDD\\authority" : "/srv/crdd/authority";
 
@@ -224,16 +226,20 @@ test("locator activation binding compares only the five shared fields", () => {
   assert.equal(result.runtimeCapabilityIssued, false);
   assert.equal(JSON.stringify(result).includes(value.authorityRootAbsolutePath), false);
   assert.equal(JSON.stringify(result).includes(value.repositoryIdentityHash), false);
-  for (const [key, replacement] of [
-    ["repositoryIdentityHash", "6".repeat(64)],
-    ["runtimeRootIdentityHash", "7".repeat(64)],
-    ["activationId", "ACTIVATION-000002"],
-    ["activationRevision", 3],
-    ["activationRecordHash", "8".repeat(64)]
-  ]) {
+  const replacements = {
+    repositoryIdentityHash: "6".repeat(64),
+    runtimeRootIdentityHash: "7".repeat(64),
+    activationId: "ACTIVATION-000002",
+    activationRevision: 3,
+    activationRecordHash: "8".repeat(64)
+  };
+  assert.equal(Object.isFrozen(RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS), true);
+  assert.equal(new Set(RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS).size,
+    RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS.length);
+  for (const key of RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS) {
     assert.equal(evaluateAuthorityRootLocatorActivationBindingCandidate(value, {
       ...expected,
-      [key]: replacement
+      [key]: replacements[key]
     }).reason, "authority_root_locator_activation_binding_mismatch");
   }
 

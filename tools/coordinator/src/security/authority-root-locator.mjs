@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
+  "./runtime-activation-locator-binding-contract.mjs";
 import { isRuntimeActivationIdCandidate } from "./runtime-activation-identity.mjs";
 
 export const AUTHORITY_ROOT_LOCATOR_CONTRACT = "crdd-coordinator/authority-root-locator";
@@ -27,13 +29,7 @@ const LOCATOR_KEYS = new Set([
   "activationRevision",
   "activationRecordHash"
 ]);
-const ACTIVATION_BINDING_KEYS = new Set([
-  "repositoryIdentityHash",
-  "runtimeRootIdentityHash",
-  "activationId",
-  "activationRevision",
-  "activationRecordHash"
-]);
+const ACTIVATION_BINDING_KEYS = new Set(RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS);
 const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
@@ -193,7 +189,8 @@ export function evaluateAuthorityRootLocatorActivationBindingCandidate(rawLocato
       return bindingResponse("blocked", "authority_root_locator_invalid");
     }
     const locator = compiled.locator;
-    if ([...ACTIVATION_BINDING_KEYS].some((key) => locator[key] !== expected[key])) {
+    if (RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS.some(
+      (key) => locator[key] !== expected[key])) {
       return bindingResponse("blocked", "authority_root_locator_activation_binding_mismatch");
     }
     return bindingResponse("candidate",

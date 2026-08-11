@@ -8,6 +8,8 @@ import {
   decodeRuntimeActivationRecordCandidate,
   describeRuntimeActivationContract
 } from "../src/security/runtime-activation-record.mjs";
+import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
+  "../src/security/runtime-activation-locator-binding-contract.mjs";
 
 function record(overrides = {}) {
   return {
@@ -192,6 +194,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
+  assert.equal(contract.activationLocatorBinding.pairBindingFields,
+    RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS);
   assert.equal(contract.onboardingBlockingDependencies.includes(
     "authority_root_resolution_from_provisioning_record"), true);
   assert.equal(contract.onboardingBlockingDependencies.includes(

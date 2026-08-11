@@ -1,4 +1,4 @@
-const PAIR_BINDING_FIELDS = Object.freeze([
+export const RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS = Object.freeze([
   "repositoryIdentityHash",
   "runtimeRootIdentityHash",
   "activationId",
@@ -10,7 +10,7 @@ export function describeRuntimeActivationLocatorBindingContract() {
   return Object.freeze({
     core: "implemented_candidate_initial_only",
     supportedTransition: "initial_null_to_active",
-    pairBindingFields: PAIR_BINDING_FIELDS,
+    pairBindingFields: RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS,
     provisioningRecordVerification: "not_implemented",
     filesystemCurrentRecordRead: "not_implemented",
     activeActivationBinding: "not_implemented",

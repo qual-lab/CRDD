@@ -5,6 +5,8 @@ import { AUTHORITY_ROOT_LOCATOR_CONTRACT } from
   "../src/security/authority-root-locator.mjs";
 import { evaluateInitialActivationLocatorBindingCandidate } from
   "../src/security/runtime-activation-locator-binding.mjs";
+import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
+  "../src/security/runtime-activation-locator-binding-contract.mjs";
 import {
   RUNTIME_ACTIVATION_CONTRACT,
   compileRuntimeActivationRecordCandidate
@@ -83,14 +85,15 @@ test("initial active activation and matching locator remain a candidate", () => 
 
 test("each shared activation and locator field must match", () => {
   const record = activation();
-  for (const overrides of [
-    { repositoryIdentityHash: "8".repeat(64) },
-    { runtimeRootIdentityHash: "9".repeat(64) },
-    { activationId: "ACTIVATION-000002" },
-    { activationRevision: 2 },
-    { activationRecordHash: "a".repeat(64) }
-  ]) {
-    const result = evaluate(record, overrides);
+  const replacements = {
+    repositoryIdentityHash: "8".repeat(64),
+    runtimeRootIdentityHash: "9".repeat(64),
+    activationId: "ACTIVATION-000002",
+    activationRevision: 2,
+    activationRecordHash: "a".repeat(64)
+  };
+  for (const key of RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS) {
+    const result = evaluate(record, { [key]: replacements[key] });
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "authority_root_locator_activation_binding_mismatch");
     assert.equal(result.pairContentMatched, false);
