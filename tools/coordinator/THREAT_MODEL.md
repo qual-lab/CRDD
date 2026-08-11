@@ -109,7 +109,11 @@ Credential GrantはBrokerとGrantの用途別namespaceを持つ不透明な参�
 
 Authority Grant VerifierはRuntimeまたは人間が事前に許可したRegistryだけを信頼し、Profile内の`registryId`を新しい信頼元の定義として扱わない。Grantの存在、決定権限者、UTCへ正規化した有効期間、取消・置換状態、Provider、要求Origin集合、Credential Grant参照、対象Operation／Scopeおよび候補Identityを正本から確認する。Provider起動直前にも期限・取消・置換を再確認し、古い確認結果を別Operationまたは失効後へ流用しない。Grant参照とHashの循環を避ける承認手順はVerifier実装時にAuthority正本として決定し、候補Hashの自己一致だけで承認を成立させない。Verifierが未実装の現在は`authority_grant_verification`を満たさず、Gateを開かない。
 
-Egress Policy候補はProfile候補から完全一致hostnameを導出するだけで、Authorityまたは通信許可を自己成立させない。Proxyは`CONNECT`とport 443だけを受け、hostnameを許可候補集合へ完全一致させる。IP literal、userinfo、末尾dot、別method／port／hostnameを拒否する。DNS解決結果はすべてのaddressを検査し、空、不正、loopback、private、link-local、documentation、multicastその他の非public addressが一件でもあれば接続しない。DNS確認からsocket接続までにhostnameを再解決せず、検査済みaddressへ接続する実装を後続受入条件とする。
+Egress Policy候補は生Profileを内部Validatorへ通し、内部で生成した正規ProfileとHashからだけ完全一致hostnameを導出する。呼出側の検証済みという自己申告、HashまたはProfile objectを信頼せず、Authorityまたは通信許可を自己成立させない。Proxyは`CONNECT`と文字列として厳密なport `443`だけを受け、正規化済みASCII hostnameを許可候補集合へ完全一致させる。IP literal、userinfo、末尾dot、leading zero／符号／空白／制御文字を含むport、別method／port／hostnameを拒否する。
+
+DNS address分類は[IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml)および[IANA IPv6 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml)の2025-10-09更新版を2026-08-11に確認して固定する。採用列は`Globally Reachable`であり、最長prefix一致した値が`true`の場合だけ候補とする。`false`、空欄、`N/A`、未分類、parse不整合は拒否する。Registry外のprotocol non-unicast、deprecated IPv4-compatible／site-local IPv6も保守的に拒否し、IPv4-mapped IPv6はbinary正規化後にIPv4規則へ還元する。固定表のSHA-256を実装から取得可能にし、Runtime contract revision変更、IANA registry更新またはendpoint E2E不一致を再確認契機とする。表を自動更新して信頼境界を変更しない。
+
+DNS解決結果はすべてのaddressを検査し、空、不正または非global addressが一件でもあれば接続しない。Policy fixtureの合格をDNS rebinding対策または実通信許可と扱わず、後続Proxyは検査済みbinary addressへ直接接続してhostnameを再解決しないことを受入条件とする。
 
 Provider containerはOperation専用internal Networkだけへ接続し、Proxyだけを到達可能にする。Proxyはinternal Networkと専用Egress Networkへ接続するが、Docker socket、Host Network、他Operation Networkまたは一般Host serviceへ到達させない。Provider環境のProxy変数設定だけを遮断根拠にせず、Docker Network上で直接外部経路が存在しないことを検証する。現在はPolicy／Topology候補だけで、Proxy process、Network lifecycle、DNS／TLS、Authority Capability結合および実Egressは未実装のため、`execution.egress`を`confirmed`へ上げない。
 
