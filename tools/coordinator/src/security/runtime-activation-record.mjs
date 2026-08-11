@@ -179,16 +179,17 @@ export function describeRuntimeActivationContract() {
     normalRunManualAclConfiguration:
       "not_required_after_verified_provision_and_activation_target",
     restartPrompt: "not_required_when_protection_identity_and_activation_are_valid_target",
-    protectionChangeBehavior: "fail_closed_and_direct_to_reverification_or_reprovision",
+    protectionChangeBehavior:
+      "fail_closed_reverification_then_reprovision_on_confirmed_condition",
     reverificationTriggers: Object.freeze([
       "platform_provisioner_or_signature_or_trust_change",
       "runtime_or_provisioner_principal_change",
       "root_identity_or_protection_metadata_change"
     ]),
-    reprovisionTriggers: Object.freeze([
+    reprovisionConditions: Object.freeze([
       "required_root_missing_or_replaced",
       "required_writer_or_runtime_read_only_protection_mismatch",
-      "authority_root_identity_changed"
+      "verified_provisioning_record_authority_root_identity_mismatch"
     ]),
     platformProvisionerVerification: "not_implemented",
     platformProvisionerEffect: "not_implemented",
