@@ -367,3 +367,15 @@ Path Identity Core候補はRoot選択Coreを再実行し、明示enable要求を
 固定Commit `014546c625fca6d08b10325b110e7f95786218ee`／Tree `fee44ec90f41b2265ece9fc567fc53e5329c6abb`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_014546c.md`](Evidence/CHG-000015_Current_Review_Record_014546c.md)とする。`AG-ROOT-PATH-001`はPath Identity Core候補と直接利用側の固定範囲で`Resolved`と判定する。
 
 この解消はowner／ACL、全parent chain、特殊Filesystem、CLI／環境override実接続、local exclude／File Bundle Path Adapter結合、activation、Capabilityまたは実Operationを成立させない。旧`524d156`以前の結果は履歴としてのみ保持し、現在判定へ流用しない。次段階と人間判断の再開条件は現在記録のCurrent Decision Setへ保持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### CLI／環境override診断接続とlocal exclude前後再検証
+
+Evidence commit `bc83a61ae89c44e224ff96d7ee130d9389972634`のCurrent Decision Setに従い、追加の人間判断なしでCLI／環境overrideをRoot選択とPath Identityへ接続する。旧`014546c`の3独立確認はPath Identity Core候補の履歴としてのみ保持し、本差分の合否へ流用しない。
+
+`coordinator doctor`は引数をFilesystemまたはrecovery処置前に一度だけ厳密解析し、未知／重複option、値欠落、余剰tokenを拒否する。`--recover-isolation`は`--json`以外の`--isolation`、`--enable-runtime`および`--runtime-root`と排他的にする。`--runtime-root`単独を黙って無視せず、`--enable-runtime`を要求する。環境`CRDD_COORDINATOR_ROOT`は非opt-in時にRoot検査へ渡さず、opt-in時だけCLIより低い優先度で固定する。`--enable-runtime`は有効化ではなく、既存RootのPath Identity診断を要求する候補である。
+
+`doctor`はcwd、明示要求およびoverride候補を最小のplain dataとして固定し、Root Identity結果を`runtime.root`の`blocked` checkへ接続する。Path Identityが成立してもactivation記録が未実装であるため全体Gateを開かず、結果へ絶対Path、Filesystem Identityまたはraw errorを保持しない。非opt-in時に禁止するのはRuntime Rootの`lstat`／`realpath`／作成／書込みであり、既存doctorのOperation一時領域と受動診断まで無処置とするものではない。
+
+local excludeの構文候補生成は非書込みのまま維持する。適用Adapter候補は内部／外部Rootの双方でPath Identity候補を確認し、内部RootではGit layout確認後かつ書込み直前、さらにmetadata処置後にも同じraw入力を再検証する。外部overrideはIdentity成立後だけexclude不要候補とする。事後再検証失敗では実際の`gitMetadataWriteIssued`を保持して`blocked`とし、暗黙rollbackしない。これはIdentity descriptorの移送または再利用可能Capabilityではなく、検査間の最終同名置換を完全防御する時間的結合、owner／ACL、全parent chain、特殊Filesystem、activation、Candidate Revision／Operation／Provider除外の実強制または実Operationを成立させない。
+
+CLI grammar、CLI／環境優先順、非opt-in、既存／欠落／外部Root、Path非出力、local exclude直前／直後再検証および書込み済み失敗を局所試験で固定する。本処置は`Applied`／`Self-checked`であり、新固定版の全体CheckerとAgent／Architecture／Security Review、Document Audit、Gap／Impact＋Conformance Auditが完了するまで`Resolved`、Runtime有効、Capability発行、採用、準拠、移行、StableまたはReleaseとして扱わない。

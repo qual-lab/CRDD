@@ -168,7 +168,7 @@ export function describeRuntimeRootPathIdentityContract() {
     realpathContainmentVerification: "implemented_candidate",
     ownerAclVerification: "not_implemented",
     fullParentChainVerification: "not_implemented",
-    localExcludeIntegration: "not_implemented",
+    localExcludeIntegration: "implemented_candidate_pre_post_reverification",
     activationIntegration: "not_implemented",
     absolutePathReported: false,
     filesystemIdentityReported: false,

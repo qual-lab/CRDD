@@ -99,8 +99,9 @@ test("Root入力のaccessorとProxyを実行せずblockedへ閉じる", () => {
 test("Root選択Coreはignore、Path保護、activationまたはCapabilityを成立させない", () => {
   const contract = describeRuntimeRootContract();
   assert.equal(contract.featureDefault, "disabled");
-  assert.equal(contract.cliOverrideIntegration, "not_implemented");
-  assert.equal(contract.environmentOverrideIntegration, "not_implemented");
+  assert.equal(contract.cliOverrideIntegration, "implemented_candidate");
+  assert.equal(contract.environmentOverrideIntegration, "implemented_candidate");
+  assert.equal(contract.diagnosticRequestIntegration, "implemented_candidate");
   assert.equal(contract.explicitEnableRequired, true);
   assert.equal(contract.directoryExistenceActivates, false);
   assert.equal(contract.overrideActivates, false);

@@ -279,8 +279,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.checks.some((item) => item.id.endsWith(".active_probe") && item.status === "not_implemented"), true);
   assert.equal(report.runtimeRoot.defaultRepositoryDirectory, ".crdd-runtime");
   assert.equal(report.runtimeRoot.featureDefault, "disabled");
-  assert.equal(report.runtimeRoot.cliOverrideIntegration, "not_implemented");
-  assert.equal(report.runtimeRoot.environmentOverrideIntegration, "not_implemented");
+  assert.equal(report.runtimeRoot.cliOverrideIntegration, "implemented_candidate");
+  assert.equal(report.runtimeRoot.environmentOverrideIntegration, "implemented_candidate");
+  assert.equal(report.runtimeRoot.diagnosticRequestIntegration, "implemented_candidate");
   assert.equal(report.runtimeRoot.explicitEnableRequired, true);
   assert.equal(report.runtimeRoot.directoryExistenceActivates, false);
   assert.equal(report.runtimeRoot.gitIgnoreIsSecurityBoundary, false);
@@ -300,9 +301,13 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRootPathIdentity.pathObjectIdentityVerification, "implemented_candidate");
   assert.equal(report.runtimeRootPathIdentity.ownerAclVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.fullParentChainVerification, "not_implemented");
-  assert.equal(report.runtimeRootPathIdentity.localExcludeIntegration, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.localExcludeIntegration,
+    "implemented_candidate_pre_post_reverification");
   assert.equal(report.runtimeRootPathIdentity.activationIntegration, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.runtimeCapabilityIssued, false);
+  assert.equal(report.runtimeRootEvaluation.status, "blocked");
+  assert.equal(report.runtimeRootEvaluation.reason, "runtime_feature_not_enabled");
+  assert.equal(report.checks.some((item) => item.id === "runtime.root" && item.status === "blocked"), true);
   assert.deepEqual(report.repositoryGitLayout.supportedWorktreeForms, [
     "normal_worktree",
     "linked_worktree",
@@ -334,6 +339,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.gitLocalExclude.linkedWorktreeRepositoryContainedCustomRootAllowed, false);
   assert.equal(report.gitLocalExclude.linkedWorktreeExternalOverrideAllowed, true);
   assert.equal(report.gitLocalExclude.metadataWriteIntegration, "implemented_candidate");
+  assert.equal(report.gitLocalExclude.runtimeRootPathIdentityPrePostVerification, "implemented_candidate");
+  assert.equal(report.gitLocalExclude.runtimeRootIdentityDescriptorTransfer, false);
   assert.equal(report.gitLocalExclude.metadataWriteActivationIntegration, "not_implemented");
   assert.equal(report.gitLocalExclude.maximumExcludeBytes, 131072);
   assert.equal(report.gitLocalExclude.existingGitInfoDirectoryRequired, true);
@@ -363,6 +370,41 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(serialized.includes("OPENAI_API_KEY="), false);
   assert.equal(serialized.includes("ANTHROPIC_API_KEY="), false);
+});
+
+test("doctorは明示enable要求だけを既存RootのPath Identity候補へ接続する", (t) => {
+  const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-doctor-root-"));
+  t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"));
+  const report = runDoctor({
+    cwd: repositoryRoot,
+    runtimeRootRequest: {
+      cliOverride: null,
+      environmentOverride: null,
+      activationIntent: "explicit_enable_request"
+    }
+  });
+  assert.equal(report.runtimeRootEvaluation.status, "candidate");
+  assert.equal(report.runtimeRootEvaluation.summary.location, "repository_default_location");
+  assert.equal(report.runtimeRootEvaluation.runtimeCapabilityIssued, false);
+  assert.equal(report.checks.find((item) => item.id === "runtime.root").reason,
+    "runtime_root_activation_record_not_implemented");
+  assert.equal(report.status, "blocked");
+  assert.equal(JSON.stringify(report).includes(repositoryRoot), false);
+});
+
+test("doctor optionsのaccessor、Proxyおよび余分fieldを処置前に拒否する", () => {
+  let getterCalls = 0;
+  const accessor = {};
+  Object.defineProperty(accessor, "cwd", {
+    enumerable: true,
+    get() { getterCalls += 1; return process.cwd(); }
+  });
+  assert.throws(() => runDoctor(accessor), /doctor_options_invalid/u);
+  assert.equal(getterCalls, 0);
+  const target = { cwd: process.cwd() };
+  assert.throws(() => runDoctor(new Proxy(target, {})), /doctor_options_invalid/u);
+  assert.throws(() => runDoctor({ cwd: process.cwd(), extra: true }), /doctor_options_invalid/u);
 });
 
 test("Docker隔離Probeは固定Digestと最小権限を使う", () => {

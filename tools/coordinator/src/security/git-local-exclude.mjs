@@ -10,6 +10,7 @@ import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   selectRuntimeRootCandidate
 } from "./runtime-root-profile.mjs";
+import { inspectRuntimeRootPathIdentityCandidate } from "./runtime-root-path-identity.mjs";
 
 export const GIT_LOCAL_EXCLUDE_CONTRACT = "crdd-coordinator/git-local-exclude";
 export const GIT_LOCAL_EXCLUDE_CONTRACT_REVISION = 1;
@@ -120,11 +121,17 @@ export function applyGitLocalExcludeCandidate(rawInput) {
     if (rootCandidate.status !== "candidate" || input.activationIntent !== EXPLICIT_ENABLE) {
       return response("blocked", "runtime_root_enable_candidate_required");
     }
+    if (inspectRuntimeRootPathIdentityCandidate(input).status !== "candidate") {
+      return response("blocked", "runtime_root_path_identity_candidate_required");
+    }
     const location = repositoryRelativePath(input.repositoryRoot, selectedRoot(input));
     if (location.kind === "repository_root") {
       return response("blocked", "runtime_root_must_not_equal_repository_root");
     }
     if (location.kind === "outside") {
+      if (inspectRuntimeRootPathIdentityCandidate(input).status !== "candidate") {
+        return response("blocked", "runtime_root_path_identity_candidate_required");
+      }
       return response("candidate", "repository_external_root_needs_no_git_exclude", Object.freeze({
         excludeRequired: false,
         excludeEntry: null,
@@ -141,8 +148,15 @@ export function applyGitLocalExcludeCandidate(rawInput) {
     if (layout.kind === "linked_worktree" && location.relative !== DEFAULT_REPOSITORY_RUNTIME_DIRECTORY) {
       return response("blocked", "linked_worktree_repository_custom_root_rejected");
     }
+    if (inspectRuntimeRootPathIdentityCandidate(input).status !== "candidate") {
+      return response("blocked", "runtime_root_path_identity_candidate_required");
+    }
     const result = writeRepositoryLocalExclude(layout, excludeEntry);
     writeIssued = result.changed;
+    if (inspectRuntimeRootPathIdentityCandidate(input).status !== "candidate") {
+      return response("blocked", "runtime_root_path_identity_reverification_failed", null,
+        { gitMetadataWriteIssued: writeIssued, gitMetadataWriteVerified: false });
+    }
     return response("candidate", "git_local_exclude_write_verified_candidate", Object.freeze({
       excludeRequired: true,
       excludeEntry,
@@ -172,6 +186,8 @@ export function describeGitLocalExcludeContract() {
     linkedWorktreeRepositoryContainedCustomRootAllowed: false,
     linkedWorktreeExternalOverrideAllowed: true,
     metadataWriteIntegration: "implemented_candidate",
+    runtimeRootPathIdentityPrePostVerification: "implemented_candidate",
+    runtimeRootIdentityDescriptorTransfer: false,
     metadataWriteActivationIntegration: "not_implemented",
     maximumExcludeBytes: 131072,
     existingGitInfoDirectoryRequired: true,

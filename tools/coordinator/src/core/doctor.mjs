@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { types as utilTypes } from "node:util";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -20,8 +21,11 @@ import { describeAuthorityGrantVerifierContract } from "../security/authority-gr
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
-import { describeRuntimeRootContract } from "../security/runtime-root-profile.mjs";
-import { describeRuntimeRootPathIdentityContract } from "../security/runtime-root-path-identity.mjs";
+import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.mjs";
+import {
+  describeRuntimeRootPathIdentityContract,
+  inspectRuntimeRootPathIdentityCandidate
+} from "../security/runtime-root-path-identity.mjs";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.mjs";
 import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.mjs";
 
@@ -50,6 +54,7 @@ function requiredCheckIds() {
     "runtime.node",
     "repository.git",
     "repository.identity",
+    "runtime.root",
     "operation.directories",
     "execution.filesystem",
     "execution.credential_environment",
@@ -206,8 +211,45 @@ function reportableFilesystemPolicy(policy, root) {
   };
 }
 
+const DOCTOR_OPTION_KEYS = new Set(["activeIsolation", "cwd", "runtimeRootRequest"]);
+
+function normalizeDoctorOptions(rawOptions) {
+  try {
+    if (!rawOptions || typeof rawOptions !== "object" || utilTypes.isProxy(rawOptions) || Array.isArray(rawOptions)) {
+      throw new Error("doctor_options_invalid");
+    }
+    const prototype = Object.getPrototypeOf(rawOptions);
+    if (prototype !== Object.prototype && prototype !== null) throw new Error("doctor_options_invalid");
+    const descriptors = Object.getOwnPropertyDescriptors(rawOptions);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.some((key) => typeof key !== "string" || !DOCTOR_OPTION_KEYS.has(key))) {
+      throw new Error("doctor_options_invalid");
+    }
+    const value = (key, fallback) => {
+      const descriptor = descriptors[key];
+      if (!descriptor) return fallback;
+      if (!Object.prototype.hasOwnProperty.call(descriptor, "value") || descriptor.get !== undefined ||
+          descriptor.set !== undefined || descriptor.enumerable !== true) throw new Error("doctor_options_invalid");
+      return descriptor.value;
+    };
+    const activeIsolation = value("activeIsolation", false);
+    const cwd = value("cwd", process.cwd());
+    const runtimeRootRequest = value("runtimeRootRequest", null);
+    if (typeof activeIsolation !== "boolean" || typeof cwd !== "string" || !path.isAbsolute(cwd) ||
+        (runtimeRootRequest !== null && (typeof runtimeRootRequest !== "object" || utilTypes.isProxy(runtimeRootRequest)))) {
+      throw new Error("doctor_options_invalid");
+    }
+    return Object.freeze({ activeIsolation, cwd, runtimeRootRequest });
+  } catch (error) {
+    if (error?.message === "doctor_options_invalid") throw error;
+    throw new Error("doctor_options_invalid");
+  }
+}
+
 export function runDoctor(options = {}) {
-  const activeIsolation = options.activeIsolation === true;
+  const normalizedOptions = normalizeDoctorOptions(options);
+  const activeIsolation = normalizedOptions.activeIsolation;
+  const cwd = normalizedOptions.cwd;
   const owned = createOwnedOperationDirectories();
   const initialHostRecoveryId = getOwnedHostRecoveryId(owned);
   let retainOperationDirectories = false;
@@ -215,11 +257,20 @@ export function runDoctor(options = {}) {
     const providerEnvironment = createProviderEnvironment(process.env, owned.directories);
     const credentialNames = credentialEnvironmentNamesPresent(process.env);
     const forwardedCredentialNames = credentialEnvironmentNamesPresent(providerEnvironment);
-    const repository = probeGitRepository(process.cwd());
+    const repository = probeGitRepository(cwd);
     const providers = Object.fromEntries(
       PROVIDERS.map((name) => [name, discoverCommand(name)])
     );
 
+    const runtimeRootInput = {
+      repositoryRoot: cwd,
+      cliOverride: normalizedOptions.runtimeRootRequest?.cliOverride ?? null,
+      environmentOverride: normalizedOptions.runtimeRootRequest?.environmentOverride ?? null,
+      activationIntent: normalizedOptions.runtimeRootRequest?.activationIntent ?? null
+    };
+    const runtimeRootEvaluation = normalizedOptions.runtimeRootRequest === null
+      ? selectRuntimeRootCandidate(runtimeRootInput)
+      : inspectRuntimeRootPathIdentityCandidate(runtimeRootInput);
     const isolation = activeIsolation
       ? runDockerIsolationProbe(owned)
       : { status: "not_implemented", reason: "filesystem_boundary_not_enforced" };
@@ -230,6 +281,9 @@ export function runDoctor(options = {}) {
       check("runtime.node", nodeSupported() ? "confirmed" : "blocked", nodeSupported() ? null : "node_22_or_newer_required"),
       check("repository.git", repository.gitAvailable ? "confirmed" : "blocked", repository.gitAvailable ? null : "git_unavailable"),
       check("repository.identity", repository.identityAvailable ? "confirmed" : "blocked", repository.identityAvailable ? null : "repository_identity_unavailable"),
+      check("runtime.root", "blocked", runtimeRootEvaluation.status === "candidate"
+        ? "runtime_root_activation_record_not_implemented"
+        : runtimeRootEvaluation.reason),
       check("operation.directories", "confirmed", "owned_operation_directories_created"),
       check("execution.filesystem", isolation.status, isolation.reason),
       check(
@@ -275,6 +329,7 @@ export function runDoctor(options = {}) {
       },
       runtimeRoot: describeRuntimeRootContract(),
       runtimeRootPathIdentity: describeRuntimeRootPathIdentityContract(),
+      runtimeRootEvaluation,
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
       gitLocalExclude: describeGitLocalExcludeContract(),
       egress: {
