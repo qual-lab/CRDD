@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   describeProviderIsolationContract,
   validateProviderIsolationProfile
@@ -48,10 +49,40 @@ test("Profile契約はCRDD版ごとに分岐しない", () => {
 test("秘密値らしいfieldをProfileへ混入できない", () => {
   const result = validateProviderIsolationProfile(candidate({ apiKey: "secret" }));
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "secret_material_forbidden");
+  assert.equal(result.reason, "profile_shape_invalid");
   const nested = candidate();
   nested.credentialGrant.secret = "secret";
-  assert.equal(validateProviderIsolationProfile(nested).reason, "secret_material_forbidden");
+  assert.equal(validateProviderIsolationProfile(nested).reason, "credential_grant_shape_invalid");
+});
+
+test("Profile入力budgetの境界と超過をfail closedにする", () => {
+  const maximum = candidate({
+    profileId: `PROFILE-${"1".repeat(PROVIDER_INPUT_LIMITS.identifierLength - "PROFILE-".length)}`,
+    egress: {
+      origins: Array.from({ length: PROVIDER_INPUT_LIMITS.originCount }, (_, index) =>
+        `https://api-${String(index).padStart(2, "0")}.example.test`)
+    }
+  });
+  assert.equal(validateProviderIsolationProfile(maximum).status, "candidate");
+  const tooMany = candidate();
+  tooMany.egress.origins = Array.from(
+    { length: PROVIDER_INPUT_LIMITS.originCount + 1 },
+    (_, index) => `https://api-${String(index).padStart(2, "0")}.example.test`
+  );
+  assert.equal(validateProviderIsolationProfile(tooMany).reason, "egress_origin_count_exceeded");
+  const tooLongOrigin = candidate();
+  tooLongOrigin.egress.origins = [`https://${"a".repeat(PROVIDER_INPUT_LIMITS.originLength)}.test`];
+  assert.equal(validateProviderIsolationProfile(tooLongOrigin).reason, "egress_origin_length_exceeded");
+  const tooLongId = candidate({ profileId: `PROFILE-${"1".repeat(PROVIDER_INPUT_LIMITS.identifierLength)}` });
+  assert.equal(validateProviderIsolationProfile(tooLongId).reason, "profile_id_invalid");
+  const cyclic = candidate();
+  cyclic.authority = cyclic;
+  assert.doesNotThrow(() => validateProviderIsolationProfile(cyclic));
+  assert.equal(validateProviderIsolationProfile(cyclic).reason, "authority_shape_invalid");
+  const throwing = candidate();
+  Object.defineProperty(throwing, "profileId", { enumerable: true, get() { throw new Error("raw"); } });
+  assert.doesNotThrow(() => validateProviderIsolationProfile(throwing));
+  assert.equal(validateProviderIsolationProfile(throwing).reason, "profile_input_invalid");
 });
 
 test("Provider tokenらしい値を参照fieldへ偽装できない", () => {

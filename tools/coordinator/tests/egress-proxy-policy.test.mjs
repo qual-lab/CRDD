@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PROVIDER_ISOLATION_CONTRACT, validateProviderIsolationProfile } from "../src/security/provider-isolation-profile.mjs";
+import {
+  PROVIDER_INPUT_LIMITS,
+  PROVIDER_ISOLATION_CONTRACT,
+  validateProviderIsolationProfile
+} from "../src/security/provider-isolation-profile.mjs";
 import {
   compileEgressProxyPolicyCandidate,
   describeEgressProxyTopology,
@@ -46,6 +50,16 @@ test("不正ProfileとOriginは例外を漏らさずblockedへ閉じる", () => 
     assert.doesNotThrow(() => compileEgressProxyPolicyCandidate(candidate));
     assert.equal(compileEgressProxyPolicyCandidate(candidate).status, "blocked");
   }
+});
+
+test("Profile budget超過はPolicy経路でも例外なくblockedにする", () => {
+  const excessive = rawProfile();
+  excessive.egress.origins = Array.from(
+    { length: PROVIDER_INPUT_LIMITS.originCount + 1 },
+    (_, index) => `https://api-${String(index).padStart(2, "0")}.example.test`
+  );
+  assert.doesNotThrow(() => compileEgressProxyPolicyCandidate(excessive));
+  assert.equal(compileEgressProxyPolicyCandidate(excessive).status, "blocked");
 });
 
 test("CONNECTはcanonical hostnameと文字列443の完全一致だけを候補にする", () => {

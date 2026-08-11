@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AUTHORITY_REGISTRY_INPUT_LIMITS,
   AUTHORITY_REGISTRY_CONTRACT,
   describeAuthorityGrantVerifierContract,
   evaluateAuthorityGrantCandidate,
   validateAuthorityRegistryCandidate
 } from "../src/security/authority-grant-verifier.mjs";
 import {
+  PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile
 } from "../src/security/provider-isolation-profile.mjs";
@@ -56,6 +58,15 @@ const context = {
   scopeId: "SCOPE-000001",
   now: "2026-08-11T00:30:00.000Z"
 };
+
+function grants(count, originFactory = (index) => [`https://api-${index}.example.test`]) {
+  const base = registry().grants[0];
+  return Array.from({ length: count }, (_, index) => ({
+    ...base,
+    grantRef: `AUTH-${String(index + 1).padStart(6, "0")}`,
+    origins: originFactory(index)
+  }));
+}
 
 test("Registry候補を正規化して固定Hashを生成する", () => {
   const result = validateAuthorityRegistryCandidate(registry());
@@ -138,4 +149,69 @@ test("余分fieldと自己申告の承認者fieldを拒否する", () => {
   assert.equal(validateAuthorityRegistryCandidate(registry(profile(), {
     origins: ["https://127.0.0.1"]
   })).reason, "authority_registry_grant_invalid");
+});
+
+test("Registry入力budgetは最大件数を受理し1超過とcanonical byte超過を拒否する", () => {
+  const maximum = registry(profile(), {}, {
+    grants: grants(AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount)
+  });
+  assert.equal(validateAuthorityRegistryCandidate(maximum).status, "candidate");
+  const tooMany = registry(profile(), {}, {
+    grants: grants(AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount + 1)
+  });
+  assert.equal(validateAuthorityRegistryCandidate(tooMany).reason,
+    "authority_registry_grant_count_exceeded");
+  const largeCanonical = registry(profile(), {}, {
+    grants: grants(AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount, (grantIndex) =>
+      Array.from({ length: PROVIDER_INPUT_LIMITS.originCount }, (_, originIndex) => {
+        const suffix = `${grantIndex}-${originIndex}.test`;
+        return `https://${"a".repeat(PROVIDER_INPUT_LIMITS.originLength - 8 - suffix.length)}${suffix}`;
+      }))
+  });
+  assert.doesNotThrow(() => validateAuthorityRegistryCandidate(largeCanonical));
+  assert.equal(validateAuthorityRegistryCandidate(largeCanonical).reason,
+    "authority_registry_canonical_bytes_exceeded");
+});
+
+test("Registryの巨大IDとOriginを正規化処理前に拒否する", () => {
+  const identifier = registry(profile(), {}, {
+    registryId: `AUTHREG-${"1".repeat(PROVIDER_INPUT_LIMITS.identifierLength)}`
+  });
+  assert.equal(validateAuthorityRegistryCandidate(identifier).reason, "authority_registry_id_invalid");
+  const origin = registry(profile(), {
+    origins: [`https://${"a".repeat(PROVIDER_INPUT_LIMITS.originLength)}.test`]
+  });
+  assert.doesNotThrow(() => validateAuthorityRegistryCandidate(origin));
+  assert.equal(validateAuthorityRegistryCandidate(origin).reason, "authority_registry_grant_invalid");
+  const cyclic = registry();
+  cyclic.grants[0].credentialGrant = cyclic;
+  assert.doesNotThrow(() => validateAuthorityRegistryCandidate(cyclic));
+  assert.equal(validateAuthorityRegistryCandidate(cyclic).reason, "authority_registry_grant_invalid");
+  const throwing = registry();
+  Object.defineProperty(throwing, "registryId", { enumerable: true, get() { throw new Error("raw"); } });
+  assert.doesNotThrow(() => validateAuthorityRegistryCandidate(throwing));
+  assert.equal(validateAuthorityRegistryCandidate(throwing).reason, "authority_registry_input_invalid");
+});
+
+test("評価時刻は有効なDateまたはcanonical UTC文字列だけを受理する", () => {
+  assert.equal(evaluateAuthorityGrantCandidate(profile(), registry(), {
+    ...context,
+    now: new Date(context.now)
+  }).status, "candidate");
+  for (const now of [
+    null,
+    0,
+    true,
+    {},
+    "2026-08-11",
+    "2026-08-11T09:30:00.000+09:00",
+    "2026-08-11T00:30:00Z",
+    new Date("invalid")
+  ]) {
+    assert.doesNotThrow(() => evaluateAuthorityGrantCandidate(profile(), registry(), { ...context, now }));
+    assert.equal(
+      evaluateAuthorityGrantCandidate(profile(), registry(), { ...context, now }).reason,
+      "authority_now_invalid"
+    );
+  }
 });

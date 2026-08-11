@@ -4,7 +4,11 @@ export const PROVIDER_ISOLATION_CONTRACT = "crdd-coordinator/provider-isolation-
 export const PROVIDER_ISOLATION_CONTRACT_REVISION = 1;
 
 const SUPPORTED_PROVIDERS = new Set(["codex", "claude"]);
-const SECRET_KEY = /(secret|token|password|api[_-]?key|credential[_-]?value|private[_-]?key)/iu;
+export const PROVIDER_INPUT_LIMITS = Object.freeze({
+  identifierLength: 64,
+  originCount: 16,
+  originLength: 256
+});
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const AUTHORITY_REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 const AUTHORITY_GRANT_REF = /^AUTH-[0-9]{6,}$/u;
@@ -25,21 +29,21 @@ function blocked(reason) {
 }
 
 function exactKeys(value, allowed) {
-  return value && typeof value === "object" && !Array.isArray(value) &&
-    Object.keys(value).every((key) => allowed.has(key));
-}
-
-function containsSecretMaterial(value, key = "") {
-  if (SECRET_KEY.test(key)) return true;
-  if (Array.isArray(value)) return value.some((item) => containsSecretMaterial(item));
-  if (value && typeof value === "object") {
-    return Object.entries(value).some(([childKey, child]) => containsSecretMaterial(child, childKey));
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const seen = new Set();
+  for (const key in value) {
+    if (!Object.prototype.hasOwnProperty.call(value, key) || !allowed.has(key)) return false;
+    seen.add(key);
+    if (seen.size > allowed.size) return false;
   }
-  return false;
+  return seen.size === allowed.size;
 }
 
 function matches(value, pattern) {
-  return typeof value === "string" && pattern.test(value);
+  return typeof value === "string" &&
+    value.length <= PROVIDER_INPUT_LIMITS.identifierLength && pattern.test(value);
 }
 
 function normalizeOrigin(value) {
@@ -78,8 +82,7 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 
-export function validateProviderIsolationProfile(candidate) {
-  if (containsSecretMaterial(candidate)) return blocked("secret_material_forbidden");
+function validateProviderIsolationProfileInternal(candidate) {
   if (!exactKeys(candidate, TOP_LEVEL_KEYS)) return blocked("profile_shape_invalid");
   if (
     candidate.contract !== PROVIDER_ISOLATION_CONTRACT ||
@@ -109,6 +112,13 @@ export function validateProviderIsolationProfile(candidate) {
   if (!Array.isArray(candidate.egress.origins) || candidate.egress.origins.length === 0) {
     return blocked("egress_origins_required");
   }
+  if (candidate.egress.origins.length > PROVIDER_INPUT_LIMITS.originCount) {
+    return blocked("egress_origin_count_exceeded");
+  }
+  if (candidate.egress.origins.some((origin) =>
+    typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)) {
+    return blocked("egress_origin_length_exceeded");
+  }
   const origins = candidate.egress.origins.map(normalizeOrigin);
   if (origins.some((origin) => origin == null)) return blocked("egress_origin_invalid");
   const uniqueOrigins = [...new Set(origins)].sort();
@@ -132,6 +142,14 @@ export function validateProviderIsolationProfile(candidate) {
   });
   const profileHash = createHash("sha256").update(canonicalJson(profile)).digest("hex");
   return Object.freeze({ status: "candidate", reason: "authority_verification_required", profile, profileHash });
+}
+
+export function validateProviderIsolationProfile(candidate) {
+  try {
+    return validateProviderIsolationProfileInternal(candidate);
+  } catch {
+    return blocked("profile_input_invalid");
+  }
 }
 
 export function describeProviderIsolationContract() {

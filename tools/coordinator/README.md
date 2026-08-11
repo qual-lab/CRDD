@@ -53,6 +53,8 @@ Runtime 1.0の書込みOperationはDockerを唯一の正式Isolation Backendと�
 
 Authority Grant Verifier Core候補は、Authority Registry候補を固定契約、Registry revision、UTC観測時刻、Grant集合およびSHA-256へ正規化する。Profile候補との照合では、Grantのactive状態、有効期間、Provider、要求Origin、Credential Grant参照、Operation ID、Scope IDおよびProfile Hashの完全一致を要求する。構造と内容の照合結果は`candidate`であり、自己申告Registryを信頼済み正本へ昇格させない。Runtime所有のTrust Anchor Loaderと、Provider起動直前の取消・置換・期限再確認が未実装であるため、Authority Capabilityは発行せず全体Gateを`blocked`に保つ。
 
+過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。このCoreの上限は受理済みJavaScript値に対する追加の正規化、並べ替えおよびHash処理を制限するものであり、将来のTrust Anchor LoaderはファイルやTransportをJavaScript値へ展開する前にも読込みbyte上限を強制する。
+
 ## Provider Egress Proxy
 
 Provider Egress ProxyのPolicy候補は、生Profileを内部Validatorで再検証し、そのValidatorが生成した正規ProfileとHashからだけ要求Originのhostnameを取り出す。呼出側が組み立てた検証結果、Hashまたは正規化済みと称するobjectは受理せず、Authority確認済みPolicyへも昇格しない。許可候補は`CONNECT`、完全一致hostnameおよび文字列として厳密なport `443`だけであり、通常HTTP method、wildcard、別表記のport、IP literal、userinfo、末尾dotまたは別hostnameを拒否する。

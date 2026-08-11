@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-import { validateProviderIsolationProfile } from "./provider-isolation-profile.mjs";
+import {
+  PROVIDER_INPUT_LIMITS,
+  validateProviderIsolationProfile
+} from "./provider-isolation-profile.mjs";
 
 export const AUTHORITY_REGISTRY_CONTRACT = "crdd-coordinator/authority-registry";
 export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 1;
@@ -12,6 +15,11 @@ const CREDENTIAL_GRANT_REF = /^CGRANT-[0-9]{6,}$/u;
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
+const CANONICAL_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+export const AUTHORITY_REGISTRY_INPUT_LIMITS = Object.freeze({
+  grantCount: 64,
+  canonicalBytes: 131_072
+});
 const TOP_LEVEL_KEYS = new Set([
   "contract",
   "contractRevision",
@@ -45,9 +53,16 @@ function blocked(reason) {
 }
 
 function exactKeys(value, allowed) {
-  return value && typeof value === "object" && !Array.isArray(value) &&
-    Object.keys(value).length === allowed.size &&
-    Object.keys(value).every((key) => allowed.has(key));
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return false;
+  const seen = new Set();
+  for (const key in value) {
+    if (!Object.prototype.hasOwnProperty.call(value, key) || !allowed.has(key)) return false;
+    seen.add(key);
+    if (seen.size > allowed.size) return false;
+  }
+  return seen.size === allowed.size;
 }
 
 function canonicalJson(value) {
@@ -58,12 +73,8 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 
-function sha256(value) {
-  return createHash("sha256").update(canonicalJson(value)).digest("hex");
-}
-
 function normalizedUtc(value) {
-  if (typeof value !== "string") return null;
+  if (typeof value !== "string" || !CANONICAL_UTC.test(value)) return null;
   const milliseconds = Date.parse(value);
   if (!Number.isFinite(milliseconds)) return null;
   const normalized = new Date(milliseconds).toISOString();
@@ -71,13 +82,20 @@ function normalizedUtc(value) {
 }
 
 function normalizeNow(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (!Number.isFinite(date.getTime())) return null;
-  return date.toISOString();
+  if (value instanceof Date) {
+    const milliseconds = Date.prototype.getTime.call(value);
+    return Number.isFinite(milliseconds) ? new Date(milliseconds).toISOString() : null;
+  }
+  return normalizedUtc(value);
 }
 
 function normalizeOrigins(origins) {
-  if (!Array.isArray(origins) || origins.length === 0) return null;
+  if (
+    !Array.isArray(origins) || origins.length === 0 ||
+    origins.length > PROVIDER_INPUT_LIMITS.originCount ||
+    origins.some((origin) =>
+      typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)
+  ) return null;
   const normalized = [];
   for (const origin of origins) {
     let parsed;
@@ -108,12 +126,15 @@ function normalizeOrigins(origins) {
 function normalizeGrant(grant) {
   if (!exactKeys(grant, GRANT_KEYS)) return null;
   if (
-    typeof grant.grantRef !== "string" || !GRANT_REF.test(grant.grantRef) ||
+    typeof grant.grantRef !== "string" ||
+    grant.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength || !GRANT_REF.test(grant.grantRef) ||
     !Number.isSafeInteger(grant.grantRevision) || grant.grantRevision < 1 ||
     !["active", "revoked", "replaced"].includes(grant.status) ||
     !["codex", "claude"].includes(grant.provider) ||
-    typeof grant.operationId !== "string" || !OPERATION_ID.test(grant.operationId) ||
-    typeof grant.scopeId !== "string" || !SCOPE_ID.test(grant.scopeId) ||
+    typeof grant.operationId !== "string" ||
+    grant.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength || !OPERATION_ID.test(grant.operationId) ||
+    typeof grant.scopeId !== "string" ||
+    grant.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength || !SCOPE_ID.test(grant.scopeId) ||
     typeof grant.profileHash !== "string" || !HASH.test(grant.profileHash)
   ) return null;
   const validFrom = normalizedUtc(grant.validFrom);
@@ -124,8 +145,10 @@ function normalizeGrant(grant) {
   if (!exactKeys(grant.credentialGrant, new Set(["brokerId", "grantRef"]))) return null;
   if (
     typeof grant.credentialGrant.brokerId !== "string" ||
+    grant.credentialGrant.brokerId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !BROKER_ID.test(grant.credentialGrant.brokerId) ||
     typeof grant.credentialGrant.grantRef !== "string" ||
+    grant.credentialGrant.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !CREDENTIAL_GRANT_REF.test(grant.credentialGrant.grantRef)
   ) return null;
   return Object.freeze({
@@ -143,13 +166,17 @@ function normalizeGrant(grant) {
   });
 }
 
-export function validateAuthorityRegistryCandidate(candidate) {
+function validateAuthorityRegistryCandidateInternal(candidate) {
   if (!exactKeys(candidate, TOP_LEVEL_KEYS)) return blocked("authority_registry_shape_invalid");
   if (
     candidate.contract !== AUTHORITY_REGISTRY_CONTRACT ||
     candidate.contractRevision !== AUTHORITY_REGISTRY_CONTRACT_REVISION
   ) return blocked("authority_registry_contract_mismatch");
-  if (typeof candidate.registryId !== "string" || !REGISTRY_ID.test(candidate.registryId)) {
+  if (
+    typeof candidate.registryId !== "string" ||
+    candidate.registryId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !REGISTRY_ID.test(candidate.registryId)
+  ) {
     return blocked("authority_registry_id_invalid");
   }
   if (!Number.isSafeInteger(candidate.registryRevision) || candidate.registryRevision < 1) {
@@ -159,6 +186,9 @@ export function validateAuthorityRegistryCandidate(candidate) {
   if (!observedAt) return blocked("authority_registry_observed_at_invalid");
   if (!Array.isArray(candidate.grants) || candidate.grants.length === 0) {
     return blocked("authority_registry_grants_required");
+  }
+  if (candidate.grants.length > AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount) {
+    return blocked("authority_registry_grant_count_exceeded");
   }
   const grants = candidate.grants.map(normalizeGrant);
   if (grants.some((grant) => grant == null)) return blocked("authority_registry_grant_invalid");
@@ -173,16 +203,28 @@ export function validateAuthorityRegistryCandidate(candidate) {
     grants: Object.freeze([...grants].sort((left, right) =>
       left.grantRef.localeCompare(right.grantRef) || left.grantRevision - right.grantRevision))
   });
+  const canonical = canonicalJson(registry);
+  if (Buffer.byteLength(canonical, "utf8") > AUTHORITY_REGISTRY_INPUT_LIMITS.canonicalBytes) {
+    return blocked("authority_registry_canonical_bytes_exceeded");
+  }
   return Object.freeze({
     status: "candidate",
     reason: "authority_registry_trust_anchor_required",
     registry,
-    registryHash: sha256(registry),
+    registryHash: createHash("sha256").update(canonical).digest("hex"),
     verification: null
   });
 }
 
-export function evaluateAuthorityGrantCandidate(rawProfile, rawRegistry, context = {}) {
+export function validateAuthorityRegistryCandidate(candidate) {
+  try {
+    return validateAuthorityRegistryCandidateInternal(candidate);
+  } catch {
+    return blocked("authority_registry_input_invalid");
+  }
+}
+
+function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, context = {}) {
   const profileResult = validateProviderIsolationProfile(rawProfile);
   if (profileResult.status !== "candidate") return blocked("authority_profile_invalid");
   const registryResult = validateAuthorityRegistryCandidate(rawRegistry);
@@ -190,8 +232,10 @@ export function evaluateAuthorityGrantCandidate(rawProfile, rawRegistry, context
   if (
     !context || typeof context !== "object" || Array.isArray(context) ||
     !exactKeys(context, new Set(["operationId", "scopeId", "now"])) ||
-    typeof context.operationId !== "string" || !OPERATION_ID.test(context.operationId) ||
-    typeof context.scopeId !== "string" || !SCOPE_ID.test(context.scopeId)
+    typeof context.operationId !== "string" ||
+    context.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength || !OPERATION_ID.test(context.operationId) ||
+    typeof context.scopeId !== "string" ||
+    context.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength || !SCOPE_ID.test(context.scopeId)
   ) return blocked("authority_context_invalid");
   const now = normalizeNow(context.now);
   if (!now) return blocked("authority_now_invalid");
@@ -236,6 +280,14 @@ export function evaluateAuthorityGrantCandidate(rawProfile, rawRegistry, context
     registryHash: registryResult.registryHash,
     verification
   });
+}
+
+export function evaluateAuthorityGrantCandidate(rawProfile, rawRegistry, context = {}) {
+  try {
+    return evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, context);
+  } catch {
+    return blocked("authority_input_invalid");
+  }
 }
 
 export function describeAuthorityGrantVerifierContract() {
