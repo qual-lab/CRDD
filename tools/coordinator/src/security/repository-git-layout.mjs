@@ -46,7 +46,11 @@ export function describeRepositoryGitLayoutContract() {
   return Object.freeze({
     contract: REPOSITORY_GIT_LAYOUT_CONTRACT,
     contractRevision: REPOSITORY_GIT_LAYOUT_CONTRACT_REVISION,
-    supportedWorktreeForms: Object.freeze(["normal_worktree", "linked_worktree", "gitfile_worktree_including_submodule"]),
+    supportedWorktreeForms: Object.freeze([
+      "normal_worktree",
+      "linked_worktree",
+      "gitfile_worktree_without_core_worktree"
+    ]),
     supportedRepositoryFormat: "version_0_without_extensions_or_includes",
     gitCliAuthorityRequired: false,
     bareRepositorySupported: false,
@@ -55,7 +59,8 @@ export function describeRepositoryGitLayoutContract() {
     multiRepositoryWriteOperationSupported: false,
     commonGitDirectoryExcludeBackend: true,
     filesystemResolutionCore: "implemented_candidate",
-    repositoryIdentityVerification: "implemented_narrow_parser_candidate",
+    repositoryIdentityVerification: "not_implemented",
+    metadataPlacementLayoutVerification: "implemented_narrow_parser_candidate",
     metadataWriteIntegration: "implemented_candidate",
     metadataWriteActivationIntegration: "not_implemented",
     runtimeCapabilityIssued: false

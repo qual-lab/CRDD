@@ -297,7 +297,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.deepEqual(report.repositoryGitLayout.supportedWorktreeForms, [
     "normal_worktree",
     "linked_worktree",
-    "gitfile_worktree_including_submodule"
+    "gitfile_worktree_without_core_worktree"
   ]);
   assert.equal(report.repositoryGitLayout.bareRepositorySupported, false);
   assert.equal(report.repositoryGitLayout.referencedSubmodulesModified, false);
@@ -306,7 +306,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.repositoryGitLayout.filesystemResolutionCore, "implemented_candidate");
   assert.equal(report.repositoryGitLayout.supportedRepositoryFormat, "version_0_without_extensions_or_includes");
   assert.equal(report.repositoryGitLayout.gitCliAuthorityRequired, false);
-  assert.equal(report.repositoryGitLayout.repositoryIdentityVerification, "implemented_narrow_parser_candidate");
+  assert.equal(report.repositoryGitLayout.repositoryIdentityVerification, "not_implemented");
+  assert.equal(report.repositoryGitLayout.metadataPlacementLayoutVerification,
+    "implemented_narrow_parser_candidate");
   assert.equal(report.repositoryGitLayout.metadataWriteIntegration, "implemented_candidate");
   assert.equal(report.repositoryGitLayout.metadataWriteActivationIntegration, "not_implemented");
   assert.equal(report.repositoryGitLayout.runtimeCapabilityIssued, false);

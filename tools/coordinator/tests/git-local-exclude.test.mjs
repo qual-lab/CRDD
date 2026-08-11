@@ -19,7 +19,8 @@ function temporaryRoot(t) {
 function makeGitDirectory(target) {
   fs.mkdirSync(path.join(target, "info"), { recursive: true });
   fs.writeFileSync(path.join(target, "HEAD"), "ref: refs/heads/main\n", "utf8");
-  fs.writeFileSync(path.join(target, "config"), "[core]\n\trepositoryformatversion = 0\n", "utf8");
+  fs.writeFileSync(path.join(target, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n", "utf8");
 }
 
 function normalRepository(t) {

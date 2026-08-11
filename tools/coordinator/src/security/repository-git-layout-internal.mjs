@@ -158,7 +158,7 @@ function parseNarrowRepositoryConfig(target, commonDirectory) {
       throw new Error("repository_git_config_unsupported");
     }
   }
-  if (formatVersion !== "0" || (bare !== null && !["false", "no", "off", "0"].includes(bare))) {
+  if (formatVersion !== "0" || bare !== "false") {
     throw new Error("repository_git_config_unsupported");
   }
   return bytes.snapshot;

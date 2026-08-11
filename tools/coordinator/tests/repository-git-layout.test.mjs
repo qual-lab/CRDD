@@ -15,7 +15,8 @@ function temporaryRoot(t) {
 function makeGitDirectory(target) {
   fs.mkdirSync(path.join(target, "info"), { recursive: true });
   fs.writeFileSync(path.join(target, "HEAD"), "ref: refs/heads/main\n", "utf8");
-  fs.writeFileSync(path.join(target, "config"), "[core]\n\trepositoryformatversion = 0\n", "utf8");
+  fs.writeFileSync(path.join(target, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n", "utf8");
 }
 
 test("通常worktreeのcommon metadata候補をPath非保持で識別する", (t) => {
@@ -44,7 +45,7 @@ test("linked worktreeはcommondirを解決する", (t) => {
   assert.equal(result.layout.kind, "linked_worktree");
 });
 
-test("対象自身がsubmodule等のgitfile worktreeでも候補化する", (t) => {
+test("core.worktreeを使わない限定gitfile worktreeを候補化する", (t) => {
   const parent = temporaryRoot(t);
   const repositoryRoot = path.join(parent, "dependency");
   const gitDirectory = path.join(parent, ".git", "modules", "dependency");
@@ -55,6 +56,19 @@ test("対象自身がsubmodule等のgitfile worktreeでも候補化する", (t) 
   assert.equal(result.status, "candidate");
   assert.equal(result.layout.kind, "gitfile_worktree");
   assert.equal(result.layout.referencedRepositoriesModified, false);
+});
+
+test("標準submodule自身のcore.worktree構成は対象候補にしない", (t) => {
+  const parent = temporaryRoot(t);
+  const repositoryRoot = path.join(parent, "dependency");
+  const gitDirectory = path.join(parent, ".git", "modules", "dependency");
+  fs.mkdirSync(repositoryRoot);
+  makeGitDirectory(gitDirectory);
+  fs.writeFileSync(path.join(gitDirectory, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n\tworktree = ../../../../dependency\n", "utf8");
+  fs.writeFileSync(path.join(repositoryRoot, ".git"), `gitdir: ${gitDirectory}\n`, "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason,
+    "repository_git_config_unsupported");
 });
 
 test("bare Repositoryと不正gitfileを拒否する", (t) => {
@@ -78,6 +92,17 @@ test("限定Repository formatだけをAuthority候補として受理する", (t)
   const gitDirectory = path.join(repositoryRoot, ".git");
   makeGitDirectory(gitDirectory);
   const config = path.join(gitDirectory, "config");
+  fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 0\n", "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason, "repository_git_config_unsupported");
+  for (const value of ["true", "", "yes", "on", "1", "no", "off", "0"]) {
+    fs.writeFileSync(config, `[core]\n\trepositoryformatversion = 0\n\tbare = ${value}\n`, "utf8");
+    assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason,
+      "repository_git_config_unsupported");
+  }
+  fs.writeFileSync(config,
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n\tbare = false\n", "utf8");
+  assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason,
+    "repository_git_config_unsupported");
   fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 1\n[extensions]\n\tworktreeConfig = true\n", "utf8");
   assert.equal(inspectRepositoryGitLayoutCandidate({ repositoryRoot }).reason, "repository_git_config_unsupported");
   fs.writeFileSync(config, "[core]\n\trepositoryformatversion = 0\n\tworktree = ../other\n", "utf8");
@@ -192,7 +217,8 @@ test("accessorとProxyを実行せずblockedへ閉じる", () => {
 
 test("Repository形態contractは参照Repository非変更と未実装境界を保つ", () => {
   const contract = describeRepositoryGitLayoutContract();
-  assert.deepEqual(contract.supportedWorktreeForms, ["normal_worktree", "linked_worktree", "gitfile_worktree_including_submodule"]);
+  assert.deepEqual(contract.supportedWorktreeForms,
+    ["normal_worktree", "linked_worktree", "gitfile_worktree_without_core_worktree"]);
   assert.equal(contract.bareRepositorySupported, false);
   assert.equal(contract.referencedSubmodulesModified, false);
   assert.equal(contract.referencedRepositoriesModified, false);
@@ -200,7 +226,8 @@ test("Repository形態contractは参照Repository非変更と未実装境界を�
   assert.equal(contract.filesystemResolutionCore, "implemented_candidate");
   assert.equal(contract.supportedRepositoryFormat, "version_0_without_extensions_or_includes");
   assert.equal(contract.gitCliAuthorityRequired, false);
-  assert.equal(contract.repositoryIdentityVerification, "implemented_narrow_parser_candidate");
+  assert.equal(contract.repositoryIdentityVerification, "not_implemented");
+  assert.equal(contract.metadataPlacementLayoutVerification, "implemented_narrow_parser_candidate");
   assert.equal(contract.metadataWriteIntegration, "implemented_candidate");
   assert.equal(contract.metadataWriteActivationIntegration, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
