@@ -167,6 +167,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
+  assert.equal(contract.onboardingBlockingDependencies.includes(
+    "authority_root_resolution_from_provisioning_record"), true);
+  assert.equal(contract.onboardingBlockingDependencies.includes(
+    "activation_atomic_persistence"), true);
   assert.equal(contract.provisioningRecordRole,
     "future_verified_platform_setup_record_target");
   assert.equal(contract.provisionReceiptRelationship, "undecided");

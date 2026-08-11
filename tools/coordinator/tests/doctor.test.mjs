@@ -351,6 +351,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
+  assert.equal(report.runtimeActivation.onboardingBlockingDependencies.includes(
+    "authority_root_resolution_from_provisioning_record"), true);
+  assert.equal(report.runtimeActivation.onboardingBlockingDependencies.includes(
+    "activation_atomic_persistence"), true);
   assert.equal(report.runtimeActivation.provisioningRecordRole,
     "future_verified_platform_setup_record_target");
   assert.equal(report.runtimeActivation.provisionReceiptRelationship, "undecided");

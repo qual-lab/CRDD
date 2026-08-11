@@ -13,6 +13,7 @@ export const AUTHORITY_ROOT_LOCATOR_INPUT_LIMITS = Object.freeze({
 });
 
 const HASH = /^[a-f0-9]{64}$/u;
+const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9]|LPT[1-9])$/iu;
 const LOCATOR_KEYS = new Set([
   "contract",
   "contractRevision",
@@ -64,9 +65,17 @@ function canonicalAbsolutePath(value) {
       Buffer.byteLength(value, "utf8") > AUTHORITY_ROOT_LOCATOR_INPUT_LIMITS.absolutePathBytes ||
       /[\u0000-\u001f\u007f]/u.test(value)) return false;
   if (process.platform === "win32") {
-    if (!/^[A-Za-z]:\\/u.test(value) || path.win32.normalize(value) !== value) return false;
+    if (!/^[A-Z]:\\/u.test(value) || path.win32.normalize(value) !== value) return false;
     const root = path.win32.parse(value).root;
-    return value === root || !value.endsWith("\\");
+    if (value === root) return true;
+    if (value.endsWith("\\")) return false;
+    const segments = value.slice(root.length).split("\\");
+    return segments.every((segment) => {
+      if (segment.length === 0 || segment === "." || segment === ".." ||
+          /[<>:"|?*]/u.test(segment) || /[. ]$/u.test(segment)) return false;
+      const basename = segment.split(".", 1)[0].replace(/[. ]+$/u, "");
+      return !WINDOWS_RESERVED_BASENAME.test(basename);
+    });
   }
   if (!path.posix.isAbsolute(value) || path.posix.normalize(value) !== value) return false;
   return value === "/" || !value.endsWith("/");

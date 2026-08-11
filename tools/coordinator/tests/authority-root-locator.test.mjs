@@ -90,11 +90,41 @@ test("Path、Hash、ID、revisionの不正値をfail closedにする", () => {
   })).status, "candidate");
 
   const paths = process.platform === "win32"
-    ? ["relative", "\\\\server\\share", "\\\\?\\C:\\authority", "C:\\CRDD\\..\\authority", "C:/CRDD/authority", "C:\\CRDD\\authority\\"]
+    ? [
+        "relative",
+        "c:\\CRDD\\authority",
+        "\\\\server\\share",
+        "\\\\?\\C:\\authority",
+        "C:\\CRDD\\..\\authority",
+        "C:/CRDD/authority",
+        "C:\\CRDD\\authority\\",
+        "C:\\bad?name",
+        "C:\\bad<name",
+        "C:\\bad>name",
+        "C:\\bad\"name",
+        "C:\\bad|name",
+        "C:\\bad*name",
+        "C:\\dir\\file:stream",
+        "C:\\dir.",
+        "C:\\dir ",
+        "C:\\CON",
+        "C:\\con.txt",
+        "C:\\dir\\PRN.log",
+        "C:\\AUX",
+        "C:\\NUL.data",
+        "C:\\CLOCK$",
+        "C:\\CONIN$.txt",
+        "C:\\CONOUT$",
+        "C:\\COM1.log",
+        "C:\\com9",
+        "C:\\LPT1.txt",
+        "C:\\lpt9"
+      ]
     : ["relative", "//srv/authority", "/srv/../authority", "/srv/authority/"];
   for (const authorityRootAbsolutePath of paths) {
-    assert.equal(compileAuthorityRootLocatorCandidate(locator({ authorityRootAbsolutePath })).status,
-      "blocked");
+    const result = compileAuthorityRootLocatorCandidate(locator({ authorityRootAbsolutePath }));
+    assert.equal(result.status, "blocked");
+    assert.equal(JSON.stringify(result).includes(authorityRootAbsolutePath), false);
   }
   for (const overrides of [
     { authorityRootAbsolutePath: `${validPath}\n` },
@@ -109,6 +139,19 @@ test("Path、Hash、ID、revisionの不正値をfail closedにする", () => {
     { activationRevision: 0 },
     { activationRecordHash: "5".repeat(63) }
   ]) assert.equal(compileAuthorityRootLocatorCandidate(locator(overrides)).status, "blocked");
+
+  if (process.platform === "win32") {
+    for (const authorityRootAbsolutePath of [
+      "C:\\",
+      "C:\\CONSOLE",
+      "C:\\COM0",
+      "C:\\COM10",
+      "C:\\LPT0",
+      "C:\\LPT10"
+    ]) assert.equal(compileAuthorityRootLocatorCandidate(locator({
+      authorityRootAbsolutePath
+    })).status, "candidate");
+  }
 });
 
 test("decoderはBuffer、上限、strict UTF-8およびcanonical完全一致を要求する", () => {

@@ -65,6 +65,7 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
 
 function deriveOnboardingReadiness(implementation) {
   const rootProtection = implementation.rootProtectionPolicy;
+  const locator = implementation.authorityRootLocator;
   const dependency = (name, sources) => Object.freeze({
     name,
     sources: Object.freeze(sources),
@@ -76,8 +77,14 @@ function deriveOnboardingReadiness(implementation) {
     dependency("platform_provisioner_effect", [implementation.platformProvisionerEffect]),
     dependency("provision_receipt_contract", [implementation.provisionReceiptContract]),
     dependency("provision_receipt_verification", [implementation.provisionReceiptVerification]),
-    dependency("authority_root_resolution_from_provisioning_record",
-      [implementation.authorityRootResolutionFromProvisioningRecord]),
+    dependency("authority_root_resolution_from_provisioning_record", [
+      implementation.authorityRootResolutionFromProvisioningRecord,
+      locator.filesystemRead,
+      locator.resolver,
+      locator.provisioningRecordVerification,
+      locator.authorityRootIdentityVerification,
+      locator.activeActivationBinding
+    ]),
     dependency("root_protection_platform_adapters", [
       rootProtection.windowsDaclAdapter,
       rootProtection.posixOwnerModeAdapter,
@@ -95,7 +102,11 @@ function deriveOnboardingReadiness(implementation) {
       [implementation.authorityRootProvisioningEffect]),
     dependency("activation_effect", [implementation.activationEffect]),
     dependency("activation_path_identity_binding", [implementation.pathIdentityBinding]),
-    dependency("activation_atomic_persistence", [implementation.atomicPersistence]),
+    dependency("activation_atomic_persistence", [
+      implementation.atomicPersistence,
+      locator.filesystemWrite,
+      locator.atomicPersistence
+    ]),
     dependency("run_scoped_capability", [
       implementation.runScopedCapability,
       implementation.runtimeCapabilityIssued
