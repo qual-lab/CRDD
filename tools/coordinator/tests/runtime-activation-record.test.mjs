@@ -147,6 +147,26 @@ test("Activation contractは永続化、専用command、再activation、disable/
   ]);
   assert.equal(contract.authorityRootPathReuseTarget,
     "explicit_path_resolved_from_verified_provisioning_record_target");
+  assert.deepEqual(contract.authorityRootLocator, {
+    contract: "crdd-coordinator/authority-root-locator",
+    contractRevision: 1,
+    fixedRepositoryRelativeFile: ".crdd-runtime/authority-root-locator.json",
+    runtimeRootOverrideChangesLocatorLocation: false,
+    locatorCore: "implemented_candidate",
+    trustLevel: "untrusted_discovery_hint",
+    containsAbsolutePath: true,
+    containsCredentials: false,
+    canonicalBytesExposed: false,
+    filesystemRead: "not_implemented",
+    filesystemWrite: "not_implemented",
+    atomicPersistence: "not_implemented",
+    resolver: "not_implemented",
+    provisioningRecordVerification: "not_implemented",
+    authorityRootIdentityVerification: "not_implemented",
+    activeActivationBinding: "not_implemented",
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
   assert.equal(contract.provisioningRecordRole,
     "future_verified_platform_setup_record_target");
   assert.equal(contract.provisionReceiptRelationship, "undecided");

@@ -1,19 +1,23 @@
 import { createHash } from "node:crypto";
 
+import { describeAuthorityRootLocatorContract } from "./authority-root-locator.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
+import {
+  RUNTIME_ACTIVATION_ID_MAX_LENGTH,
+  isRuntimeActivationIdCandidate
+} from "./runtime-activation-identity.mjs";
 
 export const RUNTIME_ACTIVATION_CONTRACT = "crdd-coordinator/runtime-activation-record";
 export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 1;
 export const RUNTIME_ACTIVATION_FILE = "activation.json";
 export const RUNTIME_ACTIVATION_INPUT_LIMITS = Object.freeze({
   rawBytes: 8_192,
-  identifierLength: 128,
+  identifierLength: RUNTIME_ACTIVATION_ID_MAX_LENGTH,
   canonicalUtcLength: 24
 });
 
 const HASH = /^[a-f0-9]{64}$/u;
-const ACTIVATION_ID = /^ACTIVATION-[0-9]{6,}$/u;
 const BUNDLE_ID = /^AUTHBUNDLE-[0-9]{6,}$/u;
 const POLICY_ID = /^AUTHPOL-[0-9]{6,}$/u;
 const REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
@@ -157,7 +161,7 @@ function normalizeRecord(rawRecord) {
   if (!record ||
       record.contract !== RUNTIME_ACTIVATION_CONTRACT ||
       record.contractRevision !== RUNTIME_ACTIVATION_CONTRACT_REVISION ||
-      !identifier(record.activationId, ACTIVATION_ID) ||
+      !isRuntimeActivationIdCandidate(record.activationId) ||
       !positiveRevision(record.activationRevision) ||
       !["active", "disabled"].includes(record.status) ||
       (record.activationRevision === 1
@@ -231,6 +235,7 @@ export function decodeRuntimeActivationRecordCandidate(input) {
 
 export function describeRuntimeActivationContract() {
   const rootProtectionPolicy = describeRootProtectionPolicyContract();
+  const authorityRootLocator = describeAuthorityRootLocatorContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -245,7 +250,8 @@ export function describeRuntimeActivationContract() {
     ownerAclVerification: "not_implemented",
     runScopedCapability: "not_implemented",
     runtimeCapabilityIssued: false,
-    rootProtectionPolicy
+    rootProtectionPolicy,
+    authorityRootLocator
   });
   const onboarding = deriveOnboardingReadiness(implementation);
   return Object.freeze({
@@ -266,6 +272,7 @@ export function describeRuntimeActivationContract() {
     runtimePrincipalModes: ONBOARDING_RUNTIME_PRINCIPAL_MODES,
     authorityRootPathReuseTarget:
       "explicit_path_resolved_from_verified_provisioning_record_target",
+    authorityRootLocator: implementation.authorityRootLocator,
     provisioningRecordRole: "future_verified_platform_setup_record_target",
     provisionReceiptRelationship: "undecided",
     platformProvisionerManifestRelationship: "undecided",
