@@ -302,7 +302,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRootPathIdentity.ownerAclVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.fullParentChainVerification, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.localExcludeIntegration,
-    "implemented_candidate_pre_post_reverification");
+    "implemented_candidate_initial_snapshot_binding");
   assert.equal(report.runtimeRootPathIdentity.activationIntegration, "not_implemented");
   assert.equal(report.runtimeRootPathIdentity.runtimeCapabilityIssued, false);
   assert.equal(report.runtimeRootEvaluation.status, "blocked");
@@ -339,7 +339,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.gitLocalExclude.linkedWorktreeRepositoryContainedCustomRootAllowed, false);
   assert.equal(report.gitLocalExclude.linkedWorktreeExternalOverrideAllowed, true);
   assert.equal(report.gitLocalExclude.metadataWriteIntegration, "implemented_candidate");
-  assert.equal(report.gitLocalExclude.runtimeRootPathIdentityPrePostVerification, "implemented_candidate");
+  assert.equal(report.gitLocalExclude.runtimeRootPathIdentityPrePostVerification,
+    "implemented_candidate_initial_snapshot_binding");
   assert.equal(report.gitLocalExclude.runtimeRootIdentityDescriptorTransfer, false);
   assert.equal(report.gitLocalExclude.metadataWriteActivationIntegration, "not_implemented");
   assert.equal(report.gitLocalExclude.maximumExcludeBytes, 131072);
@@ -405,6 +406,69 @@ test("doctor optionsのaccessor、Proxyおよび余分fieldを処置前に拒否
   const target = { cwd: process.cwd() };
   assert.throws(() => runDoctor(new Proxy(target, {})), /doctor_options_invalid/u);
   assert.throws(() => runDoctor({ cwd: process.cwd(), extra: true }), /doctor_options_invalid/u);
+
+  let nestedGetterCalls = 0;
+  const nestedAccessor = {
+    environmentOverride: null,
+    activationIntent: "explicit_enable_request"
+  };
+  Object.defineProperty(nestedAccessor, "cliOverride", {
+    enumerable: true,
+    get() { nestedGetterCalls += 1; return process.cwd(); }
+  });
+  assert.throws(() => runDoctor({
+    cwd: process.cwd(),
+    runtimeRootRequest: nestedAccessor
+  }), /doctor_options_invalid/u);
+  assert.equal(nestedGetterCalls, 0);
+
+  let nestedProxyCalls = 0;
+  const nestedTarget = {
+    cliOverride: null,
+    environmentOverride: null,
+    activationIntent: "explicit_enable_request"
+  };
+  const nestedProxy = new Proxy(nestedTarget, {
+    ownKeys() { nestedProxyCalls += 1; return Reflect.ownKeys(nestedTarget); }
+  });
+  assert.throws(() => runDoctor({ cwd: process.cwd(), runtimeRootRequest: nestedProxy }),
+    /doctor_options_invalid/u);
+  assert.equal(nestedProxyCalls, 0);
+
+  const invalidRequests = [
+    { cliOverride: null, environmentOverride: null },
+    { cliOverride: null, environmentOverride: null, activationIntent: "explicit_enable_request", extra: true },
+    { cliOverride: "relative", environmentOverride: null, activationIntent: "explicit_enable_request" },
+    { cliOverride: `${path.parse(process.cwd()).root}invalid\npath`, environmentOverride: null,
+      activationIntent: "explicit_enable_request" },
+    { cliOverride: `${path.parse(process.cwd()).root}${"x".repeat(4_097)}`, environmentOverride: null,
+      activationIntent: "explicit_enable_request" },
+    { cliOverride: null, environmentOverride: null, activationIntent: "invalid" },
+    Object.assign(Object.create({ inherited: true }), nestedTarget),
+    Object.assign({ ...nestedTarget }, { [Symbol("extra")]: true })
+  ];
+  for (const runtimeRootRequest of invalidRequests) {
+    assert.throws(() => runDoctor({ cwd: process.cwd(), runtimeRootRequest }), /doctor_options_invalid/u);
+  }
+});
+
+test("doctorはnull prototypeおよびfrozenのRoot要求をowned snapshotとして受理する", (t) => {
+  const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-doctor-plain-root-"));
+  t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"));
+  const nullPrototypeRequest = Object.create(null);
+  nullPrototypeRequest.cliOverride = null;
+  nullPrototypeRequest.environmentOverride = null;
+  nullPrototypeRequest.activationIntent = "explicit_enable_request";
+  assert.equal(runDoctor({ cwd: repositoryRoot, runtimeRootRequest: nullPrototypeRequest })
+    .runtimeRootEvaluation.status, "candidate");
+  const frozenRequest = Object.freeze({
+    cliOverride: null,
+    environmentOverride: null,
+    activationIntent: "explicit_enable_request"
+  });
+  assert.equal(runDoctor({ cwd: repositoryRoot, runtimeRootRequest: frozenRequest })
+    .runtimeRootEvaluation.status, "candidate");
 });
 
 test("Docker隔離Probeは固定Digestと最小権限を使う", () => {

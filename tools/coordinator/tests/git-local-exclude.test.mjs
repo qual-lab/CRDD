@@ -179,7 +179,8 @@ test("local exclude契約はmetadata書込み候補とactivation未実装を分�
   assert.equal(contract.linkedWorktreeRepositoryContainedCustomRootAllowed, false);
   assert.equal(contract.linkedWorktreeExternalOverrideAllowed, true);
   assert.equal(contract.metadataWriteIntegration, "implemented_candidate");
-  assert.equal(contract.runtimeRootPathIdentityPrePostVerification, "implemented_candidate");
+  assert.equal(contract.runtimeRootPathIdentityPrePostVerification,
+    "implemented_candidate_initial_snapshot_binding");
   assert.equal(contract.runtimeRootIdentityDescriptorTransfer, false);
   assert.equal(contract.metadataWriteActivationIntegration, "not_implemented");
   assert.equal(contract.maximumExcludeBytes, 131072);
@@ -329,6 +330,94 @@ test("Path Identityが書込み直前に失われた場合はmetadataを書か�
   assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
 });
 
+test("initial Root identity is not rebased to a valid same-name replacement", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const runtimeRoot = path.join(repositoryRoot, ".crdd-runtime");
+  const originalRoot = `${runtimeRoot}-original`;
+  const replacementRoot = `${runtimeRoot}-replacement`;
+  const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+  fs.mkdirSync(runtimeRoot);
+  fs.mkdirSync(replacementRoot);
+  const originalOpen = fs.openSync;
+  let replaced = false;
+  fs.openSync = function(target, ...rest) {
+    if (!replaced && target === path.join(repositoryRoot, ".git", "config")) {
+      replaced = true;
+      fs.renameSync(runtimeRoot, originalRoot);
+      fs.renameSync(replacementRoot, runtimeRoot);
+    }
+    return originalOpen.call(fs, target, ...rest);
+  };
+  let result;
+  try { result = applyGitLocalExcludeCandidate(input(repositoryRoot)); }
+  finally { fs.openSync = originalOpen; }
+  assert.equal(replaced, true);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.gitMetadataWriteIssued, false);
+  assert.equal(fs.existsSync(exclude), false);
+  assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
+});
+
+test("initial parent identity is not rebased to a valid same-name replacement", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const runtimeParent = path.join(repositoryRoot, "runtime-parent");
+  const runtimeRoot = path.join(runtimeParent, "root");
+  const originalParent = `${runtimeParent}-original`;
+  const replacementParent = `${runtimeParent}-replacement`;
+  const replacementRoot = path.join(replacementParent, "root");
+  const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+  fs.mkdirSync(runtimeRoot, { recursive: true });
+  fs.mkdirSync(replacementRoot, { recursive: true });
+  const originalOpen = fs.openSync;
+  let replaced = false;
+  fs.openSync = function(target, ...rest) {
+    if (!replaced && target === path.join(repositoryRoot, ".git", "config")) {
+      replaced = true;
+      fs.renameSync(runtimeParent, originalParent);
+      fs.renameSync(replacementParent, runtimeParent);
+    }
+    return originalOpen.call(fs, target, ...rest);
+  };
+  let result;
+  try {
+    result = applyGitLocalExcludeCandidate(input(repositoryRoot, { cliOverride: runtimeRoot }));
+  } finally { fs.openSync = originalOpen; }
+  assert.equal(replaced, true);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.gitMetadataWriteIssued, false);
+  assert.equal(fs.existsSync(exclude), false);
+});
+
+test("initial Repository identity is not rebased to a valid same-name replacement", (t) => {
+  const fixtureRoot = temporaryRoot(t);
+  const repositoryRoot = path.join(fixtureRoot, "repository");
+  const originalRepository = path.join(fixtureRoot, "repository-original");
+  const replacementRepository = path.join(fixtureRoot, "repository-replacement");
+  fs.mkdirSync(repositoryRoot);
+  fs.mkdirSync(replacementRepository);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  makeGitDirectory(path.join(replacementRepository, ".git"));
+  fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"));
+  fs.mkdirSync(path.join(replacementRepository, ".crdd-runtime"));
+  const originalOpen = fs.openSync;
+  let replaced = false;
+  fs.openSync = function(target, ...rest) {
+    if (!replaced && target === path.join(repositoryRoot, ".git", "config")) {
+      replaced = true;
+      fs.renameSync(repositoryRoot, originalRepository);
+      fs.renameSync(replacementRepository, repositoryRoot);
+    }
+    return originalOpen.call(fs, target, ...rest);
+  };
+  let result;
+  try { result = applyGitLocalExcludeCandidate(input(repositoryRoot)); }
+  finally { fs.openSync = originalOpen; }
+  assert.equal(replaced, true);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.gitMetadataWriteIssued, false);
+  assert.equal(fs.existsSync(path.join(repositoryRoot, ".git", "info", "exclude")), false);
+});
+
 test("metadata書込み後のPath Identity喪失は書込み済みblockedとして返す", (t) => {
   const repositoryRoot = normalRepository(t);
   const runtimeRoot = path.join(repositoryRoot, ".crdd-runtime");
@@ -366,6 +455,66 @@ test("metadata書込み後のPath Identity喪失は書込み済みblockedとし�
   assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
 });
 
+test("post-write parent replacement preserves the issued-write fact", (t) => {
+  const repositoryRoot = normalRepository(t);
+  const runtimeParent = path.join(repositoryRoot, "runtime-parent");
+  const runtimeRoot = path.join(runtimeParent, "root");
+  const originalParent = `${runtimeParent}-original`;
+  const replacementParent = `${runtimeParent}-replacement`;
+  fs.mkdirSync(runtimeRoot, { recursive: true });
+  fs.mkdirSync(path.join(replacementParent, "root"), { recursive: true });
+  const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+  const originalRename = fs.renameSync;
+  let replaced = false;
+  fs.renameSync = function(source, destination) {
+    originalRename.call(fs, source, destination);
+    if (!replaced && destination === exclude) {
+      replaced = true;
+      originalRename.call(fs, runtimeParent, originalParent);
+      originalRename.call(fs, replacementParent, runtimeParent);
+    }
+  };
+  let result;
+  try {
+    result = applyGitLocalExcludeCandidate(input(repositoryRoot, { cliOverride: runtimeRoot }));
+  } finally { fs.renameSync = originalRename; }
+  assert.equal(replaced, true);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.gitMetadataWriteIssued, true);
+  assert.equal(result.gitMetadataWriteVerified, false);
+});
+
+test("post-write Repository replacement preserves the issued-write fact", (t) => {
+  const fixtureRoot = temporaryRoot(t);
+  const repositoryRoot = path.join(fixtureRoot, "repository");
+  const originalRepository = path.join(fixtureRoot, "repository-original");
+  const replacementRepository = path.join(fixtureRoot, "repository-replacement");
+  fs.mkdirSync(repositoryRoot);
+  fs.mkdirSync(replacementRepository);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  makeGitDirectory(path.join(replacementRepository, ".git"));
+  fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"));
+  fs.mkdirSync(path.join(replacementRepository, ".crdd-runtime"));
+  const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
+  const originalRename = fs.renameSync;
+  let replaced = false;
+  fs.renameSync = function(source, destination) {
+    originalRename.call(fs, source, destination);
+    if (!replaced && destination === exclude) {
+      replaced = true;
+      originalRename.call(fs, repositoryRoot, originalRepository);
+      originalRename.call(fs, replacementRepository, repositoryRoot);
+    }
+  };
+  let result;
+  try { result = applyGitLocalExcludeCandidate(input(repositoryRoot)); }
+  finally { fs.renameSync = originalRename; }
+  assert.equal(replaced, true);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.gitMetadataWriteIssued, true);
+  assert.equal(result.gitMetadataWriteVerified, false);
+});
+
 test("外部overrideもPath Identity成立後だけno-exclude候補にする", (t) => {
   const repositoryRoot = normalRepository(t);
   const externalRoot = path.join(path.dirname(repositoryRoot), "missing-external-runtime");
@@ -374,4 +523,38 @@ test("外部overrideもPath Identity成立後だけno-exclude候補にする", (
   }));
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, false);
+});
+
+test("external override remains bound to the initial Root identity", (t) => {
+  const fixtureRoot = temporaryRoot(t);
+  const repositoryRoot = path.join(fixtureRoot, "repository");
+  const externalRoot = path.join(fixtureRoot, "external-runtime");
+  const originalExternal = path.join(fixtureRoot, "external-runtime-original");
+  const replacementExternal = path.join(fixtureRoot, "external-runtime-replacement");
+  fs.mkdirSync(repositoryRoot);
+  makeGitDirectory(path.join(repositoryRoot, ".git"));
+  fs.mkdirSync(externalRoot);
+  fs.mkdirSync(replacementExternal);
+  const originalRealpath = fs.realpathSync.native;
+  let rootReads = 0;
+  let replaced = false;
+  fs.realpathSync.native = function(target) {
+    if (target === externalRoot) {
+      rootReads += 1;
+      if (rootReads === 3) {
+        replaced = true;
+        fs.renameSync(externalRoot, originalExternal);
+        fs.renameSync(replacementExternal, externalRoot);
+      }
+    }
+    return originalRealpath.call(fs.realpathSync, target);
+  };
+  let result;
+  try {
+    result = applyGitLocalExcludeCandidate(input(repositoryRoot, { environmentOverride: externalRoot }));
+  } finally { fs.realpathSync.native = originalRealpath; }
+  assert.equal(replaced, true);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.gitMetadataWriteIssued, false);
+  assert.equal(JSON.stringify(result).includes(externalRoot), false);
 });

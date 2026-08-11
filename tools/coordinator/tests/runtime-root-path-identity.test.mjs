@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import * as runtimeRootPathIdentityModule from "../src/security/runtime-root-path-identity.mjs";
 import {
   describeRuntimeRootPathIdentityContract,
   inspectRuntimeRootPathIdentityCandidate
@@ -24,6 +25,16 @@ function input(repositoryRoot, overrides = {}) {
     ...overrides
   };
 }
+
+test("Path Identity module does not expose a generic session, descriptor, token, or callback API", () => {
+  assert.deepEqual(Object.keys(runtimeRootPathIdentityModule).sort(), [
+    "RUNTIME_ROOT_PATH_IDENTITY_CONTRACT",
+    "RUNTIME_ROOT_PATH_IDENTITY_CONTRACT_REVISION",
+    "applyGitLocalExcludeWithInitialRootSnapshotCandidate",
+    "describeRuntimeRootPathIdentityContract",
+    "inspectRuntimeRootPathIdentityCandidate"
+  ]);
+});
 
 test("Repository既定RootのFilesystem object候補をPath非出力で確認する", (t) => {
   const repositoryRoot = temporaryDirectory(t);
@@ -298,7 +309,7 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
   assert.equal(contract.realpathContainmentVerification, "implemented_candidate");
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.fullParentChainVerification, "not_implemented");
-  assert.equal(contract.localExcludeIntegration, "implemented_candidate_pre_post_reverification");
+  assert.equal(contract.localExcludeIntegration, "implemented_candidate_initial_snapshot_binding");
   assert.equal(contract.activationIntegration, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

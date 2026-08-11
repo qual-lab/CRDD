@@ -28,6 +28,7 @@ import {
 } from "../security/runtime-root-path-identity.mjs";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.mjs";
 import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.mjs";
+import { snapshotPlainRecord } from "../security/plain-data-snapshot.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -212,6 +213,16 @@ function reportableFilesystemPolicy(policy, root) {
 }
 
 const DOCTOR_OPTION_KEYS = new Set(["activeIsolation", "cwd", "runtimeRootRequest"]);
+const RUNTIME_ROOT_REQUEST_KEYS = new Set([
+  "cliOverride",
+  "environmentOverride",
+  "activationIntent"
+]);
+
+function validRuntimeRootOverride(value) {
+  return value === null || (typeof value === "string" && value.length > 0 && value.length <= 4_096 &&
+    !/[\u0000-\u001f\u007f]/u.test(value) && path.isAbsolute(value));
+}
 
 function normalizeDoctorOptions(rawOptions) {
   try {
@@ -234,10 +245,19 @@ function normalizeDoctorOptions(rawOptions) {
     };
     const activeIsolation = value("activeIsolation", false);
     const cwd = value("cwd", process.cwd());
-    const runtimeRootRequest = value("runtimeRootRequest", null);
+    const rawRuntimeRootRequest = value("runtimeRootRequest", null);
     if (typeof activeIsolation !== "boolean" || typeof cwd !== "string" || !path.isAbsolute(cwd) ||
-        (runtimeRootRequest !== null && (typeof runtimeRootRequest !== "object" || utilTypes.isProxy(runtimeRootRequest)))) {
+        /[\u0000-\u001f\u007f]/u.test(cwd)) {
       throw new Error("doctor_options_invalid");
+    }
+    let runtimeRootRequest = null;
+    if (rawRuntimeRootRequest !== null) {
+      runtimeRootRequest = snapshotPlainRecord(rawRuntimeRootRequest, RUNTIME_ROOT_REQUEST_KEYS);
+      if (!runtimeRootRequest || !validRuntimeRootOverride(runtimeRootRequest.cliOverride) ||
+          !validRuntimeRootOverride(runtimeRootRequest.environmentOverride) ||
+          runtimeRootRequest.activationIntent !== "explicit_enable_request") {
+        throw new Error("doctor_options_invalid");
+      }
     }
     return Object.freeze({ activeIsolation, cwd, runtimeRootRequest });
   } catch (error) {
