@@ -88,7 +88,7 @@ test("local exclude CoreはGit metadata書込みやCapabilityを成立させな�
   assert.equal(contract.postWriteVerificationRequired, true);
   assert.equal(contract.writeFailureBlocksActivation, true);
   assert.equal(contract.gitIgnoreIsSecurityBoundary, false);
-  assert.equal(contract.repositoryGitDirectoryResolution, "not_implemented");
+  assert.equal(contract.repositoryGitDirectoryResolution, "implemented_candidate");
   assert.equal(contract.metadataWriteIntegration, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

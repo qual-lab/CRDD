@@ -107,7 +107,7 @@ export function describeGitLocalExcludeContract() {
     postWriteVerificationRequired: true,
     writeFailureBlocksActivation: true,
     gitIgnoreIsSecurityBoundary: false,
-    repositoryGitDirectoryResolution: "not_implemented",
+    repositoryGitDirectoryResolution: "implemented_candidate",
     metadataWriteIntegration: "not_implemented",
     runtimeCapabilityIssued: false
   });

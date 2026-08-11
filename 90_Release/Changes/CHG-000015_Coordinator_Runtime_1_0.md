@@ -293,3 +293,13 @@ local exclude Core候補は、Root選択入力をplain-data境界で再検証し
 実Repository AdapterはRepository Identity、Git directoryの配置と実体、non-link／non-reparse、既存exclude内容、同時更新および書込み後のexact entryを確認する必要がある。通常Repository、linked worktree、submodule等のGit directory形態をどこまでRuntime 1.0で正式対応するかは、このCore候補では決定しない。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にlocal exclude処置完了、activation成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。
 
 固定Commit `f4b839a6c559d8a14e282092f0397369ac9d4445`／Tree `fdb4511119cc8c58b0ce23b9c3734640126bb8ef`へのAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding 0で完了した。結果は[`CHG-000015_Current_Review_Record_f4b839a.md`](Evidence/CHG-000015_Current_Review_Record_f4b839a.md)へ記録する。local exclude Core候補と直接利用側の固定範囲は独立確認済みである。一方、Git directory解決、metadata書込み、activationおよび実Operationは未実装で、全体Gateは`blocked`を維持する。
+
+### Repository Git layout Core候補
+
+Qual-LabはRuntime 1.0の対象候補を通常worktree、linked worktreeおよび対象Repository自身がsubmodule等の`.git` file形式であるworktreeとし、bare Repositoryを非対応とする方針を承認した。親RepositoryがCRDD submoduleを参照するだけの場合や、CRDD-Communication等の別Repositoryを読取り依存として参照する場合は、その依存Repositoryを変更しない。別Repositoryを変更対象にする場合は個別に有効化し、Root、activation、local exclude、Candidate RevisionおよびOperationを分離する。Runtime RootのRepository間共有と複数Repositoryへの同時書込みOperationは1.0の対象外とする。
+
+この決定をFilesystem解決Core候補へ反映した。`.git` directory、上限付き`.git` fileおよび`commondir`からcommon Git directoryを解決し、bare、欠落、不正control file、Git marker linkおよび既存exclude境界linkを`blocked`へ閉じる。結果へ絶対Pathを保持せず、参照中のsubmoduleまたは別Repositoryへ処置を広げず、Git metadata書込みまたはCapabilityを発行しない。READMEの導入説明には、対象Repository単位、参照だけのsubmodule／別Repository非変更、個別有効化、Root非共有および複数Repository同時書込み非対応を追加した。
+
+Repository Identity、親Path chain、case／Unicode alias、Git extension、実Git解決結果との照合、metadataの同時・原子的・冪等書込みおよび事後確認は未実装である。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前にRepository Adapter完成、activation成立、Runtime完成、採用、準拠、移行またはReleaseとして扱わない。
+
+linked worktreeでは`info/exclude`がcommon Git directoryに属し、同じRepositoryの他worktreeへも同じpatternが適用される。既定`/.crdd-runtime/`以外のRepository内custom Rootをlinked worktreeで許可するか、共有影響を避けて拒否するかは実書込み前のCurrent Decision Setとして保持する。判断前にmetadata書込み、activationまたは実Operationを開始しない。

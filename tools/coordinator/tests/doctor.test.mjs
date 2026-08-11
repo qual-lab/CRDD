@@ -294,6 +294,19 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRoot.runtimePathAdapter, "not_implemented");
   assert.equal(report.runtimeRoot.activationRecordPersistence, "not_implemented");
   assert.equal(report.runtimeRoot.runtimeCapabilityIssued, false);
+  assert.deepEqual(report.repositoryGitLayout.supportedWorktreeForms, [
+    "normal_worktree",
+    "linked_worktree",
+    "gitfile_worktree_including_submodule"
+  ]);
+  assert.equal(report.repositoryGitLayout.bareRepositorySupported, false);
+  assert.equal(report.repositoryGitLayout.referencedSubmodulesModified, false);
+  assert.equal(report.repositoryGitLayout.referencedRepositoriesModified, false);
+  assert.equal(report.repositoryGitLayout.multiRepositoryWriteOperationSupported, false);
+  assert.equal(report.repositoryGitLayout.filesystemResolutionCore, "implemented_candidate");
+  assert.equal(report.repositoryGitLayout.repositoryIdentityVerification, "not_implemented");
+  assert.equal(report.repositoryGitLayout.metadataWriteIntegration, "not_implemented");
+  assert.equal(report.repositoryGitLayout.runtimeCapabilityIssued, false);
   assert.equal(report.gitLocalExclude.repositoryContainedRootBackend, ".git/info/exclude");
   assert.equal(report.gitLocalExclude.repositoryExternalRootRequiresExclude, false);
   assert.equal(report.gitLocalExclude.trackedGitignoreModificationAllowed, false);
@@ -302,7 +315,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.gitLocalExclude.postWriteVerificationRequired, true);
   assert.equal(report.gitLocalExclude.writeFailureBlocksActivation, true);
   assert.equal(report.gitLocalExclude.gitIgnoreIsSecurityBoundary, false);
-  assert.equal(report.gitLocalExclude.repositoryGitDirectoryResolution, "not_implemented");
+  assert.equal(report.gitLocalExclude.repositoryGitDirectoryResolution, "implemented_candidate");
   assert.equal(report.gitLocalExclude.metadataWriteIntegration, "not_implemented");
   assert.equal(report.gitLocalExclude.runtimeCapabilityIssued, false);
   assert.equal(report.egress.isolationProfileContract.validationState, "candidate");

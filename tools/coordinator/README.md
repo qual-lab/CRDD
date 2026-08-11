@@ -6,6 +6,12 @@ Status: Implementation Candidate
 
 現在はExecution Environmentの成立性Gateを実装中であり、実Operation、Provider認証、Repository変更、push、mergeまたは外部Effectには使用できない。
 
+## 導入時のRepository単位
+
+Runtimeは、有効化を明示した対象Repositoryだけを一つのOperation単位として扱う。通常のRepository、linked worktree、および対象Repository自身がsubmodule worktreeである形をRuntime 1.0の対象候補とし、bare Repositoryは対象外とする。
+
+親RepositoryがCRDDをsubmoduleとして参照しているだけなら、CRDD側のGit metadataやRuntime Rootには触れない。CRDD-Communication等を別Repositoryへ分離した場合も、読取り依存として参照するだけならそのRepositoryを変更しない。変更対象にする場合だけ、そのRepositoryで個別に有効化し、Root、activation、local exclude、Candidate RevisionおよびOperationを分離する。Runtime RootをRepository間で共有せず、複数Repositoryへの同時書込みOperationはRuntime 1.0の対象にしない。
+
 ## 制御境界
 
 RuntimeがOperation状態、実効Authority、Repository Identity、Provider起動、Result検証、停止、再開および完了条件を所有する。Codex Coordinator Agentが返す計画、Packetまたは判断集合は候補であり、RuntimeによるProfile、Authority、CapabilityおよびIdentity照合なしに実行しない。
@@ -61,7 +67,7 @@ Runtime 1.0の正式なAuthority取得方式は、Runtime管理領域内の固�
 
 Runtime Rootの既定候補は`<repository>/.crdd-runtime/`とし、別の場所を使う場合の指定契約は`--runtime-root`または`CRDD_COORDINATOR_ROOT`による絶対Pathとする。優先順はCLI、環境、Repository既定である。OS別の暗黙保存先へ分散保存しない。現在は選択Core候補だけで、CLI optionと環境読取りは未接続である。機能は既定で無効であり、Directoryの存在、override指定またはRepository内設定だけでは有効化しない。明示的なenable要求とRuntime所有activation記録が必要で、Root選択Core候補はCapabilityを発行しない。
 
-`.crdd-runtime/**`はGitの追跡有無にかかわらずCandidate Revision、Operation入力およびProvider mountへ含めない。ignoreは誤commit防止の補助であり、Filesystem安全境界ではない。明示enable時に選択RootがRepository内なら、Repository Adapterがroot相対の完全一致entryを`.git/info/exclude`へ冪等に追加し、tracked `.gitignore`は変更しない。Repository外overrideにはGit excludeを追加しない。書込み後の確認に失敗した場合はactivationを`blocked`にする。現在はこのlocal exclude候補の生成だけを実装し、Git directoryの解決とmetadata書込みは未実装である。`disable`は新規Operationを停止する制御とし、保存データの削除は別の明示操作に分離する。Rootの作成、Path保護およびactivation記録の永続化も未実装である。
+`.crdd-runtime/**`はGitの追跡有無にかかわらずCandidate Revision、Operation入力およびProvider mountへ含めない。ignoreは誤commit防止の補助であり、Filesystem安全境界ではない。明示enable時に選択RootがRepository内なら、Repository Adapterがroot相対の完全一致entryを`.git/info/exclude`へ冪等に追加し、tracked `.gitignore`は変更しない。Repository外overrideにはGit excludeを追加しない。書込み後の確認に失敗した場合はactivationを`blocked`にする。現在はlocal exclude候補の生成に加え、通常worktree、linked worktreeおよび`.git` fileを使うsubmodule等のworktreeからcommon Git directoryを解決するFilesystem Core候補までを実装している。解決結果はPathを公開せず、参照中のsubmoduleや別Repositoryへ処置を広げない。linked worktreeの`info/exclude`は同じcommon Git directoryを使うworktree間で共有されるため、実書込み時のcustom内部Rootの扱いは未決である。Repository Identityの確定とmetadata書込みは未実装である。`disable`は新規Operationを停止する制御とし、保存データの削除は別の明示操作に分離する。Rootの作成、Path保護およびactivation記録の永続化も未実装である。
 
 過大なProfile／Registry入力、許可数を超えるGrant／Origin、長すぎる識別子／Origin、またはcanonical UTCでない評価時刻はAuthority候補にせず`blocked`へ閉じる。Trust Anchor Loader CoreはRegistryをJavaScript値へ展開する前に131072 byteの上限を強制する。File Bundleを実際に読み取るRuntime所有Path Adapterは未実装であり、その入口でも取得量、選択済みRoot、Provider非到達、所有主体／権限および実体Identityを別途強制する。
 
