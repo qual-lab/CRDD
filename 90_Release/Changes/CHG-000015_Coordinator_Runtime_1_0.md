@@ -347,3 +347,13 @@ local exclude書込みAdapter候補は、Root選択、限定layout、linked work
 固定Commit `2f0b634617ea6c4a9baa8bbd7a244cc6bfba7ebe`／Tree `387ca0d827c067717d6d9ef734d841d858142916`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_2f0b634.md`](Evidence/CHG-000015_Current_Review_Record_2f0b634.md)とする。`AG-REPO-PARSER-001`および`GCI-GIT-METADATA-001`は限定parser／metadata書込みAdapter候補と直接利用側の固定範囲で`Resolved`と判定する。
 
 この解消は完全なRepository Identity、Path／ACL、crash durability、activation、Candidate Revision／Operation／Provider除外の実強制、Capabilityまたは実Operationを成立させない。旧`6ffeefb`以前の結果は履歴としてのみ保持し、現在判定へ流用しない。次段階と人間判断の再開条件は現在記録のCurrent Decision Setへ保持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### Runtime Root Path Identity Core候補
+
+固定Commit `2f0b634617ea6c4a9baa8bbd7a244cc6bfba7ebe`／Tree `387ca0d827c067717d6d9ef734d841d858142916`の3独立確認とEvidence closure後、Current Decision Setに従い、追加の人間判断なしでRuntime Root Path Identity Core候補へ進む。旧確認結果は限定Repository parser／metadata書込みAdapter候補の履歴として保持し、本差分の合否へ流用しない。
+
+Path Identity Core候補はRoot選択Coreを再実行し、明示enable要求を含む同じ選択候補だけを受理する。既に存在するRepository、選択Rootおよび直近parentを、事前`lstat`、`realpath`解決先、事後`lstat`および最終候補返却前の再照合へ結合する。non-link directoryであり、`dev`、`ino`および`birthtimeNs`が安定し、Rootの実体parentが選択parentと一致し、lexical PathとrealpathのRepository内外分類が一致する場合だけ`candidate`とする。既定Rootは選択parentがRepository rootと同一実体で、leafが正確に`.crdd-runtime`の場合に限る。欠落、Repository root同値、Root／parent／Repositoryの置換、link／junction、containment差または安定Identityを取得できないFilesystemはPath／生errorなしの`blocked`へ閉じる。
+
+結果は選択元、Repository既定／内部custom／外部overrideの安全な分類、および`pathObjectIdentityVerification: implemented_candidate`だけを返し、絶対Path、`dev`、`ino`または再利用可能なdescriptorを公開しない。`ownerAclVerification`、`fullParentChainVerification`、local exclude結合およびactivation結合は`not_implemented`であり、Root作成／削除、権限変更、exclude更新、CapabilityまたはOperationを実行しない。OS名だけで対応済みとせず、安定Identityが得られないFilesystemはunsupportedとしてfail closedにする。case／Unicode alias、network／removable Filesystem、完全Repository Identity、所有主体／DACL／modeおよび全parent chainは未評価・未実装範囲に残す。
+
+専用試験はRepository既定、CLI内部custom、環境外部override、CLI優先と既定同値、欠落、Repository root同値、Root link、Root／parent／Repository置換、安定Identity欠落、accessor／ProxyおよびPath非出力を確認する。`doctor`はRoot選択Core候補とPath Identity Core候補を分離表示し、Path Adapter、owner／ACL、activationおよびCapability未実装を維持する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前に`Resolved`、Path Adapter完成、機能有効、Runtime完成、採用、準拠、移行、StableまたはReleaseとして扱わない。

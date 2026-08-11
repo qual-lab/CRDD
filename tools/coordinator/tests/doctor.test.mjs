@@ -292,8 +292,17 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeRoot.disableDeletesStoredData, false);
   assert.equal(report.runtimeRoot.runtimeDataDeletion, "not_implemented");
   assert.equal(report.runtimeRoot.runtimePathAdapter, "not_implemented");
+  assert.equal(report.runtimeRoot.runtimePathObjectIdentityCore, "implemented_candidate");
   assert.equal(report.runtimeRoot.activationRecordPersistence, "not_implemented");
   assert.equal(report.runtimeRoot.runtimeCapabilityIssued, false);
+  assert.equal(report.runtimeRootPathIdentity.existingRootRequired, true);
+  assert.equal(report.runtimeRootPathIdentity.rootCreationIssued, false);
+  assert.equal(report.runtimeRootPathIdentity.pathObjectIdentityVerification, "implemented_candidate");
+  assert.equal(report.runtimeRootPathIdentity.ownerAclVerification, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.fullParentChainVerification, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.localExcludeIntegration, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.activationIntegration, "not_implemented");
+  assert.equal(report.runtimeRootPathIdentity.runtimeCapabilityIssued, false);
   assert.deepEqual(report.repositoryGitLayout.supportedWorktreeForms, [
     "normal_worktree",
     "linked_worktree",

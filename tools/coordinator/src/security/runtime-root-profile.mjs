@@ -95,6 +95,7 @@ export function describeRuntimeRootContract() {
     disableDeletesStoredData: false,
     runtimeDataDeletion: "not_implemented",
     runtimePathAdapter: "not_implemented",
+    runtimePathObjectIdentityCore: "implemented_candidate",
     activationRecordPersistence: "not_implemented",
     runtimeCapabilityIssued: false
   });

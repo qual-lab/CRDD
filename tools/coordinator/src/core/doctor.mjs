@@ -21,6 +21,7 @@ import { describeAuthorityTrustLoaderContract } from "../security/authority-trus
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
 import { describeRuntimeRootContract } from "../security/runtime-root-profile.mjs";
+import { describeRuntimeRootPathIdentityContract } from "../security/runtime-root-path-identity.mjs";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.mjs";
 import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.mjs";
 
@@ -273,6 +274,7 @@ export function runDoctor(options = {}) {
         profile: activeIsolation ? DOCKER_ISOLATION_PROFILE : null
       },
       runtimeRoot: describeRuntimeRootContract(),
+      runtimeRootPathIdentity: describeRuntimeRootPathIdentityContract(),
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
       gitLocalExclude: describeGitLocalExcludeContract(),
       egress: {
