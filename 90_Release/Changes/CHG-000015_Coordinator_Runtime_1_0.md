@@ -443,3 +443,11 @@ Evidence Commit `546221d8b37ff8c677d6b71c7ab9823025b821e1`のCurrent Decision Se
 今回の発火範囲は、前版がない初版`active`と、前版`active`から次版`disabled`への遷移だけである。外側入力をexact plain-data snapshotし、前版はcanonical Bufferを既存decoderで再検証、次版は既存compilerで再構成する。初版はrevision `1`、前版Hash `null`、`disabledAt: null`を要求する。disable遷移はsafe integer範囲でrevisionを正確に1増やし、再計算した前版Hash、activation／Repository／Runtime Root Identity、Bundle／Policy／Registryの全ID・revision・Hashおよび`activatedAt`を維持し、`disabledAt`だけを追加する。
 
 `active`から`active`への再activationは`runtime_reactivation_transition_policy_not_implemented`、`disabled`起点は`runtime_disabled_transition_policy_not_implemented`へfail closedにする。結果は`candidate`に限り、Filesystem Effect、永続化、Authority、Capability、CLI Effect、disable時のcancel／recovery、ProviderまたはOperationを発火しない。Bundle等のIdentity変更時は旧activationを流用せず、現版では再activationを完了できないためGateを`blocked`に保つ。本処置は`Applied`／`Self-checked`であり、新固定版のCheckerと3独立確認前に遷移成立、永続化、Runtime完成またはReleaseへ用いない。
+
+固定Commit `30aee201cc892c6c65986d50bd5b74d1fbbc1493`／Tree `a87e061986914f6cc6f6eef503cf50f61aa0de9b`に対する監査は、Agent／Architecture／Security Reviewが`Pass`（Finding `0`）、Document Auditが`Conditional`（`DOC-ACTIVATION-TRANSITION-001` Minor）、Gap／Impact＋Conformance Auditが`Fail`（`GCI-ACTIVATION-TRANSITION-001` Minor）であった。3結果は個別履歴として保持するが、監査集合全体は`Invalidated`であり、現在判定、後続EffectまたはReleaseへ流用しない。2件はいずれも今回変更による修正起因Findingである。現在処置は`Applied`／`Self-checked`であり、新固定版の同じ3独立確認前は未`Resolved`とする。
+
+`DOC-ACTIVATION-TRANSITION-001`への処置として、READMEのdisable遷移説明を、前版canonical byteからHashを再計算して結合し、revisionを正確に1増やし、Repository／Root Identity、Authority参照およびactivation時刻を維持し、`disabledAt`だけを追加する契約へ明確化する。record生成、永続化またはdisable Effectが成立したとは表現しない。
+
+`GCI-ACTIVATION-TRANSITION-001`への処置として、前版／次版の個別妥当性確認と初版規則の後は、前版`disabled`、次版`active`、`active`から`disabled`のrevision上限、disable不変条件の順で評価する。これにより最大revisionでも`active`から`active`は再activation policy未実装、`disabled`起点はdisabled-origin policy未実装へ閉じ、revision exhaustionは実装済み候補である`active`から`disabled`だけへ適用する。MAX_SAFE-1からMAX_SAFEの正常境界、最大revisionの3遷移種別および既存負例を試験で固定する。
+
+公開contract、許可遷移2件、既存decoder／compiler、candidate出力、Filesystem Effect／persistence／Capability非発火、CLI、Gate `blocked`、非規範／Release境界は変更しない。

@@ -165,7 +165,30 @@ test("前版revision上限と不正canonical bytesを例外なく拒否する", 
   assert.equal(transition(maximum.canonicalBytes, record({
     activationRevision: Number.MAX_SAFE_INTEGER,
     previousActivationHash: maximum.recordHash
+  })).reason, "runtime_reactivation_transition_policy_not_implemented");
+  assert.equal(transition(maximum.canonicalBytes, record({
+    activationRevision: Number.MAX_SAFE_INTEGER,
+    status: "disabled",
+    previousActivationHash: maximum.recordHash,
+    disabledAt: "2026-08-11T01:00:00.000Z"
   })).reason, "runtime_activation_revision_exhausted");
+
+  const disabledMaximum = compileRuntimeActivationRecordCandidate(record({
+    activationRevision: Number.MAX_SAFE_INTEGER,
+    status: "disabled",
+    previousActivationHash: "a".repeat(64),
+    disabledAt: "2026-08-11T01:00:00.000Z"
+  }));
+  assert.equal(transition(disabledMaximum.canonicalBytes, record({
+    activationRevision: Number.MAX_SAFE_INTEGER,
+    previousActivationHash: disabledMaximum.recordHash
+  })).reason, "runtime_disabled_transition_policy_not_implemented");
+  assert.equal(transition(disabledMaximum.canonicalBytes, record({
+    activationRevision: Number.MAX_SAFE_INTEGER,
+    status: "disabled",
+    previousActivationHash: disabledMaximum.recordHash,
+    disabledAt: "2026-08-11T02:00:00.000Z"
+  })).reason, "runtime_disabled_transition_policy_not_implemented");
 
   const invalidPrevious = [
     {},

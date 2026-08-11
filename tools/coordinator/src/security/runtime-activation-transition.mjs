@@ -67,14 +67,14 @@ export function evaluateRuntimeActivationTransitionCandidate(rawInput) {
         "initial_null_to_active");
     }
 
-    if (previous.record.activationRevision === Number.MAX_SAFE_INTEGER) {
-      return response("blocked", "runtime_activation_revision_exhausted");
-    }
     if (previous.record.status === "disabled") {
       return response("blocked", "runtime_disabled_transition_policy_not_implemented");
     }
     if (next.record.status === "active") {
       return response("blocked", "runtime_reactivation_transition_policy_not_implemented");
+    }
+    if (previous.record.activationRevision === Number.MAX_SAFE_INTEGER) {
+      return response("blocked", "runtime_activation_revision_exhausted");
     }
 
     if (next.record.activationRevision !== previous.record.activationRevision + 1 ||
