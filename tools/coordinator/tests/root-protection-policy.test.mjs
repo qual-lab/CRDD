@@ -184,6 +184,10 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
   assert.deepEqual(contract.supportedFilesystemClasses, ["local", "persistent_volume"]);
   assert.deepEqual(contract.writeAuthorityValues,
     ["runtime_principal_only", "provisioner_principal_only"]);
+  assert.equal(contract.runtimeRootProtection,
+    "runtime_principal_only_read_write_and_no_other_writer");
+  assert.equal(contract.authorityRootProtection,
+    "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
   assert.equal(contract.callerObservationsAreAuthority, false);
   assert.equal(contract.protectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.windowsDaclAdapter, "not_implemented");

@@ -324,6 +324,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.runtimeCapabilityIssued, false);
   assert.equal(report.rootProtectionPolicy.protectionPolicyCore,
     "implemented_candidate_claim_only");
+  assert.equal(report.rootProtectionPolicy.runtimeRootProtection,
+    "runtime_principal_only_read_write_and_no_other_writer");
+  assert.equal(report.rootProtectionPolicy.authorityRootProtection,
+    "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
   assert.equal(report.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
   assert.equal(report.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
   assert.equal(report.rootProtectionPolicy.persistentVolumeAdapter, "not_implemented");

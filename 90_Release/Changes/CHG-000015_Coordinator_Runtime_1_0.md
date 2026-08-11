@@ -469,3 +469,7 @@ caller supplied観測はAuthorityではなく、成功結果も`root_protection_
 4 Findingの同根は、writer Authorityを独立boolean claimで表現して排他性を固定できなかったことと、Authority Rootの旧逆向き説明を現在契約から失効させなかったことである。処置として`provisionerWriteAllowed`を廃止し、観測claimへ排他的な`writeAuthority`を追加する。Runtime Rootは`runtime_principal_only`、Authority Rootは`provisioner_principal_only`だけを候補化し、返却する`requiredWriteAuthority`は照合したPolicy要求であって実ACL確認済みとは扱わない。Threat Modelは現在契約へ訂正し、旧CHG判断は履歴を残したまま後続承認による`superseded`／現在不使用へ接続する。
 
 caller claim／candidate境界、Platform Adapter／Path／ACL／Effect／Capability未実装、unsupported Filesystem fail closed、Gate `blocked`および非Release境界は変更しない。本処置は`Applied`／`Self-checked`であり、新固定版の3独立再監査前は未`Resolved`とする。
+
+固定Commit `410c3ee300c9557d4b82dbf029691dfaf6ada328`／Tree `eeb0919ab876a4b0aa7eb95edb117a75584d91aa`に対する再監査は、Agent／Architecture／Security Reviewが`Pass`／Finding 0、Document Auditが`Pass`／Finding 0、Gap／Impact＋Conformance Auditが`GCI-ROOT-PROTECTION-R01` Minorにより`Fail`であった。個別結果は履歴として保持するが、監査集合全体は`Invalidated`であり、現在判定または後続実装へ流用しない。GCIは本修正により生じた修正起因として分類された。
+
+`GCI-ROOT-PROTECTION-R01`の原因は、排他的writer判定と`requiredWriteAuthority`を是正した一方、公開contractの`runtimeRootProtection`／`authorityRootProtection`要約が旧非排他表現のままdoctorとactivation contractへ投影されたことである。処置として要約を`runtime_principal_only_read_write_and_no_other_writer`／`provisioner_principal_only_write_runtime_read_only_and_no_other_writer`へ更新し、Root Protection Policy、doctorおよびactivation contractの3試験で完全一致を固定する。これはPolicy要求の表現であり、実DACL／owner／mode検証済み、読取り制限の追加、AuthorityまたはCapability成立を意味しない。本処置は`Applied`／`Self-checked`であり、新固定版の3独立再監査前は未`Resolved`とする。

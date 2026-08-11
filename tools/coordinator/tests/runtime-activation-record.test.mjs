@@ -147,6 +147,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.deleteIsSeparateOperation, true);
   assert.equal(contract.rootProtectionPolicy.protectionPolicyCore,
     "implemented_candidate_claim_only");
+  assert.equal(contract.rootProtectionPolicy.runtimeRootProtection,
+    "runtime_principal_only_read_write_and_no_other_writer");
+  assert.equal(contract.rootProtectionPolicy.authorityRootProtection,
+    "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
   assert.equal(contract.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
   assert.equal(contract.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
   assert.equal(contract.atomicPersistence, "not_implemented");

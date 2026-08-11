@@ -121,8 +121,9 @@ export function describeRootProtectionPolicyContract() {
     runtimePrincipalMeaning: "selected_user_or_service_runtime_principal",
     provisionerPrincipalMeaning: "approved_admin_or_installer_provisioning_authority_set",
     unsupportedFilesystemClasses: Object.freeze(["network", "removable", "special", "unknown"]),
-    runtimeRootProtection: "runtime_read_write_and_no_untrusted_write",
-    authorityRootProtection: "provisioner_write_runtime_read_only_and_no_untrusted_write",
+    runtimeRootProtection: "runtime_principal_only_read_write_and_no_other_writer",
+    authorityRootProtection:
+      "provisioner_principal_only_write_runtime_read_only_and_no_other_writer",
     rootProvisioning: "external_preprovision_required",
     callerObservationsAreAuthority: false,
     protectionPolicyCore: "implemented_candidate_claim_only",
