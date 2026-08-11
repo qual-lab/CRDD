@@ -314,6 +314,11 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.disableEffect, "not_implemented");
   assert.equal(report.runtimeActivation.doctorEnableIsActivation, false);
   assert.equal(report.runtimeActivation.bundleIdentityChangeRequiresReactivation, true);
+  assert.equal(report.runtimeActivation.crossRecordTransitionCore, "implemented_candidate");
+  assert.equal(report.runtimeActivation.initialTransitionCore, "initial_null_to_active_candidate");
+  assert.equal(report.runtimeActivation.disableTransitionCore, "active_to_disabled_candidate");
+  assert.equal(report.runtimeActivation.reactivationTransitionPolicy, "not_implemented");
+  assert.equal(report.runtimeActivation.disabledOriginTransitionPolicy, "not_implemented");
   assert.equal(report.runtimeActivation.atomicPersistence, "not_implemented");
   assert.equal(report.runtimeActivation.runtimeCapabilityIssued, false);
   assert.equal(report.runtimeRootEvaluation.status, "blocked");

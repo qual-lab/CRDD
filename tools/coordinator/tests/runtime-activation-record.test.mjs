@@ -138,6 +138,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.disableEffect, "not_implemented");
   assert.equal(contract.doctorEnableIsActivation, false);
   assert.equal(contract.bundleIdentityChangeRequiresReactivation, true);
+  assert.equal(contract.crossRecordTransitionCore, "implemented_candidate");
+  assert.equal(contract.initialTransitionCore, "initial_null_to_active_candidate");
+  assert.equal(contract.disableTransitionCore, "active_to_disabled_candidate");
+  assert.equal(contract.reactivationTransitionPolicy, "not_implemented");
+  assert.equal(contract.disabledOriginTransitionPolicy, "not_implemented");
   assert.equal(contract.disableSemantics, "stop_new_operations_and_safely_cancel_in_flight");
   assert.equal(contract.deleteIsSeparateOperation, true);
   assert.equal(contract.atomicPersistence, "not_implemented");
