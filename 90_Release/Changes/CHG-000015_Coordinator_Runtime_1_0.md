@@ -311,3 +311,7 @@ linked worktreeでは`info/exclude`がcommon Git directoryに属し、同じRepo
 固定Commit `dfa1e5b022b9b5457389e63e0f3085f37511896f`／Tree `111a48438cddba9de805b0c36979909b6db3504b`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_dfa1e5b.md`](Evidence/CHG-000015_Current_Review_Record_dfa1e5b.md)とし、`AG-REPO-LAYOUT-001`は同固定範囲で`Resolved`と判定する。READMEの導入説明における通常Repository、参照submodule、対象自身のgitfile worktreeおよび別CRDD-Communication Repositoryの分離も直接確認済みである。
 
 この解消はGit layout読取りCore候補に限定する。metadata書込み、activation、Capability、実Operation、Runtime完成、採用、準拠、移行、StableまたはReleaseを成立させない。次の人間判断はlinked worktreeで既定Root以外のRepository内custom Rootをcommon `info/exclude`へ追加するかに限定し、推奨、代替および保留時影響は現在記録のCurrent Decision Setへ保持する。
+
+Qual-Labは、linked worktreeでは既定`<repository>/.crdd-runtime/`だけをRepository内Rootとしてcommon `info/exclude`へ追加可能とし、Repository内custom Rootを拒否する推奨案を承認した。custom配置が必要な場合はRepository外overrideを使用し、Git excludeを追加しない。この決定は共有ignoreの影響を既定名だけに限定するもので、metadata書込み、activation、Capability、実Operation、採用またはReleaseの承認ではない。
+
+local exclude Core候補は、Repository内Rootの場合に既存Filesystem解決Coreを再実行し、呼出側のworktree種別自己申告を受理しない。linked worktreeの既定Rootは従来の完全一致entry候補を返し、Repository内custom Rootは`linked_worktree_repository_custom_root_rejected`で`blocked`、Repository外overrideはexclude不要の候補へ閉じる。contractと`doctor`はこの3境界を公開する。処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立確認前に`Resolved`、metadata書込み可能、activation成立またはRuntime完成としない。

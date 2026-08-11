@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { inspectRepositoryGitLayoutCandidate } from "./repository-git-layout.mjs";
 import { selectRuntimeRootCandidate } from "./runtime-root-profile.mjs";
 
 export const GIT_LOCAL_EXCLUDE_CONTRACT = "crdd-coordinator/git-local-exclude";
@@ -76,6 +77,14 @@ export function compileGitLocalExcludeCandidate(rawInput) {
       }));
     }
 
+    const layoutCandidate = inspectRepositoryGitLayoutCandidate({ repositoryRoot: input.repositoryRoot });
+    if (layoutCandidate.status !== "candidate") {
+      return response("blocked", "repository_git_layout_candidate_required");
+    }
+    if (layoutCandidate.layout.kind === "linked_worktree" && rootCandidate.selection.customRootSelected) {
+      return response("blocked", "linked_worktree_repository_custom_root_rejected");
+    }
+
     const firstSegment = location.relative.split(path.sep)[0];
     if (firstSegment.toLocaleLowerCase("en-US") === ".git") {
       return response("blocked", "runtime_root_git_metadata_overlap");
@@ -108,6 +117,9 @@ export function describeGitLocalExcludeContract() {
     writeFailureBlocksActivation: true,
     gitIgnoreIsSecurityBoundary: false,
     repositoryGitDirectoryResolution: "implemented_candidate",
+    linkedWorktreeDefaultRootAllowed: true,
+    linkedWorktreeRepositoryContainedCustomRootAllowed: false,
+    linkedWorktreeExternalOverrideAllowed: true,
     metadataWriteIntegration: "not_implemented",
     runtimeCapabilityIssued: false
   });

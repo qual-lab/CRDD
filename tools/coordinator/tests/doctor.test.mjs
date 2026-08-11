@@ -316,6 +316,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.gitLocalExclude.writeFailureBlocksActivation, true);
   assert.equal(report.gitLocalExclude.gitIgnoreIsSecurityBoundary, false);
   assert.equal(report.gitLocalExclude.repositoryGitDirectoryResolution, "implemented_candidate");
+  assert.equal(report.gitLocalExclude.linkedWorktreeDefaultRootAllowed, true);
+  assert.equal(report.gitLocalExclude.linkedWorktreeRepositoryContainedCustomRootAllowed, false);
+  assert.equal(report.gitLocalExclude.linkedWorktreeExternalOverrideAllowed, true);
   assert.equal(report.gitLocalExclude.metadataWriteIntegration, "not_implemented");
   assert.equal(report.gitLocalExclude.runtimeCapabilityIssued, false);
   assert.equal(report.egress.isolationProfileContract.validationState, "candidate");
