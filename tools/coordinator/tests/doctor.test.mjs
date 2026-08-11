@@ -280,7 +280,12 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.egress.isolationProfileContract.validationState, "candidate");
   assert.equal(report.egress.isolationProfileContract.authorityVerification, "not_implemented");
   assert.equal(report.egress.activation, "blocked");
-  assert.equal(report.egress.activationReason, "authority_verifier_proxy_and_credential_broker_not_implemented");
+  assert.equal(report.egress.authorityVerifier.coreValidation, "implemented_candidate");
+  assert.equal(report.egress.authorityVerifier.runtimeCapabilityIssued, false);
+  assert.equal(
+    report.egress.activationReason,
+    "trusted_registry_loader_prelaunch_reverification_proxy_and_credential_broker_not_implemented"
+  );
   assert.equal(serialized.includes("OPENAI_API_KEY="), false);
   assert.equal(serialized.includes("ANTHROPIC_API_KEY="), false);
 });

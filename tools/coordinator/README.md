@@ -49,7 +49,9 @@ Provider隔離Profile（Provider Isolation Profile）は、実行権限そのも
 
 ProfileはProvider、許可済みAuthority Registryを選ぶためのGrant参照候補、Credential BrokerのGrant参照候補、および要求されたHTTPS Originの完全一致集合だけを保持する。Credential値、Credential StoreのPath、wildcard、HTTP、任意Path付きURLまたは未対応Providerを受理しない。構造検証結果は`candidate`であり、人間承認、Authority成立、`accepted`、`confirmed`または実行可能の別名ではない。正規化後のProfile Hashは要求候補の同一性だけを固定し、Authorityの証明には使用しない。
 
-Runtime 1.0の書込みOperationはDockerを唯一の正式Isolation Backendとし、Host、Git Bash、通常WSLまたは`local-restricted`へ縮退しない。`fake`は決定論的試験専用であり、実Provider、実Credentialまたは実送信先の利用許可にならない。現在はAuthority Grant Verifier、ProxyおよびCredential Brokerが未実装のため、Profile候補を作成できても全体Gateは`blocked`のままである。
+Runtime 1.0の書込みOperationはDockerを唯一の正式Isolation Backendとし、Host、Git Bash、通常WSLまたは`local-restricted`へ縮退しない。`fake`は決定論的試験専用であり、実Provider、実Credentialまたは実送信先の利用許可にならない。現在はAuthority Grant VerifierのTrust Anchor Loaderと起動直前再確認、ProxyおよびCredential Brokerが未実装のため、Profile候補を作成できても全体Gateは`blocked`のままである。
+
+Authority Grant Verifier Core候補は、Authority Registry候補を固定契約、Registry revision、UTC観測時刻、Grant集合およびSHA-256へ正規化する。Profile候補との照合では、Grantのactive状態、有効期間、Provider、要求Origin、Credential Grant参照、Operation ID、Scope IDおよびProfile Hashの完全一致を要求する。構造と内容の照合結果は`candidate`であり、自己申告Registryを信頼済み正本へ昇格させない。Runtime所有のTrust Anchor Loaderと、Provider起動直前の取消・置換・期限再確認が未実装であるため、Authority Capabilityは発行せず全体Gateを`blocked`に保つ。
 
 ## Provider Egress Proxy
 

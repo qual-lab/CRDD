@@ -16,6 +16,7 @@ import {
 } from "../security/docker-isolation.mjs";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.mjs";
 import { describeEgressProxyTopology } from "../security/egress-proxy-policy.mjs";
+import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.mjs";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -269,9 +270,10 @@ export function runDoctor(options = {}) {
         providerAllowlist: "not_implemented",
         fakeProbeNetwork: activeIsolation && isolation.status === "confirmed" ? "blocked" : "not_evaluated",
         isolationProfileContract: describeProviderIsolationContract(),
+        authorityVerifier: describeAuthorityGrantVerifierContract(),
         proxyTopology: describeEgressProxyTopology(),
         activation: "blocked",
-        activationReason: "authority_verifier_proxy_and_credential_broker_not_implemented"
+        activationReason: "trusted_registry_loader_prelaunch_reverification_proxy_and_credential_broker_not_implemented"
       },
       recovery: retainOperationDirectories
         ? {
