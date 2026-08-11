@@ -363,3 +363,7 @@ Path Identity Core候補はRoot選択Coreを再実行し、明示enable要求を
 原因はRepositoryからRootへの一方向だけで包含を分類し、Repositoryと相互に分離したRootと、Repositoryを内包する祖先Rootを同じ外部状態へまとめた点にある。処置として、`classifyContainment(repository, root)`を同一、Repository内、Repositoryを内包、相互非包含の4状態へ固定する。lexical Pathとrealpathの状態完全一致を要求し、既定／内部customはRepository内だけ、外部overrideは相互非包含だけを許可する。同一またはRepositoryを内包するRootは指定元にかかわらず`blocked`とする。外部Rootの直近parentがRepositoryとの共通祖先であること自体は拒否せず、Root自身の相互非包含を判定する。
 
 専用試験へ外部siblingの正例、Repositoryの直接parent／上位祖先Rootの拒否、lexical相互非包含からrealpathでRepository包含へ変わるalias差、およびその逆の拒否を追加する。既存のIdentity時間結合、Root／parent直接関係、安定Identity欠落fail closed、Path／Identity非出力、Root選択正本、owner／ACL／全parent chain／local exclude／activation未実装、Capability未発行およびGate `blocked`は変更しない。本処置は新固定版の機械確認と3独立確認前に`Resolved`、Runtime完成、採用、準拠、移行、StableまたはReleaseとして扱わない。
+
+固定Commit `014546c625fca6d08b10325b110e7f95786218ee`／Tree `fee44ec90f41b2265ece9fc567fc53e5329c6abb`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。現在記録は[`CHG-000015_Current_Review_Record_014546c.md`](Evidence/CHG-000015_Current_Review_Record_014546c.md)とする。`AG-ROOT-PATH-001`はPath Identity Core候補と直接利用側の固定範囲で`Resolved`と判定する。
+
+この解消はowner／ACL、全parent chain、特殊Filesystem、CLI／環境override実接続、local exclude／File Bundle Path Adapter結合、activation、Capabilityまたは実Operationを成立させない。旧`524d156`以前の結果は履歴としてのみ保持し、現在判定へ流用しない。次段階と人間判断の再開条件は現在記録のCurrent Decision Setへ保持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
