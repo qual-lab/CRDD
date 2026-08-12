@@ -5,6 +5,8 @@ import { describeRuntimeActivationLocatorBindingContract } from
   "./runtime-activation-locator-binding-contract.mjs";
 import { describeProvisioningSignaturePrimitivesContract } from
   "./provisioning-signature-primitives.mjs";
+import { describeProvisioningRecordPureCoreContract } from
+  "./provisioning-record-pure-core.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -267,6 +269,7 @@ export function describeRuntimeActivationContract() {
   const authorityRootLocator = describeAuthorityRootLocatorContract();
   const activationLocatorBinding = describeRuntimeActivationLocatorBindingContract();
   const provisioningSignaturePrimitives = describeProvisioningSignaturePrimitivesContract();
+  const provisioningRecordPureCore = describeProvisioningRecordPureCoreContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -288,7 +291,8 @@ export function describeRuntimeActivationContract() {
     rootProtectionPolicy,
     authorityRootLocator,
     activationLocatorBinding,
-    provisioningSignaturePrimitives
+    provisioningSignaturePrimitives,
+    provisioningRecordPureCore
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -315,17 +319,19 @@ export function describeRuntimeActivationContract() {
     selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
     automaticRepair: false,
     signaturePrimitives: implementation.provisioningSignaturePrimitives,
+    recordPureCore: implementation.provisioningRecordPureCore,
     signatureEnvelopeTopology:
       implementation.provisioningSignaturePrimitives.payloadSignatureEnvelopeTopology,
     signatureEncoding:
       implementation.provisioningSignaturePrimitives.ed25519SignatureBase64url,
-    keyIdEncoding: implementation.provisioningSignaturePrimitives.keyIdEncoding,
+    keyIdEncoding: implementation.provisioningRecordPureCore.keyIdEncoding,
     multiSignatureAcceptancePolicy:
       implementation.provisioningSignaturePrimitives.multiSignatureAcceptancePolicy,
     offlineBundledTrustEvaluation:
       implementation.provisioningSignaturePrimitives.offlineBundledTrustEvaluation,
-    recordSchemaCodec: implementation.provisioningRecordContract,
-    signatureVerifier: implementation.provisioningRecordVerification,
+    recordSchemaCodec: implementation.provisioningRecordPureCore.recordPayloadCodec,
+    signatureVerifier:
+      implementation.provisioningRecordPureCore.aggregateCryptographicCondition,
     embeddedTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
     revocationEvaluator: implementation.provisioningRecordRevocationEvaluation,
     filesystemRead: implementation.provisioningRecordFilesystemRead,
@@ -357,6 +363,7 @@ export function describeRuntimeActivationContract() {
     authorityRootLocator: implementation.authorityRootLocator,
     activationLocatorBinding: implementation.activationLocatorBinding,
     provisioningSignaturePrimitives: implementation.provisioningSignaturePrimitives,
+    provisioningRecordPureCore: implementation.provisioningRecordPureCore,
     provisioningRecordTrustAndSelectionPolicy,
     provisioningRecordRole: provisioningRecordTrustAndSelectionPolicy.authorityRole,
     provisionReceiptRelationship:

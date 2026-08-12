@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
-import path from "node:path";
-
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import {
+  AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
+  isSupportedAuthorityRootAbsolutePath
+} from "./authority-root-path-lexical.mjs";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
   "./runtime-activation-locator-binding-contract.mjs";
 import { isRuntimeActivationIdCandidate } from "./runtime-activation-identity.mjs";
@@ -11,11 +13,10 @@ export const AUTHORITY_ROOT_LOCATOR_CONTRACT_REVISION = 1;
 export const AUTHORITY_ROOT_LOCATOR_FILE = ".crdd-runtime/authority-root-locator.json";
 export const AUTHORITY_ROOT_LOCATOR_INPUT_LIMITS = Object.freeze({
   rawBytes: 8_192,
-  absolutePathBytes: 4_096
+  absolutePathBytes: AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES
 });
 
 const HASH = /^[a-f0-9]{64}$/u;
-const WINDOWS_RESERVED_BASENAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|CONIN\$|CONOUT\$|COM[1-9\u00b9\u00b2\u00b3]|LPT[1-9\u00b9\u00b2\u00b3])$/iu;
 const LOCATOR_KEYS = new Set([
   "contract",
   "contractRevision",
@@ -63,27 +64,6 @@ function hash(value) {
   return typeof value === "string" && HASH.test(value);
 }
 
-function canonicalAbsolutePath(value) {
-  if (typeof value !== "string" || value.length === 0 ||
-      Buffer.byteLength(value, "utf8") > AUTHORITY_ROOT_LOCATOR_INPUT_LIMITS.absolutePathBytes ||
-      /[\u0000-\u001f\u007f]/u.test(value)) return false;
-  if (process.platform === "win32") {
-    if (!/^[A-Z]:\\/u.test(value) || path.win32.normalize(value) !== value) return false;
-    const root = path.win32.parse(value).root;
-    if (value === root) return true;
-    if (value.endsWith("\\")) return false;
-    const segments = value.slice(root.length).split("\\");
-    return segments.every((segment) => {
-      if (segment.length === 0 || segment === "." || segment === ".." ||
-          /[<>:"|?*]/u.test(segment) || /[. ]$/u.test(segment)) return false;
-      const basename = segment.split(".", 1)[0].replace(/[. ]+$/u, "");
-      return !WINDOWS_RESERVED_BASENAME.test(basename);
-    });
-  }
-  if (!path.posix.isAbsolute(value) || path.posix.normalize(value) !== value) return false;
-  return value === "/" || !value.endsWith("/");
-}
-
 function normalize(rawLocator) {
   const locator = snapshotPlainRecord(rawLocator, LOCATOR_KEYS);
   if (!locator ||
@@ -92,7 +72,7 @@ function normalize(rawLocator) {
       locator.locatorRevision !== 1 ||
       !hash(locator.repositoryIdentityHash) ||
       !hash(locator.runtimeRootIdentityHash) ||
-      !canonicalAbsolutePath(locator.authorityRootAbsolutePath) ||
+      !isSupportedAuthorityRootAbsolutePath(locator.authorityRootAbsolutePath) ||
       !hash(locator.authorityRootIdentityHash) ||
       !hash(locator.provisioningRecordHash) ||
       !isRuntimeActivationIdCandidate(locator.activationId) ||
