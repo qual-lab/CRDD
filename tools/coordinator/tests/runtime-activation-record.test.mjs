@@ -288,7 +288,48 @@ test("Activation contractは永続化、専用command、再activation、disable/
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
+  assert.deepEqual(contract.installationKeyEnrollmentPolicy, {
+    policy: "human_approved_candidate_contract_only",
+    installationKeyAlgorithmTarget: "Ed25519_target",
+    installationKeyGenerationTarget:
+      "platform_scope_os_managed_keystore_tpm_or_secure_enclave_target",
+    privateKeyMaterialHandling:
+      "never_input_output_or_artifact_of_coordinator_runtime_target",
+    provisioningCaRole:
+      "qual_lab_provisioning_ca_short_lived_public_key_enrollment_target",
+    embeddedQualLabPrivateKey: "prohibited",
+    initialEnrollmentModes: [
+      "explicit_online_initial_enrollment_target",
+      "administrator_supplied_offline_enrollment_bundle_target"
+    ],
+    enrollmentModeFallback: "blocked_without_silent_fallback",
+    routineRunNetworkRequirement:
+      "not_required_after_verified_enrollment_and_runtime_state_target",
+    currentRunEvidenceRelationship:
+      "included_in_verified_current_provisioning_record_and_platform_provisioner_trust_identity_target",
+    routineRunReverification:
+      "installation_key_enrollment_ca_trust_and_platform_scope_revalidated_target",
+    verifiedEnrollmentPublicKeyRole:
+      "future_provisioning_record_signing_key_candidate_only",
+    unknownExpiredRevokedReplacedOrUnverifiableBehavior:
+      "blocked_and_reprovision_required_without_automatic_recovery",
+    installationKeyGeneration: "not_implemented",
+    installationKeyProtectionVerification: "not_implemented",
+    enrollmentCertificateContract: "not_implemented",
+    enrollmentCertificateVerification: "not_implemented",
+    provisioningCaTrustAndRevocationVerification: "not_implemented",
+    initialEnrollmentExchange: "not_implemented",
+    recordEnrollmentBindingVerification: "not_implemented",
+    enrollmentReadiness: "blocked",
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
   assert.equal(Object.isFrozen(contract.provisioningRecordTrustAndSelectionPolicy), true);
+  assert.equal(Object.isFrozen(contract.installationKeyEnrollmentPolicy), true);
+  assert.equal(Object.isFrozen(contract.installationKeyEnrollmentPolicy.initialEnrollmentModes),
+    true);
   assert.deepEqual(contract.provisioningSignaturePrimitives,
     contract.provisioningRecordTrustAndSelectionPolicy.signaturePrimitives);
   assert.equal(contract.provisioningRecordRole,
@@ -366,6 +407,13 @@ test("Activation contractは永続化、専用command、再activation、disable/
   ]);
   assert.equal(contract.platformProvisionerVerification, "not_implemented");
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
+  assert.equal(contract.installationKeyGeneration, "not_implemented");
+  assert.equal(contract.installationKeyProtectionVerification, "not_implemented");
+  assert.equal(contract.provisioningEnrollmentCertificateContract, "not_implemented");
+  assert.equal(contract.provisioningEnrollmentCertificateVerification, "not_implemented");
+  assert.equal(contract.provisioningCaTrustAndRevocationVerification, "not_implemented");
+  assert.equal(contract.initialProvisioningEnrollmentExchange, "not_implemented");
+  assert.equal(contract.recordEnrollmentBindingVerification, "not_implemented");
   assert.equal(contract.provisioningRecordContract, "not_implemented");
   assert.equal(contract.provisioningRecordVerification, "not_implemented");
   assert.equal(contract.provisioningRecordTrustAnchorSet, "not_implemented");

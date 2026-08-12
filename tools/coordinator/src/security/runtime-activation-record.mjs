@@ -79,9 +79,17 @@ function deriveOnboardingReadiness(implementation) {
     readinessSufficientValues: null
   });
   const dependencies = [
-    dependency("platform_provisioner_verification",
-      [implementation.platformProvisionerVerification]),
-    dependency("platform_provisioner_effect", [implementation.platformProvisionerEffect]),
+    dependency("platform_provisioner_verification", [
+      implementation.platformProvisionerVerification,
+      implementation.installationKeyProtectionVerification,
+      implementation.provisioningEnrollmentCertificateVerification,
+      implementation.provisioningCaTrustAndRevocationVerification
+    ]),
+    dependency("platform_provisioner_effect", [
+      implementation.platformProvisionerEffect,
+      implementation.installationKeyGeneration,
+      implementation.initialProvisioningEnrollmentExchange
+    ]),
     dependency("provisioning_record_contract", [
       implementation.provisioningRecordContract,
       implementation.provisioningRecordLifecyclePersistence
@@ -90,7 +98,9 @@ function deriveOnboardingReadiness(implementation) {
       implementation.provisioningRecordVerification,
       implementation.provisioningRecordTrustAnchorSet,
       implementation.provisioningRecordRevocationEvaluation,
-      implementation.provisioningRecordFilesystemRead
+      implementation.provisioningRecordFilesystemRead,
+      implementation.provisioningEnrollmentCertificateContract,
+      implementation.recordEnrollmentBindingVerification
     ]),
     dependency("authority_root_resolution_from_provisioning_record", [
       implementation.authorityRootResolutionFromProvisioningRecord,
@@ -274,6 +284,13 @@ export function describeRuntimeActivationContract() {
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
     platformProvisionerEffect: "not_implemented",
+    installationKeyGeneration: "not_implemented",
+    installationKeyProtectionVerification: "not_implemented",
+    provisioningEnrollmentCertificateContract: "not_implemented",
+    provisioningEnrollmentCertificateVerification: "not_implemented",
+    provisioningCaTrustAndRevocationVerification: "not_implemented",
+    initialProvisioningEnrollmentExchange: "not_implemented",
+    recordEnrollmentBindingVerification: "not_implemented",
     provisioningRecordContract: "not_implemented",
     provisioningRecordVerification: "not_implemented",
     provisioningRecordTrustAnchorSet: "not_implemented",
@@ -341,6 +358,49 @@ export function describeRuntimeActivationContract() {
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
+  const installationKeyEnrollmentPolicy = Object.freeze({
+    policy: "human_approved_candidate_contract_only",
+    installationKeyAlgorithmTarget: "Ed25519_target",
+    installationKeyGenerationTarget:
+      "platform_scope_os_managed_keystore_tpm_or_secure_enclave_target",
+    privateKeyMaterialHandling:
+      "never_input_output_or_artifact_of_coordinator_runtime_target",
+    provisioningCaRole:
+      "qual_lab_provisioning_ca_short_lived_public_key_enrollment_target",
+    embeddedQualLabPrivateKey: "prohibited",
+    initialEnrollmentModes: Object.freeze([
+      "explicit_online_initial_enrollment_target",
+      "administrator_supplied_offline_enrollment_bundle_target"
+    ]),
+    enrollmentModeFallback: "blocked_without_silent_fallback",
+    routineRunNetworkRequirement:
+      "not_required_after_verified_enrollment_and_runtime_state_target",
+    currentRunEvidenceRelationship:
+      "included_in_verified_current_provisioning_record_and_platform_provisioner_trust_identity_target",
+    routineRunReverification:
+      "installation_key_enrollment_ca_trust_and_platform_scope_revalidated_target",
+    verifiedEnrollmentPublicKeyRole:
+      "future_provisioning_record_signing_key_candidate_only",
+    unknownExpiredRevokedReplacedOrUnverifiableBehavior:
+      "blocked_and_reprovision_required_without_automatic_recovery",
+    installationKeyGeneration: implementation.installationKeyGeneration,
+    installationKeyProtectionVerification:
+      implementation.installationKeyProtectionVerification,
+    enrollmentCertificateContract:
+      implementation.provisioningEnrollmentCertificateContract,
+    enrollmentCertificateVerification:
+      implementation.provisioningEnrollmentCertificateVerification,
+    provisioningCaTrustAndRevocationVerification:
+      implementation.provisioningCaTrustAndRevocationVerification,
+    initialEnrollmentExchange: implementation.initialProvisioningEnrollmentExchange,
+    recordEnrollmentBindingVerification:
+      implementation.recordEnrollmentBindingVerification,
+    enrollmentReadiness: "blocked",
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
   const onboarding = deriveOnboardingReadiness(implementation);
   return Object.freeze({
     contract: RUNTIME_ACTIVATION_CONTRACT,
@@ -365,6 +425,7 @@ export function describeRuntimeActivationContract() {
     provisioningSignaturePrimitives: implementation.provisioningSignaturePrimitives,
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
     provisioningRecordTrustAndSelectionPolicy,
+    installationKeyEnrollmentPolicy,
     provisioningRecordRole: provisioningRecordTrustAndSelectionPolicy.authorityRole,
     provisionReceiptRelationship:
       provisioningRecordTrustAndSelectionPolicy.provisionReceiptRelationship,
@@ -410,6 +471,19 @@ export function describeRuntimeActivationContract() {
     ]),
     platformProvisionerVerification: implementation.platformProvisionerVerification,
     platformProvisionerEffect: implementation.platformProvisionerEffect,
+    installationKeyGeneration: implementation.installationKeyGeneration,
+    installationKeyProtectionVerification:
+      implementation.installationKeyProtectionVerification,
+    provisioningEnrollmentCertificateContract:
+      implementation.provisioningEnrollmentCertificateContract,
+    provisioningEnrollmentCertificateVerification:
+      implementation.provisioningEnrollmentCertificateVerification,
+    provisioningCaTrustAndRevocationVerification:
+      implementation.provisioningCaTrustAndRevocationVerification,
+    initialProvisioningEnrollmentExchange:
+      implementation.initialProvisioningEnrollmentExchange,
+    recordEnrollmentBindingVerification:
+      implementation.recordEnrollmentBindingVerification,
     provisioningRecordContract: implementation.provisioningRecordContract,
     provisioningRecordVerification: implementation.provisioningRecordVerification,
     provisioningRecordTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
