@@ -292,11 +292,22 @@ test("Activation contractは永続化、専用command、再activation、disable/
     policy: "human_approved_candidate_contract_only",
     installationKeyAlgorithmTarget: "Ed25519_target",
     installationKeyGenerationTarget:
-      "platform_scope_os_managed_keystore_tpm_or_secure_enclave_target",
+      "platform_scope_os_managed_key_storage_boundary_target",
+    installationKeyBackendCandidates: [
+      "os_keystore_candidate",
+      "tpm_candidate",
+      "secure_enclave_candidate"
+    ],
+    installationKeyBackendSelection:
+      "platform_specific_selection_and_required_protection_strength_undecided",
     privateKeyMaterialHandling:
       "never_input_output_or_artifact_of_coordinator_runtime_target",
     provisioningCaRole:
       "qual_lab_provisioning_ca_short_lived_public_key_enrollment_target",
+    enrollmentCertificateTopology:
+      "short_lived_enrollment_certificate_topology_human_approved_target",
+    enrollmentCertificateExactSpecification:
+      "schema_wire_encoding_fields_duration_and_lifecycle_undecided",
     embeddedQualLabPrivateKey: "prohibited",
     initialEnrollmentModes: [
       "explicit_online_initial_enrollment_target",
@@ -320,6 +331,15 @@ test("Activation contractは永続化、専用command、再activation、disable/
     provisioningCaTrustAndRevocationVerification: "not_implemented",
     initialEnrollmentExchange: "not_implemented",
     recordEnrollmentBindingVerification: "not_implemented",
+    implementationDependencyRelationships: {
+      installationKeyGeneration: "platform_provisioner_effect",
+      initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
+      provisioningEnrollmentCertificateContract: "provisioning_record_contract",
+      installationKeyProtectionVerification: "provisioning_record_verification",
+      provisioningEnrollmentCertificateVerification: "provisioning_record_verification",
+      provisioningCaTrustAndRevocationVerification: "provisioning_record_verification",
+      recordEnrollmentBindingVerification: "provisioning_record_verification"
+    },
     enrollmentReadiness: "blocked",
     filesystemEffectIssued: false,
     networkEffectIssued: false,
@@ -330,6 +350,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(Object.isFrozen(contract.installationKeyEnrollmentPolicy), true);
   assert.equal(Object.isFrozen(contract.installationKeyEnrollmentPolicy.initialEnrollmentModes),
     true);
+  assert.equal(Object.isFrozen(
+    contract.installationKeyEnrollmentPolicy.installationKeyBackendCandidates), true);
+  assert.equal(Object.isFrozen(
+    contract.installationKeyEnrollmentPolicy.implementationDependencyRelationships), true);
   assert.deepEqual(contract.provisioningSignaturePrimitives,
     contract.provisioningRecordTrustAndSelectionPolicy.signaturePrimitives);
   assert.equal(contract.provisioningRecordRole,

@@ -69,6 +69,16 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
   "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged"
 ]);
 
+const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
+  installationKeyGeneration: "platform_provisioner_effect",
+  initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
+  provisioningEnrollmentCertificateContract: "provisioning_record_contract",
+  installationKeyProtectionVerification: "provisioning_record_verification",
+  provisioningEnrollmentCertificateVerification: "provisioning_record_verification",
+  provisioningCaTrustAndRevocationVerification: "provisioning_record_verification",
+  recordEnrollmentBindingVerification: "provisioning_record_verification"
+});
+
 function deriveOnboardingReadiness(implementation) {
   const rootProtection = implementation.rootProtectionPolicy;
   const locator = implementation.authorityRootLocator;
@@ -78,29 +88,28 @@ function deriveOnboardingReadiness(implementation) {
     sources: Object.freeze(sources),
     readinessSufficientValues: null
   });
+  const enrollmentSources = (dependencyName) =>
+    Object.entries(INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS)
+      .filter(([, owner]) => owner === dependencyName)
+      .map(([field]) => implementation[field]);
   const dependencies = [
-    dependency("platform_provisioner_verification", [
-      implementation.platformProvisionerVerification,
-      implementation.installationKeyProtectionVerification,
-      implementation.provisioningEnrollmentCertificateVerification,
-      implementation.provisioningCaTrustAndRevocationVerification
-    ]),
+    dependency("platform_provisioner_verification",
+      [implementation.platformProvisionerVerification]),
     dependency("platform_provisioner_effect", [
       implementation.platformProvisionerEffect,
-      implementation.installationKeyGeneration,
-      implementation.initialProvisioningEnrollmentExchange
+      ...enrollmentSources("platform_provisioner_effect")
     ]),
     dependency("provisioning_record_contract", [
       implementation.provisioningRecordContract,
-      implementation.provisioningRecordLifecyclePersistence
+      implementation.provisioningRecordLifecyclePersistence,
+      ...enrollmentSources("provisioning_record_contract")
     ]),
     dependency("provisioning_record_verification", [
       implementation.provisioningRecordVerification,
       implementation.provisioningRecordTrustAnchorSet,
       implementation.provisioningRecordRevocationEvaluation,
       implementation.provisioningRecordFilesystemRead,
-      implementation.provisioningEnrollmentCertificateContract,
-      implementation.recordEnrollmentBindingVerification
+      ...enrollmentSources("provisioning_record_verification")
     ]),
     dependency("authority_root_resolution_from_provisioning_record", [
       implementation.authorityRootResolutionFromProvisioningRecord,
@@ -362,11 +371,22 @@ export function describeRuntimeActivationContract() {
     policy: "human_approved_candidate_contract_only",
     installationKeyAlgorithmTarget: "Ed25519_target",
     installationKeyGenerationTarget:
-      "platform_scope_os_managed_keystore_tpm_or_secure_enclave_target",
+      "platform_scope_os_managed_key_storage_boundary_target",
+    installationKeyBackendCandidates: Object.freeze([
+      "os_keystore_candidate",
+      "tpm_candidate",
+      "secure_enclave_candidate"
+    ]),
+    installationKeyBackendSelection:
+      "platform_specific_selection_and_required_protection_strength_undecided",
     privateKeyMaterialHandling:
       "never_input_output_or_artifact_of_coordinator_runtime_target",
     provisioningCaRole:
       "qual_lab_provisioning_ca_short_lived_public_key_enrollment_target",
+    enrollmentCertificateTopology:
+      "short_lived_enrollment_certificate_topology_human_approved_target",
+    enrollmentCertificateExactSpecification:
+      "schema_wire_encoding_fields_duration_and_lifecycle_undecided",
     embeddedQualLabPrivateKey: "prohibited",
     initialEnrollmentModes: Object.freeze([
       "explicit_online_initial_enrollment_target",
@@ -395,6 +415,8 @@ export function describeRuntimeActivationContract() {
     initialEnrollmentExchange: implementation.initialProvisioningEnrollmentExchange,
     recordEnrollmentBindingVerification:
       implementation.recordEnrollmentBindingVerification,
+    implementationDependencyRelationships:
+      INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS,
     enrollmentReadiness: "blocked",
     filesystemEffectIssued: false,
     networkEffectIssued: false,
