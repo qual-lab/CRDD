@@ -20,6 +20,8 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   "byteLength"
 ).get;
 const VERIFY_KEYS = new Set(["spkiDer", "message", "signature"]);
+const BASE64URL_VERIFY_KEYS = new Set(["spkiDer", "message", "signatureBase64url"]);
+const UNPADDED_BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const INVALID = Symbol("invalid");
 
 class InputBudgetExceeded extends Error {}
@@ -237,20 +239,22 @@ export function inspectProvisioningEd25519SpkiCandidate(input) {
   }
 }
 
-function snapshotVerifyInput(value) {
+function snapshotExactInput(value, expectedKeys) {
   if (!value || typeof value !== "object" || utilTypes.isProxy(value) || Array.isArray(value)) return null;
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) return null;
   const descriptors = Object.getOwnPropertyDescriptors(value);
   const keys = Reflect.ownKeys(descriptors);
-  if (keys.length !== VERIFY_KEYS.size || keys.some((key) =>
-    typeof key !== "string" || !VERIFY_KEYS.has(key) || !dataDescriptor(descriptors[key]))) return null;
-  return Object.freeze(Object.fromEntries([...VERIFY_KEYS].map((key) => [key, descriptors[key].value])));
+  if (keys.length !== expectedKeys.size || keys.some((key) =>
+    typeof key !== "string" || !expectedKeys.has(key) || !dataDescriptor(descriptors[key]))) return null;
+  return Object.freeze(Object.fromEntries(
+    [...expectedKeys].map((key) => [key, descriptors[key].value])
+  ));
 }
 
 export function verifyProvisioningEd25519PrimitiveCandidate(rawInput) {
   try {
-    const input = snapshotVerifyInput(rawInput);
+    const input = snapshotExactInput(rawInput, VERIFY_KEYS);
     if (!input) return blocked("provisioning_ed25519_input_invalid");
     const inspected = inspectSpki(input.spkiDer);
     const message = ownedBuffer(input.message, PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes);
@@ -275,6 +279,29 @@ export function verifyProvisioningEd25519PrimitiveCandidate(rawInput) {
   }
 }
 
+export function verifyProvisioningEd25519Base64urlCandidate(rawInput) {
+  try {
+    const input = snapshotExactInput(rawInput, BASE64URL_VERIFY_KEYS);
+    if (!input || typeof input.signatureBase64url !== "string" ||
+        input.signatureBase64url.length !== 86 ||
+        !UNPADDED_BASE64URL.test(input.signatureBase64url)) {
+      return blocked("provisioning_ed25519_base64url_input_invalid");
+    }
+    const signature = Buffer.from(input.signatureBase64url, "base64url");
+    if (signature.length !== PROVISIONING_SIGNATURE_INPUT_LIMITS.signatureBytes ||
+        signature.toString("base64url") !== input.signatureBase64url) {
+      return blocked("provisioning_ed25519_base64url_input_invalid");
+    }
+    return verifyProvisioningEd25519PrimitiveCandidate({
+      spkiDer: input.spkiDer,
+      message: input.message,
+      signature
+    });
+  } catch {
+    return blocked("provisioning_ed25519_base64url_input_invalid");
+  }
+}
+
 export function describeProvisioningSignaturePrimitivesContract() {
   return Object.freeze({
     contract: PROVISIONING_SIGNATURE_PRIMITIVES_CONTRACT,
@@ -284,11 +311,16 @@ export function describeProvisioningSignaturePrimitivesContract() {
     ed25519SpkiDerInspection: "implemented_candidate_rfc_8410",
     spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
     ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
+    ed25519SignatureBase64url: "implemented_candidate_rfc_4648_unpadded",
+    keyIdEncoding: "not_implemented",
     payloadSignatureEnvelopeTopology: PROVISIONING_SIGNATURE_ENVELOPE_TOPOLOGY,
     crddDomainSeparationFraming: "not_implemented",
     provisioningRecordPayloadSchema: "not_implemented",
     multiSignatureEnvelopeSchema: "not_implemented",
     multiSignatureAcceptanceRule: "not_implemented",
+    multiSignatureAcceptancePolicy:
+      "one_or_more_trusted_non_revoked_valid_and_no_unknown_revoked_duplicate_or_invalid_target",
+    offlineBundledTrustEvaluation: "required_target_not_implemented",
     embeddedTrustAnchorSet: "not_implemented",
     revocationManifest: "not_implemented",
     aggregateRecordVerifier: "not_implemented",

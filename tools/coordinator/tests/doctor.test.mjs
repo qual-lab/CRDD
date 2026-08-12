@@ -412,11 +412,16 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       ed25519SpkiDerInspection: "implemented_candidate_rfc_8410",
       spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
       ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
+      ed25519SignatureBase64url: "implemented_candidate_rfc_4648_unpadded",
+      keyIdEncoding: "not_implemented",
       payloadSignatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
       crddDomainSeparationFraming: "not_implemented",
       provisioningRecordPayloadSchema: "not_implemented",
       multiSignatureEnvelopeSchema: "not_implemented",
       multiSignatureAcceptanceRule: "not_implemented",
+      multiSignatureAcceptancePolicy:
+        "one_or_more_trusted_non_revoked_valid_and_no_unknown_revoked_duplicate_or_invalid_target",
+      offlineBundledTrustEvaluation: "required_target_not_implemented",
       embeddedTrustAnchorSet: "not_implemented",
       revocationManifest: "not_implemented",
       aggregateRecordVerifier: "not_implemented",
@@ -426,6 +431,11 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       runtimeCapabilityIssued: false
     },
     signatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
+    signatureEncoding: "implemented_candidate_rfc_4648_unpadded",
+    keyIdEncoding: "not_implemented",
+    multiSignatureAcceptancePolicy:
+      "one_or_more_trusted_non_revoked_valid_and_no_unknown_revoked_duplicate_or_invalid_target",
+    offlineBundledTrustEvaluation: "required_target_not_implemented",
     recordSchemaCodec: "not_implemented",
     signatureVerifier: "not_implemented",
     embeddedTrustAnchorSet: "not_implemented",

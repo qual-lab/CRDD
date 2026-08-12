@@ -6,6 +6,7 @@ import {
   canonicalizeProvisioningJsonValueCandidate,
   describeProvisioningSignaturePrimitivesContract,
   inspectProvisioningEd25519SpkiCandidate,
+  verifyProvisioningEd25519Base64urlCandidate,
   verifyProvisioningEd25519PrimitiveCandidate
 } from "../src/security/provisioning-signature-primitives.mjs";
 
@@ -192,6 +193,55 @@ test("RFC 8032 vectorの個別署名一致だけをcandidateにし改変を拒�
   assert.equal(getterCalls, 0);
 });
 
+test("RFC 4648のpaddingなしbase64url署名だけを内部復号して個別検証する", () => {
+  const signatureBase64url = Buffer.from(RFC_8032_SIGNATURE, "hex").toString("base64url");
+  assert.equal(signatureBase64url.length, 86);
+  const input = { spkiDer: spki(), message: Buffer.alloc(0), signatureBase64url };
+  const result = verifyProvisioningEd25519Base64urlCandidate(input);
+  assert.equal(result.status, "candidate");
+  assert.equal(result.cryptographicMatch, true);
+  assert.equal(result.runtimeAuthorityConferred, false);
+  assert.equal("signature" in result, false);
+  assert.equal("signatureBase64url" in result, false);
+
+  const noncanonicalPadBits = `${signatureBase64url.slice(0, -1)}x`;
+  assert.equal(Buffer.from(noncanonicalPadBits, "base64url").equals(
+    Buffer.from(signatureBase64url, "base64url")), true);
+  for (const value of [
+    `${signatureBase64url}=`, signatureBase64url.slice(1),
+    `${signatureBase64url.slice(0, -1)}+`, `${signatureBase64url.slice(0, -1)} `,
+    noncanonicalPadBits
+  ]) {
+    const blockedResult = verifyProvisioningEd25519Base64urlCandidate({
+      ...input, signatureBase64url: value
+    });
+    assert.equal(blockedResult.reason, "provisioning_ed25519_base64url_input_invalid");
+    assert.equal("signatureBase64url" in blockedResult, false);
+  }
+  const changedSignature = Buffer.from(RFC_8032_SIGNATURE, "hex");
+  changedSignature[0] ^= 1;
+  assert.equal(verifyProvisioningEd25519Base64urlCandidate({
+    ...input, signatureBase64url: changedSignature.toString("base64url")
+  }).reason, "provisioning_ed25519_cryptographic_mismatch");
+
+  let getterCalls = 0;
+  const accessor = { ...input };
+  Object.defineProperty(accessor, "signatureBase64url", {
+    enumerable: true,
+    get() { getterCalls += 1; return signatureBase64url; }
+  });
+  assert.equal(verifyProvisioningEd25519Base64urlCandidate(accessor).status, "blocked");
+  assert.equal(verifyProvisioningEd25519Base64urlCandidate({ ...input, extra: true }).status,
+    "blocked");
+  assert.equal(getterCalls, 0);
+  let proxyCalls = 0;
+  const proxy = new Proxy(input, {
+    ownKeys() { proxyCalls += 1; return Reflect.ownKeys(input); }
+  });
+  assert.equal(verifyProvisioningEd25519Base64urlCandidate(proxy).status, "blocked");
+  assert.equal(proxyCalls, 0);
+});
+
 test("公開contractはprimitiveと未決の統合Trust境界を分離する", () => {
   assert.deepEqual(describeProvisioningSignaturePrimitivesContract(), {
     contract: "crdd-coordinator/provisioning-signature-primitives",
@@ -201,11 +251,16 @@ test("公開contractはprimitiveと未決の統合Trust境界を分離する", (
     ed25519SpkiDerInspection: "implemented_candidate_rfc_8410",
     spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
     ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
+    ed25519SignatureBase64url: "implemented_candidate_rfc_4648_unpadded",
+    keyIdEncoding: "not_implemented",
     payloadSignatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
     crddDomainSeparationFraming: "not_implemented",
     provisioningRecordPayloadSchema: "not_implemented",
     multiSignatureEnvelopeSchema: "not_implemented",
     multiSignatureAcceptanceRule: "not_implemented",
+    multiSignatureAcceptancePolicy:
+      "one_or_more_trusted_non_revoked_valid_and_no_unknown_revoked_duplicate_or_invalid_target",
+    offlineBundledTrustEvaluation: "required_target_not_implemented",
     embeddedTrustAnchorSet: "not_implemented",
     revocationManifest: "not_implemented",
     aggregateRecordVerifier: "not_implemented",

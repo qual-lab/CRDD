@@ -317,6 +317,13 @@ export function describeRuntimeActivationContract() {
     signaturePrimitives: implementation.provisioningSignaturePrimitives,
     signatureEnvelopeTopology:
       implementation.provisioningSignaturePrimitives.payloadSignatureEnvelopeTopology,
+    signatureEncoding:
+      implementation.provisioningSignaturePrimitives.ed25519SignatureBase64url,
+    keyIdEncoding: implementation.provisioningSignaturePrimitives.keyIdEncoding,
+    multiSignatureAcceptancePolicy:
+      implementation.provisioningSignaturePrimitives.multiSignatureAcceptancePolicy,
+    offlineBundledTrustEvaluation:
+      implementation.provisioningSignaturePrimitives.offlineBundledTrustEvaluation,
     recordSchemaCodec: implementation.provisioningRecordContract,
     signatureVerifier: implementation.provisioningRecordVerification,
     embeddedTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
