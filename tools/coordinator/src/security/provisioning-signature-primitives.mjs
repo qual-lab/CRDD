@@ -73,46 +73,50 @@ function snapshotJsonValue(value, state, depth = 0) {
       Buffer.byteLength(value, "utf8") <= PROVISIONING_SIGNATURE_INPUT_LIMITS.stringBytes
       ? value : INVALID;
   }
-  if (!value || typeof value !== "object" || utilTypes.isProxy(value) || state.seen.has(value)) {
+  if (!value || typeof value !== "object" || utilTypes.isProxy(value) || state.ancestors.has(value)) {
     return INVALID;
   }
-  state.seen.add(value);
-  const prototype = Object.getPrototypeOf(value);
-  if (Array.isArray(value)) {
-    const length = Object.getOwnPropertyDescriptor(value, "length");
-    if (prototype !== Array.prototype || !dataDescriptor(length, false) ||
-        !Number.isSafeInteger(length.value) || length.value < 0) return INVALID;
-    if (length.value > PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - state.nodes) {
+  state.ancestors.add(value);
+  try {
+    const prototype = Object.getPrototypeOf(value);
+    if (Array.isArray(value)) {
+      const length = Object.getOwnPropertyDescriptor(value, "length");
+      if (prototype !== Array.prototype || !dataDescriptor(length, false) ||
+          !Number.isSafeInteger(length.value) || length.value < 0) return INVALID;
+      if (length.value > PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - state.nodes) {
+        throw new InputBudgetExceeded();
+      }
+      const keys = Reflect.ownKeys(value);
+      if (keys.length !== length.value + 1) return INVALID;
+      const result = [];
+      for (let index = 0; index < length.value; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+        if (!dataDescriptor(descriptor)) return INVALID;
+        const child = snapshotJsonValue(descriptor.value, state, depth + 1);
+        if (child === INVALID) return INVALID;
+        result.push(child);
+      }
+      return Object.freeze(result);
+    }
+    if (prototype !== Object.prototype && prototype !== null) return INVALID;
+    const keys = Reflect.ownKeys(value);
+    if (keys.length > PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - state.nodes) {
       throw new InputBudgetExceeded();
     }
-    const keys = Reflect.ownKeys(value);
-    if (keys.length !== length.value + 1) return INVALID;
-    const result = [];
-    for (let index = 0; index < length.value; index += 1) {
-      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (keys.some((key) => typeof key !== "string" || hasLoneSurrogate(key) ||
+      Buffer.byteLength(key, "utf8") > PROVISIONING_SIGNATURE_INPUT_LIMITS.stringBytes)) return INVALID;
+    const result = Object.create(null);
+    for (const key of keys) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
       if (!dataDescriptor(descriptor)) return INVALID;
       const child = snapshotJsonValue(descriptor.value, state, depth + 1);
       if (child === INVALID) return INVALID;
-      result.push(child);
+      result[key] = child;
     }
     return Object.freeze(result);
+  } finally {
+    state.ancestors.delete(value);
   }
-  if (prototype !== Object.prototype && prototype !== null) return INVALID;
-  const keys = Reflect.ownKeys(value);
-  if (keys.length > PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - state.nodes) {
-    throw new InputBudgetExceeded();
-  }
-  if (keys.some((key) => typeof key !== "string" || hasLoneSurrogate(key) ||
-    Buffer.byteLength(key, "utf8") > PROVISIONING_SIGNATURE_INPUT_LIMITS.stringBytes)) return INVALID;
-  const result = Object.create(null);
-  for (const key of keys) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key);
-    if (!dataDescriptor(descriptor)) return INVALID;
-    const child = snapshotJsonValue(descriptor.value, state, depth + 1);
-    if (child === INVALID) return INVALID;
-    result[key] = child;
-  }
-  return Object.freeze(result);
 }
 
 function boundedJcs(value) {
@@ -188,7 +192,7 @@ function boundedJcs(value) {
 
 export function canonicalizeProvisioningJsonValueCandidate(rawValue) {
   try {
-    const value = snapshotJsonValue(rawValue, { nodes: 0, seen: new WeakSet() });
+    const value = snapshotJsonValue(rawValue, { nodes: 0, ancestors: new WeakSet() });
     if (value === INVALID) return blocked("provisioning_jcs_value_invalid");
     const canonicalBytes = boundedJcs(value);
     return Object.freeze({

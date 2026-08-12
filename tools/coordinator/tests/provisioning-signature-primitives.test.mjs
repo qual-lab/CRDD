@@ -66,6 +66,38 @@ test("JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限
   assert.equal(proxyCalls, 0);
 });
 
+test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ごとに展開する", () => {
+  const sharedObject = Object.assign(Object.create(null), { x: 1 });
+  const sharedArray = [sharedObject, 2];
+  const aliased = {
+    objectLeft: sharedObject,
+    objectRight: sharedObject,
+    arrayLeft: sharedArray,
+    arrayRight: sharedArray
+  };
+  const duplicated = {
+    objectLeft: Object.assign(Object.create(null), { x: 1 }),
+    objectRight: Object.assign(Object.create(null), { x: 1 }),
+    arrayLeft: [Object.assign(Object.create(null), { x: 1 }), 2],
+    arrayRight: [Object.assign(Object.create(null), { x: 1 }), 2]
+  };
+  const aliasResult = canonicalizeProvisioningJsonValueCandidate(aliased);
+  const duplicateResult = canonicalizeProvisioningJsonValueCandidate(duplicated);
+  assert.equal(aliasResult.status, "candidate");
+  assert.equal(Buffer.compare(aliasResult.canonicalBytes, duplicateResult.canonicalBytes), 0);
+  assert.equal(aliasResult.canonicalHash, duplicateResult.canonicalHash);
+
+  const indirectObject = {};
+  const indirectArray = [indirectObject];
+  indirectObject.back = indirectArray;
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(indirectObject).status, "blocked");
+
+  const repeated = { value: null };
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(
+    Array(PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes).fill(repeated)
+  ).reason, "provisioning_jcs_budget_exceeded");
+});
+
 test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じる", () => {
   const maximumObject = {};
   for (let index = 0; index < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - 1; index += 1) {

@@ -135,7 +135,7 @@ activationは診断要求とrun-scoped Capabilityから分離したRepository単
 
 <a id="provisioning-signature-external-standards"></a>
 
-#### 署名基礎Coreの外部規格入力
+### 署名基礎Coreの外部規格入力
 
 確認日（reviewedAt）は`2026-08-12`である。Runtimeは規格本文をネットワーク取得または自動更新せず、下表で採用した内部contractを拘束点とする。RFC errata、Node.js cryptoの挙動、または採用範囲が変わる場合は人間の判断と再監査を行う。
 
