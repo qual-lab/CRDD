@@ -544,7 +544,7 @@ export function describeRuntimeActivationContract() {
     durabilityOrdering:
       "immutable_files_fsync_then_generation_directory_fsync_then_pointer_temp_fsync_then_pointer_atomic_replace_then_pointer_parent_directory_fsync_then_reread_identity_verification_target",
     durabilityStageFailureBehavior:
-      "retain_available_artifacts_and_any_existing_journal_block_and_require_explicit_recovery_without_guessed_rollback_or_automatic_retry",
+      "retain_created_artifacts_and_verified_existing_journal_for_recovery_only_block_and_require_explicit_recovery_without_guessed_rollback_automatic_retry_old_pointer_fallback_or_success_classification",
     recoveryJournal:
       "private_owned_transaction_expected_previous_and_next_hashes_target",
     ambiguousRecoveryBehavior:
