@@ -350,7 +350,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       "one_time_challenge",
       "nonce",
       "platform_scope",
-      "installation_public_key"
+      "installation_public_key",
+      "enrollment_request_binding"
     ],
     onlineChallengeValidityMinutes: 30,
     onlineChallengeBinding:

@@ -530,7 +530,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       "one_time_challenge",
       "nonce",
       "platform_scope",
-      "installation_public_key"
+      "installation_public_key",
+      "enrollment_request_binding"
     ],
     onlineChallengeValidityMinutes: 30,
     onlineChallengeBinding:
