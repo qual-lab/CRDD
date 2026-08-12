@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { describeAuthorityRootLocatorContract } from "./authority-root-locator.mjs";
 import { describeRuntimeActivationLocatorBindingContract } from
   "./runtime-activation-locator-binding-contract.mjs";
+import { describeProvisioningSignaturePrimitivesContract } from
+  "./provisioning-signature-primitives.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -264,6 +266,7 @@ export function describeRuntimeActivationContract() {
   const rootProtectionPolicy = describeRootProtectionPolicyContract();
   const authorityRootLocator = describeAuthorityRootLocatorContract();
   const activationLocatorBinding = describeRuntimeActivationLocatorBindingContract();
+  const provisioningSignaturePrimitives = describeProvisioningSignaturePrimitivesContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -284,7 +287,8 @@ export function describeRuntimeActivationContract() {
     runtimeCapabilityIssued: false,
     rootProtectionPolicy,
     authorityRootLocator,
-    activationLocatorBinding
+    activationLocatorBinding,
+    provisioningSignaturePrimitives
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -310,6 +314,7 @@ export function describeRuntimeActivationContract() {
     environmentSelection: "explicit_compatibility_or_automation_override_target",
     selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
     automaticRepair: false,
+    signaturePrimitives: implementation.provisioningSignaturePrimitives,
     recordSchemaCodec: implementation.provisioningRecordContract,
     signatureVerifier: implementation.provisioningRecordVerification,
     embeddedTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
@@ -342,6 +347,7 @@ export function describeRuntimeActivationContract() {
       "explicit_path_resolved_from_verified_provisioning_record_target",
     authorityRootLocator: implementation.authorityRootLocator,
     activationLocatorBinding: implementation.activationLocatorBinding,
+    provisioningSignaturePrimitives: implementation.provisioningSignaturePrimitives,
     provisioningRecordTrustAndSelectionPolicy,
     provisioningRecordRole: provisioningRecordTrustAndSelectionPolicy.authorityRole,
     provisionReceiptRelationship:

@@ -404,6 +404,25 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     environmentSelection: "explicit_compatibility_or_automation_override_target",
     selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
     automaticRepair: false,
+    signaturePrimitives: {
+      contract: "crdd-coordinator/provisioning-signature-primitives",
+      contractRevision: 1,
+      jcsValueCanonicalization: "implemented_candidate_rfc_8785",
+      rawJsonDuplicateKeyDecoder: "not_implemented",
+      ed25519SpkiDerInspection: "implemented_candidate_rfc_8410",
+      spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
+      ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
+      crddDomainSeparationFraming: "not_implemented",
+      provisioningRecordPayloadSchema: "not_implemented",
+      multiSignatureEnvelopeSchema: "not_implemented",
+      embeddedTrustAnchorSet: "not_implemented",
+      revocationManifest: "not_implemented",
+      aggregateRecordVerifier: "not_implemented",
+      existingCanonicalContractsMigratedToJcs: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false
+    },
     recordSchemaCodec: "not_implemented",
     signatureVerifier: "not_implemented",
     embeddedTrustAnchorSet: "not_implemented",
@@ -505,6 +524,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.signatureVerifier,
     report.runtimeActivation.provisioningRecordVerification);
+  assert.deepEqual(report.runtimeActivation.provisioningSignaturePrimitives,
+    report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.signaturePrimitives);
   assert.equal(
     report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.embeddedTrustAnchorSet,
     report.runtimeActivation.provisioningRecordTrustAnchorSet);
