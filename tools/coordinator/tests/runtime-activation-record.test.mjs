@@ -200,10 +200,48 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "authority_root_resolution_from_provisioning_record"), true);
   assert.equal(contract.onboardingBlockingDependencies.includes(
     "activation_atomic_persistence"), true);
+  assert.deepEqual(contract.provisioningRecordTrustAndSelectionPolicy, {
+    policy: "human_approved_candidate_contract_only",
+    authorityRole: "platform_scope_signed_runtime_authority_source_of_truth_target",
+    artifactTopology:
+      "provisioning_record_central_without_separate_receipt_or_helper_manifest_authority",
+    provisionReceiptRelationship: "not_separate_runtime_authority_artifact_target",
+    platformProvisionerManifestRelationship:
+      "not_separate_runtime_authority_artifact_target",
+    authorityFileBundleManifestRelationship: "separate_existing_artifact",
+    signedContentCoverage: "all_security_important_fields_one_canonical_json_signed_target",
+    signedIdentityCoverage:
+      "provisioner_identity_and_signature_metadata_bound_to_record_target",
+    trustAnchorOwnership: "qual_lab_public_key_set_bundled_with_coordinator_target",
+    trustAnchorLifecycle:
+      "multiple_key_ids_overlap_rotation_and_explicit_revocation_required_target",
+    storageScope:
+      "shared_authority_platform_scope_provisioner_write_runtime_read_only_target",
+    repositoryCanonicalRecordStored: false,
+    locatorRelationship: "untrusted_provisioning_record_hash_reference_only",
+    firstSetupOrReconfigurationSelection: "explicit_cli_target",
+    routineRunSelection: "verified_provisioning_record_and_locator_target",
+    environmentSelection: "explicit_compatibility_or_automation_override_target",
+    selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
+    automaticRepair: false,
+    recordSchemaCodec: "not_implemented",
+    signatureVerifier: "not_implemented",
+    embeddedTrustAnchorSet: "not_implemented",
+    revocationEvaluator: "not_implemented",
+    filesystemRead: "not_implemented",
+    resolver: "not_implemented",
+    lifecyclePersistence: "not_implemented",
+    filesystemEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
+  assert.equal(Object.isFrozen(contract.provisioningRecordTrustAndSelectionPolicy), true);
   assert.equal(contract.provisioningRecordRole,
-    "future_verified_platform_setup_record_target");
-  assert.equal(contract.provisionReceiptRelationship, "undecided");
-  assert.equal(contract.platformProvisionerManifestRelationship, "undecided");
+    "platform_scope_signed_runtime_authority_source_of_truth_target");
+  assert.equal(contract.provisionReceiptRelationship,
+    "not_separate_runtime_authority_artifact_target");
+  assert.equal(contract.platformProvisionerManifestRelationship,
+    "not_separate_runtime_authority_artifact_target");
   assert.equal(contract.authorityFileBundleManifestRelationship,
     "separate_existing_artifact");
   assert.equal(contract.authorityRootCurrentSelectionContract,

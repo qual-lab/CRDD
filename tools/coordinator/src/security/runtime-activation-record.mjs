@@ -275,6 +275,41 @@ export function describeRuntimeActivationContract() {
     activationLocatorBinding
   });
   const onboarding = deriveOnboardingReadiness(implementation);
+  const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
+    policy: "human_approved_candidate_contract_only",
+    authorityRole: "platform_scope_signed_runtime_authority_source_of_truth_target",
+    artifactTopology:
+      "provisioning_record_central_without_separate_receipt_or_helper_manifest_authority",
+    provisionReceiptRelationship: "not_separate_runtime_authority_artifact_target",
+    platformProvisionerManifestRelationship:
+      "not_separate_runtime_authority_artifact_target",
+    authorityFileBundleManifestRelationship: "separate_existing_artifact",
+    signedContentCoverage: "all_security_important_fields_one_canonical_json_signed_target",
+    signedIdentityCoverage:
+      "provisioner_identity_and_signature_metadata_bound_to_record_target",
+    trustAnchorOwnership: "qual_lab_public_key_set_bundled_with_coordinator_target",
+    trustAnchorLifecycle:
+      "multiple_key_ids_overlap_rotation_and_explicit_revocation_required_target",
+    storageScope:
+      "shared_authority_platform_scope_provisioner_write_runtime_read_only_target",
+    repositoryCanonicalRecordStored: false,
+    locatorRelationship: "untrusted_provisioning_record_hash_reference_only",
+    firstSetupOrReconfigurationSelection: "explicit_cli_target",
+    routineRunSelection: "verified_provisioning_record_and_locator_target",
+    environmentSelection: "explicit_compatibility_or_automation_override_target",
+    selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
+    automaticRepair: false,
+    recordSchemaCodec: implementation.provisionReceiptContract,
+    signatureVerifier: implementation.platformProvisionerVerification,
+    embeddedTrustAnchorSet: "not_implemented",
+    revocationEvaluator: "not_implemented",
+    filesystemRead: "not_implemented",
+    resolver: implementation.authorityRootResolutionFromProvisioningRecord,
+    lifecyclePersistence: "not_implemented",
+    filesystemEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
   return Object.freeze({
     contract: RUNTIME_ACTIVATION_CONTRACT,
     contractRevision: RUNTIME_ACTIVATION_CONTRACT_REVISION,
@@ -295,10 +330,14 @@ export function describeRuntimeActivationContract() {
       "explicit_path_resolved_from_verified_provisioning_record_target",
     authorityRootLocator: implementation.authorityRootLocator,
     activationLocatorBinding: implementation.activationLocatorBinding,
-    provisioningRecordRole: "future_verified_platform_setup_record_target",
-    provisionReceiptRelationship: "undecided",
-    platformProvisionerManifestRelationship: "undecided",
-    authorityFileBundleManifestRelationship: "separate_existing_artifact",
+    provisioningRecordTrustAndSelectionPolicy,
+    provisioningRecordRole: provisioningRecordTrustAndSelectionPolicy.authorityRole,
+    provisionReceiptRelationship:
+      provisioningRecordTrustAndSelectionPolicy.provisionReceiptRelationship,
+    platformProvisionerManifestRelationship:
+      provisioningRecordTrustAndSelectionPolicy.platformProvisionerManifestRelationship,
+    authorityFileBundleManifestRelationship:
+      provisioningRecordTrustAndSelectionPolicy.authorityFileBundleManifestRelationship,
     authorityRootCurrentSelectionContract:
       "cli_then_environment_explicit_path_until_verified_record_resolver_implemented",
     runRevalidationRequired: true,
