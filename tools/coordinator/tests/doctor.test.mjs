@@ -619,13 +619,13 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     report.runtimeActivation.rootProtectionPolicy.trustedPlatformAdministratorBoundary,
     ["windows_system_and_machine_administrators", "posix_root"]);
   assert.equal(report.runtimeActivation.rootProtectionPolicy.administratorOriginatedChangeDetection,
-    "runtime_owned_revalidation_detects_observable_identity_protection_or_trust_change_and_fails_closed");
+    "runtime_owned_revalidation_detects_observable_identity_protection_signature_trust_or_activation_change_and_fails_closed");
   assert.equal(
     report.runtimeActivation.rootProtectionPolicy.administratorOriginatedObservableChangeResponse,
-    "blocked_reverification_then_reprovision_only_after_trust_base_confirmed_or_platform_recovery");
+    "blocked_reverification_then_reprovision_only_after_trust_base_confirmed");
   assert.equal(
     report.runtimeActivation.rootProtectionPolicy.confirmedOrSuspectedPlatformAdministratorCompromiseResponse,
-    "blocked_platform_recovery_required_before_reprovision");
+    "blocked_platform_recovery_and_trust_base_reestablishment_required_before_reprovision");
   assert.equal(report.runtimeActivation.rootProtectionPolicy.ambiguousAdministratorChangeClassification,
     "fail_closed_as_suspected_compromise");
   assert.equal(report.runtimeActivation.rootProtectionPolicy.platformRecoveryImplementation,
