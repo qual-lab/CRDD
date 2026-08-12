@@ -72,11 +72,18 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
 const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
+  onlineEnrollmentProtocol: "platform_provisioner_effect",
+  offlineEnrollmentBundleImport: "platform_provisioner_effect",
+  automaticEnrollmentRenewalEffect: "platform_provisioner_effect",
   provisioningEnrollmentCertificateContract: "provisioning_record_contract",
+  enrollmentCertificateWireCodec: "provisioning_record_contract",
+  offlineEnrollmentBundleContract: "provisioning_record_contract",
   installationKeyProtectionVerification: "provisioning_record_verification",
   provisioningEnrollmentCertificateVerification: "provisioning_record_verification",
   provisioningCaTrustAndRevocationVerification: "provisioning_record_verification",
-  recordEnrollmentBindingVerification: "provisioning_record_verification"
+  recordEnrollmentBindingVerification: "provisioning_record_verification",
+  platformKeyStorageAdapterVerification: "provisioning_record_verification",
+  enrollmentReplayProtectionPersistence: "provisioning_record_verification"
 });
 
 function deriveOnboardingReadiness(implementation) {
@@ -300,6 +307,13 @@ export function describeRuntimeActivationContract() {
     provisioningCaTrustAndRevocationVerification: "not_implemented",
     initialProvisioningEnrollmentExchange: "not_implemented",
     recordEnrollmentBindingVerification: "not_implemented",
+    enrollmentCertificateWireCodec: "not_implemented",
+    onlineEnrollmentProtocol: "not_implemented",
+    offlineEnrollmentBundleContract: "not_implemented",
+    offlineEnrollmentBundleImport: "not_implemented",
+    platformKeyStorageAdapterVerification: "not_implemented",
+    enrollmentReplayProtectionPersistence: "not_implemented",
+    automaticEnrollmentRenewalEffect: "not_implemented",
     provisioningRecordContract: "not_implemented",
     provisioningRecordVerification: "not_implemented",
     provisioningRecordTrustAnchorSet: "not_implemented",
@@ -378,20 +392,66 @@ export function describeRuntimeActivationContract() {
       "secure_enclave_candidate"
     ]),
     installationKeyBackendSelection:
-      "platform_specific_selection_and_required_protection_strength_undecided",
+      "platform_preferences_and_explicit_fallbacks_human_approved_adapter_verification_not_implemented",
+    platformKeyStoragePolicies: Object.freeze({
+      windows: Object.freeze({
+        preferred: "cng_ksp_tpm_backed_target",
+        explicitFallback: "software_ksp_target",
+        silentFallback: false
+      }),
+      macos: Object.freeze({
+        preferred: "keychain_secure_enclave_when_supported_target",
+        explicitFallback: "keychain_software_backed_target",
+        silentFallback: false
+      }),
+      linux: Object.freeze({
+        preferred: "tpm_2_0_target",
+        explicitFallback: "root_owned_software_keystore_target",
+        silentFallback: false
+      })
+    }),
+    platformKeyStorageSetupDisclosure:
+      "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
+    routineRunKeyStorageSelection:
+      "no_reselection_or_administrator_action_while_verified_state_valid_target",
     privateKeyMaterialHandling:
       "never_input_output_or_artifact_of_coordinator_runtime_target",
     provisioningCaRole:
       "qual_lab_provisioning_ca_short_lived_public_key_enrollment_target",
     enrollmentCertificateTopology:
       "short_lived_enrollment_certificate_topology_human_approved_target",
+    enrollmentCertificateFormatTarget: "custom_jcs_json_target",
+    enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
+    enrollmentCertificateDomainSeparation: "required_exact_value_not_implemented",
+    enrollmentCertificateKeyIdEncodingTarget:
+      "spki_der_sha256_lowercase_hex_64_target",
+    enrollmentCertificateValidityDays: 180,
+    enrollmentCertificateRenewalWindowDays: 30,
+    enrollmentCertificateOverlapMaximumDays: 30,
+    renewalFailureBehavior:
+      "blocked_at_expiry_without_automatic_source_fallback_target",
     enrollmentCertificateExactSpecification:
-      "schema_wire_encoding_fields_duration_and_lifecycle_undecided",
+      "schema_wire_encoding_fields_domain_and_lifecycle_undecided",
     embeddedQualLabPrivateKey: "prohibited",
     initialEnrollmentModes: Object.freeze([
       "explicit_online_initial_enrollment_target",
       "administrator_supplied_offline_enrollment_bundle_target"
     ]),
+    onlineEnrollmentRequiredInputs: Object.freeze([
+      "one_time_challenge",
+      "nonce",
+      "platform_scope",
+      "installation_public_key"
+    ]),
+    offlineEnrollmentBundleRequiredContents: Object.freeze([
+      "enrollment_request_hash",
+      "enrollment_certificate",
+      "provisioning_ca_chain",
+      "revocation_snapshot",
+      "bundle_expiry"
+    ]),
+    enrollmentReplayBehavior:
+      "replay_cross_machine_cross_platform_scope_and_expired_input_blocked_target",
     enrollmentModeFallback: "blocked_without_silent_fallback",
     routineRunNetworkRequirement:
       "not_required_after_verified_enrollment_and_runtime_state_target",
@@ -415,6 +475,16 @@ export function describeRuntimeActivationContract() {
     initialEnrollmentExchange: implementation.initialProvisioningEnrollmentExchange,
     recordEnrollmentBindingVerification:
       implementation.recordEnrollmentBindingVerification,
+    enrollmentCertificateWireCodec: implementation.enrollmentCertificateWireCodec,
+    onlineEnrollmentProtocol: implementation.onlineEnrollmentProtocol,
+    offlineEnrollmentBundleContract: implementation.offlineEnrollmentBundleContract,
+    offlineEnrollmentBundleImport: implementation.offlineEnrollmentBundleImport,
+    platformKeyStorageAdapterVerification:
+      implementation.platformKeyStorageAdapterVerification,
+    enrollmentReplayProtectionPersistence:
+      implementation.enrollmentReplayProtectionPersistence,
+    automaticEnrollmentRenewalEffect:
+      implementation.automaticEnrollmentRenewalEffect,
     implementationDependencyRelationships:
       INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS,
     enrollmentReadiness: "blocked",
@@ -506,6 +576,16 @@ export function describeRuntimeActivationContract() {
       implementation.initialProvisioningEnrollmentExchange,
     recordEnrollmentBindingVerification:
       implementation.recordEnrollmentBindingVerification,
+    enrollmentCertificateWireCodec: implementation.enrollmentCertificateWireCodec,
+    onlineEnrollmentProtocol: implementation.onlineEnrollmentProtocol,
+    offlineEnrollmentBundleContract: implementation.offlineEnrollmentBundleContract,
+    offlineEnrollmentBundleImport: implementation.offlineEnrollmentBundleImport,
+    platformKeyStorageAdapterVerification:
+      implementation.platformKeyStorageAdapterVerification,
+    enrollmentReplayProtectionPersistence:
+      implementation.enrollmentReplayProtectionPersistence,
+    automaticEnrollmentRenewalEffect:
+      implementation.automaticEnrollmentRenewalEffect,
     provisioningRecordContract: implementation.provisioningRecordContract,
     provisioningRecordVerification: implementation.provisioningRecordVerification,
     provisioningRecordTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
