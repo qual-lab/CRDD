@@ -197,8 +197,14 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
   assert.equal(Object.isFrozen(contract.trustedPlatformAdministratorBoundary), true);
   assert.equal(contract.administratorOriginatedChangeDetection,
     "runtime_owned_revalidation_detects_observable_identity_protection_or_trust_change_and_fails_closed");
-  assert.equal(contract.administratorCompromiseResponse,
-    "blocked_and_reprovision_or_platform_recovery_required");
+  assert.equal(contract.administratorOriginatedObservableChangeResponse,
+    "blocked_reverification_then_reprovision_only_after_trust_base_confirmed_or_platform_recovery");
+  assert.equal(contract.confirmedOrSuspectedPlatformAdministratorCompromiseResponse,
+    "blocked_platform_recovery_required_before_reprovision");
+  assert.equal(contract.ambiguousAdministratorChangeClassification,
+    "fail_closed_as_suspected_compromise");
+  assert.equal(contract.platformRecoveryImplementation, "not_implemented");
+  assert.equal(["administrator", "CompromiseResponse"].join("") in contract, false);
   assert.equal(contract.completeOsOrVerifierCompromiseProtection, "not_guaranteed");
   assert.equal(contract.callerObservationsAreAuthority, false);
   assert.equal(contract.protectionPolicyCore, "implemented_candidate_claim_only");

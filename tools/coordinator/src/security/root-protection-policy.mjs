@@ -132,8 +132,13 @@ export function describeRootProtectionPolicyContract() {
     ]),
     administratorOriginatedChangeDetection:
       "runtime_owned_revalidation_detects_observable_identity_protection_or_trust_change_and_fails_closed",
-    administratorCompromiseResponse:
-      "blocked_and_reprovision_or_platform_recovery_required",
+    administratorOriginatedObservableChangeResponse:
+      "blocked_reverification_then_reprovision_only_after_trust_base_confirmed_or_platform_recovery",
+    confirmedOrSuspectedPlatformAdministratorCompromiseResponse:
+      "blocked_platform_recovery_required_before_reprovision",
+    ambiguousAdministratorChangeClassification:
+      "fail_closed_as_suspected_compromise",
+    platformRecoveryImplementation: "not_implemented",
     completeOsOrVerifierCompromiseProtection: "not_guaranteed",
     rootProvisioning: "external_preprovision_required",
     callerObservationsAreAuthority: false,
