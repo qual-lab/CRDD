@@ -3,7 +3,7 @@ import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 
 import {
-  PROVISIONING_RECORD_DOMAIN_PREFIX,
+  PROVISIONING_RECORD_DOMAIN_PREFIX_ASCII,
   PROVISIONING_RECORD_PURE_CORE_LIMITS,
   buildProvisioningRecordDomainMessageCandidate,
   compileProvisioningRecordEnvelopeCandidate,
@@ -99,10 +99,17 @@ function signingEntry(payload, privateKey, keyId) {
 test("domain framing、key ID、4成果物のrevision 1を単一contractとして固定する", () => {
   const f = fixture();
   const domain = buildProvisioningRecordDomainMessageCandidate(f.payload);
-  assert.equal(domain.message.subarray(0, PROVISIONING_RECORD_DOMAIN_PREFIX.length)
-    .equals(PROVISIONING_RECORD_DOMAIN_PREFIX), true);
-  assert.equal(domain.message.readBigUInt64BE(PROVISIONING_RECORD_DOMAIN_PREFIX.length),
-    BigInt(domain.message.length - PROVISIONING_RECORD_DOMAIN_PREFIX.length - 8));
+  const prefix = Buffer.from(PROVISIONING_RECORD_DOMAIN_PREFIX_ASCII, "ascii");
+  assert.equal(PROVISIONING_RECORD_DOMAIN_PREFIX_ASCII,
+    "CRDD\0PROVISIONING-RECORD\0V1\0");
+  assert.equal(prefix.toString("hex"),
+    "435244440050524f564953494f4e494e472d5245434f524400563100");
+  assert.equal(domain.message.subarray(0, prefix.length).equals(prefix), true);
+  assert.equal(domain.message.readBigUInt64BE(prefix.length),
+    BigInt(domain.message.length - prefix.length - 8));
+  domain.message.fill(0);
+  const nextDomain = buildProvisioningRecordDomainMessageCandidate(f.payload);
+  assert.equal(nextDomain.message.subarray(0, prefix.length).equals(prefix), true);
   assert.match(f.keyId, /^[a-f0-9]{64}$/u);
   assert.deepEqual(describeProvisioningRecordPureCoreContract(), {
     contractRevision: 1,
@@ -166,6 +173,33 @@ test("exact schemaはextra、accessor、Proxy、revision、並び、上限をfai
   });
   assert.equal(compileProvisioningRecordEnvelopeCandidate(proxy).status, "blocked");
   assert.equal(proxyCalls, 0);
+  let coercionCalls = 0;
+  const dynamicId = {
+    [Symbol.toPrimitive]() { coercionCalls += 1; return "1".repeat(32); },
+    toString() { coercionCalls += 1; return "1".repeat(32); }
+  };
+  assert.equal(compileProvisioningRecordEnvelopeCandidate({
+    ...f.envelope, payload: { ...f.payload, recordId: dynamicId }
+  }).status, "blocked");
+  assert.equal(coercionCalls, 0);
+  const customArray = Object.setPrototypeOf([...f.envelope.signatures], null);
+  assert.equal(compileProvisioningRecordEnvelopeCandidate({
+    ...f.envelope, signatures: customArray
+  }).status, "blocked");
+  const indexedAccessor = [...f.envelope.signatures];
+  let indexedGetterCalls = 0;
+  Object.defineProperty(indexedAccessor, "0", {
+    enumerable: true,
+    configurable: true,
+    get() { indexedGetterCalls += 1; return f.envelope.signatures[0]; }
+  });
+  assert.equal(compileProvisioningRecordEnvelopeCandidate({
+    ...f.envelope, signatures: indexedAccessor
+  }).status, "blocked");
+  assert.equal(indexedGetterCalls, 0);
+  assert.equal(compileProvisioningRecordEnvelopeCandidate({
+    ...f.envelope, signatures: Object.freeze([...f.envelope.signatures])
+  }).status, "candidate");
   assert.equal(compileProvisioningRecordEnvelopeCandidate({
     ...f.envelope, contractRevision: 2
   }).status, "blocked");
@@ -185,6 +219,12 @@ test("exact schemaはextra、accessor、Proxy、revision、並び、上限をfai
     ...f.keyset,
     keys: [{ ...f.keyset.keys[0], keyId: "8".repeat(64) }]
   }).status, "blocked");
+  for (const spkiDer of ["A".repeat(58), "A".repeat(60), "A".repeat(1_000_000),
+    `${f.keyset.keys[0].spkiDer}=`]) {
+    assert.equal(compileProvisioningTrustAnchorSetCandidate({
+      ...f.keyset, keys: [{ ...f.keyset.keys[0], spkiDer }]
+    }).status, "blocked");
+  }
   assert.equal(compileProvisioningRecordEnvelopeCandidate({
     ...f.envelope,
     payload: { ...f.payload, expiresAt: "2026-07-01T00:00:00.001Z" }
@@ -280,6 +320,16 @@ test("aggregate候補は全署名が既知・非失効・期間内・正常な�
   assert.equal(verifyProvisioningRecordAggregateCandidate({
     ...input, revocationManifestBytes: revokedBytes
   }).reason, "provisioning_record_aggregate_revoked_key");
+  for (const revokedAt of ["2026-02-28T23:59:59.999Z", "2026-03-01T00:00:00.000Z",
+    "2026-03-02T00:00:00.000Z"]) {
+    const temporalRevocation = compileProvisioningRevocationManifestCandidate({
+      ...f.revocations,
+      revoked: [{ keyId: f.keyId, revokedAt, reasonCode: "key_compromise" }]
+    });
+    assert.equal(verifyProvisioningRecordAggregateCandidate({
+      ...input, revocationManifestBytes: temporalRevocation.canonicalBytes
+    }).reason, "provisioning_record_aggregate_revoked_key");
+  }
   assert.equal(verifyProvisioningRecordAggregateCandidate({
     ...input, evaluationTime: "2027-01-01T00:00:00.000Z"
   }).status, "blocked");

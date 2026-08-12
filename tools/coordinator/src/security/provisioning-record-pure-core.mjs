@@ -20,8 +20,8 @@ export const PROVISIONING_TRUST_ANCHOR_SET_CONTRACT =
 export const PROVISIONING_REVOCATION_MANIFEST_CONTRACT =
   "crdd-coordinator/provisioning-revocation-manifest";
 export const PROVISIONING_RECORD_PURE_CORE_CONTRACT_REVISION = 1;
-export const PROVISIONING_RECORD_DOMAIN_PREFIX = Buffer.from(
-  "CRDD\0PROVISIONING-RECORD\0V1\0", "ascii");
+export const PROVISIONING_RECORD_DOMAIN_PREFIX_ASCII =
+  "CRDD\0PROVISIONING-RECORD\0V1\0";
 export const PROVISIONING_RECORD_PURE_CORE_LIMITS = Object.freeze({
   artifactBytes: PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes,
   absolutePathBytes: AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
@@ -33,7 +33,6 @@ export const PROVISIONING_RECORD_PURE_CORE_LIMITS = Object.freeze({
 
 const HASH = /^[a-f0-9]{64}$/u;
 const ID = /^[a-f0-9]{32}$/u;
-const KEY_ID = HASH;
 const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const RUNTIME_PRINCIPAL_MODES = Object.freeze([
@@ -84,9 +83,12 @@ function exactRecord(value, keys) {
 
 function exactArray(value, maximum, normalize) {
   if (!Array.isArray(value) || utilTypes.isProxy(value)) return null;
+  if (Object.getPrototypeOf(value) !== Array.prototype) return null;
   const length = Object.getOwnPropertyDescriptor(value, "length");
   if (!length || !Object.prototype.hasOwnProperty.call(length, "value") ||
-      !Number.isSafeInteger(length.value) || length.value < 0 || length.value > maximum) return null;
+      length.get !== undefined || length.set !== undefined || length.enumerable !== false ||
+      length.configurable !== false || !Number.isSafeInteger(length.value) || length.value < 0 ||
+      length.value > maximum) return null;
   const keys = Reflect.ownKeys(value);
   if (keys.length !== length.value + 1) return null;
   const result = [];
@@ -102,6 +104,19 @@ function exactArray(value, maximum, normalize) {
 
 function positive(value) {
   return Number.isSafeInteger(value) && value >= 1;
+}
+
+function exactString(value, pattern, length) {
+  return typeof value === "string" && (length === undefined || value.length === length) &&
+    pattern.test(value);
+}
+
+function exactHash(value) {
+  return exactString(value, HASH, 64);
+}
+
+function exactId(value) {
+  return exactString(value, ID, 32);
 }
 
 function canonicalUtc(value) {
@@ -126,12 +141,13 @@ function normalizeRecord(value) {
   const modes = record && normalizedModes(record.runtimePrincipalModes);
   if (!record || record.contract !== PROVISIONING_RECORD_CONTRACT ||
       record.contractRevision !== PROVISIONING_RECORD_PURE_CORE_CONTRACT_REVISION ||
-      !ID.test(record.recordId) || !positive(record.recordRevision) ||
+      !exactId(record.recordId) || !positive(record.recordRevision) ||
       (record.recordRevision === 1 ? record.previousRecordHash !== null :
-        typeof record.previousRecordHash !== "string" || !HASH.test(record.previousRecordHash)) ||
-      !ID.test(record.platformScopeId) || !HASH.test(record.provisionerIdentityHash) ||
-      !ID.test(record.provisionerEnrollmentId) || !canonicalPath(record.authorityRootAbsolutePath) ||
-      !HASH.test(record.authorityRootIdentityHash) || !HASH.test(record.authorityRootProtectionHash) ||
+        !exactHash(record.previousRecordHash)) || !exactId(record.platformScopeId) ||
+      !exactHash(record.provisionerIdentityHash) || !exactId(record.provisionerEnrollmentId) ||
+      !canonicalPath(record.authorityRootAbsolutePath) ||
+      !exactHash(record.authorityRootIdentityHash) ||
+      !exactHash(record.authorityRootProtectionHash) ||
       !modes || !positive(record.trustEpoch) || !canonicalUtc(record.issuedAt) ||
       !canonicalUtc(record.expiresAt)) return null;
   const issuedAt = Date.parse(record.issuedAt);
@@ -143,7 +159,7 @@ function normalizeRecord(value) {
 
 function normalizeSignature(value) {
   const entry = exactRecord(value, SIGNATURE_KEYS);
-  return entry && KEY_ID.test(entry.keyId) && entry.algorithm === "Ed25519" &&
+  return entry && exactHash(entry.keyId) && entry.algorithm === "Ed25519" &&
     typeof entry.signature === "string" && entry.signature.length === 86 &&
     BASE64URL.test(entry.signature) && Buffer.from(entry.signature, "base64url").length === 64 &&
     Buffer.from(entry.signature, "base64url").toString("base64url") === entry.signature
@@ -166,9 +182,9 @@ function normalizeEnvelope(value) {
 }
 
 function decodeSpki(value) {
-  if (typeof value !== "string" || !BASE64URL.test(value)) return null;
+  if (typeof value !== "string" || value.length !== 59 || !BASE64URL.test(value)) return null;
   const bytes = Buffer.from(value, "base64url");
-  if (bytes.toString("base64url") !== value) return null;
+  if (bytes.length !== 44 || bytes.toString("base64url") !== value) return null;
   const inspected = inspectProvisioningEd25519SpkiCandidate(bytes);
   if (inspected.status !== "candidate") return null;
   return Object.freeze({ bytes, keyId: inspected.spkiSha256Digest.toString("hex") });
@@ -177,8 +193,8 @@ function decodeSpki(value) {
 function normalizeKey(value) {
   const key = exactRecord(value, KEY_KEYS);
   const spki = key && decodeSpki(key.spkiDer);
-  if (!key || !KEY_ID.test(key.keyId) || key.algorithm !== "Ed25519" || !spki ||
-      spki.keyId !== key.keyId || !ID.test(key.enrollmentCaId) ||
+  if (!key || !exactHash(key.keyId) || key.algorithm !== "Ed25519" || !spki ||
+      spki.keyId !== key.keyId || !exactId(key.enrollmentCaId) ||
       !canonicalUtc(key.notBefore) || !canonicalUtc(key.notAfter) ||
       Date.parse(key.notAfter) <= Date.parse(key.notBefore)) return null;
   return Object.freeze({ record: Object.freeze(key), spkiDer: spki.bytes });
@@ -200,8 +216,8 @@ function normalizeKeyset(value) {
 
 function normalizeRevoked(value) {
   const entry = exactRecord(value, REVOKED_KEY_KEYS);
-  return entry && KEY_ID.test(entry.keyId) && canonicalUtc(entry.revokedAt) &&
-    typeof entry.reasonCode === "string" && /^[a-z][a-z0-9_]{0,63}$/u.test(entry.reasonCode)
+  return entry && exactHash(entry.keyId) && canonicalUtc(entry.revokedAt) &&
+    exactString(entry.reasonCode, /^[a-z][a-z0-9_]{0,63}$/u)
     ? Object.freeze(entry) : null;
 }
 
@@ -284,7 +300,10 @@ export function buildProvisioningRecordDomainMessageCandidate(rawPayload) {
   return Object.freeze({
     status: "candidate",
     reason: "provisioning_record_domain_message_candidate",
-    message: Buffer.concat([PROVISIONING_RECORD_DOMAIN_PREFIX, length, compiled.canonicalBytes]),
+    message: Buffer.concat([
+      Buffer.from(PROVISIONING_RECORD_DOMAIN_PREFIX_ASCII, "ascii"), length,
+      compiled.canonicalBytes
+    ]),
     payloadHash: compiled.canonicalHash,
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
@@ -352,7 +371,7 @@ export function verifyProvisioningRecordAggregateCandidate(rawInput) {
     for (const signature of normalizedEnvelope.signatures) {
       const key = keys.get(signature.keyId);
       if (!key) return aggregateBlocked("provisioning_record_aggregate_unknown_key");
-      if (revoked.has(signature.keyId) && Date.parse(revoked.get(signature.keyId).revokedAt) <= now) {
+      if (revoked.has(signature.keyId)) {
         return aggregateBlocked("provisioning_record_aggregate_revoked_key");
       }
       if (now < Date.parse(key.record.notBefore) || now >= Date.parse(key.record.notAfter)) {
