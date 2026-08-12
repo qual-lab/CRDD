@@ -62,7 +62,7 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
   "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
   "repository_runtime_root_identity_protection_and_selected_principal_binding",
   "persistent_active_activation_record_identity_and_repository_binding",
-  "helper_signature_trust_principal_root_and_protection_metadata_unchanged"
+  "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged"
 ]);
 
 function deriveOnboardingReadiness(implementation) {
@@ -78,8 +78,16 @@ function deriveOnboardingReadiness(implementation) {
     dependency("platform_provisioner_verification",
       [implementation.platformProvisionerVerification]),
     dependency("platform_provisioner_effect", [implementation.platformProvisionerEffect]),
-    dependency("provision_receipt_contract", [implementation.provisionReceiptContract]),
-    dependency("provision_receipt_verification", [implementation.provisionReceiptVerification]),
+    dependency("provisioning_record_contract", [
+      implementation.provisioningRecordContract,
+      implementation.provisioningRecordLifecyclePersistence
+    ]),
+    dependency("provisioning_record_verification", [
+      implementation.provisioningRecordVerification,
+      implementation.provisioningRecordTrustAnchorSet,
+      implementation.provisioningRecordRevocationEvaluation,
+      implementation.provisioningRecordFilesystemRead
+    ]),
     dependency("authority_root_resolution_from_provisioning_record", [
       implementation.authorityRootResolutionFromProvisioningRecord,
       locator.filesystemRead,
@@ -260,8 +268,12 @@ export function describeRuntimeActivationContract() {
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
     platformProvisionerEffect: "not_implemented",
-    provisionReceiptContract: "not_implemented",
-    provisionReceiptVerification: "not_implemented",
+    provisioningRecordContract: "not_implemented",
+    provisioningRecordVerification: "not_implemented",
+    provisioningRecordTrustAnchorSet: "not_implemented",
+    provisioningRecordRevocationEvaluation: "not_implemented",
+    provisioningRecordFilesystemRead: "not_implemented",
+    provisioningRecordLifecyclePersistence: "not_implemented",
     authorityRootResolutionFromProvisioningRecord: "not_implemented",
     runtimeRootProvisioningEffect: "not_implemented",
     authorityRootProvisioningEffect: "not_implemented",
@@ -274,7 +286,6 @@ export function describeRuntimeActivationContract() {
     authorityRootLocator,
     activationLocatorBinding
   });
-  const onboarding = deriveOnboardingReadiness(implementation);
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
     authorityRole: "platform_scope_signed_runtime_authority_source_of_truth_target",
@@ -299,17 +310,18 @@ export function describeRuntimeActivationContract() {
     environmentSelection: "explicit_compatibility_or_automation_override_target",
     selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
     automaticRepair: false,
-    recordSchemaCodec: implementation.provisionReceiptContract,
-    signatureVerifier: implementation.platformProvisionerVerification,
-    embeddedTrustAnchorSet: "not_implemented",
-    revocationEvaluator: "not_implemented",
-    filesystemRead: "not_implemented",
+    recordSchemaCodec: implementation.provisioningRecordContract,
+    signatureVerifier: implementation.provisioningRecordVerification,
+    embeddedTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
+    revocationEvaluator: implementation.provisioningRecordRevocationEvaluation,
+    filesystemRead: implementation.provisioningRecordFilesystemRead,
     resolver: implementation.authorityRootResolutionFromProvisioningRecord,
-    lifecyclePersistence: "not_implemented",
+    lifecyclePersistence: implementation.provisioningRecordLifecyclePersistence,
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
+  const onboarding = deriveOnboardingReadiness(implementation);
   return Object.freeze({
     contract: RUNTIME_ACTIVATION_CONTRACT,
     contractRevision: RUNTIME_ACTIVATION_CONTRACT_REVISION,
@@ -376,8 +388,14 @@ export function describeRuntimeActivationContract() {
     ]),
     platformProvisionerVerification: implementation.platformProvisionerVerification,
     platformProvisionerEffect: implementation.platformProvisionerEffect,
-    provisionReceiptContract: implementation.provisionReceiptContract,
-    provisionReceiptVerification: implementation.provisionReceiptVerification,
+    provisioningRecordContract: implementation.provisioningRecordContract,
+    provisioningRecordVerification: implementation.provisioningRecordVerification,
+    provisioningRecordTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
+    provisioningRecordRevocationEvaluation:
+      implementation.provisioningRecordRevocationEvaluation,
+    provisioningRecordFilesystemRead: implementation.provisioningRecordFilesystemRead,
+    provisioningRecordLifecyclePersistence:
+      implementation.provisioningRecordLifecyclePersistence,
     authorityRootResolutionFromProvisioningRecord:
       implementation.authorityRootResolutionFromProvisioningRecord,
     authorityRootExplicitPathContractPreserved: true,

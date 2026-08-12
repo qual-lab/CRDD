@@ -436,7 +436,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
     "repository_runtime_root_identity_protection_and_selected_principal_binding",
     "persistent_active_activation_record_identity_and_repository_binding",
-    "helper_signature_trust_principal_root_and_protection_metadata_unchanged"
+    "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged"
   ]);
   assert.equal(report.runtimeActivation.onboardingReadyTransition, "not_implemented");
   assert.equal(report.runtimeActivation.onboardingReadinessProjection,
@@ -449,8 +449,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.deepEqual(report.runtimeActivation.onboardingBlockingDependencies, [
     "platform_provisioner_verification",
     "platform_provisioner_effect",
-    "provision_receipt_contract",
-    "provision_receipt_verification",
+    "provisioning_record_contract",
+    "provisioning_record_verification",
     "authority_root_resolution_from_provisioning_record",
     "root_protection_platform_adapters",
     "runtime_root_provisioning_effect",
@@ -488,8 +488,35 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   ]);
   assert.equal(report.runtimeActivation.platformProvisionerVerification, "not_implemented");
   assert.equal(report.runtimeActivation.platformProvisionerEffect, "not_implemented");
-  assert.equal(report.runtimeActivation.provisionReceiptContract, "not_implemented");
-  assert.equal(report.runtimeActivation.provisionReceiptVerification, "not_implemented");
+  assert.equal(report.runtimeActivation.provisioningRecordContract, "not_implemented");
+  assert.equal(report.runtimeActivation.provisioningRecordVerification, "not_implemented");
+  assert.equal(report.runtimeActivation.provisioningRecordTrustAnchorSet, "not_implemented");
+  assert.equal(report.runtimeActivation.provisioningRecordRevocationEvaluation,
+    "not_implemented");
+  assert.equal(report.runtimeActivation.provisioningRecordFilesystemRead, "not_implemented");
+  assert.equal(report.runtimeActivation.provisioningRecordLifecyclePersistence,
+    "not_implemented");
+  assert.equal(["provision", "ReceiptContract"].join("") in report.runtimeActivation, false);
+  assert.equal(["provision", "ReceiptVerification"].join("") in report.runtimeActivation,
+    false);
+  assert.equal(
+    report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.recordSchemaCodec,
+    report.runtimeActivation.provisioningRecordContract);
+  assert.equal(
+    report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.signatureVerifier,
+    report.runtimeActivation.provisioningRecordVerification);
+  assert.equal(
+    report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.embeddedTrustAnchorSet,
+    report.runtimeActivation.provisioningRecordTrustAnchorSet);
+  assert.equal(
+    report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.revocationEvaluator,
+    report.runtimeActivation.provisioningRecordRevocationEvaluation);
+  assert.equal(
+    report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.filesystemRead,
+    report.runtimeActivation.provisioningRecordFilesystemRead);
+  assert.equal(
+    report.runtimeActivation.provisioningRecordTrustAndSelectionPolicy.lifecyclePersistence,
+    report.runtimeActivation.provisioningRecordLifecyclePersistence);
   assert.equal(report.runtimeActivation.authorityRootResolutionFromProvisioningRecord,
     "not_implemented");
   assert.equal(report.runtimeActivation.authorityRootExplicitPathContractPreserved, true);

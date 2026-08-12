@@ -255,7 +255,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
     "repository_runtime_root_identity_protection_and_selected_principal_binding",
     "persistent_active_activation_record_identity_and_repository_binding",
-    "helper_signature_trust_principal_root_and_protection_metadata_unchanged"
+    "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged"
   ]);
   assert.equal(contract.onboardingReadyTransition, "not_implemented");
   assert.equal(contract.onboardingReadinessProjection,
@@ -268,8 +268,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.deepEqual(contract.onboardingBlockingDependencies, [
     "platform_provisioner_verification",
     "platform_provisioner_effect",
-    "provision_receipt_contract",
-    "provision_receipt_verification",
+    "provisioning_record_contract",
+    "provisioning_record_verification",
     "authority_root_resolution_from_provisioning_record",
     "root_protection_platform_adapters",
     "runtime_root_provisioning_effect",
@@ -311,8 +311,26 @@ test("Activation contractは永続化、専用command、再activation、disable/
   ]);
   assert.equal(contract.platformProvisionerVerification, "not_implemented");
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
-  assert.equal(contract.provisionReceiptContract, "not_implemented");
-  assert.equal(contract.provisionReceiptVerification, "not_implemented");
+  assert.equal(contract.provisioningRecordContract, "not_implemented");
+  assert.equal(contract.provisioningRecordVerification, "not_implemented");
+  assert.equal(contract.provisioningRecordTrustAnchorSet, "not_implemented");
+  assert.equal(contract.provisioningRecordRevocationEvaluation, "not_implemented");
+  assert.equal(contract.provisioningRecordFilesystemRead, "not_implemented");
+  assert.equal(contract.provisioningRecordLifecyclePersistence, "not_implemented");
+  assert.equal(["provision", "ReceiptContract"].join("") in contract, false);
+  assert.equal(["provision", "ReceiptVerification"].join("") in contract, false);
+  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.recordSchemaCodec,
+    contract.provisioningRecordContract);
+  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.signatureVerifier,
+    contract.provisioningRecordVerification);
+  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.embeddedTrustAnchorSet,
+    contract.provisioningRecordTrustAnchorSet);
+  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.revocationEvaluator,
+    contract.provisioningRecordRevocationEvaluation);
+  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.filesystemRead,
+    contract.provisioningRecordFilesystemRead);
+  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.lifecyclePersistence,
+    contract.provisioningRecordLifecyclePersistence);
   assert.equal(contract.authorityRootResolutionFromProvisioningRecord, "not_implemented");
   assert.equal(contract.authorityRootExplicitPathContractPreserved, true);
   assert.equal(contract.runtimeRootProvisioningEffect, "not_implemented");
