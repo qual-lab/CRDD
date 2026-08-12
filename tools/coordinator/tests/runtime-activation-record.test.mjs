@@ -436,10 +436,12 @@ test("Activation contractは永続化、専用command、再activation、disable/
       "authority_record_committed_before_repository_generation_without_cross_volume_atomicity_claim",
     durabilityOrdering:
       "immutable_files_fsync_then_generation_directory_fsync_then_pointer_temp_fsync_then_pointer_atomic_replace_then_pointer_parent_directory_fsync_then_reread_identity_verification_target",
+    durabilityStageFailureBehavior:
+      "retain_available_artifacts_and_any_existing_journal_block_and_require_explicit_recovery_without_guessed_rollback_or_automatic_retry",
     recoveryJournal:
       "private_owned_transaction_expected_previous_and_next_hashes_target",
     ambiguousRecoveryBehavior:
-      "retain_artifacts_block_and_require_explicit_recovery_without_guessed_rollback",
+      "ambiguous_or_unclassifiable_state_uses_durability_stage_failure_behavior",
     disableLifecycle:
       "disabled_generation_retains_inactive_locator_and_reactivation_requires_new_activation_id_target",
     setupSelectionPrecedence: "explicit_cli_then_explicit_environment_target",
