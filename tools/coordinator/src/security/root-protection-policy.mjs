@@ -124,6 +124,17 @@ export function describeRootProtectionPolicyContract() {
     runtimeRootProtection: "runtime_principal_only_read_write_and_no_other_writer",
     authorityRootProtection:
       "provisioner_principal_only_write_runtime_read_only_and_no_other_writer",
+    writerExclusivityScope:
+      "ordinary_access_control_entries_excluding_trusted_platform_administrator_override",
+    trustedPlatformAdministratorBoundary: Object.freeze([
+      "windows_system_and_machine_administrators",
+      "posix_root"
+    ]),
+    administratorOriginatedChangeDetection:
+      "runtime_owned_revalidation_detects_observable_identity_protection_or_trust_change_and_fails_closed",
+    administratorCompromiseResponse:
+      "blocked_and_reprovision_or_platform_recovery_required",
+    completeOsOrVerifierCompromiseProtection: "not_guaranteed",
     rootProvisioning: "external_preprovision_required",
     callerObservationsAreAuthority: false,
     protectionPolicyCore: "implemented_candidate_claim_only",

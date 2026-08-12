@@ -558,6 +558,18 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "runtime_principal_only_read_write_and_no_other_writer");
   assert.equal(contract.rootProtectionPolicy.authorityRootProtection,
     "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
+  assert.equal(contract.rootProtectionPolicy.writerExclusivityScope,
+    "ordinary_access_control_entries_excluding_trusted_platform_administrator_override");
+  assert.deepEqual(contract.rootProtectionPolicy.trustedPlatformAdministratorBoundary, [
+    "windows_system_and_machine_administrators",
+    "posix_root"
+  ]);
+  assert.equal(contract.rootProtectionPolicy.administratorOriginatedChangeDetection,
+    "runtime_owned_revalidation_detects_observable_identity_protection_or_trust_change_and_fails_closed");
+  assert.equal(contract.rootProtectionPolicy.administratorCompromiseResponse,
+    "blocked_and_reprovision_or_platform_recovery_required");
+  assert.equal(contract.rootProtectionPolicy.completeOsOrVerifierCompromiseProtection,
+    "not_guaranteed");
   assert.equal(contract.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
   assert.equal(contract.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
   assert.equal(contract.rootProtectionPolicy.posixAclVerification, "not_implemented");

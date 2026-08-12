@@ -657,3 +657,9 @@ Qual-Labの人間の決定権限者は、登録証明書を独自JCS JSON、CA�
 `AG-INSTALL-ENROLL-001`への処置として、オフライン束が署名必須の目標であること、検証済み自動更新の成功後は利用者／管理者操作を要求しないこと、rollbackを期限切れ／失効等と同じfail-closed対象にすることを契約正本、doctor、試験、READMEおよびThreat Modelへ追加する。`DOC-INSTALL-ENROLL-003`への処置として、人間向け説明の初出を日本語先行にする。両処置は`Applied`／`Self-checked`であり、新固定版の3独立監査前に`Resolved`としない。12 blocker／6 run根拠、非Effect／非Authority／非Capability、Gate `blocked`および非Releaseを維持する。
 
 固定Commit `f39958bbe1c9b71643238454f42651bf357596f8`／Tree `8e004f29cbcc17d93bf0fb9f8d5644bb057868dc`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。`AG-INSTALL-ENROLL-001`および`DOC-INSTALL-ENROLL-003`はこの固定範囲で`Resolved`と判定する。`DOC-INSTALL-ENROLL-002`は一次承認Oracleの再照合により修正不要と確定し、元監査の履歴は保持する。旧`f8d464f`以前の監査集合は現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_f39958b.md`](Evidence/CHG-000015_Current_Review_Record_f39958b.md)へ接続する。実certificate／bundle／CA／keystore／Network／Filesystem／Authority／Capabilityは未実装または未評価でGate `blocked`を維持する。本解消はRuntime完成、採用、準拠、移行、Stable、Releaseまたは公開を意味しない。
+
+### プラットフォーム管理者侵害時の検出・停止境界
+
+Qual-Labの人間の決定権限者は、Runtime 1.0のRoot保護について、Windowsの`SYSTEM`／machine AdministratorsおよびPOSIXの`root`を信頼するプラットフォーム管理者境界（Trusted Platform Administrator Boundary）として扱う残存リスクを承認した。通常DACL／ACL／mode上のwriterはRuntime Rootではruntime principal、Authority Rootではprovisioner principalへ限定する。Runtime所有経路がIdentity、保護metadata、署名、Trustまたはactivationの観測可能な変更を再検証で検出した場合は、Capability、ProviderおよびOperationを開始せず`blocked`として再ProvisionまたはPlatform recoveryへ戻す。
+
+この判断は、管理者侵害を防止できる、またはOS／kernel／Verifierを完全に支配した攻撃者を必ず検出できるという保証ではない。完全支配下で観測結果や実行コードを偽装される場合は保証対象外とする。正本はRoot Protection契約が所有し、activation contractとdoctorは同じ凍結投影を使用する。12 blocker、6 current-run evidence、Root Protection Platform Adapter未実装、Authority／Capability／Effect非発行、Gate `blocked`および非Release境界を維持する。本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeの機械確認とAgent／Architecture／Security、Document、Gap／Impact＋Conformanceの3独立監査が完了するまで採用、Runtime完成、準拠、移行、StableまたはReleaseとしない。

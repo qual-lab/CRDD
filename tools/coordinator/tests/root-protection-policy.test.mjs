@@ -188,6 +188,18 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
     "runtime_principal_only_read_write_and_no_other_writer");
   assert.equal(contract.authorityRootProtection,
     "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
+  assert.equal(contract.writerExclusivityScope,
+    "ordinary_access_control_entries_excluding_trusted_platform_administrator_override");
+  assert.deepEqual(contract.trustedPlatformAdministratorBoundary, [
+    "windows_system_and_machine_administrators",
+    "posix_root"
+  ]);
+  assert.equal(Object.isFrozen(contract.trustedPlatformAdministratorBoundary), true);
+  assert.equal(contract.administratorOriginatedChangeDetection,
+    "runtime_owned_revalidation_detects_observable_identity_protection_or_trust_change_and_fails_closed");
+  assert.equal(contract.administratorCompromiseResponse,
+    "blocked_and_reprovision_or_platform_recovery_required");
+  assert.equal(contract.completeOsOrVerifierCompromiseProtection, "not_guaranteed");
   assert.equal(contract.callerObservationsAreAuthority, false);
   assert.equal(contract.protectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.posixRuntimeRootPrecheckEntry, "implemented_fail_closed");

@@ -613,6 +613,17 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(Object.isFrozen(
     report.runtimeActivation.installationKeyEnrollmentPolicy
       .implementationDependencyRelationships), true);
+  assert.equal(report.runtimeActivation.rootProtectionPolicy.writerExclusivityScope,
+    "ordinary_access_control_entries_excluding_trusted_platform_administrator_override");
+  assert.deepEqual(
+    report.runtimeActivation.rootProtectionPolicy.trustedPlatformAdministratorBoundary,
+    ["windows_system_and_machine_administrators", "posix_root"]);
+  assert.equal(report.runtimeActivation.rootProtectionPolicy.administratorOriginatedChangeDetection,
+    "runtime_owned_revalidation_detects_observable_identity_protection_or_trust_change_and_fails_closed");
+  assert.equal(report.runtimeActivation.rootProtectionPolicy.administratorCompromiseResponse,
+    "blocked_and_reprovision_or_platform_recovery_required");
+  assert.equal(report.runtimeActivation.rootProtectionPolicy.completeOsOrVerifierCompromiseProtection,
+    "not_guaranteed");
   assert.equal(report.runtimeActivation.provisioningRecordRole,
     "platform_scope_signed_runtime_authority_source_of_truth_target");
   assert.equal(report.runtimeActivation.provisionReceiptRelationship,
