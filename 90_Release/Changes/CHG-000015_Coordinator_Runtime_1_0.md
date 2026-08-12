@@ -675,3 +675,13 @@ Qual-Labの人間の決定権限者は、Runtime 1.0のRoot保護について、
 固定Commit `cedecc3c723f916eaddc3bf6df6cb7c3bd929004`／Tree `f71b87f3fbb9c3ec088b5739492e711010171507`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。`AG-ROOT-ADMIN-001`、`DOC-ROOT-ADMIN-001`、`AG-ROOT-ADMIN-R01`および`GCI-ROOT-ADMIN-R01`はこの固定範囲で`Resolved`と判定する。旧`e760d81`以前の監査集合は履歴として保持するが現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_cedecc3.md`](Evidence/CHG-000015_Current_Review_Record_cedecc3.md)へ接続する。
 
 確認済み範囲はPlatform Administrator Trust Boundary、通常変更／分類不能／侵害疑いのfail-closed分岐、観測5軸、契約投影およびGate境界に限る。実Platform recovery、Trust健全性／再確立Oracle、Windows DACL、POSIX owner／mode／ACL、persistent volume、再Provision Effectおよび完全OS侵害下の検出は未実装または未評価である。本解消はRuntime完成、採用、準拠、移行、Stable、Releaseまたは公開を意味しない。
+
+### Provisioning実装6群の一括承認とcontract固定
+
+Qual-Labの人間の決定権限者は、登録証明書、オンライン登録、署名済みオフライン登録束、CA／失効／rollback、保存／resolver／recoveryおよびOS保護Adapterの6群を一括承認した。登録証明書は既承認のEd25519／JCS、有効期間180日、期限30日前からの更新、新旧overlap最大30日を維持する。オンラインchallengeは10分有効で端末秘密鍵による所有証明成功後に一度だけ消費し、offline bundleは7日有効で一度だけ利用する。CAはoffline rootとonline issuing keyを分離し、issuing key最大365日、切替overlap 30日、失効情報freshness 24時間とする。Trust epoch／revisionとsame-revision Hashの単調floorを要求する。
+
+保存はAuthority Rootのimmutable content-addressed Recordとatomic current pointer、Repositoryのimmutable activation／locator generationとatomic pointerへ分離する。Authority Recordを先に確定し、cross-volume atomicityを主張しない。durable write、directory同期、pointer置換、再読取Identity確認を要求し、曖昧なjournal状態は推測rollbackせず保持して`blocked`とする。disableはinactive locatorをgenerationへ保持し、再有効化は新activation IDを要求する。setupは明示CLI、明示environmentの順、通常runは検証済みRecord＋Locatorだけを候補とし、選択source失敗時に低優先sourceへfallbackしない。
+
+権限Effect ownerは公式署名済みPlatform Provisionerだけで、Runtime自身のpermission mutationを禁止する。WindowsはRuntime Rootをruntime SID read/write、Authority Rootをprovisioner／承認admin write＋runtime SID read-onlyとし、継承および広範write ACEを拒否する。POSIXはRuntime Rootをruntime UID owner／mode `0700`、Authority Rootをprovisionerまたはroot owner＋runtime read/traverse ACLとし、未承認group／other writeを拒否する。local相当の安定Identity、durable atomic replaceおよび同等ACLを実証できないnetwork／removable／special／unknown volumeは`blocked`とする。OS root／SYSTEM／machine AdministratorsのTrust境界と侵害時Platform recovery規則は既存正本を維持する。
+
+今回の実装は、上記承認値を`describeRuntimeActivationContract()`とRoot Protection正本の入力なし・凍結contractへ固定し、doctor、試験、READMEおよびThreat Modelへ投影する範囲である。各成果物のexact field Schema／wire encoding／domain bytes、CA chainのexact topology／署名充足、replay台帳の保存形式、CA実配布LifecycleおよびOS／Filesystem Adapter実装は承認内容から一意に導けないため推定しない。新input、Network、Filesystem、鍵操作、Authority、CapabilityまたはEffectを発行せず、12 blocker、6 run根拠、Gate `blocked`および非Releaseを維持する。処置は`Applied`／`Self-checked`であり、新固定版の機械確認と3独立監査前に採用、Runtime完成、準拠、移行、StableまたはReleaseとしない。

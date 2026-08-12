@@ -140,6 +140,24 @@ export function describeRootProtectionPolicyContract() {
       "fail_closed_as_suspected_compromise",
     platformRecoveryImplementation: "not_implemented",
     completeOsOrVerifierCompromiseProtection: "not_guaranteed",
+    protectionEffectOwner: "official_signed_platform_provisioner_only_target",
+    runtimePermissionMutation: "prohibited",
+    windowsProtectionTarget: Object.freeze({
+      runtimeRoot: "runtime_sid_read_write_target",
+      authorityRoot: "provisioner_or_approved_admin_write_runtime_sid_read_only_target",
+      inheritance: "disabled_target",
+      untrustedBroadWriteAces: "rejected_target"
+    }),
+    posixProtectionTarget: Object.freeze({
+      runtimeRoot: "runtime_uid_owner_mode_0700_target",
+      authorityRoot:
+        "provisioner_or_root_owner_runtime_read_traverse_explicit_acl_target",
+      unapprovedGroupOrOtherWrite: "rejected_target"
+    }),
+    persistentVolumeEligibility:
+      "local_equivalent_stable_identity_durable_atomic_replace_and_equivalent_acl_required_target",
+    unsupportedVolumeBehavior:
+      "network_removable_special_or_unknown_blocked_target",
     rootProvisioning: "external_preprovision_required",
     callerObservationsAreAuthority: false,
     protectionPolicyCore: "implemented_candidate_claim_only",

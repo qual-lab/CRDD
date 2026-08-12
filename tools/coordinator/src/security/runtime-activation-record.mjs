@@ -445,6 +445,11 @@ export function describeRuntimeActivationContract() {
       "platform_scope",
       "installation_public_key"
     ]),
+    onlineChallengeValidityMinutes: 10,
+    onlineChallengeConsumption:
+      "one_time_consumption_after_verified_proof_of_possession_target",
+    onlineProofOfPossession:
+      "installation_private_key_signature_required_target_exact_wire_not_implemented",
     offlineEnrollmentBundleRequiredContents: Object.freeze([
       "enrollment_request_hash",
       "enrollment_certificate",
@@ -454,6 +459,8 @@ export function describeRuntimeActivationContract() {
     ]),
     offlineEnrollmentBundleAuthenticity:
       "signed_bundle_required_exact_signer_and_signature_topology_not_implemented",
+    offlineEnrollmentBundleValidityDays: 7,
+    offlineEnrollmentBundleConsumption: "one_time_consumption_target",
     enrollmentReplayBehavior:
       "replay_cross_machine_cross_platform_scope_and_expired_input_blocked_target",
     enrollmentModeFallback: "blocked_without_silent_fallback",
@@ -467,6 +474,13 @@ export function describeRuntimeActivationContract() {
       "future_provisioning_record_signing_key_candidate_only",
     unknownExpiredRevokedRollbackReplacedOrUnverifiableBehavior:
       "blocked_and_reprovision_required_without_automatic_recovery_or_fallback",
+    provisioningCaTopology:
+      "offline_root_and_online_issuing_key_role_separation_target",
+    provisioningCaIssuingKeyValidityDays: 365,
+    provisioningCaIssuingKeyOverlapDays: 30,
+    provisioningRevocationFreshnessHours: 24,
+    provisioningTrustRollbackFloor:
+      "monotonic_epoch_revision_and_same_revision_hash_target_persistence_not_implemented",
     installationKeyGeneration: implementation.installationKeyGeneration,
     installationKeyProtectionVerification:
       implementation.installationKeyProtectionVerification,
@@ -497,6 +511,34 @@ export function describeRuntimeActivationContract() {
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
+  const provisioningStorageAndLifecyclePolicy = Object.freeze({
+    policy: "human_approved_candidate_contract_only",
+    authorityRecordStorage:
+      "immutable_content_addressed_records_with_atomic_current_pointer_target",
+    repositoryActivationStorage:
+      "immutable_activation_locator_generation_with_atomic_current_pointer_target",
+    authorityAndRepositoryAtomicity:
+      "authority_record_committed_before_repository_generation_without_cross_volume_atomicity_claim",
+    durabilityOrdering:
+      "files_then_directories_then_pointer_replace_then_reread_identity_verification_target",
+    recoveryJournal:
+      "private_owned_transaction_expected_previous_and_next_hashes_target_not_implemented",
+    ambiguousRecoveryBehavior:
+      "retain_artifacts_block_and_require_explicit_recovery_without_guessed_rollback",
+    disableLifecycle:
+      "disabled_generation_retains_inactive_locator_and_reactivation_requires_new_activation_id_target",
+    setupSelectionPrecedence: "explicit_cli_then_explicit_environment_target",
+    routineRunSelection: "verified_record_and_locator_only_target",
+    selectedSourceFailureBehavior:
+      "blocked_without_lower_priority_fallback_and_reprovision_required",
+    filesystemRead: "not_implemented",
+    filesystemWrite: "not_implemented",
+    atomicPersistence: implementation.atomicPersistence,
+    crashRecovery: implementation.activationLocatorBinding.crashRecovery,
+    filesystemEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
   const onboarding = deriveOnboardingReadiness(implementation);
   return Object.freeze({
     contract: RUNTIME_ACTIVATION_CONTRACT,
@@ -522,6 +564,7 @@ export function describeRuntimeActivationContract() {
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
+    provisioningStorageAndLifecyclePolicy,
     provisioningRecordRole: provisioningRecordTrustAndSelectionPolicy.authorityRole,
     provisionReceiptRelationship:
       provisioningRecordTrustAndSelectionPolicy.provisionReceiptRelationship,

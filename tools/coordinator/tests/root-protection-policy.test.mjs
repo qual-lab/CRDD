@@ -206,6 +206,27 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
   assert.equal(contract.platformRecoveryImplementation, "not_implemented");
   assert.equal(["administrator", "CompromiseResponse"].join("") in contract, false);
   assert.equal(contract.completeOsOrVerifierCompromiseProtection, "not_guaranteed");
+  assert.equal(contract.protectionEffectOwner,
+    "official_signed_platform_provisioner_only_target");
+  assert.equal(contract.runtimePermissionMutation, "prohibited");
+  assert.deepEqual(contract.windowsProtectionTarget, {
+    runtimeRoot: "runtime_sid_read_write_target",
+    authorityRoot: "provisioner_or_approved_admin_write_runtime_sid_read_only_target",
+    inheritance: "disabled_target",
+    untrustedBroadWriteAces: "rejected_target"
+  });
+  assert.deepEqual(contract.posixProtectionTarget, {
+    runtimeRoot: "runtime_uid_owner_mode_0700_target",
+    authorityRoot:
+      "provisioner_or_root_owner_runtime_read_traverse_explicit_acl_target",
+    unapprovedGroupOrOtherWrite: "rejected_target"
+  });
+  assert.equal(contract.persistentVolumeEligibility,
+    "local_equivalent_stable_identity_durable_atomic_replace_and_equivalent_acl_required_target");
+  assert.equal(contract.unsupportedVolumeBehavior,
+    "network_removable_special_or_unknown_blocked_target");
+  assert.equal(Object.isFrozen(contract.windowsProtectionTarget), true);
+  assert.equal(Object.isFrozen(contract.posixProtectionTarget), true);
   assert.equal(contract.callerObservationsAreAuthority, false);
   assert.equal(contract.protectionPolicyCore, "implemented_candidate_claim_only");
   assert.equal(contract.posixRuntimeRootPrecheckEntry, "implemented_fail_closed");
