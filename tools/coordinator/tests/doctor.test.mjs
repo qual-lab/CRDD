@@ -532,9 +532,13 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       "platform_scope",
       "installation_public_key"
     ],
-    onlineChallengeValidityMinutes: 10,
+    onlineChallengeValidityMinutes: 30,
+    onlineChallengeBinding:
+      "nonce_installation_public_key_platform_scope_and_enrollment_request_binding_target_exact_wire_not_implemented",
     onlineChallengeConsumption:
-      "one_time_consumption_after_verified_proof_of_possession_target",
+      "consumed_on_first_verification_attempt_whether_success_or_failure_and_never_reusable_target",
+    onlineChallengeExpiryBehavior:
+      "expired_challenge_blocked_and_fresh_challenge_required_without_offline_fallback_target",
     onlineProofOfPossession:
       "installation_private_key_signature_required_target_exact_wire_not_implemented",
     offlineEnrollmentBundleRequiredContents: [
