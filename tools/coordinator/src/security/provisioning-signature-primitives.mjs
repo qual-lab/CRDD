@@ -4,6 +4,8 @@ import { types as utilTypes } from "node:util";
 export const PROVISIONING_SIGNATURE_PRIMITIVES_CONTRACT =
   "crdd-coordinator/provisioning-signature-primitives";
 export const PROVISIONING_SIGNATURE_PRIMITIVES_CONTRACT_REVISION = 1;
+export const PROVISIONING_SIGNATURE_ENVELOPE_TOPOLOGY =
+  "payload_and_multiple_signatures_separated_target";
 export const PROVISIONING_SIGNATURE_INPUT_LIMITS = Object.freeze({
   canonicalBytes: 131_072,
   depth: 64,
@@ -18,6 +20,9 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   "byteLength"
 ).get;
 const VERIFY_KEYS = new Set(["spkiDer", "message", "signature"]);
+const INVALID = Symbol("invalid");
+
+class InputBudgetExceeded extends Error {}
 
 function blocked(reason) {
   return Object.freeze({
@@ -59,66 +64,133 @@ function dataDescriptor(descriptor, enumerable = true) {
 
 function snapshotJsonValue(value, state, depth = 0) {
   if (depth > PROVISIONING_SIGNATURE_INPUT_LIMITS.depth ||
-      state.nodes >= PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes) return null;
+      state.nodes >= PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes) throw new InputBudgetExceeded();
   state.nodes += 1;
   if (value === null || typeof value === "boolean") return value;
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : INVALID;
   if (typeof value === "string") {
     return !hasLoneSurrogate(value) &&
       Buffer.byteLength(value, "utf8") <= PROVISIONING_SIGNATURE_INPUT_LIMITS.stringBytes
-      ? value : null;
+      ? value : INVALID;
   }
   if (!value || typeof value !== "object" || utilTypes.isProxy(value) || state.seen.has(value)) {
-    return null;
+    return INVALID;
   }
   state.seen.add(value);
   const prototype = Object.getPrototypeOf(value);
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const keys = Reflect.ownKeys(descriptors);
   if (Array.isArray(value)) {
-    const length = descriptors.length;
+    const length = Object.getOwnPropertyDescriptor(value, "length");
     if (prototype !== Array.prototype || !dataDescriptor(length, false) ||
-        !Number.isSafeInteger(length.value) || length.value < 0 ||
-        keys.length !== length.value + 1) return null;
+        !Number.isSafeInteger(length.value) || length.value < 0) return INVALID;
+    if (length.value > PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - state.nodes) {
+      throw new InputBudgetExceeded();
+    }
+    const keys = Reflect.ownKeys(value);
+    if (keys.length !== length.value + 1) return INVALID;
     const result = [];
     for (let index = 0; index < length.value; index += 1) {
-      const descriptor = descriptors[String(index)];
-      if (!dataDescriptor(descriptor)) return null;
+      const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+      if (!dataDescriptor(descriptor)) return INVALID;
       const child = snapshotJsonValue(descriptor.value, state, depth + 1);
-      if (child === null && descriptor.value !== null) return null;
+      if (child === INVALID) return INVALID;
       result.push(child);
     }
     return Object.freeze(result);
   }
-  if (prototype !== Object.prototype && prototype !== null) return null;
-  if (keys.some((key) => typeof key !== "string" || !dataDescriptor(descriptors[key]) ||
-    hasLoneSurrogate(key) ||
-    Buffer.byteLength(key, "utf8") > PROVISIONING_SIGNATURE_INPUT_LIMITS.stringBytes)) return null;
+  if (prototype !== Object.prototype && prototype !== null) return INVALID;
+  const keys = Reflect.ownKeys(value);
+  if (keys.length > PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - state.nodes) {
+    throw new InputBudgetExceeded();
+  }
+  if (keys.some((key) => typeof key !== "string" || hasLoneSurrogate(key) ||
+    Buffer.byteLength(key, "utf8") > PROVISIONING_SIGNATURE_INPUT_LIMITS.stringBytes)) return INVALID;
   const result = Object.create(null);
   for (const key of keys) {
-    const child = snapshotJsonValue(descriptors[key].value, state, depth + 1);
-    if (child === null && descriptors[key].value !== null) return null;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!dataDescriptor(descriptor)) return INVALID;
+    const child = snapshotJsonValue(descriptor.value, state, depth + 1);
+    if (child === INVALID) return INVALID;
     result[key] = child;
   }
   return Object.freeze(result);
 }
 
-function serializeJcs(value) {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(serializeJcs).join(",")}]`;
-  return `{${Object.keys(value).sort().map((key) =>
-    `${JSON.stringify(key)}:${serializeJcs(value[key])}`).join(",")}}`;
+function boundedJcs(value) {
+  const chunks = [];
+  let byteLength = 0;
+  const append = (chunk) => {
+    const ownedChunk = Buffer.from(chunk, "utf8");
+    if (byteLength + ownedChunk.length > PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes) {
+      throw new InputBudgetExceeded();
+    }
+    chunks.push(ownedChunk);
+    byteLength += ownedChunk.length;
+  };
+  const string = (text) => {
+    append("\"");
+    let runStart = 0;
+    const flush = (end) => {
+      if (end > runStart) append(text.slice(runStart, end));
+      runStart = end;
+    };
+    for (let index = 0; index < text.length;) {
+      const unit = text.charCodeAt(index);
+      let escaped = null;
+      if (unit === 0x22) escaped = "\\\"";
+      else if (unit === 0x5c) escaped = "\\\\";
+      else if (unit === 0x08) escaped = "\\b";
+      else if (unit === 0x09) escaped = "\\t";
+      else if (unit === 0x0a) escaped = "\\n";
+      else if (unit === 0x0c) escaped = "\\f";
+      else if (unit === 0x0d) escaped = "\\r";
+      else if (unit <= 0x1f) escaped = `\\u${unit.toString(16).padStart(4, "0")}`;
+      const width = unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+      if (escaped !== null) {
+        flush(index);
+        append(escaped);
+        index += width;
+        runStart = index;
+      } else {
+        index += width;
+        if (index - runStart >= 1_024) flush(index);
+      }
+    }
+    flush(text.length);
+    append("\"");
+  };
+  const serialize = (item) => {
+    if (typeof item === "string") return string(item);
+    if (item === null || typeof item === "boolean" || typeof item === "number") {
+      append(JSON.stringify(item));
+      return;
+    }
+    if (Array.isArray(item)) {
+      append("[");
+      item.forEach((child, index) => {
+        if (index > 0) append(",");
+        serialize(child);
+      });
+      append("]");
+      return;
+    }
+    append("{");
+    Object.keys(item).sort().forEach((key, index) => {
+      if (index > 0) append(",");
+      string(key);
+      append(":");
+      serialize(item[key]);
+    });
+    append("}");
+  };
+  serialize(value);
+  return Buffer.concat(chunks, byteLength);
 }
 
 export function canonicalizeProvisioningJsonValueCandidate(rawValue) {
   try {
     const value = snapshotJsonValue(rawValue, { nodes: 0, seen: new WeakSet() });
-    if (value === null && rawValue !== null) return blocked("provisioning_jcs_value_invalid");
-    const source = serializeJcs(value);
-    const canonicalBytes = Buffer.from(source, "utf8");
-    if (canonicalBytes.length > PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes) {
-      return blocked("provisioning_jcs_bytes_exceeded");
-    }
+    if (value === INVALID) return blocked("provisioning_jcs_value_invalid");
+    const canonicalBytes = boundedJcs(value);
     return Object.freeze({
       status: "candidate",
       reason: "provisioning_record_schema_and_domain_separation_required",
@@ -128,7 +200,8 @@ export function canonicalizeProvisioningJsonValueCandidate(rawValue) {
       runtimeCapabilityIssued: false,
       filesystemEffectIssued: false
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof InputBudgetExceeded) return blocked("provisioning_jcs_budget_exceeded");
     return blocked("provisioning_jcs_value_invalid");
   }
 }
@@ -207,9 +280,11 @@ export function describeProvisioningSignaturePrimitivesContract() {
     ed25519SpkiDerInspection: "implemented_candidate_rfc_8410",
     spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
     ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
+    payloadSignatureEnvelopeTopology: PROVISIONING_SIGNATURE_ENVELOPE_TOPOLOGY,
     crddDomainSeparationFraming: "not_implemented",
     provisioningRecordPayloadSchema: "not_implemented",
     multiSignatureEnvelopeSchema: "not_implemented",
+    multiSignatureAcceptanceRule: "not_implemented",
     embeddedTrustAnchorSet: "not_implemented",
     revocationManifest: "not_implemented",
     aggregateRecordVerifier: "not_implemented",

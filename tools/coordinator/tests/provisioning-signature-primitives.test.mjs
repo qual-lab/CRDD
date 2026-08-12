@@ -66,6 +66,41 @@ test("JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限
   assert.equal(proxyCalls, 0);
 });
 
+test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じる", () => {
+  const maximumObject = {};
+  for (let index = 0; index < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - 1; index += 1) {
+    maximumObject[`p${String(index).padStart(4, "0")}`] = null;
+  }
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(maximumObject).status, "candidate");
+  maximumObject.overflow = null;
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(maximumObject).reason,
+    "provisioning_jcs_budget_exceeded");
+
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(
+    Array(PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - 1).fill(null)
+  ).status, "candidate");
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(
+    Array(PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes).fill(null)
+  ).reason, "provisioning_jcs_budget_exceeded");
+  const sparse = [];
+  sparse.length = PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - 1;
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(sparse).status, "blocked");
+
+  const exact = canonicalizeProvisioningJsonValueCandidate({
+    a: "x".repeat(65_536),
+    b: "y".repeat(65_521)
+  });
+  assert.equal(exact.status, "candidate");
+  assert.equal(exact.canonicalBytes.length, PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes);
+  assert.equal(canonicalizeProvisioningJsonValueCandidate({
+    a: "x".repeat(65_536),
+    b: "y".repeat(65_522)
+  }).reason, "provisioning_jcs_budget_exceeded");
+  assert.equal(canonicalizeProvisioningJsonValueCandidate({
+    escaped: "\u0000".repeat(21_845)
+  }).reason, "provisioning_jcs_budget_exceeded");
+});
+
 test("RFC 8410 Ed25519 SPKIだけを受理しexact DERのdigestを候補化する", () => {
   const result = inspectProvisioningEd25519SpkiCandidate(spki());
   assert.equal(result.status, "candidate");
@@ -128,9 +163,11 @@ test("公開contractはprimitiveと未決の統合Trust境界を分離する", (
     ed25519SpkiDerInspection: "implemented_candidate_rfc_8410",
     spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
     ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
+    payloadSignatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
     crddDomainSeparationFraming: "not_implemented",
     provisioningRecordPayloadSchema: "not_implemented",
     multiSignatureEnvelopeSchema: "not_implemented",
+    multiSignatureAcceptanceRule: "not_implemented",
     embeddedTrustAnchorSet: "not_implemented",
     revocationManifest: "not_implemented",
     aggregateRecordVerifier: "not_implemented",

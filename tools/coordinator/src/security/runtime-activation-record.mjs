@@ -315,6 +315,8 @@ export function describeRuntimeActivationContract() {
     selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
     automaticRepair: false,
     signaturePrimitives: implementation.provisioningSignaturePrimitives,
+    signatureEnvelopeTopology:
+      implementation.provisioningSignaturePrimitives.payloadSignatureEnvelopeTopology,
     recordSchemaCodec: implementation.provisioningRecordContract,
     signatureVerifier: implementation.provisioningRecordVerification,
     embeddedTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
