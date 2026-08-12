@@ -85,6 +85,14 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   platformKeyStorageAdapterVerification: "provisioning_record_verification",
   enrollmentReplayProtectionPersistence: "provisioning_record_verification"
 });
+const PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS = Object.freeze({
+  provisioningRecordFilesystemWrite: "platform_provisioner_effect",
+  provisioningRecordCurrentPointerPersistence: "platform_provisioner_effect",
+  provisioningRecordCurrentPointerContract: "provisioning_record_contract",
+  provisioningTrustFloorPersistence: "provisioning_record_verification",
+  repositoryGenerationPersistence: "activation_atomic_persistence",
+  recoveryJournalPersistence: "activation_atomic_persistence"
+});
 
 function deriveOnboardingReadiness(implementation) {
   const rootProtection = implementation.rootProtectionPolicy;
@@ -99,24 +107,31 @@ function deriveOnboardingReadiness(implementation) {
     Object.entries(INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS)
       .filter(([, owner]) => owner === dependencyName)
       .map(([field]) => implementation[field]);
+  const storageSources = (dependencyName) =>
+    Object.entries(PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS)
+      .filter(([, owner]) => owner === dependencyName)
+      .map(([field]) => implementation[field]);
   const dependencies = [
     dependency("platform_provisioner_verification",
       [implementation.platformProvisionerVerification]),
     dependency("platform_provisioner_effect", [
       implementation.platformProvisionerEffect,
-      ...enrollmentSources("platform_provisioner_effect")
+      ...enrollmentSources("platform_provisioner_effect"),
+      ...storageSources("platform_provisioner_effect")
     ]),
     dependency("provisioning_record_contract", [
       implementation.provisioningRecordContract,
       implementation.provisioningRecordLifecyclePersistence,
-      ...enrollmentSources("provisioning_record_contract")
+      ...enrollmentSources("provisioning_record_contract"),
+      ...storageSources("provisioning_record_contract")
     ]),
     dependency("provisioning_record_verification", [
       implementation.provisioningRecordVerification,
       implementation.provisioningRecordTrustAnchorSet,
       implementation.provisioningRecordRevocationEvaluation,
       implementation.provisioningRecordFilesystemRead,
-      ...enrollmentSources("provisioning_record_verification")
+      ...enrollmentSources("provisioning_record_verification"),
+      ...storageSources("provisioning_record_verification")
     ]),
     dependency("authority_root_resolution_from_provisioning_record", [
       implementation.authorityRootResolutionFromProvisioningRecord,
@@ -151,7 +166,8 @@ function deriveOnboardingReadiness(implementation) {
       locator.filesystemWrite,
       locator.atomicPersistence,
       activationLocatorBinding.atomicPersistence,
-      activationLocatorBinding.crashRecovery
+      activationLocatorBinding.crashRecovery,
+      ...storageSources("activation_atomic_persistence")
     ]),
     dependency("run_scoped_capability", [
       implementation.runScopedCapability,
@@ -320,6 +336,12 @@ export function describeRuntimeActivationContract() {
     provisioningRecordRevocationEvaluation: "not_implemented",
     provisioningRecordFilesystemRead: "not_implemented",
     provisioningRecordLifecyclePersistence: "not_implemented",
+    provisioningRecordFilesystemWrite: "not_implemented",
+    provisioningRecordCurrentPointerContract: "not_implemented",
+    provisioningRecordCurrentPointerPersistence: "not_implemented",
+    provisioningTrustFloorPersistence: "not_implemented",
+    repositoryGenerationPersistence: "not_implemented",
+    recoveryJournalPersistence: "not_implemented",
     authorityRootResolutionFromProvisioningRecord: "not_implemented",
     runtimeRootProvisioningEffect: "not_implemented",
     authorityRootProvisioningEffect: "not_implemented",
@@ -520,9 +542,9 @@ export function describeRuntimeActivationContract() {
     authorityAndRepositoryAtomicity:
       "authority_record_committed_before_repository_generation_without_cross_volume_atomicity_claim",
     durabilityOrdering:
-      "files_then_directories_then_pointer_replace_then_reread_identity_verification_target",
+      "immutable_files_fsync_then_generation_directory_fsync_then_pointer_temp_fsync_then_pointer_atomic_replace_then_pointer_parent_directory_fsync_then_reread_identity_verification_target",
     recoveryJournal:
-      "private_owned_transaction_expected_previous_and_next_hashes_target_not_implemented",
+      "private_owned_transaction_expected_previous_and_next_hashes_target",
     ambiguousRecoveryBehavior:
       "retain_artifacts_block_and_require_explicit_recovery_without_guessed_rollback",
     disableLifecycle:
@@ -531,10 +553,19 @@ export function describeRuntimeActivationContract() {
     routineRunSelection: "verified_record_and_locator_only_target",
     selectedSourceFailureBehavior:
       "blocked_without_lower_priority_fallback_and_reprovision_required",
-    filesystemRead: "not_implemented",
-    filesystemWrite: "not_implemented",
+    filesystemRead: implementation.provisioningRecordFilesystemRead,
+    filesystemWrite: implementation.provisioningRecordFilesystemWrite,
+    authorityRecordCurrentPointerContract:
+      implementation.provisioningRecordCurrentPointerContract,
+    authorityRecordCurrentPointerPersistence:
+      implementation.provisioningRecordCurrentPointerPersistence,
+    trustFloorPersistence: implementation.provisioningTrustFloorPersistence,
+    repositoryGenerationPersistence: implementation.repositoryGenerationPersistence,
+    recoveryJournalPersistence: implementation.recoveryJournalPersistence,
     atomicPersistence: implementation.atomicPersistence,
     crashRecovery: implementation.activationLocatorBinding.crashRecovery,
+    implementationDependencyRelationships:
+      PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS,
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
@@ -641,6 +672,18 @@ export function describeRuntimeActivationContract() {
     provisioningRecordFilesystemRead: implementation.provisioningRecordFilesystemRead,
     provisioningRecordLifecyclePersistence:
       implementation.provisioningRecordLifecyclePersistence,
+    provisioningRecordFilesystemWrite:
+      implementation.provisioningRecordFilesystemWrite,
+    provisioningRecordCurrentPointerContract:
+      implementation.provisioningRecordCurrentPointerContract,
+    provisioningRecordCurrentPointerPersistence:
+      implementation.provisioningRecordCurrentPointerPersistence,
+    provisioningTrustFloorPersistence:
+      implementation.provisioningTrustFloorPersistence,
+    repositoryGenerationPersistence:
+      implementation.repositoryGenerationPersistence,
+    recoveryJournalPersistence:
+      implementation.recoveryJournalPersistence,
     authorityRootResolutionFromProvisioningRecord:
       implementation.authorityRootResolutionFromProvisioningRecord,
     authorityRootExplicitPathContractPreserved: true,

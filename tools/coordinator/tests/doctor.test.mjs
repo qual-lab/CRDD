@@ -617,9 +617,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     authorityAndRepositoryAtomicity:
       "authority_record_committed_before_repository_generation_without_cross_volume_atomicity_claim",
     durabilityOrdering:
-      "files_then_directories_then_pointer_replace_then_reread_identity_verification_target",
+      "immutable_files_fsync_then_generation_directory_fsync_then_pointer_temp_fsync_then_pointer_atomic_replace_then_pointer_parent_directory_fsync_then_reread_identity_verification_target",
     recoveryJournal:
-      "private_owned_transaction_expected_previous_and_next_hashes_target_not_implemented",
+      "private_owned_transaction_expected_previous_and_next_hashes_target",
     ambiguousRecoveryBehavior:
       "retain_artifacts_block_and_require_explicit_recovery_without_guessed_rollback",
     disableLifecycle:
@@ -630,14 +630,30 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       "blocked_without_lower_priority_fallback_and_reprovision_required",
     filesystemRead: "not_implemented",
     filesystemWrite: "not_implemented",
+    authorityRecordCurrentPointerContract: "not_implemented",
+    authorityRecordCurrentPointerPersistence: "not_implemented",
+    trustFloorPersistence: "not_implemented",
+    repositoryGenerationPersistence: "not_implemented",
+    recoveryJournalPersistence: "not_implemented",
     atomicPersistence: "not_implemented",
     crashRecovery: "not_implemented",
+    implementationDependencyRelationships: {
+      provisioningRecordFilesystemWrite: "platform_provisioner_effect",
+      provisioningRecordCurrentPointerPersistence: "platform_provisioner_effect",
+      provisioningRecordCurrentPointerContract: "provisioning_record_contract",
+      provisioningTrustFloorPersistence: "provisioning_record_verification",
+      repositoryGenerationPersistence: "activation_atomic_persistence",
+      recoveryJournalPersistence: "activation_atomic_persistence"
+    },
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false
   });
   assert.equal(Object.isFrozen(
     report.runtimeActivation.provisioningStorageAndLifecyclePolicy), true);
+  assert.equal(Object.isFrozen(
+    report.runtimeActivation.provisioningStorageAndLifecyclePolicy
+      .implementationDependencyRelationships), true);
   assert.equal(Object.isFrozen(
     report.runtimeActivation.installationKeyEnrollmentPolicy.initialEnrollmentModes), true);
   assert.equal(Object.isFrozen(
