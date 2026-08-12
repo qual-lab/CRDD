@@ -93,9 +93,15 @@ test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ご�
   assert.equal(canonicalizeProvisioningJsonValueCandidate(indirectObject).status, "blocked");
 
   const repeated = { value: null };
-  assert.equal(canonicalizeProvisioningJsonValueCandidate(
-    Array(PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes).fill(repeated)
-  ).reason, "provisioning_jcs_budget_exceeded");
+  const aliasWithinNodeBudget = Array(2_047).fill(repeated);
+  const aliasBeyondNodeBudget = Array(2_048).fill(repeated);
+  assert.equal(aliasWithinNodeBudget.length < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes, true);
+  assert.equal(aliasBeyondNodeBudget.length < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes, true);
+  assert.equal(aliasWithinNodeBudget.every((item) => item === repeated), true);
+  assert.equal(aliasBeyondNodeBudget.every((item) => item === repeated), true);
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(aliasWithinNodeBudget).status, "candidate");
+  assert.equal(canonicalizeProvisioningJsonValueCandidate(aliasBeyondNodeBudget).reason,
+    "provisioning_jcs_budget_exceeded");
 });
 
 test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token生成より前に閉じる", () => {
