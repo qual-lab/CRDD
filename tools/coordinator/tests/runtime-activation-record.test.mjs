@@ -337,6 +337,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     enrollmentCertificateOverlapMaximumDays: 30,
     renewalFailureBehavior:
       "blocked_at_expiry_without_automatic_source_fallback_target",
+    successfulAutomaticRenewalInteraction:
+      "no_user_or_administrator_action_after_verified_success_target",
     enrollmentCertificateExactSpecification:
       "schema_wire_encoding_fields_domain_and_lifecycle_undecided",
     embeddedQualLabPrivateKey: "prohibited",
@@ -357,6 +359,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       "revocation_snapshot",
       "bundle_expiry"
     ],
+    offlineEnrollmentBundleAuthenticity:
+      "signed_bundle_required_exact_signer_and_signature_topology_not_implemented",
     enrollmentReplayBehavior:
       "replay_cross_machine_cross_platform_scope_and_expired_input_blocked_target",
     enrollmentModeFallback: "blocked_without_silent_fallback",
@@ -368,8 +372,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       "installation_key_enrollment_ca_trust_and_platform_scope_revalidated_target",
     verifiedEnrollmentPublicKeyRole:
       "future_provisioning_record_signing_key_candidate_only",
-    unknownExpiredRevokedReplacedOrUnverifiableBehavior:
-      "blocked_and_reprovision_required_without_automatic_recovery",
+    unknownExpiredRevokedRollbackReplacedOrUnverifiableBehavior:
+      "blocked_and_reprovision_required_without_automatic_recovery_or_fallback",
     installationKeyGeneration: "not_implemented",
     installationKeyProtectionVerification: "not_implemented",
     enrollmentCertificateContract: "not_implemented",
