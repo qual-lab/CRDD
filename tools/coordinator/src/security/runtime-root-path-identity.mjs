@@ -1,3 +1,5 @@
+// @ts-check
+
 import fs from "node:fs";
 import path from "node:path";
 
@@ -24,6 +26,26 @@ const INPUT_KEYS = new Set([
 ]);
 const EXPLICIT_ENABLE = "explicit_enable_request";
 
+/**
+ * @typedef {Readonly<{dev: bigint, ino: bigint, birthtimeNs: bigint}>} DirectoryIdentity
+ * @typedef {Readonly<{realPath: string, identity: DirectoryIdentity}>} DirectorySnapshot
+ * @typedef {Readonly<{
+ *   input: Record<string, any>,
+ *   source: "cli_override" | "environment_override" | "repository_default",
+ *   location: string,
+ *   lexicalRelation: string,
+ *   realRelation: string,
+ *   targets: Readonly<{repository: string, root: string, parent: string}>,
+ *   snapshots: Readonly<{repository: DirectorySnapshot, root: DirectorySnapshot, parent: DirectorySnapshot}>
+ * }>} IdentitySession
+ */
+
+/**
+ * @template T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T | null} [summary]
+ */
 function response(status, reason, summary = null) {
   return Object.freeze({
     status,
@@ -35,6 +57,7 @@ function response(status, reason, summary = null) {
   });
 }
 
+/** @param {fs.BigIntStats} metadata */
 function directoryIdentity(metadata) {
   if (!metadata.isDirectory() || metadata.isSymbolicLink() || metadata.dev <= 0n ||
       metadata.ino <= 0n || metadata.birthtimeNs <= 0n) {
@@ -47,11 +70,16 @@ function directoryIdentity(metadata) {
   });
 }
 
+/**
+ * @param {DirectoryIdentity} left
+ * @param {DirectoryIdentity} right
+ */
 function sameIdentity(left, right) {
   return left.dev === right.dev && left.ino === right.ino &&
     left.birthtimeNs === right.birthtimeNs;
 }
 
+/** @param {string} target */
 function directorySnapshot(target) {
   const before = directoryIdentity(fs.lstatSync(target, { bigint: true }));
   const realPath = fs.realpathSync.native(target);
@@ -63,6 +91,10 @@ function directorySnapshot(target) {
   return Object.freeze({ realPath, identity: before });
 }
 
+/**
+ * @param {string} target
+ * @param {DirectorySnapshot} snapshot
+ */
 function verifySnapshot(target, snapshot) {
   const current = directorySnapshot(target);
   if (!sameIdentity(snapshot.identity, current.identity) || current.realPath !== snapshot.realPath) {
@@ -70,16 +102,22 @@ function verifySnapshot(target, snapshot) {
   }
 }
 
+/** @param {Record<string, any>} input */
 function selectedPath(input) {
   return input.cliOverride ?? input.environmentOverride ??
     path.join(input.repositoryRoot, DEFAULT_REPOSITORY_RUNTIME_DIRECTORY);
 }
 
+/** @param {string} relative */
 function isStrictlyInside(relative) {
   return relative !== "" && relative !== "." && !path.isAbsolute(relative) &&
     relative !== ".." && !relative.startsWith(`..${path.sep}`);
 }
 
+/**
+ * @param {string} repository
+ * @param {string} root
+ */
 function classifyContainment(repository, root) {
   const repositoryToRoot = path.relative(repository, root);
   if (repositoryToRoot === "" || repositoryToRoot === ".") return "same";
@@ -89,10 +127,19 @@ function classifyContainment(repository, root) {
   return "disjoint";
 }
 
+/**
+ * @param {string} left
+ * @param {string} right
+ */
 function samePath(left, right) {
   return path.relative(left, right) === "";
 }
 
+/**
+ * @param {Record<string, any>} input
+ * @param {Record<string, any>} profile
+ * @returns {"cli_override" | "environment_override" | "repository_default"}
+ */
 function safeSource(input, profile) {
   const source = input.cliOverride !== null
     ? "cli_override"
@@ -103,6 +150,10 @@ function safeSource(input, profile) {
   return source;
 }
 
+/**
+ * @param {unknown} rawInput
+ * @returns {IdentitySession}
+ */
 function createIdentitySession(rawInput) {
   const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
   if (!input) throw new Error("runtime_root_path_identity_input_invalid");
@@ -159,6 +210,7 @@ function createIdentitySession(rawInput) {
   return session;
 }
 
+/** @param {IdentitySession} session */
 function verifyIdentitySession(session) {
   verifySnapshot(session.targets.repository, session.snapshots.repository);
   verifySnapshot(session.targets.parent, session.snapshots.parent);
@@ -170,6 +222,11 @@ function verifyIdentitySession(session) {
   }
 }
 
+/**
+ * @param {string} repositoryRoot
+ * @param {string} runtimeRoot
+ * @returns {Readonly<{kind: "repository_root"}> | Readonly<{kind: "outside"}> | Readonly<{kind: "inside", relative: string}>}
+ */
 function repositoryRelativePath(repositoryRoot, runtimeRoot) {
   const relative = path.relative(repositoryRoot, runtimeRoot);
   if (relative === "" || relative === ".") return Object.freeze({ kind: "repository_root" });
@@ -179,10 +236,12 @@ function repositoryRelativePath(repositoryRoot, runtimeRoot) {
   return Object.freeze({ kind: "inside", relative });
 }
 
+/** @param {string} segment */
 function escapeGitIgnoreSegment(segment) {
   return segment.replace(/([\\*?\[\]#! ])/gu, "\\$1");
 }
 
+/** @param {string} relative */
 function exactExcludeEntry(relative) {
   const segments = relative.split(path.sep);
   if (segments.some((segment) => segment.length === 0 || segment === "." || segment === ".." ||
@@ -190,6 +249,13 @@ function exactExcludeEntry(relative) {
   return `/${segments.map(escapeGitIgnoreSegment).join("/")}/`;
 }
 
+/**
+ * @template T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T | null} [plan]
+ * @param {{gitMetadataWriteIssued?: boolean, gitMetadataWriteVerified?: boolean}} [write]
+ */
 function localExcludeResponse(status, reason, plan = null, write = {}) {
   return Object.freeze({
     status,
@@ -201,6 +267,7 @@ function localExcludeResponse(status, reason, plan = null, write = {}) {
   });
 }
 
+/** @param {unknown} rawInput */
 export function inspectRuntimeRootPathIdentityCandidate(rawInput) {
   try {
     const session = createIdentitySession(rawInput);
@@ -216,6 +283,7 @@ export function inspectRuntimeRootPathIdentityCandidate(rawInput) {
   }
 }
 
+/** @param {unknown} rawInput */
 export function inspectPosixRuntimeRootModePrecheckCandidate(rawInput) {
   if (process.platform === "win32") {
     return Object.freeze({
@@ -239,6 +307,7 @@ export function inspectPosixRuntimeRootModePrecheckCandidate(rawInput) {
   });
 }
 
+/** @param {unknown} rawInput */
 export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(rawInput) {
   let writeIssued = false;
   try {
@@ -256,6 +325,9 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(rawInput) {
       }), { gitMetadataWriteVerified: true });
     }
     const firstSegment = location.relative.split(path.sep)[0];
+    if (firstSegment === undefined) {
+      return localExcludeResponse("blocked", "git_local_exclude_entry_invalid");
+    }
     if (firstSegment.toLocaleLowerCase("en-US") === ".git") {
       return localExcludeResponse("blocked", "runtime_root_git_metadata_overlap");
     }
@@ -281,7 +353,8 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(rawInput) {
       trackedGitignoreModificationAllowed: false
     }), { gitMetadataWriteIssued: result.changed, gitMetadataWriteVerified: result.verified });
   } catch (error) {
-    writeIssued ||= error?.writeIssued === true;
+    const writeError = /** @type {{writeIssued?: unknown}} */ (error);
+    writeIssued ||= writeError?.writeIssued === true;
     return localExcludeResponse("blocked", writeIssued
       ? "git_local_exclude_update_blocked"
       : "runtime_root_path_identity_candidate_required", null,

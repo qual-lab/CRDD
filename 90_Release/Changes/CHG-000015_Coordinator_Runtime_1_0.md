@@ -913,3 +913,9 @@ strict対象を26から27 moduleへ拡張し、Runtime activation recordの正�
 strict対象を27から28 moduleへ拡張し、Authority RegistryとGrant照合候補を対象に加える。Registry、Grant、評価Contextおよびraw byte入力を`unknown`として扱い、正規化済みGrant、canonical JSON、UTC、origin集合、候補状態およびbyte所有境界をJSDocで表現する。Grant／Registry revisionのprimitive number確認と、件数1確認後のGrant存在確認は既存のfail-closed条件を型上も明示する。
 
 この処置はRegistry／Grant Schema、canonical bytes、Hash、Provider／Operation／Scope照合、Runtime Trust、Authority／Capability／EffectまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第10波
+
+strict対象を28から29 moduleへ拡張し、Runtime Root Path IdentityとGit local exclude結合を対象に加える。Filesystem metadata、Path object Identity、realpath snapshot、containment、Repository相対位置、identity sessionおよびlocal exclude結果をJSDocで表現し、外部入力を`unknown`として固定する。Repository内部位置で先頭segmentを取得できない到達不能境界は、既存の不正exclude entry reasonへfail closedに閉じる。
+
+この処置はPath選択、TOCTOU再確認、containment、Git metadata書込み、Root保護、Authority／Capability／EffectまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
