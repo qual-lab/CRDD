@@ -96,3 +96,5 @@ Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの�
 `host-recovery-record.mjs`を同一配置の`.ts`へ移し、token入力を`unknown`から既存pattern検証後の文字列へ絞り、token生成引数を文字列として固定した。Recovery token、record Hash照合、Filesystem境界および回復処置を変更せず、productionの移行済み数は22 / 38である。
 
 `repository-git-layout.mjs`の公開境界を同一配置の`.ts`へ移し、外部入力を`unknown`、絶対Path predicateをtype predicate、layoutを保持するresponseをgeneric型へ置換した。Git metadataの内部Resolver／writerは後続単位に分離し、公開候補、Path非出力およびEffect非発行を変更せず、productionの移行済み数は23 / 38である。
+
+`initial-enrollment-runtime-state.mjs`を同一配置の`.ts`へ移し、外側入力をexact plain-data snapshotで`unknown`から絞り、Challengeの時刻をdata descriptorとprimitive stringの確認後にだけ使用する境界へ置換した。Runtime所有時計、最初の検証試行による一回消費、永続台帳未実装、Authority／Capability／Effect非発行を変更せず、productionの移行済み数は24 / 38である。

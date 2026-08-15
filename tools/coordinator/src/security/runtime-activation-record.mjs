@@ -12,7 +12,7 @@ import { describeProvisioningRecordPureCoreContract } from
 import { describeInitialEnrollmentPureCoreContract } from
   "./initial-enrollment-pure-core.mjs";
 import { describeInitialEnrollmentRuntimeStateContract } from
-  "./initial-enrollment-runtime-state.mjs";
+  "./initial-enrollment-runtime-state.ts";
 import { describePlatformKeyStoragePolicyContract } from
   "./platform-key-storage-policy.ts";
 import { describeProvisioningCaPureCoreContract } from "./provisioning-ca-pure-core.ts";

@@ -12,7 +12,7 @@ import {
 import {
   createInitialEnrollmentAttemptController,
   describeInitialEnrollmentRuntimeStateContract
-} from "../src/security/initial-enrollment-runtime-state.mjs";
+} from "../src/security/initial-enrollment-runtime-state.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 

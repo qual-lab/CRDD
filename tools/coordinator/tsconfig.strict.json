@@ -34,7 +34,7 @@
     "src/security/git-local-exclude.ts",
     "src/security/host-recovery-record.ts",
     "src/security/initial-enrollment-pure-core.mjs",
-    "src/security/initial-enrollment-runtime-state.mjs",
+    "src/security/initial-enrollment-runtime-state.ts",
     "src/security/offline-enrollment-bundle-pure-core.ts",
     "src/security/platform-key-storage-policy.ts",
     "src/security/plain-data-snapshot.ts",
