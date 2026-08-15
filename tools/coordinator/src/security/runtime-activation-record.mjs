@@ -75,6 +75,9 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   initialEnrollmentChallengeObjectContractAndDomainFraming: "provisioning_record_contract",
   initialEnrollmentRequestObjectContractAndDomainFraming: "provisioning_record_contract",
   initialEnrollmentCertificateObjectContractAndDomainFraming: "provisioning_record_contract",
+  initialEnrollmentChallengeRawPayloadByteDecoder: "provisioning_record_contract",
+  initialEnrollmentRequestRawPayloadByteDecoder: "provisioning_record_contract",
+  initialEnrollmentCertificateRawPayloadByteDecoder: "provisioning_record_contract",
   initialEnrollmentRequestProofVerification: "provisioning_record_verification",
   initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
   initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
@@ -345,6 +348,12 @@ export function describeRuntimeActivationContract() {
       initialEnrollmentPureCore.requestObjectContractAndDomainFraming,
     initialEnrollmentCertificateObjectContractAndDomainFraming:
       initialEnrollmentPureCore.certificateObjectContractAndDomainFraming,
+    initialEnrollmentChallengeRawPayloadByteDecoder:
+      initialEnrollmentPureCore.challengeRawPayloadByteDecoder,
+    initialEnrollmentRequestRawPayloadByteDecoder:
+      initialEnrollmentPureCore.requestRawPayloadByteDecoder,
+    initialEnrollmentCertificateRawPayloadByteDecoder:
+      initialEnrollmentPureCore.certificateRawPayloadByteDecoder,
     initialEnrollmentRequestProofVerification:
       initialEnrollmentPureCore.requestProofOfPossessionVerification,
     initialEnrollmentCertificateSignatureVerification:

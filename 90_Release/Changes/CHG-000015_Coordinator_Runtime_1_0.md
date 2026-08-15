@@ -735,3 +735,9 @@ Qual-Labの人間の決定権限者は、オンライン登録challengeの有効
 固定Commit `4ed69bab34ed18f34f807a680532b278e49cc78d`／Tree `123e98d8941632eec60159ee058aecb74cbd0450`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。初回オンライン登録に関する既知AG／DOC／GCI Findingはこの固定範囲で`Resolved`と判定する。旧`4d0b97a`以前の監査集合は履歴として保持するが現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_4ed69ba.md`](Evidence/CHG-000015_Current_Review_Record_4ed69ba.md)へ接続する。
 
 確認済み範囲は初回オンラインのobject契約、domain framing、所有証明、証明書署名、flow binding、依存接続および安全なcandidate境界に限る。raw wire／transport、Runtime所有clock、一回消費台帳、実CA Trust／失効、Network、keystore、Filesystem、Record実結合、更新およびオフライン経路は未実装・未評価である。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### 2026-08-15 — 初回オンライン登録payload decoder候補
+
+次の実装単位は、初回オンラインのチャレンジ、登録要求および登録証明書という3成果物の署名前payload JSON bytesだけを対象とする。入力はNode `Buffer`に限定し、既存JCS正本の131072 byte上限をcopy前に確認する。BOMを拒否し、strict UTF-8で復号し、既存object normalizerと成果物別domain framingを再利用して、入力bytesとcanonical JCS bytesが完全一致した場合だけartifact Hash候補を返す。object、raw bytes、canonical bytes、ID、Path、SPKIまたはsignatureを公開結果へ含めない。
+
+このdecoderは署名Envelopeまたはtransport codecではなく、数学的署名一致、Runtime所有clock、一回消費台帳、CA Trust／失効、Network、Filesystem、keystore、Authority、CapabilityまたはEffectを成立させない。3 decoder実装軸を既存`provisioning_record_contract`へ接続するが、readiness十分値は未承認のままとし、12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。変更分類は非規範Security Reference Implementation候補で、現在の永続成果物に移行は発火しない。処置は`Applied`／`Self-checked`であり、新固定版の独立レビューおよび必須監査前は`Resolved`ではない。

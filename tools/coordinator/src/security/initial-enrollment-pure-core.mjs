@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { types as utilTypes } from "node:util";
+import { TextDecoder, types as utilTypes } from "node:util";
 
 import {
   canonicalizeProvisioningJsonValueCandidate,
   inspectProvisioningEd25519SpkiCandidate,
+  PROVISIONING_SIGNATURE_INPUT_LIMITS,
   verifyProvisioningEd25519Base64urlCandidate
 } from "./provisioning-signature-primitives.mjs";
 
@@ -24,6 +25,9 @@ const ID = /^[a-f0-9]{32}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
 const NONCE = /^[A-Za-z0-9_-]{43}$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype), "byteLength"
+).get;
 const CHALLENGE_KEYS = Object.freeze([
   "contract", "contractRevision", "challengeId", "nonce", "platformScopeId",
   "provisionerIdentityHash", "installationKeyId", "issuedAt", "expiresAt"
@@ -100,6 +104,30 @@ function frame(domain, payload) {
   });
 }
 
+function decodeRawPayloadCandidate(raw, normalize, domain, kind, hashField) {
+  try {
+    if (!Buffer.isBuffer(raw)) return blocked(`${kind}_raw_payload_bytes_required`);
+    const length = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, raw, []);
+    if (length > PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes) {
+      return blocked(`${kind}_raw_payload_bytes_exceeded`);
+    }
+    const bytes = Buffer.allocUnsafe(length);
+    Uint8Array.prototype.set.call(bytes, raw);
+    if (length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+      return blocked(`${kind}_raw_payload_invalid`);
+    }
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const normalized = normalize(JSON.parse(source));
+    const framed = normalized && frame(domain, normalized.value ?? normalized);
+    if (!framed || !Buffer.prototype.equals.call(bytes, framed.canonicalBytes)) {
+      return blocked(`${kind}_raw_payload_noncanonical_or_invalid`);
+    }
+    return candidate(`${kind}_raw_payload_candidate`, { [hashField]: framed.hash });
+  } catch {
+    return blocked(`${kind}_raw_payload_invalid`);
+  }
+}
+
 function normalizeChallenge(raw) {
   const value = exactRecord(raw, CHALLENGE_KEYS);
   if (!value || value.contract !== INITIAL_ENROLLMENT_CHALLENGE_CONTRACT ||
@@ -149,6 +177,21 @@ export function compileInitialEnrollmentChallengeCandidate(raw) {
     return framed ? candidate("runtime_clock_and_one_time_consumption_required",
       { challengeHash: framed.hash }) : blocked("initial_enrollment_challenge_invalid");
   } catch { return blocked("initial_enrollment_challenge_invalid"); }
+}
+
+export function decodeInitialEnrollmentChallengePayloadCandidate(raw) {
+  return decodeRawPayloadCandidate(raw, normalizeChallenge,
+    INITIAL_ENROLLMENT_DOMAINS.challenge, "initial_enrollment_challenge", "challengeHash");
+}
+
+export function decodeInitialEnrollmentRequestPayloadCandidate(raw) {
+  return decodeRawPayloadCandidate(raw, normalizeRequest,
+    INITIAL_ENROLLMENT_DOMAINS.request, "initial_enrollment_request", "requestHash");
+}
+
+export function decodeInitialEnrollmentCertificatePayloadCandidate(raw) {
+  return decodeRawPayloadCandidate(raw, normalizeCertificate,
+    INITIAL_ENROLLMENT_DOMAINS.certificate, "initial_enrollment_certificate", "certificateHash");
 }
 
 export function verifyInitialEnrollmentRequestCandidate(rawInput) {
@@ -226,7 +269,10 @@ export function describeInitialEnrollmentPureCoreContract() {
     challengeObjectContractAndDomainFraming: "implemented_candidate",
     requestObjectContractAndDomainFraming: "implemented_candidate",
     certificateObjectContractAndDomainFraming: "implemented_candidate",
-    rawWireDecoderAndTransportCodec: "not_implemented",
+    challengeRawPayloadByteDecoder: "implemented_candidate",
+    requestRawPayloadByteDecoder: "implemented_candidate",
+    certificateRawPayloadByteDecoder: "implemented_candidate",
+    signatureEnvelopeAndTransportCodec: "not_implemented",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",
     initialFlowBindingVerification: "implemented_candidate",

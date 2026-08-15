@@ -8,6 +8,9 @@ import {
   INITIAL_ENROLLMENT_DOMAINS,
   INITIAL_ENROLLMENT_REQUEST_CONTRACT,
   compileInitialEnrollmentChallengeCandidate,
+  decodeInitialEnrollmentCertificatePayloadCandidate,
+  decodeInitialEnrollmentChallengePayloadCandidate,
+  decodeInitialEnrollmentRequestPayloadCandidate,
   describeInitialEnrollmentPureCoreContract,
   verifyInitialEnrollmentCertificateCandidate,
   verifyInitialEnrollmentFlowCandidate,
@@ -21,6 +24,10 @@ function framed(domain, payload) {
   const length = Buffer.alloc(8);
   length.writeBigUInt64BE(BigInt(canonical.length));
   return Buffer.concat([Buffer.from(domain, "ascii"), length, canonical]);
+}
+
+function canonicalBytes(payload) {
+  return canonicalizeProvisioningJsonValueCandidate(payload).canonicalBytes;
 }
 
 function fixture() {
@@ -140,6 +147,59 @@ test("binding mismatch, expired request time, invalid signatures, and dynamic in
   assert.equal(called, 0);
 });
 
+test("three raw payload decoders accept only canonical bounded JSON bytes", () => {
+  const value = fixture();
+  const cases = [
+    [value.challenge, decodeInitialEnrollmentChallengePayloadCandidate,
+      "challengeHash", compileInitialEnrollmentChallengeCandidate(value.challenge).challengeHash],
+    [value.request, decodeInitialEnrollmentRequestPayloadCandidate,
+      "requestHash", createHash("sha256").update(framed(INITIAL_ENROLLMENT_DOMAINS.request,
+        value.request)).digest("hex")],
+    [value.certificate, decodeInitialEnrollmentCertificatePayloadCandidate,
+      "certificateHash", createHash("sha256").update(framed(INITIAL_ENROLLMENT_DOMAINS.certificate,
+        value.certificate)).digest("hex")]
+  ];
+  for (const [payload, decode, hashField, expectedHash] of cases) {
+    const bytes = canonicalBytes(payload);
+    const result = decode(bytes);
+    assert.equal(result.status, "candidate");
+    assert.equal(result[hashField], expectedHash);
+    bytes.fill(0);
+    assert.equal(result[hashField], expectedHash);
+    assert.deepEqual(Object.keys(result).sort(), [
+      "filesystemEffectIssued", hashField, "networkEffectIssued", "reason",
+      "runtimeAuthorityConferred", "runtimeCapabilityIssued", "status"
+    ].sort());
+    assert.equal(JSON.stringify(result).includes(payload.platformScopeId), false);
+  }
+});
+
+test("raw payload decoders reject noncanonical, malformed, cross-artifact, and oversized input", () => {
+  const value = fixture();
+  const canonical = canonicalBytes(value.challenge);
+  assert.equal(decodeInitialEnrollmentChallengePayloadCandidate(Buffer.alloc(131_072)).reason,
+    "initial_enrollment_challenge_raw_payload_invalid");
+  assert.equal(decodeInitialEnrollmentChallengePayloadCandidate(Buffer.alloc(131_073)).reason,
+    "initial_enrollment_challenge_raw_payload_bytes_exceeded");
+  const duplicate = Buffer.from(JSON.stringify({ ...value.challenge }).replace(
+    `"challengeId":"${value.challenge.challengeId}"`,
+    `"challengeId":"${value.challenge.challengeId}","challengeId":"${value.challenge.challengeId}"`));
+  const reordered = Buffer.from(JSON.stringify(value.challenge));
+  const invalidInputs = [
+    new Uint8Array(canonical), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), canonical]),
+    Buffer.from([0xc3, 0x28]), Buffer.alloc(0), Buffer.concat([canonical, Buffer.from("\n")]),
+    duplicate, reordered, canonicalBytes(value.request),
+    canonicalBytes({ ...value.challenge, contractRevision: 2 })
+  ];
+  for (const input of invalidInputs) {
+    assert.equal(decodeInitialEnrollmentChallengePayloadCandidate(input).status, "blocked");
+  }
+  assert.equal(decodeInitialEnrollmentRequestPayloadCandidate(canonicalBytes(value.challenge)).status,
+    "blocked");
+  assert.equal(decodeInitialEnrollmentCertificatePayloadCandidate(canonicalBytes(value.request)).status,
+    "blocked");
+});
+
 test("contract keeps effects and deferred enrollment capabilities closed", () => {
   assert.deepEqual(describeInitialEnrollmentPureCoreContract(), {
     contract: "crdd-coordinator/initial-enrollment-pure-core",
@@ -148,7 +208,10 @@ test("contract keeps effects and deferred enrollment capabilities closed", () =>
     challengeObjectContractAndDomainFraming: "implemented_candidate",
     requestObjectContractAndDomainFraming: "implemented_candidate",
     certificateObjectContractAndDomainFraming: "implemented_candidate",
-    rawWireDecoderAndTransportCodec: "not_implemented",
+    challengeRawPayloadByteDecoder: "implemented_candidate",
+    requestRawPayloadByteDecoder: "implemented_candidate",
+    certificateRawPayloadByteDecoder: "implemented_candidate",
+    signatureEnvelopeAndTransportCodec: "not_implemented",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",
     initialFlowBindingVerification: "implemented_candidate",
