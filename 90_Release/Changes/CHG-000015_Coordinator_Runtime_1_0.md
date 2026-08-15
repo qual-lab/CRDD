@@ -741,3 +741,7 @@ Qual-Labの人間の決定権限者は、オンライン登録challengeの有効
 次の実装単位は、初回オンラインのチャレンジ、登録要求および登録証明書という3成果物の署名前payload JSON bytesだけを対象とする。入力はNode `Buffer`に限定し、既存JCS正本の131072 byte上限をcopy前に確認する。BOMを拒否し、strict UTF-8で復号し、既存object normalizerと成果物別domain framingを再利用して、入力bytesとcanonical JCS bytesが完全一致した場合だけartifact Hash候補を返す。object、raw bytes、canonical bytes、ID、Path、SPKIまたはsignatureを公開結果へ含めない。
 
 このdecoderは署名Envelopeまたはtransport codecではなく、数学的署名一致、Runtime所有clock、一回消費台帳、CA Trust／失効、Network、Filesystem、keystore、Authority、CapabilityまたはEffectを成立させない。3 decoder実装軸を既存`provisioning_record_contract`へ接続するが、readiness十分値は未承認のままとし、12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。変更分類は非規範Security Reference Implementation候補で、現在の永続成果物に移行は発火しない。処置は`Applied`／`Self-checked`であり、新固定版の独立レビューおよび必須監査前は`Resolved`ではない。
+
+固定Commit `ce526e2fb588abb3d58fde169c99730e18fc948c`／Tree `afa2a547abb766b6360e2bbc72f3d7ed1e682c8d`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。今回のpayload decoder候補に未解決Findingはなく、この固定範囲を監査済み候補として閉じる。旧`da0dd843`以前の監査集合は履歴として保持するが現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_ce526e2.md`](Evidence/CHG-000015_Current_Review_Record_ce526e2.md)へ接続する。
+
+確認済み範囲は3成果物の署名前canonical payload Buffer入力、copy前budget、BOM／strict UTF-8／canonical完全一致、artifact Hashだけの安全な結果、依存接続およびGate境界に限る。署名Envelope／transport、Runtime所有clock、一回消費台帳、実CA Trust／失効、Network、keystore、Filesystem、Record実結合、更新およびオフライン経路は未実装・未評価である。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
