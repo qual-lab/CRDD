@@ -4,6 +4,8 @@ Status: Implementation Candidate
 
 OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM、macOS Secure Enclave、Linux TPM 2.0の優先Backend、または明示承認されたsoftware fallbackという選択だけを検査する。Backend名、公開SPKIおよびfallback承認はcaller suppliedのpolicy入力であり、hardware-backed、非exportable、鍵handle所有、Platform Provisioner署名または実OS保護の根拠ではない。秘密鍵を入力・出力せず、silent downgradeを拒否し、実native Adapterと保護確認がない限りGateを開かない。
 
+準備認証局（Provisioning CA）のpure Core候補は、offline rootとonline／offline issuing keyのroleを分離し、root署名済みissuing certificateとroot署名済み失効一覧の暗号的一致を検査する。issuing keyは最大365日、失効一覧は半開区間で最大24時間だけ候補化し、未知root、epoch差、期限外、署名不一致および列挙済みroot／issuing keyをfail closedで拒否する。caller supplied root集合、失効一覧および評価時刻はRuntime所有Trust、rollback-resistant floorまたは時計Authorityではなく、実配布と永続化なしにGateを開かない。
+
 本書は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)の実装固有脅威モデルである。CRDDのHuman Authority、External Information Boundary、Independent Reviewまたは準拠条件を再定義しない。
 
 ## 1. 保護対象

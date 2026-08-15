@@ -795,3 +795,9 @@ RSA、P-384／P-521、Ed25519端末鍵およびalgorithm fallbackはrevision 1�
 第2単位は、端末導入鍵の公開P-256 SPKIとBackend選択だけを扱う非Effectのポリシー正本およびclaim-only評価である。Windowsは`cng_ksp_tpm_p256`、macOSは`secure_enclave_p256`、Linuxは`tpm2_p256`を優先し、各software Backendは初回setupで明示承認されたfallbackだけを候補化する。preferred Backendにfallback承認を付ける入力、未承認fallback、未知Backend、別曲線または不正SPKIは`blocked`とする。RSA、別曲線またはsilent algorithm／Backend fallbackを追加しない。
 
 このCoreは秘密鍵、鍵handle、Pathまたはkey IDを入出力せず、公開SPKIとpolicy選択を検査するだけである。実Windows CNG、macOS Secure Enclave、Linux TPM 2.0、software鍵保護、署名済みPlatform Provisionerとの結合、鍵handle所有証明および実鍵生成／署名Effectは未実装である。policy候補はhardware-backed、非exportable、Trust、Authority、CapabilityまたはEffectを意味しない。新sourceを既存`provisioning_record_contract`へ接続するが、実Adapter検証は`not_implemented`、12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。
+
+### 2026-08-15 — 準備認証局chainと失効pure Core候補
+
+第3単位は、caller suppliedのoffline root Trust Set、offline rootが署名するonline／offline issuing key証明書、およびoffline root署名済み失効一覧の暗号条件をpureに再現する。rootとissuing keyはEd25519、key IDはexact SPKI DERのSHA-256 lowercase hexadecimal 64文字とする。issuing roleは`online_enrollment_issuer`または`offline_bundle_issuer`だけ、issuing key期間は最大365日、失効一覧期間は最大24時間とする。失効一覧へroot、失効一覧署名rootまたはissuing keyが列挙されていれば、`revokedAt`を予約発効時刻として扱わず即時`blocked`とする。
+
+正常結果もroot／issuing／revocationの数学的一致候補に限る。caller supplied root集合、評価時刻、epochおよびrevisionをRuntime所有Trust、rollback floor、時計Authorityまたは配布状態へ昇格しない。実Trust Anchor同梱、root rotation、same-revision Hash floor永続化、Filesystem／Network配布およびAuthorityは未実装である。2つのpure sourceを既存Provisioning Record contract／verification dependencyへ接続するが、既存`provisioningCaTrustAndRevocationVerification`は`not_implemented`、12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。

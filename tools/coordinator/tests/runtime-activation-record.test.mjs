@@ -337,6 +337,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     initialOnlineEnrollmentPureCore: contract.initialEnrollmentPureCore,
     initialOnlineEnrollmentRuntimeState: contract.initialEnrollmentRuntimeState,
     platformKeyStoragePolicy: contract.platformKeyStoragePolicy,
+    provisioningCaPureCore: contract.provisioningCaPureCore,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -434,6 +435,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       initialEnrollmentRuntimeClock: "provisioning_record_verification",
       initialEnrollmentAttemptConsumption: "provisioning_record_verification",
       platformKeyStoragePolicy: "provisioning_record_contract",
+      provisioningCaPureCoreContract: "provisioning_record_contract",
+      provisioningCaPureCoreVerification: "provisioning_record_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",

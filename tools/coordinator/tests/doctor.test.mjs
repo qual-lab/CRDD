@@ -518,6 +518,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     initialOnlineEnrollmentRuntimeState:
       report.runtimeActivation.initialEnrollmentRuntimeState,
     platformKeyStoragePolicy: report.runtimeActivation.platformKeyStoragePolicy,
+    provisioningCaPureCore: report.runtimeActivation.provisioningCaPureCore,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -615,6 +616,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       initialEnrollmentRuntimeClock: "provisioning_record_verification",
       initialEnrollmentAttemptConsumption: "provisioning_record_verification",
       platformKeyStoragePolicy: "provisioning_record_contract",
+      provisioningCaPureCoreContract: "provisioning_record_contract",
+      provisioningCaPureCoreVerification: "provisioning_record_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",

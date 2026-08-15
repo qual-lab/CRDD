@@ -4,6 +4,8 @@ Status: Implementation Candidate
 
 OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecure Enclave、LinuxのTPM 2.0をP-256優先Backendとして固定し、software fallbackは初回setupでの明示承認がある場合だけ候補化する。公開P-256 SPKIとBackend選択の形だけを検査し、秘密鍵、鍵handleまたはPathを入力・出力しない。実native Adapter、software鍵保護、署名済みPlatform Provisionerとの結合およびkey-handle所有証明は未実装であり、policy候補を実鍵保護、Trust、Authority、CapabilityまたはEffectへ昇格しない。
 
+準備認証局（Provisioning CA）のpure Core候補は、caller suppliedのoffline root集合、rootがEd25519署名したonline／offline issuing key証明書、およびroot署名済み失効一覧を検査する。issuing keyは最大365日、失効一覧は最大24時間、列挙された鍵は`revokedAt`の過去／現在／未来にかかわらず即時拒否する。正常なchainもRuntime同梱root Trust、rollback floor、Runtime時計または配布確認ではないため、Authority、CapabilityまたはGateを開かない。
+
 `Coordinator Runtime`は、Codex Coordinator Agent、Claude Code Executorおよび独立Codex Reviewerを、CRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent Decision Setへ接続するローカルWorkflow Runtimeである。
 
 現在はExecution Environmentの成立性Gateを実装中であり、実Operation、Provider認証、Repository変更、push、mergeまたは外部Effectには使用できない。
