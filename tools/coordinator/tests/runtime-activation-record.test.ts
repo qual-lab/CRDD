@@ -6,10 +6,9 @@ import {
   RUNTIME_ACTIVATION_INPUT_LIMITS,
   compileRuntimeActivationRecordCandidate,
   decodeRuntimeActivationRecordCandidate,
-  describeRuntimeActivationContract
+  describeRuntimeActivationContract,
 } from "../src/security/runtime-activation-record.ts";
-import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
-  "../src/security/runtime-activation-locator-binding-contract.ts";
+import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from "../src/security/runtime-activation-locator-binding-contract.ts";
 
 function record(overrides = {}) {
   return {
@@ -32,7 +31,7 @@ function record(overrides = {}) {
     registryHash: "5".repeat(64),
     activatedAt: "2026-08-11T00:00:00.000Z",
     disabledAt: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -41,7 +40,9 @@ test("Activation recordはRepository、Root、Bundle、Policy、Registry Identit
   assert.equal(compiled.status, "candidate");
   assert.match(compiled.recordHash, /^[a-f0-9]{64}$/u);
   assert.equal(compiled.runtimeCapabilityIssued, false);
-  const decoded = decodeRuntimeActivationRecordCandidate(compiled.canonicalBytes);
+  const decoded = decodeRuntimeActivationRecordCandidate(
+    compiled.canonicalBytes,
+  );
   assert.equal(decoded.status, "candidate");
   assert.equal(decoded.recordHash, compiled.recordHash);
   assert.deepEqual(decoded.record, compiled.record);
@@ -55,34 +56,68 @@ test("Bundle、PolicyまたはRegistry Identity変更はrecord Hashを変え再a
     { policyRevision: 3 },
     { trustPolicyHash: "7".repeat(64) },
     { registryRevision: 6 },
-    { registryHash: "8".repeat(64) }
-  ]) assert.notEqual(compileRuntimeActivationRecordCandidate(record(overrides)).recordHash, baseline);
+    { registryHash: "8".repeat(64) },
+  ])
+    assert.notEqual(
+      compileRuntimeActivationRecordCandidate(record(overrides)).recordHash,
+      baseline,
+    );
 });
 
 test("初版と後続版、activeとdisabledの状態境界を固定する", () => {
-  assert.equal(compileRuntimeActivationRecordCandidate(record({
-    activationRevision: 2,
-    previousActivationHash: "a".repeat(64)
-  })).status, "candidate");
-  assert.equal(compileRuntimeActivationRecordCandidate(record({
-    activationRevision: 2,
-    previousActivationHash: null
-  })).status, "blocked");
-  assert.equal(compileRuntimeActivationRecordCandidate(record({
-    previousActivationHash: "a".repeat(64)
-  })).status, "blocked");
-  assert.equal(compileRuntimeActivationRecordCandidate(record({
-    status: "disabled",
-    disabledAt: "2026-08-11T01:00:00.000Z"
-  })).status, "candidate");
-  assert.equal(compileRuntimeActivationRecordCandidate(record({
-    status: "disabled",
-    disabledAt: null
-  })).status, "blocked");
-  assert.equal(compileRuntimeActivationRecordCandidate(record({
-    status: "active",
-    disabledAt: "2026-08-11T01:00:00.000Z"
-  })).status, "blocked");
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(
+      record({
+        activationRevision: 2,
+        previousActivationHash: "a".repeat(64),
+      }),
+    ).status,
+    "candidate",
+  );
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(
+      record({
+        activationRevision: 2,
+        previousActivationHash: null,
+      }),
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(
+      record({
+        previousActivationHash: "a".repeat(64),
+      }),
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(
+      record({
+        status: "disabled",
+        disabledAt: "2026-08-11T01:00:00.000Z",
+      }),
+    ).status,
+    "candidate",
+  );
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(
+      record({
+        status: "disabled",
+        disabledAt: null,
+      }),
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(
+      record({
+        status: "active",
+        disabledAt: "2026-08-11T01:00:00.000Z",
+      }),
+    ).status,
+    "blocked",
+  );
 });
 
 test("非canonical時刻、余分／欠落field、accessorおよびProxyを拒否する", () => {
@@ -96,38 +131,78 @@ test("非canonical時刻、余分／欠落field、accessorおよびProxyを拒�
     record({ activatedAt: 0 }),
     record({ status: "disabled", disabledAt: "x".repeat(1_000_000) }),
     { ...record(), extra: true },
-    (() => { const value = record(); delete value.registryHash; return value; })()
-  ]) assert.equal(compileRuntimeActivationRecordCandidate(value).status, "blocked");
+    (() => {
+      const value = record();
+      Reflect.deleteProperty(value, "registryHash");
+      return value;
+    })(),
+  ])
+    assert.equal(
+      compileRuntimeActivationRecordCandidate(value).status,
+      "blocked",
+    );
 
   let getterCalls = 0;
   const accessor = record();
   Object.defineProperty(accessor, "bundleId", {
     enumerable: true,
-    get() { getterCalls += 1; return "AUTHBUNDLE-000001"; }
+    get() {
+      getterCalls += 1;
+      return "AUTHBUNDLE-000001";
+    },
   });
-  assert.equal(compileRuntimeActivationRecordCandidate(accessor).status, "blocked");
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(accessor).status,
+    "blocked",
+  );
   assert.equal(getterCalls, 0);
   let proxyCalls = 0;
   const raw = record();
-  const proxied = new Proxy(raw, { ownKeys() { proxyCalls += 1; return Reflect.ownKeys(raw); } });
-  assert.equal(compileRuntimeActivationRecordCandidate(proxied).status, "blocked");
+  const proxied = new Proxy(raw, {
+    ownKeys() {
+      proxyCalls += 1;
+      return Reflect.ownKeys(raw);
+    },
+  });
+  assert.equal(
+    compileRuntimeActivationRecordCandidate(proxied).status,
+    "blocked",
+  );
   assert.equal(proxyCalls, 0);
 });
 
 test("byte decoderはBuffer、上限、strict UTF-8、BOMおよびcanonical完全一致を要求する", () => {
-  const bytes = compileRuntimeActivationRecordCandidate(record()).canonicalBytes;
-  assert.equal(decodeRuntimeActivationRecordCandidate(new Uint8Array(bytes)).reason,
-    "runtime_activation_record_bytes_required");
-  assert.equal(decodeRuntimeActivationRecordCandidate(Buffer.alloc(
-    RUNTIME_ACTIVATION_INPUT_LIMITS.rawBytes + 1, 0x20
-  )).reason, "runtime_activation_record_bytes_exceeded");
-  assert.equal(decodeRuntimeActivationRecordCandidate(Buffer.concat([
-    Buffer.from([0xef, 0xbb, 0xbf]), bytes
-  ])).reason, "runtime_activation_record_bytes_invalid");
-  assert.equal(decodeRuntimeActivationRecordCandidate(Buffer.concat([bytes, Buffer.from("\n")])).reason,
-    "runtime_activation_record_bytes_noncanonical");
-  assert.equal(decodeRuntimeActivationRecordCandidate(Buffer.from([0xc3, 0x28])).reason,
-    "runtime_activation_record_bytes_invalid");
+  const compiled = compileRuntimeActivationRecordCandidate(record());
+  if (compiled.status !== "candidate") {
+    assert.fail(`fixture activation did not compile: ${compiled.reason}`);
+  }
+  const bytes = compiled.canonicalBytes;
+  assert.equal(
+    decodeRuntimeActivationRecordCandidate(new Uint8Array(bytes)).reason,
+    "runtime_activation_record_bytes_required",
+  );
+  assert.equal(
+    decodeRuntimeActivationRecordCandidate(
+      Buffer.alloc(RUNTIME_ACTIVATION_INPUT_LIMITS.rawBytes + 1, 0x20),
+    ).reason,
+    "runtime_activation_record_bytes_exceeded",
+  );
+  assert.equal(
+    decodeRuntimeActivationRecordCandidate(
+      Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), bytes]),
+    ).reason,
+    "runtime_activation_record_bytes_invalid",
+  );
+  assert.equal(
+    decodeRuntimeActivationRecordCandidate(
+      Buffer.concat([bytes, Buffer.from("\n")]),
+    ).reason,
+    "runtime_activation_record_bytes_noncanonical",
+  );
+  assert.equal(
+    decodeRuntimeActivationRecordCandidate(Buffer.from([0xc3, 0x28])).reason,
+    "runtime_activation_record_bytes_invalid",
+  );
 });
 
 test("Activation contractは永続化、専用command、再activation、disable/delete分離を公開する", () => {
@@ -135,23 +210,40 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.persistence, "repository_scoped_persistent");
   assert.equal(contract.activationCommand, "dedicated_activate_required");
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
-  assert.equal(contract.provisionCommandGrammar, "implemented_candidate_explicit_command_only");
-  assert.equal(contract.provisionCommandCurrentBehavior,
-    "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented");
+  assert.equal(
+    contract.provisionCommandGrammar,
+    "implemented_candidate_explicit_command_only",
+  );
+  assert.equal(
+    contract.provisionCommandCurrentBehavior,
+    "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented",
+  );
   assert.equal(contract.activationEffect, "not_implemented");
-  assert.equal(contract.localOnboardingContract, "implemented_candidate_contract_only");
-  assert.equal(contract.onboardingPolicyDecision, "human_approved_contract_only");
+  assert.equal(
+    contract.localOnboardingContract,
+    "implemented_candidate_contract_only",
+  );
+  assert.equal(
+    contract.onboardingPolicyDecision,
+    "human_approved_contract_only",
+  );
   assert.equal(contract.runtimeAuthorityConferredByOnboardingPolicy, false);
-  assert.equal(contract.platformProvisionerDistributionTarget,
-    "official_signed_platform_provisioner_distributed_with_coordinator_target");
-  assert.equal(contract.platformProvisioningScope,
-    "platform_scope_once_while_verified_provisioning_identity_valid_target");
+  assert.equal(
+    contract.platformProvisionerDistributionTarget,
+    "official_signed_platform_provisioner_distributed_with_coordinator_target",
+  );
+  assert.equal(
+    contract.platformProvisioningScope,
+    "platform_scope_once_while_verified_provisioning_identity_valid_target",
+  );
   assert.deepEqual(contract.runtimePrincipalModes, [
     "local_interactive_selected_user",
-    "server_dedicated_service_account"
+    "server_dedicated_service_account",
   ]);
-  assert.equal(contract.authorityRootPathReuseTarget,
-    "explicit_path_resolved_from_verified_provisioning_record_target");
+  assert.equal(
+    contract.authorityRootPathReuseTarget,
+    "explicit_path_resolved_from_verified_provisioning_record_target",
+  );
   assert.deepEqual(contract.authorityRootLocator, {
     contract: "crdd-coordinator/authority-root-locator",
     contractRevision: 1,
@@ -171,7 +263,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
   assert.deepEqual(contract.activationLocatorBinding, {
     core: "implemented_candidate_initial_only",
@@ -181,7 +273,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       "runtimeRootIdentityHash",
       "activationId",
       "activationRevision",
-      "activationRecordHash"
+      "activationRecordHash",
     ],
     provisioningRecordVerification: "not_implemented",
     filesystemCurrentRecordRead: "not_implemented",
@@ -195,27 +287,41 @@ test("Activation contractは永続化、専用command、再activation、disable/
     mismatchBehavior: "fail_closed_and_reprovision_required",
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
-  assert.equal(contract.activationLocatorBinding.pairBindingFields,
-    RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS);
-  assert.equal(contract.onboardingBlockingDependencies.includes(
-    "authority_root_resolution_from_provisioning_record"), true);
-  assert.equal(contract.onboardingBlockingDependencies.includes(
-    "activation_atomic_persistence"), true);
+  assert.equal(
+    contract.activationLocatorBinding.pairBindingFields,
+    RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS,
+  );
+  assert.equal(
+    contract.onboardingBlockingDependencies.includes(
+      "authority_root_resolution_from_provisioning_record",
+    ),
+    true,
+  );
+  assert.equal(
+    contract.onboardingBlockingDependencies.includes(
+      "activation_atomic_persistence",
+    ),
+    true,
+  );
   assert.deepEqual(contract.provisioningRecordTrustAndSelectionPolicy, {
     policy: "human_approved_candidate_contract_only",
-    authorityRole: "platform_scope_signed_runtime_authority_source_of_truth_target",
+    authorityRole:
+      "platform_scope_signed_runtime_authority_source_of_truth_target",
     artifactTopology:
       "provisioning_record_central_without_separate_receipt_or_helper_manifest_authority",
-    provisionReceiptRelationship: "not_separate_runtime_authority_artifact_target",
+    provisionReceiptRelationship:
+      "not_separate_runtime_authority_artifact_target",
     platformProvisionerManifestRelationship:
       "not_separate_runtime_authority_artifact_target",
     authorityFileBundleManifestRelationship: "separate_existing_artifact",
-    signedContentCoverage: "all_security_important_fields_one_canonical_json_signed_target",
+    signedContentCoverage:
+      "all_security_important_fields_one_canonical_json_signed_target",
     signedIdentityCoverage:
       "provisioner_identity_and_signature_metadata_bound_to_record_target",
-    trustAnchorOwnership: "qual_lab_public_key_set_bundled_with_coordinator_target",
+    trustAnchorOwnership:
+      "qual_lab_public_key_set_bundled_with_coordinator_target",
     trustAnchorLifecycle:
       "multiple_key_ids_overlap_rotation_and_explicit_revocation_required_target",
     storageScope:
@@ -224,8 +330,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
     locatorRelationship: "untrusted_provisioning_record_hash_reference_only",
     firstSetupOrReconfigurationSelection: "explicit_cli_target",
     routineRunSelection: "verified_provisioning_record_and_locator_target",
-    environmentSelection: "explicit_compatibility_or_automation_override_target",
-    selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
+    environmentSelection:
+      "explicit_compatibility_or_automation_override_target",
+    selectionFailureBehavior:
+      "blocked_without_silent_fallback_and_reprovision_required",
     automaticRepair: false,
     signaturePrimitives: {
       contract: "crdd-coordinator/provisioning-signature-primitives",
@@ -237,38 +345,51 @@ test("Activation contractは永続化、専用command、再activation、disable/
       spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
       ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
       ed25519SignatureBase64url: "implemented_candidate_rfc_4648_unpadded",
-      p256PrimitiveVerification: "implemented_candidate_ecdsa_sha256_ieee_p1363",
-      p256SignatureBase64url: "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
+      p256PrimitiveVerification:
+        "implemented_candidate_ecdsa_sha256_ieee_p1363",
+      p256SignatureBase64url:
+        "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
       keyIdEncoding: "implemented_candidate_in_provisioning_record_pure_core",
-      payloadSignatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
-      crddDomainSeparationFraming: "implemented_candidate_in_provisioning_record_pure_core",
-      provisioningRecordPayloadSchema: "implemented_candidate_in_provisioning_record_pure_core",
-      multiSignatureEnvelopeSchema: "implemented_candidate_in_provisioning_record_pure_core",
-      multiSignatureAcceptanceRule: "implemented_candidate_in_provisioning_record_pure_core",
+      payloadSignatureEnvelopeTopology:
+        "payload_and_multiple_signatures_separated_target",
+      crddDomainSeparationFraming:
+        "implemented_candidate_in_provisioning_record_pure_core",
+      provisioningRecordPayloadSchema:
+        "implemented_candidate_in_provisioning_record_pure_core",
+      multiSignatureEnvelopeSchema:
+        "implemented_candidate_in_provisioning_record_pure_core",
+      multiSignatureAcceptanceRule:
+        "implemented_candidate_in_provisioning_record_pure_core",
       multiSignatureAcceptancePolicy:
         "one_or_more_trusted_non_revoked_valid_and_no_unknown_revoked_duplicate_or_invalid_target",
       offlineBundledTrustEvaluation: "required_target_not_implemented",
-      embeddedTrustAnchorSet: "candidate_codec_only_untrusted_input_in_provisioning_record_pure_core",
-      revocationManifest: "candidate_codec_only_untrusted_input_in_provisioning_record_pure_core",
-      aggregateRecordVerifier: "candidate_cryptographic_condition_only_in_provisioning_record_pure_core",
+      embeddedTrustAnchorSet:
+        "candidate_codec_only_untrusted_input_in_provisioning_record_pure_core",
+      revocationManifest:
+        "candidate_codec_only_untrusted_input_in_provisioning_record_pure_core",
+      aggregateRecordVerifier:
+        "candidate_cryptographic_condition_only_in_provisioning_record_pure_core",
       existingCanonicalContractsMigratedToJcs: false,
       filesystemEffectIssued: false,
       runtimeAuthorityConferred: false,
-      runtimeCapabilityIssued: false
+      runtimeCapabilityIssued: false,
     },
     recordPureCore: {
       contractRevision: 1,
       recordContract: "crdd-coordinator/provisioning-record",
       envelopeContract: "crdd-coordinator/provisioning-record-envelope",
       trustAnchorSetContract: "crdd-coordinator/provisioning-trust-anchor-set",
-      revocationManifestContract: "crdd-coordinator/provisioning-revocation-manifest",
-      domainFraming: "implemented_candidate_fixed_prefix_uint64be_length_jcs_payload",
+      revocationManifestContract:
+        "crdd-coordinator/provisioning-revocation-manifest",
+      domainFraming:
+        "implemented_candidate_fixed_prefix_uint64be_length_jcs_payload",
       keyIdEncoding: "implemented_candidate_spki_der_sha256_lowercase_hex_64",
       recordPayloadCodec: "implemented_candidate",
       multiSignatureEnvelopeCodec: "implemented_candidate",
       trustAnchorSetCodec: "implemented_candidate_untrusted_input",
       revocationManifestCodec: "implemented_candidate_untrusted_input",
-      aggregateCryptographicCondition: "implemented_candidate_fail_closed_all_entries",
+      aggregateCryptographicCondition:
+        "implemented_candidate_fail_closed_all_entries",
       recordSignatureAlgorithm: "ECDSA-P256-SHA256",
       recordSignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
       runtimeOwnedBundledTrustSelection: "not_implemented",
@@ -277,10 +398,12 @@ test("Activation contractは永続化、専用command、再activation、disable/
       lifecyclePersistence: "not_implemented",
       filesystemEffectIssued: false,
       runtimeAuthorityConferred: false,
-      runtimeCapabilityIssued: false
+      runtimeCapabilityIssued: false,
     },
-    signatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
-    signatureEncoding: "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
+    signatureEnvelopeTopology:
+      "payload_and_multiple_signatures_separated_target",
+    signatureEncoding:
+      "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
     keyIdEncoding: "implemented_candidate_spki_der_sha256_lowercase_hex_64",
     multiSignatureAcceptancePolicy:
       "one_or_more_trusted_non_revoked_valid_and_no_unknown_revoked_duplicate_or_invalid_target",
@@ -294,7 +417,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     lifecyclePersistence: "not_implemented",
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
   assert.deepEqual(contract.installationKeyEnrollmentPolicy, {
     policy: "human_approved_candidate_contract_only",
@@ -304,7 +427,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     installationKeyBackendCandidates: [
       "os_keystore_candidate",
       "tpm_candidate",
-      "secure_enclave_candidate"
+      "secure_enclave_candidate",
     ],
     installationKeyBackendSelection:
       "platform_preferences_and_explicit_fallbacks_human_approved_adapter_verification_not_implemented",
@@ -312,18 +435,18 @@ test("Activation contractは永続化、専用command、再activation、disable/
       windows: {
         preferred: "cng_ksp_tpm_backed_target",
         explicitFallback: "software_ksp_target",
-        silentFallback: false
+        silentFallback: false,
       },
       macos: {
         preferred: "keychain_secure_enclave_when_supported_target",
         explicitFallback: "keychain_software_backed_target",
-        silentFallback: false
+        silentFallback: false,
       },
       linux: {
         preferred: "tpm_2_0_target",
         explicitFallback: "root_owned_software_keystore_target",
-        silentFallback: false
-      }
+        silentFallback: false,
+      },
     },
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
@@ -363,14 +486,14 @@ test("Activation contractは永続化、専用command、再activation、disable/
     embeddedQualLabPrivateKey: "prohibited",
     initialEnrollmentModes: [
       "explicit_online_initial_enrollment_target",
-      "administrator_supplied_offline_enrollment_bundle_target"
+      "administrator_supplied_offline_enrollment_bundle_target",
     ],
     onlineEnrollmentRequiredInputs: [
       "one_time_challenge",
       "nonce",
       "platform_scope",
       "installation_public_key",
-      "enrollment_request_binding"
+      "enrollment_request_binding",
     ],
     onlineChallengeValidityMinutes: 30,
     onlineChallengeBinding:
@@ -388,7 +511,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       "enrollment_certificate",
       "exact_online_and_offline_issuing_ca_chain",
       "revocation_snapshot",
-      "bundle_expiry"
+      "bundle_expiry",
     ],
     offlineEnrollmentBundleAuthenticity:
       "offline_issuing_key_signed_exact_one_envelope_and_binding_verification_implemented_candidate_runtime_trust_and_import_not_implemented",
@@ -429,34 +552,54 @@ test("Activation contractは永続化、専用command、再activation、disable/
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     implementationDependencyRelationships: {
-      initialEnrollmentChallengeObjectContractAndDomainFraming: "provisioning_record_contract",
-      initialEnrollmentRequestObjectContractAndDomainFraming: "provisioning_record_contract",
-      initialEnrollmentCertificateObjectContractAndDomainFraming: "provisioning_record_contract",
-      initialEnrollmentChallengeRawPayloadByteDecoder: "provisioning_record_contract",
-      initialEnrollmentRequestRawPayloadByteDecoder: "provisioning_record_contract",
-      initialEnrollmentCertificateRawPayloadByteDecoder: "provisioning_record_contract",
-      initialEnrollmentRequestSignatureEnvelopeObjectContract: "provisioning_record_contract",
-      initialEnrollmentCertificateSignatureEnvelopeObjectContract: "provisioning_record_contract",
-      initialEnrollmentRequestRawEnvelopeByteDecoder: "provisioning_record_contract",
-      initialEnrollmentCertificateRawEnvelopeByteDecoder: "provisioning_record_contract",
+      initialEnrollmentChallengeObjectContractAndDomainFraming:
+        "provisioning_record_contract",
+      initialEnrollmentRequestObjectContractAndDomainFraming:
+        "provisioning_record_contract",
+      initialEnrollmentCertificateObjectContractAndDomainFraming:
+        "provisioning_record_contract",
+      initialEnrollmentChallengeRawPayloadByteDecoder:
+        "provisioning_record_contract",
+      initialEnrollmentRequestRawPayloadByteDecoder:
+        "provisioning_record_contract",
+      initialEnrollmentCertificateRawPayloadByteDecoder:
+        "provisioning_record_contract",
+      initialEnrollmentRequestSignatureEnvelopeObjectContract:
+        "provisioning_record_contract",
+      initialEnrollmentCertificateSignatureEnvelopeObjectContract:
+        "provisioning_record_contract",
+      initialEnrollmentRequestRawEnvelopeByteDecoder:
+        "provisioning_record_contract",
+      initialEnrollmentCertificateRawEnvelopeByteDecoder:
+        "provisioning_record_contract",
       initialEnrollmentTransportCodec: "provisioning_record_contract",
-      initialEnrollmentRequestProofVerification: "provisioning_record_verification",
-      initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
-      initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
+      initialEnrollmentRequestProofVerification:
+        "provisioning_record_verification",
+      initialEnrollmentCertificateSignatureVerification:
+        "provisioning_record_verification",
+      initialEnrollmentFlowBindingVerification:
+        "provisioning_record_verification",
       initialEnrollmentRuntimeClock: "provisioning_record_verification",
       initialEnrollmentAttemptConsumption: "provisioning_record_verification",
       platformKeyStoragePolicy: "provisioning_record_contract",
       provisioningCaPureCoreContract: "provisioning_record_contract",
       provisioningCaPureCoreVerification: "provisioning_record_verification",
       offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
-      offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
-      provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
+      offlineEnrollmentBundlePureCoreVerification:
+        "provisioning_record_verification",
+      provisioningRecordEnrollmentBindingContract:
+        "provisioning_record_contract",
       enrollmentCertificateRenewalContract: "provisioning_record_contract",
-      enrollmentCertificateRenewalVerification: "provisioning_record_verification",
-      platformProvisionerManifestVerification: "platform_provisioner_verification",
-      platformProvisionerCrddDistributionVerification: "platform_provisioner_verification",
-      platformProvisionerPackageGateObservation: "platform_provisioner_verification",
-      platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
+      enrollmentCertificateRenewalVerification:
+        "provisioning_record_verification",
+      platformProvisionerManifestVerification:
+        "platform_provisioner_verification",
+      platformProvisionerCrddDistributionVerification:
+        "platform_provisioner_verification",
+      platformProvisionerPackageGateObservation:
+        "platform_provisioner_verification",
+      platformProvisionerPackageFilesystemVerification:
+        "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -466,19 +609,24 @@ test("Activation contractは永続化、専用command、再activation、disable/
       enrollmentCertificateWireCodec: "provisioning_record_contract",
       offlineEnrollmentBundleContract: "provisioning_record_contract",
       installationKeyProtectionVerification: "provisioning_record_verification",
-      provisioningEnrollmentCertificateVerification: "provisioning_record_verification",
-      provisioningCaTrustAndRevocationVerification: "provisioning_record_verification",
+      provisioningEnrollmentCertificateVerification:
+        "provisioning_record_verification",
+      provisioningCaTrustAndRevocationVerification:
+        "provisioning_record_verification",
       recordEnrollmentBindingVerification: "provisioning_record_verification",
       platformKeyStorageAdapterVerification: "provisioning_record_verification",
-      enrollmentReplayProtectionPersistence: "provisioning_record_verification"
+      enrollmentReplayProtectionPersistence: "provisioning_record_verification",
     },
     enrollmentReadiness: "blocked",
     filesystemEffectIssued: false,
     networkEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
-  assert.equal(Object.isFrozen(contract.provisioningRecordTrustAndSelectionPolicy), true);
+  assert.equal(
+    Object.isFrozen(contract.provisioningRecordTrustAndSelectionPolicy),
+    true,
+  );
   assert.equal(Object.isFrozen(contract.installationKeyEnrollmentPolicy), true);
   assert.deepEqual(contract.provisioningStorageAndLifecyclePolicy, {
     policy: "human_approved_candidate_contract_only",
@@ -513,62 +661,118 @@ test("Activation contractは永続化、専用command、再activation、disable/
     crashRecovery: "not_implemented",
     implementationDependencyRelationships: {
       provisioningRecordFilesystemWrite: "platform_provisioner_effect",
-      provisioningRecordCurrentPointerPersistence: "platform_provisioner_effect",
+      provisioningRecordCurrentPointerPersistence:
+        "platform_provisioner_effect",
       provisioningRecordCurrentPointerContract: "provisioning_record_contract",
       provisioningTrustFloorPersistence: "provisioning_record_verification",
       repositoryGenerationPersistence: "activation_atomic_persistence",
-      recoveryJournalPersistence: "activation_atomic_persistence"
+      recoveryJournalPersistence: "activation_atomic_persistence",
     },
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
-  assert.equal(Object.isFrozen(contract.provisioningStorageAndLifecyclePolicy), true);
-  assert.equal(Object.isFrozen(
-    contract.provisioningStorageAndLifecyclePolicy.implementationDependencyRelationships), true);
-  assert.equal(Object.isFrozen(contract.installationKeyEnrollmentPolicy.initialEnrollmentModes),
-    true);
-  assert.equal(Object.isFrozen(
-    contract.installationKeyEnrollmentPolicy.installationKeyBackendCandidates), true);
-  assert.equal(Object.isFrozen(
-    contract.installationKeyEnrollmentPolicy.platformKeyStoragePolicies), true);
-  assert.equal(Object.isFrozen(
-    contract.installationKeyEnrollmentPolicy.platformKeyStoragePolicies.windows), true);
-  assert.equal(Object.isFrozen(
-    contract.installationKeyEnrollmentPolicy.onlineEnrollmentRequiredInputs), true);
-  assert.equal(Object.isFrozen(
-    contract.installationKeyEnrollmentPolicy.offlineEnrollmentBundleRequiredContents), true);
-  assert.equal(Object.isFrozen(
-    contract.installationKeyEnrollmentPolicy.implementationDependencyRelationships), true);
-  assert.deepEqual(contract.provisioningSignaturePrimitives,
-    contract.provisioningRecordTrustAndSelectionPolicy.signaturePrimitives);
-  assert.equal(contract.provisioningRecordRole,
-    "platform_scope_signed_runtime_authority_source_of_truth_target");
-  assert.equal(contract.provisionReceiptRelationship,
-    "not_separate_runtime_authority_artifact_target");
-  assert.equal(contract.platformProvisionerManifestRelationship,
-    "not_separate_runtime_authority_artifact_target");
-  assert.equal(contract.authorityFileBundleManifestRelationship,
-    "separate_existing_artifact");
-  assert.equal(contract.authorityRootCurrentSelectionContract,
-    "cli_then_environment_explicit_path_until_verified_record_resolver_implemented");
+  assert.equal(
+    Object.isFrozen(contract.provisioningStorageAndLifecyclePolicy),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.provisioningStorageAndLifecyclePolicy
+        .implementationDependencyRelationships,
+    ),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.installationKeyEnrollmentPolicy.initialEnrollmentModes,
+    ),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.installationKeyEnrollmentPolicy.installationKeyBackendCandidates,
+    ),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.installationKeyEnrollmentPolicy.platformKeyStoragePolicies,
+    ),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.installationKeyEnrollmentPolicy.platformKeyStoragePolicies
+        .windows,
+    ),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.installationKeyEnrollmentPolicy.onlineEnrollmentRequiredInputs,
+    ),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.installationKeyEnrollmentPolicy
+        .offlineEnrollmentBundleRequiredContents,
+    ),
+    true,
+  );
+  assert.equal(
+    Object.isFrozen(
+      contract.installationKeyEnrollmentPolicy
+        .implementationDependencyRelationships,
+    ),
+    true,
+  );
+  assert.deepEqual(
+    contract.provisioningSignaturePrimitives,
+    contract.provisioningRecordTrustAndSelectionPolicy.signaturePrimitives,
+  );
+  assert.equal(
+    contract.provisioningRecordRole,
+    "platform_scope_signed_runtime_authority_source_of_truth_target",
+  );
+  assert.equal(
+    contract.provisionReceiptRelationship,
+    "not_separate_runtime_authority_artifact_target",
+  );
+  assert.equal(
+    contract.platformProvisionerManifestRelationship,
+    "not_separate_runtime_authority_artifact_target",
+  );
+  assert.equal(
+    contract.authorityFileBundleManifestRelationship,
+    "separate_existing_artifact",
+  );
+  assert.equal(
+    contract.authorityRootCurrentSelectionContract,
+    "cli_then_environment_explicit_path_until_verified_record_resolver_implemented",
+  );
   assert.equal(contract.runRevalidationRequired, true);
-  assert.equal(contract.onboardingReadyRule,
-    "all_implementation_dependencies_and_current_run_evidence_confirmed");
+  assert.equal(
+    contract.onboardingReadyRule,
+    "all_implementation_dependencies_and_current_run_evidence_confirmed",
+  );
   assert.deepEqual(contract.onboardingCurrentRunEvidenceRequirements, [
     "verified_current_provisioning_record_and_platform_provisioner_trust_identity",
     "explicit_authority_root_path_resolved_from_verified_provisioning_record",
     "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
     "repository_runtime_root_identity_protection_and_selected_principal_binding",
     "persistent_active_activation_record_identity_and_repository_binding",
-    "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged"
+    "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged",
   ]);
   assert.equal(contract.onboardingReadyTransition, "not_implemented");
-  assert.equal(contract.onboardingReadinessProjection,
-    "implemented_candidate_contract_only");
+  assert.equal(
+    contract.onboardingReadinessProjection,
+    "implemented_candidate_contract_only",
+  );
   assert.deepEqual(contract.requiredProvisioningTargetKinds, [
     "shared_authority_root_platform_scope",
-    "repository_scoped_runtime_root_activation_precondition"
+    "repository_scoped_runtime_root_activation_precondition",
   ]);
   assert.equal(contract.onboardingReadiness, "blocked");
   assert.deepEqual(contract.onboardingBlockingDependencies, [
@@ -583,89 +787,182 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "activation_effect",
     "activation_path_identity_binding",
     "activation_atomic_persistence",
-    "run_scoped_capability"
+    "run_scoped_capability",
   ]);
-  assert.equal(new Set(contract.onboardingBlockingDependencies).size,
-    contract.onboardingBlockingDependencies.length);
-  assert.equal(contract.disabledRepositoryExperience, "no_runtime_specific_effect");
-  assert.equal(contract.firstPlatformSetup,
-    "verify_signed_platform_provisioner_and_provision_shared_authority_root_target");
-  assert.equal(contract.authorityProvisioningScope,
-    "shared_platform_scope_reusable_across_repositories_target");
-  assert.equal(contract.repositoryActivationEntry, "single_coordinator_activate_command_target");
-  assert.equal(contract.runtimeRootProvisioningEffectOwner,
-    "dedicated_platform_provisioner_target");
-  assert.equal(contract.normalRunAdministratorElevation,
-    "not_required_after_verified_provision_and_activation_target");
-  assert.equal(contract.normalRunPathInput,
-    "not_required_after_verified_provision_and_activation_target");
-  assert.equal(contract.normalRunManualAclConfiguration,
-    "not_required_after_verified_provision_and_activation_target");
-  assert.equal(contract.restartPrompt,
-    "not_required_when_protection_identity_and_activation_are_valid_target");
-  assert.equal(contract.protectionChangeBehavior,
-    "fail_closed_reverification_then_reprovision_on_confirmed_condition");
+  assert.equal(
+    new Set(contract.onboardingBlockingDependencies).size,
+    contract.onboardingBlockingDependencies.length,
+  );
+  assert.equal(
+    contract.disabledRepositoryExperience,
+    "no_runtime_specific_effect",
+  );
+  assert.equal(
+    contract.firstPlatformSetup,
+    "verify_signed_platform_provisioner_and_provision_shared_authority_root_target",
+  );
+  assert.equal(
+    contract.authorityProvisioningScope,
+    "shared_platform_scope_reusable_across_repositories_target",
+  );
+  assert.equal(
+    contract.repositoryActivationEntry,
+    "single_coordinator_activate_command_target",
+  );
+  assert.equal(
+    contract.runtimeRootProvisioningEffectOwner,
+    "dedicated_platform_provisioner_target",
+  );
+  assert.equal(
+    contract.normalRunAdministratorElevation,
+    "not_required_after_verified_provision_and_activation_target",
+  );
+  assert.equal(
+    contract.normalRunPathInput,
+    "not_required_after_verified_provision_and_activation_target",
+  );
+  assert.equal(
+    contract.normalRunManualAclConfiguration,
+    "not_required_after_verified_provision_and_activation_target",
+  );
+  assert.equal(
+    contract.restartPrompt,
+    "not_required_when_protection_identity_and_activation_are_valid_target",
+  );
+  assert.equal(
+    contract.protectionChangeBehavior,
+    "fail_closed_reverification_then_reprovision_on_confirmed_condition",
+  );
   assert.deepEqual(contract.reverificationTriggers, [
     "platform_provisioner_or_signature_or_trust_change",
     "runtime_or_provisioner_principal_change",
-    "root_identity_or_protection_metadata_change"
+    "root_identity_or_protection_metadata_change",
   ]);
   assert.deepEqual(contract.reprovisionConditions, [
     "required_root_missing_or_replaced",
     "required_writer_or_runtime_read_only_protection_mismatch",
-    "verified_provisioning_record_authority_root_identity_mismatch"
+    "verified_provisioning_record_authority_root_identity_mismatch",
   ]);
   assert.equal(contract.platformProvisionerVerification, "not_implemented");
-  assert.equal(contract.platformProvisionerTrustCore.manifestCryptographicVerification,
-    "implemented_candidate");
-  assert.equal(contract.platformProvisionerTrustCore.distributionModel,
-    "crdd_bundled_private_mjs_package");
-  assert.equal(contract.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1, false);
-  assert.equal(contract.platformProvisionerPackageGate.observationContract,
-    "implemented_candidate_non_authoritative");
-  assert.equal(contract.platformProvisionerPackageGate.effectAuthorizationIssued, false);
+  assert.equal(
+    contract.platformProvisionerTrustCore.manifestCryptographicVerification,
+    "implemented_candidate",
+  );
+  assert.equal(
+    contract.platformProvisionerTrustCore.distributionModel,
+    "crdd_bundled_private_mjs_package",
+  );
+  assert.equal(
+    contract.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1,
+    false,
+  );
+  assert.equal(
+    contract.platformProvisionerPackageGate.observationContract,
+    "implemented_candidate_non_authoritative",
+  );
+  assert.equal(
+    contract.platformProvisionerPackageGate.effectAuthorizationIssued,
+    false,
+  );
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
   assert.equal(contract.installationKeyGeneration, "not_implemented");
-  assert.equal(contract.installationKeyProtectionVerification, "not_implemented");
-  assert.equal(contract.provisioningEnrollmentCertificateContract, "not_implemented");
-  assert.equal(contract.provisioningEnrollmentCertificateVerification, "not_implemented");
-  assert.equal(contract.provisioningCaTrustAndRevocationVerification, "not_implemented");
-  assert.equal(contract.initialProvisioningEnrollmentExchange, "not_implemented");
-  assert.equal(contract.recordEnrollmentBindingVerification, "implemented_candidate");
+  assert.equal(
+    contract.installationKeyProtectionVerification,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.provisioningEnrollmentCertificateContract,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.provisioningEnrollmentCertificateVerification,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.provisioningCaTrustAndRevocationVerification,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.initialProvisioningEnrollmentExchange,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.recordEnrollmentBindingVerification,
+    "implemented_candidate",
+  );
   assert.equal(contract.enrollmentCertificateWireCodec, "not_implemented");
   assert.equal(contract.onlineEnrollmentProtocol, "not_implemented");
-  assert.equal(contract.offlineEnrollmentBundleContract, "implemented_candidate");
+  assert.equal(
+    contract.offlineEnrollmentBundleContract,
+    "implemented_candidate",
+  );
   assert.equal(contract.offlineEnrollmentBundleImport, "not_implemented");
-  assert.equal(contract.platformKeyStorageAdapterVerification, "not_implemented");
-  assert.equal(contract.enrollmentReplayProtectionPersistence, "not_implemented");
+  assert.equal(
+    contract.platformKeyStorageAdapterVerification,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.enrollmentReplayProtectionPersistence,
+    "not_implemented",
+  );
   assert.equal(contract.automaticEnrollmentRenewalEffect, "not_implemented");
   assert.equal(contract.provisioningRecordContract, "not_implemented");
   assert.equal(contract.provisioningRecordVerification, "not_implemented");
   assert.equal(contract.provisioningRecordTrustAnchorSet, "not_implemented");
-  assert.equal(contract.provisioningRecordRevocationEvaluation, "not_implemented");
+  assert.equal(
+    contract.provisioningRecordRevocationEvaluation,
+    "not_implemented",
+  );
   assert.equal(contract.provisioningRecordFilesystemRead, "not_implemented");
-  assert.equal(contract.provisioningRecordLifecyclePersistence, "not_implemented");
+  assert.equal(
+    contract.provisioningRecordLifecyclePersistence,
+    "not_implemented",
+  );
   assert.equal(contract.provisioningRecordFilesystemWrite, "not_implemented");
-  assert.equal(contract.provisioningRecordCurrentPointerContract, "not_implemented");
-  assert.equal(contract.provisioningRecordCurrentPointerPersistence, "not_implemented");
+  assert.equal(
+    contract.provisioningRecordCurrentPointerContract,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.provisioningRecordCurrentPointerPersistence,
+    "not_implemented",
+  );
   assert.equal(contract.provisioningTrustFloorPersistence, "not_implemented");
   assert.equal(contract.repositoryGenerationPersistence, "not_implemented");
   assert.equal(contract.recoveryJournalPersistence, "not_implemented");
   assert.equal(["provision", "ReceiptContract"].join("") in contract, false);
-  assert.equal(["provision", "ReceiptVerification"].join("") in contract, false);
-  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.recordSchemaCodec,
-    contract.provisioningRecordPureCore.recordPayloadCodec);
-  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.signatureVerifier,
-    contract.provisioningRecordPureCore.aggregateCryptographicCondition);
-  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.embeddedTrustAnchorSet,
-    contract.provisioningRecordTrustAnchorSet);
-  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.revocationEvaluator,
-    contract.provisioningRecordRevocationEvaluation);
-  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.filesystemRead,
-    contract.provisioningRecordFilesystemRead);
-  assert.equal(contract.provisioningRecordTrustAndSelectionPolicy.lifecyclePersistence,
-    contract.provisioningRecordLifecyclePersistence);
-  assert.equal(contract.authorityRootResolutionFromProvisioningRecord, "not_implemented");
+  assert.equal(
+    ["provision", "ReceiptVerification"].join("") in contract,
+    false,
+  );
+  assert.equal(
+    contract.provisioningRecordTrustAndSelectionPolicy.recordSchemaCodec,
+    contract.provisioningRecordPureCore.recordPayloadCodec,
+  );
+  assert.equal(
+    contract.provisioningRecordTrustAndSelectionPolicy.signatureVerifier,
+    contract.provisioningRecordPureCore.aggregateCryptographicCondition,
+  );
+  assert.equal(
+    contract.provisioningRecordTrustAndSelectionPolicy.embeddedTrustAnchorSet,
+    contract.provisioningRecordTrustAnchorSet,
+  );
+  assert.equal(
+    contract.provisioningRecordTrustAndSelectionPolicy.revocationEvaluator,
+    contract.provisioningRecordRevocationEvaluation,
+  );
+  assert.equal(
+    contract.provisioningRecordTrustAndSelectionPolicy.filesystemRead,
+    contract.provisioningRecordFilesystemRead,
+  );
+  assert.equal(
+    contract.provisioningRecordTrustAndSelectionPolicy.lifecyclePersistence,
+    contract.provisioningRecordLifecyclePersistence,
+  );
+  assert.equal(
+    contract.authorityRootResolutionFromProvisioningRecord,
+    "not_implemented",
+  );
   assert.equal(contract.authorityRootExplicitPathContractPreserved, true);
   assert.equal(contract.runtimeRootProvisioningEffect, "not_implemented");
   assert.equal(contract.authorityRootProvisioningEffect, "not_implemented");
@@ -675,64 +972,127 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.doctorEnableIsActivation, false);
   assert.equal(contract.bundleIdentityChangeRequiresReactivation, true);
   assert.equal(contract.crossRecordTransitionCore, "implemented_candidate");
-  assert.equal(contract.initialTransitionCore, "initial_null_to_active_candidate");
+  assert.equal(
+    contract.initialTransitionCore,
+    "initial_null_to_active_candidate",
+  );
   assert.equal(contract.disableTransitionCore, "active_to_disabled_candidate");
   assert.equal(contract.reactivationTransitionPolicy, "not_implemented");
   assert.equal(contract.disabledOriginTransitionPolicy, "not_implemented");
-  assert.equal(contract.disableSemantics, "stop_new_operations_and_safely_cancel_in_flight");
+  assert.equal(
+    contract.disableSemantics,
+    "stop_new_operations_and_safely_cancel_in_flight",
+  );
   assert.equal(contract.deleteIsSeparateOperation, true);
-  assert.equal(contract.rootProtectionPolicy.protectionPolicyCore,
-    "implemented_candidate_claim_only");
-  assert.equal(contract.rootProtectionPolicy.runtimeRootProtection,
-    "runtime_principal_only_read_write_and_no_other_writer");
-  assert.equal(contract.rootProtectionPolicy.authorityRootProtection,
-    "provisioner_principal_only_write_runtime_read_only_and_no_other_writer");
-  assert.equal(contract.rootProtectionPolicy.writerExclusivityScope,
-    "ordinary_access_control_entries_excluding_trusted_platform_administrator_override");
-  assert.deepEqual(contract.rootProtectionPolicy.trustedPlatformAdministratorBoundary, [
-    "windows_system_and_machine_administrators",
-    "posix_root"
-  ]);
-  assert.equal(contract.rootProtectionPolicy.administratorOriginatedChangeDetection,
-    "runtime_owned_revalidation_detects_observable_identity_protection_signature_trust_or_activation_change_and_fails_closed");
-  assert.equal(contract.rootProtectionPolicy.administratorOriginatedObservableChangeResponse,
-    "blocked_reverification_then_reprovision_only_after_trust_base_confirmed");
-  assert.equal(contract.rootProtectionPolicy.confirmedOrSuspectedPlatformAdministratorCompromiseResponse,
-    "blocked_platform_recovery_and_trust_base_reestablishment_required_before_reprovision");
-  assert.equal(contract.rootProtectionPolicy.ambiguousAdministratorChangeClassification,
-    "fail_closed_as_suspected_compromise");
-  assert.equal(contract.rootProtectionPolicy.platformRecoveryImplementation, "not_implemented");
-  assert.equal(["administrator", "CompromiseResponse"].join("") in
-    contract.rootProtectionPolicy, false);
-  assert.equal(contract.rootProtectionPolicy.completeOsOrVerifierCompromiseProtection,
-    "not_guaranteed");
-  assert.equal(contract.rootProtectionPolicy.protectionEffectOwner,
-    "official_signed_platform_provisioner_only_target");
-  assert.equal(contract.rootProtectionPolicy.runtimePermissionMutation, "prohibited");
+  assert.equal(
+    contract.rootProtectionPolicy.protectionPolicyCore,
+    "implemented_candidate_claim_only",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.runtimeRootProtection,
+    "runtime_principal_only_read_write_and_no_other_writer",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.authorityRootProtection,
+    "provisioner_principal_only_write_runtime_read_only_and_no_other_writer",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.writerExclusivityScope,
+    "ordinary_access_control_entries_excluding_trusted_platform_administrator_override",
+  );
+  assert.deepEqual(
+    contract.rootProtectionPolicy.trustedPlatformAdministratorBoundary,
+    ["windows_system_and_machine_administrators", "posix_root"],
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.administratorOriginatedChangeDetection,
+    "runtime_owned_revalidation_detects_observable_identity_protection_signature_trust_or_activation_change_and_fails_closed",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy
+      .administratorOriginatedObservableChangeResponse,
+    "blocked_reverification_then_reprovision_only_after_trust_base_confirmed",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy
+      .confirmedOrSuspectedPlatformAdministratorCompromiseResponse,
+    "blocked_platform_recovery_and_trust_base_reestablishment_required_before_reprovision",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.ambiguousAdministratorChangeClassification,
+    "fail_closed_as_suspected_compromise",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.platformRecoveryImplementation,
+    "not_implemented",
+  );
+  assert.equal(
+    ["administrator", "CompromiseResponse"].join("") in
+      contract.rootProtectionPolicy,
+    false,
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.completeOsOrVerifierCompromiseProtection,
+    "not_guaranteed",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.protectionEffectOwner,
+    "official_signed_platform_provisioner_only_target",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.runtimePermissionMutation,
+    "prohibited",
+  );
   assert.deepEqual(contract.rootProtectionPolicy.windowsProtectionTarget, {
     runtimeRoot: "runtime_sid_read_write_target",
-    authorityRoot: "provisioner_or_approved_admin_write_runtime_sid_read_only_target",
+    authorityRoot:
+      "provisioner_or_approved_admin_write_runtime_sid_read_only_target",
     inheritance: "disabled_target",
-    untrustedBroadWriteAces: "rejected_target"
+    untrustedBroadWriteAces: "rejected_target",
   });
   assert.deepEqual(contract.rootProtectionPolicy.posixProtectionTarget, {
     runtimeRoot: "runtime_uid_owner_mode_0700_target",
     authorityRoot:
       "provisioner_or_root_owner_runtime_read_traverse_explicit_acl_target",
-    unapprovedGroupOrOtherWrite: "rejected_target"
+    unapprovedGroupOrOtherWrite: "rejected_target",
   });
-  assert.equal(contract.rootProtectionPolicy.persistentVolumeEligibility,
-    "local_equivalent_stable_identity_durable_atomic_replace_and_equivalent_acl_required_target");
-  assert.equal(contract.rootProtectionPolicy.unsupportedVolumeBehavior,
-    "network_removable_special_or_unknown_blocked_target");
-  assert.equal(contract.rootProtectionPolicy.windowsDaclAdapter, "not_implemented");
-  assert.equal(contract.rootProtectionPolicy.posixOwnerModeAdapter, "not_implemented");
-  assert.equal(contract.rootProtectionPolicy.posixAclVerification, "not_implemented");
-  assert.equal(contract.rootProtectionPolicy.runtimePrincipalBinding, "not_implemented");
-  assert.equal(contract.rootProtectionPolicy.persistentVolumeAdapter, "not_implemented");
-  assert.equal(contract.rootProtectionPolicy.filesystemClassVerification, "not_implemented");
+  assert.equal(
+    contract.rootProtectionPolicy.persistentVolumeEligibility,
+    "local_equivalent_stable_identity_durable_atomic_replace_and_equivalent_acl_required_target",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.unsupportedVolumeBehavior,
+    "network_removable_special_or_unknown_blocked_target",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.windowsDaclAdapter,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.posixOwnerModeAdapter,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.posixAclVerification,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.runtimePrincipalBinding,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.persistentVolumeAdapter,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.rootProtectionPolicy.filesystemClassVerification,
+    "not_implemented",
+  );
   assert.equal(contract.rootProtectionPolicy.pathBinding, "not_implemented");
-  assert.equal(contract.rootProtectionPolicy.activationIntegration, "not_implemented");
+  assert.equal(
+    contract.rootProtectionPolicy.activationIntegration,
+    "not_implemented",
+  );
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.atomicPersistence, "not_implemented");
   assert.equal(contract.canonicalUtcLength, 24);

@@ -33,8 +33,8 @@ function nullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
-function response<T>(
-  status: string,
+function response<const S extends string, T>(
+  status: S,
   reason: string,
   plan: T | null = null,
   write: Readonly<{

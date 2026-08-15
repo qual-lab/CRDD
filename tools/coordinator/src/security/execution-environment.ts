@@ -47,7 +47,7 @@ type DirectorySnapshot = Readonly<{
   name: string;
   filesystem: FilesystemIdentity;
 }>;
-type OperationDirectories = Readonly<{
+export type OperationDirectories = Readonly<{
   root: string;
   providerHome: string;
   workspace: string;
@@ -408,6 +408,9 @@ export function createOperationDirectories(
   return directories;
 }
 
+export function createOwnedOperationDirectories(
+  temporaryParent?: string,
+): OwnedOperationDirectories & { directories: OperationDirectories };
 export function createOwnedOperationDirectories(
   temporaryParent: string = os.tmpdir(),
 ): OwnedOperationDirectories {

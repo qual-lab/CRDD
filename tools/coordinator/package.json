@@ -9,8 +9,8 @@
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
     "lint": "biome lint ../..",
-    "test": "node --test ./tests/*.test.mjs",
-    "typecheck": "tsc -p ./tsconfig.typecheck.json && tsc -p ./tsconfig.strict.json"
+    "test": "node --test ./tests/*.test.ts",
+    "typecheck": "tsc -p ./tsconfig.typecheck.json && tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
   },
   "engines": {
     "node": ">=24.12"

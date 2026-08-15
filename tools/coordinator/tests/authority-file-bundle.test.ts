@@ -7,29 +7,22 @@ import {
   AUTHORITY_FILE_BUNDLE_FILES,
   AUTHORITY_FILE_BUNDLE_INPUT_LIMITS,
   describeAuthorityFileBundleContract,
-  loadAuthorityFileBundleCandidate
+  loadAuthorityFileBundleCandidate,
 } from "../src/security/authority-file-bundle.ts";
 import {
   AUTHORITY_REGISTRY_CONTRACT,
-  validateAuthorityRegistryCandidate
+  validateAuthorityRegistryCandidate,
 } from "../src/security/authority-grant-verifier.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
-  decodeCanonicalAuthorityTrustPolicyBytes
+  decodeCanonicalAuthorityTrustPolicyBytes,
 } from "../src/security/authority-trust-loader.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
-  validateProviderIsolationProfile
+  validateProviderIsolationProfile,
 } from "../src/security/provider-isolation-profile.ts";
-
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
+import { canonicalJson } from "./test-support.ts";
 
 function profile() {
   return {
@@ -39,7 +32,7 @@ function profile() {
     provider: "codex",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     credentialGrant: { brokerId: "BROKER-000001", grantRef: "CGRANT-000001" },
-    egress: { origins: ["https://api.example.test"] }
+    egress: { origins: ["https://api.example.test"] },
   };
 }
 
@@ -51,23 +44,31 @@ function fixture(manifestOverrides = {}, policyOverrides = {}) {
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: "2026-08-11T00:00:00.000Z",
-    grants: [{
-      grantRef: "AUTH-000001",
-      grantRevision: 2,
-      status: "active",
-      validFrom: "2026-08-10T00:00:00.000Z",
-      expiresAt: "2026-08-12T00:00:00.000Z",
-      provider: "codex",
-      origins: ["https://api.example.test"],
-      credentialGrant: { brokerId: "BROKER-000001", grantRef: "CGRANT-000001" },
-      operationId: "OP-000001",
-      scopeId: "SCOPE-000001",
-      profileHash: validateProviderIsolationProfile(rawProfile).profileHash
-    }]
+    grants: [
+      {
+        grantRef: "AUTH-000001",
+        grantRevision: 2,
+        status: "active",
+        validFrom: "2026-08-10T00:00:00.000Z",
+        expiresAt: "2026-08-12T00:00:00.000Z",
+        provider: "codex",
+        origins: ["https://api.example.test"],
+        credentialGrant: {
+          brokerId: "BROKER-000001",
+          grantRef: "CGRANT-000001",
+        },
+        operationId: "OP-000001",
+        scopeId: "SCOPE-000001",
+        profileHash: validateProviderIsolationProfile(rawProfile).profileHash,
+      },
+    ],
   };
   const validatedRegistry = validateAuthorityRegistryCandidate(registry);
   assert.equal(validatedRegistry.status, "candidate");
-  const registryBytes = Buffer.from(canonicalJson(validatedRegistry.registry), "utf8");
+  const registryBytes = Buffer.from(
+    canonicalJson(validatedRegistry.registry),
+    "utf8",
+  );
   const trustPolicy = {
     contract: AUTHORITY_TRUST_POLICY_CONTRACT,
     contractRevision: 1,
@@ -77,10 +78,11 @@ function fixture(manifestOverrides = {}, policyOverrides = {}) {
     registryId: validatedRegistry.registry.registryId,
     registryRevision: validatedRegistry.registry.registryRevision,
     registryHash: validatedRegistry.registryHash,
-    ...policyOverrides
+    ...policyOverrides,
   };
   const trustPolicyBytes = Buffer.from(canonicalJson(trustPolicy), "utf8");
-  const decodedPolicy = decodeCanonicalAuthorityTrustPolicyBytes(trustPolicyBytes);
+  const decodedPolicy =
+    decodeCanonicalAuthorityTrustPolicyBytes(trustPolicyBytes);
   assert.equal(decodedPolicy.status, "candidate");
   const manifest = {
     contract: AUTHORITY_FILE_BUNDLE_CONTRACT,
@@ -91,7 +93,7 @@ function fixture(manifestOverrides = {}, policyOverrides = {}) {
     previousBundleHash: null,
     trustPolicyHash: decodedPolicy.trustPolicyHash,
     registryHash: validatedRegistry.registryHash,
-    ...manifestOverrides
+    ...manifestOverrides,
   };
   const manifestBytes = Buffer.from(canonicalJson(manifest), "utf8");
   return { manifestBytes, trustPolicyBytes, registryBytes };
@@ -101,7 +103,10 @@ test("固定3ファイルのcanonical byteとHashをBundle候補へ結合する"
   const input = fixture();
   const result = loadAuthorityFileBundleCandidate(input);
   assert.equal(result.status, "candidate");
-  assert.equal(result.reason, "runtime_file_bundle_path_acl_and_activation_required");
+  assert.equal(
+    result.reason,
+    "runtime_file_bundle_path_acl_and_activation_required",
+  );
   assert.equal(result.runtimeCapabilityIssued, false);
   assert.equal(result.manifest.bundleId, "AUTHBUNDLE-000001");
   assert.match(result.bundleHash, /^[a-f0-9]{64}$/u);
@@ -118,11 +123,13 @@ test("Manifestの非canonical表現、BOM、余分fieldおよび上限超過を�
   for (const manifestBytes of [
     Buffer.concat([input.manifestBytes, Buffer.from("\n")]),
     Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), input.manifestBytes]),
-    Buffer.from(manifestText.replace("{", "{\"extra\":true,"), "utf8"),
-    Buffer.alloc(AUTHORITY_FILE_BUNDLE_INPUT_LIMITS.manifestBytes + 1, 0x20)
+    Buffer.from(manifestText.replace("{", '{"extra":true,'), "utf8"),
+    Buffer.alloc(AUTHORITY_FILE_BUNDLE_INPUT_LIMITS.manifestBytes + 1, 0x20),
   ]) {
-    assert.equal(loadAuthorityFileBundleCandidate({ ...input, manifestBytes }).reason,
-      "authority_file_bundle_manifest_invalid");
+    assert.equal(
+      loadAuthorityFileBundleCandidate({ ...input, manifestBytes }).reason,
+      "authority_file_bundle_manifest_invalid",
+    );
   }
 });
 
@@ -131,35 +138,64 @@ test("Trust Policy byte列もcanonical形式と独立上限を要求する", () 
   for (const trustPolicyBytes of [
     Buffer.concat([input.trustPolicyBytes, Buffer.from(" ")]),
     Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), input.trustPolicyBytes]),
-    Buffer.alloc(AUTHORITY_TRUST_POLICY_INPUT_LIMITS.rawBytes + 1, 0x20)
+    Buffer.alloc(AUTHORITY_TRUST_POLICY_INPUT_LIMITS.rawBytes + 1, 0x20),
   ]) {
-    assert.equal(loadAuthorityFileBundleCandidate({ ...input, trustPolicyBytes }).reason,
-      "authority_file_bundle_trust_policy_invalid");
+    assert.equal(
+      loadAuthorityFileBundleCandidate({ ...input, trustPolicyBytes }).reason,
+      "authority_file_bundle_trust_policy_invalid",
+    );
   }
 });
 
 test("Manifest、Policy、RegistryのHash差とinactive状態を拒否する", () => {
-  assert.equal(loadAuthorityFileBundleCandidate(fixture({ registryHash: "a".repeat(64) })).reason,
-    "authority_file_bundle_hash_mismatch");
-  assert.equal(loadAuthorityFileBundleCandidate(fixture({ trustPolicyHash: "a".repeat(64) })).reason,
-    "authority_file_bundle_hash_mismatch");
-  assert.equal(loadAuthorityFileBundleCandidate(fixture({ status: "revoked" })).reason,
-    "authority_file_bundle_inactive");
-  assert.equal(loadAuthorityFileBundleCandidate(fixture({}, { status: "revoked" })).reason,
-    "authority_file_bundle_trust_policy_inactive");
+  assert.equal(
+    loadAuthorityFileBundleCandidate(fixture({ registryHash: "a".repeat(64) }))
+      .reason,
+    "authority_file_bundle_hash_mismatch",
+  );
+  assert.equal(
+    loadAuthorityFileBundleCandidate(
+      fixture({ trustPolicyHash: "a".repeat(64) }),
+    ).reason,
+    "authority_file_bundle_hash_mismatch",
+  );
+  assert.equal(
+    loadAuthorityFileBundleCandidate(fixture({ status: "revoked" })).reason,
+    "authority_file_bundle_inactive",
+  );
+  assert.equal(
+    loadAuthorityFileBundleCandidate(fixture({}, { status: "revoked" })).reason,
+    "authority_file_bundle_trust_policy_inactive",
+  );
 });
 
 test("Bundle revisionは初版nullと後続Hash chainを区別する", () => {
-  assert.equal(loadAuthorityFileBundleCandidate(fixture({ previousBundleHash: "a".repeat(64) })).reason,
-    "authority_file_bundle_manifest_invalid");
-  assert.equal(loadAuthorityFileBundleCandidate(fixture({
-    bundleRevision: 2,
-    previousBundleHash: null
-  })).reason, "authority_file_bundle_manifest_invalid");
-  assert.equal(loadAuthorityFileBundleCandidate(fixture({
-    bundleRevision: 2,
-    previousBundleHash: createHash("sha256").update("previous").digest("hex")
-  })).status, "candidate");
+  assert.equal(
+    loadAuthorityFileBundleCandidate(
+      fixture({ previousBundleHash: "a".repeat(64) }),
+    ).reason,
+    "authority_file_bundle_manifest_invalid",
+  );
+  assert.equal(
+    loadAuthorityFileBundleCandidate(
+      fixture({
+        bundleRevision: 2,
+        previousBundleHash: null,
+      }),
+    ).reason,
+    "authority_file_bundle_manifest_invalid",
+  );
+  assert.equal(
+    loadAuthorityFileBundleCandidate(
+      fixture({
+        bundleRevision: 2,
+        previousBundleHash: createHash("sha256")
+          .update("previous")
+          .digest("hex"),
+      }),
+    ).status,
+    "candidate",
+  );
 });
 
 test("Bundle入力のaccessorとProxyを実行せずblockedへ閉じる", () => {
@@ -168,14 +204,20 @@ test("Bundle入力のaccessorとProxyを実行せずblockedへ閉じる", () => 
   const accessor = { ...input };
   Object.defineProperty(accessor, "manifestBytes", {
     enumerable: true,
-    get() { getterCalls += 1; return input.manifestBytes; }
+    get() {
+      getterCalls += 1;
+      return input.manifestBytes;
+    },
   });
   assert.equal(loadAuthorityFileBundleCandidate(accessor).status, "blocked");
   assert.equal(getterCalls, 0);
 
   let proxyCalls = 0;
   const proxied = new Proxy(input, {
-    ownKeys() { proxyCalls += 1; return Reflect.ownKeys(input); }
+    ownKeys() {
+      proxyCalls += 1;
+      return Reflect.ownKeys(input);
+    },
   });
   assert.equal(loadAuthorityFileBundleCandidate(proxied).status, "blocked");
   assert.equal(proxyCalls, 0);
@@ -185,7 +227,10 @@ test("File Bundle CoreはPath／ACL／activationまたはCapabilityを成立さ�
   const contract = describeAuthorityFileBundleContract();
   assert.equal(contract.canonicalBundleCore, "implemented_candidate");
   assert.deepEqual(contract.fixedFiles, AUTHORITY_FILE_BUNDLE_FILES);
-  assert.equal(contract.rootProtectionPolicyCore, "implemented_candidate_claim_only");
+  assert.equal(
+    contract.rootProtectionPolicyCore,
+    "implemented_candidate_claim_only",
+  );
   assert.equal(contract.runtimeManagedPath, "not_implemented");
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.atomicReplacement, "not_implemented");

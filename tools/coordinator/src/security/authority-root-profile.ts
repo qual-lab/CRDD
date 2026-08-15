@@ -14,7 +14,11 @@ const INPUT_KEYS = new Set([
 ]);
 const EXPLICIT_ACTIVATE = "explicit_activate_request";
 
-function result<T>(status: string, reason: string, selection: T | null = null) {
+function result<const S extends string, T>(
+  status: S,
+  reason: string,
+  selection: T | null = null,
+) {
   return Object.freeze({
     status,
     reason,

@@ -4,22 +4,28 @@ import test from "node:test";
 
 import {
   evaluatePlatformProvisionerPackageGateCandidate,
-  describePlatformProvisionerPackageGateContract
+  describePlatformProvisionerPackageGateContract,
 } from "../src/security/platform-provisioner-package-gate.ts";
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
-  calculatePlatformProvisionerPackageContentRootCandidate
+  calculatePlatformProvisionerPackageContentRootCandidate,
 } from "../src/security/platform-provisioner-trust-core.ts";
-import { canonicalizeProvisioningJsonValueCandidate } from
-  "../src/security/provisioning-signature-primitives.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
+import { assertCanonicalCandidate } from "./test-support.ts";
 
-function frame(payload) {
-  const bytes = canonicalizeProvisioningJsonValueCandidate(payload).canonicalBytes;
+function frame(payload: Record<string, unknown>) {
+  const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
+  assertCanonicalCandidate(canonical);
+  const bytes = canonical.canonicalBytes;
   const length = Buffer.alloc(8);
   length.writeBigUInt64BE(BigInt(bytes.length));
-  return Buffer.concat([Buffer.from(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, "ascii"), length, bytes]);
+  return Buffer.concat([
+    Buffer.from(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, "ascii"),
+    length,
+    bytes,
+  ]);
 }
 
 function fixture() {
@@ -29,10 +35,17 @@ function fixture() {
   const observedPackageContent = {
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
-    files: [{ path: "bin/coordinator.ts", byteLength: 100, sha256: "1".repeat(64) }]
+    files: [
+      { path: "bin/coordinator.ts", byteLength: 100, sha256: "1".repeat(64) },
+    ],
   };
-  const packageContentRootSha256 = calculatePlatformProvisionerPackageContentRootCandidate(
-    observedPackageContent).packageContentRootSha256;
+  const packageRoot = calculatePlatformProvisionerPackageContentRootCandidate(
+    observedPackageContent,
+  );
+  if (packageRoot.status !== "candidate") {
+    assert.fail(`fixture package content was invalid: ${packageRoot.reason}`);
+  }
+  const packageContentRootSha256 = packageRoot.packageContentRootSha256;
   const payload = {
     contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
     contractRevision: 1,
@@ -43,21 +56,28 @@ function fixture() {
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
     issuedAt: "2026-08-15T00:00:00.000Z",
-    expiresAt: "2027-08-15T00:00:00.000Z"
+    expiresAt: "2027-08-15T00:00:00.000Z",
   };
   const manifestEnvelope = {
     contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
     contractRevision: 1,
     payload,
-    signatures: [{ keyId, algorithm: "Ed25519",
-      signature: sign(null, frame(payload), release.privateKey).toString("base64url") }]
+    signatures: [
+      {
+        keyId,
+        algorithm: "Ed25519",
+        signature: sign(null, frame(payload), release.privateKey).toString(
+          "base64url",
+        ),
+      },
+    ],
   };
   return {
     manifestVerificationInput: {
       manifestEnvelope,
       releaseSignerSpkiDer: spki,
       observedPackageContent,
-      evaluationTime: "2026-08-15T12:00:00.000Z"
+      evaluationTime: "2026-08-15T12:00:00.000Z",
     },
     crddDistributionObservation: {
       packageName: observedPackageContent.packageName,
@@ -66,9 +86,9 @@ function fixture() {
       crddRevision: payload.crddRevision,
       distributionVerdict: "verified_crdd_bundle",
       bundledPackageIdentityStable: true,
-      permissionPolicyMatch: true
+      permissionPolicyMatch: true,
     },
-    expectedCrddRevision: payload.crddRevision
+    expectedCrddRevision: payload.crddRevision,
   };
 }
 
@@ -79,30 +99,56 @@ test("CRDD bundle and manifest observations match but remain non-authoritative",
   assert.equal(result.crddDistributionObservationRuntimeOwned, false);
   assert.equal(result.effectAuthorizationIssued, false);
   assert.equal(result.filesystemEffectIssued, false);
-  for (const key of ["files", "packageContentRootSha256", "signature", "spkiDer"]) {
+  for (const key of [
+    "files",
+    "packageContentRootSha256",
+    "signature",
+    "spkiDer",
+  ]) {
     assert.equal(key in result, false);
   }
 });
 
 test("CRDD revision, content, identity and permission mismatches fail closed", () => {
-  for (const mutate of [
-    (value) => { value.crddDistributionObservation.distributionVerdict = "missing"; },
-    (value) => { value.crddDistributionObservation.crddRevision = "b".repeat(40); },
-    (value) => { value.crddDistributionObservation.packageContentRootSha256 = "f".repeat(64); },
-    (value) => { value.expectedCrddRevision = "c".repeat(40); },
-    (value) => { value.crddDistributionObservation.bundledPackageIdentityStable = false; },
-    (value) => { value.crddDistributionObservation.permissionPolicyMatch = false; }
-  ]) {
+  const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
+    (value) => {
+      value.crddDistributionObservation.distributionVerdict = "missing";
+    },
+    (value) => {
+      value.crddDistributionObservation.crddRevision = "b".repeat(40);
+    },
+    (value) => {
+      value.crddDistributionObservation.packageContentRootSha256 = "f".repeat(
+        64,
+      );
+    },
+    (value) => {
+      value.expectedCrddRevision = "c".repeat(40);
+    },
+    (value) => {
+      value.crddDistributionObservation.bundledPackageIdentityStable = false;
+    },
+    (value) => {
+      value.crddDistributionObservation.permissionPolicyMatch = false;
+    },
+  ];
+  for (const mutate of mutations) {
     const value = fixture();
     mutate(value);
-    assert.equal(evaluatePlatformProvisionerPackageGateCandidate(value).status, "blocked");
+    assert.equal(
+      evaluatePlatformProvisionerPackageGateCandidate(value).status,
+      "blocked",
+    );
   }
 });
 
 test("package gate cannot treat caller CRDD observations as Effect authorization", () => {
   const contract = describePlatformProvisionerPackageGateContract();
   assert.equal(contract.distributionModel, "crdd_bundled_private_mjs_package");
-  assert.equal(contract.observationContract, "implemented_candidate_non_authoritative");
+  assert.equal(
+    contract.observationContract,
+    "implemented_candidate_non_authoritative",
+  );
   assert.equal(contract.runtimeOwnedCrddDistributionAdapter, "not_implemented");
   assert.equal(contract.callerObservationMayAuthorizeEffect, false);
   assert.equal(contract.standalonePackageMayAuthorizeEffect, false);

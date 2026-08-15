@@ -108,15 +108,34 @@ type IssuingKey = Readonly<{
   spkiDer: Buffer;
 }>;
 
+type BindingResponseBase<S extends string> = {
+  status: S;
+  reason: string;
+  runtimeOwnedTrustConfirmed: false;
+  rollbackFloorConfirmed: false;
+  runtimeClockAuthorityConfirmed: false;
+  runtimeAuthorityConferred: false;
+  runtimeCapabilityIssued: false;
+  filesystemEffectIssued: false;
+  networkEffectIssued: false;
+};
+
+function response<const S extends string>(
+  status: S,
+  reason: string,
+): Readonly<BindingResponseBase<S>>;
+function response<
+  const S extends string,
+  T extends Readonly<Record<string, unknown>>,
+>(status: S, reason: string, details: T): Readonly<BindingResponseBase<S> & T>;
 function response(
   status: string,
   reason: string,
-  details: Readonly<Record<string, unknown>> = {},
+  details?: Readonly<Record<string, unknown>>,
 ) {
-  return Object.freeze({
+  const base = {
     status,
     reason,
-    ...details,
     runtimeOwnedTrustConfirmed: false,
     rollbackFloorConfirmed: false,
     runtimeClockAuthorityConfirmed: false,
@@ -124,7 +143,8 @@ function response(
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
-  });
+  } as const;
+  return Object.freeze(details ? Object.assign(base, details) : base);
 }
 
 function ownedBuffer(raw: unknown) {

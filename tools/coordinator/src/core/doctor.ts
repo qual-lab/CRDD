@@ -35,14 +35,17 @@ import {
 } from "../security/runtime-root-path-identity.ts";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
 import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
-import { snapshotPlainRecord } from "../security/plain-data-snapshot.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../security/plain-data-snapshot.ts";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
   "blocked",
   "not_implemented",
   "unknown",
-]);
+] as const);
 
 const PROVIDERS = Object.freeze(["codex", "claude"]);
 const PROVIDER_CHECKS = Object.freeze([
@@ -58,7 +61,7 @@ const PROVIDER_CHECKS = Object.freeze([
 ]);
 
 type CheckStatus = "confirmed" | "blocked" | "not_implemented" | "unknown";
-type DiagnosticCheck = {
+export type DiagnosticCheck = {
   id: string;
   status: CheckStatus;
   reason: string | null;
@@ -141,27 +144,48 @@ function check(
   return { id, status, reason, followUp };
 }
 
-export function evaluateReadiness(checks: readonly DiagnosticCheck[]) {
+export function evaluateReadiness(checks: unknown) {
   const expected = new Set(REQUIRED_CHECK_IDS);
   const seen = new Set<string>();
   const blockers: Array<{ id: string | null; reason: string }> = [];
+  const checkSnapshot = snapshotPlainArray<unknown>(
+    checks,
+    REQUIRED_CHECK_IDS.length + 1,
+  );
+  const entries = checkSnapshot.status === "ok" ? checkSnapshot.value : [];
 
-  for (const item of checks) {
-    if (!item || typeof item.id !== "string" || !expected.has(item.id)) {
-      blockers.push({ id: item?.id ?? null, reason: "unknown_check" });
+  for (const item of entries) {
+    if (item === null || typeof item !== "object") {
+      blockers.push({ id: null, reason: "unknown_check" });
       continue;
     }
-    if (seen.has(item.id)) {
-      blockers.push({ id: item.id, reason: "duplicate_check" });
+    const id = Reflect.get(item, "id");
+    const status = Reflect.get(item, "status");
+    const reason = Reflect.get(item, "reason");
+    if (typeof id !== "string" || !expected.has(id)) {
+      blockers.push({
+        id: typeof id === "string" ? id : null,
+        reason: "unknown_check",
+      });
       continue;
     }
-    seen.add(item.id);
-    if (!CHECK_STATUS.includes(item.status)) {
-      blockers.push({ id: item.id, reason: "invalid_status" });
+    if (seen.has(id)) {
+      blockers.push({ id, reason: "duplicate_check" });
       continue;
     }
-    if (item.status !== "confirmed") {
-      blockers.push({ id: item.id, reason: item.reason ?? item.status });
+    seen.add(id);
+    if (
+      typeof status !== "string" ||
+      !CHECK_STATUS.some((candidate) => candidate === status)
+    ) {
+      blockers.push({ id, reason: "invalid_status" });
+      continue;
+    }
+    if (status !== "confirmed") {
+      blockers.push({
+        id,
+        reason: typeof reason === "string" ? reason : status,
+      });
     }
   }
 

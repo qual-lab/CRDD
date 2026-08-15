@@ -164,7 +164,7 @@ function activationCandidate(raw: unknown): ActivationCandidate | null {
 /**
  * @param {string} status
  * @param {string} reason
- * @param {{record: Record<string, any>, recordHash: string, canonicalBytes: Buffer} | null} [next]
+ * @param {{record: Record<string, unknown>, recordHash: string, canonicalBytes: Buffer} | null} [next]
  * @param {string | null} [transitionKind]
  */
 function response(
@@ -187,8 +187,8 @@ function response(
 }
 
 /**
- * @param {Record<string, any>} previous
- * @param {Record<string, any>} next
+ * @param {Record<string, unknown>} previous
+ * @param {Record<string, unknown>} next
  * @param {readonly string[]} keys
  */
 function sameFields(

@@ -19,15 +19,36 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const DAY = 86_400_000;
 
-function response<T extends Record<string, unknown>>(
+type RenewalResponseBase<S extends string> = {
+  status: S;
+  reason: string;
+  runtimeClockAuthorityConfirmed: false;
+  runtimeOwnedCaTrustConfirmed: false;
+  rollbackFloorConfirmed: false;
+  persistenceConfirmed: false;
+  runtimeAuthorityConferred: false;
+  runtimeCapabilityIssued: false;
+  filesystemEffectIssued: false;
+  networkEffectIssued: false;
+};
+
+function response<const S extends string>(
+  status: S,
+  reason: string,
+): Readonly<RenewalResponseBase<S>>;
+function response<const S extends string, T extends Record<string, unknown>>(
+  status: S,
+  reason: string,
+  details: T,
+): Readonly<RenewalResponseBase<S> & T>;
+function response(
   status: string,
   reason: string,
-  details?: T,
+  details?: Record<string, unknown>,
 ) {
-  return Object.freeze({
+  const base = {
     status,
     reason,
-    ...details,
     runtimeClockAuthorityConfirmed: false,
     runtimeOwnedCaTrustConfirmed: false,
     rollbackFloorConfirmed: false,
@@ -36,7 +57,8 @@ function response<T extends Record<string, unknown>>(
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
-  });
+  } as const;
+  return Object.freeze(details ? Object.assign(base, details) : base);
 }
 
 function utc(value: unknown): value is string {

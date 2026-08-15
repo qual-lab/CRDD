@@ -29,8 +29,8 @@ const PLATFORM_POLICIES = Object.freeze({
 
 type PlatformFamily = keyof typeof PLATFORM_POLICIES;
 
-function result<T extends Record<string, unknown>>(
-  status: string,
+function result<const S extends string, T extends Record<string, unknown>>(
+  status: S,
   reason: string,
   details?: T,
 ) {

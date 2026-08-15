@@ -15,8 +15,8 @@ const INPUT_KEYS = new Set([
 ]);
 const EXPLICIT_ENABLE = "explicit_enable_request";
 
-function response<T>(
-  status: string,
+function response<const S extends string, T>(
+  status: S,
   reason: string,
   selection: T | null = null,
 ) {

@@ -3,31 +3,22 @@ import test from "node:test";
 
 import {
   AUTHORITY_REGISTRY_CONTRACT,
-  validateAuthorityRegistryCandidate
+  validateAuthorityRegistryCandidate,
 } from "../src/security/authority-grant-verifier.ts";
-import {
-  AUTHORITY_FILE_BUNDLE_CONTRACT
-} from "../src/security/authority-file-bundle.ts";
+import { AUTHORITY_FILE_BUNDLE_CONTRACT } from "../src/security/authority-file-bundle.ts";
 import {
   describeAuthorityPrelaunchVerifierContract,
-  reverifyAuthorityBeforeProviderLaunch
+  reverifyAuthorityBeforeProviderLaunch,
 } from "../src/security/authority-prelaunch-verifier.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
-  decodeCanonicalAuthorityTrustPolicyBytes
+  decodeCanonicalAuthorityTrustPolicyBytes,
 } from "../src/security/authority-trust-loader.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
-  validateProviderIsolationProfile
+  validateProviderIsolationProfile,
 } from "../src/security/provider-isolation-profile.ts";
-
-function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
+import { canonicalJson } from "./test-support.ts";
 
 function profile() {
   return {
@@ -37,7 +28,7 @@ function profile() {
     provider: "codex",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     credentialGrant: { brokerId: "BROKER-000001", grantRef: "CGRANT-000001" },
-    egress: { origins: ["https://api.example.test"] }
+    egress: { origins: ["https://api.example.test"] },
   };
 }
 
@@ -50,20 +41,25 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: new Date(now - 60_000).toISOString(),
-    grants: [{
-      grantRef: "AUTH-000001",
-      grantRevision: 2,
-      status: "active",
-      validFrom: new Date(now - 86_400_000).toISOString(),
-      expiresAt: new Date(now + 86_400_000).toISOString(),
-      provider: "codex",
-      origins: ["https://api.example.test"],
-      credentialGrant: { brokerId: "BROKER-000001", grantRef: "CGRANT-000001" },
-      operationId: "OP-000001",
-      scopeId: "SCOPE-000001",
-      profileHash: validateProviderIsolationProfile(rawProfile).profileHash,
-      ...grantOverrides
-    }]
+    grants: [
+      {
+        grantRef: "AUTH-000001",
+        grantRevision: 2,
+        status: "active",
+        validFrom: new Date(now - 86_400_000).toISOString(),
+        expiresAt: new Date(now + 86_400_000).toISOString(),
+        provider: "codex",
+        origins: ["https://api.example.test"],
+        credentialGrant: {
+          brokerId: "BROKER-000001",
+          grantRef: "CGRANT-000001",
+        },
+        operationId: "OP-000001",
+        scopeId: "SCOPE-000001",
+        profileHash: validateProviderIsolationProfile(rawProfile).profileHash,
+        ...grantOverrides,
+      },
+    ],
   };
   const validated = validateAuthorityRegistryCandidate(registry);
   assert.equal(validated.status, "candidate");
@@ -77,10 +73,11 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
     registryId: validated.registry.registryId,
     registryRevision: validated.registry.registryRevision,
     registryHash: validated.registryHash,
-    ...policyOverrides
+    ...policyOverrides,
   };
   const trustPolicyBytes = Buffer.from(canonicalJson(trustPolicy), "utf8");
-  const decodedPolicy = decodeCanonicalAuthorityTrustPolicyBytes(trustPolicyBytes);
+  const decodedPolicy =
+    decodeCanonicalAuthorityTrustPolicyBytes(trustPolicyBytes);
   assert.equal(decodedPolicy.status, "candidate");
   const manifest = {
     contract: AUTHORITY_FILE_BUNDLE_CONTRACT,
@@ -90,17 +87,20 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
     status: "active",
     previousBundleHash: null,
     trustPolicyHash: decodedPolicy.trustPolicyHash,
-    registryHash: validated.registryHash
+    registryHash: validated.registryHash,
   };
   const bundle = {
     manifestBytes: Buffer.from(canonicalJson(manifest), "utf8"),
     trustPolicyBytes,
-    registryBytes
+    registryBytes,
   };
   return { rawProfile, bundle, trustPolicy };
 }
 
-const context = Object.freeze({ operationId: "OP-000001", scopeId: "SCOPE-000001" });
+const context = Object.freeze({
+  operationId: "OP-000001",
+  scopeId: "SCOPE-000001",
+});
 
 test("Runtime時計でGrantを起動直前に再確認する候補を作る", () => {
   const before = Date.now();
@@ -108,16 +108,22 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
   const result = reverifyAuthorityBeforeProviderLaunch(
     rawProfile,
     bundle,
-    context
+    context,
   );
   const after = Date.now();
   assert.equal(result.status, "candidate");
-  assert.equal(result.reason, "runtime_file_bundle_path_acl_and_activation_required");
+  assert.equal(
+    result.reason,
+    "runtime_file_bundle_path_acl_and_activation_required",
+  );
   assert.equal(result.runtimeCapabilityIssued, false);
   assert.equal(result.verification.operationId, context.operationId);
   assert.equal(result.verification.scopeId, context.scopeId);
   assert.equal(result.verification.trustPolicyId, trustPolicy.policyId);
-  assert.equal(result.verification.trustPolicyRevision, trustPolicy.policyRevision);
+  assert.equal(
+    result.verification.trustPolicyRevision,
+    trustPolicy.policyRevision,
+  );
   assert.match(result.verification.trustPolicyHash, /^[a-f0-9]{64}$/u);
   assert.equal(result.verification.bundleId, "AUTHBUNDLE-000001");
   assert.equal(result.verification.bundleRevision, 1);
@@ -128,35 +134,39 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
 
 test("呼出側時刻を受理せず固定Contextだけを使う", () => {
   const { rawProfile, bundle } = fixture();
-  assert.equal(reverifyAuthorityBeforeProviderLaunch(
-    rawProfile,
-    bundle,
-    { ...context, now: "2099-01-01T00:00:00.000Z" }
-  ).reason, "prelaunch_authority_context_invalid");
+  assert.equal(
+    reverifyAuthorityBeforeProviderLaunch(rawProfile, bundle, {
+      ...context,
+      now: "2099-01-01T00:00:00.000Z",
+    }).reason,
+    "prelaunch_authority_context_invalid",
+  );
 
   let getterCalls = 0;
   const accessor = { ...context };
   Object.defineProperty(accessor, "operationId", {
     enumerable: true,
-    get() { getterCalls += 1; return context.operationId; }
+    get() {
+      getterCalls += 1;
+      return context.operationId;
+    },
   });
-  assert.equal(reverifyAuthorityBeforeProviderLaunch(
-    rawProfile,
-    bundle,
-    accessor
-  ).status, "blocked");
+  assert.equal(
+    reverifyAuthorityBeforeProviderLaunch(rawProfile, bundle, accessor).status,
+    "blocked",
+  );
   assert.equal(getterCalls, 0);
 });
 
 test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", () => {
   const expired = fixture({
     validFrom: "2020-01-01T00:00:00.000Z",
-    expiresAt: "2020-01-02T00:00:00.000Z"
+    expiresAt: "2020-01-02T00:00:00.000Z",
   });
   const expiredResult = reverifyAuthorityBeforeProviderLaunch(
     expired.rawProfile,
     expired.bundle,
-    context
+    context,
   );
   assert.equal(expiredResult.status, "blocked");
   assert.equal(expiredResult.reason, "authority_grant_outside_validity");
@@ -165,18 +175,26 @@ test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", ()
   const mismatch = fixture();
   const mismatchedBundle = {
     ...mismatch.bundle,
-    manifestBytes: Buffer.from(mismatch.bundle.manifestBytes.toString("utf8").replace(
-      /"registryHash":"[a-f0-9]{64}"/u,
-      `"registryHash":"${"a".repeat(64)}"`
-    ), "utf8")
+    manifestBytes: Buffer.from(
+      mismatch.bundle.manifestBytes
+        .toString("utf8")
+        .replace(
+          /"registryHash":"[a-f0-9]{64}"/u,
+          `"registryHash":"${"a".repeat(64)}"`,
+        ),
+      "utf8",
+    ),
   };
   const mismatchResult = reverifyAuthorityBeforeProviderLaunch(
     mismatch.rawProfile,
     mismatchedBundle,
-    context
+    context,
   );
   assert.equal(mismatchResult.status, "blocked");
-  assert.equal(mismatchResult.reason, "prelaunch_authority_file_bundle_invalid");
+  assert.equal(
+    mismatchResult.reason,
+    "prelaunch_authority_file_bundle_invalid",
+  );
   assert.equal(mismatchResult.runtimeCapabilityIssued, false);
 });
 

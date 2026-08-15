@@ -12,8 +12,8 @@ type PathCommandOptions = Readonly<{
   authorityEnvironmentRoot: unknown;
 }>;
 
-function response<T>(
-  status: string,
+function response<const S extends string, T>(
+  status: S,
   reason: string | null,
   value: T | null = null,
   jsonRequested = false,
@@ -21,8 +21,8 @@ function response<T>(
   return Object.freeze({ status, reason, value, jsonRequested });
 }
 
-function commandResponse<T>(
-  status: string,
+function commandResponse<const S extends string, T>(
+  status: S,
   reason: string | null,
   value: T | null = null,
   jsonRequested = false,

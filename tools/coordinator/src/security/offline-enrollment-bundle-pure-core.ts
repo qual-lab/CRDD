@@ -90,15 +90,37 @@ const HEX64 = /^[0-9a-f]{64}$/u;
 const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
-function response<T extends Record<string, unknown>>(
+type OfflineResponseBase<S extends string> = {
+  status: S;
+  reason: string;
+  consumptionRequired: boolean;
+  runtimeOwnedCaTrustConfirmed: false;
+  rollbackFloorConfirmed: false;
+  runtimeClockAuthorityConfirmed: false;
+  replayLedgerConfirmed: false;
+  runtimeAuthorityConferred: false;
+  runtimeCapabilityIssued: false;
+  filesystemEffectIssued: false;
+  networkEffectIssued: false;
+};
+
+function response<const S extends string>(
+  status: S,
+  reason: string,
+): Readonly<OfflineResponseBase<S>>;
+function response<const S extends string, T extends Record<string, unknown>>(
+  status: S,
+  reason: string,
+  details: T,
+): Readonly<OfflineResponseBase<S> & T>;
+function response(
   status: string,
   reason: string,
-  details?: T,
+  details?: Record<string, unknown>,
 ) {
-  return Object.freeze({
+  const base = {
     status,
     reason,
-    ...details,
     consumptionRequired: status === "candidate",
     runtimeOwnedCaTrustConfirmed: false,
     rollbackFloorConfirmed: false,
@@ -108,7 +130,8 @@ function response<T extends Record<string, unknown>>(
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
-  });
+  } as const;
+  return Object.freeze(details ? Object.assign(base, details) : base);
 }
 
 function exactArray<T>(

@@ -16,6 +16,7 @@ import {
   formatHostRecoveryToken,
   loadHostRecoveryRecordByToken,
 } from "./host-recovery-record.ts";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const PROBE_IMAGE =
   "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
@@ -312,7 +313,7 @@ function fileSha256(target: string): string {
 }
 
 export function evaluateDockerCliCandidateForFixture(
-  policy: DockerCliPolicy,
+  policy: Pick<DockerCliPolicy, "installRoot" | "executableName" | "sha256">,
 ): boolean {
   try {
     const root = fs.realpathSync(policy.installRoot);
@@ -446,7 +447,7 @@ export function normalizeDockerIsolationResult(
       status: "blocked",
       reason: "docker_isolation_probe_output_too_large",
     };
-  let parsed;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(execution.stdout.trim());
   } catch {
@@ -455,16 +456,34 @@ export function normalizeDockerIsolationResult(
       reason: "docker_isolation_probe_invalid_output",
     };
   }
+  const result = snapshotPlainRecord(
+    parsed,
+    new Set([
+      "marker",
+      "allowed_writes",
+      "runtime_paths_absent",
+      "credential_names_absent",
+      "network_blocked",
+      "home_isolated",
+      "tmp_isolated",
+    ]),
+  );
+  const allowedWrites = result
+    ? snapshotPlainRecord(
+        result.allowed_writes,
+        new Set(["workspace", "provider-home", "tmp"]),
+      )
+    : null;
   const valid =
-    parsed?.marker === PROBE_MARKER &&
-    parsed?.allowed_writes?.workspace === true &&
-    parsed?.allowed_writes?.["provider-home"] === true &&
-    parsed?.allowed_writes?.tmp === true &&
-    parsed?.runtime_paths_absent === true &&
-    parsed?.credential_names_absent === true &&
-    parsed?.network_blocked === true &&
-    parsed?.home_isolated === true &&
-    parsed?.tmp_isolated === true;
+    result?.marker === PROBE_MARKER &&
+    allowedWrites?.workspace === true &&
+    allowedWrites?.["provider-home"] === true &&
+    allowedWrites?.tmp === true &&
+    result.runtime_paths_absent === true &&
+    result.credential_names_absent === true &&
+    result.network_blocked === true &&
+    result.home_isolated === true &&
+    result.tmp_isolated === true;
   return valid
     ? {
         status: "confirmed",

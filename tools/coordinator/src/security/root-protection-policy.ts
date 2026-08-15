@@ -28,7 +28,11 @@ const WRITE_AUTHORITIES = new Set([
 ]);
 const INPUT_TOKEN_LENGTH = 32;
 
-function response<T>(status: string, reason: string, policy: T | null = null) {
+function response<const S extends string, T>(
+  status: S,
+  reason: string,
+  policy: T | null = null,
+) {
   return Object.freeze({
     status,
     reason,

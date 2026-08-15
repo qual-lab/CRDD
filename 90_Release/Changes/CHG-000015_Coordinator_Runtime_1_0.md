@@ -925,3 +925,9 @@ strict対象を28から29 moduleへ拡張し、Runtime Root Path IdentityとGit 
 Qual-Labの人間の決定権限者は、現行フォルダ配置を維持したままCRDD内部ScriptをTypeScriptへ完全移行し、Node.js 24.12以上のnative TypeScript実行を標準にする方針を承認した。Runtime用の`tsx`、`ts-node`、Bundlerまたは追加npm packageは要求せず、TypeScript Compilerは開発時の型検査へ限定する。Node native type strippingで消去できない構文、tsconfig path aliasおよびCompiler変換に依存するRuntime挙動は採用しない。
 
 この判断は、version 1で`.mjs`を維持し`.ts`変換を内部API安定後の別判断とした2026-08-16の旧判断をsupersedeし、現在判定へ使用しない。移行は全production moduleのstrict収束、Coordinator `bin`／`src`、tests、ルートチェッカー／fault injector／配布ひな型、参照文書の順に固定する。各中間Commitは実行可能性と既存255件／143件の回帰を維持する。現在環境はNode.js 22.18.0のため中間検証に限って使用し、最終固定版はNode.js 24.12以上でnative `.ts`直接実行を確認するまで`Resolved`、Runtime採用、準拠、移行完了またはReleaseとしない。12 blocker、6 current-run evidence、Authority／Capability／EffectおよびGate `blocked`は変更しない。
+
+### 2026-08-16 — Coordinator testのTypeScript移行
+
+production 38 / 38 moduleに続き、Coordinator test 30 / 30 fileを`.ts`へ移行した。test専用strict設定をproduction設定から分離して全testへ`strict`、`noImplicitAny`、`noUncheckedIndexedAccess`およびNode native TypeScript制約を適用する。意図的な不正shape、欠落field、Proxy、accessor、Node API差替えおよび失敗系unionは、`any`、型検査抑制またはunsafe castで隠さず、`unknown`、Property Descriptor、`Reflect`および実行時assertionで表現する。production側でも外部のreadiness入力を`unknown`としてsnapshot後に絞り、Docker probe JSONをexact plain-dataとして検証し、作成成功後のoperation directoriesをoverloadで非nullに限定した。
+
+自己確認ではproduction／testのstrict型検査、Biome Lint／FormatterおよびCoordinator全255件がPassした。Coordinator配下のproduction／testに`.mjs`／`.cjs`は残らない。ルートチェッカー、checker test、fault injectorおよび配布ひな型は承認済み順序どおり最後の単位として残す。本処置は`Applied`／`Self-checked`であり、チェッカー群とNode.js 24.12以上での最終確認および必要な独立レビュー前は`Resolved`、移行完了、採用、準拠、Stable、Releaseまたは公開ではない。

@@ -55,7 +55,11 @@ type WriteSummary = Readonly<{
   gitMetadataWriteVerified?: boolean;
 }>;
 
-function response<T>(status: string, reason: string, summary: T | null = null) {
+function response<const S extends string, T>(
+  status: S,
+  reason: string,
+  summary: T | null = null,
+) {
   return Object.freeze({
     status,
     reason,

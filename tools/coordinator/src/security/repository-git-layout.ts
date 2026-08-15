@@ -21,7 +21,11 @@ const MAX_PATH_CHARACTERS = 4096;
  * @param {string} reason
  * @param {T | null} [layout]
  */
-function response<T>(status: string, reason: string, layout: T | null = null) {
+function response<const S extends string, T>(
+  status: S,
+  reason: string,
+  layout: T | null = null,
+) {
   return Object.freeze({
     status,
     reason,
