@@ -7,7 +7,7 @@ import { evaluateRuntimeActivationTransitionCandidate } from
   "./runtime-activation-transition.mjs";
 
 export { describeRuntimeActivationLocatorBindingContract } from
-  "./runtime-activation-locator-binding-contract.mjs";
+  "./runtime-activation-locator-binding-contract.ts";
 
 const INPUT_KEYS = new Set([
   "previousActivationCanonicalBytes",

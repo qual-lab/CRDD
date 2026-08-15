@@ -3,7 +3,7 @@ export const RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS = Object.freeze([
   "runtimeRootIdentityHash",
   "activationId",
   "activationRevision",
-  "activationRecordHash"
+  "activationRecordHash",
 ]);
 
 export function describeRuntimeActivationLocatorBindingContract() {
@@ -23,6 +23,6 @@ export function describeRuntimeActivationLocatorBindingContract() {
     mismatchBehavior: "fail_closed_and_reprovision_required",
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
 }

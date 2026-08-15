@@ -6,7 +6,7 @@ import { AUTHORITY_ROOT_LOCATOR_CONTRACT } from
 import { evaluateInitialActivationLocatorBindingCandidate } from
   "../src/security/runtime-activation-locator-binding.mjs";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
-  "../src/security/runtime-activation-locator-binding-contract.mjs";
+  "../src/security/runtime-activation-locator-binding-contract.ts";
 import {
   RUNTIME_ACTIVATION_CONTRACT,
   compileRuntimeActivationRecordCandidate

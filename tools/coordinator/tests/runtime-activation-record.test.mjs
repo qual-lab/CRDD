@@ -9,7 +9,7 @@ import {
   describeRuntimeActivationContract
 } from "../src/security/runtime-activation-record.mjs";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
-  "../src/security/runtime-activation-locator-binding-contract.mjs";
+  "../src/security/runtime-activation-locator-binding-contract.ts";
 
 function record(overrides = {}) {
   return {

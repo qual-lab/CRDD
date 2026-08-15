@@ -56,3 +56,5 @@ Coordinatorのproduction 38 moduleを全数strict型検査へ追加した。現�
 最初の単位として`authority-root-path-lexical.mjs`を同一配置の`authority-root-path-lexical.ts`へ移し、外部入力を`unknown`、成功後を`string`へ絞るtype predicateを実装した。直接import 2箇所を`.ts`へ更新し、Biome Formatter、二層型検査、Biome Lint／Formatter確認およびCoordinator全255件がPassした。Runtime判定、Path上限、Platform分岐、Authority／Capability／EffectおよびGateを変更しない。`Applied`／`Self-checked`であり、全移行と独立review／audit前は`Resolved`ではない。
 
 続いて`runtime-activation-identity.mjs`を同一配置の`.ts`へ移し、外部入力を`unknown`、成功後を`string`へ絞るtype predicateへ置換した。Activation IDのpatternと上限、直接import 2箇所、readiness、Authority／Capability／EffectおよびGateを変更しない。productionの移行済み数は2 / 38である。
+
+型注釈を必要としない`runtime-activation-locator-binding-contract.mjs`も同一配置の`.ts`へ移し、直接利用側6箇所を明示`.ts` importへ更新した。公開契約値、readiness、Authority／Capability／EffectおよびGateは変更せず、productionの移行済み数は3 / 38である。

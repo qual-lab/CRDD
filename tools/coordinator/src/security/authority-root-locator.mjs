@@ -7,7 +7,7 @@ import {
   isSupportedAuthorityRootAbsolutePath
 } from "./authority-root-path-lexical.ts";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
-  "./runtime-activation-locator-binding-contract.mjs";
+  "./runtime-activation-locator-binding-contract.ts";
 import { isRuntimeActivationIdCandidate } from "./runtime-activation-identity.ts";
 
 export const AUTHORITY_ROOT_LOCATOR_CONTRACT = "crdd-coordinator/authority-root-locator";

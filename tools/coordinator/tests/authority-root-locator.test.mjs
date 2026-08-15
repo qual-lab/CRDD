@@ -10,7 +10,7 @@ import {
   evaluateAuthorityRootLocatorActivationBindingCandidate
 } from "../src/security/authority-root-locator.mjs";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
-  "../src/security/runtime-activation-locator-binding-contract.mjs";
+  "../src/security/runtime-activation-locator-binding-contract.ts";
 
 const validPath = process.platform === "win32" ? "C:\\CRDD\\authority" : "/srv/crdd/authority";
 

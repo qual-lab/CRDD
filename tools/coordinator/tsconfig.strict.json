@@ -49,7 +49,7 @@
     "src/security/repository-git-layout.mjs",
     "src/security/root-protection-policy.mjs",
     "src/security/runtime-activation-identity.ts",
-    "src/security/runtime-activation-locator-binding-contract.mjs",
+    "src/security/runtime-activation-locator-binding-contract.ts",
     "src/security/runtime-activation-locator-binding.mjs",
     "src/security/runtime-activation-transition.mjs",
     "src/security/runtime-activation-record.mjs",

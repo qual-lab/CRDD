@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 
 import { describeAuthorityRootLocatorContract } from "./authority-root-locator.mjs";
 import { describeRuntimeActivationLocatorBindingContract } from
-  "./runtime-activation-locator-binding-contract.mjs";
+  "./runtime-activation-locator-binding-contract.ts";
 import { describeProvisioningSignaturePrimitivesContract } from
   "./provisioning-signature-primitives.mjs";
 import { describeProvisioningRecordPureCoreContract } from
