@@ -315,6 +315,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.persistence, "repository_scoped_persistent");
   assert.equal(report.runtimeActivation.activationCommand, "dedicated_activate_required");
   assert.equal(report.runtimeActivation.activationCommandGrammar, "implemented_candidate");
+  assert.equal(report.runtimeActivation.provisionCommandGrammar,
+    "implemented_candidate_explicit_command_only");
+  assert.equal(report.runtimeActivation.provisionCommandCurrentBehavior,
+    "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented");
   assert.equal(report.runtimeActivation.activationEffect, "not_implemented");
   assert.equal(report.runtimeActivation.localOnboardingContract,
     "implemented_candidate_contract_only");
@@ -900,6 +904,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "not_implemented");
   assert.equal(report.runtimeActivation.authorityRootExplicitPathContractPreserved, true);
   assert.equal(report.runtimeActivation.disableCommandGrammar, "implemented_candidate");
+  assert.equal(report.runtimeActivation.provisionEffect, "not_implemented");
   assert.equal(report.runtimeActivation.disableEffect, "not_implemented");
   assert.equal(report.runtimeActivation.doctorEnableIsActivation, false);
   assert.equal(report.runtimeActivation.bundleIdentityChangeRequiresReactivation, true);

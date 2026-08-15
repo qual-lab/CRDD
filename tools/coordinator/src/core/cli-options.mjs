@@ -111,6 +111,19 @@ export function parseDisableArguments(rawArguments, runtimeEnvironmentRoot) {
   });
 }
 
+export function parseProvisionArguments(rawArguments) {
+  const snapshot = snapshotPlainArray(rawArguments, MAXIMUM_ARGUMENTS);
+  if (snapshot.status !== "ok" || snapshot.value.some((value) => !validToken(value))) {
+    return commandResponse("blocked", "provision_arguments_invalid", null, false, true);
+  }
+  const jsonRequested = snapshot.value.includes("--json");
+  if (snapshot.value.length > 1 ||
+      (snapshot.value.length === 1 && snapshot.value[0] !== "--json")) {
+    return commandResponse("blocked", "provision_arguments_invalid", null, jsonRequested, true);
+  }
+  return commandResponse("ok", null, Object.freeze({ json: jsonRequested }), jsonRequested, false);
+}
+
 export function parseDoctorArguments(rawArguments, environmentRoot) {
   const snapshot = snapshotPlainArray(rawArguments, MAXIMUM_ARGUMENTS);
   if (snapshot.status !== "ok" || snapshot.value.some((value) => !validToken(value))) {

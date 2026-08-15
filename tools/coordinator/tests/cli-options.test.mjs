@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 import {
   parseActivateArguments,
   parseDisableArguments,
-  parseDoctorArguments
+  parseDoctorArguments,
+  parseProvisionArguments
 } from "../src/core/cli-options.mjs";
 
 const COORDINATOR_EXECUTABLE = path.resolve(
@@ -355,4 +356,30 @@ test("安全にsnapshotできた不正tokenでもJSON要求と非漏洩を維持
   assert.equal(nonJson.status, 64);
   assert.equal(nonJson.stdout.startsWith("Coordinator disable: blocked"), true);
   assert.equal(nonJson.stdout.includes("line\nbreak"), false);
+});
+
+test("provisionは明示commandだけを受理しローカルbuildではEffect前にblockedとなる", () => {
+  assert.equal(parseProvisionArguments([]).status, "ok");
+  assert.equal(parseProvisionArguments(["--json"]).value.json, true);
+  assert.equal(parseProvisionArguments(["--runtime-root", path.resolve("runtime")]).status,
+    "blocked");
+
+  const result = spawnSync(process.execPath, [COORDINATOR_EXECUTABLE, "provision", "--json"], {
+    encoding: "utf8",
+    windowsHide: true
+  });
+  assert.equal(result.status, 2);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.reason,
+    "platform_provisioner_dual_verification_and_effect_not_implemented");
+  assert.equal(report.dryRunOnly, true);
+  assert.equal(report.osNativeCodeSignatureConfirmed, false);
+  assert.equal(report.qualLabManifestTrustConfirmed, false);
+  assert.equal(report.filesystemEffectIssued, false);
+
+  const invalid = spawnSync(process.execPath, [
+    COORDINATOR_EXECUTABLE, "provision", "--json", "--unknown"
+  ], { encoding: "utf8", windowsHide: true });
+  assert.equal(invalid.status, 64);
+  assert.equal(JSON.parse(invalid.stdout).reason, "provision_arguments_invalid");
 });

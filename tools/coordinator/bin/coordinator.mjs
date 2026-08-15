@@ -4,7 +4,8 @@ import { runDoctor } from "../src/core/doctor.mjs";
 import {
   parseActivateArguments,
   parseDisableArguments,
-  parseDoctorArguments
+  parseDoctorArguments,
+  parseProvisionArguments
 } from "../src/core/cli-options.mjs";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.mjs";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.mjs";
@@ -18,8 +19,9 @@ function printHelp() {
   process.stdout.write(`  coordinator doctor --recover-isolation <recovery-id> [--json]\n`);
   process.stdout.write(`  coordinator activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]\n`);
   process.stdout.write(`  coordinator disable [--runtime-root <absolute-path>] [--json]\n`);
+  process.stdout.write(`  coordinator provision [--json]\n`);
   process.stdout.write(`\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`);
-  process.stdout.write(`activate and disable command grammar is available, but their filesystem effects are not implemented.\n`);
+  process.stdout.write(`provision, activate, and disable command grammar is available, but their filesystem effects are not implemented.\n`);
   process.stdout.write(`CRDD_COORDINATOR_ROOT is used by doctor --enable-runtime, activate, and disable; --runtime-root wins.\n`);
   process.stdout.write(`CRDD_COORDINATOR_AUTHORITY_ROOT has no OS default and is used only by activate.\n`);
 }
@@ -100,6 +102,22 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
   process.exitCode = 0;
 } else if (command === "activate" || command === "disable") {
   runInactiveEffectCommand(command, args);
+} else if (command === "provision") {
+  const parsed = parseProvisionArguments(args);
+  const report = Object.freeze({
+    status: "blocked",
+    command,
+    reason: parsed.status === "ok"
+      ? "platform_provisioner_dual_verification_and_effect_not_implemented"
+      : parsed.reason,
+    dryRunOnly: true,
+    osNativeCodeSignatureConfirmed: false,
+    qualLabManifestTrustConfirmed: false,
+    filesystemEffectIssued: false,
+    runtimeCapabilityIssued: false
+  });
+  printCommandReport(report, parsed.status === "ok" ? parsed.value.json : parsed.jsonRequested);
+  process.exitCode = parsed.status === "ok" ? 2 : 64;
 } else if (command === "doctor") {
   try {
     const parsed = parseDoctorArguments(args, process.env.CRDD_COORDINATOR_ROOT);

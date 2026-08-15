@@ -135,6 +135,9 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.persistence, "repository_scoped_persistent");
   assert.equal(contract.activationCommand, "dedicated_activate_required");
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
+  assert.equal(contract.provisionCommandGrammar, "implemented_candidate_explicit_command_only");
+  assert.equal(contract.provisionCommandCurrentBehavior,
+    "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented");
   assert.equal(contract.activationEffect, "not_implemented");
   assert.equal(contract.localOnboardingContract, "implemented_candidate_contract_only");
   assert.equal(contract.onboardingPolicyDecision, "human_approved_contract_only");
@@ -660,6 +663,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.runtimeRootProvisioningEffect, "not_implemented");
   assert.equal(contract.authorityRootProvisioningEffect, "not_implemented");
   assert.equal(contract.disableCommandGrammar, "implemented_candidate");
+  assert.equal(contract.provisionEffect, "not_implemented");
   assert.equal(contract.disableEffect, "not_implemented");
   assert.equal(contract.doctorEnableIsActivation, false);
   assert.equal(contract.bundleIdentityChangeRequiresReactivation, true);

@@ -706,6 +706,9 @@ export function describeRuntimeActivationContract() {
     fixedRuntimeRootFile: RUNTIME_ACTIVATION_FILE,
     persistence: "repository_scoped_persistent",
     activationCommand: "dedicated_activate_required",
+    provisionCommandGrammar: "implemented_candidate_explicit_command_only",
+    provisionCommandCurrentBehavior:
+      "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented",
     activationCommandGrammar: "implemented_candidate",
     activationEffect: implementation.activationEffect,
     localOnboardingContract: "implemented_candidate_contract_only",
@@ -828,6 +831,7 @@ export function describeRuntimeActivationContract() {
     runtimeRootProvisioningEffect: implementation.runtimeRootProvisioningEffect,
     authorityRootProvisioningEffect: implementation.authorityRootProvisioningEffect,
     disableCommandGrammar: "implemented_candidate",
+    provisionEffect: "not_implemented",
     disableEffect: "not_implemented",
     doctorEnableIsActivation: false,
     bundleIdentityChangeRequiresReactivation: true,
