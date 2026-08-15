@@ -19,7 +19,7 @@ import { describeProvisioningCaPureCoreContract } from "./provisioning-ca-pure-c
 import { describeOfflineEnrollmentBundlePureCoreContract } from
   "./offline-enrollment-bundle-pure-core.ts";
 import { describeProvisioningRecordEnrollmentBindingContract } from
-  "./provisioning-record-enrollment-binding.mjs";
+  "./provisioning-record-enrollment-binding.ts";
 import { describeEnrollmentCertificateRenewalContract } from
   "./enrollment-certificate-renewal.ts";
 import { describePlatformProvisionerTrustCoreContract } from

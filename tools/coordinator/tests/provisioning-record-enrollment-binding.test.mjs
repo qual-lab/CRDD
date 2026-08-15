@@ -17,7 +17,7 @@ import {
 import {
   describeProvisioningRecordEnrollmentBindingContract,
   verifyProvisioningRecordEnrollmentBindingCandidate
-} from "../src/security/provisioning-record-enrollment-binding.mjs";
+} from "../src/security/provisioning-record-enrollment-binding.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.ts";
 
