@@ -11,7 +11,7 @@ import {
   parseDisableArguments,
   parseDoctorArguments,
   parseProvisionArguments
-} from "../src/core/cli-options.mjs";
+} from "../src/core/cli-options.ts";
 
 const COORDINATOR_EXECUTABLE = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)), "../bin/coordinator.mjs"

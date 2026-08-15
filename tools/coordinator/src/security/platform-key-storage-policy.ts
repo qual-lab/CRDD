@@ -1,5 +1,5 @@
 import { inspectProvisioningP256SpkiCandidate } from "./provisioning-signature-primitives.mjs";
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PLATFORM_KEY_STORAGE_POLICY_CONTRACT =
   "crdd-coordinator/platform-key-storage-policy";

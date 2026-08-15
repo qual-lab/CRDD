@@ -6,7 +6,7 @@ import {
   PROVISIONING_CA_DOMAINS,
   describeProvisioningCaPureCoreContract,
   verifyProvisioningCaStateCandidate
-} from "../src/security/provisioning-ca-pure-core.mjs";
+} from "../src/security/provisioning-ca-pure-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 

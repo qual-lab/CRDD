@@ -3,7 +3,7 @@ import {
   PROVISIONING_SIGNATURE_INPUT_LIMITS,
 } from "./provisioning-signature-primitives.mjs";
 import { verifyInitialEnrollmentCertificateCandidate } from "./initial-enrollment-pure-core.mjs";
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const INPUT_KEYS = new Set([
   "previousCertificateEnvelope",

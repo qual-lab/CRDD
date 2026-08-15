@@ -1,6 +1,6 @@
 // @ts-check
 
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   compileRuntimeActivationRecordCandidate,
   decodeRuntimeActivationRecordCandidate

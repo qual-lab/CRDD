@@ -10,7 +10,7 @@ import {
   calculatePlatformProvisionerPackageContentRootCandidate,
   describePlatformProvisionerTrustCoreContract,
   verifyPlatformProvisionerManifestCandidate
-} from "../src/security/platform-provisioner-trust-core.mjs";
+} from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 

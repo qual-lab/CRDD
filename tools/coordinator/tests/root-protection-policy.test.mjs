@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   describeRootProtectionPolicyContract,
   evaluateRootProtectionPolicyCandidate
-} from "../src/security/root-protection-policy.mjs";
+} from "../src/security/root-protection-policy.ts";
 
 function observations(overrides = {}) {
   return {

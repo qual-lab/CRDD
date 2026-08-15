@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
-import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.ts";
 
 export const RUNTIME_ROOT_CONTRACT = "crdd-coordinator/runtime-root-profile";
 export const RUNTIME_ROOT_CONTRACT_REVISION = 1;

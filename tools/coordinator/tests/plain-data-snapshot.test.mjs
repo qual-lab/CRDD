@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { snapshotPlainArray, snapshotPlainRecord } from "../src/security/plain-data-snapshot.mjs";
+import { snapshotPlainArray, snapshotPlainRecord } from "../src/security/plain-data-snapshot.ts";
 
 test("record snapshotはdata descriptorだけを一度固定する", () => {
   const raw = { left: "before", right: 1 };

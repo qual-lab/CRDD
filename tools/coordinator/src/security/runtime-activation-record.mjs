@@ -15,19 +15,19 @@ import { describeInitialEnrollmentRuntimeStateContract } from
   "./initial-enrollment-runtime-state.mjs";
 import { describePlatformKeyStoragePolicyContract } from
   "./platform-key-storage-policy.ts";
-import { describeProvisioningCaPureCoreContract } from "./provisioning-ca-pure-core.mjs";
+import { describeProvisioningCaPureCoreContract } from "./provisioning-ca-pure-core.ts";
 import { describeOfflineEnrollmentBundlePureCoreContract } from
-  "./offline-enrollment-bundle-pure-core.mjs";
+  "./offline-enrollment-bundle-pure-core.ts";
 import { describeProvisioningRecordEnrollmentBindingContract } from
   "./provisioning-record-enrollment-binding.mjs";
 import { describeEnrollmentCertificateRenewalContract } from
   "./enrollment-certificate-renewal.ts";
 import { describePlatformProvisionerTrustCoreContract } from
-  "./platform-provisioner-trust-core.mjs";
+  "./platform-provisioner-trust-core.ts";
 import { describePlatformProvisionerPackageGateContract } from
   "./platform-provisioner-package-gate.ts";
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
-import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
   RUNTIME_ACTIVATION_ID_MAX_LENGTH,
   isRuntimeActivationIdCandidate
@@ -316,6 +316,7 @@ function normalizeRecord(rawRecord) {
       record.contractRevision !== RUNTIME_ACTIVATION_CONTRACT_REVISION ||
       !isRuntimeActivationIdCandidate(record.activationId) ||
       !positiveRevision(record.activationRevision) ||
+      typeof record.status !== "string" ||
       !["active", "disabled"].includes(record.status) ||
       (record.activationRevision === 1
         ? record.previousActivationHash !== null
@@ -328,10 +329,12 @@ function normalizeRecord(rawRecord) {
       typeof record.trustPolicyHash !== "string" || !HASH.test(record.trustPolicyHash) ||
       !identifier(record.registryId, REGISTRY_ID) || !positiveRevision(record.registryRevision) ||
       typeof record.registryHash !== "string" || !HASH.test(record.registryHash) ||
-      !canonicalUtc(record.activatedAt) ||
+      typeof record.activatedAt !== "string" || !canonicalUtc(record.activatedAt) ||
       (record.status === "active"
         ? record.disabledAt !== null
-        : !canonicalUtc(record.disabledAt) || record.disabledAt < record.activatedAt)) return null;
+        : typeof record.disabledAt !== "string" ||
+          !canonicalUtc(record.disabledAt) ||
+          record.disabledAt < record.activatedAt)) return null;
 
   return Object.freeze(Object.fromEntries([...RECORD_KEYS].map((key) => [key, record[key]])));
 }

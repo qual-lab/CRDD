@@ -17,9 +17,9 @@ import {
   OFFLINE_ENROLLMENT_BUNDLE_ENVELOPE_CONTRACT,
   describeOfflineEnrollmentBundlePureCoreContract,
   verifyOfflineEnrollmentBundleCandidate
-} from "../src/security/offline-enrollment-bundle-pure-core.mjs";
+} from "../src/security/offline-enrollment-bundle-pure-core.ts";
 import { PROVISIONING_CA_DOMAINS } from
-  "../src/security/provisioning-ca-pure-core.mjs";
+  "../src/security/provisioning-ca-pure-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 

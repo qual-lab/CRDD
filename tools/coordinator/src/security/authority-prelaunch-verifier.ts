@@ -1,7 +1,7 @@
-import { evaluateAuthorityGrantCandidate } from "./authority-grant-verifier.mjs";
-import { loadAuthorityFileBundleCandidate } from "./authority-file-bundle.mjs";
-import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.mjs";
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { evaluateAuthorityGrantCandidate } from "./authority-grant-verifier.ts";
+import { loadAuthorityFileBundleCandidate } from "./authority-file-bundle.ts";
+import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.ts";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;

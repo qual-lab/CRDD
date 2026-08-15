@@ -15,24 +15,24 @@ import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe
 } from "../security/docker-isolation.mjs";
-import { describeProviderIsolationContract } from "../security/provider-isolation-profile.mjs";
+import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
 import { describeEgressProxyTopology } from "../security/egress-proxy-policy.mjs";
-import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.mjs";
-import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
+import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
+import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
-import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
+import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.ts";
 import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
 import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.ts";
 import { describeRuntimeActivationContract } from "../security/runtime-activation-record.mjs";
-import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.mjs";
+import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.ts";
 import {
   describeRuntimeRootPathIdentityContract,
   inspectPosixRuntimeRootModePrecheckCandidate,
   inspectRuntimeRootPathIdentityCandidate
 } from "../security/runtime-root-path-identity.mjs";
-import { describeGitLocalExcludeContract } from "../security/git-local-exclude.mjs";
+import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
 import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.mjs";
-import { snapshotPlainRecord } from "../security/plain-data-snapshot.mjs";
+import { snapshotPlainRecord } from "../security/plain-data-snapshot.ts";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",

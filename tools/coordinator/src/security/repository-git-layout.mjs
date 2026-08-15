@@ -2,7 +2,7 @@
 
 import path from "node:path";
 
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   resolveRepositoryGitLayout,
   summarizeRepositoryGitLayout

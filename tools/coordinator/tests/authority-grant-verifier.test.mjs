@@ -7,12 +7,12 @@ import {
   describeAuthorityGrantVerifierContract,
   evaluateAuthorityGrantCandidate,
   validateAuthorityRegistryCandidate
-} from "../src/security/authority-grant-verifier.mjs";
+} from "../src/security/authority-grant-verifier.ts";
 import {
   PROVIDER_INPUT_LIMITS,
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile
-} from "../src/security/provider-isolation-profile.mjs";
+} from "../src/security/provider-isolation-profile.ts";
 
 function profile(overrides = {}) {
   return {

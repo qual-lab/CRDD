@@ -8,20 +8,20 @@ import {
   AUTHORITY_FILE_BUNDLE_INPUT_LIMITS,
   describeAuthorityFileBundleContract,
   loadAuthorityFileBundleCandidate
-} from "../src/security/authority-file-bundle.mjs";
+} from "../src/security/authority-file-bundle.ts";
 import {
   AUTHORITY_REGISTRY_CONTRACT,
   validateAuthorityRegistryCandidate
-} from "../src/security/authority-grant-verifier.mjs";
+} from "../src/security/authority-grant-verifier.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   AUTHORITY_TRUST_POLICY_INPUT_LIMITS,
   decodeCanonicalAuthorityTrustPolicyBytes
-} from "../src/security/authority-trust-loader.mjs";
+} from "../src/security/authority-trust-loader.ts";
 import {
   PROVIDER_ISOLATION_CONTRACT,
   validateProviderIsolationProfile
-} from "../src/security/provider-isolation-profile.mjs";
+} from "../src/security/provider-isolation-profile.ts";
 
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;

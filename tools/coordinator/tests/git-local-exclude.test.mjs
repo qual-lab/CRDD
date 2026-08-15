@@ -8,7 +8,7 @@ import {
   applyGitLocalExcludeCandidate,
   compileGitLocalExcludeCandidate,
   describeGitLocalExcludeContract
-} from "../src/security/git-local-exclude.mjs";
+} from "../src/security/git-local-exclude.ts";
 
 function temporaryRoot(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-local-exclude-"));

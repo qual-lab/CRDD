@@ -1,5 +1,5 @@
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
-import { verifyPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { verifyPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
 
 const INPUT_KEYS = new Set([
   "manifestVerificationInput",

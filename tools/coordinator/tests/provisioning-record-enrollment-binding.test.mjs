@@ -7,7 +7,7 @@ import {
   INITIAL_ENROLLMENT_CERTIFICATE_ENVELOPE_CONTRACT,
   INITIAL_ENROLLMENT_DOMAINS
 } from "../src/security/initial-enrollment-pure-core.mjs";
-import { PROVISIONING_CA_DOMAINS } from "../src/security/provisioning-ca-pure-core.mjs";
+import { PROVISIONING_CA_DOMAINS } from "../src/security/provisioning-ca-pure-core.ts";
 import {
   buildProvisioningRecordDomainMessageCandidate,
   compileProvisioningRecordEnvelopeCandidate,

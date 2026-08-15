@@ -6,7 +6,7 @@ import {
   PROVIDER_ISOLATION_CONTRACT,
   describeProviderIsolationContract,
   validateProviderIsolationProfile
-} from "../src/security/provider-isolation-profile.mjs";
+} from "../src/security/provider-isolation-profile.ts";
 
 function candidate(overrides = {}) {
   return {

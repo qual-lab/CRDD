@@ -1,14 +1,16 @@
-// @ts-check
-
 import { createHash } from "node:crypto";
 
 import {
   PROVIDER_INPUT_LIMITS,
-  validateProviderIsolationProfile
-} from "./provider-isolation-profile.mjs";
-import { snapshotPlainArray, snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+  validateProviderIsolationProfile,
+} from "./provider-isolation-profile.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "./plain-data-snapshot.ts";
 
-export const AUTHORITY_REGISTRY_CONTRACT = "crdd-coordinator/authority-registry";
+export const AUTHORITY_REGISTRY_CONTRACT =
+  "crdd-coordinator/authority-registry";
 export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 1;
 
 const REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
@@ -19,14 +21,14 @@ const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
 const CANONICAL_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
-const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
-  "byteLength"
-)?.get);
+  "byteLength",
+)?.get as () => number;
 export const AUTHORITY_REGISTRY_INPUT_LIMITS = Object.freeze({
   grantCount: 64,
   rawBytes: 131_072,
-  canonicalBytes: 131_072
+  canonicalBytes: 131_072,
 });
 const TOP_LEVEL_KEYS = new Set([
   "contract",
@@ -34,7 +36,7 @@ const TOP_LEVEL_KEYS = new Set([
   "registryId",
   "registryRevision",
   "observedAt",
-  "grants"
+  "grants",
 ]);
 const GRANT_KEYS = new Set([
   "grantRef",
@@ -47,51 +49,49 @@ const GRANT_KEYS = new Set([
   "credentialGrant",
   "operationId",
   "scopeId",
-  "profileHash"
+  "profileHash",
 ]);
 
-/**
- * @typedef {{
- *   grantRef: string,
- *   grantRevision: number,
- *   status: string,
- *   validFrom: string,
- *   expiresAt: string,
- *   provider: string,
- *   origins: readonly string[],
- *   credentialGrant: Readonly<{brokerId: string, grantRef: string}>,
- *   operationId: string,
- *   scopeId: string,
- *   profileHash: string
- * }} AuthorityGrant
- */
+type AuthorityGrant = {
+  grantRef: string;
+  grantRevision: number;
+  status: string;
+  validFrom: string;
+  expiresAt: string;
+  provider: string;
+  origins: readonly string[];
+  credentialGrant: Readonly<{ brokerId: string; grantRef: string }>;
+  operationId: string;
+  scopeId: string;
+  profileHash: string;
+};
 
-/** @param {string} reason */
-function blocked(reason) {
+function blocked(reason: string) {
   return Object.freeze({
-    status: /** @type {"blocked"} */ ("blocked"),
+    status: "blocked" as const,
     reason,
     registry: null,
     registryHash: null,
-    verification: null
+    verification: null,
   });
 }
 
-/**
- * @param {unknown} value
- * @returns {string}
- */
-function canonicalJson(value) {
+function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    const record = /** @type {Record<string, unknown>} */ (value);
-    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .join(",")}}`;
   }
-  return /** @type {string} */ (JSON.stringify(value));
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined)
+    throw new Error("authority_registry_json_invalid");
+  return serialized;
 }
 
-/** @param {unknown} value */
-function normalizedUtc(value) {
+function normalizedUtc(value: unknown) {
   if (typeof value !== "string" || !CANONICAL_UTC.test(value)) return null;
   const milliseconds = Date.parse(value);
   if (!Number.isFinite(milliseconds)) return null;
@@ -99,39 +99,56 @@ function normalizedUtc(value) {
   return value === normalized ? normalized : null;
 }
 
-/** @param {unknown} value */
-function normalizeNow(value) {
+function normalizeNow(value: unknown) {
   if (value instanceof Date) {
     const milliseconds = Date.prototype.getTime.call(value);
-    return Number.isFinite(milliseconds) ? new Date(milliseconds).toISOString() : null;
+    return Number.isFinite(milliseconds)
+      ? new Date(milliseconds).toISOString()
+      : null;
   }
   return normalizedUtc(value);
 }
 
-/** @param {unknown} origins */
-function normalizeOrigins(origins) {
-  const result = snapshotPlainArray(origins, PROVIDER_INPUT_LIMITS.originCount);
-  if (result.status !== "ok" || result.value.length === 0 || result.value.some((origin) =>
-    typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)) return null;
-  /** @type {string[]} */
-  const normalized = [];
+function normalizeOrigins(origins: unknown) {
+  const result = snapshotPlainArray<string>(
+    origins,
+    PROVIDER_INPUT_LIMITS.originCount,
+  );
+  if (
+    result.status !== "ok" ||
+    result.value.length === 0 ||
+    result.value.some(
+      (origin) =>
+        typeof origin !== "string" ||
+        origin.length > PROVIDER_INPUT_LIMITS.originLength,
+    )
+  )
+    return null;
+  const normalized: string[] = [];
   for (const origin of result.value) {
-    let parsed;
+    let parsed: URL;
     try {
       parsed = new URL(origin);
     } catch {
       return null;
     }
     if (
-      parsed.protocol !== "https:" || parsed.username || parsed.password ||
-      parsed.search || parsed.hash ||
+      parsed.protocol !== "https:" ||
+      parsed.username ||
+      parsed.password ||
+      parsed.search ||
+      parsed.hash ||
       (parsed.pathname !== "/" && parsed.pathname !== "") ||
       (parsed.port && parsed.port !== "443")
-    ) return null;
+    )
+      return null;
     const hostname = parsed.hostname.toLowerCase();
     if (
-      !hostname || hostname === "localhost" || hostname.endsWith(".localhost") ||
-      /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) || hostname.includes(":")
+      !hostname ||
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) ||
+      hostname.includes(":")
     ) {
       return null;
     }
@@ -141,33 +158,37 @@ function normalizeOrigins(origins) {
   return unique.length === normalized.length ? unique : null;
 }
 
-/**
- * @param {unknown} grant
- * @returns {Readonly<AuthorityGrant> | null}
- */
-function normalizeGrant(grant) {
+function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   const snapshot = snapshotPlainRecord(grant, GRANT_KEYS);
   if (!snapshot) return null;
   const credentialGrant = snapshotPlainRecord(
     snapshot.credentialGrant,
-    new Set(["brokerId", "grantRef"])
+    new Set(["brokerId", "grantRef"]),
   );
   if (!credentialGrant) return null;
   const origins = normalizeOrigins(snapshot.origins);
   if (!origins) return null;
   if (
     typeof snapshot.grantRef !== "string" ||
-    snapshot.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength || !GRANT_REF.test(snapshot.grantRef) ||
+    snapshot.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !GRANT_REF.test(snapshot.grantRef) ||
     typeof snapshot.grantRevision !== "number" ||
-    !Number.isSafeInteger(snapshot.grantRevision) || snapshot.grantRevision < 1 ||
+    !Number.isSafeInteger(snapshot.grantRevision) ||
+    snapshot.grantRevision < 1 ||
+    typeof snapshot.status !== "string" ||
     !["active", "revoked", "replaced"].includes(snapshot.status) ||
+    typeof snapshot.provider !== "string" ||
     !["codex", "claude"].includes(snapshot.provider) ||
     typeof snapshot.operationId !== "string" ||
-    snapshot.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength || !OPERATION_ID.test(snapshot.operationId) ||
+    snapshot.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !OPERATION_ID.test(snapshot.operationId) ||
     typeof snapshot.scopeId !== "string" ||
-    snapshot.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength || !SCOPE_ID.test(snapshot.scopeId) ||
-    typeof snapshot.profileHash !== "string" || !HASH.test(snapshot.profileHash)
-  ) return null;
+    snapshot.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !SCOPE_ID.test(snapshot.scopeId) ||
+    typeof snapshot.profileHash !== "string" ||
+    !HASH.test(snapshot.profileHash)
+  )
+    return null;
   const validFrom = normalizedUtc(snapshot.validFrom);
   const expiresAt = normalizedUtc(snapshot.expiresAt);
   if (!validFrom || !expiresAt || validFrom >= expiresAt) return null;
@@ -178,7 +199,8 @@ function normalizeGrant(grant) {
     typeof credentialGrant.grantRef !== "string" ||
     credentialGrant.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !CREDENTIAL_GRANT_REF.test(credentialGrant.grantRef)
-  ) return null;
+  )
+    return null;
   return Object.freeze({
     grantRef: snapshot.grantRef,
     grantRevision: snapshot.grantRevision,
@@ -187,26 +209,35 @@ function normalizeGrant(grant) {
     expiresAt,
     provider: snapshot.provider,
     origins: Object.freeze(origins),
-    credentialGrant: Object.freeze({ brokerId: credentialGrant.brokerId, grantRef: credentialGrant.grantRef }),
+    credentialGrant: Object.freeze({
+      brokerId: credentialGrant.brokerId,
+      grantRef: credentialGrant.grantRef,
+    }),
     operationId: snapshot.operationId,
     scopeId: snapshot.scopeId,
-    profileHash: snapshot.profileHash
+    profileHash: snapshot.profileHash,
   });
 }
 
-/** @param {unknown} candidate */
-function validateAuthorityRegistryCandidateInternal(candidate) {
+function validateAuthorityRegistryCandidateInternal(candidate: unknown) {
   const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
   if (!top) return blocked("authority_registry_shape_invalid");
-  const grantsResult = snapshotPlainArray(top.grants, AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount);
+  const grantsResult = snapshotPlainArray<unknown>(
+    top.grants,
+    AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount,
+  );
   if (grantsResult.status !== "ok") {
-    return blocked(grantsResult.reason === "array_length_exceeded"
-      ? "authority_registry_grant_count_exceeded" : "authority_registry_shape_invalid");
+    return blocked(
+      grantsResult.reason === "array_length_exceeded"
+        ? "authority_registry_grant_count_exceeded"
+        : "authority_registry_shape_invalid",
+    );
   }
   if (
     top.contract !== AUTHORITY_REGISTRY_CONTRACT ||
     top.contractRevision !== AUTHORITY_REGISTRY_CONTRACT_REVISION
-  ) return blocked("authority_registry_contract_mismatch");
+  )
+    return blocked("authority_registry_contract_mismatch");
   if (
     typeof top.registryId !== "string" ||
     top.registryId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
@@ -214,8 +245,11 @@ function validateAuthorityRegistryCandidateInternal(candidate) {
   ) {
     return blocked("authority_registry_id_invalid");
   }
-  if (typeof top.registryRevision !== "number" ||
-      !Number.isSafeInteger(top.registryRevision) || top.registryRevision < 1) {
+  if (
+    typeof top.registryRevision !== "number" ||
+    !Number.isSafeInteger(top.registryRevision) ||
+    top.registryRevision < 1
+  ) {
     return blocked("authority_registry_revision_invalid");
   }
   const observedAt = normalizedUtc(top.observedAt);
@@ -224,34 +258,45 @@ function validateAuthorityRegistryCandidateInternal(candidate) {
     return blocked("authority_registry_grants_required");
   }
   const grants = grantsResult.value.map(normalizeGrant);
-  if (grants.some((grant) => grant == null)) return blocked("authority_registry_grant_invalid");
-  const normalizedGrants = /** @type {Readonly<AuthorityGrant>[]} */ (grants);
+  if (grants.some((grant) => grant == null))
+    return blocked("authority_registry_grant_invalid");
+  const normalizedGrants = grants.filter(
+    (grant): grant is Readonly<AuthorityGrant> => grant !== null,
+  );
   const identities = normalizedGrants.map((grant) => grant.grantRef);
-  if (new Set(identities).size !== identities.length) return blocked("authority_registry_grant_duplicate");
+  if (new Set(identities).size !== identities.length)
+    return blocked("authority_registry_grant_duplicate");
   const registry = Object.freeze({
     contract: AUTHORITY_REGISTRY_CONTRACT,
     contractRevision: AUTHORITY_REGISTRY_CONTRACT_REVISION,
     registryId: top.registryId,
     registryRevision: top.registryRevision,
     observedAt,
-    grants: Object.freeze([...normalizedGrants].sort((left, right) =>
-      left.grantRef.localeCompare(right.grantRef) || left.grantRevision - right.grantRevision))
+    grants: Object.freeze(
+      [...normalizedGrants].sort(
+        (left, right) =>
+          left.grantRef.localeCompare(right.grantRef) ||
+          left.grantRevision - right.grantRevision,
+      ),
+    ),
   });
   const canonical = canonicalJson(registry);
-  if (Buffer.byteLength(canonical, "utf8") > AUTHORITY_REGISTRY_INPUT_LIMITS.canonicalBytes) {
+  if (
+    Buffer.byteLength(canonical, "utf8") >
+    AUTHORITY_REGISTRY_INPUT_LIMITS.canonicalBytes
+  ) {
     return blocked("authority_registry_canonical_bytes_exceeded");
   }
   return Object.freeze({
-    status: /** @type {"candidate"} */ ("candidate"),
+    status: "candidate" as const,
     reason: "authority_registry_trust_anchor_required",
     registry,
     registryHash: createHash("sha256").update(canonical).digest("hex"),
-    verification: null
+    verification: null,
   });
 }
 
-/** @param {unknown} candidate */
-export function validateAuthorityRegistryCandidate(candidate) {
+export function validateAuthorityRegistryCandidate(candidate: unknown) {
   try {
     return validateAuthorityRegistryCandidateInternal(candidate);
   } catch {
@@ -259,10 +304,10 @@ export function validateAuthorityRegistryCandidate(candidate) {
   }
 }
 
-/** @param {unknown} input */
-export function decodeCanonicalAuthorityRegistryBytes(input) {
+export function decodeCanonicalAuthorityRegistryBytes(input: unknown) {
   try {
-    if (!Buffer.isBuffer(input)) return blocked("authority_registry_bytes_required");
+    if (!Buffer.isBuffer(input))
+      return blocked("authority_registry_bytes_required");
     const inputLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, input, []);
     if (inputLength > AUTHORITY_REGISTRY_INPUT_LIMITS.rawBytes) {
       return blocked("authority_registry_raw_bytes_exceeded");
@@ -270,10 +315,12 @@ export function decodeCanonicalAuthorityRegistryBytes(input) {
     const bytes = Buffer.allocUnsafe(inputLength);
     Uint8Array.prototype.set.call(bytes, input);
     const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    if (source.charCodeAt(0) === 0xfeff) return blocked("authority_registry_bytes_invalid");
+    if (source.charCodeAt(0) === 0xfeff)
+      return blocked("authority_registry_bytes_invalid");
     const parsed = JSON.parse(source);
     const result = validateAuthorityRegistryCandidate(parsed);
-    if (result.status !== "candidate") return blocked("authority_registry_bytes_invalid");
+    if (result.status !== "candidate")
+      return blocked("authority_registry_bytes_invalid");
     const canonical = canonicalJson(result.registry);
     if (!Buffer.prototype.equals.call(bytes, Buffer.from(canonical, "utf8"))) {
       return blocked("authority_registry_bytes_noncanonical");
@@ -284,49 +331,73 @@ export function decodeCanonicalAuthorityRegistryBytes(input) {
   }
 }
 
-/**
- * @param {unknown} rawProfile
- * @param {unknown} rawRegistry
- * @param {unknown} context
- */
-function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, context = {}) {
+function evaluateAuthorityGrantCandidateInternal(
+  rawProfile: unknown,
+  rawRegistry: unknown,
+  context: unknown = {},
+) {
   const profileResult = validateProviderIsolationProfile(rawProfile);
-  if (profileResult.status !== "candidate") return blocked("authority_profile_invalid");
+  if (profileResult.status !== "candidate")
+    return blocked("authority_profile_invalid");
   const registryResult = validateAuthorityRegistryCandidate(rawRegistry);
-  if (registryResult.status !== "candidate") return blocked("authority_registry_invalid");
-  const contextSnapshot = snapshotPlainRecord(context, new Set(["operationId", "scopeId", "now"]));
+  if (registryResult.status !== "candidate")
+    return blocked("authority_registry_invalid");
+  const contextSnapshot = snapshotPlainRecord(
+    context,
+    new Set(["operationId", "scopeId", "now"]),
+  );
   if (
-    !contextSnapshot || typeof contextSnapshot.operationId !== "string" ||
-    contextSnapshot.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !contextSnapshot ||
+    typeof contextSnapshot.operationId !== "string" ||
+    contextSnapshot.operationId.length >
+      PROVIDER_INPUT_LIMITS.identifierLength ||
     !OPERATION_ID.test(contextSnapshot.operationId) ||
     typeof contextSnapshot.scopeId !== "string" ||
     contextSnapshot.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !SCOPE_ID.test(contextSnapshot.scopeId)
-  ) return blocked("authority_context_invalid");
+  )
+    return blocked("authority_context_invalid");
   const now = normalizeNow(contextSnapshot.now);
   if (!now) return blocked("authority_now_invalid");
-  if (registryResult.registry.observedAt > now) return blocked("authority_registry_observation_in_future");
-  if (profileResult.profile.authority.registryId !== registryResult.registry.registryId) {
+  if (registryResult.registry.observedAt > now)
+    return blocked("authority_registry_observation_in_future");
+  if (
+    profileResult.profile.authority.registryId !==
+    registryResult.registry.registryId
+  ) {
     return blocked("authority_registry_mismatch");
   }
-  const matching = registryResult.registry.grants.filter((grant) =>
-    grant.grantRef === profileResult.profile.authority.grantRef);
+  const matching = registryResult.registry.grants.filter(
+    (grant) => grant.grantRef === profileResult.profile.authority.grantRef,
+  );
   if (matching.length !== 1) return blocked("authority_grant_not_unique");
   const grant = matching[0];
   if (!grant) return blocked("authority_grant_not_unique");
   if (grant.status !== "active") return blocked("authority_grant_inactive");
-  if (!(grant.validFrom <= now && now < grant.expiresAt)) return blocked("authority_grant_outside_validity");
-  if (grant.provider !== profileResult.profile.provider) return blocked("authority_provider_mismatch");
-  if (canonicalJson(grant.origins) !== canonicalJson(profileResult.profile.egress.origins)) {
+  if (!(grant.validFrom <= now && now < grant.expiresAt))
+    return blocked("authority_grant_outside_validity");
+  if (grant.provider !== profileResult.profile.provider)
+    return blocked("authority_provider_mismatch");
+  if (
+    canonicalJson(grant.origins) !==
+    canonicalJson(profileResult.profile.egress.origins)
+  ) {
     return blocked("authority_origins_mismatch");
   }
-  if (canonicalJson(grant.credentialGrant) !== canonicalJson(profileResult.profile.credentialGrant)) {
+  if (
+    canonicalJson(grant.credentialGrant) !==
+    canonicalJson(profileResult.profile.credentialGrant)
+  ) {
     return blocked("authority_credential_grant_mismatch");
   }
-  if (grant.operationId !== contextSnapshot.operationId || grant.scopeId !== contextSnapshot.scopeId) {
+  if (
+    grant.operationId !== contextSnapshot.operationId ||
+    grant.scopeId !== contextSnapshot.scopeId
+  ) {
     return blocked("authority_operation_scope_mismatch");
   }
-  if (grant.profileHash !== profileResult.profileHash) return blocked("authority_profile_hash_mismatch");
+  if (grant.profileHash !== profileResult.profileHash)
+    return blocked("authority_profile_hash_mismatch");
 
   const verification = Object.freeze({
     profileHash: profileResult.profileHash,
@@ -338,25 +409,29 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
     operationId: contextSnapshot.operationId,
     scopeId: contextSnapshot.scopeId,
     evaluatedAt: now,
-    validUntil: grant.expiresAt
+    validUntil: grant.expiresAt,
   });
   return Object.freeze({
     status: /** @type {"candidate"} */ ("candidate"),
-    reason: "runtime_trust_policy_activation_and_prelaunch_reverification_required",
+    reason:
+      "runtime_trust_policy_activation_and_prelaunch_reverification_required",
     registry: registryResult.registry,
     registryHash: registryResult.registryHash,
-    verification
+    verification,
   });
 }
 
-/**
- * @param {unknown} rawProfile
- * @param {unknown} rawRegistry
- * @param {unknown} [context]
- */
-export function evaluateAuthorityGrantCandidate(rawProfile, rawRegistry, context = {}) {
+export function evaluateAuthorityGrantCandidate(
+  rawProfile: unknown,
+  rawRegistry: unknown,
+  context: unknown = {},
+) {
   try {
-    return evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, context);
+    return evaluateAuthorityGrantCandidateInternal(
+      rawProfile,
+      rawRegistry,
+      context,
+    );
   } catch {
     return blocked("authority_input_invalid");
   }
@@ -372,6 +447,6 @@ export function describeAuthorityGrantVerifierContract() {
     prelaunchReverificationCore: "implemented_candidate",
     providerLaunchIntegration: "not_implemented",
     runtimeCapabilityIssued: false,
-    selfAssertedRegistryAcceptedAsAuthority: false
+    selfAssertedRegistryAcceptedAsAuthority: false,
   });
 }

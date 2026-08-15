@@ -11,8 +11,8 @@ import { verifyProvisioningRecordAggregateCandidate } from
   "./provisioning-record-pure-core.mjs";
 import { verifyInitialEnrollmentCertificateCandidate } from
   "./initial-enrollment-pure-core.mjs";
-import { verifyProvisioningCaStateCandidate } from "./provisioning-ca-pure-core.mjs";
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { verifyProvisioningCaStateCandidate } from "./provisioning-ca-pure-core.ts";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const INPUT_KEYS = new Set([
   "recordEnvelopeBytes", "recordTrustAnchorSetBytes", "recordRevocationManifestBytes",

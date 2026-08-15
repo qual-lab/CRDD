@@ -11,7 +11,7 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
   PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
   calculatePlatformProvisionerPackageContentRootCandidate
-} from "../src/security/platform-provisioner-trust-core.mjs";
+} from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 

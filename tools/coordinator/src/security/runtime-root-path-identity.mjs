@@ -3,8 +3,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
-import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.ts";
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   selectRuntimeRootCandidate
@@ -156,15 +156,21 @@ function safeSource(input, profile) {
  */
 function createIdentitySession(rawInput) {
   const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
-  if (!input) throw new Error("runtime_root_path_identity_input_invalid");
+  if (!input || typeof input.repositoryRoot !== "string") {
+    throw new Error("runtime_root_path_identity_input_invalid");
+  }
   const profile = selectRuntimeRootCandidate(input);
   if (profile.status !== "candidate" || input.activationIntent !== EXPLICIT_ENABLE) {
     throw new Error("runtime_root_enable_candidate_required");
   }
   const source = safeSource(input, profile);
+  const rootPath = selectedPath(input);
+  if (typeof rootPath !== "string") {
+    throw new Error("runtime_root_path_identity_input_invalid");
+  }
   const targets = Object.freeze({
     repository: path.resolve(input.repositoryRoot),
-    root: path.resolve(selectedPath(input))
+    root: path.resolve(rootPath)
   });
   const completeTargets = Object.freeze({ ...targets, parent: path.dirname(targets.root) });
   const snapshots = Object.freeze({

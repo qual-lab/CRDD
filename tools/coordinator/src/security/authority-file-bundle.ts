@@ -1,22 +1,23 @@
-// @ts-check
-
 import { createHash } from "node:crypto";
 
 import {
   decodeCanonicalAuthorityTrustPolicyBytes,
-  loadAuthorityRegistryTrustCandidate
-} from "./authority-trust-loader.mjs";
-import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.mjs";
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
-import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
+  loadAuthorityRegistryTrustCandidate,
+} from "./authority-trust-loader.ts";
+import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.ts";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.ts";
 
-export const AUTHORITY_FILE_BUNDLE_CONTRACT = "crdd-coordinator/authority-file-bundle";
+export const AUTHORITY_FILE_BUNDLE_CONTRACT =
+  "crdd-coordinator/authority-file-bundle";
 export const AUTHORITY_FILE_BUNDLE_CONTRACT_REVISION = 1;
-export const AUTHORITY_FILE_BUNDLE_INPUT_LIMITS = Object.freeze({ manifestBytes: 4_096 });
+export const AUTHORITY_FILE_BUNDLE_INPUT_LIMITS = Object.freeze({
+  manifestBytes: 4_096,
+});
 export const AUTHORITY_FILE_BUNDLE_FILES = Object.freeze({
   manifest: "bundle.json",
   trustPolicy: "trust-policy.json",
-  registry: "authority-registry.json"
+  registry: "authority-registry.json",
 });
 
 const BUNDLE_ID = /^AUTHBUNDLE-[0-9]{6,}$/u;
@@ -29,16 +30,19 @@ const MANIFEST_KEYS = new Set([
   "status",
   "previousBundleHash",
   "trustPolicyHash",
-  "registryHash"
+  "registryHash",
 ]);
-const BUNDLE_INPUT_KEYS = new Set(["manifestBytes", "trustPolicyBytes", "registryBytes"]);
-const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
+const BUNDLE_INPUT_KEYS = new Set([
+  "manifestBytes",
+  "trustPolicyBytes",
+  "registryBytes",
+]);
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
-  "byteLength"
-)?.get);
+  "byteLength",
+)?.get as () => number;
 
-/** @param {string} reason */
-function blocked(reason) {
+function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
     reason,
@@ -48,25 +52,30 @@ function blocked(reason) {
     registryHash: null,
     trustPolicy: null,
     trustPolicyHash: null,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
 }
 
-/** @param {unknown} value @returns {string} */
-function canonicalJson(value) {
+function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    const record = /** @type {Record<string, unknown>} */ (value);
-    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .join(",")}}`;
   }
-  return JSON.stringify(value);
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined)
+    throw new Error("authority_file_bundle_json_invalid");
+  return serialized;
 }
 
-/** @param {unknown} input */
-function decodeManifest(input) {
+function decodeManifest(input: unknown) {
   if (!Buffer.isBuffer(input)) return null;
   const inputLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, input, []);
-  if (inputLength > AUTHORITY_FILE_BUNDLE_INPUT_LIMITS.manifestBytes) return null;
+  if (inputLength > AUTHORITY_FILE_BUNDLE_INPUT_LIMITS.manifestBytes)
+    return null;
   const bytes = Buffer.allocUnsafe(inputLength);
   Uint8Array.prototype.set.call(bytes, input);
   const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -80,14 +89,21 @@ function decodeManifest(input) {
     typeof snapshot.bundleId !== "string" ||
     snapshot.bundleId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !BUNDLE_ID.test(snapshot.bundleId) ||
-    !Number.isSafeInteger(snapshot.bundleRevision) || snapshot.bundleRevision < 1 ||
+    typeof snapshot.bundleRevision !== "number" ||
+    !Number.isSafeInteger(snapshot.bundleRevision) ||
+    snapshot.bundleRevision < 1 ||
+    typeof snapshot.status !== "string" ||
     !["active", "revoked", "replaced"].includes(snapshot.status) ||
-    typeof snapshot.trustPolicyHash !== "string" || !HASH.test(snapshot.trustPolicyHash) ||
-    typeof snapshot.registryHash !== "string" || !HASH.test(snapshot.registryHash) ||
+    typeof snapshot.trustPolicyHash !== "string" ||
+    !HASH.test(snapshot.trustPolicyHash) ||
+    typeof snapshot.registryHash !== "string" ||
+    !HASH.test(snapshot.registryHash) ||
     (snapshot.bundleRevision === 1
       ? snapshot.previousBundleHash !== null
-      : typeof snapshot.previousBundleHash !== "string" || !HASH.test(snapshot.previousBundleHash))
-  ) return null;
+      : typeof snapshot.previousBundleHash !== "string" ||
+        !HASH.test(snapshot.previousBundleHash))
+  )
+    return null;
   const manifest = Object.freeze({
     contract: AUTHORITY_FILE_BUNDLE_CONTRACT,
     contractRevision: AUTHORITY_FILE_BUNDLE_CONTRACT_REVISION,
@@ -96,39 +112,48 @@ function decodeManifest(input) {
     status: snapshot.status,
     previousBundleHash: snapshot.previousBundleHash,
     trustPolicyHash: snapshot.trustPolicyHash,
-    registryHash: snapshot.registryHash
+    registryHash: snapshot.registryHash,
   });
   const canonical = canonicalJson(manifest);
-  if (!Buffer.prototype.equals.call(bytes, Buffer.from(canonical, "utf8"))) return null;
+  if (!Buffer.prototype.equals.call(bytes, Buffer.from(canonical, "utf8")))
+    return null;
   return Object.freeze({
     manifest,
-    bundleHash: createHash("sha256").update(canonical).digest("hex")
+    bundleHash: createHash("sha256").update(canonical).digest("hex"),
   });
 }
 
-/** @param {unknown} rawInput */
-export function loadAuthorityFileBundleCandidate(rawInput) {
+export function loadAuthorityFileBundleCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, BUNDLE_INPUT_KEYS);
     if (!input) return blocked("authority_file_bundle_input_invalid");
     const decodedManifest = decodeManifest(input.manifestBytes);
-    if (!decodedManifest) return blocked("authority_file_bundle_manifest_invalid");
+    if (!decodedManifest)
+      return blocked("authority_file_bundle_manifest_invalid");
     if (decodedManifest.manifest.status !== "active") {
       return blocked("authority_file_bundle_inactive");
     }
-    const decodedPolicy = decodeCanonicalAuthorityTrustPolicyBytes(input.trustPolicyBytes);
+    const decodedPolicy = decodeCanonicalAuthorityTrustPolicyBytes(
+      input.trustPolicyBytes,
+    );
     if (decodedPolicy.status !== "candidate") {
       return blocked("authority_file_bundle_trust_policy_invalid");
     }
     if (decodedPolicy.trustPolicy.status !== "active") {
       return blocked("authority_file_bundle_trust_policy_inactive");
     }
-    const trust = loadAuthorityRegistryTrustCandidate(input.registryBytes, decodedPolicy.trustPolicy);
-    if (trust.status !== "candidate") return blocked("authority_file_bundle_registry_invalid");
+    const trust = loadAuthorityRegistryTrustCandidate(
+      input.registryBytes,
+      decodedPolicy.trustPolicy,
+    );
+    if (trust.status !== "candidate")
+      return blocked("authority_file_bundle_registry_invalid");
     if (
-      decodedManifest.manifest.trustPolicyHash !== decodedPolicy.trustPolicyHash ||
+      decodedManifest.manifest.trustPolicyHash !==
+        decodedPolicy.trustPolicyHash ||
       decodedManifest.manifest.registryHash !== trust.registryHash
-    ) return blocked("authority_file_bundle_hash_mismatch");
+    )
+      return blocked("authority_file_bundle_hash_mismatch");
 
     return Object.freeze({
       status: "candidate",
@@ -139,7 +164,7 @@ export function loadAuthorityFileBundleCandidate(rawInput) {
       registryHash: trust.registryHash,
       trustPolicy: trust.trustPolicy,
       trustPolicyHash: trust.trustPolicyHash,
-      runtimeCapabilityIssued: false
+      runtimeCapabilityIssued: false,
     });
   } catch {
     return blocked("authority_file_bundle_input_invalid");
@@ -159,6 +184,6 @@ export function describeAuthorityFileBundleContract() {
     atomicReplacement: "not_implemented",
     monotonicActivation: "not_implemented",
     runtimeCapabilityIssued: false,
-    ipcOrNetworkTransportSupported: false
+    ipcOrNetworkTransportSupported: false,
   });
 }

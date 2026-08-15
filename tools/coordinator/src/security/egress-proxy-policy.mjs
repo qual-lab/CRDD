@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import net from "node:net";
 
-import { validateProviderIsolationProfile } from "./provider-isolation-profile.mjs";
+import { validateProviderIsolationProfile } from "./provider-isolation-profile.ts";
 
 export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;

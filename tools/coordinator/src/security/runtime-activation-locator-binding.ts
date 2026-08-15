@@ -1,4 +1,4 @@
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { evaluateAuthorityRootLocatorActivationBindingCandidate } from "./authority-root-locator.mjs";
 import { evaluateRuntimeActivationTransitionCandidate } from "./runtime-activation-transition.mjs";
 

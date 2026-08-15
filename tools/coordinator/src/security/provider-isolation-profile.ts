@@ -1,16 +1,18 @@
-// @ts-check
-
 import { createHash } from "node:crypto";
-import { snapshotPlainArray, snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "./plain-data-snapshot.ts";
 
-export const PROVIDER_ISOLATION_CONTRACT = "crdd-coordinator/provider-isolation-profile";
+export const PROVIDER_ISOLATION_CONTRACT =
+  "crdd-coordinator/provider-isolation-profile";
 export const PROVIDER_ISOLATION_CONTRACT_REVISION = 1;
 
 const SUPPORTED_PROVIDERS = new Set(["codex", "claude"]);
 export const PROVIDER_INPUT_LIMITS = Object.freeze({
   identifierLength: 64,
   originCount: 16,
-  originLength: 256
+  originLength: 256,
 });
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const AUTHORITY_REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
@@ -24,24 +26,29 @@ const TOP_LEVEL_KEYS = new Set([
   "provider",
   "authority",
   "credentialGrant",
-  "egress"
+  "egress",
 ]);
 
-/** @param {string} reason */
-function blocked(reason) {
-  return Object.freeze({ status: "blocked", reason, profile: null, profileHash: null });
+function blocked(reason: string) {
+  return Object.freeze({
+    status: "blocked",
+    reason,
+    profile: null,
+    profileHash: null,
+  });
 }
 
-/** @param {unknown} value @param {RegExp} pattern */
-function matches(value, pattern) {
-  return typeof value === "string" &&
-    value.length <= PROVIDER_INPUT_LIMITS.identifierLength && pattern.test(value);
+function matches(value: unknown, pattern: RegExp): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= PROVIDER_INPUT_LIMITS.identifierLength &&
+    pattern.test(value)
+  );
 }
 
-/** @param {unknown} value */
-function normalizeOrigin(value) {
+function normalizeOrigin(value: unknown) {
   if (typeof value !== "string" || value.includes("*")) return null;
-  let parsed;
+  let parsed: URL;
   try {
     parsed = new URL(value);
   } catch {
@@ -55,7 +62,8 @@ function normalizeOrigin(value) {
     parsed.hash ||
     (parsed.pathname !== "/" && parsed.pathname !== "") ||
     (parsed.port && parsed.port !== "443")
-  ) return null;
+  )
+    return null;
   const hostname = parsed.hostname.toLowerCase();
   if (
     !hostname ||
@@ -63,50 +71,71 @@ function normalizeOrigin(value) {
     hostname.endsWith(".localhost") ||
     /^\d{1,3}(?:\.\d{1,3}){3}$/u.test(hostname) ||
     hostname.includes(":")
-  ) return null;
+  )
+    return null;
   return `https://${hostname}`;
 }
 
-/** @param {unknown} value @returns {string} */
-function canonicalJson(value) {
+function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    const record = /** @type {Record<string, unknown>} */ (value);
-    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .join(",")}}`;
   }
-  return JSON.stringify(value);
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined)
+    throw new Error("provider_profile_json_invalid");
+  return serialized;
 }
 
-/** @param {unknown} candidate */
-function validateProviderIsolationProfileInternal(candidate) {
+function validateProviderIsolationProfileInternal(candidate: unknown) {
   const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
   if (!top) return blocked("profile_shape_invalid");
   const authorityKeys = new Set(["registryId", "grantRef"]);
   const authority = snapshotPlainRecord(top.authority, authorityKeys);
   if (!authority) return blocked("authority_shape_invalid");
   const credentialKeys = new Set(["brokerId", "grantRef"]);
-  const credentialGrant = snapshotPlainRecord(top.credentialGrant, credentialKeys);
+  const credentialGrant = snapshotPlainRecord(
+    top.credentialGrant,
+    credentialKeys,
+  );
   if (!credentialGrant) return blocked("credential_grant_shape_invalid");
   const egressKeys = new Set(["origins"]);
   const egress = snapshotPlainRecord(top.egress, egressKeys);
   if (!egress) return blocked("egress_shape_invalid");
-  const originsResult = snapshotPlainArray(egress.origins, PROVIDER_INPUT_LIMITS.originCount);
+  const originsResult = snapshotPlainArray<string>(
+    egress.origins,
+    PROVIDER_INPUT_LIMITS.originCount,
+  );
   if (originsResult.status !== "ok") {
-    return blocked(originsResult.reason === "array_length_exceeded"
-      ? "egress_origin_count_exceeded" : "egress_shape_invalid");
+    return blocked(
+      originsResult.reason === "array_length_exceeded"
+        ? "egress_origin_count_exceeded"
+        : "egress_shape_invalid",
+    );
   }
   const rawOrigins = originsResult.value;
   if (
     top.contract !== PROVIDER_ISOLATION_CONTRACT ||
     top.contractRevision !== PROVIDER_ISOLATION_CONTRACT_REVISION
-  ) return blocked("profile_contract_mismatch");
+  )
+    return blocked("profile_contract_mismatch");
   if (!matches(top.profileId, PROFILE_ID)) return blocked("profile_id_invalid");
-  if (!SUPPORTED_PROVIDERS.has(top.provider)) return blocked("provider_not_supported");
+  if (
+    typeof top.provider !== "string" ||
+    !SUPPORTED_PROVIDERS.has(top.provider)
+  ) {
+    return blocked("provider_not_supported");
+  }
 
   if (
     !matches(authority.registryId, AUTHORITY_REGISTRY_ID) ||
     !matches(authority.grantRef, AUTHORITY_GRANT_REF)
-  ) return blocked("authority_reference_invalid");
+  )
+    return blocked("authority_reference_invalid");
 
   if (
     !matches(credentialGrant.brokerId, CREDENTIAL_BROKER_ID) ||
@@ -118,37 +147,59 @@ function validateProviderIsolationProfileInternal(candidate) {
   if (rawOrigins.length === 0) {
     return blocked("egress_origins_required");
   }
-  if (rawOrigins.some((origin) =>
-    typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)) {
+  if (
+    rawOrigins.some(
+      (origin) =>
+        typeof origin !== "string" ||
+        origin.length > PROVIDER_INPUT_LIMITS.originLength,
+    )
+  ) {
     return blocked("egress_origin_length_exceeded");
   }
   const origins = rawOrigins.map(normalizeOrigin);
-  if (origins.some((origin) => origin == null)) return blocked("egress_origin_invalid");
-  const uniqueOrigins = [...new Set(/** @type {string[]} */ (origins))].sort();
-  if (uniqueOrigins.length !== origins.length) return blocked("egress_origin_duplicate");
+  if (origins.some((origin) => origin == null))
+    return blocked("egress_origin_invalid");
+  const normalizedOrigins = origins.filter(
+    (origin): origin is string => origin !== null,
+  );
+  const uniqueOrigins = [...new Set(normalizedOrigins)].sort();
+  if (uniqueOrigins.length !== origins.length)
+    return blocked("egress_origin_duplicate");
 
   const profile = Object.freeze({
     contract: PROVIDER_ISOLATION_CONTRACT,
     contractRevision: PROVIDER_ISOLATION_CONTRACT_REVISION,
     profileId: top.profileId,
     provider: top.provider,
-    authority: Object.freeze({ registryId: authority.registryId, grantRef: authority.grantRef }),
-    credentialGrant: Object.freeze({ brokerId: credentialGrant.brokerId, grantRef: credentialGrant.grantRef }),
+    authority: Object.freeze({
+      registryId: authority.registryId,
+      grantRef: authority.grantRef,
+    }),
+    credentialGrant: Object.freeze({
+      brokerId: credentialGrant.brokerId,
+      grantRef: credentialGrant.grantRef,
+    }),
     egress: Object.freeze({ origins: Object.freeze(uniqueOrigins) }),
     requiredCapabilities: Object.freeze([
       "authority_grant_verification",
       "docker_isolation",
       "credential_broker",
       "provider_endpoint_proxy",
-      "provider_endpoint_egress_enforcement"
-    ])
+      "provider_endpoint_egress_enforcement",
+    ]),
   });
-  const profileHash = createHash("sha256").update(canonicalJson(profile)).digest("hex");
-  return Object.freeze({ status: "candidate", reason: "authority_verification_required", profile, profileHash });
+  const profileHash = createHash("sha256")
+    .update(canonicalJson(profile))
+    .digest("hex");
+  return Object.freeze({
+    status: "candidate",
+    reason: "authority_verification_required",
+    profile,
+    profileHash,
+  });
 }
 
-/** @param {unknown} candidate */
-export function validateProviderIsolationProfile(candidate) {
+export function validateProviderIsolationProfile(candidate: unknown) {
   try {
     return validateProviderIsolationProfileInternal(candidate);
   } catch {
@@ -167,6 +218,6 @@ export function describeProviderIsolationContract() {
     supportedWriteBackend: "docker",
     localFallbackAllowed: false,
     rawCredentialAllowed: false,
-    wildcardEgressAllowed: false
+    wildcardEgressAllowed: false,
   });
 }

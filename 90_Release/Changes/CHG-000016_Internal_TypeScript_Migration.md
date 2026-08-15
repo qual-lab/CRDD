@@ -72,3 +72,23 @@ Coordinatorのproduction 38 moduleを全数strict型検査へ追加した。現�
 `authority-prelaunch-verifier.mjs`を`.ts`へ移し、3つの公開入力と内部contextを`unknown`、blocked理由を`string`へ置換した。Runtime時計、Bundle／Grant再検証、Registry結合、Capability未発行およびGateを変更せず、productionの移行済み数は9 / 38である。
 
 `enrollment-certificate-renewal.mjs`を`.ts`へ移し、外部入力とEnvelope／SPKI snapshot入力を`unknown`、UTC predicateとgeneric responseを実TypeScript型へ置換した。30日更新窓、Identity継続、時計／CA Trust／永続化未成立、Authority／Capability／EffectおよびGateを変更せず、productionの移行済み数は10 / 38である。
+
+## 2026-08-16 — production TypeScript移行 21 / 38
+
+shared plain-data snapshotを含む次の11 moduleを同一配置の`.ts`へ移行した。
+
+- `plain-data-snapshot`
+- `cli-options`
+- `authority-file-bundle`
+- `authority-grant-verifier`
+- `authority-trust-loader`
+- `git-local-exclude`
+- `provisioning-ca-pure-core`
+- `offline-enrollment-bundle-pure-core`
+- `platform-provisioner-trust-core`
+- `provider-isolation-profile`
+- `root-protection-policy`
+
+plain-data snapshotの返却値を許可keyごとの`unknown`として表現し、利用側が文字列、数値、配列要素、署名entryおよび時刻を使用前に実行時検証する境界へ統一した。`noUncheckedIndexedAccess`で検出した配列境界は、要素の存在確認後にだけ比較または署名検証へ渡す。外部入力を型アサーションで信頼せず、`any`、`@ts-nocheck`、抑制commentまたはstrict設定の緩和を導入しない。
+
+Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの既存fail-closed理由、暗号domain、件数／byte budget、Authority／Capability／Effect非発行、12 implementation blocker、6 current-run evidenceおよびGate blockedを変更しない。この単位は二層型検査のPassまで`Self-checked`であり、Biome、Coordinator全test、full checker、Node.js 24.12以上のnative実行および独立review／audit前は`Resolved`ではない。

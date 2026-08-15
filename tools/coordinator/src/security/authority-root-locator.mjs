@@ -1,7 +1,7 @@
 // @ts-check
 
 import { createHash } from "node:crypto";
-import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
   isSupportedAuthorityRootAbsolutePath
