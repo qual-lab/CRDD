@@ -6,7 +6,7 @@ import {
   canonicalizeProvisioningJsonValueCandidate,
   inspectProvisioningEd25519SpkiCandidate,
   PROVISIONING_SIGNATURE_INPUT_LIMITS
-} from "./provisioning-signature-primitives.mjs";
+} from "./provisioning-signature-primitives.ts";
 import { verifyProvisioningRecordAggregateCandidate } from
   "./provisioning-record-pure-core.mjs";
 import { verifyInitialEnrollmentCertificateCandidate } from

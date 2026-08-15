@@ -5,7 +5,7 @@ import {
   canonicalizeProvisioningJsonValueCandidate,
   inspectProvisioningEd25519SpkiCandidate,
   verifyProvisioningEd25519Base64urlCandidate,
-} from "./provisioning-signature-primitives.mjs";
+} from "./provisioning-signature-primitives.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVISIONING_CA_CONTRACT_REVISION = 1;

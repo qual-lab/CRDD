@@ -41,7 +41,7 @@
     "src/security/platform-provisioner-trust-core.ts",
     "src/security/platform-provisioner-package-gate.ts",
     "src/security/provider-isolation-profile.ts",
-    "src/security/provisioning-signature-primitives.mjs",
+    "src/security/provisioning-signature-primitives.ts",
     "src/security/provisioning-record-enrollment-binding.mjs",
     "src/security/provisioning-record-pure-core.mjs",
     "src/security/provisioning-ca-pure-core.ts",

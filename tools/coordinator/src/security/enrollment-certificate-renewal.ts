@@ -1,7 +1,7 @@
 import {
   canonicalizeProvisioningJsonValueCandidate,
   PROVISIONING_SIGNATURE_INPUT_LIMITS,
-} from "./provisioning-signature-primitives.mjs";
+} from "./provisioning-signature-primitives.ts";
 import { verifyInitialEnrollmentCertificateCandidate } from "./initial-enrollment-pure-core.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 

@@ -6,7 +6,7 @@ import {
   canonicalizeProvisioningJsonValueCandidate,
   inspectProvisioningP256SpkiCandidate,
   verifyProvisioningP256Base64urlCandidate
-} from "./provisioning-signature-primitives.mjs";
+} from "./provisioning-signature-primitives.ts";
 import {
   AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
   isSupportedAuthorityRootAbsolutePath

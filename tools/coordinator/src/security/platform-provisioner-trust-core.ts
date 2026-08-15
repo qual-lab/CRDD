@@ -6,7 +6,7 @@ import {
   inspectProvisioningEd25519SpkiCandidate,
   PROVISIONING_SIGNATURE_INPUT_LIMITS,
   verifyProvisioningEd25519Base64urlCandidate,
-} from "./provisioning-signature-primitives.mjs";
+} from "./provisioning-signature-primitives.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,

@@ -104,3 +104,5 @@ Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの�
 `egress-proxy-policy.mjs`を同一配置の`.ts`へ移し、special-purpose address snapshotをreadonly tuple／CIDR ruleとして固定し、公開fixtureのpolicy、CONNECT要求およびDNS結果から`any`を除去した。外部入力はplain-data record／array snapshotとprimitive検証後にだけ使用する。既存IANA snapshot、longest-prefix判定、private address拒否、Authority未成立およびProxy Effect未実装を変更せず、productionの移行済み数は26 / 38である。
 
 `runtime-activation-transition.mjs`を同一配置の`.ts`へ移し、`Record<string, any>`を廃止した。compile／decode Coreの候補結果とactivation recordをexact plain-data snapshotとfield別primitive検証で再構成し、初版およびdisable遷移の比較にだけ渡す。遷移規則、canonical byte ownership、Filesystem／Persistence／Capability非発行を変更せず、productionの移行済み数は27 / 38である。
+
+`provisioning-signature-primitives.mjs`を同一配置の`.ts`へ移し、JCS値、再帰snapshot状態、bounded writer、SPKI／署名入力およびexact verification入力を消去可能なTypeScript型へ置換した。raw Bufferはintrinsic byte lengthの存在、数値型、安全整数および上限を確認後にだけowned copyへ移す。RFC 8785／8410／8032／4648、P-256 low-S、既存budget、Authority／Capability／Effect非発行を変更せず、productionの移行済み数は28 / 38である。

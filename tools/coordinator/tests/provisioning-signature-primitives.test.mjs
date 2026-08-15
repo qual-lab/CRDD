@@ -11,7 +11,7 @@ import {
   verifyProvisioningEd25519Base64urlCandidate,
   verifyProvisioningEd25519PrimitiveCandidate,
   verifyProvisioningP256Base64urlCandidate
-} from "../src/security/provisioning-signature-primitives.mjs";
+} from "../src/security/provisioning-signature-primitives.ts";
 
 const RFC_8032_PUBLIC_KEY =
   "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";

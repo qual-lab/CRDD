@@ -6,7 +6,7 @@ import { describeAuthorityRootLocatorContract } from "./authority-root-locator.t
 import { describeRuntimeActivationLocatorBindingContract } from
   "./runtime-activation-locator-binding-contract.ts";
 import { describeProvisioningSignaturePrimitivesContract } from
-  "./provisioning-signature-primitives.mjs";
+  "./provisioning-signature-primitives.ts";
 import { describeProvisioningRecordPureCoreContract } from
   "./provisioning-record-pure-core.mjs";
 import { describeInitialEnrollmentPureCoreContract } from

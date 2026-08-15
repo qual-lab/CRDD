@@ -8,7 +8,7 @@ import {
   PROVISIONING_SIGNATURE_INPUT_LIMITS,
   verifyProvisioningEd25519Base64urlCandidate,
   verifyProvisioningP256Base64urlCandidate
-} from "./provisioning-signature-primitives.mjs";
+} from "./provisioning-signature-primitives.ts";
 
 export const INITIAL_ENROLLMENT_CONTRACT_REVISION = 1;
 export const INITIAL_ENROLLMENT_CHALLENGE_CONTRACT =
