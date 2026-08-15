@@ -303,6 +303,8 @@ CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フ�
 
 ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
 
+開発時の静的LintとFormatterには、Repository rootの`biome.json`でversionと規則を固定したBiomeを使用する。Biomeは開発依存に限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、TypeScriptへ移す単位ごとに整形と意味回帰を確認する。
+
 `.mjs`、`.cjs`または`.js`を残す場合は、bootstrapまたは外部互換等の明示理由と適用範囲を変更トレースへ記録する。移行途中であること自体は恒久例外の理由にしない。拡張子の変更によってfolder、決定権限、公開範囲、package境界または単独配布の可否を変更しない。
 
 Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ同義に固定する。特定のversion managerは要求しない。利用者または採用側へ見える拡張子、実行command、参照Pathを変更する場合は、変更トレースで利用側、移行、停止および復旧を示し、基準版の採用やリリースを別判断として扱う。
