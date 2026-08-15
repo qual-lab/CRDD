@@ -523,6 +523,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.offlineEnrollmentBundlePureCore,
     provisioningRecordEnrollmentBinding:
       report.runtimeActivation.provisioningRecordEnrollmentBinding,
+    enrollmentCertificateRenewal:
+      report.runtimeActivation.enrollmentCertificateRenewal,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -627,6 +629,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
       offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
       provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
+      enrollmentCertificateRenewalContract: "provisioning_record_contract",
+      enrollmentCertificateRenewalVerification: "provisioning_record_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",

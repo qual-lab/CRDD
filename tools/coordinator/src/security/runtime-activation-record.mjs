@@ -18,6 +18,8 @@ import { describeOfflineEnrollmentBundlePureCoreContract } from
   "./offline-enrollment-bundle-pure-core.mjs";
 import { describeProvisioningRecordEnrollmentBindingContract } from
   "./provisioning-record-enrollment-binding.mjs";
+import { describeEnrollmentCertificateRenewalContract } from
+  "./enrollment-certificate-renewal.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -103,6 +105,8 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
   offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
   provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
+  enrollmentCertificateRenewalContract: "provisioning_record_contract",
+  enrollmentCertificateRenewalVerification: "provisioning_record_verification",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
   onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -352,6 +356,7 @@ export function describeRuntimeActivationContract() {
   const offlineEnrollmentBundlePureCore = describeOfflineEnrollmentBundlePureCoreContract();
   const provisioningRecordEnrollmentBinding =
     describeProvisioningRecordEnrollmentBindingContract();
+  const enrollmentCertificateRenewal = describeEnrollmentCertificateRenewalContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -379,6 +384,10 @@ export function describeRuntimeActivationContract() {
       offlineEnrollmentBundlePureCore.objectContractAndCryptographicVerification,
     provisioningRecordEnrollmentBindingContract:
       provisioningRecordEnrollmentBinding.verification,
+    enrollmentCertificateRenewalContract:
+      enrollmentCertificateRenewal.transitionVerification,
+    enrollmentCertificateRenewalVerification:
+      enrollmentCertificateRenewal.transitionVerification,
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     initialEnrollmentChallengeObjectContractAndDomainFraming:
@@ -443,7 +452,8 @@ export function describeRuntimeActivationContract() {
     platformKeyStoragePolicy,
     provisioningCaPureCore,
     offlineEnrollmentBundlePureCore,
-    provisioningRecordEnrollmentBinding
+    provisioningRecordEnrollmentBinding,
+    enrollmentCertificateRenewal
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -526,6 +536,7 @@ export function describeRuntimeActivationContract() {
     offlineEnrollmentBundlePureCore: implementation.offlineEnrollmentBundlePureCore,
     provisioningRecordEnrollmentBinding:
       implementation.provisioningRecordEnrollmentBinding,
+    enrollmentCertificateRenewal: implementation.enrollmentCertificateRenewal,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -706,6 +717,7 @@ export function describeRuntimeActivationContract() {
     offlineEnrollmentBundlePureCore: implementation.offlineEnrollmentBundlePureCore,
     provisioningRecordEnrollmentBinding:
       implementation.provisioningRecordEnrollmentBinding,
+    enrollmentCertificateRenewal: implementation.enrollmentCertificateRenewal,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

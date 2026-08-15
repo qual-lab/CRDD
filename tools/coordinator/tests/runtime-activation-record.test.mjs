@@ -341,6 +341,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     offlineEnrollmentBundlePureCore: contract.offlineEnrollmentBundlePureCore,
     provisioningRecordEnrollmentBinding:
       contract.provisioningRecordEnrollmentBinding,
+    enrollmentCertificateRenewal: contract.enrollmentCertificateRenewal,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -445,6 +446,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
       offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
       provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
+      enrollmentCertificateRenewalContract: "provisioning_record_contract",
+      enrollmentCertificateRenewalVerification: "provisioning_record_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",

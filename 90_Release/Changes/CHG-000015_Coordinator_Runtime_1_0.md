@@ -813,3 +813,9 @@ RSA、P-384／P-521、Ed25519端末鍵およびalgorithm fallbackはrevision 1�
 第5単位は、準備記録の暗号条件と登録証明書chainを同一pure判定へ結ぶ。準備記録の各署名key IDには現在有効な登録証明書exact 1件を要求し、全署名を漏れなく結合する。準備記録の`provisionerEnrollmentId`、Platform scope、Provisioner Identity、P-256 SPKI／key ID、およびTrust Anchor entryの`enrollmentCaId`を、登録証明書とonline issuing証明書のCA seriesへ完全一致させる。複数署名時も署名数と証明書binding数を一致させ、重複証明書、未結合署名または余分なbindingを拒否する。
 
 入力Record／Trust Set／失効一覧Bufferはcopy前上限確認後に一度owned copyし、登録証明書とCA成果物もJCS budget内のowned plain-data snapshotへ変換してから既存Record aggregate、証明書署名およびCA chain検証を再利用する。正常結果も暗号・登録結合候補であり、Runtime所有Trust、rollback floor、時計、Filesystem、activationまたはcurrent-run再検証を成立させない。既存`recordEnrollmentBindingVerification`を`implemented_candidate`へ進めるが、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、固定版の独立レビュー前は`Resolved`ではない。
+
+### 2026-08-15 — 登録証明書更新pure遷移候補
+
+登録証明書更新は既存証明書Envelope間のpure遷移として検査する。同じ`enrollmentId`、Platform scope、Provisioner Identity、端末導入鍵IDおよびSPKIを維持し、評価時刻と新証明書`issuedAt`が旧証明書の残り30日以内かつ旧`expiresAt`未満であること、新旧重複が最大30日であること、および新証明書が旧証明書より後まで有効であることを要求する。issuer key rotationは許容するが、両証明書のEd25519署名数学的一致を個別に要求する。
+
+この候補は発行、Network、自動更新、Filesystem保存、Runtime所有時計、CA Trust、失効、rollback floorまたはLifecycleを実装しない。更新Effectは引き続き`not_implemented`で、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、固定版の独立レビュー前は`Resolved`ではない。
