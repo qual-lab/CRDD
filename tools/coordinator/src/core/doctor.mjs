@@ -23,7 +23,7 @@ import { describeAuthorityPrelaunchVerifierContract } from "../security/authorit
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.ts";
 import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
 import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.ts";
-import { describeRuntimeActivationContract } from "../security/runtime-activation-record.mjs";
+import { describeRuntimeActivationContract } from "../security/runtime-activation-record.ts";
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.ts";
 import {
   describeRuntimeRootPathIdentityContract,

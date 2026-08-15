@@ -7,7 +7,7 @@ import {
   compileRuntimeActivationRecordCandidate,
   decodeRuntimeActivationRecordCandidate,
   describeRuntimeActivationContract
-} from "../src/security/runtime-activation-record.mjs";
+} from "../src/security/runtime-activation-record.ts";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
   "../src/security/runtime-activation-locator-binding-contract.ts";
 

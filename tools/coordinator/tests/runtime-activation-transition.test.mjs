@@ -5,7 +5,7 @@ import {
   RUNTIME_ACTIVATION_CONTRACT,
   RUNTIME_ACTIVATION_INPUT_LIMITS,
   compileRuntimeActivationRecordCandidate
-} from "../src/security/runtime-activation-record.mjs";
+} from "../src/security/runtime-activation-record.ts";
 import { evaluateRuntimeActivationTransitionCandidate } from
   "../src/security/runtime-activation-transition.ts";
 

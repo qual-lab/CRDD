@@ -4,7 +4,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   compileRuntimeActivationRecordCandidate,
   decodeRuntimeActivationRecordCandidate,
-} from "./runtime-activation-record.mjs";
+} from "./runtime-activation-record.ts";
 
 const INPUT_KEYS = new Set(["previousCanonicalBytes", "nextRecord"]);
 const RESULT_KEYS = new Set([

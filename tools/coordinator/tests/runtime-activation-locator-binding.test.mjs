@@ -10,7 +10,7 @@ import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
 import {
   RUNTIME_ACTIVATION_CONTRACT,
   compileRuntimeActivationRecordCandidate
-} from "../src/security/runtime-activation-record.mjs";
+} from "../src/security/runtime-activation-record.ts";
 
 const validPath = process.platform === "win32" ? "C:\\CRDD\\authority" : "/srv/crdd/authority";
 

@@ -1,45 +1,33 @@
-// @ts-check
-
 import { createHash } from "node:crypto";
 
 import { describeAuthorityRootLocatorContract } from "./authority-root-locator.ts";
-import { describeRuntimeActivationLocatorBindingContract } from
-  "./runtime-activation-locator-binding-contract.ts";
-import { describeProvisioningSignaturePrimitivesContract } from
-  "./provisioning-signature-primitives.ts";
-import { describeProvisioningRecordPureCoreContract } from
-  "./provisioning-record-pure-core.ts";
-import { describeInitialEnrollmentPureCoreContract } from
-  "./initial-enrollment-pure-core.ts";
-import { describeInitialEnrollmentRuntimeStateContract } from
-  "./initial-enrollment-runtime-state.ts";
-import { describePlatformKeyStoragePolicyContract } from
-  "./platform-key-storage-policy.ts";
+import { describeRuntimeActivationLocatorBindingContract } from "./runtime-activation-locator-binding-contract.ts";
+import { describeProvisioningSignaturePrimitivesContract } from "./provisioning-signature-primitives.ts";
+import { describeProvisioningRecordPureCoreContract } from "./provisioning-record-pure-core.ts";
+import { describeInitialEnrollmentPureCoreContract } from "./initial-enrollment-pure-core.ts";
+import { describeInitialEnrollmentRuntimeStateContract } from "./initial-enrollment-runtime-state.ts";
+import { describePlatformKeyStoragePolicyContract } from "./platform-key-storage-policy.ts";
 import { describeProvisioningCaPureCoreContract } from "./provisioning-ca-pure-core.ts";
-import { describeOfflineEnrollmentBundlePureCoreContract } from
-  "./offline-enrollment-bundle-pure-core.ts";
-import { describeProvisioningRecordEnrollmentBindingContract } from
-  "./provisioning-record-enrollment-binding.ts";
-import { describeEnrollmentCertificateRenewalContract } from
-  "./enrollment-certificate-renewal.ts";
-import { describePlatformProvisionerTrustCoreContract } from
-  "./platform-provisioner-trust-core.ts";
-import { describePlatformProvisionerPackageGateContract } from
-  "./platform-provisioner-package-gate.ts";
+import { describeOfflineEnrollmentBundlePureCoreContract } from "./offline-enrollment-bundle-pure-core.ts";
+import { describeProvisioningRecordEnrollmentBindingContract } from "./provisioning-record-enrollment-binding.ts";
+import { describeEnrollmentCertificateRenewalContract } from "./enrollment-certificate-renewal.ts";
+import { describePlatformProvisionerTrustCoreContract } from "./platform-provisioner-trust-core.ts";
+import { describePlatformProvisionerPackageGateContract } from "./platform-provisioner-package-gate.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
   RUNTIME_ACTIVATION_ID_MAX_LENGTH,
-  isRuntimeActivationIdCandidate
+  isRuntimeActivationIdCandidate,
 } from "./runtime-activation-identity.ts";
 
-export const RUNTIME_ACTIVATION_CONTRACT = "crdd-coordinator/runtime-activation-record";
+export const RUNTIME_ACTIVATION_CONTRACT =
+  "crdd-coordinator/runtime-activation-record";
 export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 1;
 export const RUNTIME_ACTIVATION_FILE = "activation.json";
 export const RUNTIME_ACTIVATION_INPUT_LIMITS = Object.freeze({
   rawBytes: 8_192,
   identifierLength: RUNTIME_ACTIVATION_ID_MAX_LENGTH,
-  canonicalUtcLength: 24
+  canonicalUtcLength: 24,
 });
 
 const HASH = /^[a-f0-9]{64}$/u;
@@ -65,19 +53,19 @@ const RECORD_KEYS = new Set([
   "registryRevision",
   "registryHash",
   "activatedAt",
-  "disabledAt"
+  "disabledAt",
 ]);
-const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
-  "byteLength"
-)?.get);
+  "byteLength",
+)?.get;
 const ONBOARDING_PROVISIONING_TARGET_KINDS = Object.freeze([
   "shared_authority_root_platform_scope",
-  "repository_scoped_runtime_root_activation_precondition"
+  "repository_scoped_runtime_root_activation_precondition",
 ]);
 const ONBOARDING_RUNTIME_PRINCIPAL_MODES = Object.freeze([
   "local_interactive_selected_user",
-  "server_dedicated_service_account"
+  "server_dedicated_service_account",
 ]);
 const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
   "verified_current_provisioning_record_and_platform_provisioner_trust_identity",
@@ -85,23 +73,33 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
   "authority_root_identity_and_provisioner_only_writer_runtime_read_only_protection",
   "repository_runtime_root_identity_protection_and_selected_principal_binding",
   "persistent_active_activation_record_identity_and_repository_binding",
-  "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged"
+  "platform_provisioner_signature_trust_principal_root_and_protection_metadata_unchanged",
 ]);
 
 const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
-  initialEnrollmentChallengeObjectContractAndDomainFraming: "provisioning_record_contract",
-  initialEnrollmentRequestObjectContractAndDomainFraming: "provisioning_record_contract",
-  initialEnrollmentCertificateObjectContractAndDomainFraming: "provisioning_record_contract",
-  initialEnrollmentChallengeRawPayloadByteDecoder: "provisioning_record_contract",
+  initialEnrollmentChallengeObjectContractAndDomainFraming:
+    "provisioning_record_contract",
+  initialEnrollmentRequestObjectContractAndDomainFraming:
+    "provisioning_record_contract",
+  initialEnrollmentCertificateObjectContractAndDomainFraming:
+    "provisioning_record_contract",
+  initialEnrollmentChallengeRawPayloadByteDecoder:
+    "provisioning_record_contract",
   initialEnrollmentRequestRawPayloadByteDecoder: "provisioning_record_contract",
-  initialEnrollmentCertificateRawPayloadByteDecoder: "provisioning_record_contract",
-  initialEnrollmentRequestSignatureEnvelopeObjectContract: "provisioning_record_contract",
-  initialEnrollmentCertificateSignatureEnvelopeObjectContract: "provisioning_record_contract",
-  initialEnrollmentRequestRawEnvelopeByteDecoder: "provisioning_record_contract",
-  initialEnrollmentCertificateRawEnvelopeByteDecoder: "provisioning_record_contract",
+  initialEnrollmentCertificateRawPayloadByteDecoder:
+    "provisioning_record_contract",
+  initialEnrollmentRequestSignatureEnvelopeObjectContract:
+    "provisioning_record_contract",
+  initialEnrollmentCertificateSignatureEnvelopeObjectContract:
+    "provisioning_record_contract",
+  initialEnrollmentRequestRawEnvelopeByteDecoder:
+    "provisioning_record_contract",
+  initialEnrollmentCertificateRawEnvelopeByteDecoder:
+    "provisioning_record_contract",
   initialEnrollmentTransportCodec: "provisioning_record_contract",
   initialEnrollmentRequestProofVerification: "provisioning_record_verification",
-  initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
+  initialEnrollmentCertificateSignatureVerification:
+    "provisioning_record_verification",
   initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
   initialEnrollmentRuntimeClock: "provisioning_record_verification",
   initialEnrollmentAttemptConsumption: "provisioning_record_verification",
@@ -109,14 +107,18 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   provisioningCaPureCoreContract: "provisioning_record_contract",
   provisioningCaPureCoreVerification: "provisioning_record_verification",
   offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
-  offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
+  offlineEnrollmentBundlePureCoreVerification:
+    "provisioning_record_verification",
   provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
   enrollmentCertificateRenewalContract: "provisioning_record_contract",
   enrollmentCertificateRenewalVerification: "provisioning_record_verification",
   platformProvisionerManifestVerification: "platform_provisioner_verification",
-  platformProvisionerCrddDistributionVerification: "platform_provisioner_verification",
-  platformProvisionerPackageGateObservation: "platform_provisioner_verification",
-  platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
+  platformProvisionerCrddDistributionVerification:
+    "platform_provisioner_verification",
+  platformProvisionerPackageGateObservation:
+    "platform_provisioner_verification",
+  platformProvisionerPackageFilesystemVerification:
+    "platform_provisioner_verification",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
   onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -126,11 +128,13 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   enrollmentCertificateWireCodec: "provisioning_record_contract",
   offlineEnrollmentBundleContract: "provisioning_record_contract",
   installationKeyProtectionVerification: "provisioning_record_verification",
-  provisioningEnrollmentCertificateVerification: "provisioning_record_verification",
-  provisioningCaTrustAndRevocationVerification: "provisioning_record_verification",
+  provisioningEnrollmentCertificateVerification:
+    "provisioning_record_verification",
+  provisioningCaTrustAndRevocationVerification:
+    "provisioning_record_verification",
   recordEnrollmentBindingVerification: "provisioning_record_verification",
   platformKeyStorageAdapterVerification: "provisioning_record_verification",
-  enrollmentReplayProtectionPersistence: "provisioning_record_verification"
+  enrollmentReplayProtectionPersistence: "provisioning_record_verification",
 });
 const PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   provisioningRecordFilesystemWrite: "platform_provisioner_effect",
@@ -138,59 +142,61 @@ const PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   provisioningRecordCurrentPointerContract: "provisioning_record_contract",
   provisioningTrustFloorPersistence: "provisioning_record_verification",
   repositoryGenerationPersistence: "activation_atomic_persistence",
-  recoveryJournalPersistence: "activation_atomic_persistence"
+  recoveryJournalPersistence: "activation_atomic_persistence",
 });
 
-/**
- * @typedef {{
- *   name: string,
- *   sources: readonly unknown[],
- *   readinessSufficientValues: readonly (readonly unknown[])[] | null
- * }} OnboardingDependency
- */
+type OnboardingDependency = Readonly<{
+  name: string;
+  sources: readonly unknown[];
+  readinessSufficientValues: readonly (readonly unknown[])[] | null;
+}>;
+type ActivationImplementation = Readonly<Record<string, unknown>> &
+  Readonly<{
+    rootProtectionPolicy: ReturnType<
+      typeof describeRootProtectionPolicyContract
+    >;
+    authorityRootLocator: ReturnType<
+      typeof describeAuthorityRootLocatorContract
+    >;
+    activationLocatorBinding: ReturnType<
+      typeof describeRuntimeActivationLocatorBindingContract
+    >;
+  }>;
+type RuntimeActivationRecord = Readonly<Record<string, unknown>>;
 
-/**
- * @param {Record<string, any>} implementation
- */
-function deriveOnboardingReadiness(implementation) {
+function deriveOnboardingReadiness(implementation: ActivationImplementation) {
   const rootProtection = implementation.rootProtectionPolicy;
   const locator = implementation.authorityRootLocator;
   const activationLocatorBinding = implementation.activationLocatorBinding;
-  /**
-   * @param {string} name
-   * @param {unknown[]} sources
-   * @returns {Readonly<OnboardingDependency>}
-   */
-  const dependency = (name, sources) => Object.freeze({
-    name,
-    sources: Object.freeze(sources),
-    readinessSufficientValues: null
-  });
-  /** @param {string} dependencyName */
-  const enrollmentSources = (dependencyName) =>
+  const dependency = (name: string, sources: unknown[]): OnboardingDependency =>
+    Object.freeze({
+      name,
+      sources: Object.freeze(sources),
+      readinessSufficientValues: null,
+    });
+  const enrollmentSources = (dependencyName: string): unknown[] =>
     Object.entries(INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS)
       .filter(([, owner]) => owner === dependencyName)
       .map(([field]) => implementation[field]);
-  /** @param {string} dependencyName */
-  const storageSources = (dependencyName) =>
+  const storageSources = (dependencyName: string): unknown[] =>
     Object.entries(PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS)
       .filter(([, owner]) => owner === dependencyName)
       .map(([field]) => implementation[field]);
   const dependencies = [
     dependency("platform_provisioner_verification", [
       implementation.platformProvisionerVerification,
-      ...enrollmentSources("platform_provisioner_verification")
+      ...enrollmentSources("platform_provisioner_verification"),
     ]),
     dependency("platform_provisioner_effect", [
       implementation.platformProvisionerEffect,
       ...enrollmentSources("platform_provisioner_effect"),
-      ...storageSources("platform_provisioner_effect")
+      ...storageSources("platform_provisioner_effect"),
     ]),
     dependency("provisioning_record_contract", [
       implementation.provisioningRecordContract,
       implementation.provisioningRecordLifecyclePersistence,
       ...enrollmentSources("provisioning_record_contract"),
-      ...storageSources("provisioning_record_contract")
+      ...storageSources("provisioning_record_contract"),
     ]),
     dependency("provisioning_record_verification", [
       implementation.provisioningRecordVerification,
@@ -198,7 +204,7 @@ function deriveOnboardingReadiness(implementation) {
       implementation.provisioningRecordRevocationEvaluation,
       implementation.provisioningRecordFilesystemRead,
       ...enrollmentSources("provisioning_record_verification"),
-      ...storageSources("provisioning_record_verification")
+      ...storageSources("provisioning_record_verification"),
     ]),
     dependency("authority_root_resolution_from_provisioning_record", [
       implementation.authorityRootResolutionFromProvisioningRecord,
@@ -209,7 +215,7 @@ function deriveOnboardingReadiness(implementation) {
       locator.activeActivationBinding,
       activationLocatorBinding.provisioningRecordVerification,
       activationLocatorBinding.filesystemCurrentRecordRead,
-      activationLocatorBinding.activeActivationBinding
+      activationLocatorBinding.activeActivationBinding,
     ]),
     dependency("root_protection_platform_adapters", [
       rootProtection.windowsDaclAdapter,
@@ -220,26 +226,30 @@ function deriveOnboardingReadiness(implementation) {
       rootProtection.filesystemClassVerification,
       rootProtection.pathBinding,
       rootProtection.activationIntegration,
-      implementation.ownerAclVerification
+      implementation.ownerAclVerification,
     ]),
-    dependency("runtime_root_provisioning_effect",
-      [implementation.runtimeRootProvisioningEffect]),
-    dependency("authority_root_provisioning_effect",
-      [implementation.authorityRootProvisioningEffect]),
+    dependency("runtime_root_provisioning_effect", [
+      implementation.runtimeRootProvisioningEffect,
+    ]),
+    dependency("authority_root_provisioning_effect", [
+      implementation.authorityRootProvisioningEffect,
+    ]),
     dependency("activation_effect", [implementation.activationEffect]),
-    dependency("activation_path_identity_binding", [implementation.pathIdentityBinding]),
+    dependency("activation_path_identity_binding", [
+      implementation.pathIdentityBinding,
+    ]),
     dependency("activation_atomic_persistence", [
       implementation.atomicPersistence,
       locator.filesystemWrite,
       locator.atomicPersistence,
       activationLocatorBinding.atomicPersistence,
       activationLocatorBinding.crashRecovery,
-      ...storageSources("activation_atomic_persistence")
+      ...storageSources("activation_atomic_persistence"),
     ]),
     dependency("run_scoped_capability", [
       implementation.runScopedCapability,
-      implementation.runtimeCapabilityIssued
-    ])
+      implementation.runtimeCapabilityIssued,
+    ]),
   ];
 
   // No readiness-sufficient value has been approved for any dependency yet.
@@ -247,120 +257,144 @@ function deriveOnboardingReadiness(implementation) {
   // an explicit contract change instead of treating candidate or unknown values
   // as sufficient by omission.
   const blockers = dependencies
-    .filter(({ sources, readinessSufficientValues }) =>
-      sources.length === 0 ||
-      sources.some((value) => value === undefined) ||
-      readinessSufficientValues === null ||
-      sources.length !== readinessSufficientValues.length ||
-      sources.some((value, index) => !readinessSufficientValues[index]?.includes(value)))
+    .filter(
+      ({ sources, readinessSufficientValues }) =>
+        sources.length === 0 ||
+        sources.some((value) => value === undefined) ||
+        readinessSufficientValues === null ||
+        sources.length !== readinessSufficientValues.length ||
+        sources.some(
+          (value, index) => !readinessSufficientValues[index]?.includes(value),
+        ),
+    )
     .map(({ name }) => name);
   return Object.freeze({
     readiness: blockers.length > 0 ? "blocked" : "not_implemented",
-    blockers: Object.freeze(blockers)
+    blockers: Object.freeze(blockers),
   });
 }
 
-/** @param {string} reason */
-function blocked(reason) {
+function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
     reason,
     record: null,
     recordHash: null,
     canonicalBytes: null,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
 }
 
-/**
- * @param {unknown} value
- * @returns {string}
- */
-function canonicalJson(value) {
+function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    const record = /** @type {Record<string, unknown>} */ (value);
-    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (!descriptor || !("value" in descriptor))
+          throw new Error("runtime_activation_record_invalid");
+        return `${JSON.stringify(key)}:${canonicalJson(descriptor.value)}`;
+      })
+      .join(",")}}`;
   }
-  return JSON.stringify(value);
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined)
+    throw new Error("runtime_activation_record_invalid");
+  return serialized;
 }
 
-/** @param {unknown} value */
-function canonicalUtc(value) {
-  if (typeof value !== "string" || value.length !== RUNTIME_ACTIVATION_INPUT_LIMITS.canonicalUtcLength) {
+function canonicalUtc(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    value.length !== RUNTIME_ACTIVATION_INPUT_LIMITS.canonicalUtcLength
+  ) {
     return false;
   }
   const parsed = new Date(value);
-  return Number.isFinite(Date.prototype.getTime.call(parsed)) && parsed.toISOString() === value;
+  return (
+    Number.isFinite(Date.prototype.getTime.call(parsed)) &&
+    parsed.toISOString() === value
+  );
 }
 
-/** @param {unknown} value */
-function positiveRevision(value) {
+function positiveRevision(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
 }
 
-/**
- * @param {unknown} value
- * @param {RegExp} pattern
- */
-function identifier(value, pattern) {
-  return typeof value === "string" && value.length <= RUNTIME_ACTIVATION_INPUT_LIMITS.identifierLength &&
-    pattern.test(value);
+function identifier(value: unknown, pattern: RegExp): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= RUNTIME_ACTIVATION_INPUT_LIMITS.identifierLength &&
+    pattern.test(value)
+  );
 }
 
-/** @param {unknown} rawRecord */
-function normalizeRecord(rawRecord) {
+function normalizeRecord(rawRecord: unknown): RuntimeActivationRecord | null {
   const record = snapshotPlainRecord(rawRecord, RECORD_KEYS);
-  if (!record ||
-      record.contract !== RUNTIME_ACTIVATION_CONTRACT ||
-      record.contractRevision !== RUNTIME_ACTIVATION_CONTRACT_REVISION ||
-      !isRuntimeActivationIdCandidate(record.activationId) ||
-      !positiveRevision(record.activationRevision) ||
-      typeof record.status !== "string" ||
-      !["active", "disabled"].includes(record.status) ||
-      (record.activationRevision === 1
-        ? record.previousActivationHash !== null
-        : typeof record.previousActivationHash !== "string" || !HASH.test(record.previousActivationHash)) ||
-      typeof record.repositoryIdentityHash !== "string" || !HASH.test(record.repositoryIdentityHash) ||
-      typeof record.runtimeRootIdentityHash !== "string" || !HASH.test(record.runtimeRootIdentityHash) ||
-      !identifier(record.bundleId, BUNDLE_ID) || !positiveRevision(record.bundleRevision) ||
-      typeof record.authorityBundleHash !== "string" || !HASH.test(record.authorityBundleHash) ||
-      !identifier(record.policyId, POLICY_ID) || !positiveRevision(record.policyRevision) ||
-      typeof record.trustPolicyHash !== "string" || !HASH.test(record.trustPolicyHash) ||
-      !identifier(record.registryId, REGISTRY_ID) || !positiveRevision(record.registryRevision) ||
-      typeof record.registryHash !== "string" || !HASH.test(record.registryHash) ||
-      typeof record.activatedAt !== "string" || !canonicalUtc(record.activatedAt) ||
-      (record.status === "active"
-        ? record.disabledAt !== null
-        : typeof record.disabledAt !== "string" ||
-          !canonicalUtc(record.disabledAt) ||
-          record.disabledAt < record.activatedAt)) return null;
+  if (
+    !record ||
+    record.contract !== RUNTIME_ACTIVATION_CONTRACT ||
+    record.contractRevision !== RUNTIME_ACTIVATION_CONTRACT_REVISION ||
+    !isRuntimeActivationIdCandidate(record.activationId) ||
+    !positiveRevision(record.activationRevision) ||
+    typeof record.status !== "string" ||
+    !["active", "disabled"].includes(record.status) ||
+    (record.activationRevision === 1
+      ? record.previousActivationHash !== null
+      : typeof record.previousActivationHash !== "string" ||
+        !HASH.test(record.previousActivationHash)) ||
+    typeof record.repositoryIdentityHash !== "string" ||
+    !HASH.test(record.repositoryIdentityHash) ||
+    typeof record.runtimeRootIdentityHash !== "string" ||
+    !HASH.test(record.runtimeRootIdentityHash) ||
+    !identifier(record.bundleId, BUNDLE_ID) ||
+    !positiveRevision(record.bundleRevision) ||
+    typeof record.authorityBundleHash !== "string" ||
+    !HASH.test(record.authorityBundleHash) ||
+    !identifier(record.policyId, POLICY_ID) ||
+    !positiveRevision(record.policyRevision) ||
+    typeof record.trustPolicyHash !== "string" ||
+    !HASH.test(record.trustPolicyHash) ||
+    !identifier(record.registryId, REGISTRY_ID) ||
+    !positiveRevision(record.registryRevision) ||
+    typeof record.registryHash !== "string" ||
+    !HASH.test(record.registryHash) ||
+    typeof record.activatedAt !== "string" ||
+    !canonicalUtc(record.activatedAt) ||
+    (record.status === "active"
+      ? record.disabledAt !== null
+      : typeof record.disabledAt !== "string" ||
+        !canonicalUtc(record.disabledAt) ||
+        record.disabledAt < record.activatedAt)
+  )
+    return null;
 
-  return Object.freeze(Object.fromEntries([...RECORD_KEYS].map((key) => [key, record[key]])));
+  return Object.freeze(
+    Object.fromEntries([...RECORD_KEYS].map((key) => [key, record[key]])),
+  );
 }
 
-/**
- * @param {Readonly<Record<string, any>>} record
- * @param {string} canonical
- */
-function candidate(record, canonical) {
+function candidate(record: RuntimeActivationRecord, canonical: string) {
   return Object.freeze({
     status: "candidate",
     reason: "runtime_activation_path_acl_atomic_persistence_required",
     record,
     recordHash: createHash("sha256").update(canonical).digest("hex"),
     canonicalBytes: Buffer.from(canonical, "utf8"),
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
 }
 
-/** @param {unknown} rawRecord */
-export function compileRuntimeActivationRecordCandidate(rawRecord) {
+export function compileRuntimeActivationRecordCandidate(rawRecord: unknown) {
   try {
     const record = normalizeRecord(rawRecord);
     if (!record) return blocked("runtime_activation_record_invalid");
     const canonical = canonicalJson(record);
-    if (Buffer.byteLength(canonical, "utf8") > RUNTIME_ACTIVATION_INPUT_LIMITS.rawBytes) {
+    if (
+      Buffer.byteLength(canonical, "utf8") >
+      RUNTIME_ACTIVATION_INPUT_LIMITS.rawBytes
+    ) {
       return blocked("runtime_activation_record_bytes_exceeded");
     }
     return candidate(record, canonical);
@@ -369,17 +403,25 @@ export function compileRuntimeActivationRecordCandidate(rawRecord) {
   }
 }
 
-/** @param {unknown} input */
-export function decodeRuntimeActivationRecordCandidate(input) {
+export function decodeRuntimeActivationRecordCandidate(input: unknown) {
   try {
-    if (!Buffer.isBuffer(input)) return blocked("runtime_activation_record_bytes_required");
+    if (!Buffer.isBuffer(input))
+      return blocked("runtime_activation_record_bytes_required");
+    if (typeof TYPED_ARRAY_BYTE_LENGTH !== "function") {
+      return blocked("runtime_activation_record_bytes_invalid");
+    }
     const inputLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, input, []);
     if (inputLength > RUNTIME_ACTIVATION_INPUT_LIMITS.rawBytes) {
       return blocked("runtime_activation_record_bytes_exceeded");
     }
     const bytes = Buffer.allocUnsafe(inputLength);
     Uint8Array.prototype.set.call(bytes, input);
-    if (inputLength >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    if (
+      inputLength >= 3 &&
+      bytes[0] === 0xef &&
+      bytes[1] === 0xbb &&
+      bytes[2] === 0xbf
+    ) {
       return blocked("runtime_activation_record_bytes_invalid");
     }
     const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
@@ -398,19 +440,27 @@ export function decodeRuntimeActivationRecordCandidate(input) {
 export function describeRuntimeActivationContract() {
   const rootProtectionPolicy = describeRootProtectionPolicyContract();
   const authorityRootLocator = describeAuthorityRootLocatorContract();
-  const activationLocatorBinding = describeRuntimeActivationLocatorBindingContract();
-  const provisioningSignaturePrimitives = describeProvisioningSignaturePrimitivesContract();
-  const provisioningRecordPureCore = describeProvisioningRecordPureCoreContract();
+  const activationLocatorBinding =
+    describeRuntimeActivationLocatorBindingContract();
+  const provisioningSignaturePrimitives =
+    describeProvisioningSignaturePrimitivesContract();
+  const provisioningRecordPureCore =
+    describeProvisioningRecordPureCoreContract();
   const initialEnrollmentPureCore = describeInitialEnrollmentPureCoreContract();
-  const initialEnrollmentRuntimeState = describeInitialEnrollmentRuntimeStateContract();
+  const initialEnrollmentRuntimeState =
+    describeInitialEnrollmentRuntimeStateContract();
   const platformKeyStoragePolicy = describePlatformKeyStoragePolicyContract();
   const provisioningCaPureCore = describeProvisioningCaPureCoreContract();
-  const offlineEnrollmentBundlePureCore = describeOfflineEnrollmentBundlePureCoreContract();
+  const offlineEnrollmentBundlePureCore =
+    describeOfflineEnrollmentBundlePureCoreContract();
   const provisioningRecordEnrollmentBinding =
     describeProvisioningRecordEnrollmentBindingContract();
-  const enrollmentCertificateRenewal = describeEnrollmentCertificateRenewalContract();
-  const platformProvisionerTrustCore = describePlatformProvisionerTrustCoreContract();
-  const platformProvisionerPackageGate = describePlatformProvisionerPackageGateContract();
+  const enrollmentCertificateRenewal =
+    describeEnrollmentCertificateRenewalContract();
+  const platformProvisionerTrustCore =
+    describePlatformProvisionerTrustCoreContract();
+  const platformProvisionerPackageGate =
+    describePlatformProvisionerPackageGateContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -421,7 +471,8 @@ export function describeRuntimeActivationContract() {
     provisioningEnrollmentCertificateVerification: "not_implemented",
     provisioningCaTrustAndRevocationVerification: "not_implemented",
     initialProvisioningEnrollmentExchange: "not_implemented",
-    recordEnrollmentBindingVerification: provisioningRecordEnrollmentBinding.verification,
+    recordEnrollmentBindingVerification:
+      provisioningRecordEnrollmentBinding.verification,
     enrollmentCertificateWireCodec: "not_implemented",
     onlineEnrollmentProtocol: "not_implemented",
     offlineEnrollmentBundleContract:
@@ -471,16 +522,14 @@ export function describeRuntimeActivationContract() {
       initialEnrollmentPureCore.requestRawEnvelopeByteDecoder,
     initialEnrollmentCertificateRawEnvelopeByteDecoder:
       initialEnrollmentPureCore.certificateRawEnvelopeByteDecoder,
-    initialEnrollmentTransportCodec:
-      initialEnrollmentPureCore.transportCodec,
+    initialEnrollmentTransportCodec: initialEnrollmentPureCore.transportCodec,
     initialEnrollmentRequestProofVerification:
       initialEnrollmentPureCore.requestProofOfPossessionVerification,
     initialEnrollmentCertificateSignatureVerification:
       initialEnrollmentPureCore.certificateSignatureVerification,
     initialEnrollmentFlowBindingVerification:
       initialEnrollmentPureCore.initialFlowBindingVerification,
-    initialEnrollmentRuntimeClock:
-      initialEnrollmentRuntimeState.runtimeClock,
+    initialEnrollmentRuntimeClock: initialEnrollmentRuntimeState.runtimeClock,
     initialEnrollmentAttemptConsumption:
       initialEnrollmentRuntimeState.firstVerificationAttemptConsumption,
     provisioningRecordContract: "not_implemented",
@@ -516,21 +565,25 @@ export function describeRuntimeActivationContract() {
     provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal,
     platformProvisionerTrustCore,
-    platformProvisionerPackageGate
+    platformProvisionerPackageGate,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
-    authorityRole: "platform_scope_signed_runtime_authority_source_of_truth_target",
+    authorityRole:
+      "platform_scope_signed_runtime_authority_source_of_truth_target",
     artifactTopology:
       "provisioning_record_central_without_separate_receipt_or_helper_manifest_authority",
-    provisionReceiptRelationship: "not_separate_runtime_authority_artifact_target",
+    provisionReceiptRelationship:
+      "not_separate_runtime_authority_artifact_target",
     platformProvisionerManifestRelationship:
       "not_separate_runtime_authority_artifact_target",
     authorityFileBundleManifestRelationship: "separate_existing_artifact",
-    signedContentCoverage: "all_security_important_fields_one_canonical_json_signed_target",
+    signedContentCoverage:
+      "all_security_important_fields_one_canonical_json_signed_target",
     signedIdentityCoverage:
       "provisioner_identity_and_signature_metadata_bound_to_record_target",
-    trustAnchorOwnership: "qual_lab_public_key_set_bundled_with_coordinator_target",
+    trustAnchorOwnership:
+      "qual_lab_public_key_set_bundled_with_coordinator_target",
     trustAnchorLifecycle:
       "multiple_key_ids_overlap_rotation_and_explicit_revocation_required_target",
     storageScope:
@@ -539,21 +592,27 @@ export function describeRuntimeActivationContract() {
     locatorRelationship: "untrusted_provisioning_record_hash_reference_only",
     firstSetupOrReconfigurationSelection: "explicit_cli_target",
     routineRunSelection: "verified_provisioning_record_and_locator_target",
-    environmentSelection: "explicit_compatibility_or_automation_override_target",
-    selectionFailureBehavior: "blocked_without_silent_fallback_and_reprovision_required",
+    environmentSelection:
+      "explicit_compatibility_or_automation_override_target",
+    selectionFailureBehavior:
+      "blocked_without_silent_fallback_and_reprovision_required",
     automaticRepair: false,
     signaturePrimitives: implementation.provisioningSignaturePrimitives,
     recordPureCore: implementation.provisioningRecordPureCore,
     signatureEnvelopeTopology:
-      implementation.provisioningSignaturePrimitives.payloadSignatureEnvelopeTopology,
+      implementation.provisioningSignaturePrimitives
+        .payloadSignatureEnvelopeTopology,
     signatureEncoding:
       implementation.provisioningSignaturePrimitives.p256SignatureBase64url,
     keyIdEncoding: implementation.provisioningRecordPureCore.keyIdEncoding,
     multiSignatureAcceptancePolicy:
-      implementation.provisioningSignaturePrimitives.multiSignatureAcceptancePolicy,
+      implementation.provisioningSignaturePrimitives
+        .multiSignatureAcceptancePolicy,
     offlineBundledTrustEvaluation:
-      implementation.provisioningSignaturePrimitives.offlineBundledTrustEvaluation,
-    recordSchemaCodec: implementation.provisioningRecordPureCore.recordPayloadCodec,
+      implementation.provisioningSignaturePrimitives
+        .offlineBundledTrustEvaluation,
+    recordSchemaCodec:
+      implementation.provisioningRecordPureCore.recordPayloadCodec,
     signatureVerifier:
       implementation.provisioningRecordPureCore.aggregateCryptographicCondition,
     embeddedTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
@@ -563,7 +622,7 @@ export function describeRuntimeActivationContract() {
     lifecyclePersistence: implementation.provisioningRecordLifecyclePersistence,
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
   const installationKeyEnrollmentPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -573,7 +632,7 @@ export function describeRuntimeActivationContract() {
     installationKeyBackendCandidates: Object.freeze([
       "os_keystore_candidate",
       "tpm_candidate",
-      "secure_enclave_candidate"
+      "secure_enclave_candidate",
     ]),
     installationKeyBackendSelection:
       "platform_preferences_and_explicit_fallbacks_human_approved_adapter_verification_not_implemented",
@@ -581,27 +640,29 @@ export function describeRuntimeActivationContract() {
       windows: Object.freeze({
         preferred: "cng_ksp_tpm_backed_target",
         explicitFallback: "software_ksp_target",
-        silentFallback: false
+        silentFallback: false,
       }),
       macos: Object.freeze({
         preferred: "keychain_secure_enclave_when_supported_target",
         explicitFallback: "keychain_software_backed_target",
-        silentFallback: false
+        silentFallback: false,
       }),
       linux: Object.freeze({
         preferred: "tpm_2_0_target",
         explicitFallback: "root_owned_software_keystore_target",
-        silentFallback: false
-      })
+        silentFallback: false,
+      }),
     }),
     platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,
     provisioningCaPureCore: implementation.provisioningCaPureCore,
-    offlineEnrollmentBundlePureCore: implementation.offlineEnrollmentBundlePureCore,
+    offlineEnrollmentBundlePureCore:
+      implementation.offlineEnrollmentBundlePureCore,
     provisioningRecordEnrollmentBinding:
       implementation.provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal: implementation.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: implementation.platformProvisionerTrustCore,
-    platformProvisionerPackageGate: implementation.platformProvisionerPackageGate,
+    platformProvisionerPackageGate:
+      implementation.platformProvisionerPackageGate,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -615,7 +676,8 @@ export function describeRuntimeActivationContract() {
     enrollmentCertificateFormatTarget: "custom_jcs_json_target",
     enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
     initialOnlineEnrollmentPureCore: implementation.initialEnrollmentPureCore,
-    initialOnlineEnrollmentRuntimeState: implementation.initialEnrollmentRuntimeState,
+    initialOnlineEnrollmentRuntimeState:
+      implementation.initialEnrollmentRuntimeState,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -632,14 +694,14 @@ export function describeRuntimeActivationContract() {
     embeddedQualLabPrivateKey: "prohibited",
     initialEnrollmentModes: Object.freeze([
       "explicit_online_initial_enrollment_target",
-      "administrator_supplied_offline_enrollment_bundle_target"
+      "administrator_supplied_offline_enrollment_bundle_target",
     ]),
     onlineEnrollmentRequiredInputs: Object.freeze([
       "one_time_challenge",
       "nonce",
       "platform_scope",
       "installation_public_key",
-      "enrollment_request_binding"
+      "enrollment_request_binding",
     ]),
     onlineChallengeValidityMinutes: 30,
     onlineChallengeBinding:
@@ -657,7 +719,7 @@ export function describeRuntimeActivationContract() {
       "enrollment_certificate",
       "exact_online_and_offline_issuing_ca_chain",
       "revocation_snapshot",
-      "bundle_expiry"
+      "bundle_expiry",
     ]),
     offlineEnrollmentBundleAuthenticity:
       "offline_issuing_key_signed_exact_one_envelope_and_binding_verification_implemented_candidate_runtime_trust_and_import_not_implemented",
@@ -692,12 +754,15 @@ export function describeRuntimeActivationContract() {
       implementation.provisioningEnrollmentCertificateVerification,
     provisioningCaTrustAndRevocationVerification:
       implementation.provisioningCaTrustAndRevocationVerification,
-    initialEnrollmentExchange: implementation.initialProvisioningEnrollmentExchange,
+    initialEnrollmentExchange:
+      implementation.initialProvisioningEnrollmentExchange,
     recordEnrollmentBindingVerification:
       implementation.recordEnrollmentBindingVerification,
-    enrollmentCertificateWireCodec: implementation.enrollmentCertificateWireCodec,
+    enrollmentCertificateWireCodec:
+      implementation.enrollmentCertificateWireCodec,
     onlineEnrollmentProtocol: implementation.onlineEnrollmentProtocol,
-    offlineEnrollmentBundleContract: implementation.offlineEnrollmentBundleContract,
+    offlineEnrollmentBundleContract:
+      implementation.offlineEnrollmentBundleContract,
     offlineEnrollmentBundleImport: implementation.offlineEnrollmentBundleImport,
     platformKeyStorageAdapterVerification:
       implementation.platformKeyStorageAdapterVerification,
@@ -711,7 +776,7 @@ export function describeRuntimeActivationContract() {
     filesystemEffectIssued: false,
     networkEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
   const provisioningStorageAndLifecyclePolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -742,7 +807,8 @@ export function describeRuntimeActivationContract() {
     authorityRecordCurrentPointerPersistence:
       implementation.provisioningRecordCurrentPointerPersistence,
     trustFloorPersistence: implementation.provisioningTrustFloorPersistence,
-    repositoryGenerationPersistence: implementation.repositoryGenerationPersistence,
+    repositoryGenerationPersistence:
+      implementation.repositoryGenerationPersistence,
     recoveryJournalPersistence: implementation.recoveryJournalPersistence,
     atomicPersistence: implementation.atomicPersistence,
     crashRecovery: implementation.activationLocatorBinding.crashRecovery,
@@ -750,7 +816,7 @@ export function describeRuntimeActivationContract() {
       PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS,
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
   const onboarding = deriveOnboardingReadiness(implementation);
   return Object.freeze({
@@ -776,22 +842,26 @@ export function describeRuntimeActivationContract() {
       "explicit_path_resolved_from_verified_provisioning_record_target",
     authorityRootLocator: implementation.authorityRootLocator,
     activationLocatorBinding: implementation.activationLocatorBinding,
-    provisioningSignaturePrimitives: implementation.provisioningSignaturePrimitives,
+    provisioningSignaturePrimitives:
+      implementation.provisioningSignaturePrimitives,
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
     initialEnrollmentPureCore: implementation.initialEnrollmentPureCore,
     initialEnrollmentRuntimeState: implementation.initialEnrollmentRuntimeState,
     platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,
     provisioningCaPureCore: implementation.provisioningCaPureCore,
-    offlineEnrollmentBundlePureCore: implementation.offlineEnrollmentBundlePureCore,
+    offlineEnrollmentBundlePureCore:
+      implementation.offlineEnrollmentBundlePureCore,
     provisioningRecordEnrollmentBinding:
       implementation.provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal: implementation.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: implementation.platformProvisionerTrustCore,
-    platformProvisionerPackageGate: implementation.platformProvisionerPackageGate,
+    platformProvisionerPackageGate:
+      implementation.platformProvisionerPackageGate,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,
-    provisioningRecordRole: provisioningRecordTrustAndSelectionPolicy.authorityRole,
+    provisioningRecordRole:
+      provisioningRecordTrustAndSelectionPolicy.authorityRole,
     provisionReceiptRelationship:
       provisioningRecordTrustAndSelectionPolicy.provisionReceiptRelationship,
     platformProvisionerManifestRelationship:
@@ -803,7 +873,8 @@ export function describeRuntimeActivationContract() {
     runRevalidationRequired: true,
     onboardingReadyRule:
       "all_implementation_dependencies_and_current_run_evidence_confirmed",
-    onboardingCurrentRunEvidenceRequirements: ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS,
+    onboardingCurrentRunEvidenceRequirements:
+      ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS,
     onboardingReadyTransition: "not_implemented",
     onboardingReadinessProjection: "implemented_candidate_contract_only",
     requiredProvisioningTargetKinds: ONBOARDING_PROVISIONING_TARGET_KINDS,
@@ -812,29 +883,34 @@ export function describeRuntimeActivationContract() {
     disabledRepositoryExperience: "no_runtime_specific_effect",
     firstPlatformSetup:
       "verify_signed_platform_provisioner_and_provision_shared_authority_root_target",
-    authorityProvisioningScope: "shared_platform_scope_reusable_across_repositories_target",
+    authorityProvisioningScope:
+      "shared_platform_scope_reusable_across_repositories_target",
     repositoryActivationEntry: "single_coordinator_activate_command_target",
     runtimeRootProvisioningEffectOwner: "dedicated_platform_provisioner_target",
-    runtimeRootProvisioningScope: "per_repository_during_activation_or_precondition_target",
+    runtimeRootProvisioningScope:
+      "per_repository_during_activation_or_precondition_target",
     normalRunAdministratorElevation:
       "not_required_after_verified_provision_and_activation_target",
-    normalRunPathInput: "not_required_after_verified_provision_and_activation_target",
+    normalRunPathInput:
+      "not_required_after_verified_provision_and_activation_target",
     normalRunManualAclConfiguration:
       "not_required_after_verified_provision_and_activation_target",
-    restartPrompt: "not_required_when_protection_identity_and_activation_are_valid_target",
+    restartPrompt:
+      "not_required_when_protection_identity_and_activation_are_valid_target",
     protectionChangeBehavior:
       "fail_closed_reverification_then_reprovision_on_confirmed_condition",
     reverificationTriggers: Object.freeze([
       "platform_provisioner_or_signature_or_trust_change",
       "runtime_or_provisioner_principal_change",
-      "root_identity_or_protection_metadata_change"
+      "root_identity_or_protection_metadata_change",
     ]),
     reprovisionConditions: Object.freeze([
       "required_root_missing_or_replaced",
       "required_writer_or_runtime_read_only_protection_mismatch",
-      "verified_provisioning_record_authority_root_identity_mismatch"
+      "verified_provisioning_record_authority_root_identity_mismatch",
     ]),
-    platformProvisionerVerification: implementation.platformProvisionerVerification,
+    platformProvisionerVerification:
+      implementation.platformProvisionerVerification,
     platformProvisionerEffect: implementation.platformProvisionerEffect,
     installationKeyGeneration: implementation.installationKeyGeneration,
     installationKeyProtectionVerification:
@@ -849,9 +925,11 @@ export function describeRuntimeActivationContract() {
       implementation.initialProvisioningEnrollmentExchange,
     recordEnrollmentBindingVerification:
       implementation.recordEnrollmentBindingVerification,
-    enrollmentCertificateWireCodec: implementation.enrollmentCertificateWireCodec,
+    enrollmentCertificateWireCodec:
+      implementation.enrollmentCertificateWireCodec,
     onlineEnrollmentProtocol: implementation.onlineEnrollmentProtocol,
-    offlineEnrollmentBundleContract: implementation.offlineEnrollmentBundleContract,
+    offlineEnrollmentBundleContract:
+      implementation.offlineEnrollmentBundleContract,
     offlineEnrollmentBundleImport: implementation.offlineEnrollmentBundleImport,
     platformKeyStorageAdapterVerification:
       implementation.platformKeyStorageAdapterVerification,
@@ -860,11 +938,14 @@ export function describeRuntimeActivationContract() {
     automaticEnrollmentRenewalEffect:
       implementation.automaticEnrollmentRenewalEffect,
     provisioningRecordContract: implementation.provisioningRecordContract,
-    provisioningRecordVerification: implementation.provisioningRecordVerification,
-    provisioningRecordTrustAnchorSet: implementation.provisioningRecordTrustAnchorSet,
+    provisioningRecordVerification:
+      implementation.provisioningRecordVerification,
+    provisioningRecordTrustAnchorSet:
+      implementation.provisioningRecordTrustAnchorSet,
     provisioningRecordRevocationEvaluation:
       implementation.provisioningRecordRevocationEvaluation,
-    provisioningRecordFilesystemRead: implementation.provisioningRecordFilesystemRead,
+    provisioningRecordFilesystemRead:
+      implementation.provisioningRecordFilesystemRead,
     provisioningRecordLifecyclePersistence:
       implementation.provisioningRecordLifecyclePersistence,
     provisioningRecordFilesystemWrite:
@@ -877,13 +958,13 @@ export function describeRuntimeActivationContract() {
       implementation.provisioningTrustFloorPersistence,
     repositoryGenerationPersistence:
       implementation.repositoryGenerationPersistence,
-    recoveryJournalPersistence:
-      implementation.recoveryJournalPersistence,
+    recoveryJournalPersistence: implementation.recoveryJournalPersistence,
     authorityRootResolutionFromProvisioningRecord:
       implementation.authorityRootResolutionFromProvisioningRecord,
     authorityRootExplicitPathContractPreserved: true,
     runtimeRootProvisioningEffect: implementation.runtimeRootProvisioningEffect,
-    authorityRootProvisioningEffect: implementation.authorityRootProvisioningEffect,
+    authorityRootProvisioningEffect:
+      implementation.authorityRootProvisioningEffect,
     disableCommandGrammar: "implemented_candidate",
     provisionEffect: "not_implemented",
     disableEffect: "not_implemented",
@@ -904,6 +985,6 @@ export function describeRuntimeActivationContract() {
     pathIdentityBinding: implementation.pathIdentityBinding,
     ownerAclVerification: implementation.ownerAclVerification,
     runScopedCapability: implementation.runScopedCapability,
-    runtimeCapabilityIssued: implementation.runtimeCapabilityIssued
+    runtimeCapabilityIssued: implementation.runtimeCapabilityIssued,
   });
 }
