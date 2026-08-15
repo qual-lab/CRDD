@@ -1,3 +1,5 @@
+// @ts-check
+
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { verifyPlatformProvisionerManifestCandidate } from
   "./platform-provisioner-trust-core.mjs";
@@ -16,7 +18,14 @@ const MANIFEST_INPUT_KEYS = new Set([
 const HEX64 = /^[0-9a-f]{64}$/u;
 const CRDD_REVISION = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 
-function response(status, reason, fields = {}) {
+/**
+ * @template {"candidate" | "blocked"} S
+ * @template {Record<string, unknown>} T
+ * @param {S} status
+ * @param {string} reason
+ * @param {T} fields
+ */
+function response(status, reason, fields) {
   return Object.freeze({
     status,
     reason,
@@ -32,6 +41,7 @@ function response(status, reason, fields = {}) {
   });
 }
 
+/** @param {unknown} raw */
 function normalizeObservation(raw) {
   const value = snapshotPlainRecord(raw, OBSERVATION_KEYS);
   if (!value || typeof value.packageName !== "string" || typeof value.packageVersion !== "string" ||
@@ -43,27 +53,28 @@ function normalizeObservation(raw) {
   return value;
 }
 
+/** @param {unknown} rawInput */
 export function evaluatePlatformProvisionerPackageGateCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
     if (!input || typeof input.expectedCrddRevision !== "string" ||
         !CRDD_REVISION.test(input.expectedCrddRevision)) {
-      return response("blocked", "platform_provisioner_package_gate_input_invalid");
+      return response("blocked", "platform_provisioner_package_gate_input_invalid", {});
     }
     const observation = normalizeObservation(input.crddDistributionObservation);
     const manifestInput = snapshotPlainRecord(input.manifestVerificationInput, MANIFEST_INPUT_KEYS);
     const manifest = manifestInput
       ? verifyPlatformProvisionerManifestCandidate(manifestInput)
-      : response("blocked", "platform_provisioner_manifest_input_invalid");
+      : response("blocked", "platform_provisioner_manifest_input_invalid", {});
     if (!observation || manifest.status !== "candidate") {
-      return response("blocked", "platform_provisioner_package_gate_verification_failed");
+      return response("blocked", "platform_provisioner_package_gate_verification_failed", {});
     }
     if (observation.packageName !== manifest.packageName ||
         observation.packageVersion !== manifest.packageVersion ||
         observation.packageContentRootSha256 !== manifest.packageContentRootSha256 ||
         observation.crddRevision !== manifest.crddRevision ||
         observation.crddRevision !== input.expectedCrddRevision) {
-      return response("blocked", "platform_provisioner_package_gate_binding_mismatch");
+      return response("blocked", "platform_provisioner_package_gate_binding_mismatch", {});
     }
     return response("candidate",
       "runtime_owned_crdd_distribution_package_filesystem_and_effect_controller_required", {
@@ -73,7 +84,7 @@ export function evaluatePlatformProvisionerPackageGateCandidate(rawInput) {
         packageTrustObservationMatch: true
       });
   } catch {
-    return response("blocked", "platform_provisioner_package_gate_input_invalid");
+    return response("blocked", "platform_provisioner_package_gate_input_invalid", {});
   }
 }
 

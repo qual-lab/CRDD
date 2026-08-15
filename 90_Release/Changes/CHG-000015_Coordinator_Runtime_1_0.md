@@ -853,3 +853,9 @@ Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単�
 全体整合確認により、単独installを禁止する現在contractに対して`package.json`の`bin`公開、Gate観測の`installedPackageIdentityStable`、旧二重署名設計由来の`dual-gate`ファイル名、およびREADMEの現行command一覧からの`provision`欠落が残っていることを確認した。`bin`を削除してCRDD Repository内の固定Pathからの直接起動だけを表示し、観測語を`bundledPackageIdentityStable`へ変更し、実装／試験を`platform-provisioner-package-gate`へ改名する。READMEのcommand一覧には安全に`blocked`となる`provision [--json]`を追加する。
 
 この是正は公開範囲を拡張せず、CRDD同梱専用という後続判断へ実装metadata、schema語、内部所有名および利用者向け表示を一致させる。package manifest、CRDD Revision結合、Trust／Effect条件、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseは変更しない。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と必要な独立レビュー／監査前は`Resolved`ではない。
+
+### 2026-08-16 — Coordinator型検査の段階導入
+
+実行形式と配布用チェッカーを`.mjs`のまま維持し、Coordinator内部だけへTypeScriptの`allowJs`／`noEmit`型検査を段階導入する。設定全体の`checkJs`は無効のまま、対象ファイルの`@ts-check`で範囲を明示する。第1段階はPlatform Provisioner Trust CoreとPackage Gateだけを`strict`対象にし、TypeScriptおよびNode型定義をCoordinatorの固定devDependencyとして使用する。型検査はJavaScriptを生成せず、Runtime、署名対象、CLI起動方法またはCRDD配布物の公開面を変更しない。
+
+`tools/crdd_check.mjs`と`template/tools/crdd_check.mjs`は、採用Repositoryで追加installなしに直接実行できるブートストラップ境界として対象外にする。残るCoordinator moduleはpilotの型境界、保守費および誤検出を確認してから専用変更で拡張し、`.ts`拡張子への変換はRuntime 1.0の内部API安定後に別判断とする。自己確認では型検査、対象49件、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。

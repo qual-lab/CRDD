@@ -145,6 +145,9 @@ Root権限の変更主体は全package Trust条件を満たした明示Platform 
 
 ```shell
 npm test --prefix tools/coordinator
+npm run typecheck --prefix tools/coordinator
 ```
+
+型検査はCoordinator内部の段階導入であり、実行形式をTypeScriptへ変更しない。`typecheck`は`noEmit`でTrust CoreとPackage Gateの`.mjs`だけをstrict検査し、Runtime成果物を生成しない。配布用`tools/crdd_check.mjs`および`template/tools/crdd_check.mjs`は依存なしの直接実行境界を維持し、このTypeScript開発依存へ接続しない。
 
 Runtime 1.0のその他のCLIは、成立性Gate、Protocol、状態不変条件および永続Storeが固定されるまで提供しない。

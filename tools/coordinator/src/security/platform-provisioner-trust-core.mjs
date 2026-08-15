@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
 
@@ -41,11 +43,20 @@ const PACKAGE_PATH = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/u;
 const MAXIMUM_FILES = 2_048;
 const MAXIMUM_PATH_BYTES = 512;
 const MAXIMUM_FILE_BYTES = 512 * 1024 * 1024;
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
-  Object.getPrototypeOf(Uint8Array.prototype), "byteLength"
-).get;
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (
+  Object.getOwnPropertyDescriptor(
+    Object.getPrototypeOf(Uint8Array.prototype), "byteLength"
+  )?.get
+);
 
-function response(status, reason, fields = {}) {
+/**
+ * @template {"candidate" | "blocked"} S
+ * @template {Record<string, unknown>} T
+ * @param {S} status
+ * @param {string} reason
+ * @param {T} fields
+ */
+function response(status, reason, fields) {
   return Object.freeze({
     status,
     reason,
@@ -60,28 +71,36 @@ function response(status, reason, fields = {}) {
   });
 }
 
+/** @param {unknown} value */
 function utc(value) {
   return typeof value === "string" && UTC.test(value) && Number.isFinite(Date.parse(value)) &&
     new Date(Date.parse(value)).toISOString() === value;
 }
 
+/**
+ * @param {unknown} name
+ * @param {unknown} version
+ */
 function packageIdentity(name, version) {
   return typeof name === "string" && name.length <= 214 && PACKAGE_NAME.test(name) &&
     typeof version === "string" && version.length <= 96 && VERSION.test(version);
 }
 
+/** @param {unknown} raw */
 function normalizeFile(raw) {
   const value = snapshotPlainRecord(raw, FILE_KEYS);
   if (!value || typeof value.path !== "string" || !PACKAGE_PATH.test(value.path) ||
       Buffer.byteLength(value.path, "utf8") > MAXIMUM_PATH_BYTES || value.path.includes("\\") ||
       value.path.startsWith("/") || value.path.endsWith("/") ||
-      value.path.split("/").some((segment) => segment === "." || segment === "..") ||
+      value.path.split("/").some((/** @type {string} */ segment) =>
+        segment === "." || segment === "..") ||
       !Number.isSafeInteger(value.byteLength) || value.byteLength < 0 ||
       value.byteLength > MAXIMUM_FILE_BYTES || typeof value.sha256 !== "string" ||
       !HEX64.test(value.sha256)) return null;
   return Object.freeze(value);
 }
 
+/** @param {unknown} raw */
 function normalizeFiles(raw) {
   const snapshot = snapshotPlainArray(raw, MAXIMUM_FILES);
   if (snapshot.status !== "ok" || snapshot.value.length === 0) return null;
@@ -96,6 +115,7 @@ function normalizeFiles(raw) {
   return Object.freeze(files);
 }
 
+/** @param {unknown} raw */
 function normalizeObservedPackage(raw) {
   const value = snapshotPlainRecord(raw, OBSERVED_PACKAGE_KEYS);
   if (!value || !packageIdentity(value.packageName, value.packageVersion)) return null;
@@ -107,6 +127,7 @@ function normalizeObservedPackage(raw) {
   }) : null;
 }
 
+/** @param {unknown} raw */
 function normalizeManifest(raw) {
   const value = snapshotPlainRecord(raw, MANIFEST_KEYS);
   if (!value || value.contract !== PLATFORM_PROVISIONER_MANIFEST_CONTRACT ||
@@ -123,6 +144,7 @@ function normalizeManifest(raw) {
   return value;
 }
 
+/** @param {unknown} raw */
 function normalizeSignature(raw) {
   const value = snapshotPlainRecord(raw, SIGNATURE_KEYS);
   if (!value || typeof value.keyId !== "string" || !HEX64.test(value.keyId) ||
@@ -132,6 +154,7 @@ function normalizeSignature(raw) {
   return bytes.length === 64 && bytes.toString("base64url") === value.signature ? value : null;
 }
 
+/** @param {unknown} raw */
 function normalizeEnvelope(raw) {
   const value = snapshotPlainRecord(raw, ENVELOPE_KEYS);
   if (!value || value.contract !== PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT ||
@@ -148,6 +171,10 @@ function normalizeEnvelope(raw) {
   return payload && signature ? Object.freeze({ payload, signature }) : null;
 }
 
+/**
+ * @param {string} domain
+ * @param {unknown} payload
+ */
 function frame(domain, payload) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
   if (canonical.status !== "candidate") return null;
@@ -158,6 +185,7 @@ function frame(domain, payload) {
   return Object.freeze({ message, hash: createHash("sha256").update(message).digest("hex") });
 }
 
+/** @param {unknown} raw */
 function snapshotSignerSpki(raw) {
   if (!Buffer.isBuffer(raw)) return null;
   const length = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, raw, []);
@@ -167,6 +195,7 @@ function snapshotSignerSpki(raw) {
   return owned;
 }
 
+/** @param {unknown} rawPackage */
 export function calculatePlatformProvisionerPackageContentRootCandidate(rawPackage) {
   try {
     const observed = normalizeObservedPackage(rawPackage);
@@ -177,17 +206,18 @@ export function calculatePlatformProvisionerPackageContentRootCandidate(rawPacka
           packageVersion: observed.packageVersion,
           packageContentRootSha256: framed.hash
         })
-      : response("blocked", "platform_provisioner_package_content_invalid");
+      : response("blocked", "platform_provisioner_package_content_invalid", {});
   } catch {
-    return response("blocked", "platform_provisioner_package_content_invalid");
+    return response("blocked", "platform_provisioner_package_content_invalid", {});
   }
 }
 
+/** @param {unknown} rawInput */
 export function verifyPlatformProvisionerManifestCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_KEYS);
     if (!input || !utc(input.evaluationTime)) {
-      return response("blocked", "platform_provisioner_manifest_input_invalid");
+      return response("blocked", "platform_provisioner_manifest_input_invalid", {});
     }
     const ownedSigner = snapshotSignerSpki(input.releaseSignerSpkiDer);
     const envelope = normalizeEnvelope(input.manifestEnvelope);
@@ -200,11 +230,11 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput) {
         envelope.payload.packageName !== observed.packageName ||
         envelope.payload.packageVersion !== observed.packageVersion ||
         envelope.payload.packageContentRootSha256 !== contentFrame.hash) {
-      return response("blocked", "platform_provisioner_manifest_or_package_content_mismatch");
+      return response("blocked", "platform_provisioner_manifest_or_package_content_mismatch", {});
     }
     if (Date.parse(input.evaluationTime) < Date.parse(envelope.payload.issuedAt) ||
         Date.parse(input.evaluationTime) >= Date.parse(envelope.payload.expiresAt)) {
-      return response("blocked", "platform_provisioner_manifest_not_current");
+      return response("blocked", "platform_provisioner_manifest_not_current", {});
     }
     const verified = verifyProvisioningEd25519Base64urlCandidate({
       spkiDer: ownedSigner,
@@ -212,7 +242,7 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput) {
       signatureBase64url: envelope.signature.signature
     });
     if (verified.status !== "candidate") {
-      return response("blocked", "platform_provisioner_manifest_signature_mismatch");
+      return response("blocked", "platform_provisioner_manifest_signature_mismatch", {});
     }
     return response("candidate",
       "runtime_owned_crdd_distribution_release_trust_and_package_filesystem_required", {
@@ -224,7 +254,7 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput) {
         qualLabManifestCryptographicMatch: true
       });
   } catch {
-    return response("blocked", "platform_provisioner_manifest_input_invalid");
+    return response("blocked", "platform_provisioner_manifest_input_invalid", {});
   }
 }
 
