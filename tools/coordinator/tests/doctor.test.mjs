@@ -519,6 +519,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.initialEnrollmentRuntimeState,
     platformKeyStoragePolicy: report.runtimeActivation.platformKeyStoragePolicy,
     provisioningCaPureCore: report.runtimeActivation.provisioningCaPureCore,
+    offlineEnrollmentBundlePureCore:
+      report.runtimeActivation.offlineEnrollmentBundlePureCore,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -554,14 +556,16 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     onlineProofOfPossession:
       "installation_private_key_signature_required_request_envelope_raw_bytes_implemented_candidate_transport_and_effect_not_implemented",
     offlineEnrollmentBundleRequiredContents: [
+      "online_enrollment_challenge",
+      "signed_enrollment_request",
       "enrollment_request_hash",
       "enrollment_certificate",
-      "provisioning_ca_chain",
+      "exact_online_and_offline_issuing_ca_chain",
       "revocation_snapshot",
       "bundle_expiry"
     ],
     offlineEnrollmentBundleAuthenticity:
-      "signed_bundle_required_exact_signer_and_signature_topology_not_implemented",
+      "offline_issuing_key_signed_exact_one_envelope_and_binding_verification_implemented_candidate_runtime_trust_and_import_not_implemented",
     offlineEnrollmentBundleValidityDays: 7,
     offlineEnrollmentBundleConsumption: "one_time_consumption_target",
     enrollmentReplayBehavior:
@@ -593,7 +597,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     recordEnrollmentBindingVerification: "not_implemented",
     enrollmentCertificateWireCodec: "not_implemented",
     onlineEnrollmentProtocol: "not_implemented",
-    offlineEnrollmentBundleContract: "not_implemented",
+    offlineEnrollmentBundleContract: "implemented_candidate",
     offlineEnrollmentBundleImport: "not_implemented",
     platformKeyStorageAdapterVerification: "not_implemented",
     enrollmentReplayProtectionPersistence: "not_implemented",
@@ -618,6 +622,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       platformKeyStoragePolicy: "provisioning_record_contract",
       provisioningCaPureCoreContract: "provisioning_record_contract",
       provisioningCaPureCoreVerification: "provisioning_record_verification",
+      offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
+      offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -837,7 +843,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "not_implemented");
   assert.equal(report.runtimeActivation.enrollmentCertificateWireCodec, "not_implemented");
   assert.equal(report.runtimeActivation.onlineEnrollmentProtocol, "not_implemented");
-  assert.equal(report.runtimeActivation.offlineEnrollmentBundleContract, "not_implemented");
+  assert.equal(report.runtimeActivation.offlineEnrollmentBundleContract, "implemented_candidate");
   assert.equal(report.runtimeActivation.offlineEnrollmentBundleImport, "not_implemented");
   assert.equal(report.runtimeActivation.platformKeyStorageAdapterVerification,
     "not_implemented");

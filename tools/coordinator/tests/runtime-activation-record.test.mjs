@@ -338,6 +338,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     initialOnlineEnrollmentRuntimeState: contract.initialEnrollmentRuntimeState,
     platformKeyStoragePolicy: contract.platformKeyStoragePolicy,
     provisioningCaPureCore: contract.provisioningCaPureCore,
+    offlineEnrollmentBundlePureCore: contract.offlineEnrollmentBundlePureCore,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -373,14 +374,16 @@ test("Activation contractは永続化、専用command、再activation、disable/
     onlineProofOfPossession:
       "installation_private_key_signature_required_request_envelope_raw_bytes_implemented_candidate_transport_and_effect_not_implemented",
     offlineEnrollmentBundleRequiredContents: [
+      "online_enrollment_challenge",
+      "signed_enrollment_request",
       "enrollment_request_hash",
       "enrollment_certificate",
-      "provisioning_ca_chain",
+      "exact_online_and_offline_issuing_ca_chain",
       "revocation_snapshot",
       "bundle_expiry"
     ],
     offlineEnrollmentBundleAuthenticity:
-      "signed_bundle_required_exact_signer_and_signature_topology_not_implemented",
+      "offline_issuing_key_signed_exact_one_envelope_and_binding_verification_implemented_candidate_runtime_trust_and_import_not_implemented",
     offlineEnrollmentBundleValidityDays: 7,
     offlineEnrollmentBundleConsumption: "one_time_consumption_target",
     enrollmentReplayBehavior:
@@ -412,7 +415,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     recordEnrollmentBindingVerification: "not_implemented",
     enrollmentCertificateWireCodec: "not_implemented",
     onlineEnrollmentProtocol: "not_implemented",
-    offlineEnrollmentBundleContract: "not_implemented",
+    offlineEnrollmentBundleContract: "implemented_candidate",
     offlineEnrollmentBundleImport: "not_implemented",
     platformKeyStorageAdapterVerification: "not_implemented",
     enrollmentReplayProtectionPersistence: "not_implemented",
@@ -437,6 +440,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       platformKeyStoragePolicy: "provisioning_record_contract",
       provisioningCaPureCoreContract: "provisioning_record_contract",
       provisioningCaPureCoreVerification: "provisioning_record_verification",
+      offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
+      offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -606,7 +611,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.recordEnrollmentBindingVerification, "not_implemented");
   assert.equal(contract.enrollmentCertificateWireCodec, "not_implemented");
   assert.equal(contract.onlineEnrollmentProtocol, "not_implemented");
-  assert.equal(contract.offlineEnrollmentBundleContract, "not_implemented");
+  assert.equal(contract.offlineEnrollmentBundleContract, "implemented_candidate");
   assert.equal(contract.offlineEnrollmentBundleImport, "not_implemented");
   assert.equal(contract.platformKeyStorageAdapterVerification, "not_implemented");
   assert.equal(contract.enrollmentReplayProtectionPersistence, "not_implemented");
