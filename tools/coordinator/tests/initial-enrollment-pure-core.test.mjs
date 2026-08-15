@@ -19,7 +19,7 @@ import {
   verifyInitialEnrollmentCertificateCandidate,
   verifyInitialEnrollmentFlowCandidate,
   verifyInitialEnrollmentRequestCandidate
-} from "../src/security/initial-enrollment-pure-core.mjs";
+} from "../src/security/initial-enrollment-pure-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.ts";
 

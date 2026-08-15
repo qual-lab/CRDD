@@ -10,7 +10,7 @@ import { describeProvisioningSignaturePrimitivesContract } from
 import { describeProvisioningRecordPureCoreContract } from
   "./provisioning-record-pure-core.ts";
 import { describeInitialEnrollmentPureCoreContract } from
-  "./initial-enrollment-pure-core.mjs";
+  "./initial-enrollment-pure-core.ts";
 import { describeInitialEnrollmentRuntimeStateContract } from
   "./initial-enrollment-runtime-state.ts";
 import { describePlatformKeyStoragePolicyContract } from

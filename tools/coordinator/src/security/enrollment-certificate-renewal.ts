@@ -2,7 +2,7 @@ import {
   canonicalizeProvisioningJsonValueCandidate,
   PROVISIONING_SIGNATURE_INPUT_LIMITS,
 } from "./provisioning-signature-primitives.ts";
-import { verifyInitialEnrollmentCertificateCandidate } from "./initial-enrollment-pure-core.mjs";
+import { verifyInitialEnrollmentCertificateCandidate } from "./initial-enrollment-pure-core.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const INPUT_KEYS = new Set([

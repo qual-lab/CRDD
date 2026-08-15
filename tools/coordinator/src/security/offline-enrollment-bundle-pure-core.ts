@@ -9,7 +9,7 @@ import {
 import {
   INITIAL_ENROLLMENT_DOMAINS,
   verifyInitialEnrollmentFlowCandidate,
-} from "./initial-enrollment-pure-core.mjs";
+} from "./initial-enrollment-pure-core.ts";
 import { verifyProvisioningCaStateCandidate } from "./provisioning-ca-pure-core.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 

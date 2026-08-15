@@ -8,7 +8,7 @@ import {
   INITIAL_ENROLLMENT_REQUEST_CONTRACT,
   INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT,
   compileInitialEnrollmentChallengeCandidate
-} from "../src/security/initial-enrollment-pure-core.mjs";
+} from "../src/security/initial-enrollment-pure-core.ts";
 import {
   createInitialEnrollmentAttemptController,
   describeInitialEnrollmentRuntimeStateContract

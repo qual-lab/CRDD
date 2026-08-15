@@ -6,7 +6,7 @@ import { types as utilTypes } from "node:util";
 import {
   compileInitialEnrollmentChallengeCandidate,
   verifyInitialEnrollmentRequestCandidate,
-} from "./initial-enrollment-pure-core.mjs";
+} from "./initial-enrollment-pure-core.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const MAX_TRACKED_CHALLENGES = 4_096;
