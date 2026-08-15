@@ -722,4 +722,6 @@ Qual-Labの人間の決定権限者は、オンライン登録challengeの有効
 
 ### 2026-08-15 — 初回オンライン登録pure Coreの範囲縮小
 
-人間判断により、登録基盤全体の一括exact化を行わず、本変更を30分のチャレンジ、登録要求の所有証明、登録証明書の署名検査という初回オンライン経路へ縮小した。`initial-enrollment-pure-core.mjs`は、要求からチャレンジへの一方向Hash結合、Platform scope／Provisioner Identity／端末導入鍵の一致、およびEd25519署名をpureに検査する。証明書更新、オフライン束、複数CA chain、rotation／失効配布、Runtime時計、一回消費台帳、Network、Filesystem、keystoreおよびRecord実結合は未実装である。候補一致もAuthority、Capability、EffectまたはGateを開かない。処置は`Applied`／`Self-checked`であり、固定改訂版の独立レビューおよび必須監査前は`Resolved`ではない。
+人間判断により、登録基盤全体の一括exact化を行わず、本変更を30分のチャレンジ、登録要求の所有証明、登録証明書の署名検査という初回オンライン経路へ縮小した。`initial-enrollment-pure-core.mjs`は、チャレンジのdomain-framed payload Hashを登録要求へ一方向に結合し、Platform scope／Provisioner Identity／端末導入鍵の一致、およびEd25519署名をpureに検査する。旧オンラインexact未決判断はChallenge／Request／Certificateのobject Schema、domain、JCS署名messageおよびpure数学的一致に限って後続判断により置換され、現在判定へ使用しない。raw wire／transport、Runtime時計、一回消費台帳、CA Trust／失効、Network、Filesystem、keystore、Record実結合、証明書更新およびオフライン束は未実装である。候補一致もAuthority、Capability、EffectまたはGateを開かない。処置は`Applied`／`Self-checked`であり、固定改訂版の独立レビューおよび必須監査前は`Resolved`ではない。
+
+固定`4eceef6`の監査集合はAgent／Security `Fail`（Major 2／Minor 2）、Document `Fail`（Major 1／Minor 1）、Gap／Conformance `Fail`（Major 2）で、集合を`Invalidated`として現在判定へ流用しない。同根の処置として、issuer入力の上限前copy除去、nonce canonical再符号化、Request–Certificate一括binding、個別数学的一致と完全条件の分離、pure実装軸から既存2 blockerへの接続、現在文書の実装済み／未実装分離、locale／方向／anchor是正を適用した。新固定版の3監査完了前は各Findingを`Resolved`としない。

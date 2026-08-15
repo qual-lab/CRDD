@@ -10,6 +10,7 @@ import {
   compileInitialEnrollmentChallengeCandidate,
   describeInitialEnrollmentPureCoreContract,
   verifyInitialEnrollmentCertificateCandidate,
+  verifyInitialEnrollmentFlowCandidate,
   verifyInitialEnrollmentRequestCandidate
 } from "../src/security/initial-enrollment-pure-core.mjs";
 import { canonicalizeProvisioningJsonValueCandidate } from
@@ -78,7 +79,7 @@ test("initial online enrollment verifies PoP and certificate without conferring 
     proofOfPossession: value.proofOfPossession
   });
   assert.equal(request.status, "candidate");
-  assert.equal(request.cryptographicConditionSatisfied, true);
+  assert.equal(request.proofOfPossessionCryptographicMatch, true);
   assert.equal(request.consumptionRequired, true);
   assert.equal(request.runtimeAuthorityConferred, false);
   const certificate = verifyInitialEnrollmentCertificateCandidate({
@@ -88,6 +89,13 @@ test("initial online enrollment verifies PoP and certificate without conferring 
   });
   assert.equal(certificate.status, "candidate");
   assert.equal(certificate.runtimeAuthorityConferred, false);
+  const flow = verifyInitialEnrollmentFlowCandidate({
+    challenge: value.challenge, request: value.request,
+    proofOfPossession: value.proofOfPossession, certificate: value.certificate,
+    issuerSpkiDer: value.issuerSpki, certificateSignature: value.certificateSignature
+  });
+  assert.equal(flow.status, "candidate");
+  assert.equal(flow.runtimeAuthorityConferred, false);
 });
 
 test("binding mismatch, expired request time, invalid signatures, and dynamic input fail closed", () => {
@@ -105,6 +113,25 @@ test("binding mismatch, expired request time, invalid signatures, and dynamic in
   Object.defineProperty(challenge, "nonce", { enumerable: true, get() { called += 1; return value.challenge.nonce; } });
   assert.equal(compileInitialEnrollmentChallengeCandidate(challenge).status, "blocked");
   assert.equal(called, 0);
+  const canonicalNonce = value.challenge.nonce;
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const aliasNonce = [...alphabet].map((tail) => canonicalNonce.slice(0, -1) + tail)
+    .find((item) => item !== canonicalNonce &&
+      Buffer.from(item, "base64url").equals(Buffer.from(canonicalNonce, "base64url")));
+  assert.ok(aliasNonce);
+  assert.equal(compileInitialEnrollmentChallengeCandidate({
+    ...value.challenge, nonce: aliasNonce
+  }).status, "blocked");
+  assert.equal(verifyInitialEnrollmentCertificateCandidate({
+    certificate: value.certificate, issuerSpkiDer: Buffer.alloc(1_000_000),
+    signature: value.certificateSignature
+  }).status, "blocked");
+  assert.equal(verifyInitialEnrollmentFlowCandidate({
+    challenge: value.challenge, request: value.request,
+    proofOfPossession: value.proofOfPossession,
+    certificate: { ...value.certificate, platformScopeId: "8".repeat(32) },
+    issuerSpkiDer: value.issuerSpki, certificateSignature: value.certificateSignature
+  }).status, "blocked");
   const outer = {};
   Object.defineProperty(outer, "challenge", { enumerable: true, get() { called += 1; return value.challenge; } });
   outer.request = value.request;
@@ -121,6 +148,7 @@ test("contract keeps effects and deferred enrollment capabilities closed", () =>
     challengeCodec: "implemented_candidate",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",
+    initialFlowBindingVerification: "implemented_candidate",
     renewal: "not_implemented",
     offlineEnrollment: "not_implemented",
     runtimeClock: "not_implemented",

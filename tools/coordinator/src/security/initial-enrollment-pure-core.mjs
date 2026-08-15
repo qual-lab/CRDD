@@ -39,6 +39,10 @@ const CERTIFICATE_KEYS = Object.freeze([
 ]);
 const REQUEST_VERIFY_KEYS = Object.freeze(["challenge", "request", "proofOfPossession"]);
 const CERTIFICATE_VERIFY_KEYS = Object.freeze(["certificate", "issuerSpkiDer", "signature"]);
+const FLOW_VERIFY_KEYS = Object.freeze([
+  "challenge", "request", "proofOfPossession", "certificate", "issuerSpkiDer",
+  "certificateSignature"
+]);
 
 function blocked(reason) {
   return Object.freeze({
@@ -46,6 +50,12 @@ function blocked(reason) {
     runtimeAuthorityConferred: false, runtimeCapabilityIssued: false,
     filesystemEffectIssued: false, networkEffectIssued: false
   });
+}
+
+function candidate(reason, fields = {}) {
+  return Object.freeze({ status: "candidate", reason, ...fields,
+    runtimeAuthorityConferred: false, runtimeCapabilityIssued: false,
+    filesystemEffectIssued: false, networkEffectIssued: false });
 }
 
 function exactRecord(value, keys) {
@@ -96,6 +106,7 @@ function normalizeChallenge(raw) {
       value.contractRevision !== 1 || typeof value.challengeId !== "string" || !ID.test(value.challengeId) ||
       typeof value.nonce !== "string" || !NONCE.test(value.nonce) ||
       Buffer.from(value.nonce, "base64url").length !== 32 ||
+      Buffer.from(value.nonce, "base64url").toString("base64url") !== value.nonce ||
       typeof value.platformScopeId !== "string" || !ID.test(value.platformScopeId) ||
       typeof value.provisionerIdentityHash !== "string" || !HASH.test(value.provisionerIdentityHash) ||
       typeof value.installationKeyId !== "string" || !HASH.test(value.installationKeyId) ||
@@ -132,9 +143,12 @@ function normalizeCertificate(raw) {
 }
 
 export function compileInitialEnrollmentChallengeCandidate(raw) {
-  const value = normalizeChallenge(raw);
-  const framed = value && frame(INITIAL_ENROLLMENT_DOMAINS.challenge, value);
-  return framed ? Object.freeze({ status: "candidate", reason: "runtime_clock_and_one_time_consumption_required", challengeHash: framed.hash, runtimeAuthorityConferred: false, runtimeCapabilityIssued: false, filesystemEffectIssued: false, networkEffectIssued: false }) : blocked("initial_enrollment_challenge_invalid");
+  try {
+    const value = normalizeChallenge(raw);
+    const framed = value && frame(INITIAL_ENROLLMENT_DOMAINS.challenge, value);
+    return framed ? candidate("runtime_clock_and_one_time_consumption_required",
+      { challengeHash: framed.hash }) : blocked("initial_enrollment_challenge_invalid");
+  } catch { return blocked("initial_enrollment_challenge_invalid"); }
 }
 
 export function verifyInitialEnrollmentRequestCandidate(rawInput) {
@@ -154,7 +168,9 @@ export function verifyInitialEnrollmentRequestCandidate(rawInput) {
       Date.parse(request.value.requestedAt) >= Date.parse(challenge.expiresAt)) return blocked("initial_enrollment_request_binding_mismatch");
   const verified = verifyProvisioningEd25519Base64urlCandidate({ spkiDer: request.key, message: requestFrame.message, signatureBase64url: proofOfPossession });
   if (verified.status !== "candidate") return blocked("initial_enrollment_proof_of_possession_invalid");
-  return Object.freeze({ status: "candidate", reason: "runtime_clock_consumption_ledger_and_ca_issuance_required", cryptographicConditionSatisfied: true, requestHash: requestFrame.hash, consumptionRequired: true, runtimeAuthorityConferred: false, runtimeCapabilityIssued: false, filesystemEffectIssued: false, networkEffectIssued: false });
+  return candidate("runtime_clock_consumption_ledger_and_ca_issuance_required",
+    { proofOfPossessionCryptographicMatch: true, requestHash: requestFrame.hash,
+      consumptionRequired: true });
 }
 
 export function verifyInitialEnrollmentCertificateCandidate(rawInput) {
@@ -163,11 +179,43 @@ export function verifyInitialEnrollmentCertificateCandidate(rawInput) {
   const { certificate: rawCertificate, issuerSpkiDer, signature } = input;
   const certificate = normalizeCertificate(rawCertificate);
   const framed = certificate && frame(INITIAL_ENROLLMENT_DOMAINS.certificate, certificate.value);
-  const issuer = Buffer.isBuffer(issuerSpkiDer) ? Buffer.from(issuerSpkiDer) : null;
+  const issuer = Buffer.isBuffer(issuerSpkiDer) ? issuerSpkiDer : null;
   if (!certificate || !framed || !issuer || typeof signature !== "string") return blocked("initial_enrollment_certificate_invalid");
   const verified = verifyProvisioningEd25519Base64urlCandidate({ spkiDer: issuer, message: framed.message, signatureBase64url: signature });
   if (verified.status !== "candidate") return blocked("initial_enrollment_certificate_signature_invalid");
-  return Object.freeze({ status: "candidate", reason: "runtime_owned_ca_trust_clock_revocation_and_record_binding_required", cryptographicConditionSatisfied: true, certificateHash: framed.hash, runtimeAuthorityConferred: false, runtimeCapabilityIssued: false, filesystemEffectIssued: false, networkEffectIssued: false });
+  return candidate("runtime_owned_ca_trust_clock_revocation_and_record_binding_required",
+    { certificateSignatureCryptographicMatch: true, certificateHash: framed.hash });
+}
+
+export function verifyInitialEnrollmentFlowCandidate(rawInput) {
+  try {
+    const input = exactRecord(rawInput, FLOW_VERIFY_KEYS);
+    if (!input) return blocked("initial_enrollment_flow_invalid");
+    const requestResult = verifyInitialEnrollmentRequestCandidate({
+      challenge: input.challenge, request: input.request,
+      proofOfPossession: input.proofOfPossession
+    });
+    const certificateResult = verifyInitialEnrollmentCertificateCandidate({
+      certificate: input.certificate, issuerSpkiDer: input.issuerSpkiDer,
+      signature: input.certificateSignature
+    });
+    const request = normalizeRequest(input.request);
+    const certificate = normalizeCertificate(input.certificate);
+    if (requestResult.status !== "candidate" || certificateResult.status !== "candidate" ||
+        !request || !certificate ||
+        certificate.value.platformScopeId !== request.value.platformScopeId ||
+        certificate.value.provisionerIdentityHash !== request.value.provisionerIdentityHash ||
+        certificate.value.installationKeyId !== request.value.installationKeyId ||
+        certificate.value.installationKeySpkiDer !== request.value.installationKeySpkiDer ||
+        Date.parse(certificate.value.issuedAt) < Date.parse(request.value.requestedAt)) {
+      return blocked("initial_enrollment_flow_binding_mismatch");
+    }
+    return candidate("runtime_clock_consumption_ledger_ca_trust_revocation_and_record_binding_required", {
+      proofOfPossessionCryptographicMatch: true,
+      certificateSignatureCryptographicMatch: true,
+      consumptionRequired: true
+    });
+  } catch { return blocked("initial_enrollment_flow_invalid"); }
 }
 
 export function describeInitialEnrollmentPureCoreContract() {
@@ -178,6 +226,7 @@ export function describeInitialEnrollmentPureCoreContract() {
     challengeCodec: "implemented_candidate",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",
+    initialFlowBindingVerification: "implemented_candidate",
     renewal: "not_implemented",
     offlineEnrollment: "not_implemented",
     runtimeClock: "not_implemented",

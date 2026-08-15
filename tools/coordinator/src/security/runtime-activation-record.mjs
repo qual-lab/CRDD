@@ -72,6 +72,10 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
 ]);
 
 const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
+  initialEnrollmentChallengeContract: "provisioning_record_contract",
+  initialEnrollmentRequestProofVerification: "provisioning_record_verification",
+  initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
+  initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
   onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -333,6 +337,13 @@ export function describeRuntimeActivationContract() {
     platformKeyStorageAdapterVerification: "not_implemented",
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
+    initialEnrollmentChallengeContract: initialEnrollmentPureCore.challengeCodec,
+    initialEnrollmentRequestProofVerification:
+      initialEnrollmentPureCore.requestProofOfPossessionVerification,
+    initialEnrollmentCertificateSignatureVerification:
+      initialEnrollmentPureCore.certificateSignatureVerification,
+    initialEnrollmentFlowBindingVerification:
+      initialEnrollmentPureCore.initialFlowBindingVerification,
     provisioningRecordContract: "not_implemented",
     provisioningRecordVerification: "not_implemented",
     provisioningRecordTrustAnchorSet: "not_implemented",
@@ -448,6 +459,7 @@ export function describeRuntimeActivationContract() {
       "short_lived_enrollment_certificate_topology_human_approved_target",
     enrollmentCertificateFormatTarget: "custom_jcs_json_target",
     enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
+    initialOnlineEnrollmentPureCore: implementation.initialEnrollmentPureCore,
     enrollmentCertificateDomainSeparation: "required_exact_value_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
       "spki_der_sha256_lowercase_hex_64_target",
@@ -459,7 +471,7 @@ export function describeRuntimeActivationContract() {
     successfulAutomaticRenewalInteraction:
       "no_user_or_administrator_action_after_verified_success_target",
     enrollmentCertificateExactSpecification:
-      "schema_wire_encoding_fields_domain_and_lifecycle_undecided",
+      "initial_online_object_schema_domain_and_jcs_signing_implemented_candidate_raw_wire_renewal_and_lifecycle_not_implemented",
     embeddedQualLabPrivateKey: "prohibited",
     initialEnrollmentModes: Object.freeze([
       "explicit_online_initial_enrollment_target",
