@@ -203,7 +203,9 @@ export function verifyOfflineEnrollmentBundleCandidate(rawInput) {
       return response("blocked", "offline_enrollment_bundle_binding_mismatch");
     }
     const now = Date.parse(input.evaluationTime);
-    if (now < Date.parse(bundle.payload.issuedAt) || now >= Date.parse(bundle.payload.expiresAt)) {
+    if (now < Date.parse(bundle.payload.issuedAt) || now >= Date.parse(bundle.payload.expiresAt) ||
+        now < Date.parse(certificate.issuedAt) || now >= Date.parse(certificate.expiresAt) ||
+        Date.parse(bundle.payload.expiresAt) > Date.parse(certificate.expiresAt)) {
       return response("blocked", "offline_enrollment_bundle_not_current");
     }
     const framed = frame(OFFLINE_ENROLLMENT_BUNDLE_DOMAIN, bundle.payload);

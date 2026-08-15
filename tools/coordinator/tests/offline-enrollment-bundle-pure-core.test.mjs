@@ -121,7 +121,12 @@ function fixture() {
       algorithm: "Ed25519", signature: sign(null,
         framed(OFFLINE_ENROLLMENT_BUNDLE_DOMAIN, bundlePayload), offline.privateKey)
         .toString("base64url") }] };
-  return { rootTrustSet, bundleEnvelope };
+  const result = { rootTrustSet, bundleEnvelope };
+  Object.defineProperties(result, {
+    onlinePrivateKey: { value: online.privateKey },
+    offlinePrivateKey: { value: offline.privateKey }
+  });
+  return result;
 }
 
 test("signed offline bundle binds request, certificate and exact two-role CA chain", () => {
@@ -156,6 +161,18 @@ test("wrong role, binding, signature, expiry and dynamic input fail closed", () 
     evaluationTime: "2026-08-15T12:00:00.000Z" }).status, "blocked");
   assert.equal(verifyOfflineEnrollmentBundleCandidate({ ...fixture(),
     evaluationTime: "2026-08-22T00:15:00.000Z" }).status, "blocked");
+  const certificateExpiresFirst = fixture();
+  certificateExpiresFirst.bundleEnvelope.payload.certificateEnvelope.payload.expiresAt =
+    "2026-08-20T00:15:00.000Z";
+  certificateExpiresFirst.bundleEnvelope.payload.certificateEnvelope.signatures[0].signature =
+    sign(null, framed(INITIAL_ENROLLMENT_DOMAINS.certificate,
+      certificateExpiresFirst.bundleEnvelope.payload.certificateEnvelope.payload),
+    certificateExpiresFirst.onlinePrivateKey).toString("base64url");
+  certificateExpiresFirst.bundleEnvelope.signatures[0].signature = sign(null,
+    framed(OFFLINE_ENROLLMENT_BUNDLE_DOMAIN, certificateExpiresFirst.bundleEnvelope.payload),
+    certificateExpiresFirst.offlinePrivateKey).toString("base64url");
+  assert.equal(verifyOfflineEnrollmentBundleCandidate({ ...certificateExpiresFirst,
+    evaluationTime: "2026-08-15T12:00:00.000Z" }).status, "blocked");
   let calls = 0;
   const dynamic = {};
   Object.defineProperty(dynamic, "rootTrustSet", { enumerable: true,
