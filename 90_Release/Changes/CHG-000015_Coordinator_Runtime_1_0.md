@@ -889,3 +889,9 @@ strict対象を16から20 moduleへ拡張し、Authority File Bundle、Authority
 strict対象を20から23 moduleへ拡張し、plain-data snapshot、Git local excludeおよびAuthority Root locatorを対象に加える。共通snapshotはProperty Descriptorのdata property条件を型predicateとして表し、保持値自体は任意入力であるため利用側の個別検証責務を変えない。Locatorのrevisionは`number`確認後に安全整数境界を評価し、Git excludeはRepository内外の判別結果をdiscriminated unionとして固定する。
 
 この処置は入力snapshot、候補選択およびcanonical locatorの既存規則を型で表現するだけで、Path、Filesystem Effect、Authority、CapabilityまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第6波
+
+strict対象を23から25 moduleへ拡張し、署名済みオフライン初回登録束とProvisioning CAのpure Coreを対象に加える。外部入力は`unknown`、exact arrayの正規化callbackと内部暗号shapeは限定型として表し、時刻・正整数の検査は型predicateへ収束させる。候補detailsと失効key ID集合も既存結果を維持したまま型付けする。
+
+この処置は既存のEd25519署名、domain framing、CA role、失効、7日／365日／24時間境界またはfail-closed判定を変更しない。Runtime所有Trust、時計、rollback、消費台帳、Authority／Capability／EffectおよびGate状態も不変である。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。

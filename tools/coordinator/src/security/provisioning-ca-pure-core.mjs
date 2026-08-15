@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
 
@@ -44,7 +46,13 @@ const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const ROLES = new Set(["online_enrollment_issuer", "offline_bundle_issuer"]);
 
-function response(status, reason, details = {}) {
+/**
+ * @template {Record<string, unknown>} T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T} [details]
+ */
+function response(status, reason, details = /** @type {T} */ ({})) {
   return Object.freeze({
     status,
     reason,
@@ -59,6 +67,11 @@ function response(status, reason, details = {}) {
   });
 }
 
+/**
+ * @param {unknown} raw
+ * @param {number} maximum
+ * @param {(value: unknown) => any} normalize
+ */
 function exactArray(raw, maximum, normalize) {
   if (!Array.isArray(raw) || utilTypes.isProxy(raw) ||
       Object.getPrototypeOf(raw) !== Array.prototype) return null;
@@ -67,6 +80,7 @@ function exactArray(raw, maximum, normalize) {
       !Number.isSafeInteger(length.value) || length.value < 0 || length.value > maximum) return null;
   const keys = Reflect.ownKeys(raw);
   if (keys.length !== length.value + 1 || keys.at(-1) !== "length") return null;
+  /** @type {any[]} */
   const values = [];
   for (let index = 0; index < length.value; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(raw, String(index));
@@ -79,15 +93,18 @@ function exactArray(raw, maximum, normalize) {
   return Object.freeze(values);
 }
 
+/** @param {unknown} value @returns {value is string} */
 function utc(value) {
   return typeof value === "string" && UTC.test(value) &&
     Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString() === value;
 }
 
+/** @param {unknown} value @returns {value is number} */
 function positive(value) {
-  return Number.isSafeInteger(value) && value > 0;
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
 }
 
+/** @param {unknown} value */
 function ed25519Spki(value) {
   if (typeof value !== "string" || value.length !== 59 || !BASE64URL.test(value)) return null;
   const bytes = Buffer.from(value, "base64url");
@@ -97,6 +114,7 @@ function ed25519Spki(value) {
   return Object.freeze({ bytes, keyId: inspected.spkiSha256Digest.toString("hex") });
 }
 
+/** @param {unknown} raw */
 function normalizeRoot(raw) {
   const value = snapshotPlainRecord(raw, ROOT_KEYS);
   const spki = value && ed25519Spki(value.spkiDer);
@@ -106,6 +124,7 @@ function normalizeRoot(raw) {
   return Object.freeze({ value, spkiDer: spki.bytes });
 }
 
+/** @param {unknown} raw */
 function normalizeRootSet(raw) {
   const value = snapshotPlainRecord(raw, ROOT_SET_KEYS);
   const roots = value && exactArray(value.roots, 8, normalizeRoot);
@@ -116,6 +135,7 @@ function normalizeRootSet(raw) {
   return Object.freeze({ value, roots });
 }
 
+/** @param {unknown} raw */
 function normalizeSignature(raw) {
   const value = snapshotPlainRecord(raw, SIGNATURE_KEYS);
   return value && HEX64.test(value.keyId) && value.algorithm === "Ed25519" &&
@@ -125,6 +145,7 @@ function normalizeSignature(raw) {
     ? value : null;
 }
 
+/** @param {unknown} raw */
 function normalizeIssuing(raw) {
   const value = snapshotPlainRecord(raw, ISSUING_KEYS);
   const spki = value && ed25519Spki(value.spkiDer);
@@ -139,6 +160,7 @@ function normalizeIssuing(raw) {
   return Object.freeze({ value, spkiDer: spki.bytes });
 }
 
+/** @param {unknown} raw */
 function normalizeRevoked(raw) {
   const value = snapshotPlainRecord(raw, REVOKED_KEYS);
   return value && HEX64.test(value.keyId) && utc(value.revokedAt) &&
@@ -146,6 +168,7 @@ function normalizeRevoked(raw) {
     ? value : null;
 }
 
+/** @param {unknown} raw */
 function normalizeRevocation(raw) {
   const value = snapshotPlainRecord(raw, REVOCATION_KEYS);
   const revoked = value && exactArray(value.revoked, 4096, normalizeRevoked);
@@ -160,6 +183,11 @@ function normalizeRevocation(raw) {
   return Object.freeze({ ...value, revoked });
 }
 
+/**
+ * @param {unknown} raw
+ * @param {string} contract
+ * @param {(value: unknown) => any} normalizePayload
+ */
 function normalizeEnvelope(raw, contract, normalizePayload) {
   const value = snapshotPlainRecord(raw, ENVELOPE_KEYS);
   const payload = value && normalizePayload(value.payload);
@@ -170,6 +198,7 @@ function normalizeEnvelope(raw, contract, normalizePayload) {
   return Object.freeze({ value, payload, signature: signatures[0] });
 }
 
+/** @param {string} domain @param {unknown} payload */
 function frame(domain, payload) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
   if (canonical.status !== "candidate") return null;
@@ -179,6 +208,11 @@ function frame(domain, payload) {
   return Object.freeze({ message, hash: createHash("sha256").update(message).digest("hex") });
 }
 
+/**
+ * @param {{value: {keyId: string}, spkiDer: Buffer}} root
+ * @param {{keyId: string, signature: string}} signature
+ * @param {Buffer} message
+ */
 function verifyRootSignature(root, signature, message) {
   return signature.keyId === root.value.keyId &&
     verifyProvisioningEd25519Base64urlCandidate({
@@ -188,6 +222,7 @@ function verifyRootSignature(root, signature, message) {
     }).status === "candidate";
 }
 
+/** @param {unknown} rawInput */
 export function verifyProvisioningCaStateCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_KEYS);
@@ -225,7 +260,8 @@ export function verifyProvisioningCaStateCandidate(rawInput) {
         now >= Date.parse(entry.notAfter))) {
       return response("blocked", "provisioning_ca_state_not_current");
     }
-    const revoked = new Set(revocations.payload.revoked.map((entry) => entry.keyId));
+    const revoked = new Set(revocations.payload.revoked.map(
+      (/** @type {{keyId: string}} */ entry) => entry.keyId));
     if (revoked.has(root.value.keyId) || revoked.has(revocationRoot.value.keyId) ||
         revoked.has(issuing.payload.value.keyId)) {
       return response("blocked", "provisioning_ca_key_revoked");

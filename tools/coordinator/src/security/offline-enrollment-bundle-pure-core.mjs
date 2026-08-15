@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 import { types as utilTypes } from "node:util";
 
@@ -35,7 +37,13 @@ const HEX64 = /^[0-9a-f]{64}$/u;
 const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
-function response(status, reason, details = {}) {
+/**
+ * @template {Record<string, unknown>} T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T} [details]
+ */
+function response(status, reason, details = /** @type {T} */ ({})) {
   return Object.freeze({
     status,
     reason,
@@ -52,6 +60,11 @@ function response(status, reason, details = {}) {
   });
 }
 
+/**
+ * @param {unknown} raw
+ * @param {number} length
+ * @param {(value: unknown) => any} normalize
+ */
 function exactArray(raw, length, normalize) {
   if (!Array.isArray(raw) || utilTypes.isProxy(raw) ||
       Object.getPrototypeOf(raw) !== Array.prototype) return null;
@@ -60,6 +73,7 @@ function exactArray(raw, length, normalize) {
       descriptor.value !== length) return null;
   const keys = Reflect.ownKeys(raw);
   if (keys.length !== length + 1 || keys.at(-1) !== "length") return null;
+  /** @type {any[]} */
   const values = [];
   for (let index = 0; index < length; index += 1) {
     const item = Object.getOwnPropertyDescriptor(raw, String(index));
@@ -71,11 +85,13 @@ function exactArray(raw, length, normalize) {
   return Object.freeze(values);
 }
 
+/** @param {unknown} value @returns {value is string} */
 function utc(value) {
   return typeof value === "string" && UTC.test(value) && Number.isFinite(Date.parse(value)) &&
     new Date(Date.parse(value)).toISOString() === value;
 }
 
+/** @param {unknown} raw */
 function signature(raw) {
   const value = snapshotPlainRecord(raw, SIGNATURE_KEYS);
   if (!value || typeof value.keyId !== "string" || !HEX64.test(value.keyId) ||
@@ -85,6 +101,7 @@ function signature(raw) {
   return bytes.length === 64 && bytes.toString("base64url") === value.signature ? value : null;
 }
 
+/** @param {unknown} raw */
 function payload(raw) {
   const value = snapshotPlainRecord(raw, PAYLOAD_KEYS);
   if (!value || value.contract !== OFFLINE_ENROLLMENT_BUNDLE_CONTRACT ||
@@ -100,6 +117,7 @@ function payload(raw) {
   return value;
 }
 
+/** @param {unknown} raw */
 function envelope(raw) {
   const value = snapshotPlainRecord(raw, ENVELOPE_KEYS);
   const normalizedPayload = value && payload(value.payload);
@@ -110,6 +128,7 @@ function envelope(raw) {
   return Object.freeze({ value, payload: normalizedPayload, signature: signatures[0] });
 }
 
+/** @param {string} domain @param {unknown} value */
 function frame(domain, value) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(value);
   if (canonical.status !== "candidate") return null;
@@ -119,12 +138,14 @@ function frame(domain, value) {
   return Object.freeze({ message, hash: createHash("sha256").update(message).digest("hex") });
 }
 
+/** @param {unknown} raw */
 function ownedPlainInput(raw) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(raw);
   if (canonical.status !== "candidate") return null;
   try { return JSON.parse(canonical.canonicalBytes.toString("utf8")); } catch { return null; }
 }
 
+/** @param {unknown} rawEnvelope @param {string} role */
 function issuingPayload(rawEnvelope, role) {
   const outer = snapshotPlainRecord(rawEnvelope, ENVELOPE_KEYS);
   const value = outer && outer.payload;
@@ -140,12 +161,14 @@ function issuingPayload(rawEnvelope, role) {
   return Object.freeze({ value, spkiDer: bytes });
 }
 
+/** @param {unknown} requestEnvelope */
 function requestHash(requestEnvelope) {
   const outer = snapshotPlainRecord(requestEnvelope, ENVELOPE_KEYS);
   const requestFrame = outer && frame(INITIAL_ENROLLMENT_DOMAINS.request, outer.payload);
   return requestFrame?.hash ?? null;
 }
 
+/** @param {unknown} rawInput */
 export function verifyOfflineEnrollmentBundleCandidate(rawInput) {
   try {
     const owned = ownedPlainInput(rawInput);
