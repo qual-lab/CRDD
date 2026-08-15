@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "checkJs": false,
+    "erasableSyntaxOnly": true,
     "noEmit": true,
     "strict": true,
     "exactOptionalPropertyTypes": true,
@@ -11,6 +13,7 @@
     "moduleResolution": "NodeNext",
     "target": "ES2023",
     "types": ["node"],
+    "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
   "files": [

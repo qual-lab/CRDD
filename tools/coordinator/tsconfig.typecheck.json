@@ -1,17 +1,22 @@
 {
   "compilerOptions": {
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "checkJs": true,
+    "erasableSyntaxOnly": true,
     "noEmit": true,
     "strict": false,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2023",
     "types": ["node"],
+    "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
   "include": [
     "bin/**/*.mjs",
-    "src/**/*.mjs"
+    "bin/**/*.ts",
+    "src/**/*.mjs",
+    "src/**/*.ts"
   ]
 }

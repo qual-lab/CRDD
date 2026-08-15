@@ -295,6 +295,18 @@ Issueまたは作業は、統合結果と`Integrated — Pending Release`を返�
 
 CRDD公式GitHubリポジトリでは対象リリースごとのマイルストーンを軽量な接続部として使用できる。マイルストーンは本節の意味を実装する一例であり、採用リポジトリまたは他のIssue管理システムへ同じ機能を要求しない。
 
+<a id="33-internal-typescript-runtime"></a>
+
+## 3.3. CRDD内部ScriptのTypeScript実行境界
+
+CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フォルダ配置を維持したまま`.ts`を標準とする。実行にはNode.js 24.12 LTS以上のネイティブTypeScript型除去を使用し、Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。
+
+ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
+
+`.mjs`、`.cjs`または`.js`を残す場合は、bootstrapまたは外部互換等の明示理由と適用範囲を変更トレースへ記録する。移行途中であること自体は恒久例外の理由にしない。拡張子の変更によってfolder、決定権限、公開範囲、package境界または単独配布の可否を変更しない。
+
+Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ同義に固定する。特定のversion managerは要求しない。利用者または採用側へ見える拡張子、実行command、参照Pathを変更する場合は、変更トレースで利用側、移行、停止および復旧を示し、基準版の採用やリリースを別判断として扱う。
+
 ---
 
 <a id="4-change-classification-and-approval"></a>

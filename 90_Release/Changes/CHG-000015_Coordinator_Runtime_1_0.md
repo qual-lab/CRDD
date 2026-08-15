@@ -919,3 +919,9 @@ strict対象を27から28 moduleへ拡張し、Authority RegistryとGrant照合�
 strict対象を28から29 moduleへ拡張し、Runtime Root Path IdentityとGit local exclude結合を対象に加える。Filesystem metadata、Path object Identity、realpath snapshot、containment、Repository相対位置、identity sessionおよびlocal exclude結果をJSDocで表現し、外部入力を`unknown`として固定する。Repository内部位置で先頭segmentを取得できない到達不能境界は、既存の不正exclude entry reasonへfail closedに閉じる。
 
 この処置はPath選択、TOCTOU再確認、containment、Git metadata書込み、Root保護、Authority／Capability／EffectまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — CRDD内部Scriptの完全TypeScript移行判断
+
+Qual-Labの人間の決定権限者は、現行フォルダ配置を維持したままCRDD内部ScriptをTypeScriptへ完全移行し、Node.js 24.12以上のnative TypeScript実行を標準にする方針を承認した。Runtime用の`tsx`、`ts-node`、Bundlerまたは追加npm packageは要求せず、TypeScript Compilerは開発時の型検査へ限定する。Node native type strippingで消去できない構文、tsconfig path aliasおよびCompiler変換に依存するRuntime挙動は採用しない。
+
+この判断は、version 1で`.mjs`を維持し`.ts`変換を内部API安定後の別判断とした2026-08-16の旧判断をsupersedeし、現在判定へ使用しない。移行は全production moduleのstrict収束、Coordinator `bin`／`src`、tests、ルートチェッカー／fault injector／配布ひな型、参照文書の順に固定する。各中間Commitは実行可能性と既存255件／143件の回帰を維持する。現在環境はNode.js 22.18.0のため中間検証に限って使用し、最終固定版はNode.js 24.12以上でnative `.ts`直接実行を確認するまで`Resolved`、Runtime採用、準拠、移行完了またはReleaseとしない。12 blocker、6 current-run evidence、Authority／Capability／EffectおよびGate `blocked`は変更しない。
