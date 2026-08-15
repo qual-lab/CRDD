@@ -5,7 +5,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import {
   AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
   isSupportedAuthorityRootAbsolutePath
-} from "./authority-root-path-lexical.mjs";
+} from "./authority-root-path-lexical.ts";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
   "./runtime-activation-locator-binding-contract.mjs";
 import { isRuntimeActivationIdCandidate } from "./runtime-activation-identity.mjs";

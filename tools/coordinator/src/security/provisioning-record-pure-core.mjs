@@ -10,7 +10,7 @@ import {
 import {
   AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
   isSupportedAuthorityRootAbsolutePath
-} from "./authority-root-path-lexical.mjs";
+} from "./authority-root-path-lexical.ts";
 
 export const PROVISIONING_RECORD_CONTRACT = "crdd-coordinator/provisioning-record";
 export const PROVISIONING_RECORD_ENVELOPE_CONTRACT =

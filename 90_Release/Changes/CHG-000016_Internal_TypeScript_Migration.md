@@ -48,3 +48,9 @@ Coordinator Runtime 1.0の12 implementation blocker、6 current-run evidence、G
 Biome 2.5.6を固定devDependencyとして導入し、Repository rootの`biome.json`をLint／Formatter規則の単一正本にした。制御文字を明示的に拒否するsecurity regexとRFC 8785の倍精度境界fixtureは意図した利用であるため、該当2 ruleだけを理由付きで無効にする。既存`.mjs`はLint対象、移行済み`.ts`はFormatter確認対象とし、既存実装への一括自動整形を行わない。
 
 Coordinatorのproduction 38 moduleを全数strict型検査へ追加した。現行Node.js 22.18.0の中間確認では、二層型検査、Biome LintおよびFormatter確認がPassした。型注釈またはRuntimeロジックの変更はなく、既存の外部入力、fail-closed、Authority／Capability／EffectおよびGate境界を変更しない。この処置は`Applied`／`Self-checked`であり、`.ts`改名、Node.js 24.12以上のnative実行および独立review／audit前は`Resolved`ではない。
+
+## 2026-08-16 — production TypeScript移行 1 / 38
+
+一括改名の中間試行により、`.mjs`で有効だったJSDoc型を`.ts`へ機械的に残すだけではTypeScriptの実parameter型にならず、型境界を弱めることを確認した。この試行差分は固定せず破棄し、module単位で実TypeScript型へ置換する経路へ戻した。`@ts-nocheck`、抑制commentまたは`noImplicitAny`無効化は採用しない。
+
+最初の単位として`authority-root-path-lexical.mjs`を同一配置の`authority-root-path-lexical.ts`へ移し、外部入力を`unknown`、成功後を`string`へ絞るtype predicateを実装した。直接import 2箇所を`.ts`へ更新し、Biome Formatter、二層型検査、Biome Lint／Formatter確認およびCoordinator全255件がPassした。Runtime判定、Path上限、Platform分岐、Authority／Capability／EffectおよびGateを変更しない。`Applied`／`Self-checked`であり、全移行と独立review／audit前は`Resolved`ではない。
