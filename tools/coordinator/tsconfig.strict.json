@@ -17,7 +17,7 @@
     "skipLibCheck": true
   },
   "files": [
-    "bin/coordinator.mjs",
+    "bin/coordinator.ts",
     "src/core/cli-options.ts",
     "src/core/doctor.mjs",
     "src/security/authority-prelaunch-verifier.ts",

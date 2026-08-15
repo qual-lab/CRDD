@@ -14,7 +14,7 @@ import {
 } from "../src/core/cli-options.ts";
 
 const COORDINATOR_EXECUTABLE = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)), "../bin/coordinator.mjs"
+  path.dirname(fileURLToPath(import.meta.url)), "../bin/coordinator.ts"
 );
 
 test("doctor CLIはruntime enable要求とCLI優先を一度だけ正規化する", () => {

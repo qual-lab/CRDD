@@ -32,15 +32,15 @@ Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のロ
 ## 現在利用できるコマンド
 
 ```shell
-node tools/coordinator/bin/coordinator.mjs doctor
-node tools/coordinator/bin/coordinator.mjs doctor --json
-node tools/coordinator/bin/coordinator.mjs doctor --isolation --json
-node tools/coordinator/bin/coordinator.mjs doctor --enable-runtime --json
-node tools/coordinator/bin/coordinator.mjs doctor --enable-runtime --runtime-root <absolute-path> --json
-node tools/coordinator/bin/coordinator.mjs doctor --recover-isolation <recovery-id> --json
-node tools/coordinator/bin/coordinator.mjs activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]
-node tools/coordinator/bin/coordinator.mjs disable [--runtime-root <absolute-path>] [--json]
-node tools/coordinator/bin/coordinator.mjs provision [--json]
+node tools/coordinator/bin/coordinator.ts doctor
+node tools/coordinator/bin/coordinator.ts doctor --json
+node tools/coordinator/bin/coordinator.ts doctor --isolation --json
+node tools/coordinator/bin/coordinator.ts doctor --enable-runtime --json
+node tools/coordinator/bin/coordinator.ts doctor --enable-runtime --runtime-root <absolute-path> --json
+node tools/coordinator/bin/coordinator.ts doctor --recover-isolation <recovery-id> --json
+node tools/coordinator/bin/coordinator.ts activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]
+node tools/coordinator/bin/coordinator.ts disable [--runtime-root <absolute-path>] [--json]
+node tools/coordinator/bin/coordinator.ts provision [--json]
 ```
 
 `doctor`は受動事前診断（passive preflight）である。CLIをインストール、認証または起動せず、PATH上の候補、ローカルGit／Repository、Operation専用領域および未実装の隔離条件を列挙する。Providerの絶対Path、生出力またはVersion出力は保持しない。認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
@@ -150,7 +150,7 @@ npm run typecheck --prefix tools/coordinator
 
 CRDD内部ScriptはTypeScriptを標準とし、Node.js 24.12以上のnative TypeScript実行を採用する。`tsx`、`ts-node`、BundlerまたはRuntime用npm packageを要求せず、TypeScript Compilerは開発時の型検査だけに使用する。現行フォルダ配置を維持し、production moduleのstrict収束、`bin`／`src`、tests、ルートチェッカー／配布ひな型の順で`.ts`へ段階移行する。移行中の`typecheck`は`.mjs`と`.ts`の双方を`noEmit`で検査し、production 38 moduleすべてへ追加の`strict`検査を適用する。Node native type strippingで消去できない構文、tsconfig path aliasおよびRuntime挙動を変えるCompiler変換は禁止する。攻撃的な不正shapeやNode API差替えを扱う試験fixtureも最終的に`.ts`へ移すが、型に合わせて負例を弱めず実行時試験を維持する。
 
-productionの実ファイル移行はPathとIdentityの小さいpredicate、Locator binding、Root profile、Platform policy群、prelaunch verifier、enrollment renewal、plain-data snapshot、CLI option、Authority Bundle／Grant／Trust Loader、Provisioning CA／offline enrollment、Platform Provisioner Trust、Provider isolation、Root protection、Host recovery record、Repository Git layout公開境界、初回登録Runtime state、Authority Root locator、外向きProxy policy、activation transition、署名primitive、準備記録pure Coreおよび準備記録–登録証明書結合へ進み、現在30 / 38 moduleである。JSDocの型説明をそのまま残して型検査を弱めず、外部入力は`unknown`から実行時検証で絞り、各moduleで消去可能なTypeScript型注釈へ置換してから次へ進む。
+productionの実ファイル移行はPathとIdentityの小さいpredicate、Locator binding、Root profile、Platform policy群、prelaunch verifier、enrollment renewal、plain-data snapshot、CLI option、Authority Bundle／Grant／Trust Loader、Provisioning CA／offline enrollment、Platform Provisioner Trust、Provider isolation、Root protection、Host recovery record、Repository Git layout公開境界、初回登録Runtime state、Authority Root locator、外向きProxy policy、activation transition、署名primitive、準備記録pure Core、準備記録–登録証明書結合およびCoordinator CLI入口へ進み、現在31 / 38 moduleである。JSDocの型説明をそのまま残して型検査を弱めず、外部入力は`unknown`から実行時検証で絞り、各moduleで消去可能なTypeScript型注釈へ置換してから次へ進む。
 
 開発時のLintとFormatterはRepository rootの`biome.json`を正本とするBiome 2.5.6へ統一する。`npm run lint --prefix tools/coordinator`、`npm run format:check --prefix tools/coordinator`および`npm run check --prefix tools/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix tools/coordinator`を使う。BiomeはdevDependencyでありRuntimeへ含めない。既存`.mjs`はLint対象、Formatterは移行済み`.ts`から段階適用し、未移行fileの一括整形をTypeScript移行へ混在させない。
 

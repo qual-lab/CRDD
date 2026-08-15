@@ -29,7 +29,7 @@ function fixture() {
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
     files: [
-      { path: "bin/coordinator.mjs", byteLength: 100, sha256: "1".repeat(64) },
+      { path: "bin/coordinator.ts", byteLength: 100, sha256: "1".repeat(64) },
       { path: "package.json", byteLength: 300, sha256: "2".repeat(64) },
       { path: "src/core/doctor.mjs", byteLength: 500, sha256: "3".repeat(64) }
     ]

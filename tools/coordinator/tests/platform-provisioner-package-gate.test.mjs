@@ -29,7 +29,7 @@ function fixture() {
   const observedPackageContent = {
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
-    files: [{ path: "bin/coordinator.mjs", byteLength: 100, sha256: "1".repeat(64) }]
+    files: [{ path: "bin/coordinator.ts", byteLength: 100, sha256: "1".repeat(64) }]
   };
   const packageContentRootSha256 = calculatePlatformProvisionerPackageContentRootCandidate(
     observedPackageContent).packageContentRootSha256;
