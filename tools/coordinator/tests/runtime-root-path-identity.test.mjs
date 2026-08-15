@@ -4,12 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as runtimeRootPathIdentityModule from "../src/security/runtime-root-path-identity.mjs";
+import * as runtimeRootPathIdentityModule from "../src/security/runtime-root-path-identity.ts";
 import {
   describeRuntimeRootPathIdentityContract,
   inspectPosixRuntimeRootModePrecheckCandidate,
   inspectRuntimeRootPathIdentityCandidate
-} from "../src/security/runtime-root-path-identity.mjs";
+} from "../src/security/runtime-root-path-identity.ts";
 
 function temporaryDirectory(t, prefix = "crdd-root-path-") {
   const target = fs.mkdtempSync(path.join(os.tmpdir(), prefix));

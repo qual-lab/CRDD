@@ -29,7 +29,7 @@ import {
   describeRuntimeRootPathIdentityContract,
   inspectPosixRuntimeRootModePrecheckCandidate,
   inspectRuntimeRootPathIdentityCandidate
-} from "../security/runtime-root-path-identity.mjs";
+} from "../security/runtime-root-path-identity.ts";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
 import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
 import { snapshotPlainRecord } from "../security/plain-data-snapshot.ts";

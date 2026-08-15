@@ -53,7 +53,7 @@
     "src/security/runtime-activation-locator-binding.ts",
     "src/security/runtime-activation-transition.ts",
     "src/security/runtime-activation-record.mjs",
-    "src/security/runtime-root-path-identity.mjs",
+    "src/security/runtime-root-path-identity.ts",
     "src/security/runtime-root-profile.ts"
   ]
 }
