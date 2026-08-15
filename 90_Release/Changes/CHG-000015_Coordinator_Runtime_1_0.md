@@ -819,3 +819,11 @@ RSA、P-384／P-521、Ed25519端末鍵およびalgorithm fallbackはrevision 1�
 登録証明書更新は既存証明書Envelope間のpure遷移として検査する。同じ`enrollmentId`、Platform scope、Provisioner Identity、端末導入鍵IDおよびSPKIを維持し、評価時刻と新証明書`issuedAt`が旧証明書の残り30日以内かつ旧`expiresAt`未満であること、新旧重複が最大30日であること、および新証明書が旧証明書より後まで有効であることを要求する。issuer key rotationは許容するが、両証明書のEd25519署名数学的一致を個別に要求する。
 
 この候補は発行、Network、自動更新、Filesystem保存、Runtime所有時計、CA Trust、失効、rollback floorまたはLifecycleを実装しない。更新Effectは引き続き`not_implemented`で、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、固定版の独立レビュー前は`Resolved`ではない。
+
+### 2026-08-15 — Platform Provisioner二重署名Gate候補
+
+Qual-Labの人間の決定権限者は、配布版Platform Provisionerについて、OSネイティブコード署名とQual-Lab署名済みmanifestの両方を同じ実行物へ結合して検証できることをEffect前の必須条件とした。どちらか一方だけ、未知署名、改変、権限不一致、RSA、別曲線または別方式へのfallbackでは`blocked`とする。ローカル／開発buildはdry-run／test専用で、Trust、GateまたはFilesystem Effectを成立させない。管理者昇格、鍵生成、ACL変更および保存は、将来の明示`provision`だけが発火できる。
+
+今回の実装は、Platform、architecture、version、実行物SHA-256、Root Protection Policy Hash、Key Storage Policy Hashおよび有効期間をJCS payloadへ固定するmanifest revision 1と、Ed25519署名exact 1件のpure暗号一致検査に限定する。caller supplied release signer SPKI、実行物digestおよび評価時刻はRuntime所有Trust、実行物取得または時計Authorityではない。正常結果もmanifest cryptographic match候補だけで、OSネイティブ署名成立、実行物Identity、release TrustまたはEffectを返さない。
+
+Windows WinVerifyTrust、macOS SecStaticCodeCheckValidity、Linux配布方式固有の署名検証、実publisher／Team ID／package signer、Runtime所有release Trust、実行物digest取得、Path／permission再確認および実`provision` Effectは未実装である。新pure sourceとOS署名未実装sourceを既存`platform_provisioner_verification`へ接続するが、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、固定版の独立レビュー前は`Resolved`ではない。

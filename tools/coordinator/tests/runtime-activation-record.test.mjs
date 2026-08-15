@@ -342,6 +342,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     provisioningRecordEnrollmentBinding:
       contract.provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal: contract.enrollmentCertificateRenewal,
+    platformProvisionerTrustCore: contract.platformProvisionerTrustCore,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -448,6 +449,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
       enrollmentCertificateRenewalContract: "provisioning_record_contract",
       enrollmentCertificateRenewalVerification: "provisioning_record_verification",
+      platformProvisionerManifestVerification: "platform_provisioner_verification",
+      platformProvisionerNativeSignatureVerification: "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -607,6 +610,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "verified_provisioning_record_authority_root_identity_mismatch"
   ]);
   assert.equal(contract.platformProvisionerVerification, "not_implemented");
+  assert.equal(contract.platformProvisionerTrustCore.manifestCryptographicVerification,
+    "implemented_candidate");
+  assert.equal(contract.platformProvisionerTrustCore.windowsNativeSignatureAdapter,
+    "not_implemented_winverifytrust_target");
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
   assert.equal(contract.installationKeyGeneration, "not_implemented");
   assert.equal(contract.installationKeyProtectionVerification, "not_implemented");
