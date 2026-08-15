@@ -97,6 +97,14 @@ export type OwnedOperationDirectories = {
   directories: OperationDirectories | null;
   hostRecoveryId: string | null;
 };
+export type OwnedMountPaths = Readonly<{
+  workspace: string;
+  providerHome: string;
+  tmp: string;
+  events: string;
+  projection: string;
+  management: string;
+}>;
 type HostRecordChild = SerializableIdentity & Readonly<{ pathName: string }>;
 type HostRecoveryRecord = Readonly<{
   schema: "crdd-coordinator-host-recovery/v1";
@@ -622,19 +630,19 @@ export function createOwnedMountCapability(
 
 export function verifyOwnedMountCapability(
   capability: unknown,
-): Readonly<Record<string, string>> {
+): OwnedMountPaths {
   const children = isObject(capability)
     ? (MOUNT_CAPABILITIES.get(capability) ?? null)
     : null;
   if (!children) throw new Error("owned_operation_mount_capability_required");
-  return Object.freeze(
-    Object.fromEntries(
-      Object.entries(children).map(([name, snapshot]) => [
-        name,
-        validateDirectorySnapshot(snapshot),
-      ]),
-    ),
-  );
+  return Object.freeze({
+    workspace: validateDirectorySnapshot(children.workspace),
+    providerHome: validateDirectorySnapshot(children.providerHome),
+    tmp: validateDirectorySnapshot(children.tmp),
+    events: validateDirectorySnapshot(children.events),
+    projection: validateDirectorySnapshot(children.projection),
+    management: validateDirectorySnapshot(children.management),
+  });
 }
 
 function validateOwnedChildSet(root: string, children: ChildSnapshots): void {

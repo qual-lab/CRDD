@@ -14,7 +14,7 @@ import {
 import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe
-} from "../security/docker-isolation.mjs";
+} from "../security/docker-isolation.ts";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
 import { describeEgressProxyTopology } from "../security/egress-proxy-policy.ts";
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
@@ -306,7 +306,13 @@ export function runDoctor(options = {}) {
       : inspectPosixRuntimeRootModePrecheckCandidate(runtimeRootInput);
     const isolation = activeIsolation
       ? runDockerIsolationProbe(owned)
-      : { status: "not_implemented", reason: "filesystem_boundary_not_enforced" };
+      : {
+          status: "not_implemented",
+          reason: "filesystem_boundary_not_enforced",
+          hostCleanupCompleted: false,
+          recoveryId: null,
+          manualRecoveryRequired: false
+        };
     retainOperationDirectories = activeIsolation
       ? isolation.hostCleanupCompleted !== true
       : false;

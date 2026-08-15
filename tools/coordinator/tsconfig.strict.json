@@ -28,7 +28,7 @@
     "src/security/authority-root-locator.ts",
     "src/security/authority-root-profile.ts",
     "src/security/authority-trust-loader.ts",
-    "src/security/docker-isolation.mjs",
+    "src/security/docker-isolation.ts",
     "src/security/enrollment-certificate-renewal.ts",
     "src/security/egress-proxy-policy.ts",
     "src/security/execution-environment.ts",

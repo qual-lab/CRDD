@@ -38,7 +38,7 @@ import {
   normalizeHostCleanupResult,
   recoverDockerIsolationProbe,
   validateContainerInspect
-} from "../src/security/docker-isolation.mjs";
+} from "../src/security/docker-isolation.ts";
 
 function recordedIdentity(target) {
   const metadata = fs.lstatSync(target, { bigint: true });
