@@ -100,3 +100,5 @@ Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの�
 `initial-enrollment-runtime-state.mjs`を同一配置の`.ts`へ移し、外側入力をexact plain-data snapshotで`unknown`から絞り、Challengeの時刻をdata descriptorとprimitive stringの確認後にだけ使用する境界へ置換した。Runtime所有時計、最初の検証試行による一回消費、永続台帳未実装、Authority／Capability／Effect非発行を変更せず、productionの移行済み数は24 / 38である。
 
 `authority-root-locator.mjs`を同一配置の`.ts`へ移し、canonical JSON生成から未検証recordへの型アサーションを除去し、primitive値とown data descriptorだけを再帰処理する境界へ置換した。raw Buffer長はintrinsic getterの存在とsafe integer結果を確認してからcopy上限へ使用する。Locator Schema、Hash、activation binding、Path非出力およびEffect非発行を変更せず、productionの移行済み数は25 / 38である。
+
+`egress-proxy-policy.mjs`を同一配置の`.ts`へ移し、special-purpose address snapshotをreadonly tuple／CIDR ruleとして固定し、公開fixtureのpolicy、CONNECT要求およびDNS結果から`any`を除去した。外部入力はplain-data record／array snapshotとprimitive検証後にだけ使用する。既存IANA snapshot、longest-prefix判定、private address拒否、Authority未成立およびProxy Effect未実装を変更せず、productionの移行済み数は26 / 38である。

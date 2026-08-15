@@ -29,7 +29,7 @@
     "src/security/authority-trust-loader.ts",
     "src/security/docker-isolation.mjs",
     "src/security/enrollment-certificate-renewal.ts",
-    "src/security/egress-proxy-policy.mjs",
+    "src/security/egress-proxy-policy.ts",
     "src/security/execution-environment.mjs",
     "src/security/git-local-exclude.ts",
     "src/security/host-recovery-record.ts",

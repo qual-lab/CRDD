@@ -12,7 +12,7 @@ import {
   describeSpecialPurposeRegistrySnapshot,
   evaluateProxyConnectForFixture,
   evaluateResolvedAddressesForFixture
-} from "../src/security/egress-proxy-policy.mjs";
+} from "../src/security/egress-proxy-policy.ts";
 
 function rawProfile(overrides = {}) {
   return {

@@ -16,7 +16,7 @@ import {
   runDockerIsolationProbe
 } from "../security/docker-isolation.mjs";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
-import { describeEgressProxyTopology } from "../security/egress-proxy-policy.mjs";
+import { describeEgressProxyTopology } from "../security/egress-proxy-policy.ts";
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
