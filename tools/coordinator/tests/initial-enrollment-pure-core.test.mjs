@@ -11,7 +11,9 @@ import {
   INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT,
   compileInitialEnrollmentChallengeCandidate,
   decodeInitialEnrollmentCertificatePayloadCandidate,
+  decodeInitialEnrollmentCertificateEnvelopeCandidate,
   decodeInitialEnrollmentChallengePayloadCandidate,
+  decodeInitialEnrollmentRequestEnvelopeCandidate,
   decodeInitialEnrollmentRequestPayloadCandidate,
   describeInitialEnrollmentPureCoreContract,
   verifyInitialEnrollmentCertificateCandidate,
@@ -298,6 +300,58 @@ test("raw payload decoders reject noncanonical, malformed, cross-artifact, and o
     "blocked");
 });
 
+test("request and certificate raw envelope decoders accept only canonical bounded JSON bytes", () => {
+  const value = fixture();
+  const cases = [
+    [value.requestEnvelope, decodeInitialEnrollmentRequestEnvelopeCandidate,
+      "requestHash", createHash("sha256").update(framed(INITIAL_ENROLLMENT_DOMAINS.request,
+        value.request)).digest("hex")],
+    [value.certificateEnvelope, decodeInitialEnrollmentCertificateEnvelopeCandidate,
+      "certificateHash", createHash("sha256").update(framed(INITIAL_ENROLLMENT_DOMAINS.certificate,
+        value.certificate)).digest("hex")]
+  ];
+  for (const [envelope, decode, hashField, expectedHash] of cases) {
+    const bytes = canonicalBytes(envelope);
+    const result = decode(bytes);
+    assert.equal(result.status, "candidate");
+    assert.equal(result[hashField], expectedHash);
+    assert.match(result.reason, /cryptographic_verification_required/u);
+    bytes.fill(0);
+    assert.equal(result[hashField], expectedHash);
+    assert.deepEqual(Object.keys(result).sort(), [
+      "filesystemEffectIssued", hashField, "networkEffectIssued", "reason",
+      "runtimeAuthorityConferred", "runtimeCapabilityIssued", "status"
+    ].sort());
+    assert.equal(JSON.stringify(result).includes(envelope.payload.platformScopeId), false);
+    assert.equal(JSON.stringify(result).includes(envelope.signatures[0].signature), false);
+  }
+});
+
+test("raw envelope decoders reject noncanonical malformed and cross-artifact input", () => {
+  const value = fixture();
+  const canonical = canonicalBytes(value.requestEnvelope);
+  const duplicate = Buffer.from(JSON.stringify(value.requestEnvelope).replace(
+    `"contractRevision":1`, `"contractRevision":1,"contractRevision":1`));
+  const invalidInputs = [
+    new Uint8Array(canonical), Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), canonical]),
+    Buffer.from([0xc3, 0x28]), Buffer.alloc(0), Buffer.concat([canonical, Buffer.from("\n")]),
+    duplicate, Buffer.from(JSON.stringify(value.requestEnvelope)),
+    canonicalBytes({ ...value.requestEnvelope, contractRevision: 2 }),
+    canonicalBytes(value.certificateEnvelope)
+  ];
+  for (const input of invalidInputs) {
+    assert.equal(decodeInitialEnrollmentRequestEnvelopeCandidate(input).status, "blocked");
+  }
+  assert.equal(decodeInitialEnrollmentRequestEnvelopeCandidate(Buffer.alloc(131_072)).status,
+    "blocked");
+  assert.equal(decodeInitialEnrollmentRequestEnvelopeCandidate(Buffer.alloc(131_073)).reason,
+    "initial_enrollment_request_raw_envelope_bytes_exceeded");
+  assert.equal(decodeInitialEnrollmentCertificateEnvelopeCandidate(
+    canonicalBytes(value.requestEnvelope)).status, "blocked");
+  assert.equal(decodeInitialEnrollmentCertificateEnvelopeCandidate(
+    canonicalBytes({ ...value.certificateEnvelope, signatures: [] })).status, "blocked");
+});
+
 test("contract keeps effects and deferred enrollment capabilities closed", () => {
   assert.deepEqual(describeInitialEnrollmentPureCoreContract(), {
     contract: "crdd-coordinator/initial-enrollment-pure-core",
@@ -311,8 +365,8 @@ test("contract keeps effects and deferred enrollment capabilities closed", () =>
     certificateRawPayloadByteDecoder: "implemented_candidate",
     requestSignatureEnvelopeObjectContract: "implemented_candidate",
     certificateSignatureEnvelopeObjectContract: "implemented_candidate",
-    requestRawEnvelopeByteDecoder: "not_implemented",
-    certificateRawEnvelopeByteDecoder: "not_implemented",
+    requestRawEnvelopeByteDecoder: "implemented_candidate",
+    certificateRawEnvelopeByteDecoder: "implemented_candidate",
     transportCodec: "not_implemented",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",

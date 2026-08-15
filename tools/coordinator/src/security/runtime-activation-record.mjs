@@ -503,7 +503,7 @@ export function describeRuntimeActivationContract() {
     successfulAutomaticRenewalInteraction:
       "no_user_or_administrator_action_after_verified_success_target",
     enrollmentCertificateExactSpecification:
-      "initial_online_object_schema_domain_and_jcs_signing_implemented_candidate_raw_wire_renewal_and_lifecycle_not_implemented",
+      "initial_online_object_schema_domain_jcs_signing_and_raw_envelope_bytes_implemented_candidate_transport_renewal_and_lifecycle_not_implemented",
     embeddedQualLabPrivateKey: "prohibited",
     initialEnrollmentModes: Object.freeze([
       "explicit_online_initial_enrollment_target",
@@ -524,7 +524,7 @@ export function describeRuntimeActivationContract() {
     onlineChallengeExpiryBehavior:
       "expired_challenge_blocked_and_fresh_challenge_required_without_offline_fallback_target",
     onlineProofOfPossession:
-      "installation_private_key_signature_required_target_exact_wire_not_implemented",
+      "installation_private_key_signature_required_request_envelope_raw_bytes_implemented_candidate_transport_and_effect_not_implemented",
     offlineEnrollmentBundleRequiredContents: Object.freeze([
       "enrollment_request_hash",
       "enrollment_certificate",

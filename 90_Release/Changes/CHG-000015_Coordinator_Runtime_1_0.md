@@ -761,3 +761,9 @@ object Envelope 2軸を既存`provisioning_record_contract`へ接続する。raw
 固定Commit `8b979d5252e29c047ecfe9bc7282c54ccc8baa9e`／Tree `11024ece8a497e63e4cc90b0607b39b7197807b5`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。`AG-INITIAL-ENVELOPE-001`はこの固定範囲で`Resolved`と判定する。旧`27be08b`以前の監査集合は履歴として保持するが現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_8b979d5.md`](Evidence/CHG-000015_Current_Review_Record_8b979d5.md)へ接続する。
 
 確認済み範囲はRequest／Certificate object Envelope、署名exact 1件、role／domain結合、issuer単一snapshot、安全なcandidate出力、依存接続およびGate境界に限る。raw Envelope byte decoder／transport、Runtime所有clock、一回消費台帳、実CA Trust／失効、Network、keystore、Filesystem、Record実結合、更新およびオフライン経路は未実装・未評価である。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### 2026-08-15 — 初回オンライン登録Envelope raw byte decoder候補
+
+Qual-Labの人間の決定権限者は、登録要求と登録証明書のEnvelope全体を上限131072 byteのcanonical JCS UTF-8として表現し、独自headerまたはlength prefixを付けないraw形式を承認した。decoderはNode `Buffer`だけを受理し、copy前budget、BOM拒否、strict UTF-8、exact Envelope normalizerおよび入力bytesと再生成canonical bytesの完全一致を要求する。成功結果は成果物別payload Hashと安全状態だけで、Envelope、payload、署名、SPKI、ID、raw／canonical bytesまたはPathを返さない。
+
+この実装はraw Envelopeの構造とcanonical encodingだけを候補化し、署名の数学的一致は既存object Verifier、HTTP／file framingやcontent typeは未実装transportの責務に残す。decoder成功からRuntime所有clock、一回消費台帳、CA Trust／失効、Network、Filesystem、keystore、Authority、CapabilityまたはEffectを成立させない。2 decoder軸は同じprivate implementation snapshotから既存`provisioning_record_contract`へ接続するが、12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。旧`8b979d5`以前のraw Envelope未実装という現在説明は本承認範囲でsupersededされ現在判定へ使用しないが、過去の監査・Evidenceは履歴として改変しない。変更分類は非規範Security Reference Implementation候補で、処置は`Applied`／`Self-checked`、新固定版の独立レビューおよび必須監査前は`Resolved`ではない。

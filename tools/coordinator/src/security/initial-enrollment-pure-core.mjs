@@ -156,6 +156,34 @@ function decodeRawPayloadCandidate(raw, normalize, domain, kind, hashField) {
   }
 }
 
+function decodeRawEnvelopeCandidate(raw, normalize, domain, kind, hashField) {
+  try {
+    if (!Buffer.isBuffer(raw)) return blocked(`${kind}_raw_envelope_bytes_required`);
+    const length = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, raw, []);
+    if (length > PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes) {
+      return blocked(`${kind}_raw_envelope_bytes_exceeded`);
+    }
+    const bytes = Buffer.allocUnsafe(length);
+    Uint8Array.prototype.set.call(bytes, raw);
+    if (length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+      return blocked(`${kind}_raw_envelope_invalid`);
+    }
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const normalized = normalize(JSON.parse(source));
+    const canonical = normalized && canonicalizeProvisioningJsonValueCandidate(normalized.value);
+    const payloadFrame = normalized && frame(domain, normalized.payload.value);
+    if (!canonical || canonical.status !== "candidate" || !payloadFrame ||
+        !Buffer.prototype.equals.call(bytes, canonical.canonicalBytes)) {
+      return blocked(`${kind}_raw_envelope_noncanonical_or_invalid`);
+    }
+    return candidate(`${kind}_raw_envelope_candidate_cryptographic_verification_required`, {
+      [hashField]: payloadFrame.hash
+    });
+  } catch {
+    return blocked(`${kind}_raw_envelope_invalid`);
+  }
+}
+
 function snapshotIssuerSpki(raw) {
   try {
     if (!Buffer.isBuffer(raw)) return null;
@@ -225,7 +253,14 @@ function normalizeEnvelope(raw, contract, normalizePayload) {
   if (!value || value.contract !== contract ||
       value.contractRevision !== INITIAL_ENROLLMENT_CONTRACT_REVISION ||
       !payload || !signatures) return null;
-  return Object.freeze({ value, payload, signature: signatures[0] });
+  const signature = signatures[0];
+  const normalizedValue = Object.freeze({
+    contract: value.contract,
+    contractRevision: value.contractRevision,
+    payload: payload.value,
+    signatures: Object.freeze([signature])
+  });
+  return Object.freeze({ value: normalizedValue, payload, signature });
 }
 
 function normalizeRequestEnvelope(raw) {
@@ -258,6 +293,16 @@ export function decodeInitialEnrollmentRequestPayloadCandidate(raw) {
 
 export function decodeInitialEnrollmentCertificatePayloadCandidate(raw) {
   return decodeRawPayloadCandidate(raw, normalizeCertificate,
+    INITIAL_ENROLLMENT_DOMAINS.certificate, "initial_enrollment_certificate", "certificateHash");
+}
+
+export function decodeInitialEnrollmentRequestEnvelopeCandidate(raw) {
+  return decodeRawEnvelopeCandidate(raw, normalizeRequestEnvelope,
+    INITIAL_ENROLLMENT_DOMAINS.request, "initial_enrollment_request", "requestHash");
+}
+
+export function decodeInitialEnrollmentCertificateEnvelopeCandidate(raw) {
+  return decodeRawEnvelopeCandidate(raw, normalizeCertificateEnvelope,
     INITIAL_ENROLLMENT_DOMAINS.certificate, "initial_enrollment_certificate", "certificateHash");
 }
 
@@ -355,8 +400,8 @@ export function describeInitialEnrollmentPureCoreContract() {
     certificateRawPayloadByteDecoder: "implemented_candidate",
     requestSignatureEnvelopeObjectContract: "implemented_candidate",
     certificateSignatureEnvelopeObjectContract: "implemented_candidate",
-    requestRawEnvelopeByteDecoder: "not_implemented",
-    certificateRawEnvelopeByteDecoder: "not_implemented",
+    requestRawEnvelopeByteDecoder: "implemented_candidate",
+    certificateRawEnvelopeByteDecoder: "implemented_candidate",
     transportCodec: "not_implemented",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",
