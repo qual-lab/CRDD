@@ -14,7 +14,7 @@ import { describeInitialEnrollmentPureCoreContract } from
 import { describeInitialEnrollmentRuntimeStateContract } from
   "./initial-enrollment-runtime-state.mjs";
 import { describePlatformKeyStoragePolicyContract } from
-  "./platform-key-storage-policy.mjs";
+  "./platform-key-storage-policy.ts";
 import { describeProvisioningCaPureCoreContract } from "./provisioning-ca-pure-core.mjs";
 import { describeOfflineEnrollmentBundlePureCoreContract } from
   "./offline-enrollment-bundle-pure-core.mjs";

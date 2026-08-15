@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   describePlatformKeyStoragePolicyContract,
   evaluatePlatformKeyStoragePolicyCandidate
-} from "../src/security/platform-key-storage-policy.mjs";
+} from "../src/security/platform-key-storage-policy.ts";
 
 function p256Spki() {
   return generateKeyPairSync("ec", { namedCurve: "prime256v1" }).publicKey

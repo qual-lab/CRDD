@@ -36,7 +36,7 @@
     "src/security/initial-enrollment-pure-core.mjs",
     "src/security/initial-enrollment-runtime-state.mjs",
     "src/security/offline-enrollment-bundle-pure-core.mjs",
-    "src/security/platform-key-storage-policy.mjs",
+    "src/security/platform-key-storage-policy.ts",
     "src/security/plain-data-snapshot.mjs",
     "src/security/platform-provisioner-trust-core.mjs",
     "src/security/platform-provisioner-package-gate.mjs",

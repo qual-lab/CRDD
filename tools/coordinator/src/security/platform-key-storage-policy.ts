@@ -1,7 +1,4 @@
-// @ts-check
-
-import { inspectProvisioningP256SpkiCandidate } from
-  "./provisioning-signature-primitives.mjs";
+import { inspectProvisioningP256SpkiCandidate } from "./provisioning-signature-primitives.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 
 export const PLATFORM_KEY_STORAGE_POLICY_CONTRACT =
@@ -12,31 +9,31 @@ const INPUT_KEYS = new Set([
   "platformFamily",
   "backend",
   "explicitFallbackApproved",
-  "publicKeySpkiDer"
+  "publicKeySpkiDer",
 ]);
 
 const PLATFORM_POLICIES = Object.freeze({
   windows: Object.freeze({
     preferred: "cng_ksp_tpm_p256",
-    explicitFallback: "cng_ksp_software_p256"
+    explicitFallback: "cng_ksp_software_p256",
   }),
   macos: Object.freeze({
     preferred: "secure_enclave_p256",
-    explicitFallback: "keychain_software_p256"
+    explicitFallback: "keychain_software_p256",
   }),
   linux: Object.freeze({
     preferred: "tpm2_p256",
-    explicitFallback: "root_owned_software_p256"
-  })
+    explicitFallback: "root_owned_software_p256",
+  }),
 });
 
-/**
- * @template {Record<string, unknown>} T
- * @param {string} status
- * @param {string} reason
- * @param {T} [details]
- */
-function result(status, reason, details = /** @type {T} */ ({})) {
+type PlatformFamily = keyof typeof PLATFORM_POLICIES;
+
+function result<T extends Record<string, unknown>>(
+  status: string,
+  reason: string,
+  details?: T,
+) {
   return Object.freeze({
     status,
     reason,
@@ -46,36 +43,47 @@ function result(status, reason, details = /** @type {T} */ ({})) {
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,
-    networkEffectIssued: false
+    networkEffectIssued: false,
   });
 }
 
-/** @param {unknown} rawInput */
-export function evaluatePlatformKeyStoragePolicyCandidate(rawInput) {
+function isPlatformFamily(value: string): value is PlatformFamily {
+  return Object.hasOwn(PLATFORM_POLICIES, value);
+}
+
+export function evaluatePlatformKeyStoragePolicyCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
-    if (!input || typeof input.platformFamily !== "string" ||
-        typeof input.backend !== "string" ||
-        typeof input.explicitFallbackApproved !== "boolean" ||
-        !Buffer.isBuffer(input.publicKeySpkiDer)) {
+    if (
+      !input ||
+      typeof input.platformFamily !== "string" ||
+      typeof input.backend !== "string" ||
+      typeof input.explicitFallbackApproved !== "boolean" ||
+      !Buffer.isBuffer(input.publicKeySpkiDer)
+    ) {
       return result("blocked", "platform_key_storage_policy_input_invalid");
     }
-    if (!(input.platformFamily in PLATFORM_POLICIES)) {
+    if (!isPlatformFamily(input.platformFamily)) {
       return result("blocked", "platform_key_storage_platform_unsupported");
     }
-    const policy = PLATFORM_POLICIES[
-      /** @type {keyof typeof PLATFORM_POLICIES} */ (input.platformFamily)
-    ];
+    const policy = PLATFORM_POLICIES[input.platformFamily];
     const preferred = input.backend === policy.preferred;
     const fallback = input.backend === policy.explicitFallback;
     if (!preferred && !fallback) {
       return result("blocked", "platform_key_storage_backend_unsupported");
     }
-    if ((preferred && input.explicitFallbackApproved) ||
-        (fallback && !input.explicitFallbackApproved)) {
-      return result("blocked", "platform_key_storage_fallback_approval_invalid");
+    if (
+      (preferred && input.explicitFallbackApproved) ||
+      (fallback && !input.explicitFallbackApproved)
+    ) {
+      return result(
+        "blocked",
+        "platform_key_storage_fallback_approval_invalid",
+      );
     }
-    const inspected = inspectProvisioningP256SpkiCandidate(input.publicKeySpkiDer);
+    const inspected = inspectProvisioningP256SpkiCandidate(
+      input.publicKeySpkiDer,
+    );
     if (inspected.status !== "candidate") {
       return result("blocked", "platform_key_storage_public_key_invalid");
     }
@@ -86,8 +94,8 @@ export function evaluatePlatformKeyStoragePolicyCandidate(rawInput) {
         platformFamily: input.platformFamily,
         backendClass: preferred ? "preferred" : "explicit_fallback",
         keyAlgorithm: "ECDSA-P256-SHA256",
-        publicKeyCanonical: true
-      }
+        publicKeyCanonical: true,
+      },
     );
   } catch {
     return result("blocked", "platform_key_storage_policy_input_invalid");
@@ -102,7 +110,8 @@ export function describePlatformKeyStoragePolicyContract() {
     publicKeyEncoding: "RFC-5480-exact-P256-SPKI-DER",
     backendPolicies: PLATFORM_POLICIES,
     fallbackSelection: "explicit_only_without_silent_downgrade",
-    preferredBackendFailureBehavior: "blocked_until_explicit_fallback_or_reprovision",
+    preferredBackendFailureBehavior:
+      "blocked_until_explicit_fallback_or_reprovision",
     privateKeyInputOrOutput: "prohibited",
     policyEvaluation: "implemented_candidate_claim_only",
     nativeWindowsCngAdapter: "not_implemented",
@@ -114,6 +123,6 @@ export function describePlatformKeyStoragePolicyContract() {
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,
-    networkEffectIssued: false
+    networkEffectIssued: false,
   });
 }
