@@ -20,7 +20,7 @@
   "files": [
     "bin/coordinator.ts",
     "src/core/cli-options.ts",
-    "src/core/doctor.mjs",
+    "src/core/doctor.ts",
     "src/security/authority-prelaunch-verifier.ts",
     "src/security/authority-file-bundle.ts",
     "src/security/authority-grant-verifier.ts",

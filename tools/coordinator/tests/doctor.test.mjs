@@ -14,7 +14,7 @@ import {
   discoverCommand,
   evaluateReadiness,
   runDoctor
-} from "../src/core/doctor.mjs";
+} from "../src/core/doctor.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,

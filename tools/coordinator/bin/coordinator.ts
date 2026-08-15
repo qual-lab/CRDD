@@ -2,7 +2,7 @@
 
 import { types as utilTypes } from "node:util";
 
-import { runDoctor } from "../src/core/doctor.mjs";
+import { runDoctor } from "../src/core/doctor.ts";
 import {
   parseActivateArguments,
   parseDisableArguments,

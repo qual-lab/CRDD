@@ -31,7 +31,7 @@ function fixture() {
     files: [
       { path: "bin/coordinator.ts", byteLength: 100, sha256: "1".repeat(64) },
       { path: "package.json", byteLength: 300, sha256: "2".repeat(64) },
-      { path: "src/core/doctor.mjs", byteLength: 500, sha256: "3".repeat(64) }
+      { path: "src/core/doctor.ts", byteLength: 500, sha256: "3".repeat(64) }
     ]
   };
   const packageContentRootSha256 = calculatePlatformProvisionerPackageContentRootCandidate(

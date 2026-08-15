@@ -1,0 +1,659 @@
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { types as utilTypes } from "node:util";
+
+import {
+  cleanupOwnedOperationDirectories,
+  createOwnedOperationDirectories,
+  createProviderEnvironment,
+  credentialEnvironmentNamesPresent,
+  describeFilesystemPolicy,
+  getOwnedHostRecoveryId,
+} from "../security/execution-environment.ts";
+import {
+  DOCKER_ISOLATION_PROFILE,
+  runDockerIsolationProbe,
+} from "../security/docker-isolation.ts";
+import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
+import { describeEgressProxyTopology } from "../security/egress-proxy-policy.ts";
+import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
+import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
+import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
+import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.ts";
+import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
+import {
+  describeRuntimeRootContract,
+  selectRuntimeRootCandidate,
+} from "../security/runtime-root-profile.ts";
+import { describeRuntimeActivationContract } from "../security/runtime-activation-record.ts";
+import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.ts";
+import {
+  describeRuntimeRootPathIdentityContract,
+  inspectPosixRuntimeRootModePrecheckCandidate,
+  inspectRuntimeRootPathIdentityCandidate,
+} from "../security/runtime-root-path-identity.ts";
+import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
+import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
+import { snapshotPlainRecord } from "../security/plain-data-snapshot.ts";
+
+export const CHECK_STATUS = Object.freeze([
+  "confirmed",
+  "blocked",
+  "not_implemented",
+  "unknown",
+]);
+
+const PROVIDERS = Object.freeze(["codex", "claude"]);
+const PROVIDER_CHECKS = Object.freeze([
+  "discovery",
+  "authentication",
+  "active_probe",
+  "auto_update",
+  "telemetry",
+  "session_resume",
+  "timeout",
+  "cancel",
+  "process_tree_termination",
+]);
+
+type CheckStatus = "confirmed" | "blocked" | "not_implemented" | "unknown";
+type DiagnosticCheck = {
+  id: string;
+  status: CheckStatus;
+  reason: string | null;
+  followUp: string | null;
+};
+type DiscoveryResult = Readonly<{
+  located: boolean;
+  candidateCount: number;
+  formats: readonly string[];
+  reason: string | null;
+}>;
+type RuntimeRootRequest = Readonly<{
+  cliOverride: string | null;
+  environmentOverride: string | null;
+  activationIntent: "explicit_enable_request";
+}>;
+type DoctorOptions = Readonly<{
+  activeIsolation: boolean;
+  cwd: string;
+  runtimeRootRequest: RuntimeRootRequest | null;
+}>;
+type DiscoveryOptions = Readonly<{
+  platform?: NodeJS.Platform;
+  environment?: NodeJS.ProcessEnv;
+  fileSystem?: typeof fs;
+}>;
+
+function isObject(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
+}
+
+function ownValue(value: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor &&
+    "value" in descriptor &&
+    !descriptor.get &&
+    !descriptor.set
+    ? descriptor.value
+    : undefined;
+}
+
+function errorCode(error: unknown): string | null {
+  if (!isObject(error)) return null;
+  const value = ownValue(error, "code");
+  return typeof value === "string" ? value : null;
+}
+
+function errorMessage(error: unknown): string | null {
+  return error instanceof Error ? error.message : null;
+}
+
+function requiredCheckIds(): string[] {
+  const ids = [
+    "runtime.node",
+    "repository.git",
+    "repository.identity",
+    "runtime.root",
+    "operation.directories",
+    "execution.filesystem",
+    "execution.credential_environment",
+    "execution.credential_isolation",
+    "execution.egress",
+  ];
+  for (const provider of PROVIDERS) {
+    for (const check of PROVIDER_CHECKS) {
+      ids.push(`provider.${provider}.${check}`);
+    }
+  }
+  return ids;
+}
+
+export const REQUIRED_CHECK_IDS = Object.freeze(requiredCheckIds());
+
+function check(
+  id: string,
+  status: CheckStatus,
+  reason: string | null,
+  followUp: string | null = null,
+): DiagnosticCheck {
+  return { id, status, reason, followUp };
+}
+
+export function evaluateReadiness(checks: readonly DiagnosticCheck[]) {
+  const expected = new Set(REQUIRED_CHECK_IDS);
+  const seen = new Set<string>();
+  const blockers: Array<{ id: string | null; reason: string }> = [];
+
+  for (const item of checks) {
+    if (!item || typeof item.id !== "string" || !expected.has(item.id)) {
+      blockers.push({ id: item?.id ?? null, reason: "unknown_check" });
+      continue;
+    }
+    if (seen.has(item.id)) {
+      blockers.push({ id: item.id, reason: "duplicate_check" });
+      continue;
+    }
+    seen.add(item.id);
+    if (!CHECK_STATUS.includes(item.status)) {
+      blockers.push({ id: item.id, reason: "invalid_status" });
+      continue;
+    }
+    if (item.status !== "confirmed") {
+      blockers.push({ id: item.id, reason: item.reason ?? item.status });
+    }
+  }
+
+  for (const id of REQUIRED_CHECK_IDS) {
+    if (!seen.has(id)) blockers.push({ id, reason: "missing_check" });
+  }
+
+  return {
+    status: blockers.length === 0 ? "ready" : "blocked",
+    blockers,
+  };
+}
+
+function pathValue(environment: NodeJS.ProcessEnv): string {
+  return environment.PATH ?? environment.Path ?? "";
+}
+
+function candidateExtensions(
+  platform: NodeJS.Platform,
+  environment: NodeJS.ProcessEnv,
+): string[] {
+  if (platform !== "win32") return [""];
+  const configured = environment.PATHEXT ?? ".COM;.EXE;.BAT;.CMD";
+  return configured
+    .split(";")
+    .filter(Boolean)
+    .map((value) => value.toLowerCase());
+}
+
+function commandFormat(candidate: string): string {
+  const extension = path.extname(candidate).toLowerCase().replace(/^\./u, "");
+  return extension || "native";
+}
+
+export function discoverCommand(
+  command: string,
+  options: DiscoveryOptions = {},
+): DiscoveryResult {
+  const platform = options.platform ?? process.platform;
+  const environment = options.environment ?? process.env;
+  const fileSystem = options.fileSystem ?? fs;
+  const candidates = [];
+
+  for (const directory of pathValue(environment)
+    .split(path.delimiter)
+    .filter(Boolean)) {
+    for (const extension of candidateExtensions(platform, environment)) {
+      const candidate = path.join(directory, `${command}${extension}`);
+      try {
+        const metadata = fileSystem.lstatSync(candidate);
+        if (!metadata.isFile() || metadata.isSymbolicLink()) continue;
+        if (platform !== "win32" && (metadata.mode & 0o111) === 0) continue;
+        candidates.push({ format: commandFormat(candidate) });
+      } catch (error) {
+        if (errorCode(error) !== "ENOENT" && errorCode(error) !== "ENOTDIR") {
+          return {
+            located: false,
+            candidateCount: 0,
+            formats: [],
+            reason: "discovery_failed",
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    located: candidates.length > 0,
+    candidateCount: candidates.length,
+    formats: [
+      ...new Set(candidates.map((candidate) => candidate.format)),
+    ].sort(),
+    reason: candidates.length > 0 ? null : "command_not_found",
+  };
+}
+
+function probeGitRepository(cwd: string) {
+  const execute = (args: readonly string[]) =>
+    spawnSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 10_000,
+    });
+  const commit = execute(["rev-parse", "HEAD"]);
+  const tree = execute(["rev-parse", "HEAD^{tree}"]);
+  const status = execute(["status", "--porcelain=v1", "-z"]);
+
+  return {
+    gitAvailable: commit.error == null,
+    identityAvailable:
+      commit.status === 0 && tree.status === 0 && status.status === 0,
+    headCommit: commit.status === 0 ? commit.stdout.trim() : null,
+    headTree: tree.status === 0 ? tree.stdout.trim() : null,
+    workingState:
+      status.status === 0 && status.stdout.length === 0
+        ? "clean"
+        : "dirty_or_unknown",
+  };
+}
+
+function nodeSupported(): boolean {
+  const major = Number.parseInt(process.versions.node.split(".")[0] ?? "", 10);
+  return Number.isInteger(major) && major >= 22;
+}
+
+function providerChecks(
+  name: string,
+  discovery: DiscoveryResult,
+): DiagnosticCheck[] {
+  return [
+    check(
+      `provider.${name}.discovery`,
+      discovery.located ? "confirmed" : "blocked",
+      discovery.reason,
+      discovery.located ? null : "install_or_select_provider_outside_runtime",
+    ),
+    check(
+      `provider.${name}.authentication`,
+      "unknown",
+      "authentication_not_evaluated",
+    ),
+    check(
+      `provider.${name}.active_probe`,
+      "not_implemented",
+      "isolation_required_before_provider_spawn",
+    ),
+    check(
+      `provider.${name}.auto_update`,
+      "not_implemented",
+      "provider_lifecycle_probe_not_implemented",
+    ),
+    check(
+      `provider.${name}.telemetry`,
+      "not_implemented",
+      "provider_lifecycle_probe_not_implemented",
+    ),
+    check(
+      `provider.${name}.session_resume`,
+      "not_implemented",
+      "provider_lifecycle_probe_not_implemented",
+    ),
+    check(
+      `provider.${name}.timeout`,
+      "not_implemented",
+      "provider_lifecycle_probe_not_implemented",
+    ),
+    check(
+      `provider.${name}.cancel`,
+      "not_implemented",
+      "provider_lifecycle_probe_not_implemented",
+    ),
+    check(
+      `provider.${name}.process_tree_termination`,
+      "not_implemented",
+      "provider_lifecycle_probe_not_implemented",
+    ),
+  ];
+}
+
+function reportableFilesystemPolicy(
+  policy: ReturnType<typeof describeFilesystemPolicy>,
+  root: string,
+) {
+  const relative = (value: string) =>
+    path.relative(root, value).replaceAll("\\", "/");
+  return {
+    coordinatorRuntime: {
+      write: policy.coordinatorRuntime.write.map(relative),
+    },
+    repositoryAdapter: { write: policy.repositoryAdapter.write.map(relative) },
+    providerProcess: {
+      write: policy.providerProcess.write.map(relative),
+      deny: policy.providerProcess.deny.map(relative),
+    },
+    credentialBroker: policy.credentialBroker,
+  };
+}
+
+const DOCTOR_OPTION_KEYS = new Set([
+  "activeIsolation",
+  "cwd",
+  "runtimeRootRequest",
+]);
+const RUNTIME_ROOT_REQUEST_KEYS = new Set([
+  "cliOverride",
+  "environmentOverride",
+  "activationIntent",
+]);
+
+function validRuntimeRootOverride(value: unknown): value is string | null {
+  return (
+    value === null ||
+    (typeof value === "string" &&
+      value.length > 0 &&
+      value.length <= 4_096 &&
+      !/[\u0000-\u001f\u007f]/u.test(value) &&
+      path.isAbsolute(value))
+  );
+}
+
+function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
+  try {
+    if (
+      !rawOptions ||
+      typeof rawOptions !== "object" ||
+      utilTypes.isProxy(rawOptions) ||
+      Array.isArray(rawOptions)
+    ) {
+      throw new Error("doctor_options_invalid");
+    }
+    const prototype = Object.getPrototypeOf(rawOptions);
+    if (prototype !== Object.prototype && prototype !== null)
+      throw new Error("doctor_options_invalid");
+    const descriptors = Object.getOwnPropertyDescriptors(rawOptions);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.some(
+        (key) => typeof key !== "string" || !DOCTOR_OPTION_KEYS.has(key),
+      )
+    ) {
+      throw new Error("doctor_options_invalid");
+    }
+    const value = (key: string, fallback: unknown): unknown => {
+      const descriptor = descriptors[key];
+      if (!descriptor) return fallback;
+      if (
+        !Object.hasOwn(descriptor, "value") ||
+        descriptor.get !== undefined ||
+        descriptor.set !== undefined ||
+        descriptor.enumerable !== true
+      )
+        throw new Error("doctor_options_invalid");
+      return descriptor.value;
+    };
+    const activeIsolation = value("activeIsolation", false);
+    const cwd = value("cwd", process.cwd());
+    const rawRuntimeRootRequest = value("runtimeRootRequest", null);
+    if (
+      typeof activeIsolation !== "boolean" ||
+      typeof cwd !== "string" ||
+      !path.isAbsolute(cwd) ||
+      /[\u0000-\u001f\u007f]/u.test(cwd)
+    ) {
+      throw new Error("doctor_options_invalid");
+    }
+    let runtimeRootRequest: RuntimeRootRequest | null = null;
+    if (rawRuntimeRootRequest !== null) {
+      const snapshot = snapshotPlainRecord(
+        rawRuntimeRootRequest,
+        RUNTIME_ROOT_REQUEST_KEYS,
+      );
+      if (
+        !snapshot ||
+        !validRuntimeRootOverride(snapshot.cliOverride) ||
+        !validRuntimeRootOverride(snapshot.environmentOverride) ||
+        snapshot.activationIntent !== "explicit_enable_request"
+      ) {
+        throw new Error("doctor_options_invalid");
+      }
+      runtimeRootRequest = Object.freeze({
+        cliOverride: snapshot.cliOverride,
+        environmentOverride: snapshot.environmentOverride,
+        activationIntent: snapshot.activationIntent,
+      });
+    }
+    return Object.freeze({ activeIsolation, cwd, runtimeRootRequest });
+  } catch (error) {
+    if (errorMessage(error) === "doctor_options_invalid") throw error;
+    throw new Error("doctor_options_invalid");
+  }
+}
+
+export function runDoctor(options: unknown = {}) {
+  const normalizedOptions = normalizeDoctorOptions(options);
+  const activeIsolation = normalizedOptions.activeIsolation;
+  const cwd = normalizedOptions.cwd;
+  const owned = createOwnedOperationDirectories();
+  if (!owned.directories)
+    throw new Error("owned_operation_directory_identity_required");
+  const ownedDirectories = owned.directories;
+  const initialHostRecoveryId = getOwnedHostRecoveryId(owned);
+  let retainOperationDirectories = false;
+  try {
+    const providerEnvironment = createProviderEnvironment(
+      process.env,
+      ownedDirectories,
+    );
+    const credentialNames = credentialEnvironmentNamesPresent(process.env);
+    const forwardedCredentialNames =
+      credentialEnvironmentNamesPresent(providerEnvironment);
+    const repository = probeGitRepository(cwd);
+    const providers = Object.freeze({
+      codex: discoverCommand("codex"),
+      claude: discoverCommand("claude"),
+    });
+
+    const runtimeRootInput = {
+      repositoryRoot: cwd,
+      cliOverride: normalizedOptions.runtimeRootRequest?.cliOverride ?? null,
+      environmentOverride:
+        normalizedOptions.runtimeRootRequest?.environmentOverride ?? null,
+      activationIntent:
+        normalizedOptions.runtimeRootRequest?.activationIntent ?? null,
+    };
+    const runtimeRootEvaluation =
+      normalizedOptions.runtimeRootRequest === null
+        ? selectRuntimeRootCandidate(runtimeRootInput)
+        : inspectRuntimeRootPathIdentityCandidate(runtimeRootInput);
+    const runtimeRootProtectionPrecheck =
+      normalizedOptions.runtimeRootRequest === null
+        ? Object.freeze({
+            status: "not_evaluated",
+            reason: "runtime_feature_not_enabled",
+            summary: null,
+            filesystemEffectIssued: false,
+            runtimeCapabilityIssued: false,
+          })
+        : inspectPosixRuntimeRootModePrecheckCandidate(runtimeRootInput);
+    const isolation = activeIsolation
+      ? runDockerIsolationProbe(owned)
+      : Object.freeze({
+          status: "not_implemented",
+          reason: "filesystem_boundary_not_enforced",
+          hostCleanupCompleted: false,
+          recoveryId: null,
+          manualRecoveryRequired: false,
+        });
+    retainOperationDirectories = activeIsolation
+      ? isolation.hostCleanupCompleted !== true
+      : false;
+    const isolationCheckStatus: CheckStatus =
+      isolation.status === "confirmed"
+        ? "confirmed"
+        : isolation.status === "not_implemented"
+          ? "not_implemented"
+          : "blocked";
+    const checks = [
+      check(
+        "runtime.node",
+        nodeSupported() ? "confirmed" : "blocked",
+        nodeSupported() ? null : "node_22_or_newer_required",
+      ),
+      check(
+        "repository.git",
+        repository.gitAvailable ? "confirmed" : "blocked",
+        repository.gitAvailable ? null : "git_unavailable",
+      ),
+      check(
+        "repository.identity",
+        repository.identityAvailable ? "confirmed" : "blocked",
+        repository.identityAvailable ? null : "repository_identity_unavailable",
+      ),
+      check(
+        "runtime.root",
+        "blocked",
+        runtimeRootEvaluation.status === "candidate"
+          ? "runtime_root_activation_record_not_implemented"
+          : runtimeRootEvaluation.reason,
+      ),
+      check(
+        "operation.directories",
+        "confirmed",
+        "owned_operation_directories_created",
+      ),
+      check("execution.filesystem", isolationCheckStatus, isolation.reason),
+      check(
+        "execution.credential_environment",
+        forwardedCredentialNames.length === 0 ? "confirmed" : "blocked",
+        forwardedCredentialNames.length === 0
+          ? null
+          : "credential_environment_filter_failed",
+      ),
+      check(
+        "execution.credential_isolation",
+        activeIsolation && isolation.status === "confirmed"
+          ? "confirmed"
+          : "not_implemented",
+        activeIsolation && isolation.status === "confirmed"
+          ? "credential_paths_not_mounted_in_fake_probe"
+          : "credential_store_isolation_not_enforced",
+      ),
+      check(
+        "execution.egress",
+        activeIsolation && isolation.status === "confirmed"
+          ? "blocked"
+          : "not_implemented",
+        activeIsolation && isolation.status === "confirmed"
+          ? "provider_endpoint_allowlist_not_configured"
+          : "provider_egress_allowlist_not_enforced",
+      ),
+      ...providerChecks("codex", providers.codex),
+      ...providerChecks("claude", providers.claude),
+    ];
+    const readiness = evaluateReadiness(checks);
+
+    const report = {
+      reportVersion: 2,
+      diagnosticMode: activeIsolation
+        ? "docker_fake_provider_probe"
+        : "passive_preflight",
+      status: readiness.status,
+      platform: process.platform,
+      node: { version: process.version, supported: nodeSupported() },
+      repository,
+      credentials: {
+        detectedNames: credentialNames,
+        forwardedNames: forwardedCredentialNames,
+        valuesRecorded: false,
+        environmentFiltered: forwardedCredentialNames.length === 0,
+        isolationEnforcement:
+          activeIsolation && isolation.status === "confirmed"
+            ? "confirmed_for_fake_probe"
+            : "not_implemented",
+      },
+      filesystem: {
+        policy: reportableFilesystemPolicy(
+          describeFilesystemPolicy(ownedDirectories),
+          owned.root,
+        ),
+        enforcement: isolation.status,
+        profile: activeIsolation ? DOCKER_ISOLATION_PROFILE : null,
+      },
+      runtimeRoot: describeRuntimeRootContract(),
+      runtimeRootPathIdentity: describeRuntimeRootPathIdentityContract(),
+      runtimeActivation: describeRuntimeActivationContract(),
+      rootProtectionPolicy: describeRootProtectionPolicyContract(),
+      runtimeRootEvaluation,
+      runtimeRootProtectionPrecheck,
+      repositoryGitLayout: describeRepositoryGitLayoutContract(),
+      gitLocalExclude: describeGitLocalExcludeContract(),
+      egress: {
+        providerAllowlist: "not_implemented",
+        fakeProbeNetwork:
+          activeIsolation && isolation.status === "confirmed"
+            ? "blocked"
+            : "not_evaluated",
+        isolationProfileContract: describeProviderIsolationContract(),
+        authorityVerifier: describeAuthorityGrantVerifierContract(),
+        authorityTrustLoader: describeAuthorityTrustLoaderContract(),
+        authorityFileBundle: describeAuthorityFileBundleContract(),
+        authorityRoot: describeAuthorityRootContract(),
+        authorityPrelaunchVerifier:
+          describeAuthorityPrelaunchVerifierContract(),
+        proxyTopology: describeEgressProxyTopology(),
+        activation: "blocked",
+        activationReason:
+          "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented",
+      },
+      recovery: retainOperationDirectories
+        ? {
+            required: true,
+            recoveryId: isolation.recoveryId ?? null,
+            reason: isolation.reason,
+            manualRecoveryRequired: isolation.manualRecoveryRequired === true,
+          }
+        : { required: false },
+      providers,
+      checks,
+      blockers: readiness.blockers,
+    };
+    if (!activeIsolation) {
+      try {
+        cleanupOwnedOperationDirectories(owned);
+      } catch {
+        const filesystemCheck = report.checks.find(
+          (item) => item.id === "execution.filesystem",
+        );
+        if (!filesystemCheck)
+          throw new Error("doctor_filesystem_check_missing");
+        filesystemCheck.status = "blocked";
+        filesystemCheck.reason = "host_operation_cleanup_failed";
+        const cleanupReadiness = evaluateReadiness(report.checks);
+        report.status = "blocked";
+        report.blockers = cleanupReadiness.blockers;
+        report.recovery = {
+          required: true,
+          recoveryId: initialHostRecoveryId,
+          reason: "host_operation_cleanup_failed",
+          manualRecoveryRequired: false,
+        };
+      }
+    }
+    return report;
+  } catch (error) {
+    if (!activeIsolation && !retainOperationDirectories) {
+      try {
+        cleanupOwnedOperationDirectories(owned);
+      } catch {
+        /* recovery marker remains external */
+      }
+    }
+    throw error;
+  }
+}
