@@ -72,7 +72,9 @@ const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
 ]);
 
 const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
-  initialEnrollmentChallengeContract: "provisioning_record_contract",
+  initialEnrollmentChallengeObjectContractAndDomainFraming: "provisioning_record_contract",
+  initialEnrollmentRequestObjectContractAndDomainFraming: "provisioning_record_contract",
+  initialEnrollmentCertificateObjectContractAndDomainFraming: "provisioning_record_contract",
   initialEnrollmentRequestProofVerification: "provisioning_record_verification",
   initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
   initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
@@ -337,7 +339,12 @@ export function describeRuntimeActivationContract() {
     platformKeyStorageAdapterVerification: "not_implemented",
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
-    initialEnrollmentChallengeContract: initialEnrollmentPureCore.challengeCodec,
+    initialEnrollmentChallengeObjectContractAndDomainFraming:
+      initialEnrollmentPureCore.challengeObjectContractAndDomainFraming,
+    initialEnrollmentRequestObjectContractAndDomainFraming:
+      initialEnrollmentPureCore.requestObjectContractAndDomainFraming,
+    initialEnrollmentCertificateObjectContractAndDomainFraming:
+      initialEnrollmentPureCore.certificateObjectContractAndDomainFraming,
     initialEnrollmentRequestProofVerification:
       initialEnrollmentPureCore.requestProofOfPossessionVerification,
     initialEnrollmentCertificateSignatureVerification:
@@ -460,7 +467,8 @@ export function describeRuntimeActivationContract() {
     enrollmentCertificateFormatTarget: "custom_jcs_json_target",
     enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
     initialOnlineEnrollmentPureCore: implementation.initialEnrollmentPureCore,
-    enrollmentCertificateDomainSeparation: "required_exact_value_not_implemented",
+    enrollmentCertificateDomainSeparation:
+      "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
       "spki_der_sha256_lowercase_hex_64_target",
     enrollmentCertificateValidityDays: 180,

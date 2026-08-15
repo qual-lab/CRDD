@@ -330,7 +330,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     enrollmentCertificateFormatTarget: "custom_jcs_json_target",
     enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
     initialOnlineEnrollmentPureCore: contract.initialEnrollmentPureCore,
-    enrollmentCertificateDomainSeparation: "required_exact_value_not_implemented",
+    enrollmentCertificateDomainSeparation:
+      "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
       "spki_der_sha256_lowercase_hex_64_target",
     enrollmentCertificateValidityDays: 180,
@@ -409,7 +410,9 @@ test("Activation contractは永続化、専用command、再activation、disable/
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     implementationDependencyRelationships: {
-      initialEnrollmentChallengeContract: "provisioning_record_contract",
+      initialEnrollmentChallengeObjectContractAndDomainFraming: "provisioning_record_contract",
+      initialEnrollmentRequestObjectContractAndDomainFraming: "provisioning_record_contract",
+      initialEnrollmentCertificateObjectContractAndDomainFraming: "provisioning_record_contract",
       initialEnrollmentRequestProofVerification: "provisioning_record_verification",
       initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
       initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
