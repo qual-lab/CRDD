@@ -352,6 +352,24 @@ test("raw envelope decoders reject noncanonical malformed and cross-artifact inp
     canonicalBytes({ ...value.certificateEnvelope, signatures: [] })).status, "blocked");
 });
 
+test("all five raw decoders share the bounded owned canonical JSON input boundary", () => {
+  const decoders = [
+    decodeInitialEnrollmentChallengePayloadCandidate,
+    decodeInitialEnrollmentRequestPayloadCandidate,
+    decodeInitialEnrollmentCertificatePayloadCandidate,
+    decodeInitialEnrollmentRequestEnvelopeCandidate,
+    decodeInitialEnrollmentCertificateEnvelopeCandidate
+  ];
+  for (const decode of decoders) {
+    assert.equal(decode(new Uint8Array()).status, "blocked");
+    assert.equal(decode(Buffer.alloc(131_072)).status, "blocked");
+    assert.match(decode(Buffer.alloc(131_073)).reason, /bytes_exceeded$/u);
+    assert.equal(decode(Buffer.from([0xef, 0xbb, 0xbf, 0x7b, 0x7d])).status, "blocked");
+    assert.equal(decode(Buffer.from([0xc3, 0x28])).status, "blocked");
+    assert.equal(decode(Buffer.alloc(0)).status, "blocked");
+  }
+});
+
 test("contract keeps effects and deferred enrollment capabilities closed", () => {
   assert.deepEqual(describeInitialEnrollmentPureCoreContract(), {
     contract: "crdd-coordinator/initial-enrollment-pure-core",

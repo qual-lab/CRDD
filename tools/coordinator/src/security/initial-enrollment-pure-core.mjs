@@ -132,56 +132,51 @@ function frame(domain, payload) {
   });
 }
 
-function decodeRawPayloadCandidate(raw, normalize, domain, kind, hashField) {
+function decodeCanonicalJsonBytes(raw, normalize, kind, byteKind) {
+  const reasonPrefix = `${kind}_raw_${byteKind}`;
   try {
-    if (!Buffer.isBuffer(raw)) return blocked(`${kind}_raw_payload_bytes_required`);
+    if (!Buffer.isBuffer(raw)) return blocked(`${reasonPrefix}_bytes_required`);
     const length = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, raw, []);
     if (length > PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes) {
-      return blocked(`${kind}_raw_payload_bytes_exceeded`);
+      return blocked(`${reasonPrefix}_bytes_exceeded`);
     }
     const bytes = Buffer.allocUnsafe(length);
     Uint8Array.prototype.set.call(bytes, raw);
     if (length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-      return blocked(`${kind}_raw_payload_invalid`);
+      return blocked(`${reasonPrefix}_invalid`);
     }
     const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     const normalized = normalize(JSON.parse(source));
-    const framed = normalized && frame(domain, normalized.value ?? normalized);
-    if (!framed || !Buffer.prototype.equals.call(bytes, framed.canonicalBytes)) {
-      return blocked(`${kind}_raw_payload_noncanonical_or_invalid`);
+    const canonicalValue = normalized?.value ?? normalized;
+    const canonical = canonicalValue && canonicalizeProvisioningJsonValueCandidate(canonicalValue);
+    if (!canonical || canonical.status !== "candidate" ||
+        !Buffer.prototype.equals.call(bytes, canonical.canonicalBytes)) {
+      return blocked(`${reasonPrefix}_noncanonical_or_invalid`);
     }
-    return candidate(`${kind}_raw_payload_candidate`, { [hashField]: framed.hash });
+    return Object.freeze({ normalized });
   } catch {
-    return blocked(`${kind}_raw_payload_invalid`);
+    return blocked(`${reasonPrefix}_invalid`);
   }
 }
 
+function decodeRawPayloadCandidate(raw, normalize, domain, kind, hashField) {
+  const decoded = decodeCanonicalJsonBytes(raw, normalize, kind, "payload");
+  if (!decoded.normalized) return decoded;
+  const payload = decoded.normalized.value ?? decoded.normalized;
+  const framed = frame(domain, payload);
+  return framed ? candidate(`${kind}_raw_payload_candidate`, { [hashField]: framed.hash })
+    : blocked(`${kind}_raw_payload_noncanonical_or_invalid`);
+}
+
 function decodeRawEnvelopeCandidate(raw, normalize, domain, kind, hashField) {
-  try {
-    if (!Buffer.isBuffer(raw)) return blocked(`${kind}_raw_envelope_bytes_required`);
-    const length = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, raw, []);
-    if (length > PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes) {
-      return blocked(`${kind}_raw_envelope_bytes_exceeded`);
-    }
-    const bytes = Buffer.allocUnsafe(length);
-    Uint8Array.prototype.set.call(bytes, raw);
-    if (length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-      return blocked(`${kind}_raw_envelope_invalid`);
-    }
-    const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    const normalized = normalize(JSON.parse(source));
-    const canonical = normalized && canonicalizeProvisioningJsonValueCandidate(normalized.value);
-    const payloadFrame = normalized && frame(domain, normalized.payload.value);
-    if (!canonical || canonical.status !== "candidate" || !payloadFrame ||
-        !Buffer.prototype.equals.call(bytes, canonical.canonicalBytes)) {
-      return blocked(`${kind}_raw_envelope_noncanonical_or_invalid`);
-    }
-    return candidate(`${kind}_raw_envelope_candidate_cryptographic_verification_required`, {
+  const decoded = decodeCanonicalJsonBytes(raw, normalize, kind, "envelope");
+  if (!decoded.normalized) return decoded;
+  const payloadFrame = frame(domain, decoded.normalized.payload.value);
+  return payloadFrame
+    ? candidate(`${kind}_raw_envelope_candidate_cryptographic_verification_required`, {
       [hashField]: payloadFrame.hash
-    });
-  } catch {
-    return blocked(`${kind}_raw_envelope_invalid`);
-  }
+    })
+    : blocked(`${kind}_raw_envelope_noncanonical_or_invalid`);
 }
 
 function snapshotIssuerSpki(raw) {

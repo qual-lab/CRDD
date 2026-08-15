@@ -518,7 +518,7 @@ export function describeRuntimeActivationContract() {
     ]),
     onlineChallengeValidityMinutes: 30,
     onlineChallengeBinding:
-      "nonce_installation_public_key_platform_scope_and_enrollment_request_binding_target_exact_wire_not_implemented",
+      "nonce_installation_public_key_platform_scope_and_enrollment_request_binding_target_challenge_payload_and_request_envelope_raw_bytes_implemented_candidate_transport_and_effect_not_implemented",
     onlineChallengeConsumption:
       "consumed_on_first_verification_attempt_whether_success_or_failure_and_never_reusable_target",
     onlineChallengeExpiryBehavior:
