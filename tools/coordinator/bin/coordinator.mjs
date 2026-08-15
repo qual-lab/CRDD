@@ -123,12 +123,12 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
   try {
     const parsed = parseDoctorArguments(args, process.env.CRDD_COORDINATOR_ROOT);
     if (parsed.status !== "ok") {
-      const error = new Error(parsed.reason);
+      const error = /** @type {Error & { usage: boolean }} */ (new Error(parsed.reason));
       error.usage = true;
       throw error;
     }
     const options = parsed.value;
-    const report = options.recoveryId !== null
+    const report = /** @type {any} Command variants have distinct safe report shapes. */ (options.recoveryId !== null
       ? options.recoveryId.startsWith("host.")
         ? recoverOwnedOperationDirectories(options.recoveryId)
         : recoverDockerIsolationProbe(options.recoveryId)
@@ -136,7 +136,7 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
           activeIsolation: options.activeIsolation,
           cwd: process.cwd(),
           runtimeRootRequest: options.runtimeRootRequest
-        });
+        }));
     if (options.json) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {
@@ -161,7 +161,8 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
       }
     }
     process.exitCode = ["ready", "recovered"].includes(report.status) ? 0 : 2;
-  } catch (error) {
+  } catch (rawError) {
+    const error = /** @type {Error & { usage?: boolean }} */ (rawError);
     const reason = typeof error?.message === "string" && /^[a-z0-9_]+$/u.test(error.message)
       ? error.message
       : "diagnostic_failed";

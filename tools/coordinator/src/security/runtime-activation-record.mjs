@@ -386,7 +386,6 @@ export function describeRuntimeActivationContract() {
       offlineEnrollmentBundlePureCore.objectContractAndCryptographicVerification,
     offlineEnrollmentBundleImport: "not_implemented",
     platformKeyStorageAdapterVerification: "not_implemented",
-    platformKeyStoragePolicy,
     provisioningCaPureCoreContract: provisioningCaPureCore.rootTrustSetCodec,
     provisioningCaPureCoreVerification:
       provisioningCaPureCore.issuingCertificateVerification,

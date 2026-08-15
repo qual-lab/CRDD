@@ -336,7 +336,9 @@ export function writeRepositoryLocalExclude(layout, entry) {
     } catch (error) { failure = error; }
   }
   if (!renamed && lockSnapshot) safeUnlinkOwned(lockPath, lockSnapshot);
-  const error = new Error("repository_git_exclude_update_blocked");
+  const error = /** @type {Error & { writeIssued: boolean }} */ (
+    new Error("repository_git_exclude_update_blocked")
+  );
   error.writeIssued = renamed;
   throw error;
 }

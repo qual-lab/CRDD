@@ -406,7 +406,8 @@ export function runDoctor(options = {}) {
         report.recovery = {
           required: true,
           recoveryId: initialHostRecoveryId,
-          reason: "host_operation_cleanup_failed"
+          reason: "host_operation_cleanup_failed",
+          manualRecoveryRequired: false
         };
       }
     }

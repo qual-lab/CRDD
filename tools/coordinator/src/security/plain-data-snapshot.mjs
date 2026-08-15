@@ -42,8 +42,9 @@ export function snapshotPlainArray(value, maximumLength) {
     }
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const keys = Reflect.ownKeys(descriptors);
-    if (keys.length !== initialLength.value + 1 || !dataDescriptor(descriptors.length, false) ||
-      descriptors.length.value !== initialLength.value) {
+    const currentLength = /** @type {PropertyDescriptor | undefined} */ (descriptors["length"]);
+    if (keys.length !== initialLength.value + 1 || !dataDescriptor(currentLength, false) ||
+      currentLength.value !== initialLength.value) {
       return Object.freeze({ status: "blocked", reason: "array_shape_invalid", value: null });
     }
     const snapshot = [];

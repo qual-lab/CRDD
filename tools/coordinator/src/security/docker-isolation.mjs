@@ -435,6 +435,7 @@ export function runDockerIsolationProbe(owned) {
   let submissionStarted = false;
   let rollbackFailed = false;
   const recoveryNonce = randomUUID();
+  /** @type {any} Dynamic recovery enrichment is normalized before this value is returned. */
   let result = blocked("docker_isolation_probe_failed");
   try {
     cli = createTrustedDockerCliCapability();

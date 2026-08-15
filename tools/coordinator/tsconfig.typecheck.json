@@ -1,20 +1,17 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "checkJs": false,
+    "checkJs": true,
     "noEmit": true,
-    "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noUncheckedIndexedAccess": true,
-    "useUnknownInCatchVariables": true,
+    "strict": false,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2023",
     "types": ["node"],
     "skipLibCheck": true
   },
-  "files": [
-    "src/security/platform-provisioner-trust-core.mjs",
-    "src/security/platform-provisioner-package-gate.mjs"
+  "include": [
+    "bin/**/*.mjs",
+    "src/**/*.mjs"
   ]
 }

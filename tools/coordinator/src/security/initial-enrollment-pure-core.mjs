@@ -63,7 +63,12 @@ function blocked(reason) {
   });
 }
 
-function candidate(reason, fields = {}) {
+/**
+ * @template {Record<string, unknown>} T
+ * @param {string} reason
+ * @param {T} fields
+ */
+function candidate(reason, fields) {
   return Object.freeze({ status: "candidate", reason, ...fields,
     runtimeAuthorityConferred: false, runtimeCapabilityIssued: false,
     filesystemEffectIssued: false, networkEffectIssued: false });
@@ -163,7 +168,7 @@ function decodeCanonicalJsonBytes(raw, normalize, kind, byteKind) {
 
 function decodeRawPayloadCandidate(raw, normalize, domain, kind, hashField) {
   const decoded = decodeCanonicalJsonBytes(raw, normalize, kind, "payload");
-  if (!decoded.normalized) return decoded;
+  if (!("normalized" in decoded) || !decoded.normalized) return decoded;
   const payload = decoded.normalized.value ?? decoded.normalized;
   const framed = frame(domain, payload);
   return framed ? candidate(`${kind}_raw_payload_candidate`, { [hashField]: framed.hash })
@@ -172,7 +177,7 @@ function decodeRawPayloadCandidate(raw, normalize, domain, kind, hashField) {
 
 function decodeRawEnvelopeCandidate(raw, normalize, domain, kind, hashField) {
   const decoded = decodeCanonicalJsonBytes(raw, normalize, kind, "envelope");
-  if (!decoded.normalized) return decoded;
+  if (!("normalized" in decoded) || !decoded.normalized) return decoded;
   const payloadFrame = frame(domain, decoded.normalized.payload.value);
   return payloadFrame
     ? candidate(`${kind}_raw_envelope_candidate_cryptographic_verification_required`, {

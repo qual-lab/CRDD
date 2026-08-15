@@ -359,7 +359,9 @@ export function verifyProvisioningRecordAggregateCandidate(rawInput) {
       return aggregateBlocked("provisioning_record_aggregate_trust_epoch_mismatch");
     }
     const message = buildProvisioningRecordDomainMessageCandidate(normalizedEnvelope.payload);
-    if (message.status !== "candidate") return aggregateBlocked("provisioning_record_aggregate_payload_invalid");
+    if (message.status !== "candidate" || !("message" in message)) {
+      return aggregateBlocked("provisioning_record_aggregate_payload_invalid");
+    }
     const now = Date.parse(input.evaluationTime);
     if (now < Date.parse(normalizedEnvelope.payload.issuedAt) ||
         now >= Date.parse(normalizedEnvelope.payload.expiresAt)) {

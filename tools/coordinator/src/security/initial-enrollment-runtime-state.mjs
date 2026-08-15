@@ -7,7 +7,14 @@ import {
 
 const MAX_TRACKED_CHALLENGES = 4_096;
 
-function result(status, reason, fields = {}) {
+/**
+ * @template {"candidate" | "blocked"} S
+ * @template {Record<string, unknown>} T
+ * @param {S} status
+ * @param {string} reason
+ * @param {T} fields
+ */
+function result(status, reason, fields) {
   return Object.freeze({
     status,
     reason,
@@ -19,11 +26,13 @@ function result(status, reason, fields = {}) {
   });
 }
 
+/** @param {string} reason @param {Record<string, unknown>} [fields] */
 function blocked(reason, fields = {}) {
   return result("blocked", reason, fields);
 }
 
-function candidate(reason, fields = {}) {
+/** @template {Record<string, unknown>} T @param {string} reason @param {T} fields */
+function candidate(reason, fields) {
   return result("candidate", reason, fields);
 }
 
