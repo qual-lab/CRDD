@@ -11,7 +11,7 @@ import {
   recoverOwnedOperationDirectories,
   verifyOwnedMountCapability
 } from "./execution-environment.mjs";
-import { formatHostRecoveryToken, loadHostRecoveryRecordByToken } from "./host-recovery-record.mjs";
+import { formatHostRecoveryToken, loadHostRecoveryRecordByToken } from "./host-recovery-record.ts";
 
 const PROBE_IMAGE = "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";
 const MAX_OUTPUT_BYTES = 64 * 1024;

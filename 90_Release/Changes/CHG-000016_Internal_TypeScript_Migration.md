@@ -92,3 +92,5 @@ shared plain-data snapshotを含む次の11 moduleを同一配置の`.ts`へ移�
 plain-data snapshotの返却値を許可keyごとの`unknown`として表現し、利用側が文字列、数値、配列要素、署名entryおよび時刻を使用前に実行時検証する境界へ統一した。`noUncheckedIndexedAccess`で検出した配列境界は、要素の存在確認後にだけ比較または署名検証へ渡す。外部入力を型アサーションで信頼せず、`any`、`@ts-nocheck`、抑制commentまたはstrict設定の緩和を導入しない。
 
 Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの既存fail-closed理由、暗号domain、件数／byte budget、Authority／Capability／Effect非発行、12 implementation blocker、6 current-run evidenceおよびGate blockedを変更しない。この単位は二層型検査のPassまで`Self-checked`であり、Biome、Coordinator全test、full checker、Node.js 24.12以上のnative実行および独立review／audit前は`Resolved`ではない。
+
+`host-recovery-record.mjs`を同一配置の`.ts`へ移し、token入力を`unknown`から既存pattern検証後の文字列へ絞り、token生成引数を文字列として固定した。Recovery token、record Hash照合、Filesystem境界および回復処置を変更せず、productionの移行済み数は22 / 38である。

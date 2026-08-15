@@ -32,7 +32,7 @@
     "src/security/egress-proxy-policy.mjs",
     "src/security/execution-environment.mjs",
     "src/security/git-local-exclude.ts",
-    "src/security/host-recovery-record.mjs",
+    "src/security/host-recovery-record.ts",
     "src/security/initial-enrollment-pure-core.mjs",
     "src/security/initial-enrollment-runtime-state.mjs",
     "src/security/offline-enrollment-bundle-pure-core.ts",

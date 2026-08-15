@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { loadHostRecoveryRecordByToken } from "./host-recovery-record.mjs";
+import { loadHostRecoveryRecordByToken } from "./host-recovery-record.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",

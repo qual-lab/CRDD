@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import * as executionEnvironment from "../src/security/execution-environment.mjs";
-import * as hostRecoveryRecord from "../src/security/host-recovery-record.mjs";
+import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
 
 import {
   CHECK_STATUS,
