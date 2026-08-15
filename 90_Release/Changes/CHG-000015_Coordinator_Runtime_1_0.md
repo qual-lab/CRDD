@@ -871,3 +871,9 @@ Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単�
 全実装moduleのJavaScript型検査を維持したまま、strict対象を2から12 moduleへ拡張する。追加対象はAuthorityの起動直前確認、Authority／Runtime Root候補、Host recovery token、初回登録の時計・消費状態、Platform鍵保管方針、activation IDおよびactivation-locator結合である。公開入力は`unknown`として明示し、候補結果、時刻snapshot、Hash台帳および選択結果をJSDocで型付けする。検証済みchallengeから時刻fieldを読む箇所は、検証後の限定castだけを使用する。
 
 この変更は型検査用metadataに限り、Schema、reason、暗号方式、Filesystem／Network Effect、Runtime Authority、Capability、12 blocker、6 evidenceまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第3波
+
+strict対象を12から16 moduleへ拡張し、Repository Git layout候補、登録証明書更新候補、Root保護方針およびProvider隔離profileの入力を`unknown`から検証後に限定する。catchした例外の`code`／`message`参照、再帰canonical JSON、候補結果の追加detailsおよびSPKI owned copy境界をJSDocで表現する。既存のcandidate／blocked reason、Schema、Hash、時刻規則、Authority／Capability／Effect境界は変更しない。
+
+自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。

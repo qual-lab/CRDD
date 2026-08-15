@@ -1,3 +1,5 @@
+// @ts-check
+
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 
 export const ROOT_PROTECTION_POLICY_CONTRACT = "crdd-coordinator/root-protection-policy";
@@ -24,6 +26,12 @@ const FILESYSTEM_CLASSES = new Set(["local", "persistent_volume"]);
 const WRITE_AUTHORITIES = new Set(["runtime_principal_only", "provisioner_principal_only"]);
 const INPUT_TOKEN_LENGTH = 32;
 
+/**
+ * @template T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T | null} [policy]
+ */
 function response(status, reason, policy = null) {
   return Object.freeze({
     status,
@@ -34,6 +42,7 @@ function response(status, reason, policy = null) {
   });
 }
 
+/** @param {unknown} rawObservations */
 function normalizeObservations(rawObservations) {
   const observations = snapshotPlainRecord(rawObservations, OBSERVATION_KEYS);
   if (!observations || [...OBSERVATION_KEYS].filter((key) => key !== "writeAuthority")
@@ -47,6 +56,12 @@ function normalizeObservations(rawObservations) {
   return observations;
 }
 
+/**
+ * @param {string} rootRole
+ * @param {string} platformFamily
+ * @param {string} filesystemClass
+ * @param {string} requiredWriteAuthority
+ */
 function policySummary(rootRole, platformFamily, filesystemClass, requiredWriteAuthority) {
   return Object.freeze({
     rootRole,
@@ -59,6 +74,7 @@ function policySummary(rootRole, platformFamily, filesystemClass, requiredWriteA
   });
 }
 
+/** @param {unknown} rawInput */
 export function evaluateRootProtectionPolicyCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);

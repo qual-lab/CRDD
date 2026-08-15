@@ -1,3 +1,5 @@
+// @ts-check
+
 import { canonicalizeProvisioningJsonValueCandidate, PROVISIONING_SIGNATURE_INPUT_LIMITS } from
   "./provisioning-signature-primitives.mjs";
 import { verifyInitialEnrollmentCertificateCandidate } from
@@ -8,13 +10,19 @@ const INPUT_KEYS = new Set([
   "previousCertificateEnvelope", "previousIssuerSpkiDer", "nextCertificateEnvelope",
   "nextIssuerSpkiDer", "evaluationTime"
 ]);
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype), "byteLength"
-).get;
+)?.get);
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const DAY = 86_400_000;
 
-function response(status, reason, details = {}) {
+/**
+ * @template {Record<string, unknown>} T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T} [details]
+ */
+function response(status, reason, details = /** @type {T} */ ({})) {
   return Object.freeze({
     status, reason, ...details,
     runtimeClockAuthorityConfirmed: false,
@@ -28,11 +36,13 @@ function response(status, reason, details = {}) {
   });
 }
 
+/** @param {unknown} value @returns {value is string} */
 function utc(value) {
   return typeof value === "string" && UTC.test(value) && Number.isFinite(Date.parse(value)) &&
     new Date(Date.parse(value)).toISOString() === value;
 }
 
+/** @param {unknown} raw */
 function ownedSpki(raw) {
   try {
     if (!Buffer.isBuffer(raw)) return null;
@@ -44,12 +54,14 @@ function ownedSpki(raw) {
   } catch { return null; }
 }
 
+/** @param {unknown} previous @param {unknown} next */
 function ownedEnvelopes(previous, next) {
   const canonical = canonicalizeProvisioningJsonValueCandidate({ previous, next });
   if (canonical.status !== "candidate") return null;
   try { return JSON.parse(canonical.canonicalBytes.toString("utf8")); } catch { return null; }
 }
 
+/** @param {unknown} rawInput */
 export function verifyEnrollmentCertificateRenewalCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);

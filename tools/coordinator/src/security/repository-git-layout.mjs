@@ -1,3 +1,5 @@
+// @ts-check
+
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
@@ -12,17 +14,25 @@ export const REPOSITORY_GIT_LAYOUT_CONTRACT_REVISION = 1;
 const INPUT_KEYS = new Set(["repositoryRoot"]);
 const MAX_PATH_CHARACTERS = 4096;
 
+/**
+ * @template T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T | null} [layout]
+ */
 function response(status, reason, layout = null) {
   return Object.freeze({ status, reason, layout, pathsRecorded: false,
     gitMetadataWriteIssued: false, runtimeCapabilityIssued: false });
 }
 
+/** @param {unknown} value @returns {value is string} */
 function validAbsolutePath(value) {
   return typeof value === "string" && value.length > 0 &&
     value.length <= MAX_PATH_CHARACTERS && path.isAbsolute(value) &&
     !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
+/** @param {unknown} rawInput */
 export function inspectRepositoryGitLayoutCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
@@ -33,10 +43,12 @@ export function inspectRepositoryGitLayoutCandidate(rawInput) {
     return response("candidate", "repository_git_layout_resolved_candidate",
       summarizeRepositoryGitLayout(layout));
   } catch (error) {
-    if (error?.code === "ENOENT") return response("blocked", "repository_worktree_required");
+    const code = error && typeof error === "object" && "code" in error ? error.code : null;
+    const message = error instanceof Error ? error.message : "";
+    if (code === "ENOENT") return response("blocked", "repository_worktree_required");
     if (["repository_git_marker_link_rejected", "repository_git_file_invalid",
-      "repository_git_marker_invalid", "repository_git_config_unsupported"].includes(error?.message)) {
-      return response("blocked", error.message);
+      "repository_git_marker_invalid", "repository_git_config_unsupported"].includes(message)) {
+      return response("blocked", message);
     }
     return response("blocked", "repository_git_layout_invalid");
   }

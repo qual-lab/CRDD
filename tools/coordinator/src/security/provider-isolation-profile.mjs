@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 import { snapshotPlainArray, snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 
@@ -25,15 +27,18 @@ const TOP_LEVEL_KEYS = new Set([
   "egress"
 ]);
 
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({ status: "blocked", reason, profile: null, profileHash: null });
 }
 
+/** @param {unknown} value @param {RegExp} pattern */
 function matches(value, pattern) {
   return typeof value === "string" &&
     value.length <= PROVIDER_INPUT_LIMITS.identifierLength && pattern.test(value);
 }
 
+/** @param {unknown} value */
 function normalizeOrigin(value) {
   if (typeof value !== "string" || value.includes("*")) return null;
   let parsed;
@@ -62,14 +67,17 @@ function normalizeOrigin(value) {
   return `https://${hostname}`;
 }
 
+/** @param {unknown} value @returns {string} */
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
 }
 
+/** @param {unknown} candidate */
 function validateProviderIsolationProfileInternal(candidate) {
   const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
   if (!top) return blocked("profile_shape_invalid");
@@ -139,6 +147,7 @@ function validateProviderIsolationProfileInternal(candidate) {
   return Object.freeze({ status: "candidate", reason: "authority_verification_required", profile, profileHash });
 }
 
+/** @param {unknown} candidate */
 export function validateProviderIsolationProfile(candidate) {
   try {
     return validateProviderIsolationProfileInternal(candidate);
