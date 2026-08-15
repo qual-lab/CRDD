@@ -11,16 +11,97 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+type Finding = Readonly<{
+  severity: string;
+  code: string;
+  path: string;
+  message: string;
+}>;
+
+type BaselineSubmoduleState = Readonly<{
+  declared: boolean | null;
+  gitlink_indexed: boolean | null;
+  gitlink_conflicted: boolean | null;
+  gitlink_oid: string | null;
+  worktree_present: boolean | null;
+  gitdir_accessible: boolean | null;
+  head_readable: boolean | null;
+  head_oid: string | null;
+  head_matches_gitlink: boolean | null;
+}>;
+
+type Discovery = Readonly<{
+  files: string[];
+  source: string;
+  git_failure: string | null;
+  gitlink_detection: string;
+  gitlinks: string[];
+  baseline_submodule: boolean;
+  baseline_submodule_initialized: boolean | null;
+  baseline_submodule_state: BaselineSubmoduleState;
+  exclusions: string[];
+  unchecked: string[];
+}>;
+
+type GitlinkEntry = Readonly<{ path: string; oid: string }>;
+type MarkdownEntry = {
+  index: number;
+  text: string;
+  outside: boolean;
+  fenceId: number | null;
+};
+type MarkdownFence = {
+  id: number;
+  marker: string;
+  length: number;
+  language: string;
+  start: number;
+  end: number | null;
+  closed: boolean;
+  contents: MarkdownEntry[];
+};
+type ReleaseSection = Readonly<{
+  start: number;
+  end: number;
+  entries: MarkdownEntry[];
+}>;
+type LocalLinkResolution = Readonly<{
+  external: false;
+  target: string;
+  anchor: string;
+  targetText: string;
+  decodeError: boolean;
+  outsideRoot: boolean;
+  symbolicBoundary: boolean;
+}>;
+type LinkResolution =
+  | LocalLinkResolution
+  | Readonly<{
+      external: true;
+      target: null;
+      anchor: string;
+      targetText: string;
+      decodeError: boolean;
+      outsideRoot: false;
+    }>;
+type LinkRecord = LinkResolution & Readonly<{ source: string; raw: string }>;
+
+function errorCode(error: unknown): string | null {
+  if (error === null || typeof error !== "object") return null;
+  const code = Reflect.get(error, "code");
+  return typeof code === "string" ? code : null;
+}
+
 const startedAt = new Date();
 const startedAtMs = Date.now();
 const args = process.argv.slice(2);
 let jsonOutput = false;
 let summaryOutput = false;
 let rootValue = process.cwd();
-const scopeValues = [];
-let referencesValue = null;
+const scopeValues: string[] = [];
+let referencesValue: string | null = null;
 
-function cliError(message) {
+function cliError(message: string): never {
   console.error(message);
   process.exit(2);
 }
@@ -59,17 +140,16 @@ if (!rootStat.isDirectory()) {
   cliError(`--root is not a directory: ${root}`);
 }
 
-function lstatIfPresent(target) {
+function lstatIfPresent(target: string): fs.Stats | null {
   try {
     return fs.lstatSync(target);
-  }
-  catch (error) {
-    if (error?.code === "ENOENT") return null;
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return null;
     throw error;
   }
 }
 
-function pathContainsSymbolicLink(target) {
+function pathContainsSymbolicLink(target: string): boolean {
   if (!isWithin(root, target)) return false;
   const relation = path.relative(root, target);
   if (!relation) return false;
@@ -83,11 +163,11 @@ function pathContainsSymbolicLink(target) {
   return false;
 }
 
-function samePath(left, right) {
+function samePath(left: string, right: string): boolean {
   return path.relative(path.resolve(left), path.resolve(right)) === "";
 }
 
-function isInitializedBaselineWithoutGit(baselineRoot) {
+function isInitializedBaselineWithoutGit(baselineRoot: string): boolean {
   const gitMarker = path.join(baselineRoot, ".git");
   if (pathContainsSymbolicLink(gitMarker)) return false;
   const markerStat = lstatIfPresent(gitMarker);
@@ -103,7 +183,7 @@ function isInitializedBaselineWithoutGit(baselineRoot) {
   return lstatIfPresent(gitDirectory)?.isDirectory() === true;
 }
 
-function decodeGitConfigValue(value) {
+function decodeGitConfigValue(value: string): string | null {
   const trimmed = value.trim();
   let result = "";
   let quoted = false;
@@ -112,7 +192,7 @@ function decodeGitConfigValue(value) {
     if (character === "\\") {
       const escaped = trimmed[index + 1];
       if (escaped === undefined) return null;
-      const replacements = {
+      const replacements: Record<string, string> = {
         b: "\b",
         n: "\n",
         t: "\t",
@@ -137,23 +217,21 @@ function decodeGitConfigValue(value) {
   return result.trim();
 }
 
-function fallbackDeclaredSubmodulePaths(file) {
+function fallbackDeclaredSubmodulePaths(file: string): Readonly<{
+  paths: string[];
+  readable: boolean;
+}> {
   const stat = lstatIfPresent(file);
-  if (
-    !stat ||
-    stat.isFile() !== true ||
-    pathContainsSymbolicLink(file)
-  ) {
+  if (stat?.isFile() !== true || pathContainsSymbolicLink(file)) {
     return {
       paths: [],
       readable: !stat,
     };
   }
-  let content;
+  let content: string;
   try {
     content = fs.readFileSync(file, "utf8");
-  }
-  catch {
+  } catch {
     return {
       paths: [],
       readable: false,
@@ -185,24 +263,22 @@ const gitmodules = path.join(root, ".gitmodules");
 const fallbackGitmodules = fallbackDeclaredSubmodulePaths(gitmodules);
 const gitmodulesStat = lstatIfPresent(gitmodules);
 const gitmodulesReadableFile =
-  gitmodulesStat?.isFile() === true &&
-  !pathContainsSymbolicLink(gitmodules);
-const gitmodulesResult =
-  gitmodulesReadableFile
-    ? spawnSync(
-        "git",
-        [
-          "config",
-          "-z",
-          "--file",
-          gitmodules,
-          "--get-regexp",
-          "^submodule\\..*\\.path$",
-        ],
-        { encoding: "utf8" },
-      )
-    : null;
-let gitConfiguredSubmodules = [];
+  gitmodulesStat?.isFile() === true && !pathContainsSymbolicLink(gitmodules);
+const gitmodulesResult = gitmodulesReadableFile
+  ? spawnSync(
+      "git",
+      [
+        "config",
+        "-z",
+        "--file",
+        gitmodules,
+        "--get-regexp",
+        "^submodule\\..*\\.path$",
+      ],
+      { encoding: "utf8" },
+    )
+  : null;
+let gitConfiguredSubmodules: string[] = [];
 let gitConfigOutputValid = gitmodulesResult?.status === 0;
 if (gitmodulesResult?.status === 0) {
   for (const entry of gitmodulesResult.stdout.split("\0").filter(Boolean)) {
@@ -237,27 +313,26 @@ const baselineEntryIsDirectory =
   baselineEntryStat?.isDirectory() === true &&
   baselineEntryStat.isSymbolicLink() === false;
 const baselineDeclarationCandidate =
-  declaresBaselineSubmodule ||
-  (!gitmodulesParsed && baselineEntryExists);
+  declaresBaselineSubmodule || (!gitmodulesParsed && baselineEntryExists);
 const officialTemplateRoot = path.join(root, "template");
 const hasOfficialRepositorySignals =
   Boolean(lstatIfPresent(officialTemplateRoot)) &&
   Boolean(lstatIfPresent(path.join(root, "01_Principles.md")));
 let repositoryMode =
   baselineEntryExists || baselineDeclarationCandidate
-  ? "adopter"
-  : hasOfficialRepositorySignals
-    ? "official"
-    : "generic";
+    ? "adopter"
+    : hasOfficialRepositorySignals
+      ? "official"
+      : "generic";
 let adoptedBaselineRoot =
   repositoryMode === "adopter" ? baselineCandidateRoot : null;
 
-/** @type {{severity:string, code:string, path:string, message:string}[]} */
-const findings = [];
-const add = (severity, code, file, message) =>
+const findings: Finding[] = [];
+const add = (severity: string, code: string, file: string, message: string) =>
   findings.push({ severity, code, path: file, message });
-const relative = (file) => path.relative(root, file).replaceAll("\\", "/") || ".";
-const read = (file) => fs.readFileSync(file, "utf8");
+const relative = (file: string) =>
+  path.relative(root, file).replaceAll("\\", "/") || ".";
+const read = (file: string) => fs.readFileSync(file, "utf8");
 
 let releaseRoots = [
   path.join(root, "90_Release"),
@@ -272,7 +347,7 @@ let recognizedChangeTracePatterns = [
     : []),
 ];
 
-function changeTraceRootFor(file) {
+function changeTraceRootFor(file: string): string | null {
   for (const releaseRoot of releaseRoots) {
     if (!isWithin(releaseRoot, file)) continue;
     const parts = path.relative(releaseRoot, file).split(path.sep);
@@ -281,65 +356,65 @@ function changeTraceRootFor(file) {
       (part) => part.toLocaleLowerCase("en-US") === "changes",
     );
     if (changesIndex < 0) continue;
-    return path.join(
-      releaseRoot,
-      ...directories.slice(0, changesIndex + 1),
-    );
+    return path.join(releaseRoot, ...directories.slice(0, changesIndex + 1));
   }
   return null;
 }
 
-function isEvidenceFile(file) {
-  return path.relative(root, file)
+function isEvidenceFile(file: string): boolean {
+  return path
+    .relative(root, file)
     .split(path.sep)
     .slice(0, -1)
     .some((part) => part.toLocaleLowerCase("en-US") === "evidence");
 }
 
-function declaredChangeTraceId(file) {
+function declaredChangeTraceId(file: string): string | null {
   const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
-  return header.match(
-    /^(?:Change ID|変更ID|change_id)\s*[:：]\s*`?(CHG-[A-Za-z0-9-]+)/imu,
-  )?.[1] || null;
+  return (
+    header.match(
+      /^(?:Change ID|変更ID|change_id)\s*[:：]\s*`?(CHG-[A-Za-z0-9-]+)/imu,
+    )?.[1] || null
+  );
 }
 
-function hasChangeTraceDefinitionSignature(file) {
+function hasChangeTraceDefinitionSignature(file: string): boolean {
   const header = read(file).split(/\r?\n/u).slice(0, 40).join("\n");
   const hasStandardHeading =
-    /^#\s*(?:Change Trace(?=$|[:：(（])|変更トレース(?=$|[:：(（]))/imu
-      .test(header);
+    /^#\s*(?:Change Trace(?=$|[:：(（])|変更トレース(?=$|[:：(（]))/imu.test(
+      header,
+    );
   return Boolean(declaredChangeTraceId(file) && hasStandardHeading);
 }
 
 function walk(
-  directory,
-  predicate,
-  excludedDirectories = new Set(),
-  excluded = [],
-  excludedLinks = [],
-  unavailableDirectories = new Set(),
-  excludedPaths = new Set(),
-) {
-  function fail(code, message) {
+  directory: string,
+  predicate: (file: string) => boolean,
+  excludedDirectories: ReadonlySet<string> = new Set<string>(),
+  excluded: string[] = [],
+  excludedLinks: string[] = [],
+  unavailableDirectories: Set<string> = new Set<string>(),
+  excludedPaths: ReadonlySet<string> = new Set<string>(),
+): string[] {
+  function fail(code: string, message: string): null {
     const target = relative(directory);
     add("error", code, target, message);
     unavailableDirectories.add(`${target}: ${message}`);
     return null;
   }
 
-  function inspectDirectory() {
-    let stat;
+  function inspectDirectory(): fs.Stats | null {
+    let stat: fs.Stats;
     try {
       stat = fs.lstatSync(directory);
-    }
-    catch (error) {
-      if (error?.code === "ENOENT") {
+    } catch (error) {
+      if (errorCode(error) === "ENOENT") {
         return fail(
           "discovery-directory-missing",
           "The directory disappeared during fallback discovery.",
         );
       }
-      if (error?.code === "ENOTDIR") {
+      if (errorCode(error) === "ENOTDIR") {
         return fail(
           "discovery-directory-invalid",
           "The fallback discovery target is no longer a directory.",
@@ -347,7 +422,7 @@ function walk(
       }
       return fail(
         "discovery-directory-metadata-failed",
-        `Could not inspect the directory during fallback discovery: ${error?.code || "unknown error"}.`,
+        `Could not inspect the directory during fallback discovery: ${errorCode(error) || "unknown error"}.`,
       );
     }
     if (stat.isSymbolicLink()) {
@@ -367,27 +442,24 @@ function walk(
 
   const before = inspectDirectory();
   if (!before) return [];
-  let entries;
+  let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(directory, { withFileTypes: true });
-  }
-  catch (error) {
-    if (error?.code === "ENOENT") {
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") {
       fail(
         "discovery-directory-missing",
         "The directory disappeared while fallback discovery was reading it.",
       );
-    }
-    else if (error?.code === "ENOTDIR") {
+    } else if (errorCode(error) === "ENOTDIR") {
       fail(
         "discovery-directory-invalid",
         "The fallback discovery target was replaced by a non-directory.",
       );
-    }
-    else {
+    } else {
       fail(
         "discovery-directory-list-failed",
-        `Could not read the directory during fallback discovery: ${error?.code || "unknown error"}.`,
+        `Could not read the directory during fallback discovery: ${errorCode(error) || "unknown error"}.`,
       );
     }
     return [];
@@ -401,17 +473,14 @@ function walk(
     );
     return [];
   }
-  const result = [];
+  const result: string[] = [];
   for (const entry of entries) {
     const current = path.join(directory, entry.name);
     if (entry.isSymbolicLink()) {
       excludedLinks.push(relative(current));
       continue;
     }
-    if (
-      entry.isDirectory() &&
-      excludedPaths.has(path.resolve(current))
-    ) {
+    if (entry.isDirectory() && excludedPaths.has(path.resolve(current))) {
       excluded.push(relative(current));
       continue;
     }
@@ -431,29 +500,26 @@ function walk(
           excludedPaths,
         ),
       );
-    }
-    else if (predicate(current)) result.push(current);
+    } else if (predicate(current)) result.push(current);
   }
   return result.sort();
 }
 
-function discoverProjectFiles() {
+function discoverProjectFiles(): Discovery {
   const gitRootResult = spawnSync(
     "git",
     ["-C", root, "rev-parse", "--show-toplevel"],
     { encoding: "utf8" },
   );
-  let gitFailure;
-  if (gitRootResult.error?.code === "ENOENT") {
+  let gitFailure: string | null = null;
+  if (errorCode(gitRootResult.error) === "ENOENT") {
     gitFailure = "not-installed";
-  }
-  else if (
+  } else if (
     gitRootResult.status !== 0 &&
     /not a git repository/iu.test(gitRootResult.stderr || "")
   ) {
     gitFailure = "not-repository";
-  }
-  else if (gitRootResult.status !== 0) {
+  } else if (gitRootResult.status !== 0) {
     gitFailure = "repository-check-failed";
   }
   if (gitRootResult.status === 0) {
@@ -477,38 +543,28 @@ function discoverProjectFiles() {
     if (list.status === 0) {
       const staged = spawnSync(
         "git",
-        [
-          "-C",
-          gitRoot,
-          "ls-files",
-          "--stage",
-          "-z",
-          "--",
-          relativeRoot,
-        ],
+        ["-C", gitRoot, "ls-files", "--stage", "-z", "--", relativeRoot],
         { encoding: "utf8" },
       );
       let stagedOutputValid = staged.status === 0;
-      const parsedGitlinkEntries = [];
-      const conflictedGitlinkRoots = new Set();
+      const parsedGitlinkEntries: GitlinkEntry[] = [];
+      const conflictedGitlinkRoots = new Set<string>();
       if (staged.status === 0) {
         for (const entry of staged.stdout.split("\0").filter(Boolean)) {
           const separator = entry.indexOf("\t");
-          const metadata = separator < 0
-            ? null
-            : entry
-              .slice(0, separator)
-              .match(/^(\d{6}) ([0-9a-f]{40,64}) ([0-3])$/iu);
+          const metadata =
+            separator < 0
+              ? null
+              : entry
+                  .slice(0, separator)
+                  .match(/^(\d{6}) ([0-9a-f]{40,64}) ([0-3])$/iu);
           if (!metadata) {
             stagedOutputValid = false;
             break;
           }
           const [, mode, oid, stageNumber] = metadata;
           if (mode !== "160000") continue;
-          const target = path.resolve(
-            gitRoot,
-            entry.slice(separator + 1),
-          );
+          const target = path.resolve(gitRoot, entry.slice(separator + 1));
           if (!isWithin(root, target)) continue;
           if (stageNumber !== "0") {
             conflictedGitlinkRoots.add(target);
@@ -521,9 +577,7 @@ function discoverProjectFiles() {
         }
       }
       const gitlinkEntries = stagedOutputValid
-        ? parsedGitlinkEntries.sort((a, b) =>
-            a.path.localeCompare(b.path),
-          )
+        ? parsedGitlinkEntries.sort((a, b) => a.path.localeCompare(b.path))
         : [];
       const conflictedGitlinks = stagedOutputValid
         ? [...conflictedGitlinkRoots].sort()
@@ -531,21 +585,22 @@ function discoverProjectFiles() {
       const declaredGitlinkCandidates = declaredSubmodules
         .map((item) => path.resolve(root, item))
         .filter((item) => isWithin(root, item));
-      const gitlinks = [...new Set(
-        stagedOutputValid
-          ? [
-              ...gitlinkEntries.map((entry) => entry.path),
-              ...conflictedGitlinks,
-            ]
-          : declaredGitlinkCandidates,
-      )].sort();
-      const baselineGitlink = gitlinkEntries.find(
-        (entry) =>
+      const gitlinks = [
+        ...new Set(
+          stagedOutputValid
+            ? [
+                ...gitlinkEntries.map((entry) => entry.path),
+                ...conflictedGitlinks,
+              ]
+            : declaredGitlinkCandidates,
+        ),
+      ].sort();
+      const baselineGitlink =
+        gitlinkEntries.find((entry) =>
           samePath(entry.path, baselineCandidateRoot),
-      ) ?? null;
-      const baselineGitlinkConflicted = conflictedGitlinks.some(
-        (entry) =>
-          samePath(entry, baselineCandidateRoot),
+        ) ?? null;
+      const baselineGitlinkConflicted = conflictedGitlinks.some((entry) =>
+        samePath(entry, baselineCandidateRoot),
       );
       const baselineGitlinkIndexed =
         stagedOutputValid && !baselineGitlinkConflicted
@@ -559,13 +614,14 @@ function discoverProjectFiles() {
         ? baselineEntryIsDirectory &&
           !pathContainsSymbolicLink(baselineCandidateRoot)
         : null;
-      const baselineTopLevel = baselineWorktreePresent === true
-        ? spawnSync(
-            "git",
-            ["-C", baselineCandidateRoot, "rev-parse", "--show-toplevel"],
-            { encoding: "utf8" },
-          )
-        : null;
+      const baselineTopLevel =
+        baselineWorktreePresent === true
+          ? spawnSync(
+              "git",
+              ["-C", baselineCandidateRoot, "rev-parse", "--show-toplevel"],
+              { encoding: "utf8" },
+            )
+          : null;
       const baselineOwnRepository =
         baselineTopLevel?.status === 0 &&
         samePath(baselineTopLevel.stdout.trim(), baselineCandidateRoot);
@@ -592,16 +648,14 @@ function discoverProjectFiles() {
       const baselineHeadOid = baselineHeadReadable
         ? baselineHead.stdout.trim().toLowerCase()
         : null;
-      const baselineGitlinkOid =
-        baselineGitlink?.oid?.toLowerCase() ?? null;
+      const baselineGitlinkOid = baselineGitlink?.oid?.toLowerCase() ?? null;
       const baselineHeadMatchesGitlink =
         baselineHeadReadable && baselineGitlinkOid
           ? baselineHeadOid === baselineGitlinkOid
           : null;
       const baselineSubmoduleInitialized = !baselineSubmodule
         ? null
-        : baselineGitlinkIndexed === true &&
-            baselineWorktreePresent === false
+        : baselineGitlinkIndexed === true && baselineWorktreePresent === false
           ? false
           : baselineGitdirAccessible && baselineHeadReadable
             ? true
@@ -614,20 +668,22 @@ function discoverProjectFiles() {
           : null,
         gitlink_oid: baselineSubmodule ? baselineGitlinkOid : null,
         worktree_present: baselineWorktreePresent,
-        gitdir_accessible: baselineWorktreePresent === true
-          ? baselineGitdirAccessible
-          : baselineWorktreePresent === false
-            ? false
-            : null,
-        head_readable: baselineWorktreePresent === true
-          ? baselineHeadReadable
-          : baselineWorktreePresent === false
-            ? false
-            : null,
+        gitdir_accessible:
+          baselineWorktreePresent === true
+            ? baselineGitdirAccessible
+            : baselineWorktreePresent === false
+              ? false
+              : null,
+        head_readable:
+          baselineWorktreePresent === true
+            ? baselineHeadReadable
+            : baselineWorktreePresent === false
+              ? false
+              : null,
         head_oid: baselineHeadOid,
         head_matches_gitlink: baselineHeadMatchesGitlink,
       };
-      const skippedSymbolicLinks = [];
+      const skippedSymbolicLinks: string[] = [];
       const files = list.stdout
         .split("\0")
         .filter(Boolean)
@@ -645,12 +701,11 @@ function discoverProjectFiles() {
         files,
         source: "git",
         git_failure: null,
-        gitlink_detection:
-          stagedOutputValid
-            ? conflictedGitlinks.length > 0
-              ? "git-index-conflicted"
-              : "git-index"
-            : "unavailable",
+        gitlink_detection: stagedOutputValid
+          ? conflictedGitlinks.length > 0
+            ? "git-index-conflicted"
+            : "git-index"
+          : "unavailable",
         gitlinks,
         baseline_submodule: baselineSubmodule,
         baseline_submodule_initialized: baselineSubmoduleInitialized,
@@ -663,15 +718,13 @@ function discoverProjectFiles() {
           ...(baselineSubmodule
             ? ["Adopted CRDD baseline submodule contents"]
             : []),
-          ...(gitlinks.length > 0
-            ? ["Gitlink submodule contents"]
-            : []),
+          ...(gitlinks.length > 0 ? ["Gitlink submodule contents"] : []),
         ],
         unchecked: [
           "Git-ignored files",
           ...(staged.status === 0
-            ? gitlinks.map((item) =>
-                `Gitlink submodule boundary: ${relative(item)}`,
+            ? gitlinks.map(
+                (item) => `Gitlink submodule boundary: ${relative(item)}`,
               )
             : ["Gitlink detection unavailable: Git index modes were not read"]),
           ...(baselineSubmodule
@@ -688,7 +741,7 @@ function discoverProjectFiles() {
     gitFailure = "list-failed";
   }
 
-  const excludedNames = new Set([
+  const excludedNames = new Set<string>([
     ".git",
     ".cache",
     ".next",
@@ -707,10 +760,10 @@ function discoverProjectFiles() {
   const fallbackGitlinks = declaredSubmodules
     .map((item) => path.resolve(root, item))
     .filter((item) => isWithin(root, item));
-  const fallbackGitlinkPaths = new Set(fallbackGitlinks);
-  const excluded = [];
-  const excludedLinks = [];
-  const unavailableDirectories = new Set();
+  const fallbackGitlinkPaths = new Set<string>(fallbackGitlinks);
+  const excluded: string[] = [];
+  const excludedLinks: string[] = [];
+  const unavailableDirectories = new Set<string>();
   const fallbackBaselineInitialized =
     baselineDeclarationCandidate &&
     baselineEntryIsDirectory &&
@@ -751,42 +804,40 @@ function discoverProjectFiles() {
     baseline_submodule_state: fallbackBaselineState,
     exclusions: [
       ...[...excludedNames].sort(),
-      ...(excludedLinks.length > 0
-        ? ["Symbolic links and junctions"]
-        : []),
+      ...(excludedLinks.length > 0 ? ["Symbolic links and junctions"] : []),
     ],
     unchecked:
       excluded.length > 0 ||
       excludedLinks.length > 0 ||
       unavailableDirectories.size > 0
-      ? [
-          "Gitlink detection unavailable: Git index modes were not read",
-          ...excluded.map((item) => `Fallback excluded: ${item}`),
-          ...excludedLinks.map((item) => `Symbolic link excluded: ${item}`),
-          ...[...unavailableDirectories].map(
-            (item) => `Fallback discovery unavailable: ${item}`,
-          ),
-        ]
-      : [
-          "Git file selection unavailable; fallback directory exclusions applied.",
-          "Gitlink detection unavailable: Git index modes were not read",
-        ],
+        ? [
+            "Gitlink detection unavailable: Git index modes were not read",
+            ...excluded.map((item) => `Fallback excluded: ${item}`),
+            ...excludedLinks.map((item) => `Symbolic link excluded: ${item}`),
+            ...[...unavailableDirectories].map(
+              (item) => `Fallback discovery unavailable: ${item}`,
+            ),
+          ]
+        : [
+            "Git file selection unavailable; fallback directory exclusions applied.",
+            "Gitlink detection unavailable: Git index modes were not read",
+          ],
   };
 }
 
-function markdownCodePointBefore(value, index) {
+function markdownCodePointBefore(value: string, index: number): string {
   return Array.from(value.slice(0, index)).at(-1) ?? "";
 }
 
-function markdownCodePointAfter(value, index) {
+function markdownCodePointAfter(value: string, index: number): string {
   return Array.from(value.slice(index)).at(0) ?? "";
 }
 
-function markdownWhitespace(value) {
+function markdownWhitespace(value: string): boolean {
   return value === "" || /[\t\n\f\r\p{Zs}]/u.test(value);
 }
 
-function markdownPunctuation(value) {
+function markdownPunctuation(value: string): boolean {
   return (
     value !== "" &&
     (/\p{P}/u.test(value) ||
@@ -794,7 +845,7 @@ function markdownPunctuation(value) {
   );
 }
 
-function underscoreFlanking(value, index, length) {
+function underscoreFlanking(value: string, index: number, length: number) {
   const previous = markdownCodePointBefore(value, index);
   const next = markdownCodePointAfter(value, index + length);
   const previousWhitespace = markdownWhitespace(previous);
@@ -813,35 +864,44 @@ function underscoreFlanking(value, index, length) {
   };
 }
 
-function underscoreCanOpen(value, index, length) {
+function underscoreCanOpen(
+  value: string,
+  index: number,
+  length: number,
+): boolean {
   const flanking = underscoreFlanking(value, index, length);
-  return (
-    flanking.left &&
-    (!flanking.right || flanking.previousPunctuation)
-  );
+  return flanking.left && (!flanking.right || flanking.previousPunctuation);
 }
 
-function underscoreCanClose(value, index, length) {
+function underscoreCanClose(
+  value: string,
+  index: number,
+  length: number,
+): boolean {
   const flanking = underscoreFlanking(value, index, length);
-  return (
-    flanking.right &&
-    (!flanking.left || flanking.nextPunctuation)
-  );
+  return flanking.right && (!flanking.left || flanking.nextPunctuation);
 }
 
-function delimiterRunLength(value, start, character) {
+function delimiterRunLength(
+  value: string,
+  start: number,
+  character: string,
+): number {
   let end = start;
   while (value[end] === character) end += 1;
   return end - start;
 }
 
-function closingDelimiter(value, delimiter, start) {
+function closingDelimiter(
+  value: string,
+  delimiter: string,
+  start: number,
+): number {
   const underscore = delimiter.startsWith("_");
   let index = value.indexOf(delimiter, start);
   while (index >= 0) {
     const exactRun =
-      !underscore ||
-      delimiterRunLength(value, index, "_") === delimiter.length;
+      !underscore || delimiterRunLength(value, index, "_") === delimiter.length;
     if (
       exactRun &&
       (!underscore || underscoreCanClose(value, index, delimiter.length))
@@ -853,13 +913,17 @@ function closingDelimiter(value, delimiter, start) {
   return -1;
 }
 
-function backtickRunLength(value, start) {
+function backtickRunLength(value: string, start: number): number {
   let end = start;
   while (value[end] === "`") end += 1;
   return end - start;
 }
 
-function closingBackticks(value, start, length) {
+function closingBackticks(
+  value: string,
+  start: number,
+  length: number,
+): number {
   let index = start;
   while (index < value.length) {
     if (value[index] !== "`") {
@@ -873,7 +937,7 @@ function closingBackticks(value, start, length) {
   return -1;
 }
 
-function normalizedCodeSpan(value) {
+function normalizedCodeSpan(value: string): string {
   const normalized = value.replace(/[ \t\r\n]+/gu, " ");
   if (/^ \S(?:.*\S)? $/u.test(normalized)) {
     return normalized.slice(1, -1);
@@ -881,7 +945,7 @@ function normalizedCodeSpan(value) {
   return normalized;
 }
 
-function githubHeadingText(value) {
+function githubHeadingText(value: string): string {
   let result = "";
   let index = 0;
   while (index < value.length) {
@@ -918,7 +982,8 @@ function githubHeadingText(value) {
       if (labelEnd >= 0) {
         const targetStart = labelEnd + 1;
         const targetOpen = value[targetStart];
-        const targetClose = targetOpen === "(" ? ")" : targetOpen === "[" ? "]" : "";
+        const targetClose =
+          targetOpen === "(" ? ")" : targetOpen === "[" ? "]" : "";
         const targetEnd = targetClose
           ? value.indexOf(targetClose, targetStart + 1)
           : -1;
@@ -940,9 +1005,8 @@ function githubHeadingText(value) {
       }
       delimiter = "_".repeat(length);
     } else {
-      delimiter = ["**", "~~", "*"].find((item) =>
-        value.startsWith(item, index)
-      ) ?? "";
+      delimiter =
+        ["**", "~~", "*"].find((item) => value.startsWith(item, index)) ?? "";
     }
     if (
       delimiter &&
@@ -969,7 +1033,7 @@ function githubHeadingText(value) {
   return result;
 }
 
-function githubAnchor(value) {
+function githubAnchor(value: string): string {
   return githubHeadingText(value)
     .trim()
     .toLowerCase()
@@ -977,14 +1041,14 @@ function githubAnchor(value) {
     .replaceAll(" ", "-");
 }
 
-function anchorsFor(file) {
+function anchorsFor(file: string): Set<string> {
   const text = withoutFencedCode(read(file));
-  const anchors = new Set();
+  const anchors = new Set<string>();
   for (const match of text.matchAll(/<a\s+id=["']([^"']+)["']\s*>\s*<\/a>/gi)) {
     anchors.add(match[1]);
   }
-  const generated = new Set();
-  const occurrences = new Map();
+  const generated = new Set<string>();
+  const occurrences = new Map<string, number>();
   for (const match of text.matchAll(/^#{1,6}\s+(.+?)\s*#*\s*$/gm)) {
     const base = githubAnchor(match[1]);
     if (!base) continue;
@@ -1001,7 +1065,7 @@ function anchorsFor(file) {
   return anchors;
 }
 
-function withoutFencedCode(text) {
+function withoutFencedCode(text: string): string {
   let fenced = false;
   return text
     .split(/\r?\n/u)
@@ -1015,7 +1079,7 @@ function withoutFencedCode(text) {
     .join("\n");
 }
 
-function markdownTableCells(line) {
+function markdownTableCells(line: string): string[] | null {
   const value = line.trim();
   if (!value.includes("|")) return null;
   const cells = [""];
@@ -1046,7 +1110,7 @@ function markdownTableCells(line) {
   return cells.map((cell) => cell.trim().replaceAll("`", ""));
 }
 
-function markdownTableSeparator(line, expectedCells) {
+function markdownTableSeparator(line: string, expectedCells: number): boolean {
   const cells = markdownTableCells(line);
   return (
     cells !== null &&
@@ -1055,7 +1119,9 @@ function markdownTableSeparator(line, expectedCells) {
   );
 }
 
-function safeDecode(value) {
+function safeDecode(
+  value: string,
+): Readonly<{ value: string; error: boolean }> {
   try {
     return { value: decodeURIComponent(value), error: false };
   } catch {
@@ -1063,7 +1129,7 @@ function safeDecode(value) {
   }
 }
 
-function splitLink(raw) {
+function splitLink(raw: string) {
   let value = raw.trim();
   if (value.startsWith("<") && value.includes(">")) {
     value = value.slice(1, value.indexOf(">"));
@@ -1082,12 +1148,15 @@ function splitLink(raw) {
   };
 }
 
-function isWithin(parent, child) {
+function isWithin(parent: string, child: string): boolean {
   const relation = path.relative(parent, child);
-  return relation === "" || (!relation.startsWith("..") && !path.isAbsolute(relation));
+  return (
+    relation === "" ||
+    (!relation.startsWith("..") && !path.isAbsolute(relation))
+  );
 }
 
-function resolveLocalTarget(source, raw) {
+function resolveLocalTarget(source: string, raw: string): LinkResolution {
   const parsed = splitLink(raw);
   const targetText = parsed.target;
   const anchor = parsed.anchor;
@@ -1157,12 +1226,10 @@ if (discovery.baseline_submodule && repositoryMode !== "adopter") {
   repositoryMode = "adopter";
   adoptedBaselineRoot = baselineCandidateRoot;
   releaseRoots = [path.join(root, "90_Release")];
-  recognizedChangeTracePatterns = [
-    "90_Release/**/Changes/**/CHG-*.md",
-  ];
+  recognizedChangeTracePatterns = ["90_Release/**/Changes/**/CHG-*.md"];
 }
 const gitlinkRoots = discovery.gitlinks;
-function gitlinkRootFor(target) {
+function gitlinkRootFor(target: string): string | null {
   return gitlinkRoots.find((item) => isWithin(item, target)) ?? null;
 }
 const baselineState = discovery.baseline_submodule_state;
@@ -1174,24 +1241,21 @@ if (discovery.baseline_submodule) {
       "00_CRDD",
       "The checker could not verify the .gitmodules declaration for the adopted baseline.",
     );
-  }
-  else if (baselineState.gitlink_indexed === false) {
+  } else if (baselineState.gitlink_indexed === false) {
     add(
       "error",
       "baseline-gitlink-missing",
       "00_CRDD",
       "The adopted baseline is declared in .gitmodules, but the parent Git index does not contain a mode 160000 gitlink at 00_CRDD.",
     );
-  }
-  else if (baselineState.gitlink_indexed === null) {
+  } else if (baselineState.gitlink_indexed === null) {
     add(
       "error",
       "baseline-submodule-unverified",
       "00_CRDD",
       "The checker could not verify a normal mode 160000 parent-index gitlink for the adopted baseline. Resolve index conflicts or metadata access failures and run the check again.",
     );
-  }
-  else {
+  } else {
     if (baselineState.declared === false) {
       add(
         "error",
@@ -1207,8 +1271,7 @@ if (discovery.baseline_submodule) {
         "00_CRDD",
         "Initialize the adopted CRDD baseline submodule before checking the project.",
       );
-    }
-    else if (
+    } else if (
       baselineState.gitdir_accessible !== true ||
       baselineState.head_readable !== true
     ) {
@@ -1218,8 +1281,7 @@ if (discovery.baseline_submodule) {
         "00_CRDD",
         "The baseline worktree exists, but the checker could not verify that it is the 00_CRDD Git worktree or read its Git directory and HEAD. Fix access to the repository metadata and run the check again.",
       );
-    }
-    else if (baselineState.head_matches_gitlink === false) {
+    } else if (baselineState.head_matches_gitlink === false) {
       add(
         "error",
         "baseline-submodule-revision-mismatch",
@@ -1234,7 +1296,7 @@ const allFileSet = new Set(allFiles);
 const allMarkdownFiles = allFiles.filter((file) =>
   file.toLowerCase().endsWith(".md"),
 );
-const linkRecords = [];
+const linkRecords: LinkRecord[] = [];
 for (const source of allMarkdownFiles) {
   const text = withoutFencedCode(read(source));
   for (const match of text.matchAll(/(?<!!)\[[^\]]+\]\(([^)]+)\)/g)) {
@@ -1284,7 +1346,8 @@ if (requestedScope.length === 0) {
   for (const file of allMarkdownFiles) checkedFiles.add(file);
 } else {
   for (const file of allMarkdownFiles) {
-    if (requestedScope.some((scope) => isWithin(scope, file))) checkedFiles.add(file);
+    if (requestedScope.some((scope) => isWithin(scope, file)))
+      checkedFiles.add(file);
   }
   const initial = new Set(checkedFiles);
   for (const record of linkRecords) {
@@ -1306,42 +1369,29 @@ if (requestedScope.length === 0) {
 }
 
 const markdownFiles = allMarkdownFiles.filter((file) => checkedFiles.has(file));
-const anchorCache = new Map();
+const anchorCache = new Map<string, Set<string>>();
 let checkedLocalLinks = 0;
 let checkedAnchors = 0;
 for (const record of linkRecords) {
   if (!checkedFiles.has(record.source) || record.external) continue;
   const { source, raw, target, anchor } = record;
   if (record.decodeError) {
-    add(
-      "warning",
-      "malformed-link-encoding",
-      relative(source),
-      raw,
+    add("warning", "malformed-link-encoding", relative(source), raw);
+    uncheckedItems.add(
+      `Malformed link encoding in ${relative(source)}: ${raw}`,
     );
-    uncheckedItems.add(`Malformed link encoding in ${relative(source)}: ${raw}`);
     continue;
   }
   if (record.outsideRoot) {
-    add(
-      "warning",
-      "outside-root-link",
-      relative(source),
-      raw,
+    add("warning", "outside-root-link", relative(source), raw);
+    uncheckedItems.add(
+      `Outside-root local link from ${relative(source)}: ${raw}`,
     );
-    uncheckedItems.add(`Outside-root local link from ${relative(source)}: ${raw}`);
     continue;
   }
   if (record.symbolicBoundary) {
-    add(
-      "warning",
-      "symbolic-link-target",
-      relative(source),
-      raw,
-    );
-    uncheckedItems.add(
-      `Symbolic link target from ${relative(source)}: ${raw}`,
-    );
+    add("warning", "symbolic-link-target", relative(source), raw);
+    uncheckedItems.add(`Symbolic link target from ${relative(source)}: ${raw}`);
     continue;
   }
   const targetGitlink = gitlinkRootFor(target);
@@ -1351,12 +1401,7 @@ for (const record of linkRecords) {
     adoptedBaselineRoot &&
     samePath(targetGitlink, adoptedBaselineRoot);
   if (targetGitlink && !targetIsInAdoptedBaseline) {
-    add(
-      "warning",
-      "gitlink-target-unchecked",
-      relative(source),
-      raw,
-    );
+    add("warning", "gitlink-target-unchecked", relative(source), raw);
     uncheckedItems.add(
       `Gitlink target not inspected from ${relative(source)}: ${raw}`,
     );
@@ -1372,34 +1417,31 @@ for (const record of linkRecords) {
       isWithin(adoptedBaselineRoot, target)
     )
   ) {
-    add(
-      "warning",
-      "excluded-local-link",
-      relative(source),
-      raw,
+    add("warning", "excluded-local-link", relative(source), raw);
+    uncheckedItems.add(
+      `Excluded local link target from ${relative(source)}: ${raw}`,
     );
-    uncheckedItems.add(`Excluded local link target from ${relative(source)}: ${raw}`);
     continue;
   }
   checkedLocalLinks += 1;
-    if (!fs.existsSync(target)) {
-      add("error", "broken-link", relative(source), raw);
-      continue;
+  if (!fs.existsSync(target)) {
+    add("error", "broken-link", relative(source), raw);
+    continue;
+  }
+  if (anchor && target.toLowerCase().endsWith(".md")) {
+    checkedAnchors += 1;
+    const knownAnchors = anchorCache.get(target) ?? anchorsFor(target);
+    anchorCache.set(target, knownAnchors);
+    if (!knownAnchors.has(anchor)) {
+      add("error", "broken-anchor", relative(source), `${raw} -> #${anchor}`);
     }
-    if (anchor && target.toLowerCase().endsWith(".md")) {
-      checkedAnchors += 1;
-      if (!anchorCache.has(target)) anchorCache.set(target, anchorsFor(target));
-      if (!anchorCache.get(target).has(anchor)) {
-        add("error", "broken-anchor", relative(source), `${raw} -> #${anchor}`);
-      }
-    }
+  }
 }
 
-const requestedDocsRoot = repositoryMode === "adopter"
-  ? path.join(root, "00_CRDD")
-  : root;
+const requestedDocsRoot =
+  repositoryMode === "adopter" ? path.join(root, "00_CRDD") : root;
 const requestedDocsRootStat = lstatIfPresent(requestedDocsRoot);
-let docsRoot = null;
+let docsRoot: string | null = null;
 if (pathContainsSymbolicLink(requestedDocsRoot)) {
   add(
     "error",
@@ -1407,24 +1449,21 @@ if (pathContainsSymbolicLink(requestedDocsRoot)) {
     relative(requestedDocsRoot),
     "The canonical document root must not be a symbolic link or junction.",
   );
-}
-else if (!requestedDocsRootStat) {
+} else if (!requestedDocsRootStat) {
   add(
     "error",
     "missing-document-root",
     relative(requestedDocsRoot),
     "The canonical document root does not exist.",
   );
-}
-else if (!requestedDocsRootStat.isDirectory()) {
+} else if (!requestedDocsRootStat.isDirectory()) {
   add(
     "error",
     "invalid-document-root",
     relative(requestedDocsRoot),
     "The canonical document root must be a directory.",
   );
-}
-else {
+} else {
   docsRoot = requestedDocsRoot;
 }
 const versioned = [];
@@ -1479,7 +1518,7 @@ for (const { file, status, releasedBaseline } of canonicalDocumentStates) {
     );
   }
 }
-let candidateReleasedBaseline = null;
+let candidateReleasedBaseline: string | null = null;
 if (candidateDocuments.length > 0) {
   if (candidateDocuments.length !== canonicalDocumentStates.length) {
     for (const { file, status } of canonicalDocumentStates) {
@@ -1492,7 +1531,9 @@ if (candidateDocuments.length > 0) {
     }
   }
   const baselines = new Set(
-    candidateDocuments.map(({ releasedBaseline }) => releasedBaseline).filter(Boolean),
+    candidateDocuments
+      .map(({ releasedBaseline }) => releasedBaseline)
+      .filter((value): value is string => typeof value === "string"),
   );
   if (
     baselines.size !== 1 ||
@@ -1507,8 +1548,12 @@ if (candidateDocuments.length > 0) {
       );
     }
   } else {
-    candidateReleasedBaseline = [...baselines][0];
-    if (versions.has(candidateReleasedBaseline)) {
+    const [releasedBaseline] = baselines;
+    if (releasedBaseline === undefined) {
+      throw new Error("candidate_released_baseline_missing");
+    }
+    candidateReleasedBaseline = releasedBaseline;
+    if (versions.has(releasedBaseline)) {
       for (const { file } of candidateDocuments) {
         add(
           "error",
@@ -1552,9 +1597,9 @@ if (
   // categories all use the same Markdown structure boundary. Only fence-free
   // lines and data inside a closed yaml/yml fence can be semantic inputs.
   const markdown = (() => {
-    const entries = [];
-    const fences = [];
-    let activeFence = null;
+    const entries: MarkdownEntry[] = [];
+    const fences: MarkdownFence[] = [];
+    let activeFence: MarkdownFence | null = null;
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index];
       if (activeFence) {
@@ -1564,12 +1609,22 @@ if (
           closing[1][0] === activeFence.marker &&
           closing[1].length >= activeFence.length
         ) {
-          entries.push({ index, text: line, outside: false, fenceId: activeFence.id });
+          entries.push({
+            index,
+            text: line,
+            outside: false,
+            fenceId: activeFence.id,
+          });
           activeFence.end = index;
           activeFence.closed = true;
           activeFence = null;
         } else {
-          const entry = { index, text: line, outside: false, fenceId: activeFence.id };
+          const entry = {
+            index,
+            text: line,
+            outside: false,
+            fenceId: activeFence.id,
+          };
           entries.push(entry);
           activeFence.contents.push(entry);
         }
@@ -1582,7 +1637,7 @@ if (
         entries.push({ index, text: line, outside: true, fenceId: null });
         continue;
       }
-      const fence = {
+      const fence: MarkdownFence = {
         id: fences.length,
         marker: opening[1][0],
         length: opening[1].length,
@@ -1599,7 +1654,12 @@ if (
     return { entries, fences };
   })();
   const outsideEntries = markdown.entries.filter((entry) => entry.outside);
-  const releaseSections = (languageHeading) => {
+  const releaseSections = (
+    languageHeading: string,
+  ): Readonly<{
+    languageCount: number;
+    releases: ReleaseSection[];
+  }> => {
     const languageStarts = outsideEntries.filter(
       (entry) => entry.text === `## ${languageHeading}`,
     );
@@ -1647,9 +1707,17 @@ if (
   // Only a complete bullet inline-code declaration or a key inside a closed
   // yaml/yml fence is data. Prose, block quotes, other fences, and prior
   // release sections are intentionally not declarations.
-  const declarations = (section, key, validValues) => {
-    const attempts = [];
-    for (const entry of section.entries.filter((candidate) => candidate.outside)) {
+  const declarations = (
+    section: ReleaseSection,
+    key: string,
+    validValues: readonly string[],
+  ):
+    | Readonly<{ valid: false; reason: string }>
+    | Readonly<{ valid: true; value: string }> => {
+    const attempts: string[] = [];
+    for (const entry of section.entries.filter(
+      (candidate) => candidate.outside,
+    )) {
       const match = entry.text.match(
         new RegExp(`^\\s*[-*+]\\s+\`${key}:\\s*([^\`]*)\`\\s*$`, "u"),
       );
@@ -1673,11 +1741,16 @@ if (
       }
     }
     if (attempts.length !== 1 || !validValues.includes(attempts[0])) {
-      return { valid: false, reason: attempts.length === 0 ? "missing" : "invalid-or-multiple" };
+      return {
+        valid: false,
+        reason: attempts.length === 0 ? "missing" : "invalid-or-multiple",
+      };
     }
     return { valid: true, value: attempts[0] };
   };
-  const requiredMigrationMarkers = {
+  const requiredMigrationMarkers: Readonly<
+    Record<string, readonly (readonly [RegExp, string])[]>
+  > = {
     English: [
       [/^\s*[-*+]\s+Required(?:\s+for\s+[^:]+)?:/u, "Required"],
       [/^\s*[-*+]\s+Conditional(?:\s+[^:]+)?:/u, "Conditional"],
@@ -1697,7 +1770,7 @@ if (
       [/^\s*[-*+]\s+既知の制限:/u, "既知の制限"],
     ],
   };
-  const sections = {};
+  const sections: Record<string, ReleaseSection> = {};
   for (const languageHeading of Object.keys(requiredMigrationMarkers)) {
     const located = releaseSections(languageHeading);
     if (located.languageCount !== 1) {
@@ -1720,9 +1793,12 @@ if (
     }
     sections[languageHeading] = located.releases[0];
   }
-  const migration = {};
+  const migration: Record<string, string> = {};
   for (const [languageHeading, section] of Object.entries(sections)) {
-    const parsed = declarations(section, "migration_required", ["true", "false"]);
+    const parsed = declarations(section, "migration_required", [
+      "true",
+      "false",
+    ]);
     if (!parsed.valid) {
       add(
         "error",
@@ -1734,7 +1810,10 @@ if (
     }
     migration[languageHeading] = parsed.value;
   }
-  if (Object.keys(migration).length === 2 && migration.English !== migration.日本語) {
+  if (
+    Object.keys(migration).length === 2 &&
+    migration.English !== migration.日本語
+  ) {
     add(
       "error",
       "migration-status-mismatch",
@@ -1742,13 +1821,15 @@ if (
       `English=${migration.English}, 日本語=${migration.日本語}.`,
     );
   } else if (migration.English === "true" && migration.日本語 === "true") {
-    const classifications = {};
+    const classifications: Record<string, string> = {};
     for (const [languageHeading, section] of Object.entries(sections)) {
-      const parsed = declarations(
-        section,
-        "change_classification",
-        ["editorial", "clarification", "additive", "normative", "breaking"],
-      );
+      const parsed = declarations(section, "change_classification", [
+        "editorial",
+        "clarification",
+        "additive",
+        "normative",
+        "breaking",
+      ]);
       if (!parsed.valid) {
         add(
           "error",
@@ -1771,7 +1852,9 @@ if (
         `English classification=${classifications.English}, 日本語 classification=${classifications.日本語}.`,
       );
     }
-    for (const [languageHeading, markers] of Object.entries(requiredMigrationMarkers)) {
+    for (const [languageHeading, markers] of Object.entries(
+      requiredMigrationMarkers,
+    )) {
       const section = sections[languageHeading];
       const sectionLines = section.entries
         .filter((entry) => entry.outside)
@@ -1838,10 +1921,7 @@ for (const file of allMarkdownFiles) {
     const match =
       line.match(
         /^\s*(?:id|context_id):\s*((?:REQ|UX|IA|UI|SPEC)-\d{6})\s*$/u,
-      ) ??
-      line.match(
-        /^#{1,6}\s+((?:REQ|UX|IA|UI|SPEC)-\d{6})(?:\s|$)/u,
-      );
+      ) ?? line.match(/^#{1,6}\s+((?:REQ|UX|IA|UI|SPEC)-\d{6})(?:\s|$)/u);
     if (!match) continue;
     const definitions = stableIdDefinitions.get(match[1]) ?? [];
     definitions.push(`${relative(file)}:${lineIndex + 1}`);
@@ -1891,7 +1971,8 @@ for (const file of allMarkdownFiles) {
         cells[percentageIndex] ?? "",
       ].map((value) => value.trim());
       if (values.every((value) => value === "")) continue;
-      const marker = /^(?:N\/A|TBD|Not Applicable|Not Measured|対象外|未測定)$/iu;
+      const marker =
+        /^(?:N\/A|TBD|Not Applicable|Not Measured|対象外|未測定)$/iu;
       if (values.filter(Boolean).every((value) => marker.test(value))) {
         continue;
       }
@@ -1912,7 +1993,9 @@ for (const file of allMarkdownFiles) {
       }
       const numerator = Number(values[0].replaceAll(",", ""));
       const denominator = Number(values[1].replaceAll(",", ""));
-      const percentage = Number(values[2].replaceAll(",", "").replace(/%$/u, ""));
+      const percentage = Number(
+        values[2].replaceAll(",", "").replace(/%$/u, ""),
+      );
       numericRowsChecked += 1;
       if (
         !Number.isInteger(numerator) ||
@@ -1965,20 +2048,27 @@ const remediationHeaderAliases = {
   owner: ["担当責任者", "Owner"],
   restart: ["再開条件", "Restart Condition"],
 };
-const remediationPlaceholder = /^(?:|[-—–]|N\/A|TBD|TODO|None|なし|未定|未取得|未確認|対象外)$/iu;
+type RemediationColumn = keyof typeof remediationHeaderAliases;
+const remediationPlaceholder =
+  /^(?:|[-—–]|N\/A|TBD|TODO|None|なし|未定|未取得|未確認|対象外)$/iu;
 let remediationRowsChecked = 0;
 for (const file of allMarkdownFiles) {
   const lines = withoutFencedCode(read(file)).split(/\r?\n/u);
   for (let index = 0; index < lines.length - 2; index += 1) {
     const headers = markdownTableCells(lines[index]);
     if (!headers) continue;
-    const column = (name) =>
-      headers.findIndex((header) => remediationHeaderAliases[name].includes(header));
+    const column = (name: RemediationColumn): number =>
+      headers.findIndex((header) =>
+        remediationHeaderAliases[name].includes(header),
+      );
     const progressIndex = column("progress");
     const blockerIndex = column("blocker");
     const resolutionIndex = column("resolution");
-    const stateColumnCount = [progressIndex, blockerIndex, resolutionIndex]
-      .filter((target) => target >= 0).length;
+    const stateColumnCount = [
+      progressIndex,
+      blockerIndex,
+      resolutionIndex,
+    ].filter((target) => target >= 0).length;
     let precedingHeading = "";
     for (let previous = index - 1; previous >= 0; previous -= 1) {
       if (/^\s*#{1,6}\s+/u.test(lines[previous])) {
@@ -1988,24 +2078,22 @@ for (const file of allMarkdownFiles) {
     }
     const explicitRemediationContext =
       /(?:是正|remediation)/iu.test(precedingHeading) ||
-      headers.some((header) => ["是正対象", "Remediation Target"].includes(header));
+      headers.some((header) =>
+        ["是正対象", "Remediation Target"].includes(header),
+      );
     if (
-      (
-        stateColumnCount !== 3 &&
-        !(
-          stateColumnCount >= 1 &&
-          explicitRemediationContext
-        )
-      ) ||
+      (stateColumnCount !== 3 &&
+        !(stateColumnCount >= 1 && explicitRemediationContext)) ||
       !markdownTableSeparator(lines[index + 1], headers.length)
     ) {
       continue;
     }
-    const missingStateColumns = [
+    const stateColumns: Array<readonly [RemediationColumn, number]> = [
       ["progress", progressIndex],
       ["blocker", blockerIndex],
       ["resolution", resolutionIndex],
-    ].filter(([, target]) => target < 0);
+    ];
+    const missingStateColumns = stateColumns.filter(([, target]) => target < 0);
     if (missingStateColumns.length > 0) {
       add(
         "error",
@@ -2014,9 +2102,28 @@ for (const file of allMarkdownFiles) {
         `line ${index + 1}: missing ${missingStateColumns.map(([name]) => remediationHeaderAliases[name][0]).join(", ")}.`,
       );
     }
-    const optionalColumns = Object.fromEntries(
-      Object.keys(remediationHeaderAliases).map((name) => [name, column(name)]),
-    );
+    const optionalColumns = new Map<RemediationColumn, number>();
+    for (const name of Object.keys(remediationHeaderAliases)) {
+      if (name in remediationHeaderAliases) {
+        const knownName =
+          name === "progress" ||
+          name === "blocker" ||
+          name === "resolution" ||
+          name === "acceptance" ||
+          name === "oracle" ||
+          name === "evidence" ||
+          name === "review" ||
+          name === "current" ||
+          name === "blockerReason" ||
+          name === "requiredInput" ||
+          name === "owner" ||
+          name === "restart"
+            ? name
+            : null;
+        if (knownName !== null)
+          optionalColumns.set(knownName, column(knownName));
+      }
+    }
     for (let row = index + 2; row < lines.length; row += 1) {
       const cells = markdownTableCells(lines[row]);
       if (!cells) break;
@@ -2024,7 +2131,8 @@ for (const file of allMarkdownFiles) {
       remediationRowsChecked += 1;
       const progress = progressIndex >= 0 ? (cells[progressIndex] ?? "") : "";
       const blocker = blockerIndex >= 0 ? (cells[blockerIndex] ?? "") : "";
-      const resolution = resolutionIndex >= 0 ? (cells[resolutionIndex] ?? "") : "";
+      const resolution =
+        resolutionIndex >= 0 ? (cells[resolutionIndex] ?? "") : "";
       const location = `line ${row + 1}`;
       if (/^fixed$/iu.test(progress) || /^fixed$/iu.test(resolution)) {
         add(
@@ -2034,7 +2142,10 @@ for (const file of allMarkdownFiles) {
           `${location}: fixed must not be used as a remediation progress or resolution value.`,
         );
       }
-      if (progressIndex >= 0 && !["Identified", "Planned", "Applied", "Self-checked"].includes(progress)) {
+      if (
+        progressIndex >= 0 &&
+        !["Identified", "Planned", "Applied", "Self-checked"].includes(progress)
+      ) {
         add(
           "error",
           "remediation-progress-value",
@@ -2058,11 +2169,18 @@ for (const file of allMarkdownFiles) {
           `${location}: resolution must be Open or Resolved.`,
         );
       }
-      const requireValues = (names, code, condition) => {
+      const requireValues = (
+        names: readonly RemediationColumn[],
+        code: string,
+        condition: boolean,
+      ): void => {
         if (!condition) return;
         const missing = names.filter((name) => {
-          const targetIndex = optionalColumns[name];
-          return targetIndex < 0 || remediationPlaceholder.test(cells[targetIndex] ?? "");
+          const targetIndex = optionalColumns.get(name) ?? -1;
+          return (
+            targetIndex < 0 ||
+            remediationPlaceholder.test(cells[targetIndex] ?? "")
+          );
         });
         if (missing.length > 0) {
           add(
@@ -2150,24 +2268,21 @@ if (requestedStructureRoot) {
       relative(requestedStructureRoot),
       "The CRDD structure root must not be a symbolic link or junction.",
     );
-  }
-  else if (!requestedStructureRootStat) {
+  } else if (!requestedStructureRootStat) {
     add(
       "error",
       "missing-structure-root",
       relative(requestedStructureRoot),
       "The CRDD structure root does not exist.",
     );
-  }
-  else if (!requestedStructureRootStat.isDirectory()) {
+  } else if (!requestedStructureRootStat.isDirectory()) {
     add(
       "error",
       "invalid-structure-root",
       relative(requestedStructureRoot),
       "The CRDD structure root must be a directory.",
     );
-  }
-  else {
+  } else {
     structureRoot = requestedStructureRoot;
   }
 }
@@ -2196,22 +2311,15 @@ if (structureRoot) {
         relative(requiredPath),
         "CRDD structure entries must not be symbolic links or junctions.",
       );
-    }
-    else if (!requiredStat) {
+    } else if (!requiredStat) {
       if (gitlinkRootFor(requiredPath) === requiredPath) {
         uncheckedItems.add(
           `Required structure entry is an uninitialized Gitlink submodule: ${relative(requiredPath)}`,
         );
         continue;
       }
-      add(
-        "error",
-        "missing-crdd-folder",
-        relative(structureRoot),
-        name,
-      );
-    }
-    else if (!requiredStat.isDirectory()) {
+      add("error", "missing-crdd-folder", relative(structureRoot), name);
+    } else if (!requiredStat.isDirectory()) {
       add(
         "error",
         "invalid-structure-entry",
@@ -2222,12 +2330,7 @@ if (structureRoot) {
   }
   for (const name of ["07_Workflows", "08_Workflows", "08_Quality"]) {
     if (lstatIfPresent(path.join(structureRoot, name))) {
-      add(
-        "error",
-        "legacy-crdd-folder",
-        relative(structureRoot),
-        name,
-      );
+      add("error", "legacy-crdd-folder", relative(structureRoot), name);
     }
   }
   for (const entry of fs.readdirSync(structureRoot)) {
@@ -2246,8 +2349,7 @@ if (structureRoot) {
   }
   const develop = path.join(structureRoot, "40_Develop");
   for (const file of allFiles.filter(
-    (item) =>
-      isWithin(develop, item) && item.toLowerCase().endsWith(".md"),
+    (item) => isWithin(develop, item) && item.toLowerCase().endsWith(".md"),
   )) {
     add(
       "warning",
@@ -2272,7 +2374,23 @@ findings.sort(
     a.message.localeCompare(b.message),
 );
 
-let referenceMap = null;
+let referenceMap: Readonly<{
+  target: string;
+  inbound: ReadonlyArray<
+    Readonly<{
+      source: string;
+      count: number;
+      links: string[];
+    }>
+  >;
+  outbound: ReadonlyArray<
+    Readonly<{
+      target: string;
+      anchor: string | null;
+      count: number;
+    }>
+  >;
+}> | null = null;
 if (referencesValue) {
   const referenceTarget = path.resolve(root, referencesValue);
   if (!isWithin(root, referenceTarget)) {
@@ -2307,7 +2425,9 @@ if (referencesValue) {
     isWithin(adoptedBaselineRoot, referenceTarget);
   if (referenceStat.isFile() && !allFileSet.has(referenceTarget)) {
     if (!referenceIsInBaselineSubmodule) {
-      cliError(`--references is outside the project file set: ${referencesValue}`);
+      cliError(
+        `--references is outside the project file set: ${referencesValue}`,
+      );
     }
   }
   if (referenceIsInBaselineSubmodule) {
@@ -2315,10 +2435,23 @@ if (referencesValue) {
       "Outbound references inside the adopted CRDD baseline submodule",
     );
   }
-  const targetIsDirectory =
-    referenceStat.isDirectory();
-  const inbound = new Map();
-  const outbound = new Map();
+  const targetIsDirectory = referenceStat.isDirectory();
+  const inbound = new Map<
+    string,
+    {
+      source: string;
+      count: number;
+      links: Set<string>;
+    }
+  >();
+  const outbound = new Map<
+    string,
+    {
+      target: string;
+      anchor: string | null;
+      count: number;
+    }
+  >();
   for (const record of linkRecords) {
     if (record.external) continue;
     if (
@@ -2402,9 +2535,7 @@ const report = {
     ...uncheckedItems,
     ...(requestedScope.length === 0
       ? []
-      : [
-          "Markdown link, anchor, and Related checks outside expanded_scope",
-        ]),
+      : ["Markdown link, anchor, and Related checks outside expanded_scope"]),
   ],
   executed_at: startedAt.toISOString(),
   duration_ms: Date.now() - startedAtMs,
@@ -2447,9 +2578,7 @@ if (jsonOutput && summaryOutput) {
     console.log(
       `Repository=${report.repository_mode}; discovery=${report.discovery_source}; git_failure=${report.discovery_git_failure ?? "none"}`,
     );
-    console.log(
-      `Unchecked=${JSON.stringify(report.unchecked)}`,
-    );
+    console.log(`Unchecked=${JSON.stringify(report.unchecked)}`);
     if (referenceMap) {
       console.log(JSON.stringify(referenceMap, null, 2));
     }

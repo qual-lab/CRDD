@@ -1,5 +1,3 @@
-// @ts-check
-
 import { types as utilTypes } from "node:util";
 
 import {

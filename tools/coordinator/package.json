@@ -10,7 +10,8 @@
     "format:check": "biome format ../..",
     "lint": "biome lint ../..",
     "test": "node --test ./tests/*.test.ts",
-    "typecheck": "tsc -p ./tsconfig.typecheck.json && tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
+    "test:checker": "node --test ../crdd_check.test.ts",
+    "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json && tsc -p ../tsconfig.checker.json"
   },
   "engines": {
     "node": ">=24.12"

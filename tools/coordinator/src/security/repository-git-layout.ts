@@ -1,5 +1,3 @@
-// @ts-check
-
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";

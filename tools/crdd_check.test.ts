@@ -3,11 +3,253 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
 import test, { after } from "node:test";
 
-const checker = path.resolve("template/tools/crdd_check.mjs");
-const faultInjector = path.resolve("tools/crdd_check_fault_injector.cjs");
-const fixtures = [];
+const testEntry = process.argv[1];
+if (testEntry === undefined) throw new Error("checker_test_entry_missing");
+const toolsRoot = path.dirname(path.resolve(testEntry));
+const repositoryRoot = path.dirname(toolsRoot);
+const checker = path.join(repositoryRoot, "template", "tools", "crdd_check.ts");
+const faultInjector = path.join(toolsRoot, "crdd_check_fault_injector.ts");
+type CheckerFinding = Readonly<{
+  severity: string;
+  code: string;
+  path: string;
+  message: string;
+}>;
+type CheckerReport = Readonly<{
+  findings: readonly CheckerFinding[];
+  baseline_submodule: boolean;
+  baseline_submodule_initialized: boolean | null;
+  baseline_submodule_state: Readonly<Record<string, boolean | string | null>>;
+  change_trace_layout: string;
+  check_mode: string;
+  discovery_exclusions: readonly string[];
+  discovery_git_failure: string | null;
+  discovery_source: string;
+  executed_at: string;
+  expanded_scope: readonly string[];
+  gitlink_boundaries: readonly string[];
+  gitlink_detection: string;
+  global_checks: readonly string[];
+  metrics: Readonly<Record<string, number>>;
+  recognized_change_trace_paths: readonly string[];
+  references: Readonly<{
+    inbound: readonly Readonly<{ count: number; source: string }>[];
+    outbound: readonly Readonly<{ count: number; target: string }>[];
+  }> | null;
+  repository_mode: string;
+  unchecked: readonly string[];
+}>;
+type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(
+        Reflect.ownKeys(value)
+          .filter((key) => typeof key === "string")
+          .map((key) => [key, Reflect.get(value, key)]),
+      )
+    : null;
+}
+
+function reportString(value: Record<string, unknown>, key: string): string {
+  const candidate = value[key];
+  if (typeof candidate !== "string")
+    throw new Error(`checker_report_${key}_invalid`);
+  return candidate;
+}
+
+function reportBoolean(value: Record<string, unknown>, key: string): boolean {
+  const candidate = value[key];
+  if (typeof candidate !== "boolean")
+    throw new Error(`checker_report_${key}_invalid`);
+  return candidate;
+}
+
+function reportNullableBoolean(
+  value: Record<string, unknown>,
+  key: string,
+): boolean | null {
+  const candidate = value[key];
+  if (candidate !== null && typeof candidate !== "boolean") {
+    throw new Error(`checker_report_${key}_invalid`);
+  }
+  return candidate;
+}
+
+function reportNullableString(
+  value: Record<string, unknown>,
+  key: string,
+): string | null {
+  const candidate = value[key];
+  if (candidate !== null && typeof candidate !== "string") {
+    throw new Error(`checker_report_${key}_invalid`);
+  }
+  return candidate;
+}
+
+function reportStringArray(
+  value: Record<string, unknown>,
+  key: string,
+): string[] {
+  const candidate = value[key];
+  if (
+    !Array.isArray(candidate) ||
+    candidate.some((item) => typeof item !== "string")
+  ) {
+    throw new Error(`checker_report_${key}_invalid`);
+  }
+  return candidate.map((item) => {
+    if (typeof item !== "string")
+      throw new Error(`checker_report_${key}_invalid`);
+    return item;
+  });
+}
+
+function reportNumberRecord(
+  value: Record<string, unknown>,
+  key: string,
+): Record<string, number> {
+  const candidate = record(value[key]);
+  if (!candidate) throw new Error(`checker_report_${key}_invalid`);
+  const result: Record<string, number> = {};
+  for (const [name, entry] of Object.entries(candidate)) {
+    if (typeof entry !== "number" || !Number.isFinite(entry)) {
+      throw new Error(`checker_report_${key}_${name}_invalid`);
+    }
+    result[name] = entry;
+  }
+  return result;
+}
+
+function reportState(
+  value: Record<string, unknown>,
+  key: string,
+): Record<string, boolean | string | null> {
+  const candidate = record(value[key]);
+  if (!candidate) throw new Error(`checker_report_${key}_invalid`);
+  const result: Record<string, boolean | string | null> = {};
+  for (const [name, entry] of Object.entries(candidate)) {
+    if (
+      entry !== null &&
+      typeof entry !== "boolean" &&
+      typeof entry !== "string"
+    ) {
+      throw new Error(`checker_report_${key}_${name}_invalid`);
+    }
+    result[name] = entry;
+  }
+  return result;
+}
+
+function reportFindings(value: Record<string, unknown>): CheckerFinding[] {
+  const findings = value.findings;
+  if (!Array.isArray(findings))
+    throw new Error("checker_report_findings_invalid");
+  return findings.map((finding) => {
+    const item = record(finding);
+    if (!item) throw new Error("checker_report_invalid_finding");
+    return Object.freeze({
+      severity: reportString(item, "severity"),
+      code: reportString(item, "code"),
+      path: reportString(item, "path"),
+      message: reportString(item, "message"),
+    });
+  });
+}
+
+function reportReferences(
+  value: Record<string, unknown>,
+): CheckerReport["references"] {
+  if (value.references === null) return null;
+  const references = record(value.references);
+  if (
+    !references ||
+    !Array.isArray(references.inbound) ||
+    !Array.isArray(references.outbound)
+  ) {
+    throw new Error("checker_report_references_invalid");
+  }
+  const inbound = references.inbound.map((entry) => {
+    const item = record(entry);
+    if (!item) throw new Error("checker_report_inbound_invalid");
+    const count = item.count;
+    if (typeof count !== "number" || !Number.isFinite(count)) {
+      throw new Error("checker_report_inbound_count_invalid");
+    }
+    return Object.freeze({ count, source: reportString(item, "source") });
+  });
+  const outbound = references.outbound.map((entry) => {
+    const item = record(entry);
+    if (!item) throw new Error("checker_report_outbound_invalid");
+    const count = item.count;
+    if (typeof count !== "number" || !Number.isFinite(count)) {
+      throw new Error("checker_report_outbound_count_invalid");
+    }
+    return Object.freeze({ count, target: reportString(item, "target") });
+  });
+  return Object.freeze({ inbound, outbound });
+}
+
+function parseCheckerReport(source: string): CheckerReport {
+  if (source === "") {
+    return Object.freeze({
+      findings: [],
+      baseline_submodule: false,
+      baseline_submodule_initialized: null,
+      baseline_submodule_state: {},
+      change_trace_layout: "",
+      check_mode: "",
+      discovery_exclusions: [],
+      discovery_git_failure: null,
+      discovery_source: "",
+      executed_at: "",
+      expanded_scope: [],
+      gitlink_boundaries: [],
+      gitlink_detection: "",
+      global_checks: [],
+      metrics: {},
+      recognized_change_trace_paths: [],
+      references: null,
+      repository_mode: "",
+      unchecked: [],
+    });
+  }
+  const parsed: unknown = JSON.parse(source);
+  const value = record(parsed);
+  if (!value) throw new Error("checker_report_invalid");
+  return Object.freeze({
+    findings: reportFindings(value),
+    baseline_submodule: reportBoolean(value, "baseline_submodule"),
+    baseline_submodule_initialized: reportNullableBoolean(
+      value,
+      "baseline_submodule_initialized",
+    ),
+    baseline_submodule_state: reportState(value, "baseline_submodule_state"),
+    change_trace_layout: reportString(value, "change_trace_layout"),
+    check_mode: reportString(value, "check_mode"),
+    discovery_exclusions: reportStringArray(value, "discovery_exclusions"),
+    discovery_git_failure: reportNullableString(value, "discovery_git_failure"),
+    discovery_source: reportString(value, "discovery_source"),
+    executed_at: reportString(value, "executed_at"),
+    expanded_scope: reportStringArray(value, "expanded_scope"),
+    gitlink_boundaries: reportStringArray(value, "gitlink_boundaries"),
+    gitlink_detection: reportString(value, "gitlink_detection"),
+    global_checks: reportStringArray(value, "global_checks"),
+    metrics: reportNumberRecord(value, "metrics"),
+    recognized_change_trace_paths: reportStringArray(
+      value,
+      "recognized_change_trace_paths",
+    ),
+    references: reportReferences(value),
+    repository_mode: reportString(value, "repository_mode"),
+    unchecked: reportStringArray(value, "unchecked"),
+  });
+}
+
+const fixtures: string[] = [];
 const requiredFolders = [
   "00_CRDD",
   "01_Discovery",
@@ -35,25 +277,25 @@ after(() => {
   }
 });
 
-function makeStructure(root) {
+function makeStructure(root: string): void {
   for (const folder of requiredFolders) {
     fs.mkdirSync(path.join(root, folder), { recursive: true });
   }
 }
 
-function write(file, content = "") {
+function write(file: string, content = ""): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, content, "utf8");
 }
 
-function initializeGit(root) {
+function initializeGit(root: string): void {
   const initialized = spawnSync("git", ["init", "--quiet", root], {
     encoding: "utf8",
   });
   assert.equal(initialized.status, 0, initialized.stderr);
 }
 
-function addGitlink(root, relativePath) {
+function addGitlink(root: string, relativePath: string): void {
   const tree = spawnSync("git", ["-C", root, "mktree"], {
     encoding: "utf8",
     input: "",
@@ -93,7 +335,7 @@ function addGitlink(root, relativePath) {
   assert.equal(updated.status, 0, updated.stderr);
 }
 
-function run(root, ...extra) {
+function run(root: string, ...extra: string[]): CheckerRun {
   const result = spawnSync(
     process.execPath,
     [checker, "--root", root, "--json", "--summary", ...extra],
@@ -101,11 +343,15 @@ function run(root, ...extra) {
   );
   return {
     ...result,
-    report: result.stdout ? JSON.parse(result.stdout) : null,
+    report: parseCheckerReport(result.stdout),
   };
 }
 
-function runWithEnv(root, env, ...extra) {
+function runWithEnv(
+  root: string,
+  env: Readonly<Record<string, string>>,
+  ...extra: string[]
+): CheckerRun {
   const result = spawnSync(
     process.execPath,
     [checker, "--root", root, "--json", "--summary", ...extra],
@@ -113,15 +359,20 @@ function runWithEnv(root, env, ...extra) {
   );
   return {
     ...result,
-    report: result.stdout ? JSON.parse(result.stdout) : null,
+    report: parseCheckerReport(result.stdout),
   };
 }
 
-function runWithFault(root, fault, target, env = {}, ...extra) {
-  const nodeOptions = [
-    process.env.NODE_OPTIONS,
-    `--require=${faultInjector}`,
-  ].filter(Boolean).join(" ");
+function runWithFault(
+  root: string,
+  fault: string,
+  target: string,
+  env: Readonly<Record<string, string>> = {},
+  ...extra: string[]
+): CheckerRun {
+  const nodeOptions = [process.env.NODE_OPTIONS, `--require=${faultInjector}`]
+    .filter(Boolean)
+    .join(" ");
   return runWithEnv(
     root,
     {
@@ -135,7 +386,7 @@ function runWithFault(root, fault, target, env = {}, ...extra) {
   );
 }
 
-function runRaw(...arguments_) {
+function runRaw(...arguments_: string[]) {
   return spawnSync(process.execPath, [checker, ...arguments_], {
     encoding: "utf8",
   });
@@ -155,7 +406,10 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
   );
 });
 
-function currentChangelogFixture(englishLines, japaneseLines) {
+function currentChangelogFixture(
+  englishLines: readonly string[],
+  japaneseLines: readonly string[],
+) {
   const root = fixture();
   makeStructure(path.join(root, "template"));
   write(path.join(root, "01_Principles.md"), "Version: v0.16.0\n");
@@ -255,7 +509,11 @@ test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
   const result = run(root);
   assert.equal(
     result.report.findings.some((item) =>
-      ["current-changelog-release-missing", "migration-note-incomplete"].includes(item.code)),
+      [
+        "current-changelog-release-missing",
+        "migration-note-incomplete",
+      ].includes(item.code),
+    ),
     false,
   );
 });
@@ -305,7 +563,8 @@ test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => 
       [
         "candidate-released-baseline-mismatch",
         "current-changelog-release-missing",
-      ].includes(item.code)),
+      ].includes(item.code),
+    ),
     false,
     JSON.stringify(result.report.findings),
   );
@@ -358,9 +617,13 @@ test("公式CHANGELOGに日本語区分がない場合は現行リリース欠�
   );
   const result = run(root);
   assert.equal(result.status, 1);
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "current-changelog-release-missing" &&
+        /日本語/u.test(item.message),
+    ),
+  );
 });
 
 test("公式CHANGELOGの日本語区分に現行リリースがない場合は欠落を返す", () => {
@@ -381,9 +644,13 @@ test("公式CHANGELOGの日本語区分に現行リリースがない場合は�
   );
   const result = run(root);
   assert.equal(result.status, 1);
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "current-changelog-release-missing" &&
+        /日本語/u.test(item.message),
+    ),
+  );
 });
 
 test("移行不要の現行英日リリースには移行注記区分を要求しない", () => {
@@ -404,7 +671,9 @@ test("移行不要の現行英日リリースには移行注記区分を要求�
   );
   const result = run(root);
   assert.equal(
-    result.report.findings.some((item) => item.code === "migration-note-incomplete"),
+    result.report.findings.some(
+      (item) => item.code === "migration-note-incomplete",
+    ),
     false,
   );
 });
@@ -412,9 +681,13 @@ test("移行不要の現行英日リリースには移行注記区分を要求�
 test("現行移行要否の欠落を判定不能として返す", () => {
   const root = currentChangelogFixture([], ["- `migration_required: false`"]);
   const result = run(root);
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "migration-status-undetermined" && /English/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "migration-status-undetermined" &&
+        /English/u.test(item.message),
+    ),
+  );
 });
 
 test("現行移行要否の不正値を判定不能として返す", () => {
@@ -423,7 +696,11 @@ test("現行移行要否の不正値を判定不能として返す", () => {
     ["- `migration_required: false`"],
   );
   const result = run(root);
-  assert.ok(result.report.findings.some((item) => item.code === "migration-status-undetermined"));
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "migration-status-undetermined",
+    ),
+  );
 });
 
 test("現行移行要否の同値重複を判定不能として返す", () => {
@@ -432,7 +709,11 @@ test("現行移行要否の同値重複を判定不能として返す", () => {
     ["- `migration_required: false`"],
   );
   const result = run(root);
-  assert.ok(result.report.findings.some((item) => item.code === "migration-status-undetermined"));
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "migration-status-undetermined",
+    ),
+  );
 });
 
 test("現行移行要否の競合宣言を判定不能として返す", () => {
@@ -441,7 +722,11 @@ test("現行移行要否の競合宣言を判定不能として返す", () => {
     ["- `migration_required: false`"],
   );
   const result = run(root);
-  assert.ok(result.report.findings.some((item) => item.code === "migration-status-undetermined"));
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "migration-status-undetermined",
+    ),
+  );
 });
 
 test("現行英日移行要否の不一致を返す", () => {
@@ -450,27 +735,59 @@ test("現行英日移行要否の不一致を返す", () => {
     ["- `migration_required: false`"],
   );
   const result = run(root);
-  assert.ok(result.report.findings.some((item) => item.code === "migration-status-mismatch"));
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "migration-status-mismatch",
+    ),
+  );
 });
 
 test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
   const categoriesEn = [
-    "- Required: example", "- Conditional: example", "- Not required: example",
-    "- Rollback / recovery: example", "- Known risk if deferred: example",
-    "- Verification: example", "- Known limitation: example",
+    "- Required: example",
+    "- Conditional: example",
+    "- Not required: example",
+    "- Rollback / recovery: example",
+    "- Known risk if deferred: example",
+    "- Verification: example",
+    "- Known limitation: example",
   ];
   const categoriesJa = [
-    "- 必須: 例", "- 条件付き: 例", "- 不要: 例", "- 復旧: 例",
-    "- 延期時の既知リスク: 例", "- 検証: 例", "- 既知の制限: 例",
+    "- 必須: 例",
+    "- 条件付き: 例",
+    "- 不要: 例",
+    "- 復旧: 例",
+    "- 延期時の既知リスク: 例",
+    "- 検証: 例",
+    "- 既知の制限: 例",
   ];
   const root = currentChangelogFixture(
-    ["```yaml", "migration_required: true # current", "change_classification: breaking", "```", ...categoriesEn],
-    ["```yml", "migration_required: true", "change_classification: breaking", "```", ...categoriesJa],
+    [
+      "```yaml",
+      "migration_required: true # current",
+      "change_classification: breaking",
+      "```",
+      ...categoriesEn,
+    ],
+    [
+      "```yml",
+      "migration_required: true",
+      "change_classification: breaking",
+      "```",
+      ...categoriesJa,
+    ],
   );
   const result = run(root);
-  assert.equal(result.report.findings.some((item) => [
-    "migration-status-undetermined", "migration-status-mismatch", "migration-note-incomplete",
-  ].includes(item.code)), false);
+  assert.equal(
+    result.report.findings.some((item) =>
+      [
+        "migration-status-undetermined",
+        "migration-status-mismatch",
+        "migration-note-incomplete",
+      ].includes(item.code),
+    ),
+    false,
+  );
 });
 
 test("説明文中の移行語を宣言として扱わない", () => {
@@ -480,7 +797,9 @@ test("説明文中の移行語を宣言として扱わない", () => {
   );
   const result = run(root);
   assert.equal(
-    result.report.findings.filter((item) => item.code === "migration-status-undetermined").length,
+    result.report.findings.filter(
+      (item) => item.code === "migration-status-undetermined",
+    ).length,
     2,
   );
 });
@@ -492,40 +811,72 @@ test("非YAML fence内の移行宣言を判定データとして扱わない", (
   );
   const result = run(root);
   assert.equal(
-    result.report.findings.filter((item) => item.code === "migration-status-undetermined").length,
+    result.report.findings.filter(
+      (item) => item.code === "migration-status-undetermined",
+    ).length,
     2,
   );
 });
 
 test("非YAML fence内の移行注記区分を成立根拠へ流用しない", () => {
   const fencedEnglish = [
-    "```text", "- Required: example", "- Conditional: example", "- Not required: example",
-    "- Rollback / recovery: example", "- Known risk if deferred: example",
-    "- Verification: example", "- Known limitation: example", "```",
+    "```text",
+    "- Required: example",
+    "- Conditional: example",
+    "- Not required: example",
+    "- Rollback / recovery: example",
+    "- Known risk if deferred: example",
+    "- Verification: example",
+    "- Known limitation: example",
+    "```",
   ];
   const fencedJapanese = [
-    "```text", "- 必須: 例", "- 条件付き: 例", "- 不要: 例", "- 復旧: 例",
-    "- 延期時の既知リスク: 例", "- 検証: 例", "- 既知の制限: 例", "```",
+    "```text",
+    "- 必須: 例",
+    "- 条件付き: 例",
+    "- 不要: 例",
+    "- 復旧: 例",
+    "- 延期時の既知リスク: 例",
+    "- 検証: 例",
+    "- 既知の制限: 例",
+    "```",
   ];
-  const result = run(currentChangelogFixture(
-    ["- `migration_required: true`", "- `change_classification: breaking`", ...fencedEnglish],
-    ["- `migration_required: true`", "- `change_classification: breaking`", ...fencedJapanese],
-  ));
+  const result = run(
+    currentChangelogFixture(
+      [
+        "- `migration_required: true`",
+        "- `change_classification: breaking`",
+        ...fencedEnglish,
+      ],
+      [
+        "- `migration_required: true`",
+        "- `change_classification: breaking`",
+        ...fencedJapanese,
+      ],
+    ),
+  );
   assert.equal(
-    result.report.findings.filter((item) => item.code === "migration-note-incomplete").length,
+    result.report.findings.filter(
+      (item) => item.code === "migration-note-incomplete",
+    ).length,
     2,
   );
 });
 
 test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
   const example = ["```", "- `migration_required: true`", "```"];
-  const result = run(currentChangelogFixture(
-    ["- `migration_required: false`", ...example],
-    ["- `migration_required: false`", ...example],
-  ));
+  const result = run(
+    currentChangelogFixture(
+      ["- `migration_required: false`", ...example],
+      ["- `migration_required: false`", ...example],
+    ),
+  );
   assert.equal(
     result.report.findings.some((item) =>
-      ["migration-status-undetermined", "migration-status-mismatch"].includes(item.code)),
+      ["migration-status-undetermined", "migration-status-mismatch"].includes(
+        item.code,
+      ),
+    ),
     false,
   );
 });
@@ -537,19 +888,25 @@ test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
   );
   const result = run(root);
   assert.equal(
-    result.report.findings.some((item) => item.code === "migration-status-undetermined"),
+    result.report.findings.some(
+      (item) => item.code === "migration-status-undetermined",
+    ),
     false,
   );
 });
 
 test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () => {
   const example = ["````text", "```", "- `migration_required: true`", "````"];
-  const result = run(currentChangelogFixture(
-    ["- `migration_required: false`", ...example],
-    ["- `migration_required: false`", ...example],
-  ));
+  const result = run(
+    currentChangelogFixture(
+      ["- `migration_required: false`", ...example],
+      ["- `migration_required: false`", ...example],
+    ),
+  );
   assert.equal(
-    result.report.findings.some((item) => item.code === "migration-status-undetermined"),
+    result.report.findings.some(
+      (item) => item.code === "migration-status-undetermined",
+    ),
     false,
   );
 });
@@ -560,22 +917,32 @@ test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さ�
     ["- `migration_required: false`"],
   );
   const result = run(root);
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "current-changelog-release-missing" && /日本語/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "current-changelog-release-missing" &&
+        /日本語/u.test(item.message),
+    ),
+  );
 });
 
 test("YAML fence内の言語見出しと現行Release見出しを構造として扱わない", () => {
   const root = currentChangelogFixture(
     [
-      "```yaml", "## 日本語", "### v0.16.0 — fenced", "migration_required: false", "```",
+      "```yaml",
+      "## 日本語",
+      "### v0.16.0 — fenced",
+      "migration_required: false",
+      "```",
       "- `migration_required: false`",
     ],
     ["- `migration_required: false`"],
   );
   const result = run(root);
   assert.equal(
-    result.report.findings.some((item) => item.code === "current-changelog-release-missing"),
+    result.report.findings.some(
+      (item) => item.code === "current-changelog-release-missing",
+    ),
     false,
   );
 });
@@ -588,109 +955,190 @@ test("同じ言語区分の重複を一部採用せずエラーにする", () =>
   write(
     path.join(root, "CHANGELOG.md"),
     [
-      "## English", "### v0.16.0 — First", "- `migration_required: false`",
-      "## English", "### v0.16.0 — Second", "- `migration_required: false`",
-      "## 日本語", "### v0.16.0 — 一つ目", "- `migration_required: false`",
-      "## 日本語", "### v0.16.0 — 二つ目", "- `migration_required: false`",
+      "## English",
+      "### v0.16.0 — First",
+      "- `migration_required: false`",
+      "## English",
+      "### v0.16.0 — Second",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.16.0 — 一つ目",
+      "- `migration_required: false`",
+      "## 日本語",
+      "### v0.16.0 — 二つ目",
+      "- `migration_required: false`",
     ].join("\n"),
   );
   const result = run(root);
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "current-changelog-release-missing" && /English.*found 2/u.test(item.message),
-  ));
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "current-changelog-release-missing" && /日本語.*found 2/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "current-changelog-release-missing" &&
+        /English.*found 2/u.test(item.message),
+    ),
+  );
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "current-changelog-release-missing" &&
+        /日本語.*found 2/u.test(item.message),
+    ),
+  );
 });
 
 test("非YAML fence内の言語見出しと現行Release見出しを無視する", () => {
   const root = currentChangelogFixture(
     [
-      "~~~markdown", "## English", "## 日本語", "### v0.16.0 — fenced",
-      "- `migration_required: true`", "~~~", "- `migration_required: false`",
+      "~~~markdown",
+      "## English",
+      "## 日本語",
+      "### v0.16.0 — fenced",
+      "- `migration_required: true`",
+      "~~~",
+      "- `migration_required: false`",
     ],
     ["- `migration_required: false`"],
   );
   const result = run(root);
   assert.equal(
-    result.report.findings.some((item) => item.code === "current-changelog-release-missing"),
+    result.report.findings.some(
+      (item) => item.code === "current-changelog-release-missing",
+    ),
     false,
   );
   assert.equal(
-    result.report.findings.some((item) => item.code === "migration-status-undetermined"),
+    result.report.findings.some(
+      (item) => item.code === "migration-status-undetermined",
+    ),
     false,
   );
 });
 
 test("現行リリース節の重複をエラーにする", () => {
   const root = currentChangelogFixture(
-    ["- `migration_required: false`", "### v0.16.0 — Duplicate", "- `migration_required: false`"],
+    [
+      "- `migration_required: false`",
+      "### v0.16.0 — Duplicate",
+      "- `migration_required: false`",
+    ],
     ["- `migration_required: false`"],
   );
   const result = run(root);
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "current-changelog-release-missing" && /found 2/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "current-changelog-release-missing" &&
+        /found 2/u.test(item.message),
+    ),
+  );
 });
 
 test("過去リリースの宣言を現行リリースへ流用しない", () => {
   const root = currentChangelogFixture([], []);
   const result = run(root);
   assert.equal(
-    result.report.findings.filter((item) => item.code === "migration-status-undetermined").length,
+    result.report.findings.filter(
+      (item) => item.code === "migration-status-undetermined",
+    ).length,
     2,
   );
 });
 
 test("現行英日変更分類の不一致を返す", () => {
   const completeEn = [
-    "- `migration_required: true`", "- `change_classification: breaking`",
-    "- Required: example", "- Conditional: example", "- Not required: example",
-    "- Rollback / recovery: example", "- Known risk if deferred: example",
-    "- Verification: example", "- Known limitation: example",
+    "- `migration_required: true`",
+    "- `change_classification: breaking`",
+    "- Required: example",
+    "- Conditional: example",
+    "- Not required: example",
+    "- Rollback / recovery: example",
+    "- Known risk if deferred: example",
+    "- Verification: example",
+    "- Known limitation: example",
   ];
   const completeJa = [
-    "- `migration_required: true`", "- `change_classification: normative`",
-    "- 必須: 例", "- 条件付き: 例", "- 不要: 例", "- 復旧: 例",
-    "- 延期時の既知リスク: 例", "- 検証: 例", "- 既知の制限: 例",
+    "- `migration_required: true`",
+    "- `change_classification: normative`",
+    "- 必須: 例",
+    "- 条件付き: 例",
+    "- 不要: 例",
+    "- 復旧: 例",
+    "- 延期時の既知リスク: 例",
+    "- 検証: 例",
+    "- 既知の制限: 例",
   ];
   const result = run(currentChangelogFixture(completeEn, completeJa));
-  assert.ok(result.report.findings.some((item) => item.code === "migration-status-mismatch"));
+  assert.ok(
+    result.report.findings.some(
+      (item) => item.code === "migration-status-mismatch",
+    ),
+  );
 });
 
 test("移行が必要な現行節の変更分類欠落を判定不能として返す", () => {
   const categoriesEn = [
-    "- `migration_required: true`", "- Required: example", "- Conditional: example",
-    "- Not required: example", "- Rollback / recovery: example",
-    "- Known risk if deferred: example", "- Verification: example", "- Known limitation: example",
+    "- `migration_required: true`",
+    "- Required: example",
+    "- Conditional: example",
+    "- Not required: example",
+    "- Rollback / recovery: example",
+    "- Known risk if deferred: example",
+    "- Verification: example",
+    "- Known limitation: example",
   ];
   const categoriesJa = [
-    "- `migration_required: true`", "- `change_classification: breaking`", "- 必須: 例",
-    "- 条件付き: 例", "- 不要: 例", "- 復旧: 例", "- 延期時の既知リスク: 例",
-    "- 検証: 例", "- 既知の制限: 例",
+    "- `migration_required: true`",
+    "- `change_classification: breaking`",
+    "- 必須: 例",
+    "- 条件付き: 例",
+    "- 不要: 例",
+    "- 復旧: 例",
+    "- 延期時の既知リスク: 例",
+    "- 検証: 例",
+    "- 既知の制限: 例",
   ];
   const result = run(currentChangelogFixture(categoriesEn, categoriesJa));
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "migration-status-undetermined" && /change_classification/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "migration-status-undetermined" &&
+        /change_classification/u.test(item.message),
+    ),
+  );
 });
 
 test("移行が必要な現行節の変更分類重複を判定不能として返す", () => {
   const categoriesEn = [
-    "- `migration_required: true`", "- `change_classification: breaking`",
-    "- `change_classification: breaking`", "- Required: example", "- Conditional: example",
-    "- Not required: example", "- Rollback / recovery: example",
-    "- Known risk if deferred: example", "- Verification: example", "- Known limitation: example",
+    "- `migration_required: true`",
+    "- `change_classification: breaking`",
+    "- `change_classification: breaking`",
+    "- Required: example",
+    "- Conditional: example",
+    "- Not required: example",
+    "- Rollback / recovery: example",
+    "- Known risk if deferred: example",
+    "- Verification: example",
+    "- Known limitation: example",
   ];
   const categoriesJa = [
-    "- `migration_required: true`", "- `change_classification: breaking`", "- 必須: 例",
-    "- 条件付き: 例", "- 不要: 例", "- 復旧: 例", "- 延期時の既知リスク: 例",
-    "- 検証: 例", "- 既知の制限: 例",
+    "- `migration_required: true`",
+    "- `change_classification: breaking`",
+    "- 必須: 例",
+    "- 条件付き: 例",
+    "- 不要: 例",
+    "- 復旧: 例",
+    "- 延期時の既知リスク: 例",
+    "- 検証: 例",
+    "- 既知の制限: 例",
   ];
   const result = run(currentChangelogFixture(categoriesEn, categoriesJa));
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "migration-status-undetermined" && /change_classification/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "migration-status-undetermined" &&
+        /change_classification/u.test(item.message),
+    ),
+  );
 });
 
 test("閉じていないYAML宣言を判定不能として返す", () => {
@@ -699,9 +1147,13 @@ test("閉じていないYAML宣言を判定不能として返す", () => {
     ["- `migration_required: false`"],
   );
   const result = run(root);
-  assert.ok(result.report.findings.some(
-    (item) => item.code === "migration-status-undetermined" && /unclosed-yaml-fence/u.test(item.message),
-  ));
+  assert.ok(
+    result.report.findings.some(
+      (item) =>
+        item.code === "migration-status-undetermined" &&
+        /unclosed-yaml-fence/u.test(item.message),
+    ),
+  );
 });
 
 test("Git管理された公式リポジトリではbaseline状態を非該当として返す", () => {
@@ -735,8 +1187,11 @@ test("採用先では公式CHANGELOG専用の移行宣言検査を発火しな�
   write(
     path.join(root, "CHANGELOG.md"),
     [
-      "## English", "### v0.16.0 — Product", "```text",
-      "- `migration_required: true`", "```",
+      "## English",
+      "### v0.16.0 — Product",
+      "```text",
+      "- `migration_required: true`",
+      "```",
     ].join("\n"),
   );
   const result = run(root);
@@ -747,7 +1202,8 @@ test("採用先では公式CHANGELOG専用の移行宣言検査を発火しな�
         "migration-status-undetermined",
         "migration-status-mismatch",
         "migration-note-incomplete",
-      ].includes(item.code)),
+      ].includes(item.code),
+    ),
     false,
   );
 });
@@ -876,14 +1332,10 @@ test("階層化した変更領域の変更トレースと近接根拠を機械�
   );
   const result = run(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
-  assert.equal(
-    result.report.change_trace_layout,
-    "hierarchy-tolerant",
-  );
-  assert.deepEqual(
-    result.report.recognized_change_trace_paths,
-    ["90_Release/**/Changes/**/CHG-*.md"],
-  );
+  assert.equal(result.report.change_trace_layout, "hierarchy-tolerant");
+  assert.deepEqual(result.report.recognized_change_trace_paths, [
+    "90_Release/**/Changes/**/CHG-*.md",
+  ]);
   assert.ok(
     result.report.global_checks.includes(
       "Change Trace inspection-path recognition (not canonical placement validation)",
@@ -912,8 +1364,7 @@ test("深いEvidence階層のMarkdownも内容を検査する", () => {
   assert.ok(
     result.report.findings.some(
       (finding) =>
-        finding.code === "broken-link" &&
-        finding.path.endsWith("Result.md"),
+        finding.code === "broken-link" && finding.path.endsWith("Result.md"),
     ),
   );
 });
@@ -962,10 +1413,7 @@ test("Evidence配下のCHG名ファイルを変更トレース定義と誤認し
       "CHG-000001_Interview.md",
       "# 変更トレース検証結果\n\nChange ID: CHG-000001\n状態（Status）: Verified\n",
     ],
-    [
-      "CHG-000002_Review.md",
-      "# 変更トレース レビュー\n\n変更ID: CHG-000002\n",
-    ],
+    ["CHG-000002_Review.md", "# 変更トレース レビュー\n\n変更ID: CHG-000002\n"],
     [
       "CHG-000003_Verification.md",
       "# Change Trace verification result\n\nChange ID: CHG-000003\n",
@@ -993,14 +1441,7 @@ test("Evidence配下へ誤配置した変更トレース本文を検出する", 
   ];
   for (const [name, content] of definitions) {
     write(
-      path.join(
-        root,
-        "90_Release",
-        "product-a",
-        "Changes",
-        "Evidence",
-        name,
-      ),
+      path.join(root, "90_Release", "product-a", "Changes", "Evidence", name),
       content,
     );
   }
@@ -1057,14 +1498,12 @@ test("参照関係を重複回数付きで集約する", () => {
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[B](B.md)\n[B2](B.md)\n");
   write(path.join(root, "01_Discovery", "B.md"), "[A](A.md)\n");
-  const result = run(
-    root,
-    "--references",
-    "01_Discovery/B.md",
-  );
+  const result = run(root, "--references", "01_Discovery/B.md");
   assert.equal(result.status, 0);
-  assert.equal(result.report.references.inbound[0].count, 2);
-  assert.equal(result.report.references.outbound[0].target, "01_Discovery/A.md");
+  const references = result.report.references;
+  assert.ok(references);
+  assert.equal(references.inbound[0].count, 2);
+  assert.equal(references.outbound[0].target, "01_Discovery/A.md");
 });
 
 test("分岐網羅率の分母・分子・割合の不整合を検出する", () => {
@@ -1131,7 +1570,10 @@ test("同一ファイル内の安定コンテキストID重複定義を検出す
 test("ルート外リンクを読み取らず未確認として返す", () => {
   const root = fixture();
   makeStructure(root);
-  write(path.join(root, "01_Discovery", "A.md"), "[outside](../../outside.md)\n");
+  write(
+    path.join(root, "01_Discovery", "A.md"),
+    "[outside](../../outside.md)\n",
+  );
   const result = run(root);
   assert.equal(result.status, 0);
   assert.ok(
@@ -1139,7 +1581,9 @@ test("ルート外リンクを読み取らず未確認として返す", () => {
       (finding) => finding.code === "outside-root-link",
     ),
   );
-  assert.ok(result.report.unchecked.some((item) => item.includes("Outside-root")));
+  assert.ok(
+    result.report.unchecked.some((item) => item.includes("Outside-root")),
+  );
 });
 
 test("Git無視ファイルを除外し未追跡・非無視ファイルを確認する", () => {
@@ -1207,7 +1651,13 @@ test("旧JSON配列と非JSONサマリーの互換性を維持する", () => {
   makeStructure(root);
   const legacy = runRaw("--root", root, "--json");
   assert.ok(Array.isArray(JSON.parse(legacy.stdout)));
-  const summary = runRaw("--root", root, "--scope", "01_Discovery", "--summary");
+  const summary = runRaw(
+    "--root",
+    root,
+    "--scope",
+    "01_Discovery",
+    "--summary",
+  );
   assert.match(summary.stdout, /Executed=/u);
   assert.match(summary.stdout, /Unchecked=/u);
 });
@@ -1294,11 +1744,9 @@ test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤�
   );
   write(
     path.join(root, "00_CRDD", "01_Principles.md"),
-    [
-      "Version: v0.10.0",
-      '<a id="baseline-rule"></a>',
-      "## Baseline Rule",
-    ].join("\n"),
+    ["Version: v0.10.0", '<a id="baseline-rule"></a>', "## Baseline Rule"].join(
+      "\n",
+    ),
   );
   write(
     path.join(root, "README.md"),
@@ -1390,8 +1838,7 @@ test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
   assert.ok(result.report.baseline_submodule_state.gitlink_oid);
   assert.ok(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-declaration-missing",
+      (finding) => finding.code === "baseline-submodule-declaration-missing",
     ),
   );
 });
@@ -1413,8 +1860,7 @@ test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する"
   assert.equal(result.report.baseline_submodule_state.worktree_present, false);
   assert.ok(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-declaration-missing",
+      (finding) => finding.code === "baseline-submodule-declaration-missing",
     ),
   );
   assert.ok(
@@ -1454,8 +1900,7 @@ test("gitlink位置の通常ディレクトリから親GitのHEADを読まない
   );
   assert.equal(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-revision-mismatch",
+      (finding) => finding.code === "baseline-submodule-revision-mismatch",
     ),
     false,
   );
@@ -1468,10 +1913,7 @@ test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
   addGitlink(root, "00_CRDD");
   write(
     path.join(root, ".gitmodules"),
-    [
-      "[core]",
-      "\tpath = 00_CRDD",
-    ].join("\n"),
+    ["[core]", "\tpath = 00_CRDD"].join("\n"),
   );
 
   const result = run(root);
@@ -1479,8 +1921,7 @@ test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
   assert.equal(result.report.baseline_submodule_state.declared, false);
   assert.ok(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-declaration-missing",
+      (finding) => finding.code === "baseline-submodule-declaration-missing",
     ),
   );
 });
@@ -1492,10 +1933,7 @@ test("gitmodulesのコメント開始をGit自身の解釈で判定する", () =
   addGitlink(root, "00_CRDD");
   write(
     path.join(root, ".gitmodules"),
-    [
-      '[submodule "00_CRDD"]',
-      "\tpath = 00_CRDD#comment",
-    ].join("\n"),
+    ['[submodule "00_CRDD"]', "\tpath = 00_CRDD#comment"].join("\n"),
   );
 
   const result = run(root);
@@ -1503,8 +1941,7 @@ test("gitmodulesのコメント開始をGit自身の解釈で判定する", () =
   assert.equal(result.report.baseline_submodule_state.declared, true);
   assert.equal(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-declaration-missing",
+      (finding) => finding.code === "baseline-submodule-declaration-missing",
     ),
     false,
   );
@@ -1517,10 +1954,7 @@ test("gitmodulesの引用値に続く文字を切り捨てない", () => {
   addGitlink(root, "00_CRDD");
   write(
     path.join(root, ".gitmodules"),
-    [
-      '[submodule "00_CRDD"]',
-      '\tpath = "00_CRDD"garbage',
-    ].join("\n"),
+    ['[submodule "00_CRDD"]', '\tpath = "00_CRDD"garbage'].join("\n"),
   );
 
   const result = run(root);
@@ -1528,8 +1962,7 @@ test("gitmodulesの引用値に続く文字を切り捨てない", () => {
   assert.equal(result.report.baseline_submodule_state.declared, false);
   assert.ok(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-declaration-missing",
+      (finding) => finding.code === "baseline-submodule-declaration-missing",
     ),
   );
 });
@@ -1569,13 +2002,10 @@ test("gitmodulesの空値・不正な引用符・行末コメントを安全に�
       (finding) => finding.code === "baseline-submodule-unverified",
     ),
   );
-  assert.deepEqual(
-    result.report.gitlink_boundaries,
-    [
-      "40_Develop/component",
-      "40_Develop/component#literal",
-    ],
-  );
+  assert.deepEqual(result.report.gitlink_boundaries, [
+    "40_Develop/component",
+    "40_Develop/component#literal",
+  ]);
 });
 
 test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しない", () => {
@@ -1590,10 +2020,7 @@ test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しな
       "\turl = https://example.invalid/CRDD.git",
     ].join("\n"),
   );
-  write(
-    path.join(root, "00_CRDD", "01_Principles.md"),
-    "Version: v0.11.4\n",
-  );
+  write(path.join(root, "00_CRDD", "01_Principles.md"), "Version: v0.11.4\n");
 
   const result = run(root);
   assert.equal(result.status, 1);
@@ -1685,18 +2112,13 @@ test("競合中のgitlinkを確定Revisionとして扱わない", () => {
     ].join("\n"),
   );
 
-  const result = runWithFault(
-    root,
-    "git-list-custom",
-    root,
-    {
-      CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
-      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
-        "160000 1111111111111111111111111111111111111111 2\t00_CRDD",
-        "160000 2222222222222222222222222222222222222222 3\t00_CRDD",
-      ]),
-    },
-  );
+  const result = runWithFault(root, "git-list-custom", root, {
+    CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
+    CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+      "160000 1111111111111111111111111111111111111111 2\t00_CRDD",
+      "160000 2222222222222222222222222222222222222222 3\t00_CRDD",
+    ]),
+  });
   assert.equal(result.status, 1);
   assert.equal(result.report.gitlink_detection, "git-index-conflicted");
   assert.equal(result.report.baseline_submodule_state.gitlink_indexed, null);
@@ -1720,24 +2142,16 @@ test("gitmodulesを検証できない場合は宣言欠落と断定しない", (
   makeStructure(root);
   write(
     path.join(root, ".gitmodules"),
-    [
-      '[submodule "00_CRDD"]',
-      "\tpath = 00_CRDD",
-    ].join("\n"),
+    ['[submodule "00_CRDD"]', "\tpath = 00_CRDD"].join("\n"),
   );
 
-  const result = runWithFault(
-    root,
-    "git-list-custom",
-    root,
-    {
-      CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
-      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
-        "160000 1111111111111111111111111111111111111111 0\t00_CRDD",
-      ]),
-      CRDD_CHECK_FAULT_GIT_CONFIG_FAILED: "1",
-    },
-  );
+  const result = runWithFault(root, "git-list-custom", root, {
+    CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
+    CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+      "160000 1111111111111111111111111111111111111111 0\t00_CRDD",
+    ]),
+    CRDD_CHECK_FAULT_GIT_CONFIG_FAILED: "1",
+  });
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_state.declared, null);
   assert.equal(result.report.baseline_submodule_state.gitlink_indexed, true);
@@ -1749,8 +2163,7 @@ test("gitmodulesを検証できない場合は宣言欠落と断定しない", (
   );
   assert.equal(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-declaration-missing",
+      (finding) => finding.code === "baseline-submodule-declaration-missing",
     ),
     false,
   );
@@ -1761,25 +2174,17 @@ test("git configの不正な出力をsubmodule宣言として採用しない", (
   makeStructure(root);
   write(
     path.join(root, ".gitmodules"),
-    [
-      '[submodule "00_CRDD"]',
-      "\tpath = 00_CRDD",
-    ].join("\n"),
+    ['[submodule "00_CRDD"]', "\tpath = 00_CRDD"].join("\n"),
   );
 
-  const result = runWithFault(
-    root,
-    "git-list-custom",
-    root,
-    {
-      CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
-      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
-        "160000 1111111111111111111111111111111111111111 0\t00_CRDD",
-      ]),
-      CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT:
-        "submodule.00_CRDD.path-without-value-separator",
-    },
-  );
+  const result = runWithFault(root, "git-list-custom", root, {
+    CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([]),
+    CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+      "160000 1111111111111111111111111111111111111111 0\t00_CRDD",
+    ]),
+    CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT:
+      "submodule.00_CRDD.path-without-value-separator",
+  });
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_state.declared, null);
   assert.ok(
@@ -1789,8 +2194,7 @@ test("git configの不正な出力をsubmodule宣言として採用しない", (
   );
   assert.equal(
     result.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-declaration-missing",
+      (finding) => finding.code === "baseline-submodule-declaration-missing",
     ),
     false,
   );
@@ -1809,10 +2213,7 @@ test("未初期化gitlink配下へのリンクを破損リンクと誤認しな�
   const result = run(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.gitlink_detection, "git-index");
-  assert.deepEqual(
-    result.report.gitlink_boundaries,
-    ["40_Develop/component"],
-  );
+  assert.deepEqual(result.report.gitlink_boundaries, ["40_Develop/component"]);
   assert.equal(result.report.metrics.gitlinks_observed, 1);
   assert.ok(
     result.report.findings.some(
@@ -1820,9 +2221,7 @@ test("未初期化gitlink配下へのリンクを破損リンクと誤認しな�
     ),
   );
   assert.equal(
-    result.report.findings.some(
-      (finding) => finding.code === "broken-link",
-    ),
+    result.report.findings.some((finding) => finding.code === "broken-link"),
     false,
   );
   assert.ok(
@@ -1874,19 +2273,14 @@ test("index modeを読めなくても宣言済みsubmodule境界を破損リン�
   const result = runWithFault(root, "git-stage-failed", root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.gitlink_detection, "unavailable");
-  assert.deepEqual(
-    result.report.gitlink_boundaries,
-    ["40_Develop/component"],
-  );
+  assert.deepEqual(result.report.gitlink_boundaries, ["40_Develop/component"]);
   assert.ok(
     result.report.findings.some(
       (finding) => finding.code === "gitlink-target-unchecked",
     ),
   );
   assert.equal(
-    result.report.findings.some(
-      (finding) => finding.code === "broken-link",
-    ),
+    result.report.findings.some((finding) => finding.code === "broken-link"),
     false,
   );
 });
@@ -1943,9 +2337,7 @@ test("シンボリックリンク経由のルート外参照を読み取らな�
     ),
   );
   assert.ok(
-    result.report.unchecked.some((item) =>
-      item.includes("Symbolic link"),
-    ),
+    result.report.unchecked.some((item) => item.includes("Symbolic link")),
   );
 
   const scope = runRaw(
@@ -1972,14 +2364,12 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   const source = fixture();
   write(
     path.join(source, "01_Principles.md"),
-    [
-      "Version: v0.10.0",
-      '<a id="actual-submodule-rule"></a>',
-      "## Rule",
-    ].join("\n"),
+    ["Version: v0.10.0", '<a id="actual-submodule-rule"></a>', "## Rule"].join(
+      "\n",
+    ),
   );
   write(
-    path.join(source, "template", "tools", "crdd_check.mjs"),
+    path.join(source, "template", "tools", "crdd_check.ts"),
     fs.readFileSync(checker, "utf8"),
   );
   assert.equal(
@@ -2044,7 +2434,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     "00_CRDD",
     "template",
     "tools",
-    "crdd_check.mjs",
+    "crdd_check.ts",
   );
   const checked = spawnSync(
     process.execPath,
@@ -2087,10 +2477,9 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     "00_CRDD/01_Principles.md",
   );
   assert.equal(baselineReferences.status, 0, baselineReferences.stderr);
-  assert.equal(
-    baselineReferences.report.references.inbound[0].source,
-    "README.md",
-  );
+  const references = baselineReferences.report.references;
+  assert.ok(references);
+  assert.equal(references.inbound[0].source, "README.md");
 
   if (process.platform === "win32") {
     const caseChanged = runWithFault(
@@ -2123,10 +2512,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     unverified.report.baseline_submodule_state.gitdir_accessible,
     true,
   );
-  assert.equal(
-    unverified.report.baseline_submodule_state.head_readable,
-    false,
-  );
+  assert.equal(unverified.report.baseline_submodule_state.head_readable, false);
   assert.ok(
     unverified.report.findings.some(
       (finding) => finding.code === "baseline-submodule-unverified",
@@ -2139,10 +2525,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     false,
   );
 
-  write(
-    path.join(root, "00_CRDD", "Mismatch.md"),
-    "# mismatch\n",
-  );
+  write(path.join(root, "00_CRDD", "Mismatch.md"), "# mismatch\n");
   assert.equal(
     spawnSync("git", ["-C", path.join(root, "00_CRDD"), "add", "."], {
       encoding: "utf8",
@@ -2168,18 +2551,14 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   assert.equal(advanced.status, 0, advanced.stderr);
   const mismatched = run(root);
   assert.equal(mismatched.status, 1);
-  assert.equal(
-    mismatched.report.baseline_submodule_initialized,
-    true,
-  );
+  assert.equal(mismatched.report.baseline_submodule_initialized, true);
   assert.equal(
     mismatched.report.baseline_submodule_state.head_matches_gitlink,
     false,
   );
   assert.ok(
     mismatched.report.findings.some(
-      (finding) =>
-        finding.code === "baseline-submodule-revision-mismatch",
+      (finding) => finding.code === "baseline-submodule-revision-mismatch",
     ),
   );
 });
@@ -2235,10 +2614,7 @@ test("外部リンクと山括弧リンクと公式ひな型の正本読替え�
 test("範囲指定を直接の参照元と参照先へ広げる", () => {
   const root = fixture();
   makeStructure(root);
-  write(
-    path.join(root, "01_Discovery", "A.md"),
-    "[UX](../02_UX/B.md)\n",
-  );
+  write(path.join(root, "01_Discovery", "A.md"), "[UX](../02_UX/B.md)\n");
   write(path.join(root, "02_UX", "B.md"), "# UX\n");
   write(
     path.join(root, "03_IA", "C.md"),
@@ -2249,11 +2625,7 @@ test("範囲指定を直接の参照元と参照先へ広げる", () => {
   assert.equal(result.status, 0);
   assert.deepEqual(
     new Set(result.report.expanded_scope),
-    new Set([
-      "01_Discovery/A.md",
-      "02_UX/B.md",
-      "03_IA/C.md",
-    ]),
+    new Set(["01_Discovery/A.md", "02_UX/B.md", "03_IA/C.md"]),
   );
 });
 
@@ -2340,10 +2712,7 @@ test("公式ひな型ルートのジャンクションを拒否する", () => {
 test("非JSON出力に指摘と参照マップを表示する", () => {
   const root = fixture();
   makeStructure(root);
-  write(
-    path.join(root, "01_Discovery", "A.md"),
-    "[missing](missing.md)\n",
-  );
+  write(path.join(root, "01_Discovery", "A.md"), "[missing](missing.md)\n");
   const result = runRaw(
     "--root",
     root,
@@ -2413,8 +2782,7 @@ test("a required CRDD structure entry must be a directory", () => {
   assert.ok(
     result.report.findings.some(
       (finding) =>
-        finding.code === "invalid-structure-entry" &&
-        finding.path === "02_UX",
+        finding.code === "invalid-structure-entry" && finding.path === "02_UX",
     ),
   );
 });
@@ -2438,10 +2806,7 @@ test("fallbackではgitdirが読めても親indexのgitlinkを検証済みにし
     path.join(root, "00_CRDD", ".git"),
     "gitdir: ../.git/modules/00_CRDD\n",
   );
-  write(
-    path.join(root, "00_CRDD", "01_Principles.md"),
-    "Version: v0.10.0\n",
-  );
+  write(path.join(root, "00_CRDD", "01_Principles.md"), "Version: v0.10.0\n");
 
   const result = runWithEnv(root, { PATH: noGitPath });
   assert.equal(result.status, 1);
@@ -2462,20 +2827,11 @@ test("gitmodulesを読めないfallbackは例外終了せず未確認にする",
   const noGitPath = fixture();
   makeStructure(root);
   const gitmodules = path.join(root, ".gitmodules");
-  write(
-    gitmodules,
-    [
-      '[submodule "00_CRDD"]',
-      "\tpath = 00_CRDD",
-    ].join("\n"),
-  );
+  write(gitmodules, ['[submodule "00_CRDD"]', "\tpath = 00_CRDD"].join("\n"));
 
-  const result = runWithFault(
-    root,
-    "read-file-error",
-    gitmodules,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "read-file-error", gitmodules, {
+    PATH: noGitPath,
+  });
   assert.equal(result.status, 1);
   assert.equal(result.report.discovery_source, "walk-fallback");
   assert.equal(result.report.baseline_submodule, true);
@@ -2575,10 +2931,7 @@ test("heading anchors remove Japanese punctuation without removing Japanese text
     path.join(root, "01_Discovery", "A.md"),
     "[target](B.md#日本語見出し例)\n",
   );
-  write(
-    path.join(root, "01_Discovery", "B.md"),
-    "# 日本語／見出し（例）\n",
-  );
+  write(path.join(root, "01_Discovery", "B.md"), "# 日本語／見出し（例）\n");
 
   const result = run(root);
   assert.equal(result.status, 0);
@@ -2720,10 +3073,7 @@ test("heading anchors use visible labels from common inline Markdown", () => {
 test("duplicate heading suffixes avoid anchors generated by another heading", () => {
   const root = fixture();
   makeStructure(root);
-  write(
-    path.join(root, "01_Discovery", "A.md"),
-    "[third](B.md#foo-2)\n",
-  );
+  write(path.join(root, "01_Discovery", "A.md"), "[third](B.md#foo-2)\n");
   write(
     path.join(root, "01_Discovery", "B.md"),
     ["# Foo", "# Foo-1", "# Foo"].join("\n"),
@@ -2838,12 +3188,7 @@ test("unexpected filesystem metadata failures are not treated as missing files",
   );
   const target = path.join(root, "00_CRDD", ".git");
 
-  const result = runWithFault(
-    root,
-    "lstat-error",
-    target,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "lstat-error", target, { PATH: noGitPath });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /injected metadata failure/u);
 });
@@ -2854,11 +3199,7 @@ test("a structure root removed during inspection becomes a structured finding", 
   write(path.join(root, "01_Principles.md"), "Version: v0.10.0\n");
   const target = path.join(root, "template");
 
-  const result = runWithFault(
-    root,
-    "lstat-missing-after-first",
-    target,
-  );
+  const result = runWithFault(root, "lstat-missing-after-first", target);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -2881,12 +3222,9 @@ test("a special filesystem object cannot initialize a fallback baseline", () => 
   );
   const target = path.join(root, "00_CRDD", ".git");
 
-  const result = runWithFault(
-    root,
-    "lstat-special",
-    target,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "lstat-special", target, {
+    PATH: noGitPath,
+  });
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_initialized, null);
 });
@@ -2935,29 +3273,22 @@ test("Git file discovery rejects outside, missing, and linked entries", () => {
     process.platform === "win32" ? "junction" : "dir",
   );
 
-  const result = runWithFault(
-    root,
-    "git-list-custom",
-    root,
-    {
-      CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([
-        "01_Discovery/A.md",
-        "Linked/Secret.md",
-        "Missing.md",
-        "../outside.md",
-      ]),
-      CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
-        "malformed-stage-entry",
-        "160000 1111111111111111111111111111111111111111 0\t../outside-submodule",
-      ]),
-    },
-  );
+  const result = runWithFault(root, "git-list-custom", root, {
+    CRDD_CHECK_FAULT_GIT_LIST_JSON: JSON.stringify([
+      "01_Discovery/A.md",
+      "Linked/Secret.md",
+      "Missing.md",
+      "../outside.md",
+    ]),
+    CRDD_CHECK_FAULT_GIT_STAGE_JSON: JSON.stringify([
+      "malformed-stage-entry",
+      "160000 1111111111111111111111111111111111111111 0\t../outside-submodule",
+    ]),
+  });
   assert.equal(result.status, 0);
   assert.equal(result.report.gitlink_detection, "unavailable");
   assert.ok(
-    result.report.discovery_exclusions.includes(
-      "Symbolic links and junctions",
-    ),
+    result.report.discovery_exclusions.includes("Symbolic links and junctions"),
   );
   assert.ok(
     result.report.unchecked.some((item) =>
@@ -2980,12 +3311,9 @@ test("symbolic-boundary helper fails closed when a target resolves outside", () 
     ].join("\n"),
   );
 
-  const result = runWithFault(
-    root,
-    "relative-outside",
-    target,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "relative-outside", target, {
+    PATH: noGitPath,
+  });
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule, true);
 });
@@ -3003,10 +3331,7 @@ test("fallback rejects a gitdir directory reached through a junction", () => {
       "\turl = https://example.invalid/CRDD.git",
     ].join("\n"),
   );
-  write(
-    path.join(root, "00_CRDD", ".git"),
-    "gitdir: ../Metadata/00_CRDD\n",
-  );
+  write(path.join(root, "00_CRDD", ".git"), "gitdir: ../Metadata/00_CRDD\n");
   fs.mkdirSync(path.join(outside, "00_CRDD"), { recursive: true });
   fs.symlinkSync(
     outside,
@@ -3023,17 +3348,12 @@ test("empty heading anchors are ignored", () => {
   const root = fixture();
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "# !!!\n");
-  write(
-    path.join(root, "01_Discovery", "B.md"),
-    "[empty](A.md#empty)\n",
-  );
+  write(path.join(root, "01_Discovery", "B.md"), "[empty](A.md#empty)\n");
 
   const result = run(root);
   assert.equal(result.status, 1);
   assert.ok(
-    result.report.findings.some(
-      (finding) => finding.code === "broken-anchor",
-    ),
+    result.report.findings.some((finding) => finding.code === "broken-anchor"),
   );
 });
 
@@ -3073,19 +3393,15 @@ test("fallback fails closed when the root disappears before directory walking", 
   const noGitPath = fixture();
   makeStructure(root);
 
-  const result = runWithFault(
-    root,
-    "lstat-missing-after-first",
-    root,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "lstat-missing-after-first", root, {
+    PATH: noGitPath,
+  });
   assert.equal(result.status, 1);
   assert.equal(result.report.metrics.files_discovered, 0);
   assert.ok(
     result.report.findings.some(
       (finding) =>
-        finding.code === "discovery-directory-missing" &&
-        finding.path === ".",
+        finding.code === "discovery-directory-missing" && finding.path === ".",
     ),
   );
   assert.ok(
@@ -3100,18 +3416,16 @@ test("reference maps omit external links", () => {
   makeStructure(root);
   write(
     path.join(root, "01_Discovery", "A.md"),
-    [
-      "# A",
-      "[external](https://example.invalid)",
-      "[local](B.md)",
-    ].join("\n"),
+    ["# A", "[external](https://example.invalid)", "[local](B.md)"].join("\n"),
   );
   write(path.join(root, "01_Discovery", "B.md"), "# B\n");
 
   const result = run(root, "--references", "01_Discovery/A.md");
   assert.equal(result.status, 0);
-  assert.equal(result.report.references.outbound.length, 1);
-  assert.equal(result.report.references.outbound[0].target, "01_Discovery/B.md");
+  const references = result.report.references;
+  assert.ok(references);
+  assert.equal(references.outbound.length, 1);
+  assert.equal(references.outbound[0].target, "01_Discovery/B.md");
 });
 
 test("fallback reports a nested directory that disappears before recursion", () => {
@@ -3120,12 +3434,9 @@ test("fallback reports a nested directory that disappears before recursion", () 
   makeStructure(root);
   const target = path.join(root, "01_Discovery");
 
-  const result = runWithFault(
-    root,
-    "lstat-missing",
-    target,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "lstat-missing", target, {
+    PATH: noGitPath,
+  });
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -3152,19 +3463,12 @@ test("fallback distinguishes nested metadata, type, and link races", () => {
     const target = path.join(root, "Nested");
     fs.mkdirSync(target, { recursive: true });
 
-    const result = runWithFault(
-      root,
-      fault,
-      target,
-      { PATH: noGitPath },
-    );
+    const result = runWithFault(root, fault, target, { PATH: noGitPath });
     assert.equal(result.status, 1, fault);
     assert.ok(result.report, `${fault}: ${result.stderr}`);
     assert.ok(
       result.report.findings.some(
-        (finding) =>
-          finding.code === expectedCode &&
-          finding.path === "Nested",
+        (finding) => finding.code === expectedCode && finding.path === "Nested",
       ),
       fault,
     );
@@ -3187,21 +3491,15 @@ test("fallback distinguishes directory-list failures", () => {
     makeStructure(root);
     const target = path.join(root, "01_Discovery");
 
-    const result = runWithFault(
-      root,
-      "readdir-error",
-      target,
-      {
-        PATH: noGitPath,
-        CRDD_CHECK_FAULT_ERROR_CODE: errorCode,
-      },
-    );
+    const result = runWithFault(root, "readdir-error", target, {
+      PATH: noGitPath,
+      CRDD_CHECK_FAULT_ERROR_CODE: errorCode,
+    });
     assert.equal(result.status, 1, errorCode);
     assert.ok(
       result.report.findings.some(
         (finding) =>
-          finding.code === expectedCode &&
-          finding.path === "01_Discovery",
+          finding.code === expectedCode && finding.path === "01_Discovery",
       ),
       errorCode,
     );
@@ -3215,12 +3513,9 @@ test("fallback rejects a directory removed after its entries are read", () => {
   const target = path.join(root, "Nested");
   fs.mkdirSync(target, { recursive: true });
 
-  const result = runWithFault(
-    root,
-    "lstat-missing-after-first",
-    target,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "lstat-missing-after-first", target, {
+    PATH: noGitPath,
+  });
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -3234,16 +3529,15 @@ test("fallback rejects a directory removed after its entries are read", () => {
 test("reference maps aggregate links for a directory target", () => {
   const root = fixture();
   makeStructure(root);
-  write(
-    path.join(root, "01_Discovery", "A.md"),
-    "[B](B.md)\n",
-  );
+  write(path.join(root, "01_Discovery", "A.md"), "[B](B.md)\n");
   write(path.join(root, "01_Discovery", "B.md"), "# B\n");
 
   const result = run(root, "--references", "01_Discovery");
   assert.equal(result.status, 0);
-  assert.equal(result.report.references.outbound.length, 1);
-  assert.equal(result.report.references.inbound.length, 1);
+  const references = result.report.references;
+  assert.ok(references);
+  assert.equal(references.outbound.length, 1);
+  assert.equal(references.inbound.length, 1);
 });
 
 test("child-process fault injection records a directory replacement", () => {
@@ -3253,12 +3547,9 @@ test("child-process fault injection records a directory replacement", () => {
   const target = path.join(root, "Nested");
   fs.mkdirSync(target, { recursive: true });
 
-  const result = runWithFault(
-    root,
-    "lstat-replaced-after-read",
-    target,
-    { PATH: noGitPath },
-  );
+  const result = runWithFault(root, "lstat-replaced-after-read", target, {
+    PATH: noGitPath,
+  });
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -3316,9 +3607,21 @@ test("recognizable remediation tables reject fixed and premature resolution", ()
 
   const result = run(root);
   assert.equal(result.status, 1);
-  assert.ok(result.report.findings.some((finding) => finding.code === "ambiguous-remediation-state"));
-  assert.ok(result.report.findings.some((finding) => finding.code === "remediation-progress-value"));
-  assert.ok(result.report.findings.some((finding) => finding.code === "premature-remediation-resolution"));
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "ambiguous-remediation-state",
+    ),
+  );
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "remediation-progress-value",
+    ),
+  );
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "premature-remediation-resolution",
+    ),
+  );
 });
 
 test("recognizable remediation tables require restart information for blockers", () => {
@@ -3337,7 +3640,11 @@ test("recognizable remediation tables require restart information for blockers",
 
   const result = run(root);
   assert.equal(result.status, 1);
-  assert.ok(result.report.findings.some((finding) => finding.code === "incomplete-remediation-blocker"));
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "incomplete-remediation-blocker",
+    ),
+  );
 });
 
 test("remediation tables support outer-pipe-free GFM and pipes inside cells", () => {
@@ -3375,13 +3682,18 @@ test("remediation tables report a missing state axis", () => {
 
   const result = run(root);
   assert.equal(result.status, 1);
-  assert.ok(result.report.findings.some((finding) => finding.code === "remediation-state-columns-missing"));
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "remediation-state-columns-missing",
+    ),
+  );
 });
 
 test("resolved remediation rejects inconsistent progress and blocker axes", () => {
   const root = fixture();
   makeStructure(root);
-  const closure = "| observed | comparison | Result.md | reviewer: Pass | Current.md |";
+  const closure =
+    "| observed | comparison | Result.md | reviewer: Pass | Current.md |";
   write(
     path.join(root, "90_Release", "Changes", "Remediation.md"),
     [
@@ -3399,7 +3711,9 @@ test("resolved remediation rejects inconsistent progress and blocker axes", () =
   const result = run(root);
   assert.equal(result.status, 1);
   assert.equal(
-    result.report.findings.filter((finding) => finding.code === "inconsistent-remediation-state").length,
+    result.report.findings.filter(
+      (finding) => finding.code === "inconsistent-remediation-state",
+    ).length,
     4,
   );
 });

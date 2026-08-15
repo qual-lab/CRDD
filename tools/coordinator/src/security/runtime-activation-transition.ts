@@ -1,5 +1,3 @@
-// @ts-check
-
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   compileRuntimeActivationRecordCandidate,

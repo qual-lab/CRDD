@@ -312,19 +312,19 @@ Until migration verification passes, keep the previous pinned release recoverabl
 
 ### AI Precheck
 
-The distributed template includes `tools/crdd_check.mjs`. In normal use, the parent AI agent runs it once against a fixed revision before independent review or an audit set; users do not need to run it manually.
+The distributed template includes `tools/crdd_check.ts`. In normal use, the parent AI agent runs it once against a fixed revision before independent review or an audit set; users do not need to run it manually.
 
 ```text
-node tools/crdd_check.mjs
-node tools/crdd_check.mjs --json
-node tools/crdd_check.mjs --json --summary
-node tools/crdd_check.mjs --references <PATH> --summary
+node tools/crdd_check.ts
+node tools/crdd_check.ts --json
+node tools/crdd_check.ts --json --summary
+node tools/crdd_check.ts --references <PATH> --summary
 ```
 
 When CRDD itself is mounted at `00_CRDD/` as a Git submodule and the checker has not been copied to the project root, run it from the project root and identify that root explicitly:
 
 ```text
-node 00_CRDD/template/tools/crdd_check.mjs --root . --json --summary
+node 00_CRDD/template/tools/crdd_check.ts --root . --json --summary
 ```
 
 In this layout, the checker treats the submodule as the adopted baseline boundary. It checks project links and anchors that point into the baseline, but does not mix the baseline's complete internal file set with project-owned files. The omitted baseline internals are reported as unchecked. To inspect the baseline itself, run the checker separately with `--root 00_CRDD`; do not use project `--scope` to cross the submodule boundary. Symbolic links and junctions are not followed during repository inspection; affected targets are rejected or reported as unchecked.
@@ -346,7 +346,7 @@ The checker is an efficiency aid, not a conformance authority. If Node.js or the
 - When external communication is part of the repository, use `80_Communication/01_Communication.md` as the single entry. Separate generated projections from published records, connect claims to evidence, and treat measured reactions as observations or learning candidates until a human adopts them. Repositories without this capability do not create the folder.
 - Distinguish semantic context dependencies from versioned artifact dependencies. Apply the full contract to context dependencies, artifact dependencies whose meaning, contract, adopted version, or update decision must be coordinated across independently managed consumers within the adopting organization, and artifact dependencies requiring explicit management for material risk. An upstream provider's API contract, separate authority, or independent release alone does not trigger the full contract. Ordinary and transitive implementation dependencies may remain in architecture or package-management authorities. Do not make a repository, submodule, or package layout mandatory.
 - Use `19_Workflows` for repository-specific repeatable procedures. Use `90_Release/Changes/CHG-*.md` for Change Traces. Use the rest of `90_Release` only when the project needs release records, distribution references, or release verification.
-- Before independent review or an audit set, the parent AI agent runs `node tools/crdd_check.mjs` or an equivalent deterministic check once for the fixed target revision and shares the result. The supplied implementation is optional and does not replace Document Audit, specialist-quality review, Conformance Audit, or Gap / Impact Audit.
+- Before independent review or an audit set, the parent AI agent runs `node tools/crdd_check.ts` or an equivalent deterministic check once for the fixed target revision and shares the result. The supplied implementation is optional and does not replace Document Audit, specialist-quality review, Conformance Audit, or Gap / Impact Audit.
 - Treat governance, security, privacy, accessibility, compatibility, capacity, and cost as responsibilities of the applicable upstream and downstream phases rather than as detached end-stage checks.
 - Published CRDD documents prioritize the reader's primary locale. Canonical English terms remain common aliases; Stable Context IDs, Agent IDs, filenames, schema keys and values, and code are not translated. BCP 14 keywords remain visible where normative strength must be unambiguous.
 
@@ -684,19 +684,19 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 
 ### AIによる事前確認
 
-配布用ひな型には`tools/crdd_check.mjs`が含まれる。通常は、独立レビューまたは監査集合の前に親AIエージェントが固定した対象改訂版へ一度実行する。利用者が手動で実行する必要はない。
+配布用ひな型には`tools/crdd_check.ts`が含まれる。通常は、独立レビューまたは監査集合の前に親AIエージェントが固定した対象改訂版へ一度実行する。利用者が手動で実行する必要はない。
 
 ```text
-node tools/crdd_check.mjs
-node tools/crdd_check.mjs --json
-node tools/crdd_check.mjs --json --summary
-node tools/crdd_check.mjs --references <PATH> --summary
+node tools/crdd_check.ts
+node tools/crdd_check.ts --json
+node tools/crdd_check.ts --json --summary
+node tools/crdd_check.ts --references <PATH> --summary
 ```
 
 CRDD本体を`00_CRDD/`へGitサブモジュールとして配置し、チェッカーをプロジェクトルートへコピーしていない場合は、プロジェクトルートから対象ルートを明示して実行する。
 
 ```text
-node 00_CRDD/template/tools/crdd_check.mjs --root . --json --summary
+node 00_CRDD/template/tools/crdd_check.ts --root . --json --summary
 ```
 
 この配置では、`00_CRDD/`を採用済み基準の境界として扱う。適用先文書から基準文書へのリンクとアンカーは確認するが、基準文書の内部ファイル全体をプロジェクト所有ファイルへ混在させない。確認対象から外した基準文書内部は未確認範囲として表示する。基準文書自体を確認するときは`--root 00_CRDD`で別に実行し、適用先の`--scope`でサブモジュール境界をまたがない。リポジトリ確認ではシンボリックリンクとジャンクションをたどらず、該当対象を拒否するか未確認範囲として表示する。
@@ -718,7 +718,7 @@ node 00_CRDD/template/tools/crdd_check.mjs --root . --json --summary
 - 外部コミュニケーションを扱う場合だけ`80_Communication/01_Communication.md`を単一入口として使う。生成可能な表現と公開済み記録を分け、主張を根拠へ接続し、外部反応は人間が採用するまで観察または学び候補として扱う。扱わないRepositoryにはフォルダを作らない。
 - 意味を参照するコンテキスト依存と、版付き成果物を使う成果物依存を区別する。完全な依存契約はコンテキスト依存、採用組織の独立管理利用側間で意味・契約・採用版・更新判断の横断調整を必要とする成果物依存、または重大リスクにより明示管理する成果物依存へ適用する。外部提供元とのAPI契約、別権限、独立リリースだけでは発火させない。通常・推移依存は既存のアーキテクチャやパッケージ管理を正本にでき、存在だけで個別CHGや都度の人間判断を要求しない。Repository、Submodule、パッケージのいずれかを共通方式として固定しない。
 - `19_Workflows`にはリポジトリ固有の反復可能な作業手順を置く。変更トレースは`90_Release/Changes/CHG-*.md`へ置く。その他の`90_Release`は、リリース記録、配布物参照、リリース検証が必要なプロジェクトでだけ使用する。
-- 独立レビューまたは監査集合の前に、親AIエージェントが固定した対象改訂版へ`node tools/crdd_check.mjs`または同等の機械確認を一度実行し、結果を共有する。配布実装の利用は任意であり、文書監査、専門品質確認、準拠監査または不足／影響監査を代替しない。
+- 独立レビューまたは監査集合の前に、親AIエージェントが固定した対象改訂版へ`node tools/crdd_check.ts`または同等の機械確認を一度実行し、結果を共有する。配布実装の利用は任意であり、文書監査、専門品質確認、準拠監査または不足／影響監査を代替しない。
 - ガバナンス、セキュリティ、プライバシー、アクセシビリティ、互換性、処理能力、コストは、終盤で独立して確認する項目ではなく、適用される上流・下流工程の責務として扱う。
 - CRDD正本文書は読者の主要ロケールを優先する。用語は初出時に日本語表示名と正式英語名を併記し、その後の説明文、見出し、説明用の表では日本語表示名を基本とする。正式英語名は共通の別名として保持し、安定コンテキストID、エージェントID、ファイル名、スキーマのキー／値、コードは翻訳しない。規範強度を曖昧にできない箇所では、BCP 14キーワードを併記する。
 

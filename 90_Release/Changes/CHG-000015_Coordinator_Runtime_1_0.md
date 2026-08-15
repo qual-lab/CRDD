@@ -858,7 +858,7 @@ Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単�
 
 実行形式と配布用チェッカーを`.mjs`のまま維持し、Coordinator内部だけへTypeScriptの`allowJs`／`noEmit`型検査を段階導入する。設定全体の`checkJs`は無効のまま、対象ファイルの`@ts-check`で範囲を明示する。第1段階はPlatform Provisioner Trust CoreとPackage Gateだけを`strict`対象にし、TypeScriptおよびNode型定義をCoordinatorの固定devDependencyとして使用する。型検査はJavaScriptを生成せず、Runtime、署名対象、CLI起動方法またはCRDD配布物の公開面を変更しない。
 
-`tools/crdd_check.mjs`と`template/tools/crdd_check.mjs`は、採用Repositoryで追加installなしに直接実行できるブートストラップ境界として対象外にする。残るCoordinator moduleはpilotの型境界、保守費および誤検出を確認してから専用変更で拡張し、`.ts`拡張子への変換はRuntime 1.0の内部API安定後に別判断とする。自己確認では型検査、対象49件、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+`tools/crdd_check.ts`と`template/tools/crdd_check.ts`は、採用Repositoryで追加installなしに直接実行できるブートストラップ境界として対象外にする。残るCoordinator moduleはpilotの型境界、保守費および誤検出を確認してから専用変更で拡張し、`.ts`拡張子への変換はRuntime 1.0の内部API安定後に別判断とする。自己確認では型検査、対象49件、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
 
 ### 2026-08-16 — Coordinator全実装moduleへの型検査展開
 
@@ -931,3 +931,9 @@ Qual-Labの人間の決定権限者は、現行フォルダ配置を維持した
 production 38 / 38 moduleに続き、Coordinator test 30 / 30 fileを`.ts`へ移行した。test専用strict設定をproduction設定から分離して全testへ`strict`、`noImplicitAny`、`noUncheckedIndexedAccess`およびNode native TypeScript制約を適用する。意図的な不正shape、欠落field、Proxy、accessor、Node API差替えおよび失敗系unionは、`any`、型検査抑制またはunsafe castで隠さず、`unknown`、Property Descriptor、`Reflect`および実行時assertionで表現する。production側でも外部のreadiness入力を`unknown`としてsnapshot後に絞り、Docker probe JSONをexact plain-dataとして検証し、作成成功後のoperation directoriesをoverloadで非nullに限定した。
 
 自己確認ではproduction／testのstrict型検査、Biome Lint／FormatterおよびCoordinator全255件がPassした。Coordinator配下のproduction／testに`.mjs`／`.cjs`は残らない。ルートチェッカー、checker test、fault injectorおよび配布ひな型は承認済み順序どおり最後の単位として残す。本処置は`Applied`／`Self-checked`であり、チェッカー群とNode.js 24.12以上での最終確認および必要な独立レビュー前は`Resolved`、移行完了、採用、準拠、Stable、Releaseまたは公開ではない。
+
+### 2026-08-16 — 最終チェッカー群のTypeScript移行
+
+承認済み順序の最終単位として、公式ルートチェッカー、配布ひな型チェッカー、チェッカー試験および異常注入器を現行配置のまま`.ts`へ移行した。配布ひな型チェッカーはGit探索、Markdown構造、変更トレース、参照集計および是正表の内部shapeを明示型へ変換し、外部JSON結果は試験側で`unknown`から実行時検証して再構成する。異常注入器はNode組み込みmoduleの差替え境界を限定型で表し、暗黙`any`、型検査抑制またはunsafe castを導入しない。旧JavaScript併用型検査設定は削除し、production、testおよびcheckerの全TypeScriptをstrict型検査へ接続する。
+
+Biome Lint／Formatterは`tools`および`template/tools`のTypeScript全体を対象とし、チェッカー試験と全体チェッカーは`.ts`を直接実行する。`.mjs`／`.cjs`の実Scriptは`tools`および`template/tools`から除去し、文書と実行例も現行`.ts`入口へ更新する。現在環境のNode.js 22.18.0ではnative type strippingの中間互換確認まで行うが、承認済みの最終実行要件はNode.js 24.12以上である。この処置は`Applied`／`Self-checked`であり、Node.js 24.12以上の固定環境による全確認と必要な独立レビュー前は`Resolved`、移行完了、採用、準拠、Stable、Releaseまたは公開ではない。

@@ -1,5 +1,3 @@
-// @ts-check
-
 import { createHash } from "node:crypto";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {

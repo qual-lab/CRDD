@@ -1,5 +1,3 @@
-// @ts-check
-
 import { performance } from "node:perf_hooks";
 import { types as utilTypes } from "node:util";
 

@@ -95,7 +95,7 @@ Before submitting a pull request:
 3. Update the owning canonical document instead of creating a competing authority.
 4. Update directly affected README, Overview, Related links, templates, agent instructions, audit criteria, and migration guidance as applicable.
 5. Preserve old rationale, Stable Context IDs, and historical CHANGELOG entries unless the approved change explicitly requires otherwise.
-6. Before independent review or audits, have the parent AI run `node tools/crdd_check.mjs` once for the fixed target revision and share the result. An equivalent deterministic check may be used, and it does not replace an audit.
+6. Before independent review or audits, have the parent AI run `node tools/crdd_check.ts` once for the fixed target revision and share the result. An equivalent deterministic check may be used, and it does not replace an audit.
 7. Describe unresolved impact and required maintainer decisions honestly.
 
 Use the repository pull request template. A complete pull request may still be revised or declined when Evidence, generalization, authority, compatibility, or release impact does not support adoption.
@@ -199,7 +199,7 @@ Issue、提案、投票、プルリクエストだけでCRDD規則が変更さ�
 3. 競合する新しい正本を増やさず、責務を持つ正本文書を更新する。
 4. 適用範囲に応じてREADME、概要、関連、ひな型、エージェント指示、監査基準、移行指針を追従させる。
 5. 承認済み変更で必要とされない限り、旧判断理由、安定コンテキストID、過去CHANGELOGを破壊しない。
-6. 独立レビューまたは監査の前に、親AIが固定した対象改訂版へ`node tools/crdd_check.mjs`を一度実行して結果を共有する。同等の決定論的確認へ置き換えられるが、監査は代替しない。
+6. 独立レビューまたは監査の前に、親AIが固定した対象改訂版へ`node tools/crdd_check.ts`を一度実行して結果を共有する。同等の決定論的確認へ置き換えられるが、監査は代替しない。
 7. 未解決影響と保守担当者の判断が必要な点を隠さない。
 
 リポジトリのプルリクエストひな型を使用する。十分に整理されたプルリクエストでも、根拠、一般化、決定権限、互換性、リリースへの影響が採用を支持しない場合は変更または却下されることがある。

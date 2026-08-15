@@ -109,15 +109,15 @@ CHANGELOGは公開リリース、利用者影響、移行、規範変更等で�
 
 ## 2.2. 共通の機械事前確認
 
-リンク、アンカー、文書版、`Related`の並び、既知のフォルダ構造等、同じ入力から決定論的に判定できる項目は、AIによる意味評価の前に確認する。CRDDの配布用ひな型は、外部パッケージを必要としない参照実装として`tools/crdd_check.mjs`を含む。
+リンク、アンカー、文書版、`Related`の並び、既知のフォルダ構造等、同じ入力から決定論的に判定できる項目は、AIによる意味評価の前に確認する。CRDDの配布用ひな型は、外部パッケージを必要としない参照実装として`tools/crdd_check.ts`を含む。
 
 ```text
-node tools/crdd_check.mjs
-node tools/crdd_check.mjs --root <TARGET_REPOSITORY>
-node tools/crdd_check.mjs --json
-node tools/crdd_check.mjs --json --summary
-node tools/crdd_check.mjs --references <PATH> --summary
-node 00_CRDD/template/tools/crdd_check.mjs --root . --json --summary
+node tools/crdd_check.ts
+node tools/crdd_check.ts --root <TARGET_REPOSITORY>
+node tools/crdd_check.ts --json
+node tools/crdd_check.ts --json --summary
+node tools/crdd_check.ts --references <PATH> --summary
+node 00_CRDD/template/tools/crdd_check.ts --root . --json --summary
 ```
 
 最後の形式は、CRDD本体を`00_CRDD/`へサブモジュールとして配置し、配布チェッカーをプロジェクトルートへコピーしていない場合に、適用先ルートから使用する。チェッカーはサブモジュールを採用済み基準の境界として扱い、適用先から基準文書へのリンクとアンカーを確認する。基準文書内部を適用先の所有ファイル集合へ混在させず、全件確認しない内部範囲を未確認として返す。基準文書自体の監査は`--root 00_CRDD`で分けて実行する。シンボリックリンクまたはジャンクションを走査・範囲指定・参照確認の境界として使用せず、該当対象を拒否するか未確認範囲へ返す。

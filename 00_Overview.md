@@ -173,8 +173,8 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `.github/pull_request_template.md` | 変更分類、根拠、決定権限、影響、移行、監査を確認するプルリクエスト入口 |
 | `CHANGELOG.md` | CRDD標準自体のバージョン間変更履歴。プロダクト固有のCHANGELOGとは別に扱う |
 | `template/` | プロジェクトへCRDDを導入するためのひな型とAI入口ファイル |
-| `template/tools/crdd_check.mjs` | 採用プロジェクトへ配布する軽量チェッカーの正本。全体確認を既定とし、親AIエージェントがレビュー／監査前の共通事前確認と参照関係の把握に使用する |
-| `tools/crdd_check.mjs` | CRDD標準リポジトリから配布用チェッカーを呼び出す入口。監査または準拠判定の正本ではない |
+| `template/tools/crdd_check.ts` | 採用プロジェクトへ配布する軽量チェッカーの正本。全体確認を既定とし、親AIエージェントがレビュー／監査前の共通事前確認と参照関係の把握に使用する |
+| `tools/crdd_check.ts` | CRDD標準リポジトリから配布用チェッカーを呼び出す入口。監査または準拠判定の正本ではない |
 
 CRDD標準自体のバージョン、CHANGELOG、タグ、移行と、採用プロジェクトにおけるCRDD基準版の評価・有効化は[`19_Maintenance.md`](19_Maintenance.md)を正本とする。プロダクト固有リリースのCHANGELOGは[`13_Release.md`](13_Release.md)に従う。
 
