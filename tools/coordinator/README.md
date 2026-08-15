@@ -6,6 +6,8 @@ OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecur
 
 準備認証局（Provisioning CA）のpure Core候補は、caller suppliedのoffline root集合、rootがEd25519署名したonline／offline issuing key証明書、およびroot署名済み失効一覧を検査する。issuing keyは最大365日、失効一覧は最大24時間、列挙された鍵は`revokedAt`の過去／現在／未来にかかわらず即時拒否する。正常なchainもRuntime同梱root Trust、rollback floor、Runtime時計または配布確認ではないため、Authority、CapabilityまたはGateを開かない。
 
+準備記録と登録証明書のpure結合候補は、Recordの全署名鍵を現在の登録証明書、Platform scope、Provisioner Identity、公開SPKIおよびCA seriesへ1対1で結ぶ。未結合署名、重複証明書または余分なbindingは拒否するが、Runtime所有Trust、時計、Filesystem、activationまたはAuthorityを成立させない。
+
 `Coordinator Runtime`は、Codex Coordinator Agent、Claude Code Executorおよび独立Codex Reviewerを、CRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent Decision Setへ接続するローカルWorkflow Runtimeである。
 
 現在はExecution Environmentの成立性Gateを実装中であり、実Operation、Provider認証、Repository変更、push、mergeまたは外部Effectには使用できない。

@@ -339,6 +339,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     platformKeyStoragePolicy: contract.platformKeyStoragePolicy,
     provisioningCaPureCore: contract.provisioningCaPureCore,
     offlineEnrollmentBundlePureCore: contract.offlineEnrollmentBundlePureCore,
+    provisioningRecordEnrollmentBinding:
+      contract.provisioningRecordEnrollmentBinding,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -412,7 +414,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     enrollmentCertificateVerification: "not_implemented",
     provisioningCaTrustAndRevocationVerification: "not_implemented",
     initialEnrollmentExchange: "not_implemented",
-    recordEnrollmentBindingVerification: "not_implemented",
+    recordEnrollmentBindingVerification: "implemented_candidate",
     enrollmentCertificateWireCodec: "not_implemented",
     onlineEnrollmentProtocol: "not_implemented",
     offlineEnrollmentBundleContract: "implemented_candidate",
@@ -442,6 +444,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       provisioningCaPureCoreVerification: "provisioning_record_verification",
       offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
       offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
+      provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -608,7 +611,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.provisioningEnrollmentCertificateVerification, "not_implemented");
   assert.equal(contract.provisioningCaTrustAndRevocationVerification, "not_implemented");
   assert.equal(contract.initialProvisioningEnrollmentExchange, "not_implemented");
-  assert.equal(contract.recordEnrollmentBindingVerification, "not_implemented");
+  assert.equal(contract.recordEnrollmentBindingVerification, "implemented_candidate");
   assert.equal(contract.enrollmentCertificateWireCodec, "not_implemented");
   assert.equal(contract.onlineEnrollmentProtocol, "not_implemented");
   assert.equal(contract.offlineEnrollmentBundleContract, "implemented_candidate");

@@ -807,3 +807,9 @@ RSA、P-384／P-521、Ed25519端末鍵およびalgorithm fallbackはrevision 1�
 第4単位は、署名済みオフライン初回登録束（signed offline enrollment bundle）のrevision 1 exact object Envelopeと暗号・binding検査である。束はチャレンジ、ECDSA P-256所有証明付き登録要求、そのdomain-framed payload Hash、Ed25519署名済み登録証明書、同一root／CA series／trust epochに属する`online_enrollment_issuer`と`offline_bundle_issuer`のexact 2役、root署名済み失効snapshot、および最大7日の期限を結ぶ。外側Envelopeは`offline_bundle_issuer`のEd25519署名exact 1件を要求し、未知role、別系列・epoch、失効・期限外、要求Hash／Platform scope／Provisioner Identity／端末導入鍵の不一致、内外いずれかの署名不一致をfail closedで拒否する。
 
 入力全体は既存JCS budget内で一度owned plain-data snapshotへ変換してから検証し、caller objectの再読みによる時間差を作らない。正常結果も暗号・binding候補と`consumptionRequired: true`だけであり、caller supplied root集合と評価時刻をRuntime所有Trust、rollback floorまたは時計Authorityへ昇格しない。raw Envelope decoder、transport、process再起動をまたぐ一回消費台帳、Filesystem import、CA実配布およびAuthority／Capability／Effectは未実装である。pure contract／verification sourceを既存2 blockerへ接続するが、12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。
+
+### 2026-08-15 — 準備記録と登録証明書のpure結合候補
+
+第5単位は、準備記録の暗号条件と登録証明書chainを同一pure判定へ結ぶ。準備記録の各署名key IDには現在有効な登録証明書exact 1件を要求し、全署名を漏れなく結合する。準備記録の`provisionerEnrollmentId`、Platform scope、Provisioner Identity、P-256 SPKI／key ID、およびTrust Anchor entryの`enrollmentCaId`を、登録証明書とonline issuing証明書のCA seriesへ完全一致させる。複数署名時も署名数と証明書binding数を一致させ、重複証明書、未結合署名または余分なbindingを拒否する。
+
+入力Record／Trust Set／失効一覧Bufferはcopy前上限確認後に一度owned copyし、登録証明書とCA成果物もJCS budget内のowned plain-data snapshotへ変換してから既存Record aggregate、証明書署名およびCA chain検証を再利用する。正常結果も暗号・登録結合候補であり、Runtime所有Trust、rollback floor、時計、Filesystem、activationまたはcurrent-run再検証を成立させない。既存`recordEnrollmentBindingVerification`を`implemented_candidate`へ進めるが、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、固定版の独立レビュー前は`Resolved`ではない。

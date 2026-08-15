@@ -16,6 +16,8 @@ import { describePlatformKeyStoragePolicyContract } from
 import { describeProvisioningCaPureCoreContract } from "./provisioning-ca-pure-core.mjs";
 import { describeOfflineEnrollmentBundlePureCoreContract } from
   "./offline-enrollment-bundle-pure-core.mjs";
+import { describeProvisioningRecordEnrollmentBindingContract } from
+  "./provisioning-record-enrollment-binding.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -100,6 +102,7 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   provisioningCaPureCoreVerification: "provisioning_record_verification",
   offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
   offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
+  provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
   onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -347,6 +350,8 @@ export function describeRuntimeActivationContract() {
   const platformKeyStoragePolicy = describePlatformKeyStoragePolicyContract();
   const provisioningCaPureCore = describeProvisioningCaPureCoreContract();
   const offlineEnrollmentBundlePureCore = describeOfflineEnrollmentBundlePureCoreContract();
+  const provisioningRecordEnrollmentBinding =
+    describeProvisioningRecordEnrollmentBindingContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -357,7 +362,7 @@ export function describeRuntimeActivationContract() {
     provisioningEnrollmentCertificateVerification: "not_implemented",
     provisioningCaTrustAndRevocationVerification: "not_implemented",
     initialProvisioningEnrollmentExchange: "not_implemented",
-    recordEnrollmentBindingVerification: "not_implemented",
+    recordEnrollmentBindingVerification: provisioningRecordEnrollmentBinding.verification,
     enrollmentCertificateWireCodec: "not_implemented",
     onlineEnrollmentProtocol: "not_implemented",
     offlineEnrollmentBundleContract:
@@ -372,6 +377,8 @@ export function describeRuntimeActivationContract() {
       offlineEnrollmentBundlePureCore.objectContractAndCryptographicVerification,
     offlineEnrollmentBundlePureCoreVerification:
       offlineEnrollmentBundlePureCore.objectContractAndCryptographicVerification,
+    provisioningRecordEnrollmentBindingContract:
+      provisioningRecordEnrollmentBinding.verification,
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     initialEnrollmentChallengeObjectContractAndDomainFraming:
@@ -435,7 +442,8 @@ export function describeRuntimeActivationContract() {
     initialEnrollmentRuntimeState,
     platformKeyStoragePolicy,
     provisioningCaPureCore,
-    offlineEnrollmentBundlePureCore
+    offlineEnrollmentBundlePureCore,
+    provisioningRecordEnrollmentBinding
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -516,6 +524,8 @@ export function describeRuntimeActivationContract() {
     platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,
     provisioningCaPureCore: implementation.provisioningCaPureCore,
     offlineEnrollmentBundlePureCore: implementation.offlineEnrollmentBundlePureCore,
+    provisioningRecordEnrollmentBinding:
+      implementation.provisioningRecordEnrollmentBinding,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -694,6 +704,8 @@ export function describeRuntimeActivationContract() {
     platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,
     provisioningCaPureCore: implementation.provisioningCaPureCore,
     offlineEnrollmentBundlePureCore: implementation.offlineEnrollmentBundlePureCore,
+    provisioningRecordEnrollmentBinding:
+      implementation.provisioningRecordEnrollmentBinding,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

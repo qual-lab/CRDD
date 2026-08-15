@@ -6,6 +6,8 @@ OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM�
 
 準備認証局（Provisioning CA）のpure Core候補は、offline rootとonline／offline issuing keyのroleを分離し、root署名済みissuing certificateとroot署名済み失効一覧の暗号的一致を検査する。issuing keyは最大365日、失効一覧は半開区間で最大24時間だけ候補化し、未知root、epoch差、期限外、署名不一致および列挙済みroot／issuing keyをfail closedで拒否する。caller supplied root集合、失効一覧および評価時刻はRuntime所有Trust、rollback-resistant floorまたは時計Authorityではなく、実配布と永続化なしにGateを開かない。
 
+準備記録と登録証明書のpure結合候補は、Recordの全署名鍵を現在の登録証明書、Platform scope、Provisioner Identity、公開SPKIおよびCA seriesへ1対1で結ぶ。未結合署名、重複証明書または余分なbindingはfail closedで拒否し、この一致だけからRuntime所有Trust、時計、Filesystem、activationまたはAuthorityを成立させない。
+
 本書は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)の実装固有脅威モデルである。CRDDのHuman Authority、External Information Boundary、Independent Reviewまたは準拠条件を再定義しない。
 
 ## 1. 保護対象

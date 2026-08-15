@@ -521,6 +521,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     provisioningCaPureCore: report.runtimeActivation.provisioningCaPureCore,
     offlineEnrollmentBundlePureCore:
       report.runtimeActivation.offlineEnrollmentBundlePureCore,
+    provisioningRecordEnrollmentBinding:
+      report.runtimeActivation.provisioningRecordEnrollmentBinding,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -594,7 +596,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     enrollmentCertificateVerification: "not_implemented",
     provisioningCaTrustAndRevocationVerification: "not_implemented",
     initialEnrollmentExchange: "not_implemented",
-    recordEnrollmentBindingVerification: "not_implemented",
+    recordEnrollmentBindingVerification: "implemented_candidate",
     enrollmentCertificateWireCodec: "not_implemented",
     onlineEnrollmentProtocol: "not_implemented",
     offlineEnrollmentBundleContract: "implemented_candidate",
@@ -624,6 +626,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       provisioningCaPureCoreVerification: "provisioning_record_verification",
       offlineEnrollmentBundlePureCoreContract: "provisioning_record_contract",
       offlineEnrollmentBundlePureCoreVerification: "provisioning_record_verification",
+      provisioningRecordEnrollmentBindingContract: "provisioning_record_contract",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -840,7 +843,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.initialProvisioningEnrollmentExchange,
     "not_implemented");
   assert.equal(report.runtimeActivation.recordEnrollmentBindingVerification,
-    "not_implemented");
+    "implemented_candidate");
   assert.equal(report.runtimeActivation.enrollmentCertificateWireCodec, "not_implemented");
   assert.equal(report.runtimeActivation.onlineEnrollmentProtocol, "not_implemented");
   assert.equal(report.runtimeActivation.offlineEnrollmentBundleContract, "implemented_candidate");
