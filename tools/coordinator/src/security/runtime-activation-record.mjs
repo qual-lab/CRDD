@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 
 import { describeAuthorityRootLocatorContract } from "./authority-root-locator.mjs";
@@ -65,10 +67,10 @@ const RECORD_KEYS = new Set([
   "activatedAt",
   "disabledAt"
 ]);
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
-).get;
+)?.get);
 const ONBOARDING_PROVISIONING_TARGET_KINDS = Object.freeze([
   "shared_authority_root_platform_scope",
   "repository_scoped_runtime_root_activation_precondition"
@@ -139,19 +141,37 @@ const PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   recoveryJournalPersistence: "activation_atomic_persistence"
 });
 
+/**
+ * @typedef {{
+ *   name: string,
+ *   sources: readonly unknown[],
+ *   readinessSufficientValues: readonly (readonly unknown[])[] | null
+ * }} OnboardingDependency
+ */
+
+/**
+ * @param {Record<string, any>} implementation
+ */
 function deriveOnboardingReadiness(implementation) {
   const rootProtection = implementation.rootProtectionPolicy;
   const locator = implementation.authorityRootLocator;
   const activationLocatorBinding = implementation.activationLocatorBinding;
+  /**
+   * @param {string} name
+   * @param {unknown[]} sources
+   * @returns {Readonly<OnboardingDependency>}
+   */
   const dependency = (name, sources) => Object.freeze({
     name,
     sources: Object.freeze(sources),
     readinessSufficientValues: null
   });
+  /** @param {string} dependencyName */
   const enrollmentSources = (dependencyName) =>
     Object.entries(INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS)
       .filter(([, owner]) => owner === dependencyName)
       .map(([field]) => implementation[field]);
+  /** @param {string} dependencyName */
   const storageSources = (dependencyName) =>
     Object.entries(PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS)
       .filter(([, owner]) => owner === dependencyName)
@@ -232,7 +252,7 @@ function deriveOnboardingReadiness(implementation) {
       sources.some((value) => value === undefined) ||
       readinessSufficientValues === null ||
       sources.length !== readinessSufficientValues.length ||
-      sources.some((value, index) => !readinessSufficientValues[index].includes(value)))
+      sources.some((value, index) => !readinessSufficientValues[index]?.includes(value)))
     .map(({ name }) => name);
   return Object.freeze({
     readiness: blockers.length > 0 ? "blocked" : "not_implemented",
@@ -240,6 +260,7 @@ function deriveOnboardingReadiness(implementation) {
   });
 }
 
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({
     status: "blocked",
@@ -251,14 +272,20 @@ function blocked(reason) {
   });
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
 }
 
+/** @param {unknown} value */
 function canonicalUtc(value) {
   if (typeof value !== "string" || value.length !== RUNTIME_ACTIVATION_INPUT_LIMITS.canonicalUtcLength) {
     return false;
@@ -267,15 +294,21 @@ function canonicalUtc(value) {
   return Number.isFinite(Date.prototype.getTime.call(parsed)) && parsed.toISOString() === value;
 }
 
+/** @param {unknown} value */
 function positiveRevision(value) {
-  return Number.isSafeInteger(value) && value >= 1;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
 }
 
+/**
+ * @param {unknown} value
+ * @param {RegExp} pattern
+ */
 function identifier(value, pattern) {
   return typeof value === "string" && value.length <= RUNTIME_ACTIVATION_INPUT_LIMITS.identifierLength &&
     pattern.test(value);
 }
 
+/** @param {unknown} rawRecord */
 function normalizeRecord(rawRecord) {
   const record = snapshotPlainRecord(rawRecord, RECORD_KEYS);
   if (!record ||
@@ -303,6 +336,10 @@ function normalizeRecord(rawRecord) {
   return Object.freeze(Object.fromEntries([...RECORD_KEYS].map((key) => [key, record[key]])));
 }
 
+/**
+ * @param {Readonly<Record<string, any>>} record
+ * @param {string} canonical
+ */
 function candidate(record, canonical) {
   return Object.freeze({
     status: "candidate",
@@ -314,6 +351,7 @@ function candidate(record, canonical) {
   });
 }
 
+/** @param {unknown} rawRecord */
 export function compileRuntimeActivationRecordCandidate(rawRecord) {
   try {
     const record = normalizeRecord(rawRecord);
@@ -328,6 +366,7 @@ export function compileRuntimeActivationRecordCandidate(rawRecord) {
   }
 }
 
+/** @param {unknown} input */
 export function decodeRuntimeActivationRecordCandidate(input) {
   try {
     if (!Buffer.isBuffer(input)) return blocked("runtime_activation_record_bytes_required");
