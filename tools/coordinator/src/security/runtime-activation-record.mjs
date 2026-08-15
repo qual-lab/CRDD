@@ -31,7 +31,7 @@ import { describeRootProtectionPolicyContract } from "./root-protection-policy.m
 import {
   RUNTIME_ACTIVATION_ID_MAX_LENGTH,
   isRuntimeActivationIdCandidate
-} from "./runtime-activation-identity.mjs";
+} from "./runtime-activation-identity.ts";
 
 export const RUNTIME_ACTIVATION_CONTRACT = "crdd-coordinator/runtime-activation-record";
 export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 1;
