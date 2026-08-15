@@ -156,6 +156,19 @@ function decodeRawPayloadCandidate(raw, normalize, domain, kind, hashField) {
   }
 }
 
+function snapshotIssuerSpki(raw) {
+  try {
+    if (!Buffer.isBuffer(raw)) return null;
+    const length = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, raw, []);
+    if (length > PROVISIONING_SIGNATURE_INPUT_LIMITS.spkiDerBytes) return null;
+    const owned = Buffer.allocUnsafe(length);
+    Uint8Array.prototype.set.call(owned, raw);
+    return owned;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeChallenge(raw) {
   const value = exactRecord(raw, CHALLENGE_KEYS);
   if (!value || value.contract !== INITIAL_ENROLLMENT_CHALLENGE_CONTRACT ||
@@ -280,19 +293,19 @@ export function verifyInitialEnrollmentRequestCandidate(rawInput) {
 export function verifyInitialEnrollmentCertificateCandidate(rawInput) {
   const input = exactRecord(rawInput, CERTIFICATE_VERIFY_KEYS);
   if (!input) return blocked("initial_enrollment_certificate_invalid");
-  const { certificateEnvelope: rawEnvelope, issuerSpkiDer } = input;
+  const { certificateEnvelope: rawEnvelope } = input;
   const envelope = normalizeCertificateEnvelope(rawEnvelope);
   const certificate = envelope?.payload;
   const framed = certificate && frame(INITIAL_ENROLLMENT_DOMAINS.certificate, certificate.value);
-  const issuer = Buffer.isBuffer(issuerSpkiDer) ? issuerSpkiDer : null;
-  const inspectedIssuer = issuer && inspectProvisioningEd25519SpkiCandidate(issuer);
-  if (!envelope || !certificate || !framed || !issuer || !inspectedIssuer ||
+  const ownedIssuer = snapshotIssuerSpki(input.issuerSpkiDer);
+  const inspectedIssuer = ownedIssuer && inspectProvisioningEd25519SpkiCandidate(ownedIssuer);
+  if (!envelope || !certificate || !framed || !ownedIssuer || !inspectedIssuer ||
       inspectedIssuer.status !== "candidate" ||
       inspectedIssuer.spkiSha256Digest.toString("hex") !== envelope.signature.keyId) {
     return blocked("initial_enrollment_certificate_invalid");
   }
   const verified = verifyProvisioningEd25519Base64urlCandidate({
-    spkiDer: issuer, message: framed.message,
+    spkiDer: ownedIssuer, message: framed.message,
     signatureBase64url: envelope.signature.signature
   });
   if (verified.status !== "candidate") return blocked("initial_enrollment_certificate_signature_invalid");

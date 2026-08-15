@@ -222,6 +222,27 @@ test("request and certificate envelopes require one exact role-bound signature",
   assert.equal(verifyInitialEnrollmentCertificateCandidate({
     certificateEnvelope: value.requestEnvelope, issuerSpkiDer: value.issuerSpki
   }).status, "blocked");
+  assert.equal(verifyInitialEnrollmentCertificateCandidate({
+    certificateEnvelope: value.certificateEnvelope, issuerSpkiDer: new Uint8Array(value.issuerSpki)
+  }).status, "blocked");
+  assert.equal(verifyInitialEnrollmentCertificateCandidate({
+    certificateEnvelope: value.certificateEnvelope, issuerSpkiDer: Buffer.alloc(44)
+  }).status, "blocked");
+  const otherIssuer = generateKeyPairSync("ed25519").publicKey.export({
+    format: "der", type: "spki"
+  });
+  assert.equal(verifyInitialEnrollmentCertificateCandidate({
+    certificateEnvelope: value.certificateEnvelope, issuerSpkiDer: otherIssuer
+  }).status, "blocked");
+  const sharedIssuer = Buffer.from(new SharedArrayBuffer(value.issuerSpki.length));
+  value.issuerSpki.copy(sharedIssuer);
+  const certificateResult = verifyInitialEnrollmentCertificateCandidate({
+    certificateEnvelope: value.certificateEnvelope, issuerSpkiDer: sharedIssuer
+  });
+  assert.equal(certificateResult.status, "candidate");
+  sharedIssuer.fill(0);
+  assert.equal(certificateResult.status, "candidate");
+  assert.equal(JSON.stringify(certificateResult).includes(value.certificateSignature), false);
 });
 
 test("three raw payload decoders accept only canonical bounded JSON bytes", () => {
