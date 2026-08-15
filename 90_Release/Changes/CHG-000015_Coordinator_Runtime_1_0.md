@@ -831,3 +831,11 @@ Windows WinVerifyTrust、macOS SecStaticCodeCheckValidity、Linux配布方式固
 後続の局所単位として、明示`coordinator provision [--json]`のcommand grammarを追加する。現ローカル／開発buildでは二重署名、Runtime所有release TrustおよびEffect Adapterが未実装なため常に`blocked`、`dryRunOnly: true`、Effect 0を返す。未知argumentはusage errorとし、Path、鍵、署名または権限値を受理・出力しない。`doctor`、`activate`、通常runまたは暗黙fallbackから発火させず、実Effectが実装されるまで唯一の入口という形だけを固定する。この処置も`Applied`／`Self-checked`であり、12 blocker、6 evidence、Gateおよび非Release境界を変更しない。
 
 さらに、Platformごとの固定Verifier種別、署名者Identity Hash、manifestと同じ実行物digest、file Identity安定性およびpermission policy一致をまとめる二重検証pure集約候補を追加する。manifest検証は内部で再実行し、片側の自己申告結果を流用しない。正常一致もcaller supplied観測と期待Identityの形が一致した候補にすぎず、`nativeObservationRuntimeOwned: false`、`releaseIdentityRuntimeOwned: false`、`effectAuthorizationIssued: false`を維持する。実Adapter、実release Identity選択およびEffect controllerが同じ制御経路を所有するまで、CapabilityまたはEffectへ変換しない。新sourceは既存`platform_provisioner_verification`へ接続するが、blockerを解除しない。
+
+### 2026-08-16 — Platform Provisionerのnpm／`.mjs`配布境界
+
+Qual-Labの人間の決定権限者は、version 1を専用native executableではなく`.mjs`を含むnpm packageとして配布する方針を承認した。過去の「OSネイティブコード署名とQual-Lab manifestの二重条件」は当時の判断として履歴保持するが、version 1の現在判定へ使用しない。Windows AuthenticodeまたはmacOS Developer ID証明書の購入、専用EXE化およびOSネイティブ署名はversion 1の必須条件ではない。
+
+現在のEffect前Trust目標は、npm registry署名、生成元証明（provenance）、Qual-Lab署名済みpackage manifest、およびRuntime所有のpackage内容／Filesystem Identity確認を同じpackageへ結合することである。package manifestはpackage名、version、file一覧から得るcontent root、Root Protection Policy Hash、Key Storage Policy Hashおよび有効期間をEd25519署名exact 1件へ結合する。registry／provenance／package観測をcallerが自己申告してもAuthorityまたはEffectへ昇格しない。どれか一つの欠落、生成元不一致、改変、権限不一致またはfallbackは`blocked`とする。
+
+今回の実装はpackage manifest、content rootおよび非Authorityなpackage Trust Gateのpure候補と、Runtime activation／doctor／明示`provision`の状態投影までである。実npm install receipt検証、provenance取得、release Trust選択、package file読取り／安定Identity／permission検証、publish workflow、Effect controllerおよびRoot／鍵／ACL変更は未実装である。ローカルsource checkoutはtest／dry-run専用で、TrustまたはEffectを成立させない。既存12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と必要な独立レビュー／監査前は`Resolved`、採用、準拠、移行、Stable、Releaseまたは公開ではない。

@@ -371,9 +371,11 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
   assert.equal(result.status, 2);
   const report = JSON.parse(result.stdout);
   assert.equal(report.reason,
-    "platform_provisioner_dual_verification_and_effect_not_implemented");
+    "platform_provisioner_package_trust_and_effect_not_implemented");
   assert.equal(report.dryRunOnly, true);
-  assert.equal(report.osNativeCodeSignatureConfirmed, false);
+  assert.equal(report.npmRegistrySignatureConfirmed, false);
+  assert.equal(report.npmProvenanceConfirmed, false);
+  assert.equal(report.packageFilesystemIdentityConfirmed, false);
   assert.equal(report.qualLabManifestTrustConfirmed, false);
   assert.equal(report.filesystemEffectIssued, false);
 

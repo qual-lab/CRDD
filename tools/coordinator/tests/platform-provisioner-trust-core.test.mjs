@@ -3,7 +3,10 @@ import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 
 import {
+  PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+  PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
+  calculatePlatformProvisionerPackageContentRootCandidate,
   describePlatformProvisionerTrustCoreContract,
   verifyPlatformProvisionerManifestCandidate
 } from "../src/security/platform-provisioner-trust-core.mjs";
@@ -21,76 +24,98 @@ function fixture() {
   const signer = generateKeyPairSync("ed25519");
   const spki = signer.publicKey.export({ format: "der", type: "spki" });
   const keyId = createHash("sha256").update(spki).digest("hex");
-  const executableSha256 = "1".repeat(64);
+  const observedPackageContent = {
+    packageName: "@qual-lab/crdd-coordinator",
+    packageVersion: "0.0.0-development",
+    files: [
+      { path: "bin/coordinator.mjs", byteLength: 100, sha256: "1".repeat(64) },
+      { path: "package.json", byteLength: 300, sha256: "2".repeat(64) },
+      { path: "src/core/doctor.mjs", byteLength: 500, sha256: "3".repeat(64) }
+    ]
+  };
+  const packageContentRootSha256 = calculatePlatformProvisionerPackageContentRootCandidate(
+    observedPackageContent).packageContentRootSha256;
   const payload = {
-    contract: "crdd-coordinator/platform-provisioner-manifest",
+    contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
     contractRevision: 1,
-    platform: "windows",
-    architecture: "x64",
-    provisionerVersion: "1.0.0",
-    executableSha256,
-    rootProtectionPolicySha256: "2".repeat(64),
-    keyStoragePolicySha256: "3".repeat(64),
+    packageName: observedPackageContent.packageName,
+    packageVersion: observedPackageContent.packageVersion,
+    packageContentRootSha256,
+    rootProtectionPolicySha256: "4".repeat(64),
+    keyStoragePolicySha256: "5".repeat(64),
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z"
   };
   const manifestEnvelope = {
-    contract: "crdd-coordinator/platform-provisioner-manifest-envelope",
+    contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
     contractRevision: 1,
     payload,
-    signatures: [{ keyId, algorithm: "Ed25519",
-      signature: sign(null, frame(payload), signer.privateKey).toString("base64url") }]
+    signatures: [{
+      keyId,
+      algorithm: "Ed25519",
+      signature: sign(null, frame(payload), signer.privateKey).toString("base64url")
+    }]
   };
-  return { manifestEnvelope, releaseSignerSpkiDer: spki, executableSha256 };
+  return {
+    manifestEnvelope,
+    releaseSignerSpkiDer: spki,
+    observedPackageContent,
+    evaluationTime: "2026-08-15T12:00:00.000Z"
+  };
 }
 
-test("Qual-Lab manifest cryptographic match remains non-authoritative without native signature", () => {
-  const value = fixture();
-  const result = verifyPlatformProvisionerManifestCandidate({
-    manifestEnvelope: value.manifestEnvelope,
-    releaseSignerSpkiDer: value.releaseSignerSpkiDer,
-    observedExecutableSha256: value.executableSha256,
-    evaluationTime: "2026-08-15T12:00:00.000Z"
-  });
+test("signed package manifest matches exact npm package content but remains non-authoritative", () => {
+  const result = verifyPlatformProvisionerManifestCandidate(fixture());
   assert.equal(result.status, "candidate");
+  assert.equal(result.packageName, "@qual-lab/crdd-coordinator");
   assert.equal(result.qualLabManifestCryptographicMatch, true);
-  assert.equal(result.osNativeCodeSignatureConfirmed, false);
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
+  assert.equal(result.npmRegistrySignatureConfirmed, false);
+  assert.equal(result.npmProvenanceConfirmed, false);
+  assert.equal(result.runtimeOwnedPackageFilesystemConfirmed, false);
   assert.equal(result.filesystemEffectIssued, false);
-  for (const key of ["executableSha256", "keyId", "signature", "spkiDer", "canonicalBytes"]) {
+  for (const key of ["files", "signature", "spkiDer", "releaseSignerSpkiDer"]) {
     assert.equal(key in result, false);
   }
 });
 
-test("digest, signature, time and exact envelope mismatches fail closed", () => {
-  const base = fixture();
-  const verify = (overrides = {}) => verifyPlatformProvisionerManifestCandidate({
-    manifestEnvelope: base.manifestEnvelope,
-    releaseSignerSpkiDer: base.releaseSignerSpkiDer,
-    observedExecutableSha256: base.executableSha256,
-    evaluationTime: "2026-08-15T12:00:00.000Z",
-    ...overrides
-  });
-  assert.equal(verify({ observedExecutableSha256: "f".repeat(64) }).status, "blocked");
-  assert.equal(verify({ evaluationTime: "2027-08-15T00:00:00.000Z" }).reason,
-    "platform_provisioner_manifest_not_current");
-  assert.equal(verify({ manifestEnvelope: { ...base.manifestEnvelope, extra: true } }).status,
-    "blocked");
-  const changed = structuredClone(base.manifestEnvelope);
-  changed.signatures[0].signature = `${changed.signatures[0].signature[0] === "A" ? "B" : "A"}` +
-    changed.signatures[0].signature.slice(1);
-  assert.equal(verify({ manifestEnvelope: changed }).status, "blocked");
+test("package name, version, file ordering, path and digest mismatches fail closed", () => {
+  for (const mutate of [
+    (value) => { value.observedPackageContent.packageName = "@other/package"; },
+    (value) => { value.observedPackageContent.packageVersion = "1.0.0"; },
+    (value) => { value.observedPackageContent.files[0].sha256 = "f".repeat(64); },
+    (value) => { value.observedPackageContent.files.reverse(); },
+    (value) => { value.observedPackageContent.files[0].path = "../escape.mjs"; },
+    (value) => { value.manifestEnvelope.payload.packageContentRootSha256 = "e".repeat(64); }
+  ]) {
+    const value = fixture();
+    mutate(value);
+    assert.equal(verifyPlatformProvisionerManifestCandidate(value).status, "blocked");
+  }
 });
 
-test("contract requires dual packaged-build verification and keeps local development dry-run only", () => {
+test("manifest signature, role, lifetime and exact envelope fail closed", () => {
+  for (const mutate of [
+    (value) => { value.manifestEnvelope.signatures[0].signature = "A".repeat(86); },
+    (value) => { value.manifestEnvelope.signatures[0].algorithm = "ECDSA"; },
+    (value) => { value.manifestEnvelope.signatures.push(value.manifestEnvelope.signatures[0]); },
+    (value) => { value.evaluationTime = "2028-01-01T00:00:00.000Z"; },
+    (value) => { value.manifestEnvelope.extra = true; }
+  ]) {
+    const value = fixture();
+    mutate(value);
+    assert.equal(verifyPlatformProvisionerManifestCandidate(value).status, "blocked");
+  }
+});
+
+test("package trust contract uses npm attestations and does not require a native executable", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
-  assert.equal(contract.manifestCryptographicVerification, "implemented_candidate");
-  assert.equal(contract.packagedBuildAcceptance,
-    "os_native_code_signature_and_qual_lab_manifest_both_required_before_effect_target");
-  assert.equal(contract.localDevelopmentBehavior,
-    "dry_run_and_test_only_without_trust_gate_or_filesystem_effect_target");
-  assert.equal(contract.explicitProvisionCommandRequired, true);
-  assert.equal(contract.rsaOrAlternateCurveFallback, false);
-  assert.equal(contract.windowsNativeSignatureAdapter, "not_implemented_winverifytrust_target");
+  assert.equal(contract.distributionModel, "mjs_npm_package");
+  assert.equal(contract.dedicatedNativeExecutableRequiredForV1, false);
+  assert.equal(contract.osNativeCodeSignatureRequiredForV1, false);
+  assert.equal(contract.npmRegistrySignatureVerification,
+    "not_implemented_install_time_receipt_target");
+  assert.equal(contract.npmProvenanceVerification,
+    "not_implemented_install_time_attestation_target");
   assert.equal(contract.filesystemEffectIssued, false);
 });

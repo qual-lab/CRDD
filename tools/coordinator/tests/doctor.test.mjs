@@ -530,7 +530,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     enrollmentCertificateRenewal:
       report.runtimeActivation.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: report.runtimeActivation.platformProvisionerTrustCore,
-    platformProvisionerDualGate: report.runtimeActivation.platformProvisionerDualGate,
+    platformProvisionerPackageGate: report.runtimeActivation.platformProvisionerPackageGate,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -638,9 +638,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       enrollmentCertificateRenewalContract: "provisioning_record_contract",
       enrollmentCertificateRenewalVerification: "provisioning_record_verification",
       platformProvisionerManifestVerification: "platform_provisioner_verification",
-      platformProvisionerNativeSignatureVerification: "platform_provisioner_verification",
-      platformProvisionerDualGateObservation: "platform_provisioner_verification",
-      platformProvisionerDualGateRuntimeAdapters: "platform_provisioner_verification",
+      platformProvisionerNpmRegistrySignatureVerification: "platform_provisioner_verification",
+      platformProvisionerNpmProvenanceVerification: "platform_provisioner_verification",
+      platformProvisionerPackageGateObservation: "platform_provisioner_verification",
+      platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -846,11 +847,13 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.platformProvisionerVerification, "not_implemented");
   assert.equal(report.runtimeActivation.platformProvisionerTrustCore.manifestCryptographicVerification,
     "implemented_candidate");
-  assert.equal(report.runtimeActivation.platformProvisionerTrustCore.macosNativeSignatureAdapter,
-    "not_implemented_secstaticcodecheckvalidity_target");
-  assert.equal(report.runtimeActivation.platformProvisionerDualGate.runtimeOwnedNativeAdapters,
+  assert.equal(report.runtimeActivation.platformProvisionerTrustCore.distributionModel,
+    "mjs_npm_package");
+  assert.equal(report.runtimeActivation.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1,
+    false);
+  assert.equal(report.runtimeActivation.platformProvisionerPackageGate.runtimeOwnedPackageFilesystemAdapter,
     "not_implemented");
-  assert.equal(report.runtimeActivation.platformProvisionerDualGate.effectAuthorizationIssued,
+  assert.equal(report.runtimeActivation.platformProvisionerPackageGate.effectAuthorizationIssued,
     false);
   assert.equal(report.runtimeActivation.platformProvisionerEffect, "not_implemented");
   assert.equal(report.runtimeActivation.installationKeyGeneration, "not_implemented");

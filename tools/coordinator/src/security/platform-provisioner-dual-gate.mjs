@@ -3,29 +3,27 @@ import { verifyPlatformProvisionerManifestCandidate } from
   "./platform-provisioner-trust-core.mjs";
 
 const INPUT_KEYS = new Set([
-  "manifestVerificationInput", "nativeObservation", "expectedNativeSignerIdentitySha256"
+  "manifestVerificationInput", "npmObservation", "expectedSourceRepository"
 ]);
 const OBSERVATION_KEYS = new Set([
-  "platform", "verifier", "verdict", "signerIdentitySha256", "executableSha256",
-  "fileIdentityStable", "permissionPolicyMatch"
+  "packageName", "packageVersion", "packageContentRootSha256",
+  "registrySignatureVerdict", "provenanceVerdict", "provenanceSourceRepository",
+  "installedPackageIdentityStable", "permissionPolicyMatch"
 ]);
 const MANIFEST_INPUT_KEYS = new Set([
-  "manifestEnvelope", "releaseSignerSpkiDer", "observedExecutableSha256", "evaluationTime"
+  "manifestEnvelope", "releaseSignerSpkiDer", "observedPackageContent", "evaluationTime"
 ]);
 const HEX64 = /^[0-9a-f]{64}$/u;
-const VERIFIERS = Object.freeze({
-  windows: "winverifytrust",
-  macos: "secstaticcodecheckvalidity",
-  linux: "distribution_package_signature"
-});
+const HTTPS_REPOSITORY = /^https:\/\/[A-Za-z0-9.-]+\/[A-Za-z0-9._/-]+$/u;
 
 function response(status, reason, fields = {}) {
   return Object.freeze({
     status,
     reason,
     ...fields,
-    nativeObservationRuntimeOwned: false,
+    npmObservationRuntimeOwned: false,
     releaseIdentityRuntimeOwned: false,
+    packageFilesystemRuntimeOwned: false,
     effectAuthorizationIssued: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
@@ -34,62 +32,71 @@ function response(status, reason, fields = {}) {
   });
 }
 
+function repository(value) {
+  return typeof value === "string" && value.length <= 2_048 && HTTPS_REPOSITORY.test(value) &&
+    !value.includes("..") && !value.endsWith("/");
+}
+
 function normalizeObservation(raw) {
   const value = snapshotPlainRecord(raw, OBSERVATION_KEYS);
-  if (!value || !Object.hasOwn(VERIFIERS, value.platform) ||
-      value.verifier !== VERIFIERS[value.platform] || value.verdict !== "valid" ||
-      !HEX64.test(value.signerIdentitySha256) || !HEX64.test(value.executableSha256) ||
-      value.fileIdentityStable !== true || value.permissionPolicyMatch !== true) return null;
+  if (!value || typeof value.packageName !== "string" || typeof value.packageVersion !== "string" ||
+      typeof value.packageContentRootSha256 !== "string" ||
+      !HEX64.test(value.packageContentRootSha256) ||
+      value.registrySignatureVerdict !== "verified" ||
+      value.provenanceVerdict !== "verified" || !repository(value.provenanceSourceRepository) ||
+      value.installedPackageIdentityStable !== true || value.permissionPolicyMatch !== true) return null;
   return value;
 }
 
-export function evaluatePlatformProvisionerDualGateCandidate(rawInput) {
+export function evaluatePlatformProvisionerPackageGateCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
-    if (!input || !HEX64.test(input.expectedNativeSignerIdentitySha256)) {
-      return response("blocked", "platform_provisioner_dual_gate_input_invalid");
+    if (!input || !repository(input.expectedSourceRepository)) {
+      return response("blocked", "platform_provisioner_package_gate_input_invalid");
     }
-    const observation = normalizeObservation(input.nativeObservation);
+    const observation = normalizeObservation(input.npmObservation);
     const manifestInput = snapshotPlainRecord(input.manifestVerificationInput, MANIFEST_INPUT_KEYS);
     const manifest = manifestInput
       ? verifyPlatformProvisionerManifestCandidate(manifestInput)
       : response("blocked", "platform_provisioner_manifest_input_invalid");
     if (!observation || manifest.status !== "candidate") {
-      return response("blocked", "platform_provisioner_dual_gate_verification_failed");
+      return response("blocked", "platform_provisioner_package_gate_verification_failed");
     }
-    if (observation.platform !== manifest.platform ||
-        observation.executableSha256 !== manifestInput.observedExecutableSha256 ||
-        observation.signerIdentitySha256 !== input.expectedNativeSignerIdentitySha256) {
-      return response("blocked", "platform_provisioner_dual_gate_binding_mismatch");
+    if (observation.packageName !== manifest.packageName ||
+        observation.packageVersion !== manifest.packageVersion ||
+        observation.packageContentRootSha256 !== manifest.packageContentRootSha256 ||
+        observation.provenanceSourceRepository !== input.expectedSourceRepository) {
+      return response("blocked", "platform_provisioner_package_gate_binding_mismatch");
     }
     return response("candidate",
-      "runtime_owned_native_adapter_release_identity_and_effect_controller_required", {
-        platform: manifest.platform,
-        architecture: manifest.architecture,
-        provisionerVersion: manifest.provisionerVersion,
+      "runtime_owned_npm_attestation_package_filesystem_and_effect_controller_required", {
+        packageName: manifest.packageName,
+        packageVersion: manifest.packageVersion,
         manifestHash: manifest.manifestHash,
-        dualVerificationObservationMatch: true
+        packageTrustObservationMatch: true
       });
   } catch {
-    return response("blocked", "platform_provisioner_dual_gate_input_invalid");
+    return response("blocked", "platform_provisioner_package_gate_input_invalid");
   }
 }
 
-export function describePlatformProvisionerDualGateContract() {
+export function describePlatformProvisionerPackageGateContract() {
   return Object.freeze({
-    contract: "crdd-coordinator/platform-provisioner-dual-gate",
+    contract: "crdd-coordinator/platform-provisioner-package-gate",
     contractRevision: 1,
-    supportedVerifierKinds: Object.freeze({ ...VERIFIERS }),
+    distributionModel: "mjs_npm_package",
     observationContract: "implemented_candidate_non_authoritative",
     manifestVerificationReuse: "implemented_candidate",
-    executableDigestBinding: "implemented_candidate",
-    nativeSignerIdentityBinding: "implemented_candidate",
-    fileIdentityAndPermissionBinding: "implemented_candidate",
-    runtimeOwnedNativeAdapters: "not_implemented",
+    packageIdentityBinding: "implemented_candidate",
+    packageContentRootBinding: "implemented_candidate",
+    provenanceSourceBinding: "implemented_candidate",
+    runtimeOwnedNpmRegistrySignatureAdapter: "not_implemented",
+    runtimeOwnedNpmProvenanceAdapter: "not_implemented",
+    runtimeOwnedPackageFilesystemAdapter: "not_implemented",
     runtimeOwnedReleaseIdentitySelection: "not_implemented",
     effectController: "not_implemented",
     callerObservationMayAuthorizeEffect: false,
-    localDevelopmentMayAuthorizeEffect: false,
+    sourceCheckoutMayAuthorizeEffect: false,
     effectAuthorizationIssued: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,

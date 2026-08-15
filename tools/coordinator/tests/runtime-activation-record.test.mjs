@@ -346,7 +346,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       contract.provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal: contract.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: contract.platformProvisionerTrustCore,
-    platformProvisionerDualGate: contract.platformProvisionerDualGate,
+    platformProvisionerPackageGate: contract.platformProvisionerPackageGate,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -454,9 +454,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
       enrollmentCertificateRenewalContract: "provisioning_record_contract",
       enrollmentCertificateRenewalVerification: "provisioning_record_verification",
       platformProvisionerManifestVerification: "platform_provisioner_verification",
-      platformProvisionerNativeSignatureVerification: "platform_provisioner_verification",
-      platformProvisionerDualGateObservation: "platform_provisioner_verification",
-      platformProvisionerDualGateRuntimeAdapters: "platform_provisioner_verification",
+      platformProvisionerNpmRegistrySignatureVerification: "platform_provisioner_verification",
+      platformProvisionerNpmProvenanceVerification: "platform_provisioner_verification",
+      platformProvisionerPackageGateObservation: "platform_provisioner_verification",
+      platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -618,11 +619,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.platformProvisionerVerification, "not_implemented");
   assert.equal(contract.platformProvisionerTrustCore.manifestCryptographicVerification,
     "implemented_candidate");
-  assert.equal(contract.platformProvisionerTrustCore.windowsNativeSignatureAdapter,
-    "not_implemented_winverifytrust_target");
-  assert.equal(contract.platformProvisionerDualGate.observationContract,
+  assert.equal(contract.platformProvisionerTrustCore.distributionModel, "mjs_npm_package");
+  assert.equal(contract.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1, false);
+  assert.equal(contract.platformProvisionerPackageGate.observationContract,
     "implemented_candidate_non_authoritative");
-  assert.equal(contract.platformProvisionerDualGate.effectAuthorizationIssued, false);
+  assert.equal(contract.platformProvisionerPackageGate.effectAuthorizationIssued, false);
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
   assert.equal(contract.installationKeyGeneration, "not_implemented");
   assert.equal(contract.installationKeyProtectionVerification, "not_implemented");

@@ -108,10 +108,12 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
     status: "blocked",
     command,
     reason: parsed.status === "ok"
-      ? "platform_provisioner_dual_verification_and_effect_not_implemented"
+      ? "platform_provisioner_package_trust_and_effect_not_implemented"
       : parsed.reason,
     dryRunOnly: true,
-    osNativeCodeSignatureConfirmed: false,
+    npmRegistrySignatureConfirmed: false,
+    npmProvenanceConfirmed: false,
+    packageFilesystemIdentityConfirmed: false,
     qualLabManifestTrustConfirmed: false,
     filesystemEffectIssued: false,
     runtimeCapabilityIssued: false

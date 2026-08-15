@@ -22,7 +22,7 @@ import { describeEnrollmentCertificateRenewalContract } from
   "./enrollment-certificate-renewal.mjs";
 import { describePlatformProvisionerTrustCoreContract } from
   "./platform-provisioner-trust-core.mjs";
-import { describePlatformProvisionerDualGateContract } from
+import { describePlatformProvisionerPackageGateContract } from
   "./platform-provisioner-dual-gate.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
@@ -112,9 +112,10 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   enrollmentCertificateRenewalContract: "provisioning_record_contract",
   enrollmentCertificateRenewalVerification: "provisioning_record_verification",
   platformProvisionerManifestVerification: "platform_provisioner_verification",
-  platformProvisionerNativeSignatureVerification: "platform_provisioner_verification",
-  platformProvisionerDualGateObservation: "platform_provisioner_verification",
-  platformProvisionerDualGateRuntimeAdapters: "platform_provisioner_verification",
+  platformProvisionerNpmRegistrySignatureVerification: "platform_provisioner_verification",
+  platformProvisionerNpmProvenanceVerification: "platform_provisioner_verification",
+  platformProvisionerPackageGateObservation: "platform_provisioner_verification",
+  platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
   onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -368,7 +369,7 @@ export function describeRuntimeActivationContract() {
     describeProvisioningRecordEnrollmentBindingContract();
   const enrollmentCertificateRenewal = describeEnrollmentCertificateRenewalContract();
   const platformProvisionerTrustCore = describePlatformProvisionerTrustCoreContract();
-  const platformProvisionerDualGate = describePlatformProvisionerDualGateContract();
+  const platformProvisionerPackageGate = describePlatformProvisionerPackageGateContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -402,11 +403,14 @@ export function describeRuntimeActivationContract() {
       enrollmentCertificateRenewal.transitionVerification,
     platformProvisionerManifestVerification:
       platformProvisionerTrustCore.manifestCryptographicVerification,
-    platformProvisionerNativeSignatureVerification: "not_implemented",
-    platformProvisionerDualGateObservation:
-      platformProvisionerDualGate.observationContract,
-    platformProvisionerDualGateRuntimeAdapters:
-      platformProvisionerDualGate.runtimeOwnedNativeAdapters,
+    platformProvisionerNpmRegistrySignatureVerification:
+      platformProvisionerTrustCore.npmRegistrySignatureVerification,
+    platformProvisionerNpmProvenanceVerification:
+      platformProvisionerTrustCore.npmProvenanceVerification,
+    platformProvisionerPackageGateObservation:
+      platformProvisionerPackageGate.observationContract,
+    platformProvisionerPackageFilesystemVerification:
+      platformProvisionerPackageGate.runtimeOwnedPackageFilesystemAdapter,
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     initialEnrollmentChallengeObjectContractAndDomainFraming:
@@ -474,7 +478,7 @@ export function describeRuntimeActivationContract() {
     provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal,
     platformProvisionerTrustCore,
-    platformProvisionerDualGate
+    platformProvisionerPackageGate
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -559,7 +563,7 @@ export function describeRuntimeActivationContract() {
       implementation.provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal: implementation.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: implementation.platformProvisionerTrustCore,
-    platformProvisionerDualGate: implementation.platformProvisionerDualGate,
+    platformProvisionerPackageGate: implementation.platformProvisionerPackageGate,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -745,7 +749,7 @@ export function describeRuntimeActivationContract() {
       implementation.provisioningRecordEnrollmentBinding,
     enrollmentCertificateRenewal: implementation.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: implementation.platformProvisionerTrustCore,
-    platformProvisionerDualGate: implementation.platformProvisionerDualGate,
+    platformProvisionerPackageGate: implementation.platformProvisionerPackageGate,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,
