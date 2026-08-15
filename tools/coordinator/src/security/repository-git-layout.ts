@@ -6,7 +6,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   resolveRepositoryGitLayout,
   summarizeRepositoryGitLayout,
-} from "./repository-git-layout-internal.mjs";
+} from "./repository-git-layout-internal.ts";
 
 export const REPOSITORY_GIT_LAYOUT_CONTRACT =
   "crdd-coordinator/repository-git-layout";

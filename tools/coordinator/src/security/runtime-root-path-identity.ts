@@ -10,7 +10,7 @@ import {
 import {
   resolveRepositoryGitLayout,
   writeRepositoryLocalExclude,
-} from "./repository-git-layout-internal.mjs";
+} from "./repository-git-layout-internal.ts";
 
 export const RUNTIME_ROOT_PATH_IDENTITY_CONTRACT =
   "crdd-coordinator/runtime-root-path-identity";

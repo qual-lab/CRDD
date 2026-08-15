@@ -4,7 +4,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   resolveRepositoryGitLayout,
   summarizeRepositoryGitLayout,
-} from "./repository-git-layout-internal.mjs";
+} from "./repository-git-layout-internal.ts";
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   selectRuntimeRootCandidate,
