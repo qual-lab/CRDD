@@ -9,6 +9,8 @@ import { describeProvisioningRecordPureCoreContract } from
   "./provisioning-record-pure-core.mjs";
 import { describeInitialEnrollmentPureCoreContract } from
   "./initial-enrollment-pure-core.mjs";
+import { describeInitialEnrollmentRuntimeStateContract } from
+  "./initial-enrollment-runtime-state.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -86,6 +88,8 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   initialEnrollmentRequestProofVerification: "provisioning_record_verification",
   initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
   initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
+  initialEnrollmentRuntimeClock: "provisioning_record_verification",
+  initialEnrollmentAttemptConsumption: "provisioning_record_verification",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
   onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -329,6 +333,7 @@ export function describeRuntimeActivationContract() {
   const provisioningSignaturePrimitives = describeProvisioningSignaturePrimitivesContract();
   const provisioningRecordPureCore = describeProvisioningRecordPureCoreContract();
   const initialEnrollmentPureCore = describeInitialEnrollmentPureCoreContract();
+  const initialEnrollmentRuntimeState = describeInitialEnrollmentRuntimeStateContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -375,6 +380,10 @@ export function describeRuntimeActivationContract() {
       initialEnrollmentPureCore.certificateSignatureVerification,
     initialEnrollmentFlowBindingVerification:
       initialEnrollmentPureCore.initialFlowBindingVerification,
+    initialEnrollmentRuntimeClock:
+      initialEnrollmentRuntimeState.runtimeClock,
+    initialEnrollmentAttemptConsumption:
+      initialEnrollmentRuntimeState.firstVerificationAttemptConsumption,
     provisioningRecordContract: "not_implemented",
     provisioningRecordVerification: "not_implemented",
     provisioningRecordTrustAnchorSet: "not_implemented",
@@ -400,7 +409,8 @@ export function describeRuntimeActivationContract() {
     activationLocatorBinding,
     provisioningSignaturePrimitives,
     provisioningRecordPureCore,
-    initialEnrollmentPureCore
+    initialEnrollmentPureCore,
+    initialEnrollmentRuntimeState
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -491,6 +501,7 @@ export function describeRuntimeActivationContract() {
     enrollmentCertificateFormatTarget: "custom_jcs_json_target",
     enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
     initialOnlineEnrollmentPureCore: implementation.initialEnrollmentPureCore,
+    initialOnlineEnrollmentRuntimeState: implementation.initialEnrollmentRuntimeState,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -649,6 +660,7 @@ export function describeRuntimeActivationContract() {
     provisioningSignaturePrimitives: implementation.provisioningSignaturePrimitives,
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
     initialEnrollmentPureCore: implementation.initialEnrollmentPureCore,
+    initialEnrollmentRuntimeState: implementation.initialEnrollmentRuntimeState,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

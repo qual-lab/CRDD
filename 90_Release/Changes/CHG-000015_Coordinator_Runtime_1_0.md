@@ -775,3 +775,9 @@ Qual-Labの人間の決定権限者は、登録要求と登録証明書のEnvelo
 固定Commit `d1e32cbd9153a3f4af94b251206f48321c9c8b08`／Tree `237a700dee7ae02cc8b16a048437f8ff383f9552`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。`AG-INITIAL-RAW-ENVELOPE-001`および`DOC-INITIAL-RAW-ENVELOPE-001`はこの固定範囲で`Resolved`と判定する。旧`799c2c3`以前の監査集合は履歴として保持するが現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_d1e32cb.md`](Evidence/CHG-000015_Current_Review_Record_d1e32cb.md)へ接続する。
 
 確認済み範囲はRequest／Certificate raw Envelopeのcanonical JCS UTF-8入力、共通private decode境界、成果物別payload Hash、安全なcandidate出力、現在状態投影、依存接続およびGate境界に限る。transport、Runtime所有clock、一回消費台帳、実CA Trust／失効、Network、keystore、Filesystem、Record実結合、更新およびオフライン経路は未実装・未評価である。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### 2026-08-15 — Runtime時計とprocess内一回消費Controller候補
+
+人間の指示により、残るProvisioning実装を依存順の複数コミットで進める。第1単位は、Runtime自身が取得するwall clockとmonotonic clockを同時に観測し、同一process内で時計の後退を検出するController、および有効なチャレンジに対する最初の検証試行を成功・失敗のいずれでも消費する上限4096件のprocess内台帳である。期限切れ、未発行、再利用、容量超過または時計の後退は`blocked`とし、期限切れ・再利用・失敗ではfresh challengeを要求する。通常run、doctorまたは暗黙経路から発火しない。
+
+process再起動をまたぐ永続台帳、保存Path、ACL、atomic persistenceおよび複数process間の排他は未実装である。このため成功結果も`persistenceConfirmed: false`のcandidateに限定し、replay防止、Trust、Authority、Capability、Filesystem／Network EffectまたはGateを成立させない。新しいRuntime state contractを既存`provisioning_record_verification` dependencyへ接続するが、`enrollmentReplayProtectionPersistence`は`not_implemented`、12 blockerと6 current-run evidenceは不変とする。本処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。

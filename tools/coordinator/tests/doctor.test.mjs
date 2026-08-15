@@ -510,6 +510,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     enrollmentCertificateFormatTarget: "custom_jcs_json_target",
     enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
     initialOnlineEnrollmentPureCore: report.runtimeActivation.initialEnrollmentPureCore,
+    initialOnlineEnrollmentRuntimeState:
+      report.runtimeActivation.initialEnrollmentRuntimeState,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -604,6 +606,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       initialEnrollmentRequestProofVerification: "provisioning_record_verification",
       initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
       initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
+      initialEnrollmentRuntimeClock: "provisioning_record_verification",
+      initialEnrollmentAttemptConsumption: "provisioning_record_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
