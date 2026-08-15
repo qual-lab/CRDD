@@ -7,6 +7,8 @@ import { describeProvisioningSignaturePrimitivesContract } from
   "./provisioning-signature-primitives.mjs";
 import { describeProvisioningRecordPureCoreContract } from
   "./provisioning-record-pure-core.mjs";
+import { describeInitialEnrollmentPureCoreContract } from
+  "./initial-enrollment-pure-core.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -312,6 +314,7 @@ export function describeRuntimeActivationContract() {
   const activationLocatorBinding = describeRuntimeActivationLocatorBindingContract();
   const provisioningSignaturePrimitives = describeProvisioningSignaturePrimitivesContract();
   const provisioningRecordPureCore = describeProvisioningRecordPureCoreContract();
+  const initialEnrollmentPureCore = describeInitialEnrollmentPureCoreContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -354,7 +357,8 @@ export function describeRuntimeActivationContract() {
     authorityRootLocator,
     activationLocatorBinding,
     provisioningSignaturePrimitives,
-    provisioningRecordPureCore
+    provisioningRecordPureCore,
+    initialEnrollmentPureCore
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -600,6 +604,7 @@ export function describeRuntimeActivationContract() {
     activationLocatorBinding: implementation.activationLocatorBinding,
     provisioningSignaturePrimitives: implementation.provisioningSignaturePrimitives,
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
+    initialEnrollmentPureCore: implementation.initialEnrollmentPureCore,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

@@ -20,6 +20,8 @@ Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のロ
 
 詳細な脅威、主体別権限および停止条件は[`THREAT_MODEL.md`](THREAT_MODEL.md)を参照する。変更の判断と追跡は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)が所有する。
 
+初回オンライン登録のpure Core候補は、30分のチャレンジ、チャレンジHashを含む登録要求、端末導入鍵による所有証明、およびPlatform scope・Provisioner Identity・端末導入公開鍵を結ぶ登録証明書だけを扱う。要求からチャレンジへの一方向結合とし、正常結果も暗号条件の`candidate`に限る。Runtime所有時計、一回消費台帳、CA Trust／失効、Network、Filesystem、証明書更新、オフライン束および準備記録との実結合は対象外または未実装である。
+
 ## 現在利用できるコマンド
 
 ```shell

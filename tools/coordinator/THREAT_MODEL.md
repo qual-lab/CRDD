@@ -139,6 +139,8 @@ pure Core候補は署名領域分離（domain separation）を固定ASCII prefix
 
 <a id="provisioning-signature-external-standards"></a>
 
+初回オンライン登録のpure Core候補は、30分のチャレンジをJCS化し、登録要求がそのdomain-framed payload HashとPlatform scope・Provisioner Identity・端末導入鍵を結び、要求全体へのEd25519所有証明を検査する。登録証明書は同じIdentity群と公開鍵を結び、別domainのEd25519署名を検査する。正常結果は暗号条件の`candidate`だけであり、Runtime所有時計、一回消費台帳、CA Trust／失効、Network、Filesystem、Record結合およびAuthorityを成立させない。証明書更新、オフライン束、認証局chain／rotation、実keystoreおよび保存Lifecycleは対象外である。
+
 ### 署名基礎Coreの外部規格入力
 
 確認日（reviewedAt）は`2026-08-12`である。Runtimeは規格本文をネットワーク取得または自動更新せず、下表で採用した内部contractを拘束点とする。RFC errata、Node.js cryptoの挙動、または採用範囲が変わる場合は人間の判断と再監査を行う。

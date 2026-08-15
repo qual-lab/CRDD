@@ -1,0 +1,191 @@
+import { createHash } from "node:crypto";
+import { types as utilTypes } from "node:util";
+
+import {
+  canonicalizeProvisioningJsonValueCandidate,
+  inspectProvisioningEd25519SpkiCandidate,
+  verifyProvisioningEd25519Base64urlCandidate
+} from "./provisioning-signature-primitives.mjs";
+
+export const INITIAL_ENROLLMENT_CONTRACT_REVISION = 1;
+export const INITIAL_ENROLLMENT_CHALLENGE_CONTRACT =
+  "crdd-coordinator/initial-enrollment-challenge";
+export const INITIAL_ENROLLMENT_REQUEST_CONTRACT =
+  "crdd-coordinator/initial-enrollment-request";
+export const INITIAL_ENROLLMENT_CERTIFICATE_CONTRACT =
+  "crdd-coordinator/initial-enrollment-certificate";
+export const INITIAL_ENROLLMENT_DOMAINS = Object.freeze({
+  challenge: "CRDD\0INITIAL-ENROLLMENT-CHALLENGE\0V1\0",
+  request: "CRDD\0INITIAL-ENROLLMENT-REQUEST\0V1\0",
+  certificate: "CRDD\0INITIAL-ENROLLMENT-CERTIFICATE\0V1\0"
+});
+
+const ID = /^[a-f0-9]{32}$/u;
+const HASH = /^[a-f0-9]{64}$/u;
+const NONCE = /^[A-Za-z0-9_-]{43}$/u;
+const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+const CHALLENGE_KEYS = Object.freeze([
+  "contract", "contractRevision", "challengeId", "nonce", "platformScopeId",
+  "provisionerIdentityHash", "installationKeyId", "issuedAt", "expiresAt"
+]);
+const REQUEST_KEYS = Object.freeze([
+  "contract", "contractRevision", "requestId", "challengeHash", "platformScopeId",
+  "provisionerIdentityHash", "installationKeyId", "installationKeySpkiDer", "requestedAt"
+]);
+const CERTIFICATE_KEYS = Object.freeze([
+  "contract", "contractRevision", "enrollmentId", "platformScopeId",
+  "provisionerIdentityHash", "installationKeyId", "installationKeySpkiDer",
+  "issuedAt", "expiresAt"
+]);
+const REQUEST_VERIFY_KEYS = Object.freeze(["challenge", "request", "proofOfPossession"]);
+const CERTIFICATE_VERIFY_KEYS = Object.freeze(["certificate", "issuerSpkiDer", "signature"]);
+
+function blocked(reason) {
+  return Object.freeze({
+    status: "blocked", reason, cryptographicConditionSatisfied: false,
+    runtimeAuthorityConferred: false, runtimeCapabilityIssued: false,
+    filesystemEffectIssued: false, networkEffectIssued: false
+  });
+}
+
+function exactRecord(value, keys) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || utilTypes.isProxy(value)) return null;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return null;
+  const ownKeys = Reflect.ownKeys(value);
+  if (ownKeys.length !== keys.length || ownKeys.some((key) => typeof key !== "string" || !keys.includes(key))) return null;
+  const result = Object.create(null);
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value") ||
+        descriptor.get !== undefined || descriptor.set !== undefined || descriptor.enumerable !== true) return null;
+    result[key] = descriptor.value;
+  }
+  return Object.freeze(result);
+}
+
+function utc(value) {
+  return typeof value === "string" && UTC.test(value) &&
+    Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString() === value;
+}
+
+function spki(value) {
+  if (typeof value !== "string" || value.length !== 59 || !/^[A-Za-z0-9_-]+$/u.test(value)) return null;
+  const bytes = Buffer.from(value, "base64url");
+  if (bytes.length !== 44 || bytes.toString("base64url") !== value) return null;
+  const inspected = inspectProvisioningEd25519SpkiCandidate(bytes);
+  return inspected.status === "candidate" ? bytes : null;
+}
+
+function frame(domain, payload) {
+  const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
+  if (canonical.status !== "candidate") return null;
+  const prefix = Buffer.from(domain, "ascii");
+  const length = Buffer.alloc(8);
+  length.writeBigUInt64BE(BigInt(canonical.canonicalBytes.length));
+  return Object.freeze({
+    canonicalBytes: Buffer.from(canonical.canonicalBytes),
+    message: Buffer.concat([prefix, length, canonical.canonicalBytes]),
+    hash: createHash("sha256").update(prefix).update(length).update(canonical.canonicalBytes).digest("hex")
+  });
+}
+
+function normalizeChallenge(raw) {
+  const value = exactRecord(raw, CHALLENGE_KEYS);
+  if (!value || value.contract !== INITIAL_ENROLLMENT_CHALLENGE_CONTRACT ||
+      value.contractRevision !== 1 || typeof value.challengeId !== "string" || !ID.test(value.challengeId) ||
+      typeof value.nonce !== "string" || !NONCE.test(value.nonce) ||
+      Buffer.from(value.nonce, "base64url").length !== 32 ||
+      typeof value.platformScopeId !== "string" || !ID.test(value.platformScopeId) ||
+      typeof value.provisionerIdentityHash !== "string" || !HASH.test(value.provisionerIdentityHash) ||
+      typeof value.installationKeyId !== "string" || !HASH.test(value.installationKeyId) ||
+      !utc(value.issuedAt) || !utc(value.expiresAt) ||
+      Date.parse(value.expiresAt) - Date.parse(value.issuedAt) !== 30 * 60 * 1000) return null;
+  return value;
+}
+
+function normalizeRequest(raw) {
+  const value = exactRecord(raw, REQUEST_KEYS);
+  const key = value && spki(value.installationKeySpkiDer);
+  if (!value || !key || value.contract !== INITIAL_ENROLLMENT_REQUEST_CONTRACT ||
+      value.contractRevision !== 1 || typeof value.requestId !== "string" || !ID.test(value.requestId) ||
+      typeof value.challengeHash !== "string" || !HASH.test(value.challengeHash) ||
+      typeof value.platformScopeId !== "string" || !ID.test(value.platformScopeId) ||
+      typeof value.provisionerIdentityHash !== "string" || !HASH.test(value.provisionerIdentityHash) ||
+      typeof value.installationKeyId !== "string" || !HASH.test(value.installationKeyId) ||
+      createHash("sha256").update(key).digest("hex") !== value.installationKeyId || !utc(value.requestedAt)) return null;
+  return Object.freeze({ value, key });
+}
+
+function normalizeCertificate(raw) {
+  const value = exactRecord(raw, CERTIFICATE_KEYS);
+  const key = value && spki(value.installationKeySpkiDer);
+  if (!value || !key || value.contract !== INITIAL_ENROLLMENT_CERTIFICATE_CONTRACT ||
+      value.contractRevision !== 1 || typeof value.enrollmentId !== "string" || !ID.test(value.enrollmentId) ||
+      typeof value.platformScopeId !== "string" || !ID.test(value.platformScopeId) ||
+      typeof value.provisionerIdentityHash !== "string" || !HASH.test(value.provisionerIdentityHash) ||
+      typeof value.installationKeyId !== "string" || !HASH.test(value.installationKeyId) ||
+      createHash("sha256").update(key).digest("hex") !== value.installationKeyId ||
+      !utc(value.issuedAt) || !utc(value.expiresAt) || Date.parse(value.expiresAt) <= Date.parse(value.issuedAt) ||
+      Date.parse(value.expiresAt) - Date.parse(value.issuedAt) > 180 * 86_400_000) return null;
+  return Object.freeze({ value, key });
+}
+
+export function compileInitialEnrollmentChallengeCandidate(raw) {
+  const value = normalizeChallenge(raw);
+  const framed = value && frame(INITIAL_ENROLLMENT_DOMAINS.challenge, value);
+  return framed ? Object.freeze({ status: "candidate", reason: "runtime_clock_and_one_time_consumption_required", challengeHash: framed.hash, runtimeAuthorityConferred: false, runtimeCapabilityIssued: false, filesystemEffectIssued: false, networkEffectIssued: false }) : blocked("initial_enrollment_challenge_invalid");
+}
+
+export function verifyInitialEnrollmentRequestCandidate(rawInput) {
+  const input = exactRecord(rawInput, REQUEST_VERIFY_KEYS);
+  if (!input) return blocked("initial_enrollment_request_invalid");
+  const { challenge: rawChallenge, request: rawRequest, proofOfPossession } = input;
+  const challenge = normalizeChallenge(rawChallenge);
+  const request = normalizeRequest(rawRequest);
+  if (!challenge || !request || typeof proofOfPossession !== "string") return blocked("initial_enrollment_request_invalid");
+  const challengeFrame = frame(INITIAL_ENROLLMENT_DOMAINS.challenge, challenge);
+  const requestFrame = frame(INITIAL_ENROLLMENT_DOMAINS.request, request.value);
+  if (!challengeFrame || !requestFrame || request.value.challengeHash !== challengeFrame.hash ||
+      request.value.platformScopeId !== challenge.platformScopeId ||
+      request.value.provisionerIdentityHash !== challenge.provisionerIdentityHash ||
+      request.value.installationKeyId !== challenge.installationKeyId ||
+      Date.parse(request.value.requestedAt) < Date.parse(challenge.issuedAt) ||
+      Date.parse(request.value.requestedAt) >= Date.parse(challenge.expiresAt)) return blocked("initial_enrollment_request_binding_mismatch");
+  const verified = verifyProvisioningEd25519Base64urlCandidate({ spkiDer: request.key, message: requestFrame.message, signatureBase64url: proofOfPossession });
+  if (verified.status !== "candidate") return blocked("initial_enrollment_proof_of_possession_invalid");
+  return Object.freeze({ status: "candidate", reason: "runtime_clock_consumption_ledger_and_ca_issuance_required", cryptographicConditionSatisfied: true, requestHash: requestFrame.hash, consumptionRequired: true, runtimeAuthorityConferred: false, runtimeCapabilityIssued: false, filesystemEffectIssued: false, networkEffectIssued: false });
+}
+
+export function verifyInitialEnrollmentCertificateCandidate(rawInput) {
+  const input = exactRecord(rawInput, CERTIFICATE_VERIFY_KEYS);
+  if (!input) return blocked("initial_enrollment_certificate_invalid");
+  const { certificate: rawCertificate, issuerSpkiDer, signature } = input;
+  const certificate = normalizeCertificate(rawCertificate);
+  const framed = certificate && frame(INITIAL_ENROLLMENT_DOMAINS.certificate, certificate.value);
+  const issuer = Buffer.isBuffer(issuerSpkiDer) ? Buffer.from(issuerSpkiDer) : null;
+  if (!certificate || !framed || !issuer || typeof signature !== "string") return blocked("initial_enrollment_certificate_invalid");
+  const verified = verifyProvisioningEd25519Base64urlCandidate({ spkiDer: issuer, message: framed.message, signatureBase64url: signature });
+  if (verified.status !== "candidate") return blocked("initial_enrollment_certificate_signature_invalid");
+  return Object.freeze({ status: "candidate", reason: "runtime_owned_ca_trust_clock_revocation_and_record_binding_required", cryptographicConditionSatisfied: true, certificateHash: framed.hash, runtimeAuthorityConferred: false, runtimeCapabilityIssued: false, filesystemEffectIssued: false, networkEffectIssued: false });
+}
+
+export function describeInitialEnrollmentPureCoreContract() {
+  return Object.freeze({
+    contract: "crdd-coordinator/initial-enrollment-pure-core",
+    contractRevision: 1,
+    supportedFlow: "initial_online_enrollment_only",
+    challengeCodec: "implemented_candidate",
+    requestProofOfPossessionVerification: "implemented_candidate",
+    certificateSignatureVerification: "implemented_candidate",
+    renewal: "not_implemented",
+    offlineEnrollment: "not_implemented",
+    runtimeClock: "not_implemented",
+    oneTimeConsumptionLedger: "not_implemented",
+    runtimeOwnedCaTrustAndRevocation: "not_implemented",
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false
+  });
+}

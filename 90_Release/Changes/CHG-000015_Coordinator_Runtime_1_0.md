@@ -719,3 +719,7 @@ Qual-Labの人間の決定権限者は、オンライン登録challengeの有効
 固定Commit `7839da46723850427770e7f65607dba657b70ca3`／Tree `72a9e93b4b28c2637f96ce6ecc36ec82f265559c`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。`AG-ENROLL-CHALLENGE-001`および`DOC-ENROLLMENT-LOCALE-001`はこの固定範囲で`Resolved`と判定する。旧01736ca以前の監査集合は履歴として保持するが現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_7839da4.md`](Evidence/CHG-000015_Current_Review_Record_7839da4.md)へ接続する。
 
 確認済み範囲はTTL 30分、required inputs 5件、成功／失敗／期限切れ後の再利用禁止、fresh challenge、PoP、offline fallback禁止、通常run非発火、locale-first表示および固定Oracleの履歴処置に限る。challenge／requestのexact codec、Runtime所有clock、消費台帳、Network／CA／keystore Effect、Authority、Capability、Provider／Operationは未実装または未評価である。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### 2026-08-15 — 初回オンライン登録pure Coreの範囲縮小
+
+人間判断により、登録基盤全体の一括exact化を行わず、本変更を30分のチャレンジ、登録要求の所有証明、登録証明書の署名検査という初回オンライン経路へ縮小した。`initial-enrollment-pure-core.mjs`は、要求からチャレンジへの一方向Hash結合、Platform scope／Provisioner Identity／端末導入鍵の一致、およびEd25519署名をpureに検査する。証明書更新、オフライン束、複数CA chain、rotation／失効配布、Runtime時計、一回消費台帳、Network、Filesystem、keystoreおよびRecord実結合は未実装である。候補一致もAuthority、Capability、EffectまたはGateを開かない。処置は`Applied`／`Self-checked`であり、固定改訂版の独立レビューおよび必須監査前は`Resolved`ではない。
