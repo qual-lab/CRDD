@@ -7,7 +7,7 @@ import {
   compileRuntimeActivationRecordCandidate
 } from "../src/security/runtime-activation-record.mjs";
 import { evaluateRuntimeActivationTransitionCandidate } from
-  "../src/security/runtime-activation-transition.mjs";
+  "../src/security/runtime-activation-transition.ts";
 
 function record(overrides = {}) {
   return {
