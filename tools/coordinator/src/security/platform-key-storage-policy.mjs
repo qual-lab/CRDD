@@ -1,3 +1,5 @@
+// @ts-check
+
 import { inspectProvisioningP256SpkiCandidate } from
   "./provisioning-signature-primitives.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
@@ -28,7 +30,13 @@ const PLATFORM_POLICIES = Object.freeze({
   })
 });
 
-function result(status, reason, details = {}) {
+/**
+ * @template {Record<string, unknown>} T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T} [details]
+ */
+function result(status, reason, details = /** @type {T} */ ({})) {
   return Object.freeze({
     status,
     reason,
@@ -42,6 +50,7 @@ function result(status, reason, details = {}) {
   });
 }
 
+/** @param {unknown} rawInput */
 export function evaluatePlatformKeyStoragePolicyCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
@@ -51,8 +60,12 @@ export function evaluatePlatformKeyStoragePolicyCandidate(rawInput) {
         !Buffer.isBuffer(input.publicKeySpkiDer)) {
       return result("blocked", "platform_key_storage_policy_input_invalid");
     }
-    const policy = PLATFORM_POLICIES[input.platformFamily];
-    if (!policy) return result("blocked", "platform_key_storage_platform_unsupported");
+    if (!(input.platformFamily in PLATFORM_POLICIES)) {
+      return result("blocked", "platform_key_storage_platform_unsupported");
+    }
+    const policy = PLATFORM_POLICIES[
+      /** @type {keyof typeof PLATFORM_POLICIES} */ (input.platformFamily)
+    ];
     const preferred = input.backend === policy.preferred;
     const fallback = input.backend === policy.explicitFallback;
     if (!preferred && !fallback) {

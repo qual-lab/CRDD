@@ -1,3 +1,5 @@
+// @ts-check
+
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
@@ -9,6 +11,12 @@ export const AUTHORITY_ROOT_CONTRACT_REVISION = 1;
 const INPUT_KEYS = new Set(["cliOverride", "environmentOverride", "activationIntent"]);
 const EXPLICIT_ACTIVATE = "explicit_activate_request";
 
+/**
+ * @template T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T | null} [selection]
+ */
 function result(status, reason, selection = null) {
   return Object.freeze({
     status,
@@ -18,11 +26,13 @@ function result(status, reason, selection = null) {
   });
 }
 
+/** @param {unknown} value */
 function absolutePathCandidate(value) {
   return typeof value === "string" && value.length > 0 && value.length <= 4_096 &&
     !/[\u0000-\u001f\u007f]/u.test(value) && path.isAbsolute(value);
 }
 
+/** @param {unknown} rawInput */
 export function selectAuthorityRootCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);

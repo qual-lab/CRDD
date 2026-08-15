@@ -865,3 +865,9 @@ Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単�
 後続の人間承認に基づき、`allowJs`／`checkJs`／`noEmit`による型検査を`bin`／`src`配下の全38実装moduleへ展開する。全実装moduleへJavaScript互換の構造検査を適用し、Platform Provisioner Trust CoreとPackage Gateには既存の`strict`検査を別設定で重ねる。意図的な不正shape、readonly Node APIの差替えおよび失敗系unionを多用する試験fixtureは静的型へ合わせたcastで弱めず、従来の全Coordinator実行試験で確認する。
 
 全域検査によって、Runtime activationのprivate implementation snapshotに`platformKeyStoragePolicy`が同じ値で二重定義されていたことを検出し、重複だけを除去した。併せてcanonical array length descriptor、初回登録decoderの成功判別、challenge Hash結果、準備記録domain message、Git exclude書込み失敗、doctor recoveryおよびCLI reportの既存境界をJSDocまたは明示fieldで表現した。実行形式、公開API、署名対象、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseは変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第2波
+
+全実装moduleのJavaScript型検査を維持したまま、strict対象を2から12 moduleへ拡張する。追加対象はAuthorityの起動直前確認、Authority／Runtime Root候補、Host recovery token、初回登録の時計・消費状態、Platform鍵保管方針、activation IDおよびactivation-locator結合である。公開入力は`unknown`として明示し、候補結果、時刻snapshot、Hash台帳および選択結果をJSDocで型付けする。検証済みchallengeから時刻fieldを読む箇所は、検証後の限定castだけを使用する。
+
+この変更は型検査用metadataに限り、Schema、reason、暗号方式、Filesystem／Network Effect、Runtime Authority、Capability、12 blocker、6 evidenceまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。

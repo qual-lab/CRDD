@@ -1,3 +1,5 @@
+// @ts-check
+
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
@@ -15,6 +17,12 @@ const INPUT_KEYS = new Set([
 ]);
 const EXPLICIT_ENABLE = "explicit_enable_request";
 
+/**
+ * @template T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T | null} [selection]
+ */
 function response(status, reason, selection = null) {
   return Object.freeze({
     status,
@@ -25,6 +33,7 @@ function response(status, reason, selection = null) {
   });
 }
 
+/** @param {unknown} value */
 function pathCandidate(value) {
   return typeof value === "string" &&
     value.length > 0 &&
@@ -33,6 +42,7 @@ function pathCandidate(value) {
     path.isAbsolute(value);
 }
 
+/** @param {unknown} rawInput */
 export function selectRuntimeRootCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);

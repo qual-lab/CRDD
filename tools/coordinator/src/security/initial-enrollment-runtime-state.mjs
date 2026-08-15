@@ -1,3 +1,5 @@
+// @ts-check
+
 import { performance } from "node:perf_hooks";
 
 import {
@@ -46,7 +48,9 @@ function runtimeNowSnapshot() {
 }
 
 export function createInitialEnrollmentAttemptController() {
+  /** @type {Map<string, number>} */
   const consumed = new Map();
+  /** @type {Readonly<{wallMilliseconds: number, monotonicMilliseconds: number}> | null} */
   let lastClock = null;
 
   function readClock() {
@@ -61,18 +65,22 @@ export function createInitialEnrollmentAttemptController() {
     return current;
   }
 
+  /** @param {number} now */
   function pruneExpired(now) {
     for (const [challengeHash, expiresAt] of consumed) {
       if (expiresAt <= now) consumed.delete(challengeHash);
     }
   }
 
+  /** @param {unknown} rawInput */
   function verifyAndConsume(rawInput) {
-    const challenge = rawInput?.challenge;
+    const input = /** @type {{challenge?: unknown} | null | undefined} */ (rawInput);
+    const challenge = input?.challenge;
     const compiled = compileInitialEnrollmentChallengeCandidate(challenge);
     if (compiled.status !== "candidate" || typeof compiled.challengeHash !== "string") {
       return blocked("initial_enrollment_challenge_invalid");
     }
+    const normalizedChallenge = /** @type {{issuedAt: string, expiresAt: string}} */ (challenge);
     const clock = readClock();
     if (!clock) return blocked("runtime_enrollment_clock_unavailable_or_rollback_detected");
     pruneExpired(clock.wallMilliseconds);
@@ -86,8 +94,8 @@ export function createInitialEnrollmentAttemptController() {
       return blocked("initial_enrollment_consumption_ledger_capacity_exceeded");
     }
 
-    const issuedAt = Date.parse(challenge.issuedAt);
-    const expiresAt = Date.parse(challenge.expiresAt);
+    const issuedAt = Date.parse(normalizedChallenge.issuedAt);
+    const expiresAt = Date.parse(normalizedChallenge.expiresAt);
     consumed.set(compiled.challengeHash, expiresAt);
 
     if (clock.wallMilliseconds < issuedAt) {
@@ -103,7 +111,7 @@ export function createInitialEnrollmentAttemptController() {
       });
     }
 
-    const verification = verifyInitialEnrollmentRequestCandidate(rawInput);
+    const verification = verifyInitialEnrollmentRequestCandidate(input);
     if (verification.status !== "candidate") {
       return blocked("initial_enrollment_request_attempt_failed_and_challenge_consumed", {
         attemptConsumed: true,

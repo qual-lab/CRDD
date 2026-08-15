@@ -1,3 +1,5 @@
+// @ts-check
+
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { evaluateAuthorityRootLocatorActivationBindingCandidate } from
   "./authority-root-locator.mjs";
@@ -13,6 +15,7 @@ const INPUT_KEYS = new Set([
   "authorityRootLocator"
 ]);
 
+/** @param {string} status @param {string} reason @param {boolean} [pairContentMatched] */
 function response(status, reason, pairContentMatched = false) {
   return Object.freeze({
     status,
@@ -27,6 +30,7 @@ function response(status, reason, pairContentMatched = false) {
   });
 }
 
+/** @param {unknown} rawInput */
 export function evaluateInitialActivationLocatorBindingCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);

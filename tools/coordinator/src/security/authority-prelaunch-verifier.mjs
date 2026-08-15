@@ -1,3 +1,5 @@
+// @ts-check
+
 import {
   evaluateAuthorityGrantCandidate
 } from "./authority-grant-verifier.mjs";
@@ -14,6 +16,7 @@ const INTRINSIC_DATE = Date;
 const INTRINSIC_DATE_NOW = Date.now;
 const INTRINSIC_DATE_TO_ISO = Date.prototype.toISOString;
 
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({
     status: "blocked",
@@ -30,6 +33,7 @@ function runtimeNow() {
   return Reflect.apply(INTRINSIC_DATE_TO_ISO, value, []);
 }
 
+/** @param {unknown} rawContext */
 function normalizeContext(rawContext) {
   const context = snapshotPlainRecord(rawContext, CONTEXT_KEYS);
   if (
@@ -48,8 +52,11 @@ function normalizeContext(rawContext) {
 }
 
 export function reverifyAuthorityBeforeProviderLaunch(
+  /** @type {unknown} */
   rawProfile,
+  /** @type {unknown} */
   rawBundle,
+  /** @type {unknown} */
   rawContext
 ) {
   try {

@@ -14,7 +14,17 @@
     "skipLibCheck": true
   },
   "files": [
+    "src/security/authority-prelaunch-verifier.mjs",
+    "src/security/authority-root-path-lexical.mjs",
+    "src/security/authority-root-profile.mjs",
+    "src/security/host-recovery-record.mjs",
+    "src/security/initial-enrollment-runtime-state.mjs",
+    "src/security/platform-key-storage-policy.mjs",
     "src/security/platform-provisioner-trust-core.mjs",
-    "src/security/platform-provisioner-package-gate.mjs"
+    "src/security/platform-provisioner-package-gate.mjs",
+    "src/security/runtime-activation-identity.mjs",
+    "src/security/runtime-activation-locator-binding-contract.mjs",
+    "src/security/runtime-activation-locator-binding.mjs",
+    "src/security/runtime-root-profile.mjs"
   ]
 }
