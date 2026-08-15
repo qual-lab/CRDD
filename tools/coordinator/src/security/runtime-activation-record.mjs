@@ -21,7 +21,7 @@ import { describeOfflineEnrollmentBundlePureCoreContract } from
 import { describeProvisioningRecordEnrollmentBindingContract } from
   "./provisioning-record-enrollment-binding.mjs";
 import { describeEnrollmentCertificateRenewalContract } from
-  "./enrollment-certificate-renewal.mjs";
+  "./enrollment-certificate-renewal.ts";
 import { describePlatformProvisionerTrustCoreContract } from
   "./platform-provisioner-trust-core.mjs";
 import { describePlatformProvisionerPackageGateContract } from

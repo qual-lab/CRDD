@@ -10,7 +10,7 @@ import {
 import {
   describeEnrollmentCertificateRenewalContract,
   verifyEnrollmentCertificateRenewalCandidate
-} from "../src/security/enrollment-certificate-renewal.mjs";
+} from "../src/security/enrollment-certificate-renewal.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 

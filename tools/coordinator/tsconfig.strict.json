@@ -28,7 +28,7 @@
     "src/security/authority-root-profile.ts",
     "src/security/authority-trust-loader.mjs",
     "src/security/docker-isolation.mjs",
-    "src/security/enrollment-certificate-renewal.mjs",
+    "src/security/enrollment-certificate-renewal.ts",
     "src/security/egress-proxy-policy.mjs",
     "src/security/execution-environment.mjs",
     "src/security/git-local-exclude.mjs",

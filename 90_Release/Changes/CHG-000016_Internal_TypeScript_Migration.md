@@ -70,3 +70,5 @@ Coordinatorのproduction 38 moduleを全数strict型検査へ追加した。現�
 `runtime-root-profile.mjs`を`.ts`へ移し、公開入力とPath predicateを`unknown`から安全に絞り、selectionを保持するgeneric responseへ置換した。CLI／環境／Repository既定の優先順位、明示enable、Path非出力、Authority／Capability／EffectおよびGateを変更せず、productionの移行済み数は8 / 38である。
 
 `authority-prelaunch-verifier.mjs`を`.ts`へ移し、3つの公開入力と内部contextを`unknown`、blocked理由を`string`へ置換した。Runtime時計、Bundle／Grant再検証、Registry結合、Capability未発行およびGateを変更せず、productionの移行済み数は9 / 38である。
+
+`enrollment-certificate-renewal.mjs`を`.ts`へ移し、外部入力とEnvelope／SPKI snapshot入力を`unknown`、UTC predicateとgeneric responseを実TypeScript型へ置換した。30日更新窓、Identity継続、時計／CA Trust／永続化未成立、Authority／Capability／EffectおよびGateを変更せず、productionの移行済み数は10 / 38である。
