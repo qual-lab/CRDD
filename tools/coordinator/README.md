@@ -150,7 +150,7 @@ npm run typecheck --prefix tools/coordinator
 
 CRDD内部ScriptはTypeScriptを標準とし、Node.js 24.12以上のnative TypeScript実行を採用する。`tsx`、`ts-node`、BundlerまたはRuntime用npm packageを要求せず、TypeScript Compilerは開発時の型検査だけに使用する。現行フォルダ配置を維持し、production moduleのstrict収束、`bin`／`src`、tests、ルートチェッカー／配布ひな型の順で`.ts`へ段階移行する。移行中の`typecheck`は`.mjs`と`.ts`の双方を`noEmit`で検査し、production 38 moduleすべてへ追加の`strict`検査を適用する。Node native type strippingで消去できない構文、tsconfig path aliasおよびRuntime挙動を変えるCompiler変換は禁止する。攻撃的な不正shapeやNode API差替えを扱う試験fixtureも最終的に`.ts`へ移すが、型に合わせて負例を弱めず実行時試験を維持する。
 
-productionの実ファイル移行はPathとIdentityの小さいpredicate、Locator binding、Authority Root profileおよびPlatform policy群へ進み、現在7 / 38 moduleである。JSDocの型説明をそのまま残して型検査を弱めず、各moduleで消去可能なTypeScript型注釈へ置換してから次へ進む。
+productionの実ファイル移行はPathとIdentityの小さいpredicate、Locator binding、Root profileおよびPlatform policy群へ進み、現在8 / 38 moduleである。JSDocの型説明をそのまま残して型検査を弱めず、各moduleで消去可能なTypeScript型注釈へ置換してから次へ進む。
 
 開発時のLintとFormatterはRepository rootの`biome.json`を正本とするBiome 2.5.6へ統一する。`npm run lint --prefix tools/coordinator`、`npm run format:check --prefix tools/coordinator`および`npm run check --prefix tools/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix tools/coordinator`を使う。BiomeはdevDependencyでありRuntimeへ含めない。既存`.mjs`はLint対象、Formatterは移行済み`.ts`から段階適用し、未移行fileの一括整形をTypeScript移行へ混在させない。
 

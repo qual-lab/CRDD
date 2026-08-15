@@ -54,6 +54,6 @@
     "src/security/runtime-activation-transition.mjs",
     "src/security/runtime-activation-record.mjs",
     "src/security/runtime-root-path-identity.mjs",
-    "src/security/runtime-root-profile.mjs"
+    "src/security/runtime-root-profile.ts"
   ]
 }

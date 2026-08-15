@@ -22,7 +22,7 @@ import { describeAuthorityTrustLoaderContract } from "../security/authority-trus
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
 import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
-import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.mjs";
+import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.ts";
 import { describeRuntimeActivationContract } from "../security/runtime-activation-record.mjs";
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.mjs";
 import {

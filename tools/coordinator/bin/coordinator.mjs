@@ -10,7 +10,7 @@ import {
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.mjs";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.mjs";
-import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.mjs";
+import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
 
 function printHelp() {
   process.stdout.write(`Coordinator Runtime 1.0 (implementation candidate)\n\n`);

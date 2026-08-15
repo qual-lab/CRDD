@@ -6,7 +6,7 @@ import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   describeRuntimeRootContract,
   selectRuntimeRootCandidate
-} from "../src/security/runtime-root-profile.mjs";
+} from "../src/security/runtime-root-profile.ts";
 
 const repositoryRoot = path.resolve("fixture-repository");
 const cliRoot = path.resolve("fixture-runtime-cli");

@@ -10,7 +10,7 @@ import {
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   selectRuntimeRootCandidate
-} from "./runtime-root-profile.mjs";
+} from "./runtime-root-profile.ts";
 import { applyGitLocalExcludeWithInitialRootSnapshotCandidate } from "./runtime-root-path-identity.mjs";
 
 export const GIT_LOCAL_EXCLUDE_CONTRACT = "crdd-coordinator/git-local-exclude";

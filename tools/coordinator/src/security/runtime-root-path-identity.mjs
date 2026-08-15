@@ -8,7 +8,7 @@ import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.mjs";
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
   selectRuntimeRootCandidate
-} from "./runtime-root-profile.mjs";
+} from "./runtime-root-profile.ts";
 import {
   resolveRepositoryGitLayout,
   writeRepositoryLocalExclude
