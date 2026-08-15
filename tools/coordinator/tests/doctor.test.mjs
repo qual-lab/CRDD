@@ -530,6 +530,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     enrollmentCertificateRenewal:
       report.runtimeActivation.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: report.runtimeActivation.platformProvisionerTrustCore,
+    platformProvisionerDualGate: report.runtimeActivation.platformProvisionerDualGate,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -638,6 +639,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       enrollmentCertificateRenewalVerification: "provisioning_record_verification",
       platformProvisionerManifestVerification: "platform_provisioner_verification",
       platformProvisionerNativeSignatureVerification: "platform_provisioner_verification",
+      platformProvisionerDualGateObservation: "platform_provisioner_verification",
+      platformProvisionerDualGateRuntimeAdapters: "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -845,6 +848,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "implemented_candidate");
   assert.equal(report.runtimeActivation.platformProvisionerTrustCore.macosNativeSignatureAdapter,
     "not_implemented_secstaticcodecheckvalidity_target");
+  assert.equal(report.runtimeActivation.platformProvisionerDualGate.runtimeOwnedNativeAdapters,
+    "not_implemented");
+  assert.equal(report.runtimeActivation.platformProvisionerDualGate.effectAuthorizationIssued,
+    false);
   assert.equal(report.runtimeActivation.platformProvisionerEffect, "not_implemented");
   assert.equal(report.runtimeActivation.installationKeyGeneration, "not_implemented");
   assert.equal(report.runtimeActivation.installationKeyProtectionVerification,
