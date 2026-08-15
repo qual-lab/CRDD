@@ -58,3 +58,5 @@ Coordinatorのproduction 38 moduleを全数strict型検査へ追加した。現�
 続いて`runtime-activation-identity.mjs`を同一配置の`.ts`へ移し、外部入力を`unknown`、成功後を`string`へ絞るtype predicateへ置換した。Activation IDのpatternと上限、直接import 2箇所、readiness、Authority／Capability／EffectおよびGateを変更しない。productionの移行済み数は2 / 38である。
 
 型注釈を必要としない`runtime-activation-locator-binding-contract.mjs`も同一配置の`.ts`へ移し、直接利用側6箇所を明示`.ts` importへ更新した。公開契約値、readiness、Authority／Capability／EffectおよびGateは変更せず、productionの移行済み数は3 / 38である。
+
+`runtime-activation-locator-binding.mjs`を`.ts`へ移し、公開入力を`unknown`、内部response引数を実TypeScript型へ置換した。初回activationだけを扱う候補境界とfail-closed理由、Locatorとの5 field結合、Authority／Capability／EffectおよびGateを変更せず、productionの移行済み数は4 / 38である。
