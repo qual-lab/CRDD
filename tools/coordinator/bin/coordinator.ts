@@ -11,7 +11,7 @@ import {
 } from "../src/core/cli-options.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.mjs";
-import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.mjs";
+import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
 
 type EffectCommand = "activate" | "disable";

@@ -31,7 +31,7 @@
     "src/security/docker-isolation.mjs",
     "src/security/enrollment-certificate-renewal.ts",
     "src/security/egress-proxy-policy.ts",
-    "src/security/execution-environment.mjs",
+    "src/security/execution-environment.ts",
     "src/security/git-local-exclude.ts",
     "src/security/host-recovery-record.ts",
     "src/security/initial-enrollment-pure-core.ts",

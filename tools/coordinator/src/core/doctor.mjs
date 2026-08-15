@@ -10,7 +10,7 @@ import {
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
   getOwnedHostRecoveryId
-} from "../security/execution-environment.mjs";
+} from "../security/execution-environment.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
   runDockerIsolationProbe

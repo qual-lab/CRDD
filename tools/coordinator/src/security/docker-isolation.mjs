@@ -10,7 +10,7 @@ import {
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
   verifyOwnedMountCapability
-} from "./execution-environment.mjs";
+} from "./execution-environment.ts";
 import { formatHostRecoveryToken, loadHostRecoveryRecordByToken } from "./host-recovery-record.ts";
 
 const PROBE_IMAGE = "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047";

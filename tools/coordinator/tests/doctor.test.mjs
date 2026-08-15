@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import * as executionEnvironment from "../src/security/execution-environment.mjs";
+import * as executionEnvironment from "../src/security/execution-environment.ts";
 import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
 
 import {
@@ -26,7 +26,7 @@ import {
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
   verifyOwnedMountCapability
-} from "../src/security/execution-environment.mjs";
+} from "../src/security/execution-environment.ts";
 import {
   classifyRecoveryChildren,
   dockerCreateArgumentsForFixture,
