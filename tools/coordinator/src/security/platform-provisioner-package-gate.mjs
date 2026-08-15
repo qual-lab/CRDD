@@ -8,7 +8,7 @@ const INPUT_KEYS = new Set([
 const OBSERVATION_KEYS = new Set([
   "packageName", "packageVersion", "packageContentRootSha256", "crddRevision",
   "distributionVerdict",
-  "installedPackageIdentityStable", "permissionPolicyMatch"
+  "bundledPackageIdentityStable", "permissionPolicyMatch"
 ]);
 const MANIFEST_INPUT_KEYS = new Set([
   "manifestEnvelope", "releaseSignerSpkiDer", "observedPackageContent", "evaluationTime"
@@ -39,7 +39,7 @@ function normalizeObservation(raw) {
       !HEX64.test(value.packageContentRootSha256) ||
       typeof value.crddRevision !== "string" || !CRDD_REVISION.test(value.crddRevision) ||
       value.distributionVerdict !== "verified_crdd_bundle" ||
-      value.installedPackageIdentityStable !== true || value.permissionPolicyMatch !== true) return null;
+      value.bundledPackageIdentityStable !== true || value.permissionPolicyMatch !== true) return null;
   return value;
 }
 

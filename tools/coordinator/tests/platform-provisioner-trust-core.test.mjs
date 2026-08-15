@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -118,4 +119,11 @@ test("package trust contract requires CRDD-bundled use and no native executable"
   assert.equal(contract.runtimeOwnedCrddDistributionVerification,
     "not_implemented_crdd_release_identity_target");
   assert.equal(contract.filesystemEffectIssued, false);
+});
+
+test("coordinator package metadata remains private without a standalone command surface", async () => {
+  const packageMetadata = JSON.parse(await readFile(
+    new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(packageMetadata.private, true);
+  assert.equal("bin" in packageMetadata, false);
 });

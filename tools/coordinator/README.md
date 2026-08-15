@@ -40,11 +40,12 @@ node tools/coordinator/bin/coordinator.mjs doctor --enable-runtime --runtime-roo
 node tools/coordinator/bin/coordinator.mjs doctor --recover-isolation <recovery-id> --json
 node tools/coordinator/bin/coordinator.mjs activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]
 node tools/coordinator/bin/coordinator.mjs disable [--runtime-root <absolute-path>] [--json]
+node tools/coordinator/bin/coordinator.mjs provision [--json]
 ```
 
 `doctor`は受動事前診断（passive preflight）である。CLIをインストール、認証または起動せず、PATH上の候補、ローカルGit／Repository、Operation専用領域および未実装の隔離条件を列挙する。Providerの絶対Path、生出力またはVersion出力は保持しない。認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
 
-`coordinator provision`は将来の唯一のPlatform Provisioning Effect入口としてgrammarだけを実装した。version 1はCRDD配布物に内包したprivate `.mjs` packageとしてのみ提供し、単独npm公開、個別install、専用EXEまたはOSネイティブコード署名を要求しない。現ローカル／開発buildではCRDD配布Revision、Runtime所有release Trust、内包packageのFilesystem Identity確認およびEffect Adapterが未実装なため、常にdry-run相当の安全要約を返して`blocked`となり、Root、鍵またはACLを変更しない。`activate`、`doctor`または通常runからこの入口を暗黙発火しない。
+`coordinator provision`は将来の唯一のPlatform Provisioning Effect入口としてgrammarだけを実装した。version 1はCRDD配布物に内包したprivate `.mjs` packageとしてのみ提供し、単独npm公開、個別install、専用EXEまたはOSネイティブコード署名を要求しない。`package.json`は実行commandを`bin`として公開せず、CRDD Repository内の固定Pathから`node tools/coordinator/bin/coordinator.mjs ...`でだけ起動する。現ローカル／開発buildではCRDD配布Revision、Runtime所有release Trust、内包packageのFilesystem Identity確認およびEffect Adapterが未実装なため、常にdry-run相当の安全要約を返して`blocked`となり、Root、鍵またはACLを変更しない。`activate`、`doctor`または通常runからこの入口を暗黙発火しない。
 
 `doctor --enable-runtime`はRuntimeを有効化するコマンドではなく、明示的な有効化要求をRoot選択とPath Identityの診断候補へ接続する。既定では既に存在する`<repository>/.crdd-runtime/`を検査し、`--runtime-root <absolute-path>`があればその指定、なければ`CRDD_COORDINATOR_ROOT`、どちらもなければRepository既定を使う。`--runtime-root`だけの指定、未知／重複option、値欠落、またはrecoveryとの混在は、RootやGit metadataへ触れる前に拒否する。非opt-in時は環境変数が存在してもRuntime Rootを検査しない。直接APIを含む診断入力は、ネストしたRoot要求も期待するown data propertyだけから処置前に固定し、accessor、Proxy、symbol、独自prototype、欠落または余分fieldを受理しない。成功結果も`candidate`／`enable_requested`に限り、activation記録、Capability、Provider起動またはOperationを成立させない。JSON／通常表示へ絶対PathやFilesystem Identityを出さない。
 

@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   evaluatePlatformProvisionerPackageGateCandidate,
   describePlatformProvisionerPackageGateContract
-} from "../src/security/platform-provisioner-dual-gate.mjs";
+} from "../src/security/platform-provisioner-package-gate.mjs";
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
@@ -65,7 +65,7 @@ function fixture() {
       packageContentRootSha256,
       crddRevision: payload.crddRevision,
       distributionVerdict: "verified_crdd_bundle",
-      installedPackageIdentityStable: true,
+      bundledPackageIdentityStable: true,
       permissionPolicyMatch: true
     },
     expectedCrddRevision: payload.crddRevision
@@ -90,7 +90,7 @@ test("CRDD revision, content, identity and permission mismatches fail closed", (
     (value) => { value.crddDistributionObservation.crddRevision = "b".repeat(40); },
     (value) => { value.crddDistributionObservation.packageContentRootSha256 = "f".repeat(64); },
     (value) => { value.expectedCrddRevision = "c".repeat(40); },
-    (value) => { value.crddDistributionObservation.installedPackageIdentityStable = false; },
+    (value) => { value.crddDistributionObservation.bundledPackageIdentityStable = false; },
     (value) => { value.crddDistributionObservation.permissionPolicyMatch = false; }
   ]) {
     const value = fixture();

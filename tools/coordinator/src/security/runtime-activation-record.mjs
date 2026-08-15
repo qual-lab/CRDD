@@ -23,7 +23,7 @@ import { describeEnrollmentCertificateRenewalContract } from
 import { describePlatformProvisionerTrustCoreContract } from
   "./platform-provisioner-trust-core.mjs";
 import { describePlatformProvisionerPackageGateContract } from
-  "./platform-provisioner-dual-gate.mjs";
+  "./platform-provisioner-package-gate.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {

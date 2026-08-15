@@ -847,3 +847,9 @@ Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単�
 現在のEffect前Trust目標は、検証済みCRDD Revision、Qual-Lab署名済み内包package manifest、およびRuntime所有のpackage内容／Filesystem Identity確認を同じCRDD配布物へ結合することである。manifest revision 1は`crddRevision`を署名対象へ追加し、package content rootとCRDD Revisionを分離不能にする。単独package、未知Revision、内容／権限不一致または別sourceへのfallbackは`blocked`とする。caller suppliedの`verified_crdd_bundle`値はRuntime所有Trustではない。
 
 今回の処置はprivate bundle contract、pure package Trust Gate、Runtime activation／doctor投影および明示`provision`の安全要約までである。実CRDD release Identity検証、release Trust選択、package file読取り／安定Identity／permission検証およびEffect controllerは未実装である。既存12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と必要な独立レビュー／監査前は`Resolved`、採用、準拠、移行、Stable、Releaseまたは公開ではない。
+
+### 2026-08-16 — CRDD同梱専用境界の伝播是正
+
+全体整合確認により、単独installを禁止する現在contractに対して`package.json`の`bin`公開、Gate観測の`installedPackageIdentityStable`、旧二重署名設計由来の`dual-gate`ファイル名、およびREADMEの現行command一覧からの`provision`欠落が残っていることを確認した。`bin`を削除してCRDD Repository内の固定Pathからの直接起動だけを表示し、観測語を`bundledPackageIdentityStable`へ変更し、実装／試験を`platform-provisioner-package-gate`へ改名する。READMEのcommand一覧には安全に`blocked`となる`provision [--json]`を追加する。
+
+この是正は公開範囲を拡張せず、CRDD同梱専用という後続判断へ実装metadata、schema語、内部所有名および利用者向け表示を一致させる。package manifest、CRDD Revision結合、Trust／Effect条件、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseは変更しない。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と必要な独立レビュー／監査前は`Resolved`ではない。
