@@ -907,3 +907,9 @@ strict対象を25から26 moduleへ拡張し、Provider egress proxy policyを�
 strict対象を26から27 moduleへ拡張し、Runtime activation recordの正本とonboarding readiness投影を対象に加える。公開するRecord／raw byte入力を`unknown`として扱い、canonical JSON、UTC、revision、identifier、候補結果および12 dependencyのsource集合をJSDocで表現する。型検査で必要になったrevisionのprimitive number確認とreadiness十分値indexの存在確認は、既存のfail-closed条件を明示する防御に限定する。
 
 この処置はactivation Schema、canonical bytes、Hash、12 blocker、6 current-run evidence、dependency mapping、Authority／Capability／Effect、GateまたはRelease状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第9波
+
+strict対象を27から28 moduleへ拡張し、Authority RegistryとGrant照合候補を対象に加える。Registry、Grant、評価Contextおよびraw byte入力を`unknown`として扱い、正規化済みGrant、canonical JSON、UTC、origin集合、候補状態およびbyte所有境界をJSDocで表現する。Grant／Registry revisionのprimitive number確認と、件数1確認後のGrant存在確認は既存のfail-closed条件を型上も明示する。
+
+この処置はRegistry／Grant Schema、canonical bytes、Hash、Provider／Operation／Scope照合、Runtime Trust、Authority／Capability／EffectまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。

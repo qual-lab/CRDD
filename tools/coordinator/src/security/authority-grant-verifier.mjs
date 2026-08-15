@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 
 import {
@@ -17,10 +19,10 @@ const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
 const CANONICAL_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
-).get;
+)?.get);
 export const AUTHORITY_REGISTRY_INPUT_LIMITS = Object.freeze({
   grantCount: 64,
   rawBytes: 131_072,
@@ -48,9 +50,26 @@ const GRANT_KEYS = new Set([
   "profileHash"
 ]);
 
+/**
+ * @typedef {{
+ *   grantRef: string,
+ *   grantRevision: number,
+ *   status: string,
+ *   validFrom: string,
+ *   expiresAt: string,
+ *   provider: string,
+ *   origins: readonly string[],
+ *   credentialGrant: Readonly<{brokerId: string, grantRef: string}>,
+ *   operationId: string,
+ *   scopeId: string,
+ *   profileHash: string
+ * }} AuthorityGrant
+ */
+
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({
-    status: "blocked",
+    status: /** @type {"blocked"} */ ("blocked"),
     reason,
     registry: null,
     registryHash: null,
@@ -58,14 +77,20 @@ function blocked(reason) {
   });
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
   }
-  return JSON.stringify(value);
+  return /** @type {string} */ (JSON.stringify(value));
 }
 
+/** @param {unknown} value */
 function normalizedUtc(value) {
   if (typeof value !== "string" || !CANONICAL_UTC.test(value)) return null;
   const milliseconds = Date.parse(value);
@@ -74,6 +99,7 @@ function normalizedUtc(value) {
   return value === normalized ? normalized : null;
 }
 
+/** @param {unknown} value */
 function normalizeNow(value) {
   if (value instanceof Date) {
     const milliseconds = Date.prototype.getTime.call(value);
@@ -82,10 +108,12 @@ function normalizeNow(value) {
   return normalizedUtc(value);
 }
 
+/** @param {unknown} origins */
 function normalizeOrigins(origins) {
   const result = snapshotPlainArray(origins, PROVIDER_INPUT_LIMITS.originCount);
   if (result.status !== "ok" || result.value.length === 0 || result.value.some((origin) =>
     typeof origin !== "string" || origin.length > PROVIDER_INPUT_LIMITS.originLength)) return null;
+  /** @type {string[]} */
   const normalized = [];
   for (const origin of result.value) {
     let parsed;
@@ -113,6 +141,10 @@ function normalizeOrigins(origins) {
   return unique.length === normalized.length ? unique : null;
 }
 
+/**
+ * @param {unknown} grant
+ * @returns {Readonly<AuthorityGrant> | null}
+ */
 function normalizeGrant(grant) {
   const snapshot = snapshotPlainRecord(grant, GRANT_KEYS);
   if (!snapshot) return null;
@@ -126,6 +158,7 @@ function normalizeGrant(grant) {
   if (
     typeof snapshot.grantRef !== "string" ||
     snapshot.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength || !GRANT_REF.test(snapshot.grantRef) ||
+    typeof snapshot.grantRevision !== "number" ||
     !Number.isSafeInteger(snapshot.grantRevision) || snapshot.grantRevision < 1 ||
     !["active", "revoked", "replaced"].includes(snapshot.status) ||
     !["codex", "claude"].includes(snapshot.provider) ||
@@ -161,6 +194,7 @@ function normalizeGrant(grant) {
   });
 }
 
+/** @param {unknown} candidate */
 function validateAuthorityRegistryCandidateInternal(candidate) {
   const top = snapshotPlainRecord(candidate, TOP_LEVEL_KEYS);
   if (!top) return blocked("authority_registry_shape_invalid");
@@ -180,7 +214,8 @@ function validateAuthorityRegistryCandidateInternal(candidate) {
   ) {
     return blocked("authority_registry_id_invalid");
   }
-  if (!Number.isSafeInteger(top.registryRevision) || top.registryRevision < 1) {
+  if (typeof top.registryRevision !== "number" ||
+      !Number.isSafeInteger(top.registryRevision) || top.registryRevision < 1) {
     return blocked("authority_registry_revision_invalid");
   }
   const observedAt = normalizedUtc(top.observedAt);
@@ -190,7 +225,8 @@ function validateAuthorityRegistryCandidateInternal(candidate) {
   }
   const grants = grantsResult.value.map(normalizeGrant);
   if (grants.some((grant) => grant == null)) return blocked("authority_registry_grant_invalid");
-  const identities = grants.map((grant) => grant.grantRef);
+  const normalizedGrants = /** @type {Readonly<AuthorityGrant>[]} */ (grants);
+  const identities = normalizedGrants.map((grant) => grant.grantRef);
   if (new Set(identities).size !== identities.length) return blocked("authority_registry_grant_duplicate");
   const registry = Object.freeze({
     contract: AUTHORITY_REGISTRY_CONTRACT,
@@ -198,7 +234,7 @@ function validateAuthorityRegistryCandidateInternal(candidate) {
     registryId: top.registryId,
     registryRevision: top.registryRevision,
     observedAt,
-    grants: Object.freeze([...grants].sort((left, right) =>
+    grants: Object.freeze([...normalizedGrants].sort((left, right) =>
       left.grantRef.localeCompare(right.grantRef) || left.grantRevision - right.grantRevision))
   });
   const canonical = canonicalJson(registry);
@@ -206,7 +242,7 @@ function validateAuthorityRegistryCandidateInternal(candidate) {
     return blocked("authority_registry_canonical_bytes_exceeded");
   }
   return Object.freeze({
-    status: "candidate",
+    status: /** @type {"candidate"} */ ("candidate"),
     reason: "authority_registry_trust_anchor_required",
     registry,
     registryHash: createHash("sha256").update(canonical).digest("hex"),
@@ -214,6 +250,7 @@ function validateAuthorityRegistryCandidateInternal(candidate) {
   });
 }
 
+/** @param {unknown} candidate */
 export function validateAuthorityRegistryCandidate(candidate) {
   try {
     return validateAuthorityRegistryCandidateInternal(candidate);
@@ -222,6 +259,7 @@ export function validateAuthorityRegistryCandidate(candidate) {
   }
 }
 
+/** @param {unknown} input */
 export function decodeCanonicalAuthorityRegistryBytes(input) {
   try {
     if (!Buffer.isBuffer(input)) return blocked("authority_registry_bytes_required");
@@ -246,6 +284,11 @@ export function decodeCanonicalAuthorityRegistryBytes(input) {
   }
 }
 
+/**
+ * @param {unknown} rawProfile
+ * @param {unknown} rawRegistry
+ * @param {unknown} context
+ */
 function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, context = {}) {
   const profileResult = validateProviderIsolationProfile(rawProfile);
   if (profileResult.status !== "candidate") return blocked("authority_profile_invalid");
@@ -270,6 +313,7 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
     grant.grantRef === profileResult.profile.authority.grantRef);
   if (matching.length !== 1) return blocked("authority_grant_not_unique");
   const grant = matching[0];
+  if (!grant) return blocked("authority_grant_not_unique");
   if (grant.status !== "active") return blocked("authority_grant_inactive");
   if (!(grant.validFrom <= now && now < grant.expiresAt)) return blocked("authority_grant_outside_validity");
   if (grant.provider !== profileResult.profile.provider) return blocked("authority_provider_mismatch");
@@ -297,7 +341,7 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
     validUntil: grant.expiresAt
   });
   return Object.freeze({
-    status: "candidate",
+    status: /** @type {"candidate"} */ ("candidate"),
     reason: "runtime_trust_policy_activation_and_prelaunch_reverification_required",
     registry: registryResult.registry,
     registryHash: registryResult.registryHash,
@@ -305,6 +349,11 @@ function evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, contex
   });
 }
 
+/**
+ * @param {unknown} rawProfile
+ * @param {unknown} rawRegistry
+ * @param {unknown} [context]
+ */
 export function evaluateAuthorityGrantCandidate(rawProfile, rawRegistry, context = {}) {
   try {
     return evaluateAuthorityGrantCandidateInternal(rawProfile, rawRegistry, context);

@@ -16,6 +16,7 @@
   "files": [
     "src/security/authority-prelaunch-verifier.mjs",
     "src/security/authority-file-bundle.mjs",
+    "src/security/authority-grant-verifier.mjs",
     "src/security/authority-root-path-lexical.mjs",
     "src/security/authority-root-locator.mjs",
     "src/security/authority-root-profile.mjs",
