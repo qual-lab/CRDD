@@ -13,13 +13,13 @@ import {
   compileProvisioningRecordEnvelopeCandidate,
   compileProvisioningRevocationManifestCandidate,
   compileProvisioningTrustAnchorSetCandidate
-} from "../src/security/provisioning-record-pure-core.mjs";
+} from "../src/security/provisioning-record-pure-core.ts";
 import {
   describeProvisioningRecordEnrollmentBindingContract,
   verifyProvisioningRecordEnrollmentBindingCandidate
 } from "../src/security/provisioning-record-enrollment-binding.mjs";
 import { canonicalizeProvisioningJsonValueCandidate } from
-  "../src/security/provisioning-signature-primitives.mjs";
+  "../src/security/provisioning-signature-primitives.ts";
 
 const ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
 function lowS(value) {

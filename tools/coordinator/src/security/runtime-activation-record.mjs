@@ -8,7 +8,7 @@ import { describeRuntimeActivationLocatorBindingContract } from
 import { describeProvisioningSignaturePrimitivesContract } from
   "./provisioning-signature-primitives.ts";
 import { describeProvisioningRecordPureCoreContract } from
-  "./provisioning-record-pure-core.mjs";
+  "./provisioning-record-pure-core.ts";
 import { describeInitialEnrollmentPureCoreContract } from
   "./initial-enrollment-pure-core.mjs";
 import { describeInitialEnrollmentRuntimeStateContract } from

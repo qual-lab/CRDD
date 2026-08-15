@@ -8,7 +8,7 @@ import {
   PROVISIONING_SIGNATURE_INPUT_LIMITS
 } from "./provisioning-signature-primitives.ts";
 import { verifyProvisioningRecordAggregateCandidate } from
-  "./provisioning-record-pure-core.mjs";
+  "./provisioning-record-pure-core.ts";
 import { verifyInitialEnrollmentCertificateCandidate } from
   "./initial-enrollment-pure-core.mjs";
 import { verifyProvisioningCaStateCandidate } from "./provisioning-ca-pure-core.ts";

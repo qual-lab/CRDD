@@ -245,7 +245,10 @@ function boundedJcs(value: JsonValue) {
     append('"');
   };
   const serialize = (item: JsonValue): void => {
-    if (typeof item === "string") return string(item);
+    if (typeof item === "string") {
+      string(item);
+      return;
+    }
     if (
       item === null ||
       typeof item === "boolean" ||

@@ -43,7 +43,7 @@
     "src/security/provider-isolation-profile.ts",
     "src/security/provisioning-signature-primitives.ts",
     "src/security/provisioning-record-enrollment-binding.mjs",
-    "src/security/provisioning-record-pure-core.mjs",
+    "src/security/provisioning-record-pure-core.ts",
     "src/security/provisioning-ca-pure-core.ts",
     "src/security/repository-git-layout-internal.mjs",
     "src/security/repository-git-layout.ts",

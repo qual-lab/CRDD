@@ -14,7 +14,7 @@ import {
   decodeProvisioningTrustAnchorSetCandidate,
   describeProvisioningRecordPureCoreContract,
   verifyProvisioningRecordAggregateCandidate
-} from "../src/security/provisioning-record-pure-core.mjs";
+} from "../src/security/provisioning-record-pure-core.ts";
 
 const P256_ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
 

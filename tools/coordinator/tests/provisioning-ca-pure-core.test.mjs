@@ -8,7 +8,7 @@ import {
   verifyProvisioningCaStateCandidate
 } from "../src/security/provisioning-ca-pure-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
-  "../src/security/provisioning-signature-primitives.mjs";
+  "../src/security/provisioning-signature-primitives.ts";
 
 function frame(domain, payload) {
   const bytes = canonicalizeProvisioningJsonValueCandidate(payload).canonicalBytes;

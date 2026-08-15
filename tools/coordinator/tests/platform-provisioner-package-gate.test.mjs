@@ -13,7 +13,7 @@ import {
   calculatePlatformProvisionerPackageContentRootCandidate
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
-  "../src/security/provisioning-signature-primitives.mjs";
+  "../src/security/provisioning-signature-primitives.ts";
 
 function frame(payload) {
   const bytes = canonicalizeProvisioningJsonValueCandidate(payload).canonicalBytes;

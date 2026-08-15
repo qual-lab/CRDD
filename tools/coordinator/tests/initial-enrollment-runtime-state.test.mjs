@@ -14,7 +14,7 @@ import {
   describeInitialEnrollmentRuntimeStateContract
 } from "../src/security/initial-enrollment-runtime-state.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
-  "../src/security/provisioning-signature-primitives.mjs";
+  "../src/security/provisioning-signature-primitives.ts";
 
 const P256_ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
 

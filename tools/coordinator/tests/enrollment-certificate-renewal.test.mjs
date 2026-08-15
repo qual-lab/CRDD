@@ -12,7 +12,7 @@ import {
   verifyEnrollmentCertificateRenewalCandidate
 } from "../src/security/enrollment-certificate-renewal.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from
-  "../src/security/provisioning-signature-primitives.mjs";
+  "../src/security/provisioning-signature-primitives.ts";
 
 function frame(payload) {
   const bytes = canonicalizeProvisioningJsonValueCandidate(payload).canonicalBytes;
