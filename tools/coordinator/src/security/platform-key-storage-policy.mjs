@@ -1,0 +1,106 @@
+import { inspectProvisioningP256SpkiCandidate } from
+  "./provisioning-signature-primitives.mjs";
+import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
+
+export const PLATFORM_KEY_STORAGE_POLICY_CONTRACT =
+  "crdd-coordinator/platform-key-storage-policy";
+export const PLATFORM_KEY_STORAGE_POLICY_CONTRACT_REVISION = 1;
+
+const INPUT_KEYS = new Set([
+  "platformFamily",
+  "backend",
+  "explicitFallbackApproved",
+  "publicKeySpkiDer"
+]);
+
+const PLATFORM_POLICIES = Object.freeze({
+  windows: Object.freeze({
+    preferred: "cng_ksp_tpm_p256",
+    explicitFallback: "cng_ksp_software_p256"
+  }),
+  macos: Object.freeze({
+    preferred: "secure_enclave_p256",
+    explicitFallback: "keychain_software_p256"
+  }),
+  linux: Object.freeze({
+    preferred: "tpm2_p256",
+    explicitFallback: "root_owned_software_p256"
+  })
+});
+
+function result(status, reason, details = {}) {
+  return Object.freeze({
+    status,
+    reason,
+    ...details,
+    nativeAdapterVerificationRequired: true,
+    privateKeyMaterialAccepted: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false
+  });
+}
+
+export function evaluatePlatformKeyStoragePolicyCandidate(rawInput) {
+  try {
+    const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
+    if (!input || typeof input.platformFamily !== "string" ||
+        typeof input.backend !== "string" ||
+        typeof input.explicitFallbackApproved !== "boolean" ||
+        !Buffer.isBuffer(input.publicKeySpkiDer)) {
+      return result("blocked", "platform_key_storage_policy_input_invalid");
+    }
+    const policy = PLATFORM_POLICIES[input.platformFamily];
+    if (!policy) return result("blocked", "platform_key_storage_platform_unsupported");
+    const preferred = input.backend === policy.preferred;
+    const fallback = input.backend === policy.explicitFallback;
+    if (!preferred && !fallback) {
+      return result("blocked", "platform_key_storage_backend_unsupported");
+    }
+    if ((preferred && input.explicitFallbackApproved) ||
+        (fallback && !input.explicitFallbackApproved)) {
+      return result("blocked", "platform_key_storage_fallback_approval_invalid");
+    }
+    const inspected = inspectProvisioningP256SpkiCandidate(input.publicKeySpkiDer);
+    if (inspected.status !== "candidate") {
+      return result("blocked", "platform_key_storage_public_key_invalid");
+    }
+    return result(
+      "candidate",
+      "signed_platform_provisioner_native_backend_key_handle_and_protection_verification_required",
+      {
+        platformFamily: input.platformFamily,
+        backendClass: preferred ? "preferred" : "explicit_fallback",
+        keyAlgorithm: "ECDSA-P256-SHA256",
+        publicKeyCanonical: true
+      }
+    );
+  } catch {
+    return result("blocked", "platform_key_storage_policy_input_invalid");
+  }
+}
+
+export function describePlatformKeyStoragePolicyContract() {
+  return Object.freeze({
+    contract: PLATFORM_KEY_STORAGE_POLICY_CONTRACT,
+    contractRevision: PLATFORM_KEY_STORAGE_POLICY_CONTRACT_REVISION,
+    keyAlgorithm: "ECDSA-P256-SHA256",
+    publicKeyEncoding: "RFC-5480-exact-P256-SPKI-DER",
+    backendPolicies: PLATFORM_POLICIES,
+    fallbackSelection: "explicit_only_without_silent_downgrade",
+    preferredBackendFailureBehavior: "blocked_until_explicit_fallback_or_reprovision",
+    privateKeyInputOrOutput: "prohibited",
+    policyEvaluation: "implemented_candidate_claim_only",
+    nativeWindowsCngAdapter: "not_implemented",
+    nativeMacosSecureEnclaveAdapter: "not_implemented",
+    nativeLinuxTpm2Adapter: "not_implemented",
+    softwareFallbackProtectionVerification: "not_implemented",
+    signedPlatformProvisionerBinding: "not_implemented",
+    keyHandleProofOfPossession: "not_implemented",
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false
+  });
+}

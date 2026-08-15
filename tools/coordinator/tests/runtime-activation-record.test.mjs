@@ -336,6 +336,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     enrollmentCertificateSignatureAlgorithmTarget: "Ed25519_target",
     initialOnlineEnrollmentPureCore: contract.initialEnrollmentPureCore,
     initialOnlineEnrollmentRuntimeState: contract.initialEnrollmentRuntimeState,
+    platformKeyStoragePolicy: contract.platformKeyStoragePolicy,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -432,6 +433,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
       initialEnrollmentRuntimeClock: "provisioning_record_verification",
       initialEnrollmentAttemptConsumption: "provisioning_record_verification",
+      platformKeyStoragePolicy: "provisioning_record_contract",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
       onlineEnrollmentProtocol: "platform_provisioner_effect",

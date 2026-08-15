@@ -789,3 +789,9 @@ Qual-Labの人間の決定権限者は、OS管理鍵保管との相互運用境�
 RSA、P-384／P-521、Ed25519端末鍵およびalgorithm fallbackはrevision 1の入力母集団へ含めない。未知algorithm、別曲線、DER形式署名、可変長署名またはrole不一致はfail closedで拒否する。過去の初回オンラインEnvelope節に記録された端末導入鍵Ed25519値は当時の履歴として改変しないが、本後続判断により端末導入鍵とRecord署名の現在判定には使用しない。公開済み／安定成果物への移行はなく、未Releaseのcandidate contractだけを更新する。
 
 今回の実装はP-256 SPKI inspection、ECDSA SHA-256／IEEE P1363個別検証、登録要求所有証明、Provisioning Record codec／aggregate、およびruntime activation／doctor／文書の状態投影に限定する。OS keystore／TPM／Secure Enclaveでの実鍵生成・署名、Runtime所有Trust、CA配布、Filesystem、Network、Authority、CapabilityまたはEffectを成立させない。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。
+
+### 2026-08-15 — OS鍵保管ポリシーCore候補
+
+第2単位は、端末導入鍵の公開P-256 SPKIとBackend選択だけを扱う非Effectのポリシー正本およびclaim-only評価である。Windowsは`cng_ksp_tpm_p256`、macOSは`secure_enclave_p256`、Linuxは`tpm2_p256`を優先し、各software Backendは初回setupで明示承認されたfallbackだけを候補化する。preferred Backendにfallback承認を付ける入力、未承認fallback、未知Backend、別曲線または不正SPKIは`blocked`とする。RSA、別曲線またはsilent algorithm／Backend fallbackを追加しない。
+
+このCoreは秘密鍵、鍵handle、Pathまたはkey IDを入出力せず、公開SPKIとpolicy選択を検査するだけである。実Windows CNG、macOS Secure Enclave、Linux TPM 2.0、software鍵保護、署名済みPlatform Provisionerとの結合、鍵handle所有証明および実鍵生成／署名Effectは未実装である。policy候補はhardware-backed、非exportable、Trust、Authority、CapabilityまたはEffectを意味しない。新sourceを既存`provisioning_record_contract`へ接続するが、実Adapter検証は`not_implemented`、12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。

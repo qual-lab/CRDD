@@ -11,6 +11,8 @@ import { describeInitialEnrollmentPureCoreContract } from
   "./initial-enrollment-pure-core.mjs";
 import { describeInitialEnrollmentRuntimeStateContract } from
   "./initial-enrollment-runtime-state.mjs";
+import { describePlatformKeyStoragePolicyContract } from
+  "./platform-key-storage-policy.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.mjs";
 import {
@@ -90,6 +92,7 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
   initialEnrollmentRuntimeClock: "provisioning_record_verification",
   initialEnrollmentAttemptConsumption: "provisioning_record_verification",
+  platformKeyStoragePolicy: "provisioning_record_contract",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
   onlineEnrollmentProtocol: "platform_provisioner_effect",
@@ -334,6 +337,7 @@ export function describeRuntimeActivationContract() {
   const provisioningRecordPureCore = describeProvisioningRecordPureCoreContract();
   const initialEnrollmentPureCore = describeInitialEnrollmentPureCoreContract();
   const initialEnrollmentRuntimeState = describeInitialEnrollmentRuntimeStateContract();
+  const platformKeyStoragePolicy = describePlatformKeyStoragePolicyContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -350,6 +354,7 @@ export function describeRuntimeActivationContract() {
     offlineEnrollmentBundleContract: "not_implemented",
     offlineEnrollmentBundleImport: "not_implemented",
     platformKeyStorageAdapterVerification: "not_implemented",
+    platformKeyStoragePolicy,
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     initialEnrollmentChallengeObjectContractAndDomainFraming:
@@ -410,7 +415,8 @@ export function describeRuntimeActivationContract() {
     provisioningSignaturePrimitives,
     provisioningRecordPureCore,
     initialEnrollmentPureCore,
-    initialEnrollmentRuntimeState
+    initialEnrollmentRuntimeState,
+    platformKeyStoragePolicy
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -488,6 +494,7 @@ export function describeRuntimeActivationContract() {
         silentFallback: false
       })
     }),
+    platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -661,6 +668,7 @@ export function describeRuntimeActivationContract() {
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
     initialEnrollmentPureCore: implementation.initialEnrollmentPureCore,
     initialEnrollmentRuntimeState: implementation.initialEnrollmentRuntimeState,
+    platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,
