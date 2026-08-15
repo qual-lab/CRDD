@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 import net from "node:net";
 
@@ -26,7 +28,7 @@ const REGISTRY_METADATA = Object.freeze({
 // More-specific entries override their parents. `null` is an IANA N/A/blank
 // value and is denied. Protocol-level non-unicast/legacy ranges are included
 // as conservative supplements and are identified separately.
-const SPECIAL_PURPOSE_ENTRIES = Object.freeze([
+const SPECIAL_PURPOSE_ENTRIES = /** @type {readonly (readonly [number, string, boolean | null, string])[]} */ (Object.freeze([
   [4, "0.0.0.0/8", false, "iana"],
   [4, "0.0.0.0/32", false, "iana"],
   [4, "10.0.0.0/8", false, "iana"],
@@ -82,7 +84,7 @@ const SPECIAL_PURPOSE_ENTRIES = Object.freeze([
   [6, "fe80::/10", false, "iana"],
   [6, "fec0::/10", false, "protocol-deprecated-site-local"],
   [6, "ff00::/8", false, "protocol-non-unicast"]
-]);
+]));
 
 // IANA IPv6 Global Unicast Address Space entries whose Status is ALLOCATED.
 // RESERVED rows and unlisted portions of 2000::/3 are intentionally absent.
@@ -96,10 +98,14 @@ const IPV6_ALLOCATED_ENTRIES = Object.freeze([
   "2630::/12", "2800::/12", "2a00::/12", "2a10::/12", "2c00::/12"
 ]);
 
+/** @typedef {{family: number, prefixLength: number, prefix: bigint, globallyReachable: boolean | null, source: string}} CidrRule */
+
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({ status: "blocked", reason, policy: null });
 }
 
+/** @param {unknown} address */
 function parseIpv4(address) {
   if (typeof address !== "string" || !/^\d{1,3}(?:\.\d{1,3}){3}$/u.test(address)) return null;
   const octets = address.split(".").map(Number);
@@ -107,6 +113,7 @@ function parseIpv4(address) {
   return octets.reduce((value, octet) => (value << 8n) | BigInt(octet), 0n);
 }
 
+/** @param {unknown} address */
 function parseIpv6(address) {
   if (typeof address !== "string" || address.includes("%") || address.length === 0) return null;
   let source = address.toLowerCase();
@@ -130,6 +137,13 @@ function parseIpv6(address) {
   return words.reduce((value, word) => (value << 16n) | BigInt(`0x${word}`), 0n);
 }
 
+/**
+ * @param {number} family
+ * @param {string} cidr
+ * @param {boolean | null} globallyReachableValue
+ * @param {string} source
+ * @returns {Readonly<CidrRule>}
+ */
 function parseCidr(family, cidr, globallyReachableValue, source) {
   const [address, prefixText] = cidr.split("/");
   const bits = family === 4 ? 32 : 128;
@@ -160,27 +174,32 @@ const SPECIAL_PURPOSE_REGISTRY_SNAPSHOT_SHA256 = createHash("sha256")
   .update(JSON.stringify({ metadata: REGISTRY_METADATA, specialPurposeEntries: SPECIAL_PURPOSE_ENTRIES, ipv6AllocatedEntries: IPV6_ALLOCATED_ENTRIES }))
   .digest("hex");
 
+/** @param {bigint} value @param {number} bits @param {CidrRule} rule */
 function cidrMatch(value, bits, rule) {
   const shift = BigInt(bits - rule.prefixLength);
   return (shift === 0n ? value : (value >> shift) << shift) === rule.prefix;
 }
 
+/** @param {number} family @param {bigint} value @param {readonly CidrRule[]} rules */
 function longestMatch(family, value, rules) {
   const bits = family === 4 ? 32 : 128;
   return rules.find((rule) => rule.family === family && cidrMatch(value, bits, rule)) ?? null;
 }
 
+/** @param {bigint} value */
 function globallyReachableIpv4(value) {
   const match = longestMatch(4, value, CIDR_RULES);
   return match ? match.globallyReachable === true : true;
 }
 
+/** @param {bigint} value */
 function globallyReachableIpv6(value) {
   const special = longestMatch(6, value, CIDR_RULES);
   if (special) return special.globallyReachable === true;
   return longestMatch(6, value, IPV6_ALLOCATED_RULES) != null;
 }
 
+/** @param {unknown} address */
 function classifyAddress(address) {
   if (typeof address !== "string" || address.includes("%")) return null;
   if (net.isIP(address) === 4) {
@@ -193,11 +212,14 @@ function classifyAddress(address) {
   const high96 = value >> 32n;
   if (high96 === 0xffffn) return globallyReachableIpv4(value & 0xffffffffn);
   if (high96 === 0n) return false;
-  const nat64Prefix = parseIpv6("64:ff9b::") >> 32n;
+  const nat64 = parseIpv6("64:ff9b::");
+  if (nat64 === null) return null;
+  const nat64Prefix = nat64 >> 32n;
   if (high96 === nat64Prefix) return globallyReachableIpv4(value & 0xffffffffn);
   return globallyReachableIpv6(value);
 }
 
+/** @param {unknown} rawProfile */
 export function compileEgressProxyPolicyCandidate(rawProfile) {
   let validation;
   try {
@@ -233,11 +255,14 @@ export function compileEgressProxyPolicyCandidate(rawProfile) {
   }
 }
 
+/** @param {unknown} authority */
 function parseConnectAuthority(authority) {
   if (typeof authority !== "string" || authority.length > 255 || /[\u0000-\u0020\u007f]/u.test(authority)) return null;
   const match = /^([A-Za-z0-9.-]+):443$/u.exec(authority);
   if (!match) return null;
-  const hostname = match[1].toLowerCase();
+  const hostnameCandidate = match[1];
+  if (!hostnameCandidate) return null;
+  const hostname = hostnameCandidate.toLowerCase();
   const labels = hostname.split(".");
   if (
     net.isIP(hostname) !== 0 ||
@@ -246,6 +271,7 @@ function parseConnectAuthority(authority) {
   return { hostname, port: 443 };
 }
 
+/** @param {any} policy @param {any} request */
 export function evaluateProxyConnectForFixture(policy, request) {
   if (policy?.status !== "candidate" || policy?.authorization !== "authority_verification_required") {
     return Object.freeze({ decision: "deny", reason: "policy_candidate_required" });
@@ -260,6 +286,7 @@ export function evaluateProxyConnectForFixture(policy, request) {
   return Object.freeze({ decision: "candidate", reason: "authority_and_dns_verification_required", hostname: target.hostname, port: target.port });
 }
 
+/** @param {unknown} addresses */
 export function evaluateResolvedAddressesForFixture(addresses) {
   if (!Array.isArray(addresses) || addresses.length === 0) {
     return Object.freeze({ decision: "deny", reason: "dns_result_required" });

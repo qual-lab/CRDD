@@ -21,6 +21,7 @@
     "src/security/authority-root-profile.mjs",
     "src/security/authority-trust-loader.mjs",
     "src/security/enrollment-certificate-renewal.mjs",
+    "src/security/egress-proxy-policy.mjs",
     "src/security/git-local-exclude.mjs",
     "src/security/host-recovery-record.mjs",
     "src/security/initial-enrollment-runtime-state.mjs",

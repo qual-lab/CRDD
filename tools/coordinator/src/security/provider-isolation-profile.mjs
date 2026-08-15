@@ -124,7 +124,7 @@ function validateProviderIsolationProfileInternal(candidate) {
   }
   const origins = rawOrigins.map(normalizeOrigin);
   if (origins.some((origin) => origin == null)) return blocked("egress_origin_invalid");
-  const uniqueOrigins = [...new Set(origins)].sort();
+  const uniqueOrigins = [...new Set(/** @type {string[]} */ (origins))].sort();
   if (uniqueOrigins.length !== origins.length) return blocked("egress_origin_duplicate");
 
   const profile = Object.freeze({

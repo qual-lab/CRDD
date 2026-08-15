@@ -895,3 +895,9 @@ strict対象を20から23 moduleへ拡張し、plain-data snapshot、Git local e
 strict対象を23から25 moduleへ拡張し、署名済みオフライン初回登録束とProvisioning CAのpure Coreを対象に加える。外部入力は`unknown`、exact arrayの正規化callbackと内部暗号shapeは限定型として表し、時刻・正整数の検査は型predicateへ収束させる。候補detailsと失効key ID集合も既存結果を維持したまま型付けする。
 
 この処置は既存のEd25519署名、domain framing、CA role、失効、7日／365日／24時間境界またはfail-closed判定を変更しない。Runtime所有Trust、時計、rollback、消費台帳、Authority／Capability／EffectおよびGate状態も不変である。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第7波
+
+strict対象を25から26 moduleへ拡張し、Provider egress proxy policyを対象に加える。IPv4／IPv6、CIDR rule、IANA snapshot tuple、CONNECT authorityおよびfixture入力の型を明示し、固定NAT64 prefixと正規化済みoriginのnull境界を検証後に限定する。
+
+この処置はIANA snapshot、longest-prefix判定、IPv4-mapped IPv6、CONNECT 443限定、private address拒否、Network Effect未実装またはAuthority未成立の境界を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
