@@ -148,6 +148,6 @@ npm test --prefix tools/coordinator
 npm run typecheck --prefix tools/coordinator
 ```
 
-型検査はCoordinator内部の二層構成であり、実行形式をTypeScriptへ変更しない。`typecheck`は`noEmit`で`bin`／`src`配下の全実装`.mjs`を検査し、入力境界や候補選択を担う16 moduleには追加の`strict`検査を適用する。攻撃的な不正shapeやNode API差替えを扱う試験fixtureは静的対象へ含めず、実行時の全Coordinator試験で確認する。Runtime成果物は生成しない。配布用`tools/crdd_check.mjs`および`template/tools/crdd_check.mjs`は依存なしの直接実行境界を維持し、このTypeScript開発依存へ接続しない。
+型検査はCoordinator内部の二層構成であり、実行形式をTypeScriptへ変更しない。`typecheck`は`noEmit`で`bin`／`src`配下の全実装`.mjs`を検査し、入力境界や候補選択を担う20 moduleには追加の`strict`検査を適用する。攻撃的な不正shapeやNode API差替えを扱う試験fixtureは静的対象へ含めず、実行時の全Coordinator試験で確認する。Runtime成果物は生成しない。配布用`tools/crdd_check.mjs`および`template/tools/crdd_check.mjs`は依存なしの直接実行境界を維持し、このTypeScript開発依存へ接続しない。
 
 Runtime 1.0のその他のCLIは、成立性Gate、Protocol、状態不変条件および永続Storeが固定されるまで提供しない。

@@ -41,7 +41,7 @@ export function evaluateInitialActivationLocatorBindingCandidate(rawInput) {
       previousCanonicalBytes: input.previousActivationCanonicalBytes,
       nextRecord: input.nextActivationRecord
     });
-    if (transition.status !== "candidate") {
+    if (transition.status !== "candidate" || !transition.record) {
       return response("blocked", "runtime_activation_locator_transition_invalid");
     }
     if (transition.transitionKind !== "initial_null_to_active") {

@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 
 import {
@@ -30,11 +32,12 @@ const MANIFEST_KEYS = new Set([
   "registryHash"
 ]);
 const BUNDLE_INPUT_KEYS = new Set(["manifestBytes", "trustPolicyBytes", "registryBytes"]);
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
-).get;
+)?.get);
 
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({
     status: "blocked",
@@ -49,14 +52,17 @@ function blocked(reason) {
   });
 }
 
+/** @param {unknown} value @returns {string} */
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
 }
 
+/** @param {unknown} input */
 function decodeManifest(input) {
   if (!Buffer.isBuffer(input)) return null;
   const inputLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, input, []);
@@ -100,6 +106,7 @@ function decodeManifest(input) {
   });
 }
 
+/** @param {unknown} rawInput */
 export function loadAuthorityFileBundleCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, BUNDLE_INPUT_KEYS);

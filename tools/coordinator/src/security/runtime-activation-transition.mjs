@@ -1,3 +1,5 @@
+// @ts-check
+
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import {
   compileRuntimeActivationRecordCandidate,
@@ -22,6 +24,12 @@ const AUTHORITY_TUPLE_KEYS = Object.freeze([
   "registryHash"
 ]);
 
+/**
+ * @param {string} status
+ * @param {string} reason
+ * @param {{record: Record<string, any>, recordHash: string, canonicalBytes: Buffer} | null} [next]
+ * @param {string | null} [transitionKind]
+ */
 function response(status, reason, next = null, transitionKind = null) {
   return Object.freeze({
     status,
@@ -36,10 +44,16 @@ function response(status, reason, next = null, transitionKind = null) {
   });
 }
 
+/**
+ * @param {Record<string, any>} previous
+ * @param {Record<string, any>} next
+ * @param {readonly string[]} keys
+ */
 function sameFields(previous, next, keys) {
   return keys.every((key) => previous[key] === next[key]);
 }
 
+/** @param {unknown} rawInput */
 export function evaluateRuntimeActivationTransitionCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);

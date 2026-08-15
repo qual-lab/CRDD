@@ -877,3 +877,9 @@ Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単�
 strict対象を12から16 moduleへ拡張し、Repository Git layout候補、登録証明書更新候補、Root保護方針およびProvider隔離profileの入力を`unknown`から検証後に限定する。catchした例外の`code`／`message`参照、再帰canonical JSON、候補結果の追加detailsおよびSPKI owned copy境界をJSDocで表現する。既存のcandidate／blocked reason、Schema、Hash、時刻規則、Authority／Capability／Effect境界は変更しない。
 
 自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第4波
+
+strict対象を16から20 moduleへ拡張し、Authority File Bundle、Authority Trust loader、Provisioning Recordと登録証明書の結合、およびRuntime activation遷移を対象に加える。raw Bufferのcopy前上限、canonical JSON、候補details、署名者結合およびactivation recordのcandidate形状をJSDocで固定した。型が明確になった利用側では、candidate statusに加えてrecord存在をfail closedに確認する。
+
+この処置は既存検証の型表現と防御的null確認に限り、canonical bytes、Hash、署名、Schema、reason、Trust、Authority／Capability／EffectまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。

@@ -1,3 +1,5 @@
+// @ts-check
+
 import { types as utilTypes } from "node:util";
 
 import {
@@ -18,11 +20,17 @@ const INPUT_KEYS = new Set([
   "evaluationTime"
 ]);
 const BINDING_KEYS = new Set(["certificateEnvelope", "issuingCertificateEnvelope"]);
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype), "byteLength"
-).get;
+)?.get);
 
-function response(status, reason, details = {}) {
+/**
+ * @template {Record<string, unknown>} T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T} [details]
+ */
+function response(status, reason, details = /** @type {T} */ ({})) {
   return Object.freeze({
     status, reason, ...details,
     runtimeOwnedTrustConfirmed: false,
@@ -35,6 +43,7 @@ function response(status, reason, details = {}) {
   });
 }
 
+/** @param {unknown} raw */
 function ownedBuffer(raw) {
   try {
     if (!Buffer.isBuffer(raw)) return null;
@@ -46,12 +55,14 @@ function ownedBuffer(raw) {
   } catch { return null; }
 }
 
+/** @param {unknown} raw */
 function ownedJson(raw) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(raw);
   if (canonical.status !== "candidate") return null;
   try { return JSON.parse(canonical.canonicalBytes.toString("utf8")); } catch { return null; }
 }
 
+/** @param {unknown} raw */
 function exactBindings(raw) {
   if (!Array.isArray(raw) || utilTypes.isProxy(raw) ||
       Object.getPrototypeOf(raw) !== Array.prototype) return null;
@@ -72,18 +83,23 @@ function exactBindings(raw) {
   return Object.freeze(values);
 }
 
+/** @param {unknown} raw */
 function issuingKey(raw) {
-  const payload = raw?.payload;
-  if (!payload || payload.role !== "online_enrollment_issuer" ||
-      typeof payload.spkiDer !== "string" || typeof payload.keyId !== "string" ||
-      typeof payload.caSeriesId !== "string") return null;
-  const bytes = Buffer.from(payload.spkiDer, "base64url");
+  const envelope = /** @type {{payload?: unknown} | null | undefined} */ (raw);
+  const payload = envelope?.payload;
+  if (!payload || typeof payload !== "object") return null;
+  const candidate = /** @type {Record<string, unknown>} */ (payload);
+  if (candidate.role !== "online_enrollment_issuer" ||
+      typeof candidate.spkiDer !== "string" || typeof candidate.keyId !== "string" ||
+      typeof candidate.caSeriesId !== "string") return null;
+  const bytes = Buffer.from(candidate.spkiDer, "base64url");
   const inspected = inspectProvisioningEd25519SpkiCandidate(bytes);
   return inspected.status === "candidate" &&
-    inspected.spkiSha256Digest.toString("hex") === payload.keyId
-    ? Object.freeze({ payload, spkiDer: bytes }) : null;
+    inspected.spkiSha256Digest.toString("hex") === candidate.keyId
+    ? Object.freeze({ payload: candidate, spkiDer: bytes }) : null;
 }
 
+/** @param {unknown} rawInput */
 export function verifyProvisioningRecordEnrollmentBindingCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
@@ -136,7 +152,8 @@ export function verifyProvisioningRecordEnrollmentBindingCandidate(rawInput) {
       });
       const now = Date.parse(input.evaluationTime);
       const record = recordEnvelope.payload;
-      const key = recordKeyset.keys.find((entry) => entry.keyId === certificate.installationKeyId);
+      const key = recordKeyset.keys.find((/** @type {{keyId: string}} */ entry) =>
+        entry.keyId === certificate.installationKeyId);
       if (ca.status !== "candidate" || certificateResult.status !== "candidate" ||
           now < Date.parse(certificate.issuedAt) || now >= Date.parse(certificate.expiresAt) ||
           record.provisionerEnrollmentId !== certificate.enrollmentId ||
@@ -144,12 +161,13 @@ export function verifyProvisioningRecordEnrollmentBindingCandidate(rawInput) {
           record.provisionerIdentityHash !== certificate.provisionerIdentityHash ||
           !key || key.spkiDer !== certificate.installationKeySpkiDer ||
           key.enrollmentCaId !== issuer.payload.caSeriesId ||
-          !signatures.some((entry) => entry.keyId === certificate.installationKeyId)) {
+          !signatures.some((/** @type {{keyId: string}} */ entry) =>
+            entry.keyId === certificate.installationKeyId)) {
         return response("blocked", "provisioning_record_enrollment_binding_mismatch");
       }
       bound.add(certificate.installationKeyId);
     }
-    if (signatures.some((entry) => !bound.has(entry.keyId))) {
+    if (signatures.some((/** @type {{keyId: string}} */ entry) => !bound.has(entry.keyId))) {
       return response("blocked", "provisioning_record_enrollment_binding_unbound_signer");
     }
     return response(

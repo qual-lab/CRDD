@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 
 import {
@@ -23,11 +25,12 @@ const POLICY_KEYS = new Set([
   "registryRevision",
   "registryHash"
 ]);
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
-).get;
+)?.get);
 
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({
     status: "blocked",
@@ -40,14 +43,17 @@ function blocked(reason) {
   });
 }
 
+/** @param {unknown} value @returns {string} */
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
 }
 
+/** @param {unknown} input */
 export function decodeCanonicalAuthorityTrustPolicyBytes(input) {
   try {
     if (!Buffer.isBuffer(input)) return blocked("authority_trust_policy_bytes_required");
@@ -80,6 +86,7 @@ export function decodeCanonicalAuthorityTrustPolicyBytes(input) {
   }
 }
 
+/** @param {unknown} candidate */
 function validateTrustPolicyCandidate(candidate) {
   const snapshot = snapshotPlainRecord(candidate, POLICY_KEYS);
   if (!snapshot) return null;
@@ -109,6 +116,7 @@ function validateTrustPolicyCandidate(candidate) {
   });
 }
 
+/** @param {unknown} registryBytes @param {unknown} rawTrustPolicy */
 export function loadAuthorityRegistryTrustCandidate(registryBytes, rawTrustPolicy) {
   try {
     const registryResult = decodeCanonicalAuthorityRegistryBytes(registryBytes);
