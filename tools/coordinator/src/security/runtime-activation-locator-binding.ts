@@ -1,5 +1,5 @@
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
-import { evaluateAuthorityRootLocatorActivationBindingCandidate } from "./authority-root-locator.mjs";
+import { evaluateAuthorityRootLocatorActivationBindingCandidate } from "./authority-root-locator.ts";
 import { evaluateRuntimeActivationTransitionCandidate } from "./runtime-activation-transition.mjs";
 
 export { describeRuntimeActivationLocatorBindingContract } from "./runtime-activation-locator-binding-contract.ts";

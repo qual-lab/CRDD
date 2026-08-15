@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AUTHORITY_ROOT_LOCATOR_CONTRACT } from
-  "../src/security/authority-root-locator.mjs";
+  "../src/security/authority-root-locator.ts";
 import { evaluateInitialActivationLocatorBindingCandidate } from
   "../src/security/runtime-activation-locator-binding.ts";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from

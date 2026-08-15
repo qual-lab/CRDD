@@ -8,7 +8,7 @@ import {
   decodeAuthorityRootLocatorCandidate,
   describeAuthorityRootLocatorContract,
   evaluateAuthorityRootLocatorActivationBindingCandidate
-} from "../src/security/authority-root-locator.mjs";
+} from "../src/security/authority-root-locator.ts";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from
   "../src/security/runtime-activation-locator-binding-contract.ts";
 

@@ -24,7 +24,7 @@
     "src/security/authority-file-bundle.ts",
     "src/security/authority-grant-verifier.ts",
     "src/security/authority-root-path-lexical.ts",
-    "src/security/authority-root-locator.mjs",
+    "src/security/authority-root-locator.ts",
     "src/security/authority-root-profile.ts",
     "src/security/authority-trust-loader.ts",
     "src/security/docker-isolation.mjs",
