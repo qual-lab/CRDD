@@ -31,7 +31,7 @@ import {
   inspectRuntimeRootPathIdentityCandidate
 } from "../security/runtime-root-path-identity.mjs";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
-import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.mjs";
+import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
 import { snapshotPlainRecord } from "../security/plain-data-snapshot.ts";
 
 export const CHECK_STATUS = Object.freeze([

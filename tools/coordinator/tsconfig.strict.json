@@ -46,7 +46,7 @@
     "src/security/provisioning-record-pure-core.mjs",
     "src/security/provisioning-ca-pure-core.ts",
     "src/security/repository-git-layout-internal.mjs",
-    "src/security/repository-git-layout.mjs",
+    "src/security/repository-git-layout.ts",
     "src/security/root-protection-policy.ts",
     "src/security/runtime-activation-identity.ts",
     "src/security/runtime-activation-locator-binding-contract.ts",

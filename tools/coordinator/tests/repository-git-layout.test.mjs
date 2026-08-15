@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { describeRepositoryGitLayoutContract, inspectRepositoryGitLayoutCandidate } from "../src/security/repository-git-layout.mjs";
+import { describeRepositoryGitLayoutContract, inspectRepositoryGitLayoutCandidate } from "../src/security/repository-git-layout.ts";
 
 function temporaryRoot(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repository-layout-"));

@@ -94,3 +94,5 @@ plain-data snapshotの返却値を許可keyごとの`unknown`として表現し�
 Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの既存fail-closed理由、暗号domain、件数／byte budget、Authority／Capability／Effect非発行、12 implementation blocker、6 current-run evidenceおよびGate blockedを変更しない。この単位は二層型検査のPassまで`Self-checked`であり、Biome、Coordinator全test、full checker、Node.js 24.12以上のnative実行および独立review／audit前は`Resolved`ではない。
 
 `host-recovery-record.mjs`を同一配置の`.ts`へ移し、token入力を`unknown`から既存pattern検証後の文字列へ絞り、token生成引数を文字列として固定した。Recovery token、record Hash照合、Filesystem境界および回復処置を変更せず、productionの移行済み数は22 / 38である。
+
+`repository-git-layout.mjs`の公開境界を同一配置の`.ts`へ移し、外部入力を`unknown`、絶対Path predicateをtype predicate、layoutを保持するresponseをgeneric型へ置換した。Git metadataの内部Resolver／writerは後続単位に分離し、公開候補、Path非出力およびEffect非発行を変更せず、productionの移行済み数は23 / 38である。
