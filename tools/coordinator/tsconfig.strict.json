@@ -39,7 +39,7 @@
     "src/security/platform-key-storage-policy.ts",
     "src/security/plain-data-snapshot.mjs",
     "src/security/platform-provisioner-trust-core.mjs",
-    "src/security/platform-provisioner-package-gate.mjs",
+    "src/security/platform-provisioner-package-gate.ts",
     "src/security/provider-isolation-profile.mjs",
     "src/security/provisioning-signature-primitives.mjs",
     "src/security/provisioning-record-enrollment-binding.mjs",

@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   evaluatePlatformProvisionerPackageGateCandidate,
   describePlatformProvisionerPackageGateContract
-} from "../src/security/platform-provisioner-package-gate.mjs";
+} from "../src/security/platform-provisioner-package-gate.ts";
 import {
   PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
   PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
