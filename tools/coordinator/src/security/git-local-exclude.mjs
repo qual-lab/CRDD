@@ -1,3 +1,5 @@
+// @ts-check
+
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
@@ -22,6 +24,13 @@ const INPUT_KEYS = new Set([
 ]);
 const EXPLICIT_ENABLE = "explicit_enable_request";
 
+/**
+ * @template T
+ * @param {string} status
+ * @param {string} reason
+ * @param {T | null} [plan]
+ * @param {{gitMetadataWriteIssued?: boolean, gitMetadataWriteVerified?: boolean}} [write]
+ */
 function response(status, reason, plan = null, write = {}) {
   return Object.freeze({
     status,
@@ -33,11 +42,17 @@ function response(status, reason, plan = null, write = {}) {
   });
 }
 
+/** @param {Record<string, any>} input */
 function selectedRoot(input) {
   return input.cliOverride ?? input.environmentOverride ??
     path.join(input.repositoryRoot, ".crdd-runtime");
 }
 
+/**
+ * @param {string} repositoryRoot
+ * @param {string} runtimeRoot
+ * @returns {{kind: "repository_root"} | {kind: "outside"} | {kind: "inside", relative: string}}
+ */
 function repositoryRelativePath(repositoryRoot, runtimeRoot) {
   const relative = path.relative(repositoryRoot, runtimeRoot);
   if (relative === "" || relative === ".") {
@@ -49,10 +64,12 @@ function repositoryRelativePath(repositoryRoot, runtimeRoot) {
   return { kind: "inside", relative };
 }
 
+/** @param {string} segment */
 function escapeGitIgnoreSegment(segment) {
   return segment.replace(/([\\*?\[\]#! ])/gu, "\\$1");
 }
 
+/** @param {string} relative */
 function exactExcludeEntry(relative) {
   const segments = relative.split(path.sep);
   if (segments.some((segment) =>
@@ -62,6 +79,7 @@ function exactExcludeEntry(relative) {
   return `/${segments.map(escapeGitIgnoreSegment).join("/")}/`;
 }
 
+/** @param {unknown} rawInput */
 export function compileGitLocalExcludeCandidate(rawInput) {
   try {
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
@@ -93,7 +111,7 @@ export function compileGitLocalExcludeCandidate(rawInput) {
     }
 
     const firstSegment = location.relative.split(path.sep)[0];
-    if (firstSegment.toLocaleLowerCase("en-US") === ".git") {
+    if (firstSegment?.toLocaleLowerCase("en-US") === ".git") {
       return response("blocked", "runtime_root_git_metadata_overlap");
     }
 
@@ -111,6 +129,7 @@ export function compileGitLocalExcludeCandidate(rawInput) {
   }
 }
 
+/** @param {unknown} rawInput */
 export function applyGitLocalExcludeCandidate(rawInput) {
   return applyGitLocalExcludeWithInitialRootSnapshotCandidate(rawInput);
 }

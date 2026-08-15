@@ -1,3 +1,5 @@
+// @ts-check
+
 import { createHash } from "node:crypto";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 import {
@@ -31,11 +33,12 @@ const LOCATOR_KEYS = new Set([
   "activationRecordHash"
 ]);
 const ACTIVATION_BINDING_KEYS = new Set(RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS);
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+const TYPED_ARRAY_BYTE_LENGTH = /** @type {() => number} */ (Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength"
-).get;
+)?.get);
 
+/** @param {string} reason */
 function blocked(reason) {
   return Object.freeze({
     status: "blocked",
@@ -48,22 +51,27 @@ function blocked(reason) {
   });
 }
 
+/** @param {unknown} value @returns {string} */
 function canonicalJson(value) {
   if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((key) =>
-      `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return `{${Object.keys(record).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
 }
 
+/** @param {unknown} value */
 function positiveRevision(value) {
-  return Number.isSafeInteger(value) && value >= 1;
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
 }
 
+/** @param {unknown} value @returns {value is string} */
 function hash(value) {
   return typeof value === "string" && HASH.test(value);
 }
 
+/** @param {unknown} rawLocator */
 function normalize(rawLocator) {
   const locator = snapshotPlainRecord(rawLocator, LOCATOR_KEYS);
   if (!locator ||
@@ -81,6 +89,7 @@ function normalize(rawLocator) {
   return Object.freeze(Object.fromEntries([...LOCATOR_KEYS].map((key) => [key, locator[key]])));
 }
 
+/** @param {unknown} rawLocator */
 function compileInternal(rawLocator) {
   const locator = normalize(rawLocator);
   if (!locator) return null;
@@ -89,6 +98,7 @@ function compileInternal(rawLocator) {
   return Object.freeze({ locator, canonical });
 }
 
+/** @param {string} canonical */
 function candidate(canonical) {
   return Object.freeze({
     status: "candidate",
@@ -107,6 +117,7 @@ function candidate(canonical) {
   });
 }
 
+/** @param {string} status @param {string} reason @param {boolean} [pairContentMatched] */
 function bindingResponse(status, reason, pairContentMatched = false) {
   return Object.freeze({
     status,
@@ -119,6 +130,7 @@ function bindingResponse(status, reason, pairContentMatched = false) {
   });
 }
 
+/** @param {unknown} rawLocator */
 export function compileAuthorityRootLocatorCandidate(rawLocator) {
   try {
     const compiled = compileInternal(rawLocator);
@@ -128,6 +140,7 @@ export function compileAuthorityRootLocatorCandidate(rawLocator) {
   }
 }
 
+/** @param {unknown} input */
 export function decodeAuthorityRootLocatorCandidate(input) {
   try {
     if (!Buffer.isBuffer(input)) return blocked("authority_root_locator_bytes_required");
@@ -153,6 +166,7 @@ export function decodeAuthorityRootLocatorCandidate(input) {
   }
 }
 
+/** @param {unknown} rawLocator @param {unknown} rawExpected */
 export function evaluateAuthorityRootLocatorActivationBindingCandidate(rawLocator, rawExpected) {
   try {
     const expected = snapshotPlainRecord(rawExpected, ACTIVATION_BINDING_KEYS);

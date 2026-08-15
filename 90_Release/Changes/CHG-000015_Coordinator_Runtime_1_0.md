@@ -883,3 +883,9 @@ strict対象を12から16 moduleへ拡張し、Repository Git layout候補、登
 strict対象を16から20 moduleへ拡張し、Authority File Bundle、Authority Trust loader、Provisioning Recordと登録証明書の結合、およびRuntime activation遷移を対象に加える。raw Bufferのcopy前上限、canonical JSON、候補details、署名者結合およびactivation recordのcandidate形状をJSDocで固定した。型が明確になった利用側では、candidate statusに加えてrecord存在をfail closedに確認する。
 
 この処置は既存検証の型表現と防御的null確認に限り、canonical bytes、Hash、署名、Schema、reason、Trust、Authority／Capability／EffectまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — strict型検査の第5波
+
+strict対象を20から23 moduleへ拡張し、plain-data snapshot、Git local excludeおよびAuthority Root locatorを対象に加える。共通snapshotはProperty Descriptorのdata property条件を型predicateとして表し、保持値自体は任意入力であるため利用側の個別検証責務を変えない。Locatorのrevisionは`number`確認後に安全整数境界を評価し、Git excludeはRepository内外の判別結果をdiscriminated unionとして固定する。
+
+この処置は入力snapshot、候補選択およびcanonical locatorの既存規則を型で表現するだけで、Path、Filesystem Effect、Authority、CapabilityまたはGate状態を変更しない。自己確認では二層型検査、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。

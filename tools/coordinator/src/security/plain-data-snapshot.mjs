@@ -1,11 +1,19 @@
+// @ts-check
+
 import { types as utilTypes } from "node:util";
 
+/**
+ * @param {PropertyDescriptor | undefined} descriptor
+ * @param {boolean} [enumerable]
+ * @returns {descriptor is PropertyDescriptor & {value: unknown}}
+ */
 function dataDescriptor(descriptor, enumerable = true) {
-  return descriptor && Object.prototype.hasOwnProperty.call(descriptor, "value") &&
+  return Boolean(descriptor && Object.prototype.hasOwnProperty.call(descriptor, "value") &&
     descriptor.get === undefined && descriptor.set === undefined &&
-    (!enumerable || descriptor.enumerable === true);
+    (!enumerable || descriptor.enumerable === true));
 }
 
+/** @param {unknown} value @param {ReadonlySet<string>} allowedKeys */
 export function snapshotPlainRecord(value, allowedKeys) {
   try {
     if (!value || typeof value !== "object" || utilTypes.isProxy(value) || Array.isArray(value)) return null;
@@ -15,7 +23,7 @@ export function snapshotPlainRecord(value, allowedKeys) {
     const keys = Reflect.ownKeys(descriptors);
     if (keys.length !== allowedKeys.size || keys.some((key) =>
       typeof key !== "string" || !allowedKeys.has(key))) return null;
-    const snapshot = Object.create(null);
+    const snapshot = /** @type {Record<string, any>} */ (Object.create(null));
     for (const key of allowedKeys) {
       const descriptor = descriptors[key];
       if (!dataDescriptor(descriptor)) return null;
@@ -27,6 +35,7 @@ export function snapshotPlainRecord(value, allowedKeys) {
   }
 }
 
+/** @param {unknown} value @param {number} maximumLength */
 export function snapshotPlainArray(value, maximumLength) {
   try {
     if (!value || typeof value !== "object" || utilTypes.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
@@ -47,6 +56,7 @@ export function snapshotPlainArray(value, maximumLength) {
       currentLength.value !== initialLength.value) {
       return Object.freeze({ status: "blocked", reason: "array_shape_invalid", value: null });
     }
+    /** @type {any[]} */
     const snapshot = [];
     for (let index = 0; index < initialLength.value; index += 1) {
       const key = String(index);
