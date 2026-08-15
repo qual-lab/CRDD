@@ -7,7 +7,7 @@ import {
   parseDoctorArguments,
   parseProvisionArguments
 } from "../src/core/cli-options.mjs";
-import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.mjs";
+import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.mjs";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.mjs";
 import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.mjs";

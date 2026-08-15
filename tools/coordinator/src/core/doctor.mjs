@@ -21,7 +21,7 @@ import { describeAuthorityGrantVerifierContract } from "../security/authority-gr
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
 import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
-import { describeAuthorityRootContract } from "../security/authority-root-profile.mjs";
+import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
 import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.mjs";
 import { describeRuntimeActivationContract } from "../security/runtime-activation-record.mjs";
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.mjs";

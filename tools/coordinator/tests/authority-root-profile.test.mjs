@@ -5,7 +5,7 @@ import test from "node:test";
 import {
   describeAuthorityRootContract,
   selectAuthorityRootCandidate
-} from "../src/security/authority-root-profile.mjs";
+} from "../src/security/authority-root-profile.ts";
 
 function request(overrides = {}) {
   return {

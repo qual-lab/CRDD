@@ -60,3 +60,5 @@ Coordinatorのproduction 38 moduleを全数strict型検査へ追加した。現�
 型注釈を必要としない`runtime-activation-locator-binding-contract.mjs`も同一配置の`.ts`へ移し、直接利用側6箇所を明示`.ts` importへ更新した。公開契約値、readiness、Authority／Capability／EffectおよびGateは変更せず、productionの移行済み数は3 / 38である。
 
 `runtime-activation-locator-binding.mjs`を`.ts`へ移し、公開入力を`unknown`、内部response引数を実TypeScript型へ置換した。初回activationだけを扱う候補境界とfail-closed理由、Locatorとの5 field結合、Authority／Capability／EffectおよびGateを変更せず、productionの移行済み数は4 / 38である。
+
+`authority-root-profile.mjs`を`.ts`へ移し、公開入力とPath predicateを`unknown`から安全に絞り、response helperをgeneric TypeScript型へ置換した。CLI／環境の優先順位、明示activate要求、Path非出力、Authority／Capability／EffectおよびGateを変更せず、productionの移行済み数は5 / 38である。
