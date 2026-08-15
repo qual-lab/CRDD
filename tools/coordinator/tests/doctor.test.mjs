@@ -638,8 +638,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       enrollmentCertificateRenewalContract: "provisioning_record_contract",
       enrollmentCertificateRenewalVerification: "provisioning_record_verification",
       platformProvisionerManifestVerification: "platform_provisioner_verification",
-      platformProvisionerNpmRegistrySignatureVerification: "platform_provisioner_verification",
-      platformProvisionerNpmProvenanceVerification: "platform_provisioner_verification",
+      platformProvisionerCrddDistributionVerification: "platform_provisioner_verification",
       platformProvisionerPackageGateObservation: "platform_provisioner_verification",
       platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
@@ -848,7 +847,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(report.runtimeActivation.platformProvisionerTrustCore.manifestCryptographicVerification,
     "implemented_candidate");
   assert.equal(report.runtimeActivation.platformProvisionerTrustCore.distributionModel,
-    "mjs_npm_package");
+    "crdd_bundled_private_mjs_package");
   assert.equal(report.runtimeActivation.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1,
     false);
   assert.equal(report.runtimeActivation.platformProvisionerPackageGate.runtimeOwnedPackageFilesystemAdapter,

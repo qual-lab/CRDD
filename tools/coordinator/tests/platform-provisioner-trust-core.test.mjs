@@ -40,6 +40,7 @@ function fixture() {
     contractRevision: 1,
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
+    crddRevision: "a".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "4".repeat(64),
     keyStoragePolicySha256: "5".repeat(64),
@@ -64,14 +65,13 @@ function fixture() {
   };
 }
 
-test("signed package manifest matches exact npm package content but remains non-authoritative", () => {
+test("signed package manifest matches exact CRDD-bundled package content but remains non-authoritative", () => {
   const result = verifyPlatformProvisionerManifestCandidate(fixture());
   assert.equal(result.status, "candidate");
   assert.equal(result.packageName, "@qual-lab/crdd-coordinator");
   assert.equal(result.qualLabManifestCryptographicMatch, true);
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
-  assert.equal(result.npmRegistrySignatureConfirmed, false);
-  assert.equal(result.npmProvenanceConfirmed, false);
+  assert.equal(result.crddDistributionConfirmed, false);
   assert.equal(result.runtimeOwnedPackageFilesystemConfirmed, false);
   assert.equal(result.filesystemEffectIssued, false);
   for (const key of ["files", "signature", "spkiDer", "releaseSignerSpkiDer"]) {
@@ -108,14 +108,14 @@ test("manifest signature, role, lifetime and exact envelope fail closed", () => 
   }
 });
 
-test("package trust contract uses npm attestations and does not require a native executable", () => {
+test("package trust contract requires CRDD-bundled use and no native executable", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
-  assert.equal(contract.distributionModel, "mjs_npm_package");
+  assert.equal(contract.distributionModel, "crdd_bundled_private_mjs_package");
   assert.equal(contract.dedicatedNativeExecutableRequiredForV1, false);
   assert.equal(contract.osNativeCodeSignatureRequiredForV1, false);
-  assert.equal(contract.npmRegistrySignatureVerification,
-    "not_implemented_install_time_receipt_target");
-  assert.equal(contract.npmProvenanceVerification,
-    "not_implemented_install_time_attestation_target");
+  assert.equal(contract.standalonePackagePublicationAllowed, false);
+  assert.equal(contract.standalonePackageInstallationAllowed, false);
+  assert.equal(contract.runtimeOwnedCrddDistributionVerification,
+    "not_implemented_crdd_release_identity_target");
   assert.equal(contract.filesystemEffectIssued, false);
 });

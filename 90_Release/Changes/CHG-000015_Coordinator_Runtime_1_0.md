@@ -839,3 +839,11 @@ Qual-Labの人間の決定権限者は、version 1を専用native executableで�
 現在のEffect前Trust目標は、npm registry署名、生成元証明（provenance）、Qual-Lab署名済みpackage manifest、およびRuntime所有のpackage内容／Filesystem Identity確認を同じpackageへ結合することである。package manifestはpackage名、version、file一覧から得るcontent root、Root Protection Policy Hash、Key Storage Policy Hashおよび有効期間をEd25519署名exact 1件へ結合する。registry／provenance／package観測をcallerが自己申告してもAuthorityまたはEffectへ昇格しない。どれか一つの欠落、生成元不一致、改変、権限不一致またはfallbackは`blocked`とする。
 
 今回の実装はpackage manifest、content rootおよび非Authorityなpackage Trust Gateのpure候補と、Runtime activation／doctor／明示`provision`の状態投影までである。実npm install receipt検証、provenance取得、release Trust選択、package file読取り／安定Identity／permission検証、publish workflow、Effect controllerおよびRoot／鍵／ACL変更は未実装である。ローカルsource checkoutはtest／dry-run専用で、TrustまたはEffectを成立させない。既存12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と必要な独立レビュー／監査前は`Resolved`、採用、準拠、移行、Stable、Releaseまたは公開ではない。
+
+### 2026-08-16 — CoordinatorをCRDD配布物へ限定
+
+Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単独公開packageとして提供せず、CRDDと一体の配布物としてだけ使用する方針を承認した。直前のnpm registry公開／個別installを前提にした判断は履歴保持するが、この後続判断によりsupersededされ、現在判定へ使用しない。`tools/coordinator/package.json`の`private: true`を維持し、version 1では単独npm publish、単独package取得、専用EXEおよび有料OSコード署名証明書を要求しない。
+
+現在のEffect前Trust目標は、検証済みCRDD Revision、Qual-Lab署名済み内包package manifest、およびRuntime所有のpackage内容／Filesystem Identity確認を同じCRDD配布物へ結合することである。manifest revision 1は`crddRevision`を署名対象へ追加し、package content rootとCRDD Revisionを分離不能にする。単独package、未知Revision、内容／権限不一致または別sourceへのfallbackは`blocked`とする。caller suppliedの`verified_crdd_bundle`値はRuntime所有Trustではない。
+
+今回の処置はprivate bundle contract、pure package Trust Gate、Runtime activation／doctor投影および明示`provision`の安全要約までである。実CRDD release Identity検証、release Trust選択、package file読取り／安定Identity／permission検証およびEffect controllerは未実装である。既存12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行および非Releaseを維持する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と必要な独立レビュー／監査前は`Resolved`、採用、準拠、移行、Stable、Releaseまたは公開ではない。

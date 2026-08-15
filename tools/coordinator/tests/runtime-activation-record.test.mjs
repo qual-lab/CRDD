@@ -454,8 +454,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       enrollmentCertificateRenewalContract: "provisioning_record_contract",
       enrollmentCertificateRenewalVerification: "provisioning_record_verification",
       platformProvisionerManifestVerification: "platform_provisioner_verification",
-      platformProvisionerNpmRegistrySignatureVerification: "platform_provisioner_verification",
-      platformProvisionerNpmProvenanceVerification: "platform_provisioner_verification",
+      platformProvisionerCrddDistributionVerification: "platform_provisioner_verification",
       platformProvisionerPackageGateObservation: "platform_provisioner_verification",
       platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
@@ -619,7 +618,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.platformProvisionerVerification, "not_implemented");
   assert.equal(contract.platformProvisionerTrustCore.manifestCryptographicVerification,
     "implemented_candidate");
-  assert.equal(contract.platformProvisionerTrustCore.distributionModel, "mjs_npm_package");
+  assert.equal(contract.platformProvisionerTrustCore.distributionModel,
+    "crdd_bundled_private_mjs_package");
   assert.equal(contract.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1, false);
   assert.equal(contract.platformProvisionerPackageGate.observationContract,
     "implemented_candidate_non_authoritative");

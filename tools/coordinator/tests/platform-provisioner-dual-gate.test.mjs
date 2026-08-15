@@ -38,6 +38,7 @@ function fixture() {
     contractRevision: 1,
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
+    crddRevision: "a".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
@@ -51,7 +52,6 @@ function fixture() {
     signatures: [{ keyId, algorithm: "Ed25519",
       signature: sign(null, frame(payload), release.privateKey).toString("base64url") }]
   };
-  const repository = "https://github.com/qual-lab/crdd";
   return {
     manifestVerificationInput: {
       manifestEnvelope,
@@ -59,25 +59,24 @@ function fixture() {
       observedPackageContent,
       evaluationTime: "2026-08-15T12:00:00.000Z"
     },
-    npmObservation: {
+    crddDistributionObservation: {
       packageName: observedPackageContent.packageName,
       packageVersion: observedPackageContent.packageVersion,
       packageContentRootSha256,
-      registrySignatureVerdict: "verified",
-      provenanceVerdict: "verified",
-      provenanceSourceRepository: repository,
+      crddRevision: payload.crddRevision,
+      distributionVerdict: "verified_crdd_bundle",
       installedPackageIdentityStable: true,
       permissionPolicyMatch: true
     },
-    expectedSourceRepository: repository
+    expectedCrddRevision: payload.crddRevision
   };
 }
 
-test("npm and manifest observations match but remain non-authoritative", () => {
+test("CRDD bundle and manifest observations match but remain non-authoritative", () => {
   const result = evaluatePlatformProvisionerPackageGateCandidate(fixture());
   assert.equal(result.status, "candidate");
   assert.equal(result.packageTrustObservationMatch, true);
-  assert.equal(result.npmObservationRuntimeOwned, false);
+  assert.equal(result.crddDistributionObservationRuntimeOwned, false);
   assert.equal(result.effectAuthorizationIssued, false);
   assert.equal(result.filesystemEffectIssued, false);
   for (const key of ["files", "packageContentRootSha256", "signature", "spkiDer"]) {
@@ -85,14 +84,14 @@ test("npm and manifest observations match but remain non-authoritative", () => {
   }
 });
 
-test("registry signature, provenance, content, source and permission mismatches fail closed", () => {
+test("CRDD revision, content, identity and permission mismatches fail closed", () => {
   for (const mutate of [
-    (value) => { value.npmObservation.registrySignatureVerdict = "missing"; },
-    (value) => { value.npmObservation.provenanceVerdict = "missing"; },
-    (value) => { value.npmObservation.packageContentRootSha256 = "f".repeat(64); },
-    (value) => { value.npmObservation.provenanceSourceRepository = "https://example.com/x/y"; },
-    (value) => { value.npmObservation.installedPackageIdentityStable = false; },
-    (value) => { value.npmObservation.permissionPolicyMatch = false; }
+    (value) => { value.crddDistributionObservation.distributionVerdict = "missing"; },
+    (value) => { value.crddDistributionObservation.crddRevision = "b".repeat(40); },
+    (value) => { value.crddDistributionObservation.packageContentRootSha256 = "f".repeat(64); },
+    (value) => { value.expectedCrddRevision = "c".repeat(40); },
+    (value) => { value.crddDistributionObservation.installedPackageIdentityStable = false; },
+    (value) => { value.crddDistributionObservation.permissionPolicyMatch = false; }
   ]) {
     const value = fixture();
     mutate(value);
@@ -100,13 +99,12 @@ test("registry signature, provenance, content, source and permission mismatches 
   }
 });
 
-test("package gate cannot treat caller npm observations as Effect authorization", () => {
+test("package gate cannot treat caller CRDD observations as Effect authorization", () => {
   const contract = describePlatformProvisionerPackageGateContract();
-  assert.equal(contract.distributionModel, "mjs_npm_package");
+  assert.equal(contract.distributionModel, "crdd_bundled_private_mjs_package");
   assert.equal(contract.observationContract, "implemented_candidate_non_authoritative");
-  assert.equal(contract.runtimeOwnedNpmRegistrySignatureAdapter, "not_implemented");
-  assert.equal(contract.runtimeOwnedNpmProvenanceAdapter, "not_implemented");
+  assert.equal(contract.runtimeOwnedCrddDistributionAdapter, "not_implemented");
   assert.equal(contract.callerObservationMayAuthorizeEffect, false);
-  assert.equal(contract.sourceCheckoutMayAuthorizeEffect, false);
+  assert.equal(contract.standalonePackageMayAuthorizeEffect, false);
   assert.equal(contract.effectAuthorizationIssued, false);
 });

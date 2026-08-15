@@ -20,7 +20,7 @@ export const PLATFORM_PROVISIONER_PACKAGE_CONTENT_DOMAIN =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V1\0";
 
 const MANIFEST_KEYS = new Set([
-  "contract", "contractRevision", "packageName", "packageVersion",
+  "contract", "contractRevision", "packageName", "packageVersion", "crddRevision",
   "packageContentRootSha256", "rootProtectionPolicySha256",
   "keyStoragePolicySha256", "issuedAt", "expiresAt"
 ]);
@@ -32,6 +32,7 @@ const VERIFY_KEYS = new Set([
   "manifestEnvelope", "releaseSignerSpkiDer", "observedPackageContent", "evaluationTime"
 ]);
 const HEX64 = /^[0-9a-f]{64}$/u;
+const CRDD_REVISION = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 const PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/u;
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
@@ -50,8 +51,7 @@ function response(status, reason, fields = {}) {
     reason,
     ...fields,
     runtimeOwnedReleaseTrustConfirmed: false,
-    npmRegistrySignatureConfirmed: false,
-    npmProvenanceConfirmed: false,
+    crddDistributionConfirmed: false,
     runtimeOwnedPackageFilesystemConfirmed: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
@@ -112,6 +112,7 @@ function normalizeManifest(raw) {
   if (!value || value.contract !== PLATFORM_PROVISIONER_MANIFEST_CONTRACT ||
       value.contractRevision !== PLATFORM_PROVISIONER_MANIFEST_REVISION ||
       !packageIdentity(value.packageName, value.packageVersion) ||
+      typeof value.crddRevision !== "string" || !CRDD_REVISION.test(value.crddRevision) ||
       typeof value.packageContentRootSha256 !== "string" ||
       !HEX64.test(value.packageContentRootSha256) ||
       typeof value.rootProtectionPolicySha256 !== "string" ||
@@ -214,10 +215,11 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput) {
       return response("blocked", "platform_provisioner_manifest_signature_mismatch");
     }
     return response("candidate",
-      "runtime_owned_release_trust_npm_attestations_and_package_filesystem_required", {
+      "runtime_owned_crdd_distribution_release_trust_and_package_filesystem_required", {
         manifestHash: manifestFrame.hash,
         packageName: observed.packageName,
         packageVersion: observed.packageVersion,
+        crddRevision: envelope.payload.crddRevision,
         packageContentRootSha256: contentFrame.hash,
         qualLabManifestCryptographicMatch: true
       });
@@ -230,7 +232,7 @@ export function describePlatformProvisionerTrustCoreContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-trust-core",
     contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
-    distributionModel: "mjs_npm_package",
+    distributionModel: "crdd_bundled_private_mjs_package",
     manifestContract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
     envelopeContract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
     manifestDomain: PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
@@ -241,13 +243,14 @@ export function describePlatformProvisionerTrustCoreContract() {
     manifestCryptographicVerification: "implemented_candidate",
     packageContentRootCalculation: "implemented_candidate_from_owned_snapshot_of_caller_file_metadata",
     runtimeOwnedPackageFilesystemRead: "not_implemented",
-    npmRegistrySignatureVerification: "not_implemented_install_time_receipt_target",
-    npmProvenanceVerification: "not_implemented_install_time_attestation_target",
+    standalonePackagePublicationAllowed: false,
+    standalonePackageInstallationAllowed: false,
+    runtimeOwnedCrddDistributionVerification: "not_implemented_crdd_release_identity_target",
     runtimeOwnedReleaseTrustSelection: "not_implemented",
     dedicatedNativeExecutableRequiredForV1: false,
     osNativeCodeSignatureRequiredForV1: false,
     packagedBuildAcceptance:
-      "npm_registry_signature_provenance_qual_lab_manifest_and_package_filesystem_all_required_before_effect_target",
+      "verified_crdd_distribution_qual_lab_manifest_and_package_filesystem_all_required_before_effect_target",
     localDevelopmentBehavior:
       "source_checkout_and_test_only_without_trust_gate_or_filesystem_effect_target",
     explicitProvisionCommandRequired: true,

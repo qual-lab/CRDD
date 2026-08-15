@@ -108,11 +108,10 @@ if (!command || command === "help" || command === "--help" || command === "-h") 
     status: "blocked",
     command,
     reason: parsed.status === "ok"
-      ? "platform_provisioner_package_trust_and_effect_not_implemented"
+      ? "platform_provisioner_crdd_bundle_trust_and_effect_not_implemented"
       : parsed.reason,
     dryRunOnly: true,
-    npmRegistrySignatureConfirmed: false,
-    npmProvenanceConfirmed: false,
+    crddDistributionConfirmed: false,
     packageFilesystemIdentityConfirmed: false,
     qualLabManifestTrustConfirmed: false,
     filesystemEffectIssued: false,

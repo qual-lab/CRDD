@@ -112,8 +112,7 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   enrollmentCertificateRenewalContract: "provisioning_record_contract",
   enrollmentCertificateRenewalVerification: "provisioning_record_verification",
   platformProvisionerManifestVerification: "platform_provisioner_verification",
-  platformProvisionerNpmRegistrySignatureVerification: "platform_provisioner_verification",
-  platformProvisionerNpmProvenanceVerification: "platform_provisioner_verification",
+  platformProvisionerCrddDistributionVerification: "platform_provisioner_verification",
   platformProvisionerPackageGateObservation: "platform_provisioner_verification",
   platformProvisionerPackageFilesystemVerification: "platform_provisioner_verification",
   installationKeyGeneration: "platform_provisioner_effect",
@@ -403,10 +402,8 @@ export function describeRuntimeActivationContract() {
       enrollmentCertificateRenewal.transitionVerification,
     platformProvisionerManifestVerification:
       platformProvisionerTrustCore.manifestCryptographicVerification,
-    platformProvisionerNpmRegistrySignatureVerification:
-      platformProvisionerTrustCore.npmRegistrySignatureVerification,
-    platformProvisionerNpmProvenanceVerification:
-      platformProvisionerTrustCore.npmProvenanceVerification,
+    platformProvisionerCrddDistributionVerification:
+      platformProvisionerTrustCore.runtimeOwnedCrddDistributionVerification,
     platformProvisionerPackageGateObservation:
       platformProvisionerPackageGate.observationContract,
     platformProvisionerPackageFilesystemVerification:
