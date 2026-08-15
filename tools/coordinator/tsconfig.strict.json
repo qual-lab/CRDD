@@ -20,7 +20,7 @@
     "bin/coordinator.mjs",
     "src/core/cli-options.mjs",
     "src/core/doctor.mjs",
-    "src/security/authority-prelaunch-verifier.mjs",
+    "src/security/authority-prelaunch-verifier.ts",
     "src/security/authority-file-bundle.mjs",
     "src/security/authority-grant-verifier.mjs",
     "src/security/authority-root-path-lexical.ts",

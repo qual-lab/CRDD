@@ -1,11 +1,5 @@
-// @ts-check
-
-import {
-  evaluateAuthorityGrantCandidate
-} from "./authority-grant-verifier.mjs";
-import {
-  loadAuthorityFileBundleCandidate
-} from "./authority-file-bundle.mjs";
+import { evaluateAuthorityGrantCandidate } from "./authority-grant-verifier.mjs";
+import { loadAuthorityFileBundleCandidate } from "./authority-file-bundle.mjs";
 import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.mjs";
 import { snapshotPlainRecord } from "./plain-data-snapshot.mjs";
 
@@ -16,13 +10,12 @@ const INTRINSIC_DATE = Date;
 const INTRINSIC_DATE_NOW = Date.now;
 const INTRINSIC_DATE_TO_ISO = Date.prototype.toISOString;
 
-/** @param {string} reason */
-function blocked(reason) {
+function blocked(reason: string) {
   return Object.freeze({
     status: "blocked",
     reason,
     verification: null,
-    runtimeCapabilityIssued: false
+    runtimeCapabilityIssued: false,
   });
 }
 
@@ -33,8 +26,7 @@ function runtimeNow() {
   return Reflect.apply(INTRINSIC_DATE_TO_ISO, value, []);
 }
 
-/** @param {unknown} rawContext */
-function normalizeContext(rawContext) {
+function normalizeContext(rawContext: unknown) {
   const context = snapshotPlainRecord(rawContext, CONTEXT_KEYS);
   if (
     !context ||
@@ -44,35 +36,38 @@ function normalizeContext(rawContext) {
     typeof context.scopeId !== "string" ||
     context.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !SCOPE_ID.test(context.scopeId)
-  ) return null;
+  )
+    return null;
   return Object.freeze({
     operationId: context.operationId,
-    scopeId: context.scopeId
+    scopeId: context.scopeId,
   });
 }
 
 export function reverifyAuthorityBeforeProviderLaunch(
-  /** @type {unknown} */
-  rawProfile,
-  /** @type {unknown} */
-  rawBundle,
-  /** @type {unknown} */
-  rawContext
+  rawProfile: unknown,
+  rawBundle: unknown,
+  rawContext: unknown,
 ) {
   try {
     const context = normalizeContext(rawContext);
     if (!context) return blocked("prelaunch_authority_context_invalid");
 
     const bundle = loadAuthorityFileBundleCandidate(rawBundle);
-    if (bundle.status !== "candidate") return blocked("prelaunch_authority_file_bundle_invalid");
+    if (bundle.status !== "candidate")
+      return blocked("prelaunch_authority_file_bundle_invalid");
 
     const evaluatedAt = runtimeNow();
     if (!evaluatedAt) return blocked("prelaunch_runtime_clock_invalid");
-    const authority = evaluateAuthorityGrantCandidate(rawProfile, bundle.registry, {
-      operationId: context.operationId,
-      scopeId: context.scopeId,
-      now: evaluatedAt
-    });
+    const authority = evaluateAuthorityGrantCandidate(
+      rawProfile,
+      bundle.registry,
+      {
+        operationId: context.operationId,
+        scopeId: context.scopeId,
+        now: evaluatedAt,
+      },
+    );
     if (authority.status !== "candidate") return blocked(authority.reason);
     if (authority.registryHash !== bundle.registryHash) {
       return blocked("prelaunch_authority_registry_identity_mismatch");
@@ -89,9 +84,9 @@ export function reverifyAuthorityBeforeProviderLaunch(
         trustPolicyId: bundle.trustPolicy.policyId,
         trustPolicyRevision: bundle.trustPolicy.policyRevision,
         trustPolicyHash: bundle.trustPolicyHash,
-        prelaunchCheckedAt: evaluatedAt
+        prelaunchCheckedAt: evaluatedAt,
       }),
-      runtimeCapabilityIssued: false
+      runtimeCapabilityIssued: false,
     });
   } catch {
     return blocked("prelaunch_authority_input_invalid");
@@ -107,6 +102,6 @@ export function describeAuthorityPrelaunchVerifierContract() {
     authorityFileBundleCore: "implemented_candidate",
     runtimeCapabilityIssued: false,
     callerSuppliedTimeAccepted: false,
-    candidateReusableAsCapability: false
+    candidateReusableAsCapability: false,
   });
 }

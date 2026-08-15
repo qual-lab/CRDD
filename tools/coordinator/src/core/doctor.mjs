@@ -19,7 +19,7 @@ import { describeProviderIsolationContract } from "../security/provider-isolatio
 import { describeEgressProxyTopology } from "../security/egress-proxy-policy.mjs";
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.mjs";
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.mjs";
-import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.mjs";
+import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
 import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.mjs";
 import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
 import { describeRuntimeRootContract, selectRuntimeRootCandidate } from "../security/runtime-root-profile.ts";

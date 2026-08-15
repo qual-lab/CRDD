@@ -11,7 +11,7 @@ import {
 import {
   describeAuthorityPrelaunchVerifierContract,
   reverifyAuthorityBeforeProviderLaunch
-} from "../src/security/authority-prelaunch-verifier.mjs";
+} from "../src/security/authority-prelaunch-verifier.ts";
 import {
   AUTHORITY_TRUST_POLICY_CONTRACT,
   decodeCanonicalAuthorityTrustPolicyBytes

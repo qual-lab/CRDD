@@ -68,3 +68,5 @@ Coordinatorのproduction 38 moduleを全数strict型検査へ追加した。現�
 `platform-provisioner-package-gate.mjs`を`.ts`へ移し、外部入力と観測値を`unknown`、candidate／blocked responseと追加fieldをgeneric TypeScript型へ置換した。CRDD同梱・単体非許可、manifest結合、caller観測非Authority、Effect未発行およびGateを変更せず、productionの移行済み数は7 / 38である。
 
 `runtime-root-profile.mjs`を`.ts`へ移し、公開入力とPath predicateを`unknown`から安全に絞り、selectionを保持するgeneric responseへ置換した。CLI／環境／Repository既定の優先順位、明示enable、Path非出力、Authority／Capability／EffectおよびGateを変更せず、productionの移行済み数は8 / 38である。
+
+`authority-prelaunch-verifier.mjs`を`.ts`へ移し、3つの公開入力と内部contextを`unknown`、blocked理由を`string`へ置換した。Runtime時計、Bundle／Grant再検証、Registry結合、Capability未発行およびGateを変更せず、productionの移行済み数は9 / 38である。
