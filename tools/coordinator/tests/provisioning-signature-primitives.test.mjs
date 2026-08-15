@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 
 import {
@@ -6,8 +7,10 @@ import {
   canonicalizeProvisioningJsonValueCandidate,
   describeProvisioningSignaturePrimitivesContract,
   inspectProvisioningEd25519SpkiCandidate,
+  inspectProvisioningP256SpkiCandidate,
   verifyProvisioningEd25519Base64urlCandidate,
-  verifyProvisioningEd25519PrimitiveCandidate
+  verifyProvisioningEd25519PrimitiveCandidate,
+  verifyProvisioningP256Base64urlCandidate
 } from "../src/security/provisioning-signature-primitives.mjs";
 
 const RFC_8032_PUBLIC_KEY =
@@ -16,6 +19,17 @@ const RFC_8032_SIGNATURE =
   "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e06522490155" +
   "5fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b";
 const ED25519_SPKI_PREFIX = "302a300506032b6570032100";
+const P256_ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+
+function lowSP256(signature) {
+  const result = Buffer.from(signature);
+  const s = BigInt(`0x${result.subarray(32).toString("hex")}`);
+  if (s > (P256_ORDER >> 1n)) {
+    const normalized = (P256_ORDER - s).toString(16).padStart(64, "0");
+    Buffer.from(normalized, "hex").copy(result, 32);
+  }
+  return result;
+}
 
 function spki() {
   return Buffer.from(`${ED25519_SPKI_PREFIX}${RFC_8032_PUBLIC_KEY}`, "hex");
@@ -242,6 +256,41 @@ test("RFC 4648のpaddingなしbase64url署名だけを内部復号して個別�
   assert.equal(proxyCalls, 0);
 });
 
+test("P-256 SPKIと固定P1363署名をhardware-backed installation key候補に限定する", () => {
+  const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const spkiDer = pair.publicKey.export({ format: "der", type: "spki" });
+  const message = Buffer.from("p256 provisioning primitive");
+  const signature = lowSP256(sign("sha256", message, {
+    key: pair.privateKey,
+    dsaEncoding: "ieee-p1363"
+  }));
+  const signatureBase64url = signature.toString("base64url");
+  assert.equal(spkiDer.length, 91);
+  assert.equal(signatureBase64url.length, 86);
+  const inspected = inspectProvisioningP256SpkiCandidate(spkiDer);
+  assert.equal(inspected.status, "candidate");
+  assert.equal(inspected.spkiSha256Digest.length, 32);
+  const verified = verifyProvisioningP256Base64urlCandidate({
+    spkiDer, message, signatureBase64url
+  });
+  assert.equal(verified.status, "candidate");
+  assert.equal(verified.cryptographicMatch, true);
+  assert.equal(verified.runtimeAuthorityConferred, false);
+  assert.equal(verifyProvisioningP256Base64urlCandidate({
+    spkiDer, message: Buffer.from("changed"), signatureBase64url
+  }).status, "blocked");
+  assert.equal(inspectProvisioningP256SpkiCandidate(spki()).status, "blocked");
+  assert.equal(verifyProvisioningP256Base64urlCandidate({
+    spkiDer, message, signatureBase64url: `${signatureBase64url}=`
+  }).status, "blocked");
+  const highS = Buffer.from(signature);
+  const s = BigInt(`0x${highS.subarray(32).toString("hex")}`);
+  Buffer.from((P256_ORDER - s).toString(16).padStart(64, "0"), "hex").copy(highS, 32);
+  assert.equal(verifyProvisioningP256Base64urlCandidate({
+    spkiDer, message, signatureBase64url: highS.toString("base64url")
+  }).reason, "provisioning_p256_signature_noncanonical");
+});
+
 test("公開contractはprimitiveと未決の統合Trust境界を分離する", () => {
   assert.deepEqual(describeProvisioningSignaturePrimitivesContract(), {
     contract: "crdd-coordinator/provisioning-signature-primitives",
@@ -252,6 +301,9 @@ test("公開contractはprimitiveと未決の統合Trust境界を分離する", (
     spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
     ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
     ed25519SignatureBase64url: "implemented_candidate_rfc_4648_unpadded",
+    p256SpkiDerInspection: "implemented_candidate_sec1_rfc_5480",
+    p256PrimitiveVerification: "implemented_candidate_ecdsa_sha256_ieee_p1363",
+    p256SignatureBase64url: "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
     keyIdEncoding: "implemented_candidate_in_provisioning_record_pure_core",
     payloadSignatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
     crddDomainSeparationFraming: "implemented_candidate_in_provisioning_record_pure_core",

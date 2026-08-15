@@ -16,8 +16,19 @@ import {
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 
+const P256_ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+
+function lowSP256(signature) {
+  const result = Buffer.from(signature);
+  const s = BigInt(`0x${result.subarray(32).toString("hex")}`);
+  if (s > (P256_ORDER >> 1n)) {
+    Buffer.from((P256_ORDER - s).toString(16).padStart(64, "0"), "hex").copy(result, 32);
+  }
+  return result;
+}
+
 function requestFixture(offsetMilliseconds = 0) {
-  const key = generateKeyPairSync("ed25519");
+  const key = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const spki = key.publicKey.export({ format: "der", type: "spki" });
   const keyId = createHash("sha256").update(spki).digest("hex");
   const issued = new Date(Date.now() + offsetMilliseconds);
@@ -54,8 +65,10 @@ function requestFixture(offsetMilliseconds = 0) {
     contract: INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT,
     contractRevision: 1,
     payload: request,
-    signatures: [{ keyId, algorithm: "Ed25519",
-      signature: sign(null, message, key.privateKey).toString("base64url") }]
+    signatures: [{ keyId, algorithm: "ECDSA-P256-SHA256",
+      signature: lowSP256(sign("sha256", message, {
+        key: key.privateKey, dsaEncoding: "ieee-p1363"
+      })).toString("base64url") }]
   };
   return { challenge, requestEnvelope };
 }

@@ -23,6 +23,17 @@ import {
 import { canonicalizeProvisioningJsonValueCandidate } from
   "../src/security/provisioning-signature-primitives.mjs";
 
+const P256_ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+
+function lowSP256(signature) {
+  const result = Buffer.from(signature);
+  const s = BigInt(`0x${result.subarray(32).toString("hex")}`);
+  if (s > (P256_ORDER >> 1n)) {
+    Buffer.from((P256_ORDER - s).toString(16).padStart(64, "0"), "hex").copy(result, 32);
+  }
+  return result;
+}
+
 function framed(domain, payload) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload).canonicalBytes;
   const length = Buffer.alloc(8);
@@ -35,7 +46,7 @@ function canonicalBytes(payload) {
 }
 
 function fixture() {
-  const installation = generateKeyPairSync("ed25519");
+  const installation = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const issuer = generateKeyPairSync("ed25519");
   const installationSpki = installation.publicKey.export({ format: "der", type: "spki" });
   const installationKeyId = createHash("sha256").update(installationSpki).digest("hex");
@@ -62,13 +73,14 @@ function fixture() {
     installationKeySpkiDer: installationSpki.toString("base64url"),
     requestedAt: "2026-08-15T00:05:00.000Z"
   };
-  const proofOfPossession = sign(null, framed(INITIAL_ENROLLMENT_DOMAINS.request, request),
-    installation.privateKey).toString("base64url");
+  const proofOfPossession = lowSP256(sign("sha256", framed(INITIAL_ENROLLMENT_DOMAINS.request, request), {
+    key: installation.privateKey, dsaEncoding: "ieee-p1363"
+  })).toString("base64url");
   const requestEnvelope = {
     contract: INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT,
     contractRevision: 1,
     payload: request,
-    signatures: [{ keyId: installationKeyId, algorithm: "Ed25519",
+    signatures: [{ keyId: installationKeyId, algorithm: "ECDSA-P256-SHA256",
       signature: proofOfPossession }]
   };
   const certificate = {
@@ -198,7 +210,7 @@ test("request and certificate envelopes require one exact role-bound signature",
   const accessorSignature = {};
   Object.defineProperty(accessorSignature, "keyId", { enumerable: true,
     get() { calls += 1; return value.requestEnvelope.signatures[0].keyId; } });
-  accessorSignature.algorithm = "Ed25519";
+  accessorSignature.algorithm = "ECDSA-P256-SHA256";
   accessorSignature.signature = value.proofOfPossession;
   assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
     requestEnvelope: { ...value.requestEnvelope, signatures: [accessorSignature] } }).status,
@@ -375,6 +387,9 @@ test("contract keeps effects and deferred enrollment capabilities closed", () =>
     contract: "crdd-coordinator/initial-enrollment-pure-core",
     contractRevision: 1,
     supportedFlow: "initial_online_enrollment_only",
+    installationKeyAlgorithm: "ECDSA-P256-SHA256",
+    installationKeySignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
+    provisioningCaSignatureAlgorithm: "Ed25519",
     challengeObjectContractAndDomainFraming: "implemented_candidate",
     requestObjectContractAndDomainFraming: "implemented_candidate",
     certificateObjectContractAndDomainFraming: "implemented_candidate",

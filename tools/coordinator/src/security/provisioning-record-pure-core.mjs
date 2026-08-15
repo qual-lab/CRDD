@@ -4,8 +4,8 @@ import { types as utilTypes } from "node:util";
 import {
   PROVISIONING_SIGNATURE_INPUT_LIMITS,
   canonicalizeProvisioningJsonValueCandidate,
-  inspectProvisioningEd25519SpkiCandidate,
-  verifyProvisioningEd25519Base64urlCandidate
+  inspectProvisioningP256SpkiCandidate,
+  verifyProvisioningP256Base64urlCandidate
 } from "./provisioning-signature-primitives.mjs";
 import {
   AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
@@ -159,7 +159,7 @@ function normalizeRecord(value) {
 
 function normalizeSignature(value) {
   const entry = exactRecord(value, SIGNATURE_KEYS);
-  return entry && exactHash(entry.keyId) && entry.algorithm === "Ed25519" &&
+  return entry && exactHash(entry.keyId) && entry.algorithm === "ECDSA-P256-SHA256" &&
     typeof entry.signature === "string" && entry.signature.length === 86 &&
     BASE64URL.test(entry.signature) && Buffer.from(entry.signature, "base64url").length === 64 &&
     Buffer.from(entry.signature, "base64url").toString("base64url") === entry.signature
@@ -182,10 +182,10 @@ function normalizeEnvelope(value) {
 }
 
 function decodeSpki(value) {
-  if (typeof value !== "string" || value.length !== 59 || !BASE64URL.test(value)) return null;
+  if (typeof value !== "string" || value.length !== 122 || !BASE64URL.test(value)) return null;
   const bytes = Buffer.from(value, "base64url");
-  if (bytes.length !== 44 || bytes.toString("base64url") !== value) return null;
-  const inspected = inspectProvisioningEd25519SpkiCandidate(bytes);
+  if (bytes.length !== 91 || bytes.toString("base64url") !== value) return null;
+  const inspected = inspectProvisioningP256SpkiCandidate(bytes);
   if (inspected.status !== "candidate") return null;
   return Object.freeze({ bytes, keyId: inspected.spkiSha256Digest.toString("hex") });
 }
@@ -193,7 +193,7 @@ function decodeSpki(value) {
 function normalizeKey(value) {
   const key = exactRecord(value, KEY_KEYS);
   const spki = key && decodeSpki(key.spkiDer);
-  if (!key || !exactHash(key.keyId) || key.algorithm !== "Ed25519" || !spki ||
+  if (!key || !exactHash(key.keyId) || key.algorithm !== "ECDSA-P256-SHA256" || !spki ||
       spki.keyId !== key.keyId || !exactId(key.enrollmentCaId) ||
       !canonicalUtc(key.notBefore) || !canonicalUtc(key.notAfter) ||
       Date.parse(key.notAfter) <= Date.parse(key.notBefore)) return null;
@@ -377,7 +377,7 @@ export function verifyProvisioningRecordAggregateCandidate(rawInput) {
       if (now < Date.parse(key.record.notBefore) || now >= Date.parse(key.record.notAfter)) {
         return aggregateBlocked("provisioning_record_aggregate_key_time_invalid");
       }
-      const result = verifyProvisioningEd25519Base64urlCandidate({
+      const result = verifyProvisioningP256Base64urlCandidate({
         spkiDer: key.spkiDer, message: message.message, signatureBase64url: signature.signature
       });
       if (result.status !== "candidate") return aggregateBlocked("provisioning_record_aggregate_signature_invalid");
@@ -409,6 +409,8 @@ export function describeProvisioningRecordPureCoreContract() {
     revocationManifestContract: PROVISIONING_REVOCATION_MANIFEST_CONTRACT,
     domainFraming: "implemented_candidate_fixed_prefix_uint64be_length_jcs_payload",
     keyIdEncoding: "implemented_candidate_spki_der_sha256_lowercase_hex_64",
+    recordSignatureAlgorithm: "ECDSA-P256-SHA256",
+    recordSignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
     recordPayloadCodec: "implemented_candidate",
     multiSignatureEnvelopeCodec: "implemented_candidate",
     trustAnchorSetCodec: "implemented_candidate_untrusted_input",

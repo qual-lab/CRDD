@@ -781,3 +781,11 @@ Qual-Labの人間の決定権限者は、登録要求と登録証明書のEnvelo
 人間の指示により、残るProvisioning実装を依存順の複数コミットで進める。第1単位は、Runtime自身が取得するwall clockとmonotonic clockを同時に観測し、同一process内で時計の後退を検出するController、および有効なチャレンジに対する最初の検証試行を成功・失敗のいずれでも消費する上限4096件のprocess内台帳である。期限切れ、未発行、再利用、容量超過または時計の後退は`blocked`とし、期限切れ・再利用・失敗ではfresh challengeを要求する。通常run、doctorまたは暗黙経路から発火しない。
 
 process再起動をまたぐ永続台帳、保存Path、ACL、atomic persistenceおよび複数process間の排他は未実装である。このため成功結果も`persistenceConfirmed: false`のcandidateに限定し、replay防止、Trust、Authority、Capability、Filesystem／Network EffectまたはGateを成立させない。新しいRuntime state contractを既存`provisioning_record_verification` dependencyへ接続するが、`enrollmentReplayProtectionPersistence`は`not_implemented`、12 blockerと6 current-run evidenceは不変とする。本処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。
+
+### 2026-08-15 — 端末導入鍵と準備記録署名のP-256統一
+
+Qual-Labの人間の決定権限者は、OS管理鍵保管との相互運用境界を簡潔に保つため、revision 1の端末導入鍵とProvisioning Record署名をECDSA P-256 with SHA-256へ統一した。公開鍵はRFC 5480のP-256 exact SPKI DER、鍵識別子はそのDERのSHA-256 lowercase hexadecimal 64文字、署名値はlow-Sへ一意化した固定64-byte IEEE P1363形式をpaddingなしcanonical base64urlで表す。登録要求の所有証明とProvisioning Record署名はこの同一algorithm familyを使用する。一方、準備認証局（Provisioning CA）による登録証明書署名は既存Ed25519 roleを維持し、端末鍵またはRecord署名鍵と相互転用しない。
+
+RSA、P-384／P-521、Ed25519端末鍵およびalgorithm fallbackはrevision 1の入力母集団へ含めない。未知algorithm、別曲線、DER形式署名、可変長署名またはrole不一致はfail closedで拒否する。過去の初回オンラインEnvelope節に記録された端末導入鍵Ed25519値は当時の履歴として改変しないが、本後続判断により端末導入鍵とRecord署名の現在判定には使用しない。公開済み／安定成果物への移行はなく、未Releaseのcandidate contractだけを更新する。
+
+今回の実装はP-256 SPKI inspection、ECDSA SHA-256／IEEE P1363個別検証、登録要求所有証明、Provisioning Record codec／aggregate、およびruntime activation／doctor／文書の状態投影に限定する。OS keystore／TPM／Secure Enclaveでの実鍵生成・署名、Runtime所有Trust、CA配布、Filesystem、Network、Authority、CapabilityまたはEffectを成立させない。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持する。処置は`Applied`／`Self-checked`であり、後続単位を含む固定版の独立レビュー前は`Resolved`ではない。

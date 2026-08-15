@@ -21,6 +21,8 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
 ).get;
 const VERIFY_KEYS = new Set(["spkiDer", "message", "signature"]);
 const BASE64URL_VERIFY_KEYS = new Set(["spkiDer", "message", "signatureBase64url"]);
+const P256_ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+const P256_HALF_ORDER = P256_ORDER >> 1n;
 const UNPADDED_BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const INVALID = Symbol("invalid");
 
@@ -222,6 +224,25 @@ function inspectSpki(input) {
   return Object.freeze({ key, spkiDer });
 }
 
+function inspectP256Spki(input) {
+  const spkiDer = ownedBuffer(input, PROVISIONING_SIGNATURE_INPUT_LIMITS.spkiDerBytes);
+  if (!spkiDer || spkiDer.length !== 91) return null;
+  const key = createPublicKey({ key: spkiDer, format: "der", type: "spki" });
+  if (key.asymmetricKeyType !== "ec" || key.asymmetricKeyDetails?.namedCurve !== "prime256v1") {
+    return null;
+  }
+  const canonicalDer = key.export({ format: "der", type: "spki" });
+  if (!Buffer.prototype.equals.call(spkiDer, canonicalDer)) return null;
+  return Object.freeze({ key, spkiDer });
+}
+
+function canonicalP256Signature(signature) {
+  if (signature.length !== 64) return false;
+  const r = BigInt(`0x${signature.subarray(0, 32).toString("hex")}`);
+  const s = BigInt(`0x${signature.subarray(32).toString("hex")}`);
+  return r > 0n && r < P256_ORDER && s > 0n && s <= P256_HALF_ORDER;
+}
+
 export function inspectProvisioningEd25519SpkiCandidate(input) {
   try {
     const inspected = inspectSpki(input);
@@ -236,6 +257,23 @@ export function inspectProvisioningEd25519SpkiCandidate(input) {
     });
   } catch {
     return blocked("provisioning_ed25519_spki_invalid");
+  }
+}
+
+export function inspectProvisioningP256SpkiCandidate(input) {
+  try {
+    const inspected = inspectP256Spki(input);
+    if (!inspected) return blocked("provisioning_p256_spki_invalid");
+    return Object.freeze({
+      status: "candidate",
+      reason: "provisioning_hardware_key_binding_and_key_id_encoding_required",
+      spkiSha256Digest: createHash("sha256").update(inspected.spkiDer).digest(),
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: false
+    });
+  } catch {
+    return blocked("provisioning_p256_spki_invalid");
   }
 }
 
@@ -302,6 +340,45 @@ export function verifyProvisioningEd25519Base64urlCandidate(rawInput) {
   }
 }
 
+export function verifyProvisioningP256Base64urlCandidate(rawInput) {
+  try {
+    const input = snapshotExactInput(rawInput, BASE64URL_VERIFY_KEYS);
+    if (!input || typeof input.signatureBase64url !== "string" ||
+        input.signatureBase64url.length !== 86 ||
+        !UNPADDED_BASE64URL.test(input.signatureBase64url)) {
+      return blocked("provisioning_p256_base64url_input_invalid");
+    }
+    const signature = Buffer.from(input.signatureBase64url, "base64url");
+    if (signature.length !== PROVISIONING_SIGNATURE_INPUT_LIMITS.signatureBytes ||
+        signature.toString("base64url") !== input.signatureBase64url) {
+      return blocked("provisioning_p256_base64url_input_invalid");
+    }
+    if (!canonicalP256Signature(signature)) {
+      return blocked("provisioning_p256_signature_noncanonical");
+    }
+    const inspected = inspectP256Spki(input.spkiDer);
+    const message = ownedBuffer(input.message, PROVISIONING_SIGNATURE_INPUT_LIMITS.canonicalBytes);
+    if (!inspected || !message || !verify("sha256", message, {
+      key: inspected.key,
+      dsaEncoding: "ieee-p1363"
+    }, signature)) {
+      return blocked(inspected && message
+        ? "provisioning_p256_cryptographic_mismatch"
+        : "provisioning_p256_input_invalid");
+    }
+    return Object.freeze({
+      status: "candidate",
+      reason: "provisioning_domain_trust_revocation_and_envelope_verification_required",
+      cryptographicMatch: true,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: false
+    });
+  } catch {
+    return blocked("provisioning_p256_input_invalid");
+  }
+}
+
 export function describeProvisioningSignaturePrimitivesContract() {
   return Object.freeze({
     contract: PROVISIONING_SIGNATURE_PRIMITIVES_CONTRACT,
@@ -312,6 +389,9 @@ export function describeProvisioningSignaturePrimitivesContract() {
     spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
     ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
     ed25519SignatureBase64url: "implemented_candidate_rfc_4648_unpadded",
+    p256SpkiDerInspection: "implemented_candidate_sec1_rfc_5480",
+    p256PrimitiveVerification: "implemented_candidate_ecdsa_sha256_ieee_p1363",
+    p256SignatureBase64url: "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
     keyIdEncoding: "implemented_candidate_in_provisioning_record_pure_core",
     payloadSignatureEnvelopeTopology: PROVISIONING_SIGNATURE_ENVELOPE_TOPOLOGY,
     crddDomainSeparationFraming: "implemented_candidate_in_provisioning_record_pure_core",

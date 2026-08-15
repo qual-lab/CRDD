@@ -230,9 +230,12 @@ test("Activation contractは永続化、専用command、再activation、disable/
       jcsValueCanonicalization: "implemented_candidate_rfc_8785",
       rawJsonDuplicateKeyDecoder: "not_implemented",
       ed25519SpkiDerInspection: "implemented_candidate_rfc_8410",
+      p256SpkiDerInspection: "implemented_candidate_sec1_rfc_5480",
       spkiSha256Digest: "implemented_candidate_not_key_id_encoding",
       ed25519PrimitiveVerification: "implemented_candidate_rfc_8032",
       ed25519SignatureBase64url: "implemented_candidate_rfc_4648_unpadded",
+      p256PrimitiveVerification: "implemented_candidate_ecdsa_sha256_ieee_p1363",
+      p256SignatureBase64url: "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
       keyIdEncoding: "implemented_candidate_in_provisioning_record_pure_core",
       payloadSignatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
       crddDomainSeparationFraming: "implemented_candidate_in_provisioning_record_pure_core",
@@ -263,6 +266,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       trustAnchorSetCodec: "implemented_candidate_untrusted_input",
       revocationManifestCodec: "implemented_candidate_untrusted_input",
       aggregateCryptographicCondition: "implemented_candidate_fail_closed_all_entries",
+      recordSignatureAlgorithm: "ECDSA-P256-SHA256",
+      recordSignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
       runtimeOwnedBundledTrustSelection: "not_implemented",
       rollbackResistantTrustFloor: "not_implemented",
       filesystemRead: "not_implemented",
@@ -272,7 +277,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       runtimeCapabilityIssued: false
     },
     signatureEnvelopeTopology: "payload_and_multiple_signatures_separated_target",
-    signatureEncoding: "implemented_candidate_rfc_4648_unpadded",
+    signatureEncoding: "implemented_candidate_low_s_ieee_p1363_rfc_4648_unpadded",
     keyIdEncoding: "implemented_candidate_spki_der_sha256_lowercase_hex_64",
     multiSignatureAcceptancePolicy:
       "one_or_more_trusted_non_revoked_valid_and_no_unknown_revoked_duplicate_or_invalid_target",
@@ -290,7 +295,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   });
   assert.deepEqual(contract.installationKeyEnrollmentPolicy, {
     policy: "human_approved_candidate_contract_only",
-    installationKeyAlgorithmTarget: "Ed25519_target",
+    installationKeyAlgorithmTarget: "ECDSA_P256_SHA256_target",
     installationKeyGenerationTarget:
       "platform_scope_os_managed_key_storage_boundary_target",
     installationKeyBackendCandidates: [

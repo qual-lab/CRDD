@@ -16,8 +16,19 @@ import {
   verifyProvisioningRecordAggregateCandidate
 } from "../src/security/provisioning-record-pure-core.mjs";
 
+const P256_ORDER = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+
+function lowSP256(signature) {
+  const result = Buffer.from(signature);
+  const s = BigInt(`0x${result.subarray(32).toString("hex")}`);
+  if (s > (P256_ORDER >> 1n)) {
+    Buffer.from((P256_ORDER - s).toString(16).padStart(64, "0"), "hex").copy(result, 32);
+  }
+  return result;
+}
+
 function fixture() {
-  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const spkiDer = publicKey.export({ format: "der", type: "spki" });
   const keyId = createHash("sha256").update(spkiDer).digest("hex");
   const payload = {
@@ -49,8 +60,10 @@ function fixture() {
     payload,
     signatures: [{
       keyId,
-      algorithm: "Ed25519",
-      signature: sign(null, domain.message, privateKey).toString("base64url")
+      algorithm: "ECDSA-P256-SHA256",
+      signature: lowSP256(sign("sha256", domain.message, {
+        key: privateKey, dsaEncoding: "ieee-p1363"
+      })).toString("base64url")
     }]
   };
   const keyset = {
@@ -59,7 +72,7 @@ function fixture() {
     trustEpoch: 1,
     keys: [{
       keyId,
-      algorithm: "Ed25519",
+      algorithm: "ECDSA-P256-SHA256",
       spkiDer: spkiDer.toString("base64url"),
       enrollmentCaId: "7".repeat(32),
       notBefore: "2025-12-01T00:00:00.000Z",
@@ -91,8 +104,10 @@ function signingEntry(payload, privateKey, keyId) {
   assert.equal(domain.status, "candidate");
   return {
     keyId,
-    algorithm: "Ed25519",
-    signature: sign(null, domain.message, privateKey).toString("base64url")
+    algorithm: "ECDSA-P256-SHA256",
+    signature: lowSP256(sign("sha256", domain.message, {
+      key: privateKey, dsaEncoding: "ieee-p1363"
+    })).toString("base64url")
   };
 }
 
@@ -119,6 +134,8 @@ test("domain framing、key ID、4成果物のrevision 1を単一contractとし�
     revocationManifestContract: "crdd-coordinator/provisioning-revocation-manifest",
     domainFraming: "implemented_candidate_fixed_prefix_uint64be_length_jcs_payload",
     keyIdEncoding: "implemented_candidate_spki_der_sha256_lowercase_hex_64",
+    recordSignatureAlgorithm: "ECDSA-P256-SHA256",
+      recordSignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
     recordPayloadCodec: "implemented_candidate",
     multiSignatureEnvelopeCodec: "implemented_candidate",
     trustAnchorSetCodec: "implemented_candidate_untrusted_input",
@@ -219,7 +236,7 @@ test("exact schemaはextra、accessor、Proxy、revision、並び、上限をfai
     ...f.keyset,
     keys: [{ ...f.keyset.keys[0], keyId: "8".repeat(64) }]
   }).status, "blocked");
-  for (const spkiDer of ["A".repeat(58), "A".repeat(60), "A".repeat(1_000_000),
+  for (const spkiDer of ["A".repeat(121), "A".repeat(123), "A".repeat(1_000_000),
     `${f.keyset.keys[0].spkiDer}=`]) {
     assert.equal(compileProvisioningTrustAnchorSetCandidate({
       ...f.keyset, keys: [{ ...f.keyset.keys[0], spkiDer }]
@@ -239,7 +256,7 @@ test("exact schemaはextra、accessor、Proxy、revision、並び、上限をfai
 
 test("複数署名は全entryが既知・期間内・正常な場合だけ候補になる", () => {
   const first = fixture();
-  const secondPair = generateKeyPairSync("ed25519");
+  const secondPair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
   const secondSpki = secondPair.publicKey.export({ format: "der", type: "spki" });
   const secondKeyId = createHash("sha256").update(secondSpki).digest("hex");
   const entries = [
@@ -256,7 +273,7 @@ test("複数署名は全entryが既知・期間内・正常な場合だけ候補
     ...first.keyset,
     keys: entries.map((entry) => ({
       keyId: entry.keyId,
-      algorithm: "Ed25519",
+      algorithm: "ECDSA-P256-SHA256",
       spkiDer: entry.spkiDer.toString("base64url"),
       enrollmentCaId: entry.enrollmentCaId,
       notBefore: "2025-12-01T00:00:00.000Z",

@@ -441,7 +441,7 @@ export function describeRuntimeActivationContract() {
     signatureEnvelopeTopology:
       implementation.provisioningSignaturePrimitives.payloadSignatureEnvelopeTopology,
     signatureEncoding:
-      implementation.provisioningSignaturePrimitives.ed25519SignatureBase64url,
+      implementation.provisioningSignaturePrimitives.p256SignatureBase64url,
     keyIdEncoding: implementation.provisioningRecordPureCore.keyIdEncoding,
     multiSignatureAcceptancePolicy:
       implementation.provisioningSignaturePrimitives.multiSignatureAcceptancePolicy,
@@ -461,7 +461,7 @@ export function describeRuntimeActivationContract() {
   });
   const installationKeyEnrollmentPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
-    installationKeyAlgorithmTarget: "Ed25519_target",
+    installationKeyAlgorithmTarget: "ECDSA_P256_SHA256_target",
     installationKeyGenerationTarget:
       "platform_scope_os_managed_key_storage_boundary_target",
     installationKeyBackendCandidates: Object.freeze([

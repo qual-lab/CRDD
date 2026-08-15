@@ -4,8 +4,10 @@ import { TextDecoder, types as utilTypes } from "node:util";
 import {
   canonicalizeProvisioningJsonValueCandidate,
   inspectProvisioningEd25519SpkiCandidate,
+  inspectProvisioningP256SpkiCandidate,
   PROVISIONING_SIGNATURE_INPUT_LIMITS,
-  verifyProvisioningEd25519Base64urlCandidate
+  verifyProvisioningEd25519Base64urlCandidate,
+  verifyProvisioningP256Base64urlCandidate
 } from "./provisioning-signature-primitives.mjs";
 
 export const INITIAL_ENROLLMENT_CONTRACT_REVISION = 1;
@@ -112,10 +114,10 @@ function utc(value) {
 }
 
 function spki(value) {
-  if (typeof value !== "string" || value.length !== 59 || !/^[A-Za-z0-9_-]+$/u.test(value)) return null;
+  if (typeof value !== "string" || value.length !== 122 || !/^[A-Za-z0-9_-]+$/u.test(value)) return null;
   const bytes = Buffer.from(value, "base64url");
-  if (bytes.length !== 44 || bytes.toString("base64url") !== value) return null;
-  const inspected = inspectProvisioningEd25519SpkiCandidate(bytes);
+  if (bytes.length !== 91 || bytes.toString("base64url") !== value) return null;
+  const inspected = inspectProvisioningP256SpkiCandidate(bytes);
   return inspected.status === "candidate" ? bytes : null;
 }
 
@@ -234,17 +236,18 @@ function normalizeCertificate(raw) {
   return Object.freeze({ value, key });
 }
 
-function normalizeSignature(raw) {
+function normalizeSignature(raw, expectedAlgorithm) {
   const value = exactRecord(raw, SIGNATURE_KEYS);
   return value && typeof value.keyId === "string" && HASH.test(value.keyId) &&
-    value.algorithm === "Ed25519" && typeof value.signature === "string"
+    value.algorithm === expectedAlgorithm && typeof value.signature === "string"
     ? value : null;
 }
 
-function normalizeEnvelope(raw, contract, normalizePayload) {
+function normalizeEnvelope(raw, contract, normalizePayload, signatureAlgorithm) {
   const value = exactRecord(raw, ENVELOPE_KEYS);
   const payload = value && normalizePayload(value.payload);
-  const signatures = value && exactArray(value.signatures, 1, normalizeSignature);
+  const signatures = value && exactArray(value.signatures, 1,
+    (signature) => normalizeSignature(signature, signatureAlgorithm));
   if (!value || value.contract !== contract ||
       value.contractRevision !== INITIAL_ENROLLMENT_CONTRACT_REVISION ||
       !payload || !signatures) return null;
@@ -259,12 +262,13 @@ function normalizeEnvelope(raw, contract, normalizePayload) {
 }
 
 function normalizeRequestEnvelope(raw) {
-  return normalizeEnvelope(raw, INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT, normalizeRequest);
+  return normalizeEnvelope(raw, INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT, normalizeRequest,
+    "ECDSA-P256-SHA256");
 }
 
 function normalizeCertificateEnvelope(raw) {
   return normalizeEnvelope(raw, INITIAL_ENROLLMENT_CERTIFICATE_ENVELOPE_CONTRACT,
-    normalizeCertificate);
+    normalizeCertificate, "Ed25519");
 }
 
 export function compileInitialEnrollmentChallengeCandidate(raw) {
@@ -320,7 +324,7 @@ export function verifyInitialEnrollmentRequestCandidate(rawInput) {
       request.value.installationKeyId !== challenge.installationKeyId ||
       Date.parse(request.value.requestedAt) < Date.parse(challenge.issuedAt) ||
       Date.parse(request.value.requestedAt) >= Date.parse(challenge.expiresAt)) return blocked("initial_enrollment_request_binding_mismatch");
-  const verified = verifyProvisioningEd25519Base64urlCandidate({
+  const verified = verifyProvisioningP256Base64urlCandidate({
     spkiDer: request.key, message: requestFrame.message,
     signatureBase64url: envelope.signature.signature
   });
@@ -387,6 +391,9 @@ export function describeInitialEnrollmentPureCoreContract() {
     contract: "crdd-coordinator/initial-enrollment-pure-core",
     contractRevision: 1,
     supportedFlow: "initial_online_enrollment_only",
+    installationKeyAlgorithm: "ECDSA-P256-SHA256",
+    installationKeySignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
+    provisioningCaSignatureAlgorithm: "Ed25519",
     challengeObjectContractAndDomainFraming: "implemented_candidate",
     requestObjectContractAndDomainFraming: "implemented_candidate",
     certificateObjectContractAndDomainFraming: "implemented_candidate",
