@@ -5,8 +5,10 @@ import test from "node:test";
 import {
   INITIAL_ENROLLMENT_CHALLENGE_CONTRACT,
   INITIAL_ENROLLMENT_CERTIFICATE_CONTRACT,
+  INITIAL_ENROLLMENT_CERTIFICATE_ENVELOPE_CONTRACT,
   INITIAL_ENROLLMENT_DOMAINS,
   INITIAL_ENROLLMENT_REQUEST_CONTRACT,
+  INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT,
   compileInitialEnrollmentChallengeCandidate,
   decodeInitialEnrollmentCertificatePayloadCandidate,
   decodeInitialEnrollmentChallengePayloadCandidate,
@@ -60,6 +62,13 @@ function fixture() {
   };
   const proofOfPossession = sign(null, framed(INITIAL_ENROLLMENT_DOMAINS.request, request),
     installation.privateKey).toString("base64url");
+  const requestEnvelope = {
+    contract: INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT,
+    contractRevision: 1,
+    payload: request,
+    signatures: [{ keyId: installationKeyId, algorithm: "Ed25519",
+      signature: proofOfPossession }]
+  };
   const certificate = {
     contract: INITIAL_ENROLLMENT_CERTIFICATE_CONTRACT,
     contractRevision: 1,
@@ -73,8 +82,16 @@ function fixture() {
   };
   const certificateSignature = sign(null,
     framed(INITIAL_ENROLLMENT_DOMAINS.certificate, certificate), issuer.privateKey).toString("base64url");
-  return { challenge, request, proofOfPossession, certificate, certificateSignature,
-    issuerSpki: issuer.publicKey.export({ format: "der", type: "spki" }) };
+  const issuerSpki = issuer.publicKey.export({ format: "der", type: "spki" });
+  const certificateEnvelope = {
+    contract: INITIAL_ENROLLMENT_CERTIFICATE_ENVELOPE_CONTRACT,
+    contractRevision: 1,
+    payload: certificate,
+    signatures: [{ keyId: createHash("sha256").update(issuerSpki).digest("hex"),
+      algorithm: "Ed25519", signature: certificateSignature }]
+  };
+  return { challenge, request, proofOfPossession, requestEnvelope, certificate,
+    certificateSignature, certificateEnvelope, issuerSpki };
 }
 
 test("initial online enrollment verifies PoP and certificate without conferring authority", () => {
@@ -82,24 +99,21 @@ test("initial online enrollment verifies PoP and certificate without conferring 
   assert.equal(compileInitialEnrollmentChallengeCandidate(value.challenge).status, "candidate");
   const request = verifyInitialEnrollmentRequestCandidate({
     challenge: value.challenge,
-    request: value.request,
-    proofOfPossession: value.proofOfPossession
+    requestEnvelope: value.requestEnvelope
   });
   assert.equal(request.status, "candidate");
   assert.equal(request.proofOfPossessionCryptographicMatch, true);
   assert.equal(request.consumptionRequired, true);
   assert.equal(request.runtimeAuthorityConferred, false);
   const certificate = verifyInitialEnrollmentCertificateCandidate({
-    certificate: value.certificate,
-    issuerSpkiDer: value.issuerSpki,
-    signature: value.certificateSignature
+    certificateEnvelope: value.certificateEnvelope,
+    issuerSpkiDer: value.issuerSpki
   });
   assert.equal(certificate.status, "candidate");
   assert.equal(certificate.runtimeAuthorityConferred, false);
   const flow = verifyInitialEnrollmentFlowCandidate({
-    challenge: value.challenge, request: value.request,
-    proofOfPossession: value.proofOfPossession, certificate: value.certificate,
-    issuerSpkiDer: value.issuerSpki, certificateSignature: value.certificateSignature
+    challenge: value.challenge, requestEnvelope: value.requestEnvelope,
+    certificateEnvelope: value.certificateEnvelope, issuerSpkiDer: value.issuerSpki
   });
   assert.equal(flow.status, "candidate");
   assert.equal(flow.runtimeAuthorityConferred, false);
@@ -108,13 +122,15 @@ test("initial online enrollment verifies PoP and certificate without conferring 
 test("binding mismatch, expired request time, invalid signatures, and dynamic input fail closed", () => {
   const value = fixture();
   assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
-    request: { ...value.request, platformScopeId: "9".repeat(32) },
-    proofOfPossession: value.proofOfPossession }).status, "blocked");
+    requestEnvelope: { ...value.requestEnvelope,
+      payload: { ...value.request, platformScopeId: "9".repeat(32) } } }).status, "blocked");
   assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
-    request: { ...value.request, requestedAt: value.challenge.expiresAt },
-    proofOfPossession: value.proofOfPossession }).status, "blocked");
+    requestEnvelope: { ...value.requestEnvelope,
+      payload: { ...value.request, requestedAt: value.challenge.expiresAt } } }).status, "blocked");
   assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
-    request: value.request, proofOfPossession: "A".repeat(86) }).status, "blocked");
+    requestEnvelope: { ...value.requestEnvelope, signatures: [{
+      ...value.requestEnvelope.signatures[0], signature: "A".repeat(86)
+    }] } }).status, "blocked");
   let called = 0;
   const challenge = { ...value.challenge };
   Object.defineProperty(challenge, "nonce", { enumerable: true, get() { called += 1; return value.challenge.nonce; } });
@@ -130,21 +146,82 @@ test("binding mismatch, expired request time, invalid signatures, and dynamic in
     ...value.challenge, nonce: aliasNonce
   }).status, "blocked");
   assert.equal(verifyInitialEnrollmentCertificateCandidate({
-    certificate: value.certificate, issuerSpkiDer: Buffer.alloc(1_000_000),
-    signature: value.certificateSignature
+    certificateEnvelope: value.certificateEnvelope, issuerSpkiDer: Buffer.alloc(1_000_000)
   }).status, "blocked");
   assert.equal(verifyInitialEnrollmentFlowCandidate({
-    challenge: value.challenge, request: value.request,
-    proofOfPossession: value.proofOfPossession,
-    certificate: { ...value.certificate, platformScopeId: "8".repeat(32) },
-    issuerSpkiDer: value.issuerSpki, certificateSignature: value.certificateSignature
+    challenge: value.challenge, requestEnvelope: value.requestEnvelope,
+    certificateEnvelope: { ...value.certificateEnvelope,
+      payload: { ...value.certificate, platformScopeId: "8".repeat(32) } },
+    issuerSpkiDer: value.issuerSpki
   }).status, "blocked");
   const outer = {};
   Object.defineProperty(outer, "challenge", { enumerable: true, get() { called += 1; return value.challenge; } });
-  outer.request = value.request;
-  outer.proofOfPossession = value.proofOfPossession;
+  outer.requestEnvelope = value.requestEnvelope;
   assert.equal(verifyInitialEnrollmentRequestCandidate(outer).status, "blocked");
   assert.equal(called, 0);
+});
+
+test("request and certificate envelopes require one exact role-bound signature", () => {
+  const value = fixture();
+  const requestResult = verifyInitialEnrollmentRequestCandidate({
+    challenge: value.challenge, requestEnvelope: value.requestEnvelope
+  });
+  assert.deepEqual(Object.keys(requestResult).sort(), [
+    "consumptionRequired", "filesystemEffectIssued", "networkEffectIssued",
+    "proofOfPossessionCryptographicMatch", "reason", "requestHash",
+    "runtimeAuthorityConferred", "runtimeCapabilityIssued", "status"
+  ].sort());
+  assert.equal(JSON.stringify(requestResult).includes(value.proofOfPossession), false);
+  assert.equal(JSON.stringify(requestResult).includes(value.request.installationKeyId), false);
+  const requestCases = [
+    { ...value.requestEnvelope, signatures: [] },
+    { ...value.requestEnvelope, signatures: [value.requestEnvelope.signatures[0],
+      value.requestEnvelope.signatures[0]] },
+    { ...value.requestEnvelope, signatures: [{ ...value.requestEnvelope.signatures[0],
+      keyId: "9".repeat(64) }] },
+    { ...value.requestEnvelope, signatures: [{ ...value.requestEnvelope.signatures[0],
+      algorithm: "RSA-PSS" }] },
+    { ...value.requestEnvelope, contract: INITIAL_ENROLLMENT_CERTIFICATE_ENVELOPE_CONTRACT },
+    { ...value.requestEnvelope, extra: true }
+  ];
+  for (const requestEnvelope of requestCases) {
+    assert.equal(verifyInitialEnrollmentRequestCandidate({
+      challenge: value.challenge, requestEnvelope
+    }).status, "blocked");
+  }
+  const customSignatures = Object.setPrototypeOf([...value.requestEnvelope.signatures], null);
+  assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
+    requestEnvelope: { ...value.requestEnvelope, signatures: customSignatures } }).status, "blocked");
+  let calls = 0;
+  const accessorSignature = {};
+  Object.defineProperty(accessorSignature, "keyId", { enumerable: true,
+    get() { calls += 1; return value.requestEnvelope.signatures[0].keyId; } });
+  accessorSignature.algorithm = "Ed25519";
+  accessorSignature.signature = value.proofOfPossession;
+  assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
+    requestEnvelope: { ...value.requestEnvelope, signatures: [accessorSignature] } }).status,
+  "blocked");
+  assert.equal(calls, 0);
+  const proxyEnvelope = new Proxy(value.requestEnvelope, {
+    get() { calls += 1; throw new Error("must not execute"); },
+    ownKeys() { calls += 1; throw new Error("must not execute"); }
+  });
+  assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
+    requestEnvelope: proxyEnvelope }).status, "blocked");
+  assert.equal(calls, 0);
+  const signaturesWithSymbol = [...value.requestEnvelope.signatures];
+  signaturesWithSymbol[Symbol("extra")] = true;
+  assert.equal(verifyInitialEnrollmentRequestCandidate({ challenge: value.challenge,
+    requestEnvelope: { ...value.requestEnvelope, signatures: signaturesWithSymbol } }).status,
+  "blocked");
+  assert.equal(verifyInitialEnrollmentCertificateCandidate({
+    certificateEnvelope: { ...value.certificateEnvelope, signatures: [{
+      ...value.certificateEnvelope.signatures[0], keyId: "8".repeat(64)
+    }] }, issuerSpkiDer: value.issuerSpki
+  }).status, "blocked");
+  assert.equal(verifyInitialEnrollmentCertificateCandidate({
+    certificateEnvelope: value.requestEnvelope, issuerSpkiDer: value.issuerSpki
+  }).status, "blocked");
 });
 
 test("three raw payload decoders accept only canonical bounded JSON bytes", () => {
@@ -211,7 +288,11 @@ test("contract keeps effects and deferred enrollment capabilities closed", () =>
     challengeRawPayloadByteDecoder: "implemented_candidate",
     requestRawPayloadByteDecoder: "implemented_candidate",
     certificateRawPayloadByteDecoder: "implemented_candidate",
-    signatureEnvelopeAndTransportCodec: "not_implemented",
+    requestSignatureEnvelopeObjectContract: "implemented_candidate",
+    certificateSignatureEnvelopeObjectContract: "implemented_candidate",
+    requestRawEnvelopeByteDecoder: "not_implemented",
+    certificateRawEnvelopeByteDecoder: "not_implemented",
+    transportCodec: "not_implemented",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",
     initialFlowBindingVerification: "implemented_candidate",

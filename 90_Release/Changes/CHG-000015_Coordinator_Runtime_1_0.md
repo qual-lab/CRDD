@@ -745,3 +745,11 @@ Qual-Labの人間の決定権限者は、オンライン登録challengeの有効
 固定Commit `ce526e2fb588abb3d58fde169c99730e18fc948c`／Tree `afa2a547abb766b6360e2bbc72f3d7ed1e682c8d`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditはすべて`Pass`、Finding `0`であった。今回のpayload decoder候補に未解決Findingはなく、この固定範囲を監査済み候補として閉じる。旧`da0dd843`以前の監査集合は履歴として保持するが現在判定へ流用しない。現在のレビュー記録は[`CHG-000015_Current_Review_Record_ce526e2.md`](Evidence/CHG-000015_Current_Review_Record_ce526e2.md)へ接続する。
 
 確認済み範囲は3成果物の署名前canonical payload Buffer入力、copy前budget、BOM／strict UTF-8／canonical完全一致、artifact Hashだけの安全な結果、依存接続およびGate境界に限る。署名Envelope／transport、Runtime所有clock、一回消費台帳、実CA Trust／失効、Network、keystore、Filesystem、Record実結合、更新およびオフライン経路は未実装・未評価である。12 blocker、6 current-run evidence、Gate `blocked`および非Releaseを維持し、Runtime完成、採用、準拠、移行、Stable、Releaseまたは公開を先取りしない。
+
+### 2026-08-15 — 初回オンライン登録の署名Envelope候補
+
+Qual-Labの人間の決定権限者は、チャレンジを現行payloadのまま維持し、登録要求と登録証明書へ共通topology `{contract, contractRevision: 1, payload, signatures: [{keyId, algorithm: "Ed25519", signature}]}`を採用した。登録要求はpayloadの端末導入鍵IDと一致する署名exact 1件、登録証明書は準備認証局候補SPKIから再計算したkey IDと一致する署名exact 1件だけを受理する。未知、重複、複数、algorithm不一致、key ID不一致または暗号的不一致は`blocked`とする。
+
+今回の実装は`initial-enrollment-pure-core.mjs`を単一正本として、登録要求Envelope contract `crdd-coordinator/initial-enrollment-request-envelope`と登録証明書Envelope contract `crdd-coordinator/initial-enrollment-certificate-envelope`のrevision 1 exact object検査へ限定する。既存のpayload normalizer、成果物別domain framing、Ed25519／SPKI／base64url primitiveを再利用し、旧payload／signature別引数を公開検証経路として残さない。登録証明書のissuer SPKIはcaller suppliedの未信頼候補であり、暗号的一致だけからCA Trustを成立させない。
+
+object Envelope 2軸を既存`provisioning_record_contract`へ接続する。raw Envelope byte decoder、transport、Runtime所有clock、一回消費台帳、CA Trust／失効、Network、Filesystem、keystore、更新およびオフライン経路は未実装のままとする。12 blocker、6 current-run evidence、Authority／Capability／Effect非発行、Gate `blocked`および非Releaseを維持する。変更分類は非規範Security Reference Implementation候補で、現在の永続成果物に移行は発火しない。処置は`Applied`／`Self-checked`であり、新固定版の独立レビューおよび必須監査前は`Resolved`ではない。

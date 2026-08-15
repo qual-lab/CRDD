@@ -78,6 +78,11 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   initialEnrollmentChallengeRawPayloadByteDecoder: "provisioning_record_contract",
   initialEnrollmentRequestRawPayloadByteDecoder: "provisioning_record_contract",
   initialEnrollmentCertificateRawPayloadByteDecoder: "provisioning_record_contract",
+  initialEnrollmentRequestSignatureEnvelopeObjectContract: "provisioning_record_contract",
+  initialEnrollmentCertificateSignatureEnvelopeObjectContract: "provisioning_record_contract",
+  initialEnrollmentRequestRawEnvelopeByteDecoder: "provisioning_record_contract",
+  initialEnrollmentCertificateRawEnvelopeByteDecoder: "provisioning_record_contract",
+  initialEnrollmentTransportCodec: "provisioning_record_contract",
   initialEnrollmentRequestProofVerification: "provisioning_record_verification",
   initialEnrollmentCertificateSignatureVerification: "provisioning_record_verification",
   initialEnrollmentFlowBindingVerification: "provisioning_record_verification",
@@ -354,6 +359,16 @@ export function describeRuntimeActivationContract() {
       initialEnrollmentPureCore.requestRawPayloadByteDecoder,
     initialEnrollmentCertificateRawPayloadByteDecoder:
       initialEnrollmentPureCore.certificateRawPayloadByteDecoder,
+    initialEnrollmentRequestSignatureEnvelopeObjectContract:
+      initialEnrollmentPureCore.requestSignatureEnvelopeObjectContract,
+    initialEnrollmentCertificateSignatureEnvelopeObjectContract:
+      initialEnrollmentPureCore.certificateSignatureEnvelopeObjectContract,
+    initialEnrollmentRequestRawEnvelopeByteDecoder:
+      initialEnrollmentPureCore.requestRawEnvelopeByteDecoder,
+    initialEnrollmentCertificateRawEnvelopeByteDecoder:
+      initialEnrollmentPureCore.certificateRawEnvelopeByteDecoder,
+    initialEnrollmentTransportCodec:
+      initialEnrollmentPureCore.transportCodec,
     initialEnrollmentRequestProofVerification:
       initialEnrollmentPureCore.requestProofOfPossessionVerification,
     initialEnrollmentCertificateSignatureVerification:

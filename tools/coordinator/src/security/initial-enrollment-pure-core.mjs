@@ -15,6 +15,10 @@ export const INITIAL_ENROLLMENT_REQUEST_CONTRACT =
   "crdd-coordinator/initial-enrollment-request";
 export const INITIAL_ENROLLMENT_CERTIFICATE_CONTRACT =
   "crdd-coordinator/initial-enrollment-certificate";
+export const INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT =
+  "crdd-coordinator/initial-enrollment-request-envelope";
+export const INITIAL_ENROLLMENT_CERTIFICATE_ENVELOPE_CONTRACT =
+  "crdd-coordinator/initial-enrollment-certificate-envelope";
 export const INITIAL_ENROLLMENT_DOMAINS = Object.freeze({
   challenge: "CRDD\0INITIAL-ENROLLMENT-CHALLENGE\0V1\0",
   request: "CRDD\0INITIAL-ENROLLMENT-REQUEST\0V1\0",
@@ -41,11 +45,12 @@ const CERTIFICATE_KEYS = Object.freeze([
   "provisionerIdentityHash", "installationKeyId", "installationKeySpkiDer",
   "issuedAt", "expiresAt"
 ]);
-const REQUEST_VERIFY_KEYS = Object.freeze(["challenge", "request", "proofOfPossession"]);
-const CERTIFICATE_VERIFY_KEYS = Object.freeze(["certificate", "issuerSpkiDer", "signature"]);
+const ENVELOPE_KEYS = Object.freeze(["contract", "contractRevision", "payload", "signatures"]);
+const SIGNATURE_KEYS = Object.freeze(["keyId", "algorithm", "signature"]);
+const REQUEST_VERIFY_KEYS = Object.freeze(["challenge", "requestEnvelope"]);
+const CERTIFICATE_VERIFY_KEYS = Object.freeze(["certificateEnvelope", "issuerSpkiDer"]);
 const FLOW_VERIFY_KEYS = Object.freeze([
-  "challenge", "request", "proofOfPossession", "certificate", "issuerSpkiDer",
-  "certificateSignature"
+  "challenge", "requestEnvelope", "certificateEnvelope", "issuerSpkiDer"
 ]);
 
 function blocked(reason) {
@@ -74,6 +79,29 @@ function exactRecord(value, keys) {
     if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value") ||
         descriptor.get !== undefined || descriptor.set !== undefined || descriptor.enumerable !== true) return null;
     result[key] = descriptor.value;
+  }
+  return Object.freeze(result);
+}
+
+function exactArray(value, length, normalize) {
+  if (!value || typeof value !== "object" || utilTypes.isProxy(value) || !Array.isArray(value) ||
+      Object.getPrototypeOf(value) !== Array.prototype) return null;
+  const lengthDescriptor = Object.getOwnPropertyDescriptor(value, "length");
+  if (!lengthDescriptor || !Object.prototype.hasOwnProperty.call(lengthDescriptor, "value") ||
+      lengthDescriptor.get !== undefined || lengthDescriptor.set !== undefined ||
+      lengthDescriptor.enumerable !== false || lengthDescriptor.configurable !== false ||
+      lengthDescriptor.value !== length) return null;
+  const ownKeys = Reflect.ownKeys(value);
+  if (ownKeys.length !== length + 1) return null;
+  const result = [];
+  for (let index = 0; index < length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value") ||
+        descriptor.get !== undefined || descriptor.set !== undefined ||
+        descriptor.enumerable !== true) return null;
+    const item = normalize(descriptor.value);
+    if (!item) return null;
+    result.push(item);
   }
   return Object.freeze(result);
 }
@@ -170,6 +198,32 @@ function normalizeCertificate(raw) {
   return Object.freeze({ value, key });
 }
 
+function normalizeSignature(raw) {
+  const value = exactRecord(raw, SIGNATURE_KEYS);
+  return value && typeof value.keyId === "string" && HASH.test(value.keyId) &&
+    value.algorithm === "Ed25519" && typeof value.signature === "string"
+    ? value : null;
+}
+
+function normalizeEnvelope(raw, contract, normalizePayload) {
+  const value = exactRecord(raw, ENVELOPE_KEYS);
+  const payload = value && normalizePayload(value.payload);
+  const signatures = value && exactArray(value.signatures, 1, normalizeSignature);
+  if (!value || value.contract !== contract ||
+      value.contractRevision !== INITIAL_ENROLLMENT_CONTRACT_REVISION ||
+      !payload || !signatures) return null;
+  return Object.freeze({ value, payload, signature: signatures[0] });
+}
+
+function normalizeRequestEnvelope(raw) {
+  return normalizeEnvelope(raw, INITIAL_ENROLLMENT_REQUEST_ENVELOPE_CONTRACT, normalizeRequest);
+}
+
+function normalizeCertificateEnvelope(raw) {
+  return normalizeEnvelope(raw, INITIAL_ENROLLMENT_CERTIFICATE_ENVELOPE_CONTRACT,
+    normalizeCertificate);
+}
+
 export function compileInitialEnrollmentChallengeCandidate(raw) {
   try {
     const value = normalizeChallenge(raw);
@@ -197,10 +251,14 @@ export function decodeInitialEnrollmentCertificatePayloadCandidate(raw) {
 export function verifyInitialEnrollmentRequestCandidate(rawInput) {
   const input = exactRecord(rawInput, REQUEST_VERIFY_KEYS);
   if (!input) return blocked("initial_enrollment_request_invalid");
-  const { challenge: rawChallenge, request: rawRequest, proofOfPossession } = input;
+  const { challenge: rawChallenge, requestEnvelope: rawEnvelope } = input;
   const challenge = normalizeChallenge(rawChallenge);
-  const request = normalizeRequest(rawRequest);
-  if (!challenge || !request || typeof proofOfPossession !== "string") return blocked("initial_enrollment_request_invalid");
+  const envelope = normalizeRequestEnvelope(rawEnvelope);
+  const request = envelope?.payload;
+  if (!challenge || !envelope || !request ||
+      envelope.signature.keyId !== request.value.installationKeyId) {
+    return blocked("initial_enrollment_request_invalid");
+  }
   const challengeFrame = frame(INITIAL_ENROLLMENT_DOMAINS.challenge, challenge);
   const requestFrame = frame(INITIAL_ENROLLMENT_DOMAINS.request, request.value);
   if (!challengeFrame || !requestFrame || request.value.challengeHash !== challengeFrame.hash ||
@@ -209,7 +267,10 @@ export function verifyInitialEnrollmentRequestCandidate(rawInput) {
       request.value.installationKeyId !== challenge.installationKeyId ||
       Date.parse(request.value.requestedAt) < Date.parse(challenge.issuedAt) ||
       Date.parse(request.value.requestedAt) >= Date.parse(challenge.expiresAt)) return blocked("initial_enrollment_request_binding_mismatch");
-  const verified = verifyProvisioningEd25519Base64urlCandidate({ spkiDer: request.key, message: requestFrame.message, signatureBase64url: proofOfPossession });
+  const verified = verifyProvisioningEd25519Base64urlCandidate({
+    spkiDer: request.key, message: requestFrame.message,
+    signatureBase64url: envelope.signature.signature
+  });
   if (verified.status !== "candidate") return blocked("initial_enrollment_proof_of_possession_invalid");
   return candidate("runtime_clock_consumption_ledger_and_ca_issuance_required",
     { proofOfPossessionCryptographicMatch: true, requestHash: requestFrame.hash,
@@ -219,12 +280,21 @@ export function verifyInitialEnrollmentRequestCandidate(rawInput) {
 export function verifyInitialEnrollmentCertificateCandidate(rawInput) {
   const input = exactRecord(rawInput, CERTIFICATE_VERIFY_KEYS);
   if (!input) return blocked("initial_enrollment_certificate_invalid");
-  const { certificate: rawCertificate, issuerSpkiDer, signature } = input;
-  const certificate = normalizeCertificate(rawCertificate);
+  const { certificateEnvelope: rawEnvelope, issuerSpkiDer } = input;
+  const envelope = normalizeCertificateEnvelope(rawEnvelope);
+  const certificate = envelope?.payload;
   const framed = certificate && frame(INITIAL_ENROLLMENT_DOMAINS.certificate, certificate.value);
   const issuer = Buffer.isBuffer(issuerSpkiDer) ? issuerSpkiDer : null;
-  if (!certificate || !framed || !issuer || typeof signature !== "string") return blocked("initial_enrollment_certificate_invalid");
-  const verified = verifyProvisioningEd25519Base64urlCandidate({ spkiDer: issuer, message: framed.message, signatureBase64url: signature });
+  const inspectedIssuer = issuer && inspectProvisioningEd25519SpkiCandidate(issuer);
+  if (!envelope || !certificate || !framed || !issuer || !inspectedIssuer ||
+      inspectedIssuer.status !== "candidate" ||
+      inspectedIssuer.spkiSha256Digest.toString("hex") !== envelope.signature.keyId) {
+    return blocked("initial_enrollment_certificate_invalid");
+  }
+  const verified = verifyProvisioningEd25519Base64urlCandidate({
+    spkiDer: issuer, message: framed.message,
+    signatureBase64url: envelope.signature.signature
+  });
   if (verified.status !== "candidate") return blocked("initial_enrollment_certificate_signature_invalid");
   return candidate("runtime_owned_ca_trust_clock_revocation_and_record_binding_required",
     { certificateSignatureCryptographicMatch: true, certificateHash: framed.hash });
@@ -235,15 +305,13 @@ export function verifyInitialEnrollmentFlowCandidate(rawInput) {
     const input = exactRecord(rawInput, FLOW_VERIFY_KEYS);
     if (!input) return blocked("initial_enrollment_flow_invalid");
     const requestResult = verifyInitialEnrollmentRequestCandidate({
-      challenge: input.challenge, request: input.request,
-      proofOfPossession: input.proofOfPossession
+      challenge: input.challenge, requestEnvelope: input.requestEnvelope
     });
     const certificateResult = verifyInitialEnrollmentCertificateCandidate({
-      certificate: input.certificate, issuerSpkiDer: input.issuerSpkiDer,
-      signature: input.certificateSignature
+      certificateEnvelope: input.certificateEnvelope, issuerSpkiDer: input.issuerSpkiDer
     });
-    const request = normalizeRequest(input.request);
-    const certificate = normalizeCertificate(input.certificate);
+    const request = normalizeRequestEnvelope(input.requestEnvelope)?.payload;
+    const certificate = normalizeCertificateEnvelope(input.certificateEnvelope)?.payload;
     if (requestResult.status !== "candidate" || certificateResult.status !== "candidate" ||
         !request || !certificate ||
         certificate.value.platformScopeId !== request.value.platformScopeId ||
@@ -272,7 +340,11 @@ export function describeInitialEnrollmentPureCoreContract() {
     challengeRawPayloadByteDecoder: "implemented_candidate",
     requestRawPayloadByteDecoder: "implemented_candidate",
     certificateRawPayloadByteDecoder: "implemented_candidate",
-    signatureEnvelopeAndTransportCodec: "not_implemented",
+    requestSignatureEnvelopeObjectContract: "implemented_candidate",
+    certificateSignatureEnvelopeObjectContract: "implemented_candidate",
+    requestRawEnvelopeByteDecoder: "not_implemented",
+    certificateRawEnvelopeByteDecoder: "not_implemented",
+    transportCodec: "not_implemented",
     requestProofOfPossessionVerification: "implemented_candidate",
     certificateSignatureVerification: "implemented_candidate",
     initialFlowBindingVerification: "implemented_candidate",
