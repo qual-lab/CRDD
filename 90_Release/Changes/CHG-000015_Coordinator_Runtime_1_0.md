@@ -1007,3 +1007,15 @@ rollback floorのpure Core候補は、初回Identityと増加Sequenceを永続�
 永続化Path、原子的書込み、crash recovery、Windows DACL、Effect controllerおよび実`provision`接続は未実装である。12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行およびv0.18 Candidate／Released Baseline v0.17.0を維持する。本処置は`Applied`／`Self-checked`であり、全機械確認と必要な独立レビュー前は`Resolved`、統合、準拠、StableまたはReleaseではない。
 
 Node.js 24.19.0で、Coordinator 277 / 277、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／90 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 428 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0がPassした。実秘密鍵、passphrase、実Release manifestおよび永続floorは使用・生成していない。
+
+### 2026-08-16 — Windows package書込みDACL事前検査候補
+
+承認済みのWindows保護方針に従い、CRDD配布物の同梱Coordinator packageを対象とする読み取り専用DACL事前検査候補を追加した。Adapterは`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`のnon-link実体を固定引数、固定埋込みScriptおよび最小Process環境で起動する。Rootと全子要素を上限2049件で走査し、Root DACLの継承保護、全要素のownerが`SYSTEM`またはmachine Administratorsであること、reparse pointがないこと、および両主体以外へnumeric write maskを許可するACEがないことをSID実値で確認する。表示名やローカライズされたaccount名を判断へ使わない。
+
+公開結果は件数、状態および固定reasonだけに限定し、Path、SID、ACE、descriptor、PowerShell出力またはraw errorを返さない。Adapterは権限を変更せず、自動修復、Root作成、ACL継承解除、Runtime Authority、CapabilityまたはFilesystem Effectを発行しない。現在のsource checkoutはRoot DACLの継承が保護されていないため、実観測で`windows_package_dacl_inheritance_not_protected`へ安全停止することを確認した。これは本番配置の不合格を正しく示す候補結果であり、開発checkoutを保護済み配布物へ昇格しない。
+
+同梱package Filesystem観測、Runtime activationおよびdoctorは同じprivate contract snapshotから、Windows書込みDACL事前検査を`implemented_candidate`、Runtime read／execute主体とのACL結合を`not_implemented`として投影する。rollback floor永続化、保護済み配置を作るEffect controller、実`provision`接続およびactivationは未実装である。12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行、v0.18 Candidate／Released Baseline v0.17.0を維持する。本処置は`Applied`／`Self-checked`であり、全機械確認と必要な独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
+
+全数命名検査で、直前のrollback floor候補に残っていた固定key集合の不要な中間定数とBoolean local名の規約違反を検出した。不要な集合を削除して最終集合を直接固定し、内部Booleanを`isPersistenceRequired`へ変更した。公開Schema keyの`persistenceRequired`、Hash、reason、遷移意味および署名manifest契約は変更していない。
+
+Node.js 24.19.0で、Coordinator 282 / 282、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／92 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 430 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。実DACL観測ではsource checkoutを`windows_package_dacl_inheritance_not_protected`として拒否し、権限変更は行っていない。

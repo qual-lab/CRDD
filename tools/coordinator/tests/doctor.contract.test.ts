@@ -746,6 +746,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       report.runtimeActivation.platformProvisionerPackageFilesystem,
+    platformProvisionerWindowsDacl:
+      report.runtimeActivation.platformProvisionerWindowsDacl,
     platformProvisionerReleaseTrust:
       report.runtimeActivation.platformProvisionerReleaseTrust,
     platformProvisionerManifestLoader:
@@ -889,6 +891,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       platformProvisionerPackageGateObservation:
         "platform_provisioner_verification",
       platformProvisionerPackageFilesystemVerification:
+        "platform_provisioner_verification",
+      platformProvisionerWindowsDaclVerification:
         "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
@@ -1248,7 +1252,19 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_not_implemented",
+    "posix_implemented_candidate_windows_write_dacl_precheck_implemented_runtime_read_binding_not_implemented",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerWindowsDacl.verification,
+    "implemented_write_policy_precheck_candidate",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerWindowsDacl.runtimeReadBinding,
+    "not_implemented",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerWindowsDacl.permissionMutation,
+    "prohibited",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerReleaseTrust

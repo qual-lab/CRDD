@@ -16,12 +16,16 @@ const RELEASE_KEYS = new Set([
   "crddCommit",
   "crddTree",
 ]);
-const FLOOR_VALUE_KEYS = new Set([
+const FLOOR_KEYS = new Set([
   "contract",
   "contractRevision",
-  ...RELEASE_KEYS,
+  "manifestHash",
+  "releaseSequence",
+  "crddVersion",
+  "crddCommit",
+  "crddTree",
+  "floorHash",
 ]);
-const FLOOR_KEYS = new Set([...FLOOR_VALUE_KEYS, "floorHash"]);
 const INPUT_KEYS = new Set(["currentFloor", "verifiedRelease"]);
 const HEX64 = /^[0-9a-f]{64}$/u;
 const GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
@@ -161,18 +165,18 @@ export function evaluatePlatformProvisionerReleaseFloorCandidate(
     const nextValue = floorValue(release);
     const floorHash = calculateFloorHash(nextValue);
     if (!floorHash) return blocked("release_floor_state_invalid");
-    const persistenceRequired =
+    const isPersistenceRequired =
       current === null || !sameRelease(current, release);
     return Object.freeze({
       status: "candidate" as const,
-      reason: persistenceRequired
+      reason: isPersistenceRequired
         ? "release_floor_persistence_required"
         : "release_floor_current_identity_matches",
       releaseSequence: release.releaseSequence,
       floorHash,
       nextFloor: Object.freeze({ ...nextValue, floorHash }),
-      persistenceRequired,
-      rollbackFloorConfirmed: !persistenceRequired,
+      persistenceRequired: isPersistenceRequired,
+      rollbackFloorConfirmed: !isPersistenceRequired,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
       filesystemEffectIssued: false,

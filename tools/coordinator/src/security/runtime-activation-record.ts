@@ -14,6 +14,7 @@ import { describeEnrollmentCertificateRenewalContract } from "./enrollment-certi
 import { describePlatformProvisionerTrustCoreContract } from "./platform-provisioner-trust-core.ts";
 import { describePlatformProvisionerPackageGateContract } from "./platform-provisioner-package-gate.ts";
 import { describePlatformProvisionerPackageFilesystemContract } from "./platform-provisioner-package-filesystem.ts";
+import { describeWindowsPackageDaclContract } from "./platform-provisioner-windows-dacl.ts";
 import { describePlatformProvisionerReleaseTrustContract } from "./platform-provisioner-release-trust.ts";
 import { describePlatformProvisionerManifestLoaderContract } from "./platform-provisioner-manifest-loader.ts";
 import { describePlatformProvisionerPolicyIdentityContract } from "./platform-provisioner-policy-identity.ts";
@@ -128,6 +129,8 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   platformProvisionerPackageGateObservation:
     "platform_provisioner_verification",
   platformProvisionerPackageFilesystemVerification:
+    "platform_provisioner_verification",
+  platformProvisionerWindowsDaclVerification:
     "platform_provisioner_verification",
   installationKeyGeneration: "platform_provisioner_effect",
   initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
@@ -473,6 +476,7 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerPackageGateContract();
   const platformProvisionerPackageFilesystem =
     describePlatformProvisionerPackageFilesystemContract();
+  const platformProvisionerWindowsDacl = describeWindowsPackageDaclContract();
   const platformProvisionerReleaseTrust =
     describePlatformProvisionerReleaseTrustContract();
   const platformProvisionerManifestLoaderContract =
@@ -530,6 +534,8 @@ export function describeRuntimeActivationContract() {
       platformProvisionerPackageGate.observationContract,
     platformProvisionerPackageFilesystemVerification:
       platformProvisionerPackageFilesystem.runtimeOwnedPackageFilesystemRead,
+    platformProvisionerWindowsDaclVerification:
+      platformProvisionerWindowsDacl.verification,
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     initialEnrollmentChallengeObjectContractAndDomainFraming:
@@ -597,6 +603,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerTrustCore,
     platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem,
+    platformProvisionerWindowsDacl,
     platformProvisionerReleaseTrust,
     platformProvisionerManifestLoaderContract,
     platformProvisionerPolicyIdentityContract,
@@ -701,6 +708,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       implementation.platformProvisionerPackageFilesystem,
+    platformProvisionerWindowsDacl:
+      implementation.platformProvisionerWindowsDacl,
     platformProvisionerReleaseTrust:
       implementation.platformProvisionerReleaseTrust,
     platformProvisionerManifestLoader:
@@ -907,6 +916,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       implementation.platformProvisionerPackageFilesystem,
+    platformProvisionerWindowsDacl:
+      implementation.platformProvisionerWindowsDacl,
     platformProvisionerReleaseTrust:
       implementation.platformProvisionerReleaseTrust,
     platformProvisionerManifestLoader:

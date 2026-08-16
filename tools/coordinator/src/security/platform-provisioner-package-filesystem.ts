@@ -7,6 +7,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "./platform-provisioner-release-identity.ts";
+import { inspectWindowsPackageDaclCandidate } from "./platform-provisioner-windows-dacl.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
 import {
   calculatePlatformProvisionerPackageContentRootCandidate,
@@ -66,6 +67,7 @@ function blocked(reason: string) {
     stableFilesystemIdentityObserved: false,
     runtimeOwnedPackageRoot: false,
     permissionPolicyConfirmed: false,
+    windowsWritePolicyConfirmed: false,
     runtimeOwnedReleaseTrustConfirmed: false,
     releaseIdentityRuntimeOwned: false,
     crddDistributionConfirmed: false,
@@ -345,11 +347,16 @@ function observePackage(packageRoot: string) {
       (fileIdentity) =>
         fileIdentity.uid === 0n && (fileIdentity.mode & 0o7777n) === 0o644n,
     );
+  const windowsDacl =
+    process.platform === "win32"
+      ? inspectWindowsPackageDaclCandidate(root.realPath)
+      : null;
   return Object.freeze({
     observation,
     packageByteLength,
     contentRoot,
     permissionPolicyConfirmed: isPermissionPolicyConfirmed,
+    windowsWritePolicyConfirmed: windowsDacl?.status === "candidate",
   });
 }
 
@@ -372,6 +379,7 @@ function publicObservation(
     stableFilesystemIdentityObserved: true,
     runtimeOwnedPackageRoot: isRuntimeOwnedPackageRoot,
     permissionPolicyConfirmed: observed.permissionPolicyConfirmed,
+    windowsWritePolicyConfirmed: observed.windowsWritePolicyConfirmed,
     runtimeOwnedReleaseTrustConfirmed: false,
     crddDistributionConfirmed: false,
     effectAuthorizationIssued: false,
@@ -546,10 +554,10 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     runtimeOwnedReleaseTrustSelection:
       "implemented_single_ed25519_anchor_pinned",
     ownerAndPermissionPolicyVerification:
-      "posix_implemented_candidate_windows_not_implemented",
+      "posix_implemented_candidate_windows_write_dacl_precheck_implemented_runtime_read_binding_not_implemented",
     posixRootOwnedDirectory0755AndFile0644Verification: "implemented_candidate",
     windowsSystemAndAdministratorsWriteRuntimeReadAclVerification:
-      "not_implemented",
+      "write_policy_precheck_implemented_runtime_read_binding_not_implemented",
     sourceCheckoutCanAuthorizeProvisioningEffect: false,
     releaseTrustModel:
       "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",

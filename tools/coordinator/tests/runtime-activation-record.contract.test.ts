@@ -472,6 +472,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     platformProvisionerPackageGate: contract.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       contract.platformProvisionerPackageFilesystem,
+    platformProvisionerWindowsDacl: contract.platformProvisionerWindowsDacl,
     platformProvisionerReleaseTrust: contract.platformProvisionerReleaseTrust,
     platformProvisionerManifestLoader:
       contract.platformProvisionerManifestLoader,
@@ -613,6 +614,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       platformProvisionerPackageGateObservation:
         "platform_provisioner_verification",
       platformProvisionerPackageFilesystemVerification:
+        "platform_provisioner_verification",
+      platformProvisionerWindowsDaclVerification:
         "platform_provisioner_verification",
       installationKeyGeneration: "platform_provisioner_effect",
       initialProvisioningEnrollmentExchange: "platform_provisioner_effect",
@@ -886,7 +889,19 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(
     contract.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_not_implemented",
+    "posix_implemented_candidate_windows_write_dacl_precheck_implemented_runtime_read_binding_not_implemented",
+  );
+  assert.equal(
+    contract.platformProvisionerWindowsDacl.verification,
+    "implemented_write_policy_precheck_candidate",
+  );
+  assert.equal(
+    contract.platformProvisionerWindowsDacl.runtimeReadBinding,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.platformProvisionerWindowsDacl.permissionMutation,
+    "prohibited",
   );
   assert.equal(
     contract.platformProvisionerReleaseTrust.publicKeySpkiSha256,

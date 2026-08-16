@@ -47,6 +47,7 @@
     "src/security/platform-provisioner-release-floor.ts",
     "src/security/plain-data-snapshot.ts",
     "src/security/platform-provisioner-trust-core.ts",
+    "src/security/platform-provisioner-windows-dacl.ts",
     "src/security/platform-provisioner-package-gate.ts",
     "src/security/provider-isolation-profile.ts",
     "src/security/provisioning-signature-primitives.ts",
