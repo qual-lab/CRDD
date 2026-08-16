@@ -472,6 +472,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     platformProvisionerPackageGate: contract.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       contract.platformProvisionerPackageFilesystem,
+    platformProvisionerReleaseTrust: contract.platformProvisionerReleaseTrust,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -875,6 +876,14 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
     "posix_implemented_candidate_windows_not_implemented",
+  );
+  assert.equal(
+    contract.platformProvisionerReleaseTrust.publicKeySpkiSha256,
+    "6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f",
+  );
+  assert.equal(
+    contract.platformProvisionerReleaseTrust.callerKeyMayReplaceTrustAnchor,
+    false,
   );
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
   assert.equal(contract.installationKeyGeneration, "not_implemented");

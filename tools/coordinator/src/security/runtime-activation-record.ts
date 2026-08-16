@@ -14,6 +14,7 @@ import { describeEnrollmentCertificateRenewalContract } from "./enrollment-certi
 import { describePlatformProvisionerTrustCoreContract } from "./platform-provisioner-trust-core.ts";
 import { describePlatformProvisionerPackageGateContract } from "./platform-provisioner-package-gate.ts";
 import { describePlatformProvisionerPackageFilesystemContract } from "./platform-provisioner-package-filesystem.ts";
+import { describePlatformProvisionerReleaseTrustContract } from "./platform-provisioner-release-trust.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
@@ -464,6 +465,8 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerPackageGateContract();
   const platformProvisionerPackageFilesystem =
     describePlatformProvisionerPackageFilesystemContract();
+  const platformProvisionerReleaseTrust =
+    describePlatformProvisionerReleaseTrustContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -570,6 +573,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerTrustCore,
     platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem,
+    platformProvisionerReleaseTrust,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -669,6 +673,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       implementation.platformProvisionerPackageFilesystem,
+    platformProvisionerReleaseTrust:
+      implementation.platformProvisionerReleaseTrust,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -865,6 +871,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       implementation.platformProvisionerPackageFilesystem,
+    platformProvisionerReleaseTrust:
+      implementation.platformProvisionerReleaseTrust,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

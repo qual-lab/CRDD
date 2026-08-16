@@ -64,7 +64,6 @@ function signedManifest(packageContentRootSha256: string) {
           },
         ],
       },
-      releaseSignerSpkiDer: spki,
       evaluationTime: "2026-08-16T00:00:00.000Z",
       expectedCrddVersion: payload.crddVersion,
       expectedCrddCommit: payload.crddCommit,
@@ -171,19 +170,13 @@ test("入れ子directoryの走査中変更を安定inventoryへ流用しない",
   }
 });
 
-test("同梱manifestをRuntime読取りbyteへ結ぶがAuthorityへ昇格しない", () => {
+test("同梱manifestは固定Release鍵以外の署名を拒否する", () => {
   const observation = inspectBundledCoordinatorPackageFilesystemCandidate();
   assert.equal(observation.status, "candidate");
   assert.equal(typeof observation.packageContentRootSha256, "string");
   const fixture = signedManifest(observation.packageContentRootSha256);
   const result = verifyBundledCoordinatorPackageCandidate(fixture.input);
-  assert.equal(result.status, "candidate");
-  assert.equal(result.qualLabManifestCryptographicMatch, true);
-  assert.equal(result.runtimeOwnedPackageRoot, true);
-  assert.equal(typeof result.permissionPolicyConfirmed, "boolean");
-  if (process.platform === "win32") {
-    assert.equal(result.permissionPolicyConfirmed, false);
-  }
+  assert.equal(result.status, "blocked");
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
   assert.equal(result.crddDistributionConfirmed, false);
   assert.equal(result.effectAuthorizationIssued, false);
@@ -231,7 +224,7 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.runtimeOwnedReleaseTrustSelection,
-    "approved_single_ed25519_anchor_not_configured",
+    "implemented_single_ed25519_anchor_pinned",
   );
   assert.equal(
     contract.ownerAndPermissionPolicyVerification,
@@ -247,7 +240,7 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.releaseTrustAnchorConfiguration,
-    "required_not_configured",
+    "configured_immutable_source_literal",
   );
   assert.equal(contract.effectController, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);

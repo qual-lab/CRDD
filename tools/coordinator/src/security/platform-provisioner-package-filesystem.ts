@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
 import {
   calculatePlatformProvisionerPackageContentRootCandidate,
   verifyPlatformProvisionerManifestCandidate,
@@ -15,7 +16,6 @@ const MAXIMUM_PACKAGE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_PACKAGE_JSON_BYTES = 64 * 1024;
 const VERIFY_KEYS = new Set([
   "manifestEnvelope",
-  "releaseSignerSpkiDer",
   "evaluationTime",
   "expectedCrddVersion",
   "expectedCrddCommit",
@@ -411,7 +411,7 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
     const observed = observePackage(bundledPackageRoot);
     const verification = verifyPlatformProvisionerManifestCandidate({
       manifestEnvelope: input.manifestEnvelope,
-      releaseSignerSpkiDer: input.releaseSignerSpkiDer,
+      releaseSignerSpkiDer: getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
       observedPackageContent: observed.observation,
       evaluationTime: input.evaluationTime,
     });
@@ -434,6 +434,7 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
       crddCommit: verification.crddCommit,
       crddTree: verification.crddTree,
       qualLabManifestCryptographicMatch: true,
+      runtimeOwnedReleaseTrustConfirmed: true,
     });
   } catch {
     return blocked("platform_provisioner_bundled_package_input_invalid");
@@ -457,7 +458,7 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     runtimeOwnedCrddReleaseIdentitySelection:
       "approved_version_commit_tree_binding_loader_not_implemented",
     runtimeOwnedReleaseTrustSelection:
-      "approved_single_ed25519_anchor_not_configured",
+      "implemented_single_ed25519_anchor_pinned",
     ownerAndPermissionPolicyVerification:
       "posix_implemented_candidate_windows_not_implemented",
     posixRootOwnedDirectory0755AndFile0644Verification: "implemented_candidate",
@@ -469,7 +470,7 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     releaseIdentityBinding:
       "crdd_version_commit_tree_and_coordinator_package_content_root",
     signedManifestPath: "90_Release/coordinator-package-manifest.json",
-    releaseTrustAnchorConfiguration: "required_not_configured",
+    releaseTrustAnchorConfiguration: "configured_immutable_source_literal",
     signedManifestDistribution: "approved_fixed_path_loader_not_implemented",
     effectController: "not_implemented",
     runtimeAuthorityConferred: false,

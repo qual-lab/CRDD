@@ -746,6 +746,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem:
       report.runtimeActivation.platformProvisionerPackageFilesystem,
+    platformProvisionerReleaseTrust:
+      report.runtimeActivation.platformProvisionerReleaseTrust,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -1235,6 +1237,16 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     report.runtimeActivation.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
     "posix_implemented_candidate_windows_not_implemented",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerReleaseTrust
+      .publicKeySpkiSha256,
+    "6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerReleaseTrust
+      .callerKeyMayReplaceTrustAnchor,
+    false,
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageGate

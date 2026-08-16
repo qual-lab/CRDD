@@ -74,9 +74,9 @@ const projectConfigs = Object.freeze([
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 5,
-  coordinatorProduction: 40,
-  coordinatorTests: 33,
-  uniqueTotal: 78,
+  coordinatorProduction: 41,
+  coordinatorTests: 34,
+  uniqueTotal: 80,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;

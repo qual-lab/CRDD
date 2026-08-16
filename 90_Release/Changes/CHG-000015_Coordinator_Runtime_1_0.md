@@ -963,3 +963,11 @@ OpenSSLがない環境でも人間のRelease操作を安全に継続できるよ
 自己確認ではCoordinator 263 / 263、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 416 files／288 Markdown／Error 0／Warning 0がPassした。実Release鍵は人間の非表示passphrase入力を要するため、この固定版の機械試験では一時試験鍵だけを生成して暗号化秘密鍵、公開鍵導出、非漏洩および拒否境界を確認した。本処置は`Applied`／`Self-checked`であり、独立レビューと実公開鍵の投入前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
 
 初回の実対話確認では、1回目の非表示入力を読み終えた際に非同期iteratorが標準入力streamを閉じ、2回目の確認入力を受け取れない不具合を検出した。入力処理をstreamを閉じない一時event listenerへ変更し、各入力後にraw modeとlistenerだけを解除する構造へ是正した。Node.js 24.19.0のPTYで同一の試験用passphraseを2回入力し、暗号化秘密鍵と公開鍵の生成完了および安全なJSON要約を確認した後、一時成果物を削除した。実Release鍵のpassphraseはAIへ渡さず、人間の対話端末だけで入力する境界を維持する。
+
+人間がRepository外`C:\project\key\CRDD`で生成・移動した鍵対のうち、公開SPKI DERだけを確認した。公開鍵は44 byteのcanonical Ed25519 SPKIで、SHA-256は`6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f`である。秘密鍵は内容を読み取らず、暗号化秘密鍵fileの存在、サイズおよびnon-link metadataだけを確認した。
+
+公開鍵をCRDD所有の不変source literalとして固定し、module初期化時にEd25519、44 byte、canonical DERおよび固定SHA-256を再確認するRelease Trust contractを追加した。Runtime所有の同梱package検証入口はcaller supplied signerを入力shapeから除去し、この固定鍵snapshotだけをmanifest暗号検証へ渡す。第三者鍵、未知鍵fallback、caller鍵による置換、複数鍵の暗黙選択または秘密鍵同梱を許可しない。Runtime activationとdoctorは同じcontract snapshotを投影する。
+
+公開鍵の固定だけでは署名済みmanifest、CRDD release Identity loader、Windows DACL AdapterまたはEffect controllerは成立しないため、全体Gate、Authority／Capability／EffectおよびRelease状態は`blocked`のまま維持する。次工程は固定Pathのmanifest生成・署名・読取りとrelease Identity結合であり、秘密鍵とpassphraseは引き続き人間のRelease端末だけが使用する。本処置は`Applied`／`Self-checked`であり、機械確認と独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
+
+自己確認ではCoordinator 265 / 265、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 418 files／288 Markdown／Error 0／Warning 0がPassした。外部保管公開鍵と固定source literalのSHA-256も完全一致した。秘密鍵、passphrase、鍵保管Pathは試験、doctorまたは公開結果へ入力していない。
