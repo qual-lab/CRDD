@@ -7,7 +7,6 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "./platform-provisioner-release-identity.ts";
-import { inspectWindowsPackageDaclCandidate } from "./platform-provisioner-windows-dacl.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
 import {
   calculatePlatformProvisionerPackageContentRootCandidate,
@@ -360,16 +359,12 @@ function observePackage(packageRoot: string) {
       (fileIdentity) =>
         fileIdentity.uid === 0n && (fileIdentity.mode & 0o7777n) === 0o644n,
     );
-  const windowsDacl =
-    process.platform === "win32"
-      ? inspectWindowsPackageDaclCandidate(root.realPath)
-      : null;
   return Object.freeze({
     observation,
     packageByteLength,
     contentRoot,
     permissionPolicyConfirmed: isPermissionPolicyConfirmed,
-    windowsWritePolicyConfirmed: windowsDacl?.status === "candidate",
+    windowsWritePolicyConfirmed: false,
   });
 }
 
@@ -650,10 +645,10 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     runtimeOwnedReleaseTrustSelection:
       "implemented_single_ed25519_anchor_pinned",
     ownerAndPermissionPolicyVerification:
-      "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
+      "posix_implemented_candidate_windows_effective_access_not_implemented",
     posixRootOwnedDirectory0755AndFile0644Verification: "implemented_candidate",
     windowsSystemAndAdministratorsWriteRuntimeReadAclVerification:
-      "write_and_runtime_read_execute_policy_implemented_candidate",
+      "not_implemented_effective_access_required",
     sourceCheckoutCanAuthorizeProvisioningEffect: false,
     releaseTrustModel:
       "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",
@@ -669,9 +664,8 @@ export function describePlatformProvisionerPackageFilesystemContract() {
       "post_checkout_distribution_artifact_outside_identified_git_tree",
     releaseIdentityRollbackFloorPersistence: "implemented_candidate",
     releaseIdentityRollbackFloorTransition: "implemented_candidate",
-    effectController: "implemented_candidate",
-    installedReleaseReverification:
-      "implemented_candidate_requires_effect_controller_owned_root",
+    effectController: "not_implemented_effective_access_required",
+    installedReleaseReverification: "not_implemented_effective_access_required",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,

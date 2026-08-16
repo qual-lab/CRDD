@@ -179,4 +179,8 @@ test("package gate cannot treat caller CRDD observations as Effect authorization
   assert.equal(contract.callerObservationMayAuthorizeEffect, false);
   assert.equal(contract.standalonePackageMayAuthorizeEffect, false);
   assert.equal(contract.effectAuthorizationIssued, false);
+  assert.equal(
+    contract.effectController,
+    "not_implemented_effective_access_required",
+  );
 });

@@ -558,7 +558,7 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
   const report = JSON.parse(result.stdout);
   assert.equal(
     report.reason,
-    "platform_provisioner_source_distribution_not_verified",
+    "platform_provisioner_effective_access_adapter_not_implemented",
   );
   assert.equal(report.crddDistributionConfirmed, false);
   assert.equal(report.qualLabManifestTrustConfirmed, false);

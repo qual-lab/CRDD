@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyWindowsProvisionerInstallDaclForEffect,
   describeWindowsPackageDaclContract,
   evaluateWindowsPackageDaclObservationCandidate,
+  inspectWindowsPackageDaclCandidate,
 } from "../src/security/platform-provisioner-windows-dacl.ts";
 
 const VALID = Object.freeze({
@@ -18,12 +20,12 @@ const VALID = Object.freeze({
   reparsePointCount: 0,
 });
 
-test("Windows package DACL precheck binds write protection and runtime read execute", () => {
+test("Windows package DACL precheck keeps caller claims non-authoritative", () => {
   const result = evaluateWindowsPackageDaclObservationCandidate(VALID);
   assert.equal(result.status, "candidate");
-  assert.equal(result.writePolicyConfirmed, true);
-  assert.equal(result.runtimeReadConfirmed, true);
-  assert.equal(result.runtimePrincipalBound, true);
+  assert.equal(result.writePolicyConfirmed, false);
+  assert.equal(result.runtimeReadConfirmed, false);
+  assert.equal(result.runtimePrincipalBound, false);
   assert.equal(result.permissionMutationIssued, false);
   assert.equal(result.runtimeAuthorityConferred, false);
 });
@@ -83,20 +85,45 @@ test("Windows package DACL precheck rejects dynamic and malformed observations",
   );
 });
 
-test("Windows package DACL contract limits mutation to the fixed provisioner effect", () => {
+test("Windows package DACL observer and Effect remain unimplemented", () => {
+  let accessCount = 0;
+  const unreadInput = new Proxy(
+    {},
+    {
+      get() {
+        accessCount++;
+        throw new Error("must_not_read");
+      },
+    },
+  );
+  for (const result of [
+    inspectWindowsPackageDaclCandidate(unreadInput, unreadInput),
+    applyWindowsProvisionerInstallDaclForEffect(unreadInput, unreadInput),
+  ]) {
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "windows_package_effective_access_adapter_not_implemented",
+    );
+    assert.equal(result.filesystemEffectIssued, false);
+  }
+  assert.equal(accessCount, 0);
   const contract = describeWindowsPackageDaclContract();
   assert.equal(
     contract.verification,
-    "implemented_write_and_runtime_read_execute_policy_candidate",
+    "not_implemented_effective_access_required",
   );
-  assert.equal(contract.runtimeReadBinding, "implemented_candidate");
+  assert.equal(
+    contract.runtimeReadBinding,
+    "not_implemented_effective_access_required",
+  );
   assert.equal(
     contract.runtimePrincipalSelection,
-    "current_windows_identity_by_default_or_explicit_service_sid",
+    "not_implemented_effective_token_required",
   );
   assert.equal(
     contract.permissionMutation,
-    "implemented_only_for_fixed_windows_provisioner_install_root_effect",
+    "not_implemented_effective_access_required",
   );
 });
 

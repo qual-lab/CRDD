@@ -147,7 +147,7 @@ export function describePlatformProvisionerInstallLayoutContract() {
     externalStateReason: "installed_machine_state_only",
     compatibilityLayout: "prohibited",
     symlinkOrJunctionLayout: "prohibited",
-    filesystemEffect: "implemented_by_platform_provisioner_effect_candidate",
+    filesystemEffect: "not_implemented_effective_access_required",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
   });

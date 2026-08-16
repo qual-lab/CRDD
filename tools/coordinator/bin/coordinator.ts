@@ -244,7 +244,7 @@ if (
       ? parsedValue.json
       : parsed.jsonRequested;
   printCommandReport(report, isJsonRequested);
-  process.exitCode = !isParsed ? 64 : report.status === "candidate" ? 0 : 2;
+  process.exitCode = !isParsed ? 64 : 2;
 } else if (command === "doctor") {
   try {
     const parsed = parseDoctorArguments(

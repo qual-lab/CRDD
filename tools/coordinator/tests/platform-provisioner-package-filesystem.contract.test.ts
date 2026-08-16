@@ -229,11 +229,11 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
+    "posix_implemented_candidate_windows_effective_access_not_implemented",
   );
   assert.equal(
     contract.windowsSystemAndAdministratorsWriteRuntimeReadAclVerification,
-    "write_and_runtime_read_execute_policy_implemented_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     contract.releaseTrustModel,
@@ -251,7 +251,10 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
     contract.policyIdentityBinding,
     "owned_root_protection_and_key_storage_policy_hashes_required",
   );
-  assert.equal(contract.effectController, "implemented_candidate");
+  assert.equal(
+    contract.effectController,
+    "not_implemented_effective_access_required",
+  );
   assert.equal(
     contract.releaseIdentityRollbackFloorPersistence,
     "implemented_candidate",

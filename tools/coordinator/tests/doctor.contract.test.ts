@@ -1284,19 +1284,19 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
+    "posix_implemented_candidate_windows_effective_access_not_implemented",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerWindowsDacl.verification,
-    "implemented_write_and_runtime_read_execute_policy_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerWindowsDacl.runtimeReadBinding,
-    "implemented_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerWindowsDacl.permissionMutation,
-    "implemented_only_for_fixed_windows_provisioner_install_root_effect",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerInstallLayout.sourceOwnership,
@@ -1304,7 +1304,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerInstallLayout.filesystemEffect,
-    "implemented_by_platform_provisioner_effect_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerReleaseTrust
@@ -1323,7 +1323,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerEffect,
-    "implemented_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     report.runtimeActivation.installationKeyGeneration,
@@ -1496,7 +1496,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.provisionEffect,
-    "implemented_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(report.runtimeActivation.disableEffect, "not_implemented");
   assert.equal(report.runtimeActivation.doctorEnableIsActivation, false);

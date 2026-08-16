@@ -155,7 +155,7 @@ export function describePlatformProvisionerPackageGateContract() {
     runtimeOwnedCrddDistributionAdapter: "not_implemented",
     runtimeOwnedPackageFilesystemAdapter: "not_implemented",
     runtimeOwnedReleaseIdentitySelection: "not_implemented",
-    effectController: "implemented_fixed_distribution_candidate",
+    effectController: "not_implemented_effective_access_required",
     callerObservationMayAuthorizeEffect: false,
     standalonePackageMayAuthorizeEffect: false,
     unverifiedSourceCheckoutMayAuthorizeEffect: false,

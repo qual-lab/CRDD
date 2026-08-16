@@ -9,6 +9,11 @@ import { describeWindowsCommonApplicationDataContract } from "../src/security/wi
 
 test("active release reader is read-only and fails closed outside supported state", () => {
   const result = readPlatformProvisionerActiveReleaseCandidate();
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "active_release_reader_effective_access_adapter_not_implemented",
+  );
   assert.equal(result.runtimeAuthorityConferred, false);
   assert.equal(result.runtimeCapabilityIssued, false);
   assert.equal(result.filesystemEffectIssued, false);
@@ -18,13 +23,16 @@ test("active release reader is read-only and fails closed outside supported stat
   );
 });
 
-test("active release reader requires transaction floor active package and DACL binding", () => {
+test("active release reader remains disconnected from component candidates", () => {
   const contract = describePlatformProvisionerActiveReleaseReaderContract();
-  assert.equal(contract.runtimeRead, "implemented_candidate");
+  assert.equal(
+    contract.runtimeRead,
+    "not_implemented_effective_access_required",
+  );
   assert.equal(contract.automaticRecovery, "prohibited");
   assert.equal(
     contract.installedReleaseReverification,
-    "signed_manifest_tree_package_and_dacl_required",
+    "not_implemented_effective_access_required",
   );
   const rootContract = describeWindowsCommonApplicationDataContract();
   assert.equal(rootContract.environmentOverride, "prohibited");

@@ -6,12 +6,12 @@ import {
   runPlatformProvisionerEffect,
 } from "../src/security/platform-provisioner-effect.ts";
 
-test("source checkout blocks before platform provisioning filesystem effects", () => {
+test("platform provisioning blocks before distribution or filesystem access", () => {
   const result = runPlatformProvisionerEffect();
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
-    "platform_provisioner_source_distribution_not_verified",
+    "platform_provisioner_effective_access_adapter_not_implemented",
   );
   assert.equal(result.filesystemEffectIssued, false);
   assert.equal(result.crddDistributionConfirmed, false);
@@ -23,7 +23,11 @@ test("platform provisioner effect is repository-owned and has no compatibility l
   assert.equal(contract.command, "explicit_provision_only");
   assert.equal(
     contract.sourceCheckoutBehavior,
-    "blocked_before_program_data_discovery_or_write",
+    "blocked_before_any_read_or_filesystem_effect",
+  );
+  assert.equal(
+    contract.effectController,
+    "not_implemented_effective_access_required",
   );
   assert.equal(contract.repositoryRuntimeStateRequired, false);
   assert.equal(contract.compatibilityLayout, "prohibited");

@@ -930,19 +930,19 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(
     contract.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
+    "posix_implemented_candidate_windows_effective_access_not_implemented",
   );
   assert.equal(
     contract.platformProvisionerWindowsDacl.verification,
-    "implemented_write_and_runtime_read_execute_policy_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     contract.platformProvisionerWindowsDacl.runtimeReadBinding,
-    "implemented_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     contract.platformProvisionerWindowsDacl.permissionMutation,
-    "implemented_only_for_fixed_windows_provisioner_install_root_effect",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     contract.platformProvisionerInstallLayout.sourceOwnership,
@@ -950,7 +950,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.platformProvisionerInstallLayout.filesystemEffect,
-    "implemented_by_platform_provisioner_effect_candidate",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     contract.platformProvisionerReleaseTrust.publicKeySpkiSha256,
@@ -960,7 +960,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.platformProvisionerReleaseTrust.callerKeyMayReplaceTrustAnchor,
     false,
   );
-  assert.equal(contract.platformProvisionerEffect, "implemented_candidate");
+  assert.equal(
+    contract.platformProvisionerEffect,
+    "not_implemented_effective_access_required",
+  );
   assert.equal(contract.installationKeyGeneration, "not_implemented");
   assert.equal(
     contract.installationKeyProtectionVerification,
@@ -1107,7 +1110,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.runtimeRootProvisioningEffect, "not_implemented");
   assert.equal(contract.authorityRootProvisioningEffect, "not_implemented");
   assert.equal(contract.disableCommandGrammar, "implemented_candidate");
-  assert.equal(contract.provisionEffect, "implemented_candidate");
+  assert.equal(
+    contract.provisionEffect,
+    "not_implemented_effective_access_required",
+  );
   assert.equal(contract.disableEffect, "not_implemented");
   assert.equal(contract.doctorEnableIsActivation, false);
   assert.equal(contract.bundleIdentityChangeRequiresReactivation, true);

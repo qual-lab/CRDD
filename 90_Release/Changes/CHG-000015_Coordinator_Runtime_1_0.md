@@ -1171,3 +1171,17 @@ Agent監査は、PowerShellの再帰列挙がentity上限判定前に全treeをm
 READMEとThreat Modelは、集約Verifier単体、検索票resolver／Root Identity／Record結合候補、および未実装のWindows実効access Adapterを分離した。過去の未接続記録は当時事実として改変せず、本節の後続判断が`0a98272`のWindows実Adapter実装済み表示をsupersedeし現在判定へ使用しない。初期Trust、POSIX観測、activation transaction、実active activation、Authority／Capability／ready、実EffectおよびReleaseは未実装のままである。
 
 本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeに対する全機械確認とAgent／Architecture／Security、Document、Gap／Impact／Conformanceの固定監査集合が完了する前は、各Findingを`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseとしない。
+
+#### `85b520d`監査集合とPlatform Provisioner実効access境界の水平是正
+
+固定Commit `85b520dede5ec217daa66d11e44f17be0492f8e7`／Tree `9967e65f8318b93260d2fee07a8e031b1c53bf2e`／Parent `0a98272bcbcbf13c3be5d94adcf74c6c7d9b7587`を、Coordinator 330 / 330、Checker 150 / 150、両package check、full checker 455 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0およびcleanを共通入力として固定監査集合へ渡した。Agent／Architecture／SecurityはMajor 2件でFail、DocumentはMajor 1件でFail、Gap／ImpactはFinding 0件でPass、ConformanceはFinding 0件でPassだった。集合全体は`Invalidated`であり、部分Passを現在判定へ流用しない。Agent 2件は初回監査からの見落とし、Document 1件は修正起因である。
+
+Agent監査は、Platform Provisioner Windows DACL Adapterにもentity上限判定前のPowerShell再帰全tree materializationと、runtime SIDへ直接記載されたACE集計から実効accessを成立させる同根問題が残ることを指摘した。Document監査はREADMEの2段落がWindows実効accessとProtection Hash結合を現在実装済みと過大表示することを指摘した。
+
+水平是正では`platform-provisioner-windows-dacl`からPowerShell、FilesystemおよびDACL変更実装を撤去した。DACL構造claim evaluatorはcaller claimをPolicyへ照合する非Authorityのpure候補だけを返し、`writePolicyConfirmed`、`runtimeReadConfirmed`および`runtimePrincipalBound`を成立させない。実観測と適用入口は入力、環境、Path、PowerShellまたはFilesystemへ触れず、`not_implemented_effective_access_required`で`blocked`へ閉じる。
+
+`coordinator provision`のcommand grammar、manifest／release／package検証およびstate codec／Store／transaction component候補は保持するが、実Effectは関数入口で停止し、配布物、時計、ProgramData、Path、Filesystem read／write、copy、DACL変更、state更新または復旧を発火しない。Runtime active release readerも同様にProgramData探索とstate／package読取り前に停止する。package gate、package Filesystem、install layout、DACL、Effectおよびreaderのcontractは同じ未実装境界へ更新し、runtime activationとdoctorは同じprivate implementation snapshotから投影する。既存`platform_provisioner_verification`／`platform_provisioner_effect`阻害依存へ残し、第13 blockerを作らず、12 blocker、6 current-run evidenceおよびGate `blocked`を維持する。
+
+READMEとThreat Modelは、実装済みのpure／component候補と、未実装のWindows実効アクセス確認（effective access verification）、DACL適用、Platform Provisioner EffectおよびRuntime readerを分離した。Path、SID、ACL、raw errorまたは秘密を出力せず、Authority、Capability、準拠またはReleaseを成立させない。過去節の実装済み記録は当時事実として保持し、本節がそれらの現在表示をsupersedeして現在判定へ使用しない。
+
+本変更は未公開Candidate内部の安全側是正で、永続実状態を作成できる成功経路が存在しないため`migration_required: false`を維持する。本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの全機械確認と固定監査集合完了前はFindingを`Resolved`、採用、統合、準拠、StableまたはReleaseとしない。
