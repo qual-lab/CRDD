@@ -971,3 +971,5 @@ OpenSSLがない環境でも人間のRelease操作を安全に継続できるよ
 公開鍵の固定だけでは署名済みmanifest、CRDD release Identity loader、Windows DACL AdapterまたはEffect controllerは成立しないため、全体Gate、Authority／Capability／EffectおよびRelease状態は`blocked`のまま維持する。次工程は固定Pathのmanifest生成・署名・読取りとrelease Identity結合であり、秘密鍵とpassphraseは引き続き人間のRelease端末だけが使用する。本処置は`Applied`／`Self-checked`であり、機械確認と独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
 
 自己確認ではCoordinator 265 / 265、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 418 files／288 Markdown／Error 0／Warning 0がPassした。外部保管公開鍵と固定source literalのSHA-256も完全一致した。秘密鍵、passphrase、鍵保管Pathは試験、doctorまたは公開結果へ入力していない。
+
+人間承認に基づき、Repository外鍵保管directory `C:\project\key\CRDD`と直下の全3 fileはWindows ACL継承を解除した。Ownerは`DESKTOP-N90GJ7T\nakas`、明示Allowは同Owner、`NT AUTHORITY\SYSTEM`および`BUILTIN\Administrators`のFull Controlだけであり、一般利用者とAuthenticated Usersの継承writeを除去した。鍵2 file以外に存在した空の`mem.txt`は内容を読まず、削除せず、同じdirectory保護境界へ含めた。これは外部Release鍵保管の局所運用処置であり、CRDD RuntimeのWindows DACL Adapter実装完了、package配置、Effect、統合またはReleaseを意味しない。
