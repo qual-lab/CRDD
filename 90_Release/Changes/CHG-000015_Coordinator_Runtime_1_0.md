@@ -1157,3 +1157,17 @@ Repository固定検索票から永続Trust／current Recordを再検証する既
 Repositoryが所有するのは実装、契約、固定domain／Schema、文書および試験である。端末固有Authority Root、実Trust成果物、準備記録、秘密鍵および実DACL状態はRepositoryへ複製しない。POSIX Root観測、初期Trustの承認済み導入元、権限Provision Effect、activation transaction、実active activation、Authority、Capabilityおよびready遷移は未実装である。既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
 
 Node.js 24.19.0で、Coordinator 328 / 328、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／117 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 455 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Windows実Adapterの負例は試験用一時Rootを読み取り専用で観測し、権限を変更していない。実Authority Root、実Trust成果物、実準備記録または秘密鍵は使用・変更していない。
+
+#### `0a98272`監査集合とWindows実効access境界の再整理
+
+固定Commit `0a98272bcbcbf13c3be5d94adcf74c6c7d9b7587`／Tree `3ad75d9caa2e2d38958456e528988a7be3d6a337`／Parent `1f5d0e7e07cc410866b4d0e1674675da32633f78`を、Coordinator 328 / 328、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／117 owned source closure、両package check、full checker Error 0／Warning 0およびcleanを共通入力として固定監査集合へ渡した。Agent／Architecture／SecurityはMajor 3件でFail、DocumentはMinor 1件でConditional、Gap／ImpactはMajor 2件でFail、ConformanceはFinding 0件でPassだった。集合全体は`Invalidated`であり、Conformance単独Passを現在判定へ流用しない。
+
+Agent監査は、PowerShellの再帰列挙がentity上限判定前に全treeをmaterializeするresource境界、Runtime SIDだけのACE集計ではgroup deny、deny-only group、restricted tokenおよびACE順序を含む実効accessを証明できない点、およびRoot観測後のcurrent Record再読取りとRoot Identity最終照合が同じ時間境界へ閉じていない点を指摘した。Gap監査は、`observedProvisioningRecordBinding`が既存`authority_root_resolution_from_provisioning_record`のsource母集団へ未接続である点と、Repository／Authority Rootのsame／inside／containsおよびlexical／realpath関係差をTrust読取り前後で拒否していない点を指摘した。Document監査は、集約Verifier単体の未接続説明と後段Windows実測候補の現行表示が競合する点を指摘した。
+
+統合修正では、Root Identity／Protection成果物のexact pure contractとHash生成候補を維持し、Windows実Adapterだけを`not_implemented_effective_access_required`へ戻した。PowerShell ACE集計、`CreateFileW`のopen失敗または`Add-Type`を、Authority Rootへのwrite／append／delete／delete-child／write-DACL／write-owner拒否の証明へ流用しない。`Add-Type`は対応Windows PowerShellでcompilerや一時fileを発生させ得るため、read-onlyかつ`filesystemEffectIssued: false`の観測境界にも使用しない。将来の実装は、現在process tokenが実Runtime principalである文脈でgroup、deny-only group、restricted token、ACE順序およびgeneric mappingをOSに評価させ、DACL構造確認と実効access確認を分離する必要がある。外部署名helperの新設は今回承認範囲へ含めず、人間判断なしに追加しない。
+
+検索票resolverは、RepositoryとAuthority Rootをlexical／stable realpathの双方で相互非包含に限定した。同一Root、Authority RootがRepository内、Authority RootがRepositoryを包含、relation差、linkまたはIdentity変化をTrust／current Record読取り前後で`blocked`へ閉じる。fixtureもAuthority RootとRepositoryを兄弟directoryへ是正し、same／inside／containsの負例を固定した。`observedProvisioningRecordBinding`は既存Authority Root resolution dependencyのsource正本へ追加し、専用contract testでfield母集団を固定した。第13 blockerは作らず、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行を維持する。
+
+READMEとThreat Modelは、集約Verifier単体、検索票resolver／Root Identity／Record結合候補、および未実装のWindows実効access Adapterを分離した。過去の未接続記録は当時事実として改変せず、本節の後続判断が`0a98272`のWindows実Adapter実装済み表示をsupersedeし現在判定へ使用しない。初期Trust、POSIX観測、activation transaction、実active activation、Authority／Capability／ready、実EffectおよびReleaseは未実装のままである。
+
+本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeに対する全機械確認とAgent／Architecture／Security、Document、Gap／Impact／Conformanceの固定監査集合が完了する前は、各Findingを`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseとしない。

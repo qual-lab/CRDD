@@ -11,10 +11,8 @@ import { isRuntimeActivationIdCandidate } from "./runtime-activation-identity.ts
 import {
   PROVISIONING_RECORD_STORAGE_DIRECTORY,
   verifyCurrentProvisioningRecordLocatorBindingCandidate,
-  verifyCurrentProvisioningRecordRootObservationBindingCandidate,
 } from "./provisioning-record-store.ts";
 import { verifyCurrentProvisioningRecordWithPersistedTrustCandidate } from "./provisioning-trust-artifact-store.ts";
-import { inspectWindowsRootObservationCandidate } from "./root-observation.ts";
 
 export const AUTHORITY_ROOT_LOCATOR_CONTRACT =
   "crdd-coordinator/authority-root-locator";
@@ -323,7 +321,7 @@ function directoryIdentity(target: string) {
     after.dev === identity.dev &&
     after.ino === identity.ino &&
     after.birthtimeNs === identity.birthtimeNs
-    ? identity
+    ? Object.freeze({ ...identity, realPath })
     : null;
 }
 
@@ -335,6 +333,69 @@ function sameDirectoryIdentity(
     left.dev === right.dev &&
     left.ino === right.ino &&
     left.birthtimeNs === right.birthtimeNs
+  );
+}
+
+type RootRelationSession = Readonly<{
+  repositoryRoot: string;
+  authorityRoot: string;
+  repositoryIdentity: NonNullable<ReturnType<typeof directoryIdentity>>;
+  authorityIdentity: NonNullable<ReturnType<typeof directoryIdentity>>;
+}>;
+
+function isStrictlyInside(parent: string, child: string) {
+  const relative = path.relative(parent, child);
+  return (
+    relative !== "" &&
+    relative !== "." &&
+    !path.isAbsolute(relative) &&
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`)
+  );
+}
+
+function isDisjoint(left: string, right: string) {
+  return (
+    path.relative(left, right) !== "" &&
+    !isStrictlyInside(left, right) &&
+    !isStrictlyInside(right, left)
+  );
+}
+
+function createRootRelationSession(
+  repositoryRoot: string,
+  authorityRoot: string,
+): RootRelationSession | null {
+  const repositoryIdentity = directoryIdentity(repositoryRoot);
+  const authorityIdentity = directoryIdentity(authorityRoot);
+  if (
+    !repositoryIdentity ||
+    !authorityIdentity ||
+    !isDisjoint(repositoryRoot, authorityRoot) ||
+    !isDisjoint(repositoryIdentity.realPath, authorityIdentity.realPath)
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    repositoryRoot,
+    authorityRoot,
+    repositoryIdentity,
+    authorityIdentity,
+  });
+}
+
+function verifyRootRelationSession(session: RootRelationSession) {
+  const repositoryIdentity = directoryIdentity(session.repositoryRoot);
+  const authorityIdentity = directoryIdentity(session.authorityRoot);
+  return Boolean(
+    repositoryIdentity &&
+      authorityIdentity &&
+      sameDirectoryIdentity(session.repositoryIdentity, repositoryIdentity) &&
+      sameDirectoryIdentity(session.authorityIdentity, authorityIdentity) &&
+      repositoryIdentity.realPath === session.repositoryIdentity.realPath &&
+      authorityIdentity.realPath === session.authorityIdentity.realPath &&
+      isDisjoint(session.repositoryRoot, session.authorityRoot) &&
+      isDisjoint(repositoryIdentity.realPath, authorityIdentity.realPath),
   );
 }
 
@@ -605,9 +666,23 @@ export function resolveAuthorityRootFromStoredLocatorCandidate(
     if (typeof authorityRootPath !== "string") {
       return locatorStoreBlocked("authority_root_locator_resolver_invalid");
     }
+    const rootRelation = createRootRelationSession(
+      paths.repositoryRoot,
+      authorityRootPath,
+    );
+    if (!rootRelation) {
+      return locatorStoreBlocked(
+        "authority_root_locator_repository_containment_rejected",
+      );
+    }
     const identity = directoryIdentity(authorityRootPath);
     if (!identity) {
       return locatorStoreBlocked("authority_root_locator_root_object_invalid");
+    }
+    if (!verifyRootRelationSession(rootRelation)) {
+      return locatorStoreBlocked(
+        "authority_root_locator_root_relation_changed",
+      );
     }
     return Object.freeze({
       status: "candidate" as const,
@@ -652,6 +727,15 @@ export function verifyStoredAuthorityRootLocatorRecordCandidate(
     ) {
       return locatorStoreBlocked("authority_root_locator_record_invalid");
     }
+    const rootRelation = createRootRelationSession(
+      paths.repositoryRoot,
+      locator.authorityRootAbsolutePath,
+    );
+    if (!rootRelation) {
+      return locatorStoreBlocked(
+        "authority_root_locator_repository_containment_rejected",
+      );
+    }
     const authorityRootIdentity = directoryIdentity(
       locator.authorityRootAbsolutePath,
     );
@@ -673,6 +757,11 @@ export function verifyStoredAuthorityRootLocatorRecordCandidate(
         "authority_root_locator_provisioning_record_mismatch",
       );
     }
+    if (!verifyRootRelationSession(rootRelation)) {
+      return locatorStoreBlocked(
+        "authority_root_locator_root_relation_changed",
+      );
+    }
     const binding = verifyCurrentProvisioningRecordLocatorBindingCandidate(
       storageRoot,
       locator.authorityRootAbsolutePath,
@@ -687,7 +776,10 @@ export function verifyStoredAuthorityRootLocatorRecordCandidate(
         "authority_root_locator_provisioning_record_binding_mismatch",
       );
     }
-    if (!verifyLocatorStorePaths(paths)) {
+    if (
+      !verifyLocatorStorePaths(paths) ||
+      !verifyRootRelationSession(rootRelation)
+    ) {
       return locatorStoreBlocked(
         "authority_root_locator_store_identity_changed",
       );
@@ -718,88 +810,10 @@ export function verifyStoredAuthorityRootLocatorRecordCandidate(
 export function verifyStoredAuthorityRootLocatorObservedRecordCandidate(
   repositoryRoot: unknown,
 ) {
-  try {
-    const trustedBinding =
-      verifyStoredAuthorityRootLocatorRecordCandidate(repositoryRoot);
-    if (
-      trustedBinding.status !== "candidate" ||
-      !("recordHash" in trustedBinding) ||
-      typeof trustedBinding.recordHash !== "string"
-    ) {
-      return locatorStoreBlocked(
-        "authority_root_locator_observed_record_trust_required",
-      );
-    }
-    const paths = locatorStorePaths(repositoryRoot);
-    if (!paths || fs.existsSync(paths.pending)) {
-      return locatorStoreBlocked(
-        "authority_root_locator_observed_record_unavailable",
-      );
-    }
-    const stored = loadStoredLocator(paths, paths.target);
-    if (
-      !stored ||
-      typeof stored.locator.authorityRootAbsolutePath !== "string" ||
-      typeof stored.locator.authorityRootIdentityHash !== "string"
-    ) {
-      return locatorStoreBlocked(
-        "authority_root_locator_observed_record_invalid",
-      );
-    }
-    const observation = inspectWindowsRootObservationCandidate(
-      stored.locator.authorityRootAbsolutePath,
-      "authority",
-    );
-    if (
-      observation.status !== "candidate" ||
-      observation.rootIdentityHash !==
-        stored.locator.authorityRootIdentityHash ||
-      typeof observation.rootProtectionHash !== "string"
-    ) {
-      return locatorStoreBlocked(
-        "authority_root_locator_observed_identity_or_protection_mismatch",
-      );
-    }
-    const storageRoot = path.join(
-      stored.locator.authorityRootAbsolutePath,
-      PROVISIONING_RECORD_STORAGE_DIRECTORY,
-    );
-    const recordBinding =
-      verifyCurrentProvisioningRecordRootObservationBindingCandidate(
-        storageRoot,
-        stored.locator.authorityRootAbsolutePath,
-        observation.rootIdentityHash,
-        observation.rootProtectionHash,
-      );
-    if (
-      recordBinding.status !== "candidate" ||
-      recordBinding.authorityRootBindingMatch !== true ||
-      recordBinding.recordHash !== trustedBinding.recordHash ||
-      !verifyLocatorStorePaths(paths)
-    ) {
-      return locatorStoreBlocked(
-        "authority_root_locator_observed_record_binding_mismatch",
-      );
-    }
-    return Object.freeze({
-      status: "candidate" as const,
-      reason:
-        "stored_locator_observed_root_persisted_trust_record_binding_candidate",
-      locatorHash: stored.locatorHash,
-      recordHash: recordBinding.recordHash,
-      identityObserved: true,
-      protectionObserved: true,
-      locatorRecordTrustBindingMatch: true,
-      absolutePathReported: false,
-      filesystemEffectIssued: false,
-      runtimeAuthorityConferred: false,
-      runtimeCapabilityIssued: false,
-    });
-  } catch {
-    return locatorStoreBlocked(
-      "authority_root_locator_observed_record_verification_failed",
-    );
-  }
+  void repositoryRoot;
+  return locatorStoreBlocked(
+    "authority_root_effective_access_observation_not_implemented",
+  );
 }
 
 export function recoverAuthorityRootLocatorForEffect(repositoryRoot: unknown) {
@@ -866,9 +880,9 @@ export function describeAuthorityRootLocatorContract() {
     provisioningRecordVerification:
       "implemented_candidate_persisted_trust_and_binding",
     authorityRootIdentityVerification:
-      "implemented_candidate_windows_identity_and_protection_observation",
+      "not_implemented_windows_effective_access_observation_required",
     observedProvisioningRecordBinding:
-      "implemented_candidate_windows_identity_and_protection_hashes",
+      "not_implemented_windows_effective_access_observation_required",
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
     runtimeAuthorityConferred: false,

@@ -92,12 +92,16 @@ test("DACL、FilesystemまたはIdentity不成立をfail closedにする", () =>
   );
 });
 
-test("実Adapterは任意Pathやraw観測を公開しない", () => {
+test("実効access Adapter未実装時は入力に依存せず安全にblockedとする", () => {
   const result = inspectWindowsRootObservationCandidate(
     "relative-root",
     "authority",
   );
   assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "windows_root_effective_access_adapter_not_implemented",
+  );
   assert.deepEqual(Object.keys(result).sort(), [
     "absolutePathReported",
     "aclReported",
@@ -127,7 +131,7 @@ test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
       "windows_device_file_and_birthtime_identity_without_path_disclosure",
     protectionInputs:
       "windows_fixed_drive_dacl_role_runtime_principal_and_writer_exclusivity",
-    windowsAdapter: "implemented_candidate_read_only",
+    windowsAdapter: "not_implemented_effective_access_required",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

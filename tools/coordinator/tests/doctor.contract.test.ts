@@ -529,9 +529,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     provisioningRecordVerification:
       "implemented_candidate_persisted_trust_and_binding",
     authorityRootIdentityVerification:
-      "implemented_candidate_windows_identity_and_protection_observation",
+      "not_implemented_windows_effective_access_observation_required",
     observedProvisioningRecordBinding:
-      "implemented_candidate_windows_identity_and_protection_hashes",
+      "not_implemented_windows_effective_access_observation_required",
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
     runtimeAuthorityConferred: false,
@@ -1540,7 +1540,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.rootProtectionPolicy.windowsDaclAdapter,
-    "implemented_candidate_read_only",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     report.rootProtectionPolicy.posixRuntimeRootPrecheckEntry,
@@ -1564,7 +1564,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.rootProtectionPolicy.pathBinding,
-    "implemented_candidate_windows_stable_object_only",
+    "not_implemented_root_observation_adapter_required",
   );
   assert.equal(
     report.rootProtectionPolicy.activationIntegration,

@@ -1,7 +1,4 @@
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
@@ -42,97 +39,8 @@ const OBSERVATION_KEYS = new Set([
   "runtimeWriteEntityCount",
 ]);
 const MAXIMUM_ENTITIES = 2_049;
-const POWERSHELL_TIMEOUT_MILLISECONDS = 30_000;
-const POWERSHELL_OUTPUT_BYTES = 64 * 1_024;
-const WINDOWS_ROOT = /^[A-Za-z]:\\Windows$/u;
 const WINDOWS_SID = /^S-1-(?:[0-9]+-){1,14}[0-9]+$/u;
 const DECIMAL_IDENTITY = /^[1-9][0-9]{0,39}$/u;
-const POWERSHELL_SCRIPT = `
-$ErrorActionPreference = 'Stop'
-$root = [Environment]::GetEnvironmentVariable('CRDD_ROOT_OBSERVATION_PATH', 'Process')
-$rootRole = [Environment]::GetEnvironmentVariable('CRDD_ROOT_OBSERVATION_ROLE', 'Process')
-if ([string]::IsNullOrWhiteSpace($root)) { throw 'root_missing' }
-if ($rootRole -ne 'runtime' -and $rootRole -ne 'authority') { throw 'role_invalid' }
-$runtimeSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-$runtimeIdentity = [Security.Principal.SecurityIdentifier]::new($runtimeSid)
-$trusted = @('S-1-5-18', 'S-1-5-32-544')
-$writeMask = [int64]852310
-$readExecuteMask = [int64]131241
-$rootItem = Get-Item -LiteralPath $root -Force
-$drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($rootItem.FullName))
-if ($drive.DriveType -ne [IO.DriveType]::Fixed) { throw 'filesystem_not_local' }
-$items = @($rootItem) + @(Get-ChildItem -LiteralPath $rootItem.FullName -Force -Recurse)
-if ($items.Count -lt 1 -or $items.Count -gt 2049) { throw 'entity_count_invalid' }
-$allOwnersTrusted = $true
-$otherWriteAceCount = 0
-$runtimeReadExecuteEntityCount = 0
-$runtimeWriteEntityCount = 0
-$runtimeRootInheritanceRuleCount = 0
-$runtimeDenyAceCount = 0
-$reparsePointCount = 0
-$rootDaclProtected = $false
-for ($index = 0; $index -lt $items.Count; $index++) {
-  $item = $items[$index]
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-    $reparsePointCount++
-    continue
-  }
-  $acl = Get-Acl -LiteralPath $item.FullName
-  if ($index -eq 0) { $rootDaclProtected = [bool]$acl.AreAccessRulesProtected }
-  $ownerSid = ([Security.Principal.NTAccount]$acl.Owner).Translate([Security.Principal.SecurityIdentifier]).Value
-  if ($trusted -notcontains $ownerSid) { $allOwnersTrusted = $false }
-  $rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
-  $entityRuntimeReadExecute = $false
-  $entityRuntimeWrite = $false
-  foreach ($rule in $rules) {
-    $ruleSid = $rule.IdentityReference.Value
-    $rights = [int64]$rule.FileSystemRights
-    if ($ruleSid -eq $runtimeIdentity.Value) {
-      if ($rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Deny) {
-        $runtimeDenyAceCount++
-      } elseif (($rights -band $readExecuteMask) -eq $readExecuteMask) {
-        $entityRuntimeReadExecute = $true
-      }
-      if (
-        $rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
-        ($rights -band $writeMask) -ne 0
-      ) { $entityRuntimeWrite = $true }
-      if (
-        $index -eq 0 -and
-        -not $rule.IsInherited -and
-        $rule.InheritanceFlags -eq ([Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit) -and
-        $rule.PropagationFlags -eq [Security.AccessControl.PropagationFlags]::None -and
-        $rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
-        ($rights -band $readExecuteMask) -eq $readExecuteMask -and
-        (($rootRole -eq 'runtime' -and ($rights -band $writeMask) -ne 0) -or
-         ($rootRole -eq 'authority' -and ($rights -band $writeMask) -eq 0))
-      ) { $runtimeRootInheritanceRuleCount++ }
-    }
-    if (
-      $rule.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
-      ($rights -band $writeMask) -ne 0 -and
-      $trusted -notcontains $ruleSid -and
-      $ruleSid -ne $runtimeIdentity.Value
-    ) { $otherWriteAceCount++ }
-  }
-  if ($entityRuntimeReadExecute) { $runtimeReadExecuteEntityCount++ }
-  if ($entityRuntimeWrite) { $runtimeWriteEntityCount++ }
-}
-[pscustomobject]@{
-  allOwnersTrusted = $allOwnersTrusted
-  entityCount = [int]$items.Count
-  filesystemClass = 'local'
-  otherWriteAceCount = $otherWriteAceCount
-  reparsePointCount = $reparsePointCount
-  rootDaclProtected = $rootDaclProtected
-  rootRole = $rootRole
-  runtimeDenyAceCount = $runtimeDenyAceCount
-  runtimePrincipalSid = $runtimeIdentity.Value
-  runtimeReadExecuteEntityCount = $runtimeReadExecuteEntityCount
-  runtimeRootInheritanceRuleCount = $runtimeRootInheritanceRuleCount
-  runtimeWriteEntityCount = $runtimeWriteEntityCount
-} | ConvertTo-Json -Compress
-`;
 
 function blocked(reason: string) {
   return Object.freeze({
@@ -275,113 +183,13 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
   }
 }
 
-function powershellExecutable() {
-  const systemRoot = process.env.SystemRoot;
-  if (!systemRoot || !WINDOWS_ROOT.test(systemRoot)) return null;
-  const executable = path.join(
-    systemRoot,
-    "System32",
-    "WindowsPowerShell",
-    "v1.0",
-    "powershell.exe",
-  );
-  try {
-    const metadata = fs.lstatSync(executable);
-    return metadata.isFile() &&
-      !metadata.isSymbolicLink() &&
-      fs.realpathSync.native(executable) === executable
-      ? executable
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function directoryIdentity(target: string) {
-  const before = fs.lstatSync(target, { bigint: true });
-  const realPath = fs.realpathSync.native(target);
-  const resolved = fs.lstatSync(realPath, { bigint: true });
-  const after = fs.lstatSync(target, { bigint: true });
-  if (
-    !before.isDirectory() ||
-    before.isSymbolicLink() ||
-    before.dev <= 0n ||
-    before.ino <= 0n ||
-    before.birthtimeNs <= 0n ||
-    before.dev !== resolved.dev ||
-    before.ino !== resolved.ino ||
-    before.birthtimeNs !== resolved.birthtimeNs ||
-    before.dev !== after.dev ||
-    before.ino !== after.ino ||
-    before.birthtimeNs !== after.birthtimeNs
-  ) {
-    throw new Error("windows_root_identity_unstable");
-  }
-  return Object.freeze({
-    realPath,
-    objectBirthtimeNanoseconds: before.birthtimeNs.toString(10),
-    objectDeviceId: before.dev.toString(10),
-    objectFileId: before.ino.toString(10),
-  });
-}
-
 export function inspectWindowsRootObservationCandidate(
   rootPath: unknown,
   rootRole: unknown,
 ) {
-  try {
-    if (
-      process.platform !== "win32" ||
-      typeof rootPath !== "string" ||
-      !path.win32.isAbsolute(rootPath) ||
-      rootPath.includes("\0") ||
-      !ROOT_ROLES.has(rootRole as string)
-    ) {
-      return blocked("windows_root_observation_platform_or_input_invalid");
-    }
-    const initialIdentity = directoryIdentity(rootPath);
-    const executable = powershellExecutable();
-    if (!executable)
-      return blocked("windows_root_observation_host_unavailable");
-    const encoded = Buffer.from(POWERSHELL_SCRIPT, "utf16le").toString(
-      "base64",
-    );
-    const output = execFileSync(
-      executable,
-      ["-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
-      {
-        encoding: "utf8",
-        windowsHide: true,
-        timeout: POWERSHELL_TIMEOUT_MILLISECONDS,
-        maxBuffer: POWERSHELL_OUTPUT_BYTES,
-        env: {
-          SystemRoot: process.env.SystemRoot,
-          CRDD_ROOT_OBSERVATION_PATH: initialIdentity.realPath,
-          CRDD_ROOT_OBSERVATION_ROLE: rootRole as string,
-        },
-        stdio: ["ignore", "pipe", "ignore"],
-      },
-    );
-    const finalIdentity = directoryIdentity(rootPath);
-    if (
-      initialIdentity.realPath !== finalIdentity.realPath ||
-      initialIdentity.objectDeviceId !== finalIdentity.objectDeviceId ||
-      initialIdentity.objectFileId !== finalIdentity.objectFileId ||
-      initialIdentity.objectBirthtimeNanoseconds !==
-        finalIdentity.objectBirthtimeNanoseconds
-    ) {
-      return blocked("windows_root_observation_identity_changed");
-    }
-    const observed = JSON.parse(output) as Record<string, unknown>;
-    return compileWindowsRootObservationCandidate({
-      ...observed,
-      objectBirthtimeNanoseconds: initialIdentity.objectBirthtimeNanoseconds,
-      objectDeviceId: initialIdentity.objectDeviceId,
-      objectFileId: initialIdentity.objectFileId,
-    });
-  } catch {
-    return blocked("windows_root_observation_failed");
-  }
+  void rootPath;
+  void rootRole;
+  return blocked("windows_root_effective_access_adapter_not_implemented");
 }
 
 export function describeRootObservationContract() {
@@ -397,7 +205,7 @@ export function describeRootObservationContract() {
       "windows_device_file_and_birthtime_identity_without_path_disclosure",
     protectionInputs:
       "windows_fixed_drive_dacl_role_runtime_principal_and_writer_exclusivity",
-    windowsAdapter: "implemented_candidate_read_only",
+    windowsAdapter: "not_implemented_effective_access_required",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

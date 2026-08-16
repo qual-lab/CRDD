@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AUTHORITY_ROOT_RESOLUTION_LOCATOR_SOURCE_FIELDS,
   RUNTIME_ACTIVATION_CONTRACT,
   RUNTIME_ACTIVATION_INPUT_LIMITS,
   compileRuntimeActivationRecordCandidate,
@@ -34,6 +35,17 @@ function record(overrides = {}) {
     ...overrides,
   };
 }
+
+test("Authority Root解決のsource母集団は観測済みRecord結合を含む", () => {
+  assert.deepEqual(AUTHORITY_ROOT_RESOLUTION_LOCATOR_SOURCE_FIELDS, [
+    "filesystemRead",
+    "resolver",
+    "provisioningRecordVerification",
+    "authorityRootIdentityVerification",
+    "observedProvisioningRecordBinding",
+    "activeActivationBinding",
+  ]);
+});
 
 test("Activation recordはRepository、Root、Bundle、Policy、Registry Identityをcanonical byteへ結合する", () => {
   const compiled = compileRuntimeActivationRecordCandidate(record());
@@ -261,9 +273,9 @@ test("Activation contractは永続化、専用command、再activation、disable/
     provisioningRecordVerification:
       "implemented_candidate_persisted_trust_and_binding",
     authorityRootIdentityVerification:
-      "implemented_candidate_windows_identity_and_protection_observation",
+      "not_implemented_windows_effective_access_observation_required",
     observedProvisioningRecordBinding:
-      "implemented_candidate_windows_identity_and_protection_hashes",
+      "not_implemented_windows_effective_access_observation_required",
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
     runtimeAuthorityConferred: false,
@@ -1194,7 +1206,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.rootProtectionPolicy.windowsDaclAdapter,
-    "implemented_candidate_read_only",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     contract.rootProtectionPolicy.posixOwnerModeAdapter,
@@ -1206,7 +1218,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.rootProtectionPolicy.runtimePrincipalBinding,
-    "implemented_candidate_windows_only",
+    "not_implemented_effective_access_required",
   );
   assert.equal(
     contract.rootProtectionPolicy.persistentVolumeAdapter,
@@ -1214,11 +1226,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.rootProtectionPolicy.filesystemClassVerification,
-    "implemented_candidate_windows_fixed_drive_only",
+    "not_implemented",
   );
   assert.equal(
     contract.rootProtectionPolicy.pathBinding,
-    "implemented_candidate_windows_stable_object_only",
+    "not_implemented_root_observation_adapter_required",
   );
   assert.equal(
     contract.rootProtectionPolicy.activationIntegration,
@@ -1226,7 +1238,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.ownerAclVerification,
-    "implemented_candidate_read_only",
+    "not_implemented_effective_access_required",
   );
   assert.equal(contract.atomicPersistence, "not_implemented");
   assert.equal(contract.canonicalUtcLength, 24);

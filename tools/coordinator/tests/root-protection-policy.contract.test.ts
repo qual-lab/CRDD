@@ -403,18 +403,18 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
   assert.equal(contract.posixAclVerification, "not_implemented");
   assert.equal(
     contract.runtimePrincipalBinding,
-    "implemented_candidate_windows_only",
+    "not_implemented_effective_access_required",
   );
-  assert.equal(contract.windowsDaclAdapter, "implemented_candidate_read_only");
+  assert.equal(
+    contract.windowsDaclAdapter,
+    "not_implemented_effective_access_required",
+  );
   assert.equal(contract.posixOwnerModeAdapter, "not_implemented");
   assert.equal(contract.persistentVolumeAdapter, "not_implemented");
-  assert.equal(
-    contract.filesystemClassVerification,
-    "implemented_candidate_windows_fixed_drive_only",
-  );
+  assert.equal(contract.filesystemClassVerification, "not_implemented");
   assert.equal(
     contract.pathBinding,
-    "implemented_candidate_windows_stable_object_only",
+    "not_implemented_root_observation_adapter_required",
   );
   assert.equal(contract.rootObservation.posixAdapter, "not_implemented");
   assert.equal(contract.rootCreationIssued, false);

@@ -358,6 +358,39 @@ test("検索票をRepository固定位置へ保存しRoot実体だけを安全に
   }
 });
 
+test("RepositoryとAuthority Rootのsame・inside・containsを解決前に拒否する", () => {
+  for (const relation of ["same", "inside", "contains"] as const) {
+    const target = storeFixture();
+    try {
+      const insideRoot = path.join(target.repositoryRoot, "authority");
+      fs.mkdirSync(insideRoot);
+      const authorityRootAbsolutePath =
+        relation === "same"
+          ? target.repositoryRoot
+          : relation === "inside"
+            ? fs.realpathSync.native(insideRoot)
+            : target.parent;
+      assert.equal(
+        persistAuthorityRootLocatorForEffect(
+          target.repositoryRoot,
+          locator({ authorityRootAbsolutePath }),
+        ).status,
+        "candidate",
+      );
+      const resolved = resolveAuthorityRootFromStoredLocatorCandidate(
+        target.repositoryRoot,
+      );
+      assert.equal(resolved.status, "blocked");
+      assert.equal(
+        resolved.reason,
+        "authority_root_locator_repository_containment_rejected",
+      );
+    } finally {
+      fs.rmSync(target.parent, { recursive: true, force: true });
+    }
+  }
+});
+
 test("検索票pendingは通常読取りを止め明示復旧だけで適用する", () => {
   const target = storeFixture();
   try {

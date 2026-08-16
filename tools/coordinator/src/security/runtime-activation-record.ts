@@ -47,6 +47,14 @@ export const RUNTIME_ACTIVATION_INPUT_LIMITS = Object.freeze({
   identifierLength: RUNTIME_ACTIVATION_ID_MAX_LENGTH,
   canonicalUtcLength: 24,
 });
+export const AUTHORITY_ROOT_RESOLUTION_LOCATOR_SOURCE_FIELDS = Object.freeze([
+  "filesystemRead",
+  "resolver",
+  "provisioningRecordVerification",
+  "authorityRootIdentityVerification",
+  "observedProvisioningRecordBinding",
+  "activeActivationBinding",
+] as const);
 
 const HASH = /^[a-f0-9]{64}$/u;
 const BUNDLE_ID = /^AUTHBUNDLE-[0-9]{6,}$/u;
@@ -240,11 +248,9 @@ function deriveOnboardingReadiness(implementation: ActivationImplementation) {
     ]),
     dependency("authority_root_resolution_from_provisioning_record", [
       implementation.authorityRootResolutionFromProvisioningRecord,
-      locator.filesystemRead,
-      locator.resolver,
-      locator.provisioningRecordVerification,
-      locator.authorityRootIdentityVerification,
-      locator.activeActivationBinding,
+      ...AUTHORITY_ROOT_RESOLUTION_LOCATOR_SOURCE_FIELDS.map(
+        (field) => locator[field],
+      ),
       activationLocatorBinding.provisioningRecordVerification,
       activationLocatorBinding.filesystemCurrentRecordRead,
       activationLocatorBinding.activeActivationBinding,

@@ -57,7 +57,8 @@ function lowS(signature: Uint8Array) {
 
 function fixture() {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-trust-store-"));
-  const root = path.join(parent, PROVISIONING_RECORD_STORAGE_DIRECTORY);
+  const authorityRoot = path.join(parent, "authority");
+  const root = path.join(authorityRoot, PROVISIONING_RECORD_STORAGE_DIRECTORY);
   const repositoryRoot = path.join(parent, "repository");
   fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"), {
     recursive: true,
@@ -71,7 +72,7 @@ function fixture() {
     parent,
     root,
     repositoryRoot: fs.realpathSync.native(repositoryRoot),
-    authorityRoot: fs.realpathSync.native(parent),
+    authorityRoot: fs.realpathSync.native(authorityRoot),
   };
 }
 
