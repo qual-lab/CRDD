@@ -115,8 +115,8 @@ type HostRecoveryRecord = Readonly<{
   createdAt: string;
 }>;
 
-const OWNED_IDENTITIES = new WeakMap<object, OwnedIdentity>();
-const MOUNT_CAPABILITIES = new WeakMap<object, ChildSnapshots>();
+const ownedIdentities = new WeakMap<object, OwnedIdentity>();
+const mountCapabilities = new WeakMap<object, ChildSnapshots>();
 
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
@@ -214,11 +214,11 @@ function normalizeHostRecoveryRecord(value: unknown): HostRecoveryRecord {
 }
 
 function ownedIdentity(value: unknown): OwnedIdentity | null {
-  return isObject(value) ? (OWNED_IDENTITIES.get(value) ?? null) : null;
+  return isObject(value) ? (ownedIdentities.get(value) ?? null) : null;
 }
 
 function requireOwnedIdentity(value: object): OwnedIdentity {
-  const identity = OWNED_IDENTITIES.get(value);
+  const identity = ownedIdentities.get(value);
   if (!identity) throw new Error("owned_operation_directory_identity_required");
   return identity;
 }
@@ -387,7 +387,7 @@ function writeHostRecoveryRecord(
       recordHash,
     }),
   });
-  OWNED_IDENTITIES.set(owned, updated);
+  ownedIdentities.set(owned, updated);
   return `host.${path.basename(identity.root)}.${identity.hostRecovery.nonce}.${recordHash}`;
 }
 
@@ -435,7 +435,7 @@ export function createOwnedOperationDirectories(
     directories: null,
     hostRecoveryId: null,
   };
-  OWNED_IDENTITIES.set(
+  ownedIdentities.set(
     owned,
     Object.freeze({
       parent,
@@ -485,7 +485,7 @@ export function createOwnedOperationDirectories(
         "management",
       ),
     });
-    OWNED_IDENTITIES.set(
+    ownedIdentities.set(
       owned,
       Object.freeze({
         ...identity,
@@ -610,7 +610,7 @@ function rollbackInitializingOperationDirectories(owned: unknown): void {
   fs.rmSync(realRoot, { recursive: true, force: false });
   if (fs.existsSync(realRoot))
     throw new Error("owned_operation_directory_cleanup_incomplete");
-  if (isObject(owned)) OWNED_IDENTITIES.delete(owned);
+  if (isObject(owned)) ownedIdentities.delete(owned);
 }
 
 export function createOwnedMountCapability(
@@ -627,7 +627,7 @@ export function createOwnedMountCapability(
   for (const snapshot of Object.values(identity.children))
     validateDirectorySnapshot(snapshot);
   const capability = Object.freeze({ kind: "owned_operation_mounts" });
-  MOUNT_CAPABILITIES.set(capability, identity.children);
+  mountCapabilities.set(capability, identity.children);
   return capability;
 }
 
@@ -635,7 +635,7 @@ export function verifyOwnedMountCapability(
   capability: unknown,
 ): OwnedMountPaths {
   const children = isObject(capability)
-    ? (MOUNT_CAPABILITIES.get(capability) ?? null)
+    ? (mountCapabilities.get(capability) ?? null)
     : null;
   if (!children) throw new Error("owned_operation_mount_capability_required");
   return Object.freeze({
@@ -722,7 +722,7 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   fs.rmSync(identity.root, { recursive: true, force: false });
   if (fs.existsSync(identity.root))
     throw new Error("owned_operation_directory_cleanup_incomplete");
-  if (isObject(owned)) OWNED_IDENTITIES.delete(owned);
+  if (isObject(owned)) ownedIdentities.delete(owned);
   try {
     const recoveryDirectory = fs.realpathSync(identity.hostRecovery.directory);
     if (

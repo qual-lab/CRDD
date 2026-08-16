@@ -81,7 +81,7 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
     egress: {
       origins: Array.from(
         { length: PROVIDER_INPUT_LIMITS.originCount },
-        (_, index) =>
+        (unusedOrigin, index) =>
           `https://api-${String(index).padStart(2, "0")}.example.test`,
       ),
     },
@@ -90,7 +90,8 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
   const tooMany = candidate();
   tooMany.egress.origins = Array.from(
     { length: PROVIDER_INPUT_LIMITS.originCount + 1 },
-    (_, index) => `https://api-${String(index).padStart(2, "0")}.example.test`,
+    (unusedOrigin, index) =>
+      `https://api-${String(index).padStart(2, "0")}.example.test`,
   );
   assert.equal(
     validateProviderIsolationProfile(tooMany).reason,

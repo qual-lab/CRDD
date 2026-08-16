@@ -5,7 +5,7 @@ import { TextDecoder } from "node:util";
 const MAX_CONTROL_FILE_BYTES = 4096;
 const MAX_CONFIG_FILE_BYTES = 1024 * 1024;
 const MAX_EXCLUDE_FILE_BYTES = 128 * 1024;
-const UTF8 = new TextDecoder("utf-8", { fatal: true });
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
 type EntityType = "file" | "directory";
 type LayoutKind = "normal_worktree" | "gitfile_worktree" | "linked_worktree";
@@ -51,10 +51,10 @@ function identity(
   metadata: fs.BigIntStats,
   expectedType: EntityType,
 ): EntityIdentity {
-  const typeValid =
+  const isTypeValid =
     expectedType === "file" ? metadata.isFile() : metadata.isDirectory();
   if (
-    !typeValid ||
+    !isTypeValid ||
     metadata.isSymbolicLink() ||
     metadata.dev <= 0n ||
     metadata.ino <= 0n ||
@@ -144,12 +144,12 @@ function readStableFileBytes(
   target: string,
   maximumBytes: number,
   parentSnapshots: readonly EntitySnapshot[] = [],
-  allowEmpty = false,
+  shouldAllowEmpty = false,
 ): StableFileBytes {
   verifySnapshots(parentSnapshots);
   const pathBefore = identity(fs.lstatSync(target, { bigint: true }), "file");
   if (
-    (!allowEmpty && pathBefore.size <= 0n) ||
+    (!shouldAllowEmpty && pathBefore.size <= 0n) ||
     pathBefore.size > BigInt(maximumBytes)
   ) {
     throw new Error("repository_git_file_budget_invalid");
@@ -214,7 +214,7 @@ function readStableFileBytes(
 }
 
 function decodeUtf8(bytes: Uint8Array, reason: string): string {
-  const text = UTF8.decode(bytes);
+  const text = utf8Decoder.decode(bytes);
   if (text.charCodeAt(0) === 0xfeff || text.includes("\u0000"))
     throw new Error(reason);
   return text;

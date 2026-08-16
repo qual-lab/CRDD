@@ -93,14 +93,14 @@ function hasLoneSurrogate(value: string) {
 
 function dataDescriptor(
   descriptor: PropertyDescriptor | undefined,
-  enumerable = true,
+  shouldBeEnumerable = true,
 ): descriptor is PropertyDescriptor & { value: unknown } {
   return Boolean(
     descriptor &&
       Object.hasOwn(descriptor, "value") &&
       descriptor.get === undefined &&
       descriptor.set === undefined &&
-      (!enumerable || descriptor.enumerable === true),
+      (!shouldBeEnumerable || descriptor.enumerable === true),
   );
 }
 

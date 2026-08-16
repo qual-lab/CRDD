@@ -67,14 +67,14 @@ export function evaluatePlatformKeyStoragePolicyCandidate(rawInput: unknown) {
       return result("blocked", "platform_key_storage_platform_unsupported");
     }
     const policy = PLATFORM_POLICIES[input.platformFamily];
-    const preferred = input.backend === policy.preferred;
-    const fallback = input.backend === policy.explicitFallback;
-    if (!preferred && !fallback) {
+    const isPreferred = input.backend === policy.preferred;
+    const isFallback = input.backend === policy.explicitFallback;
+    if (!isPreferred && !isFallback) {
       return result("blocked", "platform_key_storage_backend_unsupported");
     }
     if (
-      (preferred && input.explicitFallbackApproved) ||
-      (fallback && !input.explicitFallbackApproved)
+      (isPreferred && input.explicitFallbackApproved) ||
+      (isFallback && !input.explicitFallbackApproved)
     ) {
       return result(
         "blocked",
@@ -92,7 +92,7 @@ export function evaluatePlatformKeyStoragePolicyCandidate(rawInput: unknown) {
       "signed_platform_provisioner_native_backend_key_handle_and_protection_verification_required",
       {
         platformFamily: input.platformFamily,
-        backendClass: preferred ? "preferred" : "explicit_fallback",
+        backendClass: isPreferred ? "preferred" : "explicit_fallback",
         keyAlgorithm: "ECDSA-P256-SHA256",
         publicKeyCanonical: true,
       },

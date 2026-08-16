@@ -301,7 +301,9 @@ test("空または未作成excludeを作成し外部overrideではmetadataを書
     applyGitLocalExcludeCandidate(existingInput(repositoryRoot)).status,
     "candidate",
   );
-  const before = fs.readdirSync(path.join(repositoryRoot, ".git", "info"));
+  const beforeEntries = fs.readdirSync(
+    path.join(repositoryRoot, ".git", "info"),
+  );
   const external = applyGitLocalExcludeCandidate(
     existingInput(repositoryRoot, {
       cliOverride: path.join(path.dirname(repositoryRoot), "external-runtime"),
@@ -311,7 +313,7 @@ test("空または未作成excludeを作成し外部overrideではmetadataを書
   assert.equal(external.gitMetadataWriteIssued, false);
   assert.deepEqual(
     fs.readdirSync(path.join(repositoryRoot, ".git", "info")),
-    before,
+    beforeEntries,
   );
 });
 

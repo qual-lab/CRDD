@@ -860,6 +860,8 @@ Qual-Labの人間の決定権限者は、Coordinatorを個別用途または単�
 
 `tools/crdd_check.ts`と`template/tools/crdd_check.ts`は、採用Repositoryで追加installなしに直接実行できるブートストラップ境界として対象外にする。残るCoordinator moduleはpilotの型境界、保守費および誤検出を確認してから専用変更で拡張し、`.ts`拡張子への変換はRuntime 1.0の内部API安定後に別判断とする。自己確認では型検査、対象49件、Coordinator全255件、Checker全143件および全体Checker（Error 0／Warning 0）がPassした。本処置は`Applied`／`Self-checked`であり、必要な独立レビュー前は`Resolved`ではない。
 
+この段落の型検査対象外判断と旧Pathは当時の履歴である。内部JavaScriptの完全TypeScript移行は[CHG-000016](CHG-000016_Internal_TypeScript_Migration.md)、現行Checker Pathの破壊的移行は[CHG-000017](CHG-000017_Tools_Coding_Standards.md)が後続決定として置き換え、現在判定には使用しない。
+
 ### 2026-08-16 — Coordinator全実装moduleへの型検査展開
 
 後続の人間承認に基づき、`allowJs`／`checkJs`／`noEmit`による型検査を`bin`／`src`配下の全38実装moduleへ展開する。全実装moduleへJavaScript互換の構造検査を適用し、Platform Provisioner Trust CoreとPackage Gateには既存の`strict`検査を別設定で重ねる。意図的な不正shape、readonly Node APIの差替えおよび失敗系unionを多用する試験fixtureは静的型へ合わせたcastで弱めず、従来の全Coordinator実行試験で確認する。

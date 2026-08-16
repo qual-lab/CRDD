@@ -214,14 +214,14 @@ if (
 } else if (command === "provision") {
   const parsed = parseProvisionArguments(args);
   const parsedValue = plainRecord(parsed.value);
-  const parsedOk =
+  const isParsed =
     parsed.status === "ok" &&
     parsedValue &&
     typeof parsedValue.json === "boolean";
   const report = Object.freeze({
     status: "blocked",
     command,
-    reason: parsedOk
+    reason: isParsed
       ? "platform_provisioner_crdd_bundle_trust_and_effect_not_implemented"
       : typeof parsed.reason === "string"
         ? parsed.reason
@@ -233,12 +233,12 @@ if (
     filesystemEffectIssued: false,
     runtimeCapabilityIssued: false,
   });
-  const jsonRequested =
-    parsedOk && typeof parsedValue.json === "boolean"
+  const isJsonRequested =
+    isParsed && typeof parsedValue.json === "boolean"
       ? parsedValue.json
       : parsed.jsonRequested;
-  printCommandReport(report, jsonRequested);
-  process.exitCode = parsedOk ? 2 : 64;
+  printCommandReport(report, isJsonRequested);
+  process.exitCode = isParsed ? 2 : 64;
 } else if (command === "doctor") {
   try {
     const parsed = parseDoctorArguments(

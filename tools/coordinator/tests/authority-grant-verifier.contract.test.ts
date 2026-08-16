@@ -75,7 +75,7 @@ function grants(
   ],
 ) {
   const base = registry().grants[0];
-  return Array.from({ length: count }, (_, index) => ({
+  return Array.from({ length: count }, (unusedItem, index) => ({
     ...base,
     grantRef: `AUTH-${String(index + 1).padStart(6, "0")}`,
     origins: originFactory(index),
@@ -312,7 +312,7 @@ test("Registry入力budgetは最大件数を受理し1超過とcanonical byte超
       grants: grants(AUTHORITY_REGISTRY_INPUT_LIMITS.grantCount, (grantIndex) =>
         Array.from(
           { length: PROVIDER_INPUT_LIMITS.originCount },
-          (_, originIndex) => {
+          (unusedOrigin, originIndex) => {
             const suffix = `${grantIndex}-${originIndex}.test`;
             return `https://${"a".repeat(PROVIDER_INPUT_LIMITS.originLength - 8 - suffix.length)}${suffix}`;
           },

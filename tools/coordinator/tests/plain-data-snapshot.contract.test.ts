@@ -120,20 +120,20 @@ test("Proxyはreflection trapを実行する前に拒否する", () => {
   );
   assert.equal(snapshotPlainRecord(proxy, new Set(["left", "right"])), null);
   assert.deepEqual(calls, { ownKeys: 0, descriptor: 0, prototype: 0 });
-  const arrayProxy = new Proxy(["value"], {
-    ownKeys(target) {
+  const proxiedArrayItems = new Proxy(["value"], {
+    ownKeys(targetItems) {
       calls.ownKeys += 1;
-      return Reflect.ownKeys(target);
+      return Reflect.ownKeys(targetItems);
     },
-    getOwnPropertyDescriptor(target, key) {
+    getOwnPropertyDescriptor(targetItems, key) {
       calls.descriptor += 1;
-      return Reflect.getOwnPropertyDescriptor(target, key);
+      return Reflect.getOwnPropertyDescriptor(targetItems, key);
     },
-    getPrototypeOf(target) {
+    getPrototypeOf(targetItems) {
       calls.prototype += 1;
-      return Reflect.getPrototypeOf(target);
+      return Reflect.getPrototypeOf(targetItems);
     },
   });
-  assert.equal(snapshotPlainArray(arrayProxy, 1).status, "blocked");
+  assert.equal(snapshotPlainArray(proxiedArrayItems, 1).status, "blocked");
   assert.deepEqual(calls, { ownKeys: 0, descriptor: 0, prototype: 0 });
 });

@@ -198,7 +198,7 @@ function reportReferences(
   ) {
     throw new Error("checker_report_references_invalid");
   }
-  const inbound = references.inbound.map((entry) => {
+  const inboundReferences = references.inbound.map((entry) => {
     const item = record(entry);
     if (!item) throw new Error("checker_report_inbound_invalid");
     const count = item.count;
@@ -207,7 +207,7 @@ function reportReferences(
     }
     return Object.freeze({ count, source: reportString(item, "source") });
   });
-  const outbound = references.outbound.map((entry) => {
+  const outboundReferences = references.outbound.map((entry) => {
     const item = record(entry);
     if (!item) throw new Error("checker_report_outbound_invalid");
     const count = item.count;
@@ -216,7 +216,10 @@ function reportReferences(
     }
     return Object.freeze({ count, target: reportString(item, "target") });
   });
-  return Object.freeze({ inbound, outbound });
+  return Object.freeze({
+    inbound: inboundReferences,
+    outbound: outboundReferences,
+  });
 }
 
 function parseCheckerReport(source: string): CheckerReport {
@@ -361,10 +364,10 @@ function addGitlink(root: string, relativePath: string): void {
   assert.equal(updated.status, 0, updated.stderr);
 }
 
-function runChecker(root: string, ...extra: string[]): CheckerRun {
+function runChecker(root: string, ...extraArguments: string[]): CheckerRun {
   const result = spawnSync(
     process.execPath,
-    [checker, "--root", root, "--json", "--summary", ...extra],
+    [checker, "--root", root, "--json", "--summary", ...extraArguments],
     { encoding: "utf8" },
   );
   return {
@@ -376,11 +379,11 @@ function runChecker(root: string, ...extra: string[]): CheckerRun {
 function runWithEnv(
   root: string,
   env: Readonly<Record<string, string>>,
-  ...extra: string[]
+  ...extraArguments: string[]
 ): CheckerRun {
   const result = spawnSync(
     process.execPath,
-    [checker, "--root", root, "--json", "--summary", ...extra],
+    [checker, "--root", root, "--json", "--summary", ...extraArguments],
     { encoding: "utf8", env: { ...process.env, ...env } },
   );
   return {
@@ -394,7 +397,7 @@ function runWithFault(
   fault: string,
   target: string,
   env: Readonly<Record<string, string>> = {},
-  ...extra: string[]
+  ...extraArguments: string[]
 ): CheckerRun {
   const nodeOptions = [process.env.NODE_OPTIONS, `--import=${faultInjector}`]
     .filter(Boolean)
@@ -408,7 +411,7 @@ function runWithFault(
       CRDD_CHECK_FAULT_ROOT: root,
       CRDD_CHECK_FAULT_TARGET: target,
     },
-    ...extra,
+    ...extraArguments,
   );
 }
 

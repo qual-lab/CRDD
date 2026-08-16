@@ -97,7 +97,7 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
   return { rawProfile, bundle, trustPolicy };
 }
 
-const context = Object.freeze({
+const CONTEXT = Object.freeze({
   operationId: "OP-000001",
   scopeId: "SCOPE-000001",
 });
@@ -108,7 +108,7 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
   const result = reverifyAuthorityBeforeProviderLaunch(
     rawProfile,
     bundle,
-    context,
+    CONTEXT,
   );
   const after = Date.now();
   assert.equal(result.status, "candidate");
@@ -117,8 +117,8 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
     "runtime_file_bundle_path_acl_and_activation_required",
   );
   assert.equal(result.runtimeCapabilityIssued, false);
-  assert.equal(result.verification.operationId, context.operationId);
-  assert.equal(result.verification.scopeId, context.scopeId);
+  assert.equal(result.verification.operationId, CONTEXT.operationId);
+  assert.equal(result.verification.scopeId, CONTEXT.scopeId);
   assert.equal(result.verification.trustPolicyId, trustPolicy.policyId);
   assert.equal(
     result.verification.trustPolicyRevision,
@@ -136,19 +136,19 @@ test("呼出側時刻を受理せず固定Contextだけを使う", () => {
   const { rawProfile, bundle } = fixture();
   assert.equal(
     reverifyAuthorityBeforeProviderLaunch(rawProfile, bundle, {
-      ...context,
+      ...CONTEXT,
       now: "2099-01-01T00:00:00.000Z",
     }).reason,
     "prelaunch_authority_context_invalid",
   );
 
   let getterCalls = 0;
-  const accessor = { ...context };
+  const accessor = { ...CONTEXT };
   Object.defineProperty(accessor, "operationId", {
     enumerable: true,
     get() {
       getterCalls += 1;
-      return context.operationId;
+      return CONTEXT.operationId;
     },
   });
   assert.equal(
@@ -166,7 +166,7 @@ test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", ()
   const expiredResult = reverifyAuthorityBeforeProviderLaunch(
     expired.rawProfile,
     expired.bundle,
-    context,
+    CONTEXT,
   );
   assert.equal(expiredResult.status, "blocked");
   assert.equal(expiredResult.reason, "authority_grant_outside_validity");
@@ -188,7 +188,7 @@ test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", ()
   const mismatchResult = reverifyAuthorityBeforeProviderLaunch(
     mismatch.rawProfile,
     mismatchedBundle,
-    context,
+    CONTEXT,
   );
   assert.equal(mismatchResult.status, "blocked");
   assert.equal(

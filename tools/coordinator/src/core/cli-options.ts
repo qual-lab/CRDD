@@ -16,19 +16,30 @@ function response<const S extends string, T>(
   status: S,
   reason: string | null,
   value: T | null = null,
-  jsonRequested = false,
+  isJsonRequested = false,
 ) {
-  return Object.freeze({ status, reason, value, jsonRequested });
+  return Object.freeze({
+    status,
+    reason,
+    value,
+    jsonRequested: isJsonRequested,
+  });
 }
 
 function commandResponse<const S extends string, T>(
   status: S,
   reason: string | null,
   value: T | null = null,
-  jsonRequested = false,
-  usageError = false,
+  isJsonRequested = false,
+  hasUsageError = false,
 ) {
-  return Object.freeze({ status, reason, value, jsonRequested, usageError });
+  return Object.freeze({
+    status,
+    reason,
+    value,
+    jsonRequested: isJsonRequested,
+    usageError: hasUsageError,
+  });
 }
 
 function validToken(value: unknown): value is string {
@@ -58,14 +69,14 @@ function parsePathCommandArguments(
       true,
     );
   }
-  const argumentsList = snapshot.value;
-  const jsonRequested = argumentsList.includes("--json");
-  if (argumentsList.some((value) => !validToken(value))) {
+  const argumentValues = snapshot.value;
+  const isJsonRequested = argumentValues.includes("--json");
+  if (argumentValues.some((value) => !validToken(value))) {
     return commandResponse(
       "blocked",
       `${options.command}_arguments_invalid`,
       null,
-      jsonRequested,
+      isJsonRequested,
       true,
     );
   }
@@ -79,14 +90,14 @@ function parsePathCommandArguments(
   let runtimeCliOverride: string | null = null;
   let authorityCliOverride: string | null = null;
 
-  for (let index = 0; index < argumentsList.length; index += 1) {
-    const token = argumentsList[index];
+  for (let index = 0; index < argumentValues.length; index += 1) {
+    const token = argumentValues[index];
     if (token === undefined || !allowed.has(token) || seen.has(token)) {
       return commandResponse(
         "blocked",
         `${options.command}_arguments_invalid`,
         null,
-        jsonRequested,
+        isJsonRequested,
         true,
       );
     }
@@ -95,13 +106,13 @@ function parsePathCommandArguments(
       shouldOutputJson = true;
       continue;
     }
-    const value = argumentsList[index + 1];
+    const value = argumentValues[index + 1];
     if (!validAbsolutePath(value) || value.startsWith("--")) {
       return commandResponse(
         "blocked",
         `${options.command}_arguments_invalid`,
         null,
-        jsonRequested,
+        isJsonRequested,
         true,
       );
     }
@@ -122,7 +133,7 @@ function parsePathCommandArguments(
       "blocked",
       "runtime_root_environment_invalid",
       null,
-      jsonRequested,
+      isJsonRequested,
       false,
     );
   }
@@ -139,7 +150,7 @@ function parsePathCommandArguments(
           "blocked",
           "authority_root_environment_invalid",
           null,
-          jsonRequested,
+          isJsonRequested,
           false,
         );
       }
@@ -153,7 +164,7 @@ function parsePathCommandArguments(
         "blocked",
         "authority_root_explicit_path_required",
         null,
-        jsonRequested,
+        isJsonRequested,
         false,
       );
     }
@@ -177,7 +188,7 @@ function parsePathCommandArguments(
           })
         : null,
     }),
-    jsonRequested,
+    isJsonRequested,
     false,
   );
 }
@@ -221,7 +232,7 @@ export function parseProvisionArguments(rawArguments: unknown) {
       true,
     );
   }
-  const jsonRequested = snapshot.value.includes("--json");
+  const isJsonRequested = snapshot.value.includes("--json");
   if (
     snapshot.value.length > 1 ||
     (snapshot.value.length === 1 && snapshot.value[0] !== "--json")
@@ -230,15 +241,15 @@ export function parseProvisionArguments(rawArguments: unknown) {
       "blocked",
       "provision_arguments_invalid",
       null,
-      jsonRequested,
+      isJsonRequested,
       true,
     );
   }
   return commandResponse(
     "ok",
     null,
-    Object.freeze({ json: jsonRequested }),
-    jsonRequested,
+    Object.freeze({ json: isJsonRequested }),
+    isJsonRequested,
     false,
   );
 }
@@ -254,8 +265,8 @@ export function parseDoctorArguments(
   ) {
     return response("blocked", "doctor_arguments_invalid");
   }
-  const argumentsList = snapshot.value;
-  const jsonRequested = argumentsList.includes("--json");
+  const argumentValues = snapshot.value;
+  const isJsonRequested = argumentValues.includes("--json");
   const seen = new Set();
   let shouldOutputJson = false;
   let isActiveIsolation = false;
@@ -263,8 +274,8 @@ export function parseDoctorArguments(
   let shouldEnableRuntime = false;
   let cliOverride: string | null = null;
 
-  for (let index = 0; index < argumentsList.length; index += 1) {
-    const token = argumentsList[index];
+  for (let index = 0; index < argumentValues.length; index += 1) {
+    const token = argumentValues[index];
     if (
       token === undefined ||
       ![
@@ -280,7 +291,7 @@ export function parseDoctorArguments(
         "blocked",
         "doctor_arguments_invalid",
         null,
-        jsonRequested,
+        isJsonRequested,
       );
     }
     seen.add(token);
@@ -288,13 +299,13 @@ export function parseDoctorArguments(
     else if (token === "--isolation") isActiveIsolation = true;
     else if (token === "--enable-runtime") shouldEnableRuntime = true;
     else {
-      const value = argumentsList[index + 1];
+      const value = argumentValues[index + 1];
       if (!validToken(value) || value.startsWith("--")) {
         return response(
           "blocked",
           "doctor_arguments_invalid",
           null,
-          jsonRequested,
+          isJsonRequested,
         );
       }
       index += 1;
@@ -308,7 +319,7 @@ export function parseDoctorArguments(
       "blocked",
       "runtime_root_requires_enable_request",
       null,
-      jsonRequested,
+      isJsonRequested,
     );
   }
   if (
@@ -319,7 +330,7 @@ export function parseDoctorArguments(
       "blocked",
       "doctor_arguments_incompatible",
       null,
-      jsonRequested,
+      isJsonRequested,
     );
   }
   const runtimeRootRequest = shouldEnableRuntime
@@ -339,6 +350,6 @@ export function parseDoctorArguments(
       recoveryId,
       runtimeRootRequest,
     }),
-    jsonRequested,
+    isJsonRequested,
   );
 }

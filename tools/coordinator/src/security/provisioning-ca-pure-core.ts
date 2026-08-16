@@ -312,7 +312,8 @@ function normalizeRevoked(raw: unknown) {
 
 function normalizeRevocation(raw: unknown) {
   const value = snapshotPlainRecord(raw, REVOCATION_KEYS);
-  const revoked = value && exactArray(value.revoked, 4096, normalizeRevoked);
+  const revokedEntries =
+    value && exactArray(value.revoked, 4096, normalizeRevoked);
   if (
     !value ||
     value.contract !== REVOCATION_CONTRACT ||
@@ -323,9 +324,9 @@ function normalizeRevocation(raw: unknown) {
     !utc(value.expiresAt) ||
     Date.parse(value.expiresAt) <= Date.parse(value.issuedAt) ||
     Date.parse(value.expiresAt) - Date.parse(value.issuedAt) > 24 * 3_600_000 ||
-    !revoked ||
-    revoked.some((entry, index) => {
-      const previous = revoked[index - 1];
+    !revokedEntries ||
+    revokedEntries.some((entry, index) => {
+      const previous = revokedEntries[index - 1];
       return previous !== undefined && previous.keyId >= entry.keyId;
     })
   )
@@ -336,7 +337,7 @@ function normalizeRevocation(raw: unknown) {
     revocationRevision: value.revocationRevision,
     issuedAt: value.issuedAt,
     expiresAt: value.expiresAt,
-    revoked,
+    revoked: revokedEntries,
   });
 }
 
@@ -467,13 +468,13 @@ export function verifyProvisioningCaStateCandidate(rawInput: unknown) {
     ) {
       return response("blocked", "provisioning_ca_state_not_current");
     }
-    const revoked = new Set(
+    const revokedEntries = new Set(
       revocations.payload.revoked.map((entry) => entry.keyId),
     );
     if (
-      revoked.has(root.value.keyId) ||
-      revoked.has(revocationRoot.value.keyId) ||
-      revoked.has(issuing.payload.value.keyId)
+      revokedEntries.has(root.value.keyId) ||
+      revokedEntries.has(revocationRoot.value.keyId) ||
+      revokedEntries.has(issuing.payload.value.keyId)
     ) {
       return response("blocked", "provisioning_ca_key_revoked");
     }

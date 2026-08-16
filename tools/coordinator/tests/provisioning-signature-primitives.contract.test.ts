@@ -153,30 +153,30 @@ test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ご�
   );
 
   const repeated = { value: null };
-  const aliasWithinNodeBudget = Array(2_047).fill(repeated);
-  const aliasBeyondNodeBudget = Array(2_048).fill(repeated);
+  const withinNodeBudgetAliases = Array(2_047).fill(repeated);
+  const beyondNodeBudgetAliases = Array(2_048).fill(repeated);
   assert.equal(
-    aliasWithinNodeBudget.length < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes,
+    withinNodeBudgetAliases.length < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes,
     true,
   );
   assert.equal(
-    aliasBeyondNodeBudget.length < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes,
+    beyondNodeBudgetAliases.length < PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes,
     true,
   );
   assert.equal(
-    aliasWithinNodeBudget.every((item) => item === repeated),
+    withinNodeBudgetAliases.every((item) => item === repeated),
     true,
   );
   assert.equal(
-    aliasBeyondNodeBudget.every((item) => item === repeated),
+    beyondNodeBudgetAliases.every((item) => item === repeated),
     true,
   );
   assert.equal(
-    canonicalizeProvisioningJsonValueCandidate(aliasWithinNodeBudget).status,
+    canonicalizeProvisioningJsonValueCandidate(withinNodeBudgetAliases).status,
     "candidate",
   );
   assert.equal(
-    canonicalizeProvisioningJsonValueCandidate(aliasBeyondNodeBudget).reason,
+    canonicalizeProvisioningJsonValueCandidate(beyondNodeBudgetAliases).reason,
     "provisioning_jcs_budget_exceeded",
   );
 });

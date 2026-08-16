@@ -354,7 +354,7 @@ export function inspectRuntimeRootPathIdentityCandidate(rawInput: unknown) {
 }
 
 export function inspectPosixRuntimeRootModePrecheckCandidate(
-  _rawInput: unknown,
+  rawInput: unknown,
 ) {
   if (process.platform === "win32") {
     return Object.freeze({

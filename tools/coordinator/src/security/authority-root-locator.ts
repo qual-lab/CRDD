@@ -31,7 +31,7 @@ const LOCATOR_KEYS = new Set([
   "activationRevision",
   "activationRecordHash",
 ]);
-const ACTIVATION_BINDING_KEYS = new Set(
+const activationBindingKeys = new Set(
   RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS,
 );
 const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
@@ -148,16 +148,16 @@ function candidate(canonical: string) {
   });
 }
 
-/** @param {string} status @param {string} reason @param {boolean} [pairContentMatched] */
+/** @param {string} status @param {string} reason @param {boolean} [isPairContentMatched] */
 function bindingResponse(
   status: string,
   reason: string,
-  pairContentMatched = false,
+  isPairContentMatched = false,
 ) {
   return Object.freeze({
     status,
     reason,
-    pairContentMatched,
+    pairContentMatched: isPairContentMatched,
     provisioningRecordVerification: "not_implemented",
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
@@ -226,7 +226,7 @@ export function evaluateAuthorityRootLocatorActivationBindingCandidate(
   rawExpected: unknown,
 ) {
   try {
-    const expected = snapshotPlainRecord(rawExpected, ACTIVATION_BINDING_KEYS);
+    const expected = snapshotPlainRecord(rawExpected, activationBindingKeys);
     if (
       !expected ||
       !hash(expected.repositoryIdentityHash) ||

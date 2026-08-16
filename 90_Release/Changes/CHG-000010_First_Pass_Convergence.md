@@ -36,7 +36,7 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 - 正本: `00_Overview.md`、`02_Terminology.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`19_Maintenance.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 - AI入口: `AGENTS.md`、`template/AGENTS.md`
 - ひな型: `template/90_Release/Changes/CHG-XXXXXX_Template.md`
-- 任意Checker（当時）: `template/tools/crdd_check.ts`、`tools/crdd_check.test.ts`。現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
+- 任意Checker（当時）: `template/tools/crdd_check.ts`、`tools/crdd_check.test.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)、現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
 - 公開保守入口、案内と移行: `CONTRIBUTING.md`、`README.md`、`CHANGELOG.md`
 - 版表示: 26正本文書
 - 準拠影響: 条件規範を品質保証で扱う場合はPL-16、非自明なAI変更ではAD-02、条件規範を変更した対象の初回独立確認ではAD-21を再評価する。Core、Product LifecycleまたはAgentic Deliveryの基準数、工程順、成果物構造、安定コンテキストIDは変更しない。

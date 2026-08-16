@@ -76,7 +76,8 @@ test("Profile budget超過はPolicy経路でも例外なくblockedにする", ()
   const excessive = rawProfile();
   excessive.egress.origins = Array.from(
     { length: PROVIDER_INPUT_LIMITS.originCount + 1 },
-    (_, index) => `https://api-${String(index).padStart(2, "0")}.example.test`,
+    (unusedOrigin, index) =>
+      `https://api-${String(index).padStart(2, "0")}.example.test`,
   );
   assert.doesNotThrow(() => compileEgressProxyPolicyCandidate(excessive));
   assert.equal(compileEgressProxyPolicyCandidate(excessive).status, "blocked");

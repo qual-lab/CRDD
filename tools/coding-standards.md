@@ -3,7 +3,7 @@
 Status: Candidate
 Owner: Qual-Lab
 Last Updated: 2026-08-16
-Scope: `tools/**`と、`tools/**`から配布する`template/tools/**`の実装
+Scope: `tools/**`と、CRDDが配布正本として所有し`tools/**`から参照する`template/tools/**`の実装
 
 ## 1. 目的と正本
 
@@ -17,9 +17,9 @@ TypeScriptの実行境界、Biome、型検査およびNode.js versionは[CRDD標
 
 次へ適用する。
 
-- `tools/**`のファイル名、フォルダ名およびTypeScript source identifier
-- `tools/**`が所有する試験、package scriptおよび設定
-- `tools/**`から配布する`template/tools/**`の実装ファイル名とsource identifier
+- `tools/**`のファイル名、フォルダ名およびTypeScript識別子（TypeScript identifier）
+- `tools/**`が所有する試験、パッケージスクリプト（package script）および設定
+- CRDDが配布正本として所有し`tools/**`のprivate package entry adapterから参照する`template/tools/**`の実装ファイル名と識別子
 - 新設または変更するCRDD所有の設定JSON key、IPC channel、activity event、DB名およびCSS class
 
 次のmachine valueは、各契約が所有するため本書を理由に改名しない。
@@ -55,7 +55,7 @@ TypeScriptの実行境界、Biome、型検査およびNode.js versionは[CRDD標
 
 上記以外の新しい予約名を推定しない。必要になった場合は、所有するecosystem、exact Pathおよび検出規則を本書へ追加してから使用する。
 
-## 4. TypeScript identifier
+## 4. TypeScript識別子
 
 | 対象 | 必須形式 | 例 |
 |---|---|---|
@@ -67,11 +67,11 @@ TypeScriptの実行境界、Biome、型検査およびNode.js versionは[CRDD標
 | Array / readonly Array | 内容を表す複数形 | `findings`, `candidatePaths` |
 | 真の定数 | `UPPER_SNAKE_CASE` | `MAX_INPUT_BYTES` |
 
-Boolean規則はBoolean型の変数とparameterへ適用する。動作を表す関数は動詞句を使用し、Boolean predicateを値として公開する場合は同じprefixを使用する。object propertyはSchemaまたは公開結果契約の一部になり得るため、その所有契約が定める形式を優先する。
+Boolean規則はBoolean型の変数とparameterへ適用する。`null`または`undefined`を除いたunionの全構成がBooleanまたはBoolean literalである場合もBooleanとして扱う。動作を表す関数は動詞句を使用し、Boolean predicateを値として公開する場合は同じprefixを使用する。object propertyはSchemaまたは公開結果契約の一部になり得るため、その所有契約が定める形式を優先する。
 
-配列規則は`Array<T>`、`readonly T[]`および同じ意味の可変／不変配列へ適用する。固定位置に別の意味を持つtuple、`Buffer`、TypedArray、`Set`および`Map`は複数形規則の対象外だが、実際の責務が分かる名前を使用する。
+配列規則は`Array<T>`、`readonly T[]`、alias、genericおよびnullable unionを含む同じ意味の可変／不変配列へ適用する。固定位置に別の意味を持つtuple、`Buffer`、TypedArray、`Set`および`Map`は複数形規則の対象外だが、実際の責務が分かる名前を使用する。機械検査では末尾の`s`または不規則複数形`Children`、`Indices`、`Vertices`、`People`、`Media`、`Data`を複数形として扱う。destructuringではproperty名ではなくCRDD所有のlocal binding名を検査する。
 
-真の定数とは、module scopeで共有し、実行中に概念上変化しないlimit、pattern、contract literal、固定policyまたは既定値である。局所計算結果、Path、snapshot、resource handleまたは一時的な`const` bindingを大文字化しない。
+真の定数とは、module scopeの`const`で共有し、実行中に概念上変化しないlimit、pattern、contract literal、固定policyまたは既定値である。機械分類はprimitive／regular expression／固定template、固定値だけの式、固定値から作る`Set`、`Object.freeze(...)`、`BigInt(...)`、`Symbol(...)`および固定intrinsic参照に限定する。関数／class binding、局所計算結果、Path、snapshot、`WeakMap`、decoderその他のresource handleまたは一時的な`const` bindingを大文字化しない。判定順は関数binding、真の定数、Boolean、Array、一般の変数とする。型または構文を分類できないCRDD所有宣言は成功扱いにせず、規約または実装へ戻す。
 
 TypeScript `enum`構文はNode.js native type strippingの対象外なので導入しない。「enum相当」はliteral unionまたは凍結objectから導く型の表示名だけを指す。
 
@@ -94,7 +94,7 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 
 ## 6. 試験名
 
-試験ファイルは`<subject>.<kind>.test.ts`とし、`kind`は次の閉集合から選ぶ。
+試験ファイルは`<subject>.<kind>.test.ts`とし、試験種別（test kind）の`kind`は次の閉集合から選ぶ。
 
 | kind | 使用条件 |
 |---|---|
@@ -107,7 +107,7 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 
 一つの試験ファイルが複数kindを同時に所有する場合は、責務ごとに分割する。分割自体が検証リスクを増やす既存集合は、公開挙動と安全条件を包含する`contract`へ一度収束させ、後続の実質変更で分割する。
 
-## 7. machine identifier
+## 7. 機械識別子（machine identifier）
 
 | 対象 | 必須形式 |
 |---|---|
@@ -122,10 +122,12 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 ## 8. 検査と変更手順
 
 - Biomeは表現できるTypeScript filenameとsource規則を検査する。
-- Checker packageの命名contract testは、フォルダ、Markdown、設定予約名、test kindおよびBiomeで表現できない境界を決定論的に検査する。
+- Checker packageの命名contract testは、固定TypeScript 7.0.2の型付きASTを使い、3つの既存projectに属するCRDD所有source、フォルダ、Markdown、設定予約名、試験種別およびBiomeで表現できない構文境界を決定論的に検査する。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
 - renameでは、正本、import、package script、設定、試験、文書、AI入口および現在の移設先を同じ変更で更新する。
 - 過去の固定履歴は書き換えず、旧Pathから現在Pathへの移行を後続の変更トレースへ記録する。
-- rename後の最終状態へ旧名のshim、alias、wrapperまたは重複実装を残さない。
+- rename後の最終状態へ、旧名または廃止済み入口を維持する互換shim、alias、wrapperまたは重複実装を残さない。単一の配布正本へ委譲しpackage責務を分離する`tools/checker/crdd-check.ts`のentry adapterは互換wrapperではない。
+
+人間可読な説明ではローカル表示名を先に示すが、コード、filename、Schema key/value、contract IDおよび上表の機械値そのものは翻訳しない。
 
 規則違反、利用側漏れ、分類不能または外部契約との競合を検出した場合は、例外名を足して通過させず、責務を特定して正本修正または移行へ戻す。

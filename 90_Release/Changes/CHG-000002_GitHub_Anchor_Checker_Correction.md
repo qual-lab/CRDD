@@ -24,7 +24,7 @@
 
 ## 想定する影響
 
-- 実装: `template/tools/crdd_check.ts`
+- 実装（当時）: `template/tools/crdd_check.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)
 - 回帰試験（当時）: `tools/crdd_check.test.ts`。現在の移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
 - 公開案内: `README.md`、`CHANGELOG.md`
 - 正本文書: 内容変更はなく、公開版ヘッダーだけをv0.11.1へ揃える
@@ -94,7 +94,7 @@
 - 実装影響: 配布チェッカーのアンカー判定だけを変更する。正本文書の規範内容は変更しない
 - 利用者影響: チェッカーを利用する採用先では、該当見出しに対する偽陽性・偽陰性を減らせる。チェッカーを利用しない採用先には実行上の影響がない
 - 正本コンテキスト更新: 規範本文の更新なし。24正本文書の公開版ヘッダー、README、CHANGELOGをv0.11.1へ揃える
-- 想定との差: v0.11.1候補の内部是正で、リテラルなアンダースコアの誤除去、単純な境界判定によるGFM／Unicode左右フランキング不足、JavaScriptの`\s`とGFM空白定義の差を順に検出した。最終実装と直接回帰は当時`template/tools/crdd_check.ts`と`tools/crdd_check.test.ts`に保持した。現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
+- 想定との差: v0.11.1候補の内部是正で、リテラルなアンダースコアの誤除去、単純な境界判定によるGFM／Unicode左右フランキング不足、JavaScriptの`\s`とGFM空白定義の差を順に検出した。最終実装と直接回帰は当時`template/tools/crdd_check.ts`と`tools/crdd_check.test.ts`に保持した。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)、現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
 - 既知の制限 / 残存リスク: 外部Markdown解析器を持たない軽量実装であり、HTMLコメント、入れ子のリンク／画像ラベルやリンク先、複雑に交差・入れ子になる装飾等、GitHub Markdown全構文の正確な判定は保証しない。対応済みの単純なHTMLタグ、リンク、画像、参照リンク、コードスパン、強調、取消線は回帰試験で確認する。機械確認は意味レビューや監査を代替しない
 - 後続対応: OW-029のモノリポ配置・変更ID名前空間はv0.12.0候補として別途検討する。v0.10.0の`07_Workflows`から`19_Workflows`への移行規則は変更しない
 

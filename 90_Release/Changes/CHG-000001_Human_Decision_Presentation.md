@@ -45,7 +45,7 @@
 - 上流 / 同層の正本更新: `10_Agent.md`、`11_Skill.md`
 - 準拠への伝播: `52_Conformance_Audit.md`のAD-17／AD-20
 - 利用側への伝播: 公式・配布AI入口とREADME
-- 機械確認への伝播（当時）: `template/tools/crdd_check.ts`と`tools/crdd_check.test.ts`。現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
+- 機械確認への伝播（当時）: `template/tools/crdd_check.ts`と`tools/crdd_check.test.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)、現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
 - 初回監査結果:
   - 文書監査: README日英で「業務／business」が脱落しているMinor 1件
   - 準拠監査: Pass
@@ -102,7 +102,7 @@
 - 準拠評価: `52_Conformance_Audit.md`のAD-17／AD-20
 - 利用側接続: 公式・配布AI入口
 - 公開・移行案内: `README.md`、`CHANGELOG.md`
-- 機械確認（当時）: `template/tools/crdd_check.ts`、`tools/crdd_check.test.ts`。現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
+- 機械確認（当時）: `template/tools/crdd_check.ts`、`tools/crdd_check.test.ts`。現在の配布正本は[`template/tools/crdd-check.ts`](../../template/tools/crdd-check.ts)、現在の試験移設先は[`tools/checker/crdd-check.contract.test.ts`](../../tools/checker/crdd-check.contract.test.ts)
 
 ## リリース
 

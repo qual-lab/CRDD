@@ -14,7 +14,7 @@ import {
 } from "../src/core/cli-options.ts";
 import { assertPresent } from "./test-support.ts";
 
-const COORDINATOR_EXECUTABLE = path.resolve(
+const coordinatorExecutable = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../bin/coordinator.ts",
 );
@@ -53,7 +53,7 @@ test("環境Rootは非opt-in時に検査入力へ渡さない", () => {
 
 test("runtime-root単独、重複、未知、値欠落および余剰tokenを拒否する", () => {
   const absolute = path.resolve("runtime-root");
-  for (const argumentsList of [
+  for (const argumentValues of [
     ["--runtime-root", absolute],
     ["--json", "--json"],
     ["--enable-runtime", "--enable-runtime"],
@@ -70,7 +70,7 @@ test("runtime-root単独、重複、未知、値欠落および余剰tokenを拒
     ["extra"],
   ])
     assert.equal(
-      parseDoctorArguments(argumentsList, undefined).status,
+      parseDoctorArguments(argumentValues, undefined).status,
       "blocked",
     );
 });
@@ -83,7 +83,7 @@ test("recoveryはjson以外のisolationまたはRuntime処置と混在させな�
     ).status,
     "ok",
   );
-  for (const argumentsList of [
+  for (const argumentValues of [
     ["--recover-isolation", "host.safe", "--isolation"],
     ["--recover-isolation", "host.safe", "--enable-runtime"],
     [
@@ -95,7 +95,7 @@ test("recoveryはjson以外のisolationまたはRuntime処置と混在させな�
     ["--recover-isolation", "host.safe", "--recover-isolation", "host.other"],
   ])
     assert.equal(
-      parseDoctorArguments(argumentsList, undefined).status,
+      parseDoctorArguments(argumentValues, undefined).status,
       "blocked",
     );
 });
@@ -108,7 +108,7 @@ test("実CLIはenable要求を候補診断へ接続しPathを表示しない", (
   fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"));
   const environment = { ...process.env };
   delete environment.CRDD_COORDINATOR_ROOT;
-  const executable = COORDINATOR_EXECUTABLE;
+  const executable = coordinatorExecutable;
   const result = spawnSync(
     process.execPath,
     [executable, "doctor", "--enable-runtime", "--json"],
@@ -141,7 +141,7 @@ test("actual CLI applies environment override and CLI precedence without exposin
   fs.mkdirSync(repositoryRoot);
   fs.mkdirSync(environmentRoot);
   fs.mkdirSync(cliRoot);
-  const executable = COORDINATOR_EXECUTABLE;
+  const executable = coordinatorExecutable;
   const environment = {
     ...process.env,
     CRDD_COORDINATOR_ROOT: environmentRoot,
@@ -199,7 +199,7 @@ test("actual CLI applies environment override and CLI precedence without exposin
 });
 
 test("実CLIは不正grammarを処置前に安全なusage errorへ閉じる", () => {
-  const executable = COORDINATOR_EXECUTABLE;
+  const executable = coordinatorExecutable;
   const secretLikePath = path.resolve("do-not-report-this-path");
   const result = spawnSync(
     process.execPath,
@@ -346,7 +346,7 @@ test("CLI overrideは同じRoot軸の不正環境値だけを選択対象外に�
 });
 
 test("実activateとdisableはPathを表示せずEffect未実装でblockedにする", () => {
-  const executable = COORDINATOR_EXECUTABLE;
+  const executable = coordinatorExecutable;
   const runtimeRoot = path.resolve("do-not-report-runtime");
   const authorityRoot = path.resolve("do-not-report-authority");
   const environment = {
@@ -383,7 +383,7 @@ test("activateとdisableの妥当な要求はFilesystem内容を変更しない"
   const runtimeRoot = path.join(repository, ".crdd-runtime");
   const authorityRoot = path.join(fixture, "authority");
   fs.mkdirSync(repository);
-  const before = fs.readdirSync(fixture).sort();
+  const beforeEntries = fs.readdirSync(fixture).sort();
   const environment = {
     ...process.env,
     CRDD_COORDINATOR_AUTHORITY_ROOT: authorityRoot,
@@ -391,13 +391,7 @@ test("activateとdisableの妥当な要求はFilesystem内容を変更しない"
   for (const command of ["activate", "disable"]) {
     const result = spawnSync(
       process.execPath,
-      [
-        COORDINATOR_EXECUTABLE,
-        command,
-        "--runtime-root",
-        runtimeRoot,
-        "--json",
-      ],
+      [coordinatorExecutable, command, "--runtime-root", runtimeRoot, "--json"],
       {
         cwd: repository,
         env: environment,
@@ -407,13 +401,13 @@ test("activateとdisableの妥当な要求はFilesystem内容を変更しない"
     );
     assert.equal(result.status, 2);
   }
-  assert.deepEqual(fs.readdirSync(fixture).sort(), before);
+  assert.deepEqual(fs.readdirSync(fixture).sort(), beforeEntries);
   assert.equal(fs.existsSync(runtimeRoot), false);
   assert.equal(fs.existsSync(authorityRoot), false);
 });
 
 test("実activateは選択不成立をexit 2、CLI誤用をexit 64で返す", () => {
-  const executable = COORDINATOR_EXECUTABLE;
+  const executable = coordinatorExecutable;
   const environment = { ...process.env };
   delete environment.CRDD_COORDINATOR_ROOT;
   delete environment.CRDD_COORDINATOR_AUTHORITY_ROOT;
@@ -449,7 +443,7 @@ test("実activateは選択不成立をexit 2、CLI誤用をexit 64で返す", ()
 });
 
 test("実CLIはshadowed環境値を無視し選択対象の不正環境値だけをblockedにする", () => {
-  const executable = COORDINATOR_EXECUTABLE;
+  const executable = coordinatorExecutable;
   const runtimeRoot = path.resolve("runtime-cli");
   const authorityRoot = path.resolve("authority-cli");
   const invalidEnvironment = {
@@ -511,7 +505,7 @@ test("実CLIはshadowed環境値を無視し選択対象の不正環境値だけ
 });
 
 test("安全にsnapshotできた不正tokenでもJSON要求と非漏洩を維持する", () => {
-  const executable = COORDINATOR_EXECUTABLE;
+  const executable = coordinatorExecutable;
   const invalidValues = [
     "line\nbreak",
     `del${String.fromCharCode(0x7f)}value`,
@@ -554,7 +548,7 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
 
   const result = spawnSync(
     process.execPath,
-    [COORDINATOR_EXECUTABLE, "provision", "--json"],
+    [coordinatorExecutable, "provision", "--json"],
     {
       encoding: "utf8",
       windowsHide: true,
@@ -574,7 +568,7 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
 
   const invalid = spawnSync(
     process.execPath,
-    [COORDINATOR_EXECUTABLE, "provision", "--json", "--unknown"],
+    [coordinatorExecutable, "provision", "--json", "--unknown"],
     { encoding: "utf8", windowsHide: true },
   );
   assert.equal(invalid.status, 64);

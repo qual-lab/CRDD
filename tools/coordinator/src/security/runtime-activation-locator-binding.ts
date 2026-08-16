@@ -10,12 +10,16 @@ const INPUT_KEYS = new Set([
   "authorityRootLocator",
 ]);
 
-function response(status: string, reason: string, pairContentMatched = false) {
+function response(
+  status: string,
+  reason: string,
+  isPairContentMatched = false,
+) {
   return Object.freeze({
     status,
     reason,
     transitionKind: status === "candidate" ? "initial_null_to_active" : null,
-    pairContentMatched,
+    pairContentMatched: isPairContentMatched,
     provisioningRecordVerification: "not_implemented",
     atomicPersistenceIssued: false,
     filesystemEffectIssued: false,

@@ -22,15 +22,15 @@ type SpawnResult = Readonly<{
 type MutableChildProcess = {
   spawnSync: (
     command: unknown,
-    arguments_?: unknown[],
+    argumentValues?: unknown[],
     options?: unknown,
   ) => SpawnResult;
 };
 type MutableFs = {
-  lstatSync: (value: unknown, ...rest: unknown[]) => StatLike;
-  statSync: (value: unknown, ...rest: unknown[]) => StatLike;
-  readdirSync: (value: unknown, ...rest: unknown[]) => unknown;
-  readFileSync: (value: unknown, ...rest: unknown[]) => unknown;
+  lstatSync: (value: unknown, ...restArguments: unknown[]) => StatLike;
+  statSync: (value: unknown, ...restArguments: unknown[]) => StatLike;
+  readdirSync: (value: unknown, ...restArguments: unknown[]) => unknown;
+  readFileSync: (value: unknown, ...restArguments: unknown[]) => unknown;
 };
 type MutablePath = {
   resolve: (...parts: string[]) => string;
@@ -70,44 +70,44 @@ function missingError() {
 if (fault === "lstat-error") {
   fs.lstatSync = function injectedLstatError(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) {
       throw Object.assign(new Error("injected metadata failure"), {
         code: "EACCES",
       });
     }
-    return originalLstatSync(value, ...rest);
+    return originalLstatSync(value, ...restArguments);
   };
 }
 
 if (fault === "lstat-missing-after-first") {
   fs.lstatSync = function injectedMissingLstat(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) {
       targetLstatCalls += 1;
       if (targetLstatCalls > 1) throw missingError();
     }
-    return originalLstatSync(value, ...rest);
+    return originalLstatSync(value, ...restArguments);
   };
 }
 
 if (fault === "lstat-missing") {
   fs.lstatSync = function injectedAlwaysMissingLstat(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) throw missingError();
-    return originalLstatSync(value, ...rest);
+    return originalLstatSync(value, ...restArguments);
   };
 }
 
 if (fault === "lstat-special") {
   fs.lstatSync = function injectedSpecialLstat(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) {
       return {
@@ -116,14 +116,14 @@ if (fault === "lstat-special") {
         isSymbolicLink: () => false,
       };
     }
-    return originalLstatSync(value, ...rest);
+    return originalLstatSync(value, ...restArguments);
   };
 }
 
 if (fault === "lstat-symbolic") {
   fs.lstatSync = function injectedSymbolicLstat(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) {
       return {
@@ -132,16 +132,16 @@ if (fault === "lstat-symbolic") {
         isSymbolicLink: () => true,
       };
     }
-    return originalLstatSync(value, ...rest);
+    return originalLstatSync(value, ...restArguments);
   };
 }
 
 if (fault === "lstat-replaced-after-read") {
   fs.lstatSync = function injectedReplacementLstat(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
-    const stat = originalLstatSync(value, ...rest);
+    const stat = originalLstatSync(value, ...restArguments);
     if (!isTarget(value) || !isTargetDirectoryRead) return stat;
     const replacement = Object.assign(
       Object.create(Object.getPrototypeOf(stat)),
@@ -156,9 +156,9 @@ if (fault === "lstat-replaced-after-read") {
   };
   fs.readdirSync = function injectedReplacementReaddir(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
-    const entries = originalReaddirSync(value, ...rest);
+    const entries = originalReaddirSync(value, ...restArguments);
     if (isTarget(value)) isTargetDirectoryRead = true;
     return entries;
   };
@@ -167,21 +167,21 @@ if (fault === "lstat-replaced-after-read") {
 if (fault === "read-file-error") {
   fs.readFileSync = function injectedReadFileError(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) {
       throw Object.assign(new Error("injected read failure"), {
         code: "EACCES",
       });
     }
-    return originalReadFileSync(value, ...rest);
+    return originalReadFileSync(value, ...restArguments);
   };
 }
 
 if (fault === "stat-special") {
   fs.statSync = function injectedSpecialStat(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) {
       return {
@@ -189,14 +189,14 @@ if (fault === "stat-special") {
         isFile: () => false,
       };
     }
-    return originalStatSync(value, ...rest);
+    return originalStatSync(value, ...restArguments);
   };
 }
 
 if (fault === "readdir-error") {
   fs.readdirSync = function injectedReaddirError(
     value: unknown,
-    ...rest: unknown[]
+    ...restArguments: unknown[]
   ) {
     if (isTarget(value)) {
       const code = process.env.CRDD_CHECK_FAULT_ERROR_CODE || "EACCES";
@@ -204,7 +204,7 @@ if (fault === "readdir-error") {
         code,
       });
     }
-    return originalReaddirSync(value, ...rest);
+    return originalReaddirSync(value, ...restArguments);
   };
 }
 
@@ -237,7 +237,7 @@ if (fault === "git-root-failed" || fault === "git-root-failed-no-stderr") {
 if (fault === "git-list-custom") {
   childProcess.spawnSync = function injectedGitList(
     command: unknown,
-    arguments_: unknown[] = [],
+    argumentValues: unknown[] = [],
   ) {
     if (command !== "git") {
       throw new Error(
@@ -245,7 +245,7 @@ if (fault === "git-list-custom") {
       );
     }
     if (
-      arguments_[0] === "config" &&
+      argumentValues[0] === "config" &&
       process.env.CRDD_CHECK_FAULT_GIT_CONFIG_FAILED === "1"
     ) {
       return {
@@ -255,7 +255,7 @@ if (fault === "git-list-custom") {
       };
     }
     if (
-      arguments_[0] === "config" &&
+      argumentValues[0] === "config" &&
       process.env.CRDD_CHECK_FAULT_GIT_CONFIG_OUTPUT !== undefined
     ) {
       return {
@@ -264,8 +264,8 @@ if (fault === "git-list-custom") {
         stderr: "",
       };
     }
-    if (arguments_.includes("ls-files")) {
-      if (arguments_.includes("--stage")) {
+    if (argumentValues.includes("ls-files")) {
+      if (argumentValues.includes("--stage")) {
         const injectedStages = JSON.parse(
           process.env.CRDD_CHECK_FAULT_GIT_STAGE_JSON || "[]",
         );
@@ -284,7 +284,7 @@ if (fault === "git-list-custom") {
         stderr: "",
       };
     }
-    const commandRoot = path.resolve(String(arguments_[1]));
+    const commandRoot = path.resolve(String(argumentValues[1]));
     if (commandRoot === root) {
       return { status: 0, stdout: `${root}\n`, stderr: "" };
     }
@@ -295,15 +295,15 @@ if (fault === "git-list-custom") {
 if (fault === "baseline-head-failed") {
   childProcess.spawnSync = function injectedBaselineHeadFailure(
     command: unknown,
-    arguments_: unknown[] = [],
+    argumentValues: unknown[] = [],
     options: unknown,
   ) {
     if (
       command === "git" &&
-      arguments_?.[0] === "-C" &&
-      isTarget(arguments_[1]) &&
-      arguments_.includes("--verify") &&
-      arguments_.includes("HEAD")
+      argumentValues?.[0] === "-C" &&
+      isTarget(argumentValues[1]) &&
+      argumentValues.includes("--verify") &&
+      argumentValues.includes("HEAD")
     ) {
       return {
         status: 2,
@@ -311,22 +311,22 @@ if (fault === "baseline-head-failed") {
         stderr: "injected baseline HEAD access failure",
       };
     }
-    return originalSpawnSync(command, arguments_, options);
+    return originalSpawnSync(command, argumentValues, options);
   };
 }
 
 if (fault === "baseline-root-case-changed") {
   childProcess.spawnSync = function injectedBaselineRootCase(
     command: unknown,
-    arguments_: unknown[] = [],
+    argumentValues: unknown[] = [],
     options: unknown,
   ) {
-    const result = originalSpawnSync(command, arguments_, options);
+    const result = originalSpawnSync(command, argumentValues, options);
     if (
       command === "git" &&
-      arguments_?.[0] === "-C" &&
-      isTarget(arguments_[1]) &&
-      arguments_.includes("--show-toplevel") &&
+      argumentValues?.[0] === "-C" &&
+      isTarget(argumentValues[1]) &&
+      argumentValues.includes("--show-toplevel") &&
       result.status === 0
     ) {
       return {
@@ -341,13 +341,13 @@ if (fault === "baseline-root-case-changed") {
 if (fault === "git-stage-failed") {
   childProcess.spawnSync = function injectedGitStageFailure(
     command: unknown,
-    arguments_: unknown[] = [],
+    argumentValues: unknown[] = [],
     options: unknown,
   ) {
     if (
       command === "git" &&
-      arguments_?.includes("ls-files") &&
-      arguments_.includes("--stage")
+      argumentValues?.includes("ls-files") &&
+      argumentValues.includes("--stage")
     ) {
       return {
         status: 2,
@@ -355,7 +355,7 @@ if (fault === "git-stage-failed") {
         stderr: "injected Git index mode failure",
       };
     }
-    return originalSpawnSync(command, arguments_, options);
+    return originalSpawnSync(command, argumentValues, options);
   };
 }
 

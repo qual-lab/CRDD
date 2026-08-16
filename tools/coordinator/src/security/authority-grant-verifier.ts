@@ -369,11 +369,11 @@ function evaluateAuthorityGrantCandidateInternal(
   ) {
     return blocked("authority_registry_mismatch");
   }
-  const matching = registryResult.registry.grants.filter(
+  const matchingGrants = registryResult.registry.grants.filter(
     (grant) => grant.grantRef === profileResult.profile.authority.grantRef,
   );
-  if (matching.length !== 1) return blocked("authority_grant_not_unique");
-  const grant = matching[0];
+  if (matchingGrants.length !== 1) return blocked("authority_grant_not_unique");
+  const grant = matchingGrants[0];
   if (!grant) return blocked("authority_grant_not_unique");
   if (grant.status !== "active") return blocked("authority_grant_inactive");
   if (!(grant.validFrom <= now && now < grant.expiresAt))

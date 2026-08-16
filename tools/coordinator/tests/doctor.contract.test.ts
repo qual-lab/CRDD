@@ -137,8 +137,8 @@ test("全必須checkがconfirmedの場合だけpure集約はReadyを返す", () 
 });
 
 test("欠落、重複、未知および不正なcheckをfail closedにする", () => {
-  const missing = confirmedChecks().slice(1);
-  assert.equal(evaluateReadiness(missing).status, "blocked");
+  const missingChecks = confirmedChecks().slice(1);
+  assert.equal(evaluateReadiness(missingChecks).status, "blocked");
   const duplicateChecks = [...confirmedChecks(), confirmedChecks()[0]];
   assert.equal(evaluateReadiness(duplicateChecks).status, "blocked");
   const unknownChecks = [

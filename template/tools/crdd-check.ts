@@ -262,9 +262,9 @@ function fallbackDeclaredSubmodulePaths(file: string): Readonly<{
 const gitmodules = path.join(root, ".gitmodules");
 const fallbackGitmodules = fallbackDeclaredSubmodulePaths(gitmodules);
 const gitmodulesStat = lstatIfPresent(gitmodules);
-const gitmodulesReadableFile =
+const isGitmodulesReadableFile =
   gitmodulesStat?.isFile() === true && !pathContainsSymbolicLink(gitmodules);
-const gitmodulesResult = gitmodulesReadableFile
+const gitmodulesResult = isGitmodulesReadableFile
   ? spawnSync(
       "git",
       [
@@ -279,47 +279,47 @@ const gitmodulesResult = gitmodulesReadableFile
     )
   : null;
 let gitConfiguredSubmodules: string[] = [];
-let gitConfigOutputValid = gitmodulesResult?.status === 0;
+let isGitConfigOutputValid = gitmodulesResult?.status === 0;
 if (gitmodulesResult?.status === 0) {
   for (const entry of gitmodulesResult.stdout.split("\0").filter(Boolean)) {
     const separator = entry.indexOf("\n");
     if (separator < 0) {
-      gitConfigOutputValid = false;
+      isGitConfigOutputValid = false;
       gitConfiguredSubmodules = [];
       break;
     }
     gitConfiguredSubmodules.push(entry.slice(separator + 1));
   }
 }
-const gitmodulesParsed =
+const isGitmodulesParsed =
   !gitmodulesStat ||
-  (gitmodulesReadableFile &&
-    (gitmodulesResult?.status === 1 || gitConfigOutputValid));
-const declaredSubmodules = gitmodulesParsed
+  (isGitmodulesReadableFile &&
+    (gitmodulesResult?.status === 1 || isGitConfigOutputValid));
+const declaredSubmodules = isGitmodulesParsed
   ? gitmodulesResult?.status === 0
     ? gitConfiguredSubmodules
     : []
   : fallbackGitmodules.paths;
-const declaresBaselineSubmodule = declaredSubmodules.some(
+const hasDeclaredBaselineSubmodule = declaredSubmodules.some(
   (item) => item.replaceAll("\\", "/") === "00_CRDD",
 );
-const baselineDeclarationState = gitmodulesParsed
-  ? declaresBaselineSubmodule
+const isBaselineDeclared = isGitmodulesParsed
+  ? hasDeclaredBaselineSubmodule
   : null;
 const baselineCandidateRoot = path.join(root, "00_CRDD");
 const baselineEntryStat = lstatIfPresent(baselineCandidateRoot);
-const baselineEntryExists = Boolean(baselineEntryStat);
-const baselineEntryIsDirectory =
+const hasBaselineEntry = Boolean(baselineEntryStat);
+const isBaselineEntryDirectory =
   baselineEntryStat?.isDirectory() === true &&
   baselineEntryStat.isSymbolicLink() === false;
-const baselineDeclarationCandidate =
-  declaresBaselineSubmodule || (!gitmodulesParsed && baselineEntryExists);
+const isBaselineDeclarationCandidate =
+  hasDeclaredBaselineSubmodule || (!isGitmodulesParsed && hasBaselineEntry);
 const officialTemplateRoot = path.join(root, "template");
 const hasOfficialRepositorySignals =
   Boolean(lstatIfPresent(officialTemplateRoot)) &&
   Boolean(lstatIfPresent(path.join(root, "01_Principles.md")));
 let repositoryMode =
-  baselineEntryExists || baselineDeclarationCandidate
+  hasBaselineEntry || isBaselineDeclarationCandidate
     ? "adopter"
     : hasOfficialRepositorySignals
       ? "official"
@@ -549,7 +549,7 @@ function discoverProjectFiles(): Discovery {
         ["-C", gitRoot, "ls-files", "--stage", "-z", "--", relativeRoot],
         { encoding: "utf8" },
       );
-      let stagedOutputValid = staged.status === 0;
+      let isStagedOutputValid = staged.status === 0;
       const parsedGitlinkEntries: GitlinkEntry[] = [];
       const conflictedGitlinkRoots = new Set<string>();
       if (staged.status === 0) {
@@ -562,7 +562,7 @@ function discoverProjectFiles(): Discovery {
                   .slice(0, separator)
                   .match(/^(\d{6}) ([0-9a-f]{40,64}) ([0-3])$/iu);
           if (!metadata) {
-            stagedOutputValid = false;
+            isStagedOutputValid = false;
             break;
           }
           const [, mode, oid, stageNumber] = metadata;
@@ -579,10 +579,10 @@ function discoverProjectFiles(): Discovery {
           });
         }
       }
-      const gitlinkEntries = stagedOutputValid
+      const gitlinkEntries = isStagedOutputValid
         ? parsedGitlinkEntries.sort((a, b) => a.path.localeCompare(b.path))
         : [];
-      const conflictedGitlinks = stagedOutputValid
+      const conflictedGitlinks = isStagedOutputValid
         ? [...conflictedGitlinkRoots].sort()
         : [];
       const declaredGitlinkCandidates = declaredSubmodules
@@ -590,7 +590,7 @@ function discoverProjectFiles(): Discovery {
         .filter((item) => isWithin(root, item));
       const gitlinks = [
         ...new Set(
-          stagedOutputValid
+          isStagedOutputValid
             ? [
                 ...gitlinkEntries.map((entry) => entry.path),
                 ...conflictedGitlinks,
@@ -602,89 +602,90 @@ function discoverProjectFiles(): Discovery {
         gitlinkEntries.find((entry) =>
           samePath(entry.path, baselineCandidateRoot),
         ) ?? null;
-      const baselineGitlinkConflicted = conflictedGitlinks.some((entry) =>
+      const isBaselineGitlinkConflicted = conflictedGitlinks.some((entry) =>
         samePath(entry, baselineCandidateRoot),
       );
-      const baselineGitlinkIndexed =
-        stagedOutputValid && !baselineGitlinkConflicted
+      const isBaselineGitlinkIndexed =
+        isStagedOutputValid && !isBaselineGitlinkConflicted
           ? Boolean(baselineGitlink)
           : null;
-      const baselineSubmodule =
-        baselineDeclarationCandidate ||
-        baselineGitlinkIndexed === true ||
-        baselineGitlinkConflicted;
-      const baselineWorktreePresent = baselineSubmodule
-        ? baselineEntryIsDirectory &&
+      const isBaselineSubmodule =
+        isBaselineDeclarationCandidate ||
+        isBaselineGitlinkIndexed === true ||
+        isBaselineGitlinkConflicted;
+      const isBaselineWorktreePresent = isBaselineSubmodule
+        ? isBaselineEntryDirectory &&
           !pathContainsSymbolicLink(baselineCandidateRoot)
         : null;
       const baselineTopLevel =
-        baselineWorktreePresent === true
+        isBaselineWorktreePresent === true
           ? spawnSync(
               "git",
               ["-C", baselineCandidateRoot, "rev-parse", "--show-toplevel"],
               { encoding: "utf8" },
             )
           : null;
-      const baselineOwnRepository =
+      const isBaselineOwnRepository =
         baselineTopLevel?.status === 0 &&
         samePath(baselineTopLevel.stdout.trim(), baselineCandidateRoot);
-      const baselineGitDirectory = baselineOwnRepository
+      const baselineGitDirectory = isBaselineOwnRepository
         ? spawnSync(
             "git",
             ["-C", baselineCandidateRoot, "rev-parse", "--absolute-git-dir"],
             { encoding: "utf8" },
           )
         : null;
-      const baselineHead = baselineOwnRepository
+      const baselineHead = isBaselineOwnRepository
         ? spawnSync(
             "git",
             ["-C", baselineCandidateRoot, "rev-parse", "--verify", "HEAD"],
             { encoding: "utf8" },
           )
         : null;
-      const baselineGitdirAccessible =
-        baselineOwnRepository && baselineGitDirectory?.status === 0;
-      const baselineHeadReadable =
-        baselineOwnRepository &&
+      const isBaselineGitDirectoryAccessible =
+        isBaselineOwnRepository && baselineGitDirectory?.status === 0;
+      const isBaselineHeadReadable =
+        isBaselineOwnRepository &&
         baselineHead?.status === 0 &&
         /^[0-9a-f]{40,64}$/iu.test(baselineHead.stdout.trim());
-      const baselineHeadOid = baselineHeadReadable
+      const baselineHeadOid = isBaselineHeadReadable
         ? baselineHead.stdout.trim().toLowerCase()
         : null;
       const baselineGitlinkOid = baselineGitlink?.oid?.toLowerCase() ?? null;
-      const baselineHeadMatchesGitlink =
-        baselineHeadReadable && baselineGitlinkOid
+      const isBaselineHeadMatchingGitlink =
+        isBaselineHeadReadable && baselineGitlinkOid
           ? baselineHeadOid === baselineGitlinkOid
           : null;
-      const baselineSubmoduleInitialized = !baselineSubmodule
+      const isBaselineSubmoduleInitialized = !isBaselineSubmodule
         ? null
-        : baselineGitlinkIndexed === true && baselineWorktreePresent === false
+        : isBaselineGitlinkIndexed === true &&
+            isBaselineWorktreePresent === false
           ? false
-          : baselineGitdirAccessible && baselineHeadReadable
+          : isBaselineGitDirectoryAccessible && isBaselineHeadReadable
             ? true
             : null;
       const baselineSubmoduleState = {
-        declared: baselineSubmodule ? baselineDeclarationState : null,
-        gitlink_indexed: baselineSubmodule ? baselineGitlinkIndexed : null,
-        gitlink_conflicted: baselineSubmodule
-          ? baselineGitlinkConflicted
+        declared: isBaselineSubmodule ? isBaselineDeclared : null,
+        gitlink_indexed: isBaselineSubmodule ? isBaselineGitlinkIndexed : null,
+        gitlink_conflicted: isBaselineSubmodule
+          ? isBaselineGitlinkConflicted
           : null,
-        gitlink_oid: baselineSubmodule ? baselineGitlinkOid : null,
-        worktree_present: baselineWorktreePresent,
+        gitlink_oid: isBaselineSubmodule ? baselineGitlinkOid : null,
+        worktree_present: isBaselineWorktreePresent,
         gitdir_accessible:
-          baselineWorktreePresent === true
-            ? baselineGitdirAccessible
-            : baselineWorktreePresent === false
+          isBaselineWorktreePresent === true
+            ? isBaselineGitDirectoryAccessible
+            : isBaselineWorktreePresent === false
               ? false
               : null,
         head_readable:
-          baselineWorktreePresent === true
-            ? baselineHeadReadable
-            : baselineWorktreePresent === false
+          isBaselineWorktreePresent === true
+            ? isBaselineHeadReadable
+            : isBaselineWorktreePresent === false
               ? false
               : null,
         head_oid: baselineHeadOid,
-        head_matches_gitlink: baselineHeadMatchesGitlink,
+        head_matches_gitlink: isBaselineHeadMatchingGitlink,
       };
       const skippedSymbolicLinks: string[] = [];
       const files = list.stdout
@@ -704,21 +705,21 @@ function discoverProjectFiles(): Discovery {
         files,
         source: "git",
         git_failure: null,
-        gitlink_detection: stagedOutputValid
+        gitlink_detection: isStagedOutputValid
           ? conflictedGitlinks.length > 0
             ? "git-index-conflicted"
             : "git-index"
           : "unavailable",
         gitlinks,
-        baseline_submodule: baselineSubmodule,
-        baseline_submodule_initialized: baselineSubmoduleInitialized,
+        baseline_submodule: isBaselineSubmodule,
+        baseline_submodule_initialized: isBaselineSubmoduleInitialized,
         baseline_submodule_state: baselineSubmoduleState,
         exclusions: [
           "Git-ignored files",
           ...(skippedSymbolicLinks.length > 0
             ? ["Symbolic links and junctions"]
             : []),
-          ...(baselineSubmodule
+          ...(isBaselineSubmodule
             ? ["Adopted CRDD baseline submodule contents"]
             : []),
           ...(gitlinks.length > 0 ? ["Gitlink submodule contents"] : []),
@@ -730,7 +731,7 @@ function discoverProjectFiles(): Discovery {
                 (item) => `Gitlink submodule boundary: ${relative(item)}`,
               )
             : ["Gitlink detection unavailable: Git index modes were not read"]),
-          ...(baselineSubmodule
+          ...(isBaselineSubmodule
             ? [
                 "Adopted CRDD baseline submodule contents, except baseline version headers and targets directly referenced by project documents",
               ]
@@ -767,22 +768,22 @@ function discoverProjectFiles(): Discovery {
   const excludedPaths: string[] = [];
   const excludedLinks: string[] = [];
   const unavailableDirectories = new Set<string>();
-  const fallbackBaselineInitialized =
-    baselineDeclarationCandidate &&
-    baselineEntryIsDirectory &&
+  const isFallbackBaselineInitialized =
+    isBaselineDeclarationCandidate &&
+    isBaselineEntryDirectory &&
     !pathContainsSymbolicLink(baselineCandidateRoot) &&
     isInitializedBaselineWithoutGit(baselineCandidateRoot);
   const fallbackBaselineState = {
-    declared: baselineDeclarationCandidate ? baselineDeclarationState : null,
+    declared: isBaselineDeclarationCandidate ? isBaselineDeclared : null,
     gitlink_indexed: null,
     gitlink_conflicted: null,
     gitlink_oid: null,
-    worktree_present: baselineDeclarationCandidate
-      ? baselineEntryIsDirectory &&
+    worktree_present: isBaselineDeclarationCandidate
+      ? isBaselineEntryDirectory &&
         !pathContainsSymbolicLink(baselineCandidateRoot)
       : null,
-    gitdir_accessible: baselineDeclarationCandidate
-      ? fallbackBaselineInitialized
+    gitdir_accessible: isBaselineDeclarationCandidate
+      ? isFallbackBaselineInitialized
       : null,
     head_readable: null,
     head_oid: null,
@@ -802,7 +803,7 @@ function discoverProjectFiles(): Discovery {
     git_failure: gitFailure,
     gitlink_detection: "unavailable",
     gitlinks: fallbackGitlinks,
-    baseline_submodule: baselineDeclarationCandidate,
+    baseline_submodule: isBaselineDeclarationCandidate,
     baseline_submodule_initialized: null,
     baseline_submodule_state: fallbackBaselineState,
     exclusions: [
@@ -851,19 +852,19 @@ function markdownPunctuation(value: string): boolean {
 function underscoreFlanking(value: string, index: number, length: number) {
   const previous = markdownCodePointBefore(value, index);
   const next = markdownCodePointAfter(value, index + length);
-  const previousWhitespace = markdownWhitespace(previous);
-  const nextWhitespace = markdownWhitespace(next);
-  const previousPunctuation = markdownPunctuation(previous);
-  const nextPunctuation = markdownPunctuation(next);
+  const isPreviousWhitespace = markdownWhitespace(previous);
+  const isNextWhitespace = markdownWhitespace(next);
+  const isPreviousPunctuation = markdownPunctuation(previous);
+  const isNextPunctuation = markdownPunctuation(next);
   return {
     left:
-      !nextWhitespace &&
-      (!nextPunctuation || previousWhitespace || previousPunctuation),
+      !isNextWhitespace &&
+      (!isNextPunctuation || isPreviousWhitespace || isPreviousPunctuation),
     right:
-      !previousWhitespace &&
-      (!previousPunctuation || nextWhitespace || nextPunctuation),
-    previousPunctuation,
-    nextPunctuation,
+      !isPreviousWhitespace &&
+      (!isPreviousPunctuation || isNextWhitespace || isNextPunctuation),
+    isPreviousPunctuation,
+    isNextPunctuation,
   };
 }
 
@@ -873,7 +874,7 @@ function underscoreCanOpen(
   length: number,
 ): boolean {
   const flanking = underscoreFlanking(value, index, length);
-  return flanking.left && (!flanking.right || flanking.previousPunctuation);
+  return flanking.left && (!flanking.right || flanking.isPreviousPunctuation);
 }
 
 function underscoreCanClose(
@@ -882,7 +883,7 @@ function underscoreCanClose(
   length: number,
 ): boolean {
   const flanking = underscoreFlanking(value, index, length);
-  return flanking.right && (!flanking.left || flanking.nextPunctuation);
+  return flanking.right && (!flanking.left || flanking.isNextPunctuation);
 }
 
 function delimiterRunLength(
@@ -900,14 +901,15 @@ function closingDelimiter(
   delimiter: string,
   start: number,
 ): number {
-  const underscore = delimiter.startsWith("_");
+  const isUnderscore = delimiter.startsWith("_");
   let index = value.indexOf(delimiter, start);
   while (index >= 0) {
-    const exactRun =
-      !underscore || delimiterRunLength(value, index, "_") === delimiter.length;
+    const isExactRun =
+      !isUnderscore ||
+      delimiterRunLength(value, index, "_") === delimiter.length;
     if (
-      exactRun &&
-      (!underscore || underscoreCanClose(value, index, delimiter.length))
+      isExactRun &&
+      (!isUnderscore || underscoreCanClose(value, index, delimiter.length))
     ) {
       return index;
     }
@@ -978,9 +980,9 @@ function githubHeadingText(value: string): string {
       continue;
     }
 
-    const image = value.startsWith("![", index);
-    if (image || value[index] === "[") {
-      const labelStart = index + (image ? 2 : 1);
+    const isImage = value.startsWith("![", index);
+    if (isImage || value[index] === "[") {
+      const labelStart = index + (isImage ? 2 : 1);
       const labelEnd = value.indexOf("]", labelStart);
       if (labelEnd >= 0) {
         const targetStart = labelEnd + 1;
@@ -1308,8 +1310,8 @@ for (const source of allMarkdownFiles) {
   }
 }
 
-const requestedScope = scopeValues.map((value) => path.resolve(root, value));
-for (const scope of requestedScope) {
+const requestedScopes = scopeValues.map((value) => path.resolve(root, value));
+for (const scope of requestedScopes) {
   if (!isWithin(root, scope)) {
     console.error(`--scope must stay under the target root: ${scope}`);
     process.exit(2);
@@ -1345,11 +1347,11 @@ for (const scope of requestedScope) {
 
 const uncheckedItems = new Set(discovery.unchecked);
 const checkedFiles = new Set();
-if (requestedScope.length === 0) {
+if (requestedScopes.length === 0) {
   for (const file of allMarkdownFiles) checkedFiles.add(file);
 } else {
   for (const file of allMarkdownFiles) {
-    if (requestedScope.some((scope) => isWithin(scope, file)))
+    if (requestedScopes.some((scope) => isWithin(scope, file)))
       checkedFiles.add(file);
   }
   const initial = new Set(checkedFiles);
@@ -1634,9 +1636,9 @@ if (
         continue;
       }
       const opening = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
-      const validOpening =
+      const isValidOpening =
         opening && !(opening[1][0] === "`" && opening[2].includes("`"));
-      if (!validOpening) {
+      if (!isValidOpening) {
         entries.push({ index, text: line, outside: true, fenceId: null });
         continue;
       }
@@ -1862,15 +1864,15 @@ if (
       const sectionLines = section.entries
         .filter((entry) => entry.outside)
         .map((entry) => entry.text);
-      const missing = markers
+      const missingMarkers = markers
         .filter(([pattern]) => !sectionLines.some((line) => pattern.test(line)))
         .map(([, label]) => label);
-      if (missing.length === 0) continue;
+      if (missingMarkers.length === 0) continue;
       add(
         "error",
         "migration-note-incomplete",
         "CHANGELOG.md",
-        `${languageHeading}: ${currentVersion} migration note is missing ${missing.join(", ")}.`,
+        `${languageHeading}: ${currentVersion} migration note is missing ${missingMarkers.join(", ")}.`,
       );
     }
   }
@@ -1901,12 +1903,12 @@ for (const file of markdownFiles) {
   }
 }
 
-const stableIdPattern = /\b(?:REQ|UX|IA|UI|SPEC)-\d{6}\b/gu;
+const STABLE_ID_PATTERN = /\b(?:REQ|UX|IA|UI|SPEC)-\d{6}\b/gu;
 const stableIdOccurrences = new Map();
 const stableIdDefinitions = new Map();
 for (const file of allMarkdownFiles) {
   const text = read(file);
-  for (const match of text.matchAll(stableIdPattern)) {
+  for (const match of text.matchAll(STABLE_ID_PATTERN)) {
     const items = stableIdOccurrences.get(match[0]) ?? [];
     items.push(relative(file));
     stableIdOccurrences.set(match[0], items);
@@ -2052,7 +2054,7 @@ const remediationHeaderAliases = {
   restart: ["再開条件", "Restart Condition"],
 };
 type RemediationColumn = keyof typeof remediationHeaderAliases;
-const remediationPlaceholder =
+const REMEDIATION_PLACEHOLDER =
   /^(?:|[-—–]|N\/A|TBD|TODO|None|なし|未定|未取得|未確認|対象外)$/iu;
 let remediationRowsChecked = 0;
 for (const file of allMarkdownFiles) {
@@ -2078,14 +2080,14 @@ for (const file of allMarkdownFiles) {
         break;
       }
     }
-    const explicitRemediationContext =
+    const hasExplicitRemediationContext =
       /(?:是正|remediation)/iu.test(precedingHeading) ||
       headers.some((header) =>
         ["是正対象", "Remediation Target"].includes(header),
       );
     if (
       (stateColumnCount !== 3 &&
-        !(stateColumnCount >= 1 && explicitRemediationContext)) ||
+        !(stateColumnCount >= 1 && hasExplicitRemediationContext)) ||
       !markdownTableSeparator(lines[index + 1], headers.length)
     ) {
       continue;
@@ -2174,22 +2176,22 @@ for (const file of allMarkdownFiles) {
       const requireValues = (
         names: readonly RemediationColumn[],
         code: string,
-        condition: boolean,
+        shouldRequireValues: boolean,
       ): void => {
-        if (!condition) return;
-        const missing = names.filter((name) => {
+        if (!shouldRequireValues) return;
+        const missingNames = names.filter((name) => {
           const targetIndex = optionalColumns.get(name) ?? -1;
           return (
             targetIndex < 0 ||
-            remediationPlaceholder.test(cells[targetIndex] ?? "")
+            REMEDIATION_PLACEHOLDER.test(cells[targetIndex] ?? "")
           );
         });
-        if (missing.length > 0) {
+        if (missingNames.length > 0) {
           add(
             "error",
             code,
             relative(file),
-            `${location}: missing ${missing.map((name) => remediationHeaderAliases[name][0]).join(", ")}.`,
+            `${location}: missing ${missingNames.map((name) => remediationHeaderAliases[name][0]).join(", ")}.`,
           );
         }
       };
@@ -2219,7 +2221,7 @@ for (const file of allMarkdownFiles) {
 }
 
 for (const file of allFiles) {
-  const stableId = path.basename(file).match(stableIdPattern)?.[0];
+  const stableId = path.basename(file).match(STABLE_ID_PATTERN)?.[0];
   if (stableId) {
     add(
       "error",
@@ -2437,7 +2439,7 @@ if (referencesValue) {
       "Outbound references inside the adopted CRDD baseline submodule",
     );
   }
-  const targetIsDirectory = referenceStat.isDirectory();
+  const isTargetDirectory = referenceStat.isDirectory();
   const inbound = new Map<
     string,
     {
@@ -2458,7 +2460,7 @@ if (referencesValue) {
     if (record.external) continue;
     if (
       record.target === referenceTarget ||
-      (targetIsDirectory && isWithin(referenceTarget, record.target))
+      (isTargetDirectory && isWithin(referenceTarget, record.target))
     ) {
       const source = relative(record.source);
       const item = inbound.get(source) ?? {
@@ -2472,7 +2474,7 @@ if (referencesValue) {
     }
     if (
       record.source === referenceTarget ||
-      (targetIsDirectory && isWithin(referenceTarget, record.source))
+      (isTargetDirectory && isWithin(referenceTarget, record.source))
     ) {
       const target = relative(record.target);
       const key = `${target}#${record.anchor}`;
@@ -2498,7 +2500,7 @@ if (referencesValue) {
 const errors = findings.filter((item) => item.severity === "error").length;
 const warnings = findings.filter((item) => item.severity === "warning").length;
 const report = {
-  check_mode: requestedScope.length === 0 ? "full" : "scoped",
+  check_mode: requestedScopes.length === 0 ? "full" : "scoped",
   repository_mode: repositoryMode,
   gitlink_detection: discovery.gitlink_detection,
   gitlink_boundaries: gitlinkRoots.map(relative),
@@ -2511,14 +2513,14 @@ const report = {
   baseline_submodule_state: discovery.baseline_submodule_state,
   discovery_exclusions: discovery.exclusions,
   root,
-  requested_scope: requestedScope.map(relative),
+  requested_scope: requestedScopes.map(relative),
   expanded_scope:
-    requestedScope.length === 0
+    requestedScopes.length === 0
       ? ["."]
       : markdownFiles.slice(0, 100).map(relative),
   expanded_scope_file_count: markdownFiles.length,
   expanded_scope_truncated:
-    requestedScope.length > 0 && markdownFiles.length > 100,
+    requestedScopes.length > 0 && markdownFiles.length > 100,
   global_checks: [
     "canonical document versions",
     "current bilingual release and migration-note completeness",
@@ -2535,7 +2537,7 @@ const report = {
   ],
   unchecked: [
     ...uncheckedItems,
-    ...(requestedScope.length === 0
+    ...(requestedScopes.length === 0
       ? []
       : ["Markdown link, anchor, and Related checks outside expanded_scope"]),
   ],

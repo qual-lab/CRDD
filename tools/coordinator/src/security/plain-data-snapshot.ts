@@ -17,14 +17,14 @@ type PlainArraySnapshot<T> =
 
 function dataDescriptor(
   descriptor: PropertyDescriptor | undefined,
-  enumerable = true,
+  shouldBeEnumerable = true,
 ): descriptor is DataDescriptor {
   return Boolean(
     descriptor &&
       Object.hasOwn(descriptor, "value") &&
       descriptor.get === undefined &&
       descriptor.set === undefined &&
-      (!enumerable || descriptor.enumerable === true),
+      (!shouldBeEnumerable || descriptor.enumerable === true),
   );
 }
 
@@ -128,7 +128,7 @@ export function snapshotPlainArray<T = unknown>(
     }
     const allowed = new Set([
       "length",
-      ...snapshotItems.map((_, index) => String(index)),
+      ...snapshotItems.map((unusedItem, index) => String(index)),
     ]);
     if (keys.some((key) => typeof key !== "string" || !allowed.has(key))) {
       return Object.freeze({

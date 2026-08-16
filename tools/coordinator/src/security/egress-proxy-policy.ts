@@ -184,19 +184,21 @@ function parseIpv6(address: unknown): bigint | null {
     source = `${source.slice(0, dottedIndex)}:${(ipv4 >> 16n).toString(16)}:${(ipv4 & 0xffffn).toString(16)}`;
   }
   if ((source.match(/::/gu) ?? []).length > 1) return null;
-  const compressed = source.includes("::");
+  const isCompressed = source.includes("::");
   const [leftSource = "", rightSource = ""] = source.split("::");
-  const left = leftSource ? leftSource.split(":") : [];
-  const right = rightSource ? rightSource.split(":") : [];
-  if ([...left, ...right].some((part) => !/^[0-9a-f]{1,4}$/u.test(part)))
+  const leftWords = leftSource ? leftSource.split(":") : [];
+  const rightWords = rightSource ? rightSource.split(":") : [];
+  if (
+    [...leftWords, ...rightWords].some((part) => !/^[0-9a-f]{1,4}$/u.test(part))
+  )
     return null;
-  const missing = 8 - left.length - right.length;
-  if ((compressed && missing < 1) || (!compressed && missing !== 0))
+  const missing = 8 - leftWords.length - rightWords.length;
+  if ((isCompressed && missing < 1) || (!isCompressed && missing !== 0))
     return null;
   const words = [
-    ...left,
+    ...leftWords,
     ...Array.from({ length: missing }, () => "0"),
-    ...right,
+    ...rightWords,
   ];
   if (words.length !== 8) return null;
   return words.reduce(
@@ -483,10 +485,10 @@ export function evaluateResolvedAddressesForFixture(addresses: unknown) {
     return Object.freeze({ decision: "deny", reason: "dns_result_required" });
   }
   for (const address of snapshot.value) {
-    const classification = classifyAddress(address);
-    if (classification == null)
+    const isPublicAddress = classifyAddress(address);
+    if (isPublicAddress == null)
       return Object.freeze({ decision: "deny", reason: "dns_address_invalid" });
-    if (!classification)
+    if (!isPublicAddress)
       return Object.freeze({
         decision: "deny",
         reason: "dns_address_not_public",

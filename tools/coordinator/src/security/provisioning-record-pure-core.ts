@@ -483,7 +483,7 @@ function normalizeRevoked(value: unknown): RevokedKey | null {
 
 function normalizeRevocations(value: unknown): ProvisioningRevocations | null {
   const manifest = exactRecord(value, REVOCATION_KEYS);
-  const revoked =
+  const revokedEntries =
     manifest &&
     exactArray(
       manifest.revoked,
@@ -497,8 +497,8 @@ function normalizeRevocations(value: unknown): ProvisioningRevocations | null {
       PROVISIONING_RECORD_PURE_CORE_CONTRACT_REVISION ||
     !positive(manifest.trustEpoch) ||
     !positive(manifest.revocationRevision) ||
-    !revoked ||
-    !sortedUnique(revoked, (entry) => entry.keyId)
+    !revokedEntries ||
+    !sortedUnique(revokedEntries, (entry) => entry.keyId)
   )
     return null;
   return Object.freeze({
@@ -506,7 +506,7 @@ function normalizeRevocations(value: unknown): ProvisioningRevocations | null {
     contractRevision: PROVISIONING_RECORD_PURE_CORE_CONTRACT_REVISION,
     trustEpoch: manifest.trustEpoch,
     revocationRevision: manifest.revocationRevision,
-    revoked,
+    revoked: revokedEntries,
   });
 }
 
@@ -731,7 +731,7 @@ export function verifyProvisioningRecordAggregateCandidate(rawInput: unknown) {
     const keys = new Map(
       normalizedKeyset.keys.map((entry) => [entry.record.keyId, entry]),
     );
-    const revoked = new Map(
+    const revokedEntries = new Map(
       normalizedRevocations.revoked.map((entry) => [entry.keyId, entry]),
     );
     let verified = 0;
@@ -739,7 +739,7 @@ export function verifyProvisioningRecordAggregateCandidate(rawInput: unknown) {
       const key = keys.get(signature.keyId);
       if (!key)
         return aggregateBlocked("provisioning_record_aggregate_unknown_key");
-      if (revoked.has(signature.keyId)) {
+      if (revokedEntries.has(signature.keyId)) {
         return aggregateBlocked("provisioning_record_aggregate_revoked_key");
       }
       if (

@@ -103,9 +103,9 @@ type LoadedDockerRecovery = Readonly<{
   present: ReadonlySet<string>;
 }>;
 
-const CONTAINER_IDENTITIES = new WeakMap<object, ContainerIdentity>();
-const CLI_IDENTITIES = new WeakMap<object, CliSnapshot>();
-const ABSENCE_CAPABILITIES = new WeakMap<object, AbsenceObservation>();
+const containerIdentities = new WeakMap<object, ContainerIdentity>();
+const cliIdentities = new WeakMap<object, CliSnapshot>();
+const absenceCapabilities = new WeakMap<object, AbsenceObservation>();
 const RECOVERY_FILE = "docker-probe-recovery-v1.json";
 const OPERATION_PREFIX = "crdd-coordinator-doctor-";
 
@@ -247,10 +247,10 @@ function filesystemIdentity(
   expectedType: EntityType,
 ): FilesystemIdentity {
   const metadata = fs.lstatSync(target, { bigint: true });
-  const typeValid =
+  const isTypeValid =
     expectedType === "file" ? metadata.isFile() : metadata.isDirectory();
   if (
-    !typeValid ||
+    !isTypeValid ||
     metadata.isSymbolicLink() ||
     metadata.dev <= 0n ||
     metadata.ino <= 0n ||
@@ -359,12 +359,12 @@ function createTrustedDockerCliCapability(): Readonly<{
   if (snapshot.sha256 !== DOCKER_CLI_POLICY.sha256)
     throw new Error("docker_cli_untrusted");
   const capability = Object.freeze({ kind: "trusted_docker_cli" });
-  CLI_IDENTITIES.set(capability, snapshot);
+  cliIdentities.set(capability, snapshot);
   return capability;
 }
 
 function verifyTrustedDockerCliCapability(capability: object): string {
-  const snapshot = CLI_IDENTITIES.get(capability);
+  const snapshot = cliIdentities.get(capability);
   if (!snapshot) throw new Error("docker_cli_untrusted");
   const realRoot = fs.realpathSync(snapshot.root);
   const realExecutable = fs.realpathSync(snapshot.executable);
@@ -474,7 +474,7 @@ export function normalizeDockerIsolationResult(
         new Set(["workspace", "provider-home", "tmp"]),
       )
     : null;
-  const valid =
+  const isValid =
     result?.marker === PROBE_MARKER &&
     allowedWrites?.workspace === true &&
     allowedWrites?.["provider-home"] === true &&
@@ -484,7 +484,7 @@ export function normalizeDockerIsolationResult(
     result.network_blocked === true &&
     result.home_isolated === true &&
     result.tmp_isolated === true;
-  return valid
+  return isValid
     ? {
         status: "confirmed",
         reason: "docker_fake_provider_isolation_confirmed",
@@ -570,7 +570,7 @@ function confirmDockerAbsence(
   }>,
 ): string {
   const observation = isObject(capability)
-    ? (ABSENCE_CAPABILITIES.get(capability) ?? null)
+    ? (absenceCapabilities.get(capability) ?? null)
     : null;
   if (
     !observation ||
@@ -586,7 +586,7 @@ function confirmDockerAbsence(
     "docker_submission_started",
     "docker_absent_confirmed",
   );
-  if (isObject(capability)) ABSENCE_CAPABILITIES.delete(capability);
+  if (isObject(capability)) absenceCapabilities.delete(capability);
   return updated;
 }
 
@@ -753,8 +753,8 @@ export function normalizeContainerAbsence(
   const sets = [idExecution, nameExecution, labelExecution].map(
     normalizedIdSet,
   );
-  const confirmed = sets.every((set) => set instanceof Set && set.size === 0);
-  return confirmed
+  const isConfirmed = sets.every((set) => set instanceof Set && set.size === 0);
+  return isConfirmed
     ? { status: "confirmed", reason: "docker_probe_absence_confirmed" }
     : { status: "blocked", reason: "docker_probe_absence_unconfirmed" };
 }
@@ -875,7 +875,7 @@ function inspectOwnedContainer(
   capability: object,
   mounts: DockerMounts,
 ): unknown | null {
-  const identity = CONTAINER_IDENTITIES.get(capability);
+  const identity = containerIdentities.get(capability);
   if (!identity) return null;
   const execution = dockerCommand(cli, environment, [
     "container",
@@ -920,7 +920,7 @@ function observeContainerAbsence(
   if (normalizeContainerAbsence(id, name, label).status !== "confirmed")
     return null;
   const capability = Object.freeze({ kind: "docker_absence" });
-  ABSENCE_CAPABILITIES.set(
+  absenceCapabilities.set(
     capability,
     Object.freeze({
       probeId: identity.probeId,
@@ -940,7 +940,7 @@ function cleanupOwnedContainer(
   mounts: DockerMounts,
   hostRecoveryId: string,
 ) {
-  const identity = CONTAINER_IDENTITIES.get(capability);
+  const identity = containerIdentities.get(capability);
   if (!identity)
     return { confirmed: false, reason: "docker_container_identity_unknown" };
   if (!inspectOwnedContainer(cli, environment, capability, mounts))
@@ -963,7 +963,7 @@ function cleanupOwnedContainer(
         );
   if (!absenceCapability)
     return { confirmed: false, reason: "docker_probe_cleanup_failed" };
-  CONTAINER_IDENTITIES.delete(capability);
+  containerIdentities.delete(capability);
   return {
     confirmed: true,
     reason: "docker_probe_absence_confirmed",
@@ -990,19 +990,19 @@ function verifyLocalLinuxEngine(
 function blocked(
   reason: string,
   probeId: string | null = null,
-  retainOperationDirectories = false,
+  shouldRetainOperationDirectories = false,
   recoveryId: string | null = null,
-  manualRecoveryRequired = false,
+  isManualRecoveryRequired = false,
 ): DockerProbeResult {
   return {
     status: "blocked",
     reason,
     probeId,
-    retainOperationDirectories,
+    retainOperationDirectories: shouldRetainOperationDirectories,
     hostCleanupCompleted: false,
     recoveryId,
-    manualRecoveryRequired,
-    cleanup: retainOperationDirectories
+    manualRecoveryRequired: isManualRecoveryRequired,
+    cleanup: shouldRetainOperationDirectories
       ? "unconfirmed"
       : "not_required_or_confirmed",
   };
@@ -1161,7 +1161,7 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
         const identity = Object.freeze({ id: normalizedCreation.id, probeId });
         containerIdentity = identity;
         containerCapability = Object.freeze({ kind: "owned_docker_probe" });
-        CONTAINER_IDENTITIES.set(containerCapability, identity);
+        containerIdentities.set(containerCapability, identity);
         recoveryId = writeRecoveryRecord(
           mounts,
           probeId,
@@ -1300,13 +1300,20 @@ function loadRecoveryRecord(token: unknown): LoadedDockerRecovery {
     throw new Error("docker_recovery_record_mismatch");
   if (!identityMatchesRecord(root, record.rootIdentity))
     throw new Error("docker_recovery_root_replaced");
-  const { children, present } = classifyRecoveryChildren(
+  const { children, present: presentChildren } = classifyRecoveryChildren(
     root,
     record.childIdentities,
   );
-  if (!present.includes("management"))
+  if (!presentChildren.includes("management"))
     throw new Error("docker_recovery_management_missing");
-  return { parsed, record, root, children, marker, present: new Set(present) };
+  return {
+    parsed,
+    record,
+    root,
+    children,
+    marker,
+    present: new Set(presentChildren),
+  };
 }
 
 export function classifyRecoveryChildren(
@@ -1395,7 +1402,7 @@ export function recoverDockerIsolationProbe(token: unknown) {
       if (!absenceCapability) {
         const mounts = recoveryMounts(recovery);
         const capability = Object.freeze({ kind: "recovered_docker_probe" });
-        CONTAINER_IDENTITIES.set(capability, Object.freeze(identity));
+        containerIdentities.set(capability, Object.freeze(identity));
         const inspect = inspectOwnedContainer(
           cli,
           environment,

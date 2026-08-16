@@ -421,11 +421,11 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
         throw new Error("doctor_options_invalid");
       return descriptor.value;
     };
-    const activeIsolation = value("activeIsolation", false);
+    const isIsolationActive = value("activeIsolation", false);
     const cwd = value("cwd", process.cwd());
     const rawRuntimeRootRequest = value("runtimeRootRequest", null);
     if (
-      typeof activeIsolation !== "boolean" ||
+      typeof isIsolationActive !== "boolean" ||
       typeof cwd !== "string" ||
       !path.isAbsolute(cwd) ||
       /[\u0000-\u001f\u007f]/u.test(cwd)
@@ -452,7 +452,11 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
         activationIntent: snapshot.activationIntent,
       });
     }
-    return Object.freeze({ activeIsolation, cwd, runtimeRootRequest });
+    return Object.freeze({
+      activeIsolation: isIsolationActive,
+      cwd,
+      runtimeRootRequest,
+    });
   } catch (error) {
     if (errorMessage(error) === "doctor_options_invalid") throw error;
     throw new Error("doctor_options_invalid");
@@ -461,7 +465,7 @@ function normalizeDoctorOptions(rawOptions: unknown): DoctorOptions {
 
 export function runDoctor(options: unknown = {}) {
   const normalizedOptions = normalizeDoctorOptions(options);
-  const activeIsolation = normalizedOptions.activeIsolation;
+  const isIsolationActive = normalizedOptions.activeIsolation;
   const cwd = normalizedOptions.cwd;
   const owned = createOwnedOperationDirectories();
   if (!owned.directories)
@@ -505,7 +509,7 @@ export function runDoctor(options: unknown = {}) {
             runtimeCapabilityIssued: false,
           })
         : inspectPosixRuntimeRootModePrecheckCandidate(runtimeRootInput);
-    const isolation = activeIsolation
+    const isolation = isIsolationActive
       ? runDockerIsolationProbe(owned)
       : Object.freeze({
           status: "not_implemented",
@@ -514,7 +518,7 @@ export function runDoctor(options: unknown = {}) {
           recoveryId: null,
           manualRecoveryRequired: false,
         });
-    shouldRetainOperationDirectories = activeIsolation
+    shouldRetainOperationDirectories = isIsolationActive
       ? isolation.hostCleanupCompleted !== true
       : false;
     const isolationCheckStatus: CheckStatus =
@@ -561,19 +565,19 @@ export function runDoctor(options: unknown = {}) {
       ),
       check(
         "execution.credential_isolation",
-        activeIsolation && isolation.status === "confirmed"
+        isIsolationActive && isolation.status === "confirmed"
           ? "confirmed"
           : "not_implemented",
-        activeIsolation && isolation.status === "confirmed"
+        isIsolationActive && isolation.status === "confirmed"
           ? "credential_paths_not_mounted_in_fake_probe"
           : "credential_store_isolation_not_enforced",
       ),
       check(
         "execution.egress",
-        activeIsolation && isolation.status === "confirmed"
+        isIsolationActive && isolation.status === "confirmed"
           ? "blocked"
           : "not_implemented",
-        activeIsolation && isolation.status === "confirmed"
+        isIsolationActive && isolation.status === "confirmed"
           ? "provider_endpoint_allowlist_not_configured"
           : "provider_egress_allowlist_not_enforced",
       ),
@@ -584,7 +588,7 @@ export function runDoctor(options: unknown = {}) {
 
     const report = {
       reportVersion: 2,
-      diagnosticMode: activeIsolation
+      diagnosticMode: isIsolationActive
         ? "docker_fake_provider_probe"
         : "passive_preflight",
       status: readiness.status,
@@ -597,7 +601,7 @@ export function runDoctor(options: unknown = {}) {
         valuesRecorded: false,
         environmentFiltered: forwardedCredentialNames.length === 0,
         isolationEnforcement:
-          activeIsolation && isolation.status === "confirmed"
+          isIsolationActive && isolation.status === "confirmed"
             ? "confirmed_for_fake_probe"
             : "not_implemented",
       },
@@ -607,7 +611,7 @@ export function runDoctor(options: unknown = {}) {
           owned.root,
         ),
         enforcement: isolation.status,
-        profile: activeIsolation ? DOCKER_ISOLATION_PROFILE : null,
+        profile: isIsolationActive ? DOCKER_ISOLATION_PROFILE : null,
       },
       runtimeRoot: describeRuntimeRootContract(),
       runtimeRootPathIdentity: describeRuntimeRootPathIdentityContract(),
@@ -620,7 +624,7 @@ export function runDoctor(options: unknown = {}) {
       egress: {
         providerAllowlist: "not_implemented",
         fakeProbeNetwork:
-          activeIsolation && isolation.status === "confirmed"
+          isIsolationActive && isolation.status === "confirmed"
             ? "blocked"
             : "not_evaluated",
         isolationProfileContract: describeProviderIsolationContract(),
@@ -647,7 +651,7 @@ export function runDoctor(options: unknown = {}) {
       checks,
       blockers: readiness.blockers,
     };
-    if (!activeIsolation) {
+    if (!isIsolationActive) {
       try {
         cleanupOwnedOperationDirectories(owned);
       } catch {
@@ -671,7 +675,7 @@ export function runDoctor(options: unknown = {}) {
     }
     return report;
   } catch (error) {
-    if (!activeIsolation && !shouldRetainOperationDirectories) {
+    if (!isIsolationActive && !shouldRetainOperationDirectories) {
       try {
         cleanupOwnedOperationDirectories(owned);
       } catch {

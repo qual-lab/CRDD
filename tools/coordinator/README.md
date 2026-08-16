@@ -154,7 +154,7 @@ productionの実ファイル移行はPathとIdentityの小さいpredicate、Loca
 
 開発時のLintとFormatterはRepository rootの`biome.json`を正本とするBiome 2.5.6へ統一する。Coordinatorは`npm run lint --prefix tools/coordinator`、`npm run format:check --prefix tools/coordinator`および`npm run check --prefix tools/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix tools/coordinator`を使う。BiomeはdevDependencyでありRuntimeへ含めない。
 
-内部ツールの命名とTypeScript sourceは[内部ツール・コーディング規約](../coding-standards.md)に従う。Checkerは`tools/checker/`のprivate packageがTypeScriptのwrapper、test、fault injectorとJSON型設定を所有する。配布正本`template/tools/crdd-check.ts`はpackage外に置き、追加installを要求しない採用側CLIの正本としてwrapperから参照する。Checker packageの開発確認は次を使用する。
+内部ツールの命名とTypeScript sourceは[内部ツール・コーディング規約](../coding-standards.md)に従う。Checkerは`tools/checker/`のprivate packageがTypeScriptのpackage entry adapter、test、fault injectorとJSON型設定を所有する。配布正本`template/tools/crdd-check.ts`はpackage外に置き、追加installを要求しない採用側CLIの正本としてpackage entry adapterから参照する。これは旧入口を維持する互換wrapperではない。Checker packageの開発確認は次を使用する。
 
 ```shell
 npm run check --prefix tools/checker
