@@ -1,24 +1,51 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import {
+  buildProvisioningRecordDomainMessageCandidate,
+  compileProvisioningRecordEnvelopeCandidate,
   compileProvisioningRevocationManifestCandidate,
   compileProvisioningTrustAnchorSetCandidate,
 } from "../src/security/provisioning-record-pure-core.ts";
-import { PROVISIONING_RECORD_STORAGE_DIRECTORY } from "../src/security/provisioning-record-store.ts";
+import {
+  PROVISIONING_RECORDS_DIRECTORY,
+  PROVISIONING_RECORD_STORAGE_DIRECTORY,
+  persistCurrentProvisioningRecordForEffect,
+} from "../src/security/provisioning-record-store.ts";
 import {
   PROVISIONING_REVOCATION_MANIFESTS_DIRECTORY,
   PROVISIONING_TRUST_ANCHORS_DIRECTORY,
   describeProvisioningTrustArtifactStoreContract,
   persistProvisioningTrustArtifactsForEffect,
+  verifyCurrentProvisioningRecordWithPersistedTrustCandidate,
   verifyStoredProvisioningTrustArtifactsCandidate,
 } from "../src/security/provisioning-trust-artifact-store.ts";
 import { evaluateProvisioningTrustFloorCandidate } from "../src/security/provisioning-trust-floor.ts";
-import { assertCanonicalCandidate } from "./test-support.ts";
+import { persistProvisioningTrustFloorForEffect } from "../src/security/provisioning-trust-floor-store.ts";
+import {
+  assertCanonicalCandidate,
+  assertDomainMessageCandidate,
+} from "./test-support.ts";
+
+const P256_ORDER = BigInt(
+  "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551",
+);
+
+function lowS(signature: Uint8Array) {
+  const result = Buffer.from(signature);
+  const s = BigInt(`0x${result.subarray(32).toString("hex")}`);
+  if (s > P256_ORDER >> 1n) {
+    Buffer.from((P256_ORDER - s).toString(16).padStart(64, "0"), "hex").copy(
+      result,
+      32,
+    );
+  }
+  return result;
+}
 
 function fixture() {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-trust-store-"));
@@ -27,11 +54,13 @@ function fixture() {
     recursive: true,
   });
   fs.mkdirSync(path.join(root, PROVISIONING_REVOCATION_MANIFESTS_DIRECTORY));
+  fs.mkdirSync(path.join(root, PROVISIONING_RECORDS_DIRECTORY));
   return { parent, root };
 }
 
 function artifacts(trustEpoch = 1, revocationRevision = 1) {
-  const { publicKey } = generateKeyPairSync("ec", {
+  const now = Date.now();
+  const { privateKey, publicKey } = generateKeyPairSync("ec", {
     namedCurve: "prime256v1",
   });
   const spkiDer = publicKey.export({ format: "der", type: "spki" });
@@ -46,8 +75,8 @@ function artifacts(trustEpoch = 1, revocationRevision = 1) {
         algorithm: "ECDSA-P256-SHA256",
         spkiDer: spkiDer.toString("base64url"),
         enrollmentCaId: "1".repeat(32),
-        notBefore: "2026-01-01T00:00:00.000Z",
-        notAfter: "2026-12-31T00:00:00.000Z",
+        notBefore: new Date(now - 86_400_000).toISOString(),
+        notAfter: new Date(now + 15_552_000_000).toISOString(),
       },
     ],
   });
@@ -60,7 +89,7 @@ function artifacts(trustEpoch = 1, revocationRevision = 1) {
   });
   assertCanonicalCandidate(anchors);
   assertCanonicalCandidate(revocations);
-  return { anchors, revocations };
+  return { anchors, revocations, privateKey, keyId };
 }
 
 function floor(values: ReturnType<typeof artifacts>) {
@@ -76,6 +105,54 @@ function floor(values: ReturnType<typeof artifacts>) {
   assert.equal(result.status, "candidate");
   if (!("nextFloor" in result)) throw new Error("next floor required");
   return result.nextFloor;
+}
+
+function recordEnvelope(values: ReturnType<typeof artifacts>) {
+  const now = Date.now();
+  const payload = {
+    contract: "crdd-coordinator/provisioning-record",
+    contractRevision: 1,
+    recordId: "2".repeat(32),
+    recordRevision: 1,
+    previousRecordHash: null,
+    platformScopeId: "3".repeat(32),
+    provisionerIdentityHash: "4".repeat(64),
+    provisionerEnrollmentId: "5".repeat(32),
+    authorityRootAbsolutePath:
+      process.platform === "win32"
+        ? "C:\\CRDD-Authority"
+        : "/var/lib/crdd-authority",
+    authorityRootIdentityHash: "6".repeat(64),
+    authorityRootProtectionHash: "7".repeat(64),
+    runtimePrincipalModes: [
+      "local_interactive_selected_user",
+      "server_dedicated_service_account",
+    ],
+    trustEpoch: 1,
+    issuedAt: new Date(now - 60_000).toISOString(),
+    expiresAt: new Date(now + 86_400_000).toISOString(),
+  };
+  const domain = buildProvisioningRecordDomainMessageCandidate(payload);
+  assertDomainMessageCandidate(domain);
+  const envelope = compileProvisioningRecordEnvelopeCandidate({
+    contract: "crdd-coordinator/provisioning-record-envelope",
+    contractRevision: 1,
+    payload,
+    signatures: [
+      {
+        keyId: values.keyId,
+        algorithm: "ECDSA-P256-SHA256",
+        signature: lowS(
+          sign("sha256", domain.message, {
+            key: values.privateKey,
+            dsaEncoding: "ieee-p1363",
+          }),
+        ).toString("base64url"),
+      },
+    ],
+  });
+  assertCanonicalCandidate(envelope);
+  return envelope.canonicalBytes;
 }
 
 test("Trust成果物をcontent addressで保存しfloorへ再結合する", () => {
@@ -164,9 +241,53 @@ test("Trust成果物Store契約はRepositoryに実Trustを保存しない", () =
     revocationLayout: ".crdd-provisioning/revocation-manifests/<sha256>.json",
     storage: "immutable_content_addressed_canonical_artifacts",
     floorBinding: "implemented_candidate",
+    persistedRecordAggregateVerification:
+      "implemented_candidate_runtime_clock_non_authority",
     persistence: "implemented_candidate",
     repositoryCanonicalTrustStored: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
   });
+});
+
+test("永続floorとTrustを現在RecordへRuntime時計で集約する", () => {
+  const target = fixture();
+  try {
+    const values = artifacts();
+    const nextFloor = floor(values);
+    assert.equal(
+      persistProvisioningTrustArtifactsForEffect(
+        target.root,
+        values.anchors.canonicalBytes,
+        values.revocations.canonicalBytes,
+      ).status,
+      "candidate",
+    );
+    assert.equal(
+      persistProvisioningTrustFloorForEffect(target.root, nextFloor).status,
+      "candidate",
+    );
+    assert.equal(
+      persistCurrentProvisioningRecordForEffect(
+        target.root,
+        recordEnvelope(values),
+      ).status,
+      "candidate",
+    );
+    const verified = verifyCurrentProvisioningRecordWithPersistedTrustCandidate(
+      target.root,
+    );
+    assert.equal(verified.status, "candidate");
+    assert.equal(verified.verifiedSignatureCount, 1);
+    assert.equal(verified.runtimeAuthorityConferred, false);
+    assert.equal(JSON.stringify(verified).includes(target.root), false);
+    fs.writeFileSync(path.join(target.root, "trust-floor.json"), "{}");
+    assert.equal(
+      verifyCurrentProvisioningRecordWithPersistedTrustCandidate(target.root)
+        .status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(target.parent, { recursive: true, force: true });
+  }
 });

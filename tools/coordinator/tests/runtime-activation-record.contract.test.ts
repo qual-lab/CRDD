@@ -411,8 +411,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     offlineBundledTrustEvaluation: "required_target_not_implemented",
     recordSchemaCodec: "implemented_candidate",
     signatureVerifier: "implemented_candidate_fail_closed_all_entries",
-    embeddedTrustAnchorSet: "not_implemented",
-    revocationEvaluator: "not_implemented",
+    embeddedTrustAnchorSet: "implemented_candidate_runtime_clock_non_authority",
+    revocationEvaluator: "implemented_candidate_runtime_clock_non_authority",
     filesystemRead: "implemented_candidate",
     resolver: "not_implemented",
     lifecyclePersistence: "not_implemented",
@@ -992,10 +992,13 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.provisioningRecordAuthorityRootBindingVerification,
     "implemented_candidate",
   );
-  assert.equal(contract.provisioningRecordTrustAnchorSet, "not_implemented");
+  assert.equal(
+    contract.provisioningRecordTrustAnchorSet,
+    "implemented_candidate_runtime_clock_non_authority",
+  );
   assert.equal(
     contract.provisioningRecordRevocationEvaluation,
-    "not_implemented",
+    "implemented_candidate_runtime_clock_non_authority",
   );
   assert.equal(
     contract.provisioningRecordFilesystemRead,

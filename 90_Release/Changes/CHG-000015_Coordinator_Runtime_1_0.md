@@ -1115,3 +1115,13 @@ Node.js 24.19.0で、Coordinator 315 / 315、Checker 150 / 150、命名／参照
 本StoreはPlatform Provisioner Effectと準備記録検証の依存へ候補投影するが、初期Trustの承認済み導入元、Runtime所有時計、準備記録の実集約検証、Authority Root resolver、Authority、Capabilityおよびready遷移は未実装である。既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
 
 Node.js 24.19.0で、Coordinator 318 / 318、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Authority Root、実Trust Anchor、実失効一覧または秘密鍵を使用・変更していない。
+
+### 2026-08-16 — 永続Trustによるcurrent Record集約検証候補
+
+永続済みの準備Trust floor、同floorへcontent Hashで結合した信頼起点鍵集合／失効一覧、およびimmutable Storeの`current.json`が指す準備記録を一つのRuntime検証候補へ接続した。候補は各成果物を安定したFilesystem実体から再読取りし、floorの信頼epoch／失効revision／2つのHash、current pointerのRecord Hash、全署名、署名鍵の有効期間および失効状態を再確認する。評価時刻は公開APIから受け取らずRuntime内で取得し、caller supplied時刻を現在時刻へ昇格させない。
+
+公開結果はRecord Hash、検証済み署名数、信頼epoch、失効revisionおよびTrust成果物Hashの安全要約だけに限定し、raw Record、canonical byte、絶対Path、SPKI、署名または失効entryを返さない。Runtime activationとdoctorは、準備記録のTrust Anchor集合および失効評価を`implemented_candidate_runtime_clock_non_authority`として同じprivate contract snapshotから投影する。
+
+本候補は、Repositoryが所有する実装、固定相対レイアウト、契約および試験だけで完結する。実Trust成果物と端末固有RecordはAuthority Root、秘密鍵はRepository外の承認済み保管場所へ限定する。初期Trustの承認済み導入元、Authority Root resolver／Filesystem Identity／保護Adapterとの実結合、activation、Runtime Authority、Capabilityおよびready遷移は未実装である。したがって既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。
+
+Node.js 24.19.0で、Coordinator 319 / 319、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Authority Root、実Trust Anchor、実失効一覧、実準備記録または秘密鍵を使用・変更していない。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。

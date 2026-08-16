@@ -622,8 +622,10 @@ export function describeRuntimeActivationContract() {
     provisioningRecordVerification: "not_implemented",
     provisioningRecordAuthorityRootBindingVerification:
       provisioningRecordPureCore.authorityRootBindingVerification,
-    provisioningRecordTrustAnchorSet: "not_implemented",
-    provisioningRecordRevocationEvaluation: "not_implemented",
+    provisioningRecordTrustAnchorSet:
+      provisioningTrustArtifactStore.persistedRecordAggregateVerification,
+    provisioningRecordRevocationEvaluation:
+      provisioningTrustArtifactStore.persistedRecordAggregateVerification,
     provisioningRecordFilesystemRead: provisioningRecordStore.filesystemRead,
     provisioningRecordLifecyclePersistence: "not_implemented",
     provisioningRecordFilesystemWrite: provisioningRecordStore.filesystemWrite,

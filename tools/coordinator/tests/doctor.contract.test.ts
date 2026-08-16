@@ -678,8 +678,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       offlineBundledTrustEvaluation: "required_target_not_implemented",
       recordSchemaCodec: "implemented_candidate",
       signatureVerifier: "implemented_candidate_fail_closed_all_entries",
-      embeddedTrustAnchorSet: "not_implemented",
-      revocationEvaluator: "not_implemented",
+      embeddedTrustAnchorSet:
+        "implemented_candidate_runtime_clock_non_authority",
+      revocationEvaluator: "implemented_candidate_runtime_clock_non_authority",
       filesystemRead: "implemented_candidate",
       resolver: "not_implemented",
       lifecyclePersistence: "not_implemented",
@@ -1390,11 +1391,11 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordTrustAnchorSet,
-    "not_implemented",
+    "implemented_candidate_runtime_clock_non_authority",
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordRevocationEvaluation,
-    "not_implemented",
+    "implemented_candidate_runtime_clock_non_authority",
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordFilesystemRead,

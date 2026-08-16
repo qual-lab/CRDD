@@ -7,8 +7,12 @@ import {
   decodeProvisioningRevocationManifestCandidate,
   decodeProvisioningTrustAnchorSetCandidate,
 } from "./provisioning-record-pure-core.ts";
-import { PROVISIONING_RECORD_STORAGE_DIRECTORY } from "./provisioning-record-store.ts";
+import {
+  PROVISIONING_RECORD_STORAGE_DIRECTORY,
+  verifyCurrentProvisioningRecordAggregateCandidate,
+} from "./provisioning-record-store.ts";
 import { encodeProvisioningTrustFloorCandidate } from "./provisioning-trust-floor.ts";
+import { loadProvisioningTrustFloorForEffect } from "./provisioning-trust-floor-store.ts";
 
 export const PROVISIONING_TRUST_ANCHORS_DIRECTORY = "trust-anchors";
 export const PROVISIONING_REVOCATION_MANIFESTS_DIRECTORY =
@@ -255,42 +259,8 @@ export function verifyStoredProvisioningTrustArtifactsCandidate(
     if (!paths || encodedFloor.status !== "candidate") {
       return blocked("provisioning_trust_artifact_store_floor_invalid");
     }
-    const anchorTarget = immutableTarget(
-      paths.anchors,
-      encodedFloor.floor.trustAnchorSetHash,
-    );
-    const revocationTarget = immutableTarget(
-      paths.revocations,
-      encodedFloor.floor.revocationManifestHash,
-    );
-    if (
-      !anchorTarget ||
-      !revocationTarget ||
-      !fs.existsSync(anchorTarget) ||
-      !fs.existsSync(revocationTarget)
-    ) {
-      return blocked("provisioning_trust_artifact_store_artifact_missing");
-    }
-    const anchors = artifactCandidate(
-      readStableBytes(anchorTarget),
-      decodeProvisioningTrustAnchorSetCandidate,
-    );
-    const revocations = artifactCandidate(
-      readStableBytes(revocationTarget),
-      decodeProvisioningRevocationManifestCandidate,
-    );
-    if (
-      !anchors ||
-      !revocations ||
-      createHash("sha256").update(anchors.canonicalBytes).digest("hex") !==
-        encodedFloor.floor.trustAnchorSetHash ||
-      createHash("sha256").update(revocations.canonicalBytes).digest("hex") !==
-        encodedFloor.floor.revocationManifestHash ||
-      anchors.metadata.trustEpoch !== encodedFloor.floor.trustEpoch ||
-      revocations.metadata.trustEpoch !== encodedFloor.floor.trustEpoch ||
-      revocations.metadata.revocationRevision !==
-        encodedFloor.floor.revocationRevision
-    ) {
+    const artifacts = loadArtifactsForFloor(paths, encodedFloor.floor);
+    if (!artifacts) {
       return blocked("provisioning_trust_artifact_store_binding_mismatch");
     }
     return Object.freeze({
@@ -310,6 +280,99 @@ export function verifyStoredProvisioningTrustArtifactsCandidate(
   }
 }
 
+function loadArtifactsForFloor(
+  paths: NonNullable<ReturnType<typeof storePaths>>,
+  floor: Readonly<{
+    trustEpoch: number;
+    trustAnchorSetHash: string;
+    revocationRevision: number;
+    revocationManifestHash: string;
+  }>,
+) {
+  const anchorTarget = immutableTarget(paths.anchors, floor.trustAnchorSetHash);
+  const revocationTarget = immutableTarget(
+    paths.revocations,
+    floor.revocationManifestHash,
+  );
+  if (
+    !anchorTarget ||
+    !revocationTarget ||
+    !fs.existsSync(anchorTarget) ||
+    !fs.existsSync(revocationTarget)
+  ) {
+    return null;
+  }
+  const anchors = artifactCandidate(
+    readStableBytes(anchorTarget),
+    decodeProvisioningTrustAnchorSetCandidate,
+  );
+  const revocations = artifactCandidate(
+    readStableBytes(revocationTarget),
+    decodeProvisioningRevocationManifestCandidate,
+  );
+  return anchors &&
+    revocations &&
+    createHash("sha256").update(anchors.canonicalBytes).digest("hex") ===
+      floor.trustAnchorSetHash &&
+    createHash("sha256").update(revocations.canonicalBytes).digest("hex") ===
+      floor.revocationManifestHash &&
+    anchors.metadata.trustEpoch === floor.trustEpoch &&
+    revocations.metadata.trustEpoch === floor.trustEpoch &&
+    revocations.metadata.revocationRevision === floor.revocationRevision
+    ? Object.freeze({ anchors, revocations })
+    : null;
+}
+
+export function verifyCurrentProvisioningRecordWithPersistedTrustCandidate(
+  storageRoot: unknown,
+) {
+  try {
+    const paths = storePaths(storageRoot);
+    const loadedFloor = loadProvisioningTrustFloorForEffect(storageRoot);
+    if (
+      !paths ||
+      loadedFloor.status !== "candidate" ||
+      !("floor" in loadedFloor) ||
+      !loadedFloor.floor
+    ) {
+      return blocked("provisioning_runtime_trust_floor_unavailable");
+    }
+    const artifacts = loadArtifactsForFloor(paths, loadedFloor.floor);
+    if (!artifacts) {
+      return blocked("provisioning_runtime_trust_artifacts_unavailable");
+    }
+    const aggregate = verifyCurrentProvisioningRecordAggregateCandidate(
+      storageRoot,
+      artifacts.anchors.canonicalBytes,
+      artifacts.revocations.canonicalBytes,
+      new Date().toISOString(),
+    );
+    if (
+      aggregate.status !== "candidate" ||
+      aggregate.cryptographicConditionSatisfied !== true
+    ) {
+      return blocked("provisioning_runtime_record_verification_failed");
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason:
+        "persisted_floor_bound_trust_and_runtime_clock_record_verification_candidate",
+      trustEpoch: loadedFloor.floor.trustEpoch,
+      revocationRevision: loadedFloor.floor.revocationRevision,
+      trustAnchorSetHash: loadedFloor.floor.trustAnchorSetHash,
+      revocationManifestHash: loadedFloor.floor.revocationManifestHash,
+      recordHash: aggregate.recordHash,
+      verifiedSignatureCount: aggregate.verifiedSignatureCount,
+      persistenceCompleted: true,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return blocked("provisioning_runtime_record_verification_failed");
+  }
+}
+
 export function describeProvisioningTrustArtifactStoreContract() {
   return Object.freeze({
     contract: "crdd-coordinator/provisioning-trust-artifact-store",
@@ -318,6 +381,8 @@ export function describeProvisioningTrustArtifactStoreContract() {
     revocationLayout: `${PROVISIONING_RECORD_STORAGE_DIRECTORY}/${PROVISIONING_REVOCATION_MANIFESTS_DIRECTORY}/<sha256>.json`,
     storage: "immutable_content_addressed_canonical_artifacts",
     floorBinding: "implemented_candidate",
+    persistedRecordAggregateVerification:
+      "implemented_candidate_runtime_clock_non_authority",
     persistence: "implemented_candidate",
     repositoryCanonicalTrustStored: false,
     runtimeAuthorityConferred: false,

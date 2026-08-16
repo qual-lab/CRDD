@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   PROVISIONING_RECORD_PURE_CORE_LIMITS,
   decodeProvisioningRecordEnvelopeCandidate,
+  verifyProvisioningRecordAggregateCandidate,
   verifyProvisioningRecordLineageCandidate,
 } from "./provisioning-record-pure-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signature-primitives.ts";
@@ -260,6 +261,45 @@ export function loadCurrentProvisioningRecordCandidate(storageRoot: unknown) {
       : blocked("provisioning_record_store_current_invalid");
   } catch {
     return blocked("provisioning_record_store_read_failed");
+  }
+}
+
+export function verifyCurrentProvisioningRecordAggregateCandidate(
+  storageRoot: unknown,
+  trustAnchorSetBytes: unknown,
+  revocationManifestBytes: unknown,
+  evaluationTime: unknown,
+) {
+  try {
+    const paths = storagePaths(storageRoot);
+    const current = paths ? loadCurrent(paths) : null;
+    if (!current) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_store_current_verification_unavailable",
+        cryptographicConditionSatisfied: false,
+        verifiedSignatureCount: 0,
+        filesystemEffectIssued: false,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    return verifyProvisioningRecordAggregateCandidate({
+      envelopeBytes: current.recordBytes,
+      trustAnchorSetBytes,
+      revocationManifestBytes,
+      evaluationTime,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "provisioning_record_store_current_verification_failed",
+      cryptographicConditionSatisfied: false,
+      verifiedSignatureCount: 0,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
   }
 }
 
