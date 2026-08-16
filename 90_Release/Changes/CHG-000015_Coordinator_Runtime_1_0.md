@@ -1033,3 +1033,15 @@ Windows DACL観測は、既存の`SYSTEM`／machine Administrators write限定�
 後続処置として、`state/release-floor.json`のcanonical byte codecと専用Storeを実装した。Storeは固定`state` directoryと固定target／pending名だけを扱い、pending fileをexclusive createして`fsync`し、原子的置換後に同一形式で再読取り照合する。既存pendingは自動上書きせず明示復旧を要求し、復旧は同一floorまたは単調増加するfloorだけを許可してrollbackと同一Sequence差替えを拒否する。Windowsでparent directoryの`fsync`が提供されない場合は結果へ保持し、file `fsync`、pending recoveryおよび再読取りを省略しない。汎用Path writer、旧state aliasおよび推測rollbackは追加しない。
 
 このStoreはFilesystem Effectを実行するため、Platform Provisioner Effect依存として投影する。ただし実ProgramData Rootの作成、DACL設定、署名済み配布物からの導入、active release切替および`provision` controllerには未接続であり、Authority、CapabilityまたはGateを発行しない。上段のrollback floor永続化未実装という現在表示はこの限定Store範囲でsupersededし、Effect統合未実装という境界は維持する。処置は`Applied`／`Self-checked`であり、全機械確認と独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+### 2026-08-16 — Windows Platform Provisioner導入Effect候補
+
+Repository所有の実装、設定、試験および固定レイアウトを使用し、明示`provision`からだけ発火するWindows導入Effect候補を追加した。Effectは最初にmodule相対のCRDD配布Rootを固定署名manifest、固定Qual-Lab公開鍵、CRDD Git Tree、Coordinator package content rootおよび現在Policy Hashへ再結合する。source checkoutまたは署名manifestを欠く配布Rootは、ProgramData探索、Directory作成またはDACL変更より前に`blocked`へ閉じる。
+
+検証済み配布物は`%ProgramData%\Qual-Lab\CRDD\Coordinator\releases\<releaseSequence>`のpending世代へ複製し、`tools\coordinator`と`90_Release\coordinator-package-manifest.json`を同じ固定世代へ配置する。pending世代を再検証してから原子的directory renameを行い、`SYSTEM`とmachine AdministratorsへFull Control、選択したRuntime主体へread／executeだけを付与する固定DACLをRoot以下へ適用して、同じ観測Adapterで再確認する。任意Root、環境変数由来ProgramData、旧名alias、単独package、互換shimまたは専用EXEを追加しない。
+
+`state/active-release.json`は、署名済みmanifest Identity、Release Sequence、CRDD Version／Commit／Tree、package content rootおよび確認済みrollback floor Hashを成果物固有domainへ結ぶcanonical状態とする。専用Storeは固定target／pending、exclusive create、file `fsync`、原子的renameおよび再読取り照合を所有し、既存pendingを推測上書きしない。`provision`は配布物、世代配置、DACL、rollback floorおよびactive releaseの候補処理が全て成立した場合だけ成功候補を返すが、Runtime AuthorityまたはCapabilityは発行しない。
+
+本候補では、rollback floorとactive releaseの二状態を一つのcrash-consistent transactionとして確定する処理、Runtime通常runが保護済みactive世代を読んで再検証する処理、Provisioning Record／Authority Rootとの結合、および`activate`／`disable` Effectは未実装である。したがって状態更新途中の失敗は明示復旧を要求し、既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。Repository外へ残るものはRelease秘密鍵と端末固有のProgramData状態だけで、秘密鍵、passphrase、絶対PathまたはSIDを公開結果へ含めない。
+
+対象試験と型検査は`Applied`／`Self-checked`である。新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。

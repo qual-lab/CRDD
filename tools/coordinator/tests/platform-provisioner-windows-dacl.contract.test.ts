@@ -83,7 +83,7 @@ test("Windows package DACL precheck rejects dynamic and malformed observations",
   );
 });
 
-test("Windows package DACL contract implements runtime read but keeps effects closed", () => {
+test("Windows package DACL contract limits mutation to the fixed provisioner effect", () => {
   const contract = describeWindowsPackageDaclContract();
   assert.equal(
     contract.verification,
@@ -94,7 +94,10 @@ test("Windows package DACL contract implements runtime read but keeps effects cl
     contract.runtimePrincipalSelection,
     "current_windows_identity_by_default_or_explicit_service_sid",
   );
-  assert.equal(contract.permissionMutation, "prohibited");
+  assert.equal(
+    contract.permissionMutation,
+    "implemented_only_for_fixed_windows_provisioner_install_root_effect",
+  );
 });
 
 test("Windows package DACL result does not disclose paths principals or rules", () => {

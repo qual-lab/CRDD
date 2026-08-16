@@ -94,6 +94,39 @@ for ($index = 0; $index -lt $items.Count; $index++) {
   reparsePointCount = $reparsePointCount
 } | ConvertTo-Json -Compress
 `;
+const APPLY_SCRIPT = `
+$ErrorActionPreference = 'Stop'
+$root = [Environment]::GetEnvironmentVariable('CRDD_DACL_ROOT', 'Process')
+if ([string]::IsNullOrWhiteSpace($root)) { throw 'root_missing' }
+$runtimeSid = [Environment]::GetEnvironmentVariable('CRDD_RUNTIME_PRINCIPAL_SID', 'Process')
+if ([string]::IsNullOrWhiteSpace($runtimeSid)) {
+  $runtimeSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+}
+$systemIdentity = [Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+$administratorsIdentity = [Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+$runtimeIdentity = [Security.Principal.SecurityIdentifier]::new($runtimeSid)
+$items = @((Get-Item -LiteralPath $root -Force)) + @(Get-ChildItem -LiteralPath $root -Force -Recurse)
+if ($items.Count -lt 1 -or $items.Count -gt 2049) { throw 'entity_count_invalid' }
+foreach ($item in $items) {
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'reparse_rejected' }
+  $isDirectory = [bool]$item.PSIsContainer
+  if ($isDirectory) {
+    $acl = [Security.AccessControl.DirectorySecurity]::new()
+    $inheritance = [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+  } else {
+    $acl = [Security.AccessControl.FileSecurity]::new()
+    $inheritance = [Security.AccessControl.InheritanceFlags]::None
+  }
+  $acl.SetOwner($systemIdentity)
+  $acl.SetAccessRuleProtection($true, $false)
+  $propagation = [Security.AccessControl.PropagationFlags]::None
+  $allow = [Security.AccessControl.AccessControlType]::Allow
+  $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($systemIdentity, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance, $propagation, $allow))
+  $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($administratorsIdentity, [Security.AccessControl.FileSystemRights]::FullControl, $inheritance, $propagation, $allow))
+  $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($runtimeIdentity, [Security.AccessControl.FileSystemRights]::ReadAndExecute, $inheritance, $propagation, $allow))
+  Set-Acl -LiteralPath $item.FullName -AclObject $acl
+}
+`;
 
 function blocked(reason: string) {
   return Object.freeze({
@@ -252,6 +285,75 @@ export function inspectWindowsPackageDaclCandidate(
   }
 }
 
+export function applyWindowsProvisionerInstallDaclForEffect(
+  installRoot: unknown,
+  runtimePrincipalSid?: unknown,
+) {
+  try {
+    if (
+      process.platform !== "win32" ||
+      typeof installRoot !== "string" ||
+      !path.win32.isAbsolute(installRoot) ||
+      installRoot.includes("\0") ||
+      path.win32.basename(installRoot) !== "Coordinator" ||
+      path.win32.basename(path.win32.dirname(installRoot)) !== "CRDD" ||
+      path.win32.basename(
+        path.win32.dirname(path.win32.dirname(installRoot)),
+      ) !== "Qual-Lab"
+    ) {
+      return blocked("windows_package_dacl_effect_root_invalid");
+    }
+    if (
+      runtimePrincipalSid !== undefined &&
+      (typeof runtimePrincipalSid !== "string" ||
+        !WINDOWS_SID.test(runtimePrincipalSid))
+    ) {
+      return blocked("windows_package_dacl_runtime_principal_invalid");
+    }
+    const executable = powershellExecutable();
+    if (!executable) return blocked("windows_package_dacl_host_unavailable");
+    execFileSync(
+      executable,
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-EncodedCommand",
+        Buffer.from(APPLY_SCRIPT, "utf16le").toString("base64"),
+      ],
+      {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: POWERSHELL_TIMEOUT_MS,
+        maxBuffer: POWERSHELL_OUTPUT_BYTES,
+        env: {
+          SystemRoot: process.env.SystemRoot,
+          CRDD_DACL_ROOT: installRoot,
+          ...(typeof runtimePrincipalSid === "string"
+            ? { CRDD_RUNTIME_PRINCIPAL_SID: runtimePrincipalSid }
+            : {}),
+        },
+        stdio: ["ignore", "ignore", "ignore"],
+      },
+    );
+    const verified = inspectWindowsPackageDaclCandidate(
+      installRoot,
+      runtimePrincipalSid,
+    );
+    if (verified.status !== "candidate") {
+      return blocked("windows_package_dacl_effect_verification_failed");
+    }
+    return Object.freeze({
+      ...verified,
+      reason: "windows_package_dacl_applied_and_verified",
+      permissionMutationIssued: true,
+      filesystemEffectIssued: true,
+    });
+  } catch {
+    return blocked("windows_package_dacl_effect_failed");
+  }
+}
+
 export function describeWindowsPackageDaclContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-windows-dacl",
@@ -269,7 +371,8 @@ export function describeWindowsPackageDaclContract() {
       "single_explicit_root_inheritable_allow_and_effective_on_every_entity",
     runtimeWritePolicy: "rejected",
     runtimeDenyPolicy: "rejected",
-    permissionMutation: "prohibited",
+    permissionMutation:
+      "implemented_only_for_fixed_windows_provisioner_install_root_effect",
     verification: "implemented_write_and_runtime_read_execute_policy_candidate",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,

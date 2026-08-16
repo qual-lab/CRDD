@@ -481,7 +481,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.provisionCommandCurrentBehavior,
-    "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented",
+    "signed_distribution_effect_candidate_source_checkout_blocked_before_write",
   );
   assert.equal(report.runtimeActivation.activationEffect, "not_implemented");
   assert.equal(
@@ -760,6 +760,12 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerReleaseFloor,
     platformProvisionerReleaseFloorStore:
       report.runtimeActivation.platformProvisionerReleaseFloorStore,
+    platformProvisionerActiveRelease:
+      report.runtimeActivation.platformProvisionerActiveRelease,
+    platformProvisionerActiveReleaseStore:
+      report.runtimeActivation.platformProvisionerActiveReleaseStore,
+    platformProvisionerEffectContract:
+      report.runtimeActivation.platformProvisionerEffectContract,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -889,6 +895,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       platformProvisionerReleaseIdentity: "platform_provisioner_verification",
       platformProvisionerReleaseFloor: "platform_provisioner_verification",
       platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
+      platformProvisionerActiveReleaseCodec:
+        "platform_provisioner_verification",
+      platformProvisionerActiveReleasePersistence:
+        "platform_provisioner_effect",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:
@@ -1267,7 +1277,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerWindowsDacl.permissionMutation,
-    "prohibited",
+    "implemented_only_for_fixed_windows_provisioner_install_root_effect",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerInstallLayout.sourceOwnership,
@@ -1275,7 +1285,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerInstallLayout.filesystemEffect,
-    "not_implemented",
+    "implemented_by_platform_provisioner_effect_candidate",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerReleaseTrust
@@ -1294,7 +1304,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerEffect,
-    "not_implemented",
+    "implemented_candidate",
   );
   assert.equal(
     report.runtimeActivation.installationKeyGeneration,
@@ -1432,7 +1442,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     report.runtimeActivation.disableCommandGrammar,
     "implemented_candidate",
   );
-  assert.equal(report.runtimeActivation.provisionEffect, "not_implemented");
+  assert.equal(
+    report.runtimeActivation.provisionEffect,
+    "implemented_candidate",
+  );
   assert.equal(report.runtimeActivation.disableEffect, "not_implemented");
   assert.equal(report.runtimeActivation.doctorEnableIsActivation, false);
   assert.equal(

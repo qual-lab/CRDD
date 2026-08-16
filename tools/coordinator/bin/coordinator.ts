@@ -12,6 +12,7 @@ import {
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
+import { runPlatformProvisionerEffect } from "../src/security/platform-provisioner-effect.ts";
 import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
 
 type EffectCommand = "activate" | "disable";
@@ -19,6 +20,7 @@ type CommandReport = Readonly<{
   command: string;
   status: string;
   reason: string;
+  filesystemEffectIssued?: boolean;
 }>;
 
 class UsageError extends Error {
@@ -105,7 +107,7 @@ function printHelp() {
     `\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`,
   );
   process.stdout.write(
-    `provision, activate, and disable command grammar is available, but their filesystem effects are not implemented.\n`,
+    `provision installs only a verified signed CRDD distribution on supported Windows hosts; source checkouts are blocked before filesystem effects. activate and disable effects are not implemented.\n`,
   );
   process.stdout.write(
     `CRDD_COORDINATOR_ROOT is used by doctor --enable-runtime, activate, and disable; --runtime-root wins.\n`,
@@ -121,7 +123,9 @@ function printCommandReport(report: CommandReport, shouldOutputJson: boolean) {
   } else {
     process.stdout.write(`Coordinator ${report.command}: ${report.status}\n`);
     process.stdout.write(`- reason: ${report.reason}\n`);
-    process.stdout.write(`- filesystem effect issued: no\n`);
+    process.stdout.write(
+      `- filesystem effect issued: ${report.filesystemEffectIssued === true ? "yes" : "no"}\n`,
+    );
   }
 }
 
@@ -218,27 +222,29 @@ if (
     parsed.status === "ok" &&
     parsedValue &&
     typeof parsedValue.json === "boolean";
-  const report = Object.freeze({
-    status: "blocked",
-    command,
-    reason: isParsed
-      ? "platform_provisioner_crdd_bundle_trust_and_effect_not_implemented"
-      : typeof parsed.reason === "string"
-        ? parsed.reason
-        : "provision_arguments_invalid",
-    dryRunOnly: true,
-    crddDistributionConfirmed: false,
-    packageFilesystemIdentityConfirmed: false,
-    qualLabManifestTrustConfirmed: false,
-    filesystemEffectIssued: false,
-    runtimeCapabilityIssued: false,
-  });
+  const effect = isParsed ? runPlatformProvisionerEffect() : null;
+  const report = Object.freeze(
+    effect
+      ? { command, ...effect }
+      : {
+          status: "blocked",
+          command,
+          reason:
+            typeof parsed.reason === "string"
+              ? parsed.reason
+              : "provision_arguments_invalid",
+          crddDistributionConfirmed: false,
+          qualLabManifestTrustConfirmed: false,
+          filesystemEffectIssued: false,
+          runtimeCapabilityIssued: false,
+        },
+  );
   const isJsonRequested =
     isParsed && typeof parsedValue.json === "boolean"
       ? parsedValue.json
       : parsed.jsonRequested;
   printCommandReport(report, isJsonRequested);
-  process.exitCode = isParsed ? 2 : 64;
+  process.exitCode = !isParsed ? 64 : report.status === "candidate" ? 0 : 2;
 } else if (command === "doctor") {
   try {
     const parsed = parseDoctorArguments(

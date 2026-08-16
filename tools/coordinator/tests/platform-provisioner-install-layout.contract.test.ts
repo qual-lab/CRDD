@@ -66,5 +66,8 @@ test("install layout contract keeps release authority and effects separate", () 
   );
   assert.equal(contract.repositoryRuntimeStateRequired, false);
   assert.equal(contract.compatibilityLayout, "prohibited");
-  assert.equal(contract.filesystemEffect, "not_implemented");
+  assert.equal(
+    contract.filesystemEffect,
+    "implemented_by_platform_provisioner_effect_candidate",
+  );
 });

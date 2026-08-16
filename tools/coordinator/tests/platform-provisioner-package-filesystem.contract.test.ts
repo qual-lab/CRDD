@@ -251,10 +251,10 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
     contract.policyIdentityBinding,
     "owned_root_protection_and_key_storage_policy_hashes_required",
   );
-  assert.equal(contract.effectController, "not_implemented");
+  assert.equal(contract.effectController, "implemented_candidate");
   assert.equal(
     contract.releaseIdentityRollbackFloorPersistence,
-    "not_implemented",
+    "implemented_candidate",
   );
   assert.equal(
     contract.releaseIdentityRollbackFloorTransition,

@@ -14,6 +14,14 @@ export const PLATFORM_PROVISIONER_RELEASES_DIRECTORY = "releases";
 export const PLATFORM_PROVISIONER_STATE_DIRECTORY = "state";
 export const PLATFORM_PROVISIONER_RELEASE_FLOOR_FILE = "release-floor.json";
 export const PLATFORM_PROVISIONER_ACTIVE_RELEASE_FILE = "active-release.json";
+export const PLATFORM_PROVISIONER_RELEASE_PACKAGE_SEGMENTS = Object.freeze([
+  "tools",
+  "coordinator",
+]);
+export const PLATFORM_PROVISIONER_RELEASE_MANIFEST_SEGMENTS = Object.freeze([
+  "90_Release",
+  "coordinator-package-manifest.json",
+]);
 
 function invalid(reason: string) {
   return Object.freeze({
@@ -69,10 +77,19 @@ export function resolveWindowsProvisionerInstallLayoutForEffect(
     installRoot,
     PLATFORM_PROVISIONER_STATE_DIRECTORY,
   );
+  const releaseRoot = path.win32.join(releasesRoot, String(releaseSequence));
   return Object.freeze({
     installRoot,
     releasesRoot,
-    releaseRoot: path.win32.join(releasesRoot, String(releaseSequence)),
+    releaseRoot,
+    releasePackageRoot: path.win32.join(
+      releaseRoot,
+      ...PLATFORM_PROVISIONER_RELEASE_PACKAGE_SEGMENTS,
+    ),
+    releaseManifestFile: path.win32.join(
+      releaseRoot,
+      ...PLATFORM_PROVISIONER_RELEASE_MANIFEST_SEGMENTS,
+    ),
     stateRoot,
     releaseFloorFile: path.win32.join(
       stateRoot,
@@ -116,13 +133,14 @@ export function describePlatformProvisionerInstallLayoutContract() {
     sourceOwnership: "repository_owned_typescript_and_contract_tests",
     windowsRootSource: "program_data_environment_at_explicit_provision_time",
     installRootSegments: PLATFORM_PROVISIONER_INSTALL_ROOT_SEGMENTS,
-    releaseLayout: "releases_positive_release_sequence",
+    releaseLayout:
+      "releases_positive_release_sequence_with_tools_coordinator_and_signed_manifest",
     stateLayout: "state_release_floor_and_active_release_canonical_json",
     repositoryRuntimeStateRequired: false,
     externalStateReason: "installed_machine_state_only",
     compatibilityLayout: "prohibited",
     symlinkOrJunctionLayout: "prohibited",
-    filesystemEffect: "not_implemented",
+    filesystemEffect: "implemented_by_platform_provisioner_effect_candidate",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
   });

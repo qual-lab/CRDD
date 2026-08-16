@@ -558,11 +558,9 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
   const report = JSON.parse(result.stdout);
   assert.equal(
     report.reason,
-    "platform_provisioner_crdd_bundle_trust_and_effect_not_implemented",
+    "platform_provisioner_source_distribution_not_verified",
   );
-  assert.equal(report.dryRunOnly, true);
   assert.equal(report.crddDistributionConfirmed, false);
-  assert.equal(report.packageFilesystemIdentityConfirmed, false);
   assert.equal(report.qualLabManifestTrustConfirmed, false);
   assert.equal(report.filesystemEffectIssued, false);
 

@@ -22,6 +22,9 @@ import { describePlatformProvisionerPolicyIdentityContract } from "./platform-pr
 import { describePlatformProvisionerReleaseIdentityContract } from "./platform-provisioner-release-identity.ts";
 import { describePlatformProvisionerReleaseFloorContract } from "./platform-provisioner-release-floor.ts";
 import { describePlatformProvisionerReleaseFloorStoreContract } from "./platform-provisioner-release-floor-store.ts";
+import { describePlatformProvisionerActiveReleaseContract } from "./platform-provisioner-active-release.ts";
+import { describePlatformProvisionerActiveReleaseStoreContract } from "./platform-provisioner-active-release-store.ts";
+import { describePlatformProvisionerEffectContract } from "./platform-provisioner-effect.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
@@ -127,6 +130,8 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   platformProvisionerReleaseIdentity: "platform_provisioner_verification",
   platformProvisionerReleaseFloor: "platform_provisioner_verification",
   platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
+  platformProvisionerActiveReleaseCodec: "platform_provisioner_verification",
+  platformProvisionerActiveReleasePersistence: "platform_provisioner_effect",
   platformProvisionerCrddDistributionVerification:
     "platform_provisioner_verification",
   platformProvisionerPackageGateObservation:
@@ -494,10 +499,17 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerReleaseFloorContract();
   const platformProvisionerReleaseFloorStoreContract =
     describePlatformProvisionerReleaseFloorStoreContract();
+  const platformProvisionerActiveReleaseContract =
+    describePlatformProvisionerActiveReleaseContract();
+  const platformProvisionerActiveReleaseStoreContract =
+    describePlatformProvisionerActiveReleaseStoreContract();
+  const platformProvisionerEffectContract =
+    describePlatformProvisionerEffectContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
-    platformProvisionerEffect: "not_implemented",
+    platformProvisionerEffect:
+      platformProvisionerEffectContract.effectController,
     installationKeyGeneration: "not_implemented",
     installationKeyProtectionVerification: "not_implemented",
     provisioningEnrollmentCertificateContract: "not_implemented",
@@ -537,6 +549,10 @@ export function describeRuntimeActivationContract() {
       platformProvisionerReleaseFloorContract.transitionEvaluation,
     platformProvisionerReleaseFloorPersistence:
       platformProvisionerReleaseFloorStoreContract.persistence,
+    platformProvisionerActiveReleaseCodec:
+      platformProvisionerActiveReleaseContract.canonicalByteCodec,
+    platformProvisionerActiveReleasePersistence:
+      platformProvisionerActiveReleaseStoreContract.persistence,
     platformProvisionerCrddDistributionVerification:
       platformProvisionerReleaseIdentityContract.signedCrddTreeComparison,
     platformProvisionerPackageGateObservation:
@@ -620,6 +636,9 @@ export function describeRuntimeActivationContract() {
     platformProvisionerReleaseIdentityContract,
     platformProvisionerReleaseFloorContract,
     platformProvisionerReleaseFloorStoreContract,
+    platformProvisionerActiveReleaseContract,
+    platformProvisionerActiveReleaseStoreContract,
+    platformProvisionerEffectContract,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -733,6 +752,12 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerReleaseFloorContract,
     platformProvisionerReleaseFloorStore:
       implementation.platformProvisionerReleaseFloorStoreContract,
+    platformProvisionerActiveRelease:
+      implementation.platformProvisionerActiveReleaseContract,
+    platformProvisionerActiveReleaseStore:
+      implementation.platformProvisionerActiveReleaseStoreContract,
+    platformProvisionerEffectContract:
+      implementation.platformProvisionerEffectContract,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -897,7 +922,7 @@ export function describeRuntimeActivationContract() {
     activationCommand: "dedicated_activate_required",
     provisionCommandGrammar: "implemented_candidate_explicit_command_only",
     provisionCommandCurrentBehavior:
-      "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented",
+      "signed_distribution_effect_candidate_source_checkout_blocked_before_write",
     activationCommandGrammar: "implemented_candidate",
     activationEffect: implementation.activationEffect,
     localOnboardingContract: "implemented_candidate_contract_only",
@@ -945,6 +970,12 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerReleaseFloorContract,
     platformProvisionerReleaseFloorStore:
       implementation.platformProvisionerReleaseFloorStoreContract,
+    platformProvisionerActiveRelease:
+      implementation.platformProvisionerActiveReleaseContract,
+    platformProvisionerActiveReleaseStore:
+      implementation.platformProvisionerActiveReleaseStoreContract,
+    platformProvisionerEffectContract:
+      implementation.platformProvisionerEffectContract,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,
@@ -1054,7 +1085,7 @@ export function describeRuntimeActivationContract() {
     authorityRootProvisioningEffect:
       implementation.authorityRootProvisioningEffect,
     disableCommandGrammar: "implemented_candidate",
-    provisionEffect: "not_implemented",
+    provisionEffect: implementation.platformProvisionerEffect,
     disableEffect: "not_implemented",
     doctorEnableIsActivation: false,
     bundleIdentityChangeRequiresReactivation: true,

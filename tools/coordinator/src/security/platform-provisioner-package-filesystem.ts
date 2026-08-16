@@ -29,6 +29,19 @@ const VERIFY_KEYS = new Set([
   "expectedCrddTree",
 ]);
 const VERIFY_FIXED_MANIFEST_KEYS = new Set(["evaluationTime"]);
+const VERIFY_INSTALLED_KEYS = new Set([
+  "distributionRoot",
+  "evaluationTime",
+  "expectedRelease",
+]);
+const EXPECTED_RELEASE_KEYS = new Set([
+  "manifestHash",
+  "releaseSequence",
+  "crddVersion",
+  "crddCommit",
+  "crddTree",
+  "packageContentRootSha256",
+]);
 const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 
@@ -535,6 +548,89 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
   }
 }
 
+export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
+  try {
+    const input = snapshotPlainRecord(rawInput, VERIFY_INSTALLED_KEYS);
+    const expected =
+      input &&
+      snapshotPlainRecord(input.expectedRelease, EXPECTED_RELEASE_KEYS);
+    if (
+      !input ||
+      !expected ||
+      typeof input.distributionRoot !== "string" ||
+      typeof expected.manifestHash !== "string" ||
+      !/^[0-9a-f]{64}$/u.test(expected.manifestHash) ||
+      typeof expected.releaseSequence !== "number" ||
+      !Number.isSafeInteger(expected.releaseSequence) ||
+      expected.releaseSequence < 1 ||
+      typeof expected.crddVersion !== "string" ||
+      !CRDD_VERSION.test(expected.crddVersion) ||
+      typeof expected.crddCommit !== "string" ||
+      !CRDD_GIT_OBJECT_ID.test(expected.crddCommit) ||
+      typeof expected.crddTree !== "string" ||
+      !CRDD_GIT_OBJECT_ID.test(expected.crddTree) ||
+      typeof expected.packageContentRootSha256 !== "string" ||
+      !/^[0-9a-f]{64}$/u.test(expected.packageContentRootSha256)
+    ) {
+      return blocked("platform_provisioner_installed_package_input_invalid");
+    }
+    const distributionRoot = directoryIdentity(input.distributionRoot);
+    const packageRoot = path.join(
+      distributionRoot.realPath,
+      "tools",
+      "coordinator",
+    );
+    const observed = observePackage(packageRoot);
+    const loaded = loadPlatformProvisionerManifestEnvelopeForVerification(
+      distributionRoot.realPath,
+    );
+    const policyIdentity = getPlatformProvisionerPolicyIdentity();
+    const verification = verifyPlatformProvisionerManifestCandidate({
+      manifestEnvelope: loaded.envelope,
+      releaseSignerSpkiDer: getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
+      observedPackageContent: observed.observation,
+      evaluationTime: input.evaluationTime,
+    });
+    verifyDirectory(distributionRoot);
+    if (
+      verification.status !== "candidate" ||
+      verification.rootProtectionPolicySha256 !==
+        policyIdentity.rootProtectionPolicySha256 ||
+      verification.keyStoragePolicySha256 !==
+        policyIdentity.keyStoragePolicySha256 ||
+      verification.manifestHash !== expected.manifestHash ||
+      verification.releaseSequence !== expected.releaseSequence ||
+      verification.crddVersion !== expected.crddVersion ||
+      verification.crddCommit !== expected.crddCommit ||
+      verification.crddTree !== expected.crddTree ||
+      verification.packageContentRootSha256 !==
+        expected.packageContentRootSha256
+    ) {
+      return blocked(
+        "platform_provisioner_installed_package_verification_failed",
+      );
+    }
+    return Object.freeze({
+      ...publicObservation(observed, false),
+      reason:
+        "installed_package_matches_verified_crdd_release_effect_controller_required",
+      manifestHash: verification.manifestHash,
+      crddVersion: verification.crddVersion,
+      releaseSequence: verification.releaseSequence,
+      crddCommit: verification.crddCommit,
+      crddTree: verification.crddTree,
+      qualLabManifestCryptographicMatch: true,
+      runtimeOwnedReleaseTrustConfirmed: true,
+      releaseIdentityRuntimeOwned: false,
+      crddDistributionConfirmed: true,
+    });
+  } catch {
+    return blocked(
+      "platform_provisioner_installed_package_verification_failed",
+    );
+  }
+}
+
 export function describePlatformProvisionerPackageFilesystemContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-filesystem",
@@ -571,9 +667,11 @@ export function describePlatformProvisionerPackageFilesystemContract() {
       "implemented_fixed_path_canonical_file_loader_candidate",
     signedManifestPlacement:
       "post_checkout_distribution_artifact_outside_identified_git_tree",
-    releaseIdentityRollbackFloorPersistence: "not_implemented",
+    releaseIdentityRollbackFloorPersistence: "implemented_candidate",
     releaseIdentityRollbackFloorTransition: "implemented_candidate",
-    effectController: "not_implemented",
+    effectController: "implemented_candidate",
+    installedReleaseReverification:
+      "implemented_candidate_requires_effect_controller_owned_root",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,

@@ -216,7 +216,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.provisionCommandCurrentBehavior,
-    "dry_run_blocked_until_os_native_signature_release_trust_and_effect_implemented",
+    "signed_distribution_effect_candidate_source_checkout_blocked_before_write",
   );
   assert.equal(contract.activationEffect, "not_implemented");
   assert.equal(
@@ -483,6 +483,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
     platformProvisionerReleaseFloor: contract.platformProvisionerReleaseFloor,
     platformProvisionerReleaseFloorStore:
       contract.platformProvisionerReleaseFloorStore,
+    platformProvisionerActiveRelease: contract.platformProvisionerActiveRelease,
+    platformProvisionerActiveReleaseStore:
+      contract.platformProvisionerActiveReleaseStore,
+    platformProvisionerEffectContract:
+      contract.platformProvisionerEffectContract,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -612,6 +617,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
       platformProvisionerReleaseIdentity: "platform_provisioner_verification",
       platformProvisionerReleaseFloor: "platform_provisioner_verification",
       platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
+      platformProvisionerActiveReleaseCodec:
+        "platform_provisioner_verification",
+      platformProvisionerActiveReleasePersistence:
+        "platform_provisioner_effect",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:
@@ -904,7 +913,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.platformProvisionerWindowsDacl.permissionMutation,
-    "prohibited",
+    "implemented_only_for_fixed_windows_provisioner_install_root_effect",
   );
   assert.equal(
     contract.platformProvisionerInstallLayout.sourceOwnership,
@@ -912,7 +921,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.platformProvisionerInstallLayout.filesystemEffect,
-    "not_implemented",
+    "implemented_by_platform_provisioner_effect_candidate",
   );
   assert.equal(
     contract.platformProvisionerReleaseTrust.publicKeySpkiSha256,
@@ -922,7 +931,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.platformProvisionerReleaseTrust.callerKeyMayReplaceTrustAnchor,
     false,
   );
-  assert.equal(contract.platformProvisionerEffect, "not_implemented");
+  assert.equal(contract.platformProvisionerEffect, "implemented_candidate");
   assert.equal(contract.installationKeyGeneration, "not_implemented");
   assert.equal(
     contract.installationKeyProtectionVerification,
@@ -1025,7 +1034,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.runtimeRootProvisioningEffect, "not_implemented");
   assert.equal(contract.authorityRootProvisioningEffect, "not_implemented");
   assert.equal(contract.disableCommandGrammar, "implemented_candidate");
-  assert.equal(contract.provisionEffect, "not_implemented");
+  assert.equal(contract.provisionEffect, "implemented_candidate");
   assert.equal(contract.disableEffect, "not_implemented");
   assert.equal(contract.doctorEnableIsActivation, false);
   assert.equal(contract.bundleIdentityChangeRequiresReactivation, true);
