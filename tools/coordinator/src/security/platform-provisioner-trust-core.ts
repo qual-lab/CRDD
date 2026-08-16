@@ -209,6 +209,8 @@ function normalizeManifest(raw: unknown) {
     crddCommit: value.crddCommit,
     crddTree: value.crddTree,
     packageContentRootSha256: value.packageContentRootSha256,
+    rootProtectionPolicySha256: value.rootProtectionPolicySha256,
+    keyStoragePolicySha256: value.keyStoragePolicySha256,
     issuedAt: value.issuedAt,
     expiresAt: value.expiresAt,
   });
@@ -419,6 +421,9 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
         crddCommit: envelope.payload.crddCommit,
         crddTree: envelope.payload.crddTree,
         packageContentRootSha256: contentFrame.hash,
+        rootProtectionPolicySha256:
+          envelope.payload.rootProtectionPolicySha256,
+        keyStoragePolicySha256: envelope.payload.keyStoragePolicySha256,
         qualLabManifestCryptographicMatch: true,
       },
     );

@@ -90,6 +90,8 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
   assert.equal(result.crddVersion, "v0.18.0");
   assert.equal(result.crddCommit, "a".repeat(40));
   assert.equal(result.crddTree, "b".repeat(40));
+  assert.equal(result.rootProtectionPolicySha256, "4".repeat(64));
+  assert.equal(result.keyStoragePolicySha256, "5".repeat(64));
   assert.equal(result.qualLabManifestCryptographicMatch, true);
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
   assert.equal(result.crddDistributionConfirmed, false);

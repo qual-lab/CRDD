@@ -242,6 +242,10 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
     contract.releaseTrustAnchorConfiguration,
     "configured_immutable_source_literal",
   );
+  assert.equal(
+    contract.policyIdentityBinding,
+    "owned_root_protection_and_key_storage_policy_hashes_required",
+  );
   assert.equal(contract.effectController, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
   assert.equal(contract.filesystemEffectIssued, false);

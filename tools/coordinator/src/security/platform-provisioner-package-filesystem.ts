@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
+import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
 import {
   calculatePlatformProvisionerPackageContentRootCandidate,
@@ -419,6 +420,7 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
       return blocked("platform_provisioner_bundled_package_input_invalid");
     }
     const observed = observePackage(bundledPackageRoot);
+    const policyIdentity = getPlatformProvisionerPolicyIdentity();
     const verification = verifyPlatformProvisionerManifestCandidate({
       manifestEnvelope: input.manifestEnvelope,
       releaseSignerSpkiDer: getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
@@ -429,7 +431,11 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
       verification.status !== "candidate" ||
       verification.crddVersion !== input.expectedCrddVersion ||
       verification.crddCommit !== input.expectedCrddCommit ||
-      verification.crddTree !== input.expectedCrddTree
+      verification.crddTree !== input.expectedCrddTree ||
+      verification.rootProtectionPolicySha256 !==
+        policyIdentity.rootProtectionPolicySha256 ||
+      verification.keyStoragePolicySha256 !==
+        policyIdentity.keyStoragePolicySha256
     ) {
       return blocked(
         "platform_provisioner_bundled_package_verification_failed",
@@ -510,6 +516,8 @@ export function describePlatformProvisionerPackageFilesystemContract() {
       "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",
     releaseIdentityBinding:
       "crdd_version_commit_tree_and_coordinator_package_content_root",
+    policyIdentityBinding:
+      "owned_root_protection_and_key_storage_policy_hashes_required",
     signedManifestPath: "90_Release/coordinator-package-manifest.json",
     releaseTrustAnchorConfiguration: "configured_immutable_source_literal",
     signedManifestDistribution:

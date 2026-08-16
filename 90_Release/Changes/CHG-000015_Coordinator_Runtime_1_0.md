@@ -985,3 +985,5 @@ private保守command `release-manifest:sign`は、Repository外の絶対ステ�
 実鍵によるmanifest生成は、Release対象Version／Commit／Tree、配布ステージングRootおよび有効期間を人間のRelease判断で固定した後にだけ実行する。現Candidateへの実署名は行わない。Windows package DACL Adapter、Release Identity loader、Effect controllerおよび実`provision`接続は引き続き未実装で、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行、v0.18 Candidate／Released Baseline v0.17.0を維持する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
 
 Node.js 24.19.0で、Coordinator 269 / 269、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 424 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0がPassした。実Release鍵による成功署名は人間のRelease判断後に限定するため実行せず、一時試験鍵が固定公開鍵と一致しない場合の拒否、署名前payloadの暗号検証、固定Path loaderのcanonical byte／stable same-file境界および安全要約を機械確認した。
+
+後続の自己照合で、署名payloadへRoot保護Policyと鍵保管PolicyのHashを含めるだけでは、Runtimeが所有する現在Policyとの一致確認にならない不足を検出した。同梱package検証入口で両Policyを正本から再canonical化してSHA-256を計算し、署名検証済みpayloadの2 Hashと完全一致しない場合はfail closedに拒否する。caller supplied Policy Hashや署名者の主張だけから現在Policy一致を成立させない。
