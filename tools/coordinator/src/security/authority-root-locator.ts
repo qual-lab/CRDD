@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import {
   AUTHORITY_ROOT_ABSOLUTE_PATH_MAX_BYTES,
@@ -38,6 +40,7 @@ const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength",
 )?.get;
+const LOCATOR_PENDING_SUFFIX = ".pending";
 
 /** @param {string} reason */
 function blocked(reason: string) {
@@ -268,6 +271,402 @@ export function evaluateAuthorityRootLocatorActivationBindingCandidate(
   }
 }
 
+function locatorStoreBlocked(reason: string, isRecoveryRequired = false) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason,
+    locatorHash: null,
+    persistenceCompleted: false,
+    recoveryRequired: isRecoveryRequired,
+    authorityRootObjectObserved: false,
+    absolutePathReported: false,
+    filesystemEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
+}
+
+function directoryIdentity(target: string) {
+  const metadata = fs.lstatSync(target, { bigint: true });
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n
+  ) {
+    return null;
+  }
+  const identity = Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+  });
+  const realPath = fs.realpathSync.native(target);
+  const resolved = fs.lstatSync(realPath, { bigint: true });
+  const after = fs.lstatSync(target, { bigint: true });
+  return realPath === target &&
+    resolved.isDirectory() &&
+    !resolved.isSymbolicLink() &&
+    after.isDirectory() &&
+    !after.isSymbolicLink() &&
+    resolved.dev === identity.dev &&
+    resolved.ino === identity.ino &&
+    resolved.birthtimeNs === identity.birthtimeNs &&
+    after.dev === identity.dev &&
+    after.ino === identity.ino &&
+    after.birthtimeNs === identity.birthtimeNs
+    ? identity
+    : null;
+}
+
+function sameDirectoryIdentity(
+  left: NonNullable<ReturnType<typeof directoryIdentity>>,
+  right: NonNullable<ReturnType<typeof directoryIdentity>>,
+) {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.birthtimeNs === right.birthtimeNs
+  );
+}
+
+function locatorStorePaths(repositoryRoot: unknown) {
+  if (
+    typeof repositoryRoot !== "string" ||
+    !path.isAbsolute(repositoryRoot) ||
+    path.resolve(repositoryRoot) !== repositoryRoot
+  ) {
+    return null;
+  }
+  const repositoryIdentity = directoryIdentity(repositoryRoot);
+  const runtimeDirectory = path.join(repositoryRoot, ".crdd-runtime");
+  const runtimeIdentity = directoryIdentity(runtimeDirectory);
+  if (!repositoryIdentity || !runtimeIdentity) return null;
+  const target = path.join(repositoryRoot, AUTHORITY_ROOT_LOCATOR_FILE);
+  return Object.freeze({
+    repositoryRoot,
+    runtimeDirectory,
+    repositoryIdentity,
+    runtimeIdentity,
+    target,
+    pending: `${target}${LOCATOR_PENDING_SUFFIX}`,
+  });
+}
+
+function verifyLocatorStorePaths(
+  paths: NonNullable<ReturnType<typeof locatorStorePaths>>,
+) {
+  const repositoryIdentity = directoryIdentity(paths.repositoryRoot);
+  const runtimeIdentity = directoryIdentity(paths.runtimeDirectory);
+  return Boolean(
+    repositoryIdentity &&
+      runtimeIdentity &&
+      sameDirectoryIdentity(paths.repositoryIdentity, repositoryIdentity) &&
+      sameDirectoryIdentity(paths.runtimeIdentity, runtimeIdentity),
+  );
+}
+
+function readStableLocatorBytes(target: string) {
+  const before = fs.lstatSync(target);
+  if (!before.isFile() || before.isSymbolicLink()) return null;
+  const handle = fs.openSync(target, "r");
+  try {
+    const opened = fs.fstatSync(handle);
+    if (
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino ||
+      opened.size < 1 ||
+      opened.size > AUTHORITY_ROOT_LOCATOR_INPUT_LIMITS.rawBytes
+    ) {
+      return null;
+    }
+    const bytes = Buffer.allocUnsafe(opened.size);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = fs.readSync(
+        handle,
+        bytes,
+        offset,
+        bytes.length - offset,
+        offset,
+      );
+      if (count < 1) return null;
+      offset += count;
+    }
+    const after = fs.fstatSync(handle);
+    return after.dev === opened.dev &&
+      after.ino === opened.ino &&
+      after.size === opened.size
+      ? bytes
+      : null;
+  } finally {
+    fs.closeSync(handle);
+  }
+}
+
+function decodeStoredLocator(bytes: Buffer) {
+  const decoded = decodeAuthorityRootLocatorCandidate(bytes);
+  if (decoded.status !== "candidate") return null;
+  try {
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const compiled = compileInternal(JSON.parse(source));
+    return compiled &&
+      decoded.locatorHash ===
+        createHash("sha256").update(compiled.canonical).digest("hex")
+      ? Object.freeze({
+          locator: compiled.locator,
+          locatorHash: decoded.locatorHash,
+          canonicalBytes: Buffer.from(compiled.canonical, "utf8"),
+        })
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadStoredLocator(
+  paths: NonNullable<ReturnType<typeof locatorStorePaths>>,
+  target: string,
+) {
+  const bytes = readStableLocatorBytes(target);
+  const stored = bytes ? decodeStoredLocator(bytes) : null;
+  return stored && verifyLocatorStorePaths(paths) ? stored : null;
+}
+
+function syncLocatorDirectory(directory: string) {
+  try {
+    const handle = fs.openSync(directory, "r");
+    try {
+      fs.fsyncSync(handle);
+      return true;
+    } finally {
+      fs.closeSync(handle);
+    }
+  } catch (error) {
+    if (
+      process.platform === "win32" &&
+      error instanceof Error &&
+      "code" in error &&
+      ["EBADF", "EINVAL", "EPERM"].includes(String(error.code))
+    ) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function locatorStoreCandidate(
+  locatorHash: string,
+  reason: string,
+  isFilesystemEffectIssued: boolean,
+  isParentDirectorySyncCompleted: boolean | null,
+) {
+  return Object.freeze({
+    status: "candidate" as const,
+    reason,
+    locatorHash,
+    persistenceCompleted: true,
+    recoveryRequired: false,
+    authorityRootObjectObserved: false,
+    absolutePathReported: false,
+    filesystemEffectIssued: isFilesystemEffectIssued,
+    parentDirectorySyncCompleted: isParentDirectorySyncCompleted,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
+}
+
+export function persistAuthorityRootLocatorForEffect(
+  repositoryRoot: unknown,
+  rawLocator: unknown,
+) {
+  try {
+    const paths = locatorStorePaths(repositoryRoot);
+    const compiled = compileInternal(rawLocator);
+    if (!paths || !compiled) {
+      return locatorStoreBlocked("authority_root_locator_store_input_invalid");
+    }
+    if (fs.existsSync(paths.pending)) {
+      return locatorStoreBlocked(
+        "authority_root_locator_store_recovery_required",
+        true,
+      );
+    }
+    const canonicalBytes = Buffer.from(compiled.canonical, "utf8");
+    const locatorHash = createHash("sha256")
+      .update(canonicalBytes)
+      .digest("hex");
+    if (fs.existsSync(paths.target)) {
+      const current = loadStoredLocator(paths, paths.target);
+      if (
+        current &&
+        Buffer.prototype.equals.call(current.canonicalBytes, canonicalBytes)
+      ) {
+        return locatorStoreCandidate(
+          locatorHash,
+          "authority_root_locator_already_persisted",
+          false,
+          null,
+        );
+      }
+      return locatorStoreBlocked(
+        "authority_root_locator_store_transition_not_implemented",
+      );
+    }
+    const handle = fs.openSync(paths.pending, "wx", 0o600);
+    try {
+      fs.writeFileSync(handle, canonicalBytes);
+      fs.fsyncSync(handle);
+    } finally {
+      fs.closeSync(handle);
+    }
+    if (!verifyLocatorStorePaths(paths)) {
+      return locatorStoreBlocked(
+        "authority_root_locator_store_identity_changed",
+        true,
+      );
+    }
+    fs.renameSync(paths.pending, paths.target);
+    const isDirectorySynced = syncLocatorDirectory(paths.runtimeDirectory);
+    const confirmed = loadStoredLocator(paths, paths.target);
+    if (
+      !confirmed ||
+      !Buffer.prototype.equals.call(confirmed.canonicalBytes, canonicalBytes)
+    ) {
+      return locatorStoreBlocked(
+        "authority_root_locator_store_persistence_failed",
+      );
+    }
+    return locatorStoreCandidate(
+      locatorHash,
+      "authority_root_locator_persisted_and_reread",
+      true,
+      isDirectorySynced,
+    );
+  } catch {
+    return locatorStoreBlocked(
+      "authority_root_locator_store_persistence_failed",
+    );
+  }
+}
+
+export function loadAuthorityRootLocatorCandidate(repositoryRoot: unknown) {
+  try {
+    const paths = locatorStorePaths(repositoryRoot);
+    if (!paths)
+      return locatorStoreBlocked("authority_root_locator_store_root_invalid");
+    if (fs.existsSync(paths.pending)) {
+      return locatorStoreBlocked(
+        "authority_root_locator_store_recovery_required",
+        true,
+      );
+    }
+    const stored = fs.existsSync(paths.target)
+      ? loadStoredLocator(paths, paths.target)
+      : null;
+    return stored
+      ? locatorStoreCandidate(
+          stored.locatorHash,
+          "authority_root_locator_loaded_candidate",
+          false,
+          null,
+        )
+      : locatorStoreBlocked("authority_root_locator_store_current_unavailable");
+  } catch {
+    return locatorStoreBlocked("authority_root_locator_store_read_failed");
+  }
+}
+
+export function resolveAuthorityRootFromStoredLocatorCandidate(
+  repositoryRoot: unknown,
+) {
+  try {
+    const paths = locatorStorePaths(repositoryRoot);
+    if (
+      !paths ||
+      fs.existsSync(paths.pending) ||
+      !fs.existsSync(paths.target)
+    ) {
+      return locatorStoreBlocked("authority_root_locator_resolver_unavailable");
+    }
+    const stored = loadStoredLocator(paths, paths.target);
+    if (!stored) {
+      return locatorStoreBlocked("authority_root_locator_resolver_unavailable");
+    }
+    const authorityRootPath = stored.locator.authorityRootAbsolutePath;
+    if (typeof authorityRootPath !== "string") {
+      return locatorStoreBlocked("authority_root_locator_resolver_invalid");
+    }
+    const identity = directoryIdentity(authorityRootPath);
+    if (!identity) {
+      return locatorStoreBlocked("authority_root_locator_root_object_invalid");
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "authority_root_locator_root_object_resolved_candidate",
+      locatorHash: stored.locatorHash,
+      persistenceCompleted: true,
+      recoveryRequired: false,
+      authorityRootObjectObserved: true,
+      authorityRootIdentityVerification: "required",
+      authorityRootProtectionVerification: "required",
+      absolutePathReported: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return locatorStoreBlocked("authority_root_locator_resolver_failed");
+  }
+}
+
+export function recoverAuthorityRootLocatorForEffect(repositoryRoot: unknown) {
+  try {
+    const paths = locatorStorePaths(repositoryRoot);
+    if (!paths || !fs.existsSync(paths.pending)) {
+      return locatorStoreBlocked("authority_root_locator_recovery_unavailable");
+    }
+    const pending = loadStoredLocator(paths, paths.pending);
+    if (!pending) {
+      return locatorStoreBlocked(
+        "authority_root_locator_pending_invalid",
+        true,
+      );
+    }
+    if (!fs.existsSync(paths.target)) {
+      fs.renameSync(paths.pending, paths.target);
+      const isDirectorySynced = syncLocatorDirectory(paths.runtimeDirectory);
+      const confirmed = loadStoredLocator(paths, paths.target);
+      return confirmed && confirmed.locatorHash === pending.locatorHash
+        ? locatorStoreCandidate(
+            pending.locatorHash,
+            "authority_root_locator_pending_applied",
+            true,
+            isDirectorySynced,
+          )
+        : locatorStoreBlocked("authority_root_locator_recovery_failed", true);
+    }
+    const current = loadStoredLocator(paths, paths.target);
+    if (!current || current.locatorHash !== pending.locatorHash) {
+      return locatorStoreBlocked(
+        "authority_root_locator_recovery_conflict",
+        true,
+      );
+    }
+    fs.unlinkSync(paths.pending);
+    const isDirectorySynced = syncLocatorDirectory(paths.runtimeDirectory);
+    return locatorStoreCandidate(
+      current.locatorHash,
+      "authority_root_locator_matching_pending_removed",
+      true,
+      isDirectorySynced,
+    );
+  } catch {
+    return locatorStoreBlocked("authority_root_locator_recovery_failed", true);
+  }
+}
+
 export function describeAuthorityRootLocatorContract() {
   return Object.freeze({
     contract: AUTHORITY_ROOT_LOCATOR_CONTRACT,
@@ -279,10 +678,10 @@ export function describeAuthorityRootLocatorContract() {
     containsAbsolutePath: true,
     containsCredentials: false,
     canonicalBytesExposed: false,
-    filesystemRead: "not_implemented",
-    filesystemWrite: "not_implemented",
-    atomicPersistence: "not_implemented",
-    resolver: "not_implemented",
+    filesystemRead: "implemented_candidate",
+    filesystemWrite: "implemented_candidate_initial_only",
+    atomicPersistence: "implemented_candidate_explicit_recovery",
+    resolver: "implemented_candidate_root_object_only",
     provisioningRecordVerification: "not_implemented",
     authorityRootIdentityVerification: "not_implemented",
     activationBindingComparisonCore: "implemented_candidate",

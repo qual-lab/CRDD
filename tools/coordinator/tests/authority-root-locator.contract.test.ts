@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -8,6 +11,10 @@ import {
   decodeAuthorityRootLocatorCandidate,
   describeAuthorityRootLocatorContract,
   evaluateAuthorityRootLocatorActivationBindingCandidate,
+  loadAuthorityRootLocatorCandidate,
+  persistAuthorityRootLocatorForEffect,
+  recoverAuthorityRootLocatorForEffect,
+  resolveAuthorityRootFromStoredLocatorCandidate,
 } from "../src/security/authority-root-locator.ts";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from "../src/security/runtime-activation-locator-binding-contract.ts";
 
@@ -38,6 +45,22 @@ function canonicalBytes(value: Record<string, unknown>) {
     ),
   );
   return Buffer.from(JSON.stringify(sorted), "utf8");
+}
+
+function storeFixture() {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-locator-store-"));
+  const repositoryRoot = path.join(parent, "repository");
+  const runtimeRoot = path.join(repositoryRoot, ".crdd-runtime");
+  const authorityRoot = path.join(parent, "authority");
+  fs.mkdirSync(repositoryRoot);
+  fs.mkdirSync(runtimeRoot);
+  fs.mkdirSync(authorityRoot);
+  return Object.freeze({
+    parent,
+    repositoryRoot: fs.realpathSync.native(repositoryRoot),
+    runtimeRoot: fs.realpathSync.native(runtimeRoot),
+    authorityRoot: fs.realpathSync.native(authorityRoot),
+  });
 }
 
 test("Authority Root locatorはPathを公開せずcanonical内容Hashだけを候補化する", () => {
@@ -261,7 +284,7 @@ test("activation revisionまたはrecord Hash差はlocator内容Hashを変える
   );
 });
 
-test("locator contractは固定Repository配置と未実装Effectを公開する", () => {
+test("locator contractは固定Repository配置と非Authority境界を公開する", () => {
   const contract = describeAuthorityRootLocatorContract();
   assert.equal(
     contract.fixedRepositoryRelativeFile,
@@ -273,9 +296,13 @@ test("locator contractは固定Repository配置と未実装Effectを公開する
   assert.equal(contract.containsAbsolutePath, true);
   assert.equal(contract.containsCredentials, false);
   assert.equal(contract.canonicalBytesExposed, false);
-  assert.equal(contract.filesystemRead, "not_implemented");
-  assert.equal(contract.filesystemWrite, "not_implemented");
-  assert.equal(contract.resolver, "not_implemented");
+  assert.equal(contract.filesystemRead, "implemented_candidate");
+  assert.equal(contract.filesystemWrite, "implemented_candidate_initial_only");
+  assert.equal(
+    contract.atomicPersistence,
+    "implemented_candidate_explicit_recovery",
+  );
+  assert.equal(contract.resolver, "implemented_candidate_root_object_only");
   assert.equal(
     contract.activationBindingComparisonCore,
     "implemented_candidate",
@@ -283,6 +310,91 @@ test("locator contractは固定Repository配置と未実装Effectを公開する
   assert.equal(contract.activeActivationBinding, "not_implemented");
   assert.equal(contract.runtimeAuthorityConferred, false);
   assert.equal(contract.runtimeCapabilityIssued, false);
+});
+
+test("検索票をRepository固定位置へ保存しRoot実体だけを安全に解決する", () => {
+  const target = storeFixture();
+  try {
+    const value = locator({
+      authorityRootAbsolutePath: target.authorityRoot,
+    });
+    const persisted = persistAuthorityRootLocatorForEffect(
+      target.repositoryRoot,
+      value,
+    );
+    assert.equal(persisted.status, "candidate");
+    assert.equal(persisted.persistenceCompleted, true);
+    assert.equal(persisted.filesystemEffectIssued, true);
+    assert.equal(
+      loadAuthorityRootLocatorCandidate(target.repositoryRoot).status,
+      "candidate",
+    );
+    const resolved = resolveAuthorityRootFromStoredLocatorCandidate(
+      target.repositoryRoot,
+    );
+    assert.equal(resolved.status, "candidate");
+    assert.equal(resolved.authorityRootObjectObserved, true);
+    assert.equal(resolved.runtimeAuthorityConferred, false);
+    assert.equal(
+      JSON.stringify(resolved).includes(target.authorityRoot),
+      false,
+    );
+    assert.equal(
+      persistAuthorityRootLocatorForEffect(target.repositoryRoot, value).reason,
+      "authority_root_locator_already_persisted",
+    );
+    assert.equal(
+      persistAuthorityRootLocatorForEffect(
+        target.repositoryRoot,
+        locator({
+          authorityRootAbsolutePath: target.authorityRoot,
+          activationRevision: 3,
+        }),
+      ).reason,
+      "authority_root_locator_store_transition_not_implemented",
+    );
+  } finally {
+    fs.rmSync(target.parent, { recursive: true, force: true });
+  }
+});
+
+test("検索票pendingは通常読取りを止め明示復旧だけで適用する", () => {
+  const target = storeFixture();
+  try {
+    const value = locator({
+      authorityRootAbsolutePath: target.authorityRoot,
+    });
+    assert.equal(
+      persistAuthorityRootLocatorForEffect(target.repositoryRoot, value).status,
+      "candidate",
+    );
+    const locatorPath = path.join(
+      target.runtimeRoot,
+      "authority-root-locator.json",
+    );
+    fs.renameSync(locatorPath, `${locatorPath}.pending`);
+    assert.equal(
+      loadAuthorityRootLocatorCandidate(target.repositoryRoot).recoveryRequired,
+      true,
+    );
+    assert.equal(
+      recoverAuthorityRootLocatorForEffect(target.repositoryRoot).status,
+      "candidate",
+    );
+    assert.equal(
+      loadAuthorityRootLocatorCandidate(target.repositoryRoot).status,
+      "candidate",
+    );
+    fs.rmSync(target.authorityRoot, { recursive: true });
+    fs.writeFileSync(target.authorityRoot, "not-a-directory");
+    assert.equal(
+      resolveAuthorityRootFromStoredLocatorCandidate(target.repositoryRoot)
+        .status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(target.parent, { recursive: true, force: true });
+  }
 });
 
 test("locator activation binding compares only the five shared fields", () => {

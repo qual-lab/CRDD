@@ -1125,3 +1125,13 @@ Node.js 24.19.0で、Coordinator 318 / 318、Checker 150 / 150、命名／参照
 本候補は、Repositoryが所有する実装、固定相対レイアウト、契約および試験だけで完結する。実Trust成果物と端末固有RecordはAuthority Root、秘密鍵はRepository外の承認済み保管場所へ限定する。初期Trustの承認済み導入元、Authority Root resolver／Filesystem Identity／保護Adapterとの実結合、activation、Runtime Authority、Capabilityおよびready遷移は未実装である。したがって既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。
 
 Node.js 24.19.0で、Coordinator 319 / 319、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Authority Root、実Trust Anchor、実失効一覧、実準備記録または秘密鍵を使用・変更していない。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+### 2026-08-16 — Authority Root検索票専用Store候補
+
+Repository直下の固定`.crdd-runtime/authority-root-locator.json`へ、Authority Root検索票の初回永続化、安定読取りおよび明示復旧を接続した。Storeは既存Repository Rootと`.crdd-runtime` Directoryのnon-link実体Identityを最初に固定し、検索票を既存exact codecでcanonical byteへ変換して固定pendingへexclusive create、file `fsync`、原子的rename、対応OSでのdirectory同期および同じRoot Identityでの再読取りを要求する。pendingが残る場合は通常読取りを停止し、明示復旧だけがtarget欠落時の適用または同一targetのpending除去を行う。
+
+既存targetと異なる検索票への更新は、activation recordと検索票をまたぐ原子的transactionが未実装なので推測上書きしない。内部resolver候補は保存済み検索票が指す絶対Pathのnon-link Directory実体と安定Identityだけを確認し、絶対PathやFilesystem Identityを公開結果へ出さない。検索票に記録されたAuthority Root Identity Hash、保護Hash、Provisioning Record Hashおよびactivationとの完全結合は後続Controllerの責務として残し、Root Directoryの存在だけからAuthorityまたはCapabilityを発行しない。
+
+RepositoryはStore実装、固定相対Path、契約および試験だけを所有し、端末固有Authority Rootまたは秘密鍵を保存しない。既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+Node.js 24.19.0で、Coordinator 321 / 321、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Repository Runtime Root、実Authority Rootまたは秘密鍵を使用・変更していない。
