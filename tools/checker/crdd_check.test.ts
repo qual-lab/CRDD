@@ -45,6 +45,29 @@ type CheckerReport = Readonly<{
   repository_mode: string;
   unchecked: readonly string[];
 }>;
+
+test("checker package runはRepository rootを明示する", () => {
+  const packageJson: unknown = JSON.parse(
+    fs.readFileSync(path.join(checkerRoot, "package.json"), "utf8"),
+  );
+  assert.ok(
+    packageJson !== null &&
+      typeof packageJson === "object" &&
+      !Array.isArray(packageJson),
+  );
+  const scripts = Object.getOwnPropertyDescriptor(
+    packageJson,
+    "scripts",
+  )?.value;
+  assert.ok(
+    scripts !== null && typeof scripts === "object" && !Array.isArray(scripts),
+  );
+  assert.equal(
+    Object.getOwnPropertyDescriptor(scripts, "run")?.value,
+    "node ./crdd_check.ts --root ../.. --json --summary",
+  );
+  assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
+});
 type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
 
 function record(value: unknown): Record<string, unknown> | null {

@@ -143,3 +143,14 @@ CRDD公式Repositoryのチェッカー本体、試験、障害注入器および
 - Conformance Audit: `Pass`。Gap / Impactの`Fail`と集約せず、準拠基準、Stable ID、VersionおよびReleaseへの変更がないという個別結果として保持する。
 
 この監査集合は全体として`Invalidated`であり、現在の合否へ流用しない。現行入口を`tools/checker/crdd_check.ts`へ統一し、公式Repository、採用Repositoryおよびsubmodule未コピー時の実行境界を分け、過去CHGの当時Pathと現在移設先を分離する処置は`Applied`／`Self-checked`である。各Findingは新固定版の機械確認と同じ3監査が完了するまで`Resolved`ではない。
+
+### 第2固定版の監査集合と是正
+
+第2固定版はCommit `b8b4e8374b2e7a575ada116bfd53938918c77f38`、Tree `73249735bca15a9bfedc2a688525ee670379a333`、Parent `75d596f3263298c6d0e381617f9679f198aad708`である。共通入力はNode.js 24.12、Coordinator試験255 / 255、Checker試験143 / 143、全体Checker 400 file／277 Markdown／Error 0／Warning 0、diff／worktree cleanだった。
+
+- Agent／Architecture／Security review: `Fail`、Major 1件とMinor 1件。`AG-CHECKER-PACKAGE-002`はpackage-local `run`がpackage directoryを検査対象にした問題、`AG-CHECKER-PACKAGE-003`はCoordinator READMEに移行前説明が残った問題で、いずれも初回監査からの見落としである。
+- Document Audit: `Pass`、Finding 0件。
+- Gap / Impact Audit: `Pass`、Finding 0件。
+- Conformance Audit: `Pass`、Finding 0件。
+
+既知の`AG-CHECKER-PACKAGE-001`、`DOC-CHECKER-PACKAGE-001`／`002`、`GCI-CHECKER-PACKAGE-001`は第2固定版で解消を確認した。ただし監査集合はAgent reviewの新規2件により全体として`Invalidated`で、現在の合否へ流用しない。package-local `run`へprivate固定配置に基づく`--root ../..`を追加し、Coordinator READMEを移行完了後の所有境界とChecker packageのprivate保守入口へ更新する処置は`Applied`／`Self-checked`である。新規2件は新固定版の機械確認と同じ3監査が完了するまで`Resolved`ではない。

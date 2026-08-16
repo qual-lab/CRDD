@@ -148,10 +148,20 @@ npm test --prefix tools/coordinator
 npm run typecheck --prefix tools/coordinator
 ```
 
-CRDD内部ScriptはTypeScriptを標準とし、Node.js 24.12以上のnative TypeScript実行を採用する。`tsx`、`ts-node`、BundlerまたはRuntime用npm packageを要求せず、TypeScript Compilerは開発時の型検査だけに使用する。現行フォルダ配置を維持し、production moduleのstrict収束、`bin`／`src`、tests、ルートチェッカー／配布ひな型の順で`.ts`へ段階移行する。Coordinatorはproduction 38 moduleとtest 30 fileのTypeScript移行を完了し、production／testを別のstrict設定で`noEmit`検査する。Node native type strippingで消去できない構文、tsconfig path aliasおよびRuntime挙動を変えるCompiler変換は禁止する。攻撃的な不正shapeやNode API差替えを扱う試験fixtureも`unknown`と実行時assertionで表現し、型に合わせて負例を弱めず実行時試験を維持する。
+CRDD内部ScriptはTypeScriptを標準とし、Node.js 24.12以上のnative TypeScript実行を採用する。`tsx`、`ts-node`、BundlerまたはRuntime用npm packageを要求せず、TypeScript Compilerは開発時の型検査だけに使用する。Coordinatorはproduction 38 moduleとtest 30 fileのTypeScript移行を完了し、production／testを別のstrict設定で`noEmit`検査する。Node native type strippingで消去できない構文、tsconfig path aliasおよびRuntime挙動を変えるCompiler変換は禁止する。攻撃的な不正shapeやNode API差替えを扱う試験fixtureも`unknown`と実行時assertionで表現し、型に合わせて負例を弱めず実行時試験を維持する。
 
-productionの実ファイル移行はPathとIdentityの小さいpredicate、Locator binding、Root profile、Platform policy群、prelaunch verifier、enrollment renewal、plain-data snapshot、CLI option、Authority Bundle／Grant／Trust Loader、Provisioning CA／offline enrollment、Platform Provisioner Trust、Provider isolation、Docker isolation、Root protection、Host recovery record、Repository Git layout公開境界と内部Resolver／writer、初回登録Runtime state／pure Core、Authority／Runtime Root locator・Path Identity、外向きProxy policy、activation record／transition、署名primitive、準備記録pure Core、準備記録–登録証明書結合、Execution Environment、DoctorおよびCoordinator CLI入口へ進み、productionは38 / 38 moduleのTypeScript移行を完了した。続いてtest 30 / 30 fileもTypeScriptへ移行し、共通の実行時assertion helperで不正入力fixtureを安全に絞り込む。JSDocの型説明をそのまま残して型検査を弱めず、外部入力は`unknown`から実行時検証で絞り、各moduleで消去可能なTypeScript型注釈へ置換した。`strict`に加えて`noImplicitAny`を明示し、TypeScript版の既定展開に依存せず暗黙の`any`を拒否する。残るJavaScriptは、最後に移行するルートチェッカー、fault injectorおよび配布ひな型だけである。
+productionの実ファイル移行はPathとIdentityの小さいpredicate、Locator binding、Root profile、Platform policy群、prelaunch verifier、enrollment renewal、plain-data snapshot、CLI option、Authority Bundle／Grant／Trust Loader、Provisioning CA／offline enrollment、Platform Provisioner Trust、Provider isolation、Docker isolation、Root protection、Host recovery record、Repository Git layout公開境界と内部Resolver／writer、初回登録Runtime state／pure Core、Authority／Runtime Root locator・Path Identity、外向きProxy policy、activation record／transition、署名primitive、準備記録pure Core、準備記録–登録証明書結合、Execution Environment、DoctorおよびCoordinator CLI入口へ進み、productionは38 / 38 moduleのTypeScript移行を完了した。test 30 / 30 fileもTypeScriptへ移行し、共通の実行時assertion helperで不正入力fixtureを安全に絞り込む。JSDocの型説明をそのまま残して型検査を弱めず、外部入力は`unknown`から実行時検証で絞り、各moduleで消去可能なTypeScript型注釈へ置換した。`strict`に加えて`noImplicitAny`を明示し、TypeScript版の既定展開に依存せず暗黙の`any`を拒否する。
 
-開発時のLintとFormatterはRepository rootの`biome.json`を正本とするBiome 2.5.6へ統一する。`npm run lint --prefix tools/coordinator`、`npm run format:check --prefix tools/coordinator`および`npm run check --prefix tools/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix tools/coordinator`を使う。BiomeはdevDependencyでありRuntimeへ含めない。Coordinatorの`.ts`をFormatter対象とし、最後に移行するチェッカー群の未移行JavaScriptを一括整形して意味差分へ混在させない。
+開発時のLintとFormatterはRepository rootの`biome.json`を正本とするBiome 2.5.6へ統一する。Coordinatorは`npm run lint --prefix tools/coordinator`、`npm run format:check --prefix tools/coordinator`および`npm run check --prefix tools/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix tools/coordinator`を使う。BiomeはdevDependencyでありRuntimeへ含めない。
+
+Checkerは`tools/checker/`のprivate packageがTypeScriptのwrapper、test、fault injectorとJSON型設定を所有する。配布正本`template/tools/crdd_check.ts`はpackage外に置き、追加installを要求しない採用側CLIの正本としてwrapperから参照する。Checker packageの開発確認は次を使用する。
+
+```shell
+npm run check --prefix tools/checker
+npm run test --prefix tools/checker
+npm run --silent run --prefix tools/checker
+```
+
+`check`は型、Lint、Formatter、`test`はChecker回帰試験、`run`はpackage rootから`../..`を明示してCRDD公式Repository全体を確認するprivateな保守入口である。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
 
 Runtime 1.0のその他のCLIは、成立性Gate、Protocol、状態不変条件および永続Storeが固定されるまで提供しない。
