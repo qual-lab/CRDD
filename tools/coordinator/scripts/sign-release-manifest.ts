@@ -32,6 +32,7 @@ type ManifestOptions = Readonly<{
   privateKeyPath: string;
   passphrase: string;
   crddVersion: string;
+  releaseSequence: number;
   crddCommit: string;
   crddTree: string;
   issuedAt: string;
@@ -190,6 +191,7 @@ export function signReleaseManifest(options: ManifestOptions) {
       packageName: packageObservation.packageName,
       packageVersion: packageObservation.packageVersion,
       crddVersion: options.crddVersion,
+      releaseSequence: options.releaseSequence,
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
@@ -256,6 +258,7 @@ export function signReleaseManifest(options: ManifestOptions) {
       manifestHash: compiled.manifestHash,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
       crddVersion: options.crddVersion,
+      releaseSequence: options.releaseSequence,
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
       distributionTreeVerifiedBeforeSigning: true,
@@ -273,6 +276,7 @@ function parseArguments(args: readonly string[]) {
     "--distribution-root",
     "--private-key",
     "--crdd-version",
+    "--release-sequence",
     "--crdd-commit",
     "--crdd-tree",
     "--issued-at",
@@ -300,6 +304,13 @@ function parseArguments(args: readonly string[]) {
     distributionRoot: read("--distribution-root"),
     privateKeyPath: read("--private-key"),
     crddVersion: read("--crdd-version"),
+    releaseSequence: (() => {
+      const value = Number(read("--release-sequence"));
+      if (!Number.isSafeInteger(value) || value < 1) {
+        throw new Error("release_manifest_arguments_invalid");
+      }
+      return value;
+    })(),
     crddCommit: read("--crdd-commit"),
     crddTree: read("--crdd-tree"),
     issuedAt: read("--issued-at"),

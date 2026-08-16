@@ -47,6 +47,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
           ),
           passphrase: TEST_PASSPHRASE,
           crddVersion: "v0.18.0",
+          releaseSequence: 18,
           crddCommit: "0".repeat(40),
           crddTree: "1".repeat(40),
           issuedAt: "2026-08-16T00:00:00.000Z",

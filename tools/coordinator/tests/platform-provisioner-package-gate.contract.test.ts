@@ -52,6 +52,7 @@ function fixture() {
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
     crddVersion: "v0.18.0",
+    releaseSequence: 18,
     crddCommit: "a".repeat(40),
     crddTree: "b".repeat(40),
     packageContentRootSha256,

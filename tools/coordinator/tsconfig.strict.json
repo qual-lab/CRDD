@@ -44,6 +44,7 @@
     "src/security/platform-provisioner-package-filesystem.ts",
     "src/security/platform-provisioner-policy-identity.ts",
     "src/security/platform-provisioner-release-identity.ts",
+    "src/security/platform-provisioner-release-floor.ts",
     "src/security/plain-data-snapshot.ts",
     "src/security/platform-provisioner-trust-core.ts",
     "src/security/platform-provisioner-package-gate.ts",

@@ -28,6 +28,7 @@ const MANIFEST_KEYS = new Set([
   "packageName",
   "packageVersion",
   "crddVersion",
+  "releaseSequence",
   "crddCommit",
   "crddTree",
   "packageContentRootSha256",
@@ -186,6 +187,9 @@ function normalizeManifest(raw: unknown) {
     !packageIdentity(value.packageName, value.packageVersion) ||
     typeof value.crddVersion !== "string" ||
     !CRDD_VERSION.test(value.crddVersion) ||
+    typeof value.releaseSequence !== "number" ||
+    !Number.isSafeInteger(value.releaseSequence) ||
+    value.releaseSequence < 1 ||
     typeof value.crddCommit !== "string" ||
     !CRDD_GIT_OBJECT_ID.test(value.crddCommit) ||
     typeof value.crddTree !== "string" ||
@@ -206,6 +210,7 @@ function normalizeManifest(raw: unknown) {
     packageName: value.packageName,
     packageVersion: value.packageVersion,
     crddVersion: value.crddVersion,
+    releaseSequence: value.releaseSequence,
     crddCommit: value.crddCommit,
     crddTree: value.crddTree,
     packageContentRootSha256: value.packageContentRootSha256,
@@ -418,6 +423,7 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
         packageName: observed.packageName,
         packageVersion: observed.packageVersion,
         crddVersion: envelope.payload.crddVersion,
+        releaseSequence: envelope.payload.releaseSequence,
         crddCommit: envelope.payload.crddCommit,
         crddTree: envelope.payload.crddTree,
         packageContentRootSha256: contentFrame.hash,
@@ -449,7 +455,7 @@ export function describePlatformProvisionerTrustCoreContract() {
     maximumFiles: MAXIMUM_FILES,
     manifestCryptographicVerification: "implemented_candidate",
     releaseIdentityBinding:
-      "crdd_version_commit_tree_and_package_content_root_implemented_candidate",
+      "release_sequence_crdd_version_commit_tree_and_package_content_root_implemented_candidate",
     packageContentRootCalculation:
       "implemented_candidate_from_owned_snapshot_of_caller_file_metadata",
     runtimeOwnedPackageFilesystemRead: "not_implemented",

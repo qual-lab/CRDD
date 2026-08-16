@@ -40,6 +40,7 @@ function signedManifest(packageContentRootSha256: string) {
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
     crddVersion: "v0.18.0",
+    releaseSequence: 18,
     crddCommit: "a".repeat(40),
     crddTree: "b".repeat(40),
     packageContentRootSha256,
@@ -250,6 +251,10 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   assert.equal(
     contract.releaseIdentityRollbackFloorPersistence,
     "not_implemented",
+  );
+  assert.equal(
+    contract.releaseIdentityRollbackFloorTransition,
+    "implemented_candidate",
   );
   assert.equal(contract.runtimeCapabilityIssued, false);
   assert.equal(contract.filesystemEffectIssued, false);

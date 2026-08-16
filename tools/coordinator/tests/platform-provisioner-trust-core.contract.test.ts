@@ -53,6 +53,7 @@ function fixture() {
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
     crddVersion: "v0.18.0",
+    releaseSequence: 18,
     crddCommit: "a".repeat(40),
     crddTree: "b".repeat(40),
     packageContentRootSha256,
@@ -88,6 +89,7 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
   assert.equal(result.status, "candidate");
   assert.equal(result.packageName, "@qual-lab/crdd-coordinator");
   assert.equal(result.crddVersion, "v0.18.0");
+  assert.equal(result.releaseSequence, 18);
   assert.equal(result.crddCommit, "a".repeat(40));
   assert.equal(result.crddTree, "b".repeat(40));
   assert.equal(result.rootProtectionPolicySha256, "4".repeat(64));
@@ -192,7 +194,7 @@ test("package trust contract requires CRDD-bundled use and no native executable"
   assert.equal(contract.standalonePackageInstallationAllowed, false);
   assert.equal(
     contract.releaseIdentityBinding,
-    "crdd_version_commit_tree_and_package_content_root_implemented_candidate",
+    "release_sequence_crdd_version_commit_tree_and_package_content_root_implemented_candidate",
   );
   assert.equal(
     contract.runtimeOwnedCrddDistributionVerification,

@@ -479,6 +479,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       contract.platformProvisionerPolicyIdentity,
     platformProvisionerReleaseIdentity:
       contract.platformProvisionerReleaseIdentity,
+    platformProvisionerReleaseFloor: contract.platformProvisionerReleaseFloor,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -606,6 +607,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       platformProvisionerManifestLoader: "platform_provisioner_verification",
       platformProvisionerPolicyIdentity: "platform_provisioner_verification",
       platformProvisionerReleaseIdentity: "platform_provisioner_verification",
+      platformProvisionerReleaseFloor: "platform_provisioner_verification",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:

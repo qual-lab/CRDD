@@ -997,3 +997,13 @@ Release署名commandも署名直前に同じ配布Root Git Tree再計算を行�
 実Repositoryの`HEAD`を一時directoryへ`git -c core.autocrlf=false archive`で展開し、Gitが示すRoot TreeとNode.js実装の再計算値が完全一致することを確認した。通常のWindows改行変換を受けたarchiveはblob byteがGit objectと異なるため意図どおり不一致となる。Release stagingは改行変換しないarchiveを必須とし、作業Treeの見かけ上の同一性からRelease Identityを推定しない。
 
 Node.js 24.19.0で、Coordinator 272 / 272、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／88 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 426 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0がPassした。実秘密鍵、passphraseおよび実Release manifestは使用・生成していない。本処置は`Applied`／`Self-checked`であり、独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — Release sequenceとrollback floor遷移候補
+
+Qual-Labの承認により、署名manifest revision 1へ1以上のsafe integer `releaseSequence`を必須追加した。未公開Candidate内の変更なので旧Schemaの互換aliasまたはfallbackを残さない。Release署名commandは`--release-sequence`を明示要求し、Sequence、CRDD Version、Commit、Tree、Coordinator package content rootおよびPolicy Hashを同じEd25519署名payloadへ結ぶ。
+
+rollback floorのpure Core候補は、初回Identityと増加Sequenceを永続化要求として返し、保存済みfloorと同じSequenceではmanifest Hash／Version／Commit／Treeの完全一致だけを再利用候補にする。低いSequenceはrollback、同一Sequenceの異なるIdentityは差替えとしてfail closedに拒否する。floor自身も成果物固有domain、uint64be JCS byte長およびcanonical payloadのSHA-256で再検証する。caller supplied floorはAuthorityではなく、初回または増分の結果も永続化が完了するまで`rollbackFloorConfirmed: false`とする。
+
+永続化Path、原子的書込み、crash recovery、Windows DACL、Effect controllerおよび実`provision`接続は未実装である。12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行およびv0.18 Candidate／Released Baseline v0.17.0を維持する。本処置は`Applied`／`Self-checked`であり、全機械確認と必要な独立レビュー前は`Resolved`、統合、準拠、StableまたはReleaseではない。
+
+Node.js 24.19.0で、Coordinator 277 / 277、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／90 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 428 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0がPassした。実秘密鍵、passphrase、実Release manifestおよび永続floorは使用・生成していない。
