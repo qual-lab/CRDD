@@ -976,7 +976,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       authorityRecordCurrentPointerContract:
         "crdd-coordinator/provisioning-record-current-pointer",
       authorityRecordCurrentPointerPersistence: "implemented_candidate",
-      trustFloorPersistence: "not_implemented",
+      trustFloorPersistence: "implemented_candidate",
       repositoryGenerationPersistence: "not_implemented",
       recoveryJournalPersistence: "not_implemented",
       atomicPersistence: "not_implemented",
@@ -1393,6 +1393,18 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.provisioningRecordStore.recovery,
     "implemented_candidate_explicit_only",
+  );
+  assert.equal(
+    report.runtimeActivation.provisioningTrustFloorTransition,
+    "implemented_candidate",
+  );
+  assert.equal(
+    report.runtimeActivation.provisioningTrustFloor.persistence,
+    "dedicated_store_implemented_candidate",
+  );
+  assert.equal(
+    report.runtimeActivation.provisioningTrustFloorPersistence,
+    "implemented_candidate",
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordLifecyclePersistence,

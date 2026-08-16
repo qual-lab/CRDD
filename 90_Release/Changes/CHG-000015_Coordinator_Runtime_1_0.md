@@ -1083,3 +1083,17 @@ Node.js 24.19.0で、Coordinator 307 / 307、Checker 150 / 150、両private pack
 復旧結果はRecord Hashと状態だけを返し、raw envelope、canonical byte、絶対Path、署名または鍵を公開しない。RepositoryはSchema、実装、試験および固定相対Pathを所有し、端末固有Record状態は引き続きAuthority Rootへ限定する。Runtime所有Trust、失効、trust floor、Authority Root resolver／保護、Provisioner接続、Authority、Capabilityおよびready遷移は未実装であり、既存blockerとGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
 
 Node.js 24.19.0で、Coordinator 309 / 309、Checker 150 / 150、両private packageの型検査／Biome Lint／Formatter、および全体Checker 447 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。端末固有Storeへの復旧Effectは試験fixture内だけで実行し、実Authority Rootまたは実Provisioning Recordを変更していない。
+
+### 2026-08-16 — Provisioning Trust floor pure遷移候補
+
+準備Trust状態のrollbackと同revision差替えを拒否するpure Core候補を追加した。floorはTrust Anchor Set Hash、信頼epoch、失効一覧Hashおよび失効revisionを成果物固有domain、uint64be JCS byte長およびcanonical SHA-256へ結ぶ。同一epochではAnchor Set Hash完全一致と失効revisionの単調増加を要求し、同一失効revisionではManifest Hash完全一致だけを許す。新epochだけが新しいAnchor Setと失効系列を開始できる。
+
+初回または増分floorは永続化要求を返し、永続済み同一Identityだけをrollback確認候補とする。caller supplied Trust、HashまたはfloorはRuntime所有Trust、失効確認、AuthorityまたはCapabilityを成立させない。専用Store、Trust配布、Runtime時計との結合およびRecord aggregateとの実接続は未実装で、既存blockerとGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — Provisioning Trust floor専用Store候補
+
+pure遷移が要求するfloorをAuthority Root内の固定`.crdd-provisioning/trust-floor.json`へ保存する専用Storeを追加した。Storeはcanonical byteだけを受理し、固定pendingのexclusive create、file `fsync`、原子的置換、可能な場合のparent directory同期および同一handle再読取りを要求する。既存floorへの書込みはpure遷移を再評価し、同一Identityの冪等候補、失効revisionの増分または新epochだけを許す。
+
+pendingがある通常読取り／書込みは`blocked`となり、明示復旧だけが欠落targetへの適用、同一floorのpending除去または単調増加floorへの遷移を行う。不正pending、rollback、同revision差替え、Root不一致または再読取り不一致を推測修復しない。RepositoryはSchema、実装、試験および固定相対Pathを所有し、実floorは端末固有Authority Rootへ限定する。Trust配布、Runtime時計、検証済みTrustからStoreへのcontroller接続、AuthorityおよびCapabilityは未実装で、Gate `blocked`を維持する。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
+
+Node.js 24.19.0で、Coordinator 314 / 314、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／113 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 451 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。端末固有floorへのFilesystem Effectは試験fixture内だけで実行し、実Authority Root、実Trust Anchorまたは実失効一覧を変更していない。

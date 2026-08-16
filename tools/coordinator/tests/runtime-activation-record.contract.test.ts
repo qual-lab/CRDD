@@ -691,7 +691,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     authorityRecordCurrentPointerContract:
       "crdd-coordinator/provisioning-record-current-pointer",
     authorityRecordCurrentPointerPersistence: "implemented_candidate",
-    trustFloorPersistence: "not_implemented",
+    trustFloorPersistence: "implemented_candidate",
     repositoryGenerationPersistence: "not_implemented",
     recoveryJournalPersistence: "not_implemented",
     atomicPersistence: "not_implemented",
@@ -1012,7 +1012,22 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.provisioningRecordStore.recovery,
     "implemented_candidate_explicit_only",
   );
-  assert.equal(contract.provisioningTrustFloorPersistence, "not_implemented");
+  assert.equal(
+    contract.provisioningTrustFloorPersistence,
+    "implemented_candidate",
+  );
+  assert.equal(
+    contract.provisioningTrustFloorTransition,
+    "implemented_candidate",
+  );
+  assert.equal(
+    contract.provisioningTrustFloor.sameEpochPolicy,
+    "exact_trust_anchor_set_hash_required",
+  );
+  assert.equal(
+    contract.provisioningTrustFloorStore.recovery,
+    "explicit_monotonic_pending_recovery",
+  );
   assert.equal(contract.repositoryGenerationPersistence, "not_implemented");
   assert.equal(contract.recoveryJournalPersistence, "not_implemented");
   assert.equal(["provision", "ReceiptContract"].join("") in contract, false);

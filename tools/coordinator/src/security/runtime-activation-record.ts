@@ -5,6 +5,8 @@ import { describeRuntimeActivationLocatorBindingContract } from "./runtime-activ
 import { describeProvisioningSignaturePrimitivesContract } from "./provisioning-signature-primitives.ts";
 import { describeProvisioningRecordPureCoreContract } from "./provisioning-record-pure-core.ts";
 import { describeProvisioningRecordStoreContract } from "./provisioning-record-store.ts";
+import { describeProvisioningTrustFloorContract } from "./provisioning-trust-floor.ts";
+import { describeProvisioningTrustFloorStoreContract } from "./provisioning-trust-floor-store.ts";
 import { describeInitialEnrollmentPureCoreContract } from "./initial-enrollment-pure-core.ts";
 import { describeInitialEnrollmentRuntimeStateContract } from "./initial-enrollment-runtime-state.ts";
 import { describePlatformKeyStoragePolicyContract } from "./platform-key-storage-policy.ts";
@@ -474,6 +476,9 @@ export function describeRuntimeActivationContract() {
   const provisioningRecordPureCore =
     describeProvisioningRecordPureCoreContract();
   const provisioningRecordStore = describeProvisioningRecordStoreContract();
+  const provisioningTrustFloor = describeProvisioningTrustFloorContract();
+  const provisioningTrustFloorStore =
+    describeProvisioningTrustFloorStoreContract();
   const initialEnrollmentPureCore = describeInitialEnrollmentPureCoreContract();
   const initialEnrollmentRuntimeState =
     describeInitialEnrollmentRuntimeStateContract();
@@ -619,7 +624,9 @@ export function describeRuntimeActivationContract() {
       provisioningRecordStore.currentPointerContract,
     provisioningRecordCurrentPointerPersistence:
       provisioningRecordStore.currentPointerPersistence,
-    provisioningTrustFloorPersistence: "not_implemented",
+    provisioningTrustFloorTransition:
+      provisioningTrustFloor.transitionEvaluation,
+    provisioningTrustFloorPersistence: provisioningTrustFloorStore.persistence,
     repositoryGenerationPersistence: "not_implemented",
     recoveryJournalPersistence: "not_implemented",
     authorityRootResolutionFromProvisioningRecord: "not_implemented",
@@ -636,6 +643,8 @@ export function describeRuntimeActivationContract() {
     provisioningSignaturePrimitives,
     provisioningRecordPureCore,
     provisioningRecordStore,
+    provisioningTrustFloor,
+    provisioningTrustFloorStore,
     initialEnrollmentPureCore,
     initialEnrollmentRuntimeState,
     platformKeyStoragePolicy,
@@ -965,6 +974,8 @@ export function describeRuntimeActivationContract() {
       implementation.provisioningSignaturePrimitives,
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
     provisioningRecordStore: implementation.provisioningRecordStore,
+    provisioningTrustFloor: implementation.provisioningTrustFloor,
+    provisioningTrustFloorStore: implementation.provisioningTrustFloorStore,
     initialEnrollmentPureCore: implementation.initialEnrollmentPureCore,
     initialEnrollmentRuntimeState: implementation.initialEnrollmentRuntimeState,
     platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,
@@ -1102,6 +1113,8 @@ export function describeRuntimeActivationContract() {
       implementation.provisioningRecordCurrentPointerContract,
     provisioningRecordCurrentPointerPersistence:
       implementation.provisioningRecordCurrentPointerPersistence,
+    provisioningTrustFloorTransition:
+      implementation.provisioningTrustFloorTransition,
     provisioningTrustFloorPersistence:
       implementation.provisioningTrustFloorPersistence,
     repositoryGenerationPersistence:

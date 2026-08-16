@@ -53,6 +53,8 @@
     "src/security/provisioning-signature-primitives.ts",
     "src/security/provisioning-record-enrollment-binding.ts",
     "src/security/provisioning-record-pure-core.ts",
+    "src/security/provisioning-trust-floor.ts",
+    "src/security/provisioning-trust-floor-store.ts",
     "src/security/provisioning-ca-pure-core.ts",
     "src/security/repository-git-layout-internal.ts",
     "src/security/repository-git-layout.ts",
