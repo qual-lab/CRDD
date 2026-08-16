@@ -1185,3 +1185,11 @@ Agent監査は、Platform Provisioner Windows DACL Adapterにもentity上限判�
 READMEとThreat Modelは、実装済みのpure／component候補と、未実装のWindows実効アクセス確認（effective access verification）、DACL適用、Platform Provisioner EffectおよびRuntime readerを分離した。Path、SID、ACL、raw errorまたは秘密を出力せず、Authority、Capability、準拠またはReleaseを成立させない。過去節の実装済み記録は当時事実として保持し、本節がそれらの現在表示をsupersedeして現在判定へ使用しない。
 
 本変更は未公開Candidate内部の安全側是正で、永続実状態を作成できる成功経路が存在しないため`migration_required: false`を維持する。本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの全機械確認と固定監査集合完了前はFindingを`Resolved`、採用、統合、準拠、StableまたはReleaseとしない。
+
+#### `dda7f7c`監査集合とCLI helpの現在境界
+
+固定Commit `dda7f7c3f6dbfa3d16bf8c5a994eb41f1e738ed5`／Tree `25cf845cbb2cec0b8d705394055e4bfef813ee5b`／Parent `85b520dede5ec217daa66d11e44f17be0492f8e7`を、Coordinator 330 / 330、Checker 150 / 150、両package check、full checker 455 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0およびcleanを共通入力として固定監査集合へ渡した。Agent／Architecture／SecurityはFinding 0件でPass、DocumentはFinding 0件でPass、Gap／ImpactはMinor 1件でConditional、ConformanceはFinding 0件でPassだった。集合全体は`Invalidated`であり、部分Passを現在判定へ流用しない。Gap Finding `GCI-PLATFORM-PROVISIONER-CLI-001`は今回の修正によって新たに発生した。
+
+Gap監査はCLI helpだけが`provision installs...`と現在導入できるように表示し、実Effect未実装のcontract、READMEおよびThreat Modelと競合することを指摘した。helpをcommand grammar候補、Provision Effect未実装、および配布物読取り、時刻、Path解決またはFilesystem Effect前の`blocked`へ更新する。`help`、`--help`および`-h`が同じ出力経路を使い、旧文0件、新文exact 1件、exit 0となることをCLI contract testで固定する。
+
+command名、引数grammar、JSON Schema、reason／status、妥当な`provision`要求のexit 2、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability非発行および非Release境界は変更しない。本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの全機械確認と固定監査集合完了前はFindingを`Resolved`としない。

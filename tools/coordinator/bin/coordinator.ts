@@ -107,7 +107,7 @@ function printHelp() {
     `\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`,
   );
   process.stdout.write(
-    `provision installs only a verified signed CRDD distribution on supported Windows hosts; source checkouts are blocked before filesystem effects. activate and disable effects are not implemented.\n`,
+    `provision command grammar is an implementation candidate; the Provision Effect is not implemented and is blocked before distribution reads, time access, path resolution, or filesystem effects. activate and disable effects are not implemented.\n`,
   );
   process.stdout.write(
     `CRDD_COORDINATOR_ROOT is used by doctor --enable-runtime, activate, and disable; --runtime-root wins.\n`,

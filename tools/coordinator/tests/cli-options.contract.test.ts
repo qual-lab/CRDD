@@ -575,3 +575,27 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
     "provision_arguments_invalid",
   );
 });
+
+test("helpはProvision Effect未実装と処置前blockedを一意に表示する", () => {
+  const outputs = ["help", "--help", "-h"].map((argumentValue) => {
+    const result = spawnSync(
+      process.execPath,
+      [coordinatorExecutable, argumentValue],
+      { encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, "");
+    assert.equal(
+      result.stdout.includes(
+        "provision installs only a verified signed CRDD distribution",
+      ),
+      false,
+    );
+    const expected =
+      "provision command grammar is an implementation candidate; the Provision Effect is not implemented and is blocked before distribution reads, time access, path resolution, or filesystem effects.";
+    assert.equal(result.stdout.split(expected).length - 1, 1);
+    return result.stdout;
+  });
+  assert.equal(outputs[1], outputs[0]);
+  assert.equal(outputs[2], outputs[0]);
+});
