@@ -874,7 +874,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(
     contract.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "not_implemented",
+    "posix_implemented_candidate_windows_not_implemented",
   );
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
   assert.equal(contract.installationKeyGeneration, "not_implemented");

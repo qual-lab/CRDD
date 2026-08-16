@@ -27,6 +27,8 @@ type EntityIdentity = Readonly<{
   birthtimeNs: bigint;
   size: bigint;
   mode: bigint;
+  uid: bigint;
+  gid: bigint;
   mtimeNs: bigint;
   ctimeNs: bigint;
 }>;
@@ -84,6 +86,8 @@ function identity(
     birthtimeNs: metadata.birthtimeNs,
     size: metadata.size,
     mode: metadata.mode,
+    uid: metadata.uid,
+    gid: metadata.gid,
     mtimeNs: metadata.mtimeNs,
     ctimeNs: metadata.ctimeNs,
   });
@@ -96,6 +100,8 @@ function sameIdentity(left: EntityIdentity, right: EntityIdentity) {
     left.birthtimeNs === right.birthtimeNs &&
     left.size === right.size &&
     left.mode === right.mode &&
+    left.uid === right.uid &&
+    left.gid === right.gid &&
     left.mtimeNs === right.mtimeNs &&
     left.ctimeNs === right.ctimeNs
   );
@@ -174,6 +180,7 @@ function readStableFile(target: string, maximumBytes: number) {
     return Object.freeze({
       byteLength,
       sha256: hash.digest("hex"),
+      identity: opened,
       bytes:
         maximumBytes <= MAXIMUM_PACKAGE_JSON_BYTES
           ? Buffer.concat(chunks)
@@ -276,6 +283,7 @@ function observePackage(packageRoot: string) {
   let packageJsonBytes: Buffer | null = null;
   let packageByteLength = 0;
   const files: ObservedFile[] = [];
+  const fileIdentities: EntityIdentity[] = [];
   for (const relative of paths) {
     verifyDirectory(root);
     const maximum =
@@ -290,6 +298,7 @@ function observePackage(packageRoot: string) {
       maximum,
     );
     packageByteLength += observed.byteLength;
+    fileIdentities.push(observed.identity);
     if (packageByteLength > MAXIMUM_PACKAGE_BYTES) {
       throw new Error("platform_provisioner_package_budget_exceeded");
     }
@@ -313,7 +322,23 @@ function observePackage(packageRoot: string) {
   if (contentRoot.status !== "candidate") {
     throw new Error("platform_provisioner_package_content_invalid");
   }
-  return Object.freeze({ observation, packageByteLength, contentRoot });
+  const isPermissionPolicyConfirmed =
+    process.platform !== "win32" &&
+    inventory.directories.every(
+      (directory) =>
+        directory.identity.uid === 0n &&
+        (directory.identity.mode & 0o7777n) === 0o755n,
+    ) &&
+    fileIdentities.every(
+      (fileIdentity) =>
+        fileIdentity.uid === 0n && (fileIdentity.mode & 0o7777n) === 0o644n,
+    );
+  return Object.freeze({
+    observation,
+    packageByteLength,
+    contentRoot,
+    permissionPolicyConfirmed: isPermissionPolicyConfirmed,
+  });
 }
 
 function publicObservation(
@@ -323,7 +348,9 @@ function publicObservation(
   return Object.freeze({
     status: "candidate" as const,
     reason: isRuntimeOwnedPackageRoot
-      ? "runtime_owned_package_filesystem_observed_release_trust_permission_and_effect_required"
+      ? observed.permissionPolicyConfirmed
+        ? "runtime_owned_package_filesystem_observed_release_trust_and_effect_required"
+        : "runtime_owned_package_filesystem_observed_release_trust_permission_and_effect_required"
       : "caller_selected_package_filesystem_observed_non_authoritative",
     packageName: observed.observation.packageName,
     packageVersion: observed.observation.packageVersion,
@@ -332,7 +359,7 @@ function publicObservation(
     packageByteLength: observed.packageByteLength,
     stableFilesystemIdentityObserved: true,
     runtimeOwnedPackageRoot: isRuntimeOwnedPackageRoot,
-    permissionPolicyConfirmed: false,
+    permissionPolicyConfirmed: observed.permissionPolicyConfirmed,
     runtimeOwnedReleaseTrustConfirmed: false,
     crddDistributionConfirmed: false,
     effectAuthorizationIssued: false,
@@ -416,10 +443,23 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     maximumPackageBytes: MAXIMUM_PACKAGE_BYTES,
     runtimeOwnedPackageFilesystemRead:
       "implemented_candidate_without_permission_authority",
-    runtimeOwnedCrddReleaseIdentitySelection: "not_implemented",
-    runtimeOwnedReleaseTrustSelection: "not_implemented",
-    ownerAndPermissionPolicyVerification: "not_implemented",
-    signedManifestDistribution: "not_implemented",
+    runtimeOwnedCrddReleaseIdentitySelection:
+      "approved_version_commit_tree_binding_loader_not_implemented",
+    runtimeOwnedReleaseTrustSelection:
+      "approved_single_ed25519_anchor_not_configured",
+    ownerAndPermissionPolicyVerification:
+      "posix_implemented_candidate_windows_not_implemented",
+    posixRootOwnedDirectory0755AndFile0644Verification: "implemented_candidate",
+    windowsSystemAndAdministratorsWriteRuntimeReadAclVerification:
+      "not_implemented",
+    sourceCheckoutCanAuthorizeProvisioningEffect: false,
+    releaseTrustModel:
+      "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",
+    releaseIdentityBinding:
+      "crdd_version_commit_tree_and_coordinator_package_content_root",
+    signedManifestPath: "90_Release/coordinator-package-manifest.json",
+    releaseTrustAnchorConfiguration: "required_not_configured",
+    signedManifestDistribution: "approved_fixed_path_loader_not_implemented",
     effectController: "not_implemented",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,

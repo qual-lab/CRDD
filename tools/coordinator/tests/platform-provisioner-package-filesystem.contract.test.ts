@@ -75,7 +75,10 @@ test("固定Coordinator packageをPath非公開で一覧化する", () => {
   assert.equal(result.packageName, "@qual-lab/crdd-coordinator");
   assert.equal(result.runtimeOwnedPackageRoot, true);
   assert.equal(result.stableFilesystemIdentityObserved, true);
-  assert.equal(result.permissionPolicyConfirmed, false);
+  assert.equal(typeof result.permissionPolicyConfirmed, "boolean");
+  if (process.platform === "win32") {
+    assert.equal(result.permissionPolicyConfirmed, false);
+  }
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
   assert.equal(result.effectAuthorizationIssued, false);
   assert.equal("files" in result, false);
@@ -173,7 +176,10 @@ test("同梱manifestをRuntime読取りbyteへ結ぶがAuthorityへ昇格しな�
   assert.equal(result.status, "candidate");
   assert.equal(result.qualLabManifestCryptographicMatch, true);
   assert.equal(result.runtimeOwnedPackageRoot, true);
-  assert.equal(result.permissionPolicyConfirmed, false);
+  assert.equal(typeof result.permissionPolicyConfirmed, "boolean");
+  if (process.platform === "win32") {
+    assert.equal(result.permissionPolicyConfirmed, false);
+  }
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
   assert.equal(result.crddDistributionConfirmed, false);
   assert.equal(result.effectAuthorizationIssued, false);
@@ -217,12 +223,27 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.runtimeOwnedCrddReleaseIdentitySelection,
-    "not_implemented",
+    "approved_version_commit_tree_binding_loader_not_implemented",
   );
-  assert.equal(contract.runtimeOwnedReleaseTrustSelection, "not_implemented");
+  assert.equal(
+    contract.runtimeOwnedReleaseTrustSelection,
+    "approved_single_ed25519_anchor_not_configured",
+  );
   assert.equal(
     contract.ownerAndPermissionPolicyVerification,
-    "not_implemented",
+    "posix_implemented_candidate_windows_not_implemented",
+  );
+  assert.equal(
+    contract.releaseTrustModel,
+    "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",
+  );
+  assert.equal(
+    contract.signedManifestPath,
+    "90_Release/coordinator-package-manifest.json",
+  );
+  assert.equal(
+    contract.releaseTrustAnchorConfiguration,
+    "required_not_configured",
   );
   assert.equal(contract.effectController, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);

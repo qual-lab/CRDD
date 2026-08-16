@@ -1234,7 +1234,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "not_implemented",
+    "posix_implemented_candidate_windows_not_implemented",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageGate

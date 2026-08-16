@@ -947,3 +947,11 @@ TypeScript移行前に保留したPlatform Provisionerの実装を再開し、CR
 TypeScript完全移行後も残っていた`crdd_bundled_private_mjs_package`は現在契約と矛盾する互換残骸であるため、shimまたはaliasを残さず`crdd_bundled_private_typescript_package`へ置換した。外部互換は維持せず、現在の正本と全直接利用側を同時に移行する。
 
 この候補はpackage内容と安定Filesystem Identityの観測だけを進める。CRDD release Identityの取得・検証、Qual-Lab release Trust Anchor／signerの選択、署名済みmanifestの配布位置と選択、owner／permission policy検証、Effect controllerおよび実`provision`接続は未実装である。caller supplied signer、期待RevisionまたはmanifestからTrust、Authority、CapabilityまたはEffectを発行せず、既存12 blocker、6 current-run evidenceおよびGate `blocked`を維持する。上記release signer／Trustとmanifest配布契約は人間の決定権限を要するため、本変更では推測しない。自己確認ではCoordinator 261 / 261、Checker 150 / 150、両private packageの型検査／Biome Lint／Formatter、および全体Checker 414 files／288 Markdown／Error 0／Warning 0がPassした。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
+
+### 2026-08-16 — Release Trustと同梱package保護方針の承認
+
+Qual-Labの人間の決定権限者は、公開鍵検証とOS保護を組み合わせる方針を承認した。release Trustは、外部確認済みCRDD ReleaseへQual-Labの有効なEd25519公開鍵exact 1本を固定し、CRDD version、Commit、TreeおよびCoordinator package content rootを署名対象へ結ぶ。公開鍵は誰でも検証に使用できるが、正式署名を作る秘密鍵はRepositoryへ保存せず、Qual-LabのRelease工程だけが使用する。第三者鍵、自動fallbackおよび未知鍵を受理しない。鍵rotationは後続の人間承認付きCRDD変更とし、version 1で複数鍵を暗黙選択しない。署名済みpackage manifestの固定Pathは`90_Release/coordinator-package-manifest.json`とする。実公開鍵は鍵生成・保管工程が完了するまで未設定とし、placeholder鍵またはtest鍵をTrust Anchorへ流用しない。
+
+同梱package保護は、本番Platform ProvisioningをOS保護された配置からだけ許可する。Windowsは`SYSTEM`とmachine Administratorsだけにwriteを許可し、Runtime利用者はread／executeだけとし、一般利用者へwriteを与える継承ACEを拒否する。macOS／Linuxはroot所有、directory `0755`、file `0644`を要求し、group／other writeを拒否する。source checkoutは開発・試験に使用できるが、管理者Effectを許可しない。初回setupだけが必要な昇格と保護設定を担い、通常runでは再確認だけを行う。改変または権限不一致は自動修復せず`blocked`として再setupへ戻す。
+
+今回の後続処置は、POSIX package treeのowner／mode観測候補と、release Trust model、Identity binding、manifest固定Pathおよび実鍵未設定状態のcontract投影である。Windows DACL Adapter、CRDD Release Identity loader、署名済みmanifest loader、実Trust Anchor投入、初回setup EffectおよびEffect controllerは未実装であり、Gate `blocked`、Authority／Capability／Effect非発行を維持する。直前節の「人間判断が必要」という現在状態は本承認でsupersededされ、設計判断として現在判定へ使用しない。ただし実秘密鍵の生成・保管と公開鍵投入は人間が管理するRelease運用であり、AIがRepositoryへ生成しない。本処置は`Applied`／`Self-checked`で、必要な機械確認と独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
