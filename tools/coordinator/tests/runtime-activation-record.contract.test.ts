@@ -470,6 +470,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     enrollmentCertificateRenewal: contract.enrollmentCertificateRenewal,
     platformProvisionerTrustCore: contract.platformProvisionerTrustCore,
     platformProvisionerPackageGate: contract.platformProvisionerPackageGate,
+    platformProvisionerPackageFilesystem:
+      contract.platformProvisionerPackageFilesystem,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -850,7 +852,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.platformProvisionerTrustCore.distributionModel,
-    "crdd_bundled_private_mjs_package",
+    "crdd_bundled_private_typescript_package",
   );
   assert.equal(
     contract.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1,
@@ -863,6 +865,16 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(
     contract.platformProvisionerPackageGate.effectAuthorizationIssued,
     false,
+  );
+  assert.equal(
+    contract.platformProvisionerPackageFilesystem
+      .runtimeOwnedPackageFilesystemRead,
+    "implemented_candidate_without_permission_authority",
+  );
+  assert.equal(
+    contract.platformProvisionerPackageFilesystem
+      .ownerAndPermissionPolicyVerification,
+    "not_implemented",
   );
   assert.equal(contract.platformProvisionerEffect, "not_implemented");
   assert.equal(contract.installationKeyGeneration, "not_implemented");

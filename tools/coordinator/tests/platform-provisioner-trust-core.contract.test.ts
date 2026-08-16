@@ -166,7 +166,10 @@ test("manifest signature, role, lifetime and exact envelope fail closed", () => 
 
 test("package trust contract requires CRDD-bundled use and no native executable", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
-  assert.equal(contract.distributionModel, "crdd_bundled_private_mjs_package");
+  assert.equal(
+    contract.distributionModel,
+    "crdd_bundled_private_typescript_package",
+  );
   assert.equal(contract.dedicatedNativeExecutableRequiredForV1, false);
   assert.equal(contract.osNativeCodeSignatureRequiredForV1, false);
   assert.equal(contract.standalonePackagePublicationAllowed, false);

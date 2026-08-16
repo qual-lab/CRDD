@@ -383,7 +383,7 @@ export function describePlatformProvisionerTrustCoreContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-trust-core",
     contractRevision: PLATFORM_PROVISIONER_MANIFEST_REVISION,
-    distributionModel: "crdd_bundled_private_mjs_package",
+    distributionModel: "crdd_bundled_private_typescript_package",
     manifestContract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
     envelopeContract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
     manifestDomain: PLATFORM_PROVISIONER_MANIFEST_DOMAIN,

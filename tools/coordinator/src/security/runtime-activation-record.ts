@@ -13,6 +13,7 @@ import { describeProvisioningRecordEnrollmentBindingContract } from "./provision
 import { describeEnrollmentCertificateRenewalContract } from "./enrollment-certificate-renewal.ts";
 import { describePlatformProvisionerTrustCoreContract } from "./platform-provisioner-trust-core.ts";
 import { describePlatformProvisionerPackageGateContract } from "./platform-provisioner-package-gate.ts";
+import { describePlatformProvisionerPackageFilesystemContract } from "./platform-provisioner-package-filesystem.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
@@ -461,6 +462,8 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerTrustCoreContract();
   const platformProvisionerPackageGate =
     describePlatformProvisionerPackageGateContract();
+  const platformProvisionerPackageFilesystem =
+    describePlatformProvisionerPackageFilesystemContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -499,7 +502,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerPackageGateObservation:
       platformProvisionerPackageGate.observationContract,
     platformProvisionerPackageFilesystemVerification:
-      platformProvisionerPackageGate.runtimeOwnedPackageFilesystemAdapter,
+      platformProvisionerPackageFilesystem.runtimeOwnedPackageFilesystemRead,
     enrollmentReplayProtectionPersistence: "not_implemented",
     automaticEnrollmentRenewalEffect: "not_implemented",
     initialEnrollmentChallengeObjectContractAndDomainFraming:
@@ -566,6 +569,7 @@ export function describeRuntimeActivationContract() {
     enrollmentCertificateRenewal,
     platformProvisionerTrustCore,
     platformProvisionerPackageGate,
+    platformProvisionerPackageFilesystem,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -663,6 +667,8 @@ export function describeRuntimeActivationContract() {
     platformProvisionerTrustCore: implementation.platformProvisionerTrustCore,
     platformProvisionerPackageGate:
       implementation.platformProvisionerPackageGate,
+    platformProvisionerPackageFilesystem:
+      implementation.platformProvisionerPackageFilesystem,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -857,6 +863,8 @@ export function describeRuntimeActivationContract() {
     platformProvisionerTrustCore: implementation.platformProvisionerTrustCore,
     platformProvisionerPackageGate:
       implementation.platformProvisionerPackageGate,
+    platformProvisionerPackageFilesystem:
+      implementation.platformProvisionerPackageFilesystem,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

@@ -129,7 +129,7 @@ export function describePlatformProvisionerPackageGateContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-gate",
     contractRevision: 1,
-    distributionModel: "crdd_bundled_private_mjs_package",
+    distributionModel: "crdd_bundled_private_typescript_package",
     observationContract: "implemented_candidate_non_authoritative",
     manifestVerificationReuse: "implemented_candidate",
     packageIdentityBinding: "implemented_candidate",

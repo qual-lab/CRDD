@@ -744,6 +744,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerTrustCore,
     platformProvisionerPackageGate:
       report.runtimeActivation.platformProvisionerPackageGate,
+    platformProvisionerPackageFilesystem:
+      report.runtimeActivation.platformProvisionerPackageFilesystem,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -1212,7 +1214,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerTrustCore.distributionModel,
-    "crdd_bundled_private_mjs_package",
+    "crdd_bundled_private_typescript_package",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerTrustCore
@@ -1222,6 +1224,16 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageGate
       .runtimeOwnedPackageFilesystemAdapter,
+    "not_implemented",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerPackageFilesystem
+      .runtimeOwnedPackageFilesystemRead,
+    "implemented_candidate_without_permission_authority",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerPackageFilesystem
+      .ownerAndPermissionPolicyVerification,
     "not_implemented",
   );
   assert.equal(

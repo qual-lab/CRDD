@@ -144,7 +144,10 @@ test("CRDD revision, content, identity and permission mismatches fail closed", (
 
 test("package gate cannot treat caller CRDD observations as Effect authorization", () => {
   const contract = describePlatformProvisionerPackageGateContract();
-  assert.equal(contract.distributionModel, "crdd_bundled_private_mjs_package");
+  assert.equal(
+    contract.distributionModel,
+    "crdd_bundled_private_typescript_package",
+  );
   assert.equal(
     contract.observationContract,
     "implemented_candidate_non_authoritative",

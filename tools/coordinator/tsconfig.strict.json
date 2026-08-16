@@ -38,6 +38,7 @@
     "src/security/initial-enrollment-runtime-state.ts",
     "src/security/offline-enrollment-bundle-pure-core.ts",
     "src/security/platform-key-storage-policy.ts",
+    "src/security/platform-provisioner-package-filesystem.ts",
     "src/security/plain-data-snapshot.ts",
     "src/security/platform-provisioner-trust-core.ts",
     "src/security/platform-provisioner-package-gate.ts",

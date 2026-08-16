@@ -3,7 +3,7 @@
 変更トレースID: `CHG-000015`
 状態: `Draft`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-11
+最終更新日: 2026-08-16
 対象系列: Coordinator Runtime 1.x
 対象バージョン: 1.0 Candidate
 変更分類: `additive`（非規範Reference Implementation候補）
@@ -939,3 +939,11 @@ production 38 / 38 moduleに続き、Coordinator test 30 / 30 fileを`.ts`へ移
 承認済み順序の最終単位として、公式ルートチェッカー、配布ひな型チェッカー、チェッカー試験および異常注入器を現行配置のまま`.ts`へ移行した。配布ひな型チェッカーはGit探索、Markdown構造、変更トレース、参照集計および是正表の内部shapeを明示型へ変換し、外部JSON結果は試験側で`unknown`から実行時検証して再構成する。異常注入器はNode組み込みmoduleの差替え境界を限定型で表し、暗黙`any`、型検査抑制またはunsafe castを導入しない。旧JavaScript併用型検査設定は削除し、production、testおよびcheckerの全TypeScriptをstrict型検査へ接続する。
 
 Biome Lint／Formatterは`tools`および`template/tools`のTypeScript全体を対象とし、チェッカー試験と全体チェッカーは`.ts`を直接実行する。`.mjs`／`.cjs`の実Scriptは`tools`および`template/tools`から除去し、文書と実行例も現行`.ts`入口へ更新する。現在環境のNode.js 22.18.0ではnative type strippingの中間互換確認まで行うが、承認済みの最終実行要件はNode.js 24.12以上である。この処置は`Applied`／`Self-checked`であり、Node.js 24.12以上の固定環境による全確認と必要な独立レビュー前は`Resolved`、移行完了、採用、準拠、Stable、Releaseまたは公開ではない。
+
+### 2026-08-16 — 同梱Coordinator packageのFilesystem観測候補
+
+TypeScript移行前に保留したPlatform Provisionerの実装を再開し、CRDD配布物内でmodule相対に固定される`tools/coordinator`だけを対象とするFilesystem Adapter候補を追加した。AdapterはRootと各fileがnon-linkであることを確認し、Root Identityを走査中に再確認しながら、各fileを同じhandleから読み取ってbyte数とSHA-256を取得する。再帰file一覧から既存のpackage content rootを再計算し、署名済みmanifest候補のpackage名、version、CRDD Revisionおよびcontent rootとの一致を検査できる。開発依存の`node_modules`とroot `.gitignore`は配布package内容へ含めない。公開結果は件数、総byte数、Hashおよび状態だけで、file Path、生byte、descriptor、署名または鍵を含めない。callerが任意Rootを選ぶ検査入口は非Authorityのまま分離する。
+
+TypeScript完全移行後も残っていた`crdd_bundled_private_mjs_package`は現在契約と矛盾する互換残骸であるため、shimまたはaliasを残さず`crdd_bundled_private_typescript_package`へ置換した。外部互換は維持せず、現在の正本と全直接利用側を同時に移行する。
+
+この候補はpackage内容と安定Filesystem Identityの観測だけを進める。CRDD release Identityの取得・検証、Qual-Lab release Trust Anchor／signerの選択、署名済みmanifestの配布位置と選択、owner／permission policy検証、Effect controllerおよび実`provision`接続は未実装である。caller supplied signer、期待RevisionまたはmanifestからTrust、Authority、CapabilityまたはEffectを発行せず、既存12 blocker、6 current-run evidenceおよびGate `blocked`を維持する。上記release signer／Trustとmanifest配布契約は人間の決定権限を要するため、本変更では推測しない。自己確認ではCoordinator 261 / 261、Checker 150 / 150、両private packageの型検査／Biome Lint／Formatter、および全体Checker 414 files／288 Markdown／Error 0／Warning 0がPassした。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
