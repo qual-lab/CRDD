@@ -1008,6 +1008,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.provisioningRecordCurrentPointerPersistence,
     "implemented_candidate",
   );
+  assert.equal(
+    contract.provisioningRecordStore.recovery,
+    "implemented_candidate_explicit_only",
+  );
   assert.equal(contract.provisioningTrustFloorPersistence, "not_implemented");
   assert.equal(contract.repositoryGenerationPersistence, "not_implemented");
   assert.equal(contract.recoveryJournalPersistence, "not_implemented");

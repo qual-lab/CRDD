@@ -15,6 +15,7 @@ import {
   describeProvisioningRecordStoreContract,
   loadCurrentProvisioningRecordCandidate,
   persistCurrentProvisioningRecordForEffect,
+  recoverCurrentProvisioningRecordForEffect,
 } from "../src/security/provisioning-record-store.ts";
 import {
   assertCanonicalCandidate,
@@ -146,6 +147,61 @@ test("pending、改変currentおよび不正Rootをfail closedにする", () => 
         .status,
       "blocked",
     );
+  } finally {
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("pending pointerを明示操作だけで安全に復旧する", () => {
+  const fixture = storageFixture();
+  try {
+    const persisted = persistCurrentProvisioningRecordForEffect(
+      fixture.root,
+      envelopeBytes(),
+    );
+    assert.equal(persisted.status, "candidate");
+    const currentPath = path.join(fixture.root, "current.json");
+    const pendingPath = `${currentPath}.pending`;
+    fs.renameSync(currentPath, pendingPath);
+    assert.equal(
+      loadCurrentProvisioningRecordCandidate(fixture.root).recoveryRequired,
+      true,
+    );
+    const recovered = recoverCurrentProvisioningRecordForEffect(fixture.root);
+    assert.equal(recovered.status, "candidate");
+    assert.equal(recovered.recordHash, persisted.recordHash);
+    assert.equal(recovered.persistenceCompleted, true);
+    assert.equal(recovered.filesystemEffectIssued, true);
+    assert.equal(fs.existsSync(pendingPath), false);
+    assert.equal(
+      recoverCurrentProvisioningRecordForEffect(fixture.root).reason,
+      "provisioning_record_store_recovery_not_required",
+    );
+  } finally {
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("同一pendingを除去し不正pendingを推測復旧しない", () => {
+  const fixture = storageFixture();
+  try {
+    assert.equal(
+      persistCurrentProvisioningRecordForEffect(fixture.root, envelopeBytes())
+        .status,
+      "candidate",
+    );
+    const currentPath = path.join(fixture.root, "current.json");
+    const pendingPath = `${currentPath}.pending`;
+    fs.copyFileSync(currentPath, pendingPath, fs.constants.COPYFILE_EXCL);
+    assert.equal(
+      recoverCurrentProvisioningRecordForEffect(fixture.root).status,
+      "candidate",
+    );
+    fs.writeFileSync(pendingPath, "{}", { flag: "wx" });
+    const invalid = recoverCurrentProvisioningRecordForEffect(fixture.root);
+    assert.equal(invalid.status, "blocked");
+    assert.equal(invalid.recoveryRequired, true);
+    assert.equal(fs.existsSync(pendingPath), true);
   } finally {
     fs.rmSync(fixture.parent, { recursive: true, force: true });
   }

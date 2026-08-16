@@ -1391,6 +1391,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "implemented_candidate",
   );
   assert.equal(
+    report.runtimeActivation.provisioningRecordStore.recovery,
+    "implemented_candidate_explicit_only",
+  );
+  assert.equal(
     report.runtimeActivation.provisioningRecordLifecyclePersistence,
     "not_implemented",
   );

@@ -1075,3 +1075,11 @@ Record更新では既存pure Coreへ系列検証を追加し、record revision�
 Runtime activationとdoctorはFilesystem read／write、current pointer contract／persistenceを`implemented_candidate`として同じprivate snapshotから投影する。Runtime所有Trust Anchor集合、失効評価、trust floor、明示復旧、Authority Root resolver／保護、Provisioner Effect接続、完全Lifecycle、Authority、Capabilityおよびready遷移は未実装であり、既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
 
 Node.js 24.19.0で、Coordinator 307 / 307、Checker 150 / 150、両private packageの型検査／Biome Lint／Formatter、および全体Checker 447 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。端末固有Authority Root、実Trust Anchor、実秘密鍵および実Provisioning Recordは使用・生成していない。
+
+### 2026-08-16 — Provisioning Record pointer明示復旧候補
+
+通常のRecord読取り／書込みからpending pointerを自動処理せず、専用の明示復旧Effect候補を追加した。復旧はpending pointerと参照先immutable Recordをcanonical byte／content Hashで再検証し、current欠落時の適用、currentと同一Hashの場合のpending除去、またはpure Coreが承認する正しい次revisionへの遷移だけを許す。current改変、不正pending、別系列、rollback、同revision差替えまたは再読取り不一致では状態を推測せず`blocked`に保つ。
+
+復旧結果はRecord Hashと状態だけを返し、raw envelope、canonical byte、絶対Path、署名または鍵を公開しない。RepositoryはSchema、実装、試験および固定相対Pathを所有し、端末固有Record状態は引き続きAuthority Rootへ限定する。Runtime所有Trust、失効、trust floor、Authority Root resolver／保護、Provisioner接続、Authority、Capabilityおよびready遷移は未実装であり、既存blockerとGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
+
+Node.js 24.19.0で、Coordinator 309 / 309、Checker 150 / 150、両private packageの型検査／Biome Lint／Formatter、および全体Checker 447 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。端末固有Storeへの復旧Effectは試験fixture内だけで実行し、実Authority Rootまたは実Provisioning Recordを変更していない。

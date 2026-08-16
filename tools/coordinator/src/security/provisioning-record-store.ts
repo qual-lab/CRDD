@@ -210,7 +210,14 @@ function syncDirectory(directory: string) {
 
 function loadCurrent(paths: NonNullable<ReturnType<typeof storagePaths>>) {
   if (fs.existsSync(paths.pending)) return null;
-  const pointerBytes = readStableBytes(paths.current, POINTER_MAXIMUM_BYTES);
+  return loadPointerTarget(paths, paths.current);
+}
+
+function loadPointerTarget(
+  paths: NonNullable<ReturnType<typeof storagePaths>>,
+  pointerPath: string,
+) {
+  const pointerBytes = readStableBytes(pointerPath, POINTER_MAXIMUM_BYTES);
   const pointer = pointerBytes ? decodePointer(pointerBytes) : null;
   if (!pointer) return null;
   const recordPath = path.join(paths.recordsRoot, `${pointer.recordHash}.json`);
@@ -355,6 +362,72 @@ export function persistCurrentProvisioningRecordForEffect(
   }
 }
 
+export function recoverCurrentProvisioningRecordForEffect(
+  storageRoot: unknown,
+) {
+  try {
+    const paths = storagePaths(storageRoot);
+    if (!paths) return blocked("provisioning_record_store_root_invalid");
+    if (!fs.existsSync(paths.pending)) {
+      return blocked("provisioning_record_store_recovery_not_required");
+    }
+    const pending = loadPointerTarget(paths, paths.pending);
+    if (!pending) {
+      return blocked("provisioning_record_store_pending_invalid", true);
+    }
+    const current = fs.existsSync(paths.current)
+      ? loadPointerTarget(paths, paths.current)
+      : null;
+    if (fs.existsSync(paths.current) && !current) {
+      return blocked("provisioning_record_store_current_invalid", true);
+    }
+    if (current && current.pointer.recordHash !== pending.pointer.recordHash) {
+      const lineage = verifyProvisioningRecordLineageCandidate({
+        previousEnvelopeBytes: current.recordBytes,
+        nextEnvelopeBytes: pending.recordBytes,
+      });
+      if (
+        lineage.status !== "candidate" ||
+        lineage.nextRecordHash !== pending.pointer.recordHash
+      ) {
+        return blocked(
+          "provisioning_record_store_recovery_lineage_invalid",
+          true,
+        );
+      }
+    }
+    if (current?.pointer.recordHash === pending.pointer.recordHash) {
+      fs.unlinkSync(paths.pending);
+    } else {
+      fs.renameSync(paths.pending, paths.current);
+    }
+    const isParentDirectorySynced = syncDirectory(storageRoot as string);
+    const confirmed = loadCurrent(paths);
+    if (
+      !confirmed ||
+      confirmed.pointer.recordHash !== pending.pointer.recordHash
+    ) {
+      return blocked(
+        "provisioning_record_store_recovery_reread_mismatch",
+        true,
+      );
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "provisioning_record_store_recovered_and_reread",
+      recordHash: confirmed.pointer.recordHash,
+      persistenceCompleted: true,
+      recoveryRequired: false,
+      parentDirectorySynced: isParentDirectorySynced,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: true,
+    });
+  } catch {
+    return blocked("provisioning_record_store_recovery_failed", true);
+  }
+}
+
 export function describeProvisioningRecordStoreContract() {
   return Object.freeze({
     contract: "crdd-coordinator/provisioning-record-store",
@@ -367,7 +440,7 @@ export function describeProvisioningRecordStoreContract() {
     filesystemRead: "implemented_candidate",
     filesystemWrite: "implemented_candidate",
     currentPointerPersistence: "implemented_candidate",
-    recovery: "blocked_explicit_recovery_required",
+    recovery: "implemented_candidate_explicit_only",
     repositoryCanonicalRecordStored: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
