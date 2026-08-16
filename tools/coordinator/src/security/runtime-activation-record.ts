@@ -615,6 +615,8 @@ export function describeRuntimeActivationContract() {
       initialEnrollmentRuntimeState.firstVerificationAttemptConsumption,
     provisioningRecordContract: "not_implemented",
     provisioningRecordVerification: "not_implemented",
+    provisioningRecordAuthorityRootBindingVerification:
+      provisioningRecordPureCore.authorityRootBindingVerification,
     provisioningRecordTrustAnchorSet: "not_implemented",
     provisioningRecordRevocationEvaluation: "not_implemented",
     provisioningRecordFilesystemRead: provisioningRecordStore.filesystemRead,
@@ -1099,6 +1101,8 @@ export function describeRuntimeActivationContract() {
     provisioningRecordContract: implementation.provisioningRecordContract,
     provisioningRecordVerification:
       implementation.provisioningRecordVerification,
+    provisioningRecordAuthorityRootBindingVerification:
+      implementation.provisioningRecordAuthorityRootBindingVerification,
     provisioningRecordTrustAnchorSet:
       implementation.provisioningRecordTrustAnchorSet,
     provisioningRecordRevocationEvaluation:

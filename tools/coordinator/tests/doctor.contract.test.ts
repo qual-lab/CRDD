@@ -657,6 +657,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
         revocationManifestCodec: "implemented_candidate_untrusted_input",
         aggregateCryptographicCondition:
           "implemented_candidate_fail_closed_all_entries",
+        authorityRootBindingVerification: "implemented_candidate",
         recordSignatureAlgorithm: "ECDSA-P256-SHA256",
         recordSignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
         runtimeOwnedBundledTrustSelection: "not_implemented",
@@ -1377,6 +1378,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.provisioningRecordVerification,
     "not_implemented",
+  );
+  assert.equal(
+    report.runtimeActivation.provisioningRecordAuthorityRootBindingVerification,
+    "implemented_candidate",
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordTrustAnchorSet,

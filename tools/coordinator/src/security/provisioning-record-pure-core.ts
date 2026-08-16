@@ -711,6 +711,74 @@ export function verifyProvisioningRecordLineageCandidate(rawInput: unknown) {
     });
   }
 }
+export function verifyProvisioningRecordAuthorityRootBindingCandidate(
+  rawInput: unknown,
+) {
+  const buildInvalidResult = (
+    reason: string,
+    recordHash: string | null = null,
+  ) =>
+    Object.freeze({
+      status: "blocked" as const,
+      reason,
+      recordHash,
+      authorityRootBindingMatch: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  try {
+    const input = exactRecord(rawInput, [
+      "envelopeBytes",
+      "selectedAuthorityRootAbsolutePath",
+      "observedAuthorityRootIdentityHash",
+      "observedAuthorityRootProtectionHash",
+    ]);
+    if (
+      !input ||
+      typeof input.selectedAuthorityRootAbsolutePath !== "string" ||
+      typeof input.observedAuthorityRootIdentityHash !== "string" ||
+      typeof input.observedAuthorityRootProtectionHash !== "string"
+    ) {
+      return buildInvalidResult(
+        "provisioning_record_authority_root_binding_input_invalid",
+      );
+    }
+    const decoded = decode(normalizeEnvelope, input.envelopeBytes);
+    const envelope = decoded ? normalizeEnvelope(decoded.value) : null;
+    if (!decoded || !envelope) {
+      return buildInvalidResult(
+        "provisioning_record_authority_root_binding_record_invalid",
+      );
+    }
+    const payload = envelope.payload;
+    if (
+      payload.authorityRootAbsolutePath !==
+        input.selectedAuthorityRootAbsolutePath ||
+      payload.authorityRootIdentityHash !==
+        input.observedAuthorityRootIdentityHash ||
+      payload.authorityRootProtectionHash !==
+        input.observedAuthorityRootProtectionHash
+    ) {
+      return buildInvalidResult(
+        "provisioning_record_authority_root_binding_mismatch",
+        decoded.canonicalHash,
+      );
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "provisioning_record_authority_root_binding_candidate",
+      recordHash: decoded.canonicalHash,
+      authorityRootBindingMatch: true,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return buildInvalidResult(
+      "provisioning_record_authority_root_binding_input_invalid",
+    );
+  }
+}
+
 export function compileProvisioningTrustAnchorSetCandidate(raw: unknown) {
   return codecResult(
     compile(normalizeKeyset, raw),
@@ -867,6 +935,7 @@ export function describeProvisioningRecordPureCoreContract() {
     revocationManifestCodec: "implemented_candidate_untrusted_input",
     aggregateCryptographicCondition:
       "implemented_candidate_fail_closed_all_entries",
+    authorityRootBindingVerification: "implemented_candidate",
     runtimeOwnedBundledTrustSelection: "not_implemented",
     rollbackResistantTrustFloor: "not_implemented",
     filesystemRead: "not_implemented",

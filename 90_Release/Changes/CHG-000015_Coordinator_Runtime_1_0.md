@@ -1097,3 +1097,11 @@ pure遷移が要求するfloorをAuthority Root内の固定`.crdd-provisioning/t
 pendingがある通常読取り／書込みは`blocked`となり、明示復旧だけが欠落targetへの適用、同一floorのpending除去または単調増加floorへの遷移を行う。不正pending、rollback、同revision差替え、Root不一致または再読取り不一致を推測修復しない。RepositoryはSchema、実装、試験および固定相対Pathを所有し、実floorは端末固有Authority Rootへ限定する。Trust配布、Runtime時計、検証済みTrustからStoreへのcontroller接続、AuthorityおよびCapabilityは未実装で、Gate `blocked`を維持する。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
 
 Node.js 24.19.0で、Coordinator 314 / 314、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／113 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 451 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。端末固有floorへのFilesystem Effectは試験fixture内だけで実行し、実Authority Root、実Trust Anchorまたは実失効一覧を変更していない。
+
+### 2026-08-16 — Provisioning RecordとAuthority Rootのpure結合候補
+
+署名済み準備記録と選択済みAuthority Rootを結ぶpure検証候補を追加した。入力はRecord envelope、明示選択した絶対Path、観測済みFilesystem Identity Hashおよび保護policy Hashに限定し、Record署名対象の3値と完全一致する場合だけ候補を返す。1値でも異なる場合は別Root、環境変数または旧Pathへfallbackせず`blocked`とする。
+
+公開結果はRecord Hashと一致状態だけに限定し、絶対Path、raw envelope、署名またはFilesystem情報を出さない。本候補は選択済みRootのbindingだけを所有し、Authority Root探索、実Path Identity観測、保護Adapter、Runtime所有Trust、AuthorityまたはCapabilityを成立させない。Repository内には実装、契約および試験だけを置き、端末固有Rootを複製しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
+
+Node.js 24.19.0で、Coordinator 315 / 315、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／113 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 451 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。実Authority Root、端末固有Record、実Trust Anchorまたは秘密鍵は使用・変更していない。

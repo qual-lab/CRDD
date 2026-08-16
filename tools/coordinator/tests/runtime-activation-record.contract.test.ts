@@ -390,6 +390,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
       revocationManifestCodec: "implemented_candidate_untrusted_input",
       aggregateCryptographicCondition:
         "implemented_candidate_fail_closed_all_entries",
+      authorityRootBindingVerification: "implemented_candidate",
       recordSignatureAlgorithm: "ECDSA-P256-SHA256",
       recordSignatureEncoding: "low-S-IEEE-P1363-64-byte-unpadded-base64url",
       runtimeOwnedBundledTrustSelection: "not_implemented",
@@ -983,6 +984,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.automaticEnrollmentRenewalEffect, "not_implemented");
   assert.equal(contract.provisioningRecordContract, "not_implemented");
   assert.equal(contract.provisioningRecordVerification, "not_implemented");
+  assert.equal(
+    contract.provisioningRecordAuthorityRootBindingVerification,
+    "implemented_candidate",
+  );
   assert.equal(contract.provisioningRecordTrustAnchorSet, "not_implemented");
   assert.equal(
     contract.provisioningRecordRevocationEvaluation,

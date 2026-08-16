@@ -15,6 +15,7 @@ import {
   decodeProvisioningTrustAnchorSetCandidate,
   describeProvisioningRecordPureCoreContract,
   verifyProvisioningRecordAggregateCandidate,
+  verifyProvisioningRecordAuthorityRootBindingCandidate,
 } from "../src/security/provisioning-record-pure-core.ts";
 import {
   assertCanonicalCandidate,
@@ -196,6 +197,7 @@ test("domain framing、key ID、4成果物のrevision 1を単一contractとし�
     revocationManifestCodec: "implemented_candidate_untrusted_input",
     aggregateCryptographicCondition:
       "implemented_candidate_fail_closed_all_entries",
+    authorityRootBindingVerification: "implemented_candidate",
     runtimeOwnedBundledTrustSelection: "not_implemented",
     rollbackResistantTrustFloor: "not_implemented",
     filesystemRead: "not_implemented",
@@ -204,6 +206,33 @@ test("domain framing、key ID、4成果物のrevision 1を単一contractとし�
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
   });
+});
+
+test("署名済みRecordと選択Authority RootのIdentityをPath非公開で結ぶ", () => {
+  const f = fixture();
+  const values = compiled(f);
+  const matched = verifyProvisioningRecordAuthorityRootBindingCandidate({
+    envelopeBytes: values.envelope.canonicalBytes,
+    selectedAuthorityRootAbsolutePath: f.payload.authorityRootAbsolutePath,
+    observedAuthorityRootIdentityHash: f.payload.authorityRootIdentityHash,
+    observedAuthorityRootProtectionHash: f.payload.authorityRootProtectionHash,
+  });
+  assert.equal(matched.status, "candidate");
+  assert.equal(matched.authorityRootBindingMatch, true);
+  assert.equal(
+    JSON.stringify(matched).includes(f.payload.authorityRootAbsolutePath),
+    false,
+  );
+  assert.equal(
+    verifyProvisioningRecordAuthorityRootBindingCandidate({
+      envelopeBytes: values.envelope.canonicalBytes,
+      selectedAuthorityRootAbsolutePath: f.payload.authorityRootAbsolutePath,
+      observedAuthorityRootIdentityHash: "9".repeat(64),
+      observedAuthorityRootProtectionHash:
+        f.payload.authorityRootProtectionHash,
+    }).reason,
+    "provisioning_record_authority_root_binding_mismatch",
+  );
 });
 
 test("各codecはcanonical bytesだけをround-tripし、非canonical raw JSONを拒否する", () => {
