@@ -643,6 +643,74 @@ export function decodeProvisioningRecordEnvelopeCandidate(raw: unknown) {
     "provisioning_record_envelope",
   );
 }
+
+export function verifyProvisioningRecordLineageCandidate(rawInput: unknown) {
+  try {
+    const input = exactRecord(rawInput, [
+      "previousEnvelopeBytes",
+      "nextEnvelopeBytes",
+    ]);
+    if (!input) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_lineage_input_invalid",
+        nextRecordHash: null,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    const previous = decode(normalizeEnvelope, input.previousEnvelopeBytes);
+    const next = decode(normalizeEnvelope, input.nextEnvelopeBytes);
+    const previousEnvelope = previous
+      ? normalizeEnvelope(previous.value)
+      : null;
+    const nextEnvelope = next ? normalizeEnvelope(next.value) : null;
+    if (!previous || !next || !previousEnvelope || !nextEnvelope) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_lineage_artifact_invalid",
+        nextRecordHash: null,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    const previousPayload = previousEnvelope.payload;
+    const nextPayload = nextEnvelope.payload;
+    if (
+      nextPayload.recordRevision !== previousPayload.recordRevision + 1 ||
+      nextPayload.previousRecordHash !== previous.canonicalHash ||
+      nextPayload.recordId !== previousPayload.recordId ||
+      nextPayload.platformScopeId !== previousPayload.platformScopeId ||
+      nextPayload.provisionerIdentityHash !==
+        previousPayload.provisionerIdentityHash ||
+      nextPayload.provisionerEnrollmentId !==
+        previousPayload.provisionerEnrollmentId
+    ) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_lineage_mismatch",
+        nextRecordHash: null,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "provisioning_record_lineage_candidate",
+      nextRecordHash: next.canonicalHash,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "provisioning_record_lineage_input_invalid",
+      nextRecordHash: null,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  }
+}
 export function compileProvisioningTrustAnchorSetCandidate(raw: unknown) {
   return codecResult(
     compile(normalizeKeyset, raw),

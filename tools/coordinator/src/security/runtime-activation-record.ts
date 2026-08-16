@@ -4,6 +4,7 @@ import { describeAuthorityRootLocatorContract } from "./authority-root-locator.t
 import { describeRuntimeActivationLocatorBindingContract } from "./runtime-activation-locator-binding-contract.ts";
 import { describeProvisioningSignaturePrimitivesContract } from "./provisioning-signature-primitives.ts";
 import { describeProvisioningRecordPureCoreContract } from "./provisioning-record-pure-core.ts";
+import { describeProvisioningRecordStoreContract } from "./provisioning-record-store.ts";
 import { describeInitialEnrollmentPureCoreContract } from "./initial-enrollment-pure-core.ts";
 import { describeInitialEnrollmentRuntimeStateContract } from "./initial-enrollment-runtime-state.ts";
 import { describePlatformKeyStoragePolicyContract } from "./platform-key-storage-policy.ts";
@@ -472,6 +473,7 @@ export function describeRuntimeActivationContract() {
     describeProvisioningSignaturePrimitivesContract();
   const provisioningRecordPureCore =
     describeProvisioningRecordPureCoreContract();
+  const provisioningRecordStore = describeProvisioningRecordStoreContract();
   const initialEnrollmentPureCore = describeInitialEnrollmentPureCoreContract();
   const initialEnrollmentRuntimeState =
     describeInitialEnrollmentRuntimeStateContract();
@@ -610,11 +612,13 @@ export function describeRuntimeActivationContract() {
     provisioningRecordVerification: "not_implemented",
     provisioningRecordTrustAnchorSet: "not_implemented",
     provisioningRecordRevocationEvaluation: "not_implemented",
-    provisioningRecordFilesystemRead: "not_implemented",
+    provisioningRecordFilesystemRead: provisioningRecordStore.filesystemRead,
     provisioningRecordLifecyclePersistence: "not_implemented",
-    provisioningRecordFilesystemWrite: "not_implemented",
-    provisioningRecordCurrentPointerContract: "not_implemented",
-    provisioningRecordCurrentPointerPersistence: "not_implemented",
+    provisioningRecordFilesystemWrite: provisioningRecordStore.filesystemWrite,
+    provisioningRecordCurrentPointerContract:
+      provisioningRecordStore.currentPointerContract,
+    provisioningRecordCurrentPointerPersistence:
+      provisioningRecordStore.currentPointerPersistence,
     provisioningTrustFloorPersistence: "not_implemented",
     repositoryGenerationPersistence: "not_implemented",
     recoveryJournalPersistence: "not_implemented",
@@ -631,6 +635,7 @@ export function describeRuntimeActivationContract() {
     activationLocatorBinding,
     provisioningSignaturePrimitives,
     provisioningRecordPureCore,
+    provisioningRecordStore,
     initialEnrollmentPureCore,
     initialEnrollmentRuntimeState,
     platformKeyStoragePolicy,
@@ -959,6 +964,7 @@ export function describeRuntimeActivationContract() {
     provisioningSignaturePrimitives:
       implementation.provisioningSignaturePrimitives,
     provisioningRecordPureCore: implementation.provisioningRecordPureCore,
+    provisioningRecordStore: implementation.provisioningRecordStore,
     initialEnrollmentPureCore: implementation.initialEnrollmentPureCore,
     initialEnrollmentRuntimeState: implementation.initialEnrollmentRuntimeState,
     platformKeyStoragePolicy: implementation.platformKeyStoragePolicy,

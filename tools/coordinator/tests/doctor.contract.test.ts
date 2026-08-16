@@ -679,7 +679,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       signatureVerifier: "implemented_candidate_fail_closed_all_entries",
       embeddedTrustAnchorSet: "not_implemented",
       revocationEvaluator: "not_implemented",
-      filesystemRead: "not_implemented",
+      filesystemRead: "implemented_candidate",
       resolver: "not_implemented",
       lifecyclePersistence: "not_implemented",
       filesystemEffectIssued: false,
@@ -971,10 +971,11 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       routineRunSelection: "verified_record_and_locator_only_target",
       selectedSourceFailureBehavior:
         "blocked_without_lower_priority_fallback_and_reprovision_required",
-      filesystemRead: "not_implemented",
-      filesystemWrite: "not_implemented",
-      authorityRecordCurrentPointerContract: "not_implemented",
-      authorityRecordCurrentPointerPersistence: "not_implemented",
+      filesystemRead: "implemented_candidate",
+      filesystemWrite: "implemented_candidate",
+      authorityRecordCurrentPointerContract:
+        "crdd-coordinator/provisioning-record-current-pointer",
+      authorityRecordCurrentPointerPersistence: "implemented_candidate",
       trustFloorPersistence: "not_implemented",
       repositoryGenerationPersistence: "not_implemented",
       recoveryJournalPersistence: "not_implemented",
@@ -1387,7 +1388,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordFilesystemRead,
-    "not_implemented",
+    "implemented_candidate",
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordLifecyclePersistence,

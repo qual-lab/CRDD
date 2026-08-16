@@ -1063,3 +1063,15 @@ Windowsの既知フォルダー（known folder）である共通アプリケー�
 Runtime activationとdoctorは同じprivate contract snapshotから本readerを`implemented_candidate`として投影する。ただし通常runへのAuthority接続、Provisioning Record／Authority Root結合、activation／disable Effect、ready遷移およびReleaseは未実装である。reader成功だけからRuntime Authority、CapabilityまたはFilesystem／Network Effectを発行せず、既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。Repository外へ残すのはRelease秘密鍵と端末固有ProgramData状態だけである。
 
 本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+### 2026-08-16 — Provisioning Record immutable Store候補
+
+共有Authority Root内の固定`.crdd-provisioning`を準備記録（Provisioning Record）Store Rootとし、`records/<recordHash>.json`のimmutable署名包絡とcanonical `current.json` pointerへ分離した。実装、Schema、固定相対レイアウトおよび試験はRepositoryを正本とし、端末固有RecordはAuthority Rootだけへ保存してRepositoryへ複製しない。旧Path alias、互換shim、汎用Path writerまたは別Receipt成果物を追加しない。
+
+StoreはRecord envelopeを既存exact decoderで所有copyへ変換した後、content Hash名のfileをexclusive createして`fsync`し、records directoryを同期する。current pointerは固定contract／revision／Record Hashだけをcanonical byteへ固定し、pending fileの`fsync`、原子的置換、parent directory同期および同一handle再読取りを要求する。既存immutable fileはbyte完全一致だけを冪等候補とし、別内容、pending、改変または再読取り不一致を`blocked`へ閉じる。
+
+Record更新では既存pure Coreへ系列検証を追加し、record revisionの1増分、previous Record Hash、Record ID、Platform scope、Provisioner Identityおよび登録IDの一致を全て要求する。同一Record Hashの冪等再適用だけを例外とし、古いRecord、同revision差替えまたは別系列へcurrent pointerを移動しない。公開結果はRecord Hashと状態だけに限定し、raw envelope、canonical byte、絶対Path、署名または鍵を返さない。
+
+Runtime activationとdoctorはFilesystem read／write、current pointer contract／persistenceを`implemented_candidate`として同じprivate snapshotから投影する。Runtime所有Trust Anchor集合、失効評価、trust floor、明示復旧、Authority Root resolver／保護、Provisioner Effect接続、完全Lifecycle、Authority、Capabilityおよびready遷移は未実装であり、既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+Node.js 24.19.0で、Coordinator 307 / 307、Checker 150 / 150、両private packageの型検査／Biome Lint／Formatter、および全体Checker 447 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。端末固有Authority Root、実Trust Anchor、実秘密鍵および実Provisioning Recordは使用・生成していない。

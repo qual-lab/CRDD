@@ -412,7 +412,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
     signatureVerifier: "implemented_candidate_fail_closed_all_entries",
     embeddedTrustAnchorSet: "not_implemented",
     revocationEvaluator: "not_implemented",
-    filesystemRead: "not_implemented",
+    filesystemRead: "implemented_candidate",
     resolver: "not_implemented",
     lifecyclePersistence: "not_implemented",
     filesystemEffectIssued: false,
@@ -686,10 +686,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
     routineRunSelection: "verified_record_and_locator_only_target",
     selectedSourceFailureBehavior:
       "blocked_without_lower_priority_fallback_and_reprovision_required",
-    filesystemRead: "not_implemented",
-    filesystemWrite: "not_implemented",
-    authorityRecordCurrentPointerContract: "not_implemented",
-    authorityRecordCurrentPointerPersistence: "not_implemented",
+    filesystemRead: "implemented_candidate",
+    filesystemWrite: "implemented_candidate",
+    authorityRecordCurrentPointerContract:
+      "crdd-coordinator/provisioning-record-current-pointer",
+    authorityRecordCurrentPointerPersistence: "implemented_candidate",
     trustFloorPersistence: "not_implemented",
     repositoryGenerationPersistence: "not_implemented",
     recoveryJournalPersistence: "not_implemented",
@@ -987,19 +988,25 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.provisioningRecordRevocationEvaluation,
     "not_implemented",
   );
-  assert.equal(contract.provisioningRecordFilesystemRead, "not_implemented");
+  assert.equal(
+    contract.provisioningRecordFilesystemRead,
+    "implemented_candidate",
+  );
   assert.equal(
     contract.provisioningRecordLifecyclePersistence,
     "not_implemented",
   );
-  assert.equal(contract.provisioningRecordFilesystemWrite, "not_implemented");
+  assert.equal(
+    contract.provisioningRecordFilesystemWrite,
+    "implemented_candidate",
+  );
   assert.equal(
     contract.provisioningRecordCurrentPointerContract,
-    "not_implemented",
+    "crdd-coordinator/provisioning-record-current-pointer",
   );
   assert.equal(
     contract.provisioningRecordCurrentPointerPersistence,
-    "not_implemented",
+    "implemented_candidate",
   );
   assert.equal(contract.provisioningTrustFloorPersistence, "not_implemented");
   assert.equal(contract.repositoryGenerationPersistence, "not_implemented");
