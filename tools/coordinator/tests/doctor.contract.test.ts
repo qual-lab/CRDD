@@ -4,7 +4,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import type { TestContext } from "node:test";
 
 import * as executionEnvironment from "../src/security/execution-environment.ts";
 import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
@@ -41,7 +40,7 @@ import {
   recoverDockerIsolationProbe,
   validateContainerInspect,
 } from "../src/security/docker-isolation.ts";
-import { assertPresent, assertRecord, errorCode } from "./test-support.ts";
+import { assertPresent, errorCode } from "./test-support.ts";
 
 function recordedIdentity(target: string) {
   const metadata = fs.lstatSync(target, { bigint: true });

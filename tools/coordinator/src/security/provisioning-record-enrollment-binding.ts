@@ -201,8 +201,7 @@ function exactBindings(raw: unknown): readonly Binding[] | null {
   for (let index = 0; index < length.value; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(raw, String(index));
     if (
-      !descriptor ||
-      !descriptor.enumerable ||
+      !descriptor?.enumerable ||
       !("value" in descriptor) ||
       descriptor.get ||
       descriptor.set

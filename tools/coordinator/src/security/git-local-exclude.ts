@@ -84,7 +84,7 @@ function repositoryRelativePath(
 }
 
 function escapeGitIgnoreSegment(segment: string) {
-  return segment.replace(/([\\*?\[\]#! ])/gu, "\\$1");
+  return segment.replace(/([\\*?[\]#! ])/gu, "\\$1");
 }
 
 function exactExcludeEntry(relative: string) {

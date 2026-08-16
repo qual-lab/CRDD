@@ -90,8 +90,7 @@ function activationCandidate(raw: unknown): ActivationCandidate | null {
   const result = snapshotPlainRecord(raw, RESULT_KEYS);
   const record = result && snapshotPlainRecord(result.record, RECORD_KEYS);
   if (
-    !result ||
-    result.status !== "candidate" ||
+    result?.status !== "candidate" ||
     typeof result.recordHash !== "string" ||
     !Buffer.isBuffer(result.canonicalBytes) ||
     !record

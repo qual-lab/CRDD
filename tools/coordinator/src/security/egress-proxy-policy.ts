@@ -421,8 +421,7 @@ export function evaluateProxyConnectForFixture(
     new Set(["method", "authority"]),
   );
   if (
-    !policyValue ||
-    policyValue.status !== "candidate" ||
+    policyValue?.status !== "candidate" ||
     policyValue.authorization !== "authority_verification_required"
   ) {
     return Object.freeze({
@@ -430,7 +429,7 @@ export function evaluateProxyConnectForFixture(
       reason: "policy_candidate_required",
     });
   }
-  if (!requestValue || requestValue.method !== "CONNECT") {
+  if (requestValue?.method !== "CONNECT") {
     return Object.freeze({
       decision: "deny",
       reason: "connect_method_required",

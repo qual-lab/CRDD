@@ -158,7 +158,7 @@ function exactArray<T>(
   const values: T[] = [];
   for (let index = 0; index < length; index += 1) {
     const item = Object.getOwnPropertyDescriptor(raw, String(index));
-    if (!item || !item.enumerable || !("value" in item) || item.get || item.set)
+    if (!item?.enumerable || !("value" in item) || item.get || item.set)
       return null;
     const normalized = normalize(item.value);
     if (!normalized) return null;

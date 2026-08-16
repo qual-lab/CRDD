@@ -232,7 +232,7 @@ test("lstat後にcontrol fileを同名の別実体へ置換しても読まない
   const marker = path.join(repositoryRoot, ".git");
   const originalOpen = fs.openSync;
   let hasReplaced = false;
-  fs.openSync = function (target, ...args) {
+  fs.openSync = (target, ...args) => {
     if (!hasReplaced && target === path.join(marker, "HEAD")) {
       hasReplaced = true;
       fs.renameSync(target, `${target}.original`);
@@ -255,17 +255,13 @@ test("同一handleの読取り中にsizeが変わる場合はblockedへ閉じる
   makeGitDirectory(path.join(repositoryRoot, ".git"));
   const originalRead = fs.readSync;
   let hasChanged = false;
-  Reflect.set(
-    fs,
-    "readSync",
-    function (descriptor: number, ...args: unknown[]) {
-      if (!hasChanged) {
-        hasChanged = true;
-        fs.ftruncateSync(descriptor, 1);
-      }
-      return Reflect.apply(originalRead, fs, [descriptor, ...args]);
-    },
-  );
+  Reflect.set(fs, "readSync", (descriptor: number, ...args: unknown[]) => {
+    if (!hasChanged) {
+      hasChanged = true;
+      fs.ftruncateSync(descriptor, 1);
+    }
+    return Reflect.apply(originalRead, fs, [descriptor, ...args]);
+  });
   try {
     assert.equal(
       inspectRepositoryGitLayoutCandidate({ repositoryRoot }).status,
@@ -286,7 +282,7 @@ test("realpath解決中にRepository directoryを別実体へ置換しても候�
   Reflect.set(
     fs.realpathSync,
     "native",
-    function (target: unknown, ...args: unknown[]) {
+    (target: unknown, ...args: unknown[]) => {
       if (!hasReplaced && target === repositoryRoot) {
         hasReplaced = true;
         fs.renameSync(repositoryRoot, `${repositoryRoot}.original`);
@@ -311,7 +307,7 @@ test("control fileのclose失敗を成功へ流用しない", (t) => {
   makeGitDirectory(path.join(repositoryRoot, ".git"));
   const originalClose = fs.closeSync;
   let hasFailed = false;
-  fs.closeSync = function (descriptor) {
+  fs.closeSync = (descriptor) => {
     originalClose.call(fs, descriptor);
     if (!hasFailed) {
       hasFailed = true;

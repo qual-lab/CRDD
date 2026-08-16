@@ -236,13 +236,11 @@ function normalizeEnvelope(raw: unknown) {
   const length = Object.getOwnPropertyDescriptor(value.signatures, "length");
   const entry = Object.getOwnPropertyDescriptor(value.signatures, "0");
   if (
-    !length ||
-    length.value !== 1 ||
+    length?.value !== 1 ||
     length.enumerable ||
     length.configurable ||
     Reflect.ownKeys(value.signatures).length !== 2 ||
-    !entry ||
-    !entry.enumerable ||
+    !entry?.enumerable ||
     !("value" in entry) ||
     entry.get ||
     entry.set

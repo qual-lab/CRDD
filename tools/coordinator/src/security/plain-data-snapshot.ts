@@ -128,7 +128,10 @@ export function snapshotPlainArray<T = unknown>(
     }
     const allowed = new Set([
       "length",
-      ...snapshotItems.map((unusedItem, index) => String(index)),
+      ...snapshotItems.map((unusedItem, index) => {
+        void unusedItem;
+        return String(index);
+      }),
     ]);
     if (keys.some((key) => typeof key !== "string" || !allowed.has(key))) {
       return Object.freeze({

@@ -320,8 +320,7 @@ function decodeCanonicalJsonBytes<T extends Normalized<unknown>>(
       normalized &&
       canonicalizeProvisioningJsonValueCandidate(normalized.value);
     if (
-      !canonical ||
-      canonical.status !== "candidate" ||
+      canonical?.status !== "candidate" ||
       !Buffer.prototype.equals.call(bytes, canonical.canonicalBytes)
     ) {
       return blocked(`${reasonPrefix}_noncanonical_or_invalid`);

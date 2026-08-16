@@ -327,7 +327,7 @@ function inspectP256Spki(input: unknown) {
     input,
     PROVISIONING_SIGNATURE_INPUT_LIMITS.spkiDerBytes,
   );
-  if (!spkiDer || spkiDer.length !== 91) return null;
+  if (spkiDer?.length !== 91) return null;
   const key = createPublicKey({ key: spkiDer, format: "der", type: "spki" });
   if (
     key.asymmetricKeyType !== "ec" ||

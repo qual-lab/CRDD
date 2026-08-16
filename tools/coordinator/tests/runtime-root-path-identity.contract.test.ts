@@ -222,11 +222,11 @@ test("lexical disjointからreal Root包含へ変わるalias差をblockedへ閉�
   const lexicalIdentity = fs.lstatSync(lexicalRoot, { bigint: true });
   const originalLstat = fs.lstatSync;
   const originalRealpath = fs.realpathSync.native;
-  Reflect.set(fs, "lstatSync", function (target: unknown, options: unknown) {
+  Reflect.set(fs, "lstatSync", (target: unknown, options: unknown) => {
     if (target === realRoot && bigintRequested(options)) return lexicalIdentity;
     return Reflect.apply(originalLstat, fs, [target, options]);
   });
-  Reflect.set(fs.realpathSync, "native", function (target: unknown) {
+  Reflect.set(fs.realpathSync, "native", (target: unknown) => {
     if (target === lexicalRoot) return realRoot;
     return Reflect.apply(originalRealpath, fs.realpathSync, [target]);
   });
@@ -254,11 +254,11 @@ test("lexical Root包含からreal disjointへ変わるalias差をblockedへ閉�
   const lexicalIdentity = fs.lstatSync(lexicalRoot, { bigint: true });
   const originalLstat = fs.lstatSync;
   const originalRealpath = fs.realpathSync.native;
-  Reflect.set(fs, "lstatSync", function (target: unknown, options: unknown) {
+  Reflect.set(fs, "lstatSync", (target: unknown, options: unknown) => {
     if (target === realRoot && bigintRequested(options)) return lexicalIdentity;
     return Reflect.apply(originalLstat, fs, [target, options]);
   });
-  Reflect.set(fs.realpathSync, "native", function (target: unknown) {
+  Reflect.set(fs.realpathSync, "native", (target: unknown) => {
     if (target === lexicalRoot) return realRoot;
     return Reflect.apply(originalRealpath, fs.realpathSync, [target]);
   });
@@ -284,7 +284,7 @@ test("検査中のRoot replacementをcandidateへ流用しない", (t) => {
   fs.mkdirSync(replacement);
   const originalRealpath = fs.realpathSync.native;
   let hasReplaced = false;
-  Reflect.set(fs.realpathSync, "native", function (target: unknown) {
+  Reflect.set(fs.realpathSync, "native", (target: unknown) => {
     const result = Reflect.apply(originalRealpath, fs.realpathSync, [target]);
     if (!hasReplaced && target === root) {
       hasReplaced = true;
@@ -312,7 +312,7 @@ test("検査中のparent replacementをcandidateへ流用しない", (t) => {
   fs.mkdirSync(path.join(replacement, "root"), { recursive: true });
   const originalRealpath = fs.realpathSync.native;
   let hasReplaced = false;
-  Reflect.set(fs.realpathSync, "native", function (target: unknown) {
+  Reflect.set(fs.realpathSync, "native", (target: unknown) => {
     const result = Reflect.apply(originalRealpath, fs.realpathSync, [target]);
     if (!hasReplaced && target === parent) {
       hasReplaced = true;
@@ -342,7 +342,7 @@ test("検査中のRepository replacementをcandidateへ流用しない", (t) => 
   fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"), { recursive: true });
   const originalRealpath = fs.realpathSync.native;
   let hasReplaced = false;
-  Reflect.set(fs.realpathSync, "native", function (target: unknown) {
+  Reflect.set(fs.realpathSync, "native", (target: unknown) => {
     const result = Reflect.apply(originalRealpath, fs.realpathSync, [target]);
     if (!hasReplaced && target === repositoryRoot) {
       hasReplaced = true;
@@ -368,7 +368,7 @@ test("安定したFilesystem identityを取得できないFSはfail closedにす
   const root = path.join(repositoryRoot, ".crdd-runtime");
   fs.mkdirSync(root);
   const originalLstat = fs.lstatSync;
-  Reflect.set(fs, "lstatSync", function (target: unknown, options: unknown) {
+  Reflect.set(fs, "lstatSync", (target: unknown, options: unknown) => {
     const metadata = Reflect.apply(originalLstat, fs, [target, options]);
     if (target !== root || !bigintRequested(options)) return metadata;
     return {

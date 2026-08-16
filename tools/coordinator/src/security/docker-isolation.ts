@@ -221,7 +221,7 @@ export const DOCKER_CLI_POLICY = Object.freeze({
   updateBehavior: "block_until_reapproved",
 });
 
-const PROBE_SOURCE = String.raw`
+const PROBE_SOURCE = `
 import json, os, pathlib, socket, sys
 result={"marker":"${PROBE_MARKER}","allowed_writes":{},"runtime_paths_absent":True,"credential_names_absent":True,"network_blocked":False,"home_isolated":False,"tmp_isolated":False}
 for name in ("workspace","provider-home","tmp"):
@@ -647,16 +647,6 @@ function writeRecoveryRecord(
   )
     throw new Error("docker_recovery_record_failed");
   return recoveryToken(rootName, probeId, nonce, recordHash);
-}
-
-function removeRecoveryRecord(mounts: DockerMounts): void {
-  const target = recoveryRecordPath(mounts.management);
-  if (fs.existsSync(target)) {
-    const metadata = fs.lstatSync(target);
-    if (!metadata.isFile() || metadata.isSymbolicLink())
-      throw new Error("docker_recovery_record_replaced");
-    fs.rmSync(target);
-  }
 }
 
 function executeDocker(

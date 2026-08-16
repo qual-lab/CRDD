@@ -68,6 +68,24 @@ test("checker packageのRepository検証はRepository rootを明示する", () =
   );
   assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
 });
+
+test("両private packageのLintはWarningを検査失敗にする", () => {
+  for (const packageRoot of [
+    checkerRoot,
+    path.join(repositoryRoot, "tools", "coordinator"),
+  ]) {
+    const packageJson: unknown = JSON.parse(
+      fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),
+    );
+    const packageRecord = record(packageJson);
+    const scripts = packageRecord && record(packageRecord.scripts);
+    assert.equal(
+      scripts?.lint,
+      "biome lint ../.. --error-on-warnings",
+      packageRoot,
+    );
+  }
+});
 type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
 
 function record(value: unknown): Record<string, unknown> | null {

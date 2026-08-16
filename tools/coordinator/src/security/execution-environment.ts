@@ -574,7 +574,7 @@ function validatePrivateHostRecoveryRecord(
 
 function rollbackInitializingOperationDirectories(owned: unknown): void {
   const identity = ownedIdentity(owned);
-  if (!identity || identity.hostRecovery.state !== "initializing") {
+  if (identity?.hostRecovery.state !== "initializing") {
     cleanupOwnedOperationDirectories(owned);
     return;
   }

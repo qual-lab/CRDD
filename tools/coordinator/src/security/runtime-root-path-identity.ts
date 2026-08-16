@@ -297,7 +297,7 @@ function repositoryRelativePath(repositoryRoot: string, runtimeRoot: string) {
 }
 
 function escapeGitIgnoreSegment(segment: string) {
-  return segment.replace(/([\\*?\[\]#! ])/gu, "\\$1");
+  return segment.replace(/([\\*?[\]#! ])/gu, "\\$1");
 }
 
 function exactExcludeEntry(relative: string) {
@@ -356,6 +356,7 @@ export function inspectRuntimeRootPathIdentityCandidate(rawInput: unknown) {
 export function inspectPosixRuntimeRootModePrecheckCandidate(
   rawInput: unknown,
 ) {
+  void rawInput;
   if (process.platform === "win32") {
     return Object.freeze({
       status: "blocked",

@@ -75,11 +75,14 @@ function grants(
   ],
 ) {
   const base = registry().grants[0];
-  return Array.from({ length: count }, (unusedItem, index) => ({
-    ...base,
-    grantRef: `AUTH-${String(index + 1).padStart(6, "0")}`,
-    origins: originFactory(index),
-  }));
+  return Array.from({ length: count }, (unusedItem, index) => {
+    void unusedItem;
+    return {
+      ...base,
+      grantRef: `AUTH-${String(index + 1).padStart(6, "0")}`,
+      origins: originFactory(index),
+    };
+  });
 }
 
 test("Registry候補を正規化して固定Hashを生成する", () => {
@@ -313,6 +316,7 @@ test("Registry入力budgetは最大件数を受理し1超過とcanonical byte超
         Array.from(
           { length: PROVIDER_INPUT_LIMITS.originCount },
           (unusedOrigin, originIndex) => {
+            void unusedOrigin;
             const suffix = `${grantIndex}-${originIndex}.test`;
             return `https://${"a".repeat(PROVIDER_INPUT_LIMITS.originLength - 8 - suffix.length)}${suffix}`;
           },
