@@ -52,7 +52,9 @@ function fixture() {
     contractRevision: 1,
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
-    crddRevision: "a".repeat(40),
+    crddVersion: "v0.18.0",
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "4".repeat(64),
     keyStoragePolicySha256: "5".repeat(64),
@@ -85,6 +87,9 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
   const result = verifyPlatformProvisionerManifestCandidate(fixture());
   assert.equal(result.status, "candidate");
   assert.equal(result.packageName, "@qual-lab/crdd-coordinator");
+  assert.equal(result.crddVersion, "v0.18.0");
+  assert.equal(result.crddCommit, "a".repeat(40));
+  assert.equal(result.crddTree, "b".repeat(40));
   assert.equal(result.qualLabManifestCryptographicMatch, true);
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
   assert.equal(result.crddDistributionConfirmed, false);
@@ -118,6 +123,15 @@ test("package name, version, file ordering, path and digest mismatches fail clos
     },
     (value) => {
       value.manifestEnvelope.payload.packageContentRootSha256 = "e".repeat(64);
+    },
+    (value) => {
+      value.manifestEnvelope.payload.crddVersion = "0.18.0";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.crddCommit = "A".repeat(40);
+    },
+    (value) => {
+      value.manifestEnvelope.payload.crddTree = "b".repeat(39);
     },
   ];
   for (const mutate of mutations) {
@@ -174,6 +188,10 @@ test("package trust contract requires CRDD-bundled use and no native executable"
   assert.equal(contract.osNativeCodeSignatureRequiredForV1, false);
   assert.equal(contract.standalonePackagePublicationAllowed, false);
   assert.equal(contract.standalonePackageInstallationAllowed, false);
+  assert.equal(
+    contract.releaseIdentityBinding,
+    "crdd_version_commit_tree_and_package_content_root_implemented_candidate",
+  );
   assert.equal(
     contract.runtimeOwnedCrddDistributionVerification,
     "not_implemented_crdd_release_identity_target",

@@ -4,13 +4,17 @@ import { verifyPlatformProvisionerManifestCandidate } from "./platform-provision
 const INPUT_KEYS = new Set([
   "manifestVerificationInput",
   "crddDistributionObservation",
-  "expectedCrddRevision",
+  "expectedCrddVersion",
+  "expectedCrddCommit",
+  "expectedCrddTree",
 ]);
 const OBSERVATION_KEYS = new Set([
   "packageName",
   "packageVersion",
   "packageContentRootSha256",
-  "crddRevision",
+  "crddVersion",
+  "crddCommit",
+  "crddTree",
   "distributionVerdict",
   "bundledPackageIdentityStable",
   "permissionPolicyMatch",
@@ -22,7 +26,8 @@ const MANIFEST_INPUT_KEYS = new Set([
   "evaluationTime",
 ]);
 const HEX64 = /^[0-9a-f]{64}$/u;
-const CRDD_REVISION = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 
 function response<
   S extends "candidate" | "blocked",
@@ -51,8 +56,12 @@ function normalizeObservation(raw: unknown) {
     typeof value.packageVersion !== "string" ||
     typeof value.packageContentRootSha256 !== "string" ||
     !HEX64.test(value.packageContentRootSha256) ||
-    typeof value.crddRevision !== "string" ||
-    !CRDD_REVISION.test(value.crddRevision) ||
+    typeof value.crddVersion !== "string" ||
+    !CRDD_VERSION.test(value.crddVersion) ||
+    typeof value.crddCommit !== "string" ||
+    !CRDD_GIT_OBJECT_ID.test(value.crddCommit) ||
+    typeof value.crddTree !== "string" ||
+    !CRDD_GIT_OBJECT_ID.test(value.crddTree) ||
     value.distributionVerdict !== "verified_crdd_bundle" ||
     value.bundledPackageIdentityStable !== true ||
     value.permissionPolicyMatch !== true
@@ -68,8 +77,12 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
     const input = snapshotPlainRecord(rawInput, INPUT_KEYS);
     if (
       !input ||
-      typeof input.expectedCrddRevision !== "string" ||
-      !CRDD_REVISION.test(input.expectedCrddRevision)
+      typeof input.expectedCrddVersion !== "string" ||
+      !CRDD_VERSION.test(input.expectedCrddVersion) ||
+      typeof input.expectedCrddCommit !== "string" ||
+      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddCommit) ||
+      typeof input.expectedCrddTree !== "string" ||
+      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddTree)
     ) {
       return response(
         "blocked",
@@ -97,8 +110,12 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
       observation.packageVersion !== manifest.packageVersion ||
       observation.packageContentRootSha256 !==
         manifest.packageContentRootSha256 ||
-      observation.crddRevision !== manifest.crddRevision ||
-      observation.crddRevision !== input.expectedCrddRevision
+      observation.crddVersion !== manifest.crddVersion ||
+      observation.crddVersion !== input.expectedCrddVersion ||
+      observation.crddCommit !== manifest.crddCommit ||
+      observation.crddCommit !== input.expectedCrddCommit ||
+      observation.crddTree !== manifest.crddTree ||
+      observation.crddTree !== input.expectedCrddTree
     ) {
       return response(
         "blocked",
@@ -134,7 +151,7 @@ export function describePlatformProvisionerPackageGateContract() {
     manifestVerificationReuse: "implemented_candidate",
     packageIdentityBinding: "implemented_candidate",
     packageContentRootBinding: "implemented_candidate",
-    crddRevisionBinding: "implemented_candidate",
+    crddVersionCommitAndTreeBinding: "implemented_candidate",
     runtimeOwnedCrddDistributionAdapter: "not_implemented",
     runtimeOwnedPackageFilesystemAdapter: "not_implemented",
     runtimeOwnedReleaseIdentitySelection: "not_implemented",

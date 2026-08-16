@@ -27,7 +27,9 @@ const MANIFEST_KEYS = new Set([
   "contractRevision",
   "packageName",
   "packageVersion",
-  "crddRevision",
+  "crddVersion",
+  "crddCommit",
+  "crddTree",
   "packageContentRootSha256",
   "rootProtectionPolicySha256",
   "keyStoragePolicySha256",
@@ -54,7 +56,8 @@ const VERIFY_KEYS = new Set([
   "evaluationTime",
 ]);
 const HEX64 = /^[0-9a-f]{64}$/u;
-const CRDD_REVISION = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 const PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/u;
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
@@ -180,8 +183,12 @@ function normalizeManifest(raw: unknown) {
     typeof value.packageName !== "string" ||
     typeof value.packageVersion !== "string" ||
     !packageIdentity(value.packageName, value.packageVersion) ||
-    typeof value.crddRevision !== "string" ||
-    !CRDD_REVISION.test(value.crddRevision) ||
+    typeof value.crddVersion !== "string" ||
+    !CRDD_VERSION.test(value.crddVersion) ||
+    typeof value.crddCommit !== "string" ||
+    !CRDD_GIT_OBJECT_ID.test(value.crddCommit) ||
+    typeof value.crddTree !== "string" ||
+    !CRDD_GIT_OBJECT_ID.test(value.crddTree) ||
     typeof value.packageContentRootSha256 !== "string" ||
     !HEX64.test(value.packageContentRootSha256) ||
     typeof value.rootProtectionPolicySha256 !== "string" ||
@@ -197,7 +204,9 @@ function normalizeManifest(raw: unknown) {
     ...value,
     packageName: value.packageName,
     packageVersion: value.packageVersion,
-    crddRevision: value.crddRevision,
+    crddVersion: value.crddVersion,
+    crddCommit: value.crddCommit,
+    crddTree: value.crddTree,
     packageContentRootSha256: value.packageContentRootSha256,
     issuedAt: value.issuedAt,
     expiresAt: value.expiresAt,
@@ -365,7 +374,9 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
         manifestHash: manifestFrame.hash,
         packageName: observed.packageName,
         packageVersion: observed.packageVersion,
-        crddRevision: envelope.payload.crddRevision,
+        crddVersion: envelope.payload.crddVersion,
+        crddCommit: envelope.payload.crddCommit,
+        crddTree: envelope.payload.crddTree,
         packageContentRootSha256: contentFrame.hash,
         qualLabManifestCryptographicMatch: true,
       },
@@ -392,6 +403,8 @@ export function describePlatformProvisionerTrustCoreContract() {
     manifestSignatureCount: 1,
     maximumFiles: MAXIMUM_FILES,
     manifestCryptographicVerification: "implemented_candidate",
+    releaseIdentityBinding:
+      "crdd_version_commit_tree_and_package_content_root_implemented_candidate",
     packageContentRootCalculation:
       "implemented_candidate_from_owned_snapshot_of_caller_file_metadata",
     runtimeOwnedPackageFilesystemRead: "not_implemented",

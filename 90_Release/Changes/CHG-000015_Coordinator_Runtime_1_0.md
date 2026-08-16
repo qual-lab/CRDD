@@ -955,3 +955,5 @@ Qual-Labの人間の決定権限者は、公開鍵検証とOS保護を組み合�
 同梱package保護は、本番Platform ProvisioningをOS保護された配置からだけ許可する。Windowsは`SYSTEM`とmachine Administratorsだけにwriteを許可し、Runtime利用者はread／executeだけとし、一般利用者へwriteを与える継承ACEを拒否する。macOS／Linuxはroot所有、directory `0755`、file `0644`を要求し、group／other writeを拒否する。source checkoutは開発・試験に使用できるが、管理者Effectを許可しない。初回setupだけが必要な昇格と保護設定を担い、通常runでは再確認だけを行う。改変または権限不一致は自動修復せず`blocked`として再setupへ戻す。
 
 今回の後続処置は、POSIX package treeのowner／mode観測候補と、release Trust model、Identity binding、manifest固定Pathおよび実鍵未設定状態のcontract投影である。Windows DACL Adapter、CRDD Release Identity loader、署名済みmanifest loader、実Trust Anchor投入、初回setup EffectおよびEffect controllerは未実装であり、Gate `blocked`、Authority／Capability／Effect非発行を維持する。直前節の「人間判断が必要」という現在状態は本承認でsupersededされ、設計判断として現在判定へ使用しない。ただし実秘密鍵の生成・保管と公開鍵投入は人間が管理するRelease運用であり、AIがRepositoryへ生成しない。本処置は`Applied`／`Self-checked`で、必要な機械確認と独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
+
+承認済みの4点結合をexact schemaへ反映し、manifest revision 1の旧`crddRevision`単独fieldを互換aliasなしで`crddVersion`、`crddCommit`、`crddTree`へ置換した。`packageContentRootSha256`と合わせた4値を署名対象へ含め、Gateの期待値と配布観測も同じ4値へ移行する。旧schemaはCandidate時点の履歴であり、現在判定へ使用しない。

@@ -51,7 +51,9 @@ function fixture() {
     contractRevision: 1,
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
-    crddRevision: "a".repeat(40),
+    crddVersion: "v0.18.0",
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
@@ -83,12 +85,16 @@ function fixture() {
       packageName: observedPackageContent.packageName,
       packageVersion: observedPackageContent.packageVersion,
       packageContentRootSha256,
-      crddRevision: payload.crddRevision,
+      crddVersion: payload.crddVersion,
+      crddCommit: payload.crddCommit,
+      crddTree: payload.crddTree,
       distributionVerdict: "verified_crdd_bundle",
       bundledPackageIdentityStable: true,
       permissionPolicyMatch: true,
     },
-    expectedCrddRevision: payload.crddRevision,
+    expectedCrddVersion: payload.crddVersion,
+    expectedCrddCommit: payload.crddCommit,
+    expectedCrddTree: payload.crddTree,
   };
 }
 
@@ -109,13 +115,19 @@ test("CRDD bundle and manifest observations match but remain non-authoritative",
   }
 });
 
-test("CRDD revision, content, identity and permission mismatches fail closed", () => {
+test("CRDD version, Commit, Tree, content, identity and permission mismatches fail closed", () => {
   const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
     (value) => {
       value.crddDistributionObservation.distributionVerdict = "missing";
     },
     (value) => {
-      value.crddDistributionObservation.crddRevision = "b".repeat(40);
+      value.crddDistributionObservation.crddVersion = "v0.17.0";
+    },
+    (value) => {
+      value.crddDistributionObservation.crddCommit = "c".repeat(40);
+    },
+    (value) => {
+      value.crddDistributionObservation.crddTree = "d".repeat(40);
     },
     (value) => {
       value.crddDistributionObservation.packageContentRootSha256 = "f".repeat(
@@ -123,7 +135,13 @@ test("CRDD revision, content, identity and permission mismatches fail closed", (
       );
     },
     (value) => {
-      value.expectedCrddRevision = "c".repeat(40);
+      value.expectedCrddVersion = "v0.17.0";
+    },
+    (value) => {
+      value.expectedCrddCommit = "e".repeat(40);
+    },
+    (value) => {
+      value.expectedCrddTree = "f".repeat(40);
     },
     (value) => {
       value.crddDistributionObservation.bundledPackageIdentityStable = false;
@@ -153,6 +171,10 @@ test("package gate cannot treat caller CRDD observations as Effect authorization
     "implemented_candidate_non_authoritative",
   );
   assert.equal(contract.runtimeOwnedCrddDistributionAdapter, "not_implemented");
+  assert.equal(
+    contract.crddVersionCommitAndTreeBinding,
+    "implemented_candidate",
+  );
   assert.equal(contract.callerObservationMayAuthorizeEffect, false);
   assert.equal(contract.standalonePackageMayAuthorizeEffect, false);
   assert.equal(contract.effectAuthorizationIssued, false);

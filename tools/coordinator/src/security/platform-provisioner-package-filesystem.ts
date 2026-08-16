@@ -17,9 +17,12 @@ const VERIFY_KEYS = new Set([
   "manifestEnvelope",
   "releaseSignerSpkiDer",
   "evaluationTime",
-  "expectedCrddRevision",
+  "expectedCrddVersion",
+  "expectedCrddCommit",
+  "expectedCrddTree",
 ]);
-const CRDD_REVISION = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 
 type EntityIdentity = Readonly<{
   dev: bigint;
@@ -396,8 +399,12 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
     const input = snapshotPlainRecord(rawInput, VERIFY_KEYS);
     if (
       !input ||
-      typeof input.expectedCrddRevision !== "string" ||
-      !CRDD_REVISION.test(input.expectedCrddRevision)
+      typeof input.expectedCrddVersion !== "string" ||
+      !CRDD_VERSION.test(input.expectedCrddVersion) ||
+      typeof input.expectedCrddCommit !== "string" ||
+      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddCommit) ||
+      typeof input.expectedCrddTree !== "string" ||
+      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddTree)
     ) {
       return blocked("platform_provisioner_bundled_package_input_invalid");
     }
@@ -410,7 +417,9 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
     });
     if (
       verification.status !== "candidate" ||
-      verification.crddRevision !== input.expectedCrddRevision
+      verification.crddVersion !== input.expectedCrddVersion ||
+      verification.crddCommit !== input.expectedCrddCommit ||
+      verification.crddTree !== input.expectedCrddTree
     ) {
       return blocked(
         "platform_provisioner_bundled_package_verification_failed",
@@ -421,7 +430,9 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
       reason:
         "runtime_owned_package_filesystem_and_manifest_match_release_identity_permission_and_effect_required",
       manifestHash: verification.manifestHash,
-      crddRevision: verification.crddRevision,
+      crddVersion: verification.crddVersion,
+      crddCommit: verification.crddCommit,
+      crddTree: verification.crddTree,
       qualLabManifestCryptographicMatch: true,
     });
   } catch {

@@ -39,7 +39,9 @@ function signedManifest(packageContentRootSha256: string) {
     contractRevision: 1,
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
-    crddRevision: "a".repeat(40),
+    crddVersion: "v0.18.0",
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
@@ -64,7 +66,9 @@ function signedManifest(packageContentRootSha256: string) {
       },
       releaseSignerSpkiDer: spki,
       evaluationTime: "2026-08-16T00:00:00.000Z",
-      expectedCrddRevision: payload.crddRevision,
+      expectedCrddVersion: payload.crddVersion,
+      expectedCrddCommit: payload.crddCommit,
+      expectedCrddTree: payload.crddTree,
     },
   };
 }
@@ -188,7 +192,7 @@ test("同梱manifestをRuntime読取りbyteへ結ぶがAuthorityへ昇格しな�
   assert.equal("releaseSignerSpkiDer" in result, false);
 });
 
-test("不正Root、Revision不一致およびpackage metadataをfail closedにする", () => {
+test("不正Root、Release Identity不一致およびpackage metadataをfail closedにする", () => {
   assert.equal(
     inspectPlatformProvisionerPackageFilesystemCandidate(null).status,
     "blocked",
@@ -197,7 +201,7 @@ test("不正Root、Revision不一致およびpackage metadataをfail closedに�
   assert.equal(observation.status, "candidate");
   assert.equal(typeof observation.packageContentRootSha256, "string");
   const fixture = signedManifest(observation.packageContentRootSha256);
-  fixture.input.expectedCrddRevision = "b".repeat(40);
+  fixture.input.expectedCrddCommit = "c".repeat(40);
   assert.equal(
     verifyBundledCoordinatorPackageCandidate(fixture.input).status,
     "blocked",
