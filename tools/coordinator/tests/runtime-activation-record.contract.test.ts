@@ -693,6 +693,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       "crdd-coordinator/provisioning-record-current-pointer",
     authorityRecordCurrentPointerPersistence: "implemented_candidate",
     trustFloorPersistence: "implemented_candidate",
+    trustArtifactPersistence: "implemented_candidate",
+    trustArtifactFloorBinding: "implemented_candidate",
     repositoryGenerationPersistence: "not_implemented",
     recoveryJournalPersistence: "not_implemented",
     atomicPersistence: "not_implemented",
@@ -703,6 +705,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
         "platform_provisioner_effect",
       provisioningRecordCurrentPointerContract: "provisioning_record_contract",
       provisioningTrustFloorPersistence: "provisioning_record_verification",
+      provisioningTrustArtifactPersistence: "platform_provisioner_effect",
+      provisioningTrustArtifactFloorBinding: "provisioning_record_verification",
       repositoryGenerationPersistence: "activation_atomic_persistence",
       recoveryJournalPersistence: "activation_atomic_persistence",
     },
@@ -1024,6 +1028,18 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(
     contract.provisioningTrustFloorTransition,
     "implemented_candidate",
+  );
+  assert.equal(
+    contract.provisioningTrustArtifactPersistence,
+    "implemented_candidate",
+  );
+  assert.equal(
+    contract.provisioningTrustArtifactFloorBinding,
+    "implemented_candidate",
+  );
+  assert.equal(
+    contract.provisioningTrustArtifactStore.repositoryCanonicalTrustStored,
+    false,
   );
   assert.equal(
     contract.provisioningTrustFloor.sameEpochPolicy,

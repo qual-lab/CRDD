@@ -978,6 +978,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
         "crdd-coordinator/provisioning-record-current-pointer",
       authorityRecordCurrentPointerPersistence: "implemented_candidate",
       trustFloorPersistence: "implemented_candidate",
+      trustArtifactPersistence: "implemented_candidate",
+      trustArtifactFloorBinding: "implemented_candidate",
       repositoryGenerationPersistence: "not_implemented",
       recoveryJournalPersistence: "not_implemented",
       atomicPersistence: "not_implemented",
@@ -989,6 +991,9 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
         provisioningRecordCurrentPointerContract:
           "provisioning_record_contract",
         provisioningTrustFloorPersistence: "provisioning_record_verification",
+        provisioningTrustArtifactPersistence: "platform_provisioner_effect",
+        provisioningTrustArtifactFloorBinding:
+          "provisioning_record_verification",
         repositoryGenerationPersistence: "activation_atomic_persistence",
         recoveryJournalPersistence: "activation_atomic_persistence",
       },
@@ -1410,6 +1415,19 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.provisioningTrustFloorPersistence,
     "implemented_candidate",
+  );
+  assert.equal(
+    report.runtimeActivation.provisioningTrustArtifactPersistence,
+    "implemented_candidate",
+  );
+  assert.equal(
+    report.runtimeActivation.provisioningTrustArtifactFloorBinding,
+    "implemented_candidate",
+  );
+  assert.equal(
+    report.runtimeActivation.provisioningTrustArtifactStore
+      .repositoryCanonicalTrustStored,
+    false,
   );
   assert.equal(
     report.runtimeActivation.provisioningRecordLifecyclePersistence,

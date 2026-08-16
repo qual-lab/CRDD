@@ -1105,3 +1105,13 @@ Node.js 24.19.0で、Coordinator 314 / 314、Checker 150 / 150、命名／参照
 公開結果はRecord Hashと一致状態だけに限定し、絶対Path、raw envelope、署名またはFilesystem情報を出さない。本候補は選択済みRootのbindingだけを所有し、Authority Root探索、実Path Identity観測、保護Adapter、Runtime所有Trust、AuthorityまたはCapabilityを成立させない。Repository内には実装、契約および試験だけを置き、端末固有Rootを複製しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
 
 Node.js 24.19.0で、Coordinator 315 / 315、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／113 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 451 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。実Authority Root、端末固有Record、実Trust Anchorまたは秘密鍵は使用・変更していない。
+
+### 2026-08-16 — Provisioning Trust成果物Store候補
+
+信頼起点鍵集合と失効一覧をAuthority Root内の固定`.crdd-provisioning/trust-anchors/<sha256>.json`および`revocation-manifests/<sha256>.json`へ保存する専用Storeを追加した。両成果物は既存pure codecでcanonical byteへ再検証し、同一信頼epochだけを受理する。新規fileはcontent Hash名へのexclusive create、file `fsync`、対応OSでのdirectory同期および安定再読取りを要求し、既存fileは同一byteだけを冪等候補とする。片方だけが作成された途中状態は未参照のimmutable成果物として保持し、推測削除またはTrust成立扱いをしない。
+
+読取り候補は永続済みtrust floorが指定するTrust Anchor Set Hash、失効一覧Hash、信頼epochおよび失効revisionへ両成果物を再結合する。改変、欠落、同一Hashの別byte、Root差替えまたは結合不一致を`blocked`へ閉じる。公開結果はHashとrevisionの安全要約だけを返し、canonical byte、SPKI、絶対Pathまたは失効entryを出さない。RepositoryはSchema、実装、固定相対レイアウトおよび試験を所有し、実Trust成果物は端末固有Authority Rootだけへ置く。
+
+本StoreはPlatform Provisioner Effectと準備記録検証の依存へ候補投影するが、初期Trustの承認済み導入元、Runtime所有時計、準備記録の実集約検証、Authority Root resolver、Authority、Capabilityおよびready遷移は未実装である。既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
+
+Node.js 24.19.0で、Coordinator 318 / 318、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Authority Root、実Trust Anchor、実失効一覧または秘密鍵を使用・変更していない。

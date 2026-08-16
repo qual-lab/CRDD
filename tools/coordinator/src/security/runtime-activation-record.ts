@@ -5,6 +5,7 @@ import { describeRuntimeActivationLocatorBindingContract } from "./runtime-activ
 import { describeProvisioningSignaturePrimitivesContract } from "./provisioning-signature-primitives.ts";
 import { describeProvisioningRecordPureCoreContract } from "./provisioning-record-pure-core.ts";
 import { describeProvisioningRecordStoreContract } from "./provisioning-record-store.ts";
+import { describeProvisioningTrustArtifactStoreContract } from "./provisioning-trust-artifact-store.ts";
 import { describeProvisioningTrustFloorContract } from "./provisioning-trust-floor.ts";
 import { describeProvisioningTrustFloorStoreContract } from "./provisioning-trust-floor-store.ts";
 import { describeInitialEnrollmentPureCoreContract } from "./initial-enrollment-pure-core.ts";
@@ -170,6 +171,8 @@ const PROVISIONING_STORAGE_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   provisioningRecordCurrentPointerPersistence: "platform_provisioner_effect",
   provisioningRecordCurrentPointerContract: "provisioning_record_contract",
   provisioningTrustFloorPersistence: "provisioning_record_verification",
+  provisioningTrustArtifactPersistence: "platform_provisioner_effect",
+  provisioningTrustArtifactFloorBinding: "provisioning_record_verification",
   repositoryGenerationPersistence: "activation_atomic_persistence",
   recoveryJournalPersistence: "activation_atomic_persistence",
 });
@@ -476,6 +479,8 @@ export function describeRuntimeActivationContract() {
   const provisioningRecordPureCore =
     describeProvisioningRecordPureCoreContract();
   const provisioningRecordStore = describeProvisioningRecordStoreContract();
+  const provisioningTrustArtifactStore =
+    describeProvisioningTrustArtifactStoreContract();
   const provisioningTrustFloor = describeProvisioningTrustFloorContract();
   const provisioningTrustFloorStore =
     describeProvisioningTrustFloorStoreContract();
@@ -629,6 +634,10 @@ export function describeRuntimeActivationContract() {
     provisioningTrustFloorTransition:
       provisioningTrustFloor.transitionEvaluation,
     provisioningTrustFloorPersistence: provisioningTrustFloorStore.persistence,
+    provisioningTrustArtifactPersistence:
+      provisioningTrustArtifactStore.persistence,
+    provisioningTrustArtifactFloorBinding:
+      provisioningTrustArtifactStore.floorBinding,
     repositoryGenerationPersistence: "not_implemented",
     recoveryJournalPersistence: "not_implemented",
     authorityRootResolutionFromProvisioningRecord: "not_implemented",
@@ -645,6 +654,7 @@ export function describeRuntimeActivationContract() {
     provisioningSignaturePrimitives,
     provisioningRecordPureCore,
     provisioningRecordStore,
+    provisioningTrustArtifactStore,
     provisioningTrustFloor,
     provisioningTrustFloorStore,
     initialEnrollmentPureCore,
@@ -937,6 +947,10 @@ export function describeRuntimeActivationContract() {
     authorityRecordCurrentPointerPersistence:
       implementation.provisioningRecordCurrentPointerPersistence,
     trustFloorPersistence: implementation.provisioningTrustFloorPersistence,
+    trustArtifactPersistence:
+      implementation.provisioningTrustArtifactPersistence,
+    trustArtifactFloorBinding:
+      implementation.provisioningTrustArtifactFloorBinding,
     repositoryGenerationPersistence:
       implementation.repositoryGenerationPersistence,
     recoveryJournalPersistence: implementation.recoveryJournalPersistence,
@@ -1121,6 +1135,12 @@ export function describeRuntimeActivationContract() {
       implementation.provisioningTrustFloorTransition,
     provisioningTrustFloorPersistence:
       implementation.provisioningTrustFloorPersistence,
+    provisioningTrustArtifactPersistence:
+      implementation.provisioningTrustArtifactPersistence,
+    provisioningTrustArtifactFloorBinding:
+      implementation.provisioningTrustArtifactFloorBinding,
+    provisioningTrustArtifactStore:
+      implementation.provisioningTrustArtifactStore,
     repositoryGenerationPersistence:
       implementation.repositoryGenerationPersistence,
     recoveryJournalPersistence: implementation.recoveryJournalPersistence,
