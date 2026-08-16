@@ -13,6 +13,7 @@ import {
   isCallExpression,
   isClassDeclaration,
   isClassExpression,
+  isElementAccessExpression,
   isFunctionDeclaration,
   isFunctionExpression,
   isGetAccessorDeclaration,
@@ -573,6 +574,7 @@ function isNonEscapingDirectAggregate(
     if (isIdentifier(node) && resolvedSymbolId(node, checker) === symbolId) {
       if (node === declaration.name) return;
       if (node.parent?.kind === SyntaxKind.VoidExpression) return;
+      if (isSafeDirectAggregateRead(node, declaration, checker)) return;
       isNonEscaping = false;
       return;
     }
@@ -580,6 +582,190 @@ function isNonEscapingDirectAggregate(
   };
   declaration.getSourceFile().forEachChild(visit);
   return isNonEscaping;
+}
+
+function directAggregateSeed(
+  expression: Expression | undefined,
+  context: FixedInitializerContext,
+): Expression | null {
+  if (!expression) return null;
+  if (
+    isParenthesizedExpression(expression) ||
+    isAsExpression(expression) ||
+    isSatisfiesExpression(expression) ||
+    isNonNullExpression(expression)
+  ) {
+    return directAggregateSeed(expression.expression, context);
+  }
+  if (
+    isArrayLiteralExpression(expression) ||
+    isObjectLiteralExpression(expression)
+  ) {
+    return isFixedAggregateMember(expression, context) ? expression : null;
+  }
+  if (
+    isCallExpression(expression) &&
+    isGlobalPropertyAccess(
+      expression.expression,
+      "Object",
+      "freeze",
+      context.checker,
+    ) &&
+    expression.arguments.length === 1
+  ) {
+    const argument = expression.arguments[0];
+    return argument &&
+      (isArrayLiteralExpression(argument) ||
+        isObjectLiteralExpression(argument)) &&
+      isFixedAggregateMember(argument, context)
+      ? argument
+      : null;
+  }
+  return null;
+}
+
+function literalPropertyName(node: Node): string | null {
+  if (isIdentifier(node) || isStringLiteral(node)) return node.text;
+  if (node.kind === SyntaxKind.NumericLiteral) return node.getText();
+  return null;
+}
+
+function canonicalArrayIndex(node: Expression | undefined): number | null {
+  if (!node) return null;
+  const text =
+    node.kind === SyntaxKind.NumericLiteral
+      ? node.getText()
+      : isStringLiteral(node)
+        ? node.text
+        : null;
+  if (text === null || !/^(?:0|[1-9][0-9]*)$/u.test(text)) return null;
+  const index = Number(text);
+  return Number.isSafeInteger(index) ? index : null;
+}
+
+function primitiveReadType(type: Type): boolean {
+  const types = type.isUnionType() ? type.getTypes() : [type];
+  const allowedFlags =
+    TypeFlags.Boolean |
+    TypeFlags.BooleanLiteral |
+    TypeFlags.String |
+    TypeFlags.StringLiteral |
+    TypeFlags.Number |
+    TypeFlags.NumberLiteral |
+    TypeFlags.BigInt |
+    TypeFlags.BigIntLiteral;
+  return (
+    types.length > 0 &&
+    types.every(
+      (candidateType) =>
+        !candidateType.isErrorType() &&
+        !(
+          candidateType.flags &
+          (TypeFlags.Any |
+            TypeFlags.Unknown |
+            TypeFlags.Never |
+            TypeFlags.Null |
+            TypeFlags.Undefined |
+            TypeFlags.TypeParameter)
+        ) &&
+        Boolean(candidateType.flags & allowedFlags),
+    )
+  );
+}
+
+function isSafeDirectAggregateRead(
+  identifier: Identifier,
+  declaration: VariableDeclaration,
+  checker: Checker,
+): boolean {
+  type Segment = Readonly<
+    | { kind: "property"; name: string }
+    | { argument: Expression | undefined; kind: "index" }
+  >;
+  const segments: Segment[] = [];
+  let accessNode: Node = identifier;
+  while (accessNode.parent) {
+    const parent = accessNode.parent;
+    if (
+      isPropertyAccessExpression(parent) &&
+      parent.expression === accessNode
+    ) {
+      if (parent.questionDotToken) return false;
+      segments.push({ kind: "property", name: parent.name.text });
+      accessNode = parent;
+      continue;
+    }
+    if (isElementAccessExpression(parent) && parent.expression === accessNode) {
+      if (parent.questionDotToken) return false;
+      segments.push({ argument: parent.argumentExpression, kind: "index" });
+      accessNode = parent;
+      continue;
+    }
+    break;
+  }
+  const accessType = checker.getTypeAtLocation(accessNode);
+  if (segments.length === 0 || !accessType || !primitiveReadType(accessType))
+    return false;
+  const context: FixedInitializerContext = {
+    activeSymbolIds: new Set(),
+    checker,
+    sourceFile: declaration.getSourceFile(),
+  };
+  const initialSeed = directAggregateSeed(declaration.initializer, context);
+  if (!initialSeed) return false;
+  let current: Expression = initialSeed;
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (!segment) return false;
+    if (isArrayLiteralExpression(current)) {
+      if (
+        segment.kind === "property" &&
+        segment.name === "length" &&
+        index === segments.length - 1
+      ) {
+        return true;
+      }
+      if (segment.kind !== "index") return false;
+      const elementIndex = canonicalArrayIndex(segment.argument);
+      const element: Expression | undefined =
+        elementIndex === null ? undefined : current.elements[elementIndex];
+      if (!element || element.kind === SyntaxKind.SpreadElement) return false;
+      current = element;
+    } else if (isObjectLiteralExpression(current)) {
+      if (segment.kind !== "property" && segment.kind !== "index") return false;
+      const key =
+        segment.kind === "property"
+          ? segment.name
+          : segment.argument &&
+              (isStringLiteral(segment.argument) ||
+                segment.argument.kind === SyntaxKind.NumericLiteral)
+            ? literalPropertyName(segment.argument)
+            : null;
+      if (!key || ["__proto__", "constructor", "prototype"].includes(key))
+        return false;
+      let matchingValue: Expression | null = null;
+      let matchingCount = 0;
+      for (const property of current.properties) {
+        if (
+          isPropertyAssignment(property) &&
+          literalPropertyName(property.name) === key
+        ) {
+          matchingValue = property.initializer;
+          matchingCount += 1;
+        }
+      }
+      if (matchingCount !== 1 || !matchingValue) return false;
+      current = matchingValue;
+    } else {
+      return false;
+    }
+    if (index < segments.length - 1) {
+      const nestedSeed = directAggregateSeed(current, context);
+      if (!nestedSeed) return false;
+      current = nestedSeed;
+    }
+  }
+  return isFixedInitializer(current, context);
 }
 
 function isFixedModuleConstantReference(
@@ -642,11 +828,16 @@ function isFixedModuleConstantReference(
   return isFixedInitializer(declaration.initializer, referenceContext);
 }
 
-function isOwnedFixedAggregateReference(
-  identifier: Identifier,
+function isOwnedFixedAggregateAccess(
+  initializer: Expression,
   context: FixedInitializerContext,
 ): boolean {
-  const locatedSymbol = context.checker.getSymbolAtLocation(identifier);
+  let root: Expression = initializer;
+  while (isPropertyAccessExpression(root) || isElementAccessExpression(root)) {
+    root = root.expression;
+  }
+  if (!isIdentifier(root)) return false;
+  const locatedSymbol = context.checker.getSymbolAtLocation(root);
   const symbol = locatedSymbol
     ? locatedSymbol.flags & SymbolFlags.Alias
       ? context.checker.getAliasedSymbol(locatedSymbol)
@@ -654,23 +845,12 @@ function isOwnedFixedAggregateReference(
     : undefined;
   const declaration =
     symbol?.valueDeclaration?.resolve() ?? symbol?.declarations[0]?.resolve();
-  if (!declaration || !isVariableDeclaration(declaration)) return false;
-  const initializer = declaration.initializer;
-  const isAggregateInitializer = Boolean(
-    initializer &&
-      (isArrayLiteralExpression(initializer) ||
-        isObjectLiteralExpression(initializer) ||
-        (isCallExpression(initializer) &&
-          isGlobalPropertyAccess(
-            initializer.expression,
-            "Object",
-            "freeze",
-            context.checker,
-          ))),
-  );
-  return (
-    isAggregateInitializer &&
-    isFixedModuleConstantReference(identifier, context)
+  return Boolean(
+    declaration &&
+      isVariableDeclaration(declaration) &&
+      directAggregateSeed(declaration.initializer, context) &&
+      isSafeDirectAggregateRead(root, declaration, context.checker) &&
+      isFixedModuleConstantReference(root, context),
   );
 }
 
@@ -768,13 +948,11 @@ function isFixedInitializer(
         ) && isFixedInitializer(initializer.expression.arguments[1], context)
       );
     }
-    if (
-      isIdentifier(initializer.expression) &&
-      isOwnedFixedAggregateReference(initializer.expression, context)
-    )
-      return true;
+    if (isOwnedFixedAggregateAccess(initializer, context)) return true;
     return false;
   }
+  if (isElementAccessExpression(initializer))
+    return isOwnedFixedAggregateAccess(initializer, context);
   if (isBinaryExpression(initializer)) {
     return (
       isFixedInitializer(initializer.left, context) &&
@@ -1299,6 +1477,17 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const DATE_PROTOTYPE = Date.prototype;",
         'const DIRECT_FIXED_ITEMS = ["fixed"];',
         'const DIRECT_FIXED_PROFILE = { mode: "fixed" };',
+        "const DIRECT_FIXED_LENGTH = DIRECT_FIXED_ITEMS.length;",
+        "const DIRECT_FIXED_FIRST = DIRECT_FIXED_ITEMS[0];",
+        "const DIRECT_FIXED_MODE = DIRECT_FIXED_PROFILE.mode;",
+        'const DIRECT_NESTED_PROFILE = { nested: { mode: "fixed" } };',
+        "const DIRECT_NESTED_MODE = DIRECT_NESTED_PROFILE.nested.mode;",
+        'const FROZEN_PROFILE = Object.freeze({ mode: "fixed" });',
+        "const FROZEN_MODE = FROZEN_PROFILE.mode;",
+        "const FROZEN_DATE = Object.freeze(Date);",
+        "const FROZEN_DATE_PARSE = FROZEN_DATE.parse;",
+        "const FROZEN_DATE_ALIAS = Object.freeze(INTRINSIC_DATE);",
+        "const FROZEN_ALIAS_PROTOTYPE = FROZEN_DATE_ALIAS.prototype;",
         "const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(",
         "  Object.getPrototypeOf(Uint8Array.prototype),",
         '  "byteLength",',
@@ -1340,6 +1529,17 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "function consumeItems(candidateItems: readonly string[]): void { void candidateItems; }",
         'const ESCAPED_ITEMS = ["fixed"];',
         "consumeItems(ESCAPED_ITEMS);",
+        'const CONSTRUCTOR_PROFILE = { mode: "fixed" };',
+        "const constructorName = CONSTRUCTOR_PROFILE.constructor.name;",
+        'const METHOD_PROFILE = { label: "fixed" };',
+        "const methodLength = METHOD_PROFILE.toString.length;",
+        'const OUT_OF_RANGE_ITEMS = ["fixed"];',
+        "const outOfRangeItem = OUT_OF_RANGE_ITEMS[1];",
+        'const DYNAMIC_KEY = "mode";',
+        'const DYNAMIC_PROFILE = { mode: "fixed" };',
+        "const dynamicMode = DYNAMIC_PROFILE[DYNAMIC_KEY];",
+        'const NESTED_ESCAPE_PROFILE = { nested: { mode: "fixed" } };',
+        "const nestedProfile = NESTED_ESCAPE_PROFILE.nested;",
         "function invalidLocals(): void {",
         "  const invalidBoolean: boolean = true;",
         "  const invalidArray: string[] = [];",
@@ -1370,9 +1570,15 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "void FIXED_PATTERN; void FIXED_SET; void FIXED_TEMPLATE; void INTRINSIC_DATE;",
         "void INTRINSIC_DATE_NOW; void INTRINSIC_DATE_TO_ISO; void DATE_PARSE; void DATE_PROTOTYPE;",
         "void DIRECT_FIXED_ITEMS; void DIRECT_FIXED_PROFILE; void TYPED_ARRAY_BYTE_LENGTH;",
+        "void DIRECT_FIXED_LENGTH; void DIRECT_FIXED_FIRST; void DIRECT_FIXED_MODE;",
+        "void DIRECT_NESTED_PROFILE; void DIRECT_NESTED_MODE; void FROZEN_PROFILE; void FROZEN_MODE;",
+        "void FROZEN_DATE; void FROZEN_DATE_PARSE; void FROZEN_DATE_ALIAS; void FROZEN_ALIAS_PROTOTYPE;",
         "void FIXED_DIGEST; void validFunctionExpression; void validClassExpression;",
         "void resourceHandle; void weakCache; void aliasItems; void invalidNamedFunction; void invalidNamedClass;",
         "void MUTATED_ITEMS; void NESTED_MUTATED_PROFILE; void ALIASED_ITEMS; void ESCAPED_ITEMS;",
+        "void CONSTRUCTOR_PROFILE; void constructorName; void METHOD_PROFILE; void methodLength;",
+        "void OUT_OF_RANGE_ITEMS; void outOfRangeItem; void DYNAMIC_KEY; void DYNAMIC_PROFILE; void dynamicMode;",
+        "void NESTED_ESCAPE_PROFILE; void nestedProfile;",
         "void RUNTIME_PATH; void RUNTIME_FREEZE; void RESOURCE_HANDLE; void WEAK_CACHE;",
         "void CYCLE_A; void CYCLE_B; void ValidClass; void InvalidMembers;",
       ].join("\n"),
@@ -1465,6 +1671,18 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           expectedKey(fixtureFile, "DATE_PROTOTYPE", "variable", "camel-case"),
           expectedKey(
             fixtureFile,
+            "FROZEN_DATE_PARSE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "FROZEN_ALIAS_PROTOTYPE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
             "MUTATED_ITEMS",
             "variable",
             "array-plural-camel-case",
@@ -1486,6 +1704,26 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
             "ESCAPED_ITEMS",
             "variable",
             "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "CONSTRUCTOR_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(fixtureFile, "METHOD_PROFILE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "OUT_OF_RANGE_ITEMS",
+            "variable",
+            "array-plural-camel-case",
+          ),
+          expectedKey(fixtureFile, "DYNAMIC_PROFILE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "NESTED_ESCAPE_PROFILE",
+            "variable",
+            "camel-case",
           ),
           expectedKey(
             fixtureFile,
@@ -1574,12 +1812,27 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           "INTRINSIC_DATE_TO_ISO",
           "DIRECT_FIXED_ITEMS",
           "DIRECT_FIXED_PROFILE",
+          "DIRECT_FIXED_LENGTH",
+          "DIRECT_FIXED_FIRST",
+          "DIRECT_FIXED_MODE",
+          "DIRECT_NESTED_PROFILE",
+          "DIRECT_NESTED_MODE",
+          "FROZEN_PROFILE",
+          "FROZEN_MODE",
+          "FROZEN_DATE",
+          "FROZEN_DATE_ALIAS",
           "TYPED_ARRAY_BYTE_LENGTH",
           "FIXED_DIGEST",
           "runtimePath",
           "runtimeSnapshot",
           "resourceHandle",
           "weakCache",
+          "constructorName",
+          "methodLength",
+          "outOfRangeItem",
+          "DYNAMIC_KEY",
+          "dynamicMode",
+          "nestedProfile",
           "inspectFixture",
           "FixtureClass",
           "methodName",
