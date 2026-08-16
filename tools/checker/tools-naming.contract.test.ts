@@ -532,6 +532,56 @@ function isFixedAggregateMember(
   return isFixedInitializer(initializer, context);
 }
 
+function resolvedSymbolId(
+  identifier: Identifier,
+  checker: Checker,
+): number | null {
+  const locatedSymbol = checker.getSymbolAtLocation(identifier);
+  if (!locatedSymbol) return null;
+  const symbol =
+    locatedSymbol.flags & SymbolFlags.Alias
+      ? checker.getAliasedSymbol(locatedSymbol)
+      : locatedSymbol;
+  return symbol?.id ?? null;
+}
+
+function isNonEscapingDirectAggregate(
+  declaration: VariableDeclaration,
+  checker: Checker,
+): boolean {
+  if (
+    !declaration.initializer ||
+    (!isArrayLiteralExpression(declaration.initializer) &&
+      !isObjectLiteralExpression(declaration.initializer)) ||
+    !isIdentifier(declaration.name)
+  ) {
+    return false;
+  }
+  const declarationList = declaration.parent;
+  const variableStatement = declarationList?.parent;
+  if (
+    variableStatement?.kind !== SyntaxKind.VariableStatement ||
+    /^export\s/u.test(variableStatement.getText(declaration.getSourceFile()))
+  ) {
+    return false;
+  }
+  const symbolId = resolvedSymbolId(declaration.name, checker);
+  if (symbolId === null) return false;
+  let isNonEscaping = true;
+  const visit = (node: Node): void => {
+    if (!isNonEscaping) return;
+    if (isIdentifier(node) && resolvedSymbolId(node, checker) === symbolId) {
+      if (node === declaration.name) return;
+      if (node.parent?.kind === SyntaxKind.VoidExpression) return;
+      isNonEscaping = false;
+      return;
+    }
+    node.forEachChild(visit);
+  };
+  declaration.getSourceFile().forEachChild(visit);
+  return isNonEscaping;
+}
+
 function isFixedModuleConstantReference(
   identifier: Identifier,
   context: FixedInitializerContext,
@@ -573,11 +623,55 @@ function isFixedModuleConstantReference(
   ) {
     return false;
   }
-  return isFixedInitializer(declaration.initializer, {
+  const referenceContext = {
     ...context,
     activeSymbolIds: new Set(context.activeSymbolIds).add(symbol.id),
     sourceFile: declarationSource,
-  });
+  };
+  const declarationInitializer = declaration.initializer;
+  if (
+    declarationInitializer &&
+    (isArrayLiteralExpression(declarationInitializer) ||
+      isObjectLiteralExpression(declarationInitializer))
+  ) {
+    return (
+      isNonEscapingDirectAggregate(declaration, context.checker) &&
+      isFixedAggregateMember(declarationInitializer, referenceContext)
+    );
+  }
+  return isFixedInitializer(declaration.initializer, referenceContext);
+}
+
+function isOwnedFixedAggregateReference(
+  identifier: Identifier,
+  context: FixedInitializerContext,
+): boolean {
+  const locatedSymbol = context.checker.getSymbolAtLocation(identifier);
+  const symbol = locatedSymbol
+    ? locatedSymbol.flags & SymbolFlags.Alias
+      ? context.checker.getAliasedSymbol(locatedSymbol)
+      : locatedSymbol
+    : undefined;
+  const declaration =
+    symbol?.valueDeclaration?.resolve() ?? symbol?.declarations[0]?.resolve();
+  if (!declaration || !isVariableDeclaration(declaration)) return false;
+  const initializer = declaration.initializer;
+  const isAggregateInitializer = Boolean(
+    initializer &&
+      (isArrayLiteralExpression(initializer) ||
+        isObjectLiteralExpression(initializer) ||
+        (isCallExpression(initializer) &&
+          isGlobalPropertyAccess(
+            initializer.expression,
+            "Object",
+            "freeze",
+            context.checker,
+          ))),
+  );
+  return (
+    isAggregateInitializer &&
+    isFixedModuleConstantReference(identifier, context)
+  );
 }
 
 function isFixedCreateHashDigest(
@@ -676,7 +770,7 @@ function isFixedInitializer(
     }
     if (
       isIdentifier(initializer.expression) &&
-      isFixedModuleConstantReference(initializer.expression, context)
+      isOwnedFixedAggregateReference(initializer.expression, context)
     )
       return true;
     return false;
@@ -774,19 +868,30 @@ function isModuleConstant(
 ): boolean {
   const declarationList = declaration.parent;
   const variableStatement = declarationList?.parent;
-  return Boolean(
+  const isModuleScopeConst = Boolean(
     declarationList &&
       declarationList.kind === SyntaxKind.VariableDeclarationList &&
       declarationList.flags & NodeFlags.Const &&
       variableStatement?.kind === SyntaxKind.VariableStatement &&
       variableStatement.parent?.kind === SyntaxKind.SourceFile &&
-      !isFunctionInitializer(declaration.initializer) &&
-      isFixedInitializer(declaration.initializer, {
-        activeSymbolIds: new Set(),
-        checker,
-        sourceFile: declaration.getSourceFile(),
-      }),
+      !isFunctionInitializer(declaration.initializer),
   );
+  if (!isModuleScopeConst || !declaration.initializer) return false;
+  const context = {
+    activeSymbolIds: new Set<number>(),
+    checker,
+    sourceFile: declaration.getSourceFile(),
+  };
+  if (
+    isArrayLiteralExpression(declaration.initializer) ||
+    isObjectLiteralExpression(declaration.initializer)
+  ) {
+    return (
+      isNonEscapingDirectAggregate(declaration, checker) &&
+      isFixedAggregateMember(declaration.initializer, context)
+    );
+  }
+  return isFixedInitializer(declaration.initializer, context);
 }
 
 function identifierLocation(
@@ -1190,6 +1295,10 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const INTRINSIC_DATE = Date;",
         "const INTRINSIC_DATE_NOW = Date.now;",
         "const INTRINSIC_DATE_TO_ISO = Date.prototype.toISOString;",
+        "const DATE_PARSE = Date.parse;",
+        "const DATE_PROTOTYPE = Date.prototype;",
+        'const DIRECT_FIXED_ITEMS = ["fixed"];',
+        'const DIRECT_FIXED_PROFILE = { mode: "fixed" };',
         "const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(",
         "  Object.getPrototypeOf(Uint8Array.prototype),",
         '  "byteLength",',
@@ -1204,15 +1313,15 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "function aliasArrays(candidateNames: Names | null): void { void candidateNames; }",
         "function genericArrays<T extends readonly string[]>(candidateItems: T): void { void candidateItems; }",
         "function unconstrainedGeneric<T>(value: T): void { void value; }",
-        "function nonArrays(item: readonly [string, number], bytes: Uint8Array, valueSet: Set<string>, valueMap: Map<string, string>): void {",
-        "  void item; void bytes; void valueSet; void valueMap;",
+        "function nonArrays(tupleItem: readonly [string, number], bytes: Uint8Array, valueSet: Set<string>, valueMap: Map<string, string>): void {",
+        "  void tupleItem; void bytes; void valueSet; void valueMap;",
         "}",
         "const predicate = (shouldContinue: boolean): boolean => shouldContinue;",
         "const { enabled: hasFeature } = { enabled: true };",
         "function inspectValues(values: string[]): boolean { return values.length > 0; }",
-        "class BaseClass { methodName(): void {} }",
-        "class ValidClass extends BaseClass {",
+        "class ValidClass extends ExternalBase {",
         "  override methodName(): void {}",
+        "  override BAD_OVERRIDE(): void {}",
         '  get statusValue(): string { return "ok"; }',
         "  set statusValue(value: string) { void value; }",
         "}",
@@ -1222,6 +1331,15 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const runtimeSnapshot = { path: runtimePath };",
         'const resourceHandle = createHash("sha256");',
         "const weakCache = new WeakMap<object, object>();",
+        'const MUTATED_ITEMS = ["fixed"];',
+        'MUTATED_ITEMS.push("changed");',
+        'const NESTED_MUTATED_PROFILE = { values: ["fixed"] };',
+        'NESTED_MUTATED_PROFILE.values.push("changed");',
+        'const ALIASED_ITEMS = ["fixed"];',
+        "const aliasItems = ALIASED_ITEMS;",
+        "function consumeItems(candidateItems: readonly string[]): void { void candidateItems; }",
+        'const ESCAPED_ITEMS = ["fixed"];',
+        "consumeItems(ESCAPED_ITEMS);",
         "function invalidLocals(): void {",
         "  const invalidBoolean: boolean = true;",
         "  const invalidArray: string[] = [];",
@@ -1229,8 +1347,8 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "}",
         "const invalidConstant = /fixed/u;",
         "function invalidFunction(condition: boolean): boolean { return condition; }",
-        "function invalidNullableArray(item: readonly string[] | null): void { void item; }",
-        "function invalidGenericArray<T extends readonly string[]>(item: T): void { void item; }",
+        "function invalidNullableArray(nullableItem: readonly string[] | null): void { void nullableItem; }",
+        "function invalidGenericArray<T extends readonly string[]>(genericItem: T): void { void genericItem; }",
         "const invalidNamedFunction = function BadFunction(): void {};",
         "const invalidNamedClass = class badClass {};",
         "class InvalidMembers {",
@@ -1244,15 +1362,26 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const WEAK_CACHE = new WeakMap<object, object>();",
         "const CYCLE_A = CYCLE_B;",
         "const CYCLE_B = CYCLE_A;",
-        "interface ExternalShape { enabled: boolean; values: string[]; }",
-        "const externalShape: ExternalShape = { enabled: true, values: [] };",
+        "interface ExternalShape { enabled: boolean; values: string[]; BAD_PROPERTY: boolean; }",
+        "function inspectExternalShape(): void {",
+        "  const externalShape: ExternalShape = { enabled: true, values: [], BAD_PROPERTY: true };",
+        "  void externalShape;",
+        "}",
         "void FIXED_PATTERN; void FIXED_SET; void FIXED_TEMPLATE; void INTRINSIC_DATE;",
-        "void INTRINSIC_DATE_NOW; void INTRINSIC_DATE_TO_ISO; void TYPED_ARRAY_BYTE_LENGTH;",
+        "void INTRINSIC_DATE_NOW; void INTRINSIC_DATE_TO_ISO; void DATE_PARSE; void DATE_PROTOTYPE;",
+        "void DIRECT_FIXED_ITEMS; void DIRECT_FIXED_PROFILE; void TYPED_ARRAY_BYTE_LENGTH;",
         "void FIXED_DIGEST; void validFunctionExpression; void validClassExpression;",
-        "void resourceHandle; void weakCache; void invalidNamedFunction; void invalidNamedClass;",
+        "void resourceHandle; void weakCache; void aliasItems; void invalidNamedFunction; void invalidNamedClass;",
+        "void MUTATED_ITEMS; void NESTED_MUTATED_PROFILE; void ALIASED_ITEMS; void ESCAPED_ITEMS;",
         "void RUNTIME_PATH; void RUNTIME_FREEZE; void RESOURCE_HANDLE; void WEAK_CACHE;",
-        "void CYCLE_A; void CYCLE_B; void externalShape; void ValidClass; void InvalidMembers;",
+        "void CYCLE_A; void CYCLE_B; void ValidClass; void InvalidMembers;",
       ].join("\n"),
+      "utf8",
+    );
+    const externalFixtureFile = path.join(temporaryRoot, "external.d.ts");
+    fs.writeFileSync(
+      externalFixtureFile,
+      "declare class ExternalBase { methodName(): void; BAD_OVERRIDE(): void; }\n",
       "utf8",
     );
     fs.writeFileSync(
@@ -1282,7 +1411,7 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           typeRoots: [path.join(temporaryRoot, "node_modules", "@types")],
           types: ["node"],
         },
-        files: [fixtureFile, shadowFixtureFile],
+        files: [fixtureFile, shadowFixtureFile, externalFixtureFile],
       }),
       "utf8",
     );
@@ -1300,42 +1429,138 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           ...inspectSourceFile(fixtureSource, project.checker),
           ...inspectSourceFile(shadowSource, project.checker),
         ];
-        const actualViolationKeys = new Set(
-          violations.map(({ kind, name, rule }) => `${kind}|${name}|${rule}`),
-        );
-        const expectedViolationKeys = new Set([
-          "variable|invalidBoolean|boolean-prefix",
-          "variable|invalidArray|array-plural-camel-case",
-          "variable|invalidConstant|true-constant-upper-snake-case",
-          "parameter|condition|boolean-prefix",
-          "parameter|item|array-plural-camel-case",
-          "function|BadFunction|camel-case",
-          "type|badClass|pascal-case",
-          "method|BadMethod|camel-case",
-          "getter|BadGetter|camel-case",
-          "setter|BadSetter|camel-case",
-          "variable|RUNTIME_PATH|camel-case",
-          "variable|RUNTIME_FREEZE|camel-case",
-          "variable|RESOURCE_HANDLE|camel-case",
-          "variable|WEAK_CACHE|camel-case",
-          "variable|CYCLE_A|camel-case",
-          "variable|CYCLE_B|camel-case",
-          "variable|SHADOWED_DATE|camel-case",
-          "variable|SHADOWED_FREEZE|camel-case",
-          "variable|SHADOWED_HASH|camel-case",
-        ]);
-        for (const expectedViolation of expectedViolationKeys) {
-          assert.ok(
-            actualViolationKeys.has(expectedViolation),
-            `missing fixture violation: ${expectedViolation}\n${formatViolations(violations)}`,
+        const keyForViolation = (violation: NamingViolation): string =>
+          `${path.basename(violation.file)}:${violation.line}:${violation.column}|${violation.kind}|${violation.name}|${violation.rule}`;
+        const expectedKey = (
+          sourcePath: string,
+          name: string,
+          kind: string,
+          rule: string,
+        ): string => {
+          const sourceLines = fs
+            .readFileSync(sourcePath, "utf8")
+            .split(/\r?\n/u);
+          const identifierPattern = new RegExp(`\\b${name}\\b`, "u");
+          const declarationPattern = new RegExp(
+            `\\b(?:const|let|var)\\s+${name}\\b`,
+            "u",
           );
-        }
+          const lineIndex = sourceLines.findIndex((line) =>
+            kind === "variable"
+              ? declarationPattern.test(line)
+              : identifierPattern.test(line),
+          );
+          assert.notEqual(lineIndex, -1, `fixture identifier missing: ${name}`);
+          const column = sourceLines[lineIndex]?.indexOf(name) ?? -1;
+          assert.notEqual(
+            column,
+            -1,
+            `fixture identifier column missing: ${name}`,
+          );
+          return `${path.basename(sourcePath)}:${lineIndex + 1}:${column + 1}|${kind}|${name}|${rule}`;
+        };
+        const actualViolationKeys = violations.map(keyForViolation).sort();
+        const expectedViolationKeys = [
+          expectedKey(fixtureFile, "DATE_PARSE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "DATE_PROTOTYPE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "MUTATED_ITEMS",
+            "variable",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "NESTED_MUTATED_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "ALIASED_ITEMS",
+            "variable",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "ESCAPED_ITEMS",
+            "variable",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "invalidBoolean",
+            "variable",
+            "boolean-prefix",
+          ),
+          expectedKey(
+            fixtureFile,
+            "invalidArray",
+            "variable",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "invalidConstant",
+            "variable",
+            "true-constant-upper-snake-case",
+          ),
+          expectedKey(fixtureFile, "condition", "parameter", "boolean-prefix"),
+          expectedKey(
+            fixtureFile,
+            "nullableItem",
+            "parameter",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "genericItem",
+            "parameter",
+            "array-plural-camel-case",
+          ),
+          expectedKey(fixtureFile, "BadFunction", "function", "camel-case"),
+          expectedKey(fixtureFile, "badClass", "type", "pascal-case"),
+          expectedKey(fixtureFile, "BadMethod", "method", "camel-case"),
+          expectedKey(fixtureFile, "BadGetter", "getter", "camel-case"),
+          expectedKey(fixtureFile, "BadSetter", "setter", "camel-case"),
+          expectedKey(fixtureFile, "RUNTIME_PATH", "variable", "camel-case"),
+          expectedKey(fixtureFile, "RUNTIME_FREEZE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "RESOURCE_HANDLE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "WEAK_CACHE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "CYCLE_A", "variable", "camel-case"),
+          expectedKey(fixtureFile, "CYCLE_B", "variable", "camel-case"),
+          expectedKey(shadowFixtureFile, "Date", "variable", "camel-case"),
+          expectedKey(
+            shadowFixtureFile,
+            "SHADOWED_DATE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(shadowFixtureFile, "Object", "variable", "camel-case"),
+          expectedKey(
+            shadowFixtureFile,
+            "SHADOWED_FREEZE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            shadowFixtureFile,
+            "SHADOWED_HASH",
+            "variable",
+            "camel-case",
+          ),
+        ].sort();
+        assert.deepEqual(
+          actualViolationKeys,
+          expectedViolationKeys,
+          formatViolations(violations),
+        );
         const positiveNames = [
           "candidatePaths",
           "candidateNames",
           "candidateItems",
           "value",
-          "item",
+          "tupleItem",
           "bytes",
           "valueSet",
           "valueMap",
@@ -1347,15 +1572,22 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           "INTRINSIC_DATE",
           "INTRINSIC_DATE_NOW",
           "INTRINSIC_DATE_TO_ISO",
+          "DIRECT_FIXED_ITEMS",
+          "DIRECT_FIXED_PROFILE",
           "TYPED_ARRAY_BYTE_LENGTH",
           "FIXED_DIGEST",
           "runtimePath",
           "runtimeSnapshot",
           "resourceHandle",
           "weakCache",
+          "inspectFixture",
+          "FixtureClass",
+          "methodName",
+          "statusValue",
+          "BAD_OVERRIDE",
+          "BAD_PROPERTY",
         ];
         for (const positiveName of positiveNames) {
-          if (positiveName === "item") continue;
           assert.equal(
             violations.some((violation) => violation.name === positiveName),
             false,

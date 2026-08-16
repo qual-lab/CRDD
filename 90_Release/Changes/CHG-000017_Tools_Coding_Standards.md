@@ -84,7 +84,7 @@ source identifierでは、bare `run`、`execute`、`common`および`info`を責
 - Gap / Impact Audit: `Fail`、Major 2件。`GCI-TOOLS-NAMING-001`は今回新設した規範と機械検査の母集団不一致、`GCI-TOOLS-MIGRATION-001`は全利用側へ範囲を拡大したことで`.github`の廃止入口を検出した問題である。
 - Conformance Audit: `Pass`、Finding 0件。Gap / Impactの結果へ集約せず、準拠基準、Stable ID、VersionおよびReleaseへの変更がないという個別結果として保持する。
 
-この監査集合は全体として`Invalidated`であり、現在の合否へ流用しない。型付きASTを使用する単一classifierへ3 projectのowned sourceを集約し、Boolean、配列、真の定数、parameter、destructuringおよびnested declarationを全数検査して識別子を移行した。併せて現行利用側の廃止Path検査、配布正本からpackage entry adapterへの所有方向、互換wrapper禁止の限定、locale-firstおよび過去CHGの現在接続を構造的に是正した。これらは`Applied`／`Self-checked`であり、新固定版の同じ監査集合が完了するまでは`Resolved`ではない。
+この監査集合は全体として`Invalidated`であり、現在の合否へ流用しない。型付きASTを使用する単一分類器（classifier）へ3 projectのowned sourceを集約し、Boolean、配列、真の定数、parameter、destructuringおよびnested declarationを全数検査して識別子を移行した。併せて現行利用側の廃止Path検査、配布正本からpackage entry adapterへの所有方向、互換wrapper禁止の限定、locale-firstおよび過去CHGの現在接続を構造的に是正した。これらは`Applied`／`Self-checked`であり、新固定版の同じ監査集合が完了するまでは`Resolved`ではない。
 
 ## Self-check
 
@@ -103,12 +103,12 @@ source identifierでは、bare `run`、`execute`、`common`および`info`を責
 
 構造是正版はCommit `bab5169fdfbdc7ef3677a95cffa07259ad52f925`、Tree `4e7619d289b5e8a0bf798bf1a52da02427ae9e6c`、Parent `7ff1a81e7bc044c57d51b6ac503fe2534ed2b711`である。共通入力はNode.js 24.12、Coordinator試験255 / 255、Checker package試験148 / 148、型検査／Biome Lint／Formatter Pass、全体Checker 403 file／279 Markdown／1857 link／561 anchor、Error 0／Warning 0、diff／worktree cleanだった。
 
-- Agent／Architecture／Security review: `Fail`、Major 2件。`AG-CODING-STANDARDS-R01`はsource ownership rootをPath検査へ流用して`tools/**`全体のPath母集団を縮退させた今回修正起因の新規退行、`AG-CODING-STANDARDS-R02`は既知`AG-CODING-STANDARDS-002`の宣言形、generic配列および固定定数分類が部分未解消だった結果である。
+- Agent／Architecture／Security review: `Fail`、Major 2件。`AG-CODING-STANDARDS-R01`はソース所有範囲（source ownership root）をPath検査へ流用して`tools/**`全体のPath母集団を縮退させた今回修正起因の新規退行、`AG-CODING-STANDARDS-R02`は既知`AG-CODING-STANDARDS-002`の宣言形、型制約付きジェネリック（generic）配列および固定定数分類が部分未解消だった結果である。
 - Document Audit: `Pass`、Finding 0件。初回版で指摘された所有方向、履歴接続およびlocale-firstの解消確認として個別保持する。
-- Gap / Impact Audit: `Fail`、Major 1件。`GCI-TOOLS-NAMING-R01`は既知`GCI-TOOLS-NAMING-001`の型付きclassifierとfixtureが部分未解消だった結果であり、新規候補4分類へ加算しない。
+- Gap / Impact Audit: `Fail`、Major 1件。`GCI-TOOLS-NAMING-R01`は既知`GCI-TOOLS-NAMING-001`の型付き分類器とfixtureが部分未解消だった結果であり、新規候補4分類へ加算しない。
 - Conformance Audit: `Pass`、Finding 0件。準拠基準、Stable ID、Version、Authority／CapabilityおよびRelease状態を変更しない個別結果として保持する。
 
-この監査集合も全体として`Invalidated`であり、現在の合否へ流用しない。後続処置では、Path inspection rootを`tools/**`＋`template/tools/**`、typed source ownership rootを3 TypeScript projectへ分離し、両集合のTypeScript coverageを完全一致させた。型付きclassifierへ名前付き関数／class式、getter／setter、型制約を持つgeneric配列および固定定数のsymbol追跡を追加した。固定定数は任意identifierや任意`Object.freeze`を認めず、固定aggregate、CRDD所有module定数、固定intrinsicおよびterminal digestへ限定し、Path、snapshot、resource handle、shadowed globalおよび循環定数を負例で固定した。
+この監査集合も全体として`Invalidated`であり、現在の合否へ流用しない。後続処置では、Path検査範囲（Path inspection root）を`tools/**`＋`template/tools/**`、型付きソース所有範囲（typed source ownership root）を3 TypeScript projectへ分離し、両集合のTypeScript対象範囲（TypeScript coverage）を完全一致させた。型付き分類器へ名前付き関数／class式、取得／設定アクセサー、型制約付きジェネリック配列および固定定数のシンボル（symbol）追跡を追加した。固定定数は任意identifierや任意`Object.freeze`を認めず、固定集約値（fixed aggregate）、CRDD所有module定数、限定した組込み要素（intrinsic）および終端ダイジェスト（terminal digest）へ限定し、Path、snapshot、resource handle、shadowed globalおよび循環定数を負例で固定した。
 
 この後続処置は`Applied`／`Self-checked`であり、新しい固定Commit／Treeの全機械確認と同じ監査集合が完了するまでは`Resolved`ではない。公開CheckerのCLI／JSON／Schema／reason／status、v0.17 Releaseおよび今回のbreaking migration／no-shim境界は変更していない。
 
@@ -125,3 +125,29 @@ source identifierでは、bare `run`、`execute`、`common`および`info`を責
 - 旧Checker Pathの現行実体、互換shimおよびalias: 0件
 
 この結果も`Self-checked`であり、新固定Commit／Treeに対する独立review／audit前は`Resolved`ではない。
+
+## 閉包是正版の監査集合と後続処置
+
+閉包是正版はCommit `c3db7689dcb534579863bfd4bc5e2fbd58769fbc`、Tree `1c375d005509103b7a86acf1a1d505ad4674c92a`、Parent `bab5169fdfbdc7ef3677a95cffa07259ad52f925`である。共通入力はNode.js 24.12、Coordinator試験255 / 255、Checker package試験149 / 149、3 TypeScript project／74 owned sourceとPath配下TypeScript実体の完全一致、型検査／Biome Lint／Formatter Pass、全体Checker 403 file／279 Markdown／1857 link／561 anchor、Error 0／Warning 0、diff／worktree cleanだった。
+
+- Agent／Architecture／Security review: `Fail`、Major 1件。`AG-CODING-STANDARDS-R02-R03`は既知`AG-CODING-STANDARDS-R02`の直接固定配列／object、組込み`Date`のproperty allowlistおよびfixture完全一致が部分未解消だった結果であり、新規候補4分類へ加算しない。
+- Document Audit: `Conditional`、Minor 1件。`DOC-TOOLS-LOCALE-R02`は同根1件で、`00_Overview.md`の直接利用側残存は初回監査見落とし、閉包是正で追加した現在説明は今回修正起因という発生内訳を保持する。
+- Gap / Impact Audit: `Fail`、Major 1件とMinor 1件。`GCI-TOOLS-NAMING-R02`は組込み`Date`の閉じたallowlistを一般property fallbackが迂回した今回修正起因の新規退行、`GCI-TOOLS-NAMING-R01-R2`は既知`GCI-TOOLS-NAMING-R01`のnullable／型制約付きジェネリック（generic）／tuple fixtureが部分未解消だった結果で、新規候補4分類へ加算しない。
+- Conformance Audit: `Pass`、Finding 0件。準拠基準、Stable ID、Version、Authority／Capability、v0.17 Released BaselineおよびRelease状態を変更しない個別結果として保持する。
+
+この監査集合も全体として`Invalidated`であり、現在の合否へ流用しない。後続処置では、global `Date`のpropertyを`Date.now`と`Date.prototype.toISOString`へ閉じ、CRDD所有の固定集約値を参照するproperty経路と分離した。直接記述する配列／objectはmodule-local、非export、再帰固定で、すべての参照が変更またはescapeのない`void`参照として分類できる場合だけ真の定数とした。fixtureは宣言ごとに固有名と位置を持たせ、違反の重複を潰さない完全一致へ変更し、変更、nested変更、alias、escape、`Date.parse`、`Date.prototype`および適用外property／overrideを対照化した。`00_Overview.md`、コーディング規約正本および本変更トレースの現在説明は、日本語表示を先に示すlocale-firstへ同期した。
+
+これらの後続処置は`Applied`／`Self-checked`であり、新しい固定Commit／Treeの全機械確認と同じ監査集合が完了するまでは`Resolved`ではない。公開CheckerのCLI／JSON／Schema／reason／status、breaking migration／no-shim、Version、v0.17 ReleaseおよびRelease判断は変更していない。
+
+### 閉包再是正Self-check
+
+2026-08-16の閉包再是正後候補で次を確認した。
+
+- Node.js 24.12のCoordinator試験: 255 / 255 Pass
+- Node.js 24.12のChecker package試験: 149 / 149 Pass。うちPath／型付き命名／廃止参照contract試験は5 / 5 Pass
+- 3 TypeScript projectから得たowned source: 74件。Path配下のTypeScript実体との未所属／余剰: 0件
+- Checker／CoordinatorのTypeScript型検査、Biome LintおよびFormatter確認: Pass
+- 公式入口とChecker package root入口のRepository全体確認: いずれも403 file／279 Markdown／1857 link／561 anchor、Error 0／Warning 0
+- 旧Checker Pathの現行実体、互換shimおよびalias: 0件
+
+この結果は`Self-checked`であり、新固定Commit／Treeに対する独立review／audit前は`Resolved`ではない。
