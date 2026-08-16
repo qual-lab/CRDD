@@ -161,6 +161,8 @@ pure Core候補は署名領域分離（domain separation）を固定ASCII prefix
 
 ### 署名基礎Coreの外部規格入力
 
+現在のrollback floor境界は、上段の未実装表示を置き換える。固定`state/release-floor.json` Storeはcanonical byte、pending fileの永続化、原子的置換、再読取り照合および単調増加だけを許す明示復旧までを実装済み候補とする。Windowsでparent directory syncが利用できない場合も、未完了pendingを捨てたり自動rollbackしたりしない。実Platform Provisioner Effect controllerへ未接続であるため、StoreのFilesystem EffectをRuntime AuthorityまたはCapabilityへ昇格しない。
+
 確認日（reviewedAt）は`2026-08-15`である。Runtimeは規格本文をネットワーク取得または自動更新せず、下表で採用した内部contractを拘束点とする。RFC errata、Node.js cryptoの挙動、または採用範囲が変わる場合は人間の判断と再監査を行う。
 
 | 正本・発行時点・文書区分 | 今回適用する節 | 採用範囲 | 非採用・未実装範囲 |

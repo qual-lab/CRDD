@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  decodePlatformProvisionerReleaseFloorBytesCandidate,
   describePlatformProvisionerReleaseFloorContract,
+  encodePlatformProvisionerReleaseFloorCandidate,
   evaluatePlatformProvisionerReleaseFloorCandidate,
 } from "../src/security/platform-provisioner-release-floor.ts";
 
@@ -97,10 +99,41 @@ test("release floor rejects malformed and tampered state", () => {
   }
 });
 
+test("release floor codec accepts only canonical bounded bytes", () => {
+  const initial = evaluatePlatformProvisionerReleaseFloorCandidate({
+    currentFloor: null,
+    verifiedRelease: release(18),
+  });
+  assert.equal(initial.status, "candidate");
+  const encoded = encodePlatformProvisionerReleaseFloorCandidate(
+    initial.nextFloor,
+  );
+  assert.equal(encoded.status, "candidate");
+  if (encoded.status !== "candidate") return;
+  const decoded = decodePlatformProvisionerReleaseFloorBytesCandidate(
+    encoded.canonicalBytes,
+  );
+  assert.equal(decoded.status, "candidate");
+  assert.equal(decoded.floor?.floorHash, initial.floorHash);
+  assert.equal(
+    decodePlatformProvisionerReleaseFloorBytesCandidate(
+      Buffer.concat([encoded.canonicalBytes, Buffer.from("\n")]),
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    decodePlatformProvisionerReleaseFloorBytesCandidate(
+      Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), encoded.canonicalBytes]),
+    ).status,
+    "blocked",
+  );
+});
+
 test("release floor contract keeps persistence and authority separate", () => {
   const contract = describePlatformProvisionerReleaseFloorContract();
   assert.equal(contract.transitionEvaluation, "implemented_candidate");
-  assert.equal(contract.persistence, "not_implemented");
+  assert.equal(contract.canonicalByteCodec, "implemented_candidate");
+  assert.equal(contract.persistence, "dedicated_store_implemented_candidate");
   assert.equal(contract.callerStateMayConferAuthority, false);
   assert.equal(contract.runtimeAuthorityConferred, false);
 });

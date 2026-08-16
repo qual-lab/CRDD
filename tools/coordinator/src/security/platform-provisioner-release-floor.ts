@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { TextDecoder } from "node:util";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signature-primitives.ts";
@@ -30,6 +31,12 @@ const INPUT_KEYS = new Set(["currentFloor", "verifiedRelease"]);
 const HEX64 = /^[0-9a-f]{64}$/u;
 const GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
+const MAXIMUM_FLOOR_BYTES = 8_192;
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype),
+  "byteLength",
+)?.get as () => number;
 
 type ReleaseIdentity = Readonly<{
   manifestHash: string;
@@ -130,6 +137,66 @@ function normalizeFloor(raw: unknown) {
     : null;
 }
 
+export function encodePlatformProvisionerReleaseFloorCandidate(raw: unknown) {
+  try {
+    const floor = normalizeFloor(raw);
+    if (!floor) return blocked("release_floor_state_invalid");
+    const canonical = canonicalizeProvisioningJsonValueCandidate(floor);
+    if (
+      canonical.status !== "candidate" ||
+      canonical.canonicalBytes.length > MAXIMUM_FLOOR_BYTES
+    ) {
+      return blocked("release_floor_state_invalid");
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "release_floor_canonical_bytes_encoded",
+      canonicalBytes: Buffer.from(canonical.canonicalBytes),
+      floor,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: false,
+    });
+  } catch {
+    return blocked("release_floor_state_invalid");
+  }
+}
+
+export function decodePlatformProvisionerReleaseFloorBytesCandidate(
+  rawBytes: unknown,
+) {
+  try {
+    if (!Buffer.isBuffer(rawBytes)) {
+      return blocked("release_floor_bytes_required");
+    }
+    const byteLength = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH, rawBytes, []);
+    if (byteLength < 1 || byteLength > MAXIMUM_FLOOR_BYTES) {
+      return blocked("release_floor_bytes_invalid");
+    }
+    const ownedBytes = Buffer.allocUnsafe(byteLength);
+    Buffer.prototype.copy.call(rawBytes, ownedBytes);
+    if (
+      ownedBytes.length >= 3 &&
+      ownedBytes[0] === 0xef &&
+      ownedBytes[1] === 0xbb &&
+      ownedBytes[2] === 0xbf
+    ) {
+      return blocked("release_floor_bytes_invalid");
+    }
+    const parsed = JSON.parse(utf8Decoder.decode(ownedBytes));
+    const encoded = encodePlatformProvisionerReleaseFloorCandidate(parsed);
+    if (
+      encoded.status !== "candidate" ||
+      !Buffer.prototype.equals.call(ownedBytes, encoded.canonicalBytes)
+    ) {
+      return blocked("release_floor_bytes_noncanonical");
+    }
+    return encoded;
+  } catch {
+    return blocked("release_floor_bytes_invalid");
+  }
+}
+
 function sameRelease(left: ReleaseIdentity, right: ReleaseIdentity) {
   return (
     left.manifestHash === right.manifestHash &&
@@ -197,8 +264,10 @@ export function describePlatformProvisionerReleaseFloorContract() {
     firstObservation: "candidate_persistence_required",
     persistedMatch: "candidate_without_persistence",
     stateHashVerification: "implemented_candidate",
+    canonicalByteCodec: "implemented_candidate",
+    canonicalByteLimit: MAXIMUM_FLOOR_BYTES,
     transitionEvaluation: "implemented_candidate",
-    persistence: "not_implemented",
+    persistence: "dedicated_store_implemented_candidate",
     callerStateMayConferAuthority: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,

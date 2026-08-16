@@ -1027,3 +1027,9 @@ Node.js 24.19.0で、Coordinator 282 / 282、Checker 150 / 150、命名／参照
 Windows DACL観測は、既存の`SYSTEM`／machine Administrators write限定に加え、既定ではsetup processのWindows Identity、サービス運用では明示service SIDをRuntime主体として結合する。Rootにexact 1件の明示・子孫継承read／execute Allowを要求し、全要素で同主体のread／execute成立、write ACEとDeny ACE不在を確認する。SIDは内部PowerShell境界だけで使用し、公開結果、doctorまたはPath要約へ出力しない。DACL観測は読み取り専用で、permission mutation、Authority、CapabilityまたはEffectを発行しない。
 
 固定レイアウトCoreはWindows絶対ProgramData Rootと正のRelease Sequenceだけを受理し、公開候補へ絶対Pathを返さない。実Filesystem作成、rollback floor保存、active release切替、crash recoveryおよびEffect controllerは引き続き未実装である。処置は`Applied`／`Self-checked`であり、全機械確認と独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+### 2026-08-16 — rollback floor専用Store
+
+後続処置として、`state/release-floor.json`のcanonical byte codecと専用Storeを実装した。Storeは固定`state` directoryと固定target／pending名だけを扱い、pending fileをexclusive createして`fsync`し、原子的置換後に同一形式で再読取り照合する。既存pendingは自動上書きせず明示復旧を要求し、復旧は同一floorまたは単調増加するfloorだけを許可してrollbackと同一Sequence差替えを拒否する。Windowsでparent directoryの`fsync`が提供されない場合は結果へ保持し、file `fsync`、pending recoveryおよび再読取りを省略しない。汎用Path writer、旧state aliasおよび推測rollbackは追加しない。
+
+このStoreはFilesystem Effectを実行するため、Platform Provisioner Effect依存として投影する。ただし実ProgramData Rootの作成、DACL設定、署名済み配布物からの導入、active release切替および`provision` controllerには未接続であり、Authority、CapabilityまたはGateを発行しない。上段のrollback floor永続化未実装という現在表示はこの限定Store範囲でsupersededし、Effect統合未実装という境界は維持する。処置は`Applied`／`Self-checked`であり、全機械確認と独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。

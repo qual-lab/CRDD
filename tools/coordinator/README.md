@@ -51,6 +51,8 @@ npm run release-manifest:sign --prefix tools/coordinator -- --distribution-root 
 
 ## 現在利用できるコマンド
 
+現在のrollback floor境界は、上段の未実装表示を置き換える。`state/release-floor.json`専用Storeはcanonical UTF-8、同一handle再読取り、pending fileの`fsync`、原子的置換、置換後再読取り、および単調増加だけを許す明示復旧を実装済み候補とする。Windowsがparent directoryの`fsync`を提供しない場合はその事実を結果へ保持し、pending stateと再読取りを省略して成功扱いにしない。実Platform Provisioner Effect controllerと実ProgramData配置は未実装であり、このStore単独でGate、AuthorityまたはCapabilityを成立させない。
+
 ```shell
 node tools/coordinator/bin/coordinator.ts doctor
 node tools/coordinator/bin/coordinator.ts doctor --json

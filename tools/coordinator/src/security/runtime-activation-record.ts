@@ -21,6 +21,7 @@ import { describePlatformProvisionerManifestLoaderContract } from "./platform-pr
 import { describePlatformProvisionerPolicyIdentityContract } from "./platform-provisioner-policy-identity.ts";
 import { describePlatformProvisionerReleaseIdentityContract } from "./platform-provisioner-release-identity.ts";
 import { describePlatformProvisionerReleaseFloorContract } from "./platform-provisioner-release-floor.ts";
+import { describePlatformProvisionerReleaseFloorStoreContract } from "./platform-provisioner-release-floor-store.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
@@ -125,6 +126,7 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   platformProvisionerPolicyIdentity: "platform_provisioner_verification",
   platformProvisionerReleaseIdentity: "platform_provisioner_verification",
   platformProvisionerReleaseFloor: "platform_provisioner_verification",
+  platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
   platformProvisionerCrddDistributionVerification:
     "platform_provisioner_verification",
   platformProvisionerPackageGateObservation:
@@ -490,6 +492,8 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerReleaseIdentityContract();
   const platformProvisionerReleaseFloorContract =
     describePlatformProvisionerReleaseFloorContract();
+  const platformProvisionerReleaseFloorStoreContract =
+    describePlatformProvisionerReleaseFloorStoreContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -531,6 +535,8 @@ export function describeRuntimeActivationContract() {
       platformProvisionerReleaseIdentityContract.signedCrddTreeComparison,
     platformProvisionerReleaseFloor:
       platformProvisionerReleaseFloorContract.transitionEvaluation,
+    platformProvisionerReleaseFloorPersistence:
+      platformProvisionerReleaseFloorStoreContract.persistence,
     platformProvisionerCrddDistributionVerification:
       platformProvisionerReleaseIdentityContract.signedCrddTreeComparison,
     platformProvisionerPackageGateObservation:
@@ -613,6 +619,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerPolicyIdentityContract,
     platformProvisionerReleaseIdentityContract,
     platformProvisionerReleaseFloorContract,
+    platformProvisionerReleaseFloorStoreContract,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -724,6 +731,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerReleaseIdentityContract,
     platformProvisionerReleaseFloor:
       implementation.platformProvisionerReleaseFloorContract,
+    platformProvisionerReleaseFloorStore:
+      implementation.platformProvisionerReleaseFloorStoreContract,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -934,6 +943,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerReleaseIdentityContract,
     platformProvisionerReleaseFloor:
       implementation.platformProvisionerReleaseFloorContract,
+    platformProvisionerReleaseFloorStore:
+      implementation.platformProvisionerReleaseFloorStoreContract,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,
