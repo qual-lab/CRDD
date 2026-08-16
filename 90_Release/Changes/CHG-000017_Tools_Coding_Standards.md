@@ -203,3 +203,29 @@ source identifierでは、bare `run`、`execute`、`common`および`info`を責
 - 旧Checker Pathの現行実体、互換shimおよびalias: 0件
 
 この結果は`Self-checked`であり、新固定Commit／Treeに対する独立review／audit前は`Resolved`ではない。
+
+## 最外利用先是正版の監査集合と後続処置
+
+最外利用先是正版はCommit `15ff4f76190f0da78167209f9de30925365d08f8`、Tree `04889784d7f1884c34c2ca716fd93020e1dc855b`、Parent `4a232fa80fcb67c2418346c3cebfe61c5b19fbfd`である。共通入力はNode.js 24.12、Coordinator試験255 / 255、Checker package試験149 / 149、Path／型付き命名／廃止参照contract試験5 / 5、3 TypeScript project／74 owned sourceとPath配下TypeScript実体の完全一致、両package check Pass、公式／package root全体Checker 403 file／279 Markdown／1857 link／561 anchor、Error 0／Warning 0、diff／worktree cleanだった。
+
+- Agent／Architecture／Security review: `Pass`、Finding 0件。
+- Document Audit: `Conditional`、Minor 1件。`DOC-TOOLS-DIRECT-FIXED-R03`は二項式またはテンプレート補間を一段挟むと、その外側の引数渡し、return、暗黙return、`new`またはexportを確認せず許可できた既知`AG-CODING-STANDARDS-R05`の部分未解消で、新規候補4分類へ加算しない。
+- Gap / Impact Audit: `Pass`、Finding 0件。
+- Conformance Audit: `Pass`、Finding 0件。Gap / Impactへ集約せず、準拠基準、Stable ID、Version、Authority／Capability、v0.17 Released BaselineおよびRelease状態を変更しない個別結果として保持する。
+
+この監査集合も全体として`Invalidated`であり、現在の合否へ流用しない。後続処置では、transparent wrapper、許可した二項式およびテンプレート補間を、各子位置と演算子を再確認しながら式全体として最外利用先まで畳む。途中の二項式またはテンプレート補間を終端許可にせず、最終的に直接`void`または非export・非destructuring変数宣言の初期値へ到達した場合だけ許可する。inline exportに加え、後続`export { name }`もシンボル単位で拒否し、nested call／`new`／return／yield／暗黙return／export／tagged template／条件式／comma／destructuringを固有負例で固定する。
+
+この後続処置は`Applied`／`Self-checked`であり、新しい固定Commit／Treeの全機械確認と同じ監査集合が完了するまでは`Resolved`ではない。`Object.freeze(...)`の単一predicate、literal由来、primitive終端、公開CheckerのCLI／JSON／Schema／reason／status、3 project／74 owned source、Path母集団、breaking migration／no-shim、Version、v0.17 ReleaseおよびRelease判断は変更していない。
+
+### 最外利用先再是正Self-check
+
+2026-08-16の最外利用先再是正後候補で次を確認した。
+
+- Node.js 24.12のCoordinator試験: 255 / 255 Pass
+- Node.js 24.12のChecker package試験: 149 / 149 Pass。うちPath／型付き命名／廃止参照contract試験は5 / 5 Pass
+- 3 TypeScript projectから得たowned source: 74件。Path配下のTypeScript実体との未所属／余剰: 0件
+- Checker／CoordinatorのTypeScript型検査、Biome LintおよびFormatter確認: Pass
+- 公式入口とChecker package root入口のRepository全体確認: いずれも403 file／279 Markdown／1857 link／561 anchor、Error 0／Warning 0
+- 旧Checker Pathの現行実体、互換shimおよびalias: 0件
+
+この結果は`Self-checked`であり、新固定Commit／Treeに対する独立review／audit前は`Resolved`ではない。

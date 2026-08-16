@@ -14,6 +14,8 @@ import {
   isClassDeclaration,
   isClassExpression,
   isElementAccessExpression,
+  isExportAssignment,
+  isExportDeclaration,
   isFunctionDeclaration,
   isFunctionExpression,
   isGetAccessorDeclaration,
@@ -34,6 +36,7 @@ import {
   isSatisfiesExpression,
   isTaggedTemplateExpression,
   isTemplateExpression,
+  isTemplateSpan,
   isTypeAliasDeclaration,
   isVariableDeclaration,
   NodeFlags,
@@ -726,17 +729,44 @@ function isSafeAggregateReadBinaryOperator(kind: SyntaxKind): boolean {
 
 function isExportedVariableDeclaration(
   declaration: VariableDeclaration,
+  checker: Checker,
 ): boolean {
+  if (!isIdentifier(declaration.name)) return true;
   const variableStatement = declaration.parent?.parent;
-  return (
-    variableStatement?.kind === SyntaxKind.VariableStatement &&
-    /^export\s/u.test(variableStatement.getText(declaration.getSourceFile()))
-  );
+  if (variableStatement?.kind === SyntaxKind.VariableStatement) {
+    let hasExportModifier = false;
+    variableStatement.forEachChild((child) => {
+      if (child.kind === SyntaxKind.ExportKeyword) hasExportModifier = true;
+    });
+    if (hasExportModifier) return true;
+  }
+  const declarationSymbolId = resolvedSymbolId(declaration.name, checker);
+  if (declarationSymbolId === null) return true;
+  let isExported = false;
+  let hasUnresolvedExport = false;
+  for (const statement of declaration.getSourceFile().statements) {
+    if (!isExportDeclaration(statement) && !isExportAssignment(statement))
+      continue;
+    const visit = (node: Node): void => {
+      if (isExported) return;
+      if (isIdentifier(node)) {
+        const exportSymbolId = resolvedSymbolId(node, checker);
+        if (exportSymbolId === null) hasUnresolvedExport = true;
+        if (exportSymbolId === declarationSymbolId) isExported = true;
+      }
+      node.forEachChild(visit);
+    };
+    statement.forEachChild(visit);
+  }
+  return isExported || hasUnresolvedExport;
 }
 
-function aggregateReadUsageNode(accessNode: Node): Node {
+function aggregateReadUsageNode(accessNode: Node): Node | null {
   let usageNode = accessNode;
+  const visitedNodes = new Set<Node>();
   while (usageNode.parent) {
+    if (visitedNodes.has(usageNode)) return null;
+    visitedNodes.add(usageNode);
     const parent = usageNode.parent;
     if (
       (isParenthesizedExpression(parent) ||
@@ -748,23 +778,42 @@ function aggregateReadUsageNode(accessNode: Node): Node {
       usageNode = parent;
       continue;
     }
+    if (
+      isBinaryExpression(parent) &&
+      (parent.left === usageNode || parent.right === usageNode) &&
+      isSafeAggregateReadBinaryOperator(parent.operatorToken.kind)
+    ) {
+      usageNode = parent;
+      continue;
+    }
+    if (
+      isTemplateSpan(parent) &&
+      parent.expression === usageNode &&
+      isTemplateExpression(parent.parent)
+    ) {
+      usageNode = parent.parent;
+      continue;
+    }
     break;
   }
   return usageNode;
 }
 
-function isAllowedAggregateReadContext(accessNode: Node): boolean {
+function isAllowedAggregateReadContext(
+  accessNode: Node,
+  checker: Checker,
+): boolean {
   const usageNode = aggregateReadUsageNode(accessNode);
+  if (!usageNode) return false;
   const parent = usageNode.parent;
   if (!parent) return false;
   if (parent.kind === SyntaxKind.VoidExpression) return true;
-  if (isVariableDeclaration(parent) && parent.initializer === usageNode) {
-    return !isExportedVariableDeclaration(parent);
-  }
-  if (isBinaryExpression(parent)) {
-    return isSafeAggregateReadBinaryOperator(parent.operatorToken.kind);
-  }
-  return parent.kind === SyntaxKind.TemplateSpan;
+  return (
+    isVariableDeclaration(parent) &&
+    isIdentifier(parent.name) &&
+    parent.initializer === usageNode &&
+    !isExportedVariableDeclaration(parent, checker)
+  );
 }
 
 function isSafeDirectAggregateRead(
@@ -802,7 +851,7 @@ function isSafeDirectAggregateRead(
     segments.length === 0 ||
     !accessType ||
     !primitiveReadType(accessType) ||
-    !isAllowedAggregateReadContext(accessNode)
+    !isAllowedAggregateReadContext(accessNode, checker)
   )
     return false;
   const context: FixedInitializerContext = {
@@ -1573,6 +1622,17 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           "$" +
           "{DIRECT_FIXED_PROFILE.mode}" +
           "`;",
+        "const NESTED_BINARY_PROFILE = { count: 1 };",
+        "const NESTED_BINARY_TOTAL = NESTED_BINARY_PROFILE.count + 1 + 1;",
+        "const TEMPLATE_BINARY_PROFILE = { count: 1 };",
+        "const TEMPLATE_BINARY_TEXT = `" +
+          "$" +
+          "{TEMPLATE_BINARY_PROFILE.count + 1}" +
+          "`;",
+        "const VOID_BINARY_PROFILE = { count: 1 };",
+        "void (VOID_BINARY_PROFILE.count + 1);",
+        'const VOID_TEMPLATE_PROFILE = { mode: "fixed" };',
+        "void `" + "$" + "{VOID_TEMPLATE_PROFILE.mode}" + "`;",
         'const DIRECT_NESTED_PROFILE = { nested: { mode: "fixed" } };',
         "const DIRECT_NESTED_MODE = DIRECT_NESTED_PROFILE.nested.mode;",
         'const FROZEN_PROFILE = Object.freeze({ mode: "fixed" });',
@@ -1664,6 +1724,33 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const readMode = (): string => ARROW_PROFILE.mode;",
         'const EXPORT_PROFILE = { mode: "fixed" };',
         "export const exportedMode = EXPORT_PROFILE.mode;",
+        "const NESTED_CALL_PROFILE = { count: 1 };",
+        "consumeMode(String(NESTED_CALL_PROFILE.count + 1));",
+        'const NESTED_NEW_PROFILE = { mode: "fixed" };',
+        "new ModeBox(`" + "$" + "{NESTED_NEW_PROFILE.mode}" + "`);",
+        "const NESTED_RETURN_PROFILE = { count: 1 };",
+        "function returnNestedCount(): number { return NESTED_RETURN_PROFILE.count + 1; }",
+        'const NESTED_ARROW_PROFILE = { mode: "fixed" };',
+        "const readNestedMode = (): string => `" +
+          "$" +
+          "{NESTED_ARROW_PROFILE.mode}" +
+          "`;",
+        "const NESTED_EXPORT_PROFILE = { count: 1 };",
+        "export const exportedCount = NESTED_EXPORT_PROFILE.count + 1;",
+        "const SPECIFIER_EXPORT_PROFILE = { count: 1 };",
+        "const exportedCountBySpecifier = SPECIFIER_EXPORT_PROFILE.count + 1;",
+        "export { exportedCountBySpecifier };",
+        'function modeTag(strings: TemplateStringsArray): string { return strings[0] ?? ""; }',
+        'const TAGGED_TEMPLATE_PROFILE = { mode: "fixed" };',
+        "modeTag`" + "$" + "{TAGGED_TEMPLATE_PROFILE.mode}" + "`;",
+        "const CONDITIONAL_PROFILE = { enabled: true };",
+        'const conditionalMode = CONDITIONAL_PROFILE.enabled ? "yes" : "no";',
+        "const COMMA_PROFILE = { count: 1 };",
+        "const commaMode = (COMMA_PROFILE.count, 1);",
+        'const DESTRUCTURE_PROFILE = { mode: "fixed" };',
+        "const [destructuredMode] = DESTRUCTURE_PROFILE.mode;",
+        "const YIELD_PROFILE = { count: 1 };",
+        "function* yieldCount(): Generator<number> { yield YIELD_PROFILE.count + 1; }",
         "function invalidLocals(): void {",
         "  const invalidBoolean: boolean = true;",
         "  const invalidArray: string[] = [];",
@@ -1697,6 +1784,8 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "void DIRECT_FIXED_ITEMS; void DIRECT_FIXED_PROFILE; void TYPED_ARRAY_BYTE_LENGTH;",
         "void DIRECT_FIXED_LENGTH; void DIRECT_FIXED_FIRST; void DIRECT_FIXED_MODE;",
         "void HAS_DIRECT_FIXED_MODE; void DIRECT_FIXED_TEMPLATE;",
+        "void NESTED_BINARY_PROFILE; void NESTED_BINARY_TOTAL; void TEMPLATE_BINARY_PROFILE; void TEMPLATE_BINARY_TEXT;",
+        "void VOID_BINARY_PROFILE; void VOID_TEMPLATE_PROFILE;",
         "void DIRECT_NESTED_PROFILE; void DIRECT_NESTED_MODE; void FROZEN_PROFILE; void FROZEN_MODE;",
         "void FROZEN_DATE; void FROZEN_DATE_PARSE; void FROZEN_DATE_ALIAS; void FROZEN_ALIAS_PROTOTYPE;",
         "void FIXED_DIGEST; void validFunctionExpression; void validClassExpression;",
@@ -1710,6 +1799,10 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "void WRITE_PROFILE; void COMPOUND_PROFILE; void LOGICAL_PROFILE; void UPDATE_PROFILE; void DELETE_PROFILE;",
         "void WRITE_ITEMS; void LENGTH_ITEMS; void WRAPPED_WRITE_PROFILE; void CALL_PROFILE; void NEW_PROFILE;",
         "void RETURN_PROFILE; void ARROW_PROFILE; void readMode; void EXPORT_PROFILE; void exportedMode; void ModeBox;",
+        "void NESTED_CALL_PROFILE; void NESTED_NEW_PROFILE; void NESTED_RETURN_PROFILE; void NESTED_ARROW_PROFILE;",
+        "void NESTED_EXPORT_PROFILE; void SPECIFIER_EXPORT_PROFILE; void exportedCountBySpecifier;",
+        "void TAGGED_TEMPLATE_PROFILE; void CONDITIONAL_PROFILE; void conditionalMode; void COMMA_PROFILE; void commaMode;",
+        "void DESTRUCTURE_PROFILE; void destructuredMode; void YIELD_PROFILE; void yieldCount; void readNestedMode;",
         "void CYCLE_A; void CYCLE_B; void ValidClass; void InvalidMembers;",
       ].join("\n"),
       "utf8",
@@ -1904,6 +1997,62 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           expectedKey(fixtureFile, "EXPORT_PROFILE", "variable", "camel-case"),
           expectedKey(
             fixtureFile,
+            "NESTED_CALL_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "NESTED_NEW_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "NESTED_RETURN_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "NESTED_ARROW_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "NESTED_EXPORT_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "SPECIFIER_EXPORT_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "TAGGED_TEMPLATE_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "CONDITIONAL_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(fixtureFile, "COMMA_PROFILE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "DESTRUCTURE_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(fixtureFile, "YIELD_PROFILE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
             "invalidBoolean",
             "variable",
             "boolean-prefix",
@@ -1995,6 +2144,12 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           "DIRECT_FIXED_MODE",
           "HAS_DIRECT_FIXED_MODE",
           "DIRECT_FIXED_TEMPLATE",
+          "NESTED_BINARY_PROFILE",
+          "NESTED_BINARY_TOTAL",
+          "TEMPLATE_BINARY_PROFILE",
+          "TEMPLATE_BINARY_TEXT",
+          "VOID_BINARY_PROFILE",
+          "VOID_TEMPLATE_PROFILE",
           "DIRECT_NESTED_PROFILE",
           "DIRECT_NESTED_MODE",
           "FROZEN_PROFILE",
