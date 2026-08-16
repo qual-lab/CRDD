@@ -603,25 +603,45 @@ function directAggregateSeed(
   ) {
     return isFixedAggregateMember(expression, context) ? expression : null;
   }
+  const frozenSeed = fixedFreezeSeed(expression, context);
+  if (frozenSeed) return frozenSeed;
+  return null;
+}
+
+function fixedFreezeSeed(
+  expression: Expression,
+  context: FixedInitializerContext,
+): Expression | null {
   if (
-    isCallExpression(expression) &&
-    isGlobalPropertyAccess(
+    !isCallExpression(expression) ||
+    !isGlobalPropertyAccess(
       expression.expression,
       "Object",
       "freeze",
       context.checker,
-    ) &&
-    expression.arguments.length === 1
+    ) ||
+    expression.arguments.length !== 1
   ) {
-    const argument = expression.arguments[0];
-    return argument &&
-      (isArrayLiteralExpression(argument) ||
-        isObjectLiteralExpression(argument)) &&
-      isFixedAggregateMember(argument, context)
-      ? argument
-      : null;
+    return null;
   }
-  return null;
+  let argument = expression.arguments[0];
+  while (
+    argument &&
+    (isParenthesizedExpression(argument) ||
+      isAsExpression(argument) ||
+      isSatisfiesExpression(argument) ||
+      isNonNullExpression(argument))
+  ) {
+    argument = argument.expression;
+  }
+  if (
+    !argument ||
+    (!isArrayLiteralExpression(argument) &&
+      !isObjectLiteralExpression(argument))
+  ) {
+    return null;
+  }
+  return isFixedAggregateMember(argument, context) ? argument : null;
 }
 
 function literalPropertyName(node: Node): string | null {
@@ -673,6 +693,80 @@ function primitiveReadType(type: Type): boolean {
   );
 }
 
+function isSafeAggregateReadBinaryOperator(kind: SyntaxKind): boolean {
+  switch (kind) {
+    case SyntaxKind.AmpersandAmpersandToken:
+    case SyntaxKind.AmpersandToken:
+    case SyntaxKind.AsteriskAsteriskToken:
+    case SyntaxKind.AsteriskToken:
+    case SyntaxKind.BarBarToken:
+    case SyntaxKind.BarToken:
+    case SyntaxKind.CaretToken:
+    case SyntaxKind.EqualsEqualsEqualsToken:
+    case SyntaxKind.EqualsEqualsToken:
+    case SyntaxKind.ExclamationEqualsEqualsToken:
+    case SyntaxKind.ExclamationEqualsToken:
+    case SyntaxKind.GreaterThanEqualsToken:
+    case SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
+    case SyntaxKind.GreaterThanGreaterThanToken:
+    case SyntaxKind.GreaterThanToken:
+    case SyntaxKind.LessThanEqualsToken:
+    case SyntaxKind.LessThanLessThanToken:
+    case SyntaxKind.LessThanToken:
+    case SyntaxKind.MinusToken:
+    case SyntaxKind.PercentToken:
+    case SyntaxKind.PlusToken:
+    case SyntaxKind.QuestionQuestionToken:
+    case SyntaxKind.SlashToken:
+      return true;
+    default:
+      return false;
+  }
+}
+
+function isExportedVariableDeclaration(
+  declaration: VariableDeclaration,
+): boolean {
+  const variableStatement = declaration.parent?.parent;
+  return (
+    variableStatement?.kind === SyntaxKind.VariableStatement &&
+    /^export\s/u.test(variableStatement.getText(declaration.getSourceFile()))
+  );
+}
+
+function aggregateReadUsageNode(accessNode: Node): Node {
+  let usageNode = accessNode;
+  while (usageNode.parent) {
+    const parent = usageNode.parent;
+    if (
+      (isParenthesizedExpression(parent) ||
+        isAsExpression(parent) ||
+        isSatisfiesExpression(parent) ||
+        isNonNullExpression(parent)) &&
+      parent.expression === usageNode
+    ) {
+      usageNode = parent;
+      continue;
+    }
+    break;
+  }
+  return usageNode;
+}
+
+function isAllowedAggregateReadContext(accessNode: Node): boolean {
+  const usageNode = aggregateReadUsageNode(accessNode);
+  const parent = usageNode.parent;
+  if (!parent) return false;
+  if (parent.kind === SyntaxKind.VoidExpression) return true;
+  if (isVariableDeclaration(parent) && parent.initializer === usageNode) {
+    return !isExportedVariableDeclaration(parent);
+  }
+  if (isBinaryExpression(parent)) {
+    return isSafeAggregateReadBinaryOperator(parent.operatorToken.kind);
+  }
+  return parent.kind === SyntaxKind.TemplateSpan;
+}
+
 function isSafeDirectAggregateRead(
   identifier: Identifier,
   declaration: VariableDeclaration,
@@ -704,7 +798,12 @@ function isSafeDirectAggregateRead(
     break;
   }
   const accessType = checker.getTypeAtLocation(accessNode);
-  if (segments.length === 0 || !accessType || !primitiveReadType(accessType))
+  if (
+    segments.length === 0 ||
+    !accessType ||
+    !primitiveReadType(accessType) ||
+    !isAllowedAggregateReadContext(accessNode)
+  )
     return false;
   const context: FixedInitializerContext = {
     activeSymbolIds: new Set(),
@@ -994,18 +1093,7 @@ function isFixedInitializer(
   }
   if (isCallExpression(initializer)) {
     const callee = initializer.expression.getText();
-    if (
-      isGlobalPropertyAccess(
-        initializer.expression,
-        "Object",
-        "freeze",
-        context.checker,
-      )
-    )
-      return (
-        initializer.arguments.length === 1 &&
-        isFixedAggregateMember(initializer.arguments[0], context)
-      );
+    if (fixedFreezeSeed(initializer, context)) return true;
     if (
       isIdentifier(initializer.expression) &&
       isGlobalIntrinsic(
@@ -1480,6 +1568,11 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const DIRECT_FIXED_LENGTH = DIRECT_FIXED_ITEMS.length;",
         "const DIRECT_FIXED_FIRST = DIRECT_FIXED_ITEMS[0];",
         "const DIRECT_FIXED_MODE = DIRECT_FIXED_PROFILE.mode;",
+        'const HAS_DIRECT_FIXED_MODE = DIRECT_FIXED_PROFILE.mode === "fixed";',
+        "const DIRECT_FIXED_TEMPLATE = `" +
+          "$" +
+          "{DIRECT_FIXED_PROFILE.mode}" +
+          "`;",
         'const DIRECT_NESTED_PROFILE = { nested: { mode: "fixed" } };',
         "const DIRECT_NESTED_MODE = DIRECT_NESTED_PROFILE.nested.mode;",
         'const FROZEN_PROFILE = Object.freeze({ mode: "fixed" });',
@@ -1488,6 +1581,9 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const FROZEN_DATE_PARSE = FROZEN_DATE.parse;",
         "const FROZEN_DATE_ALIAS = Object.freeze(INTRINSIC_DATE);",
         "const FROZEN_ALIAS_PROTOTYPE = FROZEN_DATE_ALIAS.prototype;",
+        'const FROZEN_PRIMITIVE = Object.freeze("fixed");',
+        'const ownedFreezeSource = { mode: "fixed" };',
+        "const FROZEN_OWNED = Object.freeze(ownedFreezeSource);",
         "const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(",
         "  Object.getPrototypeOf(Uint8Array.prototype),",
         '  "byteLength",',
@@ -1540,6 +1636,34 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "const dynamicMode = DYNAMIC_PROFILE[DYNAMIC_KEY];",
         'const NESTED_ESCAPE_PROFILE = { nested: { mode: "fixed" } };',
         "const nestedProfile = NESTED_ESCAPE_PROFILE.nested;",
+        'const WRITE_PROFILE = { mode: "fixed" };',
+        'WRITE_PROFILE.mode = "changed";',
+        "const COMPOUND_PROFILE = { count: 1 };",
+        "COMPOUND_PROFILE.count += 1;",
+        "const LOGICAL_PROFILE = { enabled: true };",
+        "LOGICAL_PROFILE.enabled &&= false;",
+        "const UPDATE_PROFILE = { count: 1 };",
+        "UPDATE_PROFILE.count++;",
+        'const DELETE_PROFILE = { mode: "fixed" };',
+        "delete DELETE_PROFILE.mode;",
+        'const WRITE_ITEMS = ["fixed"];',
+        'WRITE_ITEMS[0] = "changed";',
+        'const LENGTH_ITEMS = ["fixed"];',
+        "LENGTH_ITEMS.length = 0;",
+        'const WRAPPED_WRITE_PROFILE = { mode: "fixed" };',
+        '(WRAPPED_WRITE_PROFILE.mode) = "changed";',
+        "function consumeMode(mode: string): void { void mode; }",
+        'const CALL_PROFILE = { mode: "fixed" };',
+        "consumeMode(CALL_PROFILE.mode);",
+        "class ModeBox { constructor(mode: string) { void mode; } }",
+        'const NEW_PROFILE = { mode: "fixed" };',
+        "new ModeBox(NEW_PROFILE.mode);",
+        'const RETURN_PROFILE = { mode: "fixed" };',
+        "function returnMode(): string { return RETURN_PROFILE.mode; }",
+        'const ARROW_PROFILE = { mode: "fixed" };',
+        "const readMode = (): string => ARROW_PROFILE.mode;",
+        'const EXPORT_PROFILE = { mode: "fixed" };',
+        "export const exportedMode = EXPORT_PROFILE.mode;",
         "function invalidLocals(): void {",
         "  const invalidBoolean: boolean = true;",
         "  const invalidArray: string[] = [];",
@@ -1558,6 +1682,7 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "}",
         "const RUNTIME_PATH = runtimePath;",
         "const RUNTIME_FREEZE = Object.freeze(runtimeSnapshot);",
+        "const FROZEN_RESOURCE = Object.freeze(resourceHandle);",
         'const RESOURCE_HANDLE = createHash("sha256");',
         "const WEAK_CACHE = new WeakMap<object, object>();",
         "const CYCLE_A = CYCLE_B;",
@@ -1571,6 +1696,7 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "void INTRINSIC_DATE_NOW; void INTRINSIC_DATE_TO_ISO; void DATE_PARSE; void DATE_PROTOTYPE;",
         "void DIRECT_FIXED_ITEMS; void DIRECT_FIXED_PROFILE; void TYPED_ARRAY_BYTE_LENGTH;",
         "void DIRECT_FIXED_LENGTH; void DIRECT_FIXED_FIRST; void DIRECT_FIXED_MODE;",
+        "void HAS_DIRECT_FIXED_MODE; void DIRECT_FIXED_TEMPLATE;",
         "void DIRECT_NESTED_PROFILE; void DIRECT_NESTED_MODE; void FROZEN_PROFILE; void FROZEN_MODE;",
         "void FROZEN_DATE; void FROZEN_DATE_PARSE; void FROZEN_DATE_ALIAS; void FROZEN_ALIAS_PROTOTYPE;",
         "void FIXED_DIGEST; void validFunctionExpression; void validClassExpression;",
@@ -1579,7 +1705,11 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "void CONSTRUCTOR_PROFILE; void constructorName; void METHOD_PROFILE; void methodLength;",
         "void OUT_OF_RANGE_ITEMS; void outOfRangeItem; void DYNAMIC_KEY; void DYNAMIC_PROFILE; void dynamicMode;",
         "void NESTED_ESCAPE_PROFILE; void nestedProfile;",
-        "void RUNTIME_PATH; void RUNTIME_FREEZE; void RESOURCE_HANDLE; void WEAK_CACHE;",
+        "void FROZEN_PRIMITIVE; void ownedFreezeSource; void FROZEN_OWNED;",
+        "void RUNTIME_PATH; void RUNTIME_FREEZE; void FROZEN_RESOURCE; void RESOURCE_HANDLE; void WEAK_CACHE;",
+        "void WRITE_PROFILE; void COMPOUND_PROFILE; void LOGICAL_PROFILE; void UPDATE_PROFILE; void DELETE_PROFILE;",
+        "void WRITE_ITEMS; void LENGTH_ITEMS; void WRAPPED_WRITE_PROFILE; void CALL_PROFILE; void NEW_PROFILE;",
+        "void RETURN_PROFILE; void ARROW_PROFILE; void readMode; void EXPORT_PROFILE; void exportedMode; void ModeBox;",
         "void CYCLE_A; void CYCLE_B; void ValidClass; void InvalidMembers;",
       ].join("\n"),
       "utf8",
@@ -1681,6 +1811,20 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
             "variable",
             "camel-case",
           ),
+          expectedKey(fixtureFile, "FROZEN_DATE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "FROZEN_DATE_ALIAS",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "FROZEN_PRIMITIVE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(fixtureFile, "FROZEN_OWNED", "variable", "camel-case"),
           expectedKey(
             fixtureFile,
             "MUTATED_ITEMS",
@@ -1725,6 +1869,39 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
             "variable",
             "camel-case",
           ),
+          expectedKey(fixtureFile, "WRITE_PROFILE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "COMPOUND_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(fixtureFile, "LOGICAL_PROFILE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "UPDATE_PROFILE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "DELETE_PROFILE", "variable", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "WRITE_ITEMS",
+            "variable",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "LENGTH_ITEMS",
+            "variable",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "WRAPPED_WRITE_PROFILE",
+            "variable",
+            "camel-case",
+          ),
+          expectedKey(fixtureFile, "CALL_PROFILE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "NEW_PROFILE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "RETURN_PROFILE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "ARROW_PROFILE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "EXPORT_PROFILE", "variable", "camel-case"),
           expectedKey(
             fixtureFile,
             "invalidBoolean",
@@ -1763,6 +1940,7 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           expectedKey(fixtureFile, "BadSetter", "setter", "camel-case"),
           expectedKey(fixtureFile, "RUNTIME_PATH", "variable", "camel-case"),
           expectedKey(fixtureFile, "RUNTIME_FREEZE", "variable", "camel-case"),
+          expectedKey(fixtureFile, "FROZEN_RESOURCE", "variable", "camel-case"),
           expectedKey(fixtureFile, "RESOURCE_HANDLE", "variable", "camel-case"),
           expectedKey(fixtureFile, "WEAK_CACHE", "variable", "camel-case"),
           expectedKey(fixtureFile, "CYCLE_A", "variable", "camel-case"),
@@ -1815,17 +1993,18 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           "DIRECT_FIXED_LENGTH",
           "DIRECT_FIXED_FIRST",
           "DIRECT_FIXED_MODE",
+          "HAS_DIRECT_FIXED_MODE",
+          "DIRECT_FIXED_TEMPLATE",
           "DIRECT_NESTED_PROFILE",
           "DIRECT_NESTED_MODE",
           "FROZEN_PROFILE",
           "FROZEN_MODE",
-          "FROZEN_DATE",
-          "FROZEN_DATE_ALIAS",
           "TYPED_ARRAY_BYTE_LENGTH",
           "FIXED_DIGEST",
           "runtimePath",
           "runtimeSnapshot",
           "resourceHandle",
+          "ownedFreezeSource",
           "weakCache",
           "constructorName",
           "methodLength",
