@@ -762,6 +762,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerReleaseFloorStore,
     platformProvisionerActiveRelease:
       report.runtimeActivation.platformProvisionerActiveRelease,
+    platformProvisionerActiveReleaseReader:
+      report.runtimeActivation.platformProvisionerActiveReleaseReader,
     platformProvisionerActiveReleaseStore:
       report.runtimeActivation.platformProvisionerActiveReleaseStore,
     platformProvisionerStateTransaction:
@@ -898,6 +900,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       platformProvisionerReleaseFloor: "platform_provisioner_verification",
       platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
       platformProvisionerActiveReleaseCodec:
+        "platform_provisioner_verification",
+      platformProvisionerActiveReleaseRuntimeRead:
         "platform_provisioner_verification",
       platformProvisionerActiveReleasePersistence:
         "platform_provisioner_effect",

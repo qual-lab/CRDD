@@ -1053,3 +1053,13 @@ Repository所有の実装、設定、試験および固定レイアウトを使�
 途中停止または既存pendingがある場合、新しい状態を推測して上書きせず、次の明示`provision`が同じintent、previous Hashまたはnext Hashの一致だけから復旧する。競合、改変、rollbackまたは別active stateは`blocked`へ閉じる。Runtime通常runは未完了intentを自動修復せず、Runtime有効世代読取りの実装まではAuthorityまたはCapabilityを発行しない。RepositoryにはSchema、実装、試験、固定相対Pathだけを置き、実transactionは端末固有ProgramData状態へ限定する。
 
 これにより前節の「両状態をまたぐtransaction未実装」はこの限定範囲でsupersededし、Runtime有効世代読取り、Provisioning Record／Authority Root結合、activation／disable Effect、ready遷移およびReleaseは未実装のまま維持する。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。
+
+### 2026-08-16 — 導入済み有効世代の読取り・再検証候補
+
+Windowsの既知フォルダー（known folder）である共通アプリケーションデータ（CommonApplicationData）の探索をRepository所有の共通moduleへ集約し、環境変数によるRoot差替えを禁止した。導入EffectとRuntime readerはこの同一探索結果だけから固定`Qual-Lab\CRDD\Coordinator`レイアウトを解決し、任意Root、旧Path aliasまたはRepository内の端末状態複製を追加しない。
+
+読取り専用Runtime候補は、`state/provision-transaction.json`が存在しないこと、rollback floorとactive releaseのSequence／floor Hashが一致すること、固定active世代の署名manifest、CRDD Git Tree、Coordinator package content rootおよびWindows DACLが再検証できることを全て要求する。未完了transactionを通常runから復旧せず、欠落、競合、改変、期限外、DACL不一致または判定不能を`blocked`へ閉じる。公開結果はSequenceと検証済みHashの安全要約に限定し、絶対Path、SID、ACL、署名、鍵またはraw stateを返さない。
+
+Runtime activationとdoctorは同じprivate contract snapshotから本readerを`implemented_candidate`として投影する。ただし通常runへのAuthority接続、Provisioning Record／Authority Root結合、activation／disable Effect、ready遷移およびReleaseは未実装である。reader成功だけからRuntime Authority、CapabilityまたはFilesystem／Network Effectを発行せず、既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。Repository外へ残すのはRelease秘密鍵と端末固有ProgramData状態だけである。
+
+本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。

@@ -324,6 +324,29 @@ export function recoverPlatformProvisionerStateTransactionForEffect(
   }
 }
 
+export function inspectPlatformProvisionerStateTransactionForRuntime(
+  stateRoot: unknown,
+) {
+  try {
+    const statePaths = paths(stateRoot);
+    if (!statePaths) return blocked("state_transaction_root_invalid");
+    if (fs.existsSync(statePaths.pending)) {
+      return blocked("state_transaction_pending_recovery_required", true);
+    }
+    if (!fs.existsSync(statePaths.target)) {
+      return Object.freeze({
+        ...blocked("state_transaction_absent"),
+        status: "candidate" as const,
+      });
+    }
+    return read(statePaths.target)
+      ? blocked("state_transaction_recovery_required", true)
+      : blocked("state_transaction_invalid", true);
+  } catch {
+    return blocked("state_transaction_inspection_failed", true);
+  }
+}
+
 export function describePlatformProvisionerStateTransactionContract() {
   return Object.freeze({
     contract: CONTRACT,
@@ -333,6 +356,7 @@ export function describePlatformProvisionerStateTransactionContract() {
     recovery: "explicit_provision_recovery_before_new_transition",
     commitOrder: "floor_then_active_with_durable_transaction_intent",
     runtimeBehaviorWhilePending: "blocked_until_explicit_provision_recovery",
+    runtimeInspection: "implemented_read_only_candidate",
     repositoryRuntimeStateRequired: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,

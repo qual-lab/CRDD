@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +23,7 @@ import {
   applyWindowsProvisionerInstallDaclForEffect,
   inspectWindowsPackageDaclCandidate,
 } from "./platform-provisioner-windows-dacl.ts";
+import { discoverWindowsCommonApplicationDataForEffect } from "./windows-common-application-data.ts";
 
 const bundledPackageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const bundledDistributionRoot = fileURLToPath(
@@ -31,13 +31,6 @@ const bundledDistributionRoot = fileURLToPath(
 );
 const MAXIMUM_FILES = 2_048;
 const MAXIMUM_PACKAGE_BYTES = 64 * 1024 * 1024;
-const POWERSHELL_TIMEOUT_MS = 30_000;
-const POWERSHELL_OUTPUT_BYTES = 4_096;
-const WINDOWS_ROOT = /^[A-Za-z]:\\Windows$/u;
-const PROGRAM_DATA_SCRIPT = `
-$ErrorActionPreference = 'Stop'
-[Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
-`;
 
 type VerifiedRelease = Readonly<{
   manifestHash: string;
@@ -65,59 +58,6 @@ function blocked(reason: string, hasFilesystemEffect = false) {
     filesystemEffectIssued: hasFilesystemEffect,
     networkEffectIssued: false,
   });
-}
-
-function powershellExecutable() {
-  const systemRoot = process.env.SystemRoot;
-  if (!systemRoot || !WINDOWS_ROOT.test(systemRoot)) return null;
-  const executable = path.win32.join(
-    systemRoot,
-    "System32",
-    "WindowsPowerShell",
-    "v1.0",
-    "powershell.exe",
-  );
-  const metadata = fs.lstatSync(executable);
-  return metadata.isFile() &&
-    !metadata.isSymbolicLink() &&
-    fs.realpathSync.native(executable) === executable
-    ? executable
-    : null;
-}
-
-function discoverProgramDataRoot() {
-  if (process.platform !== "win32") return null;
-  const executable = powershellExecutable();
-  if (!executable) return null;
-  const output = execFileSync(
-    executable,
-    [
-      "-NoLogo",
-      "-NoProfile",
-      "-NonInteractive",
-      "-EncodedCommand",
-      Buffer.from(PROGRAM_DATA_SCRIPT, "utf16le").toString("base64"),
-    ],
-    {
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: POWERSHELL_TIMEOUT_MS,
-      maxBuffer: POWERSHELL_OUTPUT_BYTES,
-      env: { SystemRoot: process.env.SystemRoot },
-      stdio: ["ignore", "pipe", "ignore"],
-    },
-  ).trim();
-  if (!path.win32.isAbsolute(output) || output.includes("\0")) return null;
-  const normalized = path.win32.normalize(output);
-  const metadata = fs.lstatSync(normalized);
-  if (
-    !metadata.isDirectory() ||
-    metadata.isSymbolicLink() ||
-    fs.realpathSync.native(normalized) !== normalized
-  ) {
-    return null;
-  }
-  return normalized;
 }
 
 function ensureOwnedDirectory(target: string) {
@@ -267,7 +207,7 @@ export function runPlatformProvisionerEffect() {
     const release = verifiedRelease(sourceVerification);
     if (!release)
       return blocked("platform_provisioner_release_identity_invalid");
-    const programDataRoot = discoverProgramDataRoot();
+    const programDataRoot = discoverWindowsCommonApplicationDataForEffect();
     if (!programDataRoot)
       return blocked("platform_provisioner_program_data_unavailable");
     const layout = resolveWindowsProvisionerInstallLayoutForEffect(

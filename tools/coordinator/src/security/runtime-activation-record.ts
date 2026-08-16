@@ -23,6 +23,7 @@ import { describePlatformProvisionerReleaseIdentityContract } from "./platform-p
 import { describePlatformProvisionerReleaseFloorContract } from "./platform-provisioner-release-floor.ts";
 import { describePlatformProvisionerReleaseFloorStoreContract } from "./platform-provisioner-release-floor-store.ts";
 import { describePlatformProvisionerActiveReleaseContract } from "./platform-provisioner-active-release.ts";
+import { describePlatformProvisionerActiveReleaseReaderContract } from "./platform-provisioner-active-release-reader.ts";
 import { describePlatformProvisionerActiveReleaseStoreContract } from "./platform-provisioner-active-release-store.ts";
 import { describePlatformProvisionerStateTransactionContract } from "./platform-provisioner-state-transaction.ts";
 import { describePlatformProvisionerEffectContract } from "./platform-provisioner-effect.ts";
@@ -132,6 +133,8 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   platformProvisionerReleaseFloor: "platform_provisioner_verification",
   platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
   platformProvisionerActiveReleaseCodec: "platform_provisioner_verification",
+  platformProvisionerActiveReleaseRuntimeRead:
+    "platform_provisioner_verification",
   platformProvisionerActiveReleasePersistence: "platform_provisioner_effect",
   platformProvisionerStateTransaction: "platform_provisioner_effect",
   platformProvisionerCrddDistributionVerification:
@@ -503,6 +506,8 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerReleaseFloorStoreContract();
   const platformProvisionerActiveReleaseContract =
     describePlatformProvisionerActiveReleaseContract();
+  const platformProvisionerActiveReleaseReaderContract =
+    describePlatformProvisionerActiveReleaseReaderContract();
   const platformProvisionerActiveReleaseStoreContract =
     describePlatformProvisionerActiveReleaseStoreContract();
   const platformProvisionerEffectContract =
@@ -555,6 +560,8 @@ export function describeRuntimeActivationContract() {
       platformProvisionerReleaseFloorStoreContract.persistence,
     platformProvisionerActiveReleaseCodec:
       platformProvisionerActiveReleaseContract.canonicalByteCodec,
+    platformProvisionerActiveReleaseRuntimeRead:
+      platformProvisionerActiveReleaseReaderContract.runtimeRead,
     platformProvisionerActiveReleasePersistence:
       platformProvisionerActiveReleaseStoreContract.persistence,
     platformProvisionerStateTransaction:
@@ -643,6 +650,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerReleaseFloorContract,
     platformProvisionerReleaseFloorStoreContract,
     platformProvisionerActiveReleaseContract,
+    platformProvisionerActiveReleaseReaderContract,
     platformProvisionerActiveReleaseStoreContract,
     platformProvisionerStateTransactionContract,
     platformProvisionerEffectContract,
@@ -761,6 +769,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerReleaseFloorStoreContract,
     platformProvisionerActiveRelease:
       implementation.platformProvisionerActiveReleaseContract,
+    platformProvisionerActiveReleaseReader:
+      implementation.platformProvisionerActiveReleaseReaderContract,
     platformProvisionerActiveReleaseStore:
       implementation.platformProvisionerActiveReleaseStoreContract,
     platformProvisionerStateTransaction:
@@ -981,6 +991,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerReleaseFloorStoreContract,
     platformProvisionerActiveRelease:
       implementation.platformProvisionerActiveReleaseContract,
+    platformProvisionerActiveReleaseReader:
+      implementation.platformProvisionerActiveReleaseReaderContract,
     platformProvisionerActiveReleaseStore:
       implementation.platformProvisionerActiveReleaseStoreContract,
     platformProvisionerStateTransaction:

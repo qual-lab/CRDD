@@ -484,6 +484,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     platformProvisionerReleaseFloorStore:
       contract.platformProvisionerReleaseFloorStore,
     platformProvisionerActiveRelease: contract.platformProvisionerActiveRelease,
+    platformProvisionerActiveReleaseReader:
+      contract.platformProvisionerActiveReleaseReader,
     platformProvisionerActiveReleaseStore:
       contract.platformProvisionerActiveReleaseStore,
     platformProvisionerStateTransaction:
@@ -620,6 +622,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       platformProvisionerReleaseFloor: "platform_provisioner_verification",
       platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
       platformProvisionerActiveReleaseCodec:
+        "platform_provisioner_verification",
+      platformProvisionerActiveReleaseRuntimeRead:
         "platform_provisioner_verification",
       platformProvisionerActiveReleasePersistence:
         "platform_provisioner_effect",
