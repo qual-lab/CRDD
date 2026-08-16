@@ -11,8 +11,10 @@ import { isRuntimeActivationIdCandidate } from "./runtime-activation-identity.ts
 import {
   PROVISIONING_RECORD_STORAGE_DIRECTORY,
   verifyCurrentProvisioningRecordLocatorBindingCandidate,
+  verifyCurrentProvisioningRecordRootObservationBindingCandidate,
 } from "./provisioning-record-store.ts";
 import { verifyCurrentProvisioningRecordWithPersistedTrustCandidate } from "./provisioning-trust-artifact-store.ts";
+import { inspectWindowsRootObservationCandidate } from "./root-observation.ts";
 
 export const AUTHORITY_ROOT_LOCATOR_CONTRACT =
   "crdd-coordinator/authority-root-locator";
@@ -713,6 +715,93 @@ export function verifyStoredAuthorityRootLocatorRecordCandidate(
   }
 }
 
+export function verifyStoredAuthorityRootLocatorObservedRecordCandidate(
+  repositoryRoot: unknown,
+) {
+  try {
+    const trustedBinding =
+      verifyStoredAuthorityRootLocatorRecordCandidate(repositoryRoot);
+    if (
+      trustedBinding.status !== "candidate" ||
+      !("recordHash" in trustedBinding) ||
+      typeof trustedBinding.recordHash !== "string"
+    ) {
+      return locatorStoreBlocked(
+        "authority_root_locator_observed_record_trust_required",
+      );
+    }
+    const paths = locatorStorePaths(repositoryRoot);
+    if (!paths || fs.existsSync(paths.pending)) {
+      return locatorStoreBlocked(
+        "authority_root_locator_observed_record_unavailable",
+      );
+    }
+    const stored = loadStoredLocator(paths, paths.target);
+    if (
+      !stored ||
+      typeof stored.locator.authorityRootAbsolutePath !== "string" ||
+      typeof stored.locator.authorityRootIdentityHash !== "string"
+    ) {
+      return locatorStoreBlocked(
+        "authority_root_locator_observed_record_invalid",
+      );
+    }
+    const observation = inspectWindowsRootObservationCandidate(
+      stored.locator.authorityRootAbsolutePath,
+      "authority",
+    );
+    if (
+      observation.status !== "candidate" ||
+      observation.rootIdentityHash !==
+        stored.locator.authorityRootIdentityHash ||
+      typeof observation.rootProtectionHash !== "string"
+    ) {
+      return locatorStoreBlocked(
+        "authority_root_locator_observed_identity_or_protection_mismatch",
+      );
+    }
+    const storageRoot = path.join(
+      stored.locator.authorityRootAbsolutePath,
+      PROVISIONING_RECORD_STORAGE_DIRECTORY,
+    );
+    const recordBinding =
+      verifyCurrentProvisioningRecordRootObservationBindingCandidate(
+        storageRoot,
+        stored.locator.authorityRootAbsolutePath,
+        observation.rootIdentityHash,
+        observation.rootProtectionHash,
+      );
+    if (
+      recordBinding.status !== "candidate" ||
+      recordBinding.authorityRootBindingMatch !== true ||
+      recordBinding.recordHash !== trustedBinding.recordHash ||
+      !verifyLocatorStorePaths(paths)
+    ) {
+      return locatorStoreBlocked(
+        "authority_root_locator_observed_record_binding_mismatch",
+      );
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason:
+        "stored_locator_observed_root_persisted_trust_record_binding_candidate",
+      locatorHash: stored.locatorHash,
+      recordHash: recordBinding.recordHash,
+      identityObserved: true,
+      protectionObserved: true,
+      locatorRecordTrustBindingMatch: true,
+      absolutePathReported: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return locatorStoreBlocked(
+      "authority_root_locator_observed_record_verification_failed",
+    );
+  }
+}
+
 export function recoverAuthorityRootLocatorForEffect(repositoryRoot: unknown) {
   try {
     const paths = locatorStorePaths(repositoryRoot);
@@ -776,7 +865,10 @@ export function describeAuthorityRootLocatorContract() {
     resolver: "implemented_candidate_root_object_only",
     provisioningRecordVerification:
       "implemented_candidate_persisted_trust_and_binding",
-    authorityRootIdentityVerification: "not_implemented",
+    authorityRootIdentityVerification:
+      "implemented_candidate_windows_identity_and_protection_observation",
+    observedProvisioningRecordBinding:
+      "implemented_candidate_windows_identity_and_protection_hashes",
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
     runtimeAuthorityConferred: false,

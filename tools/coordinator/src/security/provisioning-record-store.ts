@@ -5,6 +5,7 @@ import {
   PROVISIONING_RECORD_PURE_CORE_LIMITS,
   decodeProvisioningRecordEnvelopeCandidate,
   verifyProvisioningRecordAggregateCandidate,
+  verifyProvisioningRecordAuthorityRootBindingCandidate,
   verifyProvisioningRecordLineageCandidate,
 } from "./provisioning-record-pure-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signature-primitives.ts";
@@ -361,6 +362,68 @@ export function verifyCurrentProvisioningRecordLocatorBindingCandidate(
       reason: "provisioning_record_store_current_locator_binding_failed",
       recordHash: null,
       locatorBindingMatch: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  }
+}
+
+export function verifyCurrentProvisioningRecordRootObservationBindingCandidate(
+  storageRoot: unknown,
+  authorityRootAbsolutePath: unknown,
+  authorityRootIdentityHash: unknown,
+  authorityRootProtectionHash: unknown,
+) {
+  try {
+    const paths = storagePaths(storageRoot);
+    const current = paths ? loadCurrent(paths) : null;
+    if (!current) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_store_root_observation_unavailable",
+        recordHash: null,
+        authorityRootBindingMatch: false,
+        filesystemEffectIssued: false,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    const binding = verifyProvisioningRecordAuthorityRootBindingCandidate({
+      envelopeBytes: current.recordBytes,
+      observedAuthorityRootIdentityHash: authorityRootIdentityHash,
+      observedAuthorityRootProtectionHash: authorityRootProtectionHash,
+      selectedAuthorityRootAbsolutePath: authorityRootAbsolutePath,
+    });
+    if (
+      binding.status !== "candidate" ||
+      binding.authorityRootBindingMatch !== true
+    ) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_store_root_observation_mismatch",
+        recordHash: binding.recordHash,
+        authorityRootBindingMatch: false,
+        filesystemEffectIssued: false,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "provisioning_record_store_root_observation_binding_candidate",
+      recordHash: binding.recordHash,
+      authorityRootBindingMatch: true,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "provisioning_record_store_root_observation_failed",
+      recordHash: null,
+      authorityRootBindingMatch: false,
       filesystemEffectIssued: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,

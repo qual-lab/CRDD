@@ -260,7 +260,10 @@ test("Activation contractは永続化、専用command、再activation、disable/
     resolver: "implemented_candidate_root_object_only",
     provisioningRecordVerification:
       "implemented_candidate_persisted_trust_and_binding",
-    authorityRootIdentityVerification: "not_implemented",
+    authorityRootIdentityVerification:
+      "implemented_candidate_windows_identity_and_protection_observation",
+    observedProvisioningRecordBinding:
+      "implemented_candidate_windows_identity_and_protection_hashes",
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
     runtimeAuthorityConferred: false,
@@ -1191,7 +1194,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.rootProtectionPolicy.windowsDaclAdapter,
-    "not_implemented",
+    "implemented_candidate_read_only",
   );
   assert.equal(
     contract.rootProtectionPolicy.posixOwnerModeAdapter,
@@ -1203,7 +1206,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.rootProtectionPolicy.runtimePrincipalBinding,
-    "not_implemented",
+    "implemented_candidate_windows_only",
   );
   assert.equal(
     contract.rootProtectionPolicy.persistentVolumeAdapter,
@@ -1211,14 +1214,20 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.rootProtectionPolicy.filesystemClassVerification,
-    "not_implemented",
+    "implemented_candidate_windows_fixed_drive_only",
   );
-  assert.equal(contract.rootProtectionPolicy.pathBinding, "not_implemented");
+  assert.equal(
+    contract.rootProtectionPolicy.pathBinding,
+    "implemented_candidate_windows_stable_object_only",
+  );
   assert.equal(
     contract.rootProtectionPolicy.activationIntegration,
     "not_implemented",
   );
-  assert.equal(contract.ownerAclVerification, "not_implemented");
+  assert.equal(
+    contract.ownerAclVerification,
+    "implemented_candidate_read_only",
+  );
   assert.equal(contract.atomicPersistence, "not_implemented");
   assert.equal(contract.canonicalUtcLength, 24);
   assert.equal(contract.runtimeCapabilityIssued, false);

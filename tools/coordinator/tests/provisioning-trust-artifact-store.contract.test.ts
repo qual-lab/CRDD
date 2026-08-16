@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   AUTHORITY_ROOT_LOCATOR_CONTRACT,
   persistAuthorityRootLocatorForEffect,
+  verifyStoredAuthorityRootLocatorObservedRecordCandidate,
   verifyStoredAuthorityRootLocatorRecordCandidate,
 } from "../src/security/authority-root-locator.ts";
 import {
@@ -20,6 +21,7 @@ import {
   PROVISIONING_RECORDS_DIRECTORY,
   PROVISIONING_RECORD_STORAGE_DIRECTORY,
   persistCurrentProvisioningRecordForEffect,
+  verifyCurrentProvisioningRecordRootObservationBindingCandidate,
 } from "../src/security/provisioning-record-store.ts";
 import {
   PROVISIONING_REVOCATION_MANIFESTS_DIRECTORY,
@@ -31,6 +33,7 @@ import {
 } from "../src/security/provisioning-trust-artifact-store.ts";
 import { evaluateProvisioningTrustFloorCandidate } from "../src/security/provisioning-trust-floor.ts";
 import { persistProvisioningTrustFloorForEffect } from "../src/security/provisioning-trust-floor-store.ts";
+import { compileWindowsRootObservationCandidate } from "../src/security/root-observation.ts";
 import {
   assertCanonicalCandidate,
   assertDomainMessageCandidate,
@@ -126,6 +129,8 @@ function recordEnvelope(
   authorityRootAbsolutePath = process.platform === "win32"
     ? "C:\\CRDD-Authority"
     : "/var/lib/crdd-authority",
+  authorityRootIdentityHash = "6".repeat(64),
+  authorityRootProtectionHash = "7".repeat(64),
 ) {
   const now = Date.now();
   const payload = {
@@ -138,8 +143,8 @@ function recordEnvelope(
     provisionerIdentityHash: "4".repeat(64),
     provisionerEnrollmentId: "5".repeat(32),
     authorityRootAbsolutePath,
-    authorityRootIdentityHash: "6".repeat(64),
-    authorityRootProtectionHash: "7".repeat(64),
+    authorityRootIdentityHash,
+    authorityRootProtectionHash,
     runtimePrincipalModes: [
       "local_interactive_selected_user",
       "server_dedicated_service_account",
@@ -355,6 +360,14 @@ test("Repository検索票を永続Trustとcurrent Recordへ結合する", () => 
       JSON.stringify(verified).includes(target.authorityRoot),
       false,
     );
+    const observed = verifyStoredAuthorityRootLocatorObservedRecordCandidate(
+      target.repositoryRoot,
+    );
+    assert.equal(observed.status, "blocked");
+    assert.equal(
+      JSON.stringify(observed).includes(target.authorityRoot),
+      false,
+    );
     const locatorPath = path.join(
       target.repositoryRoot,
       ".crdd-runtime",
@@ -379,6 +392,62 @@ test("Repository検索票を永続Trustとcurrent Recordへ結合する", () => 
     assert.equal(
       verifyStoredAuthorityRootLocatorRecordCandidate(target.repositoryRoot)
         .status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(target.parent, { recursive: true, force: true });
+  }
+});
+
+test("current Recordを正規化したRoot実測Hashへ完全結合する", () => {
+  const target = fixture();
+  try {
+    const values = artifacts();
+    const observation = compileWindowsRootObservationCandidate({
+      allOwnersTrusted: true,
+      entityCount: 1,
+      filesystemClass: "local",
+      objectBirthtimeNanoseconds: "1700000000000000000",
+      objectDeviceId: "1234",
+      objectFileId: "5678",
+      otherWriteAceCount: 0,
+      reparsePointCount: 0,
+      rootDaclProtected: true,
+      rootRole: "authority",
+      runtimeDenyAceCount: 0,
+      runtimePrincipalSid: "S-1-5-21-1-2-3-1001",
+      runtimeReadExecuteEntityCount: 1,
+      runtimeRootInheritanceRuleCount: 1,
+      runtimeWriteEntityCount: 0,
+    });
+    assert.equal(observation.status, "candidate");
+    const persisted = persistCurrentProvisioningRecordForEffect(
+      target.root,
+      recordEnvelope(
+        values,
+        target.authorityRoot,
+        observation.rootIdentityHash ?? "",
+        observation.rootProtectionHash ?? "",
+      ),
+    );
+    assert.equal(persisted.status, "candidate");
+    const binding =
+      verifyCurrentProvisioningRecordRootObservationBindingCandidate(
+        target.root,
+        target.authorityRoot,
+        observation.rootIdentityHash,
+        observation.rootProtectionHash,
+      );
+    assert.equal(binding.status, "candidate");
+    assert.equal(binding.authorityRootBindingMatch, true);
+    assert.equal(binding.runtimeAuthorityConferred, false);
+    assert.equal(
+      verifyCurrentProvisioningRecordRootObservationBindingCandidate(
+        target.root,
+        target.authorityRoot,
+        observation.rootIdentityHash,
+        "f".repeat(64),
+      ).status,
       "blocked",
     );
   } finally {

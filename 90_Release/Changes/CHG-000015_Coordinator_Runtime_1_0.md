@@ -1145,3 +1145,15 @@ Repository固定Storeから検索票を安定読取りし、記録されたAutho
 本候補はRepository所有の実装、契約、固定相対レイアウトおよび試験で完結する。端末固有のAuthority Root／Trust／Recordと秘密鍵はRepositoryへ複製しない。OSが実測するAuthority Root Identity Hash、ACL／DACL等の保護、初期Trustの承認済み導入元、実active activation、Runtime AuthorityおよびCapabilityは未接続である。したがって12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
 
 Node.js 24.19.0で、Coordinator 322 / 322、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Repository Runtime Root、実Authority Root、実Trust成果物、実準備記録または秘密鍵を使用・変更していない。
+
+### 2026-08-16 — Root Identity／保護観測HashとWindows実測結合候補
+
+Root Identity観測成果物`crdd-coordinator/root-identity-observation`とRoot保護観測成果物`crdd-coordinator/root-protection-observation`のrevision 1を追加した。前者はWindowsのdevice ID、file IDおよびbirthtime nanoseconds、後者はfixed drive、Root role、Runtime主体Hash、role別accessおよびwriter排他を正規化する。それぞれ固有ASCII domain、uint64be canonical payload byte長、canonical payloadおよびSHA-256へ固定し、絶対Path、SID、ACLまたはraw observationをHash成果物と公開結果へ含めない。
+
+Windows Adapter候補は固定したWindows PowerShell実体だけを非対話で起動し、Root処置前後のnon-link Directory Identity、fixed drive、全対象のreparse不在、継承保護DACL、信頼済みowner、Runtime主体のread／execute、Root role別writeおよび非承認writer不在を読み取り専用で観測する。Runtime主体は呼出側入力を受けず、Adapterを実行するWindows processのSIDから取得する。Runtime Rootは同主体だけのread／write、Authority Rootは同主体read-onlyかつPlatform管理者境界だけのwriteを要求する。観測失敗、Identity変化、非fixed drive、DACL不成立または分類不能は権限変更、自動修復、別Path fallbackを行わず`blocked`へ閉じる。
+
+Repository固定検索票から永続Trust／current Recordを再検証する既存候補へWindows実測を接続し、検索票のIdentity Hash、Recordの署名対象絶対Path／Identity Hash／Protection Hashおよび実測2 Hashを完全一致させる。別途、current Recordを正規化済み観測Hashへ結ぶStore入口を追加し、1値でも異なる場合は候補化しない。公開結果はRecord Hash、検索票Hashおよび一致状態だけに限定し、Path、SID、ACL、canonical byte、SPKIまたは署名を返さない。
+
+Repositoryが所有するのは実装、契約、固定domain／Schema、文書および試験である。端末固有Authority Root、実Trust成果物、準備記録、秘密鍵および実DACL状態はRepositoryへ複製しない。POSIX Root観測、初期Trustの承認済み導入元、権限Provision Effect、activation transaction、実active activation、Authority、Capabilityおよびready遷移は未実装である。既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+Node.js 24.19.0で、Coordinator 328 / 328、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／117 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 455 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Windows実Adapterの負例は試験用一時Rootを読み取り専用で観測し、権限を変更していない。実Authority Root、実Trust成果物、実準備記録または秘密鍵は使用・変更していない。

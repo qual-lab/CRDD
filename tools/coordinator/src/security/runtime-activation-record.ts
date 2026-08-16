@@ -648,7 +648,7 @@ export function describeRuntimeActivationContract() {
     authorityRootProvisioningEffect: "not_implemented",
     atomicPersistence: "not_implemented",
     pathIdentityBinding: "not_implemented",
-    ownerAclVerification: "not_implemented",
+    ownerAclVerification: rootProtectionPolicy.windowsDaclAdapter,
     runScopedCapability: "not_implemented",
     runtimeCapabilityIssued: false,
     rootProtectionPolicy,

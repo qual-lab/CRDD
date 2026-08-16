@@ -1,4 +1,5 @@
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describeRootObservationContract } from "./root-observation.ts";
 
 export const ROOT_PROTECTION_POLICY_CONTRACT =
   "crdd-coordinator/root-protection-policy";
@@ -159,6 +160,7 @@ export function evaluateRootProtectionPolicyCandidate(rawInput: unknown) {
 }
 
 export function describeRootProtectionPolicyContract() {
+  const rootObservation = describeRootObservationContract();
   return Object.freeze({
     contract: ROOT_PROTECTION_POLICY_CONTRACT,
     contractRevision: ROOT_PROTECTION_POLICY_CONTRACT_REVISION,
@@ -221,16 +223,18 @@ export function describeRootProtectionPolicyContract() {
     rootProvisioning: "external_preprovision_required",
     callerObservationsAreAuthority: false,
     protectionPolicyCore: "implemented_candidate_claim_only",
-    windowsDaclAdapter: "not_implemented",
+    windowsDaclAdapter: rootObservation.windowsAdapter,
     posixRuntimeRootPrecheckEntry: "implemented_fail_closed",
     posixRuntimeRootModeObservation: "not_implemented",
     posixOwnerModeAdapter: "not_implemented",
     posixAclVerification: "not_implemented",
-    runtimePrincipalBinding: "not_implemented",
+    runtimePrincipalBinding: "implemented_candidate_windows_only",
     persistentVolumeAdapter: "not_implemented",
-    filesystemClassVerification: "not_implemented",
-    pathBinding: "not_implemented",
+    filesystemClassVerification:
+      "implemented_candidate_windows_fixed_drive_only",
+    pathBinding: "implemented_candidate_windows_stable_object_only",
     activationIntegration: "not_implemented",
+    rootObservation,
     rootCreationIssued: false,
     permissionMutationIssued: false,
     filesystemEffectIssued: false,
