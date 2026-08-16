@@ -131,4 +131,15 @@ Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの�
 
 CRDD公式Repositoryのチェッカー本体、試験、障害注入器および型設定を`tools/checker/`へ集約し、独立したprivate packageとして所有させた。公式Repository内の実行Pathは`tools/checker/crdd_check.ts`、試験は`tools/checker/crdd_check.test.ts`、障害注入器は`tools/checker/fault-injector.ts`、型設定は`tools/checker/tsconfig.json`とする。Coordinator packageからチェッカーの試験と型検査を分離し、各packageが自身の`check`、`test`および固定devDependencyを所有する。
 
-採用Repositoryへ配布する`template/tools/crdd_check.ts`と、採用側での`tools/crdd_check.ts`という配置契約は変更しない。CRDD公式Repositoryのwrapperは同じ配布実装を参照し続けるため、チェッカーの検査規則、CLI、出力、準拠境界および外部公開範囲に意味変更はない。過去のEvidenceとCHANGELOGに記録された旧Pathは当時の固定履歴として保持する。本処置は`Applied`／`Self-checked`であり、新配置での機械確認と必要な独立review／audit前は`Resolved`ではない。
+採用Repositoryへ配布する`template/tools/crdd_check.ts`と、採用側での`tools/crdd_check.ts`という配置契約は変更しない。CRDD公式Repositoryのwrapperは同じ配布実装を参照し続けるため、チェッカーの検査規則、CLI、出力、準拠境界および外部公開範囲に意味変更はない。過去のCHG、EvidenceおよびCHANGELOGに記録された旧Pathは当時の固定履歴として保持する。本処置は`Applied`／`Self-checked`であり、新配置での機械確認と必要な独立review／audit前は`Resolved`ではない。
+
+### 初回固定版の監査集合と是正
+
+初回固定版はCommit `75d596f3263298c6d0e381617f9679f198aad708`、Tree `1258a31c68c12f1b6b91490d01131e75b2cd53b3`、Parent `495a6cd88250917418ae15028bf30ee1f71841b0`である。共通入力はNode.js 24.12、Coordinator試験255 / 255、Checker試験143 / 143、全体Checker Error 0 / Warning 0、diff／worktree cleanだった。
+
+- Agent／Architecture／Security review: `Fail`、Major 1件。`AG-CHECKER-PACKAGE-001`は、現行Repository地図に旧公式入口が残った初回見落としである。
+- Document Audit: `Fail`、Major 1件とMinor 1件。`DOC-CHECKER-PACKAGE-001`は現行入口の直接伝播漏れ、`DOC-CHECKER-PACKAGE-002`は過去の実行事実と現在Pathの混同で、いずれも今回変更で新たに発生した。
+- Gap / Impact Audit: `Fail`、Major 1件。`GCI-CHECKER-PACKAGE-001`は現行入口の伝播漏れと過去CHGの実行事実の書換えが同根で、今回変更で新たに発生した。
+- Conformance Audit: `Pass`。Gap / Impactの`Fail`と集約せず、準拠基準、Stable ID、VersionおよびReleaseへの変更がないという個別結果として保持する。
+
+この監査集合は全体として`Invalidated`であり、現在の合否へ流用しない。現行入口を`tools/checker/crdd_check.ts`へ統一し、公式Repository、採用Repositoryおよびsubmodule未コピー時の実行境界を分け、過去CHGの当時Pathと現在移設先を分離する処置は`Applied`／`Self-checked`である。各Findingは新固定版の機械確認と同じ3監査が完了するまで`Resolved`ではない。
