@@ -99,7 +99,7 @@ export function generateReleaseKeyPair(
   }
 }
 
-async function readHiddenLine(prompt: string) {
+export async function readHiddenLine(prompt: string) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error("release_key_interactive_terminal_required");
   }

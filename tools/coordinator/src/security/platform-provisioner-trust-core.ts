@@ -55,6 +55,7 @@ const VERIFY_KEYS = new Set([
   "observedPackageContent",
   "evaluationTime",
 ]);
+const COMPILE_KEYS = new Set(["manifestPayload"]);
 const HEX64 = /^[0-9a-f]{64}$/u;
 const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
@@ -258,6 +259,46 @@ function normalizeEnvelope(raw: unknown) {
   const payload = normalizeManifest(value.payload);
   const signature = normalizeSignature(entry.value);
   return payload && signature ? Object.freeze({ payload, signature }) : null;
+}
+
+export function compilePlatformProvisionerManifestPayloadCandidate(
+  rawInput: unknown,
+) {
+  try {
+    const input = snapshotPlainRecord(rawInput, COMPILE_KEYS);
+    const payload = input && normalizeManifest(input.manifestPayload);
+    const framed =
+      payload && frame(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, payload);
+    return payload && framed
+      ? Object.freeze({
+          status: "candidate" as const,
+          reason: "platform_provisioner_manifest_payload_compiled_candidate",
+          payload,
+          message: Buffer.from(framed.message),
+          manifestHash: framed.hash,
+          runtimeAuthorityConferred: false,
+          runtimeCapabilityIssued: false,
+          filesystemEffectIssued: false,
+          networkEffectIssued: false,
+        })
+      : Object.freeze({
+          status: "blocked" as const,
+          reason: "platform_provisioner_manifest_payload_invalid",
+          runtimeAuthorityConferred: false,
+          runtimeCapabilityIssued: false,
+          filesystemEffectIssued: false,
+          networkEffectIssued: false,
+        });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "platform_provisioner_manifest_payload_invalid",
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+    });
+  }
 }
 
 function frame(domain: string, payload: unknown) {

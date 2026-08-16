@@ -20,6 +20,7 @@
   "files": [
     "bin/coordinator.ts",
     "scripts/generate-release-key.ts",
+    "scripts/sign-release-manifest.ts",
     "src/core/cli-options.ts",
     "src/core/doctor.ts",
     "src/security/authority-prelaunch-verifier.ts",
@@ -39,7 +40,9 @@
     "src/security/initial-enrollment-runtime-state.ts",
     "src/security/offline-enrollment-bundle-pure-core.ts",
     "src/security/platform-key-storage-policy.ts",
+    "src/security/platform-provisioner-manifest-loader.ts",
     "src/security/platform-provisioner-package-filesystem.ts",
+    "src/security/platform-provisioner-policy-identity.ts",
     "src/security/plain-data-snapshot.ts",
     "src/security/platform-provisioner-trust-core.ts",
     "src/security/platform-provisioner-package-gate.ts",

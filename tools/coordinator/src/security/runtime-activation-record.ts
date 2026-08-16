@@ -15,6 +15,8 @@ import { describePlatformProvisionerTrustCoreContract } from "./platform-provisi
 import { describePlatformProvisionerPackageGateContract } from "./platform-provisioner-package-gate.ts";
 import { describePlatformProvisionerPackageFilesystemContract } from "./platform-provisioner-package-filesystem.ts";
 import { describePlatformProvisionerReleaseTrustContract } from "./platform-provisioner-release-trust.ts";
+import { describePlatformProvisionerManifestLoaderContract } from "./platform-provisioner-manifest-loader.ts";
+import { describePlatformProvisionerPolicyIdentityContract } from "./platform-provisioner-policy-identity.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
@@ -115,6 +117,8 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   enrollmentCertificateRenewalContract: "provisioning_record_contract",
   enrollmentCertificateRenewalVerification: "provisioning_record_verification",
   platformProvisionerManifestVerification: "platform_provisioner_verification",
+  platformProvisionerManifestLoader: "platform_provisioner_verification",
+  platformProvisionerPolicyIdentity: "platform_provisioner_verification",
   platformProvisionerCrddDistributionVerification:
     "platform_provisioner_verification",
   platformProvisionerPackageGateObservation:
@@ -467,6 +471,10 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerPackageFilesystemContract();
   const platformProvisionerReleaseTrust =
     describePlatformProvisionerReleaseTrustContract();
+  const platformProvisionerManifestLoaderContract =
+    describePlatformProvisionerManifestLoaderContract();
+  const platformProvisionerPolicyIdentityContract =
+    describePlatformProvisionerPolicyIdentityContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -500,6 +508,10 @@ export function describeRuntimeActivationContract() {
       enrollmentCertificateRenewal.transitionVerification,
     platformProvisionerManifestVerification:
       platformProvisionerTrustCore.manifestCryptographicVerification,
+    platformProvisionerManifestLoader:
+      platformProvisionerManifestLoaderContract.stableSameFileIdentityRead,
+    platformProvisionerPolicyIdentity:
+      platformProvisionerPolicyIdentityContract.hashInput,
     platformProvisionerCrddDistributionVerification:
       platformProvisionerTrustCore.runtimeOwnedCrddDistributionVerification,
     platformProvisionerPackageGateObservation:
@@ -574,6 +586,8 @@ export function describeRuntimeActivationContract() {
     platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem,
     platformProvisionerReleaseTrust,
+    platformProvisionerManifestLoaderContract,
+    platformProvisionerPolicyIdentityContract,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -675,6 +689,10 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerPackageFilesystem,
     platformProvisionerReleaseTrust:
       implementation.platformProvisionerReleaseTrust,
+    platformProvisionerManifestLoader:
+      implementation.platformProvisionerManifestLoaderContract,
+    platformProvisionerPolicyIdentity:
+      implementation.platformProvisionerPolicyIdentityContract,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -873,6 +891,10 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerPackageFilesystem,
     platformProvisionerReleaseTrust:
       implementation.platformProvisionerReleaseTrust,
+    platformProvisionerManifestLoader:
+      implementation.platformProvisionerManifestLoaderContract,
+    platformProvisionerPolicyIdentity:
+      implementation.platformProvisionerPolicyIdentityContract,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

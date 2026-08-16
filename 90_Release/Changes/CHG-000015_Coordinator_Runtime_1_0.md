@@ -973,3 +973,15 @@ OpenSSLがない環境でも人間のRelease操作を安全に継続できるよ
 自己確認ではCoordinator 265 / 265、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 418 files／288 Markdown／Error 0／Warning 0がPassした。外部保管公開鍵と固定source literalのSHA-256も完全一致した。秘密鍵、passphrase、鍵保管Pathは試験、doctorまたは公開結果へ入力していない。
 
 人間承認に基づき、Repository外鍵保管directory `C:\project\key\CRDD`と直下の全3 fileはWindows ACL継承を解除した。Ownerは`DESKTOP-N90GJ7T\nakas`、明示Allowは同Owner、`NT AUTHORITY\SYSTEM`および`BUILTIN\Administrators`のFull Controlだけであり、一般利用者とAuthenticated Usersの継承writeを除去した。鍵2 file以外に存在した空の`mem.txt`は内容を読まず、削除せず、同じdirectory保護境界へ含めた。これは外部Release鍵保管の局所運用処置であり、CRDD RuntimeのWindows DACL Adapter実装完了、package配置、Effect、統合またはReleaseを意味しない。
+
+### 2026-08-16 — 署名済みRelease manifestの生成・読込候補
+
+固定Pathの署名済みRelease manifestについて、対象Commit／Treeとmanifest自身の循環を避ける配布境界を固定した。manifestは対象Git Treeへ含めず、対象Treeを外部の配布ステージングRootへ展開した後、固定Path`90_Release/coordinator-package-manifest.json`へ後置する配布成果物とする。Repository内または対象Treeへmanifestを生成する互換経路は設けない。
+
+private保守command `release-manifest:sign`は、Repository外の絶対ステージングRoot、Repository外の暗号化秘密鍵、CRDD Version／Commit／Tree、canonical UTCの発行／失効時刻を明示入力とする。配布Rootの`tools/coordinator`を既存のnon-link同一handle観測で再計算し、package名／version／content root、Root保護Policyと鍵保管PolicyのRFC 8785 canonical byteに対するSHA-256、CRDD Identityおよび有効期間をrevision 1 payloadへ結ぶ。秘密鍵から導出した公開SPKIがCRDDへ固定したQual-Lab公開鍵と完全一致する場合だけEd25519署名し、既存manifestを上書きしない。passphrase、秘密鍵、生manifest messageまたは鍵Pathを結果へ出力しない。
+
+固定Path loader候補は上限131072 byte、BOMなしstrict UTF-8、RFC 8785 canonical byte完全一致、non-link、読取り前後と同一handleのFilesystem Identity一致を要求する。Runtime用の同梱package検証入口はmodule相対のCRDD配布Rootからこの固定manifestを取得し、固定公開鍵、package content rootおよび期待CRDD Identityへ渡せる。ただし期待CRDD IdentityをRuntime所有の検証済みReleaseから取得するloaderは未実装であり、callerの期待値、source checkoutまたはmanifest自身からRelease Identityを成立させない。
+
+実鍵によるmanifest生成は、Release対象Version／Commit／Tree、配布ステージングRootおよび有効期間を人間のRelease判断で固定した後にだけ実行する。現Candidateへの実署名は行わない。Windows package DACL Adapter、Release Identity loader、Effect controllerおよび実`provision`接続は引き続き未実装で、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行、v0.18 Candidate／Released Baseline v0.17.0を維持する。本処置は`Applied`／`Self-checked`であり、新固定版の機械確認と独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
+
+Node.js 24.19.0で、Coordinator 269 / 269、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 424 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0がPassした。実Release鍵による成功署名は人間のRelease判断後に限定するため実行せず、一時試験鍵が固定公開鍵と一致しない場合の拒否、署名前payloadの暗号検証、固定Path loaderのcanonical byte／stable same-file境界および安全要約を機械確認した。

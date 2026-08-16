@@ -748,6 +748,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerPackageFilesystem,
     platformProvisionerReleaseTrust:
       report.runtimeActivation.platformProvisionerReleaseTrust,
+    platformProvisionerManifestLoader:
+      report.runtimeActivation.platformProvisionerManifestLoader,
+    platformProvisionerPolicyIdentity:
+      report.runtimeActivation.platformProvisionerPolicyIdentity,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:
@@ -872,6 +876,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
         "provisioning_record_verification",
       platformProvisionerManifestVerification:
         "platform_provisioner_verification",
+      platformProvisionerManifestLoader: "platform_provisioner_verification",
+      platformProvisionerPolicyIdentity: "platform_provisioner_verification",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:

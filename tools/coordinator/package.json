@@ -10,6 +10,7 @@
     "format:check": "biome format ../..",
     "lint": "biome lint ../.. --error-on-warnings",
     "release-key:generate": "node ./scripts/generate-release-key.ts",
+    "release-manifest:sign": "node ./scripts/sign-release-manifest.ts",
     "test": "node --test ./tests/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
   },
