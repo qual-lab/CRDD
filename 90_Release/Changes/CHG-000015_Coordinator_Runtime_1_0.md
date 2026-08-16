@@ -1019,3 +1019,11 @@ Node.js 24.19.0で、Coordinator 277 / 277、Checker 150 / 150、命名／参照
 全数命名検査で、直前のrollback floor候補に残っていた固定key集合の不要な中間定数とBoolean local名の規約違反を検出した。不要な集合を削除して最終集合を直接固定し、内部Booleanを`isPersistenceRequired`へ変更した。公開Schema keyの`persistenceRequired`、Hash、reason、遷移意味および署名manifest契約は変更していない。
 
 Node.js 24.19.0で、Coordinator 282 / 282、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／92 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 430 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。実DACL観測ではsource checkoutを`windows_package_dacl_inheritance_not_protected`として拒否し、権限変更は行っていない。
+
+### 2026-08-16 — Runtime主体DACL結合とRepository所有レイアウト契約
+
+人間の決定権限者は、実装を可能な限りRepository内で完結させる方針を承認した。実装、設定、試験、相対レイアウトおよび移行記録はRepositoryを正本とし、Repository外へ置くのは秘密鍵と端末固有の実インストール状態だけに限定する。Windows端末状態は`%ProgramData%\Qual-Lab\CRDD\Coordinator`をRootとし、`releases\<releaseSequence>`、`state\release-floor.json`および`state\active-release.json`へ分離する。旧配置alias、shim、単独packageまたは専用EXEは作らない。
+
+Windows DACL観測は、既存の`SYSTEM`／machine Administrators write限定に加え、既定ではsetup processのWindows Identity、サービス運用では明示service SIDをRuntime主体として結合する。Rootにexact 1件の明示・子孫継承read／execute Allowを要求し、全要素で同主体のread／execute成立、write ACEとDeny ACE不在を確認する。SIDは内部PowerShell境界だけで使用し、公開結果、doctorまたはPath要約へ出力しない。DACL観測は読み取り専用で、permission mutation、Authority、CapabilityまたはEffectを発行しない。
+
+固定レイアウトCoreはWindows絶対ProgramData Rootと正のRelease Sequenceだけを受理し、公開候補へ絶対Pathを返さない。実Filesystem作成、rollback floor保存、active release切替、crash recoveryおよびEffect controllerは引き続き未実装である。処置は`Applied`／`Self-checked`であり、全機械確認と独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。

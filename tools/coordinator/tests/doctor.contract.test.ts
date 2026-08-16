@@ -1252,19 +1252,27 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_write_dacl_precheck_implemented_runtime_read_binding_not_implemented",
+    "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerWindowsDacl.verification,
-    "implemented_write_policy_precheck_candidate",
+    "implemented_write_and_runtime_read_execute_policy_candidate",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerWindowsDacl.runtimeReadBinding,
-    "not_implemented",
+    "implemented_candidate",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerWindowsDacl.permissionMutation,
     "prohibited",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerInstallLayout.sourceOwnership,
+    "repository_owned_typescript_and_contract_tests",
+  );
+  assert.equal(
+    report.runtimeActivation.platformProvisionerInstallLayout.filesystemEffect,
+    "not_implemented",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerReleaseTrust

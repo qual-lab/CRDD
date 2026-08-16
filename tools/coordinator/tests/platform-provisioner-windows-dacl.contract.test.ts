@@ -11,14 +11,19 @@ const VALID = Object.freeze({
   rootDaclProtected: true,
   allOwnersTrusted: true,
   untrustedWriteAceCount: 0,
+  runtimeReadExecuteEntityCount: 10,
+  runtimeRootInheritanceRuleCount: 1,
+  runtimeWriteAceCount: 0,
+  runtimeDenyAceCount: 0,
   reparsePointCount: 0,
 });
 
-test("Windows package DACL precheck confirms only the write policy", () => {
+test("Windows package DACL precheck binds write protection and runtime read execute", () => {
   const result = evaluateWindowsPackageDaclObservationCandidate(VALID);
   assert.equal(result.status, "candidate");
   assert.equal(result.writePolicyConfirmed, true);
-  assert.equal(result.runtimeReadConfirmed, false);
+  assert.equal(result.runtimeReadConfirmed, true);
+  assert.equal(result.runtimePrincipalBound, true);
   assert.equal(result.permissionMutationIssued, false);
   assert.equal(result.runtimeAuthorityConferred, false);
 });
@@ -41,6 +46,22 @@ test("Windows package DACL precheck rejects inheritance owner writer and reparse
       { ...VALID, reparsePointCount: 1 },
       "windows_package_dacl_reparse_rejected",
     ],
+    [
+      { ...VALID, runtimeWriteAceCount: 1 },
+      "windows_package_dacl_runtime_write_rejected",
+    ],
+    [
+      { ...VALID, runtimeDenyAceCount: 1 },
+      "windows_package_dacl_runtime_deny_rejected",
+    ],
+    [
+      { ...VALID, runtimeRootInheritanceRuleCount: 0 },
+      "windows_package_dacl_runtime_root_rule_invalid",
+    ],
+    [
+      { ...VALID, runtimeReadExecuteEntityCount: 9 },
+      "windows_package_dacl_runtime_read_execute_incomplete",
+    ],
   ] as const) {
     const result = evaluateWindowsPackageDaclObservationCandidate(invalid);
     assert.equal(result.status, "blocked");
@@ -62,13 +83,17 @@ test("Windows package DACL precheck rejects dynamic and malformed observations",
   );
 });
 
-test("Windows package DACL contract keeps runtime read and effects closed", () => {
+test("Windows package DACL contract implements runtime read but keeps effects closed", () => {
   const contract = describeWindowsPackageDaclContract();
   assert.equal(
     contract.verification,
-    "implemented_write_policy_precheck_candidate",
+    "implemented_write_and_runtime_read_execute_policy_candidate",
   );
-  assert.equal(contract.runtimeReadBinding, "not_implemented");
+  assert.equal(contract.runtimeReadBinding, "implemented_candidate");
+  assert.equal(
+    contract.runtimePrincipalSelection,
+    "current_windows_identity_by_default_or_explicit_service_sid",
+  );
   assert.equal(contract.permissionMutation, "prohibited");
 });
 

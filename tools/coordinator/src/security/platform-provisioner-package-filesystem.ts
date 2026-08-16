@@ -554,10 +554,10 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     runtimeOwnedReleaseTrustSelection:
       "implemented_single_ed25519_anchor_pinned",
     ownerAndPermissionPolicyVerification:
-      "posix_implemented_candidate_windows_write_dacl_precheck_implemented_runtime_read_binding_not_implemented",
+      "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
     posixRootOwnedDirectory0755AndFile0644Verification: "implemented_candidate",
     windowsSystemAndAdministratorsWriteRuntimeReadAclVerification:
-      "write_policy_precheck_implemented_runtime_read_binding_not_implemented",
+      "write_and_runtime_read_execute_policy_implemented_candidate",
     sourceCheckoutCanAuthorizeProvisioningEffect: false,
     releaseTrustModel:
       "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",

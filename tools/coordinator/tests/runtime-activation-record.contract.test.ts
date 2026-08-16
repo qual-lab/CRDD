@@ -889,19 +889,27 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(
     contract.platformProvisionerPackageFilesystem
       .ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_write_dacl_precheck_implemented_runtime_read_binding_not_implemented",
+    "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
   );
   assert.equal(
     contract.platformProvisionerWindowsDacl.verification,
-    "implemented_write_policy_precheck_candidate",
+    "implemented_write_and_runtime_read_execute_policy_candidate",
   );
   assert.equal(
     contract.platformProvisionerWindowsDacl.runtimeReadBinding,
-    "not_implemented",
+    "implemented_candidate",
   );
   assert.equal(
     contract.platformProvisionerWindowsDacl.permissionMutation,
     "prohibited",
+  );
+  assert.equal(
+    contract.platformProvisionerInstallLayout.sourceOwnership,
+    "repository_owned_typescript_and_contract_tests",
+  );
+  assert.equal(
+    contract.platformProvisionerInstallLayout.filesystemEffect,
+    "not_implemented",
   );
   assert.equal(
     contract.platformProvisionerReleaseTrust.publicKeySpkiSha256,

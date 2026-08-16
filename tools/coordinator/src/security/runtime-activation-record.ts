@@ -15,6 +15,7 @@ import { describePlatformProvisionerTrustCoreContract } from "./platform-provisi
 import { describePlatformProvisionerPackageGateContract } from "./platform-provisioner-package-gate.ts";
 import { describePlatformProvisionerPackageFilesystemContract } from "./platform-provisioner-package-filesystem.ts";
 import { describeWindowsPackageDaclContract } from "./platform-provisioner-windows-dacl.ts";
+import { describePlatformProvisionerInstallLayoutContract } from "./platform-provisioner-install-layout.ts";
 import { describePlatformProvisionerReleaseTrustContract } from "./platform-provisioner-release-trust.ts";
 import { describePlatformProvisionerManifestLoaderContract } from "./platform-provisioner-manifest-loader.ts";
 import { describePlatformProvisionerPolicyIdentityContract } from "./platform-provisioner-policy-identity.ts";
@@ -477,6 +478,8 @@ export function describeRuntimeActivationContract() {
   const platformProvisionerPackageFilesystem =
     describePlatformProvisionerPackageFilesystemContract();
   const platformProvisionerWindowsDacl = describeWindowsPackageDaclContract();
+  const platformProvisionerInstallLayout =
+    describePlatformProvisionerInstallLayoutContract();
   const platformProvisionerReleaseTrust =
     describePlatformProvisionerReleaseTrustContract();
   const platformProvisionerManifestLoaderContract =
@@ -604,6 +607,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerPackageGate,
     platformProvisionerPackageFilesystem,
     platformProvisionerWindowsDacl,
+    platformProvisionerInstallLayout,
     platformProvisionerReleaseTrust,
     platformProvisionerManifestLoaderContract,
     platformProvisionerPolicyIdentityContract,
@@ -918,6 +922,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerPackageFilesystem,
     platformProvisionerWindowsDacl:
       implementation.platformProvisionerWindowsDacl,
+    platformProvisionerInstallLayout:
+      implementation.platformProvisionerInstallLayout,
     platformProvisionerReleaseTrust:
       implementation.platformProvisionerReleaseTrust,
     platformProvisionerManifestLoader:

@@ -229,11 +229,11 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.ownerAndPermissionPolicyVerification,
-    "posix_implemented_candidate_windows_write_dacl_precheck_implemented_runtime_read_binding_not_implemented",
+    "posix_implemented_candidate_windows_write_and_runtime_read_execute_dacl_candidate",
   );
   assert.equal(
     contract.windowsSystemAndAdministratorsWriteRuntimeReadAclVerification,
-    "write_policy_precheck_implemented_runtime_read_binding_not_implemented",
+    "write_and_runtime_read_execute_policy_implemented_candidate",
   );
   assert.equal(
     contract.releaseTrustModel,
