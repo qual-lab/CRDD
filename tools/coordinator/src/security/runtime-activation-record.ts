@@ -642,7 +642,8 @@ export function describeRuntimeActivationContract() {
       provisioningTrustArtifactStore.floorBinding,
     repositoryGenerationPersistence: "not_implemented",
     recoveryJournalPersistence: "not_implemented",
-    authorityRootResolutionFromProvisioningRecord: "not_implemented",
+    authorityRootResolutionFromProvisioningRecord:
+      authorityRootLocator.provisioningRecordVerification,
     runtimeRootProvisioningEffect: "not_implemented",
     authorityRootProvisioningEffect: "not_implemented",
     atomicPersistence: "not_implemented",

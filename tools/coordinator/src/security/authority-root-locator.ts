@@ -8,6 +8,11 @@ import {
 } from "./authority-root-path-lexical.ts";
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from "./runtime-activation-locator-binding-contract.ts";
 import { isRuntimeActivationIdCandidate } from "./runtime-activation-identity.ts";
+import {
+  PROVISIONING_RECORD_STORAGE_DIRECTORY,
+  verifyCurrentProvisioningRecordLocatorBindingCandidate,
+} from "./provisioning-record-store.ts";
+import { verifyCurrentProvisioningRecordWithPersistedTrustCandidate } from "./provisioning-trust-artifact-store.ts";
 
 export const AUTHORITY_ROOT_LOCATOR_CONTRACT =
   "crdd-coordinator/authority-root-locator";
@@ -621,6 +626,93 @@ export function resolveAuthorityRootFromStoredLocatorCandidate(
   }
 }
 
+export function verifyStoredAuthorityRootLocatorRecordCandidate(
+  repositoryRoot: unknown,
+) {
+  try {
+    const paths = locatorStorePaths(repositoryRoot);
+    if (
+      !paths ||
+      fs.existsSync(paths.pending) ||
+      !fs.existsSync(paths.target)
+    ) {
+      return locatorStoreBlocked("authority_root_locator_record_unavailable");
+    }
+    const stored = loadStoredLocator(paths, paths.target);
+    if (!stored) {
+      return locatorStoreBlocked("authority_root_locator_record_unavailable");
+    }
+    const locator = stored.locator;
+    if (
+      typeof locator.authorityRootAbsolutePath !== "string" ||
+      typeof locator.authorityRootIdentityHash !== "string" ||
+      typeof locator.provisioningRecordHash !== "string"
+    ) {
+      return locatorStoreBlocked("authority_root_locator_record_invalid");
+    }
+    const authorityRootIdentity = directoryIdentity(
+      locator.authorityRootAbsolutePath,
+    );
+    if (!authorityRootIdentity) {
+      return locatorStoreBlocked("authority_root_locator_root_object_invalid");
+    }
+    const storageRoot = path.join(
+      locator.authorityRootAbsolutePath,
+      PROVISIONING_RECORD_STORAGE_DIRECTORY,
+    );
+    const aggregate =
+      verifyCurrentProvisioningRecordWithPersistedTrustCandidate(storageRoot);
+    if (
+      aggregate.status !== "candidate" ||
+      !("recordHash" in aggregate) ||
+      aggregate.recordHash !== locator.provisioningRecordHash
+    ) {
+      return locatorStoreBlocked(
+        "authority_root_locator_provisioning_record_mismatch",
+      );
+    }
+    const binding = verifyCurrentProvisioningRecordLocatorBindingCandidate(
+      storageRoot,
+      locator.authorityRootAbsolutePath,
+      locator.authorityRootIdentityHash,
+    );
+    if (
+      binding.status !== "candidate" ||
+      binding.locatorBindingMatch !== true ||
+      binding.recordHash !== locator.provisioningRecordHash
+    ) {
+      return locatorStoreBlocked(
+        "authority_root_locator_provisioning_record_binding_mismatch",
+      );
+    }
+    if (!verifyLocatorStorePaths(paths)) {
+      return locatorStoreBlocked(
+        "authority_root_locator_store_identity_changed",
+      );
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "stored_locator_persisted_trust_current_record_binding_candidate",
+      locatorHash: stored.locatorHash,
+      recordHash: aggregate.recordHash,
+      persistenceCompleted: true,
+      recoveryRequired: false,
+      authorityRootObjectObserved: true,
+      locatorRecordTrustBindingMatch: true,
+      authorityRootIdentityVerification: "required",
+      authorityRootProtectionVerification: "required",
+      absolutePathReported: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return locatorStoreBlocked(
+      "authority_root_locator_record_verification_failed",
+    );
+  }
+}
+
 export function recoverAuthorityRootLocatorForEffect(repositoryRoot: unknown) {
   try {
     const paths = locatorStorePaths(repositoryRoot);
@@ -682,7 +774,8 @@ export function describeAuthorityRootLocatorContract() {
     filesystemWrite: "implemented_candidate_initial_only",
     atomicPersistence: "implemented_candidate_explicit_recovery",
     resolver: "implemented_candidate_root_object_only",
-    provisioningRecordVerification: "not_implemented",
+    provisioningRecordVerification:
+      "implemented_candidate_persisted_trust_and_binding",
     authorityRootIdentityVerification: "not_implemented",
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",

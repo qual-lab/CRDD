@@ -6,6 +6,11 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  AUTHORITY_ROOT_LOCATOR_CONTRACT,
+  persistAuthorityRootLocatorForEffect,
+  verifyStoredAuthorityRootLocatorRecordCandidate,
+} from "../src/security/authority-root-locator.ts";
+import {
   buildProvisioningRecordDomainMessageCandidate,
   compileProvisioningRecordEnvelopeCandidate,
   compileProvisioningRevocationManifestCandidate,
@@ -50,12 +55,21 @@ function lowS(signature: Uint8Array) {
 function fixture() {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-trust-store-"));
   const root = path.join(parent, PROVISIONING_RECORD_STORAGE_DIRECTORY);
+  const repositoryRoot = path.join(parent, "repository");
+  fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"), {
+    recursive: true,
+  });
   fs.mkdirSync(path.join(root, PROVISIONING_TRUST_ANCHORS_DIRECTORY), {
     recursive: true,
   });
   fs.mkdirSync(path.join(root, PROVISIONING_REVOCATION_MANIFESTS_DIRECTORY));
   fs.mkdirSync(path.join(root, PROVISIONING_RECORDS_DIRECTORY));
-  return { parent, root };
+  return {
+    parent,
+    root,
+    repositoryRoot: fs.realpathSync.native(repositoryRoot),
+    authorityRoot: fs.realpathSync.native(parent),
+  };
 }
 
 function artifacts(trustEpoch = 1, revocationRevision = 1) {
@@ -107,7 +121,12 @@ function floor(values: ReturnType<typeof artifacts>) {
   return result.nextFloor;
 }
 
-function recordEnvelope(values: ReturnType<typeof artifacts>) {
+function recordEnvelope(
+  values: ReturnType<typeof artifacts>,
+  authorityRootAbsolutePath = process.platform === "win32"
+    ? "C:\\CRDD-Authority"
+    : "/var/lib/crdd-authority",
+) {
   const now = Date.now();
   const payload = {
     contract: "crdd-coordinator/provisioning-record",
@@ -118,10 +137,7 @@ function recordEnvelope(values: ReturnType<typeof artifacts>) {
     platformScopeId: "3".repeat(32),
     provisionerIdentityHash: "4".repeat(64),
     provisionerEnrollmentId: "5".repeat(32),
-    authorityRootAbsolutePath:
-      process.platform === "win32"
-        ? "C:\\CRDD-Authority"
-        : "/var/lib/crdd-authority",
+    authorityRootAbsolutePath,
     authorityRootIdentityHash: "6".repeat(64),
     authorityRootProtectionHash: "7".repeat(64),
     runtimePrincipalModes: [
@@ -284,6 +300,84 @@ test("永続floorとTrustを現在RecordへRuntime時計で集約する", () => 
     fs.writeFileSync(path.join(target.root, "trust-floor.json"), "{}");
     assert.equal(
       verifyCurrentProvisioningRecordWithPersistedTrustCandidate(target.root)
+        .status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(target.parent, { recursive: true, force: true });
+  }
+});
+
+test("Repository検索票を永続Trustとcurrent Recordへ結合する", () => {
+  const target = fixture();
+  try {
+    const values = artifacts();
+    assert.equal(
+      persistProvisioningTrustArtifactsForEffect(
+        target.root,
+        values.anchors.canonicalBytes,
+        values.revocations.canonicalBytes,
+      ).status,
+      "candidate",
+    );
+    assert.equal(
+      persistProvisioningTrustFloorForEffect(target.root, floor(values)).status,
+      "candidate",
+    );
+    const persistedRecord = persistCurrentProvisioningRecordForEffect(
+      target.root,
+      recordEnvelope(values, target.authorityRoot),
+    );
+    assert.equal(persistedRecord.status, "candidate");
+    assert.equal(
+      persistAuthorityRootLocatorForEffect(target.repositoryRoot, {
+        contract: AUTHORITY_ROOT_LOCATOR_CONTRACT,
+        contractRevision: 1,
+        locatorRevision: 1,
+        repositoryIdentityHash: "8".repeat(64),
+        runtimeRootIdentityHash: "9".repeat(64),
+        authorityRootAbsolutePath: target.authorityRoot,
+        authorityRootIdentityHash: "6".repeat(64),
+        provisioningRecordHash: persistedRecord.recordHash,
+        activationId: "ACTIVATION-000001",
+        activationRevision: 1,
+        activationRecordHash: "a".repeat(64),
+      }).status,
+      "candidate",
+    );
+    const verified = verifyStoredAuthorityRootLocatorRecordCandidate(
+      target.repositoryRoot,
+    );
+    assert.equal(verified.status, "candidate");
+    assert.equal(verified.locatorRecordTrustBindingMatch, true);
+    assert.equal(verified.runtimeAuthorityConferred, false);
+    assert.equal(
+      JSON.stringify(verified).includes(target.authorityRoot),
+      false,
+    );
+    const locatorPath = path.join(
+      target.repositoryRoot,
+      ".crdd-runtime",
+      "authority-root-locator.json",
+    );
+    fs.writeFileSync(
+      locatorPath,
+      JSON.stringify({
+        activationId: "ACTIVATION-000001",
+        activationRecordHash: "a".repeat(64),
+        activationRevision: 1,
+        authorityRootAbsolutePath: target.authorityRoot,
+        authorityRootIdentityHash: "b".repeat(64),
+        contract: AUTHORITY_ROOT_LOCATOR_CONTRACT,
+        contractRevision: 1,
+        locatorRevision: 1,
+        provisioningRecordHash: persistedRecord.recordHash,
+        repositoryIdentityHash: "8".repeat(64),
+        runtimeRootIdentityHash: "9".repeat(64),
+      }),
+    );
+    assert.equal(
+      verifyStoredAuthorityRootLocatorRecordCandidate(target.repositoryRoot)
         .status,
       "blocked",
     );

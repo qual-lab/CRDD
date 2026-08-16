@@ -303,6 +303,71 @@ export function verifyCurrentProvisioningRecordAggregateCandidate(
   }
 }
 
+export function verifyCurrentProvisioningRecordLocatorBindingCandidate(
+  storageRoot: unknown,
+  authorityRootAbsolutePath: unknown,
+  authorityRootIdentityHash: unknown,
+) {
+  try {
+    const paths = storagePaths(storageRoot);
+    const current = paths ? loadCurrent(paths) : null;
+    if (!current) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_store_current_locator_binding_unavailable",
+        recordHash: null,
+        locatorBindingMatch: false,
+        filesystemEffectIssued: false,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    const decoded = decodeProvisioningRecordEnvelopeCandidate(
+      current.recordBytes,
+    );
+    const parsed = JSON.parse(current.recordBytes.toString("utf8")) as {
+      payload?: {
+        authorityRootAbsolutePath?: unknown;
+        authorityRootIdentityHash?: unknown;
+      };
+    };
+    if (
+      decoded.status !== "candidate" ||
+      parsed.payload?.authorityRootAbsolutePath !== authorityRootAbsolutePath ||
+      parsed.payload?.authorityRootIdentityHash !== authorityRootIdentityHash
+    ) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provisioning_record_store_current_locator_binding_mismatch",
+        recordHash: decoded.canonicalHash,
+        locatorBindingMatch: false,
+        filesystemEffectIssued: false,
+        runtimeAuthorityConferred: false,
+        runtimeCapabilityIssued: false,
+      });
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "provisioning_record_store_current_locator_binding_candidate",
+      recordHash: decoded.canonicalHash,
+      locatorBindingMatch: true,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "provisioning_record_store_current_locator_binding_failed",
+      recordHash: null,
+      locatorBindingMatch: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
+  }
+}
+
 export function persistCurrentProvisioningRecordForEffect(
   storageRoot: unknown,
   envelopeBytes: unknown,

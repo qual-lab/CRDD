@@ -526,7 +526,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     filesystemWrite: "implemented_candidate_initial_only",
     atomicPersistence: "implemented_candidate_explicit_recovery",
     resolver: "implemented_candidate_root_object_only",
-    provisioningRecordVerification: "not_implemented",
+    provisioningRecordVerification:
+      "implemented_candidate_persisted_trust_and_binding",
     authorityRootIdentityVerification: "not_implemented",
     activationBindingComparisonCore: "implemented_candidate",
     activeActivationBinding: "not_implemented",
@@ -682,7 +683,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
         "implemented_candidate_runtime_clock_non_authority",
       revocationEvaluator: "implemented_candidate_runtime_clock_non_authority",
       filesystemRead: "implemented_candidate",
-      resolver: "not_implemented",
+      resolver: "implemented_candidate_persisted_trust_and_binding",
       lifecyclePersistence: "not_implemented",
       filesystemEffectIssued: false,
       runtimeAuthorityConferred: false,
@@ -1480,7 +1481,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.authorityRootResolutionFromProvisioningRecord,
-    "not_implemented",
+    "implemented_candidate_persisted_trust_and_binding",
   );
   assert.equal(
     report.runtimeActivation.authorityRootExplicitPathContractPreserved,

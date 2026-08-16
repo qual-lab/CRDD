@@ -1135,3 +1135,13 @@ Repository直下の固定`.crdd-runtime/authority-root-locator.json`へ、Author
 RepositoryはStore実装、固定相対Path、契約および試験だけを所有し、端末固有Authority Rootまたは秘密鍵を保存しない。既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
 
 Node.js 24.19.0で、Coordinator 321 / 321、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Repository Runtime Root、実Authority Rootまたは秘密鍵を使用・変更していない。
+
+### 2026-08-16 — Authority Root検索票と永続Trust／current Recordの結合候補
+
+Repository固定Storeから検索票を安定読取りし、記録されたAuthority Rootのnon-link Directory実体を確認した後、同じRoot内の固定`.crdd-provisioning`から永続Trust floor、content-addressed Trust成果物およびcurrent Recordを再取得する結合候補を追加した。Runtime取得時刻による全署名／鍵期間／失効検証が成立したRecordだけを受理し、検索票のProvisioning Record Hashと一致させる。
+
+さらにcurrent Recordの署名済みpayloadからAuthority Root絶対PathとIdentity Hashを再取得し、検索票の同じ2値と完全一致させる。検索票、TrustまたはRecordの欠落、pending、改変、期限外、Hash不一致、Path不一致またはIdentity Hash不一致は、旧候補や環境値へfallbackせず`blocked`へ閉じる。公開結果は検索票HashとRecord Hashの安全要約だけに限定し、絶対Path、Identity値、raw Record、canonical byte、SPKI、署名または失効entryを返さない。
+
+本候補はRepository所有の実装、契約、固定相対レイアウトおよび試験で完結する。端末固有のAuthority Root／Trust／Recordと秘密鍵はRepositoryへ複製しない。OSが実測するAuthority Root Identity Hash、ACL／DACL等の保護、初期Trustの承認済み導入元、実active activation、Runtime AuthorityおよびCapabilityは未接続である。したがって12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+Node.js 24.19.0で、Coordinator 322 / 322、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／115 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 453 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0を確認した。Filesystem Effectは試験fixture内だけで実行し、実Repository Runtime Root、実Authority Root、実Trust成果物、実準備記録または秘密鍵を使用・変更していない。
