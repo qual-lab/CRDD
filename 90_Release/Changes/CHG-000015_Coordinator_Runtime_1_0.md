@@ -1193,3 +1193,5 @@ READMEとThreat Modelは、実装済みのpure／component候補と、未実装�
 Gap監査はCLI helpだけが`provision installs...`と現在導入できるように表示し、実Effect未実装のcontract、READMEおよびThreat Modelと競合することを指摘した。helpをcommand grammar候補、Provision Effect未実装、および配布物読取り、時刻、Path解決またはFilesystem Effect前の`blocked`へ更新する。`help`、`--help`および`-h`が同じ出力経路を使い、旧文0件、新文exact 1件、exit 0となることをCLI contract testで固定する。
 
 command名、引数grammar、JSON Schema、reason／status、妥当な`provision`要求のexit 2、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability非発行および非Release境界は変更しない。本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの全機械確認と固定監査集合完了前はFindingを`Resolved`としない。
+
+固定Commit `eb58fb02cebc489f565c0c403803c0f7aba09eb5`／Tree `a26c5256aae59bfea70a8783425382dcede44285`へのAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditはすべて`Pass`／Finding 0で完了した。`DOC-ROOT-OBSERVATION-001`／`R01`、85bのAgent Major 2件、および`GCI-PLATFORM-PROVISIONER-CLI-001`は現在固定版で`Resolved`とする。旧dda以前の監査集合は履歴として保持し、現在判定へ流用しない。結果と未評価境界は[`CHG-000015_Current_Review_Record_eb58fb0.md`](Evidence/CHG-000015_Current_Review_Record_eb58fb0.md)へ接続する。監査Passから採用、統合、準拠、StableまたはReleaseを成立させない。
