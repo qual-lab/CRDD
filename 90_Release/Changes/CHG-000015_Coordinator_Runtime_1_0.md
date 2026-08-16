@@ -957,3 +957,7 @@ Qual-Labの人間の決定権限者は、公開鍵検証とOS保護を組み合�
 今回の後続処置は、POSIX package treeのowner／mode観測候補と、release Trust model、Identity binding、manifest固定Pathおよび実鍵未設定状態のcontract投影である。Windows DACL Adapter、CRDD Release Identity loader、署名済みmanifest loader、実Trust Anchor投入、初回setup EffectおよびEffect controllerは未実装であり、Gate `blocked`、Authority／Capability／Effect非発行を維持する。直前節の「人間判断が必要」という現在状態は本承認でsupersededされ、設計判断として現在判定へ使用しない。ただし実秘密鍵の生成・保管と公開鍵投入は人間が管理するRelease運用であり、AIがRepositoryへ生成しない。本処置は`Applied`／`Self-checked`で、必要な機械確認と独立レビュー前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
 
 承認済みの4点結合をexact schemaへ反映し、manifest revision 1の旧`crddRevision`単独fieldを互換aliasなしで`crddVersion`、`crddCommit`、`crddTree`へ置換した。`packageContentRootSha256`と合わせた4値を署名対象へ含め、Gateの期待値と配布観測も同じ4値へ移行する。旧schemaはCandidate時点の履歴であり、現在判定へ使用しない。
+
+OpenSSLがない環境でも人間のRelease操作を安全に継続できるよう、Node.js 24.12の暗号APIを使うprivate保守command `release-key:generate`を追加した。新規のRepository外絶対Pathだけを受理し、対話端末で非表示入力した20文字以上のpassphraseによりEd25519秘密鍵をAES-256-CBC暗号化PKCS#8 PEMとして保存し、公開SPKI DERとSHA-256 key IDだけを返す。既存Path、Repository内Path、短いpassphraseまたは非対話実行を拒否し、秘密鍵を出力結果へ含めない。これは実鍵の生成をAIまたは通常Runtimeへ移すものではなく、人間が明示実行するRelease保守入口である。Trust Anchor投入、Manifest署名、ReleaseおよびEffectは別工程のまま維持する。
+
+自己確認ではCoordinator 263 / 263、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 416 files／288 Markdown／Error 0／Warning 0がPassした。実Release鍵は人間の非表示passphrase入力を要するため、この固定版の機械試験では一時試験鍵だけを生成して暗号化秘密鍵、公開鍵導出、非漏洩および拒否境界を確認した。本処置は`Applied`／`Self-checked`であり、独立レビューと実公開鍵の投入前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。

@@ -29,6 +29,16 @@ Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のロ
 詳細な脅威、主体別権限および停止条件は[`threat-model.md`](threat-model.md)を参照する。変更の判断と追跡は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)が所有する。
 
 
+## Release署名鍵の初回生成
+
+OpenSSLは不要である。対話端末から次を実行し、Repository外にある未作成の絶対Pathへ鍵を生成する。20文字未満のpassphrase、既存directoryおよびRepository内Pathは拒否する。秘密鍵はAES-256-CBCで暗号化したPKCS#8 PEM、公開鍵はSPKI DERとして生成し、秘密鍵またはpassphraseを標準出力へ表示しない。
+
+```powershell
+npm run release-key:generate --prefix tools/coordinator -- --output "$env:USERPROFILE\CRDD-Release-Key-v1"
+```
+
+CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crdd-release-v1-private.pem`はRepository、Issue、Pull Request、チャットまたはCIへ渡さず、Qual-LabのRelease保管領域と暗号化backupで管理する。このコマンドは鍵生成だけを行い、Trust Anchor投入、Manifest署名、ReleaseまたはEffectを自動実行しない。
+
 ## 現在利用できるコマンド
 
 ```shell

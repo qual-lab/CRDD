@@ -19,6 +19,7 @@
   },
   "files": [
     "bin/coordinator.ts",
+    "scripts/generate-release-key.ts",
     "src/core/cli-options.ts",
     "src/core/doctor.ts",
     "src/security/authority-prelaunch-verifier.ts",
