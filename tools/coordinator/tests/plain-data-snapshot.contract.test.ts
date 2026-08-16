@@ -66,18 +66,18 @@ test("record snapshotはaccessor、symbol、extra、custom prototypeを拒否し
 });
 
 test("array snapshotはhole、accessor、extra、symbolを拒否し元配列の変更を受けない", () => {
-  const raw = ["before", "stable"];
-  const result = snapshotPlainArray(raw, 2);
-  raw[0] = "after";
+  const rawValues = ["before", "stable"];
+  const result = snapshotPlainArray(rawValues, 2);
+  rawValues[0] = "after";
   assert.equal(result.status, "ok");
   assert.deepEqual(result.value, ["before", "stable"]);
   assert.equal(Object.isFrozen(result.value), true);
-  const hole = new Array(2);
-  hole[0] = "value";
-  assert.equal(snapshotPlainArray(hole, 2).status, "blocked");
+  const sparseValues = new Array(2);
+  sparseValues[0] = "value";
+  assert.equal(snapshotPlainArray(sparseValues, 2).status, "blocked");
   let calls = 0;
-  const accessor = ["placeholder"];
-  Object.defineProperty(accessor, "0", {
+  const accessorValues = ["placeholder"];
+  Object.defineProperty(accessorValues, "0", {
     enumerable: true,
     configurable: true,
     get() {
@@ -85,16 +85,18 @@ test("array snapshotはhole、accessor、extra、symbolを拒否し元配列の�
       return calls === 1 ? "valid" : "malicious";
     },
   });
-  assert.equal(snapshotPlainArray(accessor, 1).status, "blocked");
+  assert.equal(snapshotPlainArray(accessorValues, 1).status, "blocked");
   assert.equal(calls, 0);
-  const extra = Object.assign(["value"], { named: true });
-  assert.equal(snapshotPlainArray(extra, 1).status, "blocked");
-  const symbol = Object.assign(["value"], { [Symbol("extra")]: true });
-  assert.equal(snapshotPlainArray(symbol, 1).status, "blocked");
+  const extraValues = Object.assign(["value"], { named: true });
+  assert.equal(snapshotPlainArray(extraValues, 1).status, "blocked");
+  const symbolValues = Object.assign(["value"], {
+    [Symbol("extra")]: true,
+  });
+  assert.equal(snapshotPlainArray(symbolValues, 1).status, "blocked");
   assert.equal(snapshotPlainArray(Object.freeze(["frozen"]), 1).status, "ok");
-  const custom = ["value"];
-  Object.setPrototypeOf(custom, Object.create(Array.prototype));
-  assert.equal(snapshotPlainArray(custom, 1).status, "blocked");
+  const customValues = ["value"];
+  Object.setPrototypeOf(customValues, Object.create(Array.prototype));
+  assert.equal(snapshotPlainArray(customValues, 1).status, "blocked");
 });
 
 test("Proxyはreflection trapを実行する前に拒否する", () => {

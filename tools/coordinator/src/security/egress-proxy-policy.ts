@@ -215,7 +215,7 @@ function parseIpv6(address: unknown): bigint | null {
 function parseCidr(
   family: number,
   cidr: string,
-  globallyReachableValue: boolean | null,
+  isGloballyReachable: boolean | null,
   source: string,
 ): CidrRule {
   const [address, prefixText] = cidr.split("/");
@@ -238,7 +238,7 @@ function parseCidr(
     family,
     prefixLength,
     prefix: shift === 0n ? value : (value >> shift) << shift,
-    globallyReachable: globallyReachableValue,
+    globallyReachable: isGloballyReachable,
     source,
   });
 }

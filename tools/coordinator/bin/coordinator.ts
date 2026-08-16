@@ -67,7 +67,7 @@ function plainArray(raw: unknown): readonly unknown[] {
     length.value < 0
   )
     return Object.freeze([]);
-  const result: unknown[] = [];
+  const snapshotValues: unknown[] = [];
   for (let index = 0; index < length.value; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(raw, String(index));
     if (
@@ -78,9 +78,9 @@ function plainArray(raw: unknown): readonly unknown[] {
       !descriptor.enumerable
     )
       return Object.freeze([]);
-    result.push(descriptor.value);
+    snapshotValues.push(descriptor.value);
   }
-  return Object.freeze(result);
+  return Object.freeze(snapshotValues);
 }
 
 function printHelp() {
@@ -115,8 +115,8 @@ function printHelp() {
   );
 }
 
-function printCommandReport(report: CommandReport, json: boolean) {
-  if (json) {
+function printCommandReport(report: CommandReport, shouldOutputJson: boolean) {
+  if (shouldOutputJson) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   } else {
     process.stdout.write(`Coordinator ${report.command}: ${report.status}\n`);
@@ -157,7 +157,7 @@ function runInactiveEffectCommand(
   if (!parsedValue || typeof parsedValue.json !== "boolean") {
     throw new Error(`${command}_arguments_invalid`);
   }
-  let selectionValid = false;
+  let isSelectionValid = false;
   try {
     const runtimeRoot = selectRuntimeRootCandidate({
       repositoryRoot: process.cwd(),
@@ -167,13 +167,13 @@ function runInactiveEffectCommand(
       command === "activate"
         ? selectAuthorityRootCandidate(parsedValue.authorityRootRequest)
         : null;
-    selectionValid =
+    isSelectionValid =
       runtimeRoot.status === "candidate" &&
       (authorityRoot === null || authorityRoot.status === "candidate");
   } catch {
-    selectionValid = false;
+    isSelectionValid = false;
   }
-  if (!selectionValid) {
+  if (!isSelectionValid) {
     const report = Object.freeze({
       status: "blocked",
       command,

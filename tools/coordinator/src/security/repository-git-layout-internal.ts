@@ -255,7 +255,7 @@ function parseNarrowRepositoryConfig(
   if (/\r(?!\n)/u.test(text))
     throw new Error("repository_git_config_unsupported");
   let section = null;
-  let subsection = false;
+  let isSubsection = false;
   let formatVersion = null;
   let bare = null;
   for (const rawLine of text.split(/\r?\n/u)) {
@@ -267,7 +267,7 @@ function parseNarrowRepositoryConfig(
       if (sectionName === undefined)
         throw new Error("repository_git_config_unsupported");
       section = sectionName.toLocaleLowerCase("en-US");
-      subsection = sectionMatch[2] !== undefined;
+      isSubsection = sectionMatch[2] !== undefined;
       if (
         section === "extensions" ||
         section === "include" ||
@@ -292,18 +292,18 @@ function parseNarrowRepositoryConfig(
     const value = assignmentValue.trim().toLocaleLowerCase("en-US");
     if (
       section === "core" &&
-      !subsection &&
+      !isSubsection &&
       key === "repositoryformatversion"
     ) {
       if (formatVersion !== null)
         throw new Error("repository_git_config_unsupported");
       formatVersion = value;
     }
-    if (section === "core" && !subsection && key === "bare") {
+    if (section === "core" && !isSubsection && key === "bare") {
       if (bare !== null) throw new Error("repository_git_config_unsupported");
       bare = value;
     }
-    if (section === "core" && !subsection && key === "worktree") {
+    if (section === "core" && !isSubsection && key === "worktree") {
       throw new Error("repository_git_config_unsupported");
     }
   }
@@ -315,14 +315,14 @@ function parseNarrowRepositoryConfig(
 
 function optionalCommonDirectory(
   gitDirectory: EntitySnapshot,
-  graph: EntitySnapshot[],
+  entitySnapshots: EntitySnapshot[],
 ): EntitySnapshot | null {
   try {
     const control = readControlFile(
       path.join(gitDirectory.realPath, "commondir"),
       [gitDirectory],
     );
-    graph.push(control.snapshot);
+    entitySnapshots.push(control.snapshot);
     return directoryRealpath(
       path.isAbsolute(control.line)
         ? control.line
@@ -336,7 +336,7 @@ function optionalCommonDirectory(
 
 function resolveExcludeBoundary(
   commonDirectory: EntitySnapshot,
-  graph: EntitySnapshot[],
+  entitySnapshots: EntitySnapshot[],
 ): Readonly<{
   infoDirectory: EntitySnapshot | null;
   excludeSnapshot: EntitySnapshot | null;
@@ -346,7 +346,7 @@ function resolveExcludeBoundary(
     infoDirectory = directoryRealpath(
       path.join(commonDirectory.realPath, "info"),
     );
-    graph.push(infoDirectory);
+    entitySnapshots.push(infoDirectory);
   } catch (error) {
     if (isEnoent(error))
       return Object.freeze({ infoDirectory: null, excludeSnapshot: null });
@@ -373,9 +373,9 @@ export function resolveRepositoryGitLayout(
   if (typeof repositoryRoot !== "string" || repositoryRoot.length === 0) {
     throw new Error("repository_git_root_required");
   }
-  const graph: EntitySnapshot[] = [];
+  const entitySnapshots: EntitySnapshot[] = [];
   const root = directoryRealpath(repositoryRoot);
-  graph.push(root);
+  entitySnapshots.push(root);
   const marker = path.join(root.realPath, ".git");
   const markerMetadata = fs.lstatSync(marker, { bigint: true });
   if (markerMetadata.isSymbolicLink())
@@ -387,7 +387,7 @@ export function resolveRepositoryGitLayout(
     kind = "normal_worktree";
   } else if (markerMetadata.isFile()) {
     const control = readControlFile(marker, [root]);
-    graph.push(control.snapshot);
+    entitySnapshots.push(control.snapshot);
     if (!control.line.startsWith("gitdir: "))
       throw new Error("repository_git_file_invalid");
     const value = control.line.slice("gitdir: ".length);
@@ -398,22 +398,22 @@ export function resolveRepositoryGitLayout(
     );
     kind = "gitfile_worktree";
   } else throw new Error("repository_git_marker_invalid");
-  graph.push(gitDirectory);
+  entitySnapshots.push(gitDirectory);
   const commonDirectory =
-    optionalCommonDirectory(gitDirectory, graph) ?? gitDirectory;
-  if (commonDirectory !== gitDirectory) graph.push(commonDirectory);
-  graph.push(
+    optionalCommonDirectory(gitDirectory, entitySnapshots) ?? gitDirectory;
+  if (commonDirectory !== gitDirectory) entitySnapshots.push(commonDirectory);
+  entitySnapshots.push(
     readControlFile(path.join(gitDirectory.realPath, "HEAD"), [gitDirectory])
       .snapshot,
   );
-  graph.push(
+  entitySnapshots.push(
     parseNarrowRepositoryConfig(
       path.join(commonDirectory.realPath, "config"),
       commonDirectory,
     ),
   );
-  const boundary = resolveExcludeBoundary(commonDirectory, graph);
-  verifySnapshots(graph);
+  const boundary = resolveExcludeBoundary(commonDirectory, entitySnapshots);
+  verifySnapshots(entitySnapshots);
   if (boundary.excludeSnapshot) verifySnapshot(boundary.excludeSnapshot);
   if (kind === "gitfile_worktree" && commonDirectory !== gitDirectory)
     kind = "linked_worktree";
@@ -424,7 +424,7 @@ export function resolveRepositoryGitLayout(
     commonDirectory,
     infoDirectory: boundary.infoDirectory,
     excludeSnapshot: boundary.excludeSnapshot,
-    structuralGraph: Object.freeze([...graph]),
+    structuralGraph: Object.freeze([...entitySnapshots]),
   });
 }
 
@@ -487,9 +487,9 @@ function safeUnlinkOwned(target: string, snapshot: EntitySnapshot): boolean {
 class RepositoryGitExcludeUpdateError extends Error {
   readonly writeIssued: boolean;
 
-  constructor(writeIssued: boolean) {
+  constructor(hasWriteIssued: boolean) {
     super("repository_git_exclude_update_blocked");
-    this.writeIssued = writeIssued;
+    this.writeIssued = hasWriteIssued;
   }
 }
 
@@ -536,7 +536,7 @@ export function writeRepositoryLocalExclude(
   );
   let descriptor: number | null = null;
   let lockSnapshot: EntitySnapshot | null = null;
-  let renamed = false;
+  let hasRenamed = false;
   let failure: unknown = null;
   try {
     const mode = originalSnapshot
@@ -614,7 +614,7 @@ export function writeRepositoryLocalExclude(
       }
       verifySnapshot(lockSnapshot);
       fs.renameSync(lockPath, excludePath);
-      renamed = true;
+      hasRenamed = true;
       verifyEntitySnapshot(layout.infoDirectory);
       const verified = readStableFileBytes(
         excludePath,
@@ -637,8 +637,8 @@ export function writeRepositoryLocalExclude(
       failure = error;
     }
   }
-  if (!renamed && lockSnapshot) safeUnlinkOwned(lockPath, lockSnapshot);
-  throw new RepositoryGitExcludeUpdateError(renamed);
+  if (!hasRenamed && lockSnapshot) safeUnlinkOwned(lockPath, lockSnapshot);
+  throw new RepositoryGitExcludeUpdateError(hasRenamed);
 }
 
 export const REPOSITORY_GIT_EXCLUDE_MAX_BYTES = MAX_EXCLUDE_FILE_BYTES;

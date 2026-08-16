@@ -8,9 +8,9 @@
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
     "lint": "biome lint ../..",
-    "run": "node ./crdd_check.ts --root ../.. --json --summary",
-    "test": "node --test ./crdd_check.test.ts",
-    "typecheck": "tsc -p ./tsconfig.json"
+    "test": "node --test ./*.test.ts",
+    "typecheck": "tsc -p ./tsconfig.json",
+    "verify:repository": "node ./crdd-check.ts --root ../.. --json --summary"
   },
   "engines": {
     "node": ">=24.12"

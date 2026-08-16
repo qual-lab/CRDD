@@ -124,7 +124,7 @@ function normalizeOrigins(origins: unknown) {
     )
   )
     return null;
-  const normalized: string[] = [];
+  const normalizedOrigins: string[] = [];
   for (const origin of result.value) {
     let parsed: URL;
     try {
@@ -152,10 +152,12 @@ function normalizeOrigins(origins: unknown) {
     ) {
       return null;
     }
-    normalized.push(`https://${hostname}`);
+    normalizedOrigins.push(`https://${hostname}`);
   }
-  const unique = [...new Set(normalized)].sort();
-  return unique.length === normalized.length ? unique : null;
+  const uniqueOrigins = [...new Set(normalizedOrigins)].sort();
+  return uniqueOrigins.length === normalizedOrigins.length
+    ? uniqueOrigins
+    : null;
 }
 
 function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {

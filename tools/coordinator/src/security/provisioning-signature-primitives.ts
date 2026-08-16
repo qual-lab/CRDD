@@ -154,7 +154,7 @@ function snapshotJsonValue(
       }
       const keys = Reflect.ownKeys(value);
       if (keys.length !== length.value + 1) return INVALID;
-      const result: JsonValue[] = [];
+      const snapshotItems: JsonValue[] = [];
       for (let index = 0; index < length.value; index += 1) {
         const descriptor = Object.getOwnPropertyDescriptor(
           value,
@@ -163,9 +163,9 @@ function snapshotJsonValue(
         if (!dataDescriptor(descriptor)) return INVALID;
         const child = snapshotJsonValue(descriptor.value, state, depth + 1);
         if (child === INVALID) return INVALID;
-        result.push(child);
+        snapshotItems.push(child);
       }
-      return Object.freeze(result);
+      return Object.freeze(snapshotItems);
     }
     if (prototype !== Object.prototype && prototype !== null) return INVALID;
     const keys = Reflect.ownKeys(value);

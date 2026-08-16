@@ -139,21 +139,21 @@ test("全必須checkがconfirmedの場合だけpure集約はReadyを返す", () 
 test("欠落、重複、未知および不正なcheckをfail closedにする", () => {
   const missing = confirmedChecks().slice(1);
   assert.equal(evaluateReadiness(missing).status, "blocked");
-  const duplicate = [...confirmedChecks(), confirmedChecks()[0]];
-  assert.equal(evaluateReadiness(duplicate).status, "blocked");
-  const unknown = [
+  const duplicateChecks = [...confirmedChecks(), confirmedChecks()[0]];
+  assert.equal(evaluateReadiness(duplicateChecks).status, "blocked");
+  const unknownChecks = [
     ...confirmedChecks(),
     { id: "unknown", status: "confirmed" },
   ];
-  assert.equal(evaluateReadiness(unknown).status, "blocked");
-  const invalid: unknown[] = confirmedChecks();
-  invalid[0] = {
+  assert.equal(evaluateReadiness(unknownChecks).status, "blocked");
+  const invalidChecks: unknown[] = confirmedChecks();
+  invalidChecks[0] = {
     id: REQUIRED_CHECK_IDS[0],
     status: "pass",
     reason: null,
     followUp: null,
   };
-  assert.equal(evaluateReadiness(invalid).status, "blocked");
+  assert.equal(evaluateReadiness(invalidChecks).status, "blocked");
 });
 
 test("Providerごとの必須checkを片側だけ成立させてもReadyにならない", () => {

@@ -17,6 +17,16 @@
       "correctness": {
         "noPrecisionLoss": "off"
       },
+      "style": {
+        "useFilenamingConvention": {
+          "level": "error",
+          "options": {
+            "filenameCases": ["kebab-case"],
+            "requireAscii": true,
+            "strictCase": true
+          }
+        }
+      },
       "suspicious": {
         "noControlCharactersInRegex": "off"
       }

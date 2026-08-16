@@ -11,7 +11,7 @@ const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
 const checkerRoot = path.dirname(path.resolve(testEntry));
 const repositoryRoot = path.dirname(path.dirname(checkerRoot));
-const checker = path.join(repositoryRoot, "template", "tools", "crdd_check.ts");
+const checker = path.join(repositoryRoot, "template", "tools", "crdd-check.ts");
 const faultInjector = pathToFileURL(
   path.join(checkerRoot, "fault-injector.ts"),
 ).href;
@@ -46,7 +46,7 @@ type CheckerReport = Readonly<{
   unchecked: readonly string[];
 }>;
 
-test("checker package runはRepository rootを明示する", () => {
+test("checker packageのRepository検証はRepository rootを明示する", () => {
   const packageJson: unknown = JSON.parse(
     fs.readFileSync(path.join(checkerRoot, "package.json"), "utf8"),
   );
@@ -63,8 +63,8 @@ test("checker package runはRepository rootを明示する", () => {
     scripts !== null && typeof scripts === "object" && !Array.isArray(scripts),
   );
   assert.equal(
-    Object.getOwnPropertyDescriptor(scripts, "run")?.value,
-    "node ./crdd_check.ts --root ../.. --json --summary",
+    Object.getOwnPropertyDescriptor(scripts, "verify:repository")?.value,
+    "node ./crdd-check.ts --root ../.. --json --summary",
   );
   assert.equal(path.resolve(checkerRoot, "../.."), repositoryRoot);
 });
@@ -361,7 +361,7 @@ function addGitlink(root: string, relativePath: string): void {
   assert.equal(updated.status, 0, updated.stderr);
 }
 
-function run(root: string, ...extra: string[]): CheckerRun {
+function runChecker(root: string, ...extra: string[]): CheckerRun {
   const result = spawnSync(
     process.execPath,
     [checker, "--root", root, "--json", "--summary", ...extra],
@@ -412,8 +412,8 @@ function runWithFault(
   );
 }
 
-function runRaw(...arguments_: string[]) {
-  return spawnSync(process.execPath, [checker, ...arguments_], {
+function runRaw(...checkerArguments: string[]) {
+  return spawnSync(process.execPath, [checker, ...checkerArguments], {
     encoding: "utf8",
   });
 }
@@ -423,7 +423,7 @@ test("公式リポジトリではREADMEと正本文書の版を比較する", ()
   makeStructure(path.join(root, "template"));
   write(path.join(root, "01_Principles.md"), "Version: v0.10.0\n");
   write(path.join(root, "README.md"), "Status: **v0.9.0**\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -490,7 +490,7 @@ test("公式CHANGELOGの現行移行注記に英日必須境界を要求する",
       "- 既知の制限: 例",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   const finding = result.report.findings.find(
     (item) => item.code === "migration-note-incomplete",
@@ -532,7 +532,7 @@ test("公式CHANGELOGの完全な英日移行注記を受け入れる", () => {
       "- 既知の制限: 例",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some((item) =>
       [
@@ -583,7 +583,7 @@ test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => 
       "- 既知の制限: 例",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some((item) =>
       [
@@ -603,7 +603,7 @@ test("Candidate文書のReleased Baseline欠落を拒否する", () => {
     path.join(root, "01_Principles.md"),
     "Version: v0.17.0\nStatus: Candidate\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) => item.code === "candidate-released-baseline-mismatch",
@@ -619,7 +619,7 @@ for (const status of ["Draft", "Stable"]) {
       path.join(root, "01_Principles.md"),
       `Version: v0.17.0\nStatus: ${status}\nReleased Baseline: v0.16.0\n`,
     );
-    const result = run(root);
+    const result = runChecker(root);
     assert.ok(
       result.report.findings.some(
         (item) => item.code === "released-baseline-outside-candidate",
@@ -641,7 +641,7 @@ test("公式CHANGELOGに日本語区分がない場合は現行リリース欠�
       "- `migration_required: false`",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -668,7 +668,7 @@ test("公式CHANGELOGの日本語区分に現行リリースがない場合は�
       "- `migration_required: false`",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -695,7 +695,7 @@ test("移行不要の現行英日リリースには移行注記区分を要求�
       "- `migration_required: false`",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some(
       (item) => item.code === "migration-note-incomplete",
@@ -706,7 +706,7 @@ test("移行不要の現行英日リリースには移行注記区分を要求�
 
 test("現行移行要否の欠落を判定不能として返す", () => {
   const root = currentChangelogFixture([], ["- `migration_required: false`"]);
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) =>
@@ -721,7 +721,7 @@ test("現行移行要否の不正値を判定不能として返す", () => {
     ["- `migration_required: maybe`"],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) => item.code === "migration-status-undetermined",
@@ -734,7 +734,7 @@ test("現行移行要否の同値重複を判定不能として返す", () => {
     ["- `migration_required: false`", "- `migration_required: false`"],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) => item.code === "migration-status-undetermined",
@@ -747,7 +747,7 @@ test("現行移行要否の競合宣言を判定不能として返す", () => {
     ["- `migration_required: true`", "- `migration_required: false`"],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) => item.code === "migration-status-undetermined",
@@ -760,7 +760,7 @@ test("現行英日移行要否の不一致を返す", () => {
     ["- `migration_required: true`"],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) => item.code === "migration-status-mismatch",
@@ -769,7 +769,7 @@ test("現行英日移行要否の不一致を返す", () => {
 });
 
 test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
-  const categoriesEn = [
+  const englishCategories = [
     "- Required: example",
     "- Conditional: example",
     "- Not required: example",
@@ -778,7 +778,7 @@ test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
     "- Verification: example",
     "- Known limitation: example",
   ];
-  const categoriesJa = [
+  const japaneseCategories = [
     "- 必須: 例",
     "- 条件付き: 例",
     "- 不要: 例",
@@ -793,17 +793,17 @@ test("閉じたYAML fenceの現行移行宣言を受け入れる", () => {
       "migration_required: true # current",
       "change_classification: breaking",
       "```",
-      ...categoriesEn,
+      ...englishCategories,
     ],
     [
       "```yml",
       "migration_required: true",
       "change_classification: breaking",
       "```",
-      ...categoriesJa,
+      ...japaneseCategories,
     ],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some((item) =>
       [
@@ -821,7 +821,7 @@ test("説明文中の移行語を宣言として扱わない", () => {
     ["This example says migration_required: false in prose."],
     ["本文の例に migration_required: false と書く。"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.filter(
       (item) => item.code === "migration-status-undetermined",
@@ -835,7 +835,7 @@ test("非YAML fence内の移行宣言を判定データとして扱わない", (
     ["```text", "- `migration_required: false`", "```"],
     ["```markdown", "- `migration_required: false`", "```"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.filter(
       (item) => item.code === "migration-status-undetermined",
@@ -845,7 +845,7 @@ test("非YAML fence内の移行宣言を判定データとして扱わない", (
 });
 
 test("非YAML fence内の移行注記区分を成立根拠へ流用しない", () => {
-  const fencedEnglish = [
+  const fencedEnglishLines = [
     "```text",
     "- Required: example",
     "- Conditional: example",
@@ -856,7 +856,7 @@ test("非YAML fence内の移行注記区分を成立根拠へ流用しない", (
     "- Known limitation: example",
     "```",
   ];
-  const fencedJapanese = [
+  const fencedJapaneseLines = [
     "```text",
     "- 必須: 例",
     "- 条件付き: 例",
@@ -867,17 +867,17 @@ test("非YAML fence内の移行注記区分を成立根拠へ流用しない", (
     "- 既知の制限: 例",
     "```",
   ];
-  const result = run(
+  const result = runChecker(
     currentChangelogFixture(
       [
         "- `migration_required: true`",
         "- `change_classification: breaking`",
-        ...fencedEnglish,
+        ...fencedEnglishLines,
       ],
       [
         "- `migration_required: true`",
         "- `change_classification: breaking`",
-        ...fencedJapanese,
+        ...fencedJapaneseLines,
       ],
     ),
   );
@@ -890,11 +890,11 @@ test("非YAML fence内の移行注記区分を成立根拠へ流用しない", (
 });
 
 test("fence外の有効宣言と非YAML例示を重複扱いしない", () => {
-  const example = ["```", "- `migration_required: true`", "```"];
-  const result = run(
+  const exampleLines = ["```", "- `migration_required: true`", "```"];
+  const result = runChecker(
     currentChangelogFixture(
-      ["- `migration_required: false`", ...example],
-      ["- `migration_required: false`", ...example],
+      ["- `migration_required: false`", ...exampleLines],
+      ["- `migration_required: false`", ...exampleLines],
     ),
   );
   assert.equal(
@@ -912,7 +912,7 @@ test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
     ["   ~~~YAML", "migration_required: false", "   ~~~"],
     ["~~~YML", "migration_required: false", "~~~~"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some(
       (item) => item.code === "migration-status-undetermined",
@@ -922,11 +922,16 @@ test("チルダと大文字YAML fenceの宣言を受け入れる", () => {
 });
 
 test("長いbacktick fence内の短いbacktick列でfenceを閉じない", () => {
-  const example = ["````text", "```", "- `migration_required: true`", "````"];
-  const result = run(
+  const exampleLines = [
+    "````text",
+    "```",
+    "- `migration_required: true`",
+    "````",
+  ];
+  const result = runChecker(
     currentChangelogFixture(
-      ["- `migration_required: false`", ...example],
-      ["- `migration_required: false`", ...example],
+      ["- `migration_required: false`", ...exampleLines],
+      ["- `migration_required: false`", ...exampleLines],
     ),
   );
   assert.equal(
@@ -942,7 +947,7 @@ test("閉じていない非YAML fence内の見出しや宣言を構造へ戻さ�
     ["```text", "- `migration_required: false`"],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) =>
@@ -964,7 +969,7 @@ test("YAML fence内の言語見出しと現行Release見出しを構造として
     ],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some(
       (item) => item.code === "current-changelog-release-missing",
@@ -995,7 +1000,7 @@ test("同じ言語区分の重複を一部採用せずエラーにする", () =>
       "- `migration_required: false`",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) =>
@@ -1025,7 +1030,7 @@ test("非YAML fence内の言語見出しと現行Release見出しを無視する
     ],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some(
       (item) => item.code === "current-changelog-release-missing",
@@ -1049,7 +1054,7 @@ test("現行リリース節の重複をエラーにする", () => {
     ],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) =>
@@ -1061,7 +1066,7 @@ test("現行リリース節の重複をエラーにする", () => {
 
 test("過去リリースの宣言を現行リリースへ流用しない", () => {
   const root = currentChangelogFixture([], []);
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.filter(
       (item) => item.code === "migration-status-undetermined",
@@ -1071,7 +1076,7 @@ test("過去リリースの宣言を現行リリースへ流用しない", () =>
 });
 
 test("現行英日変更分類の不一致を返す", () => {
-  const completeEn = [
+  const completeEnglishLines = [
     "- `migration_required: true`",
     "- `change_classification: breaking`",
     "- Required: example",
@@ -1082,7 +1087,7 @@ test("現行英日変更分類の不一致を返す", () => {
     "- Verification: example",
     "- Known limitation: example",
   ];
-  const completeJa = [
+  const completeJapaneseLines = [
     "- `migration_required: true`",
     "- `change_classification: normative`",
     "- 必須: 例",
@@ -1093,7 +1098,9 @@ test("現行英日変更分類の不一致を返す", () => {
     "- 検証: 例",
     "- 既知の制限: 例",
   ];
-  const result = run(currentChangelogFixture(completeEn, completeJa));
+  const result = runChecker(
+    currentChangelogFixture(completeEnglishLines, completeJapaneseLines),
+  );
   assert.ok(
     result.report.findings.some(
       (item) => item.code === "migration-status-mismatch",
@@ -1102,7 +1109,7 @@ test("現行英日変更分類の不一致を返す", () => {
 });
 
 test("移行が必要な現行節の変更分類欠落を判定不能として返す", () => {
-  const categoriesEn = [
+  const englishCategories = [
     "- `migration_required: true`",
     "- Required: example",
     "- Conditional: example",
@@ -1112,7 +1119,7 @@ test("移行が必要な現行節の変更分類欠落を判定不能として�
     "- Verification: example",
     "- Known limitation: example",
   ];
-  const categoriesJa = [
+  const japaneseCategories = [
     "- `migration_required: true`",
     "- `change_classification: breaking`",
     "- 必須: 例",
@@ -1123,7 +1130,9 @@ test("移行が必要な現行節の変更分類欠落を判定不能として�
     "- 検証: 例",
     "- 既知の制限: 例",
   ];
-  const result = run(currentChangelogFixture(categoriesEn, categoriesJa));
+  const result = runChecker(
+    currentChangelogFixture(englishCategories, japaneseCategories),
+  );
   assert.ok(
     result.report.findings.some(
       (item) =>
@@ -1134,7 +1143,7 @@ test("移行が必要な現行節の変更分類欠落を判定不能として�
 });
 
 test("移行が必要な現行節の変更分類重複を判定不能として返す", () => {
-  const categoriesEn = [
+  const englishCategories = [
     "- `migration_required: true`",
     "- `change_classification: breaking`",
     "- `change_classification: breaking`",
@@ -1146,7 +1155,7 @@ test("移行が必要な現行節の変更分類重複を判定不能として�
     "- Verification: example",
     "- Known limitation: example",
   ];
-  const categoriesJa = [
+  const japaneseCategories = [
     "- `migration_required: true`",
     "- `change_classification: breaking`",
     "- 必須: 例",
@@ -1157,7 +1166,9 @@ test("移行が必要な現行節の変更分類重複を判定不能として�
     "- 検証: 例",
     "- 既知の制限: 例",
   ];
-  const result = run(currentChangelogFixture(categoriesEn, categoriesJa));
+  const result = runChecker(
+    currentChangelogFixture(englishCategories, japaneseCategories),
+  );
   assert.ok(
     result.report.findings.some(
       (item) =>
@@ -1172,7 +1183,7 @@ test("閉じていないYAML宣言を判定不能として返す", () => {
     ["```yaml", "migration_required: false"],
     ["- `migration_required: false`"],
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (item) =>
@@ -1189,7 +1200,7 @@ test("Git管理された公式リポジトリではbaseline状態を非該当と
   write(path.join(root, "README.md"), "Status: v0.11.4\n");
   initializeGit(root);
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.repository_mode, "official");
   assert.equal(result.report.baseline_submodule, false);
@@ -1201,7 +1212,7 @@ test("採用先の製品READMEはCRDD基準版と比較しない", () => {
   makeStructure(root);
   write(path.join(root, "00_CRDD", "01_Principles.md"), "Version: v0.10.0\n");
   write(path.join(root, "README.md"), "Status: **v9.9.9**\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.findings.length, 0);
 });
@@ -1220,7 +1231,7 @@ test("採用先では公式CHANGELOG専用の移行宣言検査を発火しな�
       "```",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(
     result.report.findings.some((item) =>
       [
@@ -1239,7 +1250,7 @@ test("採用先のCRDD正本文書間の版不一致は検出する", () => {
   makeStructure(root);
   write(path.join(root, "00_CRDD", "01_Principles.md"), "Version: v0.10.0\n");
   write(path.join(root, "00_CRDD", "02_Terminology.md"), "Version: v0.9.0\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1252,7 +1263,7 @@ test("安定コンテキストIDを含むファイル名を拒否する", () => 
   const root = fixture();
   makeStructure(root);
   write(path.join(root, "01_Discovery", "REQ-000001.md"), "# requirement\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1267,7 +1278,7 @@ test("範囲指定でも全体不変条件を確認し、部分確認を明示�
   write(path.join(root, "01_Discovery", "Discovery.md"), "# Discovery\n");
   write(path.join(root, "02_UX", "UX.md"), "[missing](missing.md)\n");
   write(path.join(root, "03_IA", "SPEC-000001.md"), "# invalid filename\n");
-  const result = run(root, "--scope", "01_Discovery");
+  const result = runChecker(root, "--scope", "01_Discovery");
   assert.equal(result.report.check_mode, "scoped");
   assert.ok(result.report.unchecked.length > 0);
   assert.ok(
@@ -1284,7 +1295,7 @@ test("全体確認は実行情報と件数を返す", () => {
   const root = fixture();
   makeStructure(root);
   write(path.join(root, "01_Discovery", "Discovery.md"), "# Discovery\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.check_mode, "full");
   assert.equal(result.report.discovery_source, "walk-fallback");
@@ -1300,7 +1311,7 @@ test("明示された安定コンテキストID定義の重複を検出する", 
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "id: REQ-000001\n");
   write(path.join(root, "01_Discovery", "B.md"), "## REQ-000001 Requirement\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1313,7 +1324,7 @@ test("変更トレースの誤配置を検出する", () => {
   const root = fixture();
   makeStructure(root);
   write(path.join(root, "01_Discovery", "CHG-000001.md"), "# change\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1329,7 +1340,7 @@ test("90_Release配下でもChangesツリー外の変更トレースを拒否す
     path.join(root, "90_Release", "product-a", "archive", "CHG-000001.md"),
     "# change\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1356,7 +1367,7 @@ test("階層化した変更領域の変更トレースと近接根拠を機械�
     ),
     "# evidence\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.change_trace_layout, "hierarchy-tolerant");
   assert.deepEqual(result.report.recognized_change_trace_paths, [
@@ -1385,7 +1396,7 @@ test("深いEvidence階層のMarkdownも内容を検査する", () => {
     ),
     "[missing](Missing.md)\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1409,7 +1420,7 @@ test("Changes配下へ入れ子にした変更トレース定義を検査でき�
     ),
     "# change\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
 });
 
@@ -1427,7 +1438,7 @@ test("二段以上の階層にある変更トレースを検査できる", () =>
     ),
     "# change\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
 });
 
@@ -1451,7 +1462,7 @@ test("Evidence配下のCHG名ファイルを変更トレース定義と誤認し
       content,
     );
   }
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
 });
 
@@ -1471,7 +1482,7 @@ test("Evidence配下へ誤配置した変更トレース本文を検出する", 
       content,
     );
   }
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(
     result.report.findings.filter(
@@ -1490,7 +1501,7 @@ test("公式リポジトリ自身の変更トレースを正規配置として�
     path.join(root, "90_Release", "Changes", "CHG-000001.md"),
     "# change\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report?.findings));
   assert.equal(result.report.findings.length, 0);
 });
@@ -1514,7 +1525,7 @@ test("公式リポジトリの配布ひな型変更トレースを正規配置�
     ),
     "# change template\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report?.findings));
   assert.equal(result.report.findings.length, 0);
 });
@@ -1524,7 +1535,7 @@ test("参照関係を重複回数付きで集約する", () => {
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[B](B.md)\n[B2](B.md)\n");
   write(path.join(root, "01_Discovery", "B.md"), "[A](A.md)\n");
-  const result = run(root, "--references", "01_Discovery/B.md");
+  const result = runChecker(root, "--references", "01_Discovery/B.md");
   assert.equal(result.status, 0);
   const references = result.report.references;
   assert.ok(references);
@@ -1543,7 +1554,7 @@ test("分岐網羅率の分母・分子・割合の不整合を検出する", ()
       "| app | 8 | 10 | 70% |",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1555,14 +1566,14 @@ test("分岐網羅率の分母・分子・割合の不整合を検出する", ()
 test("不正なCLI入力を終了コード2で拒否する", () => {
   const file = path.join(fixture(), "root.txt");
   write(file, "not a directory");
-  for (const arguments_ of [
+  for (const checkerArguments of [
     ["--root", path.join(os.tmpdir(), "missing-crdd-root")],
     ["--root", file],
     ["--root", "--json"],
     ["--unknown"],
   ]) {
-    const result = runRaw(...arguments_);
-    assert.equal(result.status, 2, arguments_.join(" "));
+    const result = runRaw(...checkerArguments);
+    assert.equal(result.status, 2, checkerArguments.join(" "));
   }
 });
 
@@ -1572,7 +1583,7 @@ test("適用先では無関係なtemplateフォルダより00_CRDDを優先す�
   fs.mkdirSync(path.join(root, "template"), { recursive: true });
   write(path.join(root, "00_CRDD", "01_Principles.md"), "Version: v0.10.0\n");
   write(path.join(root, "README.md"), "Status: **v9.9.9**\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.repository_mode, "adopter");
 });
@@ -1584,7 +1595,7 @@ test("同一ファイル内の安定コンテキストID重複定義を検出す
     path.join(root, "01_Discovery", "Requirements.md"),
     "## REQ-000001 First\n\nid: REQ-000001\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -1600,7 +1611,7 @@ test("ルート外リンクを読み取らず未確認として返す", () => {
     path.join(root, "01_Discovery", "A.md"),
     "[outside](../../outside.md)\n",
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.ok(
     result.report.findings.some(
@@ -1619,7 +1630,7 @@ test("Git無視ファイルを除外し未追跡・非無視ファイルを確�
   write(path.join(root, "node_modules", "README.md"), "[broken](missing.md)\n");
   write(path.join(root, "01_Discovery", "Work.md"), "[broken](missing.md)\n");
   assert.equal(spawnSync("git", ["init"], { cwd: root }).status, 0);
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.report.discovery_source, "git");
   assert.ok(
     result.report.findings.some(
@@ -1646,7 +1657,7 @@ test("英語の分岐網羅率と不正な測定値を検出する", () => {
       "| app | -1 | 0 | 120% |",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.ok(
     result.report.findings.some(
       (finding) => finding.code === "branch-coverage-range",
@@ -1668,7 +1679,7 @@ test("コードフェンス内の疑似リンクと表を検査しない", () =>
       "```",
     ].join("\n"),
   );
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.report.findings.length, 0);
 });
 
@@ -1692,7 +1703,7 @@ test("不正なURIエンコードを例外にせず警告する", () => {
   const root = fixture();
   makeStructure(root);
   write(path.join(root, "01_Discovery", "A.md"), "[bad](%ZZ.md)\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.ok(
     result.report.findings.some(
@@ -1719,7 +1730,7 @@ test("リポジトリ内のディレクトリリンクを検査対象外と誤�
   const root = fixture();
   makeStructure(root);
   write(path.join(root, "README.md"), "[Discovery](01_Discovery/)\n");
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(
     result.report.findings.some(
@@ -1733,7 +1744,7 @@ test("Git未導入と非Git対象のフォールバック理由を区別する",
   const root = fixture();
   makeStructure(root);
 
-  const notRepository = run(root);
+  const notRepository = runChecker(root);
   assert.equal(notRepository.report.discovery_git_failure, "not-repository");
 
   const noGitPath = fixture();
@@ -1750,7 +1761,7 @@ test("Git一覧取得失敗を生の標準エラーなしで分類する", () =>
   assert.equal(initialized.status, 0);
   write(path.join(root, ".git", "index"), "invalid-index");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.report.discovery_git_failure, "list-failed");
   assert.doesNotMatch(result.stdout, /index file|fatal:/iu);
 });
@@ -1779,7 +1790,7 @@ test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤�
     "[Rule](00_CRDD/01_Principles.md#baseline-rule)\n",
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.baseline_submodule, false);
   assert.equal(result.report.baseline_submodule_state.declared, null);
@@ -1798,7 +1809,11 @@ test("gitlinkでない入れ子Gitリポジトリをサブモジュールと誤�
     false,
   );
 
-  const references = run(root, "--references", "00_CRDD/01_Principles.md");
+  const references = runChecker(
+    root,
+    "--references",
+    "00_CRDD/01_Principles.md",
+  );
   assert.equal(references.status, 2);
 
   const scope = runRaw(
@@ -1830,7 +1845,7 @@ test("未初期化の00_CRDDサブモジュールを成功扱いしない", () =
     0,
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.repository_mode, "adopter");
   assert.equal(result.report.baseline_submodule, true);
@@ -1856,7 +1871,7 @@ test("00_CRDDのgitlinkとgitmodules宣言を別々に検証する", () => {
   initializeGit(root);
   addGitlink(root, "00_CRDD");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule, true);
   assert.equal(result.report.baseline_submodule_state.declared, false);
@@ -1876,7 +1891,7 @@ test("worktreeと宣言がなくても親indexの00_CRDD gitlinkを検出する"
   initializeGit(root);
   addGitlink(root, "00_CRDD");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.repository_mode, "adopter");
   assert.equal(result.report.baseline_submodule, true);
@@ -1910,7 +1925,7 @@ test("gitlink位置の通常ディレクトリから親GitのHEADを読まない
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_initialized, null);
   assert.equal(result.report.baseline_submodule_state.declared, true);
@@ -1942,7 +1957,7 @@ test("submodule節外のpathをgitmodules宣言と誤認しない", () => {
     ["[core]", "\tpath = 00_CRDD"].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_state.declared, false);
   assert.ok(
@@ -1962,7 +1977,7 @@ test("gitmodulesのコメント開始をGit自身の解釈で判定する", () =
     ['[submodule "00_CRDD"]', "\tpath = 00_CRDD#comment"].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_state.declared, true);
   assert.equal(
@@ -1983,7 +1998,7 @@ test("gitmodulesの引用値に続く文字を切り捨てない", () => {
     ['[submodule "00_CRDD"]', '\tpath = "00_CRDD"garbage'].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_state.declared, false);
   assert.ok(
@@ -2048,7 +2063,7 @@ test("gitmodules宣言だけの通常ディレクトリをgitlinkと誤認しな
   );
   write(path.join(root, "00_CRDD", "01_Principles.md"), "Version: v0.11.4\n");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.baseline_submodule_state.declared, true);
   assert.equal(result.report.baseline_submodule_state.gitlink_indexed, false);
@@ -2236,7 +2251,7 @@ test("未初期化gitlink配下へのリンクを破損リンクと誤認しな�
     "[component](40_Develop/component/README.md)\n",
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.gitlink_detection, "git-index");
   assert.deepEqual(result.report.gitlink_boundaries, ["40_Develop/component"]);
@@ -2318,7 +2333,7 @@ test("必須領域自体が未初期化gitlinkでも欠落と誤認しない", (
   initializeGit(root);
   addGitlink(root, "40_Develop");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(
     result.report.findings.some(
@@ -2354,7 +2369,7 @@ test("シンボリックリンク経由のルート外参照を読み取らな�
     "[Secret](Linked/Secret.md#outside-secret)\n",
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 0);
   assert.ok(
@@ -2395,7 +2410,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     ),
   );
   write(
-    path.join(source, "template", "tools", "crdd_check.ts"),
+    path.join(source, "template", "tools", "crdd-check.ts"),
     fs.readFileSync(checker, "utf8"),
   );
   assert.equal(
@@ -2460,7 +2475,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     "00_CRDD",
     "template",
     "tools",
-    "crdd_check.ts",
+    "crdd-check.ts",
   );
   const checked = spawnSync(
     process.execPath,
@@ -2497,7 +2512,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
   assert.equal(baselineScope.status, 2);
   assert.match(baselineScope.stderr, /adopted CRDD baseline submodule/u);
 
-  const baselineReferences = run(
+  const baselineReferences = runChecker(
     root,
     "--references",
     "00_CRDD/01_Principles.md",
@@ -2575,7 +2590,7 @@ test("実物のGitサブモジュール内チェッカーから適用先を確�
     { encoding: "utf8" },
   );
   assert.equal(advanced.status, 0, advanced.stderr);
-  const mismatched = run(root);
+  const mismatched = runChecker(root);
   assert.equal(mismatched.status, 1);
   assert.equal(mismatched.report.baseline_submodule_initialized, true);
   assert.equal(
@@ -2598,7 +2613,7 @@ test("構造上の欠落・旧配置・予約領域・中央集約をまとめ�
   fs.mkdirSync(path.join(root, "Evidence"), { recursive: true });
   write(path.join(root, "40_Develop", "Management.md"), "# management\n");
 
-  const result = run(root);
+  const result = runChecker(root);
   const codes = new Set(result.report.findings.map((finding) => finding.code));
   for (const code of [
     "missing-crdd-folder",
@@ -2631,7 +2646,7 @@ test("外部リンクと山括弧リンクと公式ひな型の正本読替え�
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 1);
   assert.equal(result.report.metrics.errors, 0);
@@ -2647,7 +2662,7 @@ test("範囲指定を直接の参照元と参照先へ広げる", () => {
     "[Discovery](../01_Discovery/A.md)\n",
   );
 
-  const result = run(root, "--scope", "01_Discovery");
+  const result = runChecker(root, "--scope", "01_Discovery");
   assert.equal(result.status, 0);
   assert.deepEqual(
     new Set(result.report.expanded_scope),
@@ -2668,7 +2683,7 @@ test("正本文書ルートのジャンクションを拒否する", () => {
     process.platform === "win32" ? "junction" : "dir",
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   const codes = new Set(result.report.findings.map((finding) => finding.code));
   assert.ok(codes.has("symbolic-document-root"));
@@ -2725,7 +2740,7 @@ test("公式ひな型ルートのジャンクションを拒否する", () => {
     process.platform === "win32" ? "junction" : "dir",
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.repository_mode, "official");
   assert.ok(
@@ -2775,7 +2790,7 @@ test("a regular file at 00_CRDD is reported without traversal", () => {
   }
   write(path.join(root, "00_CRDD"), "not a directory\n");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   const codes = new Set(result.report.findings.map((finding) => finding.code));
   assert.ok(codes.has("invalid-document-root"));
@@ -2787,7 +2802,7 @@ test("a regular file at the official template root is reported without traversal
   write(path.join(root, "01_Principles.md"), "Version: v0.10.0\n");
   write(path.join(root, "template"), "not a directory\n");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(result.report.repository_mode, "official");
   assert.ok(
@@ -2803,7 +2818,7 @@ test("a required CRDD structure entry must be a directory", () => {
   fs.rmSync(path.join(root, "02_UX"), { recursive: true });
   write(path.join(root, "02_UX"), "not a directory\n");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -2927,7 +2942,7 @@ test("fallback rejects a linked submodule git marker", () => {
 test("a generic repository does not require the CRDD template structure", () => {
   const root = fixture();
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.repository_mode, "generic");
   assert.equal(result.report.findings.length, 0);
@@ -2945,7 +2960,7 @@ test("duplicate headings use the same suffixes as GitHub anchors", () => {
     ["# Same heading", "# Same heading"].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
@@ -2959,7 +2974,7 @@ test("heading anchors remove Japanese punctuation without removing Japanese text
   );
   write(path.join(root, "01_Discovery", "B.md"), "# 日本語／見出し（例）\n");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
@@ -2980,7 +2995,7 @@ test("heading anchors preserve consecutive, leading, and trailing hyphens", () =
     ["# Alpha  Beta", "# 😄 emoji", "# emoji 😄"].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 3);
 });
@@ -2997,7 +3012,7 @@ test("heading anchors use rendered Markdown text", () => {
     "## This'll be a _Helpful_ Section About the Greek Letter Θ!\n",
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
@@ -3056,7 +3071,7 @@ test("heading anchors preserve literal underscores outside emphasis", () => {
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 20);
 });
@@ -3091,7 +3106,7 @@ test("heading anchors use visible labels from common inline Markdown", () => {
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 8);
 });
@@ -3105,7 +3120,7 @@ test("duplicate heading suffixes avoid anchors generated by another heading", ()
     ["# Foo", "# Foo-1", "# Foo"].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
@@ -3118,7 +3133,7 @@ test("an anchor-only Markdown link resolves to its source file", () => {
     ["# Local heading", "[local](#local-heading)"].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(result.report.metrics.anchors_checked, 1);
 });
@@ -3376,7 +3391,7 @@ test("empty heading anchors are ignored", () => {
   write(path.join(root, "01_Discovery", "A.md"), "# !!!\n");
   write(path.join(root, "01_Discovery", "B.md"), "[empty](A.md#empty)\n");
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some((finding) => finding.code === "broken-anchor"),
@@ -3391,7 +3406,7 @@ test("finding order falls back to the message when other keys are equal", () => 
     ["[first](%ZA.md)", "[second](%ZB.md)"].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0);
   assert.equal(
     result.report.findings.filter(
@@ -3446,7 +3461,7 @@ test("reference maps omit external links", () => {
   );
   write(path.join(root, "01_Discovery", "B.md"), "# B\n");
 
-  const result = run(root, "--references", "01_Discovery/A.md");
+  const result = runChecker(root, "--references", "01_Discovery/A.md");
   assert.equal(result.status, 0);
   const references = result.report.references;
   assert.ok(references);
@@ -3558,7 +3573,7 @@ test("reference maps aggregate links for a directory target", () => {
   write(path.join(root, "01_Discovery", "A.md"), "[B](B.md)\n");
   write(path.join(root, "01_Discovery", "B.md"), "# B\n");
 
-  const result = run(root, "--references", "01_Discovery");
+  const result = runChecker(root, "--references", "01_Discovery");
   assert.equal(result.status, 0);
   const references = result.report.references;
   assert.ok(references);
@@ -3608,7 +3623,7 @@ test("recognizable remediation tables validate a resolved row", () => {
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
@@ -3631,7 +3646,7 @@ test("recognizable remediation tables reject fixed and premature resolution", ()
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -3664,7 +3679,7 @@ test("recognizable remediation tables require restart information for blockers",
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -3687,7 +3702,7 @@ test("remediation tables support outer-pipe-free GFM and pipes inside cells", ()
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
@@ -3706,7 +3721,7 @@ test("remediation tables report a missing state axis", () => {
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.ok(
     result.report.findings.some(
@@ -3734,7 +3749,7 @@ test("resolved remediation rejects inconsistent progress and blocker axes", () =
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   assert.equal(
     result.report.findings.filter(
@@ -3758,7 +3773,7 @@ test("generic review tables are not treated as remediation tables", () => {
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.metrics.remediation_rows_checked, 0);
 });
@@ -3777,7 +3792,7 @@ test("generic tables with two short state aliases are not remediation tables", (
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.metrics.remediation_rows_checked, 0);
 });
@@ -3796,7 +3811,7 @@ test("explicit remediation context detects a missing state axis without auxiliar
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 1);
   const finding = result.report.findings.find(
     (item) => item.code === "remediation-state-columns-missing",
@@ -3819,7 +3834,7 @@ test("canonical English remediation headers are recognized", () => {
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.metrics.remediation_rows_checked, 1);
 });
@@ -3838,7 +3853,7 @@ test("branch coverage tables use one parser for GFM headers and rows", () => {
     ].join("\n"),
   );
 
-  const result = run(root);
+  const result = runChecker(root);
   assert.equal(result.status, 0, JSON.stringify(result.report.findings));
   assert.equal(result.report.metrics.numeric_rows_checked, 1);
 });

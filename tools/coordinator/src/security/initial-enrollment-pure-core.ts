@@ -223,7 +223,7 @@ function exactArray<T>(
     return null;
   const ownKeys = Reflect.ownKeys(value);
   if (ownKeys.length !== length + 1) return null;
-  const result: T[] = [];
+  const normalizedItems: T[] = [];
   for (let index = 0; index < length; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
     if (
@@ -236,9 +236,9 @@ function exactArray<T>(
       return null;
     const item = normalize(descriptor.value);
     if (!item) return null;
-    result.push(item);
+    normalizedItems.push(item);
   }
-  return Object.freeze(result);
+  return Object.freeze(normalizedItems);
 }
 
 function utc(value: unknown): value is string {

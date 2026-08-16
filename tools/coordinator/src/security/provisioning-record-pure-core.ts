@@ -213,15 +213,15 @@ function exactArray<T>(
     return null;
   const keys = Reflect.ownKeys(value);
   if (keys.length !== length.value + 1) return null;
-  const result: T[] = [];
+  const normalizedItems: T[] = [];
   for (let index = 0; index < length.value; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
     if (!dataDescriptor(descriptor)) return null;
     const item = normalize(descriptor.value);
     if (!item) return null;
-    result.push(item);
+    normalizedItems.push(item);
   }
-  return Object.freeze(result);
+  return Object.freeze(normalizedItems);
 }
 
 function positive(value: unknown): value is number {

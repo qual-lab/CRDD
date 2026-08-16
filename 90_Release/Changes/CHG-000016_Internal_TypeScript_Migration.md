@@ -154,3 +154,18 @@ CRDD公式Repositoryのチェッカー本体、試験、障害注入器および
 - Conformance Audit: `Pass`、Finding 0件。
 
 既知の`AG-CHECKER-PACKAGE-001`、`DOC-CHECKER-PACKAGE-001`／`002`、`GCI-CHECKER-PACKAGE-001`は第2固定版で解消を確認した。ただし監査集合はAgent reviewの新規2件により全体として`Invalidated`で、現在の合否へ流用しない。package-local `run`へprivate固定配置に基づく`--root ../..`を追加し、Coordinator READMEを移行完了後の所有境界とChecker packageのprivate保守入口へ更新する処置は`Applied`／`Self-checked`である。新規2件は新固定版の機械確認と同じ3監査が完了するまで`Resolved`ではない。
+
+### 第3固定版の監査集合と完了
+
+第3固定版はCommit `2585bbe8cdfca0a3ed26326609eb20aeb20d1802`、Tree `47c7f921fede6af639e807cd723bf0bb2c92f527`、Parent `b8b4e8374b2e7a575ada116bfd53938918c77f38`である。共通入力はNode.js 24.12、Coordinator試験255 / 255、Checker試験144 / 144、package cwdからの全体Checker 400 file／277 Markdown／Error 0／Warning 0、diff／worktree cleanだった。
+
+- Agent／Architecture／Security review: `Pass`、Finding 0件。
+- Document Audit: `Pass`、Finding 0件。
+- Gap / Impact Audit: `Pass`、Finding 0件。
+- Conformance Audit: `Pass`、Finding 0件。
+
+第2固定版の`AG-CHECKER-PACKAGE-002`／`003`を含む既知6件は第3固定版で`Resolved`となり、チェッカーpackageの責務別配置を完了した。各監査の新規候補4分類は0件だった。
+
+### 後続の命名規約移行
+
+後続の人間判断により、v0.18 Candidateでは互換shimを残さず、公式Repository、配布正本および採用側のチェッカーPathをkebab-caseへ破壊的に移行する。したがって、本節の「配布Pathを変更しない」という判断は後続の[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)によりsupersededされ、現在判定へ使用しない。上記各固定版のPathと実行記録は当時の履歴として維持する。

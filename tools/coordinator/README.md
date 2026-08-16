@@ -26,7 +26,7 @@ RuntimeがOperation状態、実効Authority、Repository Identity、Provider起�
 
 Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のローカル差分だけである。Provider子プロセスへcommit、push、merge、tag、Releaseまたは一般外部Effectの能力を与えない。
 
-詳細な脅威、主体別権限および停止条件は[`THREAT_MODEL.md`](THREAT_MODEL.md)を参照する。変更の判断と追跡は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)が所有する。
+詳細な脅威、主体別権限および停止条件は[`threat-model.md`](threat-model.md)を参照する。変更の判断と追跡は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)が所有する。
 
 
 ## 現在利用できるコマンド
@@ -59,7 +59,7 @@ package Trust Gateのpure集約候補はmanifestを内部で再検証し、CRDD 
 
 ローカル実行のRuntime principalは選択利用者、server実行は専用サービスアカウント（service account）とし、どちらも既存Root Protection Policyの排他的writer条件を上書きしない。共有Authority Rootは、将来の署名・Trust検証済み準備記録（Provisioning Record）へ結合された明示Pathだけを通常runで再利用する。準備記録はPlatform scopeのRuntime向け信用判断を担う中心成果物とし、Provisioner Identityと署名metadataを一つのJCS payloadへ結合する。署名包絡（signature Envelope）はpayloadと複数署名を分離し、署名値を署名対象へ循環包含しない。CRDD固有の署名領域分離（domain separation）、鍵識別子（key ID）、準備記録、署名包絡、信頼起点鍵集合（Trust Anchor Set）、失効一覧（Revocation Manifest）および集約署名検証（aggregate signature verification）のrevision 1 pure Core候補を実装した。Provisioning Receiptを別のRuntime Authority成果物として要求しない。Platform Provisioner package manifestは配布packageと保護policyの結合検証に限る別成果物で、Provisioning RecordまたはAuthority File Bundle Manifestを代替しない。
 
-準備記録のpure Core候補は、RFC 8785 JCS、RFC 5480 P-256 SPKI DER、ECDSA with SHA-256、固定64-byte IEEE P1363署名およびRFC 4648のpaddingなしcanonical base64urlを組み合わせる。署名messageは固定ASCII prefix `CRDD\0PROVISIONING-RECORD\0V1\0`、payload JCS byte長の符号なし64-bit big-endian値、payload JCS bytesの順で構成する。鍵識別子はexact SPKI DERのSHA-256 lowercase hexadecimal 64文字である。準備記録はcanonical UTCの`issuedAt`より`expiresAt`が後で、その差が最大180日以内の場合だけ候補化する。集約評価では評価時刻が`issuedAt`以上かつ`expiresAt`未満であることを要求し、期限外または180日超過をfail closedで拒否する。この180日は準備記録の有効期間上限であり、鍵の有効期間、鍵切替期間または失効一覧の保持期間ではない。exact plain-data Schema、strict UTF-8、canonical byte完全一致、件数・深さ・node・byte上限を要求し、重複、未知、失効、不正または形式不明な署名entryを一件でも含めば全体を拒否する。ただし入力された鍵集合と失効一覧はまだQual-Lab同梱のRuntime所有Trustとして取得・rollback防止されたものではない。したがって正常結果も暗号条件の候補に限り、Filesystem、Authority、Capability、GateまたはOperationを成立させない。実端末登録Effect、Runtime所有Trustへの接続、保存、resolverおよびLifecycleは未実装である。適用する外部規格の正本、節および採用境界は[脅威モデルの外部規格入力](THREAT_MODEL.md#provisioning-signature-external-standards)を参照する。
+準備記録のpure Core候補は、RFC 8785 JCS、RFC 5480 P-256 SPKI DER、ECDSA with SHA-256、固定64-byte IEEE P1363署名およびRFC 4648のpaddingなしcanonical base64urlを組み合わせる。署名messageは固定ASCII prefix `CRDD\0PROVISIONING-RECORD\0V1\0`、payload JCS byte長の符号なし64-bit big-endian値、payload JCS bytesの順で構成する。鍵識別子はexact SPKI DERのSHA-256 lowercase hexadecimal 64文字である。準備記録はcanonical UTCの`issuedAt`より`expiresAt`が後で、その差が最大180日以内の場合だけ候補化する。集約評価では評価時刻が`issuedAt`以上かつ`expiresAt`未満であることを要求し、期限外または180日超過をfail closedで拒否する。この180日は準備記録の有効期間上限であり、鍵の有効期間、鍵切替期間または失効一覧の保持期間ではない。exact plain-data Schema、strict UTF-8、canonical byte完全一致、件数・深さ・node・byte上限を要求し、重複、未知、失効、不正または形式不明な署名entryを一件でも含めば全体を拒否する。ただし入力された鍵集合と失効一覧はまだQual-Lab同梱のRuntime所有Trustとして取得・rollback防止されたものではない。したがって正常結果も暗号条件の候補に限り、Filesystem、Authority、Capability、GateまたはOperationを成立させない。実端末登録Effect、Runtime所有Trustへの接続、保存、resolverおよびLifecycleは未実装である。適用する外部規格の正本、節および採用境界は[脅威モデルの外部規格入力](threat-model.md#provisioning-signature-external-standards)を参照する。
 
 端末導入鍵（installation key）はOS管理境界で保持し、初回オンライン登録では30分のオンライン登録チャレンジ（online enrollment challenge）、登録要求（enrollment request）の所有証明、登録証明書（enrollment certificate）の署名とIdentity結合をpure Core候補で検査する。端末導入鍵と準備記録の署名はECDSA P-256 with SHA-256、固定64-byte IEEE P1363形式に統一し、準備認証局（Provisioning CA）による登録証明書署名はEd25519に分離する。チャレンジ／登録要求／登録証明書のexact object Schema、成果物別domain、JCS署名messageおよび数学的署名一致は実装済み候補である。署名前payloadのcanonical raw byte decoderに加え、登録要求ではECDSA P-256署名exact 1件、登録証明書ではEd25519署名exact 1件を`payload`から分離するobject Envelope、およびEnvelope全体を上限131072 byteのcanonical JCS UTF-8として受理するraw byte decoderも実装済み候補である。独自header／length prefixを付けず、入力bytesと再生成canonical bytesの完全一致を要求する。署名済みオフライン初回登録束（signed offline enrollment bundle）は、チャレンジ、署名済み登録要求、要求Hash、登録証明書、同一root系列・epochのonline／offline issuing証明書exact 2役、失効snapshotおよび7日期限を結び、offline issuing keyのEd25519署名exact 1件をpureに検査する候補である。transport、Runtime所有Trust／時計、永続一回消費台帳、鍵生成、keystore、Network、Filesystem import、Record結合および証明書更新は未実装である。decoder候補や数学的一致もAuthority、Capability、EffectまたはGateを開かず、既存12阻害依存と6件の現在run根拠を減らさない。
 
@@ -154,14 +154,14 @@ productionの実ファイル移行はPathとIdentityの小さいpredicate、Loca
 
 開発時のLintとFormatterはRepository rootの`biome.json`を正本とするBiome 2.5.6へ統一する。Coordinatorは`npm run lint --prefix tools/coordinator`、`npm run format:check --prefix tools/coordinator`および`npm run check --prefix tools/coordinator`で確認し、意図的な書換え時だけ`npm run format --prefix tools/coordinator`を使う。BiomeはdevDependencyでありRuntimeへ含めない。
 
-Checkerは`tools/checker/`のprivate packageがTypeScriptのwrapper、test、fault injectorとJSON型設定を所有する。配布正本`template/tools/crdd_check.ts`はpackage外に置き、追加installを要求しない採用側CLIの正本としてwrapperから参照する。Checker packageの開発確認は次を使用する。
+内部ツールの命名とTypeScript sourceは[内部ツール・コーディング規約](../coding-standards.md)に従う。Checkerは`tools/checker/`のprivate packageがTypeScriptのwrapper、test、fault injectorとJSON型設定を所有する。配布正本`template/tools/crdd-check.ts`はpackage外に置き、追加installを要求しない採用側CLIの正本としてwrapperから参照する。Checker packageの開発確認は次を使用する。
 
 ```shell
 npm run check --prefix tools/checker
 npm run test --prefix tools/checker
-npm run --silent run --prefix tools/checker
+npm run --silent verify:repository --prefix tools/checker
 ```
 
-`check`は型、Lint、Formatter、`test`はChecker回帰試験、`run`はpackage rootから`../..`を明示してCRDD公式Repository全体を確認するprivateな保守入口である。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
+`check`は型、Lint、Formatter、`test`はChecker回帰試験、`verify:repository`はpackage rootから`../..`を明示してCRDD公式Repository全体を確認するprivateな保守入口である。採用Repositoryの実行方法、外部package配布、CRDD準拠条件またはRelease手順ではない。
 
 Runtime 1.0のその他のCLIは、成立性Gate、Protocol、状態不変条件および永続Storeが固定されるまで提供しない。

@@ -95,8 +95,8 @@ function errorCode(error: unknown): string | null {
 const startedAt = new Date();
 const startedAtMs = Date.now();
 const args = process.argv.slice(2);
-let jsonOutput = false;
-let summaryOutput = false;
+let shouldOutputJson = false;
+let shouldOutputSummary = false;
 let rootValue = process.cwd();
 const scopeValues: string[] = [];
 let referencesValue: string | null = null;
@@ -109,11 +109,11 @@ function cliError(message: string): never {
 for (let index = 0; index < args.length; index += 1) {
   const argument = args[index];
   if (argument === "--json") {
-    jsonOutput = true;
+    shouldOutputJson = true;
     continue;
   }
   if (argument === "--summary") {
-    summaryOutput = true;
+    shouldOutputSummary = true;
     continue;
   }
   if (["--root", "--scope", "--references"].includes(argument)) {
@@ -186,7 +186,7 @@ function isInitializedBaselineWithoutGit(baselineRoot: string): boolean {
 function decodeGitConfigValue(value: string): string | null {
   const trimmed = value.trim();
   let result = "";
-  let quoted = false;
+  let isQuoted = false;
   for (let index = 0; index < trimmed.length; index += 1) {
     const character = trimmed[index];
     if (character === "\\") {
@@ -207,13 +207,13 @@ function decodeGitConfigValue(value: string): string | null {
       continue;
     }
     if (character === '"') {
-      quoted = !quoted;
+      isQuoted = !isQuoted;
       continue;
     }
-    if (!quoted && (character === "#" || character === ";")) break;
+    if (!isQuoted && (character === "#" || character === ";")) break;
     result += character;
   }
-  if (quoted) return null;
+  if (isQuoted) return null;
   return result.trim();
 }
 
@@ -237,24 +237,24 @@ function fallbackDeclaredSubmodulePaths(file: string): Readonly<{
       readable: false,
     };
   }
-  let inSubmoduleSection = false;
-  const result = [];
+  let isInSubmoduleSection = false;
+  const submodulePaths = [];
   for (const line of content.split(/\r?\n/u)) {
     const section = line.match(
       /^\s*\[\s*([^\]\s]+)(?:\s+[^\]]+)?\]\s*(?:[;#].*)?$/u,
     );
     if (section) {
-      inSubmoduleSection = section[1].toLowerCase() === "submodule";
+      isInSubmoduleSection = section[1].toLowerCase() === "submodule";
       continue;
     }
-    if (!inSubmoduleSection) continue;
+    if (!isInSubmoduleSection) continue;
     const assignment = line.match(/^\s*path\s*=\s*(.*?)\s*$/iu);
     if (!assignment) continue;
     const value = decodeGitConfigValue(assignment[1]);
-    if (value !== null && value !== "") result.push(value);
+    if (value !== null && value !== "") submodulePaths.push(value);
   }
   return {
-    paths: [...new Set(result)],
+    paths: [...new Set(submodulePaths)],
     readable: true,
   };
 }
@@ -391,10 +391,10 @@ function walk(
   directory: string,
   predicate: (file: string) => boolean,
   excludedDirectories: ReadonlySet<string> = new Set<string>(),
-  excluded: string[] = [],
+  excludedPaths: string[] = [],
   excludedLinks: string[] = [],
   unavailableDirectories: Set<string> = new Set<string>(),
-  excludedPaths: ReadonlySet<string> = new Set<string>(),
+  excludedDirectoryPaths: ReadonlySet<string> = new Set<string>(),
 ): string[] {
   function fail(code: string, message: string): null {
     const target = relative(directory);
@@ -473,36 +473,39 @@ function walk(
     );
     return [];
   }
-  const result: string[] = [];
+  const discoveredFiles: string[] = [];
   for (const entry of entries) {
     const current = path.join(directory, entry.name);
     if (entry.isSymbolicLink()) {
       excludedLinks.push(relative(current));
       continue;
     }
-    if (entry.isDirectory() && excludedPaths.has(path.resolve(current))) {
-      excluded.push(relative(current));
+    if (
+      entry.isDirectory() &&
+      excludedDirectoryPaths.has(path.resolve(current))
+    ) {
+      excludedPaths.push(relative(current));
       continue;
     }
     if (entry.isDirectory() && excludedDirectories.has(entry.name)) {
-      excluded.push(relative(current));
+      excludedPaths.push(relative(current));
       continue;
     }
     if (entry.isDirectory()) {
-      result.push(
+      discoveredFiles.push(
         ...walk(
           current,
           predicate,
           excludedDirectories,
-          excluded,
+          excludedPaths,
           excludedLinks,
           unavailableDirectories,
-          excludedPaths,
+          excludedDirectoryPaths,
         ),
       );
-    } else if (predicate(current)) result.push(current);
+    } else if (predicate(current)) discoveredFiles.push(current);
   }
-  return result.sort();
+  return discoveredFiles.sort();
 }
 
 function discoverProjectFiles(): Discovery {
@@ -761,7 +764,7 @@ function discoverProjectFiles(): Discovery {
     .map((item) => path.resolve(root, item))
     .filter((item) => isWithin(root, item));
   const fallbackGitlinkPaths = new Set<string>(fallbackGitlinks);
-  const excluded: string[] = [];
+  const excludedPaths: string[] = [];
   const excludedLinks: string[] = [];
   const unavailableDirectories = new Set<string>();
   const fallbackBaselineInitialized =
@@ -790,7 +793,7 @@ function discoverProjectFiles(): Discovery {
       root,
       () => true,
       excludedNames,
-      excluded,
+      excludedPaths,
       excludedLinks,
       unavailableDirectories,
       fallbackGitlinkPaths,
@@ -807,12 +810,12 @@ function discoverProjectFiles(): Discovery {
       ...(excludedLinks.length > 0 ? ["Symbolic links and junctions"] : []),
     ],
     unchecked:
-      excluded.length > 0 ||
+      excludedPaths.length > 0 ||
       excludedLinks.length > 0 ||
       unavailableDirectories.size > 0
         ? [
             "Gitlink detection unavailable: Git index modes were not read",
-            ...excluded.map((item) => `Fallback excluded: ${item}`),
+            ...excludedPaths.map((item) => `Fallback excluded: ${item}`),
             ...excludedLinks.map((item) => `Symbolic link excluded: ${item}`),
             ...[...unavailableDirectories].map(
               (item) => `Fallback discovery unavailable: ${item}`,
@@ -1066,15 +1069,15 @@ function anchorsFor(file: string): Set<string> {
 }
 
 function withoutFencedCode(text: string): string {
-  let fenced = false;
+  let isFenced = false;
   return text
     .split(/\r?\n/u)
     .map((line) => {
       if (/^\s*```/u.test(line)) {
-        fenced = !fenced;
+        isFenced = !isFenced;
         return "";
       }
-      return fenced ? "" : line;
+      return isFenced ? "" : line;
     })
     .join("\n");
 }
@@ -1466,7 +1469,7 @@ if (pathContainsSymbolicLink(requestedDocsRoot)) {
 } else {
   docsRoot = requestedDocsRoot;
 }
-const versioned = [];
+const versionedDocuments = [];
 const canonicalDocumentStates = [];
 if (docsRoot) {
   for (const name of fs.readdirSync(docsRoot)) {
@@ -1484,7 +1487,7 @@ if (docsRoot) {
     if (!lstatIfPresent(file)?.isFile()) continue;
     const content = read(file);
     const match = content.match(/^Version:\s*(v[0-9]\S*)\s*$/m);
-    if (match) versioned.push([file, match[1]]);
+    if (match) versionedDocuments.push([file, match[1]]);
     canonicalDocumentStates.push({
       file,
       version: match?.[1] ?? null,
@@ -1494,9 +1497,9 @@ if (docsRoot) {
     });
   }
 }
-const versions = new Set(versioned.map(([, version]) => version));
+const versions = new Set(versionedDocuments.map(([, version]) => version));
 if (versions.size > 1) {
-  for (const [file, version] of versioned) {
+  for (const [file, version] of versionedDocuments) {
     add(
       "error",
       "version-mismatch",
@@ -1573,13 +1576,13 @@ if (
   repositoryMode === "official"
 ) {
   const match = read(readme).match(/^Status:\s*\*\*(v[0-9]\S*)/m);
-  const expected = [...versions][0];
-  if (match && match[1] !== expected) {
+  const expectedVersion = versions.values().next().value;
+  if (match && match[1] !== expectedVersion) {
     add(
       "error",
       "readme-version-mismatch",
       "README.md",
-      `README=${match[1]}, canonical=${expected}`,
+      `README=${match[1]}, canonical=${expectedVersion}`,
     );
   }
 }
@@ -1593,7 +1596,7 @@ if (
 ) {
   const currentVersion = candidateReleasedBaseline ?? [...versions][0];
   const lines = read(changelog).split(/\r?\n/u);
-  // Parse fenced code once so headings, declarations, and migration-note
+  // Parse isFenced code once so headings, declarations, and migration-note
   // categories all use the same Markdown structure boundary. Only fence-free
   // lines and data inside a closed yaml/yml fence can be semantic inputs.
   const markdown = (() => {
@@ -1887,8 +1890,8 @@ for (const file of markdownFiles) {
     );
     if (match) numbers.push(Number(match[1]));
   }
-  const sorted = [...numbers].sort((a, b) => a - b);
-  if (numbers.some((value, index) => value !== sorted[index])) {
+  const sortedNumbers = [...numbers].sort((a, b) => a - b);
+  if (numbers.some((value, index) => value !== sortedNumbers[index])) {
     add(
       "warning",
       "related-order",
@@ -2064,11 +2067,10 @@ for (const file of allMarkdownFiles) {
     const progressIndex = column("progress");
     const blockerIndex = column("blocker");
     const resolutionIndex = column("resolution");
-    const stateColumnCount = [
-      progressIndex,
-      blockerIndex,
-      resolutionIndex,
-    ].filter((target) => target >= 0).length;
+    const stateColumnIndexes = [progressIndex, blockerIndex, resolutionIndex];
+    const stateColumnCount = stateColumnIndexes.filter(
+      (target) => target >= 0,
+    ).length;
     let precedingHeading = "";
     for (let previous = index - 1; previous >= 0; previous -= 1) {
       if (/^\s*#{1,6}\s+/u.test(lines[previous])) {
@@ -2287,7 +2289,7 @@ if (requestedStructureRoot) {
   }
 }
 if (structureRoot) {
-  const required = [
+  const requiredFolders = [
     "00_CRDD",
     "01_Discovery",
     "02_UX",
@@ -2301,7 +2303,7 @@ if (structureRoot) {
     "90_Release",
     "99_Roadmap",
   ];
-  for (const name of required) {
+  for (const name of requiredFolders) {
     const requiredPath = path.join(structureRoot, name);
     const requiredStat = lstatIfPresent(requiredPath);
     if (pathContainsSymbolicLink(requiredPath)) {
@@ -2546,7 +2548,7 @@ const report = {
     local_links_checked: checkedLocalLinks,
     anchors_checked: checkedAnchors,
     related_blocks_checked: relatedBlocks,
-    versioned_documents_checked: versioned.length,
+    versioned_documents_checked: versionedDocuments.length,
     stable_ids_observed: stableIdOccurrences.size,
     gitlinks_observed: gitlinkRoots.length,
     explicit_stable_id_definitions: stableIdDefinitions.size,
@@ -2559,9 +2561,9 @@ const report = {
   references: referenceMap,
 };
 
-if (jsonOutput && summaryOutput) {
+if (shouldOutputJson && shouldOutputSummary) {
   console.log(JSON.stringify(report, null, 2));
-} else if (jsonOutput) {
+} else if (shouldOutputJson) {
   console.log(JSON.stringify(findings, null, 2));
 } else {
   for (const item of findings) {
@@ -2570,7 +2572,7 @@ if (jsonOutput && summaryOutput) {
     );
   }
   console.log(`CRDD check: ${errors} error(s), ${warnings} warning(s)`);
-  if (summaryOutput) {
+  if (shouldOutputSummary) {
     console.log(
       `Mode=${report.check_mode}; Markdown=${report.metrics.markdown_files_checked}/${report.metrics.markdown_files_discovered}; local links=${checkedLocalLinks}; anchors=${checkedAnchors}; stable IDs=${report.metrics.stable_ids_observed}; ${report.duration_ms} ms`,
     );

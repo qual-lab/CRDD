@@ -37,10 +37,10 @@ function normalRepository(t: TestContext) {
 function linkedRepository(t: TestContext) {
   const parent = temporaryRoot(t);
   const repositoryRoot = path.join(parent, "linked");
-  const common = path.join(parent, "main.git");
-  const gitDirectory = path.join(common, "worktrees", "linked");
+  const commonGitDirectory = path.join(parent, "main.git");
+  const gitDirectory = path.join(commonGitDirectory, "worktrees", "linked");
   fs.mkdirSync(repositoryRoot);
-  makeGitDirectory(common);
+  makeGitDirectory(commonGitDirectory);
   fs.mkdirSync(gitDirectory, { recursive: true });
   fs.writeFileSync(
     path.join(gitDirectory, "HEAD"),
@@ -317,9 +317,9 @@ test("空または未作成excludeを作成し外部overrideではmetadataを書
 
 test("既存lock、過大exclude、linkをblockedへ閉じる", (t) => {
   const repositoryRoot = normalRepository(t);
-  const info = path.join(repositoryRoot, ".git", "info");
-  const exclude = path.join(info, "exclude");
-  const lock = path.join(info, ".crdd-runtime-exclude.lock");
+  const gitInfoDirectory = path.join(repositoryRoot, ".git", "info");
+  const exclude = path.join(gitInfoDirectory, "exclude");
+  const lock = path.join(gitInfoDirectory, ".crdd-runtime-exclude.lock");
   fs.writeFileSync(lock, "unknown", "utf8");
   assert.equal(
     applyGitLocalExcludeCandidate(existingInput(repositoryRoot)).status,
@@ -333,7 +333,7 @@ test("既存lock、過大exclude、linkをblockedへ閉じる", (t) => {
     "blocked",
   );
   fs.unlinkSync(exclude);
-  const target = path.join(info, "target");
+  const target = path.join(gitInfoDirectory, "target");
   fs.writeFileSync(target, "safe\n", "utf8");
   try {
     fs.symlinkSync(target, exclude, "file");
@@ -356,14 +356,14 @@ test("書込み中の変化とclose失敗を成功へ流用しない", (t) => {
     ".crdd-runtime-exclude.lock",
   );
   const originalWrite = fs.writeSync;
-  let changed = false;
+  let hasChanged = false;
   Reflect.set(
     fs,
     "writeSync",
     function (descriptor: number, ...args: unknown[]) {
       const written = Reflect.apply(originalWrite, fs, [descriptor, ...args]);
-      if (!changed) {
-        changed = true;
+      if (!hasChanged) {
+        hasChanged = true;
         fs.ftruncateSync(descriptor, Math.max(0, written - 1));
       }
       return written;
@@ -379,11 +379,11 @@ test("書込み中の変化とclose失敗を成功へ流用しない", (t) => {
   }
   assert.equal(fs.existsSync(lock), false);
   const originalClose = fs.closeSync;
-  let failed = false;
+  let hasFailed = false;
   fs.closeSync = function (descriptor) {
     originalClose.call(fs, descriptor);
-    if (!failed) {
-      failed = true;
+    if (!hasFailed) {
+      hasFailed = true;
       throw new Error("fixture-close-failure");
     }
   };
@@ -395,7 +395,7 @@ test("書込み中の変化とclose失敗を成功へ流用しない", (t) => {
   } finally {
     fs.closeSync = originalClose;
   }
-  assert.equal(failed, true);
+  assert.equal(hasFailed, true);
   assert.equal(fs.existsSync(lock), false);
 });
 
@@ -403,11 +403,11 @@ test("置換後の検証失敗は書込み済みblockedとして返す", (t) => 
   const repositoryRoot = normalRepository(t);
   const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
   const originalRename = fs.renameSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.renameSync = function (source, destination) {
     originalRename.call(fs, source, destination);
-    if (!replaced) {
-      replaced = true;
+    if (!hasReplaced) {
+      hasReplaced = true;
       fs.writeFileSync(destination, "/different-entry/\n", "utf8");
     }
   };
@@ -451,10 +451,13 @@ test("Path Identityが書込み直前に失われた場合はmetadataを書か�
   const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
   fs.mkdirSync(runtimeRoot);
   const originalOpen = fs.openSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.openSync = function (target, ...rest) {
-    if (!replaced && target === path.join(repositoryRoot, ".git", "config")) {
-      replaced = true;
+    if (
+      !hasReplaced &&
+      target === path.join(repositoryRoot, ".git", "config")
+    ) {
+      hasReplaced = true;
       fs.renameSync(runtimeRoot, originalRoot);
       try {
         fs.symlinkSync(
@@ -477,7 +480,7 @@ test("Path Identityが書込み直前に失われた場合はmetadataを書か�
   } finally {
     fs.openSync = originalOpen;
   }
-  if (!replaced || !fs.lstatSync(runtimeRoot).isSymbolicLink()) return;
+  if (!hasReplaced || !fs.lstatSync(runtimeRoot).isSymbolicLink()) return;
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, false);
   assert.equal(fs.existsSync(exclude), false);
@@ -493,10 +496,13 @@ test("initial Root identity is not rebased to a valid same-name replacement", (t
   fs.mkdirSync(runtimeRoot);
   fs.mkdirSync(replacementRoot);
   const originalOpen = fs.openSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.openSync = function (target, ...rest) {
-    if (!replaced && target === path.join(repositoryRoot, ".git", "config")) {
-      replaced = true;
+    if (
+      !hasReplaced &&
+      target === path.join(repositoryRoot, ".git", "config")
+    ) {
+      hasReplaced = true;
       fs.renameSync(runtimeRoot, originalRoot);
       fs.renameSync(replacementRoot, runtimeRoot);
     }
@@ -508,7 +514,7 @@ test("initial Root identity is not rebased to a valid same-name replacement", (t
   } finally {
     fs.openSync = originalOpen;
   }
-  assert.equal(replaced, true);
+  assert.equal(hasReplaced, true);
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, false);
   assert.equal(fs.existsSync(exclude), false);
@@ -526,10 +532,13 @@ test("initial parent identity is not rebased to a valid same-name replacement", 
   fs.mkdirSync(runtimeRoot, { recursive: true });
   fs.mkdirSync(replacementRoot, { recursive: true });
   const originalOpen = fs.openSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.openSync = function (target, ...rest) {
-    if (!replaced && target === path.join(repositoryRoot, ".git", "config")) {
-      replaced = true;
+    if (
+      !hasReplaced &&
+      target === path.join(repositoryRoot, ".git", "config")
+    ) {
+      hasReplaced = true;
       fs.renameSync(runtimeParent, originalParent);
       fs.renameSync(replacementParent, runtimeParent);
     }
@@ -543,7 +552,7 @@ test("initial parent identity is not rebased to a valid same-name replacement", 
   } finally {
     fs.openSync = originalOpen;
   }
-  assert.equal(replaced, true);
+  assert.equal(hasReplaced, true);
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, false);
   assert.equal(fs.existsSync(exclude), false);
@@ -564,10 +573,13 @@ test("initial Repository identity is not rebased to a valid same-name replacemen
   fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"));
   fs.mkdirSync(path.join(replacementRepository, ".crdd-runtime"));
   const originalOpen = fs.openSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.openSync = function (target, ...rest) {
-    if (!replaced && target === path.join(repositoryRoot, ".git", "config")) {
-      replaced = true;
+    if (
+      !hasReplaced &&
+      target === path.join(repositoryRoot, ".git", "config")
+    ) {
+      hasReplaced = true;
       fs.renameSync(repositoryRoot, originalRepository);
       fs.renameSync(replacementRepository, repositoryRoot);
     }
@@ -579,7 +591,7 @@ test("initial Repository identity is not rebased to a valid same-name replacemen
   } finally {
     fs.openSync = originalOpen;
   }
-  assert.equal(replaced, true);
+  assert.equal(hasReplaced, true);
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, false);
   assert.equal(
@@ -597,17 +609,17 @@ test("metadata書込み後のPath Identity喪失は書込み済みblockedとし�
   fs.mkdirSync(replacementRoot);
   const originalRename = fs.renameSync;
   const originalRealpath = fs.realpathSync.native;
-  let armed = false;
-  let replaced = false;
+  let isArmed = false;
+  let hasReplaced = false;
   fs.renameSync = function (source, destination) {
     originalRename.call(fs, source, destination);
     if (destination === path.join(repositoryRoot, ".git", "info", "exclude"))
-      armed = true;
+      isArmed = true;
   };
   Reflect.set(fs.realpathSync, "native", function (target: unknown) {
     const result = Reflect.apply(originalRealpath, fs.realpathSync, [target]);
-    if (armed && !replaced && target === runtimeRoot) {
-      replaced = true;
+    if (isArmed && !hasReplaced && target === runtimeRoot) {
+      hasReplaced = true;
       originalRename.call(fs, runtimeRoot, originalRoot);
       originalRename.call(fs, replacementRoot, runtimeRoot);
     }
@@ -640,11 +652,11 @@ test("post-write parent replacement preserves the issued-write fact", (t) => {
   fs.mkdirSync(path.join(replacementParent, "root"), { recursive: true });
   const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
   const originalRename = fs.renameSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.renameSync = function (source, destination) {
     originalRename.call(fs, source, destination);
-    if (!replaced && destination === exclude) {
-      replaced = true;
+    if (!hasReplaced && destination === exclude) {
+      hasReplaced = true;
       originalRename.call(fs, runtimeParent, originalParent);
       originalRename.call(fs, replacementParent, runtimeParent);
     }
@@ -657,7 +669,7 @@ test("post-write parent replacement preserves the issued-write fact", (t) => {
   } finally {
     fs.renameSync = originalRename;
   }
-  assert.equal(replaced, true);
+  assert.equal(hasReplaced, true);
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, true);
   assert.equal(result.gitMetadataWriteVerified, false);
@@ -679,11 +691,11 @@ test("post-write Repository replacement preserves the issued-write fact", (t) =>
   fs.mkdirSync(path.join(replacementRepository, ".crdd-runtime"));
   const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
   const originalRename = fs.renameSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.renameSync = function (source, destination) {
     originalRename.call(fs, source, destination);
-    if (!replaced && destination === exclude) {
-      replaced = true;
+    if (!hasReplaced && destination === exclude) {
+      hasReplaced = true;
       originalRename.call(fs, repositoryRoot, originalRepository);
       originalRename.call(fs, replacementRepository, repositoryRoot);
     }
@@ -694,7 +706,7 @@ test("post-write Repository replacement preserves the issued-write fact", (t) =>
   } finally {
     fs.renameSync = originalRename;
   }
-  assert.equal(replaced, true);
+  assert.equal(hasReplaced, true);
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, true);
   assert.equal(result.gitMetadataWriteVerified, false);
@@ -730,12 +742,12 @@ test("external override remains bound to the initial Root identity", (t) => {
   fs.mkdirSync(replacementExternal);
   const originalRealpath = fs.realpathSync.native;
   let rootReads = 0;
-  let replaced = false;
+  let hasReplaced = false;
   Reflect.set(fs.realpathSync, "native", function (target: unknown) {
     if (target === externalRoot) {
       rootReads += 1;
       if (rootReads === 3) {
-        replaced = true;
+        hasReplaced = true;
         fs.renameSync(externalRoot, originalExternal);
         fs.renameSync(replacementExternal, externalRoot);
       }
@@ -750,7 +762,7 @@ test("external override remains bound to the initial Root identity", (t) => {
   } finally {
     Reflect.set(fs.realpathSync, "native", originalRealpath);
   }
-  assert.equal(replaced, true);
+  assert.equal(hasReplaced, true);
   assert.equal(result.status, "blocked");
   assert.equal(result.gitMetadataWriteIssued, false);
   assert.equal(JSON.stringify(result).includes(externalRoot), false);

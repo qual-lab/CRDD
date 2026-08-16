@@ -14,9 +14,10 @@
     "types": ["node"]
   },
   "include": [
-    "./crdd_check.ts",
-    "./crdd_check.test.ts",
+    "./crdd-check.ts",
+    "./crdd-check.contract.test.ts",
+    "./tools-naming.contract.test.ts",
     "./fault-injector.ts",
-    "../../template/tools/crdd_check.ts"
+    "../../template/tools/crdd-check.ts"
   ]
 }

@@ -75,7 +75,7 @@ function parsePathCommandArguments(
     ...(options.allowAuthorityRoot ? ["--authority-root"] : []),
   ]);
   const seen = new Set();
-  let json = false;
+  let shouldOutputJson = false;
   let runtimeCliOverride: string | null = null;
   let authorityCliOverride: string | null = null;
 
@@ -92,7 +92,7 @@ function parsePathCommandArguments(
     }
     seen.add(token);
     if (token === "--json") {
-      json = true;
+      shouldOutputJson = true;
       continue;
     }
     const value = argumentsList[index + 1];
@@ -163,7 +163,7 @@ function parsePathCommandArguments(
     "ok",
     null,
     Object.freeze({
-      json,
+      json: shouldOutputJson,
       runtimeRootRequest: Object.freeze({
         cliOverride: runtimeCliOverride,
         environmentOverride: runtimeEnvironmentOverride,
@@ -257,10 +257,10 @@ export function parseDoctorArguments(
   const argumentsList = snapshot.value;
   const jsonRequested = argumentsList.includes("--json");
   const seen = new Set();
-  let json = false;
-  let activeIsolation = false;
+  let shouldOutputJson = false;
+  let isActiveIsolation = false;
   let recoveryId: string | null = null;
-  let enableRuntime = false;
+  let shouldEnableRuntime = false;
   let cliOverride: string | null = null;
 
   for (let index = 0; index < argumentsList.length; index += 1) {
@@ -284,9 +284,9 @@ export function parseDoctorArguments(
       );
     }
     seen.add(token);
-    if (token === "--json") json = true;
-    else if (token === "--isolation") activeIsolation = true;
-    else if (token === "--enable-runtime") enableRuntime = true;
+    if (token === "--json") shouldOutputJson = true;
+    else if (token === "--isolation") isActiveIsolation = true;
+    else if (token === "--enable-runtime") shouldEnableRuntime = true;
     else {
       const value = argumentsList[index + 1];
       if (!validToken(value) || value.startsWith("--")) {
@@ -303,7 +303,7 @@ export function parseDoctorArguments(
     }
   }
 
-  if (cliOverride !== null && !enableRuntime) {
+  if (cliOverride !== null && !shouldEnableRuntime) {
     return response(
       "blocked",
       "runtime_root_requires_enable_request",
@@ -313,7 +313,7 @@ export function parseDoctorArguments(
   }
   if (
     recoveryId !== null &&
-    (activeIsolation || enableRuntime || cliOverride !== null)
+    (isActiveIsolation || shouldEnableRuntime || cliOverride !== null)
   ) {
     return response(
       "blocked",
@@ -322,7 +322,7 @@ export function parseDoctorArguments(
       jsonRequested,
     );
   }
-  const runtimeRootRequest = enableRuntime
+  const runtimeRootRequest = shouldEnableRuntime
     ? Object.freeze({
         cliOverride,
         environmentOverride:
@@ -334,8 +334,8 @@ export function parseDoctorArguments(
     "ok",
     null,
     Object.freeze({
-      json,
-      activeIsolation,
+      json: shouldOutputJson,
+      activeIsolation: isActiveIsolation,
       recoveryId,
       runtimeRootRequest,
     }),

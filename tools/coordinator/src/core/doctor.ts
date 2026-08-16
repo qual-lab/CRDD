@@ -263,16 +263,16 @@ export function discoverCommand(
 }
 
 function probeGitRepository(cwd: string) {
-  const execute = (args: readonly string[]) =>
+  const runGitCommand = (args: readonly string[]) =>
     spawnSync("git", args, {
       cwd,
       encoding: "utf8",
       windowsHide: true,
       timeout: 10_000,
     });
-  const commit = execute(["rev-parse", "HEAD"]);
-  const tree = execute(["rev-parse", "HEAD^{tree}"]);
-  const status = execute(["status", "--porcelain=v1", "-z"]);
+  const commit = runGitCommand(["rev-parse", "HEAD"]);
+  const tree = runGitCommand(["rev-parse", "HEAD^{tree}"]);
+  const status = runGitCommand(["status", "--porcelain=v1", "-z"]);
 
   return {
     gitAvailable: commit.error == null,
@@ -468,7 +468,7 @@ export function runDoctor(options: unknown = {}) {
     throw new Error("owned_operation_directory_identity_required");
   const ownedDirectories = owned.directories;
   const initialHostRecoveryId = getOwnedHostRecoveryId(owned);
-  let retainOperationDirectories = false;
+  let shouldRetainOperationDirectories = false;
   try {
     const providerEnvironment = createProviderEnvironment(
       process.env,
@@ -514,7 +514,7 @@ export function runDoctor(options: unknown = {}) {
           recoveryId: null,
           manualRecoveryRequired: false,
         });
-    retainOperationDirectories = activeIsolation
+    shouldRetainOperationDirectories = activeIsolation
       ? isolation.hostCleanupCompleted !== true
       : false;
     const isolationCheckStatus: CheckStatus =
@@ -635,7 +635,7 @@ export function runDoctor(options: unknown = {}) {
         activationReason:
           "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented",
       },
-      recovery: retainOperationDirectories
+      recovery: shouldRetainOperationDirectories
         ? {
             required: true,
             recoveryId: isolation.recoveryId ?? null,
@@ -671,7 +671,7 @@ export function runDoctor(options: unknown = {}) {
     }
     return report;
   } catch (error) {
-    if (!activeIsolation && !retainOperationDirectories) {
+    if (!activeIsolation && !shouldRetainOperationDirectories) {
       try {
         cleanupOwnedOperationDirectories(owned);
       } catch {

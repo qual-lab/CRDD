@@ -283,11 +283,11 @@ test("検査中のRoot replacementをcandidateへ流用しない", (t) => {
   const replacement = path.join(repositoryRoot, "replacement");
   fs.mkdirSync(replacement);
   const originalRealpath = fs.realpathSync.native;
-  let replaced = false;
+  let hasReplaced = false;
   Reflect.set(fs.realpathSync, "native", function (target: unknown) {
     const result = Reflect.apply(originalRealpath, fs.realpathSync, [target]);
-    if (!replaced && target === root) {
-      replaced = true;
+    if (!hasReplaced && target === root) {
+      hasReplaced = true;
       fs.renameSync(root, `${root}-old`);
       fs.renameSync(replacement, root);
     }
@@ -311,11 +311,11 @@ test("検査中のparent replacementをcandidateへ流用しない", (t) => {
   const replacement = path.join(repositoryRoot, "replacement-parent");
   fs.mkdirSync(path.join(replacement, "root"), { recursive: true });
   const originalRealpath = fs.realpathSync.native;
-  let replaced = false;
+  let hasReplaced = false;
   Reflect.set(fs.realpathSync, "native", function (target: unknown) {
     const result = Reflect.apply(originalRealpath, fs.realpathSync, [target]);
-    if (!replaced && target === parent) {
-      replaced = true;
+    if (!hasReplaced && target === parent) {
+      hasReplaced = true;
       fs.renameSync(parent, `${parent}-old`);
       fs.renameSync(replacement, parent);
     }
@@ -341,11 +341,11 @@ test("検査中のRepository replacementをcandidateへ流用しない", (t) => 
   const oldRepository = path.join(container, "repository-old");
   fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"), { recursive: true });
   const originalRealpath = fs.realpathSync.native;
-  let replaced = false;
+  let hasReplaced = false;
   Reflect.set(fs.realpathSync, "native", function (target: unknown) {
     const result = Reflect.apply(originalRealpath, fs.realpathSync, [target]);
-    if (!replaced && target === repositoryRoot) {
-      replaced = true;
+    if (!hasReplaced && target === repositoryRoot) {
+      hasReplaced = true;
       fs.renameSync(repositoryRoot, oldRepository);
       fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"), {
         recursive: true,

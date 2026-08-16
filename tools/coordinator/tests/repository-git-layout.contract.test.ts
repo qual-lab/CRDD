@@ -46,10 +46,10 @@ test("通常worktreeのcommon metadata候補をPath非保持で識別する", (t
 test("linked worktreeはcommondirを解決する", (t) => {
   const parent = temporaryRoot(t);
   const repositoryRoot = path.join(parent, "linked");
-  const common = path.join(parent, "main.git");
-  const gitDirectory = path.join(common, "worktrees", "linked");
+  const commonGitDirectory = path.join(parent, "main.git");
+  const gitDirectory = path.join(commonGitDirectory, "worktrees", "linked");
   fs.mkdirSync(repositoryRoot);
-  makeGitDirectory(common);
+  makeGitDirectory(commonGitDirectory);
   fs.mkdirSync(gitDirectory, { recursive: true });
   fs.writeFileSync(
     path.join(gitDirectory, "HEAD"),
@@ -231,10 +231,10 @@ test("lstat後にcontrol fileを同名の別実体へ置換しても読まない
   makeGitDirectory(path.join(repositoryRoot, ".git"));
   const marker = path.join(repositoryRoot, ".git");
   const originalOpen = fs.openSync;
-  let replaced = false;
+  let hasReplaced = false;
   fs.openSync = function (target, ...args) {
-    if (!replaced && target === path.join(marker, "HEAD")) {
-      replaced = true;
+    if (!hasReplaced && target === path.join(marker, "HEAD")) {
+      hasReplaced = true;
       fs.renameSync(target, `${target}.original`);
       fs.writeFileSync(target, "b".repeat(4097), "utf8");
     }
@@ -254,13 +254,13 @@ test("同一handleの読取り中にsizeが変わる場合はblockedへ閉じる
   const repositoryRoot = temporaryRoot(t);
   makeGitDirectory(path.join(repositoryRoot, ".git"));
   const originalRead = fs.readSync;
-  let changed = false;
+  let hasChanged = false;
   Reflect.set(
     fs,
     "readSync",
     function (descriptor: number, ...args: unknown[]) {
-      if (!changed) {
-        changed = true;
+      if (!hasChanged) {
+        hasChanged = true;
         fs.ftruncateSync(descriptor, 1);
       }
       return Reflect.apply(originalRead, fs, [descriptor, ...args]);
@@ -282,13 +282,13 @@ test("realpath解決中にRepository directoryを別実体へ置換しても候�
   fs.mkdirSync(repositoryRoot);
   makeGitDirectory(path.join(repositoryRoot, ".git"));
   const originalNative = fs.realpathSync.native;
-  let replaced = false;
+  let hasReplaced = false;
   Reflect.set(
     fs.realpathSync,
     "native",
     function (target: unknown, ...args: unknown[]) {
-      if (!replaced && target === repositoryRoot) {
-        replaced = true;
+      if (!hasReplaced && target === repositoryRoot) {
+        hasReplaced = true;
         fs.renameSync(repositoryRoot, `${repositoryRoot}.original`);
         fs.mkdirSync(repositoryRoot);
         makeGitDirectory(path.join(repositoryRoot, ".git"));
@@ -310,11 +310,11 @@ test("control fileのclose失敗を成功へ流用しない", (t) => {
   const repositoryRoot = temporaryRoot(t);
   makeGitDirectory(path.join(repositoryRoot, ".git"));
   const originalClose = fs.closeSync;
-  let failed = false;
+  let hasFailed = false;
   fs.closeSync = function (descriptor) {
     originalClose.call(fs, descriptor);
-    if (!failed) {
-      failed = true;
+    if (!hasFailed) {
+      hasFailed = true;
       throw new Error("fixture-close-failure");
     }
   };

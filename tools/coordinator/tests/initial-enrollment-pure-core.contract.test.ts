@@ -257,15 +257,16 @@ test("binding mismatch, expired request time, invalid signatures, and dynamic in
   const canonicalNonce = value.challenge.nonce;
   const alphabet =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-  const aliasNonce = [...alphabet]
-    .map((tail) => canonicalNonce.slice(0, -1) + tail)
-    .find(
-      (item) =>
-        item !== canonicalNonce &&
-        Buffer.from(item, "base64url").equals(
-          Buffer.from(canonicalNonce, "base64url"),
-        ),
-    );
+  const nonceCandidates = [...alphabet].map(
+    (tail) => canonicalNonce.slice(0, -1) + tail,
+  );
+  const aliasNonce = nonceCandidates.find(
+    (item) =>
+      item !== canonicalNonce &&
+      Buffer.from(item, "base64url").equals(
+        Buffer.from(canonicalNonce, "base64url"),
+      ),
+  );
   assert.ok(aliasNonce);
   assert.equal(
     compileInitialEnrollmentChallengeCandidate({

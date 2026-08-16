@@ -895,19 +895,25 @@ function observeContainerAbsence(
   hostRecoveryId: string,
   rootName: string,
 ): Readonly<{ kind: "docker_absence" }> | null {
-  const common = ["container", "ls", "--all", "--quiet", "--no-trunc"];
+  const containerListArguments = [
+    "container",
+    "ls",
+    "--all",
+    "--quiet",
+    "--no-trunc",
+  ];
   const id = dockerCommand(cli, environment, [
-    ...common,
+    ...containerListArguments,
     "--filter",
     `id=${identity.id}`,
   ]);
   const name = dockerCommand(cli, environment, [
-    ...common,
+    ...containerListArguments,
     "--filter",
     `name=^/${containerName(identity.probeId)}$`,
   ]);
   const label = dockerCommand(cli, environment, [
-    ...common,
+    ...containerListArguments,
     "--filter",
     `label=${OWNERSHIP_LABEL}=${identity.probeId}`,
   ]);
@@ -1105,8 +1111,8 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
   let containerIdentity: ContainerIdentity | null = null;
   let recoveryId: string | null = null;
   let hostRecoveryId = getOwnedHostRecoveryId(owned);
-  let submissionStarted = false;
-  let rollbackFailed = false;
+  let hasSubmissionStarted = false;
+  let hasRollbackFailed = false;
   const recoveryNonce = randomUUID();
   let result: DockerProbeResult = blocked("docker_isolation_probe_failed");
   try {
@@ -1119,7 +1125,7 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
     } else {
       mounts = verifyOwnedMountCapability(mountCapability);
       hostRecoveryId = beginDockerSubmission(hostRecoveryId);
-      submissionStarted = true;
+      hasSubmissionStarted = true;
       try {
         recoveryId = writeRecoveryRecord(
           mounts,
@@ -1131,9 +1137,9 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
       } catch (error) {
         try {
           hostRecoveryId = cancelDockerSubmissionBeforeCreate(hostRecoveryId);
-          submissionStarted = false;
+          hasSubmissionStarted = false;
         } catch {
-          rollbackFailed = true;
+          hasRollbackFailed = true;
         }
         throw error;
       }
@@ -1192,10 +1198,10 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
     }
   } catch (error) {
     result = normalizeDockerProbeFailure(error, probeId, {
-      submissionStarted,
+      submissionStarted: hasSubmissionStarted,
       recoveryId,
       hostRecoveryId,
-      rollbackFailed,
+      rollbackFailed: hasRollbackFailed,
     });
   } finally {
     if (containerCapability && cli && environment && mounts) {
@@ -1230,7 +1236,7 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
           recoveryId,
         );
       }
-    } else if (!submissionStarted) {
+    } else if (!hasSubmissionStarted) {
       result = finishPreSubmissionCleanup(
         owned,
         hostRecoveryId,

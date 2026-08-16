@@ -120,12 +120,12 @@ test("JCS値Coreは非plain、動的入力、循環、lone surrogate、非有限
 
 test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ごとに展開する", () => {
   const sharedObject = Object.assign(Object.create(null), { x: 1 });
-  const sharedArray = [sharedObject, 2];
+  const sharedValues = [sharedObject, 2];
   const aliased = {
     objectLeft: sharedObject,
     objectRight: sharedObject,
-    arrayLeft: sharedArray,
-    arrayRight: sharedArray,
+    arrayLeft: sharedValues,
+    arrayRight: sharedValues,
   };
   const duplicated = {
     objectLeft: Object.assign(Object.create(null), { x: 1 }),
@@ -145,8 +145,8 @@ test("JCS値Coreは循環だけを拒否し非循環の共有参照を出現ご�
   assert.equal(aliasResult.canonicalHash, duplicateResult.canonicalHash);
 
   const indirectObject: Record<string, unknown> = {};
-  const indirectArray = [indirectObject];
-  indirectObject.back = indirectArray;
+  const indirectValues = [indirectObject];
+  indirectObject.back = indirectValues;
   assert.equal(
     canonicalizeProvisioningJsonValueCandidate(indirectObject).status,
     "blocked",
@@ -212,10 +212,10 @@ test("JCSはnodeとcanonical byteの境界を全descriptor展開と巨大token�
     ).reason,
     "provisioning_jcs_budget_exceeded",
   );
-  const sparse: unknown[] = [];
-  sparse.length = PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - 1;
+  const sparseValues: unknown[] = [];
+  sparseValues.length = PROVISIONING_SIGNATURE_INPUT_LIMITS.nodes - 1;
   assert.equal(
-    canonicalizeProvisioningJsonValueCandidate(sparse).status,
+    canonicalizeProvisioningJsonValueCandidate(sparseValues).status,
     "blocked",
   );
 

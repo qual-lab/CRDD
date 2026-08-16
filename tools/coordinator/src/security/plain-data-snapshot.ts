@@ -113,7 +113,7 @@ export function snapshotPlainArray<T = unknown>(
         value: null,
       });
     }
-    const snapshot: T[] = [];
+    const snapshotItems: T[] = [];
     for (let index = 0; index < initialLength.value; index += 1) {
       const key = String(index);
       const descriptor = descriptors[key];
@@ -124,11 +124,11 @@ export function snapshotPlainArray<T = unknown>(
           value: null,
         });
       }
-      snapshot.push(descriptor.value as T);
+      snapshotItems.push(descriptor.value as T);
     }
     const allowed = new Set([
       "length",
-      ...snapshot.map((_, index) => String(index)),
+      ...snapshotItems.map((_, index) => String(index)),
     ]);
     if (keys.some((key) => typeof key !== "string" || !allowed.has(key))) {
       return Object.freeze({
@@ -140,7 +140,7 @@ export function snapshotPlainArray<T = unknown>(
     return Object.freeze({
       status: "ok",
       reason: null,
-      value: Object.freeze(snapshot),
+      value: Object.freeze(snapshotItems),
     });
   } catch {
     return Object.freeze({

@@ -381,7 +381,7 @@ export function inspectPosixRuntimeRootModePrecheckCandidate(
 export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(
   rawInput: unknown,
 ) {
-  let writeIssued = false;
+  let hasWriteIssued = false;
   try {
     const session = createIdentitySession(rawInput);
     const location = repositoryRelativePath(
@@ -433,7 +433,7 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(
     verifyIdentitySession(session);
     verifyIdentitySession(session);
     const result = writeRepositoryLocalExclude(layout, excludeEntry);
-    writeIssued = result.changed;
+    hasWriteIssued = result.changed;
     try {
       verifyIdentitySession(session);
     } catch {
@@ -442,7 +442,7 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(
         "runtime_root_path_identity_reverification_failed",
         null,
         {
-          gitMetadataWriteIssued: writeIssued,
+          gitMetadataWriteIssued: hasWriteIssued,
           gitMetadataWriteVerified: false,
         },
       );
@@ -465,7 +465,7 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(
       error && typeof error === "object"
         ? Object.getOwnPropertyDescriptor(error, "writeIssued")
         : undefined;
-    writeIssued ||= Boolean(
+    hasWriteIssued ||= Boolean(
       descriptor &&
         Object.hasOwn(descriptor, "value") &&
         descriptor.get === undefined &&
@@ -474,11 +474,14 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(
     );
     return localExcludeResponse(
       "blocked",
-      writeIssued
+      hasWriteIssued
         ? "git_local_exclude_update_blocked"
         : "runtime_root_path_identity_candidate_required",
       null,
-      { gitMetadataWriteIssued: writeIssued, gitMetadataWriteVerified: false },
+      {
+        gitMetadataWriteIssued: hasWriteIssued,
+        gitMetadataWriteVerified: false,
+      },
     );
   }
 }

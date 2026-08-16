@@ -57,7 +57,7 @@ const originalReadFileSync = fs.readFileSync;
 const originalRelative = path.relative;
 const originalSpawnSync = childProcess.spawnSync;
 let targetLstatCalls = 0;
-let targetDirectoryRead = false;
+let isTargetDirectoryRead = false;
 
 function isTarget(value: unknown): boolean {
   return target !== null && path.resolve(String(value)) === target;
@@ -142,7 +142,7 @@ if (fault === "lstat-replaced-after-read") {
     ...rest: unknown[]
   ) {
     const stat = originalLstatSync(value, ...rest);
-    if (!isTarget(value) || !targetDirectoryRead) return stat;
+    if (!isTarget(value) || !isTargetDirectoryRead) return stat;
     const replacement = Object.assign(
       Object.create(Object.getPrototypeOf(stat)),
       stat,
@@ -159,7 +159,7 @@ if (fault === "lstat-replaced-after-read") {
     ...rest: unknown[]
   ) {
     const entries = originalReaddirSync(value, ...rest);
-    if (isTarget(value)) targetDirectoryRead = true;
+    if (isTarget(value)) isTargetDirectoryRead = true;
     return entries;
   };
 }

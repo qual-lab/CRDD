@@ -307,9 +307,9 @@ test("exact schemaはextra、accessor、Proxy、revision、並び、上限をfai
     }).status,
     "blocked",
   );
-  const indexedAccessor = [...f.envelope.signatures];
+  const indexedAccessorEntries = [...f.envelope.signatures];
   let indexedGetterCalls = 0;
-  Object.defineProperty(indexedAccessor, "0", {
+  Object.defineProperty(indexedAccessorEntries, "0", {
     enumerable: true,
     configurable: true,
     get() {
@@ -320,7 +320,7 @@ test("exact schemaはextra、accessor、Proxy、revision、並び、上限をfai
   assert.equal(
     compileProvisioningRecordEnvelopeCandidate({
       ...f.envelope,
-      signatures: indexedAccessor,
+      signatures: indexedAccessorEntries,
     }).status,
     "blocked",
   );
