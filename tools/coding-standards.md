@@ -69,9 +69,11 @@ TypeScriptの実行境界、Biome、型検査およびNode.js versionは[CRDD標
 
 Boolean規則はBoolean型の変数とparameterへ適用する。`null`または`undefined`を除いたunionの全構成がBooleanまたはBoolean literalである場合もBooleanとして扱う。動作を表す関数は動詞句を使用し、Boolean predicateを値として公開する場合は同じprefixを使用する。object propertyはSchemaまたは公開結果契約の一部になり得るため、その所有契約が定める形式を優先する。
 
-配列規則は`Array<T>`、`readonly T[]`、alias、genericおよびnullable unionを含む同じ意味の可変／不変配列へ適用する。固定位置に別の意味を持つtuple、`Buffer`、TypedArray、`Set`および`Map`は複数形規則の対象外だが、実際の責務が分かる名前を使用する。機械検査では末尾の`s`または不規則複数形`Children`、`Indices`、`Vertices`、`People`、`Media`、`Data`を複数形として扱う。destructuringではproperty名ではなくCRDD所有のlocal binding名を検査する。
+配列規則は`Array<T>`、`readonly T[]`、alias、型制約を持つgenericおよびnullable unionを含む同じ意味の可変／不変配列へ適用する。型parameterは制約を循環なしに解決し、制約のないgenericは一般の`camelCase` bindingとして扱う。固定位置に別の意味を持つtuple、`Buffer`、TypedArray、`Set`および`Map`は複数形規則の対象外だが、実際の責務が分かる名前を使用する。機械検査では末尾の`s`または不規則複数形`Children`、`Indices`、`Vertices`、`People`、`Media`、`Data`を複数形として扱う。destructuringではproperty名ではなくCRDD所有のlocal binding名を検査する。
 
-真の定数とは、module scopeの`const`で共有し、実行中に概念上変化しないlimit、pattern、contract literal、固定policyまたは既定値である。機械分類はprimitive／regular expression／固定template、固定値だけの式、固定値から作る`Set`、`Object.freeze(...)`、`BigInt(...)`、`Symbol(...)`および固定intrinsic参照に限定する。関数／class binding、局所計算結果、Path、snapshot、`WeakMap`、decoderその他のresource handleまたは一時的な`const` bindingを大文字化しない。判定順は関数binding、真の定数、Boolean、Array、一般の変数とする。型または構文を分類できないCRDD所有宣言は成功扱いにせず、規約または実装へ戻す。
+真の定数とは、module scopeの`const`で共有し、実行中に概念上変化しないlimit、pattern、contract literal、固定policyまたは既定値である。機械分類はprimitive／regular expression／固定template、固定値だけの配列・object・二項式、固定値から作る`Set`、固定引数1件の`Object.freeze(...)`、`BigInt(...)`、`Symbol(...)`および固定intrinsic参照に限定する。同じCRDD所有project graphのmodule定数を参照するときはsymbolの宣言元とinitializerを循環なしに再評価し、単なる名前の一致や任意のimportを固定値とみなさない。`Date`、`Date.now`、`Date.prototype.toISOString`、TypedArrayのintrinsic `byteLength` getterおよび、固定algorithm・入力・出力encodingを持つ`createHash(...).update(...).digest(...)`のterminal primitiveだけを固有の構文として認める。shadowされたglobal、`createHash(...)`の生成handle、動的値を凍結したobject、Path、snapshot、`WeakMap`、decoderその他のresource handleまたは一時的な`const` bindingを大文字化しない。判定順は関数binding、真の定数、Boolean、Array、一般の変数とする。型または構文を分類できないCRDD所有宣言は成功扱いにせず、規約または実装へ戻す。
+
+名前付き関数式（`named function expression`）と名前付きclass式（`named class expression`）も、それぞれ関数名と型名の規則へ含める。getter／setter（`get accessor`／`set accessor`）はfunction-like宣言として走査し、内部名のcaseと曖昧名を検査する。外部契約が所有するoverride名とobject／interface propertyは機械property境界を優先するが、setter parameterとbody内bindingは通常の識別子規則へ含める。
 
 TypeScript `enum`構文はNode.js native type strippingの対象外なので導入しない。「enum相当」はliteral unionまたは凍結objectから導く型の表示名だけを指す。
 
@@ -122,7 +124,7 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 ## 8. 検査と変更手順
 
 - Biomeは表現できるTypeScript filenameとsource規則を検査する。
-- Checker packageの命名contract testは、固定TypeScript 7.0.2の型付きASTを使い、3つの既存projectに属するCRDD所有source、フォルダ、Markdown、設定予約名、試験種別およびBiomeで表現できない構文境界を決定論的に検査する。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
+- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`tools/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`tools/checker/tsconfig.json`、`tools/coordinator/tsconfig.strict.json`および`tools/coordinator/tsconfig.tests.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
 - renameでは、正本、import、package script、設定、試験、文書、AI入口および現在の移設先を同じ変更で更新する。
 - 過去の固定履歴は書き換えず、旧Pathから現在Pathへの移行を後続の変更トレースへ記録する。

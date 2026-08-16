@@ -245,13 +245,13 @@ function parseCidr(
   });
 }
 
-const CIDR_RULES = Object.freeze(
+const cidrRules = Object.freeze(
   SPECIAL_PURPOSE_ENTRIES.map((entry) => parseCidr(...entry)).sort(
     (a, b) => b.prefixLength - a.prefixLength,
   ),
 );
 
-const IPV6_ALLOCATED_RULES = Object.freeze(
+const ipv6AllocatedRules = Object.freeze(
   IPV6_ALLOCATED_ENTRIES.map((cidr) =>
     parseCidr(6, cidr, true, "iana-ipv6-global-unicast-allocated"),
   ).sort((a, b) => b.prefixLength - a.prefixLength),
@@ -289,15 +289,15 @@ function longestMatch(
 
 /** @param {bigint} value */
 function globallyReachableIpv4(value: bigint) {
-  const match = longestMatch(4, value, CIDR_RULES);
+  const match = longestMatch(4, value, cidrRules);
   return match ? match.globallyReachable === true : true;
 }
 
 /** @param {bigint} value */
 function globallyReachableIpv6(value: bigint) {
-  const special = longestMatch(6, value, CIDR_RULES);
+  const special = longestMatch(6, value, cidrRules);
   if (special) return special.globallyReachable === true;
-  return longestMatch(6, value, IPV6_ALLOCATED_RULES) != null;
+  return longestMatch(6, value, ipv6AllocatedRules) != null;
 }
 
 /** @param {unknown} address */

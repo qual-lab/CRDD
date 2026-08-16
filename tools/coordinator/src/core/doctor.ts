@@ -47,19 +47,6 @@ export const CHECK_STATUS = Object.freeze([
   "unknown",
 ] as const);
 
-const PROVIDERS = Object.freeze(["codex", "claude"]);
-const PROVIDER_CHECKS = Object.freeze([
-  "discovery",
-  "authentication",
-  "active_probe",
-  "auto_update",
-  "telemetry",
-  "session_resume",
-  "timeout",
-  "cancel",
-  "process_tree_termination",
-]);
-
 type CheckStatus = "confirmed" | "blocked" | "not_implemented" | "unknown";
 export type DiagnosticCheck = {
   id: string;
@@ -113,27 +100,35 @@ function errorMessage(error: unknown): string | null {
   return error instanceof Error ? error.message : null;
 }
 
-function requiredCheckIds(): string[] {
-  const ids = [
-    "runtime.node",
-    "repository.git",
-    "repository.identity",
-    "runtime.root",
-    "operation.directories",
-    "execution.filesystem",
-    "execution.credential_environment",
-    "execution.credential_isolation",
-    "execution.egress",
-  ];
-  for (const provider of PROVIDERS) {
-    for (const check of PROVIDER_CHECKS) {
-      ids.push(`provider.${provider}.${check}`);
-    }
-  }
-  return ids;
-}
-
-export const REQUIRED_CHECK_IDS = Object.freeze(requiredCheckIds());
+export const REQUIRED_CHECK_IDS = Object.freeze([
+  "runtime.node",
+  "repository.git",
+  "repository.identity",
+  "runtime.root",
+  "operation.directories",
+  "execution.filesystem",
+  "execution.credential_environment",
+  "execution.credential_isolation",
+  "execution.egress",
+  "provider.codex.discovery",
+  "provider.codex.authentication",
+  "provider.codex.active_probe",
+  "provider.codex.auto_update",
+  "provider.codex.telemetry",
+  "provider.codex.session_resume",
+  "provider.codex.timeout",
+  "provider.codex.cancel",
+  "provider.codex.process_tree_termination",
+  "provider.claude.discovery",
+  "provider.claude.authentication",
+  "provider.claude.active_probe",
+  "provider.claude.auto_update",
+  "provider.claude.telemetry",
+  "provider.claude.session_resume",
+  "provider.claude.timeout",
+  "provider.claude.cancel",
+  "provider.claude.process_tree_termination",
+]);
 
 function check(
   id: string,

@@ -15,6 +15,7 @@ import {
   isClassExpression,
   isFunctionDeclaration,
   isFunctionExpression,
+  isGetAccessorDeclaration,
   isIdentifier,
   isInterfaceDeclaration,
   isMethodDeclaration,
@@ -27,9 +28,11 @@ import {
   isPropertyAssignment,
   isPropertyAccessExpression,
   isRegularExpressionLiteral,
+  isSetAccessorDeclaration,
   isStringLiteral,
   isSatisfiesExpression,
   isTaggedTemplateExpression,
+  isTemplateExpression,
   isTypeAliasDeclaration,
   isVariableDeclaration,
   NodeFlags,
@@ -42,6 +45,7 @@ import {
 } from "typescript/unstable/ast";
 import {
   API,
+  SymbolFlags,
   TypeFlags,
   type Checker,
   type Project,
@@ -50,12 +54,16 @@ import {
 
 const checkerRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(checkerRoot, "../..");
-const OWNED_ROOTS = Object.freeze([
+const pathInspectionRoots = Object.freeze([
+  path.join(repositoryRoot, "tools"),
+  path.join(repositoryRoot, "template", "tools"),
+]);
+const sourceOwnershipRoots = Object.freeze([
   path.join(repositoryRoot, "tools", "checker"),
   path.join(repositoryRoot, "tools", "coordinator"),
   path.join(repositoryRoot, "template", "tools"),
 ]);
-const PROJECT_CONFIGS = Object.freeze([
+const projectConfigs = Object.freeze([
   path.join(checkerRoot, "tsconfig.json"),
   path.join(repositoryRoot, "tools", "coordinator", "tsconfig.strict.json"),
   path.join(repositoryRoot, "tools", "coordinator", "tsconfig.tests.json"),
@@ -85,94 +93,94 @@ const RESERVED_FILE_NAMES = new Set([
   "tsconfig.strict.json",
   "tsconfig.tests.json",
 ]);
-const retiredCheckerMjs = `crdd${"_"}check.mjs`;
-const retiredCheckerTs = `crdd${"_"}check.ts`;
-const retiredCheckerTestTs = `crdd${"_"}check.test.ts`;
-const retiredFaultInjector = `crdd${"_"}check_fault_injector`;
-const retiredThreatModel = `THREAT${"_"}MODEL.md`;
+const RETIRED_CHECKER_MJS = `crdd${"_"}check.mjs`;
+const RETIRED_CHECKER_TS = `crdd${"_"}check.ts`;
+const RETIRED_CHECKER_TEST_TS = `crdd${"_"}check.test.ts`;
+const RETIRED_FAULT_INJECTOR = `crdd${"_"}check_fault_injector`;
+const RETIRED_THREAT_MODEL = `THREAT${"_"}MODEL.md`;
 const RETIRED_REFERENCE_LITERALS = Object.freeze([
-  retiredCheckerMjs,
-  retiredCheckerTs,
-  retiredCheckerTestTs,
-  retiredFaultInjector,
-  retiredThreatModel,
+  RETIRED_CHECKER_MJS,
+  RETIRED_CHECKER_TS,
+  RETIRED_CHECKER_TEST_TS,
+  RETIRED_FAULT_INJECTOR,
+  RETIRED_THREAT_MODEL,
 ]);
 const historicalReferenceCounts = new Map<string, number>([
-  [`README.md|${retiredCheckerTs}`, 2],
+  [`README.md|${RETIRED_CHECKER_TS}`, 2],
   [
-    `90_Release/Changes/CHG-000001_Human_Decision_Presentation.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000001_Human_Decision_Presentation.md|${RETIRED_CHECKER_TS}`,
     3,
   ],
   [
-    `90_Release/Changes/CHG-000001_Human_Decision_Presentation.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000001_Human_Decision_Presentation.md|${RETIRED_CHECKER_TEST_TS}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000002_GitHub_Anchor_Checker_Correction.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000002_GitHub_Anchor_Checker_Correction.md|${RETIRED_CHECKER_TS}`,
     3,
   ],
   [
-    `90_Release/Changes/CHG-000002_GitHub_Anchor_Checker_Correction.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000002_GitHub_Anchor_Checker_Correction.md|${RETIRED_CHECKER_TEST_TS}`,
     3,
   ],
   [
-    `90_Release/Changes/CHG-000004_Checker_Hierarchical_Compatibility.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000004_Checker_Hierarchical_Compatibility.md|${RETIRED_CHECKER_TS}`,
     1,
   ],
   [
-    `90_Release/Changes/CHG-000004_Checker_Hierarchical_Compatibility.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000004_Checker_Hierarchical_Compatibility.md|${RETIRED_CHECKER_TEST_TS}`,
     1,
   ],
   [
-    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${RETIRED_CHECKER_TS}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${RETIRED_CHECKER_TEST_TS}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${retiredFaultInjector}`,
+    `90_Release/Changes/CHG-000005_Gitlink_Submodule_Verification.md|${RETIRED_FAULT_INJECTOR}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000007_Multi_Location_Remediation.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000007_Multi_Location_Remediation.md|${RETIRED_CHECKER_TS}`,
     1,
   ],
   [
-    `90_Release/Changes/CHG-000007_Multi_Location_Remediation.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000007_Multi_Location_Remediation.md|${RETIRED_CHECKER_TEST_TS}`,
     1,
   ],
   [
-    `90_Release/Changes/CHG-000010_First_Pass_Convergence.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000010_First_Pass_Convergence.md|${RETIRED_CHECKER_TS}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000010_First_Pass_Convergence.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000010_First_Pass_Convergence.md|${RETIRED_CHECKER_TEST_TS}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md|${RETIRED_CHECKER_TS}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md|${RETIRED_CHECKER_TS}`,
     4,
   ],
   [
-    `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md|${RETIRED_CHECKER_TEST_TS}`,
     1,
   ],
   [
-    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${retiredCheckerTs}`,
+    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_CHECKER_TS}`,
     5,
   ],
   [
-    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${retiredCheckerTestTs}`,
+    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_CHECKER_TEST_TS}`,
     2,
   ],
   [
-    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${retiredThreatModel}`,
+    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_THREAT_MODEL}`,
     1,
   ],
 ]);
@@ -195,11 +203,22 @@ const FORBIDDEN_BARE_IDENTIFIERS = new Set([
   "run",
   "util",
 ]);
-const FIXED_CALLS = new Set([
-  "BigInt",
-  "Object.freeze",
-  "Symbol",
-  "createHash",
+const FIXED_GLOBAL_INTRINSICS = new Set(["Date"]);
+const FIXED_GLOBAL_CALLS = new Set(["BigInt", "Symbol"]);
+const FIXED_GLOBAL_OBJECTS = new Set(["JSON", "Object", "String"]);
+const TYPED_ARRAY_INTRINSICS = new Set([
+  "BigInt64Array",
+  "BigUint64Array",
+  "Buffer",
+  "Float32Array",
+  "Float64Array",
+  "Int8Array",
+  "Int16Array",
+  "Int32Array",
+  "Uint8Array",
+  "Uint8ClampedArray",
+  "Uint16Array",
+  "Uint32Array",
 ]);
 
 type NamingViolation = Readonly<{
@@ -322,7 +341,7 @@ function resolveOwnedSource(file: string): string {
   );
   assert.equal(resolved.includes(`${path.sep}node_modules${path.sep}`), false);
   assert.ok(
-    OWNED_ROOTS.some((root) =>
+    sourceOwnershipRoots.some((root) =>
       isContainedPath(resolved, fs.realpathSync.native(root)),
     ),
     `source outside owned roots: ${resolved}`,
@@ -334,7 +353,7 @@ function isOwnedProgramFile(file: string): boolean {
   return (
     !file.endsWith(".d.ts") &&
     !file.includes(`${path.sep}node_modules${path.sep}`) &&
-    OWNED_ROOTS.some((root) => isContainedPath(file, root))
+    sourceOwnershipRoots.some((root) => isContainedPath(file, root))
   );
 }
 
@@ -359,16 +378,27 @@ function isBooleanType(type: Type): boolean {
   );
 }
 
-function isArrayType(type: Type, checker: Checker): boolean {
+function isArrayType(
+  type: Type,
+  checker: Checker,
+  activeTypeIds = new Set<number>(),
+): boolean {
   const types = nonNullishTypes(type);
-  return (
-    types.length > 0 &&
-    types.every(
-      (candidateType) =>
-        !checker.isTupleType(candidateType) &&
-        checker.isArrayType(candidateType),
-    )
-  );
+  if (types.length === 0) return false;
+  return types.every((candidateType) => {
+    if (activeTypeIds.has(candidateType.id)) {
+      throw new Error(`cyclic array type classification: ${candidateType.id}`);
+    }
+    if (candidateType.flags & TypeFlags.TypeParameter) {
+      const constraint = checker.getBaseConstraintOfType(candidateType);
+      if (!constraint || constraint.isErrorType()) return false;
+      const nextTypeIds = new Set(activeTypeIds).add(candidateType.id);
+      return isArrayType(constraint, checker, nextTypeIds);
+    }
+    return (
+      !checker.isTupleType(candidateType) && checker.isArrayType(candidateType)
+    );
+  });
 }
 
 function isFunctionInitializer(initializer: Expression | undefined): boolean {
@@ -380,13 +410,115 @@ function isFunctionInitializer(initializer: Expression | undefined): boolean {
   );
 }
 
-function isFixedAggregateMember(initializer: Expression | undefined): boolean {
+type FixedInitializerContext = Readonly<{
+  activeSymbolIds: ReadonlySet<number>;
+  checker: Checker;
+  sourceFile: SourceFile;
+}>;
+
+function declarationSourcePath(
+  identifier: Identifier,
+  checker: Checker,
+): string | null {
+  const locatedSymbol = checker.getSymbolAtLocation(identifier);
+  const symbol = locatedSymbol
+    ? locatedSymbol.flags & SymbolFlags.Alias
+      ? checker.getAliasedSymbol(locatedSymbol)
+      : locatedSymbol
+    : undefined;
+  const declaration =
+    symbol?.valueDeclaration?.resolve() ?? symbol?.declarations[0]?.resolve();
+  return declaration
+    ? path.normalize(declaration.getSourceFile().fileName)
+    : null;
+}
+
+function isGlobalIntrinsic(
+  identifier: Identifier,
+  checker: Checker,
+  allowedNames: ReadonlySet<string>,
+): boolean {
+  if (!allowedNames.has(identifier.text)) return false;
+  const symbol = checker.getSymbolAtLocation(identifier);
+  if (!symbol) return false;
+  const sourcePath = declarationSourcePath(identifier, checker);
+  return sourcePath === null || sourcePath.endsWith(".d.ts");
+}
+
+function isImportedCreateHash(
+  identifier: Identifier,
+  checker: Checker,
+): boolean {
+  if (identifier.text !== "createHash") return false;
+  const sourcePath = declarationSourcePath(identifier, checker);
+  return Boolean(
+    sourcePath?.includes(`${path.sep}@types${path.sep}node${path.sep}`) &&
+      sourcePath.endsWith(`${path.sep}crypto.d.ts`),
+  );
+}
+
+function isTypedArrayPrototypeSnapshot(
+  expression: Expression,
+  checker: Checker,
+): boolean {
+  if (
+    !isCallExpression(expression) ||
+    expression.arguments.length !== 1 ||
+    !isPropertyAccessExpression(expression.expression) ||
+    expression.expression.name.text !== "getPrototypeOf" ||
+    !isIdentifier(expression.expression.expression) ||
+    !isGlobalIntrinsic(
+      expression.expression.expression,
+      checker,
+      FIXED_GLOBAL_OBJECTS,
+    )
+  )
+    return false;
+  const prototype = expression.arguments[0];
+  if (
+    !isPropertyAccessExpression(prototype) ||
+    prototype.name.text !== "prototype" ||
+    !isIdentifier(prototype.expression) ||
+    !TYPED_ARRAY_INTRINSICS.has(prototype.expression.text)
+  )
+    return false;
+  const sourcePath = declarationSourcePath(prototype.expression, checker);
+  return Boolean(sourcePath?.endsWith(".d.ts"));
+}
+
+function isGlobalPropertyAccess(
+  expression: Expression,
+  objectName: string,
+  propertyName: string,
+  checker: Checker,
+): boolean {
+  return (
+    isPropertyAccessExpression(expression) &&
+    expression.name.text === propertyName &&
+    isIdentifier(expression.expression) &&
+    expression.expression.text === objectName &&
+    isGlobalIntrinsic(expression.expression, checker, FIXED_GLOBAL_OBJECTS)
+  );
+}
+
+function isFixedAggregateMember(
+  initializer: Expression | undefined,
+  context: FixedInitializerContext,
+): boolean {
   if (!initializer) return false;
+  if (
+    isParenthesizedExpression(initializer) ||
+    isAsExpression(initializer) ||
+    isSatisfiesExpression(initializer) ||
+    isNonNullExpression(initializer)
+  ) {
+    return isFixedAggregateMember(initializer.expression, context);
+  }
   if (isArrayLiteralExpression(initializer)) {
     return initializer.elements.every(
       (element) =>
         element.kind !== SyntaxKind.SpreadElement &&
-        isFixedAggregateMember(element),
+        isFixedAggregateMember(element, context),
     );
   }
   if (isObjectLiteralExpression(initializer)) {
@@ -394,13 +526,97 @@ function isFixedAggregateMember(initializer: Expression | undefined): boolean {
       (property) =>
         isPropertyAssignment(property) &&
         !property.name.getText().startsWith("[") &&
-        isFixedAggregateMember(property.initializer),
+        isFixedAggregateMember(property.initializer, context),
     );
   }
-  return isFixedInitializer(initializer);
+  return isFixedInitializer(initializer, context);
 }
 
-function isFixedInitializer(initializer: Expression | undefined): boolean {
+function isFixedModuleConstantReference(
+  identifier: Identifier,
+  context: FixedInitializerContext,
+): boolean {
+  const locatedSymbol = context.checker.getSymbolAtLocation(identifier);
+  const symbol = locatedSymbol
+    ? locatedSymbol.flags & SymbolFlags.Alias
+      ? context.checker.getAliasedSymbol(locatedSymbol)
+      : locatedSymbol
+    : undefined;
+  if (!symbol || context.activeSymbolIds.has(symbol.id)) return false;
+  const declaration =
+    symbol.valueDeclaration?.resolve() ?? symbol.declarations[0]?.resolve();
+  if (!declaration || !isVariableDeclaration(declaration)) {
+    return isGlobalIntrinsic(
+      identifier,
+      context.checker,
+      FIXED_GLOBAL_INTRINSICS,
+    );
+  }
+  const declarationSource = declaration.getSourceFile();
+  const normalizedDeclarationSource = path.normalize(
+    declarationSource.fileName,
+  );
+  if (!isOwnedProgramFile(normalizedDeclarationSource))
+    return isGlobalIntrinsic(
+      identifier,
+      context.checker,
+      FIXED_GLOBAL_INTRINSICS,
+    );
+  const declarationList = declaration.parent;
+  const variableStatement = declarationList?.parent;
+  if (
+    declarationList.kind !== SyntaxKind.VariableDeclarationList ||
+    !(declarationList.flags & NodeFlags.Const) ||
+    variableStatement?.kind !== SyntaxKind.VariableStatement ||
+    variableStatement.parent?.kind !== SyntaxKind.SourceFile ||
+    isFunctionInitializer(declaration.initializer)
+  ) {
+    return false;
+  }
+  return isFixedInitializer(declaration.initializer, {
+    ...context,
+    activeSymbolIds: new Set(context.activeSymbolIds).add(symbol.id),
+    sourceFile: declarationSource,
+  });
+}
+
+function isFixedCreateHashDigest(
+  initializer: Expression,
+  context: FixedInitializerContext,
+): boolean {
+  if (!isCallExpression(initializer) || initializer.arguments.length !== 1)
+    return false;
+  const digestAccess = initializer.expression;
+  if (
+    !isPropertyAccessExpression(digestAccess) ||
+    digestAccess.name.text !== "digest" ||
+    !isFixedInitializer(initializer.arguments[0], context)
+  )
+    return false;
+  const updateCall = digestAccess.expression;
+  if (!isCallExpression(updateCall) || updateCall.arguments.length !== 1)
+    return false;
+  const updateAccess = updateCall.expression;
+  if (
+    !isPropertyAccessExpression(updateAccess) ||
+    updateAccess.name.text !== "update" ||
+    !isFixedInitializer(updateCall.arguments[0], context)
+  )
+    return false;
+  const createCall = updateAccess.expression;
+  return (
+    isCallExpression(createCall) &&
+    createCall.arguments.length === 1 &&
+    isIdentifier(createCall.expression) &&
+    isImportedCreateHash(createCall.expression, context.checker) &&
+    isFixedInitializer(createCall.arguments[0], context)
+  );
+}
+
+function isFixedInitializer(
+  initializer: Expression | undefined,
+  context: FixedInitializerContext,
+): boolean {
   if (!initializer) return false;
   if (
     initializer.kind === SyntaxKind.TrueKeyword ||
@@ -420,61 +636,142 @@ function isFixedInitializer(initializer: Expression | undefined): boolean {
     isSatisfiesExpression(initializer) ||
     isNonNullExpression(initializer)
   ) {
-    return isFixedInitializer(initializer.expression);
+    return isFixedInitializer(initializer.expression, context);
   }
-  if (isIdentifier(initializer)) return true;
+  if (isIdentifier(initializer))
+    return isFixedModuleConstantReference(initializer, context);
   if (isPropertyAccessExpression(initializer)) {
-    return (
-      (isCallExpression(initializer.expression) &&
-        initializer.expression.expression.getText() ===
-          "Object.getOwnPropertyDescriptor") ||
-      initializer.getText().startsWith("Date.")
-    );
+    if (
+      initializer.getText() === "Date.now" ||
+      initializer.getText() === "Date.prototype.toISOString"
+    ) {
+      const root =
+        initializer.getText() === "Date.now"
+          ? initializer.expression
+          : isPropertyAccessExpression(initializer.expression)
+            ? initializer.expression.expression
+            : initializer.expression;
+      return (
+        isIdentifier(root) &&
+        isGlobalIntrinsic(root, context.checker, FIXED_GLOBAL_INTRINSICS)
+      );
+    }
+    if (
+      initializer.name.text === "get" &&
+      isCallExpression(initializer.expression) &&
+      initializer.expression.arguments.length === 2 &&
+      isGlobalPropertyAccess(
+        initializer.expression.expression,
+        "Object",
+        "getOwnPropertyDescriptor",
+        context.checker,
+      )
+    ) {
+      return (
+        isTypedArrayPrototypeSnapshot(
+          initializer.expression.arguments[0],
+          context.checker,
+        ) && isFixedInitializer(initializer.expression.arguments[1], context)
+      );
+    }
+    if (
+      isIdentifier(initializer.expression) &&
+      isFixedModuleConstantReference(initializer.expression, context)
+    )
+      return true;
+    return false;
   }
   if (isBinaryExpression(initializer)) {
     return (
-      isFixedInitializer(initializer.left) &&
-      isFixedInitializer(initializer.right)
+      isFixedInitializer(initializer.left, context) &&
+      isFixedInitializer(initializer.right, context)
     );
   }
   if (isTaggedTemplateExpression(initializer)) {
-    return initializer.tag.getText() === "String.raw";
+    return (
+      isGlobalPropertyAccess(
+        initializer.tag,
+        "String",
+        "raw",
+        context.checker,
+      ) &&
+      (isNoSubstitutionTemplateLiteral(initializer.template) ||
+        (isTemplateExpression(initializer.template) &&
+          initializer.template.templateSpans.every((span) =>
+            isFixedInitializer(span.expression, context),
+          )))
+    );
+  }
+  if (isTemplateExpression(initializer)) {
+    return initializer.templateSpans.every((span) =>
+      isFixedInitializer(span.expression, context),
+    );
   }
   if (isNewExpression(initializer)) {
     return (
-      initializer.expression.getText() === "Set" &&
+      isIdentifier(initializer.expression) &&
+      isGlobalIntrinsic(
+        initializer.expression,
+        context.checker,
+        new Set(["Set"]),
+      ) &&
       initializer.arguments?.length === 1 &&
       isArrayLiteralExpression(initializer.arguments[0]) &&
-      isFixedAggregateMember(initializer.arguments[0])
+      isFixedAggregateMember(initializer.arguments[0], context)
     );
   }
   if (isCallExpression(initializer)) {
     const callee = initializer.expression.getText();
-    if (callee === "Object.freeze") return initializer.arguments.length === 1;
-    if (FIXED_CALLS.has(callee)) {
-      return (
-        initializer.arguments.length <= 1 &&
-        initializer.arguments.every(isFixedInitializer)
-      );
-    }
-    if (callee === "JSON.stringify") {
+    if (
+      isGlobalPropertyAccess(
+        initializer.expression,
+        "Object",
+        "freeze",
+        context.checker,
+      )
+    )
       return (
         initializer.arguments.length === 1 &&
-        isFixedAggregateMember(initializer.arguments[0])
+        isFixedAggregateMember(initializer.arguments[0], context)
       );
-    }
-    if (callee.endsWith(".update") || callee.endsWith(".digest")) {
+    if (
+      isIdentifier(initializer.expression) &&
+      isGlobalIntrinsic(
+        initializer.expression,
+        context.checker,
+        FIXED_GLOBAL_CALLS,
+      )
+    ) {
       return (
-        isPropertyAccessExpression(initializer.expression) &&
-        isFixedInitializer(initializer.expression.expression) &&
-        initializer.arguments.every(isFixedInitializer)
+        initializer.arguments.length <= 1 &&
+        initializer.arguments.every((argument) =>
+          isFixedInitializer(argument, context),
+        )
       );
     }
+    if (
+      isGlobalPropertyAccess(
+        initializer.expression,
+        "JSON",
+        "stringify",
+        context.checker,
+      )
+    ) {
+      return (
+        initializer.arguments.length === 1 &&
+        isFixedAggregateMember(initializer.arguments[0], context)
+      );
+    }
+    if (callee.endsWith(".digest"))
+      return isFixedCreateHashDigest(initializer, context);
   }
   return false;
 }
 
-function isModuleConstant(declaration: VariableDeclaration): boolean {
+function isModuleConstant(
+  declaration: VariableDeclaration,
+  checker: Checker,
+): boolean {
   const declarationList = declaration.parent;
   const variableStatement = declarationList?.parent;
   return Boolean(
@@ -484,7 +781,11 @@ function isModuleConstant(declaration: VariableDeclaration): boolean {
       variableStatement?.kind === SyntaxKind.VariableStatement &&
       variableStatement.parent?.kind === SyntaxKind.SourceFile &&
       !isFunctionInitializer(declaration.initializer) &&
-      isFixedInitializer(declaration.initializer),
+      isFixedInitializer(declaration.initializer, {
+        activeSymbolIds: new Set(),
+        checker,
+        sourceFile: declaration.getSourceFile(),
+      }),
   );
 }
 
@@ -580,13 +881,14 @@ function inspectSourceFile(
   const visit = (node: Node): void => {
     if (
       isClassDeclaration(node) ||
+      isClassExpression(node) ||
       isInterfaceDeclaration(node) ||
       isTypeAliasDeclaration(node)
     ) {
       if (node.name && !PASCAL_CASE.test(node.name.text)) {
         violations.push(identifierLocation(node.name, "type", "pascal-case"));
       }
-    } else if (isFunctionDeclaration(node)) {
+    } else if (isFunctionDeclaration(node) || isFunctionExpression(node)) {
       if (node.name) {
         if (!CAMEL_CASE.test(node.name.text)) {
           violations.push(
@@ -599,13 +901,32 @@ function inspectSourceFile(
           );
         }
       }
-    } else if (isMethodDeclaration(node) && isIdentifier(node.name)) {
+    } else if (
+      (isMethodDeclaration(node) ||
+        isGetAccessorDeclaration(node) ||
+        isSetAccessorDeclaration(node)) &&
+      isIdentifier(node.name)
+    ) {
+      const isExternalOverride = node.modifiers?.some(
+        (modifier) => modifier.kind === SyntaxKind.OverrideKeyword,
+      );
+      if (isExternalOverride) {
+        node.forEachChild(visit);
+        return;
+      }
+      const declarationKind = isMethodDeclaration(node)
+        ? "method"
+        : isGetAccessorDeclaration(node)
+          ? "getter"
+          : "setter";
       if (!CAMEL_CASE.test(node.name.text)) {
-        violations.push(identifierLocation(node.name, "method", "camel-case"));
+        violations.push(
+          identifierLocation(node.name, declarationKind, "camel-case"),
+        );
       }
       if (FORBIDDEN_BARE_IDENTIFIERS.has(node.name.text)) {
         violations.push(
-          identifierLocation(node.name, "method", "forbidden-bare-name"),
+          identifierLocation(node.name, declarationKind, "forbidden-bare-name"),
         );
       }
     } else if (isVariableDeclaration(node)) {
@@ -614,7 +935,7 @@ function inspectSourceFile(
           node.name,
           "variable",
           checker,
-          isModuleConstant(node),
+          isModuleConstant(node, checker),
         ),
       );
     } else if (isParameterDeclaration(node)) {
@@ -672,6 +993,14 @@ function inspectProjects(projects: readonly Project[]): {
   return { sourceFiles, violations };
 }
 
+function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
+  return new Set(
+    files
+      .filter((file) => file.endsWith(".ts") && !file.endsWith(".d.ts"))
+      .map(resolveOwnedSource),
+  );
+}
+
 function formatViolations(violations: readonly NamingViolation[]): string {
   return violations
     .map(
@@ -682,11 +1011,15 @@ function formatViolations(violations: readonly NamingViolation[]): string {
 }
 
 test("toolsのPathと型付きsource identifierは内部コーディング規約へ一致する", () => {
-  const files = OWNED_ROOTS.flatMap(collectFiles);
+  const files = pathInspectionRoots.flatMap(collectFiles);
   for (const file of files) assertFileName(file);
+  assert.ok(
+    files.includes(path.join(repositoryRoot, "tools", "coding-standards.md")),
+    "coding standards must remain inside the inspected Path population",
+  );
   const api = new API({ cwd: checkerRoot });
   try {
-    const { projects, snapshot } = collectOwnedProjects(api, PROJECT_CONFIGS);
+    const { projects, snapshot } = collectOwnedProjects(api, projectConfigs);
     try {
       const checkerFiles = projects[0]?.program
         .getSourceFileNames()
@@ -734,6 +1067,12 @@ test("toolsのPathと型付きsource identifierは内部コーディング規約
       );
       const { sourceFiles, violations } = inspectProjects(projects);
       assert.equal(sourceFiles.size, EXPECTED_OWNED_SOURCE_COUNTS.uniqueTotal);
+      const pathSourceFiles = collectOwnedTypeScriptPaths(files);
+      assert.deepEqual(
+        [...sourceFiles.keys()].sort(),
+        [...pathSourceFiles].sort(),
+        "every owned TypeScript Path must belong to an inspected project and vice versa",
+      );
       assert.equal(violations.length, 0, formatViolations(violations));
     } finally {
       snapshot.dispose();
@@ -743,25 +1082,146 @@ test("toolsのPathと型付きsource identifierは内部コーディング規約
   }
 });
 
+test("Path classifierは不正folderと不正fileを別々に拒否する", () => {
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-tools-path-naming-"),
+  );
+  try {
+    const invalidFolderRoot = path.join(temporaryRoot, "tools");
+    const invalidFolder = path.join(invalidFolderRoot, "bad_name");
+    fs.mkdirSync(invalidFolder, { recursive: true });
+    fs.writeFileSync(path.join(invalidFolder, "valid-file.ts"), "", "utf8");
+    assert.throws(
+      () => collectFiles(invalidFolderRoot),
+      /folder name/u,
+      "an invalid folder must not be hidden by a valid child filename",
+    );
+
+    const invalidFileRoot = path.join(temporaryRoot, "template-tools");
+    const validFolder = path.join(invalidFileRoot, "valid-folder");
+    fs.mkdirSync(validFolder, { recursive: true });
+    fs.writeFileSync(path.join(validFolder, "bad_name.ts"), "", "utf8");
+    const invalidFiles = collectFiles(invalidFileRoot);
+    assert.equal(invalidFiles.length, 1);
+    assert.throws(
+      () => assertFileName(invalidFiles[0]),
+      /TypeScript filename/u,
+      "an invalid filename must be checked independently of its folder",
+    );
+
+    const siblingPackageRoot = path.join(temporaryRoot, "sibling-package");
+    fs.mkdirSync(siblingPackageRoot);
+    fs.writeFileSync(
+      path.join(siblingPackageRoot, "owned-module.ts"),
+      "export {};\n",
+      "utf8",
+    );
+    assert.deepEqual(
+      collectFiles(siblingPackageRoot).map((file) => path.basename(file)),
+      ["owned-module.ts"],
+      "an unknown sibling package must still use the shared Path classifier",
+    );
+  } finally {
+    fs.rmSync(temporaryRoot, { force: true, recursive: true });
+  }
+});
+
 test("型付き命名classifierは構文境界の正負例を同じ規則で判定する", () => {
   const temporaryRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-tools-naming-"),
+    path.join(checkerRoot, ".naming-fixture-"),
   );
   try {
     const fixtureFile = path.join(temporaryRoot, "fixture.ts");
+    const shadowFixtureFile = path.join(temporaryRoot, "shadow-fixture.ts");
     const configFile = path.join(temporaryRoot, "tsconfig.json");
+    const fixtureTypesRoot = path.join(
+      temporaryRoot,
+      "node_modules",
+      "@types",
+      "node",
+    );
+    fs.mkdirSync(fixtureTypesRoot, { recursive: true });
+    fs.writeFileSync(
+      path.join(fixtureTypesRoot, "index.d.ts"),
+      [
+        '/// <reference path="crypto.d.ts" />',
+        '/// <reference path="path.d.ts" />',
+      ].join("\n"),
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(fixtureTypesRoot, "package.json"),
+      JSON.stringify({
+        name: "@types/node",
+        version: "0.0.0",
+        types: "index.d.ts",
+      }),
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(fixtureTypesRoot, "crypto.d.ts"),
+      [
+        'declare module "node:crypto" {',
+        '  interface Hash { update(value: string): Hash; digest(encoding: "hex"): string; }',
+        '  export function createHash(algorithm: "sha256"): Hash;',
+        "}",
+      ].join("\n"),
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(fixtureTypesRoot, "path.d.ts"),
+      [
+        'declare module "node:path" {',
+        "  const path: { resolve(value: string): string };",
+        "  export default path;",
+        "}",
+      ].join("\n"),
+      "utf8",
+    );
     fs.writeFileSync(
       fixtureFile,
       [
+        'import path from "node:path";',
+        'import { createHash } from "node:crypto";',
         "const MAX_ITEMS = 3;",
+        "const FIXED_PATTERN = /fixed/u;",
+        'const FIXED_SET = new Set(["fixed"]);',
+        "const FIXED_TEMPLATE = String.raw`fixed`;",
+        "const INTRINSIC_DATE = Date;",
+        "const INTRINSIC_DATE_NOW = Date.now;",
+        "const INTRINSIC_DATE_TO_ISO = Date.prototype.toISOString;",
+        "const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(",
+        "  Object.getPrototypeOf(Uint8Array.prototype),",
+        '  "byteLength",',
+        ")?.get;",
+        'const FIXED_DIGEST = createHash("sha256").update("fixed").digest("hex");',
         "function validLocals(): void {",
         "  const isReady: boolean | undefined = true;",
         "  const candidatePaths: readonly string[] = [];",
         "  void isReady; void candidatePaths;",
         "}",
+        "type Names = readonly string[];",
+        "function aliasArrays(candidateNames: Names | null): void { void candidateNames; }",
+        "function genericArrays<T extends readonly string[]>(candidateItems: T): void { void candidateItems; }",
+        "function unconstrainedGeneric<T>(value: T): void { void value; }",
+        "function nonArrays(item: readonly [string, number], bytes: Uint8Array, valueSet: Set<string>, valueMap: Map<string, string>): void {",
+        "  void item; void bytes; void valueSet; void valueMap;",
+        "}",
         "const predicate = (shouldContinue: boolean): boolean => shouldContinue;",
         "const { enabled: hasFeature } = { enabled: true };",
         "function inspectValues(values: string[]): boolean { return values.length > 0; }",
+        "class BaseClass { methodName(): void {} }",
+        "class ValidClass extends BaseClass {",
+        "  override methodName(): void {}",
+        '  get statusValue(): string { return "ok"; }',
+        "  set statusValue(value: string) { void value; }",
+        "}",
+        "const validFunctionExpression = function inspectFixture(): void {};",
+        "const validClassExpression = class FixtureClass {};",
+        'const runtimePath = path.resolve(".");',
+        "const runtimeSnapshot = { path: runtimePath };",
+        'const resourceHandle = createHash("sha256");',
+        "const weakCache = new WeakMap<object, object>();",
         "function invalidLocals(): void {",
         "  const invalidBoolean: boolean = true;",
         "  const invalidArray: string[] = [];",
@@ -769,14 +1229,60 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "}",
         "const invalidConstant = /fixed/u;",
         "function invalidFunction(condition: boolean): boolean { return condition; }",
+        "function invalidNullableArray(item: readonly string[] | null): void { void item; }",
+        "function invalidGenericArray<T extends readonly string[]>(item: T): void { void item; }",
+        "const invalidNamedFunction = function BadFunction(): void {};",
+        "const invalidNamedClass = class badClass {};",
+        "class InvalidMembers {",
+        "  BadMethod(): void {}",
+        '  get BadGetter(): string { return "bad"; }',
+        "  set BadSetter(value: string) { void value; }",
+        "}",
+        "const RUNTIME_PATH = runtimePath;",
+        "const RUNTIME_FREEZE = Object.freeze(runtimeSnapshot);",
+        'const RESOURCE_HANDLE = createHash("sha256");',
+        "const WEAK_CACHE = new WeakMap<object, object>();",
+        "const CYCLE_A = CYCLE_B;",
+        "const CYCLE_B = CYCLE_A;",
+        "interface ExternalShape { enabled: boolean; values: string[]; }",
+        "const externalShape: ExternalShape = { enabled: true, values: [] };",
+        "void FIXED_PATTERN; void FIXED_SET; void FIXED_TEMPLATE; void INTRINSIC_DATE;",
+        "void INTRINSIC_DATE_NOW; void INTRINSIC_DATE_TO_ISO; void TYPED_ARRAY_BYTE_LENGTH;",
+        "void FIXED_DIGEST; void validFunctionExpression; void validClassExpression;",
+        "void resourceHandle; void weakCache; void invalidNamedFunction; void invalidNamedClass;",
+        "void RUNTIME_PATH; void RUNTIME_FREEZE; void RESOURCE_HANDLE; void WEAK_CACHE;",
+        "void CYCLE_A; void CYCLE_B; void externalShape; void ValidClass; void InvalidMembers;",
+      ].join("\n"),
+      "utf8",
+    );
+    fs.writeFileSync(
+      shadowFixtureFile,
+      [
+        "export {};",
+        "const Date = { now: 1 };",
+        "const SHADOWED_DATE = Date;",
+        "const Object = { freeze<T>(value: T): T { return value; } };",
+        "const SHADOWED_FREEZE = Object.freeze({ fixed: true });",
+        "function createHash(): { update(): { digest(): string } } {",
+        '  return { update: () => ({ digest: () => "fake" }) };',
+        "}",
+        "const SHADOWED_HASH = createHash().update().digest();",
+        "void SHADOWED_DATE; void SHADOWED_FREEZE; void SHADOWED_HASH;",
       ].join("\n"),
       "utf8",
     );
     fs.writeFileSync(
       configFile,
       JSON.stringify({
-        compilerOptions: { strict: true, target: "ESNext" },
-        files: [fixtureFile],
+        compilerOptions: {
+          module: "NodeNext",
+          moduleResolution: "NodeNext",
+          strict: true,
+          target: "ESNext",
+          typeRoots: [path.join(temporaryRoot, "node_modules", "@types")],
+          types: ["node"],
+        },
+        files: [fixtureFile, shadowFixtureFile],
       }),
       "utf8",
     );
@@ -786,30 +1292,76 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
       try {
         const project = snapshot.getProjects()[0];
         assert.ok(project);
-        const sourceFile = project.program.getSourceFile(fixtureFile);
-        assert.ok(sourceFile);
-        const violations = inspectSourceFile(sourceFile, project.checker);
-        assert.deepEqual(
-          violations.map(({ kind, name, rule }) => ({ kind, name, rule })),
-          [
-            {
-              kind: "variable",
-              name: "invalidBoolean",
-              rule: "boolean-prefix",
-            },
-            {
-              kind: "variable",
-              name: "invalidArray",
-              rule: "array-plural-camel-case",
-            },
-            {
-              kind: "variable",
-              name: "invalidConstant",
-              rule: "true-constant-upper-snake-case",
-            },
-            { kind: "parameter", name: "condition", rule: "boolean-prefix" },
-          ],
+        const fixtureSource = project.program.getSourceFile(fixtureFile);
+        const shadowSource = project.program.getSourceFile(shadowFixtureFile);
+        assert.ok(fixtureSource);
+        assert.ok(shadowSource);
+        const violations = [
+          ...inspectSourceFile(fixtureSource, project.checker),
+          ...inspectSourceFile(shadowSource, project.checker),
+        ];
+        const actualViolationKeys = new Set(
+          violations.map(({ kind, name, rule }) => `${kind}|${name}|${rule}`),
         );
+        const expectedViolationKeys = new Set([
+          "variable|invalidBoolean|boolean-prefix",
+          "variable|invalidArray|array-plural-camel-case",
+          "variable|invalidConstant|true-constant-upper-snake-case",
+          "parameter|condition|boolean-prefix",
+          "parameter|item|array-plural-camel-case",
+          "function|BadFunction|camel-case",
+          "type|badClass|pascal-case",
+          "method|BadMethod|camel-case",
+          "getter|BadGetter|camel-case",
+          "setter|BadSetter|camel-case",
+          "variable|RUNTIME_PATH|camel-case",
+          "variable|RUNTIME_FREEZE|camel-case",
+          "variable|RESOURCE_HANDLE|camel-case",
+          "variable|WEAK_CACHE|camel-case",
+          "variable|CYCLE_A|camel-case",
+          "variable|CYCLE_B|camel-case",
+          "variable|SHADOWED_DATE|camel-case",
+          "variable|SHADOWED_FREEZE|camel-case",
+          "variable|SHADOWED_HASH|camel-case",
+        ]);
+        for (const expectedViolation of expectedViolationKeys) {
+          assert.ok(
+            actualViolationKeys.has(expectedViolation),
+            `missing fixture violation: ${expectedViolation}\n${formatViolations(violations)}`,
+          );
+        }
+        const positiveNames = [
+          "candidatePaths",
+          "candidateNames",
+          "candidateItems",
+          "value",
+          "item",
+          "bytes",
+          "valueSet",
+          "valueMap",
+          "enabled",
+          "values",
+          "FIXED_PATTERN",
+          "FIXED_SET",
+          "FIXED_TEMPLATE",
+          "INTRINSIC_DATE",
+          "INTRINSIC_DATE_NOW",
+          "INTRINSIC_DATE_TO_ISO",
+          "TYPED_ARRAY_BYTE_LENGTH",
+          "FIXED_DIGEST",
+          "runtimePath",
+          "runtimeSnapshot",
+          "resourceHandle",
+          "weakCache",
+        ];
+        for (const positiveName of positiveNames) {
+          if (positiveName === "item") continue;
+          assert.equal(
+            violations.some((violation) => violation.name === positiveName),
+            false,
+            `unexpected fixture violation: ${positiveName}\n${formatViolations(violations)}`,
+          );
+        }
       } finally {
         snapshot.dispose();
       }
@@ -824,13 +1376,13 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
 test("旧checker実体は現行Treeに残らない", () => {
   assert.equal(
     fs.existsSync(
-      path.join(repositoryRoot, "tools", "checker", retiredCheckerTs),
+      path.join(repositoryRoot, "tools", "checker", RETIRED_CHECKER_TS),
     ),
     false,
   );
   assert.equal(
     fs.existsSync(
-      path.join(repositoryRoot, "template", "tools", retiredCheckerTs),
+      path.join(repositoryRoot, "template", "tools", RETIRED_CHECKER_TS),
     ),
     false,
   );

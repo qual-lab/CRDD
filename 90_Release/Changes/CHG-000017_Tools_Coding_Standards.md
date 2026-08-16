@@ -98,3 +98,30 @@ source identifierでは、bare `run`、`execute`、`common`および`info`を責
 - 旧Checker Pathの実体、互換shimおよびalias: 0件
 
 この結果は`Self-checked`であり、固定Commit／Treeに対する独立review／audit前は`Resolved`ではない。
+
+## 構造是正版の監査集合と再是正
+
+構造是正版はCommit `bab5169fdfbdc7ef3677a95cffa07259ad52f925`、Tree `4e7619d289b5e8a0bf798bf1a52da02427ae9e6c`、Parent `7ff1a81e7bc044c57d51b6ac503fe2534ed2b711`である。共通入力はNode.js 24.12、Coordinator試験255 / 255、Checker package試験148 / 148、型検査／Biome Lint／Formatter Pass、全体Checker 403 file／279 Markdown／1857 link／561 anchor、Error 0／Warning 0、diff／worktree cleanだった。
+
+- Agent／Architecture／Security review: `Fail`、Major 2件。`AG-CODING-STANDARDS-R01`はsource ownership rootをPath検査へ流用して`tools/**`全体のPath母集団を縮退させた今回修正起因の新規退行、`AG-CODING-STANDARDS-R02`は既知`AG-CODING-STANDARDS-002`の宣言形、generic配列および固定定数分類が部分未解消だった結果である。
+- Document Audit: `Pass`、Finding 0件。初回版で指摘された所有方向、履歴接続およびlocale-firstの解消確認として個別保持する。
+- Gap / Impact Audit: `Fail`、Major 1件。`GCI-TOOLS-NAMING-R01`は既知`GCI-TOOLS-NAMING-001`の型付きclassifierとfixtureが部分未解消だった結果であり、新規候補4分類へ加算しない。
+- Conformance Audit: `Pass`、Finding 0件。準拠基準、Stable ID、Version、Authority／CapabilityおよびRelease状態を変更しない個別結果として保持する。
+
+この監査集合も全体として`Invalidated`であり、現在の合否へ流用しない。後続処置では、Path inspection rootを`tools/**`＋`template/tools/**`、typed source ownership rootを3 TypeScript projectへ分離し、両集合のTypeScript coverageを完全一致させた。型付きclassifierへ名前付き関数／class式、getter／setter、型制約を持つgeneric配列および固定定数のsymbol追跡を追加した。固定定数は任意identifierや任意`Object.freeze`を認めず、固定aggregate、CRDD所有module定数、固定intrinsicおよびterminal digestへ限定し、Path、snapshot、resource handle、shadowed globalおよび循環定数を負例で固定した。
+
+この後続処置は`Applied`／`Self-checked`であり、新しい固定Commit／Treeの全機械確認と同じ監査集合が完了するまでは`Resolved`ではない。公開CheckerのCLI／JSON／Schema／reason／status、v0.17 Releaseおよび今回のbreaking migration／no-shim境界は変更していない。
+
+### 再是正Self-check
+
+2026-08-16の再是正後候補で次を確認した。
+
+- Node.js 24.12のCoordinator試験: 255 / 255 Pass
+- Node.js 24.12のChecker既存契約試験: 144 / 144 Pass
+- Path／型付き命名／廃止参照contract試験: 5 / 5 Pass（Checker package全体149 / 149 Pass）
+- Checker／CoordinatorのTypeScript型検査、Biome LintおよびFormatter確認: Pass
+- 公式入口とChecker package root入口のRepository全体確認: いずれも403 file／279 Markdown／1857 link／561 anchor、Error 0／Warning 0
+- 3 TypeScript projectから得た実Path重複排除後のowned source: 74件。`tools/**`＋`template/tools/**`にあるTypeScript実ファイル集合との未所属／余剰: 0件
+- 旧Checker Pathの現行実体、互換shimおよびalias: 0件
+
+この結果も`Self-checked`であり、新固定Commit／Treeに対する独立review／audit前は`Resolved`ではない。
