@@ -173,7 +173,8 @@ export function describePlatformProvisionerManifestLoaderContract() {
     manifestPlacement:
       "post_checkout_distribution_artifact_outside_identified_git_tree",
     manifestSignatureVerification: "owned_by_platform_provisioner_trust_core",
-    releaseIdentityVerification: "not_implemented",
+    releaseIdentityVerification:
+      "implemented_by_fixed_distribution_git_tree_verifier_candidate",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,

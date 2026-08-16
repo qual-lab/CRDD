@@ -421,8 +421,7 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
         crddCommit: envelope.payload.crddCommit,
         crddTree: envelope.payload.crddTree,
         packageContentRootSha256: contentFrame.hash,
-        rootProtectionPolicySha256:
-          envelope.payload.rootProtectionPolicySha256,
+        rootProtectionPolicySha256: envelope.payload.rootProtectionPolicySha256,
         keyStoragePolicySha256: envelope.payload.keyStoragePolicySha256,
         qualLabManifestCryptographicMatch: true,
       },

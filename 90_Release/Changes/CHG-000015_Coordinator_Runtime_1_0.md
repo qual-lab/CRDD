@@ -987,3 +987,13 @@ private保守command `release-manifest:sign`は、Repository外の絶対ステ�
 Node.js 24.19.0で、Coordinator 269 / 269、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 424 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0がPassした。実Release鍵による成功署名は人間のRelease判断後に限定するため実行せず、一時試験鍵が固定公開鍵と一致しない場合の拒否、署名前payloadの暗号検証、固定Path loaderのcanonical byte／stable same-file境界および安全要約を機械確認した。
 
 後続の自己照合で、署名payloadへRoot保護Policyと鍵保管PolicyのHashを含めるだけでは、Runtimeが所有する現在Policyとの一致確認にならない不足を検出した。同梱package検証入口で両Policyを正本から再canonical化してSHA-256を計算し、署名検証済みpayloadの2 Hashと完全一致しない場合はfail closedに拒否する。caller supplied Policy Hashや署名者の主張だけから現在Policy一致を成立させない。
+
+さらに、固定署名manifestの`crddTree`を主張値のまま受理せず、外部配布Root全体をGit blob／tree object形式で再帰的にHash化するRelease Identity候補を追加した。各directoryとfileをnon-link実体として確認し、fileは同じhandleから上限内で読み、走査前後にIdentityを再確認する。署名対象Treeの外で後置する固定manifestだけを計算から除外し、`.git`、未知file、欠落file、内容変更、mode差、link、special entryまたはRoot Tree不一致を拒否する。これにより署名済みCoordinator packageだけを別RootへコピーしてCRDD一式として扱う経路を閉じる。
+
+固定Path manifest、固定Release鍵、現在Policy Hash、Coordinator package content rootおよび配布Root Git Treeが同じ候補で一致した場合に限り、CRDD Release Identityと配布IdentityをRuntime所有候補として表示する。署名されたCommitは固定鍵によるRelease証明として扱うが、旧Releaseへのrollbackを拒否する永続floor、Windows DACLおよびEffect controllerは未実装であり、Authority／Capability／Effect、Gate、採用、統合またはReleaseへ昇格しない。
+
+Release署名commandも署名直前に同じ配布Root Git Tree再計算を行い、明示された`crddTree`と不一致なら秘密鍵が固定鍵と一致していても署名fileを生成しない。これによりRelease操作時の誤ったCommit／Tree組合せを署名済み成果物へ固定しない。
+
+実Repositoryの`HEAD`を一時directoryへ`git -c core.autocrlf=false archive`で展開し、Gitが示すRoot TreeとNode.js実装の再計算値が完全一致することを確認した。通常のWindows改行変換を受けたarchiveはblob byteがGit objectと異なるため意図どおり不一致となる。Release stagingは改行変換しないarchiveを必須とし、作業Treeの見かけ上の同一性からRelease Identityを推定しない。
+
+Node.js 24.19.0で、Coordinator 272 / 272、Checker 150 / 150、命名／参照5 / 5、3 TypeScript project／88 owned source closure、両private packageの型検査／Biome Lint／Formatter、および全体Checker 426 files／288 Markdown／1867 links／561 anchors／26 Related／26 versioned documents／8 stable IDs／68 remediation rows／Error 0／Warning 0がPassした。実秘密鍵、passphraseおよび実Release manifestは使用・生成していない。本処置は`Applied`／`Self-checked`であり、独立レビュー前は`Resolved`ではない。

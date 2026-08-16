@@ -4,6 +4,7 @@ import {
   createPublicKey,
   sign,
 } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { readHiddenLine } from "./generate-release-key.ts";
 import { inspectPlatformProvisionerPackageFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
+import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "../src/security/platform-provisioner-release-trust.ts";
 import {
   compilePlatformProvisionerManifestPayloadCandidate,
@@ -141,6 +143,23 @@ function signingPassphrase(rawPassphrase: unknown) {
   return Buffer.from(rawPassphrase, "utf8");
 }
 
+function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
+  const resolveRevision = (revision: string) =>
+    execFileSync("git", ["rev-parse", "--verify", revision], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 10_000,
+      maxBuffer: 4_096,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  const verifiedCommit = resolveRevision(`${crddCommit}^{commit}`);
+  const verifiedTree = resolveRevision(`${crddCommit}^{tree}`);
+  if (verifiedCommit !== crddCommit || verifiedTree !== crddTree) {
+    throw new Error("release_manifest_commit_tree_mismatch");
+  }
+}
+
 export function signReleaseManifest(options: ManifestOptions) {
   const distributionRoot = externalDistributionRoot(options.distributionRoot);
   const packageRoot = path.join(distributionRoot, "tools", "coordinator");
@@ -202,6 +221,14 @@ export function signReleaseManifest(options: ManifestOptions) {
     if (!signerSpki.equals(pinnedSpki)) {
       throw new Error("release_manifest_private_key_not_pinned");
     }
+    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
+      distributionRoot,
+      options.crddTree,
+    );
+    if (releaseIdentity.status !== "candidate") {
+      throw new Error("release_manifest_distribution_tree_mismatch");
+    }
+    verifyCommitTreeBinding(options.crddCommit, options.crddTree);
     const signature = sign(null, compiled.message, privateKey);
     const envelope = {
       contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
@@ -231,6 +258,7 @@ export function signReleaseManifest(options: ManifestOptions) {
       crddVersion: options.crddVersion,
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
+      distributionTreeVerifiedBeforeSigning: true,
       privateKeyStoredOutsideRepository: true,
       repositoryTreeContainsManifest: false,
     });

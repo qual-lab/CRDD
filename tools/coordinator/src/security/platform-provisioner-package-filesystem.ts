@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
+import { inspectPlatformProvisionerReleaseIdentityCandidate } from "./platform-provisioner-release-identity.ts";
 import { getPinnedPlatformProvisionerReleaseSignerSpkiDer } from "./platform-provisioner-release-trust.ts";
 import {
   calculatePlatformProvisionerPackageContentRootCandidate,
@@ -26,12 +27,7 @@ const VERIFY_KEYS = new Set([
   "expectedCrddCommit",
   "expectedCrddTree",
 ]);
-const VERIFY_FIXED_MANIFEST_KEYS = new Set([
-  "evaluationTime",
-  "expectedCrddVersion",
-  "expectedCrddCommit",
-  "expectedCrddTree",
-]);
+const VERIFY_FIXED_MANIFEST_KEYS = new Set(["evaluationTime"]);
 const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 
@@ -70,6 +66,7 @@ function blocked(reason: string) {
     runtimeOwnedPackageRoot: false,
     permissionPolicyConfirmed: false,
     runtimeOwnedReleaseTrustConfirmed: false,
+    releaseIdentityRuntimeOwned: false,
     crddDistributionConfirmed: false,
     effectAuthorizationIssued: false,
     runtimeAuthorityConferred: false,
@@ -419,23 +416,15 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
     ) {
       return blocked("platform_provisioner_bundled_package_input_invalid");
     }
-    const observed = observePackage(bundledPackageRoot);
-    const policyIdentity = getPlatformProvisionerPolicyIdentity();
-    const verification = verifyPlatformProvisionerManifestCandidate({
-      manifestEnvelope: input.manifestEnvelope,
-      releaseSignerSpkiDer: getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
-      observedPackageContent: observed.observation,
-      evaluationTime: input.evaluationTime,
-    });
+    const { observed, verification } = verifyOwnedBundledManifest(
+      input.manifestEnvelope,
+      input.evaluationTime,
+    );
     if (
       verification.status !== "candidate" ||
       verification.crddVersion !== input.expectedCrddVersion ||
       verification.crddCommit !== input.expectedCrddCommit ||
-      verification.crddTree !== input.expectedCrddTree ||
-      verification.rootProtectionPolicySha256 !==
-        policyIdentity.rootProtectionPolicySha256 ||
-      verification.keyStoragePolicySha256 !==
-        policyIdentity.keyStoragePolicySha256
+      verification.crddTree !== input.expectedCrddTree
     ) {
       return blocked(
         "platform_provisioner_bundled_package_verification_failed",
@@ -457,31 +446,78 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
   }
 }
 
+function verifyOwnedBundledManifest(
+  manifestEnvelope: unknown,
+  evaluationTime: unknown,
+) {
+  const observed = observePackage(bundledPackageRoot);
+  const policyIdentity = getPlatformProvisionerPolicyIdentity();
+  const verification = verifyPlatformProvisionerManifestCandidate({
+    manifestEnvelope,
+    releaseSignerSpkiDer: getPinnedPlatformProvisionerReleaseSignerSpkiDer(),
+    observedPackageContent: observed.observation,
+    evaluationTime,
+  });
+  if (
+    verification.status !== "candidate" ||
+    verification.rootProtectionPolicySha256 !==
+      policyIdentity.rootProtectionPolicySha256 ||
+    verification.keyStoragePolicySha256 !==
+      policyIdentity.keyStoragePolicySha256
+  ) {
+    throw new Error("platform_provisioner_owned_manifest_verification_failed");
+  }
+  return Object.freeze({ observed, verification });
+}
+
 export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
   rawInput: unknown,
 ) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_FIXED_MANIFEST_KEYS);
-    if (
-      !input ||
-      typeof input.expectedCrddVersion !== "string" ||
-      !CRDD_VERSION.test(input.expectedCrddVersion) ||
-      typeof input.expectedCrddCommit !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddCommit) ||
-      typeof input.expectedCrddTree !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddTree)
-    ) {
+    if (!input) {
       return blocked("platform_provisioner_bundled_package_input_invalid");
     }
     const loaded = loadPlatformProvisionerManifestEnvelopeForVerification(
       bundledDistributionRoot,
     );
-    return verifyBundledCoordinatorPackageCandidate({
-      manifestEnvelope: loaded.envelope,
-      evaluationTime: input.evaluationTime,
-      expectedCrddVersion: input.expectedCrddVersion,
-      expectedCrddCommit: input.expectedCrddCommit,
-      expectedCrddTree: input.expectedCrddTree,
+    const { observed, verification } = verifyOwnedBundledManifest(
+      loaded.envelope,
+      input.evaluationTime,
+    );
+    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
+      bundledDistributionRoot,
+      verification.crddTree,
+    );
+    if (
+      releaseIdentity.status !== "candidate" ||
+      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== true
+    ) {
+      return blocked(
+        "platform_provisioner_release_identity_verification_failed",
+      );
+    }
+    const reloaded = loadPlatformProvisionerManifestEnvelopeForVerification(
+      bundledDistributionRoot,
+    );
+    if (reloaded.manifestFileSha256 !== loaded.manifestFileSha256) {
+      return blocked(
+        "platform_provisioner_manifest_changed_during_verification",
+      );
+    }
+    return Object.freeze({
+      ...publicObservation(observed, true),
+      reason: observed.permissionPolicyConfirmed
+        ? "verified_crdd_distribution_and_package_permission_effect_controller_required"
+        : "verified_crdd_distribution_and_package_permission_and_effect_controller_required",
+      manifestHash: verification.manifestHash,
+      crddVersion: verification.crddVersion,
+      crddCommit: verification.crddCommit,
+      crddTree: verification.crddTree,
+      qualLabManifestCryptographicMatch: true,
+      runtimeOwnedReleaseTrustConfirmed: true,
+      releaseIdentityRuntimeOwned: true,
+      crddDistributionConfirmed: true,
     });
   } catch {
     return blocked("platform_provisioner_fixed_manifest_verification_failed");
@@ -503,7 +539,7 @@ export function describePlatformProvisionerPackageFilesystemContract() {
     runtimeOwnedPackageFilesystemRead:
       "implemented_candidate_without_permission_authority",
     runtimeOwnedCrddReleaseIdentitySelection:
-      "approved_version_commit_tree_binding_loader_not_implemented",
+      "implemented_fixed_manifest_signature_and_distribution_git_tree_candidate",
     runtimeOwnedReleaseTrustSelection:
       "implemented_single_ed25519_anchor_pinned",
     ownerAndPermissionPolicyVerification:
@@ -524,6 +560,7 @@ export function describePlatformProvisionerPackageFilesystemContract() {
       "implemented_fixed_path_canonical_file_loader_candidate",
     signedManifestPlacement:
       "post_checkout_distribution_artifact_outside_identified_git_tree",
+    releaseIdentityRollbackFloorPersistence: "not_implemented",
     effectController: "not_implemented",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,

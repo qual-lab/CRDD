@@ -220,7 +220,7 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   );
   assert.equal(
     contract.runtimeOwnedCrddReleaseIdentitySelection,
-    "approved_version_commit_tree_binding_loader_not_implemented",
+    "implemented_fixed_manifest_signature_and_distribution_git_tree_candidate",
   );
   assert.equal(
     contract.runtimeOwnedReleaseTrustSelection,
@@ -247,6 +247,10 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
     "owned_root_protection_and_key_storage_policy_hashes_required",
   );
   assert.equal(contract.effectController, "not_implemented");
+  assert.equal(
+    contract.releaseIdentityRollbackFloorPersistence,
+    "not_implemented",
+  );
   assert.equal(contract.runtimeCapabilityIssued, false);
   assert.equal(contract.filesystemEffectIssued, false);
 });
