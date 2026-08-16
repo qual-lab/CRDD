@@ -5,13 +5,16 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
 import test, { after } from "node:test";
+import { pathToFileURL } from "node:url";
 
 const testEntry = process.argv[1];
 if (testEntry === undefined) throw new Error("checker_test_entry_missing");
-const toolsRoot = path.dirname(path.resolve(testEntry));
-const repositoryRoot = path.dirname(toolsRoot);
+const checkerRoot = path.dirname(path.resolve(testEntry));
+const repositoryRoot = path.dirname(path.dirname(checkerRoot));
 const checker = path.join(repositoryRoot, "template", "tools", "crdd_check.ts");
-const faultInjector = path.join(toolsRoot, "crdd_check_fault_injector.ts");
+const faultInjector = pathToFileURL(
+  path.join(checkerRoot, "fault-injector.ts"),
+).href;
 type CheckerFinding = Readonly<{
   severity: string;
   code: string;
@@ -370,7 +373,7 @@ function runWithFault(
   env: Readonly<Record<string, string>> = {},
   ...extra: string[]
 ): CheckerRun {
-  const nodeOptions = [process.env.NODE_OPTIONS, `--require=${faultInjector}`]
+  const nodeOptions = [process.env.NODE_OPTIONS, `--import=${faultInjector}`]
     .filter(Boolean)
     .join(" ");
   return runWithEnv(

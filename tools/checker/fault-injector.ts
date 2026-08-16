@@ -2,9 +2,11 @@
  * Node.js組み込みモジュールだけでチェッカーの異常系を再現する試験用注入器。
  *
  * 本ファイルは配布用チェッカーから参照されない。子プロセスの起動時に
- * NODE_OPTIONS=--require=...として読み込み、OS障害や競合状態を決定論的に
+ * NODE_OPTIONS=--import=...として読み込み、OS障害や競合状態を決定論的に
  * 再現する。
  */
+
+import { createRequire, syncBuiltinESMExports } from "node:module";
 
 type StatLike = Readonly<{
   dev?: number | bigint;
@@ -36,11 +38,9 @@ type MutablePath = {
   relative: (parent: unknown, child: unknown) => string;
 };
 
+const require = createRequire(import.meta.url);
 const childProcess: MutableChildProcess = require("node:child_process");
 const fs: MutableFs = require("node:fs");
-const module_: Readonly<{
-  syncBuiltinESMExports: () => void;
-}> = require("node:module");
 const path: MutablePath = require("node:path");
 
 const fault = process.env.CRDD_CHECK_FAULT;
@@ -359,4 +359,4 @@ if (fault === "git-stage-failed") {
   };
 }
 
-module_.syncBuiltinESMExports();
+syncBuiltinESMExports();

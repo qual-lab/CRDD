@@ -36,7 +36,7 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 - 正本: `00_Overview.md`、`02_Terminology.md`、`10_Agent.md`、`16_Quality_Assurance.md`、`19_Maintenance.md`、`51_Document_Audit.md`、`52_Conformance_Audit.md`、`53_Gap_Impact_Audit.md`
 - AI入口: `AGENTS.md`、`template/AGENTS.md`
 - ひな型: `template/90_Release/Changes/CHG-XXXXXX_Template.md`
-- 任意Checker: `template/tools/crdd_check.ts`、`tools/crdd_check.test.ts`
+- 任意Checker: `template/tools/crdd_check.ts`、`tools/checker/crdd_check.test.ts`
 - 公開保守入口、案内と移行: `CONTRIBUTING.md`、`README.md`、`CHANGELOG.md`
 - 版表示: 26正本文書
 - 準拠影響: 条件規範を品質保証で扱う場合はPL-16、非自明なAI変更ではAD-02、条件規範を変更した対象の初回独立確認ではAD-21を再評価する。Core、Product LifecycleまたはAgentic Deliveryの基準数、工程順、成果物構造、安定コンテキストIDは変更しない。
@@ -88,7 +88,7 @@ Qual-Labの人間の決定権限者は、次の境界でv0.16.0候補の実装�
 | Issue受付契約、PRひな型、`12_Change.md` | Issue受付は提案段階、PRひな型は提出時確認、`12_Change`はCHG最小記録契約を所有するため、4例の実行義務を重複させず変更不要とした |
 | `template/90_Release/Changes/CHG-XXXXXX_Template.md` | `10_Agent`への正本参照、実差分処置、未解消不一致の記録欄を追加した |
 | `README.md`、`CHANGELOG.md`英日 | 目的、採用影響、条件付きPL-16／AD-21、移行、復旧、延期時リスクを同じ意味で更新した |
-| `template/tools/crdd_check.ts`、`tools/crdd_check.test.ts` | 現行英日Release節、移行要否／分類の判定不能・不一致、構造化区分を決定論的に確認した |
+| `template/tools/crdd_check.ts`、`tools/checker/crdd_check.test.ts` | 現行英日Release節、移行要否／分類の判定不能・不一致、構造化区分を決定論的に確認した |
 | `CHG-000010_*_3b26d56`の固定後根拠3件 | 初回固定候補の実行事実を履歴として保持し、実行記録を`Invalidated`として現在判定への流用を禁止した |
 | `CHG-000010_*_dbe718c`の固定後根拠3件 | 第2固定候補の実行事実を履歴として保持し、実行記録を`Invalidated`として現在判定への流用を禁止した |
 | `CHG-000010_*_e19501d`の固定後根拠およびCurrent Record 7件 | v0.15.0公開前の最終候補に対するChecker、試験、3系統確認、現在状態を履歴として保持し、再接続後の最終判定への流用を禁止した |

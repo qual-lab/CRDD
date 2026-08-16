@@ -314,6 +314,8 @@ Until migration verification passes, keep the previous pinned release recoverabl
 
 The distributed template includes `tools/crdd_check.ts`. In normal use, the parent AI agent runs it once against a fixed revision before independent review or an audit set; users do not need to run it manually.
 
+For CRDD-standard maintenance in this repository, the checker package is located at `tools/checker/`; run `node tools/checker/crdd_check.ts --json --summary`. The distributed template path below remains unchanged for adopting repositories.
+
 ```text
 node tools/crdd_check.ts
 node tools/crdd_check.ts --json
@@ -685,6 +687,8 @@ v0.5.0ではCRDD正本文書のファイル名を変更した。基本的な移�
 ### AIによる事前確認
 
 配布用ひな型には`tools/crdd_check.ts`が含まれる。通常は、独立レビューまたは監査集合の前に親AIエージェントが固定した対象改訂版へ一度実行する。利用者が手動で実行する必要はない。
+
+このRepositoryでCRDD標準を保守するときは、`tools/checker/`のチェッカーpackageを使用し、`node tools/checker/crdd_check.ts --json --summary`を実行する。以下の配布用ひな型のPathは、採用Repositoryとの互換性のため変更しない。
 
 ```text
 node tools/crdd_check.ts

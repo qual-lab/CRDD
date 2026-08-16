@@ -126,3 +126,9 @@ Authority、Enrollment、Provisioning CA、ProviderおよびRoot Protectionの�
 `runtime-activation-record.mjs`を同一配置の`.ts`へ移し、onboarding dependency、implementation snapshot、activation recordおよびcandidate結果を具体型へ置換した。readiness sourceは既存の単一implementation snapshotから`unknown`値として保持し、canonical JSONはown data propertyだけを再帰処理する。raw Bufferのintrinsic byteLength getterも存在を確認してから使用する。12 blocker／6 evidence、activation record Schema、canonical Hash、raw decoder、Authority／Capability非発行およびGate blockedを変更せず、productionの移行済み数は37 / 38である。
 
 `src/core/doctor.mjs`を同一配置の`.ts`へ移し、診断check、Provider discovery、Doctor option、Runtime Root要求およびFilesystem policy要約を具体型へ置換した。公開optionは`unknown`からown data descriptorを通じて固定し、process／Filesystem例外も既知codeだけを`unknown`から判定する。Docker隔離状態はDoctorの4状態へ明示変換し、回復済み状態をReadyへ誤昇格させない。passive preflight、Path／秘密非出力、12 blocker／6 evidence、Gate blockedおよびAuthority／Capability非発行を変更せず、production 38 / 38 moduleのTypeScript移行を完了した。
+
+## 2026-08-16 — チェッカーpackageの責務別配置
+
+CRDD公式Repositoryのチェッカー本体、試験、障害注入器および型設定を`tools/checker/`へ集約し、独立したprivate packageとして所有させた。公式Repository内の実行Pathは`tools/checker/crdd_check.ts`、試験は`tools/checker/crdd_check.test.ts`、障害注入器は`tools/checker/fault-injector.ts`、型設定は`tools/checker/tsconfig.json`とする。Coordinator packageからチェッカーの試験と型検査を分離し、各packageが自身の`check`、`test`および固定devDependencyを所有する。
+
+採用Repositoryへ配布する`template/tools/crdd_check.ts`と、採用側での`tools/crdd_check.ts`という配置契約は変更しない。CRDD公式Repositoryのwrapperは同じ配布実装を参照し続けるため、チェッカーの検査規則、CLI、出力、準拠境界および外部公開範囲に意味変更はない。過去のEvidenceとCHANGELOGに記録された旧Pathは当時の固定履歴として保持する。本処置は`Applied`／`Self-checked`であり、新配置での機械確認と必要な独立review／audit前は`Resolved`ではない。

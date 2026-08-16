@@ -1,16 +1,16 @@
 {
-  "name": "@qual-lab/crdd-coordinator",
+  "name": "@qual-lab/crdd-checker",
   "version": "0.0.0-development",
   "private": true,
   "type": "module",
   "scripts": {
     "check": "npm run typecheck && npm run lint && npm run format:check",
-    "doctor": "node ./bin/coordinator.ts doctor",
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
     "lint": "biome lint ../..",
-    "test": "node --test ./tests/*.test.ts",
-    "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
+    "run": "node ./crdd_check.ts --json --summary",
+    "test": "node --test ./crdd_check.test.ts",
+    "typecheck": "tsc -p ./tsconfig.json"
   },
   "engines": {
     "node": ">=24.12"

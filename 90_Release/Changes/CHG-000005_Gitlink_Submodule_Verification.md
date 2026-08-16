@@ -28,8 +28,8 @@ CRDDをサブモジュールとして採用するプロジェクトから、正�
 直接変更する成果物:
 
 - [`template/tools/crdd_check.ts`](../../template/tools/crdd_check.ts)
-- [`tools/crdd_check.test.ts`](../../tools/crdd_check.test.ts)
-- [`tools/crdd_check_fault_injector.ts`](../../tools/crdd_check_fault_injector.ts)
+- [`tools/checker/crdd_check.test.ts`](../../tools/checker/crdd_check.test.ts)
+- [`tools/checker/fault-injector.ts`](../../tools/checker/fault-injector.ts)
 - [`README.md`](../../README.md)
 - [`CHANGELOG.md`](../../CHANGELOG.md)
 - 公開版を示す24正本文書のVersion／Last Updatedヘッダー
@@ -112,8 +112,8 @@ head_matches_gitlink
 ## 実装の参照
 
 - 判定実装: [`template/tools/crdd_check.ts`](../../template/tools/crdd_check.ts)
-- 回帰試験: [`tools/crdd_check.test.ts`](../../tools/crdd_check.test.ts)
-- 異常注入: [`tools/crdd_check_fault_injector.ts`](../../tools/crdd_check_fault_injector.ts)
+- 回帰試験: [`tools/checker/crdd_check.test.ts`](../../tools/checker/crdd_check.test.ts)
+- 異常注入: [`tools/checker/fault-injector.ts`](../../tools/checker/fault-injector.ts)
 
 ## 検証
 
