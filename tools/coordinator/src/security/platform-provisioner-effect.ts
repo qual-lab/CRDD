@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { evaluatePlatformProvisionerActiveReleaseCandidate } from "./platform-provisioner-active-release.ts";
-import { persistPlatformProvisionerActiveReleaseForEffect } from "./platform-provisioner-active-release-store.ts";
+import { loadPlatformProvisionerActiveReleaseForEffect } from "./platform-provisioner-active-release-store.ts";
 import {
   PLATFORM_PROVISIONER_RELEASE_MANIFEST_SEGMENTS,
   resolveWindowsProvisionerInstallLayoutForEffect,
@@ -15,10 +15,11 @@ import {
   verifyInstalledCoordinatorPackageCandidate,
 } from "./platform-provisioner-package-filesystem.ts";
 import { evaluatePlatformProvisionerReleaseFloorCandidate } from "./platform-provisioner-release-floor.ts";
+import { loadPlatformProvisionerReleaseFloorForEffect } from "./platform-provisioner-release-floor-store.ts";
 import {
-  loadPlatformProvisionerReleaseFloorForEffect,
-  persistPlatformProvisionerReleaseFloorForEffect,
-} from "./platform-provisioner-release-floor-store.ts";
+  persistPlatformProvisionerStateTransactionForEffect,
+  recoverPlatformProvisionerStateTransactionForEffect,
+} from "./platform-provisioner-state-transaction.ts";
 import {
   applyWindowsProvisionerInstallDaclForEffect,
   inspectWindowsPackageDaclCandidate,
@@ -286,6 +287,12 @@ export function runPlatformProvisionerEffect() {
     }
     ensureOwnedDirectory(layout.releasesRoot);
     ensureOwnedDirectory(layout.stateRoot);
+    const recoveredState = recoverPlatformProvisionerStateTransactionForEffect(
+      layout.stateRoot,
+    );
+    if (recoveredState.status !== "candidate") {
+      return blocked("platform_provisioner_state_recovery_failed", true);
+    }
     const stagingRoot = `${layout.releaseRoot}.pending`;
     if (fs.existsSync(stagingRoot)) {
       return blocked("platform_provisioner_release_recovery_required", true);
@@ -331,22 +338,22 @@ export function runPlatformProvisionerEffect() {
     }
     const floorTransition = evaluatePlatformProvisionerReleaseFloorCandidate({
       currentFloor: loadedFloor.floor,
-      verifiedRelease: release,
+      verifiedRelease: {
+        manifestHash: release.manifestHash,
+        releaseSequence: release.releaseSequence,
+        crddVersion: release.crddVersion,
+        crddCommit: release.crddCommit,
+        crddTree: release.crddTree,
+      },
     });
     if (floorTransition.status !== "candidate") {
       return blocked("platform_provisioner_release_floor_rejected", true);
     }
-    if (floorTransition.persistenceRequired) {
-      const floorPersistence = persistPlatformProvisionerReleaseFloorForEffect(
-        layout.stateRoot,
-        floorTransition.nextFloor,
-      );
-      if (floorPersistence.status !== "candidate") {
-        return blocked(
-          "platform_provisioner_release_floor_persistence_failed",
-          true,
-        );
-      }
+    const loadedActive = loadPlatformProvisionerActiveReleaseForEffect(
+      layout.stateRoot,
+    );
+    if (loadedActive.status !== "candidate") {
+      return blocked("platform_provisioner_active_release_load_failed", true);
     }
     const activeCandidate = evaluatePlatformProvisionerActiveReleaseCandidate({
       verifiedRelease: release,
@@ -358,15 +365,15 @@ export function runPlatformProvisionerEffect() {
     if (activeCandidate.status !== "candidate") {
       return blocked("platform_provisioner_active_release_invalid", true);
     }
-    const activePersistence = persistPlatformProvisionerActiveReleaseForEffect(
-      layout.stateRoot,
-      activeCandidate.nextActiveRelease,
-    );
-    if (activePersistence.status !== "candidate") {
-      return blocked(
-        "platform_provisioner_active_release_persistence_failed",
-        true,
-      );
+    const statePersistence =
+      persistPlatformProvisionerStateTransactionForEffect(layout.stateRoot, {
+        previousFloorHash: loadedFloor.floorHash,
+        previousActiveHash: loadedActive.activeHash,
+        nextFloor: floorTransition.nextFloor,
+        nextActiveRelease: activeCandidate.nextActiveRelease,
+      });
+    if (statePersistence.status !== "candidate") {
+      return blocked("platform_provisioner_state_transaction_failed", true);
     }
     return Object.freeze({
       status: "candidate" as const,
@@ -402,8 +409,10 @@ export function describePlatformProvisionerEffectContract() {
     releaseStaging: "release_sequence_pending_then_atomic_directory_rename",
     installedReleaseReverification: "required_before_activation",
     permissionMutation: "fixed_install_root_only_then_recursive_reverification",
-    rollbackFloorPersistence: "implemented_candidate_before_active_pointer",
-    activeReleasePersistence: "implemented_candidate_last",
+    rollbackFloorPersistence: "implemented_candidate_in_state_transaction",
+    activeReleasePersistence: "implemented_candidate_in_state_transaction",
+    stateTransaction:
+      "durable_intent_floor_then_active_explicit_provision_recovery",
     failureBehavior:
       "active_pointer_not_replaced_before_all_prior_steps_succeed_explicit_recovery_required_after_effect",
     repositoryRuntimeStateRequired: false,

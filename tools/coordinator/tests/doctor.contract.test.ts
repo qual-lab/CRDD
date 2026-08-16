@@ -764,6 +764,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerActiveRelease,
     platformProvisionerActiveReleaseStore:
       report.runtimeActivation.platformProvisionerActiveReleaseStore,
+    platformProvisionerStateTransaction:
+      report.runtimeActivation.platformProvisionerStateTransaction,
     platformProvisionerEffectContract:
       report.runtimeActivation.platformProvisionerEffectContract,
     enrollmentCertificateDomainSeparation:
@@ -899,6 +901,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
         "platform_provisioner_verification",
       platformProvisionerActiveReleasePersistence:
         "platform_provisioner_effect",
+      platformProvisionerStateTransaction: "platform_provisioner_effect",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:

@@ -24,6 +24,7 @@ import { describePlatformProvisionerReleaseFloorContract } from "./platform-prov
 import { describePlatformProvisionerReleaseFloorStoreContract } from "./platform-provisioner-release-floor-store.ts";
 import { describePlatformProvisionerActiveReleaseContract } from "./platform-provisioner-active-release.ts";
 import { describePlatformProvisionerActiveReleaseStoreContract } from "./platform-provisioner-active-release-store.ts";
+import { describePlatformProvisionerStateTransactionContract } from "./platform-provisioner-state-transaction.ts";
 import { describePlatformProvisionerEffectContract } from "./platform-provisioner-effect.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
@@ -132,6 +133,7 @@ const INSTALLATION_ENROLLMENT_DEPENDENCY_RELATIONSHIPS = Object.freeze({
   platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
   platformProvisionerActiveReleaseCodec: "platform_provisioner_verification",
   platformProvisionerActiveReleasePersistence: "platform_provisioner_effect",
+  platformProvisionerStateTransaction: "platform_provisioner_effect",
   platformProvisionerCrddDistributionVerification:
     "platform_provisioner_verification",
   platformProvisionerPackageGateObservation:
@@ -505,6 +507,8 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerActiveReleaseStoreContract();
   const platformProvisionerEffectContract =
     describePlatformProvisionerEffectContract();
+  const platformProvisionerStateTransactionContract =
+    describePlatformProvisionerStateTransactionContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -553,6 +557,8 @@ export function describeRuntimeActivationContract() {
       platformProvisionerActiveReleaseContract.canonicalByteCodec,
     platformProvisionerActiveReleasePersistence:
       platformProvisionerActiveReleaseStoreContract.persistence,
+    platformProvisionerStateTransaction:
+      platformProvisionerStateTransactionContract.persistence,
     platformProvisionerCrddDistributionVerification:
       platformProvisionerReleaseIdentityContract.signedCrddTreeComparison,
     platformProvisionerPackageGateObservation:
@@ -638,6 +644,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerReleaseFloorStoreContract,
     platformProvisionerActiveReleaseContract,
     platformProvisionerActiveReleaseStoreContract,
+    platformProvisionerStateTransactionContract,
     platformProvisionerEffectContract,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
@@ -756,6 +763,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerActiveReleaseContract,
     platformProvisionerActiveReleaseStore:
       implementation.platformProvisionerActiveReleaseStoreContract,
+    platformProvisionerStateTransaction:
+      implementation.platformProvisionerStateTransactionContract,
     platformProvisionerEffectContract:
       implementation.platformProvisionerEffectContract,
     platformKeyStorageSetupDisclosure:
@@ -974,6 +983,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerActiveReleaseContract,
     platformProvisionerActiveReleaseStore:
       implementation.platformProvisionerActiveReleaseStoreContract,
+    platformProvisionerStateTransaction:
+      implementation.platformProvisionerStateTransactionContract,
     platformProvisionerEffectContract:
       implementation.platformProvisionerEffectContract,
     provisioningRecordTrustAndSelectionPolicy,

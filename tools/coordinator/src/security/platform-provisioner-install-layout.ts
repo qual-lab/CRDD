@@ -14,6 +14,8 @@ export const PLATFORM_PROVISIONER_RELEASES_DIRECTORY = "releases";
 export const PLATFORM_PROVISIONER_STATE_DIRECTORY = "state";
 export const PLATFORM_PROVISIONER_RELEASE_FLOOR_FILE = "release-floor.json";
 export const PLATFORM_PROVISIONER_ACTIVE_RELEASE_FILE = "active-release.json";
+export const PLATFORM_PROVISIONER_TRANSACTION_FILE =
+  "provision-transaction.json";
 export const PLATFORM_PROVISIONER_RELEASE_PACKAGE_SEGMENTS = Object.freeze([
   "tools",
   "coordinator",
@@ -99,6 +101,10 @@ export function resolveWindowsProvisionerInstallLayoutForEffect(
       stateRoot,
       PLATFORM_PROVISIONER_ACTIVE_RELEASE_FILE,
     ),
+    provisionTransactionFile: path.win32.join(
+      stateRoot,
+      PLATFORM_PROVISIONER_TRANSACTION_FILE,
+    ),
   });
 }
 
@@ -135,7 +141,8 @@ export function describePlatformProvisionerInstallLayoutContract() {
     installRootSegments: PLATFORM_PROVISIONER_INSTALL_ROOT_SEGMENTS,
     releaseLayout:
       "releases_positive_release_sequence_with_tools_coordinator_and_signed_manifest",
-    stateLayout: "state_release_floor_and_active_release_canonical_json",
+    stateLayout:
+      "state_release_floor_active_release_and_provision_transaction_canonical_json",
     repositoryRuntimeStateRequired: false,
     externalStateReason: "installed_machine_state_only",
     compatibilityLayout: "prohibited",

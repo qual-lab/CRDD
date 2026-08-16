@@ -1045,3 +1045,11 @@ Repository所有の実装、設定、試験および固定レイアウトを使�
 本候補では、rollback floorとactive releaseの二状態を一つのcrash-consistent transactionとして確定する処理、Runtime通常runが保護済みactive世代を読んで再検証する処理、Provisioning Record／Authority Rootとの結合、および`activate`／`disable` Effectは未実装である。したがって状態更新途中の失敗は明示復旧を要求し、既存12 blocker、6 current-run evidenceおよびGate `blocked`を縮小しない。Repository外へ残るものはRelease秘密鍵と端末固有のProgramData状態だけで、秘密鍵、passphrase、絶対PathまたはSIDを公開結果へ含めない。
 
 対象試験と型検査は`Applied`／`Self-checked`である。新固定版の全機械確認と必要な独立レビュー前は`Resolved`、Runtime完成、採用、統合、準拠、StableまたはReleaseではない。
+
+### 2026-08-16 — Platform Provisioner状態transaction候補
+
+`release-floor.json`だけが確定して`active-release.json`の切替に失敗する中間状態を推測処理しないため、固定`state/provision-transaction.json`を永続intentとする状態transaction候補を追加した。intentはprevious floor Hash、previous active Hash、next floor、next active releaseを成果物固有domainとcanonical SHA-256へ結び、固定target／pending以外を受理しない。明示`provision`はintentを`fsync`して原子的に配置した後、floor、activeの順に確定して両Hashを再読取りし、成功後だけintentを削除する。
+
+途中停止または既存pendingがある場合、新しい状態を推測して上書きせず、次の明示`provision`が同じintent、previous Hashまたはnext Hashの一致だけから復旧する。競合、改変、rollbackまたは別active stateは`blocked`へ閉じる。Runtime通常runは未完了intentを自動修復せず、Runtime有効世代読取りの実装まではAuthorityまたはCapabilityを発行しない。RepositoryにはSchema、実装、試験、固定相対Pathだけを置き、実transactionは端末固有ProgramData状態へ限定する。
+
+これにより前節の「両状態をまたぐtransaction未実装」はこの限定範囲でsupersededし、Runtime有効世代読取り、Provisioning Record／Authority Root結合、activation／disable Effect、ready遷移およびReleaseは未実装のまま維持する。本処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と必要な独立レビュー前は`Resolved`ではない。

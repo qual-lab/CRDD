@@ -486,6 +486,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     platformProvisionerActiveRelease: contract.platformProvisionerActiveRelease,
     platformProvisionerActiveReleaseStore:
       contract.platformProvisionerActiveReleaseStore,
+    platformProvisionerStateTransaction:
+      contract.platformProvisionerStateTransaction,
     platformProvisionerEffectContract:
       contract.platformProvisionerEffectContract,
     enrollmentCertificateDomainSeparation:
@@ -621,6 +623,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
         "platform_provisioner_verification",
       platformProvisionerActiveReleasePersistence:
         "platform_provisioner_effect",
+      platformProvisionerStateTransaction: "platform_provisioner_effect",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:
