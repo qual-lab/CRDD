@@ -961,3 +961,5 @@ Qual-Labの人間の決定権限者は、公開鍵検証とOS保護を組み合�
 OpenSSLがない環境でも人間のRelease操作を安全に継続できるよう、Node.js 24.12の暗号APIを使うprivate保守command `release-key:generate`を追加した。新規のRepository外絶対Pathだけを受理し、対話端末で非表示入力した20文字以上のpassphraseによりEd25519秘密鍵をAES-256-CBC暗号化PKCS#8 PEMとして保存し、公開SPKI DERとSHA-256 key IDだけを返す。既存Path、Repository内Path、短いpassphraseまたは非対話実行を拒否し、秘密鍵を出力結果へ含めない。これは実鍵の生成をAIまたは通常Runtimeへ移すものではなく、人間が明示実行するRelease保守入口である。Trust Anchor投入、Manifest署名、ReleaseおよびEffectは別工程のまま維持する。
 
 自己確認ではCoordinator 263 / 263、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 416 files／288 Markdown／Error 0／Warning 0がPassした。実Release鍵は人間の非表示passphrase入力を要するため、この固定版の機械試験では一時試験鍵だけを生成して暗号化秘密鍵、公開鍵導出、非漏洩および拒否境界を確認した。本処置は`Applied`／`Self-checked`であり、独立レビューと実公開鍵の投入前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
+
+初回の実対話確認では、1回目の非表示入力を読み終えた際に非同期iteratorが標準入力streamを閉じ、2回目の確認入力を受け取れない不具合を検出した。入力処理をstreamを閉じない一時event listenerへ変更し、各入力後にraw modeとlistenerだけを解除する構造へ是正した。Node.js 24.19.0のPTYで同一の試験用passphraseを2回入力し、暗号化秘密鍵と公開鍵の生成完了および安全なJSON要約を確認した後、一時成果物を削除した。実Release鍵のpassphraseはAIへ渡さず、人間の対話端末だけで入力する境界を維持する。

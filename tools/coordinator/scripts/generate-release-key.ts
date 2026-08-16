@@ -107,14 +107,27 @@ async function readHiddenLine(prompt: string) {
   process.stdin.setRawMode(true);
   process.stdin.resume();
   process.stdin.setEncoding("utf8");
-  let value = "";
-  try {
-    for await (const chunk of process.stdin) {
+  return await new Promise<string>((resolve, reject) => {
+    let value = "";
+    const finish = (result: string | Error) => {
+      process.stdin.off("data", onData);
+      process.stdin.off("end", onEnd);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      if (result instanceof Error) reject(result);
+      else resolve(result);
+    };
+    const onEnd = () => finish(new Error("release_key_input_closed"));
+    const onData = (chunk: string) => {
       for (const character of chunk) {
-        if (character === "\u0003") throw new Error("release_key_cancelled");
+        if (character === "\u0003") {
+          finish(new Error("release_key_cancelled"));
+          return;
+        }
         if (character === "\r" || character === "\n") {
           process.stdout.write("\n");
-          return value;
+          finish(value);
+          return;
         }
         if (character === "\u007f" || character === "\b") {
           value = value.slice(0, -1);
@@ -122,12 +135,10 @@ async function readHiddenLine(prompt: string) {
           value += character;
         }
       }
-    }
-    throw new Error("release_key_input_closed");
-  } finally {
-    process.stdin.setRawMode(false);
-    process.stdin.pause();
-  }
+    };
+    process.stdin.on("data", onData);
+    process.stdin.once("end", onEnd);
+  });
 }
 
 async function main() {
