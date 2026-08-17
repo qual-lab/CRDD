@@ -31,7 +31,7 @@ pub const ACCESS_ADD_SUBDIRECTORY: u32 = 1 << 2;
 pub const ACCESS_WRITE_EA: u32 = 1 << 3;
 pub const ACCESS_WRITE_ATTRIBUTES: u32 = 1 << 4;
 pub const ACCESS_DELETE_CHILD: u32 = 1 << 5;
-pub const ACCESS_DELETE: u32 = 1 << 6;
+pub const ACCESS_DELETE_ON_ROOT_OBJECT: u32 = 1 << 6;
 pub const ACCESS_WRITE_DAC: u32 = 1 << 7;
 pub const ACCESS_WRITE_OWNER: u32 = 1 << 8;
 
@@ -248,7 +248,7 @@ pub fn observe(request: &Request) -> Response {
         (ACCESS_WRITE_EA, FILE_WRITE_EA),
         (ACCESS_WRITE_ATTRIBUTES, FILE_WRITE_ATTRIBUTES),
         (ACCESS_DELETE_CHILD, FILE_DELETE_CHILD),
-        (ACCESS_DELETE, DELETE),
+        (ACCESS_DELETE_ON_ROOT_OBJECT, DELETE),
         (ACCESS_WRITE_DAC, WRITE_DAC),
         (ACCESS_WRITE_OWNER, WRITE_OWNER),
     ];
@@ -318,5 +318,50 @@ mod tests {
         assert_eq!(response.nonce, request.nonce);
         assert!(root_path.is_dir());
         fs::remove_dir(root_path).unwrap();
+    }
+
+    #[test]
+    fn blocks_missing_non_directory_and_identity_mismatch() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let temporary_root = std::env::temp_dir().join(format!(
+            "crdd-platform-access-negative-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir(&temporary_root).unwrap();
+        let file_path = temporary_root.join("regular-file");
+        fs::write(&file_path, b"not a directory").unwrap();
+        let missing_path = temporary_root.join("missing");
+        let expected_identity = FileIdentity {
+            volume_serial_number: 0,
+            file_index_high: 0,
+            file_index_low: 0,
+        };
+        for path in [&missing_path, &file_path] {
+            let request = Request {
+                root_role: RootRole::Runtime,
+                nonce: [4_u8; 32],
+                expected_identity,
+                path: path.to_str().unwrap().to_owned(),
+            };
+            let response = observe(&request);
+            assert!(!response.is_candidate);
+            assert_eq!(response.reason, Reason::RootOpenFailed);
+            assert_eq!(response.access_mask, 0);
+        }
+        let mismatch_request = Request {
+            root_role: RootRole::Runtime,
+            nonce: [5_u8; 32],
+            expected_identity,
+            path: temporary_root.to_str().unwrap().to_owned(),
+        };
+        let mismatch_response = observe(&mismatch_request);
+        assert!(!mismatch_response.is_candidate);
+        assert_eq!(mismatch_response.reason, Reason::RootIdentityMismatch);
+        assert_eq!(mismatch_response.access_mask, 0);
+        fs::remove_file(file_path).unwrap();
+        fs::remove_dir(temporary_root).unwrap();
     }
 }

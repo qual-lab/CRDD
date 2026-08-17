@@ -16,7 +16,7 @@ const ACCESS_FLAGS = Object.freeze({
   writeExtendedAttributes: 1 << 3,
   writeAttributes: 1 << 4,
   deleteChild: 1 << 5,
-  deleteRoot: 1 << 6,
+  deleteOnRootObject: 1 << 6,
   writeDacl: 1 << 7,
   writeOwner: 1 << 8,
 });

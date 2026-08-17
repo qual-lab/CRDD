@@ -74,10 +74,10 @@ const projectConfigs = Object.freeze([
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 5,
-  coordinatorProduction: 61,
+  coordinatorProduction: 62,
   coordinatorTests: 53,
-  rustPlatformAccess: 3,
-  uniqueTotal: 119,
+  rustPlatformAccess: 4,
+  uniqueTotal: 120,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
@@ -245,10 +245,10 @@ function collectFiles(root: string): string[] {
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     if (entry.name === "node_modules") continue;
     const target = path.join(root, entry.name);
-    if (
-      target === path.join(repositoryRoot, "tools", "platform-access", "target")
-    )
+    if (isPlatformAccessTarget(target)) {
+      assertGeneratedTargetDirectory(target);
       continue;
+    }
     if (entry.isDirectory()) {
       assert.equal(
         entry.isSymbolicLink(),
@@ -263,6 +263,18 @@ function collectFiles(root: string): string[] {
     files.push(target);
   }
   return files;
+}
+
+function isPlatformAccessTarget(target: string): boolean {
+  return (
+    target === path.join(repositoryRoot, "tools", "platform-access", "target")
+  );
+}
+
+function assertGeneratedTargetDirectory(target: string): void {
+  const metadata = fs.lstatSync(target);
+  assert.equal(metadata.isSymbolicLink(), false, `symbolic target: ${target}`);
+  assert.equal(metadata.isDirectory(), true, `non-directory target: ${target}`);
 }
 
 function collectReferenceFiles(root: string): string[] {
@@ -1520,12 +1532,13 @@ test("toolsのPathと型付きsource identifierは内部コーディング規約
         rustSourceFiles.size,
         EXPECTED_OWNED_SOURCE_COUNTS.rustPlatformAccess,
       );
+      const rustSourceRoots = [
+        path.join(repositoryRoot, "tools", "platform-access", "src"),
+        path.join(repositoryRoot, "tools", "platform-access", "tests"),
+      ];
       for (const rustSourceFile of rustSourceFiles) {
         assert.ok(
-          isContainedPath(
-            rustSourceFile,
-            path.join(repositoryRoot, "tools", "platform-access", "src"),
-          ),
+          rustSourceRoots.some((root) => isContainedPath(rustSourceFile, root)),
           `Rust source outside private platform-access crate: ${rustSourceFile}`,
         );
       }
@@ -1576,6 +1589,25 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
       collectFiles(siblingPackageRoot).map((file) => path.basename(file)),
       ["owned-module.ts"],
       "an unknown sibling package must still use the shared Path classifier",
+    );
+
+    const generatedTarget = path.join(temporaryRoot, "target");
+    fs.mkdirSync(generatedTarget);
+    assert.doesNotThrow(() => assertGeneratedTargetDirectory(generatedTarget));
+    fs.rmSync(generatedTarget, { recursive: true });
+    fs.writeFileSync(generatedTarget, "not a directory", "utf8");
+    assert.throws(
+      () => assertGeneratedTargetDirectory(generatedTarget),
+      /non-directory target/u,
+    );
+    fs.rmSync(generatedTarget);
+    const junctionTarget = path.join(temporaryRoot, "target-junction");
+    const junctionDestination = path.join(temporaryRoot, "target-destination");
+    fs.mkdirSync(junctionDestination);
+    fs.symlinkSync(junctionDestination, junctionTarget, "junction");
+    assert.throws(
+      () => assertGeneratedTargetDirectory(junctionTarget),
+      /symbolic target/u,
     );
   } finally {
     fs.rmSync(temporaryRoot, { force: true, recursive: true });

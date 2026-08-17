@@ -71,6 +71,35 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
   }
 });
 
+test("全access bitを固定した限定名へ一対一で写像する", () => {
+  const nonce = Buffer.alloc(32, 3);
+  const names = [
+    "readTraverse",
+    "addFile",
+    "addSubdirectory",
+    "writeExtendedAttributes",
+    "writeAttributes",
+    "deleteChild",
+    "deleteOnRootObject",
+    "writeDacl",
+    "writeOwner",
+  ] as const;
+  for (const [index, name] of names.entries()) {
+    const result = evaluatePlatformAccessResponseCandidate(
+      response(nonce, 2, 1 << index),
+      nonce,
+      "authority",
+    );
+    assert.equal(result.status, "candidate");
+    for (const candidateName of names) {
+      assert.equal(
+        result.accessObservation?.[candidateName],
+        candidateName === name,
+      );
+    }
+  }
+});
+
 test("Release binary結合前は入力へ触れずprocess起動前にblockedにする", () => {
   let trapCalls = 0;
   const trap = new Proxy(

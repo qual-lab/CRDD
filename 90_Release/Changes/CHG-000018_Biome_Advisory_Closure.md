@@ -1,7 +1,7 @@
 # 変更トレース: Biome診断の全解消とWarning再発防止
 
 - 変更ID: `CHG-000018`
-- 状態: `Draft`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
 - 対象: CRDD公式Repositoryの`tools/**`と`template/tools/**`

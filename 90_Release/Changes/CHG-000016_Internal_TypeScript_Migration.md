@@ -1,7 +1,7 @@
 # 変更トレース: CRDD内部ScriptのTypeScript完全移行
 
 - 変更ID: `CHG-000016`
-- 状態: `Draft`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
 - 対象: CRDD v1.x / v2.xで管理する内部Script

@@ -10,6 +10,7 @@
     "format:check": "biome format ../..",
     "lint": "biome lint ../.. --error-on-warnings",
     "platform-access:build": "cargo build --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",
+    "platform-access:coverage": "node ./scripts/check-platform-access-coverage.ts",
     "platform-access:format:check": "cargo fmt --manifest-path ../platform-access/Cargo.toml --check",
     "platform-access:lint": "cargo clippy --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc -- -D warnings",
     "platform-access:test": "cargo test --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",

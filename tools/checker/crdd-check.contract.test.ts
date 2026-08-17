@@ -99,6 +99,7 @@ test("Rust platform accessの開発入口は固定Cargo commandだけを使う",
       Object.fromEntries(
         [
           "platform-access:build",
+          "platform-access:coverage",
           "platform-access:format:check",
           "platform-access:lint",
           "platform-access:test",
@@ -107,6 +108,8 @@ test("Rust platform accessの開発入口は固定Cargo commandだけを使う",
     {
       "platform-access:build":
         "cargo build --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",
+      "platform-access:coverage":
+        "node ./scripts/check-platform-access-coverage.ts",
       "platform-access:format:check":
         "cargo fmt --manifest-path ../platform-access/Cargo.toml --check",
       "platform-access:lint":

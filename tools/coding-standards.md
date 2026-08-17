@@ -44,7 +44,7 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 | 通常のJSONファイル | ASCII `kebab-case` | `provider-profile.json` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
 
-大文字小文字の混在、`snake_case`、空白、意味を持たない連番および同じ責務に複数の区切り形式を混在させる命名は禁止する。
+大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSONの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。
 
 ### 3.2. ecosystem予約名
 
@@ -85,7 +85,7 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 
 Rustは`tools/platform-access/**`のprivate crateだけへ適用する。module／file、function、method、variableおよびparameterは`snake_case`、struct、enum、traitおよび型は`PascalCase`、定数およびstaticは`SCREAMING_SNAKE_CASE`とする。FFIの`unsafe`はWindows API接続moduleへ限定し、各blockへ所有権、pointer lifetimeおよび解放責務の安全根拠を記載する。Rust標準の命名と型境界は`rustfmt`、rustcおよびClippyで検査し、TypeScript AST分類器へ混在させない。
 
-`tools/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。`.rs`実体は同crateの`src/**`へ限定し、`Cargo.lock`を追跡する。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`tools/**`へ追加しない。
+`tools/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。ただし`target`実体が通常Directoryかつsymbolic link／junctionでないことを除外前に確認し、通常file、symbolic link、junctionまたは分類不能な実体は検査失敗とする。`.rs`実体は同crateの`src/**`または`tests/**`へ限定し、`Cargo.lock`を追跡する。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`tools/**`へ追加しない。
 
 ## 5. 曖昧な名前
 
@@ -134,9 +134,9 @@ Rustは`tools/platform-access/**`のprivate crateだけへ適用する。module�
 ## 8. 検査と変更手順
 
 - Biomeは表現できるTypeScript filenameとsource規則を検査する。
-- Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否および`cargo test --locked`で検査する。
+- Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否、`cargo test --locked`、locked buildおよび固定`llvm-tools-preview`によるcoverageで検査する。stable toolchainがbranch mappingを生成せず分母0を返す場合は率へ換算せず`Not Available`とし、region／function／line実測とSecurity decision obligationを別の確認として記録する。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
-- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`tools/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`tools/checker/tsconfig.json`、`tools/coordinator/tsconfig.strict.json`および`tools/coordinator/tsconfig.tests.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。Rust sourceは`tools/platform-access/src/**`の閉集合として別に数え、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
+- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`tools/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`tools/checker/tsconfig.json`、`tools/coordinator/tsconfig.strict.json`および`tools/coordinator/tsconfig.tests.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。Rust sourceは`tools/platform-access/src/**`と`tools/platform-access/tests/**`の閉集合として別に数え、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
 - renameでは、正本、import、package script、設定、試験、文書、AI入口および現在の移設先を同じ変更で更新する。
 - 過去の固定履歴は書き換えず、旧Pathから現在Pathへの移行を後続の変更トレースへ記録する。

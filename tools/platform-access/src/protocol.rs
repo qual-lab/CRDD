@@ -211,4 +211,20 @@ mod tests {
         assert_eq!(&response[12..44], &[3_u8; 32]);
         assert!(!response.windows(3).any(|window| window == b"C:\\"));
     }
+
+    #[test]
+    fn blocked_response_has_zero_status_reason_and_access_mask() {
+        let response = encode_response(Response {
+            root_role: RootRole::Authority,
+            nonce: [8_u8; 32],
+            is_candidate: false,
+            reason: Reason::RootIdentityMismatch,
+            access_mask: 0,
+        });
+        assert_eq!(response[10], RootRole::Authority as u8);
+        assert_eq!(response[11], 0);
+        assert_eq!(&response[12..44], &[8_u8; 32]);
+        assert_eq!(u16::from_le_bytes(response[44..46].try_into().unwrap()), 4);
+        assert_eq!(u32::from_le_bytes(response[46..50].try_into().unwrap()), 0);
+    }
 }
