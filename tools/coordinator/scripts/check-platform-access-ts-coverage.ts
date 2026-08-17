@@ -9,6 +9,8 @@ const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
+  "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
+  "tools/coordinator/scripts/release-staging-manifest.ts",
   "tools/coordinator/scripts/sign-release-manifest.ts",
   "tools/coordinator/src/core/doctor.ts",
   "tools/coordinator/src/security/platform-access-adapter.ts",
@@ -27,6 +29,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/doctor.contract.test.ts",
   "tools/coordinator/tests/platform-access-adapter.contract.test.ts",
   "tools/coordinator/tests/platform-access-release.contract.test.ts",
+  "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-release-identity.contract.test.ts",
@@ -72,6 +75,12 @@ function count(raw: string, label: string) {
   return value;
 }
 
+function positiveCount(raw: string, label: string) {
+  const value = count(raw, label);
+  if (value < 1) throw new Error(`invalid ${label}`);
+  return value;
+}
+
 function oneValue(lines: readonly string[], prefix: string) {
   const values = lines.filter((line) => line.startsWith(prefix));
   if (values.length !== 1) throw new Error(`invalid ${prefix} count`);
@@ -105,7 +114,7 @@ function branchRecords(lines: readonly string[]) {
     const fields = line.slice(5).split(",");
     if (fields.length !== 4) throw new Error("invalid BRDA");
     const branch = Object.freeze({
-      line: count(fields[0] ?? "", "BRDA line"),
+      line: positiveCount(fields[0] ?? "", "BRDA line"),
       block: count(fields[1] ?? "", "BRDA block"),
       branch: count(fields[2] ?? "", "BRDA branch"),
       taken: fields[3] === "-" ? null : count(fields[3] ?? "", "BRDA taken"),
@@ -118,34 +127,115 @@ function branchRecords(lines: readonly string[]) {
   return branches;
 }
 
-function validateLineAndFunctionRecords(
+function validateLineRecords(
   lines: readonly string[],
-  prefix: "DA:" | "FNDA:",
   expectedTotal: number,
   expectedCovered: number,
 ) {
-  const identities = new Set<string>();
+  const lineNumbers = new Set<number>();
   let covered = 0;
   let total = 0;
   for (const line of lines) {
-    if (!line.startsWith(prefix)) continue;
-    const fields = line.slice(prefix.length).split(",");
-    if (fields.length !== 2) throw new Error(`invalid ${prefix}`);
-    const identity = fields[prefix === "DA:" ? 0 : 1] ?? "";
-    if (identity.length === 0 || identities.has(identity)) {
-      throw new Error(`duplicate ${prefix}`);
-    }
-    identities.add(identity);
-    const executions = count(
-      fields[prefix === "DA:" ? 1 : 0] ?? "",
-      `${prefix} executions`,
-    );
+    if (!line.startsWith("DA:")) continue;
+    const fields = line.slice(3).split(",");
+    if (fields.length !== 2) throw new Error("invalid DA");
+    const lineNumber = positiveCount(fields[0] ?? "", "DA line");
+    if (lineNumbers.has(lineNumber)) throw new Error("duplicate DA");
+    lineNumbers.add(lineNumber);
+    const executions = count(fields[1] ?? "", "DA executions");
     total += 1;
     if (executions > 0) covered += 1;
   }
   if (total !== expectedTotal || covered !== expectedCovered) {
-    throw new Error(`inconsistent ${prefix} summary`);
+    throw new Error("inconsistent DA summary");
   }
+}
+
+function validateFunctionRecords(
+  lines: readonly string[],
+  expectedTotal: number,
+  expectedCovered: number,
+) {
+  const definitions = new Map<string, number>();
+  const executions = new Map<string, number>();
+  for (const line of lines) {
+    if (line.startsWith("FN:")) {
+      const separator = line.indexOf(",", 3);
+      if (separator < 0) throw new Error("invalid FN");
+      const lineNumber = positiveCount(line.slice(3, separator), "FN line");
+      const name = line.slice(separator + 1);
+      if (name.length === 0 || definitions.has(name)) {
+        throw new Error("duplicate FN");
+      }
+      definitions.set(name, lineNumber);
+    }
+    if (line.startsWith("FNDA:")) {
+      const separator = line.indexOf(",", 5);
+      if (separator < 0) throw new Error("invalid FNDA");
+      const executionCount = count(line.slice(5, separator), "FNDA executions");
+      const name = line.slice(separator + 1);
+      if (name.length === 0 || executions.has(name)) {
+        throw new Error("duplicate FNDA");
+      }
+      executions.set(name, executionCount);
+    }
+  }
+  if (
+    definitions.size !== expectedTotal ||
+    executions.size !== expectedTotal ||
+    [...definitions.keys()].some((name) => !executions.has(name)) ||
+    [...executions.keys()].some((name) => !definitions.has(name)) ||
+    [...executions.values()].filter((value) => value > 0).length !==
+      expectedCovered
+  ) {
+    throw new Error("inconsistent function records");
+  }
+}
+
+const allowedLcovTags = Object.freeze(
+  new Set([
+    "TN",
+    "SF",
+    "FN",
+    "FNDA",
+    "DA",
+    "BRDA",
+    "LF",
+    "LH",
+    "FNF",
+    "FNH",
+    "BRF",
+    "BRH",
+  ]),
+);
+
+function lcovRecords(raw: string) {
+  const records: string[][] = [];
+  let currentLines: string[] = [];
+  const lines = raw.replaceAll("\r\n", "\n").split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? "";
+    if (line === "end_of_record") {
+      if (currentLines.length === 0) throw new Error("duplicate end_of_record");
+      records.push(currentLines);
+      currentLines = [];
+      continue;
+    }
+    if (
+      line.length === 0 &&
+      index === lines.length - 1 &&
+      currentLines.length === 0
+    ) {
+      continue;
+    }
+    if (line.length === 0) throw new Error("invalid empty LCOV line");
+    const separator = line.indexOf(":");
+    const tag = separator < 0 ? "" : line.slice(0, separator);
+    if (!allowedLcovTags.has(tag)) throw new Error("unknown LCOV record");
+    currentLines.push(line);
+  }
+  if (currentLines.length !== 0) throw new Error("missing end_of_record");
+  return records;
 }
 
 export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
@@ -155,13 +245,13 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
   ) {
     throw new Error("invalid LCOV input");
   }
-  const records = raw
-    .split("end_of_record")
-    .map((record) => record.trim())
-    .filter((record) => record.length > 0);
+  const records = lcovRecords(raw);
   const sources = new Map<string, SourceCoverage>();
-  for (const record of records) {
-    const lines = record.split(/\r?\n/u);
+  for (const lines of records) {
+    const testNames = lines.filter((line) => line.startsWith("TN:"));
+    if (testNames.length > 1 || testNames.some((line) => line !== "TN:")) {
+      throw new Error("invalid TN count");
+    }
     const sourceLines = lines.filter((line) => line.startsWith("SF:"));
     if (sourceLines.length !== 1) throw new Error("invalid SF count");
     const source = normalizeSource(sourceLines[0]?.slice(3) ?? "");
@@ -185,15 +275,9 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
     ) {
       throw new Error("invalid LCOV summary");
     }
-    validateLineAndFunctionRecords(
+    validateLineRecords(lines, lineTotals.total, lineTotals.covered);
+    validateFunctionRecords(
       lines,
-      "DA:",
-      lineTotals.total,
-      lineTotals.covered,
-    );
-    validateLineAndFunctionRecords(
-      lines,
-      "FNDA:",
       functionTotals.total,
       functionTotals.covered,
     );

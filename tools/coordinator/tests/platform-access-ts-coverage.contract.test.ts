@@ -12,6 +12,7 @@ import {
 
 function record(source: string, taken = "1") {
   return [
+    "TN:",
     `SF:${source}`,
     "FN:1,fixture",
     "FNDA:1,fixture",
@@ -34,10 +35,28 @@ function exactLcov() {
 }
 
 test("TypeScript coverageは固定sourceとtest母集団を所有する", () => {
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 12);
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 12);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 12);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 12);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 14);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 13);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 14);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 13);
+  assert.equal(
+    PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
+      "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
+    ),
+    true,
+  );
+  assert.equal(
+    PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
+      "tools/coordinator/scripts/release-staging-manifest.ts",
+    ),
+    true,
+  );
+  assert.equal(
+    PLATFORM_ACCESS_TS_COVERAGE_TESTS.includes(
+      "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
+    ),
+    true,
+  );
   assert.deepEqual(PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS, [
     "--experimental-test-coverage",
     "--test",
@@ -70,9 +89,9 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
 test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", () => {
   const result = parsePlatformAccessTsCoverageLcov(exactLcov());
   assert.deepEqual(result.totals, {
-    lines: { covered: 12, total: 12 },
-    functions: { covered: 12, total: 12 },
-    branches: { covered: 11, total: 12 },
+    lines: { covered: 14, total: 14 },
+    functions: { covered: 14, total: 14 },
+    branches: { covered: 13, total: 14 },
   });
   assert.deepEqual(result.sources[0]?.uncoveredBranches, [
     { line: 1, block: 0, branch: 0, taken: null },
@@ -117,21 +136,21 @@ test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒�
       parsePlatformAccessTsCoverageLcov(
         exact.replace("FNDA:1,fixture", "FNDA:1,fixture\nFNDA:0,fixture"),
       ),
-    /duplicate FNDA:/u,
+    /duplicate FNDA/u,
   );
   assert.throws(
     () =>
       parsePlatformAccessTsCoverageLcov(
         exact.replace("DA:1,1", "DA:1,1\nDA:1,0"),
       ),
-    /duplicate DA:/u,
+    /duplicate DA/u,
   );
   assert.throws(
     () => parsePlatformAccessTsCoverageLcov(exact.replace("LF:1", "LF:-1")),
     /invalid LF:/u,
   );
   assert.throws(
-    () => parsePlatformAccessTsCoverageLcov(exact.replace("FNF:1", "")),
+    () => parsePlatformAccessTsCoverageLcov(exact.replace("FNF:1\n", "")),
     /invalid FNF: count/u,
   );
   assert.throws(
@@ -140,5 +159,75 @@ test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒�
         exact.replace("SF:tools/", "SF:C:\\outside\\tools/"),
       ),
     /invalid LCOV source/u,
+  );
+});
+
+test("LCOV parserはrecord grammar、正の行Identityおよびfunction対応をexactにする", () => {
+  const exact = exactLcov();
+  assert.throws(
+    () => parsePlatformAccessTsCoverageLcov(exact.replace("DA:1,1", "DA:0,1")),
+    /invalid DA line/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(
+        exact.replace("DA:1,1", "DA:not-a-line,1"),
+      ),
+    /invalid DA line/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(
+        exact.replace("FN:1,fixture", "FN:0,fixture"),
+      ),
+    /invalid FN line/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(
+        exact.replace("BRDA:1,0,0,-", "BRDA:0,0,0,-"),
+      ),
+    /invalid BRDA line/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(
+        exact.replace("FNDA:1,fixture", "FNDA:1,other"),
+      ),
+    /inconsistent function records/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(exact.replace("FN:1,fixture\n", "")),
+    /inconsistent function records/u,
+  );
+  assert.throws(
+    () => parsePlatformAccessTsCoverageLcov(exact.replace("SF:", "UNKNOWN:")),
+    /unknown LCOV record/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(
+        record(PLATFORM_ACCESS_TS_COVERAGE_SOURCES[0] ?? "").replace(
+          "\nend_of_record",
+          "",
+        ),
+      ),
+    /missing end_of_record/u,
+  );
+  assert.throws(
+    () =>
+      parsePlatformAccessTsCoverageLcov(
+        exact.replace("end_of_record", "end_of_record\nend_of_record"),
+      ),
+    /duplicate end_of_record/u,
+  );
+  assert.throws(
+    () => parsePlatformAccessTsCoverageLcov(`${exact}\nUNKNOWN:after`),
+    /unknown LCOV record/u,
+  );
+  assert.throws(
+    () => parsePlatformAccessTsCoverageLcov(exact.replace("TN:", "TN:named")),
+    /invalid TN count/u,
   );
 });

@@ -8,9 +8,11 @@ import test from "node:test";
 import { generateReleaseKeyPair } from "../scripts/generate-release-key.ts";
 import { signReleaseManifest } from "../scripts/sign-release-manifest.ts";
 import {
-  beginPlatformAccessArtifactSigningObservation,
-  placePlatformAccessBoundReleaseManifestCandidate,
-} from "../src/security/platform-access-release.ts";
+  beginReleaseStagingManifestSession,
+  describeReleaseStagingManifestContract,
+  placeReleaseStagingManifestCandidate,
+  ReleaseStagingManifestError,
+} from "../scripts/release-staging-manifest.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
@@ -59,6 +61,31 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
       }
     }
   }
+
+  const stagingImporters: string[] = [];
+  for (const relativeRoot of ["scripts", "src", "bin"] as const) {
+    const files = fs.readdirSync(path.join(coordinatorRoot, relativeRoot), {
+      recursive: true,
+      withFileTypes: true,
+    });
+    for (const entry of files) {
+      if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+      const source = fs.readFileSync(
+        path.join(entry.parentPath, entry.name),
+        "utf8",
+      );
+      if (source.includes('from "./release-staging-manifest.ts"')) {
+        stagingImporters.push(
+          path
+            .relative(coordinatorRoot, path.join(entry.parentPath, entry.name))
+            .replaceAll("\\", "/"),
+        );
+      }
+    }
+  }
+  assert.deepEqual(stagingImporters.sort(), [
+    "scripts/sign-release-manifest.ts",
+  ]);
 });
 
 function ephemeralEnvelopeBytes() {
@@ -95,8 +122,7 @@ function placementFixture() {
   );
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
   fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
-  const observation =
-    beginPlatformAccessArtifactSigningObservation(distributionRoot);
+  const observation = beginReleaseStagingManifestSession(distributionRoot);
   assert.ok(observation);
   return {
     parent,
@@ -124,14 +150,46 @@ function withFsyncMutation(
   }
 }
 
+function assertStagingFailure(
+  operation: () => void,
+  isEffectExpected: boolean,
+  shouldExpectDiscard: boolean,
+) {
+  try {
+    operation();
+    assert.fail("release staging failure was required");
+  } catch (error) {
+    assert.ok(error instanceof ReleaseStagingManifestError);
+    assert.equal(error.releaseStagingFilesystemEffectIssued, isEffectExpected);
+    assert.equal(error.stagingRootMustBeDiscarded, shouldExpectDiscard);
+  }
+}
+
 test("署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認する", () => {
   const value = placementFixture();
   try {
-    const result = placePlatformAccessBoundReleaseManifestCandidate(
+    const result = placeReleaseStagingManifestCandidate(
       value.token,
       value.canonicalBytes,
     );
     assert.equal(result.status, "placed");
+    assert.equal(result.releaseStagingFilesystemEffectIssued, true);
+    assert.equal(result.stagingRootMustBeDiscarded, false);
+    assert.equal(result.runtimeFilesystemEffectIssued, false);
+    assert.equal(result.provisioningFilesystemEffectIssued, false);
+    assert.equal(result.runtimeAuthorityConferred, false);
+    assert.equal(result.runtimeCapabilityIssued, false);
+    assert.deepEqual(describeReleaseStagingManifestContract(), {
+      manifestRelativePath: "90_Release/coordinator-package-manifest.json",
+      releaseStagingManifestWrite: "implemented_explicit_signing_effect",
+      releaseStagingFilesystemEffectIssuedOnSuccess: true,
+      failedAfterCreateRequiresStagingRootDiscard: true,
+      runtimeFilesystemEffectIssued: false,
+      provisioningFilesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+      productionRuntimeImportAllowed: false,
+    });
     assert.deepEqual(fs.readFileSync(value.manifestPath), value.canonicalBytes);
   } finally {
     fs.rmSync(value.parent, { recursive: true, force: true });
@@ -161,17 +219,18 @@ test("manifestの同長上書き、短縮および追記をcreatedへ流用し�
   for (const mutate of mutations) {
     const value = placementFixture();
     try {
-      assert.throws(
+      assertStagingFailure(
         () =>
           withFsyncMutation(
             (descriptor) => mutate(descriptor, value.canonicalBytes),
             () =>
-              void placePlatformAccessBoundReleaseManifestCandidate(
+              void placeReleaseStagingManifestCandidate(
                 value.token,
                 value.canonicalBytes,
               ),
           ),
-        /release_manifest_staging_changed_after_placement/u,
+        true,
+        true,
       );
       assert.equal(fs.existsSync(value.manifestPath), true);
     } finally {
@@ -200,17 +259,18 @@ test("manifest Path、Release DirectoryまたはRust成果物の配置後差を�
   for (const mutate of cases) {
     const value = placementFixture();
     try {
-      assert.throws(
+      assertStagingFailure(
         () =>
           withFsyncMutation(
             () => mutate(value),
             () =>
-              void placePlatformAccessBoundReleaseManifestCandidate(
+              void placeReleaseStagingManifestCandidate(
                 value.token,
                 value.canonicalBytes,
               ),
           ),
-        /release_manifest_staging_changed_after_placement/u,
+        true,
+        true,
       );
       assert.equal(
         fs.existsSync(value.manifestPath) ||
@@ -226,6 +286,28 @@ test("manifest Path、Release DirectoryまたはRust成果物の配置後差を�
     } finally {
       fs.rmSync(value.parent, { recursive: true, force: true });
     }
+  }
+});
+
+test("偽造tokenと既存manifestをRelease staging成功へ流用しない", () => {
+  const canonicalBytes = ephemeralEnvelopeBytes();
+  assertStagingFailure(
+    () => void placeReleaseStagingManifestCandidate({}, canonicalBytes),
+    false,
+    false,
+  );
+
+  const value = placementFixture();
+  try {
+    fs.writeFileSync(value.manifestPath, canonicalBytes);
+    assertStagingFailure(
+      () =>
+        void placeReleaseStagingManifestCandidate(value.token, canonicalBytes),
+      false,
+      true,
+    );
+  } finally {
+    fs.rmSync(value.parent, { recursive: true, force: true });
   }
 });
 

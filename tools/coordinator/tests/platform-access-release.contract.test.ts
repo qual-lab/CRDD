@@ -101,6 +101,7 @@ test("release contractは固定targetと非公開process境界を示す", () => 
   assert.equal(contract.protocolRevision, 1);
   assert.equal(contract.signedManifestBinding, "implemented_candidate");
   assert.equal(contract.pathEnvironmentLookup, false);
+  assert.equal(contract.artifactObservationFilesystemEffectIssued, false);
   assert.equal(contract.runtimeAuthorityConferred, false);
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

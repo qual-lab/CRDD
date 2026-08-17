@@ -14,13 +14,15 @@
 
 Qual-Labが承認したTypeScript＋最小Rust構成を継続し、`CHG-000019`で保留したRust binaryのRelease Identity結合候補を実装する。上限付きプロセス（Bounded Process）によるproduction起動は、保護済み有効世代と検証済み実行イメージ（Verified Image）の結合方式が未決・未実装のため、現在の入口から撤去して固定`blocked`へ戻す。
 
-本変更はReleaseの採用、統合、署名実行または公開を決定しない。Root保護、DACL適用、Platform Provisioner Effect、Runtime reader、POSIX、initial Trustおよびactivationも成立させない。既存12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行を維持する。
+本変更はReleaseの採用、統合、署名実行または公開を決定しない。明示Release署名commandはステージングmanifestの排他作成・書込み・`fsync`というリリースステージングのファイルシステム処置（Release Staging Filesystem Effect）だけを発行する。Root保護、DACL適用、Platform Provisioner Effect、Runtime Effect、Runtime reader、POSIX、initial Trustおよびactivationは成立させない。既存12 blocker、6 current-run evidence、Gate `blocked`、Runtime Authority／Runtime Capability非発行を維持する。
 
 ## 実装
 
 - Windows成果物の固定相対Pathを`90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe`、targetを`x86_64-pc-windows-msvc`、Rust toolchainを`1.94.1`、protocol revisionを1、最大byte長を16 MiBへ固定した。
 - package manifestのexact payloadへ、固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を持つ`platformAccessArtifact`を追加した。v0.18 Candidateでは旧candidate Schemaの互換aliasまたはshimを残さず、Release stagingと署名処理を新Schemaへ移行する。
 - 署名commandは固定成果物を同一file handleで読み、最初に得た配布Root／file IdentityとHashを署名前およびmanifest排他配置後まで同じ基準へ再照合する。manifestは固定Pathへ排他作成し、同じdescriptorで書込みと`fsync`を行った後、先頭から期待byte長＋1まで再読取りしてcanonical byte完全一致とEOFを要求する。正常終了はその観測区間でのmanifestと成果物の一致候補だけを示し、継続的同一性、Release採用または実行許可を付与しない。
+- 読み取り専用の成果物観測とmanifest配置処置を別moduleへ分離した。配置moduleは初回Root／Release Directory／成果物観測を偽造不能なopaque sessionへ保持し、配置時にcallerからRootまたはPathを再入力させない。production `src/**`、`bin/**`、Adapter、doctorまたはRuntime投影からはimportできず、固定署名scriptと専用contract testだけが利用する。
+- manifest作成前の失敗は`releaseStagingFilesystemEffectIssued: false`、排他作成後の失敗は`true`かつ`stagingRootMustBeDiscarded: true`、成功は`true`かつ`stagingRootMustBeDiscarded: false`として内部契約へ保持する。いずれも`runtimeFilesystemEffectIssued`、`provisioningFilesystemEffectIssued`、`runtimeAuthorityConferred`および`runtimeCapabilityIssued`は`false`である。
 - 観測区間中に成果物、Root、manifest byteまたはmanifest配置先が変わった場合は失敗する。生成済みmanifestをPathで自動削除せず、残存manifestを含む失敗したstaging Rootを再利用・再署名せず、Root全体を破棄して新規stagingからやり直す。
 - production署名入口からcaller指定Trust、任意signer、検証skipおよびtest hookを撤去した。固定公開鍵、commit／tree、Release Identityおよび成果物観測を常に通る一つの入口だけを残し、署名Authorityを持たない配置helperの動的試験にはtest内で生成した一時的な署名包絡だけを使う。
 - TypeScript Adapterのproduction process実装を撤去した。入力を参照せず`platform_access_protected_active_generation_binding_not_implemented`で停止し、Path、時刻、manifest、package、processまたはFilesystemへ到達しない。
@@ -30,9 +32,9 @@ Qual-Labが承認したTypeScript＋最小Rust構成を継続し、`CHG-000019`�
 
 Release artifact contract、manifest Core、署名command、Release Identity再計算、package filesystem loader、固定停止するprivate Adapterおよび各contract testを同時更新した。README、脅威モデルおよび保守正本は、次の三段階を一意に区別する。
 
-1. Rust Coreと、署名manifestへ結合する成果物観測・署名候補は実装済みである。
+1. Rust Coreと署名manifestへ結合する成果物観測は読み取り専用候補であり、明示Release署名commandのステージングmanifest配置だけが限定したRelease Staging Filesystem Effectを持つ。
 2. 保護済み有効世代、検証済み実行イメージ、production process起動およびRoot観測成果物への写像は未実装である。
-3. DACL mutation、Provision Effect、Runtime reader、POSIX、initial Trust、activation、AuthorityおよびCapabilityも未実装である。
+3. DACL mutation、Provision Effect、Runtime Effect、Runtime reader、POSIX、initial Trust、activation、Runtime AuthorityおよびRuntime Capabilityも未実装である。
 
 通常run、`doctor`、`activate`または`provision`からprocessを発火しない。source checkoutと署名済みstagingのどちらでも入力Pathやhelper processより前に`blocked`となる。第13 blockerを追加せず、既存`platform_provisioner_verification`と`platform_provisioner_effect`の未完了範囲へ接続する。
 
@@ -50,16 +52,18 @@ CRDD公式RepositoryのRelease工程は、locked release buildの成果物を固
 
 ## Self-checkと独立確認
 
-Node組込みcoverageは`--test-concurrency=1`と`--experimental-test-isolation=none`を固定し、同じsource／test母集団を同一processへ一意に読み込む。LCOV集計器は固定12 source以外、missing／extra／duplicate `SF`、不正／重複`DA`・`FNDA`・`BRDA`、負値、summary不一致、Repository外Pathおよび32 MiB超過を拒否する。割合から分母・分子または未到達位置を逆算しない。連続2回の標準出力JSONは完全一致し、SHA-256は`4AD193B8795DABFA0C83837E1757F893F920E08DE6FE9BE726E599B3E2E402AC`だった。
+Node組込みcoverageは`--test-concurrency=1`と`--experimental-test-isolation=none`を固定し、同じsource／test母集団を同一processへ一意に読み込む。LCOV集計器自身とRelease staging配置moduleを含む固定14 source／13 test以外、missing／extra／duplicate `SF`、未知tag、欠落・重複・末尾後データを持つ`end_of_record`、不正／重複`DA`・`FN`・`FNDA`・`BRDA`、非正line、負のblock／branch／count、`FN`と`FNDA`の不一致、summary不一致、Repository外Pathおよび32 MiB超過を拒否する。割合から分母・分子または未到達位置を逆算しない。連続2回の標準出力JSONは完全一致し、SHA-256は`1683CE6A3172946183DE2EBDD3A5A21739EDB1C668DD8659ECEDC64CBFDBD30D`だった。
 
-新固定前のSelf-checkはNode 24.19.0でCoordinator 350/350、Checker 151/151、TypeScript 126／Rust 4 source closure、両private packageの型検査・Biome Lint・Formatterを合格した。Rust 1.94.1では7/7、`rustfmt --check`、Clippy `-D warnings`、locked release buildおよびcoverage確認を合格し、全体Checkerは482 files／298 Markdown／1883 links／563 anchors／26 Related／26 versioned documents／8 Stable ID／68 remediation rows、Error 0／Warning 0だった。これは後続の独立確認を代替しない。
+新固定前のSelf-checkはNode 24.19.0でCoordinator 352/352、Checker 151/151、TypeScript 127／Rust 4 source closure、両private packageの型検査・Biome Lint・Formatterを合格した。Rust 1.94.1では7/7、`rustfmt --check`、Clippy `-D warnings`、locked release buildおよびcoverage確認を合格し、Rust coverageはregions 817/907、functions 36/37、lines 538/590、branches 0/0 `Not Available`だった。全体Checkerは483 files／298 Markdown／1883 links／563 anchors／26 Related／26 versioned documents／8 Stable ID／68 remediation rows、Error 0／Warning 0だった。これは後続の独立確認を代替しない。
 
 | source | line | function | branch |
 |---|---:|---:|---:|
-| `tools/coordinator/scripts/sign-release-manifest.ts` | 195 / 343 | 5 / 9 | 6 / 23 |
+| `tools/coordinator/scripts/check-platform-access-ts-coverage.ts` | 332 / 395 | 22 / 24 | 97 / 122 |
+| `tools/coordinator/scripts/release-staging-manifest.ts` | 327 / 346 | 10 / 11 | 42 / 53 |
+| `tools/coordinator/scripts/sign-release-manifest.ts` | 195 / 347 | 5 / 9 | 6 / 23 |
 | `tools/coordinator/src/core/doctor.ts` | 637 / 682 | 24 / 25 | 115 / 173 |
 | `tools/coordinator/src/security/platform-access-adapter.ts` | 189 / 193 | 11 / 11 | 32 / 36 |
-| `tools/coordinator/src/security/platform-access-release.ts` | 444 / 472 | 14 / 14 | 53 / 69 |
+| `tools/coordinator/src/security/platform-access-release.ts` | 268 / 286 | 11 / 11 | 31 / 41 |
 | `tools/coordinator/src/security/platform-provisioner-manifest-loader.ts` | 171 / 183 | 5 / 5 | 39 / 47 |
 | `tools/coordinator/src/security/platform-provisioner-package-filesystem.ts` | 480 / 678 | 17 / 21 | 62 / 91 |
 | `tools/coordinator/src/security/platform-provisioner-release-identity.ts` | 356 / 386 | 15 / 15 | 47 / 68 |
@@ -68,16 +72,18 @@ Node組込みcoverageは`--test-concurrency=1`と`--experimental-test-isolation=
 | `tools/coordinator/src/security/root-observation.ts` | 222 / 224 | 8 / 8 | 44 / 45 |
 | `tools/coordinator/src/security/runtime-activation-record.ts` | 1176 / 1184 | 24 / 25 | 81 / 91 |
 | `tools/coordinator/src/security/runtime-root-path-identity.ts` | 347 / 523 | 16 / 21 | 59 / 70 |
-| 合計 | 4859 / 5545 | 160 / 175 | 704 / 892 |
+| 合計 | 5342 / 6104 | 189 / 207 | 821 / 1039 |
 
 未到達branchは、次の各`source:line:block:branch`を個別Identityとして保持する。同じ行内のIdentityは同じ処置分類を共有するが、件数へ縮約せず全件を列挙する。
 
 | source | 未到達branch Identity | 分類・理由・残存risk・代替確認・Owner・再確認 |
 |---|---|---|
-| `scripts/sign-release-manifest.ts` | `334:1:0`, `334:2:0`, `50:4:0`, `55:6:0`, `68:7:0`, `72:8:0`, `81:9:0`, `94:10:0`, `111:11:0`, `121:13:0`, `134:14:0`, `145:16:0`, `175:18:0`, `196:19:0`, `218:20:0`, `225:21:0`, `228:22:0` | `Not Verified`。固定秘密鍵、完全なRelease tree／期間／引数のproduction CLI経路を実行していないため。実署名失敗分類の見落としriskを、型検査、固定鍵拒否、配置helper動的試験、release identity契約で代替確認する。Owner=Qual-Lab、現在の人間判断=不要。実Release handoff時に実鍵を露出しない隔離環境で再確認する。 |
+| `scripts/check-platform-access-ts-coverage.ts` | `391:1:0`, `72:5:0`, `87:13:0`, `115:25:0`, `117:27:0`, `118:28:0`, `119:29:0`, `120:32:0`, `141:40:0`, `142:42:0`, `145:45:0`, `149:48:0`, `164:52:0`, `167:54:0`, `174:58:0`, `217:72:0`, `225:77:0`, `226:78:0`, `228:79:0`, `231:81:0`, `233:83:0`, `245:91:0`, `256:95:0`, `257:97:0`, `313:119:0` | `Not Verified`。CLI main guard、OS I/O failure、全LCOV不正組合せを同一coverage runで到達していない。exact 14 source／13 test母集団、未知tag、数値・cardinality・終端・summary不一致の契約試験と連続JSON一致を代替確認する。残存riskは集計器の未到達failure branchが品質根拠を誤拒否すること。Owner=Qual-Lab、現在の人間判断=不要。LCOV grammar、Node coverageまたは固定母集団変更時に再確認する。 |
+| `scripts/release-staging-manifest.ts` | `51:2:0`, `131:14:0`, `160:18:0`, `174:19:0`, `179:20:0`, `195:21:0`, `230:29:0`, `235:31:0`, `243:33:0`, `267:36:0`, `322:49:0` | `Not Verified`。全descriptor短読取り／close／Identity例外と全置換タイミングを同一coverage runで到達していない。opaque session、偽造・別Root・既存manifest拒否、同一fd byte／EOF、配置前後Effect metadataおよび失敗Root非削除の動的契約試験を代替確認する。残存riskは稀なFilesystem failure分類の見落とし。Owner=Qual-Lab、現在の人間判断=不要。実Release staging、Filesystem APIまたは配置契約変更時に再確認する。 |
+| `scripts/sign-release-manifest.ts` | `338:1:0`, `338:2:0`, `50:4:0`, `55:6:0`, `68:7:0`, `72:8:0`, `81:9:0`, `94:10:0`, `111:11:0`, `121:13:0`, `134:14:0`, `145:16:0`, `175:18:0`, `196:19:0`, `218:20:0`, `225:21:0`, `228:22:0` | `Not Verified`。固定秘密鍵、完全なRelease tree／期間／引数のproduction CLI経路を実行していないため。実署名失敗分類の見落としriskを、型検査、固定鍵拒否、配置helper動的試験、release identity契約で代替確認する。Owner=Qual-Lab、現在の人間判断=不要。実Release handoff時に実鍵を露出しない隔離環境で再確認する。 |
 | `src/core/doctor.ts` | `90:3:0`, `94:5:0`, `96:6:0`, `100:8:0`, `150:11:0`, `153:13:0`, `162:15:0`, `182:22:0`, `198:29:0`, `198:30:0`, `205:32:0`, `215:36:0`, `234:43:0`, `235:45:0`, `235:46:0`, `238:49:0`, `238:50:0`, `275:55:0`, `275:56:0`, `276:57:0`, `277:58:0`, `279:59:0`, `280:60:0`, `286:63:0`, `396:79:0`, `397:80:0`, `427:87:0`, `456:97:0`, `467:108:0`, `508:120:0`, `517:122:0`, `521:124:0`, `524:126:0`, `528:128:0`, `529:130:0`, `533:132:0`, `534:134:0`, `538:135:0`, `539:137:0`, `556:142:0`, `559:144:0`, `563:145:0`, `564:146:0`, `566:148:0`, `567:149:0`, `572:151:0`, `573:152:0`, `575:154:0`, `576:155:0`, `587:157:0`, `599:159:0`, `600:160:0`, `609:162:0`, `622:164:0`, `623:165:0`, `638:167:0`, `652:170:0`, `672:172:0` | `Not Verified`。CHG-000020が消費する固定停止投影以外の既存doctor分岐を本変更の専用testで全到達させていない。状態投影の回帰riskを全doctor契約試験と12 blocker／6 evidence完全一致で代替確認する。Owner=Qual-Lab、現在の人間判断=不要。doctor状態shapeまたは阻害依存変更時に再確認する。 |
 | `src/security/platform-access-adapter.ts` | `61:8:0`, `80:14:0`, `98:18:0`, `149:32:0` | `Not Verified`。入力正規化の全失敗形を本coverage母集団で到達していない。Proxy入力非参照と固定blockedの契約試験を代替確認とし、process再導入時に全入力境界を再試験する。Owner=Qual-Lab、現在の人間判断=不要。 |
-| `src/security/platform-access-release.ts` | `65:2:0`, `148:17:0`, `175:20:0`, `180:21:0`, `207:24:0`, `213:26:0`, `223:30:0`, `238:36:0`, `303:41:0`, `313:43:0`, `341:50:0`, `354:51:0`, `359:52:0`, `366:53:0`, `374:54:0`, `394:55:0` | `Not Verified`。全OS例外、短いwrite／read、descriptor failureおよび全Identity failureをfault injectionしていない。正常、同長上書き、短縮、追記、manifest／Release Directory／Rust成果物差、残存fileを動的確認し、残りはfail-closed実装と型検査で代替確認する。Owner=Qual-Lab、現在の人間判断=不要。Release handoffまたはFilesystem API変更時に再確認する。 |
+| `src/security/platform-access-release.ts` | `55:2:0`, `88:8:0`, `115:11:0`, `120:12:0`, `147:15:0`, `153:17:0`, `163:21:0`, `178:27:0`, `243:32:0`, `253:34:0` | `Not Verified`。成果物観測の全OS例外と全Identity failureを同一coverage runで到達していない。正常、同長上書き、短縮、追記、Release Directory／Rust成果物差を動的確認し、残りはfail-closed実装と型検査で代替確認する。Owner=Qual-Lab、現在の人間判断=不要。Release handoffまたはFilesystem API変更時に再確認する。 |
 | `src/security/platform-provisioner-manifest-loader.ts` | `19:5:0`, `23:7:0`, `27:9:0`, `36:13:0`, `49:15:0`, `66:26:0`, `90:33:0`, `130:44:0` | `Not Verified`。全read failure／上限／Identity差を同じcoverage runで到達していない。専用loader契約試験と同一handle再読取りを代替確認する。Owner=Qual-Lab、現在の人間判断=不要。manifest Schema／loader変更時に再確認する。 |
 | `src/security/platform-provisioner-package-filesystem.ts` | `106:5:0`, `144:9:0`, `167:14:0`, `171:15:0`, `176:16:0`, `187:20:0`, `203:23:0`, `243:33:0`, `254:39:0`, `256:41:0`, `234:45:0`, `270:47:0`, `272:48:0`, `306:56:0`, `319:60:0`, `328:61:0`, `348:65:0`, `352:67:0`, `357:68:0`, `379:71:0`, `417:79:0`, `433:81:0`, `441:82:0`, `442:83:0`, `443:84:0`, `445:85:0`, `481:87:0`, `483:88:0`, `488:89:0` | `Not Verified`。package読取り／writerの既存障害分岐を本変更で全到達していない。package filesystem契約試験、manifest後置成果物除外およびproduction Effect固定停止で代替確認する。Owner=Qual-Lab、現在の人間判断=不要。実stagingまたはwriter接続時に再確認する。 |
 | `src/security/platform-provisioner-release-identity.ts` | `53:4:0`, `54:5:0`, `86:9:0`, `90:10:0`, `94:11:0`, `107:12:0`, `117:13:0`, `162:26:0`, `172:29:0`, `275:32:0`, `185:35:0`, `198:42:0`, `208:43:0`, `215:45:0`, `232:50:0`, `236:52:0`, `244:54:0`, `248:56:0`, `253:57:0`, `262:60:0`, `299:63:0` | `Not Verified`。Git object再構成の全invalid tree／Path failureを到達していない。release identity契約試験と署名入口の必須再検証で代替確認する。Owner=Qual-Lab、現在の人間判断=不要。archive／Git tree生成方式変更時に再確認する。 |
@@ -116,3 +122,14 @@ Node組込みcoverageは`--test-concurrency=1`と`--experimental-test-isolation=
 - Conformance: `Fail`。production execution撤去と署名Identity連続性によりC-11、専門探索によりPL-19は適合へ戻ったが、PL-16と現在状態の局所不一致が未解消で準拠claimは`Not Eligible`だった。
 
 この監査集合も全体として`Invalidated`であり、現在判定へ流用しない。処置は、manifestの同一fd byte再読取り、production test Trust撤去、README／脅威モデルの親版要件復元、固定母集団LCOV集計、未到達branch全数の処置および状態層分離へ反映した。いずれも`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
+
+## 固定版`5af5f73`の独立確認と無効化
+
+固定対象はCommit `5af5f73f2b516912a372c17ec7ea5ab0df2fb552`、Tree `a78c1bc5d2a5e2949f3c0b7f5a3682a407da3187`、Parent `054c702078771aae365605c3a8bee0528d0a0e5a`。共通入力はNode 24.19.0、Coordinator 350/350、Checker 151/151、TypeScript 126／Rust 4 source closure、TypeScript coverage 12 source、Rust 7/7、両package check、Rust fmt／Clippy／locked release build、full Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security: `Fail`。`ASR-20-R3-001` Majorは、Release stagingのmanifest書込みEffectと読み取り専用成果物観測の説明を同じmodule／無限定fieldへ縮約した修正起因Finding。`ASR-20-R3-002` Mediumは、LCOV parserが未知record、不正lineおよび`FN`／`FNDA`不一致をfail closedにしない修正起因Findingだった。
+- Document: `Conditional`。`DOC-REL-R07` Minorは、READMEの現行一箇所が撤去済みprocessを実装候補に含めた初回監査見落としだった。
+- Gap／Impact: `Fail`。`GCI-20-R3-001` Minorは、coverage生成器自身を固定母集団へ含めない修正起因Finding。`GCI-20-R3-002` Majorは、Release staging manifest write Effectと観測contractの`filesystemEffectIssued: false`が矛盾する修正起因Findingだった。
+- Conformance: `Fail`。Release staging Effectの説明不一致によりC-04／C-07、品質根拠生成器の母集団漏れによりPL-16がNon-conformantで、準拠claimは`Not Eligible`だった。
+
+この監査集合も全体として`Invalidated`であり、現在判定へ流用しない。処置は、読み取り専用成果物観測とopaque sessionを持つRelease staging配置moduleの分離、成功／失敗時Effect metadata、Runtime／Provision Effectとの分離、exact 14 source／13 test coverage、LCOV grammarのfail-closed化および現在文書の水平同期へ反映した。いずれも`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。新規4分類は修正起因4、初回から存在し見落とし1、修正で初めて確認可能0、承認範囲拡大0である。

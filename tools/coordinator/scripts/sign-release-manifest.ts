@@ -11,10 +11,10 @@ import { fileURLToPath } from "node:url";
 
 import { readHiddenLine } from "./generate-release-key.ts";
 import {
-  beginPlatformAccessArtifactSigningObservation,
-  placePlatformAccessBoundReleaseManifestCandidate,
-  verifyPlatformAccessArtifactSigningObservation,
-} from "../src/security/platform-access-release.ts";
+  beginReleaseStagingManifestSession,
+  placeReleaseStagingManifestCandidate,
+  verifyReleaseStagingManifestSession,
+} from "./release-staging-manifest.ts";
 import { inspectPlatformProvisionerPackageFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
@@ -171,7 +171,7 @@ export function signReleaseManifest(options: ManifestOptions) {
   const packageObservation =
     inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);
   const platformAccessObservation =
-    beginPlatformAccessArtifactSigningObservation(distributionRoot);
+    beginReleaseStagingManifestSession(distributionRoot);
   if (packageObservation.status !== "candidate" || !platformAccessObservation) {
     throw new Error("release_manifest_package_observation_failed");
   }
@@ -229,11 +229,7 @@ export function signReleaseManifest(options: ManifestOptions) {
       throw new Error("release_manifest_distribution_tree_mismatch");
     }
     verifyCommitTreeBinding(options.crddCommit, options.crddTree);
-    if (
-      !verifyPlatformAccessArtifactSigningObservation(
-        platformAccessObservation.token,
-      )
-    ) {
+    if (!verifyReleaseStagingManifestSession(platformAccessObservation.token)) {
       throw new Error("release_manifest_artifact_changed_before_signing");
     }
     const signature = sign(null, compiled.message, privateKey);
@@ -253,7 +249,7 @@ export function signReleaseManifest(options: ManifestOptions) {
     if (canonical.status !== "candidate") {
       throw new Error("release_manifest_envelope_invalid");
     }
-    const placement = placePlatformAccessBoundReleaseManifestCandidate(
+    const placement = placeReleaseStagingManifestCandidate(
       platformAccessObservation.token,
       canonical.canonicalBytes,
     );
@@ -268,6 +264,14 @@ export function signReleaseManifest(options: ManifestOptions) {
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
       distributionTreeVerifiedBeforeSigning: true,
+      releaseStagingFilesystemEffectIssued:
+        placement.releaseStagingFilesystemEffectIssued,
+      stagingRootMustBeDiscarded: placement.stagingRootMustBeDiscarded,
+      runtimeFilesystemEffectIssued: placement.runtimeFilesystemEffectIssued,
+      provisioningFilesystemEffectIssued:
+        placement.provisioningFilesystemEffectIssued,
+      runtimeAuthorityConferred: placement.runtimeAuthorityConferred,
+      runtimeCapabilityIssued: placement.runtimeCapabilityIssued,
       privateKeyStoredOutsideRepository: true,
       repositoryTreeContainsManifest: false,
     });

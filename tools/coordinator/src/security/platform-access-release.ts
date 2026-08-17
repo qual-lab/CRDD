@@ -2,22 +2,12 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import {
-  PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES,
-  PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-} from "./platform-provisioner-manifest-loader.ts";
-
 export const PLATFORM_ACCESS_TARGET = "x86_64-pc-windows-msvc";
 export const PLATFORM_ACCESS_RUST_TOOLCHAIN = "1.94.1";
 export const PLATFORM_ACCESS_PROTOCOL_REVISION = 1;
 export const PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES = 16 * 1024 * 1024;
 export const PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH =
   "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe";
-
-const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
-  Object.getPrototypeOf(Uint8Array.prototype),
-  "byteLength",
-)?.get;
 
 type FileIdentity = Readonly<{
   dev: bigint;
@@ -77,56 +67,6 @@ function fileIdentity(metadata: fs.BigIntStats): FileIdentity {
 }
 
 function sameIdentity(left: FileIdentity, right: FileIdentity): boolean {
-  return (
-    left.dev === right.dev &&
-    left.ino === right.ino &&
-    left.birthtimeNs === right.birthtimeNs &&
-    left.ctimeNs === right.ctimeNs &&
-    left.mtimeNs === right.mtimeNs &&
-    left.size === right.size &&
-    left.mode === right.mode
-  );
-}
-
-type ManifestFileIdentity = Readonly<{
-  dev: bigint;
-  ino: bigint;
-  birthtimeNs: bigint;
-  ctimeNs: bigint;
-  mtimeNs: bigint;
-  size: bigint;
-  mode: bigint;
-}>;
-
-function manifestFileIdentity(
-  metadata: fs.BigIntStats,
-  expectedSize: number,
-): ManifestFileIdentity {
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
-    metadata.birthtimeNs <= 0n ||
-    metadata.size !== BigInt(expectedSize)
-  ) {
-    throw new Error("release_manifest_staging_changed_after_placement");
-  }
-  return Object.freeze({
-    dev: metadata.dev,
-    ino: metadata.ino,
-    birthtimeNs: metadata.birthtimeNs,
-    ctimeNs: metadata.ctimeNs,
-    mtimeNs: metadata.mtimeNs,
-    size: metadata.size,
-    mode: metadata.mode,
-  });
-}
-
-function sameManifestFileIdentity(
-  left: ManifestFileIdentity,
-  right: ManifestFileIdentity,
-): boolean {
   return (
     left.dev === right.dev &&
     left.ino === right.ino &&
@@ -328,132 +268,6 @@ export function verifyPlatformAccessArtifactSigningObservation(
   }
 }
 
-export function placePlatformAccessBoundReleaseManifestCandidate(
-  token: object,
-  canonicalBytes: unknown,
-) {
-  try {
-    const snapshot = signingSnapshots.get(token);
-    if (
-      !snapshot ||
-      !Buffer.isBuffer(canonicalBytes) ||
-      typeof TYPED_ARRAY_BYTE_LENGTH !== "function"
-    ) {
-      throw new Error("release_manifest_staging_changed_after_placement");
-    }
-    const byteLength = Reflect.apply(
-      TYPED_ARRAY_BYTE_LENGTH,
-      canonicalBytes,
-      [],
-    );
-    if (
-      typeof byteLength !== "number" ||
-      !Number.isSafeInteger(byteLength) ||
-      byteLength < 1 ||
-      byteLength > PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES
-    ) {
-      throw new Error("release_manifest_staging_changed_after_placement");
-    }
-    const ownedCanonicalBytes = Buffer.allocUnsafe(byteLength);
-    Uint8Array.prototype.set.call(ownedCanonicalBytes, canonicalBytes);
-    if (!verifyPlatformAccessArtifactSigningObservation(token)) {
-      throw new Error("release_manifest_staging_changed_after_placement");
-    }
-    const releaseDirectory = path.join(snapshot.root, "90_Release");
-    const releaseDirectorySnapshot = directoryIdentity(
-      fs.lstatSync(releaseDirectory, { bigint: true }),
-    );
-    if (fs.realpathSync.native(releaseDirectory) !== releaseDirectory) {
-      throw new Error("release_manifest_staging_changed_after_placement");
-    }
-    const manifestPath = path.join(
-      snapshot.root,
-      ...PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH.split("/"),
-    );
-    const noFollow =
-      process.platform === "win32" ? 0 : (fs.constants.O_NOFOLLOW ?? 0);
-    const descriptor = fs.openSync(
-      manifestPath,
-      fs.constants.O_CREAT |
-        fs.constants.O_EXCL |
-        fs.constants.O_RDWR |
-        noFollow,
-      0o644,
-    );
-    try {
-      manifestFileIdentity(fs.fstatSync(descriptor, { bigint: true }), 0);
-      let written = 0;
-      while (written < ownedCanonicalBytes.length) {
-        const count = fs.writeSync(
-          descriptor,
-          ownedCanonicalBytes,
-          written,
-          ownedCanonicalBytes.length - written,
-          written,
-        );
-        if (count <= 0) {
-          throw new Error("release_manifest_staging_changed_after_placement");
-        }
-        written += count;
-      }
-      fs.fsyncSync(descriptor);
-      const postWrite = manifestFileIdentity(
-        fs.fstatSync(descriptor, { bigint: true }),
-        ownedCanonicalBytes.length,
-      );
-      const observedBytes = Buffer.allocUnsafe(ownedCanonicalBytes.length + 1);
-      let observedLength = 0;
-      while (observedLength < observedBytes.length) {
-        const count = fs.readSync(
-          descriptor,
-          observedBytes,
-          observedLength,
-          observedBytes.length - observedLength,
-          observedLength,
-        );
-        if (count === 0) break;
-        observedLength += count;
-      }
-      const afterRead = manifestFileIdentity(
-        fs.fstatSync(descriptor, { bigint: true }),
-        ownedCanonicalBytes.length,
-      );
-      const pathAfter = manifestFileIdentity(
-        fs.lstatSync(manifestPath, { bigint: true }),
-        ownedCanonicalBytes.length,
-      );
-      const releaseDirectoryAfter = directoryIdentity(
-        fs.lstatSync(releaseDirectory, { bigint: true }),
-      );
-      if (
-        observedLength !== ownedCanonicalBytes.length ||
-        !observedBytes
-          .subarray(0, observedLength)
-          .equals(ownedCanonicalBytes) ||
-        !sameManifestFileIdentity(postWrite, afterRead) ||
-        !sameManifestFileIdentity(postWrite, pathAfter) ||
-        fs.realpathSync.native(manifestPath) !== manifestPath ||
-        !sameDirectoryIdentity(
-          releaseDirectorySnapshot,
-          releaseDirectoryAfter,
-        ) ||
-        fs.realpathSync.native(releaseDirectory) !== releaseDirectory ||
-        !verifyPlatformAccessArtifactSigningObservation(token)
-      ) {
-        throw new Error("release_manifest_staging_changed_after_placement");
-      }
-      return Object.freeze({
-        status: "placed" as const,
-        manifestRelativePath: PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-      });
-    } finally {
-      fs.closeSync(descriptor);
-    }
-  } catch {
-    throw new Error("release_manifest_staging_changed_after_placement");
-  }
-}
-
 export function describePlatformAccessReleaseContract() {
   return Object.freeze({
     artifactRelativePath: PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
@@ -465,7 +279,7 @@ export function describePlatformAccessReleaseContract() {
     stableSameFileHashObservation: "implemented_candidate",
     pathEnvironmentLookup: false,
     absolutePathReported: false,
-    filesystemEffectIssued: false,
+    artifactObservationFilesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
   });
