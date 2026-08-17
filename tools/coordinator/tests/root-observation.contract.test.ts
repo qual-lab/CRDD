@@ -131,6 +131,8 @@ test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
       "windows_device_file_and_birthtime_identity_without_path_disclosure",
     protectionInputs:
       "windows_fixed_drive_dacl_role_runtime_principal_and_writer_exclusivity",
+    windowsObservationCore: "implemented_candidate_component_only",
+    windowsBinaryReleaseIdentityBinding: "not_implemented",
     windowsAdapter: "not_implemented_effective_access_required",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,

@@ -86,6 +86,36 @@ test("両private packageのLintはWarningを検査失敗にする", () => {
     );
   }
 });
+
+test("Rust platform accessの開発入口は固定Cargo commandだけを使う", () => {
+  const coordinatorRoot = path.join(repositoryRoot, "tools", "coordinator");
+  const packageJson: unknown = JSON.parse(
+    fs.readFileSync(path.join(coordinatorRoot, "package.json"), "utf8"),
+  );
+  const packageRecord = record(packageJson);
+  const scripts = packageRecord && record(packageRecord.scripts);
+  assert.deepEqual(
+    scripts &&
+      Object.fromEntries(
+        [
+          "platform-access:build",
+          "platform-access:format:check",
+          "platform-access:lint",
+          "platform-access:test",
+        ].map((name) => [name, scripts[name]]),
+      ),
+    {
+      "platform-access:build":
+        "cargo build --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",
+      "platform-access:format:check":
+        "cargo fmt --manifest-path ../platform-access/Cargo.toml --check",
+      "platform-access:lint":
+        "cargo clippy --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc -- -D warnings",
+      "platform-access:test":
+        "cargo test --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",
+    },
+  );
+});
 type CheckerRun = SpawnSyncReturns<string> & { report: CheckerReport };
 
 function record(value: unknown): Record<string, unknown> | null {

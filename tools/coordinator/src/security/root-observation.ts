@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describePlatformAccessAdapterContract } from "./platform-access-adapter.ts";
 
 export const ROOT_IDENTITY_OBSERVATION_CONTRACT =
   "crdd-coordinator/root-identity-observation";
@@ -193,6 +194,7 @@ export function inspectWindowsRootObservationCandidate(
 }
 
 export function describeRootObservationContract() {
+  const platformAccess = describePlatformAccessAdapterContract();
   return Object.freeze({
     identityContract: ROOT_IDENTITY_OBSERVATION_CONTRACT,
     protectionContract: ROOT_PROTECTION_OBSERVATION_CONTRACT,
@@ -205,6 +207,9 @@ export function describeRootObservationContract() {
       "windows_device_file_and_birthtime_identity_without_path_disclosure",
     protectionInputs:
       "windows_fixed_drive_dacl_role_runtime_principal_and_writer_exclusivity",
+    windowsObservationCore: platformAccess.windowsCurrentProcessAccessCore,
+    windowsBinaryReleaseIdentityBinding:
+      platformAccess.binaryReleaseIdentityBinding,
     windowsAdapter: "not_implemented_effective_access_required",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,

@@ -450,6 +450,12 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
   assert.equal(contract.filesystemClassVerification, "not_implemented");
   assert.equal(contract.posixAclVerification, "not_implemented");
   assert.equal(contract.runtimePrincipalBinding, "not_implemented");
+  assert.equal(
+    contract.windowsAccessObservationCore,
+    "implemented_candidate_component_only",
+  );
+  assert.equal(contract.windowsBinaryReleaseIdentityBinding, "not_implemented");
+  assert.equal(contract.windowsDaclAdapter, "not_implemented");
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.fullParentChainVerification, "not_implemented");
   assert.equal(

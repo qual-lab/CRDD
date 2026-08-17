@@ -110,6 +110,11 @@ test("Windows package DACL observer and Effect remain unimplemented", () => {
   assert.equal(accessCount, 0);
   const contract = describeWindowsPackageDaclContract();
   assert.equal(
+    contract.rustObservationCore,
+    "implemented_candidate_component_only",
+  );
+  assert.equal(contract.binaryReleaseIdentityBinding, "not_implemented");
+  assert.equal(
     contract.verification,
     "not_implemented_effective_access_required",
   );

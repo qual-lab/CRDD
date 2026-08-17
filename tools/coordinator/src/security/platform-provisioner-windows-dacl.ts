@@ -1,4 +1,5 @@
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describePlatformAccessAdapterContract } from "./platform-access-adapter.ts";
 
 const OBSERVATION_KEYS = new Set([
   "entityCount",
@@ -120,10 +121,13 @@ export function applyWindowsProvisionerInstallDaclForEffect(
 }
 
 export function describeWindowsPackageDaclContract() {
+  const platformAccess = describePlatformAccessAdapterContract();
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-windows-dacl",
     contractRevision: 1,
     structuralClaimEvaluator: "implemented_candidate_non_authoritative",
+    rustObservationCore: platformAccess.windowsCurrentProcessAccessCore,
+    binaryReleaseIdentityBinding: platformAccess.binaryReleaseIdentityBinding,
     observer: "not_implemented_effective_access_required",
     trustedWriterSids: Object.freeze(["S-1-5-18", "S-1-5-32-544"]),
     rootInheritance: "protected_required",

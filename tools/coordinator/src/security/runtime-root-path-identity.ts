@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describePlatformAccessAdapterContract } from "./platform-access-adapter.ts";
 import { ROOT_PROTECTION_POLICY_CONTRACT } from "./root-protection-policy.ts";
 import {
   DEFAULT_REPOSITORY_RUNTIME_DIRECTORY,
@@ -488,6 +489,7 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(
 }
 
 export function describeRuntimeRootPathIdentityContract() {
+  const platformAccess = describePlatformAccessAdapterContract();
   return Object.freeze({
     contract: RUNTIME_ROOT_PATH_IDENTITY_CONTRACT,
     contractRevision: RUNTIME_ROOT_PATH_IDENTITY_CONTRACT_REVISION,
@@ -503,6 +505,10 @@ export function describeRuntimeRootPathIdentityContract() {
     posixAclVerification: "not_implemented",
     runtimePrincipalBinding: "not_implemented",
     filesystemClassVerification: "not_implemented",
+    windowsAccessObservationCore:
+      platformAccess.windowsCurrentProcessAccessCore,
+    windowsBinaryReleaseIdentityBinding:
+      platformAccess.binaryReleaseIdentityBinding,
     windowsDaclAdapter: "not_implemented",
     persistentVolumeAdapter: "not_implemented",
     ownerAclVerification: "not_implemented",

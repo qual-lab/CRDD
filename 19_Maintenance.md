@@ -6,7 +6,7 @@ Version: v0.18.0
 Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-16
+Last Updated: 2026-08-17
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -297,9 +297,13 @@ CRDD公式GitHubリポジトリでは対象リリースごとのマイルスト�
 
 <a id="33-internal-typescript-runtime"></a>
 
-## 3.3. CRDD内部ScriptのTypeScript実行境界
+## 3.3. CRDD内部実装のTypeScript／Rust境界
 
 CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フォルダ配置を維持したまま`.ts`を標準とする。実行にはNode.js 24.12 LTS以上のネイティブTypeScript型除去を使用し、Runtime依存として`tsx`、`ts-node`、Babel、Bundlerまたは専用の変換packageを要求しない。実行コードはESM、Node.js組込み機能および`import type`を基本とする。
+
+OS APIへ安全に接続するためTypeScriptだけでは閉じない最小のプラットフォームアクセス部は、CRDD本体、CLI、Policyおよび契約をTypeScriptに保持したまま、`tools/platform-access/**`のprivate Rust実装に限定できる。この限定は内部Script一般をRustへ移す根拠、採用RepositoryへRustを要求する規則、独立製品または公開CLIの新設にはしない。BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やbuild orchestrationとして新設せず、Cargo commandを責務別の開発入口から直接実行する。
+
+Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`およびlocked buildを別々の確認軸にする。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。生成binaryの固定配置、Hash、target、protocol revisionおよび署名済みRelease Identityへの結合が成立する前は、TypeScript Adapterをprocess起動、Path解決またはFilesystem観測より前に`blocked`へ閉じる。
 
 ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
 

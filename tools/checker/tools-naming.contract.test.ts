@@ -74,9 +74,10 @@ const projectConfigs = Object.freeze([
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 5,
-  coordinatorProduction: 60,
-  coordinatorTests: 52,
-  uniqueTotal: 117,
+  coordinatorProduction: 61,
+  coordinatorTests: 53,
+  rustPlatformAccess: 3,
+  uniqueTotal: 119,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
@@ -87,12 +88,17 @@ const PLURAL_NAME = /(?:s|Children|Indices|Vertices|People|Media|Data)$/u;
 const TEST_FILE =
   /^([a-z0-9]+(?:-[a-z0-9]+)*)\.(unit|contract|integration|boundary|golden|current)\.test\.ts$/u;
 const TYPESCRIPT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.ts$/u;
+const RUST_FILE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*\.rs$/u;
 const MARKDOWN_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u;
 const RESERVED_FILE_NAMES = new Set([
   ".gitignore",
+  "Cargo.lock",
+  "Cargo.toml",
   "README.md",
+  "main.rs",
   "package-lock.json",
   "package.json",
+  "rust-toolchain.toml",
   "tsconfig.json",
   "tsconfig.strict.json",
   "tsconfig.tests.json",
@@ -239,6 +245,10 @@ function collectFiles(root: string): string[] {
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
     if (entry.name === "node_modules") continue;
     const target = path.join(root, entry.name);
+    if (
+      target === path.join(repositoryRoot, "tools", "platform-access", "target")
+    )
+      continue;
     if (entry.isDirectory()) {
       assert.equal(
         entry.isSymbolicLink(),
@@ -316,6 +326,10 @@ function assertFileName(file: string): void {
   }
   if (name.endsWith(".ts")) {
     assert.match(name, TYPESCRIPT_FILE, `TypeScript filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".rs")) {
+    assert.match(name, RUST_FILE, `Rust filename: ${file}`);
     return;
   }
   if (name.endsWith(".md")) {
@@ -1421,6 +1435,14 @@ function collectOwnedTypeScriptPaths(files: readonly string[]): Set<string> {
   );
 }
 
+function collectOwnedRustPaths(files: readonly string[]): Set<string> {
+  return new Set(
+    files
+      .filter((file) => file.endsWith(".rs"))
+      .map((file) => fs.realpathSync.native(file)),
+  );
+}
+
 function formatViolations(violations: readonly NamingViolation[]): string {
   return violations
     .map(
@@ -1493,6 +1515,20 @@ test("toolsのPathと型付きsource identifierは内部コーディング規約
         [...pathSourceFiles].sort(),
         "every owned TypeScript Path must belong to an inspected project and vice versa",
       );
+      const rustSourceFiles = collectOwnedRustPaths(files);
+      assert.equal(
+        rustSourceFiles.size,
+        EXPECTED_OWNED_SOURCE_COUNTS.rustPlatformAccess,
+      );
+      for (const rustSourceFile of rustSourceFiles) {
+        assert.ok(
+          isContainedPath(
+            rustSourceFile,
+            path.join(repositoryRoot, "tools", "platform-access", "src"),
+          ),
+          `Rust source outside private platform-access crate: ${rustSourceFile}`,
+        );
+      }
       assert.equal(violations.length, 0, formatViolations(violations));
     } finally {
       snapshot.dispose();

@@ -2,22 +2,23 @@
 
 Status: Candidate
 Owner: Qual-Lab
-Last Updated: 2026-08-16
+Last Updated: 2026-08-17
 Scope: `tools/**`と、CRDDが配布正本として所有し`tools/**`から参照する`template/tools/**`の実装
 
 ## 1. 目的と正本
 
-本書は、CRDD公式Repositoryが所有する内部ツールの命名、TypeScript source、試験および機械検査に適用する単一正本である。「Qual Suite準拠」のような外部参照だけでは規則を完了させず、CRDDで適用する値を本書に固定する。
+本書は、CRDD公式Repositoryが所有する内部ツールの命名、TypeScript／Rust source、試験および機械検査に適用する単一正本である。「Qual Suite準拠」のような外部参照だけでは規則を完了させず、CRDDで適用する値を本書に固定する。
 
 本書はQual Suite Commit `d7493e25f719bef6e46b8dbba7926f9a74e1165e`、Tree `62fa90f2020803609935a10944dcffe03484af34`の`06_Architecture/qual-insight/99_Coding_Standards.md`と`90_Release/qual-insight/Changes/CHG-000004_Implementation_Naming_Convention.md`を設計入力として使用した。今後のQual Suite側の変更を自動採用せず、CRDD側の変更トレースと人間の決定権限を通じて本書を更新する。
 
-TypeScriptの実行境界、Biome、型検査およびNode.js versionは[CRDD標準の保守](../19_Maintenance.md#33-internal-typescript-runtime)を正本とする。旧名、互換層および移行の扱いは[本質的修正と互換層の境界](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)を正本とする。
+TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust toolchainは[CRDD標準の保守](../19_Maintenance.md#33-internal-typescript-runtime)を正本とする。旧名、互換層および移行の扱いは[本質的修正と互換層の境界](../19_Maintenance.md#34-essential-correction-and-compatibility-boundary)を正本とする。
 
 ## 2. 適用境界
 
 次へ適用する。
 
 - `tools/**`のファイル名、フォルダ名およびTypeScript識別子（TypeScript identifier）
+- `tools/platform-access/**`のRust識別子（Rust identifier）、Cargo設定および試験
 - `tools/**`が所有する試験、パッケージスクリプト（package script）および設定
 - CRDDが配布正本として所有し`tools/**`のprivate package entry adapterから参照する`template/tools/**`の実装ファイル名と識別子
 - 新設または変更するCRDD所有の設定JSON key、IPC channel、activity event、DB名およびCSS class
@@ -38,6 +39,7 @@ TypeScriptの実行境界、Biome、型検査およびNode.js versionは[CRDD標
 |---|---|---|
 | フォルダ | ASCII `kebab-case` | `checker/`, `test-fixtures/` |
 | TypeScriptファイル | ASCII `kebab-case` | `crdd-check.ts`, `fault-injector.ts` |
+| Rust moduleファイル | ASCII `snake_case` | `protocol.rs`, `windows.rs` |
 | Markdownファイル | ASCII `kebab-case` | `coding-standards.md`, `threat-model.md` |
 | 通常のJSONファイル | ASCII `kebab-case` | `provider-profile.json` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
@@ -46,10 +48,12 @@ TypeScriptの実行境界、Biome、型検査およびNode.js versionは[CRDD標
 
 ### 3.2. ecosystem予約名
 
-次はNode.js、TypeScript、Gitまたは一般的なRepository discoveryが固定する予約名であり、命名例外のallowlistではなく固有の文法として扱う。
+次はNode.js、TypeScript、Rust、Cargo、Gitまたは一般的なRepository discoveryが固定する予約名であり、命名例外のallowlistではなく固有の文法として扱う。
 
 - 任意のpackage rootにある`package.json`と`package-lock.json`
 - TypeScript設定の`tsconfig.json`、`tsconfig.strict.json`、`tsconfig.tests.json`
+- Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`および`.gitignore`
+- Rust executable入口の`src/main.rs`
 - Git設定の`.gitignore`
 - packageまたは主要成果物の入口にある`README.md`
 
@@ -76,6 +80,12 @@ Boolean規則はBoolean型の変数とparameterへ適用する。`null`または
 名前付き関数式（`named function expression`）と名前付きclass式（`named class expression`）も、それぞれ関数名と型名の規則へ含める。取得アクセサー（`get accessor`）と設定アクセサー（`set accessor`）は関数相当宣言（function-like declaration）として走査し、内部名のcaseと曖昧名を検査する。外部契約が所有するoverride名とobject／interface propertyは機械property境界を優先するが、設定アクセサーのparameterとbody内bindingは通常の識別子規則へ含める。
 
 TypeScript `enum`構文はNode.js native type strippingの対象外なので導入しない。「enum相当」はliteral unionまたは凍結objectから導く型の表示名だけを指す。
+
+## 4.1. Rust識別子
+
+Rustは`tools/platform-access/**`のprivate crateだけへ適用する。module／file、function、method、variableおよびparameterは`snake_case`、struct、enum、traitおよび型は`PascalCase`、定数およびstaticは`SCREAMING_SNAKE_CASE`とする。FFIの`unsafe`はWindows API接続moduleへ限定し、各blockへ所有権、pointer lifetimeおよび解放責務の安全根拠を記載する。Rust標準の命名と型境界は`rustfmt`、rustcおよびClippyで検査し、TypeScript AST分類器へ混在させない。
+
+`tools/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。`.rs`実体は同crateの`src/**`へ限定し、`Cargo.lock`を追跡する。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`tools/**`へ追加しない。
 
 ## 5. 曖昧な名前
 
@@ -124,8 +134,9 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 ## 8. 検査と変更手順
 
 - Biomeは表現できるTypeScript filenameとsource規則を検査する。
+- Rust sourceは固定toolchainの`rustfmt --check`、rustc、Clippy Warning拒否および`cargo test --locked`で検査する。
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
-- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`tools/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`tools/checker/tsconfig.json`、`tools/coordinator/tsconfig.strict.json`および`tools/coordinator/tsconfig.tests.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
+- Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`tools/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`tools/checker/tsconfig.json`、`tools/coordinator/tsconfig.strict.json`および`tools/coordinator/tsconfig.tests.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。Rust sourceは`tools/platform-access/src/**`の閉集合として別に数え、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
 - renameでは、正本、import、package script、設定、試験、文書、AI入口および現在の移設先を同じ変更で更新する。
 - 過去の固定履歴は書き換えず、旧Pathから現在Pathへの移行を後続の変更トレースへ記録する。
