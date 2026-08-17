@@ -497,16 +497,9 @@ test("Activation contractは永続化、専用command、再activation、disable/
       contract.platformProvisionerPolicyIdentity,
     platformProvisionerReleaseIdentity:
       contract.platformProvisionerReleaseIdentity,
-    platformProvisionerReleaseFloor: contract.platformProvisionerReleaseFloor,
-    platformProvisionerReleaseFloorStore:
-      contract.platformProvisionerReleaseFloorStore,
-    platformProvisionerActiveRelease: contract.platformProvisionerActiveRelease,
-    platformProvisionerActiveReleaseReader:
-      contract.platformProvisionerActiveReleaseReader,
-    platformProvisionerActiveReleaseStore:
-      contract.platformProvisionerActiveReleaseStore,
-    platformProvisionerStateTransaction:
-      contract.platformProvisionerStateTransaction,
+    platformProvisionerActivePointer: contract.platformProvisionerActivePointer,
+    platformProvisionerActivePointerStore:
+      contract.platformProvisionerActivePointerStore,
     platformProvisionerEffectContract:
       contract.platformProvisionerEffectContract,
     enrollmentCertificateDomainSeparation:
@@ -636,15 +629,12 @@ test("Activation contractは永続化、専用command、再activation、disable/
       platformProvisionerManifestLoader: "platform_provisioner_verification",
       platformProvisionerPolicyIdentity: "platform_provisioner_verification",
       platformProvisionerReleaseIdentity: "platform_provisioner_verification",
-      platformProvisionerReleaseFloor: "platform_provisioner_verification",
-      platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
-      platformProvisionerActiveReleaseCodec:
+      platformProvisionerActivePointerCodec:
         "platform_provisioner_verification",
-      platformProvisionerActiveReleaseRuntimeRead:
+      platformProvisionerActivePointerRuntimeRead:
         "platform_provisioner_verification",
-      platformProvisionerActiveReleasePersistence:
+      platformProvisionerActivePointerPersistence:
         "platform_provisioner_effect",
-      platformProvisionerStateTransaction: "platform_provisioner_effect",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:

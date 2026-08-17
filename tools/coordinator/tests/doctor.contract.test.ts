@@ -762,18 +762,10 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       report.runtimeActivation.platformProvisionerPolicyIdentity,
     platformProvisionerReleaseIdentity:
       report.runtimeActivation.platformProvisionerReleaseIdentity,
-    platformProvisionerReleaseFloor:
-      report.runtimeActivation.platformProvisionerReleaseFloor,
-    platformProvisionerReleaseFloorStore:
-      report.runtimeActivation.platformProvisionerReleaseFloorStore,
-    platformProvisionerActiveRelease:
-      report.runtimeActivation.platformProvisionerActiveRelease,
-    platformProvisionerActiveReleaseReader:
-      report.runtimeActivation.platformProvisionerActiveReleaseReader,
-    platformProvisionerActiveReleaseStore:
-      report.runtimeActivation.platformProvisionerActiveReleaseStore,
-    platformProvisionerStateTransaction:
-      report.runtimeActivation.platformProvisionerStateTransaction,
+    platformProvisionerActivePointer:
+      report.runtimeActivation.platformProvisionerActivePointer,
+    platformProvisionerActivePointerStore:
+      report.runtimeActivation.platformProvisionerActivePointerStore,
     platformProvisionerEffectContract:
       report.runtimeActivation.platformProvisionerEffectContract,
     enrollmentCertificateDomainSeparation:
@@ -903,15 +895,12 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       platformProvisionerManifestLoader: "platform_provisioner_verification",
       platformProvisionerPolicyIdentity: "platform_provisioner_verification",
       platformProvisionerReleaseIdentity: "platform_provisioner_verification",
-      platformProvisionerReleaseFloor: "platform_provisioner_verification",
-      platformProvisionerReleaseFloorPersistence: "platform_provisioner_effect",
-      platformProvisionerActiveReleaseCodec:
+      platformProvisionerActivePointerCodec:
         "platform_provisioner_verification",
-      platformProvisionerActiveReleaseRuntimeRead:
+      platformProvisionerActivePointerRuntimeRead:
         "platform_provisioner_verification",
-      platformProvisionerActiveReleasePersistence:
+      platformProvisionerActivePointerPersistence:
         "platform_provisioner_effect",
-      platformProvisionerStateTransaction: "platform_provisioner_effect",
       platformProvisionerCrddDistributionVerification:
         "platform_provisioner_verification",
       platformProvisionerPackageGateObservation:

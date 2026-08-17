@@ -3,19 +3,18 @@ import path from "node:path";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const WINDOWS_ROOT = /^[A-Za-z]:\\(?:[^<>:"|?*\0]+\\?)*$/u;
-const INPUT_KEYS = new Set(["programDataRoot", "releaseSequence"]);
+const ACTIVE_ID = /^[0-9a-f]{32}$/u;
+const INPUT_KEYS = new Set(["activeId", "programDataRoot"]);
 
 export const PLATFORM_PROVISIONER_INSTALL_ROOT_SEGMENTS = Object.freeze([
   "Qual-Lab",
   "CRDD",
   "Coordinator",
 ]);
-export const PLATFORM_PROVISIONER_RELEASES_DIRECTORY = "releases";
+export const PLATFORM_PROVISIONER_IMAGES_DIRECTORY = "images";
+export const PLATFORM_PROVISIONER_STAGING_DIRECTORY = "staging";
 export const PLATFORM_PROVISIONER_STATE_DIRECTORY = "state";
-export const PLATFORM_PROVISIONER_RELEASE_FLOOR_FILE = "release-floor.json";
-export const PLATFORM_PROVISIONER_ACTIVE_RELEASE_FILE = "active-release.json";
-export const PLATFORM_PROVISIONER_TRANSACTION_FILE =
-  "provision-transaction.json";
+export const PLATFORM_PROVISIONER_ACTIVE_POINTER_FILE = "active-pointer.json";
 export const PLATFORM_PROVISIONER_RELEASE_PACKAGE_SEGMENTS = Object.freeze([
   "tools",
   "coordinator",
@@ -29,7 +28,7 @@ function invalid(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    releaseSequence: null,
+    activeId: null,
     repositoryStateRequired: false,
     filesystemEffectIssued: false,
     runtimeAuthorityConferred: false,
@@ -56,54 +55,48 @@ function validatedProgramDataRoot(raw: unknown) {
 
 export function resolveWindowsProvisionerInstallLayoutForEffect(
   programDataRoot: unknown,
-  releaseSequence: unknown,
+  activeId: unknown,
 ) {
   const root = validatedProgramDataRoot(programDataRoot);
-  if (
-    !root ||
-    typeof releaseSequence !== "number" ||
-    !Number.isSafeInteger(releaseSequence) ||
-    releaseSequence < 1
-  ) {
+  if (!root || typeof activeId !== "string" || !ACTIVE_ID.test(activeId)) {
     return null;
   }
   const installRoot = path.win32.join(
     root,
     ...PLATFORM_PROVISIONER_INSTALL_ROOT_SEGMENTS,
   );
-  const releasesRoot = path.win32.join(
+  const imagesRoot = path.win32.join(
     installRoot,
-    PLATFORM_PROVISIONER_RELEASES_DIRECTORY,
+    PLATFORM_PROVISIONER_IMAGES_DIRECTORY,
+  );
+  const stagingContainerRoot = path.win32.join(
+    installRoot,
+    PLATFORM_PROVISIONER_STAGING_DIRECTORY,
   );
   const stateRoot = path.win32.join(
     installRoot,
     PLATFORM_PROVISIONER_STATE_DIRECTORY,
   );
-  const releaseRoot = path.win32.join(releasesRoot, String(releaseSequence));
+  const stagingRoot = path.win32.join(stagingContainerRoot, activeId);
+  const activeImageRoot = path.win32.join(imagesRoot, activeId);
   return Object.freeze({
     installRoot,
-    releasesRoot,
-    releaseRoot,
-    releasePackageRoot: path.win32.join(
-      releaseRoot,
+    imagesRoot,
+    stagingContainerRoot,
+    stagingRoot,
+    activeImageRoot,
+    stagingPackageRoot: path.win32.join(
+      stagingRoot,
       ...PLATFORM_PROVISIONER_RELEASE_PACKAGE_SEGMENTS,
     ),
-    releaseManifestFile: path.win32.join(
-      releaseRoot,
+    stagingManifestFile: path.win32.join(
+      stagingRoot,
       ...PLATFORM_PROVISIONER_RELEASE_MANIFEST_SEGMENTS,
     ),
     stateRoot,
-    releaseFloorFile: path.win32.join(
+    activePointerFile: path.win32.join(
       stateRoot,
-      PLATFORM_PROVISIONER_RELEASE_FLOOR_FILE,
-    ),
-    activeReleaseFile: path.win32.join(
-      stateRoot,
-      PLATFORM_PROVISIONER_ACTIVE_RELEASE_FILE,
-    ),
-    provisionTransactionFile: path.win32.join(
-      stateRoot,
-      PLATFORM_PROVISIONER_TRANSACTION_FILE,
+      PLATFORM_PROVISIONER_ACTIVE_POINTER_FILE,
     ),
   });
 }
@@ -114,7 +107,7 @@ export function evaluateWindowsProvisionerInstallLayoutCandidate(raw: unknown) {
     !input ||
     !resolveWindowsProvisionerInstallLayoutForEffect(
       input.programDataRoot,
-      input.releaseSequence,
+      input.activeId,
     )
   ) {
     return invalid("platform_provisioner_install_layout_input_invalid");
@@ -122,7 +115,7 @@ export function evaluateWindowsProvisionerInstallLayoutCandidate(raw: unknown) {
   return Object.freeze({
     status: "candidate" as const,
     reason: "platform_provisioner_install_layout_resolved_effect_required",
-    releaseSequence: input.releaseSequence as number,
+    activeId: input.activeId as string,
     repositoryStateRequired: false,
     externalInstallStateRequired: true,
     compatibilityLayoutRequired: false,
@@ -139,13 +132,15 @@ export function describePlatformProvisionerInstallLayoutContract() {
     sourceOwnership: "repository_owned_typescript_and_contract_tests",
     windowsRootSource: "program_data_environment_at_explicit_provision_time",
     installRootSegments: PLATFORM_PROVISIONER_INSTALL_ROOT_SEGMENTS,
-    releaseLayout:
-      "releases_positive_release_sequence_with_tools_coordinator_and_signed_manifest",
-    stateLayout:
-      "state_release_floor_active_release_and_provision_transaction_canonical_json",
+    imageLayout:
+      "exactly_one_exclusive_staging_active_id_and_atomic_active_pointer",
+    activeImageSelection: "pointer_only_without_directory_fallback",
+    stateLayout: "single_canonical_active_pointer_without_separate_floor",
     repositoryRuntimeStateRequired: false,
     externalStateReason: "installed_machine_state_only",
     compatibilityLayout: "prohibited",
+    multipleActiveImages: "prohibited",
+    automaticRollback: "prohibited",
     symlinkOrJunctionLayout: "prohibited",
     filesystemEffect: "not_implemented_effective_access_required",
     runtimeAuthorityConferred: false,

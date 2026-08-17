@@ -1,12 +1,12 @@
 use std::io::{self, Read, Write};
 
-pub const PROTOCOL_REVISION: u16 = 1;
+pub const PROTOCOL_REVISION: u16 = 2;
 pub const MAXIMUM_REQUEST_BYTES: usize = 65_536;
 pub const MAXIMUM_PATH_BYTES: usize = 4_096;
-const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA01";
-const RESPONSE_MAGIC: &[u8; 8] = b"CRDDPR01";
+const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA02";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDPR02";
 const REQUEST_HEADER_BYTES: usize = 60;
-const RESPONSE_BYTES: usize = 50;
+const RESPONSE_BYTES: usize = 82;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -62,6 +62,7 @@ pub struct Response {
     pub is_candidate: bool,
     pub reason: Reason,
     pub access_mask: u32,
+    pub runtime_principal_identity_hash: [u8; 32],
 }
 
 fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
@@ -167,6 +168,7 @@ pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
     bytes[12..44].copy_from_slice(&response.nonce);
     bytes[44..46].copy_from_slice(&(response.reason as u16).to_le_bytes());
     bytes[46..50].copy_from_slice(&response.access_mask.to_le_bytes());
+    bytes[50..82].copy_from_slice(&response.runtime_principal_identity_hash);
     bytes
 }
 
@@ -264,10 +266,12 @@ mod tests {
             is_candidate: true,
             reason: Reason::ObservationCandidate,
             access_mask: 0x1ff,
+            runtime_principal_identity_hash: [4_u8; 32],
         });
         assert_eq!(response.len(), RESPONSE_BYTES);
         assert_eq!(&response[..8], RESPONSE_MAGIC);
         assert_eq!(&response[12..44], &[3_u8; 32]);
+        assert_eq!(&response[50..82], &[4_u8; 32]);
         assert!(!response.windows(3).any(|window| window == b"C:\\"));
     }
 
@@ -279,11 +283,13 @@ mod tests {
             is_candidate: false,
             reason: Reason::RootIdentityMismatch,
             access_mask: 0,
+            runtime_principal_identity_hash: [0_u8; 32],
         });
         assert_eq!(response[10], RootRole::Authority as u8);
         assert_eq!(response[11], 0);
         assert_eq!(&response[12..44], &[8_u8; 32]);
         assert_eq!(u16::from_le_bytes(response[44..46].try_into().unwrap()), 4);
         assert_eq!(u32::from_le_bytes(response[46..50].try_into().unwrap()), 0);
+        assert_eq!(&response[50..82], &[0_u8; 32]);
     }
 }

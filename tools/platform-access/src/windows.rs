@@ -8,10 +8,16 @@ use windows_sys::Win32::Foundation::{
     CloseHandle, ERROR_INSUFFICIENT_BUFFER, HANDLE, INVALID_HANDLE_VALUE, LocalFree,
 };
 use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
+use windows_sys::Win32::Security::Cryptography::{
+    BCRYPT_ALG_HANDLE, BCRYPT_HASH_HANDLE, BCRYPT_SHA256_ALGORITHM, BCryptCloseAlgorithmProvider,
+    BCryptCreateHash, BCryptDestroyHash, BCryptFinishHash, BCryptHashData,
+    BCryptOpenAlgorithmProvider,
+};
 use windows_sys::Win32::Security::{
     AccessCheck, DACL_SECURITY_INFORMATION, DuplicateToken, GENERIC_MAPPING,
-    GROUP_SECURITY_INFORMATION, MapGenericMask, OWNER_SECURITY_INFORMATION, PRIVILEGE_SET,
-    PSECURITY_DESCRIPTOR, SecurityImpersonation, TOKEN_DUPLICATE, TOKEN_QUERY,
+    GROUP_SECURITY_INFORMATION, GetLengthSid, GetTokenInformation, IsValidSid, MapGenericMask,
+    OWNER_SECURITY_INFORMATION, PRIVILEGE_SET, PSECURITY_DESCRIPTOR, SecurityImpersonation,
+    TOKEN_DUPLICATE, TOKEN_QUERY, TOKEN_USER, TokenUser,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_ADD_FILE, FILE_ADD_SUBDIRECTORY,
@@ -57,6 +63,28 @@ impl Drop for OwnedSecurityDescriptor {
     }
 }
 
+struct OwnedAlgorithm(BCRYPT_ALG_HANDLE);
+
+impl Drop for OwnedAlgorithm {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            // SAFETY: this type exclusively owns the algorithm provider handle.
+            unsafe { BCryptCloseAlgorithmProvider(self.0, 0) };
+        }
+    }
+}
+
+struct OwnedHash(BCRYPT_HASH_HANDLE);
+
+impl Drop for OwnedHash {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            // SAFETY: this type exclusively owns the hash handle.
+            unsafe { BCryptDestroyHash(self.0) };
+        }
+    }
+}
+
 fn blocked(request: &Request, reason: Reason) -> Response {
     Response {
         root_role: request.root_role,
@@ -64,6 +92,7 @@ fn blocked(request: &Request, reason: Reason) -> Response {
         is_candidate: false,
         reason,
         access_mask: 0,
+        runtime_principal_identity_hash: [0_u8; 32],
     }
 }
 
@@ -129,7 +158,7 @@ fn security_descriptor(handle: HANDLE) -> Option<OwnedSecurityDescriptor> {
     (result == 0 && !descriptor.is_null()).then_some(OwnedSecurityDescriptor(descriptor))
 }
 
-fn impersonation_token() -> Option<OwnedHandle> {
+fn process_tokens() -> Option<(OwnedHandle, OwnedHandle)> {
     let mut primary = null_mut();
     // SAFETY: GetCurrentProcess returns a process pseudo-handle and primary is writable.
     if unsafe {
@@ -148,7 +177,75 @@ fn impersonation_token() -> Option<OwnedHandle> {
     if unsafe { DuplicateToken(primary.0, SecurityImpersonation, &mut impersonation) } == 0 {
         return None;
     }
-    Some(OwnedHandle(impersonation))
+    Some((primary, OwnedHandle(impersonation)))
+}
+
+fn sha256(parts: &[&[u8]]) -> Option<[u8; 32]> {
+    let mut algorithm = null_mut();
+    // SAFETY: algorithm is writable and SHA-256 requires no provider-specific input.
+    if unsafe { BCryptOpenAlgorithmProvider(&mut algorithm, BCRYPT_SHA256_ALGORITHM, null(), 0) }
+        < 0
+    {
+        return None;
+    }
+    let algorithm = OwnedAlgorithm(algorithm);
+    let mut hash = null_mut();
+    // SAFETY: the algorithm handle is valid; reusable object storage and secret are unused.
+    if unsafe { BCryptCreateHash(algorithm.0, &mut hash, null_mut(), 0, null(), 0, 0) } < 0 {
+        return None;
+    }
+    let hash = OwnedHash(hash);
+    for part in parts {
+        let length = u32::try_from(part.len()).ok()?;
+        // SAFETY: part remains valid for the duration of the call.
+        if unsafe { BCryptHashData(hash.0, part.as_ptr(), length, 0) } < 0 {
+            return None;
+        }
+    }
+    let mut output = [0_u8; 32];
+    // SAFETY: output is a writable SHA-256-sized buffer and hash remains valid.
+    if unsafe { BCryptFinishHash(hash.0, output.as_mut_ptr(), 32, 0) } < 0 {
+        return None;
+    }
+    Some(output)
+}
+
+fn runtime_principal_identity_hash(token: HANDLE) -> Option<[u8; 32]> {
+    let mut required = 0_u32;
+    // SAFETY: the null query obtains the required TOKEN_USER buffer length.
+    unsafe { GetTokenInformation(token, TokenUser, null_mut(), 0, &mut required) };
+    if required == 0 || required > 65_536 {
+        return None;
+    }
+    let words = usize::try_from(required).ok()?.div_ceil(size_of::<usize>());
+    let mut buffer = vec![0_usize; words];
+    // SAFETY: buffer is aligned and at least required bytes long.
+    if unsafe {
+        GetTokenInformation(
+            token,
+            TokenUser,
+            buffer.as_mut_ptr().cast::<c_void>(),
+            required,
+            &mut required,
+        )
+    } == 0
+    {
+        return None;
+    }
+    // SAFETY: successful TokenUser output begins with a valid TOKEN_USER structure.
+    let user = unsafe { &*buffer.as_ptr().cast::<TOKEN_USER>() };
+    if user.User.Sid.is_null() || unsafe { IsValidSid(user.User.Sid) } == 0 {
+        return None;
+    }
+    let sid_length = usize::try_from(unsafe { GetLengthSid(user.User.Sid) }).ok()?;
+    if !(8..=68).contains(&sid_length) {
+        return None;
+    }
+    // SAFETY: IsValidSid succeeded and GetLengthSid returned the readable SID length.
+    let sid = unsafe { std::slice::from_raw_parts(user.User.Sid.cast::<u8>(), sid_length) };
+    const DOMAIN: &[u8] = b"CRDD\0WINDOWS-RUNTIME-PRINCIPAL\0V1\0";
+    let length = u64::try_from(sid.len()).ok()?.to_be_bytes();
+    sha256(&[DOMAIN, &length, sid])
 }
 
 fn access_allowed(
@@ -235,7 +332,10 @@ pub fn observe(request: &Request) -> Response {
     let Some(descriptor) = security_descriptor(root.0) else {
         return blocked(request, Reason::SecurityDescriptorUnavailable);
     };
-    let Some(token) = impersonation_token() else {
+    let Some((primary_token, impersonation_token)) = process_tokens() else {
+        return blocked(request, Reason::ProcessTokenUnavailable);
+    };
+    let Some(principal_identity_hash) = runtime_principal_identity_hash(primary_token.0) else {
         return blocked(request, Reason::ProcessTokenUnavailable);
     };
     let checks = [
@@ -254,7 +354,9 @@ pub fn observe(request: &Request) -> Response {
     ];
     let mut access_mask = 0_u32;
     for (flag, requested_access) in checks {
-        let Some(is_allowed) = access_allowed(descriptor.0, token.0, requested_access) else {
+        let Some(is_allowed) =
+            access_allowed(descriptor.0, impersonation_token.0, requested_access)
+        else {
             return blocked(request, Reason::AccessCheckFailed);
         };
         if is_allowed {
@@ -275,6 +377,7 @@ pub fn observe(request: &Request) -> Response {
         is_candidate: true,
         reason: Reason::ObservationCandidate,
         access_mask,
+        runtime_principal_identity_hash: principal_identity_hash,
     }
 }
 

@@ -63,7 +63,7 @@ function fixture() {
       relativePath:
         "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
       target: "x86_64-pc-windows-msvc",
-      protocolRevision: 1,
+      protocolRevision: 2,
       rustToolchain: "1.94.1",
       byteLength: 1024,
       sha256: "6".repeat(64),
@@ -156,7 +156,7 @@ test("package name, version, file ordering, path and digest mismatches fail clos
         "aarch64-pc-windows-msvc";
     },
     (value) => {
-      value.manifestEnvelope.payload.platformAccessArtifact.protocolRevision = 2;
+      value.manifestEnvelope.payload.platformAccessArtifact.protocolRevision = 1;
     },
     (value) => {
       value.manifestEnvelope.payload.platformAccessArtifact.rustToolchain =

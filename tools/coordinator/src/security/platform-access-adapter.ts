@@ -1,6 +1,6 @@
-const responseMagic = Buffer.from("CRDDPR01", "ascii");
-const RESPONSE_BYTES = 50;
-const PROTOCOL_REVISION = 1;
+const responseMagic = Buffer.from("CRDDPR02", "ascii");
+const RESPONSE_BYTES = 82;
+const PROTOCOL_REVISION = 2;
 const RESPONSE_STATUS_CANDIDATE = 1;
 const OBSERVATION_CANDIDATE_REASON = 100;
 const KNOWN_ACCESS_MASK = 0x1ff;
@@ -36,6 +36,7 @@ function blocked(
     helperResponseValidated: isHelperResponseValidated,
     absolutePathReported: false,
     principalReported: false,
+    principalIdentityHashReported: false,
     aclReported: false,
     rawErrorReported: false,
     permissionMutationIssued: false,
@@ -131,14 +132,23 @@ export function evaluatePlatformAccessResponseCandidate(
         ]),
       ),
     );
+    const runtimePrincipalIdentityHash = responseBytes
+      .subarray(50, 82)
+      .toString("hex");
+    if (/^0{64}$/u.test(runtimePrincipalIdentityHash)) {
+      return blocked("platform_access_helper_response_invalid");
+    }
     return Object.freeze({
       status: "candidate" as const,
       reason: "windows_current_process_access_observed_candidate",
       accessObservation,
+      runtimePrincipalMode: "local_interactive_selected_user" as const,
+      runtimePrincipalIdentityHash,
       helperProcessSpawned: false,
       helperResponseValidated: true,
       absolutePathReported: false,
       principalReported: false,
+      principalIdentityHashReported: true,
       aclReported: false,
       rawErrorReported: false,
       permissionMutationIssued: false,
@@ -171,7 +181,11 @@ export function describePlatformAccessAdapterContract() {
     rustCrate: "crdd-platform-access",
     rustToolchain: "1.94.1",
     target: "x86_64-pc-windows-msvc",
-    wireProtocol: "fixed_bounded_binary_revision_1",
+    wireProtocol: "fixed_bounded_binary_revision_2",
+    runtimePrincipalMode: "local_interactive_selected_user",
+    runtimePrincipalIdentity:
+      "native_current_token_user_sid_domain_separated_sha256",
+    serviceAccountMode: "not_implemented_blocked",
     windowsCurrentProcessAccessCore: "implemented_candidate_component_only",
     binaryReleaseIdentityBinding: "implemented_candidate_signed_manifest",
     productionInvocation:
@@ -183,6 +197,7 @@ export function describePlatformAccessAdapterContract() {
     posixAdapter: "not_implemented",
     absolutePathReported: false,
     principalReported: false,
+    principalIdentityHashReported: false,
     aclReported: false,
     rawErrorReported: false,
     permissionMutationIssued: false,

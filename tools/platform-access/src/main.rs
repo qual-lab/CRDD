@@ -12,6 +12,7 @@ fn invalid_response() -> Response {
         is_candidate: false,
         reason: Reason::InvalidRequest,
         access_mask: 0,
+        runtime_principal_identity_hash: [0_u8; 32],
     }
 }
 
@@ -38,6 +39,7 @@ fn main() {
         is_candidate: false,
         reason: Reason::UnsupportedPlatform,
         access_mask: 0,
+        runtime_principal_identity_hash: [0_u8; 32],
     };
 
     if write_response(response).is_err() {

@@ -8,14 +8,15 @@ import {
 } from "../src/security/platform-access-adapter.ts";
 
 function response(nonce: Buffer, role = 2, accessMask = 0x101) {
-  const bytes = Buffer.alloc(50);
-  bytes.write("CRDDPR01", 0, "ascii");
-  bytes.writeUInt16LE(1, 8);
+  const bytes = Buffer.alloc(82);
+  bytes.write("CRDDPR02", 0, "ascii");
+  bytes.writeUInt16LE(2, 8);
   bytes[10] = role;
   bytes[11] = 1;
   nonce.copy(bytes, 12);
   bytes.writeUInt16LE(100, 44);
   bytes.writeUInt32LE(accessMask, 46);
+  bytes.fill(0x0a, 50, 82);
   return bytes;
 }
 
@@ -33,10 +34,13 @@ test("Rust platform access responseを安全要約へ限定する", () => {
   assert.equal(result.accessObservation?.readTraverse, true);
   assert.equal(result.accessObservation?.writeOwner, true);
   assert.equal(result.accessObservation?.addFile, false);
+  assert.equal(result.runtimePrincipalMode, "local_interactive_selected_user");
+  assert.equal(result.runtimePrincipalIdentityHash, "0a".repeat(32));
   assert.equal(result.helperProcessSpawned, false);
   assert.equal(result.helperResponseValidated, true);
   assert.equal(result.absolutePathReported, false);
   assert.equal(result.principalReported, false);
+  assert.equal(result.principalIdentityHashReported, true);
   assert.equal(result.aclReported, false);
   assert.equal(result.rawErrorReported, false);
   assert.equal(result.permissionMutationIssued, false);
@@ -53,10 +57,15 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
   const nonce = Buffer.alloc(32, 5);
   const cases: unknown[] = [
     new Uint8Array(response(nonce)),
-    response(nonce).subarray(0, 49),
+    response(nonce).subarray(0, 81),
     response(nonce, 1),
     response(Buffer.alloc(32, 6)),
     response(nonce, 2, 0x200),
+    (() => {
+      const zeroPrincipal = response(nonce);
+      zeroPrincipal.fill(0, 50, 82);
+      return zeroPrincipal;
+    })(),
   ];
   for (const candidate of cases) {
     const result = evaluatePlatformAccessResponseCandidate(
@@ -147,6 +156,8 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   assert.equal(contract.cargoRuntimeInvocation, false);
   assert.equal(contract.windowsPermissionMutation, "not_implemented");
   assert.equal(contract.posixAdapter, "not_implemented");
+  assert.equal(contract.wireProtocol, "fixed_bounded_binary_revision_2");
+  assert.equal(contract.serviceAccountMode, "not_implemented_blocked");
   assert.equal(contract.filesystemEffectIssued, false);
   assert.equal(contract.runtimeAuthorityConferred, false);
   assert.equal(contract.runtimeCapabilityIssued, false);

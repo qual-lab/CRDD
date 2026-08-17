@@ -97,8 +97,8 @@ test("Windows package DACL observer and Effect remain unimplemented", () => {
     },
   );
   for (const result of [
-    inspectWindowsPackageDaclCandidate(unreadInput, unreadInput),
-    applyWindowsProvisionerInstallDaclForEffect(unreadInput, unreadInput),
+    inspectWindowsPackageDaclCandidate(unreadInput),
+    applyWindowsProvisionerInstallDaclForEffect(unreadInput),
   ]) {
     assert.equal(result.status, "blocked");
     assert.equal(
@@ -135,8 +135,9 @@ test("Windows package DACL observer and Effect remain unimplemented", () => {
   );
   assert.equal(
     contract.runtimePrincipalSelection,
-    "not_implemented_effective_token_required",
+    "implemented_candidate_local_interactive_current_token_user_only",
   );
+  assert.equal(contract.serviceAccountSelection, "not_implemented_blocked");
   assert.equal(
     contract.permissionMutation,
     "not_implemented_effective_access_required",

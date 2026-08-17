@@ -416,7 +416,7 @@ test("current Recordを正規化したRoot実測Hashへ完全結合する", () =
       rootDaclProtected: true,
       rootRole: "authority",
       runtimeDenyAceCount: 0,
-      runtimePrincipalSid: "S-1-5-21-1-2-3-1001",
+      runtimePrincipalIdentityHash: "c".repeat(64),
       runtimeReadExecuteEntityCount: 1,
       runtimeRootInheritanceRuleCount: 1,
       runtimeWriteEntityCount: 0,

@@ -21,7 +21,7 @@ function observation(rootRole: "runtime" | "authority" = "authority") {
     rootDaclProtected: true,
     rootRole,
     runtimeDenyAceCount: 0,
-    runtimePrincipalSid: "S-1-5-21-1-2-3-1001",
+    runtimePrincipalIdentityHash: "a".repeat(64),
     runtimeReadExecuteEntityCount: entityCount,
     runtimeRootInheritanceRuleCount: 1,
     runtimeWriteEntityCount: rootRole === "runtime" ? entityCount : 0,
@@ -41,10 +41,7 @@ test("Windows Root観測はIdentityと保護を別domain Hashへ固定する", (
   assert.notEqual(authority.rootProtectionHash, runtime.rootProtectionHash);
   assert.equal(authority.runtimeAuthorityConferred, false);
   assert.equal(authority.runtimeCapabilityIssued, false);
-  assert.equal(
-    JSON.stringify(authority).includes("S-1-5-21-1-2-3-1001"),
-    false,
-  );
+  assert.equal(JSON.stringify(authority).includes("S-1-"), false);
 });
 
 test("IdentityまたはRuntime主体の変更は対応するHashを変える", () => {
@@ -55,7 +52,7 @@ test("IdentityまたはRuntime主体の変更は対応するHashを変える", (
   });
   const changedPrincipal = compileWindowsRootObservationCandidate({
     ...observation(),
-    runtimePrincipalSid: "S-1-5-21-1-2-3-1002",
+    runtimePrincipalIdentityHash: "b".repeat(64),
   });
   assert.notEqual(baseline.rootIdentityHash, changedIdentity.rootIdentityHash);
   assert.equal(baseline.rootProtectionHash, changedIdentity.rootProtectionHash);
@@ -76,7 +73,7 @@ test("DACL、FilesystemまたはIdentity不成立をfail closedにする", () =>
     { ...observation(), reparsePointCount: 1 },
     { ...observation(), filesystemClass: "network" },
     { ...observation(), objectDeviceId: "0" },
-    { ...observation(), runtimePrincipalSid: "Administrators" },
+    { ...observation(), runtimePrincipalIdentityHash: "raw-sid" },
   ]) {
     assert.equal(
       compileWindowsRootObservationCandidate(invalid).status,

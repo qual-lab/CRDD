@@ -60,8 +60,8 @@ fn directory_identity(path: &OsStr) -> [u32; 3] {
 
 fn request(path: &str, identity: [u32; 3], nonce: [u8; 32]) -> Vec<u8> {
     let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"CRDDPA01");
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(b"CRDDPA02");
+    bytes.extend_from_slice(&2_u16.to_le_bytes());
     bytes.push(1);
     bytes.push(2);
     bytes.extend_from_slice(&nonce);
@@ -102,18 +102,22 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
     let candidate = invoke(&request(path, identity, nonce));
     assert!(candidate.status.success());
     assert!(candidate.stderr.is_empty());
-    assert_eq!(candidate.stdout.len(), 50);
-    assert_eq!(&candidate.stdout[..8], b"CRDDPR01");
+    assert_eq!(candidate.stdout.len(), 82);
+    assert_eq!(&candidate.stdout[..8], b"CRDDPR02");
     assert_eq!(candidate.stdout[11], 1);
     assert_eq!(&candidate.stdout[12..44], &nonce);
     assert_eq!(
         u16::from_le_bytes(candidate.stdout[44..46].try_into().unwrap()),
         100
     );
+    assert!(candidate.stdout[50..82].iter().any(|byte| *byte != 0));
+    let repeated = invoke(&request(path, identity, nonce));
+    assert!(repeated.status.success());
+    assert_eq!(&candidate.stdout[50..82], &repeated.stdout[50..82]);
 
     let blocked = invoke(&request(path, [0, 0, 0], nonce));
     assert_eq!(blocked.status.code(), Some(2));
-    assert_eq!(blocked.stdout.len(), 50);
+    assert_eq!(blocked.stdout.len(), 82);
     assert_eq!(blocked.stdout[11], 0);
     assert_eq!(
         u16::from_le_bytes(blocked.stdout[44..46].try_into().unwrap()),
@@ -122,7 +126,7 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
 
     let invalid = invoke(b"invalid");
     assert_eq!(invalid.status.code(), Some(2));
-    assert_eq!(invalid.stdout.len(), 50);
+    assert_eq!(invalid.stdout.len(), 82);
     assert_eq!(invalid.stdout[11], 0);
     assert_eq!(
         u16::from_le_bytes(invalid.stdout[44..46].try_into().unwrap()),

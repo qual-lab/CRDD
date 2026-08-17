@@ -34,13 +34,13 @@ const OBSERVATION_KEYS = new Set([
   "rootDaclProtected",
   "rootRole",
   "runtimeDenyAceCount",
-  "runtimePrincipalSid",
+  "runtimePrincipalIdentityHash",
   "runtimeReadExecuteEntityCount",
   "runtimeRootInheritanceRuleCount",
   "runtimeWriteEntityCount",
 ]);
 const MAXIMUM_ENTITIES = 2_049;
-const WINDOWS_SID = /^S-1-(?:[0-9]+-){1,14}[0-9]+$/u;
+const HEX64 = /^[0-9a-f]{64}$/u;
 const DECIMAL_IDENTITY = /^[1-9][0-9]{0,39}$/u;
 
 function blocked(reason: string) {
@@ -87,13 +87,6 @@ function integer(value: unknown) {
   );
 }
 
-function principalHash(sid: string) {
-  return createHash("sha256")
-    .update(Buffer.from("CRDD\0WINDOWS-PRINCIPAL-SID\0V1\0", "ascii"))
-    .update(Buffer.from(sid, "utf8"))
-    .digest("hex");
-}
-
 export function compileWindowsRootObservationCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, OBSERVATION_KEYS);
@@ -111,8 +104,8 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
       !integer(input.runtimeReadExecuteEntityCount) ||
       !integer(input.runtimeRootInheritanceRuleCount) ||
       !integer(input.runtimeWriteEntityCount) ||
-      typeof input.runtimePrincipalSid !== "string" ||
-      !WINDOWS_SID.test(input.runtimePrincipalSid) ||
+      typeof input.runtimePrincipalIdentityHash !== "string" ||
+      !HEX64.test(input.runtimePrincipalIdentityHash) ||
       typeof input.objectDeviceId !== "string" ||
       !DECIMAL_IDENTITY.test(input.objectDeviceId) ||
       typeof input.objectFileId !== "string" ||
@@ -154,7 +147,7 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
       platformFamily: "windows",
       rootRole: input.rootRole,
       runtimeAccess: isRuntimeRoot ? "read_write" : "read_only",
-      runtimePrincipalIdentityHash: principalHash(input.runtimePrincipalSid),
+      runtimePrincipalIdentityHash: input.runtimePrincipalIdentityHash,
       untrustedWriteAllowed: false,
       writeAuthority: isRuntimeRoot
         ? "runtime_principal_only"

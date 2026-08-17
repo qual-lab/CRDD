@@ -102,21 +102,15 @@ export function evaluateWindowsPackageDaclObservationCandidate(raw: unknown) {
   }
 }
 
-export function inspectWindowsPackageDaclCandidate(
-  packageRoot: unknown,
-  runtimePrincipalSid?: unknown,
-) {
+export function inspectWindowsPackageDaclCandidate(packageRoot: unknown) {
   void packageRoot;
-  void runtimePrincipalSid;
   return blocked("windows_package_effective_access_adapter_not_implemented");
 }
 
 export function applyWindowsProvisionerInstallDaclForEffect(
   installRoot: unknown,
-  runtimePrincipalSid?: unknown,
 ) {
   void installRoot;
-  void runtimePrincipalSid;
   return blocked("windows_package_effective_access_adapter_not_implemented");
 }
 
@@ -135,7 +129,9 @@ export function describeWindowsPackageDaclContract() {
     untrustedWriteAcePolicy: "rejected",
     ownerPolicy: "system_or_machine_administrators_required",
     recursiveEntityLimit: MAXIMUM_ENTITIES,
-    runtimePrincipalSelection: "not_implemented_effective_token_required",
+    runtimePrincipalSelection:
+      "implemented_candidate_local_interactive_current_token_user_only",
+    serviceAccountSelection: "not_implemented_blocked",
     runtimeReadBinding: "not_implemented_effective_access_required",
     runtimeReadExecuteRule:
       "target_single_explicit_root_inheritable_allow_and_effective_on_every_entity",
