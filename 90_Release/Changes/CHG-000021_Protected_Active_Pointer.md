@@ -20,6 +20,25 @@ Windows v1で許可するRuntime主体は、明示provisionで選択したロー
 
 一般のProvisioning Record Schemaが両modeを将来候補として表現できることは、Windows v1の現在対応または選択済みmodeを意味しない。Runtime activationと`doctor`は、許可方針の`local_interactive_selected_user`と将来blocked候補の`server_dedicated_service_account`を別fieldへ投影し、binder未実装中はmodeを一件も発行しない。Root observationの`selected_local_user_binding_caller_claim`は構造候補を作る非Authority入力に限り、`selectedUserBindingVerified: false`および`runtimePrincipalBound: false`を維持する。将来binderはcaller claimと異なる検証済み成果物型を所有しなければならない。
 
+Windows予約DOS basenameの比較は、予約名比較用の限定大文字写像（Reserved-name Limited Uppercase Mapping）をRepository正本として使う。処理順は、最初の`.`より前のbasename候補取得、basename末尾のASCII `.`／space除去、Unicode code point単位の限定写像、ASCII予約名集合とのexact比較である。locale、言語組込みのuppercase／case-fold、NFC／NFKC、一般Unicode正規化または再帰的変換を使用しない。TypeScript入力はwell-formed Unicode scalar列だけを受理し、孤立UTF-16 surrogateを拒否する。元入力のUTF-8 byte長4096上限、一般Unicode Pathの許容、および実Filesystem上のcase／Unicode aliasを未確認とする境界は変更しない。
+
+| 入力code point | 比較用出力 |
+|---|---|
+| ASCII `a`–`z` | ASCII `A`–`Z` |
+| U+00DF `ß` | `SS` |
+| U+0131 `ı` | `I` |
+| U+017F `ſ` | `S` |
+| U+212A `K` | `K` |
+| U+FB00 `ﬀ` | `FF` |
+| U+FB01 `ﬁ` | `FI` |
+| U+FB02 `ﬂ` | `FL` |
+| U+FB03 `ﬃ` | `FFI` |
+| U+FB04 `ﬄ` | `FFL` |
+| U+FB05 `ﬅ` | `ST` |
+| U+FB06 `ﬆ` | `ST` |
+
+表にないcode pointは変換しない。写像後のbasenameが予約名集合へexact一致する場合だけ追加拒否し、非ASCII Pathを一律拒否しない。TypeScript pure validator、install layout利用側およびRust protocol parserはこの表の全entryと同じ正負fixtureを検査し、表、予約集合または処理順の変更時に両言語を再確認する。
+
 ## 最小更新モデル
 
 利用者向けの世代管理機能は作らない。内部更新境界は次の二状態だけを所有する。
@@ -102,9 +121,20 @@ TypeScriptとRustのunit／contract／integration試験、source別branch covera
 
 この監査集合は全体として`Invalidated`であり、現在判定へ流用しない。処置は、許可方針と将来候補を分けた主体mode投影、caller claimの非Authority化とbinder未成立の機械投影、CLIと試験が共用するcompact JSON＋末尾LF serializer、同一Sequence拒否とinactive orphan保持の分離、およびTypeScript／Rustの予約済みbasename境界同期へ反映した。各Findingは`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
 
+## 固定版`10d2f37`の独立再監査
+
+固定対象はCommit `10d2f377874e327e536f31c219a5077098fdc899`、Tree `69af42b57b2bc282c8e344a41fd5b40b436f2071`、Parent `78a58b21503025675edff6f80d1667660380871b`である。共通入力はCoordinator 342/342、Checker 151/151、TypeScript coverage 19 source／18 test、Rust 7/7、両private package check、Rust format／Clippy／locked release build、全体Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security Review: `Pass`、Finding 0。
+- Document Audit: `Pass`、Finding 0。
+- Gap／Impact Audit: `Fail`。`GCI-21-R3-001` Majorは、TypeScriptのUnicode-aware regexとRustのUnicode full uppercaseで予約済みDOS basenameのcase正規化が一致せず、dotless i等を含む入力の判定が分岐した。初回監査時から存在したが見落としていた候補である。
+- Conformance Audit: `Fail`。C-07およびPL-16がNon-conformantで、準拠claimは`Not Eligible`だった。
+
+この監査集合は全体として`Invalidated`であり、現在判定へ流用しない。`GCI-21-R3-001`の処置は、言語組込みのcase変換を予約名判定経路から除き、上記の限定写像、well-formed Unicode scalar列、孤立surrogate拒否および両言語の全件表駆動試験へ反映した。処置は`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
+
 ## 是正後の品質義務記録
 
-Node 24.19.0、cwd `tools/coordinator`で`node ./scripts/check-platform-access-ts-coverage.ts`を連続2回実行し、exact 19 source／18 testのstdout byteが完全一致した。stdoutは`JSON.stringify(value)`によるcompact JSON UTF-8 byteと末尾LF exact 1件だけで、CRLF、pretty表示または進捗出力を含まない。parse後objectやtrim後文字列ではなく、このstdout全140330 byteへ計算したSHA-256は`FE293966CD3EAE63E9A6FA7E8814088F1894AA4D58B2FC24BB90FBAE95989EB9`、合計はline 6228/7020、function 222/241、branch 954/1194である。未到達240 branchは出力の`uncoveredBranchObligations`で各`source:line:block:branch`へ`Not Verified`、理由、残存risk、代替確認、Owner、現在の人間判断要否および再確認条件を一対一に結合し、件数または割合をSecurity成立へ換算しない。
+Node 24.19.0、cwd `tools/coordinator`で`node ./scripts/check-platform-access-ts-coverage.ts`を連続2回実行し、exact 19 source／18 testのstdout byteが完全一致した。stdoutは`JSON.stringify(value)`によるcompact JSON UTF-8 byteと末尾LF exact 1件だけで、CRLF、pretty表示または進捗出力を含まない。parse後objectやtrim後文字列ではなく、このstdout全140332 byteへ計算したSHA-256は`3FC914BA901D29D026359A060FEB2A46838E2158791D0DB3EBD0C3B80CA0CC7C`、合計はline 6279/7071、function 225/244、branch 964/1204である。未到達240 branchは出力の`uncoveredBranchObligations`で各`source:line:block:branch`へ`Not Verified`、理由、残存risk、代替確認、Owner、現在の人間判断要否および再確認条件を一対一に結合し、件数または割合をSecurity成立へ換算しない。
 
 | source | line | function | branch | 未到達 |
 |---|---:|---:|---:|---:|
@@ -112,7 +142,7 @@ Node 24.19.0、cwd `tools/coordinator`で`node ./scripts/check-platform-access-t
 | `scripts/release-staging-manifest.ts` | 327/346 | 10/11 | 42/53 | 11 |
 | `scripts/sign-release-manifest.ts` | 195/347 | 5/9 | 6/23 | 17 |
 | `src/core/doctor.ts` | 637/682 | 24/25 | 115/173 | 58 |
-| `src/security/authority-root-path-lexical.ts` | 59/65 | 4/5 | 21/22 | 1 |
+| `src/security/authority-root-path-lexical.ts` | 110/116 | 7/8 | 31/32 | 1 |
 | `src/security/platform-access-adapter.ts` | 210/214 | 11/11 | 34/38 | 4 |
 | `src/security/platform-access-release.ts` | 268/286 | 11/11 | 31/41 | 10 |
 | `src/security/platform-provisioner-manifest-loader.ts` | 171/183 | 5/5 | 39/47 | 8 |
@@ -128,6 +158,6 @@ Node 24.19.0、cwd `tools/coordinator`で`node ./scripts/check-platform-access-t
 | `src/security/runtime-activation-record.ts` | 1140/1148 | 24/25 | 81/91 | 10 |
 | `src/security/runtime-root-path-identity.ts` | 347/523 | 16/21 | 59/70 | 11 |
 
-Rust 1.94.1の固定`x86_64-pc-windows-msvc`対象は、`node ./scripts/check-platform-access-coverage.ts`で7/7を合格し、region 950/1058、function 41/42、line 618/680だった。source別には`main.rs`が16/27・1/2・10/26、`protocol.rs`が373/400・19/19・210/218、`windows.rs`が384/454・16/16・301/339、`tests/cli.rs`が177/177・5/5・97/97である。stable toolchainはbranchを0/0しか生成しないため`Not Available`であり、100%へ換算しない。未到達FFI、実Windows DACL、selected-user binder、native durable store、Verified Imageおよびproduction processは`Not Verified`、Owner=Qual-Labとし、それぞれの実装またはRelease binding着手時に再確認する。
+Rust 1.94.1の固定`x86_64-pc-windows-msvc`対象は、`node ./scripts/check-platform-access-coverage.ts`で8/8を合格し、region 1035/1143、function 43/44、line 663/725だった。source別には`main.rs`が16/27・1/2・10/26、`protocol.rs`が458/485・21/21・255/263、`windows.rs`が384/454・16/16・301/339、`tests/cli.rs`が177/177・5/5・97/97である。stable toolchainはbranchを0/0しか生成しないため`Not Available`であり、100%へ換算しない。未到達FFI、実Windows DACL、selected-user binder、native durable store、Verified Imageおよびproduction processは`Not Verified`、Owner=Qual-Labとし、それぞれの実装またはRelease binding着手時に再確認する。
 
 この品質記録は局所testまたはcoverage合格、検証義務の評価および現在品質状態を分離する。production Adapter、active reader、Provision Effect、Authority、Capability、12 blocker、6 current-run evidenceおよびGate `blocked`を変更せず、独立再監査前に`Verified`または`Resolved`へ昇格しない。

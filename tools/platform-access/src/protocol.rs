@@ -78,12 +78,13 @@ fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
 }
 
 fn is_reserved_windows_basename(segment: &str) -> bool {
-    let basename = segment
-        .split('.')
-        .next()
-        .unwrap_or("")
-        .trim_end_matches(['.', ' '])
-        .to_uppercase();
+    let basename = reserved_name_limited_uppercase(
+        segment
+            .split('.')
+            .next()
+            .unwrap_or("")
+            .trim_end_matches(['.', ' ']),
+    );
     matches!(
         basename.as_str(),
         "CON" | "PRN" | "AUX" | "NUL" | "CLOCK$" | "CONIN$" | "CONOUT$"
@@ -95,6 +96,30 @@ fn is_reserved_windows_basename(segment: &str) -> bool {
             )
         })
     })
+}
+
+fn reserved_name_limited_uppercase(value: &str) -> String {
+    let mut normalized = String::new();
+    for character in value.chars() {
+        match character {
+            'a'..='z' => normalized.push(
+                char::from_u32(u32::from(character) - 0x20)
+                    .expect("ASCII lowercase mapping must remain valid"),
+            ),
+            'ß' => normalized.push_str("SS"),
+            'ı' => normalized.push('I'),
+            'ſ' => normalized.push('S'),
+            'K' => normalized.push('K'),
+            'ﬀ' => normalized.push_str("FF"),
+            'ﬁ' => normalized.push_str("FI"),
+            'ﬂ' => normalized.push_str("FL"),
+            'ﬃ' => normalized.push_str("FFI"),
+            'ﬄ' => normalized.push_str("FFL"),
+            'ﬅ' | 'ﬆ' => normalized.push_str("ST"),
+            _ => normalized.push(character),
+        }
+    }
+    normalized
 }
 
 fn is_supported_windows_path(path: &str) -> bool {
@@ -255,6 +280,9 @@ mod tests {
             "C:\\CON .txt",
             "C:\\COM1 .log",
             "C:\\LPT¹ .x",
+            "C:\\CONıN$",
+            "C:\\CONıN$ .txt",
+            "C:\\CLOCK$.log",
         ] {
             assert!(parse_request(&request_bytes(path.as_bytes())).is_none());
         }
@@ -264,6 +292,33 @@ mod tests {
         let oversized_path = format!("{maximum_path}a");
         assert!(parse_request(&request_bytes(oversized_path.as_bytes())).is_none());
         assert!(parse_request(&request_bytes("C:\\通常".as_bytes())).is_some());
+        assert!(parse_request(&request_bytes("C:\\CONSOLE".as_bytes())).is_some());
+    }
+
+    #[test]
+    fn reserved_name_mapping_is_repository_owned_and_exact() {
+        for (lowercase, uppercase) in ('a'..='z').zip('A'..='Z') {
+            assert_eq!(
+                reserved_name_limited_uppercase(&lowercase.to_string()),
+                uppercase.to_string()
+            );
+        }
+        for (source, expected) in [
+            ("ß", "SS"),
+            ("ı", "I"),
+            ("ſ", "S"),
+            ("K", "K"),
+            ("ﬀ", "FF"),
+            ("ﬁ", "FI"),
+            ("ﬂ", "FL"),
+            ("ﬃ", "FFI"),
+            ("ﬄ", "FFL"),
+            ("ﬅ", "ST"),
+            ("ﬆ", "ST"),
+        ] {
+            assert_eq!(reserved_name_limited_uppercase(source), expected);
+        }
+        assert_eq!(reserved_name_limited_uppercase("通常"), "通常");
     }
 
     #[test]
