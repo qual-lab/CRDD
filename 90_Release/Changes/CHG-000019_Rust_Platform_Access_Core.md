@@ -107,9 +107,15 @@ Node.js `24.19.0`、Rust／Cargo `1.94.1`およびtarget `x86_64-pc-windows-msvc
 
 固定Commit `35b5050e83befd2f4fd1e38719845d27a867b70a`、Tree `3e1701f1249cce1ce424084b66da3dbc4f153a84`、Parent `cc52011d37394ac0cbd2883fc6a1172935a5fc07`では、Agent／Architecture／Security ReviewがMajor 2件（`ASR-03`、`ASR-04`）、Document AuditがMajor 1件（`DOC-RUST-R01`）＋Minor 1件（`DOC-RUST-R02`）、Gap / Impact AuditがMajor 2件（`GCI-R2-001`、`GCI-R2-002`）、Conformance Auditが`Fail`を返した。集合全体は`Invalidated`であり、現在の合否へ流用しない。
 
-`ASR-03`／`GCI-R2-002`はRust Path検証より広い`canonical Path`表明、`ASR-04`／`GCI-R2-001`は未確認`target`を通るcoverage再帰削除、`DOC-RUST-R01`は旧8 Findingの個別trace欠落、`DOC-RUST-R02`は英語単独の検証義務用語を原因とした。前二組は初回見落としまたは是正起因、Document 2件は今回の是正で新たに発生したものとして個別履歴を保持する。
+`ASR-03`／`GCI-R2-002`はRust Path検証より広い`canonical Path`表明、`ASR-04`／`GCI-R2-001`は未確認`target`を通るcoverage再帰削除、`DOC-RUST-R01`は旧8 Findingの個別trace欠落、`DOC-RUST-R02`は英語単独の検証義務用語を原因とした。`ASR-03`／`GCI-R2-002`は「初回レビュー／監査時から存在したが見落としていた」、`ASR-04`／`GCI-R2-001`、`DOC-RUST-R01`および`DOC-RUST-R02`は「今回の修正によって新たに発生した」として個別履歴を保持する。「今回の修正によって初めて確認可能になった」と「承認された対象範囲の拡大によって確認対象になった」は0件だった。
 
 現在の処置では、Rust PathをTypeScript正本より広くない4096 byteの保守的字句subsetへ閉じ、coverage runnerを検証済み`target`直下のrun固有Directoryへ変更して既存treeの再帰削除を廃止した。旧8 Findingの個別表とローカル表示用語も追加した。これらは`Applied`／`Self-checked`であり、新固定版の全機械確認と同じ監査集合が完了するまでは`Resolved`ではない。
+
+### `dbad1e1`独立監査集合
+
+固定Commit `dbad1e16955def73636e8ca43655669364dda20e`、Tree `1b62cefe56d19f791cb1c8c0521334c7f5156695`、Parent `35b5050e83befd2f4fd1e38719845d27a867b70a`では、Agent／Architecture／Security Reviewが`Pass`／Finding 0、Document Auditが`Conditional`／Minor 1件（`DOC-RUST-R03`）、Gap / Impact Auditが`Pass`／Finding 0、Conformance Auditが`Pass`／Finding 0を返した。集合全体は`Invalidated`であり、現在の合否へ流用しない。
+
+`DOC-RUST-R03`の原因は、35b監査の新規4分類を「または」で未確定のまま記録したことだった。上記のとおり6 Findingをexact 1分類へ割り当て、該当0件の2分類も明示した。処置は`Applied`／`Self-checked — pending independent re-review`であり、新固定版のDocument再監査前は`Resolved`ではない。
 
 本変更はRust Coreのcomponent候補までである。Release binary Identity binding、production process管理、bounded stdin／stdout／timeoutの実接続、Windows全tree／writer排他確認、Protection Hash、DACL mutation、Platform Provisioner Effect、Runtime reader、POSIX、initial Trust、activationおよびRelease artifact組込みは未実装・未評価である。これらが成立する前は本番利用を有効化しない。
 
