@@ -1,21 +1,38 @@
 import assert from "node:assert/strict";
-import { createPrivateKey, createPublicKey } from "node:crypto";
+import { generateKeyPairSync, sign } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { generateReleaseKeyPair } from "../scripts/generate-release-key.ts";
+import { signReleaseManifest } from "../scripts/sign-release-manifest.ts";
 import {
-  signReleaseManifest,
-  signReleaseManifestForContractTest,
-} from "../scripts/sign-release-manifest.ts";
+  beginPlatformAccessArtifactSigningObservation,
+  placePlatformAccessBoundReleaseManifestCandidate,
+} from "../src/security/platform-access-release.ts";
+import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 
-test("test専用署名Trust境界はproduction sourceから到達不能である", () => {
-  for (const relativeRoot of ["src", "bin"] as const) {
+test("production署名sourceはTrust差替え、検証skipまたはtest hookを持たない", () => {
+  const forbiddenNames = [
+    "ContractTestTrust",
+    "signReleaseManifestForContractTest",
+    "skipCommitTreeBinding",
+    "skipReleaseIdentityBinding",
+    "beforeSignature",
+    "afterManifestWrite",
+    "expectedSignerSpkiDer",
+  ];
+  const forbiddenPatterns = [
+    /ContractTest/u,
+    /ForContractTest/u,
+    /skip[A-Z][A-Za-z]+(?:Binding|Validation)/u,
+    /(?:before|after)[A-Z][A-Za-z]+(?:Hook|Write|Signature)/u,
+  ];
+  for (const relativeRoot of ["scripts", "src", "bin"] as const) {
     const files = fs.readdirSync(path.join(coordinatorRoot, relativeRoot), {
       recursive: true,
       withFileTypes: true,
@@ -26,18 +43,44 @@ test("test専用署名Trust境界はproduction sourceから到達不能である
         path.join(entry.parentPath, entry.name),
         "utf8",
       );
-      assert.equal(
-        source.includes("signReleaseManifestForContractTest"),
-        false,
-      );
+      for (const identifier of forbiddenNames) {
+        assert.equal(
+          source.includes(identifier),
+          false,
+          `${relativeRoot}/${entry.name}: ${identifier}`,
+        );
+      }
+      for (const pattern of forbiddenPatterns) {
+        assert.equal(
+          pattern.test(source),
+          false,
+          `${relativeRoot}/${entry.name}: ${pattern.source}`,
+        );
+      }
     }
   }
 });
 
-function signingFixture() {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-signing-flow-"));
+function ephemeralEnvelopeBytes() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const payload = Buffer.from("CRDD test-only placement envelope", "utf8");
+  const signature = sign(null, payload, privateKey).toString("base64url");
+  const publicKeyDer = publicKey.export({ type: "spki", format: "der" });
+  const canonical = canonicalizeProvisioningJsonValueCandidate({
+    contract: "crdd-test/release-manifest-placement-envelope",
+    contractRevision: 1,
+    payload: payload.toString("base64url"),
+    publicKey: publicKeyDer.toString("base64url"),
+    signature,
+  });
+  assert.equal(canonical.status, "candidate");
+  assert.ok("canonicalBytes" in canonical);
+  return canonical.canonicalBytes;
+}
+
+function placementFixture() {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-placement-flow-"));
   const distributionRoot = path.join(parent, "distribution");
-  const keyDirectory = path.join(parent, "key");
   const executablePath = path.join(
     distributionRoot,
     "90_Release",
@@ -45,173 +88,144 @@ function signingFixture() {
     "x86_64-pc-windows-msvc",
     "crdd-platform-access.exe",
   );
+  const manifestPath = path.join(
+    distributionRoot,
+    "90_Release",
+    "coordinator-package-manifest.json",
+  );
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
   fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
-  fs.mkdirSync(path.join(distributionRoot, "tools", "coordinator", "src"), {
-    recursive: true,
-  });
-  fs.writeFileSync(
-    path.join(distributionRoot, "tools", "coordinator", "package.json"),
-    JSON.stringify({
-      name: "@qual-lab/crdd-coordinator",
-      version: "0.0.0-development",
-      private: true,
-      type: "module",
-      scripts: {},
-      engines: {},
-      devDependencies: {},
-    }),
-  );
-  fs.writeFileSync(
-    path.join(distributionRoot, "tools", "coordinator", "src", "fixture.ts"),
-    "export const FIXTURE = true;\n",
-  );
-  generateReleaseKeyPair(keyDirectory, TEST_PASSPHRASE);
-  const privateKeyPath = path.join(keyDirectory, "crdd-release-v1-private.pem");
-  const privateKey = createPrivateKey({
-    key: fs.readFileSync(privateKeyPath),
-    format: "pem",
-    passphrase: TEST_PASSPHRASE,
-  });
-  const expectedSignerSpkiDer = createPublicKey(privateKey).export({
-    type: "spki",
-    format: "der",
-  });
-  const options = Object.freeze({
-    distributionRoot,
-    privateKeyPath,
-    passphrase: TEST_PASSPHRASE,
-    crddVersion: "v0.18.0",
-    releaseSequence: 18,
-    crddCommit: "0".repeat(40),
-    crddTree: "1".repeat(40),
-    issuedAt: "2026-08-16T00:00:00.000Z",
-    expiresAt: "2027-08-16T00:00:00.000Z",
-  });
+  const observation =
+    beginPlatformAccessArtifactSigningObservation(distributionRoot);
+  assert.ok(observation);
   return {
     parent,
     distributionRoot,
     executablePath,
-    expectedSignerSpkiDer,
-    options,
+    manifestPath,
+    token: observation.token,
+    canonicalBytes: ephemeralEnvelopeBytes(),
   };
 }
 
-function testTrust(
-  expectedSignerSpkiDer: Buffer,
-  hooks: Readonly<{
-    beforeSignature?: () => void;
-    afterManifestWrite?: () => void;
-  }> = {},
+function withFsyncMutation(
+  mutation: (descriptor: number) => void,
+  operation: () => void,
 ) {
-  return Object.freeze({
-    expectedSignerSpkiDer,
-    skipCommitTreeBinding: true as const,
-    skipReleaseIdentityBinding: true as const,
-    ...hooks,
-  });
+  const originalFsyncSync = fs.fsyncSync;
+  fs.fsyncSync = ((descriptor: number) => {
+    originalFsyncSync(descriptor);
+    mutation(descriptor);
+  }) as typeof fs.fsyncSync;
+  try {
+    operation();
+  } finally {
+    fs.fsyncSync = originalFsyncSync;
+  }
 }
 
-test("test専用Trust境界で署名観測区間の正常経路を検証する", () => {
-  const value = signingFixture();
+test("署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認する", () => {
+  const value = placementFixture();
   try {
-    const result = signReleaseManifestForContractTest(
-      value.options,
-      testTrust(value.expectedSignerSpkiDer),
+    const result = placePlatformAccessBoundReleaseManifestCandidate(
+      value.token,
+      value.canonicalBytes,
     );
-    assert.equal(result.status, "created");
-    assert.equal(
-      fs.existsSync(
-        path.join(
-          value.distributionRoot,
-          "90_Release",
-          "coordinator-package-manifest.json",
-        ),
-      ),
-      true,
-    );
+    assert.equal(result.status, "placed");
+    assert.deepEqual(fs.readFileSync(value.manifestPath), value.canonicalBytes);
   } finally {
     fs.rmSync(value.parent, { recursive: true, force: true });
   }
 });
 
-test("署名前の成果物差替えではmanifestを生成しない", () => {
-  const value = signingFixture();
-  try {
-    assert.throws(
-      () =>
-        signReleaseManifestForContractTest(
-          value.options,
-          testTrust(value.expectedSignerSpkiDer, {
-            beforeSignature() {
-              fs.writeFileSync(value.executablePath, "replacement");
-            },
-          }),
-        ),
-      /release_manifest_artifact_changed_before_signing/u,
-    );
-    assert.equal(
-      fs.existsSync(
-        path.join(
-          value.distributionRoot,
-          "90_Release",
-          "coordinator-package-manifest.json",
-        ),
-      ),
-      false,
-    );
-  } finally {
-    fs.rmSync(value.parent, { recursive: true, force: true });
+test("manifestの同長上書き、短縮および追記をcreatedへ流用しない", {
+  concurrency: false,
+}, () => {
+  const mutations = [
+    (descriptor: number, bytes: Buffer) => {
+      fs.writeSync(
+        descriptor,
+        Buffer.alloc(bytes.length, 0x78),
+        0,
+        bytes.length,
+        0,
+      );
+    },
+    (descriptor: number, bytes: Buffer) => {
+      fs.ftruncateSync(descriptor, bytes.length - 1);
+    },
+    (descriptor: number, bytes: Buffer) => {
+      fs.writeSync(descriptor, Buffer.from("x"), 0, 1, bytes.length);
+    },
+  ];
+  for (const mutate of mutations) {
+    const value = placementFixture();
+    try {
+      assert.throws(
+        () =>
+          withFsyncMutation(
+            (descriptor) => mutate(descriptor, value.canonicalBytes),
+            () =>
+              void placePlatformAccessBoundReleaseManifestCandidate(
+                value.token,
+                value.canonicalBytes,
+              ),
+          ),
+        /release_manifest_staging_changed_after_placement/u,
+      );
+      assert.equal(fs.existsSync(value.manifestPath), true);
+    } finally {
+      fs.rmSync(value.parent, { recursive: true, force: true });
+    }
   }
 });
 
-test("署名前の配布Root差替えでは別実体を再基準化しない", () => {
-  const value = signingFixture();
-  try {
-    assert.throws(
-      () =>
-        signReleaseManifestForContractTest(
-          value.options,
-          testTrust(value.expectedSignerSpkiDer, {
-            beforeSignature() {
-              fs.renameSync(
-                value.distributionRoot,
-                `${value.distributionRoot}-original`,
-              );
-              fs.mkdirSync(value.distributionRoot);
-            },
-          }),
-        ),
-      /release_manifest_artifact_changed_before_signing/u,
-    );
-  } finally {
-    fs.rmSync(value.parent, { recursive: true, force: true });
-  }
-});
-
-test("manifest配置後の成果物差替えでは失敗成果物を自動削除しない", () => {
-  const value = signingFixture();
-  const manifestPath = path.join(
-    value.distributionRoot,
-    "90_Release",
-    "coordinator-package-manifest.json",
-  );
-  try {
-    assert.throws(
-      () =>
-        signReleaseManifestForContractTest(
-          value.options,
-          testTrust(value.expectedSignerSpkiDer, {
-            afterManifestWrite() {
-              fs.writeFileSync(value.executablePath, "replacement");
-            },
-          }),
-        ),
-      /release_manifest_staging_changed_after_placement/u,
-    );
-    assert.equal(fs.existsSync(manifestPath), true);
-  } finally {
-    fs.rmSync(value.parent, { recursive: true, force: true });
+test("manifest Path、Release DirectoryまたはRust成果物の配置後差を拒否して自動削除しない", {
+  concurrency: false,
+}, () => {
+  const cases = [
+    (value: ReturnType<typeof placementFixture>) => {
+      fs.renameSync(value.manifestPath, `${value.manifestPath}.original`);
+      fs.writeFileSync(value.manifestPath, value.canonicalBytes);
+    },
+    (value: ReturnType<typeof placementFixture>) => {
+      const releaseDirectory = path.dirname(value.manifestPath);
+      fs.renameSync(releaseDirectory, `${releaseDirectory}-original`);
+      fs.mkdirSync(releaseDirectory);
+    },
+    (value: ReturnType<typeof placementFixture>) => {
+      fs.writeFileSync(value.executablePath, "replacement");
+    },
+  ];
+  for (const mutate of cases) {
+    const value = placementFixture();
+    try {
+      assert.throws(
+        () =>
+          withFsyncMutation(
+            () => mutate(value),
+            () =>
+              void placePlatformAccessBoundReleaseManifestCandidate(
+                value.token,
+                value.canonicalBytes,
+              ),
+          ),
+        /release_manifest_staging_changed_after_placement/u,
+      );
+      assert.equal(
+        fs.existsSync(value.manifestPath) ||
+          fs.existsSync(`${value.manifestPath}.original`) ||
+          fs.existsSync(
+            path.join(
+              `${path.dirname(value.manifestPath)}-original`,
+              path.basename(value.manifestPath),
+            ),
+          ),
+        true,
+      );
+    } finally {
+      fs.rmSync(value.parent, { recursive: true, force: true });
+    }
   }
 });
 
@@ -220,9 +234,6 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
   const distributionRoot = path.join(parent, "distribution");
   const keyDirectory = path.join(parent, "key");
   try {
-    fs.mkdirSync(path.join(distributionRoot, "90_Release"), {
-      recursive: true,
-    });
     fs.mkdirSync(
       path.join(
         distributionRoot,

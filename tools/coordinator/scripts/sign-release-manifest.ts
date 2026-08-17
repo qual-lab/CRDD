@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { readHiddenLine } from "./generate-release-key.ts";
 import {
   beginPlatformAccessArtifactSigningObservation,
+  placePlatformAccessBoundReleaseManifestCandidate,
   verifyPlatformAccessArtifactSigningObservation,
 } from "../src/security/platform-access-release.ts";
 import { inspectPlatformProvisionerPackageFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
@@ -27,7 +28,6 @@ import {
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
-const MANIFEST_RELATIVE_PATH = "90_Release/coordinator-package-manifest.json";
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
 const MAXIMUM_PASSPHRASE_BYTES = 1_024;
 
@@ -42,50 +42,6 @@ type ManifestOptions = Readonly<{
   issuedAt: string;
   expiresAt: string;
 }>;
-
-type ContractTestTrust = Readonly<{
-  expectedSignerSpkiDer: Buffer;
-  skipCommitTreeBinding: true;
-  skipReleaseIdentityBinding: true;
-  beforeSignature?: () => void;
-  afterManifestWrite?: () => void;
-}>;
-
-type DirectoryIdentity = Readonly<{
-  dev: bigint;
-  ino: bigint;
-  birthtimeNs: bigint;
-}>;
-
-function directoryIdentity(target: string): DirectoryIdentity {
-  const metadata = fs.lstatSync(target, { bigint: true });
-  if (
-    !metadata.isDirectory() ||
-    metadata.isSymbolicLink() ||
-    metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
-    metadata.birthtimeNs <= 0n ||
-    fs.realpathSync.native(target) !== target
-  ) {
-    throw new Error("release_manifest_output_path_invalid");
-  }
-  return Object.freeze({
-    dev: metadata.dev,
-    ino: metadata.ino,
-    birthtimeNs: metadata.birthtimeNs,
-  });
-}
-
-function sameDirectoryIdentity(
-  left: DirectoryIdentity,
-  right: DirectoryIdentity,
-) {
-  return (
-    left.dev === right.dev &&
-    left.ino === right.ino &&
-    left.birthtimeNs === right.birthtimeNs
-  );
-}
 
 function isContainedBy(parent: string, candidate: string) {
   const relative = path.relative(parent, candidate);
@@ -209,21 +165,9 @@ function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
   }
 }
 
-function signReleaseManifestWithTrust(
-  options: ManifestOptions,
-  testTrust?: ContractTestTrust,
-) {
+export function signReleaseManifest(options: ManifestOptions) {
   const distributionRoot = externalDistributionRoot(options.distributionRoot);
   const packageRoot = path.join(distributionRoot, "tools", "coordinator");
-  const releaseDirectory = path.join(distributionRoot, "90_Release");
-  const manifestPath = path.join(
-    distributionRoot,
-    ...MANIFEST_RELATIVE_PATH.split("/"),
-  );
-  const releaseDirectoryIdentity = directoryIdentity(releaseDirectory);
-  if (fs.existsSync(manifestPath)) {
-    throw new Error("release_manifest_output_path_invalid");
-  }
   const packageObservation =
     inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);
   const platformAccessObservation =
@@ -268,38 +212,26 @@ function signReleaseManifestWithTrust(
       type: "spki",
       format: "der",
     });
-    const pinnedSpki =
-      testTrust?.expectedSignerSpkiDer ??
-      getPinnedPlatformProvisionerReleaseSignerSpkiDer();
+    const pinnedSpki = getPinnedPlatformProvisionerReleaseSignerSpkiDer();
     if (!signerSpki.equals(pinnedSpki)) {
       throw new Error("release_manifest_private_key_not_pinned");
     }
-    if (!testTrust?.skipReleaseIdentityBinding) {
-      const releaseIdentity =
-        inspectPlatformProvisionerReleaseIdentityCandidate(
-          distributionRoot,
-          options.crddTree,
-        );
-      if (
-        releaseIdentity.status !== "candidate" ||
-        releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
-        releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
-          true
-      ) {
-        throw new Error("release_manifest_distribution_tree_mismatch");
-      }
+    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
+      distributionRoot,
+      options.crddTree,
+    );
+    if (
+      releaseIdentity.status !== "candidate" ||
+      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
+      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+        true
+    ) {
+      throw new Error("release_manifest_distribution_tree_mismatch");
     }
-    if (!testTrust?.skipCommitTreeBinding) {
-      verifyCommitTreeBinding(options.crddCommit, options.crddTree);
-    }
-    testTrust?.beforeSignature?.();
+    verifyCommitTreeBinding(options.crddCommit, options.crddTree);
     if (
       !verifyPlatformAccessArtifactSigningObservation(
         platformAccessObservation.token,
-      ) ||
-      !sameDirectoryIdentity(
-        releaseDirectoryIdentity,
-        directoryIdentity(releaseDirectory),
       )
     ) {
       throw new Error("release_manifest_artifact_changed_before_signing");
@@ -321,37 +253,13 @@ function signReleaseManifestWithTrust(
     if (canonical.status !== "candidate") {
       throw new Error("release_manifest_envelope_invalid");
     }
-    const manifestDescriptor = fs.openSync(manifestPath, "wx", 0o644);
-    try {
-      fs.writeFileSync(manifestDescriptor, canonical.canonicalBytes);
-      fs.fsyncSync(manifestDescriptor);
-      const created = fs.fstatSync(manifestDescriptor, { bigint: true });
-      testTrust?.afterManifestWrite?.();
-      const pathAfter = fs.lstatSync(manifestPath, { bigint: true });
-      if (
-        !created.isFile() ||
-        created.isSymbolicLink() ||
-        created.dev !== pathAfter.dev ||
-        created.ino !== pathAfter.ino ||
-        created.birthtimeNs !== pathAfter.birthtimeNs ||
-        created.size !== pathAfter.size ||
-        fs.realpathSync.native(manifestPath) !== manifestPath ||
-        !sameDirectoryIdentity(
-          releaseDirectoryIdentity,
-          directoryIdentity(releaseDirectory),
-        ) ||
-        !verifyPlatformAccessArtifactSigningObservation(
-          platformAccessObservation.token,
-        )
-      ) {
-        throw new Error("release_manifest_staging_changed_after_placement");
-      }
-    } finally {
-      fs.closeSync(manifestDescriptor);
-    }
+    const placement = placePlatformAccessBoundReleaseManifestCandidate(
+      platformAccessObservation.token,
+      canonical.canonicalBytes,
+    );
     return Object.freeze({
       status: "created" as const,
-      manifestRelativePath: MANIFEST_RELATIVE_PATH,
+      manifestRelativePath: placement.manifestRelativePath,
       manifestHash: compiled.manifestHash,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
       platformAccessExecutableSha256: platformAccessObservation.artifact.sha256,
@@ -367,17 +275,6 @@ function signReleaseManifestWithTrust(
     passphrase.fill(0);
     privateKeyBytes?.fill(0);
   }
-}
-
-export function signReleaseManifest(options: ManifestOptions) {
-  return signReleaseManifestWithTrust(options);
-}
-
-export function signReleaseManifestForContractTest(
-  options: ManifestOptions,
-  testTrust: ContractTestTrust,
-) {
-  return signReleaseManifestWithTrust(options, testTrust);
 }
 
 function parseArguments(args: readonly string[]) {

@@ -7,7 +7,7 @@ import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signa
 export const PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH =
   "90_Release/coordinator-package-manifest.json";
 
-const MAXIMUM_MANIFEST_BYTES = 128 * 1024;
+export const PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES = 128 * 1024;
 
 function stableManifestBytes(target: string) {
   const before = fs.lstatSync(target, { bigint: true });
@@ -15,7 +15,7 @@ function stableManifestBytes(target: string) {
     !before.isFile() ||
     before.isSymbolicLink() ||
     before.size <= 0n ||
-    before.size > BigInt(MAXIMUM_MANIFEST_BYTES)
+    before.size > BigInt(PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES)
   ) {
     throw new Error("platform_provisioner_manifest_file_invalid");
   }
@@ -166,7 +166,7 @@ export function describePlatformProvisionerManifestLoaderContract() {
     contract: "crdd-coordinator/platform-provisioner-manifest-loader",
     contractRevision: 1,
     manifestRelativePath: PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
-    maximumManifestBytes: MAXIMUM_MANIFEST_BYTES,
+    maximumManifestBytes: PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES,
     canonicalEncoding: "RFC-8785-exact-UTF-8-without-BOM",
     stableSameFileIdentityRead: "implemented_candidate",
     symbolicLinkOrReparseFallbackAllowed: false,
