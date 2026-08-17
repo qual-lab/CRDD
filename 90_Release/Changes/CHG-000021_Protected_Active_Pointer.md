@@ -1,7 +1,7 @@
 # 変更トレース: 保護済み有効ポインター（Protected Active Pointer）とWindows production接続
 
 - 変更ID: `CHG-000021`
-- 状態: `Ready for Verification`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-18
 - 対象: CRDD公式Repositoryの内部Coordinator、Windows provision経路およびRust製プラットフォームアクセス部
