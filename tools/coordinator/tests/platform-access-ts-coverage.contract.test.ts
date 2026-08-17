@@ -8,6 +8,7 @@ import {
   PLATFORM_ACCESS_TS_COVERAGE_NODE_OPTIONS,
   PLATFORM_ACCESS_TS_COVERAGE_SOURCES,
   PLATFORM_ACCESS_TS_COVERAGE_TESTS,
+  serializePlatformAccessTsCoverage,
 } from "../scripts/check-platform-access-ts-coverage.ts";
 
 function record(source: string, taken = "1") {
@@ -114,6 +115,17 @@ test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", 
       recheck: "LCOV grammar、Node coverageまたは固定母集団の変更時",
     },
   });
+});
+
+test("coverage CLI serializerはcompact JSONと末尾LF exact 1件を固定する", () => {
+  const value = parsePlatformAccessTsCoverageLcov(exactLcov());
+  const serialized = serializePlatformAccessTsCoverage(value);
+  assert.equal(serialized, `${JSON.stringify(value)}\n`);
+  assert.equal(serialized.endsWith("\n"), true);
+  assert.equal(serialized.endsWith("\n\n"), false);
+  assert.equal(serialized.includes("\r"), false);
+  assert.equal(serialized.includes('\n  "'), false);
+  assert.deepEqual(JSON.parse(serialized), value);
 });
 
 test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒否する", () => {

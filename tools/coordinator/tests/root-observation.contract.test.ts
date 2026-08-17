@@ -22,7 +22,7 @@ function observation(rootRole: "runtime" | "authority" = "authority") {
     rootRole,
     runtimeDenyAceCount: 0,
     runtimePrincipalIdentityHash: "a".repeat(64),
-    runtimePrincipalBinding: "selected_local_user_verified_candidate_input",
+    runtimePrincipalBinding: "selected_local_user_binding_caller_claim",
     runtimeReadExecuteEntityCount: entityCount,
     runtimeRootInheritanceRuleCount: 1,
     runtimeWriteEntityCount: rootRole === "runtime" ? entityCount : 0,
@@ -42,6 +42,8 @@ test("Windows Root観測はIdentityと保護を別domain Hashへ固定する", (
   assert.notEqual(authority.rootProtectionHash, runtime.rootProtectionHash);
   assert.equal(authority.runtimeAuthorityConferred, false);
   assert.equal(authority.runtimeCapabilityIssued, false);
+  assert.equal(authority.selectedUserBindingVerified, false);
+  assert.equal(authority.runtimePrincipalBound, false);
   assert.equal(JSON.stringify(authority).includes("S-1-"), false);
 });
 
@@ -75,6 +77,10 @@ test("DACL、FilesystemまたはIdentity不成立をfail closedにする", () =>
     { ...observation(), filesystemClass: "network" },
     { ...observation(), objectDeviceId: "0" },
     { ...observation(), runtimePrincipalIdentityHash: "raw-sid" },
+    {
+      ...observation(),
+      runtimePrincipalBinding: "selected_local_user_verified_candidate_input",
+    },
   ]) {
     assert.equal(
       compileWindowsRootObservationCandidate(invalid).status,
@@ -112,6 +118,8 @@ test("process結果の観測写像未実装時は入力に依存せず安全にb
     "rootProtectionHash",
     "runtimeAuthorityConferred",
     "runtimeCapabilityIssued",
+    "runtimePrincipalBound",
+    "selectedUserBindingVerified",
     "status",
   ]);
 });
@@ -135,7 +143,11 @@ test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
     windowsProcessInvocation:
       "blocked_until_protected_active_generation_and_verified_image_binding",
     windowsAdapter: "not_implemented_observation_mapping_required",
+    runtimePrincipalBindingInput:
+      "selected_local_user_binding_caller_claim_non_authority",
     selectedUserBinding: "not_implemented_blocked",
+    selectedUserBindingVerified: false,
+    runtimePrincipalBound: false,
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

@@ -52,6 +52,8 @@ function blocked(reason: string) {
     rootProtectionHash: null,
     identityObserved: false,
     protectionObserved: false,
+    selectedUserBindingVerified: false,
+    runtimePrincipalBound: false,
     absolutePathReported: false,
     principalReported: false,
     aclReported: false,
@@ -108,7 +110,7 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
       typeof input.runtimePrincipalIdentityHash !== "string" ||
       !HEX64.test(input.runtimePrincipalIdentityHash) ||
       input.runtimePrincipalBinding !==
-        "selected_local_user_verified_candidate_input" ||
+        "selected_local_user_binding_caller_claim" ||
       typeof input.objectDeviceId !== "string" ||
       !DECIMAL_IDENTITY.test(input.objectDeviceId) ||
       typeof input.objectFileId !== "string" ||
@@ -169,6 +171,8 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
       ),
       identityObserved: true,
       protectionObserved: true,
+      selectedUserBindingVerified: false,
+      runtimePrincipalBound: false,
       absolutePathReported: false,
       principalReported: false,
       aclReported: false,
@@ -209,7 +213,11 @@ export function describeRootObservationContract() {
       platformAccess.binaryReleaseIdentityBinding,
     windowsProcessInvocation: platformAccess.productionInvocation,
     windowsAdapter: "not_implemented_observation_mapping_required",
+    runtimePrincipalBindingInput:
+      "selected_local_user_binding_caller_claim_non_authority",
     selectedUserBinding: "not_implemented_blocked",
+    selectedUserBindingVerified: false,
+    runtimePrincipalBound: false,
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

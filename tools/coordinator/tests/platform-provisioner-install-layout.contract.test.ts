@@ -71,6 +71,9 @@ test("Windows install layoutはRustと同じ保守的字句境界を要求する
     "C:\\ProgramData\\\\CRDD",
     "C:\\ProgramData\\..\\CRDD",
     "C:\\ProgramData\\NUL.txt",
+    "C:\\ProgramData\\CON .txt",
+    "C:\\ProgramData\\COM1 .log",
+    "C:\\ProgramData\\LPT¹ .x",
     "C:\\ProgramData\\bad.",
     "C:\\ProgramData\\bad\u001f",
   ]) {

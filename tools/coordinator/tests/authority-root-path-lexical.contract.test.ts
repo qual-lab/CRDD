@@ -22,11 +22,18 @@ test("Windows absolute Pathの保守的字句subsetをOS非依存に判定する
     "C:\\ProgramData\\CON",
     "C:\\ProgramData\\nul.txt",
     "C:\\ProgramData\\COM¹.log",
+    "C:\\ProgramData\\CON .txt",
+    "C:\\ProgramData\\COM1 .log",
+    "C:\\ProgramData\\LPT¹ .x",
     "C:\\ProgramData\\bad:name",
     "C:\\ProgramData\\bad\u007f",
   ]) {
     assert.equal(isSupportedWindowsAbsolutePathCandidate(invalid), false);
   }
+  assert.equal(
+    isSupportedWindowsAbsolutePathCandidate("C:\\ProgramData\\CONSOLE.txt"),
+    true,
+  );
 });
 
 test("POSIX absolute Path判定をWindows候補と独立させる", () => {

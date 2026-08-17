@@ -504,10 +504,18 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     report.runtimeActivation.platformProvisioningScope,
     "platform_scope_once_while_verified_provisioning_identity_valid_target",
   );
-  assert.deepEqual(report.runtimeActivation.runtimePrincipalModes, [
+  assert.deepEqual(report.runtimeActivation.windowsV1RuntimePrincipalModes, [
     "local_interactive_selected_user",
-    "server_dedicated_service_account",
   ]);
+  assert.deepEqual(
+    report.runtimeActivation.futureBlockedRuntimePrincipalModes,
+    ["server_dedicated_service_account"],
+  );
+  assert.equal(report.runtimeActivation.runtimePrincipalModeIssued, false);
+  assert.equal(
+    report.runtimeActivation.selectedUserBinding,
+    "not_implemented_blocked",
+  );
   assert.equal(
     report.runtimeActivation.authorityRootPathReuseTarget,
     "explicit_path_resolved_from_verified_provisioning_record_target",

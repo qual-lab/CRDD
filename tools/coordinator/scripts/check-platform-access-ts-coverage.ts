@@ -570,12 +570,18 @@ export function inspectPlatformAccessTsCoverage() {
   return parsePlatformAccessTsCoverageLcov(result.stdout);
 }
 
+export function serializePlatformAccessTsCoverage(
+  value: ReturnType<typeof inspectPlatformAccessTsCoverage>,
+) {
+  return `${JSON.stringify(value)}\n`;
+}
+
 const invokedPath = process.argv[1];
 if (
   invokedPath &&
   import.meta.url === pathToFileURL(path.resolve(invokedPath)).href
 ) {
   process.stdout.write(
-    `${JSON.stringify(inspectPlatformAccessTsCoverage(), null, 2)}\n`,
+    serializePlatformAccessTsCoverage(inspectPlatformAccessTsCoverage()),
   );
 }

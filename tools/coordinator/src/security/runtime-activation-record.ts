@@ -85,8 +85,10 @@ const ONBOARDING_PROVISIONING_TARGET_KINDS = Object.freeze([
   "shared_authority_root_platform_scope",
   "repository_scoped_runtime_root_activation_precondition",
 ]);
-const ONBOARDING_RUNTIME_PRINCIPAL_MODES = Object.freeze([
+const WINDOWS_V1_RUNTIME_PRINCIPAL_MODES = Object.freeze([
   "local_interactive_selected_user",
+]);
+const FUTURE_BLOCKED_RUNTIME_PRINCIPAL_MODES = Object.freeze([
   "server_dedicated_service_account",
 ]);
 const ONBOARDING_CURRENT_RUN_EVIDENCE_REQUIREMENTS = Object.freeze([
@@ -957,7 +959,10 @@ export function describeRuntimeActivationContract() {
       "official_signed_platform_provisioner_distributed_with_coordinator_target",
     platformProvisioningScope:
       "platform_scope_once_while_verified_provisioning_identity_valid_target",
-    runtimePrincipalModes: ONBOARDING_RUNTIME_PRINCIPAL_MODES,
+    windowsV1RuntimePrincipalModes: WINDOWS_V1_RUNTIME_PRINCIPAL_MODES,
+    futureBlockedRuntimePrincipalModes: FUTURE_BLOCKED_RUNTIME_PRINCIPAL_MODES,
+    runtimePrincipalModeIssued: false,
+    selectedUserBinding: "not_implemented_blocked",
     authorityRootPathReuseTarget:
       "explicit_path_resolved_from_verified_provisioning_record_target",
     authorityRootLocator: implementation.authorityRootLocator,

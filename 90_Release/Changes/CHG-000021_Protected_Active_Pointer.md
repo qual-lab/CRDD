@@ -18,6 +18,8 @@ Windows v1は、管理者が配布元または別の経路で真正性を確認�
 
 Windows v1で許可するRuntime主体は、明示provisionで選択したローカル対話ユーザー（`local_interactive_selected_user`）1名だけに限定する。現在実装したRust native境界は現在process tokenの`TokenUser`からSIDのdomain-separated Hashを観測する非Authority候補だけで、選択userとの一致を確認するbinderは未実装である。管理者昇格は同じuserのtokenであることを将来binderの成立条件とし、別資格情報による昇格など選択userとの一致を決定論的に確認できない場合は処置前に`blocked`とする。elevated tokenのgroup、caller指定SIDまたは外部claimをRuntime主体へ昇格させない。有効ポインターには将来binderが確認したmodeとSID Hashだけを結合し、raw SIDは外部結果、Evidenceまたは文書へ出力しない。`server_dedicated_service_account`は将来候補に限り、v1では未実装かつ`blocked`とし、service accountの作成、資格情報、更新およびLifecycleを今回の範囲へ含めない。
 
+一般のProvisioning Record Schemaが両modeを将来候補として表現できることは、Windows v1の現在対応または選択済みmodeを意味しない。Runtime activationと`doctor`は、許可方針の`local_interactive_selected_user`と将来blocked候補の`server_dedicated_service_account`を別fieldへ投影し、binder未実装中はmodeを一件も発行しない。Root observationの`selected_local_user_binding_caller_claim`は構造候補を作る非Authority入力に限り、`selectedUserBindingVerified: false`および`runtimePrincipalBound: false`を維持する。将来binderはcaller claimと異なる検証済み成果物型を所有しなければならない。
+
 ## 最小更新モデル
 
 利用者向けの世代管理機能は作らない。内部更新境界は次の二状態だけを所有する。
@@ -58,7 +60,7 @@ Rust wire protocolはmagicを`CRDDPA02`／`CRDDPR02`、revisionを2へ破壊的�
 - `state/active-pointer.json`のnon-link同一file安定読取り候補
 - `images/`、`staging/`、`state/active-pointer.json`だけを返す最小layout候補
 - Rust wire revision 2による現在process `TokenUser`のdomain-separated Identity Hash観測
-- TypeScript Adapter、Root observationおよびRuntime activationのlocal-user-only投影
+- TypeScript Adapter、Root observationおよびRuntime activationにおけるlocal-user-only方針とcurrent-process観測sourceの分離（selected mode非発行）
 
 native durable atomic pointer store、staging copy、DACL適用と再確認、選択userと現在tokenの実結合、保護済みactive reader、検証済み実行イメージ、上限付きprocessおよびRoot観測の完全写像は未実装である。したがって有効ポインターStoreの永続化入口、Runtime reader、Platform Provisioner Effectおよびproduction Adapterは固定`blocked`のままであり、Filesystem状態、AuthorityまたはCapabilityを変更しない。
 
@@ -70,7 +72,7 @@ native durable atomic pointer store、staging copy、DACL適用と再確認、�
 
 ## 検証と監査
 
-発火例は、管理者が公式署名済みReleaseから新規stagingを作り、全検証後にpointerを一度だけ切り替える場合である。非発火例は通常run、`doctor`またはsource checkoutである。境界例は同一releaseSequenceでもIdentityが異なる、旧activeが残る、または切替後にcleanupを保留する場合で、いずれもDirectory探索や自動fallbackを行わない。判定情報不足例はdurability、DACL、parent delete、full tree、image Identityまたはprocess treeを確認できない場合で、正式結果は`blocked`である。
+発火例は、管理者が公式署名済みReleaseから新規stagingを作り、全検証後にpointerを一度だけ切り替える場合である。非発火例は通常run、`doctor`またはsource checkoutである。同一`releaseSequence`の候補はIdentityが同じか異なるかにかかわらず厳密増加違反として`blocked`となる。旧activeの残存または切替後のcleanup保留はinactive immutable orphanとして保持できるが、有効ポインターの選択対象にせず、Directory探索、自動fallbackまたはrollbackを行わない。判定情報不足例はdurability、DACL、parent delete、full tree、image Identityまたはprocess treeを確認できない場合で、正式結果は`blocked`である。
 
 TypeScriptとRustのunit／contract／integration試験、source別branch coverageと未到達処置、Rust format／Clippy／locked release build、全体Checkerを取得する。固定改訂版へAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを旧合否不流用で実行する。実管理者provision、本番秘密鍵、実Release handoffまたは別Windows環境を使わない範囲は`Not Verified`としてrisk、Ownerおよび再確認契機を保持し、機械試験件数をRelease根拠へ流用しない。
 
@@ -89,13 +91,24 @@ TypeScriptとRustのunit／contract／integration試験、source別branch covera
 
 この監査集合は全体として`Invalidated`であり、現在判定へ流用しない。処置は、任意の正の初回Sequenceと厳密増加更新、旧state語彙の有効ポインターmodelへの置換、現在token観測と将来selected-user binderの分離、Windows/POSIX字句validatorの分離、利用側を含むcoverage母集団および文書のlocal-user-only／locale-first同期へ反映した。各Findingは`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
 
+## 固定版`78a58b2`の独立再監査
+
+固定対象はCommit `78a58b21503025675edff6f80d1667660380871b`、Tree `02013823d4c037a83619df63f819df18137196da`、Parent `af37c8cff0e011e293ff25d2910960f4be8df207`である。共通入力はCoordinator 341/341、Checker 151/151、TypeScript coverage 19 source／18 test、Rust 7/7、両private package check、Rust format／Clippy／locked release build、全体Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security Review: `Fail`。既知`ASR-21-003` Majorは、Runtime activation／doctorの無状態な主体mode列挙と、caller入力を検証済み候補と呼ぶRoot観測literalにより部分未解消だった。前者は初回から存在し見落としていた箇所、後者は今回の修正で新規発生した箇所である。`ASR-21-R1-001` Mediumは、品質記録がcompact JSON byteのHashを主張する一方、実CLIがpretty JSONを出力する不一致で、今回の修正により新規発生した。
+- Document Audit: `Fail`。`DOC-AP-R01` Majorはtarget policy、現在の非Authority観測、将来binderおよびproduction blockedの伝播漏れで、今回の修正により新規発生した。`DOC-AP-R02` Minorは同一Sequence拒否とinactive orphan保持を同じ境界文へ束ねた曖昧さで、初回監査時から存在したが見落としていた。
+- Gap／Impact Audit: `Fail`。`GCI-21-R2-001` Majorは、予約済みDOS device basenameの末尾spaceを拡張子判定前に除くTypeScriptと除かないRustの字句subset不一致で、初回監査時から存在したが見落としていた。
+- Conformance Audit: `Fail`。C-07およびPL-16がNon-conformantで、準拠claimは`Not Eligible`だった。
+
+この監査集合は全体として`Invalidated`であり、現在判定へ流用しない。処置は、許可方針と将来候補を分けた主体mode投影、caller claimの非Authority化とbinder未成立の機械投影、CLIと試験が共用するcompact JSON＋末尾LF serializer、同一Sequence拒否とinactive orphan保持の分離、およびTypeScript／Rustの予約済みbasename境界同期へ反映した。各Findingは`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
+
 ## 是正後の品質義務記録
 
-Node 24.19.0で`node ./scripts/check-platform-access-ts-coverage.ts`と同じ固定入口を連続2回実行し、exact 19 source／18 testのcompact JSONが完全一致した。SHA-256は`12748C386B0A1D8810720C1A41E743FBDBDE431A475E152FE20813887A5380E5`、合計はline 6209/7001、function 221/240、branch 952/1192である。未到達240 branchは出力の`uncoveredBranchObligations`で各`source:line:block:branch`へ`Not Verified`、理由、残存risk、代替確認、Owner、現在の人間判断要否および再確認条件を一対一に結合し、件数または割合をSecurity成立へ換算しない。
+Node 24.19.0、cwd `tools/coordinator`で`node ./scripts/check-platform-access-ts-coverage.ts`を連続2回実行し、exact 19 source／18 testのstdout byteが完全一致した。stdoutは`JSON.stringify(value)`によるcompact JSON UTF-8 byteと末尾LF exact 1件だけで、CRLF、pretty表示または進捗出力を含まない。parse後objectやtrim後文字列ではなく、このstdout全140330 byteへ計算したSHA-256は`FE293966CD3EAE63E9A6FA7E8814088F1894AA4D58B2FC24BB90FBAE95989EB9`、合計はline 6228/7020、function 222/241、branch 954/1194である。未到達240 branchは出力の`uncoveredBranchObligations`で各`source:line:block:branch`へ`Not Verified`、理由、残存risk、代替確認、Owner、現在の人間判断要否および再確認条件を一対一に結合し、件数または割合をSecurity成立へ換算しない。
 
 | source | line | function | branch | 未到達 |
 |---|---:|---:|---:|---:|
-| `scripts/check-platform-access-ts-coverage.ts` | 516/581 | 26/28 | 102/128 | 26 |
+| `scripts/check-platform-access-ts-coverage.ts` | 522/587 | 27/29 | 104/130 | 26 |
 | `scripts/release-staging-manifest.ts` | 327/346 | 10/11 | 42/53 | 11 |
 | `scripts/sign-release-manifest.ts` | 195/347 | 5/9 | 6/23 | 17 |
 | `src/core/doctor.ts` | 637/682 | 24/25 | 115/173 | 58 |
@@ -111,10 +124,10 @@ Node 24.19.0で`node ./scripts/check-platform-access-ts-coverage.ts`と同じ固
 | `src/security/platform-provisioner-release-identity.ts` | 355/385 | 15/15 | 47/68 | 21 |
 | `src/security/platform-provisioner-trust-core.ts` | 494/527 | 16/16 | 118/130 | 12 |
 | `src/security/platform-provisioner-windows-dacl.ts` | 146/148 | 5/5 | 48/49 | 1 |
-| `src/security/root-observation.ts` | 220/222 | 7/7 | 44/45 | 1 |
-| `src/security/runtime-activation-record.ts` | 1135/1143 | 24/25 | 81/91 | 10 |
+| `src/security/root-observation.ts` | 228/230 | 7/7 | 44/45 | 1 |
+| `src/security/runtime-activation-record.ts` | 1140/1148 | 24/25 | 81/91 | 10 |
 | `src/security/runtime-root-path-identity.ts` | 347/523 | 16/21 | 59/70 | 11 |
 
-Rust 1.94.1の固定`x86_64-pc-windows-msvc`対象は、`node ./scripts/check-platform-access-coverage.ts`で7/7を合格し、region 946/1054、function 41/42、line 610/672だった。source別には`main.rs`が16/27・1/2・10/26、`protocol.rs`が369/396・19/19・202/210、`windows.rs`が384/454・16/16・301/339、`tests/cli.rs`が177/177・5/5・97/97である。stable toolchainはbranchを0/0しか生成しないため`Not Available`であり、100%へ換算しない。未到達FFI、実Windows DACL、selected-user binder、native durable store、Verified Imageおよびproduction processは`Not Verified`、Owner=Qual-Labとし、それぞれの実装またはRelease binding着手時に再確認する。
+Rust 1.94.1の固定`x86_64-pc-windows-msvc`対象は、`node ./scripts/check-platform-access-coverage.ts`で7/7を合格し、region 950/1058、function 41/42、line 618/680だった。source別には`main.rs`が16/27・1/2・10/26、`protocol.rs`が373/400・19/19・210/218、`windows.rs`が384/454・16/16・301/339、`tests/cli.rs`が177/177・5/5・97/97である。stable toolchainはbranchを0/0しか生成しないため`Not Available`であり、100%へ換算しない。未到達FFI、実Windows DACL、selected-user binder、native durable store、Verified Imageおよびproduction processは`Not Verified`、Owner=Qual-Labとし、それぞれの実装またはRelease binding着手時に再確認する。
 
 この品質記録は局所testまたはcoverage合格、検証義務の評価および現在品質状態を分離する。production Adapter、active reader、Provision Effect、Authority、Capability、12 blocker、6 current-run evidenceおよびGate `blocked`を変更せず、独立再監査前に`Verified`または`Resolved`へ昇格しない。

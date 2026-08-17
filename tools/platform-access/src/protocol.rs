@@ -78,7 +78,12 @@ fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
 }
 
 fn is_reserved_windows_basename(segment: &str) -> bool {
-    let basename = segment.split('.').next().unwrap_or("").to_uppercase();
+    let basename = segment
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim_end_matches(['.', ' '])
+        .to_uppercase();
     matches!(
         basename.as_str(),
         "CON" | "PRN" | "AUX" | "NUL" | "CLOCK$" | "CONIN$" | "CONOUT$"
@@ -247,6 +252,9 @@ mod tests {
             "C:\\CONOUT$",
             "C:\\COM9.log",
             "C:\\LPT¹.txt",
+            "C:\\CON .txt",
+            "C:\\COM1 .log",
+            "C:\\LPT¹ .x",
         ] {
             assert!(parse_request(&request_bytes(path.as_bytes())).is_none());
         }

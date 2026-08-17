@@ -248,10 +248,14 @@ test("Activation contractは永続化、専用command、再activation、disable/
     contract.platformProvisioningScope,
     "platform_scope_once_while_verified_provisioning_identity_valid_target",
   );
-  assert.deepEqual(contract.runtimePrincipalModes, [
+  assert.deepEqual(contract.windowsV1RuntimePrincipalModes, [
     "local_interactive_selected_user",
+  ]);
+  assert.deepEqual(contract.futureBlockedRuntimePrincipalModes, [
     "server_dedicated_service_account",
   ]);
+  assert.equal(contract.runtimePrincipalModeIssued, false);
+  assert.equal(contract.selectedUserBinding, "not_implemented_blocked");
   assert.equal(
     contract.authorityRootPathReuseTarget,
     "explicit_path_resolved_from_verified_provisioning_record_target",
