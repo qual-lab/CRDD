@@ -377,7 +377,6 @@ export function describePlatformProvisionerReleaseIdentityContract() {
     signedCrddTreeComparison: "implemented_candidate_non_authoritative",
     signedCommitAttestationVerification:
       "requires_fixed_manifest_path_and_pinned_release_signature",
-    rollbackFloorPersistence: "not_implemented",
     runtimeAuthorityConferred: false,
     runtimeCapabilityIssued: false,
     filesystemEffectIssued: false,

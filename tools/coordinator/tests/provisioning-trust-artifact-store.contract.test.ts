@@ -417,6 +417,7 @@ test("current Recordを正規化したRoot実測Hashへ完全結合する", () =
       rootRole: "authority",
       runtimeDenyAceCount: 0,
       runtimePrincipalIdentityHash: "c".repeat(64),
+      runtimePrincipalBinding: "selected_local_user_verified_candidate_input",
       runtimeReadExecuteEntityCount: 1,
       runtimeRootInheritanceRuleCount: 1,
       runtimeWriteEntityCount: 0,

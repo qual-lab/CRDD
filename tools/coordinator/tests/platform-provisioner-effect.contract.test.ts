@@ -14,6 +14,8 @@ test("platform provisioning blocks before distribution or filesystem access", ()
     "platform_provisioner_effective_access_adapter_not_implemented",
   );
   assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(result.protectedGenerationInstalled, false);
+  assert.equal(result.activePointerPersisted, false);
   assert.equal(result.crddDistributionConfirmed, false);
   assert.equal(result.runtimeAuthorityConferred, false);
 });
@@ -31,4 +33,12 @@ test("platform provisioner effect is repository-owned and has no compatibility l
   );
   assert.equal(contract.repositoryRuntimeStateRequired, false);
   assert.equal(contract.compatibilityLayout, "prohibited");
+  assert.equal(
+    contract.activePointerPersistence,
+    "not_implemented_native_durable_store_required",
+  );
+  assert.equal(
+    contract.inactiveOrphanCleanup,
+    "separate_explicit_identity_bound_effect_required",
+  );
 });

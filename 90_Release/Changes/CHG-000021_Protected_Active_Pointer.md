@@ -1,4 +1,4 @@
-# 変更トレース: 保護済みactive pointerとWindows production接続
+# 変更トレース: 保護済み有効ポインター（Protected Active Pointer）とWindows production接続
 
 - 変更ID: `CHG-000021`
 - 状態: `Ready for Verification`
@@ -16,7 +16,7 @@ Windows v1は、管理者が配布元または別の経路で真正性を確認�
 
 専用installerおよびOS native code signingはv1の必須条件にしない。OwnerはQual-Labとし、配布経路の変更、非技術利用者向けinstaller、企業端末の実行Policy、bootstrap改変incidentまたはWindows publisher enforcement要求が発生した場合に再評価する。
 
-v1のRuntime主体は、明示provisionで選択したローカル対話ユーザー（`local_interactive_selected_user`）1名だけに限定する。Rust native境界は現在process tokenの`TokenUser`からSIDを観測し、DACLへはそのuser SIDだけを使用する。管理者昇格は同じuserのtokenであることを要求し、別資格情報による昇格など選択userとの一致を決定論的に確認できない場合は処置前に`blocked`とする。elevated tokenのgroup、caller指定SIDまたは外部claimをRuntime主体へ昇格させない。active pointerにはmodeとSIDのdomain-separated Hashだけを結合し、raw SIDは外部結果、Evidenceまたは文書へ出力しない。`server_dedicated_service_account`はv1で未実装かつ`blocked`とし、service accountの作成、資格情報、更新およびLifecycleを今回の範囲へ含めない。
+Windows v1で許可するRuntime主体は、明示provisionで選択したローカル対話ユーザー（`local_interactive_selected_user`）1名だけに限定する。現在実装したRust native境界は現在process tokenの`TokenUser`からSIDのdomain-separated Hashを観測する非Authority候補だけで、選択userとの一致を確認するbinderは未実装である。管理者昇格は同じuserのtokenであることを将来binderの成立条件とし、別資格情報による昇格など選択userとの一致を決定論的に確認できない場合は処置前に`blocked`とする。elevated tokenのgroup、caller指定SIDまたは外部claimをRuntime主体へ昇格させない。有効ポインターには将来binderが確認したmodeとSID Hashだけを結合し、raw SIDは外部結果、Evidenceまたは文書へ出力しない。`server_dedicated_service_account`は将来候補に限り、v1では未実装かつ`blocked`とし、service accountの作成、資格情報、更新およびLifecycleを今回の範囲へ含めない。
 
 ## 最小更新モデル
 
@@ -32,12 +32,12 @@ v1のRuntime主体は、明示provisionで選択したローカル対話ユー�
 1. 固定公開鍵で署名された公式Releaseのmanifest、全package fileおよびRust artifactをnon-link handleで開き、同じhandleでIdentity、size、Hashおよび署名を確認する。
 2. 検証済みsource handleのbyteだけを、同一volume上の新規exclusive stagingへ流す。検証後にsource Pathを再openしない。
 3. 全fileとDirectoryのdurability、inventory closure、non-link／non-reparse、Root／parent／staging Identity、owner／DACL／inheritance、writer排他、親Directoryの削除権およびRust image HashをWindows native境界で確認する。
-4. active pointerへopaque ID、Root Identity Hash、Protection Hash、Runtime主体mode／Identity Hash、Release Identity、package content Root、Rust image Identity／Hash、期待previous active Hashをcanonicalに結合する。
+4. 有効ポインターへopaque ID、Root Identity Hash、Protection Hash、将来binderが確認したRuntime主体mode／Identity Hash、Release Identity、package content Root、Rust image Identity／Hash、期待previous active Hashをcanonicalに結合する。
 5. 期待current pointerを再読し、exclusive temporary pointer write／flush、native atomic replace、parent durabilityおよび再読確認が完了した場合だけactiveを切り替える。
 6. 通常Runtimeはpointerが示すactiveだけを再検証し、staging、orphanまたはDirectory探索から候補を選ばない。
 7. Rust native境界がVerified Image handleをwrite／delete非共有で保持し、`CreateProcessW`、Job Object、固定protocolおよびRoot observationを一つのone-shot接続として実行する。
 
-Rust wire protocolはmagicを`CRDDPA02`／`CRDDPR02`、revisionを2へ破壊的に更新し、既存access bitに加えて現在tokenのuser SIDをdomain-separated SHA-256へ変換した32 byte Identityだけを返す。生SID、group、tokenまたはdescriptorは返さない。TypeScript Adapterはnonce、role、revision、固定長、reason、既知access bitおよび非zero主体Hashをexactに検証し、旧magic／revision 1を受け入れない。この主体観測はcomponent候補であり、DACL適用、active pointer永続化またはproduction processの成立を単独では意味しない。
+Rust wire protocolはmagicを`CRDDPA02`／`CRDDPR02`、revisionを2へ破壊的に更新し、既存access bitに加えて現在tokenのuser SIDをdomain-separated SHA-256へ変換した32 byte Identityだけを返す。生SID、group、tokenまたはdescriptorは返さない。TypeScript Adapterはnonce、role、revision、固定長、reason、既知access bitおよび非zero主体Hashをexactに検証し、旧magic／revision 1を受け入れない。Adapterが示すのは`current_process_token_user`の観測だけで、選択済みRuntime modeを発行しない。この主体観測はcomponent候補であり、DACL適用、有効ポインター永続化またはproduction processの成立を単独では意味しない。
 
 最初のFilesystem処置後に失敗した場合は`filesystemEffectIssued: true`と`recoveryRequired: true`を保持する。推測rollback、自動repair、自動retry、自動削除または旧activeへのfallbackを行わない。どの段階でもIdentity、durability、Protection、process tree終了またはprotocolを証明できなければ、その段階と下流を`blocked`とする。
 
@@ -54,17 +54,17 @@ Rust wire protocolはmagicを`CRDDPA02`／`CRDDPR02`、revisionを2へ破壊的�
 
 本固定前候補は、旧release floor／active release／state transactionのsourceと試験を削除し、次のcomponent候補へ置換した。
 
-- active pointer revision 1のexact canonical codec、Hash、初回または直前Hashからの単調遷移
+- 有効ポインターrevision 1のexact canonical codec、Hash、任意の正の初回`releaseSequence`または直前Hashと厳密増加Sequenceからの単調遷移
 - `state/active-pointer.json`のnon-link同一file安定読取り候補
 - `images/`、`staging/`、`state/active-pointer.json`だけを返す最小layout候補
 - Rust wire revision 2による現在process `TokenUser`のdomain-separated Identity Hash観測
 - TypeScript Adapter、Root observationおよびRuntime activationのlocal-user-only投影
 
-native durable atomic pointer store、staging copy、DACL適用と再確認、選択userと昇格tokenの実結合、保護済みactive reader、検証済み実行イメージ、上限付きprocessおよびRoot観測の完全写像は未実装である。したがってactive pointer storeの永続化入口、Runtime reader、Platform Provisioner Effectおよびproduction Adapterは固定`blocked`のままであり、Filesystem状態、AuthorityまたはCapabilityを変更しない。
+native durable atomic pointer store、staging copy、DACL適用と再確認、選択userと現在tokenの実結合、保護済みactive reader、検証済み実行イメージ、上限付きprocessおよびRoot観測の完全写像は未実装である。したがって有効ポインターStoreの永続化入口、Runtime reader、Platform Provisioner Effectおよびproduction Adapterは固定`blocked`のままであり、Filesystem状態、AuthorityまたはCapabilityを変更しない。
 
 ## 移行と復旧
 
-旧active／floor／transaction Schemaを新active pointerへ読み替えるfallbackは設けない。v0.18 Candidateの既存machine stateは破棄して、公式署名済みReleaseから明示provisionをやり直す。旧candidate stateをv0.17 Runtimeまたは新Runtimeが推測消費しない。
+旧active／floor／transaction Schemaを新しい有効ポインターへ読み替えるfallbackは設けない。v0.18 Candidateの既存machine stateは破棄して、公式署名済みReleaseから明示provisionをやり直す。旧candidate stateをv0.17 Runtimeまたは新Runtimeが推測消費しない。
 
 新経路を成立させられない場合はproduction入口を`blocked`のまま維持し、公開Releaseはv0.17.0 Released Baselineへ戻す。採用Repository、公開Checker、一般利用者向けSchemaおよび公開CLIには移行を要求しない。
 
@@ -77,3 +77,44 @@ TypeScriptとRustのunit／contract／integration試験、source別branch covera
 編集後の自己確認では、Coordinator 338/338、Checker 151/151、TypeScript typecheck／Biome lint・format、Rust unit／integration 7/7、`cargo fmt --check`、Clippy warning 0、locked release buildおよび命名closureが合格した。TypeScript coverageの固定母集団は17 source／16 testで、line 5921/6705、function 210/228、branch 932/1165である。未到達233 branchは、本変更の合格率またはSecurity成立へ換算しない。OwnerはQual-Labとし、native durable store、DACL Effect、Verified Imageまたはproduction processを実装する変更で、該当source別の正負／境界試験、残存risk、代替確認、人間判断要否および再確認条件へ接続する。Rust branchはstable toolchainで引き続き取得不能なため`Not Available`であり、0/0を100%へ換算しない。
 
 この状態は`Applied`かつ`Self-checked`であり、独立監査前の`Resolved`、採用、統合またはReleaseを意味しない。
+
+## 固定版`af37c8c`の独立監査
+
+固定対象はCommit `af37c8cff0e011e293ff25d2910960f4be8df207`、Tree `87b42eb3b9cb8ea8d08b76fc743a654ae12c6537`、Parent `a7f1493299cfe77d2a39bece4da1eef833f6a0fa`である。共通入力はCoordinator 338/338、Checker 151/151、TypeScript coverage 17 source／16 test、Rust 7/7、両private package check、Rust format／Clippy／locked release build、全体Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security Review: `Fail`。`ASR-21-001` Majorは`releaseSequence`を端末の連番へ誤変換、`ASR-21-002` Majorは削除済みfloor／active／transactionとorphanに矛盾するlayout表現の残存、`ASR-21-003` Majorは現在process `TokenUser`を選択済みlocal userへ早期昇格、`ASR-21-004` MediumはTypeScript側Windows Path字句検査の不足、`ASR-21-005` Majorは品質義務母集団と未到達処置の不足だった。001、002、003、005は今回変更で新規発生、004は初回から存在し見落としていた。
+- Document Audit: `Fail`。`DOC-AP-001` Majorはlocal-user-only方針とservice account現在形の伝播競合、`DOC-AP-002` Minorは有効ポインターのlocale-first初出不足で、いずれも今回変更で新規発生した。
+- Gap／Impact Audit: `Fail`。`GCI-21-001` Majorは旧machine state利用側の移行漏れ、`GCI-21-002` MajorはRelease Sequenceの連番化、`GCI-21-003` Majorは品質義務母集団と未到達処置の不足だった。CHG21範囲の初回独立監査であるため再監査4分類は非適用であり、3件はCHG21変更で導入または露呈したFindingとして保持する。
+- Conformance Audit: `Fail`。C-04／C-07、PL-08およびPL-16がNon-conformant、準拠claimは`Not Eligible`だった。
+
+この監査集合は全体として`Invalidated`であり、現在判定へ流用しない。処置は、任意の正の初回Sequenceと厳密増加更新、旧state語彙の有効ポインターmodelへの置換、現在token観測と将来selected-user binderの分離、Windows/POSIX字句validatorの分離、利用側を含むcoverage母集団および文書のlocal-user-only／locale-first同期へ反映した。各Findingは`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
+
+## 是正後の品質義務記録
+
+Node 24.19.0で`node ./scripts/check-platform-access-ts-coverage.ts`と同じ固定入口を連続2回実行し、exact 19 source／18 testのcompact JSONが完全一致した。SHA-256は`12748C386B0A1D8810720C1A41E743FBDBDE431A475E152FE20813887A5380E5`、合計はline 6209/7001、function 221/240、branch 952/1192である。未到達240 branchは出力の`uncoveredBranchObligations`で各`source:line:block:branch`へ`Not Verified`、理由、残存risk、代替確認、Owner、現在の人間判断要否および再確認条件を一対一に結合し、件数または割合をSecurity成立へ換算しない。
+
+| source | line | function | branch | 未到達 |
+|---|---:|---:|---:|---:|
+| `scripts/check-platform-access-ts-coverage.ts` | 516/581 | 26/28 | 102/128 | 26 |
+| `scripts/release-staging-manifest.ts` | 327/346 | 10/11 | 42/53 | 11 |
+| `scripts/sign-release-manifest.ts` | 195/347 | 5/9 | 6/23 | 17 |
+| `src/core/doctor.ts` | 637/682 | 24/25 | 115/173 | 58 |
+| `src/security/authority-root-path-lexical.ts` | 59/65 | 4/5 | 21/22 | 1 |
+| `src/security/platform-access-adapter.ts` | 210/214 | 11/11 | 34/38 | 4 |
+| `src/security/platform-access-release.ts` | 268/286 | 11/11 | 31/41 | 10 |
+| `src/security/platform-provisioner-manifest-loader.ts` | 171/183 | 5/5 | 39/47 | 8 |
+| `src/security/platform-provisioner-active-pointer.ts` | 322/336 | 11/11 | 60/72 | 12 |
+| `src/security/platform-provisioner-active-pointer-store.ts` | 139/147 | 6/6 | 24/32 | 8 |
+| `src/security/platform-provisioner-effect.ts` | 49/49 | 3/3 | 4/4 | 0 |
+| `src/security/platform-provisioner-install-layout.ts` | 139/139 | 5/5 | 15/15 | 0 |
+| `src/security/platform-provisioner-package-filesystem.ts` | 480/678 | 17/21 | 62/91 | 29 |
+| `src/security/platform-provisioner-release-identity.ts` | 355/385 | 15/15 | 47/68 | 21 |
+| `src/security/platform-provisioner-trust-core.ts` | 494/527 | 16/16 | 118/130 | 12 |
+| `src/security/platform-provisioner-windows-dacl.ts` | 146/148 | 5/5 | 48/49 | 1 |
+| `src/security/root-observation.ts` | 220/222 | 7/7 | 44/45 | 1 |
+| `src/security/runtime-activation-record.ts` | 1135/1143 | 24/25 | 81/91 | 10 |
+| `src/security/runtime-root-path-identity.ts` | 347/523 | 16/21 | 59/70 | 11 |
+
+Rust 1.94.1の固定`x86_64-pc-windows-msvc`対象は、`node ./scripts/check-platform-access-coverage.ts`で7/7を合格し、region 946/1054、function 41/42、line 610/672だった。source別には`main.rs`が16/27・1/2・10/26、`protocol.rs`が369/396・19/19・202/210、`windows.rs`が384/454・16/16・301/339、`tests/cli.rs`が177/177・5/5・97/97である。stable toolchainはbranchを0/0しか生成しないため`Not Available`であり、100%へ換算しない。未到達FFI、実Windows DACL、selected-user binder、native durable store、Verified Imageおよびproduction processは`Not Verified`、Owner=Qual-Labとし、それぞれの実装またはRelease binding着手時に再確認する。
+
+この品質記録は局所testまたはcoverage合格、検証義務の評価および現在品質状態を分離する。production Adapter、active reader、Provision Effect、Authority、Capability、12 blocker、6 current-run evidenceおよびGate `blocked`を変更せず、独立再監査前に`Verified`または`Resolved`へ昇格しない。

@@ -34,7 +34,8 @@ test("Rust platform access responseを安全要約へ限定する", () => {
   assert.equal(result.accessObservation?.readTraverse, true);
   assert.equal(result.accessObservation?.writeOwner, true);
   assert.equal(result.accessObservation?.addFile, false);
-  assert.equal(result.runtimePrincipalMode, "local_interactive_selected_user");
+  assert.equal(result.observedPrincipalSource, "current_process_token_user");
+  assert.equal(result.runtimePrincipalMode, null);
   assert.equal(result.runtimePrincipalIdentityHash, "0a".repeat(32));
   assert.equal(result.helperProcessSpawned, false);
   assert.equal(result.helperResponseValidated, true);

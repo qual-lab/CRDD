@@ -35,6 +35,7 @@ const OBSERVATION_KEYS = new Set([
   "rootRole",
   "runtimeDenyAceCount",
   "runtimePrincipalIdentityHash",
+  "runtimePrincipalBinding",
   "runtimeReadExecuteEntityCount",
   "runtimeRootInheritanceRuleCount",
   "runtimeWriteEntityCount",
@@ -106,6 +107,8 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
       !integer(input.runtimeWriteEntityCount) ||
       typeof input.runtimePrincipalIdentityHash !== "string" ||
       !HEX64.test(input.runtimePrincipalIdentityHash) ||
+      input.runtimePrincipalBinding !==
+        "selected_local_user_verified_candidate_input" ||
       typeof input.objectDeviceId !== "string" ||
       !DECIMAL_IDENTITY.test(input.objectDeviceId) ||
       typeof input.objectFileId !== "string" ||
@@ -148,6 +151,7 @@ export function compileWindowsRootObservationCandidate(rawInput: unknown) {
       rootRole: input.rootRole,
       runtimeAccess: isRuntimeRoot ? "read_write" : "read_only",
       runtimePrincipalIdentityHash: input.runtimePrincipalIdentityHash,
+      runtimePrincipalBinding: input.runtimePrincipalBinding,
       untrustedWriteAllowed: false,
       writeAuthority: isRuntimeRoot
         ? "runtime_principal_only"
@@ -205,6 +209,7 @@ export function describeRootObservationContract() {
       platformAccess.binaryReleaseIdentityBinding,
     windowsProcessInvocation: platformAccess.productionInvocation,
     windowsAdapter: "not_implemented_observation_mapping_required",
+    selectedUserBinding: "not_implemented_blocked",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

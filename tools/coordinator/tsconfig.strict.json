@@ -43,6 +43,8 @@
     "src/security/platform-key-storage-policy.ts",
     "src/security/platform-provisioner-active-pointer.ts",
     "src/security/platform-provisioner-active-pointer-store.ts",
+    "src/security/platform-provisioner-effect.ts",
+    "src/security/platform-provisioner-install-layout.ts",
     "src/security/platform-provisioner-manifest-loader.ts",
     "src/security/platform-provisioner-package-filesystem.ts",
     "src/security/platform-provisioner-policy-identity.ts",

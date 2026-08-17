@@ -135,7 +135,11 @@ test("Windows package DACL observer and Effect remain unimplemented", () => {
   );
   assert.equal(
     contract.runtimePrincipalSelection,
-    "implemented_candidate_local_interactive_current_token_user_only",
+    "not_implemented_selected_local_user_binding_required",
+  );
+  assert.equal(
+    contract.currentTokenUserObservation,
+    "implemented_candidate_identity_hash_non_authoritative",
   );
   assert.equal(contract.serviceAccountSelection, "not_implemented_blocked");
   assert.equal(

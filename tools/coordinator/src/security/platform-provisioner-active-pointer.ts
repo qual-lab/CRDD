@@ -271,7 +271,7 @@ export function evaluatePlatformProvisionerActivePointerTransitionCandidate(
     const next = normalizePointer(nextRaw);
     if (!next) return blocked("active_pointer_transition_invalid");
     if (currentRaw === null) {
-      return next.previousActiveHash === null && next.releaseSequence === 1
+      return next.previousActiveHash === null
         ? Object.freeze({
             status: "candidate" as const,
             reason: "active_pointer_initial_transition_candidate",
@@ -288,8 +288,7 @@ export function evaluatePlatformProvisionerActivePointerTransitionCandidate(
     if (
       !current ||
       next.previousActiveHash !== current.activeHash ||
-      (next.releaseSequence as number) !==
-        (current.releaseSequence as number) + 1 ||
+      (next.releaseSequence as number) <= (current.releaseSequence as number) ||
       next.activeId === current.activeId
     ) {
       return blocked("active_pointer_transition_rejected");
@@ -322,11 +321,12 @@ export function describePlatformProvisionerActivePointerContract() {
       "active_id_root_identity_protection_runtime_principal_and_platform_access_image",
     runtimePrincipalMode: RUNTIME_PRINCIPAL_MODE,
     runtimePrincipalIdentity:
-      "native_current_token_user_sid_hash_bound_without_raw_sid_output",
+      "caller_candidate_requires_future_selected_user_binder_before_runtime_use",
+    selectedUserBinding: "not_implemented_blocked",
     serviceAccountMode: "not_implemented_blocked",
     previousPointerBinding: "exact_previous_active_hash_or_null",
     transition:
-      "initial_sequence_one_or_exact_previous_hash_and_next_sequence_only",
+      "initial_positive_sequence_or_exact_previous_hash_and_strictly_greater_sequence",
     canonicalByteLimit: MAXIMUM_ACTIVE_POINTER_BYTES,
     persistence: "native_durable_store_required",
     runtimeAuthorityConferred: false,

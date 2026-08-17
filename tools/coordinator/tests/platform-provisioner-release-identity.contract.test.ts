@@ -138,6 +138,5 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
     contract.signedCrddTreeComparison,
     "implemented_candidate_non_authoritative",
   );
-  assert.equal(contract.rollbackFloorPersistence, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);
 });

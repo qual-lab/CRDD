@@ -121,8 +121,11 @@ test("active pointer contractはfallbackと自動rollbackを禁止する", () =>
   assert.equal(contract.serviceAccountMode, "not_implemented_blocked");
 });
 
-test("active pointer transitionは初回または直前Hashからの単調な次だけを許す", () => {
-  const first = createPlatformProvisionerActivePointerCandidate(input());
+test("active pointer transitionは任意の正の初回Sequenceと直前Hashからの厳密増加だけを許す", () => {
+  const first = createPlatformProvisionerActivePointerCandidate({
+    ...input(),
+    releaseSequence: 18,
+  });
   assert.equal(first.status, "candidate");
   assert.equal(
     evaluatePlatformProvisionerActivePointerTransitionCandidate(
@@ -135,7 +138,7 @@ test("active pointer transitionは初回または直前Hashからの単調な次
     ...input(),
     activeId: "fedcba9876543210fedcba9876543210",
     previousActiveHash: first.activeHash,
-    releaseSequence: 2,
+    releaseSequence: 20,
   });
   assert.equal(next.status, "candidate");
   assert.equal(
@@ -147,7 +150,8 @@ test("active pointer transitionは初回または直前Hashからの単調な次
   );
   for (const invalidCandidate of [
     { ...next.nextActivePointer, previousActiveHash: hashA },
-    { ...next.nextActivePointer, releaseSequence: 3 },
+    { ...next.nextActivePointer, releaseSequence: 18 },
+    { ...next.nextActivePointer, releaseSequence: 17 },
     { ...next.nextActivePointer, activeId: input().activeId },
   ]) {
     assert.equal(

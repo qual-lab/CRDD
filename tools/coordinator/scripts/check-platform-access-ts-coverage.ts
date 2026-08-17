@@ -13,11 +13,13 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/scripts/release-staging-manifest.ts",
   "tools/coordinator/scripts/sign-release-manifest.ts",
   "tools/coordinator/src/core/doctor.ts",
+  "tools/coordinator/src/security/authority-root-path-lexical.ts",
   "tools/coordinator/src/security/platform-access-adapter.ts",
   "tools/coordinator/src/security/platform-access-release.ts",
   "tools/coordinator/src/security/platform-provisioner-manifest-loader.ts",
   "tools/coordinator/src/security/platform-provisioner-active-pointer.ts",
   "tools/coordinator/src/security/platform-provisioner-active-pointer-store.ts",
+  "tools/coordinator/src/security/platform-provisioner-effect.ts",
   "tools/coordinator/src/security/platform-provisioner-install-layout.ts",
   "tools/coordinator/src/security/platform-provisioner-package-filesystem.ts",
   "tools/coordinator/src/security/platform-provisioner-release-identity.ts",
@@ -29,6 +31,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
 ]);
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
+  "tools/coordinator/tests/authority-root-path-lexical.contract.test.ts",
   "tools/coordinator/tests/doctor.contract.test.ts",
   "tools/coordinator/tests/platform-access-adapter.contract.test.ts",
   "tools/coordinator/tests/platform-access-release.contract.test.ts",
@@ -36,6 +39,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-active-pointer.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-active-pointer-store.contract.test.ts",
+  "tools/coordinator/tests/platform-provisioner-effect.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-install-layout.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-release-identity.contract.test.ts",
@@ -69,6 +73,160 @@ type SourceCoverage = Readonly<{
   branches: Counter;
   uncoveredBranches: readonly Branch[];
 }>;
+
+type CoverageObligation = Readonly<{
+  status: "Not Verified";
+  reason: string;
+  risk: string;
+  alternativeVerification: string;
+  owner: "Qual-Lab";
+  humanDecision: "not_required";
+  recheck: string;
+}>;
+
+const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
+  Object.freeze({
+    "tools/coordinator/scripts/check-platform-access-ts-coverage.ts":
+      obligation(
+        "集計器のmain guard、OS I/O failureおよび全LCOV不正組合せを同一runで到達していない",
+        "品質根拠の誤拒否または不正入力の誤受理",
+        "exact source/test母集団、LCOV grammar負例および連続出力一致",
+        "LCOV grammar、Node coverageまたは固定母集団の変更時",
+      ),
+    "tools/coordinator/scripts/release-staging-manifest.ts": obligation(
+      "全descriptor failureと全置換timingを同一runで到達していない",
+      "稀なFilesystem failureのEffect分類漏れ",
+      "opaque session、同一fd byte/EOF、置換拒否および失敗Root非削除試験",
+      "実Release stagingまたはFilesystem API変更時",
+    ),
+    "tools/coordinator/scripts/sign-release-manifest.ts": obligation(
+      "本番固定鍵と実Release stagingの正常入口を試験用Trustへ開放していない",
+      "実署名時だけ現れる入力またはI/O failureの見落とし",
+      "固定Trust source検査、署名不一致負例および配置helper契約試験",
+      "本番署名E2EまたはRelease handoff着手時",
+    ),
+    "tools/coordinator/src/core/doctor.ts": obligation(
+      "既存doctor全分岐を本変更専用coverage母集団で再到達していない",
+      "状態投影の稀なblocked理由の回帰",
+      "doctor契約試験、公開情報最小化試験および全Coordinator test",
+      "doctor投影、blockerまたはevidence母集団変更時",
+    ),
+    "tools/coordinator/src/security/authority-root-path-lexical.ts": obligation(
+      "host OS dispatcherの反対側分岐を単一OS runで到達していない",
+      "OS別dispatcherとpure字句判定の接続差",
+      "Windows/POSIX pure validatorの正負・境界契約試験",
+      "対応OS、字句subsetまたはdispatcher変更時",
+    ),
+    "tools/coordinator/src/security/platform-access-adapter.ts": obligation(
+      "入力正規化の全failure形を同一runで到達していない",
+      "wire不正値の誤受理",
+      "revision、nonce、role、全bit、主体HashおよびProxy負例",
+      "wire protocolまたはproduction process再導入時",
+    ),
+    "tools/coordinator/src/security/platform-access-release.ts": obligation(
+      "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
+      "Release artifact差替えの検出漏れ",
+      "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
+      "Release artifactまたはFilesystem API変更時",
+    ),
+    "tools/coordinator/src/security/platform-provisioner-manifest-loader.ts":
+      obligation(
+        "全read failure、上限およびIdentity差を同一runで到達していない",
+        "manifest loaderのfail-closed回帰",
+        "canonical byte、上限、同一handleおよびIdentity差契約試験",
+        "manifest Schemaまたはloader変更時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-active-pointer.ts":
+      obligation(
+        "全shape、budgetおよびtransition failureを同一runで到達していない",
+        "不正pointerまたはrollback遷移の誤受理",
+        "exact codec、初回任意正Sequence、厳密増加、previous Hashおよび同値拒否試験",
+        "pointer Schema、Hash domainまたはtransition変更時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-active-pointer-store.ts":
+      obligation(
+        "全file open、read、closeおよびIdentity failureを同一runで到達していない",
+        "Path差替えまたは不完全pointerの誤受理",
+        "non-link同一file安定読取りと改変・欠落負例",
+        "native durable store実装またはFilesystem API変更時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-effect.ts": obligation(
+      "未到達分岐なし",
+      "現固定版では追加残存riskなし",
+      "Effect固定blocked契約試験",
+      "Provision Effect実装時",
+    ),
+    "tools/coordinator/src/security/platform-provisioner-install-layout.ts":
+      obligation(
+        "未到達分岐なし",
+        "現固定版では追加残存riskなし",
+        "Windows字句subset、active選択およびorphan非選択契約試験",
+        "layoutまたはnative store変更時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-package-filesystem.ts":
+      obligation(
+        "全inventory、descriptorおよびFilesystem failureを同一runで到達していない",
+        "package closureまたは同一handle検証の見落とし",
+        "余分・欠落・改変・link・Identity差の契約試験",
+        "package inventoryまたはstaging copy実装時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-release-identity.ts":
+      obligation(
+        "全Git object、FilesystemおよびIdentity failureを同一runで到達していない",
+        "署名Release Identityと配布Treeの不一致見落とし",
+        "Root Tree再計算、除外Path、改変およびIdentity差契約試験",
+        "Release archiveまたはIdentity contract変更時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-trust-core.ts":
+      obligation(
+        "manifest exact Schemaと署名Coreの一部failure branchを未到達とする",
+        "不正署名payloadまたは未知fieldの誤受理",
+        "全field差、固定公開鍵、専用Rust成果物および署名domain契約試験",
+        "manifest Schema、署名domainまたはTrust変更時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-windows-dacl.ts":
+      obligation(
+        "構造claim evaluatorの一部failure分岐を未到達とする",
+        "非Authority claimの誤分類",
+        "owner、inheritance、writer、主体bindingおよびEffect非発行契約試験",
+        "native DACL観測または適用実装時",
+      ),
+    "tools/coordinator/src/security/root-observation.ts": obligation(
+      "Rust結果からRoot観測へのproduction写像は未実装である",
+      "未確認主体またはProtection値の補完",
+      "selected-user binding必須、exact inputおよび固定blocked契約試験",
+      "Root観測mapping実装時",
+    ),
+    "tools/coordinator/src/security/runtime-activation-record.ts": obligation(
+      "既存activation集約の全blocked分岐を本変更専用runで到達していない",
+      "blocker/evidence投影の回帰",
+      "12 blocker、6 evidence、Gate blockedおよびAuthority/Capability false契約試験",
+      "active readerまたはactivation dependency変更時",
+    ),
+    "tools/coordinator/src/security/runtime-root-path-identity.ts": obligation(
+      "全Filesystem race、close failureおよびPOSIX未実装分岐を同一runで到達していない",
+      "Root Identity差替えまたは未分類Filesystemの誤受理",
+      "Root/parent/Repository replacement、link、identity不明およびprecheck blocked試験",
+      "native protected readerまたはPOSIX classifier実装時",
+    ),
+  });
+
+function obligation(
+  reason: string,
+  risk: string,
+  alternativeVerification: string,
+  recheck: string,
+): CoverageObligation {
+  return Object.freeze({
+    status: "Not Verified",
+    reason,
+    risk,
+    alternativeVerification,
+    owner: "Qual-Lab",
+    humanDecision: "not_required",
+    recheck,
+  });
+}
 
 function count(raw: string, label: string) {
   if (!/^(?:0|[1-9]\d*)$/u.test(raw)) {
@@ -319,6 +477,15 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
     if (!value) throw new Error("LCOV source population mismatch");
     return value;
   });
+  if (
+    Object.keys(sourceCoverageObligations).length !==
+      PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length ||
+    PLATFORM_ACCESS_TS_COVERAGE_SOURCES.some(
+      (source) => !sourceCoverageObligations[source],
+    )
+  ) {
+    throw new Error("coverage obligation population mismatch");
+  }
   const total = (key: "lines" | "functions" | "branches") =>
     Object.freeze(
       orderedSources.reduce(
@@ -331,6 +498,19 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
     );
   return Object.freeze({
     sources: Object.freeze(orderedSources),
+    uncoveredBranchObligations: Object.freeze(
+      orderedSources.flatMap((source) =>
+        source.uncoveredBranches.map((branch) =>
+          Object.freeze({
+            source: source.source,
+            line: branch.line,
+            block: branch.block,
+            branch: branch.branch,
+            obligation: sourceCoverageObligations[source.source],
+          }),
+        ),
+      ),
+    ),
     totals: Object.freeze({
       lines: total("lines"),
       functions: total("functions"),

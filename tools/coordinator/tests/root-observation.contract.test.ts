@@ -22,6 +22,7 @@ function observation(rootRole: "runtime" | "authority" = "authority") {
     rootRole,
     runtimeDenyAceCount: 0,
     runtimePrincipalIdentityHash: "a".repeat(64),
+    runtimePrincipalBinding: "selected_local_user_verified_candidate_input",
     runtimeReadExecuteEntityCount: entityCount,
     runtimeRootInheritanceRuleCount: 1,
     runtimeWriteEntityCount: rootRole === "runtime" ? entityCount : 0,
@@ -134,6 +135,7 @@ test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
     windowsProcessInvocation:
       "blocked_until_protected_active_generation_and_verified_image_binding",
     windowsAdapter: "not_implemented_observation_mapping_required",
+    selectedUserBinding: "not_implemented_blocked",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

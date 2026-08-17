@@ -63,6 +63,30 @@ test("Windows install layout rejects relative dynamic and invalid active ID inpu
   }
 });
 
+test("Windows install layoutはRustと同じ保守的字句境界を要求する", () => {
+  for (const programDataRoot of [
+    "c:\\ProgramData",
+    "C:/ProgramData",
+    "C:\\ProgramData\\",
+    "C:\\ProgramData\\\\CRDD",
+    "C:\\ProgramData\\..\\CRDD",
+    "C:\\ProgramData\\NUL.txt",
+    "C:\\ProgramData\\bad.",
+    "C:\\ProgramData\\bad\u001f",
+  ]) {
+    assert.equal(
+      resolveWindowsProvisionerInstallLayoutForEffect(
+        programDataRoot,
+        "0".repeat(32),
+      ),
+      null,
+    );
+  }
+  assert.ok(
+    resolveWindowsProvisionerInstallLayoutForEffect("C:\\", "0".repeat(32)),
+  );
+});
+
 test("install layout contract keeps release authority and effects separate", () => {
   const contract = describePlatformProvisionerInstallLayoutContract();
   assert.equal(
@@ -71,7 +95,10 @@ test("install layout contract keeps release authority and effects separate", () 
   );
   assert.equal(contract.repositoryRuntimeStateRequired, false);
   assert.equal(contract.compatibilityLayout, "prohibited");
-  assert.equal(contract.multipleActiveImages, "prohibited");
+  assert.equal(contract.activeSelection, "exact_one_pointer_only");
+  assert.equal(contract.inactiveOrphanRetention, "allowed_but_never_selected");
+  assert.equal(contract.directoryFallback, "prohibited");
+  assert.equal(contract.cleanupDuringPointerTransition, "prohibited");
   assert.equal(contract.automaticRollback, "prohibited");
   assert.equal(
     contract.filesystemEffect,

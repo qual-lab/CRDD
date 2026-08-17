@@ -35,10 +35,10 @@ function exactLcov() {
 }
 
 test("TypeScript coverageは固定sourceとtest母集団を所有する", () => {
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 17);
-  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 16);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 17);
-  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 16);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length, 19);
+  assert.equal(PLATFORM_ACCESS_TS_COVERAGE_TESTS.length, 18);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_SOURCES).size, 19);
+  assert.equal(new Set(PLATFORM_ACCESS_TS_COVERAGE_TESTS).size, 18);
   assert.equal(
     PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(
       "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
@@ -89,13 +89,31 @@ test("TypeScript coverageは固定sourceとtest母集団を所有する", () => 
 test("LCOV parserは分母分子と未到達branchを割合へ縮約しない", () => {
   const result = parsePlatformAccessTsCoverageLcov(exactLcov());
   assert.deepEqual(result.totals, {
-    lines: { covered: 17, total: 17 },
-    functions: { covered: 17, total: 17 },
-    branches: { covered: 16, total: 17 },
+    lines: { covered: 19, total: 19 },
+    functions: { covered: 19, total: 19 },
+    branches: { covered: 18, total: 19 },
   });
   assert.deepEqual(result.sources[0]?.uncoveredBranches, [
     { line: 1, block: 0, branch: 0, taken: null },
   ]);
+  assert.equal(result.uncoveredBranchObligations.length, 1);
+  assert.deepEqual(result.uncoveredBranchObligations[0], {
+    source: "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
+    line: 1,
+    block: 0,
+    branch: 0,
+    obligation: {
+      status: "Not Verified",
+      reason:
+        "集計器のmain guard、OS I/O failureおよび全LCOV不正組合せを同一runで到達していない",
+      risk: "品質根拠の誤拒否または不正入力の誤受理",
+      alternativeVerification:
+        "exact source/test母集団、LCOV grammar負例および連続出力一致",
+      owner: "Qual-Lab",
+      humanDecision: "not_required",
+      recheck: "LCOV grammar、Node coverageまたは固定母集団の変更時",
+    },
+  });
 });
 
 test("LCOV parserはmissing、extra、duplicateおよびsummary不一致を拒否する", () => {

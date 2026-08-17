@@ -130,7 +130,9 @@ export function describeWindowsPackageDaclContract() {
     ownerPolicy: "system_or_machine_administrators_required",
     recursiveEntityLimit: MAXIMUM_ENTITIES,
     runtimePrincipalSelection:
-      "implemented_candidate_local_interactive_current_token_user_only",
+      "not_implemented_selected_local_user_binding_required",
+    currentTokenUserObservation:
+      "implemented_candidate_identity_hash_non_authoritative",
     serviceAccountSelection: "not_implemented_blocked",
     runtimeReadBinding: "not_implemented_effective_access_required",
     runtimeReadExecuteRule:

@@ -1,8 +1,8 @@
 import path from "node:path";
 
+import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
-const WINDOWS_ROOT = /^[A-Za-z]:\\(?:[^<>:"|?*\0]+\\?)*$/u;
 const ACTIVE_ID = /^[0-9a-f]{32}$/u;
 const INPUT_KEYS = new Set(["activeId", "programDataRoot"]);
 
@@ -37,20 +37,7 @@ function invalid(reason: string) {
 }
 
 function validatedProgramDataRoot(raw: unknown) {
-  if (
-    typeof raw !== "string" ||
-    raw.length < 3 ||
-    raw.length > 260 ||
-    raw.includes("\0") ||
-    !path.win32.isAbsolute(raw) ||
-    !WINDOWS_ROOT.test(raw)
-  ) {
-    return null;
-  }
-  const normalized = path.win32.normalize(raw);
-  return normalized === raw || normalized === raw.replace(/[\\]+$/u, "")
-    ? normalized.replace(/[\\]+$/u, "")
-    : null;
+  return isSupportedWindowsAbsolutePathCandidate(raw) ? raw : null;
 }
 
 export function resolveWindowsProvisionerInstallLayoutForEffect(
@@ -139,7 +126,10 @@ export function describePlatformProvisionerInstallLayoutContract() {
     repositoryRuntimeStateRequired: false,
     externalStateReason: "installed_machine_state_only",
     compatibilityLayout: "prohibited",
-    multipleActiveImages: "prohibited",
+    activeSelection: "exact_one_pointer_only",
+    inactiveOrphanRetention: "allowed_but_never_selected",
+    directoryFallback: "prohibited",
+    cleanupDuringPointerTransition: "prohibited",
     automaticRollback: "prohibited",
     symlinkOrJunctionLayout: "prohibited",
     filesystemEffect: "not_implemented_effective_access_required",
