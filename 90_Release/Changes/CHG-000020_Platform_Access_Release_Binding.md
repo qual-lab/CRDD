@@ -1,7 +1,7 @@
 # 変更トレース: Rust成果物の署名済みRelease結合
 
 - 変更ID: `CHG-000020`
-- 状態: `Ready for Verification`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-17
 - 対象: CRDD公式Repositoryの内部CoordinatorとRust製プラットフォームアクセス部
@@ -144,3 +144,16 @@ Node組込みcoverageは`--test-concurrency=1`と`--experimental-test-isolation=
 - Conformance: `Pass`、Finding 0。影響基準はConformantだが、v0.18 Candidateかつ非Releaseのため準拠claimは`Not Eligible`だった。
 
 この監査集合も全体として`Invalidated`であり、現在判定へ流用しない。`DOC-REL-R08`の処置は、脅威モデルの初出を日本語表示名（Canonical Term）の順へ修正し、後続の重複英語定義を除去する局所変更へ反映した。処置は`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
+
+## 固定版`6690d34`の最終独立確認
+
+固定対象はCommit `6690d34436b0f3c6421ab47333e60ab429075265`、Tree `6fc7f90765cdcd6be115909183e8a1860726f7bf`、Parent `aad8572376d8252693f4b30d8013a2eede04ef36`。共通入力はNode 24.19.0、Coordinator 352/352、Checker 151/151、TypeScript 127／Rust 4 source closure、TypeScript coverage 14 source／13 test、Rust 7/7、両package check、Rust format／Clippy／locked release build、full Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security: `Pass`、Finding 0。
+- Document: `Pass`、Finding 0。`DOC-REL-R08`は解消した。
+- Gap／Impact: `Pass`、Finding 0。
+- Conformance: `Pass`、Finding 0。影響基準は`Conformant`だが、Candidate／非Release境界により準拠claimは`Not Eligible`である。
+
+新規候補4分類は、初回から存在し見落とし0、修正起因0、修正で初めて確認可能0、承認範囲拡大0である。旧固定版の監査集合は`Invalidated`の履歴として保持し、現在判定へ流用しない。`GCI-20-001`〜`004`、`GCI-20-R2-001`、`GCI-20-R3-001`／`002`、各ASR同根および各DOC同根は、この固定版の独立確認により`Resolved`となった。
+
+現在の固定記録は[`CHG-000020_Current_Review_Record_6690d34.md`](Evidence/CHG-000020_Current_Review_Record_6690d34.md)が所有する。この`Verified`は変更候補の検証状態であり、採用、統合、準拠表明、Stable化またはReleaseを意味しない。12 blocker、6 current-run evidence、Gate `blocked`、Runtime Authority／Runtime Capability非発行および未実装境界を維持する。
