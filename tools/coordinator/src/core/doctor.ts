@@ -16,6 +16,7 @@ import {
   runDockerIsolationProbe,
 } from "../security/docker-isolation.ts";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
+import { describeProviderLifecycleContract } from "../security/provider-lifecycle.ts";
 import { describeEgressProxyTopology } from "../security/egress-proxy-policy.ts";
 import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
 import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
@@ -301,42 +302,42 @@ function providerChecks(
     check(
       `provider.${name}.authentication`,
       "unknown",
-      "authentication_not_evaluated",
+      "subscription_oauth_explicit_login_not_evaluated",
     ),
     check(
       `provider.${name}.active_probe`,
       "not_implemented",
-      "isolation_required_before_provider_spawn",
+      "provider_egress_auth_and_fixed_image_binding_required_before_spawn",
     ),
     check(
       `provider.${name}.auto_update`,
       "not_implemented",
-      "provider_lifecycle_probe_not_implemented",
+      "provider_fixed_image_and_auto_update_enforcement_not_implemented",
     ),
     check(
       `provider.${name}.telemetry`,
       "not_implemented",
-      "provider_lifecycle_probe_not_implemented",
+      "provider_telemetry_policy_not_implemented",
     ),
     check(
       `provider.${name}.session_resume`,
       "not_implemented",
-      "provider_lifecycle_probe_not_implemented",
+      "provider_session_resume_prohibited_but_not_enforced",
     ),
     check(
       `provider.${name}.timeout`,
       "not_implemented",
-      "provider_lifecycle_probe_not_implemented",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
     ),
     check(
       `provider.${name}.cancel`,
       "not_implemented",
-      "provider_lifecycle_probe_not_implemented",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
     ),
     check(
       `provider.${name}.process_tree_termination`,
       "not_implemented",
-      "provider_lifecycle_probe_not_implemented",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
     ),
   ];
 }
@@ -616,6 +617,7 @@ export function runDoctor(options: unknown = {}) {
       runtimeRootProtectionPrecheck,
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
       gitLocalExclude: describeGitLocalExcludeContract(),
+      providerLifecycle: describeProviderLifecycleContract(),
       egress: {
         providerAllowlist: "not_implemented",
         fakeProbeNetwork:

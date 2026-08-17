@@ -348,6 +348,24 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   const serialized = JSON.stringify(report);
   assert.equal(report.diagnosticMode, "passive_preflight");
   assert.equal(report.status, "blocked");
+  assert.equal(
+    report.providerLifecycle.authPolicies.codex.method,
+    "existing_chatgpt_plan_subscription_oauth",
+  );
+  assert.equal(
+    report.providerLifecycle.authPolicies.claude.method,
+    "existing_subscription_oauth",
+  );
+  assert.equal(
+    report.providerLifecycle.realProviderSpawn,
+    "blocked_before_spawn",
+  );
+  assert.equal(report.providerLifecycle.apiKeyAllowed, false);
+  assert.equal(report.providerLifecycle.additionalCreditPurchaseAllowed, false);
+  assert.equal(
+    report.providerLifecycle.dedicatedProviderHome.operationCleanupOwned,
+    false,
+  );
   assert.equal("version" in report.providers.codex, false);
   assert.equal("path" in report.providers.codex, false);
   assert.equal(

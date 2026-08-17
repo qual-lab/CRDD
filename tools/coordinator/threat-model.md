@@ -53,6 +53,8 @@ runtime-state/
 - Provider子プロセスへCredential StoreのPath、通常User Home、他Operationまたは元RepositoryのGit metadataを見せない。
 - 診断用領域はRuntimeが当該runで`mkdtemp`した一意なchildだけを所有する。所有Capabilityと作成時の`dev`／`ino`／`birthtimeNs`はmodule-privateに保持し、終了時に同じobject、実体Identity、親境界、実Path、prefix、directory種別および非linkをすべて確認してchildだけを一回削除する。Pathまたはprefixだけを所有根拠にせず、既存parent、sibling、呼出側指定Path、symlinkまたはjunctionを再帰削除しない。
 
+subscription OAuth sessionはAPI keyやgeneric Credential Storeとは別のcredential-bearing stateである。CodexとClaude CodeはローカルOS user＋Provider単位の別々の永続専用Homeだけを将来の明示loginとrefreshに使用し、Host既定Home、他Provider Home、Operation一時`provider-home/`またはCredential環境からcopy／importしない。Runtimeはtoken、refresh state、device code、生prompt、生stdout／stderrをopen、hash、logまたはEvidence化せず、保護済みHomeをProvider containerへ必要最小限mountする将来Adapterだけが扱う。専用Homeのowner／ACL／non-link Identity、logout／revocation、破損時の再loginおよび限定writeは未実装なので、file存在やProviderの自己申告から認証済みと判定しない。既存Credential Broker blockerは、専用OAuth Homeの保護・発行・破棄境界が実装されるまで解消扱いにしない。
+
 Runtime 1.0のExecution Environment backendはWindows上のDocker Desktop／Linux containerだけとする。Provider子プロセスをHost、Git Bash、通常WSLディストリビューションまたは別Container Runtimeへfallbackさせない。Docker CLIはRuntime側の信頼対象Adapterとして引数配列で起動し、HostのDocker Context／Credentialを読ませず、ローカルDocker Desktop Linux Engineのnamed pipeへ固定する。ProviderへDocker socketまたはDocker CLIを渡さない。
 
 ## 4. 主要脅威と制御
@@ -108,6 +110,8 @@ Operation rootのcleanup所有母集団は、factoryが作成する`workspace/`�
 明示Docker recoveryは`management/`と回復記録を先に再識別し、root直下の既知部分集合と存在childのIdentityを確認してから3軸不存在を照会する。container不存在時は既知childの部分欠落をHost recoveryへ引き継ぐ。container残存時だけmount 3件と`management/`を必須化し、同じcontainerのinspectとcleanupへ進む。非mount childの欠落だけでcontainer cleanupを妨げず、存在childの置換、未知entryまたは管理領域の欠落では推測回復しない。
 
 このFake ProbeはProvider endpoint限定Egressを証明しない。`--network=none`は外部送信を遮断するが公式Providerを利用不能にするため、Provider用Egress allowlistが未実装である限り`execution.egress`は`blocked`のままとする。Fake Probeの合格をProvider認証、active probe、lifecycleまたは実Operationの許可へ流用しない。
+
+ProviderライフサイクルCore候補は、固定Provider／mode、上限付き入出力とdeadline、cancel、終了状態、process tree／container不存在、quota状態および結果exact 1件を純粋に判定する。Fake Providerだけがこの候補を検証でき、実Provider spawn、Network Effect、Filesystem EffectまたはOperation Capabilityを発行しない。実Providerは固定Digest image、exact CLI version、自動更新停止、専用Home保護、認証probe、Egress ProxyおよびDocker lifecycle結合がそろうまでspawn前に停止する。quota／credit不足または判定不能時は追加購入、API key、従量API、Host CLI、Shell、PATHまたは別Runtimeへfallbackしない。
 
 Provider隔離ProfileはAuthority候補と強制結果を分離する。Profileが表すのは、Provider、Authority RegistryのGrant参照候補、Credential BrokerのGrant参照候補および要求Origin集合であり、人間承認、Credential値または実行可能Capabilityではない。Profile自身、Agent出力、環境変数またはProviderの自己申告だけからAuthority、Filesystem、Credential、EgressまたはProcess境界を`confirmed`へ上げない。Runtimeが所有するAuthority Grant Verifier、Enforcer／Adapterの観測結果が、同じ固定Profile Hash、OperationおよびScopeへ結び付いた場合だけ各Gateを評価する。
 

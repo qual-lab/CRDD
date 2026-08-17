@@ -305,6 +305,8 @@ OS APIへ安全に接続するためTypeScriptだけでは閉じない最小の�
 
 Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked release buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とセキュリティ判断上の検証義務（Security Decision Obligation）、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。上限付きプロセス（Bounded Process）は、固定argv、環境、入出力、時間および成果物Identityを制限した内部process境界を指す。ただし署名manifestの成果物観測だけでは実行イメージの継続的同一性を保証しない。保護済み有効世代（protected active generation）と検証済み実行イメージ（Verified Image）の結合方式が人間により決定され、実装・検証されるまではTypeScript Adapterからprocessを起動せず、入力Pathまたはhelper processより前に`blocked`へ閉じる。将来上限付きプロセスを導入しても、Root保護、Authority、CapabilityまたはEffectの成立へ流用しない。
 
+Provider processのライフサイクルはTypeScriptが所有し、固定Digest image、exact Provider CLI versionおよび自動更新停止を管理対象依存として扱う。shell、PATH、Host既定Home、Host CLIまたはAPI keyへfallbackせず、更新時はimage／CLI Identity、利用側、検証および復旧を再評価して人間が有効化する。Fake Providerによる状態遷移、timeout、cancel、出力上限またはprocess tree終了の確認を、実Provider認証、Egress、subscription条件、Operation Authority、CapabilityまたはRelease成立へ流用しない。
+
 ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
 
 開発時の静的LintとFormatterには、Repository rootの`biome.json`でversionと規則を固定したBiomeを使用する。Biomeは開発依存に限定し、Runtime成果物または実行時依存へ含めない。Lint、Formatter確認、TypeScript型検査およびRuntime testは別の確認軸として実行し、一つの成功を他の成功へ流用しない。既存Scriptへ一括自動修正を適用せず、TypeScriptへ移す単位ごとに整形と意味回帰を確認する。

@@ -14,6 +14,10 @@ OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecur
 
 現在はExecution Environmentの成立性Gateを実装中であり、実Operation、Provider認証、Repository変更、push、mergeまたは外部Effectには使用できない。
 
+Providerライフサイクル基盤（Provider Lifecycle Foundation）は、Codexでは既存ChatGPTプランのsubscription OAuth、Claude Codeでは既存subscription OAuthだけを認証方針として許可する。API key、従量APIへの切替、追加credit購入、Hostの既定HomeやCredentialのコピーは許可しない。認証状態はローカルOS userとProviderの組合せごとに分離した永続専用Homeへ将来の明示loginで作成し、RepositoryやOperationごとにloginし直さない方針である。専用Homeは通常Operationの一時`provider-home/`と別物であり、他Providerと共有せず、Operation cleanupの所有対象に含めない。現在は方針とFake Provider用の上限付き状態判定だけを実装し、専用Homeの保護、実login、固定Digest image、Provider endpoint限定Egressおよび実Provider起動は未実装である。`doctor`、通常runまたはFake Providerからこれらを発火せず、実Providerはspawn前に`blocked`となる。
+
+Fake Providerの正常結果は、timeout、cancel、stdout／stderr上限、終了状態、process tree／container不存在および結果exact 1件を評価するライフサイクルCore候補だけを確認する。実Codex／Claude Codeの認証、subscription残量、追加費用不要性、Egress、Telemetry、自動更新またはOperation Capabilityを証明しない。subscriptionのquota／creditが不足または判定不能な場合は追加購入やAPI fallbackを行わず`blocked`とする。
+
 ## 導入時のRepository単位
 
 Runtimeは、有効化を明示した対象Repositoryだけを一つのOperation単位として扱う。通常のRepository、linked worktree、および`.git` fileを使うが`core.worktree`を持たない限定worktreeをRuntime 1.0の対象候補とし、bare Repositoryと標準submodule自身は対象外とする。
