@@ -161,3 +161,16 @@ Node 24.19.0、cwd `tools/coordinator`で`node ./scripts/check-platform-access-t
 Rust 1.94.1の固定`x86_64-pc-windows-msvc`対象は、`node ./scripts/check-platform-access-coverage.ts`で8/8を合格し、region 1035/1143、function 43/44、line 663/725だった。source別には`main.rs`が16/27・1/2・10/26、`protocol.rs`が458/485・21/21・255/263、`windows.rs`が384/454・16/16・301/339、`tests/cli.rs`が177/177・5/5・97/97である。stable toolchainはbranchを0/0しか生成しないため`Not Available`であり、100%へ換算しない。未到達FFI、実Windows DACL、selected-user binder、native durable store、Verified Imageおよびproduction processは`Not Verified`、Owner=Qual-Labとし、それぞれの実装またはRelease binding着手時に再確認する。
 
 この品質記録は局所testまたはcoverage合格、検証義務の評価および現在品質状態を分離する。production Adapter、active reader、Provision Effect、Authority、Capability、12 blocker、6 current-run evidenceおよびGate `blocked`を変更せず、独立再監査前に`Verified`または`Resolved`へ昇格しない。
+
+## 固定版`d88a4c5`の最終独立確認
+
+固定対象はCommit `d88a4c56d6d2f2f0e2ab06d64e16ca808dce7b71`、Tree `31926d02ae27f230b54beeec9152c6cb4f55c8a6`、Parent `10d2f377874e327e536f31c219a5077098fdc899`である。共通入力はCoordinator 343/343、Checker 151/151、TypeScript coverage 19 source／18 test、Rust 8/8、両private package check、Rust format／Clippy／locked release build、全体Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security Review: `Pass`、Finding 0。
+- Document Audit: `Pass`、Finding 0。
+- Gap／Impact Audit: `Pass`、Finding 0。
+- Conformance Audit: `Pass`、Finding 0。影響基準は`Conformant`である。準拠claimは、v0.18 Candidate、production bindingおよびGateが未成立で、Released Baselineがv0.17.0のため`Not Eligible`である。これは基準不適合を意味しない。
+
+`GCI-21-R3-001`は、予約名比較用の限定大文字写像、well-formed Unicode scalar列、両言語の全件表駆動試験および同一変換順を新固定版で確認し、`Resolved`とした。既知`ASR-21-001`〜`005`、`DOC-AP-001`／`002`／`R01`／`R02`、`GCI-21-001`〜`003`、`GCI-21-R2-001`および同根Findingも、各受入条件を満たす現在状態へ接続した。新規候補4分類は、初回監査時から存在した見落とし0、今回修正起因0、今回修正で初めて確認可能0、承認済み対象範囲拡大0である。
+
+`d88a4c5`より前の監査集合は固定履歴として保持するが、全て`Invalidated`で現在判定へ流用しない。現在の独立結果と機械入力は[`CHG-000021_Current_Review_Record_d88a4c5.md`](Evidence/CHG-000021_Current_Review_Record_d88a4c5.md)へ固定する。この`Verified`は変更候補の検証完了を表し、採用、統合、準拠主張、Stable化またはReleaseを意味しない。
