@@ -7,10 +7,10 @@ import test from "node:test";
 
 import {
   PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+  beginPlatformAccessArtifactSigningObservation,
   describePlatformAccessReleaseContract,
   observePlatformAccessReleaseArtifactCandidate,
-  resolvePlatformAccessExecutableForPrivateInvocation,
-  verifyPlatformAccessExecutableSnapshot,
+  verifyPlatformAccessArtifactSigningObservation,
 } from "../src/security/platform-access-release.ts";
 
 function fixture() {
@@ -36,13 +36,15 @@ test("固定release PathのRust成果物を同一handleでHashへ結合する", 
       createHash("sha256").update(value.bytes).digest("hex"),
     );
     assert.equal(observed.absolutePathReported, false);
-    const snapshot = resolvePlatformAccessExecutableForPrivateInvocation(
+    const signingObservation = beginPlatformAccessArtifactSigningObservation(
       value.root,
-      observed.artifact,
     );
-    assert.notEqual(snapshot, null);
+    assert.notEqual(signingObservation, null);
     assert.equal(
-      snapshot && verifyPlatformAccessExecutableSnapshot(snapshot),
+      signingObservation &&
+        verifyPlatformAccessArtifactSigningObservation(
+          signingObservation.token,
+        ),
       true,
     );
   } finally {
@@ -50,33 +52,21 @@ test("固定release PathのRust成果物を同一handleでHashへ結合する", 
   }
 });
 
-test("Hash差、余分field、欠落fileおよび読取り後の置換を拒否する", () => {
+test("欠落fileおよび署名観測後のfileとRoot置換を拒否する", () => {
   const value = fixture();
   try {
     const observed = observePlatformAccessReleaseArtifactCandidate(value.root);
     assert.equal(observed.status, "candidate");
-    assert.equal(
-      resolvePlatformAccessExecutableForPrivateInvocation(value.root, {
-        ...observed.artifact,
-        sha256: "0".repeat(64),
-      }),
-      null,
-    );
-    assert.equal(
-      resolvePlatformAccessExecutableForPrivateInvocation(value.root, {
-        ...observed.artifact,
-        extra: true,
-      }),
-      null,
-    );
-    const snapshot = resolvePlatformAccessExecutableForPrivateInvocation(
+    const signingObservation = beginPlatformAccessArtifactSigningObservation(
       value.root,
-      observed.artifact,
     );
-    assert.notEqual(snapshot, null);
+    assert.notEqual(signingObservation, null);
     fs.writeFileSync(value.executablePath, "changed");
     assert.equal(
-      snapshot && verifyPlatformAccessExecutableSnapshot(snapshot),
+      signingObservation &&
+        verifyPlatformAccessArtifactSigningObservation(
+          signingObservation.token,
+        ),
       false,
     );
     fs.rmSync(value.executablePath);
@@ -84,6 +74,18 @@ test("Hash差、余分field、欠落fileおよび読取り後の置換を拒否�
       observePlatformAccessReleaseArtifactCandidate(value.root).status,
       "blocked",
     );
+    const replacement = `${value.root}-replacement`;
+    fs.renameSync(value.root, replacement);
+    fs.mkdirSync(value.root);
+    assert.equal(
+      signingObservation &&
+        verifyPlatformAccessArtifactSigningObservation(
+          signingObservation.token,
+        ),
+      false,
+    );
+    fs.rmSync(value.root, { recursive: true, force: true });
+    fs.renameSync(replacement, value.root);
   } finally {
     fs.rmSync(value.root, { recursive: true, force: true });
   }

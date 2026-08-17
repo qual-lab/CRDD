@@ -509,8 +509,9 @@ export function describePlatformProvisionerTrustCoreContract() {
     runtimeOwnedCrddDistributionVerification:
       "not_implemented_crdd_release_identity_target",
     runtimeOwnedReleaseTrustSelection: "not_implemented",
-    dedicatedNativeExecutableRequiredForV1: false,
-    osNativeCodeSignatureRequiredForV1: false,
+    dedicatedNativeExecutableRequiredForV1: true,
+    osNativeCodeSignatureDecision:
+      "deferred_until_production_verified_image_binding",
     packagedBuildAcceptance:
       "verified_crdd_distribution_qual_lab_manifest_and_package_filesystem_all_required_before_effect_target",
     localDevelopmentBehavior:

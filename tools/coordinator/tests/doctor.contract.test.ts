@@ -1268,8 +1268,8 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerTrustCore
-      .osNativeCodeSignatureRequiredForV1,
-    false,
+      .osNativeCodeSignatureDecision,
+    "deferred_until_production_verified_image_binding",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageGate

@@ -10,7 +10,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readHiddenLine } from "./generate-release-key.ts";
-import { observePlatformAccessReleaseArtifactCandidate } from "../src/security/platform-access-release.ts";
+import {
+  beginPlatformAccessArtifactSigningObservation,
+  verifyPlatformAccessArtifactSigningObservation,
+} from "../src/security/platform-access-release.ts";
 import { inspectPlatformProvisionerPackageFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
@@ -39,6 +42,50 @@ type ManifestOptions = Readonly<{
   issuedAt: string;
   expiresAt: string;
 }>;
+
+type ContractTestTrust = Readonly<{
+  expectedSignerSpkiDer: Buffer;
+  skipCommitTreeBinding: true;
+  skipReleaseIdentityBinding: true;
+  beforeSignature?: () => void;
+  afterManifestWrite?: () => void;
+}>;
+
+type DirectoryIdentity = Readonly<{
+  dev: bigint;
+  ino: bigint;
+  birthtimeNs: bigint;
+}>;
+
+function directoryIdentity(target: string): DirectoryIdentity {
+  const metadata = fs.lstatSync(target, { bigint: true });
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n ||
+    fs.realpathSync.native(target) !== target
+  ) {
+    throw new Error("release_manifest_output_path_invalid");
+  }
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+  });
+}
+
+function sameDirectoryIdentity(
+  left: DirectoryIdentity,
+  right: DirectoryIdentity,
+) {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.birthtimeNs === right.birthtimeNs
+  );
+}
 
 function isContainedBy(parent: string, candidate: string) {
   const relative = path.relative(parent, candidate);
@@ -162,7 +209,10 @@ function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
   }
 }
 
-export function signReleaseManifest(options: ManifestOptions) {
+function signReleaseManifestWithTrust(
+  options: ManifestOptions,
+  testTrust?: ContractTestTrust,
+) {
   const distributionRoot = externalDistributionRoot(options.distributionRoot);
   const packageRoot = path.join(distributionRoot, "tools", "coordinator");
   const releaseDirectory = path.join(distributionRoot, "90_Release");
@@ -170,24 +220,15 @@ export function signReleaseManifest(options: ManifestOptions) {
     distributionRoot,
     ...MANIFEST_RELATIVE_PATH.split("/"),
   );
-  const releaseDirectoryMetadata = fs.lstatSync(releaseDirectory);
-  if (
-    !releaseDirectoryMetadata.isDirectory() ||
-    releaseDirectoryMetadata.isSymbolicLink() ||
-    fs.realpathSync.native(releaseDirectory) !== releaseDirectory ||
-    fs.existsSync(manifestPath)
-  ) {
+  const releaseDirectoryIdentity = directoryIdentity(releaseDirectory);
+  if (fs.existsSync(manifestPath)) {
     throw new Error("release_manifest_output_path_invalid");
   }
   const packageObservation =
     inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);
-  const platformAccessArtifact =
-    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
-  if (
-    packageObservation.status !== "candidate" ||
-    platformAccessArtifact.status !== "candidate" ||
-    !platformAccessArtifact.artifact
-  ) {
+  const platformAccessObservation =
+    beginPlatformAccessArtifactSigningObservation(distributionRoot);
+  if (packageObservation.status !== "candidate" || !platformAccessObservation) {
     throw new Error("release_manifest_package_observation_failed");
   }
   const policyIdentity = getPlatformProvisionerPolicyIdentity();
@@ -202,7 +243,7 @@ export function signReleaseManifest(options: ManifestOptions) {
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
-      platformAccessArtifact: platformAccessArtifact.artifact,
+      platformAccessArtifact: platformAccessObservation.artifact,
       ...policyIdentity,
       issuedAt: options.issuedAt,
       expiresAt: options.expiresAt,
@@ -227,23 +268,42 @@ export function signReleaseManifest(options: ManifestOptions) {
       type: "spki",
       format: "der",
     });
-    const pinnedSpki = getPinnedPlatformProvisionerReleaseSignerSpkiDer();
+    const pinnedSpki =
+      testTrust?.expectedSignerSpkiDer ??
+      getPinnedPlatformProvisionerReleaseSignerSpkiDer();
     if (!signerSpki.equals(pinnedSpki)) {
       throw new Error("release_manifest_private_key_not_pinned");
     }
-    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
-      distributionRoot,
-      options.crddTree,
-    );
-    if (
-      releaseIdentity.status !== "candidate" ||
-      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
-      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
-        true
-    ) {
-      throw new Error("release_manifest_distribution_tree_mismatch");
+    if (!testTrust?.skipReleaseIdentityBinding) {
+      const releaseIdentity =
+        inspectPlatformProvisionerReleaseIdentityCandidate(
+          distributionRoot,
+          options.crddTree,
+        );
+      if (
+        releaseIdentity.status !== "candidate" ||
+        releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
+        releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+          true
+      ) {
+        throw new Error("release_manifest_distribution_tree_mismatch");
+      }
     }
-    verifyCommitTreeBinding(options.crddCommit, options.crddTree);
+    if (!testTrust?.skipCommitTreeBinding) {
+      verifyCommitTreeBinding(options.crddCommit, options.crddTree);
+    }
+    testTrust?.beforeSignature?.();
+    if (
+      !verifyPlatformAccessArtifactSigningObservation(
+        platformAccessObservation.token,
+      ) ||
+      !sameDirectoryIdentity(
+        releaseDirectoryIdentity,
+        directoryIdentity(releaseDirectory),
+      )
+    ) {
+      throw new Error("release_manifest_artifact_changed_before_signing");
+    }
     const signature = sign(null, compiled.message, privateKey);
     const envelope = {
       contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
@@ -261,16 +321,40 @@ export function signReleaseManifest(options: ManifestOptions) {
     if (canonical.status !== "candidate") {
       throw new Error("release_manifest_envelope_invalid");
     }
-    fs.writeFileSync(manifestPath, canonical.canonicalBytes, {
-      flag: "wx",
-      mode: 0o644,
-    });
+    const manifestDescriptor = fs.openSync(manifestPath, "wx", 0o644);
+    try {
+      fs.writeFileSync(manifestDescriptor, canonical.canonicalBytes);
+      fs.fsyncSync(manifestDescriptor);
+      const created = fs.fstatSync(manifestDescriptor, { bigint: true });
+      testTrust?.afterManifestWrite?.();
+      const pathAfter = fs.lstatSync(manifestPath, { bigint: true });
+      if (
+        !created.isFile() ||
+        created.isSymbolicLink() ||
+        created.dev !== pathAfter.dev ||
+        created.ino !== pathAfter.ino ||
+        created.birthtimeNs !== pathAfter.birthtimeNs ||
+        created.size !== pathAfter.size ||
+        fs.realpathSync.native(manifestPath) !== manifestPath ||
+        !sameDirectoryIdentity(
+          releaseDirectoryIdentity,
+          directoryIdentity(releaseDirectory),
+        ) ||
+        !verifyPlatformAccessArtifactSigningObservation(
+          platformAccessObservation.token,
+        )
+      ) {
+        throw new Error("release_manifest_staging_changed_after_placement");
+      }
+    } finally {
+      fs.closeSync(manifestDescriptor);
+    }
     return Object.freeze({
       status: "created" as const,
       manifestRelativePath: MANIFEST_RELATIVE_PATH,
       manifestHash: compiled.manifestHash,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
-      platformAccessExecutableSha256: platformAccessArtifact.artifact.sha256,
+      platformAccessExecutableSha256: platformAccessObservation.artifact.sha256,
       crddVersion: options.crddVersion,
       releaseSequence: options.releaseSequence,
       crddCommit: options.crddCommit,
@@ -283,6 +367,17 @@ export function signReleaseManifest(options: ManifestOptions) {
     passphrase.fill(0);
     privateKeyBytes?.fill(0);
   }
+}
+
+export function signReleaseManifest(options: ManifestOptions) {
+  return signReleaseManifestWithTrust(options);
+}
+
+export function signReleaseManifestForContractTest(
+  options: ManifestOptions,
+  testTrust: ContractTestTrust,
+) {
+  return signReleaseManifestWithTrust(options, testTrust);
 }
 
 function parseArguments(args: readonly string[]) {

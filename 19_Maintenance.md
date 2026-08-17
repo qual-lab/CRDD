@@ -6,7 +6,7 @@ Version: v0.18.0
 Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-17
+Last Updated: 2026-08-18
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -303,7 +303,7 @@ CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フ�
 
 OS APIへ安全に接続するためTypeScriptだけでは閉じない最小のプラットフォームアクセス部は、CRDD本体、CLI、Policyおよび契約をTypeScriptに保持したまま、`tools/platform-access/**`のprivate Rust実装に限定できる。この限定は内部Script一般をRustへ移す根拠、採用RepositoryへRustを要求する規則、独立製品または公開CLIの新設にはしない。BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やbuild orchestrationとして新設せず、Cargo commandを責務別の開発入口から直接実行する。
 
-Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked release buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とセキュリティ判断上の検証義務（Security Decision Obligation）、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含め、同じRelease世代の配布Rootからだけ解決する。TypeScript Adapterはこの結合、同一file／Root再確認、固定絶対Path、空argv、最小環境、固定stdin／stdout上限およびtimeoutが成立する場合だけprocessを起動し、欠落、不一致またはsource checkoutではPath入力やhelper processより前に`blocked`へ閉じる。このprocess候補をRoot保護、Authority、CapabilityまたはEffectの成立へ流用しない。
+Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked release buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とセキュリティ判断上の検証義務（Security Decision Obligation）、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。Release成果物は固定相対Path、target、protocol revision、Rust toolchain、byte長およびSHA-256を署名済みmanifestへ含める。上限付きプロセス（Bounded Process）は、固定argv、環境、入出力、時間および成果物Identityを制限した内部process境界を指す。ただし署名manifestの成果物観測だけでは実行imageの継続的同一性を保証しない。保護済み有効世代（protected active generation）と検証済み実行imageの結合方式が人間により決定され、実装・検証されるまではTypeScript Adapterからprocessを起動せず、入力Pathまたはhelper processより前に`blocked`へ閉じる。将来上限付きプロセスを導入しても、Root保護、Authority、CapabilityまたはEffectの成立へ流用しない。
 
 ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
 

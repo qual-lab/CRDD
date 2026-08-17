@@ -67,7 +67,7 @@ function fixture() {
   return { root, rootTree };
 }
 
-test("配布Root全体をGit Treeへ再計算し後置manifestだけを除外する", () => {
+test("配布Root全体をGit Treeへ再計算し後置manifestとRust成果物を除外する", () => {
   const value = fixture();
   try {
     const result = inspectPlatformProvisionerReleaseIdentityCandidate(

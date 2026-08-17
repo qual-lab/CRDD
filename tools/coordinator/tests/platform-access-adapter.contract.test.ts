@@ -119,7 +119,7 @@ test("Release binary結合前は入力へ触れずprocess起動前にblockedに�
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
-    "platform_access_release_binary_binding_unavailable",
+    "platform_access_protected_active_generation_binding_not_implemented",
   );
   assert.equal(result.helperProcessSpawned, false);
   assert.equal(result.filesystemEffectIssued, false);
@@ -140,10 +140,8 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   );
   assert.equal(
     contract.productionInvocation,
-    "implemented_candidate_fixed_absolute_release_path_bounded_process",
+    "blocked_until_protected_active_generation_and_verified_image_binding",
   );
-  assert.equal(contract.processTimeoutMilliseconds, 5_000);
-  assert.equal(contract.processMaximumOutputBytes, 4_096);
   assert.equal(contract.shellInvocation, false);
   assert.equal(contract.pathEnvironmentLookup, false);
   assert.equal(contract.cargoRuntimeInvocation, false);

@@ -460,7 +460,7 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
   );
   assert.equal(
     contract.windowsProcessInvocation,
-    "implemented_candidate_fixed_absolute_release_path_bounded_process",
+    "blocked_until_protected_active_generation_and_verified_image_binding",
   );
   assert.equal(
     contract.windowsDaclAdapter,

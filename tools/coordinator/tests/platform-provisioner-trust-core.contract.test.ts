@@ -226,8 +226,11 @@ test("package trust contract requires CRDD-bundled use and one signed Rust execu
     contract.distributionModel,
     "crdd_bundled_private_typescript_package",
   );
-  assert.equal(contract.dedicatedNativeExecutableRequiredForV1, false);
-  assert.equal(contract.osNativeCodeSignatureRequiredForV1, false);
+  assert.equal(contract.dedicatedNativeExecutableRequiredForV1, true);
+  assert.equal(
+    contract.osNativeCodeSignatureDecision,
+    "deferred_until_production_verified_image_binding",
+  );
   assert.equal(contract.standalonePackagePublicationAllowed, false);
   assert.equal(contract.standalonePackageInstallationAllowed, false);
   assert.equal(

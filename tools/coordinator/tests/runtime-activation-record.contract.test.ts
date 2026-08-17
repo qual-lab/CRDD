@@ -911,8 +911,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
     "crdd_bundled_private_typescript_package",
   );
   assert.equal(
-    contract.platformProvisionerTrustCore.osNativeCodeSignatureRequiredForV1,
-    false,
+    contract.platformProvisionerTrustCore.osNativeCodeSignatureDecision,
+    "deferred_until_production_verified_image_binding",
   );
   assert.equal(
     contract.platformProvisionerPackageGate.observationContract,

@@ -2,24 +2,12 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
-
 export const PLATFORM_ACCESS_TARGET = "x86_64-pc-windows-msvc";
 export const PLATFORM_ACCESS_RUST_TOOLCHAIN = "1.94.1";
 export const PLATFORM_ACCESS_PROTOCOL_REVISION = 1;
 export const PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES = 16 * 1024 * 1024;
 export const PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH =
   "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe";
-
-const ARTIFACT_KEYS = new Set([
-  "relativePath",
-  "target",
-  "protocolRevision",
-  "rustToolchain",
-  "byteLength",
-  "sha256",
-]);
-const HEX64 = /^[0-9a-f]{64}$/u;
 
 type FileIdentity = Readonly<{
   dev: bigint;
@@ -36,12 +24,23 @@ type DirectoryIdentity = Readonly<{
   birthtimeNs: bigint;
 }>;
 
-export type PlatformAccessExecutableSnapshot = Readonly<{
-  executablePath: string;
-  identity: FileIdentity;
-  sha256: string;
-  byteLength: number;
-}>;
+const signingSnapshots = new WeakMap<
+  object,
+  Readonly<{
+    root: string;
+    rootIdentity: DirectoryIdentity;
+    executablePath: string;
+    fileIdentity: FileIdentity;
+    artifact: Readonly<{
+      relativePath: string;
+      target: string;
+      protocolRevision: number;
+      rustToolchain: string;
+      byteLength: number;
+      sha256: string;
+    }>;
+  }>
+>();
 
 function fileIdentity(metadata: fs.BigIntStats): FileIdentity {
   if (
@@ -104,33 +103,6 @@ function sameDirectoryIdentity(
   );
 }
 
-function expectedArtifact(raw: unknown) {
-  const artifact = snapshotPlainRecord(raw, ARTIFACT_KEYS);
-  if (
-    !artifact ||
-    artifact.relativePath !== PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH ||
-    artifact.target !== PLATFORM_ACCESS_TARGET ||
-    artifact.protocolRevision !== PLATFORM_ACCESS_PROTOCOL_REVISION ||
-    artifact.rustToolchain !== PLATFORM_ACCESS_RUST_TOOLCHAIN ||
-    typeof artifact.byteLength !== "number" ||
-    !Number.isSafeInteger(artifact.byteLength) ||
-    artifact.byteLength < 1 ||
-    artifact.byteLength > PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES ||
-    typeof artifact.sha256 !== "string" ||
-    !HEX64.test(artifact.sha256)
-  ) {
-    throw new Error("platform_access_release_artifact_invalid");
-  }
-  return Object.freeze({
-    relativePath: artifact.relativePath,
-    target: artifact.target,
-    protocolRevision: artifact.protocolRevision,
-    rustToolchain: artifact.rustToolchain,
-    byteLength: artifact.byteLength,
-    sha256: artifact.sha256,
-  });
-}
-
 function distributionRootSnapshot(raw: unknown) {
   if (
     typeof raw !== "string" ||
@@ -161,70 +133,80 @@ function verifyDistributionRootSnapshot(snapshot: {
   );
 }
 
+function observeArtifactSnapshot(distributionRoot: unknown) {
+  const rootSnapshot = distributionRootSnapshot(distributionRoot);
+  const root = rootSnapshot.root;
+  const executablePath = path.join(
+    root,
+    ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
+  );
+  const before = fileIdentity(fs.lstatSync(executablePath, { bigint: true }));
+  if (fs.realpathSync.native(executablePath) !== executablePath) {
+    throw new Error("platform_access_release_executable_invalid");
+  }
+  const descriptor = fs.openSync(executablePath, fs.constants.O_RDONLY);
+  try {
+    const opened = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
+    if (!sameIdentity(before, opened)) {
+      throw new Error("platform_access_release_executable_changed");
+    }
+    const hash = createHash("sha256");
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let byteLength = 0;
+    while (true) {
+      const count = fs.readSync(descriptor, buffer, 0, buffer.length, null);
+      if (count === 0) break;
+      byteLength += count;
+      if (byteLength > PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES) {
+        throw new Error("platform_access_release_executable_invalid");
+      }
+      hash.update(buffer.subarray(0, count));
+    }
+    const after = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
+    const pathAfter = fileIdentity(
+      fs.lstatSync(executablePath, { bigint: true }),
+    );
+    if (
+      BigInt(byteLength) !== opened.size ||
+      !sameIdentity(opened, after) ||
+      !sameIdentity(opened, pathAfter) ||
+      fs.realpathSync.native(executablePath) !== executablePath ||
+      !verifyDistributionRootSnapshot(rootSnapshot)
+    ) {
+      throw new Error("platform_access_release_executable_changed");
+    }
+    return Object.freeze({
+      rootSnapshot,
+      executablePath,
+      fileIdentity: opened,
+      artifact: Object.freeze({
+        relativePath: PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+        target: PLATFORM_ACCESS_TARGET,
+        protocolRevision: PLATFORM_ACCESS_PROTOCOL_REVISION,
+        rustToolchain: PLATFORM_ACCESS_RUST_TOOLCHAIN,
+        byteLength,
+        sha256: hash.digest("hex"),
+      }),
+    });
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
 export function observePlatformAccessReleaseArtifactCandidate(
   distributionRoot: unknown,
 ) {
   try {
-    const rootSnapshot = distributionRootSnapshot(distributionRoot);
-    const root = rootSnapshot.root;
-    const executablePath = path.join(
-      root,
-      ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
-    );
-    const before = fileIdentity(fs.lstatSync(executablePath, { bigint: true }));
-    if (fs.realpathSync.native(executablePath) !== executablePath) {
-      throw new Error("platform_access_release_executable_invalid");
-    }
-    const descriptor = fs.openSync(executablePath, fs.constants.O_RDONLY);
-    try {
-      const opened = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
-      if (!sameIdentity(before, opened)) {
-        throw new Error("platform_access_release_executable_changed");
-      }
-      const hash = createHash("sha256");
-      const buffer = Buffer.allocUnsafe(64 * 1024);
-      let byteLength = 0;
-      while (true) {
-        const count = fs.readSync(descriptor, buffer, 0, buffer.length, null);
-        if (count === 0) break;
-        byteLength += count;
-        if (byteLength > PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES) {
-          throw new Error("platform_access_release_executable_invalid");
-        }
-        hash.update(buffer.subarray(0, count));
-      }
-      const after = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
-      const pathAfter = fileIdentity(
-        fs.lstatSync(executablePath, { bigint: true }),
-      );
-      if (
-        BigInt(byteLength) !== opened.size ||
-        !sameIdentity(opened, after) ||
-        !sameIdentity(opened, pathAfter) ||
-        fs.realpathSync.native(executablePath) !== executablePath ||
-        !verifyDistributionRootSnapshot(rootSnapshot)
-      ) {
-        throw new Error("platform_access_release_executable_changed");
-      }
-      return Object.freeze({
-        status: "candidate" as const,
-        reason: "platform_access_release_artifact_observed_candidate",
-        artifact: Object.freeze({
-          relativePath: PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
-          target: PLATFORM_ACCESS_TARGET,
-          protocolRevision: PLATFORM_ACCESS_PROTOCOL_REVISION,
-          rustToolchain: PLATFORM_ACCESS_RUST_TOOLCHAIN,
-          byteLength,
-          sha256: hash.digest("hex"),
-        }),
-        absolutePathReported: false,
-        filesystemEffectIssued: false,
-        runtimeAuthorityConferred: false,
-        runtimeCapabilityIssued: false,
-      });
-    } finally {
-      fs.closeSync(descriptor);
-    }
+    const snapshot = observeArtifactSnapshot(distributionRoot);
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "platform_access_release_artifact_observed_candidate",
+      artifact: snapshot.artifact,
+      absolutePathReported: false,
+      filesystemEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    });
   } catch {
     return Object.freeze({
       status: "blocked" as const,
@@ -238,54 +220,45 @@ export function observePlatformAccessReleaseArtifactCandidate(
   }
 }
 
-export function resolvePlatformAccessExecutableForPrivateInvocation(
+export function beginPlatformAccessArtifactSigningObservation(
   distributionRoot: unknown,
-  rawExpectedArtifact: unknown,
-): PlatformAccessExecutableSnapshot | null {
+) {
   try {
-    const expected = expectedArtifact(rawExpectedArtifact);
-    const observed =
-      observePlatformAccessReleaseArtifactCandidate(distributionRoot);
-    if (
-      observed.status !== "candidate" ||
-      !observed.artifact ||
-      observed.artifact.byteLength !== expected.byteLength ||
-      observed.artifact.sha256 !== expected.sha256
-    ) {
-      return null;
-    }
-    const rootSnapshot = distributionRootSnapshot(distributionRoot);
-    const root = rootSnapshot.root;
-    const executablePath = path.join(
-      root,
-      ...PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH.split("/"),
+    const observed = observeArtifactSnapshot(distributionRoot);
+    const token = Object.freeze({});
+    signingSnapshots.set(
+      token,
+      Object.freeze({
+        root: observed.rootSnapshot.root,
+        rootIdentity: observed.rootSnapshot.identity,
+        executablePath: observed.executablePath,
+        fileIdentity: observed.fileIdentity,
+        artifact: observed.artifact,
+      }),
     );
-    const identity = fileIdentity(
-      fs.lstatSync(executablePath, { bigint: true }),
-    );
-    if (!verifyDistributionRootSnapshot(rootSnapshot)) return null;
-    return Object.freeze({
-      executablePath,
-      identity,
-      sha256: observed.artifact.sha256,
-      byteLength: observed.artifact.byteLength,
-    });
+    return Object.freeze({ token, artifact: observed.artifact });
   } catch {
     return null;
   }
 }
 
-export function verifyPlatformAccessExecutableSnapshot(
-  snapshot: PlatformAccessExecutableSnapshot,
+export function verifyPlatformAccessArtifactSigningObservation(
+  token: object,
 ): boolean {
   try {
-    const current = fileIdentity(
-      fs.lstatSync(snapshot.executablePath, { bigint: true }),
-    );
+    const snapshot = signingSnapshots.get(token);
+    if (!snapshot) return false;
+    const rootSnapshot = Object.freeze({
+      root: snapshot.root,
+      identity: snapshot.rootIdentity,
+    });
+    const observed = observeArtifactSnapshot(snapshot.root);
     return (
-      sameIdentity(snapshot.identity, current) &&
-      fs.realpathSync.native(snapshot.executablePath) ===
-        snapshot.executablePath
+      observed.executablePath === snapshot.executablePath &&
+      sameIdentity(snapshot.fileIdentity, observed.fileIdentity) &&
+      observed.artifact.byteLength === snapshot.artifact.byteLength &&
+      observed.artifact.sha256 === snapshot.artifact.sha256 &&
+      verifyDistributionRootSnapshot(rootSnapshot)
     );
   } catch {
     return false;

@@ -119,7 +119,7 @@ test("Windows package DACL observer and Effect remain unimplemented", () => {
   );
   assert.equal(
     contract.processInvocation,
-    "implemented_candidate_fixed_absolute_release_path_bounded_process",
+    "blocked_until_protected_active_generation_and_verified_image_binding",
   );
   assert.equal(
     contract.observer,

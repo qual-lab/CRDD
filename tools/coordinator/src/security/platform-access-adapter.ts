@@ -1,24 +1,4 @@
-import { randomBytes } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-import {
-  resolvePlatformAccessExecutableForPrivateInvocation,
-  verifyPlatformAccessExecutableSnapshot,
-} from "./platform-access-release.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-
 const responseMagic = Buffer.from("CRDDPR01", "ascii");
-const requestMagic = Buffer.from("CRDDPA01", "ascii");
-const bundledDistributionRoot = fileURLToPath(
-  new URL("../../../../", import.meta.url),
-);
-const REQUEST_HEADER_BYTES = 60;
-const MAXIMUM_PATH_BYTES = 4_096;
-const PROCESS_TIMEOUT_MILLISECONDS = 5_000;
-const PROCESS_MAXIMUM_OUTPUT_BYTES = 4_096;
 const RESPONSE_BYTES = 50;
 const PROTOCOL_REVISION = 1;
 const RESPONSE_STATUS_CANDIDATE = 1;
@@ -174,150 +154,13 @@ export function evaluatePlatformAccessResponseCandidate(
 export function inspectWindowsPlatformAccessCandidate(
   rootPath: unknown,
   rootRole: unknown,
-) {
-  try {
-    const verifiedRelease =
-      verifyBundledCoordinatorPackageFromFixedManifestCandidate({
-        evaluationTime: new Date().toISOString(),
-      });
-    if (
-      verifiedRelease.status !== "candidate" ||
-      !verifiedRelease.platformAccessArtifact
-    ) {
-      return blocked("platform_access_release_binary_binding_unavailable");
-    }
-    const executable = resolvePlatformAccessExecutableForPrivateInvocation(
-      bundledDistributionRoot,
-      verifiedRelease.platformAccessArtifact,
-    );
-    if (!executable) {
-      return blocked("platform_access_release_binary_binding_invalid");
-    }
-    const request = platformAccessRequest(rootPath, rootRole);
-    if (!request) {
-      return blocked("platform_access_request_invalid");
-    }
-    const processResult = spawnSync(executable.executablePath, [], {
-      cwd: path.dirname(executable.executablePath),
-      env: {},
-      input: request.bytes,
-      encoding: "buffer",
-      windowsHide: true,
-      shell: false,
-      timeout: PROCESS_TIMEOUT_MILLISECONDS,
-      maxBuffer: PROCESS_MAXIMUM_OUTPUT_BYTES,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    const isExecutableStable =
-      verifyPlatformAccessExecutableSnapshot(executable);
-    const isRootStable = verifyRootSnapshot(request.rootSnapshot);
-    if (
-      processResult.error ||
-      processResult.signal !== null ||
-      processResult.status !== 0 ||
-      !Buffer.isBuffer(processResult.stdout) ||
-      !Buffer.isBuffer(processResult.stderr) ||
-      processResult.stderr.length !== 0 ||
-      !isExecutableStable ||
-      !isRootStable
-    ) {
-      return blocked("platform_access_helper_process_blocked", true, false);
-    }
-    const evaluated = evaluatePlatformAccessResponseCandidate(
-      processResult.stdout,
-      request.nonce,
-      request.rootRole,
-    );
-    if (evaluated.status !== "candidate") {
-      return blocked("platform_access_helper_process_blocked", true, false);
-    }
-    return Object.freeze({
-      ...evaluated,
-      helperProcessSpawned: true,
-      helperResponseValidated: true,
-    });
-  } catch {
-    return blocked("platform_access_helper_process_blocked", false, false);
-  }
-}
-
-type RootSnapshot = Readonly<{
-  rootPath: string;
-  dev: bigint;
-  ino: bigint;
-  birthtimeNs: bigint;
-}>;
-
-function rootSnapshot(rawPath: unknown): RootSnapshot | null {
-  try {
-    if (
-      typeof rawPath !== "string" ||
-      !/^[A-Z]:\\/u.test(rawPath) ||
-      rawPath.includes("\0") ||
-      rawPath.includes("/") ||
-      Buffer.byteLength(rawPath, "utf8") > MAXIMUM_PATH_BYTES ||
-      path.win32.normalize(rawPath) !== rawPath
-    ) {
-      return null;
-    }
-    const metadata = fs.lstatSync(rawPath, { bigint: true });
-    if (
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink() ||
-      metadata.dev <= 0n ||
-      metadata.dev > 0xffff_ffffn ||
-      metadata.ino <= 0n ||
-      metadata.ino > 0xffff_ffff_ffff_ffffn ||
-      metadata.birthtimeNs <= 0n ||
-      fs.realpathSync.native(rawPath) !== rawPath
-    ) {
-      return null;
-    }
-    return Object.freeze({
-      rootPath: rawPath,
-      dev: metadata.dev,
-      ino: metadata.ino,
-      birthtimeNs: metadata.birthtimeNs,
-    });
-  } catch {
-    return null;
-  }
-}
-
-function verifyRootSnapshot(snapshot: RootSnapshot): boolean {
-  const current = rootSnapshot(snapshot.rootPath);
-  return Boolean(
-    current &&
-      current.dev === snapshot.dev &&
-      current.ino === snapshot.ino &&
-      current.birthtimeNs === snapshot.birthtimeNs,
+): ReturnType<typeof blocked>;
+export function inspectWindowsPlatformAccessCandidate(): ReturnType<
+  typeof blocked
+> {
+  return blocked(
+    "platform_access_protected_active_generation_binding_not_implemented",
   );
-}
-
-function platformAccessRequest(rawPath: unknown, rawRole: unknown) {
-  const root = rootSnapshot(rawPath);
-  if (!root || (rawRole !== "runtime" && rawRole !== "authority")) {
-    return null;
-  }
-  const pathBytes = Buffer.from(root.rootPath, "utf8");
-  const bytes = Buffer.alloc(REQUEST_HEADER_BYTES + pathBytes.length);
-  requestMagic.copy(bytes, 0);
-  bytes.writeUInt16LE(PROTOCOL_REVISION, 8);
-  bytes[10] = 1;
-  bytes[11] = roleValue(rawRole);
-  const nonce = randomBytes(32);
-  nonce.copy(bytes, 12);
-  bytes.writeUInt32LE(Number(root.dev), 44);
-  bytes.writeUInt32LE(Number((root.ino >> 32n) & 0xffff_ffffn), 48);
-  bytes.writeUInt32LE(Number(root.ino & 0xffff_ffffn), 52);
-  bytes.writeUInt32LE(pathBytes.length, 56);
-  pathBytes.copy(bytes, REQUEST_HEADER_BYTES);
-  return Object.freeze({
-    bytes,
-    nonce,
-    rootRole: rawRole,
-    rootSnapshot: root,
-  });
 }
 
 export function describePlatformAccessAdapterContract() {
@@ -332,9 +175,7 @@ export function describePlatformAccessAdapterContract() {
     windowsCurrentProcessAccessCore: "implemented_candidate_component_only",
     binaryReleaseIdentityBinding: "implemented_candidate_signed_manifest",
     productionInvocation:
-      "implemented_candidate_fixed_absolute_release_path_bounded_process",
-    processTimeoutMilliseconds: PROCESS_TIMEOUT_MILLISECONDS,
-    processMaximumOutputBytes: PROCESS_MAXIMUM_OUTPUT_BYTES,
+      "blocked_until_protected_active_generation_and_verified_image_binding",
     shellInvocation: false,
     pathEnvironmentLookup: false,
     cargoRuntimeInvocation: false,
