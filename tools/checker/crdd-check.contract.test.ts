@@ -107,7 +107,7 @@ test("Rust platform accessの開発入口は固定Cargo commandだけを使う",
       ),
     {
       "platform-access:build":
-        "cargo build --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",
+        "cargo build --manifest-path ../platform-access/Cargo.toml --locked --release --target x86_64-pc-windows-msvc",
       "platform-access:coverage":
         "node ./scripts/check-platform-access-coverage.ts",
       "platform-access:format:check":

@@ -1212,7 +1212,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.rootProtectionPolicy.windowsDaclAdapter,
-    "not_implemented_effective_access_required",
+    "not_implemented_observation_mapping_required",
   );
   assert.equal(
     contract.rootProtectionPolicy.posixOwnerModeAdapter,
@@ -1244,7 +1244,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.ownerAclVerification,
-    "not_implemented_effective_access_required",
+    "not_implemented_observation_mapping_required",
   );
   assert.equal(contract.atomicPersistence, "not_implemented");
   assert.equal(contract.canonicalUtcLength, 24);

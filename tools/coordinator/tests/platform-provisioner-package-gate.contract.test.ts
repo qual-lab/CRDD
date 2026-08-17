@@ -58,6 +58,15 @@ function fixture() {
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
+    platformAccessArtifact: {
+      relativePath:
+        "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+      target: "x86_64-pc-windows-msvc",
+      protocolRevision: 1,
+      rustToolchain: "1.94.1",
+      byteLength: 1024,
+      sha256: "4".repeat(64),
+    },
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z",
   };

@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readHiddenLine } from "./generate-release-key.ts";
+import { observePlatformAccessReleaseArtifactCandidate } from "../src/security/platform-access-release.ts";
 import { inspectPlatformProvisionerPackageFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
@@ -180,7 +181,13 @@ export function signReleaseManifest(options: ManifestOptions) {
   }
   const packageObservation =
     inspectPlatformProvisionerPackageFilesystemCandidate(packageRoot);
-  if (packageObservation.status !== "candidate") {
+  const platformAccessArtifact =
+    observePlatformAccessReleaseArtifactCandidate(distributionRoot);
+  if (
+    packageObservation.status !== "candidate" ||
+    platformAccessArtifact.status !== "candidate" ||
+    !platformAccessArtifact.artifact
+  ) {
     throw new Error("release_manifest_package_observation_failed");
   }
   const policyIdentity = getPlatformProvisionerPolicyIdentity();
@@ -195,6 +202,7 @@ export function signReleaseManifest(options: ManifestOptions) {
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
+      platformAccessArtifact: platformAccessArtifact.artifact,
       ...policyIdentity,
       issuedAt: options.issuedAt,
       expiresAt: options.expiresAt,
@@ -227,7 +235,12 @@ export function signReleaseManifest(options: ManifestOptions) {
       distributionRoot,
       options.crddTree,
     );
-    if (releaseIdentity.status !== "candidate") {
+    if (
+      releaseIdentity.status !== "candidate" ||
+      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
+      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+        true
+    ) {
       throw new Error("release_manifest_distribution_tree_mismatch");
     }
     verifyCommitTreeBinding(options.crddCommit, options.crddTree);
@@ -257,6 +270,7 @@ export function signReleaseManifest(options: ManifestOptions) {
       manifestRelativePath: MANIFEST_RELATIVE_PATH,
       manifestHash: compiled.manifestHash,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
+      platformAccessExecutableSha256: platformAccessArtifact.artifact.sha256,
       crddVersion: options.crddVersion,
       releaseSequence: options.releaseSequence,
       crddCommit: options.crddCommit,

@@ -30,6 +30,10 @@ function tree(entries: ReadonlyArray<readonly [string, string, Buffer]>) {
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-release-tree-"));
   fs.mkdirSync(path.join(root, "90_Release"));
+  fs.mkdirSync(
+    path.join(root, "90_Release", "platform-access", "x86_64-pc-windows-msvc"),
+    { recursive: true },
+  );
   fs.mkdirSync(path.join(root, "nested"));
   const alpha = Buffer.from("alpha\n", "utf8");
   const beta = Buffer.from("beta\n", "utf8");
@@ -40,6 +44,16 @@ function fixture() {
   fs.writeFileSync(
     path.join(root, "90_Release", "coordinator-package-manifest.json"),
     "{}",
+  );
+  fs.writeFileSync(
+    path.join(
+      root,
+      "90_Release",
+      "platform-access",
+      "x86_64-pc-windows-msvc",
+      "crdd-platform-access.exe",
+    ),
+    "binary",
   );
   const releaseTree = tree([
     ["100644", "readme.txt", objectId("blob", release)],
@@ -64,6 +78,10 @@ test("配布Root全体をGit Treeへ再計算し後置manifestだけを除外す
     assert.equal(result.crddTree, value.rootTree);
     assert.equal(result.distributionFileCount, 3);
     assert.equal(result.postCheckoutManifestExcludedFromGitTree, true);
+    assert.equal(
+      result.postCheckoutPlatformAccessExecutableExcludedFromGitTree,
+      true,
+    );
     assert.equal(result.releaseIdentityRuntimeOwned, false);
     assert.equal("distributionRoot" in result, false);
   } finally {
@@ -111,6 +129,10 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
   assert.equal(
     contract.postCheckoutManifestExcludedFromGitTree,
     "90_Release/coordinator-package-manifest.json",
+  );
+  assert.equal(
+    contract.postCheckoutPlatformAccessExecutableExcludedFromGitTree,
+    "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
   );
   assert.equal(
     contract.signedCrddTreeComparison,

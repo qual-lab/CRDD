@@ -1540,7 +1540,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.rootProtectionPolicy.windowsDaclAdapter,
-    "not_implemented_effective_access_required",
+    "not_implemented_observation_mapping_required",
   );
   assert.equal(
     report.rootProtectionPolicy.posixRuntimeRootPrecheckEntry,

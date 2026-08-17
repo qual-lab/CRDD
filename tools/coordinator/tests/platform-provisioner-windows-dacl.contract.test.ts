@@ -113,7 +113,18 @@ test("Windows package DACL observer and Effect remain unimplemented", () => {
     contract.rustObservationCore,
     "implemented_candidate_component_only",
   );
-  assert.equal(contract.binaryReleaseIdentityBinding, "not_implemented");
+  assert.equal(
+    contract.binaryReleaseIdentityBinding,
+    "implemented_candidate_signed_manifest",
+  );
+  assert.equal(
+    contract.processInvocation,
+    "implemented_candidate_fixed_absolute_release_path_bounded_process",
+  );
+  assert.equal(
+    contract.observer,
+    "not_implemented_observation_mapping_required",
+  );
   assert.equal(
     contract.verification,
     "not_implemented_effective_access_required",

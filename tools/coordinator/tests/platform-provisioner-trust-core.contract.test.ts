@@ -59,6 +59,15 @@ function fixture() {
     packageContentRootSha256,
     rootProtectionPolicySha256: "4".repeat(64),
     keyStoragePolicySha256: "5".repeat(64),
+    platformAccessArtifact: {
+      relativePath:
+        "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+      target: "x86_64-pc-windows-msvc",
+      protocolRevision: 1,
+      rustToolchain: "1.94.1",
+      byteLength: 1024,
+      sha256: "6".repeat(64),
+    },
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z",
   };
@@ -94,6 +103,7 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
   assert.equal(result.crddTree, "b".repeat(40));
   assert.equal(result.rootProtectionPolicySha256, "4".repeat(64));
   assert.equal(result.keyStoragePolicySha256, "5".repeat(64));
+  assert.equal(result.platformAccessArtifact?.sha256, "6".repeat(64));
   assert.equal(result.qualLabManifestCryptographicMatch, true);
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
   assert.equal(result.crddDistributionConfirmed, false);
@@ -136,6 +146,34 @@ test("package name, version, file ordering, path and digest mismatches fail clos
     },
     (value) => {
       value.manifestEnvelope.payload.crddTree = "b".repeat(39);
+    },
+    (value) => {
+      value.manifestEnvelope.payload.platformAccessArtifact.relativePath =
+        "90_Release/platform-access/wrong.exe";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.platformAccessArtifact.target =
+        "aarch64-pc-windows-msvc";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.platformAccessArtifact.protocolRevision = 2;
+    },
+    (value) => {
+      value.manifestEnvelope.payload.platformAccessArtifact.rustToolchain =
+        "1.95.0";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.platformAccessArtifact.byteLength = 0;
+    },
+    (value) => {
+      value.manifestEnvelope.payload.platformAccessArtifact.sha256 = "6".repeat(
+        63,
+      );
+    },
+    (value) => {
+      Object.assign(value.manifestEnvelope.payload.platformAccessArtifact, {
+        extra: true,
+      });
     },
   ];
   for (const mutate of mutations) {
@@ -182,7 +220,7 @@ test("manifest signature, role, lifetime and exact envelope fail closed", () => 
   }
 });
 
-test("package trust contract requires CRDD-bundled use and no native executable", () => {
+test("package trust contract requires CRDD-bundled use and one signed Rust executable", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
   assert.equal(
     contract.distributionModel,
@@ -194,7 +232,7 @@ test("package trust contract requires CRDD-bundled use and no native executable"
   assert.equal(contract.standalonePackageInstallationAllowed, false);
   assert.equal(
     contract.releaseIdentityBinding,
-    "release_sequence_crdd_version_commit_tree_and_package_content_root_implemented_candidate",
+    "release_sequence_crdd_version_commit_tree_package_content_root_and_platform_access_artifact_implemented_candidate",
   );
   assert.equal(
     contract.runtimeOwnedCrddDistributionVerification,

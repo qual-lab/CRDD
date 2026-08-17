@@ -17,6 +17,25 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
     fs.mkdirSync(path.join(distributionRoot, "90_Release"), {
       recursive: true,
     });
+    fs.mkdirSync(
+      path.join(
+        distributionRoot,
+        "90_Release",
+        "platform-access",
+        "x86_64-pc-windows-msvc",
+      ),
+      { recursive: true },
+    );
+    fs.writeFileSync(
+      path.join(
+        distributionRoot,
+        "90_Release",
+        "platform-access",
+        "x86_64-pc-windows-msvc",
+        "crdd-platform-access.exe",
+      ),
+      Buffer.from("not-a-real-executable", "ascii"),
+    );
     fs.mkdirSync(path.join(distributionRoot, "tools", "coordinator", "src"), {
       recursive: true,
     });

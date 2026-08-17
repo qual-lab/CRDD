@@ -92,7 +92,7 @@ test("DACL、FilesystemまたはIdentity不成立をfail closedにする", () =>
   );
 });
 
-test("実効access Adapter未実装時は入力に依存せず安全にblockedとする", () => {
+test("process結果の観測写像未実装時は入力に依存せず安全にblockedとする", () => {
   const result = inspectWindowsRootObservationCandidate(
     "relative-root",
     "authority",
@@ -132,8 +132,11 @@ test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
     protectionInputs:
       "windows_fixed_drive_dacl_role_runtime_principal_and_writer_exclusivity",
     windowsObservationCore: "implemented_candidate_component_only",
-    windowsBinaryReleaseIdentityBinding: "not_implemented",
-    windowsAdapter: "not_implemented_effective_access_required",
+    windowsBinaryReleaseIdentityBinding:
+      "implemented_candidate_signed_manifest",
+    windowsProcessInvocation:
+      "implemented_candidate_fixed_absolute_release_path_bounded_process",
+    windowsAdapter: "not_implemented_observation_mapping_required",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

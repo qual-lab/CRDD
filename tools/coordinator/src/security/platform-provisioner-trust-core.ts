@@ -11,6 +11,13 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import {
+  PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES,
+  PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+  PLATFORM_ACCESS_PROTOCOL_REVISION,
+  PLATFORM_ACCESS_RUST_TOOLCHAIN,
+  PLATFORM_ACCESS_TARGET,
+} from "./platform-access-release.ts";
 
 export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 1;
 export const PLATFORM_PROVISIONER_MANIFEST_CONTRACT =
@@ -34,8 +41,17 @@ const MANIFEST_KEYS = new Set([
   "packageContentRootSha256",
   "rootProtectionPolicySha256",
   "keyStoragePolicySha256",
+  "platformAccessArtifact",
   "issuedAt",
   "expiresAt",
+]);
+const PLATFORM_ACCESS_ARTIFACT_KEYS = new Set([
+  "relativePath",
+  "target",
+  "protocolRevision",
+  "rustToolchain",
+  "byteLength",
+  "sha256",
 ]);
 const OBSERVED_PACKAGE_KEYS = new Set([
   "packageName",
@@ -178,6 +194,12 @@ function normalizeObservedPackage(raw: unknown) {
 
 function normalizeManifest(raw: unknown) {
   const value = snapshotPlainRecord(raw, MANIFEST_KEYS);
+  const platformAccessArtifact =
+    value &&
+    snapshotPlainRecord(
+      value.platformAccessArtifact,
+      PLATFORM_ACCESS_ARTIFACT_KEYS,
+    );
   if (
     !value ||
     value.contract !== PLATFORM_PROVISIONER_MANIFEST_CONTRACT ||
@@ -200,6 +222,20 @@ function normalizeManifest(raw: unknown) {
     !HEX64.test(value.rootProtectionPolicySha256) ||
     typeof value.keyStoragePolicySha256 !== "string" ||
     !HEX64.test(value.keyStoragePolicySha256) ||
+    !platformAccessArtifact ||
+    platformAccessArtifact.relativePath !==
+      PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH ||
+    platformAccessArtifact.target !== PLATFORM_ACCESS_TARGET ||
+    platformAccessArtifact.protocolRevision !==
+      PLATFORM_ACCESS_PROTOCOL_REVISION ||
+    platformAccessArtifact.rustToolchain !== PLATFORM_ACCESS_RUST_TOOLCHAIN ||
+    typeof platformAccessArtifact.byteLength !== "number" ||
+    !Number.isSafeInteger(platformAccessArtifact.byteLength) ||
+    platformAccessArtifact.byteLength < 1 ||
+    platformAccessArtifact.byteLength >
+      PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES ||
+    typeof platformAccessArtifact.sha256 !== "string" ||
+    !HEX64.test(platformAccessArtifact.sha256) ||
     !utc(value.issuedAt) ||
     !utc(value.expiresAt) ||
     Date.parse(value.expiresAt) <= Date.parse(value.issuedAt)
@@ -216,6 +252,14 @@ function normalizeManifest(raw: unknown) {
     packageContentRootSha256: value.packageContentRootSha256,
     rootProtectionPolicySha256: value.rootProtectionPolicySha256,
     keyStoragePolicySha256: value.keyStoragePolicySha256,
+    platformAccessArtifact: Object.freeze({
+      relativePath: platformAccessArtifact.relativePath,
+      target: platformAccessArtifact.target,
+      protocolRevision: platformAccessArtifact.protocolRevision,
+      rustToolchain: platformAccessArtifact.rustToolchain,
+      byteLength: platformAccessArtifact.byteLength,
+      sha256: platformAccessArtifact.sha256,
+    }),
     issuedAt: value.issuedAt,
     expiresAt: value.expiresAt,
   });
@@ -429,6 +473,7 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
         packageContentRootSha256: contentFrame.hash,
         rootProtectionPolicySha256: envelope.payload.rootProtectionPolicySha256,
         keyStoragePolicySha256: envelope.payload.keyStoragePolicySha256,
+        platformAccessArtifact: envelope.payload.platformAccessArtifact,
         qualLabManifestCryptographicMatch: true,
       },
     );
@@ -455,7 +500,7 @@ export function describePlatformProvisionerTrustCoreContract() {
     maximumFiles: MAXIMUM_FILES,
     manifestCryptographicVerification: "implemented_candidate",
     releaseIdentityBinding:
-      "release_sequence_crdd_version_commit_tree_and_package_content_root_implemented_candidate",
+      "release_sequence_crdd_version_commit_tree_package_content_root_and_platform_access_artifact_implemented_candidate",
     packageContentRootCalculation:
       "implemented_candidate_from_owned_snapshot_of_caller_file_metadata",
     runtimeOwnedPackageFilesystemRead: "not_implemented",

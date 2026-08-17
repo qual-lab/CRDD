@@ -119,7 +119,7 @@ test("Release binary結合前は入力へ触れずprocess起動前にblockedに�
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
-    "platform_access_release_binary_binding_not_implemented",
+    "platform_access_release_binary_binding_unavailable",
   );
   assert.equal(result.helperProcessSpawned, false);
   assert.equal(result.filesystemEffectIssued, false);
@@ -134,11 +134,16 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
     contract.windowsCurrentProcessAccessCore,
     "implemented_candidate_component_only",
   );
-  assert.equal(contract.binaryReleaseIdentityBinding, "not_implemented");
+  assert.equal(
+    contract.binaryReleaseIdentityBinding,
+    "implemented_candidate_signed_manifest",
+  );
   assert.equal(
     contract.productionInvocation,
-    "blocked_before_path_or_process_access",
+    "implemented_candidate_fixed_absolute_release_path_bounded_process",
   );
+  assert.equal(contract.processTimeoutMilliseconds, 5_000);
+  assert.equal(contract.processMaximumOutputBytes, 4_096);
   assert.equal(contract.shellInvocation, false);
   assert.equal(contract.pathEnvironmentLookup, false);
   assert.equal(contract.cargoRuntimeInvocation, false);

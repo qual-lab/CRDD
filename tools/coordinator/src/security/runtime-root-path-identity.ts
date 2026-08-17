@@ -509,7 +509,8 @@ export function describeRuntimeRootPathIdentityContract() {
       platformAccess.windowsCurrentProcessAccessCore,
     windowsBinaryReleaseIdentityBinding:
       platformAccess.binaryReleaseIdentityBinding,
-    windowsDaclAdapter: "not_implemented",
+    windowsProcessInvocation: platformAccess.productionInvocation,
+    windowsDaclAdapter: "not_implemented_observation_mapping_required",
     persistentVolumeAdapter: "not_implemented",
     ownerAclVerification: "not_implemented",
     fullParentChainVerification: "not_implemented",

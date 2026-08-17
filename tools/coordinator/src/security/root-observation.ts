@@ -210,7 +210,8 @@ export function describeRootObservationContract() {
     windowsObservationCore: platformAccess.windowsCurrentProcessAccessCore,
     windowsBinaryReleaseIdentityBinding:
       platformAccess.binaryReleaseIdentityBinding,
-    windowsAdapter: "not_implemented_effective_access_required",
+    windowsProcessInvocation: platformAccess.productionInvocation,
+    windowsAdapter: "not_implemented_observation_mapping_required",
     posixAdapter: "not_implemented",
     rawIdentityReported: false,
     rawProtectionReported: false,

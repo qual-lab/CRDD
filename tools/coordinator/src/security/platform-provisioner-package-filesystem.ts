@@ -458,6 +458,7 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
       crddTree: verification.crddTree,
       qualLabManifestCryptographicMatch: true,
       runtimeOwnedReleaseTrustConfirmed: true,
+      platformAccessArtifact: verification.platformAccessArtifact,
     });
   } catch {
     return blocked("platform_provisioner_bundled_package_input_invalid");
@@ -509,7 +510,9 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
     );
     if (
       releaseIdentity.status !== "candidate" ||
-      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== true
+      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== true ||
+      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+        true
     ) {
       return blocked(
         "platform_provisioner_release_identity_verification_failed",
@@ -537,6 +540,7 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       runtimeOwnedReleaseTrustConfirmed: true,
       releaseIdentityRuntimeOwned: true,
       crddDistributionConfirmed: true,
+      platformAccessArtifact: verification.platformAccessArtifact,
     });
   } catch {
     return blocked("platform_provisioner_fixed_manifest_verification_failed");
@@ -618,6 +622,7 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       runtimeOwnedReleaseTrustConfirmed: true,
       releaseIdentityRuntimeOwned: false,
       crddDistributionConfirmed: true,
+      platformAccessArtifact: verification.platformAccessArtifact,
     });
   } catch {
     return blocked(

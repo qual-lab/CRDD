@@ -407,7 +407,7 @@ test("contractはclaim候補と未実装Adapter／Effect／Capabilityを分離�
   );
   assert.equal(
     contract.windowsDaclAdapter,
-    "not_implemented_effective_access_required",
+    "not_implemented_observation_mapping_required",
   );
   assert.equal(contract.posixOwnerModeAdapter, "not_implemented");
   assert.equal(contract.persistentVolumeAdapter, "not_implemented");

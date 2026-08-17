@@ -454,8 +454,18 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
     contract.windowsAccessObservationCore,
     "implemented_candidate_component_only",
   );
-  assert.equal(contract.windowsBinaryReleaseIdentityBinding, "not_implemented");
-  assert.equal(contract.windowsDaclAdapter, "not_implemented");
+  assert.equal(
+    contract.windowsBinaryReleaseIdentityBinding,
+    "implemented_candidate_signed_manifest",
+  );
+  assert.equal(
+    contract.windowsProcessInvocation,
+    "implemented_candidate_fixed_absolute_release_path_bounded_process",
+  );
+  assert.equal(
+    contract.windowsDaclAdapter,
+    "not_implemented_observation_mapping_required",
+  );
   assert.equal(contract.ownerAclVerification, "not_implemented");
   assert.equal(contract.fullParentChainVerification, "not_implemented");
   assert.equal(

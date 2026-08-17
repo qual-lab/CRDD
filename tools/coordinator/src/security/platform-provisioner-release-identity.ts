@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH } from "./platform-provisioner-manifest-loader.ts";
+import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "./platform-access-release.ts";
 
 const MAXIMUM_DISTRIBUTION_FILES = 2_048;
 const MAXIMUM_DISTRIBUTION_BYTES = 64 * 1024 * 1024;
@@ -138,8 +139,11 @@ function encodeTree(entries: readonly TreeEntry[]) {
   );
 }
 
-function isExcludedPostCheckoutManifest(relativePath: string) {
-  return relativePath === PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH;
+function isExcludedPostCheckoutArtifact(relativePath: string) {
+  return (
+    relativePath === PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH ||
+    relativePath === PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH
+  );
 }
 
 function observeDistributionTree(
@@ -170,8 +174,8 @@ function observeDistributionTree(
   }
   let fileCount = 0;
   let byteLength = 0;
-  let excludedManifestCount = 0;
-  const walk = (directory: string, relativeDirectory: string): Buffer => {
+  const excludedPostCheckoutArtifacts = new Set<string>();
+  const walk = (directory: string, relativeDirectory: string) => {
     const beforeMetadata = fs.lstatSync(directory, { bigint: true });
     const before = identity(beforeMetadata);
     if (
@@ -190,11 +194,11 @@ function observeDistributionTree(
       const relative = relativeDirectory
         ? `${relativeDirectory}/${name}`
         : name;
-      if (isExcludedPostCheckoutManifest(relative)) {
-        excludedManifestCount += 1;
-        if (excludedManifestCount > 1) {
+      if (isExcludedPostCheckoutArtifact(relative)) {
+        if (excludedPostCheckoutArtifacts.has(relative)) {
           throw new Error("platform_provisioner_distribution_manifest_invalid");
         }
+        excludedPostCheckoutArtifacts.add(relative);
         const manifestPath = path.join(directory, name);
         const manifestMetadata = fs.lstatSync(manifestPath);
         if (
@@ -212,14 +216,17 @@ function observeDistributionTree(
         throw new Error("platform_provisioner_distribution_link_rejected");
       }
       if (metadata.isDirectory()) {
-        entries.push(
-          Object.freeze({
-            name,
-            isDirectory: true,
-            mode: "40000" as const,
-            objectId: walk(target, relative),
-          }),
-        );
+        const child = walk(target, relative);
+        if (child.hasEntries) {
+          entries.push(
+            Object.freeze({
+              name,
+              isDirectory: true,
+              mode: "40000" as const,
+              objectId: child.objectId,
+            }),
+          );
+        }
         continue;
       }
       if (!metadata.isFile()) {
@@ -255,9 +262,12 @@ function observeDistributionTree(
     ) {
       throw new Error("platform_provisioner_distribution_directory_changed");
     }
-    return gitObjectId(algorithm, "tree", encodeTree(entries));
+    return Object.freeze({
+      hasEntries: entries.length > 0,
+      objectId: gitObjectId(algorithm, "tree", encodeTree(entries)),
+    });
   };
-  const tree = walk(root, "").toString("hex");
+  const tree = walk(root, "").objectId.toString("hex");
   const rootAfter = identity(fs.lstatSync(root, { bigint: true }));
   if (
     !sameIdentity(rootIdentity, rootAfter) ||
@@ -269,7 +279,12 @@ function observeDistributionTree(
     tree,
     fileCount,
     byteLength,
-    manifestExcludedFromTree: excludedManifestCount === 1,
+    manifestExcludedFromTree: excludedPostCheckoutArtifacts.has(
+      PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+    ),
+    platformAccessExecutableExcludedFromTree: excludedPostCheckoutArtifacts.has(
+      PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+    ),
   });
 }
 
@@ -297,6 +312,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
         distributionByteLength: observed.byteLength,
         postCheckoutManifestExcludedFromGitTree:
           observed.manifestExcludedFromTree,
+        postCheckoutPlatformAccessExecutableExcludedFromGitTree:
+          observed.platformAccessExecutableExcludedFromTree,
         releaseIdentityRuntimeOwned: false,
         runtimeAuthorityConferred: false,
         runtimeCapabilityIssued: false,
@@ -313,6 +330,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
       distributionByteLength: observed.byteLength,
       postCheckoutManifestExcludedFromGitTree:
         observed.manifestExcludedFromTree,
+      postCheckoutPlatformAccessExecutableExcludedFromGitTree:
+        observed.platformAccessExecutableExcludedFromTree,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -327,6 +346,7 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
       distributionFileCount: null,
       distributionByteLength: null,
       postCheckoutManifestExcludedFromGitTree: false,
+      postCheckoutPlatformAccessExecutableExcludedFromGitTree: false,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -348,6 +368,8 @@ export function describePlatformProvisionerReleaseIdentityContract() {
     maximumDistributionBytes: MAXIMUM_DISTRIBUTION_BYTES,
     postCheckoutManifestExcludedFromGitTree:
       PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
+    postCheckoutPlatformAccessExecutableExcludedFromGitTree:
+      PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
     gitMetadataAllowedInDistribution: false,
     symbolicLinkOrReparseFallbackAllowed: false,
     stableSameHandleFileRead: "implemented_candidate",

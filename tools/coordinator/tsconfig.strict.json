@@ -50,6 +50,7 @@
     "src/security/platform-provisioner-trust-core.ts",
     "src/security/platform-provisioner-windows-dacl.ts",
     "src/security/platform-access-adapter.ts",
+    "src/security/platform-access-release.ts",
     "src/security/platform-provisioner-package-gate.ts",
     "src/security/provider-isolation-profile.ts",
     "src/security/provisioning-signature-primitives.ts",
