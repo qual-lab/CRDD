@@ -1,7 +1,7 @@
 # 変更トレース: 最小RustプラットフォームアクセスCore
 
 - 変更ID: `CHG-000019`
-- 状態: `Ready for Verification`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-17
 - 対象: CRDD公式Repositoryの内部Coordinatorと`tools/platform-access/**`
@@ -120,3 +120,11 @@ Node.js `24.19.0`、Rust／Cargo `1.94.1`およびtarget `x86_64-pc-windows-msvc
 本変更はRust Coreのcomponent候補までである。Release binary Identity binding、production process管理、bounded stdin／stdout／timeoutの実接続、Windows全tree／writer排他確認、Protection Hash、DACL mutation、Platform Provisioner Effect、Runtime reader、POSIX、initial Trust、activationおよびRelease artifact組込みは未実装・未評価である。これらが成立する前は本番利用を有効化しない。
 
 本処置は`Applied`かつ`Self-checked`であり、同一固定Commit／Treeに対するAgent／Architecture／Security Review、Document Audit、Gap / Impact AuditおよびConformance Auditが完了するまでは`Resolved`ではない。確認完了は採用、統合、準拠、Stable化またはRelease判断を代替しない。v0.18は`Candidate`、Released Baselineはv0.17.0のままである。
+
+## 最終独立確認
+
+固定Commit `396206d907364d855264b36ba84a26ae21e5ec80`、Tree `ad4099bac1acf00f50060e4760c978c819e6f056`、Parent `dbad1e16955def73636e8ca43655669364dda20e`に対し、Agent／Architecture／Security Review、Document Audit、Gap / Impact AuditおよびConformance Auditを旧結果不流用で実行した。4判定はすべて`Pass`／Finding `0`である。
+
+`ASR-01`〜`ASR-04`、`DOC-RUST-001`／`002`／`R01`〜`R03`、`GAP-19-01`〜`04`および`GCI-R2-001`／`002`は、同じ固定版の新しい根拠と全利用側の再確認により`Resolved`とする。`cc52011`、`35b5050`および`dbad1e1`以前の監査集合は、原因、期待状態、処置および新規4分類の履歴として保持するが、現在の合否へ流用しない。
+
+現在の固定記録は[`CHG-000019 Current Review Record`](Evidence/CHG-000019_Current_Review_Record_396206d.md)を正本とする。確認完了は採用、統合、準拠主張、Stable化またはRelease判断を代替しない。署名済みRelease Identity結合、production process接続、全tree／writer排他、Protection Hash、DACL Effect、Runtime reader、POSIX、initial Trust、activationおよびRelease artifact組込みは未実装・未評価であり、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability／Effect非発行を維持する。v0.18は`Candidate`、Released Baselineはv0.17.0のままである。
