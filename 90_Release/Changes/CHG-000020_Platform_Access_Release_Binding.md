@@ -133,3 +133,14 @@ Node組込みcoverageは`--test-concurrency=1`と`--experimental-test-isolation=
 - Conformance: `Fail`。Release staging Effectの説明不一致によりC-04／C-07、品質根拠生成器の母集団漏れによりPL-16がNon-conformantで、準拠claimは`Not Eligible`だった。
 
 この監査集合も全体として`Invalidated`であり、現在判定へ流用しない。処置は、読み取り専用成果物観測とopaque sessionを持つRelease staging配置moduleの分離、成功／失敗時Effect metadata、Runtime／Provision Effectとの分離、exact 14 source／13 test coverage、LCOV grammarのfail-closed化および現在文書の水平同期へ反映した。いずれも`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。新規4分類は修正起因4、初回から存在し見落とし1、修正で初めて確認可能0、承認範囲拡大0である。
+
+## 固定版`aad8572`の独立確認と無効化
+
+固定対象はCommit `aad8572376d8252693f4b30d8013a2eede04ef36`、Tree `114f6d0d39a9c994b965d6b3fd4c1a223695196c`、Parent `5af5f73f2b516912a372c17ec7ea5ab0df2fb552`。共通入力はNode 24.19.0、Coordinator 352/352、Checker 151/151、TypeScript 127／Rust 4 source closure、TypeScript coverage 14 source／13 test、Rust 7/7、両package check、Rust fmt／Clippy／locked release build、full Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security: `Pass`、Finding 0。
+- Document: `Conditional`。`DOC-REL-R08` Minorは、脅威モデルでRelease Staging Filesystem Effectの正式英語名が初出より後に定義されていた修正起因Findingだった。
+- Gap／Impact: `Pass`、Finding 0。新規候補4分類は全分類0。
+- Conformance: `Pass`、Finding 0。影響基準はConformantだが、v0.18 Candidateかつ非Releaseのため準拠claimは`Not Eligible`だった。
+
+この監査集合も全体として`Invalidated`であり、現在判定へ流用しない。`DOC-REL-R08`の処置は、脅威モデルの初出を日本語表示名（Canonical Term）の順へ修正し、後続の重複英語定義を除去する局所変更へ反映した。処置は`Applied`／`Self-checked`であり、新固定版の同一監査集合が全て完了するまで`Resolved`ではない。
