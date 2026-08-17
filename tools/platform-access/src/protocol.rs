@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 
 pub const PROTOCOL_REVISION: u16 = 1;
 pub const MAXIMUM_REQUEST_BYTES: usize = 65_536;
-pub const MAXIMUM_PATH_BYTES: usize = 32_768;
+pub const MAXIMUM_PATH_BYTES: usize = 4_096;
 const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA01";
 const RESPONSE_MAGIC: &[u8; 8] = b"CRDDPR01";
 const REQUEST_HEADER_BYTES: usize = 60;
@@ -76,14 +76,49 @@ fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
     ))
 }
 
+fn is_reserved_windows_basename(segment: &str) -> bool {
+    let basename = segment.split('.').next().unwrap_or("").to_uppercase();
+    matches!(
+        basename.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" | "CLOCK$" | "CONIN$" | "CONOUT$"
+    ) || ["COM", "LPT"].iter().any(|prefix| {
+        basename.strip_prefix(prefix).is_some_and(|suffix| {
+            matches!(
+                suffix,
+                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
+            )
+        })
+    })
+}
+
 fn is_supported_windows_path(path: &str) -> bool {
     let bytes = path.as_bytes();
-    bytes.len() >= 3
-        && bytes[0].is_ascii_uppercase()
-        && bytes[1] == b':'
-        && bytes[2] == b'\\'
-        && !path.contains('/')
-        && !path[3..].contains("\\\\")
+    if bytes.len() < 3
+        || bytes[0] < b'A'
+        || bytes[0] > b'Z'
+        || bytes[1] != b':'
+        || bytes[2] != b'\\'
+    {
+        return false;
+    }
+    if bytes.len() == 3 {
+        return true;
+    }
+    if path.ends_with('\\') {
+        return false;
+    }
+    path[3..].split('\\').all(|segment| {
+        !segment.is_empty()
+            && segment != "."
+            && segment != ".."
+            && !segment.ends_with(['.', ' '])
+            && !segment.chars().any(|character| {
+                character <= '\u{001f}'
+                    || character == '\u{007f}'
+                    || matches!(character, '<' | '>' | ':' | '"' | '/' | '|' | '?' | '*')
+            })
+            && !is_reserved_windows_basename(segment)
+    })
 }
 
 pub fn parse_request(bytes: &[u8]) -> Option<Request> {
@@ -184,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_noncanonical_or_oversized_requests() {
+    fn rejects_unsupported_or_oversized_request_framing() {
         let mut trailing = request_bytes(b"C:\\root");
         trailing.push(0);
         assert!(parse_request(&trailing).is_none());
@@ -194,7 +229,31 @@ mod tests {
         assert!(parse_request(&request_bytes(b"\\\\server\\share")).is_none());
         assert!(parse_request(&request_bytes(b"C:/root")).is_none());
         assert!(parse_request(&request_bytes(b"C:\\root\\\\child")).is_none());
-        assert!(parse_request(&request_bytes(&vec![b'a'; MAXIMUM_PATH_BYTES + 1])).is_none());
+        for path in [
+            "C:\\root\\",
+            "C:\\root\\.",
+            "C:\\root\\..",
+            "C:\\root\\child.",
+            "C:\\root\\child ",
+            "C:\\root:stream",
+            "C:\\root<child",
+            "C:\\root\u{007f}child",
+            "C:\\CON",
+            "C:\\con.txt",
+            "C:\\CLOCK$",
+            "C:\\CONIN$.txt",
+            "C:\\CONOUT$",
+            "C:\\COM9.log",
+            "C:\\LPT¹.txt",
+        ] {
+            assert!(parse_request(&request_bytes(path.as_bytes())).is_none());
+        }
+        let maximum_path = format!("C:\\{}", "a".repeat(MAXIMUM_PATH_BYTES - 3));
+        assert_eq!(maximum_path.len(), MAXIMUM_PATH_BYTES);
+        assert!(parse_request(&request_bytes(maximum_path.as_bytes())).is_some());
+        let oversized_path = format!("{maximum_path}a");
+        assert!(parse_request(&request_bytes(oversized_path.as_bytes())).is_none());
+        assert!(parse_request(&request_bytes("C:\\通常".as_bytes())).is_some());
     }
 
     #[test]

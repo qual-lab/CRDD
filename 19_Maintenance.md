@@ -303,7 +303,7 @@ CRDD公式リポジトリが所有する内部Scriptは、既存の責務別フ�
 
 OS APIへ安全に接続するためTypeScriptだけでは閉じない最小のプラットフォームアクセス部は、CRDD本体、CLI、Policyおよび契約をTypeScriptに保持したまま、`tools/platform-access/**`のprivate Rust実装に限定できる。この限定は内部Script一般をRustへ移す根拠、採用RepositoryへRustを要求する規則、独立製品または公開CLIの新設にはしない。BAT、CMD、PowerShellまたはShell ScriptをOS権限判定のRuntime実装やbuild orchestrationとして新設せず、Cargo commandを責務別の開発入口から直接実行する。
 
-Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とSecurity decision obligation、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。生成binaryの固定配置、Hash、target、protocol revisionおよび署名済みRelease Identityへの結合が成立する前は、TypeScript Adapterをprocess起動、Path解決またはFilesystem観測より前に`blocked`へ閉じる。
+Rust製プラットフォームアクセス部（Rust platform-access crate）は、`rust-toolchain.toml`、`Cargo.toml`および`Cargo.lock`でtoolchain、target、依存および版を固定し、`rustfmt --check`、ClippyのWarning拒否、`cargo test`、locked buildおよび固定`llvm-tools-preview`によるcoverageを別々の確認軸にする。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測とセキュリティ判断上の検証義務（Security Decision Obligation）、未到達経路、残存risk、Ownerおよび再確認契機を分けて記録する。通常Runtimeから`cargo run`、PATH上のCargo／Rust binaryまたは開発用`target/`成果物を起動しない。生成binaryの固定配置、Hash、target、protocol revisionおよび署名済みRelease Identityへの結合が成立する前は、TypeScript Adapterをprocess起動、Path解決またはFilesystem観測より前に`blocked`へ閉じる。
 
 ネイティブ実行で型除去できない`enum`、Runtime namespace、parameter property、decorator、path alias、またはcompiler変換を前提とする構文を内部Scriptへ導入しない。型検査は`noEmit`のTypeScript compiler確認としてRuntime実行から分離し、型検査の成功だけを実行成功、準拠またはリリース可否へ昇格しない。
 

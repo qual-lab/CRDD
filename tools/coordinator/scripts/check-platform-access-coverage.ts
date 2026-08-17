@@ -1,13 +1,18 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  assertCoverageRunRoot,
+  createCoverageRunRoot,
+} from "./platform-access-coverage-path.ts";
 
 const TOOLCHAIN = "1.94.1-x86_64-pc-windows-msvc";
 const TARGET = "x86_64-pc-windows-msvc";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const crateRoot = path.resolve(coordinatorRoot, "..", "platform-access");
 const manifestPath = path.join(crateRoot, "Cargo.toml");
-const coverageRoot = path.join(crateRoot, "target", "coverage");
+const coverageRunRoot = createCoverageRunRoot(crateRoot);
+const { coverageRoot } = coverageRunRoot;
 const buildRoot = path.join(coverageRoot, "build");
 const rawProfilePattern = path.join(coverageRoot, "%p-%m.profraw");
 const mergedProfile = path.join(coverageRoot, "coverage.profdata");
@@ -67,8 +72,7 @@ function llvmTool(name: string): string {
   return executable;
 }
 
-fs.rmSync(coverageRoot, { force: true, recursive: true });
-fs.mkdirSync(coverageRoot, { recursive: true });
+assertCoverageRunRoot(coverageRunRoot);
 executeCommand(
   "cargo",
   [
@@ -90,6 +94,7 @@ executeCommand(
     stdio: ["ignore", "inherit", "inherit"],
   },
 );
+assertCoverageRunRoot(coverageRunRoot);
 
 const rawProfiles = collectFiles(coverageRoot, ".profraw");
 if (rawProfiles.length === 0) throw new Error("coverage profile missing");
@@ -220,4 +225,5 @@ const summary = Object.freeze({
       : "available",
 });
 fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+assertCoverageRunRoot(coverageRunRoot);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

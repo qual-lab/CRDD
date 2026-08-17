@@ -56,27 +56,27 @@ Node.js `24.19.0`、Rust／Cargo `1.94.1`およびtarget `x86_64-pc-windows-msvc
 
 - Rustは`rustfmt --check`、Clippy Warning拒否、locked target buildに合格した。unit test 6件とbinary integration test 1件はすべて合格し、正常候補、Identity不一致、通常file、欠落Root、blocked／invalid response、固定stdin／stdoutおよびexit 0／2を確認した。
 - TypeScript response試験は全9 access bitを一対一で検査し、第7 bitを`deleteOnRootObject`としてRoot object上の`DELETE`だけへ限定した。
-- Coordinator試験336件、Checker試験151件、TypeScript owned source 120件、Rust source 4件はすべて合格または完全一致した。両private packageのtypecheck、Biome Lint／Formatterも合格した。
-- 公式入口とChecker package入口の全体Checkerは同じ471 files／293 Markdown／1875 local links／562 anchors／26 Related／26 versioned documents／8 Stable IDs／68 remediation rows、Error 0／Warning 0を返した。
+- Coordinator試験340件、Checker試験151件、TypeScript owned source 122件、Rust source 4件はすべて合格または完全一致した。両private packageのtypecheck、Biome Lint／Formatterも合格した。
+- 公式入口とChecker package入口の全体Checkerは同じ473 files／293 Markdown／1875 local links／562 anchors／26 Related／26 versioned documents／8 Stable IDs／68 remediation rows、Error 0／Warning 0を返した。
 - `git diff --check`に異常はなかった。固定Commit／Treeとclean worktreeは、変更をcommitした後の独立確認入力で確定する。
 
 ### Rust coverageと検証義務
 
-固定`llvm-tools-preview`をRust `1.94.1`へ含め、Repository内TypeScript runnerから`-C instrument-coverage`、固定targetおよびtracked `Cargo.lock`でRust source 4件を測定した。第三者coverage crateとnightly toolchainは使用しない。
+固定`llvm-tools-preview`をRust `1.94.1`へ含め、Repository内TypeScript runnerから`-C instrument-coverage`、固定targetおよびtracked `Cargo.lock`でRust source 4件を測定した。第三者coverage crateとnightly toolchainは使用しない。runnerは実Directory、直接包含およびDirectory Identityを前後確認したcrate直下の`target`へrun固有Directoryを作り、既存coverage treeを削除または再利用しない。run固有DirectoryはGit対象外の生成物として保持し、自動cleanupまたは安全な再帰削除が実装済みとは扱わない。
 
 | source | regions | functions | lines | branches |
 |---|---:|---:|---:|---:|
 | `src/main.rs` | 16 / 26 (61.54%) | 1 / 2 (50.00%) | 10 / 25 (40.00%) | 0 / 0 |
-| `src/protocol.rs` | 260 / 284 (91.55%) | 14 / 14 (100.00%) | 139 / 146 (95.21%) | 0 / 0 |
+| `src/protocol.rs` | 360 / 387 (93.02%) | 19 / 19 (100.00%) | 197 / 205 (96.10%) | 0 / 0 |
 | `src/windows.rs` | 278 / 332 (83.73%) | 12 / 12 (100.00%) | 239 / 268 (89.18%) | 0 / 0 |
 | `tests/cli.rs` | 162 / 162 (100.00%) | 4 / 4 (100.00%) | 92 / 92 (100.00%) | 0 / 0 |
-| 合計 | 716 / 804 (89.05%) | 31 / 32 (96.88%) | 480 / 531 (90.40%) | 0 / 0 |
+| 合計 | 816 / 907 (89.97%) | 36 / 37 (97.30%) | 538 / 590 (91.19%) | 0 / 0 |
 
-固定stable rustcは対象全fileでbranch mappingを生成せず、LLVM結果は分母0、到達0である。この`0 / 0`を100%または達成率へ換算せず、branch coverageは`Not Available`とする。region／function／line実測と次のSecurity decision obligationは別の代替確認であり、compiler branch coverageを代替達成したとは表明しない。
+固定stable rustcは対象全fileでbranch mappingを生成せず、LLVM結果は分母0、到達0である。この`0 / 0`を100%または達成率へ換算せず、branch coverageは`Not Available`とする。region／function／line実測と次のセキュリティ判断上の検証義務は別の代替確認であり、compiler branch coverageを代替達成したとは表明しない。
 
 | 検証義務 | 状態 | 根拠または未到達経路 | 残存risk／再確認 |
 |---|---|---|---|
-| protocol framing、上限、canonical Path、blocked response | `Verified` | unit testの正負／境界例 | revisionまたは上限変更時に再確認 |
+| protocol framing、UTF-8 4096 byte上限、保守的なWindows絶対Path字句subset、blocked response | `Verified` | unit testの正負／境界例 | case／Unicode alias、実在性、reparseおよびFilesystem classは未確認。revisionまたは上限変更時に再確認 |
 | Root正常候補、欠落、通常file、Identity不一致 | `Verified` | Windows unit test | 他Filesystem／他Windows版はRelease binding時に再確認 |
 | binary stdin／stdout、candidate／blocked／invalid、exit 0／2 | `Verified` | binary integration test | stdout write失敗とexit 3は未到達 |
 | 9 access bitのRust responseからTypeScript限定名への写像 | `Verified` | Rust encodeとTypeScript全bit contract test | wire revision変更時に再確認 |
@@ -90,7 +90,26 @@ Node.js `24.19.0`、Rust／Cargo `1.94.1`およびtarget `x86_64-pc-windows-msvc
 
 固定Commit `cc52011d37394ac0cbd2883fc6a1172935a5fc07`、Tree `6052a644c251930fe1700211a48a514005bb0ff5`、Parent `3e9b20b59c7b75f245f4ae3da1555709b71c4fdd`では、Agent／Architecture／Security ReviewがMajor 2件、Document AuditがMajor 2件、Gap / Impact AuditがMajor 3件＋Minor 1件、Conformance Auditが`Fail`を返した。集合全体は`Invalidated`であり、現在の合否または是正後の解消根拠へ流用しない。
 
-指摘は、Root object上の`DELETE`と親経由削除の混同、`target`除外のsymbolic boundary、Rust命名正本の矛盾、CHG状態、README伝播、検証義務／coverageおよび専門探索記録に関するものだった。統合処置は`Applied`／`Self-checked`であり、新固定版の全機械確認と同じAgent／Architecture／Security Review、Document Audit、Gap / Impact AuditおよびConformance Auditが完了するまでは`Resolved`ではない。
+旧Findingと処置の対応は次のとおりである。件数要約を個別の解消根拠へ流用しない。
+
+| Finding ID | 元監査 | 元重大度 | 根本原因／期待状態 | 是正対象 | 現在状態 |
+|---|---|---|---|---|---|
+| `ASR-01` | Agent／Architecture／Security | Major | Root object上の`DELETE`と親Directoryの`FILE_DELETE_CHILD`を一つの名前へ縮約した。観測primitiveと未観測の親経由削除を分離する | Rust／TypeScript field、試験、README、脅威モデル、本CHG | `Applied / Self-checked — pending independent re-review` |
+| `ASR-02` | Agent／Architecture／Security | Major | 生成`target`を実Directory確認より前に検査対象外とした。file／link／junctionを除外前に拒否する | 命名classifier、Path fixture、コーディング規約 | `Applied / Self-checked — pending independent re-review` |
+| `DOC-RUST-001` | Document | Major | Rustの`snake_case`必須と一般のunderscore禁止が競合した。対象別の区切り規則へ一意化する | コーディング規約 | `Applied / Self-checked — pending independent re-review` |
+| `DOC-RUST-002` | Document | Major | 完了履歴を持つCHG16〜18と検証前CHG19を一律`Draft`にした。現在事実に合う状態へ分ける | CHG16〜19の状態header | `Applied / Self-checked — pending independent re-review` |
+| `GAP-19-01` | Gap / Impact | Major | `deleteRoot`が対象objectと親経由削除を混同した。完全な削除可能性、writer排他またはProtectionを主張しない | `ASR-01`と同じ契約／利用側母集団 | `Applied / Self-checked — pending independent re-review` |
+| `GAP-19-02` | Gap / Impact | Minor | README長文段落の水平更新が漏れた。Rust component候補、Release結合Adapter、完全Protectionを三段階へ統一する | Coordinator READMEの現在説明 | `Applied / Self-checked — pending independent re-review` |
+| `GAP-19-03` | Gap / Impact | Major | 試験件数を記録したが検証義務、契約母集団、coverageおよび未到達条件を分離しなかった | coverage runner、正負／境界試験、検証義務表、残存risk／Owner／再確認契機 | `Applied / Self-checked — pending independent re-review` |
+| `GAP-19-04` | Gap / Impact | Major | 人間判断の結論だけを記録し、代替比較、弱点、残存不確実性および再評価条件を欠いた | 専門探索と収束節 | `Applied / Self-checked — pending independent re-review` |
+
+### `35b5050`独立監査集合
+
+固定Commit `35b5050e83befd2f4fd1e38719845d27a867b70a`、Tree `3e1701f1249cce1ce424084b66da3dbc4f153a84`、Parent `cc52011d37394ac0cbd2883fc6a1172935a5fc07`では、Agent／Architecture／Security ReviewがMajor 2件（`ASR-03`、`ASR-04`）、Document AuditがMajor 1件（`DOC-RUST-R01`）＋Minor 1件（`DOC-RUST-R02`）、Gap / Impact AuditがMajor 2件（`GCI-R2-001`、`GCI-R2-002`）、Conformance Auditが`Fail`を返した。集合全体は`Invalidated`であり、現在の合否へ流用しない。
+
+`ASR-03`／`GCI-R2-002`はRust Path検証より広い`canonical Path`表明、`ASR-04`／`GCI-R2-001`は未確認`target`を通るcoverage再帰削除、`DOC-RUST-R01`は旧8 Findingの個別trace欠落、`DOC-RUST-R02`は英語単独の検証義務用語を原因とした。前二組は初回見落としまたは是正起因、Document 2件は今回の是正で新たに発生したものとして個別履歴を保持する。
+
+現在の処置では、Rust PathをTypeScript正本より広くない4096 byteの保守的字句subsetへ閉じ、coverage runnerを検証済み`target`直下のrun固有Directoryへ変更して既存treeの再帰削除を廃止した。旧8 Findingの個別表とローカル表示用語も追加した。これらは`Applied`／`Self-checked`であり、新固定版の全機械確認と同じ監査集合が完了するまでは`Resolved`ではない。
 
 本変更はRust Coreのcomponent候補までである。Release binary Identity binding、production process管理、bounded stdin／stdout／timeoutの実接続、Windows全tree／writer排他確認、Protection Hash、DACL mutation、Platform Provisioner Effect、Runtime reader、POSIX、initial Trust、activationおよびRelease artifact組込みは未実装・未評価である。これらが成立する前は本番利用を有効化しない。
 
