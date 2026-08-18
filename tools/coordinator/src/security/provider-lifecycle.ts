@@ -5,7 +5,7 @@ import {
 
 export const PROVIDER_LIFECYCLE_CONTRACT =
   "crdd-coordinator/provider-lifecycle";
-export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 1;
+export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 2;
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const MODES = Object.freeze(["login", "run"] as const);
@@ -257,7 +257,8 @@ export function describeProviderLifecycleContract() {
   return Object.freeze({
     contract: PROVIDER_LIFECYCLE_CONTRACT,
     contractRevision: PROVIDER_LIFECYCLE_CONTRACT_REVISION,
-    implementationState: "synthetic_fake_observation_candidate_only",
+    implementationState:
+      "synthetic_candidate_and_repository_owned_docker_fake_observation",
     providers: PROVIDERS,
     modes: MODES,
     authPolicies: AUTH_POLICIES,
@@ -302,7 +303,24 @@ export function describeProviderLifecycleContract() {
     rawAuthOutputRecorded: false,
     oauthTokenReadByRuntime: false,
     syntheticFakeObservationState: "candidate_non_authoritative",
-    fakeProviderExecution: "not_implemented",
+    dynamicFakeProviderObservation: Object.freeze({
+      implementationState: "implemented_for_doctor_isolation_success_probe",
+      provenance: "repository_owned_docker_fake_provider",
+      normalExecution: "implemented_candidate",
+      exactResultNormalization: "implemented_candidate",
+      containerAndProcessTreeAbsence:
+        "implemented_candidate_after_owned_cleanup",
+      timeoutAndOutputLimitClassification: "implemented",
+      inFlightCancellation: "not_implemented",
+      actualFailureScenarioVerification: "not_verified",
+      diagnosticDockerContainerEffectIssued: true,
+      diagnosticFilesystemEffectIssued: true,
+      providerNetworkEffectIssued: false,
+      runtimeAuthorityIssued: false,
+      operationCapabilityIssued: false,
+      realProviderReadiness: false,
+    }),
+    fakeProviderExecution: "implemented_for_doctor_isolation_success_probe",
     fakeProviderConfersRealProviderReadiness: false,
     operationCapabilityIssued: false,
   });

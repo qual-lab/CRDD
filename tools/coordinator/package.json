@@ -6,6 +6,7 @@
   "scripts": {
     "check": "npm run typecheck && npm run lint && npm run format:check",
     "doctor": "node ./bin/coordinator.ts doctor",
+    "dynamic-fake-provider:coverage": "node ./scripts/check-dynamic-fake-provider-coverage.ts",
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
     "lint": "biome lint ../.. --error-on-warnings",

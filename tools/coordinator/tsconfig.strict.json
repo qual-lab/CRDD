@@ -20,6 +20,7 @@
   "files": [
     "bin/coordinator.ts",
     "scripts/generate-release-key.ts",
+    "scripts/check-dynamic-fake-provider-coverage.ts",
     "scripts/check-platform-access-coverage.ts",
     "scripts/sign-release-manifest.ts",
     "src/core/cli-options.ts",

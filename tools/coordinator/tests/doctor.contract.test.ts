@@ -7,6 +7,7 @@ import test from "node:test";
 
 import * as executionEnvironment from "../src/security/execution-environment.ts";
 import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
+import * as dockerIsolation from "../src/security/docker-isolation.ts";
 
 import {
   CHECK_STATUS,
@@ -29,12 +30,14 @@ import {
   verifyOwnedMountCapability,
 } from "../src/security/execution-environment.ts";
 import {
+  DOCKER_ISOLATION_PROFILE,
   classifyRecoveryChildren,
   dockerCreateArgumentsForFixture,
   evaluateDockerCliCandidateForFixture,
   normalizeContainerAbsence,
   normalizeContainerCreation,
   normalizeDockerIsolationResult,
+  normalizeDynamicFakeProviderLifecycleForFixture,
   normalizeDockerProbeFailure,
   normalizeHostCleanupResult,
   recoverDockerIsolationProbe,
@@ -343,10 +346,10 @@ test("owned childをjunctionへ置換した場合は対象を削除しない", (
   }
 });
 
-test("production doctorはpassiveかつ未実装境界をReadyにしない", () => {
+test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () => {
   const report = runDoctor();
   const serialized = JSON.stringify(report);
-  assert.equal(report.reportVersion, 3);
+  assert.equal(report.reportVersion, 4);
   assert.deepEqual(
     Object.keys(report).sort(),
     [
@@ -356,6 +359,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
       "diagnosticMode",
       "egress",
       "filesystem",
+      "fakeProviderLifecycle",
       "gitLocalExclude",
       "node",
       "platform",
@@ -396,7 +400,14 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.providerLifecycle.fakeProviderExecution,
-    "not_implemented",
+    "implemented_for_doctor_isolation_success_probe",
+  );
+  assert.equal(report.fakeProviderLifecycle.status, "not_evaluated");
+  assert.equal(report.fakeProviderLifecycle.fakeProviderExecuted, false);
+  assert.equal(report.filesystem.profile, null);
+  assert.equal(
+    report.fakeProviderLifecycle.diagnosticDockerContainerEffectIssued,
+    false,
   );
   assert.equal(
     report.providerLifecycle.providerHomeMountGrant.grantIssued,
@@ -2028,6 +2039,11 @@ test("doctorはnull prototypeおよびfrozenのRoot要求をowned snapshotとし
 });
 
 test("Docker隔離Probeは固定Digestと最小権限を使う", () => {
+  assert.equal(
+    DOCKER_ISOLATION_PROFILE.dynamicFakeProviderProcessImplemented,
+    true,
+  );
+  assert.equal(DOCKER_ISOLATION_PROFILE.realProviderProcessesExecuted, false);
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "coordinator-docker-args-"),
   );
@@ -2113,6 +2129,68 @@ test("Docker隔離Probe結果は全境界成立時だけconfirmedになる", () 
     }).status,
     "blocked",
   );
+});
+
+test("動的Fake lifecycleは実行結果をFake限定の観測へ正規化する", () => {
+  const complete = {
+    marker: "crdd-coordinator-isolation-v1",
+    allowed_writes: { workspace: true, "provider-home": true, tmp: true },
+    runtime_paths_absent: true,
+    credential_names_absent: true,
+    network_blocked: true,
+    home_isolated: true,
+    tmp_isolated: true,
+  };
+  const observed = normalizeDynamicFakeProviderLifecycleForFixture(
+    {
+      status: 0,
+      signal: null,
+      stdout: JSON.stringify(complete),
+      stderr: "",
+    },
+    12,
+  );
+  assert.equal(observed.status, "candidate");
+  assert.equal(observed.provenance, "untrusted_execution_fixture");
+  assert.equal(observed.fakeProviderStartAttempted, true);
+  assert.equal(observed.fakeProviderExecuted, false);
+  assert.equal(observed.resultNormalizationVerified, false);
+  assert.equal(observed.containerAbsenceVerified, false);
+  assert.equal(observed.processTreeAbsenceVerified, false);
+  assert.equal(observed.providerNetworkEffectIssued, false);
+  assert.equal(observed.runtimeAuthorityIssued, false);
+  assert.equal(observed.operationCapabilityIssued, false);
+  assert.equal(observed.realProviderReadiness, false);
+  assert.equal(observed.stdoutBytes > 0, true);
+  assert.equal(observed.stderrBytes, 0);
+});
+
+test("動的Fake lifecycleはtimeoutと出力上限をcancelから分離する", () => {
+  for (const [code, reason] of [
+    ["ETIMEDOUT", "dynamic_fake_provider_deadline_exceeded"],
+    ["ENOBUFS", "dynamic_fake_provider_output_limit_exceeded"],
+  ] as const) {
+    const error = new Error(code);
+    Reflect.set(error, "code", code);
+    const observed = normalizeDynamicFakeProviderLifecycleForFixture(
+      { status: null, signal: "SIGTERM", stdout: "", stderr: "", error },
+      30_000,
+    );
+    assert.equal(observed.status, "blocked");
+    assert.equal(observed.reason, reason);
+    assert.equal(observed.cancellationRequested, false);
+    assert.equal(observed.cancellationObservation, "not_implemented");
+    assert.equal(observed.timedOut, code === "ETIMEDOUT");
+    assert.equal(observed.runtimeAuthorityIssued, false);
+  }
+});
+
+test("動的Fake lifecycleのprovenance発行APIをcallerへ公開しない", () => {
+  assert.equal(
+    "createDynamicFakeProviderLifecycleCapability" in dockerIsolation,
+    false,
+  );
+  assert.equal("confirmDynamicFakeProviderAbsence" in dockerIsolation, false);
 });
 
 test("Docker mount capabilityはfactory所有objectだけを受理しchild置換を拒否する", () => {

@@ -513,6 +513,31 @@ export function runDoctor(options: unknown = {}) {
           hostCleanupCompleted: false,
           recoveryId: null,
           manualRecoveryRequired: false,
+          fakeProviderLifecycle: Object.freeze({
+            status: "not_evaluated",
+            reason: "dynamic_fake_provider_not_requested",
+            provenance: "repository_owned_docker_fake_provider",
+            fakeProviderStartAttempted: false,
+            fakeProviderExecuted: false,
+            resultNormalizationVerified: false,
+            containerAbsenceVerified: false,
+            processTreeAbsenceVerified: false,
+            hostCleanupVerified: false,
+            elapsedMs: null,
+            stdoutBytes: 0,
+            stderrBytes: 0,
+            exitCode: null,
+            signal: null,
+            timedOut: false,
+            cancellationRequested: false,
+            cancellationObservation: "not_implemented",
+            diagnosticDockerContainerEffectIssued: false,
+            diagnosticFilesystemEffectIssued: false,
+            providerNetworkEffectIssued: false,
+            runtimeAuthorityIssued: false,
+            operationCapabilityIssued: false,
+            realProviderReadiness: false,
+          }),
         });
     shouldRetainOperationDirectories = isIsolationActive
       ? isolation.hostCleanupCompleted !== true
@@ -583,7 +608,7 @@ export function runDoctor(options: unknown = {}) {
     const readiness = evaluateReadiness(checks);
 
     const report = {
-      reportVersion: 3,
+      reportVersion: 4,
       diagnosticMode: isIsolationActive
         ? "docker_fake_provider_probe"
         : "passive_preflight",
@@ -618,6 +643,7 @@ export function runDoctor(options: unknown = {}) {
       repositoryGitLayout: describeRepositoryGitLayoutContract(),
       gitLocalExclude: describeGitLocalExcludeContract(),
       providerLifecycle: describeProviderLifecycleContract(),
+      fakeProviderLifecycle: isolation.fakeProviderLifecycle,
       egress: {
         providerAllowlist: "not_implemented",
         fakeProbeNetwork:

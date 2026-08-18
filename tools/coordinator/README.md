@@ -71,7 +71,7 @@ node tools/coordinator/bin/coordinator.ts provision [--json]
 
 `doctor`は受動事前診断（passive preflight）である。CLIをインストール、認証または起動せず、PATH上の候補、ローカルGit／Repository、Operation専用領域および未実装の隔離条件を列挙する。Providerの絶対Path、生出力またはVersion出力は保持しない。認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
 
-`doctor --json`はprivate `reportVersion: 3`だけを生成し、revision 2のaliasまたはfallbackを持たない。Repository内にproduction decoder／consumerはなく、contract testはproducer schemaのexact assertionであってRuntime consumerではない。入力CLI grammar、公開Checkerおよび採用Repositoryの公開Schemaは変更していない。破壊的変更の範囲と移行母集団は[CHG-000022](../../90_Release/Changes/CHG-000022_Provider_Lifecycle_Foundation.md)を正本とする。
+`doctor --json`はprivate `reportVersion: 4`だけを生成し、revision 3のaliasまたはfallbackを持たない。Repository内にproduction decoder／consumerはなく、contract testはproducer schemaのexact assertionであってRuntime consumerではない。入力CLI grammar、公開Checkerおよび採用Repositoryの公開Schemaは変更していない。破壊的変更の範囲と移行母集団は[CHG-000023](../../90_Release/Changes/CHG-000023_Dynamic_Fake_Provider_Lifecycle.md)を正本とする。
 
 `coordinator provision`はPlatform Provisioningの明示command grammar候補であり、実Effectは未実装である。version 1の本体、CLI、Policyおよび契約はCRDD配布物に内包したprivate TypeScript sourceとし、OS固有の読み取り専用観測だけをRust製プラットフォームアクセス部（Rust platform-access crate）へ限定する。いずれも単独npm／crate公開、個別installまたは公開CLIにしない。Rust Coreと固定成果物を署名manifestへ結合する観測・署名候補は実装済みだが、保護済み有効世代、検証済み実行イメージおよびプロセス起動は未実装である。source checkoutや成果物不一致ではprocess、時刻、ProgramData、PathまたはFilesystemへ触れる前に固定理由で`blocked`となる。Root観測への写像、DACL変更、copy、state更新、復旧およびEffectは未実装である。`cargo run`、PATH、BAT、PowerShellまたはShell Scriptへfallbackせず、`activate`、`doctor`または通常runからこの入口を暗黙発火しない。
 
@@ -103,7 +103,7 @@ Root Identity／Protection観測成果物のexact pure contract、domainおよ�
 
 Rust Coreの`deleteOnRootObject`はRoot自身のsecurity descriptor上の`DELETE`だけを表す。親Directoryの`FILE_DELETE_CHILD`経由でRootを削除できるかは未観測であり、`deleteOnRootObject: false`からRoot削除不能、writer排他またはProtection成立を推定しない。
 
-`doctor --isolation`は、Runtime 1.0で唯一対応する実行基盤であるDocker DesktopのLinux container内にFake Providerを起動する。Docker CLIは固定install root、Docker Incの有効なAuthenticode署名を確認して選択した固定Hashおよび実体Identityへ照合し、PATH候補やDocker Contextから差し替えない。固定DigestのProbe image、read-only root filesystem、全Capability削除、`no-new-privileges`、PID上限および`--network=none`を使用し、Operation専用の`workspace/`、`provider-home/`、`tmp/`だけをmountする。Codex／Claude Code、認証、外部Provider endpointまたは対象Repositoryの変更は実行しない。
+`doctor --isolation`は、Runtime 1.0で唯一対応する実行基盤であるDocker DesktopのLinux container内にFake Providerを起動する。Docker CLIは固定install root、Docker Incの有効なAuthenticode署名を確認して選択した固定Hashおよび実体Identityへ照合し、PATH候補やDocker Contextから差し替えない。固定DigestのProbe image、read-only root filesystem、全Capability削除、`no-new-privileges`、PID上限および`--network=none`を使用し、Operation専用の`workspace/`、`provider-home/`、`tmp/`だけをmountする。動的Fake Providerライフサイクル観測（Dynamic Fake Provider Lifecycle Observation）は、同じrunのexact結果正規化、所有containerの回収、ID／name／labelの3軸不存在およびHost cleanupをFake限定で投影する。Codex／Claude Code、認証、外部Provider endpointまたは対象Repositoryの変更は実行しない。
 
 Probe containerは`create`で得たcontainer IDと全Security属性を起動前に照合し、同じIDだけを回収する。削除後は、完全なID、完全な名前、完全な所有labelを別々に照会し、3結果がすべて正常かつ空の場合だけcontainer不存在を確定する。いずれかの照会失敗、異常出力または残留ではHost側のmount元を保持し、安全な`recovery-id`だけを返す。
 
@@ -115,7 +115,7 @@ Host回収記録は再帰削除するOperation rootの外に保持する。Docke
 
 明示Docker recoveryでは、root直下が既知6 childの部分集合であり、存在するchildのIdentityが一致することを確認したうえで、まず3軸不存在を照会する。containerが不存在なら、`events/`、`projection/`またはmount childの既知欠落を理由にHost回復を止めない。containerが残る場合だけ、mount 3件と`management/`の存在・Identityを必須にして同じcontainerを回収する。`management/`、回復記録、未知entryまたは置換childを確認できない場合は推測せず停止する。
 
-Fake Provider Gateの合格は、DockerによるFilesystem／Credential Path／Network遮断の成立だけを示す。Provider endpoint限定Egress、公式CLIの導入・認証、自動更新／Telemetry、Session再開、timeout／cancelおよびprocess tree終了が確認されるまでは全体を`blocked`とし、実Operationへ進めない。
+Fake Provider Gateの合格は、DockerによるFilesystem／Credential Path／Network遮断と、成功scenarioのFake限定結果正規化／container・process tree不存在だけを示す。timeoutと出力上限は固定reasonへ正規化するが、意図的失敗scenarioの実Docker確認と同期実行中のcancelは未実装または未検証である。Provider endpoint限定Egress、公式CLIの導入・認証、自動更新／Telemetry、Session再開および実Provider process treeが確認されるまでは全体を`blocked`とし、実Operationへ進めない。
 
 ## Runtime 1.0の実行基盤
 

@@ -165,7 +165,7 @@ test("synthetic Fake claimの正常形も非Authority候補に限定する", () 
 test("synthetic Fake claimの契約、revision、providerおよびmode差を拒否する", () => {
   for (const changed of [
     { contract: "other" },
-    { contractRevision: 2 },
+    { contractRevision: 1 },
     { provider: "codex" },
     { mode: "login" },
   ]) {
@@ -175,6 +175,22 @@ test("synthetic Fake claimの契約、revision、providerおよびmode差を拒�
       "provider_lifecycle_observation_contract_mismatch",
     );
   }
+});
+
+test("動的Fake契約はDocker所有観測だけを実装済みとしcancelを未実装に保つ", () => {
+  const dynamic =
+    describeProviderLifecycleContract().dynamicFakeProviderObservation;
+  assert.equal(dynamic.provenance, "repository_owned_docker_fake_provider");
+  assert.equal(dynamic.normalExecution, "implemented_candidate");
+  assert.equal(dynamic.exactResultNormalization, "implemented_candidate");
+  assert.equal(
+    dynamic.containerAndProcessTreeAbsence,
+    "implemented_candidate_after_owned_cleanup",
+  );
+  assert.equal(dynamic.inFlightCancellation, "not_implemented");
+  assert.equal(dynamic.runtimeAuthorityIssued, false);
+  assert.equal(dynamic.operationCapabilityIssued, false);
+  assert.equal(dynamic.realProviderReadiness, false);
 });
 
 test("synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを安全側へ閉じる", () => {

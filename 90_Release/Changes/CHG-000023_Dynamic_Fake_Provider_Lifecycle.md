@@ -1,0 +1,91 @@
+# 変更トレース: 動的Fake Providerライフサイクル観測（Dynamic Fake Provider Lifecycle Observation）
+
+- 変更ID: `CHG-000023`
+- 状態: `Ready for Verification`
+- 決定権限者: Qual-Lab
+- 判断日: 2026-08-18
+- 対象: CRDD公式Repositoryの内部Coordinator、Docker Fake Provider Probe、Providerライフサイクル観測およびprivate doctor JSON
+- 対象version: v0.18.0 Candidate
+- 変更分類: `breaking`（private doctor JSONを`reportVersion: 3`から4、Provider lifecycle contractをrevision 1から2へ更新する）
+- 移行要否: `migration_required: true`（Repository内producer、exact contract testおよびfixtureを同時更新し、旧revisionのalias／fallbackを設けない。supported production consumer／Provider stateは0で永続変換はない）
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)、[`CHG-000022`](CHG-000022_Provider_Lifecycle_Foundation.md)、[`tools/coordinator/README.md`](../../tools/coordinator/README.md)、[`tools/coordinator/threat-model.md`](../../tools/coordinator/threat-model.md)
+
+## 結論と着手前整合
+
+既存のDocker隔離Probeが所有する固定Docker CLI、固定Digest image、`--network=none`、固定mount、container Identity、回復記録およびID／name／labelの3軸不存在確認を、Repository所有の動的Fake Provider観測へ結合する。通常の`doctor --isolation`は成功scenarioを1回だけ実行し、意図的timeout、取消、出力超過または残存scenarioを毎回は発火しない。これにより通常診断の遅延と回復riskを増やさず、失敗scenarioは専用verificationで同じ固定経路を確認する。
+
+現在の同期Docker経路は正常結果、timeout、出力上限、結果形式、container／process tree不存在およびHost cleanupを観測できる。Nodeの`spawnSync`実行中に到着する取消は処理できないため、timeoutを取消と呼ばず、`inFlightCancellation:not_implemented`として分離する。今回の実装候補は成功scenarioの動的観測とtimeout／出力上限の正規化までであり、専用失敗scenarioの実Docker検証と実行中取消は`Not Verified`である。
+
+## 変更経路と監査
+
+本変更はCredential、process、container、Filesystem Effectおよび回復境界を横断する非自明なprivate contract変更である。着手前にSecurity／Architecture、Document、Gap／ImpactおよびConformanceの観点を照合した。完成固定版ではAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを旧合否不流用で実行する。外部Communication、DiscoveryおよびUIは公開成果物、市場行為またはUIを変更しないため非該当である。
+
+## 契約と責務
+
+### 合成候補と動的観測
+
+- CHG-000022の合成Fake観測候補はcaller supplied claimを評価する非Authorityの`candidate`として維持し、動的観測の来歴へ流用しない。
+- 動的観測は`docker-isolation.ts`が実行中に所有するCLI、mount、containerおよびabsence capabilityからだけ作る。callerがplain object、状態列、時間または不存在を渡して同じ結果を成立させる入口を設けない。
+- 動的観測が`verified`となるのは、固定Probe結果のexact正規化と、所有containerの強制回収後の3軸不存在およびHost cleanupを同じrunで確認した場合だけである。
+- `fakeProviderExecuted`、`resultNormalizationVerified`、`containerAbsenceVerified`および`processTreeAbsenceVerified`はFake限定の観測事実である。Runtime Authority、Operation Capability、実Provider readiness、OAuth、quota、Egressまたは専用Provider Homeマウント許可を成立させない。
+
+### Effectと機密情報
+
+`doctor --isolation`はDocker container create／start／remove、回復recordおよびOperation一時Directoryを実際に処置するため、`diagnosticDockerContainerEffectIssued`と`diagnosticFilesystemEffectIssued`を実事実として投影する。これは実Provider Filesystem Effect、Provider Network Effect、課金EffectまたはOperation Effectではない。`--network=none`を維持し、raw stdout／stderr、Host Path、container ID、recovery token、Credential値またはOAuth stateをdoctor／Evidenceへ出さない。
+
+### private doctor revision 4
+
+`doctor --json`はprivate `reportVersion: 4`だけを生成し、revision 3をalias受理しない。新しい`fakeProviderLifecycle`はpassive doctorで`not_evaluated`、明示`--isolation`で同じProbeの観測結果となる。`provider.codex.*`と`provider.claude.*`は実Provider用なので引き続き`not_implemented`である。入力CLI grammar、公開Checkerおよび採用Repositoryの公開Schemaは変更しない。
+
+| private doctor成果物 | 移行 |
+|---|---|
+| `tools/coordinator/src/core/doctor.ts` | revision 4だけを生成 |
+| `tools/coordinator/tests/doctor.contract.test.ts` | revision 4のtop-level shape、passive非発火およびFake限定境界をexact確認 |
+| その他Repository内production decoder／consumer | 全数探索で0。alias／fallbackを新設しない |
+| 公開CLI grammar／Checker／採用Repository Schema | 対象外、変更なし |
+
+## 代表例
+
+| 種類 | 条件 | 結果 |
+|---|---|---|
+| 発火例 | 明示`doctor --isolation`、固定CLI／image／mount、exact結果、3軸不存在およびHost cleanupが成立 | Fake限定の動的観測`verified`。全体Gateは`blocked` |
+| 非発火例 | 通常`doctor`、合成候補評価、source checkoutまたは実Codex／Claude要求 | Fake／実Provider、Network、OAuthまたは課金を発火しない |
+| 境界例 | timeout、出力上限、非0終了、signal、malformed結果、cleanupまたは不存在不明 | 個別reasonで`blocked`し、必要な回復情報を保持 |
+| 情報不足例 | Docker CLI／engine／image／mount Identity、時計、container ID、absenceまたはcleanupが不明 | `blocked`または`Not Run`。過去Evidenceを流用しない |
+
+## 契約母集団、利用側および変更禁止範囲
+
+契約母集団はProvider lifecycle revision 2、Docker実行／正規化／cleanup／absence capability、Operation mount capability、Host recovery record、doctor producerおよび本変更トレースである。利用側母集団は`doctor --isolation`、doctor exact test、Docker isolation／recovery／Provider lifecycle tests、package scripts、TypeScript source closure、READMEおよび脅威モデルである。
+
+Provider隔離Profile／Authority Registry revision 2、Trust Loader、File Bundle、Prelaunch、Egress、Rust wire、Windows有効ポインター、公開Checkerおよび採用Repository Schemaは変更しない。実Codex／Claude、OAuth、永続専用Home、マウント許可binder、Egress Proxy、quota、Telemetry、Provider imageおよびOperation接続は引き続き未実装である。12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidateおよびv0.17 Released Baselineを維持する。
+
+## 検証義務と現在状態
+
+- unit／contract: exact result、malformed、nonzero、signal、timeout、出力上限、passive非発火、Fake限定Authority／Effect境界
+- Docker integration: clean fixed Commitで成功、timeout、取消、出力超過、child残存scenarioを実測し、pre／postのcontainer、Operation rootおよびrecovery marker残留0を確認
+- coverage: 変更したProvider lifecycle／Docker decision surface／doctor projectionと直接依存を固定母集団化し、source別line／function／branch、全未到達branch Identity、reason、risk、代替確認、Owner、human decisionおよび再確認契機を保持
+- machine: TypeScript、Biome、Coordinator全test、Checker、source closure、full checkerおよびclean tree
+
+固定前の自己確認はNode.js `v24.19.0`で実施した。Coordinatorは368／368、Checkerは151／151、両private packageの型検査／Biome／format、Repository full checkerはすべて合格した。full checkerの母集団は497 files、313 Markdown、1909 local links、566 anchors、26 Related、26 versioned documents、8 Stable IDs、68 remediation rowsで、Error 0／Warning 0である。
+
+動的Fake Provider coverageは次の固定母集団と同じrunから得た。sourceは変更した実装、直接依存、共有LCOV parserおよびcoverage runner自身の8件、testは動的Fake契約、共有parser契約およびrunner契約の5件である。
+
+| Source | Lines | Functions | Branches |
+|---|---:|---:|---:|
+| `docker-isolation.ts` | 811／1656 | 33／60 | 125／171 |
+| `provider-lifecycle.ts` | 326／326 | 9／9 | 78／78 |
+| `execution-environment.ts` | 813／883 | 40／41 | 125／170 |
+| `host-recovery-record.ts` | 66／74 | 2／3 | 8／15 |
+| `plain-data-snapshot.ts` | 141／141 | 4／4 | 43／43 |
+| `doctor.ts` | 665／710 | 24／25 | 115／173 |
+| `check-platform-access-ts-coverage.ts` | 536／601 | 28／30 | 105／131 |
+| `check-dynamic-fake-provider-coverage.ts` | 126／200 | 2／5 | 3／4 |
+| 合計 | 3485／4592 | 142／177 | 602／785 |
+
+未到達branch 183件はrunnerがsource／line／block／branch Identityごとに`Not Verified`、reason、risk、代替確認、Owner=`Qual-Lab`、`humanDecision:not_required`および再確認契機へ一対一で出力する。連続2回のpayload SHA-256は`8697A2574DC30588A3EAB383718FA4131E9A4E1A213CF680EE8E10A05FCBFD78`、compact JSON UTF-8＋末尾LF exact 1件のstdoutは125694 byte、SHA-256は`E1506CB1F6B59C7C0F20842C6060793DF8DF040E62A1505D2144AE5481F12E4F`である。commandはRepository rootからNode.js `v24.19.0`で`node tools/coordinator/scripts/check-dynamic-fake-provider-coverage.ts`を実行する。未到達を100%へ換算せず、現在状態は`Partially Verified`とする。
+
+同じ環境の`doctor --isolation --json`は固定Docker Desktop Linux Engineを確認できず、`local_docker_desktop_linux_engine_required`でcontainer start前に`blocked`となった。Repository所有の一時Directory処置は`diagnosticFilesystemEffectIssued:true`、Docker container処置は`false`として取得し、成功scenario、失敗scenario、process／container不存在の実Docker結果へ流用しない。成功scenario以外の実Docker動的検証、実行中取消および外部Providerは`Not Verified`である。OwnerはQual-Lab、再確認契機は対応するDocker Engine上の専用dynamic verification完成、非同期Docker lifecycle導入、固定image／Docker CLI変更または実Provider Adapter着手時である。
+
+## 停止・復旧
+
+任意image／argv／env／Path／scriptをcaller入力にする、固定Identity／mount／network-noneが崩れる、container IDまたは3軸不存在を確認できない、cleanup／recoveryが不明、raw機密情報を公開する、Fake結果を実Provider／Authority／Capability／Gateへ昇格する、またはprivate doctor revision 4の利用側移行を完了できない場合は停止する。cleanupが不明な場合はOperation rootを保持し、既存の明示recoveryへ戻す。旧Evidence、古いtoken、Host CLI、Shell、PATH、API key、別Runtimeまたは実Providerへfallbackしない。

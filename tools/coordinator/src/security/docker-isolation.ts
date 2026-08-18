@@ -44,9 +44,11 @@ type DockerMounts = Readonly<{
   management: string;
 }>;
 type DockerEnvironment = Record<string, string>;
-type DockerExecution = Pick<
-  SpawnSyncReturns<string>,
-  "error" | "status" | "stdout"
+type DockerExecution = Partial<
+  Pick<
+    SpawnSyncReturns<string>,
+    "error" | "signal" | "status" | "stderr" | "stdout"
+  >
 >;
 type ContainerIdentity = Readonly<{ id: string; probeId: string }>;
 type CliSnapshot = Readonly<{
@@ -106,6 +108,10 @@ type LoadedDockerRecovery = Readonly<{
 const containerIdentities = new WeakMap<object, ContainerIdentity>();
 const cliIdentities = new WeakMap<object, CliSnapshot>();
 const absenceCapabilities = new WeakMap<object, AbsenceObservation>();
+const dynamicLifecycleObservations = new WeakMap<
+  object,
+  DynamicFakeProviderLifecycleObservation
+>();
 const RECOVERY_FILE = "docker-probe-recovery-v1.json";
 const OPERATION_PREFIX = "crdd-coordinator-doctor-";
 
@@ -118,6 +124,35 @@ type DockerProbeResult = Readonly<{
   recoveryId: string | null;
   manualRecoveryRequired: boolean;
   cleanup: "confirmed" | "unconfirmed" | "not_required_or_confirmed";
+  fakeProviderLifecycle: DynamicFakeProviderLifecycleObservation;
+}>;
+
+type DynamicFakeProviderLifecycleObservation = Readonly<{
+  status: "verified" | "candidate" | "blocked" | "not_evaluated";
+  reason: string;
+  provenance:
+    | "repository_owned_docker_fake_provider"
+    | "untrusted_execution_fixture";
+  fakeProviderStartAttempted: boolean;
+  fakeProviderExecuted: boolean;
+  resultNormalizationVerified: boolean;
+  containerAbsenceVerified: boolean;
+  processTreeAbsenceVerified: boolean;
+  hostCleanupVerified: boolean;
+  elapsedMs: number | null;
+  stdoutBytes: number;
+  stderrBytes: number;
+  exitCode: number | null;
+  signal: string | null;
+  timedOut: boolean;
+  cancellationRequested: false;
+  cancellationObservation: "not_implemented";
+  diagnosticDockerContainerEffectIssued: boolean;
+  diagnosticFilesystemEffectIssued: boolean;
+  providerNetworkEffectIssued: false;
+  runtimeAuthorityIssued: false;
+  operationCapabilityIssued: false;
+  realProviderReadiness: false;
 }>;
 
 function isObject(value: unknown): value is object {
@@ -490,6 +525,133 @@ export function normalizeDockerIsolationResult(
         reason: "docker_fake_provider_isolation_confirmed",
       }
     : { status: "blocked", reason: "docker_isolation_probe_assertion_failed" };
+}
+
+function errorCodeEquals(error: unknown, expected: string): boolean {
+  return errorCode(error) === expected;
+}
+
+function dynamicFakeLifecycleBlocked(
+  reason: string,
+): DynamicFakeProviderLifecycleObservation {
+  return Object.freeze({
+    status: "blocked",
+    reason,
+    provenance: "repository_owned_docker_fake_provider",
+    fakeProviderStartAttempted: false,
+    fakeProviderExecuted: false,
+    resultNormalizationVerified: false,
+    containerAbsenceVerified: false,
+    processTreeAbsenceVerified: false,
+    hostCleanupVerified: false,
+    elapsedMs: null,
+    stdoutBytes: 0,
+    stderrBytes: 0,
+    exitCode: null,
+    signal: null,
+    timedOut: false,
+    cancellationRequested: false,
+    cancellationObservation: "not_implemented",
+    diagnosticDockerContainerEffectIssued: false,
+    diagnosticFilesystemEffectIssued: false,
+    providerNetworkEffectIssued: false,
+    runtimeAuthorityIssued: false,
+    operationCapabilityIssued: false,
+    realProviderReadiness: false,
+  });
+}
+
+export function normalizeDynamicFakeProviderLifecycleForFixture(
+  execution: DockerExecution,
+  elapsedMs: number,
+): DynamicFakeProviderLifecycleObservation {
+  const stdoutBytes =
+    typeof execution.stdout === "string"
+      ? Buffer.byteLength(execution.stdout, "utf8")
+      : 0;
+  const stderrBytes =
+    typeof execution.stderr === "string"
+      ? Buffer.byteLength(execution.stderr, "utf8")
+      : 0;
+  const hasTimedOut = errorCodeEquals(execution.error, "ETIMEDOUT");
+  const hasOutputExceeded = errorCodeEquals(execution.error, "ENOBUFS");
+  const normalized = normalizeDockerIsolationResult(execution);
+  const reason = hasTimedOut
+    ? "dynamic_fake_provider_deadline_exceeded"
+    : hasOutputExceeded
+      ? "dynamic_fake_provider_output_limit_exceeded"
+      : normalized.status === "confirmed"
+        ? "dynamic_fake_provider_result_observed"
+        : normalized.reason;
+  return Object.freeze({
+    ...dynamicFakeLifecycleBlocked(reason),
+    status: normalized.status === "confirmed" ? "candidate" : "blocked",
+    provenance: "untrusted_execution_fixture",
+    fakeProviderStartAttempted: true,
+    fakeProviderExecuted: false,
+    resultNormalizationVerified: false,
+    elapsedMs:
+      Number.isSafeInteger(elapsedMs) && elapsedMs >= 0 ? elapsedMs : null,
+    stdoutBytes,
+    stderrBytes,
+    exitCode: typeof execution.status === "number" ? execution.status : null,
+    signal: typeof execution.signal === "string" ? execution.signal : null,
+    timedOut: hasTimedOut,
+    diagnosticDockerContainerEffectIssued: false,
+    diagnosticFilesystemEffectIssued: false,
+  });
+}
+
+function createDynamicFakeProviderLifecycleCapability(
+  execution: DockerExecution,
+  elapsedMs: number,
+): Readonly<{ kind: "dynamic_fake_provider_lifecycle" }> {
+  const normalized = normalizeDynamicFakeProviderLifecycleForFixture(
+    execution,
+    elapsedMs,
+  );
+  const capability = Object.freeze({
+    kind: "dynamic_fake_provider_lifecycle" as const,
+  });
+  dynamicLifecycleObservations.set(
+    capability,
+    Object.freeze({
+      ...normalized,
+      status: normalized.status === "candidate" ? "verified" : "blocked",
+      provenance: "repository_owned_docker_fake_provider",
+      fakeProviderExecuted: normalized.status === "candidate",
+      resultNormalizationVerified: normalized.status === "candidate",
+      diagnosticDockerContainerEffectIssued: true,
+      diagnosticFilesystemEffectIssued: true,
+    }),
+  );
+  return capability;
+}
+
+function confirmDynamicFakeProviderAbsence(
+  capability: object,
+  isHostCleanupVerified: boolean,
+): DynamicFakeProviderLifecycleObservation {
+  const observation = dynamicLifecycleObservations.get(capability);
+  if (!observation)
+    return dynamicFakeLifecycleBlocked(
+      "dynamic_fake_provider_provenance_unverified",
+    );
+  dynamicLifecycleObservations.delete(capability);
+  return Object.freeze({
+    ...observation,
+    status:
+      observation.status === "verified" && isHostCleanupVerified
+        ? "verified"
+        : "blocked",
+    reason:
+      observation.status === "verified" && !isHostCleanupVerified
+        ? "dynamic_fake_provider_absence_unconfirmed"
+        : observation.reason,
+    containerAbsenceVerified: isHostCleanupVerified,
+    processTreeAbsenceVerified: isHostCleanupVerified,
+    hostCleanupVerified: isHostCleanupVerified,
+  });
 }
 
 function dockerEnvironment(management: string): DockerEnvironment {
@@ -995,6 +1157,7 @@ function blocked(
     cleanup: shouldRetainOperationDirectories
       ? "unconfirmed"
       : "not_required_or_confirmed",
+    fakeProviderLifecycle: dynamicFakeLifecycleBlocked(reason),
   };
 }
 
@@ -1102,9 +1265,13 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
   let recoveryId: string | null = null;
   let hostRecoveryId = getOwnedHostRecoveryId(owned);
   let hasSubmissionStarted = false;
+  let hasContainerCreateAttempted = false;
   let hasRollbackFailed = false;
   const recoveryNonce = randomUUID();
   let result: DockerProbeResult = blocked("docker_isolation_probe_failed");
+  let dynamicLifecycleCapability: Readonly<{
+    kind: "dynamic_fake_provider_lifecycle";
+  }> | null = null;
   try {
     cli = createTrustedDockerCliCapability();
     mountCapability = createOwnedMountCapability(owned);
@@ -1133,6 +1300,7 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
         }
         throw error;
       }
+      hasContainerCreateAttempted = true;
       const creation = dockerCommand(
         cli,
         environment,
@@ -1171,17 +1339,30 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
           );
         } else {
           mounts = verifyOwnedMountCapability(mountCapability);
+          const lifecycleStartedAt = performance.now();
           const execution = dockerCommand(
             cli,
             environment,
             ["start", "--attach", identity.id],
             30_000,
           );
+          const lifecycleElapsedMs = Math.max(
+            0,
+            Math.round(performance.now() - lifecycleStartedAt),
+          );
           const normalized = normalizeDockerIsolationResult(execution);
           result = {
             ...blocked(normalized.reason, probeId),
             status: normalized.status === "confirmed" ? "confirmed" : "blocked",
+            fakeProviderLifecycle: dynamicFakeLifecycleBlocked(
+              "dynamic_fake_provider_absence_unconfirmed",
+            ),
           };
+          dynamicLifecycleCapability =
+            createDynamicFakeProviderLifecycleCapability(
+              execution,
+              lifecycleElapsedMs,
+            );
           mounts = verifyOwnedMountCapability(mountCapability);
         }
       }
@@ -1217,6 +1398,13 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
             },
           );
           result = finishHostRecovery(hostRecoveryId, result, probeId);
+          result = {
+            ...result,
+            fakeProviderLifecycle: confirmDynamicFakeProviderAbsence(
+              dynamicLifecycleCapability ?? Object.freeze({}),
+              result.hostCleanupCompleted,
+            ),
+          };
         }
       } catch {
         result = blocked(
@@ -1235,7 +1423,14 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
       );
     }
   }
-  return result;
+  return {
+    ...result,
+    fakeProviderLifecycle: Object.freeze({
+      ...result.fakeProviderLifecycle,
+      diagnosticDockerContainerEffectIssued: hasContainerCreateAttempted,
+      diagnosticFilesystemEffectIssued: true,
+    }),
+  };
 }
 
 function parseRecoveryToken(token: unknown): Readonly<{
@@ -1456,5 +1651,6 @@ export const DOCKER_ISOLATION_PROFILE = Object.freeze({
   dockerCliPinnedByHash: true,
   imagePinnedByDigest: true,
   networkMode: "none",
-  providerProcessesExecuted: false,
+  dynamicFakeProviderProcessImplemented: true,
+  realProviderProcessesExecuted: false,
 });
