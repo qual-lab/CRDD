@@ -1,7 +1,7 @@
 # 変更トレース: Providerライフサイクル基盤（Provider Lifecycle Foundation）
 
 - 変更ID: `CHG-000022`
-- 状態: `Ready for Verification`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-18
 - 対象: CRDD公式Repositoryの内部Coordinator、Provider認証方針、専用Homeおよび上限付きライフサイクルCore
@@ -136,3 +136,16 @@ Profile／Authority revision 2は`npm run provider-authority:coverage --prefix t
 | C-07／PL-16、claim `Not Eligible` | Conformance | Fail | Finding分類の対象外 | context利用側と品質記録を同期し、`Applied / Self-checked` |
 
 この二次是正への処置も`Applied / Self-checked — pending independent re-review`であり、新固定版の必須監査集合が完了するまで`Resolved`または`Verified`へ昇格しない。
+
+## 固定版`f11ac73`の最終独立確認
+
+固定対象はCommit `f11ac73ad22b1af6d0983c9f941600bef4be9755`、Tree `49655ba56a3190b696afeaaa43f6e7308ada2c13`、Parent `3c3021a6769d9e0dd202950d5def4b70577333e4`である。共通入力はCoordinator check、Coordinator 362/362、Provider lifecycle 15/15、Provider Authority exact 4 source／7 test、platform-access TypeScript coverage、Checker 151/151、source closure unique 124、全体Checker Error 0／Warning 0、cleanだった。
+
+- Agent／Architecture／Security Review: `Pass`、Finding 0。
+- Document Audit: `Pass`、Finding 0。
+- Gap／Impact Audit: `Pass`、Finding 0。
+- Conformance Audit: `Pass`、Finding 0。C-04、C-07、C-10、C-11、PL-08、PL-16およびPL-19を含む影響基準は`Conformant`である。準拠claimはCHG-000022の監査対象範囲で`Eligible`だが、CRDD全体の準拠表明を発行せず、採用、統合、Gate open、StableまたはReleaseを意味しない。
+
+`ASR-22-001`／`002`／`003`／`R1-001`／`003-R1`／`R2-001`、`DOC-PROV-001`／`002`／`R01`／`R02`／`R03`／`R04`、`GCI-22-001`／`002`／`R2-001`／`R3-001`および同根Findingは、各受入条件を満たす現在状態へ接続し`Resolved`とした。新規候補4分類は、初回監査時から存在した見落とし0、今回修正起因0、今回修正で初めて確認可能0、承認済み対象範囲拡大0である。
+
+`f11ac73`より前の監査集合は固定履歴として保持するが、全て`Invalidated`で現在判定へ流用しない。現在の独立結果と機械入力は[`CHG-000022_Current_Review_Record_f11ac73.md`](Evidence/CHG-000022_Current_Review_Record_f11ac73.md)へ固定する。この`Verified`は変更候補の検証完了を表し、実OAuth、実Provider起動、Provider Home保護、Authority、Capability、Operation接続、採用、統合、Gate open、Stable化またはReleaseを意味しない。
