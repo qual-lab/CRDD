@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   describeProviderLifecycleContract,
-  evaluateFakeProviderLifecycle,
+  evaluateSyntheticFakeProviderObservationCandidate,
   planProviderLifecycle,
   PROVIDER_LIFECYCLE_CONTRACT,
   PROVIDER_LIFECYCLE_CONTRACT_REVISION,
@@ -27,7 +27,9 @@ function observation(overrides: Record<string, unknown> = {}) {
     provider: "fake",
     mode: "run",
     states: COMPLETE_STATES,
+    stdinBytes: 0,
     elapsedMs: 1,
+    cancellationElapsedMs: null,
     stdoutBytes: 2,
     stderrBytes: 0,
     exitCode: 0,
@@ -57,6 +59,20 @@ test("Provider認証方針は既存subscription OAuthだけを許可する", () 
   assert.equal(contract.additionalCreditPurchaseAllowed, false);
   assert.equal(contract.oauthTokenReadByRuntime, false);
   assert.equal(contract.rawAuthOutputRecorded, false);
+  assert.equal(contract.authPolicies.codex.accountCardinality, 1);
+  assert.equal(contract.authPolicies.codex.billingMode, "subscription_only");
+  assert.equal(contract.authPolicies.codex.automaticPlanSwitchAllowed, false);
+  assert.equal(contract.authPolicies.codex.exactCliVersionRequired, true);
+  assert.equal(contract.authPolicies.codex.exactCliVersionConfigured, false);
+  assert.equal(
+    contract.authPolicies.codex.usageSource,
+    "selected_chatgpt_plan_included_usage",
+  );
+  assert.equal(
+    contract.authPolicies.claude.usageSource,
+    "selected_subscription_agent_sdk_credit",
+  );
+  assert.equal(contract.authPolicies.claude.quotaProbe, "not_implemented");
 });
 
 test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含めない", () => {
@@ -68,6 +84,11 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
   assert.equal(home.otherProviderHomeSharingAllowed, false);
   assert.equal(home.operationCleanupOwned, false);
   assert.equal(home.protectionVerification, "not_implemented");
+  const grant = describeProviderLifecycleContract().providerHomeMountGrant;
+  assert.equal(grant.credentialGrantIssued, false);
+  assert.equal(grant.tokenCopyAllowed, false);
+  assert.equal(grant.revokedAtOperationEnd, true);
+  assert.equal(grant.persistentHomeDeletedAtOperationEnd, false);
 });
 
 test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () => {
@@ -120,17 +141,26 @@ test("任意Provider、mode、余分field、accessorおよびProxyを拒否す�
   );
 });
 
-test("Fake Providerの正常完了は実Provider readinessやCapabilityを発行しない", () => {
-  const result = evaluateFakeProviderLifecycle(observation());
-  assert.equal(result.status, "confirmed");
-  assert.equal(result.fakeProviderOnly, true);
+test("synthetic Fake claimの正常形も非Authority候補に限定する", () => {
+  const result = evaluateSyntheticFakeProviderObservationCandidate(
+    observation(),
+  );
+  assert.equal(result.status, "candidate");
+  assert.equal(result.syntheticFakeObservationOnly, true);
+  assert.equal(result.observationAuthority, false);
+  assert.equal(result.fakeProviderExecuted, false);
+  assert.equal(result.processAbsenceVerified, false);
+  assert.equal(result.resultNormalizationVerified, false);
+  assert.equal(result.credentialGrantIssued, false);
+  assert.equal(result.processTreeTerminationClaimed, true);
+  assert.equal(result.containerAbsenceClaimed, true);
   assert.equal(result.spawnAllowed, false);
   assert.equal(result.operationCapabilityIssued, false);
   assert.equal(result.filesystemEffectIssued, false);
   assert.equal(result.networkEffectIssued, false);
 });
 
-test("Fake Providerの契約、revision、providerおよびmode差を拒否する", () => {
+test("synthetic Fake claimの契約、revision、providerおよびmode差を拒否する", () => {
   for (const changed of [
     { contract: "other" },
     { contractRevision: 2 },
@@ -138,24 +168,52 @@ test("Fake Providerの契約、revision、providerおよびmode差を拒否す�
     { mode: "login" },
   ]) {
     assert.equal(
-      evaluateFakeProviderLifecycle(observation(changed)).reason,
+      evaluateSyntheticFakeProviderObservationCandidate(observation(changed))
+        .reason,
       "provider_lifecycle_observation_contract_mismatch",
     );
   }
 });
 
-test("Fake Providerのtimeout、cancel、出力超過およびquotaを安全側へ閉じる", () => {
+test("synthetic Fake claimのtimeout、cancel、入出力超過およびquotaを安全側へ閉じる", () => {
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ timedOut: true })).reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ stdinBytes: PROVIDER_LIFECYCLE_LIMITS.stdinBytes }),
+    ).status,
+    "candidate",
+  );
+  assert.equal(
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ timedOut: true }),
+    ).reason,
     "provider_deadline_exceeded",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ cancellationRequested: true }))
-      .reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ cancellationRequested: true, cancellationElapsedMs: 0 }),
+    ).reason,
     "provider_operation_cancelled",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({
+        cancellationRequested: true,
+        cancellationElapsedMs:
+          PROVIDER_LIFECYCLE_LIMITS.cancellationGraceMs + 1,
+      }),
+    ).reason,
+    "provider_cancellation_grace_exceeded",
+  );
+  assert.equal(
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({
+        stdinBytes: PROVIDER_LIFECYCLE_LIMITS.stdinBytes + 1,
+      }),
+    ).reason,
+    "provider_stdin_limit_exceeded",
+  );
+  assert.equal(
+    evaluateSyntheticFakeProviderObservationCandidate(
       observation({
         stdoutBytes: PROVIDER_LIFECYCLE_LIMITS.stdoutBytes + 1,
       }),
@@ -163,7 +221,7 @@ test("Fake Providerのtimeout、cancel、出力超過およびquotaを安全側�
     "provider_stdout_limit_exceeded",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(
+    evaluateSyntheticFakeProviderObservationCandidate(
       observation({
         stderrBytes: PROVIDER_LIFECYCLE_LIMITS.stderrBytes + 1,
       }),
@@ -171,64 +229,80 @@ test("Fake Providerのtimeout、cancel、出力超過およびquotaを安全側�
     "provider_stderr_limit_exceeded",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ quotaState: "exhausted" }))
-      .reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ quotaState: "exhausted" }),
+    ).reason,
     "provider_subscription_quota_exhausted",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ quotaState: "unknown" }))
-      .reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ quotaState: "unknown" }),
+    ).reason,
     "provider_subscription_quota_state_unknown",
   );
 });
 
-test("Fake Providerの異常終了、二重完了、malformed結果および残存processを拒否する", () => {
+test("synthetic Fake claimの異常終了、二重完了、malformed結果および残存claimを拒否する", () => {
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ exitCode: 2 })).reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ exitCode: 2 }),
+    ).reason,
     "provider_process_exit_nonzero",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(
+    evaluateSyntheticFakeProviderObservationCandidate(
       observation({ exitCode: null, signal: "SIGTERM" }),
     ).reason,
     "provider_process_signalled",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ resultCount: 2 })).reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ resultCount: 2 }),
+    ).reason,
     "provider_result_invalid",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ resultFormat: "text" })).reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ resultFormat: "text" }),
+    ).reason,
     "provider_result_invalid",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ processTreeTerminated: false }))
-      .reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ processTreeTerminated: false }),
+    ).reason,
     "provider_process_absence_unconfirmed",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ containerAbsent: false }))
-      .reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ containerAbsent: false }),
+    ).reason,
     "provider_process_absence_unconfirmed",
   );
 });
 
-test("Fake Providerは状態順序、上限外値および入力trapをfail closedにする", () => {
+test("synthetic Fake claimは状態順序、cancel整合、値型および入力trapをfail closedにする", () => {
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ states: ["prepared"] })).reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ states: ["prepared"] }),
+    ).reason,
     "provider_lifecycle_state_sequence_invalid",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(observation({ stdoutBytes: -1 })).reason,
+    evaluateSyntheticFakeProviderObservationCandidate(
+      observation({ stdoutBytes: -1 }),
+    ).reason,
     "provider_lifecycle_observation_value_invalid",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle({ ...observation(), unexpected: true })
-      .reason,
+    evaluateSyntheticFakeProviderObservationCandidate({
+      ...observation(),
+      unexpected: true,
+    }).reason,
     "provider_lifecycle_observation_shape_invalid",
   );
   assert.equal(
-    evaluateFakeProviderLifecycle(
+    evaluateSyntheticFakeProviderObservationCandidate(
       new Proxy(
         {},
         {
@@ -240,4 +314,23 @@ test("Fake Providerは状態順序、上限外値および入力trapをfail clos
     ).reason,
     "provider_lifecycle_observation_shape_invalid",
   );
+  for (const changed of [
+    { cancellationRequested: false, cancellationElapsedMs: 0 },
+    { cancellationRequested: true, cancellationElapsedMs: null },
+    { cancellationRequested: true, cancellationElapsedMs: -1 },
+    { cancellationRequested: true, cancellationElapsedMs: 1.5 },
+  ]) {
+    assert.equal(
+      evaluateSyntheticFakeProviderObservationCandidate(observation(changed))
+        .reason,
+      "provider_cancellation_observation_inconsistent",
+    );
+  }
+  for (const changed of [{ stdinBytes: -1 }, { stdinBytes: 1.5 }]) {
+    assert.equal(
+      evaluateSyntheticFakeProviderObservationCandidate(observation(changed))
+        .reason,
+      "provider_lifecycle_observation_value_invalid",
+    );
+  }
 });

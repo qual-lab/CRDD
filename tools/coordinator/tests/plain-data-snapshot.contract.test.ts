@@ -137,3 +137,37 @@ test("Proxyはreflection trapを実行する前に拒否する", () => {
   assert.equal(snapshotPlainArray(proxiedArrayItems, 1).status, "blocked");
   assert.deepEqual(calls, { ownKeys: 0, descriptor: 0, prototype: 0 });
 });
+
+test("reflection APIの失敗はrecordとarrayの固定reasonへ閉じる", () => {
+  const original = Object.getOwnPropertyDescriptors;
+  const record = { left: "value", right: 1 };
+  const values = ["value"];
+  try {
+    Object.getOwnPropertyDescriptors = ((target: object) => {
+      if (target === record || target === values) throw new Error("fixture");
+      return original(target);
+    }) as typeof Object.getOwnPropertyDescriptors;
+    assert.equal(snapshotPlainRecord(record, new Set(["left", "right"])), null);
+    assert.equal(snapshotPlainArray(values, 1).reason, "array_input_invalid");
+  } finally {
+    Object.getOwnPropertyDescriptors = original;
+  }
+});
+
+test("array lengthの欠落と上限超過を固定reasonで拒否する", () => {
+  const original = Object.getOwnPropertyDescriptor;
+  const values = ["value"];
+  try {
+    Object.getOwnPropertyDescriptor = ((target: object, key: PropertyKey) => {
+      if (target === values && key === "length") return undefined;
+      return original(target, key);
+    }) as typeof Object.getOwnPropertyDescriptor;
+    assert.equal(snapshotPlainArray(values, 1).reason, "array_length_invalid");
+  } finally {
+    Object.getOwnPropertyDescriptor = original;
+  }
+  assert.equal(
+    snapshotPlainArray(["one", "two"], 1).reason,
+    "array_length_exceeded",
+  );
+});

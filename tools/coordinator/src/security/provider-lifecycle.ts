@@ -26,7 +26,9 @@ const OBSERVATION_KEYS = new Set([
   "provider",
   "mode",
   "states",
+  "stdinBytes",
   "elapsedMs",
+  "cancellationElapsedMs",
   "stdoutBytes",
   "stderrBytes",
   "exitCode",
@@ -53,11 +55,27 @@ const AUTH_POLICIES = Object.freeze({
   codex: Object.freeze({
     provider: "codex",
     method: "existing_chatgpt_plan_subscription_oauth",
+    accountCardinality: 1,
+    billingMode: "subscription_only",
+    usageSource: "selected_chatgpt_plan_included_usage",
+    automaticPlanSwitchAllowed: false,
+    exactCliVersionRequired: true,
+    exactCliVersionConfigured: false,
+    quotaProbe: "not_implemented",
+    billingProbe: "not_implemented",
     dedicatedHomeScope: "local_os_user_and_provider",
   }),
   claude: Object.freeze({
     provider: "claude",
     method: "existing_subscription_oauth",
+    accountCardinality: 1,
+    billingMode: "subscription_only",
+    usageSource: "selected_subscription_agent_sdk_credit",
+    automaticPlanSwitchAllowed: false,
+    exactCliVersionRequired: true,
+    exactCliVersionConfigured: false,
+    quotaProbe: "not_implemented",
+    billingProbe: "not_implemented",
     dedicatedHomeScope: "local_os_user_and_provider",
   }),
 });
@@ -86,6 +104,11 @@ function blocked(reason: string) {
     operationCapabilityIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
+    observationAuthority: false,
+    fakeProviderExecuted: false,
+    processAbsenceVerified: false,
+    resultNormalizationVerified: false,
+    credentialGrantIssued: false,
   });
 }
 
@@ -118,7 +141,7 @@ export function planProviderLifecycle(candidate: unknown) {
   });
 }
 
-function fakeObservationInternal(candidate: unknown) {
+function syntheticFakeObservationInternal(candidate: unknown) {
   const value = snapshotPlainRecord(candidate, OBSERVATION_KEYS);
   if (!value) return blocked("provider_lifecycle_observation_shape_invalid");
   if (
@@ -138,6 +161,10 @@ function fakeObservationInternal(candidate: unknown) {
     return blocked("provider_lifecycle_state_sequence_invalid");
   }
   if (
+    !isBoundedInteger(
+      value.stdinBytes,
+      PROVIDER_LIFECYCLE_LIMITS.stdinBytes * 2,
+    ) ||
     !isBoundedInteger(
       value.elapsedMs,
       PROVIDER_LIFECYCLE_LIMITS.deadlineMs * 2,
@@ -162,8 +189,21 @@ function fakeObservationInternal(candidate: unknown) {
   ) {
     return blocked("provider_lifecycle_observation_value_invalid");
   }
+  if (
+    (value.cancellationRequested === false &&
+      value.cancellationElapsedMs !== null) ||
+    (value.cancellationRequested === true &&
+      !isBoundedInteger(
+        value.cancellationElapsedMs,
+        PROVIDER_LIFECYCLE_LIMITS.cancellationGraceMs * 2,
+      ))
+  ) {
+    return blocked("provider_cancellation_observation_inconsistent");
+  }
   if (!value.processTreeTerminated || !value.containerAbsent)
     return blocked("provider_process_absence_unconfirmed");
+  if (value.stdinBytes > PROVIDER_LIFECYCLE_LIMITS.stdinBytes)
+    return blocked("provider_stdin_limit_exceeded");
   if (value.stdoutBytes > PROVIDER_LIFECYCLE_LIMITS.stdoutBytes)
     return blocked("provider_stdout_limit_exceeded");
   if (value.stderrBytes > PROVIDER_LIFECYCLE_LIMITS.stderrBytes)
@@ -171,7 +211,12 @@ function fakeObservationInternal(candidate: unknown) {
   if (value.timedOut || value.elapsedMs > PROVIDER_LIFECYCLE_LIMITS.deadlineMs)
     return blocked("provider_deadline_exceeded");
   if (value.cancellationRequested)
-    return blocked("provider_operation_cancelled");
+    return blocked(
+      (value.cancellationElapsedMs as number) >
+        PROVIDER_LIFECYCLE_LIMITS.cancellationGraceMs
+        ? "provider_cancellation_grace_exceeded"
+        : "provider_operation_cancelled",
+    );
   if (value.quotaState === "exhausted")
     return blocked("provider_subscription_quota_exhausted");
   if (value.quotaState !== "available")
@@ -185,27 +230,34 @@ function fakeObservationInternal(candidate: unknown) {
     return blocked("provider_result_invalid");
   }
   return Object.freeze({
-    status: "confirmed",
-    reason: null,
+    status: "candidate",
+    reason: "synthetic_fake_observation_non_authoritative",
     spawnAllowed: false,
-    fakeProviderOnly: true,
+    syntheticFakeObservationOnly: true,
+    observationAuthority: false,
+    fakeProviderExecuted: false,
+    processAbsenceVerified: false,
+    resultNormalizationVerified: false,
+    credentialGrantIssued: false,
     operationCapabilityIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
-    processTreeTerminated: true,
-    containerAbsent: true,
+    processTreeTerminationClaimed: true,
+    containerAbsenceClaimed: true,
   });
 }
 
-export function evaluateFakeProviderLifecycle(candidate: unknown) {
-  return fakeObservationInternal(candidate);
+export function evaluateSyntheticFakeProviderObservationCandidate(
+  candidate: unknown,
+) {
+  return syntheticFakeObservationInternal(candidate);
 }
 
 export function describeProviderLifecycleContract() {
   return Object.freeze({
     contract: PROVIDER_LIFECYCLE_CONTRACT,
     contractRevision: PROVIDER_LIFECYCLE_CONTRACT_REVISION,
-    implementationState: "fake_provider_candidate_only",
+    implementationState: "synthetic_fake_observation_candidate_only",
     providers: PROVIDERS,
     modes: MODES,
     authPolicies: AUTH_POLICIES,
@@ -221,6 +273,20 @@ export function describeProviderLifecycleContract() {
       protectionVerification: "not_implemented",
       authSessionProbe: "not_implemented",
     }),
+    providerHomeMountGrant: Object.freeze({
+      implementationState: "not_implemented",
+      semantics:
+        "opaque_one_shot_run_scoped_home_handle_or_mount_authorization",
+      operationBound: true,
+      profileBound: true,
+      providerBound: true,
+      tokenCopyAllowed: false,
+      providerHomePathExposed: false,
+      sessionContentExposed: false,
+      revokedAtOperationEnd: true,
+      persistentHomeDeletedAtOperationEnd: false,
+      credentialGrantIssued: false,
+    }),
     limits: PROVIDER_LIFECYCLE_LIMITS,
     fixedDigestImageRequired: true,
     fixedDigestImageConfigured: false,
@@ -233,6 +299,8 @@ export function describeProviderLifecycleContract() {
     additionalCreditPurchaseAllowed: false,
     rawAuthOutputRecorded: false,
     oauthTokenReadByRuntime: false,
+    syntheticFakeObservationState: "candidate_non_authoritative",
+    fakeProviderExecution: "not_implemented",
     fakeProviderConfersRealProviderReadiness: false,
     operationCapabilityIssued: false,
   });

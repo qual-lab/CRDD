@@ -346,6 +346,7 @@ test("owned childをjunctionへ置換した場合は対象を削除しない", (
 test("production doctorはpassiveかつ未実装境界をReadyにしない", () => {
   const report = runDoctor();
   const serialized = JSON.stringify(report);
+  assert.equal(report.reportVersion, 3);
   assert.equal(report.diagnosticMode, "passive_preflight");
   assert.equal(report.status, "blocked");
   assert.equal(
@@ -362,6 +363,18 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(report.providerLifecycle.apiKeyAllowed, false);
   assert.equal(report.providerLifecycle.additionalCreditPurchaseAllowed, false);
+  assert.equal(
+    report.providerLifecycle.syntheticFakeObservationState,
+    "candidate_non_authoritative",
+  );
+  assert.equal(
+    report.providerLifecycle.fakeProviderExecution,
+    "not_implemented",
+  );
+  assert.equal(
+    report.providerLifecycle.providerHomeMountGrant.credentialGrantIssued,
+    false,
+  );
   assert.equal(
     report.providerLifecycle.dedicatedProviderHome.operationCleanupOwned,
     false,

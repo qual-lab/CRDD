@@ -126,20 +126,6 @@ export function snapshotPlainArray<T = unknown>(
       }
       snapshotItems.push(descriptor.value as T);
     }
-    const allowed = new Set([
-      "length",
-      ...snapshotItems.map((unusedItem, index) => {
-        void unusedItem;
-        return String(index);
-      }),
-    ]);
-    if (keys.some((key) => typeof key !== "string" || !allowed.has(key))) {
-      return Object.freeze({
-        status: "blocked",
-        reason: "array_shape_invalid",
-        value: null,
-      });
-    }
     return Object.freeze({
       status: "ok",
       reason: null,

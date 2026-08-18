@@ -218,6 +218,15 @@ export function describeProviderIsolationContract() {
     supportedWriteBackend: "docker",
     localFallbackAllowed: false,
     rawCredentialAllowed: false,
+    genericCredentialGrant: Object.freeze({
+      semantics: "generic_short_term_credential_reference_candidate",
+      subscriptionOauthV1Applicability: "not_applicable",
+    }),
+    subscriptionOauthProviderHomeMountGrant: Object.freeze({
+      contractOwner: "provider_lifecycle",
+      implementationState: "not_implemented",
+      tokenCopyOrInjectionAllowed: false,
+    }),
     wildcardEgressAllowed: false,
   });
 }

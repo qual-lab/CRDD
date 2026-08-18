@@ -59,6 +59,19 @@ test("Profile契約はCRDD版ごとに分岐しない", () => {
   assert.equal(contract.crddVersionSpecific, false);
   assert.equal(contract.supportedWriteBackend, "docker");
   assert.equal(contract.localFallbackAllowed, false);
+  assert.equal(
+    contract.genericCredentialGrant.subscriptionOauthV1Applicability,
+    "not_applicable",
+  );
+  assert.equal(
+    contract.subscriptionOauthProviderHomeMountGrant.implementationState,
+    "not_implemented",
+  );
+  assert.equal(
+    contract.subscriptionOauthProviderHomeMountGrant
+      .tokenCopyOrInjectionAllowed,
+    false,
+  );
 });
 
 test("秘密値らしいfieldをProfileへ混入できない", () => {
