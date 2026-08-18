@@ -108,9 +108,47 @@ type LoadedDockerRecovery = Readonly<{
 const containerIdentities = new WeakMap<object, ContainerIdentity>();
 const cliIdentities = new WeakMap<object, CliSnapshot>();
 const absenceCapabilities = new WeakMap<object, AbsenceObservation>();
-const dynamicLifecycleObservations = new WeakMap<
+type PendingDynamicFakeProviderLifecycle = Readonly<{
+  observation: DynamicFakeProviderLifecycleObservation;
+  probeId: string;
+  containerId: string;
+  mountCapability: object;
+  hostRecoveryId: string;
+}>;
+type DynamicFakeProviderFinalization = Readonly<{
+  pendingCapability: object;
+  probeId: string;
+  containerId: string;
+  mountCapability: object;
+  absenceCapability: object;
+  hostCleanupCapability: object;
+}>;
+type DynamicFakeProviderAbsence = Readonly<{
+  probeId: string;
+  containerId: string;
+  initialHostRecoveryId: string;
+  confirmedHostRecoveryId: string;
+}>;
+type DynamicFakeProviderHostCleanup = Readonly<{
+  probeId: string;
+  confirmedHostRecoveryId: string;
+  absenceCapability: object;
+}>;
+const pendingDynamicLifecycleObservations = new WeakMap<
   object,
-  DynamicFakeProviderLifecycleObservation
+  PendingDynamicFakeProviderLifecycle
+>();
+const dynamicLifecycleFinalizations = new WeakMap<
+  object,
+  DynamicFakeProviderFinalization
+>();
+const dynamicLifecycleAbsences = new WeakMap<
+  object,
+  DynamicFakeProviderAbsence
+>();
+const dynamicLifecycleHostCleanups = new WeakMap<
+  object,
+  DynamicFakeProviderHostCleanup
 >();
 const RECOVERY_FILE = "docker-probe-recovery-v1.json";
 const OPERATION_PREFIX = "crdd-coordinator-doctor-";
@@ -575,23 +613,41 @@ export function normalizeDynamicFakeProviderLifecycleForFixture(
       : 0;
   const hasTimedOut = errorCodeEquals(execution.error, "ETIMEDOUT");
   const hasOutputExceeded = errorCodeEquals(execution.error, "ENOBUFS");
+  const hasValidElapsed =
+    Number.isSafeInteger(elapsedMs) && elapsedMs >= 0 && elapsedMs <= 30_000;
+  const hasExactExecutionEnvelope =
+    !execution.error &&
+    execution.status === 0 &&
+    (execution.signal === null || execution.signal === undefined) &&
+    typeof execution.stdout === "string" &&
+    typeof execution.stderr === "string" &&
+    stdoutBytes <= MAX_OUTPUT_BYTES &&
+    stderrBytes <= MAX_OUTPUT_BYTES;
   const normalized = normalizeDockerIsolationResult(execution);
   const reason = hasTimedOut
     ? "dynamic_fake_provider_deadline_exceeded"
     : hasOutputExceeded
       ? "dynamic_fake_provider_output_limit_exceeded"
-      : normalized.status === "confirmed"
-        ? "dynamic_fake_provider_result_observed"
-        : normalized.reason;
+      : !hasValidElapsed
+        ? "dynamic_fake_provider_elapsed_invalid"
+        : !hasExactExecutionEnvelope
+          ? "dynamic_fake_provider_execution_envelope_invalid"
+          : normalized.status === "confirmed"
+            ? "dynamic_fake_provider_result_observed"
+            : normalized.reason;
   return Object.freeze({
     ...dynamicFakeLifecycleBlocked(reason),
-    status: normalized.status === "confirmed" ? "candidate" : "blocked",
+    status:
+      hasValidElapsed &&
+      hasExactExecutionEnvelope &&
+      normalized.status === "confirmed"
+        ? "candidate"
+        : "blocked",
     provenance: "untrusted_execution_fixture",
     fakeProviderStartAttempted: true,
     fakeProviderExecuted: false,
     resultNormalizationVerified: false,
-    elapsedMs:
-      Number.isSafeInteger(elapsedMs) && elapsedMs >= 0 ? elapsedMs : null,
+    elapsedMs: hasValidElapsed ? elapsedMs : null,
     stdoutBytes,
     stderrBytes,
     exitCode: typeof execution.status === "number" ? execution.status : null,
@@ -605,6 +661,12 @@ export function normalizeDynamicFakeProviderLifecycleForFixture(
 function createDynamicFakeProviderLifecycleCapability(
   execution: DockerExecution,
   elapsedMs: number,
+  context: Readonly<{
+    probeId: string;
+    containerId: string;
+    mountCapability: object;
+    hostRecoveryId: string;
+  }>,
 ): Readonly<{ kind: "dynamic_fake_provider_lifecycle" }> {
   const normalized = normalizeDynamicFakeProviderLifecycleForFixture(
     execution,
@@ -613,44 +675,141 @@ function createDynamicFakeProviderLifecycleCapability(
   const capability = Object.freeze({
     kind: "dynamic_fake_provider_lifecycle" as const,
   });
-  dynamicLifecycleObservations.set(
+  pendingDynamicLifecycleObservations.set(
     capability,
     Object.freeze({
-      ...normalized,
-      status: normalized.status === "candidate" ? "verified" : "blocked",
-      provenance: "repository_owned_docker_fake_provider",
-      fakeProviderExecuted: normalized.status === "candidate",
-      resultNormalizationVerified: normalized.status === "candidate",
-      diagnosticDockerContainerEffectIssued: true,
-      diagnosticFilesystemEffectIssued: true,
+      observation: Object.freeze({
+        ...normalized,
+        provenance: "repository_owned_docker_fake_provider",
+        fakeProviderExecuted: false,
+        resultNormalizationVerified: false,
+        diagnosticDockerContainerEffectIssued: true,
+        diagnosticFilesystemEffectIssued: true,
+      }),
+      ...context,
     }),
   );
   return capability;
 }
 
-function confirmDynamicFakeProviderAbsence(
-  capability: object,
-  isHostCleanupVerified: boolean,
+type DynamicFakeProviderFinalizationEligibility = Readonly<{
+  hasRepositoryOwnedProvenance: boolean;
+  hasExactResult: boolean;
+  hasValidElapsed: boolean;
+  hasPostRunMountIdentity: boolean;
+  hasContainerAbsence: boolean;
+  hasHostCleanup: boolean;
+  hasMatchingRunIdentity: boolean;
+}>;
+
+function evaluateDynamicFakeProviderFinalization(
+  input: DynamicFakeProviderFinalizationEligibility,
+) {
+  const isEligible =
+    input.hasRepositoryOwnedProvenance &&
+    input.hasExactResult &&
+    input.hasValidElapsed &&
+    input.hasPostRunMountIdentity &&
+    input.hasContainerAbsence &&
+    input.hasHostCleanup &&
+    input.hasMatchingRunIdentity;
+  return Object.freeze({
+    status: isEligible ? ("candidate" as const) : ("blocked" as const),
+    reason: isEligible
+      ? "dynamic_fake_provider_finalization_candidate"
+      : "dynamic_fake_provider_finalization_incomplete",
+    observationAuthority: false,
+  });
+}
+
+export function evaluateDynamicFakeProviderFinalizationForFixture(
+  input: DynamicFakeProviderFinalizationEligibility,
+) {
+  return evaluateDynamicFakeProviderFinalization(input);
+}
+
+function createDynamicFakeProviderFinalizationCapability(
+  pendingCapability: object,
+  context: Omit<DynamicFakeProviderFinalization, "pendingCapability">,
+): Readonly<{ kind: "dynamic_fake_provider_finalization" }> {
+  const capability = Object.freeze({
+    kind: "dynamic_fake_provider_finalization" as const,
+  });
+  dynamicLifecycleFinalizations.set(
+    capability,
+    Object.freeze({ pendingCapability, ...context }),
+  );
+  return capability;
+}
+
+function invalidateDynamicFakeProviderLifecycle(capability: object | null) {
+  if (capability) pendingDynamicLifecycleObservations.delete(capability);
+}
+
+function finalizeDynamicFakeProviderLifecycle(
+  pendingCapability: object,
+  finalizationCapability: object,
 ): DynamicFakeProviderLifecycleObservation {
-  const observation = dynamicLifecycleObservations.get(capability);
-  if (!observation)
+  const pending = pendingDynamicLifecycleObservations.get(pendingCapability);
+  const finalization = dynamicLifecycleFinalizations.get(
+    finalizationCapability,
+  );
+  pendingDynamicLifecycleObservations.delete(pendingCapability);
+  dynamicLifecycleFinalizations.delete(finalizationCapability);
+  const absence = finalization
+    ? dynamicLifecycleAbsences.get(finalization.absenceCapability)
+    : null;
+  const hostCleanup = finalization
+    ? dynamicLifecycleHostCleanups.get(finalization.hostCleanupCapability)
+    : null;
+  if (finalization) {
+    dynamicLifecycleAbsences.delete(finalization.absenceCapability);
+    dynamicLifecycleHostCleanups.delete(finalization.hostCleanupCapability);
+  }
+  if (!pending || !finalization || !absence || !hostCleanup)
     return dynamicFakeLifecycleBlocked(
       "dynamic_fake_provider_provenance_unverified",
     );
-  dynamicLifecycleObservations.delete(capability);
+  const eligibility = evaluateDynamicFakeProviderFinalization({
+    hasRepositoryOwnedProvenance:
+      pending.observation.provenance ===
+      "repository_owned_docker_fake_provider",
+    hasExactResult: pending.observation.status === "candidate",
+    hasValidElapsed:
+      typeof pending.observation.elapsedMs === "number" &&
+      Number.isSafeInteger(pending.observation.elapsedMs) &&
+      pending.observation.elapsedMs >= 0 &&
+      pending.observation.elapsedMs <= 30_000,
+    hasPostRunMountIdentity:
+      pending.mountCapability === finalization.mountCapability,
+    hasContainerAbsence:
+      absence.probeId === pending.probeId &&
+      absence.containerId === pending.containerId &&
+      absence.initialHostRecoveryId === pending.hostRecoveryId &&
+      absence.confirmedHostRecoveryId !== absence.initialHostRecoveryId,
+    hasHostCleanup:
+      hostCleanup.probeId === pending.probeId &&
+      hostCleanup.confirmedHostRecoveryId === absence.confirmedHostRecoveryId &&
+      hostCleanup.absenceCapability === finalization.absenceCapability,
+    hasMatchingRunIdentity:
+      finalization.pendingCapability === pendingCapability &&
+      pending.probeId === finalization.probeId &&
+      pending.containerId === finalization.containerId,
+  });
+  if (eligibility.status !== "candidate")
+    return Object.freeze({
+      ...pending.observation,
+      status: "blocked",
+      reason: eligibility.reason,
+    });
   return Object.freeze({
-    ...observation,
-    status:
-      observation.status === "verified" && isHostCleanupVerified
-        ? "verified"
-        : "blocked",
-    reason:
-      observation.status === "verified" && !isHostCleanupVerified
-        ? "dynamic_fake_provider_absence_unconfirmed"
-        : observation.reason,
-    containerAbsenceVerified: isHostCleanupVerified,
-    processTreeAbsenceVerified: isHostCleanupVerified,
-    hostCleanupVerified: isHostCleanupVerified,
+    ...pending.observation,
+    status: "verified",
+    fakeProviderExecuted: true,
+    resultNormalizationVerified: true,
+    containerAbsenceVerified: true,
+    processTreeAbsenceVerified: true,
+    hostCleanupVerified: true,
   });
 }
 
@@ -730,7 +889,10 @@ function confirmDockerAbsence(
     rootName: string;
     cli: object;
   }>,
-): string {
+): Readonly<{
+  hostRecoveryId: string;
+  lifecycleAbsenceCapability: object;
+}> {
   const observation = isObject(capability)
     ? (absenceCapabilities.get(capability) ?? null)
     : null;
@@ -749,7 +911,22 @@ function confirmDockerAbsence(
     "docker_absent_confirmed",
   );
   if (isObject(capability)) absenceCapabilities.delete(capability);
-  return updated;
+  const lifecycleAbsenceCapability = Object.freeze({
+    kind: "dynamic_fake_provider_absence",
+  });
+  dynamicLifecycleAbsences.set(
+    lifecycleAbsenceCapability,
+    Object.freeze({
+      probeId: expected.probeId,
+      containerId: expected.id,
+      initialHostRecoveryId: hostRecoveryId,
+      confirmedHostRecoveryId: updated,
+    }),
+  );
+  return Object.freeze({
+    hostRecoveryId: updated,
+    lifecycleAbsenceCapability,
+  });
 }
 
 function recoveryRecordPath(management: string): string {
@@ -1187,14 +1364,32 @@ function finishHostRecovery(
   hostRecoveryId: string,
   baseResult: DockerProbeResult,
   probeId: string,
-): DockerProbeResult {
+  lifecycleAbsenceCapability: object,
+): Readonly<{
+  result: DockerProbeResult;
+  lifecycleHostCleanupCapability: object | null;
+}> {
   const recovered = recoverOwnedOperationDirectories(hostRecoveryId);
-  return normalizeHostCleanupResult(
+  const result = normalizeHostCleanupResult(
     recovered,
     hostRecoveryId,
     baseResult,
     probeId,
   );
+  if (!result.hostCleanupCompleted)
+    return Object.freeze({ result, lifecycleHostCleanupCapability: null });
+  const lifecycleHostCleanupCapability = Object.freeze({
+    kind: "dynamic_fake_provider_host_cleanup",
+  });
+  dynamicLifecycleHostCleanups.set(
+    lifecycleHostCleanupCapability,
+    Object.freeze({
+      probeId,
+      confirmedHostRecoveryId: hostRecoveryId,
+      absenceCapability: lifecycleAbsenceCapability,
+    }),
+  );
+  return Object.freeze({ result, lifecycleHostCleanupCapability });
 }
 
 export function normalizeHostCleanupResult(
@@ -1358,12 +1553,18 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
               "dynamic_fake_provider_absence_unconfirmed",
             ),
           };
+          mounts = verifyOwnedMountCapability(mountCapability);
           dynamicLifecycleCapability =
             createDynamicFakeProviderLifecycleCapability(
               execution,
               lifecycleElapsedMs,
+              {
+                probeId,
+                containerId: identity.id,
+                mountCapability,
+                hostRecoveryId,
+              },
             );
-          mounts = verifyOwnedMountCapability(mountCapability);
         }
       }
     }
@@ -1384,10 +1585,11 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
           mounts,
           hostRecoveryId,
         );
-        if (!cleanup.confirmed)
+        if (!cleanup.confirmed) {
+          invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
           result = blocked(cleanup.reason, probeId, true, recoveryId);
-        else {
-          hostRecoveryId = confirmDockerAbsence(
+        } else {
+          const absence = confirmDockerAbsence(
             hostRecoveryId,
             cleanup.absenceCapability,
             {
@@ -1397,16 +1599,62 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
               cli,
             },
           );
-          result = finishHostRecovery(hostRecoveryId, result, probeId);
-          result = {
-            ...result,
-            fakeProviderLifecycle: confirmDynamicFakeProviderAbsence(
-              dynamicLifecycleCapability ?? Object.freeze({}),
-              result.hostCleanupCompleted,
-            ),
-          };
+          hostRecoveryId = absence.hostRecoveryId;
+          const hostCleanup = finishHostRecovery(
+            hostRecoveryId,
+            result,
+            probeId,
+            absence.lifecycleAbsenceCapability,
+          );
+          result = hostCleanup.result;
+          if (
+            dynamicLifecycleCapability &&
+            mountCapability &&
+            containerIdentity &&
+            result.status === "confirmed" &&
+            result.hostCleanupCompleted &&
+            hostCleanup.lifecycleHostCleanupCapability
+          ) {
+            const finalizationCapability =
+              createDynamicFakeProviderFinalizationCapability(
+                dynamicLifecycleCapability,
+                {
+                  probeId,
+                  containerId: containerIdentity.id,
+                  mountCapability,
+                  absenceCapability: absence.lifecycleAbsenceCapability,
+                  hostCleanupCapability:
+                    hostCleanup.lifecycleHostCleanupCapability,
+                },
+              );
+            const lifecycle = finalizeDynamicFakeProviderLifecycle(
+              dynamicLifecycleCapability,
+              finalizationCapability,
+            );
+            result = {
+              ...result,
+              status:
+                lifecycle.status === "verified" ? result.status : "blocked",
+              reason:
+                lifecycle.status === "verified"
+                  ? result.reason
+                  : lifecycle.reason,
+              fakeProviderLifecycle: lifecycle,
+            };
+          } else {
+            invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
+            result = {
+              ...result,
+              status: "blocked",
+              reason: "dynamic_fake_provider_finalization_incomplete",
+              fakeProviderLifecycle: dynamicFakeLifecycleBlocked(
+                "dynamic_fake_provider_finalization_incomplete",
+              ),
+            };
+          }
         }
       } catch {
+        invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
         result = blocked(
           "docker_probe_cleanup_failed",
           probeId,
@@ -1415,6 +1663,7 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
         );
       }
     } else if (!hasSubmissionStarted) {
+      invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
       result = finishPreSubmissionCleanup(
         owned,
         hostRecoveryId,
@@ -1422,6 +1671,8 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
         probeId,
       );
     }
+    if (hasSubmissionStarted && !containerCapability)
+      invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
   }
   return {
     ...result,
@@ -1616,7 +1867,7 @@ export function recoverDockerIsolationProbe(token: unknown) {
         absenceCapability = cleanup.absenceCapability;
       }
     }
-    const hostRecoveryId = confirmDockerAbsence(
+    const absence = confirmDockerAbsence(
       recovery.record.hostRecoveryId,
       absenceCapability,
       {
@@ -1626,12 +1877,16 @@ export function recoverDockerIsolationProbe(token: unknown) {
         cli,
       },
     );
-    activeRecoveryId = hostRecoveryId;
-    const recovered = recoverOwnedOperationDirectories(hostRecoveryId);
-    const normalized = normalizeHostCleanupResult(recovered, hostRecoveryId, {
-      status: "recovered",
-      reason: "docker_probe_recovery_completed",
-    });
+    activeRecoveryId = absence.hostRecoveryId;
+    const recovered = recoverOwnedOperationDirectories(absence.hostRecoveryId);
+    const normalized = normalizeHostCleanupResult(
+      recovered,
+      absence.hostRecoveryId,
+      {
+        status: "recovered",
+        reason: "docker_probe_recovery_completed",
+      },
+    );
     return normalized.hostCleanupCompleted
       ? normalized
       : { ...normalized, status: "blocked" };

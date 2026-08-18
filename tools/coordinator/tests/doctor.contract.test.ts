@@ -34,6 +34,7 @@ import {
   classifyRecoveryChildren,
   dockerCreateArgumentsForFixture,
   evaluateDockerCliCandidateForFixture,
+  evaluateDynamicFakeProviderFinalizationForFixture,
   normalizeContainerAbsence,
   normalizeContainerCreation,
   normalizeDockerIsolationResult,
@@ -2185,12 +2186,111 @@ test("動的Fake lifecycleはtimeoutと出力上限をcancelから分離する",
   }
 });
 
+test("動的Fake lifecycleは30秒内の有限safe integer時間だけを候補にする", () => {
+  const complete = {
+    marker: "crdd-coordinator-isolation-v1",
+    allowed_writes: { workspace: true, "provider-home": true, tmp: true },
+    runtime_paths_absent: true,
+    credential_names_absent: true,
+    network_blocked: true,
+    home_isolated: true,
+    tmp_isolated: true,
+  };
+  const execution = {
+    status: 0,
+    signal: null,
+    stdout: JSON.stringify(complete),
+    stderr: "",
+  };
+  for (const elapsed of [
+    -1,
+    0.5,
+    30_001,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ]) {
+    const observed = normalizeDynamicFakeProviderLifecycleForFixture(
+      execution,
+      elapsed,
+    );
+    assert.equal(observed.status, "blocked");
+    assert.equal(observed.reason, "dynamic_fake_provider_elapsed_invalid");
+    assert.equal(observed.fakeProviderExecuted, false);
+  }
+  assert.equal(
+    normalizeDynamicFakeProviderLifecycleForFixture(execution, 30_000).status,
+    "candidate",
+  );
+});
+
+test("動的Fake lifecycleはexact終了状態と両出力上限を要求する", () => {
+  const complete = JSON.stringify({
+    marker: "crdd-coordinator-isolation-v1",
+    allowed_writes: { workspace: true, "provider-home": true, tmp: true },
+    runtime_paths_absent: true,
+    credential_names_absent: true,
+    network_blocked: true,
+    home_isolated: true,
+    tmp_isolated: true,
+  });
+  for (const execution of [
+    { status: 0, signal: "SIGTERM" as const, stdout: complete, stderr: "" },
+    { status: 0, signal: null, stdout: complete, stderr: "x".repeat(65_537) },
+    { status: 0, signal: null, stdout: complete },
+  ]) {
+    const observed = normalizeDynamicFakeProviderLifecycleForFixture(
+      execution,
+      1,
+    );
+    assert.equal(observed.status, "blocked");
+    assert.equal(
+      observed.reason,
+      "dynamic_fake_provider_execution_envelope_invalid",
+    );
+  }
+});
+
+test("動的Fake finalization候補は同一runの全成立軸をANDする", () => {
+  const complete = {
+    hasRepositoryOwnedProvenance: true,
+    hasExactResult: true,
+    hasValidElapsed: true,
+    hasPostRunMountIdentity: true,
+    hasContainerAbsence: true,
+    hasHostCleanup: true,
+    hasMatchingRunIdentity: true,
+  };
+  const candidate = evaluateDynamicFakeProviderFinalizationForFixture(complete);
+  assert.equal(candidate.status, "candidate");
+  assert.equal(candidate.observationAuthority, false);
+  for (const key of Object.keys(complete) as (keyof typeof complete)[]) {
+    const blocked = evaluateDynamicFakeProviderFinalizationForFixture({
+      ...complete,
+      [key]: false,
+    });
+    assert.equal(blocked.status, "blocked", key);
+    assert.equal(blocked.observationAuthority, false);
+  }
+});
+
 test("動的Fake lifecycleのprovenance発行APIをcallerへ公開しない", () => {
   assert.equal(
     "createDynamicFakeProviderLifecycleCapability" in dockerIsolation,
     false,
   );
   assert.equal("confirmDynamicFakeProviderAbsence" in dockerIsolation, false);
+  assert.equal(
+    "createDynamicFakeProviderFinalizationCapability" in dockerIsolation,
+    false,
+  );
+  assert.equal(
+    "finalizeDynamicFakeProviderLifecycle" in dockerIsolation,
+    false,
+  );
+  assert.equal(
+    "invalidateDynamicFakeProviderLifecycle" in dockerIsolation,
+    false,
+  );
 });
 
 test("Docker mount capabilityはfactory所有objectだけを受理しchild置換を拒否する", () => {
