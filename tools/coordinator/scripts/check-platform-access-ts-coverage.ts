@@ -74,7 +74,7 @@ type SourceCoverage = Readonly<{
   uncoveredBranches: readonly Branch[];
 }>;
 
-type CoverageObligation = Readonly<{
+export type CoverageObligation = Readonly<{
   status: "Not Verified";
   reason: string;
   risk: string;
@@ -251,7 +251,7 @@ function oneValue(lines: readonly string[], prefix: string) {
   return count(values[0]?.slice(prefix.length) ?? "", prefix);
 }
 
-function normalizeSource(raw: string) {
+function normalizeSource(raw: string, expectedSources: readonly string[]) {
   if (raw.length === 0 || raw.includes("\0") || path.isAbsolute(raw)) {
     throw new Error("invalid LCOV source");
   }
@@ -263,7 +263,7 @@ function normalizeSource(raw: string) {
   if (
     relative !== normalized ||
     relative.startsWith("../") ||
-    !PLATFORM_ACCESS_TS_COVERAGE_SOURCES.includes(relative)
+    !expectedSources.includes(relative)
   ) {
     throw new Error("unexpected LCOV source");
   }
@@ -402,7 +402,13 @@ function lcovRecords(raw: string) {
   return records;
 }
 
-export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
+export function parseExactTsCoverageLcov(
+  raw: unknown,
+  configuration: Readonly<{
+    sources: readonly string[];
+    obligations: Readonly<Record<string, CoverageObligation>>;
+  }>,
+) {
   if (
     typeof raw !== "string" ||
     Buffer.byteLength(raw, "utf8") > MAXIMUM_LCOV_BYTES
@@ -418,7 +424,10 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
     }
     const sourceLines = lines.filter((line) => line.startsWith("SF:"));
     if (sourceLines.length !== 1) throw new Error("invalid SF count");
-    const source = normalizeSource(sourceLines[0]?.slice(3) ?? "");
+    const source = normalizeSource(
+      sourceLines[0]?.slice(3) ?? "",
+      configuration.sources,
+    );
     if (sources.has(source)) throw new Error("duplicate SF");
     const lineTotals = Object.freeze({
       covered: oneValue(lines, "LH:"),
@@ -467,22 +476,20 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
     );
   }
   if (
-    sources.size !== PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length ||
-    PLATFORM_ACCESS_TS_COVERAGE_SOURCES.some((source) => !sources.has(source))
+    sources.size !== configuration.sources.length ||
+    configuration.sources.some((source) => !sources.has(source))
   ) {
     throw new Error("LCOV source population mismatch");
   }
-  const orderedSources = PLATFORM_ACCESS_TS_COVERAGE_SOURCES.map((source) => {
+  const orderedSources = configuration.sources.map((source) => {
     const value = sources.get(source);
     if (!value) throw new Error("LCOV source population mismatch");
     return value;
   });
   if (
-    Object.keys(sourceCoverageObligations).length !==
-      PLATFORM_ACCESS_TS_COVERAGE_SOURCES.length ||
-    PLATFORM_ACCESS_TS_COVERAGE_SOURCES.some(
-      (source) => !sourceCoverageObligations[source],
-    )
+    Object.keys(configuration.obligations).length !==
+      configuration.sources.length ||
+    configuration.sources.some((source) => !configuration.obligations[source])
   ) {
     throw new Error("coverage obligation population mismatch");
   }
@@ -506,7 +513,7 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
             line: branch.line,
             block: branch.block,
             branch: branch.branch,
-            obligation: sourceCoverageObligations[source.source],
+            obligation: configuration.obligations[source.source],
           }),
         ),
       ),
@@ -516,6 +523,13 @@ export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
       functions: total("functions"),
       branches: total("branches"),
     }),
+  });
+}
+
+export function parsePlatformAccessTsCoverageLcov(raw: unknown) {
+  return parseExactTsCoverageLcov(raw, {
+    sources: PLATFORM_ACCESS_TS_COVERAGE_SOURCES,
+    obligations: sourceCoverageObligations,
   });
 }
 

@@ -116,6 +116,7 @@ const CONTEXT = Object.freeze({
   profileId: "PROFILE-000001",
   operationId: "OP-000001",
   scopeId: "SCOPE-000001",
+  providerHomeMountGrantRef: "PHMGRANT-000001",
 });
 
 test("Runtime時計でGrantを起動直前に再確認する候補を作る", () => {
@@ -135,6 +136,15 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
   assert.equal(result.runtimeCapabilityIssued, false);
   assert.equal(result.verification.operationId, CONTEXT.operationId);
   assert.equal(result.verification.scopeId, CONTEXT.scopeId);
+  assert.equal(
+    result.verification.providerHomeMountGrantRef,
+    CONTEXT.providerHomeMountGrantRef,
+  );
+  assert.equal(result.verification.providerHomeMountGrantIssued, false);
+  assert.equal(
+    result.verification.providerHomeMountGrantVerification,
+    "not_implemented",
+  );
   assert.equal(result.verification.trustPolicyId, trustPolicy.policyId);
   assert.equal(
     result.verification.trustPolicyRevision,
@@ -172,6 +182,36 @@ test("呼出側時刻を受理せず固定Contextだけを使う", () => {
     "blocked",
   );
   assert.equal(getterCalls, 0);
+});
+
+test("Prelaunch contextはMount Grant参照の欠落、namespace差およびref差を拒否する", () => {
+  const { rawProfile, bundle } = fixture();
+  const { providerHomeMountGrantRef: unusedRef, ...missing } = CONTEXT;
+  void unusedRef;
+  for (const changed of [
+    missing,
+    { ...CONTEXT, providerHomeMountGrantRef: "AUTH-000001" },
+    { ...CONTEXT, providerHomeMountGrantRef: "CGRANT-000001" },
+    { ...CONTEXT, providerHomeMountGrantRef: "PHMGRANT-000002" },
+    { ...CONTEXT, extra: true },
+  ]) {
+    const isReferenceMismatch =
+      "providerHomeMountGrantRef" in changed &&
+      changed.providerHomeMountGrantRef === "PHMGRANT-000002";
+    const result = reverifyAuthorityBeforeProviderLaunch(
+      rawProfile,
+      bundle,
+      changed,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      isReferenceMismatch
+        ? "authority_provider_home_mount_grant_context_mismatch"
+        : "prelaunch_authority_context_invalid",
+    );
+    assert.equal(result.runtimeCapabilityIssued, false);
+  }
 });
 
 test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", () => {

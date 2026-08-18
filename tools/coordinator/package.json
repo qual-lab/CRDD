@@ -15,7 +15,7 @@
     "platform-access:lint": "cargo clippy --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc -- -D warnings",
     "platform-access:test": "cargo test --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",
     "platform-access:ts-coverage": "node ./scripts/check-platform-access-ts-coverage.ts",
-    "provider-authority:coverage": "node --experimental-test-coverage --test --test-coverage-include=src/security/provider-isolation-profile.ts --test-coverage-include=src/security/authority-grant-verifier.ts --test-coverage-include=src/security/plain-data-snapshot.ts ./tests/plain-data-snapshot.contract.test.ts ./tests/provider-isolation-profile.contract.test.ts ./tests/authority-grant-verifier.contract.test.ts ./tests/authority-trust-loader.contract.test.ts ./tests/authority-file-bundle.contract.test.ts ./tests/authority-prelaunch-verifier.contract.test.ts ./tests/egress-proxy-policy.contract.test.ts",
+    "provider-authority:coverage": "node ./scripts/check-provider-authority-coverage.ts",
     "provider-lifecycle:coverage": "node --experimental-test-coverage --test ./tests/plain-data-snapshot.contract.test.ts ./tests/provider-lifecycle.contract.test.ts",
     "release-key:generate": "node ./scripts/generate-release-key.ts",
     "release-manifest:sign": "node ./scripts/sign-release-manifest.ts",

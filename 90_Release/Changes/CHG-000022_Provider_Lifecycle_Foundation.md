@@ -80,18 +80,20 @@ private doctor JSONは`reportVersion:2`から3へのbreaking変更である。ve
 Node.js v24.19.0で次を実行した。
 
 - Coordinator `check`: TypeScript型検査、Biome Warning拒否、format確認がPass
-- Coordinator全contract test: 359／359 Pass
+- Coordinator全contract test: 362／362 Pass
 - Provider lifecycle／plain-data snapshot test: 15／15 Pass
 - 固定coverage母集団: production source 2（`provider-lifecycle.ts`、直接依存`plain-data-snapshot.ts`）／test 2。両sourceと合計のlines、functions、branchesは100.00%、未到達branch 0
-- source closure: Coordinator production 62、Coordinator test 54、Checker／template 5、Rust 4、unique total 122で完全一致
+- source closure: Coordinator production 62、Coordinator test 55、Checker／template 5、Rust 4、unique total 124で完全一致
 - Checker命名／参照試験: 5／5 Pass
-- 公式Repository full checker: 488 files、308 Markdown、1899 links、565 anchors、26 Related、26 versioned documents、8 stable IDs、68 remediation rows、Error 0／Warning 0
+- 公式Repository full checker: 490 files、308 Markdown、1900 links、565 anchors、26 Related、26 versioned documents、8 stable IDs、68 remediation rows、Error 0／Warning 0
 
 coverage commandは`npm run provider-lifecycle:coverage --prefix tools/coordinator`である。Node built-in coverageが列挙する固定2 sourceを同じ2 contract testで測定し、入力snapshotのreflection failure、array length欠落／超過を含む全分岐を通す。100%は純粋な合成claim評価と直接依存だけの結果であり、Fake／実Provider process、Docker、OAuth、Egress、Home保護またはprocess不存在の実測を意味しない。
 
-Profile／Authority revision 2は`npm run provider-authority:coverage --prefix tools/coordinator`で固定3 source（`provider-isolation-profile.ts`、`authority-grant-verifier.ts`、`plain-data-snapshot.ts`）と直接／上位利用側7 testを測定し、62／62 Passだった。source別のlines／branches／functionsは順にProfile 99.21%／90.36%／100%、Authority 99.21%／90.91%／100%、snapshot 100%／100%／100%、合計99.33%／92.09%／100%である。未到達lineはProfile 229–230、Authority 337–338および488–489の防御的catchだけで、exact plain-data snapshotと検証済みprimitiveから到達させる入力を公開contractが持たない。残る未到達branchは、複合fail-closed述語内で同じ固定reasonへ合流する個別短絡条件とこの防御的catchである。現在の品質状態は`Partially Verified`で、100%とは表明しない。
+Profile／Authority revision 2は`npm run provider-authority:coverage --prefix tools/coordinator`で、固定4 source（`provider-isolation-profile.ts`、`authority-grant-verifier.ts`、`authority-prelaunch-verifier.ts`、直接依存`plain-data-snapshot.ts`）と固定7 test（plain-data snapshot、Profile、Grant Verifier、Trust Loader、File Bundle、Prelaunch Verifier、Egress Policyの各contract test）を測定する。runnerはRepository所有のexact LCOV parserを使い、missing／extra／duplicate source、summary不一致および未知recordを拒否し、同じ母集団を連続2回測定したcompact JSON UTF-8 byte＋末尾LF exact 1件の完全一致を要求する。
 
-未到達branchの義務は、(1) Profile shape／ID／auth method／Authority参照／専用Homeマウント許可結合／Origin、(2) Registry shape／revision／時刻／Grant shape／参照重複／Provider・Profile・Operation・Scope・Hash結合、(3) 防御的catch、の3群へ接続する。(1)と(2)は正負・境界・旧revision・namespace混入・上限・上位File Bundle経路のcontract testを代替確認とし、(3)は動的入力をsnapshot前に拒否する試験を代替確認とする。残存riskは同じreasonへ合流する未到達短絡条件の退行をbranch単位で直ちに検出できないこと、OwnerはQual-Lab、追加人間判断は不要、再確認契機はProfile／Registry predicate、snapshot境界、Node coverageのbranch Identity出力またはproduction binder着手時である。上位Trust Loader、File Bundle、Prelaunch、Egressおよびdoctorは今回decision branchを新設せずrev2 fixture／投影だけを消費するため、各contract testを適用し、別の新規branch coverage母集団へ重複計上しない。
+是正後のsource別lines／functions／branchesは、Profile `256/258`・`12/12`・`73/81`、Grant Verifier `516/520`・`20/20`・`172/189`、Prelaunch Verifier `125/129`・`5/5`・`28/32`、plain-data snapshot `141/141`・`4/4`・`45/45`、合計`1038/1048`・`41/41`・`318/347`である。未到達branch 29件は割合から逆算せず、同じ決定論的stdoutにsource、line、block、branchと、reason、risk、代替確認、Owner=`Qual-Lab`、`humanDecision:not_required`、再確認契機を1件ずつ保持する。stdoutは22,855 byte、SHA-256は`9E977582DC761529A79754AE3CF79EA445C557CC69CBF9640347C3A396B01684`、連続実行payload SHA-256は`F40DB2D78D765DF03556CAB1D2FBC2C73537FCB2D6F5CB95289D3B996BE6E3EA`である。現在の品質状態は`Partially Verified`で、100%とは表明しない。
+
+未到達義務はsourceごとに分離する。Profileはshape、ID、auth method、Authority参照、専用Homeマウント許可結合、Originおよび防御的catch、Grant VerifierはRegistry、Grant、時刻、参照重複、Provider／Profile／Operation／Scope／Hash／専用Homeマウント許可参照の四者結合および防御的catch、Prelaunch VerifierはRuntime時計、Bundle failureとProvider／Profile／Operation／Scope／専用Homeマウント許可参照の起動直前照合、snapshotは全branch到達済みである。代替確認は各sourceの正負・境界・旧revision・namespace混入・上限・動的入力および上位File Bundle／Egress経路のcontract testである。残存riskは同じ固定reasonへ合流する稀な短絡順序または防御的catchの退行をbranch実行で直ちに検出できないこと、再確認契機は各predicate、snapshot境界、Node coverageのbranch Identity出力またはproduction binder着手時である。Trust Loader、File Bundle、Egressおよびdoctorは新しいdecision branchを所有せず、fixture／文字列投影の利用側としてcontract testを適用する。Prelaunch VerifierはProvider、Profile、Operation、Scopeおよび専用Homeマウント許可参照を判定するため固定coverage母集団へ含める。
 
 実Docker、実OAuth、Provider公式image、実Egress、実quotaおよび実process-tree terminationは`Not Verified`である。残存riskは、Provider仕様やquota出力の変化、Home外Credential書込み、自動更新、Egress迂回および子process残存である。代替確認はFake Coreの正負・境界試験と既存Docker隔離Probeに限定し、OwnerはQual-Lab、再確認契機は固定image／login／Egress／実Provider Adapterのいずれかへの着手時とする。
 
@@ -123,3 +125,14 @@ Profile／Authority revision 2は`npm run provider-authority:coverage --prefix t
 | C-07／C-11、claim `Not Eligible` | Conformance | Fail | Finding分類の対象外 | 上記構造是正を反映し、`Applied / Self-checked` |
 
 全処置は`Applied / Self-checked — pending independent re-review`であり、`Resolved`、`Verified`、採用、統合、準拠、StableまたはReleaseを意味しない。
+
+二次是正版はCommit `3c3021a6769d9e0dd202950d5def4b70577333e4`、Tree `6547c3639dc38cf34b8d8d3b00f8d498f7f226f7`、Parent `dd8bcec8d209e6ebb20e5ade6af6da827cdaae5a`である。Agent／Architecture／Securityは`Fail`（Moderate 1）、Documentは`Conditional`（Minor 1）、Gapは`Fail`（Major 1）、Conformanceは`Fail`（C-07／PL-16、claim `Not Eligible`）だった。この集合も`Invalidated`で現在判定へ流用しない。
+
+| ID／判定 | 監査 | 重大度 | 4分類 | 現在の処置 |
+|---|---|---|---|---|
+| `ASR-22-R2-001` | Agent／Architecture／Security | Moderate | 今回の修正によって新たに発生した | 起動直前contextへ専用Homeマウント許可参照を必須化し、Profile／Registryとのexact照合を追加して`Applied / Self-checked` |
+| `DOC-PROV-R04` | Document | Minor | 今回の修正によって新たに発生した | READMEからprivate doctor revision 3の互換境界とCHG正本へ接続し、`Applied / Self-checked` |
+| `GCI-22-R3-001` | Gap／Impact | Major | 今回の修正によって新たに発生した | Prelaunchを含むexact 4-source coverageと全未到達branch義務へ修正し、`Applied / Self-checked` |
+| C-07／PL-16、claim `Not Eligible` | Conformance | Fail | Finding分類の対象外 | context利用側と品質記録を同期し、`Applied / Self-checked` |
+
+この二次是正への処置も`Applied / Self-checked — pending independent re-review`であり、新固定版の必須監査集合が完了するまで`Resolved`または`Verified`へ昇格しない。

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import {
+  isProviderHomeMountGrantRef,
   PROVIDER_INPUT_LIMITS,
   validateProviderIsolationProfile,
 } from "./provider-isolation-profile.ts";
@@ -16,7 +17,6 @@ export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 2;
 const REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 const GRANT_REF = /^AUTH-[0-9]{6,}$/u;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
-const PROVIDER_HOME_MOUNT_GRANT_REF = /^PHMGRANT-[0-9]{6,}$/u;
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
@@ -217,7 +217,7 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
     typeof providerHomeMountGrant.grantRef !== "string" ||
     providerHomeMountGrant.grantRef.length >
       PROVIDER_INPUT_LIMITS.identifierLength ||
-    !PROVIDER_HOME_MOUNT_GRANT_REF.test(providerHomeMountGrant.grantRef) ||
+    !isProviderHomeMountGrantRef(providerHomeMountGrant.grantRef) ||
     providerHomeMountGrant.provider !== snapshot.provider ||
     providerHomeMountGrant.profileId !== snapshot.profileId ||
     providerHomeMountGrant.operationId !== snapshot.operationId ||
@@ -378,7 +378,14 @@ function evaluateAuthorityGrantCandidateInternal(
     return blocked("authority_registry_invalid");
   const contextSnapshot = snapshotPlainRecord(
     context,
-    new Set(["provider", "profileId", "operationId", "scopeId", "now"]),
+    new Set([
+      "provider",
+      "profileId",
+      "operationId",
+      "scopeId",
+      "providerHomeMountGrantRef",
+      "now",
+    ]),
   );
   if (
     !contextSnapshot ||
@@ -393,7 +400,8 @@ function evaluateAuthorityGrantCandidateInternal(
     !OPERATION_ID.test(contextSnapshot.operationId) ||
     typeof contextSnapshot.scopeId !== "string" ||
     contextSnapshot.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !SCOPE_ID.test(contextSnapshot.scopeId)
+    !SCOPE_ID.test(contextSnapshot.scopeId) ||
+    !isProviderHomeMountGrantRef(contextSnapshot.providerHomeMountGrantRef)
   )
     return blocked("authority_context_invalid");
   const now = normalizeNow(contextSnapshot.now);
@@ -436,6 +444,14 @@ function evaluateAuthorityGrantCandidateInternal(
     canonicalJson(profileResult.profile.providerHomeMountGrant)
   ) {
     return blocked("authority_provider_home_mount_grant_mismatch");
+  }
+  if (
+    contextSnapshot.providerHomeMountGrantRef !==
+      profileResult.profile.providerHomeMountGrant.grantRef ||
+    contextSnapshot.providerHomeMountGrantRef !==
+      grant.providerHomeMountGrant.grantRef
+  ) {
+    return blocked("authority_provider_home_mount_grant_context_mismatch");
   }
   if (
     grant.operationId !== contextSnapshot.operationId ||

@@ -1,6 +1,9 @@
 import { evaluateAuthorityGrantCandidate } from "./authority-grant-verifier.ts";
 import { loadAuthorityFileBundleCandidate } from "./authority-file-bundle.ts";
-import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.ts";
+import {
+  isProviderHomeMountGrantRef,
+  PROVIDER_INPUT_LIMITS,
+} from "./provider-isolation-profile.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
@@ -11,6 +14,7 @@ const CONTEXT_KEYS = new Set([
   "profileId",
   "operationId",
   "scopeId",
+  "providerHomeMountGrantRef",
 ]);
 const INTRINSIC_DATE = Date;
 const INTRINSIC_DATE_NOW = Date.now;
@@ -46,7 +50,8 @@ function normalizeContext(rawContext: unknown) {
     !OPERATION_ID.test(context.operationId) ||
     typeof context.scopeId !== "string" ||
     context.scopeId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !SCOPE_ID.test(context.scopeId)
+    !SCOPE_ID.test(context.scopeId) ||
+    !isProviderHomeMountGrantRef(context.providerHomeMountGrantRef)
   )
     return null;
   return Object.freeze({
@@ -54,6 +59,7 @@ function normalizeContext(rawContext: unknown) {
     profileId: context.profileId,
     operationId: context.operationId,
     scopeId: context.scopeId,
+    providerHomeMountGrantRef: context.providerHomeMountGrantRef,
   });
 }
 
@@ -80,6 +86,7 @@ export function reverifyAuthorityBeforeProviderLaunch(
         profileId: context.profileId,
         operationId: context.operationId,
         scopeId: context.scopeId,
+        providerHomeMountGrantRef: context.providerHomeMountGrantRef,
         now: evaluatedAt,
       },
     );

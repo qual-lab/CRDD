@@ -48,6 +48,10 @@ function matches(value: unknown, pattern: RegExp): value is string {
   );
 }
 
+export function isProviderHomeMountGrantRef(value: unknown): value is string {
+  return matches(value, PROVIDER_HOME_MOUNT_GRANT_REF);
+}
+
 function normalizeOrigin(value: unknown) {
   if (typeof value !== "string" || value.includes("*")) return null;
   let parsed: URL;
@@ -152,7 +156,7 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
     return blocked("authority_reference_invalid");
 
   if (
-    !matches(providerHomeMountGrant.grantRef, PROVIDER_HOME_MOUNT_GRANT_REF) ||
+    !isProviderHomeMountGrantRef(providerHomeMountGrant.grantRef) ||
     providerHomeMountGrant.provider !== top.provider ||
     providerHomeMountGrant.profileId !== top.profileId ||
     providerHomeMountGrant.operationId !== top.operationId ||

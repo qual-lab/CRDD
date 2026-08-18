@@ -81,6 +81,7 @@ const context = {
   profileId: "PROFILE-000001",
   operationId: "OP-000001",
   scopeId: "SCOPE-000001",
+  providerHomeMountGrantRef: "PHMGRANT-000001",
   now: "2026-08-11T00:30:00.000Z",
 };
 
@@ -126,6 +127,15 @@ test("Grant照合はOperationとScopeを含む候補根拠を返す", () => {
   );
   assert.equal(result.verification.operationId, context.operationId);
   assert.equal(result.verification.scopeId, context.scopeId);
+  assert.equal(
+    result.verification.providerHomeMountGrantRef,
+    context.providerHomeMountGrantRef,
+  );
+  assert.equal(result.verification.providerHomeMountGrantIssued, false);
+  assert.equal(
+    result.verification.providerHomeMountGrantVerification,
+    "not_implemented",
+  );
   assert.equal(result.verification.validUntil, "2026-08-12T00:00:00.000Z");
 });
 
@@ -253,12 +263,39 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
       { ...context, profileId: "PROFILE-000002" },
       "authority_provider_profile_operation_mismatch",
     ],
+    [
+      registry(),
+      { ...context, providerHomeMountGrantRef: "PHMGRANT-000002" },
+      "authority_provider_home_mount_grant_context_mismatch",
+    ],
   ];
   for (const [rawRegistry, rawContext, reason] of cases) {
     assert.equal(
       evaluateAuthorityGrantCandidate(profile(), rawRegistry, rawContext)
         .reason,
       reason,
+    );
+  }
+});
+
+test("Authority contextはMount Grant参照を必須exact keyとして検査する", () => {
+  const { providerHomeMountGrantRef: unusedRef, ...missing } = context;
+  void unusedRef;
+  for (const changed of [
+    missing,
+    { ...context, providerHomeMountGrantRef: "AUTH-000001" },
+    { ...context, providerHomeMountGrantRef: "CGRANT-000001" },
+    {
+      ...context,
+      providerHomeMountGrantRef: `PHMGRANT-${"1".repeat(
+        PROVIDER_INPUT_LIMITS.identifierLength,
+      )}`,
+    },
+    { ...context, extra: true },
+  ]) {
+    assert.equal(
+      evaluateAuthorityGrantCandidate(profile(), registry(), changed).reason,
+      "authority_context_invalid",
     );
   }
 });
