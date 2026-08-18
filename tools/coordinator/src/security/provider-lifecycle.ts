@@ -54,7 +54,7 @@ export const PROVIDER_LIFECYCLE_LIMITS = Object.freeze({
 const AUTH_POLICIES = Object.freeze({
   codex: Object.freeze({
     provider: "codex",
-    method: "existing_chatgpt_plan_subscription_oauth",
+    loginPolicy: "existing_chatgpt_plan_subscription_oauth",
     accountCardinality: 1,
     billingMode: "subscription_only",
     usageSource: "selected_chatgpt_plan_included_usage",
@@ -67,7 +67,7 @@ const AUTH_POLICIES = Object.freeze({
   }),
   claude: Object.freeze({
     provider: "claude",
-    method: "existing_subscription_oauth",
+    loginPolicy: "existing_subscription_oauth",
     accountCardinality: 1,
     billingMode: "subscription_only",
     usageSource: "selected_subscription_agent_sdk_credit",
@@ -108,7 +108,7 @@ function blocked(reason: string) {
     fakeProviderExecuted: false,
     processAbsenceVerified: false,
     resultNormalizationVerified: false,
-    credentialGrantIssued: false,
+    providerHomeMountGrantIssued: false,
   });
 }
 
@@ -238,7 +238,7 @@ function syntheticFakeObservationInternal(candidate: unknown) {
     fakeProviderExecuted: false,
     processAbsenceVerified: false,
     resultNormalizationVerified: false,
-    credentialGrantIssued: false,
+    providerHomeMountGrantIssued: false,
     operationCapabilityIssued: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,
@@ -283,9 +283,11 @@ export function describeProviderLifecycleContract() {
       tokenCopyAllowed: false,
       providerHomePathExposed: false,
       sessionContentExposed: false,
-      revokedAtOperationEnd: true,
+      revocationRequiredAtOperationEnd: true,
+      revocationImplementationState: "not_implemented",
+      revocationVerified: false,
       persistentHomeDeletedAtOperationEnd: false,
-      credentialGrantIssued: false,
+      grantIssued: false,
     }),
     limits: PROVIDER_LIFECYCLE_LIMITS,
     fixedDigestImageRequired: true,

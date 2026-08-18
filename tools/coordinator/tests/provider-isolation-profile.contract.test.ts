@@ -13,24 +13,32 @@ type ProfileFixture = Record<string, unknown> & {
   contractRevision: number;
   profileId: string;
   provider: string;
+  operationId: string;
+  authMethod: string;
   authority: Record<string, unknown>;
-  credentialGrant: Record<string, unknown>;
+  providerHomeMountGrant: Record<string, unknown>;
   egress: { origins: string[] };
 };
 
 function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     profileId: "PROFILE-000001",
     provider: "codex",
+    operationId: "OP-000001",
+    authMethod: "subscription_oauth",
     authority: {
       registryId: "AUTHREG-000001",
       grantRef: "AUTH-000001",
     },
-    credentialGrant: {
-      brokerId: "BROKER-000001",
-      grantRef: "CGRANT-000001",
+    providerHomeMountGrant: {
+      grantRef: "PHMGRANT-000001",
+      provider: "codex",
+      profileId: "PROFILE-000001",
+      operationId: "OP-000001",
+      grantIssued: false,
+      verification: "not_implemented",
     },
     egress: {
       origins: ["https://api.example.test"],
@@ -52,6 +60,13 @@ test("限定参照だけを含むProfileをAuthority確認待ち候補として�
   assert.match(result.profileHash, /^[a-f0-9]{64}$/u);
   assert.deepEqual(result.profile.egress.origins, ["https://api.example.test"]);
   assert.equal(JSON.stringify(result).includes("CRDD-v0.18"), false);
+  assert.equal(result.profile.providerHomeMountGrant.grantIssued, false);
+  assert.equal(
+    result.profile.requiredCapabilities.includes(
+      "provider_home_mount_grant_verification",
+    ),
+    true,
+  );
 });
 
 test("Profile契約はCRDD版ごとに分岐しない", () => {
@@ -59,10 +74,8 @@ test("Profile契約はCRDD版ごとに分岐しない", () => {
   assert.equal(contract.crddVersionSpecific, false);
   assert.equal(contract.supportedWriteBackend, "docker");
   assert.equal(contract.localFallbackAllowed, false);
-  assert.equal(
-    contract.genericCredentialGrant.subscriptionOauthV1Applicability,
-    "not_applicable",
-  );
+  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.authMethod, "subscription_oauth");
   assert.equal(
     contract.subscriptionOauthProviderHomeMountGrant.implementationState,
     "not_implemented",
@@ -81,10 +94,10 @@ test("秘密値らしいfieldをProfileへ混入できない", () => {
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "profile_shape_invalid");
   const nested = candidate();
-  nested.credentialGrant.secret = "secret";
+  nested.providerHomeMountGrant.secret = "secret";
   assert.equal(
     validateProviderIsolationProfile(nested).reason,
-    "credential_grant_shape_invalid",
+    "provider_home_mount_grant_shape_invalid",
   );
 });
 
@@ -101,6 +114,7 @@ test("Profile入力budgetの境界と超過をfail closedにする", () => {
       ),
     },
   });
+  maximum.providerHomeMountGrant.profileId = maximum.profileId;
   assert.equal(validateProviderIsolationProfile(maximum).status, "candidate");
   const tooMany = candidate();
   tooMany.egress.origins = Array.from(
@@ -205,11 +219,11 @@ test("Provider tokenらしい値を参照fieldへ偽装できない", () => {
       "authority_reference_invalid",
       value,
     );
-    const credential = candidate();
-    credential.credentialGrant.grantRef = value;
+    const mountGrant = candidate();
+    mountGrant.providerHomeMountGrant.grantRef = value;
     assert.equal(
-      validateProviderIsolationProfile(credential).reason,
-      "credential_grant_reference_invalid",
+      validateProviderIsolationProfile(mountGrant).reason,
+      "provider_home_mount_grant_reference_invalid",
       value,
     );
   }
@@ -226,19 +240,52 @@ test("自己申告の承認内容と旧時刻fieldをProfileへ保持できな�
   );
 });
 
-test("AuthorityとCredentialの参照namespaceを相互利用できない", () => {
+test("AuthorityとProvider Home mount Grantの参照namespaceを相互利用できない", () => {
   const authority = candidate();
-  authority.authority.grantRef = "CGRANT-000001";
+  authority.authority.grantRef = "PHMGRANT-000001";
   assert.equal(
     validateProviderIsolationProfile(authority).reason,
     "authority_reference_invalid",
   );
-  const credential = candidate();
-  credential.credentialGrant.grantRef = "AUTH-000001";
+  const mountGrant = candidate();
+  mountGrant.providerHomeMountGrant.grantRef = "AUTH-000001";
   assert.equal(
-    validateProviderIsolationProfile(credential).reason,
-    "credential_grant_reference_invalid",
+    validateProviderIsolationProfile(mountGrant).reason,
+    "provider_home_mount_grant_reference_invalid",
   );
+});
+
+test("旧revisionとgeneric Credential fieldをOAuth Profileへ混在できない", () => {
+  assert.equal(
+    validateProviderIsolationProfile(candidate({ contractRevision: 1 })).reason,
+    "profile_contract_mismatch",
+  );
+  const legacy = candidate() as Record<string, unknown>;
+  delete legacy.providerHomeMountGrant;
+  legacy.credentialGrant = {
+    brokerId: "BROKER-000001",
+    grantRef: "CGRANT-000001",
+  };
+  assert.equal(
+    validateProviderIsolationProfile(legacy).reason,
+    "profile_shape_invalid",
+  );
+});
+
+test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", () => {
+  for (const [field, value] of [
+    ["provider", "claude"],
+    ["profileId", "PROFILE-000002"],
+    ["operationId", "OP-000002"],
+  ] as const) {
+    const changed = candidate();
+    changed.providerHomeMountGrant[field] = value;
+    assert.equal(
+      validateProviderIsolationProfile(changed).reason,
+      "provider_home_mount_grant_reference_invalid",
+      field,
+    );
+  }
 });
 
 test("wildcard、平文HTTP、Path付き送信先を拒否する", () => {
@@ -253,6 +300,15 @@ test("wildcard、平文HTTP、Path付き送信先を拒否する", () => {
     assert.equal(result.status, "blocked", origin);
     assert.equal(result.reason, "egress_origin_invalid", origin);
   }
+});
+
+test("空Origin集合を固定reasonへ閉じる", () => {
+  const empty = candidate();
+  empty.egress.origins = [];
+  assert.equal(
+    validateProviderIsolationProfile(empty).reason,
+    "egress_origins_required",
+  );
 });
 
 test("未知Authority Registryと未対応Providerをfail closedにする", () => {

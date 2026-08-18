@@ -17,11 +17,20 @@ import {
 function profile(overrides = {}) {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     profileId: "PROFILE-000001",
     provider: "codex",
+    operationId: "OP-000001",
+    authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
-    credentialGrant: { brokerId: "BROKER-000001", grantRef: "CGRANT-000001" },
+    providerHomeMountGrant: {
+      grantRef: "PHMGRANT-000001",
+      provider: "codex",
+      profileId: "PROFILE-000001",
+      operationId: "OP-000001",
+      grantIssued: false,
+      verification: "not_implemented",
+    },
     egress: { origins: ["https://api.example.test"] },
     ...overrides,
   };
@@ -35,7 +44,7 @@ function registry(
   const profileHash = validateProviderIsolationProfile(rawProfile).profileHash;
   return {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: "2026-08-11T00:00:00.000Z",
@@ -47,10 +56,15 @@ function registry(
         validFrom: "2026-08-10T00:00:00.000Z",
         expiresAt: "2026-08-12T00:00:00.000Z",
         provider: "codex",
+        profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
-        credentialGrant: {
-          brokerId: "BROKER-000001",
-          grantRef: "CGRANT-000001",
+        providerHomeMountGrant: {
+          grantRef: "PHMGRANT-000001",
+          provider: "codex",
+          profileId: "PROFILE-000001",
+          operationId: "OP-000001",
+          grantIssued: false,
+          verification: "not_implemented",
         },
         operationId: "OP-000001",
         scopeId: "SCOPE-000001",
@@ -63,6 +77,8 @@ function registry(
 }
 
 const context = {
+  provider: "codex",
+  profileId: "PROFILE-000001",
   operationId: "OP-000001",
   scopeId: "SCOPE-000001",
   now: "2026-08-11T00:30:00.000Z",
@@ -75,11 +91,16 @@ function grants(
   ],
 ) {
   const base = registry().grants[0];
+  assert.ok(base);
   return Array.from({ length: count }, (unusedItem, index) => {
     void unusedItem;
     return {
       ...base,
       grantRef: `AUTH-${String(index + 1).padStart(6, "0")}`,
+      providerHomeMountGrant: {
+        ...base.providerHomeMountGrant,
+        grantRef: `PHMGRANT-${String(index + 1).padStart(6, "0")}`,
+      },
       origins: originFactory(index),
     };
   });
@@ -161,10 +182,20 @@ test("未来Grant、期限切れ、取消および置換を拒否する", () => 
   );
 });
 
-test("Provider、Origin、Credential、Operation、Scope、Profile Hashの差を拒否する", () => {
+test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差を拒否する", () => {
   const cases = [
     [
-      registry(profile(), { provider: "claude" }),
+      registry(profile(), {
+        provider: "claude",
+        providerHomeMountGrant: {
+          grantRef: "PHMGRANT-000001",
+          provider: "claude",
+          profileId: "PROFILE-000001",
+          operationId: "OP-000001",
+          grantIssued: false,
+          verification: "not_implemented",
+        },
+      }),
       context,
       "authority_provider_mismatch",
     ],
@@ -175,18 +206,32 @@ test("Provider、Origin、Credential、Operation、Scope、Profile Hashの差を
     ],
     [
       registry(profile(), {
-        credentialGrant: {
-          brokerId: "BROKER-000002",
-          grantRef: "CGRANT-000002",
+        providerHomeMountGrant: {
+          grantRef: "PHMGRANT-000002",
+          provider: "codex",
+          profileId: "PROFILE-000001",
+          operationId: "OP-000001",
+          grantIssued: false,
+          verification: "not_implemented",
         },
       }),
       context,
-      "authority_credential_grant_mismatch",
+      "authority_provider_home_mount_grant_mismatch",
     ],
     [
-      registry(profile(), { operationId: "OP-000002" }),
+      registry(profile(), {
+        operationId: "OP-000002",
+        providerHomeMountGrant: {
+          grantRef: "PHMGRANT-000001",
+          provider: "codex",
+          profileId: "PROFILE-000001",
+          operationId: "OP-000002",
+          grantIssued: false,
+          verification: "not_implemented",
+        },
+      }),
       context,
-      "authority_operation_scope_mismatch",
+      "authority_provider_profile_operation_mismatch",
     ],
     [
       registry(profile(), { scopeId: "SCOPE-000002" }),
@@ -197,6 +242,16 @@ test("Provider、Origin、Credential、Operation、Scope、Profile Hashの差を
       registry(profile(), { profileHash: "a".repeat(64) }),
       context,
       "authority_profile_hash_mismatch",
+    ],
+    [
+      registry(),
+      { ...context, provider: "claude" },
+      "authority_provider_profile_operation_mismatch",
+    ],
+    [
+      registry(),
+      { ...context, profileId: "PROFILE-000002" },
+      "authority_provider_profile_operation_mismatch",
     ],
   ];
   for (const [rawRegistry, rawContext, reason] of cases) {
@@ -231,6 +286,23 @@ test("Registry参照差、重複Grant、非UTC時刻および不正nowをfail cl
     validateAuthorityRegistryCandidate(duplicate).reason,
     "authority_registry_grant_duplicate",
   );
+  const reusedMountGrant = registry();
+  const reusedBase = reusedMountGrant.grants[0];
+  assert.ok(reusedBase);
+  reusedMountGrant.grants.push({
+    ...reusedBase,
+    grantRef: "AUTH-000002",
+  });
+  assert.equal(
+    validateAuthorityRegistryCandidate(reusedMountGrant).reason,
+    "authority_provider_home_mount_grant_duplicate",
+  );
+  assert.equal(
+    validateAuthorityRegistryCandidate(
+      registry(profile(), {}, { contractRevision: 1 }),
+    ).reason,
+    "authority_registry_contract_mismatch",
+  );
   assert.equal(
     validateAuthorityRegistryCandidate(
       registry(profile(), {
@@ -259,6 +331,26 @@ test("Registry参照差、重複Grant、非UTC時刻および不正nowをfail cl
       context,
     ).reason,
     "authority_registry_observation_in_future",
+  );
+});
+
+test("Registry revision、空Grant集合および不正Originを固定reasonへ閉じる", () => {
+  assert.equal(
+    validateAuthorityRegistryCandidate(
+      registry(profile(), {}, { registryRevision: 0 }),
+    ).reason,
+    "authority_registry_revision_invalid",
+  );
+  assert.equal(
+    validateAuthorityRegistryCandidate(registry(profile(), {}, { grants: [] }))
+      .reason,
+    "authority_registry_grants_required",
+  );
+  assert.equal(
+    validateAuthorityRegistryCandidate(
+      registry(profile(), { origins: ["not a URL"] }),
+    ).reason,
+    "authority_registry_grant_invalid",
   );
 });
 
@@ -354,7 +446,7 @@ test("Registryの巨大IDとOriginを正規化処理前に拒否する", () => {
   const cyclic = registry();
   const cyclicGrant = cyclic.grants[0];
   assert.ok(cyclicGrant);
-  Reflect.set(cyclicGrant, "credentialGrant", cyclic);
+  Reflect.set(cyclicGrant, "providerHomeMountGrant", cyclic);
   assert.doesNotThrow(() => validateAuthorityRegistryCandidate(cyclic));
   assert.equal(
     validateAuthorityRegistryCandidate(cyclic).reason,

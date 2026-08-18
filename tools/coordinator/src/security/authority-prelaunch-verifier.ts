@@ -4,8 +4,14 @@ import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
+const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
-const CONTEXT_KEYS = new Set(["operationId", "scopeId"]);
+const CONTEXT_KEYS = new Set([
+  "provider",
+  "profileId",
+  "operationId",
+  "scopeId",
+]);
 const INTRINSIC_DATE = Date;
 const INTRINSIC_DATE_NOW = Date.now;
 const INTRINSIC_DATE_TO_ISO = Date.prototype.toISOString;
@@ -30,6 +36,11 @@ function normalizeContext(rawContext: unknown) {
   const context = snapshotPlainRecord(rawContext, CONTEXT_KEYS);
   if (
     !context ||
+    typeof context.provider !== "string" ||
+    !["codex", "claude"].includes(context.provider) ||
+    typeof context.profileId !== "string" ||
+    context.profileId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !PROFILE_ID.test(context.profileId) ||
     typeof context.operationId !== "string" ||
     context.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !OPERATION_ID.test(context.operationId) ||
@@ -39,6 +50,8 @@ function normalizeContext(rawContext: unknown) {
   )
     return null;
   return Object.freeze({
+    provider: context.provider,
+    profileId: context.profileId,
     operationId: context.operationId,
     scopeId: context.scopeId,
   });
@@ -63,6 +76,8 @@ export function reverifyAuthorityBeforeProviderLaunch(
       rawProfile,
       bundle.registry,
       {
+        provider: context.provider,
+        profileId: context.profileId,
         operationId: context.operationId,
         scopeId: context.scopeId,
         now: evaluatedAt,

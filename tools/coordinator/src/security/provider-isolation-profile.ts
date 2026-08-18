@@ -6,7 +6,7 @@ import {
 
 export const PROVIDER_ISOLATION_CONTRACT =
   "crdd-coordinator/provider-isolation-profile";
-export const PROVIDER_ISOLATION_CONTRACT_REVISION = 1;
+export const PROVIDER_ISOLATION_CONTRACT_REVISION = 2;
 
 const SUPPORTED_PROVIDERS = new Set(["codex", "claude"]);
 export const PROVIDER_INPUT_LIMITS = Object.freeze({
@@ -17,15 +17,17 @@ export const PROVIDER_INPUT_LIMITS = Object.freeze({
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const AUTHORITY_REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 const AUTHORITY_GRANT_REF = /^AUTH-[0-9]{6,}$/u;
-const CREDENTIAL_BROKER_ID = /^BROKER-[0-9]{6,}$/u;
-const CREDENTIAL_GRANT_REF = /^CGRANT-[0-9]{6,}$/u;
+const OPERATION_ID = /^OP-[0-9]{6,}$/u;
+const PROVIDER_HOME_MOUNT_GRANT_REF = /^PHMGRANT-[0-9]{6,}$/u;
 const TOP_LEVEL_KEYS = new Set([
   "contract",
   "contractRevision",
   "profileId",
   "provider",
+  "operationId",
+  "authMethod",
   "authority",
-  "credentialGrant",
+  "providerHomeMountGrant",
   "egress",
 ]);
 
@@ -97,12 +99,20 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
   const authorityKeys = new Set(["registryId", "grantRef"]);
   const authority = snapshotPlainRecord(top.authority, authorityKeys);
   if (!authority) return blocked("authority_shape_invalid");
-  const credentialKeys = new Set(["brokerId", "grantRef"]);
-  const credentialGrant = snapshotPlainRecord(
-    top.credentialGrant,
-    credentialKeys,
+  const mountGrantKeys = new Set([
+    "grantRef",
+    "provider",
+    "profileId",
+    "operationId",
+    "grantIssued",
+    "verification",
+  ]);
+  const providerHomeMountGrant = snapshotPlainRecord(
+    top.providerHomeMountGrant,
+    mountGrantKeys,
   );
-  if (!credentialGrant) return blocked("credential_grant_shape_invalid");
+  if (!providerHomeMountGrant)
+    return blocked("provider_home_mount_grant_shape_invalid");
   const egressKeys = new Set(["origins"]);
   const egress = snapshotPlainRecord(top.egress, egressKeys);
   if (!egress) return blocked("egress_shape_invalid");
@@ -130,6 +140,10 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
   ) {
     return blocked("provider_not_supported");
   }
+  if (!matches(top.operationId, OPERATION_ID))
+    return blocked("profile_operation_id_invalid");
+  if (top.authMethod !== "subscription_oauth")
+    return blocked("profile_auth_method_not_supported");
 
   if (
     !matches(authority.registryId, AUTHORITY_REGISTRY_ID) ||
@@ -138,11 +152,14 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
     return blocked("authority_reference_invalid");
 
   if (
-    !matches(credentialGrant.brokerId, CREDENTIAL_BROKER_ID) ||
-    !matches(credentialGrant.grantRef, CREDENTIAL_GRANT_REF)
-  ) {
-    return blocked("credential_grant_reference_invalid");
-  }
+    !matches(providerHomeMountGrant.grantRef, PROVIDER_HOME_MOUNT_GRANT_REF) ||
+    providerHomeMountGrant.provider !== top.provider ||
+    providerHomeMountGrant.profileId !== top.profileId ||
+    providerHomeMountGrant.operationId !== top.operationId ||
+    providerHomeMountGrant.grantIssued !== false ||
+    providerHomeMountGrant.verification !== "not_implemented"
+  )
+    return blocked("provider_home_mount_grant_reference_invalid");
 
   if (rawOrigins.length === 0) {
     return blocked("egress_origins_required");
@@ -171,19 +188,25 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
     contractRevision: PROVIDER_ISOLATION_CONTRACT_REVISION,
     profileId: top.profileId,
     provider: top.provider,
+    operationId: top.operationId,
+    authMethod: "subscription_oauth",
     authority: Object.freeze({
       registryId: authority.registryId,
       grantRef: authority.grantRef,
     }),
-    credentialGrant: Object.freeze({
-      brokerId: credentialGrant.brokerId,
-      grantRef: credentialGrant.grantRef,
+    providerHomeMountGrant: Object.freeze({
+      grantRef: providerHomeMountGrant.grantRef,
+      provider: providerHomeMountGrant.provider,
+      profileId: providerHomeMountGrant.profileId,
+      operationId: providerHomeMountGrant.operationId,
+      grantIssued: false,
+      verification: "not_implemented",
     }),
     egress: Object.freeze({ origins: Object.freeze(uniqueOrigins) }),
     requiredCapabilities: Object.freeze([
       "authority_grant_verification",
       "docker_isolation",
-      "credential_broker",
+      "provider_home_mount_grant_verification",
       "provider_endpoint_proxy",
       "provider_endpoint_egress_enforcement",
     ]),
@@ -218,14 +241,13 @@ export function describeProviderIsolationContract() {
     supportedWriteBackend: "docker",
     localFallbackAllowed: false,
     rawCredentialAllowed: false,
-    genericCredentialGrant: Object.freeze({
-      semantics: "generic_short_term_credential_reference_candidate",
-      subscriptionOauthV1Applicability: "not_applicable",
-    }),
+    authMethod: "subscription_oauth",
     subscriptionOauthProviderHomeMountGrant: Object.freeze({
       contractOwner: "provider_lifecycle",
       implementationState: "not_implemented",
       tokenCopyOrInjectionAllowed: false,
+      grantIssued: false,
+      verification: "not_implemented",
     }),
     wildcardEgressAllowed: false,
   });

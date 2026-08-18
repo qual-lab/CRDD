@@ -634,7 +634,7 @@ export function runDoctor(options: unknown = {}) {
         proxyTopology: describeEgressProxyTopology(),
         activation: "blocked",
         activationReason:
-          "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented",
+          "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_provider_home_mount_grant_verification_not_implemented",
       },
       recovery: shouldRetainOperationDirectories
         ? {

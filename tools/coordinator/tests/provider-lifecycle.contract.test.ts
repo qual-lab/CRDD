@@ -48,11 +48,11 @@ function observation(overrides: Record<string, unknown> = {}) {
 test("Provider認証方針は既存subscription OAuthだけを許可する", () => {
   const contract = describeProviderLifecycleContract();
   assert.equal(
-    contract.authPolicies.codex.method,
+    contract.authPolicies.codex.loginPolicy,
     "existing_chatgpt_plan_subscription_oauth",
   );
   assert.equal(
-    contract.authPolicies.claude.method,
+    contract.authPolicies.claude.loginPolicy,
     "existing_subscription_oauth",
   );
   assert.equal(contract.apiKeyAllowed, false);
@@ -85,9 +85,11 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
   assert.equal(home.operationCleanupOwned, false);
   assert.equal(home.protectionVerification, "not_implemented");
   const grant = describeProviderLifecycleContract().providerHomeMountGrant;
-  assert.equal(grant.credentialGrantIssued, false);
+  assert.equal(grant.grantIssued, false);
   assert.equal(grant.tokenCopyAllowed, false);
-  assert.equal(grant.revokedAtOperationEnd, true);
+  assert.equal(grant.revocationRequiredAtOperationEnd, true);
+  assert.equal(grant.revocationImplementationState, "not_implemented");
+  assert.equal(grant.revocationVerified, false);
   assert.equal(grant.persistentHomeDeletedAtOperationEnd, false);
 });
 
@@ -151,7 +153,7 @@ test("synthetic Fake claimの正常形も非Authority候補に限定する", () 
   assert.equal(result.fakeProviderExecuted, false);
   assert.equal(result.processAbsenceVerified, false);
   assert.equal(result.resultNormalizationVerified, false);
-  assert.equal(result.credentialGrantIssued, false);
+  assert.equal(result.providerHomeMountGrantIssued, false);
   assert.equal(result.processTreeTerminationClaimed, true);
   assert.equal(result.containerAbsenceClaimed, true);
   assert.equal(result.spawnAllowed, false);

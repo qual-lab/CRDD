@@ -347,14 +347,41 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   const report = runDoctor();
   const serialized = JSON.stringify(report);
   assert.equal(report.reportVersion, 3);
+  assert.deepEqual(
+    Object.keys(report).sort(),
+    [
+      "blockers",
+      "checks",
+      "credentials",
+      "diagnosticMode",
+      "egress",
+      "filesystem",
+      "gitLocalExclude",
+      "node",
+      "platform",
+      "providerLifecycle",
+      "providers",
+      "recovery",
+      "repository",
+      "repositoryGitLayout",
+      "rootProtectionPolicy",
+      "runtimeActivation",
+      "runtimeRoot",
+      "runtimeRootEvaluation",
+      "runtimeRootPathIdentity",
+      "runtimeRootProtectionPrecheck",
+      "status",
+      "reportVersion",
+    ].sort(),
+  );
   assert.equal(report.diagnosticMode, "passive_preflight");
   assert.equal(report.status, "blocked");
   assert.equal(
-    report.providerLifecycle.authPolicies.codex.method,
+    report.providerLifecycle.authPolicies.codex.loginPolicy,
     "existing_chatgpt_plan_subscription_oauth",
   );
   assert.equal(
-    report.providerLifecycle.authPolicies.claude.method,
+    report.providerLifecycle.authPolicies.claude.loginPolicy,
     "existing_subscription_oauth",
   );
   assert.equal(
@@ -372,9 +399,42 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
     "not_implemented",
   );
   assert.equal(
-    report.providerLifecycle.providerHomeMountGrant.credentialGrantIssued,
+    report.providerLifecycle.providerHomeMountGrant.grantIssued,
     false,
   );
+  assert.equal(report.egress.isolationProfileContract.contractRevision, 2);
+  const providerChecks = report.checks.filter((item) =>
+    item.id.startsWith("provider."),
+  );
+  assert.equal(providerChecks[0]?.reason, report.providers.codex.reason);
+  assert.equal(providerChecks[9]?.reason, report.providers.claude.reason);
+  assert.deepEqual(
+    providerChecks
+      .filter((unusedCheck, index) => {
+        void unusedCheck;
+        return index !== 0 && index !== 9;
+      })
+      .map((item) => item.reason),
+    [
+      "subscription_oauth_explicit_login_not_evaluated",
+      "provider_egress_auth_and_fixed_image_binding_required_before_spawn",
+      "provider_fixed_image_and_auto_update_enforcement_not_implemented",
+      "provider_telemetry_policy_not_implemented",
+      "provider_session_resume_prohibited_but_not_enforced",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
+      "subscription_oauth_explicit_login_not_evaluated",
+      "provider_egress_auth_and_fixed_image_binding_required_before_spawn",
+      "provider_fixed_image_and_auto_update_enforcement_not_implemented",
+      "provider_telemetry_policy_not_implemented",
+      "provider_session_resume_prohibited_but_not_enforced",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
+      "provider_lifecycle_core_candidate_real_binding_not_implemented",
+    ],
+  );
+  assert.equal(serialized.includes("credential_broker_not_implemented"), false);
   assert.equal(
     report.providerLifecycle.dedicatedProviderHome.operationCleanupOwned,
     false,
@@ -1793,7 +1853,7 @@ test("production doctorはpassiveかつ未実装境界をReadyにしない", () 
   );
   assert.equal(
     report.egress.activationReason,
-    "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_credential_broker_not_implemented",
+    "runtime_file_bundle_path_acl_activation_provider_launch_integration_proxy_and_provider_home_mount_grant_verification_not_implemented",
   );
   assert.equal(serialized.includes("OPENAI_API_KEY="), false);
   assert.equal(serialized.includes("ANTHROPIC_API_KEY="), false);

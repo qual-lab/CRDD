@@ -11,12 +11,12 @@ import {
 
 export const AUTHORITY_REGISTRY_CONTRACT =
   "crdd-coordinator/authority-registry";
-export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 1;
+export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 2;
 
 const REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 const GRANT_REF = /^AUTH-[0-9]{6,}$/u;
-const BROKER_ID = /^BROKER-[0-9]{6,}$/u;
-const CREDENTIAL_GRANT_REF = /^CGRANT-[0-9]{6,}$/u;
+const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
+const PROVIDER_HOME_MOUNT_GRANT_REF = /^PHMGRANT-[0-9]{6,}$/u;
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const SCOPE_ID = /^SCOPE-[0-9]{6,}$/u;
 const HASH = /^[a-f0-9]{64}$/u;
@@ -45,8 +45,9 @@ const GRANT_KEYS = new Set([
   "validFrom",
   "expiresAt",
   "provider",
+  "profileId",
   "origins",
-  "credentialGrant",
+  "providerHomeMountGrant",
   "operationId",
   "scopeId",
   "profileHash",
@@ -59,8 +60,16 @@ type AuthorityGrant = {
   validFrom: string;
   expiresAt: string;
   provider: string;
+  profileId: string;
   origins: readonly string[];
-  credentialGrant: Readonly<{ brokerId: string; grantRef: string }>;
+  providerHomeMountGrant: Readonly<{
+    grantRef: string;
+    provider: string;
+    profileId: string;
+    operationId: string;
+    grantIssued: false;
+    verification: "not_implemented";
+  }>;
   operationId: string;
   scopeId: string;
   profileHash: string;
@@ -163,11 +172,18 @@ function normalizeOrigins(origins: unknown) {
 function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   const snapshot = snapshotPlainRecord(grant, GRANT_KEYS);
   if (!snapshot) return null;
-  const credentialGrant = snapshotPlainRecord(
-    snapshot.credentialGrant,
-    new Set(["brokerId", "grantRef"]),
+  const providerHomeMountGrant = snapshotPlainRecord(
+    snapshot.providerHomeMountGrant,
+    new Set([
+      "grantRef",
+      "provider",
+      "profileId",
+      "operationId",
+      "grantIssued",
+      "verification",
+    ]),
   );
-  if (!credentialGrant) return null;
+  if (!providerHomeMountGrant) return null;
   const origins = normalizeOrigins(snapshot.origins);
   if (!origins) return null;
   if (
@@ -181,6 +197,9 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
     !["active", "revoked", "replaced"].includes(snapshot.status) ||
     typeof snapshot.provider !== "string" ||
     !["codex", "claude"].includes(snapshot.provider) ||
+    typeof snapshot.profileId !== "string" ||
+    snapshot.profileId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !PROFILE_ID.test(snapshot.profileId) ||
     typeof snapshot.operationId !== "string" ||
     snapshot.operationId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
     !OPERATION_ID.test(snapshot.operationId) ||
@@ -195,12 +214,15 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   const expiresAt = normalizedUtc(snapshot.expiresAt);
   if (!validFrom || !expiresAt || validFrom >= expiresAt) return null;
   if (
-    typeof credentialGrant.brokerId !== "string" ||
-    credentialGrant.brokerId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !BROKER_ID.test(credentialGrant.brokerId) ||
-    typeof credentialGrant.grantRef !== "string" ||
-    credentialGrant.grantRef.length > PROVIDER_INPUT_LIMITS.identifierLength ||
-    !CREDENTIAL_GRANT_REF.test(credentialGrant.grantRef)
+    typeof providerHomeMountGrant.grantRef !== "string" ||
+    providerHomeMountGrant.grantRef.length >
+      PROVIDER_INPUT_LIMITS.identifierLength ||
+    !PROVIDER_HOME_MOUNT_GRANT_REF.test(providerHomeMountGrant.grantRef) ||
+    providerHomeMountGrant.provider !== snapshot.provider ||
+    providerHomeMountGrant.profileId !== snapshot.profileId ||
+    providerHomeMountGrant.operationId !== snapshot.operationId ||
+    providerHomeMountGrant.grantIssued !== false ||
+    providerHomeMountGrant.verification !== "not_implemented"
   )
     return null;
   return Object.freeze({
@@ -210,10 +232,15 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
     validFrom,
     expiresAt,
     provider: snapshot.provider,
+    profileId: snapshot.profileId,
     origins: Object.freeze(origins),
-    credentialGrant: Object.freeze({
-      brokerId: credentialGrant.brokerId,
-      grantRef: credentialGrant.grantRef,
+    providerHomeMountGrant: Object.freeze({
+      grantRef: providerHomeMountGrant.grantRef,
+      provider: providerHomeMountGrant.provider,
+      profileId: providerHomeMountGrant.profileId,
+      operationId: providerHomeMountGrant.operationId,
+      grantIssued: false,
+      verification: "not_implemented",
     }),
     operationId: snapshot.operationId,
     scopeId: snapshot.scopeId,
@@ -268,6 +295,11 @@ function validateAuthorityRegistryCandidateInternal(candidate: unknown) {
   const identities = normalizedGrants.map((grant) => grant.grantRef);
   if (new Set(identities).size !== identities.length)
     return blocked("authority_registry_grant_duplicate");
+  const mountGrantRefs = normalizedGrants.map(
+    (grant) => grant.providerHomeMountGrant.grantRef,
+  );
+  if (new Set(mountGrantRefs).size !== mountGrantRefs.length)
+    return blocked("authority_provider_home_mount_grant_duplicate");
   const registry = Object.freeze({
     contract: AUTHORITY_REGISTRY_CONTRACT,
     contractRevision: AUTHORITY_REGISTRY_CONTRACT_REVISION,
@@ -346,10 +378,15 @@ function evaluateAuthorityGrantCandidateInternal(
     return blocked("authority_registry_invalid");
   const contextSnapshot = snapshotPlainRecord(
     context,
-    new Set(["operationId", "scopeId", "now"]),
+    new Set(["provider", "profileId", "operationId", "scopeId", "now"]),
   );
   if (
     !contextSnapshot ||
+    typeof contextSnapshot.provider !== "string" ||
+    !["codex", "claude"].includes(contextSnapshot.provider) ||
+    typeof contextSnapshot.profileId !== "string" ||
+    contextSnapshot.profileId.length > PROVIDER_INPUT_LIMITS.identifierLength ||
+    !PROFILE_ID.test(contextSnapshot.profileId) ||
     typeof contextSnapshot.operationId !== "string" ||
     contextSnapshot.operationId.length >
       PROVIDER_INPUT_LIMITS.identifierLength ||
@@ -381,16 +418,24 @@ function evaluateAuthorityGrantCandidateInternal(
   if (grant.provider !== profileResult.profile.provider)
     return blocked("authority_provider_mismatch");
   if (
+    contextSnapshot.provider !== profileResult.profile.provider ||
+    contextSnapshot.profileId !== profileResult.profile.profileId ||
+    contextSnapshot.operationId !== profileResult.profile.operationId ||
+    grant.profileId !== profileResult.profile.profileId ||
+    grant.operationId !== profileResult.profile.operationId
+  )
+    return blocked("authority_provider_profile_operation_mismatch");
+  if (
     canonicalJson(grant.origins) !==
     canonicalJson(profileResult.profile.egress.origins)
   ) {
     return blocked("authority_origins_mismatch");
   }
   if (
-    canonicalJson(grant.credentialGrant) !==
-    canonicalJson(profileResult.profile.credentialGrant)
+    canonicalJson(grant.providerHomeMountGrant) !==
+    canonicalJson(profileResult.profile.providerHomeMountGrant)
   ) {
-    return blocked("authority_credential_grant_mismatch");
+    return blocked("authority_provider_home_mount_grant_mismatch");
   }
   if (
     grant.operationId !== contextSnapshot.operationId ||
@@ -408,8 +453,13 @@ function evaluateAuthorityGrantCandidateInternal(
     registryHash: registryResult.registryHash,
     grantRef: grant.grantRef,
     grantRevision: grant.grantRevision,
+    provider: contextSnapshot.provider,
+    profileId: contextSnapshot.profileId,
     operationId: contextSnapshot.operationId,
     scopeId: contextSnapshot.scopeId,
+    providerHomeMountGrantRef: grant.providerHomeMountGrant.grantRef,
+    providerHomeMountGrantIssued: false,
+    providerHomeMountGrantVerification: "not_implemented",
     evaluatedAt: now,
     validUntil: grant.expiresAt,
   });

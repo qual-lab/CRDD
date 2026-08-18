@@ -17,11 +17,20 @@ import {
 function rawProfile(overrides = {}) {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     profileId: "PROFILE-000001",
     provider: "codex",
+    operationId: "OP-000001",
+    authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
-    credentialGrant: { brokerId: "BROKER-000001", grantRef: "CGRANT-000001" },
+    providerHomeMountGrant: {
+      grantRef: "PHMGRANT-000001",
+      provider: "codex",
+      profileId: "PROFILE-000001",
+      operationId: "OP-000001",
+      grantIssued: false,
+      verification: "not_implemented",
+    },
     egress: { origins: ["https://api.example.test"] },
     ...overrides,
   };

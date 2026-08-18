@@ -27,11 +27,20 @@ import { canonicalJson } from "./test-support.ts";
 function profile() {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     profileId: "PROFILE-000001",
     provider: "codex",
+    operationId: "OP-000001",
+    authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
-    credentialGrant: { brokerId: "BROKER-000001", grantRef: "CGRANT-000001" },
+    providerHomeMountGrant: {
+      grantRef: "PHMGRANT-000001",
+      provider: "codex",
+      profileId: "PROFILE-000001",
+      operationId: "OP-000001",
+      grantIssued: false,
+      verification: "not_implemented",
+    },
     egress: { origins: ["https://api.example.test"] },
   };
 }
@@ -40,7 +49,7 @@ function fixture(manifestOverrides = {}, policyOverrides = {}) {
   const rawProfile = profile();
   const registry = {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: "2026-08-11T00:00:00.000Z",
@@ -52,10 +61,15 @@ function fixture(manifestOverrides = {}, policyOverrides = {}) {
         validFrom: "2026-08-10T00:00:00.000Z",
         expiresAt: "2026-08-12T00:00:00.000Z",
         provider: "codex",
+        profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
-        credentialGrant: {
-          brokerId: "BROKER-000001",
-          grantRef: "CGRANT-000001",
+        providerHomeMountGrant: {
+          grantRef: "PHMGRANT-000001",
+          provider: "codex",
+          profileId: "PROFILE-000001",
+          operationId: "OP-000001",
+          grantIssued: false,
+          verification: "not_implemented",
         },
         operationId: "OP-000001",
         scopeId: "SCOPE-000001",
@@ -145,6 +159,18 @@ test("Trust Policy byte列もcanonical形式と独立上限を要求する", () 
       "authority_file_bundle_trust_policy_invalid",
     );
   }
+});
+
+test("File Bundle経路も旧Authority Registry revision 1をalias変換せず拒否する", () => {
+  const input = fixture();
+  const legacyRegistry = JSON.parse(input.registryBytes.toString("utf8"));
+  legacyRegistry.contractRevision = 1;
+  const result = loadAuthorityFileBundleCandidate({
+    ...input,
+    registryBytes: Buffer.from(canonicalJson(legacyRegistry), "utf8"),
+  });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "authority_file_bundle_registry_invalid");
 });
 
 test("Manifest、Policy、RegistryのHash差とinactive状態を拒否する", () => {
