@@ -1,7 +1,7 @@
 # 変更トレース: 動的Fake Provider取消検証（Dynamic Fake Provider Cancellation Verification）
 
 - 変更ID: `CHG-000025`
-- 状態: `Ready for Verification`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-19
 - 対象: CRDD公式Repositoryの内部Coordinator、固定Docker Fake Providerおよび専用verification command
@@ -72,3 +72,15 @@ Host側process所有是正の自己確認runは`status:verified`、`SIGTERM`、r
 対象Commit `893e4a491ca24bdac10cb2a16e13d0fd11d3a229`、Tree `53bddf0247abd08180cdb2f5a473a158eaaeac05`、Parent `c20082c02d43588a30755ee6c52d4995fea3f7aa`の監査集合は、Agent／Architecture／Securityが`Pass`／Finding 0で`AG-CANCEL-001`を解消候補、Documentが`Conditional`（`DOC-CANCEL-R1-001`／`DOC-CANCEL-R1-002`、各Minor、今回の是正によって新たに発生した）、Gap／Impactが`Pass`／Finding 0で`GCI-CANCEL-001`を解消候補、Conformanceが`Pass`でCHG-000025変更scopeのclaimを`Eligible`とした。
 
 Document 2件は、元Security監査の4分類literalが指す変更時点の曖昧さと、READMEでのHost側attach用語のlocale-first初出漏れである。元literal、技術的不備の発生時点、Security検出時点およびGap見落とし／訂正時点を上記のとおり分離し、README初出を局所修正した。処置状態は`Applied / Self-checked — pending independent re-review`であり、現在の監査集合全体も文書是正後の新固定版へは`Invalidated`／不流用とする。実装、machine contract、旧Evidence、coverage母集団、分母／分子およびHashは変更しない。新固定版のAgent／Architecture／Security、Document、Gap／ImpactおよびConformanceの全必須確認が終了するまで、旧Passまたは解消候補を現在版の`Resolved`へ流用しない。
+
+## 最終独立確認
+
+最終固定対象はCommit `1c874af10d8ad059e0a34253ae3d73d271654575`、Tree `e421aa2b8a0ae8094426ee3f87b893ee1b3b14f1`、Parent `893e4a491ca24bdac10cb2a16e13d0fd11d3a229`である。旧合否を流用せず、Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceを同じ固定Identityと共通機械入力で再実行した。
+
+- Agent／Architecture／Security: `Pass`／Finding 0。`AG-CANCEL-001`は`Resolved`。
+- Document: `Pass`／Finding 0。`DOC-CANCEL-R1-001`／`DOC-CANCEL-R1-002`は`Resolved`。
+- Gap／Impact: `Pass`／Finding 0。`GCI-CANCEL-001`は`Resolved`。
+- Conformance: `Pass`。CHG-000025変更scopeのclaim eligibilityは`Eligible`。
+- 新規候補4分類は各監査ですべて0件。
+
+固定結果とSHAは[`現在のレビュー記録`](Evidence/CHG-000025_Current_Review_Record_1c874af.md)に保持する。この`Verified`はCHG-000025変更候補の検証完了だけを示す。実Provider／OAuth／Egress／通常Operation取消、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseは不変であり、採用、統合、StableまたはReleaseを意味しない。
