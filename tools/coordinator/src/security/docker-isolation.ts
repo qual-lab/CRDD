@@ -207,6 +207,8 @@ export type DynamicFakeProviderCancellationResult = Readonly<{
   readyObserved: boolean;
   cancellationAcknowledged: boolean;
   processTerminationObserved: boolean;
+  attachProcessTerminationObserved: boolean;
+  attachProcessTerminationRequestCount: number;
   containerAbsenceVerified: boolean;
   hostCleanupVerified: boolean;
   graceElapsedMs: number | null;
@@ -225,6 +227,14 @@ export type DynamicFakeProviderCancellationResult = Readonly<{
   operationCapabilityIssued: false;
   realProviderReadiness: false;
 }>;
+
+export const OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS = Object.freeze([
+  "never_ready",
+  "ready_then_never_complete",
+  "output_overflow",
+] as const);
+export type OwnedAttachTerminationFixtureScenario =
+  (typeof OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS)[number];
 
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
@@ -798,6 +808,8 @@ function cancellationBlocked(
     readyObserved: false,
     cancellationAcknowledged: false,
     processTerminationObserved: false,
+    attachProcessTerminationObserved: false,
+    attachProcessTerminationRequestCount: 0,
     containerAbsenceVerified: false,
     hostCleanupVerified: false,
     graceElapsedMs: null,
@@ -1253,16 +1265,27 @@ function dockerCommand(
   );
 }
 
-function startAttachedDockerCommand(
-  cliCapability: object,
-  environment: DockerEnvironment,
+type OwnedAttachedProcess = Readonly<{
+  ready: Promise<boolean>;
+  completion: Promise<AsyncDockerExecution>;
+  terminateAndWait: () => Promise<AsyncDockerExecution | null>;
+  isClosed: () => boolean;
+  getTerminationRequestCount: () => number;
+}>;
+
+function startOwnedAttachedProcess(
+  executable: string,
   args: readonly string[],
+  environment: DockerEnvironment,
+  readyPrefix: string,
 ): Readonly<{
   ready: Promise<boolean>;
   completion: Promise<AsyncDockerExecution>;
+  terminateAndWait: () => Promise<AsyncDockerExecution | null>;
+  isClosed: () => boolean;
+  getTerminationRequestCount: () => number;
 }> {
-  const executable = verifyTrustedDockerCliCapability(cliCapability);
-  const child = spawn(executable, ["-H", DOCKER_DESKTOP_ENGINE, ...args], {
+  const child = spawn(executable, args, {
     windowsHide: true,
     env: environment,
     shell: false,
@@ -1274,6 +1297,9 @@ function startAttachedDockerCommand(
   let stderrBytes = 0;
   let hasOutputExceeded = false;
   let hasReadySettled = false;
+  let hasClosed = false;
+  let hasTerminationRequested = false;
+  let terminationRequestCount = 0;
   let settleReady: (isReady: boolean) => void = () => undefined;
   const ready = new Promise<boolean>((resolve) => {
     settleReady = resolve;
@@ -1294,15 +1320,13 @@ function startAttachedDockerCommand(
     else stderrBytes = nextBytes;
     if (nextBytes > MAX_OUTPUT_BYTES) {
       hasOutputExceeded = true;
-      child.kill();
+      void terminateAndWait();
       return;
     }
     chunks.push(value);
     if (
       isStdout &&
-      Buffer.concat(chunks)
-        .toString("utf8")
-        .startsWith(`${CANCELLATION_READY_OUTPUT}\n`)
+      Buffer.concat(chunks).toString("utf8").startsWith(readyPrefix)
     )
       finishReady(true);
   };
@@ -1330,17 +1354,47 @@ function startAttachedDockerCommand(
         outputExceeded: hasOutputExceeded,
       }),
     );
-    child.once("close", (status, signal) =>
+    child.once("close", (status, signal) => {
+      hasClosed = true;
       finish({
         status,
         signal,
         stdout: Buffer.concat(stdoutChunks).toString("utf8"),
         stderr: Buffer.concat(stderrChunks).toString("utf8"),
         outputExceeded: hasOutputExceeded,
-      }),
-    );
+      });
+    });
   });
-  return Object.freeze({ ready, completion });
+  async function terminateAndWait(): Promise<AsyncDockerExecution | null> {
+    if (!hasClosed && !hasTerminationRequested) {
+      hasTerminationRequested = true;
+      terminationRequestCount += 1;
+      child.kill();
+    }
+    const execution = await boundedPromise(completion, 5_000, null);
+    return hasClosed ? execution : null;
+  }
+  return Object.freeze({
+    ready,
+    completion,
+    terminateAndWait,
+    isClosed: () => hasClosed,
+    getTerminationRequestCount: () => terminationRequestCount,
+  });
+}
+
+function startAttachedDockerCommand(
+  cliCapability: object,
+  environment: DockerEnvironment,
+  args: readonly string[],
+): OwnedAttachedProcess {
+  const executable = verifyTrustedDockerCliCapability(cliCapability);
+  return startOwnedAttachedProcess(
+    executable,
+    ["-H", DOCKER_DESKTOP_ENGINE, ...args],
+    environment,
+    `${CANCELLATION_READY_OUTPUT}\n`,
+  );
 }
 
 async function boundedPromise<T>(
@@ -1359,6 +1413,67 @@ async function boundedPromise<T>(
   } finally {
     if (timeout) clearTimeout(timeout);
   }
+}
+
+const OWNED_ATTACH_FIXTURE_READY = "crdd-owned-attach-ready\n";
+const OWNED_ATTACH_FIXTURE_SOURCES = Object.freeze({
+  never_ready: "setInterval(() => undefined, 1000);",
+  ready_then_never_complete:
+    'process.stdout.write("crdd-owned-attach-ready\\n"); setInterval(() => undefined, 1000);',
+  output_overflow: `process.stdout.write("x".repeat(${MAX_OUTPUT_BYTES + 1})); setInterval(() => undefined, 1000);`,
+} satisfies Readonly<Record<OwnedAttachTerminationFixtureScenario, string>>);
+
+export async function verifyOwnedAttachTerminationForFixture(
+  scenario: OwnedAttachTerminationFixtureScenario,
+): Promise<
+  Readonly<{
+    status: "verified" | "blocked";
+    reason: string;
+    scenario: OwnedAttachTerminationFixtureScenario;
+    readyObserved: boolean;
+    outputExceeded: boolean;
+    terminationRequestCount: number;
+    attachProcessTerminationObserved: boolean;
+  }>
+> {
+  const environment: DockerEnvironment = {};
+  for (const name of ["SYSTEMROOT", "WINDIR", "SYSTEMDRIVE"]) {
+    if (typeof process.env[name] === "string")
+      environment[name] = process.env[name];
+  }
+  const controller = startOwnedAttachedProcess(
+    process.execPath,
+    ["-e", OWNED_ATTACH_FIXTURE_SOURCES[scenario]],
+    environment,
+    OWNED_ATTACH_FIXTURE_READY,
+  );
+  const isReady = await boundedPromise(controller.ready, 250, false);
+  if (scenario !== "output_overflow" || !controller.isClosed())
+    await controller.terminateAndWait();
+  const execution = await controller.terminateAndWait();
+  const hasClosed = controller.isClosed() && execution !== null;
+  const hasExpectedReady =
+    isReady === (scenario === "ready_then_never_complete");
+  const hasExpectedOverflow =
+    execution?.outputExceeded === (scenario === "output_overflow");
+  const hasExactTerminationRequest =
+    controller.getTerminationRequestCount() === 1;
+  const isVerified =
+    hasClosed &&
+    hasExpectedReady &&
+    hasExpectedOverflow &&
+    hasExactTerminationRequest;
+  return Object.freeze({
+    status: isVerified ? "verified" : "blocked",
+    reason: isVerified
+      ? "owned_attach_process_termination_verified"
+      : "owned_attach_process_termination_unconfirmed",
+    scenario,
+    readyObserved: isReady,
+    outputExceeded: execution?.outputExceeded === true,
+    terminationRequestCount: controller.getTerminationRequestCount(),
+    attachProcessTerminationObserved: hasClosed,
+  });
 }
 
 function normalizeFailure(
@@ -2077,7 +2192,9 @@ export async function runDynamicFakeProviderCancellationVerification(
   let hasSubmissionStarted = false;
   let hasContainerCreateAttempted = false;
   let hasPostRunMountVerified = false;
-  let attachedCompletion: Promise<AsyncDockerExecution> | null = null;
+  let hasAttachProcessTerminationObserved = false;
+  let attachProcessTerminationRequestCount = 0;
+  let attachedController: OwnedAttachedProcess | null = null;
   let base = cancellationBlocked(
     "dynamic_fake_provider_cancellation_verification_failed",
   );
@@ -2136,13 +2253,20 @@ export async function runDynamicFakeProviderCancellationVerification(
     if (!inspectOwnedContainer(cli, environment, containerCapability, mounts))
       throw new Error("docker_container_security_profile_mismatch");
 
-    const attached = startAttachedDockerCommand(cli, environment, [
+    attachedController = startAttachedDockerCommand(cli, environment, [
       "start",
       "--attach",
       containerIdentity.id,
     ]);
-    attachedCompletion = attached.completion;
-    const isReady = await boundedPromise(attached.ready, 5_000, false);
+    const isReady = await boundedPromise(
+      attachedController.ready,
+      5_000,
+      false,
+    );
+    if (!isReady) {
+      await attachedController.terminateAndWait();
+      throw new Error("dynamic_fake_provider_cancellation_ready_unconfirmed");
+    }
     mounts = verifyOwnedMountCapability(mountCapability);
     const runningInspect = inspectOwnedContainer(
       cli,
@@ -2150,7 +2274,7 @@ export async function runDynamicFakeProviderCancellationVerification(
       containerCapability,
       mounts,
     );
-    if (!isReady || !inspectedContainerIsRunning(runningInspect))
+    if (!inspectedContainerIsRunning(runningInspect))
       throw new Error("dynamic_fake_provider_cancellation_ready_unconfirmed");
 
     const cancellationStartedAt = performance.now();
@@ -2161,7 +2285,7 @@ export async function runDynamicFakeProviderCancellationVerification(
       5_000,
     );
     const execution = await boundedPromise<AsyncDockerExecution>(
-      attached.completion,
+      attachedController.completion,
       5_000,
       {
         error: Object.assign(new Error("cancellation timeout"), {
@@ -2174,6 +2298,11 @@ export async function runDynamicFakeProviderCancellationVerification(
         outputExceeded: false,
       },
     );
+    if (
+      errorCodeEquals(execution.error, "ETIMEDOUT") ||
+      execution.outputExceeded
+    )
+      await attachedController.terminateAndWait();
     const graceElapsedMs = Math.max(
       0,
       Math.round(performance.now() - cancellationStartedAt),
@@ -2201,6 +2330,21 @@ export async function runDynamicFakeProviderCancellationVerification(
       reason: normalizeCancellationFailure(error),
     });
   } finally {
+    if (attachedController) {
+      const attachExecution = await attachedController.terminateAndWait();
+      hasAttachProcessTerminationObserved =
+        attachExecution !== null && attachedController.isClosed();
+      attachProcessTerminationRequestCount =
+        attachedController.getTerminationRequestCount();
+      if (!hasAttachProcessTerminationObserved)
+        base = Object.freeze({
+          ...base,
+          status: "blocked",
+          reason:
+            "dynamic_fake_provider_attach_process_termination_unconfirmed",
+          attachProcessTerminationObserved: false,
+        });
+    }
     if (
       containerCapability &&
       containerIdentity &&
@@ -2243,6 +2387,7 @@ export async function runDynamicFakeProviderCancellationVerification(
           const isVerified =
             base.status === "candidate" &&
             hasPostRunMountVerified &&
+            hasAttachProcessTerminationObserved &&
             isHostCleanupVerified;
           base = Object.freeze({
             ...base,
@@ -2253,6 +2398,8 @@ export async function runDynamicFakeProviderCancellationVerification(
                 ? base.reason
                 : recovered.reason,
             containerAbsenceVerified: true,
+            attachProcessTerminationObserved:
+              hasAttachProcessTerminationObserved,
             hostCleanupVerified: isHostCleanupVerified,
             retainOperationDirectories: !isHostCleanupVerified,
             recoveryId: isHostCleanupVerified ? null : hostRecoveryId,
@@ -2271,14 +2418,6 @@ export async function runDynamicFakeProviderCancellationVerification(
           cleanup: "unconfirmed",
         });
       }
-      if (attachedCompletion)
-        await boundedPromise(attachedCompletion, 5_000, {
-          status: null,
-          signal: null,
-          stdout: "",
-          stderr: "",
-          outputExceeded: false,
-        });
     } else if (!hasSubmissionStarted) {
       try {
         cleanupOwnedOperationDirectories(owned);
@@ -2311,6 +2450,8 @@ export async function runDynamicFakeProviderCancellationVerification(
   }
   return Object.freeze({
     ...base,
+    attachProcessTerminationObserved: hasAttachProcessTerminationObserved,
+    attachProcessTerminationRequestCount,
     diagnosticDockerContainerEffectIssued: hasContainerCreateAttempted,
     diagnosticFilesystemEffectIssued: true,
   });

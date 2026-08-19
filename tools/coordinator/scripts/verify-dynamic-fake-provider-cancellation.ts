@@ -17,6 +17,8 @@ export async function verifyDynamicFakeProviderCancellation() {
     result.readyObserved !== true ||
     result.cancellationAcknowledged !== true ||
     result.processTerminationObserved !== true ||
+    result.attachProcessTerminationObserved !== true ||
+    result.attachProcessTerminationRequestCount !== 0 ||
     result.containerAbsenceVerified !== true ||
     result.hostCleanupVerified !== true ||
     result.cleanup !== "confirmed" ||
@@ -42,6 +44,9 @@ export async function verifyDynamicFakeProviderCancellation() {
     readyObserved: result.readyObserved,
     cancellationAcknowledged: result.cancellationAcknowledged,
     processTerminationObserved: result.processTerminationObserved,
+    attachProcessTerminationObserved: result.attachProcessTerminationObserved,
+    attachProcessTerminationRequestCount:
+      result.attachProcessTerminationRequestCount,
     containerAbsenceVerified: result.containerAbsenceVerified,
     hostCleanupVerified: result.hostCleanupVerified,
     cleanup: result.cleanup,

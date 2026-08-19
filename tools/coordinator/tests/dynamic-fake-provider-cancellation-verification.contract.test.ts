@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   dockerCreateArgumentsForCancellationVerificationFixture,
   normalizeDynamicFakeProviderCancellationForFixture,
+  OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS,
   runDynamicFakeProviderCancellationVerification,
+  verifyOwnedAttachTerminationForFixture,
 } from "../src/security/docker-isolation.ts";
 import { verifyDynamicFakeProviderCancellation } from "../scripts/verify-dynamic-fake-provider-cancellation.ts";
 
@@ -55,11 +57,35 @@ test("plain cancellation観測はcandidateに留まりrepository実行なしでv
   assert.equal(result.reason, "dynamic_fake_provider_cancellation_candidate");
   assert.equal(result.cancellationAcknowledged, true);
   assert.equal(result.processTerminationObserved, true);
+  assert.equal(result.attachProcessTerminationObserved, false);
+  assert.equal(result.attachProcessTerminationRequestCount, 0);
   assert.equal(result.containerAbsenceVerified, false);
   assert.equal(result.hostCleanupVerified, false);
   assert.equal(result.runtimeAuthorityIssued, false);
   assert.equal(result.operationCapabilityIssued, false);
   assert.equal(result.realProviderReadiness, false);
+});
+
+test("Host attach process ownerは全固定異常scenarioで終了要求exact 1回とcloseを確認する", async () => {
+  assert.deepEqual(OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS, [
+    "never_ready",
+    "ready_then_never_complete",
+    "output_overflow",
+  ]);
+  assert.equal(verifyOwnedAttachTerminationForFixture.length, 1);
+  for (const scenario of OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS) {
+    const result = await verifyOwnedAttachTerminationForFixture(scenario);
+    assert.equal(result.status, "verified");
+    assert.equal(result.reason, "owned_attach_process_termination_verified");
+    assert.equal(result.scenario, scenario);
+    assert.equal(result.terminationRequestCount, 1);
+    assert.equal(result.attachProcessTerminationObserved, true);
+    assert.equal(
+      result.readyObserved,
+      scenario === "ready_then_never_complete",
+    );
+    assert.equal(result.outputExceeded, scenario === "output_overflow");
+  }
 });
 
 test("取消観測は要求・grace・ack・終了envelopeの差をfail closedにする", () => {
