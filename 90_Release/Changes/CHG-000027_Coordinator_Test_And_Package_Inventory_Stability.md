@@ -35,11 +35,11 @@ package inventoryの最終候補は再列挙の一致だけでAuthorityへ昇格
 
 ## 検証設計と現在品質状態
 
-Node.js v24.19.0で、対象2 contract test file（package Filesystem 6件、動的Fake取消4件）の10／10、全Coordinator contract testの並列run 386／386を連続2回、逐次run 386／386を確認した。Coordinator typecheck／lint／format、Checker 151／151およびfull checkerも新固定版で確認する。
+Node.js v24.19.0で、対象2 contract test file（package Filesystem 6件、動的Fake取消4件）の10／10、全Coordinator contract testの並列run 386／386を連続2回、逐次run 386／386を確認した。Coordinator typecheck／lint／format、Checker 151／151およびfull checkerも最終独立確認の対象とした。
 
 Platform Access TypeScript coverageはexact 19 source／18 testで、lines 6372／7164、functions 231／250、branches 988／1228、未到達240件である。compact JSON UTF-8＋末尾LFは140,355 byte、SHA-256 `9a9cd6171aa99937e884a98d6c231f156ed8d99a3a67edbac64ebcaaca82bd66`で、連続2回一致した。Dynamic Fake Provider coverageはexact 10 source／7 testで、lines 4071／5808、functions 167／218、branches 704／898、未到達194件、payload SHA-256 `542555e77e57dc6eba158c5f097de78cdad1316b62a891728463aa96fd8270f2`、stdout 134,164 byte／SHA-256 `eb9f4e7111191ee6f69481f01141951af675fe029e8db5d053389f843fd27d08`である。
 
-未到達branchは各runner既存のIdentity別義務、理由、risk、代替確認、Owner=`Qual-Lab`、`humanDecision=not_required`およびrecheckへ接続し、100%へ丸めない。実Windows Release package、実Docker取消、実Provider／OAuth／Egressは今回のPass根拠にせず従来の`Not Verified`を維持する。現在品質状態は`Self-checked / Ready for Verification`であり、独立監査完了前に`Verified`またはFinding `Resolved`へ昇格しない。
+未到達branchは各runner既存のIdentity別義務、理由、risk、代替確認、Owner=`Qual-Lab`、`humanDecision=not_required`およびrecheckへ接続し、100%へ丸めない。実Windows Release package、実Docker取消、実Provider／OAuth／Egressは今回のPass根拠にせず従来の`Not Verified`を維持する。最終独立確認前の品質状態は`Self-checked / Ready for Verification`であり、独立監査完了前に`Verified`またはFinding `Resolved`へ昇格しない。
 
 ## 専門探索・収束
 
