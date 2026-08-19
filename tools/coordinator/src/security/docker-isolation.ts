@@ -50,7 +50,11 @@ type DockerExecution = Partial<
     "error" | "signal" | "status" | "stderr" | "stdout"
   >
 >;
-type ContainerIdentity = Readonly<{ id: string; probeId: string }>;
+type ContainerIdentity = Readonly<{
+  id: string;
+  probeId: string;
+  source?: string;
+}>;
 type CliSnapshot = Readonly<{
   root: string;
   executable: string;
@@ -315,6 +319,52 @@ print(json.dumps(result,separators=(",",":")))
 sys.exit(0 if all(result["allowed_writes"].values()) and all([result["runtime_paths_absent"],result["credential_names_absent"],result["network_blocked"],result["home_isolated"],result["tmp_isolated"]]) else 3)
 `;
 
+export const DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS = Object.freeze([
+  "timeout",
+  "output_limit",
+  "invalid_output",
+  "nonzero_exit",
+] as const);
+export type DynamicFakeProviderFailureScenario =
+  (typeof DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS)[number];
+
+const FAILURE_SCENARIO_SPECS = Object.freeze({
+  timeout: Object.freeze({
+    source: "import time; time.sleep(2)",
+    timeoutMs: 250,
+    expectedReason: "docker_isolation_probe_timeout",
+  }),
+  output_limit: Object.freeze({
+    source: "print('x'*70000)",
+    timeoutMs: 10_000,
+    expectedReason: "docker_isolation_probe_output_too_large",
+  }),
+  invalid_output: Object.freeze({
+    source: "print('not-json')",
+    timeoutMs: 10_000,
+    expectedReason: "docker_isolation_probe_invalid_output",
+  }),
+  nonzero_exit: Object.freeze({
+    source: "import sys; sys.exit(7)",
+    timeoutMs: 10_000,
+    expectedReason: "docker_isolation_probe_failed",
+  }),
+} satisfies Readonly<
+  Record<
+    DynamicFakeProviderFailureScenario,
+    Readonly<{ source: string; timeoutMs: number; expectedReason: string }>
+  >
+>);
+
+const repositoryOwnedProbeSources = Object.freeze(
+  new Set([
+    PROBE_SOURCE,
+    ...Object.values(FAILURE_SCENARIO_SPECS).map(
+      (specification) => specification.source,
+    ),
+  ]),
+);
+
 function filesystemIdentity(
   target: string,
   expectedType: EntityType,
@@ -468,9 +518,10 @@ function containerName(probeId: string): string {
   return `crdd-coordinator-probe-${probeId}`;
 }
 
-export function dockerCreateArgumentsForFixture(
+function dockerCreateArguments(
   mounts: DockerMounts,
-  probeId = "fixture",
+  probeId: string,
+  source: string,
 ): string[] {
   return [
     "-H",
@@ -502,13 +553,39 @@ export function dockerCreateArgumentsForFixture(
     "python",
     PROBE_IMAGE,
     "-c",
-    PROBE_SOURCE,
+    source,
   ];
+}
+
+export function dockerCreateArgumentsForFixture(
+  mounts: DockerMounts,
+  probeId = "fixture",
+): string[] {
+  return dockerCreateArguments(mounts, probeId, PROBE_SOURCE);
+}
+
+export function dockerCreateArgumentsForFailureVerificationFixture(
+  mounts: DockerMounts,
+  scenario: DynamicFakeProviderFailureScenario,
+  probeId = "fixture",
+): string[] {
+  return dockerCreateArguments(
+    mounts,
+    probeId,
+    FAILURE_SCENARIO_SPECS[scenario].source,
+  );
 }
 
 export function normalizeDockerIsolationResult(
   execution: DockerExecution,
 ): Readonly<{ status: "confirmed" | "blocked"; reason: string }> {
+  if (errorCodeEquals(execution.error, "ETIMEDOUT"))
+    return { status: "blocked", reason: "docker_isolation_probe_timeout" };
+  if (errorCodeEquals(execution.error, "ENOBUFS"))
+    return {
+      status: "blocked",
+      reason: "docker_isolation_probe_output_too_large",
+    };
   if (
     execution.error ||
     execution.status !== 0 ||
@@ -1148,7 +1225,10 @@ export function validateContainerInspect(
     !Array.isArray(command) ||
     command.length !== 2 ||
     command[0] !== "-c" ||
-    command[1] !== PROBE_SOURCE
+    typeof command[1] !== "string" ||
+    (expected.source
+      ? command[1] !== expected.source
+      : !repositoryOwnedProbeSources.has(command[1]))
   )
     return false;
   if (
@@ -1447,7 +1527,13 @@ function finishPreSubmissionCleanup(
   }
 }
 
-export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
+function runDockerIsolationScenario(
+  owned: unknown,
+  scenario: DynamicFakeProviderFailureScenario | null,
+): DockerProbeResult {
+  const specification = scenario ? FAILURE_SCENARIO_SPECS[scenario] : null;
+  const source = specification?.source ?? PROBE_SOURCE;
+  const executionTimeoutMs = specification?.timeoutMs ?? 30_000;
   const probeId = randomUUID();
   let cli: Readonly<{ kind: "trusted_docker_cli" }> | null = null;
   let mountCapability: Readonly<{ kind: "owned_operation_mounts" }> | null =
@@ -1499,7 +1585,7 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
       const creation = dockerCommand(
         cli,
         environment,
-        dockerCreateArgumentsForFixture(mounts, probeId).slice(2),
+        dockerCreateArguments(mounts, probeId, source).slice(2),
         30_000,
       );
       const normalizedCreation = normalizeContainerCreation(creation);
@@ -1511,7 +1597,11 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
           recoveryId,
         );
       } else {
-        const identity = Object.freeze({ id: normalizedCreation.id, probeId });
+        const identity = Object.freeze({
+          id: normalizedCreation.id,
+          probeId,
+          source,
+        });
         containerIdentity = identity;
         containerCapability = Object.freeze({ kind: "owned_docker_probe" });
         containerIdentities.set(containerCapability, identity);
@@ -1539,7 +1629,7 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
             cli,
             environment,
             ["start", "--attach", identity.id],
-            30_000,
+            executionTimeoutMs,
           );
           const lifecycleElapsedMs = Math.max(
             0,
@@ -1643,13 +1733,15 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
             };
           } else {
             invalidateDynamicFakeProviderLifecycle(dynamicLifecycleCapability);
+            const failureReason =
+              result.status === "blocked"
+                ? result.reason
+                : "dynamic_fake_provider_finalization_incomplete";
             result = {
               ...result,
               status: "blocked",
-              reason: "dynamic_fake_provider_finalization_incomplete",
-              fakeProviderLifecycle: dynamicFakeLifecycleBlocked(
-                "dynamic_fake_provider_finalization_incomplete",
-              ),
+              reason: failureReason,
+              fakeProviderLifecycle: dynamicFakeLifecycleBlocked(failureReason),
             };
           }
         }
@@ -1682,6 +1774,23 @@ export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
       diagnosticFilesystemEffectIssued: true,
     }),
   };
+}
+
+export function runDockerIsolationProbe(owned: unknown): DockerProbeResult {
+  return runDockerIsolationScenario(owned, null);
+}
+
+export function runDynamicFakeProviderFailureScenario(
+  owned: unknown,
+  scenario: DynamicFakeProviderFailureScenario,
+): DockerProbeResult {
+  return runDockerIsolationScenario(owned, scenario);
+}
+
+export function expectedDynamicFakeProviderFailureReason(
+  scenario: DynamicFakeProviderFailureScenario,
+): string {
+  return FAILURE_SCENARIO_SPECS[scenario].expectedReason;
 }
 
 function parseRecoveryToken(token: unknown): Readonly<{

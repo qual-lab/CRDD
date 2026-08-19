@@ -20,12 +20,14 @@ export const DYNAMIC_FAKE_PROVIDER_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/src/security/host-recovery-record.ts",
   "tools/coordinator/src/security/plain-data-snapshot.ts",
   "tools/coordinator/src/core/doctor.ts",
+  "tools/coordinator/scripts/verify-dynamic-fake-provider-failures.ts",
   "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
   "tools/coordinator/scripts/check-dynamic-fake-provider-coverage.ts",
 ]);
 
 export const DYNAMIC_FAKE_PROVIDER_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/doctor.contract.test.ts",
+  "tools/coordinator/tests/dynamic-fake-provider-failure-verification.contract.test.ts",
   "tools/coordinator/tests/provider-lifecycle.contract.test.ts",
   "tools/coordinator/tests/plain-data-snapshot.contract.test.ts",
   "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
@@ -94,6 +96,13 @@ const coverageObligations = Object.freeze({
     "passive／isolation、CLI discovery、readiness、runtime request、Fake lifecycleおよびexact report contract試験",
     "doctor report、check、Provider投影またはDocker接続変更時",
   ),
+  "tools/coordinator/scripts/verify-dynamic-fake-provider-failures.ts":
+    obligation(
+      "実Docker Engine不成立、scenario mismatchおよびmain guard failureをunit coverageで全到達していない",
+      "専用verificationが失敗結果または残留を誤って成功へ集約する可能性",
+      "固定scenario母集団、期待reason、cleanup、Effect、Authority非発行および実Docker E2E",
+      "failure scenario、Docker lifecycleまたはverification出力変更時",
+    ),
   "tools/coordinator/scripts/check-platform-access-ts-coverage.ts": obligation(
     "共有LCOV parserの全Filesystem／child process errorと全不正record組合せを同一runで到達していない",
     "品質記録の不正入力を稀な組合せで受理または誤分類する可能性",

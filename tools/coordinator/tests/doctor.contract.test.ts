@@ -31,8 +31,10 @@ import {
 } from "../src/security/execution-environment.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
+  DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
   classifyRecoveryChildren,
   dockerCreateArgumentsForFixture,
+  dockerCreateArgumentsForFailureVerificationFixture,
   evaluateDockerCliCandidateForFixture,
   evaluateDynamicFakeProviderFinalizationForFixture,
   normalizeContainerAbsence,
@@ -2184,6 +2186,63 @@ test("動的Fake lifecycleはtimeoutと出力上限をcancelから分離する",
     assert.equal(observed.timedOut, code === "ETIMEDOUT");
     assert.equal(observed.runtimeAuthorityIssued, false);
   }
+});
+
+test("Docker Probe normalizerは実timeoutとmaxBuffer超過を固定reasonへ分離する", () => {
+  for (const [code, reason] of [
+    ["ETIMEDOUT", "docker_isolation_probe_timeout"],
+    ["ENOBUFS", "docker_isolation_probe_output_too_large"],
+  ] as const) {
+    const error = new Error(code);
+    Reflect.set(error, "code", code);
+    assert.deepEqual(
+      normalizeDockerIsolationResult({
+        error,
+        status: null,
+        signal: "SIGTERM",
+        stdout: "",
+        stderr: "",
+      }),
+      { status: "blocked", reason },
+    );
+  }
+});
+
+test("動的Fake失敗verificationはRepository所有の固定4 sourceだけを生成する", () => {
+  const mounts = {
+    workspace: "C:\\fixture\\workspace",
+    providerHome: "C:\\fixture\\provider-home",
+    tmp: "C:\\fixture\\tmp",
+    events: "C:\\fixture\\events",
+    projection: "C:\\fixture\\projection",
+    management: "C:\\fixture\\management",
+  };
+  assert.deepEqual(DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS, [
+    "timeout",
+    "output_limit",
+    "invalid_output",
+    "nonzero_exit",
+  ]);
+  const sources = new Set(
+    DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS.map((scenario) => {
+      const args = dockerCreateArgumentsForFailureVerificationFixture(
+        mounts,
+        scenario,
+      );
+      assert.equal(args.includes("--pull=never"), true);
+      assert.equal(args.includes("--network=none"), true);
+      assert.equal(args.includes("--read-only"), true);
+      assert.equal(args.includes("--cap-drop=ALL"), true);
+      assert.equal(
+        args.at(-3),
+        "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+      );
+      assert.equal(args.at(-2), "-c");
+      return args.at(-1);
+    }),
+  );
+  assert.equal(sources.size, 4);
+  assert.equal(sources.has(undefined), false);
 });
 
 test("動的Fake lifecycleは30秒内の有限safe integer時間だけを候補にする", () => {
