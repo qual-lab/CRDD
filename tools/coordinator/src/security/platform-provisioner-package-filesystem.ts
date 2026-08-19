@@ -162,6 +162,49 @@ function verifyDirectory(
   }
 }
 
+type DirectoryEntrySnapshot = Readonly<{
+  name: string;
+  type: "directory" | "file";
+}>;
+
+function readDirectoryEntrySnapshot(target: string) {
+  const dirents = fs
+    .readdirSync(target, { withFileTypes: true })
+    .sort((left, right) =>
+      left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+    );
+  const entries = dirents.map((entry): DirectoryEntrySnapshot => {
+    if (entry.isSymbolicLink()) {
+      throw new Error("platform_provisioner_package_link_rejected");
+    }
+    if (entry.isDirectory()) {
+      return Object.freeze({ name: entry.name, type: "directory" });
+    }
+    if (entry.isFile()) {
+      return Object.freeze({ name: entry.name, type: "file" });
+    }
+    throw new Error("platform_provisioner_package_entity_invalid");
+  });
+  return Object.freeze({
+    dirents: Object.freeze(dirents),
+    entries: Object.freeze(entries),
+  });
+}
+
+function sameDirectoryEntries(
+  leftEntries: readonly DirectoryEntrySnapshot[],
+  rightEntries: readonly DirectoryEntrySnapshot[],
+) {
+  return (
+    leftEntries.length === rightEntries.length &&
+    leftEntries.every(
+      (entry, index) =>
+        entry.name === rightEntries[index]?.name &&
+        entry.type === rightEntries[index]?.type,
+    )
+  );
+}
+
 function readStableFile(target: string, maximumBytes: number) {
   const pathBefore = identity(fs.lstatSync(target, { bigint: true }), "file");
   if (pathBefore.size < 0n || pathBefore.size > BigInt(maximumBytes)) {
@@ -221,27 +264,26 @@ function packageEntries(
   root: Readonly<{ realPath: string; identity: EntityIdentity }>,
 ) {
   const files: string[] = [];
-  const directories: Array<
-    Readonly<{ realPath: string; identity: EntityIdentity }>
-  > = [root];
+  const directoryInventories: Array<
+    Readonly<{
+      directory: Readonly<{ realPath: string; identity: EntityIdentity }>;
+      entries: readonly DirectoryEntrySnapshot[];
+    }>
+  > = [];
   const visit = (
     directory: Readonly<{ realPath: string; identity: EntityIdentity }>,
     relativeDirectory: string,
   ) => {
-    const entries = fs
-      .readdirSync(directory.realPath, { withFileTypes: true })
-      .sort((left, right) =>
-        left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
-      );
-    for (const entry of entries) {
+    const snapshot = readDirectoryEntrySnapshot(directory.realPath);
+    directoryInventories.push(
+      Object.freeze({ directory, entries: snapshot.entries }),
+    );
+    for (const entry of snapshot.dirents) {
       if (
         relativeDirectory === "" &&
         (entry.name === "node_modules" || entry.name === ".gitignore")
       ) {
         continue;
-      }
-      if (entry.isSymbolicLink()) {
-        throw new Error("platform_provisioner_package_link_rejected");
       }
       const relative = relativeDirectory
         ? `${relativeDirectory}/${entry.name}`
@@ -249,10 +291,8 @@ function packageEntries(
       const target = path.join(directory.realPath, entry.name);
       if (entry.isDirectory()) {
         const child = directoryIdentity(target);
-        directories.push(child);
         visit(child, relative);
       } else if (entry.isFile()) files.push(relative);
-      else throw new Error("platform_provisioner_package_entity_invalid");
       if (files.length > MAXIMUM_FILES) {
         throw new Error("platform_provisioner_package_file_count_exceeded");
       }
@@ -262,7 +302,10 @@ function packageEntries(
   visit(root, "");
   return Object.freeze({
     files: Object.freeze(files),
-    directories: Object.freeze(directories),
+    directories: Object.freeze(
+      directoryInventories.map((inventory) => inventory.directory),
+    ),
+    directoryInventories: Object.freeze(directoryInventories),
   });
 }
 
@@ -337,7 +380,15 @@ function observePackage(packageRoot: string) {
       }),
     );
   }
-  for (const directory of inventory.directories) verifyDirectory(directory);
+  for (const inventoryEntry of inventory.directoryInventories) {
+    verifyDirectory(inventoryEntry.directory);
+    const current = readDirectoryEntrySnapshot(
+      inventoryEntry.directory.realPath,
+    );
+    if (!sameDirectoryEntries(inventoryEntry.entries, current.entries)) {
+      throw new Error("platform_provisioner_package_root_changed");
+    }
+  }
   const metadata = packageMetadata(packageJsonBytes);
   const observation: PackageObservation = Object.freeze({
     ...metadata,

@@ -131,43 +131,52 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
   }
 });
 
-test("入れ子directoryの走査中変更を安定inventoryへ流用しない", () => {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-package-directory-race-"),
-  );
-  const sourceRoot = path.join(root, "src");
-  fs.mkdirSync(sourceRoot);
-  fs.writeFileSync(
-    path.join(root, "package.json"),
-    JSON.stringify({
-      name: "@qual-lab/crdd-coordinator",
-      version: "0.0.0-development",
-      private: true,
-      type: "module",
-      scripts: {},
-      engines: {},
-      devDependencies: {},
-    }),
-  );
-  fs.writeFileSync(path.join(sourceRoot, "entry.ts"), "export {};");
-  const originalRead = fs.readSync;
-  let isChanged = false;
-  Reflect.set(fs, "readSync", (descriptor: number, ...args: unknown[]) => {
-    const byteLength = Reflect.apply(originalRead, fs, [descriptor, ...args]);
-    if (!isChanged && byteLength > 0) {
-      isChanged = true;
-      fs.writeFileSync(path.join(sourceRoot, "late.ts"), "export {};");
-    }
-    return byteLength;
-  });
-  try {
-    assert.equal(
-      inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
-      "blocked",
+test("入れ子directoryの走査中にentryを追加・削除・型変更しても安定inventoryへ流用しない", () => {
+  for (const scenario of ["add", "remove", "replace_type"] as const) {
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-package-directory-race-"),
     );
-  } finally {
-    Reflect.set(fs, "readSync", originalRead);
-    fs.rmSync(root, { recursive: true, force: true });
+    const sourceRoot = path.join(root, "src");
+    fs.mkdirSync(sourceRoot);
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({
+        name: "@qual-lab/crdd-coordinator",
+        version: "0.0.0-development",
+        private: true,
+        type: "module",
+        scripts: {},
+        engines: {},
+        devDependencies: {},
+      }),
+    );
+    fs.writeFileSync(path.join(sourceRoot, "entry.ts"), "export {};");
+    const changedPath = path.join(sourceRoot, "changed.ts");
+    if (scenario !== "add") fs.writeFileSync(changedPath, "export {};");
+    const originalRead = fs.readSync;
+    let isChanged = false;
+    Reflect.set(fs, "readSync", (descriptor: number, ...args: unknown[]) => {
+      const byteLength = Reflect.apply(originalRead, fs, [descriptor, ...args]);
+      if (!isChanged && byteLength > 0) {
+        isChanged = true;
+        if (scenario === "add") {
+          fs.writeFileSync(changedPath, "export {};");
+        } else {
+          fs.rmSync(changedPath);
+          if (scenario === "replace_type") fs.mkdirSync(changedPath);
+        }
+      }
+      return byteLength;
+    });
+    try {
+      assert.equal(
+        inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+        "blocked",
+      );
+    } finally {
+      Reflect.set(fs, "readSync", originalRead);
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   }
 });
 

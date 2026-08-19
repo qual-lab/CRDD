@@ -1266,6 +1266,7 @@ function dockerCommand(
 }
 
 type OwnedAttachedProcess = Readonly<{
+  started: Promise<boolean>;
   ready: Promise<boolean>;
   completion: Promise<AsyncDockerExecution>;
   terminateAndWait: () => Promise<AsyncDockerExecution | null>;
@@ -1279,6 +1280,7 @@ function startOwnedAttachedProcess(
   environment: DockerEnvironment,
   readyPrefix: string,
 ): Readonly<{
+  started: Promise<boolean>;
   ready: Promise<boolean>;
   completion: Promise<AsyncDockerExecution>;
   terminateAndWait: () => Promise<AsyncDockerExecution | null>;
@@ -1296,14 +1298,24 @@ function startOwnedAttachedProcess(
   let stdoutBytes = 0;
   let stderrBytes = 0;
   let hasOutputExceeded = false;
+  let hasStartedSettled = false;
   let hasReadySettled = false;
   let hasClosed = false;
   let hasTerminationRequested = false;
   let terminationRequestCount = 0;
+  let settleStarted: (isStarted: boolean) => void = () => undefined;
   let settleReady: (isReady: boolean) => void = () => undefined;
+  const started = new Promise<boolean>((resolve) => {
+    settleStarted = resolve;
+  });
   const ready = new Promise<boolean>((resolve) => {
     settleReady = resolve;
   });
+  const finishStarted = (isStarted: boolean) => {
+    if (hasStartedSettled) return;
+    hasStartedSettled = true;
+    settleStarted(isStarted);
+  };
   const finishReady = (isReady: boolean) => {
     if (hasReadySettled) return;
     hasReadySettled = true;
@@ -1344,7 +1356,8 @@ function startOwnedAttachedProcess(
       finishReady(false);
       resolve(execution);
     };
-    child.once("error", (error) =>
+    child.once("error", (error) => {
+      finishStarted(false);
       finish({
         error,
         status: null,
@@ -1352,10 +1365,12 @@ function startOwnedAttachedProcess(
         stdout: Buffer.concat(stdoutChunks).toString("utf8"),
         stderr: Buffer.concat(stderrChunks).toString("utf8"),
         outputExceeded: hasOutputExceeded,
-      }),
-    );
+      });
+    });
+    child.once("spawn", () => finishStarted(true));
     child.once("close", (status, signal) => {
       hasClosed = true;
+      finishStarted(false);
       finish({
         status,
         signal,
@@ -1375,6 +1390,7 @@ function startOwnedAttachedProcess(
     return hasClosed ? execution : null;
   }
   return Object.freeze({
+    started,
     ready,
     completion,
     terminateAndWait,
@@ -1447,9 +1463,17 @@ export async function verifyOwnedAttachTerminationForFixture(
     environment,
     OWNED_ATTACH_FIXTURE_READY,
   );
-  const isReady = await boundedPromise(controller.ready, 250, false);
-  if (scenario !== "output_overflow" || !controller.isClosed())
+  const isStarted = await boundedPromise(controller.started, 5_000, false);
+  const isReady =
+    scenario === "ready_then_never_complete" && isStarted
+      ? await boundedPromise(controller.ready, 5_000, false)
+      : false;
+  if (scenario === "output_overflow" && isStarted) {
+    await boundedPromise(controller.completion, 5_000, null);
+  }
+  if (scenario !== "output_overflow" || !controller.isClosed()) {
     await controller.terminateAndWait();
+  }
   const execution = await controller.terminateAndWait();
   const hasClosed = controller.isClosed() && execution !== null;
   const hasExpectedReady =
@@ -1459,6 +1483,7 @@ export async function verifyOwnedAttachTerminationForFixture(
   const hasExactTerminationRequest =
     controller.getTerminationRequestCount() === 1;
   const isVerified =
+    isStarted &&
     hasClosed &&
     hasExpectedReady &&
     hasExpectedOverflow &&
