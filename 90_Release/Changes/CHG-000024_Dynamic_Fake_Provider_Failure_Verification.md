@@ -67,4 +67,6 @@ CHG-000023で通常`doctor --isolation`から分離した失敗scenarioを、専
 
 固定Commit `967f1b625c5075b06ab29d7d411f15b69dd56db5`、Tree `4aabd464cad5ec3b66adc551fc18b4e1b912742a`、Parent `95ce472c12d0836dcb5e354e785b0cc0cd09706d`のclean worktreeで、固定Node.js `v24.19.0`から専用verificationを実行した。4 scenarioはすべて期待する`blocked` reasonへ一致し、Host cleanupは全件`confirmed`、実行後の所有containerとOperation一時Directoryはともに0、回復は不要だった。診断Docker container／Filesystem Effectは全件`true`、Provider Network Effect、Runtime Authority、Operation Capabilityおよび実Provider readinessは全件`false`である。固定環境、結果Hashおよびraw出力非保持境界は[`実Docker失敗scenario Evidence`](Evidence/CHG-000024_Docker_Failure_E2E_967f1b6.md)に記録する。
 
+同じ候補内容について、Coordinatorのstrict typecheck／lint／formatはPass、contract testは374/374、Checker packageのcheckはPass、contract testは151/151だった。全Repository checkerはEvidence追加前505 files／319 Markdown／1920 links／567 anchors、Evidence追加後506 files／320 Markdown／1921 links／567 anchorsを確認し、いずれもError 0／Warning 0だった。Rust helper、公開Checker contract、Profile／Registry、実Providerおよび公開SchemaはNo Impactであり、既存Rust結果を本変更の成立根拠へ流用しない。
+
 現在、人間による追加判断は必要ない。実Codex／Claude、OAuth、Provider endpoint Egress、専用Home保護、mount Grant発行／失効、実行中cancelおよび実Operationは未実装または`Not Verified`であり、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseを維持する。
