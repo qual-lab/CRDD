@@ -63,4 +63,8 @@ CHG-000023で通常`doctor --isolation`から分離した失敗scenarioを、専
 
 未到達183 branchは同じ決定論的JSONでsource／line／block／branch Identityごとに、理由、risk、代替確認、Owner=`Qual-Lab`、`humanDecision:none`および再確認契機へ一対一接続する。主な未到達はOS／Docker例外、防御的cleanup／recovery、actual CLI分岐およびrunner自身の失敗処理であり、今回の固定4 scenario、contract負例、通常`doctor --isolation`および明示recoveryが代替確認を分担する。100%未達をPassへ読み替えず、実Docker結果とunit coverageを相互代替しない。固定候補の実Docker Evidenceは候補Commit固定後に追記する。
 
+## 固定候補の実Docker結果
+
+固定Commit `967f1b625c5075b06ab29d7d411f15b69dd56db5`、Tree `4aabd464cad5ec3b66adc551fc18b4e1b912742a`、Parent `95ce472c12d0836dcb5e354e785b0cc0cd09706d`のclean worktreeで、固定Node.js `v24.19.0`から専用verificationを実行した。4 scenarioはすべて期待する`blocked` reasonへ一致し、Host cleanupは全件`confirmed`、実行後の所有containerとOperation一時Directoryはともに0、回復は不要だった。診断Docker container／Filesystem Effectは全件`true`、Provider Network Effect、Runtime Authority、Operation Capabilityおよび実Provider readinessは全件`false`である。固定環境、結果Hashおよびraw出力非保持境界は[`実Docker失敗scenario Evidence`](Evidence/CHG-000024_Docker_Failure_E2E_967f1b6.md)に記録する。
+
 現在、人間による追加判断は必要ない。実Codex／Claude、OAuth、Provider endpoint Egress、専用Home保護、mount Grant発行／失効、実行中cancelおよび実Operationは未実装または`Not Verified`であり、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseを維持する。
