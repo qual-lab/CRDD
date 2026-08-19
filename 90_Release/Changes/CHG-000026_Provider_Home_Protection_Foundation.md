@@ -43,7 +43,7 @@ private doctorのRepository内production decoder／consumerは全数探索で0�
 
 自己確認時の合計はlines `2025/2213`、functions `80/87`、branches `402/481`で、未到達branchは79件である。新規`provider-home.ts`はlines `135/135`、functions `6/6`、branches `17/17`の全到達、`provider-lifecycle.ts`と`plain-data-snapshot.ts`も全到達である。未到達は反対OS dispatch 1件、doctorの環境／Docker／cleanup分岐51件、共有parser 26件、runner main guard 1件で、全件を決定論的出力の義務へ接続した。連続2回のpayload SHA-256は`6005503557356981ed65dfa9d84a44b4a0fc27648753ef06b7cc83de8a14bf32`、stdoutは60,987 byte、SHA-256は`cc53e4e15c779e7b7b17ddfcdc2a95a44d1f59da8fa05f424b74ffe0df3b9411`である。100%未達はProvider Home Coreの未検証分岐ではなく、母集団に含めた共有利用側と品質生成器のOS／環境／防御分岐である。
 
-Node.js v24.19.0でCoordinator check、Coordinator全contract test 385／385、Checker contract test 151／151、Provider Home coverage、tools命名／source closure 5／5およびfull checkerを確認対象とする。source closureの固定値はCoordinator production 66、Coordinator test 60、Checker／template 5、Rust 4、unique total 134である。Rust sourceとwireを変更していないためRust test／coverageは本変更の成立根拠へ流用せず`No Impact`とする。
+Node.js v22.18.0でCoordinator check、Coordinator全contract test 385／385、Checker contract test 151／151、Provider Home coverage、tools命名／source closure 5／5およびfull checkerを確認対象とする。source closureの固定値はCoordinator production 66、Coordinator test 60、Checker／template 5、Rust 4、unique total 134である。Rust sourceとwireを変更していないためRust test／coverageは本変更の成立根拠へ流用せず`No Impact`とする。
 
 実Windows Home作成、ACL、selected user binder、実OAuth、auth session probe、固定Provider image、Egressおよび実Provider processは`Not Verified`である。現在の品質状態は`Partially Verified`で、機械確認または配置候補成立をProvider readinessへ流用しない。
 
@@ -52,6 +52,8 @@ Node.js v24.19.0でCoordinator check、Coordinator全contract test 385／385、C
 固定Commit `4900edc923595bda98999b9e54d23d733324f02d`／Tree `5de594f128660fb04c886cb33e68f6c165e74251`／Parent `5b51e8d89511796e17735a250a759df16cc562ec`の初回監査では、Agent／Architecture／Securityは`Pass`／Finding 0、Documentは`Fail`（`DOC-HOME-001` Major、`DOC-HOME-002` Minor）であった。Documentの2件はともに「今回の変更によって発生」と分類された。初回Gap／ImpactとConformanceはいったん`Pass`／`Eligible`を返したが、Document Majorの統合後は`GCI-HOME-001` Major（L3 Cross-layer、初回Gapの見落し）によりそれぞれ`Fail`、`Fail / Not Eligible`へ訂正された。
 
 この監査集合は`Invalidated`であり、新固定版の現在判定へ流用しない。是正はREADME、脅威モデルおよびMaintenanceの現在入力／将来Effect source分離と、本CHGのcoverage入口名に限る。`DOC-HOME-001`、`DOC-HOME-002`および`GCI-HOME-001`の状態は`Applied / Self-checked — pending independent re-review`であり、新固定版の必須監査集合完了前に`Resolved`としない。
+
+是正後固定Commit `fb949110e071043eab6284d8f5117ce080c017b0`／Tree `97587f4e0c0350fcdd0a266805b45cbc3b192f3c`／Parent `4900edc923595bda98999b9e54d23d733324f02d`では、Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceがすべて`Pass`／Finding 0となり、既知3 Findingは解消候補となった。しかしEvidence固定前の機械入力再照合で、実行Nodeが`v22.18.0`であるのに自己確認記録が旧系列の`v24.19.0`を示していた品質根拠の同一性不整合`QA-HOME-001`（Major、今回の変更によって発生）を親Agentが検出した。`fb94911`の監査集合も`Invalidated`／現在不流用とし、実測Node版だけを訂正した。`QA-HOME-001`は`Applied / Self-checked — pending independent re-review`であり、機械結果、coverage値およびHash自体は変更しない。
 
 ## 変更禁止範囲と完了条件
 
