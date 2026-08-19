@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`（private Provider lifecycle revision 2から3、private doctor `reportVersion` 4から5）
 - 移行要否: `migration_required: true`（Repository内producerとcontract testを同時更新し、旧revisionのalias／fallbackを設けない。supported production Provider Home stateは0で永続state変換はない）
-- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000022`](CHG-000022_Provider_Lifecycle_Foundation.md)、[`CHG-000025`](CHG-000025_Dynamic_Fake_Provider_Cancellation_Verification.md)、[`tools/coordinator/README.md`](../../tools/coordinator/README.md)、[`tools/coordinator/threat-model.md`](../../tools/coordinator/threat-model.md)
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000022`](CHG-000022_Provider_Lifecycle_Foundation.md)、[`CHG-000025`](CHG-000025_Dynamic_Fake_Provider_Cancellation_Verification.md)、[`CHG-000027`](CHG-000027_Coordinator_Test_And_Package_Inventory_Stability.md)、[`tools/coordinator/README.md`](../../tools/coordinator/README.md)、[`tools/coordinator/threat-model.md`](../../tools/coordinator/threat-model.md)
 
 ## 結論
 
@@ -62,6 +62,8 @@ Node.js v24.19.0でCoordinator check、Coordinator全contract test 386／386、C
 後続の直接runner raw stdout再照合により、品質来歴の混在自体は旧`402/481`・payload `600550…`の記録時点から存在し、e6のcoverage値変更で初めて同一byte列ではないことを決定的に確認できたと判明した。そのため`AG-HOME-R3-001`、`DOC-HOME-R3-001`、`GCI-HOME-003`および同根の`QA-HOME-002`の現在分類を「今回の修正によって初めて確認可能」へ訂正する。この訂正はFindingの重要度、技術的受入条件または解消候補状態を変えない。原因は、旧の`402/481`とpayload `600550…`に、別の直接runner実行で得たstdout Hash `cc53…`を混在させたことであり、SHA-256衝突ではない。`e6fdbc6`の監査集合も`Invalidated`／現在不流用とした。runner自身にNode下限拒否とruntime Identity出力を追加し、基準適合Node `v24.19.0`の同一出力からcoverage、payload Hash、stdout byte数／Hashおよびstderrを再取得した。
 
 固定Commit `06289daff4593f0dc3d7827ae3730969703e2f26`／Tree `93d2c15c0d16e1970084b389c7014416836a019d`／Parent `e6fdbc6edb52bd757b86e2f40edadf9755692773`の監査集合は、Agent／Architecture／Securityが`Pass`／Finding 0、Documentが`Conditional`（`DOC-HOME-R4-001` Minor、今回の修正によって新たに発生）、Gap／Impactが`Pass`／Finding 0、Conformanceが`Pass / Eligible`であった。同監査集合も`Invalidated`／現在不流用とし、`DOC-HOME-R4-001`は`Applied / Self-checked — pending independent re-review`とする。技術契約、coverage値／Hash、runtime下限、Gateおよび非Release境界は変更しない。
+
+履歴訂正後の固定Commit `2e84bdf89da01b425a01280de1b43b1f80c30871`では、上記386／386成功runを削除せず保持した一方、後続の別runで取消fixtureとpackage directory race fixtureがそれぞれ1件失敗し、反復安定性が未成立と判明した。Agent／Architecture／Securityは`AG-PACKAGE-RACE-001` Majorと`AG-CANCEL-FIXTURE-TIMING-001` Minor（いずれも初回監査から存在した見落し）、Documentは`DOC-HOME-R5-001` Major、Gap／Impactは`GCI-HOME-004`／`GCI-HOME-005` Major（後3件はいずれも今回の修正によって初めて確認可能）を返した。詳細、技術是正および並列2回／逐次1回の再確認は[`CHG-000027`](CHG-000027_Coordinator_Test_And_Package_Inventory_Stability.md)へ分離した。同変更の新しい必須監査集合が完了するまで、本CHGは未閉鎖であり、成功runだけを現在Passへ流用しない。
 
 ## 変更禁止範囲と完了条件
 

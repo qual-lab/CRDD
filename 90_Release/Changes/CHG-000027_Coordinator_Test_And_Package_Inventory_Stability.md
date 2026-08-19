@@ -35,7 +35,7 @@ package inventoryの最終候補は再列挙の一致だけでAuthorityへ昇格
 
 ## 検証設計と現在品質状態
 
-Node.js v24.19.0で、変更した2 contract fileの10／10、全Coordinator contract testの並列run 386／386を連続2回、逐次run 386／386を確認した。Coordinator typecheck／lint／format、Checker 151／151およびfull checkerも新固定版で確認する。
+Node.js v24.19.0で、対象2 contract test file（package Filesystem 6件、動的Fake取消4件）の10／10、全Coordinator contract testの並列run 386／386を連続2回、逐次run 386／386を確認した。Coordinator typecheck／lint／format、Checker 151／151およびfull checkerも新固定版で確認する。
 
 Platform Access TypeScript coverageはexact 19 source／18 testで、lines 6372／7164、functions 231／250、branches 988／1228、未到達240件である。compact JSON UTF-8＋末尾LFは140,355 byte、SHA-256 `9a9cd6171aa99937e884a98d6c231f156ed8d99a3a67edbac64ebcaaca82bd66`で、連続2回一致した。Dynamic Fake Provider coverageはexact 10 source／7 testで、lines 4071／5808、functions 167／218、branches 704／898、未到達194件、payload SHA-256 `542555e77e57dc6eba158c5f097de78cdad1316b62a891728463aa96fd8270f2`、stdout 134,164 byte／SHA-256 `eb9f4e7111191ee6f69481f01141951af675fe029e8db5d053389f843fd27d08`である。
 
@@ -51,6 +51,8 @@ package側では、(a) sleepまたはmtime強制、(b) directory metadataだけ�
 
 ## 監査履歴と完了条件
 
-固定Commit `2e84bdf89da01b425a01280de1b43b1f80c30871`／Tree `5f8f7599d0f6a8c30d2b06ac2427759896aadae1`／Parent `06289daff4593f0dc3d7827ae3730969703e2f26`の監査集合は、Agent／Architecture／Securityが`Fail`（`AG-PACKAGE-RACE-001` Major、`AG-CANCEL-FIXTURE-TIMING-001` Minor、いずれも初回監査から存在した見落し）、Documentが`Fail`（`DOC-HOME-R5-001` Major、今回の修正によって初めて確認可能）、Gap／Impactが`Fail`（`GCI-HOME-004`／`GCI-HOME-005` Major、いずれも今回の修正によって初めて確認可能）、Conformanceが`Fail / Not Eligible`であった。`DOC-HOME-R4-001`の履歴訂正は解消候補だが、全testの反復安定性が未成立のためCHG26を閉じられない。同集合は`Invalidated`／現在不流用とし、今回の2根本原因は`Applied / Self-checked — pending independent re-review`とする。
+固定Commit `2e84bdf89da01b425a01280de1b43b1f80c30871`／Tree `5f8f7599d0f6a8c30d2b06ac2427759896aadae1`／Parent `06289daff4593f0dc3d7827ae3730969703e2f26`の監査集合は、Agent／Architecture／Securityが`Fail`（`AG-PACKAGE-RACE-001` Major、`AG-CANCEL-FIXTURE-TIMING-001` Minor、いずれも初回監査から存在した見落し）、Documentが`Fail`（`DOC-HOME-R5-001` Major、今回の修正によって初めて確認可能）、Gap／Impactが`Fail`（`GCI-HOME-004`／`GCI-HOME-005` Major、いずれも今回の修正によって初めて確認可能）、Conformanceが`Fail / Not Eligible`であった。`DOC-HOME-R4-001`の履歴訂正は解消候補だが、全testの反復安定性が未成立のためCHG26を閉じられない。同集合は`Invalidated`／現在不流用とし、今回の2技術根本原因と`DOC-HOME-R5-001`は`Applied / Self-checked — pending independent re-review`とする。
+
+固定Commit `1d89434e998005abdd4e0952252f1c37c5c5b80f`／Tree `e706216326f2102ba94f137166a733ffb784a99f`／Parent `2e84bdf89da01b425a01280de1b43b1f80c30871`の監査集合は、Agent／Architecture／Securityが`Pass`／Finding 0、Documentが`Fail`（既存`DOC-HOME-R5-001` Major残存、新規`DOC-STABILITY-001` Minor＝今回の修正によって新たに発生）、Gap／Impactが`Pass`／Finding 0、Conformanceが`Pass / Eligible`であった。SecurityとGap観点では既知2技術根本原因が解消候補となったが、Documentの直接伝播と対象試験母集団の表示が未完了である。同集合は`Invalidated`／現在不流用とし、`DOC-HOME-R5-001`および`DOC-STABILITY-001`は`Applied / Self-checked — pending independent re-review`とする。新固定版の全機械確認と同じ必須監査集合が完了するまで、本CHGまたはCHG26を`Verified`、Finding全体を`Resolved`へ昇格しない。
 
 完了条件は、新固定Commit／Treeで全機械確認、並列2回と逐次1回の全386 contract test、両coverageの固定母集団と全未到達義務、Agent／Architecture／Security、Document、Gap／Impact、Conformanceの独立再監査を旧合否不流用で完了し、CHG26の最終履歴訂正と今回Findingを同じ現在状態へ伝播することである。採用、統合、Gate open、StableまたはReleaseの判断は本変更に含めない。
