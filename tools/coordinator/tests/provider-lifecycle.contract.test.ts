@@ -83,7 +83,8 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
   assert.equal(home.hostDefaultHomeImportAllowed, false);
   assert.equal(home.otherProviderHomeSharingAllowed, false);
   assert.equal(home.operationCleanupOwned, false);
-  assert.equal(home.protectionVerification, "not_implemented");
+  assert.equal(home.protectionObservation, "not_implemented");
+  assert.equal(home.selectedLocalUserBinder, "not_implemented");
   const grant = describeProviderLifecycleContract().providerHomeMountGrant;
   assert.equal(grant.grantIssued, false);
   assert.equal(grant.tokenCopyAllowed, false);
@@ -101,7 +102,7 @@ test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () =
   assert.equal(claude.status, "blocked");
   assert.equal(
     claude.reason,
-    "provider_egress_auth_and_fixed_image_binding_not_implemented",
+    "provider_home_protection_egress_auth_and_fixed_image_binding_not_implemented",
   );
   assert.equal(codex.spawnAllowed, false);
   assert.equal(claude.spawnAllowed, false);
@@ -166,6 +167,7 @@ test("synthetic Fake claimの契約、revision、providerおよびmode差を拒�
   for (const changed of [
     { contract: "other" },
     { contractRevision: 1 },
+    { contractRevision: 2 },
     { provider: "codex" },
     { mode: "login" },
   ]) {

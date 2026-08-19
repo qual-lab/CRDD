@@ -2,10 +2,11 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import { describeProviderHomeContract } from "./provider-home.ts";
 
 export const PROVIDER_LIFECYCLE_CONTRACT =
   "crdd-coordinator/provider-lifecycle";
-export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 2;
+export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 3;
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const MODES = Object.freeze(["login", "run"] as const);
@@ -125,7 +126,7 @@ export function planProviderLifecycle(candidate: unknown) {
     ...blocked(
       value.mode === "login"
         ? "provider_explicit_login_effect_not_implemented"
-        : "provider_egress_auth_and_fixed_image_binding_not_implemented",
+        : "provider_home_protection_egress_auth_and_fixed_image_binding_not_implemented",
     ),
     provider: value.provider,
     mode: value.mode,
@@ -263,17 +264,7 @@ export function describeProviderLifecycleContract() {
     modes: MODES,
     authPolicies: AUTH_POLICIES,
     authenticationPolicyState: "approved_policy_only",
-    dedicatedProviderHome: Object.freeze({
-      scope: "local_os_user_and_provider",
-      persistentAcrossOperations: true,
-      sharedAcrossRepositoriesForSameOsUser: true,
-      hostDefaultHomeImportAllowed: false,
-      otherProviderHomeSharingAllowed: false,
-      operationCleanupOwned: false,
-      explicitLoginRequired: true,
-      protectionVerification: "not_implemented",
-      authSessionProbe: "not_implemented",
-    }),
+    dedicatedProviderHome: describeProviderHomeContract(),
     providerHomeMountGrant: Object.freeze({
       implementationState: "not_implemented",
       semantics:

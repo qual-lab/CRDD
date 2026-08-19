@@ -352,7 +352,7 @@ test("owned childをjunctionへ置換した場合は対象を削除しない", (
 test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () => {
   const report = runDoctor();
   const serialized = JSON.stringify(report);
-  assert.equal(report.reportVersion, 4);
+  assert.equal(report.reportVersion, 5);
   assert.deepEqual(
     Object.keys(report).sort(),
     [
