@@ -37,6 +37,10 @@ test("取消verificationは固定image・network none・固定SIGTERM handlerだ
   const source = args.at(-1) ?? "";
   assert.match(source, /SIGTERM/u);
   assert.match(source, /crdd-coordinator-cancellation-v1/u);
+  assert.equal(
+    source.indexOf("signal.signal") < source.lastIndexOf("print(json.dumps"),
+    true,
+  );
   assert.equal(runDynamicFakeProviderCancellationVerification.length, 1);
   assert.equal(verifyDynamicFakeProviderCancellation.length, 0);
 });

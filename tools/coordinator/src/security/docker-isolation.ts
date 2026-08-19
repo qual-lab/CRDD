@@ -392,11 +392,11 @@ const CANCELLATION_ACKNOWLEDGED_OUTPUT =
 const CANCELLATION_SOURCE = `
 import json, signal, sys, time
 marker="crdd-coordinator-cancellation-v1"
-print(json.dumps({"marker":marker,"state":"ready"},separators=(",",":")),flush=True)
 def cancelled(_signal,_frame):
     print(json.dumps({"marker":marker,"state":"cancelled"},separators=(",",":")),flush=True)
     sys.exit(42)
 signal.signal(signal.SIGTERM,cancelled)
+print(json.dumps({"marker":marker,"state":"ready"},separators=(",",":")),flush=True)
 while True: time.sleep(0.05)
 `;
 
