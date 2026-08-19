@@ -7,6 +7,7 @@
     "check": "npm run typecheck && npm run lint && npm run format:check",
     "doctor": "node ./bin/coordinator.ts doctor",
     "dynamic-fake-provider:coverage": "node ./scripts/check-dynamic-fake-provider-coverage.ts",
+    "dynamic-fake-provider:verify-cancellation": "node ./scripts/verify-dynamic-fake-provider-cancellation.ts",
     "dynamic-fake-provider:verify-failures": "node ./scripts/verify-dynamic-fake-provider-failures.ts",
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
