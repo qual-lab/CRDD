@@ -71,7 +71,7 @@ Provider隔離Profile／Authority Registry revision 2、Trust Loader、File Bund
 | async full lifecycle | 実行中cancelとgraceful／forced terminationを所有できる | 今回の実装量、並行状態および回復riskを拡大する | 将来再評価 |
 | sync partial lifecycle | 既存固定Docker Probeを再利用し正常／timeout／出力分類とcleanupを限定確認できる | 実行中cancelを扱えず、実Docker failure E2Eが未検証 | 現候補として採用 |
 
-plain result方式は来歴を閉じず、injection方式はproduction callerの権限を広げるため採らない。async方式はcancelを成立させ得るが、現在の変更範囲では状態と回復の未検証面を増やす。したがって、single finalizer、one-shot provenance、30秒以内のbounded sync success、post-run mount Identity、3軸absenceおよびHost cleanupの全ANDを保持条件として、sync partial lifecycleを採用する。この選択は成功／失敗Docker E2Eやcancelを成立させず、現在品質を`Partially Verified`に保つ。再評価契機はasync lifecycle／cancel着手、固定image／CLI変更、実Provider Adapter着手、cleanup／provenance契約変更である。
+plain result方式は来歴を閉じず、injection方式はproduction callerの権限を広げるため採らない。async方式はcancelを成立させ得るが、現在の変更範囲では状態と回復の未検証面を増やす。したがって、single finalizer、one-shot provenance、30秒以内のbounded sync success、post-run mount Identity、3軸absenceおよびHost cleanupの全ANDを保持条件として、sync partial lifecycleを採用する。この選択は正常Docker E2EをFake限定で確認できるが、意図的失敗Docker E2Eやcancelを成立させず、現在品質を`Partially Verified`に保つ。再評価契機はasync lifecycle／cancel着手、固定image／CLI変更、実Provider Adapter着手、cleanup／provenance契約変更である。
 
 ## 固定版2d15653の監査履歴
 
@@ -111,7 +111,7 @@ plain result方式は来歴を閉じず、injection方式はproduction callerの
 
 未到達branch 181件はrunnerがsource／line／block／branch Identityごとに`Not Verified`、reason、risk、代替確認、Owner=`Qual-Lab`、`humanDecision:not_required`および再確認契機へ一対一で出力する。連続2回のpayload SHA-256は`5E7674041665FF558CBB89D376D49F363F68E9C73DAFC7CAD44B911AE62596E8`、compact JSON UTF-8＋末尾LF exact 1件のstdoutは124310 byte、SHA-256は`E2BA5CE68D7944DFF5E7B3215FD34A7B4C9C36289C3285A9A7A2AD1AB1674F22`である。commandはRepository rootからNode.js `v24.19.0`で`node tools/coordinator/scripts/check-dynamic-fake-provider-coverage.ts`を実行する。未到達を100%へ換算せず、現在状態は`Partially Verified`とする。
 
-同じ環境の`doctor --isolation --json`は固定Docker Desktop Linux Engineを確認できず、`local_docker_desktop_linux_engine_required`でcontainer start前に`blocked`となった。Repository所有の一時Directory処置は`diagnosticFilesystemEffectIssued:true`、Docker container処置は`false`として取得し、成功scenario、失敗scenario、process／container不存在の実Docker結果へ流用しない。成功scenario以外の実Docker動的検証、実行中取消および外部Providerは`Not Verified`である。OwnerはQual-Lab、再確認契機は対応するDocker Engine上の専用dynamic verification完成、非同期Docker lifecycle導入、固定image／Docker CLI変更または実Provider Adapter着手時である。
+後続の同一固定版環境ではDocker Desktop Linux Engineを起動し、固定Node.js `v24.19.0`で`doctor --isolation --json`の正常scenarioを実行した。Fake process実行、exact結果正規化、同一containerのID／name／label 3軸不存在、container内process tree不存在およびHost cleanupは同じrunで`verified`となり、診断Docker container Effectと診断Filesystem Effectは`true`、Provider Network Effect、Runtime Authority、Operation Capabilityおよび実Provider readinessは`false`だった。実行後の所有containerとOperation一時Directoryはともに0、回復不要である。固定対象、環境、結果Hashおよび保持しないraw出力の境界は[`実Docker正常scenario Evidence`](Evidence/CHG-000023_Docker_Success_E2E_63e33e7.md)に記録する。意図的失敗scenarioの実Docker動的検証、実行中取消および外部Providerは`Not Verified`である。OwnerはQual-Lab、再確認契機は専用failure verification完成、非同期Docker lifecycle導入、固定image／Docker CLI変更または実Provider Adapter着手時である。
 
 ## 停止・復旧
 
@@ -123,4 +123,4 @@ plain result方式は来歴を閉じず、injection方式はproduction callerの
 
 固定結果と共通機械入力は[`CHG-000023 現在のレビュー記録`](Evidence/CHG-000023_Current_Review_Record_dad6fb3.md)へ保存する。
 
-この`Verified`は動的Fake変更候補の検証完了だけを表す。実Docker成功／失敗E2E、実行中cancel、実Codex／Claude、OAuth、固定Provider image、EgressおよびOperation接続は`Not Verified`または未実装であり、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseを維持する。採用、統合、StableまたはReleaseの判断ではない。
+この`Verified`は動的Fake変更候補の検証完了だけを表す。実Docker正常E2EはFake限定で確認済みだが、意図的失敗E2E、実行中cancel、実Codex／Claude、OAuth、固定Provider image、EgressおよびOperation接続は`Not Verified`または未実装であり、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseを維持する。採用、統合、StableまたはReleaseの判断ではない。

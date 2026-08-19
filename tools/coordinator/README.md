@@ -16,7 +16,7 @@ OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecur
 
 Providerライフサイクル基盤（Provider Lifecycle Foundation）は、Codexでは既存ChatGPTプランのsubscription OAuth、Claude Codeでは既存subscription OAuthだけを認証方針として許可する。API key、従量APIへの切替、追加credit購入、Hostの既定HomeやCredentialのコピーは許可しない。認証状態はローカルOS userとProviderの組合せごとに分離した永続専用Homeへ将来の明示loginで作成し、RepositoryやOperationごとにloginし直さない方針である。専用Homeは通常Operationの一時`provider-home/`と別物であり、他Providerと共有せず、Operation cleanupの所有対象に含めない。
 
-現在のFake境界は三層に分かれる。合成Fake観測候補（Synthetic Fake Observation Candidate）のpure Coreはprocessを実行せず、caller claimを非Authorityの`candidate`へ限定する。明示`doctor --isolation`の動的Fakeは診断用Docker／一時Filesystem Effectを伴う実装候補だが、現在の固定環境ではDocker Desktop Linux Engine不成立によりstart前に`blocked`となり、成功／失敗Docker E2Eと実行中cancelは`Not Verified`である。通常の`doctor`は動的Fakeを発火しない。実Codex／Claude Code、専用Home保護、実login、Provider endpoint限定Egressおよび実Provider起動は未実装で、spawn前に`blocked`となる。
+現在のFake境界は三層に分かれる。合成Fake観測候補（Synthetic Fake Observation Candidate）のpure Coreはprocessを実行せず、caller claimを非Authorityの`candidate`へ限定する。明示`doctor --isolation`の動的Fakeは診断用Docker／一時Filesystem Effectを伴い、固定Docker Desktop Linux Engine上の正常scenarioについて、Fake限定結果、container／process tree不存在およびHost cleanupを同じrunで確認済みである。意図的失敗scenarioの実Docker E2Eと実行中cancelは`Not Verified`のままである。通常の`doctor`は動的Fakeを発火しない。実Codex／Claude Code、専用Home保護、実login、Provider endpoint限定Egressおよび実Provider起動は未実装で、spawn前に`blocked`となる。
 
 合成Fake観測候補は、callerが与えたtimeout、cancel、stdin／stdout／stderr量、終了状態、process tree／container不存在のclaimおよび結果exact 1件を構造的に評価するだけである。正常形も`candidate`、`observationAuthority:false`、`fakeProviderExecuted:false`、`processAbsenceVerified:false`に固定し、実測、実Codex／Claude Codeの認証、subscription残量、追加費用不要性、Egress、Telemetry、自動更新またはOperation Capabilityを証明しない。subscriptionのquota／creditが不足または判定不能な場合は追加購入やAPI fallbackを行わず`blocked`とする。
 
