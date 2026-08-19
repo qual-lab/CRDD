@@ -47,8 +47,14 @@ Node.js v24.19.0でCoordinator check、Coordinator全contract test 385／385、C
 
 実Windows Home作成、ACL、selected user binder、実OAuth、auth session probe、固定Provider image、Egressおよび実Provider processは`Not Verified`である。現在の品質状態は`Partially Verified`で、機械確認または配置候補成立をProvider readinessへ流用しない。
 
+## 初回独立監査と是正状態
+
+固定Commit `4900edc923595bda98999b9e54d23d733324f02d`／Tree `5de594f128660fb04c886cb33e68f6c165e74251`／Parent `5b51e8d89511796e17735a250a759df16cc562ec`の初回監査では、Agent／Architecture／Securityは`Pass`／Finding 0、Documentは`Fail`（`DOC-HOME-001` Major、`DOC-HOME-002` Minor）であった。Documentの2件はともに「今回の変更によって発生」と分類された。初回Gap／ImpactとConformanceはいったん`Pass`／`Eligible`を返したが、Document Majorの統合後は`GCI-HOME-001` Major（L3 Cross-layer、初回Gapの見落し）によりそれぞれ`Fail`、`Fail / Not Eligible`へ訂正された。
+
+この監査集合は`Invalidated`であり、新固定版の現在判定へ流用しない。是正はREADME、脅威モデルおよびMaintenanceの現在入力／将来Effect source分離と、本CHGのcoverage入口名に限る。`DOC-HOME-001`、`DOC-HOME-002`および`GCI-HOME-001`の状態は`Applied / Self-checked — pending independent re-review`であり、新固定版の必須監査集合完了前に`Resolved`としない。
+
 ## 変更禁止範囲と完了条件
 
 API key、従量API、追加credit購入、自動plan切替、Host Credential import、実Provider／Network Effect、Authority、Capability、Gate、StableまたはReleaseを有効化しない。CHG-000022からCHG-000025の固定履歴とEvidenceを書き換えない。
 
-新固定Commit／TreeでCoordinator check、全contract test、Provider lifecycle coverage、source closure、Checker、full checkerを取得し、Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceの独立監査集合を旧合否不流用で完了するまで`Resolved`または`Verified`へ昇格しない。
+新固定Commit／TreeでCoordinator check、全contract test、Provider Home coverage（`npm run provider-home:coverage --prefix tools/coordinator`）、source closure、Checker、full checkerを取得し、Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceの4つの必須独立確認を同一Commit／Treeと共通機械入力で旧合否不流用のまま完了するまで、Findingを`Resolved`またはCHGを`Verified`へ昇格しない。
