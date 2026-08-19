@@ -10,6 +10,7 @@ import {
 } from "./check-platform-access-ts-coverage.ts";
 
 const MAXIMUM_LCOV_BYTES = 32 * 1024 * 1024;
+export const PROVIDER_HOME_COVERAGE_MINIMUM_NODE_VERSION = "24.12.0";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
@@ -112,6 +113,25 @@ function fixedEnvironment() {
   return environment;
 }
 
+export function isSupportedProviderHomeCoverageNodeVersion(value: unknown) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value);
+  if (!match) return false;
+  const versionParts = match.slice(1).map(Number);
+  const minimumParts =
+    PROVIDER_HOME_COVERAGE_MINIMUM_NODE_VERSION.split(".").map(Number);
+  if (versionParts.some((part) => !Number.isSafeInteger(part))) return false;
+  for (let index = 0; index < minimumParts.length; index += 1) {
+    const currentPart = versionParts[index];
+    const minimumPart = minimumParts[index];
+    if (currentPart === undefined || minimumPart === undefined) return false;
+    if (currentPart !== minimumPart) {
+      return currentPart > minimumPart;
+    }
+  }
+  return true;
+}
+
 function inspectOnce() {
   const result = spawnSync(
     process.execPath,
@@ -150,6 +170,9 @@ function inspectOnce() {
 }
 
 export function inspectProviderHomeCoverage() {
+  if (!isSupportedProviderHomeCoverageNodeVersion(process.versions.node)) {
+    throw new Error("Provider Home coverage Node runtime unsupported");
+  }
   const rootMetadata = fs.lstatSync(repositoryRoot);
   if (
     !rootMetadata.isDirectory() ||
@@ -165,6 +188,10 @@ export function inspectProviderHomeCoverage() {
     throw new Error("Provider Home coverage output is not deterministic");
   }
   return Object.freeze({
+    runtime: Object.freeze({
+      nodeVersion: process.version,
+      minimumNodeVersion: PROVIDER_HOME_COVERAGE_MINIMUM_NODE_VERSION,
+    }),
     sourcePopulation: PROVIDER_HOME_COVERAGE_SOURCES,
     testPopulation: PROVIDER_HOME_COVERAGE_TESTS,
     coverage: first,
