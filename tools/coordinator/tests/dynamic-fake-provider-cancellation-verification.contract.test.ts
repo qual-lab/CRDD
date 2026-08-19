@@ -8,7 +8,7 @@ import {
 } from "../src/security/docker-isolation.ts";
 import { verifyDynamicFakeProviderCancellation } from "../scripts/verify-dynamic-fake-provider-cancellation.ts";
 
-const mounts = Object.freeze({
+const MOUNTS = Object.freeze({
   workspace: "C:\\crdd\\workspace",
   providerHome: "C:\\crdd\\provider-home",
   tmp: "C:\\crdd\\tmp",
@@ -17,7 +17,7 @@ const mounts = Object.freeze({
   management: "C:\\crdd\\management",
 });
 
-const exactExecution = Object.freeze({
+const EXACT_EXECUTION = Object.freeze({
   status: 42,
   signal: null,
   stdout:
@@ -27,7 +27,7 @@ const exactExecution = Object.freeze({
 });
 
 test("取消verificationは固定image・network none・固定SIGTERM handlerだけを構成する", () => {
-  const args = dockerCreateArgumentsForCancellationVerificationFixture(mounts);
+  const args = dockerCreateArgumentsForCancellationVerificationFixture(MOUNTS);
   assert.equal(args.includes("--pull=never"), true);
   assert.equal(args.includes("--network=none"), true);
   assert.equal(args.includes("--read-only"), true);
@@ -43,7 +43,7 @@ test("取消verificationは固定image・network none・固定SIGTERM handlerだ
 
 test("plain cancellation観測はcandidateに留まりrepository実行なしでverifiedにならない", () => {
   const result = normalizeDynamicFakeProviderCancellationForFixture(
-    exactExecution,
+    EXACT_EXECUTION,
     5_000,
     true,
   );
@@ -60,14 +60,17 @@ test("plain cancellation観測はcandidateに留まりrepository実行なしでv
 
 test("取消観測は要求・grace・ack・終了envelopeの差をfail closedにする", () => {
   assert.equal(
-    normalizeDynamicFakeProviderCancellationForFixture(exactExecution, 1, false)
-      .reason,
+    normalizeDynamicFakeProviderCancellationForFixture(
+      EXACT_EXECUTION,
+      1,
+      false,
+    ).reason,
     "dynamic_fake_provider_cancellation_not_requested",
   );
   for (const elapsed of [-1, 5_001, 1.5, Number.NaN])
     assert.equal(
       normalizeDynamicFakeProviderCancellationForFixture(
-        exactExecution,
+        EXACT_EXECUTION,
         elapsed,
         true,
       ).reason,
@@ -75,7 +78,7 @@ test("取消観測は要求・grace・ack・終了envelopeの差をfail closed�
     );
   assert.equal(
     normalizeDynamicFakeProviderCancellationForFixture(
-      { ...exactExecution, stdout: "bad\n" },
+      { ...EXACT_EXECUTION, stdout: "bad\n" },
       1,
       true,
     ).reason,
@@ -83,7 +86,7 @@ test("取消観測は要求・grace・ack・終了envelopeの差をfail closed�
   );
   assert.equal(
     normalizeDynamicFakeProviderCancellationForFixture(
-      { ...exactExecution, status: 0 },
+      { ...EXACT_EXECUTION, status: 0 },
       1,
       true,
     ).reason,
@@ -91,7 +94,7 @@ test("取消観測は要求・grace・ack・終了envelopeの差をfail closed�
   );
   assert.equal(
     normalizeDynamicFakeProviderCancellationForFixture(
-      { ...exactExecution, signal: "SIGKILL" },
+      { ...EXACT_EXECUTION, signal: "SIGKILL" },
       1,
       true,
     ).status,

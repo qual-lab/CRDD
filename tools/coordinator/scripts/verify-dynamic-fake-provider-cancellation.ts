@@ -8,7 +8,7 @@ import { createOwnedOperationDirectories } from "../src/security/execution-envir
 export async function verifyDynamicFakeProviderCancellation() {
   const owned = createOwnedOperationDirectories();
   const result = await runDynamicFakeProviderCancellationVerification(owned);
-  const rootRemoved = !fs.existsSync(owned.root);
+  const isRootRemoved = !fs.existsSync(owned.root);
   if (
     result.status !== "verified" ||
     result.reason !== "dynamic_fake_provider_cancellation_verified" ||
@@ -29,7 +29,7 @@ export async function verifyDynamicFakeProviderCancellation() {
     result.runtimeAuthorityIssued !== false ||
     result.operationCapabilityIssued !== false ||
     result.realProviderReadiness !== false ||
-    !rootRemoved
+    !isRootRemoved
   )
     throw new Error("dynamic Fake Provider cancellation verification failed");
   return Object.freeze({
@@ -56,7 +56,7 @@ export async function verifyDynamicFakeProviderCancellation() {
     runtimeAuthorityIssued: result.runtimeAuthorityIssued,
     operationCapabilityIssued: result.operationCapabilityIssued,
     realProviderReadiness: result.realProviderReadiness,
-    residualOperationDirectory: !rootRemoved,
+    residualOperationDirectory: !isRootRemoved,
   });
 }
 

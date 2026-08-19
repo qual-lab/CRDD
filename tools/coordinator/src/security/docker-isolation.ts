@@ -842,7 +842,7 @@ function normalizeCancellationFailure(error: unknown): string {
 export function normalizeDynamicFakeProviderCancellationForFixture(
   execution: DockerExecution,
   graceElapsedMs: number,
-  cancellationRequested: boolean,
+  isCancellationRequested: boolean,
 ): DynamicFakeProviderCancellationResult {
   const stdout = typeof execution.stdout === "string" ? execution.stdout : "";
   const stderr = typeof execution.stderr === "string" ? execution.stderr : "";
@@ -863,7 +863,7 @@ export function normalizeDynamicFakeProviderCancellationForFixture(
     execution.status === 42 &&
     (execution.signal === null || execution.signal === undefined);
   const isCandidate =
-    cancellationRequested &&
+    isCancellationRequested &&
     hasValidGrace &&
     hasExactOutput &&
     hasExactTermination;
@@ -871,7 +871,7 @@ export function normalizeDynamicFakeProviderCancellationForFixture(
     ...cancellationBlocked(
       isCandidate
         ? "dynamic_fake_provider_cancellation_candidate"
-        : !cancellationRequested
+        : !isCancellationRequested
           ? "dynamic_fake_provider_cancellation_not_requested"
           : !hasValidGrace
             ? "dynamic_fake_provider_cancellation_grace_exceeded"
@@ -880,8 +880,8 @@ export function normalizeDynamicFakeProviderCancellationForFixture(
               : "dynamic_fake_provider_cancellation_termination_invalid",
     ),
     status: isCandidate ? "candidate" : "blocked",
-    cancellationRequested,
-    cancellationSignalRequested: cancellationRequested ? "SIGTERM" : null,
+    cancellationRequested: isCancellationRequested,
+    cancellationSignalRequested: isCancellationRequested ? "SIGTERM" : null,
     readyObserved: stdout.startsWith(`${CANCELLATION_READY_OUTPUT}\n`),
     cancellationAcknowledged: isCandidate,
     processTerminationObserved: isCandidate,
@@ -1272,16 +1272,16 @@ function startAttachedDockerCommand(
   const stderrChunks: Buffer[] = [];
   let stdoutBytes = 0;
   let stderrBytes = 0;
-  let outputExceeded = false;
-  let readySettled = false;
-  let settleReady: (value: boolean) => void = () => undefined;
+  let hasOutputExceeded = false;
+  let hasReadySettled = false;
+  let settleReady: (isReady: boolean) => void = () => undefined;
   const ready = new Promise<boolean>((resolve) => {
     settleReady = resolve;
   });
-  const finishReady = (value: boolean) => {
-    if (readySettled) return;
-    readySettled = true;
-    settleReady(value);
+  const finishReady = (isReady: boolean) => {
+    if (hasReadySettled) return;
+    hasReadySettled = true;
+    settleReady(isReady);
   };
   const append = (
     chunks: Buffer[],
@@ -1293,7 +1293,7 @@ function startAttachedDockerCommand(
     if (isStdout) stdoutBytes = nextBytes;
     else stderrBytes = nextBytes;
     if (nextBytes > MAX_OUTPUT_BYTES) {
-      outputExceeded = true;
+      hasOutputExceeded = true;
       child.kill();
       return;
     }
@@ -1313,10 +1313,10 @@ function startAttachedDockerCommand(
     append(stderrChunks, chunk, false),
   );
   const completion = new Promise<AsyncDockerExecution>((resolve) => {
-    let settled = false;
+    let hasSettled = false;
     const finish = (execution: AsyncDockerExecution) => {
-      if (settled) return;
-      settled = true;
+      if (hasSettled) return;
+      hasSettled = true;
       finishReady(false);
       resolve(execution);
     };
@@ -1327,7 +1327,7 @@ function startAttachedDockerCommand(
         signal: null,
         stdout: Buffer.concat(stdoutChunks).toString("utf8"),
         stderr: Buffer.concat(stderrChunks).toString("utf8"),
-        outputExceeded,
+        outputExceeded: hasOutputExceeded,
       }),
     );
     child.once("close", (status, signal) =>
@@ -1336,7 +1336,7 @@ function startAttachedDockerCommand(
         signal,
         stdout: Buffer.concat(stdoutChunks).toString("utf8"),
         stderr: Buffer.concat(stderrChunks).toString("utf8"),
-        outputExceeded,
+        outputExceeded: hasOutputExceeded,
       }),
     );
   });
@@ -2074,9 +2074,9 @@ export async function runDynamicFakeProviderCancellationVerification(
   let containerIdentity: ContainerIdentity | null = null;
   let hostRecoveryId = getOwnedHostRecoveryId(owned);
   let recoveryId: string | null = null;
-  let submissionStarted = false;
-  let containerCreateAttempted = false;
-  let postRunMountVerified = false;
+  let hasSubmissionStarted = false;
+  let hasContainerCreateAttempted = false;
+  let hasPostRunMountVerified = false;
   let attachedCompletion: Promise<AsyncDockerExecution> | null = null;
   let base = cancellationBlocked(
     "dynamic_fake_provider_cancellation_verification_failed",
@@ -2090,7 +2090,7 @@ export async function runDynamicFakeProviderCancellationVerification(
       throw new Error("docker_backend_platform_unsupported");
     mounts = verifyOwnedMountCapability(mountCapability);
     hostRecoveryId = beginDockerSubmission(hostRecoveryId);
-    submissionStarted = true;
+    hasSubmissionStarted = true;
     try {
       recoveryId = writeRecoveryRecord(
         mounts,
@@ -2102,13 +2102,13 @@ export async function runDynamicFakeProviderCancellationVerification(
     } catch (error) {
       try {
         hostRecoveryId = cancelDockerSubmissionBeforeCreate(hostRecoveryId);
-        submissionStarted = false;
+        hasSubmissionStarted = false;
       } catch {
-        submissionStarted = true;
+        hasSubmissionStarted = true;
       }
       throw error;
     }
-    containerCreateAttempted = true;
+    hasContainerCreateAttempted = true;
     const creation = dockerCommand(
       cli,
       environment,
@@ -2142,7 +2142,7 @@ export async function runDynamicFakeProviderCancellationVerification(
       containerIdentity.id,
     ]);
     attachedCompletion = attached.completion;
-    const ready = await boundedPromise(attached.ready, 5_000, false);
+    const isReady = await boundedPromise(attached.ready, 5_000, false);
     mounts = verifyOwnedMountCapability(mountCapability);
     const runningInspect = inspectOwnedContainer(
       cli,
@@ -2150,7 +2150,7 @@ export async function runDynamicFakeProviderCancellationVerification(
       containerCapability,
       mounts,
     );
-    if (!ready || !inspectedContainerIsRunning(runningInspect))
+    if (!isReady || !inspectedContainerIsRunning(runningInspect))
       throw new Error("dynamic_fake_provider_cancellation_ready_unconfirmed");
 
     const cancellationStartedAt = performance.now();
@@ -2193,7 +2193,7 @@ export async function runDynamicFakeProviderCancellationVerification(
     mounts = verifyOwnedMountCapability(mountCapability);
     if (!inspectOwnedContainer(cli, environment, containerCapability, mounts))
       throw new Error("owned_operation_mount_replaced");
-    postRunMountVerified = true;
+    hasPostRunMountVerified = true;
   } catch (error) {
     base = Object.freeze({
       ...base,
@@ -2239,25 +2239,25 @@ export async function runDynamicFakeProviderCancellationVerification(
           );
           hostRecoveryId = absence.hostRecoveryId;
           const recovered = recoverOwnedOperationDirectories(hostRecoveryId);
-          const hostCleanupVerified = recovered.status === "recovered";
-          const verified =
+          const isHostCleanupVerified = recovered.status === "recovered";
+          const isVerified =
             base.status === "candidate" &&
-            postRunMountVerified &&
-            hostCleanupVerified;
+            hasPostRunMountVerified &&
+            isHostCleanupVerified;
           base = Object.freeze({
             ...base,
-            status: verified ? "verified" : "blocked",
-            reason: verified
+            status: isVerified ? "verified" : "blocked",
+            reason: isVerified
               ? "dynamic_fake_provider_cancellation_verified"
-              : hostCleanupVerified
+              : isHostCleanupVerified
                 ? base.reason
                 : recovered.reason,
             containerAbsenceVerified: true,
-            hostCleanupVerified,
-            retainOperationDirectories: !hostCleanupVerified,
-            recoveryId: hostCleanupVerified ? null : hostRecoveryId,
-            manualRecoveryRequired: !hostCleanupVerified,
-            cleanup: hostCleanupVerified ? "confirmed" : "unconfirmed",
+            hostCleanupVerified: isHostCleanupVerified,
+            retainOperationDirectories: !isHostCleanupVerified,
+            recoveryId: isHostCleanupVerified ? null : hostRecoveryId,
+            manualRecoveryRequired: !isHostCleanupVerified,
+            cleanup: isHostCleanupVerified ? "confirmed" : "unconfirmed",
           });
         }
       } catch {
@@ -2279,7 +2279,7 @@ export async function runDynamicFakeProviderCancellationVerification(
           stderr: "",
           outputExceeded: false,
         });
-    } else if (!submissionStarted) {
+    } else if (!hasSubmissionStarted) {
       try {
         cleanupOwnedOperationDirectories(owned);
         base = Object.freeze({
@@ -2311,7 +2311,7 @@ export async function runDynamicFakeProviderCancellationVerification(
   }
   return Object.freeze({
     ...base,
-    diagnosticDockerContainerEffectIssued: containerCreateAttempted,
+    diagnosticDockerContainerEffectIssued: hasContainerCreateAttempted,
     diagnosticFilesystemEffectIssued: true,
   });
 }
