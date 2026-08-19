@@ -52,4 +52,6 @@ contract testは固定security args、固定source、plain候補の非Authority�
 
 初回自己確認の実Docker runは`status:verified`、固定reason、`SIGTERM`、ready／ack／終了／container不存在／Host cleanupすべて`true`、grace 187 ms、stdout 128 byte、stderr 0 byte、exit 42、残留Operation directoryなしだった。診断Docker container／Filesystem Effectは`true`、Provider Network Effect、Runtime Authority、Operation Capabilityおよび実Provider readinessは`false`である。この値は候補固定前の実装確認であり、固定候補のEvidenceまたは独立確認を代替しない。
 
+固定Commit `bf3b37a297d87aa84696aad930469a119c83957d`、Tree `a84c77cef30e8e24fa9bc80ceeae62453386223d`、Parent `f4e3250d47c70d6b7b7195dbb52119dae0737b4c`のclean worktreeでも専用verificationを再実行した。固定runは`verified`、grace 222 ms、stdout 128 byte、stderr 0 byte、exit 42、container／Operation directory残留0で、全非発行境界を維持した。実行条件、正規化出力Hashおよび主張しない範囲は[`固定Fake取消検証 Evidence`](Evidence/CHG-000025_Docker_Cancellation_E2E_bf3b37a.md)に記録する。
+
 現在、人間による追加判断は必要ない。候補固定と全機械確認、固定候補上の実Docker再実行、Evidenceおよび必須独立監査が完了するまで`Ready for Verification`を維持する。実Codex／Claude、OAuth、Provider endpoint Egress、専用Home保護、mount Grant発行／失効、通常／実Provider取消および実Operationは未実装または`Not Verified`であり、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseを維持する。
