@@ -63,6 +63,12 @@ Host側process所有是正の自己確認runは`status:verified`、`SIGTERM`、r
 
 ## `9c013ce`監査集合と是正状態
 
-対象Commit `9c013ceb3a26581b4fa48c4669cd58900aef8de7`の監査集合は、Agent／Architecture／Securityが`Fail`（`AG-CANCEL-001`、Major、今回の修正によって新たに発生した）、Documentが`Pass`／Finding 0、Gap／Impactの初回結果が`Pass`／Finding 0、Conformanceの初回結果が`Pass`だった。全結果統合後、Gap／Impactは同根の`GCI-CANCEL-001`（Major、初回レビュー／監査時から存在したが見落としていた）を現在結果として`Fail`、Conformanceを`Fail`、claimを`Not Eligible`へ訂正した。初回のGap／Conformance Passを含む集合全体は`Invalidated`であり、現在候補へ流用しない。
+対象Commit `9c013ceb3a26581b4fa48c4669cd58900aef8de7`の監査集合は、Agent／Architecture／Securityが`Fail`（`AG-CANCEL-001`、Major、元監査の4分類literalは「今回の修正によって新たに発生した」）、Documentが`Pass`／Finding 0、Gap／Impactの初回結果が`Pass`／Finding 0、Conformanceの初回結果が`Pass`だった。このliteralの「今回」はCHG-000025の初回実装`f4e3250`を指し、技術的不備は`f4e3250`から`9c013ce`まで存在して`9c013ce`の初回Agent／Architecture／Security確認で検出された。全結果統合後、Gap／Impactは同根の`GCI-CANCEL-001`（Major、`9c013ce`の初回Gap／Impact監査時から存在したが見落としていた）を現在結果として`Fail`へ訂正し、Conformanceも`Fail`、claimを`Not Eligible`へ訂正した。初回のGap／Conformance Passを含む集合全体は`Invalidated`であり、現在候補へ流用しない。
 
 `AG-CANCEL-001`／`GCI-CANCEL-001`の原因は、Promiseだけを返すasync attachがdeadline後のHost側childを所有して終了・close確認できず、container cleanupをHost側process終了の代用にできたことである。module-private controller、全異常経路の終了要求exact 1回、close待機、Fake終了とHost側attach終了の別投影、final ANDおよび固定Node負例を適用した。状態は`Applied / Self-checked — pending independent re-review`であり、新固定版の独立再監査前に`Resolved`とは扱わない。旧Evidenceは固定履歴として変更しない。
+
+## `893e4a4`監査集合と文書是正状態
+
+対象Commit `893e4a491ca24bdac10cb2a16e13d0fd11d3a229`、Tree `53bddf0247abd08180cdb2f5a473a158eaaeac05`、Parent `c20082c02d43588a30755ee6c52d4995fea3f7aa`の監査集合は、Agent／Architecture／Securityが`Pass`／Finding 0で`AG-CANCEL-001`を解消候補、Documentが`Conditional`（`DOC-CANCEL-R1-001`／`DOC-CANCEL-R1-002`、各Minor、今回の是正によって新たに発生した）、Gap／Impactが`Pass`／Finding 0で`GCI-CANCEL-001`を解消候補、Conformanceが`Pass`でCHG-000025変更scopeのclaimを`Eligible`とした。
+
+Document 2件は、元Security監査の4分類literalが指す変更時点の曖昧さと、READMEでのHost側attach用語のlocale-first初出漏れである。元literal、技術的不備の発生時点、Security検出時点およびGap見落とし／訂正時点を上記のとおり分離し、README初出を局所修正した。処置状態は`Applied / Self-checked — pending independent re-review`であり、現在の監査集合全体も文書是正後の新固定版へは`Invalidated`／不流用とする。実装、machine contract、旧Evidence、coverage母集団、分母／分子およびHashは変更しない。新固定版のAgent／Architecture／Security、Document、Gap／ImpactおよびConformanceの全必須確認が終了するまで、旧Passまたは解消候補を現在版の`Resolved`へ流用しない。
