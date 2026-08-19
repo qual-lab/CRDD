@@ -1,7 +1,7 @@
 # 変更トレース: Coordinator試験とpackage inventoryの安定化（Coordinator Test and Package Inventory Stabilization）
 
 - 変更ID: `CHG-000027`
-- 状態: `Ready for Verification`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-19
 - 対象: CRDD公式Repositoryの内部Coordinator、package Filesystem観測と動的Fake取消fixture
@@ -56,3 +56,9 @@ package側では、(a) sleepまたはmtime強制、(b) directory metadataだけ�
 固定Commit `1d89434e998005abdd4e0952252f1c37c5c5b80f`／Tree `e706216326f2102ba94f137166a733ffb784a99f`／Parent `2e84bdf89da01b425a01280de1b43b1f80c30871`の監査集合は、Agent／Architecture／Securityが`Pass`／Finding 0、Documentが`Fail`（既存`DOC-HOME-R5-001` Major残存、新規`DOC-STABILITY-001` Minor＝今回の修正によって新たに発生）、Gap／Impactが`Pass`／Finding 0、Conformanceが`Pass / Eligible`であった。SecurityとGap観点では既知2技術根本原因が解消候補となったが、Documentの直接伝播と対象試験母集団の表示が未完了である。同集合は`Invalidated`／現在不流用とし、`DOC-HOME-R5-001`および`DOC-STABILITY-001`は`Applied / Self-checked — pending independent re-review`とする。新固定版の全機械確認と同じ必須監査集合が完了するまで、本CHGまたはCHG26を`Verified`、Finding全体を`Resolved`へ昇格しない。
 
 完了条件は、新固定Commit／Treeで全機械確認、並列2回と逐次1回の全386 contract test、両coverageの固定母集団と全未到達義務、Agent／Architecture／Security、Document、Gap／Impact、Conformanceの独立再監査を旧合否不流用で完了し、CHG26の最終履歴訂正と今回Findingを同じ現在状態へ伝播することである。採用、統合、Gate open、StableまたはReleaseの判断は本変更に含めない。
+
+## 最終独立確認
+
+固定Commit `5057d8ba66d3a10d7816059d89211dd3b312894a`／Tree `bc0d0e80e2c175484817c137d13a6b370c47f509`／Parent `1d89434e998005abdd4e0952252f1c37c5c5b80f`で、Node.js v24.19.0による全機械確認と必須監査集合を旧合否不流用で再取得した。Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceはすべて`Pass`／Finding 0で、変更scopeのclaim eligibilityは`Eligible`である。`AG-PACKAGE-RACE-001`、`AG-CANCEL-FIXTURE-TIMING-001`、`GCI-HOME-004`／`005`、`DOC-HOME-R5-001`および`DOC-STABILITY-001`は現在の受入条件により`Resolved`とする。
+
+固定結果は[`Agent／Architecture／Security Review`](Evidence/CHG-000027_Agent_Security_Review_5057d8b.md)、[`Document Audit`](Evidence/CHG-000027_Document_Audit_5057d8b.md)、[`Gap／Impact＋Conformance Audit`](Evidence/CHG-000027_Gap_Conformance_Audit_5057d8b.md)および[`Current Review Record`](Evidence/CHG-000027_Current_Review_Record_5057d8b.md)へ保存する。この`Verified`はCHG-000026／027変更候補の検証完了だけを表し、Gate open、採用、統合、StableまたはReleaseを意味しない。

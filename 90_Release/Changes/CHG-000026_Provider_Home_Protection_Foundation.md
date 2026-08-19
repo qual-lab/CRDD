@@ -1,7 +1,7 @@
 # 変更トレース: 専用Provider Home保護基盤（Dedicated Provider Home Protection Foundation）
 
 - 変更ID: `CHG-000026`
-- 状態: `Ready for Verification`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-19
 - 対象: CRDD公式Repositoryの内部Coordinator、Windowsローカルユーザー専用Provider Homeの配置候補と保護要件
@@ -70,3 +70,9 @@ Node.js v24.19.0でCoordinator check、Coordinator全contract test 386／386、C
 API key、従量API、追加credit購入、自動plan切替、Host Credential import、実Provider／Network Effect、Authority、Capability、Gate、StableまたはReleaseを有効化しない。CHG-000022からCHG-000025の固定履歴とEvidenceを書き換えない。
 
 新固定Commit／TreeでCoordinator check、全contract test、Provider Home coverage（`npm run provider-home:coverage --prefix tools/coordinator`）、source closure、Checker、full checkerを取得し、Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceの4つの必須独立確認を同一Commit／Treeと共通機械入力で旧合否不流用のまま完了するまで、Findingを`Resolved`またはCHGを`Verified`へ昇格しない。
+
+## 最終独立確認
+
+固定Commit `5057d8ba66d3a10d7816059d89211dd3b312894a`／Tree `bc0d0e80e2c175484817c137d13a6b370c47f509`／Parent `1d89434e998005abdd4e0952252f1c37c5c5b80f`で全機械確認と必須監査集合を旧合否不流用で再取得した。Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceはすべて`Pass`／Finding 0で、変更scopeのclaim eligibilityは`Eligible`である。累積Finding `DOC-HOME-001`／`002`／`R2-001`／`R3-001`／`R4-001`／`R5-001`、`GCI-HOME-001`～`005`、`AG-HOME-R2-001`／`R3-001`、`AG-PACKAGE-RACE-001`、`AG-CANCEL-FIXTURE-TIMING-001`、`QA-HOME-001`／`002`は現在の受入条件により`Resolved`とする。
+
+現在のレビュー記録は[`CHG-000027 Current Review Record`](Evidence/CHG-000027_Current_Review_Record_5057d8b.md)へ結合した。この`Verified`はCHG-000026／027変更候補の検証完了だけを表す。Provider Homeの実作成、ACL、selected user binder、実OAuth、Egress、実Provider process、Authority、Capability、Gate、採用、統合、StableまたはReleaseは成立していない。
