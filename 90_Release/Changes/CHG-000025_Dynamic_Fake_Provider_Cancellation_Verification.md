@@ -59,7 +59,7 @@ contract testは固定security args、固定source、plain候補の非Authority�
 
 Host側process所有是正の自己確認runは`status:verified`、`SIGTERM`、ready／ack／Fake終了／Host側attach close／container不存在／Host cleanupすべて`true`、正常経路のHost側終了要求0、grace 202 ms、stdout 128 byte、stderr 0 byte、exit 42、残留Operation directoryなしだった。この値は是正候補固定前の実装確認であり、新固定版のEvidenceまたは独立確認を代替しない。
 
-現在、人間による追加判断は必要ない。候補固定と全機械確認、固定候補上の実Docker再実行、Evidenceおよび必須独立監査が完了するまで`Ready for Verification`を維持する。実Codex／Claude、OAuth、Provider endpoint Egress、専用Home保護、mount Grant発行／失効、通常／実Provider取消および実Operationは未実装または`Not Verified`であり、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseを維持する。
+この時点では人間による追加判断は必要なく、候補固定、全機械確認、固定候補上の実Docker再実行、Evidenceおよび必須独立監査が完了するまで`Ready for Verification`を維持した。実Codex／Claude、OAuth、Provider endpoint Egress、専用Home保護、mount Grant発行／失効、通常／実Provider取消および実Operationは未実装または`Not Verified`として扱い、12 blocker、6 current-run evidence、Gate blocked、Authority／Capability非発行、v0.18 Candidate、v0.17 Released Baselineおよび非Releaseを維持した。
 
 ## `9c013ce`監査集合と是正状態
 
