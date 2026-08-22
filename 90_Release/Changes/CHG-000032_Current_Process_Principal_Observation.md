@@ -60,6 +60,16 @@ Checker packageのcheckはPass、contract testは151／151だった。Repository
 
 全監査結果を受領後、編集前に統合是正案を各監査へ再提示し整合を確認した。Rust request契約とCLI利用側へexact `CRDDPA02`／revision 2拒否およびrevision 3 blocked responseを追加した。TypeScript decoderへexact 82-byte `CRDDPR02`／revision 2、magic-only、revision-only、unknown主体bit、primary欠落を含む全parser-negative共通assertを追加し、privacy／来歴／binding／Authority／Capability／Effectの全安全fieldと結果key集合の非昇格を固定した。primary-onlyとprimary＋各非primary bitの8 caseで一対一写像を確認した。release／Trust利用側ではrevision 2 payloadのcanonical byteを正常署名し、暗号検証成功を独立確認したうえでprotocol不一致だけを含む入力がblockedになることを確認した。脅威モデルの残存表現と本節のcoverage証拠を更新した。初回Failや旧coverage runを是正後の合否へ流用せず、新固定版で全確認と独立再監査を行う。
 
+## 最終独立再監査
+
+固定commit `0a1131f850286c376574bd65141c933bb5b69ba8`／tree `eb59bd4c990c3db99e331c8a2dc368af13bd4ce1`へ、旧合否を流用せず必須監査集合を再実行した。Agent／Architecture／Security ReviewはPass（Finding 0）、Document AuditはPass（Finding 0）、Gap／Impact AuditおよびConformance AuditはPass／Eligible（Finding 0）だった。`AAS-CHG32-001`、`DOC32-COVERAGE-001`、`DOC32-THREAT-PROPAGATION-002`、`GCI-032-001`および`GCI-032-001-R1`はすべてResolved、新規候補は4分類とも0と判定された。
+
+最終固定前の再監査では、unknown主体bit負例が`0x100`でprimary欠落を同時に含み、unknown bit拒否を独立証明していない残存を検出した。productionを変えずfixtureを`0x101`へ限定修正し、primary保持＋unknown bitと、別fixtureのprimary欠落`0x82`を分離した。共通の完全blocked assertにより結果key集合、privacy、来歴、binding、helper、Authority、CapabilityおよびEffectの全安全field非昇格を確認し、新固定版で全監査をやり直した。
+
+確認済み範囲はRust revision 3 request／response、Windows現在process主体観測、TypeScript exact decoder、Release成果物／manifest／Trust／Package Gate、旧revision 2のrequest／response／正しく署名されたmanifest拒否、8分類の一対一写像、変更試験、CHG／README／脅威モデル／実装残件台帳およびcoverage義務である。source、call site、変更契約、直接利用側および文書は全数走査し、サンプリングしていない。特殊Windows token／API failureの実機行列、protected active／Verified Image、production helper起動、bootstrap、binder、Provider Home Effect、実Provider／OAuth／Network／課金は未評価または未実装のまま保持する。
+
+独立再監査後の変更は、本節への監査結果記録だけに限定する。実装、試験、README、脅威モデル、coverage値、公開形式、永続形式および実装残件台帳は変更しない。記録後の新固定版ではRepository全体checkerを再実行し、この限定差分を独立確認へ戻す。
+
 ## 未完了事項と人間判断
 
 `FU-018-PROVIDER-HOME`は`In Progress`のまま維持する。次の保護対象判断は、公式署名済みReleaseから明示`provision`時だけ許すpre-active one-shotを、Maintenance 3.3の通常production起動禁止と分離して採用するかである。採用する場合も、固定manifest／artifact／process境界、別資格情報昇格、失敗回復および通常Runtime非発火を同じCHGで固定してから実装する。
