@@ -61,6 +61,14 @@ active pointer、selected-user binder、Provider Home、mount Grant、実Provide
 
 初回固定前に、予定した正本、契約母集団、利用側母集団、代表例、変更禁止範囲と実差分を再照合する。固定版へRepository全体checkerを一度実行し、Agent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを旧合否不流用で実行する。Findingがあれば監査集合を完了して統合方針を各監査へ再提示した後だけ是正し、新固定版へ全必須監査を再実行する。
 
+## 最終独立再監査
+
+最終固定版commit `79f78e994945530a89adc9e4b03ae6da08bff855`／tree `14ef4376194a6fa1777521ff0ec62411a63440e9`へ、旧合否を流用せず必須監査集合を再実行した。Agent／Architecture／Security ReviewはPass（Finding 0）、Document AuditはPass（Finding 0）、Gap／Impact AuditおよびConformance AuditはPass／限定implementation scope Eligible（Finding 0）だった。`AAS-CHG34-001`、`DOC34-RUST-CLI-BOUNDARY-001`、`DOC34-THREAT-SPAWNLESS-DUPLICATION-002`、`DOC34-COVERAGE-EVIDENCE-003`、`DOC34-MIGRATION-IDENTITY-004`、`DOC34-LOCALE-TERM-005`、`GCI-034-001`および`GCI-034-002`はすべてResolvedで、新規または回帰Findingは0と判定された。
+
+確認済み範囲は、native exact blocked入口、spawn上限0、one-shot revision 2、Effect revision 3、Runtime Activation revision 3、doctor version 8、manifest／envelope revision 2とV2署名domain、二成果物Identity、release staging／identity、旧V1署名valid後の拒否、V2再署名後のartifact欠落／全field差拒否、Node／Runtime非発火、README／脅威モデル／Maintenance／実装残件台帳、breaking移行、coverage Evidenceおよび全Effect／Authority／Capability非昇格である。source、call site、変更契約、直接利用側および文書は全数走査し、サンプリングしていない。
+
+独立再監査後の変更は、本節への監査結果記録だけに限定する。実Windowsのloaded image、leafと全rename可能parent、local volume、PE import／delay-import、DLL side-loading、Network API非発火、token／Root直接観測、binder、Protection、active、Provider Home、実Provider、OAuth、Egress、quotaおよび課金は未実装または未評価である。したがってoperational one-shot、Claude安全実行、Gate、準拠表明、Stable、Releaseまたは採用へ今回のPassを拡張しない。
+
 ## 未完了事項と人間判断
 
 `FU-018-PROVIDER-HOME`は`In Progress`を維持する。次段はnative supervisorのloaded image／全parent／local volume／PE import／Network非発火の実Windows根拠で、その後に同process直接観測、selected-user binder、protected active／Provider Home保護、issuer／store／clock、mount／失効を接続する。
