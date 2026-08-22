@@ -1,7 +1,7 @@
 # 変更トレース: Claude実行計画基盤（Claude Execution Plan Foundation）
 
 - 変更ID: `CHG-000028`
-- 状態: `Ready for Re-review`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-22
 - 対象: CRDD公式Repositoryのprivate Coordinatorにおける最初の外部Executor候補
@@ -74,3 +74,9 @@ manifestはversion `2.1.220`、commit `4073f59596e272f39393db4f96abc5f4b10eff21`
 固定commit `b8c53064fc931d2a81152ea3ae38159219d622c3`への再確認では、危険な昇格原因は解消したが、Agent／Architecture／Security Reviewは配布bindingの重複投影を1件、Document Auditは利用条件3文書の出典追跡不足を1件、Gap／Impact／Conformanceは同じ出典追跡不足と台帳の非正本Work Stateを2件残した。統合是正では、Identity、署名状態、image digestおよびargv互換性を単一の`DISTRIBUTION_BINDING`から全計画へ投影し、release tagが指すpublic commit `7ef6eec9d9ba84ea6f233f26c45f1df5c5991843`へLICENSEを固定した。利用条件3文書は文書Identity、公開版発効日、確認日および候補状態を記録しつつ、実アカウントへの適用を未解決に保った。台帳は`In Progress`と`Unscheduled`の正本Work Stateへ修正した。この再確認結果も最終固定版の合否へ流用しない。
 
 現在、人間による判断は非実行候補の実装には必要ない。配布条件またはservice条件を有効化し、binaryを固定imageへ格納し、選択アカウントを実Providerへbindingする判断は、後続の実配布・認証変更を開始する前に必要である。本変更はv0.18 Candidate、v0.17 Released Baseline、Gate blocked、Authority／Capability非発行および非Releaseを維持する。
+
+## 最終独立確認
+
+固定Commit `01a92ba5d8597baebf52265c6c733747451e44ad`／Tree `2100a7d0d8682df6da80ba2771a8b4c95b62837a`で、全機械確認と必須監査集合を旧合否不流用で取得した。Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceはすべて`Pass`／Finding 0で、変更scope claim eligibilityは`Eligible`である。旧Findingはすべて`Resolved`、新規候補は0件である。
+
+固定結果は[`Agent／Architecture／Security Review`](Evidence/CHG-000028_Agent_Security_Review_01a92ba.md)、[`Document Audit`](Evidence/CHG-000028_Document_Audit_01a92ba.md)、[`Gap／Impact＋Conformance Audit`](Evidence/CHG-000028_Gap_Conformance_Audit_01a92ba.md)および[`Current Review Record`](Evidence/CHG-000028_Current_Review_Record_01a92ba.md)へ保存する。この`Verified`はCHG-000028の非実行候補の検証完了だけを表し、実Provider readiness、Gate open、採用、統合、StableまたはReleaseを意味しない。

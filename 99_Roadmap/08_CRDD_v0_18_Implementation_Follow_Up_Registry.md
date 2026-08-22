@@ -14,7 +14,7 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 | ID | 件名 | Work State | Scope / Target | Source | Next action / Re-evaluation trigger |
 | --- | --- | --- | --- | --- | --- |
-| `FU-018-028` | Claude実行計画基盤 | In Progress | 非実行の固定Claude probe契約 | [CHG-000028 全体](../90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md) | 修正版の固定commitへ独立レビューと監査を再実行する |
+| `FU-018-028` | Claude実行計画基盤 | Completed | 非実行の固定Claude probe契約 | [CHG-000028 全体](../90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md) | 固定版`01a92ba5d8597baebf52265c6c733747451e44ad`の検証完了。契約変更時に再評価する |
 | `FU-018-CLAUDE-DIST` | Claude配布Identityと利用条件 | Unscheduled | manifest署名、binary取得、固定image digest、exact argv互換性、binary配布条件と認証service条件の有効化 | [CHG-000028「管理対象依存」](../90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md#管理対象依存と外部情報境界) | 配布物をimageへ格納する変更の着手前。選択アカウントと適用条件を観測し、権限者が利用を承認できる状態にする |
 | `FU-018-PROVIDER-HOME` | Provider Home保護とMount Grant | Unscheduled | local OS user単位の専用Home、settings分離、opaqueな一回限りmount許可と失効 | [CHG-000028「品質義務と未完了事項」](../90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md#品質義務と未完了事項) | Provider Home保護Effectまたは実Provider Adapterへ着手するとき |
 | `FU-018-EGRESS` | EgressとTelemetry制御 | Unscheduled | endpoint限定Proxy、親環境遮断、Telemetry判断と観測 | [CHG-000028「固定probe計画と課金境界」](../90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md#固定probe計画と課金境界) | Network Effectを持つ実Provider probeへ着手するとき |
@@ -22,7 +22,7 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 ## 境界
 
-- `In Progress`はCHG-000028の再レビュー／監査処理中を表し、Effect、採用または統合を許可しない。`Unscheduled`は後続CHGと実施時期が未設定であり、不要、終了または許可済みを意味しない。
+- `Completed`はCHG-000028の非実行候補の検証完了だけを表し、Effect、採用、統合または実Provider readinessを許可しない。`Unscheduled`は後続CHGと実施時期が未設定であり、不要、終了または許可済みを意味しない。
 - `FU-018-CLAUDE-DIST`はbinary配布物の条件と認証済みservice利用条件を別々に解決する。Pro／MaxまたはTeam／Enterpriseという提供形態候補だけから適用条件を確定しない。
 - API key、Console API account、第三者API Provider、追加credit購入、自動plan切替およびHost fallbackは残件ではなく、現在の不採用境界である。
 - Codex Provider実装はClaude-firstの現在範囲外であり、別CHGがSourceを確立した時点で本台帳へ追加する。
