@@ -55,7 +55,7 @@ Coverageは`npm run dynamic-fake-provider:coverage --prefix tools/coordinator`�
 
 両sourceのOwnerはQual-Lab、人間による追加判断は現在不要とする。Operation Identity／cleanup／recovery／Capability、Docker CLI／image／mount／lifecycle／recovery、Node coverage形式、固定母集団または実Provider接続を変更した時に再確認する。100%達成、Gate、Releaseまたは実Provider安全性は主張しない。
 
-Checker packageのcheckはPass、contract testは151／151だった。Repository全体checkerは542 files、346 Markdown、1,996 local links、577 anchorsを確認し、Error 0／Warning 0だった。固定改訂版への独立再監査は未取得であり、初回Failを現在PassまたはVerifiedへ昇格しない。
+Checker packageのcheckはPass、contract testは151／151だった。Repository全体checkerは542 files、346 Markdown、1,996 local links、577 anchorsを確認し、Error 0／Warning 0だった。固定commit `c99f69ef593e3e9082920c188fabe0c6ad4980cc`／tree `d7fa9de26d3b49bca061aef46687966a5acc4400`への独立再監査は、Agent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance AuditのすべてがPass、Finding 0だった。対象変更scopeは準拠表明適格（Eligible）と評価されたが、これは準拠表明の発行、採用、Gate open、StableまたはReleaseを意味しない。
 
 ## 初回独立監査と統合是正
 
@@ -85,6 +85,14 @@ Checker packageのcheckはPass、contract testは151／151だった。Repository
 - 既存production consumerの`docker-isolation.ts`を直接変更したのに、source別coverage根拠を`execution-environment.ts`だけに限定していた。同じrunnerからDocker sourceのline／function／branch分母・分子・不足、未到達branch全数、未達理由、container不存在／Host cleanup誤分類risk、利用者・運用影響、代替確認、安全策、Ownerおよびrecheck条件を追加した。
 
 この是正も`Applied / Self-checked — pending independent re-review`であり、新しい固定版の合否へ旧結果を流用しない。
+
+## 最終独立再監査
+
+固定commit `c99f69ef593e3e9082920c188fabe0c6ad4980cc`／tree `d7fa9de26d3b49bca061aef46687966a5acc4400`へ、旧合否を流用せず必須監査集合を再実行した。Agent／Architecture／Security ReviewはPass（Finding 0）、Document AuditはPass（Finding 0）、Gap／Impact AuditおよびConformance AuditはPass／Eligible（Finding 0）だった。`AAS-CHG31-003`、`DOC31-CONSUMER-COVERAGE-004`および`GCI-031-R04`を含む旧FindingはすべてResolved、新規候補は4分類とも0と判定された。
+
+確認済み範囲は、`c73fdb8..c99f69e`の差分、Operation世代／Capability／遷移／adopt／cleanup／recovery、Docker不存在の非公開one-shot経路、公開exportと全caller、追加contract test、CHG／README／脅威モデル／実装残件台帳、および両production sourceのcoverage根拠である。source、call site、変更契約、直接利用側および文書は全数走査し、サンプリングしていない。実Docker再実行、process crash／rename／permission等のOS故障注入、敵対Host管理者、未実装Provider／store／mount Effectは未評価のまま保持する。
+
+独立再監査後の変更は、本節への監査結果記録と実装残件台帳の状態伝播だけに限定する。実装、試験、README、脅威モデル、Coverage結果、公開形式および永続形式は変更しない。記録後の新固定版ではRepository全体checkerを再実行し、この限定差分を独立確認へ戻す。
 
 ## 未完了事項と人間判断
 
