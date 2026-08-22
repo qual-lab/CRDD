@@ -8,22 +8,22 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `non-breaking`（既存のprivate実行環境へ未接続のCapability発行・検証APIを追加する）
 - 移行要否: `migration_required: false`（production consumer、永続state、実mount、Provider processおよび公開Schema変更は0）
-- 関連正本: [`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)、[`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000029`](CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md)、[`CHG-000030`](CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
+- 関連正本: [`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)、[`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`CHG-000029`](CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md)、[`CHG-000030`](CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
 
 ## 結論と変更経路
 
-Runtimeが所有するOperation directoryの生成時にOperation IDを内部生成し、同じ所有Identity、生成時刻および全childのstable Filesystem Identityを確認できる間だけopaqueなOperation context Capabilityを発行する。plain objectの複製、caller supplied Operation ID、置換されたchildおよびOperation終了後の全Capability aliasは拒否する。
+Runtimeが所有するOperation directoryの生成時にOperation IDを内部生成し、同じfactory所有object、生成時刻、root／parent／prefix、rootと全childのstable Filesystem IdentityおよびHost recovery nonce世代を確認できる間だけopaqueなOperation context Capabilityを発行する。同じprivate owner世代のcontext Capabilityとmount Capabilityからだけ、後続store用のopaqueなmanagement binding Capabilityを発行する。plain objectの複製、caller supplied Operation ID、別OperationのCapability組合せ、置換されたIdentityおよびOperation終了後の全Capability aliasは拒否する。
 
-この変更はCHG-000030で確認したAuthority provenance欠陥への先行是正であり、Runtime store、Grant issuer、Provider Home保護、mount、Claude process、Credential、Networkまたは課金Effectを発火しない。後続storeはplainなOperation IDをAuthority入力として受けず、このCapabilityの検証結果からだけOperation bindingを取得する。
+この変更はCHG-000030で確認したAuthority provenance欠陥への先行是正であり、Runtime store、Grant issuer、Provider Home保護、mount、Claude process、Credential、Networkまたは課金Effectを発火しない。後続storeはplainなOperation ID、plainな検証結果または既存mount Capability単独をAuthority入力として受けず、opaqueなmanagement binding Capabilityを直接受ける専用Effect境界からだけOperation bindingを取得する。
 
 変更はCredential Homeの将来mount Authorityへ接続する非自明なsecurity変更である。着手前整合では実行環境、Provider Home、Mount Grant、QA、内部TypeScript境界およびCHG-000030の却下理由を確認した。完成固定版ではAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを同じ改訂版へ実施する。公開CLI、採用Repository Schema、Communication、Discovery、管理対象依存および外部情報処理は変更しないため非該当である。
 
 ## 発火、非発火、境界および情報不足
 
-- 発火例: Runtimeが生成し所有中のOperation objectから、置換されていない全childを確認できる場合だけopaque Capabilityを発行し、検証時に同一のRuntime生成Operation IDと生成時刻を返す。
+- 発火例: Runtimeが生成し所有中のOperation objectから、置換されていないrootと全child、同一の回復世代を確認できる場合だけopaque context Capabilityを発行する。同じowner世代のcontextとmountからだけopaque management bindingを発行し、検証時に同一のRuntime生成Operation ID、生成時刻およびmanagement scope結合済み状態だけを返す。
 - 非発火例: caller suppliedのOperation ID、plain object、Capabilityのspread copyおよび未知objectはCapabilityとして受理しない。Capability発行と検証はProvider Home、mount、Credential、Network、Provider processまたは課金Effectを発火しない。
-- 境界例: 同じOperationへ複数aliasを発行しても同一Operation IDへ結合し、正常cleanupまたはHost recoveryがOperation rootの消滅を確定した時点で全aliasを不可逆に失効する。cleanup／recoveryが安全確認前に停止した場合は、存在するOperationを終了済みと誤認しない。
-- 判定情報不足例: Runtime所有Identity、child集合またはstable Filesystem Identityを確認できない場合は、Pathが存在してもCapabilityを発行・検証しない。
+- 境界例: 同じOperationへcontext、mountおよびmanagementの複数aliasを発行しても同一Operation IDと回復nonce世代へ結合する。rootまたはchildの確認済み置換ではrootが残っていても同一世代の全aliasを不可逆に失効する。正常cleanupまたは検証済みHost recoveryが同一世代のroot消滅を確定した場合も全aliasを失効する。
+- 判定情報不足例: Runtime所有Identity、root／parent／prefix、child集合、stable Filesystem Identityまたは回復世代を確認できない場合は、Pathが存在してもCapabilityを発行・検証しない。Identityが一致したままのaccess error、未知entryまたはmarker不成立でcleanup／recoveryが停止した場合はcurrent callをblockedとするが、Operation終了やalias失効を先取りしない。
 
 ## 保持する意図と目指さないこと
 
@@ -33,13 +33,30 @@ Runtimeが所有するOperation directoryの生成時にOperation IDを内部生
 
 ## 検証設計と現在品質状態
 
-- Runtime生成IDの形式、同一Operationのbinding、opaque表示、複製・偽造拒否、child置換拒否およびcleanup後の全alias失効を直接試験する。
+- Runtime生成IDの形式、同一Operationのbinding、context＋mountの同一owner結合、opaque表示、複製・偽造・cross-operation拒否、root／child置換拒否、通常cleanup／Host recovery後の全alias失効および非置換型の処置停止で早期失効しないことを直接試験する。
 - Coordinator strict typecheck／lint／format、全contract test、Checker package testおよびRepository全体checkerを確認する。
 - 完成候補commitとtreeを固定して必須監査集合を実施し、指摘を一括統合してから是正する。
 
-実装候補commit `93293b82aecffd735d91a0a4b3490dfbb24d7616`／tree `515470075011ede7c8a7a33c47e593b5bc744e53`を固定した。基準Node.js `v24.19.0`でCoordinator strict typecheck／Biome lint／formatはPass、全contract testは401／401だった。直接試験はRuntime生成ID、同一Operationの複数alias、opaque表示、plain copy／偽造拒否、child置換拒否、通常cleanupおよびHost recoveryによる全alias失効を確認した。`execution-environment.ts`全体の単一test coverageはlines 92.47%、functions 97.78%、branches 76.77%で、同じ大規模sourceに残る既存の異常注入分岐を本変更の100%主張へ流用していない。
+初回実装候補commit `93293b82aecffd735d91a0a4b3490dfbb24d7616`／tree `515470075011ede7c8a7a33c47e593b5bc744e53`と監査対象commit `686e29551ddf4cbceb722c4e3a48d8acc620e861`／tree `ee484ef9ff723e0a548e47d42aabbd97c3a85c87`を固定した。基準Node.js `v24.19.0`でCoordinator strict typecheck／Biome lint／formatはPass、全contract testは401／401、Checker contract testは151／151、Repository全体checkerは542 files、346 Markdown、1,994 local links、577 anchors、Error 0／Warning 0だった。
 
-Checker packageのcheckはPass、contract testは151／151だった。Repository全体checkerは542 files、346 Markdown、1,994 local links、577 anchorsを確認し、Error 0／Warning 0だった。実Provider、Docker、Network、OAuth、Provider Home保護／mountまたは課金Effectは本変更で発火していない。contract testは所有する一時Operation directoryと外部回復recordを作成・cleanupする試験Filesystem Effectを含む。固定改訂版への独立監査結果は未取得であり、PassまたはVerifiedへはまだ昇格しない。
+初回監査の統合是正後、Coordinator checkはPass、全contract testは405／405となった。直接試験はRuntime生成ID、同一Operationの複数alias、opaque表示、plain copy／偽造、contextとmountのcross-operation組合せ、rootだけの置換、child置換、非置換型cleanup／recovery停止、通常cleanupおよびHost recovery成功によるcontext／mount／management全alias失効を確認した。実Provider、Docker、Network、OAuth、Provider Home保護／mountまたは課金Effectは発火していない。contract testは所有する一時Operation directoryと外部回復recordを作成・cleanupする試験Filesystem Effectを含む。
+
+Coverageは`npm run dynamic-fake-provider:coverage --prefix tools/coordinator`がNodeの`--experimental-test-coverage`、単一process、逐次test、LCOV reporter、固定10 source／7 testを連続2回実行し、exact LCOV parserで分母・分子と未到達`line/block/branch`を検証した同一結果を使用する。`execution-environment.ts`はlines `1060/1152`（92.01%、不足92）、functions `51/52`（98.08%、不足1）、branches `184/241`（76.35%、不足57）で、payload SHA-256は`828dee977aefd9a32e99e5fba7595186e7f4bd6a5ae8c6dfd296f66409c30027`が2回一致した。未到達branchの一意な母集団は`189/B8`、`196/B10`、`241/B20`、`259/B28`、`269/B33`、`273/B35`、`275/B36`、`279/B38`、`284/B39`、`294/B43`、`301/B45`、`311/B46`、`317/B48`、`319/B49`、`338/B52`、`343/B54`、`386/B65`、`442/B73`、`459/B75`、`475/B77`、`540/B83`、`548/B84`、`585/B85`、`629/B86`、`645/B88`、`655/B90`、`660/B91`、`683/B99`、`684/B101`、`687/B103`、`693/B104`、`767/B118`、`770/B120`、`817/B138`、`834/B142`、`836/B144`、`841/B150`、`847/B153`、`863/B155`、`881/B163`、`908/B174`、`917/B175`、`975/B195`、`985/B197`、`988/B199`、`990/B201`、`1020/B204`、`1022/B206`、`1035/B211`、`1041/B214`、`1054/B221`、`1056/B223`、`1062/B225`、`1080/B228`、`1081/B229`、`1085/B230`、`1150/B240`である。
+
+未到達の理由は、初期化中の世代衝突、WeakMapの内部recordだけを破壊しなければ到達しない防御分岐、Windowsで安定再現できないclose／rename／permission／同時消滅、回復record状態および削除後存在確認の低水準Filesystem異常を、production test hookや不正な自己書換えで捏造していないためである。残存riskは、該当する稀なRuntime／Filesystem故障で分類が粗くなり、処置停止または手動回復が増える可能性であり、Capabilityの誤発行やProvider起動へはfail closedする。代替確認は、root／child／junction置換、未知entry、marker改変、部分child欠落、invalid token、root消滅、cleanup失敗後の復元、cross-operation／plain／stale Capability、および全contract testである。安全策は、未確認時にCapability発行・検証を拒否し、rootを推測削除せず、実Providerと全外部Effectを未接続に保つことである。OwnerはQual-Lab、人間による追加判断は現在不要とし、Operation Identity／cleanup／recovery／Capability実装、Node coverage形式、固定母集団または実Provider接続を変更した時に再確認する。100%達成、Gate、Releaseまたは実Provider安全性は主張しない。
+
+Checker packageのcheckはPass、contract testは151／151だった。Repository全体checkerは542 files、346 Markdown、1,996 local links、577 anchorsを確認し、Error 0／Warning 0だった。固定改訂版への独立再監査は未取得であり、初回Failを現在PassまたはVerifiedへ昇格しない。
+
+## 初回独立監査と統合是正
+
+固定commit `686e29551ddf4cbceb722c4e3a48d8acc620e861`／tree `ee484ef9ff723e0a548e47d42aabbd97c3a85c87`へのAgent／Architecture／Security ReviewはFail（High 1、Medium 1）、Document AuditはFail（Major 2）、Gap／ImpactおよびConformance AuditはFail／Not Eligible（Major 2）だった。全監査の一次走査後、次の4是正単位へ統合し、修正開始前に全監査へ再提示して整合を確認した。
+
+- context Capabilityとmount Capabilityが同じprivate ownerを指すことを結合するAPIがなく、後続storeがcross-operationの組合せを拒否できなかった。mount Capabilityのprivate recordへownerを保持し、同一owner世代のcontext＋mountからだけopaque management bindingを発行する。management binding自身も同一alias集合へ登録し、Path、Filesystem Identityまたはplain Authorityを返さない。
+- Operation root自身のstable Identity確認がcreate／verifyから欠落し、root文字列だけの失効索引が別世代へ縮退し得た。root／parent／prefix、rootと全childのstable Identityおよび`root + Host recovery nonce`世代を共通validatorで確認し、回復recordの状態遷移でHashが変わっても安定nonce世代を維持する。
+- 確認済みIdentity置換と、Identityが正常なままの処置停止を分けていなかった。前者は同一世代の全派生Capabilityを即時・不可逆に失効し、後者はcurrent callをblockedとしてOperation終了や失効を先取りしない。正常cleanup／検証済みrecoveryがroot消滅を確定した場合にだけ終了失効する直接試験を追加した。
+- README／脅威モデルへの現在状態伝播と、100%未達時のcoverage義務が不足していた。是正後契約を両文書へ伝播し、測定tool、分母・分子・不足、未到達母集団、理由、risk、代替確認、安全策、Owner、人間判断および再確認条件を上記へ固定した。
+
+初回Findingはすべて`Applied / Self-checked — pending independent re-review`であり、旧監査結果を新固定版の合否へ流用しない。
 
 ## 未完了事項と人間判断
 

@@ -20,6 +20,7 @@ import type { DiagnosticCheck } from "../src/core/doctor.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
+  createOwnedOperationManagementCapability,
   createOwnedOperationContextCapability,
   createOperationDirectories,
   createOwnedOperationDirectories,
@@ -29,6 +30,7 @@ import {
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
   verifyOwnedMountCapability,
+  verifyOwnedOperationManagementCapability,
   verifyOwnedOperationContextCapability,
 } from "../src/security/execution-environment.ts";
 import {
@@ -300,6 +302,9 @@ test("owned childを同名の別directoryへ置換してもreplacementを削除�
   );
   try {
     const owned = createOwnedOperationDirectories(parent);
+    const context = createOwnedOperationContextCapability(owned);
+    const mount = createOwnedMountCapability(owned);
+    const binding = createOwnedOperationManagementCapability(context, mount);
     const original = `${owned.root}-original`;
     fs.renameSync(owned.root, original);
     fs.mkdirSync(owned.root);
@@ -310,6 +315,18 @@ test("owned childを同名の別directoryへ置換してもreplacementを削除�
     assert.throws(() => cleanupOwnedOperationDirectories(owned), /replaced/u);
     assert.equal(fs.readFileSync(replacementContent, "utf8"), "replacement");
     assert.equal(fs.readFileSync(originalContent, "utf8"), "original");
+    assert.throws(
+      () => verifyOwnedOperationContextCapability(context),
+      /capability_required/u,
+    );
+    assert.throws(
+      () => verifyOwnedMountCapability(mount),
+      /capability_required/u,
+    );
+    assert.throws(
+      () => verifyOwnedOperationManagementCapability(binding),
+      /binding_required/u,
+    );
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
@@ -2629,6 +2646,7 @@ test("Operation context Capabilityは偽造・置換・終了後aliasを拒否�
     () => verifyOwnedOperationContextCapability(null),
     /capability_required/u,
   );
+  assert.throws(() => verifyOwnedMountCapability(null), /capability_required/u);
 
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "operation-context-"));
   try {
@@ -2651,7 +2669,7 @@ test("Operation context Capabilityは偽造・置換・終了後aliasを拒否�
     fs.mkdirSync(replaced.directories.management);
     assert.throws(
       () => createOwnedOperationContextCapability(replaced),
-      /mount_replaced/u,
+      /identity_replaced/u,
     );
     fs.rmSync(replaced.directories.management, { recursive: true });
     fs.renameSync(original, replaced.directories.management);
@@ -2664,6 +2682,173 @@ test("Operation context Capabilityは偽造・置換・終了後aliasを拒否�
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
+});
+
+test("Operation management bindingは同じOperationのcontextとmountだけを結合する", () => {
+  const firstOwned = createOwnedOperationDirectories();
+  const secondOwned = createOwnedOperationDirectories();
+  try {
+    const firstContext = createOwnedOperationContextCapability(firstOwned);
+    const firstMount = createOwnedMountCapability(firstOwned);
+    const secondContext = createOwnedOperationContextCapability(secondOwned);
+    const secondMount = createOwnedMountCapability(secondOwned);
+    const binding = createOwnedOperationManagementCapability(
+      firstContext,
+      firstMount,
+    );
+    const observed = verifyOwnedOperationManagementCapability(binding);
+    assert.match(observed.operationId, /^OP-[0-9]{6,61}$/u);
+    assert.equal(observed.managementScopeBound, true);
+    assert.deepEqual(Object.keys(binding), ["kind"]);
+    assert.equal(JSON.stringify(binding).includes(observed.operationId), false);
+    assert.throws(
+      () => createOwnedOperationManagementCapability(firstContext, secondMount),
+      /binding_required/u,
+    );
+    assert.throws(
+      () => createOwnedOperationManagementCapability(secondContext, firstMount),
+      /binding_required/u,
+    );
+    assert.throws(
+      () =>
+        createOwnedOperationManagementCapability(
+          { ...firstContext },
+          firstMount,
+        ),
+      /binding_required/u,
+    );
+    assert.throws(
+      () => createOwnedOperationManagementCapability(firstContext, null),
+      /binding_required/u,
+    );
+    assert.throws(
+      () => verifyOwnedOperationManagementCapability({ ...binding }),
+      /binding_required/u,
+    );
+    assert.throws(
+      () => verifyOwnedOperationManagementCapability(null),
+      /binding_required/u,
+    );
+  } finally {
+    cleanupOwnedOperationDirectories(firstOwned);
+    cleanupOwnedOperationDirectories(secondOwned);
+  }
+});
+
+test("Operation rootだけの置換でも同一世代の全Capabilityを失効する", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "operation-root-swap-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    const context = createOwnedOperationContextCapability(owned);
+    const mount = createOwnedMountCapability(owned);
+    const binding = createOwnedOperationManagementCapability(context, mount);
+    const original = `${owned.root}-original`;
+    fs.renameSync(owned.root, original);
+    fs.mkdirSync(owned.root);
+    for (const child of [
+      "workspace",
+      "provider-home",
+      "tmp",
+      "events",
+      "projection",
+      "management",
+    ]) {
+      fs.renameSync(path.join(original, child), path.join(owned.root, child));
+    }
+    assert.throws(
+      () => verifyOwnedOperationContextCapability(context),
+      /identity_replaced/u,
+    );
+    assert.throws(
+      () => verifyOwnedMountCapability(mount),
+      /capability_required/u,
+    );
+    assert.throws(
+      () => verifyOwnedOperationManagementCapability(binding),
+      /binding_required/u,
+    );
+    for (const child of [
+      "workspace",
+      "provider-home",
+      "tmp",
+      "events",
+      "projection",
+      "management",
+    ]) {
+      fs.renameSync(path.join(owned.root, child), path.join(original, child));
+    }
+    fs.rmSync(owned.root, { recursive: true });
+    fs.renameSync(original, owned.root);
+    cleanupOwnedOperationDirectories(owned);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test("非置換型cleanup停止はOperation終了とせず復元後に全aliasを失効する", () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mount = createOwnedMountCapability(owned);
+  const binding = createOwnedOperationManagementCapability(context, mount);
+  const unknown = path.join(owned.root, "unknown.txt");
+  fs.writeFileSync(unknown, "retain", "utf8");
+  assert.throws(
+    () => cleanupOwnedOperationDirectories(owned),
+    /unknown_child/u,
+  );
+  assert.equal(fs.existsSync(owned.root), true);
+  assert.equal(
+    verifyOwnedOperationContextCapability(context).operationId,
+    verifyOwnedOperationManagementCapability(binding).operationId,
+  );
+  assert.equal(typeof verifyOwnedMountCapability(mount).management, "string");
+  fs.rmSync(unknown);
+  cleanupOwnedOperationDirectories(owned);
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(context),
+    /capability_required/u,
+  );
+  assert.throws(
+    () => verifyOwnedMountCapability(mount),
+    /capability_required/u,
+  );
+  assert.throws(
+    () => verifyOwnedOperationManagementCapability(binding),
+    /binding_required/u,
+  );
+});
+
+test("blocked recoveryは別Operationを失効せず成功世代だけを失効する", () => {
+  const first = createOwnedOperationDirectories();
+  const second = createOwnedOperationDirectories();
+  const firstContext = createOwnedOperationContextCapability(first);
+  const secondContext = createOwnedOperationContextCapability(second);
+  const firstToken = getOwnedHostRecoveryId(first);
+  assert.equal(
+    recoverOwnedOperationDirectories("invalid-token").status,
+    "blocked",
+  );
+  assert.match(
+    verifyOwnedOperationContextCapability(firstContext).operationId,
+    /^OP-/u,
+  );
+  assert.match(
+    verifyOwnedOperationContextCapability(secondContext).operationId,
+    /^OP-/u,
+  );
+  assert.equal(
+    recoverOwnedOperationDirectories(firstToken).status,
+    "recovered",
+  );
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(firstContext),
+    /capability_required/u,
+  );
+  assert.match(
+    verifyOwnedOperationContextCapability(secondContext).operationId,
+    /^OP-/u,
+  );
+  cleanupOwnedOperationDirectories(second);
 });
 
 test("Docker submission recordとrollbackの二重失敗は手動回復までfail closedにする", () => {
@@ -2703,6 +2888,8 @@ test("Host recoveryは部分削除済みchildを許容し残存rootを回収す�
   const owned = createOwnedOperationDirectories();
   const first = createOwnedOperationContextCapability(owned);
   const second = createOwnedOperationContextCapability(owned);
+  const mount = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(first, mount);
   const token = getOwnedHostRecoveryId(owned);
   fs.rmSync(owned.directories.tmp, { recursive: true, force: false });
   const recovered = recoverOwnedOperationDirectories(token);
@@ -2715,6 +2902,14 @@ test("Host recoveryは部分削除済みchildを許容し残存rootを回収す�
   assert.throws(
     () => verifyOwnedOperationContextCapability(second),
     /capability_required/u,
+  );
+  assert.throws(
+    () => verifyOwnedMountCapability(mount),
+    /capability_required/u,
+  );
+  assert.throws(
+    () => verifyOwnedOperationManagementCapability(management),
+    /binding_required/u,
   );
 });
 
