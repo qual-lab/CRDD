@@ -8,15 +8,16 @@ import {
 } from "../src/security/platform-access-adapter.ts";
 
 function response(nonce: Buffer, role = 2, accessMask = 0x101) {
-  const bytes = Buffer.alloc(82);
-  bytes.write("CRDDPR02", 0, "ascii");
-  bytes.writeUInt16LE(2, 8);
+  const bytes = Buffer.alloc(86);
+  bytes.write("CRDDPR03", 0, "ascii");
+  bytes.writeUInt16LE(3, 8);
   bytes[10] = role;
   bytes[11] = 1;
   nonce.copy(bytes, 12);
   bytes.writeUInt16LE(100, 44);
   bytes.writeUInt32LE(accessMask, 46);
   bytes.fill(0x0a, 50, 82);
+  bytes.writeUInt32LE(0x83, 82);
   return bytes;
 }
 
@@ -37,6 +38,18 @@ test("Rust platform access responseを安全要約へ限定する", () => {
   assert.equal(result.observedPrincipalSource, "current_process_token_user");
   assert.equal(result.runtimePrincipalMode, null);
   assert.equal(result.runtimePrincipalIdentityHash, "0a".repeat(32));
+  assert.deepEqual(result.principalObservation, {
+    primaryToken: true,
+    interactiveGroup: true,
+    serviceGroup: false,
+    batchGroup: false,
+    networkGroup: false,
+    restrictedToken: false,
+    appContainer: false,
+    nonzeroSession: true,
+  });
+  assert.equal(result.selectedUserBindingVerified, false);
+  assert.equal(result.runtimePrincipalBound, false);
   assert.equal(result.helperProcessSpawned, false);
   assert.equal(result.helperResponseValidated, true);
   assert.equal(result.absolutePathReported, false);
@@ -58,7 +71,7 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
   const nonce = Buffer.alloc(32, 5);
   const cases: unknown[] = [
     new Uint8Array(response(nonce)),
-    response(nonce).subarray(0, 81),
+    response(nonce).subarray(0, 85),
     response(nonce, 1),
     response(Buffer.alloc(32, 6)),
     response(nonce, 2, 0x200),
@@ -66,6 +79,16 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
       const zeroPrincipal = response(nonce);
       zeroPrincipal.fill(0, 50, 82);
       return zeroPrincipal;
+    })(),
+    (() => {
+      const unknownPrincipalFlag = response(nonce);
+      unknownPrincipalFlag.writeUInt32LE(0x100, 82);
+      return unknownPrincipalFlag;
+    })(),
+    (() => {
+      const noPrimaryToken = response(nonce);
+      noPrimaryToken.writeUInt32LE(0x82, 82);
+      return noPrimaryToken;
     })(),
   ];
   for (const candidate of cases) {
@@ -157,7 +180,11 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   assert.equal(contract.cargoRuntimeInvocation, false);
   assert.equal(contract.windowsPermissionMutation, "not_implemented");
   assert.equal(contract.posixAdapter, "not_implemented");
-  assert.equal(contract.wireProtocol, "fixed_bounded_binary_revision_2");
+  assert.equal(contract.wireProtocol, "fixed_bounded_binary_revision_3");
+  assert.equal(
+    contract.principalObservation,
+    "implemented_current_process_token_classification_candidate_non_authoritative",
+  );
   assert.equal(contract.serviceAccountMode, "not_implemented_blocked");
   assert.equal(contract.filesystemEffectIssued, false);
   assert.equal(contract.runtimeAuthorityConferred, false);

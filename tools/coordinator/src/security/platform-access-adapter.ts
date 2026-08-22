@@ -1,9 +1,20 @@
-const responseMagic = Buffer.from("CRDDPR02", "ascii");
-const RESPONSE_BYTES = 82;
-const PROTOCOL_REVISION = 2;
+const responseMagic = Buffer.from("CRDDPR03", "ascii");
+const RESPONSE_BYTES = 86;
+const PROTOCOL_REVISION = 3;
 const RESPONSE_STATUS_CANDIDATE = 1;
 const OBSERVATION_CANDIDATE_REASON = 100;
 const KNOWN_ACCESS_MASK = 0x1ff;
+const PRINCIPAL_FLAGS = Object.freeze({
+  primaryToken: 1 << 0,
+  interactiveGroup: 1 << 1,
+  serviceGroup: 1 << 2,
+  batchGroup: 1 << 3,
+  networkGroup: 1 << 4,
+  restrictedToken: 1 << 5,
+  appContainer: 1 << 6,
+  nonzeroSession: 1 << 7,
+});
+const KNOWN_PRINCIPAL_MASK = 0xff;
 const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength",
@@ -35,6 +46,9 @@ function blocked(
     observedPrincipalSource: null,
     runtimePrincipalMode: null,
     runtimePrincipalIdentityHash: null,
+    principalObservation: null,
+    selectedUserBindingVerified: false,
+    runtimePrincipalBound: false,
     helperProcessSpawned: isHelperProcessSpawned,
     helperResponseValidated: isHelperResponseValidated,
     absolutePathReported: false,
@@ -141,6 +155,21 @@ export function evaluatePlatformAccessResponseCandidate(
     if (/^0{64}$/u.test(runtimePrincipalIdentityHash)) {
       return blocked("platform_access_helper_response_invalid");
     }
+    const principalMask = readUInt32LittleEndian(responseBytes, 82);
+    if (
+      (principalMask & ~KNOWN_PRINCIPAL_MASK) !== 0 ||
+      (principalMask & PRINCIPAL_FLAGS.primaryToken) === 0
+    ) {
+      return blocked("platform_access_helper_response_invalid");
+    }
+    const principalObservation = Object.freeze(
+      Object.fromEntries(
+        Object.entries(PRINCIPAL_FLAGS).map(([name, flag]) => [
+          name,
+          (principalMask & flag) !== 0,
+        ]),
+      ),
+    );
     return Object.freeze({
       status: "candidate" as const,
       reason: "windows_current_process_access_observed_candidate",
@@ -148,6 +177,9 @@ export function evaluatePlatformAccessResponseCandidate(
       observedPrincipalSource: "current_process_token_user" as const,
       runtimePrincipalMode: null,
       runtimePrincipalIdentityHash,
+      principalObservation,
+      selectedUserBindingVerified: false,
+      runtimePrincipalBound: false,
       helperProcessSpawned: false,
       helperResponseValidated: true,
       absolutePathReported: false,
@@ -185,9 +217,11 @@ export function describePlatformAccessAdapterContract() {
     rustCrate: "crdd-platform-access",
     rustToolchain: "1.94.1",
     target: "x86_64-pc-windows-msvc",
-    wireProtocol: "fixed_bounded_binary_revision_2",
+    wireProtocol: "fixed_bounded_binary_revision_3",
     runtimePrincipalPolicy: "local_interactive_selected_user_only",
     observedPrincipalSource: "current_process_token_user",
+    principalObservation:
+      "implemented_current_process_token_classification_candidate_non_authoritative",
     selectedUserBinding: "not_implemented_blocked",
     runtimePrincipalIdentity:
       "native_current_token_user_sid_domain_separated_sha256",

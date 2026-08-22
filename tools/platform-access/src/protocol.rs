@@ -1,12 +1,21 @@
 use std::io::{self, Read, Write};
 
-pub const PROTOCOL_REVISION: u16 = 2;
+pub const PROTOCOL_REVISION: u16 = 3;
 pub const MAXIMUM_REQUEST_BYTES: usize = 65_536;
 pub const MAXIMUM_PATH_BYTES: usize = 4_096;
-const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA02";
-const RESPONSE_MAGIC: &[u8; 8] = b"CRDDPR02";
+const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA03";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDPR03";
 const REQUEST_HEADER_BYTES: usize = 60;
-const RESPONSE_BYTES: usize = 82;
+const RESPONSE_BYTES: usize = 86;
+
+pub const PRINCIPAL_PRIMARY_TOKEN: u32 = 1 << 0;
+pub const PRINCIPAL_INTERACTIVE_GROUP: u32 = 1 << 1;
+pub const PRINCIPAL_SERVICE_GROUP: u32 = 1 << 2;
+pub const PRINCIPAL_BATCH_GROUP: u32 = 1 << 3;
+pub const PRINCIPAL_NETWORK_GROUP: u32 = 1 << 4;
+pub const PRINCIPAL_RESTRICTED_TOKEN: u32 = 1 << 5;
+pub const PRINCIPAL_APP_CONTAINER: u32 = 1 << 6;
+pub const PRINCIPAL_NONZERO_SESSION: u32 = 1 << 7;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -63,6 +72,7 @@ pub struct Response {
     pub reason: Reason,
     pub access_mask: u32,
     pub runtime_principal_identity_hash: [u8; 32],
+    pub principal_observation_flags: u32,
 }
 
 fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
@@ -199,6 +209,7 @@ pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
     bytes[44..46].copy_from_slice(&(response.reason as u16).to_le_bytes());
     bytes[46..50].copy_from_slice(&response.access_mask.to_le_bytes());
     bytes[50..82].copy_from_slice(&response.runtime_principal_identity_hash);
+    bytes[82..86].copy_from_slice(&response.principal_observation_flags.to_le_bytes());
     bytes
 }
 
@@ -330,11 +341,16 @@ mod tests {
             reason: Reason::ObservationCandidate,
             access_mask: 0x1ff,
             runtime_principal_identity_hash: [4_u8; 32],
+            principal_observation_flags: PRINCIPAL_PRIMARY_TOKEN | PRINCIPAL_INTERACTIVE_GROUP,
         });
         assert_eq!(response.len(), RESPONSE_BYTES);
         assert_eq!(&response[..8], RESPONSE_MAGIC);
         assert_eq!(&response[12..44], &[3_u8; 32]);
         assert_eq!(&response[50..82], &[4_u8; 32]);
+        assert_eq!(
+            u32::from_le_bytes(response[82..86].try_into().unwrap()),
+            PRINCIPAL_PRIMARY_TOKEN | PRINCIPAL_INTERACTIVE_GROUP
+        );
         assert!(!response.windows(3).any(|window| window == b"C:\\"));
     }
 
@@ -347,6 +363,7 @@ mod tests {
             reason: Reason::RootIdentityMismatch,
             access_mask: 0,
             runtime_principal_identity_hash: [0_u8; 32],
+            principal_observation_flags: 0,
         });
         assert_eq!(response[10], RootRole::Authority as u8);
         assert_eq!(response[11], 0);
@@ -354,5 +371,6 @@ mod tests {
         assert_eq!(u16::from_le_bytes(response[44..46].try_into().unwrap()), 4);
         assert_eq!(u32::from_le_bytes(response[46..50].try_into().unwrap()), 0);
         assert_eq!(&response[50..82], &[0_u8; 32]);
+        assert_eq!(&response[82..86], &[0_u8; 4]);
     }
 }

@@ -154,7 +154,14 @@ test("入れ子directoryの走査中にentryを追加・削除・型変更して
     const changedPath = path.join(sourceRoot, "changed.ts");
     if (scenario !== "add") fs.writeFileSync(changedPath, "export {};");
     const originalRead = fs.readSync;
+    const originalLstat = fs.lstatSync;
+    const sourceRootMetadata = fs.lstatSync(sourceRoot, { bigint: true });
     let isChanged = false;
+    Reflect.set(fs, "lstatSync", (target: fs.PathLike, ...args: unknown[]) =>
+      target === sourceRoot
+        ? sourceRootMetadata
+        : Reflect.apply(originalLstat, fs, [target, ...args]),
+    );
     Reflect.set(fs, "readSync", (descriptor: number, ...args: unknown[]) => {
       const byteLength = Reflect.apply(originalRead, fs, [descriptor, ...args]);
       if (!isChanged && byteLength > 0) {
@@ -175,6 +182,7 @@ test("入れ子directoryの走査中にentryを追加・削除・型変更して
       );
     } finally {
       Reflect.set(fs, "readSync", originalRead);
+      Reflect.set(fs, "lstatSync", originalLstat);
       fs.rmSync(root, { recursive: true, force: true });
     }
   }

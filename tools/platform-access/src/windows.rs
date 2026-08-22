@@ -14,10 +14,12 @@ use windows_sys::Win32::Security::Cryptography::{
     BCryptOpenAlgorithmProvider,
 };
 use windows_sys::Win32::Security::{
-    AccessCheck, DACL_SECURITY_INFORMATION, DuplicateToken, GENERIC_MAPPING,
-    GROUP_SECURITY_INFORMATION, GetLengthSid, GetTokenInformation, IsValidSid, MapGenericMask,
-    OWNER_SECURITY_INFORMATION, PRIVILEGE_SET, PSECURITY_DESCRIPTOR, SecurityImpersonation,
-    TOKEN_DUPLICATE, TOKEN_QUERY, TOKEN_USER, TokenUser,
+    AccessCheck, CheckTokenMembership, CreateWellKnownSid, DACL_SECURITY_INFORMATION,
+    DuplicateToken, GENERIC_MAPPING, GROUP_SECURITY_INFORMATION, GetLengthSid, GetTokenInformation,
+    IsTokenRestricted, IsValidSid, MapGenericMask, OWNER_SECURITY_INFORMATION, PRIVILEGE_SET,
+    PSECURITY_DESCRIPTOR, SecurityImpersonation, TOKEN_DUPLICATE, TOKEN_QUERY, TOKEN_USER,
+    TokenIsAppContainer, TokenPrimary, TokenSessionId, TokenType, TokenUser, WinBatchSid,
+    WinInteractiveSid, WinNetworkSid, WinServiceSid,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_ADD_FILE, FILE_ADD_SUBDIRECTORY,
@@ -29,7 +31,11 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
-use crate::protocol::{FileIdentity, Reason, Request, Response};
+use crate::protocol::{
+    FileIdentity, PRINCIPAL_APP_CONTAINER, PRINCIPAL_BATCH_GROUP, PRINCIPAL_INTERACTIVE_GROUP,
+    PRINCIPAL_NETWORK_GROUP, PRINCIPAL_NONZERO_SESSION, PRINCIPAL_PRIMARY_TOKEN,
+    PRINCIPAL_RESTRICTED_TOKEN, PRINCIPAL_SERVICE_GROUP, Reason, Request, Response,
+};
 
 pub const ACCESS_READ_TRAVERSE: u32 = 1 << 0;
 pub const ACCESS_ADD_FILE: u32 = 1 << 1;
@@ -93,6 +99,7 @@ fn blocked(request: &Request, reason: Reason) -> Response {
         reason,
         access_mask: 0,
         runtime_principal_identity_hash: [0_u8; 32],
+        principal_observation_flags: 0,
     }
 }
 
@@ -248,6 +255,83 @@ fn runtime_principal_identity_hash(token: HANDLE) -> Option<[u8; 32]> {
     sha256(&[DOMAIN, &length, sid])
 }
 
+fn token_u32_information(token: HANDLE, information_class: i32) -> Option<u32> {
+    let mut value = 0_u32;
+    let mut returned = 0_u32;
+    // SAFETY: value is a writable DWORD-sized buffer and token has TOKEN_QUERY access.
+    if unsafe {
+        GetTokenInformation(
+            token,
+            information_class,
+            (&raw mut value).cast::<c_void>(),
+            u32::try_from(size_of::<u32>()).ok()?,
+            &mut returned,
+        )
+    } == 0
+        || returned != u32::try_from(size_of::<u32>()).ok()?
+    {
+        return None;
+    }
+    Some(value)
+}
+
+fn well_known_membership(token: HANDLE, sid_type: i32) -> Option<bool> {
+    let mut sid_words = [0_usize; 9];
+    let mut sid_bytes = u32::try_from(size_of_val(&sid_words)).ok()?;
+    // SAFETY: sid_words is aligned writable storage large enough for a maximum Windows SID.
+    if unsafe {
+        CreateWellKnownSid(
+            sid_type,
+            null_mut(),
+            sid_words.as_mut_ptr().cast::<c_void>(),
+            &mut sid_bytes,
+        )
+    } == 0
+    {
+        return None;
+    }
+    let mut is_member = 0;
+    // SAFETY: the SID was produced by CreateWellKnownSid and token is an impersonation token.
+    if unsafe {
+        CheckTokenMembership(
+            token,
+            sid_words.as_mut_ptr().cast::<c_void>(),
+            &mut is_member,
+        )
+    } == 0
+    {
+        return None;
+    }
+    Some(is_member != 0)
+}
+
+fn principal_observation_flags(primary: HANDLE, impersonation: HANDLE) -> Option<u32> {
+    if token_u32_information(primary, TokenType)? != u32::try_from(TokenPrimary).ok()? {
+        return None;
+    }
+    let mut flags = PRINCIPAL_PRIMARY_TOKEN;
+    for (sid_type, flag) in [
+        (WinInteractiveSid, PRINCIPAL_INTERACTIVE_GROUP),
+        (WinServiceSid, PRINCIPAL_SERVICE_GROUP),
+        (WinBatchSid, PRINCIPAL_BATCH_GROUP),
+        (WinNetworkSid, PRINCIPAL_NETWORK_GROUP),
+    ] {
+        if well_known_membership(impersonation, sid_type)? {
+            flags |= flag;
+        }
+    }
+    if unsafe { IsTokenRestricted(primary) } != 0 {
+        flags |= PRINCIPAL_RESTRICTED_TOKEN;
+    }
+    if token_u32_information(primary, TokenIsAppContainer)? != 0 {
+        flags |= PRINCIPAL_APP_CONTAINER;
+    }
+    if token_u32_information(primary, TokenSessionId)? != 0 {
+        flags |= PRINCIPAL_NONZERO_SESSION;
+    }
+    Some(flags)
+}
+
 fn access_allowed(
     descriptor: PSECURITY_DESCRIPTOR,
     token: HANDLE,
@@ -338,6 +422,10 @@ pub fn observe(request: &Request) -> Response {
     let Some(principal_identity_hash) = runtime_principal_identity_hash(primary_token.0) else {
         return blocked(request, Reason::ProcessTokenUnavailable);
     };
+    let Some(principal_flags) = principal_observation_flags(primary_token.0, impersonation_token.0)
+    else {
+        return blocked(request, Reason::ProcessTokenUnavailable);
+    };
     let checks = [
         (
             ACCESS_READ_TRAVERSE,
@@ -378,6 +466,7 @@ pub fn observe(request: &Request) -> Response {
         reason: Reason::ObservationCandidate,
         access_mask,
         runtime_principal_identity_hash: principal_identity_hash,
+        principal_observation_flags: principal_flags,
     }
 }
 

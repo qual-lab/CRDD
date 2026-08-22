@@ -98,7 +98,7 @@ test("release contractは固定targetと非公開process境界を示す", () => 
     PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
   );
   assert.equal(contract.target, "x86_64-pc-windows-msvc");
-  assert.equal(contract.protocolRevision, 2);
+  assert.equal(contract.protocolRevision, 3);
   assert.equal(contract.signedManifestBinding, "implemented_candidate");
   assert.equal(contract.pathEnvironmentLookup, false);
   assert.equal(contract.artifactObservationFilesystemEffectIssued, false);

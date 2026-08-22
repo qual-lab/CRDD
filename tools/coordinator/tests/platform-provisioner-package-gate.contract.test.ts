@@ -62,7 +62,7 @@ function fixture() {
       relativePath:
         "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
       target: "x86_64-pc-windows-msvc",
-      protocolRevision: 2,
+      protocolRevision: 3,
       rustToolchain: "1.94.1",
       byteLength: 1024,
       sha256: "4".repeat(64),
