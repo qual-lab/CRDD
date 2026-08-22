@@ -1,7 +1,7 @@
 # 変更トレース: Provider Homeマウント許可ライフサイクル基盤（Provider Home Mount Grant Lifecycle Foundation）
 
 - 変更ID: `CHG-000029`
-- 状態: `In Review`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-22
 - 対象: CRDD公式Repositoryのprivate Coordinatorにおける専用Provider Homeマウント許可の純粋Core
@@ -63,3 +63,9 @@ Repository全体checkerは536 files、340 Markdown、1,979 local links、575 anc
 `FU-018-PROVIDER-HOME`は`In Progress`のまま維持する。次の変更ではselected local user binderとProvider Home保護Effectを先に完成させ、その観測をGrant bindingへ供給する。その後にRuntime所有issuer／atomic store／clock、mount Adapterおよび終了時revocation Effectを実装し、各Effectを独立観測する。Provider Home settings分離と実Provider Adapterも完了条件に残る。
 
 現在、人間による判断は非Effectの構造Core実装には必要ない。実Provider Homeを作成・保護し、既存OAuth sessionを保持する変更へ進む前に、対象OS user、保護方式、復旧とlogout境界を固定する必要がある。本変更はv0.18 Candidate、v0.17 Released Baseline、Gate blocked、Authority／Capability非発行および非Releaseを維持する。
+
+## 最終独立確認
+
+固定commit `7e2a0f28fb65fb3c5da6577a86b284ee5371b540`／tree `8cde482d566d49870f78a1c3e5db78ce13db36cc`へ、旧合否不流用で全機械確認と必須監査集合を取得した。Agent／Architecture／Security、Document、Gap／ImpactおよびConformanceはすべて`Pass`／Finding 0で、変更scope claim eligibilityは`Eligible`である。旧Findingはすべて`Resolved`、新規候補は0件である。
+
+固定結果は[`Agent／Architecture／Security Review`](Evidence/CHG-000029_Agent_Security_Review_7e2a0f2.md)、[`Document Audit`](Evidence/CHG-000029_Document_Audit_7e2a0f2.md)、[`Gap／Impact＋Conformance Audit`](Evidence/CHG-000029_Gap_Conformance_Audit_7e2a0f2.md)および[`Current Review Record`](Evidence/CHG-000029_Current_Review_Record_7e2a0f2.md)へ保存した。この`Verified`はpureな非Effect Coreの検証完了だけを表し、Provider Home保護、発行済みMount Grant、実mount、実Provider readiness、Gate open、採用、統合、StableまたはReleaseを意味しない。
