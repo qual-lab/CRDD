@@ -383,7 +383,7 @@ test("owned childをjunctionへ置換した場合は対象を削除しない", (
 test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () => {
   const report = runDoctor();
   const serialized = JSON.stringify(report);
-  assert.equal(report.reportVersion, 6);
+  assert.equal(report.reportVersion, 7);
   assert.deepEqual(
     Object.keys(report).sort(),
     [
@@ -652,6 +652,66 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
     report.runtimeActivation.selectedUserBinding,
     "not_implemented_blocked",
   );
+  assert.equal(report.runtimeActivation.contractRevision, 2);
+  assert.deepEqual(report.runtimeActivation.platformProvisionerEffectContract, {
+    contract: "crdd-coordinator/platform-provisioner-effect",
+    contractRevision: 2,
+    effectController: "not_implemented_effective_access_required",
+    preActiveProvisioningOneShot:
+      "contract_implemented_native_supervisor_not_implemented_blocked",
+    command: "explicit_provision_only",
+    sourceSelection: "fixed_signed_crdd_distribution_only_target",
+    sourceCheckoutBehavior: "blocked_before_any_read_or_filesystem_effect",
+    platform: "windows_target_only",
+    installRoot: "%ProgramData%/Qual-Lab/CRDD/Coordinator",
+    releaseStaging: "not_implemented",
+    installedReleaseReverification: "not_implemented_effective_access_required",
+    permissionMutation: "not_implemented_effective_access_required",
+    protectedGenerationPersistence: "not_implemented_blocked",
+    activePointerPersistence: "not_implemented_native_durable_store_required",
+    inactiveOrphanCleanup: "separate_explicit_identity_bound_effect_required",
+    failureBehavior:
+      "blocked_before_distribution_clock_path_or_filesystem_access",
+    repositoryRuntimeStateRequired: false,
+    compatibilityLayout: "prohibited",
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
+  assert.deepEqual(
+    report.runtimeActivation.platformProvisionerPreActiveOneShotContract,
+    {
+      contract: "crdd-coordinator/pre-active-provisioning-one-shot",
+      contractRevision: 1,
+      command: "explicit_coordinator_provision_only",
+      maximumSpawnAttemptsPerInvocation: 1,
+      initialTrustCeremony:
+        "human_authenticated_officially_signed_release_native_top_level_required",
+      nodePathLaunchMayEstablishVerifiedImage: false,
+      normalRuntimeAdapterInvocation: false,
+      doctorInvocation: false,
+      activateOrDisableInvocation: false,
+      sourceCheckoutInvocation: false,
+      pathCargoShellOrInstallerFallback: false,
+      automaticRetryOrRestart: false,
+      nativeSupervisor: "not_implemented_blocked",
+      releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
+      verifiedImageHandleBinding: "not_implemented_blocked",
+      boundedProcess: "not_implemented_blocked",
+      networkEnforcement: "not_implemented_blocked",
+      currentProcessEffectIssued: false,
+      currentHelperProcessSpawned: false,
+      currentProcessTreeTerminationConfirmed: false,
+      currentManualRecoveryRequired: false,
+      resultAuthority:
+        "current_process_principal_observation_candidate_only_after_native_implementation",
+      selectedUserBindingVerified: false,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+      runtimeAuthorityConferred: false,
+      runtimeCapabilityIssued: false,
+    },
+  );
   assert.equal(
     report.runtimeActivation.authorityRootPathReuseTarget,
     "explicit_path_resolved_from_verified_provisioning_record_target",
@@ -912,6 +972,8 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
       report.runtimeActivation.platformProvisionerActivePointerStore,
     platformProvisionerEffectContract:
       report.runtimeActivation.platformProvisionerEffectContract,
+    platformProvisionerPreActiveOneShotContract:
+      report.runtimeActivation.platformProvisionerPreActiveOneShotContract,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:

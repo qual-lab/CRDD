@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   RUNTIME_ACTIVATION_CONTRACT,
+  RUNTIME_ACTIVATION_CONTRACT_REVISION,
   RUNTIME_ACTIVATION_INPUT_LIMITS,
   compileRuntimeActivationRecordCandidate,
 } from "../src/security/runtime-activation-record.ts";
@@ -12,7 +13,7 @@ import { assertPresent } from "./test-support.ts";
 function record(overrides = {}) {
   return {
     contract: RUNTIME_ACTIVATION_CONTRACT,
-    contractRevision: 1,
+    contractRevision: RUNTIME_ACTIVATION_CONTRACT_REVISION,
     activationId: "ACTIVATION-000001",
     activationRevision: 1,
     status: "active",

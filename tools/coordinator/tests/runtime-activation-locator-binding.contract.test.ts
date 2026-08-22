@@ -6,6 +6,7 @@ import { evaluateInitialActivationLocatorBindingCandidate } from "../src/securit
 import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from "../src/security/runtime-activation-locator-binding-contract.ts";
 import {
   RUNTIME_ACTIVATION_CONTRACT,
+  RUNTIME_ACTIVATION_CONTRACT_REVISION,
   compileRuntimeActivationRecordCandidate,
 } from "../src/security/runtime-activation-record.ts";
 
@@ -15,7 +16,7 @@ const validPath =
 function activation(overrides = {}) {
   return {
     contract: RUNTIME_ACTIVATION_CONTRACT,
-    contractRevision: 1,
+    contractRevision: RUNTIME_ACTIVATION_CONTRACT_REVISION,
     activationId: "ACTIVATION-000001",
     activationRevision: 1,
     status: "active",

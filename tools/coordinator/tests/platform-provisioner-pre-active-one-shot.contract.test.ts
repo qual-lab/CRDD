@@ -50,24 +50,35 @@ test("caller inputを初期Trustまたはone-shot許可へ昇格しない", () =
 
 test("有効化前準備一回実行を通常Runtimeと分離して未実装へ閉じる", () => {
   const contract = describePreActiveProvisioningOneShotContract();
-  assert.equal(contract.command, "explicit_coordinator_provision_only");
-  assert.equal(contract.maximumSpawnAttemptsPerInvocation, 1);
-  assert.equal(
-    contract.initialTrustCeremony,
-    "human_authenticated_officially_signed_release_native_top_level_required",
-  );
-  assert.equal(contract.nodePathLaunchMayEstablishVerifiedImage, false);
-  assert.equal(contract.normalRuntimeAdapterInvocation, false);
-  assert.equal(contract.doctorInvocation, false);
-  assert.equal(contract.activateOrDisableInvocation, false);
-  assert.equal(contract.sourceCheckoutInvocation, false);
-  assert.equal(contract.pathCargoShellOrInstallerFallback, false);
-  assert.equal(contract.automaticRetryOrRestart, false);
-  assert.equal(contract.nativeSupervisor, "not_implemented_blocked");
-  assert.equal(contract.boundedProcess, "not_implemented_blocked");
-  assert.equal(contract.selectedUserBindingVerified, false);
-  assert.equal(contract.filesystemEffectIssued, false);
-  assert.equal(contract.networkEffectIssued, false);
-  assert.equal(contract.runtimeAuthorityConferred, false);
-  assert.equal(contract.runtimeCapabilityIssued, false);
+  assert.deepEqual(contract, {
+    contract: "crdd-coordinator/pre-active-provisioning-one-shot",
+    contractRevision: 1,
+    command: "explicit_coordinator_provision_only",
+    maximumSpawnAttemptsPerInvocation: 1,
+    initialTrustCeremony:
+      "human_authenticated_officially_signed_release_native_top_level_required",
+    nodePathLaunchMayEstablishVerifiedImage: false,
+    normalRuntimeAdapterInvocation: false,
+    doctorInvocation: false,
+    activateOrDisableInvocation: false,
+    sourceCheckoutInvocation: false,
+    pathCargoShellOrInstallerFallback: false,
+    automaticRetryOrRestart: false,
+    nativeSupervisor: "not_implemented_blocked",
+    releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
+    verifiedImageHandleBinding: "not_implemented_blocked",
+    boundedProcess: "not_implemented_blocked",
+    networkEnforcement: "not_implemented_blocked",
+    currentProcessEffectIssued: false,
+    currentHelperProcessSpawned: false,
+    currentProcessTreeTerminationConfirmed: false,
+    currentManualRecoveryRequired: false,
+    resultAuthority:
+      "current_process_principal_observation_candidate_only_after_native_implementation",
+    selectedUserBindingVerified: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
 });

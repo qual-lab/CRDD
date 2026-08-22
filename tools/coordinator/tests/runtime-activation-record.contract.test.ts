@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   AUTHORITY_ROOT_RESOLUTION_LOCATOR_SOURCE_FIELDS,
   RUNTIME_ACTIVATION_CONTRACT,
+  RUNTIME_ACTIVATION_CONTRACT_REVISION,
   RUNTIME_ACTIVATION_INPUT_LIMITS,
   compileRuntimeActivationRecordCandidate,
   decodeRuntimeActivationRecordCandidate,
@@ -14,7 +15,7 @@ import { RUNTIME_ACTIVATION_LOCATOR_PAIR_BINDING_FIELDS } from "../src/security/
 function record(overrides = {}) {
   return {
     contract: RUNTIME_ACTIVATION_CONTRACT,
-    contractRevision: 1,
+    contractRevision: RUNTIME_ACTIVATION_CONTRACT_REVISION,
     activationId: "ACTIVATION-000001",
     activationRevision: 1,
     status: "active",
@@ -134,6 +135,7 @@ test("初版と後続版、activeとdisabledの状態境界を固定する", () 
 
 test("非canonical時刻、余分／欠落field、accessorおよびProxyを拒否する", () => {
   for (const value of [
+    record({ contractRevision: 1 }),
     record({ activatedAt: "2026-08-11T00:00:00.00Z" }),
     record({ activatedAt: "2026-08-11T00:00:00.0000Z" }),
     record({ activatedAt: "x".repeat(1_000_000) }),
@@ -219,6 +221,7 @@ test("byte decoderはBuffer、上限、strict UTF-8、BOMおよびcanonical完�
 
 test("Activation contractは永続化、専用command、再activation、disable/delete分離を公開する", () => {
   const contract = describeRuntimeActivationContract();
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.persistence, "repository_scoped_persistent");
   assert.equal(contract.activationCommand, "dedicated_activate_required");
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
@@ -256,6 +259,37 @@ test("Activation contractは永続化、専用command、再activation、disable/
   ]);
   assert.equal(contract.runtimePrincipalModeIssued, false);
   assert.equal(contract.selectedUserBinding, "not_implemented_blocked");
+  assert.deepEqual(contract.platformProvisionerPreActiveOneShotContract, {
+    contract: "crdd-coordinator/pre-active-provisioning-one-shot",
+    contractRevision: 1,
+    command: "explicit_coordinator_provision_only",
+    maximumSpawnAttemptsPerInvocation: 1,
+    initialTrustCeremony:
+      "human_authenticated_officially_signed_release_native_top_level_required",
+    nodePathLaunchMayEstablishVerifiedImage: false,
+    normalRuntimeAdapterInvocation: false,
+    doctorInvocation: false,
+    activateOrDisableInvocation: false,
+    sourceCheckoutInvocation: false,
+    pathCargoShellOrInstallerFallback: false,
+    automaticRetryOrRestart: false,
+    nativeSupervisor: "not_implemented_blocked",
+    releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
+    verifiedImageHandleBinding: "not_implemented_blocked",
+    boundedProcess: "not_implemented_blocked",
+    networkEnforcement: "not_implemented_blocked",
+    currentProcessEffectIssued: false,
+    currentHelperProcessSpawned: false,
+    currentProcessTreeTerminationConfirmed: false,
+    currentManualRecoveryRequired: false,
+    resultAuthority:
+      "current_process_principal_observation_candidate_only_after_native_implementation",
+    selectedUserBindingVerified: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
   assert.equal(
     contract.authorityRootPathReuseTarget,
     "explicit_path_resolved_from_verified_provisioning_record_target",
@@ -506,6 +540,8 @@ test("Activation contractは永続化、専用command、再activation、disable/
       contract.platformProvisionerActivePointerStore,
     platformProvisionerEffectContract:
       contract.platformProvisionerEffectContract,
+    platformProvisionerPreActiveOneShotContract:
+      contract.platformProvisionerPreActiveOneShotContract,
     enrollmentCertificateDomainSeparation:
       "initial_online_exact_domain_implemented_candidate_renewal_and_other_paths_not_implemented",
     enrollmentCertificateKeyIdEncodingTarget:

@@ -8,22 +8,28 @@ import {
 
 test("platform provisioning blocks before distribution or filesystem access", () => {
   const result = runPlatformProvisionerEffect();
-  assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "pre_active_native_provision_supervisor_not_implemented",
-  );
-  assert.equal(result.processEffectIssued, false);
-  assert.equal(result.helperProcessSpawned, false);
-  assert.equal(result.filesystemEffectIssued, false);
-  assert.equal(result.protectedGenerationInstalled, false);
-  assert.equal(result.activePointerPersisted, false);
-  assert.equal(result.crddDistributionConfirmed, false);
-  assert.equal(result.runtimeAuthorityConferred, false);
+  assert.deepEqual(result, {
+    status: "blocked",
+    reason: "pre_active_native_provision_supervisor_not_implemented",
+    releaseSequence: null,
+    protectedGenerationInstalled: false,
+    activePointerPersisted: false,
+    processEffectIssued: false,
+    helperProcessSpawned: false,
+    recoveryRequired: false,
+    crddDistributionConfirmed: false,
+    qualLabManifestTrustConfirmed: false,
+    permissionPolicyConfirmed: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
 });
 
 test("platform provisioner effect is repository-owned and has no compatibility layout", () => {
   const contract = describePlatformProvisionerEffectContract();
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.command, "explicit_provision_only");
   assert.equal(
     contract.sourceCheckoutBehavior,

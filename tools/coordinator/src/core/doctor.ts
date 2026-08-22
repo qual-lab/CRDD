@@ -608,7 +608,7 @@ export function runDoctor(options: unknown = {}) {
     const readiness = evaluateReadiness(checks);
 
     const report = {
-      reportVersion: 6,
+      reportVersion: 7,
       diagnosticMode: isIsolationActive
         ? "docker_fake_provider_probe"
         : "passive_preflight",

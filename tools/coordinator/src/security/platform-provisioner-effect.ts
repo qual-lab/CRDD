@@ -28,7 +28,7 @@ export function runPlatformProvisionerEffect() {
 export function describePlatformProvisionerEffectContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-effect",
-    contractRevision: 1,
+    contractRevision: 2,
     effectController: "not_implemented_effective_access_required",
     preActiveProvisioningOneShot:
       "contract_implemented_native_supervisor_not_implemented_blocked",

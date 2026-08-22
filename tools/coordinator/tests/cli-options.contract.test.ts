@@ -556,13 +556,24 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
   );
   assert.equal(result.status, 2);
   const report = JSON.parse(result.stdout);
-  assert.equal(
-    report.reason,
-    "pre_active_native_provision_supervisor_not_implemented",
-  );
-  assert.equal(report.crddDistributionConfirmed, false);
-  assert.equal(report.qualLabManifestTrustConfirmed, false);
-  assert.equal(report.filesystemEffectIssued, false);
+  assert.deepEqual(report, {
+    command: "provision",
+    status: "blocked",
+    reason: "pre_active_native_provision_supervisor_not_implemented",
+    releaseSequence: null,
+    protectedGenerationInstalled: false,
+    activePointerPersisted: false,
+    processEffectIssued: false,
+    helperProcessSpawned: false,
+    recoveryRequired: false,
+    crddDistributionConfirmed: false,
+    qualLabManifestTrustConfirmed: false,
+    permissionPolicyConfirmed: false,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
 
   const invalid = spawnSync(
     process.execPath,

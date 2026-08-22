@@ -27,6 +27,7 @@ import { describePlatformProvisionerReleaseIdentityContract } from "./platform-p
 import { describePlatformProvisionerActivePointerContract } from "./platform-provisioner-active-pointer.ts";
 import { describePlatformProvisionerActivePointerStoreContract } from "./platform-provisioner-active-pointer-store.ts";
 import { describePlatformProvisionerEffectContract } from "./platform-provisioner-effect.ts";
+import { describePreActiveProvisioningOneShotContract } from "./platform-provisioner-pre-active-one-shot.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeRootProtectionPolicyContract } from "./root-protection-policy.ts";
 import {
@@ -36,7 +37,7 @@ import {
 
 export const RUNTIME_ACTIVATION_CONTRACT =
   "crdd-coordinator/runtime-activation-record";
-export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 1;
+export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 2;
 export const RUNTIME_ACTIVATION_FILE = "activation.json";
 export const RUNTIME_ACTIVATION_INPUT_LIMITS = Object.freeze({
   rawBytes: 8_192,
@@ -519,6 +520,8 @@ export function describeRuntimeActivationContract() {
     describePlatformProvisionerActivePointerStoreContract();
   const platformProvisionerEffectContract =
     describePlatformProvisionerEffectContract();
+  const platformProvisionerPreActiveOneShotContract =
+    describePreActiveProvisioningOneShotContract();
   const implementation = Object.freeze({
     activationEffect: "not_implemented",
     platformProvisionerVerification: "not_implemented",
@@ -666,6 +669,7 @@ export function describeRuntimeActivationContract() {
     platformProvisionerActivePointerContract,
     platformProvisionerActivePointerStoreContract,
     platformProvisionerEffectContract,
+    platformProvisionerPreActiveOneShotContract,
   });
   const provisioningRecordTrustAndSelectionPolicy = Object.freeze({
     policy: "human_approved_candidate_contract_only",
@@ -781,6 +785,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerActivePointerStoreContract,
     platformProvisionerEffectContract:
       implementation.platformProvisionerEffectContract,
+    platformProvisionerPreActiveOneShotContract:
+      implementation.platformProvisionerPreActiveOneShotContract,
     platformKeyStorageSetupDisclosure:
       "selected_backend_and_protection_strength_disclosed_during_initial_setup_target",
     routineRunKeyStorageSelection:
@@ -1005,6 +1011,8 @@ export function describeRuntimeActivationContract() {
       implementation.platformProvisionerActivePointerStoreContract,
     platformProvisionerEffectContract:
       implementation.platformProvisionerEffectContract,
+    platformProvisionerPreActiveOneShotContract:
+      implementation.platformProvisionerPreActiveOneShotContract,
     provisioningRecordTrustAndSelectionPolicy,
     installationKeyEnrollmentPolicy,
     provisioningStorageAndLifecyclePolicy,

@@ -50,6 +50,10 @@ export function describePreActiveProvisioningOneShotContract() {
     verifiedImageHandleBinding: "not_implemented_blocked",
     boundedProcess: "not_implemented_blocked",
     networkEnforcement: "not_implemented_blocked",
+    currentProcessEffectIssued: false,
+    currentHelperProcessSpawned: false,
+    currentProcessTreeTerminationConfirmed: false,
+    currentManualRecoveryRequired: false,
     resultAuthority:
       "current_process_principal_observation_candidate_only_after_native_implementation",
     selectedUserBindingVerified: false,
