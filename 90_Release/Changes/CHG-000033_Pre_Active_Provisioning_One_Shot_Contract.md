@@ -59,7 +59,15 @@ CHG33-Aは、callerのProxy／accessorを実行しないこと、結果key集合
 
 初回固定版`fbf8521b223d16f6e41bfcc360ae8ee5b2512c8b`では、Agent／Architecture／Security ReviewがREADMEのCLI入力説明1件、Document Auditがprivate Schema版・正式状態語・外部根拠属性の3件、Gap／Impact／Conformance AuditがSchema移行とruntime／doctor oracleの2件を返した。全監査結果の完了後に統合し、各監査へ修正前再提示して整合を確認した。上記のbreaking移行、revision／version更新、exact consumer試験、descriptor-only投影、限定CLI説明、状態軸分離および外部設計入力表を適用した状態は再レビュー待ちであり、適用を解消判定へ流用しない。
 
-現在はpure contractだけが実装対象である。native supervisor、実process、Windows handle／Job race、Process Effect、Filesystem／Network／Provider／課金Effectは発火していない。運用one-shotは未実装のため現固定版では実行不能であり、本監査対象はpure contract scopeに限定する。準拠適格性は同固定版のConformance Auditで別に判定する。Agent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを同じcommit／treeへ実施し、旧CHGの合否を流用しない。
+## 最終独立再監査
+
+是正版commit `16daf156ae8abda935e3cdfeae9aef1c62af4026`／tree `74aeea97fe30c1b2e5e1e1f228b135c9e62b24ca`へ、旧合否を流用せず必須監査集合を再実行した。Agent／Architecture／Security ReviewはPass（Finding 0）、Document AuditはPass（Finding 0）、Gap／Impact AuditおよびConformance AuditはPass／pure contract scope Eligible（Finding 0）だった。`AAS-CHG33A-001`、`DOC33-PRIVATE-SCHEMA-001`、`DOC33-STATE-AXIS-002`、`DOC33-EXTERNAL-EVIDENCE-003`、`GCI-033A-001`および`GCI-033A-002`はすべてResolvedで、新規または回帰Findingは0と判定された。
+
+確認済み範囲は、one-shot pure descriptorとblocked result、Effect revision 2、Runtime Activation revision 2、doctor version 7、CLI／runtime／doctor exact利用側、通常Adapter非発火、Rust wire revision 3／manifest／active pointer不変、README／脅威モデル／CHG-000032／実装残件台帳、breaking移行、外部設計入力および全Effect／Authority／Capability非昇格である。source、call site、変更契約、直接利用側および文書は全数走査し、サンプリングしていない。native supervisor、実Windows handle／image／Job／race／Network enforcement、selected-user binder、protected active、Provider Home、実Provider、OAuthおよび課金は未評価または未実装のまま保持する。
+
+独立再監査後の変更は、本節への監査結果記録だけに限定する。実装、試験、README、脅威モデル、coverage値、公開形式、永続形式および実装残件台帳は変更しない。記録後の新固定版ではRepository全体checkerを再実行し、この限定差分を独立確認へ戻す。
+
+現在はpure contractだけが実装対象である。native supervisor、実process、Windows handle／Job race、Process Effect、Filesystem／Network／Provider／課金Effectは発火していない。運用one-shotは未実装のため現固定版では実行不能であり、本監査対象はpure contract scopeに限定する。準拠適格性は上記固定版のConformance Auditで別に判定した。Agent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditは同じcommit／treeへ実施し、旧CHGの合否を流用していない。
 
 ## 未完了事項と人間判断
 
