@@ -55,7 +55,7 @@ active pointer、selected-user binder、Provider Home、mount Grant、実Provide
 
 固定候補ではCoordinator typecheck、lint、format、全contract test、manifest revision 1拒否、両artifact欠落／改変、Rust format、Clippy warning拒否、locked test／release build、coverage母集団、Checker packageおよびRepository全体checkerを別軸で確認する。native entrypointのexact argv、固定blocked byte、exit code、stderr空、worker spawn 0および全Effect falseを直接試験する。
 
-固定前の実測ではCoordinator 416件、Checker 151件およびRust 11件が全件成功した。Rust coverageは固定toolchain 1.94.1でregion 1248/1386、function 53/55、line 801/878、branch mappingはtoolchain非対応で分母0だった。同じ固定版の連続2回でこの分母・分子は一致した。TypeScript固定母集団はsource 21、test 20で、line 6801/7625、function 243/262、branch 1039/1281だった。100%未到達経路は測定不能を成功へ換算せず、同coverage出力の検証義務、代替確認、Ownerおよび再確認契機へ接続した。
+監査是正後の固定Commit `c411738`／Tree `88e427b`では、Node.js 24.19.0でCoordinator 419件、Checker 151件、Rust 1.94.1で11件が全件成功し、locked release buildも成功した。Repository全体checkerはMarkdown 349、link 2022、error 0、warning 0だった。coverageのexact command、aggregate／変更source別実測、未到達Identity、理由、risk、利用者影響、代替確認、安全策、Owner、人間判断、再確認契機、連続2回で一致したpayload SHA-256および未評価範囲は[固定後検証実行記録](Evidence/CHG-000034_Verification_Run_Record_c411738.md)に保持する。100%未到達またはRust branch mapping非対応を成功へ換算しない。
 
 現在実装したのはnative入口骨格、二成果物manifest binding、release staging／identity、private descriptorと非発火投影までである。loaded image、全parent handle、PE依存閉包、local volume、Network非発火、直接token／Root観測、binder、Protection、activeおよびProvider Homeは未実装または未検証であり、operational one-shot、Claude安全実行、Gate、StableまたはReleaseを主張しない。
 
