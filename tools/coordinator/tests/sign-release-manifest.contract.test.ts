@@ -175,6 +175,43 @@ function assertStagingFailure(
   }
 }
 
+test("両Rust成果物の各単独欠落ではRelease staging sessionを開始しない", () => {
+  const cases = ["platform-access", "native-supervisor"] as const;
+  for (const missing of cases) {
+    const parent = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-staging-missing-"),
+    );
+    const distributionRoot = path.join(parent, "distribution");
+    const executablePath = path.join(
+      distributionRoot,
+      "90_Release",
+      "platform-access",
+      "x86_64-pc-windows-msvc",
+      "crdd-platform-access.exe",
+    );
+    const supervisorPath = path.join(
+      distributionRoot,
+      "90_Release",
+      "coordinator",
+      "x86_64-pc-windows-msvc",
+      "coordinator.exe",
+    );
+    try {
+      fs.mkdirSync(path.dirname(executablePath), { recursive: true });
+      fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
+      if (missing !== "platform-access") {
+        fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
+      }
+      if (missing !== "native-supervisor") {
+        fs.writeFileSync(supervisorPath, "fixed-test-native-supervisor-binary");
+      }
+      assert.equal(beginReleaseStagingManifestSession(distributionRoot), null);
+    } finally {
+      fs.rmSync(parent, { recursive: true, force: true });
+    }
+  }
+});
+
 test("署名Authorityを持たない配置helperは同一fdのcanonical byteを再確認する", () => {
   const value = placementFixture();
   try {

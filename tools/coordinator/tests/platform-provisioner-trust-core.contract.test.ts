@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
+import type { KeyObject } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -14,17 +15,20 @@ import {
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate, assertPresent } from "./test-support.ts";
 
-function frame(payload: Record<string, unknown>) {
+const HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
+  "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V1\0";
+const fixturePrivateKeys = new WeakMap<object, KeyObject>();
+
+function frame(
+  payload: Record<string, unknown>,
+  domain = PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
   assertCanonicalCandidate(canonical);
   const bytes = canonical.canonicalBytes;
   const length = Buffer.alloc(8);
   length.writeBigUInt64BE(BigInt(bytes.length));
-  return Buffer.concat([
-    Buffer.from(PLATFORM_PROVISIONER_MANIFEST_DOMAIN, "ascii"),
-    length,
-    bytes,
-  ]);
+  return Buffer.concat([Buffer.from(domain, "ascii"), length, bytes]);
 }
 
 function fixture(protocolRevision = 3) {
@@ -94,12 +98,46 @@ function fixture(protocolRevision = 3) {
       },
     ],
   };
-  return {
+  const value = {
     manifestEnvelope,
     releaseSignerSpkiDer: spki,
     observedPackageContent,
     evaluationTime: "2026-08-15T12:00:00.000Z",
   };
+  fixturePrivateKeys.set(value, signer.privateKey);
+  return value;
+}
+
+function resign(
+  value: ReturnType<typeof fixture>,
+  domain = PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+) {
+  const signatureEntry = value.manifestEnvelope.signatures[0];
+  assertPresent(signatureEntry);
+  const privateKey = fixturePrivateKeys.get(value);
+  assertPresent(privateKey);
+  signatureEntry.signature = sign(
+    null,
+    frame(value.manifestEnvelope.payload, domain),
+    privateKey,
+  ).toString("base64url");
+}
+
+function assertSignatureValid(
+  value: ReturnType<typeof fixture>,
+  domain = PLATFORM_PROVISIONER_MANIFEST_DOMAIN,
+) {
+  const signatureEntry = value.manifestEnvelope.signatures[0];
+  assertPresent(signatureEntry);
+  assert.equal(
+    verify(
+      null,
+      frame(value.manifestEnvelope.payload, domain),
+      { key: value.releaseSignerSpkiDer, format: "der", type: "spki" },
+      Buffer.from(signatureEntry.signature, "base64url"),
+    ),
+    true,
+  );
 }
 
 test("correctly signed revision 2 platform artifact is rejected only after cryptographic validity", () => {
@@ -143,12 +181,32 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
   assert.equal(result.crddTree, "b".repeat(40));
   assert.equal(result.rootProtectionPolicySha256, "4".repeat(64));
   assert.equal(result.keyStoragePolicySha256, "5".repeat(64));
-  assert.equal(result.platformAccessArtifact?.sha256, "6".repeat(64));
+  assert.deepEqual(result.platformAccessArtifact, {
+    relativePath:
+      "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+    target: "x86_64-pc-windows-msvc",
+    protocolRevision: 3,
+    rustToolchain: "1.94.1",
+    byteLength: 1024,
+    sha256: "6".repeat(64),
+  });
+  assert.deepEqual(result.nativeProvisionSupervisorArtifact, {
+    relativePath:
+      "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+    target: "x86_64-pc-windows-msvc",
+    entrypointContractRevision: 1,
+    rustToolchain: "1.94.1",
+    byteLength: 2048,
+    sha256: "7".repeat(64),
+  });
   assert.equal(result.qualLabManifestCryptographicMatch, true);
   assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
   assert.equal(result.crddDistributionConfirmed, false);
   assert.equal(result.runtimeOwnedPackageFilesystemConfirmed, false);
+  assert.equal(result.runtimeAuthorityConferred, false);
+  assert.equal(result.runtimeCapabilityIssued, false);
   assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(result.networkEffectIssued, false);
   for (const key of ["files", "signature", "spkiDer", "releaseSignerSpkiDer"]) {
     assert.equal(key in result, false);
   }
@@ -216,10 +274,6 @@ test("package name, version, file ordering, path and digest mismatches fail clos
       });
     },
     (value) => {
-      value.manifestEnvelope.payload.contractRevision = 1;
-      value.manifestEnvelope.contractRevision = 1;
-    },
-    (value) => {
       value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.relativePath =
         "90_Release/coordinator/wrong.exe";
     },
@@ -255,6 +309,81 @@ test("package name, version, file ordering, path and digest mismatches fail clos
       verifyPlatformProvisionerManifestCandidate(value).status,
       "blocked",
     );
+  }
+});
+
+test("暗号学的に有効な旧V1一成果物manifestをaliasせず拒否する", () => {
+  const value = fixture();
+  value.manifestEnvelope.payload.contractRevision = 1;
+  value.manifestEnvelope.contractRevision = 1;
+  Reflect.deleteProperty(
+    value.manifestEnvelope.payload,
+    "nativeProvisionSupervisorArtifact",
+  );
+  resign(value, HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN);
+  assertSignatureValid(value, HISTORICAL_PLATFORM_PROVISIONER_MANIFEST_DOMAIN);
+  const result = verifyPlatformProvisionerManifestCandidate(value);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.runtimeAuthorityConferred, false);
+  assert.equal(result.runtimeCapabilityIssued, false);
+  assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(result.networkEffectIssued, false);
+});
+
+test("暗号学的に有効なV2 artifact欠落とnative field差をSchemaで拒否する", () => {
+  const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
+    (value) => {
+      Reflect.deleteProperty(
+        value.manifestEnvelope.payload,
+        "platformAccessArtifact",
+      );
+    },
+    (value) => {
+      Reflect.deleteProperty(
+        value.manifestEnvelope.payload,
+        "nativeProvisionSupervisorArtifact",
+      );
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.relativePath =
+        "90_Release/coordinator/wrong.exe";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.target =
+        "aarch64-pc-windows-msvc";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 2;
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.rustToolchain =
+        "1.95.0";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.byteLength = 0;
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.sha256 =
+        "7".repeat(63);
+    },
+    (value) => {
+      Object.assign(
+        value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact,
+        { extra: true },
+      );
+    },
+  ];
+  for (const mutate of mutations) {
+    const value = fixture();
+    mutate(value);
+    resign(value);
+    assertSignatureValid(value);
+    const result = verifyPlatformProvisionerManifestCandidate(value);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.runtimeAuthorityConferred, false);
+    assert.equal(result.runtimeCapabilityIssued, false);
+    assert.equal(result.filesystemEffectIssued, false);
+    assert.equal(result.networkEffectIssued, false);
   }
 });
 

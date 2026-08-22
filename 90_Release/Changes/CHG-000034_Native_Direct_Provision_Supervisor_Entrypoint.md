@@ -1,4 +1,4 @@
-# 変更トレース: Native Direct Provision Supervisor Entrypoint
+# 変更トレース: ネイティブ直接準備入口（Native Direct Provision Supervisor Entrypoint）
 
 - 変更ID: `CHG-000034`
 - 状態: `In Review`
@@ -7,12 +7,14 @@
 - 対象: CRDD公式RepositoryのWindows有効化前準備一回実行、native成果物およびprivate投影Schema
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`
-- 移行要否: `migration_required: true`（one-shot 1→2、Effect 2→3、Runtime Activation 2→3、doctor 7→8、package manifest 1→2、package filesystem descriptor 1→2、Release Identity descriptor 1→2、Release staging manifest descriptor 1→2、署名結果 1相当→2。旧revision／versionのaliasまたはfallbackなし。supported production decoder、発行済みrecord、installed stateおよび実Effectは0なので永続変換なし）
+- 移行要否: `migration_required: true`（one-shot 1→2、Effect 2→3、Runtime Activation 2→3、doctor 7→8、package manifest 1→2、package filesystem descriptor 1→2、Release Identity descriptor 1→2、Release staging manifest descriptorの旧unversioned shape→2、署名結果 1相当→2。旧revision／versionのaliasまたはfallbackなし。supported production decoder、発行済みrecord、installed stateおよび実Effectは0なので永続変換なし）
 - 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000021`](CHG-000021_Protected_Active_Pointer.md)、[`CHG-000033`](CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
 
 ## 結論と変更経路
 
 人間の決定権限者が承認したnative-first境界を、workerを起動しないnative top-level直接観測へ収束する。人間が真正性を確認した未改変の公式署名済みRelease内の`coordinator.exe provision`自身が、将来同一process内で現在process tokenと固定Rootを1回だけ観測する。worker spawn上限は0であり、人間が開始したtop-level processをCoordinator-issued Process Effectへ数えない。
+
+成果物と安定code termに残る`supervisor`はnative top-level入口のIdentityを表し、現方式でworkerを監督または起動することを意味しない。
 
 この経路は、読み取り専用pre-active観測にchild隔離を導入した場合に増えるPath差替え、loader image連続性、pipe、Job、timeout後tree不存在および回復の不確実性を除く。hard timeoutまたはcrash isolationの必要性が実証された場合だけ、worker方式を別の保護対象変更として再評価する。CHG-000021の通常active Runtime向けVerified Image／bounded process境界は変更しない。
 
