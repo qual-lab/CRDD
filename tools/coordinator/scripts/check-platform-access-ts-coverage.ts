@@ -22,6 +22,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/src/security/platform-provisioner-effect.ts",
   "tools/coordinator/src/security/platform-provisioner-install-layout.ts",
   "tools/coordinator/src/security/platform-provisioner-package-filesystem.ts",
+  "tools/coordinator/src/security/platform-provisioner-pre-active-one-shot.ts",
   "tools/coordinator/src/security/platform-provisioner-release-identity.ts",
   "tools/coordinator/src/security/platform-provisioner-trust-core.ts",
   "tools/coordinator/src/security/platform-provisioner-windows-dacl.ts",
@@ -42,6 +43,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/platform-provisioner-effect.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-install-layout.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-package-filesystem.contract.test.ts",
+  "tools/coordinator/tests/platform-provisioner-pre-active-one-shot.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-release-identity.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-trust-core.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-windows-dacl.contract.test.ts",
@@ -169,6 +171,13 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "package closureまたは同一handle検証の見落とし",
         "余分・欠落・改変・link・Identity差の契約試験",
         "package inventoryまたはstaging copy実装時",
+      ),
+    "tools/coordinator/src/security/platform-provisioner-pre-active-one-shot.ts":
+      obligation(
+        "native-first supervisor、Verified Imageおよび実process境界は未実装である",
+        "caller候補またはNode Path起動を初期Trustへ誤昇格する可能性",
+        "caller入力非参照、全Effect非発行および通常Runtime非発火契約試験",
+        "native supervisorまたはprocess controller実装時",
       ),
     "tools/coordinator/src/security/platform-provisioner-release-identity.ts":
       obligation(

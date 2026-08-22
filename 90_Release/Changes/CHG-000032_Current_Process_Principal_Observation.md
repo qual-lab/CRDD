@@ -72,6 +72,6 @@ Checker packageのcheckはPass、contract testは151／151だった。Repository
 
 ## 未完了事項と人間判断
 
-`FU-018-PROVIDER-HOME`は`In Progress`のまま維持する。次の保護対象判断は、公式署名済みReleaseから明示`provision`時だけ許すpre-active one-shotを、Maintenance 3.3の通常production起動禁止と分離して採用するかである。採用する場合も、固定manifest／artifact／process境界、別資格情報昇格、失敗回復および通常Runtime非発火を同じCHGで固定してから実装する。
+`FU-018-PROVIDER-HOME`は`In Progress`のまま維持する。公式署名済みReleaseから明示`provision`時だけ許すpre-active one-shotは人間により承認され、後続[`CHG-000033`](CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md)へ移した。固定manifest／artifact／process境界、別資格情報昇格、失敗回復および通常Runtime非発火を同CHGで固定してから実装する。
 
-現在の実装範囲に追加の人間判断は不要である。pre-active bootstrap例外の採用、保護対象変更の統合、準拠表明、Gate open、StableまたはReleaseは人間の決定権限へ残す。
+現在の実装範囲に追加の人間判断は不要である。後続CHG33の採用、保護対象変更の統合、準拠表明、Gate open、StableまたはReleaseは人間の決定権限へ残す。

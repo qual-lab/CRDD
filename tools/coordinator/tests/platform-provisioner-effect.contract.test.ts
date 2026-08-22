@@ -11,8 +11,10 @@ test("platform provisioning blocks before distribution or filesystem access", ()
   assert.equal(result.status, "blocked");
   assert.equal(
     result.reason,
-    "platform_provisioner_effective_access_adapter_not_implemented",
+    "pre_active_native_provision_supervisor_not_implemented",
   );
+  assert.equal(result.processEffectIssued, false);
+  assert.equal(result.helperProcessSpawned, false);
   assert.equal(result.filesystemEffectIssued, false);
   assert.equal(result.protectedGenerationInstalled, false);
   assert.equal(result.activePointerPersisted, false);
@@ -30,6 +32,10 @@ test("platform provisioner effect is repository-owned and has no compatibility l
   assert.equal(
     contract.effectController,
     "not_implemented_effective_access_required",
+  );
+  assert.equal(
+    contract.preActiveProvisioningOneShot,
+    "contract_implemented_native_supervisor_not_implemented_blocked",
   );
   assert.equal(contract.repositoryRuntimeStateRequired, false);
   assert.equal(contract.compatibilityLayout, "prohibited");

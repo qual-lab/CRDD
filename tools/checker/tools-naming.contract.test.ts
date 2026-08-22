@@ -74,10 +74,10 @@ const projectConfigs = Object.freeze([
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 5,
-  coordinatorProduction: 68,
-  coordinatorTests: 62,
+  coordinatorProduction: 69,
+  coordinatorTests: 63,
   rustPlatformAccess: 4,
-  uniqueTotal: 138,
+  uniqueTotal: 140,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;

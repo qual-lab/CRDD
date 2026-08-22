@@ -1,3 +1,5 @@
+import { inspectPreActiveProvisioningOneShotCandidate } from "./platform-provisioner-pre-active-one-shot.ts";
+
 function blocked(reason: string) {
   return Object.freeze({
     status: "blocked" as const,
@@ -5,6 +7,8 @@ function blocked(reason: string) {
     releaseSequence: null,
     protectedGenerationInstalled: false,
     activePointerPersisted: false,
+    processEffectIssued: false,
+    helperProcessSpawned: false,
     recoveryRequired: false,
     crddDistributionConfirmed: false,
     qualLabManifestTrustConfirmed: false,
@@ -17,9 +21,8 @@ function blocked(reason: string) {
 }
 
 export function runPlatformProvisionerEffect() {
-  return blocked(
-    "platform_provisioner_effective_access_adapter_not_implemented",
-  );
+  const oneShot = inspectPreActiveProvisioningOneShotCandidate();
+  return blocked(oneShot.reason);
 }
 
 export function describePlatformProvisionerEffectContract() {
@@ -27,6 +30,8 @@ export function describePlatformProvisionerEffectContract() {
     contract: "crdd-coordinator/platform-provisioner-effect",
     contractRevision: 1,
     effectController: "not_implemented_effective_access_required",
+    preActiveProvisioningOneShot:
+      "contract_implemented_native_supervisor_not_implemented_blocked",
     command: "explicit_provision_only",
     sourceSelection: "fixed_signed_crdd_distribution_only_target",
     sourceCheckoutBehavior: "blocked_before_any_read_or_filesystem_effect",
