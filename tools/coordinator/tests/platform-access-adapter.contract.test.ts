@@ -125,7 +125,7 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
     })(),
     (() => {
       const unknownPrincipalFlag = response(nonce);
-      unknownPrincipalFlag.writeUInt32LE(0x100, 82);
+      unknownPrincipalFlag.writeUInt32LE(0x101, 82);
       return unknownPrincipalFlag;
     })(),
     (() => {
