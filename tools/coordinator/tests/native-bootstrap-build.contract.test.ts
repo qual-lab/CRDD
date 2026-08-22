@@ -4,11 +4,11 @@ import test from "node:test";
 import {
   buildNativeBootstrap,
   NATIVE_BOOTSTRAP_BUILD_ARGUMENTS,
+  validateNativeBootstrapBuildEnvironment,
 } from "../scripts/build-native-bootstrap.ts";
 
 test("native bootstrap buildは固定toolchain、offline dependency、link argvだけを使う", () => {
   assert.deepEqual(NATIVE_BOOTSTRAP_BUILD_ARGUMENTS, [
-    "+1.94.1-x86_64-pc-windows-msvc",
     "rustc",
     "--manifest-path",
     "Cargo.toml",
@@ -51,4 +51,51 @@ test("native bootstrap buildは外部Rust overrideとcrate外targetを拒否す�
     if (previous === undefined) delete process.env.RUSTFLAGS;
     else process.env.RUSTFLAGS = previous;
   }
+});
+
+test("native bootstrap buildは大小文字aliasとCargo/Rust override母集団を拒否する", () => {
+  for (const name of [
+    "RUSTC",
+    "rustdocflags",
+    "RUSTC_BOOTSTRAP",
+    "RUSTUP_TOOLCHAIN",
+    "CARGO_HOME",
+    "cargo_target_dir",
+    "CARGO_BUILD_RUSTFLAGS",
+    "CARGO_PROFILE_RELEASE_LTO",
+    "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+    "CARGO_REGISTRIES_CRATES_IO_INDEX",
+    "CARGO_NET_OFFLINE",
+    "CARGO_HTTP_PROXY",
+    "CARGO_ALIAS_BUILD",
+  ]) {
+    assert.throws(
+      () => validateNativeBootstrapBuildEnvironment({ [name]: "override" }),
+      /native_bootstrap_build_environment_invalid/u,
+    );
+  }
+  assert.throws(
+    () =>
+      validateNativeBootstrapBuildEnvironment({
+        RUSTFLAGS: "one",
+        rustflags: "two",
+      }),
+    /native_bootstrap_build_environment_duplicate:RUSTFLAGS/u,
+  );
+  assert.equal(
+    validateNativeBootstrapBuildEnvironment({
+      SystemRoot: "C:\\Windows",
+      PATH: "fixed",
+      Path: "fixed",
+    }),
+    true,
+  );
+  assert.throws(
+    () =>
+      validateNativeBootstrapBuildEnvironment({
+        PATH: "one",
+        Path: "two",
+      }),
+    /native_bootstrap_build_environment_duplicate:PATH/u,
+  );
 });

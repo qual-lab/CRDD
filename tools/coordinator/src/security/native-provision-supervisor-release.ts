@@ -5,6 +5,11 @@ import {
   inspectNativeBootstrapPe,
   NATIVE_BOOTSTRAP_PE_MAXIMUM_BYTES,
 } from "./native-bootstrap-pe-inspector.ts";
+import {
+  readStableBoundedFileSnapshot,
+  sameStableFileIdentity,
+  type StableFileIdentity,
+} from "./bounded-file-snapshot.ts";
 
 export const NATIVE_PROVISION_SUPERVISOR_TARGET = "x86_64-pc-windows-msvc";
 export const NATIVE_PROVISION_SUPERVISOR_RUST_TOOLCHAIN = "1.94.1";
@@ -13,16 +18,6 @@ export const NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES =
   NATIVE_BOOTSTRAP_PE_MAXIMUM_BYTES;
 export const NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH =
   "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe";
-
-type FileIdentity = Readonly<{
-  dev: bigint;
-  ino: bigint;
-  birthtimeNs: bigint;
-  ctimeNs: bigint;
-  mtimeNs: bigint;
-  size: bigint;
-  mode: bigint;
-}>;
 
 type DirectoryIdentity = Readonly<{
   dev: bigint;
@@ -36,7 +31,7 @@ const signingSnapshots = new WeakMap<
     root: string;
     rootIdentity: DirectoryIdentity;
     executablePath: string;
-    fileIdentity: FileIdentity;
+    fileIdentity: StableFileIdentity;
     artifact: Readonly<{
       relativePath: string;
       target: string;
@@ -47,41 +42,6 @@ const signingSnapshots = new WeakMap<
     }>;
   }>
 >();
-
-function fileIdentity(metadata: fs.BigIntStats): FileIdentity {
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.dev <= 0n ||
-    metadata.ino <= 0n ||
-    metadata.birthtimeNs <= 0n ||
-    metadata.size <= 0n ||
-    metadata.size > BigInt(NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES)
-  ) {
-    throw new Error("native_provision_supervisor_release_executable_invalid");
-  }
-  return Object.freeze({
-    dev: metadata.dev,
-    ino: metadata.ino,
-    birthtimeNs: metadata.birthtimeNs,
-    ctimeNs: metadata.ctimeNs,
-    mtimeNs: metadata.mtimeNs,
-    size: metadata.size,
-    mode: metadata.mode,
-  });
-}
-
-function sameFileIdentity(left: FileIdentity, right: FileIdentity) {
-  return (
-    left.dev === right.dev &&
-    left.ino === right.ino &&
-    left.birthtimeNs === right.birthtimeNs &&
-    left.ctimeNs === right.ctimeNs &&
-    left.mtimeNs === right.mtimeNs &&
-    left.size === right.size &&
-    left.mode === right.mode
-  );
-}
 
 function directoryIdentity(metadata: fs.BigIntStats): DirectoryIdentity {
   if (
@@ -129,44 +89,19 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
     root,
     ...NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH.split("/"),
   );
-  const before = fileIdentity(fs.lstatSync(executablePath, { bigint: true }));
-  if (fs.realpathSync.native(executablePath) !== executablePath) {
-    throw new Error("native_provision_supervisor_release_executable_invalid");
-  }
-  const descriptor = fs.openSync(executablePath, fs.constants.O_RDONLY);
   try {
-    const opened = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
-    if (!sameFileIdentity(before, opened)) {
-      throw new Error("native_provision_supervisor_release_executable_changed");
-    }
-    const buffer = Buffer.allocUnsafe(64 * 1024);
-    const byteChunks: Buffer[] = [];
-    let byteLength = 0;
-    while (true) {
-      const count = fs.readSync(descriptor, buffer, 0, buffer.length, null);
-      if (count === 0) break;
-      byteLength += count;
-      if (byteLength > NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES) {
-        throw new Error(
-          "native_provision_supervisor_release_executable_invalid",
-        );
-      }
-      byteChunks.push(Buffer.from(buffer.subarray(0, count)));
-    }
-    const executableBytes = Buffer.concat(byteChunks, byteLength);
+    const snapshot = readStableBoundedFileSnapshot(
+      executablePath,
+      NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES,
+    );
+    const executableBytes = snapshot.bytes;
+    const byteLength = executableBytes.length;
     const inspection = inspectNativeBootstrapPe(executableBytes);
     if (inspection.status !== "accepted") {
       throw new Error("native_provision_supervisor_release_executable_invalid");
     }
-    const after = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
-    const pathAfter = fileIdentity(
-      fs.lstatSync(executablePath, { bigint: true }),
-    );
     const currentRoot = directoryIdentity(fs.lstatSync(root, { bigint: true }));
     if (
-      BigInt(byteLength) !== opened.size ||
-      !sameFileIdentity(opened, after) ||
-      !sameFileIdentity(opened, pathAfter) ||
       !sameDirectoryIdentity(rootIdentity, currentRoot) ||
       fs.realpathSync.native(executablePath) !== executablePath ||
       fs.realpathSync.native(root) !== root
@@ -177,7 +112,7 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
       root,
       rootIdentity,
       executablePath,
-      fileIdentity: opened,
+      fileIdentity: snapshot.identity,
       artifact: Object.freeze({
         relativePath: NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH,
         target: NATIVE_PROVISION_SUPERVISOR_TARGET,
@@ -188,8 +123,8 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
         sha256: createHash("sha256").update(executableBytes).digest("hex"),
       }),
     });
-  } finally {
-    fs.closeSync(descriptor);
+  } catch {
+    throw new Error("native_provision_supervisor_release_executable_invalid");
   }
 }
 
@@ -216,7 +151,7 @@ export function verifyNativeProvisionSupervisorArtifactSigningObservation(
     return (
       sameDirectoryIdentity(snapshot.rootIdentity, observed.rootIdentity) &&
       snapshot.executablePath === observed.executablePath &&
-      sameFileIdentity(snapshot.fileIdentity, observed.fileIdentity) &&
+      sameStableFileIdentity(snapshot.fileIdentity, observed.fileIdentity) &&
       snapshot.artifact.byteLength === observed.artifact.byteLength &&
       snapshot.artifact.sha256 === observed.artifact.sha256
     );

@@ -15,6 +15,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/scripts/sign-release-manifest.ts",
   "tools/coordinator/src/core/doctor.ts",
   "tools/coordinator/src/security/authority-root-path-lexical.ts",
+  "tools/coordinator/src/security/bounded-file-snapshot.ts",
   "tools/coordinator/src/security/platform-access-adapter.ts",
   "tools/coordinator/src/security/platform-access-release.ts",
   "tools/coordinator/src/security/native-provision-supervisor-release.ts",
@@ -36,12 +37,14 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/authority-root-path-lexical.contract.test.ts",
+  "tools/coordinator/tests/bounded-file-snapshot.contract.test.ts",
   "tools/coordinator/tests/native-bootstrap-build.contract.test.ts",
   "tools/coordinator/tests/doctor.contract.test.ts",
   "tools/coordinator/tests/platform-access-adapter.contract.test.ts",
   "tools/coordinator/tests/platform-access-release.contract.test.ts",
   "tools/coordinator/tests/native-provision-supervisor-release.contract.test.ts",
   "tools/coordinator/tests/native-bootstrap-pe-inspector.contract.test.ts",
+  "tools/coordinator/tests/native-bootstrap-pe-runner.contract.test.ts",
   "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-active-pointer.contract.test.ts",
@@ -130,6 +133,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "OS別dispatcherとpure字句判定の接続差",
       "Windows/POSIX pure validatorの正負・境界契約試験",
       "対応OS、字句subsetまたはdispatcher変更時",
+    ),
+    "tools/coordinator/src/security/bounded-file-snapshot.ts": obligation(
+      "close failureと全Filesystem raceを同一coverage runで到達していない",
+      "成果物のgrowth、truncate、leafまたはparent差替えの誤受理",
+      "上限exact／+1、growth、truncate、同長leaf／parent replacement契約試験とproduction caller試験",
+      "読取り上限、Filesystem API、Identity fieldまたはcaller変更時",
     ),
     "tools/coordinator/src/security/platform-access-adapter.ts": obligation(
       "入力正規化の全failure形を同一runで到達していない",

@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const NATIVE_BOOTSTRAP_TOOLCHAIN = "1.94.1-x86_64-pc-windows-msvc";
 export const NATIVE_BOOTSTRAP_TARGET = "x86_64-pc-windows-msvc";
 export const NATIVE_BOOTSTRAP_BUILD_ARGUMENTS = Object.freeze([
-  `+${NATIVE_BOOTSTRAP_TOOLCHAIN}`,
   "rustc",
   "--manifest-path",
   "Cargo.toml",
@@ -28,42 +29,193 @@ export const NATIVE_BOOTSTRAP_BUILD_ARGUMENTS = Object.freeze([
   "-C",
   "link-arg=/Brepro",
 ]);
-const FORBIDDEN_BUILD_ENVIRONMENT = Object.freeze([
+const FORBIDDEN_BUILD_ENVIRONMENT_EXACT = Object.freeze([
+  "CARGO_HOME",
+  "CARGO_TARGET_DIR",
   "RUSTFLAGS",
+  "RUSTDOCFLAGS",
+  "RUSTC",
+  "RUSTDOC",
+  "RUSTC_BOOTSTRAP",
+  "RUSTUP_TOOLCHAIN",
   "CARGO_ENCODED_RUSTFLAGS",
   "RUSTC_WRAPPER",
   "RUSTC_WORKSPACE_WRAPPER",
-  "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER",
+]);
+const FORBIDDEN_BUILD_ENVIRONMENT_PREFIXES = Object.freeze([
+  "CARGO_ALIAS_",
+  "CARGO_BUILD_",
+  "CARGO_HTTP_",
+  "CARGO_NET_",
+  "CARGO_PROFILE_",
+  "CARGO_REGISTRIES_",
+  "CARGO_REGISTRY_",
+  "CARGO_SOURCE_",
+  "CARGO_TARGET_",
+]);
+const CHILD_ENVIRONMENT_ALLOWLIST = Object.freeze([
+  "COMSPEC",
+  "INCLUDE",
+  "LIB",
+  "LIBPATH",
+  "PATH",
+  "PATHEXT",
+  "SYSTEMROOT",
+  "TEMP",
+  "TMP",
+  "WINDIR",
 ]);
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const crateRoot = path.resolve(coordinatorRoot, "..", "platform-access");
 const crateTargetRoot = path.join(crateRoot, "target");
+
+function sha256File(file: string) {
+  return createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
+
+function exactTool(file: string) {
+  const resolved = path.resolve(file);
+  const metadata = fs.lstatSync(resolved, { bigint: true });
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    metadata.size <= 0n ||
+    fs.realpathSync.native(resolved) !== resolved
+  )
+    throw new Error("native_bootstrap_build_tool_invalid");
+  return Object.freeze({
+    path: resolved,
+    byteLength: Number(metadata.size),
+    sha256: sha256File(resolved),
+  });
+}
+
+function cargoConfigCandidates(cargoHome: string) {
+  const candidates: string[] = [];
+  let current = crateRoot;
+  while (true) {
+    candidates.push(
+      path.join(current, ".cargo", "config"),
+      path.join(current, ".cargo", "config.toml"),
+    );
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  candidates.push(
+    path.join(cargoHome, "config"),
+    path.join(cargoHome, "config.toml"),
+  );
+  return Object.freeze(candidates);
+}
+
+export function validateNativeBootstrapBuildEnvironment(
+  environment: NodeJS.ProcessEnv,
+) {
+  const names = new Map<string, string>();
+  for (const name of Object.keys(environment)) {
+    const normalized = name.toUpperCase();
+    const existing = names.get(normalized);
+    if (
+      existing !== undefined &&
+      (!CHILD_ENVIRONMENT_ALLOWLIST.includes(normalized) ||
+        environment[existing] !== environment[name])
+    )
+      throw new Error(
+        `native_bootstrap_build_environment_duplicate:${normalized}`,
+      );
+    if (existing !== undefined) continue;
+    names.set(normalized, name);
+  }
+  for (const normalized of names.keys()) {
+    if (
+      FORBIDDEN_BUILD_ENVIRONMENT_EXACT.includes(normalized) ||
+      FORBIDDEN_BUILD_ENVIRONMENT_PREFIXES.some((prefix) =>
+        normalized.startsWith(prefix),
+      )
+    )
+      throw new Error(
+        `native_bootstrap_build_environment_invalid:${normalized}`,
+      );
+  }
+  return true;
+}
+
+export function inspectNativeBootstrapBuildBoundary() {
+  validateNativeBootstrapBuildEnvironment(process.env);
+  const userHome = path.resolve(os.homedir());
+  const cargoHome = path.join(userHome, ".cargo");
+  const toolchainRoot = path.join(
+    userHome,
+    ".rustup",
+    "toolchains",
+    NATIVE_BOOTSTRAP_TOOLCHAIN,
+    "bin",
+  );
+  const cargoHomeMetadata = fs.lstatSync(cargoHome);
+  if (
+    !cargoHomeMetadata.isDirectory() ||
+    cargoHomeMetadata.isSymbolicLink() ||
+    fs.realpathSync.native(cargoHome) !== cargoHome
+  )
+    throw new Error("native_bootstrap_build_cargo_home_invalid");
+  const configCandidates = cargoConfigCandidates(cargoHome);
+  for (const candidate of configCandidates) {
+    if (fs.existsSync(candidate))
+      throw new Error("native_bootstrap_build_cargo_config_present");
+  }
+  return Object.freeze({
+    cargo: exactTool(path.join(toolchainRoot, "cargo.exe")),
+    rustc: exactTool(path.join(toolchainRoot, "rustc.exe")),
+    cargoHome,
+    cargoConfigCandidates,
+    cargoConfigFilesPresent: 0,
+    dependencySource: "existing_local_cargo_cache_not_supply_chain_verified",
+    msvcLinkerIdentity: "not_verified",
+  });
+}
+
+function childEnvironment(
+  boundary: ReturnType<typeof inspectNativeBootstrapBuildBoundary>,
+  targetRoot: string,
+) {
+  const result: NodeJS.ProcessEnv = {};
+  const normalizedSource = new Map(
+    Object.entries(process.env).map(([name, value]) => [
+      name.toUpperCase(),
+      value,
+    ]),
+  );
+  for (const name of CHILD_ENVIRONMENT_ALLOWLIST) {
+    const value = normalizedSource.get(name);
+    if (value !== undefined) result[name] = value;
+  }
+  result.CARGO_HOME = boundary.cargoHome;
+  result.CARGO_TARGET_DIR = targetRoot;
+  result.RUSTC = boundary.rustc.path;
+  return result;
+}
 
 export function buildNativeBootstrap(targetRoot = crateTargetRoot) {
   const resolvedTargetRoot = path.resolve(targetRoot);
   const relative = path.relative(crateTargetRoot, resolvedTargetRoot);
   if (relative.startsWith("..") || path.isAbsolute(relative))
     throw new Error("native_bootstrap_build_target_invalid");
+  const boundary = inspectNativeBootstrapBuildBoundary();
   fs.mkdirSync(resolvedTargetRoot, { recursive: true });
   if (
     fs.realpathSync.native(resolvedTargetRoot) !== resolvedTargetRoot ||
     fs.lstatSync(resolvedTargetRoot).isSymbolicLink()
   )
     throw new Error("native_bootstrap_build_target_invalid");
-  const buildEnvironment = { ...process.env };
-  for (const name of FORBIDDEN_BUILD_ENVIRONMENT) {
-    if (buildEnvironment[name])
-      throw new Error(`native_bootstrap_build_environment_invalid:${name}`);
-    delete buildEnvironment[name];
-  }
-  buildEnvironment.CARGO_TARGET_DIR = resolvedTargetRoot;
+  const buildEnvironment = childEnvironment(boundary, resolvedTargetRoot);
   const commandArguments = [...NATIVE_BOOTSTRAP_BUILD_ARGUMENTS];
   const manifestIndex = commandArguments.indexOf("Cargo.toml");
   if (manifestIndex < 0)
     throw new Error("native_bootstrap_build_contract_invalid");
   commandArguments[manifestIndex] = path.join(crateRoot, "Cargo.toml");
-  const result = spawnSync("cargo", commandArguments, {
-    cwd: coordinatorRoot,
+  const result = spawnSync(boundary.cargo.path, commandArguments, {
+    cwd: crateRoot,
     env: buildEnvironment,
     encoding: "utf8",
     windowsHide: true,

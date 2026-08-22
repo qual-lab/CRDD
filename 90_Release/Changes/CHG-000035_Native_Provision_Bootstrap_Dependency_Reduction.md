@@ -12,7 +12,7 @@
 
 ## 結論と変更経路
 
-CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面を持たない`no_std`／`no_main`のrelease専用bootstrapへ縮退する。raw command lineのexact `provision`だけを許し、その他を固定arguments-invalid結果へ閉じる。結果byte、終了2、stderr空、worker spawn 0および全Effect／Authority／Capability falseは維持する。
+CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面を持たない`no_std`／`no_main`のrelease専用bootstrapへ縮退する。raw command lineのexact `provision`だけを許し、その他を固定arguments-invalid結果へ閉じる。結果byte、終了2、stderr空、worker spawn 0および結果byte内の全Effect／Authority／Capability falseは維持する。これは固定結果の報告値であり、実processのNetwork非発火を観測した値ではない。
 
 通常Runtime、source checkout、PATH、Cargo、Shell、installerまたは別binaryへのfallbackは追加しない。既存subscription OAuthだけ、選択ローカル対話ユーザー1名だけという後続境界も変更しない。外部公開、受け手、訴求または市場行動を変更しないためCommunication／Discoveryは非該当である。
 
@@ -20,7 +20,8 @@ CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面�
 
 - `coordinator` binaryをfeature付きrelease buildだけへ限定し、固定entrypoint、panic abort、4つの`KERNEL32.dll` APIだけでraw command line読取り、stdout書込みおよび終了を行う。
 - 引数判定と固定結果選択を副作用のないRust Coreへ分離し、発火、非発火、引用符、余分tokenおよび空入力を試験する。
-- 外部Rust build overrideを拒否した`--frozen`固定toolchain／target／feature／link argvで、空白を含む別clean targetへ2回buildし、byte長とSHA-256の完全一致を要求する。同じ成果物の実行前後file Identity／Hashを照合し、exact `provision`と5つのinvalid CLIを直接実行する。この確認は信頼済みbuild環境内の実行前後安定性に限り、loaded image結合ではない。
+- caller環境の大小文字を正規化し、Rust／Cargo compiler、flag、wrapper、target、profile、registry、source、network、HTTPおよびalias override母集団を拒否する。固定toolchain内のCargo／rustc実体、`--frozen`、target、feature、link argv、Cargo homeおよびbuild cwdからfilesystem rootまでのCargo config不在を確認し、空白を含む別clean targetへ2回buildしてbyte長とSHA-256の完全一致を要求する。同じ成果物の実行前後file Identity／Hashを照合し、exact `provision`と5つのinvalid CLIを直接実行する。
+- このbuild確認は記録したlocal Cargo cacheとMSVC環境を含む同じbuild環境内の観測的一致である。既存registry source cacheの供給元真正性とMSVC linker Identityは未検証であり、外部override全排除またはRelease供給網の成立を主張しない。OwnerはQual-Lab、現在の影響は限定implementation候補だけでRelease不可、Release署名、配布artifact採用、toolchain／cache／dependency変更時に再評価し、人間が承認した供給元、Identityおよび再現根拠がそろうまで解除しない。
 - 副作用のないPE parserを正負fixtureで検査し、native artifact observerが開いた同一fdから所有snapshot化した最大16 MiBのbyteへ適用する。同じsnapshotからPE判定とSHA-256を一回投影し、policy不一致はRelease staging sessionおよびmanifest配置Effectより前に拒否する。
 - native artifactの`entrypointContractRevision`を2へ上げ、Trust Core、package filesystem／gate、release stagingおよび全exact fixtureを同時移行する。manifest Schema revisionと署名domainは変更しない。
 
@@ -45,7 +46,7 @@ CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面�
 
 ## 検証義務と現在状態
 
-固定候補ではTypeScript typecheck、Biome warning拒否／format、Coordinator全contract test、Rust format、workerとrelease-only native binaryを分けたClippy warning拒否、frozen test、feature付きfrozen release build、Rust／TypeScript coverage、PE static検査、同一成果物のexact `provision`／引数なし／`doctor`／quoted command／余分token／大文字差CLI、Checker packageおよびRepository全体checkerを別軸で確認する。PE検査は独立したbounded parserで行い、LLVM表示toolの存在を合否条件にしない。検証runner自身はCargo／CLI childのProcess Effectとbuild／cleanupのFilesystem Effectを発行し、`--frozen`でdependency Networkを禁止するため、検査対象bootstrapのspawn 0／全Effect falseと別軸に記録する。
+固定候補ではNode.js 24.12以上のexact実体を固定し、TypeScript typecheck、Biome warning拒否／format、Coordinator全contract test、Rust format、workerとrelease-only native binaryを分けたClippy warning拒否、frozen test、feature付きfrozen release build、Rust／TypeScript coverage、PE static検査、同一成果物のexact `provision`／引数なし／`doctor`／quoted command／余分token／大文字差CLI、Checker packageおよびRepository全体checkerを別軸で確認する。PE検査は独立したbounded parserで行い、LLVM表示toolの存在を合否条件にしない。検証runner自身はCargo／CLI childのProcess Effectとbuild／cleanupのFilesystem Effectを発行し、`--frozen`でdependency Networkを禁止する。固定resultが報告する全Effect false、static PE上の直接Network import 0および実processのNetwork Effect `not_verified`を別軸に記録する。
 
 現在、固定blocked bootstrapとPE static allowlistだけを実装した。次段は同一runのloaded image、leafと全rename可能parent handle、local volume、実行時module／DLL探索閉包およびNetwork非発火である。そこまで成立する前にtoken／Root観測へ進めず、operational one-shot、Gate、準拠表明、StableまたはReleaseを主張しない。
 

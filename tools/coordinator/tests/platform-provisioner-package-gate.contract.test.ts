@@ -155,8 +155,22 @@ test("有効署名V2の旧native entrypoint revision 1をGateへ昇格しない"
   );
   const result = evaluatePlatformProvisionerPackageGateCandidate(value);
   assert.equal(result.status, "blocked");
-  assert.equal(result.effectAuthorizationIssued, false);
-  assert.equal(result.filesystemEffectIssued, false);
+  assert.deepEqual(Object.keys(result).sort(), [
+    "crddDistributionObservationRuntimeOwned",
+    "effectAuthorizationIssued",
+    "filesystemEffectIssued",
+    "networkEffectIssued",
+    "packageFilesystemRuntimeOwned",
+    "reason",
+    "releaseIdentityRuntimeOwned",
+    "runtimeAuthorityConferred",
+    "runtimeCapabilityIssued",
+    "status",
+  ]);
+  for (const key of Object.keys(result).filter(
+    (key) => key !== "status" && key !== "reason",
+  ))
+    assert.equal(result[key as keyof typeof result], false);
 });
 
 test("CRDD bundle and manifest observations match but remain non-authoritative", () => {
