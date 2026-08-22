@@ -25,12 +25,17 @@
 
 ## 管理対象依存と外部情報境界
 
-外部へ送信したのは公開製品名と公開version確認語だけで、Repository内容、Path、Credential、prompt、利用者情報または内部成果物を送信していない。2026-08-22に確認した公式入力は次である。
+外部へ送信したのは公開製品名と公開version確認語だけで、Repository内容、Path、Credential、prompt、利用者情報または内部成果物を送信していない。次の公式入力を2026-08-22に確認した。利用条件文書の確認は候補文書を再識別するための記録であり、選択アカウントへの適用、同意、固定image利用、再配布または自動subscription利用の許可を意味しない。
 
-- Anthropic CLI reference: `https://code.claude.com/docs/en/cli-usage`
-- Anthropic advanced setup: `https://code.claude.com/docs/en/getting-started`
-- Anthropic release manifest: `https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json`
-- Anthropic GitHub release: `https://github.com/anthropics/claude-code/releases/tag/v2.1.220`
+| 文書Identity | 公式URL／source revision | 公開版の発効日 | 確認状態と今回の限界 |
+| --- | --- | --- | --- |
+| Claude Code CLI reference | `https://code.claude.com/docs/en/cli-usage` | Not stated | `candidate_reviewed`。固定argv候補の意味を確認したが、exact binaryでの実挙動は未検証 |
+| Claude Code advanced setup | `https://code.claude.com/docs/en/getting-started` | Not stated | `candidate_reviewed`。native binaryと署名手順を確認したが、署名は未検証 |
+| Claude Code release manifest 2.1.220 | `https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json` | Not stated | `candidate_reviewed`。manifest観測値であり、有効な署名済み配布物へ未昇格 |
+| Claude Code GitHub release v2.1.220 | `https://github.com/anthropics/claude-code/releases/tag/v2.1.220`、public release commit `7ef6eec9d9ba84ea6f233f26c45f1df5c5991843` | 2026-07-25 release | `candidate_reviewed`。binary manifestのupstream commitとは別Identity |
+| Claude Code LICENSE at v2.1.220 release commit | `https://github.com/anthropics/claude-code/blob/7ef6eec9d9ba84ea6f233f26c45f1df5c5991843/LICENSE.md` | Not stated | `candidate_unresolved`。Commercial Terms参照を確認したが、固定image利用または再配布許可は未解決 |
+| Anthropic Commercial Terms | `https://www.anthropic.com/legal/commercial-terms` | 2025-06-17 | `candidate_unresolved`。公開版の発効日を観測しただけで、選択アカウントへの適用は未解決 |
+| Anthropic Consumer Terms | `https://www.anthropic.com/legal/consumer-terms` | 2025-10-08 | `candidate_unresolved`。公開版の発効日を観測しただけで、選択アカウントへの適用は未解決 |
 
 manifestはversion `2.1.220`、commit `4073f59596e272f39393db4f96abc5f4b10eff21`、Linux x64 checksum `674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863`および275,012,592 byteを示す。公式setupはrelease manifestのGPG署名とrelease signing key fingerprint `31DD DE24 DDFA B679 F42D 7BD2 BAA9 29FF 1A7E CACE`の確認手順を示す。現在環境にはGPG verifierがないため、署名は未検証であり、観測値を有効な配布成果物へ昇格しない。
 
@@ -65,5 +70,7 @@ manifestはversion `2.1.220`、commit `4073f59596e272f39393db4f96abc5f4b10eff21`
 固定commit `788eb81f021f02790c40a81b4a0793ae4fe0fc80`への初回確認は、Agent／Architecture／Security ReviewがConditional、Document AuditがFail、Gap／Impact AuditおよびConformance AuditがFailだった。共通原因は、PATH lookupを拒否しながらcommandをbasenameで示したこと、親環境置換が未定義だったこと、customization抑止要求を検証済み事実として表したこと、binary配布条件と認証済みservice／アカウント条件を一つのgenericなterms項目へ潰したこと、および後続残件に発見可能な台帳がなかったことである。
 
 是正では固定絶対pathとartifact Identityを結合し、環境完全置換と禁止する親環境分類を追加し、argv／customization／settingsの要求と検証状態を分離した。配布条件とservice条件を別axisへ分け、提供形態を適用条件ではなく候補分類に限定し、選択アカウント、適用条件、自動利用許可および人間権限を明示的なblockerにした。Provider Lifecycle contractもrevision 4へ更新し、Claudeの利用源を既存subscriptionのincluded usage候補へ修正した。残件は非規範の実装残件台帳へ接続した。初回監査結果は修正版の合否へ流用せず、新しい固定commitへ同じ監査集合を再実行する。
+
+固定commit `b8c53064fc931d2a81152ea3ae38159219d622c3`への再確認では、危険な昇格原因は解消したが、Agent／Architecture／Security Reviewは配布bindingの重複投影を1件、Document Auditは利用条件3文書の出典追跡不足を1件、Gap／Impact／Conformanceは同じ出典追跡不足と台帳の非正本Work Stateを2件残した。統合是正では、Identity、署名状態、image digestおよびargv互換性を単一の`DISTRIBUTION_BINDING`から全計画へ投影し、release tagが指すpublic commit `7ef6eec9d9ba84ea6f233f26c45f1df5c5991843`へLICENSEを固定した。利用条件3文書は文書Identity、公開版発効日、確認日および候補状態を記録しつつ、実アカウントへの適用を未解決に保った。台帳は`In Progress`と`Unscheduled`の正本Work Stateへ修正した。この再確認結果も最終固定版の合否へ流用しない。
 
 現在、人間による判断は非実行候補の実装には必要ない。配布条件またはservice条件を有効化し、binaryを固定imageへ格納し、選択アカウントを実Providerへbindingする判断は、後続の実配布・認証変更を開始する前に必要である。本変更はv0.18 Candidate、v0.17 Released Baseline、Gate blocked、Authority／Capability非発行および非Releaseを維持する。

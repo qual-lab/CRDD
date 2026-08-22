@@ -53,6 +53,39 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
   manifestUrl:
     "https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json",
 });
+const DISTRIBUTION_BINDING = Object.freeze({
+  identity: DISTRIBUTION_IDENTITY,
+  manifestSignatureRequired: true,
+  manifestSignatureVerified: false,
+  releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
+  fixedDigestImageRequired: true,
+  fixedImageDigest: null,
+  argvCompatibilityRequired: true,
+  argvCompatibilityVerified: false,
+});
+const COMMERCIAL_TERMS_DOCUMENT = Object.freeze({
+  documentIdentity: "anthropic_commercial_terms_2025-06-17",
+  url: "https://www.anthropic.com/legal/commercial-terms",
+  publishedVersionEffectiveDate: "2025-06-17",
+  reviewedAt: "2026-08-22",
+  reviewState: "candidate_unresolved",
+});
+const CONSUMER_TERMS_DOCUMENT = Object.freeze({
+  documentIdentity: "anthropic_consumer_terms_2025-10-08",
+  url: "https://www.anthropic.com/legal/consumer-terms",
+  publishedVersionEffectiveDate: "2025-10-08",
+  reviewedAt: "2026-08-22",
+  reviewState: "candidate_unresolved",
+});
+const LICENSE_DOCUMENT = Object.freeze({
+  documentIdentity: "claude_code_license_at_release_v2.1.220",
+  sourceRevision: "7ef6eec9d9ba84ea6f233f26c45f1df5c5991843",
+  url: "https://github.com/anthropics/claude-code/blob/7ef6eec9d9ba84ea6f233f26c45f1df5c5991843/LICENSE.md",
+  publishedVersionEffectiveDate: null,
+  reviewedAt: "2026-08-22",
+  reviewState: "candidate_unresolved",
+  relation: "references_anthropic_commercial_terms",
+});
 const OFFERING_CANDIDATES = Object.freeze([
   Object.freeze({
     offering: "claude_pro",
@@ -118,12 +151,9 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     operationCapabilityIssued: false,
     provider: "claude",
     mode: "read_only_probe",
-    artifactIdentity: DISTRIBUTION_IDENTITY,
-    command: DISTRIBUTION_IDENTITY.executablePath,
+    distributionBinding: DISTRIBUTION_BINDING,
+    command: DISTRIBUTION_BINDING.identity.executablePath,
     argv: FIXED_ARGV,
-    argvCompatibilityRequired: true,
-    argvCompatibilityVerified: false,
-    fixedImageDigest: null,
     environmentMode: "replace_required",
     environmentReplacementImplemented: false,
     parentEnvironmentInherited: false,
@@ -164,20 +194,11 @@ export function describeClaudeExecutionPlanContract() {
     provider: "claude",
     implementationState: "fixed_non_executable_candidate",
     distribution: Object.freeze({
-      identity: DISTRIBUTION_IDENTITY,
+      binding: DISTRIBUTION_BINDING,
       installationMethod: "official_native_binary_in_fixed_runtime_image",
-      manifestSignatureRequired: true,
-      manifestSignatureVerified: false,
-      releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
-      fixedDigestImageRequired: true,
-      fixedImageDigest: null,
-      argvCompatibilityRequired: true,
-      argvCompatibilityVerified: false,
       binaryDistributionTerms: Object.freeze({
-        licenseDocumentUrl:
-          "https://github.com/anthropics/claude-code/blob/main/LICENSE.md",
-        referencedTermsCandidateUrl:
-          "https://www.anthropic.com/legal/commercial-terms",
+        licenseDocument: LICENSE_DOCUMENT,
+        referencedTermsCandidate: COMMERCIAL_TERMS_DOCUMENT,
         termsIdentityResolved: false,
         termsActivated: false,
         fixedImageUsePermission: "unresolved",
@@ -192,14 +213,8 @@ export function describeClaudeExecutionPlanContract() {
       selectedAccountOfferingObserved: false,
       authenticatedServiceTerms: Object.freeze({
         candidateDocuments: Object.freeze([
-          Object.freeze({
-            name: "Anthropic Consumer Terms",
-            url: "https://www.anthropic.com/legal/consumer-terms",
-          }),
-          Object.freeze({
-            name: "Anthropic Commercial Terms",
-            url: "https://www.anthropic.com/legal/commercial-terms",
-          }),
+          CONSUMER_TERMS_DOCUMENT,
+          COMMERCIAL_TERMS_DOCUMENT,
         ]),
         termsIdentityResolved: false,
         termsActivated: false,
@@ -216,12 +231,9 @@ export function describeClaudeExecutionPlanContract() {
       oauthTokenReadByRuntime: false,
     }),
     readOnlyProbe: Object.freeze({
-      artifactIdentity: DISTRIBUTION_IDENTITY,
-      command: DISTRIBUTION_IDENTITY.executablePath,
+      distributionBinding: DISTRIBUTION_BINDING,
+      command: DISTRIBUTION_BINDING.identity.executablePath,
       argv: FIXED_ARGV,
-      argvCompatibilityRequired: true,
-      argvCompatibilityVerified: false,
-      fixedImageDigest: null,
       environmentMode: "replace_required",
       environmentReplacementImplemented: false,
       parentEnvironmentInherited: false,

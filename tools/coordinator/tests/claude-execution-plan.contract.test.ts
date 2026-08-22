@@ -10,7 +10,8 @@ import {
 
 test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ結合する", () => {
   const contract = describeClaudeExecutionPlanContract();
-  const identity = contract.distribution.identity;
+  const binding = contract.distribution.binding;
+  const identity = binding.identity;
   assert.equal(contract.contract, CLAUDE_EXECUTION_PLAN_CONTRACT);
   assert.equal(
     contract.contractRevision,
@@ -27,13 +28,23 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
     "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863",
   );
   assert.equal(identity.binaryBytes, 275_012_592);
-  assert.equal(contract.distribution.manifestSignatureRequired, true);
-  assert.equal(contract.distribution.manifestSignatureVerified, false);
-  assert.equal(contract.distribution.fixedImageDigest, null);
-  assert.equal(contract.distribution.argvCompatibilityRequired, true);
-  assert.equal(contract.distribution.argvCompatibilityVerified, false);
+  assert.equal(binding.manifestSignatureRequired, true);
+  assert.equal(binding.manifestSignatureVerified, false);
+  assert.equal(binding.fixedImageDigest, null);
+  assert.equal(binding.argvCompatibilityRequired, true);
+  assert.equal(binding.argvCompatibilityVerified, false);
   assert.equal(contract.readOnlyProbe.command, identity.executablePath);
-  assert.deepEqual(contract.readOnlyProbe.artifactIdentity, identity);
+  assert.deepEqual(contract.readOnlyProbe.distributionBinding, binding);
+  const plan = planClaudeReadOnlyProbe({
+    provider: "claude",
+    mode: "read_only_probe",
+  });
+  if (plan.status !== "candidate") assert.fail(plan.reason);
+  assert.deepEqual(plan.distributionBinding, binding);
+  assert.equal(plan.distributionBinding.manifestSignatureVerified, false);
+  assert.equal(plan.distributionBinding.fixedImageDigest, null);
+  assert.equal(plan.distributionBinding.argvCompatibilityVerified, false);
+  assert.equal(plan.spawnAllowed, false);
   assert.equal(contract.providerSpawn, "blocked_before_spawn");
 });
 
@@ -46,6 +57,22 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
   assert.equal(distributionTerms.termsActivated, false);
   assert.equal(distributionTerms.fixedImageUsePermission, "unresolved");
   assert.equal(distributionTerms.redistributionPermission, "unresolved");
+  assert.deepEqual(distributionTerms.licenseDocument, {
+    documentIdentity: "claude_code_license_at_release_v2.1.220",
+    sourceRevision: "7ef6eec9d9ba84ea6f233f26c45f1df5c5991843",
+    url: "https://github.com/anthropics/claude-code/blob/7ef6eec9d9ba84ea6f233f26c45f1df5c5991843/LICENSE.md",
+    publishedVersionEffectiveDate: null,
+    reviewedAt: "2026-08-22",
+    reviewState: "candidate_unresolved",
+    relation: "references_anthropic_commercial_terms",
+  });
+  assert.deepEqual(distributionTerms.referencedTermsCandidate, {
+    documentIdentity: "anthropic_commercial_terms_2025-06-17",
+    url: "https://www.anthropic.com/legal/commercial-terms",
+    publishedVersionEffectiveDate: "2025-06-17",
+    reviewedAt: "2026-08-22",
+    reviewState: "candidate_unresolved",
+  });
   assert.deepEqual(authentication.offeringCandidates, [
     {
       offering: "claude_pro",
@@ -65,6 +92,22 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
     },
   ]);
   assert.equal(authentication.selectedAccountOfferingObserved, false);
+  assert.deepEqual(serviceTerms.candidateDocuments, [
+    {
+      documentIdentity: "anthropic_consumer_terms_2025-10-08",
+      url: "https://www.anthropic.com/legal/consumer-terms",
+      publishedVersionEffectiveDate: "2025-10-08",
+      reviewedAt: "2026-08-22",
+      reviewState: "candidate_unresolved",
+    },
+    {
+      documentIdentity: "anthropic_commercial_terms_2025-06-17",
+      url: "https://www.anthropic.com/legal/commercial-terms",
+      publishedVersionEffectiveDate: "2025-06-17",
+      reviewedAt: "2026-08-22",
+      reviewState: "candidate_unresolved",
+    },
+  ]);
   assert.equal(serviceTerms.termsIdentityResolved, false);
   assert.equal(serviceTerms.termsActivated, false);
   assert.equal(serviceTerms.automatedSubscriptionUsePermission, "unresolved");
@@ -110,9 +153,9 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
     "mcp__*",
     "--disable-slash-commands",
   ]);
-  assert.equal(plan.argvCompatibilityRequired, true);
-  assert.equal(plan.argvCompatibilityVerified, false);
-  assert.equal(plan.fixedImageDigest, null);
+  assert.equal(plan.distributionBinding.argvCompatibilityRequired, true);
+  assert.equal(plan.distributionBinding.argvCompatibilityVerified, false);
+  assert.equal(plan.distributionBinding.fixedImageDigest, null);
   assert.equal(plan.environmentMode, "replace_required");
   assert.equal(plan.environmentReplacementImplemented, false);
   assert.equal(plan.parentEnvironmentInherited, false);
