@@ -78,6 +78,7 @@ type HostRecoveryState = Readonly<{
   recordHash: string | null;
 }>;
 type OwnedIdentity = Readonly<{
+  operationId: string;
   parent: string;
   root: string;
   prefix: string;
@@ -117,9 +118,45 @@ type HostRecoveryRecord = Readonly<{
 
 const ownedIdentities = new WeakMap<object, OwnedIdentity>();
 const mountCapabilities = new WeakMap<object, ChildSnapshots>();
+type OperationContextIdentity = Readonly<{
+  owned: object;
+  operationId: string;
+  createdAt: string;
+}>;
+export type OwnedOperationContext = Readonly<{
+  operationId: string;
+  createdAt: string;
+}>;
+const operationContextCapabilities = new WeakMap<
+  object,
+  OperationContextIdentity
+>();
+const operationContextAliases = new WeakMap<object, Set<object>>();
+const operationOwnersByRoot = new Map<string, object>();
 
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
+}
+
+function createOperationId(): string {
+  const decimal = BigInt(`0x${randomUUID().replaceAll("-", "")}`).toString(10);
+  return `OP-${decimal.padStart(6, "0")}`;
+}
+
+function revokeOwnedOperationContextCapabilities(owned: object): void {
+  const aliases = operationContextAliases.get(owned);
+  if (aliases) {
+    for (const alias of aliases) operationContextCapabilities.delete(alias);
+    operationContextAliases.delete(owned);
+  }
+}
+
+function revokeOwnedOperationByRoot(root: string): void {
+  const owned = operationOwnersByRoot.get(root);
+  if (!owned) return;
+  revokeOwnedOperationContextCapabilities(owned);
+  ownedIdentities.delete(owned);
+  operationOwnersByRoot.delete(root);
 }
 
 function ownValue(value: object, key: string): unknown {
@@ -438,6 +475,7 @@ export function createOwnedOperationDirectories(
   ownedIdentities.set(
     owned,
     Object.freeze({
+      operationId: createOperationId(),
       parent,
       root: realRoot,
       prefix: OWNED_PREFIX,
@@ -456,6 +494,7 @@ export function createOwnedOperationDirectories(
       }),
     }),
   );
+  operationOwnersByRoot.set(realRoot, owned);
   try {
     owned.directories = createOperationDirectories(realRoot);
     const identity = requireOwnedIdentity(owned);
@@ -610,7 +649,7 @@ function rollbackInitializingOperationDirectories(owned: unknown): void {
   fs.rmSync(realRoot, { recursive: true, force: false });
   if (fs.existsSync(realRoot))
     throw new Error("owned_operation_directory_cleanup_incomplete");
-  if (isObject(owned)) ownedIdentities.delete(owned);
+  revokeOwnedOperationByRoot(identity.root);
 }
 
 export function createOwnedMountCapability(
@@ -645,6 +684,60 @@ export function verifyOwnedMountCapability(
     events: validateDirectorySnapshot(children.events),
     projection: validateDirectorySnapshot(children.projection),
     management: validateDirectorySnapshot(children.management),
+  });
+}
+
+export function createOwnedOperationContextCapability(
+  owned: unknown,
+): Readonly<{ kind: "owned_operation_context" }> {
+  const identity = ownedIdentity(owned);
+  if (
+    !identity?.children ||
+    !isObject(owned) ||
+    ownString(owned, "root") !== identity.root ||
+    ownString(owned, "parent") !== identity.parent
+  ) {
+    throw new Error("owned_operation_context_identity_required");
+  }
+  for (const snapshot of Object.values(identity.children))
+    validateDirectorySnapshot(snapshot);
+  const capability = Object.freeze({ kind: "owned_operation_context" });
+  operationContextCapabilities.set(
+    capability,
+    Object.freeze({
+      owned,
+      operationId: identity.operationId,
+      createdAt: identity.createdAt,
+    }),
+  );
+  const aliases = operationContextAliases.get(owned) ?? new Set<object>();
+  aliases.add(capability);
+  operationContextAliases.set(owned, aliases);
+  return capability;
+}
+
+export function verifyOwnedOperationContextCapability(
+  capability: unknown,
+): OwnedOperationContext {
+  const capabilityObject = isObject(capability) ? capability : null;
+  const context = capabilityObject
+    ? (operationContextCapabilities.get(capabilityObject) ?? null)
+    : null;
+  if (!context) throw new Error("owned_operation_context_capability_required");
+  const identity = ownedIdentities.get(context.owned);
+  if (
+    !identity?.children ||
+    identity.operationId !== context.operationId ||
+    identity.createdAt !== context.createdAt
+  ) {
+    if (capabilityObject) operationContextCapabilities.delete(capabilityObject);
+    throw new Error("owned_operation_context_capability_revoked");
+  }
+  for (const snapshot of Object.values(identity.children))
+    validateDirectorySnapshot(snapshot);
+  return Object.freeze({
+    operationId: context.operationId,
+    createdAt: context.createdAt,
   });
 }
 
@@ -722,7 +815,7 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   fs.rmSync(identity.root, { recursive: true, force: false });
   if (fs.existsSync(identity.root))
     throw new Error("owned_operation_directory_cleanup_incomplete");
-  if (isObject(owned)) ownedIdentities.delete(owned);
+  revokeOwnedOperationByRoot(identity.root);
   try {
     const recoveryDirectory = fs.realpathSync(identity.hostRecovery.directory);
     if (
@@ -769,6 +862,7 @@ export function recoverOwnedOperationDirectories(
       throw new Error("host_recovery_state_invalid");
     const root = path.join(parent, parsed.rootName);
     if (!fs.existsSync(root)) {
+      revokeOwnedOperationByRoot(root);
       fs.rmSync(marker);
       return { status: "recovered", reason: "host_root_already_absent" };
     }
@@ -805,6 +899,7 @@ export function recoverOwnedOperationDirectories(
     fs.rmSync(root, { recursive: true, force: false });
     if (fs.existsSync(root))
       throw new Error("host_recovery_cleanup_incomplete");
+    revokeOwnedOperationByRoot(root);
     fs.rmSync(marker);
     return { status: "recovered", reason: "host_cleanup_recovered" };
   } catch (error) {

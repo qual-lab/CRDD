@@ -20,6 +20,7 @@ import type { DiagnosticCheck } from "../src/core/doctor.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
+  createOwnedOperationContextCapability,
   createOperationDirectories,
   createOwnedOperationDirectories,
   createProviderEnvironment,
@@ -28,6 +29,7 @@ import {
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
   verifyOwnedMountCapability,
+  verifyOwnedOperationContextCapability,
 } from "../src/security/execution-environment.ts";
 import {
   DOCKER_ISOLATION_PROFILE,
@@ -2594,6 +2596,76 @@ test("Docker不存在を自己申告する公開APIを持たない", () => {
   assert.equal(fs.existsSync(owned.root), false);
 });
 
+test("Operation context CapabilityはRuntime生成IDをopaqueに結合する", () => {
+  const owned = createOwnedOperationDirectories();
+  try {
+    const first = createOwnedOperationContextCapability(owned);
+    const second = createOwnedOperationContextCapability(owned);
+    const firstContext = verifyOwnedOperationContextCapability(first);
+    const secondContext = verifyOwnedOperationContextCapability(second);
+    assert.match(firstContext.operationId, /^OP-[0-9]{6,61}$/u);
+    assert.equal(firstContext.operationId, secondContext.operationId);
+    assert.equal(firstContext.createdAt, secondContext.createdAt);
+    assert.deepEqual(Object.keys(first), ["kind"]);
+    assert.equal(
+      JSON.stringify(first).includes(firstContext.operationId),
+      false,
+    );
+    assert.throws(
+      () => verifyOwnedOperationContextCapability({ ...first }),
+      /capability_required/u,
+    );
+  } finally {
+    cleanupOwnedOperationDirectories(owned);
+  }
+});
+
+test("Operation context Capabilityは偽造・置換・終了後aliasを拒否する", (t) => {
+  assert.throws(
+    () => createOwnedOperationContextCapability({}),
+    /identity_required/u,
+  );
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(null),
+    /capability_required/u,
+  );
+
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "operation-context-"));
+  try {
+    const owned = createOwnedOperationDirectories(parent);
+    const first = createOwnedOperationContextCapability(owned);
+    const second = createOwnedOperationContextCapability(owned);
+    cleanupOwnedOperationDirectories(owned);
+    assert.throws(
+      () => verifyOwnedOperationContextCapability(first),
+      /capability_required/u,
+    );
+    assert.throws(
+      () => verifyOwnedOperationContextCapability(second),
+      /capability_required/u,
+    );
+
+    const replaced = createOwnedOperationDirectories(parent);
+    const original = `${replaced.directories.management}-original`;
+    fs.renameSync(replaced.directories.management, original);
+    fs.mkdirSync(replaced.directories.management);
+    assert.throws(
+      () => createOwnedOperationContextCapability(replaced),
+      /mount_replaced/u,
+    );
+    fs.rmSync(replaced.directories.management, { recursive: true });
+    fs.renameSync(original, replaced.directories.management);
+    cleanupOwnedOperationDirectories(replaced);
+  } catch (error) {
+    const code = errorCode(error);
+    if (code && ["EPERM", "EACCES", "ENOTSUP"].includes(code))
+      return t.skip(`identity fixture unavailable: ${code}`);
+    throw error;
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
+
 test("Docker submission recordとrollbackの二重失敗は手動回復までfail closedにする", () => {
   const result = normalizeDockerProbeFailure(
     new Error("docker_recovery_record_failed"),
@@ -2629,15 +2701,26 @@ test("Docker submission recordとrollbackの二重失敗は手動回復までfai
 
 test("Host recoveryは部分削除済みchildを許容し残存rootを回収する", () => {
   const owned = createOwnedOperationDirectories();
+  const first = createOwnedOperationContextCapability(owned);
+  const second = createOwnedOperationContextCapability(owned);
   const token = getOwnedHostRecoveryId(owned);
   fs.rmSync(owned.directories.tmp, { recursive: true, force: false });
   const recovered = recoverOwnedOperationDirectories(token);
   assert.equal(recovered.status, "recovered");
   assert.equal(fs.existsSync(owned.root), false);
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(first),
+    /capability_required/u,
+  );
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(second),
+    /capability_required/u,
+  );
 });
 
 test("Host recoveryはroot削除済みでも外部markerを安全に完了する", () => {
   const owned = createOwnedOperationDirectories();
+  const capability = createOwnedOperationContextCapability(owned);
   const token = getOwnedHostRecoveryId(owned);
   fs.rmSync(owned.root, { recursive: true, force: false });
   const recovered = recoverOwnedOperationDirectories(token);
@@ -2645,6 +2728,10 @@ test("Host recoveryはroot削除済みでも外部markerを安全に完了する
     status: "recovered",
     reason: "host_root_already_absent",
   });
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(capability),
+    /capability_required/u,
+  );
   assert.equal(recoverOwnedOperationDirectories(token).status, "blocked");
 });
 
