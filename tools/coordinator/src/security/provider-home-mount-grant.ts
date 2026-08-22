@@ -34,6 +34,10 @@ const USE_KEYS = new Set([
   "provider",
   "profileId",
   "operationId",
+  "providerHomeMountGrantRef",
+  "observedProviderHomeIdentityHash",
+  "observedProviderHomeProtectionHash",
+  "observedLocalUserBindingHash",
   "observedAt",
 ]);
 const TRANSITION_KEYS = new Set(["previous", "next"]);
@@ -132,7 +136,7 @@ function compileInternal(raw: unknown) {
       isActiveTimeRangeValid &&
       consumedAt !== null &&
       consumedAt >= (issuedAt as number) &&
-      consumedAt <= (expiresAt as number) &&
+      consumedAt < (expiresAt as number) &&
       revokedAt === null &&
       value.consumptionCount === 1) ||
     (value.state === "revoked" &&
@@ -143,7 +147,7 @@ function compileInternal(raw: unknown) {
         (value.consumptionCount === 1 &&
           consumedAt !== null &&
           consumedAt >= (issuedAt as number) &&
-          consumedAt <= (expiresAt as number) &&
+          consumedAt < (expiresAt as number) &&
           revokedAt >= consumedAt)));
   if (!isValid) return null;
   return Object.freeze({
@@ -250,9 +254,28 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
     if (
       input.provider !== grant.provider ||
       input.profileId !== grant.profileId ||
-      input.operationId !== grant.operationId
+      input.operationId !== grant.operationId ||
+      !isProviderHomeMountGrantRef(input.providerHomeMountGrantRef) ||
+      input.providerHomeMountGrantRef !== grant.grantRef
     )
       return blocked("provider_home_mount_grant_use_binding_mismatch");
+    if (
+      typeof input.observedProviderHomeIdentityHash !== "string" ||
+      !HEX64.test(input.observedProviderHomeIdentityHash) ||
+      typeof input.observedProviderHomeProtectionHash !== "string" ||
+      !HEX64.test(input.observedProviderHomeProtectionHash) ||
+      typeof input.observedLocalUserBindingHash !== "string" ||
+      !HEX64.test(input.observedLocalUserBindingHash)
+    )
+      return blocked("provider_home_mount_grant_use_observation_invalid");
+    if (
+      input.observedProviderHomeIdentityHash !==
+        grant.providerHomeIdentityHash ||
+      input.observedProviderHomeProtectionHash !==
+        grant.providerHomeProtectionHash ||
+      input.observedLocalUserBindingHash !== grant.localUserBindingHash
+    )
+      return blocked("provider_home_mount_grant_use_observation_mismatch");
     if (!canonicalUtc(input.observedAt))
       return blocked("provider_home_mount_grant_observed_at_invalid");
     if (grant.state !== "issued")
@@ -286,6 +309,10 @@ export function describeProviderHomeMountGrantContract() {
     providerProfileOperationBindingRequired: true,
     providerHomeIdentityAndProtectionBindingRequired: true,
     selectedLocalUserBindingRequired: true,
+    useTimeInterval: "issued_at_inclusive_expires_at_exclusive",
+    useCandidateSelectedGrantRefRequired: true,
+    useCandidateCurrentObservationHashesRequired: true,
+    useCandidateInputsAreNonAuthoritative: true,
     runtimeOwnedClockRequired: true,
     runtimeOwnedAtomicStoreRequired: true,
     runtimeOwnedIssuerRequired: true,

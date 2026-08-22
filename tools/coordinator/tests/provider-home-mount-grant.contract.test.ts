@@ -40,6 +40,21 @@ function record(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function useInput(overrides: Record<string, unknown> = {}) {
+  return {
+    grant: record(),
+    provider: "claude",
+    profileId: "PROFILE-000001",
+    operationId: "OP-000001",
+    providerHomeMountGrantRef: "PHMGRANT-000001",
+    observedProviderHomeIdentityHash: homeIdentityHash,
+    observedProviderHomeProtectionHash: homeProtectionHash,
+    observedLocalUserBindingHash: localUserBindingHash,
+    observedAt: "2026-08-22T00:01:00.000Z",
+    ...overrides,
+  };
+}
+
 test("Mount Grant契約は一回限り・短命・三者bindingと非Effect境界を固定する", () => {
   const contract = describeProviderHomeMountGrantContract();
   assert.equal(contract.contract, PROVIDER_HOME_MOUNT_GRANT_CONTRACT);
@@ -62,6 +77,13 @@ test("Mount Grant契約は一回限り・短命・三者bindingと非Effect境�
   assert.equal(contract.providerProfileOperationBindingRequired, true);
   assert.equal(contract.providerHomeIdentityAndProtectionBindingRequired, true);
   assert.equal(contract.selectedLocalUserBindingRequired, true);
+  assert.equal(
+    contract.useTimeInterval,
+    "issued_at_inclusive_expires_at_exclusive",
+  );
+  assert.equal(contract.useCandidateSelectedGrantRefRequired, true);
+  assert.equal(contract.useCandidateCurrentObservationHashesRequired, true);
+  assert.equal(contract.useCandidateInputsAreNonAuthoritative, true);
   assert.equal(contract.runtimeOwnedClockRequired, true);
   assert.equal(contract.runtimeOwnedAtomicStoreRequired, true);
   assert.equal(contract.runtimeOwnedIssuerRequired, true);
@@ -100,6 +122,16 @@ test("prepared、issued、consumed、revokedの整合したrecordだけを候補
       consumptionCount: 1,
     }),
     record({ provider: "codex" }),
+    record({
+      state: "consumed",
+      consumedAt: ISSUED_AT,
+      consumptionCount: 1,
+    }),
+    record({
+      state: "consumed",
+      consumedAt: "2026-08-22T00:04:59.999Z",
+      consumptionCount: 1,
+    }),
   ];
   for (const candidate of candidates) {
     const result = compileProviderHomeMountGrantCandidate(candidate);
@@ -144,6 +176,11 @@ test("recordのshape、Identity、時刻、回数および状態矛盾を拒否�
     },
     {
       state: "consumed",
+      consumedAt: EXPIRES_AT,
+      consumptionCount: 1,
+    },
+    {
+      state: "consumed",
       consumedAt: "2026-08-22T00:05:00.001Z",
       consumptionCount: 1,
     },
@@ -151,6 +188,12 @@ test("recordのshape、Identity、時刻、回数および状態矛盾を拒否�
     {
       state: "revoked",
       revokedAt: "2026-08-21T23:59:59.999Z",
+    },
+    {
+      state: "revoked",
+      consumedAt: EXPIRES_AT,
+      revokedAt: "2026-08-22T00:05:00.001Z",
+      consumptionCount: 1,
     },
     {
       state: "revoked",
@@ -185,6 +228,16 @@ test("正規遷移だけを同じbindingと時刻で候補化する", () => {
     consumedAt: "2026-08-22T00:01:00.000Z",
     consumptionCount: 1,
   });
+  const consumedAtIssue = record({
+    state: "consumed",
+    consumedAt: ISSUED_AT,
+    consumptionCount: 1,
+  });
+  const consumedBeforeExpiry = record({
+    state: "consumed",
+    consumedAt: "2026-08-22T00:04:59.999Z",
+    consumptionCount: 1,
+  });
   const revokedUnused = record({
     state: "revoked",
     revokedAt: "2026-08-22T00:02:00.000Z",
@@ -198,6 +251,8 @@ test("正規遷移だけを同じbindingと時刻で候補化する", () => {
   for (const [previous, next] of [
     [prepared, issued],
     [issued, consumed],
+    [issued, consumedAtIssue],
+    [issued, consumedBeforeExpiry],
     [issued, revokedUnused],
     [consumed, revokedConsumed],
   ]) {
@@ -239,16 +294,21 @@ test("正規遷移だけを同じbindingと時刻で候補化する", () => {
     }).reason,
     "provider_home_mount_grant_transition_time_mismatch",
   );
+  assert.equal(
+    evaluateProviderHomeMountGrantTransitionCandidate({
+      previous: issued,
+      next: record({
+        state: "consumed",
+        consumedAt: EXPIRES_AT,
+        consumptionCount: 1,
+      }),
+    }).reason,
+    "provider_home_mount_grant_transition_record_invalid",
+  );
 });
 
 test("use候補はissued状態、三者binding、canonical Runtime時刻と有効期間を要求する", () => {
-  const input = {
-    grant: record(),
-    provider: "claude",
-    profileId: "PROFILE-000001",
-    operationId: "OP-000001",
-    observedAt: "2026-08-22T00:01:00.000Z",
-  };
+  const input = useInput();
   const result = evaluateProviderHomeMountGrantUseCandidate(input);
   assert.equal(result.status, "candidate");
   assert.equal(
@@ -258,15 +318,51 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
   assert.equal(result.mountAuthorizationIssued, false);
   assert.equal(result.filesystemEffectIssued, false);
   assert.equal(result.operationCapabilityIssued, false);
+  assert.equal(
+    evaluateProviderHomeMountGrantUseCandidate(
+      useInput({ observedAt: ISSUED_AT }),
+    ).status,
+    "candidate",
+  );
+  assert.equal(
+    evaluateProviderHomeMountGrantUseCandidate(
+      useInput({ observedAt: "2026-08-22T00:04:59.999Z" }),
+    ).status,
+    "candidate",
+  );
   for (const changed of [
     { provider: "codex" },
     { profileId: "PROFILE-000002" },
     { operationId: "OP-000002" },
+    { providerHomeMountGrantRef: "PHMGRANT-000002" },
+    { providerHomeMountGrantRef: "AUTH-000001" },
   ]) {
     assert.equal(
       evaluateProviderHomeMountGrantUseCandidate({ ...input, ...changed })
         .reason,
       "provider_home_mount_grant_use_binding_mismatch",
+    );
+  }
+  for (const changed of [
+    { observedProviderHomeIdentityHash: "x" },
+    { observedProviderHomeProtectionHash: "x" },
+    { observedLocalUserBindingHash: "x" },
+  ]) {
+    assert.equal(
+      evaluateProviderHomeMountGrantUseCandidate({ ...input, ...changed })
+        .reason,
+      "provider_home_mount_grant_use_observation_invalid",
+    );
+  }
+  for (const changed of [
+    { observedProviderHomeIdentityHash: "d".repeat(64) },
+    { observedProviderHomeProtectionHash: "e".repeat(64) },
+    { observedLocalUserBindingHash: "f".repeat(64) },
+  ]) {
+    assert.equal(
+      evaluateProviderHomeMountGrantUseCandidate({ ...input, ...changed })
+        .reason,
+      "provider_home_mount_grant_use_observation_mismatch",
     );
   }
   assert.equal(
@@ -324,14 +420,24 @@ test("余分field、accessor、Proxyと不正nested recordを例外なく拒否�
     "provider_home_mount_grant_transition_record_invalid",
   );
   assert.equal(
-    evaluateProviderHomeMountGrantUseCandidate({
-      grant: { ...record(), extra: true },
-      provider: "claude",
-      profileId: "PROFILE-000001",
-      operationId: "OP-000001",
-      observedAt: ISSUED_AT,
-    }).reason,
+    evaluateProviderHomeMountGrantUseCandidate(
+      useInput({ grant: { ...record(), extra: true } }),
+    ).reason,
     "provider_home_mount_grant_use_record_invalid",
+  );
+  assert.equal(
+    evaluateProviderHomeMountGrantUseCandidate(useInput({ extra: true }))
+      .reason,
+    "provider_home_mount_grant_use_input_invalid",
+  );
+  const {
+    observedProviderHomeIdentityHash: unusedObservedIdentity,
+    ...missingObservation
+  } = useInput();
+  void unusedObservedIdentity;
+  assert.equal(
+    evaluateProviderHomeMountGrantUseCandidate(missingObservation).reason,
+    "provider_home_mount_grant_use_input_invalid",
   );
   const accessor = Object.create(null) as Record<string, unknown>;
   Object.defineProperty(accessor, "contract", {
@@ -379,13 +485,7 @@ test("時刻評価基盤の例外は各入口で固定blocked結果へ閉じる"
       "provider_home_mount_grant_transition_input_invalid",
     );
     assert.equal(
-      evaluateProviderHomeMountGrantUseCandidate({
-        grant: record(),
-        provider: "claude",
-        profileId: "PROFILE-000001",
-        operationId: "OP-000001",
-        observedAt: ISSUED_AT,
-      }).reason,
+      evaluateProviderHomeMountGrantUseCandidate(useInput()).reason,
       "provider_home_mount_grant_use_input_invalid",
     );
   } finally {
