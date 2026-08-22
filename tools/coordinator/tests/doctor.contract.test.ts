@@ -29,6 +29,7 @@ import {
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
+  transitionOwnedHostRecoveryRecordState,
   verifyOwnedMountCapability,
   verifyOwnedOperationManagementCapability,
   verifyOwnedOperationContextCapability,
@@ -59,6 +60,16 @@ function recordedIdentity(target: string) {
     ino: metadata.ino.toString(),
     birthtimeNs: metadata.birthtimeNs.toString(),
   };
+}
+
+function hostRecoveryMarker(token: string): string {
+  const nonce = token.split(".")[2];
+  assertPresent(nonce);
+  return path.join(
+    os.tmpdir(),
+    "crdd-coordinator-recovery-v1",
+    `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
+  );
 }
 
 function confirmedChecks(): DiagnosticCheck[] {
@@ -2779,6 +2790,18 @@ test("Operation rootだけの置換でも同一世代の全Capabilityを失効�
     }
     fs.rmSync(owned.root, { recursive: true });
     fs.renameSync(original, owned.root);
+    assert.throws(
+      () => createOwnedOperationContextCapability(owned),
+      /identity_replaced/u,
+    );
+    assert.throws(
+      () => createOwnedMountCapability(owned),
+      /identity_replaced/u,
+    );
+    assert.throws(
+      () => createOwnedOperationManagementCapability(context, mount),
+      /binding_required/u,
+    );
     cleanupOwnedOperationDirectories(owned);
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
@@ -2849,6 +2872,151 @@ test("blocked recoveryは別Operationを失効せず成功世代だけを失効�
     /^OP-/u,
   );
   cleanupOwnedOperationDirectories(second);
+});
+
+test("Host recoveryの未知entry停止は世代を失効せず除去後に全aliasを終了する", () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mount = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mount);
+  const token = getOwnedHostRecoveryId(owned);
+  const unknown = path.join(owned.root, "unknown.txt");
+  fs.writeFileSync(unknown, "retain", "utf8");
+  assert.deepEqual(recoverOwnedOperationDirectories(token), {
+    status: "blocked",
+    reason: "host_recovery_unknown_child",
+  });
+  assert.equal(fs.existsSync(owned.root), true);
+  assert.match(
+    verifyOwnedOperationContextCapability(context).operationId,
+    /^OP-/u,
+  );
+  assert.equal(typeof verifyOwnedMountCapability(mount).management, "string");
+  assert.equal(
+    verifyOwnedOperationManagementCapability(management).managementScopeBound,
+    true,
+  );
+  fs.rmSync(unknown);
+  assert.equal(recoverOwnedOperationDirectories(token).status, "recovered");
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(context),
+    /required/u,
+  );
+  assert.throws(() => verifyOwnedMountCapability(mount), /required/u);
+  assert.throws(
+    () => verifyOwnedOperationManagementCapability(management),
+    /required/u,
+  );
+});
+
+test("Host recoveryのchild置換は世代を不可逆に失効し復元後だけ安全に回収する", () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mount = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mount);
+  const token = getOwnedHostRecoveryId(owned);
+  const original = `${owned.root}-events-original`;
+  fs.renameSync(owned.directories.events, original);
+  fs.mkdirSync(owned.directories.events);
+  assert.deepEqual(recoverOwnedOperationDirectories(token), {
+    status: "blocked",
+    reason: "host_recovery_child_replaced",
+  });
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(context),
+    /required/u,
+  );
+  assert.throws(() => verifyOwnedMountCapability(mount), /required/u);
+  assert.throws(
+    () => verifyOwnedOperationManagementCapability(management),
+    /required/u,
+  );
+  fs.rmSync(owned.directories.events, { recursive: true });
+  fs.renameSync(original, owned.directories.events);
+  assert.throws(
+    () => createOwnedOperationContextCapability(owned),
+    /identity_replaced/u,
+  );
+  assert.throws(() => createOwnedMountCapability(owned), /identity_replaced/u);
+  assert.equal(recoverOwnedOperationDirectories(token).status, "recovered");
+});
+
+test("Host recovery record更新は同一世代の現行Hashだけへcommitする", () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mount = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mount);
+  const previous = getOwnedHostRecoveryId(owned);
+  const next = transitionOwnedHostRecoveryRecordState(
+    mount,
+    previous,
+    "host_only",
+    "docker_submission_started",
+  );
+  assert.equal(recoverOwnedOperationDirectories(previous).status, "blocked");
+  assert.match(
+    verifyOwnedOperationContextCapability(context).operationId,
+    /^OP-/u,
+  );
+  assert.equal(typeof verifyOwnedMountCapability(mount).management, "string");
+  assert.equal(
+    verifyOwnedOperationManagementCapability(management).managementScopeBound,
+    true,
+  );
+  const finalToken = transitionOwnedHostRecoveryRecordState(
+    mount,
+    next,
+    "docker_submission_started",
+    "docker_absent_confirmed",
+  );
+  assert.equal(
+    recoverOwnedOperationDirectories(finalToken).status,
+    "recovered",
+  );
+  assert.throws(
+    () => verifyOwnedOperationContextCapability(context),
+    /required/u,
+  );
+  assert.throws(() => verifyOwnedMountCapability(mount), /required/u);
+  assert.throws(
+    () => verifyOwnedOperationManagementCapability(management),
+    /required/u,
+  );
+});
+
+test("別nonceへ複製したmarkerはactive世代へ作用せず全aliasを保持する", () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mount = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mount);
+  const token = getOwnedHostRecoveryId(owned);
+  const originalMarker = hostRecoveryMarker(token);
+  const serialized = fs.readFileSync(originalMarker, "utf8");
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  const rootName = token.split(".")[1];
+  assertPresent(rootName);
+  const nonce = "11111111-2222-4333-8444-555555555555";
+  const copiedToken = `host.${rootName}.${nonce}.${recordHash}`;
+  const copiedMarker = hostRecoveryMarker(copiedToken);
+  fs.writeFileSync(copiedMarker, serialized, { encoding: "utf8", flag: "wx" });
+  assert.deepEqual(recoverOwnedOperationDirectories(copiedToken), {
+    status: "blocked",
+    reason: "host_recovery_generation_mismatch",
+  });
+  assert.equal(fs.existsSync(owned.root), true);
+  assert.equal(fs.existsSync(originalMarker), true);
+  assert.equal(fs.existsSync(copiedMarker), true);
+  assert.match(
+    verifyOwnedOperationContextCapability(context).operationId,
+    /^OP-/u,
+  );
+  assert.equal(typeof verifyOwnedMountCapability(mount).management, "string");
+  assert.equal(
+    verifyOwnedOperationManagementCapability(management).managementScopeBound,
+    true,
+  );
+  fs.rmSync(copiedMarker);
+  cleanupOwnedOperationDirectories(owned);
 });
 
 test("Docker submission recordとrollbackの二重失敗は手動回復までfail closedにする", () => {

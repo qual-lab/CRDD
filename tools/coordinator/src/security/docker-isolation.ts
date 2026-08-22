@@ -10,12 +10,9 @@ import {
   createOwnedMountCapability,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
+  transitionOwnedHostRecoveryRecordState,
   verifyOwnedMountCapability,
 } from "./execution-environment.ts";
-import {
-  formatHostRecoveryToken,
-  loadHostRecoveryRecordByToken,
-} from "./host-recovery-record.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const PROBE_IMAGE =
@@ -1090,45 +1087,46 @@ function transitionHostRecoveryState(
   hostRecoveryId: string,
   expectedState: string,
   nextState: string,
+  mountCapability: unknown,
 ): string {
-  const loaded = loadHostRecoveryRecordByToken(hostRecoveryId);
-  if (loaded.record.state !== expectedState)
-    throw new Error("host_recovery_state_invalid");
-  const updated = { ...loaded.record, state: nextState };
-  const serialized = `${JSON.stringify(updated)}\n`;
-  const recordHash = createHash("sha256").update(serialized).digest("hex");
-  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, serialized, {
-    encoding: "utf8",
-    flag: "wx",
-    mode: 0o600,
-  });
-  fs.renameSync(temporary, loaded.marker);
-  return formatHostRecoveryToken(
-    loaded.parsed.rootName,
-    loaded.parsed.nonce,
-    recordHash,
+  return transitionOwnedHostRecoveryRecordState(
+    mountCapability,
+    hostRecoveryId,
+    expectedState as "host_only" | "docker_submission_started",
+    nextState as
+      | "host_only"
+      | "docker_submission_started"
+      | "docker_absent_confirmed",
   );
 }
 
-function beginDockerSubmission(hostRecoveryId: string): string {
+function beginDockerSubmission(
+  hostRecoveryId: string,
+  mountCapability: unknown,
+): string {
   return transitionHostRecoveryState(
     hostRecoveryId,
     "host_only",
     "docker_submission_started",
+    mountCapability,
   );
 }
 
-function cancelDockerSubmissionBeforeCreate(hostRecoveryId: string): string {
+function cancelDockerSubmissionBeforeCreate(
+  hostRecoveryId: string,
+  mountCapability: unknown,
+): string {
   return transitionHostRecoveryState(
     hostRecoveryId,
     "docker_submission_started",
     "host_only",
+    mountCapability,
   );
 }
 
 function confirmDockerAbsence(
   hostRecoveryId: string,
+  mountCapability: unknown,
   capability: unknown,
   expected: Readonly<{
     probeId: string;
@@ -1156,6 +1154,7 @@ function confirmDockerAbsence(
     hostRecoveryId,
     "docker_submission_started",
     "docker_absent_confirmed",
+    mountCapability,
   );
   if (isObject(capability)) absenceCapabilities.delete(capability);
   const lifecycleAbsenceCapability = Object.freeze({
@@ -1974,7 +1973,7 @@ function runDockerIsolationScenario(
       result = blocked("local_docker_desktop_linux_engine_required", probeId);
     } else {
       mounts = verifyOwnedMountCapability(mountCapability);
-      hostRecoveryId = beginDockerSubmission(hostRecoveryId);
+      hostRecoveryId = beginDockerSubmission(hostRecoveryId, mountCapability);
       hasSubmissionStarted = true;
       try {
         recoveryId = writeRecoveryRecord(
@@ -1986,7 +1985,10 @@ function runDockerIsolationScenario(
         );
       } catch (error) {
         try {
-          hostRecoveryId = cancelDockerSubmissionBeforeCreate(hostRecoveryId);
+          hostRecoveryId = cancelDockerSubmissionBeforeCreate(
+            hostRecoveryId,
+            mountCapability,
+          );
           hasSubmissionStarted = false;
         } catch {
           hasRollbackFailed = true;
@@ -2093,6 +2095,7 @@ function runDockerIsolationScenario(
         } else {
           const absence = confirmDockerAbsence(
             hostRecoveryId,
+            mountCapability,
             cleanup.absenceCapability,
             {
               probeId,
@@ -2231,7 +2234,7 @@ export async function runDynamicFakeProviderCancellationVerification(
     if (!verifyLocalLinuxEngine(cli, environment))
       throw new Error("docker_backend_platform_unsupported");
     mounts = verifyOwnedMountCapability(mountCapability);
-    hostRecoveryId = beginDockerSubmission(hostRecoveryId);
+    hostRecoveryId = beginDockerSubmission(hostRecoveryId, mountCapability);
     hasSubmissionStarted = true;
     try {
       recoveryId = writeRecoveryRecord(
@@ -2243,7 +2246,10 @@ export async function runDynamicFakeProviderCancellationVerification(
       );
     } catch (error) {
       try {
-        hostRecoveryId = cancelDockerSubmissionBeforeCreate(hostRecoveryId);
+        hostRecoveryId = cancelDockerSubmissionBeforeCreate(
+          hostRecoveryId,
+          mountCapability,
+        );
         hasSubmissionStarted = false;
       } catch {
         hasSubmissionStarted = true;
@@ -2398,6 +2404,7 @@ export async function runDynamicFakeProviderCancellationVerification(
         else {
           const absence = confirmDockerAbsence(
             hostRecoveryId,
+            mountCapability,
             cleanup.absenceCapability,
             {
               probeId,
@@ -2673,6 +2680,7 @@ export function recoverDockerIsolationProbe(token: unknown) {
     }
     const absence = confirmDockerAbsence(
       recovery.record.hostRecoveryId,
+      null,
       absenceCapability,
       {
         probeId: identity.probeId,

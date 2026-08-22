@@ -150,7 +150,15 @@ const operationManagementCapabilities = new WeakMap<
   object,
   OperationManagementIdentity
 >();
-const operationOwnersByGeneration = new Map<string, object>();
+type OperationGenerationState = {
+  owned: object;
+  root: string;
+  nonce: string;
+  currentRecordHash: string;
+  retired: boolean;
+};
+const operationGenerationsByKey = new Map<string, OperationGenerationState>();
+const operationGenerationByRoot = new Map<string, OperationGenerationState>();
 
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
@@ -181,22 +189,65 @@ function registerOwnedOperationGeneration(
   owned: object,
   identity: OwnedIdentity,
 ): void {
+  const recordHash = identity.hostRecovery.recordHash;
+  if (!recordHash) throw new Error("owned_operation_generation_conflict");
   const key = operationGenerationKey(
     identity.root,
     identity.hostRecovery.nonce,
   );
-  if (operationOwnersByGeneration.has(key))
+  if (
+    operationGenerationsByKey.has(key) ||
+    operationGenerationByRoot.has(identity.root)
+  )
     throw new Error("owned_operation_generation_conflict");
-  operationOwnersByGeneration.set(key, owned);
+  const state: OperationGenerationState = {
+    owned,
+    root: identity.root,
+    nonce: identity.hostRecovery.nonce,
+    currentRecordHash: recordHash,
+    retired: false,
+  };
+  operationGenerationsByKey.set(key, state);
+  operationGenerationByRoot.set(identity.root, state);
 }
 
 function revokeOwnedOperationGeneration(root: string, nonce: string): void {
   const key = operationGenerationKey(root, nonce);
-  const owned = operationOwnersByGeneration.get(key);
-  if (!owned) return;
-  revokeOwnedOperationContextCapabilities(owned);
-  ownedIdentities.delete(owned);
-  operationOwnersByGeneration.delete(key);
+  const state = operationGenerationsByKey.get(key);
+  if (!state) return;
+  revokeOwnedOperationContextCapabilities(state.owned);
+  ownedIdentities.delete(state.owned);
+  operationGenerationsByKey.delete(key);
+  if (operationGenerationByRoot.get(root) === state)
+    operationGenerationByRoot.delete(root);
+}
+
+function retireOwnedOperationGeneration(root: string, nonce: string): void {
+  const state = operationGenerationsByKey.get(
+    operationGenerationKey(root, nonce),
+  );
+  if (!state) return;
+  state.retired = true;
+  revokeOwnedOperationContextCapabilities(state.owned);
+}
+
+function ownedOperationGeneration(
+  owned: object,
+  identity: OwnedIdentity,
+  shouldAllowRetired = false,
+): OperationGenerationState {
+  const state = operationGenerationsByKey.get(
+    operationGenerationKey(identity.root, identity.hostRecovery.nonce),
+  );
+  if (
+    !state ||
+    state.owned !== owned ||
+    operationGenerationByRoot.get(identity.root) !== state ||
+    state.currentRecordHash !== identity.hostRecovery.recordHash ||
+    (!shouldAllowRetired && state.retired)
+  )
+    throw new Error("owned_operation_identity_replaced");
+  return state;
 }
 
 function operationIdentityReplacement(error: unknown): boolean {
@@ -213,6 +264,7 @@ function validateOwnedOperationIdentity(
   identity: OwnedIdentity,
 ): ChildSnapshots {
   try {
+    ownedOperationGeneration(owned, identity);
     if (
       !identity.children ||
       ownString(owned, "root") !== identity.root ||
@@ -224,10 +276,7 @@ function validateOwnedOperationIdentity(
       !sameFilesystemIdentity(
         readFilesystemIdentity(identity.root),
         identity.filesystem,
-      ) ||
-      operationOwnersByGeneration.get(
-        operationGenerationKey(identity.root, identity.hostRecovery.nonce),
-      ) !== owned
+      )
     ) {
       throw new Error("owned_operation_identity_replaced");
     }
@@ -236,7 +285,10 @@ function validateOwnedOperationIdentity(
     return identity.children;
   } catch (error) {
     if (operationIdentityReplacement(error)) {
-      revokeOwnedOperationContextCapabilities(owned);
+      retireOwnedOperationGeneration(
+        identity.root,
+        identity.hostRecovery.nonce,
+      );
       throw new Error("owned_operation_identity_replaced");
     }
     throw new Error("owned_operation_identity_observation_blocked");
@@ -647,6 +699,66 @@ export function getOwnedHostRecoveryId(owned: unknown): string {
   return expectedHostRecoveryToken(identity);
 }
 
+export function transitionOwnedHostRecoveryRecordState(
+  mountCapability: unknown,
+  currentToken: unknown,
+  expectedState: RecoveryState,
+  nextState: RecoveryState,
+): string {
+  const loaded = loadHostRecoveryRecord(currentToken);
+  if (loaded.record.state !== expectedState)
+    throw new Error("host_recovery_state_invalid");
+  const isAllowedTransition =
+    (expectedState === "host_only" &&
+      nextState === "docker_submission_started") ||
+    (expectedState === "docker_submission_started" &&
+      ["host_only", "docker_absent_confirmed"].includes(nextState));
+  if (!isAllowedTransition) throw new Error("host_recovery_state_invalid");
+  const root = path.join(loaded.parent, loaded.parsed.rootName);
+  const state = operationGenerationByRoot.get(root);
+  let identity: OwnedIdentity | null = null;
+  if (state) {
+    const mount = isObject(mountCapability)
+      ? (mountCapabilities.get(mountCapability) ?? null)
+      : null;
+    if (!mount || mount.owned !== state.owned || state.retired)
+      throw new Error("owned_operation_mount_capability_required");
+    identity = ownedIdentities.get(state.owned) ?? null;
+    if (!identity) throw new Error("owned_operation_mount_capability_required");
+    validateOwnedOperationIdentity(state.owned, identity);
+    if (
+      loaded.parsed.nonce !== state.nonce ||
+      loaded.parsed.recordHash !== state.currentRecordHash ||
+      loaded.marker !== identity.hostRecovery.record ||
+      identity.hostRecovery.state !== expectedState
+    )
+      throw new Error("host_recovery_generation_mismatch");
+  }
+  const updatedRecord = { ...loaded.record, state: nextState };
+  const serialized = `${JSON.stringify(updatedRecord)}\n`;
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, serialized, {
+    encoding: "utf8",
+    flag: "wx",
+    mode: 0o600,
+  });
+  fs.renameSync(temporary, loaded.marker);
+  if (state && identity) {
+    const updatedIdentity = Object.freeze({
+      ...identity,
+      hostRecovery: Object.freeze({
+        ...identity.hostRecovery,
+        state: nextState,
+        recordHash,
+      }),
+    });
+    ownedIdentities.set(state.owned, updatedIdentity);
+    state.currentRecordHash = recordHash;
+  }
+  return `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${recordHash}`;
+}
+
 function readCurrentOwnedHostRecord(
   identity: OwnedIdentity,
 ): Readonly<{ record: HostRecoveryRecord; serialized: string }> {
@@ -926,6 +1038,8 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
     throw new Error("owned_operation_directory_identity_required");
   }
   try {
+    if (!isObject(owned)) throw new Error("owned_operation_directory_replaced");
+    ownedOperationGeneration(owned, identity, true);
     if (
       ownString(owned, "root") !== identity.root ||
       ownString(owned, "parent") !== identity.parent
@@ -956,7 +1070,10 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
         "owned_operation_child_replaced",
       ].includes(message)
     ) {
-      revokeOwnedOperationContextCapabilities(owned);
+      retireOwnedOperationGeneration(
+        identity.root,
+        identity.hostRecovery.nonce,
+      );
     }
     if (
       message &&
@@ -973,7 +1090,6 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   fs.rmSync(identity.root, { recursive: true, force: false });
   if (fs.existsSync(identity.root))
     throw new Error("owned_operation_directory_cleanup_incomplete");
-  revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce);
   try {
     const recoveryDirectory = fs.realpathSync(identity.hostRecovery.directory);
     if (
@@ -990,6 +1106,7 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   } catch (error) {
     if (errorCode(error) !== "ENOENT") throw error;
   }
+  revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce);
 }
 
 function loadHostRecoveryRecord(token: unknown): Readonly<{
@@ -1022,9 +1139,16 @@ export function recoverOwnedOperationDirectories(
       throw new Error("host_recovery_state_invalid");
     const root = path.join(parent, parsed.rootName);
     recoveryGeneration = Object.freeze({ root, nonce: parsed.nonce });
+    const activeGeneration = operationGenerationByRoot.get(root);
+    if (
+      activeGeneration &&
+      (activeGeneration.nonce !== parsed.nonce ||
+        activeGeneration.currentRecordHash !== parsed.recordHash)
+    )
+      throw new Error("host_recovery_generation_mismatch");
     if (!fs.existsSync(root)) {
-      revokeOwnedOperationGeneration(root, parsed.nonce);
       fs.rmSync(marker);
+      revokeOwnedOperationGeneration(root, parsed.nonce);
       return { status: "recovered", reason: "host_root_already_absent" };
     }
     if (
@@ -1060,8 +1184,8 @@ export function recoverOwnedOperationDirectories(
     fs.rmSync(root, { recursive: true, force: false });
     if (fs.existsSync(root))
       throw new Error("host_recovery_cleanup_incomplete");
-    revokeOwnedOperationGeneration(root, parsed.nonce);
     fs.rmSync(marker);
+    revokeOwnedOperationGeneration(root, parsed.nonce);
     return { status: "recovered", reason: "host_cleanup_recovered" };
   } catch (error) {
     const allowed = new Set([
@@ -1074,6 +1198,7 @@ export function recoverOwnedOperationDirectories(
       "host_recovery_child_replaced",
       "host_recovery_unknown_child",
       "host_recovery_cleanup_incomplete",
+      "host_recovery_generation_mismatch",
     ]);
     const message = errorMessage(error);
     if (
@@ -1084,10 +1209,7 @@ export function recoverOwnedOperationDirectories(
       )
     ) {
       const { root, nonce } = recoveryGeneration;
-      const owned = operationOwnersByGeneration.get(
-        operationGenerationKey(root, nonce),
-      );
-      if (owned) revokeOwnedOperationContextCapabilities(owned);
+      retireOwnedOperationGeneration(root, nonce);
     }
     return {
       status: "blocked",
