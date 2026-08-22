@@ -2,7 +2,10 @@ import fs from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { loadHostRecoveryRecordByToken } from "./host-recovery-record.ts";
+import {
+  loadHostRecoveryRecordByToken,
+  parseHostRecoveryToken,
+} from "./host-recovery-record.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -699,41 +702,42 @@ export function getOwnedHostRecoveryId(owned: unknown): string {
   return expectedHostRecoveryToken(identity);
 }
 
-export function transitionOwnedHostRecoveryRecordState(
+function activeOwnedTransitionInputs(
   mountCapability: unknown,
   currentToken: unknown,
-  expectedState: RecoveryState,
-  nextState: RecoveryState,
-): string {
+  expectedState: "host_only" | "docker_submission_started",
+): Readonly<{
+  loaded: ReturnType<typeof loadHostRecoveryRecord>;
+  state: OperationGenerationState;
+  identity: OwnedIdentity;
+}> {
   const loaded = loadHostRecoveryRecord(currentToken);
   if (loaded.record.state !== expectedState)
     throw new Error("host_recovery_state_invalid");
-  const isAllowedTransition =
-    (expectedState === "host_only" &&
-      nextState === "docker_submission_started") ||
-    (expectedState === "docker_submission_started" &&
-      ["host_only", "docker_absent_confirmed"].includes(nextState));
-  if (!isAllowedTransition) throw new Error("host_recovery_state_invalid");
   const root = path.join(loaded.parent, loaded.parsed.rootName);
   const state = operationGenerationByRoot.get(root);
-  let identity: OwnedIdentity | null = null;
-  if (state) {
-    const mount = isObject(mountCapability)
-      ? (mountCapabilities.get(mountCapability) ?? null)
-      : null;
-    if (!mount || mount.owned !== state.owned || state.retired)
-      throw new Error("owned_operation_mount_capability_required");
-    identity = ownedIdentities.get(state.owned) ?? null;
-    if (!identity) throw new Error("owned_operation_mount_capability_required");
-    validateOwnedOperationIdentity(state.owned, identity);
-    if (
-      loaded.parsed.nonce !== state.nonce ||
-      loaded.parsed.recordHash !== state.currentRecordHash ||
-      loaded.marker !== identity.hostRecovery.record ||
-      identity.hostRecovery.state !== expectedState
-    )
-      throw new Error("host_recovery_generation_mismatch");
-  }
+  const mount = isObject(mountCapability)
+    ? (mountCapabilities.get(mountCapability) ?? null)
+    : null;
+  if (!state || !mount || mount.owned !== state.owned || state.retired)
+    throw new Error("owned_operation_mount_capability_required");
+  const identity = ownedIdentities.get(state.owned);
+  if (!identity) throw new Error("owned_operation_mount_capability_required");
+  validateOwnedOperationIdentity(state.owned, identity);
+  if (
+    loaded.parsed.nonce !== state.nonce ||
+    loaded.parsed.recordHash !== state.currentRecordHash ||
+    loaded.marker !== identity.hostRecovery.record ||
+    identity.hostRecovery.state !== expectedState
+  )
+    throw new Error("host_recovery_generation_mismatch");
+  return Object.freeze({ loaded, state, identity });
+}
+
+function replaceHostRecoveryRecordState(
+  loaded: ReturnType<typeof loadHostRecoveryRecord>,
+  nextState: RecoveryState,
+): Readonly<{ recordHash: string; token: string }> {
   const updatedRecord = { ...loaded.record, state: nextState };
   const serialized = `${JSON.stringify(updatedRecord)}\n`;
   const recordHash = createHash("sha256").update(serialized).digest("hex");
@@ -744,19 +748,91 @@ export function transitionOwnedHostRecoveryRecordState(
     mode: 0o600,
   });
   fs.renameSync(temporary, loaded.marker);
-  if (state && identity) {
-    const updatedIdentity = Object.freeze({
+  return Object.freeze({
+    recordHash,
+    token: `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${recordHash}`,
+  });
+}
+
+export function transitionOwnedDockerSubmissionState(
+  mountCapability: unknown,
+  currentToken: unknown,
+  action: unknown,
+): string {
+  const expectedState =
+    action === "begin" ? "host_only" : "docker_submission_started";
+  const nextState =
+    action === "begin" ? "docker_submission_started" : "host_only";
+  if (action !== "begin" && action !== "cancel")
+    throw new Error("host_recovery_state_invalid");
+  const { loaded, state, identity } = activeOwnedTransitionInputs(
+    mountCapability,
+    currentToken,
+    expectedState,
+  );
+  const updated = replaceHostRecoveryRecordState(loaded, nextState);
+  ownedIdentities.set(
+    state.owned,
+    Object.freeze({
       ...identity,
       hostRecovery: Object.freeze({
         ...identity.hostRecovery,
         state: nextState,
-        recordHash,
+        recordHash: updated.recordHash,
       }),
-    });
-    ownedIdentities.set(state.owned, updatedIdentity);
-    state.currentRecordHash = recordHash;
-  }
-  return `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${recordHash}`;
+    }),
+  );
+  state.currentRecordHash = updated.recordHash;
+  return updated.token;
+}
+
+export function adoptOwnedHostRecoveryRecordTransition(
+  mountCapability: unknown,
+  previousToken: unknown,
+  nextToken: unknown,
+): void {
+  const previous = parseHostRecoveryToken(previousToken);
+  const loaded = loadHostRecoveryRecord(nextToken);
+  const root = path.join(loaded.parent, loaded.parsed.rootName);
+  const state = operationGenerationByRoot.get(root);
+  const mount = isObject(mountCapability)
+    ? (mountCapabilities.get(mountCapability) ?? null)
+    : null;
+  if (!state || !mount || mount.owned !== state.owned || state.retired)
+    throw new Error("owned_operation_mount_capability_required");
+  const identity = ownedIdentities.get(state.owned);
+  if (!identity) throw new Error("owned_operation_mount_capability_required");
+  validateOwnedOperationIdentity(state.owned, identity);
+  const expectedSerialized = `${JSON.stringify(
+    hostRecordContent(identity, "docker_absent_confirmed"),
+  )}\n`;
+  const expectedRecordHash = createHash("sha256")
+    .update(expectedSerialized)
+    .digest("hex");
+  if (
+    previous.rootName !== loaded.parsed.rootName ||
+    previous.nonce !== loaded.parsed.nonce ||
+    previous.nonce !== state.nonce ||
+    previous.recordHash !== state.currentRecordHash ||
+    loaded.parsed.recordHash === previous.recordHash ||
+    loaded.parsed.recordHash !== expectedRecordHash ||
+    loaded.marker !== identity.hostRecovery.record ||
+    identity.hostRecovery.state !== "docker_submission_started" ||
+    loaded.record.state !== "docker_absent_confirmed"
+  )
+    throw new Error("host_recovery_generation_mismatch");
+  ownedIdentities.set(
+    state.owned,
+    Object.freeze({
+      ...identity,
+      hostRecovery: Object.freeze({
+        ...identity.hostRecovery,
+        state: "docker_absent_confirmed",
+        recordHash: loaded.parsed.recordHash,
+      }),
+    }),
+  );
+  state.currentRecordHash = loaded.parsed.recordHash;
 }
 
 function readCurrentOwnedHostRecord(

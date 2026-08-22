@@ -6,13 +6,18 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  adoptOwnedHostRecoveryRecordTransition,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
-  transitionOwnedHostRecoveryRecordState,
+  transitionOwnedDockerSubmissionState,
   verifyOwnedMountCapability,
 } from "./execution-environment.ts";
+import {
+  formatHostRecoveryToken,
+  loadHostRecoveryRecordByToken,
+} from "./host-recovery-record.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const PROBE_IMAGE =
@@ -1089,15 +1094,54 @@ function transitionHostRecoveryState(
   nextState: string,
   mountCapability: unknown,
 ): string {
-  return transitionOwnedHostRecoveryRecordState(
-    mountCapability,
-    hostRecoveryId,
-    expectedState as "host_only" | "docker_submission_started",
-    nextState as
-      | "host_only"
-      | "docker_submission_started"
-      | "docker_absent_confirmed",
+  if (
+    expectedState === "host_only" &&
+    nextState === "docker_submission_started"
+  )
+    return transitionOwnedDockerSubmissionState(
+      mountCapability,
+      hostRecoveryId,
+      "begin",
+    );
+  if (
+    expectedState === "docker_submission_started" &&
+    nextState === "host_only"
+  )
+    return transitionOwnedDockerSubmissionState(
+      mountCapability,
+      hostRecoveryId,
+      "cancel",
+    );
+  if (
+    expectedState !== "docker_submission_started" ||
+    nextState !== "docker_absent_confirmed"
+  )
+    throw new Error("host_recovery_state_invalid");
+  const loaded = loadHostRecoveryRecordByToken(hostRecoveryId);
+  if (loaded.record.state !== expectedState)
+    throw new Error("host_recovery_state_invalid");
+  const updated = { ...loaded.record, state: nextState };
+  const serialized = `${JSON.stringify(updated)}\n`;
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
+  fs.writeFileSync(temporary, serialized, {
+    encoding: "utf8",
+    flag: "wx",
+    mode: 0o600,
+  });
+  fs.renameSync(temporary, loaded.marker);
+  const updatedToken = formatHostRecoveryToken(
+    loaded.parsed.rootName,
+    loaded.parsed.nonce,
+    recordHash,
   );
+  if (mountCapability !== null)
+    adoptOwnedHostRecoveryRecordTransition(
+      mountCapability,
+      hostRecoveryId,
+      updatedToken,
+    );
+  return updatedToken;
 }
 
 function beginDockerSubmission(

@@ -18,6 +18,7 @@ import {
 } from "../src/core/doctor.ts";
 import type { DiagnosticCheck } from "../src/core/doctor.ts";
 import {
+  adoptOwnedHostRecoveryRecordTransition,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationManagementCapability,
@@ -29,7 +30,7 @@ import {
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
   recoverOwnedOperationDirectories,
-  transitionOwnedHostRecoveryRecordState,
+  transitionOwnedDockerSubmissionState,
   verifyOwnedMountCapability,
   verifyOwnedOperationManagementCapability,
   verifyOwnedOperationContextCapability,
@@ -2617,6 +2618,10 @@ test("Docker不存在を自己申告する公開APIを持たない", () => {
     false,
   );
   assert.equal("transitionHostRecoveryState" in hostRecoveryRecord, false);
+  assert.equal(
+    "transitionOwnedHostRecoveryRecordState" in executionEnvironment,
+    false,
+  );
   const owned = createOwnedOperationDirectories();
   const token = getOwnedHostRecoveryId(owned);
   const recovered = recoverOwnedOperationDirectories(token);
@@ -2947,12 +2952,28 @@ test("Host recovery record更新は同一世代の現行Hashだけへcommitす�
   const mount = createOwnedMountCapability(owned);
   const management = createOwnedOperationManagementCapability(context, mount);
   const previous = getOwnedHostRecoveryId(owned);
-  const next = transitionOwnedHostRecoveryRecordState(
-    mount,
-    previous,
-    "host_only",
-    "docker_submission_started",
+  const marker = hostRecoveryMarker(previous);
+  const originalMarker = fs.readFileSync(marker, "utf8");
+  assert.throws(
+    () => transitionOwnedDockerSubmissionState(null, previous, "begin"),
+    /capability_required/u,
   );
+  assert.throws(
+    () => transitionOwnedDockerSubmissionState(mount, previous, "absent"),
+    /state_invalid/u,
+  );
+  const otherOwned = createOwnedOperationDirectories();
+  const otherMount = createOwnedMountCapability(otherOwned);
+  assert.throws(
+    () => transitionOwnedDockerSubmissionState(otherMount, previous, "begin"),
+    /capability_required/u,
+  );
+  assert.throws(
+    () => adoptOwnedHostRecoveryRecordTransition(null, previous, previous),
+    /capability_required/u,
+  );
+  assert.equal(fs.readFileSync(marker, "utf8"), originalMarker);
+  const next = transitionOwnedDockerSubmissionState(mount, previous, "begin");
   assert.equal(recoverOwnedOperationDirectories(previous).status, "blocked");
   assert.match(
     verifyOwnedOperationContextCapability(context).operationId,
@@ -2963,12 +2984,45 @@ test("Host recovery record更新は同一世代の現行Hashだけへcommitす�
     verifyOwnedOperationManagementCapability(management).managementScopeBound,
     true,
   );
-  const finalToken = transitionOwnedHostRecoveryRecordState(
-    mount,
-    next,
-    "docker_submission_started",
-    "docker_absent_confirmed",
+  const updated = JSON.parse(fs.readFileSync(marker, "utf8"));
+  updated.state = "docker_absent_confirmed";
+  const finalSerialized = `${JSON.stringify(updated)}\n`;
+  const finalHash = createHash("sha256").update(finalSerialized).digest("hex");
+  const parts = next.split(".");
+  const rootName = parts[1];
+  const nonce = parts[2];
+  assertPresent(rootName);
+  assertPresent(nonce);
+  const tamperedSerialized = `${JSON.stringify({
+    ...updated,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  })}\n`;
+  const tamperedHash = createHash("sha256")
+    .update(tamperedSerialized)
+    .digest("hex");
+  const tamperedToken = `host.${rootName}.${nonce}.${tamperedHash}`;
+  fs.writeFileSync(marker, tamperedSerialized, "utf8");
+  assert.throws(
+    () => adoptOwnedHostRecoveryRecordTransition(mount, next, tamperedToken),
+    /generation_mismatch/u,
   );
+  assert.match(
+    verifyOwnedOperationContextCapability(context).operationId,
+    /^OP-/u,
+  );
+  const finalToken = `host.${rootName}.${nonce}.${finalHash}`;
+  fs.writeFileSync(marker, finalSerialized, "utf8");
+  assert.throws(
+    () => adoptOwnedHostRecoveryRecordTransition(otherMount, next, finalToken),
+    /capability_required/u,
+  );
+  assert.throws(
+    () =>
+      adoptOwnedHostRecoveryRecordTransition({ ...mount }, next, finalToken),
+    /capability_required/u,
+  );
+  adoptOwnedHostRecoveryRecordTransition(mount, next, finalToken);
+  cleanupOwnedOperationDirectories(otherOwned);
   assert.equal(
     recoverOwnedOperationDirectories(finalToken).status,
     "recovered",
@@ -3016,6 +3070,30 @@ test("別nonceへ複製したmarkerはactive世代へ作用せず全aliasを保�
     true,
   );
   fs.rmSync(copiedMarker);
+  cleanupOwnedOperationDirectories(owned);
+});
+
+test("process-local世代なしではsubmission状態を公開APIから変更しない", () => {
+  const owned = createOwnedOperationDirectories();
+  const token = getOwnedHostRecoveryId(owned);
+  const sourceMarker = hostRecoveryMarker(token);
+  const record = JSON.parse(fs.readFileSync(sourceMarker, "utf8"));
+  record.rootName = "crdd-coordinator-doctor-no-active-fixture";
+  const serialized = `${JSON.stringify(record)}\n`;
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  const nonce = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const detachedToken = `host.${record.rootName}.${nonce}.${recordHash}`;
+  const detachedMarker = hostRecoveryMarker(detachedToken);
+  fs.writeFileSync(detachedMarker, serialized, {
+    encoding: "utf8",
+    flag: "wx",
+  });
+  assert.throws(
+    () => transitionOwnedDockerSubmissionState(null, detachedToken, "begin"),
+    /capability_required/u,
+  );
+  assert.equal(fs.readFileSync(detachedMarker, "utf8"), serialized);
+  fs.rmSync(detachedMarker);
   cleanupOwnedOperationDirectories(owned);
 });
 
