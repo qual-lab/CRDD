@@ -49,6 +49,8 @@ CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面�
 
 現在、固定blocked bootstrapとPE static allowlistだけを実装した。次段は同一runのloaded image、leafと全rename可能parent handle、local volume、実行時module／DLL探索閉包およびNetwork非発火である。そこまで成立する前にtoken／Root観測へ進めず、operational one-shot、Gate、準拠表明、StableまたはReleaseを主張しない。
 
+実装固定Commit `1d7bac2982981771cd013bc6a23274c71a9af9ce`の検証結果は[`固定後検証実行記録`](Evidence/CHG-000035_Verification_Run_Record_1d7bac2.md)へ記録した。本参照追加は固定実装Treeへ自己参照させない記録限定差分である。
+
 初回固定版へRepository全体checkerを一度実行し、Agent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを旧合否不流用で実行する。Findingがあれば監査集合を完了して統合方針を各監査へ再提示した後だけ是正し、新固定版へ全必須監査を再実行する。
 
 ## 未完了事項と人間判断
