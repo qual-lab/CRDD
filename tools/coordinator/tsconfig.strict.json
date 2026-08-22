@@ -33,6 +33,7 @@
     "src/security/authority-root-locator.ts",
     "src/security/authority-root-profile.ts",
     "src/security/authority-trust-loader.ts",
+    "src/security/claude-execution-plan.ts",
     "src/security/docker-isolation.ts",
     "src/security/enrollment-certificate-renewal.ts",
     "src/security/egress-proxy-policy.ts",
