@@ -36,7 +36,7 @@ test("native supervisor成果物を同一file観測へ固定する", () => {
       relativePath:
         "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
       target: "x86_64-pc-windows-msvc",
-      entrypointContractRevision: 1,
+      entrypointContractRevision: 2,
       rustToolchain: "1.94.1",
       byteLength: 23,
       sha256:
@@ -66,7 +66,7 @@ test("native supervisor Release契約は固定成果物だけを許可する", (
       "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
     target: "x86_64-pc-windows-msvc",
     rustToolchain: "1.94.1",
-    entrypointContractRevision: 1,
+    entrypointContractRevision: 2,
     maximumExecutableBytes: 16 * 1024 * 1024,
     signedManifestBinding: "implemented_candidate",
     stableSameFileHashObservation: "implemented_candidate",

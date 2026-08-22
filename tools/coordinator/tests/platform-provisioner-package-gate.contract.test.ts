@@ -71,7 +71,7 @@ function fixture() {
       relativePath:
         "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
       target: "x86_64-pc-windows-msvc",
-      entrypointContractRevision: 1,
+      entrypointContractRevision: 2,
       rustToolchain: "1.94.1",
       byteLength: 2048,
       sha256: "5".repeat(64),

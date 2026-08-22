@@ -20,10 +20,11 @@ const summaryPath = path.join(coverageRoot, "coverage-summary.json");
 const expectedSources = new Set(
   [
     path.join(crateRoot, "src", "main.rs"),
-    path.join(crateRoot, "src", "bin", "coordinator.rs"),
+    path.join(crateRoot, "src", "native_bootstrap_core.rs"),
     path.join(crateRoot, "src", "protocol.rs"),
     path.join(crateRoot, "src", "windows.rs"),
     path.join(crateRoot, "tests", "cli.rs"),
+    path.join(crateRoot, "tests", "native_bootstrap_core.rs"),
   ].map(path.normalize),
 );
 
@@ -108,7 +109,7 @@ executeCommand(llvmTool("llvm-profdata"), [
 ]);
 const dependencyRoot = path.join(buildRoot, TARGET, "debug", "deps");
 const testExecutables = collectFiles(dependencyRoot, ".exe").filter((file) =>
-  /^(?:cli|coordinator|crdd_platform_access)-[0-9a-f]+\.exe$/u.test(
+  /^(?:cli|crdd_platform_access|native_bootstrap_core)-[0-9a-f]+\.exe$/u.test(
     path.basename(file),
   ),
 );
@@ -123,23 +124,10 @@ const binaryExecutable = path.join(
   "debug",
   "crdd-platform-access.exe",
 );
-const supervisorExecutable = path.join(
-  buildRoot,
-  TARGET,
-  "debug",
-  "coordinator.exe",
-);
-if (
-  !fs.statSync(binaryExecutable).isFile() ||
-  !fs.statSync(supervisorExecutable).isFile()
-) {
+if (!fs.statSync(binaryExecutable).isFile()) {
   throw new Error("instrumented platform-access binary missing");
 }
-const coverageObjects = [
-  ...testExecutables,
-  binaryExecutable,
-  supervisorExecutable,
-];
+const coverageObjects = [...testExecutables, binaryExecutable];
 const firstCoverageObject = coverageObjects[0];
 if (!firstCoverageObject) throw new Error("coverage object missing");
 const exported = executeCommand(llvmTool("llvm-cov"), [

@@ -22,6 +22,7 @@
     "scripts/generate-release-key.ts",
     "scripts/check-dynamic-fake-provider-coverage.ts",
     "scripts/check-platform-access-coverage.ts",
+    "scripts/check-native-bootstrap-pe.ts",
     "scripts/verify-dynamic-fake-provider-cancellation.ts",
     "scripts/sign-release-manifest.ts",
     "src/core/cli-options.ts",

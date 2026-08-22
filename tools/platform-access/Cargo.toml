@@ -5,6 +5,9 @@ edition = "2024"
 publish = false
 rust-version = "1.94.1"
 
+[features]
+native-bootstrap-release = []
+
 [[bin]]
 name = "crdd-platform-access"
 path = "src/main.rs"
@@ -12,6 +15,8 @@ path = "src/main.rs"
 [[bin]]
 name = "coordinator"
 path = "src/bin/coordinator.rs"
+test = false
+required-features = ["native-bootstrap-release"]
 
 [dependencies]
 windows-sys = { version = "=0.61.2", features = [

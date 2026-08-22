@@ -76,7 +76,7 @@ function fixture(protocolRevision = 3) {
       relativePath:
         "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
       target: "x86_64-pc-windows-msvc",
-      entrypointContractRevision: 1,
+      entrypointContractRevision: 2,
       rustToolchain: "1.94.1",
       byteLength: 2048,
       sha256: "7".repeat(64),
@@ -194,7 +194,7 @@ test("signed package manifest matches exact CRDD-bundled package content but rem
     relativePath:
       "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
     target: "x86_64-pc-windows-msvc",
-    entrypointContractRevision: 1,
+    entrypointContractRevision: 2,
     rustToolchain: "1.94.1",
     byteLength: 2048,
     sha256: "7".repeat(64),
@@ -282,7 +282,7 @@ test("package name, version, file ordering, path and digest mismatches fail clos
         "aarch64-pc-windows-msvc";
     },
     (value) => {
-      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 2;
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 3;
     },
     (value) => {
       value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.rustToolchain =
@@ -353,7 +353,7 @@ test("暗号学的に有効なV2 artifact欠落とnative field差をSchemaで拒
         "aarch64-pc-windows-msvc";
     },
     (value) => {
-      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 2;
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 3;
     },
     (value) => {
       value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.rustToolchain =
