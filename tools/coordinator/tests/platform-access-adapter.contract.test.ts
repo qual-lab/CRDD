@@ -7,7 +7,12 @@ import {
   inspectWindowsPlatformAccessCandidate,
 } from "../src/security/platform-access-adapter.ts";
 
-function response(nonce: Buffer, role = 2, accessMask = 0x101) {
+function response(
+  nonce: Buffer,
+  role = 2,
+  accessMask = 0x101,
+  principalMask = 0x83,
+) {
   const bytes = Buffer.alloc(86);
   bytes.write("CRDDPR03", 0, "ascii");
   bytes.writeUInt16LE(3, 8);
@@ -17,8 +22,35 @@ function response(nonce: Buffer, role = 2, accessMask = 0x101) {
   bytes.writeUInt16LE(100, 44);
   bytes.writeUInt32LE(accessMask, 46);
   bytes.fill(0x0a, 50, 82);
-  bytes.writeUInt32LE(0x83, 82);
+  bytes.writeUInt32LE(principalMask, 82);
   return bytes;
+}
+
+function assertFullyBlocked(
+  result: ReturnType<typeof evaluatePlatformAccessResponseCandidate>,
+) {
+  assert.deepEqual(result, {
+    status: "blocked",
+    reason: "platform_access_helper_response_invalid",
+    accessObservation: null,
+    observedPrincipalSource: null,
+    runtimePrincipalMode: null,
+    runtimePrincipalIdentityHash: null,
+    principalObservation: null,
+    selectedUserBindingVerified: false,
+    runtimePrincipalBound: false,
+    helperProcessSpawned: false,
+    helperResponseValidated: false,
+    absolutePathReported: false,
+    principalReported: false,
+    principalIdentityHashReported: false,
+    aclReported: false,
+    rawErrorReported: false,
+    permissionMutationIssued: false,
+    filesystemEffectIssued: false,
+    runtimeAuthorityConferred: false,
+    runtimeCapabilityIssued: false,
+  });
 }
 
 test("Rust platform access responseを安全要約へ限定する", () => {
@@ -69,9 +101,20 @@ test("Rust platform access responseを安全要約へ限定する", () => {
 
 test("protocol nonce role length unknown bitの不一致をfail closedにする", () => {
   const nonce = Buffer.alloc(32, 5);
+  const legacyRevisionTwo = Buffer.alloc(82);
+  response(nonce).copy(legacyRevisionTwo, 0, 0, 82);
+  legacyRevisionTwo.write("CRDDPR02", 0, "ascii");
+  legacyRevisionTwo.writeUInt16LE(2, 8);
+  const magicOnlyMismatch = response(nonce);
+  magicOnlyMismatch.write("CRDDPR02", 0, "ascii");
+  const revisionOnlyMismatch = response(nonce);
+  revisionOnlyMismatch.writeUInt16LE(2, 8);
   const cases: unknown[] = [
     new Uint8Array(response(nonce)),
     response(nonce).subarray(0, 85),
+    legacyRevisionTwo,
+    magicOnlyMismatch,
+    revisionOnlyMismatch,
     response(nonce, 1),
     response(Buffer.alloc(32, 6)),
     response(nonce, 2, 0x200),
@@ -97,10 +140,41 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
       nonce,
       "authority",
     );
-    assert.equal(result.status, "blocked");
-    assert.equal(result.helperProcessSpawned, false);
-    assert.equal(result.helperResponseValidated, false);
-    assert.equal(result.accessObservation, null);
+    assertFullyBlocked(result);
+  }
+});
+
+test("全principal bitを固定した限定名へ一対一で写像する", () => {
+  const nonce = Buffer.alloc(32, 9);
+  const flags = [
+    ["primaryToken", 1 << 0],
+    ["interactiveGroup", 1 << 1],
+    ["serviceGroup", 1 << 2],
+    ["batchGroup", 1 << 3],
+    ["networkGroup", 1 << 4],
+    ["restrictedToken", 1 << 5],
+    ["appContainer", 1 << 6],
+    ["nonzeroSession", 1 << 7],
+  ] as const;
+  for (const [expectedName, flag] of flags) {
+    const principalMask = flag === 1 ? 1 : 1 | flag;
+    const result = evaluatePlatformAccessResponseCandidate(
+      response(nonce, 2, 0x101, principalMask),
+      nonce,
+      "authority",
+    );
+    assert.equal(result.status, "candidate");
+    for (const [name] of flags) {
+      assert.equal(
+        result.principalObservation?.[name],
+        name === "primaryToken" || name === expectedName,
+      );
+    }
+    assert.equal(result.selectedUserBindingVerified, false);
+    assert.equal(result.runtimePrincipalBound, false);
+    assert.equal(result.runtimeAuthorityConferred, false);
+    assert.equal(result.runtimeCapabilityIssued, false);
+    assert.equal(result.filesystemEffectIssued, false);
   }
 });
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -27,7 +27,7 @@ function frame(payload: Record<string, unknown>) {
   ]);
 }
 
-function fixture() {
+function fixture(protocolRevision = 3) {
   const signer = generateKeyPairSync("ed25519");
   const spki = signer.publicKey.export({ format: "der", type: "spki" });
   const keyId = createHash("sha256").update(spki).digest("hex");
@@ -63,7 +63,7 @@ function fixture() {
       relativePath:
         "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
       target: "x86_64-pc-windows-msvc",
-      protocolRevision: 3,
+      protocolRevision,
       rustToolchain: "1.94.1",
       byteLength: 1024,
       sha256: "6".repeat(64),
@@ -92,6 +92,37 @@ function fixture() {
     evaluationTime: "2026-08-15T12:00:00.000Z",
   };
 }
+
+test("correctly signed revision 2 platform artifact is rejected only after cryptographic validity", () => {
+  const value = fixture(2);
+  const message = frame(value.manifestEnvelope.payload);
+  const signatureEntry = value.manifestEnvelope.signatures[0];
+  assertPresent(signatureEntry);
+  const signature = Buffer.from(signatureEntry.signature, "base64url");
+  assert.equal(
+    verify(
+      null,
+      message,
+      { key: value.releaseSignerSpkiDer, format: "der", type: "spki" },
+      signature,
+    ),
+    true,
+  );
+
+  const result = verifyPlatformProvisionerManifestCandidate(value);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "platform_provisioner_manifest_or_package_content_mismatch",
+  );
+  assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
+  assert.equal(result.crddDistributionConfirmed, false);
+  assert.equal(result.runtimeOwnedPackageFilesystemConfirmed, false);
+  assert.equal(result.runtimeAuthorityConferred, false);
+  assert.equal(result.runtimeCapabilityIssued, false);
+  assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(result.networkEffectIssued, false);
+});
 
 test("signed package manifest matches exact CRDD-bundled package content but remains non-authoritative", () => {
   const result = verifyPlatformProvisionerManifestCandidate(fixture());

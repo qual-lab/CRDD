@@ -262,6 +262,14 @@ mod tests {
     }
 
     #[test]
+    fn rejects_exact_revision_two_request_without_aliasing() {
+        let mut legacy = request_bytes(b"C:\\root");
+        legacy[..8].copy_from_slice(b"CRDDPA02");
+        legacy[8..10].copy_from_slice(&2_u16.to_le_bytes());
+        assert!(parse_request(&legacy).is_none());
+    }
+
+    #[test]
     fn rejects_unsupported_or_oversized_request_framing() {
         let mut trailing = request_bytes(b"C:\\root");
         trailing.push(0);

@@ -136,5 +136,23 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
         u16::from_le_bytes(invalid.stdout[44..46].try_into().unwrap()),
         2
     );
+
+    let mut revision_two = request(path, identity, nonce);
+    revision_two[..8].copy_from_slice(b"CRDDPA02");
+    revision_two[8..10].copy_from_slice(&2_u16.to_le_bytes());
+    let legacy = invoke(&revision_two);
+    assert_eq!(legacy.status.code(), Some(2));
+    assert!(legacy.stderr.is_empty());
+    assert_eq!(legacy.stdout.len(), 86);
+    assert_eq!(&legacy.stdout[..8], b"CRDDPR03");
+    assert_eq!(
+        u16::from_le_bytes(legacy.stdout[8..10].try_into().unwrap()),
+        3
+    );
+    assert_eq!(legacy.stdout[11], 0);
+    assert_eq!(
+        u16::from_le_bytes(legacy.stdout[44..46].try_into().unwrap()),
+        2
+    );
     std::fs::remove_dir(root).unwrap();
 }
