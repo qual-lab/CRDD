@@ -19,6 +19,7 @@ export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/src/security/plain-data-snapshot.ts",
   "tools/coordinator/src/security/provider-home.ts",
   "tools/coordinator/src/security/provider-home-mount-grant.ts",
+  "tools/coordinator/src/security/provider-home-mount-grant-store.ts",
   "tools/coordinator/src/security/provider-lifecycle.ts",
   "tools/coordinator/src/core/doctor.ts",
   "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
@@ -30,6 +31,7 @@ export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/plain-data-snapshot.contract.test.ts",
   "tools/coordinator/tests/provider-home.contract.test.ts",
   "tools/coordinator/tests/provider-home-mount-grant.contract.test.ts",
+  "tools/coordinator/tests/provider-home-mount-grant-store.contract.test.ts",
   "tools/coordinator/tests/provider-lifecycle.contract.test.ts",
   "tools/coordinator/tests/doctor.contract.test.ts",
   "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
@@ -86,6 +88,13 @@ const coverageObligations = Object.freeze({
     "全状態、正規遷移、再利用拒否、binding差、期限境界、動的入力および非Effect試験",
     "Mount Grant record、遷移、利用判定またはEffect Adapter変更時",
   ),
+  "tools/coordinator/src/security/provider-home-mount-grant-store.ts":
+    obligation(
+      "Filesystem障害、lock残留および時刻競合の全組合せは同一runで発火しない",
+      "Grantの安全な一回消費または失効が稀なFilesystem障害で停止する可能性",
+      "発行、一回消費、二重消費拒否、失効、観測差、重複storeおよび無効Capability試験",
+      "Mount Grant store、clock、issuer、消費、失効またはmount統合変更時",
+    ),
   "tools/coordinator/src/security/provider-lifecycle.ts": obligation(
     "合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない",
     "入力shapeまたは上限の稀な不正形を同じ固定reasonへ閉じる分岐の退行",
