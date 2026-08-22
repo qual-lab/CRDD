@@ -55,6 +55,26 @@ function useInput(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function assertNoMountEffects(result: {
+  providerHomeMountGrantIssued: boolean;
+  mountAuthorizationIssued: boolean;
+  providerHomeMounted: boolean;
+  filesystemEffectIssued: boolean;
+  runtimeAuthorityIssued: boolean;
+  operationCapabilityIssued: boolean;
+  pathReported: boolean;
+  credentialReported: boolean;
+}) {
+  assert.equal(result.providerHomeMountGrantIssued, false);
+  assert.equal(result.mountAuthorizationIssued, false);
+  assert.equal(result.providerHomeMounted, false);
+  assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(result.runtimeAuthorityIssued, false);
+  assert.equal(result.operationCapabilityIssued, false);
+  assert.equal(result.pathReported, false);
+  assert.equal(result.credentialReported, false);
+}
+
 test("Mount Grant契約は一回限り・短命・三者bindingと非Effect境界を固定する", () => {
   const contract = describeProviderHomeMountGrantContract();
   assert.equal(contract.contract, PROVIDER_HOME_MOUNT_GRANT_CONTRACT);
@@ -136,11 +156,7 @@ test("prepared、issued、consumed、revokedの整合したrecordだけを候補
   for (const candidate of candidates) {
     const result = compileProviderHomeMountGrantCandidate(candidate);
     assert.equal(result.status, "candidate");
-    assert.equal(result.providerHomeMountGrantIssued, false);
-    assert.equal(result.mountAuthorizationIssued, false);
-    assert.equal(result.providerHomeMounted, false);
-    assert.equal(result.pathReported, false);
-    assert.equal(result.credentialReported, false);
+    assertNoMountEffects(result);
   }
   assert.equal(isProviderHomeMountGrantRef("PHMGRANT-000001"), true);
   assert.equal(isProviderHomeMountGrantRef("AUTH-000001"), false);
@@ -207,13 +223,15 @@ test("recordのshape、Identity、時刻、回数および状態矛盾を拒否�
       "provider_home_mount_grant_record_invalid",
     );
   }
+  const schemaFailure = compileProviderHomeMountGrantCandidate({
+    ...record(),
+    token: "forbidden",
+  });
   assert.equal(
-    compileProviderHomeMountGrantCandidate({
-      ...record(),
-      token: "forbidden",
-    }).reason,
+    schemaFailure.reason,
     "provider_home_mount_grant_record_invalid",
   );
+  assertNoMountEffects(schemaFailure);
 });
 
 test("正規遷移だけを同じbindingと時刻で候補化する", () => {
@@ -261,7 +279,7 @@ test("正規遷移だけを同じbindingと時刻で候補化する", () => {
       next,
     });
     assert.equal(result.status, "candidate");
-    assert.equal(result.providerHomeMountGrantIssued, false);
+    assertNoMountEffects(result);
   }
   assert.equal(
     evaluateProviderHomeMountGrantTransitionCandidate({
@@ -315,9 +333,7 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
     result.reason,
     "provider_home_mount_grant_runtime_clock_store_and_mount_adapter_required",
   );
-  assert.equal(result.mountAuthorizationIssued, false);
-  assert.equal(result.filesystemEffectIssued, false);
-  assert.equal(result.operationCapabilityIssued, false);
+  assertNoMountEffects(result);
   assert.equal(
     evaluateProviderHomeMountGrantUseCandidate(
       useInput({ observedAt: ISSUED_AT }),
@@ -337,33 +353,45 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
     { providerHomeMountGrantRef: "PHMGRANT-000002" },
     { providerHomeMountGrantRef: "AUTH-000001" },
   ]) {
+    const bindingFailure = evaluateProviderHomeMountGrantUseCandidate({
+      ...input,
+      ...changed,
+    });
     assert.equal(
-      evaluateProviderHomeMountGrantUseCandidate({ ...input, ...changed })
-        .reason,
+      bindingFailure.reason,
       "provider_home_mount_grant_use_binding_mismatch",
     );
+    assertNoMountEffects(bindingFailure);
   }
   for (const changed of [
     { observedProviderHomeIdentityHash: "x" },
     { observedProviderHomeProtectionHash: "x" },
     { observedLocalUserBindingHash: "x" },
   ]) {
+    const observationFailure = evaluateProviderHomeMountGrantUseCandidate({
+      ...input,
+      ...changed,
+    });
     assert.equal(
-      evaluateProviderHomeMountGrantUseCandidate({ ...input, ...changed })
-        .reason,
+      observationFailure.reason,
       "provider_home_mount_grant_use_observation_invalid",
     );
+    assertNoMountEffects(observationFailure);
   }
   for (const changed of [
     { observedProviderHomeIdentityHash: "d".repeat(64) },
     { observedProviderHomeProtectionHash: "e".repeat(64) },
     { observedLocalUserBindingHash: "f".repeat(64) },
   ]) {
+    const observationFailure = evaluateProviderHomeMountGrantUseCandidate({
+      ...input,
+      ...changed,
+    });
     assert.equal(
-      evaluateProviderHomeMountGrantUseCandidate({ ...input, ...changed })
-        .reason,
+      observationFailure.reason,
       "provider_home_mount_grant_use_observation_mismatch",
     );
+    assertNoMountEffects(observationFailure);
   }
   assert.equal(
     evaluateProviderHomeMountGrantUseCandidate({
@@ -379,39 +407,45 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
     }).reason,
     "provider_home_mount_grant_observed_at_invalid",
   );
-  assert.equal(
-    evaluateProviderHomeMountGrantUseCandidate({
-      ...input,
-      grant: record({
-        state: "consumed",
-        consumedAt: input.observedAt,
-        consumptionCount: 1,
-      }),
-    }).reason,
-    "provider_home_mount_grant_not_usable",
-  );
+  const stateFailure = evaluateProviderHomeMountGrantUseCandidate({
+    ...input,
+    grant: record({
+      state: "consumed",
+      consumedAt: input.observedAt,
+      consumptionCount: 1,
+    }),
+  });
+  assert.equal(stateFailure.reason, "provider_home_mount_grant_not_usable");
+  assertNoMountEffects(stateFailure);
   for (const observedAt of [
     "2026-08-21T23:59:59.999Z",
     EXPIRES_AT,
     "2026-08-22T00:05:00.001Z",
   ]) {
+    const timeFailure = evaluateProviderHomeMountGrantUseCandidate({
+      ...input,
+      observedAt,
+    });
     assert.equal(
-      evaluateProviderHomeMountGrantUseCandidate({ ...input, observedAt })
-        .reason,
+      timeFailure.reason,
       "provider_home_mount_grant_expired_or_not_yet_valid",
     );
+    assertNoMountEffects(timeFailure);
   }
 });
 
 test("余分field、accessor、Proxyと不正nested recordを例外なく拒否する", () => {
-  assert.equal(
+  const transitionSchemaFailure =
     evaluateProviderHomeMountGrantTransitionCandidate({
       previous: record(),
       next: record(),
       extra: true,
-    }).reason,
+    });
+  assert.equal(
+    transitionSchemaFailure.reason,
     "provider_home_mount_grant_transition_input_invalid",
   );
+  assertNoMountEffects(transitionSchemaFailure);
   assert.equal(
     evaluateProviderHomeMountGrantTransitionCandidate({
       previous: record(),
@@ -425,11 +459,14 @@ test("余分field、accessor、Proxyと不正nested recordを例外なく拒否�
     ).reason,
     "provider_home_mount_grant_use_record_invalid",
   );
+  const useSchemaFailure = evaluateProviderHomeMountGrantUseCandidate(
+    useInput({ extra: true }),
+  );
   assert.equal(
-    evaluateProviderHomeMountGrantUseCandidate(useInput({ extra: true }))
-      .reason,
+    useSchemaFailure.reason,
     "provider_home_mount_grant_use_input_invalid",
   );
+  assertNoMountEffects(useSchemaFailure);
   const {
     observedProviderHomeIdentityHash: unusedObservedIdentity,
     ...missingObservation

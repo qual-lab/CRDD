@@ -21,7 +21,7 @@
 ## 発火、非発火、境界および情報不足
 
 - 発火例: exact Schema、canonical UTC、最長5分、使用上限1回、状態整合および全bindingを満たすplain objectは、非Authorityの構造候補になる。
-- 非発火例: 説明contract取得、通常`doctor`、構造候補化、遷移候補化および使用候補化は、Filesystem、mount、Credential、Network、Provider processまたは課金Effectを発火しない。
+- 非発火例: 説明contract取得、構造候補化、遷移候補化および使用候補化は、Filesystem、mount、Credential、Network、Provider processまたは課金Effectを発火しない。通常`doctor`はProvider Home保護／mount、Credential、Network、Provider processまたは課金Effectを発火しない一方、所有する一時Operation directoryと外部回復recordを作成・cleanupする診断Filesystem Effectを持つ。
 - 境界例: 発行時刻（`issuedAt`）は使用可能区間に含め、有効期限（`expiresAt`）は含めない。`revoked` recordは観測時刻にかかわらず使用候補にならない。5分を1 ms超える寿命、二重消費、逆遷移、Grant参照またはbinding差、余分field、accessor、Proxyおよび非canonical時刻は固定`blocked` reasonへ閉じる。
 - 判定情報不足例: canonical Runtime時刻、atomicなcurrent record、Provider Homeのstable Identity／保護観測またはselected local user bindingを確認できない場合は、構造が正しくても発行、使用、失効またはmount済みへ昇格しない。
 
@@ -43,7 +43,7 @@
 
 基準Node.js `v24.19.0`で、Coordinator strict typecheck／Biome lint／formatはPass、全contract testは399／399、Checker package checkはPass、contract testは151／151だった。新規専用coverage commandではproduction source `provider-home-mount-grant.ts`と直接依存`plain-data-snapshot.ts`のline、functionおよびbranchが各100.00%となった。Provider Home coverageはexact 8 source／8 testで、lines 2,380／2,575、functions 94／101、branches 535／623、compact payload SHA-256 `66129c20cb14969cc00e97e7ed45534a7d289471b1017a0e0611bf1bc0401243`が連続2回一致した。未到達分岐は既存の理由、リスク、代替確認、ownerおよび再確認契機へ接続し、新規Mount Grant sourceには未到達分岐がない。
 
-Repository全体checkerは536 files、340 Markdown、1,979 local links、575 anchorsを確認し、Error 0／Warning 0だった。既定shellのNode.js `v22.18.0`ではProvider Home coverage runnerが基準runtime未満として意図どおり停止し、基準Nodeへ切り替えた結果を正式結果とした。実Provider、Docker、Network、Filesystem、OAuth、mountまたは課金Effectは本確認で発火していない。最終独立確認結果は、是正版の対象改訂版を固定してから追記する。
+Repository全体checkerは536 files、340 Markdown、1,979 local links、575 anchorsを確認し、Error 0／Warning 0だった。既定shellのNode.js `v22.18.0`ではProvider Home coverage runnerが基準runtime未満として意図どおり停止し、基準Nodeへ切り替えた結果を正式結果とした。実Provider、Docker、Network、OAuth、Provider Home保護／mountまたは課金Effectは本確認で発火していない。Coordinator contract testは、所有する一時領域と回復recordを作成・cleanupする診断／試験Filesystem Effectを含む。最終独立確認結果は、是正版の対象改訂版を固定してから追記する。
 
 ## 初回独立確認と統合是正
 
@@ -55,6 +55,8 @@ Repository全体checkerは536 files、340 Markdown、1,979 local links、575 anc
 - 「失効時刻」が`expiresAt`と`revokedAt`のどちらか判別できなかった。有効期限の半開区間と、`revoked` recordが時刻にかかわらず使用不能であることを別々に表示した。
 
 統合是正方針は修正開始前に3監査へ再提示し、全監査から整合を確認した。Path、SID、Credential、token、session内容、5分上限、使用1回、4状態、非Authority、全Effect false、Gate blocked、`FU-018-PROVIDER-HOME`の`In Progress`および非Releaseは変更していない。初回監査結果を修正版の合否へ流用せず、新しい固定commitへ同じ監査集合を再実行する。
+
+固定commit `a1293a0687545414eceff16f3091e2f8578792ba`／tree `c5bda1485a04b500ab4ca1bfd11f582d998dec59`への再監査では、初回4是正の実装は解消した。Agent／Architecture／Security ReviewはPassだったが、Gap／ImpactおよびConformanceは合意済み受入条件の未完了2件、Document Auditは初回から存在した診断Filesystem Effectの表示漏れ1件によりFailだった。追加是正では、8つの非Effect flagを各入口の正例とSchema／binding／observation／state／time失敗分類で直接確認し、READMEと脅威モデルへ`revoked` recordの時刻非依存な使用不能を伝播した。また、pure Mount Grant CoreのEffect 0と、通常`doctor`およびcontract testが所有一時領域・回復recordへ行う診断／試験Filesystem Effectを分離した。追加是正方針も修正開始前に3監査へ再提示し、全監査から整合を確認した。再監査結果も次の固定版の合否へ流用しない。
 
 ## 未完了事項と人間判断
 
