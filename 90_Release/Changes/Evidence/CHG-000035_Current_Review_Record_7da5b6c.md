@@ -42,7 +42,7 @@ exact command、Node／npm／Cargo／rustc Identity、coverage／PE payloadのby
 |---|---|---|---|
 | Agent／Architecture／Security Review | `/root/chg28_security_review` | `9bf0a71`の全観点再走査でPass、`7da5b6c`の記録限定差分を軽量再確認 | `Pass`、Finding 0 |
 | Document Audit | `/root/chg28_document_audit` | `9bf0a71`でMinor 1件、exact command／環境を再実行記録した`7da5b6c`を限定再監査 | `Pass`、Finding 0 |
-| Gap／Impact Audit | `/root/chg28_gap_conformance` | `9bf0a71`の全観点再走査でPass、`7da5b6c`の記録限定差分は合意済み不変境界内 | `Pass`、Finding 0 |
+| Gap／Impact Audit | `/root/chg28_gap_conformance` | `9bf0a71`の全観点再走査でPass。`7da5b6c`でbinary-safe driver再実行によるRust生stream SHA-256 2件の訂正を含む記録限定差分を確認し、coverage payload 3238 bytes／SHA-256 `e631edc4abc808c95df3dbeaa5e1497ec03951a6f336386045ba8c44d47056e6`、totals、実装、契約および適格性境界の不変を確認 | `Pass`、Finding 0 |
 | Conformance Audit | `/root/chg28_gap_conformance` | 本変更scopeの適格性と非Gate／非Release境界を確認 | 限定scopeで`Pass`、Finding 0 |
 
 全確認は既知の契約母集団と利用側母集団を全数確認し、サンプリングは行っていない。新規候補4分類はすべて0件、未解決Findingは0件である。
