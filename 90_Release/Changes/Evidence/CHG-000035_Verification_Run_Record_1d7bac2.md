@@ -1,6 +1,8 @@
 # CHG-000035 固定後検証実行記録（1d7bac2）
 
-状態（Status）: `Ready for Verification`
+状態（Status）: `Superseded`
+
+Node.js `v22.18.0`は後続で固定した検証基準（Node.js 24.12以上）を満たさないため、本記録を現行の合否根拠に使用しない。現行記録は[`f678428固定後検証実行記録`](CHG-000035_Verification_Run_Record_f678428.md)である。本ファイルは履歴として保持する。
 
 ## 1. 宣言対象
 
