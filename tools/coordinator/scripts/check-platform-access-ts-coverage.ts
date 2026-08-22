@@ -10,6 +10,7 @@ const repositoryRoot = path.resolve(coordinatorRoot, "../..");
 
 export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
+  "tools/coordinator/scripts/build-native-bootstrap.ts",
   "tools/coordinator/scripts/release-staging-manifest.ts",
   "tools/coordinator/scripts/sign-release-manifest.ts",
   "tools/coordinator/src/core/doctor.ts",
@@ -17,6 +18,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/src/security/platform-access-adapter.ts",
   "tools/coordinator/src/security/platform-access-release.ts",
   "tools/coordinator/src/security/native-provision-supervisor-release.ts",
+  "tools/coordinator/src/security/native-bootstrap-pe-inspector.ts",
   "tools/coordinator/src/security/platform-provisioner-manifest-loader.ts",
   "tools/coordinator/src/security/platform-provisioner-active-pointer.ts",
   "tools/coordinator/src/security/platform-provisioner-active-pointer-store.ts",
@@ -34,10 +36,12 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
 
 export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/authority-root-path-lexical.contract.test.ts",
+  "tools/coordinator/tests/native-bootstrap-build.contract.test.ts",
   "tools/coordinator/tests/doctor.contract.test.ts",
   "tools/coordinator/tests/platform-access-adapter.contract.test.ts",
   "tools/coordinator/tests/platform-access-release.contract.test.ts",
   "tools/coordinator/tests/native-provision-supervisor-release.contract.test.ts",
+  "tools/coordinator/tests/native-bootstrap-pe-inspector.contract.test.ts",
   "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-active-pointer.contract.test.ts",
@@ -97,6 +101,12 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "exact source/test母集団、LCOV grammar負例および連続出力一致",
         "LCOV grammar、Node coverageまたは固定母集団の変更時",
       ),
+    "tools/coordinator/scripts/build-native-bootstrap.ts": obligation(
+      "実Cargo失敗、全Filesystem raceおよび全禁止環境変数を同一coverage runで到達していない",
+      "外部build overrideまたは不正targetへのrelease成果物生成",
+      "固定argv exact試験、crate外target／RUSTFLAGS拒否、二clean build byte一致およびfeature付きClippy",
+      "toolchain、target、Cargo feature、link argvまたはbuild環境境界変更時",
+    ),
     "tools/coordinator/scripts/release-staging-manifest.ts": obligation(
       "全descriptor failureと全置換timingを同一runで到達していない",
       "稀なFilesystem failureのEffect分類漏れ",
@@ -139,6 +149,13 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
         "native supervisor artifact差替えの検出漏れ",
         "同一handle観測、改変、偽tokenおよびRoot差試験",
         "native supervisor成果物またはFilesystem API変更時",
+      ),
+    "tools/coordinator/src/security/native-bootstrap-pe-inspector.ts":
+      obligation(
+        "実Release正常PEと固定mutation母集団外の全破損byte組合せは未到達である",
+        "未知の複合破損PEを誤分類する残存risk",
+        "independent fixtureのheader、section、RVA、ASCII、descriptor、thunk、directory正負試験と実Release PE検査",
+        "PE policy、toolchain、link argvまたはRelease artifact変更時",
       ),
     "tools/coordinator/src/security/platform-provisioner-manifest-loader.ts":
       obligation(

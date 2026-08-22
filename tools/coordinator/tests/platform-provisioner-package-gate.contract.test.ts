@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync, sign } from "node:crypto";
+import {
+  createHash,
+  generateKeyPairSync,
+  sign,
+  verify,
+  type KeyObject,
+} from "node:crypto";
 import test from "node:test";
 
 import {
@@ -14,6 +20,8 @@ import {
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "./test-support.ts";
+
+const fixturePrivateKeys = new WeakMap<object, KeyObject>();
 
 function frame(payload: Record<string, unknown>) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
@@ -93,7 +101,7 @@ function fixture() {
       },
     ],
   };
-  return {
+  const value = {
     manifestVerificationInput: {
       manifestEnvelope,
       releaseSignerSpkiDer: spki,
@@ -115,7 +123,41 @@ function fixture() {
     expectedCrddCommit: payload.crddCommit,
     expectedCrddTree: payload.crddTree,
   };
+  fixturePrivateKeys.set(value, release.privateKey);
+  return value;
 }
+
+test("有効署名V2の旧native entrypoint revision 1をGateへ昇格しない", () => {
+  const value = fixture();
+  const payload = value.manifestVerificationInput.manifestEnvelope.payload;
+  payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 1;
+  const privateKey = fixturePrivateKeys.get(value);
+  assert.ok(privateKey);
+  const signature = sign(null, frame(payload), privateKey).toString(
+    "base64url",
+  );
+  const signatureEntry =
+    value.manifestVerificationInput.manifestEnvelope.signatures[0];
+  assert.ok(signatureEntry);
+  signatureEntry.signature = signature;
+  assert.equal(
+    verify(
+      null,
+      frame(payload),
+      {
+        key: value.manifestVerificationInput.releaseSignerSpkiDer,
+        format: "der",
+        type: "spki",
+      },
+      Buffer.from(signature, "base64url"),
+    ),
+    true,
+  );
+  const result = evaluatePlatformProvisionerPackageGateCandidate(value);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.effectAuthorizationIssued, false);
+  assert.equal(result.filesystemEffectIssued, false);
+});
 
 test("CRDD bundle and manifest observations match but remain non-authoritative", () => {
   const result = evaluatePlatformProvisionerPackageGateCandidate(fixture());

@@ -20,7 +20,8 @@ CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面�
 
 - `coordinator` binaryをfeature付きrelease buildだけへ限定し、固定entrypoint、panic abort、4つの`KERNEL32.dll` APIだけでraw command line読取り、stdout書込みおよび終了を行う。
 - 引数判定と固定結果選択を副作用のないRust Coreへ分離し、発火、非発火、引用符、余分tokenおよび空入力を試験する。
-- locked release buildと同じ成果物byteを独立PE parserで検査し、その同じPathを直接実行してCLI結果を照合する。
+- 外部Rust build overrideを拒否した`--frozen`固定toolchain／target／feature／link argvで、空白を含む別clean targetへ2回buildし、byte長とSHA-256の完全一致を要求する。同じ成果物の実行前後file Identity／Hashを照合し、exact `provision`と5つのinvalid CLIを直接実行する。この確認は信頼済みbuild環境内の実行前後安定性に限り、loaded image結合ではない。
+- 副作用のないPE parserを正負fixtureで検査し、native artifact observerが開いた同一fdから所有snapshot化した最大16 MiBのbyteへ適用する。同じsnapshotからPE判定とSHA-256を一回投影し、policy不一致はRelease staging sessionおよびmanifest配置Effectより前に拒否する。
 - native artifactの`entrypointContractRevision`を2へ上げ、Trust Core、package filesystem／gate、release stagingおよび全exact fixtureを同時移行する。manifest Schema revisionと署名domainは変更しない。
 
 ## 発火・非発火・境界・情報不足
@@ -32,7 +33,7 @@ CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面�
 
 ## 固定PE条件と非主張
 
-検査する条件はx86-64 PE32+、Windows console subsystem、実行可能section内entrypoint、`DYNAMIC_BASE`、`NX_COMPAT`、import exact `KERNEL32.dll` 1件と`GetCommandLineW`、`GetStdHandle`、`WriteFile`、`ExitProcess` exact 4件、delay import 0、TLS directory 0およびCLR runtime header 0である。ordinal import、未知DLL、未知function、重複DLL、範囲外RVAまたは過大文字列は失敗にする。
+検査する条件は16 MiB以下、section 1～32件、x86-64 PE32+、optional header 240 byte、data directory exact 16件、Windows console subsystem、実行可能な一意section内entrypoint、`DYNAMIC_BASE`、`NX_COMPAT`、import exact `KERNEL32.dll` 1件と`GetCommandLineW`、`GetStdHandle`、`WriteFile`、`ExitProcess` exact 4件、delay import／TLS directory／bound import／CLR runtime header 0である。section table／raw／virtual範囲、加算上限、全section間のraw／virtual非重複、RVAの一意な単一section写像、import directory 20～180 byte、descriptor最大8件、`OriginalFirstThunk`と`FirstThunk`の両方非0・同一内容、thunk最大64件、library名64 byte以下、function名256 byte以下、raw 7-bit ASCII、宣言directory内zero terminatorと以後zero paddingを要求する。ordinal、high-bit ASCII alias、未知／重複DLL、未知function、範囲外／曖昧RVAまたは非終端／過大文字列は失敗にする。
 
 `no_std`、source上のAPI不使用またはstatic PE条件だけでは、検証済み実行イメージ（Verified Image）、実行時loaded module集合、DLL探索閉包、DLL side-loading不存在、Network非発火、leaf／全parent handle、local volume、初期Trust、token／Root観測、binder、Protection、active、Provider HomeまたはClaude安全実行を証明しない。PE parserは開発時検証であり、Runtime AuthorityまたはCapabilityを発行しない。
 
@@ -44,7 +45,7 @@ CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面�
 
 ## 検証義務と現在状態
 
-固定候補ではTypeScript typecheck、Biome warning拒否／format、Coordinator全contract test、Rust format、Clippy warning拒否、locked test、feature付きlocked release build、Rust／TypeScript coverage、PE static検査、同一成果物のexact `provision`／invalid CLI、Checker packageおよびRepository全体checkerを別軸で確認する。PE検査は独立したbounded parserで行い、LLVM表示toolの存在を合否条件にしない。
+固定候補ではTypeScript typecheck、Biome warning拒否／format、Coordinator全contract test、Rust format、workerとrelease-only native binaryを分けたClippy warning拒否、frozen test、feature付きfrozen release build、Rust／TypeScript coverage、PE static検査、同一成果物のexact `provision`／引数なし／`doctor`／quoted command／余分token／大文字差CLI、Checker packageおよびRepository全体checkerを別軸で確認する。PE検査は独立したbounded parserで行い、LLVM表示toolの存在を合否条件にしない。検証runner自身はCargo／CLI childのProcess Effectとbuild／cleanupのFilesystem Effectを発行し、`--frozen`でdependency Networkを禁止するため、検査対象bootstrapのspawn 0／全Effect falseと別軸に記録する。
 
 現在、固定blocked bootstrapとPE static allowlistだけを実装した。次段は同一runのloaded image、leafと全rename可能parent handle、local volume、実行時module／DLL探索閉包およびNetwork非発火である。そこまで成立する前にtoken／Root観測へ進めず、operational one-shot、Gate、準拠表明、StableまたはReleaseを主張しない。
 

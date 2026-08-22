@@ -330,6 +330,22 @@ test("暗号学的に有効な旧V1一成果物manifestをaliasせず拒否す�
   assert.equal(result.networkEffectIssued, false);
 });
 
+test("暗号学的に有効なV2 entrypoint revision 1をaliasせず拒否する", () => {
+  const value = fixture();
+  value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 1;
+  resign(value);
+  assertSignatureValid(value);
+  const result = verifyPlatformProvisionerManifestCandidate(value);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.runtimeOwnedReleaseTrustConfirmed, false);
+  assert.equal(result.crddDistributionConfirmed, false);
+  assert.equal(result.runtimeOwnedPackageFilesystemConfirmed, false);
+  assert.equal(result.runtimeAuthorityConferred, false);
+  assert.equal(result.runtimeCapabilityIssued, false);
+  assert.equal(result.filesystemEffectIssued, false);
+  assert.equal(result.networkEffectIssued, false);
+});
+
 test("暗号学的に有効なV2 artifact欠落とnative field差をSchemaで拒否する", () => {
   const mutations: Array<(value: ReturnType<typeof fixture>) => void> = [
     (value) => {

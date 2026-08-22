@@ -222,6 +222,21 @@ const summary = Object.freeze({
   sourceFiles: sourceCoverageEntries.sort((left, right) =>
     left.file.localeCompare(right.file),
   ),
+  excludedSources: Object.freeze([
+    Object.freeze({
+      file: "src/bin/coordinator.rs",
+      status: "Not Instrumented",
+      reason:
+        "release-only no_std/no_main entrypoint cannot be linked into the stable test coverage profile without changing its production contract",
+      risk: "Win32 FFI output failure, partial write and panic paths are not coverage-measured",
+      alternativeVerification:
+        "feature-specific release Clippy, strict PE inspection, exact real-artifact CLI tests and source review",
+      owner: "Qual-Lab",
+      humanDecision: "not_required",
+      recheck:
+        "entrypoint, Win32 import, linker argv, output handling or stable Rust coverage capability changes",
+    }),
+  ]),
   totals,
   branchCoverageCapability:
     totals.branches.count === 0

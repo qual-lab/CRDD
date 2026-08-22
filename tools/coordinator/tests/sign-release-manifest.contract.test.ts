@@ -14,6 +14,7 @@ import {
   ReleaseStagingManifestError,
 } from "../scripts/release-staging-manifest.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
+import { createNativeBootstrapPeFixture } from "./native-bootstrap-pe-fixture.ts";
 
 const TEST_PASSPHRASE = "test-only-release-signing-passphrase";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
@@ -130,7 +131,7 @@ function placementFixture() {
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
   fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
   fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
-  fs.writeFileSync(supervisorPath, "fixed-test-native-supervisor-binary");
+  fs.writeFileSync(supervisorPath, createNativeBootstrapPeFixture());
   const observation = beginReleaseStagingManifestSession(distributionRoot);
   assert.ok(observation);
   return {
@@ -203,12 +204,28 @@ test("両Rust成果物の各単独欠落ではRelease staging sessionを開始�
         fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
       }
       if (missing !== "native-supervisor") {
-        fs.writeFileSync(supervisorPath, "fixed-test-native-supervisor-binary");
+        fs.writeFileSync(supervisorPath, createNativeBootstrapPeFixture());
       }
       assert.equal(beginReleaseStagingManifestSession(distributionRoot), null);
     } finally {
       fs.rmSync(parent, { recursive: true, force: true });
     }
+  }
+});
+
+test("native PE policy不一致ではstaging sessionもFilesystem Effectも開始しない", () => {
+  const value = placementFixture();
+  try {
+    const bytes = fs.readFileSync(value.supervisorPath);
+    bytes[0x800] = 0xcb;
+    fs.writeFileSync(value.supervisorPath, bytes);
+    assert.equal(
+      beginReleaseStagingManifestSession(value.distributionRoot),
+      null,
+    );
+    assert.equal(fs.existsSync(value.manifestPath), false);
+  } finally {
+    fs.rmSync(value.parent, { recursive: true, force: true });
   }
 });
 
@@ -404,7 +421,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
         "x86_64-pc-windows-msvc",
         "coordinator.exe",
       ),
-      Buffer.from("not-a-real-supervisor", "ascii"),
+      createNativeBootstrapPeFixture(),
     );
     fs.mkdirSync(path.join(distributionRoot, "tools", "coordinator", "src"), {
       recursive: true,

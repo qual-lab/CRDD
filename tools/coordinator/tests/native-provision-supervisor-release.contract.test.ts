@@ -9,6 +9,7 @@ import {
   describeNativeProvisionSupervisorReleaseContract,
   verifyNativeProvisionSupervisorArtifactSigningObservation,
 } from "../src/security/native-provision-supervisor-release.ts";
+import { createNativeBootstrapPeFixture } from "./native-bootstrap-pe-fixture.ts";
 
 function fixture() {
   const root = fs.mkdtempSync(
@@ -22,7 +23,7 @@ function fixture() {
     "coordinator.exe",
   );
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
-  fs.writeFileSync(executablePath, "fixed-native-supervisor");
+  fs.writeFileSync(executablePath, createNativeBootstrapPeFixture());
   return { root, executablePath };
 }
 
@@ -38,9 +39,9 @@ test("native supervisor成果物を同一file観測へ固定する", () => {
       target: "x86_64-pc-windows-msvc",
       entrypointContractRevision: 2,
       rustToolchain: "1.94.1",
-      byteLength: 23,
+      byteLength: 4096,
       sha256:
-        "356315adda5c57be2facba9e75a0e4ecddc57bc2dd1cd6da7786fd568ee3b34a",
+        "f27602e0eb5d7c8e567e5535a4ac01af887ced4121e82d639f584c04ea4db15e",
     });
     assert.equal(
       verifyNativeProvisionSupervisorArtifactSigningObservation(
@@ -81,4 +82,19 @@ test("native supervisor Release契約は固定成果物だけを許可する", (
     verifyNativeProvisionSupervisorArtifactSigningObservation({}),
     false,
   );
+});
+
+test("PE policy不一致を署名観測とstaging開始前に拒否する", () => {
+  const value = fixture();
+  try {
+    const bytes = fs.readFileSync(value.executablePath);
+    bytes[0x800] = 0xcb;
+    fs.writeFileSync(value.executablePath, bytes);
+    assert.equal(
+      beginNativeProvisionSupervisorArtifactSigningObservation(value.root),
+      null,
+    );
+  } finally {
+    fs.rmSync(value.root, { recursive: true, force: true });
+  }
 });

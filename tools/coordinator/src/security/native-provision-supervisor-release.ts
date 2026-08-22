@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  inspectNativeBootstrapPe,
+  NATIVE_BOOTSTRAP_PE_MAXIMUM_BYTES,
+} from "./native-bootstrap-pe-inspector.ts";
 
 export const NATIVE_PROVISION_SUPERVISOR_TARGET = "x86_64-pc-windows-msvc";
 export const NATIVE_PROVISION_SUPERVISOR_RUST_TOOLCHAIN = "1.94.1";
 export const NATIVE_PROVISION_SUPERVISOR_ENTRYPOINT_CONTRACT_REVISION = 2;
 export const NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES =
-  16 * 1024 * 1024;
+  NATIVE_BOOTSTRAP_PE_MAXIMUM_BYTES;
 export const NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH =
   "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe";
 
@@ -135,8 +139,8 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
     if (!sameFileIdentity(before, opened)) {
       throw new Error("native_provision_supervisor_release_executable_changed");
     }
-    const hash = createHash("sha256");
     const buffer = Buffer.allocUnsafe(64 * 1024);
+    const byteChunks: Buffer[] = [];
     let byteLength = 0;
     while (true) {
       const count = fs.readSync(descriptor, buffer, 0, buffer.length, null);
@@ -147,7 +151,12 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
           "native_provision_supervisor_release_executable_invalid",
         );
       }
-      hash.update(buffer.subarray(0, count));
+      byteChunks.push(Buffer.from(buffer.subarray(0, count)));
+    }
+    const executableBytes = Buffer.concat(byteChunks, byteLength);
+    const inspection = inspectNativeBootstrapPe(executableBytes);
+    if (inspection.status !== "accepted") {
+      throw new Error("native_provision_supervisor_release_executable_invalid");
     }
     const after = fileIdentity(fs.fstatSync(descriptor, { bigint: true }));
     const pathAfter = fileIdentity(
@@ -176,7 +185,7 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
           NATIVE_PROVISION_SUPERVISOR_ENTRYPOINT_CONTRACT_REVISION,
         rustToolchain: NATIVE_PROVISION_SUPERVISOR_RUST_TOOLCHAIN,
         byteLength,
-        sha256: hash.digest("hex"),
+        sha256: createHash("sha256").update(executableBytes).digest("hex"),
       }),
     });
   } finally {

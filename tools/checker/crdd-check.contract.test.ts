@@ -102,7 +102,12 @@ test("Rust platform accessの開発入口は固定Cargo commandだけを使う",
           "platform-access:coverage",
           "platform-access:format:check",
           "platform-access:lint",
+          "platform-access:native-bootstrap-build",
+          "platform-access:native-bootstrap-lint",
+          "platform-access:native-bootstrap-pe",
           "platform-access:test",
+          "platform-access:worker-build",
+          "platform-access:worker-lint",
         ].map((name) => [name, scripts[name]]),
       ),
     {
@@ -113,9 +118,19 @@ test("Rust platform accessの開発入口は固定Cargo commandだけを使う",
       "platform-access:format:check":
         "cargo fmt --manifest-path ../platform-access/Cargo.toml --check",
       "platform-access:lint":
-        "cargo clippy --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc -- -D warnings",
+        "npm run platform-access:worker-lint && npm run platform-access:native-bootstrap-lint",
+      "platform-access:native-bootstrap-build":
+        "node ./scripts/build-native-bootstrap.ts",
+      "platform-access:native-bootstrap-lint":
+        "cargo +1.94.1-x86_64-pc-windows-msvc clippy --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin coordinator --features native-bootstrap-release -- -D warnings",
+      "platform-access:native-bootstrap-pe":
+        "node ./scripts/check-native-bootstrap-pe.ts",
       "platform-access:test":
-        "cargo test --manifest-path ../platform-access/Cargo.toml --locked --target x86_64-pc-windows-msvc",
+        "cargo +1.94.1-x86_64-pc-windows-msvc test --manifest-path ../platform-access/Cargo.toml --frozen --target x86_64-pc-windows-msvc",
+      "platform-access:worker-build":
+        "cargo +1.94.1-x86_64-pc-windows-msvc build --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin crdd-platform-access",
+      "platform-access:worker-lint":
+        "cargo +1.94.1-x86_64-pc-windows-msvc clippy --manifest-path ../platform-access/Cargo.toml --frozen --target x86_64-pc-windows-msvc --bin crdd-platform-access -- -D warnings",
     },
   );
 });
