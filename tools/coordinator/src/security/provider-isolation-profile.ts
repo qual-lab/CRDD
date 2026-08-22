@@ -3,6 +3,7 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import { isProviderHomeMountGrantRef } from "./provider-home-mount-grant.ts";
 
 export const PROVIDER_ISOLATION_CONTRACT =
   "crdd-coordinator/provider-isolation-profile";
@@ -18,7 +19,6 @@ const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const AUTHORITY_REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 const AUTHORITY_GRANT_REF = /^AUTH-[0-9]{6,}$/u;
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
-const PROVIDER_HOME_MOUNT_GRANT_REF = /^PHMGRANT-[0-9]{6,}$/u;
 const TOP_LEVEL_KEYS = new Set([
   "contract",
   "contractRevision",
@@ -46,10 +46,6 @@ function matches(value: unknown, pattern: RegExp): value is string {
     value.length <= PROVIDER_INPUT_LIMITS.identifierLength &&
     pattern.test(value)
   );
-}
-
-export function isProviderHomeMountGrantRef(value: unknown): value is string {
-  return matches(value, PROVIDER_HOME_MOUNT_GRANT_REF);
 }
 
 function normalizeOrigin(value: unknown) {

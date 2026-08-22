@@ -26,6 +26,12 @@ test("専用Provider Homeはlocal userとProvider単位の固定方針を持つ"
   assert.equal(contract.selectedLocalUserBindingRequired, true);
   assert.equal(contract.ownerAndDaclVerificationRequired, true);
   assert.equal(contract.untrustedWriterAllowed, false);
+  assert.equal(
+    contract.mountGrant.structuralCore,
+    "implemented_candidate_non_authoritative",
+  );
+  assert.equal(contract.mountGrant.grantIssued, false);
+  assert.equal(contract.mountGrant.mountAdapter, "not_implemented");
 });
 
 test("Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さない", () => {

@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 
 import {
-  isProviderHomeMountGrantRef,
   PROVIDER_INPUT_LIMITS,
   validateProviderIsolationProfile,
 } from "./provider-isolation-profile.ts";
+import { isProviderHomeMountGrantRef } from "./provider-home-mount-grant.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,

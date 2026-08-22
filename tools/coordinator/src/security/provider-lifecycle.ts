@@ -3,10 +3,11 @@ import {
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
 import { describeProviderHomeContract } from "./provider-home.ts";
+import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 
 export const PROVIDER_LIFECYCLE_CONTRACT =
   "crdd-coordinator/provider-lifecycle";
-export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 4;
+export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 5;
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const MODES = Object.freeze(["login", "run"] as const);
@@ -270,22 +271,7 @@ export function describeProviderLifecycleContract() {
     authPolicies: AUTH_POLICIES,
     authenticationPolicyState: "approved_policy_only",
     dedicatedProviderHome: describeProviderHomeContract(),
-    providerHomeMountGrant: Object.freeze({
-      implementationState: "not_implemented",
-      semantics:
-        "opaque_one_shot_run_scoped_home_handle_or_mount_authorization",
-      operationBound: true,
-      profileBound: true,
-      providerBound: true,
-      tokenCopyAllowed: false,
-      providerHomePathExposed: false,
-      sessionContentExposed: false,
-      revocationRequiredAtOperationEnd: true,
-      revocationImplementationState: "not_implemented",
-      revocationVerified: false,
-      persistentHomeDeletedAtOperationEnd: false,
-      grantIssued: false,
-    }),
+    providerHomeMountGrant: describeProviderHomeMountGrantContract(),
     limits: PROVIDER_LIFECYCLE_LIMITS,
     fixedDigestImageRequired: true,
     fixedDigestImageConfigured: false,

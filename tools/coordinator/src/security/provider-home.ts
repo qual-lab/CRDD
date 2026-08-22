@@ -2,9 +2,10 @@ import path from "node:path";
 
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 
 export const PROVIDER_HOME_CONTRACT = "crdd-coordinator/provider-home";
-export const PROVIDER_HOME_CONTRACT_REVISION = 1;
+export const PROVIDER_HOME_CONTRACT_REVISION = 2;
 
 export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
   "Qual-Lab",
@@ -127,6 +128,7 @@ export function describeProviderHomeContract() {
     selectedLocalUserBinder: "not_implemented",
     authSessionProbe: "not_implemented",
     logoutRevocationAndDeletion: "not_implemented_separate_bootstrap_lifecycle",
+    mountGrant: describeProviderHomeMountGrantContract(),
     callerPathConfersAuthority: false,
     filesystemEffectIssued: false,
     runtimeAuthorityIssued: false,

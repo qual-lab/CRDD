@@ -107,11 +107,11 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
   assert.equal(home.selectedLocalUserBinder, "not_implemented");
   const grant = describeProviderLifecycleContract().providerHomeMountGrant;
   assert.equal(grant.grantIssued, false);
-  assert.equal(grant.tokenCopyAllowed, false);
-  assert.equal(grant.revocationRequiredAtOperationEnd, true);
-  assert.equal(grant.revocationImplementationState, "not_implemented");
-  assert.equal(grant.revocationVerified, false);
-  assert.equal(grant.persistentHomeDeletedAtOperationEnd, false);
+  assert.equal(grant.tokenCopyOrInjectionAllowed, false);
+  assert.equal(grant.operationEndRevocationRequired, true);
+  assert.equal(grant.revocationEffect, "not_implemented");
+  assert.equal(grant.structuralCore, "implemented_candidate_non_authoritative");
+  assert.equal(grant.mountAdapter, "not_implemented");
 });
 
 test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () => {

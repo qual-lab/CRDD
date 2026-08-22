@@ -18,6 +18,7 @@ export const PROVIDER_HOME_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/src/security/authority-root-path-lexical.ts",
   "tools/coordinator/src/security/plain-data-snapshot.ts",
   "tools/coordinator/src/security/provider-home.ts",
+  "tools/coordinator/src/security/provider-home-mount-grant.ts",
   "tools/coordinator/src/security/provider-lifecycle.ts",
   "tools/coordinator/src/core/doctor.ts",
   "tools/coordinator/scripts/check-platform-access-ts-coverage.ts",
@@ -28,6 +29,7 @@ export const PROVIDER_HOME_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/authority-root-path-lexical.contract.test.ts",
   "tools/coordinator/tests/plain-data-snapshot.contract.test.ts",
   "tools/coordinator/tests/provider-home.contract.test.ts",
+  "tools/coordinator/tests/provider-home-mount-grant.contract.test.ts",
   "tools/coordinator/tests/provider-lifecycle.contract.test.ts",
   "tools/coordinator/tests/doctor.contract.test.ts",
   "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
@@ -77,6 +79,12 @@ const coverageObligations = Object.freeze({
     "現固定版のpure配置候補には追加残存riskなし",
     "Codex／Claude、Root境界、Path非出力、長さ、動的入力および非昇格試験",
     "Provider Home layout、Root source、Provider集合または保護Effect着手時",
+  ),
+  "tools/coordinator/src/security/provider-home-mount-grant.ts": obligation(
+    "未到達分岐なしを目標に専用coverageで別途確認する",
+    "一回限り遷移、bindingまたは期限判定の退行",
+    "全状態、正規遷移、再利用拒否、binding差、期限境界、動的入力および非Effect試験",
+    "Mount Grant record、遷移、利用判定またはEffect Adapter変更時",
   ),
   "tools/coordinator/src/security/provider-lifecycle.ts": obligation(
     "合成候補の複合fail-closed述語の全短絡順序を同一runで到達していない",

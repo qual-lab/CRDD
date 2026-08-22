@@ -1,9 +1,7 @@
 import { evaluateAuthorityGrantCandidate } from "./authority-grant-verifier.ts";
 import { loadAuthorityFileBundleCandidate } from "./authority-file-bundle.ts";
-import {
-  isProviderHomeMountGrantRef,
-  PROVIDER_INPUT_LIMITS,
-} from "./provider-isolation-profile.ts";
+import { PROVIDER_INPUT_LIMITS } from "./provider-isolation-profile.ts";
+import { isProviderHomeMountGrantRef } from "./provider-home-mount-grant.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
