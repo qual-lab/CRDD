@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH } from "./platform-provisioner-manifest-loader.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "./platform-access-release.ts";
+import { NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH } from "./native-provision-supervisor-release.ts";
 
 const MAXIMUM_DISTRIBUTION_FILES = 2_048;
 const MAXIMUM_DISTRIBUTION_BYTES = 64 * 1024 * 1024;
@@ -142,7 +143,8 @@ function encodeTree(entries: readonly TreeEntry[]) {
 function isExcludedPostCheckoutArtifact(relativePath: string) {
   return (
     relativePath === PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH ||
-    relativePath === PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH
+    relativePath === PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH ||
+    relativePath === NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH
   );
 }
 
@@ -285,6 +287,10 @@ function observeDistributionTree(
     platformAccessExecutableExcludedFromTree: excludedPostCheckoutArtifacts.has(
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
     ),
+    nativeProvisionSupervisorExecutableExcludedFromTree:
+      excludedPostCheckoutArtifacts.has(
+        NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH,
+      ),
   });
 }
 
@@ -314,6 +320,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
           observed.manifestExcludedFromTree,
         postCheckoutPlatformAccessExecutableExcludedFromGitTree:
           observed.platformAccessExecutableExcludedFromTree,
+        postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree:
+          observed.nativeProvisionSupervisorExecutableExcludedFromTree,
         releaseIdentityRuntimeOwned: false,
         runtimeAuthorityConferred: false,
         runtimeCapabilityIssued: false,
@@ -332,6 +340,8 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
         observed.manifestExcludedFromTree,
       postCheckoutPlatformAccessExecutableExcludedFromGitTree:
         observed.platformAccessExecutableExcludedFromTree,
+      postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree:
+        observed.nativeProvisionSupervisorExecutableExcludedFromTree,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -347,6 +357,7 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
       distributionByteLength: null,
       postCheckoutManifestExcludedFromGitTree: false,
       postCheckoutPlatformAccessExecutableExcludedFromGitTree: false,
+      postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree: false,
       releaseIdentityRuntimeOwned: false,
       runtimeAuthorityConferred: false,
       runtimeCapabilityIssued: false,
@@ -359,7 +370,7 @@ export function inspectPlatformProvisionerReleaseIdentityCandidate(
 export function describePlatformProvisionerReleaseIdentityContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-release-identity",
-    contractRevision: 1,
+    contractRevision: 2,
     hashAlgorithms: Object.freeze(["SHA-1", "SHA-256"]),
     gitObjectEncoding: "blob_and_recursive_tree_object_identity",
     regularFileModes: Object.freeze(["100644", "100755"]),
@@ -370,6 +381,8 @@ export function describePlatformProvisionerReleaseIdentityContract() {
       PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
     postCheckoutPlatformAccessExecutableExcludedFromGitTree:
       PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH,
+    postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree:
+      NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH,
     gitMetadataAllowedInDistribution: false,
     symbolicLinkOrReparseFallbackAllowed: false,
     stableSameHandleFileRead: "implemented_candidate",

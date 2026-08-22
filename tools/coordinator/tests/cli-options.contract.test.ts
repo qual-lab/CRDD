@@ -559,7 +559,7 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
   assert.deepEqual(report, {
     command: "provision",
     status: "blocked",
-    reason: "pre_active_native_provision_supervisor_not_implemented",
+    reason: "native_provision_supervisor_release_binding_not_implemented",
     releaseSequence: null,
     protectedGenerationInstalled: false,
     activePointerPersisted: false,

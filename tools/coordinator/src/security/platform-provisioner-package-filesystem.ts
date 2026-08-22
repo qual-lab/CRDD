@@ -510,6 +510,8 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
       qualLabManifestCryptographicMatch: true,
       runtimeOwnedReleaseTrustConfirmed: true,
       platformAccessArtifact: verification.platformAccessArtifact,
+      nativeProvisionSupervisorArtifact:
+        verification.nativeProvisionSupervisorArtifact,
     });
   } catch {
     return blocked("platform_provisioner_bundled_package_input_invalid");
@@ -563,6 +565,8 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       releaseIdentity.status !== "candidate" ||
       releaseIdentity.postCheckoutManifestExcludedFromGitTree !== true ||
       releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+        true ||
+      releaseIdentity.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree !==
         true
     ) {
       return blocked(
@@ -592,6 +596,8 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       releaseIdentityRuntimeOwned: true,
       crddDistributionConfirmed: true,
       platformAccessArtifact: verification.platformAccessArtifact,
+      nativeProvisionSupervisorArtifact:
+        verification.nativeProvisionSupervisorArtifact,
     });
   } catch {
     return blocked("platform_provisioner_fixed_manifest_verification_failed");
@@ -674,6 +680,8 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       releaseIdentityRuntimeOwned: false,
       crddDistributionConfirmed: true,
       platformAccessArtifact: verification.platformAccessArtifact,
+      nativeProvisionSupervisorArtifact:
+        verification.nativeProvisionSupervisorArtifact,
     });
   } catch {
     return blocked(
@@ -685,7 +693,7 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
 export function describePlatformProvisionerPackageFilesystemContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-filesystem",
-    contractRevision: 1,
+    contractRevision: 2,
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",

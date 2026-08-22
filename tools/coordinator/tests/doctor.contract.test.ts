@@ -383,7 +383,7 @@ test("owned childをjunctionへ置換した場合は対象を削除しない", (
 test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () => {
   const report = runDoctor();
   const serialized = JSON.stringify(report);
-  assert.equal(report.reportVersion, 7);
+  assert.equal(report.reportVersion, 8);
   assert.deepEqual(
     Object.keys(report).sort(),
     [
@@ -652,13 +652,13 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
     report.runtimeActivation.selectedUserBinding,
     "not_implemented_blocked",
   );
-  assert.equal(report.runtimeActivation.contractRevision, 2);
+  assert.equal(report.runtimeActivation.contractRevision, 3);
   assert.deepEqual(report.runtimeActivation.platformProvisionerEffectContract, {
     contract: "crdd-coordinator/platform-provisioner-effect",
-    contractRevision: 2,
+    contractRevision: 3,
     effectController: "not_implemented_effective_access_required",
     preActiveProvisioningOneShot:
-      "contract_implemented_native_supervisor_not_implemented_blocked",
+      "native_direct_entrypoint_implemented_release_binding_blocked",
     command: "explicit_provision_only",
     sourceSelection: "fixed_signed_crdd_distribution_only_target",
     sourceCheckoutBehavior: "blocked_before_any_read_or_filesystem_effect",
@@ -682,9 +682,11 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
     report.runtimeActivation.platformProvisionerPreActiveOneShotContract,
     {
       contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-      contractRevision: 1,
+      contractRevision: 2,
       command: "explicit_coordinator_provision_only",
-      maximumSpawnAttemptsPerInvocation: 1,
+      executionStrategy: "native_top_level_direct_self_observation",
+      maximumObservationAttemptsPerInvocation: 1,
+      maximumWorkerSpawnAttemptsPerInvocation: 0,
       initialTrustCeremony:
         "human_authenticated_officially_signed_release_native_top_level_required",
       nodePathLaunchMayEstablishVerifiedImage: false,
@@ -694,10 +696,11 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
       sourceCheckoutInvocation: false,
       pathCargoShellOrInstallerFallback: false,
       automaticRetryOrRestart: false,
-      nativeSupervisor: "not_implemented_blocked",
+      nativeSupervisor: "entrypoint_implemented_release_binding_blocked",
       releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
       verifiedImageHandleBinding: "not_implemented_blocked",
-      boundedProcess: "not_implemented_blocked",
+      workerBoundedProcess: "not_applicable_no_worker",
+      workerProcessTreeTermination: "not_applicable_no_worker",
       networkEnforcement: "not_implemented_blocked",
       currentProcessEffectIssued: false,
       currentHelperProcessSpawned: false,

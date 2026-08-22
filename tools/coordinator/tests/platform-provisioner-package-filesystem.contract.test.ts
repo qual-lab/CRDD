@@ -36,7 +36,7 @@ function signedManifest(packageContentRootSha256: string) {
   const spki = signer.publicKey.export({ format: "der", type: "spki" });
   const payload = {
     contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     packageName: "@qual-lab/crdd-coordinator",
     packageVersion: "0.0.0-development",
     crddVersion: "v0.18.0",
@@ -46,6 +46,24 @@ function signedManifest(packageContentRootSha256: string) {
     packageContentRootSha256,
     rootProtectionPolicySha256: "2".repeat(64),
     keyStoragePolicySha256: "3".repeat(64),
+    platformAccessArtifact: {
+      relativePath:
+        "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+      target: "x86_64-pc-windows-msvc",
+      protocolRevision: 3,
+      rustToolchain: "1.94.1",
+      byteLength: 1024,
+      sha256: "4".repeat(64),
+    },
+    nativeProvisionSupervisorArtifact: {
+      relativePath:
+        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      target: "x86_64-pc-windows-msvc",
+      entrypointContractRevision: 1,
+      rustToolchain: "1.94.1",
+      byteLength: 2048,
+      sha256: "5".repeat(64),
+    },
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z",
   };
@@ -53,7 +71,7 @@ function signedManifest(packageContentRootSha256: string) {
     input: {
       manifestEnvelope: {
         contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
-        contractRevision: 1,
+        contractRevision: 2,
         payload,
         signatures: [
           {
@@ -232,6 +250,7 @@ test("不正Root、Release Identity不一致およびpackage metadataをfail clo
 
 test("package Filesystem contractは観測をTrustおよびEffectから分離する", () => {
   const contract = describePlatformProvisionerPackageFilesystemContract();
+  assert.equal(contract.contractRevision, 2);
   assert.equal(
     contract.runtimeOwnedPackageFilesystemRead,
     "implemented_candidate_without_permission_authority",

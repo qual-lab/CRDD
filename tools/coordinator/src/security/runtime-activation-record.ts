@@ -37,7 +37,7 @@ import {
 
 export const RUNTIME_ACTIVATION_CONTRACT =
   "crdd-coordinator/runtime-activation-record";
-export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 2;
+export const RUNTIME_ACTIVATION_CONTRACT_REVISION = 3;
 export const RUNTIME_ACTIVATION_FILE = "activation.json";
 export const RUNTIME_ACTIVATION_INPUT_LIMITS = Object.freeze({
   rawBytes: 8_192,

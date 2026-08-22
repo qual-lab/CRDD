@@ -49,7 +49,7 @@ function fixture(protocolRevision = 3) {
   const packageContentRootSha256 = packageRoot.packageContentRootSha256;
   const payload = {
     contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
     crddVersion: "v0.18.0",
@@ -68,12 +68,21 @@ function fixture(protocolRevision = 3) {
       byteLength: 1024,
       sha256: "6".repeat(64),
     },
+    nativeProvisionSupervisorArtifact: {
+      relativePath:
+        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      target: "x86_64-pc-windows-msvc",
+      entrypointContractRevision: 1,
+      rustToolchain: "1.94.1",
+      byteLength: 2048,
+      sha256: "7".repeat(64),
+    },
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z",
   };
   const manifestEnvelope = {
     contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     payload,
     signatures: [
       {
@@ -206,6 +215,38 @@ test("package name, version, file ordering, path and digest mismatches fail clos
         extra: true,
       });
     },
+    (value) => {
+      value.manifestEnvelope.payload.contractRevision = 1;
+      value.manifestEnvelope.contractRevision = 1;
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.relativePath =
+        "90_Release/coordinator/wrong.exe";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.target =
+        "aarch64-pc-windows-msvc";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.entrypointContractRevision = 2;
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.rustToolchain =
+        "1.95.0";
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.byteLength = 0;
+    },
+    (value) => {
+      value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact.sha256 =
+        "7".repeat(63);
+    },
+    (value) => {
+      Object.assign(
+        value.manifestEnvelope.payload.nativeProvisionSupervisorArtifact,
+        { extra: true },
+      );
+    },
   ];
   for (const mutate of mutations) {
     const value = fixture();
@@ -251,7 +292,7 @@ test("manifest signature, role, lifetime and exact envelope fail closed", () => 
   }
 });
 
-test("package trust contract requires CRDD-bundled use and one signed Rust executable", () => {
+test("package trust contract requires CRDD-bundled use and both signed Rust executables", () => {
   const contract = describePlatformProvisionerTrustCoreContract();
   assert.equal(
     contract.distributionModel,
@@ -266,7 +307,7 @@ test("package trust contract requires CRDD-bundled use and one signed Rust execu
   assert.equal(contract.standalonePackageInstallationAllowed, false);
   assert.equal(
     contract.releaseIdentityBinding,
-    "release_sequence_crdd_version_commit_tree_package_content_root_and_platform_access_artifact_implemented_candidate",
+    "release_sequence_crdd_version_commit_tree_package_content_root_platform_access_and_native_supervisor_artifacts_implemented_candidate",
   );
   assert.equal(
     contract.runtimeOwnedCrddDistributionVerification,

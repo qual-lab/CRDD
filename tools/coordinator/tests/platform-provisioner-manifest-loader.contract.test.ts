@@ -13,7 +13,7 @@ import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/prov
 function fixtureEnvelope() {
   return {
     contract: "crdd-coordinator/platform-provisioner-package-manifest-envelope",
-    contractRevision: 1,
+    contractRevision: 2,
     payload: { fixture: true },
     signatures: [
       {

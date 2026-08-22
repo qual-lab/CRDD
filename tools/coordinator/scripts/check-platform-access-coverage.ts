@@ -20,6 +20,7 @@ const summaryPath = path.join(coverageRoot, "coverage-summary.json");
 const expectedSources = new Set(
   [
     path.join(crateRoot, "src", "main.rs"),
+    path.join(crateRoot, "src", "bin", "coordinator.rs"),
     path.join(crateRoot, "src", "protocol.rs"),
     path.join(crateRoot, "src", "windows.rs"),
     path.join(crateRoot, "tests", "cli.rs"),
@@ -107,11 +108,13 @@ executeCommand(llvmTool("llvm-profdata"), [
 ]);
 const dependencyRoot = path.join(buildRoot, TARGET, "debug", "deps");
 const testExecutables = collectFiles(dependencyRoot, ".exe").filter((file) =>
-  /^(?:cli|crdd_platform_access)-[0-9a-f]+\.exe$/u.test(path.basename(file)),
+  /^(?:cli|coordinator|crdd_platform_access)-[0-9a-f]+\.exe$/u.test(
+    path.basename(file),
+  ),
 );
-if (testExecutables.length !== 2) {
+if (testExecutables.length !== 3) {
   throw new Error(
-    `expected two instrumented test executables, got ${testExecutables.length}`,
+    `expected three instrumented test executables, got ${testExecutables.length}`,
   );
 }
 const binaryExecutable = path.join(
@@ -120,10 +123,23 @@ const binaryExecutable = path.join(
   "debug",
   "crdd-platform-access.exe",
 );
-if (!fs.statSync(binaryExecutable).isFile()) {
+const supervisorExecutable = path.join(
+  buildRoot,
+  TARGET,
+  "debug",
+  "coordinator.exe",
+);
+if (
+  !fs.statSync(binaryExecutable).isFile() ||
+  !fs.statSync(supervisorExecutable).isFile()
+) {
   throw new Error("instrumented platform-access binary missing");
 }
-const coverageObjects = [...testExecutables, binaryExecutable];
+const coverageObjects = [
+  ...testExecutables,
+  binaryExecutable,
+  supervisorExecutable,
+];
 const firstCoverageObject = coverageObjects[0];
 if (!firstCoverageObject) throw new Error("coverage object missing");
 const exported = executeCommand(llvmTool("llvm-cov"), [

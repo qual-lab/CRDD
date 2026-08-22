@@ -48,7 +48,7 @@ function fixture() {
   const packageContentRootSha256 = packageRoot.packageContentRootSha256;
   const payload = {
     contract: PLATFORM_PROVISIONER_MANIFEST_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     packageName: observedPackageContent.packageName,
     packageVersion: observedPackageContent.packageVersion,
     crddVersion: "v0.18.0",
@@ -67,12 +67,21 @@ function fixture() {
       byteLength: 1024,
       sha256: "4".repeat(64),
     },
+    nativeProvisionSupervisorArtifact: {
+      relativePath:
+        "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
+      target: "x86_64-pc-windows-msvc",
+      entrypointContractRevision: 1,
+      rustToolchain: "1.94.1",
+      byteLength: 2048,
+      sha256: "5".repeat(64),
+    },
     issuedAt: "2026-08-15T00:00:00.000Z",
     expiresAt: "2027-08-15T00:00:00.000Z",
   };
   const manifestEnvelope = {
     contract: PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT,
-    contractRevision: 1,
+    contractRevision: 2,
     payload,
     signatures: [
       {

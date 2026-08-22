@@ -18,14 +18,21 @@ import {
   PLATFORM_ACCESS_RUST_TOOLCHAIN,
   PLATFORM_ACCESS_TARGET,
 } from "./platform-access-release.ts";
+import {
+  NATIVE_PROVISION_SUPERVISOR_ENTRYPOINT_CONTRACT_REVISION,
+  NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES,
+  NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH,
+  NATIVE_PROVISION_SUPERVISOR_RUST_TOOLCHAIN,
+  NATIVE_PROVISION_SUPERVISOR_TARGET,
+} from "./native-provision-supervisor-release.ts";
 
-export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 1;
+export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 2;
 export const PLATFORM_PROVISIONER_MANIFEST_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest";
 export const PLATFORM_PROVISIONER_MANIFEST_ENVELOPE_CONTRACT =
   "crdd-coordinator/platform-provisioner-package-manifest-envelope";
 export const PLATFORM_PROVISIONER_MANIFEST_DOMAIN =
-  "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V1\0";
+  "CRDD\0PLATFORM-PROVISIONER-PACKAGE-MANIFEST\0V2\0";
 export const PLATFORM_PROVISIONER_PACKAGE_CONTENT_DOMAIN =
   "CRDD\0PLATFORM-PROVISIONER-PACKAGE-CONTENT\0V1\0";
 
@@ -42,6 +49,7 @@ const MANIFEST_KEYS = new Set([
   "rootProtectionPolicySha256",
   "keyStoragePolicySha256",
   "platformAccessArtifact",
+  "nativeProvisionSupervisorArtifact",
   "issuedAt",
   "expiresAt",
 ]);
@@ -49,6 +57,14 @@ const PLATFORM_ACCESS_ARTIFACT_KEYS = new Set([
   "relativePath",
   "target",
   "protocolRevision",
+  "rustToolchain",
+  "byteLength",
+  "sha256",
+]);
+const NATIVE_PROVISION_SUPERVISOR_ARTIFACT_KEYS = new Set([
+  "relativePath",
+  "target",
+  "entrypointContractRevision",
   "rustToolchain",
   "byteLength",
   "sha256",
@@ -200,6 +216,12 @@ function normalizeManifest(raw: unknown) {
       value.platformAccessArtifact,
       PLATFORM_ACCESS_ARTIFACT_KEYS,
     );
+  const nativeProvisionSupervisorArtifact =
+    value &&
+    snapshotPlainRecord(
+      value.nativeProvisionSupervisorArtifact,
+      NATIVE_PROVISION_SUPERVISOR_ARTIFACT_KEYS,
+    );
   if (
     !value ||
     value.contract !== PLATFORM_PROVISIONER_MANIFEST_CONTRACT ||
@@ -236,6 +258,22 @@ function normalizeManifest(raw: unknown) {
       PLATFORM_ACCESS_EXECUTABLE_MAXIMUM_BYTES ||
     typeof platformAccessArtifact.sha256 !== "string" ||
     !HEX64.test(platformAccessArtifact.sha256) ||
+    !nativeProvisionSupervisorArtifact ||
+    nativeProvisionSupervisorArtifact.relativePath !==
+      NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH ||
+    nativeProvisionSupervisorArtifact.target !==
+      NATIVE_PROVISION_SUPERVISOR_TARGET ||
+    nativeProvisionSupervisorArtifact.entrypointContractRevision !==
+      NATIVE_PROVISION_SUPERVISOR_ENTRYPOINT_CONTRACT_REVISION ||
+    nativeProvisionSupervisorArtifact.rustToolchain !==
+      NATIVE_PROVISION_SUPERVISOR_RUST_TOOLCHAIN ||
+    typeof nativeProvisionSupervisorArtifact.byteLength !== "number" ||
+    !Number.isSafeInteger(nativeProvisionSupervisorArtifact.byteLength) ||
+    nativeProvisionSupervisorArtifact.byteLength < 1 ||
+    nativeProvisionSupervisorArtifact.byteLength >
+      NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES ||
+    typeof nativeProvisionSupervisorArtifact.sha256 !== "string" ||
+    !HEX64.test(nativeProvisionSupervisorArtifact.sha256) ||
     !utc(value.issuedAt) ||
     !utc(value.expiresAt) ||
     Date.parse(value.expiresAt) <= Date.parse(value.issuedAt)
@@ -259,6 +297,15 @@ function normalizeManifest(raw: unknown) {
       rustToolchain: platformAccessArtifact.rustToolchain,
       byteLength: platformAccessArtifact.byteLength,
       sha256: platformAccessArtifact.sha256,
+    }),
+    nativeProvisionSupervisorArtifact: Object.freeze({
+      relativePath: nativeProvisionSupervisorArtifact.relativePath,
+      target: nativeProvisionSupervisorArtifact.target,
+      entrypointContractRevision:
+        nativeProvisionSupervisorArtifact.entrypointContractRevision,
+      rustToolchain: nativeProvisionSupervisorArtifact.rustToolchain,
+      byteLength: nativeProvisionSupervisorArtifact.byteLength,
+      sha256: nativeProvisionSupervisorArtifact.sha256,
     }),
     issuedAt: value.issuedAt,
     expiresAt: value.expiresAt,
@@ -474,6 +521,8 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
         rootProtectionPolicySha256: envelope.payload.rootProtectionPolicySha256,
         keyStoragePolicySha256: envelope.payload.keyStoragePolicySha256,
         platformAccessArtifact: envelope.payload.platformAccessArtifact,
+        nativeProvisionSupervisorArtifact:
+          envelope.payload.nativeProvisionSupervisorArtifact,
         qualLabManifestCryptographicMatch: true,
       },
     );
@@ -500,7 +549,7 @@ export function describePlatformProvisionerTrustCoreContract() {
     maximumFiles: MAXIMUM_FILES,
     manifestCryptographicVerification: "implemented_candidate",
     releaseIdentityBinding:
-      "release_sequence_crdd_version_commit_tree_package_content_root_and_platform_access_artifact_implemented_candidate",
+      "release_sequence_crdd_version_commit_tree_package_content_root_platform_access_and_native_supervisor_artifacts_implemented_candidate",
     packageContentRootCalculation:
       "implemented_candidate_from_owned_snapshot_of_caller_file_metadata",
     runtimeOwnedPackageFilesystemRead: "not_implemented",

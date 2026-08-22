@@ -5,6 +5,14 @@ edition = "2024"
 publish = false
 rust-version = "1.94.1"
 
+[[bin]]
+name = "crdd-platform-access"
+path = "src/main.rs"
+
+[[bin]]
+name = "coordinator"
+path = "src/bin/coordinator.rs"
+
 [dependencies]
 windows-sys = { version = "=0.61.2", features = [
   "Win32_Foundation",

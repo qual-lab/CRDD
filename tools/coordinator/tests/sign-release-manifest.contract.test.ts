@@ -120,14 +120,24 @@ function placementFixture() {
     "90_Release",
     "coordinator-package-manifest.json",
   );
+  const supervisorPath = path.join(
+    distributionRoot,
+    "90_Release",
+    "coordinator",
+    "x86_64-pc-windows-msvc",
+    "coordinator.exe",
+  );
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
+  fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
   fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
+  fs.writeFileSync(supervisorPath, "fixed-test-native-supervisor-binary");
   const observation = beginReleaseStagingManifestSession(distributionRoot);
   assert.ok(observation);
   return {
     parent,
     distributionRoot,
     executablePath,
+    supervisorPath,
     manifestPath,
     token: observation.token,
     canonicalBytes: ephemeralEnvelopeBytes(),
@@ -180,6 +190,8 @@ test("署名Authorityを持たない配置helperは同一fdのcanonical byteを�
     assert.equal(result.runtimeAuthorityConferred, false);
     assert.equal(result.runtimeCapabilityIssued, false);
     assert.deepEqual(describeReleaseStagingManifestContract(), {
+      contract: "crdd-coordinator/release-staging-manifest",
+      contractRevision: 2,
       manifestRelativePath: "90_Release/coordinator-package-manifest.json",
       releaseStagingManifestWrite: "implemented_explicit_signing_effect",
       releaseStagingFilesystemEffectIssuedOnSuccess: true,
@@ -239,7 +251,7 @@ test("manifestの同長上書き、短縮および追記をcreatedへ流用し�
   }
 });
 
-test("manifest Path、Release DirectoryまたはRust成果物の配置後差を拒否して自動削除しない", {
+test("manifest Path、Release DirectoryまたはRust成果物群の配置後差を拒否して自動削除しない", {
   concurrency: false,
 }, () => {
   const cases = [
@@ -254,6 +266,9 @@ test("manifest Path、Release DirectoryまたはRust成果物の配置後差を�
     },
     (value: ReturnType<typeof placementFixture>) => {
       fs.writeFileSync(value.executablePath, "replacement");
+    },
+    (value: ReturnType<typeof placementFixture>) => {
+      fs.writeFileSync(value.supervisorPath, "replacement");
     },
   ];
   for (const mutate of cases) {
@@ -334,6 +349,25 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
         "crdd-platform-access.exe",
       ),
       Buffer.from("not-a-real-executable", "ascii"),
+    );
+    fs.mkdirSync(
+      path.join(
+        distributionRoot,
+        "90_Release",
+        "coordinator",
+        "x86_64-pc-windows-msvc",
+      ),
+      { recursive: true },
+    );
+    fs.writeFileSync(
+      path.join(
+        distributionRoot,
+        "90_Release",
+        "coordinator",
+        "x86_64-pc-windows-msvc",
+        "coordinator.exe",
+      ),
+      Buffer.from("not-a-real-supervisor", "ascii"),
     );
     fs.mkdirSync(path.join(distributionRoot, "tools", "coordinator", "src"), {
       recursive: true,

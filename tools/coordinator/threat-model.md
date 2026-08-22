@@ -256,6 +256,10 @@ Authority RecordとRepository generationはimmutable成果物とatomic pointer�
 
 これらは質的な安全契約である。初回オンライン登録3成果物のexact object Schema／domain／JCS署名messageとpure数学的一致は実装済み候補である。署名前payloadのcanonical raw byte decoder、登録要求／登録証明書のexact object Envelope、および両Envelope全体のcanonical JCS UTF-8 raw byte decoderも実装済み候補である。オフライン束のexact object／online・offline issuing 2役chain／署名・binding検査も実装済み候補である。transport、永続replay台帳、Runtime所有CA Trust／rollback floor、CA実配布Lifecycle、証明書更新、オフライン束raw decoder／import Effectおよび実OS／Filesystem Adapterは未実装である。caller claim、Pathやcertificateの存在またはcandidate contractだけからTrust、Authority、Capabilityまたはreadyを成立させない。
 
+### Native direct provision入口の差分
+
+CHG-000034ではpre-active経路をspawnlessへ収束した。人間が真正性を確認した公式Releaseのnative top-level自身が同じprocess内で観測し、worker spawn上限は0、Coordinator-issued Process Effectはfalseとする。前段のbounded worker、Jobおよびprocess tree終了は現方式の安全根拠ではなく非該当であり、hard timeoutまたはcrash isolationが必要と実証された場合だけ別変更で再評価する。新native入口は現在exact `provision`以外を拒否し、Release／loaded image結合前に固定blocked結果だけを返す。manifest revision 2はnative supervisorと既存workerを別成果物Identityへ結合するが、自己Hashまたは自己署名検証を人間による初期Trustの代替にしない。PE import／delay-import、DLL side-loading、leafと全rename可能parent、loaded image、local volume、Network非発火および直接token／Root観測が同じ実Windows runで成立するまで観測候補を発行しない。外部へ出した結果の保存・再投入からbinderまたはAuthorityを復元しない。
+
 ## 6. 非対象
 
 - 外部Effectの実行または回復

@@ -34,6 +34,10 @@ function fixture() {
     path.join(root, "90_Release", "platform-access", "x86_64-pc-windows-msvc"),
     { recursive: true },
   );
+  fs.mkdirSync(
+    path.join(root, "90_Release", "coordinator", "x86_64-pc-windows-msvc"),
+    { recursive: true },
+  );
   fs.mkdirSync(path.join(root, "nested"));
   const alpha = Buffer.from("alpha\n", "utf8");
   const beta = Buffer.from("beta\n", "utf8");
@@ -54,6 +58,16 @@ function fixture() {
       "crdd-platform-access.exe",
     ),
     "binary",
+  );
+  fs.writeFileSync(
+    path.join(
+      root,
+      "90_Release",
+      "coordinator",
+      "x86_64-pc-windows-msvc",
+      "coordinator.exe",
+    ),
+    "native-supervisor",
   );
   const releaseTree = tree([
     ["100644", "readme.txt", objectId("blob", release)],
@@ -80,6 +94,10 @@ test("配布Root全体をGit Treeへ再計算し後置manifestとRust成果物�
     assert.equal(result.postCheckoutManifestExcludedFromGitTree, true);
     assert.equal(
       result.postCheckoutPlatformAccessExecutableExcludedFromGitTree,
+      true,
+    );
+    assert.equal(
+      result.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree,
       true,
     );
     assert.equal(result.releaseIdentityRuntimeOwned, false);
@@ -125,6 +143,7 @@ test("配布fileの変更、追加、Git metadataおよび不正Treeを拒否す
 
 test("Release Identity contractはTree一致をEffectおよびrollbackから分離する", () => {
   const contract = describePlatformProvisionerReleaseIdentityContract();
+  assert.equal(contract.contractRevision, 2);
   assert.deepEqual(contract.hashAlgorithms, ["SHA-1", "SHA-256"]);
   assert.equal(
     contract.postCheckoutManifestExcludedFromGitTree,
@@ -133,6 +152,10 @@ test("Release Identity contractはTree一致をEffectおよびrollbackから分�
   assert.equal(
     contract.postCheckoutPlatformAccessExecutableExcludedFromGitTree,
     "90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe",
+  );
+  assert.equal(
+    contract.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree,
+    "90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe",
   );
   assert.equal(
     contract.signedCrddTreeComparison,

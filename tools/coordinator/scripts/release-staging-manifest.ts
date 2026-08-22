@@ -6,6 +6,10 @@ import {
   verifyPlatformAccessArtifactSigningObservation,
 } from "../src/security/platform-access-release.ts";
 import {
+  beginNativeProvisionSupervisorArtifactSigningObservation,
+  verifyNativeProvisionSupervisorArtifactSigningObservation,
+} from "../src/security/native-provision-supervisor-release.ts";
+import {
   PLATFORM_PROVISIONER_MANIFEST_MAXIMUM_BYTES,
   PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
 } from "../src/security/platform-provisioner-manifest-loader.ts";
@@ -36,7 +40,8 @@ type StagingSnapshot = Readonly<{
   rootIdentity: DirectoryIdentity;
   releaseDirectory: string;
   releaseDirectoryIdentity: DirectoryIdentity;
-  artifactToken: object;
+  platformAccessArtifactToken: object;
+  nativeSupervisorArtifactToken: object;
 }>;
 
 const stagingSnapshots = new WeakMap<object, StagingSnapshot>();
@@ -126,7 +131,12 @@ function verifySnapshot(snapshot: StagingSnapshot): boolean {
       fs.realpathSync.native(snapshot.root) === snapshot.root &&
       fs.realpathSync.native(snapshot.releaseDirectory) ===
         snapshot.releaseDirectory &&
-      verifyPlatformAccessArtifactSigningObservation(snapshot.artifactToken)
+      verifyPlatformAccessArtifactSigningObservation(
+        snapshot.platformAccessArtifactToken,
+      ) &&
+      verifyNativeProvisionSupervisorArtifactSigningObservation(
+        snapshot.nativeSupervisorArtifactToken,
+      )
     );
   } catch {
     return false;
@@ -176,7 +186,9 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
     }
     const artifactObservation =
       beginPlatformAccessArtifactSigningObservation(root);
-    if (!artifactObservation) return null;
+    const nativeSupervisorObservation =
+      beginNativeProvisionSupervisorArtifactSigningObservation(root);
+    if (!artifactObservation || !nativeSupervisorObservation) return null;
     const token = Object.freeze({});
     stagingSnapshots.set(
       token,
@@ -185,12 +197,14 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
         rootIdentity,
         releaseDirectory,
         releaseDirectoryIdentity,
-        artifactToken: artifactObservation.token,
+        platformAccessArtifactToken: artifactObservation.token,
+        nativeSupervisorArtifactToken: nativeSupervisorObservation.token,
       }),
     );
     return Object.freeze({
       token,
-      artifact: artifactObservation.artifact,
+      platformAccessArtifact: artifactObservation.artifact,
+      nativeProvisionSupervisorArtifact: nativeSupervisorObservation.artifact,
     });
   } catch {
     return null;
@@ -333,6 +347,8 @@ export function placeReleaseStagingManifestCandidate(
 
 export function describeReleaseStagingManifestContract() {
   return Object.freeze({
+    contract: "crdd-coordinator/release-staging-manifest",
+    contractRevision: 2,
     manifestRelativePath: PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH,
     releaseStagingManifestWrite: "implemented_explicit_signing_effect",
     releaseStagingFilesystemEffectIssuedOnSuccess: true,

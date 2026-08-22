@@ -27,15 +27,17 @@ export function inspectPreActiveProvisioningOneShotCandidate(
   untrustedInput?: unknown,
 ) {
   void untrustedInput;
-  return blocked("pre_active_native_provision_supervisor_not_implemented");
+  return blocked("native_provision_supervisor_release_binding_not_implemented");
 }
 
 export function describePreActiveProvisioningOneShotContract() {
   return Object.freeze({
     contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-    contractRevision: 1,
+    contractRevision: 2,
     command: "explicit_coordinator_provision_only",
-    maximumSpawnAttemptsPerInvocation: 1,
+    executionStrategy: "native_top_level_direct_self_observation",
+    maximumObservationAttemptsPerInvocation: 1,
+    maximumWorkerSpawnAttemptsPerInvocation: 0,
     initialTrustCeremony:
       "human_authenticated_officially_signed_release_native_top_level_required",
     nodePathLaunchMayEstablishVerifiedImage: false,
@@ -45,10 +47,11 @@ export function describePreActiveProvisioningOneShotContract() {
     sourceCheckoutInvocation: false,
     pathCargoShellOrInstallerFallback: false,
     automaticRetryOrRestart: false,
-    nativeSupervisor: "not_implemented_blocked",
+    nativeSupervisor: "entrypoint_implemented_release_binding_blocked",
     releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
     verifiedImageHandleBinding: "not_implemented_blocked",
-    boundedProcess: "not_implemented_blocked",
+    workerBoundedProcess: "not_applicable_no_worker",
+    workerProcessTreeTermination: "not_applicable_no_worker",
     networkEnforcement: "not_implemented_blocked",
     currentProcessEffectIssued: false,
     currentHelperProcessSpawned: false,

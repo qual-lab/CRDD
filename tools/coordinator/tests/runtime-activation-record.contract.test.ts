@@ -221,7 +221,7 @@ test("byte decoderはBuffer、上限、strict UTF-8、BOMおよびcanonical完�
 
 test("Activation contractは永続化、専用command、再activation、disable/delete分離を公開する", () => {
   const contract = describeRuntimeActivationContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.persistence, "repository_scoped_persistent");
   assert.equal(contract.activationCommand, "dedicated_activate_required");
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
@@ -261,9 +261,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.selectedUserBinding, "not_implemented_blocked");
   assert.deepEqual(contract.platformProvisionerPreActiveOneShotContract, {
     contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-    contractRevision: 1,
+    contractRevision: 2,
     command: "explicit_coordinator_provision_only",
-    maximumSpawnAttemptsPerInvocation: 1,
+    executionStrategy: "native_top_level_direct_self_observation",
+    maximumObservationAttemptsPerInvocation: 1,
+    maximumWorkerSpawnAttemptsPerInvocation: 0,
     initialTrustCeremony:
       "human_authenticated_officially_signed_release_native_top_level_required",
     nodePathLaunchMayEstablishVerifiedImage: false,
@@ -273,10 +275,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
     sourceCheckoutInvocation: false,
     pathCargoShellOrInstallerFallback: false,
     automaticRetryOrRestart: false,
-    nativeSupervisor: "not_implemented_blocked",
+    nativeSupervisor: "entrypoint_implemented_release_binding_blocked",
     releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
     verifiedImageHandleBinding: "not_implemented_blocked",
-    boundedProcess: "not_implemented_blocked",
+    workerBoundedProcess: "not_applicable_no_worker",
+    workerProcessTreeTermination: "not_applicable_no_worker",
     networkEnforcement: "not_implemented_blocked",
     currentProcessEffectIssued: false,
     currentHelperProcessSpawned: false,

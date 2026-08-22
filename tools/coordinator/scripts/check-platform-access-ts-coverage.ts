@@ -16,6 +16,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/src/security/authority-root-path-lexical.ts",
   "tools/coordinator/src/security/platform-access-adapter.ts",
   "tools/coordinator/src/security/platform-access-release.ts",
+  "tools/coordinator/src/security/native-provision-supervisor-release.ts",
   "tools/coordinator/src/security/platform-provisioner-manifest-loader.ts",
   "tools/coordinator/src/security/platform-provisioner-active-pointer.ts",
   "tools/coordinator/src/security/platform-provisioner-active-pointer-store.ts",
@@ -36,6 +37,7 @@ export const PLATFORM_ACCESS_TS_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/doctor.contract.test.ts",
   "tools/coordinator/tests/platform-access-adapter.contract.test.ts",
   "tools/coordinator/tests/platform-access-release.contract.test.ts",
+  "tools/coordinator/tests/native-provision-supervisor-release.contract.test.ts",
   "tools/coordinator/tests/platform-access-ts-coverage.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-manifest-loader.contract.test.ts",
   "tools/coordinator/tests/platform-provisioner-active-pointer.contract.test.ts",
@@ -131,6 +133,13 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       "同一handle観測、同長上書き、短縮、追記およびRoot差試験",
       "Release artifactまたはFilesystem API変更時",
     ),
+    "tools/coordinator/src/security/native-provision-supervisor-release.ts":
+      obligation(
+        "成果物観測の全OS例外とIdentity failureを同一runで到達していない",
+        "native supervisor artifact差替えの検出漏れ",
+        "同一handle観測、改変、偽tokenおよびRoot差試験",
+        "native supervisor成果物またはFilesystem API変更時",
+      ),
     "tools/coordinator/src/security/platform-provisioner-manifest-loader.ts":
       obligation(
         "全read failure、上限およびIdentity差を同一runで到達していない",
@@ -174,7 +183,7 @@ const sourceCoverageObligations: Readonly<Record<string, CoverageObligation>> =
       ),
     "tools/coordinator/src/security/platform-provisioner-pre-active-one-shot.ts":
       obligation(
-        "native-first supervisor、Verified Imageおよび実process境界は未実装である",
+        "native entrypointは実装済みだがRelease／loaded image結合と直接観測は未実装である",
         "caller候補またはNode Path起動を初期Trustへ誤昇格する可能性",
         "caller入力非参照、全Effect非発行および通常Runtime非発火契約試験",
         "native supervisorまたはprocess controller実装時",

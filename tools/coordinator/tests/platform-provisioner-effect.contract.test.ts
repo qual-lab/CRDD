@@ -10,7 +10,7 @@ test("platform provisioning blocks before distribution or filesystem access", ()
   const result = runPlatformProvisionerEffect();
   assert.deepEqual(result, {
     status: "blocked",
-    reason: "pre_active_native_provision_supervisor_not_implemented",
+    reason: "native_provision_supervisor_release_binding_not_implemented",
     releaseSequence: null,
     protectedGenerationInstalled: false,
     activePointerPersisted: false,
@@ -29,7 +29,7 @@ test("platform provisioning blocks before distribution or filesystem access", ()
 
 test("platform provisioner effect is repository-owned and has no compatibility layout", () => {
   const contract = describePlatformProvisionerEffectContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.command, "explicit_provision_only");
   assert.equal(
     contract.sourceCheckoutBehavior,
@@ -41,7 +41,7 @@ test("platform provisioner effect is repository-owned and has no compatibility l
   );
   assert.equal(
     contract.preActiveProvisioningOneShot,
-    "contract_implemented_native_supervisor_not_implemented_blocked",
+    "native_direct_entrypoint_implemented_release_binding_blocked",
   );
   assert.equal(contract.repositoryRuntimeStateRequired, false);
   assert.equal(contract.compatibilityLayout, "prohibited");

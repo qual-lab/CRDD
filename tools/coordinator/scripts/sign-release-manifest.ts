@@ -187,7 +187,9 @@ export function signReleaseManifest(options: ManifestOptions) {
       crddCommit: options.crddCommit,
       crddTree: options.crddTree,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
-      platformAccessArtifact: platformAccessObservation.artifact,
+      platformAccessArtifact: platformAccessObservation.platformAccessArtifact,
+      nativeProvisionSupervisorArtifact:
+        platformAccessObservation.nativeProvisionSupervisorArtifact,
       ...policyIdentity,
       issuedAt: options.issuedAt,
       expiresAt: options.expiresAt,
@@ -224,6 +226,8 @@ export function signReleaseManifest(options: ManifestOptions) {
       releaseIdentity.status !== "candidate" ||
       releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
       releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+        true ||
+      releaseIdentity.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree !==
         true
     ) {
       throw new Error("release_manifest_distribution_tree_mismatch");
@@ -254,11 +258,16 @@ export function signReleaseManifest(options: ManifestOptions) {
       canonical.canonicalBytes,
     );
     return Object.freeze({
+      contract: "crdd-coordinator/release-manifest-signing-result",
+      contractRevision: 2,
       status: "created" as const,
       manifestRelativePath: placement.manifestRelativePath,
       manifestHash: compiled.manifestHash,
       packageContentRootSha256: packageObservation.packageContentRootSha256,
-      platformAccessExecutableSha256: platformAccessObservation.artifact.sha256,
+      platformAccessExecutableSha256:
+        platformAccessObservation.platformAccessArtifact.sha256,
+      nativeProvisionSupervisorExecutableSha256:
+        platformAccessObservation.nativeProvisionSupervisorArtifact.sha256,
       crddVersion: options.crddVersion,
       releaseSequence: options.releaseSequence,
       crddCommit: options.crddCommit,

@@ -24,7 +24,7 @@ test("caller inputを初期Trustまたはone-shot許可へ昇格しない", () =
   const result = inspectPreActiveProvisioningOneShotCandidate(trap);
   assert.deepEqual(result, {
     status: "blocked",
-    reason: "pre_active_native_provision_supervisor_not_implemented",
+    reason: "native_provision_supervisor_release_binding_not_implemented",
     explicitProvisionInvocationRequired: true,
     nativeTopLevelTrustCeremonyRequired: true,
     nativeSupervisorTrusted: false,
@@ -52,9 +52,11 @@ test("有効化前準備一回実行を通常Runtimeと分離して未実装へ�
   const contract = describePreActiveProvisioningOneShotContract();
   assert.deepEqual(contract, {
     contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-    contractRevision: 1,
+    contractRevision: 2,
     command: "explicit_coordinator_provision_only",
-    maximumSpawnAttemptsPerInvocation: 1,
+    executionStrategy: "native_top_level_direct_self_observation",
+    maximumObservationAttemptsPerInvocation: 1,
+    maximumWorkerSpawnAttemptsPerInvocation: 0,
     initialTrustCeremony:
       "human_authenticated_officially_signed_release_native_top_level_required",
     nodePathLaunchMayEstablishVerifiedImage: false,
@@ -64,10 +66,11 @@ test("有効化前準備一回実行を通常Runtimeと分離して未実装へ�
     sourceCheckoutInvocation: false,
     pathCargoShellOrInstallerFallback: false,
     automaticRetryOrRestart: false,
-    nativeSupervisor: "not_implemented_blocked",
+    nativeSupervisor: "entrypoint_implemented_release_binding_blocked",
     releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
     verifiedImageHandleBinding: "not_implemented_blocked",
-    boundedProcess: "not_implemented_blocked",
+    workerBoundedProcess: "not_applicable_no_worker",
+    workerProcessTreeTermination: "not_applicable_no_worker",
     networkEnforcement: "not_implemented_blocked",
     currentProcessEffectIssued: false,
     currentHelperProcessSpawned: false,

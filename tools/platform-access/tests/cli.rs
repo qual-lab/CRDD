@@ -15,6 +15,7 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 const BINARY: &str = env!("CARGO_BIN_EXE_crdd-platform-access");
+const SUPERVISOR_BINARY: &str = env!("CARGO_BIN_EXE_coordinator");
 
 fn directory_identity(path: &OsStr) -> [u32; 3] {
     let mut wide: Vec<u16> = path.encode_wide().collect();
@@ -155,4 +156,35 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
         2
     );
     std::fs::remove_dir(root).unwrap();
+}
+
+#[test]
+fn native_supervisor_accepts_only_exact_provision_and_never_spawns_worker() {
+    let provision = Command::new(SUPERVISOR_BINARY)
+        .arg("provision")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    assert_eq!(provision.status.code(), Some(2));
+    assert!(provision.stderr.is_empty());
+    assert_eq!(
+        provision.stdout,
+        b"{\"contract\":\"crdd-coordinator/native-provision-supervisor-result\",\"contractRevision\":1,\"status\":\"blocked\",\"reason\":\"native_provision_supervisor_release_binding_not_implemented\",\"observationAttempted\":false,\"workerSpawnAttempts\":0,\"processEffectIssued\":false,\"helperProcessSpawned\":false,\"filesystemEffectIssued\":false,\"networkEffectIssued\":false,\"runtimeAuthorityConferred\":false,\"runtimeCapabilityIssued\":false}\n"
+    );
+
+    let invalid = Command::new(SUPERVISOR_BINARY)
+        .arg("doctor")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+    assert_eq!(invalid.status.code(), Some(2));
+    assert!(invalid.stderr.is_empty());
+    assert_eq!(
+        invalid.stdout,
+        b"{\"contract\":\"crdd-coordinator/native-provision-supervisor-result\",\"contractRevision\":1,\"status\":\"blocked\",\"reason\":\"native_provision_supervisor_arguments_invalid\",\"observationAttempted\":false,\"workerSpawnAttempts\":0,\"processEffectIssued\":false,\"helperProcessSpawned\":false,\"filesystemEffectIssued\":false,\"networkEffectIssued\":false,\"runtimeAuthorityConferred\":false,\"runtimeCapabilityIssued\":false}\n"
+    );
 }
