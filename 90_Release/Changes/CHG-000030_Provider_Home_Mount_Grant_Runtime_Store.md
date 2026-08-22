@@ -1,7 +1,7 @@
 # 変更トレース: Provider Homeマウント許可Runtime Store（Provider Home Mount Grant Runtime Store）
 
 - 変更ID: `CHG-000030`
-- 状態: `In Review`
+- 状態: `Close without Release`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-22
 - 対象: CRDD公式Repositoryのprivate CoordinatorにおけるRuntime所有Mount Grant storeの先行実装候補
@@ -35,6 +35,8 @@
 
 候補module、直接試験、coverage母集団追加および実装済み表示を現在成果物から除去する。過去固定候補と監査結果は本変更に保持し、合格またはReleaseへ読み替えない。未完了事項は実装残件台帳の`FU-018-PROVIDER-HOME`へ戻し、selected-user binder、Provider Home保護観測およびOperation context Capabilityを先に成立させた後、新しい変更としてstoreを再実装する。
 
-除去後固定commit `756cec1e53cb5fb5cba238aeed5aa60bf694da77`／tree `da35d3911a58c8aab80a5ad88881fa05fcc23b90`では、Coordinator strict typecheck／Biome lint／formatはPass、全contract testは399／399、Repository全体checkerは541 files、345 Markdown、1,988 local links、576 anchors、Error 0／Warning 0だった。この除去後固定版への独立確認は進行中であり、完了状態と合否を先取りしない。
+除去後固定commit `756cec1e53cb5fb5cba238aeed5aa60bf694da77`／tree `da35d3911a58c8aab80a5ad88881fa05fcc23b90`では、Coordinator strict typecheck／Biome lint／formatはPass、全contract testは399／399、Repository全体checkerは541 files、345 Markdown、1,988 local links、576 anchors、Error 0／Warning 0だった。
 
-現在、人間による追加設計判断は必要ない。安全側の依存順へ戻す処置であり、保護対象の採用、リスク受容、統合またはReleaseは行っていない。除去後固定版への必須監査がすべてPassした後にだけ、別の完了処置で`Close without Release`を確定する。
+状態とEvidence順序を訂正した固定commit `9e39affd09d43ee2aeb32cdc2a362e845a5f1062`／tree `3514a20f90adcb6f5877a98c8886c51b58271e7e`へのAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance AuditはすべてPass、Finding 0で、監査対象scopeはEligibleだった。同じ固定版へのRepository全体checkerも541 files、345 Markdown、1,988 local links、576 anchors、Error 0／Warning 0だった。Eligibleは本変更を`Close without Release`とする人間の終了処置、Release、Gate openまたは将来store設計の採用を代替しない。
+
+現在、人間による追加設計判断は必要ない。安全側の依存順へ戻す処置であり、保護対象の採用、リスク受容、統合またはReleaseは行っていない。Qual-Labの理由付き終了として`Close without Release`を確定し、後続は実装残件台帳から再開する。
