@@ -50,7 +50,7 @@ CHG-000034の固定blocked入口を、Rust標準Runtimeとその広いimport面�
 
 現在、固定blocked bootstrapとPE static allowlistだけを実装した。次段は同一runのloaded image、leafと全rename可能parent handle、local volume、実行時module／DLL探索閉包およびNetwork非発火である。そこまで成立する前にtoken／Root観測へ進めず、operational one-shot、Gate、準拠表明、StableまたはReleaseを主張しない。
 
-現行実装固定Commit `f678428cc2b1e96756fb1df356dcd86e65510339`の検証結果は[`固定後検証実行記録`](Evidence/CHG-000035_Verification_Run_Record_f678428.md)へ記録した。旧`1d7bac2`記録はNode.js基準不適合のため`Superseded`とし、合否根拠へ流用しない。本参照追加は固定実装Treeへ自己参照させない記録限定差分である。
+現行実装固定Commit `f678428cc2b1e96756fb1df356dcd86e65510339`の検証結果は[`固定後検証実行記録`](Evidence/CHG-000035_Verification_Run_Record_f678428.md)へ記録した。独立確認後の現在状態は[`現行レビュー記録`](Evidence/CHG-000035_Current_Review_Record_7da5b6c.md)が所有する。旧`1d7bac2`記録はNode.js基準不適合のため`Superseded`とし、合否根拠へ流用しない。本参照追加は固定実装Treeへ自己参照させない記録限定差分である。
 
 初回固定版へRepository全体checkerを一度実行し、Agent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを旧合否不流用で実行する。Findingがあれば監査集合を完了して統合方針を各監査へ再提示した後だけ是正し、新固定版へ全必須監査を再実行する。
 
