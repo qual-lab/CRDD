@@ -6,7 +6,7 @@ import { describeProviderHomeContract } from "./provider-home.ts";
 
 export const PROVIDER_LIFECYCLE_CONTRACT =
   "crdd-coordinator/provider-lifecycle";
-export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 3;
+export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 4;
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const MODES = Object.freeze(["login", "run"] as const);
@@ -71,7 +71,12 @@ const AUTH_POLICIES = Object.freeze({
     loginPolicy: "existing_subscription_oauth",
     accountCardinality: 1,
     billingMode: "subscription_only",
-    usageSource: "selected_subscription_agent_sdk_credit",
+    usageSource: "selected_subscription_included_usage",
+    selectedAccountOfferingObserved: false,
+    authenticatedServiceTermsIdentity: "unresolved",
+    automatedSubscriptionUsePermission: "unresolved",
+    humanAccountAuthorityConfirmed: false,
+    accountAuthorityBinding: "not_implemented",
     automaticPlanSwitchAllowed: false,
     exactCliVersionRequired: true,
     exactCliVersionConfigured: false,

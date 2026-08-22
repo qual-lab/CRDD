@@ -2,7 +2,7 @@
 
 Status: Concept / Non-normative PoC Candidate
 Target: CRDD v0.18.0 Architecture Candidate
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [実装残件台帳](08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
 
 > 本書は非規範の実証計画である。v0.18.0 Architecture Candidate全体の仕様を最初のPoCへ限定しない。PoCの成功、Coding Agentの実行、試験合格または本書の存在だけで、本候補の規範採用、Authority拡張、現行標準変更を意味しない。
 

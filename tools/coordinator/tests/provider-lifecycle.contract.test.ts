@@ -70,7 +70,27 @@ test("Provider認証方針は既存subscription OAuthだけを許可する", () 
   );
   assert.equal(
     contract.authPolicies.claude.usageSource,
-    "selected_subscription_agent_sdk_credit",
+    "selected_subscription_included_usage",
+  );
+  assert.equal(
+    contract.authPolicies.claude.selectedAccountOfferingObserved,
+    false,
+  );
+  assert.equal(
+    contract.authPolicies.claude.authenticatedServiceTermsIdentity,
+    "unresolved",
+  );
+  assert.equal(
+    contract.authPolicies.claude.automatedSubscriptionUsePermission,
+    "unresolved",
+  );
+  assert.equal(
+    contract.authPolicies.claude.humanAccountAuthorityConfirmed,
+    false,
+  );
+  assert.equal(
+    contract.authPolicies.claude.accountAuthorityBinding,
+    "not_implemented",
   );
   assert.equal(contract.authPolicies.claude.quotaProbe, "not_implemented");
 });

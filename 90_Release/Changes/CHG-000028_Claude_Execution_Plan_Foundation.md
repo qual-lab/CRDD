@@ -1,7 +1,7 @@
 # 変更トレース: Claude実行計画基盤（Claude Execution Plan Foundation）
 
 - 変更ID: `CHG-000028`
-- 状態: `Ready for Verification`
+- 状態: `Ready for Re-review`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-22
 - 対象: CRDD公式Repositoryのprivate Coordinatorにおける最初の外部Executor候補
@@ -12,7 +12,7 @@
 
 ## 結論と変更経路
 
-最初の外部ExecutorはClaude Codeだけを対象にし、Codex CLI Adapter、実login、実Provider request、Installer、Egress Proxy EffectおよびProvider Home保護Effectを本変更へ含めない。Anthropic公式release manifestに基づくLinux x64 binary `2.1.220`のversion、upstream commit、SHA-256およびbyte長と、toolを持たない固定probe argvを、起動不能な候補contractとして追加する。
+最初の外部ExecutorはClaude Codeだけを対象にし、Codex CLI Adapter、実login、実Provider request、Installer、Egress Proxy EffectおよびProvider Home保護Effectを本変更へ含めない。Anthropic公式release manifestに基づくLinux x64 binary `2.1.220`のversion、upstream commit、SHA-256、byte長および固定絶対pathと、toolを持たない固定probe argvを、起動不能な候補contractとして追加する。
 
 変更は管理対象依存、Credential、外部送信および将来のprocess起動へ接続する非自明なprivate security変更である。着手前整合ではProvider Lifecycle、Provider Home、Egress、管理対象依存、QA、内部TypeScript境界および人間向け日本語表示を確認した。完成固定版ではAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを同一改訂版へ実施する。公開CLI、採用Repository Schema、Communication、DiscoveryおよびUIは変更しないため非該当である。
 
@@ -36,9 +36,9 @@ manifestはversion `2.1.220`、commit `4073f59596e272f39393db4f96abc5f4b10eff21`
 
 ## 固定probe計画と課金境界
 
-固定argvは`--bare`、`-p`、固定prompt、`--output-format json`、`--max-turns 1`、`--no-session-persistence`、`--permission-mode plan`、`--tools ""`、`--disallowedTools mcp__*`および`--disable-slash-commands`だけである。環境は`DISABLE_AUTOUPDATER=1`、`DISABLE_UPDATES=1`および`CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`を固定する。shell、PATH lookup、workspace mount、project instruction、customization、built-in tool、MCP tool、resumeおよびsession永続化を許可しない。
+固定commandは`/opt/crdd/providers/claude/2.1.220/claude`であり、同じversion、commit、SHA-256およびbyte長のartifact Identityへ結合する。固定argvは`--bare`、`-p`、固定prompt、`--output-format json`、`--max-turns 1`、`--no-session-persistence`、`--permission-mode plan`、`--tools ""`、`--disallowedTools mcp__*`および`--disable-slash-commands`だけである。親process環境を継承せず、Runtime所有の`HOME`、`TMPDIR`、`HTTPS_PROXY`と`DISABLE_AUTOUPDATER=1`、`DISABLE_UPDATES=1`、`CLAUDE_CODE_SKIP_PROMPT_HISTORY=1`だけで完全置換することを要求する。環境置換、fixed image digest、exact versionでのargv制約、user／project／local／managed settings、Provider Home settingsおよび認証stateとの分離は未実装または未検証なので、要求を実測済みと扱わない。shell、PATH lookup、workspace mount、resumeおよびsession永続化を許可せず、各未完了条件をactivation blockerとしてspawn前停止へ接続する。
 
-`read_only_probe`はRepository変更を許可しない計画名であり、Providerへの外部request、専用HomeへのProvider内部書込み、既存subscription利用枠の消費、Telemetryまたは認証更新が存在しないという主張ではない。Pro、Max、TeamまたはEnterpriseの既存subscription OAuthだけを候補とし、Console API account、API key、第三者API Provider、追加credit購入および自動plan切替は拒否する。quota不足または判定不能では追加購入せず停止する。
+`read_only_probe`はRepository変更を許可しない計画名であり、Providerへの外部request、専用HomeへのProvider内部書込み、既存subscription利用枠の消費、Telemetryまたは認証更新が存在しないという主張ではない。Pro／Maxはindividual offering候補、Team／Enterpriseはorganization offering候補としてだけ保持する。binary配布物の条件と認証済みservice／アカウントの適用条件を別axisにし、選択アカウントの提供形態、適用条件、自動subscription利用許可、人間のアカウント権限確認およびbindingはいずれも未解決とする。Console API account、API key、第三者API Provider、追加credit購入および自動plan切替は拒否し、quota不足または判定不能では追加購入せず停止する。
 
 ## 専門探索と収束
 
@@ -49,15 +49,21 @@ manifestはversion `2.1.220`、commit `4073f59596e272f39393db4f96abc5f4b10eff21`
 | 公式署名manifestからexact binaryをbuild時に取得 | version、platform checksum、byte長を固定し、RuntimeからInstallerを除外できる | build時のGPG署名検証、binary取得、terms確認およびimage digest固定が必要 | 採用候補 |
 | Hostの既存Claude CLIを実行 | 追加image buildが不要 | PATH差替え、Host Home、auto-update、Credentialおよびversion driftを隔離できない | 不採用 |
 
-判断を変え得る不確実性は、Anthropicの利用条件をCRDDのローカル固定image内で使用する判断、manifest署名の実検証、Telemetry停止方法、subscription quota観測および専用Home内の実書込みである。これらは非実行contractの成立を妨げないが、実配布またはspawnの有効化前に人間判断または実測が必要である。追加探索によって現在の非実行候補の安全境界を変える有力案はなく、実Effectを別変更へ分離して収束する。
+判断を変え得る不確実性は、binary配布物の適用条件と固定image利用許可、認証済みserviceへ適用される条件と自動subscription利用許可、選択アカウントに対する人間の権限、manifest署名の実検証、Telemetry停止方法、subscription quota観測および専用Home内の実書込みである。提供形態名だけからConsumer TermsまたはCommercial Termsの適用を確定しない。これらは非実行contractの成立を妨げないが、実配布またはspawnの有効化前に人間判断または実測が必要である。追加探索によって現在の非実行候補の安全境界を変える有力案はなく、実Effectを別変更へ分離して収束する。
 
 ## 品質義務と未完了事項
 
 - pure production母集団`claude-execution-plan.ts`と直接依存`plain-data-snapshot.ts`のline、functionおよびbranch coverageを100%にする。
 - strict typecheck、Biome warning 0、format差分0、全Coordinator contract test、Checker package testおよび全Repository checkerを別軸で確認する。
 - 固定候補commitにAgent／Architecture／Security、Document、Gap／ImpactおよびConformanceの独立確認を行い、全結果を統合する。
-- manifest署名検証、binary取得、fixed image build／digest、terms有効化、Provider Home Effect、Mount Grant、Egress Proxy、Telemetry、login／logout、quota probeおよび実Provider probeは後続変更として追跡する。
+- manifest署名検証、binary取得、fixed image build／digest、argv互換性、配布条件とservice条件の有効化、Provider Home Effect、Mount Grant、Egress Proxy、Telemetry、login／logout、quota probeおよび実Provider probeは[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)から後続変更として追跡する。
 
-基準Node.js `v24.19.0`で、Coordinator strict typecheck／Biome lint／formatはPass、全contract testは391／391、Checker package checkはPass、contract testは151／151だった。専用coverage commandはproduction source `claude-execution-plan.ts`と`plain-data-snapshot.ts`のline、functionおよびbranchを各100.00%とした。Repository全体checkerは528 files、334 Markdown、1,958 local links、571 anchorsを確認し、Error 0／Warning 0だった。実Provider、Docker、Network、Filesystem、OAuthまたは課金Effectは本確認で発火していない。
+基準Node.js `v24.19.0`で、Coordinator strict typecheck／Biome lint／formatはPass、全contract testは392／392、Checker package checkはPass、contract testは151／151だった。専用coverage commandはproduction source `claude-execution-plan.ts`と`plain-data-snapshot.ts`のline、functionおよびbranchを各100.00%とした。Repository全体checkerは529 files、335 Markdown、1,968 local links、575 anchorsを確認し、Error 0／Warning 0だった。実Provider、Docker、Network、Filesystem、OAuthまたは課金Effectは本確認で発火していない。
 
-現在、人間による判断は非実行候補の実装には必要ない。Anthropicの利用条件を有効化しbinaryを固定imageへ格納する判断は、後続の実配布変更を開始する前に必要である。本変更はv0.18 Candidate、v0.17 Released Baseline、Gate blocked、Authority／Capability非発行および非Releaseを維持する。
+## 初回独立確認と是正
+
+固定commit `788eb81f021f02790c40a81b4a0793ae4fe0fc80`への初回確認は、Agent／Architecture／Security ReviewがConditional、Document AuditがFail、Gap／Impact AuditおよびConformance AuditがFailだった。共通原因は、PATH lookupを拒否しながらcommandをbasenameで示したこと、親環境置換が未定義だったこと、customization抑止要求を検証済み事実として表したこと、binary配布条件と認証済みservice／アカウント条件を一つのgenericなterms項目へ潰したこと、および後続残件に発見可能な台帳がなかったことである。
+
+是正では固定絶対pathとartifact Identityを結合し、環境完全置換と禁止する親環境分類を追加し、argv／customization／settingsの要求と検証状態を分離した。配布条件とservice条件を別axisへ分け、提供形態を適用条件ではなく候補分類に限定し、選択アカウント、適用条件、自動利用許可および人間権限を明示的なblockerにした。Provider Lifecycle contractもrevision 4へ更新し、Claudeの利用源を既存subscriptionのincluded usage候補へ修正した。残件は非規範の実装残件台帳へ接続した。初回監査結果は修正版の合否へ流用せず、新しい固定commitへ同じ監査集合を再実行する。
+
+現在、人間による判断は非実行候補の実装には必要ない。配布条件またはservice条件を有効化し、binaryを固定imageへ格納し、選択アカウントを実Providerへbindingする判断は、後続の実配布・認証変更を開始する前に必要である。本変更はv0.18 Candidate、v0.17 Released Baseline、Gate blocked、Authority／Capability非発行および非Releaseを維持する。

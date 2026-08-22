@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 1;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 2;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const FIXED_PROMPT =
@@ -29,6 +29,63 @@ const FIXED_ENVIRONMENT = Object.freeze({
   DISABLE_UPDATES: "1",
   CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1",
 });
+const RUNTIME_OWNED_ENVIRONMENT_SLOTS = Object.freeze([
+  "HOME",
+  "TMPDIR",
+  "HTTPS_PROXY",
+]);
+const FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES = Object.freeze([
+  "provider_api_keys",
+  "provider_base_urls",
+  "provider_selectors",
+  "model_or_fallback_selectors",
+  "host_proxy_configuration",
+  "host_credential_or_settings_paths",
+]);
+const DISTRIBUTION_IDENTITY = Object.freeze({
+  targetPlatform: "linux-x64",
+  executablePath: "/opt/crdd/providers/claude/2.1.220/claude",
+  exactVersion: "2.1.220",
+  upstreamCommit: "4073f59596e272f39393db4f96abc5f4b10eff21",
+  binarySha256:
+    "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863",
+  binaryBytes: 275_012_592,
+  manifestUrl:
+    "https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json",
+});
+const OFFERING_CANDIDATES = Object.freeze([
+  Object.freeze({
+    offering: "claude_pro",
+    offeringClass: "individual_offering_candidate",
+  }),
+  Object.freeze({
+    offering: "claude_max",
+    offeringClass: "individual_offering_candidate",
+  }),
+  Object.freeze({
+    offering: "claude_team",
+    offeringClass: "organization_offering_candidate",
+  }),
+  Object.freeze({
+    offering: "claude_enterprise",
+    offeringClass: "organization_offering_candidate",
+  }),
+]);
+const ACTIVATION_BLOCKERS = Object.freeze([
+  "manifest_signature_not_verified",
+  "fixed_image_digest_not_configured",
+  "fixed_argv_compatibility_not_verified",
+  "environment_replacement_not_implemented",
+  "settings_and_provider_home_isolation_not_verified",
+  "distribution_terms_not_activated",
+  "authenticated_service_terms_identity_not_resolved",
+  "automated_subscription_use_permission_unresolved",
+  "selected_account_offering_not_observed",
+  "human_account_authority_not_confirmed",
+  "provider_home_mount_grant_not_implemented",
+  "egress_and_telemetry_controls_not_implemented",
+  "oauth_login_and_quota_observation_not_implemented",
+]);
 
 function blocked(reason: string) {
   return Object.freeze({
@@ -52,8 +109,8 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
 
   return Object.freeze({
     status: "candidate",
-    reason:
-      "claude_fixed_image_home_egress_auth_and_terms_activation_not_completed",
+    reason: "claude_activation_blockers_unresolved",
+    activationBlockers: ACTIVATION_BLOCKERS,
     spawnAllowed: false,
     loginEffectAllowed: false,
     networkEffectAllowed: false,
@@ -61,9 +118,19 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     operationCapabilityIssued: false,
     provider: "claude",
     mode: "read_only_probe",
-    command: "claude",
+    artifactIdentity: DISTRIBUTION_IDENTITY,
+    command: DISTRIBUTION_IDENTITY.executablePath,
     argv: FIXED_ARGV,
+    argvCompatibilityRequired: true,
+    argvCompatibilityVerified: false,
+    fixedImageDigest: null,
+    environmentMode: "replace_required",
+    environmentReplacementImplemented: false,
+    parentEnvironmentInherited: false,
     environment: FIXED_ENVIRONMENT,
+    runtimeOwnedEnvironmentSlots: RUNTIME_OWNED_ENVIRONMENT_SLOTS,
+    forbiddenParentEnvironmentCategories:
+      FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES,
     shellAllowed: false,
     pathLookupAllowed: false,
     workspaceMountRequired: false,
@@ -75,10 +142,18 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     automaticPlanSwitchAllowed: false,
     sessionResumeAllowed: false,
     sessionPersistenceAllowed: false,
-    builtInToolsAllowed: false,
-    mcpToolsAllowed: false,
-    projectInstructionsLoaded: false,
-    customizationsLoaded: false,
+    builtInToolsRequested: "none",
+    builtInToolsRestrictionVerified: false,
+    mcpToolsRequested: "none",
+    mcpToolsRestrictionVerified: false,
+    projectInstructionsRequested: "not_loaded",
+    projectInstructionsRestrictionVerified: false,
+    autoDiscoveredCustomizationsRequested: "not_loaded",
+    autoDiscoveredCustomizationsRestrictionVerified: false,
+    settingsSourcesVerification: "not_verified",
+    managedSettingsVerification: "not_verified",
+    providerHomeSettingsIsolation: "not_implemented",
+    authenticationStateAndSettingsSeparation: "not_implemented",
   });
 }
 
@@ -88,33 +163,50 @@ export function describeClaudeExecutionPlanContract() {
     contractRevision: CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
     provider: "claude",
     implementationState: "fixed_non_executable_candidate",
-    targetPlatform: "linux-x64",
     distribution: Object.freeze({
+      identity: DISTRIBUTION_IDENTITY,
       installationMethod: "official_native_binary_in_fixed_runtime_image",
-      exactVersion: "2.1.220",
-      upstreamCommit: "4073f59596e272f39393db4f96abc5f4b10eff21",
-      binarySha256:
-        "674f61f20ff306f3100cf9200e4c36c4b70278b5bef2884549819b942a89c863",
-      binaryBytes: 275_012_592,
-      manifestUrl:
-        "https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json",
       manifestSignatureRequired: true,
       manifestSignatureVerified: false,
       releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
       fixedDigestImageRequired: true,
-      fixedDigestImageConfigured: false,
-      termsReview: "human_activation_required",
+      fixedImageDigest: null,
+      argvCompatibilityRequired: true,
+      argvCompatibilityVerified: false,
+      binaryDistributionTerms: Object.freeze({
+        licenseDocumentUrl:
+          "https://github.com/anthropics/claude-code/blob/main/LICENSE.md",
+        referencedTermsCandidateUrl:
+          "https://www.anthropic.com/legal/commercial-terms",
+        termsIdentityResolved: false,
+        termsActivated: false,
+        fixedImageUsePermission: "unresolved",
+        redistributionPermission: "unresolved",
+      }),
       autoUpdateAllowed: false,
       manualUpdateAllowedAtRuntime: false,
     }),
     authentication: Object.freeze({
       loginPolicy: "existing_subscription_oauth",
-      supportedSubscriptions: Object.freeze([
-        "claude_pro",
-        "claude_max",
-        "claude_team",
-        "claude_enterprise",
-      ]),
+      offeringCandidates: OFFERING_CANDIDATES,
+      selectedAccountOfferingObserved: false,
+      authenticatedServiceTerms: Object.freeze({
+        candidateDocuments: Object.freeze([
+          Object.freeze({
+            name: "Anthropic Consumer Terms",
+            url: "https://www.anthropic.com/legal/consumer-terms",
+          }),
+          Object.freeze({
+            name: "Anthropic Commercial Terms",
+            url: "https://www.anthropic.com/legal/commercial-terms",
+          }),
+        ]),
+        termsIdentityResolved: false,
+        termsActivated: false,
+        automatedSubscriptionUsePermission: "unresolved",
+      }),
+      humanAuthorityConfirmed: false,
+      accountAuthorityBinding: "not_implemented",
       consoleApiAccountAllowed: false,
       thirdPartyApiProviderAllowed: false,
       apiKeyAllowed: false,
@@ -124,8 +216,19 @@ export function describeClaudeExecutionPlanContract() {
       oauthTokenReadByRuntime: false,
     }),
     readOnlyProbe: Object.freeze({
+      artifactIdentity: DISTRIBUTION_IDENTITY,
+      command: DISTRIBUTION_IDENTITY.executablePath,
       argv: FIXED_ARGV,
+      argvCompatibilityRequired: true,
+      argvCompatibilityVerified: false,
+      fixedImageDigest: null,
+      environmentMode: "replace_required",
+      environmentReplacementImplemented: false,
+      parentEnvironmentInherited: false,
       environment: FIXED_ENVIRONMENT,
+      runtimeOwnedEnvironmentSlots: RUNTIME_OWNED_ENVIRONMENT_SLOTS,
+      forbiddenParentEnvironmentCategories:
+        FORBIDDEN_PARENT_ENVIRONMENT_CATEGORIES,
       workspaceMountRequired: false,
       providerHomeMountRequired: true,
       providerRequestExpected: true,
@@ -133,13 +236,22 @@ export function describeClaudeExecutionPlanContract() {
       additionalCreditPurchaseAllowed: false,
       sessionResumeAllowed: false,
       sessionPersistenceAllowed: false,
-      builtInToolsAllowed: false,
-      mcpToolsAllowed: false,
-      projectInstructionsLoaded: false,
-      customizationsLoaded: false,
+      builtInToolsRequested: "none",
+      builtInToolsRestrictionVerified: false,
+      mcpToolsRequested: "none",
+      mcpToolsRestrictionVerified: false,
+      projectInstructionsRequested: "not_loaded",
+      projectInstructionsRestrictionVerified: false,
+      autoDiscoveredCustomizationsRequested: "not_loaded",
+      autoDiscoveredCustomizationsRestrictionVerified: false,
+      settingsSourcesVerification: "not_verified",
+      managedSettingsVerification: "not_verified",
+      providerHomeSettingsIsolation: "not_implemented",
+      authenticationStateAndSettingsSeparation: "not_implemented",
       resultFormat: "single_json_result",
       maximumTurns: 1,
     }),
+    activationBlockers: ACTIVATION_BLOCKERS,
     providerSpawn: "blocked_before_spawn",
     operationCapabilityIssued: false,
   });
