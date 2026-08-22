@@ -1,41 +1,38 @@
 # 変更トレース: Provider Homeマウント許可Runtime Store（Provider Home Mount Grant Runtime Store）
 
 - 変更ID: `CHG-000030`
-- 状態: `In Progress`
+- 状態: `Close without Release`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-22
-- 対象: CRDD公式Repositoryのprivate CoordinatorにおけるRuntime所有のMount Grant発行、atomic store、clock、一回消費および明示失効
+- 対象: CRDD公式Repositoryのprivate CoordinatorにおけるRuntime所有Mount Grant storeの先行実装候補
 - 対象version: v0.18.0 Candidate
-- 変更分類: `non-breaking`（CHG-000029の非Authority Coreを保持し、未接続のRuntime Effectを別moduleとして追加する）
-- 移行要否: `migration_required: false`（既存production consumer、永続Grantおよび実mountは0で、既存Schemaを変更しない）
+- 変更分類: `non-breaking`（未接続moduleの候補追加を評価し、不採用として現在成果物から除去した）
+- 移行要否: `migration_required: false`（production consumer、発行済みGrant、永続state、実mountおよび公開Schema変更は0）
 - 関連正本: [`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)、[`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000029`](CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
 
-## 結論と変更経路
+## 結論
 
-ローカルOperationのRuntime所有`management/`内だけにGrant recordをatomicに保存し、Runtime clockによる最長5分の発行、一回消費および明示失効を実装する。Provider Home保護、実mount、Operation終了時の自動失効、Credential、Network、Provider processおよび課金Effectは本変更で発火しない。
+固定候補commit `e466fd309ecf8e62c6f0db610d16ca8a964fbf3a`／tree `ea53efe43d806e4da04f87356e650bc8ee32d2c1`へ実装した先行store候補は、独立レビューと監査でAuthority provenance、時刻、record Identity、失敗Effect、失効aliasに重大な欠陥を確認したため採用せず、現在成果物から除去した。実装順をselected-user binder、Provider Home保護観測、Operation context Capability、Runtime store／clock／issuer、mount／Operation終了時失効へ変更する。
 
-変更は一回限り認可とFilesystem Effectを追加する非自明なprivate security実装である。着手前整合ではCHG-000029、Provider Home、Operation所有Directory、QA、内部TypeScript境界および台帳を確認し、既存の非Authority Core、最長5分、半開区間、全binding、Path／Credential非表示および通常doctor非Effectを保持した。完成固定版ではAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditを同一改訂版へ実施する。公開CLI、採用Repository Schema、Communication、DiscoveryおよびUIは変更しないため非該当である。
+これはCRDD v0.18.0 Candidate、CHG-000029のpure Core、5分、1回、4状態、半開区間、Path／Credential非表示、API key／追加credit拒否、通常`doctor`からGrant Store Effectを発火しない境界、およびClaude-firstの目標を変更しない。通常`doctor`が持つ既存の診断Filesystem Effectも変更しない。
 
-## 発火、非発火、境界および情報不足
+## 確認した問題
 
-- 発火例: Runtime所有Operation mount Capability、exact binding、1〜300,000 msの寿命を明示的なEffect APIへ渡すと、Grant recordを作成するFilesystem Effectが発火する。
-- 非発火例: source import、説明contract取得、通常`doctor`、`doctor --isolation`および既存Core評価はGrant recordを作らない。
-- 境界例: 同じOperation／Profileの二重発行、二重消費、期限外使用、観測Hash差、余分fieldおよび無効Capabilityは`blocked`へ閉じる。
-- 判定情報不足例: Runtime所有Operation identity、現在時刻、current recordまたは使用直前の三観測Hashを確認できない場合は発行、消費または失効しない。
+- caller suppliedのOperation ID、Provider／Profileおよび三観測Hashを、Operation `management/`の所有CapabilityだけでRuntime Authorityへ昇格していた。
+- 可変wall clockだけを使い、時刻後退後に実経過5分を超えて使用できる可能性があった。
+- 保存recordの完全binding／canonical bytes／stable file IdentityをCapabilityへ結合せず、Pathの`lstat`後に別のPath読取りを行っていた。
+- 部分Filesystem Effect、commit不明、lock／temporary残留を全て`filesystemEffectIssued:false`へ丸めていた。
+- Grant controlとmount authorizationのaliasを共有し、明示失効時に全aliasを不可逆失効できなかった。
+- Effect入口でProfile ID／Operation IDの64文字上限を先に適用していなかった。
 
-## 保持する意図と目指さないこと
+## 検証と監査結果
 
-- Grant record、store Path、Provider Home PathおよびCredentialを報告しない。
-- API key、追加credit、Host Credentialコピーまたは実Provider起動を許可しない。
-- 本変更だけでmount済み、Provider Home保護済みまたはClaude実行可能へ昇格しない。
-- 残るProvider Home保護、mount AdapterおよびOperation終了時自動失効は後続変更へ接続する。
+固定候補では基準Node.js `v24.19.0`でCoordinator strict typecheck／Biome lint／formatはPass、全contract testは402／402、Provider Home coverage runnerはPass、Repository全体checkerは543 files、345 Markdown、1,987 local links、576 anchors、Error 0／Warning 0だった。機械確認のPassは上記Authority欠陥を否定しない。
 
-## 検証設計と現在品質状態
+同じ固定候補へのAgent／Architecture／Security ReviewはFail（High 3、Medium 2、Low 1）、Document AuditはFail（Major 2、Minor 1）、Gap／Impact AuditおよびConformance AuditはFail／Not Eligible（Major 3、Minor 1）だった。共通原因は、必要なbinderより先にstoreを実装し、格納場所の所有とbindingのAuthority provenanceを混同したことである。
 
-- 発行、一回消費、二重消費拒否、明示失効、観測差、入力境界、重複storeおよび無効Capabilityを直接試験する。
-- strict typecheck、Biome lint／format、Coordinator全試験、Provider Home専用coverage、Checker package試験およびRepository全体checkerを別軸で確認する。
-- 固定候補commitに独立レビューと監査を実施する。
+## 終了と後続
 
-基準Node.js `v24.19.0`で、Coordinator strict typecheck／Biome lint／formatはPass、全contract testは402／402だった。Provider Home専用coverageは新規production sourceのline 359／380、function 16／16、branch 56／72を実測した。未到達はFilesystem fault、lock残留、内部不変条件および時刻競合の防御分岐であり、固定義務を`Not Verified`として保持する。固定候補へのRepository全体checkerと独立確認は未実施である。
+候補module、直接試験、coverage母集団追加および実装済み表示を現在成果物から除去する。過去固定候補と監査結果は本変更に保持し、合格またはReleaseへ読み替えない。未完了事項は実装残件台帳の`FU-018-PROVIDER-HOME`へ戻し、selected-user binder、Provider Home保護観測およびOperation context Capabilityを先に成立させた後、新しい変更としてstoreを再実装する。
 
-現在は実装中であり、固定改訂版、監査結果および人間判断は未確定である。
+現在、人間による追加判断は必要ない。安全側の依存順へ戻す処置であり、保護対象の採用、リスク受容、統合またはReleaseは行っていない。
