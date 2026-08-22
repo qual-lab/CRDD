@@ -18,19 +18,19 @@
 
 Node.jsは`C:\Users\nakas\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe`をPATH先頭へ固定した。
 
-| 対象 | 実行command | 結果 |
-|---|---|---|
-| Coordinator静的確認 | `npm.cmd run check`（`tools/coordinator`） | typecheck、lint Warning拒否、format確認成功 |
-| Coordinator全試験 | `npm.cmd test`（`tools/coordinator`） | 419件成功、失敗0 |
-| Checker静的確認 | `npm.cmd run check`（`tools/checker`） | typecheck、lint Warning拒否、format確認成功 |
-| Checker全試験 | `npm.cmd test`（`tools/checker`） | 151件成功、失敗0 |
-| Rust format | `npm.cmd run platform-access:format:check` | 成功 |
-| Rust lint | `npm.cmd run platform-access:lint` | Clippy Warning拒否で成功 |
-| Rust試験 | `npm.cmd run platform-access:test` | unit 9件、CLI 2件の計11件成功、失敗0 |
-| Rust release build | `npm.cmd run platform-access:build` | locked `x86_64-pc-windows-msvc` release build成功 |
-| TypeScript coverage | `node scripts/check-platform-access-ts-coverage.ts` | 固定source 21、test 20、検証義務付きで成功 |
-| Rust coverage | `node scripts/check-platform-access-coverage.ts` | 固定source 5、test executable 3、検証義務付きで成功 |
-| Repository全体Checker | `node tools/checker/crdd-check.ts --json --summary` | Markdown 349、link 2022、anchor 580、error 0、warning 0 |
+| 対象 | Working directory（Repository相対／実行時絶対Path） | 実行command | 結果 |
+|---|---|---|---|
+| Coordinator静的確認 | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `npm.cmd run check` | typecheck、lint Warning拒否、format確認成功 |
+| Coordinator全試験 | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `npm.cmd test` | 419件成功、失敗0 |
+| Checker静的確認 | `tools/checker`／`C:\project\CRDD\tools\checker` | `npm.cmd run check` | typecheck、lint Warning拒否、format確認成功 |
+| Checker全試験 | `tools/checker`／`C:\project\CRDD\tools\checker` | `npm.cmd test` | 151件成功、失敗0 |
+| Rust format | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `npm.cmd run platform-access:format:check` | 成功 |
+| Rust lint | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `npm.cmd run platform-access:lint` | Clippy Warning拒否で成功 |
+| Rust試験 | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `npm.cmd run platform-access:test` | unit 9件、CLI 2件の計11件成功、失敗0 |
+| Rust release build | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `npm.cmd run platform-access:build` | locked `x86_64-pc-windows-msvc` release build成功 |
+| TypeScript coverage | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `node scripts/check-platform-access-ts-coverage.ts` | 固定source 21、test 20、検証義務付きで成功 |
+| Rust coverage | `tools/coordinator`／`C:\project\CRDD\tools\coordinator` | `node scripts/check-platform-access-coverage.ts` | 固定source 5、test executable 3、検証義務付きで成功 |
+| Repository全体Checker | `.`／`C:\project\CRDD` | `node tools/checker/crdd-check.ts --json --summary` | Markdown 349、link 2022、anchor 580、error 0、warning 0 |
 
 Repository全体Checkerは`2026-08-22T18:08:10.056Z`に開始し、616 msで終了した。Git-ignored fileは未確認範囲である。
 
@@ -89,7 +89,7 @@ branch mapping非対応を100%へ換算しない。不足はtop-level出力failu
 
 ### 3.3. Hash再現規則
 
-TypeScriptは固定Nodeでscriptをchild process実行し、成功時の`stdout`全byteをHashする。Rustは同様に実行し、`stdout`の最後の改行直後から始まるJSONを抽出して`trim()`したbyteをHashする。いずれも`node:crypto`の`createHash("sha256")`を使用する。stderr、Cargo一時Path、試験表示順およびdurationはHash対象外である。
+TypeScriptとRustのcoverageは、いずれも`tools/coordinator`（実行時`C:\project\CRDD\tools\coordinator`）をworking directoryにする。TypeScriptは固定Nodeでscriptをchild process実行し、成功時の`stdout`全byteをHashする。Rustは同様に実行し、`stdout`の最後の改行直後から始まるJSONを抽出して`trim()`したbyteをHashする。いずれも`node:crypto`の`createHash("sha256")`を使用する。stderr、Cargo一時Path、試験表示順およびdurationはHash対象外である。
 
 ## 4. 監査指摘への直接確認
 
