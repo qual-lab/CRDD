@@ -1,7 +1,7 @@
 # 変更トレース: Runtime所有Operation Context Capability（Runtime-owned Operation Context Capability）
 
 - 変更ID: `CHG-000031`
-- 状態: `In Progress`
+- 状態: `In Review`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-23
 - 対象: CRDD公式Repositoryのprivate CoordinatorにおけるOperation IDのRuntime生成、opaque Capabilityへの結合および終了時失効
@@ -22,7 +22,7 @@ Runtimeが所有するOperation directoryの生成時にOperation IDを内部生
 
 - 発火例: Runtimeが生成し所有中のOperation objectから、置換されていない全childを確認できる場合だけopaque Capabilityを発行し、検証時に同一のRuntime生成Operation IDと生成時刻を返す。
 - 非発火例: caller suppliedのOperation ID、plain object、Capabilityのspread copyおよび未知objectはCapabilityとして受理しない。Capability発行と検証はProvider Home、mount、Credential、Network、Provider processまたは課金Effectを発火しない。
-- 境界例: 同じOperationへ複数aliasを発行しても同一Operation IDへ結合し、正常cleanupがOperation rootを削除した時点で全aliasを不可逆に失効する。cleanupが安全確認前に停止した場合は、存在するOperationを終了済みと誤認しない。
+- 境界例: 同じOperationへ複数aliasを発行しても同一Operation IDへ結合し、正常cleanupまたはHost recoveryがOperation rootの消滅を確定した時点で全aliasを不可逆に失効する。cleanup／recoveryが安全確認前に停止した場合は、存在するOperationを終了済みと誤認しない。
 - 判定情報不足例: Runtime所有Identity、child集合またはstable Filesystem Identityを確認できない場合は、Pathが存在してもCapabilityを発行・検証しない。
 
 ## 保持する意図と目指さないこと
@@ -37,7 +37,9 @@ Runtimeが所有するOperation directoryの生成時にOperation IDを内部生
 - Coordinator strict typecheck／lint／format、全contract test、Checker package testおよびRepository全体checkerを確認する。
 - 完成候補commitとtreeを固定して必須監査集合を実施し、指摘を一括統合してから是正する。
 
-現在は実装中であり、固定改訂版の検証・監査結果は未取得である。実Provider、Docker、Network、OAuth、Provider Home保護／mountまたは課金Effectは本変更で発火しない。contract testは所有する一時Operation directoryと外部回復recordを作成・cleanupする試験Filesystem Effectを含む。
+実装候補commit `93293b82aecffd735d91a0a4b3490dfbb24d7616`／tree `515470075011ede7c8a7a33c47e593b5bc744e53`を固定した。基準Node.js `v24.19.0`でCoordinator strict typecheck／Biome lint／formatはPass、全contract testは401／401だった。直接試験はRuntime生成ID、同一Operationの複数alias、opaque表示、plain copy／偽造拒否、child置換拒否、通常cleanupおよびHost recoveryによる全alias失効を確認した。`execution-environment.ts`全体の単一test coverageはlines 92.47%、functions 97.78%、branches 76.77%で、同じ大規模sourceに残る既存の異常注入分岐を本変更の100%主張へ流用していない。
+
+Checker packageのcheckはPass、contract testは151／151だった。Repository全体checkerは542 files、346 Markdown、1,994 local links、577 anchorsを確認し、Error 0／Warning 0だった。実Provider、Docker、Network、OAuth、Provider Home保護／mountまたは課金Effectは本変更で発火していない。contract testは所有する一時Operation directoryと外部回復recordを作成・cleanupする試験Filesystem Effectを含む。固定改訂版への独立監査結果は未取得であり、PassまたはVerifiedへはまだ昇格しない。
 
 ## 未完了事項と人間判断
 
