@@ -31,6 +31,13 @@ test("固定PE fixtureはexact native bootstrap allowlistだけを受理する",
       "ADVAPI32.dll": [
         "ConvertStringSecurityDescriptorToSecurityDescriptorW",
         "FreeSid",
+        "RegCloseKey",
+        "RegDeleteValueW",
+        "RegFlushKey",
+        "RegOpenKeyExW",
+        "RegQueryInfoKeyW",
+        "RegQueryValueExW",
+        "RegSetValueExW",
       ],
       "bcrypt.dll": [
         "BCryptCloseAlgorithmProvider",
@@ -47,6 +54,7 @@ test("固定PE fixtureはexact native bootstrap allowlistだけを受理する",
         "ConnectNamedPipe",
         "CreateFileW",
         "CreateJobObjectW",
+        "CreateMutexW",
         "CreateNamedPipeW",
         "CreateProcessW",
         "DeleteProcThreadAttributeList",
@@ -70,6 +78,7 @@ test("固定PE fixtureはexact native bootstrap allowlistだけを受理する",
         "QueryFullProcessImageNameW",
         "QueryInformationJobObject",
         "ReadFile",
+        "ReleaseMutex",
         "ResumeThread",
         "SetInformationJobObject",
         "Sleep",
@@ -78,6 +87,8 @@ test("固定PE fixtureはexact native bootstrap allowlistだけを受理する",
         "WaitForSingleObject",
         "WriteFile",
       ],
+      "ole32.dll": ["CoTaskMemFree"],
+      "SHELL32.dll": ["SHGetKnownFolderPath"],
       "USERENV.dll": ["DeriveAppContainerSidFromAppContainerName"],
       "WINTRUST.dll": [
         "WTHelperGetProvSignerFromChain",
@@ -224,14 +235,14 @@ test("high-bit ASCII alias、未知・重複import、ordinalおよび非終端�
     [
       "import_name",
       (bytes: Buffer) => {
-        bytes.writeBigUInt64LE(0x29fcn, lookupThunks);
-        bytes.writeBigUInt64LE(0x29fcn, addressThunks);
+        bytes.writeBigUInt64LE(0x31fcn, lookupThunks);
+        bytes.writeBigUInt64LE(0x31fcn, addressThunks);
       },
     ],
     [
       "import_descriptor",
       (bytes: Buffer) => {
-        bytes[importDirectory + 128] = 1;
+        bytes[importDirectory + 168] = 1;
       },
     ],
     [

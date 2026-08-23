@@ -30,7 +30,7 @@ test("platform provisioning blocks before distribution or filesystem access", ()
 
 test("platform provisioner effect is repository-owned and has no compatibility layout", () => {
   const contract = describePlatformProvisionerEffectContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(contract.command, "explicit_provision_only");
   assert.equal(
     contract.sourceCheckoutBehavior,
@@ -42,7 +42,12 @@ test("platform provisioner effect is repository-owned and has no compatibility l
   );
   assert.equal(
     contract.preActiveProvisioningOneShot,
-    "native_appcontainer_worker_entrypoint_implemented_formal_evidence_pending",
+    "native_appcontainer_worker_with_temporary_registry_prerequisite_implemented_formal_evidence_pending",
+  );
+  assert.equal(contract.normalOperationRegistryMutation, false);
+  assert.equal(
+    contract.preActiveRegistryRecovery,
+    "durable_exact_pre_state_restore_or_manual_recovery_required",
   );
   assert.equal(contract.repositoryRuntimeStateRequired, false);
   assert.equal(contract.compatibilityLayout, "prohibited");

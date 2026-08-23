@@ -35,7 +35,7 @@ export function inspectPreActiveProvisioningOneShotCandidate(
 export function describePreActiveProvisioningOneShotContract() {
   return Object.freeze({
     contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-    contractRevision: 3,
+    contractRevision: 4,
     command: "explicit_coordinator_provision_only",
     executionStrategy: "native_top_level_appcontainer_worker_observation",
     maximumObservationAttemptsPerInvocation: 1,
@@ -58,6 +58,18 @@ export function describePreActiveProvisioningOneShotContract() {
     workerBoundedProcess:
       "atomic_single_process_job_assignment_implemented_candidate",
     workerProcessTreeTermination: "required_before_candidate_forwarding",
+    runtimeEnvironment:
+      "os_known_folder_local_app_data_only_without_parent_environment_inheritance",
+    lowBoxConsolePrerequisite:
+      "current_user_temporary_one_shot_registry_effect_only_when_not_already_enabled",
+    registrySerialization: "fixed_current_user_named_mutex",
+    registryRecoveryRecord:
+      "durable_before_effect_and_removed_only_after_verified_restore",
+    registryRestoration:
+      "exact_pre_state_last_write_comparison_and_read_back_before_candidate_forwarding",
+    staleOrAmbiguousRegistryRecovery:
+      "manual_recovery_required_fail_closed_without_overwrite",
+    normalOperationRegistryMutation: false,
     networkEnforcement: "not_implemented_blocked",
     currentProcessEffectIssued: false,
     currentHelperProcessSpawned: false,

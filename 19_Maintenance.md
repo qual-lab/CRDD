@@ -325,6 +325,8 @@ Repositoryの基準Node.js版は`.node-version`と各packageの`engines.node`へ
 
 CRDD公式Repositoryの`tools/**`と配布用実装の具体的な命名、試験名および曖昧名の禁止は[内部ツール・コーディング規約](tools/coding-standards.md)を単一正本とする。
 
+対象Windows環境でAppContainer workerの起動に必要なOS文脈は、親process環境の継承ではなく、Windows Known Folderから取得して固定volumeかつnon-reparse path chainを確認した`LOCALAPPDATA`だけのUnicode環境blockとして渡さなければならない（MUST）。`LowBoxConsoleEnabled`が独立した起動前提になる場合は、通常Operationで変更してはならず（MUST NOT）、明示`provision`の同一invocation内だけで、CurrentUser固定mutex、exact pre-state、durable recovery recordのeffect前flush、必要時だけの一時設定、worker tree終了、現在値とkey last-writeの所有確認、exact restore、read-backおよびrecovery record削除を順に確認しなければならない（MUST）。既存recovery record、型差、外部変更または復元所有権を判定できない場合は値を上書きせず、手動回復が必要な状態としてfail closedにしなければならない（MUST）。復元と記録削除を確認する前に観測候補をcallerへ公開してはならない（MUST NOT）。
+
 <a id="34-essential-correction-and-compatibility-boundary"></a>
 
 ## 3.4. 本質的修正と互換層の境界

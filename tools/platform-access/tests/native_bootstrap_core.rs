@@ -91,6 +91,22 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_process_tree_recovery_unconfirmed",
         ),
         (
+            native_bootstrap_core::REGISTRY_PRECONDITION_MANUAL_RECOVERY_BLOCKED,
+            "native_provision_registry_recovery_unconfirmed",
+        ),
+        (
+            native_bootstrap_core::REGISTRY_PROCESS_MANUAL_RECOVERY_BLOCKED,
+            "native_provision_registry_recovery_unconfirmed",
+        ),
+        (
+            native_bootstrap_core::REGISTRY_CREATED_PROCESS_MANUAL_RECOVERY_BLOCKED,
+            "native_provision_registry_recovery_unconfirmed",
+        ),
+        (
+            native_bootstrap_core::REGISTRY_WORKER_MANUAL_RECOVERY_BLOCKED,
+            "native_provision_registry_recovery_unconfirmed",
+        ),
+        (
             native_bootstrap_core::SUPERVISOR_IMAGE_BLOCKED,
             "native_provision_supervisor_loaded_image_binding_unavailable",
         ),

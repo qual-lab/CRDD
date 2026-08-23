@@ -6,9 +6,9 @@
 - 判断日: 2026-08-23
 - 対象: Windows native `coordinator.exe provision`からの固定AppContainer worker起動候補
 - 対象version: v0.18.0 Candidate
-- Runtime基準: private doctor reportVersion 9はRepository基準と同じNode.js 24.12.0以上だけを受理し、Node 22.xおよび24.11以下をRuntime基準へ昇格しない。
+- Runtime基準: private doctor reportVersion 10はRepository基準と同じNode.js 24.12.0以上だけを受理し、Node 22.xおよび24.11以下をRuntime基準へ昇格しない。
 - 変更分類: `breaking`
-- 移行要否: `migration_required: true`（entrypoint contract revision 2は維持する。native result contract revision 1→2、有効化前準備一回実行revision 2→3、Platform Provisioner Effect revision 3→4、Runtime Activation revision 3→4、private doctor reportVersion 8→9へ上げる。今回の最小信頼境界の採用は既存Schema、wireおよびfield集合を変えないため追加revisionは上げず、旧`SUPERVISOR_IMAGE_BLOCKED` reasonは予約済みの過去結果として保持するが現sourceから発行しない。旧revisionへのalias／fallbackは設けず、発行済みproduction stateは0なので永続変換なし）
+- 移行要否: `migration_required: true`（entrypoint contract revision 2、native result contract revision 2およびPA03／PR03は維持する。有効化前準備一回実行revision 3→4、Platform Provisioner Effect revision 4→5、private doctor reportVersion 9→10へ上げ、Runtime Activation revision 4は入れ子契約自身のrevisionで追跡する。旧revisionへのalias／fallbackは設けず、発行済みproduction stateは0なので永続変換なし。旧`SUPERVISOR_IMAGE_BLOCKED` reasonは過去結果として保持するが現sourceから発行しない）
 - 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-crdd内部実装のtypescriptrust境界)、[`CHG-000035`](CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
 
 ## 結論と変更経路
@@ -52,7 +52,9 @@
 - workerへhandleを継承しない。supervisorは`\\.\pipe\LOCAL\CRDD.Coordinator.<supervisor-pid>`のfirst instanceを作成し、接続元process IDが自ら生成したworkerと一致する場合だけ通信する。
 - 入力はPA03、60-byte header、1～4096 byteの宣言pathおよび全長一致を起動前に要求し、余分byteまたは旧revisionを拒否する。responseはPR03のexact 86 byteだけを受理する。
 - workerは固定pipe引数1組だけを受理し、通常stdin／stdout互換入口と分離する。timeout、接続差、書込み差、response差または終了取得失敗ではAuthority、Capabilityまたは観測候補を発行しない。
-- PE検査はx86-64 CUI、ASLR／NX、delay import／TLS／bound import／CLR 0を維持し、`ADVAPI32.dll`、`bcrypt.dll`、`CRYPT32.dll`、`KERNEL32.dll`、`USERENV.dll`、`WINTRUST.dll`の実装所有exact API集合だけを許可する。worker Hashは非実行・非書込みsectionへexact 1件だけ格納し、Release stagingが同時観測したworker artifact Hashと一致する場合だけmanifest署名候補へ進む。
+- Workerへ渡す環境は、Windows Known Folderから取得し、固定volumeかつnon-reparse path chainとして検証した`LOCALAPPDATA`だけでUnicode環境blockを構成する。親processの環境、Credential、ProxyまたはPATHを継承しない。
+- `LowBoxConsoleEnabled`は通常Operationの設定ではなく、明示`provision`内だけのCurrentUser一時前提として扱う。固定CurrentUser mutexを取得し、既存値とkey last-writeを記録したdurable recovery recordを先にflushしてから必要時だけDWORD 1を設定する。worker tree終了後、現在値とlast-writeが自分の設定後観測に一致する場合だけ元のDWORDまたは不存在へ戻し、read-backとrecovery record削除を確認してから候補responseを公開する。既存recovery record、型差、外部変更または復元確認不能では上書きせず`native_provision_registry_recovery_unconfirmed`と`manualRecoveryRequired: true`で停止する。
+- PE検査はx86-64 CUI、ASLR／NX、delay import／TLS／bound import／CLR 0を維持し、`ADVAPI32.dll`、`bcrypt.dll`、`CRYPT32.dll`、`KERNEL32.dll`、`OLE32.dll`、`SHELL32.dll`、`USERENV.dll`、`WINTRUST.dll`の実装所有exact API集合だけを許可する。worker Hashは非実行・非書込みsectionへexact 1件だけ格納し、Release stagingが同時観測したworker artifact Hashと一致する場合だけmanifest署名候補へ進む。
 - Ed25519 manifest signerとAuthenticode publisher signerは別Trust軸である。manifestは固定公開鍵、canonical envelope、署名domain、payload長、両artifactのbyte長／Hashを検証する。権限を持つsupervisorは別に、build時に固定した承認済みpublisher certificate SHA-256、cache-only whole-chain revocationおよびlocked file handleの`WinVerifyTrust`を要求する。低権限workerはEd25519 manifest、supervisor内部Hash、locked worker byteおよびloaded image Identityで固定する。未設定は全ゼロのfail-closed supervisor buildとなり、caller supplied signer、自己署名または片方の成功を他方へ代用しない。
 - Jobはworker process生成前に作成し、AppContainer security capabilities、mitigationおよびJob listを同じ`STARTUPINFOEXW`属性へ渡してcreate-time収容する。active process上限1、job handle close時全終了、hard timeout時のJob終了および完了後active process 0を要求する。process生成後の終了・回収を確定できない場合は`manualRecoveryRequired: true`で停止し、成功結果へ流用しない。
 
@@ -60,8 +62,8 @@
 
 - 発火例: 正常OS、OS認証済みの選択ローカル対話ユーザー、人間が確認した公式署名済み固定Release、manifest-bound worker、既存AppContainer profile、exact `provision`、PA03 exact frameおよび全対象内安全条件が同じrunで成立する場合だけworker生成を最大1回試行する。
 - 非発火例: 通常run、`doctor`、未署名開発build、固定Release配置外、別local user、invalid CLI、旧wire revision、余分request byte、profile不成立、未知pipe接続またはworker差では観測しない。
-- 境界例: supervisor自身は人間が開始したprocessでありCoordinator-issued Effectではない。worker生成試行だけをProcess Effectとして報告し、成功生成、接続、観測候補およびAuthorityを分ける。悪意ある同一ユーザー、Administrator、kernelまたはOS侵害はv1防御対象外であり、安全成立または検出を主張しない。
-- 判定情報不足例: 選択user一致、Authenticode、manifest artifactとの継続Identity、全parent、local volume、DLL探索閉包、Network非発火、worker子孫process不存在または終了後tree不存在の一件でも未確認ならoperational one-shot、GateまたはReleaseへ進めない。
+- 境界例: `LowBoxConsoleEnabled`が既にDWORD 1ならmutex保持中に変更せず実行し、別値または不存在なら一時Effectと復元を行う。値の型、Recovery所有権またはlast-writeが判定不能なら推測して復元しない。supervisor自身は人間が開始したprocessでありCoordinator-issued Effectではない。worker生成試行だけをProcess Effectとして報告し、成功生成、接続、観測候補およびAuthorityを分ける。
+- 判定情報不足例: OS Known Folder、`LOCALAPPDATA` path Identity、Registry pre-state／回復所有権、選択user一致、Authenticode、manifest artifactとの継続Identity、全parent、local volume、DLL探索閉包、Network非発火、worker子孫process不存在または終了後tree不存在の一件でも未確認ならoperational one-shot、GateまたはReleaseへ進めない。
 
 ## 検証結果と未完了事項
 
@@ -71,8 +73,9 @@
 - native PE検査は独立したclean target Root 2件でworkerとsupervisorがそれぞれbyte一致し、supervisor内部worker Hashも一致した。現成果物の可変byte長／SHA-256はcurrent Verification Run Recordだけを正本とし、CHGへ複製しない。
 - 過去改訂版のcoverage、checkerおよび独立監査結果は現改訂版へ流用しない。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測、release-only supervisorの未instrument経路、Security Decision Obligation、残存risk、Ownerおよび再確認契機をEvidenceへ分離する。
 - AppContainer最小probeはWorker起動成功、handle継承0、Codex親Job内で成立した。未署名supervisorの実往復はprocess生成前に`blocked`となり、一時`LowBoxConsoleEnabled`値と一時配置は各runで復元した。
+- Console／Windows subsystem、`CREATE_NEW_CONSOLE`有無、空／全親環境を比較した実測で、subsystem変更や新規Console除去だけでは解決せず、対象Windows環境のAppContainer起動には`LOCALAPPDATA`と`LowBoxConsoleEnabled=1`が独立に必要だった。production候補は既存CUI subsystemのまま`CREATE_NEW_CONSOLE`を使用せず、前者を最小実行環境、後者を有効化前準備一回実行の一時Effectへ分離した。CurrentUser mutation testは元状態とrecovery record不存在までread-backして合格した。
 - 人間が目的、期間、CurrentUser限定Storeおよび同一run内rollbackを承認した一時Authenticode検証では、非永続のメモリ内秘密鍵から作ったCode Signing証明書の公開部分だけを`CurrentUser\Root`／`CurrentUser\TrustedPublisher`へ登録し、証明書SHA-256を固定してbuildしたSupervisorを署名した。Windows検査は`Valid`、署名結果のsigner一致、PE内の固定SHA-256 ASCII列exact 1件を確認した。終了時は`CurrentUser\My`を含む3 Storeの同一thumbprint残存0である。自己署名証明書を公式Publisherへ昇格せず、固定Ed25519 Release Trust Root、API key、installerまたはmachine-wide設定を変更していない。
 - supervisor source候補は、manifest revision 2の全field、canonical順序、現在UTCの有効期間、同一handleから得た両成果物のbyte長／SHA-256およびbuild時worker Hashを照合する。配布volume rootから各leafまでをboundedなnon-reparse handleとしてdelete共有なしで保持し、local fixed volumeを要求する。cache-only `WinVerifyTrust`も必須である。現在map済みsupervisor imageの原子的自己結合は未成立の残存riskとして保持するが、Minimum Trust Boundaryの対象外条件として専用blockerを現sourceから除去した。
 - workerはactive process上限1およびjob handle close時全終了を持つJobへsuspended状態で収容してから再開する。完了時はJob accountingのactive process 0を要求する。extension point無効、dynamic code禁止、remote／low-label image禁止およびSystem32優先のprocess mitigationを同じ生成属性へ固定した。supervisorのlocked PE allowlistとworkerのstatic import観測には直接Network APIがなく、capabilityなしAppContainerを維持する。
 
-実装済み候補は、manifestのexact全field／時刻検査、同一handleの両artifact Hash、supervisor内部worker Hash、volume rootからleafまでのbounded parent handle、local fixed volume、cache-only Authenticode検証、create-time Job、子孫禁止、終了後tree不存在、worker loaded image照合およびDLL mitigationである。mapped supervisor結合専用blockerはMinimum Trust Boundary採用により現sourceから除去した。Authenticodeの一時署名、Windows trust判定およびrollbackは実測済みだが、固定Ed25519秘密鍵が利用できず現差分のCommit／Treeも未固定であるため、正式Manifestと結合したnative entrypoint到達は未確認である。未完了は、正式Ed25519／Authenticode署名成果物によるPA03／PR03実往復、実runのNetwork非発火・module集合・Job／tree確認、selected-user binder、protected active／Provider Home、Mount Grant issuer／store／clock／失効、Egress、OAuth／subscription条件およびClaude Code限定probeである。今後のTrust Store登録は自動承認せず、正式署名材料または目的・期間・追加／除去対象・残存riskを明示した別の人間承認を要する。これらの完了前にRelease・Gate open・Claude Code実行へ進めない。保護対象の採用・統合、残存risk受容およびReleaseは人間の決定権限へ残す。
+実装済み候補は、manifestのexact全field／時刻検査、同一handleの両artifact Hash、supervisor内部worker Hash、volume rootからleafまでのbounded parent handle、local fixed volume、cache-only Authenticode検証、Known Folder由来`LOCALAPPDATA`だけの環境block、一時Registry Effectのmutex／durable recovery／exact restore、create-time Job、子孫禁止、終了後tree不存在、worker loaded image照合およびDLL mitigationである。mapped supervisor結合専用blockerはMinimum Trust Boundary採用により現sourceから除去した。Authenticodeの一時署名、Windows trust判定およびrollbackは実測済みだが、正式Ed25519／Authenticode署名成果物と現差分のCommit／Treeはまだ同じrunへ固定していないため、正式Manifestと結合したnative entrypoint到達は未確認である。未完了は、正式Ed25519／Authenticode署名成果物によるPA03／PR03実往復、実runのNetwork非発火・module集合・Job／tree確認、selected-user binder、protected active／Provider Home、Mount Grant issuer／store／clock／失効、Egress、OAuth／subscription条件およびClaude Code限定probeである。今後のTrust Store登録は自動承認せず、正式署名材料または目的・期間・追加／除去対象・残存riskを明示した別の人間承認を要する。これらの完了前にRelease・Gate open・Claude Code実行へ進めない。保護対象の採用・統合、残存risk受容およびReleaseは人間の決定権限へ残す。

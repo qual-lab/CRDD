@@ -4,23 +4,24 @@ export const NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS = Object.freeze({
   firstSection: 0x188,
   secondSection: 0x1b0,
   importDirectory: 0x600,
-  lookupThunks: 0x6a0,
-  addressThunks: 0x7c0,
-  libraryName: 0xf00,
-  firstSymbolName: 0xa42,
+  lookupThunks: 0x6c0,
+  addressThunks: 0x800,
+  libraryName: 0x1600,
+  firstSymbolName: 0xb82,
 });
 
 const LIBRARIES = Object.freeze([
   Object.freeze({
     name: "KERNEL32.dll",
-    nameOffset: 0xf00,
-    lookupOffset: 0x6a0,
-    addressOffset: 0x7c0,
+    nameOffset: 0x1600,
+    lookupOffset: 0x6c0,
+    addressOffset: 0x800,
     symbols: Object.freeze([
       "CloseHandle",
       "ConnectNamedPipe",
       "CreateFileW",
       "CreateJobObjectW",
+      "CreateMutexW",
       "CreateNamedPipeW",
       "CreateProcessW",
       "DeleteProcThreadAttributeList",
@@ -44,6 +45,7 @@ const LIBRARIES = Object.freeze([
       "QueryFullProcessImageNameW",
       "QueryInformationJobObject",
       "ReadFile",
+      "ReleaseMutex",
       "ResumeThread",
       "SetInformationJobObject",
       "Sleep",
@@ -55,26 +57,33 @@ const LIBRARIES = Object.freeze([
   }),
   Object.freeze({
     name: "ADVAPI32.dll",
-    nameOffset: 0xf20,
-    lookupOffset: 0x8e0,
-    addressOffset: 0x900,
+    nameOffset: 0x1620,
+    lookupOffset: 0x960,
+    addressOffset: 0x9b0,
     symbols: Object.freeze([
       "ConvertStringSecurityDescriptorToSecurityDescriptorW",
       "FreeSid",
+      "RegCloseKey",
+      "RegDeleteValueW",
+      "RegFlushKey",
+      "RegOpenKeyExW",
+      "RegQueryInfoKeyW",
+      "RegQueryValueExW",
+      "RegSetValueExW",
     ]),
   }),
   Object.freeze({
     name: "USERENV.dll",
-    nameOffset: 0xf40,
-    lookupOffset: 0x920,
-    addressOffset: 0x930,
+    nameOffset: 0x1640,
+    lookupOffset: 0xa00,
+    addressOffset: 0xa10,
     symbols: Object.freeze(["DeriveAppContainerSidFromAppContainerName"]),
   }),
   Object.freeze({
     name: "bcrypt.dll",
-    nameOffset: 0xf60,
-    lookupOffset: 0x940,
-    addressOffset: 0x980,
+    nameOffset: 0x1660,
+    lookupOffset: 0xa20,
+    addressOffset: 0xa70,
     symbols: Object.freeze([
       "BCryptCloseAlgorithmProvider",
       "BCryptCreateHash",
@@ -87,9 +96,9 @@ const LIBRARIES = Object.freeze([
   }),
   Object.freeze({
     name: "WINTRUST.dll",
-    nameOffset: 0xf80,
-    lookupOffset: 0x9c0,
-    addressOffset: 0x9e0,
+    nameOffset: 0x1680,
+    lookupOffset: 0xac0,
+    addressOffset: 0xae0,
     symbols: Object.freeze([
       "WTHelperGetProvSignerFromChain",
       "WTHelperProvDataFromStateData",
@@ -98,10 +107,24 @@ const LIBRARIES = Object.freeze([
   }),
   Object.freeze({
     name: "CRYPT32.dll",
-    nameOffset: 0xfa0,
-    lookupOffset: 0xa00,
-    addressOffset: 0xa10,
+    nameOffset: 0x16a0,
+    lookupOffset: 0xb00,
+    addressOffset: 0xb10,
     symbols: Object.freeze(["CertGetCertificateContextProperty"]),
+  }),
+  Object.freeze({
+    name: "ole32.dll",
+    nameOffset: 0x16c0,
+    lookupOffset: 0xb20,
+    addressOffset: 0xb30,
+    symbols: Object.freeze(["CoTaskMemFree"]),
+  }),
+  Object.freeze({
+    name: "SHELL32.dll",
+    nameOffset: 0x16e0,
+    lookupOffset: 0xb40,
+    addressOffset: 0xb50,
+    symbols: Object.freeze(["SHGetKnownFolderPath"]),
   }),
 ]);
 
@@ -119,7 +142,7 @@ export function createNativeBootstrapPeFixture(
 ) {
   if (!/^[0-9a-f]{64}$/u.test(workerBindingSha256))
     throw new Error("fixture_worker_binding_invalid");
-  const bytes = Buffer.alloc(0x1000);
+  const bytes = Buffer.alloc(0x1800);
   bytes.writeUInt16LE(0x5a4d, 0);
   bytes.writeUInt32LE(NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.pe, 0x3c);
   const pe = NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.pe;
@@ -135,13 +158,13 @@ export function createNativeBootstrapPeFixture(
   bytes.writeBigUInt64LE(0x1_4000_0000n, optional + 24);
   bytes.writeUInt32LE(0x1000, optional + 32);
   bytes.writeUInt32LE(0x200, optional + 36);
-  bytes.writeUInt32LE(0x3000, optional + 56);
+  bytes.writeUInt32LE(0x4000, optional + 56);
   bytes.writeUInt32LE(0x400, optional + 60);
   bytes.writeUInt16LE(3, optional + 68);
   bytes.writeUInt16LE(0x160, optional + 70);
   bytes.writeUInt32LE(16, optional + 108);
   bytes.writeUInt32LE(0x2000, optional + 112 + 8);
-  bytes.writeUInt32LE(140, optional + 116 + 8);
+  bytes.writeUInt32LE(180, optional + 116 + 8);
 
   const text = NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.firstSection;
   bytes.write(".text", text, "latin1");
@@ -152,13 +175,13 @@ export function createNativeBootstrapPeFixture(
   bytes.writeUInt32LE(0x60000020, text + 36);
   const rdata = NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.secondSection;
   bytes.write(".rdata", rdata, "latin1");
-  bytes.writeUInt32LE(0xa00, rdata + 8);
+  bytes.writeUInt32LE(0x1200, rdata + 8);
   bytes.writeUInt32LE(0x2000, rdata + 12);
-  bytes.writeUInt32LE(0xa00, rdata + 16);
+  bytes.writeUInt32LE(0x1200, rdata + 16);
   bytes.writeUInt32LE(0x600, rdata + 20);
   bytes.writeUInt32LE(0x40000040, rdata + 36);
 
-  let symbolOffset = 0xa40;
+  let symbolOffset = 0xb80;
   for (const [libraryIndex, library] of LIBRARIES.entries()) {
     const descriptor =
       NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.importDirectory + libraryIndex * 20;
@@ -181,6 +204,6 @@ export function createNativeBootstrapPeFixture(
       symbolOffset += 2 + symbol.length + 1;
     }
   }
-  writeAscii(bytes, 0xe80, `CRDD-WORKER-SHA256-V1:${workerBindingSha256}`);
+  writeAscii(bytes, 0x1500, `CRDD-WORKER-SHA256-V1:${workerBindingSha256}`);
   return bytes;
 }

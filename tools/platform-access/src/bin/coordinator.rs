@@ -9,7 +9,7 @@ use core::panic::PanicInfo;
 use core::ptr::{null, null_mut};
 use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
-use windows_sys::Win32::Foundation::SYSTEMTIME;
+use windows_sys::Win32::Foundation::{FILETIME, SYSTEMTIME};
 use windows_sys::Win32::Security::Isolation::DeriveAppContainerSidFromAppContainerName;
 use windows_sys::Win32::Security::SECURITY_CAPABILITIES;
 use windows_sys::Win32::Storage::FileSystem::{
@@ -38,7 +38,6 @@ type Psid = *mut c_void;
 const MAXIMUM_CODE_UNITS: usize = 32_767;
 const INVALID_HANDLE: Handle = (-1_isize) as Handle;
 const EXTENDED_STARTUPINFO_PRESENT: u32 = 0x0008_0000;
-const CREATE_NEW_CONSOLE: u32 = 0x0000_0010;
 const CREATE_SUSPENDED: u32 = 0x0000_0004;
 const CREATE_UNICODE_ENVIRONMENT: u32 = 0x0000_0400;
 const ATTRIBUTE_SECURITY_CAPABILITIES: usize = 0x0002_0009;
@@ -57,6 +56,15 @@ const PIPE_READMODE_MESSAGE: u32 = 0x0000_0002;
 const ERROR_PIPE_CONNECTED: u32 = 535;
 const HEAP_ZERO_MEMORY: u32 = 0x0000_0008;
 const GENERIC_READ: u32 = 0x8000_0000;
+const KEY_QUERY_VALUE: u32 = 0x0001;
+const KEY_SET_VALUE: u32 = 0x0002;
+const REG_BINARY: u32 = 3;
+const REG_DWORD: u32 = 4;
+const ERROR_FILE_NOT_FOUND: u32 = 2;
+const WAIT_OBJECT_0: u32 = 0;
+const WAIT_ABANDONED: u32 = 128;
+const HKEY_CURRENT_USER: Handle = (-2_147_483_647_isize) as Handle;
+const RECOVERY_RECORD_BYTES: usize = 64;
 
 static mut WORKER_PATH: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
 static mut SUPERVISOR_PATH: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
@@ -70,9 +78,11 @@ static mut RESPONSE_BUFFER: [u8; RESPONSE_BYTES + 1] = [0; RESPONSE_BYTES + 1];
 static mut FILE_HASH_BUFFER: [u8; 65_536] = [0; 65_536];
 static mut MANIFEST_BUFFER: [u8; 128 * 1024 + 1] = [0; 128 * 1024 + 1];
 static mut SIGNATURE_MESSAGE_BUFFER: [u8; 128 * 1024 + 128] = [0; 128 * 1024 + 128];
-static mut MINIMUM_ENVIRONMENT: [u16; 2] = [0; 2];
+static mut LOCAL_APP_DATA_PATH: [u16; MAXIMUM_CODE_UNITS] = [0; MAXIMUM_CODE_UNITS];
+static mut MINIMUM_ENVIRONMENT: [u16; MAXIMUM_CODE_UNITS + 16] = [0; MAXIMUM_CODE_UNITS + 16];
 static FAILURE_STAGE: AtomicU8 = AtomicU8::new(0);
 static MANUAL_RECOVERY_REQUIRED: AtomicBool = AtomicBool::new(false);
+static REGISTRY_RECOVERY_REQUIRED: AtomicBool = AtomicBool::new(false);
 #[used]
 #[unsafe(link_section = ".rdata$CRDD")]
 static WORKER_BINDING: &str = concat!("CRDD-WORKER-SHA256-V1:", env!("CRDD_NATIVE_WORKER_SHA256"));
@@ -166,6 +176,8 @@ unsafe extern "system" {
     fn GetNamedPipeClientProcessId(pipe: Handle, client_process_id: *mut u32) -> i32;
     fn GetLastError() -> u32;
     fn GetCurrentProcessId() -> u32;
+    fn CreateMutexW(attributes: *const c_void, initial_owner: i32, name: *const u16) -> Handle;
+    fn ReleaseMutex(mutex: Handle) -> i32;
     fn Sleep(milliseconds: u32);
     fn LocalFree(memory: *mut c_void) -> *mut c_void;
     fn GetProcessHeap() -> Handle;
@@ -205,6 +217,21 @@ unsafe extern "system" {
         overlapped: *mut c_void,
     ) -> i32;
     fn ExitProcess(exit_code: u32) -> !;
+}
+
+#[link(name = "shell32")]
+unsafe extern "system" {
+    fn SHGetKnownFolderPath(
+        folder_id: *const Guid,
+        flags: u32,
+        token: Handle,
+        path: *mut *mut u16,
+    ) -> i32;
+}
+
+#[link(name = "ole32")]
+unsafe extern "system" {
+    fn CoTaskMemFree(memory: *const c_void);
 }
 
 #[link(name = "wintrust")]
@@ -269,6 +296,46 @@ unsafe extern "system" {
         security_descriptor: *mut *mut c_void,
         security_descriptor_size: *mut u32,
     ) -> i32;
+    fn RegOpenKeyExW(
+        key: Handle,
+        subkey: *const u16,
+        options: u32,
+        access: u32,
+        result: *mut Handle,
+    ) -> u32;
+    fn RegCloseKey(key: Handle) -> u32;
+    fn RegQueryValueExW(
+        key: Handle,
+        value_name: *const u16,
+        reserved: *const u32,
+        value_type: *mut u32,
+        data: *mut u8,
+        data_bytes: *mut u32,
+    ) -> u32;
+    fn RegSetValueExW(
+        key: Handle,
+        value_name: *const u16,
+        reserved: u32,
+        value_type: u32,
+        data: *const u8,
+        data_bytes: u32,
+    ) -> u32;
+    fn RegDeleteValueW(key: Handle, value_name: *const u16) -> u32;
+    fn RegFlushKey(key: Handle) -> u32;
+    fn RegQueryInfoKeyW(
+        key: Handle,
+        class: *mut u16,
+        class_length: *mut u32,
+        reserved: *const u32,
+        subkeys: *mut u32,
+        maximum_subkey_length: *mut u32,
+        maximum_class_length: *mut u32,
+        values: *mut u32,
+        maximum_value_name_length: *mut u32,
+        maximum_value_length: *mut u32,
+        security_descriptor_length: *mut u32,
+        last_write_time: *mut FILETIME,
+    ) -> u32;
 }
 
 #[cfg(not(test))]
@@ -956,6 +1023,461 @@ unsafe fn current_canonical_utc() -> [u8; 24] {
     output
 }
 
+fn filetime_value(value: &FILETIME) -> u64 {
+    (u64::from(value.dwHighDateTime) << 32) | u64::from(value.dwLowDateTime)
+}
+
+unsafe fn registry_last_write(key: Handle) -> Option<u64> {
+    // SAFETY: `key` remains open and borrowed while RegQueryInfoKeyW writes only the stack FILETIME.
+    let mut value = FILETIME::default();
+    (unsafe {
+        RegQueryInfoKeyW(
+            key,
+            null_mut(),
+            null_mut(),
+            null(),
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            null_mut(),
+            &mut value,
+        )
+    } == 0)
+        .then(|| filetime_value(&value))
+}
+
+unsafe fn registry_dword(key: Handle, name: *const u16) -> Option<Option<u32>> {
+    // SAFETY: `key` and the NUL-terminated name remain borrowed; Windows writes at most four bytes.
+    let mut value_type = 0_u32;
+    let mut data = [0_u8; 4];
+    let mut bytes = data.len() as u32;
+    let result = unsafe {
+        RegQueryValueExW(
+            key,
+            name,
+            null(),
+            &mut value_type,
+            data.as_mut_ptr(),
+            &mut bytes,
+        )
+    };
+    if result == ERROR_FILE_NOT_FOUND {
+        return Some(None);
+    }
+    if result != 0 || value_type != REG_DWORD || bytes != 4 {
+        return None;
+    }
+    Some(Some(u32::from_le_bytes(data)))
+}
+
+unsafe fn registry_binary_equals(key: Handle, name: *const u16, expected: &[u8]) -> bool {
+    // SAFETY: the fixed stack buffer is at least as large as the expected bounded record and the
+    // borrowed key/name remain valid through the synchronous query.
+    if expected.len() > RECOVERY_RECORD_BYTES {
+        return false;
+    }
+    let mut value_type = 0_u32;
+    let mut data = [0_u8; RECOVERY_RECORD_BYTES];
+    let mut bytes = data.len() as u32;
+    (unsafe {
+        RegQueryValueExW(
+            key,
+            name,
+            null(),
+            &mut value_type,
+            data.as_mut_ptr(),
+            &mut bytes,
+        )
+    }) == 0
+        && value_type == REG_BINARY
+        && bytes as usize == expected.len()
+        && equal_u8_exact(&data[..expected.len()], expected)
+}
+
+unsafe fn registry_value_is_absent(key: Handle, name: *const u16) -> bool {
+    // SAFETY: the borrowed key/name remain valid for the synchronous existence query. No value
+    // data is requested or exposed.
+    let mut value_type = 0_u32;
+    let mut bytes = 0_u32;
+    (unsafe { RegQueryValueExW(key, name, null(), &mut value_type, null_mut(), &mut bytes) })
+        == ERROR_FILE_NOT_FOUND
+}
+
+fn recovery_record(
+    phase: u8,
+    preexisting: bool,
+    pre_value: u32,
+    pre_last_write: u64,
+    post_last_write: u64,
+) -> [u8; RECOVERY_RECORD_BYTES] {
+    let mut record = [0_u8; RECOVERY_RECORD_BYTES];
+    record[..8].copy_from_slice(b"CRDDLR01");
+    record[8] = phase;
+    record[9] = u8::from(preexisting);
+    record[12..16].copy_from_slice(&pre_value.to_le_bytes());
+    record[16..24].copy_from_slice(&pre_last_write.to_le_bytes());
+    record[24..32].copy_from_slice(&post_last_write.to_le_bytes());
+    record[32..36].copy_from_slice(&unsafe { GetCurrentProcessId() }.to_le_bytes());
+    record[36..60].copy_from_slice(&unsafe { current_canonical_utc() });
+    record
+}
+
+fn registry_restore_is_owned(
+    observed_value: Option<Option<u32>>,
+    observed_last_write: Option<u64>,
+    expected_last_write: u64,
+) -> bool {
+    observed_value == Some(Some(1)) && observed_last_write == Some(expected_last_write)
+}
+
+struct LowBoxRegistryEffect {
+    mutex: Handle,
+    console: Handle,
+    software: Handle,
+    value_name: [u16; 21],
+    record_name: [u16; 54],
+    preexisting: bool,
+    pre_value: u32,
+    post_last_write: u64,
+    record_written: bool,
+    effect_applied: bool,
+    closed: bool,
+}
+
+impl LowBoxRegistryEffect {
+    unsafe fn restore(&mut self) -> bool {
+        // SAFETY: all three handles remain uniquely owned until this method closes them. Restoration
+        // occurs only when the target value and target-key last-write observation still match the
+        // exact state written by this invocation.
+        if self.closed {
+            return true;
+        }
+        let mut restored = true;
+        if self.effect_applied {
+            restored = registry_restore_is_owned(
+                unsafe { registry_dword(self.console, self.value_name.as_ptr()) },
+                unsafe { registry_last_write(self.console) },
+                self.post_last_write,
+            );
+            if restored {
+                let result = if self.preexisting {
+                    unsafe {
+                        RegSetValueExW(
+                            self.console,
+                            self.value_name.as_ptr(),
+                            0,
+                            REG_DWORD,
+                            self.pre_value.to_le_bytes().as_ptr(),
+                            4,
+                        )
+                    }
+                } else {
+                    unsafe { RegDeleteValueW(self.console, self.value_name.as_ptr()) }
+                };
+                restored = result == 0
+                    && unsafe { registry_dword(self.console, self.value_name.as_ptr()) }
+                        == Some(if self.preexisting {
+                            Some(self.pre_value)
+                        } else {
+                            None
+                        })
+                    && unsafe { RegFlushKey(self.console) } == 0;
+            }
+        }
+        if restored && self.record_written {
+            restored = unsafe { RegDeleteValueW(self.software, self.record_name.as_ptr()) } == 0
+                && unsafe { registry_value_is_absent(self.software, self.record_name.as_ptr()) }
+                && unsafe { RegFlushKey(self.software) } == 0;
+        }
+        if !restored {
+            MANUAL_RECOVERY_REQUIRED.store(true, Ordering::Relaxed);
+            REGISTRY_RECOVERY_REQUIRED.store(true, Ordering::Relaxed);
+        }
+        unsafe {
+            RegCloseKey(self.console);
+            RegCloseKey(self.software);
+            ReleaseMutex(self.mutex);
+            CloseHandle(self.mutex);
+        }
+        self.closed = true;
+        restored
+    }
+}
+
+impl Drop for LowBoxRegistryEffect {
+    fn drop(&mut self) {
+        if !self.closed {
+            unsafe { self.restore() };
+        }
+    }
+}
+
+unsafe fn begin_lowbox_registry_effect() -> Option<LowBoxRegistryEffect> {
+    // SAFETY: the fixed CurrentUser mutex serializes cooperating provision invocations. Registry
+    // handles are non-inheritable and uniquely owned by the returned guard through verified restore.
+    let mut mutex_name = [0_u16; 64];
+    let mut mutex_name_length = 0;
+    if !append_ascii(
+        &mut mutex_name,
+        &mut mutex_name_length,
+        b"Local\\QualLab.CRDD.Coordinator.Provision.V1",
+    ) {
+        return None;
+    }
+    let mutex = unsafe { CreateMutexW(null(), 0, mutex_name.as_ptr()) };
+    if mutex.is_null() || mutex == INVALID_HANDLE {
+        return None;
+    }
+    let wait = unsafe { WaitForSingleObject(mutex, 0) };
+    if wait != WAIT_OBJECT_0 && wait != WAIT_ABANDONED {
+        unsafe { CloseHandle(mutex) };
+        return None;
+    }
+
+    let mut console_name = [0_u16; 8];
+    let mut console_name_length = 0;
+    let mut software_name = [0_u16; 9];
+    let mut software_name_length = 0;
+    let mut value_name = [0_u16; 21];
+    let mut value_name_length = 0;
+    let mut record_name = [0_u16; 54];
+    let mut record_name_length = 0;
+    if !append_ascii(&mut console_name, &mut console_name_length, b"Console")
+        || !append_ascii(&mut software_name, &mut software_name_length, b"Software")
+        || !append_ascii(
+            &mut value_name,
+            &mut value_name_length,
+            b"LowBoxConsoleEnabled",
+        )
+        || !append_ascii(
+            &mut record_name,
+            &mut record_name_length,
+            b"QualLab.CRDD.Coordinator.ProvisionRecoveryV1",
+        )
+    {
+        unsafe {
+            ReleaseMutex(mutex);
+            CloseHandle(mutex);
+        }
+        return None;
+    }
+    let mut console = null_mut();
+    let mut software = null_mut();
+    if unsafe {
+        RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            console_name.as_ptr(),
+            0,
+            KEY_QUERY_VALUE | KEY_SET_VALUE,
+            &mut console,
+        )
+    } != 0
+        || unsafe {
+            RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                software_name.as_ptr(),
+                0,
+                KEY_QUERY_VALUE | KEY_SET_VALUE,
+                &mut software,
+            )
+        } != 0
+    {
+        unsafe {
+            if !console.is_null() {
+                RegCloseKey(console);
+            }
+            if !software.is_null() {
+                RegCloseKey(software);
+            }
+            ReleaseMutex(mutex);
+            CloseHandle(mutex);
+        }
+        return None;
+    }
+    let mut existing_record_type = 0_u32;
+    let mut existing_record_bytes = 0_u32;
+    let existing_record = unsafe {
+        RegQueryValueExW(
+            software,
+            record_name.as_ptr(),
+            null(),
+            &mut existing_record_type,
+            null_mut(),
+            &mut existing_record_bytes,
+        )
+    };
+    if existing_record != ERROR_FILE_NOT_FOUND {
+        MANUAL_RECOVERY_REQUIRED.store(true, Ordering::Relaxed);
+        REGISTRY_RECOVERY_REQUIRED.store(true, Ordering::Relaxed);
+        unsafe {
+            RegCloseKey(console);
+            RegCloseKey(software);
+            ReleaseMutex(mutex);
+            CloseHandle(mutex);
+        }
+        return None;
+    }
+    let (Some(pre), Some(pre_last_write)) = (
+        unsafe { registry_dword(console, value_name.as_ptr()) },
+        unsafe { registry_last_write(console) },
+    ) else {
+        unsafe {
+            RegCloseKey(console);
+            RegCloseKey(software);
+            ReleaseMutex(mutex);
+            CloseHandle(mutex);
+        }
+        return None;
+    };
+    let preexisting = pre.is_some();
+    let pre_value = pre.unwrap_or(0);
+    let mut effect = LowBoxRegistryEffect {
+        mutex,
+        console,
+        software,
+        value_name,
+        record_name,
+        preexisting,
+        pre_value,
+        post_last_write: pre_last_write,
+        record_written: false,
+        effect_applied: false,
+        closed: false,
+    };
+    if pre == Some(1) {
+        return Some(effect);
+    }
+    let prepared = recovery_record(1, preexisting, pre_value, pre_last_write, 0);
+    let record_set = unsafe {
+        RegSetValueExW(
+            software,
+            effect.record_name.as_ptr(),
+            0,
+            REG_BINARY,
+            prepared.as_ptr(),
+            prepared.len() as u32,
+        )
+    } == 0;
+    effect.record_written = record_set;
+    if !record_set
+        || !unsafe { registry_binary_equals(software, effect.record_name.as_ptr(), &prepared) }
+        || unsafe { RegFlushKey(software) } != 0
+    {
+        unsafe { effect.restore() };
+        return None;
+    }
+    let enabled = 1_u32.to_le_bytes();
+    if unsafe {
+        RegSetValueExW(
+            console,
+            effect.value_name.as_ptr(),
+            0,
+            REG_DWORD,
+            enabled.as_ptr(),
+            enabled.len() as u32,
+        )
+    } != 0
+    {
+        unsafe { effect.restore() };
+        return None;
+    }
+    effect.effect_applied = true;
+    effect.post_last_write = unsafe { registry_last_write(console) }?;
+    if unsafe { registry_dword(console, effect.value_name.as_ptr()) } != Some(Some(1)) {
+        unsafe { effect.restore() };
+        return None;
+    }
+    let applied = recovery_record(
+        2,
+        preexisting,
+        pre_value,
+        pre_last_write,
+        effect.post_last_write,
+    );
+    if unsafe {
+        RegSetValueExW(
+            software,
+            effect.record_name.as_ptr(),
+            0,
+            REG_BINARY,
+            applied.as_ptr(),
+            applied.len() as u32,
+        )
+    } != 0
+        || !unsafe { registry_binary_equals(software, effect.record_name.as_ptr(), &applied) }
+        || unsafe { RegFlushKey(software) } != 0
+    {
+        unsafe { effect.restore() };
+        return None;
+    }
+    Some(effect)
+}
+
+unsafe fn local_app_data_environment() -> Option<(usize, usize)> {
+    // SAFETY: SHGetKnownFolderPath returns COM task memory owned until CoTaskMemFree. The path is
+    // copied into exclusive static storage before release and bounded before environment assembly.
+    let folder_id_local_app_data = Guid {
+        data1: 0xf1b32785,
+        data2: 0x6fba,
+        data3: 0x4fcf,
+        data4: [0x9d, 0x55, 0x7b, 0x8e, 0x7f, 0x15, 0x70, 0x91],
+    };
+    let mut raw_path = null_mut();
+    if unsafe {
+        SHGetKnownFolderPath(
+            &raw const folder_id_local_app_data,
+            0,
+            null_mut(),
+            &mut raw_path,
+        )
+    } != 0
+        || raw_path.is_null()
+    {
+        return None;
+    }
+    let path = unsafe {
+        core::slice::from_raw_parts_mut(
+            (&raw mut LOCAL_APP_DATA_PATH).cast::<u16>(),
+            MAXIMUM_CODE_UNITS,
+        )
+    };
+    let mut path_length = 0;
+    while path_length < path.len() && unsafe { *raw_path.add(path_length) } != 0 {
+        path[path_length] = unsafe { *raw_path.add(path_length) };
+        path_length += 1;
+    }
+    unsafe { CoTaskMemFree(raw_path.cast()) };
+    if path_length < 4
+        || path_length >= path.len()
+        || path[1] != u16::from(b':')
+        || path[2] != u16::from(b'\\')
+    {
+        return None;
+    }
+    path[path_length] = 0;
+    let environment = unsafe {
+        core::slice::from_raw_parts_mut(
+            (&raw mut MINIMUM_ENVIRONMENT).cast::<u16>(),
+            MAXIMUM_CODE_UNITS + 16,
+        )
+    };
+    let mut environment_length = 0;
+    if !append_ascii(environment, &mut environment_length, b"LOCALAPPDATA=")
+        || environment_length + path_length + 1 >= environment.len()
+    {
+        return None;
+    }
+    environment[environment_length..environment_length + path_length]
+        .copy_from_slice(&path[..path_length]);
+    environment_length += path_length;
+    environment[environment_length] = 0;
+    environment[environment_length + 1] = 0;
+    Some((path_length, environment_length + 2))
+}
+
 fn consume_artifact(
     payload: &[u8],
     cursor: &mut usize,
@@ -1523,6 +2045,12 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { FreeSid(sid) };
         return None;
     };
+    let Some((local_app_data_length, _environment_length)) =
+        (unsafe { local_app_data_environment() })
+    else {
+        unsafe { FreeSid(sid) };
+        return None;
+    };
     FAILURE_STAGE.store(4, Ordering::Relaxed);
     let Some(pipe) = (unsafe { create_local_appcontainer_pipe(pipe_name) }) else {
         unsafe { FreeSid(sid) };
@@ -1668,9 +2196,25 @@ unsafe fn launch_worker() -> Option<u32> {
         )
     };
     let manifest_leaf_index = locked_handle_count.checked_sub(1);
+    let local_app_data = unsafe {
+        core::slice::from_raw_parts_mut(
+            (&raw mut LOCAL_APP_DATA_PATH).cast::<u16>(),
+            MAXIMUM_CODE_UNITS,
+        )
+    };
+    let local_app_data_identity = unsafe {
+        lock_local_path_chain(
+            local_app_data,
+            local_app_data_length,
+            3,
+            &mut locked_handles,
+            &mut locked_handle_count,
+        )
+    };
     if supervisor_identity.is_none()
         || worker_identity.is_none()
         || manifest_identity.is_none()
+        || local_app_data_identity.is_none()
         || !unsafe {
             authenticode_trust_is_valid(
                 supervisor_path.as_ptr(),
@@ -1696,6 +2240,15 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { FreeSid(sid) };
         return None;
     }
+    let Some(mut registry_effect) = (unsafe { begin_lowbox_registry_effect() }) else {
+        unsafe { close_handles(&locked_handles[..locked_handle_count]) };
+        unsafe { DeleteProcThreadAttributeList(attributes) };
+        unsafe { HeapFree(heap, 0, attributes) };
+        unsafe { CloseHandle(job) };
+        unsafe { CloseHandle(pipe) };
+        unsafe { FreeSid(sid) };
+        return None;
+    };
     FAILURE_STAGE.store(3, Ordering::Relaxed);
     let saved_distribution_root_terminator = supervisor_path[distribution_root_length];
     supervisor_path[distribution_root_length] = 0;
@@ -1706,10 +2259,7 @@ unsafe fn launch_worker() -> Option<u32> {
             null(),
             null(),
             0,
-            EXTENDED_STARTUPINFO_PRESENT
-                | CREATE_NEW_CONSOLE
-                | CREATE_SUSPENDED
-                | CREATE_UNICODE_ENVIRONMENT,
+            EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT,
             (&raw mut MINIMUM_ENVIRONMENT).cast(),
             supervisor_path.as_ptr(),
             &raw const startup.StartupInfo,
@@ -1794,8 +2344,13 @@ unsafe fn launch_worker() -> Option<u32> {
             request_binding,
             exit_code,
         )
-        || !unsafe { write_handle(original_handles[1], &response[..response_length]) }
     {
+        return None;
+    }
+    if !unsafe { registry_effect.restore() } {
+        return None;
+    }
+    if !unsafe { write_handle(original_handles[1], &response[..response_length]) } {
         return None;
     }
     Some(exit_code)
@@ -1849,7 +2404,14 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
         }
     } else {
         unsafe { launch_worker() }.unwrap_or_else(|| {
-            let response = if MANUAL_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
+            let response = if REGISTRY_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
+                match FAILURE_STAGE.load(Ordering::Relaxed) {
+                    3 => native_bootstrap_core::REGISTRY_PROCESS_MANUAL_RECOVERY_BLOCKED,
+                    7 => native_bootstrap_core::REGISTRY_CREATED_PROCESS_MANUAL_RECOVERY_BLOCKED,
+                    8 => native_bootstrap_core::REGISTRY_WORKER_MANUAL_RECOVERY_BLOCKED,
+                    _ => native_bootstrap_core::REGISTRY_PRECONDITION_MANUAL_RECOVERY_BLOCKED,
+                }
+            } else if MANUAL_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
                 if FAILURE_STAGE.load(Ordering::Relaxed) >= 8 {
                     native_bootstrap_core::WORKER_MANUAL_RECOVERY_BLOCKED
                 } else {
@@ -1895,6 +2457,69 @@ fn panic(_information: &PanicInfo<'_>) -> ! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recovery_record_and_restore_ownership_are_exact() {
+        let record = recovery_record(2, true, 7, 11, 13);
+        assert_eq!(&record[..8], b"CRDDLR01");
+        assert_eq!(record[8], 2);
+        assert_eq!(record[9], 1);
+        assert_eq!(u32::from_le_bytes(record[12..16].try_into().unwrap()), 7);
+        assert_eq!(u64::from_le_bytes(record[16..24].try_into().unwrap()), 11);
+        assert_eq!(u64::from_le_bytes(record[24..32].try_into().unwrap()), 13);
+        assert!(registry_restore_is_owned(Some(Some(1)), Some(13), 13));
+        for (value, last_write) in [
+            (Some(Some(0)), Some(13)),
+            (Some(Some(1)), Some(12)),
+            (Some(None), Some(13)),
+            (None, Some(13)),
+            (Some(Some(1)), None),
+        ] {
+            assert!(!registry_restore_is_owned(value, last_write, 13));
+        }
+    }
+
+    #[test]
+    fn known_folder_environment_contains_only_local_app_data() {
+        let Some((path_length, environment_length)) = (unsafe { local_app_data_environment() })
+        else {
+            panic!("Local App Data known folder unavailable");
+        };
+        assert!(path_length > 3);
+        let environment = unsafe {
+            core::slice::from_raw_parts(
+                (&raw const MINIMUM_ENVIRONMENT).cast::<u16>(),
+                environment_length,
+            )
+        };
+        let prefix = "LOCALAPPDATA=".encode_utf16().collect::<Vec<_>>();
+        assert_eq!(&environment[..prefix.len()], prefix);
+        assert_eq!(&environment[environment.len() - 2..], &[0, 0]);
+        assert_eq!(
+            environment
+                .iter()
+                .filter(|value| **value == u16::from(b'='))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    #[ignore = "mutates and restores the current-user LowBoxConsoleEnabled prerequisite"]
+    fn lowbox_registry_effect_restores_exact_prestate() {
+        MANUAL_RECOVERY_REQUIRED.store(false, Ordering::Relaxed);
+        REGISTRY_RECOVERY_REQUIRED.store(false, Ordering::Relaxed);
+        let mut effect = unsafe { begin_lowbox_registry_effect() }
+            .expect("temporary LowBox registry effect unavailable");
+        assert_eq!(
+            unsafe { registry_dword(effect.console, effect.value_name.as_ptr()) },
+            Some(Some(1))
+        );
+        assert!(effect.pre_value == 1 || effect.record_written);
+        assert!(unsafe { effect.restore() });
+        assert!(!MANUAL_RECOVERY_REQUIRED.load(Ordering::Relaxed));
+        assert!(!REGISTRY_RECOVERY_REQUIRED.load(Ordering::Relaxed));
+    }
 
     fn payload(issued: &str, expires: &str) -> Vec<u8> {
         format!(

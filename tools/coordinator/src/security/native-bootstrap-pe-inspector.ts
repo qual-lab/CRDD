@@ -8,6 +8,13 @@ const EXPECTED_IMPORTS = Object.freeze({
   "ADVAPI32.DLL": Object.freeze([
     "ConvertStringSecurityDescriptorToSecurityDescriptorW",
     "FreeSid",
+    "RegCloseKey",
+    "RegDeleteValueW",
+    "RegFlushKey",
+    "RegOpenKeyExW",
+    "RegQueryInfoKeyW",
+    "RegQueryValueExW",
+    "RegSetValueExW",
   ]),
   "BCRYPT.DLL": Object.freeze([
     "BCryptCloseAlgorithmProvider",
@@ -24,6 +31,7 @@ const EXPECTED_IMPORTS = Object.freeze({
     "ConnectNamedPipe",
     "CreateFileW",
     "CreateJobObjectW",
+    "CreateMutexW",
     "CreateNamedPipeW",
     "CreateProcessW",
     "DeleteProcThreadAttributeList",
@@ -47,6 +55,7 @@ const EXPECTED_IMPORTS = Object.freeze({
     "QueryFullProcessImageNameW",
     "QueryInformationJobObject",
     "ReadFile",
+    "ReleaseMutex",
     "ResumeThread",
     "SetInformationJobObject",
     "Sleep",
@@ -55,6 +64,8 @@ const EXPECTED_IMPORTS = Object.freeze({
     "WaitForSingleObject",
     "WriteFile",
   ]),
+  "OLE32.DLL": Object.freeze(["CoTaskMemFree"]),
+  "SHELL32.DLL": Object.freeze(["SHGetKnownFolderPath"]),
   "USERENV.DLL": Object.freeze(["DeriveAppContainerSidFromAppContainerName"]),
   "WINTRUST.DLL": Object.freeze([
     "WTHelperGetProvSignerFromChain",
@@ -108,6 +119,8 @@ type Inspection =
         "bcrypt.dll": readonly string[];
         "CRYPT32.dll": readonly string[];
         "KERNEL32.dll": readonly string[];
+        "ole32.dll": readonly string[];
+        "SHELL32.dll": readonly string[];
         "USERENV.dll": readonly string[];
         "WINTRUST.dll": readonly string[];
       }>;
@@ -456,6 +469,8 @@ function inspect(bytes: Buffer): Exclude<Inspection, { status: "blocked" }> {
       "bcrypt.dll": EXPECTED_IMPORTS["BCRYPT.DLL"],
       "CRYPT32.dll": EXPECTED_IMPORTS["CRYPT32.DLL"],
       "KERNEL32.dll": EXPECTED_IMPORTS["KERNEL32.DLL"],
+      "ole32.dll": EXPECTED_IMPORTS["OLE32.DLL"],
+      "SHELL32.dll": EXPECTED_IMPORTS["SHELL32.DLL"],
       "USERENV.dll": EXPECTED_IMPORTS["USERENV.DLL"],
       "WINTRUST.dll": EXPECTED_IMPORTS["WINTRUST.DLL"],
     }),

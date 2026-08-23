@@ -401,7 +401,7 @@ test("owned childをjunctionへ置換した場合は対象を削除しない", (
 test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () => {
   const report = runDoctor();
   const serialized = JSON.stringify(report);
-  assert.equal(report.reportVersion, 9);
+  assert.equal(report.reportVersion, 10);
   assert.deepEqual(
     Object.keys(report).sort(),
     [
@@ -673,10 +673,13 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
   assert.equal(report.runtimeActivation.contractRevision, 4);
   assert.deepEqual(report.runtimeActivation.platformProvisionerEffectContract, {
     contract: "crdd-coordinator/platform-provisioner-effect",
-    contractRevision: 4,
+    contractRevision: 5,
     effectController: "not_implemented_effective_access_required",
     preActiveProvisioningOneShot:
-      "native_appcontainer_worker_entrypoint_implemented_formal_evidence_pending",
+      "native_appcontainer_worker_with_temporary_registry_prerequisite_implemented_formal_evidence_pending",
+    normalOperationRegistryMutation: false,
+    preActiveRegistryRecovery:
+      "durable_exact_pre_state_restore_or_manual_recovery_required",
     command: "explicit_provision_only",
     sourceSelection: "fixed_signed_crdd_distribution_only_target",
     sourceCheckoutBehavior: "blocked_before_any_read_or_filesystem_effect",
@@ -700,7 +703,7 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
     report.runtimeActivation.platformProvisionerPreActiveOneShotContract,
     {
       contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-      contractRevision: 3,
+      contractRevision: 4,
       command: "explicit_coordinator_provision_only",
       executionStrategy: "native_top_level_appcontainer_worker_observation",
       maximumObservationAttemptsPerInvocation: 1,
@@ -723,6 +726,18 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
       workerBoundedProcess:
         "atomic_single_process_job_assignment_implemented_candidate",
       workerProcessTreeTermination: "required_before_candidate_forwarding",
+      runtimeEnvironment:
+        "os_known_folder_local_app_data_only_without_parent_environment_inheritance",
+      lowBoxConsolePrerequisite:
+        "current_user_temporary_one_shot_registry_effect_only_when_not_already_enabled",
+      registrySerialization: "fixed_current_user_named_mutex",
+      registryRecoveryRecord:
+        "durable_before_effect_and_removed_only_after_verified_restore",
+      registryRestoration:
+        "exact_pre_state_last_write_comparison_and_read_back_before_candidate_forwarding",
+      staleOrAmbiguousRegistryRecovery:
+        "manual_recovery_required_fail_closed_without_overwrite",
+      normalOperationRegistryMutation: false,
       networkEnforcement: "not_implemented_blocked",
       currentProcessEffectIssued: false,
       currentHelperProcessSpawned: false,
