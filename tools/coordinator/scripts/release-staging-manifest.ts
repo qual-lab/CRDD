@@ -188,7 +188,13 @@ export function beginReleaseStagingManifestSession(distributionRoot: unknown) {
       beginPlatformAccessArtifactSigningObservation(root);
     const nativeSupervisorObservation =
       beginNativeProvisionSupervisorArtifactSigningObservation(root);
-    if (!artifactObservation || !nativeSupervisorObservation) return null;
+    if (
+      !artifactObservation ||
+      !nativeSupervisorObservation ||
+      nativeSupervisorObservation.workerBindingSha256 !==
+        artifactObservation.artifact.sha256
+    )
+      return null;
     const token = Object.freeze({});
     stagingSnapshots.set(
       token,

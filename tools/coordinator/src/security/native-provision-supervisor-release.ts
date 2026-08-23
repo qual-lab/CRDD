@@ -32,6 +32,7 @@ const signingSnapshots = new WeakMap<
     rootIdentity: DirectoryIdentity;
     executablePath: string;
     fileIdentity: StableFileIdentity;
+    workerBindingSha256: string;
     artifact: Readonly<{
       relativePath: string;
       target: string;
@@ -113,6 +114,7 @@ function observeArtifactSnapshot(distributionRoot: unknown) {
       rootIdentity,
       executablePath,
       fileIdentity: snapshot.identity,
+      workerBindingSha256: inspection.workerBindingSha256,
       artifact: Object.freeze({
         relativePath: NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH,
         target: NATIVE_PROVISION_SUPERVISOR_TARGET,
@@ -135,7 +137,11 @@ export function beginNativeProvisionSupervisorArtifactSigningObservation(
     const observed = observeArtifactSnapshot(distributionRoot);
     const token = Object.freeze({});
     signingSnapshots.set(token, observed);
-    return Object.freeze({ token, artifact: observed.artifact });
+    return Object.freeze({
+      token,
+      artifact: observed.artifact,
+      workerBindingSha256: observed.workerBindingSha256,
+    });
   } catch {
     return null;
   }
@@ -153,7 +159,8 @@ export function verifyNativeProvisionSupervisorArtifactSigningObservation(
       snapshot.executablePath === observed.executablePath &&
       sameStableFileIdentity(snapshot.fileIdentity, observed.fileIdentity) &&
       snapshot.artifact.byteLength === observed.artifact.byteLength &&
-      snapshot.artifact.sha256 === observed.artifact.sha256
+      snapshot.artifact.sha256 === observed.artifact.sha256 &&
+      snapshot.workerBindingSha256 === observed.workerBindingSha256
     );
   } catch {
     return false;

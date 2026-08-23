@@ -1,0 +1,78 @@
+# 変更トレース: AppContainer準備Worker候補（AppContainer Provision Worker Candidate）
+
+- 変更ID: `CHG-000036`
+- 状態: `In Progress`
+- 決定権限者: Qual-Lab
+- 判断日: 2026-08-23
+- 対象: Windows native `coordinator.exe provision`からの固定AppContainer worker起動候補
+- 対象version: v0.18.0 Candidate
+- Runtime基準: private doctor reportVersion 9はRepository基準と同じNode.js 24.12.0以上だけを受理し、Node 22.xおよび24.11以下をRuntime基準へ昇格しない。
+- 変更分類: `breaking`
+- 移行要否: `migration_required: true`（entrypoint contract revision 2は維持する。native result contract revision 1→2、有効化前準備一回実行revision 2→3、Platform Provisioner Effect revision 3→4、Runtime Activation revision 3→4、private doctor reportVersion 8→9へ上げる。今回の最小信頼境界の採用は既存Schema、wireおよびfield集合を変えないため追加revisionは上げず、旧`SUPERVISOR_IMAGE_BLOCKED` reasonは予約済みの過去結果として保持するが現sourceから発行しない。旧revisionへのalias／fallbackは設けず、発行済みproduction stateは0なので永続変換なし）
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-crdd内部実装のtypescriptrust境界)、[`CHG-000035`](CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
+
+## 結論と変更経路
+
+人間の決定権限者が承認した例外として、公式署名済みnative supervisorが、署名manifestへ別Identityで固定するAppContainer workerをexact 1回だけ起動できる候補へ変更する。追加API key、外部API課金、installer、管理者service、世代管理または複数local user対応は導入しない。通常Runtime、Node CLI、`doctor`、source checkout、PATH、Cargo、Shellまたは自動fallbackからは発火しない。
+
+同じ決定権限者は2026-08-23にCoordinator Runtime 1.0の最小信頼境界（Minimum Trust Boundary）を採用した。正常に動作するOSの認証、Filesystem、process、AppContainerおよび署名検証機能、OSが認証した選択ローカル対話ユーザー、ならびに人間が真正性を確認して明示起動する公式署名済みCRDD Releaseをv1の信頼計算基盤（Trusted Computing Base、TCB）とする。悪意ある同一ローカルユーザー、Administrator／SYSTEM、kernel、OS／Verifier侵害による起動前置換または検査回避への完全なtamper resistanceはv1対象外とする。この対象外化は方式の技術的成立、攻撃検出、Verified Image、Authority、Capability、GateまたはReleaseを意味せず、署名manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離、Process Effectおよびfail-closed条件を弱めない。より強い耐性が必要になった場合は、OS保護済みbootstrap、managed install root、実行制御またはhardware-backed trustをHardened／Managed profileとして再評価する。
+
+実機確認では、同じ固定WorkerがAppContainer内で起動でき、Codex親Jobも起動阻害要因ではなかった。親から標準handleまたは匿名pipe handleを継承すると起動拒否となり、handle継承0の起動は成功した。このためsupervisor所有handleを継承せず、workerが起動後に固定ローカル名前付きパイプへ接続する方式へ限定した。現在の開発buildはAuthenticode未署名のため、supervisorからのAppContainer生成がWindows `ERROR_ACCESS_DENIED`でfail-closedとなる。Microsoft署名済みPowerShell hostからの同条件起動成功との差分は署名条件と整合するが、正式署名成果物での往復成功を未確認のまま成立扱いしない。
+
+<a id="mapped-supervisor-image-exploration"></a>
+
+### mapped supervisor image結合の探索結果
+
+2026-08-23にMicrosoft Learnの公開資料を確認した。外部資料の直接記述と、それを現在の脅威モデルへ適用したCRDD側の設計推論を次のとおり分ける。`reviewedAt`は全行2026-08-23であり、公式更新日は各ページの`Last updated`表示を同日に確認した値である。
+
+| 公式資料 | 公式更新日 | 確認した節／本文範囲 | 関係 | 直接支える事実／CRDD側の扱い | この資料だけでは扱わないこと |
+|---|---:|---|---|---|---|
+| [`GetModuleFileNameW function`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew) | 2023-02-09 | 概要、`hModule`、`lpFilename` | direct statement | 現processにload済みmoduleを指定し、格納先へ完全pathを返す | map元file objectのhandle／File IDは返さないというAPI shapeを越えた非存在証明 |
+| [`QueryFullProcessImageNameW function`](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-queryfullprocessimagenamew) | 2023-02-09 | 概要、`lpExeName` | direct statement | processのexecutable imageのfull name／pathを文字列で返す | 返したnameが後open handleと同じfile objectであること |
+| [`GetMappedFileNameW function`](https://learn.microsoft.com/en-us/windows/win32/api/psapi/nf-psapi-getmappedfilenamew) | 2025-08-15 | 概要、`lpv`、`lpFilename` | direct statement | 指定addressがmemory-mapped file内なら、そのmapped file nameを返す | mapped sectionからfile handle／File IDを取得すること |
+| [`MODULEINFO structure`](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-moduleinfo) | 2024-02-22 | 概要、全member | direct statement | module load address、image size、entry pointを返す | backing file object Identity |
+| [`VirtualQuery function`](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualquery) | 2024-02-06 | 概要、`MEMORY_BASIC_INFORMATION`出力 | direct statement | 現processのvirtual page rangeについてstate／protection／type等を返す | backing executableの署名済みfile handleとの同一性 |
+| [`BY_HANDLE_FILE_INFORMATION structure`](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/ns-fileapi-by_handle_file_information) | 2021-04-02 | `dwVolumeSerialNumber`、`nFileIndexHigh/Low`、Remarks | direct statement | 2つのopen handleが同一fileを表すかはvolume serialとfile identifierを比較する | 現processのmain imageに対応するfile handleの取得 |
+| [`WINTRUST_FILE_INFO structure`](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-wintrust_file_info) | 2024-02-22 | 全member | direct statement | `WinVerifyTrust`の個別file検証にはfull pathと省略可能なopen file handleを渡せる | そのhandleと既map済みimageの由来を結合すること |
+| [`CreateProcessW function`](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw) | 2023-02-09 | syntax、`lpApplicationName`、`lpCommandLine`、Security Remarks | direct statement | 実行moduleはname／pathで指定し、曖昧pathを避ける必要がある | 検証済みfile handleを実行imageとして指定する接続部 |
+| [`about_Execution_Policies`](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies?view=powershell-7.5) | 2025-09-24 | Long description、`AllSigned` | direct statement | execution policyはsecurity systemではなく、`AllSigned`も署名済み悪性scriptのriskを持つ | PowerShell policyを本要件のtrust anchorとすること |
+| [`Understand App Control for Business policy rules and file rules`](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/select-types-of-rules-to-create) | 2026-03-29 | file rule levels、rule precedence、path／hash rules | alternative boundary | OS policyはpublisher／hash等で信頼対象を識別し、enforcement前の設計・監査を伴う | 現端末での採用、配備済み、互換性または回復成立 |
+| [`AppLocker processes and interactions`](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/applocker/applocker-processes-and-interactions) | 2024-10-01 | policy enforcement、rule conditions、Group Policy | alternative boundary | kernel内Application Identity serviceがpublisher／path／hash ruleをpolicyとしてenforceする | 現端末でのpolicy採用、配備済みまたは管理不要という判断 |
+
+探索母集団は、公開Microsoft Win32のprocess／module name、mapped-memory情報、file-handle Identity、Authenticode file入力およびprocess creation接続部と、既存Windows／PowerShellの実行制御候補である。Microsoft LearnのAPI indexと各関連項目から、現在実装が使用するAPI、その戻り値から直接接続し得るmodule／memory／file／process API、およびOS強制候補を確認した。公開APIでないNative API、kernel driver、debugger／injection、process外のmanaged installer、packaged app化、App Control／AppLocker policyの具体設計・配備、別製品が所有する未特定launcherは探索対象外とした。公開Win32全体について方式が存在しないことを証明する探索ではなく、Windows版、将来APIまたは対象外境界の変更時は再評価する。
+
+以上の直接記述から、列挙した公開APIと現在の保持条件では、現在map済みのsupervisor imageと後からopenした検証対象fileを同一file objectとして原子的に結合する受入可能な方式を確認できなかった、とCRDD側で推論した。後からpathをopenして署名、Hash、File IDまたはmemory内容を自己検査する案は、置換済みの任意コードが検査自体を省略できるため、信頼の起点にならない。親chainをdelete共有なしで保持する処置は、handle取得後のrename／replacementを閉じるが、現在map済みimageがそのhandleのfileから生成されたことは証明しない。PowerShellの`AllSigned`もtrust anchorへ昇格しない。App Control for Business／AppLocker等のOS実行制御は候補になり得るが、管理policyの設計、配備、回復および互換性確認を伴い、承認済みのinstaller／管理者policy非導入範囲を越える。
+
+この探索結果は、より強いHost tamper resistanceの候補と限界を示す履歴として保持する。Minimum Trust Boundaryでは正常OS、認証済みローカルユーザーおよび人間が確認した公式署名ReleaseをTCBとするため、現在map済みsupervisor imageの原子的自己結合をv1必須条件から外し、専用blockerだけを除去する。弱いpath比較または自己検査を新しいTrust anchorとせず、同一ユーザー／OS侵害を防御できるとも主張しない。App Control、out-of-process launcherまたはhardware-backed trustは将来のHardened／Managed候補であり、v1の実Provider接続を停止する条件にはしない。
+
+## 実装範囲
+
+- supervisorは固定Release相対配置からWorker pathを導出し、caller指定path、PATH、環境overrideまたは探索fallbackを使わない。
+- AppContainer profileは`QualLab.CRDD.Coordinator.Provision.V1`へ固定し、capabilityを付与しない。Qual-Labが明示準備・確認する現在ローカルユーザーの既存前提であり、2026-08-23の読み取り専用確認ではSID `S-1-15-2-742460031-3421393675-902384029-485472028-3392206838-644777888-2662560677`、登録moniker `quallab.crdd.coordinator.provision.v1`、表示名`CRDD Coordinator Provision`である。Coordinatorはprofileを作成、削除、再作成、自動修復または別profileへfallbackしない。SID導出不能ではprocess前、不在または利用不能ではworker生成試行の失敗として`blocked`とする。今回profile Effectを発行しないため自動rollback対象はなく、profile Identity、ownerまたは対象ローカルユーザー変更時は人間判断から再評価する。
+- workerへhandleを継承しない。supervisorは`\\.\pipe\LOCAL\CRDD.Coordinator.<supervisor-pid>`のfirst instanceを作成し、接続元process IDが自ら生成したworkerと一致する場合だけ通信する。
+- 入力はPA03、60-byte header、1～4096 byteの宣言pathおよび全長一致を起動前に要求し、余分byteまたは旧revisionを拒否する。responseはPR03のexact 86 byteだけを受理する。
+- workerは固定pipe引数1組だけを受理し、通常stdin／stdout互換入口と分離する。timeout、接続差、書込み差、response差または終了取得失敗ではAuthority、Capabilityまたは観測候補を発行しない。
+- PE検査はx86-64 CUI、ASLR／NX、delay import／TLS／bound import／CLR 0を維持し、`ADVAPI32.dll`、`bcrypt.dll`、`CRYPT32.dll`、`KERNEL32.dll`、`USERENV.dll`、`WINTRUST.dll`の実装所有exact API集合だけを許可する。worker Hashは非実行・非書込みsectionへexact 1件だけ格納し、Release stagingが同時観測したworker artifact Hashと一致する場合だけmanifest署名候補へ進む。
+- Ed25519 manifest signerとAuthenticode publisher signerは別Trust軸である。manifestは固定公開鍵、canonical envelope、署名domain、payload長、両artifactのbyte長／Hashを検証する。権限を持つsupervisorは別に、build時に固定した承認済みpublisher certificate SHA-256、cache-only whole-chain revocationおよびlocked file handleの`WinVerifyTrust`を要求する。低権限workerはEd25519 manifest、supervisor内部Hash、locked worker byteおよびloaded image Identityで固定する。未設定は全ゼロのfail-closed supervisor buildとなり、caller supplied signer、自己署名または片方の成功を他方へ代用しない。
+- Jobはworker process生成前に作成し、AppContainer security capabilities、mitigationおよびJob listを同じ`STARTUPINFOEXW`属性へ渡してcreate-time収容する。active process上限1、job handle close時全終了、hard timeout時のJob終了および完了後active process 0を要求する。process生成後の終了・回収を確定できない場合は`manualRecoveryRequired: true`で停止し、成功結果へ流用しない。
+
+## 発火・非発火・境界・情報不足
+
+- 発火例: 正常OS、OS認証済みの選択ローカル対話ユーザー、人間が確認した公式署名済み固定Release、manifest-bound worker、既存AppContainer profile、exact `provision`、PA03 exact frameおよび全対象内安全条件が同じrunで成立する場合だけworker生成を最大1回試行する。
+- 非発火例: 通常run、`doctor`、未署名開発build、固定Release配置外、別local user、invalid CLI、旧wire revision、余分request byte、profile不成立、未知pipe接続またはworker差では観測しない。
+- 境界例: supervisor自身は人間が開始したprocessでありCoordinator-issued Effectではない。worker生成試行だけをProcess Effectとして報告し、成功生成、接続、観測候補およびAuthorityを分ける。悪意ある同一ユーザー、Administrator、kernelまたはOS侵害はv1防御対象外であり、安全成立または検出を主張しない。
+- 判定情報不足例: 選択user一致、Authenticode、manifest artifactとの継続Identity、全parent、local volume、DLL探索閉包、Network非発火、worker子孫process不存在または終了後tree不存在の一件でも未確認ならoperational one-shot、GateまたはReleaseへ進めない。
+
+## 検証結果と未完了事項
+
+現固定改訂版の再現可能な実行記録は[`Verification Run Record`](Evidence/CHG-000036_Verification_Run_Record_current.md)を参照する。
+
+- 現在改訂版の試験件数、成果物Hash、coverage、checkerおよび独立監査は、最終Evidenceの固定結果だけを正式な現在値とし、過去改訂版の数値を流用しない。
+- native PE検査は独立したclean target Root 2件でworkerとsupervisorがそれぞれbyte一致し、supervisor内部worker Hashも一致した。現成果物の可変byte長／SHA-256はcurrent Verification Run Recordだけを正本とし、CHGへ複製しない。
+- 過去改訂版のcoverage、checkerおよび独立監査結果は現改訂版へ流用しない。固定stable toolchainがbranch mappingを生成しない場合は分母0を達成率へ換算せず、region／function／lineの実測、release-only supervisorの未instrument経路、Security Decision Obligation、残存risk、Ownerおよび再確認契機をEvidenceへ分離する。
+- AppContainer最小probeはWorker起動成功、handle継承0、Codex親Job内で成立した。未署名supervisorの実往復はprocess生成前に`blocked`となり、一時`LowBoxConsoleEnabled`値と一時配置は各runで復元した。
+- 人間が目的、期間、CurrentUser限定Storeおよび同一run内rollbackを承認した一時Authenticode検証では、非永続のメモリ内秘密鍵から作ったCode Signing証明書の公開部分だけを`CurrentUser\Root`／`CurrentUser\TrustedPublisher`へ登録し、証明書SHA-256を固定してbuildしたSupervisorを署名した。Windows検査は`Valid`、署名結果のsigner一致、PE内の固定SHA-256 ASCII列exact 1件を確認した。終了時は`CurrentUser\My`を含む3 Storeの同一thumbprint残存0である。自己署名証明書を公式Publisherへ昇格せず、固定Ed25519 Release Trust Root、API key、installerまたはmachine-wide設定を変更していない。
+- supervisor source候補は、manifest revision 2の全field、canonical順序、現在UTCの有効期間、同一handleから得た両成果物のbyte長／SHA-256およびbuild時worker Hashを照合する。配布volume rootから各leafまでをboundedなnon-reparse handleとしてdelete共有なしで保持し、local fixed volumeを要求する。cache-only `WinVerifyTrust`も必須である。現在map済みsupervisor imageの原子的自己結合は未成立の残存riskとして保持するが、Minimum Trust Boundaryの対象外条件として専用blockerを現sourceから除去した。
+- workerはactive process上限1およびjob handle close時全終了を持つJobへsuspended状態で収容してから再開する。完了時はJob accountingのactive process 0を要求する。extension point無効、dynamic code禁止、remote／low-label image禁止およびSystem32優先のprocess mitigationを同じ生成属性へ固定した。supervisorのlocked PE allowlistとworkerのstatic import観測には直接Network APIがなく、capabilityなしAppContainerを維持する。
+
+実装済み候補は、manifestのexact全field／時刻検査、同一handleの両artifact Hash、supervisor内部worker Hash、volume rootからleafまでのbounded parent handle、local fixed volume、cache-only Authenticode検証、create-time Job、子孫禁止、終了後tree不存在、worker loaded image照合およびDLL mitigationである。mapped supervisor結合専用blockerはMinimum Trust Boundary採用により現sourceから除去した。Authenticodeの一時署名、Windows trust判定およびrollbackは実測済みだが、固定Ed25519秘密鍵が利用できず現差分のCommit／Treeも未固定であるため、正式Manifestと結合したnative entrypoint到達は未確認である。未完了は、正式Ed25519／Authenticode署名成果物によるPA03／PR03実往復、実runのNetwork非発火・module集合・Job／tree確認、selected-user binder、protected active／Provider Home、Mount Grant issuer／store／clock／失効、Egress、OAuth／subscription条件およびClaude Code限定probeである。今後のTrust Store登録は自動承認せず、正式署名材料または目的・期間・追加／除去対象・残存riskを明示した別の人間承認を要する。これらの完了前にRelease・Gate open・Claude Code実行へ進めない。保護対象の採用・統合、残存risk受容およびReleaseは人間の決定権限へ残す。

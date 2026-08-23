@@ -131,7 +131,12 @@ function placementFixture() {
   fs.mkdirSync(path.dirname(executablePath), { recursive: true });
   fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
   fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
-  fs.writeFileSync(supervisorPath, createNativeBootstrapPeFixture());
+  fs.writeFileSync(
+    supervisorPath,
+    createNativeBootstrapPeFixture(
+      "64b471129ecaf7520da80865cec614b8c75ea0149582ab08f577ea29c647385a",
+    ),
+  );
   const observation = beginReleaseStagingManifestSession(distributionRoot);
   assert.ok(observation);
   return {
@@ -210,6 +215,39 @@ test("両Rust成果物の各単独欠落ではRelease staging sessionを開始�
     } finally {
       fs.rmSync(parent, { recursive: true, force: true });
     }
+  }
+});
+
+test("supervisor内部Worker結合と実Worker Hashの不一致ではsessionを開始しない", () => {
+  const parent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-binding-mismatch-"),
+  );
+  const distributionRoot = path.join(parent, "distribution");
+  const executablePath = path.join(
+    distributionRoot,
+    "90_Release",
+    "platform-access",
+    "x86_64-pc-windows-msvc",
+    "crdd-platform-access.exe",
+  );
+  const supervisorPath = path.join(
+    distributionRoot,
+    "90_Release",
+    "coordinator",
+    "x86_64-pc-windows-msvc",
+    "coordinator.exe",
+  );
+  try {
+    fs.mkdirSync(path.dirname(executablePath), { recursive: true });
+    fs.mkdirSync(path.dirname(supervisorPath), { recursive: true });
+    fs.writeFileSync(executablePath, "fixed-test-platform-access-binary");
+    fs.writeFileSync(
+      supervisorPath,
+      createNativeBootstrapPeFixture("2".repeat(64)),
+    );
+    assert.equal(beginReleaseStagingManifestSession(distributionRoot), null);
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
   }
 });
 
@@ -421,7 +459,9 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
         "x86_64-pc-windows-msvc",
         "coordinator.exe",
       ),
-      createNativeBootstrapPeFixture(),
+      createNativeBootstrapPeFixture(
+        "181974aa7e6fd7533c5976b03e88a623a0644f6073398fef0d45c28e3e52c843",
+      ),
     );
     fs.mkdirSync(path.join(distributionRoot, "tools", "coordinator", "src"), {
       recursive: true,

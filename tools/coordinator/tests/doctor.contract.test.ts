@@ -14,6 +14,7 @@ import {
   REQUIRED_CHECK_IDS,
   discoverCommand,
   evaluateReadiness,
+  isSupportedNodeVersion,
   runDoctor,
 } from "../src/core/doctor.ts";
 import type { DiagnosticCheck } from "../src/core/doctor.ts";
@@ -81,6 +82,23 @@ function confirmedChecks(): DiagnosticCheck[] {
     followUp: null,
   }));
 }
+
+test("Node基準は24.12.0以上だけを受理する", () => {
+  for (const version of ["24.12.0", "24.19.0", "25.0.0"]) {
+    assert.equal(isSupportedNodeVersion(version), true, version);
+  }
+  for (const version of [
+    "22.18.0",
+    "24.11.99",
+    "24.12",
+    "24.12.0.0",
+    "024.12.0",
+    "24.012.0",
+    "24.12.00",
+  ]) {
+    assert.equal(isSupportedNodeVersion(version), false, version);
+  }
+});
 
 test("Provider環境は通常HomeとCredential環境を継承しない", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "coordinator-env-test-"));
@@ -383,7 +401,7 @@ test("owned childをjunctionへ置換した場合は対象を削除しない", (
 test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () => {
   const report = runDoctor();
   const serialized = JSON.stringify(report);
-  assert.equal(report.reportVersion, 8);
+  assert.equal(report.reportVersion, 9);
   assert.deepEqual(
     Object.keys(report).sort(),
     [
@@ -652,13 +670,13 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
     report.runtimeActivation.selectedUserBinding,
     "not_implemented_blocked",
   );
-  assert.equal(report.runtimeActivation.contractRevision, 3);
+  assert.equal(report.runtimeActivation.contractRevision, 4);
   assert.deepEqual(report.runtimeActivation.platformProvisionerEffectContract, {
     contract: "crdd-coordinator/platform-provisioner-effect",
-    contractRevision: 3,
+    contractRevision: 4,
     effectController: "not_implemented_effective_access_required",
     preActiveProvisioningOneShot:
-      "native_direct_entrypoint_implemented_release_binding_blocked",
+      "native_appcontainer_worker_entrypoint_implemented_formal_evidence_pending",
     command: "explicit_provision_only",
     sourceSelection: "fixed_signed_crdd_distribution_only_target",
     sourceCheckoutBehavior: "blocked_before_any_read_or_filesystem_effect",
@@ -682,11 +700,11 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
     report.runtimeActivation.platformProvisionerPreActiveOneShotContract,
     {
       contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-      contractRevision: 2,
+      contractRevision: 3,
       command: "explicit_coordinator_provision_only",
-      executionStrategy: "native_top_level_direct_self_observation",
+      executionStrategy: "native_top_level_appcontainer_worker_observation",
       maximumObservationAttemptsPerInvocation: 1,
-      maximumWorkerSpawnAttemptsPerInvocation: 0,
+      maximumWorkerSpawnAttemptsPerInvocation: 1,
       initialTrustCeremony:
         "human_authenticated_officially_signed_release_native_top_level_required",
       nodePathLaunchMayEstablishVerifiedImage: false,
@@ -696,11 +714,15 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
       sourceCheckoutInvocation: false,
       pathCargoShellOrInstallerFallback: false,
       automaticRetryOrRestart: false,
-      nativeSupervisor: "entrypoint_implemented_release_binding_blocked",
-      releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
-      verifiedImageHandleBinding: "not_implemented_blocked",
-      workerBoundedProcess: "not_applicable_no_worker",
-      workerProcessTreeTermination: "not_applicable_no_worker",
+      nativeSupervisor:
+        "entrypoint_implemented_minimum_trust_boundary_formal_evidence_pending",
+      releaseOwnedOpaqueExecutionBinding:
+        "trusted_os_authenticated_local_user_and_human_verified_release_prerequisite",
+      verifiedImageHandleBinding:
+        "not_required_by_coordinator_runtime_1_0_minimum_trust_boundary",
+      workerBoundedProcess:
+        "atomic_single_process_job_assignment_implemented_candidate",
+      workerProcessTreeTermination: "required_before_candidate_forwarding",
       networkEnforcement: "not_implemented_blocked",
       currentProcessEffectIssued: false,
       currentHelperProcessSpawned: false,
@@ -1467,7 +1489,7 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
   assert.equal(
     report.runtimeActivation.platformProvisionerTrustCore
       .osNativeCodeSignatureDecision,
-    "deferred_until_production_verified_image_binding",
+    "minimum_trust_boundary_requires_fixed_publisher_authenticode",
   );
   assert.equal(
     report.runtimeActivation.platformProvisionerPackageGate

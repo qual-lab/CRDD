@@ -28,11 +28,23 @@ test("native bootstrap buildは固定toolchain、offline dependency、link argv�
     "-C",
     "link-arg=/NODEFAULTLIB",
     "-C",
+    "link-arg=libcmt.lib",
+    "-C",
     "link-arg=/Brepro",
   ]);
 });
 
 test("native bootstrap buildは外部Rust overrideとcrate外targetを拒否する", () => {
+  for (const signer of ["", "A".repeat(64), "0".repeat(63), "g".repeat(64)]) {
+    assert.throws(
+      () =>
+        buildNativeBootstrap(
+          path.resolve(import.meta.dirname, "../../platform-access/target"),
+          signer,
+        ),
+      /native_bootstrap_authenticode_signer_invalid/u,
+    );
+  }
   assert.throws(
     () => buildNativeBootstrap(path.resolve(import.meta.dirname, "outside")),
     /native_bootstrap_build_target_invalid/u,

@@ -27,6 +27,22 @@ export const NATIVE_BOOTSTRAP_BUILD_ARGUMENTS = Object.freeze([
   "-C",
   "link-arg=/NODEFAULTLIB",
   "-C",
+  "link-arg=libcmt.lib",
+  "-C",
+  "link-arg=/Brepro",
+]);
+const PLATFORM_ACCESS_BUILD_ARGUMENTS = Object.freeze([
+  "rustc",
+  "--manifest-path",
+  "Cargo.toml",
+  "--frozen",
+  "--release",
+  "--target",
+  NATIVE_BOOTSTRAP_TARGET,
+  "--bin",
+  "crdd-platform-access",
+  "--",
+  "-C",
   "link-arg=/Brepro",
 ]);
 const FORBIDDEN_BUILD_ENVIRONMENT_EXACT = Object.freeze([
@@ -193,10 +209,17 @@ function childEnvironment(
   result.CARGO_HOME = boundary.cargoHome;
   result.CARGO_TARGET_DIR = targetRoot;
   result.RUSTC = boundary.rustc.path;
+  result.CARGO_ENCODED_RUSTFLAGS =
+    '--cfg\u001fcurve25519_dalek_backend="serial"';
   return result;
 }
 
-export function buildNativeBootstrap(targetRoot = crateTargetRoot) {
+export function buildNativeBootstrap(
+  targetRoot = crateTargetRoot,
+  authenticodeSignerSha256 = "0".repeat(64),
+) {
+  if (!/^[0-9a-f]{64}$/u.test(authenticodeSignerSha256))
+    throw new Error("native_bootstrap_authenticode_signer_invalid");
   const resolvedTargetRoot = path.resolve(targetRoot);
   const relative = path.relative(crateTargetRoot, resolvedTargetRoot);
   if (relative.startsWith("..") || path.isAbsolute(relative))
@@ -209,6 +232,32 @@ export function buildNativeBootstrap(targetRoot = crateTargetRoot) {
   )
     throw new Error("native_bootstrap_build_target_invalid");
   const buildEnvironment = childEnvironment(boundary, resolvedTargetRoot);
+  const workerBuildEnvironment = childEnvironment(boundary, resolvedTargetRoot);
+  const workerArguments = [...PLATFORM_ACCESS_BUILD_ARGUMENTS];
+  const workerManifestIndex = workerArguments.indexOf("Cargo.toml");
+  if (workerManifestIndex < 0)
+    throw new Error("native_bootstrap_build_contract_invalid");
+  workerArguments[workerManifestIndex] = path.join(crateRoot, "Cargo.toml");
+  const workerBuild = spawnSync(boundary.cargo.path, workerArguments, {
+    cwd: crateRoot,
+    env: workerBuildEnvironment,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (workerBuild.error || workerBuild.status !== 0)
+    throw new Error(
+      `native_bootstrap_worker_build_failed:${workerBuild.error?.message ?? workerBuild.stderr}`,
+    );
+  const workerExecutable = path.join(
+    resolvedTargetRoot,
+    NATIVE_BOOTSTRAP_TARGET,
+    "release",
+    "crdd-platform-access.exe",
+  );
+  if (!fs.statSync(workerExecutable).isFile())
+    throw new Error("native_bootstrap_worker_artifact_missing");
+  buildEnvironment.CRDD_NATIVE_WORKER_SHA256 = sha256File(workerExecutable);
+  buildEnvironment.CRDD_AUTHENTICODE_SIGNER_SHA256 = authenticodeSignerSha256;
   const commandArguments = [...NATIVE_BOOTSTRAP_BUILD_ARGUMENTS];
   const manifestIndex = commandArguments.indexOf("Cargo.toml");
   if (manifestIndex < 0)
@@ -239,5 +288,13 @@ const entryArgument = process.argv[1];
 if (
   entryArgument &&
   pathToFileURL(path.resolve(entryArgument)).href === import.meta.url
-)
-  process.stdout.write(`${buildNativeBootstrap()}\n`);
+) {
+  const signerOption = process.argv[2];
+  const signer = process.argv[3];
+  if (
+    (signerOption !== undefined || signer !== undefined) &&
+    (signerOption !== "--authenticode-signer-sha256" || signer === undefined)
+  )
+    throw new Error("native_bootstrap_build_arguments_invalid");
+  process.stdout.write(`${buildNativeBootstrap(crateTargetRoot, signer)}\n`);
+}

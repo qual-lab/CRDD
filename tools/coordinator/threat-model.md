@@ -24,11 +24,14 @@ OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM�
 
 | 境界 | 信頼するもの | 信頼しないもの |
 |---|---|---|
+| Coordinator Runtime 1.0の信頼計算基盤（Trusted Computing Base、TCB） | 正常に動作するOSの認証・Filesystem・process・AppContainer・署名検証機能、OSが認証した選択ローカル対話ユーザー、人間が真正性を確認して明示起動する公式署名済みCRDD Release | 悪意ある別ユーザー、Repository／Provider／Network入力、未検証artifact・Authority・Revision・caller supplied Path |
 | Runtime Core | 検証済みSchema、Profile、Policy、Event追記処理 | Agentの自己申告、Providerの`Pass`、自然言語だけのAuthority |
 | Repository Adapter | 固定したGit入力とRuntimeからの許可 | dirty変更の暗黙取込み、ProviderによるGit metadata操作 |
 | Provider Adapter | 正規化処理と明示Capability | 生出力、Provider固有Session、利用可能というだけのAuthority |
 | Provider子プロセス | 確定Packet内の限定処理 | Filesystem、Network、Credential、外部Repositoryへの一般アクセス |
 | Reviewer | 固定対象と基準からの独立再構成 | Executorの要約、旧Candidate RevisionのReview |
+
+悪意ある同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifier侵害による起動前置換、検査回避、debugger／injection等への完全なtamper resistanceはv1の保証対象外である。この境界は攻撃検出の成功を主張するものではない。対象内で観測可能な署名、manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離または終了状態の差と、判定情報不足は引き続きfail closedとする。同一ユーザー、管理者またはOS侵害への耐性が必要になった場合は、OS保護済みbootstrap、managed install root、実行制御またはhardware-backed trustをHardened／Managed profileとして再評価する。
 
 ## 3. Operation専用領域
 
@@ -153,7 +156,7 @@ activationは診断要求とrun-scoped Capabilityから分離したRepository単
 
 明示`coordinator provision`のcommand grammarは実装済み候補だが、現ローカル／開発buildでは常にEffect前に`blocked`となる。結果の`dryRunOnly`、CRDD配布Revision／package Filesystem未確認またはEffect 0という表示は検証tokenではなく、別入口へ持ち回ってTrustを成立させられない。CRDD配布物と内包packageの全Trust条件が同一制御経路へ結合されるまでRoot作成、鍵生成、ACL変更または保存を行わない。
 
-承認済みのProvisioning方針は、CRDD配布物の`tools/coordinator`に内包するprivate TypeScript sourceを固定Release Trustで検証し、OS固有観測だけを`tools/platform-access/`のprivate Rust componentへ限定する目標contractである。manifest、Ed25519署名、content root、固定公開鍵、Policy Identity、canonical loaderおよびGit Tree照合は候補実装済みである。有効ポインター（Active Pointer）のcanonical codec、単調な直前Hash遷移、現在process `TokenUser`のIdentity Hash、primary token、enabled interactive／service／batch／network group、restricted token、AppContainer、非zero sessionおよび安定同一file読取りもcomponent候補である。選択済みlocal userとのbindingは未実装であり、Identity Hashまたはtoken／group／session分類だけからRuntime主体を成立させない。Windows DACL構造claimは非Authorityのpure評価で、Rust Coreも現在process tokenの実効accessと主体分類を観測するcomponent候補に限る。有効化前準備一回実行は通常Runtime Adapterと分離し、caller入力、Nodeの検証後Path起動、source checkout、通常run／doctor／activate／disable、PATH／Cargo／Shell／installer、自動retryまたはfallbackを初期Trustへ昇格しない。人間が真正性を確認した未改変の公式署名済みReleaseのnative top-level自身が、Release所有のopaque binding、leafと全parentのnon-link／write-delete非共有handle、loaded image Identity、local volume、固定argv、PE import／delay-importおよびDLL探索閉包、Network非発火を同じrunで確認できる場合だけ、workerを起動せず現在tokenと固定Rootを直接1回観測する。worker spawn上限は0で、人間が開始したtop-level processをCoordinator-issued Process Effectと扱わず、Job、bounded workerおよびprocess tree終了は非該当とする。署名manifestへの二つのRust成果物Hash結合とnative blocked入口は候補実装済みだが、検証済みloaded image結合、直接token／Root観測、DACL適用、staging copy、state更新およびEffect controllerは未実装である。正常結果も同じnative invocation内の主体観測候補に限定してbinder、Authority、Capability、Filesystem／Network EffectまたはGateへ昇格しない。固定公開鍵以外のcaller supplied signer、manifest、SIDまたは任意観測をRuntime所有Trustへ昇格しない。hard timeoutまたはcrash isolationにworkerが必要と実証された場合だけ、別の保護対象変更でbounded process、Process Effect、Job、process tree終了および回復を決定する。
+承認済みのProvisioning方針は、CRDD配布物のprivate TypeScript sourceを固定Release Trustで検証し、OS固有観測をprivate Rust componentへ限定する目標contractである。manifest、署名、content root、固定公開鍵、Policy Identity、canonical loader、Git Tree照合、現在process主体分類および安定同一file読取りはcomponent候補である。選択済みlocal userとのbinderは未実装であり、観測値だけからRuntime主体を成立させない。有効化前準備一回実行は通常Runtime Adapterと分離し、caller入力、Nodeの検証後Path起動、source checkout、通常run、PATH、Cargo、Shell、installer、自動retryまたはfallbackを初期Trustへ昇格しない。CHG-000036のsource候補は、manifest全fieldと現在時刻、両artifactのlocked handle byte、volume rootからleafまでのnon-reparse handle、local fixed volume、worker向けJob／loaded image／PA03／PR03を同じrunへ結ぶ。現在map済みのsupervisor imageと後からopenした署名済み成果物の同一file objectは原子的に自己結合しておらず、未成立riskとして保持する。人間が採用した最小信頼境界ではこの自己結合をv1必須条件としないため、専用blockerはproduction sourceから除去した。今回の正式署名条件が成立しない検証runはworker spawn試行0で停止したが、正式署名成果物を使うworker生成、PA03／PR03、Job／tree、実行時module集合およびNetwork非発火は未検証である。したがってoperational one-shot、Authority、Capability、Gate、Releaseまたは実Providerを成立させない。capability 0の固定AppContainer profileはQual-Lab所有の既存前提で、Coordinatorは作成・変更・削除・fallbackを行わない。署名manifest、自己Hashまたはstatic PEだけを人間による初期Trustへ昇格せず、結果からbinder、Authority、Capability、EffectまたはGateを成立させない。
 
 Rust Coreが返す`deleteOnRootObject`はRoot自身のsecurity descriptor上の`DELETE`観測だけである。Windowsでは親Directoryの`FILE_DELETE_CHILD`でもRootを削除できるため、この親経路を観測しないcomponent結果からRoot削除不能、writer排他またはProtection成立を主張しない。親Directoryの固定Identityと実効access観測はRelease-bound Adapter、全tree確認およびProtection Hashとともに未実装である。
 
@@ -246,6 +249,8 @@ Provider containerはOperation専用internal Networkだけへ接続し、Proxy�
 
 前段の「成果物観測・署名処理」は責務を分離して読む。Rust Coreと成果物観測は読み取り専用component候補であり、明示Release署名commandだけがステージングmanifestを排他作成・書込み・`fsync`するリリースステージングのファイルシステム処置を持つ。この処置はRuntime／Platform Provisioning Filesystem Effect、Runtime Authority、Runtime Capability、Release採用またはProtectionを成立させない。
 
+本文で「検証済み実行イメージ」または「プロセス起動は未実装」と記す箇所は通常Runtime／Adapter側を指す。CHG-000036のpre-active native source候補は別の限定入口であり、Minimum Trust Boundary採用後のsourceからmapped supervisor image専用blockerを除去した。ただし正式署名成果物によるPA03／PR03、Job／tree、module集合およびNetwork非発火は未検証であり、通常Runtime、Authority、Capability、Gateまたは実Providerを有効化しない。
+
 ### 承認済みProvisioning実装パッケージの脅威境界
 
 Windows v1で許可するRuntime主体は、明示provisionで選択したローカル対話ユーザー1名だけである。現在実装した現在processの`TokenUser` Identity Hash、primary token、enabled interactive／service／batch／network group、restricted token、AppContainerおよび非zero sessionの観測は非Authority候補に限り、いずれの単独属性または組合せも選択userとの一致を証明しない。選択userとの一致を確認するbinderは未実装なのでRuntime主体はまだ成立しない。将来binderは同じuserの`TokenUser`一致を要求し、別資格情報による昇格など一致を決定論的に確認できない場合は処置前に`blocked`とする。elevated group、admin group、観測したtoken／group／session分類またはcaller指定SIDを選択userの代用にはしない。サービスアカウントは将来候補に限り、v1では未実装かつ`blocked`である。
@@ -258,10 +263,13 @@ Authority RecordとRepository generationはimmutable成果物とatomic pointer�
 
 ### Native direct provision入口の差分
 
-CHG-000034ではpre-active経路をspawnlessへ収束した。人間が真正性を確認した公式Releaseのnative top-level自身が同じprocess内で観測し、worker spawn上限は0、Coordinator-issued Process Effectはfalseとする。前段のbounded worker、Jobおよびprocess tree終了は現方式の安全根拠ではなく非該当であり、hard timeoutまたはcrash isolationが必要と実証された場合だけ別変更で再評価する。CHG-000035では入口を`no_std`／`no_main`の固定blocked bootstrapへ縮退し、raw command lineのexact `provision`だけを許すentrypoint contract revision 2へ上げた。locked release PEはx64／CUI、実行可能entrypoint、ASLR／NX、`KERNEL32.dll`の4関数だけ、delay import／TLS／bound import／CLR 0を検査する。Release stagingは同一fdから所有snapshot化したbyteのPE判定とHashを一回投影し、不一致をmanifest配置Effect前に拒否する。固定resultのNetwork Effect falseとstatic PE上の直接Network import 0は、実processのNetwork非発火の観測ではない。`no_std`、static import allowlistまたは署名対象byte結合自体を安全保証にせず、実行時loaderが解決したmodule集合、実際のloaded imageまたはDLL探索経路の証明へ読み替えない。native入口はRelease／loaded image結合前に固定blocked結果だけを返す。manifest revision 2はnative supervisorと既存workerを別成果物Identityへ結合するが、自己Hashまたは自己署名検証を人間による初期Trustの代替にしない。DLL side-loading、leafと全rename可能parent、loaded image、local volume、実processのNetwork非発火および直接token／Root観測が同じ実Windows runで成立するまで観測候補を発行しない。外部へ出した結果の保存・再投入からbinderまたはAuthorityを復元しない。
+CHG-000034のspawnless方式とCHG-000035の固定blocked bootstrapは各固定改訂版の履歴である。CHG-000036はnative result contract revision 2、有効化前準備一回実行revision 3、Platform Provisioner Effect revision 4、Runtime Activation revision 4およびprivate doctor reportVersion 9へ移行し、今回のTCB変更ではSchema、wireまたはfield集合を変えないため同revisionを維持する。旧revisionへのalias／fallbackはない。locked release PEはx64／CUI、ASLR／NX、現成果物が実際に持つexact import集合、delay import／TLS／bound import／CLR 0およびworker Hash結合を検査する。Release stagingは同一fdの両artifact byte、PE判定、Hashおよび内部worker結合の不一致をmanifest配置前に拒否する。実行時source候補はEd25519 manifestと別のAuthenticode publisher Identity、cache-only revocation、volume rootからleafまでのnon-reparse handle、local fixed volume、worker loaded image、create-time Jobおよびexact pipe framingを要求する。2026-08-23の人間判断により、正常OS、OS認証済みローカル対話ユーザーおよび人間が確認した公式署名Releaseをv1のTCBへ含め、mapped supervisor imageと後からopenしたartifactの原子的自己結合はMinimum Trust Boundaryの必須条件から外した。[CHG-000036の外部入力、探索母集団、対象外および一般化限界](../../90_Release/Changes/CHG-000036_AppContainer_Provision_Worker_Candidate.md#mapped-supervisor-image-exploration)が示す原子的自己結合方式の未成立は残存riskとして保持し、方式が成立した、Verified Imageを実装した、または同一ユーザー／OS侵害を防御できるとは主張しない。App Control for Business／AppLocker、out-of-process launcherまたはhardware-backed trustは将来のHardened／Managed候補でありv1 blockerではない。static PE上の直接Network import 0は実processのNetwork非発火や実行時module集合の観測ではない。正式署名成果物によるPA03／PR03、module集合、Network非発火、Job／treeを同じrunで確認するまでoperational one-shot、GateまたはReleaseへ進めず、旧Passは現改訂版へ流用しない。
 
 ## 6. 非対象
 
+- 悪意ある同一ローカルOSユーザー、Administrator／SYSTEM、kernel、OS／Verifier侵害への完全なtamper resistance
+- Firmware／TPM／Vendor署名基盤またはSupply Chain全体への完全なattestation
+- OS保護済みbootstrap、managed installer、vendor-integrated launcherおよびhardware-backed trustのv1必須化
 - 外部Effectの実行または回復
 - Remote Repository操作
 - 複数Provider RoutingまたはRole交換

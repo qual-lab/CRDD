@@ -87,79 +87,8 @@ fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
     ))
 }
 
-fn is_reserved_windows_basename(segment: &str) -> bool {
-    let basename = reserved_name_limited_uppercase(
-        segment
-            .split('.')
-            .next()
-            .unwrap_or("")
-            .trim_end_matches(['.', ' ']),
-    );
-    matches!(
-        basename.as_str(),
-        "CON" | "PRN" | "AUX" | "NUL" | "CLOCK$" | "CONIN$" | "CONOUT$"
-    ) || ["COM", "LPT"].iter().any(|prefix| {
-        basename.strip_prefix(prefix).is_some_and(|suffix| {
-            matches!(
-                suffix,
-                "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "¹" | "²" | "³"
-            )
-        })
-    })
-}
-
-fn reserved_name_limited_uppercase(value: &str) -> String {
-    let mut normalized = String::new();
-    for character in value.chars() {
-        match character {
-            'a'..='z' => normalized.push(
-                char::from_u32(u32::from(character) - 0x20)
-                    .expect("ASCII lowercase mapping must remain valid"),
-            ),
-            'ß' => normalized.push_str("SS"),
-            'ı' => normalized.push('I'),
-            'ſ' => normalized.push('S'),
-            'K' => normalized.push('K'),
-            'ﬀ' => normalized.push_str("FF"),
-            'ﬁ' => normalized.push_str("FI"),
-            'ﬂ' => normalized.push_str("FL"),
-            'ﬃ' => normalized.push_str("FFI"),
-            'ﬄ' => normalized.push_str("FFL"),
-            'ﬅ' | 'ﬆ' => normalized.push_str("ST"),
-            _ => normalized.push(character),
-        }
-    }
-    normalized
-}
-
 fn is_supported_windows_path(path: &str) -> bool {
-    let bytes = path.as_bytes();
-    if bytes.len() < 3
-        || bytes[0] < b'A'
-        || bytes[0] > b'Z'
-        || bytes[1] != b':'
-        || bytes[2] != b'\\'
-    {
-        return false;
-    }
-    if bytes.len() == 3 {
-        return true;
-    }
-    if path.ends_with('\\') {
-        return false;
-    }
-    path[3..].split('\\').all(|segment| {
-        !segment.is_empty()
-            && segment != "."
-            && segment != ".."
-            && !segment.ends_with(['.', ' '])
-            && !segment.chars().any(|character| {
-                character <= '\u{001f}'
-                    || character == '\u{007f}'
-                    || matches!(character, '<' | '>' | ':' | '"' | '/' | '|' | '?' | '*')
-            })
-            && !is_reserved_windows_basename(segment)
-    })
+    crate::native_bootstrap_core::supported_windows_path_bytes(path.as_bytes())
 }
 
 pub fn parse_request(bytes: &[u8]) -> Option<Request> {
@@ -213,9 +142,9 @@ pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
     bytes
 }
 
-pub fn read_request() -> io::Result<Vec<u8>> {
+pub fn read_request_from(reader: &mut impl Read) -> io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
-    io::stdin()
+    reader
         .take(u64::try_from(MAXIMUM_REQUEST_BYTES + 1).unwrap_or(u64::MAX))
         .read_to_end(&mut bytes)?;
     if bytes.len() > MAXIMUM_REQUEST_BYTES {
@@ -227,8 +156,28 @@ pub fn read_request() -> io::Result<Vec<u8>> {
     Ok(bytes)
 }
 
-pub fn write_response(response: Response) -> io::Result<()> {
-    io::stdout().write_all(&encode_response(response))
+pub fn read_framed_request_from(reader: &mut impl Read) -> io::Result<Vec<u8>> {
+    let mut bytes = vec![0_u8; REQUEST_HEADER_BYTES];
+    reader.read_exact(&mut bytes)?;
+    let path_length = usize::try_from(u32::from_le_bytes(
+        bytes[56..60].try_into().expect("fixed request header"),
+    ))
+    .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "path length"))?;
+    if path_length == 0 || path_length > MAXIMUM_PATH_BYTES {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "path length"));
+    }
+    bytes.resize(
+        REQUEST_HEADER_BYTES
+            .checked_add(path_length)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "request size"))?,
+        0,
+    );
+    reader.read_exact(&mut bytes[REQUEST_HEADER_BYTES..])?;
+    Ok(bytes)
+}
+
+pub fn write_response_to(writer: &mut impl Write, response: Response) -> io::Result<()> {
+    writer.write_all(&encode_response(response))
 }
 
 #[cfg(test)]
@@ -312,32 +261,6 @@ mod tests {
         assert!(parse_request(&request_bytes(oversized_path.as_bytes())).is_none());
         assert!(parse_request(&request_bytes("C:\\通常".as_bytes())).is_some());
         assert!(parse_request(&request_bytes("C:\\CONSOLE".as_bytes())).is_some());
-    }
-
-    #[test]
-    fn reserved_name_mapping_is_repository_owned_and_exact() {
-        for (lowercase, uppercase) in ('a'..='z').zip('A'..='Z') {
-            assert_eq!(
-                reserved_name_limited_uppercase(&lowercase.to_string()),
-                uppercase.to_string()
-            );
-        }
-        for (source, expected) in [
-            ("ß", "SS"),
-            ("ı", "I"),
-            ("ſ", "S"),
-            ("K", "K"),
-            ("ﬀ", "FF"),
-            ("ﬁ", "FI"),
-            ("ﬂ", "FL"),
-            ("ﬃ", "FFI"),
-            ("ﬄ", "FFL"),
-            ("ﬅ", "ST"),
-            ("ﬆ", "ST"),
-        ] {
-            assert_eq!(reserved_name_limited_uppercase(source), expected);
-        }
-        assert_eq!(reserved_name_limited_uppercase("通常"), "通常");
     }
 
     #[test]

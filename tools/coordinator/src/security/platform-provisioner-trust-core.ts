@@ -560,7 +560,7 @@ export function describePlatformProvisionerTrustCoreContract() {
     runtimeOwnedReleaseTrustSelection: "not_implemented",
     dedicatedNativeExecutableRequiredForV1: true,
     osNativeCodeSignatureDecision:
-      "deferred_until_production_verified_image_binding",
+      "minimum_trust_boundary_requires_fixed_publisher_authenticode",
     packagedBuildAcceptance:
       "verified_crdd_distribution_qual_lab_manifest_and_package_filesystem_all_required_before_effect_target",
     localDevelopmentBehavior:

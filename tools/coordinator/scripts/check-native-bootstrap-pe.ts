@@ -30,10 +30,10 @@ const runRoot = path.join(
   `native bootstrap pe ${process.pid} ${randomBytes(8).toString("hex")}`,
 );
 const expectedProvision = Buffer.from(
-  '{"contract":"crdd-coordinator/native-provision-supervisor-result","contractRevision":1,"status":"blocked","reason":"native_provision_supervisor_release_binding_not_implemented","observationAttempted":false,"workerSpawnAttempts":0,"processEffectIssued":false,"helperProcessSpawned":false,"filesystemEffectIssued":false,"networkEffectIssued":false,"runtimeAuthorityConferred":false,"runtimeCapabilityIssued":false}\n',
+  '{"contract":"crdd-coordinator/native-provision-supervisor-result","contractRevision":2,"status":"blocked","reason":"native_provision_fixed_release_layout_invalid","observationAttempted":false,"workerSpawnAttempts":0,"processEffectIssued":false,"helperProcessSpawned":false,"helperProcessResumed":false,"helperExchangeCompleted":false,"processTreeTerminationConfirmed":false,"manualRecoveryRequired":false,"filesystemEffectIssued":false,"networkEffectIssued":false,"runtimeAuthorityConferred":false,"runtimeCapabilityIssued":false}\n',
 );
 const expectedInvalid = Buffer.from(
-  '{"contract":"crdd-coordinator/native-provision-supervisor-result","contractRevision":1,"status":"blocked","reason":"native_provision_supervisor_arguments_invalid","observationAttempted":false,"workerSpawnAttempts":0,"processEffectIssued":false,"helperProcessSpawned":false,"filesystemEffectIssued":false,"networkEffectIssued":false,"runtimeAuthorityConferred":false,"runtimeCapabilityIssued":false}\n',
+  '{"contract":"crdd-coordinator/native-provision-supervisor-result","contractRevision":2,"status":"blocked","reason":"native_provision_supervisor_arguments_invalid","observationAttempted":false,"workerSpawnAttempts":0,"processEffectIssued":false,"helperProcessSpawned":false,"helperProcessResumed":false,"helperExchangeCompleted":false,"processTreeTerminationConfirmed":false,"manualRecoveryRequired":false,"filesystemEffectIssued":false,"networkEffectIssued":false,"runtimeAuthorityConferred":false,"runtimeCapabilityIssued":false}\n',
 );
 
 function fail(reason: string): never {
@@ -77,6 +77,10 @@ export function nativeBootstrapEffectReport() {
       workerSpawnAttempts: 0,
       processEffectIssued: false,
       helperProcessSpawned: false,
+      helperProcessResumed: false,
+      helperExchangeCompleted: false,
+      processTreeTerminationConfirmed: false,
+      manualRecoveryRequired: false,
       filesystemEffectIssued: false,
       networkEffectIssued: false,
       runtimeAuthorityConferred: false,
@@ -107,8 +111,18 @@ export function inspectNativeBootstrapPeArtifact() {
     );
     const firstBytes = firstSnapshot.bytes;
     const secondBytes = secondSnapshot.bytes;
+    const firstWorker = readStableBoundedFileSnapshot(
+      path.join(path.dirname(firstExecutable), "crdd-platform-access.exe"),
+      NATIVE_BOOTSTRAP_PE_MAXIMUM_BYTES,
+    );
+    const secondWorker = readStableBoundedFileSnapshot(
+      path.join(path.dirname(secondExecutable), "crdd-platform-access.exe"),
+      NATIVE_BOOTSTRAP_PE_MAXIMUM_BYTES,
+    );
     const artifactSha256 = sha256(firstBytes);
     if (!firstBytes.equals(secondBytes)) fail("reproducible_build");
+    if (!firstWorker.bytes.equals(secondWorker.bytes))
+      fail("reproducible_worker_build");
     const inspection = inspectNativeBootstrapPe(firstBytes);
     if (inspection.status !== "accepted") fail(`pe:${inspection.reason}`);
 
@@ -162,6 +176,8 @@ export function inspectNativeBootstrapPeArtifact() {
         byteIdentical: true,
         sha256: artifactSha256,
         byteLength: firstBytes.length,
+        workerSha256: sha256(firstWorker.bytes),
+        workerByteLength: firstWorker.bytes.length,
       }),
       pe: inspection,
       signingObservation: Object.freeze({
@@ -180,11 +196,13 @@ export function inspectNativeBootstrapPeArtifact() {
         effectEvidence: nativeBootstrapEffectReport(),
       }),
       verificationRun: Object.freeze({
-        processEffectIssued: true,
-        filesystemEffectIssued: true,
+        workerProcessEffectIssued: false,
+        operationalFilesystemEffectIssued: false,
+        harnessFilesystemEffectIssued: true,
         bootstrapProcessNetworkEffect: "not_verified",
         dependencyNetwork: "prohibited_by_cargo_frozen",
-        loadedImageBinding: "not_verified",
+        loadedImageBinding:
+          "not_required_by_coordinator_runtime_1_0_minimum_trust_boundary",
         stdoutWriteFailure: "not_verified",
         partialWrite: "not_verified",
         panicPath: "not_verified",

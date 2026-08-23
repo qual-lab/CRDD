@@ -28,13 +28,64 @@ test("固定PE fixtureはexact native bootstrap allowlistだけを受理する",
     machine: "x86_64",
     subsystem: "windows_console",
     imports: {
+      "ADVAPI32.dll": [
+        "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+        "FreeSid",
+      ],
+      "bcrypt.dll": [
+        "BCryptCloseAlgorithmProvider",
+        "BCryptCreateHash",
+        "BCryptDestroyHash",
+        "BCryptFinishHash",
+        "BCryptGetProperty",
+        "BCryptHashData",
+        "BCryptOpenAlgorithmProvider",
+      ],
+      "CRYPT32.dll": ["CertGetCertificateContextProperty"],
       "KERNEL32.dll": [
+        "CloseHandle",
+        "ConnectNamedPipe",
+        "CreateFileW",
+        "CreateJobObjectW",
+        "CreateNamedPipeW",
+        "CreateProcessW",
+        "DeleteProcThreadAttributeList",
+        "DisconnectNamedPipe",
         "ExitProcess",
         "GetCommandLineW",
+        "GetCurrentProcessId",
+        "GetDriveTypeW",
+        "GetExitCodeProcess",
+        "GetFileInformationByHandle",
+        "GetLastError",
+        "GetModuleFileNameW",
+        "GetNamedPipeClientProcessId",
+        "GetProcessHeap",
         "GetStdHandle",
+        "GetSystemTime",
+        "HeapAlloc",
+        "HeapFree",
+        "InitializeProcThreadAttributeList",
+        "LocalFree",
+        "QueryFullProcessImageNameW",
+        "QueryInformationJobObject",
+        "ReadFile",
+        "ResumeThread",
+        "SetInformationJobObject",
+        "Sleep",
+        "TerminateJobObject",
+        "UpdateProcThreadAttribute",
+        "WaitForSingleObject",
         "WriteFile",
       ],
+      "USERENV.dll": ["DeriveAppContainerSidFromAppContainerName"],
+      "WINTRUST.dll": [
+        "WTHelperGetProvSignerFromChain",
+        "WTHelperProvDataFromStateData",
+        "WinVerifyTrust",
+      ],
     },
+    workerBindingSha256: "2".repeat(64),
     delayImports: 0,
     tlsDirectory: 0,
     boundImports: 0,
@@ -123,7 +174,7 @@ test("section、RVA、entrypointおよびimport directory境界を拒否する",
     ],
     [
       "import_descriptor",
-      (bytes: Buffer) => bytes.writeUInt32LE(1, importDirectory + 20),
+      (bytes: Buffer) => bytes.writeUInt32LE(0, importDirectory + 20),
     ],
   ] as const)
     expectBlocked(mutate, reason);
@@ -131,7 +182,6 @@ test("section、RVA、entrypointおよびimport directory境界を拒否する",
 
 test("high-bit ASCII alias、未知・重複import、ordinalおよび非終端を拒否する", () => {
   const {
-    optional,
     importDirectory,
     lookupThunks,
     addressThunks,
@@ -174,21 +224,19 @@ test("high-bit ASCII alias、未知・重複import、ordinalおよび非終端�
     [
       "import_name",
       (bytes: Buffer) => {
-        bytes.writeBigUInt64LE(0x25fcn, lookupThunks);
-        bytes.writeBigUInt64LE(0x25fcn, addressThunks);
+        bytes.writeBigUInt64LE(0x29fcn, lookupThunks);
+        bytes.writeBigUInt64LE(0x29fcn, addressThunks);
       },
     ],
     [
       "import_descriptor",
       (bytes: Buffer) => {
-        bytes.writeUInt32LE(60, optional + 116 + 8);
-        bytes[importDirectory + 28] = 1;
+        bytes[importDirectory + 128] = 1;
       },
     ],
     [
       "import_allowlist",
       (bytes: Buffer) => {
-        bytes.writeUInt32LE(60, optional + 116 + 8);
         bytes.copy(
           bytes,
           importDirectory + 20,

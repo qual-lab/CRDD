@@ -28,10 +28,10 @@ export function runPlatformProvisionerEffect() {
 export function describePlatformProvisionerEffectContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-effect",
-    contractRevision: 3,
+    contractRevision: 4,
     effectController: "not_implemented_effective_access_required",
     preActiveProvisioningOneShot:
-      "native_direct_entrypoint_implemented_release_binding_blocked",
+      "native_appcontainer_worker_entrypoint_implemented_formal_evidence_pending",
     command: "explicit_provision_only",
     sourceSelection: "fixed_signed_crdd_distribution_only_target",
     sourceCheckoutBehavior: "blocked_before_any_read_or_filesystem_effect",

@@ -39,7 +39,13 @@ function assertFullyBlocked(
     principalObservation: null,
     selectedUserBindingVerified: false,
     runtimePrincipalBound: false,
+    workerSpawnAttempts: 0,
+    processEffectIssued: false,
     helperProcessSpawned: false,
+    helperProcessResumed: false,
+    helperExchangeCompleted: false,
+    processTreeTerminationConfirmed: false,
+    manualRecoveryRequired: false,
     helperResponseValidated: false,
     absolutePathReported: false,
     principalReported: false,
@@ -82,7 +88,13 @@ test("Rust platform access responseを安全要約へ限定する", () => {
   });
   assert.equal(result.selectedUserBindingVerified, false);
   assert.equal(result.runtimePrincipalBound, false);
+  assert.equal(result.workerSpawnAttempts, 0);
+  assert.equal(result.processEffectIssued, false);
   assert.equal(result.helperProcessSpawned, false);
+  assert.equal(result.helperProcessResumed, false);
+  assert.equal(result.helperExchangeCompleted, false);
+  assert.equal(result.processTreeTerminationConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.helperResponseValidated, true);
   assert.equal(result.absolutePathReported, false);
   assert.equal(result.principalReported, false);
@@ -247,8 +259,10 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   );
   assert.equal(
     contract.productionInvocation,
-    "blocked_until_protected_active_generation_and_verified_image_binding",
+    "native_appcontainer_worker_candidate_pending_formal_signed_runtime_evidence",
   );
+  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.maximumWorkerSpawnAttemptsPerInvocation, 1);
   assert.equal(contract.shellInvocation, false);
   assert.equal(contract.pathEnvironmentLookup, false);
   assert.equal(contract.cargoRuntimeInvocation, false);

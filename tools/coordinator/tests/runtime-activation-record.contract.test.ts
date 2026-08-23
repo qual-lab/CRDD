@@ -221,7 +221,7 @@ test("byte decoderはBuffer、上限、strict UTF-8、BOMおよびcanonical完�
 
 test("Activation contractは永続化、専用command、再activation、disable/delete分離を公開する", () => {
   const contract = describeRuntimeActivationContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.persistence, "repository_scoped_persistent");
   assert.equal(contract.activationCommand, "dedicated_activate_required");
   assert.equal(contract.activationCommandGrammar, "implemented_candidate");
@@ -261,11 +261,11 @@ test("Activation contractは永続化、専用command、再activation、disable/
   assert.equal(contract.selectedUserBinding, "not_implemented_blocked");
   assert.deepEqual(contract.platformProvisionerPreActiveOneShotContract, {
     contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-    contractRevision: 2,
+    contractRevision: 3,
     command: "explicit_coordinator_provision_only",
-    executionStrategy: "native_top_level_direct_self_observation",
+    executionStrategy: "native_top_level_appcontainer_worker_observation",
     maximumObservationAttemptsPerInvocation: 1,
-    maximumWorkerSpawnAttemptsPerInvocation: 0,
+    maximumWorkerSpawnAttemptsPerInvocation: 1,
     initialTrustCeremony:
       "human_authenticated_officially_signed_release_native_top_level_required",
     nodePathLaunchMayEstablishVerifiedImage: false,
@@ -275,11 +275,15 @@ test("Activation contractは永続化、専用command、再activation、disable/
     sourceCheckoutInvocation: false,
     pathCargoShellOrInstallerFallback: false,
     automaticRetryOrRestart: false,
-    nativeSupervisor: "entrypoint_implemented_release_binding_blocked",
-    releaseOwnedOpaqueExecutionBinding: "not_implemented_blocked",
-    verifiedImageHandleBinding: "not_implemented_blocked",
-    workerBoundedProcess: "not_applicable_no_worker",
-    workerProcessTreeTermination: "not_applicable_no_worker",
+    nativeSupervisor:
+      "entrypoint_implemented_minimum_trust_boundary_formal_evidence_pending",
+    releaseOwnedOpaqueExecutionBinding:
+      "trusted_os_authenticated_local_user_and_human_verified_release_prerequisite",
+    verifiedImageHandleBinding:
+      "not_required_by_coordinator_runtime_1_0_minimum_trust_boundary",
+    workerBoundedProcess:
+      "atomic_single_process_job_assignment_implemented_candidate",
+    workerProcessTreeTermination: "required_before_candidate_forwarding",
     networkEnforcement: "not_implemented_blocked",
     currentProcessEffectIssued: false,
     currentHelperProcessSpawned: false,
@@ -945,7 +949,7 @@ test("Activation contractは永続化、専用command、再activation、disable/
   );
   assert.equal(
     contract.platformProvisionerTrustCore.osNativeCodeSignatureDecision,
-    "deferred_until_production_verified_image_binding",
+    "minimum_trust_boundary_requires_fixed_publisher_authenticode",
   );
   assert.equal(
     contract.platformProvisionerPackageGate.observationContract,

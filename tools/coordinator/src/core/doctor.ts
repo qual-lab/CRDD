@@ -283,9 +283,16 @@ function probeGitRepository(cwd: string) {
   };
 }
 
+export function isSupportedNodeVersion(version: string): boolean {
+  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.exec(version);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return major > 24 || (major === 24 && minor >= 12);
+}
+
 function nodeSupported(): boolean {
-  const major = Number.parseInt(process.versions.node.split(".")[0] ?? "", 10);
-  return Number.isInteger(major) && major >= 22;
+  return isSupportedNodeVersion(process.versions.node);
 }
 
 function providerChecks(
@@ -552,7 +559,7 @@ export function runDoctor(options: unknown = {}) {
       check(
         "runtime.node",
         nodeSupported() ? "confirmed" : "blocked",
-        nodeSupported() ? null : "node_22_or_newer_required",
+        nodeSupported() ? null : "node_24_12_or_newer_required",
       ),
       check(
         "repository.git",
@@ -608,7 +615,7 @@ export function runDoctor(options: unknown = {}) {
     const readiness = evaluateReadiness(checks);
 
     const report = {
-      reportVersion: 8,
+      reportVersion: 9,
       diagnosticMode: isIsolationActive
         ? "docker_fake_provider_probe"
         : "passive_preflight",

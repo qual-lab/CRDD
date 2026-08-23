@@ -4,12 +4,64 @@ const MAXIMUM_IMPORT_DESCRIPTORS = 8;
 const MAXIMUM_IMPORT_THUNKS = 64;
 const MAXIMUM_LIBRARY_NAME_BYTES = 64;
 const MAXIMUM_SYMBOL_NAME_BYTES = 256;
-const EXPECTED_IMPORTS = Object.freeze([
-  "ExitProcess",
-  "GetCommandLineW",
-  "GetStdHandle",
-  "WriteFile",
-]);
+const EXPECTED_IMPORTS = Object.freeze({
+  "ADVAPI32.DLL": Object.freeze([
+    "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+    "FreeSid",
+  ]),
+  "BCRYPT.DLL": Object.freeze([
+    "BCryptCloseAlgorithmProvider",
+    "BCryptCreateHash",
+    "BCryptDestroyHash",
+    "BCryptFinishHash",
+    "BCryptGetProperty",
+    "BCryptHashData",
+    "BCryptOpenAlgorithmProvider",
+  ]),
+  "CRYPT32.DLL": Object.freeze(["CertGetCertificateContextProperty"]),
+  "KERNEL32.DLL": Object.freeze([
+    "CloseHandle",
+    "ConnectNamedPipe",
+    "CreateFileW",
+    "CreateJobObjectW",
+    "CreateNamedPipeW",
+    "CreateProcessW",
+    "DeleteProcThreadAttributeList",
+    "DisconnectNamedPipe",
+    "ExitProcess",
+    "GetCommandLineW",
+    "GetCurrentProcessId",
+    "GetDriveTypeW",
+    "GetExitCodeProcess",
+    "GetFileInformationByHandle",
+    "GetLastError",
+    "GetModuleFileNameW",
+    "GetNamedPipeClientProcessId",
+    "GetProcessHeap",
+    "GetStdHandle",
+    "GetSystemTime",
+    "HeapAlloc",
+    "HeapFree",
+    "InitializeProcThreadAttributeList",
+    "LocalFree",
+    "QueryFullProcessImageNameW",
+    "QueryInformationJobObject",
+    "ReadFile",
+    "ResumeThread",
+    "SetInformationJobObject",
+    "Sleep",
+    "TerminateJobObject",
+    "UpdateProcThreadAttribute",
+    "WaitForSingleObject",
+    "WriteFile",
+  ]),
+  "USERENV.DLL": Object.freeze(["DeriveAppContainerSidFromAppContainerName"]),
+  "WINTRUST.DLL": Object.freeze([
+    "WTHelperGetProvSignerFromChain",
+    "WTHelperProvDataFromStateData",
+    "WinVerifyTrust",
+  ]),
+});
 
 export type NativeBootstrapPeBlockedReason =
   | "byte_population"
@@ -51,7 +103,15 @@ type Inspection =
       status: "accepted";
       machine: "x86_64";
       subsystem: "windows_console";
-      imports: Readonly<{ "KERNEL32.dll": readonly string[] }>;
+      imports: Readonly<{
+        "ADVAPI32.dll": readonly string[];
+        "bcrypt.dll": readonly string[];
+        "CRYPT32.dll": readonly string[];
+        "KERNEL32.dll": readonly string[];
+        "USERENV.dll": readonly string[];
+        "WINTRUST.dll": readonly string[];
+      }>;
+      workerBindingSha256: string;
       delayImports: 0;
       tlsDirectory: 0;
       boundImports: 0;
@@ -224,9 +284,12 @@ function inspect(bytes: Buffer): Exclude<Inspection, { status: "blocked" }> {
     });
     if (
       section.virtualSize === 0 ||
-      section.rawSize === 0 ||
       section.virtualAddress === 0 ||
-      section.rawOffset < sizeOfHeaders
+      (section.rawSize === 0
+        ? section.rawOffset !== 0 ||
+          (section.characteristics & 0x80000000) === 0 ||
+          (section.characteristics & 0x20000000) !== 0
+        : section.rawOffset < sizeOfHeaders)
     )
       blocked("section_range");
     checkedEnd(
@@ -349,21 +412,54 @@ function inspect(bytes: Buffer): Exclude<Inspection, { status: "blocked" }> {
     libraries.set(libraryName, lookupNames);
   }
   if (!isTerminated) blocked("import_descriptor");
-  const importedSymbols = libraries.get("KERNEL32.DLL");
+  if (libraries.size !== Object.keys(EXPECTED_IMPORTS).length)
+    blocked("import_allowlist");
+  for (const [library, expectedSymbols] of Object.entries(EXPECTED_IMPORTS)) {
+    const importedSymbols = libraries.get(library);
+    if (
+      !importedSymbols ||
+      importedSymbols.length !== expectedSymbols.length ||
+      [...importedSymbols]
+        .sort()
+        .some((value, index) => value !== expectedSymbols[index])
+    )
+      blocked("import_allowlist");
+  }
+  const bindingMarker = Buffer.from("CRDD-WORKER-SHA256-V1:", "ascii");
+  const bindingOffset = bytes.indexOf(bindingMarker);
+  const bindingEnd = bindingOffset + bindingMarker.length + 64;
+  const bindingSection = sections.find(
+    (section) =>
+      bindingOffset >= section.rawOffset &&
+      bindingEnd <= section.rawOffset + section.rawSize,
+  );
+  const workerBindingSha256 =
+    bindingOffset >= 0
+      ? bytes
+          .subarray(bindingOffset + bindingMarker.length, bindingEnd)
+          .toString("ascii")
+      : "";
   if (
-    libraries.size !== 1 ||
-    !importedSymbols ||
-    importedSymbols.length !== EXPECTED_IMPORTS.length ||
-    [...importedSymbols]
-      .sort()
-      .some((value, index) => value !== EXPECTED_IMPORTS[index])
+    bindingOffset < 0 ||
+    bytes.indexOf(bindingMarker, bindingOffset + 1) >= 0 ||
+    !/^[0-9a-f]{64}$/u.test(workerBindingSha256) ||
+    !bindingSection ||
+    (bindingSection.characteristics & 0xa000_0000) !== 0
   )
     blocked("import_allowlist");
   return Object.freeze({
     status: "accepted",
     machine: "x86_64",
     subsystem: "windows_console",
-    imports: Object.freeze({ "KERNEL32.dll": EXPECTED_IMPORTS }),
+    imports: Object.freeze({
+      "ADVAPI32.dll": EXPECTED_IMPORTS["ADVAPI32.DLL"],
+      "bcrypt.dll": EXPECTED_IMPORTS["BCRYPT.DLL"],
+      "CRYPT32.dll": EXPECTED_IMPORTS["CRYPT32.DLL"],
+      "KERNEL32.dll": EXPECTED_IMPORTS["KERNEL32.DLL"],
+      "USERENV.dll": EXPECTED_IMPORTS["USERENV.DLL"],
+      "WINTRUST.dll": EXPECTED_IMPORTS["WINTRUST.DLL"],
+    }),
+    workerBindingSha256,
     delayImports: 0,
     tlsDirectory: 0,
     boundImports: 0,

@@ -147,7 +147,7 @@ if (!Array.isArray(coverageDataEntries) || coverageDataEntries.length !== 1)
   throw new Error("invalid coverage data");
 const files = (coverageDataEntries[0] as { files?: unknown }).files;
 if (!Array.isArray(files)) throw new Error("coverage files missing");
-const sourceCoverageEntries = files
+const rawSourceCoverageEntries = files
   .map((entry) => {
     const candidate = entry as {
       filename?: unknown;
@@ -183,6 +183,33 @@ const sourceCoverageEntries = files
     });
   })
   .filter((entry) => entry !== null);
+const sourceCoverageEntries = [
+  ...rawSourceCoverageEntries
+    .reduce((entries, entry) => {
+      const previous = entries.get(entry.file);
+      if (!previous) {
+        entries.set(entry.file, entry);
+        return entries;
+      }
+      const sum = (name: "branches" | "functions" | "lines" | "regions") =>
+        Object.freeze({
+          count: previous[name].count + entry[name].count,
+          covered: previous[name].covered + entry[name].covered,
+        });
+      entries.set(
+        entry.file,
+        Object.freeze({
+          file: entry.file,
+          regions: sum("regions"),
+          functions: sum("functions"),
+          lines: sum("lines"),
+          branches: sum("branches"),
+        }),
+      );
+      return entries;
+    }, new Map<string, (typeof rawSourceCoverageEntries)[number]>())
+    .values(),
+];
 if (
   sourceCoverageEntries.length !== expectedSources.size ||
   new Set(sourceCoverageEntries.map((entry) => entry.file)).size !==
