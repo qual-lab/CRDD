@@ -1878,7 +1878,19 @@ unsafe fn create_local_appcontainer_pipe(name: &[u16]) -> Option<Handle> {
     (pipe != INVALID_HANDLE && !pipe.is_null()).then_some(pipe)
 }
 
-unsafe fn connect_expected_client(pipe: Handle, process: Handle, expected_process_id: u32) -> bool {
+#[derive(Clone, Copy)]
+enum ClientConnection {
+    Connected,
+    ProcessExited,
+    TimedOut,
+    IdentityInvalid,
+}
+
+unsafe fn connect_expected_client(
+    pipe: Handle,
+    process: Handle,
+    expected_process_id: u32,
+) -> ClientConnection {
     // SAFETY: both handles stay open and borrowed for this bounded poll. Output pointers target live
     // stack values, no OVERLAPPED pointer is retained, and this function closes neither handle.
     let mut attempts = 0;
@@ -1891,16 +1903,21 @@ unsafe fn connect_expected_client(pipe: Handle, process: Handle, expected_proces
         };
         if connected || error == ERROR_PIPE_CONNECTED {
             let mut client_process_id = 0;
-            return unsafe { GetNamedPipeClientProcessId(pipe, &mut client_process_id) } != 0
-                && client_process_id == expected_process_id;
+            return if unsafe { GetNamedPipeClientProcessId(pipe, &mut client_process_id) } != 0
+                && client_process_id == expected_process_id
+            {
+                ClientConnection::Connected
+            } else {
+                ClientConnection::IdentityInvalid
+            };
         }
         if unsafe { WaitForSingleObject(process, 0) } == 0 {
-            return false;
+            return ClientConnection::ProcessExited;
         }
         unsafe { Sleep(10) };
         attempts += 1;
     }
-    false
+    ClientConnection::TimedOut
 }
 
 unsafe fn create_single_process_job() -> Option<Handle> {
@@ -2303,14 +2320,25 @@ unsafe fn launch_worker() -> Option<u32> {
 
     FAILURE_STAGE.store(8, Ordering::Relaxed);
     unsafe { CloseHandle(process.hThread) };
-    if !unsafe { connect_expected_client(pipe, process.hProcess, process.dwProcessId) } {
+    let connection =
+        unsafe { connect_expected_client(pipe, process.hProcess, process.dwProcessId) };
+    if !matches!(connection, ClientConnection::Connected) {
+        FAILURE_STAGE.store(
+            match connection {
+                ClientConnection::ProcessExited => 8,
+                ClientConnection::TimedOut => 9,
+                ClientConnection::IdentityInvalid => 10,
+                ClientConnection::Connected => 0,
+            },
+            Ordering::Relaxed,
+        );
         unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
         unsafe { DisconnectNamedPipe(pipe) };
         unsafe { close_handles(&[pipe, process.hProcess, job]) };
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         return None;
     }
-    FAILURE_STAGE.store(9, Ordering::Relaxed);
+    FAILURE_STAGE.store(11, Ordering::Relaxed);
     if !unsafe { write_handle(pipe, &request[..request_length]) } {
         unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
         unsafe { DisconnectNamedPipe(pipe) };
@@ -2318,7 +2346,7 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         return None;
     }
-    FAILURE_STAGE.store(10, Ordering::Relaxed);
+    FAILURE_STAGE.store(12, Ordering::Relaxed);
     let wait = unsafe { WaitForSingleObject(process.hProcess, WORKER_TIMEOUT_MILLISECONDS) };
     if wait != 0 {
         unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
@@ -2327,7 +2355,7 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         return None;
     }
-    FAILURE_STAGE.store(11, Ordering::Relaxed);
+    FAILURE_STAGE.store(13, Ordering::Relaxed);
     let response = unsafe {
         core::slice::from_raw_parts_mut((&raw mut RESPONSE_BUFFER).cast::<u8>(), RESPONSE_BYTES + 1)
     };
@@ -2434,10 +2462,12 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     6 => native_bootstrap_core::SUPERVISOR_IMAGE_BLOCKED,
                     5 => native_bootstrap_core::REQUEST_BLOCKED,
                     7 => native_bootstrap_core::PROCESS_CREATED_BLOCKED,
-                    8 => native_bootstrap_core::WORKER_CONNECTION_BLOCKED,
-                    9 => native_bootstrap_core::WORKER_REQUEST_BLOCKED,
-                    10 => native_bootstrap_core::WORKER_WAIT_BLOCKED,
-                    11 => native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
+                    8 => native_bootstrap_core::WORKER_PRECONNECTION_EXIT_BLOCKED,
+                    9 => native_bootstrap_core::WORKER_CONNECTION_TIMEOUT_BLOCKED,
+                    10 => native_bootstrap_core::WORKER_CONNECTION_IDENTITY_BLOCKED,
+                    11 => native_bootstrap_core::WORKER_REQUEST_BLOCKED,
+                    12 => native_bootstrap_core::WORKER_WAIT_BLOCKED,
+                    13 => native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };

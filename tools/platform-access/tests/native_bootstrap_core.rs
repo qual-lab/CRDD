@@ -75,8 +75,16 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_request_invalid",
         ),
         (
-            native_bootstrap_core::WORKER_CONNECTION_BLOCKED,
-            "native_provision_worker_connection_failed",
+            native_bootstrap_core::WORKER_PRECONNECTION_EXIT_BLOCKED,
+            "native_provision_worker_exited_before_connection",
+        ),
+        (
+            native_bootstrap_core::WORKER_CONNECTION_TIMEOUT_BLOCKED,
+            "native_provision_worker_connection_timeout",
+        ),
+        (
+            native_bootstrap_core::WORKER_CONNECTION_IDENTITY_BLOCKED,
+            "native_provision_worker_connection_identity_invalid",
         ),
         (
             native_bootstrap_core::WORKER_REQUEST_BLOCKED,
