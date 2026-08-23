@@ -79,6 +79,14 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_worker_exited_before_connection",
         ),
         (
+            native_bootstrap_core::WORKER_ARGUMENTS_BLOCKED,
+            "native_provision_worker_arguments_rejected",
+        ),
+        (
+            native_bootstrap_core::WORKER_PIPE_OPEN_BLOCKED,
+            "native_provision_worker_pipe_open_failed",
+        ),
+        (
             native_bootstrap_core::WORKER_CONNECTION_TIMEOUT_BLOCKED,
             "native_provision_worker_connection_timeout",
         ),

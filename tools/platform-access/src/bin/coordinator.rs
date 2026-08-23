@@ -1881,6 +1881,8 @@ unsafe fn create_local_appcontainer_pipe(name: &[u16]) -> Option<Handle> {
 #[derive(Clone, Copy)]
 enum ClientConnection {
     Connected,
+    ArgumentsRejected,
+    PipeOpenFailed,
     ProcessExited,
     TimedOut,
     IdentityInvalid,
@@ -1912,7 +1914,16 @@ unsafe fn connect_expected_client(
             };
         }
         if unsafe { WaitForSingleObject(process, 0) } == 0 {
-            return ClientConnection::ProcessExited;
+            let mut exit_code = u32::MAX;
+            return if unsafe { GetExitCodeProcess(process, &mut exit_code) } == 0 {
+                ClientConnection::ProcessExited
+            } else {
+                match exit_code {
+                    2 => ClientConnection::ArgumentsRejected,
+                    3 => ClientConnection::PipeOpenFailed,
+                    _ => ClientConnection::ProcessExited,
+                }
+            };
         }
         unsafe { Sleep(10) };
         attempts += 1;
@@ -2325,9 +2336,11 @@ unsafe fn launch_worker() -> Option<u32> {
     if !matches!(connection, ClientConnection::Connected) {
         FAILURE_STAGE.store(
             match connection {
-                ClientConnection::ProcessExited => 8,
-                ClientConnection::TimedOut => 9,
-                ClientConnection::IdentityInvalid => 10,
+                ClientConnection::ArgumentsRejected => 8,
+                ClientConnection::PipeOpenFailed => 9,
+                ClientConnection::ProcessExited => 10,
+                ClientConnection::TimedOut => 11,
+                ClientConnection::IdentityInvalid => 12,
                 ClientConnection::Connected => 0,
             },
             Ordering::Relaxed,
@@ -2338,7 +2351,7 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         return None;
     }
-    FAILURE_STAGE.store(11, Ordering::Relaxed);
+    FAILURE_STAGE.store(13, Ordering::Relaxed);
     if !unsafe { write_handle(pipe, &request[..request_length]) } {
         unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
         unsafe { DisconnectNamedPipe(pipe) };
@@ -2346,7 +2359,7 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         return None;
     }
-    FAILURE_STAGE.store(12, Ordering::Relaxed);
+    FAILURE_STAGE.store(14, Ordering::Relaxed);
     let wait = unsafe { WaitForSingleObject(process.hProcess, WORKER_TIMEOUT_MILLISECONDS) };
     if wait != 0 {
         unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
@@ -2355,7 +2368,7 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         return None;
     }
-    FAILURE_STAGE.store(13, Ordering::Relaxed);
+    FAILURE_STAGE.store(15, Ordering::Relaxed);
     let response = unsafe {
         core::slice::from_raw_parts_mut((&raw mut RESPONSE_BUFFER).cast::<u8>(), RESPONSE_BYTES + 1)
     };
@@ -2462,12 +2475,14 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     6 => native_bootstrap_core::SUPERVISOR_IMAGE_BLOCKED,
                     5 => native_bootstrap_core::REQUEST_BLOCKED,
                     7 => native_bootstrap_core::PROCESS_CREATED_BLOCKED,
-                    8 => native_bootstrap_core::WORKER_PRECONNECTION_EXIT_BLOCKED,
-                    9 => native_bootstrap_core::WORKER_CONNECTION_TIMEOUT_BLOCKED,
-                    10 => native_bootstrap_core::WORKER_CONNECTION_IDENTITY_BLOCKED,
-                    11 => native_bootstrap_core::WORKER_REQUEST_BLOCKED,
-                    12 => native_bootstrap_core::WORKER_WAIT_BLOCKED,
-                    13 => native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
+                    8 => native_bootstrap_core::WORKER_ARGUMENTS_BLOCKED,
+                    9 => native_bootstrap_core::WORKER_PIPE_OPEN_BLOCKED,
+                    10 => native_bootstrap_core::WORKER_PRECONNECTION_EXIT_BLOCKED,
+                    11 => native_bootstrap_core::WORKER_CONNECTION_TIMEOUT_BLOCKED,
+                    12 => native_bootstrap_core::WORKER_CONNECTION_IDENTITY_BLOCKED,
+                    13 => native_bootstrap_core::WORKER_REQUEST_BLOCKED,
+                    14 => native_bootstrap_core::WORKER_WAIT_BLOCKED,
+                    15 => native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };
