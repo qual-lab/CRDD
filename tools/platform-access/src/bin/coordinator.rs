@@ -54,6 +54,7 @@ const PIPE_NOWAIT: u32 = 0x0000_0001;
 const PIPE_TYPE_MESSAGE: u32 = 0x0000_0004;
 const PIPE_READMODE_MESSAGE: u32 = 0x0000_0002;
 const ERROR_PIPE_CONNECTED: u32 = 535;
+const PIPE_SECURITY_SDDL: &[u8] = b"D:P(A;;GA;;;OW)(A;;GA;;;SY)(A;;GRGW;;;AC)S:(ML;;NW;;;LW)";
 const HEAP_ZERO_MEMORY: u32 = 0x0000_0008;
 const GENERIC_READ: u32 = 0x8000_0000;
 const KEY_QUERY_VALUE: u32 = 0x0001;
@@ -1837,11 +1838,7 @@ unsafe fn create_local_appcontainer_pipe(name: &[u16]) -> Option<Handle> {
         core::slice::from_raw_parts_mut((&raw mut SECURITY_DESCRIPTOR_SDDL).cast::<u16>(), 64)
     };
     let mut sddl_length = 0;
-    if !append_ascii(
-        sddl,
-        &mut sddl_length,
-        b"D:P(A;;GA;;;OW)(A;;GA;;;SY)(A;;GRGW;;;AC)",
-    ) {
+    if !append_ascii(sddl, &mut sddl_length, PIPE_SECURITY_SDDL) {
         return None;
     }
     let mut descriptor = null_mut();
@@ -2557,6 +2554,15 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn pipe_security_descriptor_allows_only_declared_appcontainer_low_integrity_access() {
+        assert_eq!(
+            PIPE_SECURITY_SDDL,
+            b"D:P(A;;GA;;;OW)(A;;GA;;;SY)(A;;GRGW;;;AC)S:(ML;;NW;;;LW)"
+        );
+        assert!(!PIPE_SECURITY_SDDL.windows(4).any(|value| value == b";;;WD"));
     }
 
     #[test]
