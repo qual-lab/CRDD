@@ -75,8 +75,20 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_request_invalid",
         ),
         (
-            native_bootstrap_core::WORKER_BLOCKED,
-            "native_provision_worker_exchange_failed",
+            native_bootstrap_core::WORKER_CONNECTION_BLOCKED,
+            "native_provision_worker_connection_failed",
+        ),
+        (
+            native_bootstrap_core::WORKER_REQUEST_BLOCKED,
+            "native_provision_worker_request_write_failed",
+        ),
+        (
+            native_bootstrap_core::WORKER_WAIT_BLOCKED,
+            "native_provision_worker_completion_unavailable",
+        ),
+        (
+            native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
+            "native_provision_worker_response_invalid",
         ),
         (
             native_bootstrap_core::PROCESS_CREATED_BLOCKED,

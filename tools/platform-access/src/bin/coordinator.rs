@@ -2310,22 +2310,30 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         return None;
     }
-    let request_written = unsafe { write_handle(pipe, &request[..request_length]) };
+    FAILURE_STAGE.store(9, Ordering::Relaxed);
+    if !unsafe { write_handle(pipe, &request[..request_length]) } {
+        unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
+        unsafe { DisconnectNamedPipe(pipe) };
+        unsafe { close_handles(&[pipe, process.hProcess, job]) };
+        unsafe { close_handles(&locked_handles[..locked_handle_count]) };
+        return None;
+    }
+    FAILURE_STAGE.store(10, Ordering::Relaxed);
     let wait = unsafe { WaitForSingleObject(process.hProcess, WORKER_TIMEOUT_MILLISECONDS) };
     if wait != 0 {
         unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
+        unsafe { DisconnectNamedPipe(pipe) };
+        unsafe { close_handles(&[pipe, process.hProcess, job]) };
+        unsafe { close_handles(&locked_handles[..locked_handle_count]) };
+        return None;
     }
+    FAILURE_STAGE.store(11, Ordering::Relaxed);
     let response = unsafe {
         core::slice::from_raw_parts_mut((&raw mut RESPONSE_BUFFER).cast::<u8>(), RESPONSE_BYTES + 1)
     };
     let response_length = unsafe { read_bounded(pipe, response) };
     unsafe { DisconnectNamedPipe(pipe) };
     unsafe { CloseHandle(pipe) };
-    if wait != 0 {
-        unsafe { close_handles(&[process.hProcess, job]) };
-        unsafe { close_handles(&locked_handles[..locked_handle_count]) };
-        return None;
-    }
     let mut exit_code = 3;
     let read = unsafe { GetExitCodeProcess(process.hProcess, &mut exit_code) } != 0;
     let mut process_tree_absent = unsafe { job_is_empty(job) };
@@ -2336,8 +2344,7 @@ unsafe fn launch_worker() -> Option<u32> {
     }
     unsafe { close_handles(&[process.hProcess, job]) };
     unsafe { close_handles(&locked_handles[..locked_handle_count]) };
-    if !request_written
-        || !read
+    if !read
         || !process_tree_absent
         || !native_bootstrap_core::exact_platform_access_response(
             &response[..response_length],
@@ -2408,7 +2415,7 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                 match FAILURE_STAGE.load(Ordering::Relaxed) {
                     3 => native_bootstrap_core::REGISTRY_PROCESS_MANUAL_RECOVERY_BLOCKED,
                     7 => native_bootstrap_core::REGISTRY_CREATED_PROCESS_MANUAL_RECOVERY_BLOCKED,
-                    8 => native_bootstrap_core::REGISTRY_WORKER_MANUAL_RECOVERY_BLOCKED,
+                    8.. => native_bootstrap_core::REGISTRY_WORKER_MANUAL_RECOVERY_BLOCKED,
                     _ => native_bootstrap_core::REGISTRY_PRECONDITION_MANUAL_RECOVERY_BLOCKED,
                 }
             } else if MANUAL_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
@@ -2427,7 +2434,10 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     6 => native_bootstrap_core::SUPERVISOR_IMAGE_BLOCKED,
                     5 => native_bootstrap_core::REQUEST_BLOCKED,
                     7 => native_bootstrap_core::PROCESS_CREATED_BLOCKED,
-                    8 => native_bootstrap_core::WORKER_BLOCKED,
+                    8 => native_bootstrap_core::WORKER_CONNECTION_BLOCKED,
+                    9 => native_bootstrap_core::WORKER_REQUEST_BLOCKED,
+                    10 => native_bootstrap_core::WORKER_WAIT_BLOCKED,
+                    11 => native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };
