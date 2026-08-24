@@ -11,9 +11,14 @@ import sys
 import time
 
 
-ALLOWED_HOSTNAMES = frozenset(
-    {"api.anthropic.com", "claude.ai", "platform.claude.com"}
-)
+PROFILE_ALLOWED_HOSTNAMES = {
+    "claude": frozenset(
+        {"api.anthropic.com", "claude.ai", "platform.claude.com"}
+    ),
+    "codex": frozenset({"auth.openai.com", "chatgpt.com"}),
+}
+PROXY_PROFILE = os.environ.get("CRDD_PROXY_PROFILE", "")
+ALLOWED_HOSTNAMES = PROFILE_ALLOWED_HOSTNAMES.get(PROXY_PROFILE, frozenset())
 AUTH_TOKEN_PATTERN = re.compile(r"[0-9a-f]{64}")
 AUTHORITY_PATTERN = re.compile(
     r"(?P<hostname>[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?):443"
@@ -26,7 +31,7 @@ IDLE_TIMEOUT_SECONDS = 120
 
 
 def emit(outcome, hostname=None):
-    record = {"event": "crdd_claude_proxy", "outcome": outcome}
+    record = {"event": "crdd_provider_proxy", "outcome": outcome}
     if hostname in ALLOWED_HOSTNAMES:
         record["hostname"] = hostname
     print(json.dumps(record, separators=(",", ":"), sort_keys=True), flush=True)
@@ -201,6 +206,9 @@ class BoundedThreadingServer(socketserver.ThreadingMixIn, socketserver.TCPServer
 
 
 def main():
+    if PROXY_PROFILE not in PROFILE_ALLOWED_HOSTNAMES:
+        emit("startup_profile_invalid")
+        return 2
     if len(sys.argv) == 2 and sys.argv[1] == "--self-test":
         print(
             json.dumps(
@@ -228,3 +236,4 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

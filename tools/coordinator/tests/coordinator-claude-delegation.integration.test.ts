@@ -284,10 +284,8 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
     "create_internal_network",
     "create_egress_network",
     "create_proxy",
-    "connect_proxy_internal",
     "connect_proxy_egress",
     "create_provider",
-    "connect_provider_internal",
     "start_proxy",
     "start_provider_attached",
   ]);

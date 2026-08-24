@@ -1,6 +1,7 @@
 import { types as utilTypes } from "node:util";
 
 import { prepareRuntimeOwnedClaudeDockerCandidate } from "./claude-docker-runtime-adapter.ts";
+import { prepareRuntimeOwnedCodexDockerCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
@@ -26,7 +27,7 @@ import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "./provider-home
 import { bindRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
 
 export const COORDINATOR_RUNTIME_CONTRACT = "crdd-coordinator/runtime";
-export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 1;
+export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 2;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -74,7 +75,7 @@ type RuntimeDependencies = Readonly<{
     managementCapability: object,
   ) => Readonly<{ status: string }>;
   observeProviderHome: (
-    provider: "claude",
+    provider: "codex" | "claude",
     evaluationTime: unknown,
   ) => Readonly<{
     status: string;
@@ -101,7 +102,8 @@ type RuntimeDependencies = Readonly<{
     controlCapability: object,
     managementCapability: object,
   ) => Readonly<{ status: string }>;
-  prepareClaude: (
+  prepareProvider: (
+    provider: "codex" | "claude",
     managementCapability: object,
     mountCapability: object,
     mountAuthorizationCapability: object,
@@ -284,7 +286,8 @@ function start(
     );
     if (
       selection.status !== "issued" ||
-      selection.executorProvider !== "claude" ||
+      (selection.executorProvider !== "codex" &&
+        selection.executorProvider !== "claude") ||
       typeof selection.profileId !== "string" ||
       !selection.controlCapability ||
       !selection.useCapability
@@ -295,12 +298,13 @@ function start(
         null,
         null,
         managementCapability,
-        "coordinator_runtime_claude_selection_failed",
+        "coordinator_runtime_provider_selection_failed",
       );
     }
     selectionControl = selection.controlCapability;
+    const executorProvider = selection.executorProvider;
     const firstObservation = state.dependencies.observeProviderHome(
-      "claude",
+      executorProvider,
       evaluationTime,
     );
     if (
@@ -337,7 +341,7 @@ function start(
     }
     mountControl = mountGrant.controlCapability;
     const currentObservation = state.dependencies.observeProviderHome(
-      "claude",
+      executorProvider,
       evaluationTime,
     );
     if (
@@ -371,7 +375,8 @@ function start(
         "coordinator_runtime_mount_grant_consume_failed",
       );
     }
-    const prepared = state.dependencies.prepareClaude(
+    const prepared = state.dependencies.prepareProvider(
+      executorProvider,
       managementCapability,
       mountCapability,
       consumedMount.mountAuthorizationCapability,
@@ -386,7 +391,7 @@ function start(
         null,
         null,
         managementCapability,
-        "coordinator_runtime_claude_prepare_failed",
+        "coordinator_runtime_provider_prepare_failed",
       );
     }
     const process = state.dependencies.startProcess(
@@ -458,7 +463,7 @@ function start(
       .finally(() => state.controls.delete(controlCapability));
     return Object.freeze({
       status: "started" as const,
-      reason: "coordinator_runtime_claude_probe_started",
+      reason: "coordinator_runtime_provider_probe_started",
       controlCapability,
       completion,
       operationStarted: true,
@@ -512,14 +517,33 @@ const productionState: RuntimeState = Object.freeze({
     issueMountGrant: issueRuntimeOwnedProviderHomeMountGrant,
     consumeMountGrant: consumeRuntimeOwnedProviderHomeMountGrant,
     revokeMountGrant: revokeRuntimeOwnedProviderHomeMountGrant,
-    prepareClaude: prepareRuntimeOwnedClaudeDockerCandidate,
+    prepareProvider: (
+      provider: "codex" | "claude",
+      managementCapability: object,
+      mountCapability: object,
+      mountAuthorizationCapability: object,
+      selectionUseCapability: object,
+    ) =>
+      provider === "codex"
+        ? prepareRuntimeOwnedCodexDockerCandidate(
+            managementCapability,
+            mountCapability,
+            mountAuthorizationCapability,
+            selectionUseCapability,
+          )
+        : prepareRuntimeOwnedClaudeDockerCandidate(
+            managementCapability,
+            mountCapability,
+            mountAuthorizationCapability,
+            selectionUseCapability,
+          ),
     startProcess: startRuntimeOwnedDockerProcessController,
     cancelProcess: cancelRuntimeOwnedDockerProcessController,
   }),
   controls: new WeakMap(),
 });
 
-export function startRuntimeOwnedClaudeProbe(
+export function startRuntimeOwnedCoordinatorOperation(
   rawRequest: unknown,
   repositoryRoot: unknown,
   evaluationTime: unknown,
@@ -573,7 +597,7 @@ export function describeCoordinatorRuntimeContract() {
   return Object.freeze({
     contract: COORDINATOR_RUNTIME_CONTRACT,
     contractRevision: COORDINATOR_RUNTIME_CONTRACT_REVISION,
-    currentVerticalSlice: "claude_subscription_boolean_probe",
+    currentVerticalSlice: "codex_and_claude_subscription_boolean_probe",
     repositoryBinding: "runtime_owned_exact_revision",
     providerSelection: "coordinator_explainable_selection_grant",
     providerHome: "selected_user_observed_twice_mount_grant_single_use",

@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createIsolatedCoordinatorRuntimeCandidate,
   describeCoordinatorRuntimeContract,
-  startRuntimeOwnedClaudeProbe,
+  startRuntimeOwnedCoordinatorOperation,
 } from "../src/security/coordinator-runtime.ts";
 
 function request(overrides: Record<string, unknown> = {}) {
@@ -140,17 +140,19 @@ function fixture(overrides: Record<string, unknown> = {}) {
       mountRevokeCount += 1;
       return Object.freeze({ status: "revoked" });
     },
-    prepareClaude: (
+    prepareProvider: (
+      provider: "codex" | "claude",
       management: object,
       mount: object,
       authorization: object,
       selection: object,
     ) => {
+      assert.equal(provider, "claude");
       assert.equal(management, managementCapability);
       assert.equal(mount, mountCapability);
       assert.equal(authorization, mountAuthorization);
       assert.equal(selection, selectionUse);
-      calls.push("prepare_claude");
+      calls.push("prepare_provider");
       return Object.freeze({
         status: "prepared",
         preparedCapability,
@@ -232,7 +234,7 @@ test("RepositoryからClaude Resultまでを理由付き選定と全cleanupへ�
     "issue_mount",
     "observe_2",
     "consume_mount",
-    "prepare_claude",
+    "prepare_provider",
     "start_process",
     "cleanup_operation",
   ]);
@@ -241,6 +243,66 @@ test("RepositoryからClaude Resultまでを理由付き選定と全cleanupへ�
       .status,
     "blocked",
   );
+});
+
+test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する", async () => {
+  const h = fixture({
+    issueSelection: () =>
+      Object.freeze({
+        status: "issued",
+        executorProvider: "codex",
+        profileId: "PROFILE-100001",
+        selectionNotice: "cross_provider_route_selected",
+        controlCapability: Object.freeze({}),
+        useCapability: Object.freeze({}),
+      }),
+    issueMountGrant: () =>
+      Object.freeze({
+        status: "issued",
+        controlCapability: Object.freeze({}),
+        useCapability: Object.freeze({}),
+      }),
+    consumeMountGrant: () =>
+      Object.freeze({
+        status: "consumed",
+        mountAuthorizationCapability: Object.freeze({}),
+      }),
+    prepareProvider: (provider: "codex" | "claude") => {
+      assert.equal(provider, "codex");
+      return Object.freeze({
+        status: "prepared",
+        preparedCapability: Object.freeze({}),
+        selectionNotice: "cross_provider_route_selected",
+      });
+    },
+    startProcess: () =>
+      Object.freeze({
+        status: "started",
+        reason: "started",
+        controlCapability: Object.freeze({}),
+        completion: Promise.resolve(
+          Object.freeze({
+            status: "completed",
+            reason: "completed",
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            normalizedResult: Object.freeze({ status: true }),
+          }),
+        ),
+      }),
+  });
+  const started = h.runtime.start(
+    request({ frontProvider: "claude" }),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  assert.equal(started.status, "started");
+  const result = (await started.completion) as {
+    normalizedResult: unknown;
+    cleanupConfirmed: boolean;
+  };
+  assert.deepEqual(result.normalizedResult, { status: true });
+  assert.equal(result.cleanupConfirmed, true);
 });
 
 test("実行中取消をopaque Coordinator CapabilityからProcess Controllerへだけ渡す", async () => {
@@ -380,7 +442,7 @@ test("動的入力とsource checkoutのProduction入口はProvider Effect前に�
     "coordinator_runtime_request_invalid",
   );
   assert.equal(getterExecuted, false);
-  const production = startRuntimeOwnedClaudeProbe(
+  const production = startRuntimeOwnedCoordinatorOperation(
     request(),
     process.cwd(),
     "2026-08-25T00:00:00.000Z",
@@ -392,10 +454,10 @@ test("動的入力とsource checkoutのProduction入口はProvider Effect前に�
 
 test("公開契約はSubscription probeと非canonical Effect境界を固定する", () => {
   const contract = describeCoordinatorRuntimeContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(
     contract.currentVerticalSlice,
-    "claude_subscription_boolean_probe",
+    "codex_and_claude_subscription_boolean_probe",
   );
   assert.equal(contract.directProviderSpawnAllowed, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);

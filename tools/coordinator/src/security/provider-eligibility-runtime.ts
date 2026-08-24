@@ -156,22 +156,14 @@ function observeEligibility(dependencies: RuntimeDependencies) {
 }
 
 const productionDependencies: RuntimeDependencies = Object.freeze({
-  observeProvider: (provider: Provider) =>
-    provider === "claude"
-      ? Object.freeze({
-          requiredCapability: "confirmed",
-          subscriptionAuth: "bounded_request_check",
-          subscriptionQuota: "bounded_request_check",
-          officialDistribution: "confirmed",
-          policy: "confirmed",
-        })
-      : Object.freeze({
-          requiredCapability: "unavailable",
-          subscriptionAuth: "unknown",
-          subscriptionQuota: "unknown",
-          officialDistribution: "unknown",
-          policy: "unknown",
-        }),
+  observeProvider: (_provider: Provider) =>
+    Object.freeze({
+      requiredCapability: "confirmed",
+      subscriptionAuth: "bounded_request_check",
+      subscriptionQuota: "bounded_request_check",
+      officialDistribution: "confirmed",
+      policy: "confirmed",
+    }),
 });
 
 export function observeRuntimeOwnedProviderEligibility() {
@@ -205,6 +197,6 @@ export function describeProviderEligibilityRuntimeContract() {
     nonPreobservableSubscriptionState:
       "bounded_authorized_request_checks_auth_and_quota_without_separate_probe",
     paidApiFallback: "prohibited_unsupported_by_default",
-    productionState: "claude_bounded_request_check_codex_effect_unavailable",
+    productionState: "codex_and_claude_bounded_request_check",
   });
 }

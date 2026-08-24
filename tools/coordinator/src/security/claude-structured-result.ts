@@ -128,7 +128,7 @@ function scanValue(raw: string, startIndex: number): ScanResult | null {
     : Object.freeze({ nextIndex: numberEnd, hasDuplicateKey: false });
 }
 
-function parseUnambiguousJson(raw: string) {
+export function parseUnambiguousJsonDocument(raw: string) {
   if (raw.length === 0 || raw.charCodeAt(0) === 0xfeff) return null;
   const scanned = scanValue(raw, 0);
   if (
@@ -165,7 +165,7 @@ function createBlockedResult() {
 
 export function normalizeClaudeStructuredResult(raw: unknown) {
   if (typeof raw !== "string") return createBlockedResult();
-  const envelope = parseUnambiguousJson(raw);
+  const envelope = parseUnambiguousJsonDocument(raw);
   if (!isRecord(envelope)) return createBlockedResult();
   const numberOfTurns = ownValue(envelope, "num_turns");
   const providerReportedApiEquivalentCostUsd = ownValue(

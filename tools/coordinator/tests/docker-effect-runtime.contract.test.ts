@@ -324,7 +324,7 @@ test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める"
 
 test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.dockerCli.bytes, 41_631_088);
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);

@@ -4,12 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { planClaudeReadOnlyProbe } from "./claude-execution-plan.ts";
+import { planCodexReadOnlyProbe } from "./codex-execution-plan.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 1;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 2;
 
 const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
@@ -22,12 +23,14 @@ const DOCKER_CONFIG_DIRECTORY = "docker-cli-config";
 const SHORT_COMMAND_TIMEOUT_MS = 10_000;
 const STDOUT_LIMIT_BYTES = 1_048_576;
 const STDERR_LIMIT_BYTES = 262_144;
-const SAFE_IDENTIFIER = /^crdd-(?:internal|egress|proxy|claude)-[a-f0-9]{16}$/u;
+const SAFE_IDENTIFIER =
+  /^crdd-(?:internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 const SAFE_IMAGE_DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const SAFE_OWNERSHIP_LABEL = /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u;
 
 type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 type PreparedPlan = Readonly<{
+  provider: "codex" | "claude";
   operationId: string;
   grantRef: string;
   profileId: string;
@@ -294,15 +297,23 @@ function expectedCommands(
   plan: PreparedPlan,
   tmpSourcePath: string,
 ): readonly Command[] | null {
-  const claude = planClaudeReadOnlyProbe({
-    provider: "claude",
-    mode: "read_only_probe",
-  });
-  const egress = describeEgressProxyTopology();
+  const providerPlan =
+    plan.provider === "codex"
+      ? planCodexReadOnlyProbe({
+          provider: "codex",
+          mode: "read_only_probe",
+          effort: plan.selectedEffort,
+        })
+      : planClaudeReadOnlyProbe({
+          provider: "claude",
+          mode: "read_only_probe",
+        });
+  const egress = describeEgressProxyTopology(plan.provider);
   if (
-    claude.status !== "candidate" ||
+    providerPlan.status !== "candidate" ||
     egress.verificationAdapter.imageDigest !== plan.proxyImageDigest ||
-    claude.distributionBinding.fixedImageDigest !== plan.providerImageDigest
+    providerPlan.distributionBinding.fixedImageDigest !==
+      plan.providerImageDigest
   ) {
     return null;
   }
@@ -310,8 +321,17 @@ function expectedCommands(
   const proxyAuth = proxyCommand?.argv.find((value) =>
     value.startsWith("CRDD_PROXY_AUTH="),
   );
+  const proxyProfile = proxyCommand?.argv.find((value) =>
+    value.startsWith("CRDD_PROXY_PROFILE="),
+  );
   const proxyToken = proxyAuth?.slice("CRDD_PROXY_AUTH=".length) ?? "";
-  if (!proxyAuth || !/^[a-f0-9]{64}$/u.test(proxyToken)) return null;
+  if (
+    !proxyAuth ||
+    proxyProfile !== `CRDD_PROXY_PROFILE=${plan.provider}` ||
+    !/^[a-f0-9]{64}$/u.test(proxyToken)
+  ) {
+    return null;
+  }
   const providerEnvironment = [
     "--env",
     "HOME=/provider-home",
@@ -319,7 +339,7 @@ function expectedCommands(
     "TMPDIR=/tmp",
     "--env",
     `HTTPS_PROXY=http://crdd:${proxyToken}@proxy:8080`,
-    ...Object.entries(claude.environment).flatMap(([name, value]) => [
+    ...Object.entries(providerPlan.environment).flatMap(([name, value]) => [
       "--env",
       `${name}=${value}`,
     ]),
@@ -347,7 +367,10 @@ function expectedCommands(
     [
       "create",
       "--pull=never",
-      "--network=none",
+      "--network",
+      plan.internalNetworkName,
+      "--network-alias",
+      "proxy",
       "--read-only",
       "--name",
       plan.proxyContainerName,
@@ -361,21 +384,16 @@ function expectedCommands(
       "/tmp:rw,noexec,nosuid,size=16777216",
       "--env",
       proxyAuth,
+      "--env",
+      proxyProfile,
       plan.proxyImageDigest,
-    ],
-    [
-      "network",
-      "connect",
-      "--alias",
-      "proxy",
-      plan.internalNetworkName,
-      plan.proxyContainerName,
     ],
     ["network", "connect", plan.egressNetworkName, plan.proxyContainerName],
     [
       "create",
       "--pull=never",
-      "--network=none",
+      "--network",
+      plan.internalNetworkName,
       "--read-only",
       "--name",
       plan.providerContainerName,
@@ -392,17 +410,10 @@ function expectedCommands(
       "--mount",
       tmpMount,
       plan.providerImageDigest,
-      "--model",
-      plan.selectedModel,
-      "--effort",
-      plan.selectedEffort,
-      ...claude.argv,
-    ],
-    [
-      "network",
-      "connect",
-      plan.internalNetworkName,
-      plan.providerContainerName,
+      ...(plan.provider === "claude"
+        ? ["--model", plan.selectedModel, "--effort", plan.selectedEffort]
+        : []),
+      ...providerPlan.argv,
     ],
     ["start", plan.proxyContainerName],
     ["start", "--attach", plan.providerContainerName],
@@ -411,10 +422,8 @@ function expectedCommands(
     "create_internal_network",
     "create_egress_network",
     "create_proxy",
-    "connect_proxy_internal",
     "connect_proxy_egress",
     "create_provider",
-    "connect_provider_internal",
     "start_proxy",
     "start_provider_attached",
   ];
@@ -429,15 +438,21 @@ function expectedCommands(
 }
 
 function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
+  const isProviderBindingValid =
+    (plan.provider === "claude" &&
+      /^PROFILE-20000[12]$/u.test(plan.profileId) &&
+      plan.selectedModel === "opus") ||
+    (plan.provider === "codex" &&
+      /^PROFILE-10000[12]$/u.test(plan.profileId) &&
+      plan.selectedModel === "gpt-5.6-sol");
   if (
     !/^OP-[0-9]{6,}$/u.test(plan.operationId) ||
     !/^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) ||
-    !/^PROFILE-20000[12]$/u.test(plan.profileId) ||
+    !isProviderBindingValid ||
     !/^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) ||
     !SAFE_IMAGE_DIGEST.test(plan.providerImageDigest) ||
     !SAFE_IMAGE_DIGEST.test(plan.proxyImageDigest) ||
     !SAFE_OWNERSHIP_LABEL.test(plan.ownershipLabel) ||
-    plan.selectedModel !== "opus" ||
     !["low", "medium", "high"].includes(plan.selectedEffort) ||
     !["preferred", "upper_allowed"].includes(plan.selectedModelTier) ||
     [

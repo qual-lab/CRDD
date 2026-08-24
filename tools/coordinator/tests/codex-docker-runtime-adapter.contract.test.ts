@@ -2,23 +2,23 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  cancelRuntimeOwnedClaudeDockerCandidate,
-  createIsolatedClaudeDockerRuntimeAdapterCandidate,
-  describeClaudeDockerRuntimeAdapterContract,
-  prepareRuntimeOwnedClaudeDockerCandidate,
-} from "../src/security/claude-docker-runtime-adapter.ts";
+  cancelRuntimeOwnedCodexDockerCandidate,
+  createIsolatedCodexDockerRuntimeAdapterCandidate,
+  describeCodexDockerRuntimeAdapterContract,
+  prepareRuntimeOwnedCodexDockerCandidate,
+} from "../src/security/codex-docker-runtime-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../src/security/delegation-selection-grant-runtime.ts";
 
 const modelSelection = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
-  frontProvider: "codex" as const,
-  executorProvider: "claude" as const,
-  route: "front_codex__executor_claude",
-  profileId: "PROFILE-123456",
-  model: "claude-opus-test-profile",
+  frontProvider: "claude" as const,
+  executorProvider: "codex" as const,
+  route: "front_claude__executor_codex",
+  profileId: "PROFILE-100001",
+  model: "gpt-5.6-sol",
   basis: Object.freeze({
-    provider: "claude" as const,
+    provider: "codex" as const,
     role: "executor" as const,
     workClass: "bounded_implementation" as const,
     planState: "complete" as const,
@@ -33,13 +33,13 @@ const modelSelection = Object.freeze({
   modelTier: "preferred",
   speedMode: "normal" as const,
   selectionNotice:
-    "[委譲経路選定] front=codex executor=claude\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
+    "[委譲経路選定] front=codex executor=codex\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
   delegationDepth: 1,
 });
 
 function createFixture(
   overrides: Partial<
-    Parameters<typeof createIsolatedClaudeDockerRuntimeAdapterCandidate>[0]
+    Parameters<typeof createIsolatedCodexDockerRuntimeAdapterCandidate>[0]
   > = {},
 ) {
   const managementCapability = Object.freeze({});
@@ -78,8 +78,8 @@ function createFixture(
         status: "activated",
         grant: Object.freeze({
           grantRef: "PHMGRANT-123456",
-          provider: "claude",
-          profileId: "PROFILE-123456",
+          provider: "codex",
+          profileId: "PROFILE-100001",
           operationId: "OP-123456",
         }),
         activeMountCapability,
@@ -88,7 +88,7 @@ function createFixture(
     borrowMountSource: (active: unknown, management: unknown) => {
       assert.equal(active, activeMountCapability);
       assert.equal(management, managementCapability);
-      return "C:\\Users\\person\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude";
+      return "C:\\Users\\person\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\codex";
     },
     completeMount: (active: unknown, management: unknown) => {
       assert.equal(active, activeMountCapability);
@@ -115,8 +115,8 @@ function createFixture(
         useCapability: authorityUseCapability,
         controlCapability: authorityControlCapability,
         operationId: "OP-123456",
-        provider: "claude",
-        profileId: "PROFILE-123456",
+        provider: "codex",
+        profileId: "PROFILE-100001",
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true,
       });
@@ -130,7 +130,7 @@ function createFixture(
     ...overrides,
   };
   const adapter =
-    createIsolatedClaudeDockerRuntimeAdapterCandidate(dependencies);
+    createIsolatedCodexDockerRuntimeAdapterCandidate(dependencies);
   return {
     adapter,
     managementCapability,
@@ -155,7 +155,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "prepared");
-  assert.equal(prepared.selectedModel, "claude-opus-test-profile");
+  assert.equal(prepared.selectedModel, "gpt-5.6-sol");
   assert.equal(prepared.selectedEffort, "low");
   assert.equal(prepared.selectedModelTier, "preferred");
   assert.match(prepared.selectionNotice ?? "", /選定理由/);
@@ -196,11 +196,13 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   assert.equal(provider.argv.includes("--read-only"), true);
   assert.equal(provider.argv.includes("--fallback-model"), false);
   const modelIndex = provider.argv.indexOf("--model");
-  const effortIndex = provider.argv.indexOf("--effort");
-  assert.equal(provider.argv[modelIndex + 1], "claude-opus-test-profile");
-  assert.equal(provider.argv[effortIndex + 1], "low");
+  assert.equal(provider.argv[modelIndex + 1], "gpt-5.6-sol");
   assert.equal(
-    provider.argv.some((value) => value.startsWith("ANTHROPIC_API_KEY=")),
+    provider.argv.includes('model_reasoning_effort="low"'),
+    true,
+  );
+  assert.equal(
+    provider.argv.some((value) => value.startsWith("OPENAI_API_KEY=")),
     false,
   );
   assert.equal(
@@ -270,11 +272,11 @@ test("Profile不一致または高コスト根拠不正ではplanを作らずlea
     fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.reason, "claude_docker_runtime_plan_invalid");
+  assert.equal(prepared.reason, "codex_docker_runtime_plan_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
-test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続する", () => {
+test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続する", () => {
   let randomValue = 40;
   const selectionRuntime =
     createIsolatedDelegationSelectionGrantRuntimeCandidate({
@@ -286,12 +288,12 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
       observeProviderEligibility: () =>
         Object.freeze([
           Object.freeze({
-            provider: "codex",
+            provider: "claude",
             status: "eligible",
             reason: "ready",
           }),
           Object.freeze({
-            provider: "claude",
+            provider: "codex",
             status: "eligible",
             reason: "ready",
           }),
@@ -299,8 +301,8 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
       resolveModelProfile: (request) =>
         Object.freeze({
           provider: request.provider,
-          profileId: "PROFILE-123456",
-          exactModelId: "claude-opus-test-profile",
+          profileId: "PROFILE-100001",
+          exactModelId: "gpt-5.6-sol",
           family: request.family,
           modelTier: request.modelTier,
           speedMode: "normal",
@@ -318,7 +320,7 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
       selectionRuntime.consume(selection, management),
   });
   const issued = selectionRuntime.issue(fixture.managementCapability, {
-    frontProvider: "codex",
+    frontProvider: "claude",
     delegationNeed: "beneficial",
     delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
@@ -371,7 +373,7 @@ test("Selection GrantをconsumeできなければMount leaseだけ回収して�
   assert.equal(prepared.status, "blocked");
   assert.equal(
     prepared.reason,
-    "claude_docker_runtime_model_selection_invalid",
+    "codex_docker_runtime_model_selection_invalid",
   );
   assert.equal(fixture.getCompletionCount(), 1);
 });
@@ -397,7 +399,7 @@ test("Provider Authorityを発行できなければMount leaseを返しPlanを�
     fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.reason, "claude_docker_runtime_authority_invalid");
+  assert.equal(prepared.reason, "codex_docker_runtime_authority_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
@@ -410,7 +412,7 @@ test("不一致の発行済みProvider Authorityは失効してMount leaseを返
         useCapability: Object.freeze({}),
         controlCapability: Object.freeze({}),
         operationId: "OP-123456",
-        provider: "claude",
+        provider: "codex",
         profileId: "PROFILE-DIFFERENT",
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true,
@@ -427,7 +429,7 @@ test("不一致の発行済みProvider Authorityは失効してMount leaseを返
     fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "blocked");
-  assert.equal(prepared.reason, "claude_docker_runtime_authority_invalid");
+  assert.equal(prepared.reason, "codex_docker_runtime_authority_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
   assert.equal(revocations, 1);
 });
@@ -450,23 +452,23 @@ test("prepared取消はAuthority失効とMount解放の両方を要求する", (
   assert.equal(cancelled.status, "blocked");
   assert.equal(
     cancelled.reason,
-    "claude_docker_runtime_authority_revoke_invalid",
+    "codex_docker_runtime_authority_revoke_invalid",
   );
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
 test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
-  const prepared = prepareRuntimeOwnedClaudeDockerCandidate({}, {}, {}, {});
+  const prepared = prepareRuntimeOwnedCodexDockerCandidate({}, {}, {}, {});
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.providerRequestIssued, false);
   assert.equal(
-    cancelRuntimeOwnedClaudeDockerCandidate({}, {}).status,
+    cancelRuntimeOwnedCodexDockerCandidate({}, {}).status,
     "blocked",
   );
 });
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
-  const contract = describeClaudeDockerRuntimeAdapterContract();
+  const contract = describeCodexDockerRuntimeAdapterContract();
   assert.equal(contract.contractRevision, 2);
   assert.equal(contract.coordinatorPrelaunchModelSelectionAllowed, true);
   assert.equal(contract.providerAutomaticModelSwitchingAllowed, false);

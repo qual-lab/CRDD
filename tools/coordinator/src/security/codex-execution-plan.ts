@@ -1,0 +1,158 @@
+import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describeProviderBillingPolicyContract } from "./provider-billing-policy.ts";
+
+export const CODEX_EXECUTION_PLAN_CONTRACT =
+  "crdd-coordinator/codex-execution-plan";
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 1;
+
+const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
+const EFFORTS = new Set(["low", "medium", "high"]);
+const FIXED_PROMPT =
+  "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
+const FIXED_SCHEMA_PATH = "/etc/crdd/codex-result-schema.json";
+const DISTRIBUTION_IDENTITY = Object.freeze({
+  targetPlatform: "linux-x64-musl",
+  executablePath: "/opt/crdd/providers/codex/0.149.1/codex",
+  exactVersion: "0.149.1",
+  releaseTag: "rust-v0.149.1",
+  releaseCommit: "ff29a44391deccde0aba0f8390337d7f3c319ea4",
+  archiveSha256:
+    "e24fb784c7d71140d67afb620f56e9137496cf7f6c9e19217fa3666dcf306278",
+  archiveBytes: 99_479_490,
+  binarySha256:
+    "73dc5888888f411c1f0fa7b81d866e721dcc86b527ce8e3b2cf4708661e823ba",
+  binaryBytes: 258_227_840,
+  sigstoreBundleSha256:
+    "1976d459060cac4638f481b72142271d8bbd821abebd72555145b83b2bf3e85e",
+  sigstoreIdentity:
+    "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
+  sigstoreIssuer: "https://token.actions.githubusercontent.com",
+  fixedImageDigest:
+    "sha256:8362d00d6831fb1a5302490f0053198911988a21fb70733d07ab1dcf0f3d7bae",
+  fixedImageBytes: 145_025_527,
+  imageBuildDefinition:
+    "tools/coordinator/runtime/codex-provider.Dockerfile",
+  releaseUrl:
+    "https://github.com/openai/codex/releases/tag/rust-v0.149.1",
+});
+const DISTRIBUTION_BINDING = Object.freeze({
+  identity: DISTRIBUTION_IDENTITY,
+  fixedDigestImageRequired: true,
+  fixedImageDigest: DISTRIBUTION_IDENTITY.fixedImageDigest,
+  fixedImageBytes: DISTRIBUTION_IDENTITY.fixedImageBytes,
+  autoUpdateAllowed: false,
+  runtimePullAllowed: false,
+});
+const BILLING_POLICY = describeProviderBillingPolicyContract();
+
+function blocked(reason: string) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason,
+    spawnAllowed: false,
+    providerEffectAllowed: false,
+    apiKeyAllowed: false,
+    paidApiFallbackAllowed: false,
+  });
+}
+
+export function planCodexReadOnlyProbe(candidate: unknown) {
+  const value = snapshotPlainRecord(candidate, PLAN_KEYS);
+  if (!value) return blocked("codex_execution_plan_shape_invalid");
+  if (value.provider !== "codex")
+    return blocked("codex_execution_plan_provider_mismatch");
+  if (value.mode !== "read_only_probe")
+    return blocked("codex_execution_plan_mode_not_supported");
+  if (typeof value.effort !== "string" || !EFFORTS.has(value.effort))
+    return blocked("codex_execution_plan_effort_invalid");
+
+  const effort = value.effort as "low" | "medium" | "high";
+  return Object.freeze({
+    status: "candidate" as const,
+    reason: "runtime_owned_authority_and_distribution_required",
+    spawnAllowed: false,
+    providerEffectAllowed: false,
+    provider: "codex" as const,
+    mode: "read_only_probe" as const,
+    distributionBinding: DISTRIBUTION_BINDING,
+    command: DISTRIBUTION_IDENTITY.executablePath,
+    exactModel: "gpt-5.6-sol",
+    effort,
+    speedMode: "normal" as const,
+    argv: Object.freeze([
+      "exec",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--ignore-rules",
+      "--strict-config",
+      "--model",
+      "gpt-5.6-sol",
+      "--config",
+      `model_reasoning_effort="${effort}"`,
+      "--sandbox",
+      "read-only",
+      "--skip-git-repo-check",
+      "--output-schema",
+      FIXED_SCHEMA_PATH,
+      "--color",
+      "never",
+      FIXED_PROMPT,
+    ]),
+    environment: Object.freeze({
+      CODEX_HOME: "/provider-home",
+      CODEX_DISABLE_AUTO_UPDATE: "1",
+    }),
+    providerHomeMountRequired: true,
+    repositoryMounted: false,
+    workspaceMountRequired: false,
+    rootFilesystemReadOnly: true,
+    sessionPersistenceAllowed: false,
+    projectRulesLoaded: false,
+    userConfigLoaded: false,
+    networkAccessForModelRequestOnly: true,
+    loginPolicy: "existing_chatgpt_subscription_oauth" as const,
+    billingPolicy: BILLING_POLICY,
+    apiKeyAllowed: false,
+    paidApiFallbackAllowed: false,
+    additionalCreditPurchaseAllowed: false,
+    automaticPlanSwitchAllowed: false,
+  });
+}
+
+export function describeCodexExecutionPlanContract() {
+  return Object.freeze({
+    contract: CODEX_EXECUTION_PLAN_CONTRACT,
+    contractRevision: CODEX_EXECUTION_PLAN_CONTRACT_REVISION,
+    provider: "codex",
+    implementationState: "fixed_distribution_read_only_probe_candidate",
+    distributionIdentity: DISTRIBUTION_IDENTITY,
+    distributionVerification: Object.freeze({
+      githubReleaseArchiveDigestMatched: true,
+      extractedBinaryDigestMatchedRekorBody: true,
+      sigstoreBlobSignatureVerified: true,
+    sigstoreCertificateIdentityMatched: true,
+    fixedImageBuiltFromExactBinary: true,
+    fixedImageNoNetworkVersionProbePassed: true,
+    fixedImageNonRootSchemaReadPassed: true,
+    subscriptionBooleanRequestPassed: true,
+    subscriptionBooleanRequestExitCode: 0,
+    subscriptionBooleanRequestResult: Object.freeze({ status: true }),
+    subscriptionBooleanRequestModel: "gpt-5.6-sol",
+    subscriptionBooleanRequestEffort: "low",
+    subscriptionBooleanRequestSandbox: "read-only",
+    subscriptionBooleanRequestContainerResidue: 0,
+    subscriptionBooleanRequestNetworkResidue: 0,
+    verifiedAt: "2026-08-25",
+    }),
+    authentication: "existing_chatgpt_subscription_oauth_only",
+    apiKeyAllowed: false,
+    paidApiFallbackAllowed: false,
+    exactModel: "gpt-5.6-sol",
+    efforts: Object.freeze(["low", "medium", "high"]),
+    speedMode: "normal_only",
+    repositoryMounted: false,
+    workspaceMountRequired: false,
+    directProviderSpawnAllowed: false,
+    providerEffectAllowed: false,
+  });
+}

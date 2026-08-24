@@ -310,7 +310,7 @@ test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として�
   assert.equal(topology.hostNetworkModeAllowed, false);
   assert.equal(
     topology.enforcement,
-    "transient_docker_topology_verified_runtime_activation_not_connected",
+    "fixed_runtime_adapter_connected_release_activation_pending",
   );
   assert.deepEqual(topology.verificationAdapter.externalProbe, {
     providerImageDigest:
@@ -332,5 +332,22 @@ test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として�
   assert.equal(
     topology.verificationAdapter.releaseDistributionConnected,
     false,
+  );
+  const codexTopology = describeEgressProxyTopology("codex");
+  assert.equal(codexTopology.proxyProfile, "codex");
+  assert.deepEqual(codexTopology.allowedHostnames, [
+    "auth.openai.com",
+    "chatgpt.com",
+  ]);
+  assert.deepEqual(codexTopology.verificationAdapter.codexExternalProbe.exactResult, {
+    status: true,
+  });
+  assert.equal(
+    codexTopology.verificationAdapter.codexExternalProbe.containerResidue,
+    0,
+  );
+  assert.equal(
+    codexTopology.verificationAdapter.codexExternalProbe.networkResidue,
+    0,
   );
 });

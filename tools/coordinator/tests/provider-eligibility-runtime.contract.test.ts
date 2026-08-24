@@ -154,12 +154,12 @@ test("accessor、Proxy、余分なkeyとobserver例外を実行せずfail closed
   assert.equal(extraKey.observe()[0]?.reason, "observation_unavailable");
 });
 
-test("productionはClaudeだけをbounded request候補として公開する", () => {
+test("productionはCodexとClaudeをbounded request候補として公開する", () => {
   assert.deepEqual(observeRuntimeOwnedProviderEligibility(), [
     {
       provider: "codex",
-      status: "ineligible",
-      reason: "required_capability_unavailable",
+      status: "eligible",
+      reason: "bounded_request_check",
     },
     {
       provider: "claude",

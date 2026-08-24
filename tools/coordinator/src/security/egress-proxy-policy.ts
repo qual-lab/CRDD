@@ -10,15 +10,15 @@ import { validateProviderIsolationProfile } from "./provider-isolation-profile.t
 export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;
 
-const CLAUDE_VERIFICATION_ADAPTER = Object.freeze({
-  sourcePath: "tools/coordinator/runtime/claude-egress-proxy.py",
+const PROVIDER_VERIFICATION_ADAPTER = Object.freeze({
+  sourcePath: "tools/coordinator/runtime/provider-egress-proxy.py",
   sourceSha256:
-    "6c99298438c8f383f0b494dfb0a36ef8dd3c8b5813a48cb9e2f574ba2fbf6901",
+    "c6d0b35550682c54c491096d4cfeb6e01c6cebc67900248bfa10a2c9ec375018",
   imageDigest:
-    "sha256:f8dad0fbda2d96669dff0a7a0d56864047640af0f4514cbd1383abada91d5d68",
+    "sha256:8a44e363453c0d0bed66e337007070c072ad1dc75a23ec584c95d361c5a5dcfc",
   imageBuildDefinition:
-    "tools/coordinator/runtime/claude-egress-proxy.Dockerfile",
-  verifiedAt: "2026-08-24",
+    "tools/coordinator/runtime/provider-egress-proxy.Dockerfile",
+  verifiedAt: "2026-08-25",
   externalProbe: Object.freeze({
     providerImageDigest:
       "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
@@ -31,6 +31,31 @@ const CLAUDE_VERIFICATION_ADAPTER = Object.freeze({
     allowedHostname: "claude.ai",
     containerResidue: 0,
     networkResidue: 0,
+  }),
+  codexExternalProbe: Object.freeze({
+    providerImageDigest:
+      "sha256:8362d00d6831fb1a5302490f0053198911988a21fb70733d07ab1dcf0f3d7bae",
+    exactModel: "gpt-5.6-sol",
+    effort: "low",
+    speedMode: "normal",
+    providerNetworkInternal: true,
+    providerDirectExternalNetwork: false,
+    proxyDualNetwork: true,
+    allowedTunnelCount: 11,
+    deniedTunnelCount: 5,
+    exactResult: Object.freeze({ status: true }),
+    exitCode: 0,
+    containerResidue: 0,
+    networkResidue: 0,
+    verifiedAt: "2026-08-25",
+  }),
+  profileSelfTests: Object.freeze({
+    claude: Object.freeze([
+      "api.anthropic.com",
+      "claude.ai",
+      "platform.claude.com",
+    ]),
+    codex: Object.freeze(["auth.openai.com", "chatgpt.com"]),
   }),
   reproducibleImageBuildClaimed: false,
   releaseDistributionConnected: false,
@@ -537,8 +562,17 @@ export function describeSpecialPurposeRegistrySnapshot() {
   });
 }
 
-export function describeEgressProxyTopology() {
+export function describeEgressProxyTopology(
+  provider: "claude" | "codex" = "claude",
+) {
+  const allowedHostnames =
+    provider === "codex"
+      ? PROVIDER_VERIFICATION_ADAPTER.profileSelfTests.codex
+      : PROVIDER_VERIFICATION_ADAPTER.profileSelfTests.claude;
   return Object.freeze({
+    provider,
+    proxyProfile: provider,
+    allowedHostnames,
     providerNetwork: "operation_internal",
     providerNetworkInternal: true,
     providerDirectExternalNetwork: false,
@@ -546,8 +580,8 @@ export function describeEgressProxyTopology() {
     dockerSocketMounted: false,
     hostNetworkModeAllowed: false,
     localFallbackAllowed: false,
-    verificationAdapter: CLAUDE_VERIFICATION_ADAPTER,
+    verificationAdapter: PROVIDER_VERIFICATION_ADAPTER,
     enforcement:
-      "transient_docker_topology_verified_runtime_activation_not_connected",
+      "fixed_runtime_adapter_connected_release_activation_pending",
   });
 }

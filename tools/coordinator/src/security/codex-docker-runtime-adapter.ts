@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
-import { planClaudeReadOnlyProbe } from "./claude-execution-plan.ts";
+import { planCodexReadOnlyProbe } from "./codex-execution-plan.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant-runtime.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import {
@@ -19,9 +19,9 @@ import {
 } from "./provider-authority-runtime.ts";
 import { selectProviderModelCandidate } from "./provider-model-selection-runtime.ts";
 
-export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT =
-  "crdd-coordinator/claude-docker-runtime-adapter";
-export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 2;
+export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
+  "crdd-coordinator/codex-docker-runtime-adapter";
+export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 2;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -29,10 +29,11 @@ const TMP_DESTINATION = "/tmp";
 const PROXY_PORT = 8080;
 const MAXIMUM_IDENTIFIER_LENGTH = 63;
 const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
-  "ANTHROPIC_API_KEY",
-  "ANTHROPIC_AUTH_TOKEN",
-  "ANTHROPIC_BASE_URL",
-  "CLAUDE_CODE_OAUTH_TOKEN",
+  "OPENAI_API_KEY",
+  "CODEX_API_KEY",
+  "OPENAI_BASE_URL",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT_ID",
   "HTTP_PROXY",
   "NO_PROXY",
 ]);
@@ -49,7 +50,7 @@ type Command = Readonly<{
 }>;
 
 type PreparedPlan = Readonly<{
-  provider: "claude";
+  provider: "codex";
   operationId: string;
   grantRef: string;
   profileId: string;
@@ -262,18 +263,19 @@ function buildPlan(
   preparedWallClockMs: number,
   preparedMonotonicMs: number,
 ) {
-  const claude = planClaudeReadOnlyProbe({
-    provider: "claude",
+  const codex = planCodexReadOnlyProbe({
+    provider: "codex",
     mode: "read_only_probe",
+    effort: consumedModelSelection.effort,
   });
-  const egress = describeEgressProxyTopology();
+  const egress = describeEgressProxyTopology("codex");
   const selection = selectProviderModelCandidate(consumedModelSelection.basis);
   if (
     selection.status !== "candidate" ||
-    selection.provider !== "claude" ||
+    selection.provider !== "codex" ||
     selection.speedMode !== "normal" ||
     !selection.selectionNotice ||
-    consumedModelSelection.executorProvider !== "claude" ||
+    consumedModelSelection.executorProvider !== "codex" ||
     consumedModelSelection.operationId !== binding.operationId ||
     consumedModelSelection.profileId !== activation.grant.profileId ||
     consumedModelSelection.effort !== selection.effort ||
@@ -283,17 +285,18 @@ function buildPlan(
     !/^MODELSEL-[A-Z0-9-]{8,80}$/.test(
       consumedModelSelection.selectionRecordId,
     ) ||
+    codex.status !== "candidate" ||
     !normalizeExactModelId(consumedModelSelection.model) ||
-    claude.status !== "candidate" ||
-    claude.provider !== "claude" ||
-    claude.distributionBinding.fixedDigestImageRequired !== true ||
+    consumedModelSelection.model !== codex.exactModel ||
+    codex.provider !== "codex" ||
+    codex.distributionBinding.fixedDigestImageRequired !== true ||
     egress.providerNetworkInternal !== true ||
     egress.providerDirectExternalNetwork !== false ||
     egress.proxyNetworks.length !== 2
   ) {
     return null;
   }
-  const fixedEnvironment = buildExactFixedEnvironment(claude.environment);
+  const fixedEnvironment = buildExactFixedEnvironment(codex.environment);
   const providerHomeMount = createSafeMount(
     providerHomeSourcePath,
     PROVIDER_HOME_DESTINATION,
@@ -313,7 +316,7 @@ function buildPlan(
   const internalNetworkName = `crdd-internal-${suffix}`;
   const egressNetworkName = `crdd-egress-${suffix}`;
   const proxyContainerName = `crdd-proxy-${suffix}`;
-  const providerContainerName = `crdd-claude-${suffix}`;
+  const providerContainerName = `crdd-codex-${suffix}`;
   if (
     [
       internalNetworkName,
@@ -325,7 +328,7 @@ function buildPlan(
     return null;
   }
   const ownershipLabel = `crdd.coordinator.runtime=${suffix}`;
-  const providerImageDigest = claude.distributionBinding.fixedImageDigest;
+  const providerImageDigest = codex.distributionBinding.fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
   const proxyUrl = `http://crdd:${proxyToken}@proxy:${PROXY_PORT}`;
   const providerEnvironment = [
@@ -376,7 +379,7 @@ function buildPlan(
       "--env",
       `CRDD_PROXY_AUTH=${proxyToken}`,
       "--env",
-      "CRDD_PROXY_PROFILE=claude",
+      "CRDD_PROXY_PROFILE=codex",
       proxyImageDigest,
     ]),
     createCommand("connect_proxy_egress", [
@@ -406,11 +409,7 @@ function buildPlan(
       "--mount",
       tmpMount,
       providerImageDigest,
-      "--model",
-      consumedModelSelection.model,
-      "--effort",
-      selection.effort,
-      ...claude.argv,
+      ...codex.argv,
     ]),
     createCommand("start_proxy", ["start", proxyContainerName]),
     createCommand("start_provider_attached", [
@@ -420,7 +419,7 @@ function buildPlan(
     ]),
   ]);
   return Object.freeze({
-    provider: "claude" as const,
+    provider: "codex" as const,
     operationId: binding.operationId,
     grantRef: activation.grant.grantRef,
     profileId: activation.grant.profileId,
@@ -465,7 +464,7 @@ function prepare(
     !activation.activeMountCapability
   ) {
     return createBlockedResult(
-      "claude_docker_runtime_mount_authorization_invalid",
+      "codex_docker_runtime_mount_authorization_invalid",
     );
   }
   const activeMountCapability = activation.activeMountCapability;
@@ -475,12 +474,12 @@ function prepare(
     activeMountCapability,
   });
   if (
-    activation.grant.provider !== "claude" ||
+    activation.grant.provider !== "codex" ||
     activation.grant.operationId !== binding.operationId
   ) {
     state.completeMount(activeMountCapability, managementCapability);
     return createBlockedResult(
-      "claude_docker_runtime_mount_authorization_invalid",
+      "codex_docker_runtime_mount_authorization_invalid",
     );
   }
   try {
@@ -491,7 +490,7 @@ function prepare(
     if (!consumedModelSelection) {
       state.completeMount(activeMountCapability, managementCapability);
       return createBlockedResult(
-        "claude_docker_runtime_model_selection_invalid",
+        "codex_docker_runtime_model_selection_invalid",
       );
     }
     const providerHomeSourcePath = state.borrowMountSource(
@@ -518,7 +517,7 @@ function prepare(
         : null;
     if (!planCandidate) {
       state.completeMount(activeMountCapability, managementCapability);
-      return createBlockedResult("claude_docker_runtime_plan_invalid");
+      return createBlockedResult("codex_docker_runtime_plan_invalid");
     }
     const authority = state.issueProviderAuthority(
       managementCapability,
@@ -532,7 +531,7 @@ function prepare(
       !authority.useCapability ||
       !authority.controlCapability ||
       authority.operationId !== binding.operationId ||
-      authority.provider !== "claude" ||
+      authority.provider !== "codex" ||
       authority.profileId !== activation.grant.profileId ||
       authority.providerHomeMountGrantRef !== activation.grant.grantRef ||
       authority.runtimeAuthorityIssued !== true
@@ -545,7 +544,7 @@ function prepare(
         issuedAuthorityControlCapability = null;
       }
       state.completeMount(activeMountCapability, managementCapability);
-      return createBlockedResult("claude_docker_runtime_authority_invalid");
+      return createBlockedResult("codex_docker_runtime_authority_invalid");
     }
     const plan = Object.freeze({
       ...planCandidate,
@@ -559,9 +558,9 @@ function prepare(
       managementCapability as object,
     );
     return Object.freeze({
-      ...createBlockedResult("claude_docker_runtime_prepared"),
+      ...createBlockedResult("codex_docker_runtime_prepared"),
       status: "prepared" as const,
-      reason: "claude_docker_runtime_prepared",
+      reason: "codex_docker_runtime_prepared",
       preparedCapability,
       operationId: binding.operationId,
       grantRef: activation.grant.grantRef,
@@ -623,7 +622,7 @@ function cancel(
   const plan = findStoredPlan(state, preparedCapability, managementCapability);
   if (!plan || !preparedCapability || typeof preparedCapability !== "object") {
     return createBlockedResult(
-      "claude_docker_runtime_prepared_capability_invalid",
+      "codex_docker_runtime_prepared_capability_invalid",
     );
   }
   const revoked = state.revokeProviderAuthority(
@@ -636,26 +635,26 @@ function cancel(
   );
   if (completed.status !== "completed") {
     return createBlockedResult(
-      "claude_docker_runtime_mount_release_unconfirmed",
+      "codex_docker_runtime_mount_release_unconfirmed",
     );
   }
   removePrepared(state, preparedCapability);
   if (revoked.status !== "revoked") {
     return createBlockedResult(
-      "claude_docker_runtime_authority_revoke_invalid",
+      "codex_docker_runtime_authority_revoke_invalid",
     );
   }
   const isExpired = !isPlanFresh(state, plan);
   return Object.freeze({
     ...createBlockedResult(
       isExpired
-        ? "claude_docker_runtime_preparation_expired"
-        : "claude_docker_runtime_preparation_cancelled",
+        ? "codex_docker_runtime_preparation_expired"
+        : "codex_docker_runtime_preparation_cancelled",
     ),
     status: isExpired ? ("expired" as const) : ("cancelled" as const),
     reason: isExpired
-      ? "claude_docker_runtime_preparation_expired"
-      : "claude_docker_runtime_preparation_cancelled",
+      ? "codex_docker_runtime_preparation_expired"
+      : "codex_docker_runtime_preparation_cancelled",
     operationId: plan.operationId,
     grantRef: plan.grantRef,
   });
@@ -688,13 +687,13 @@ function consumePreparedPlan(
   return plan;
 }
 
-export function prepareRuntimeOwnedClaudeDockerCandidate(
+export function prepareRuntimeOwnedCodexDockerCandidate(
   managementCapability: unknown,
   mountCapability: unknown,
   mountAuthorizationCapability: unknown,
   selectionUseCapability: unknown,
 ) {
-  return performSafely("claude_docker_runtime_preparation_failed_closed", () =>
+  return performSafely("codex_docker_runtime_preparation_failed_closed", () =>
     prepare(
       productionState,
       managementCapability,
@@ -705,16 +704,16 @@ export function prepareRuntimeOwnedClaudeDockerCandidate(
   );
 }
 
-export function cancelRuntimeOwnedClaudeDockerCandidate(
+export function cancelRuntimeOwnedCodexDockerCandidate(
   preparedCapability: unknown,
   managementCapability: unknown,
 ) {
-  return performSafely("claude_docker_runtime_cancellation_failed_closed", () =>
+  return performSafely("codex_docker_runtime_cancellation_failed_closed", () =>
     cancel(productionState, preparedCapability, managementCapability),
   );
 }
 
-export function consumeRuntimeOwnedClaudeDockerPlanForProcessController(
+export function consumeRuntimeOwnedCodexDockerPlanForProcessController(
   preparedCapability: unknown,
   managementCapability: unknown,
 ) {
@@ -729,7 +728,7 @@ export function consumeRuntimeOwnedClaudeDockerPlanForProcessController(
   }
 }
 
-export function createIsolatedClaudeDockerRuntimeAdapterCandidate(
+export function createIsolatedCodexDockerRuntimeAdapterCandidate(
   dependencies: Omit<RuntimeState, "prepared" | "managementCapabilities">,
 ) {
   const state = createRuntimeState(dependencies);
@@ -741,7 +740,7 @@ export function createIsolatedClaudeDockerRuntimeAdapterCandidate(
       mountAuthorizationCapability: unknown,
       selectionUseCapability: unknown,
     ) =>
-      performSafely("claude_docker_runtime_preparation_failed_closed", () =>
+      performSafely("codex_docker_runtime_preparation_failed_closed", () =>
         prepare(
           state,
           managementCapability,
@@ -751,7 +750,7 @@ export function createIsolatedClaudeDockerRuntimeAdapterCandidate(
         ),
       ),
     cancel: (preparedCapability: unknown, managementCapability: unknown) =>
-      performSafely("claude_docker_runtime_cancellation_failed_closed", () =>
+      performSafely("codex_docker_runtime_cancellation_failed_closed", () =>
         cancel(state, preparedCapability, managementCapability),
       ),
     consumeForProcessController: (
@@ -771,11 +770,11 @@ export function createIsolatedClaudeDockerRuntimeAdapterCandidate(
   });
 }
 
-export function describeClaudeDockerRuntimeAdapterContract() {
+export function describeCodexDockerRuntimeAdapterContract() {
   return Object.freeze({
-    contract: CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT,
-    contractRevision: CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION,
-    provider: "claude",
+    contract: CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT,
+    contractRevision: CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION,
+    provider: "codex",
     modelSelection:
       "runtime_owned_selection_grant_consumer_connected_issuer_availability_profile_not_connected",
     coordinatorPrelaunchModelSelectionAllowed: true,
@@ -800,9 +799,8 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     proxyNetworks: Object.freeze(["internal", "egress"]),
     proxyAuthentication: "runtime_random_256_bit_operation_local",
     proxyHostnameAllowlist: Object.freeze([
-      "api.anthropic.com",
-      "claude.ai",
-      "platform.claude.com",
+      "auth.openai.com",
+      "chatgpt.com",
     ]),
     rootFilesystem: "read_only",
     linuxUser: "65534:65534",

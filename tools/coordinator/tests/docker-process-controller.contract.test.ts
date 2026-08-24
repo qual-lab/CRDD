@@ -17,14 +17,13 @@ function createPlan(
     "create_internal_network",
     "create_egress_network",
     "create_proxy",
-    "connect_proxy_internal",
     "connect_proxy_egress",
     "create_provider",
-    "connect_provider_internal",
     "start_proxy",
     "start_provider_attached",
   ];
   return Object.freeze({
+    provider: "claude" as const,
     operationId: "OP-123456",
     grantRef: "PHMGRANT-123456",
     profileId: "PROFILE-123456",
@@ -175,7 +174,7 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.match(result.resultSha256 ?? "", /^[a-f0-9]{64}$/);
   assert.deepEqual(result.normalizedResult, { status: true });
   assert.equal(result.rawOutputReported, false);
-  assert.equal(fixture.getCommandCount(), 9);
+  assert.equal(fixture.getCommandCount(), 7);
   assert.equal(fixture.getCleanupCount(), 1);
   assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 1);
@@ -421,11 +420,11 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,
-    "exact_claude_boolean_result_published_after_cleanup_only",
+    "exact_provider_boolean_result_published_after_cleanup_only",
   );
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.hostPathReported, false);

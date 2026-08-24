@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "./claude-docker-runtime-adapter.ts";
 import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
+import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "./codex-docker-runtime-adapter.ts";
+import { normalizeCodexStructuredResult } from "./codex-structured-result.ts";
 import {
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
@@ -16,7 +18,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 5;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 6;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -27,17 +29,17 @@ const PURPOSES = Object.freeze([
   "create_internal_network",
   "create_egress_network",
   "create_proxy",
-  "connect_proxy_internal",
   "connect_proxy_egress",
   "create_provider",
-  "connect_provider_internal",
   "start_proxy",
   "start_provider_attached",
 ]);
-const SAFE_IDENTIFIER = /^crdd-(?:internal|egress|proxy|claude)-[a-f0-9]{16}$/u;
+const SAFE_IDENTIFIER =
+  /^crdd-(?:internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 
 type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 type PreparedPlan = Readonly<{
+  provider: "codex" | "claude";
   operationId: string;
   grantRef: string;
   profileId: string;
@@ -209,6 +211,7 @@ function createFinalResult(
 
 function isPlanValid(plan: PreparedPlan) {
   return (
+    (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
     /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
@@ -326,9 +329,10 @@ async function executePlan(
         break;
       }
       if (isProvider && execution) {
-        const providerResult = normalizeClaudeStructuredResult(
-          execution.stdout,
-        );
+        const providerResult =
+          plan.provider === "codex"
+            ? normalizeCodexStructuredResult(execution.stdout)
+            : normalizeClaudeStructuredResult(execution.stdout);
         if (providerResult.status !== "confirmed") {
           requestedStatus = "blocked";
           reason = "provider_result_invalid";
@@ -460,7 +464,7 @@ function start(
   if (
     !authority ||
     authority.operationId !== plan.operationId ||
-    authority.provider !== "claude" ||
+    authority.provider !== plan.provider ||
     authority.profileId !== plan.profileId ||
     authority.providerHomeMountGrantRef !== plan.grantRef ||
     authority.runtimeAuthorityIssued !== true ||
@@ -545,8 +549,18 @@ const productionState: RuntimeState = Object.freeze({
   dependencies: Object.freeze({
     effectExecutorAvailable: true,
     verifyRevision: verifyRuntimeOwnedRepositoryOperation,
-    consumePreparedPlan:
-      consumeRuntimeOwnedClaudeDockerPlanForProcessController,
+    consumePreparedPlan: (
+      preparedCapability: unknown,
+      managementCapability: unknown,
+    ) =>
+      consumeRuntimeOwnedClaudeDockerPlanForProcessController(
+        preparedCapability,
+        managementCapability,
+      ) ??
+      consumeRuntimeOwnedCodexDockerPlanForProcessController(
+        preparedCapability,
+        managementCapability,
+      ),
     beginRecovery: beginRuntimeOwnedDockerRecovery,
     startCommand: startRuntimeOwnedDockerCommand,
     cleanupOwnedResources: cleanupRuntimeOwnedDockerResources,
@@ -624,7 +638,7 @@ export function describeDockerProcessControllerContract() {
       "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",
     cleanupFailure: "manual_recovery_required_fail_closed",
     structuredResult:
-      "exact_claude_boolean_result_published_after_cleanup_only",
+      "exact_provider_boolean_result_published_after_cleanup_only",
     rawOutputReported: false,
     hostPathReported: false,
     proxyCredentialReported: false,
