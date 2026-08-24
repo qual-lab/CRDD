@@ -275,6 +275,41 @@ export function verifyRuntimeOwnedRepositoryBindingCapability(
   }
 }
 
+export function borrowRuntimeOwnedRepositorySource(
+  repositoryBindingCapability: unknown,
+  managementCapability: unknown,
+) {
+  try {
+    if (
+      !repositoryBindingCapability ||
+      typeof repositoryBindingCapability !== "object" ||
+      !managementCapability ||
+      typeof managementCapability !== "object"
+    ) {
+      return null;
+    }
+    const binding = capabilities.get(repositoryBindingCapability);
+    if (
+      !binding ||
+      binding.managementCapability !== managementCapability ||
+      currentBinding(managementCapability) !== binding ||
+      binding.revision.length !== 40
+    ) {
+      return null;
+    }
+    const layout = resolveRepositoryGitLayout(binding.repositoryRoot);
+    return Object.freeze({
+      operationId: binding.operationId,
+      repositoryRoot: binding.repositoryRoot,
+      gitDirectory: layout.gitDirectory.realPath,
+      commonDirectory: layout.commonDirectory.realPath,
+      revision: binding.revision,
+    });
+  } catch {
+    return null;
+  }
+}
+
 export function describeRepositoryOperationRuntimeContract() {
   return Object.freeze({
     contract: REPOSITORY_OPERATION_RUNTIME_CONTRACT,
@@ -289,6 +324,8 @@ export function describeRepositoryOperationRuntimeContract() {
     ]),
     pathReported: false,
     callerRevisionAccepted: false,
+    internalSourceBorrow:
+      "same_runtime_owned_binding_and_current_revision_only",
     providerEffectAllowed: false,
   });
 }
