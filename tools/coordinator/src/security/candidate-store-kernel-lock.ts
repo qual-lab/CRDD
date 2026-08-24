@@ -14,22 +14,7 @@ function waitForState(state: Int32Array, expected: number, timeoutMs: number) {
   return true;
 }
 
-export function acquireRuntimeOwnedCandidateStoreKernelLock(
-  candidateStoreProtectionHash: unknown,
-) {
-  if (
-    process.platform !== "win32" ||
-    typeof candidateStoreProtectionHash !== "string" ||
-    !/^[0-9a-f]{64}$/u.test(candidateStoreProtectionHash)
-  ) {
-    return null;
-  }
-  const lockIdentity = createHash("sha256")
-    .update("crdd-candidate-store-kernel-lock-v1\0")
-    .update(candidateStoreProtectionHash)
-    .digest("hex")
-    .slice(0, 32);
-  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.CandidateStore.${lockIdentity}`;
+function acquireNamedPipeKernelLock(pipeName: string) {
   const sharedState = new SharedArrayBuffer(4);
   const state = new Int32Array(sharedState);
   const worker = new Worker(
@@ -39,6 +24,7 @@ export function acquireRuntimeOwnedCandidateStoreKernelLock(
       workerData: Object.freeze({ pipeName, state: sharedState }),
     },
   );
+  worker.unref();
   if (!waitForState(state, 0, LOCK_ACQUIRE_TIMEOUT_MS)) {
     void worker.terminate();
     return null;
@@ -62,6 +48,25 @@ export function acquireRuntimeOwnedCandidateStoreKernelLock(
   });
 }
 
+export function acquireRuntimeOwnedCandidateStoreKernelLock(
+  candidateStoreProtectionHash: unknown,
+) {
+  if (
+    process.platform !== "win32" ||
+    typeof candidateStoreProtectionHash !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(candidateStoreProtectionHash)
+  ) {
+    return null;
+  }
+  const lockIdentity = createHash("sha256")
+    .update("crdd-candidate-store-kernel-lock-v1\0")
+    .update(candidateStoreProtectionHash)
+    .digest("hex")
+    .slice(0, 32);
+  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.CandidateStore.${lockIdentity}`;
+  return acquireNamedPipeKernelLock(pipeName);
+}
+
 export function acquireRuntimeOwnedLogicalProviderHomeKernelLock(
   stableLogicalHomeBindingHash: unknown,
 ) {
@@ -78,36 +83,37 @@ export function acquireRuntimeOwnedLogicalProviderHomeKernelLock(
     .digest("hex")
     .slice(0, 32);
   const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.ProviderHome.${lockIdentity}`;
-  const sharedState = new SharedArrayBuffer(4);
-  const state = new Int32Array(sharedState);
-  const worker = new Worker(
-    new URL("./candidate-store-lock-worker.ts", import.meta.url),
-    {
-      env: {},
-      workerData: Object.freeze({ pipeName, state: sharedState }),
-    },
-  );
-  if (!waitForState(state, 0, LOCK_ACQUIRE_TIMEOUT_MS)) {
-    void worker.terminate();
+  return acquireNamedPipeKernelLock(pipeName);
+}
+
+export function hostOperationGenerationBindingHash(
+  rootName: unknown,
+  nonce: unknown,
+) {
+  if (
+    typeof rootName !== "string" ||
+    !/^crdd-coordinator-doctor-[A-Za-z0-9_-]{6,64}$/u.test(rootName) ||
+    typeof nonce !== "string" ||
+    !/^[a-f0-9-]{32,48}$/u.test(nonce)
+  )
     return null;
-  }
-  if (Atomics.load(state, 0) !== 1) {
-    void worker.terminate();
-    return null;
-  }
-  let isReleased = false;
-  return Object.freeze({
-    release: () => {
-      if (isReleased) return false;
-      isReleased = true;
-      worker.postMessage("release");
-      if (!waitForState(state, 1, LOCK_RELEASE_TIMEOUT_MS)) {
-        void worker.terminate();
-        return false;
-      }
-      return Atomics.load(state, 0) === 2;
-    },
-  });
+  return createHash("sha256")
+    .update("crdd-host-operation-generation-v1\0")
+    .update(rootName)
+    .update("\0")
+    .update(nonce)
+    .digest("hex");
+}
+
+export function acquireRuntimeOwnedHostOperationKernelLock(
+  rootName: unknown,
+  nonce: unknown,
+) {
+  if (process.platform !== "win32") return null;
+  const bindingHash = hostOperationGenerationBindingHash(rootName, nonce);
+  if (!bindingHash) return null;
+  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
+  return acquireNamedPipeKernelLock(pipeName);
 }
 
 export function describeCandidateStoreKernelLockContract() {

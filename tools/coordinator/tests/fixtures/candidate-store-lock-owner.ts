@@ -1,7 +1,16 @@
-import { acquireRuntimeOwnedCandidateStoreKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
+import {
+  acquireRuntimeOwnedCandidateStoreKernelLock,
+  acquireRuntimeOwnedHostOperationKernelLock,
+} from "../../src/security/candidate-store-kernel-lock.ts";
 
-const protectionHash = process.argv[2];
-const lock = acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+const mode = process.argv[2];
+const lock =
+  mode === "host"
+    ? acquireRuntimeOwnedHostOperationKernelLock(
+        process.argv[3],
+        process.argv[4],
+      )
+    : acquireRuntimeOwnedCandidateStoreKernelLock(mode);
 if (!lock) process.exit(2);
 process.stdout.write("READY\n");
 setInterval(() => {}, 1_000);

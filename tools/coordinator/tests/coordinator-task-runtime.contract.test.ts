@@ -46,6 +46,7 @@ function fixture(
     publishNeedsStoreRecovery?: boolean;
     processStartFailureRole?: "executor" | "reviewer";
     processCleanupFailureRole?: "executor" | "reviewer";
+    hostCleanupWal?: boolean;
   } = {},
 ) {
   const owned = Object.freeze({});
@@ -77,6 +78,7 @@ function fixture(
       }),
     cleanupOperation: (candidate: object) => {
       assert.equal(candidate, owned);
+      if (options.hostCleanupWal) events.push("host-cleanup");
       cleanupCount += 1;
       if (options.cleanupThrows) throw new Error("cleanup_failed");
     },
@@ -223,6 +225,9 @@ function fixture(
         reason: cleanupFails ? "fixture_cleanup_failed" : "completed",
         cleanupConfirmed: !cleanupFails,
         recoveryId: cleanupFails ? `docker.fixture.${role}.completion` : null,
+        ...(options.hostCleanupWal
+          ? { recoveryFinalizationCapability: Object.freeze({ role }) }
+          : {}),
         normalizedResult:
           role === "executor"
             ? Object.freeze({
@@ -317,6 +322,22 @@ function fixture(
               candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
               expiresAtMs: 1_800_000_000_000,
             }),
+    ...(options.hostCleanupWal
+      ? {
+          prepareDockerHostCleanup: () => {
+            events.push("docker-host-cleanup-intent");
+            return "host.fixture.cleanup.intent";
+          },
+          recordDockerHostCleanupReceipt: () => {
+            events.push("docker-host-cleanup-receipt");
+            return true;
+          },
+          finalizeDockerRecovery: () => {
+            events.push("docker-finalize");
+            return Object.freeze({ status: "completed" });
+          },
+        }
+      : {}),
   };
   const runtime = createIsolatedCoordinatorTaskRuntimeCandidate(
     dependencies as Parameters<
@@ -362,6 +383,25 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
   assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
   assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
+});
+
+test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeする", async () => {
+  const harness = fixture({ hostCleanupWal: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "completed");
+  assert.deepEqual(harness.events.slice(-7), [
+    "docker-host-cleanup-intent",
+    "docker-host-cleanup-intent",
+    "host-cleanup",
+    "docker-host-cleanup-receipt",
+    "docker-host-cleanup-receipt",
+    "docker-finalize",
+    "docker-finalize",
+  ]);
 });
 
 test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格しない", async () => {
@@ -691,7 +731,7 @@ test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");

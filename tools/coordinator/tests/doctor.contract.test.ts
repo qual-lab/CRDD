@@ -19,6 +19,7 @@ import {
 } from "../src/core/doctor.ts";
 import type { DiagnosticCheck } from "../src/core/doctor.ts";
 import {
+  activateOwnedHostOperationGenerationLock,
   adoptOwnedHostRecoveryRecordTransition,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
@@ -2741,6 +2742,21 @@ test("Docker不存在を自己申告する公開APIを持たない", () => {
   const recovered = recoverOwnedOperationDirectories(token);
   assert.equal(recovered.status, "recovered");
   assert.equal(fs.existsSync(owned.root), false);
+});
+
+test("生存中TaskのHost owner世代は別Recoveryによるroot回収を拒否する", () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mount = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mount);
+  assert.equal(activateOwnedHostOperationGenerationLock(management), true);
+  const token = getOwnedHostRecoveryId(owned);
+  assert.deepEqual(recoverOwnedOperationDirectories(token), {
+    status: "blocked",
+    reason: "host_recovery_generation_active",
+  });
+  assert.equal(fs.existsSync(owned.root), true);
+  cleanupOwnedOperationDirectories(owned);
 });
 
 test("Operation context CapabilityはRuntime生成IDをopaqueに結合する", () => {

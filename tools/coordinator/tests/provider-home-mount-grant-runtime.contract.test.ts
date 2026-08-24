@@ -291,6 +291,62 @@ test("issuedのままでもcontrol aliasから全aliasを失効できる", () =>
   );
 });
 
+test("古いGrantのrevokeは同じlogical Homeの現active ownerを解除しない", () => {
+  const h = harness();
+  const activate = (issued: ReturnType<typeof issue>) => {
+    h.advance(1_000);
+    const consumed = h.runtime.consume(
+      issued.useCapability,
+      h.managementCapability,
+      h.observe(),
+    );
+    assert.equal(consumed.status, "consumed");
+    const activated = h.runtime.activateMount(
+      consumed.mountAuthorizationCapability,
+      h.managementCapability,
+    );
+    assert.equal(activated.status, "activated");
+    return activated;
+  };
+  const grantA = issue(h);
+  const activeA = activate(grantA);
+  assert.equal(
+    h.runtime.completeMount(
+      activeA.activeMountCapability,
+      h.managementCapability,
+    ).status,
+    "completed",
+  );
+  const grantB = issue(h);
+  const activeB = activate(grantB);
+  assert.equal(
+    h.runtime.revoke(grantA.controlCapability, h.managementCapability).status,
+    "revoked",
+  );
+  const grantC = issue(h);
+  h.advance(1_000);
+  const consumedC = h.runtime.consume(
+    grantC.useCapability,
+    h.managementCapability,
+    h.observe(),
+  );
+  assert.equal(consumedC.status, "consumed");
+  assert.equal(
+    h.runtime.activateMount(
+      consumedC.mountAuthorizationCapability,
+      h.managementCapability,
+    ).reason,
+    "provider_home_mount_logical_home_already_active",
+  );
+  assert.equal(
+    h.runtime.completeMount(
+      activeB.activeMountCapability,
+      h.managementCapability,
+    ).status,
+    "completed",
+  );
+});
+
 test("profile、Operation、観測bindingの不一致をEffect前に拒否する", () => {
   const h = harness();
   const reusableObservation = h.observe();

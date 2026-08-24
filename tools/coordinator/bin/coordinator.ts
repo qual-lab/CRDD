@@ -513,6 +513,22 @@ if (
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {
       process.stdout.write(`Coordinator environment: ${reportValue.status}\n`);
+      if (
+        typeof reportValue.reason === "string" &&
+        /^[a-z0-9_]{1,128}$/u.test(reportValue.reason)
+      )
+        process.stdout.write(`- reason: ${reportValue.reason}\n`);
+      if (
+        typeof reportValue.recoveryId === "string" &&
+        /^(?:host\.[A-Za-z0-9._-]+|docker\.crdd-coordinator-doctor-[A-Za-z0-9_-]+\.[0-9a-f-]{36}\.[0-9a-f-]{36}\.[0-9a-f]{64}|docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64})$/u.test(
+          reportValue.recoveryId,
+        )
+      ) {
+        process.stdout.write(`- recovery ID: ${reportValue.recoveryId}\n`);
+        process.stdout.write(
+          `- next: coordinator doctor --recover-isolation ${reportValue.recoveryId}\n`,
+        );
+      }
       const providers = plainRecord(reportValue.providers);
       for (const [name, providerValue] of Object.entries(providers ?? {})) {
         const provider = plainRecord(providerValue);

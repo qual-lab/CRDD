@@ -17,7 +17,7 @@ import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-run
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 6;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 7;
 
 const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
@@ -948,6 +948,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     context: ExecutionContext,
     kind: "container" | "network",
     dockerId: string,
+    expectedName: string,
   ) {
     const result = await runShort(
       context,
@@ -972,12 +973,43 @@ function createRuntime(dependencies: RuntimeDependencies) {
             "{{.ID}}",
           ],
     );
+    if (
+      result?.status !== 0 ||
+      result.signal !== null ||
+      result.outputExceeded ||
+      result.stderr.length !== 0 ||
+      result.stdout.trim() !== ""
+    )
+      return false;
+    const named = await runShort(
+      context,
+      kind === "container"
+        ? [
+            "container",
+            "ls",
+            "--all",
+            "--no-trunc",
+            "--filter",
+            `name=^/${expectedName}$`,
+            "--format",
+            "{{.ID}}",
+          ]
+        : [
+            "network",
+            "ls",
+            "--no-trunc",
+            "--filter",
+            `name=^${expectedName}$`,
+            "--format",
+            "{{.ID}}",
+          ],
+    );
     return (
-      result?.status === 0 &&
-      result.signal === null &&
-      !result.outputExceeded &&
-      result.stderr.length === 0 &&
-      result.stdout.trim() === ""
+      named?.status === 0 &&
+      named.signal === null &&
+      !named.outputExceeded &&
+      named.stderr.length === 0 &&
+      named.stdout.trim() === ""
     );
   }
 
@@ -1021,7 +1053,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
       removal?.status === 0 &&
       removal.signal === null &&
       !removal.outputExceeded &&
-      (await exactResourceAbsent(context, kind, state.dockerId))
+      (await exactResourceAbsent(context, kind, state.dockerId, expectedName))
     );
   }
 
@@ -1285,7 +1317,7 @@ export function describeDockerEffectRuntimeContract() {
       "exact_nine_command_subscription_preflight_provider_probe_or_isolated_task",
     taskInput: "runtime_owned_stdin_only_not_docker_argv",
     cleanup:
-      "durable_create_receipt_exact_docker_id_name_label_image_and_network_configuration_then_exact_id_absence",
+      "durable_create_receipt_exact_docker_id_name_label_image_and_network_configuration_then_exact_id_and_name_absence",
     processTreeTermination: "taskkill_exact_pid_tree_then_close",
     callerCommandAllowed: false,
     providerEffectAllowed: true,

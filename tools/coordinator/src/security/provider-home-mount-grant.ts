@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant";
-export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 2;
+export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 3;
 export const PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS = 300_000;
 
 const PROVIDERS = new Set(["codex", "claude"]);
@@ -39,6 +39,7 @@ const USE_KEYS = new Set([
   "observedProviderHomeIdentityHash",
   "observedProviderHomeProtectionHash",
   "observedLocalUserBindingHash",
+  "observedStableLogicalHomeBindingHash",
   "observedAt",
 ]);
 const TRANSITION_KEYS = new Set(["previous", "next"]);
@@ -270,7 +271,9 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
       typeof input.observedProviderHomeProtectionHash !== "string" ||
       !HEX64.test(input.observedProviderHomeProtectionHash) ||
       typeof input.observedLocalUserBindingHash !== "string" ||
-      !HEX64.test(input.observedLocalUserBindingHash)
+      !HEX64.test(input.observedLocalUserBindingHash) ||
+      typeof input.observedStableLogicalHomeBindingHash !== "string" ||
+      !HEX64.test(input.observedStableLogicalHomeBindingHash)
     )
       return blocked("provider_home_mount_grant_use_observation_invalid");
     if (
@@ -278,7 +281,9 @@ export function evaluateProviderHomeMountGrantUseCandidate(raw: unknown) {
         grant.providerHomeIdentityHash ||
       input.observedProviderHomeProtectionHash !==
         grant.providerHomeProtectionHash ||
-      input.observedLocalUserBindingHash !== grant.localUserBindingHash
+      input.observedLocalUserBindingHash !== grant.localUserBindingHash ||
+      input.observedStableLogicalHomeBindingHash !==
+        grant.stableLogicalHomeBindingHash
     )
       return blocked("provider_home_mount_grant_use_observation_mismatch");
     if (!canonicalUtc(input.observedAt))

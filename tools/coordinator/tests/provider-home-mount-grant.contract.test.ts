@@ -51,6 +51,7 @@ function useInput(overrides: Record<string, unknown> = {}) {
     observedProviderHomeIdentityHash: homeIdentityHash,
     observedProviderHomeProtectionHash: homeProtectionHash,
     observedLocalUserBindingHash: localUserBindingHash,
+    observedStableLogicalHomeBindingHash: "4".repeat(64),
     observedAt: "2026-08-22T00:01:00.000Z",
     ...overrides,
   };
@@ -369,6 +370,7 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
     { observedProviderHomeIdentityHash: "x" },
     { observedProviderHomeProtectionHash: "x" },
     { observedLocalUserBindingHash: "x" },
+    { observedStableLogicalHomeBindingHash: "x" },
   ]) {
     const observationFailure = evaluateProviderHomeMountGrantUseCandidate({
       ...input,
@@ -384,6 +386,7 @@ test("use候補はissued状態、三者binding、canonical Runtime時刻と有�
     { observedProviderHomeIdentityHash: "d".repeat(64) },
     { observedProviderHomeProtectionHash: "e".repeat(64) },
     { observedLocalUserBindingHash: "f".repeat(64) },
+    { observedStableLogicalHomeBindingHash: "5".repeat(64) },
   ]) {
     const observationFailure = evaluateProviderHomeMountGrantUseCandidate({
       ...input,

@@ -309,7 +309,10 @@ export function evaluateProviderHomeObservationResponseCandidate(
       !stableLogicalHomeBindingHash ||
       providerHomeIdentityHash === providerHomeProtectionHash ||
       providerHomeIdentityHash === localUserBindingHash ||
-      providerHomeProtectionHash === localUserBindingHash
+      providerHomeProtectionHash === localUserBindingHash ||
+      stableLogicalHomeBindingHash === providerHomeIdentityHash ||
+      stableLogicalHomeBindingHash === providerHomeProtectionHash ||
+      stableLogicalHomeBindingHash === localUserBindingHash
     ) {
       return blocked("provider_home_observation_response_invalid");
     }

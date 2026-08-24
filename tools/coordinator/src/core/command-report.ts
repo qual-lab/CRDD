@@ -39,7 +39,7 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
     [
       "Docker recovery ID",
       report.dockerRecoveryId,
-      /^docker(?:-task)?\.[a-zA-Z0-9._-]+$/u,
+      /^(?:docker\.crdd-coordinator-doctor-[A-Za-z0-9_-]+\.[0-9a-f-]{36}\.[0-9a-f-]{36}\.[0-9a-f]{64}|docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64})$/u,
     ],
     [
       "Candidate recovery ID",

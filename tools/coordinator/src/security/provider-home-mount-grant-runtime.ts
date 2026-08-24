@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant-runtime";
-export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 2;
+export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 3;
 
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const MAXIMUM_IDENTIFIER_LENGTH = 64;
@@ -583,11 +583,13 @@ function completeMount(
     return blocked("provider_home_mount_completion_invalid");
   }
   const runtimeGrant = active.runtimeGrant;
+  const logicalHomeBinding = runtimeGrant.grant.stableLogicalHomeBindingHash;
+  if (state.activeHomeBindings.get(logicalHomeBinding) !== runtimeGrant) {
+    return blocked("provider_home_mount_completion_owner_mismatch");
+  }
   runtimeGrant.mountActive = false;
   runtimeGrant.activeMountSourcePath = null;
-  state.activeHomeBindings.delete(
-    runtimeGrant.grant.stableLogicalHomeBindingHash,
-  );
+  state.activeHomeBindings.delete(logicalHomeBinding);
   removeAlias(state, runtimeGrant, activeMountCapability);
   return Object.freeze({
     ...blocked("provider_home_mount_completed"),
@@ -667,9 +669,9 @@ function revoke(
   revokeMountSource(state, runtimeGrant);
   revokeAllAliases(state, runtimeGrant);
   state.activeGrants.delete(runtimeGrant.grant.grantRef);
-  state.activeHomeBindings.delete(
-    runtimeGrant.grant.stableLogicalHomeBindingHash,
-  );
+  const logicalHomeBinding = runtimeGrant.grant.stableLogicalHomeBindingHash;
+  if (state.activeHomeBindings.get(logicalHomeBinding) === runtimeGrant)
+    state.activeHomeBindings.delete(logicalHomeBinding);
   return Object.freeze({
     ...blocked("provider_home_mount_grant_runtime_revoked"),
     status: "revoked" as const,

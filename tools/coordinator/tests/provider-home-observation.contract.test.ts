@@ -158,6 +158,9 @@ test("Provider Home responseは旧版、余分byte、未知bit、zero／重複ha
   const duplicateHash = response(1, nonce);
   duplicateHash.fill(1, 86, 118);
   candidates.push(duplicateHash);
+  const duplicateStableHash = response(1, nonce);
+  duplicateStableHash.copyWithin(150, 54, 86);
+  candidates.push(duplicateStableHash);
   for (const candidate of candidates) {
     assert.equal(
       evaluateProviderHomeObservationResponseCandidate(

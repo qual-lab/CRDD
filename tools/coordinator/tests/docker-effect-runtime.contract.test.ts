@@ -140,6 +140,7 @@ function createEffectFixture(
       stderr: string;
       outputExceeded: boolean;
     }>;
+    internalNetworkReceiptId?: string;
   }> = {},
 ) {
   const { plan, managementCapability } = createPlanFixture(
@@ -204,6 +205,33 @@ function createEffectFixture(
         closed: () => closed,
       });
     },
+    ...(options.internalNetworkReceiptId
+      ? {
+          inspectReceipts: () =>
+            Object.freeze({
+              create_subscription_auth_probe: Object.freeze({
+                submitted: false,
+                dockerId: null,
+              }),
+              create_internal_network: Object.freeze({
+                submitted: true,
+                dockerId: options.internalNetworkReceiptId ?? null,
+              }),
+              create_egress_network: Object.freeze({
+                submitted: false,
+                dockerId: null,
+              }),
+              create_proxy: Object.freeze({
+                submitted: false,
+                dockerId: null,
+              }),
+              create_provider: Object.freeze({
+                submitted: false,
+                dockerId: null,
+              }),
+            }),
+        }
+      : {}),
   });
   return {
     runtime,
@@ -367,9 +395,60 @@ test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める"
   assert.equal(residue.counts().configRemoved, 0);
 });
 
+test("exact ID削除後に同名replacementが残ればcleanupを完了しない", async () => {
+  const dockerId = "a".repeat(64);
+  let expectedName = "";
+  const fixture = createEffectFixture({
+    internalNetworkReceiptId: dockerId,
+    outputForInvocation: (argv) => {
+      if (argv.includes("inspect")) {
+        expectedName = fixture.plan.internalNetworkName;
+        return Object.freeze({
+          status: 0,
+          signal: null,
+          stdout: JSON.stringify([
+            {
+              Id: dockerId,
+              Name: expectedName,
+              Labels: {
+                "crdd.coordinator.runtime": fixture.plan.ownershipLabel.slice(
+                  fixture.plan.ownershipLabel.indexOf("=") + 1,
+                ),
+              },
+              Driver: "bridge",
+              Scope: "local",
+              Internal: true,
+            },
+          ]),
+          stderr: "",
+          outputExceeded: false,
+        });
+      }
+      const isNameAbsenceCheck = argv.some(
+        (value) => value === `name=^${expectedName}$`,
+      );
+      return Object.freeze({
+        status: 0,
+        signal: null,
+        stdout: isNameAbsenceCheck ? `${"b".repeat(64)}\n` : "",
+        stderr: "",
+        outputExceeded: false,
+      });
+    },
+  });
+  const cleanup = await fixture.runtime.cleanupOwnedResources(
+    fixture.plan,
+    fixture.recoveryCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(cleanup.confirmed, false);
+  assert.equal(cleanup.networksAbsent, false);
+  assert.equal(fixture.counts().configRemoved, 0);
+});
+
 test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.equal(contract.dockerCli.bytes, 41_631_088);
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);

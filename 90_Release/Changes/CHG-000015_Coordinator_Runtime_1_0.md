@@ -1259,3 +1259,17 @@ Provider Home protocolはrevision 3へ移行し、request／response magic、固
 通常cleanupとcrash回復の期待Docker構成照合は、ID、name、ownership label、imageおよびNetworkの`Internal`値だけでは成立させない。bridge／local Network、containerの非特権、read-only root filesystem、全Capability drop、`no-new-privileges`、固定PID上限、固定UID／GID、目的別のexact Network membership、bind mountの目的地／read-write／`rprivate`、およびproxyの固定tmpfsを照合する。どれかが分類不能または不一致ならIDが正しくても自動削除せず停止する。
 
 水平伝播では、ルートREADMEはCRDD全体の価値と採用入口、`template/AGENTS.md`は採用Repositoryの人間判断とCandidate物理削除義務、外部送信Policy例は送信・保持Policy、Provider Result SchemaはProvider payloadを所有するため、Runtime内部のlogical Home lease、Docker回復tokenおよびCoordinator結果の`expiresAtMs`を新しいfieldとして重複所有させない。現在契約を所有するCoordinator README／Threat Model、本CHG、Runtime実装・CLI・報告投影および試験だけを更新対象とする。この非該当判定は、各成果物の既存責務を変更せず、外部送信Policy、Provider Result Schemaまたは配布導入規則の変更として扱わない。
+
+##### `9881843`監査集合の第五次是正
+
+固定Commit `98818435b872025fe4bd6da056f72661f51518e4`／Tree `ba5a48d769d64e6557f94f07510b4a3ba08a8cd0`へのAgent／Architecture／Security再レビューはCritical 1件／Major 5件で`Fail`、Document／Gap／Impact再監査はMajor 5件／Minor 2件で`Fail`だった。前固定版までのProvider Home process間排他、Task専用Recovery IDおよびCandidate期限伝播は解消した一方、完了済みTask Aの回復が同じHost状態を共有する後続Task Bを変更できること、Windows directory `fsync`、Task／Host owner世代と完全inventory、回復用Docker configのTrust、exact ID不存在時のexact name確認、Host cleanupとRuntimeState finalization間のWAL、古いGrantによる後続Grant entryの削除、および安全な人間向け回復表示が残った。現在追加の人間判断は不要であり、部分Passは現在判定へ流用しない。
+
+第五次是正では、一般TaskがHost Operation単位のWindows kernel owner generationをEffect前に取得し、明示回復は同じowner generationを取得できる場合だけHost状態へ触れる。Host management領域にはexact recovery ID／base Hash／nonceのactive run bindingを置き、通常完了とcrash回復の双方で同じHostを参照する全Task記録とactive pointerを走査する。旧Task、複数回復記録、unknown entry、別active bindingまたは不完全な同Host runがあれば推測せず停止する。人間による別process回復へ渡す際はTask process内のHost／logical Home lockを明示的に放棄するが、耐久記録は残してAuthorityをRecovery IDへ限定する。
+
+RuntimeState記録は、file `fsync`と再読取り済みbase、base Hashへ結合したcommit、pointer Hash／Identity、Host active run binding、submission markerおよびDocker ID receiptの順へ変更した。WindowsではNode.jsがdirectory handleの`fsync`を受理しないため、v1の保証範囲を正常OS上のprocess crash回復と明示し、電源断後の完全耐久性を主張しない。通常Host cleanup前にcleanup intent、Host領域とmarkerの不存在確認後にcleanup receiptを書き、receiptと全inventoryが成立した場合だけTask記録を削除する。回復用Docker CLIはRuntimeState内の新規空configだけを使い、Host／Provider／callerのDocker設定を読まない。
+
+Docker資源はID、name、ownership label、image、mount、hardeningおよびNetwork構成を照合し、削除後はexact IDとexact nameの双方の不存在を要求する。復旧記録、pointer、commitおよびreceiptはexact key、bounded canonical JSON、安定IdentityとHashで読み、raw filesystem errorまたはPathを公開reasonへ流さない。CLIの非JSON表示も安全な固定reason、exact Recovery IDおよび次の明示回復commandを保持する。
+
+Provider Home観測の四Hashはpairwise distinctを要求し、Mount Grant useへstable logical Home binding Hashを追加した。古いGrantのcomplete／revokeは、そのGrant自身が現在のactive mount ownerである場合だけactive entryを削除でき、後続Grant Bを消さない。Mount Grant Core／Runtime、Docker Recovery、Docker Effect、Process ControllerおよびCoordinator Taskのcontract revisionを更新し、旧revisionを現行成功経路へaliasしない。
+
+本処置は`Applied`／`Self-checked`であり、新固定Commit／TreeへのNode.js 24全試験、重点coverage、private package check、全体Checkerおよびdiff checkを完了した後、同じAgent／Architecture／Security再レビューとDocument／Gap／Impact再監査を固定集合として再実行する。それらがすべて完了する前はCritical／Major／Minorを`Resolved`、Runtime完成、採用、統合、準拠、Stable、ReleaseまたはPR最終候補としない。正式署名配布物上の一般Task実run、Release鍵passphrase、OAuth再認証、外部Provider送信、PR最終承認／統合およびReleaseは人間操作待ちとする。

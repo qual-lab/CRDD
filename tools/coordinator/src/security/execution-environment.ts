@@ -6,6 +6,7 @@ import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "./host-recovery-record.ts";
+import { acquireRuntimeOwnedHostOperationKernelLock } from "./candidate-store-kernel-lock.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -159,6 +160,9 @@ type OperationGenerationState = {
   nonce: string;
   currentRecordHash: string;
   retired: boolean;
+  generationLock: NonNullable<
+    ReturnType<typeof acquireRuntimeOwnedHostOperationKernelLock>
+  > | null;
 };
 const operationGenerationsByKey = new Map<string, OperationGenerationState>();
 const operationGenerationByRoot = new Map<string, OperationGenerationState>();
@@ -209,6 +213,7 @@ function registerOwnedOperationGeneration(
     nonce: identity.hostRecovery.nonce,
     currentRecordHash: recordHash,
     retired: false,
+    generationLock: null,
   };
   operationGenerationsByKey.set(key, state);
   operationGenerationByRoot.set(identity.root, state);
@@ -219,10 +224,84 @@ function revokeOwnedOperationGeneration(root: string, nonce: string): void {
   const state = operationGenerationsByKey.get(key);
   if (!state) return;
   revokeOwnedOperationContextCapabilities(state.owned);
+  if (state.generationLock) void state.generationLock.release();
   ownedIdentities.delete(state.owned);
   operationGenerationsByKey.delete(key);
   if (operationGenerationByRoot.get(root) === state)
     operationGenerationByRoot.delete(root);
+}
+
+type HostOperationRecoveryGeneration = Readonly<{
+  root: string;
+  nonce: string;
+  lock: NonNullable<
+    ReturnType<typeof acquireRuntimeOwnedHostOperationKernelLock>
+  >;
+}>;
+const hostOperationRecoveryGenerations = new WeakMap<
+  object,
+  HostOperationRecoveryGeneration
+>();
+
+export function acquireHostOperationRecoveryGeneration(token: unknown) {
+  try {
+    const loaded = loadHostRecoveryRecordByToken(token);
+    const root = path.join(loaded.parent, loaded.parsed.rootName);
+    return acquireHostOperationRecoveryGenerationByIdentity(
+      root,
+      loaded.parsed.nonce,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function acquireHostOperationRecoveryGenerationByIdentity(
+  root: unknown,
+  nonce: unknown,
+) {
+  try {
+    if (
+      typeof root !== "string" ||
+      !path.isAbsolute(root) ||
+      path.dirname(root) !== fs.realpathSync(path.dirname(root)) ||
+      typeof nonce !== "string"
+    )
+      return null;
+    const lock = acquireRuntimeOwnedHostOperationKernelLock(
+      path.basename(root),
+      nonce,
+    );
+    if (!lock) return null;
+    const capability = Object.freeze({});
+    hostOperationRecoveryGenerations.set(
+      capability,
+      Object.freeze({ root, nonce, lock }),
+    );
+    return capability;
+  } catch {
+    return null;
+  }
+}
+
+export function releaseHostOperationRecoveryGeneration(capability: unknown) {
+  if (!isObject(capability)) return false;
+  const generation = hostOperationRecoveryGenerations.get(capability);
+  if (!generation) return false;
+  hostOperationRecoveryGenerations.delete(capability);
+  return generation.lock.release();
+}
+
+function verifyHostOperationRecoveryGeneration(
+  capability: unknown,
+  root: string,
+  nonce: string,
+) {
+  const generation = isObject(capability)
+    ? (hostOperationRecoveryGenerations.get(capability) ?? null)
+    : null;
+  if (!generation || generation.root !== root || generation.nonce !== nonce)
+    throw new Error("host_recovery_generation_active");
 }
 
 function retireOwnedOperationGeneration(root: string, nonce: string): void {
@@ -549,12 +628,16 @@ function writeHostRecoveryRecord(
   const recordHash = createHash("sha256").update(serialized).digest("hex");
   const target = identity.hostRecovery.record;
   const temporary = `${target}.${randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, serialized, {
-    encoding: "utf8",
-    flag: "wx",
-    mode: 0o600,
-  });
+  const temporaryHandle = fs.openSync(temporary, "wx", 0o600);
+  try {
+    fs.writeFileSync(temporaryHandle, serialized, "utf8");
+    fs.fsyncSync(temporaryHandle);
+  } finally {
+    fs.closeSync(temporaryHandle);
+  }
   fs.renameSync(temporary, target);
+  if (fs.readFileSync(target, "utf8") !== serialized)
+    throw new Error("host_recovery_record_replaced");
   const updated = Object.freeze({
     ...identity,
     hostRecovery: Object.freeze({
@@ -761,12 +844,16 @@ function replaceHostRecoveryRecordState(
   const serialized = `${JSON.stringify(updatedRecord)}\n`;
   const recordHash = createHash("sha256").update(serialized).digest("hex");
   const temporary = `${loaded.marker}.${randomUUID()}.tmp`;
-  fs.writeFileSync(temporary, serialized, {
-    encoding: "utf8",
-    flag: "wx",
-    mode: 0o600,
-  });
+  const temporaryHandle = fs.openSync(temporary, "wx", 0o600);
+  try {
+    fs.writeFileSync(temporaryHandle, serialized, "utf8");
+    fs.fsyncSync(temporaryHandle);
+  } finally {
+    fs.closeSync(temporaryHandle);
+  }
   fs.renameSync(temporary, loaded.marker);
+  if (fs.readFileSync(loaded.marker, "utf8") !== serialized)
+    throw new Error("host_recovery_record_replaced");
   return Object.freeze({
     recordHash,
     token: `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${recordHash}`,
@@ -820,6 +907,39 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
   }
   validateOwnedOperationIdentity(binding.owned, identity);
   return Object.freeze({ binding, identity });
+}
+
+export function activateOwnedHostOperationGenerationLock(
+  managementCapability: unknown,
+) {
+  const { binding, identity } =
+    ownedOperationFromManagementCapability(managementCapability);
+  const state = ownedOperationGeneration(binding.owned, identity);
+  if (state.generationLock)
+    throw new Error("owned_operation_generation_lock_already_active");
+  const generationLock = acquireRuntimeOwnedHostOperationKernelLock(
+    path.basename(identity.root),
+    identity.hostRecovery.nonce,
+  );
+  if (!generationLock) throw new Error("owned_operation_generation_conflict");
+  state.generationLock = generationLock;
+  return true;
+}
+
+export function abandonOwnedHostOperationGenerationLock(
+  managementCapability: unknown,
+) {
+  try {
+    const { binding, identity } =
+      ownedOperationFromManagementCapability(managementCapability);
+    const state = ownedOperationGeneration(binding.owned, identity, true);
+    if (!state.generationLock) return true;
+    const released = state.generationLock.release();
+    if (released) state.generationLock = null;
+    return released;
+  } catch {
+    return false;
+  }
 }
 
 function transitionOwnedDockerSubmissionByManagement(
@@ -889,11 +1009,19 @@ export function completeOwnedDockerSubmissionRecovery(
   );
 }
 
-export function confirmOwnedDockerAbsenceForRecovery(token: unknown) {
+export function confirmOwnedDockerAbsenceForRecovery(
+  token: unknown,
+  recoveryGenerationCapability: unknown = null,
+) {
   const loaded = loadHostRecoveryRecord(token);
   if (loaded.record.state !== "docker_submission_started")
     throw new Error("host_recovery_state_invalid");
   const root = path.join(loaded.parent, loaded.parsed.rootName);
+  verifyHostOperationRecoveryGeneration(
+    recoveryGenerationCapability,
+    root,
+    loaded.parsed.nonce,
+  );
   if (operationGenerationByRoot.has(root))
     throw new Error("host_recovery_generation_active");
   if (
@@ -1386,9 +1514,15 @@ function loadHostRecoveryRecord(token: unknown): Readonly<{
 
 export function recoverOwnedOperationDirectories(
   token: unknown,
+  suppliedRecoveryGenerationCapability: unknown = null,
 ): Readonly<{ status: "recovered" | "blocked"; reason: string }> {
   let recoveryGeneration: Readonly<{ root: string; nonce: string }> | null =
     null;
+  const ownedRecoveryGenerationCapability = suppliedRecoveryGenerationCapability
+    ? null
+    : acquireHostOperationRecoveryGeneration(token);
+  const recoveryGenerationCapability =
+    suppliedRecoveryGenerationCapability ?? ownedRecoveryGenerationCapability;
   try {
     const { parsed, parent, marker, record } = loadHostRecoveryRecord(token);
     if (record.state === "docker_submission_started")
@@ -1397,6 +1531,11 @@ export function recoverOwnedOperationDirectories(
       throw new Error("host_recovery_state_invalid");
     const root = path.join(parent, parsed.rootName);
     recoveryGeneration = Object.freeze({ root, nonce: parsed.nonce });
+    verifyHostOperationRecoveryGeneration(
+      recoveryGenerationCapability,
+      root,
+      parsed.nonce,
+    );
     const activeGeneration = operationGenerationByRoot.get(root);
     if (
       activeGeneration &&
@@ -1457,6 +1596,7 @@ export function recoverOwnedOperationDirectories(
       "host_recovery_unknown_child",
       "host_recovery_cleanup_incomplete",
       "host_recovery_generation_mismatch",
+      "host_recovery_generation_active",
     ]);
     const message = errorMessage(error);
     if (
@@ -1474,6 +1614,11 @@ export function recoverOwnedOperationDirectories(
       reason:
         message && allowed.has(message) ? message : "host_recovery_failed",
     };
+  } finally {
+    if (ownedRecoveryGenerationCapability)
+      void releaseHostOperationRecoveryGeneration(
+        ownedRecoveryGenerationCapability,
+      );
   }
 }
 

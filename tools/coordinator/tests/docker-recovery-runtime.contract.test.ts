@@ -223,7 +223,7 @@ test("Production Docker Recoveryは不完全なTask planをEffect前に拒否す
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 2,
+    contractRevision: 3,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
@@ -233,11 +233,11 @@ test("Docker Recovery contractはEffect前記録とcleanup後完了を固定す�
     logicalHomeLease:
       "stable_sid_provider_namespace_kernel_lock_and_durable_active_pointer",
     resourceJournal:
-      "submission_marker_before_create_then_exact_docker_id_receipt",
+      "file_fsync_base_commit_pointer_identity_host_active_binding_then_exact_docker_id_receipt",
     offlineRecovery:
       "exact_id_and_configuration_only_unknown_create_outcome_never_adopted",
     hostFinalization:
-      "operation_record_retained_until_host_cleanup_then_exact_removal",
+      "host_generation_owner_and_inventory_then_cleanup_intent_receipt_and_exact_removal",
     cleanupRequiredBeforeCompletion: true,
     callerRecoveryIdAccepted: false,
     providerEffectAllowed: false,

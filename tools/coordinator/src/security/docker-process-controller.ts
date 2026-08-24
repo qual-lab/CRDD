@@ -24,7 +24,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 11;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 12;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -99,8 +99,13 @@ type CommandHandle = Readonly<{
   terminateAndWait: (graceMs: number) => Promise<boolean>;
 }>;
 type Recovery = Readonly<{
+  status?: "ready";
   recoveryId: string;
   recoveryCapability: object;
+}>;
+type BlockedRecovery = Readonly<{
+  status: "blocked";
+  recoveryId: string;
 }>;
 type CleanupObservation = Readonly<{
   confirmed: boolean;
@@ -118,7 +123,7 @@ type RuntimeDependencies = Readonly<{
   beginRecovery: (
     plan: PreparedPlan,
     managementCapability: unknown,
-  ) => Recovery | null;
+  ) => Recovery | BlockedRecovery | null;
   startCommand: (
     command: Command,
     plan: PreparedPlan,
@@ -176,16 +181,20 @@ type RuntimeState = Readonly<{
 }>;
 type ExecutionResult = ReturnType<typeof createFinalResult>;
 
-function createBlockedStart(reason: string, preEffectCleanupConfirmed = false) {
+function createBlockedStart(
+  reason: string,
+  preEffectCleanupConfirmed = false,
+  recoveryId: string | null = null,
+) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
     controlCapability: null,
     completion: null,
     operationId: null,
-    recoveryId: null,
+    recoveryId,
     cleanupConfirmed: preEffectCleanupConfirmed,
-    manualRecoveryRequired: !preEffectCleanupConfirmed,
+    manualRecoveryRequired: !preEffectCleanupConfirmed || recoveryId !== null,
     dockerEffectStarted: false,
     providerRequestStarted: false,
     normalizedResult: null,
@@ -651,7 +660,7 @@ function start(
     );
   }
   const recovery = state.dependencies.beginRecovery(plan, managementCapability);
-  if (!recovery) {
+  if (!recovery || !("recoveryCapability" in recovery)) {
     const completed = state.dependencies.completeMount(
       plan.activeMountCapability,
       managementCapability,
@@ -659,6 +668,7 @@ function start(
     return createBlockedStart(
       "docker_process_controller_recovery_unavailable",
       completed.status === "completed",
+      recovery?.recoveryId ?? null,
     );
   }
   const controlCapability = Object.freeze({});

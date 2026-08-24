@@ -5,7 +5,10 @@ import { once } from "node:events";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { acquireRuntimeOwnedCandidateStoreKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
+import {
+  acquireRuntimeOwnedCandidateStoreKernelLock,
+  acquireRuntimeOwnedHostOperationKernelLock,
+} from "../src/security/candidate-store-kernel-lock.ts";
 
 test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒否する", () => {
   assert.equal(acquireRuntimeOwnedCandidateStoreKernelLock("invalid"), null);
@@ -24,6 +27,41 @@ test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒�
   const next = acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
   assert.ok(next);
   assert.equal(next.release(), true);
+});
+
+test("Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復する", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const rootName = "crdd-coordinator-doctor-ABC123";
+  const nonce = "11111111-2222-4333-8444-555555555555";
+  const child = spawn(
+    process.execPath,
+    [fileURLToPath(ownerFixture), "host", rootName, nonce],
+    {
+      env: {},
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    },
+  );
+  context.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  let stdout = "";
+  while (!stdout.includes("READY\n")) {
+    const [chunk] = (await once(child.stdout, "data")) as [Buffer];
+    stdout += chunk.toString("utf8");
+  }
+  assert.equal(
+    acquireRuntimeOwnedHostOperationKernelLock(rootName, nonce),
+    null,
+  );
+  assert.equal(child.kill(), true);
+  await once(child, "exit");
+  const recovered = acquireRuntimeOwnedHostOperationKernelLock(rootName, nonce);
+  assert.ok(recovered);
+  assert.equal(recovered.release(), true);
 });
 
 const ownerFixture = new URL(
