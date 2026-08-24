@@ -2416,6 +2416,7 @@ unsafe fn launch_worker() -> Option<u32> {
     };
     let mut locked_handles = [null_mut(); 128];
     let mut locked_handle_count = 0;
+    FAILURE_STAGE.store(18, Ordering::Relaxed);
     let supervisor_identity = unsafe {
         lock_local_path_chain(
             supervisor_path,
@@ -2502,7 +2503,7 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { FreeSid(sid) };
         return None;
     };
-    FAILURE_STAGE.store(0, Ordering::Relaxed);
+    FAILURE_STAGE.store(19, Ordering::Relaxed);
     let Some(mut registry_effect) = (unsafe { begin_lowbox_registry_effect() }) else {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         unsafe { DeleteProcThreadAttributeList(attributes) };
@@ -2726,6 +2727,8 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     15 => native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
                     16 => native_bootstrap_core::SELECTED_USER_UNAVAILABLE_BLOCKED,
                     17 => native_bootstrap_core::SELECTED_USER_MISMATCH_BLOCKED,
+                    18 => native_bootstrap_core::RELEASE_TRUST_BLOCKED,
+                    19 => native_bootstrap_core::REGISTRY_EFFECT_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };

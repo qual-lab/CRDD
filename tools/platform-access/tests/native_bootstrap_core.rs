@@ -71,6 +71,14 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_appcontainer_isolation_unavailable",
         ),
         (
+            native_bootstrap_core::RELEASE_TRUST_BLOCKED,
+            "native_provision_release_trust_invalid",
+        ),
+        (
+            native_bootstrap_core::REGISTRY_EFFECT_BLOCKED,
+            "native_provision_registry_effect_unavailable",
+        ),
+        (
             native_bootstrap_core::REQUEST_BLOCKED,
             "native_provision_request_invalid",
         ),
