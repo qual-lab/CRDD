@@ -133,7 +133,7 @@ native Supervisorは親process環境を継承せず、Windows Known Folderから
 
 Worker交換のFail Closed結果は、接続、request書込み、完了待機、response／終了状態の4段階を区別する。各結果は秘密、Pathまたはraw OS errorを含まず、段階の識別だけを返す。正常なPA03／PR03候補、Registry復元またはAuthorityの条件は変更しない。
 
-名前付きPipeは`LOCAL\`のfirst instance、owner／SYSTEM／All Application Packagesの限定DACL、Pipe objectだけのLow integrity mandatory labelおよび接続元PID一致を組み合わせる。Low integrity labelはAppContainer WorkerがMICで拒否されずPipeへ接続するためのobject局所条件であり、OS、Registry、Filesystemまたは他objectのintegrityを変更しない。
+名前付きPipeは、非パッケージWin32 supervisorが作成する非修飾ローカル名のfirst instance、`PIPE_REJECT_REMOTE_CLIENTS`、owner／SYSTEM／All Application Packagesの限定DACL、Pipe objectだけのLow integrity mandatory labelおよび接続元PID一致を組み合わせる。パッケージ名前空間用の`LOCAL\`修飾は使用しない。Low integrity labelはAppContainer WorkerがMICで拒否されずPipeへ接続するためのobject局所条件であり、OS、Registry、Filesystemまたは他objectのintegrityを変更しない。
 
 ## Runtime 1.0の実行基盤
 

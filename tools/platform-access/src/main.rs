@@ -69,7 +69,7 @@ fn execute(reader: &mut impl Read, writer: &mut impl Write, framed: bool) -> i32
 }
 
 fn valid_appcontainer_pipe_name(value: &str) -> bool {
-    const PREFIX: &str = r"\\.\pipe\LOCAL\CRDD.Coordinator.";
+    const PREFIX: &str = r"\\.\pipe\CRDD.Coordinator.";
     let Some(suffix) = value.strip_prefix(PREFIX) else {
         return false;
     };
@@ -123,15 +123,15 @@ mod tests {
     #[test]
     fn accepts_only_fixed_local_appcontainer_pipe_names() {
         assert!(valid_appcontainer_pipe_name(
-            r"\\.\pipe\LOCAL\CRDD.Coordinator.1234"
+            r"\\.\pipe\CRDD.Coordinator.1234"
         ));
         for value in [
-            r"\\.\pipe\CRDD.Coordinator.1234",
-            r"\\.\pipe\LOCAL\CRDD.Coordinator.",
-            r"\\.\pipe\LOCAL\CRDD.Coordinator.0",
-            r"\\.\pipe\LOCAL\CRDD.Coordinator.0123",
-            r"\\.\pipe\LOCAL\CRDD.Coordinator.1234.extra",
-            r"\\.\pipe\LOCAL\Other.1234",
+            r"\\.\pipe\LOCAL\CRDD.Coordinator.1234",
+            r"\\.\pipe\CRDD.Coordinator.",
+            r"\\.\pipe\CRDD.Coordinator.0",
+            r"\\.\pipe\CRDD.Coordinator.0123",
+            r"\\.\pipe\CRDD.Coordinator.1234.extra",
+            r"\\.\pipe\Other.1234",
         ] {
             assert!(!valid_appcontainer_pipe_name(value));
         }

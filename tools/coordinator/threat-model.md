@@ -269,7 +269,7 @@ CHG-000034のspawnless方式とCHG-000035の固定blocked bootstrapは各固定�
 
 Worker交換の失敗結果は、接続、request書込み、完了待機、response／終了状態を区別する固定reasonに限定する。これは診断のために秘密、Path、raw OS errorまたはWorker出力を公開するものではなく、不明な失敗を成功へ昇格しない。
 
-AppContainer WorkerはLow integrityであり、MICはDACLより先に評価される。Supervisor所有Pipeは`LOCAL\`のfirst instance、限定DACLおよび接続元PID結合を維持したまま、そのPipe objectだけへLow integrity mandatory labelを設定する。これをOS全体、Registry、Filesystem、別IPC objectまたは任意AppContainerへの書込み許可へ流用しない。
+AppContainer WorkerはLow integrityであり、MICはDACLより先に評価される。非パッケージWin32 Supervisor所有Pipeは、パッケージ名前空間用の`LOCAL\`修飾を使わないローカル名のfirst instanceとし、`PIPE_REJECT_REMOTE_CLIENTS`、限定DACLおよび接続元PID結合を維持したまま、そのPipe objectだけへLow integrity mandatory labelを設定する。これをOS全体、Registry、Filesystem、別IPC objectまたは任意AppContainerへの書込み許可へ流用しない。
 
 ## 6. 非対象
 

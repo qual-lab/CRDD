@@ -53,6 +53,7 @@ const FILE_FLAG_FIRST_PIPE_INSTANCE: u32 = 0x0008_0000;
 const PIPE_NOWAIT: u32 = 0x0000_0001;
 const PIPE_TYPE_MESSAGE: u32 = 0x0000_0004;
 const PIPE_READMODE_MESSAGE: u32 = 0x0000_0002;
+const PIPE_REJECT_REMOTE_CLIENTS: u32 = 0x0000_0008;
 const ERROR_PIPE_CONNECTED: u32 = 535;
 const PIPE_SECURITY_SDDL: &[u8] = b"D:P(A;;GA;;;OW)(A;;GA;;;SY)(A;;GRGW;;;AC)S:(ML;;NW;;;LW)";
 const HEAP_ZERO_MEMORY: u32 = 0x0000_0008;
@@ -503,7 +504,7 @@ fn append_decimal(buffer: &mut [u16], length: &mut usize, mut value: u32) -> boo
 
 fn fixed_pipe_name(pipe: &mut [u16], process_id: u32) -> Option<usize> {
     let mut length = 0;
-    if !append_ascii(pipe, &mut length, b"\\\\.\\pipe\\LOCAL\\CRDD.Coordinator.")
+    if !append_ascii(pipe, &mut length, b"\\\\.\\pipe\\CRDD.Coordinator.")
         || !append_decimal(pipe, &mut length, process_id)
     {
         return None;
@@ -1863,7 +1864,7 @@ unsafe fn create_local_appcontainer_pipe(name: &[u16]) -> Option<Handle> {
         CreateNamedPipeW(
             name.as_ptr(),
             PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
-            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT | PIPE_REJECT_REMOTE_CLIENTS,
             1,
             8_192,
             8_192,
@@ -2563,6 +2564,18 @@ mod tests {
             b"D:P(A;;GA;;;OW)(A;;GA;;;SY)(A;;GRGW;;;AC)S:(ML;;NW;;;LW)"
         );
         assert!(!PIPE_SECURITY_SDDL.windows(4).any(|value| value == b";;;WD"));
+    }
+
+    #[test]
+    fn pipe_name_and_mode_are_unqualified_local_only() {
+        let mut pipe = [0_u16; 64];
+        let length = fixed_pipe_name(&mut pipe, 1234).expect("fixed pipe name");
+        assert_eq!(
+            String::from_utf16(&pipe[..length]).unwrap(),
+            r"\\.\pipe\CRDD.Coordinator.1234"
+        );
+        assert_eq!(pipe[length], 0);
+        assert_eq!(PIPE_REJECT_REMOTE_CLIENTS, 0x0000_0008);
     }
 
     #[test]
