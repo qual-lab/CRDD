@@ -751,6 +751,7 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     providerRequestIssued: false,
     runtimeAuthorityIssued: false,
     operationCapabilityIssued: false,
-    processController: "not_implemented_step_4",
+    processController:
+      "candidate_consumer_implemented_production_effect_not_connected",
   });
 }

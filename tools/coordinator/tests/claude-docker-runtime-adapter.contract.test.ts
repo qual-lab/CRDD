@@ -369,5 +369,8 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
   assert.equal(contract.fallbackModelArgumentAllowed, false);
   assert.equal(contract.providerDirectEgress, false);
   assert.equal(contract.commandPlanReported, false);
-  assert.equal(contract.processController, "not_implemented_step_4");
+  assert.equal(
+    contract.processController,
+    "candidate_consumer_implemented_production_effect_not_connected",
+  );
 });
