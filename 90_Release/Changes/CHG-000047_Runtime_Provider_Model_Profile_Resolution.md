@@ -35,6 +35,6 @@ Codexのmodel IDと対応effortは[OpenAI公式GPT-5.6 Sol文書](https://develo
 
 Provider Model Profile Runtime revision 1とSelection Grant production接続を実装した。固定Claude imageのoffline help probeはexit 0で終了し、自動削除された。基準Node.js v24.19.0で対象49試験、Coordinator全531試験、strict source／test typecheck、Biome lint／formatおよびRepository全体Checkerを通過した。対象coverageではProvider Model Profile Runtimeのline、branch、functionが全て100%であり、CheckerはMarkdown 380件、local link 2146件、anchor 588件を確認してerror 0／warning 0である。
 
-残件はProfile IDと有効化済みAuthority sourceの現在結合、両Providerの必要Effect Capability、各Eligibility軸の実観測、検証済みDocker Effect executor、durable Recovery adapter、Codex Adapter、実Provider E2E、独立レビュー／監査およびPRである。
+残件はProfile IDと有効化済みAuthority sourceの現在結合、両Providerの必要Effect Capability、各Eligibility軸の実観測、検証済みDocker Effect executor、Codex Adapter、実Provider E2E、独立レビュー／監査およびPRである。durable Recovery adapterは`CHG-000048`で接続済みである。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。

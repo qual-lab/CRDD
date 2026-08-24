@@ -35,6 +35,6 @@ callerが渡す適格性申告は受理しない。不明状態を反対Provider
 
 Provider Eligibility Runtime revision 1とSelection Grant production接続を実装した。基準Node.js v24.19.0で対象45試験、Coordinator全527試験、strict source／test typecheck、Biome lint／formatおよびRepository全体Checkerを通過した。対象coverageではProvider Eligibility Runtimeのline、branch、functionが全て100%であり、CheckerはMarkdown 379件、local link 2143件、anchor 588件を確認してerror 0／warning 0である。
 
-残件は各軸の実Provider観測接続、有効化済みAuthority source loader、検証済みDocker Effect executor、durable Recovery adapter、Codex Adapter、実Provider E2E、独立レビュー／監査およびPRである。production Profile resolverは`CHG-000047`で接続済みである。
+残件は各軸の実Provider観測接続、有効化済みAuthority source loader、検証済みDocker Effect executor、Codex Adapter、実Provider E2E、独立レビュー／監査およびPRである。production Profile resolverは`CHG-000047`、durable Recovery adapterは`CHG-000048`で接続済みである。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。

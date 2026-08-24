@@ -27,7 +27,7 @@
     "platform-access:worker-build": "cargo +1.94.1-x86_64-pc-windows-msvc build --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin crdd-platform-access",
     "platform-access:worker-lint": "cargo +1.94.1-x86_64-pc-windows-msvc clippy --manifest-path ../platform-access/Cargo.toml --frozen --target x86_64-pc-windows-msvc --bin crdd-platform-access -- -D warnings",
     "delegation-route-selection:coverage": "node --experimental-test-coverage --test ./tests/provider-eligibility-runtime.contract.test.ts ./tests/provider-model-profile-runtime.contract.test.ts ./tests/delegation-route-selection.contract.test.ts ./tests/delegation-selection-grant-runtime.contract.test.ts ./tests/claude-docker-runtime-adapter.contract.test.ts ./tests/provider-model-selection-runtime.contract.test.ts",
-    "docker-process-controller:coverage": "node --experimental-test-coverage --test ./tests/claude-structured-result.contract.test.ts ./tests/docker-process-controller.contract.test.ts ./tests/coordinator-claude-delegation.integration.test.ts",
+    "docker-process-controller:coverage": "node --experimental-test-coverage --test ./tests/claude-structured-result.contract.test.ts ./tests/docker-recovery-runtime.contract.test.ts ./tests/docker-process-controller.contract.test.ts ./tests/coordinator-claude-delegation.integration.test.ts",
     "provider-authority:coverage": "node ./scripts/check-provider-authority-coverage.ts",
     "provider-home:coverage": "node ./scripts/check-provider-home-coverage.ts",
     "provider-home-mount-grant:coverage": "node --experimental-test-coverage --test ./tests/plain-data-snapshot.contract.test.ts ./tests/provider-home-mount-grant.contract.test.ts",

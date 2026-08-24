@@ -1,11 +1,17 @@
 import { createHash } from "node:crypto";
 
+import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "./claude-docker-runtime-adapter.ts";
 import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
+import {
+  beginRuntimeOwnedDockerRecovery,
+  completeRuntimeOwnedDockerRecovery,
+} from "./docker-recovery-runtime.ts";
 import { consumeRuntimeOwnedProviderAuthority } from "./provider-authority-runtime.ts";
+import { completeRuntimeOwnedProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 3;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 4;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -489,8 +495,9 @@ async function cancel(
 const productionState: RuntimeState = Object.freeze({
   dependencies: Object.freeze({
     effectExecutorAvailable: false,
-    consumePreparedPlan: () => null,
-    beginRecovery: () => null,
+    consumePreparedPlan:
+      consumeRuntimeOwnedClaudeDockerPlanForProcessController,
+    beginRecovery: beginRuntimeOwnedDockerRecovery,
     startCommand: () => {
       throw new Error("docker_process_controller_effect_unavailable");
     },
@@ -501,8 +508,8 @@ const productionState: RuntimeState = Object.freeze({
         containersAbsent: false,
         networksAbsent: false,
       }),
-    completeMount: () => Object.freeze({ status: "blocked" }),
-    completeRecovery: () => Object.freeze({ status: "blocked" }),
+    completeMount: completeRuntimeOwnedProviderHomeMount,
+    completeRecovery: completeRuntimeOwnedDockerRecovery,
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),
@@ -579,6 +586,9 @@ export function describeDockerProcessControllerContract() {
     rawOutputReported: false,
     hostPathReported: false,
     proxyCredentialReported: false,
+    productionPreparedPlan: "runtime_owned_adapter_connected",
+    productionRecovery: "durable_host_recovery_connected",
+    productionMountCompletion: "runtime_owned_mount_lease_connected",
     productionEffectExecutor: "not_connected",
   });
 }

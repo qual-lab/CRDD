@@ -711,18 +711,37 @@ function activeOwnedTransitionInputs(
   state: OperationGenerationState;
   identity: OwnedIdentity;
 }> {
+  const mount = isObject(mountCapability)
+    ? (mountCapabilities.get(mountCapability) ?? null)
+    : null;
+  if (!mount) throw new Error("owned_operation_mount_capability_required");
+  return activeOwnedTransitionInputsForOwned(
+    mount.owned,
+    currentToken,
+    expectedState,
+    "owned_operation_mount_capability_required",
+  );
+}
+
+function activeOwnedTransitionInputsForOwned(
+  owned: object,
+  currentToken: unknown,
+  expectedState: "host_only" | "docker_submission_started",
+  bindingError = "owned_operation_management_binding_required",
+): Readonly<{
+  loaded: ReturnType<typeof loadHostRecoveryRecord>;
+  state: OperationGenerationState;
+  identity: OwnedIdentity;
+}> {
   const loaded = loadHostRecoveryRecord(currentToken);
   if (loaded.record.state !== expectedState)
     throw new Error("host_recovery_state_invalid");
   const root = path.join(loaded.parent, loaded.parsed.rootName);
   const state = operationGenerationByRoot.get(root);
-  const mount = isObject(mountCapability)
-    ? (mountCapabilities.get(mountCapability) ?? null)
-    : null;
-  if (!state || !mount || mount.owned !== state.owned || state.retired)
-    throw new Error("owned_operation_mount_capability_required");
+  if (!state || state.owned !== owned || state.retired)
+    throw new Error(bindingError);
   const identity = ownedIdentities.get(state.owned);
-  if (!identity) throw new Error("owned_operation_mount_capability_required");
+  if (!identity) throw new Error(bindingError);
   validateOwnedOperationIdentity(state.owned, identity);
   if (
     loaded.parsed.nonce !== state.nonce ||
@@ -784,6 +803,81 @@ export function transitionOwnedDockerSubmissionState(
   );
   state.currentRecordHash = updated.recordHash;
   return updated.token;
+}
+
+function ownedOperationFromManagementCapability(managementCapability: unknown) {
+  const binding = isObject(managementCapability)
+    ? (operationManagementCapabilities.get(managementCapability) ?? null)
+    : null;
+  if (!binding) throw new Error("owned_operation_management_binding_required");
+  const identity = ownedIdentities.get(binding.owned);
+  if (
+    !identity ||
+    identity.operationId !== binding.operationId ||
+    identity.createdAt !== binding.createdAt
+  ) {
+    throw new Error("owned_operation_management_binding_required");
+  }
+  validateOwnedOperationIdentity(binding.owned, identity);
+  return Object.freeze({ binding, identity });
+}
+
+function transitionOwnedDockerSubmissionByManagement(
+  managementCapability: unknown,
+  currentToken: unknown,
+  action: "begin" | "cancel",
+) {
+  const { binding } =
+    ownedOperationFromManagementCapability(managementCapability);
+  const expectedState =
+    action === "begin" ? "host_only" : "docker_submission_started";
+  const nextState =
+    action === "begin" ? "docker_submission_started" : "host_only";
+  const { loaded, state, identity } = activeOwnedTransitionInputsForOwned(
+    binding.owned,
+    currentToken,
+    expectedState,
+  );
+  const updated = replaceHostRecoveryRecordState(loaded, nextState);
+  ownedIdentities.set(
+    state.owned,
+    Object.freeze({
+      ...identity,
+      hostRecovery: Object.freeze({
+        ...identity.hostRecovery,
+        state: nextState,
+        recordHash: updated.recordHash,
+      }),
+    }),
+  );
+  state.currentRecordHash = updated.recordHash;
+  return updated.token;
+}
+
+export function beginOwnedDockerSubmissionRecovery(
+  managementCapability: unknown,
+  operationId: unknown,
+) {
+  const { binding, identity } =
+    ownedOperationFromManagementCapability(managementCapability);
+  if (operationId !== binding.operationId)
+    throw new Error("owned_operation_management_binding_required");
+  return transitionOwnedDockerSubmissionByManagement(
+    managementCapability,
+    expectedHostRecoveryToken(identity),
+    "begin",
+  );
+}
+
+export function completeOwnedDockerSubmissionRecovery(
+  managementCapability: unknown,
+  recoveryToken: unknown,
+) {
+  return transitionOwnedDockerSubmissionByManagement(
+    managementCapability,
+    recoveryToken,
+    "cancel",
+  );
 }
 
 export function adoptOwnedHostRecoveryRecordTransition(

@@ -369,7 +369,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,
@@ -378,5 +378,14 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.hostPathReported, false);
   assert.equal(contract.proxyCredentialReported, false);
+  assert.equal(
+    contract.productionPreparedPlan,
+    "runtime_owned_adapter_connected",
+  );
+  assert.equal(contract.productionRecovery, "durable_host_recovery_connected");
+  assert.equal(
+    contract.productionMountCompletion,
+    "runtime_owned_mount_lease_connected",
+  );
   assert.equal(contract.productionEffectExecutor, "not_connected");
 });
