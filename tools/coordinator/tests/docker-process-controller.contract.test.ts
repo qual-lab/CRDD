@@ -32,6 +32,10 @@ function createPlan(
     activeMountCapability,
     authorityUseCapability,
     providerHomeSourcePath: "C:\\runtime-owned\\claude-home",
+    providerHomeIdentityHash: "a".repeat(64),
+    providerHomeProtectionHash: "b".repeat(64),
+    localUserBindingHash: "c".repeat(64),
+    stableLogicalHomeBindingHash: "d".repeat(64),
     authContainerName: `crdd-auth-${suffix}`,
     providerContainerName: `crdd-claude-${suffix}`,
     proxyContainerName: `crdd-proxy-${suffix}`,
@@ -101,6 +105,7 @@ function createFixture(
   let recoveryCompletionCount = 0;
   let commandCount = 0;
   let cleanupCount = 0;
+  const recoveryEvents: string[] = [];
   const dependencies = {
     effectExecutorAvailable: true,
     verifyRevision: () => Object.freeze({ revisionCurrent: true }),
@@ -150,7 +155,31 @@ function createFixture(
     },
     completeRecovery: () => {
       recoveryCompletionCount += 1;
-      return Object.freeze({ status: "completed" });
+      recoveryEvents.push("recovery-completed");
+      return Object.freeze({
+        status: "completed",
+        recoveryFinalizationCapability: Object.freeze({}),
+      });
+    },
+    markResourceSubmission: (_capability: object, purpose: string) => {
+      recoveryEvents.push(`submission:${purpose}`);
+      return true;
+    },
+    recordResourceReceipt: (
+      _capability: object,
+      purpose: string,
+      _dockerId: string,
+    ) => {
+      recoveryEvents.push(`receipt:${purpose}`);
+      return true;
+    },
+    recordDockerAbsence: () => {
+      recoveryEvents.push("docker-absence");
+      return true;
+    },
+    recordMountCompletion: () => {
+      recoveryEvents.push("mount-completion");
+      return true;
     },
     consumeProviderAuthority: (
       use: unknown,
@@ -184,6 +213,7 @@ function createFixture(
     getCleanupCount: () => cleanupCount,
     getMountCompletionCount: () => mountCompletionCount,
     getRecoveryCompletionCount: () => recoveryCompletionCount,
+    getRecoveryEvents: () => [...recoveryEvents],
   };
 }
 
@@ -212,6 +242,45 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.equal(fixture.getCleanupCount(), 1);
   assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 1);
+  assert.deepEqual(fixture.getRecoveryEvents().slice(-3), [
+    "docker-absence",
+    "mount-completion",
+    "recovery-completed",
+  ]);
+  for (const purpose of [
+    "create_subscription_auth_probe",
+    "create_internal_network",
+    "create_egress_network",
+    "create_proxy",
+    "create_provider",
+  ]) {
+    const events = fixture.getRecoveryEvents();
+    assert.ok(events.indexOf(`submission:${purpose}`) >= 0);
+    assert.ok(
+      events.indexOf(`submission:${purpose}`) <
+        events.indexOf(`receipt:${purpose}`),
+    );
+  }
+});
+
+test("Docker create前の耐久submission markerを書けなければEffectを開始しない", async () => {
+  let commandStarted = false;
+  const fixture = createFixture({
+    markResourceSubmission: () => false,
+    startCommand: () => {
+      commandStarted = true;
+      throw new Error("must_not_start");
+    },
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(started.status, "started");
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(commandStarted, false);
+  assert.equal(result.reason, "docker_resource_submission_record_unavailable");
 });
 
 test("Subscription OAuthを確認できなければProvider request前に停止する", async () => {
@@ -589,7 +658,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 10);
+  assert.equal(contract.contractRevision, 11);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);
@@ -604,7 +673,10 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
     contract.productionPreparedPlan,
     "runtime_owned_adapter_connected",
   );
-  assert.equal(contract.productionRecovery, "durable_host_recovery_connected");
+  assert.equal(
+    contract.productionRecovery,
+    "runtime_state_docker_task_recovery_and_deferred_host_finalization_connected",
+  );
   assert.equal(
     contract.productionMountCompletion,
     "runtime_owned_mount_lease_connected",

@@ -28,6 +28,7 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
+import { recoverRuntimeOwnedDockerTask } from "../src/security/docker-recovery-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { runPlatformProvisionerEffect } from "../src/security/platform-provisioner-effect.ts";
 import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
@@ -496,7 +497,9 @@ if (
       recoveryId !== null
         ? recoveryId.startsWith("host.")
           ? recoverOwnedOperationDirectories(recoveryId)
-          : recoverDockerIsolationProbe(recoveryId)
+          : recoveryId.startsWith("docker-task.")
+            ? recoverRuntimeOwnedDockerTask(recoveryId)
+            : recoverDockerIsolationProbe(recoveryId)
         : runDoctor({
             activeIsolation: options.activeIsolation,
             cwd: process.cwd(),

@@ -13,6 +13,10 @@ import {
   cancelRuntimeOwnedDockerProcessController,
   startRuntimeOwnedDockerProcessController,
 } from "./docker-process-controller.ts";
+import {
+  finalizeRuntimeOwnedDockerRecovery,
+  inspectRuntimeOwnedDockerTaskRecoveryState,
+} from "./docker-recovery-runtime.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
@@ -48,7 +52,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 4;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 5;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -127,6 +131,7 @@ type RuntimeDependencies = Readonly<{
     repositoryBindingCapability: object,
   ) => RuntimeRecord | null;
   prepareCandidateStore: () => RuntimeRecord;
+  prepareDockerRecoveryState?: () => RuntimeRecord;
   reportSelectionNotice: (notice: RuntimeRecord) => boolean;
   issueTaskPacket: (
     managementCapability: object,
@@ -180,6 +185,7 @@ type RuntimeDependencies = Readonly<{
   ) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
   publishCandidate: (candidateRecoveryId: string) => RuntimeRecord | null;
+  finalizeDockerRecovery?: (capability: object) => RuntimeRecord;
 }>;
 type ControlRecord = {
   managementCapability: object;
@@ -188,6 +194,9 @@ type ControlRecord = {
   ownedOperation: object | null;
   retainOperationRoot: boolean;
   hostRecoveryId: string | null;
+  dockerFinalizations: Array<
+    Readonly<{ capability: object; recoveryId: string }>
+  >;
 };
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
@@ -562,6 +571,28 @@ async function executeStage(
         ),
       });
     }
+    const finalizationCapability = objectCapability(
+      result.recoveryFinalizationCapability,
+    );
+    if (
+      state.dependencies.finalizeDockerRecovery &&
+      (!finalizationCapability || !startedDockerRecoveryId)
+    ) {
+      return blocked(
+        "coordinator_task_docker_finalization_capability_missing",
+        true,
+        operation.hostRecoveryId,
+        startedDockerRecoveryId,
+      );
+    }
+    if (finalizationCapability && startedDockerRecoveryId) {
+      control.dockerFinalizations.push(
+        Object.freeze({
+          capability: finalizationCapability,
+          recoveryId: startedDockerRecoveryId,
+        }),
+      );
+    }
     return Object.freeze({
       status: "completed" as const,
       provider,
@@ -605,6 +636,16 @@ async function run(
   const request = snapshotRequest(rawRequest);
   if (!request || typeof repositoryRoot !== "string" || !repositoryRoot) {
     return blocked("coordinator_task_request_invalid");
+  }
+  const dockerRecoveryState = state.dependencies.prepareDockerRecoveryState?.();
+  if (dockerRecoveryState && dockerRecoveryState.status !== "completed") {
+    return blocked(
+      stringValue(dockerRecoveryState.reason) ??
+        "coordinator_task_docker_recovery_state_unavailable",
+      true,
+      null,
+      stringValue(dockerRecoveryState.dockerRecoveryId),
+    );
   }
   let operation: Operation | null = null;
   let retainOperationRoot = false;
@@ -944,6 +985,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   authorizeExternalSend: requestRuntimeOwnedExternalSendGrant,
   resolveExternalSendPolicy: resolveRuntimeOwnedExternalSendPolicy,
   prepareCandidateStore: runRuntimeOwnedCandidateStoreStartupGc,
+  prepareDockerRecoveryState: inspectRuntimeOwnedDockerTaskRecoveryState,
   reportSelectionNotice: (notice) => {
     try {
       process.stderr.write(
@@ -986,6 +1028,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   persistCandidate: persistRuntimeOwnedCandidateRevision,
   discardCandidate: discardRuntimeOwnedCandidateBundle,
   publishCandidate: publishRuntimeOwnedCandidateBundle,
+  finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
 });
 
 function createRuntime(dependencies: RuntimeDependencies) {
@@ -1007,6 +1050,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         ownedOperation: null,
         retainOperationRoot: false,
         hostRecoveryId: null,
+        dockerFinalizations: [],
       };
       state.controls.set(controlCapability, control);
       const completion = run(
@@ -1021,6 +1065,24 @@ function createRuntime(dependencies: RuntimeDependencies) {
           try {
             if (control.ownedOperation && !control.retainOperationRoot) {
               state.dependencies.cleanupOperation(control.ownedOperation);
+            }
+            const finalizeDockerRecovery =
+              state.dependencies.finalizeDockerRecovery;
+            for (const finalization of control.dockerFinalizations) {
+              const finalized = finalizeDockerRecovery?.(
+                finalization.capability,
+              );
+              if (finalized?.status !== "completed") {
+                return blocked(
+                  "coordinator_task_docker_recovery_finalization_unconfirmed",
+                  true,
+                  null,
+                  finalization.recoveryId,
+                  stringValue(result.candidateRecoveryId),
+                  false,
+                  stringValue(result.candidateStoreRecoveryId),
+                );
+              }
             }
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
             if (!candidateRecoveryId) return result;
@@ -1072,6 +1134,11 @@ function createRuntime(dependencies: RuntimeDependencies) {
             return Object.freeze({
               ...result,
               candidateId,
+              expiresAtMs:
+                Number.isSafeInteger(published.expiresAtMs) &&
+                Number(published.expiresAtMs) >= 0
+                  ? Number(published.expiresAtMs)
+                  : null,
               candidateRecoveryId: null,
               candidateStoreRecoveryId: null,
             });
@@ -1176,6 +1243,8 @@ export function describeCoordinatorTaskRuntimeContract() {
       "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
     candidateStorePreflight:
       "runtime_owned_protected_store_and_bounded_gc_before_external_send_authority",
+    dockerRecoveryPreflight:
+      "runtime_owned_bounded_state_audit_before_task_operation",
     independentReview: "subject_provider_excluded",
     boundedRemediation:
       "maximum_one_same_executor_then_same_independent_reviewer",
@@ -1183,11 +1252,12 @@ export function describeCoordinatorTaskRuntimeContract() {
       "exact_bound_repository_commit_policy_plus_terminal_safe_full_scope_confirmation",
     recoveryIdentifiers: Object.freeze([
       "host",
-      "docker",
+      "docker_task",
       "candidate",
       "candidate_store",
     ]),
     resultPublication: "cleanup_and_candidate_reverification_required",
+    candidateExpiryPublication: "validated_published_expires_at_ms",
     canonicalRepositoryEffectAllowed: false,
     directProviderToProviderSpawnAllowed: false,
     apiKeyFallbackAllowed: false,

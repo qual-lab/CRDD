@@ -13,10 +13,11 @@ import {
 } from "./codex-execution-plan.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
+import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-runtime.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 5;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 6;
 
 const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
@@ -44,6 +45,10 @@ type PreparedPlan = Readonly<{
   activeMountCapability: object;
   authorityUseCapability: object;
   providerHomeSourcePath: string;
+  providerHomeIdentityHash: string;
+  providerHomeProtectionHash: string;
+  localUserBindingHash: string;
+  stableLogicalHomeBindingHash: string;
   authContainerName: string;
   providerContainerName: string;
   proxyContainerName: string;
@@ -107,6 +112,7 @@ type RuntimeDependencies = Readonly<{
     environment: Readonly<Record<string, string>>,
     stdin: string | null,
   ) => OwnedCommandHandle;
+  inspectReceipts?: typeof inspectRuntimeOwnedDockerResourceReceipts;
 }>;
 
 function filesystemIdentity(target: string, expected: "file" | "directory") {
@@ -546,6 +552,10 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
       plan.egressNetworkName,
     ].some((value) => !SAFE_IDENTIFIER.test(value)) ||
     plan.providerHomeSourcePath.length === 0 ||
+    !/^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) ||
+    !/^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) ||
+    !/^[a-f0-9]{64}$/u.test(plan.localUserBindingHash) ||
+    !/^[a-f0-9]{64}$/u.test(plan.stableLogicalHomeBindingHash) ||
     /[\0\r\n,]/u.test(plan.providerHomeSourcePath)
   ) {
     return false;
@@ -683,14 +693,187 @@ function createRuntime(dependencies: RuntimeDependencies) {
     return result;
   }
 
-  async function inspectOwned(
+  async function inspectExactResource(
+    context: ExecutionContext,
+    kind: "container" | "network",
+    dockerId: string,
+    expectedName: string,
+    ownershipLabel: string,
+    expectedImage: string | null,
+    expectedInternal: boolean | null,
+    purpose:
+      | "create_subscription_auth_probe"
+      | "create_internal_network"
+      | "create_egress_network"
+      | "create_proxy"
+      | "create_provider",
+    plan: PreparedPlan,
+  ) {
+    const result = await runShort(
+      context,
+      kind === "container"
+        ? ["container", "inspect", dockerId]
+        : ["network", "inspect", dockerId],
+    );
+    if (
+      result?.status !== 0 ||
+      result.signal !== null ||
+      result.outputExceeded ||
+      result.stderr.length !== 0 ||
+      Buffer.byteLength(result.stdout, "utf8") > STDOUT_LIMIT_BYTES
+    )
+      return "unknown" as const;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.stdout);
+    } catch {
+      return "unknown" as const;
+    }
+    if (!Array.isArray(parsed) || parsed.length !== 1)
+      return "foreign" as const;
+    const resource = parsed[0] as Record<string, unknown>;
+    const labels =
+      kind === "container"
+        ? (resource.Config as Record<string, unknown> | undefined)?.Labels
+        : resource.Labels;
+    const labelValue = ownershipLabel.slice(ownershipLabel.indexOf("=") + 1);
+    const name = kind === "container" ? resource.Name : resource.Name;
+    const normalizedName =
+      kind === "container" && typeof name === "string" && name.startsWith("/")
+        ? name.slice(1)
+        : name;
+    const configurationMatches = (() => {
+      if (kind === "network")
+        return resource.Driver === "bridge" && resource.Scope === "local";
+      const config = resource.Config as Record<string, unknown> | undefined;
+      const hostConfig = resource.HostConfig as
+        | Record<string, unknown>
+        | undefined;
+      const networkSettings = resource.NetworkSettings as
+        | Record<string, unknown>
+        | undefined;
+      const networks = networkSettings?.Networks;
+      const networkNames =
+        networks && typeof networks === "object" && !Array.isArray(networks)
+          ? Object.keys(networks as Record<string, unknown>).sort()
+          : [];
+      const expectedNetworks =
+        purpose === "create_subscription_auth_probe"
+          ? []
+          : purpose === "create_proxy"
+            ? [plan.egressNetworkName, plan.internalNetworkName].sort()
+            : [plan.internalNetworkName];
+      const capDrop = Array.isArray(hostConfig?.CapDrop)
+        ? hostConfig.CapDrop.map(String)
+        : [];
+      const capAdd = hostConfig?.CapAdd;
+      const securityOpt = Array.isArray(hostConfig?.SecurityOpt)
+        ? hostConfig.SecurityOpt.map(String)
+        : [];
+      const expectedPids =
+        purpose === "create_subscription_auth_probe" ? 32 : 64;
+      const bindMounts = Array.isArray(resource.Mounts)
+        ? (resource.Mounts as Array<Record<string, unknown>>).filter(
+            (mount) => mount.Type === "bind",
+          )
+        : [];
+      const expectedMounts =
+        purpose === "create_subscription_auth_probe"
+          ? [{ destination: "/provider-home", readWrite: false }]
+          : purpose === "create_provider"
+            ? [
+                { destination: "/provider-home", readWrite: true },
+                { destination: "/tmp", readWrite: true },
+                ...(plan.operationMode === "isolated_task"
+                  ? [
+                      {
+                        destination: "/work",
+                        readWrite: plan.workspaceMountMode !== "read_only",
+                      },
+                    ]
+                  : []),
+              ]
+            : [];
+      const observedMounts = bindMounts
+        .map((mount) => ({
+          destination: mount.Destination,
+          readWrite: mount.RW,
+          propagation: mount.Propagation,
+        }))
+        .sort((left, right) =>
+          String(left.destination).localeCompare(String(right.destination)),
+        );
+      const sortedExpectedMounts = [...expectedMounts].sort((left, right) =>
+        left.destination.localeCompare(right.destination),
+      );
+      const mountsMatch =
+        observedMounts.length === sortedExpectedMounts.length &&
+        observedMounts.every(
+          (mount, index) =>
+            mount.destination === sortedExpectedMounts[index]?.destination &&
+            mount.readWrite === sortedExpectedMounts[index]?.readWrite &&
+            mount.propagation === "rprivate",
+        );
+      const tmpfs = hostConfig?.Tmpfs;
+      const proxyTmpfsMatches =
+        purpose !== "create_proxy" ||
+        (tmpfs !== null &&
+          typeof tmpfs === "object" &&
+          !Array.isArray(tmpfs) &&
+          Object.keys(tmpfs as Record<string, unknown>).length === 1 &&
+          typeof (tmpfs as Record<string, unknown>)["/tmp"] === "string" &&
+          String((tmpfs as Record<string, unknown>)["/tmp"]).includes(
+            "noexec",
+          ) &&
+          String((tmpfs as Record<string, unknown>)["/tmp"]).includes(
+            "nosuid",
+          ) &&
+          String((tmpfs as Record<string, unknown>)["/tmp"]).includes(
+            "size=16777216",
+          ));
+      return (
+        config?.User === "65534:65534" &&
+        hostConfig?.ReadonlyRootfs === true &&
+        hostConfig?.Privileged === false &&
+        capDrop.length === 1 &&
+        capDrop[0]?.toUpperCase() === "ALL" &&
+        (capAdd === null || (Array.isArray(capAdd) && capAdd.length === 0)) &&
+        securityOpt.some((option) => option.startsWith("no-new-privileges")) &&
+        hostConfig?.PidsLimit === expectedPids &&
+        networkNames.length === expectedNetworks.length &&
+        networkNames.every(
+          (value, index) => value === expectedNetworks[index],
+        ) &&
+        mountsMatch &&
+        proxyTmpfsMatches
+      );
+    })();
+    if (
+      resource.Id !== dockerId ||
+      normalizedName !== expectedName ||
+      !labels ||
+      typeof labels !== "object" ||
+      (labels as Record<string, unknown>)["crdd.coordinator.runtime"] !==
+        labelValue ||
+      (kind === "container" &&
+        (resource.Config as Record<string, unknown> | undefined)?.Image !==
+          expectedImage) ||
+      (kind === "network" && resource.Internal !== expectedInternal) ||
+      !configurationMatches
+    )
+      return "foreign" as const;
+    return "owned" as const;
+  }
+
+  async function removeCandidateResourceByName(
     context: ExecutionContext,
     kind: "container" | "network",
     name: string,
     ownershipLabel: string,
   ) {
     const labelValue = ownershipLabel.slice(ownershipLabel.indexOf("=") + 1);
-    const argv =
+    const list = await runShort(
+      context,
       kind === "container"
         ? [
             "container",
@@ -708,50 +891,137 @@ function createRuntime(dependencies: RuntimeDependencies) {
             `name=^${name}$`,
             "--format",
             '{{.Name}}|{{.Label "crdd.coordinator.runtime"}}',
-          ];
-    const result = await runShort(context, argv);
+          ],
+    );
     if (
-      result?.status !== 0 ||
-      result.signal !== null ||
-      result.outputExceeded ||
-      result.stderr.length !== 0
-    ) {
-      return "unknown" as const;
-    }
-    const lines = result.stdout.trim().length
-      ? result.stdout.trim().split(/\r?\n/u)
-      : [];
-    if (lines.length === 0) return "absent" as const;
-    return lines.length === 1 && lines[0] === `${name}|${labelValue}`
-      ? ("owned" as const)
-      : ("foreign" as const);
+      list?.status !== 0 ||
+      list.signal !== null ||
+      list.outputExceeded ||
+      list.stderr.length !== 0
+    )
+      return false;
+    const lines = list.stdout.trim() ? list.stdout.trim().split(/\r?\n/u) : [];
+    if (lines.length === 0) return true;
+    if (lines.length !== 1 || lines[0] !== `${name}|${labelValue}`)
+      return false;
+    const removal = await runShort(
+      context,
+      kind === "container"
+        ? ["container", "rm", "--force", name]
+        : ["network", "rm", name],
+    );
+    if (
+      removal?.status !== 0 ||
+      removal.signal !== null ||
+      removal.outputExceeded
+    )
+      return false;
+    const after = await runShort(
+      context,
+      kind === "container"
+        ? [
+            "container",
+            "ls",
+            "--all",
+            "--filter",
+            `name=^/${name}$`,
+            "--format",
+            '{{.Names}}|{{.Label "crdd.coordinator.runtime"}}',
+          ]
+        : [
+            "network",
+            "ls",
+            "--filter",
+            `name=^${name}$`,
+            "--format",
+            '{{.Name}}|{{.Label "crdd.coordinator.runtime"}}',
+          ],
+    );
+    return (
+      after?.status === 0 &&
+      after.stderr.length === 0 &&
+      after.stdout.trim() === ""
+    );
   }
 
-  async function removeOwned(
+  async function exactResourceAbsent(
     context: ExecutionContext,
     kind: "container" | "network",
-    name: string,
-    ownershipLabel: string,
+    dockerId: string,
   ) {
-    const before = await inspectOwned(context, kind, name, ownershipLabel);
-    if (before === "foreign" || before === "unknown") return false;
-    if (before === "owned") {
-      const removal = await runShort(
-        context,
-        kind === "container"
-          ? ["container", "rm", "--force", name]
-          : ["network", "rm", name],
-      );
-      if (
-        removal?.status !== 0 ||
-        removal.signal !== null ||
-        removal.outputExceeded
-      ) {
-        return false;
-      }
-    }
+    const result = await runShort(
+      context,
+      kind === "container"
+        ? [
+            "container",
+            "ls",
+            "--all",
+            "--no-trunc",
+            "--filter",
+            `id=${dockerId}`,
+            "--format",
+            "{{.ID}}",
+          ]
+        : [
+            "network",
+            "ls",
+            "--no-trunc",
+            "--filter",
+            `id=${dockerId}`,
+            "--format",
+            "{{.ID}}",
+          ],
+    );
     return (
-      (await inspectOwned(context, kind, name, ownershipLabel)) === "absent"
+      result?.status === 0 &&
+      result.signal === null &&
+      !result.outputExceeded &&
+      result.stderr.length === 0 &&
+      result.stdout.trim() === ""
+    );
+  }
+
+  async function removeExactResource(
+    context: ExecutionContext,
+    kind: "container" | "network",
+    state: Readonly<{ submitted: boolean; dockerId: string | null }>,
+    expectedName: string,
+    ownershipLabel: string,
+    expectedImage: string | null,
+    expectedInternal: boolean | null,
+    purpose:
+      | "create_subscription_auth_probe"
+      | "create_internal_network"
+      | "create_egress_network"
+      | "create_proxy"
+      | "create_provider",
+    plan: PreparedPlan,
+  ) {
+    if (!state.submitted) return state.dockerId === null;
+    if (!state.dockerId) return false;
+    const before = await inspectExactResource(
+      context,
+      kind,
+      state.dockerId,
+      expectedName,
+      ownershipLabel,
+      expectedImage,
+      expectedInternal,
+      purpose,
+      plan,
+    );
+    if (before !== "owned") return false;
+    const removal = await runShort(
+      context,
+      kind === "container"
+        ? ["container", "rm", "--force", state.dockerId]
+        : ["network", "rm", state.dockerId],
+    );
+    return (
+      removal?.status === 0 &&
+      removal.signal === null &&
+      !removal.outputExceeded &&
+      (await exactResourceAbsent(context, kind, state.dockerId))
     );
   }
 
@@ -789,35 +1059,135 @@ function createRuntime(dependencies: RuntimeDependencies) {
       if (!(await handle.terminateAndWait(5_000)) || !handle.closed())
         processTreeTerminated = false;
     }
-    const providerAbsent = await removeOwned(
+    const receipts = dependencies.inspectReceipts
+      ? dependencies.inspectReceipts(recoveryCapability)
+      : null;
+    if (!dependencies.inspectReceipts) {
+      const providerAbsent = await removeCandidateResourceByName(
+        context,
+        "container",
+        plan.providerContainerName,
+        plan.ownershipLabel,
+      );
+      const authAbsent = await removeCandidateResourceByName(
+        context,
+        "container",
+        plan.authContainerName,
+        plan.ownershipLabel,
+      );
+      const proxyAbsent = await removeCandidateResourceByName(
+        context,
+        "container",
+        plan.proxyContainerName,
+        plan.ownershipLabel,
+      );
+      const internalAbsent = await removeCandidateResourceByName(
+        context,
+        "network",
+        plan.internalNetworkName,
+        plan.ownershipLabel,
+      );
+      const egressAbsent = await removeCandidateResourceByName(
+        context,
+        "network",
+        plan.egressNetworkName,
+        plan.ownershipLabel,
+      );
+      const containersAbsent = providerAbsent && authAbsent && proxyAbsent;
+      const networksAbsent = internalAbsent && egressAbsent;
+      let configRemoved = false;
+      if (
+        processTreeTerminated &&
+        containersAbsent &&
+        networksAbsent &&
+        dependencies.configEntries(context.configDirectory).length === 0
+      ) {
+        dependencies.verifyConfig(
+          context.configDirectory,
+          context.configIdentity,
+        );
+        dependencies.removeConfig(context.configDirectory);
+        contexts.delete(managementCapability);
+        configRemoved = true;
+      }
+      return Object.freeze({
+        confirmed:
+          processTreeTerminated &&
+          containersAbsent &&
+          networksAbsent &&
+          configRemoved,
+        processTreeTerminated,
+        containersAbsent,
+        networksAbsent,
+      });
+    }
+    if (!receipts) {
+      return Object.freeze({
+        confirmed: false,
+        processTreeTerminated,
+        containersAbsent: false,
+        networksAbsent: false,
+      });
+    }
+    const providerAbsent = await removeExactResource(
       context,
       "container",
+      receipts.create_provider ??
+        Object.freeze({ submitted: false, dockerId: null }),
       plan.providerContainerName,
       plan.ownershipLabel,
+      plan.providerImageDigest,
+      null,
+      "create_provider",
+      plan,
     );
-    const authAbsent = await removeOwned(
+    const authAbsent = await removeExactResource(
       context,
       "container",
+      receipts.create_subscription_auth_probe ??
+        Object.freeze({ submitted: false, dockerId: null }),
       plan.authContainerName,
       plan.ownershipLabel,
+      plan.providerImageDigest,
+      null,
+      "create_subscription_auth_probe",
+      plan,
     );
-    const proxyAbsent = await removeOwned(
+    const proxyAbsent = await removeExactResource(
       context,
       "container",
+      receipts.create_proxy ??
+        Object.freeze({ submitted: false, dockerId: null }),
       plan.proxyContainerName,
       plan.ownershipLabel,
+      plan.proxyImageDigest,
+      null,
+      "create_proxy",
+      plan,
     );
-    const internalAbsent = await removeOwned(
+    const internalAbsent = await removeExactResource(
       context,
       "network",
+      receipts.create_internal_network ??
+        Object.freeze({ submitted: false, dockerId: null }),
       plan.internalNetworkName,
       plan.ownershipLabel,
+      null,
+      true,
+      "create_internal_network",
+      plan,
     );
-    const egressAbsent = await removeOwned(
+    const egressAbsent = await removeExactResource(
       context,
       "network",
+      receipts.create_egress_network ??
+        Object.freeze({ submitted: false, dockerId: null }),
       plan.egressNetworkName,
       plan.ownershipLabel,
+      null,
+      false,
+      "create_egress_network",
+      plan,
     );
     const containersAbsent = providerAbsent && authAbsent && proxyAbsent;
     const networksAbsent = internalAbsent && egressAbsent;
@@ -863,6 +1233,7 @@ const productionRuntime = createRuntime(
     configEntries: (directory) => fs.readdirSync(directory),
     removeConfig: (directory) => fs.rmdirSync(directory),
     startProcess: startOwnedProcess,
+    inspectReceipts: inspectRuntimeOwnedDockerResourceReceipts,
   }),
 );
 
@@ -913,7 +1284,8 @@ export function describeDockerEffectRuntimeContract() {
     commandPlan:
       "exact_nine_command_subscription_preflight_provider_probe_or_isolated_task",
     taskInput: "runtime_owned_stdin_only_not_docker_argv",
-    cleanup: "ownership_label_then_exact_name_absence",
+    cleanup:
+      "durable_create_receipt_exact_docker_id_name_label_image_and_network_configuration_then_exact_id_absence",
     processTreeTermination: "taskkill_exact_pid_tree_then_close",
     callerCommandAllowed: false,
     providerEffectAllowed: true,

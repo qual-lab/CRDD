@@ -75,8 +75,8 @@ fn request(path: &str, identity: [u32; 3], nonce: [u8; 32]) -> Vec<u8> {
 
 fn provider_home_request(provider: u8, nonce: [u8; 32]) -> [u8; 76] {
     let mut bytes = [0_u8; 76];
-    bytes[..8].copy_from_slice(b"CRDDPH01");
-    bytes[8..10].copy_from_slice(&2_u16.to_le_bytes());
+    bytes[..8].copy_from_slice(b"CRDDPH02");
+    bytes[8..10].copy_from_slice(&3_u16.to_le_bytes());
     bytes[10] = provider;
     bytes[12..44].copy_from_slice(&nonce);
     bytes[44..76].copy_from_slice(&[7_u8; 32]);
@@ -168,18 +168,18 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
     let provider_home = invoke(&provider_home_request(2, nonce));
     assert!(matches!(provider_home.status.code(), Some(0 | 2)));
     assert!(provider_home.stderr.is_empty());
-    assert_eq!(provider_home.stdout.len(), 150);
-    assert_eq!(&provider_home.stdout[..8], b"CRDDHO01");
+    assert_eq!(provider_home.stdout.len(), 182);
+    assert_eq!(&provider_home.stdout[..8], b"CRDDHO02");
     assert_eq!(provider_home.stdout[10], 2);
     assert_eq!(&provider_home.stdout[12..44], &nonce);
 
-    let mut invalid_provider_home = provider_home_request(4, nonce);
+    let mut invalid_provider_home = provider_home_request(5, nonce);
     invalid_provider_home[11] = 1;
     let invalid_provider_home = invoke(&invalid_provider_home);
     assert_eq!(invalid_provider_home.status.code(), Some(2));
     assert!(invalid_provider_home.stderr.is_empty());
-    assert_eq!(invalid_provider_home.stdout.len(), 150);
-    assert_eq!(&invalid_provider_home.stdout[..8], b"CRDDHO01");
+    assert_eq!(invalid_provider_home.stdout.len(), 182);
+    assert_eq!(&invalid_provider_home.stdout[..8], b"CRDDHO02");
     assert_eq!(
         u16::from_le_bytes(invalid_provider_home.stdout[44..46].try_into().unwrap()),
         2

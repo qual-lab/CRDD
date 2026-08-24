@@ -32,7 +32,10 @@ test("専用Provider Homeはlocal userとProvider単位の固定方針を持つ"
   );
   assert.equal(contract.mountGrant.grantIssued, false);
   assert.equal(contract.mountGrant.mountAdapter, "not_implemented");
-  assert.equal(contract.mountGrantRuntime.store, "process_local_atomic_map");
+  assert.equal(
+    contract.mountGrantRuntime.store,
+    "process_local_atomic_map_plus_durable_runtime_state_lease",
+  );
   assert.equal(contract.mountGrantRuntime.usageLimit, 1);
   assert.equal(contract.mountGrantRuntime.providerHomeMounted, false);
 });

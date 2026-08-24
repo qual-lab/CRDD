@@ -9,6 +9,10 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 import {
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
+  markRuntimeOwnedDockerResourceSubmission,
+  recordRuntimeOwnedDockerAbsence,
+  recordRuntimeOwnedDockerResourceReceipt,
+  recordRuntimeOwnedNormalMountCompletion,
 } from "./docker-recovery-runtime.ts";
 import {
   cleanupRuntimeOwnedDockerResources,
@@ -20,7 +24,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 10;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 11;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -38,6 +42,13 @@ const PURPOSES = Object.freeze([
   "start_proxy",
   "start_provider_attached",
 ]);
+const CREATE_PURPOSES = new Set([
+  "create_subscription_auth_probe",
+  "create_internal_network",
+  "create_egress_network",
+  "create_proxy",
+  "create_provider",
+]);
 const SAFE_IDENTIFIER =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 
@@ -50,6 +61,10 @@ type PreparedPlan = Readonly<{
   activeMountCapability: object;
   authorityUseCapability: object;
   providerHomeSourcePath: string;
+  providerHomeIdentityHash: string;
+  providerHomeProtectionHash: string;
+  localUserBindingHash: string;
+  stableLogicalHomeBindingHash: string;
   authContainerName: string;
   providerContainerName: string;
   proxyContainerName: string;
@@ -121,7 +136,21 @@ type RuntimeDependencies = Readonly<{
   completeRecovery: (
     recoveryCapability: object,
     managementCapability: unknown,
-  ) => Readonly<{ status: string }>;
+  ) => Readonly<{
+    status: string;
+    recoveryFinalizationCapability?: object;
+  }>;
+  markResourceSubmission?: (
+    recoveryCapability: object,
+    purpose: string,
+  ) => boolean;
+  recordResourceReceipt?: (
+    recoveryCapability: object,
+    purpose: string,
+    dockerId: string,
+  ) => boolean;
+  recordDockerAbsence?: (recoveryCapability: object) => boolean;
+  recordMountCompletion?: (recoveryCapability: object) => boolean;
   consumeProviderAuthority: (
     useCapability: unknown,
     activeMountCapability: unknown,
@@ -185,6 +214,7 @@ function createFinalResult(
     resultBytes: number;
     normalizedResult: unknown | null;
     subscriptionAuthConfirmed: boolean;
+    recoveryFinalizationCapability: object | null;
   }>,
 ) {
   const cleanupConfirmed =
@@ -225,6 +255,9 @@ function createFinalResult(
     credentialAbsenceVerified: false,
     hostPathReported: false,
     proxyCredentialReported: false,
+    recoveryFinalizationCapability: cleanupConfirmed
+      ? details.recoveryFinalizationCapability
+      : null,
   });
 }
 
@@ -269,6 +302,10 @@ function isPlanValid(plan: PreparedPlan) {
       plan.egressNetworkName,
     ].every((value) => SAFE_IDENTIFIER.test(value)) &&
     /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(plan.ownershipLabel) &&
+    /^[a-f0-9]{64}$/u.test(plan.providerHomeIdentityHash) &&
+    /^[a-f0-9]{64}$/u.test(plan.providerHomeProtectionHash) &&
+    /^[a-f0-9]{64}$/u.test(plan.localUserBindingHash) &&
+    /^[a-f0-9]{64}$/u.test(plan.stableLogicalHomeBindingHash) &&
     Array.isArray(plan.commands) &&
     plan.commands.length === PURPOSES.length &&
     plan.commands.every(
@@ -362,6 +399,7 @@ async function executePlan(
   let resultBytes = 0;
   let normalizedResult: unknown | null = null;
   let isSubscriptionAuthConfirmed = false;
+  let recoveryFinalizationCapability: object | null = null;
 
   try {
     for (const command of plan.commands) {
@@ -372,6 +410,18 @@ async function executePlan(
       }
       const isProvider = command.purpose === "start_provider_attached";
       if (isProvider) providerRequestStarted = true;
+      if (
+        CREATE_PURPOSES.has(command.purpose) &&
+        state.dependencies.markResourceSubmission &&
+        !state.dependencies.markResourceSubmission(
+          recovery.recoveryCapability,
+          command.purpose,
+        )
+      ) {
+        requestedStatus = "blocked";
+        reason = "docker_resource_submission_record_unavailable";
+        break;
+      }
       const handle = state.dependencies.startCommand(
         command,
         plan,
@@ -393,6 +443,20 @@ async function executePlan(
         reason = classified.reason;
         if (execution === null)
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
+        break;
+      }
+      if (
+        CREATE_PURPOSES.has(command.purpose) &&
+        state.dependencies.recordResourceReceipt &&
+        (!execution ||
+          !state.dependencies.recordResourceReceipt(
+            recovery.recoveryCapability,
+            command.purpose,
+            execution.stdout,
+          ))
+      ) {
+        requestedStatus = "blocked";
+        reason = "docker_resource_receipt_unavailable";
         break;
       }
       if (
@@ -471,17 +535,31 @@ async function executePlan(
     cleanup.networksAbsent
   ) {
     try {
+      const dockerAbsenceRecorded =
+        !state.dependencies.recordDockerAbsence ||
+        state.dependencies.recordDockerAbsence(recovery.recoveryCapability);
+      if (!dockerAbsenceRecorded)
+        throw new Error("docker_absence_record_failed");
       mountLeaseReleased =
         state.dependencies.completeMount(
           plan.activeMountCapability,
           record.managementCapability,
         ).status === "completed";
       if (mountLeaseReleased) {
-        recoveryCompleted =
-          state.dependencies.completeRecovery(
-            recovery.recoveryCapability,
-            record.managementCapability,
-          ).status === "completed";
+        const mountCompletionRecorded =
+          !state.dependencies.recordMountCompletion ||
+          state.dependencies.recordMountCompletion(recovery.recoveryCapability);
+        if (!mountCompletionRecorded)
+          throw new Error("mount_completion_record_failed");
+        const completion = state.dependencies.completeRecovery(
+          recovery.recoveryCapability,
+          record.managementCapability,
+        );
+        recoveryCompleted = completion.status === "completed";
+        recoveryFinalizationCapability =
+          recoveryCompleted && completion.recoveryFinalizationCapability
+            ? completion.recoveryFinalizationCapability
+            : null;
       }
     } catch {
       mountLeaseReleased = false;
@@ -517,6 +595,7 @@ async function executePlan(
     resultBytes,
     normalizedResult,
     subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
+    recoveryFinalizationCapability,
   });
 }
 
@@ -660,6 +739,10 @@ const productionState: RuntimeState = Object.freeze({
     cleanupOwnedResources: cleanupRuntimeOwnedDockerResources,
     completeMount: completeRuntimeOwnedProviderHomeMount,
     completeRecovery: completeRuntimeOwnedDockerRecovery,
+    markResourceSubmission: markRuntimeOwnedDockerResourceSubmission,
+    recordResourceReceipt: recordRuntimeOwnedDockerResourceReceipt,
+    recordDockerAbsence: recordRuntimeOwnedDockerAbsence,
+    recordMountCompletion: recordRuntimeOwnedNormalMountCompletion,
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),
@@ -725,6 +808,8 @@ export function describeDockerProcessControllerContract() {
     stderrLimitBytes: STDERR_LIMIT_BYTES,
     preparedPlan: "opaque_single_use_adapter_capability_only",
     recoveryBeforeDockerEffect: true,
+    resourceJournal:
+      "durable_submission_before_each_create_and_exact_id_receipt_after_success",
     providerAuthority:
       "opaque_single_use_reverified_and_consumed_before_recovery_or_docker_effect",
     subscriptionAuthentication:
@@ -744,7 +829,8 @@ export function describeDockerProcessControllerContract() {
     hostPathReported: false,
     proxyCredentialReported: false,
     productionPreparedPlan: "runtime_owned_adapter_connected",
-    productionRecovery: "durable_host_recovery_connected",
+    productionRecovery:
+      "runtime_state_docker_task_recovery_and_deferred_host_finalization_connected",
     productionMountCompletion: "runtime_owned_mount_lease_connected",
     productionRevisionBinding: "runtime_owned_repository_revision_connected",
     productionEffectExecutor: "fixed_docker_cli_connected",

@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant-runtime";
-export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 1;
+export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION = 2;
 
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const MAXIMUM_IDENTIFIER_LENGTH = 64;
@@ -34,6 +34,7 @@ type Grant = Readonly<{
   providerHomeIdentityHash: string;
   providerHomeProtectionHash: string;
   localUserBindingHash: string;
+  stableLogicalHomeBindingHash: string;
   state: string;
   issuedAt: string | null;
   expiresAt: string | null;
@@ -66,6 +67,7 @@ type RuntimeState = Readonly<{
     Readonly<{ role: AliasRole; runtimeGrant: RuntimeGrant }>
   >;
   activeGrants: Map<string, RuntimeGrant>;
+  activeHomeBindings: Map<string, RuntimeGrant>;
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   consumeObservation: (capability: unknown) => Observation | null;
   consumeMountSource: typeof consumeRuntimeOwnedProviderHomeMountSourceCapability;
@@ -92,6 +94,7 @@ function createRuntimeState(
   return Object.freeze({
     aliases: new WeakMap(),
     activeGrants: new Map(),
+    activeHomeBindings: new Map(),
     ...dependencies,
   });
 }
@@ -207,6 +210,7 @@ function grantRecord(
     providerHomeIdentityHash: observation.providerHomeIdentityHash,
     providerHomeProtectionHash: observation.providerHomeProtectionHash,
     localUserBindingHash: observation.localUserBindingHash,
+    stableLogicalHomeBindingHash: observation.stableLogicalHomeBindingHash,
     state: "prepared",
     issuedAt: null,
     expiresAt: null,
@@ -401,7 +405,10 @@ function consume(
       runtimeGrant.grant.providerHomeIdentityHash ||
     observation.providerHomeProtectionHash !==
       runtimeGrant.grant.providerHomeProtectionHash ||
-    observation.localUserBindingHash !== runtimeGrant.grant.localUserBindingHash
+    observation.localUserBindingHash !==
+      runtimeGrant.grant.localUserBindingHash ||
+    observation.stableLogicalHomeBindingHash !==
+      runtimeGrant.grant.stableLogicalHomeBindingHash
   ) {
     state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return blocked("provider_home_mount_grant_runtime_observation_mismatch");
@@ -467,6 +474,11 @@ function activateMount(
     return blocked("provider_home_mount_activation_invalid");
   }
   const runtimeGrant = authorization.runtimeGrant;
+  const logicalHomeBinding = runtimeGrant.grant.stableLogicalHomeBindingHash;
+  const currentHomeBinding = state.activeHomeBindings.get(logicalHomeBinding);
+  if (currentHomeBinding && currentHomeBinding !== runtimeGrant) {
+    return blocked("provider_home_mount_logical_home_already_active");
+  }
   const sourcePath = state.consumeMountSource(
     runtimeGrant.mountSourceCapability,
     runtimeGrant.grant.provider,
@@ -477,6 +489,7 @@ function activateMount(
   }
   runtimeGrant.mountActive = true;
   runtimeGrant.activeMountSourcePath = sourcePath;
+  state.activeHomeBindings.set(logicalHomeBinding, runtimeGrant);
   removeAlias(state, runtimeGrant, mountAuthorizationCapability);
   const activeMountCapability = createAlias(
     state,
@@ -572,6 +585,9 @@ function completeMount(
   const runtimeGrant = active.runtimeGrant;
   runtimeGrant.mountActive = false;
   runtimeGrant.activeMountSourcePath = null;
+  state.activeHomeBindings.delete(
+    runtimeGrant.grant.stableLogicalHomeBindingHash,
+  );
   removeAlias(state, runtimeGrant, activeMountCapability);
   return Object.freeze({
     ...blocked("provider_home_mount_completed"),
@@ -651,6 +667,9 @@ function revoke(
   revokeMountSource(state, runtimeGrant);
   revokeAllAliases(state, runtimeGrant);
   state.activeGrants.delete(runtimeGrant.grant.grantRef);
+  state.activeHomeBindings.delete(
+    runtimeGrant.grant.stableLogicalHomeBindingHash,
+  );
   return Object.freeze({
     ...blocked("provider_home_mount_grant_runtime_revoked"),
     status: "revoked" as const,
@@ -871,7 +890,7 @@ export function describeProviderHomeMountGrantRuntimeContract() {
   return Object.freeze({
     contract: PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT,
     contractRevision: PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION,
-    store: "process_local_atomic_map",
+    store: "process_local_atomic_map_plus_durable_runtime_state_lease",
     clock: "runtime_owned_wall_and_monotonic",
     referenceSource: "runtime_owned_cryptographic_random_18_decimal_digits",
     observationInput: "opaque_single_use_runtime_owned_capability",

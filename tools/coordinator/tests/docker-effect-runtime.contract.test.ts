@@ -39,6 +39,9 @@ function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
           profileId: "PROFILE-200001",
           operationId: "OP-123456",
           providerHomeIdentityHash: "d".repeat(64),
+          providerHomeProtectionHash: "e".repeat(64),
+          localUserBindingHash: "f".repeat(64),
+          stableLogicalHomeBindingHash: "1".repeat(64),
         }),
         activeMountCapability,
       }),
@@ -321,7 +324,7 @@ test("cleanupは全handle終了と所有resource不存在後だけconfigを除�
     configCreated: 1,
     configRemoved: 1,
   });
-  assert.equal(fixture.invocations.length, 11);
+  assert.equal(fixture.invocations.length, 6);
 });
 
 test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める", async () => {
@@ -366,7 +369,7 @@ test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める"
 
 test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(contract.dockerCli.bytes, 41_631_088);
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);

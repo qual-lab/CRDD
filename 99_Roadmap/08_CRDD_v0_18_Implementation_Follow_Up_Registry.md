@@ -12,6 +12,8 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 ## 現在の残件
 
+2026-08-25の現行Coordinator Runtime 1.0縦結合では、下表のProvider Home、Egress、Claude配布／認証に残る「次は接続する」という記述を現在状態へ流用しない。固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Mount Grantおよび一般Task E2Eは接続済みである。現在の残件は[`CHG-000015`第四次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とし、RuntimeState／stable logical Home lease／一般Task Docker recoveryを含む新固定版の独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。旧行の整理・統合はその固定版がPassした後に行い、途中状態で`Completed`へ先取りしない。
+
 | ID | 件名 | Work State | Scope / Target | Source | Next action / Re-evaluation trigger |
 | --- | --- | --- | --- | --- | --- |
 | `FU-018-028` | Claude実行計画基盤 | Completed | 非実行の固定Claude probe契約 | [CHG-000028 全体](../90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md) | 固定版`01a92ba5d8597baebf52265c6c733747451e44ad`の検証完了。契約変更時に再評価する |

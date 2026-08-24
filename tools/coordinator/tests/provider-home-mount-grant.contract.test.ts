@@ -29,6 +29,7 @@ function record(overrides: Record<string, unknown> = {}) {
     providerHomeIdentityHash: homeIdentityHash,
     providerHomeProtectionHash: homeProtectionHash,
     localUserBindingHash,
+    stableLogicalHomeBindingHash: "4".repeat(64),
     state: "issued",
     issuedAt: ISSUED_AT,
     expiresAt: EXPIRES_AT,
@@ -165,7 +166,7 @@ test("prepared、issued、consumed、revokedの整合したrecordだけを候補
 test("recordのshape、Identity、時刻、回数および状態矛盾を拒否する", () => {
   for (const changed of [
     { contract: "other" },
-    { contractRevision: 2 },
+    { contractRevision: 1 },
     { grantRef: "PHMGRANT-x" },
     { provider: "other" },
     { profileId: "PROFILE-x" },
@@ -173,6 +174,7 @@ test("recordのshape、Identity、時刻、回数および状態矛盾を拒否�
     { providerHomeIdentityHash: "x" },
     { providerHomeProtectionHash: "x" },
     { localUserBindingHash: "x" },
+    { stableLogicalHomeBindingHash: "x" },
     { state: "expired" },
     { issuedAt: "2026-08-22" },
     { expiresAt: "2026-08-22" },

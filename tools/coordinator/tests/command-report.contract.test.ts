@@ -19,7 +19,7 @@ test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回�
     expiresAtMs: 2_000_000_000_000,
     manualRecoveryRequired: true,
     hostRecoveryId: `host.root.${digestA}.${digestB}`,
-    dockerRecoveryId: `docker.root.probe.${digestA}.${digestB}`,
+    dockerRecoveryId: `docker-task.${digestA}.${digestB}.${digestA}`,
     candidateRecoveryId: `candidate-recovery.${digestA}.${digestB}`,
     candidateStoreRecoveryId: `candidate-store-recovery.${digestA}`,
   });
@@ -29,7 +29,7 @@ test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回�
   );
   assert.match(rendered, /candidate export expires at:/u);
   assert.match(rendered, /host recovery ID: host\./u);
-  assert.match(rendered, /Docker recovery ID: docker\./u);
+  assert.match(rendered, /Docker recovery ID: docker-task\./u);
   assert.match(rendered, /Candidate recovery ID: candidate-recovery\./u);
   assert.match(
     rendered,

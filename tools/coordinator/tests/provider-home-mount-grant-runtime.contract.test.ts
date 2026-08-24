@@ -24,6 +24,7 @@ type Observation = Readonly<{
   providerHomeIdentityHash: string;
   providerHomeProtectionHash: string;
   localUserBindingHash: string;
+  stableLogicalHomeBindingHash: string;
   observedWallClockMs: number;
   observedMonotonicMs: number;
   providerHomeMountSourceCapability: object;
@@ -53,6 +54,7 @@ function harness() {
         providerHomeIdentityHash: identityHash,
         providerHomeProtectionHash: protectionHash,
         localUserBindingHash: userHash,
+        stableLogicalHomeBindingHash: "5".repeat(64),
         observedWallClockMs: wallClockMs,
         observedMonotonicMs: monotonicMs,
         providerHomeMountSourceCapability,
@@ -444,6 +446,7 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
     { providerHomeIdentityHash: "4".repeat(64) },
     { providerHomeProtectionHash: "4".repeat(64) },
     { localUserBindingHash: "4".repeat(64) },
+    { stableLogicalHomeBindingHash: "4".repeat(64) },
   ]) {
     const h = harness();
     const issued = issue(h);
@@ -487,6 +490,7 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
       providerHomeIdentityHash: identityHash,
       providerHomeProtectionHash: protectionHash,
       localUserBindingHash: userHash,
+      stableLogicalHomeBindingHash: "5".repeat(64),
       observedWallClockMs: 0,
       observedMonotonicMs: 0,
       providerHomeMountSourceCapability: Object.freeze({}),
@@ -531,7 +535,10 @@ test("Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開
     contract.contractRevision,
     PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT_REVISION,
   );
-  assert.equal(contract.store, "process_local_atomic_map");
+  assert.equal(
+    contract.store,
+    "process_local_atomic_map_plus_durable_runtime_state_lease",
+  );
   assert.equal(contract.clock, "runtime_owned_wall_and_monotonic");
   assert.deepEqual(contract.aliases, [
     "control",

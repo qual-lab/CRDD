@@ -4,9 +4,11 @@ import test from "node:test";
 import {
   createCandidateStoreObservationRequest,
   createProviderHomeObservationRequest,
+  createRuntimeStateObservationRequest,
   describeProviderHomeObservationContract,
   evaluateCandidateStoreObservationResponseCandidate,
   evaluateProviderHomeObservationResponseCandidate,
+  evaluateRuntimeStateObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_REQUEST_BYTES,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
 } from "../src/security/provider-home-observation.ts";
@@ -16,10 +18,10 @@ import {
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "../src/security/provider-home-windows-adapter.ts";
 
-function response(provider: 1 | 2 | 3, nonce: Buffer) {
+function response(provider: 1 | 2 | 3 | 4, nonce: Buffer) {
   const bytes = Buffer.alloc(PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES);
-  bytes.write("CRDDHO01", 0, "ascii");
-  bytes.writeUInt16LE(2, 8);
+  bytes.write("CRDDHO02", 0, "ascii");
+  bytes.writeUInt16LE(3, 8);
   bytes[10] = provider;
   bytes[11] = 1;
   nonce.copy(bytes, 12);
@@ -29,6 +31,7 @@ function response(provider: 1 | 2 | 3, nonce: Buffer) {
   bytes.fill(1, 54, 86);
   bytes.fill(2, 86, 118);
   bytes.fill(3, 118, 150);
+  bytes.fill(4, 150, 182);
   return bytes;
 }
 
@@ -64,6 +67,27 @@ test("Candidate Store requestは固定種別と初期化bitだけをnative Known
   assert.equal(createCandidateStoreObservationRequest(source, "yes"), null);
 });
 
+test("RuntimeState requestは固定Known Folder種別4と初期化bitへ閉じる", () => {
+  const nonce = Buffer.alloc(32, 6);
+  const source =
+    "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\RuntimeState";
+  const created = createRuntimeStateObservationRequest(
+    source,
+    true,
+    () => nonce,
+  );
+  assert.ok(created);
+  assert.equal(created.request[10], 4);
+  assert.equal(created.request[11], 1);
+  assert.equal(created.request.includes(Buffer.from("C:\\", "ascii")), false);
+  const observed = evaluateRuntimeStateObservationResponseCandidate(
+    response(4, nonce),
+    nonce,
+  );
+  assert.equal(observed.status, "candidate");
+  assert.match(observed.stableLogicalHomeBindingHash ?? "", /^[a-f0-9]{64}$/u);
+});
+
 test("Provider Home requestはRuntime nonce、Providerとraw Pathでないmount source Hashだけを含める", () => {
   const nonce = Buffer.alloc(32, 7);
   const source =
@@ -75,8 +99,8 @@ test("Provider Home requestはRuntime nonce、Providerとraw Pathでないmount 
   );
   assert.ok(created);
   assert.equal(created.request.length, PROVIDER_HOME_OBSERVATION_REQUEST_BYTES);
-  assert.equal(created.request.subarray(0, 8).toString("ascii"), "CRDDPH01");
-  assert.equal(created.request.readUInt16LE(8), 2);
+  assert.equal(created.request.subarray(0, 8).toString("ascii"), "CRDDPH02");
+  assert.equal(created.request.readUInt16LE(8), 3);
   assert.equal(created.request[10], 2);
   assert.equal(created.request[11], 0);
   assert.deepEqual(created.request.subarray(12, 44), nonce);
@@ -95,7 +119,7 @@ test("Provider Home requestはRuntime nonce、Providerとraw Pathでないmount 
   );
 });
 
-test("Provider Home responseはnonce、Provider、全観測bitと三つのdomain hashを検証する", () => {
+test("Provider Home responseはnonce、Provider、全観測bitと四つのdomain hashを検証する", () => {
   const nonce = Buffer.alloc(32, 9);
   const result = evaluateProviderHomeObservationResponseCandidate(
     response(2, nonce),

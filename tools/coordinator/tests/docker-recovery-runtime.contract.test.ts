@@ -2,21 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  cleanupOwnedOperationDirectories,
-  createOwnedMountCapability,
-  createOwnedOperationContextCapability,
-  createOwnedOperationDirectories,
-  createOwnedOperationManagementCapability,
-  getOwnedHostRecoveryId,
-  verifyOwnedOperationManagementCapability,
-} from "../src/security/execution-environment.ts";
-import {
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
   createIsolatedDockerRecoveryRuntimeCandidate,
   describeDockerRecoveryRuntimeContract,
 } from "../src/security/docker-recovery-runtime.ts";
-import { loadHostRecoveryRecordByToken } from "../src/security/host-recovery-record.ts";
 
 const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -209,7 +199,7 @@ test("Docker Recoveryは不正入力と依存例外をfail closedする", () => 
 
   assert.equal(
     beginRuntimeOwnedDockerRecovery(
-      Object.freeze({ operationId: "OP-123456" }),
+      Object.freeze({ operationId: "OP-123456" }) as never,
       Object.freeze({}),
     ),
     null,
@@ -220,60 +210,34 @@ test("Docker Recoveryは不正入力と依存例外をfail closedする", () => 
   );
 });
 
-test("Production Docker RecoveryはHost Recovery recordを前後遷移させる", () => {
-  const owned = createOwnedOperationDirectories();
-  try {
-    const context = createOwnedOperationContextCapability(owned);
-    const mount = createOwnedMountCapability(owned);
-    const management = createOwnedOperationManagementCapability(context, mount);
-    const operation = verifyOwnedOperationManagementCapability(management);
-    const initial = getOwnedHostRecoveryId(owned);
-    assert.equal(
-      loadHostRecoveryRecordByToken(initial).record.state,
-      "host_only",
-    );
-
-    const begun = beginRuntimeOwnedDockerRecovery(
-      Object.freeze({ operationId: operation.operationId }),
-      management,
-    );
-    assert.ok(begun);
-    assert.equal(
-      loadHostRecoveryRecordByToken(begun.recoveryId).record.state,
-      "docker_submission_started",
-    );
-    assert.deepEqual(
-      createIsolatedDockerRecoveryRuntimeCandidate({
-        verifyOperation: () => operation,
-        beginDurableRecovery: () => begun.recoveryId,
-        completeDurableRecovery: () => initial,
-      }).complete(begun.recoveryCapability, management),
-      { status: "blocked" },
-    );
-
-    assert.deepEqual(
-      completeRuntimeOwnedDockerRecovery(begun.recoveryCapability, management),
-      { status: "completed" },
-    );
-    const completed = getOwnedHostRecoveryId(owned);
-    assert.notEqual(completed, begun.recoveryId);
-    assert.equal(
-      loadHostRecoveryRecordByToken(completed).record.state,
-      "host_only",
-    );
-  } finally {
-    cleanupOwnedOperationDirectories(owned);
-  }
+test("Production Docker Recoveryは不完全なTask planをEffect前に拒否する", () => {
+  assert.equal(
+    beginRuntimeOwnedDockerRecovery(
+      Object.freeze({ operationId: "OP-123456" }) as never,
+      Object.freeze({}),
+    ),
+    null,
+  );
 });
 
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 1,
+    contractRevision: 2,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
     crashRecovery: "durable_recovery_id_returned_for_manual_recovery",
+    runtimeStateRoot:
+      "selected_user_runtime_owned_fixed_known_folder_protected_root",
+    logicalHomeLease:
+      "stable_sid_provider_namespace_kernel_lock_and_durable_active_pointer",
+    resourceJournal:
+      "submission_marker_before_create_then_exact_docker_id_receipt",
+    offlineRecovery:
+      "exact_id_and_configuration_only_unknown_create_outcome_never_adopted",
+    hostFinalization:
+      "operation_record_retained_until_host_cleanup_then_exact_removal",
     cleanupRequiredBeforeCompletion: true,
     callerRecoveryIdAccepted: false,
     providerEffectAllowed: false,

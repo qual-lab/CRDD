@@ -63,6 +63,10 @@ type PreparedPlan = Readonly<{
   authorityUseCapability: object;
   authorityControlCapability: object;
   providerHomeSourcePath: string;
+  providerHomeIdentityHash: string;
+  providerHomeProtectionHash: string;
+  localUserBindingHash: string;
+  stableLogicalHomeBindingHash: string;
   preparedWallClockMs: number;
   preparedMonotonicMs: number;
   authContainerName: string;
@@ -132,6 +136,9 @@ type RuntimeState = Readonly<{
       profileId: string;
       operationId: string;
       providerHomeIdentityHash: string;
+      providerHomeProtectionHash: string;
+      localUserBindingHash: string;
+      stableLogicalHomeBindingHash: string;
     }> | null;
     activeMountCapability: object | null;
   }>;
@@ -285,6 +292,9 @@ function buildPlan(
       profileId: string;
       operationId: string;
       providerHomeIdentityHash: string;
+      providerHomeProtectionHash: string;
+      localUserBindingHash: string;
+      stableLogicalHomeBindingHash: string;
     }>;
     activeMountCapability: object;
   }>,
@@ -512,6 +522,10 @@ function buildPlan(
     profileId: activation.grant.profileId,
     activeMountCapability: activation.activeMountCapability,
     providerHomeSourcePath,
+    providerHomeIdentityHash: activation.grant.providerHomeIdentityHash,
+    providerHomeProtectionHash: activation.grant.providerHomeProtectionHash,
+    localUserBindingHash: activation.grant.localUserBindingHash,
+    stableLogicalHomeBindingHash: activation.grant.stableLogicalHomeBindingHash,
     preparedWallClockMs,
     preparedMonotonicMs,
     authContainerName,

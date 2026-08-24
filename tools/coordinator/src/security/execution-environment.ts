@@ -869,6 +869,15 @@ export function beginOwnedDockerSubmissionRecovery(
   );
 }
 
+export function getOwnedHostRecoveryIdByManagementCapability(
+  managementCapability: unknown,
+) {
+  const { identity } =
+    ownedOperationFromManagementCapability(managementCapability);
+  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
+  return expectedHostRecoveryToken(identity);
+}
+
 export function completeOwnedDockerSubmissionRecovery(
   managementCapability: unknown,
   recoveryToken: unknown,
@@ -878,6 +887,27 @@ export function completeOwnedDockerSubmissionRecovery(
     recoveryToken,
     "cancel",
   );
+}
+
+export function confirmOwnedDockerAbsenceForRecovery(token: unknown) {
+  const loaded = loadHostRecoveryRecord(token);
+  if (loaded.record.state !== "docker_submission_started")
+    throw new Error("host_recovery_state_invalid");
+  const root = path.join(loaded.parent, loaded.parsed.rootName);
+  if (operationGenerationByRoot.has(root))
+    throw new Error("host_recovery_generation_active");
+  if (
+    !fs.existsSync(root) ||
+    fs.realpathSync(root) !== root ||
+    path.dirname(root) !== loaded.parent ||
+    !identityMatchesRecord(root, loaded.record.rootIdentity)
+  )
+    throw new Error("host_recovery_root_replaced");
+  const updated = replaceHostRecoveryRecordState(
+    loaded,
+    "docker_absent_confirmed",
+  );
+  return updated.token;
 }
 
 export function adoptOwnedHostRecoveryRecordTransition(

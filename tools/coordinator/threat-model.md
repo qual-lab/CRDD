@@ -4,6 +4,12 @@ Local PersonalのSubscription OfferingはCodexの`chatgpt_subscription_oauth`と
 
 Status: Implementation Candidate
 
+### 現行revisionのProvider Home／Docker Task回復補正
+
+本文に残る「三Hash」「process-local Mount Grantだけ」「Fake Probeの3軸回復を一般Taskへ流用する」表示は履歴的説明であり、現行一般Taskの判定へ使用しない。現行Provider Home観測はIdentity、保護、SID＋login session binding、およびsession非依存のSID＋Provider＋固定logical Home namespace bindingの四Hashを分離する。Effect開始前に選択ユーザーの固定RuntimeState Root、logical Home単位のkernel lock、active pointerおよびTask別回復記録を耐久化するため、Authorityのsession bindingを弱めずに別login sessionとの同時mountを防ぐ。
+
+一般TaskのDocker回復IDは`docker-task.<logical-home-hash>.<operation-nonce>.<base-hash>`であり、Fake Probeの`docker.*`およびHostの`host.*`と別Schema／CLI分岐を持つ。各create送信前のmarkerと成功後の完全ID receiptを必須とし、回復はID、name、label、imageおよびNetwork属性が全一致する資源だけを削除する。送信済みでreceiptがない場合は作成結果不明として自動採用・名前検索・削除を行わない。crash回復は同じlogical Home kernel objectを取得できることを元process世代不在の必要条件とし、exact Docker不存在、Host recovery lineageおよびRuntimeState pointerを順に確認する。Operation recordはHost cleanup成功まで残す。新固定版の独立再レビュー／再監査と正式署名一般Task実runは未完了であり、本補正だけからRuntime完成、Releaseまたは残存risk受容を成立させない。
+
 OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM、macOS Secure Enclave、Linux TPM 2.0の優先Backend、または明示承認されたsoftware fallbackという選択だけを検査する。Backend名、公開SPKIおよびfallback承認はcaller suppliedのpolicy入力であり、hardware-backed、非exportable、鍵handle所有、Platform Provisioner署名または実OS保護の根拠ではない。秘密鍵を入力・出力せず、silent downgradeを拒否し、実native Adapterと保護確認がない限りGateを開かない。
 
 準備認証局（Provisioning CA）のpure Core候補は、offline rootとonline／offline issuing keyのroleを分離し、root署名済みissuing certificateとroot署名済み失効一覧の暗号的一致を検査する。issuing keyは最大365日、失効一覧は半開区間で最大24時間だけ候補化し、未知root、epoch差、期限外、署名不一致および列挙済みroot／issuing keyをfail closedで拒否する。caller supplied root集合、失効一覧および評価時刻はRuntime所有Trust、rollback-resistant floorまたは時計Authorityではなく、実配布と永続化なしにGateを開かない。

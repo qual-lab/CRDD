@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant";
-export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 1;
+export const PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION = 2;
 export const PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS = 300_000;
 
 const PROVIDERS = new Set(["codex", "claude"]);
@@ -21,6 +21,7 @@ const RECORD_KEYS = new Set([
   "providerHomeIdentityHash",
   "providerHomeProtectionHash",
   "localUserBindingHash",
+  "stableLogicalHomeBindingHash",
   "state",
   "issuedAt",
   "expiresAt",
@@ -96,6 +97,8 @@ function compileInternal(raw: unknown) {
     !HEX64.test(value.providerHomeProtectionHash) ||
     typeof value.localUserBindingHash !== "string" ||
     !HEX64.test(value.localUserBindingHash) ||
+    typeof value.stableLogicalHomeBindingHash !== "string" ||
+    !HEX64.test(value.stableLogicalHomeBindingHash) ||
     typeof value.state !== "string" ||
     !STATES.has(value.state) ||
     !optionalCanonicalUtc(value.issuedAt) ||
@@ -160,6 +163,7 @@ function compileInternal(raw: unknown) {
     providerHomeIdentityHash: value.providerHomeIdentityHash as string,
     providerHomeProtectionHash: value.providerHomeProtectionHash as string,
     localUserBindingHash: value.localUserBindingHash as string,
+    stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash as string,
     state: value.state as string,
     issuedAt: value.issuedAt as string | null,
     expiresAt: value.expiresAt as string | null,
@@ -198,6 +202,7 @@ function sameBinding(
     "providerHomeIdentityHash",
     "providerHomeProtectionHash",
     "localUserBindingHash",
+    "stableLogicalHomeBindingHash",
     "usageLimit",
   ].every(
     (key) =>

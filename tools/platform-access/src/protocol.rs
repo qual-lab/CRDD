@@ -1,17 +1,17 @@
 use std::io::{self, Read, Write};
 
 pub const PROTOCOL_REVISION: u16 = 3;
-pub const PROVIDER_HOME_PROTOCOL_REVISION: u16 = 2;
+pub const PROVIDER_HOME_PROTOCOL_REVISION: u16 = 3;
 pub const MAXIMUM_REQUEST_BYTES: usize = 65_536;
 pub const MAXIMUM_PATH_BYTES: usize = 4_096;
 const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA03";
 const RESPONSE_MAGIC: &[u8; 8] = b"CRDDPR03";
-const PROVIDER_HOME_REQUEST_MAGIC: &[u8; 8] = b"CRDDPH01";
-const PROVIDER_HOME_RESPONSE_MAGIC: &[u8; 8] = b"CRDDHO01";
+const PROVIDER_HOME_REQUEST_MAGIC: &[u8; 8] = b"CRDDPH02";
+const PROVIDER_HOME_RESPONSE_MAGIC: &[u8; 8] = b"CRDDHO02";
 const REQUEST_HEADER_BYTES: usize = 60;
 const RESPONSE_BYTES: usize = 86;
 pub const PROVIDER_HOME_REQUEST_BYTES: usize = 76;
-pub const PROVIDER_HOME_RESPONSE_BYTES: usize = 150;
+pub const PROVIDER_HOME_RESPONSE_BYTES: usize = 182;
 
 pub const PRINCIPAL_PRIMARY_TOKEN: u32 = 1 << 0;
 pub const PRINCIPAL_INTERACTIVE_GROUP: u32 = 1 << 1;
@@ -45,6 +45,7 @@ pub enum Provider {
     Codex = 1,
     Claude = 2,
     CandidateStore = 3,
+    RuntimeState = 4,
 }
 
 impl Provider {
@@ -53,6 +54,7 @@ impl Provider {
             1 => Some(Self::Codex),
             2 => Some(Self::Claude),
             3 => Some(Self::CandidateStore),
+            4 => Some(Self::RuntimeState),
             _ => None,
         }
     }
@@ -62,6 +64,7 @@ impl Provider {
             Self::Codex => "codex",
             Self::Claude => "claude",
             Self::CandidateStore => "CandidateStore",
+            Self::RuntimeState => "RuntimeState",
         }
     }
 }
@@ -158,6 +161,7 @@ pub struct ProviderHomeResponse {
     pub provider_home_identity_hash: [u8; 32],
     pub provider_home_protection_hash: [u8; 32],
     pub local_user_binding_hash: [u8; 32],
+    pub stable_logical_home_binding_hash: [u8; 32],
 }
 
 fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
@@ -231,8 +235,12 @@ pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> 
         mount_source_hash: bytes.get(44..76)?.try_into().ok()?,
     };
     (request.mount_source_hash != [0_u8; 32]
-        && (!request.initialize_if_missing || request.provider == Provider::CandidateStore))
-        .then_some(request)
+        && (!request.initialize_if_missing
+            || matches!(
+                request.provider,
+                Provider::CandidateStore | Provider::RuntimeState
+            )))
+    .then_some(request)
 }
 
 pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
@@ -264,6 +272,7 @@ pub fn encode_provider_home_response(
     bytes[54..86].copy_from_slice(&response.provider_home_identity_hash);
     bytes[86..118].copy_from_slice(&response.provider_home_protection_hash);
     bytes[118..150].copy_from_slice(&response.local_user_binding_hash);
+    bytes[150..182].copy_from_slice(&response.stable_logical_home_binding_hash);
     bytes
 }
 
@@ -459,7 +468,12 @@ mod tests {
         let candidate_store = parse_provider_home_request(&candidate_store).unwrap();
         assert_eq!(candidate_store.provider, Provider::CandidateStore);
         assert!(candidate_store.initialize_if_missing);
-        for provider in [0, 4, u8::MAX] {
+        let mut runtime_state = provider_home_request_bytes(4);
+        runtime_state[11] = 1;
+        let runtime_state = parse_provider_home_request(&runtime_state).unwrap();
+        assert_eq!(runtime_state.provider, Provider::RuntimeState);
+        assert!(runtime_state.initialize_if_missing);
+        for provider in [0, 5, u8::MAX] {
             assert!(parse_provider_home_request(&provider_home_request_bytes(provider)).is_none());
         }
         let mut trailing = provider_home_request_bytes(1).to_vec();
@@ -492,6 +506,7 @@ mod tests {
             provider_home_identity_hash: [1_u8; 32],
             provider_home_protection_hash: [2_u8; 32],
             local_user_binding_hash: [3_u8; 32],
+            stable_logical_home_binding_hash: [4_u8; 32],
         });
         assert_eq!(response.len(), PROVIDER_HOME_RESPONSE_BYTES);
         assert_eq!(&response[..8], PROVIDER_HOME_RESPONSE_MAGIC);
@@ -499,6 +514,7 @@ mod tests {
         assert_eq!(&response[54..86], &[1_u8; 32]);
         assert_eq!(&response[86..118], &[2_u8; 32]);
         assert_eq!(&response[118..150], &[3_u8; 32]);
+        assert_eq!(&response[150..182], &[4_u8; 32]);
         assert!(!response.windows(3).any(|window| window == b"C:\\"));
     }
 }

@@ -39,6 +39,7 @@ fn invalid_provider_home_response() -> ProviderHomeResponse {
         provider_home_identity_hash: [0_u8; 32],
         provider_home_protection_hash: [0_u8; 32],
         local_user_binding_hash: [0_u8; 32],
+        stable_logical_home_binding_hash: [0_u8; 32],
     }
 }
 
@@ -58,6 +59,7 @@ fn execute_bytes(request_bytes: &[u8], writer: &mut impl Write) -> i32 {
             provider_home_identity_hash: [0_u8; 32],
             provider_home_protection_hash: [0_u8; 32],
             local_user_binding_hash: [0_u8; 32],
+            stable_logical_home_binding_hash: [0_u8; 32],
         };
 
         if write_provider_home_response_to(writer, response).is_err() {

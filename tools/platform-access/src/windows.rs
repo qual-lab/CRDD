@@ -84,6 +84,7 @@ const FORBIDDEN_SELECTED_USER_PRINCIPAL_FLAGS: u32 = PRINCIPAL_SERVICE_GROUP
     | PRINCIPAL_APP_CONTAINER;
 const PROVIDER_HOME_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "ProviderHomes"];
 const CANDIDATE_STORE_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "CandidateStore"];
+const RUNTIME_STATE_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "RuntimeState"];
 const DRIVE_FIXED: u32 = 3;
 const ACCESS_ALLOWED_ACE_TYPE: u8 = 0;
 const INHERITED_ACE: u8 = 0x10;
@@ -196,6 +197,7 @@ fn blocked_provider_home(
         provider_home_identity_hash: [0_u8; 32],
         provider_home_protection_hash: [0_u8; 32],
         local_user_binding_hash: [0_u8; 32],
+        stable_logical_home_binding_hash: [0_u8; 32],
     }
 }
 
@@ -303,12 +305,15 @@ fn local_app_data_path() -> Option<PathBuf> {
     result
 }
 
-fn initialize_candidate_store_if_missing(primary_token: HANDLE) -> bool {
+fn initialize_runtime_owned_directory_if_missing(
+    primary_token: HANDLE,
+    segments: &[&str; 3],
+) -> bool {
     let mut candidate_store = match local_app_data_path() {
         Some(value) => value,
         None => return false,
     };
-    for segment in CANDIDATE_STORE_SEGMENTS {
+    for segment in segments {
         candidate_store.push(segment);
     }
     let user_sid = match token_user_sid_bytes(primary_token) {
@@ -406,8 +411,16 @@ fn open_provider_home_chain(
         local_app_data_path().ok_or(ProviderHomeChainError::KnownFolderUnavailable)?;
     let mut paths = Vec::with_capacity(PROVIDER_HOME_SEGMENTS.len() + 2);
     paths.push(current.clone());
-    if request.provider == crate::protocol::Provider::CandidateStore {
-        for segment in CANDIDATE_STORE_SEGMENTS {
+    if matches!(
+        request.provider,
+        crate::protocol::Provider::CandidateStore | crate::protocol::Provider::RuntimeState
+    ) {
+        let segments = if request.provider == crate::protocol::Provider::CandidateStore {
+            &CANDIDATE_STORE_SEGMENTS
+        } else {
+            &RUNTIME_STATE_SEGMENTS
+        };
+        for segment in segments {
             current.push(segment);
             paths.push(current.clone());
         }
@@ -767,6 +780,15 @@ fn local_user_binding_hash(binding: TokenBindingObservation) -> Option<[u8; 32]>
     ])
 }
 
+fn stable_logical_home_binding_hash(
+    provider: crate::protocol::Provider,
+    primary_token: HANDLE,
+) -> Option<[u8; 32]> {
+    const DOMAIN: &[u8] = b"CRDD\0LOGICAL-PROVIDER-HOME-LEASE\0V1\0";
+    let user_sid = token_user_sid_bytes(primary_token)?;
+    sha256(&[DOMAIN, &[provider as u8], &user_sid])
+}
+
 fn access_allowed(
     descriptor: PSECURITY_DESCRIPTOR,
     token: HANDLE,
@@ -1050,11 +1072,15 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
     else {
         return blocked_provider_home(request, ProviderHomeReason::PrincipalNotSelectedLocalUser);
     };
-    if request.provider == crate::protocol::Provider::CandidateStore
-        && request.initialize_if_missing
-        && !initialize_candidate_store_if_missing(primary_token.0)
-    {
-        return blocked_provider_home(request, ProviderHomeReason::HomeUnavailable);
+    if request.initialize_if_missing {
+        let segments = match request.provider {
+            crate::protocol::Provider::CandidateStore => &CANDIDATE_STORE_SEGMENTS,
+            crate::protocol::Provider::RuntimeState => &RUNTIME_STATE_SEGMENTS,
+            _ => return blocked_provider_home(request, ProviderHomeReason::InvalidRequest),
+        };
+        if !initialize_runtime_owned_directory_if_missing(primary_token.0, segments) {
+            return blocked_provider_home(request, ProviderHomeReason::HomeUnavailable);
+        }
     }
     let chain = match open_provider_home_chain(request) {
         Ok(value) => value,
@@ -1107,6 +1133,11 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
     let Some(binding_hash) = local_user_binding_hash(initial_binding) else {
         return blocked_provider_home(request, ProviderHomeReason::HomeSecurityUnavailable);
     };
+    let Some(stable_logical_home_binding_hash) =
+        stable_logical_home_binding_hash(request.provider, primary_token.0)
+    else {
+        return blocked_provider_home(request, ProviderHomeReason::HomeSecurityUnavailable);
+    };
     ProviderHomeResponse {
         provider: request.provider,
         nonce: request.nonce,
@@ -1121,6 +1152,7 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
         provider_home_identity_hash: identity_hash,
         provider_home_protection_hash: protection.protection_hash,
         local_user_binding_hash: binding_hash,
+        stable_logical_home_binding_hash,
     }
 }
 

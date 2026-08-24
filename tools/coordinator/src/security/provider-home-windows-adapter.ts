@@ -20,7 +20,7 @@ import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-l
 
 export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT =
   "crdd-coordinator/provider-home-windows-adapter";
-export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 2;
+export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 3;
 
 const bundledDistributionRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
@@ -38,6 +38,7 @@ const observationCapabilities = new WeakMap<
     providerHomeIdentityHash: string;
     providerHomeProtectionHash: string;
     localUserBindingHash: string;
+    stableLogicalHomeBindingHash: string;
     observedWallClockMs: number;
     observedMonotonicMs: number;
     providerHomeMountSourceCapability: object;
@@ -85,6 +86,7 @@ function blocked(
     providerHomeIdentityHash: null,
     providerHomeProtectionHash: null,
     localUserBindingHash: null,
+    stableLogicalHomeBindingHash: null,
     selectedUserBindingVerified: false,
     protectionVerified: false,
     stableIdentityObserved: false,
@@ -263,6 +265,7 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
       providerHomeIdentityHash: observation.providerHomeIdentityHash,
       providerHomeProtectionHash: observation.providerHomeProtectionHash,
       localUserBindingHash: observation.localUserBindingHash,
+      stableLogicalHomeBindingHash: observation.stableLogicalHomeBindingHash,
       observedWallClockMs,
       observedMonotonicMs,
       providerHomeMountSourceCapability,

@@ -315,6 +315,7 @@ function fixture(
           : Object.freeze({
               status: "published",
               candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
+              expiresAtMs: 1_800_000_000_000,
             }),
   };
   const runtime = createIsolatedCoordinatorTaskRuntimeCandidate(
@@ -355,6 +356,7 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
     result.candidateId,
     `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
   );
+  assert.equal(result.expiresAtMs, 1_800_000_000_000);
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.selectionRequests.length, 2);
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
@@ -689,7 +691,7 @@ test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");

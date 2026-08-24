@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 import {
   createCandidateStoreObservationRequest,
+  createRuntimeStateObservationRequest,
   evaluateCandidateStoreObservationResponseCandidate,
+  evaluateRuntimeStateObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
 } from "./provider-home-observation.ts";
 import {
@@ -28,9 +30,11 @@ const rootCapabilities = new WeakMap<
   object,
   Readonly<{
     rootPath: string;
-    candidateStoreIdentityHash: string;
-    candidateStoreProtectionHash: string;
+    kind: "candidate_store" | "runtime_state";
+    identityHash: string;
+    protectionHash: string;
     localUserBindingHash: string;
+    stableLogicalHomeBindingHash: string;
   }>
 >();
 
@@ -93,7 +97,7 @@ function blocked(
   });
 }
 
-function rootPathCandidate() {
+function rootPathCandidate(kind: "candidate_store" | "runtime_state") {
   const localAppData = process.env.LOCALAPPDATA;
   if (
     !isSupportedWindowsAbsolutePathCandidate(localAppData) ||
@@ -105,22 +109,23 @@ function rootPathCandidate() {
     localAppData,
     "Qual-Lab",
     "CRDD",
-    "CandidateStore",
+    kind === "candidate_store" ? "CandidateStore" : "RuntimeState",
   );
   return isSupportedWindowsAbsolutePathCandidate(rootPath) ? rootPath : null;
 }
 
-export function inspectRuntimeOwnedWindowsCandidateStore(
+function inspectRuntimeOwnedWindowsProtectedRoot(
+  kind: "candidate_store" | "runtime_state",
   initializeIfMissing: unknown,
   evaluationTime: unknown,
 ) {
   if (process.platform !== "win32")
     return blocked("candidate_store_windows_adapter_platform_unsupported");
-  const rootPath = rootPathCandidate();
-  const request = createCandidateStoreObservationRequest(
-    rootPath,
-    initializeIfMissing,
-  );
+  const rootPath = rootPathCandidate(kind);
+  const request =
+    kind === "candidate_store"
+      ? createCandidateStoreObservationRequest(rootPath, initializeIfMissing)
+      : createRuntimeStateObservationRequest(rootPath, initializeIfMissing);
   if (!rootPath || !request)
     return blocked("candidate_store_windows_adapter_root_invalid");
   const packageVerification =
@@ -205,10 +210,16 @@ export function inspectRuntimeOwnedWindowsCandidateStore(
       }),
     );
   }
-  const observation = evaluateCandidateStoreObservationResponseCandidate(
-    execution.stdout,
-    request.nonce,
-  );
+  const observation =
+    kind === "candidate_store"
+      ? evaluateCandidateStoreObservationResponseCandidate(
+          execution.stdout,
+          request.nonce,
+        )
+      : evaluateRuntimeStateObservationResponseCandidate(
+          execution.stdout,
+          request.nonce,
+        );
   if (observation.status !== "candidate")
     return blocked(
       "candidate_store_windows_adapter_response_invalid",
@@ -219,13 +230,23 @@ export function inspectRuntimeOwnedWindowsCandidateStore(
       }),
     );
   const rootCapability = Object.freeze({});
+  const identityHash =
+    "candidateStoreIdentityHash" in observation
+      ? observation.candidateStoreIdentityHash
+      : observation.runtimeStateIdentityHash;
+  const protectionHash =
+    "candidateStoreProtectionHash" in observation
+      ? observation.candidateStoreProtectionHash
+      : observation.runtimeStateProtectionHash;
   rootCapabilities.set(
     rootCapability,
     Object.freeze({
       rootPath,
-      candidateStoreIdentityHash: observation.candidateStoreIdentityHash,
-      candidateStoreProtectionHash: observation.candidateStoreProtectionHash,
+      kind,
+      identityHash,
+      protectionHash,
       localUserBindingHash: observation.localUserBindingHash,
+      stableLogicalHomeBindingHash: observation.stableLogicalHomeBindingHash,
     }),
   );
   return Object.freeze({
@@ -242,19 +263,71 @@ export function inspectRuntimeOwnedWindowsCandidateStore(
   });
 }
 
+export function inspectRuntimeOwnedWindowsCandidateStore(
+  initializeIfMissing: unknown,
+  evaluationTime: unknown,
+) {
+  return inspectRuntimeOwnedWindowsProtectedRoot(
+    "candidate_store",
+    initializeIfMissing,
+    evaluationTime,
+  );
+}
+
+export function inspectRuntimeOwnedWindowsRuntimeState(
+  initializeIfMissing: unknown,
+  evaluationTime: unknown,
+) {
+  return inspectRuntimeOwnedWindowsProtectedRoot(
+    "runtime_state",
+    initializeIfMissing,
+    evaluationTime,
+  );
+}
+
 export function consumeRuntimeOwnedCandidateStoreRootCapability(
   capability: unknown,
 ) {
   if (!capability || typeof capability !== "object") return null;
   const value = rootCapabilities.get(capability);
   rootCapabilities.delete(capability);
-  return value ?? null;
+  return value?.kind === "candidate_store"
+    ? Object.freeze({
+        rootPath: value.rootPath,
+        candidateStoreIdentityHash: value.identityHash,
+        candidateStoreProtectionHash: value.protectionHash,
+        localUserBindingHash: value.localUserBindingHash,
+        stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash,
+      })
+    : null;
+}
+
+export function consumeRuntimeOwnedRuntimeStateRootCapability(
+  capability: unknown,
+) {
+  if (!capability || typeof capability !== "object") return null;
+  const value = rootCapabilities.get(capability);
+  rootCapabilities.delete(capability);
+  return value?.kind === "runtime_state"
+    ? Object.freeze({
+        rootPath: value.rootPath,
+        runtimeStateIdentityHash: value.identityHash,
+        runtimeStateProtectionHash: value.protectionHash,
+        localUserBindingHash: value.localUserBindingHash,
+        stableLogicalHomeBindingHash: value.stableLogicalHomeBindingHash,
+      })
+    : null;
 }
 
 export function describeCandidateStoreWindowsAdapterContract() {
   return Object.freeze({
     platform: "windows",
     fixedSegments: Object.freeze(["Qual-Lab", "CRDD", "CandidateStore"]),
+    runtimeStateFixedSegments: Object.freeze([
+      "Qual-Lab",
+      "CRDD",
+      "RuntimeState",
+    ]),
     nativeRootSource: "windows_known_folder_local_app_data",
     initialization:
       "create_missing_exact_selected_user_and_system_protected_dacl_without_repair",
