@@ -629,9 +629,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         ...command.argv,
       ],
       dockerEnvironment(),
-      command.purpose === "start_provider_attached"
-        ? plan.providerInput
-        : null,
+      command.purpose === "start_provider_attached" ? plan.providerInput : null,
     );
     context.handles.add(handle);
     return handle;

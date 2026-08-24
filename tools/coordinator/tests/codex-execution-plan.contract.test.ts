@@ -83,9 +83,7 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
     assert.equal(plan.argv.at(-1), "-");
     assert.equal(plan.argv.includes("--sandbox"), false);
     assert.equal(
-      plan.argv.some((value) =>
-        value.includes('filesystem={":root"="deny"'),
-      ),
+      plan.argv.some((value) => value.includes('filesystem={":root"="deny"')),
       true,
     );
   }
@@ -118,9 +116,18 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
   assert.equal(contract.contractRevision, 2);
-  assert.equal(contract.distributionVerification.sigstoreBlobSignatureVerified, true);
-  assert.equal(contract.distributionVerification.sigstoreCertificateIdentityMatched, true);
-  assert.equal(contract.authentication, "existing_chatgpt_subscription_oauth_only");
+  assert.equal(
+    contract.distributionVerification.sigstoreBlobSignatureVerified,
+    true,
+  );
+  assert.equal(
+    contract.distributionVerification.sigstoreCertificateIdentityMatched,
+    true,
+  );
+  assert.equal(
+    contract.authentication,
+    "existing_chatgpt_subscription_oauth_only",
+  );
   assert.equal(contract.apiKeyAllowed, false);
   assert.equal(contract.paidApiFallbackAllowed, false);
   assert.equal(contract.speedMode, "normal_only");

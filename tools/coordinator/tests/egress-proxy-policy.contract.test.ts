@@ -339,9 +339,12 @@ test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として�
     "auth.openai.com",
     "chatgpt.com",
   ]);
-  assert.deepEqual(codexTopology.verificationAdapter.codexExternalProbe.exactResult, {
-    status: true,
-  });
+  assert.deepEqual(
+    codexTopology.verificationAdapter.codexExternalProbe.exactResult,
+    {
+      status: true,
+    },
+  );
   assert.equal(
     codexTopology.verificationAdapter.codexExternalProbe.containerResidue,
     0,

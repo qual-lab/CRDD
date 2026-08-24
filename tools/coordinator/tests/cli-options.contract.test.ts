@@ -11,6 +11,7 @@ import {
   parseDisableArguments,
   parseDoctorArguments,
   parseProvisionArguments,
+  parseTaskArguments,
 } from "../src/core/cli-options.ts";
 import { assertPresent } from "./test-support.ts";
 
@@ -586,6 +587,72 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
     JSON.parse(invalid.stdout).reason,
     "provision_arguments_invalid",
   );
+});
+
+test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", () => {
+  const parsed = parseTaskArguments(["--request-stdin", "--json"]);
+  assert.equal(parsed.status, "ok");
+  assertPresent(parsed.value);
+  assert.equal(parsed.value.requestFromStdin, true);
+  assert.equal(parsed.value.json, true);
+  for (const args of [
+    [],
+    ["--json"],
+    ["--request-stdin", "--request-stdin"],
+    ["--request", "secret-like-content"],
+    ["--request-stdin", "--unknown"],
+  ]) {
+    assert.equal(parseTaskArguments(args).status, "blocked");
+  }
+});
+
+test("実task CLIは曖昧JSONと偽RepositoryをProvider Effect前に拒否する", () => {
+  const ambiguous = spawnSync(
+    process.execPath,
+    [coordinatorExecutable, "task", "--request-stdin", "--json"],
+    {
+      input: '{"frontProvider":"codex","frontProvider":"claude"}',
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+  assert.equal(ambiguous.status, 64);
+  assert.deepEqual(JSON.parse(ambiguous.stdout), {
+    command: "task",
+    status: "blocked",
+    reason: "task_request_invalid_json",
+  });
+
+  const invalidRepository = spawnSync(
+    process.execPath,
+    [coordinatorExecutable, "task", "--request-stdin", "--json"],
+    {
+      cwd: os.tmpdir(),
+      input: JSON.stringify({
+        frontProvider: "codex",
+        objective: "Bounded synthetic task.",
+        acceptanceCriteria: ["No effect is issued."],
+        allowedPaths: ["fixture.txt"],
+        contentPolicy: "authenticated_local_user_approved",
+        workClass: "bounded_implementation",
+        planState: "complete",
+        risk: "low",
+        difficulty: "low",
+        decisionImpact: "limited",
+        isLocalCandidateOnly: true,
+        hasUnresolvedDirection: false,
+        requiresCrossContextAlignment: false,
+      }),
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+  assert.equal(invalidRepository.status, 2);
+  const report = JSON.parse(invalidRepository.stdout);
+  assert.equal(report.command, "task");
+  assert.equal(report.status, "blocked");
+  assert.equal(report.rawOutputReported, false);
+  assert.equal(invalidRepository.stdout.includes(os.tmpdir()), false);
 });
 
 test("helpはProvision Effect未実装と処置前blockedを一意に表示する", () => {

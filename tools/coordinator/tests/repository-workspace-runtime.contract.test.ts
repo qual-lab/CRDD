@@ -22,7 +22,11 @@ import {
   verifyRuntimeOwnedCandidateRevision,
 } from "../src/security/repository-workspace-runtime.ts";
 
-function writeObject(commonDirectory: string, objectType: string, bytes: Buffer) {
+function writeObject(
+  commonDirectory: string,
+  objectType: string,
+  bytes: Buffer,
+) {
   const framed = Buffer.concat([
     Buffer.from(`${objectType} ${bytes.byteLength}\0`),
     bytes,
@@ -47,11 +51,18 @@ function treeEntry(mode: string, name: string, objectId: string) {
 }
 
 function repository(t: TestContext) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-workspace-repository-"));
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-workspace-repository-"),
+  );
   const commonDirectory = path.join(root, ".git");
   fs.mkdirSync(path.join(commonDirectory, "info"), { recursive: true });
-  fs.mkdirSync(path.join(commonDirectory, "refs", "heads"), { recursive: true });
-  fs.writeFileSync(path.join(commonDirectory, "HEAD"), "ref: refs/heads/main\n");
+  fs.mkdirSync(path.join(commonDirectory, "refs", "heads"), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(commonDirectory, "HEAD"),
+    "ref: refs/heads/main\n",
+  );
   fs.writeFileSync(
     path.join(commonDirectory, "config"),
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",

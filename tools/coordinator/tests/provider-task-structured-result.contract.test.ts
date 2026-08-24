@@ -51,13 +51,25 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
 
 test("Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否する", () => {
   for (const value of [
-    { decision: "approved", summary: "ok", findings: [{ severity: "low", path: "a", message: "x" }] },
+    {
+      decision: "approved",
+      summary: "ok",
+      findings: [{ severity: "low", path: "a", message: "x" }],
+    },
     { decision: "changes_requested", summary: "bad", findings: [] },
     { decision: "approved", summary: "ok", findings: [], extra: true },
-    { decision: "changes_requested", summary: "bad", findings: [{ severity: "high", path: "../auth.json", message: "x" }] },
+    {
+      decision: "changes_requested",
+      summary: "bad",
+      findings: [{ severity: "high", path: "../auth.json", message: "x" }],
+    },
   ]) {
     assert.equal(
-      normalizeProviderTaskStructuredResult("codex", "reviewer", JSON.stringify(value)).status,
+      normalizeProviderTaskStructuredResult(
+        "codex",
+        "reviewer",
+        JSON.stringify(value),
+      ).status,
       "blocked",
     );
   }
@@ -89,11 +101,19 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
     "blocked",
   );
   assert.equal(
-    normalizeProviderTaskStructuredResult("codex", "executor", `${executor}\n{}`).status,
+    normalizeProviderTaskStructuredResult(
+      "codex",
+      "executor",
+      `${executor}\n{}`,
+    ).status,
     "blocked",
   );
   assert.equal(
-    normalizeProviderTaskStructuredResult("codex", "executor", "x".repeat(65_537)).status,
+    normalizeProviderTaskStructuredResult(
+      "codex",
+      "executor",
+      "x".repeat(65_537),
+    ).status,
     "blocked",
   );
 });

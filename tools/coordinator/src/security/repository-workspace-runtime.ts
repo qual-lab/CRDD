@@ -19,7 +19,8 @@ const MAXIMUM_WORKSPACE_FILES = 20_000;
 const MAXIMUM_CHANGED_PATHS = 1_000;
 const MAXIMUM_ALLOWED_PATHS = 64;
 const MAXIMUM_ALLOWED_PATH_BYTES = 1_024;
-const RESERVED_WINDOWS_SEGMENT = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
+const RESERVED_WINDOWS_SEGMENT =
+  /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 
 type InventoryEntry = Readonly<{
@@ -94,8 +95,7 @@ function stableFile(target: string, maximumBytes: number) {
         Math.min(buffer.byteLength, Number(before.size) - readBytes),
         readBytes,
       );
-      if (readLength <= 0)
-        throw new Error("repository_workspace_file_changed");
+      if (readLength <= 0) throw new Error("repository_workspace_file_changed");
       hash.update(buffer.subarray(0, readLength));
       readBytes += readLength;
     }
@@ -212,14 +212,21 @@ function entryMap(entries: readonly InventoryEntry[]) {
 }
 
 function allowedPaths(rawAllowedPaths: unknown) {
-  if (!Array.isArray(rawAllowedPaths) || rawAllowedPaths.length > MAXIMUM_ALLOWED_PATHS)
+  if (
+    !Array.isArray(rawAllowedPaths) ||
+    rawAllowedPaths.length > MAXIMUM_ALLOWED_PATHS
+  )
     return null;
   const result: string[] = [];
   try {
     const descriptors = Object.getOwnPropertyDescriptors(rawAllowedPaths);
     for (let index = 0; index < rawAllowedPaths.length; index += 1) {
       const descriptor = descriptors[index.toString()];
-      if (!descriptor || !("value" in descriptor) || typeof descriptor.value !== "string")
+      if (
+        !descriptor ||
+        !("value" in descriptor) ||
+        typeof descriptor.value !== "string"
+      )
         return null;
       const isDirectory = descriptor.value.endsWith("/");
       const relativePath = isDirectory
@@ -476,7 +483,8 @@ export function verifyRuntimeOwnedCandidateRevision(
       mountCapability,
     );
     const currentInventory = inventory(binding.mounts.workspace);
-    if (manifestHash(currentInventory) !== record.contentManifestHash) return null;
+    if (manifestHash(currentInventory) !== record.contentManifestHash)
+      return null;
     return Object.freeze({
       status: "verified" as const,
       operationId: record.workspaceRecord.operationId,

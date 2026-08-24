@@ -254,6 +254,44 @@ export function parseProvisionArguments(rawArguments: unknown) {
   );
 }
 
+export function parseTaskArguments(rawArguments: unknown) {
+  const snapshot = snapshotPlainArray<string>(rawArguments, MAXIMUM_ARGUMENTS);
+  if (
+    snapshot.status !== "ok" ||
+    snapshot.value.some((value) => !validToken(value))
+  ) {
+    return commandResponse(
+      "blocked",
+      "task_arguments_invalid",
+      null,
+      false,
+      true,
+    );
+  }
+  const isJsonRequested = snapshot.value.includes("--json");
+  const expected = new Set(["--request-stdin", "--json"]);
+  if (
+    !snapshot.value.includes("--request-stdin") ||
+    snapshot.value.some((value) => !expected.has(value)) ||
+    new Set(snapshot.value).size !== snapshot.value.length
+  ) {
+    return commandResponse(
+      "blocked",
+      "task_arguments_invalid",
+      null,
+      isJsonRequested,
+      true,
+    );
+  }
+  return commandResponse(
+    "ok",
+    null,
+    Object.freeze({ json: isJsonRequested, requestFromStdin: true as const }),
+    isJsonRequested,
+    false,
+  );
+}
+
 export function parseDoctorArguments(
   rawArguments: unknown,
   environmentRoot: unknown,

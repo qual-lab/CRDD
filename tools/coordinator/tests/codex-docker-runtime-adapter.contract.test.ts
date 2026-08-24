@@ -206,10 +206,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   assert.equal(provider.argv.includes("--fallback-model"), false);
   const modelIndex = provider.argv.indexOf("--model");
   assert.equal(provider.argv[modelIndex + 1], "gpt-5.6-sol");
-  assert.equal(
-    provider.argv.includes('model_reasoning_effort="low"'),
-    true,
-  );
+  assert.equal(provider.argv.includes('model_reasoning_effort="low"'), true);
   assert.equal(
     provider.argv.some((value) => value.startsWith("OPENAI_API_KEY=")),
     false,
@@ -270,7 +267,9 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
   assert.equal(argv.includes(plan.providerInput), false);
   assert.equal(argv.includes("--interactive"), true);
   assert.equal(
-    argv.some((value) => value.includes("dst=/work") && !value.includes("readonly")),
+    argv.some(
+      (value) => value.includes("dst=/work") && !value.includes("readonly"),
+    ),
     true,
   );
 });
@@ -408,10 +407,7 @@ test("Selection GrantをconsumeできなければMount leaseだけ回収して�
     fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "blocked");
-  assert.equal(
-    prepared.reason,
-    "codex_docker_runtime_model_selection_invalid",
-  );
+  assert.equal(prepared.reason, "codex_docker_runtime_model_selection_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
 });
 

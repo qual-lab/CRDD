@@ -268,7 +268,9 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
   assert.equal(argv.includes(plan.providerInput), false);
   assert.equal(argv.includes("--interactive"), true);
   assert.equal(
-    argv.some((value) => value.includes("dst=/work") && value.includes("readonly")),
+    argv.some(
+      (value) => value.includes("dst=/work") && value.includes("readonly"),
+    ),
     true,
   );
 });

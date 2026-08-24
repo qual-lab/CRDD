@@ -103,7 +103,12 @@ test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成�
 });
 
 test("symlink、submodule、Windows case衝突と非empty workspaceを拒否する", (t) => {
-  for (const scenario of ["symlink", "submodule", "case", "nonempty"] as const) {
+  for (const scenario of [
+    "symlink",
+    "submodule",
+    "case",
+    "nonempty",
+  ] as const) {
     const fixture = temporaryFixture(t);
     const blobId = writeObject(
       fixture.commonDirectory,

@@ -29,7 +29,10 @@ function operation() {
 function packet() {
   return {
     objective: "Update the isolated fixture and keep its behavior explicit.",
-    acceptanceCriteria: ["The requested text is present.", "No other file changes."],
+    acceptanceCriteria: [
+      "The requested text is present.",
+      "No other file changes.",
+    ],
     allowedPaths: ["fixture.txt", "docs/"],
     contentPolicy: "authenticated_local_user_approved",
   };

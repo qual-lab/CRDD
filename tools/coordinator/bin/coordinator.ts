@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import fs from "node:fs";
 import { types as utilTypes } from "node:util";
 
 import { runDoctor } from "../src/core/doctor.ts";
@@ -8,7 +9,13 @@ import {
   parseDisableArguments,
   parseDoctorArguments,
   parseProvisionArguments,
+  parseTaskArguments,
 } from "../src/core/cli-options.ts";
+import { parseUnambiguousJsonDocument } from "../src/security/claude-structured-result.ts";
+import {
+  cancelRuntimeOwnedCoordinatorTask,
+  startRuntimeOwnedCoordinatorTask,
+} from "../src/security/coordinator-task-runtime.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
@@ -26,6 +33,8 @@ type CommandReport = Readonly<{
 class UsageError extends Error {
   readonly usage = true;
 }
+
+const MAXIMUM_TASK_REQUEST_BYTES = 128 * 1024;
 
 function plainRecord(raw: unknown): Readonly<Record<string, unknown>> | null {
   if (
@@ -104,6 +113,9 @@ function printHelp() {
   );
   process.stdout.write(`  coordinator provision [--json]\n`);
   process.stdout.write(
+    `  coordinator task --request-stdin [--json]  # repository is the current directory\n`,
+  );
+  process.stdout.write(
     `\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`,
   );
   process.stdout.write(
@@ -115,6 +127,96 @@ function printHelp() {
   process.stdout.write(
     `CRDD_COORDINATOR_AUTHORITY_ROOT has no OS default and is used only by activate.\n`,
   );
+}
+
+function readBoundedTaskRequestFromStdin() {
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  const buffer = Buffer.alloc(8 * 1024);
+  for (;;) {
+    const readBytes = fs.readSync(0, buffer, 0, buffer.length, null);
+    if (readBytes === 0) break;
+    totalBytes += readBytes;
+    if (totalBytes > MAXIMUM_TASK_REQUEST_BYTES) {
+      throw new UsageError("task_request_too_large");
+    }
+    chunks.push(Buffer.from(buffer.subarray(0, readBytes)));
+  }
+  let source: string;
+  try {
+    source = new TextDecoder("utf-8", { fatal: true }).decode(
+      Buffer.concat(chunks, totalBytes),
+    );
+  } catch {
+    throw new UsageError("task_request_invalid_utf8");
+  }
+  const parsed = parseUnambiguousJsonDocument(source);
+  if (!parsed) throw new UsageError("task_request_invalid_json");
+  return parsed;
+}
+
+async function runTaskCommand(args: readonly string[]) {
+  const parsed = parseTaskArguments(args);
+  const options = plainRecord(parsed.value);
+  if (
+    parsed.status !== "ok" ||
+    !options ||
+    options.requestFromStdin !== true ||
+    typeof options.json !== "boolean"
+  ) {
+    const report = Object.freeze({
+      command: "task",
+      status: "blocked",
+      reason: parsed.reason ?? "task_arguments_invalid",
+    });
+    printCommandReport(report, parsed.jsonRequested);
+    process.exitCode = parsed.usageError ? 64 : 2;
+    return;
+  }
+  let started: ReturnType<typeof startRuntimeOwnedCoordinatorTask>;
+  try {
+    started = startRuntimeOwnedCoordinatorTask(
+      readBoundedTaskRequestFromStdin(),
+      process.cwd(),
+    );
+  } catch (rawError) {
+    const reason =
+      rawError instanceof UsageError
+        ? rawError.message
+        : "coordinator_task_start_failed_closed";
+    printCommandReport(
+      Object.freeze({ command: "task", status: "blocked", reason }),
+      options.json,
+    );
+    process.exitCode = rawError instanceof UsageError ? 64 : 2;
+    return;
+  }
+  const cancel = () => {
+    void cancelRuntimeOwnedCoordinatorTask(started.controlCapability);
+  };
+  process.once("SIGINT", cancel);
+  process.once("SIGTERM", cancel);
+  try {
+    const result = await started.completion;
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({ command: "task", ...result })}\n`,
+      );
+    } else {
+      printCommandReport(
+        Object.freeze({
+          command: "task",
+          status: result.status,
+          reason: result.reason,
+        }),
+        false,
+      );
+    }
+    process.exitCode = result.status === "completed" ? 0 : 2;
+  } finally {
+    process.removeListener("SIGINT", cancel);
+    process.removeListener("SIGTERM", cancel);
+  }
 }
 
 function printCommandReport(report: CommandReport, shouldOutputJson: boolean) {
@@ -245,6 +347,8 @@ if (
       : parsed.jsonRequested;
   printCommandReport(report, isJsonRequested);
   process.exitCode = !isParsed ? 64 : 2;
+} else if (command === "task") {
+  await runTaskCommand(args);
 } else if (command === "doctor") {
   try {
     const parsed = parseDoctorArguments(

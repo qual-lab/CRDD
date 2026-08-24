@@ -560,10 +560,10 @@ function prepare(
     const taskPacket =
       taskPacketUseCapability === null
         ? null
-        : state.consumeTaskPacket?.(
+        : (state.consumeTaskPacket?.(
             taskPacketUseCapability,
             managementCapability,
-          ) ?? null;
+          ) ?? null);
     if (taskPacketUseCapability !== null && !taskPacket) {
       state.completeMount(activeMountCapability, managementCapability);
       return createBlockedResult("claude_docker_runtime_task_packet_invalid");

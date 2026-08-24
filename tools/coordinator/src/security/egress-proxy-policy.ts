@@ -581,7 +581,6 @@ export function describeEgressProxyTopology(
     hostNetworkModeAllowed: false,
     localFallbackAllowed: false,
     verificationAdapter: PROVIDER_VERIFICATION_ADAPTER,
-    enforcement:
-      "fixed_runtime_adapter_connected_release_activation_pending",
+    enforcement: "fixed_runtime_adapter_connected_release_activation_pending",
   });
 }

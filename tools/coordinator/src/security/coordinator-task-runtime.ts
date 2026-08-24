@@ -1,9 +1,5 @@
-import {
-  prepareRuntimeOwnedClaudeDockerTaskCandidate,
-} from "./claude-docker-runtime-adapter.ts";
-import {
-  prepareRuntimeOwnedCodexDockerTaskCandidate,
-} from "./codex-docker-runtime-adapter.ts";
+import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "./claude-docker-runtime-adapter.ts";
+import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
@@ -30,9 +26,7 @@ import {
   issueRuntimeOwnedProviderTaskPacket,
   revokeRuntimeOwnedProviderTaskPacket,
 } from "./provider-task-packet-runtime.ts";
-import {
-  bindRuntimeOwnedRepositoryOperation,
-} from "./repository-operation-runtime.ts";
+import { bindRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
 import {
   captureRuntimeOwnedCandidateRevision,
   materializeRuntimeOwnedRepositoryWorkspace,
@@ -199,8 +193,7 @@ function snapshotRequest(rawRequest: unknown) {
     : null;
   if (
     !request ||
-    (request.frontProvider !== "codex" &&
-      request.frontProvider !== "claude") ||
+    (request.frontProvider !== "codex" && request.frontProvider !== "claude") ||
     typeof request.objective !== "string" ||
     request.objective.length === 0 ||
     request.contentPolicy !== "authenticated_local_user_approved" ||
@@ -314,6 +307,7 @@ async function executeStage(
       : null;
   const profileId = stringValue(selection.profileId);
   let selectionControl = objectCapability(selection.controlCapability);
+  let startedProcessControl: object | null = null;
   if (
     selection.status !== "issued" ||
     !provider ||
@@ -430,6 +424,7 @@ async function executeStage(
       );
     }
     control.currentProcessControl = processControl;
+    startedProcessControl = processControl;
     if (control.cancellationRequested) {
       await state.dependencies.cancelProcess(
         processControl,
@@ -438,6 +433,10 @@ async function executeStage(
     }
     const result = (await completion) as RuntimeRecord;
     control.currentProcessControl = null;
+    startedProcessControl = null;
+    if (control.cancellationRequested) {
+      return blocked("coordinator_task_cancelled_after_provider_cleanup");
+    }
     if (result.status !== "completed" || result.cleanupConfirmed !== true) {
       return Object.freeze({
         ...blocked(
@@ -456,6 +455,19 @@ async function executeStage(
       normalizedResult: result.normalizedResult,
     });
   } catch {
+    if (startedProcessControl) {
+      try {
+        await state.dependencies.cancelProcess(
+          startedProcessControl,
+          operation.managementCapability,
+        );
+      } catch {
+        // The process state is already unknowable. The result below retains the
+        // operation root and requires explicit recovery regardless.
+      }
+      control.currentProcessControl = null;
+      return blocked("coordinator_task_process_completion_unconfirmed", true);
+    }
     revokeUnconsumed();
     return blocked("coordinator_task_stage_failed_closed");
   }
@@ -494,7 +506,9 @@ async function run(
       operation.managementCapability,
       operation.mountCapability,
     );
-    const workspaceCapability = objectCapability(workspace?.workspaceCapability);
+    const workspaceCapability = objectCapability(
+      workspace?.workspaceCapability,
+    );
     if (workspace?.status !== "materialized" || !workspaceCapability) {
       return blocked("coordinator_task_workspace_materialization_failed");
     }
@@ -511,6 +525,9 @@ async function run(
       retainOperationRoot = executor.manualRecoveryRequired === true;
       return executor;
     }
+    if (control.cancellationRequested) {
+      return blocked("coordinator_task_cancelled_before_candidate_capture");
+    }
     const executorResult = executor.normalizedResult as RuntimeRecord;
     const candidate = state.dependencies.captureCandidate(
       workspaceCapability,
@@ -519,7 +536,9 @@ async function run(
       operation.mountCapability,
       request.allowedPaths as readonly string[],
     );
-    const candidateCapability = objectCapability(candidate?.candidateCapability);
+    const candidateCapability = objectCapability(
+      candidate?.candidateCapability,
+    );
     if (
       candidate?.status !== "candidate" ||
       !candidateCapability ||
@@ -527,6 +546,9 @@ async function run(
       !samePaths(executorResult.changedPaths, candidate.changedPaths)
     ) {
       return blocked("coordinator_task_candidate_revision_invalid");
+    }
+    if (control.cancellationRequested) {
+      return blocked("coordinator_task_cancelled_before_independent_review");
     }
     const reviewer = await executeStage(
       state,
@@ -597,9 +619,8 @@ function createProductionOperation() {
     contextCapability,
     mountCapability,
   );
-  const operation = verifyOwnedOperationManagementCapability(
-    managementCapability,
-  );
+  const operation =
+    verifyOwnedOperationManagementCapability(managementCapability);
   return Object.freeze({
     owned,
     mountCapability,
@@ -722,9 +743,12 @@ const productionRuntime = createRuntime(productionDependencies);
 export function startRuntimeOwnedCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
-  evaluationTime: unknown,
 ) {
-  return productionRuntime.start(rawRequest, repositoryRoot, evaluationTime);
+  return productionRuntime.start(
+    rawRequest,
+    repositoryRoot,
+    new Date().toISOString(),
+  );
 }
 
 export function cancelRuntimeOwnedCoordinatorTask(controlCapability: unknown) {
@@ -744,8 +768,7 @@ export function describeCoordinatorTaskRuntimeContract() {
   return Object.freeze({
     contract: COORDINATOR_TASK_RUNTIME_CONTRACT,
     contractRevision: COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION,
-    flow:
-      "front_to_coordinator_to_executor_to_candidate_revision_to_independent_reviewer_to_result_integration",
+    flow: "front_to_coordinator_to_executor_to_candidate_revision_to_independent_reviewer_to_result_integration",
     routes: Object.freeze([
       "front_codex__executor_codex",
       "front_codex__executor_claude",

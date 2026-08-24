@@ -3,8 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 
-export const GIT_OBJECT_READER_CONTRACT =
-  "crdd-coordinator/git-object-reader";
+export const GIT_OBJECT_READER_CONTRACT = "crdd-coordinator/git-object-reader";
 export const GIT_OBJECT_READER_CONTRACT_REVISION = 1;
 
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
@@ -16,7 +15,8 @@ const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_FILES = 20_000;
 const MAXIMUM_TREE_DEPTH = 64;
 const MAXIMUM_RELATIVE_PATH_BYTES = 1_024;
-const RESERVED_WINDOWS_SEGMENT = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
+const RESERVED_WINDOWS_SEGMENT =
+  /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 const INVALID_WINDOWS_CHARACTER = /[<>:"|?*\\\x00-\x1f\x7f]/u;
 
 type GitObjectType = "commit" | "tree" | "blob" | "tag";
@@ -145,7 +145,8 @@ function parsePackIndex(indexPath: string): PackIndex {
     priorCount = count;
   }
   const objectCount = priorCount;
-  if (objectCount > 2_000_000) throw new Error("git_pack_index_budget_exceeded");
+  if (objectCount > 2_000_000)
+    throw new Error("git_pack_index_budget_exceeded");
   const identifiersStart = fanoutStart + 256 * 4;
   const crcStart = identifiersStart + objectCount * 20;
   const offsetsStart = crcStart + objectCount * 4;
@@ -153,15 +154,17 @@ function parsePackIndex(indexPath: string): PackIndex {
   if (fixedEnd + 40 > bytes.byteLength)
     throw new Error("git_pack_index_invalid");
   const largeOffsetBytes = bytes.byteLength - fixedEnd - 40;
-  if (largeOffsetBytes % 8 !== 0)
-    throw new Error("git_pack_index_invalid");
+  if (largeOffsetBytes % 8 !== 0) throw new Error("git_pack_index_invalid");
   const largeOffsetCount = largeOffsetBytes / 8;
   const objectOffsets = new Map<string, number>();
   const offsetObjectIds = new Map<number, string>();
   let previousObjectId = "";
   for (let index = 0; index < objectCount; index += 1) {
     const objectId = bytes
-      .subarray(identifiersStart + index * 20, identifiersStart + (index + 1) * 20)
+      .subarray(
+        identifiersStart + index * 20,
+        identifiersStart + (index + 1) * 20,
+      )
       .toString("hex");
     if (previousObjectId && objectId <= previousObjectId)
       throw new Error("git_pack_index_invalid");
@@ -270,7 +273,11 @@ function applyDelta(base: Buffer, delta: Buffer) {
   return Buffer.concat(chunks, outputSize);
 }
 
-function decodePackOffset(bytes: Buffer, startIndex: number, objectOffset: number) {
+function decodePackOffset(
+  bytes: Buffer,
+  startIndex: number,
+  objectOffset: number,
+) {
   let nextIndex = startIndex;
   let current = bytes[nextIndex] as number;
   nextIndex += 1;
@@ -292,7 +299,8 @@ function decodePackOffset(bytes: Buffer, startIndex: number, objectOffset: numbe
 function safePackIndexes(commonDirectory: string) {
   const objectDirectory = path.join(commonDirectory, "objects");
   const alternates = path.join(objectDirectory, "info", "alternates");
-  if (fs.existsSync(alternates)) throw new Error("git_alternates_not_supported");
+  if (fs.existsSync(alternates))
+    throw new Error("git_alternates_not_supported");
   const packDirectory = path.join(objectDirectory, "pack");
   let names: string[];
   try {
@@ -308,10 +316,14 @@ function safePackIndexes(commonDirectory: string) {
     }
     throw error;
   }
-  const indexNames = names.filter((name) => /^pack-[a-f0-9]{40}\.idx$/u.test(name));
+  const indexNames = names.filter((name) =>
+    /^pack-[a-f0-9]{40}\.idx$/u.test(name),
+  );
   if (indexNames.length > 128) throw new Error("git_pack_count_exceeded");
   return Object.freeze(
-    indexNames.sort().map((name) => parsePackIndex(path.join(packDirectory, name))),
+    indexNames
+      .sort()
+      .map((name) => parsePackIndex(path.join(packDirectory, name))),
   );
 }
 
@@ -349,8 +361,7 @@ function createObjectReader(commonDirectory: string) {
     objectOffset: number,
     depth: number,
   ): GitObject {
-    if (depth > MAXIMUM_TREE_DEPTH)
-      throw new Error("git_delta_depth_exceeded");
+    if (depth > MAXIMUM_TREE_DEPTH) throw new Error("git_delta_depth_exceeded");
     const bytes = packBytes(index);
     const sortedIndex = index.sortedOffsets.indexOf(objectOffset);
     if (sortedIndex < 0) throw new Error("git_pack_index_invalid");
@@ -370,7 +381,10 @@ function createObjectReader(commonDirectory: string) {
       declaredSize += (current & 0x7f) * 2 ** shift;
       shift += 7;
     }
-    if (!Number.isSafeInteger(declaredSize) || declaredSize > MAXIMUM_OBJECT_BYTES)
+    if (
+      !Number.isSafeInteger(declaredSize) ||
+      declaredSize > MAXIMUM_OBJECT_BYTES
+    )
       throw new Error("git_pack_object_budget_exceeded");
     let baseOffset: number | null = null;
     let baseObjectId: string | null = null;
@@ -393,9 +407,7 @@ function createObjectReader(commonDirectory: string) {
       throw new Error("git_pack_object_size_mismatch");
     let result: GitObject;
     if (typeCode >= 1 && typeCode <= 4) {
-      const type = (["", "commit", "tree", "blob", "tag"] as const)[
-        typeCode
-      ];
+      const type = (["", "commit", "tree", "blob", "tag"] as const)[typeCode];
       if (!type) throw new Error("git_pack_object_type_invalid");
       result = Object.freeze({ type, bytes: inflated });
     } else {
@@ -491,9 +503,7 @@ function commitTree(object: GitObject) {
   if (object.type !== "commit") throw new Error("git_revision_not_commit");
   const text = new TextDecoder("utf-8", { fatal: true }).decode(object.bytes);
   if (text.includes("\r")) throw new Error("git_commit_invalid");
-  const matches = text
-    .split("\n")
-    .filter((line) => line.startsWith("tree "));
+  const matches = text.split("\n").filter((line) => line.startsWith("tree "));
   if (matches.length !== 1) throw new Error("git_commit_invalid");
   const treeId = matches[0]?.slice(5) ?? "";
   if (!OBJECT_ID.test(treeId)) throw new Error("git_commit_invalid");
@@ -531,7 +541,9 @@ function parseTree(
     if (comparisonNames.has(comparisonName))
       throw new Error("git_tree_case_collision");
     comparisonNames.add(comparisonName);
-    const objectId = tree.bytes.subarray(nulIndex + 1, nulIndex + 21).toString("hex");
+    const objectId = tree.bytes
+      .subarray(nulIndex + 1, nulIndex + 21)
+      .toString("hex");
     const relativePath = parentPath ? `${parentPath}/${segment}` : segment;
     if (Buffer.byteLength(relativePath, "utf8") > MAXIMUM_RELATIVE_PATH_BYTES)
       throw new Error("git_tree_path_budget_exceeded");
@@ -622,15 +634,15 @@ export function materializeGitCommitTreeCandidate(candidate: unknown) {
       Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
     );
     for (const entry of entries) {
-      const destination = path.join(workspace, ...entry.relativePath.split("/"));
+      const destination = path.join(
+        workspace,
+        ...entry.relativePath.split("/"),
+      );
       const destinationParent = path.dirname(destination);
       fs.mkdirSync(destinationParent, { recursive: true });
       const resolvedParent = fs.realpathSync.native(destinationParent);
       const relativeParent = path.relative(workspace, resolvedParent);
-      if (
-        relativeParent.startsWith("..") ||
-        path.isAbsolute(relativeParent)
-      ) {
+      if (relativeParent.startsWith("..") || path.isAbsolute(relativeParent)) {
         throw new Error("git_workspace_parent_escape");
       }
       fs.writeFileSync(destination, entry.bytes, {

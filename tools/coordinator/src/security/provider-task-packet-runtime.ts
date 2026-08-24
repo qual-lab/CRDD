@@ -165,9 +165,8 @@ export function issueRuntimeOwnedProviderTaskPacket(
     ) {
       return null;
     }
-    const operation = verifyOwnedOperationManagementCapability(
-      managementCapability,
-    );
+    const operation =
+      verifyOwnedOperationManagementCapability(managementCapability);
     const value = snapshotPlainRecord(rawPacket, PACKET_KEYS);
     const acceptanceCriteria = value
       ? normalizedStrings(

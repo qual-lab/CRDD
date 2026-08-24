@@ -17,7 +17,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
   const actual = Object.keys(value);
-  return actual.length === keys.length && keys.every((key) => actual.includes(key));
+  return (
+    actual.length === keys.length && keys.every((key) => actual.includes(key))
+  );
 }
 
 function validString(value: unknown, maximumBytes: number) {
@@ -38,7 +40,11 @@ function validPath(value: unknown) {
     !value.startsWith("/") &&
     !value.includes("\\") &&
     !value.includes("\0") &&
-    value.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..")
+    value
+      .split("/")
+      .every(
+        (segment) => segment.length > 0 && segment !== "." && segment !== "..",
+      )
   );
 }
 
@@ -105,7 +111,9 @@ function reviewerResult(value: Record<string, unknown>) {
   return Object.freeze({
     decision: value.decision as "approved" | "changes_requested",
     summary: value.summary as string,
-    findings: Object.freeze(findings as Exclude<(typeof findings)[number], null>[]),
+    findings: Object.freeze(
+      findings as Exclude<(typeof findings)[number], null>[],
+    ),
   });
 }
 
@@ -144,7 +152,10 @@ export function normalizeProviderTaskStructuredResult(
     typeof raw !== "string" ||
     Buffer.byteLength(raw, "utf8") > MAXIMUM_RAW_BYTES
   ) {
-    return Object.freeze({ status: "blocked" as const, normalizedResult: null });
+    return Object.freeze({
+      status: "blocked" as const,
+      normalizedResult: null,
+    });
   }
   const value = structuredValue(provider, raw);
   const normalizedResult = isRecord(value)

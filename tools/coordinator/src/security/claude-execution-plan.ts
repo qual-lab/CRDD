@@ -515,8 +515,7 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     parentEnvironmentInherited: false,
     providerHomeMountRequired: true,
     workspaceMountRequired: true,
-    workspaceMountMode:
-      taskRole === "executor" ? "read_write" : "read_only",
+    workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
     taskPromptTransport: "stdin_only" as const,
     taskPromptInArgvAllowed: false,
     shellAllowed: false,

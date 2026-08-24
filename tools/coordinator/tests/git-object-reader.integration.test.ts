@@ -50,7 +50,8 @@ test("現行CRDDのpacked objectをRuntime-owned隔離workspaceへ再構成す�
   assert.equal(materialized?.baseCommit, repository.revision);
   assert.ok((materialized?.fileCount ?? 0) > 100);
   assert.equal(
-    fs.readFileSync(path.join(binding.mounts.workspace, "README.md"), "utf8")
+    fs
+      .readFileSync(path.join(binding.mounts.workspace, "README.md"), "utf8")
       .startsWith("# CRDD"),
     true,
   );

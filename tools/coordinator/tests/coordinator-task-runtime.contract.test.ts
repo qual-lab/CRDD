@@ -31,6 +31,9 @@ function fixture(
     reviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
     cleanupThrows?: boolean;
+    completionRejectRole?: "executor" | "reviewer";
+    candidateVerificationFails?: boolean;
+    pauseRole?: "executor" | "reviewer";
   } = {},
 ) {
   const owned = Object.freeze({});
@@ -44,6 +47,7 @@ function fixture(
   const selectionRequests: Array<Record<string, unknown>> = [];
   let cleanupCount = 0;
   let selectionCount = 0;
+  let releasePausedProcess: (() => void) | null = null;
   const dependencies = {
     createOperation: () =>
       Object.freeze({
@@ -64,15 +68,17 @@ function fixture(
       }),
     materializeWorkspace: () =>
       Object.freeze({ status: "materialized", workspaceCapability }),
-    issueSelection: (_management: object, selection: Record<string, unknown>) => {
+    issueSelection: (
+      _management: object,
+      selection: Record<string, unknown>,
+    ) => {
       selectionCount += 1;
       selectionRequests.push(selection);
       const executor = selectionCount === 1 ? "claude" : "codex";
       return Object.freeze({
         status: "issued",
         executorProvider: executor,
-        profileId:
-          executor === "claude" ? "PROFILE-200001" : "PROFILE-100001",
+        profileId: executor === "claude" ? "PROFILE-200001" : "PROFILE-100001",
         selectionNotice: `selection-${selectionCount}`,
         controlCapability: Object.freeze({}),
         useCapability: Object.freeze({}),
@@ -132,44 +138,51 @@ function fixture(
       const role = preparedRoles.get(preparedCapability);
       assert.ok(role);
       const reviewerDecision = options.reviewerDecision ?? "approved";
+      const completedResult = Object.freeze({
+        status: "completed",
+        reason: "completed",
+        cleanupConfirmed: true,
+        normalizedResult:
+          role === "executor"
+            ? Object.freeze({
+                status: "completed",
+                summary: "Updated the fixture.",
+                changedPaths: Object.freeze([
+                  ...(options.executorChangedPaths ?? ["fixture.txt"]),
+                ]),
+                verification: Object.freeze(["Checked the value."]),
+              })
+            : Object.freeze({
+                decision: reviewerDecision,
+                summary:
+                  reviewerDecision === "approved"
+                    ? "The candidate is acceptable."
+                    : "A change is required.",
+                findings:
+                  reviewerDecision === "approved"
+                    ? Object.freeze([])
+                    : Object.freeze([
+                        Object.freeze({
+                          severity: "medium",
+                          path: "fixture.txt",
+                          message: "Correct the value.",
+                        }),
+                      ]),
+              }),
+      });
+      const completion =
+        options.completionRejectRole === role
+          ? Promise.reject(new Error("unexpected_completion_rejection"))
+          : options.pauseRole === role
+            ? new Promise<typeof completedResult>((resolve) => {
+                releasePausedProcess = () => resolve(completedResult);
+              })
+            : Promise.resolve(completedResult);
       return Object.freeze({
         status: "started",
         reason: "started",
         controlCapability: Object.freeze({}),
-        completion: Promise.resolve(
-          Object.freeze({
-            status: "completed",
-            reason: "completed",
-            cleanupConfirmed: true,
-            normalizedResult:
-              role === "executor"
-                ? Object.freeze({
-                    status: "completed",
-                    summary: "Updated the fixture.",
-                    changedPaths: Object.freeze([
-                      ...(options.executorChangedPaths ?? ["fixture.txt"]),
-                    ]),
-                    verification: Object.freeze(["Checked the value."]),
-                  })
-                : Object.freeze({
-                    decision: reviewerDecision,
-                    summary:
-                      reviewerDecision === "approved"
-                        ? "The candidate is acceptable."
-                        : "A change is required.",
-                    findings:
-                      reviewerDecision === "approved"
-                        ? Object.freeze([])
-                        : Object.freeze([
-                            Object.freeze({
-                              severity: "medium",
-                              path: "fixture.txt",
-                              message: "Correct the value.",
-                            }),
-                          ]),
-                  }),
-          }),
-        ),
+        completion,
       });
     },
     cancelProcess: async () => Object.freeze({ status: "requested" }),
@@ -181,7 +194,7 @@ function fixture(
       }),
     verifyCandidate: () =>
       Object.freeze({
-        status: "verified",
+        status: options.candidateVerificationFails ? "blocked" : "verified",
         baseCommit: "1".repeat(40),
         baseTree: "2".repeat(40),
         patchHash: "3".repeat(64),
@@ -199,6 +212,10 @@ function fixture(
     runtime,
     selectionRequests,
     cleanupCount: () => cleanupCount,
+    releasePausedProcess: () => {
+      assert.ok(releasePausedProcess);
+      releasePausedProcess();
+    },
   };
 }
 
@@ -231,7 +248,10 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "coordinator_task_independent_review_not_approved");
+  assert.equal(
+    result.reason,
+    "coordinator_task_independent_review_not_approved",
+  );
   assert.equal(result.candidateRevision, null);
   assert.equal(harness.cleanupCount(), 1);
 });
@@ -244,7 +264,10 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
     "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(mismatchResult.status, "blocked");
-  assert.equal(mismatchResult.reason, "coordinator_task_candidate_revision_invalid");
+  assert.equal(
+    mismatchResult.reason,
+    "coordinator_task_candidate_revision_invalid",
+  );
 
   const cleanupFailure = fixture({ cleanupThrows: true });
   const cleanupResult = await cleanupFailure.runtime.start(
@@ -260,11 +283,65 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   assert.equal(cleanupResult.manualRecoveryRequired, true);
 });
 
+test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {
+  const harness = fixture({ completionRejectRole: "executor" });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_process_completion_unconfirmed",
+  );
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(harness.cleanupCount(), 0);
+});
+
+test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しない", async () => {
+  const harness = fixture({ candidateVerificationFails: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_independent_review_not_approved",
+  );
+  assert.equal(result.candidateRevision, null);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+test("実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じる", async () => {
+  const harness = fixture({ pauseRole: "executor" });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  const cancelled = await harness.runtime.cancel(started.controlCapability);
+  assert.deepEqual(cancelled, { status: "requested" });
+  const duplicate = await harness.runtime.cancel(started.controlCapability);
+  assert.deepEqual(duplicate, { status: "blocked" });
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_cancelled_after_provider_cleanup",
+  );
+  assert.equal(result.candidateRevision, null);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
 test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒否する", async () => {
   const result = await startRuntimeOwnedCoordinatorTask(
     request(),
     "not-an-absolute-repository",
-    "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.rawOutputReported, false);

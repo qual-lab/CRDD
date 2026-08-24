@@ -412,7 +412,10 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     assert.equal(plan.commandNetworkAccessAllowed, false);
     assert.equal(plan.providerHomeBuiltInToolAccessAllowed, false);
     assert.equal(plan.argv.includes("--settings"), true);
-    assert.equal(plan.argv.includes("/etc/crdd/claude-task-settings.json"), true);
+    assert.equal(
+      plan.argv.includes("/etc/crdd/claude-task-settings.json"),
+      true,
+    );
     assert.equal(plan.argv.includes("--permission-mode"), true);
     assert.equal(plan.argv.includes("dontAsk"), true);
   }

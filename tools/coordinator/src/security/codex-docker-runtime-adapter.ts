@@ -559,10 +559,10 @@ function prepare(
     const taskPacket =
       taskPacketUseCapability === null
         ? null
-        : state.consumeTaskPacket?.(
+        : (state.consumeTaskPacket?.(
             taskPacketUseCapability,
             managementCapability,
-          ) ?? null;
+          ) ?? null);
     if (taskPacketUseCapability !== null && !taskPacket) {
       state.completeMount(activeMountCapability, managementCapability);
       return createBlockedResult("codex_docker_runtime_task_packet_invalid");
@@ -715,9 +715,7 @@ function cancel(
   }
   removePrepared(state, preparedCapability);
   if (revoked.status !== "revoked") {
-    return createBlockedResult(
-      "codex_docker_runtime_authority_revoke_invalid",
-    );
+    return createBlockedResult("codex_docker_runtime_authority_revoke_invalid");
   }
   const isExpired = !isPlanFresh(state, plan);
   return Object.freeze({
@@ -786,15 +784,17 @@ export function prepareRuntimeOwnedCodexDockerTaskCandidate(
   selectionUseCapability: unknown,
   taskPacketUseCapability: unknown,
 ) {
-  return performSafely("codex_docker_runtime_task_preparation_failed_closed", () =>
-    prepare(
-      productionState,
-      managementCapability,
-      mountCapability,
-      mountAuthorizationCapability,
-      selectionUseCapability,
-      taskPacketUseCapability,
-    ),
+  return performSafely(
+    "codex_docker_runtime_task_preparation_failed_closed",
+    () =>
+      prepare(
+        productionState,
+        managementCapability,
+        mountCapability,
+        mountAuthorizationCapability,
+        selectionUseCapability,
+        taskPacketUseCapability,
+      ),
   );
 }
 
@@ -909,10 +909,7 @@ export function describeCodexDockerRuntimeAdapterContract() {
     providerDirectEgress: false,
     proxyNetworks: Object.freeze(["internal", "egress"]),
     proxyAuthentication: "runtime_random_256_bit_operation_local",
-    proxyHostnameAllowlist: Object.freeze([
-      "auth.openai.com",
-      "chatgpt.com",
-    ]),
+    proxyHostnameAllowlist: Object.freeze(["auth.openai.com", "chatgpt.com"]),
     rootFilesystem: "read_only",
     linuxUser: "65534:65534",
     capabilities: "all_dropped",
