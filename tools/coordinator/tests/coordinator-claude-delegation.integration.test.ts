@@ -104,13 +104,13 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
             reason: "ready" as const,
           }),
         ]),
-      resolveModelProfile: (route) =>
+      resolveModelProfile: (request) =>
         Object.freeze({
-          provider: route.executorProvider,
+          provider: request.provider,
           profileId: "PROFILE-123456",
           exactModelId: "claude-opus-test-profile",
-          family: route.modelSelection.familyPreference ?? "invalid",
-          modelTier: route.modelSelection.modelTier ?? "invalid",
+          family: request.family,
+          modelTier: request.modelTier,
           speedMode: "normal" as const,
           billingMode: "subscription_oauth" as const,
         }),

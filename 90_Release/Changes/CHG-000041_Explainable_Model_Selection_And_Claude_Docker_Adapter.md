@@ -14,7 +14,7 @@
 
 CoordinatorはProvider Effect前に、Operationの役割、作業分類、計画状態、難易度、判断影響、リスク、局所復旧可能性、未決方針および複数コンテキスト整合の要否からモデル候補と推論レベルを説明可能に選ぶ。具体化済みで低難度・低リスク・限定影響かつLocal Candidateだけを作る実装は`low`、通常のCoordinator、レビュー、診断または方針整合は役割名だけで高コスト化せず`medium`、`high`は高難度、重大影響、高リスク、または未解決方針と複数コンテキスト整合が重なる場合だけ候補にする。`xhigh`／`max`、高速モード、Provider側fallbackおよび実行中の黙示切替は自動選択しない。
 
-Codexは`sol`、Claude Codeは`opus`を既定family候補とする。Fableは人間が示した将来のClaude代替候補として保持するが、公式のexact model ID、利用可能性、費用特性および適用条件を検証済みProvider Profileへ固定するまで自動選定へ入れない。選定候補はexact model IDまたはAuthorityではなく、検証済みProfileとRuntime所有Selection Grantへの入力である。
+Codexは`sol`、Claude Codeは`opus`を既定family候補とする。`CHG-000047`でCodexを`gpt-5.6-sol`、Claudeを固定CLIが受理する`opus` aliasへ解決するRuntime-owned Profileを接続した。Fableは人間が示した将来のClaude代替候補として保持するが、利用可能性、費用特性および適用条件を検証済みProvider Profileへ固定するまで自動選定へ入れない。選定候補はAuthorityではなく、検証済みProfileとRuntime所有Selection Grantへの入力である。
 
 選定結果はProvider Effect前に、Provider、役割、family、推論レベル、通常速度、選定理由code、高コスト選択の有無および再選定条件をCoordinatorのOperation contextへ表示する。内部の非公開推論全文は記録せず、人間と独立Reviewerが検証できる判断要約を保持する。理由欠落、閉集合外の分類、Profile不一致またはSelection Grant未接続では実行しない。
 

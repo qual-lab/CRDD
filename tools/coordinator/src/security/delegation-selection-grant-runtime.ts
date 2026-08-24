@@ -7,6 +7,7 @@ import {
 } from "./delegation-route-selection.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./provider-eligibility-runtime.ts";
+import { resolveRuntimeOwnedProviderModelProfile } from "./provider-model-profile-runtime.ts";
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
@@ -25,6 +26,13 @@ type ResolvedModelProfile = Readonly<{
   provider: Provider;
   profileId: string;
   exactModelId: string;
+  family: string;
+  modelTier: string;
+  speedMode: "normal";
+  billingMode: "subscription_oauth";
+}>;
+type ModelProfileRequest = Readonly<{
+  provider: Provider;
   family: string;
   modelTier: string;
   speedMode: "normal";
@@ -49,7 +57,9 @@ type RuntimeState = Readonly<{
     managementCapability: unknown,
   ) => Readonly<{ operationId: string; createdAt: string }>;
   observeProviderEligibility: () => unknown;
-  resolveModelProfile: (route: CandidateRoute) => ResolvedModelProfile | null;
+  resolveModelProfile: (
+    request: ModelProfileRequest,
+  ) => ResolvedModelProfile | null;
   wallNow: () => number;
   monotonicNow: () => number;
   randomBytes: (size: number) => Buffer;
@@ -72,7 +82,7 @@ function createRuntimeState(
 const productionState = createRuntimeState({
   verifyOperation: verifyOwnedOperationManagementCapability,
   observeProviderEligibility: observeRuntimeOwnedProviderEligibility,
-  resolveModelProfile: () => null,
+  resolveModelProfile: resolveRuntimeOwnedProviderModelProfile,
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,
@@ -176,7 +186,15 @@ function issueSelectionGrant(
   ) {
     return createBlockedResult("delegation_selection_route_invalid");
   }
-  const profile = state.resolveModelProfile(route);
+  const profile = state.resolveModelProfile(
+    Object.freeze({
+      provider: route.executorProvider,
+      family: route.modelSelection.familyPreference ?? "",
+      modelTier: route.modelSelection.modelTier ?? "",
+      speedMode: "normal",
+      billingMode: "subscription_oauth",
+    }),
+  );
   if (!profile || !isResolvedProfileValid(profile, route)) {
     return createBlockedResult("delegation_selection_profile_invalid");
   }
@@ -449,7 +467,7 @@ export function describeDelegationSelectionGrantRuntimeContract() {
     operationBinding: "runtime_owned_management_capability",
     providerEligibility:
       "runtime_owned_observer_connected_required_provider_effect_capability_currently_unavailable",
-    exactModelId: "verified_provider_profile_required",
+    exactModelId: "runtime_owned_verified_provider_profile_connected",
     billingMode: "subscription_oauth_only",
     speedMode: "normal_only",
     selectionNotice: "issued_before_provider_effect",

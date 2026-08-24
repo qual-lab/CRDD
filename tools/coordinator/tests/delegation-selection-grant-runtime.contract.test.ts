@@ -65,19 +65,17 @@ function createFixture(
           reason: "ready",
         }),
       ]),
-    resolveModelProfile: (route) =>
+    resolveModelProfile: (request) =>
       Object.freeze({
-        provider: route.executorProvider,
+        provider: request.provider,
         profileId:
-          route.executorProvider === "claude"
-            ? "PROFILE-123456"
-            : "PROFILE-654321",
+          request.provider === "claude" ? "PROFILE-123456" : "PROFILE-654321",
         exactModelId:
-          route.executorProvider === "claude"
+          request.provider === "claude"
             ? "claude-opus-test-profile"
             : "codex-sol-test-profile",
-        family: route.modelSelection.familyPreference ?? "invalid",
-        modelTier: route.modelSelection.modelTier ?? "invalid",
+        family: request.family,
+        modelTier: request.modelTier,
         speedMode: "normal",
         billingMode: "subscription_oauth",
       }),
@@ -210,14 +208,14 @@ test("再選定はreplacement検証後にだけ旧Grantを失効する", () => {
 test("replacement検証失敗時は旧Grantを保持する", () => {
   let profileResolutionAllowed = true;
   const fixture = createFixture({
-    resolveModelProfile: (route) =>
+    resolveModelProfile: (request) =>
       profileResolutionAllowed
         ? Object.freeze({
-            provider: route.executorProvider,
+            provider: request.provider,
             profileId: "PROFILE-123456",
             exactModelId: "claude-opus-test-profile",
-            family: route.modelSelection.familyPreference ?? "invalid",
-            modelTier: route.modelSelection.modelTier ?? "invalid",
+            family: request.family,
+            modelTier: request.modelTier,
             speedMode: "normal",
             billingMode: "subscription_oauth",
           })
@@ -272,13 +270,13 @@ test("別Operation、利用不能ProviderとProfile差をGrant発行前に拒否
     "delegation_selection_route_invalid",
   );
   const wrongProfile = createFixture({
-    resolveModelProfile: (route) =>
+    resolveModelProfile: (request) =>
       Object.freeze({
-        provider: route.executorProvider,
+        provider: request.provider,
         profileId: "PROFILE-123456",
         exactModelId: "claude-opus-test-profile",
         family: "wrong-family",
-        modelTier: route.modelSelection.modelTier ?? "invalid",
+        modelTier: request.modelTier,
         speedMode: "normal",
         billingMode: "subscription_oauth",
       }),

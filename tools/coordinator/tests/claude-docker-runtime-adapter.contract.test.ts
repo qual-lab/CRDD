@@ -294,13 +294,13 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
             reason: "ready",
           }),
         ]),
-      resolveModelProfile: (route) =>
+      resolveModelProfile: (request) =>
         Object.freeze({
-          provider: route.executorProvider,
+          provider: request.provider,
           profileId: "PROFILE-123456",
           exactModelId: "claude-opus-test-profile",
-          family: route.modelSelection.familyPreference ?? "invalid",
-          modelTier: route.modelSelection.modelTier ?? "invalid",
+          family: request.family,
+          modelTier: request.modelTier,
           speedMode: "normal",
           billingMode: "subscription_oauth",
         }),
