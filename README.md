@@ -3,8 +3,8 @@
 **Context Repository-Driven Development**
 
 ```text
-作業をAIへ。判断を人間へ。思想をコンテキストリポジトリへ。
-Work to AI. Judgment to humans. Thought to the Context Repository.
+専門性と実行をAIへ。アイデア、判断、責任を人間へ。思想をコンテキストリポジトリへ。
+Expertise and execution to AI. Ideas, decisions, and accountability to humans. Intent to the Context Repository.
 ```
 
 Status: **v0.18.0 Candidate — Current Decision Set, Communication, and Architecture Evaluation / 現在の判断集合・Communication・Architecture評価**
@@ -17,17 +17,31 @@ Status: **v0.18.0 Candidate — Current Decision Set, Communication, and Archite
 
 ## English
 
-### What is CRDD?
+### What CRDD aims to achieve
 
-AI-assisted development can accelerate implementation while quietly losing a product's Why: the origin of a need, the reasoning behind a decision, rejected alternatives, accepted risks, and design intent often decay in chat logs, tickets, and pull request descriptions.
+**Expertise and execution to AI. Ideas, decisions, and accountability to humans.**
 
-CRDD is a development methodology for preserving and connecting product context. It helps humans, AI, and specialists carry a product from discovery through verification without silently changing its meaning.
+CRDD is a project that researches and practices a development methodology for enabling AI to collaborate as a team of specialists.
 
-In a Git-based project, the repository can serve as the canonical control plane for the Context Repository. Authoritative external artifacts can remain in their original systems when explicit references connect them to the repository.
+AI can divide work across UX, UI, architecture, implementation, verification, and other specialties, then carry out that work within its authorized boundary. Humans provide ideas and value, direct the work, make important decisions, review the artifacts and verification results, and remain accountable for the outcome.
 
-Within its authority, AI may explore, organize, compare, draft, implement, and verify. Humans retain authority over meaning, value, priority, approval, risk acceptance, and final responsibility.
+CRDD is not merely a way to ask AI to write code. It keeps product context, decision history, specialist work, and dependencies between activities connected in a repository so that one or more AI agents can share the same purpose, assumptions, and constraints without silently changing their meaning.
 
-CRDD does not require a particular AI tool, agent topology, document tool, or technology stack.
+AI-assisted development can accelerate implementation while quietly losing a product's Why: the origin of a need, the reasoning behind a decision, rejected alternatives, accepted risks, and design intent often decay in chat logs, tickets, and pull request descriptions. In a Git-based project, the repository can serve as the canonical control plane for preserving and connecting that context. Authoritative external artifacts can remain in their original systems when explicit references connect them to the repository.
+
+CRDD itself is developed using this approach, and the approach is also applied to practical development such as personal tools and games.
+
+This is a vision, not a requirement that every project use multiple agents or a particular topology. CRDD does not require a particular AI tool, agent topology, document tool, or technology stack.
+
+### Human Coding-less Development
+
+Human Coding-less Development is not no-code. AI generates the code.
+
+The aim is to stop treating human-authored code as a prerequisite for development and move the Human role toward ideas, design intent, direction, important decisions, review, and final acceptance.
+
+It does not remove the need for technical judgment or verification, and it does not transfer accountability to AI. Within its authority, AI may explore, organize, compare, draft, implement, and verify. Humans retain authority over meaning, value, priority, approval, risk acceptance, and final responsibility.
+
+Quality assurance is therefore not an activity that begins by running tests at the end. Each activity develops its own verification obligations and specialist quality perspectives, and Humans review the current conclusion, gaps, serious problems, and remaining risk before acceptance.
 
 ### CRDD in plain language
 
@@ -395,15 +409,31 @@ Every version of CRDD is available under the Apache License 2.0, including relea
 
 ## 日本語
 
-### CRDDとは？
+### CRDDが目指すもの
 
-AI協働開発は実装を高速化できる一方で、プロダクトの「なぜ」——要望の起点、判断理由、却下した代替案、受容したリスク、設計意図——をチャットログ、チケット、プルリクエストの中で静かに劣化させることがある。
+**AIに専門性と実行を。人間にアイデア、判断、責任を。**
 
-CRDDは、そのコンテキストを保存・接続し、人間、AI、専門家が意味を無言で変えずに課題探索・要求形成工程（Discovery）から検証までプロダクトを具体化できるようにする開発方法論である。Gitを利用するプロジェクトでは、リポジトリをコンテキストリポジトリの正本制御基盤として利用し、決定権限を持つ外部成果物も明示的な参照で接続できる。
+CRDDは、AIが専門家チームとして協働できる開発環境を成立させるための開発方法論を研究・実践するプロジェクトである。
 
-品質保証は最後にテストを実行する活動ではない。各工程が自身の品質条件について検証義務と検証観点を育て、テスト、レビュー、計測、分析、利用者評価等によって確認する。人間は`07_Quality/Quality_Center.md`から、現在の結論、計画対実績、件数、割合、差異理由、重大な問題、残存リスクと詳細参照を確認できる。
+UX、UI、アーキテクチャ、実装、検証等、それぞれの専門家がいるかのようにAIが役割を分担し、許可された範囲で開発を進める。人間はアイデアと価値を与え、方向を示し、重要な判断を行い、成果物と検証結果を確認して、その結果に責任を持つ。
 
-AIは決定権限の範囲内で探索、整理、比較、下書き、実装、検証を行える。人間は意味、価値、優先順位、承認、リスク受容、最終責任を保持する。CRDDは特定のAIツール、エージェント構成、文書ツール、技術スタックを要求しない。
+単にAIへコードを書かせるのではない。プロダクトのコンテキスト、判断履歴、専門工程、工程間の依存関係をリポジトリで共有することで、一つまたは複数のAIが同じ目的、前提、制約を理解し、意味を無言で変えずに協働できる環境を構築する。
+
+AI協働開発は実装を高速化できる一方で、プロダクトの「なぜ」——要望の起点、判断理由、却下した代替案、受容したリスク、設計意図——をチャットログ、チケット、プルリクエストの中で静かに劣化させることがある。Gitを利用するプロジェクトでは、リポジトリを、そのコンテキストを保存・接続する正本制御基盤として利用する。決定権限を持つ外部成果物も、明示的な参照によって元のシステムに置いたまま接続できる。
+
+CRDD自身もこの方法で開発されており、個人向けツールやゲーム等の実開発にも利用されている。
+
+これは目指す状態であり、すべてのプロジェクトへ複数Agentや特定の構成を要求するものではない。CRDDは特定のAIツール、Agent構成、文書ツールまたは技術スタックを必須化しない。
+
+### Human Coding-less Development
+
+Human Coding-less DevelopmentはNo-codeではない。コードはAIが生成する。
+
+人間がコードを書くことを開発の前提とせず、人間の役割を、アイデア、設計意図、ディレクション、重要な判断、成果物のレビュー、最終的な受け入れへ移していく考え方である。
+
+これは、技術判断や検証を不要にすることでも、責任をAIへ移すことでもない。AIは決定権限の範囲内で探索、整理、比較、下書き、実装、検証を行える。人間は意味、価値、優先順位、承認、リスク受容、最終責任を保持する。
+
+したがって品質保証は、最後にテストを実行するだけの活動ではない。各工程が自身の品質条件について検証義務と専門的な検証観点を育て、人間は受け入れ前に、現在の結論、抜け、重大な問題および残存リスクを確認する。
 
 ### CRDDを簡単に言うと
 
