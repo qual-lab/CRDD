@@ -7,7 +7,7 @@ export const NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS = Object.freeze({
   lookupThunks: 0x6c0,
   addressThunks: 0x800,
   libraryName: 0x1600,
-  firstSymbolName: 0xb82,
+  firstSymbolName: 0xc02,
 });
 
 const LIBRARIES = Object.freeze([
@@ -28,6 +28,7 @@ const LIBRARIES = Object.freeze([
       "DisconnectNamedPipe",
       "ExitProcess",
       "GetCommandLineW",
+      "GetCurrentProcess",
       "GetCurrentProcessId",
       "GetDriveTypeW",
       "GetExitCodeProcess",
@@ -58,11 +59,19 @@ const LIBRARIES = Object.freeze([
   Object.freeze({
     name: "ADVAPI32.dll",
     nameOffset: 0x1620,
-    lookupOffset: 0x960,
-    addressOffset: 0x9b0,
+    lookupOffset: 0x940,
+    addressOffset: 0x9e0,
     symbols: Object.freeze([
+      "CheckTokenMembership",
       "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+      "CreateWellKnownSid",
+      "DuplicateToken",
       "FreeSid",
+      "GetLengthSid",
+      "GetTokenInformation",
+      "IsTokenRestricted",
+      "IsValidSid",
+      "OpenProcessToken",
       "RegCloseKey",
       "RegDeleteValueW",
       "RegFlushKey",
@@ -75,15 +84,15 @@ const LIBRARIES = Object.freeze([
   Object.freeze({
     name: "USERENV.dll",
     nameOffset: 0x1640,
-    lookupOffset: 0xa00,
-    addressOffset: 0xa10,
+    lookupOffset: 0xa80,
+    addressOffset: 0xa90,
     symbols: Object.freeze(["DeriveAppContainerSidFromAppContainerName"]),
   }),
   Object.freeze({
     name: "bcrypt.dll",
     nameOffset: 0x1660,
-    lookupOffset: 0xa20,
-    addressOffset: 0xa70,
+    lookupOffset: 0xaa0,
+    addressOffset: 0xae0,
     symbols: Object.freeze([
       "BCryptCloseAlgorithmProvider",
       "BCryptCreateHash",
@@ -97,8 +106,8 @@ const LIBRARIES = Object.freeze([
   Object.freeze({
     name: "WINTRUST.dll",
     nameOffset: 0x1680,
-    lookupOffset: 0xac0,
-    addressOffset: 0xae0,
+    lookupOffset: 0xb20,
+    addressOffset: 0xb40,
     symbols: Object.freeze([
       "WTHelperGetProvSignerFromChain",
       "WTHelperProvDataFromStateData",
@@ -108,22 +117,22 @@ const LIBRARIES = Object.freeze([
   Object.freeze({
     name: "CRYPT32.dll",
     nameOffset: 0x16a0,
-    lookupOffset: 0xb00,
-    addressOffset: 0xb10,
+    lookupOffset: 0xb60,
+    addressOffset: 0xb70,
     symbols: Object.freeze(["CertGetCertificateContextProperty"]),
   }),
   Object.freeze({
     name: "ole32.dll",
     nameOffset: 0x16c0,
-    lookupOffset: 0xb20,
-    addressOffset: 0xb30,
+    lookupOffset: 0xb80,
+    addressOffset: 0xb90,
     symbols: Object.freeze(["CoTaskMemFree"]),
   }),
   Object.freeze({
     name: "SHELL32.dll",
     nameOffset: 0x16e0,
-    lookupOffset: 0xb40,
-    addressOffset: 0xb50,
+    lookupOffset: 0xba0,
+    addressOffset: 0xbb0,
     symbols: Object.freeze(["SHGetKnownFolderPath"]),
   }),
 ]);
@@ -181,7 +190,7 @@ export function createNativeBootstrapPeFixture(
   bytes.writeUInt32LE(0x600, rdata + 20);
   bytes.writeUInt32LE(0x40000040, rdata + 36);
 
-  let symbolOffset = 0xb80;
+  let symbolOffset = 0xc00;
   for (const [libraryIndex, library] of LIBRARIES.entries()) {
     const descriptor =
       NATIVE_BOOTSTRAP_PE_FIXTURE_OFFSETS.importDirectory + libraryIndex * 20;

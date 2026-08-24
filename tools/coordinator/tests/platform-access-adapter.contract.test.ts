@@ -73,8 +73,11 @@ test("Rust platform access responseを安全要約へ限定する", () => {
   assert.equal(result.accessObservation?.readTraverse, true);
   assert.equal(result.accessObservation?.writeOwner, true);
   assert.equal(result.accessObservation?.addFile, false);
-  assert.equal(result.observedPrincipalSource, "current_process_token_user");
-  assert.equal(result.runtimePrincipalMode, null);
+  assert.equal(
+    result.observedPrincipalSource,
+    "native_supervisor_current_process_token_user",
+  );
+  assert.equal(result.runtimePrincipalMode, "local_interactive_selected_user");
   assert.equal(result.runtimePrincipalIdentityHash, "0a".repeat(32));
   assert.deepEqual(result.principalObservation, {
     primaryToken: true,
@@ -86,8 +89,8 @@ test("Rust platform access responseを安全要約へ限定する", () => {
     appContainer: false,
     nonzeroSession: true,
   });
-  assert.equal(result.selectedUserBindingVerified, false);
-  assert.equal(result.runtimePrincipalBound, false);
+  assert.equal(result.selectedUserBindingVerified, true);
+  assert.equal(result.runtimePrincipalBound, true);
   assert.equal(result.workerSpawnAttempts, 0);
   assert.equal(result.processEffectIssued, false);
   assert.equal(result.helperProcessSpawned, false);
@@ -156,37 +159,24 @@ test("protocol nonce role length unknown bitの不一致をfail closedにする"
   }
 });
 
-test("全principal bitを固定した限定名へ一対一で写像する", () => {
+test("local interactive selected user以外のprincipalをfail closedにする", () => {
   const nonce = Buffer.alloc(32, 9);
-  const flags = [
-    ["primaryToken", 1 << 0],
-    ["interactiveGroup", 1 << 1],
-    ["serviceGroup", 1 << 2],
-    ["batchGroup", 1 << 3],
-    ["networkGroup", 1 << 4],
-    ["restrictedToken", 1 << 5],
-    ["appContainer", 1 << 6],
-    ["nonzeroSession", 1 << 7],
-  ] as const;
-  for (const [expectedName, flag] of flags) {
-    const principalMask = flag === 1 ? 1 : 1 | flag;
+  for (const principalMask of [
+    0x82,
+    0x81,
+    0x03,
+    0x83 | (1 << 2),
+    0x83 | (1 << 3),
+    0x83 | (1 << 4),
+    0x83 | (1 << 5),
+    0x83 | (1 << 6),
+  ]) {
     const result = evaluatePlatformAccessResponseCandidate(
       response(nonce, 2, 0x101, principalMask),
       nonce,
       "authority",
     );
-    assert.equal(result.status, "candidate");
-    for (const [name] of flags) {
-      assert.equal(
-        result.principalObservation?.[name],
-        name === "primaryToken" || name === expectedName,
-      );
-    }
-    assert.equal(result.selectedUserBindingVerified, false);
-    assert.equal(result.runtimePrincipalBound, false);
-    assert.equal(result.runtimeAuthorityConferred, false);
-    assert.equal(result.runtimeCapabilityIssued, false);
-    assert.equal(result.filesystemEffectIssued, false);
+    assertFullyBlocked(result);
   }
 });
 
@@ -259,9 +249,9 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   );
   assert.equal(
     contract.productionInvocation,
-    "native_appcontainer_worker_candidate_pending_formal_signed_runtime_evidence",
+    "signed_appcontainer_roundtrip_verified_selected_user_binding_evidence_pending",
   );
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.maximumWorkerSpawnAttemptsPerInvocation, 1);
   assert.equal(contract.shellInvocation, false);
   assert.equal(contract.pathEnvironmentLookup, false);
@@ -271,7 +261,11 @@ test("Rust componentとproduction停止境界を同時に投影する", () => {
   assert.equal(contract.wireProtocol, "fixed_bounded_binary_revision_3");
   assert.equal(
     contract.principalObservation,
-    "implemented_current_process_token_classification_candidate_non_authoritative",
+    "implemented_signed_supervisor_token_classification_fail_closed_candidate",
+  );
+  assert.equal(
+    contract.selectedUserBinding,
+    "implemented_supervisor_worker_token_user_match_formal_signed_evidence_pending",
   );
   assert.equal(contract.serviceAccountMode, "not_implemented_blocked");
   assert.equal(contract.filesystemEffectIssued, false);

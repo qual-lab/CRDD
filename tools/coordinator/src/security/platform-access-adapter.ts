@@ -15,6 +15,16 @@ const PRINCIPAL_FLAGS = Object.freeze({
   nonzeroSession: 1 << 7,
 });
 const KNOWN_PRINCIPAL_MASK = 0xff;
+const REQUIRED_SELECTED_USER_PRINCIPAL_MASK =
+  PRINCIPAL_FLAGS.primaryToken |
+  PRINCIPAL_FLAGS.interactiveGroup |
+  PRINCIPAL_FLAGS.nonzeroSession;
+const FORBIDDEN_SELECTED_USER_PRINCIPAL_MASK =
+  PRINCIPAL_FLAGS.serviceGroup |
+  PRINCIPAL_FLAGS.batchGroup |
+  PRINCIPAL_FLAGS.networkGroup |
+  PRINCIPAL_FLAGS.restrictedToken |
+  PRINCIPAL_FLAGS.appContainer;
 const TYPED_ARRAY_BYTE_LENGTH = Object.getOwnPropertyDescriptor(
   Object.getPrototypeOf(Uint8Array.prototype),
   "byteLength",
@@ -164,7 +174,9 @@ export function evaluatePlatformAccessResponseCandidate(
     const principalMask = readUInt32LittleEndian(responseBytes, 82);
     if (
       (principalMask & ~KNOWN_PRINCIPAL_MASK) !== 0 ||
-      (principalMask & PRINCIPAL_FLAGS.primaryToken) === 0
+      (principalMask & REQUIRED_SELECTED_USER_PRINCIPAL_MASK) !==
+        REQUIRED_SELECTED_USER_PRINCIPAL_MASK ||
+      (principalMask & FORBIDDEN_SELECTED_USER_PRINCIPAL_MASK) !== 0
     ) {
       return blocked("platform_access_helper_response_invalid");
     }
@@ -178,14 +190,15 @@ export function evaluatePlatformAccessResponseCandidate(
     );
     return Object.freeze({
       status: "candidate" as const,
-      reason: "windows_current_process_access_observed_candidate",
+      reason: "windows_selected_local_user_bound_access_observed_candidate",
       accessObservation,
-      observedPrincipalSource: "current_process_token_user" as const,
-      runtimePrincipalMode: null,
+      observedPrincipalSource:
+        "native_supervisor_current_process_token_user" as const,
+      runtimePrincipalMode: "local_interactive_selected_user" as const,
       runtimePrincipalIdentityHash,
       principalObservation,
-      selectedUserBindingVerified: false,
-      runtimePrincipalBound: false,
+      selectedUserBindingVerified: true,
+      runtimePrincipalBound: true,
       workerSpawnAttempts: 0,
       processEffectIssued: false,
       helperProcessSpawned: false,
@@ -224,24 +237,25 @@ export function inspectWindowsPlatformAccessCandidate(): ReturnType<
 export function describePlatformAccessAdapterContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-access-adapter",
-    contractRevision: 2,
+    contractRevision: 3,
     implementationLanguage: "rust",
     rustCrate: "crdd-platform-access",
     rustToolchain: "1.94.1",
     target: "x86_64-pc-windows-msvc",
     wireProtocol: "fixed_bounded_binary_revision_3",
     runtimePrincipalPolicy: "local_interactive_selected_user_only",
-    observedPrincipalSource: "current_process_token_user",
+    observedPrincipalSource: "native_supervisor_current_process_token_user",
     principalObservation:
-      "implemented_current_process_token_classification_candidate_non_authoritative",
-    selectedUserBinding: "not_implemented_blocked",
+      "implemented_signed_supervisor_token_classification_fail_closed_candidate",
+    selectedUserBinding:
+      "implemented_supervisor_worker_token_user_match_formal_signed_evidence_pending",
     runtimePrincipalIdentity:
       "native_current_token_user_sid_domain_separated_sha256",
     serviceAccountMode: "not_implemented_blocked",
     windowsCurrentProcessAccessCore: "implemented_candidate_component_only",
     binaryReleaseIdentityBinding: "implemented_candidate_signed_manifest",
     productionInvocation:
-      "native_appcontainer_worker_candidate_pending_formal_signed_runtime_evidence",
+      "signed_appcontainer_roundtrip_verified_selected_user_binding_evidence_pending",
     maximumWorkerSpawnAttemptsPerInvocation: 1,
     atomicJobAssignment: "implemented_candidate",
     exactRequestResponseBinding: "implemented_candidate",

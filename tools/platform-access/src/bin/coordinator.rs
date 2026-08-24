@@ -11,7 +11,12 @@ use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use windows_sys::Win32::Foundation::{FILETIME, SYSTEMTIME};
 use windows_sys::Win32::Security::Isolation::DeriveAppContainerSidFromAppContainerName;
-use windows_sys::Win32::Security::SECURITY_CAPABILITIES;
+use windows_sys::Win32::Security::{
+    CheckTokenMembership, CreateWellKnownSid, DuplicateToken, GetLengthSid, GetTokenInformation,
+    IsTokenRestricted, IsValidSid, SECURITY_CAPABILITIES, SecurityImpersonation, TOKEN_DUPLICATE,
+    TOKEN_QUERY, TOKEN_USER, TokenIsAppContainer, TokenPrimary, TokenSessionId, TokenType,
+    TokenUser, WinBatchSid, WinInteractiveSid, WinNetworkSid, WinServiceSid,
+};
 use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateFileW, FILE_ATTRIBUTE_REPARSE_POINT,
     FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES,
@@ -25,8 +30,8 @@ use windows_sys::Win32::System::JobObjects::{
 };
 use windows_sys::Win32::System::SystemInformation::GetSystemTime;
 use windows_sys::Win32::System::Threading::{
-    CreateProcessW, PROCESS_INFORMATION, QueryFullProcessImageNameW, ResumeThread, STARTUPINFOEXW,
-    STARTUPINFOW,
+    CreateProcessW, GetCurrentProcess, OpenProcessToken, PROCESS_INFORMATION,
+    QueryFullProcessImageNameW, ResumeThread, STARTUPINFOEXW, STARTUPINFOW,
 };
 
 #[path = "../native_bootstrap_core.rs"]
@@ -65,6 +70,19 @@ const REG_DWORD: u32 = 4;
 const ERROR_FILE_NOT_FOUND: u32 = 2;
 const WAIT_OBJECT_0: u32 = 0;
 const WAIT_ABANDONED: u32 = 128;
+const PRINCIPAL_PRIMARY_TOKEN: u32 = 1 << 0;
+const PRINCIPAL_INTERACTIVE_GROUP: u32 = 1 << 1;
+const PRINCIPAL_SERVICE_GROUP: u32 = 1 << 2;
+const PRINCIPAL_BATCH_GROUP: u32 = 1 << 3;
+const PRINCIPAL_NETWORK_GROUP: u32 = 1 << 4;
+const PRINCIPAL_RESTRICTED_TOKEN: u32 = 1 << 5;
+const PRINCIPAL_APP_CONTAINER: u32 = 1 << 6;
+const PRINCIPAL_NONZERO_SESSION: u32 = 1 << 7;
+const FORBIDDEN_SELECTED_USER_FLAGS: u32 = PRINCIPAL_SERVICE_GROUP
+    | PRINCIPAL_BATCH_GROUP
+    | PRINCIPAL_NETWORK_GROUP
+    | PRINCIPAL_RESTRICTED_TOKEN
+    | PRINCIPAL_APP_CONTAINER;
 const HKEY_CURRENT_USER: Handle = (-2_147_483_647_isize) as Handle;
 const RECOVERY_RECORD_BYTES: usize = 64;
 
@@ -810,6 +828,212 @@ unsafe fn file_sha256(file: Handle) -> Option<[u8; 32]> {
     unsafe { HeapFree(heap, 0, object.cast()) };
     unsafe { BCryptCloseAlgorithmProvider(algorithm, 0) };
     valid.then_some(actual)
+}
+
+unsafe fn sha256_parts(parts: &[&[u8]]) -> Option<[u8; 32]> {
+    // SAFETY: every input part remains live for the synchronous CNG calls. CNG and heap objects
+    // have single owners and are released on every branch before this function returns.
+    const SHA256_ALGORITHM: &[u16] = &[83, 72, 65, 50, 53, 54, 0];
+    const OBJECT_LENGTH: &[u16] = &[79, 98, 106, 101, 99, 116, 76, 101, 110, 103, 116, 104, 0];
+    let mut algorithm = null_mut();
+    if unsafe { BCryptOpenAlgorithmProvider(&mut algorithm, SHA256_ALGORITHM.as_ptr(), null(), 0) }
+        < 0
+        || algorithm.is_null()
+    {
+        return None;
+    }
+    let mut object_bytes = 0_u32;
+    let mut returned = 0_u32;
+    if unsafe {
+        BCryptGetProperty(
+            algorithm,
+            OBJECT_LENGTH.as_ptr(),
+            (&raw mut object_bytes).cast(),
+            size_of::<u32>() as u32,
+            &mut returned,
+            0,
+        )
+    } < 0
+        || returned as usize != size_of::<u32>()
+        || object_bytes == 0
+    {
+        unsafe { BCryptCloseAlgorithmProvider(algorithm, 0) };
+        return None;
+    }
+    let heap = unsafe { GetProcessHeap() };
+    let object = unsafe { HeapAlloc(heap, HEAP_ZERO_MEMORY, object_bytes as usize) }.cast::<u8>();
+    let mut hash = null_mut();
+    if object.is_null()
+        || unsafe { BCryptCreateHash(algorithm, &mut hash, object, object_bytes, null(), 0, 0) } < 0
+        || hash.is_null()
+    {
+        if !object.is_null() {
+            unsafe { HeapFree(heap, 0, object.cast()) };
+        }
+        unsafe { BCryptCloseAlgorithmProvider(algorithm, 0) };
+        return None;
+    }
+    let mut valid = true;
+    for part in parts {
+        let Ok(length) = u32::try_from(part.len()) else {
+            valid = false;
+            break;
+        };
+        if unsafe { BCryptHashData(hash, part.as_ptr(), length, 0) } < 0 {
+            valid = false;
+            break;
+        }
+    }
+    let mut output = [0_u8; 32];
+    if !valid || unsafe { BCryptFinishHash(hash, output.as_mut_ptr(), output.len() as u32, 0) } < 0
+    {
+        valid = false;
+    }
+    unsafe { BCryptDestroyHash(hash) };
+    unsafe { HeapFree(heap, 0, object.cast()) };
+    unsafe { BCryptCloseAlgorithmProvider(algorithm, 0) };
+    valid.then_some(output)
+}
+
+unsafe fn token_u32_information(token: Handle, information_class: i32) -> Option<u32> {
+    // SAFETY: the token remains open and the fixed DWORD output is live for the synchronous call.
+    let mut value = 0_u32;
+    let mut returned = 0_u32;
+    if unsafe {
+        GetTokenInformation(
+            token,
+            information_class,
+            (&raw mut value).cast(),
+            size_of::<u32>() as u32,
+            &mut returned,
+        )
+    } == 0
+        || returned as usize != size_of::<u32>()
+    {
+        return None;
+    }
+    Some(value)
+}
+
+unsafe fn well_known_membership(token: Handle, sid_type: i32) -> Option<bool> {
+    // SAFETY: the aligned stack buffer is large enough for the maximum Windows SID and remains live
+    // while membership is checked against the borrowed impersonation token.
+    let mut sid_words = [0_usize; 9];
+    let mut sid_bytes = size_of::<[usize; 9]>() as u32;
+    if unsafe {
+        CreateWellKnownSid(
+            sid_type,
+            null_mut(),
+            sid_words.as_mut_ptr().cast(),
+            &mut sid_bytes,
+        )
+    } == 0
+    {
+        return None;
+    }
+    let mut is_member = 0;
+    if unsafe { CheckTokenMembership(token, sid_words.as_mut_ptr().cast(), &mut is_member) } == 0 {
+        return None;
+    }
+    Some(is_member != 0)
+}
+
+unsafe fn token_user_hash(token: Handle) -> Option<[u8; 32]> {
+    // SAFETY: the bounded aligned stack storage holds the complete TOKEN_USER result and its SID.
+    let mut required = 0_u32;
+    unsafe { GetTokenInformation(token, TokenUser, null_mut(), 0, &mut required) };
+    if required == 0 || required as usize > 1_024 {
+        return None;
+    }
+    let mut buffer = [0_usize; 128];
+    if unsafe {
+        GetTokenInformation(
+            token,
+            TokenUser,
+            buffer.as_mut_ptr().cast(),
+            required,
+            &mut required,
+        )
+    } == 0
+    {
+        return None;
+    }
+    let user = unsafe { &*buffer.as_ptr().cast::<TOKEN_USER>() };
+    if user.User.Sid.is_null() || unsafe { IsValidSid(user.User.Sid) } == 0 {
+        return None;
+    }
+    let sid_length = usize::try_from(unsafe { GetLengthSid(user.User.Sid) }).ok()?;
+    if !(8..=68).contains(&sid_length) {
+        return None;
+    }
+    let sid = unsafe { core::slice::from_raw_parts(user.User.Sid.cast::<u8>(), sid_length) };
+    const DOMAIN: &[u8] = b"CRDD\0WINDOWS-RUNTIME-PRINCIPAL\0V1\0";
+    let length = u64::try_from(sid.len()).ok()?.to_be_bytes();
+    unsafe { sha256_parts(&[DOMAIN, &length, sid]) }
+}
+
+fn selected_local_interactive_flags(flags: u32) -> bool {
+    flags & (PRINCIPAL_PRIMARY_TOKEN | PRINCIPAL_INTERACTIVE_GROUP | PRINCIPAL_NONZERO_SESSION)
+        == (PRINCIPAL_PRIMARY_TOKEN | PRINCIPAL_INTERACTIVE_GROUP | PRINCIPAL_NONZERO_SESSION)
+        && flags & FORBIDDEN_SELECTED_USER_FLAGS == 0
+}
+
+unsafe fn current_supervisor_principal() -> Option<([u8; 32], u32)> {
+    // SAFETY: all token handles are exclusively owned, queried synchronously, and closed before
+    // return. The process pseudo-handle is borrowed and never closed.
+    let mut primary = null_mut();
+    if unsafe {
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_QUERY | TOKEN_DUPLICATE,
+            &mut primary,
+        )
+    } == 0
+        || primary.is_null()
+    {
+        return None;
+    }
+    let mut impersonation = null_mut();
+    if unsafe { DuplicateToken(primary, SecurityImpersonation, &mut impersonation) } == 0
+        || impersonation.is_null()
+    {
+        unsafe { CloseHandle(primary) };
+        return None;
+    }
+    let hash = unsafe { token_user_hash(primary) };
+    let flags = (|| {
+        if unsafe { token_u32_information(primary, TokenType) }?
+            != u32::try_from(TokenPrimary).ok()?
+        {
+            return None;
+        }
+        let mut flags = PRINCIPAL_PRIMARY_TOKEN;
+        for (sid_type, flag) in [
+            (WinInteractiveSid, PRINCIPAL_INTERACTIVE_GROUP),
+            (WinServiceSid, PRINCIPAL_SERVICE_GROUP),
+            (WinBatchSid, PRINCIPAL_BATCH_GROUP),
+            (WinNetworkSid, PRINCIPAL_NETWORK_GROUP),
+        ] {
+            if unsafe { well_known_membership(impersonation, sid_type) }? {
+                flags |= flag;
+            }
+        }
+        if unsafe { IsTokenRestricted(primary) } != 0 {
+            flags |= PRINCIPAL_RESTRICTED_TOKEN;
+        }
+        if unsafe { token_u32_information(primary, TokenIsAppContainer) }? != 0 {
+            flags |= PRINCIPAL_APP_CONTAINER;
+        }
+        if unsafe { token_u32_information(primary, TokenSessionId) }? != 0 {
+            flags |= PRINCIPAL_NONZERO_SESSION;
+        }
+        Some(flags)
+    })();
+    unsafe { CloseHandle(impersonation) };
+    unsafe { CloseHandle(primary) };
+    let hash = hash?;
+    let flags = flags?;
+    selected_local_interactive_flags(flags).then_some((hash, flags))
 }
 
 fn file_size(information: &BY_HANDLE_FILE_INFORMATION) -> u64 {
@@ -2266,6 +2490,19 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { FreeSid(sid) };
         return None;
     }
+    FAILURE_STAGE.store(16, Ordering::Relaxed);
+    let Some((selected_user_hash, selected_user_flags)) =
+        (unsafe { current_supervisor_principal() })
+    else {
+        unsafe { close_handles(&locked_handles[..locked_handle_count]) };
+        unsafe { DeleteProcThreadAttributeList(attributes) };
+        unsafe { HeapFree(heap, 0, attributes) };
+        unsafe { CloseHandle(job) };
+        unsafe { CloseHandle(pipe) };
+        unsafe { FreeSid(sid) };
+        return None;
+    };
+    FAILURE_STAGE.store(0, Ordering::Relaxed);
     let Some(mut registry_effect) = (unsafe { begin_lowbox_registry_effect() }) else {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         unsafe { DeleteProcThreadAttributeList(attributes) };
@@ -2383,16 +2620,22 @@ unsafe fn launch_worker() -> Option<u32> {
     }
     unsafe { close_handles(&[process.hProcess, job]) };
     unsafe { close_handles(&locked_handles[..locked_handle_count]) };
-    if !read
-        || !process_tree_absent
-        || !native_bootstrap_core::exact_platform_access_response(
+    let worker_response_valid = read
+        && process_tree_absent
+        && native_bootstrap_core::exact_platform_access_response(
             &response[..response_length],
             request_binding,
             exit_code,
-        )
-    {
+        );
+    let selected_user_matches =
+        worker_response_valid && response.get(50..82) == Some(selected_user_hash.as_slice());
+    if !worker_response_valid || !selected_user_matches {
+        if worker_response_valid {
+            FAILURE_STAGE.store(17, Ordering::Relaxed);
+        }
         return None;
     }
+    response[82..86].copy_from_slice(&selected_user_flags.to_le_bytes());
     if !unsafe { registry_effect.restore() } {
         return None;
     }
@@ -2481,6 +2724,8 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     13 => native_bootstrap_core::WORKER_REQUEST_BLOCKED,
                     14 => native_bootstrap_core::WORKER_WAIT_BLOCKED,
                     15 => native_bootstrap_core::WORKER_RESPONSE_BLOCKED,
+                    16 => native_bootstrap_core::SELECTED_USER_UNAVAILABLE_BLOCKED,
+                    17 => native_bootstrap_core::SELECTED_USER_MISMATCH_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };
@@ -2576,6 +2821,29 @@ mod tests {
         );
         assert_eq!(pipe[length], 0);
         assert_eq!(PIPE_REJECT_REMOTE_CLIENTS, 0x0000_0008);
+    }
+
+    #[test]
+    fn selected_user_flags_require_only_a_local_interactive_primary_session() {
+        let selected =
+            PRINCIPAL_PRIMARY_TOKEN | PRINCIPAL_INTERACTIVE_GROUP | PRINCIPAL_NONZERO_SESSION;
+        assert!(selected_local_interactive_flags(selected));
+        for flag in [
+            PRINCIPAL_SERVICE_GROUP,
+            PRINCIPAL_BATCH_GROUP,
+            PRINCIPAL_NETWORK_GROUP,
+            PRINCIPAL_RESTRICTED_TOKEN,
+            PRINCIPAL_APP_CONTAINER,
+        ] {
+            assert!(!selected_local_interactive_flags(selected | flag));
+        }
+        for missing in [
+            PRINCIPAL_PRIMARY_TOKEN,
+            PRINCIPAL_INTERACTIVE_GROUP,
+            PRINCIPAL_NONZERO_SESSION,
+        ] {
+            assert!(!selected_local_interactive_flags(selected & !missing));
+        }
     }
 
     #[test]

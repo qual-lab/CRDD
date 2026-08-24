@@ -141,7 +141,7 @@ test("Root観測契約はWindows候補とPOSIX未実装を分離する", () => {
     windowsBinaryReleaseIdentityBinding:
       "implemented_candidate_signed_manifest",
     windowsProcessInvocation:
-      "native_appcontainer_worker_candidate_pending_formal_signed_runtime_evidence",
+      "signed_appcontainer_roundtrip_verified_selected_user_binding_evidence_pending",
     windowsAdapter: "not_implemented_observation_mapping_required",
     runtimePrincipalBindingInput:
       "selected_local_user_binding_caller_claim_non_authority",

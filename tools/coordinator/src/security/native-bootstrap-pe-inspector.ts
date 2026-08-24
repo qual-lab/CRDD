@@ -6,8 +6,16 @@ const MAXIMUM_LIBRARY_NAME_BYTES = 64;
 const MAXIMUM_SYMBOL_NAME_BYTES = 256;
 const EXPECTED_IMPORTS = Object.freeze({
   "ADVAPI32.DLL": Object.freeze([
+    "CheckTokenMembership",
     "ConvertStringSecurityDescriptorToSecurityDescriptorW",
+    "CreateWellKnownSid",
+    "DuplicateToken",
     "FreeSid",
+    "GetLengthSid",
+    "GetTokenInformation",
+    "IsTokenRestricted",
+    "IsValidSid",
+    "OpenProcessToken",
     "RegCloseKey",
     "RegDeleteValueW",
     "RegFlushKey",
@@ -38,6 +46,7 @@ const EXPECTED_IMPORTS = Object.freeze({
     "DisconnectNamedPipe",
     "ExitProcess",
     "GetCommandLineW",
+    "GetCurrentProcess",
     "GetCurrentProcessId",
     "GetDriveTypeW",
     "GetExitCodeProcess",

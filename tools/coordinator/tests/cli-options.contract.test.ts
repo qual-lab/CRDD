@@ -560,7 +560,7 @@ test("provisionは明示commandだけを受理しローカルbuildではEffect�
     command: "provision",
     status: "blocked",
     reason:
-      "native_provision_supervisor_requires_formal_signed_runtime_evidence",
+      "native_provision_selected_user_binding_requires_formal_signed_runtime_evidence",
     releaseSequence: null,
     protectedGenerationInstalled: false,
     activePointerPersisted: false,

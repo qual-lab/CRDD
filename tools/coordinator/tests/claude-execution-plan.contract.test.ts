@@ -29,7 +29,13 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   );
   assert.equal(identity.binaryBytes, 275_012_592);
   assert.equal(binding.manifestSignatureRequired, true);
-  assert.equal(binding.manifestSignatureVerified, false);
+  assert.equal(binding.manifestSignatureVerified, true);
+  assert.deepEqual(binding.manifestSignatureEvidence, {
+    verifiedAt: "2026-08-24",
+    releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
+    detachedSignature: "verified_good_signature",
+    binaryLengthAndSha256MatchedManifest: true,
+  });
   assert.equal(binding.fixedImageDigest, null);
   assert.equal(binding.argvCompatibilityRequired, true);
   assert.equal(binding.argvCompatibilityVerified, false);
@@ -41,11 +47,35 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   });
   if (plan.status !== "candidate") assert.fail(plan.reason);
   assert.deepEqual(plan.distributionBinding, binding);
-  assert.equal(plan.distributionBinding.manifestSignatureVerified, false);
+  assert.equal(plan.distributionBinding.manifestSignatureVerified, true);
   assert.equal(plan.distributionBinding.fixedImageDigest, null);
   assert.equal(plan.distributionBinding.argvCompatibilityVerified, false);
   assert.equal(plan.spawnAllowed, false);
-  assert.equal(contract.providerSpawn, "blocked_before_spawn");
+  assert.equal(
+    contract.providerSpawn,
+    "no_network_version_probe_verified_provider_request_blocked",
+  );
+  assert.deepEqual(contract.readOnlyProbe.noNetworkVersionProbe, {
+    status: "verified",
+    verifiedAt: "2026-08-24",
+    command: "/opt/crdd/providers/claude/2.1.220/claude",
+    argv: ["--version"],
+    output: "2.1.220 (Claude Code)",
+    processExitCode: 0,
+    providerRequestExpected: false,
+    networkMode: "none",
+    repositoryMounted: false,
+    credentialOrProviderHomeMounted: false,
+    readOnlyRootFilesystem: true,
+    linuxUser: "65534:65534",
+    capabilities: "all_dropped",
+    pidLimit: 16,
+    binaryMount: "read_only_verified_artifact",
+    baseImage:
+      "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+    containerRemovedAfterExit: true,
+    finalProviderImageEstablished: false,
+  });
 });
 
 test("配布物条件と認証service条件を別axisの未解決条件にする", () => {
@@ -257,7 +287,16 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
 
 test("全activation blockerとEffect非発行を説明契約へ保持する", () => {
   const contract = describeClaudeExecutionPlanContract();
-  assert.equal(contract.implementationState, "fixed_non_executable_candidate");
+  assert.equal(
+    contract.implementationState,
+    "verified_no_network_version_probe_fixed_request_blocked",
+  );
+  assert.equal(
+    contract.activationBlockers.includes(
+      "manifest_signature_verification_not_connected_to_runtime",
+    ),
+    true,
+  );
   assert.equal(
     contract.activationBlockers.includes(
       "automated_subscription_use_permission_unresolved",

@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 2;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 3;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const FIXED_PROMPT =
@@ -56,12 +56,39 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
 const DISTRIBUTION_BINDING = Object.freeze({
   identity: DISTRIBUTION_IDENTITY,
   manifestSignatureRequired: true,
-  manifestSignatureVerified: false,
+  manifestSignatureVerified: true,
+  manifestSignatureEvidence: Object.freeze({
+    verifiedAt: "2026-08-24",
+    releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
+    detachedSignature: "verified_good_signature",
+    binaryLengthAndSha256MatchedManifest: true,
+  }),
   releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
   fixedDigestImageRequired: true,
   fixedImageDigest: null,
   argvCompatibilityRequired: true,
   argvCompatibilityVerified: false,
+});
+const NO_NETWORK_VERSION_PROBE = Object.freeze({
+  status: "verified" as const,
+  verifiedAt: "2026-08-24",
+  command: DISTRIBUTION_IDENTITY.executablePath,
+  argv: Object.freeze(["--version"]),
+  output: "2.1.220 (Claude Code)",
+  processExitCode: 0,
+  providerRequestExpected: false,
+  networkMode: "none",
+  repositoryMounted: false,
+  credentialOrProviderHomeMounted: false,
+  readOnlyRootFilesystem: true,
+  linuxUser: "65534:65534",
+  capabilities: "all_dropped",
+  pidLimit: 16,
+  binaryMount: "read_only_verified_artifact",
+  baseImage:
+    "python@sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+  containerRemovedAfterExit: true,
+  finalProviderImageEstablished: false,
 });
 const COMMERCIAL_TERMS_DOCUMENT = Object.freeze({
   documentIdentity: "anthropic_commercial_terms_2025-06-17",
@@ -105,7 +132,7 @@ const OFFERING_CANDIDATES = Object.freeze([
   }),
 ]);
 const ACTIVATION_BLOCKERS = Object.freeze([
-  "manifest_signature_not_verified",
+  "manifest_signature_verification_not_connected_to_runtime",
   "fixed_image_digest_not_configured",
   "fixed_argv_compatibility_not_verified",
   "environment_replacement_not_implemented",
@@ -152,6 +179,7 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     provider: "claude",
     mode: "read_only_probe",
     distributionBinding: DISTRIBUTION_BINDING,
+    noNetworkVersionProbe: NO_NETWORK_VERSION_PROBE,
     command: DISTRIBUTION_BINDING.identity.executablePath,
     argv: FIXED_ARGV,
     environmentMode: "replace_required",
@@ -192,7 +220,8 @@ export function describeClaudeExecutionPlanContract() {
     contract: CLAUDE_EXECUTION_PLAN_CONTRACT,
     contractRevision: CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
     provider: "claude",
-    implementationState: "fixed_non_executable_candidate",
+    implementationState:
+      "verified_no_network_version_probe_fixed_request_blocked",
     distribution: Object.freeze({
       binding: DISTRIBUTION_BINDING,
       installationMethod: "official_native_binary_in_fixed_runtime_image",
@@ -232,6 +261,7 @@ export function describeClaudeExecutionPlanContract() {
     }),
     readOnlyProbe: Object.freeze({
       distributionBinding: DISTRIBUTION_BINDING,
+      noNetworkVersionProbe: NO_NETWORK_VERSION_PROBE,
       command: DISTRIBUTION_BINDING.identity.executablePath,
       argv: FIXED_ARGV,
       environmentMode: "replace_required",
@@ -264,7 +294,7 @@ export function describeClaudeExecutionPlanContract() {
       maximumTurns: 1,
     }),
     activationBlockers: ACTIVATION_BLOCKERS,
-    providerSpawn: "blocked_before_spawn",
+    providerSpawn: "no_network_version_probe_verified_provider_request_blocked",
     operationCapabilityIssued: false,
   });
 }

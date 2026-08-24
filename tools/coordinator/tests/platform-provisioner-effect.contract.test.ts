@@ -11,7 +11,7 @@ test("platform provisioning blocks before distribution or filesystem access", ()
   assert.deepEqual(result, {
     status: "blocked",
     reason:
-      "native_provision_supervisor_requires_formal_signed_runtime_evidence",
+      "native_provision_selected_user_binding_requires_formal_signed_runtime_evidence",
     releaseSequence: null,
     protectedGenerationInstalled: false,
     activePointerPersisted: false,

@@ -25,7 +25,7 @@ test("caller inputを初期Trustまたはone-shot許可へ昇格しない", () =
   assert.deepEqual(result, {
     status: "blocked",
     reason:
-      "native_provision_supervisor_requires_formal_signed_runtime_evidence",
+      "native_provision_selected_user_binding_requires_formal_signed_runtime_evidence",
     explicitProvisionInvocationRequired: true,
     nativeTopLevelTrustCeremonyRequired: true,
     nativeSupervisorTrusted: false,
@@ -53,7 +53,7 @@ test("有効化前準備一回実行を通常Runtimeと分離して未実装へ�
   const contract = describePreActiveProvisioningOneShotContract();
   assert.deepEqual(contract, {
     contract: "crdd-coordinator/pre-active-provisioning-one-shot",
-    contractRevision: 4,
+    contractRevision: 5,
     command: "explicit_coordinator_provision_only",
     executionStrategy: "native_top_level_appcontainer_worker_observation",
     maximumObservationAttemptsPerInvocation: 1,
@@ -68,7 +68,7 @@ test("有効化前準備一回実行を通常Runtimeと分離して未実装へ�
     pathCargoShellOrInstallerFallback: false,
     automaticRetryOrRestart: false,
     nativeSupervisor:
-      "entrypoint_implemented_minimum_trust_boundary_formal_evidence_pending",
+      "entrypoint_and_selected_user_binding_implemented_formal_evidence_pending",
     releaseOwnedOpaqueExecutionBinding:
       "trusted_os_authenticated_local_user_and_human_verified_release_prerequisite",
     verifiedImageHandleBinding:
@@ -94,7 +94,7 @@ test("有効化前準備一回実行を通常Runtimeと分離して未実装へ�
     currentProcessTreeTerminationConfirmed: false,
     currentManualRecoveryRequired: false,
     resultAuthority:
-      "current_process_principal_observation_candidate_only_after_native_implementation",
+      "supervisor_selected_user_and_worker_token_user_match_candidate_formal_evidence_pending",
     selectedUserBindingVerified: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,

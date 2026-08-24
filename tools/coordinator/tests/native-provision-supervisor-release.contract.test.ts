@@ -41,7 +41,7 @@ test("native supervisor成果物を同一file観測へ固定する", () => {
       rustToolchain: "1.94.1",
       byteLength: 6144,
       sha256:
-        "31ec4f5db562529c41cb7a3cb03714beac9be9f7a95ea93ee0c26d58ce8f3e5a",
+        "ae82800083dff71b394995b81a055609344765777d03c8d529d44cbc5b4346e1",
     });
     assert.equal(
       verifyNativeProvisionSupervisorArtifactSigningObservation(
