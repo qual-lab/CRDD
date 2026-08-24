@@ -1,12 +1,17 @@
 use std::io::{self, Read, Write};
 
 pub const PROTOCOL_REVISION: u16 = 3;
+pub const PROVIDER_HOME_PROTOCOL_REVISION: u16 = 1;
 pub const MAXIMUM_REQUEST_BYTES: usize = 65_536;
 pub const MAXIMUM_PATH_BYTES: usize = 4_096;
 const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA03";
 const RESPONSE_MAGIC: &[u8; 8] = b"CRDDPR03";
+const PROVIDER_HOME_REQUEST_MAGIC: &[u8; 8] = b"CRDDPH01";
+const PROVIDER_HOME_RESPONSE_MAGIC: &[u8; 8] = b"CRDDHO01";
 const REQUEST_HEADER_BYTES: usize = 60;
 const RESPONSE_BYTES: usize = 86;
+pub const PROVIDER_HOME_REQUEST_BYTES: usize = 44;
+pub const PROVIDER_HOME_RESPONSE_BYTES: usize = 150;
 
 pub const PRINCIPAL_PRIMARY_TOKEN: u32 = 1 << 0;
 pub const PRINCIPAL_INTERACTIVE_GROUP: u32 = 1 << 1;
@@ -17,11 +22,45 @@ pub const PRINCIPAL_RESTRICTED_TOKEN: u32 = 1 << 5;
 pub const PRINCIPAL_APP_CONTAINER: u32 = 1 << 6;
 pub const PRINCIPAL_NONZERO_SESSION: u32 = 1 << 7;
 
+pub const PROVIDER_HOME_DIRECTORY: u32 = 1 << 0;
+pub const PROVIDER_HOME_FIXED_VOLUME: u32 = 1 << 1;
+pub const PROVIDER_HOME_NO_REPARSE_CHAIN: u32 = 1 << 2;
+pub const PROVIDER_HOME_STABLE_IDENTITY: u32 = 1 << 3;
+pub const PROVIDER_HOME_OWNER_SELECTED_USER: u32 = 1 << 4;
+pub const PROVIDER_HOME_DACL_PROTECTED: u32 = 1 << 5;
+pub const PROVIDER_HOME_WRITERS_RESTRICTED: u32 = 1 << 6;
+pub const PROVIDER_HOME_SELECTED_USER_FULL_CONTROL: u32 = 1 << 7;
+pub const PROVIDER_HOME_SYSTEM_FULL_CONTROL: u32 = 1 << 8;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum RootRole {
     Runtime = 1,
     Authority = 2,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum Provider {
+    Codex = 1,
+    Claude = 2,
+}
+
+impl Provider {
+    fn parse(value: u8) -> Option<Self> {
+        match value {
+            1 => Some(Self::Codex),
+            2 => Some(Self::Claude),
+            _ => None,
+        }
+    }
+
+    pub fn directory_name(self) -> &'static str {
+        match self {
+            Self::Codex => "codex",
+            Self::Claude => "claude",
+        }
+    }
 }
 
 impl RootRole {
@@ -50,6 +89,12 @@ pub struct Request {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ProviderHomeRequest {
+    pub provider: Provider,
+    pub nonce: [u8; 32],
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
 pub enum Reason {
     #[cfg(not(windows))]
@@ -65,6 +110,27 @@ pub enum Reason {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u16)]
+pub enum ProviderHomeReason {
+    #[cfg(not(windows))]
+    UnsupportedPlatform = 1,
+    InvalidRequest = 2,
+    PrincipalUnavailable = 3,
+    PrincipalNotSelectedLocalUser = 4,
+    KnownFolderUnavailable = 5,
+    HomeUnavailable = 6,
+    HomeReparseRejected = 7,
+    HomeNotFixedVolume = 8,
+    HomeIdentityChanged = 9,
+    HomeSecurityUnavailable = 10,
+    HomeOwnerMismatch = 11,
+    HomeDaclNotProtected = 12,
+    HomeDaclNotRestricted = 13,
+    HomeAccessInsufficient = 14,
+    ObservationCandidate = 100,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Response {
     pub root_role: RootRole,
     pub nonce: [u8; 32],
@@ -73,6 +139,19 @@ pub struct Response {
     pub access_mask: u32,
     pub runtime_principal_identity_hash: [u8; 32],
     pub principal_observation_flags: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ProviderHomeResponse {
+    pub provider: Provider,
+    pub nonce: [u8; 32],
+    pub is_candidate: bool,
+    pub reason: ProviderHomeReason,
+    pub principal_observation_flags: u32,
+    pub home_observation_flags: u32,
+    pub provider_home_identity_hash: [u8; 32],
+    pub provider_home_protection_hash: [u8; 32],
+    pub local_user_binding_hash: [u8; 32],
 }
 
 fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
@@ -128,6 +207,20 @@ pub fn parse_request(bytes: &[u8]) -> Option<Request> {
     })
 }
 
+pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> {
+    if bytes.len() != PROVIDER_HOME_REQUEST_BYTES
+        || bytes.get(..8)? != PROVIDER_HOME_REQUEST_MAGIC
+        || read_u16(bytes, 8)? != PROVIDER_HOME_PROTOCOL_REVISION
+        || *bytes.get(11)? != 0
+    {
+        return None;
+    }
+    Some(ProviderHomeRequest {
+        provider: Provider::parse(*bytes.get(10)?)?,
+        nonce: bytes.get(12..44)?.try_into().ok()?,
+    })
+}
+
 pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
     let mut bytes = [0_u8; RESPONSE_BYTES];
     bytes[..8].copy_from_slice(RESPONSE_MAGIC);
@@ -139,6 +232,24 @@ pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
     bytes[46..50].copy_from_slice(&response.access_mask.to_le_bytes());
     bytes[50..82].copy_from_slice(&response.runtime_principal_identity_hash);
     bytes[82..86].copy_from_slice(&response.principal_observation_flags.to_le_bytes());
+    bytes
+}
+
+pub fn encode_provider_home_response(
+    response: ProviderHomeResponse,
+) -> [u8; PROVIDER_HOME_RESPONSE_BYTES] {
+    let mut bytes = [0_u8; PROVIDER_HOME_RESPONSE_BYTES];
+    bytes[..8].copy_from_slice(PROVIDER_HOME_RESPONSE_MAGIC);
+    bytes[8..10].copy_from_slice(&PROVIDER_HOME_PROTOCOL_REVISION.to_le_bytes());
+    bytes[10] = response.provider as u8;
+    bytes[11] = u8::from(response.is_candidate);
+    bytes[12..44].copy_from_slice(&response.nonce);
+    bytes[44..46].copy_from_slice(&(response.reason as u16).to_le_bytes());
+    bytes[46..50].copy_from_slice(&response.principal_observation_flags.to_le_bytes());
+    bytes[50..54].copy_from_slice(&response.home_observation_flags.to_le_bytes());
+    bytes[54..86].copy_from_slice(&response.provider_home_identity_hash);
+    bytes[86..118].copy_from_slice(&response.provider_home_protection_hash);
+    bytes[118..150].copy_from_slice(&response.local_user_binding_hash);
     bytes
 }
 
@@ -180,6 +291,13 @@ pub fn write_response_to(writer: &mut impl Write, response: Response) -> io::Res
     writer.write_all(&encode_response(response))
 }
 
+pub fn write_provider_home_response_to(
+    writer: &mut impl Write,
+    response: ProviderHomeResponse,
+) -> io::Result<()> {
+    writer.write_all(&encode_provider_home_response(response))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,6 +314,15 @@ mod tests {
         bytes.extend_from_slice(&13_u32.to_le_bytes());
         bytes.extend_from_slice(&u32::try_from(path.len()).unwrap().to_le_bytes());
         bytes.extend_from_slice(path);
+        bytes
+    }
+
+    fn provider_home_request_bytes(provider: u8) -> [u8; PROVIDER_HOME_REQUEST_BYTES] {
+        let mut bytes = [0_u8; PROVIDER_HOME_REQUEST_BYTES];
+        bytes[..8].copy_from_slice(PROVIDER_HOME_REQUEST_MAGIC);
+        bytes[8..10].copy_from_slice(&PROVIDER_HOME_PROTOCOL_REVISION.to_le_bytes());
+        bytes[10] = provider;
+        bytes[12..44].copy_from_slice(&[6_u8; 32]);
         bytes
     }
 
@@ -303,5 +430,47 @@ mod tests {
         assert_eq!(u32::from_le_bytes(response[46..50].try_into().unwrap()), 0);
         assert_eq!(&response[50..82], &[0_u8; 32]);
         assert_eq!(&response[82..86], &[0_u8; 4]);
+    }
+
+    #[test]
+    fn provider_home_request_accepts_only_fixed_provider_and_frame() {
+        let request = parse_provider_home_request(&provider_home_request_bytes(2)).unwrap();
+        assert_eq!(request.provider, Provider::Claude);
+        assert_eq!(request.nonce, [6_u8; 32]);
+        for provider in [0, 3, u8::MAX] {
+            assert!(parse_provider_home_request(&provider_home_request_bytes(provider)).is_none());
+        }
+        let mut trailing = provider_home_request_bytes(1).to_vec();
+        trailing.push(0);
+        assert!(parse_provider_home_request(&trailing).is_none());
+        let mut reserved = provider_home_request_bytes(1);
+        reserved[11] = 1;
+        assert!(parse_provider_home_request(&reserved).is_none());
+        let mut legacy = provider_home_request_bytes(1);
+        legacy[..8].copy_from_slice(b"CRDDPH00");
+        legacy[8..10].copy_from_slice(&0_u16.to_le_bytes());
+        assert!(parse_provider_home_request(&legacy).is_none());
+    }
+
+    #[test]
+    fn provider_home_response_is_fixed_and_discloses_no_path() {
+        let response = encode_provider_home_response(ProviderHomeResponse {
+            provider: Provider::Codex,
+            nonce: [5_u8; 32],
+            is_candidate: true,
+            reason: ProviderHomeReason::ObservationCandidate,
+            principal_observation_flags: PRINCIPAL_PRIMARY_TOKEN,
+            home_observation_flags: PROVIDER_HOME_DIRECTORY | PROVIDER_HOME_DACL_PROTECTED,
+            provider_home_identity_hash: [1_u8; 32],
+            provider_home_protection_hash: [2_u8; 32],
+            local_user_binding_hash: [3_u8; 32],
+        });
+        assert_eq!(response.len(), PROVIDER_HOME_RESPONSE_BYTES);
+        assert_eq!(&response[..8], PROVIDER_HOME_RESPONSE_MAGIC);
+        assert_eq!(&response[12..44], &[5_u8; 32]);
+        assert_eq!(&response[54..86], &[1_u8; 32]);
+        assert_eq!(&response[86..118], &[2_u8; 32]);
+        assert_eq!(&response[118..150], &[3_u8; 32]);
+        assert!(!response.windows(3).any(|window| window == b"C:\\"));
     }
 }

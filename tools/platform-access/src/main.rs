@@ -11,8 +11,9 @@ use std::fs::OpenOptions;
 use std::io::{Read, Write};
 
 use protocol::{
-    Reason, Response, RootRole, parse_request, read_framed_request_from, read_request_from,
-    write_response_to,
+    Provider, ProviderHomeReason, ProviderHomeResponse, Reason, Response, RootRole,
+    parse_provider_home_request, parse_request, read_framed_request_from, read_request_from,
+    write_provider_home_response_to, write_response_to,
 };
 
 fn invalid_response() -> Response {
@@ -27,9 +28,49 @@ fn invalid_response() -> Response {
     }
 }
 
+fn invalid_provider_home_response() -> ProviderHomeResponse {
+    ProviderHomeResponse {
+        provider: Provider::Codex,
+        nonce: [0_u8; 32],
+        is_candidate: false,
+        reason: ProviderHomeReason::InvalidRequest,
+        principal_observation_flags: 0,
+        home_observation_flags: 0,
+        provider_home_identity_hash: [0_u8; 32],
+        provider_home_protection_hash: [0_u8; 32],
+        local_user_binding_hash: [0_u8; 32],
+    }
+}
+
 fn execute_bytes(request_bytes: &[u8], writer: &mut impl Write) -> i32 {
+    if let Some(request) = parse_provider_home_request(request_bytes) {
+        #[cfg(windows)]
+        let response = windows::observe_provider_home(&request);
+
+        #[cfg(not(windows))]
+        let response = ProviderHomeResponse {
+            provider: request.provider,
+            nonce: request.nonce,
+            is_candidate: false,
+            reason: ProviderHomeReason::UnsupportedPlatform,
+            principal_observation_flags: 0,
+            home_observation_flags: 0,
+            provider_home_identity_hash: [0_u8; 32],
+            provider_home_protection_hash: [0_u8; 32],
+            local_user_binding_hash: [0_u8; 32],
+        };
+
+        if write_provider_home_response_to(writer, response).is_err() {
+            return 3;
+        }
+        return if response.is_candidate { 0 } else { 2 };
+    }
     let Some(request) = parse_request(request_bytes) else {
-        let _ = write_response_to(writer, invalid_response());
+        if request_bytes.get(..6) == Some(b"CRDDPH") {
+            let _ = write_provider_home_response_to(writer, invalid_provider_home_response());
+        } else {
+            let _ = write_response_to(writer, invalid_response());
+        }
         return 2;
     };
 

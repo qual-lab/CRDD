@@ -2,10 +2,15 @@ import path from "node:path";
 
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describeProviderHomeObservationContract } from "./provider-home-observation.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
+import {
+  describeProviderHomeWindowsAdapterContract,
+  inspectRuntimeOwnedWindowsProviderHomeCandidate,
+} from "./provider-home-windows-adapter.ts";
 
 export const PROVIDER_HOME_CONTRACT = "crdd-coordinator/provider-home";
-export const PROVIDER_HOME_CONTRACT_REVISION = 2;
+export const PROVIDER_HOME_CONTRACT_REVISION = 3;
 
 export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
   "Qual-Lab",
@@ -95,7 +100,19 @@ export function evaluateWindowsProviderHomeLayoutCandidate(raw: unknown) {
   });
 }
 
+export function observeRuntimeOwnedWindowsProviderHomeCandidate(
+  provider: unknown,
+  evaluationTime: unknown,
+) {
+  return inspectRuntimeOwnedWindowsProviderHomeCandidate(
+    provider,
+    evaluationTime,
+  );
+}
+
 export function describeProviderHomeContract() {
+  const observation = describeProviderHomeObservationContract();
+  const windowsAdapter = describeProviderHomeWindowsAdapterContract();
   return Object.freeze({
     contract: PROVIDER_HOME_CONTRACT,
     contractRevision: PROVIDER_HOME_CONTRACT_REVISION,
@@ -124,8 +141,12 @@ export function describeProviderHomeContract() {
     tokenSessionOrPathReported: false,
     bootstrapEntry: "explicit_login_only_target",
     protectionEffect: "not_implemented",
-    protectionObservation: "not_implemented",
-    selectedLocalUserBinder: "not_implemented",
+    protectionObservation:
+      "implemented_runtime_owned_read_only_native_observation_candidate",
+    selectedLocalUserBinder:
+      "implemented_runtime_owned_current_local_interactive_token_candidate",
+    runtimeOwnedObservation: observation,
+    windowsAdapter,
     authSessionProbe: "not_implemented",
     logoutRevocationAndDeletion: "not_implemented_separate_bootstrap_lifecycle",
     mountGrant: describeProviderHomeMountGrantContract(),

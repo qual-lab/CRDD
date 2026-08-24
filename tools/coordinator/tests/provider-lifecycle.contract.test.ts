@@ -112,8 +112,14 @@ test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含め
   assert.equal(home.hostDefaultHomeImportAllowed, false);
   assert.equal(home.otherProviderHomeSharingAllowed, false);
   assert.equal(home.operationCleanupOwned, false);
-  assert.equal(home.protectionObservation, "not_implemented");
-  assert.equal(home.selectedLocalUserBinder, "not_implemented");
+  assert.equal(
+    home.protectionObservation,
+    "implemented_runtime_owned_read_only_native_observation_candidate",
+  );
+  assert.equal(
+    home.selectedLocalUserBinder,
+    "implemented_runtime_owned_current_local_interactive_token_candidate",
+  );
   const grant = describeProviderLifecycleContract().providerHomeMountGrant;
   assert.equal(grant.grantIssued, false);
   assert.equal(grant.tokenCopyOrInjectionAllowed, false);

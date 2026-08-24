@@ -135,8 +135,19 @@ test("layout候補は保護・認証・mount Grantの実装済み主張へ昇格
     "windows_known_folder_local_app_data_at_explicit_bootstrap_time",
   );
   assert.equal(contract.protectionEffect, "not_implemented");
-  assert.equal(contract.protectionObservation, "not_implemented");
-  assert.equal(contract.selectedLocalUserBinder, "not_implemented");
+  assert.equal(
+    contract.protectionObservation,
+    "implemented_runtime_owned_read_only_native_observation_candidate",
+  );
+  assert.equal(
+    contract.selectedLocalUserBinder,
+    "implemented_runtime_owned_current_local_interactive_token_candidate",
+  );
+  assert.equal(
+    contract.runtimeOwnedObservation.callerSuppliedPathAccepted,
+    false,
+  );
+  assert.equal(contract.windowsAdapter.shellInvocation, false);
   assert.equal(contract.authSessionProbe, "not_implemented");
   assert.equal(contract.callerPathConfersAuthority, false);
   assert.equal(contract.filesystemEffectIssued, false);
