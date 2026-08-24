@@ -119,7 +119,7 @@ test("Windows package DACL observer and Effect remain unimplemented", () => {
   );
   assert.equal(
     contract.processInvocation,
-    "signed_appcontainer_roundtrip_verified_selected_user_binding_evidence_pending",
+    "signed_appcontainer_runtime_probe_and_etw_network_nonfire_verified",
   );
   assert.equal(
     contract.observer,

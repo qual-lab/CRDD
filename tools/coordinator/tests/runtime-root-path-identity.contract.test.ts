@@ -460,7 +460,7 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
   );
   assert.equal(
     contract.windowsProcessInvocation,
-    "signed_appcontainer_roundtrip_verified_selected_user_binding_evidence_pending",
+    "signed_appcontainer_runtime_probe_and_etw_network_nonfire_verified",
   );
   assert.equal(
     contract.windowsDaclAdapter,
