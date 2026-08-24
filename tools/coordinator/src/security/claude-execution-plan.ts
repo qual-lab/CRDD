@@ -69,7 +69,7 @@ const DISTRIBUTION_BINDING = Object.freeze({
   argvCompatibilityRequired: true,
   argvCompatibilityVerified: false,
 });
-const NO_NETWORK_VERSION_PROBE = Object.freeze({
+const noNetworkVersionProbe = Object.freeze({
   status: "verified" as const,
   verifiedAt: "2026-08-24",
   command: DISTRIBUTION_IDENTITY.executablePath,
@@ -179,7 +179,7 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     provider: "claude",
     mode: "read_only_probe",
     distributionBinding: DISTRIBUTION_BINDING,
-    noNetworkVersionProbe: NO_NETWORK_VERSION_PROBE,
+    noNetworkVersionProbe,
     command: DISTRIBUTION_BINDING.identity.executablePath,
     argv: FIXED_ARGV,
     environmentMode: "replace_required",
@@ -261,7 +261,7 @@ export function describeClaudeExecutionPlanContract() {
     }),
     readOnlyProbe: Object.freeze({
       distributionBinding: DISTRIBUTION_BINDING,
-      noNetworkVersionProbe: NO_NETWORK_VERSION_PROBE,
+      noNetworkVersionProbe,
       command: DISTRIBUTION_BINDING.identity.executablePath,
       argv: FIXED_ARGV,
       environmentMode: "replace_required",

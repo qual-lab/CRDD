@@ -126,7 +126,7 @@ test("Rust platform accessの開発入口は固定Cargo commandだけを使う",
       "platform-access:native-bootstrap-pe":
         "node ./scripts/check-native-bootstrap-pe.ts",
       "platform-access:test":
-        "cargo +1.94.1-x86_64-pc-windows-msvc test --manifest-path ../platform-access/Cargo.toml --frozen --target x86_64-pc-windows-msvc",
+        "cargo +1.94.1-x86_64-pc-windows-msvc test --manifest-path ../platform-access/Cargo.toml --frozen --all-features --target x86_64-pc-windows-msvc",
       "platform-access:worker-build":
         "cargo +1.94.1-x86_64-pc-windows-msvc build --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin crdd-platform-access",
       "platform-access:worker-lint":

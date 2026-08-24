@@ -18,6 +18,8 @@ Anthropic公式公開鍵のfingerprint、detached manifest署名、Linux x64 bin
 
 変更経路は管理対象依存、外部情報、Provider processおよび将来のNetwork Effectに関わるprivate security変更である。外部へ送信したのは公開URLと公開versionだけで、Repository内容、Path、Credential、利用者情報または実probe promptを送信していない。通常Runtimeや公開CLIを変更せず、Claude Execution Planの実測状態と残るblockerだけを更新する。
 
+2026-08-24の全source命名検査で、実測結果を保持するmodule-local binding `NO_NETWORK_VERSION_PROBE`が動的な凍結objectのため真の定数分類ではなく一般bindingとして扱われる同期漏れを検出した。`noNetworkVersionProbe`へ意味不変renameし、公開property、値、契約revisionおよび利用側を変更せず、Checker全151試験と両private package `check`を再合格させた。
+
 ## 発火・非発火・境界・情報不足
 
 - 発火例: 人間が明示した検証で、公式公開鍵fingerprint、manifest署名、binary byte長／Hash、固定Docker条件および`--version`だけが同じrunで成立する場合に限り、外部送信なしversion probeをexact 1回起動する。
@@ -36,7 +38,7 @@ Anthropic公式公開鍵のfingerprint、detached manifest署名、Linux x64 bin
 - manifest署名とbinary IdentityのRuntime-owned verifier／artifact storeへの接続
 - 最終固定Provider image digestまたは同等の起動時artifact Identity固定
 - 固定prompt argvのexact version実測、親環境完全置換およびsettings/customization遮断
-- selected-user binderの署名済みend-to-end再検証、protected activeおよび専用Provider Home保護
+- selected-user binderの署名済みend-to-end再検証は固定commit `cfb003c`で完了した。protected activeおよび専用Provider Home保護は未完了
 - Mount Grant issuer／clock／atomic store／consume／revokeと実mount Adapter
 - Provider endpoint限定Proxy、DNS／TLS／Telemetry制御および同一runのEgress観測
 - 既存subscription OAuthの明示login、選択アカウント／適用条件／人間Authority、quota観測および追加購入停止

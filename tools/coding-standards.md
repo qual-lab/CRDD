@@ -52,7 +52,7 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 
 - 任意のpackage rootにある`package.json`と`package-lock.json`
 - TypeScript設定の`tsconfig.json`、`tsconfig.strict.json`、`tsconfig.tests.json`
-- Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`および`.gitignore`
+- Rust crate rootの`Cargo.toml`、`Cargo.lock`、`rust-toolchain.toml`、Cargo build scriptの`build.rs`および`.gitignore`
 - Rust executable入口の`src/main.rs`
 - Git設定の`.gitignore`
 - packageまたは主要成果物の入口にある`README.md`
@@ -85,7 +85,7 @@ TypeScript `enum`構文はNode.js native type strippingの対象外なので導�
 
 Rustは`tools/platform-access/**`のprivate crateだけへ適用する。module／file、function、method、variableおよびparameterは`snake_case`、struct、enum、traitおよび型は`PascalCase`、定数およびstaticは`SCREAMING_SNAKE_CASE`とする。FFIの`unsafe`はWindows API接続moduleへ限定し、各blockへ所有権、pointer lifetimeおよび解放責務の安全根拠を記載する。Rust標準の命名と型境界は`rustfmt`、rustcおよびClippyで検査し、TypeScript AST分類器へ混在させない。
 
-`tools/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。ただし`target`実体が通常Directoryかつsymbolic link／junctionでないことを除外前に確認し、通常file、symbolic link、junctionまたは分類不能な実体は検査失敗とする。`.rs`実体は同crateの`src/**`または`tests/**`へ限定し、`Cargo.lock`を追跡する。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`tools/**`へ追加しない。
+`tools/platform-access/target/**`は生成物であり検査母集団とGit管理から除外する。ただし`target`実体が通常Directoryかつsymbolic link／junctionでないことを除外前に確認し、通常file、symbolic link、junctionまたは分類不能な実体は検査失敗とする。`.rs`実体は同crateのexact `build.rs`、`src/**`または`tests/**`へ限定し、`Cargo.lock`を追跡する。crate rootの別名`.rs`をCargo build scriptとみなさない。`.bat`、`.cmd`、`.ps1`、`.sh`その他のShell ScriptをOS権限判定またはbuild orchestrationとして`tools/**`へ追加しない。
 
 ## 5. 曖昧な名前
 

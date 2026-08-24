@@ -76,7 +76,7 @@ const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 5,
   coordinatorProduction: 74,
   coordinatorTests: 69,
-  rustPlatformAccess: 7,
+  rustPlatformAccess: 8,
   uniqueTotal: 151,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -1536,9 +1536,18 @@ test("toolsのPathと型付きsource identifierは内部コーディング規約
         path.join(repositoryRoot, "tools", "platform-access", "src"),
         path.join(repositoryRoot, "tools", "platform-access", "tests"),
       ];
+      const rustBuildScript = path.join(
+        repositoryRoot,
+        "tools",
+        "platform-access",
+        "build.rs",
+      );
       for (const rustSourceFile of rustSourceFiles) {
         assert.ok(
-          rustSourceRoots.some((root) => isContainedPath(rustSourceFile, root)),
+          rustSourceFile === rustBuildScript ||
+            rustSourceRoots.some((root) =>
+              isContainedPath(rustSourceFile, root),
+            ),
           `Rust source outside private platform-access crate: ${rustSourceFile}`,
         );
       }
