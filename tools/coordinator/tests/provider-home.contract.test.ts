@@ -32,6 +32,9 @@ test("専用Provider Homeはlocal userとProvider単位の固定方針を持つ"
   );
   assert.equal(contract.mountGrant.grantIssued, false);
   assert.equal(contract.mountGrant.mountAdapter, "not_implemented");
+  assert.equal(contract.mountGrantRuntime.store, "process_local_atomic_map");
+  assert.equal(contract.mountGrantRuntime.usageLimit, 1);
+  assert.equal(contract.mountGrantRuntime.providerHomeMounted, false);
 });
 
 test("Windows local app dataからProvider別layout候補を作るがPathやAuthorityを返さない", () => {

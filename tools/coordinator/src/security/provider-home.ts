@@ -4,13 +4,14 @@ import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-l
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { describeProviderHomeObservationContract } from "./provider-home-observation.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
+import { describeProviderHomeMountGrantRuntimeContract } from "./provider-home-mount-grant-runtime.ts";
 import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "./provider-home-windows-adapter.ts";
 
 export const PROVIDER_HOME_CONTRACT = "crdd-coordinator/provider-home";
-export const PROVIDER_HOME_CONTRACT_REVISION = 3;
+export const PROVIDER_HOME_CONTRACT_REVISION = 4;
 
 export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
   "Qual-Lab",
@@ -150,6 +151,7 @@ export function describeProviderHomeContract() {
     authSessionProbe: "not_implemented",
     logoutRevocationAndDeletion: "not_implemented_separate_bootstrap_lifecycle",
     mountGrant: describeProviderHomeMountGrantContract(),
+    mountGrantRuntime: describeProviderHomeMountGrantRuntimeContract(),
     callerPathConfersAuthority: false,
     filesystemEffectIssued: false,
     runtimeAuthorityIssued: false,
