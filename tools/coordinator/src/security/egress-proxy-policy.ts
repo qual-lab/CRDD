@@ -10,6 +10,32 @@ import { validateProviderIsolationProfile } from "./provider-isolation-profile.t
 export const EGRESS_PROXY_CONTRACT = "crdd-coordinator/provider-egress-proxy";
 export const EGRESS_PROXY_CONTRACT_REVISION = 1;
 
+const CLAUDE_VERIFICATION_ADAPTER = Object.freeze({
+  sourcePath: "tools/coordinator/runtime/claude-egress-proxy.py",
+  sourceSha256:
+    "6c99298438c8f383f0b494dfb0a36ef8dd3c8b5813a48cb9e2f574ba2fbf6901",
+  imageDigest:
+    "sha256:f8dad0fbda2d96669dff0a7a0d56864047640af0f4514cbd1383abada91d5d68",
+  imageBuildDefinition:
+    "tools/coordinator/runtime/claude-egress-proxy.Dockerfile",
+  verifiedAt: "2026-08-24",
+  externalProbe: Object.freeze({
+    providerImageDigest:
+      "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+    providerNetworkInternal: true,
+    providerDirectExternalNetwork: false,
+    proxyDualNetwork: true,
+    directExternalDenied: true,
+    disallowedHostnameDenied: true,
+    allowedHostnameTlsReached: true,
+    allowedHostname: "claude.ai",
+    containerResidue: 0,
+    networkResidue: 0,
+  }),
+  reproducibleImageBuildClaimed: false,
+  releaseDistributionConnected: false,
+});
+
 const REGISTRY_METADATA = Object.freeze({
   specialPurposeRegistryLastUpdated: "2025-10-09",
   ipv6GlobalUnicastRegistryLastUpdated: "2025-10-10",
@@ -520,6 +546,8 @@ export function describeEgressProxyTopology() {
     dockerSocketMounted: false,
     hostNetworkModeAllowed: false,
     localFallbackAllowed: false,
-    enforcement: "not_implemented",
+    verificationAdapter: CLAUDE_VERIFICATION_ADAPTER,
+    enforcement:
+      "transient_docker_topology_verified_runtime_activation_not_connected",
   });
 }

@@ -291,7 +291,7 @@ test("IPv4とIPv6のspecial、mapped、compatible、zone表記を拒否する", 
   );
 });
 
-test("IANA snapshot metadataとTopologyは実強制Capabilityではない", () => {
+test("IANA snapshot metadataと検証済みTopologyをRuntime未接続として区別する", () => {
   const registry = describeSpecialPurposeRegistrySnapshot();
   assert.equal(registry.matching, "longest_prefix");
   assert.equal(
@@ -308,5 +308,29 @@ test("IANA snapshot metadataとTopologyは実強制Capabilityではない", () =
   assert.equal(topology.providerDirectExternalNetwork, false);
   assert.equal(topology.dockerSocketMounted, false);
   assert.equal(topology.hostNetworkModeAllowed, false);
-  assert.equal(topology.enforcement, "not_implemented");
+  assert.equal(
+    topology.enforcement,
+    "transient_docker_topology_verified_runtime_activation_not_connected",
+  );
+  assert.deepEqual(topology.verificationAdapter.externalProbe, {
+    providerImageDigest:
+      "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+    providerNetworkInternal: true,
+    providerDirectExternalNetwork: false,
+    proxyDualNetwork: true,
+    directExternalDenied: true,
+    disallowedHostnameDenied: true,
+    allowedHostnameTlsReached: true,
+    allowedHostname: "claude.ai",
+    containerResidue: 0,
+    networkResidue: 0,
+  });
+  assert.equal(
+    topology.verificationAdapter.reproducibleImageBuildClaimed,
+    false,
+  );
+  assert.equal(
+    topology.verificationAdapter.releaseDistributionConnected,
+    false,
+  );
 });

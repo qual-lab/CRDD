@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -36,9 +38,38 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
     detachedSignature: "verified_good_signature",
     binaryLengthAndSha256MatchedManifest: true,
   });
-  assert.equal(binding.fixedImageDigest, null);
+  assert.equal(
+    binding.fixedImageDigest,
+    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+  );
+  assert.deepEqual(binding.fixedImageEvidence, {
+    verifiedAt: "2026-08-24",
+    buildNetworkMode: "none",
+    baseImageDigest:
+      "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
+    embeddedBinaryLengthAndSha256Matched: true,
+    managedSettingsSha256:
+      "736c1447df695f074743f52564eefd4f9f8d8850737657d54a1f3d6052151ee8",
+    imageUser: "65534:65534",
+    imageWorkingDirectory: "/work",
+    imageEntrypoint: "/opt/crdd/providers/claude/2.1.220/claude",
+    reproducibleImageBuildClaimed: false,
+    releaseDistributionConnected: false,
+  });
   assert.equal(binding.argvCompatibilityRequired, true);
-  assert.equal(binding.argvCompatibilityVerified, false);
+  assert.equal(binding.argvCompatibilityVerified, true);
+  assert.deepEqual(binding.argvCompatibilityEvidence, {
+    verifiedAt: "2026-08-24",
+    exactBinaryVersion: "2.1.220",
+    networkMode: "none",
+    credentialOrProviderHomeMounted: false,
+    processReachedAuthenticationBoundary: true,
+    providerRequestIssued: false,
+    totalCostUsd: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    structuredOutputSchemaArgumentVerified: true,
+  });
   assert.equal(contract.readOnlyProbe.command, identity.executablePath);
   assert.deepEqual(contract.readOnlyProbe.distributionBinding, binding);
   const plan = planClaudeReadOnlyProbe({
@@ -48,12 +79,15 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   if (plan.status !== "candidate") assert.fail(plan.reason);
   assert.deepEqual(plan.distributionBinding, binding);
   assert.equal(plan.distributionBinding.manifestSignatureVerified, true);
-  assert.equal(plan.distributionBinding.fixedImageDigest, null);
-  assert.equal(plan.distributionBinding.argvCompatibilityVerified, false);
+  assert.equal(
+    plan.distributionBinding.fixedImageDigest,
+    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+  );
+  assert.equal(plan.distributionBinding.argvCompatibilityVerified, true);
   assert.equal(plan.spawnAllowed, false);
   assert.equal(
     contract.providerSpawn,
-    "no_network_version_probe_verified_provider_request_blocked",
+    "transient_fixed_request_verified_runtime_activation_blocked",
   );
   assert.deepEqual(contract.readOnlyProbe.noNetworkVersionProbe, {
     status: "verified",
@@ -121,7 +155,28 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
       offeringClass: "organization_offering_candidate",
     },
   ]);
-  assert.equal(authentication.selectedAccountOfferingObserved, false);
+  assert.equal(authentication.selectedAccountOfferingObserved, true);
+  assert.equal(authentication.selectedAccountOffering, "claude_max");
+  assert.deepEqual(authentication.verification, {
+    verifiedAt: "2026-08-24",
+    loginCommand: [
+      "/opt/crdd/providers/claude/2.1.220/claude",
+      "auth",
+      "login",
+      "--claudeai",
+    ],
+    loginProcessExitCode: 0,
+    loginMethod: "claude.ai",
+    subscriptionType: "max",
+    authStatusProcessExitCode: 0,
+    authStatusNetworkMode: "none",
+    authStatusProviderHomeMount: "read_only",
+    rawAuthOutputRecorded: false,
+    identityFieldsRecorded: false,
+    credentialContentRead: false,
+    oauthTokenReadByRuntime: false,
+    oauthInfrastructureCleanupVerified: true,
+  });
   assert.deepEqual(serviceTerms.candidateDocuments, [
     {
       documentIdentity: "anthropic_consumer_terms_2025-10-08",
@@ -141,8 +196,11 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
   assert.equal(serviceTerms.termsIdentityResolved, false);
   assert.equal(serviceTerms.termsActivated, false);
   assert.equal(serviceTerms.automatedSubscriptionUsePermission, "unresolved");
-  assert.equal(authentication.humanAuthorityConfirmed, false);
-  assert.equal(authentication.accountAuthorityBinding, "not_implemented");
+  assert.equal(authentication.humanAuthorityConfirmed, true);
+  assert.equal(
+    authentication.accountAuthorityBinding,
+    "transient_oauth_bootstrap_verified_runtime_binding_not_connected",
+  );
   assert.equal("supportedSubscriptions" in authentication, false);
   assert.equal("termsReview" in contract.distribution, false);
 });
@@ -150,12 +208,21 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
 test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否する", () => {
   const authentication = describeClaudeExecutionPlanContract().authentication;
   assert.equal(authentication.loginPolicy, "existing_subscription_oauth");
+  assert.deepEqual(authentication.explicitLoginCommand, [
+    "/opt/crdd/providers/claude/2.1.220/claude",
+    "auth",
+    "login",
+    "--claudeai",
+  ]);
+  assert.equal(authentication.consoleLoginAllowed, false);
   assert.equal(authentication.consoleApiAccountAllowed, false);
   assert.equal(authentication.thirdPartyApiProviderAllowed, false);
   assert.equal(authentication.apiKeyAllowed, false);
   assert.equal(authentication.hostCredentialImportAllowed, false);
   assert.equal(authentication.rawAuthOutputRecorded, false);
   assert.equal(authentication.oauthTokenReadByRuntime, false);
+  assert.equal(authentication.verification.loginMethod, "claude.ai");
+  assert.equal(authentication.verification.subscriptionType, "max");
 });
 
 test("読取専用probe候補は固定argv、環境置換要求、未検証制約を投影する", () => {
@@ -167,32 +234,70 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
   assert.equal(plan.reason, "claude_activation_blockers_unresolved");
   assert.equal(plan.command, "/opt/crdd/providers/claude/2.1.220/claude");
   assert.deepEqual(plan.argv, [
-    "--bare",
+    "--safe-mode",
+    "--setting-sources=",
+    "--strict-mcp-config",
+    "--mcp-config",
+    '{"mcpServers":{}}',
+    "--no-chrome",
+    "--json-schema",
+    '{"type":"object","properties":{"status":{"const":true}},"required":["status"],"additionalProperties":false}',
     "-p",
-    "Return one JSON object with the single key status and the value available. Do not use tools.",
+    "Return one JSON object with the single key status and the boolean value true. Do not use tools.",
     "--output-format",
     "json",
     "--max-turns",
-    "1",
+    "2",
+    "--max-budget-usd",
+    "0.10",
     "--no-session-persistence",
     "--permission-mode",
     "plan",
-    "--tools",
-    "",
+    "--tools=",
     "--disallowedTools",
     "mcp__*",
     "--disable-slash-commands",
+    "--prompt-suggestions",
+    "false",
   ]);
   assert.equal(plan.distributionBinding.argvCompatibilityRequired, true);
-  assert.equal(plan.distributionBinding.argvCompatibilityVerified, false);
-  assert.equal(plan.distributionBinding.fixedImageDigest, null);
+  assert.equal(plan.distributionBinding.argvCompatibilityVerified, true);
+  assert.equal(
+    plan.distributionBinding.fixedImageDigest,
+    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+  );
   assert.equal(plan.environmentMode, "replace_required");
   assert.equal(plan.environmentReplacementImplemented, false);
+  assert.equal(plan.environmentReplacementTransientlyVerified, true);
   assert.equal(plan.parentEnvironmentInherited, false);
   assert.deepEqual(plan.environment, {
     DISABLE_AUTOUPDATER: "1",
     DISABLE_UPDATES: "1",
     CLAUDE_CODE_SKIP_PROMPT_HISTORY: "1",
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+    DISABLE_TELEMETRY: "1",
+    DISABLE_ERROR_REPORTING: "1",
+    DISABLE_FEEDBACK_COMMAND: "1",
+    CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: "1",
+    CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: "1",
+  });
+  assert.deepEqual(plan.managedSettings, {
+    forceLoginMethod: "claudeai",
+    autoUpdates: false,
+    feedbackSurveyRate: 0,
+    skipWebFetchPreflight: true,
+  });
+  assert.equal(
+    plan.managedSettingsPath,
+    "/etc/claude-code/managed-settings.json",
+  );
+  assert.equal(plan.bareModeAllowed, false);
+  assert.equal(plan.safeModeRequired, true);
+  assert.deepEqual(plan.structuredOutputSchema, {
+    type: "object",
+    properties: { status: { const: true } },
+    required: ["status"],
+    additionalProperties: false,
   });
   assert.deepEqual(plan.runtimeOwnedEnvironmentSlots, [
     "HOME",
@@ -213,6 +318,7 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
   assert.equal(plan.pathLookupAllowed, false);
   assert.equal(plan.workspaceMountRequired, false);
   assert.equal(plan.providerHomeMountRequired, true);
+  assert.equal(plan.providerHomeBindMountTransientlyVerified, true);
   assert.equal(plan.providerRequestExpected, true);
   assert.equal(plan.includedSubscriptionUsageMayBeConsumed, true);
   assert.equal(plan.apiKeyAllowed, false);
@@ -237,6 +343,23 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
   );
   assert.equal("customizationsLoaded" in plan, false);
   assert.equal(plan.operationCapabilityIssued, false);
+});
+
+test("Managed Settingsの固定byte列を検証済みimage identityへ結合する", () => {
+  const settings = readFileSync(
+    new URL("../runtime/claude-managed-settings.json", import.meta.url),
+  );
+  assert.equal(
+    createHash("sha256").update(settings).digest("hex"),
+    describeClaudeExecutionPlanContract().distribution.binding
+      .fixedImageEvidence.managedSettingsSha256,
+  );
+  assert.deepEqual(JSON.parse(settings.toString("utf8")), {
+    autoUpdates: false,
+    feedbackSurveyRate: 0,
+    forceLoginMethod: "claudeai",
+    skipWebFetchPreflight: true,
+  });
 });
 
 test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否する", () => {
@@ -289,7 +412,7 @@ test("全activation blockerとEffect非発行を説明契約へ保持する", ()
   const contract = describeClaudeExecutionPlanContract();
   assert.equal(
     contract.implementationState,
-    "verified_no_network_version_probe_fixed_request_blocked",
+    "transient_claude_max_boolean_probe_verified_runtime_activation_blocked",
   );
   assert.equal(
     contract.activationBlockers.includes(
@@ -305,11 +428,147 @@ test("全activation blockerとEffect非発行を説明契約へ保持する", ()
   );
   assert.equal(
     contract.activationBlockers.includes(
-      "environment_replacement_not_implemented",
+      "selected_account_offering_not_observed",
+    ),
+    false,
+  );
+  assert.equal(
+    contract.activationBlockers.includes(
+      "human_account_authority_not_confirmed",
+    ),
+    false,
+  );
+  assert.equal(
+    contract.activationBlockers.includes(
+      "environment_replacement_runtime_adapter_not_connected",
     ),
     true,
   );
   assert.equal(contract.readOnlyProbe.resultFormat, "single_json_result");
-  assert.equal(contract.readOnlyProbe.maximumTurns, 1);
+  assert.equal(contract.readOnlyProbe.maximumTurns, 2);
+  assert.equal(contract.readOnlyProbe.maximumBudgetUsd, 0.1);
+  assert.deepEqual(contract.fixedPromptRequestAttempt, {
+    executedAt: "2026-08-24",
+    exactRequestCount: 1,
+    processExitCode: 0,
+    providerReportedError: false,
+    numberOfTurns: 1,
+    providerReportedApiEquivalentCostUsd: 0.036975,
+    inputTokens: 2,
+    outputTokens: 15,
+    cacheCreationInputTokens: 3659,
+    cacheReadInputTokens: 0,
+    resultContractVerified: false,
+    resultRecorded: false,
+    rawOutputSha256:
+      "b8ee44de22aea189061358353123b0e9eff10d62f2723cb05ddd2a8b0e6940be",
+    providerNetworkInternal: true,
+    repositoryMounted: false,
+    workspaceMounted: false,
+    toolsRequested: "none",
+    sessionPersistenceRequested: false,
+    apiKeyEnvironmentProvided: false,
+    cleanupVerified: true,
+    containerResidue: 0,
+    networkResidue: 0,
+    retryIssued: false,
+  });
+  assert.deepEqual(contract.fixedPromptSchemaRequestAttempt, {
+    executedAt: "2026-08-24",
+    exactRequestCommandCount: 1,
+    structuredOutputSchemaRequested: true,
+    processExitCode: 1,
+    resultContractVerified: false,
+    resultRecorded: false,
+    providerRequestIssued: "unknown",
+    rawOutputSha256:
+      "2e5ab9be33e00c0330eb30cf15791f1a15a87705b97f0ee20a58f46569178e70",
+    authenticationStatusAfterAttempt: "logged_in_claude_ai_max",
+    authenticationStatusNetworkMode: "none",
+    cleanupVerified: true,
+    containerResidue: 0,
+    networkResidue: 0,
+    automaticRetryIssued: false,
+  });
+  assert.deepEqual(contract.fixedPromptBoundedRequestAttempt, {
+    executedAt: "2026-08-24",
+    exactRequestCommandCount: 1,
+    structuredOutputSchemaRequested: true,
+    processExitCode: 0,
+    responseSubtype: "success",
+    providerReportedError: false,
+    numberOfTurns: 2,
+    providerReportedApiEquivalentCostUsd: 0.022397,
+    inputTokens: 2,
+    outputTokens: 262,
+    cacheCreationInputTokens: 1452,
+    cacheReadInputTokens: 2634,
+    structuredOutputPresent: true,
+    structuredOutputPropertyCount: 1,
+    localStringResultContractVerified: false,
+    resultRecorded: false,
+    rawOutputSha256:
+      "71fe73491564fe87b94f95b25905c23c5e2764aefcb00300c5dca14bd84235a0",
+    providerNetworkInternal: true,
+    repositoryMounted: false,
+    workspaceMounted: false,
+    toolsRequested: "none",
+    maximumTurns: 2,
+    maximumBudgetUsd: 0.1,
+    apiKeyEnvironmentProvided: false,
+    cleanupVerified: true,
+    containerResidue: 0,
+    networkResidue: 0,
+    automaticRetryIssued: false,
+  });
+  assert.deepEqual(contract.fixedPromptBooleanRequestVerification, {
+    status: "verified",
+    executedAt: "2026-08-24",
+    exactRequestCommandCount: 1,
+    processExitCode: 0,
+    responseSubtype: "success",
+    providerReportedError: false,
+    normalizedResult: { status: true },
+    numberOfTurns: 2,
+    maximumTurns: 2,
+    maximumBudgetUsd: 0.1,
+    providerReportedApiEquivalentCostUsd: 0.04699,
+    inputTokens: 2,
+    outputTokens: 244,
+    cacheCreationInputTokens: 4088,
+    cacheReadInputTokens: 0,
+    structuredOutputPresent: true,
+    structuredOutputPropertyCount: 1,
+    resultPropertyNameExact: true,
+    resultValueBooleanTrue: true,
+    verifierCorrection: {
+      defect: "powershell_single_element_expression_unwrapped_to_scalar_string",
+      oldIndexZero: "s",
+      correctedCollectionType: "System.Object[]",
+      correctedIndexZero: "status",
+      deterministicFixtureVerified: true,
+    },
+    rawOutputSha256:
+      "65c2a2079a4de7b673bae1197b82025a5a251276e9781b8e68d42bb4d5169aeb",
+    rawOutputRecorded: false,
+    identityFieldsRecorded: false,
+    providerNetworkCount: 1,
+    providerNetworkInternal: true,
+    proxyOutcomes: ["ready", "tunnel_established", "tunnel_closed"],
+    repositoryMounted: false,
+    workspaceMounted: false,
+    toolsRequested: "none",
+    sessionPersistenceRequested: false,
+    apiKeyEnvironmentProvided: false,
+    cleanupVerified: true,
+    containerResidue: 0,
+    networkResidue: 0,
+  });
+  assert.equal(
+    contract.activationBlockers.includes(
+      "fixed_prompt_structured_result_not_verified",
+    ),
+    false,
+  );
   assert.equal(contract.operationCapabilityIssued, false);
 });
