@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
 import { planClaudeReadOnlyProbe } from "./claude-execution-plan.ts";
+import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant-runtime.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import {
   type OwnedMountPaths,
@@ -66,28 +67,20 @@ type PreparedPlan = Readonly<{
   commands: readonly Command[];
 }>;
 
-type ModelSelectionBasis = Readonly<{
-  provider: "claude";
-  role:
-    | "coordinator"
-    | "executor"
-    | "independent_reviewer"
-    | "result_integration";
-  workClass:
-    | "bounded_implementation"
-    | "bounded_verification"
-    | "diagnosis"
-    | "design_alignment"
-    | "architecture_review"
-    | "security_review"
-    | "gap_impact_audit";
-  planState: "complete" | "partial" | "open";
-  risk: "low" | "material" | "high";
-  difficulty: "low" | "medium" | "high";
-  decisionImpact: "limited" | "material" | "critical";
-  isLocalCandidateOnly: boolean;
-  hasUnresolvedDirection: boolean;
-  requiresCrossContextAlignment: boolean;
+type ConsumedModelSelection = Readonly<{
+  selectionRecordId: string;
+  operationId: string;
+  frontProvider: "codex" | "claude";
+  executorProvider: "codex" | "claude";
+  route: string;
+  profileId: string;
+  model: string;
+  basis: unknown;
+  effort: "low" | "medium" | "high";
+  modelTier: string;
+  speedMode: "normal";
+  selectionNotice: string;
+  delegationDepth: number;
 }>;
 
 type RuntimeState = Readonly<{
@@ -121,12 +114,10 @@ type RuntimeState = Readonly<{
   wallNow: () => number;
   monotonicNow: () => number;
   randomBytes: (size: number) => Buffer;
-  modelSelection: Readonly<{
-    selectionRecordId: string;
-    profileId: string;
-    model: string;
-    basis: ModelSelectionBasis;
-  }> | null;
+  consumeModelSelection: (
+    useCapability: unknown,
+    managementCapability: unknown,
+  ) => ConsumedModelSelection | null;
 }>;
 
 function createRuntimeState(
@@ -147,7 +138,7 @@ const productionState = createRuntimeState({
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,
-  modelSelection: null,
+  consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
 });
 
 function createBlockedResult(reason: string) {
@@ -240,6 +231,7 @@ function buildPlan(
     }>;
     activeMountCapability: object;
   }>,
+  consumedModelSelection: ConsumedModelSelection,
   providerHomeSourcePath: string,
   preparedWallClockMs: number,
   preparedMonotonicMs: number,
@@ -249,21 +241,23 @@ function buildPlan(
     mode: "read_only_probe",
   });
   const egress = describeEgressProxyTopology();
-  const selection = state.modelSelection
-    ? selectProviderModelCandidate(state.modelSelection.basis)
-    : null;
+  const selection = selectProviderModelCandidate(consumedModelSelection.basis);
   if (
-    !state.modelSelection ||
-    !selection ||
     selection.status !== "candidate" ||
     selection.provider !== "claude" ||
     selection.speedMode !== "normal" ||
     !selection.selectionNotice ||
-    state.modelSelection.profileId !== activation.grant.profileId ||
+    consumedModelSelection.executorProvider !== "claude" ||
+    consumedModelSelection.operationId !== binding.operationId ||
+    consumedModelSelection.profileId !== activation.grant.profileId ||
+    consumedModelSelection.effort !== selection.effort ||
+    consumedModelSelection.modelTier !== selection.modelTier ||
+    consumedModelSelection.speedMode !== selection.speedMode ||
+    consumedModelSelection.selectionNotice.length === 0 ||
     !/^MODELSEL-[A-Z0-9-]{8,80}$/.test(
-      state.modelSelection.selectionRecordId,
+      consumedModelSelection.selectionRecordId,
     ) ||
-    !normalizeExactModelId(state.modelSelection.model) ||
+    !normalizeExactModelId(consumedModelSelection.model) ||
     claude.status !== "candidate" ||
     claude.provider !== "claude" ||
     claude.distributionBinding.fixedDigestImageRequired !== true ||
@@ -389,7 +383,7 @@ function buildPlan(
       tmpMount,
       providerImageDigest,
       "--model",
-      state.modelSelection.model,
+      consumedModelSelection.model,
       "--effort",
       selection.effort,
       ...claude.argv,
@@ -422,11 +416,11 @@ function buildPlan(
     ownershipLabel,
     providerImageDigest,
     proxyImageDigest,
-    selectionRecordId: state.modelSelection.selectionRecordId,
-    selectedModel: state.modelSelection.model,
+    selectionRecordId: consumedModelSelection.selectionRecordId,
+    selectedModel: consumedModelSelection.model,
     selectedEffort: selection.effort,
     selectedModelTier: selection.modelTier,
-    selectionNotice: selection.selectionNotice,
+    selectionNotice: consumedModelSelection.selectionNotice,
     commands,
   });
 }
@@ -436,6 +430,7 @@ function prepare(
   managementCapability: unknown,
   mountCapability: unknown,
   mountAuthorizationCapability: unknown,
+  selectionUseCapability: unknown,
 ) {
   const binding = state.verifyOperationMount(
     managementCapability,
@@ -469,6 +464,16 @@ function prepare(
     );
   }
   try {
+    const consumedModelSelection = state.consumeModelSelection(
+      selectionUseCapability,
+      managementCapability,
+    );
+    if (!consumedModelSelection) {
+      state.completeMount(activeMountCapability, managementCapability);
+      return createBlockedResult(
+        "claude_docker_runtime_model_selection_invalid",
+      );
+    }
     const providerHomeSourcePath = state.borrowMountSource(
       activeMountCapability,
       managementCapability,
@@ -485,6 +490,7 @@ function prepare(
             state,
             binding,
             activatedMount,
+            consumedModelSelection,
             providerHomeSourcePath,
             preparedWallClockMs,
             preparedMonotonicMs,
@@ -615,6 +621,7 @@ export function prepareRuntimeOwnedClaudeDockerCandidate(
   managementCapability: unknown,
   mountCapability: unknown,
   mountAuthorizationCapability: unknown,
+  selectionUseCapability: unknown,
 ) {
   return performSafely("claude_docker_runtime_preparation_failed_closed", () =>
     prepare(
@@ -622,6 +629,7 @@ export function prepareRuntimeOwnedClaudeDockerCandidate(
       managementCapability,
       mountCapability,
       mountAuthorizationCapability,
+      selectionUseCapability,
     ),
   );
 }
@@ -660,6 +668,7 @@ export function createIsolatedClaudeDockerRuntimeAdapterCandidate(
       managementCapability: unknown,
       mountCapability: unknown,
       mountAuthorizationCapability: unknown,
+      selectionUseCapability: unknown,
     ) =>
       performSafely("claude_docker_runtime_preparation_failed_closed", () =>
         prepare(
@@ -667,6 +676,7 @@ export function createIsolatedClaudeDockerRuntimeAdapterCandidate(
           managementCapability,
           mountCapability,
           mountAuthorizationCapability,
+          selectionUseCapability,
         ),
       ),
     cancel: (preparedCapability: unknown, managementCapability: unknown) =>
@@ -696,7 +706,7 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     contractRevision: CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION,
     provider: "claude",
     modelSelection:
-      "runtime_owned_explainable_selection_grant_required_production_not_connected",
+      "runtime_owned_selection_grant_consumer_connected_issuer_availability_profile_not_connected",
     coordinatorPrelaunchModelSelectionAllowed: true,
     providerAutomaticModelSwitchingAllowed: false,
     midExecutionModelSwitchingAllowed: false,

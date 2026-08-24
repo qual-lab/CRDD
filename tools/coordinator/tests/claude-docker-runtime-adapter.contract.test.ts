@@ -7,9 +7,14 @@ import {
   describeClaudeDockerRuntimeAdapterContract,
   prepareRuntimeOwnedClaudeDockerCandidate,
 } from "../src/security/claude-docker-runtime-adapter.ts";
+import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../src/security/delegation-selection-grant-runtime.ts";
 
-const MODEL_SELECTION = Object.freeze({
+const modelSelection = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
+  operationId: "OP-123456",
+  frontProvider: "codex" as const,
+  executorProvider: "claude" as const,
+  route: "front_codex__executor_claude",
   profileId: "PROFILE-123456",
   model: "claude-opus-test-profile",
   basis: Object.freeze({
@@ -24,6 +29,12 @@ const MODEL_SELECTION = Object.freeze({
     hasUnresolvedDirection: false,
     requiresCrossContextAlignment: false,
   }),
+  effort: "low" as const,
+  modelTier: "preferred",
+  speedMode: "normal" as const,
+  selectionNotice:
+    "[委譲経路選定] front=codex executor=claude\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
+  delegationDepth: 1,
 });
 
 function createFixture(
@@ -34,6 +45,7 @@ function createFixture(
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
+  const selectionUseCapability = Object.freeze({});
   const activeMountCapability = Object.freeze({});
   let wallClockMs = 1_000;
   let monotonicMs = 2_000;
@@ -87,7 +99,11 @@ function createFixture(
       randomValue += 1;
       return Buffer.alloc(size, randomValue);
     },
-    modelSelection: MODEL_SELECTION,
+    consumeModelSelection: (selection: unknown, management: unknown) => {
+      assert.equal(selection, selectionUseCapability);
+      assert.equal(management, managementCapability);
+      return modelSelection;
+    },
     ...overrides,
   };
   const adapter =
@@ -97,6 +113,7 @@ function createFixture(
     managementCapability,
     mountCapability,
     mountAuthorizationCapability,
+    selectionUseCapability,
     getCompletionCount: () => completionCount,
     advanceBeyondLifetime: () => {
       wallClockMs += 30_000;
@@ -111,6 +128,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     fixture.managementCapability,
     fixture.mountCapability,
     fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectedModel, "claude-opus-test-profile");
@@ -174,6 +192,7 @@ test("cancelはMount leaseを完了しprepared capabilityを再利用不能に�
     fixture.managementCapability,
     fixture.mountCapability,
     fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
   );
   const cancelled = fixture.adapter.cancel(
     prepared.preparedCapability,
@@ -196,6 +215,7 @@ test("期限切れprepared planはProvider EffectなしでMount leaseを回収�
     fixture.managementCapability,
     fixture.mountCapability,
     fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
   );
   fixture.advanceBeyondLifetime();
   assert.equal(
@@ -210,23 +230,113 @@ test("期限切れprepared planはProvider EffectなしでMount leaseを回収�
 
 test("Profile不一致または高コスト根拠不正ではplanを作らずleaseを回収する", () => {
   const fixture = createFixture({
-    modelSelection: Object.freeze({
-      ...MODEL_SELECTION,
-      profileId: "PROFILE-DIFFERENT",
-    }),
+    consumeModelSelection: () =>
+      Object.freeze({
+        ...modelSelection,
+        profileId: "PROFILE-DIFFERENT",
+      }),
   });
   const prepared = fixture.adapter.prepare(
     fixture.managementCapability,
     fixture.mountCapability,
     fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
   );
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.reason, "claude_docker_runtime_plan_invalid");
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
+test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続する", () => {
+  let randomValue = 40;
+  const selectionRuntime =
+    createIsolatedDelegationSelectionGrantRuntimeCandidate({
+      verifyOperation: () =>
+        Object.freeze({
+          operationId: "OP-123456",
+          createdAt: "2026-08-24T00:00:00.000Z",
+        }),
+      observeAvailableProviders: () => Object.freeze(["codex", "claude"]),
+      resolveModelProfile: (route) =>
+        Object.freeze({
+          provider: route.executorProvider,
+          profileId: "PROFILE-123456",
+          exactModelId: "claude-opus-test-profile",
+          family: route.modelSelection.familyPreference ?? "invalid",
+          modelTier: route.modelSelection.modelTier ?? "invalid",
+          speedMode: "normal",
+          billingMode: "subscription_oauth",
+        }),
+      wallNow: () => 1_000,
+      monotonicNow: () => 2_000,
+      randomBytes: (size: number) => {
+        randomValue += 1;
+        return Buffer.alloc(size, randomValue);
+      },
+    });
+  const fixture = createFixture({
+    consumeModelSelection: (selection, management) =>
+      selectionRuntime.consume(selection, management),
+  });
+  const issued = selectionRuntime.issue(fixture.managementCapability, {
+    frontProvider: "codex",
+    requestedExecutorProvider: "auto",
+    subjectProvider: null,
+    requiresIndependentProvider: false,
+    role: "executor",
+    workClass: "bounded_implementation",
+    planState: "complete",
+    risk: "low",
+    difficulty: "low",
+    decisionImpact: "limited",
+    isLocalCandidateOnly: true,
+    hasUnresolvedDirection: false,
+    requiresCrossContextAlignment: false,
+    operationId: "OP-123456",
+    parentOperationId: null,
+    ancestorOperationIds: [],
+    delegationDepth: 0,
+  });
+  assert.equal(issued.status, "issued");
+
+  const prepared = fixture.adapter.prepare(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    issued.useCapability,
+  );
+  assert.equal(prepared.status, "prepared");
+  assert.equal(prepared.selectionRecordId, issued.selectionRecordId);
+  assert.equal(prepared.selectedModel, issued.selectedModel);
+  assert.equal(
+    selectionRuntime.consume(
+      issued.useCapability,
+      fixture.managementCapability,
+    ),
+    null,
+  );
+});
+
+test("Selection GrantをconsumeできなければMount leaseだけ回収して停止する", () => {
+  const fixture = createFixture({
+    consumeModelSelection: () => null,
+  });
+  const prepared = fixture.adapter.prepare(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+  );
+  assert.equal(prepared.status, "blocked");
+  assert.equal(
+    prepared.reason,
+    "claude_docker_runtime_model_selection_invalid",
+  );
+  assert.equal(fixture.getCompletionCount(), 1);
+});
+
 test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
-  const prepared = prepareRuntimeOwnedClaudeDockerCandidate({}, {}, {});
+  const prepared = prepareRuntimeOwnedClaudeDockerCandidate({}, {}, {}, {});
   assert.equal(prepared.status, "blocked");
   assert.equal(prepared.providerRequestIssued, false);
   assert.equal(

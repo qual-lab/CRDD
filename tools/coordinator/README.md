@@ -143,6 +143,10 @@ Runtime 1.0はWindows上のDocker DesktopとLinux containerだけを正式対象
 
 選定時はProvider、役割、family、推論レベル、速度、選定理由、高コスト選択の有無および再選定条件をCoordinatorのOperation contextへProvider Effect前に表示する。内部推論全文ではなく、人間と独立Reviewerが検証できる判断要約を保持する。選定理由の欠落、閉集合外の分類、Profile不一致、またはRuntime-owned Selection Grant未接続では実行しない。再選定はProvider内fallbackではなくCoordinatorへ戻り、旧選定をsupersedeする新しいGrantとして扱う。
 
+委譲経路選定（Delegation Route Selection）はFront ProviderとExecutor Providerを独立軸とし、`Front Codex → Codex`、`Front Codex → Claude Code`、`Front Claude Code → Codex`、`Front Claude Code → Claude Code`の4経路を同じ契約で候補化する。具体化済み実装はClaude、検証・診断・方針整合・レビュー・統合はCodexを既定候補とするが、実行前のRuntime-owned availability観測、独立Review対象、ユーザーの明示Executor制約および費用Gateで絞る。明示制約を無言で無視せず、独立Reviewでは対象Providerを候補から除外する。同一Provider経路もCoordinator Gate、別Operation、別Provider Homeおよび最大深度2の範囲だけで許可し、循環またはProvider同士の直接spawnを拒否する。
+
+委譲選定許可（Delegation Selection Grant）候補は4経路候補をRuntime-owned Operation management Capability、観測済みProvider availability、検証済みProvider Profile、subscription OAuth、通常速度、壁時計／単調時計および暗号学的乱数へ結合する。controlとuseを別opaque aliasにし、最大30秒・一回限りとする。公開結果にはexact model、推論、経路と理由を表示するが、Selection GrantだけではProvider AuthorityまたはEffectを発行しない。現在はproductionのavailability observerとProfile resolverが未接続で発行前に`blocked`となる。Claude Docker Adapter側のSelection Grant consumerは接続済み候補で、Operation／Provider／Profile／model／effort／speed／理由を再照合してからprepared planを作る。
+
 Claude Docker Runtime Adapter候補は、同じRuntime-owned Operation世代のmanagement／mount Capability、active Provider Home mount lease、説明可能な選定候補、固定Claude／Proxy image、最小環境およびOperation専用Network topologyを30秒・一回限りのopaque prepared planへ結合する。Provider Home sourceはWindows Known FolderからTypeScriptとnative observerが独立導出したHashへ結合し、raw Pathをwire、Grantまたは公開結果へ含めない。Providerはinternal Networkだけ、Proxyはinternalと専用Egress Networkだけへ接続し、親環境、API key、Host Network、Docker socket、repository mount、shell、PATH探索、Provider直接Egressおよび別Engine fallbackを候補に含めない。現在はSelection Grant、Provider Authorityおよびprocess controllerが未接続で、Docker／Filesystem／Network／process／Provider Request Effectを発行しない。
 
 ## Provider隔離Profile
