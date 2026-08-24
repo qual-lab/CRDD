@@ -47,7 +47,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 3;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 4;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -378,6 +378,7 @@ async function executeStage(
   const profileId = stringValue(selection.profileId);
   let selectionControl = objectCapability(selection.controlCapability);
   let startedProcessControl: object | null = null;
+  let startedDockerRecoveryId: string | null = null;
   if (
     selection.status !== "issued" ||
     !provider ||
@@ -421,7 +422,7 @@ async function executeStage(
           speedMode: selection.speedMode,
           selectionReason: selection.selectionNotice,
           inputBasis:
-            "caller_declared_task_attributes_plus_runtime_verified_provider_eligibility",
+            "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
           callerDeclaredAttributes: Object.freeze([
             "workClass",
             "planState",
@@ -530,6 +531,7 @@ async function executeStage(
     }
     control.currentProcessControl = processControl;
     startedProcessControl = processControl;
+    startedDockerRecoveryId = stringValue(process.recoveryId);
     if (control.cancellationRequested) {
       await state.dependencies.cancelProcess(
         processControl,
@@ -578,6 +580,7 @@ async function executeStage(
         "coordinator_task_process_completion_unconfirmed",
         true,
         operation.hostRecoveryId,
+        startedDockerRecoveryId,
       );
     }
     revokeUnconsumed();
@@ -627,11 +630,20 @@ async function run(
     ) {
       return blocked("coordinator_task_external_send_policy_unresolved");
     }
+    if (
+      externalSendPolicy.candidatePersistenceAllowed !== true ||
+      !Number.isSafeInteger(externalSendPolicy.candidateRetentionHours) ||
+      externalSendPolicy.candidatePhysicalDeletion !==
+        "next_safe_runtime_entry_after_expiry_or_explicit_discard"
+    ) {
+      return blocked("coordinator_task_candidate_persistence_not_authorized");
+    }
     const candidatePersistencePolicy = Object.freeze({
       candidatePersistenceAllowed:
         externalSendPolicy.candidatePersistenceAllowed === true,
       candidateRetentionHours: externalSendPolicy.candidateRetentionHours,
       informationClassification: externalSendPolicy.informationClassification,
+      candidatePhysicalDeletion: externalSendPolicy.candidatePhysicalDeletion,
     });
     const externalSendGrant = state.dependencies.authorizeExternalSend(
       operation.managementCapability,
@@ -809,7 +821,13 @@ async function run(
     );
     const candidateRecoveryId = stringValue(persisted?.candidateRecoveryId);
     if (persisted?.status !== "staged" || !candidateRecoveryId) {
-      return blocked("coordinator_task_candidate_persistence_failed");
+      return blocked(
+        "coordinator_task_candidate_persistence_failed",
+        candidateRecoveryId !== null,
+        null,
+        null,
+        candidateRecoveryId,
+      );
     }
     return Object.freeze({
       status: "completed" as const,
@@ -979,6 +997,13 @@ function createRuntime(dependencies: RuntimeDependencies) {
             }
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
             if (!candidateRecoveryId) return result;
+            if (result.status !== "completed") {
+              const discarded =
+                state.dependencies.discardCandidate(candidateRecoveryId);
+              return discarded?.status === "discarded"
+                ? blocked(String(result.reason))
+                : result;
+            }
             const published =
               state.dependencies.publishCandidate(candidateRecoveryId);
             const candidateId = stringValue(published?.candidateId);
@@ -1088,7 +1113,7 @@ export function describeCoordinatorTaskRuntimeContract() {
     ]),
     providerSelection: "explainable_cross_provider_preferred_cost_bounded",
     selectionNotice:
-      "safe_event_before_provider_effect_with_caller_claim_and_runtime_observation_separated",
+      "safe_preselection_event_before_provider_effect_with_deferred_preflight_explicit",
     executorWorkspace: "runtime_owned_exact_commit_read_write",
     reviewerWorkspace: "same_exact_candidate_read_only",
     taskTransport: "opaque_single_use_provider_stdin_only",

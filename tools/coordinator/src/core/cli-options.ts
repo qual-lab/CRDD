@@ -308,13 +308,22 @@ export function parseCandidateArguments(rawArguments: unknown) {
   }
   const argumentValues = snapshot.value;
   const isJsonRequested = argumentValues.includes("--json");
+  const candidateId = argumentValues[2];
+  const isPublishedCandidateId =
+    typeof candidateId === "string" &&
+    /^candidate\.[0-9a-f]{64}\.[0-9a-f]{64}$/u.test(candidateId);
+  const isRecoveryCandidateId =
+    typeof candidateId === "string" &&
+    /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u.test(candidateId);
   if (
     argumentValues.length < 3 ||
     argumentValues.length > 4 ||
     (argumentValues[0] !== "export" && argumentValues[0] !== "discard") ||
     argumentValues[1] !== "--candidate-id" ||
-    typeof argumentValues[2] !== "string" ||
-    !/^candidate\.[0-9a-f]{64}\.[0-9a-f]{64}$/u.test(argumentValues[2]) ||
+    typeof candidateId !== "string" ||
+    (argumentValues[0] === "export"
+      ? !isPublishedCandidateId
+      : !isPublishedCandidateId && !isRecoveryCandidateId) ||
     (argumentValues.length === 4 && argumentValues[3] !== "--json") ||
     (argumentValues[0] === "export" && !isJsonRequested)
   ) {
@@ -331,7 +340,7 @@ export function parseCandidateArguments(rawArguments: unknown) {
     null,
     Object.freeze({
       action: argumentValues[0] as "export" | "discard",
-      candidateId: argumentValues[2],
+      candidateId,
       json: isJsonRequested,
     }),
     isJsonRequested,

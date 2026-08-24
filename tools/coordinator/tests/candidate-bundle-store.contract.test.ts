@@ -6,16 +6,13 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  createCandidateBundleStoreTestingAdapter,
   describeCandidateBundleStoreContract,
-  discardRuntimeOwnedCandidateBundle,
-  persistRuntimeOwnedCandidateBundle,
-  publishRuntimeOwnedCandidateBundle,
-  readRuntimeOwnedCandidateBundle,
 } from "../src/security/candidate-bundle-store.ts";
 
 const persistencePolicy = Object.freeze({
   candidatePersistenceAllowed: true,
-  candidateRetentionHours: 24,
+  candidateRetentionHours: 1,
   informationClassification: "public",
 });
 
@@ -41,77 +38,268 @@ function bundle(content = Buffer.from("state=after\n", "utf8")) {
   });
 }
 
-test("承認済みCandidate bundleをopaque IDで読出し、明示Discardする", () => {
-  const persisted = persistRuntimeOwnedCandidateBundle(
-    bundle(),
-    persistencePolicy,
+function fixture() {
+  const temporaryDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-candidate-store-test-"),
   );
-  assert.equal(persisted?.status, "staged");
+  let clock = Date.now();
+  const faults = new Set<string>();
+  const createAdapter = () =>
+    createCandidateBundleStoreTestingAdapter({
+      temporaryDirectory,
+      nowMs: () => clock,
+      injectFault: (operation) => {
+        if (faults.has(operation)) throw new Error(operation);
+      },
+    });
+  const adapter = createAdapter();
+  return Object.freeze({
+    adapter,
+    createAdapter,
+    faults,
+    advance: (milliseconds: number) => {
+      clock += milliseconds;
+    },
+    setClock: (milliseconds: number) => {
+      clock = milliseconds;
+    },
+    cleanup: () =>
+      fs.rmSync(temporaryDirectory, { recursive: true, force: true }),
+  });
+}
+
+function requireRecoveryId(value: unknown) {
+  assert.ok(value && typeof value === "object");
+  const candidateRecoveryId = Reflect.get(value, "candidateRecoveryId");
   assert.match(
-    persisted?.candidateRecoveryId ?? "",
+    candidateRecoveryId,
     /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
   );
-  assert.equal(
-    readRuntimeOwnedCandidateBundle(persisted?.candidateRecoveryId),
-    null,
-  );
-  const published = publishRuntimeOwnedCandidateBundle(
-    persisted?.candidateRecoveryId,
-  );
-  assert.equal(published?.status, "published");
-  const exported = readRuntimeOwnedCandidateBundle(published?.candidateId);
-  assert.equal(exported?.status, "exported");
-  assert.deepEqual(exported?.bundle.changedPaths, ["fixture.txt"]);
-  assert.equal(
-    Buffer.from(
-      exported?.bundle.entries[0]?.contentBase64 ?? "",
-      "base64",
-    ).toString("utf8"),
-    "state=after\n",
-  );
-  assert.deepEqual(discardRuntimeOwnedCandidateBundle(published?.candidateId), {
-    status: "discarded",
-  });
-  assert.equal(readRuntimeOwnedCandidateBundle(published?.candidateId), null);
+  return candidateRecoveryId as string;
+}
+
+test("承認済みbundleをrestart後も冪等PublishしRecovery IDでDiscardする", () => {
+  const value = fixture();
+  try {
+    const persisted = value.adapter.persist(bundle(), persistencePolicy);
+    assert.equal(persisted?.status, "staged");
+    const candidateRecoveryId = requireRecoveryId(persisted);
+    assert.equal(value.adapter.read(candidateRecoveryId), null);
+
+    const restarted = value.createAdapter();
+    const published = restarted.publish(candidateRecoveryId);
+    assert.equal(published?.status, "published");
+    assert.deepEqual(restarted.publish(candidateRecoveryId), published);
+    const exported = restarted.read(published?.candidateId);
+    assert.equal(exported?.status, "exported");
+    assert.deepEqual(exported?.bundle.changedPaths, ["fixture.txt"]);
+    assert.equal(exported?.hostPathReported, false);
+    assert.equal(
+      JSON.stringify(exported).includes(value.adapter.testingStoreDirectory()),
+      false,
+    );
+    value.faults.add("before_discard_remove");
+    const blockedDiscard = restarted.discard(published?.candidateId);
+    assert.equal(blockedDiscard.status, "blocked");
+    assert.equal(
+      Reflect.get(blockedDiscard, "candidateRecoveryId"),
+      candidateRecoveryId,
+    );
+    value.faults.clear();
+    assert.deepEqual(restarted.discard(candidateRecoveryId), {
+      status: "discarded",
+    });
+    assert.equal(restarted.read(published?.candidateId), null);
+  } finally {
+    value.cleanup();
+  }
 });
 
-test("不正ID、内容Hash不一致、Schema逸脱をCandidateへ昇格しない", () => {
-  assert.equal(readRuntimeOwnedCandidateBundle("candidate.invalid"), null);
-  assert.equal(
-    persistRuntimeOwnedCandidateBundle(
-      { ...bundle(), unknown: true },
-      persistencePolicy,
-    ),
-    null,
-  );
-  const persisted = persistRuntimeOwnedCandidateBundle(
-    bundle(),
-    persistencePolicy,
-  );
-  assert.ok(persisted);
-  const storageId = persisted.candidateRecoveryId.split(".")[1];
-  assert.ok(storageId);
-  const target = path.join(
-    fs.realpathSync.native(os.tmpdir()),
-    "crdd-coordinator-candidates-v2",
-    `staged-${storageId}.json`,
-  );
-  fs.appendFileSync(target, " ");
-  assert.equal(
-    publishRuntimeOwnedCandidateBundle(persisted.candidateRecoveryId),
-    null,
-  );
-  fs.rmSync(target);
-  const secret = Buffer.from(`token=sk-${"A".repeat(24)}\n`, "utf8");
-  assert.equal(
-    persistRuntimeOwnedCandidateBundle(bundle(secret), persistencePolicy),
-    null,
-  );
+test("期限到達後はExportせずstartupと公開入口GCでstagedとpublishedを削除する", () => {
+  const value = fixture();
+  try {
+    value.faults.add("before_pending_sync");
+    value.faults.add("before_discard_remove");
+    const pending = value.adapter.persist(bundle(), persistencePolicy);
+    assert.equal(pending?.status, "blocked");
+    requireRecoveryId(pending);
+    value.faults.clear();
+
+    const staged = value.adapter.persist(bundle(), persistencePolicy);
+    const stagedRecoveryId = requireRecoveryId(staged);
+    value.advance(60 * 60 * 1_000);
+    assert.equal(value.adapter.publish(stagedRecoveryId)?.status, "blocked");
+    assert.equal(value.adapter.startupGc().status, "completed");
+    assert.deepEqual(fs.readdirSync(value.adapter.testingStoreDirectory()), []);
+
+    value.setClock(1_900_000_000_000);
+    const next = value.adapter.persist(bundle(), persistencePolicy);
+    const nextRecoveryId = requireRecoveryId(next);
+    const published = value.adapter.publish(nextRecoveryId);
+    assert.equal(published?.status, "published");
+    value.advance(60 * 60 * 1_000);
+    assert.equal(value.adapter.read(published?.candidateId), null);
+    assert.deepEqual(fs.readdirSync(value.adapter.testingStoreDirectory()), []);
+  } finally {
+    value.cleanup();
+  }
 });
 
-test("公開契約はlocal transient storeと非canonical Effectを固定する", () => {
+test("partial pendingはRecovery IDを失わず明示Discardだけが安定実体を削除する", () => {
+  const value = fixture();
+  try {
+    value.faults.add("before_pending_sync");
+    value.faults.add("before_discard_remove");
+    const failed = value.adapter.persist(bundle(), persistencePolicy);
+    assert.equal(failed?.status, "blocked");
+    const candidateRecoveryId = requireRecoveryId(failed);
+    assert.equal(
+      fs
+        .readdirSync(value.adapter.testingStoreDirectory())
+        .some((entry) => entry.startsWith("pending-")),
+      true,
+    );
+    value.faults.clear();
+    assert.deepEqual(value.createAdapter().discard(candidateRecoveryId), {
+      status: "discarded",
+    });
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("staged障害とpublish rename後障害は同じRecovery IDで再開できる", () => {
+  const value = fixture();
+  try {
+    value.faults.add("after_pending_rename");
+    const stagedFailure = value.adapter.persist(bundle(), persistencePolicy);
+    assert.equal(stagedFailure?.status, "blocked");
+    const candidateRecoveryId = requireRecoveryId(stagedFailure);
+    value.faults.clear();
+
+    value.faults.add("after_publish_rename");
+    const publishFailure = value.adapter.publish(candidateRecoveryId);
+    assert.equal(publishFailure?.status, "blocked");
+    assert.equal(publishFailure?.candidateRecoveryId, candidateRecoveryId);
+    value.faults.clear();
+
+    const published = value.createAdapter().publish(candidateRecoveryId);
+    assert.equal(published?.status, "published");
+    assert.deepEqual(value.adapter.discard(candidateRecoveryId), {
+      status: "discarded",
+    });
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("期限切れcleanup失敗はtyped Recoveryを返しstrict即時削除を主張しない", () => {
+  const value = fixture();
+  try {
+    const persisted = value.adapter.persist(bundle(), persistencePolicy);
+    const candidateRecoveryId = requireRecoveryId(persisted);
+    const published = value.adapter.publish(candidateRecoveryId);
+    assert.ok(published && "candidateId" in published);
+    value.advance(60 * 60 * 1_000);
+    value.faults.add("before_gc_remove");
+    const blocked = value.adapter.read(published.candidateId);
+    assert.equal(blocked?.status, "blocked");
+    assert.equal(
+      blocked?.reason,
+      "candidate_store_gc_cleanup_recovery_required",
+    );
+    assert.equal(blocked?.manualRecoveryRequired, true);
+    assert.equal(blocked?.candidateRecoveryId, candidateRecoveryId);
+    value.faults.clear();
+    assert.equal(value.adapter.startupGc().status, "completed");
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("同時writer lockとstale lockは推測削除せずboundedにFail Closedする", () => {
+  const value = fixture();
+  try {
+    const store = value.adapter.testingStoreDirectory();
+    const lock = path.join(store, "candidate-store.lock");
+    fs.writeFileSync(lock, "held\n", { flag: "wx", mode: 0o600 });
+    const concurrent = value.adapter.startupGc();
+    assert.equal(concurrent.status, "blocked");
+    assert.equal(concurrent.reason, "candidate_store_lock_unavailable");
+    assert.equal(fs.existsSync(lock), true);
+
+    fs.utimesSync(lock, new Date(0), new Date(0));
+    const stale = value.adapter.startupGc();
+    assert.equal(stale.status, "blocked");
+    assert.equal(
+      stale.reason,
+      "candidate_store_stale_lock_manual_recovery_required",
+    );
+    assert.equal(stale.manualRecoveryRequired, true);
+    assert.equal(fs.existsSync(lock), true);
+    fs.rmSync(lock);
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("unknownとdamaged entryをGCが推測削除しない", () => {
+  const value = fixture();
+  try {
+    const store = value.adapter.testingStoreDirectory();
+    const damaged = path.join(store, `staged-${"a".repeat(64)}.json`);
+    fs.writeFileSync(damaged, "not-json\n", { mode: 0o600 });
+    assert.equal(value.adapter.startupGc().status, "completed");
+    assert.equal(fs.existsSync(damaged), true);
+
+    const unknown = path.join(store, "unknown-entry");
+    fs.writeFileSync(unknown, "unknown\n", { mode: 0o600 });
+    const result = value.adapter.startupGc();
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "candidate_store_unknown_entry");
+    assert.equal(fs.existsSync(damaged), true);
+    assert.equal(fs.existsSync(unknown), true);
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格しない", () => {
+  const value = fixture();
+  try {
+    assert.equal(
+      value.adapter.persist({ ...bundle(), unknown: true }, persistencePolicy),
+      null,
+    );
+    const secret = Buffer.from(`token=sk-${"A".repeat(24)}\n`, "utf8");
+    assert.equal(
+      value.adapter.persist(bundle(secret), persistencePolicy),
+      null,
+    );
+    value.setClock(-1);
+    assert.equal(value.adapter.persist(bundle(), persistencePolicy), null);
+
+    value.setClock(2_000_000_000_000);
+    const store = value.adapter.testingStoreDirectory();
+    for (let index = 0; index < 128; index += 1) {
+      fs.writeFileSync(
+        path.join(store, `pending-${index.toString(16).padStart(64, "0")}.tmp`),
+        "damaged\n",
+        { mode: 0o600 },
+      );
+    }
+    assert.equal(value.adapter.persist(bundle(), persistencePolicy), null);
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("公開契約は排他、bounded GC、Recoveryと非canonical Effectを固定する", () => {
   const contract = describeCandidateBundleStoreContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
+  assert.match(contract.crossProcessSerialization, /exclusive_lock/u);
+  assert.match(contract.physicalDeletion, /without_strict_instant/u);
+  assert.match(contract.recovery, /exact_one/u);
   assert.equal(contract.canonicalRepositoryWriteAllowed, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.hostPathReported, false);

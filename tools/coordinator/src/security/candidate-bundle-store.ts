@@ -7,15 +7,22 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const CANDIDATE_BUNDLE_STORE_CONTRACT =
   "crdd-coordinator/candidate-bundle-store";
-export const CANDIDATE_BUNDLE_STORE_CONTRACT_REVISION = 2;
+export const CANDIDATE_BUNDLE_STORE_CONTRACT_REVISION = 3;
 
 const STORE_DIRECTORY_NAME = "crdd-coordinator-candidates-v2";
+const STORE_LOCK_NAME = "candidate-store.lock";
 const CANDIDATE_ID_PATTERN = /^candidate\.([0-9a-f]{64})\.([0-9a-f]{64})$/u;
 const RECOVERY_ID_PATTERN =
   /^candidate-recovery\.([0-9a-f]{64})\.([0-9a-f]{64})$/u;
+const STORE_ENTRY_PATTERN =
+  /^(?:(?:candidate|staged)-[0-9a-f]{64}\.json|pending-[0-9a-f]{64}\.tmp)$/u;
 const MAXIMUM_BUNDLE_BYTES = 24 * 1024 * 1024;
 const MAXIMUM_STORE_ENTRIES = 128;
 const MAXIMUM_STORE_BYTES = 256 * 1024 * 1024;
+const MAXIMUM_INVENTORY_SCAN_ENTRIES = 512;
+const STORE_LOCK_ATTEMPTS = 25;
+const STORE_LOCK_RETRY_MILLISECONDS = 10;
+const STORE_LOCK_STALE_OBSERVATION_MILLISECONDS = 5 * 60 * 1_000;
 const SECRET_PATTERN =
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{32,}\b|\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}\b/u;
 
@@ -44,14 +51,62 @@ type StoredCandidate = Readonly<{
   bundle: CandidateBundle;
 }>;
 
+type CandidateStoreFaultOperation =
+  | "after_pending_rename"
+  | "after_publish_rename"
+  | "before_discard_remove"
+  | "before_gc_remove"
+  | "before_lock_remove"
+  | "before_pending_open"
+  | "before_pending_sync"
+  | "before_pending_write"
+  | "before_staged_verify"
+  | "before_published_verify";
+
+type CandidateStoreRuntime = Readonly<{
+  temporaryDirectory: () => string;
+  nowMs: () => number;
+  randomBytes: (size: number) => Buffer;
+  injectFault: (operation: CandidateStoreFaultOperation) => void;
+}>;
+
+type CandidateStoreTestingOptions = Readonly<{
+  temporaryDirectory: string;
+  nowMs?: () => number;
+  randomBytes?: (size: number) => Buffer;
+  injectFault?: (operation: CandidateStoreFaultOperation) => void;
+}>;
+
+const PRODUCTION_RUNTIME: CandidateStoreRuntime = Object.freeze({
+  temporaryDirectory: os.tmpdir,
+  nowMs: Date.now,
+  randomBytes,
+  injectFault: () => {},
+});
+
+class CandidateStoreFailure extends Error {
+  readonly recoveryId: string | null;
+  readonly manualRecoveryRequired: boolean;
+
+  constructor(
+    reason: string,
+    recoveryId: string | null = null,
+    manualRecoveryRequired = false,
+  ) {
+    super(reason);
+    this.recoveryId = recoveryId;
+    this.manualRecoveryRequired = manualRecoveryRequired;
+  }
+}
+
 function errorCode(error: unknown) {
   return error && typeof error === "object" && "code" in error
     ? (error as { code?: unknown }).code
     : null;
 }
 
-function storeDirectory() {
-  const temporaryParent = fs.realpathSync.native(os.tmpdir());
+function storeDirectory(runtime: CandidateStoreRuntime) {
+  const temporaryParent = fs.realpathSync.native(runtime.temporaryDirectory());
   const parentMetadata = fs.lstatSync(temporaryParent);
   if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink())
     throw new Error("candidate_store_parent_invalid");
@@ -84,10 +139,6 @@ function candidateLocation(rawCandidateId: unknown) {
     storageId: match[1],
     expectedHash: match[2],
     kind: published ? ("published" as const) : ("staged" as const),
-    target: path.join(
-      storeDirectory(),
-      `${published ? "candidate" : "staged"}-${match[1]}.json`,
-    ),
   });
 }
 
@@ -280,76 +331,213 @@ function containsRecognizedSecret(bundle: CandidateBundle) {
   });
 }
 
-function storeInventory(store: string, nowMs: number) {
-  const directory = fs.opendirSync(store);
-  let count = 0;
-  let totalBytes = 0;
+type StableFileIdentity = Readonly<{
+  dev: bigint;
+  ino: bigint;
+  birthtimeNs: bigint;
+  size: bigint;
+  mtimeNs: bigint;
+  ctimeNs: bigint;
+}>;
+
+function stableFileIdentity(metadata: fs.BigIntStats): StableFileIdentity {
+  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size < 0n) {
+    throw new CandidateStoreFailure("candidate_store_entry_invalid");
+  }
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+    size: metadata.size,
+    mtimeNs: metadata.mtimeNs,
+    ctimeNs: metadata.ctimeNs,
+  });
+}
+
+function sameStableFileIdentity(
+  left: StableFileIdentity,
+  right: StableFileIdentity,
+) {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.birthtimeNs === right.birthtimeNs &&
+    left.size === right.size &&
+    left.mtimeNs === right.mtimeNs &&
+    left.ctimeNs === right.ctimeNs
+  );
+}
+
+function waitForLockRetry() {
+  Atomics.wait(
+    new Int32Array(new SharedArrayBuffer(4)),
+    0,
+    0,
+    STORE_LOCK_RETRY_MILLISECONDS,
+  );
+}
+
+function stableRemove(
+  runtime: CandidateStoreRuntime,
+  target: string,
+  identity: StableFileIdentity,
+  faultOperation: CandidateStoreFaultOperation,
+) {
+  const current = stableFileIdentity(fs.lstatSync(target, { bigint: true }));
+  if (!sameStableFileIdentity(identity, current)) {
+    throw new CandidateStoreFailure("candidate_store_entry_changed");
+  }
+  runtime.injectFault(faultOperation);
+  fs.rmSync(target);
   try {
-    while (true) {
-      const entry = directory.readSync();
-      if (!entry) break;
-      count += 1;
-      if (count > MAXIMUM_STORE_ENTRIES)
-        throw new Error("candidate_store_entry_budget_exceeded");
-      if (
-        !entry.isFile() ||
-        !/^(?:(?:candidate|staged)-[0-9a-f]{64}\.json|pending-[0-9a-f]{64}\.tmp)$/u.test(
-          entry.name,
-        )
-      ) {
-        throw new Error("candidate_store_unknown_entry");
-      }
-      const target = path.join(store, entry.name);
-      const metadata = fs.lstatSync(target);
-      if (!metadata.isFile() || metadata.isSymbolicLink())
-        throw new Error("candidate_store_entry_invalid");
-      totalBytes += metadata.size;
-      if (totalBytes > MAXIMUM_STORE_BYTES)
-        throw new Error("candidate_store_byte_budget_exceeded");
-      if (entry.name.startsWith("pending-")) {
-        if (metadata.mtimeMs + 60 * 60 * 1_000 <= nowMs) {
-          fs.rmSync(target);
-          count -= 1;
-          totalBytes -= metadata.size;
-        }
-        continue;
-      }
-      try {
-        const match = /-([0-9a-f]{64})\.json$/u.exec(entry.name);
-        if (!match?.[1]) throw new Error("candidate_store_entry_invalid");
-        const raw = fs.readFileSync(target);
-        if (raw.byteLength > MAXIMUM_BUNDLE_BYTES)
-          throw new Error("candidate_store_entry_invalid");
-        const parsed = parseUnambiguousJsonDocument(
-          new TextDecoder("utf-8", { fatal: true }).decode(raw),
-        );
-        const stored = normalizeStoredCandidate(parsed);
-        if (stored && stored.expiresAtMs <= nowMs) {
-          const current = fs.lstatSync(target);
-          if (
-            current.isFile() &&
-            !current.isSymbolicLink() &&
-            current.dev === metadata.dev &&
-            current.ino === metadata.ino &&
-            current.birthtimeMs === metadata.birthtimeMs
-          ) {
-            fs.rmSync(target);
-            count -= 1;
-            totalBytes -= metadata.size;
-          }
-        }
-      } catch {
-        // Unknown or damaged entries remain fail-closed and make a future write
-        // fail through the fixed capacity budget rather than being guessed away.
-      }
-    }
-    return Object.freeze({ count, totalBytes });
-  } finally {
-    directory.closeSync();
+    fs.lstatSync(target);
+    throw new CandidateStoreFailure("candidate_store_cleanup_unconfirmed");
+  } catch (error) {
+    if (error instanceof CandidateStoreFailure) throw error;
+    if (errorCode(error) !== "ENOENT") throw error;
   }
 }
 
-function readStableCandidate(target: string, expectedHash: string) {
+function withStoreLock<T>(
+  runtime: CandidateStoreRuntime,
+  operation: (store: string, nowMs: number) => T,
+) {
+  const store = storeDirectory(runtime);
+  const lockTarget = path.join(store, STORE_LOCK_NAME);
+  let handle: number | null = null;
+  for (let attempt = 0; attempt < STORE_LOCK_ATTEMPTS; attempt += 1) {
+    try {
+      handle = fs.openSync(lockTarget, "wx", 0o600);
+      break;
+    } catch (error) {
+      if (errorCode(error) !== "EEXIST") {
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "candidate_store_lock_create_failed",
+          value: null,
+          recoveryId: null,
+          manualRecoveryRequired: true,
+        });
+      }
+      if (attempt + 1 < STORE_LOCK_ATTEMPTS) waitForLockRetry();
+    }
+  }
+  if (handle === null) {
+    let isStale = false;
+    try {
+      const metadata = fs.lstatSync(lockTarget, { bigint: true });
+      stableFileIdentity(metadata);
+      const nowMs = runtime.nowMs();
+      isStale =
+        Number.isSafeInteger(nowMs) &&
+        nowMs >= 0 &&
+        metadata.mtimeNs +
+          BigInt(STORE_LOCK_STALE_OBSERVATION_MILLISECONDS) * 1_000_000n <=
+          BigInt(nowMs) * 1_000_000n;
+    } catch {
+      isStale = true;
+    }
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: isStale
+        ? "candidate_store_stale_lock_manual_recovery_required"
+        : "candidate_store_lock_unavailable",
+      value: null,
+      recoveryId: null,
+      manualRecoveryRequired: isStale,
+    });
+  }
+
+  let lockIdentity: StableFileIdentity;
+  try {
+    const nowMs = runtime.nowMs();
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+      throw new CandidateStoreFailure("candidate_store_clock_invalid");
+    }
+    fs.writeFileSync(
+      handle,
+      Buffer.from(
+        `${JSON.stringify({ schema: "crdd-coordinator/candidate-store-lock/v1", acquiredAtMs: nowMs })}\n`,
+        "utf8",
+      ),
+    );
+    fs.fsyncSync(handle);
+    lockIdentity = stableFileIdentity(fs.fstatSync(handle, { bigint: true }));
+  } catch (error) {
+    fs.closeSync(handle);
+    try {
+      const identity = stableFileIdentity(
+        fs.lstatSync(lockTarget, { bigint: true }),
+      );
+      stableRemove(runtime, lockTarget, identity, "before_lock_remove");
+    } catch {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "candidate_store_lock_initialization_recovery_required",
+        value: null,
+        recoveryId: null,
+        manualRecoveryRequired: true,
+      });
+    }
+    return Object.freeze({
+      status: "blocked" as const,
+      reason:
+        error instanceof CandidateStoreFailure
+          ? error.message
+          : "candidate_store_lock_initialization_failed",
+      value: null,
+      recoveryId: null,
+      manualRecoveryRequired: false,
+    });
+  }
+
+  let value: T | null = null;
+  let failure: CandidateStoreFailure | null = null;
+  try {
+    value = operation(store, runtime.nowMs());
+  } catch (error) {
+    failure =
+      error instanceof CandidateStoreFailure
+        ? error
+        : new CandidateStoreFailure("candidate_store_operation_failed");
+  } finally {
+    fs.closeSync(handle);
+  }
+  try {
+    stableRemove(runtime, lockTarget, lockIdentity, "before_lock_remove");
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "candidate_store_lock_release_recovery_required",
+      value,
+      recoveryId: failure?.recoveryId ?? null,
+      manualRecoveryRequired: true,
+    });
+  }
+  return failure
+    ? Object.freeze({
+        status: "blocked" as const,
+        reason: failure.message,
+        value,
+        recoveryId: failure.recoveryId,
+        manualRecoveryRequired: failure.manualRecoveryRequired,
+      })
+    : Object.freeze({
+        status: "completed" as const,
+        reason: "candidate_store_operation_completed",
+        value: value as T,
+        recoveryId: null,
+        manualRecoveryRequired: false,
+      });
+}
+
+function readStableCandidate(
+  target: string,
+  expectedHash: string,
+  runtime?: CandidateStoreRuntime,
+  verifyFault?: CandidateStoreFaultOperation,
+) {
+  if (runtime && verifyFault) runtime.injectFault(verifyFault);
   const handle = fs.openSync(target, "r");
   try {
     const before = fs.fstatSync(handle, { bigint: true });
@@ -398,7 +586,170 @@ function readStableCandidate(target: string, expectedHash: string) {
   }
 }
 
-export function persistRuntimeOwnedCandidateBundle(
+function storedCandidate(content: Buffer) {
+  const parsed = parseUnambiguousJsonDocument(
+    new TextDecoder("utf-8", { fatal: true }).decode(content),
+  );
+  return normalizeStoredCandidate(parsed);
+}
+
+function recoveryId(storageId: string, bundleHash: string) {
+  return `candidate-recovery.${storageId}.${bundleHash}`;
+}
+
+function physicalTargets(store: string, storageId: string) {
+  return Object.freeze({
+    pending: path.join(store, `pending-${storageId}.tmp`),
+    staged: path.join(store, `staged-${storageId}.json`),
+    published: path.join(store, `candidate-${storageId}.json`),
+  });
+}
+
+function existingTargets(store: string, storageId: string) {
+  const targets = physicalTargets(store, storageId);
+  return Object.freeze(
+    (Object.entries(targets) as Array<[keyof typeof targets, string]>).flatMap(
+      ([kind, target]) => {
+        try {
+          const identity = stableFileIdentity(
+            fs.lstatSync(target, { bigint: true }),
+          );
+          return [Object.freeze({ kind, target, identity })];
+        } catch (error) {
+          if (errorCode(error) === "ENOENT") return [];
+          throw error;
+        }
+      },
+    ),
+  );
+}
+
+function storeInventoryAndGc(
+  runtime: CandidateStoreRuntime,
+  store: string,
+  nowMs: number,
+) {
+  if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+    throw new CandidateStoreFailure("candidate_store_clock_invalid");
+  }
+  const directory = fs.opendirSync(store);
+  const entries: Array<{
+    name: string;
+    target: string;
+    identity: StableFileIdentity;
+  }> = [];
+  let scannedBytes = 0;
+  try {
+    while (true) {
+      const entry = directory.readSync();
+      if (!entry) break;
+      if (entry.name === STORE_LOCK_NAME) continue;
+      if (entries.length >= MAXIMUM_INVENTORY_SCAN_ENTRIES) {
+        throw new CandidateStoreFailure(
+          "candidate_store_inventory_scan_budget_exceeded",
+        );
+      }
+      if (!entry.isFile() || !STORE_ENTRY_PATTERN.test(entry.name)) {
+        throw new CandidateStoreFailure("candidate_store_unknown_entry");
+      }
+      const target = path.join(store, entry.name);
+      const identity = stableFileIdentity(
+        fs.lstatSync(target, { bigint: true }),
+      );
+      scannedBytes += Number(identity.size);
+      if (scannedBytes > MAXIMUM_STORE_BYTES) {
+        throw new CandidateStoreFailure("candidate_store_byte_budget_exceeded");
+      }
+      entries.push({
+        name: entry.name,
+        target,
+        identity,
+      });
+    }
+  } finally {
+    directory.closeSync();
+  }
+
+  let deletedEntries = 0;
+  for (const entry of entries) {
+    let stored: StoredCandidate | null = null;
+    let hash: string | null = null;
+    try {
+      if (
+        entry.identity.size <= 0n ||
+        entry.identity.size > BigInt(MAXIMUM_BUNDLE_BYTES)
+      ) {
+        continue;
+      }
+      const content = fs.readFileSync(entry.target);
+      hash = createHash("sha256").update(content).digest("hex");
+      stored = storedCandidate(content);
+    } catch {
+      stored = null;
+    }
+    if (!stored || stored.expiresAtMs > nowMs) continue;
+    const storageId = /-([0-9a-f]{64})\.(?:json|tmp)$/u.exec(entry.name)?.[1];
+    const ownedRecoveryId =
+      storageId && hash ? recoveryId(storageId, hash) : null;
+    try {
+      stableRemove(runtime, entry.target, entry.identity, "before_gc_remove");
+      deletedEntries += 1;
+    } catch {
+      throw new CandidateStoreFailure(
+        "candidate_store_gc_cleanup_recovery_required",
+        ownedRecoveryId,
+        true,
+      );
+    }
+  }
+
+  let count = 0;
+  let totalBytes = 0;
+  const refreshed = fs.opendirSync(store);
+  try {
+    while (true) {
+      const entry = refreshed.readSync();
+      if (!entry) break;
+      if (entry.name === STORE_LOCK_NAME) continue;
+      if (!entry.isFile() || !STORE_ENTRY_PATTERN.test(entry.name)) {
+        throw new CandidateStoreFailure("candidate_store_unknown_entry");
+      }
+      count += 1;
+      if (count > MAXIMUM_STORE_ENTRIES) {
+        throw new CandidateStoreFailure(
+          "candidate_store_entry_budget_exceeded",
+        );
+      }
+      const metadata = stableFileIdentity(
+        fs.lstatSync(path.join(store, entry.name), { bigint: true }),
+      );
+      totalBytes += Number(metadata.size);
+      if (totalBytes > MAXIMUM_STORE_BYTES) {
+        throw new CandidateStoreFailure("candidate_store_byte_budget_exceeded");
+      }
+    }
+  } finally {
+    refreshed.closeSync();
+  }
+  return Object.freeze({ count, totalBytes, deletedEntries });
+}
+
+function blockedResult(
+  reason: string,
+  candidateRecoveryId: string | null,
+  manualRecoveryRequired: boolean,
+) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason,
+    candidateRecoveryId,
+    manualRecoveryRequired,
+    hostPathReported: false,
+  });
+}
+
+function persistRuntimeOwnedCandidateBundleWithRuntime(
+  runtime: CandidateStoreRuntime,
   rawBundle: unknown,
   rawPolicy: unknown,
 ) {
@@ -420,7 +771,8 @@ export function persistRuntimeOwnedCandidateBundle(
     ) {
       return null;
     }
-    const nowMs = Date.now();
+    const nowMs = runtime.nowMs();
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) return null;
     const stored = Object.freeze({
       schema: "crdd-coordinator/stored-candidate/v2" as const,
       createdAtMs: nowMs,
@@ -437,59 +789,129 @@ export function persistRuntimeOwnedCandidateBundle(
     const bundleHash = createHash("sha256").update(serialized).digest("hex");
     const storageId = createHash("sha256")
       .update("crdd-candidate-storage-v1\0")
-      .update(randomBytes(32))
+      .update(runtime.randomBytes(32))
       .digest("hex");
-    const store = storeDirectory();
-    const inventory = storeInventory(store, nowMs);
-    if (
-      inventory.count >= MAXIMUM_STORE_ENTRIES ||
-      inventory.totalBytes + serialized.byteLength > MAXIMUM_STORE_BYTES
-    ) {
-      return null;
-    }
-    const pending = path.join(store, `pending-${storageId}.tmp`);
-    const target = path.join(store, `staged-${storageId}.json`);
-    const handle = fs.openSync(pending, "wx", 0o600);
-    try {
-      fs.writeFileSync(handle, serialized);
-      fs.fsyncSync(handle);
-    } finally {
-      fs.closeSync(handle);
-    }
-    fs.renameSync(pending, target);
-    readStableCandidate(target, bundleHash);
-    return Object.freeze({
-      status: "staged" as const,
-      candidateRecoveryId: `candidate-recovery.${storageId}.${bundleHash}`,
-      bundleHash,
-      byteLength: serialized.byteLength,
-      expiresAtMs: stored.expiresAtMs,
-      hostPathReported: false,
-      secretScanHeuristic: true,
-      credentialAbsenceVerified: false,
+    const ownedRecoveryId = recoveryId(storageId, bundleHash);
+    const locked = withStoreLock(runtime, (store, lockedNowMs) => {
+      const inventory = storeInventoryAndGc(runtime, store, lockedNowMs);
+      if (
+        inventory.count >= MAXIMUM_STORE_ENTRIES ||
+        inventory.totalBytes + serialized.byteLength > MAXIMUM_STORE_BYTES
+      ) {
+        throw new CandidateStoreFailure(
+          "candidate_store_capacity_reservation_failed",
+        );
+      }
+      const targets = physicalTargets(store, storageId);
+      let handle: number | null = null;
+      let pendingIdentity: StableFileIdentity | null = null;
+      let ownedEntityCreated = false;
+      try {
+        runtime.injectFault("before_pending_open");
+        handle = fs.openSync(targets.pending, "wx", 0o600);
+        ownedEntityCreated = true;
+        pendingIdentity = stableFileIdentity(
+          fs.fstatSync(handle, { bigint: true }),
+        );
+        runtime.injectFault("before_pending_write");
+        fs.writeFileSync(handle, serialized);
+        runtime.injectFault("before_pending_sync");
+        fs.fsyncSync(handle);
+        pendingIdentity = stableFileIdentity(
+          fs.fstatSync(handle, { bigint: true }),
+        );
+        fs.closeSync(handle);
+        handle = null;
+        fs.renameSync(targets.pending, targets.staged);
+        runtime.injectFault("after_pending_rename");
+        readStableCandidate(
+          targets.staged,
+          bundleHash,
+          runtime,
+          "before_staged_verify",
+        );
+      } catch {
+        if (handle !== null) {
+          try {
+            pendingIdentity = stableFileIdentity(
+              fs.fstatSync(handle, { bigint: true }),
+            );
+          } catch {
+            pendingIdentity = null;
+          }
+          try {
+            fs.closeSync(handle);
+          } catch {
+            throw new CandidateStoreFailure(
+              "candidate_store_persist_recovery_required",
+              ownedRecoveryId,
+              true,
+            );
+          }
+        }
+        let existing: ReturnType<typeof existingTargets>;
+        try {
+          existing = existingTargets(store, storageId);
+        } catch {
+          throw new CandidateStoreFailure(
+            "candidate_store_persist_recovery_required",
+            ownedEntityCreated ? ownedRecoveryId : null,
+            ownedEntityCreated,
+          );
+        }
+        const stagedOrPublished = existing.filter(
+          (entry) => entry.kind === "staged" || entry.kind === "published",
+        );
+        if (stagedOrPublished.length > 0) {
+          throw new CandidateStoreFailure(
+            "candidate_store_persist_recovery_required",
+            ownedRecoveryId,
+            false,
+          );
+        }
+        const pending = existing.find((entry) => entry.kind === "pending");
+        if (pending) {
+          try {
+            stableRemove(
+              runtime,
+              pending.target,
+              pendingIdentity ?? pending.identity,
+              "before_discard_remove",
+            );
+          } catch {
+            throw new CandidateStoreFailure(
+              "candidate_store_persist_recovery_required",
+              ownedRecoveryId,
+              true,
+            );
+          }
+        }
+        throw new CandidateStoreFailure("candidate_store_persist_failed");
+      }
+      return Object.freeze({
+        status: "staged" as const,
+        candidateRecoveryId: ownedRecoveryId,
+        bundleHash,
+        byteLength: serialized.byteLength,
+        expiresAtMs: stored.expiresAtMs,
+        hostPathReported: false,
+        secretScanHeuristic: true,
+        credentialAbsenceVerified: false,
+      });
     });
-  } catch {
-    return null;
-  }
-}
-
-export function readRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
-  try {
-    const location = candidateLocation(rawCandidateId);
-    if (location?.kind !== "published") return null;
-    const content = readStableCandidate(location.target, location.expectedHash);
-    const parsed = parseUnambiguousJsonDocument(
-      new TextDecoder("utf-8", { fatal: true }).decode(content),
-    );
-    const stored = normalizeStoredCandidate(parsed);
-    return stored && stored.expiresAtMs > Date.now()
+    if (locked.status === "completed") return locked.value;
+    const remainingRecoveryId =
+      locked.recoveryId ?? locked.value?.candidateRecoveryId ?? null;
+    return remainingRecoveryId
       ? Object.freeze({
-          status: "exported" as const,
-          candidateId: location.candidateId,
-          informationClassification: stored.informationClassification,
+          ...blockedResult(
+            locked.reason,
+            remainingRecoveryId,
+            locked.manualRecoveryRequired,
+          ),
+          bundleHash,
+          byteLength: serialized.byteLength,
           expiresAtMs: stored.expiresAtMs,
-          bundle: stored.bundle,
-          hostPathReported: false,
           secretScanHeuristic: true,
           credentialAbsenceVerified: false,
         })
@@ -499,43 +921,286 @@ export function readRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
   }
 }
 
-export function publishRuntimeOwnedCandidateBundle(rawRecoveryId: unknown) {
+function readRuntimeOwnedCandidateBundleWithRuntime(
+  runtime: CandidateStoreRuntime,
+  rawCandidateId: unknown,
+) {
   try {
-    const location = candidateLocation(rawRecoveryId);
-    if (location?.kind !== "staged") return null;
-    const content = readStableCandidate(location.target, location.expectedHash);
-    const parsed = parseUnambiguousJsonDocument(
-      new TextDecoder("utf-8", { fatal: true }).decode(content),
-    );
-    const stored = normalizeStoredCandidate(parsed);
-    if (!stored || stored.expiresAtMs <= Date.now()) return null;
-    const publishedTarget = path.join(
-      storeDirectory(),
-      `candidate-${location.storageId}.json`,
-    );
-    fs.renameSync(location.target, publishedTarget);
-    readStableCandidate(publishedTarget, location.expectedHash);
-    return Object.freeze({
-      status: "published" as const,
-      candidateId: `candidate.${location.storageId}.${location.expectedHash}`,
-      expiresAtMs: stored.expiresAtMs,
-      hostPathReported: false,
+    const location = candidateLocation(rawCandidateId);
+    if (location?.kind !== "published") return null;
+    const locked = withStoreLock(runtime, (store, nowMs) => {
+      storeInventoryAndGc(runtime, store, nowMs);
+      const target = physicalTargets(store, location.storageId).published;
+      const content = readStableCandidate(target, location.expectedHash);
+      const stored = storedCandidate(content);
+      if (!stored || stored.expiresAtMs <= nowMs) {
+        throw new CandidateStoreFailure("candidate_bundle_not_exportable");
+      }
+      return Object.freeze({
+        status: "exported" as const,
+        candidateId: location.candidateId,
+        informationClassification: stored.informationClassification,
+        expiresAtMs: stored.expiresAtMs,
+        bundle: stored.bundle,
+        hostPathReported: false,
+        secretScanHeuristic: true,
+        credentialAbsenceVerified: false,
+      });
     });
+    return locked.status === "completed"
+      ? locked.value
+      : locked.manualRecoveryRequired || locked.recoveryId
+        ? blockedResult(
+            locked.reason,
+            locked.recoveryId,
+            locked.manualRecoveryRequired,
+          )
+        : null;
   } catch {
     return null;
   }
 }
 
-export function discardRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
+function publishRuntimeOwnedCandidateBundleWithRuntime(
+  runtime: CandidateStoreRuntime,
+  rawRecoveryId: unknown,
+) {
+  try {
+    const location = candidateLocation(rawRecoveryId);
+    if (location?.kind !== "staged") return null;
+    const locked = withStoreLock(runtime, (store, nowMs) => {
+      try {
+        storeInventoryAndGc(runtime, store, nowMs);
+        const existing = existingTargets(store, location.storageId);
+        if (existing.length !== 1) {
+          throw new CandidateStoreFailure(
+            existing.length > 1
+              ? "candidate_bundle_recovery_ambiguous"
+              : "candidate_bundle_not_available",
+            existing.length > 1 ? location.candidateId : null,
+          );
+        }
+        const current = existing[0];
+        if (!current) {
+          throw new CandidateStoreFailure("candidate_bundle_not_available");
+        }
+        if (current.kind === "pending") {
+          throw new CandidateStoreFailure(
+            "candidate_bundle_pending_recovery_required",
+            location.candidateId,
+          );
+        }
+        const verifyFault =
+          current.kind === "staged"
+            ? "before_staged_verify"
+            : "before_published_verify";
+        const content = readStableCandidate(
+          current.target,
+          location.expectedHash,
+          runtime,
+          verifyFault,
+        );
+        const stored = storedCandidate(content);
+        if (!stored || stored.expiresAtMs <= nowMs) {
+          throw new CandidateStoreFailure(
+            "candidate_bundle_not_publishable",
+            location.candidateId,
+          );
+        }
+        const targets = physicalTargets(store, location.storageId);
+        if (current.kind === "staged") {
+          fs.renameSync(current.target, targets.published);
+          runtime.injectFault("after_publish_rename");
+          readStableCandidate(
+            targets.published,
+            location.expectedHash,
+            runtime,
+            "before_published_verify",
+          );
+        }
+        return Object.freeze({
+          status: "published" as const,
+          candidateId: `candidate.${location.storageId}.${location.expectedHash}`,
+          expiresAtMs: stored.expiresAtMs,
+          hostPathReported: false,
+        });
+      } catch (error) {
+        if (error instanceof CandidateStoreFailure) throw error;
+        let isOwnedEntityPresent = false;
+        try {
+          isOwnedEntityPresent =
+            existingTargets(store, location.storageId).length > 0;
+        } catch {
+          isOwnedEntityPresent = true;
+        }
+        throw new CandidateStoreFailure(
+          "candidate_bundle_publish_recovery_required",
+          isOwnedEntityPresent ? location.candidateId : null,
+          false,
+        );
+      }
+    });
+    return locked.status === "completed"
+      ? locked.value
+      : blockedResult(
+          locked.reason,
+          locked.recoveryId,
+          locked.manualRecoveryRequired,
+        );
+  } catch {
+    return null;
+  }
+}
+
+function discardRuntimeOwnedCandidateBundleWithRuntime(
+  runtime: CandidateStoreRuntime,
+  rawCandidateId: unknown,
+) {
   try {
     const location = candidateLocation(rawCandidateId);
     if (!location) return Object.freeze({ status: "blocked" as const });
-    readStableCandidate(location.target, location.expectedHash);
-    fs.rmSync(location.target);
-    return Object.freeze({ status: "discarded" as const });
+    const ownedRecoveryId = recoveryId(
+      location.storageId,
+      location.expectedHash,
+    );
+    const locked = withStoreLock(runtime, (store, nowMs) => {
+      storeInventoryAndGc(runtime, store, nowMs);
+      const existing = existingTargets(store, location.storageId).filter(
+        (entry) => location.kind === "staged" || entry.kind === "published",
+      );
+      if (existing.length !== 1) {
+        throw new CandidateStoreFailure(
+          existing.length > 1
+            ? "candidate_bundle_recovery_ambiguous"
+            : "candidate_bundle_not_available",
+          existing.length > 1 ? ownedRecoveryId : null,
+        );
+      }
+      const target = existing[0];
+      if (!target) {
+        throw new CandidateStoreFailure("candidate_bundle_not_available");
+      }
+      if (target.kind !== "pending") {
+        readStableCandidate(target.target, location.expectedHash);
+      }
+      try {
+        stableRemove(
+          runtime,
+          target.target,
+          target.identity,
+          "before_discard_remove",
+        );
+      } catch {
+        throw new CandidateStoreFailure(
+          "candidate_bundle_discard_recovery_required",
+          ownedRecoveryId,
+          true,
+        );
+      }
+      return Object.freeze({ status: "discarded" as const });
+    });
+    return locked.status === "completed"
+      ? locked.value
+      : blockedResult(
+          locked.reason,
+          locked.recoveryId,
+          locked.manualRecoveryRequired,
+        );
   } catch {
     return Object.freeze({ status: "blocked" as const });
   }
+}
+
+function runCandidateStoreGcWithRuntime(runtime: CandidateStoreRuntime) {
+  try {
+    const locked = withStoreLock(runtime, (store, nowMs) =>
+      storeInventoryAndGc(runtime, store, nowMs),
+    );
+    return locked.status === "completed"
+      ? Object.freeze({
+          status: "completed" as const,
+          reason: "candidate_store_gc_completed",
+          deletedEntries: locked.value.deletedEntries,
+          hostPathReported: false,
+        })
+      : blockedResult(
+          locked.reason,
+          locked.recoveryId,
+          locked.manualRecoveryRequired,
+        );
+  } catch {
+    return blockedResult("candidate_store_gc_failed", null, true);
+  }
+}
+
+export function persistRuntimeOwnedCandidateBundle(
+  rawBundle: unknown,
+  rawPolicy: unknown,
+) {
+  return persistRuntimeOwnedCandidateBundleWithRuntime(
+    PRODUCTION_RUNTIME,
+    rawBundle,
+    rawPolicy,
+  );
+}
+
+export function readRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
+  return readRuntimeOwnedCandidateBundleWithRuntime(
+    PRODUCTION_RUNTIME,
+    rawCandidateId,
+  );
+}
+
+export function publishRuntimeOwnedCandidateBundle(rawRecoveryId: unknown) {
+  return publishRuntimeOwnedCandidateBundleWithRuntime(
+    PRODUCTION_RUNTIME,
+    rawRecoveryId,
+  );
+}
+
+export function discardRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
+  return discardRuntimeOwnedCandidateBundleWithRuntime(
+    PRODUCTION_RUNTIME,
+    rawCandidateId,
+  );
+}
+
+export function runRuntimeOwnedCandidateStoreStartupGc() {
+  return runCandidateStoreGcWithRuntime(PRODUCTION_RUNTIME);
+}
+
+export function createCandidateBundleStoreTestingAdapter(
+  options: CandidateStoreTestingOptions,
+) {
+  if (
+    !options ||
+    typeof options.temporaryDirectory !== "string" ||
+    !path.isAbsolute(options.temporaryDirectory)
+  ) {
+    throw new Error("candidate_store_testing_options_invalid");
+  }
+  const runtime = Object.freeze({
+    temporaryDirectory: () => options.temporaryDirectory,
+    nowMs: options.nowMs ?? Date.now,
+    randomBytes: options.randomBytes ?? randomBytes,
+    injectFault: options.injectFault ?? (() => {}),
+  });
+  return Object.freeze({
+    persist: (rawBundle: unknown, rawPolicy: unknown) =>
+      persistRuntimeOwnedCandidateBundleWithRuntime(
+        runtime,
+        rawBundle,
+        rawPolicy,
+      ),
+    read: (rawCandidateId: unknown) =>
+      readRuntimeOwnedCandidateBundleWithRuntime(runtime, rawCandidateId),
+    publish: (rawRecoveryId: unknown) =>
+      publishRuntimeOwnedCandidateBundleWithRuntime(runtime, rawRecoveryId),
+    discard: (rawCandidateId: unknown) =>
+      discardRuntimeOwnedCandidateBundleWithRuntime(runtime, rawCandidateId),
+    startupGc: () => runCandidateStoreGcWithRuntime(runtime),
+    testingStoreDirectory: () => storeDirectory(runtime),
+  });
 }
 
 export function describeCandidateBundleStoreContract() {
@@ -544,7 +1209,14 @@ export function describeCandidateBundleStoreContract() {
     contractRevision: CANDIDATE_BUNDLE_STORE_CONTRACT_REVISION,
     persistence: "approved_candidate_only_local_user_transient_store",
     lifecycle: "staged_then_published_after_operation_cleanup",
-    retention: "repository_policy_bounded_1_to_168_hours_with_startup_gc",
+    retention:
+      "repository_policy_bounded_1_to_168_hours_export_blocked_at_expiry_with_bounded_startup_and_entry_gc",
+    physicalDeletion:
+      "best_effort_bounded_gc_without_strict_instant_deletion_claim",
+    crossProcessSerialization:
+      "fixed_selected_user_temporary_store_exclusive_lock_fail_closed_without_guessed_stale_deletion",
+    recovery:
+      "pending_staged_or_published_exact_one_resolution_by_candidate_recovery_id",
     capacity: Object.freeze({
       maximumEntries: MAXIMUM_STORE_ENTRIES,
       maximumBytes: MAXIMUM_STORE_BYTES,

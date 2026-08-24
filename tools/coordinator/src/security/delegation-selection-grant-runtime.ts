@@ -12,7 +12,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
-export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 1;
+export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 2;
 
 const SELECTION_LIFETIME_MS = 30_000;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
@@ -475,13 +475,15 @@ export function describeDelegationSelectionGrantRuntimeContract() {
     maximumUses: 1,
     operationBinding: "runtime_owned_management_capability",
     providerEligibility:
-      "runtime_owned_observer_connected_required_provider_effect_capability_currently_unavailable",
+      "runtime_owned_preselection_candidate_with_home_distribution_policy_auth_preflight_deferred",
     exactModelId: "runtime_owned_verified_provider_profile_connected",
     billingMode: "subscription_oauth_only",
     speedMode: "normal_only",
     selectionNotice: "issued_before_provider_effect",
-    providerFallback: "forbidden_after_selection",
-    reselection: "atomic_process_local_supersede_after_replacement_validation",
+    providerFallback:
+      "forbidden_after_provider_request_or_when_effect_state_is_uncertain",
+    reselection:
+      "process_local_supersede_api_exists_but_general_task_uses_new_operation_after_cleanup",
     providerAuthorityIssued: false,
     providerEffectAllowed: false,
   });

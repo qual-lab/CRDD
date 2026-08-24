@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-eligibility-runtime";
-export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT_REVISION = 3;
+export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT_REVISION = 4;
 
 const OBSERVATION_KEYS = new Set([
   "requiredCapability",
@@ -106,8 +106,10 @@ function createEligibility(
   }
   if (
     observation.requiredCapability === "confirmed" &&
-    observation.officialDistribution === "confirmed" &&
-    observation.policy === "confirmed" &&
+    ["confirmed", "runtime_preflight_required"].includes(
+      observation.officialDistribution,
+    ) &&
+    ["confirmed", "runtime_preflight_required"].includes(observation.policy) &&
     ["confirmed", "runtime_preflight_required"].includes(
       observation.subscriptionAuth,
     ) &&
@@ -115,7 +117,9 @@ function createEligibility(
       observation.subscriptionQuota,
     ) &&
     (observation.subscriptionAuth === "runtime_preflight_required" ||
-      observation.subscriptionQuota === "bounded_request_check")
+      observation.subscriptionQuota === "bounded_request_check" ||
+      observation.officialDistribution === "runtime_preflight_required" ||
+      observation.policy === "runtime_preflight_required")
   ) {
     return Object.freeze({
       provider,
@@ -163,8 +167,8 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
       requiredCapability: "confirmed",
       subscriptionAuth: "runtime_preflight_required",
       subscriptionQuota: "bounded_request_check",
-      officialDistribution: "confirmed",
-      policy: "confirmed",
+      officialDistribution: "runtime_preflight_required",
+      policy: "runtime_preflight_required",
     }),
 });
 
@@ -193,13 +197,17 @@ export function describeProviderEligibilityRuntimeContract() {
       "official_distribution",
       "policy",
     ]),
-    authority: "runtime_owned_observation_only",
+    authority: "runtime_owned_preselection_candidate_only",
     callerClaimsAccepted: false,
     unknownHandling: "ineligible_observation_unavailable",
     nonPreobservableSubscriptionState:
       "network_none_auth_preflight_then_bounded_request_checks_quota",
     paidApiFallback: "prohibited_unsupported_by_default",
     productionState:
-      "codex_and_claude_auth_preflight_required_quota_bounded_request_check",
+      "both_providers_require_home_distribution_policy_and_auth_preflight_with_quota_checked_only_by_bounded_request",
+    verifiedEligibilityClaimAllowed: false,
+    automaticFallbackAfterProviderRequestAllowed: false,
+    reselection:
+      "new_coordinator_operation_after_cleanup_only_for_nonpreobservable_failure",
   });
 }

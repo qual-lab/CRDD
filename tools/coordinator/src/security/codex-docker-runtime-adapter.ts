@@ -25,7 +25,7 @@ import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-ru
 
 export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/codex-docker-runtime-adapter";
-export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 4;
+export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 5;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -74,6 +74,7 @@ type PreparedPlan = Readonly<{
   providerImageDigest: string;
   proxyImageDigest: string;
   selectionRecordId: string;
+  subscriptionOffering: "chatgpt_subscription_oauth";
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
@@ -522,6 +523,7 @@ function buildPlan(
     providerImageDigest,
     proxyImageDigest,
     selectionRecordId: consumedModelSelection.selectionRecordId,
+    subscriptionOffering: "chatgpt_subscription_oauth",
     selectedModel: consumedModelSelection.model,
     selectedEffort: selection.effort,
     selectedModelTier: selection.modelTier,
@@ -922,8 +924,9 @@ export function describeCodexDockerRuntimeAdapterContract() {
     contract: CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT,
     contractRevision: CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION,
     provider: "codex",
+    subscriptionOffering: "chatgpt_subscription_oauth",
     modelSelection:
-      "runtime_owned_selection_grant_consumer_connected_issuer_availability_profile_not_connected",
+      "runtime_owned_selection_grant_consumer_connected_with_preflight_deferred_eligibility",
     coordinatorPrelaunchModelSelectionAllowed: true,
     providerAutomaticModelSwitchingAllowed: false,
     midExecutionModelSwitchingAllowed: false,
@@ -972,9 +975,9 @@ export function describeCodexDockerRuntimeAdapterContract() {
     processEffectIssued: false,
     providerRequestIssued: false,
     runtimeAuthorityIssued:
-      "candidate_issuer_connected_production_source_loader_not_connected",
+      "runtime_owned_short_lived_provider_authority_connected",
     operationCapabilityIssued: false,
     processController:
-      "candidate_consumer_implemented_production_effect_not_connected",
+      "production_runtime_owned_controller_and_fixed_docker_effect_connected",
   });
 }

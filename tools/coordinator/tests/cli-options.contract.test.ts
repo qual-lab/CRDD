@@ -609,6 +609,7 @@ test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", 
 
 test("candidateはopaque IDの明示ExportまたはDiscardだけを受理する", () => {
   const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
+  const recoveryId = `candidate-recovery.${"1".repeat(64)}.${"2".repeat(64)}`;
   const exported = parseCandidateArguments([
     "export",
     "--candidate-id",
@@ -627,6 +628,15 @@ test("candidateはopaque IDの明示ExportまたはDiscardだけを受理する"
   assert.equal(
     parseCandidateArguments(["discard", "--candidate-id", candidateId]).status,
     "ok",
+  );
+  assert.equal(
+    parseCandidateArguments(["discard", "--candidate-id", recoveryId]).status,
+    "ok",
+  );
+  assert.equal(
+    parseCandidateArguments(["export", "--candidate-id", recoveryId, "--json"])
+      .status,
+    "blocked",
   );
   assert.equal(
     parseCandidateArguments(["export", "--candidate-id", "candidate.bad"])

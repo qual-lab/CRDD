@@ -255,8 +255,19 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       issued?.useCapability,
       current.managementCapability,
     );
-    assert.match(consumed?.prompt ?? "", /untrusted reviewer text/u);
+    assert.match(
+      consumed?.prompt ?? "",
+      /reviewer message text is not forwarded/u,
+    );
     assert.match(consumed?.prompt ?? "", /fixture\.txt/u);
+    assert.doesNotMatch(
+      consumed?.prompt ?? "",
+      /Restore the required invariant/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /reviewer-message-sha256=[0-9a-f]{64}/u,
+    );
     assert.equal(
       isolated.runtime.issue(
         current.managementCapability,
@@ -277,9 +288,13 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(contract.promptTransport, "provider_stdin_only");
   assert.equal(contract.promptInDockerArgvAllowed, false);
   assert.equal(contract.canonicalRepositoryEffectAllowed, false);
   assert.equal(contract.rawPromptReported, false);
+  assert.equal(
+    contract.remediationProjection,
+    "path_severity_and_domain_separated_message_hash_without_reviewer_text",
+  );
 });

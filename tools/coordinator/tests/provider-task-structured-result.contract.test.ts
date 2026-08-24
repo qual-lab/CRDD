@@ -159,7 +159,7 @@ test("Claude costはSelectionで固定したeffort上限を超えられない", 
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);
@@ -170,5 +170,6 @@ test("公開契約は両Provider、両Role、上限とraw非公開を固定す�
   });
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.untrustedProviderTextReported, false);
+  assert.equal(contract.reviewerMessageForwardedToExecutor, false);
   assert.equal(contract.credentialAbsenceVerified, false);
 });

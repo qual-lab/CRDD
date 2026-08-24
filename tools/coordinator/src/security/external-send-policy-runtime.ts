@@ -14,16 +14,18 @@ import {
 
 export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-policy-runtime";
-export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT_REVISION = 1;
+export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT_REVISION = 2;
 export const EXTERNAL_SEND_POLICY_FILE = ".crdd-external-send-policy.json";
 
 const TOP_LEVEL_KEYS = new Set([
   "schema",
+  "enabled",
   "policyId",
   "informationClassification",
   "decisionAuthority",
   "candidatePersistenceAllowed",
   "candidateRetentionHours",
+  "candidatePhysicalDeletion",
   "destinations",
 ]);
 const DESTINATION_KEYS = new Set([
@@ -35,6 +37,7 @@ const DESTINATION_KEYS = new Set([
   "secondaryUseTraining",
   "onwardTransferSubprocessing",
   "termsPolicyIdentity",
+  "boundaryResolution",
 ]);
 const PURPOSES = Object.freeze([
   "task_execution",
@@ -47,20 +50,23 @@ type Provider = "codex" | "claude";
 type Destination = Readonly<{
   provider: Provider;
   accountTenantBoundary: string;
-  subscriptionOffering: "chatgpt" | "claude_max" | "claude_pro";
+  subscriptionOffering: "chatgpt_subscription_oauth" | "claude_max";
   purposeOperations: readonly string[];
   retentionDeletion: string;
   secondaryUseTraining: string;
   onwardTransferSubprocessing: string;
   termsPolicyIdentity: string;
+  boundaryResolution: "interactive_local_user_confirmation_required";
 }>;
 export type ExternalSendPolicy = Readonly<{
-  schema: "crdd-coordinator/external-send-policy/v1";
+  schema: "crdd-coordinator/external-send-policy/v2";
+  enabled: boolean;
   policyId: string;
   informationClassification: "public" | "internal" | "confidential";
   decisionAuthority: "authenticated_local_user";
   candidatePersistenceAllowed: boolean;
   candidateRetentionHours: number;
+  candidatePhysicalDeletion: "next_safe_runtime_entry_after_expiry_or_explicit_discard";
   destinations: readonly Destination[];
   policyHash: string;
   sourceRevision: string;
@@ -86,32 +92,65 @@ function normalizeDestination(raw: unknown): Destination | null {
     : null;
   const provider = value?.provider;
   const offering = value?.subscriptionOffering;
+  const expected =
+    provider === "codex"
+      ? Object.freeze({
+          accountTenantBoundary:
+            "selected_user_dedicated_provider_home_session",
+          subscriptionOffering: "chatgpt_subscription_oauth",
+          retentionDeletion:
+            "provider_terms_and_settings_apply_runtime_not_verified",
+          secondaryUseTraining:
+            "provider_terms_and_settings_apply_runtime_not_verified",
+          onwardTransferSubprocessing:
+            "provider_terms_and_settings_apply_runtime_not_verified",
+          termsPolicyIdentity:
+            "openai-consumer-terms-current-at-interactive-confirmation",
+        })
+      : provider === "claude"
+        ? Object.freeze({
+            accountTenantBoundary:
+              "selected_user_dedicated_provider_home_session",
+            subscriptionOffering: "claude_max",
+            retentionDeletion:
+              "provider_terms_and_settings_apply_runtime_not_verified",
+            secondaryUseTraining:
+              "provider_terms_and_settings_apply_runtime_not_verified",
+            onwardTransferSubprocessing:
+              "provider_terms_and_settings_apply_runtime_not_verified",
+            termsPolicyIdentity:
+              "anthropic-consumer-terms-current-at-interactive-confirmation",
+          })
+        : null;
   if (
     !value ||
-    (provider !== "codex" && provider !== "claude") ||
-    !safeIdentifier(value.accountTenantBoundary) ||
-    !safeIdentifier(value.retentionDeletion) ||
-    !safeIdentifier(value.secondaryUseTraining) ||
-    !safeIdentifier(value.onwardTransferSubprocessing) ||
-    !safeIdentifier(value.termsPolicyIdentity) ||
+    !expected ||
+    value.accountTenantBoundary !== expected.accountTenantBoundary ||
+    value.subscriptionOffering !== expected.subscriptionOffering ||
+    value.retentionDeletion !== expected.retentionDeletion ||
+    value.secondaryUseTraining !== expected.secondaryUseTraining ||
+    value.onwardTransferSubprocessing !==
+      expected.onwardTransferSubprocessing ||
+    value.termsPolicyIdentity !== expected.termsPolicyIdentity ||
+    value.boundaryResolution !==
+      "interactive_local_user_confirmation_required" ||
     purposes?.status !== "ok" ||
     purposes.value.length !== PURPOSES.length ||
     purposes.value.some((item, index) => item !== PURPOSES[index]) ||
-    (provider === "codex"
-      ? offering !== "chatgpt"
-      : offering !== "claude_max" && offering !== "claude_pro")
+    !safeIdentifier(value.accountTenantBoundary)
   ) {
     return null;
   }
   return Object.freeze({
-    provider,
+    provider: provider as Provider,
     accountTenantBoundary: value.accountTenantBoundary as string,
-    subscriptionOffering: offering as "chatgpt" | "claude_max" | "claude_pro",
+    subscriptionOffering: offering as Destination["subscriptionOffering"],
     purposeOperations: PURPOSES,
     retentionDeletion: value.retentionDeletion as string,
     secondaryUseTraining: value.secondaryUseTraining as string,
     onwardTransferSubprocessing: value.onwardTransferSubprocessing as string,
     termsPolicyIdentity: value.termsPolicyIdentity as string,
+    boundaryResolution: "interactive_local_user_confirmation_required",
   });
 }
 
@@ -120,11 +159,13 @@ function canonicalPolicyPayload(
 ) {
   return JSON.stringify({
     schema: policy.schema,
+    enabled: policy.enabled,
     policyId: policy.policyId,
     informationClassification: policy.informationClassification,
     decisionAuthority: policy.decisionAuthority,
     candidatePersistenceAllowed: policy.candidatePersistenceAllowed,
     candidateRetentionHours: policy.candidateRetentionHours,
+    candidatePhysicalDeletion: policy.candidatePhysicalDeletion,
     destinations: policy.destinations.map((destination) => ({
       provider: destination.provider,
       accountTenantBoundary: destination.accountTenantBoundary,
@@ -134,6 +175,7 @@ function canonicalPolicyPayload(
       secondaryUseTraining: destination.secondaryUseTraining,
       onwardTransferSubprocessing: destination.onwardTransferSubprocessing,
       termsPolicyIdentity: destination.termsPolicyIdentity,
+      boundaryResolution: destination.boundaryResolution,
     })),
     sourceRevision: policy.sourceRevision,
     sourceFileHash: policy.sourceFileHash,
@@ -154,7 +196,8 @@ export function compileExternalSendPolicyCandidate(
       ? destinationValues.value.map(normalizeDestination)
       : null;
   if (
-    value?.schema !== "crdd-coordinator/external-send-policy/v1" ||
+    value?.schema !== "crdd-coordinator/external-send-policy/v2" ||
+    typeof value.enabled !== "boolean" ||
     !safeIdentifier(value.policyId) ||
     !["public", "internal", "confidential"].includes(
       value.informationClassification as string,
@@ -164,6 +207,8 @@ export function compileExternalSendPolicyCandidate(
     !Number.isSafeInteger(value.candidateRetentionHours) ||
     (value.candidateRetentionHours as number) < 1 ||
     (value.candidateRetentionHours as number) > 168 ||
+    value.candidatePhysicalDeletion !==
+      "next_safe_runtime_entry_after_expiry_or_explicit_discard" ||
     !destinations ||
     destinations.length !== 2 ||
     destinations.some((item) => item === null) ||
@@ -173,7 +218,8 @@ export function compileExternalSendPolicyCandidate(
     return null;
   }
   const withoutHash = Object.freeze({
-    schema: "crdd-coordinator/external-send-policy/v1" as const,
+    schema: "crdd-coordinator/external-send-policy/v2" as const,
+    enabled: value.enabled,
     policyId: value.policyId as string,
     informationClassification: value.informationClassification as
       | "public"
@@ -182,6 +228,8 @@ export function compileExternalSendPolicyCandidate(
     decisionAuthority: "authenticated_local_user" as const,
     candidatePersistenceAllowed: value.candidatePersistenceAllowed,
     candidateRetentionHours: value.candidateRetentionHours as number,
+    candidatePhysicalDeletion:
+      "next_safe_runtime_entry_after_expiry_or_explicit_discard" as const,
     destinations: Object.freeze(destinations as Destination[]),
     sourceRevision,
     sourceFileHash,
@@ -189,7 +237,7 @@ export function compileExternalSendPolicyCandidate(
   return Object.freeze({
     ...withoutHash,
     policyHash: createHash("sha256")
-      .update("crdd-external-send-policy-v1\0")
+      .update("crdd-external-send-policy-v2\0")
       .update(canonicalPolicyPayload(withoutHash))
       .digest("hex"),
   });
@@ -245,6 +293,17 @@ export function resolveRuntimeOwnedExternalSendPolicy(
       managementCapability,
     );
     if (!policy || reverified?.revision !== policy.sourceRevision) return null;
+    if (!policy.enabled) {
+      return Object.freeze({
+        status: "disabled" as const,
+        capability: null,
+        policyId: policy.policyId,
+        policyHash: policy.policyHash,
+        sourceRevision: policy.sourceRevision,
+        hostPathReported: false,
+        rawPolicyReported: false,
+      });
+    }
     const capability = Object.freeze({});
     policies.set(
       capability,
@@ -263,6 +322,7 @@ export function resolveRuntimeOwnedExternalSendPolicy(
       informationClassification: policy.informationClassification,
       candidatePersistenceAllowed: policy.candidatePersistenceAllowed,
       candidateRetentionHours: policy.candidateRetentionHours,
+      candidatePhysicalDeletion: policy.candidatePhysicalDeletion,
       sourceRevision: policy.sourceRevision,
       hostPathReported: false,
       rawPolicyReported: false,
@@ -321,6 +381,9 @@ export function describeExternalSendPolicyRuntimeContract() {
       "terms_policy_identity",
     ]),
     unknownPolicy: "blocked",
+    repositoryPolicyAuthority:
+      "proposal_only_until_interactive_authenticated_local_user_confirmation",
+    legalTermsRuntimeVerified: false,
     hostPathReported: false,
   });
 }

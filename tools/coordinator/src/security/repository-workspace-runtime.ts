@@ -12,7 +12,7 @@ import {
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 3;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 4;
 
 const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
@@ -651,17 +651,17 @@ export function persistRuntimeOwnedCandidateRevision(
       }),
       persistencePolicy,
     );
-    return persisted
-      ? Object.freeze({
-          status: "staged" as const,
-          candidateRecoveryId: persisted.candidateRecoveryId,
-          bundleHash: persisted.bundleHash,
-          byteLength: persisted.byteLength,
-          expiresAtMs: persisted.expiresAtMs,
-          hostPathReported: false,
-          canonicalRepositoryChanged: false,
-        })
-      : null;
+    if (!persisted) return null;
+    if (persisted.status !== "staged") return persisted;
+    return Object.freeze({
+      status: "staged" as const,
+      candidateRecoveryId: persisted.candidateRecoveryId,
+      bundleHash: persisted.bundleHash,
+      byteLength: persisted.byteLength,
+      expiresAtMs: persisted.expiresAtMs,
+      hostPathReported: false,
+      canonicalRepositoryChanged: false,
+    });
   } catch {
     return null;
   }

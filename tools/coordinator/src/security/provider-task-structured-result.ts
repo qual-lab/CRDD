@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
+
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 4;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 5;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -15,7 +17,7 @@ const remediationRecords = new WeakMap<
   readonly Readonly<{
     severity: "critical" | "high" | "medium" | "low" | "info";
     path: string;
-    message: string;
+    messageSha256: string;
   }>[]
 >();
 
@@ -108,7 +110,10 @@ function reviewerResult(value: Record<string, unknown>) {
         | "low"
         | "info",
       path: finding.path as string,
-      message: finding.message as string,
+      messageSha256: createHash("sha256")
+        .update("crdd-review-finding-message-v1\0")
+        .update(finding.message as string, "utf8")
+        .digest("hex"),
     });
   });
   if (findings.some((finding) => finding === null)) return null;
@@ -241,7 +246,8 @@ export function describeProviderTaskStructuredResultContract() {
     rawOutputReported: false,
     untrustedProviderTextReported: false,
     boundedRemediationCapability:
-      "opaque_single_use_findings_for_internal_coordinator_packet",
+      "opaque_single_use_path_severity_and_message_hash_projection",
+    reviewerMessageForwardedToExecutor: false,
     credentialAbsenceVerified: false,
   });
 }

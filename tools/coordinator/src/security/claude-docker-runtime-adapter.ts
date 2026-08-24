@@ -25,7 +25,7 @@ import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-ru
 
 export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/claude-docker-runtime-adapter";
-export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 4;
+export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 5;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -73,6 +73,7 @@ type PreparedPlan = Readonly<{
   providerImageDigest: string;
   proxyImageDigest: string;
   selectionRecordId: string;
+  subscriptionOffering: "claude_max";
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
@@ -522,6 +523,7 @@ function buildPlan(
     providerImageDigest,
     proxyImageDigest,
     selectionRecordId: consumedModelSelection.selectionRecordId,
+    subscriptionOffering: "claude_max",
     selectedModel: consumedModelSelection.model,
     selectedEffort: selection.effort,
     selectedModelTier: selection.modelTier,
@@ -926,8 +928,9 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     contract: CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT,
     contractRevision: CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION,
     provider: "claude",
+    subscriptionOffering: "claude_max",
     modelSelection:
-      "runtime_owned_selection_grant_consumer_connected_issuer_availability_profile_not_connected",
+      "runtime_owned_selection_grant_consumer_connected_with_preflight_deferred_eligibility",
     coordinatorPrelaunchModelSelectionAllowed: true,
     providerAutomaticModelSwitchingAllowed: false,
     midExecutionModelSwitchingAllowed: false,
@@ -980,9 +983,9 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     processEffectIssued: false,
     providerRequestIssued: false,
     runtimeAuthorityIssued:
-      "candidate_issuer_connected_production_source_loader_not_connected",
+      "runtime_owned_short_lived_provider_authority_connected",
     operationCapabilityIssued: false,
     processController:
-      "candidate_consumer_implemented_production_effect_not_connected",
+      "production_runtime_owned_controller_and_fixed_docker_effect_connected",
   });
 }

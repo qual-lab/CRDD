@@ -20,7 +20,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 9;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 10;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -59,6 +59,7 @@ type PreparedPlan = Readonly<{
   providerImageDigest: string;
   proxyImageDigest: string;
   selectionRecordId: string;
+  subscriptionOffering: "chatgpt_subscription_oauth" | "claude_max";
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
@@ -235,6 +236,10 @@ function isPlanValid(plan: PreparedPlan) {
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
     /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
     /^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) &&
+    plan.subscriptionOffering ===
+      (plan.provider === "codex"
+        ? "chatgpt_subscription_oauth"
+        : "claude_max") &&
     plan.activeMountCapability !== null &&
     typeof plan.activeMountCapability === "object" &&
     plan.authorityUseCapability !== null &&
@@ -283,9 +288,15 @@ function isPlanValid(plan: PreparedPlan) {
 
 function subscriptionAuthConfirmed(
   provider: "codex" | "claude",
+  expectedOffering: "chatgpt_subscription_oauth" | "claude_max",
   stdout: string,
 ) {
-  if (provider === "codex") return stdout.trim() === "Logged in using ChatGPT";
+  if (provider === "codex")
+    return (
+      expectedOffering === "chatgpt_subscription_oauth" &&
+      stdout.trim() === "Logged in using ChatGPT"
+    );
+  if (expectedOffering !== "claude_max") return false;
   const parsed = parseUnambiguousJsonDocument(stdout);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
     return false;
@@ -295,8 +306,7 @@ function subscriptionAuthConfirmed(
     status.authMethod === "claude.ai" &&
     status.apiProvider === "firstParty" &&
     status.forcedLoginMethod === "claudeai" &&
-    typeof status.subscriptionType === "string" &&
-    ["pro", "max", "team", "enterprise"].includes(status.subscriptionType)
+    status.subscriptionType === "max"
   );
 }
 
@@ -389,7 +399,13 @@ async function executePlan(
         command.purpose === "start_subscription_auth_probe_attached" &&
         execution
       ) {
-        if (!subscriptionAuthConfirmed(plan.provider, execution.stdout)) {
+        if (
+          !subscriptionAuthConfirmed(
+            plan.provider,
+            plan.subscriptionOffering,
+            execution.stdout,
+          )
+        ) {
           requestedStatus = "blocked";
           reason = "provider_subscription_auth_not_confirmed";
           break;
@@ -713,6 +729,8 @@ export function describeDockerProcessControllerContract() {
       "opaque_single_use_reverified_and_consumed_before_recovery_or_docker_effect",
     subscriptionAuthentication:
       "network_none_read_only_provider_home_probe_required_before_provider_request",
+    subscriptionOffering:
+      "chatgpt_subscription_oauth_or_claude_max_exact_match_required",
     cancellation: "opaque_control_capability_exactly_once",
     cleanup:
       "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",

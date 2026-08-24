@@ -35,6 +35,8 @@ function fixture(
     completionRejectRole?: "executor" | "reviewer";
     candidateVerificationFails?: boolean;
     candidatePersistenceFails?: boolean;
+    candidatePersistenceNeedsRecovery?: boolean;
+    candidatePersistenceAllowed?: boolean;
     externalSendDenied?: boolean;
     pauseRole?: "executor" | "reviewer";
     discardFails?: boolean;
@@ -83,9 +85,12 @@ function fixture(
       Object.freeze({
         status: "resolved",
         capability: externalSendPolicyCapability,
-        candidatePersistenceAllowed: true,
+        candidatePersistenceAllowed:
+          options.candidatePersistenceAllowed !== false,
         candidateRetentionHours: 24,
         informationClassification: "public",
+        candidatePhysicalDeletion:
+          "next_safe_runtime_entry_after_expiry_or_explicit_discard",
       }),
     reportSelectionNotice: (notice: Record<string, unknown>) => {
       selectionNotices.push(notice);
@@ -233,6 +238,7 @@ function fixture(
         status: "started",
         reason: "started",
         controlCapability: Object.freeze({}),
+        recoveryId: `docker.fixture.${role}.active`,
         completion,
       });
     },
@@ -256,10 +262,17 @@ function fixture(
     persistCandidate: () =>
       options.candidatePersistenceFails
         ? null
-        : Object.freeze({
-            status: "staged",
-            candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-          }),
+        : options.candidatePersistenceNeedsRecovery
+          ? Object.freeze({
+              status: "blocked",
+              reason: "candidate_store_persist_recovery_required",
+              candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
+              manualRecoveryRequired: true,
+            })
+          : Object.freeze({
+              status: "staged",
+              candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
+            }),
     discardCandidate: () => {
       discardCount += 1;
       return Object.freeze({
@@ -374,8 +387,23 @@ test("選定理由は各Provider Effectより前に安全なCoordinator eventへ
   ]);
   assert.equal(
     harness.selectionNotices[0]?.inputBasis,
-    "caller_declared_task_attributes_plus_runtime_verified_provider_eligibility",
+    "caller_declared_task_attributes_plus_runtime_owned_preselection_candidate_with_deferred_provider_preflight",
   );
+});
+
+test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止する", async () => {
+  const harness = fixture({ candidatePersistenceAllowed: false });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_candidate_persistence_not_authorized",
+  );
+  assert.deepEqual(harness.events, []);
 });
 
 test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
@@ -465,6 +493,21 @@ test("承認済みCandidateを永続化できない場合はIDを公開せずFai
   assert.equal(harness.cleanupCount(), 1);
 });
 
+test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄する", async () => {
+  const harness = fixture({ candidatePersistenceNeedsRecovery: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.equal(harness.discardCount(), 1);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
 test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {
   const harness = fixture({ completionRejectRole: "executor" });
   const result = await harness.runtime.start(
@@ -479,6 +522,7 @@ test("Provider completion rejectは取消を試みOperation RootをRecovery用�
   );
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.equal(result.dockerRecoveryId, "docker.fixture.executor.active");
   assert.equal(harness.cleanupCount(), 0);
 });
 
@@ -561,7 +605,7 @@ test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");

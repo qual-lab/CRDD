@@ -12,7 +12,7 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 2;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 3;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -22,6 +22,14 @@ const SCOPE_KEYS = new Set([
   "readPaths",
 ]);
 const PROVIDERS = new Set(["codex", "claude"]);
+const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
+  direction: "independent_reviewer_to_same_executor" as const,
+  maximumRounds: 1,
+  maximumFindings: 64,
+  fields: Object.freeze(["severity", "path", "messageSha256"]),
+  reviewerMessageTextForwarded: false,
+  informationClassification: "same_as_original_task" as const,
+});
 
 type Provider = "codex" | "claude";
 type Scope = Readonly<{
@@ -116,13 +124,14 @@ export function compileExternalSendScopeHash(rawScope: unknown) {
   const scope = normalizedScope(rawScope);
   return scope
     ? createHash("sha256")
-        .update("crdd-external-send-scope-v2\0")
+        .update("crdd-external-send-scope-v3\0")
         .update(
           JSON.stringify({
             objective: scope.objective,
             acceptanceCriteria: scope.acceptanceCriteria,
             allowedPaths: scope.allowedPaths,
             readPaths: scope.readPaths,
+            derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
           }),
         )
         .digest("hex")
@@ -253,7 +262,20 @@ function requestGrant(
       providerDestinations: authorizedDestinations,
       taskPayload: scope,
       scopeHash,
-      boundedRemediation: Object.freeze({ maximumRounds: 1 }),
+      derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
+      localCandidatePersistence: Object.freeze({
+        allowed: policy.candidatePersistenceAllowed,
+        informationClassification: policy.informationClassification,
+        exportLifetimeHours: policy.candidateRetentionHours,
+        physicalDeletion: policy.candidatePhysicalDeletion,
+      }),
+      runtimeVerificationBoundary: Object.freeze({
+        selectedUserDedicatedProviderHomeSession: true,
+        subscriptionOfferingPreflight: true,
+        exactProviderAccountOrTenantIdentity: false,
+        providerTermsContent: false,
+        termsAndSettingsRequireThisInteractiveHumanConfirmation: true,
+      }),
     });
     const notice = [
       "Coordinator Runtime 外部送信承認（表示内容が送信Authorityの全範囲です）",
@@ -283,6 +305,7 @@ function requestGrant(
       revision: repository.revision,
       providerCandidates: Object.freeze(providers),
       externalSendAuthorized: true,
+      derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
       apiKeyFallbackAllowed: false,
       additionalPurchaseAllowed: false,
       rawContentReported: false,
@@ -468,6 +491,10 @@ export function describeExternalSendGrantRuntimeContract() {
       "reviewer:1",
     ]),
     boundedRemediationRounds: 1,
+    derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
+    reviewerMessageTextForwarded: false,
+    exactProviderAccountOrTenantIdentityVerified: false,
+    providerTermsContentVerified: false,
     lifetimeMs: GRANT_LIFETIME_MS,
     callerPolicyStringAcceptedAsAuthority: false,
     apiKeyFallbackAllowed: false,

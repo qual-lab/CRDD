@@ -172,7 +172,8 @@ test("productionはCodexとClaudeを認証preflight必須候補として公開�
 test("公開契約はcaller claimと有料API fallbackを認めない", () => {
   const contract = describeProviderEligibilityRuntimeContract();
   assert.deepEqual(contract.providers, ["codex", "claude"]);
-  assert.equal(contract.authority, "runtime_owned_observation_only");
+  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.authority, "runtime_owned_preselection_candidate_only");
   assert.equal(contract.callerClaimsAccepted, false);
   assert.equal(contract.unknownHandling, "ineligible_observation_unavailable");
   assert.equal(
@@ -180,4 +181,6 @@ test("公開契約はcaller claimと有料API fallbackを認めない", () => {
     "network_none_auth_preflight_then_bounded_request_checks_quota",
   );
   assert.equal(contract.paidApiFallback, "prohibited_unsupported_by_default");
+  assert.equal(contract.verifiedEligibilityClaimAllowed, false);
+  assert.equal(contract.automaticFallbackAfterProviderRequestAllowed, false);
 });

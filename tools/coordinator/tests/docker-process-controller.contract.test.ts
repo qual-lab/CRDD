@@ -43,6 +43,7 @@ function createPlan(
     proxyImageDigest:
       "sha256:f8dad0fbda2d96669dff0a7a0d56864047640af0f4514cbd1383abada91d5d68",
     selectionRecordId: "MODELSEL-12345678",
+    subscriptionOffering: "claude_max" as const,
     selectedModel: "opus",
     selectedEffort: "low" as const,
     selectedModelTier: "preferred",
@@ -73,13 +74,13 @@ function createProviderOutput(overrides: Record<string, unknown> = {}) {
   })}\n`;
 }
 
-function createSubscriptionAuthOutput() {
+function createSubscriptionAuthOutput(subscriptionType = "max") {
   return JSON.stringify({
     loggedIn: true,
     authMethod: "claude.ai",
     apiProvider: "firstParty",
     forcedLoginMethod: "claudeai",
-    subscriptionType: "max",
+    subscriptionType,
   });
 }
 
@@ -249,6 +250,37 @@ test("Subscription OAuthを確認できなければProvider request前に停止�
   assert.equal(result?.subscriptionAuthConfirmed, false);
   assert.equal(providerStarted, false);
   assert.equal(fixture.getCleanupCount(), 1);
+});
+
+test("Claude Max以外のSubscription OfferingではProvider request前に停止する", async () => {
+  let providerStarted = false;
+  const fixture = createFixture({
+    startCommand: (command: { purpose: string }) => {
+      if (command.purpose === "start_provider_attached") providerStarted = true;
+      return Object.freeze({
+        wait: async () =>
+          Object.freeze({
+            status: 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput("pro")
+                : "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+        terminateAndWait: async () => true,
+      });
+    },
+  });
+  const result = await fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  ).completion;
+  assert.equal(result?.status, "blocked");
+  assert.equal(result?.reason, "provider_subscription_auth_not_confirmed");
+  assert.equal(result?.subscriptionAuthConfirmed, false);
+  assert.equal(providerStarted, false);
 });
 
 test("provider timeoutは終了要求後もcleanupを必須にする", async () => {
@@ -557,8 +589,9 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
+  assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,

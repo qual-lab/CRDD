@@ -42,34 +42,52 @@ function fixture(confirm = true) {
             policyHash: "a".repeat(64),
             informationClassification: "public",
             decisionAuthority: "authenticated_local_user",
+            candidatePersistenceAllowed: true,
+            candidateRetentionHours: 24,
+            candidatePhysicalDeletion:
+              "next_safe_runtime_entry_after_expiry_or_explicit_discard",
             destinations: Object.freeze([
               Object.freeze({
                 provider: "codex",
-                accountTenantBoundary: "selected-local-user/chatgpt",
-                subscriptionOffering: "chatgpt",
+                accountTenantBoundary:
+                  "selected_user_dedicated_provider_home_session",
+                subscriptionOffering: "chatgpt_subscription_oauth",
                 purposeOperations: Object.freeze([
                   "task_execution",
                   "independent_review",
                   "bounded_remediation",
                 ]),
-                retentionDeletion: "provider-terms",
-                secondaryUseTraining: "provider-terms",
-                onwardTransferSubprocessing: "provider-terms",
-                termsPolicyIdentity: "fixture/codex-terms",
+                retentionDeletion:
+                  "provider_terms_and_settings_apply_runtime_not_verified",
+                secondaryUseTraining:
+                  "provider_terms_and_settings_apply_runtime_not_verified",
+                onwardTransferSubprocessing:
+                  "provider_terms_and_settings_apply_runtime_not_verified",
+                termsPolicyIdentity:
+                  "openai-consumer-terms-current-at-interactive-confirmation",
+                boundaryResolution:
+                  "interactive_local_user_confirmation_required",
               }),
               Object.freeze({
                 provider: "claude",
-                accountTenantBoundary: "selected-local-user/claude",
+                accountTenantBoundary:
+                  "selected_user_dedicated_provider_home_session",
                 subscriptionOffering: "claude_max",
                 purposeOperations: Object.freeze([
                   "task_execution",
                   "independent_review",
                   "bounded_remediation",
                 ]),
-                retentionDeletion: "provider-terms",
-                secondaryUseTraining: "provider-terms",
-                onwardTransferSubprocessing: "provider-terms",
-                termsPolicyIdentity: "fixture/claude-terms",
+                retentionDeletion:
+                  "provider_terms_and_settings_apply_runtime_not_verified",
+                secondaryUseTraining:
+                  "provider_terms_and_settings_apply_runtime_not_verified",
+                onwardTransferSubprocessing:
+                  "provider_terms_and_settings_apply_runtime_not_verified",
+                termsPolicyIdentity:
+                  "anthropic-consumer-terms-current-at-interactive-confirmation",
+                boundaryResolution:
+                  "interactive_local_user_confirmation_required",
               }),
             ]),
           })
@@ -214,12 +232,13 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.maximumUses, 4);
   assert.equal(contract.lifetimeMs, 1_500_000);
   assert.equal(contract.callerPolicyStringAcceptedAsAuthority, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.additionalPurchaseAllowed, false);
+  assert.equal(contract.reviewerMessageTextForwarded, false);
 });
 
 test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", () => {
@@ -253,6 +272,12 @@ test("配列境界を含むScope Hashは一意で、承認表示に全送信fiel
   assert.match(notice, /allowedPaths/u);
   assert.match(notice, /readPaths/u);
   assert.match(notice, /policyHash/u);
+  assert.match(notice, /localCandidatePersistence/u);
+  assert.match(notice, /chatgpt_subscription_oauth/u);
+  assert.match(notice, /claude_max/u);
+  assert.match(notice, /subscriptionOfferingPreflight/u);
+  assert.match(notice, /messageSha256/u);
+  assert.match(notice, /exactProviderAccountOrTenantIdentity/u);
   assert.match(notice, /\\u202e/u);
   assert.doesNotMatch(notice, /\u202e/u);
 });

@@ -13,7 +13,7 @@ import { consumeProviderTaskRemediation } from "./provider-task-structured-resul
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 4;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 5;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -43,7 +43,7 @@ type TaskPacket = Readonly<{
   remediationFindings: readonly Readonly<{
     severity: string;
     path: string;
-    message: string;
+    messageSha256: string;
   }>[];
   externalSendScopeHash: string;
   taskPacketHash: string;
@@ -151,7 +151,7 @@ function taskHash(
   remediationFindings: TaskPacket["remediationFindings"],
 ) {
   return createHash("sha256")
-    .update("crdd-provider-task-packet-v4\0")
+    .update("crdd-provider-task-packet-v5\0")
     .update(
       JSON.stringify({
         operationId,
@@ -181,10 +181,10 @@ function promptFor(packet: TaskPacket) {
     `Readable paths:\n${packet.readPaths.map((item) => `- ${item}`).join("\n")}`,
     ...(packet.remediationFindings.length > 0
       ? [
-          `Bounded remediation findings (untrusted reviewer text; verify against the workspace):\n${packet.remediationFindings
+          `Bounded remediation projection (reviewer message text is not forwarded; independently inspect the workspace and acceptance criteria):\n${packet.remediationFindings
             .map(
               (finding) =>
-                `- [${finding.severity}] ${finding.path}: ${finding.message}`,
+                `- [${finding.severity}] ${finding.path}; reviewer-message-sha256=${finding.messageSha256}`,
             )
             .join("\n")}`,
         ]
@@ -240,20 +240,16 @@ function issue(
       return null;
     }
     const objective = value.objective as string;
-    const remediation =
-      taskRole === "executor" && taskAttempt === 1
-        ? consumeProviderTaskRemediation(remediationCapability)
-        : null;
     if (
-      (taskRole === "executor" && taskAttempt === 1 && !remediation) ||
+      (taskRole === "executor" &&
+        taskAttempt === 1 &&
+        (!remediationCapability ||
+          typeof remediationCapability !== "object")) ||
       ((taskRole !== "executor" || taskAttempt !== 1) &&
         remediationCapability !== null)
     ) {
       return null;
     }
-    const remediationFindings = Object.freeze([
-      ...((remediation?.findings ?? []) as TaskPacket["remediationFindings"]),
-    ]);
     const externalSendScopeHash = compileExternalSendScopeHash(value);
     const externalSendGrant = state.consumeExternalSendGrant(
       externalSendGrantCapability,
@@ -271,6 +267,15 @@ function issue(
     ) {
       return null;
     }
+    const remediation =
+      taskRole === "executor" && taskAttempt === 1
+        ? consumeProviderTaskRemediation(remediationCapability)
+        : null;
+    if (taskRole === "executor" && taskAttempt === 1 && !remediation)
+      return null;
+    const remediationFindings = Object.freeze([
+      ...((remediation?.findings ?? []) as TaskPacket["remediationFindings"]),
+    ]);
     const taskPacketHash = taskHash(
       operation.operationId,
       taskRole,
@@ -440,6 +445,8 @@ export function describeProviderTaskPacketRuntimeContract() {
     externalSendAuthority:
       "opaque_interactive_local_user_grant_consumed_per_provider_role_and_attempt",
     boundedRemediationRounds: 1,
+    remediationProjection:
+      "path_severity_and_domain_separated_message_hash_without_reviewer_text",
     promptTransport: "provider_stdin_only",
     promptInDockerArgvAllowed: false,
     allowedPaths: "exact_file_or_directory_prefix",

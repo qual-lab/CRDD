@@ -1,11 +1,11 @@
 {
   "schema": "crdd-coordinator/external-send-policy/v2",
-  "enabled": true,
-  "policyId": "qual-lab/crdd/local-personal/v1",
-  "informationClassification": "public",
+  "enabled": false,
+  "policyId": "replace-with-project-policy-id",
+  "informationClassification": "confidential",
   "decisionAuthority": "authenticated_local_user",
-  "candidatePersistenceAllowed": true,
-  "candidateRetentionHours": 24,
+  "candidatePersistenceAllowed": false,
+  "candidateRetentionHours": 1,
   "candidatePhysicalDeletion": "next_safe_runtime_entry_after_expiry_or_explicit_discard",
   "destinations": [
     {

@@ -1215,3 +1215,15 @@ command名、引数grammar、JSON Schema、reason／status、妥当な`provision
 - Local Personal一般Taskと、署名済みAuthority File Bundle／protected activationを要求するHardened／Provisioning候補を分離する。後者の未接続表示を前者の未実装根拠へ流用しない。Docker Effectは認証preflightを含むexact 9 commandであり、旧exact 7 command表示を現在判定に使用しない。
 
 API key、従量API、追加credit購入、自動plan切替、Provider同士の直接spawn、canonical Repositoryへのcommit／merge／copy、T3／T4、Managed／Enterprise、および悪意ある同一OS User／Administrator／Kernel耐性は引き続き対象外または別Capabilityである。実装中の処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの全機械確認とAgent／Architecture／Security再レビュー、Document／Gap／Impact再監査が完了する前はFindingを`Resolved`、Runtime完成、採用、統合、準拠、Stable、ReleaseまたはPR最終候補としない。残る実行Gateは正式署名配布物上の一般Task実runであり、Release鍵passphraseと外部送信対話承認は人間入力なしに代行しない。
+
+##### `14717c2`監査集合の第二次是正
+
+固定Commit `14717c2fc9ad18bd99a3f9ddeeb1ef7e27eeb9c8`／Tree `0cf30f0961008ab9ac1cc4f975a2bfd8b1ee9f78`へのAgent／Architecture／Security再レビューはMajor 6件、Document／Gap／Impact再監査はMajor 4件で`Fail`だった。Criticalは0件である。completion Promise reject時のDocker Recovery ID、Candidate永続化／publish障害、期限後の物理削除とprocess間競合、保存PolicyのEffect前表示、Provider境界の未検証値、Reviewer由来自由文の別Provider転送、およびProvider適格性を実測済みと誤認させる表示を同じ是正集合へ統合した。
+
+第二次是正では、Candidate Storeを固定Local User一時Rootの排他lock、起動／公開入口のbounded GC、容量予約、pending／staged／publishedのexact-one Recovery、冪等publishおよびRecovery IDによるdiscardへ閉じた。期限後はexportを拒否し、物理削除は明示discardまたは次回の安全な入口で行う。常駐serviceを持たないため期限瞬間の削除は主張せず、stale lock、unknown entryまたは所有不明状態を推測処置しない。永続化の中間障害をWorkspace Runtimeが`staged`へ誤標識しないよう修正し、Coordinatorはcleanup後にRecovery IDで自動discardできた場合だけ手動Recovery要求を解除する。
+
+外部送信Policy revision 2はRepositoryからの提案に限定し、`enabled`、Candidate分類／保持／物理削除、選択Local User専用Provider Home Session、CodexのChatGPT Subscription OAuth、Claude Max、およびRuntimeがProvider Terms本文とexact Account／Tenantを検証しない境界を閉集合へ固定した。fail-closedな導入例を`template/`へ追加し、Repositoryごとの人間設定とCommit固定をREADME／導入規則へ接続した。公式CLIの読取り専用preflightはCodexの`Logged in using ChatGPT`とClaudeの`subscriptionType=max`をPolicy Offeringへ厳密照合し、別OfferingまたはAPI keyではProvider request前に停止する。
+
+Reviewerの自由文は公開Resultと別Provider向け是正Packetの双方から除外し、`path`、閉集合の`severity`およびdomain-separated `messageSha256`だけを、同一分類・同一Executor・最大64件・最大1回の派生転送Scopeへ結合した。ExecutorはReviewer文を命令として受けず、Workspace、Acceptance CriteriaおよびTestから是正を再構成する。Provider経路のEffect前Eventは実適格性の証明ではなく、Provider Home、配布物、Policy、認証preflightおよびrequest内quotaをdeferredとした事前選定候補へ改めた。Provider request開始後の失敗を同一Operationで別Providerへ自動再送せず、cleanup後の新Operationへ戻す。
+
+Node.js 24.19.0でCoordinator 646 / 646、private packageのstrict typecheck／Biome Lint／Formatter、Coordinator Task、Delegation Route、Docker Process Controllerの重点coverage、および全体Checker 672 files／386 Markdown／2164 links／588 anchors／26 Related／26 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0を確認した。`git diff --check`もPassした。本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの独立再レビューと再監査前はFindingを`Resolved`、Runtime完成またはPR最終候補としない。正式署名配布物上の一般Task実runにはRelease鍵passphraseと外部送信の対話承認が必要なため、人間不在中は実行しない。

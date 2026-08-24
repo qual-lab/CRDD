@@ -506,7 +506,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeCodexDockerRuntimeAdapterContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(
     contract.providerHomeCrossProcessLease,
     "docker_global_provider_home_identity_container_name_fail_closed",
@@ -517,11 +517,12 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
   assert.equal(contract.speedMode, "normal_only");
   assert.equal(contract.highCostSelection, "decisive_reason_required");
   assert.equal(contract.fallbackModelArgumentAllowed, false);
+  assert.equal(contract.subscriptionOffering, "chatgpt_subscription_oauth");
   assert.equal(contract.providerDirectEgress, false);
   assert.equal(contract.commandPlanReported, false);
   assert.match(contract.providerAuthority, /short_lived/u);
   assert.equal(
     contract.processController,
-    "candidate_consumer_implemented_production_effect_not_connected",
+    "production_runtime_owned_controller_and_fixed_docker_effect_connected",
   );
 });

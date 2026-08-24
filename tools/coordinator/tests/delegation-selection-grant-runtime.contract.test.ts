@@ -349,19 +349,23 @@ test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒�
 
 test("公開契約は短命Grant、Subscription、通常速度と再選定境界を固定する", () => {
   const contract = describeDelegationSelectionGrantRuntimeContract();
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.selectionLifetimeMs, 30_000);
   assert.deepEqual(contract.aliases, ["control", "use"]);
   assert.equal(contract.maximumUses, 1);
   assert.equal(contract.billingMode, "subscription_oauth_only");
   assert.equal(contract.speedMode, "normal_only");
-  assert.equal(contract.providerFallback, "forbidden_after_selection");
+  assert.equal(
+    contract.providerFallback,
+    "forbidden_after_provider_request_or_when_effect_state_is_uncertain",
+  );
   assert.equal(
     contract.providerEligibility,
-    "runtime_owned_observer_connected_required_provider_effect_capability_currently_unavailable",
+    "runtime_owned_preselection_candidate_with_home_distribution_policy_auth_preflight_deferred",
   );
   assert.equal(
     contract.reselection,
-    "atomic_process_local_supersede_after_replacement_validation",
+    "process_local_supersede_api_exists_but_general_task_uses_new_operation_after_cleanup",
   );
   assert.equal(contract.providerAuthorityIssued, false);
   assert.equal(contract.providerEffectAllowed, false);

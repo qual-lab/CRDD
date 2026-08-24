@@ -16,7 +16,7 @@ import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 4;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 5;
 
 const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
@@ -53,6 +53,7 @@ type PreparedPlan = Readonly<{
   providerImageDigest: string;
   proxyImageDigest: string;
   selectionRecordId: string;
+  subscriptionOffering: "chatgpt_subscription_oauth" | "claude_max";
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
@@ -521,9 +522,11 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   const isProviderBindingValid =
     (plan.provider === "claude" &&
       /^PROFILE-20000[12]$/u.test(plan.profileId) &&
+      plan.subscriptionOffering === "claude_max" &&
       plan.selectedModel === "opus") ||
     (plan.provider === "codex" &&
       /^PROFILE-10000[12]$/u.test(plan.profileId) &&
+      plan.subscriptionOffering === "chatgpt_subscription_oauth" &&
       plan.selectedModel === "gpt-5.6-sol");
   if (
     !/^OP-[0-9]{6,}$/u.test(plan.operationId) ||

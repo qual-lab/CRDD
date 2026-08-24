@@ -2,8 +2,6 @@
 
 import fs from "node:fs";
 import { types as utilTypes } from "node:util";
-
-import { runDoctor } from "../src/core/doctor.ts";
 import {
   parseActivateArguments,
   parseCandidateArguments,
@@ -12,16 +10,18 @@ import {
   parseProvisionArguments,
   parseTaskArguments,
 } from "../src/core/cli-options.ts";
+import { runDoctor } from "../src/core/doctor.ts";
+import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
+  runRuntimeOwnedCandidateStoreStartupGc,
 } from "../src/security/candidate-bundle-store.ts";
 import { parseUnambiguousJsonDocument } from "../src/security/claude-structured-result.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
-import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { runPlatformProvisionerEffect } from "../src/security/platform-provisioner-effect.ts";
@@ -184,6 +184,19 @@ async function runTaskCommand(args: readonly string[]) {
     process.exitCode = parsed.usageError ? 64 : 2;
     return;
   }
+  const startupGc = runRuntimeOwnedCandidateStoreStartupGc();
+  if (startupGc.status !== "completed") {
+    printCommandReport(
+      Object.freeze({
+        command: "task",
+        status: "blocked",
+        reason: startupGc.reason,
+      }),
+      options.json,
+    );
+    process.exitCode = 2;
+    return;
+  }
   let started: ReturnType<typeof startRuntimeOwnedCoordinatorTask>;
   try {
     started = startRuntimeOwnedCoordinatorTask(
@@ -249,6 +262,19 @@ function runCandidateCommand(args: readonly string[]) {
       parsed.jsonRequested,
     );
     process.exitCode = parsed.usageError ? 64 : 2;
+    return;
+  }
+  const startupGc = runRuntimeOwnedCandidateStoreStartupGc();
+  if (startupGc.status !== "completed") {
+    printCommandReport(
+      Object.freeze({
+        command: `candidate ${options.action}`,
+        status: "blocked",
+        reason: startupGc.reason,
+      }),
+      options.json,
+    );
+    process.exitCode = 2;
     return;
   }
   const result =
