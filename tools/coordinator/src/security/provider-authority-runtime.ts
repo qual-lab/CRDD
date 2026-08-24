@@ -4,10 +4,11 @@ import { performance } from "node:perf_hooks";
 import { reverifyAuthorityBeforeProviderLaunch } from "./authority-prelaunch-verifier.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { inspectRuntimeOwnedActiveProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
+import { loadRuntimeOwnedLocalPersonalAuthority } from "./local-personal-authority-runtime.ts";
 
 export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-authority-runtime";
-export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT_REVISION = 1;
+export const PROVIDER_AUTHORITY_RUNTIME_CONTRACT_REVISION = 2;
 
 const AUTHORITY_LIFETIME_MS = 5_000;
 const AUTHORITY_RECORD_ID_BYTES = 12;
@@ -102,7 +103,7 @@ function createRuntimeState(
 const productionState = createRuntimeState({
   verifyOperation: verifyOwnedOperationManagementCapability,
   inspectActiveMount: inspectRuntimeOwnedActiveProviderHomeMount,
-  loadActivatedAuthority: () => null,
+  loadActivatedAuthority: loadRuntimeOwnedLocalPersonalAuthority,
   reverify: reverifyAuthorityBeforeProviderLaunch,
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
@@ -516,6 +517,7 @@ export function describeProviderAuthorityRuntimeContract() {
     rawAuthoritySourceReported: false,
     pathReported: false,
     credentialReported: false,
-    productionActivatedAuthoritySourceLoader: "not_connected",
+    productionActivatedAuthoritySourceLoader:
+      "signed_release_bound_local_personal_connected",
   });
 }

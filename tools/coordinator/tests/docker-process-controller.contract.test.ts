@@ -77,6 +77,7 @@ function createFixture(overrides: Record<string, unknown> = {}) {
   let cleanupCount = 0;
   const dependencies = {
     effectExecutorAvailable: true,
+    verifyRevision: () => Object.freeze({ revisionCurrent: true }),
     consumePreparedPlan: (prepared: unknown, management: unknown) => {
       assert.equal(prepared, preparedCapability);
       assert.equal(management, managementCapability);
@@ -371,6 +372,45 @@ test("起動直前Authority不成立ならMountを返しDocker Effectを開始�
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
 });
 
+test("起動直前にRepository Revisionが一致しなければEffectを開始しない", () => {
+  const fixture = createFixture({ verifyRevision: () => null });
+  const blocked = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(blocked.status, "blocked");
+  assert.equal(blocked.reason, "docker_process_controller_revision_invalid");
+  assert.equal(blocked.dockerEffectStarted, false);
+  assert.equal(fixture.getCommandCount(), 0);
+  assert.equal(fixture.getMountCompletionCount(), 1);
+  assert.equal(fixture.getRecoveryCompletionCount(), 0);
+});
+
+test("Provider完了後にRepository Revisionが変わればResultを公開しない", async () => {
+  let observation = 0;
+  const fixture = createFixture({
+    verifyRevision: () => {
+      observation += 1;
+      return observation === 1
+        ? Object.freeze({ revisionCurrent: true })
+        : null;
+    },
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(started.status, "started");
+  assert.ok(started.completion);
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "repository_revision_changed");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.resultSha256, null);
+  assert.equal(result.resultBytes, 0);
+  assert.equal(result.normalizedResult, null);
+});
+
 test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を固定する", () => {
   const contract = describeDockerProcessControllerContract();
   assert.equal(contract.setupTimeoutMs, 10_000);
@@ -394,6 +434,10 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(
     contract.productionMountCompletion,
     "runtime_owned_mount_lease_connected",
+  );
+  assert.equal(
+    contract.productionRevisionBinding,
+    "runtime_owned_repository_revision_connected",
   );
   assert.equal(contract.productionEffectExecutor, "fixed_docker_cli_connected");
 });

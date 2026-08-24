@@ -17,6 +17,7 @@ export const PROVIDER_AUTHORITY_COVERAGE_SOURCES = Object.freeze([
   "tools/coordinator/src/security/provider-isolation-profile.ts",
   "tools/coordinator/src/security/authority-grant-verifier.ts",
   "tools/coordinator/src/security/authority-prelaunch-verifier.ts",
+  "tools/coordinator/src/security/local-personal-authority-runtime.ts",
   "tools/coordinator/src/security/provider-authority-runtime.ts",
   "tools/coordinator/src/security/plain-data-snapshot.ts",
 ]);
@@ -29,6 +30,7 @@ export const PROVIDER_AUTHORITY_COVERAGE_TESTS = Object.freeze([
   "tools/coordinator/tests/authority-file-bundle.contract.test.ts",
   "tools/coordinator/tests/authority-prelaunch-verifier.contract.test.ts",
   "tools/coordinator/tests/egress-proxy-policy.contract.test.ts",
+  "tools/coordinator/tests/local-personal-authority-runtime.contract.test.ts",
   "tools/coordinator/tests/provider-authority-runtime.contract.test.ts",
 ]);
 
@@ -82,6 +84,13 @@ const coverageObligations = Object.freeze({
     "発行・一回消費・失効、5秒境界、時計後退、Authority差替え、Mount失効、binding不一致およびproduction停止試験",
     "Runtime Authority lifetime、Authority source loader、Mount inspectionまたはProvider Effect結合変更時",
   ),
+  "tools/coordinator/src/security/local-personal-authority-runtime.ts":
+    obligation(
+      "署名済み配布物の実production成功分岐と暗号乱数失敗をcomponent coverageで到達していない",
+      "公式署名Releaseへの結合または短命Local Personal Bundle生成の稀なfailureを誤分類する可能性",
+      "隔離dependencyによるRelease確認、固定Profile、source期限、Grant期限、Provider差、時計差およびproduction source checkout停止試験",
+      "Release manifest verifier、固定Profile、Authority source lifetimeまたはLocal Personal Trust境界変更時",
+    ),
   "tools/coordinator/src/security/plain-data-snapshot.ts": obligation(
     "未到達分岐なし",
     "現固定版では追加残存riskなし",

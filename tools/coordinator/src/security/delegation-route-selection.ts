@@ -85,6 +85,7 @@ type ProviderEligibility = Readonly<{
   status: "eligible" | "ineligible";
   reason:
     | "ready"
+    | "bounded_request_check"
     | "required_capability_unavailable"
     | "subscription_auth_unavailable"
     | "subscription_quota_unavailable"
@@ -192,7 +193,9 @@ function snapshotProviderEligibility(raw: unknown) {
       !isProvider(entry.provider) ||
       (entry.status !== "eligible" && entry.status !== "ineligible") ||
       typeof entry.reason !== "string" ||
-      (entry.status === "eligible" && entry.reason !== "ready") ||
+      (entry.status === "eligible" &&
+        entry.reason !== "ready" &&
+        entry.reason !== "bounded_request_check") ||
       (entry.status === "ineligible" &&
         !INELIGIBILITY_REASONS.has(entry.reason))
     ) {

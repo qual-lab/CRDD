@@ -10,11 +10,12 @@ import {
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 
-test("Provider Authority coverageはexact 5 sourceと8 testを所有する", () => {
+test("Provider Authority coverageはexact 6 sourceと9 testを所有する", () => {
   assert.deepEqual(PROVIDER_AUTHORITY_COVERAGE_SOURCES, [
     "tools/coordinator/src/security/provider-isolation-profile.ts",
     "tools/coordinator/src/security/authority-grant-verifier.ts",
     "tools/coordinator/src/security/authority-prelaunch-verifier.ts",
+    "tools/coordinator/src/security/local-personal-authority-runtime.ts",
     "tools/coordinator/src/security/provider-authority-runtime.ts",
     "tools/coordinator/src/security/plain-data-snapshot.ts",
   ]);
@@ -26,6 +27,7 @@ test("Provider Authority coverageはexact 5 sourceと8 testを所有する", () 
     "tools/coordinator/tests/authority-file-bundle.contract.test.ts",
     "tools/coordinator/tests/authority-prelaunch-verifier.contract.test.ts",
     "tools/coordinator/tests/egress-proxy-policy.contract.test.ts",
+    "tools/coordinator/tests/local-personal-authority-runtime.contract.test.ts",
     "tools/coordinator/tests/provider-authority-runtime.contract.test.ts",
   ]);
   const packageJson = JSON.parse(

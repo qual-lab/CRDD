@@ -12,6 +12,7 @@ import {
 } from "./docker-effect-runtime.ts";
 import { consumeRuntimeOwnedProviderAuthority } from "./provider-authority-runtime.ts";
 import { completeRuntimeOwnedProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
+import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
@@ -79,6 +80,7 @@ type CleanupObservation = Readonly<{
 }>;
 type RuntimeDependencies = Readonly<{
   effectExecutorAvailable: boolean;
+  verifyRevision: (managementCapability: unknown) => unknown;
   consumePreparedPlan: (
     preparedCapability: unknown,
     managementCapability: unknown,
@@ -389,6 +391,23 @@ async function executePlan(
       recoveryCompleted = false;
     }
   }
+  if (requestedStatus === "completed") {
+    try {
+      if (!state.dependencies.verifyRevision(record.managementCapability)) {
+        requestedStatus = "blocked";
+        reason = "repository_revision_changed";
+        resultSha256 = null;
+        resultBytes = 0;
+        normalizedResult = null;
+      }
+    } catch {
+      requestedStatus = "blocked";
+      reason = "repository_revision_changed";
+      resultSha256 = null;
+      resultBytes = 0;
+      normalizedResult = null;
+    }
+  }
   return createFinalResult(requestedStatus, reason, plan, recovery.recoveryId, {
     providerRequestStarted,
     cancellationRequested: record.cancellationRequested,
@@ -421,6 +440,13 @@ function start(
   );
   if (!plan || !isPlanValid(plan))
     return createBlockedStart("docker_process_controller_plan_invalid");
+  if (!state.dependencies.verifyRevision(managementCapability)) {
+    state.dependencies.completeMount(
+      plan.activeMountCapability,
+      managementCapability,
+    );
+    return createBlockedStart("docker_process_controller_revision_invalid");
+  }
   const authority = state.dependencies.consumeProviderAuthority(
     plan.authorityUseCapability,
     plan.activeMountCapability,
@@ -507,6 +533,7 @@ async function cancel(
 const productionState: RuntimeState = Object.freeze({
   dependencies: Object.freeze({
     effectExecutorAvailable: true,
+    verifyRevision: verifyRuntimeOwnedRepositoryOperation,
     consumePreparedPlan:
       consumeRuntimeOwnedClaudeDockerPlanForProcessController,
     beginRecovery: beginRuntimeOwnedDockerRecovery,
@@ -593,6 +620,7 @@ export function describeDockerProcessControllerContract() {
     productionPreparedPlan: "runtime_owned_adapter_connected",
     productionRecovery: "durable_host_recovery_connected",
     productionMountCompletion: "runtime_owned_mount_lease_connected",
+    productionRevisionBinding: "runtime_owned_repository_revision_connected",
     productionEffectExecutor: "fixed_docker_cli_connected",
   });
 }

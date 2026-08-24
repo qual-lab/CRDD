@@ -92,6 +92,26 @@ test("unknownを同一Providerへの推測fallback根拠にしない", () => {
   assert.equal(selected.reason, "delegation_route_executor_unavailable");
 });
 
+test("別probeで課金せず認証とquotaを同じbounded requestで確認する", () => {
+  const runtime = createIsolatedProviderEligibilityRuntimeCandidate({
+    observeProvider: () =>
+      createObservation({
+        subscriptionAuth: "bounded_request_check",
+        subscriptionQuota: "bounded_request_check",
+      }),
+  });
+  assert.deepEqual(runtime.observe()[0], {
+    provider: "codex",
+    status: "eligible",
+    reason: "bounded_request_check",
+  });
+  const selected = selectDelegationRouteCandidate(createRequest(), {
+    providerEligibility: runtime.observe(),
+  });
+  assert.equal(selected.status, "candidate");
+  assert.equal(selected.executorProvider, "claude");
+});
+
 test("accessor、Proxy、余分なkeyとobserver例外を実行せずfail closedにする", () => {
   let getterExecuted = false;
   const accessor = createObservation();
@@ -134,7 +154,7 @@ test("accessor、Proxy、余分なkeyとobserver例外を実行せずfail closed
   assert.equal(extraKey.observe()[0]?.reason, "observation_unavailable");
 });
 
-test("productionは2 Providerを必要Capability未接続として明示的に停止する", () => {
+test("productionはClaudeだけをbounded request候補として公開する", () => {
   assert.deepEqual(observeRuntimeOwnedProviderEligibility(), [
     {
       provider: "codex",
@@ -143,8 +163,8 @@ test("productionは2 Providerを必要Capability未接続として明示的に�
     },
     {
       provider: "claude",
-      status: "ineligible",
-      reason: "required_capability_unavailable",
+      status: "eligible",
+      reason: "bounded_request_check",
     },
   ]);
 });
@@ -155,5 +175,9 @@ test("公開契約はcaller claimと有料API fallbackを認めない", () => {
   assert.equal(contract.authority, "runtime_owned_observation_only");
   assert.equal(contract.callerClaimsAccepted, false);
   assert.equal(contract.unknownHandling, "ineligible_observation_unavailable");
+  assert.equal(
+    contract.nonPreobservableSubscriptionState,
+    "bounded_authorized_request_checks_auth_and_quota_without_separate_probe",
+  );
   assert.equal(contract.paidApiFallback, "prohibited_unsupported_by_default");
 });

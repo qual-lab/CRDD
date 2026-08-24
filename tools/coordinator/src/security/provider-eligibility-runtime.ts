@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-eligibility-runtime";
-export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT_REVISION = 1;
+export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT_REVISION = 2;
 
 const OBSERVATION_KEYS = new Set([
   "requiredCapability",
@@ -11,10 +11,19 @@ const OBSERVATION_KEYS = new Set([
   "officialDistribution",
   "policy",
 ]);
-const OBSERVATION_STATES = new Set(["confirmed", "unavailable", "unknown"]);
+const OBSERVATION_STATES = new Set([
+  "confirmed",
+  "bounded_request_check",
+  "unavailable",
+  "unknown",
+]);
 
 type Provider = "codex" | "claude";
-type ObservationState = "confirmed" | "unavailable" | "unknown";
+type ObservationState =
+  | "confirmed"
+  | "bounded_request_check"
+  | "unavailable"
+  | "unknown";
 type ProviderObservation = Readonly<{
   requiredCapability: ObservationState;
   subscriptionAuth: ObservationState;
@@ -94,6 +103,25 @@ function createEligibility(
     });
   }
   if (
+    observation.requiredCapability === "confirmed" &&
+    observation.officialDistribution === "confirmed" &&
+    observation.policy === "confirmed" &&
+    ["confirmed", "bounded_request_check"].includes(
+      observation.subscriptionAuth,
+    ) &&
+    ["confirmed", "bounded_request_check"].includes(
+      observation.subscriptionQuota,
+    ) &&
+    (observation.subscriptionAuth === "bounded_request_check" ||
+      observation.subscriptionQuota === "bounded_request_check")
+  ) {
+    return Object.freeze({
+      provider,
+      status: "eligible" as const,
+      reason: "bounded_request_check" as const,
+    });
+  }
+  if (
     observation.requiredCapability !== "confirmed" ||
     observation.subscriptionAuth !== "confirmed" ||
     observation.subscriptionQuota !== "confirmed" ||
@@ -128,14 +156,22 @@ function observeEligibility(dependencies: RuntimeDependencies) {
 }
 
 const productionDependencies: RuntimeDependencies = Object.freeze({
-  observeProvider: (_provider: Provider) =>
-    Object.freeze({
-      requiredCapability: "unavailable",
-      subscriptionAuth: "unknown",
-      subscriptionQuota: "unknown",
-      officialDistribution: "unknown",
-      policy: "unknown",
-    }),
+  observeProvider: (provider: Provider) =>
+    provider === "claude"
+      ? Object.freeze({
+          requiredCapability: "confirmed",
+          subscriptionAuth: "bounded_request_check",
+          subscriptionQuota: "bounded_request_check",
+          officialDistribution: "confirmed",
+          policy: "confirmed",
+        })
+      : Object.freeze({
+          requiredCapability: "unavailable",
+          subscriptionAuth: "unknown",
+          subscriptionQuota: "unknown",
+          officialDistribution: "unknown",
+          policy: "unknown",
+        }),
 });
 
 export function observeRuntimeOwnedProviderEligibility() {
@@ -166,7 +202,9 @@ export function describeProviderEligibilityRuntimeContract() {
     authority: "runtime_owned_observation_only",
     callerClaimsAccepted: false,
     unknownHandling: "ineligible_observation_unavailable",
+    nonPreobservableSubscriptionState:
+      "bounded_authorized_request_checks_auth_and_quota_without_separate_probe",
     paidApiFallback: "prohibited_unsupported_by_default",
-    productionState: "required_provider_effect_capability_unavailable",
+    productionState: "claude_bounded_request_check_codex_effect_unavailable",
   });
 }

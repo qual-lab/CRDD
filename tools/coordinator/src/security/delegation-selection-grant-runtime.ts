@@ -8,6 +8,7 @@ import {
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { observeRuntimeOwnedProviderEligibility } from "./provider-eligibility-runtime.ts";
 import { resolveRuntimeOwnedProviderModelProfile } from "./provider-model-profile-runtime.ts";
+import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
@@ -80,7 +81,15 @@ function createRuntimeState(
 }
 
 const productionState = createRuntimeState({
-  verifyOperation: verifyOwnedOperationManagementCapability,
+  verifyOperation: (managementCapability) => {
+    const operation =
+      verifyOwnedOperationManagementCapability(managementCapability);
+    const repository =
+      verifyRuntimeOwnedRepositoryOperation(managementCapability);
+    if (!repository || repository.operationId !== operation.operationId)
+      throw new Error("repository_operation_binding_required");
+    return operation;
+  },
   observeProviderEligibility: observeRuntimeOwnedProviderEligibility,
   resolveModelProfile: resolveRuntimeOwnedProviderModelProfile,
   wallNow: Date.now,

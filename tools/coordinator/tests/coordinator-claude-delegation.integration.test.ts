@@ -215,6 +215,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   const purposes: string[] = [];
   const controller = createIsolatedDockerProcessControllerCandidate({
     effectExecutorAvailable: true,
+    verifyRevision: () => Object.freeze({ revisionCurrent: true }),
     consumePreparedPlan: (candidate: unknown, management: unknown) =>
       adapter.consumeForProcessController(candidate, management),
     beginRecovery: () =>

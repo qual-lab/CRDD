@@ -263,7 +263,7 @@ test("control aliasは未使用Authorityを全aliasごと失効する", () => {
   );
 });
 
-test("production source未接続入口と公開契約はProvider Effect前に閉じる", () => {
+test("偽造production Capabilityと公開契約はProvider Effect前に閉じる", () => {
   assert.equal(issueRuntimeOwnedProviderAuthority({}, {}).status, "blocked");
   assert.equal(consumeRuntimeOwnedProviderAuthority({}, {}, {}), null);
   assert.equal(revokeRuntimeOwnedProviderAuthority({}, {}).status, "blocked");
@@ -273,8 +273,9 @@ test("production source未接続入口と公開契約はProvider Effect前に閉
   assert.equal(contract.maximumUses, 1);
   assert.equal(contract.providerEffectAllowedBeforeConsume, false);
   assert.equal(contract.rawAuthoritySourceReported, false);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(
     contract.productionActivatedAuthoritySourceLoader,
-    "not_connected",
+    "signed_release_bound_local_personal_connected",
   );
 });
