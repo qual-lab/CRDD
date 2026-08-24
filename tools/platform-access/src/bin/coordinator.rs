@@ -3,13 +3,13 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use core::ffi::c_void;
-use core::mem::size_of;
+use core::mem::{size_of, size_of_val};
 #[cfg(not(test))]
 use core::panic::PanicInfo;
 use core::ptr::{null, null_mut};
 use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
-use windows_sys::Win32::Foundation::{FILETIME, SYSTEMTIME};
+use windows_sys::Win32::Foundation::{ERROR_INSUFFICIENT_BUFFER, FILETIME, SYSTEMTIME};
 use windows_sys::Win32::Security::Isolation::DeriveAppContainerSidFromAppContainerName;
 use windows_sys::Win32::Security::{
     CheckTokenMembership, CreateWellKnownSid, DuplicateToken, EqualSid, GetLengthSid,
@@ -1022,20 +1022,56 @@ unsafe fn process_appcontainer_binding(
         if !equal_u8_exact(&actual_session, expected_authentication_session_hash) {
             return 32;
         }
-        let mut appcontainer = TOKEN_APPCONTAINER_INFORMATION::default();
-        let mut returned = 0_u32;
+        let mut required = 0_u32;
+        if unsafe { GetTokenInformation(token, TokenAppContainerSid, null_mut(), 0, &mut required) }
+            != 0
+            || unsafe { GetLastError() } != ERROR_INSUFFICIENT_BUFFER
+            || required as usize <= size_of::<TOKEN_APPCONTAINER_INFORMATION>()
+        {
+            return 33;
+        }
+        let mut information = [0_u64; 16];
+        if required as usize > size_of_val(&information) {
+            return 33;
+        }
+        let mut returned = required;
         if unsafe {
             GetTokenInformation(
                 token,
                 TokenAppContainerSid,
-                (&raw mut appcontainer).cast(),
-                size_of::<TOKEN_APPCONTAINER_INFORMATION>() as u32,
+                information.as_mut_ptr().cast(),
+                required,
                 &mut returned,
             )
         } == 0
-            || returned as usize != size_of::<TOKEN_APPCONTAINER_INFORMATION>()
-            || appcontainer.TokenAppContainer.is_null()
+            || returned as usize <= size_of::<TOKEN_APPCONTAINER_INFORMATION>()
+            || returned > required
+        {
+            return 33;
+        }
+        let appcontainer = unsafe {
+            &*information
+                .as_ptr()
+                .cast::<TOKEN_APPCONTAINER_INFORMATION>()
+        };
+        let buffer_start = information.as_ptr() as usize;
+        let Some(buffer_end) = buffer_start.checked_add(returned as usize) else {
+            return 33;
+        };
+        let sid_start = appcontainer.TokenAppContainer as usize;
+        if appcontainer.TokenAppContainer.is_null()
             || expected_appcontainer_sid.is_null()
+            || sid_start < buffer_start + size_of::<TOKEN_APPCONTAINER_INFORMATION>()
+            || sid_start.checked_add(8).is_none_or(|end| end > buffer_end)
+            || unsafe { IsValidSid(appcontainer.TokenAppContainer) } == 0
+        {
+            return 33;
+        }
+        let sid_length = unsafe { GetLengthSid(appcontainer.TokenAppContainer) } as usize;
+        if sid_length < 8
+            || sid_start
+                .checked_add(sid_length)
+                .is_none_or(|end| end > buffer_end)
         {
             return 33;
         }
