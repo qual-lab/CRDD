@@ -6,6 +6,7 @@ import {
   selectDelegationRouteCandidate,
 } from "./delegation-route-selection.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
+import { observeRuntimeOwnedProviderEligibility } from "./provider-eligibility-runtime.ts";
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
@@ -70,7 +71,7 @@ function createRuntimeState(
 
 const productionState = createRuntimeState({
   verifyOperation: verifyOwnedOperationManagementCapability,
-  observeProviderEligibility: () => null,
+  observeProviderEligibility: observeRuntimeOwnedProviderEligibility,
   resolveModelProfile: () => null,
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
@@ -447,7 +448,7 @@ export function describeDelegationSelectionGrantRuntimeContract() {
     maximumUses: 1,
     operationBinding: "runtime_owned_management_capability",
     providerEligibility:
-      "runtime_capability_auth_subscription_quota_distribution_and_policy_observation_required_production_not_connected",
+      "runtime_owned_observer_connected_required_provider_effect_capability_currently_unavailable",
     exactModelId: "verified_provider_profile_required",
     billingMode: "subscription_oauth_only",
     speedMode: "normal_only",

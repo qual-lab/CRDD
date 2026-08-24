@@ -333,7 +333,7 @@ test("30秒期限、clock rollbackと乱数衝突をfail closedにする", () =>
   );
 });
 
-test("production入口はEligibility／Profile未接続で偽造Capabilityを拒否する", () => {
+test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒否する", () => {
   const issued = issueRuntimeOwnedDelegationSelectionGrant({}, createRequest());
   assert.equal(issued.status, "blocked");
   assert.equal(issued.providerEffectAllowed, false);
@@ -357,6 +357,10 @@ test("公開契約は短命Grant、Subscription、通常速度と再選定境界
   assert.equal(contract.billingMode, "subscription_oauth_only");
   assert.equal(contract.speedMode, "normal_only");
   assert.equal(contract.providerFallback, "forbidden_after_selection");
+  assert.equal(
+    contract.providerEligibility,
+    "runtime_owned_observer_connected_required_provider_effect_capability_currently_unavailable",
+  );
   assert.equal(
     contract.reselection,
     "atomic_process_local_supersede_after_replacement_validation",

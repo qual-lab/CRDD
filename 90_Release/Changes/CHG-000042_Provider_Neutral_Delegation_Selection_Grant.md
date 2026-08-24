@@ -14,7 +14,7 @@
 
 移譲が不要ならRoute Selectionは`front_codex_only`または`front_claude_only`の`retained`結果を理由付きで返し、Selection Grant、子AgentまたはProvider Effectを発行しない。移譲が必要な場合はFront ProviderをExecutor Providerへ暗黙継承せず、Front Codex／Claude CodeとExecutor Codex／Claude Codeの4経路を一つの選定契約へ固定した。既定はFrontと反対のProviderとし、Front側Subscription枠を実作業で消費し続けないよう負荷を分散する。ただし、検証、診断、方針整合、Architecture／Security review、Gap／Impact Auditまたは結果統合の説明可能な特性からCodexを優先でき、Front CodexからCodexへの委譲も許可する。役割名だけで高コストmodel／effortへ上げない。同一Providerは説明可能な作業特性、明示制約、独立性、または反対Providerの必要Capability、Subscription認証／quota、公式配布物もしくはPolicy適格性の実測不成立がある場合だけ候補にする。適格性不明から推測fallbackせず、有料API fallbackは発行しない。
 
-Selection Grantは候補をRuntime-owned Operation、観測済みProvider eligibility、検証済みProfile、exact model ID、subscription OAuthおよび通常速度へ結合するprocess-local opaque Capabilityである。control／use alias、壁時計／単調時計、最大30秒、一回利用へ固定し、Selection Grant単独ではProvider AuthorityまたはEffectを発行しない。production eligibility observerとProfile resolverは未接続のため、現在のproduction issuerはfail closedである。
+Selection Grantは候補をRuntime-owned Operation、観測済みProvider eligibility、検証済みProfile、exact model ID、subscription OAuthおよび通常速度へ結合するprocess-local opaque Capabilityである。control／use alias、壁時計／単調時計、最大30秒、一回利用へ固定し、Selection Grant単独ではProvider AuthorityまたはEffectを発行しない。production eligibility observerは接続済みだが、両Providerの必要Effect CapabilityとProfile resolverは未接続のため、現在のproduction issuerはfail closedである。
 
 ## 着手前整合と代表例
 
@@ -31,7 +31,7 @@ Selection Grantは候補をRuntime-owned Operation、観測済みProvider eligib
 - ancestor Operationは重複、自己参照、親不一致および最大深度2を拒否する。Provider同士の直接spawnは全経路で禁止する。
 - 独立Reviewerは対象Providerと`requiresIndependentProvider: true`を必須にし、対象Providerを候補から除外する。
 - ユーザーの明示Executor制約は候補集合を狭めるだけで、利用不能時に無言で別Providerへ変更しない。
-- Provider eligibilityはproductionでRuntime-owned observerから取得し、必要Capability、Subscription認証／quota、公式配布物およびPolicy適格性を区別する。caller claimをAuthorityへ昇格させず、現在は未接続で発行前に停止する。
+- Provider eligibilityはproductionでRuntime-owned observerから取得し、必要Capability、Subscription認証／quota、公式配布物およびPolicy適格性を区別する。caller claimをAuthorityへ昇格させず、不明状態は同一Provider fallbackへ使わない。現在は両Providerの必要Effect Capabilityが未接続であることを明示理由として発行前に停止する。
 - resolved ProfileはExecutor Provider、Profile ID、model family／tier、exact model ID、通常速度および`subscription_oauth`をSelection結果へ完全一致させる。
 - GrantはOperation management Capabilityへ結合したprocess-local `Map`／`WeakMap`で所有し、control／useを分離する。期限切れ、clock rollback、乱数衝突、別Operation、再利用またはrestart後はfail closedにする。
 - Claude Docker AdapterはGrant use aliasを一回消費し、Operation、Claude、Mount Grant Profile、model、effort、tier、通常速度および選定理由を再照合する。不一致時はactive mount leaseを完了しDocker Effectを発行しない。
@@ -40,6 +40,6 @@ Selection Grantは候補をRuntime-owned Operation、観測済みProvider eligib
 
 - 基準Node.js v24.19.0でstrict source／test typecheckと対象contract test 36／36を確認した。Selection Grantのopaque use aliasをClaude Adapterへ接続するcomponent integrationを含む。
 - 4経路、cross-provider既定、明示制約、必要Capability／Subscription quota不成立時だけの同一Provider、適格性不明時の停止、独立Provider、循環、深度、Operation差、Profile差、期限、clock rollback、乱数衝突、revoke、一回consumeおよびproduction偽造入口を確認した。
-- Selection Grant→Claude Adapter→短命Runtime Provider Authority→Docker Process Controller→構造化Result→cleanup／Recovery完了の隔離E2Eを`CHG-000043`と`CHG-000044`で接続した。残件はproduction eligibility observer／Profile resolver、有効化済みAuthority source loader、狭いDocker Effect／durable Recovery adapter、Codex Adapter、実Docker／Claude E2E、残る経路E2E、独立レビュー／監査およびPRである。
+- Selection Grant→Claude Adapter→短命Runtime Provider Authority→Docker Process Controller→構造化Result→cleanup／Recovery完了の隔離E2Eを`CHG-000043`と`CHG-000044`で接続した。Provider eligibility observerは`CHG-000046`で接続した。残件は両Providerの必要Effect Capability、production Profile resolver、有効化済みAuthority source loader、狭いDocker Effect／durable Recovery adapter、Codex Adapter、実Docker／Claude E2E、残る経路E2E、独立レビュー／監査およびPRである。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。
