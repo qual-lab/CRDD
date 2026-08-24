@@ -36,11 +36,14 @@ function fixture(
     candidateVerificationFails?: boolean;
     candidatePersistenceFails?: boolean;
     candidatePersistenceNeedsRecovery?: boolean;
+    candidatePersistenceNeedsStoreRecovery?: boolean;
     candidatePersistenceAllowed?: boolean;
+    candidateStoreUnavailable?: boolean;
     externalSendDenied?: boolean;
     pauseRole?: "executor" | "reviewer";
     discardFails?: boolean;
     publishFails?: boolean;
+    publishNeedsStoreRecovery?: boolean;
     processStartFailureRole?: "executor" | "reviewer";
     processCleanupFailureRole?: "executor" | "reviewer";
   } = {},
@@ -61,6 +64,7 @@ function fixture(
   let cleanupCount = 0;
   let selectionCount = 0;
   let discardCount = 0;
+  let externalAuthorizationCount = 0;
   let releasePausedProcess: (() => void) | null = null;
   const dependencies = {
     createOperation: () =>
@@ -92,6 +96,15 @@ function fixture(
         candidatePhysicalDeletion:
           "next_safe_runtime_entry_after_expiry_or_explicit_discard",
       }),
+    prepareCandidateStore: () =>
+      options.candidateStoreUnavailable
+        ? Object.freeze({
+            status: "blocked",
+            reason: "candidate_store_damaged_entry",
+            candidateStoreRecoveryId: `candidate-store-recovery.${"8".repeat(64)}`,
+            manualRecoveryRequired: true,
+          })
+        : Object.freeze({ status: "completed" }),
     reportSelectionNotice: (notice: Record<string, unknown>) => {
       selectionNotices.push(notice);
       events.push(`notice:${String(notice.taskRole)}`);
@@ -139,13 +152,15 @@ function fixture(
         mountAuthorizationCapability: Object.freeze({}),
       }),
     revokeMountGrant: () => Object.freeze({ status: "revoked" }),
-    authorizeExternalSend: () =>
-      options.externalSendDenied
+    authorizeExternalSend: () => {
+      externalAuthorizationCount += 1;
+      return options.externalSendDenied
         ? null
         : Object.freeze({
             status: "issued",
             capability: externalSendGrantCapability,
-          }),
+          });
+    },
     issueTaskPacket: (
       _management: object,
       _repository: object,
@@ -262,17 +277,25 @@ function fixture(
     persistCandidate: () =>
       options.candidatePersistenceFails
         ? null
-        : options.candidatePersistenceNeedsRecovery
+        : options.candidatePersistenceNeedsStoreRecovery
           ? Object.freeze({
               status: "blocked",
-              reason: "candidate_store_persist_recovery_required",
-              candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
+              reason: "candidate_store_damaged_entry",
+              candidateRecoveryId: null,
+              candidateStoreRecoveryId: `candidate-store-recovery.${"8".repeat(64)}`,
               manualRecoveryRequired: true,
             })
-          : Object.freeze({
-              status: "staged",
-              candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-            }),
+          : options.candidatePersistenceNeedsRecovery
+            ? Object.freeze({
+                status: "blocked",
+                reason: "candidate_store_persist_recovery_required",
+                candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
+                manualRecoveryRequired: true,
+              })
+            : Object.freeze({
+                status: "staged",
+                candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
+              }),
     discardCandidate: () => {
       discardCount += 1;
       return Object.freeze({
@@ -282,10 +305,17 @@ function fixture(
     publishCandidate: () =>
       options.publishFails
         ? null
-        : Object.freeze({
-            status: "published",
-            candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
-          }),
+        : options.publishNeedsStoreRecovery
+          ? Object.freeze({
+              status: "blocked",
+              candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
+              candidateStoreRecoveryId: `candidate-store-recovery.${"8".repeat(64)}`,
+              manualRecoveryRequired: true,
+            })
+          : Object.freeze({
+              status: "published",
+              candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
+            }),
   };
   const runtime = createIsolatedCoordinatorTaskRuntimeCandidate(
     dependencies as Parameters<
@@ -299,6 +329,7 @@ function fixture(
     events,
     cleanupCount: () => cleanupCount,
     discardCount: () => discardCount,
+    externalAuthorizationCount: () => externalAuthorizationCount,
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
       releasePausedProcess();
@@ -406,6 +437,24 @@ test("Candidate保存禁止Policyは外部送信とProvider Effect前に停止�
   assert.deepEqual(harness.events, []);
 });
 
+test("Candidate Storeを安全に準備できなければ外部送信Authority前に停止する", async () => {
+  const harness = fixture({ candidateStoreUnavailable: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_candidate_store_unavailable");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.match(
+    result.candidateStoreRecoveryId ?? "",
+    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
+  );
+  assert.equal(harness.externalAuthorizationCount(), 0);
+  assert.equal(harness.selectionRequests.length, 0);
+});
+
 test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
   const harness = fixture({ externalSendDenied: true });
   const result = await harness.runtime.start(
@@ -480,6 +529,25 @@ test("Candidate publish失敗はexport不能なRecovery IDだけを返す", asyn
   );
 });
 
+test("Candidate publishとStore障害を同時に観測しても二つのRecovery IDを保持する", async () => {
+  const harness = fixture({ publishNeedsStoreRecovery: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.match(
+    result.candidateRecoveryId ?? "",
+    /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
+  );
+  assert.match(
+    result.candidateStoreRecoveryId ?? "",
+    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
+  );
+});
+
 test("承認済みCandidateを永続化できない場合はIDを公開せずFail Closedする", async () => {
   const harness = fixture({ candidatePersistenceFails: true });
   const result = await harness.runtime.start(
@@ -491,6 +559,22 @@ test("承認済みCandidateを永続化できない場合はIDを公開せずFai
   assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
   assert.equal(result.candidateId, null);
   assert.equal(harness.cleanupCount(), 1);
+});
+
+test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返す", async () => {
+  const harness = fixture({ candidatePersistenceNeedsStoreRecovery: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.candidateRecoveryId, null);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.match(
+    result.candidateStoreRecoveryId ?? "",
+    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
+  );
 });
 
 test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破棄する", async () => {

@@ -44,6 +44,7 @@ pub enum RootRole {
 pub enum Provider {
     Codex = 1,
     Claude = 2,
+    CandidateStore = 3,
 }
 
 impl Provider {
@@ -51,6 +52,7 @@ impl Provider {
         match value {
             1 => Some(Self::Codex),
             2 => Some(Self::Claude),
+            3 => Some(Self::CandidateStore),
             _ => None,
         }
     }
@@ -59,6 +61,7 @@ impl Provider {
         match self {
             Self::Codex => "codex",
             Self::Claude => "claude",
+            Self::CandidateStore => "CandidateStore",
         }
     }
 }
@@ -91,6 +94,7 @@ pub struct Request {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProviderHomeRequest {
     pub provider: Provider,
+    pub initialize_if_missing: bool,
     pub nonce: [u8; 32],
     pub mount_source_hash: [u8; 32],
 }
@@ -213,16 +217,22 @@ pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> 
     if bytes.len() != PROVIDER_HOME_REQUEST_BYTES
         || bytes.get(..8)? != PROVIDER_HOME_REQUEST_MAGIC
         || read_u16(bytes, 8)? != PROVIDER_HOME_PROTOCOL_REVISION
-        || *bytes.get(11)? != 0
     {
         return None;
     }
     let request = ProviderHomeRequest {
         provider: Provider::parse(*bytes.get(10)?)?,
+        initialize_if_missing: match *bytes.get(11)? {
+            0 => false,
+            1 => true,
+            _ => return None,
+        },
         nonce: bytes.get(12..44)?.try_into().ok()?,
         mount_source_hash: bytes.get(44..76)?.try_into().ok()?,
     };
-    (request.mount_source_hash != [0_u8; 32]).then_some(request)
+    (request.mount_source_hash != [0_u8; 32]
+        && (!request.initialize_if_missing || request.provider == Provider::CandidateStore))
+        .then_some(request)
 }
 
 pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
@@ -441,9 +451,15 @@ mod tests {
     fn provider_home_request_accepts_only_fixed_provider_and_frame() {
         let request = parse_provider_home_request(&provider_home_request_bytes(2)).unwrap();
         assert_eq!(request.provider, Provider::Claude);
+        assert!(!request.initialize_if_missing);
         assert_eq!(request.nonce, [6_u8; 32]);
         assert_eq!(request.mount_source_hash, [7_u8; 32]);
-        for provider in [0, 3, u8::MAX] {
+        let mut candidate_store = provider_home_request_bytes(3);
+        candidate_store[11] = 1;
+        let candidate_store = parse_provider_home_request(&candidate_store).unwrap();
+        assert_eq!(candidate_store.provider, Provider::CandidateStore);
+        assert!(candidate_store.initialize_if_missing);
+        for provider in [0, 4, u8::MAX] {
             assert!(parse_provider_home_request(&provider_home_request_bytes(provider)).is_none());
         }
         let mut trailing = provider_home_request_bytes(1).to_vec();
@@ -452,6 +468,9 @@ mod tests {
         let mut reserved = provider_home_request_bytes(1);
         reserved[11] = 1;
         assert!(parse_provider_home_request(&reserved).is_none());
+        let mut invalid_action = provider_home_request_bytes(3);
+        invalid_action[11] = 2;
+        assert!(parse_provider_home_request(&invalid_action).is_none());
         let mut legacy = provider_home_request_bytes(1);
         legacy[..8].copy_from_slice(b"CRDDPH00");
         legacy[8..10].copy_from_slice(&0_u16.to_le_bytes());

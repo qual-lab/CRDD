@@ -173,7 +173,7 @@ fn binary_reports_candidate_blocked_and_invalid_requests() {
     assert_eq!(provider_home.stdout[10], 2);
     assert_eq!(&provider_home.stdout[12..44], &nonce);
 
-    let mut invalid_provider_home = provider_home_request(3, nonce);
+    let mut invalid_provider_home = provider_home_request(4, nonce);
     invalid_provider_home[11] = 1;
     let invalid_provider_home = invoke(&invalid_provider_home);
     assert_eq!(invalid_provider_home.status.code(), Some(2));

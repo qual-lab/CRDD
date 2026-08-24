@@ -1,19 +1,24 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
+import { acquireRuntimeOwnedCandidateStoreKernelLock } from "./candidate-store-kernel-lock.ts";
+import {
+  consumeRuntimeOwnedCandidateStoreRootCapability,
+  inspectRuntimeOwnedWindowsCandidateStore,
+} from "./candidate-store-windows-adapter.ts";
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const CANDIDATE_BUNDLE_STORE_CONTRACT =
   "crdd-coordinator/candidate-bundle-store";
-export const CANDIDATE_BUNDLE_STORE_CONTRACT_REVISION = 3;
+export const CANDIDATE_BUNDLE_STORE_CONTRACT_REVISION = 4;
 
 const STORE_DIRECTORY_NAME = "crdd-coordinator-candidates-v2";
 const STORE_LOCK_NAME = "candidate-store.lock";
 const CANDIDATE_ID_PATTERN = /^candidate\.([0-9a-f]{64})\.([0-9a-f]{64})$/u;
 const RECOVERY_ID_PATTERN =
   /^candidate-recovery\.([0-9a-f]{64})\.([0-9a-f]{64})$/u;
+const STORE_RECOVERY_ID_PATTERN = /^candidate-store-recovery\.([0-9a-f]{64})$/u;
 const STORE_ENTRY_PATTERN =
   /^(?:(?:candidate|staged)-[0-9a-f]{64}\.json|pending-[0-9a-f]{64}\.tmp)$/u;
 const MAXIMUM_BUNDLE_BYTES = 24 * 1024 * 1024;
@@ -64,6 +69,7 @@ type CandidateStoreFaultOperation =
   | "before_published_verify";
 
 type CandidateStoreRuntime = Readonly<{
+  securityBoundary: "production" | "testing";
   temporaryDirectory: () => string;
   nowMs: () => number;
   randomBytes: (size: number) => Buffer;
@@ -78,7 +84,8 @@ type CandidateStoreTestingOptions = Readonly<{
 }>;
 
 const PRODUCTION_RUNTIME: CandidateStoreRuntime = Object.freeze({
-  temporaryDirectory: os.tmpdir,
+  securityBoundary: "production",
+  temporaryDirectory: () => "",
   nowMs: Date.now,
   randomBytes,
   injectFault: () => {},
@@ -86,15 +93,18 @@ const PRODUCTION_RUNTIME: CandidateStoreRuntime = Object.freeze({
 
 class CandidateStoreFailure extends Error {
   readonly recoveryId: string | null;
+  readonly storeRecoveryId: string | null;
   readonly manualRecoveryRequired: boolean;
 
   constructor(
     reason: string,
     recoveryId: string | null = null,
     manualRecoveryRequired = false,
+    storeRecoveryId: string | null = null,
   ) {
     super(reason);
     this.recoveryId = recoveryId;
+    this.storeRecoveryId = storeRecoveryId;
     this.manualRecoveryRequired = manualRecoveryRequired;
   }
 }
@@ -106,6 +116,34 @@ function errorCode(error: unknown) {
 }
 
 function storeDirectory(runtime: CandidateStoreRuntime) {
+  if (runtime.securityBoundary === "production") {
+    const observation = inspectRuntimeOwnedWindowsCandidateStore(
+      true,
+      new Date().toISOString(),
+    );
+    const root = consumeRuntimeOwnedCandidateStoreRootCapability(
+      observation.rootCapability,
+    );
+    if (
+      observation.status !== "candidate" ||
+      !root ||
+      observation.selectedUserBindingVerified !== true ||
+      observation.protectionVerified !== true ||
+      observation.stableIdentityObserved !== true
+    ) {
+      throw new CandidateStoreFailure(
+        observation.reason,
+        null,
+        observation.manualRecoveryRequired === true,
+      );
+    }
+    return Object.freeze({
+      store: root.rootPath,
+      candidateStoreIdentityHash: root.candidateStoreIdentityHash,
+      candidateStoreProtectionHash: root.candidateStoreProtectionHash,
+      localUserBindingHash: root.localUserBindingHash,
+    });
+  }
   const temporaryParent = fs.realpathSync.native(runtime.temporaryDirectory());
   const parentMetadata = fs.lstatSync(temporaryParent);
   if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink())
@@ -125,7 +163,35 @@ function storeDirectory(runtime: CandidateStoreRuntime) {
   ) {
     throw new Error("candidate_store_directory_invalid");
   }
-  return store;
+  return Object.freeze({
+    store,
+    candidateStoreIdentityHash: "testing",
+    candidateStoreProtectionHash: "testing",
+    localUserBindingHash: "testing",
+  });
+}
+
+function verifyProductionStoreDirectory(
+  runtime: CandidateStoreRuntime,
+  expected: ReturnType<typeof storeDirectory>,
+) {
+  if (runtime.securityBoundary !== "production") return true;
+  const observation = inspectRuntimeOwnedWindowsCandidateStore(
+    false,
+    new Date().toISOString(),
+  );
+  const root = consumeRuntimeOwnedCandidateStoreRootCapability(
+    observation.rootCapability,
+  );
+  return (
+    observation.status === "candidate" &&
+    root !== null &&
+    root.candidateStoreIdentityHash === expected.candidateStoreIdentityHash &&
+    root.candidateStoreProtectionHash ===
+      expected.candidateStoreProtectionHash &&
+    root.localUserBindingHash === expected.localUserBindingHash &&
+    root.rootPath === expected.store
+  );
 }
 
 function candidateLocation(rawCandidateId: unknown) {
@@ -368,6 +434,25 @@ function sameStableFileIdentity(
   );
 }
 
+function candidateStoreRecoveryId(name: string, identity: StableFileIdentity) {
+  return `candidate-store-recovery.${createHash("sha256")
+    .update("crdd-candidate-store-recovery-v1\0")
+    .update(name, "utf8")
+    .update("\0")
+    .update(identity.dev.toString(16))
+    .update("\0")
+    .update(identity.ino.toString(16))
+    .update("\0")
+    .update(identity.birthtimeNs.toString(16))
+    .update("\0")
+    .update(identity.size.toString(16))
+    .update("\0")
+    .update(identity.mtimeNs.toString(16))
+    .update("\0")
+    .update(identity.ctimeNs.toString(16))
+    .digest("hex")}`;
+}
+
 function waitForLockRetry() {
   Atomics.wait(
     new Int32Array(new SharedArrayBuffer(4)),
@@ -402,7 +487,88 @@ function withStoreLock<T>(
   runtime: CandidateStoreRuntime,
   operation: (store: string, nowMs: number) => T,
 ) {
-  const store = storeDirectory(runtime);
+  let resolvedStore: ReturnType<typeof storeDirectory>;
+  try {
+    resolvedStore = storeDirectory(runtime);
+  } catch (error) {
+    const failure =
+      error instanceof CandidateStoreFailure
+        ? error
+        : new CandidateStoreFailure("candidate_store_root_unavailable");
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: failure.message,
+      value: null,
+      recoveryId: failure.recoveryId,
+      storeRecoveryId: failure.storeRecoveryId,
+      manualRecoveryRequired: failure.manualRecoveryRequired,
+    });
+  }
+  const store = resolvedStore.store;
+  if (runtime.securityBoundary === "production") {
+    const kernelLock = acquireRuntimeOwnedCandidateStoreKernelLock(
+      resolvedStore.candidateStoreProtectionHash,
+    );
+    if (!kernelLock) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "candidate_store_kernel_lock_unavailable",
+        value: null,
+        recoveryId: null,
+        storeRecoveryId: null,
+        manualRecoveryRequired: false,
+      });
+    }
+    let value: T | null = null;
+    let failure: CandidateStoreFailure | null = null;
+    try {
+      const nowMs = runtime.nowMs();
+      if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+        throw new CandidateStoreFailure("candidate_store_clock_invalid");
+      }
+      value = operation(store, nowMs);
+      if (!verifyProductionStoreDirectory(runtime, resolvedStore)) {
+        throw new CandidateStoreFailure(
+          "candidate_store_root_changed_recovery_required",
+          recoverableCandidateIdFromValue(value),
+          true,
+        );
+      }
+    } catch (error) {
+      failure =
+        error instanceof CandidateStoreFailure
+          ? error
+          : new CandidateStoreFailure("candidate_store_operation_failed");
+    }
+    if (!kernelLock.release()) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "candidate_store_kernel_lock_release_unconfirmed",
+        value,
+        recoveryId:
+          failure?.recoveryId ?? recoverableCandidateIdFromValue(value),
+        storeRecoveryId: failure?.storeRecoveryId ?? null,
+        manualRecoveryRequired: true,
+      });
+    }
+    return failure
+      ? Object.freeze({
+          status: "blocked" as const,
+          reason: failure.message,
+          value,
+          recoveryId: failure.recoveryId,
+          storeRecoveryId: failure.storeRecoveryId,
+          manualRecoveryRequired: failure.manualRecoveryRequired,
+        })
+      : Object.freeze({
+          status: "completed" as const,
+          reason: "candidate_store_operation_completed",
+          value: value as T,
+          recoveryId: null,
+          storeRecoveryId: null,
+          manualRecoveryRequired: false,
+        });
+  }
   const lockTarget = path.join(store, STORE_LOCK_NAME);
   let handle: number | null = null;
   for (let attempt = 0; attempt < STORE_LOCK_ATTEMPTS; attempt += 1) {
@@ -416,6 +582,7 @@ function withStoreLock<T>(
           reason: "candidate_store_lock_create_failed",
           value: null,
           recoveryId: null,
+          storeRecoveryId: null,
           manualRecoveryRequired: true,
         });
       }
@@ -444,6 +611,7 @@ function withStoreLock<T>(
         : "candidate_store_lock_unavailable",
       value: null,
       recoveryId: null,
+      storeRecoveryId: null,
       manualRecoveryRequired: isStale,
     });
   }
@@ -476,6 +644,7 @@ function withStoreLock<T>(
         reason: "candidate_store_lock_initialization_recovery_required",
         value: null,
         recoveryId: null,
+        storeRecoveryId: null,
         manualRecoveryRequired: true,
       });
     }
@@ -487,6 +656,7 @@ function withStoreLock<T>(
           : "candidate_store_lock_initialization_failed",
       value: null,
       recoveryId: null,
+      storeRecoveryId: null,
       manualRecoveryRequired: false,
     });
   }
@@ -511,6 +681,7 @@ function withStoreLock<T>(
       reason: "candidate_store_lock_release_recovery_required",
       value,
       recoveryId: failure?.recoveryId ?? null,
+      storeRecoveryId: failure?.storeRecoveryId ?? null,
       manualRecoveryRequired: true,
     });
   }
@@ -520,6 +691,7 @@ function withStoreLock<T>(
         reason: failure.message,
         value,
         recoveryId: failure.recoveryId,
+        storeRecoveryId: failure.storeRecoveryId,
         manualRecoveryRequired: failure.manualRecoveryRequired,
       })
     : Object.freeze({
@@ -527,6 +699,7 @@ function withStoreLock<T>(
         reason: "candidate_store_operation_completed",
         value: value as T,
         recoveryId: null,
+        storeRecoveryId: null,
         manualRecoveryRequired: false,
       });
 }
@@ -650,7 +823,23 @@ function storeInventoryAndGc(
         );
       }
       if (!entry.isFile() || !STORE_ENTRY_PATTERN.test(entry.name)) {
-        throw new CandidateStoreFailure("candidate_store_unknown_entry");
+        let storeRecoveryId: string | null = null;
+        if (entry.isFile()) {
+          try {
+            const identity = stableFileIdentity(
+              fs.lstatSync(path.join(store, entry.name), { bigint: true }),
+            );
+            storeRecoveryId = candidateStoreRecoveryId(entry.name, identity);
+          } catch {
+            storeRecoveryId = null;
+          }
+        }
+        throw new CandidateStoreFailure(
+          "candidate_store_unknown_entry",
+          null,
+          true,
+          storeRecoveryId,
+        );
       }
       const target = path.join(store, entry.name);
       const identity = stableFileIdentity(
@@ -687,7 +876,15 @@ function storeInventoryAndGc(
     } catch {
       stored = null;
     }
-    if (!stored || stored.expiresAtMs > nowMs) continue;
+    if (!stored) {
+      throw new CandidateStoreFailure(
+        "candidate_store_damaged_entry",
+        null,
+        true,
+        candidateStoreRecoveryId(entry.name, entry.identity),
+      );
+    }
+    if (stored.expiresAtMs > nowMs) continue;
     const storageId = /-([0-9a-f]{64})\.(?:json|tmp)$/u.exec(entry.name)?.[1];
     const ownedRecoveryId =
       storageId && hash ? recoveryId(storageId, hash) : null;
@@ -712,7 +909,23 @@ function storeInventoryAndGc(
       if (!entry) break;
       if (entry.name === STORE_LOCK_NAME) continue;
       if (!entry.isFile() || !STORE_ENTRY_PATTERN.test(entry.name)) {
-        throw new CandidateStoreFailure("candidate_store_unknown_entry");
+        let storeRecoveryId: string | null = null;
+        if (entry.isFile()) {
+          try {
+            const identity = stableFileIdentity(
+              fs.lstatSync(path.join(store, entry.name), { bigint: true }),
+            );
+            storeRecoveryId = candidateStoreRecoveryId(entry.name, identity);
+          } catch {
+            storeRecoveryId = null;
+          }
+        }
+        throw new CandidateStoreFailure(
+          "candidate_store_unknown_entry",
+          null,
+          true,
+          storeRecoveryId,
+        );
       }
       count += 1;
       if (count > MAXIMUM_STORE_ENTRIES) {
@@ -738,14 +951,37 @@ function blockedResult(
   reason: string,
   candidateRecoveryId: string | null,
   manualRecoveryRequired: boolean,
+  candidateStoreRecoveryId: string | null = null,
 ) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
     candidateRecoveryId,
+    candidateStoreRecoveryId,
     manualRecoveryRequired,
     hostPathReported: false,
   });
+}
+
+function recoverableCandidateIdFromValue(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Readonly<Record<string, unknown>>;
+  if (
+    typeof record.candidateRecoveryId === "string" &&
+    RECOVERY_ID_PATTERN.test(record.candidateRecoveryId)
+  ) {
+    return record.candidateRecoveryId;
+  }
+  if (
+    typeof record.candidateId === "string" &&
+    CANDIDATE_ID_PATTERN.test(record.candidateId)
+  ) {
+    const location = candidateLocation(record.candidateId);
+    return location
+      ? recoveryId(location.storageId, location.expectedHash)
+      : null;
+  }
+  return null;
 }
 
 function persistRuntimeOwnedCandidateBundleWithRuntime(
@@ -902,20 +1138,19 @@ function persistRuntimeOwnedCandidateBundleWithRuntime(
     if (locked.status === "completed") return locked.value;
     const remainingRecoveryId =
       locked.recoveryId ?? locked.value?.candidateRecoveryId ?? null;
-    return remainingRecoveryId
-      ? Object.freeze({
-          ...blockedResult(
-            locked.reason,
-            remainingRecoveryId,
-            locked.manualRecoveryRequired,
-          ),
-          bundleHash,
-          byteLength: serialized.byteLength,
-          expiresAtMs: stored.expiresAtMs,
-          secretScanHeuristic: true,
-          credentialAbsenceVerified: false,
-        })
-      : null;
+    return Object.freeze({
+      ...blockedResult(
+        locked.reason,
+        remainingRecoveryId,
+        locked.manualRecoveryRequired,
+        locked.storeRecoveryId,
+      ),
+      bundleHash,
+      byteLength: serialized.byteLength,
+      expiresAtMs: stored.expiresAtMs,
+      secretScanHeuristic: true,
+      credentialAbsenceVerified: false,
+    });
   } catch {
     return null;
   }
@@ -947,15 +1182,18 @@ function readRuntimeOwnedCandidateBundleWithRuntime(
         credentialAbsenceVerified: false,
       });
     });
-    return locked.status === "completed"
-      ? locked.value
-      : locked.manualRecoveryRequired || locked.recoveryId
-        ? blockedResult(
-            locked.reason,
-            locked.recoveryId,
-            locked.manualRecoveryRequired,
-          )
-        : null;
+    if (locked.status === "completed") return locked.value;
+    return locked.reason === "candidate_store_operation_failed" &&
+      !locked.manualRecoveryRequired &&
+      !locked.recoveryId &&
+      !locked.storeRecoveryId
+      ? null
+      : blockedResult(
+          locked.reason,
+          locked.recoveryId,
+          locked.manualRecoveryRequired,
+          locked.storeRecoveryId,
+        );
   } catch {
     return null;
   }
@@ -1036,7 +1274,7 @@ function publishRuntimeOwnedCandidateBundleWithRuntime(
         throw new CandidateStoreFailure(
           "candidate_bundle_publish_recovery_required",
           isOwnedEntityPresent ? location.candidateId : null,
-          false,
+          isOwnedEntityPresent,
         );
       }
     });
@@ -1046,6 +1284,7 @@ function publishRuntimeOwnedCandidateBundleWithRuntime(
           locked.reason,
           locked.recoveryId,
           locked.manualRecoveryRequired,
+          locked.storeRecoveryId,
         );
   } catch {
     return null;
@@ -1063,8 +1302,7 @@ function discardRuntimeOwnedCandidateBundleWithRuntime(
       location.storageId,
       location.expectedHash,
     );
-    const locked = withStoreLock(runtime, (store, nowMs) => {
-      storeInventoryAndGc(runtime, store, nowMs);
+    const locked = withStoreLock(runtime, (store) => {
       const existing = existingTargets(store, location.storageId).filter(
         (entry) => location.kind === "staged" || entry.kind === "published",
       );
@@ -1105,9 +1343,115 @@ function discardRuntimeOwnedCandidateBundleWithRuntime(
           locked.reason,
           locked.recoveryId,
           locked.manualRecoveryRequired,
+          locked.storeRecoveryId,
         );
   } catch {
     return Object.freeze({ status: "blocked" as const });
+  }
+}
+
+function recoverRuntimeOwnedCandidateStoreWithRuntime(
+  runtime: CandidateStoreRuntime,
+  rawRecoveryId: unknown,
+) {
+  try {
+    if (
+      typeof rawRecoveryId !== "string" ||
+      !STORE_RECOVERY_ID_PATTERN.test(rawRecoveryId)
+    ) {
+      return blockedResult("candidate_store_recovery_id_invalid", null, false);
+    }
+    const locked = withStoreLock(runtime, (store) => {
+      const directory = fs.opendirSync(store);
+      const matches: Array<{
+        target: string;
+        identity: StableFileIdentity;
+      }> = [];
+      let scannedEntries = 0;
+      try {
+        while (true) {
+          const entry = directory.readSync();
+          if (!entry) break;
+          if (entry.name === STORE_LOCK_NAME) continue;
+          scannedEntries += 1;
+          if (scannedEntries > MAXIMUM_INVENTORY_SCAN_ENTRIES) {
+            throw new CandidateStoreFailure(
+              "candidate_store_inventory_scan_budget_exceeded",
+            );
+          }
+          if (!entry.isFile()) continue;
+          const target = path.join(store, entry.name);
+          const identity = stableFileIdentity(
+            fs.lstatSync(target, { bigint: true }),
+          );
+          let isRecoverable = !STORE_ENTRY_PATTERN.test(entry.name);
+          if (!isRecoverable) {
+            try {
+              if (
+                identity.size <= 0n ||
+                identity.size > BigInt(MAXIMUM_BUNDLE_BYTES)
+              ) {
+                isRecoverable = true;
+              } else {
+                isRecoverable =
+                  storedCandidate(fs.readFileSync(target)) === null;
+              }
+            } catch {
+              isRecoverable = true;
+            }
+          }
+          if (
+            isRecoverable &&
+            candidateStoreRecoveryId(entry.name, identity) === rawRecoveryId
+          ) {
+            matches.push({ target, identity });
+          }
+        }
+      } finally {
+        directory.closeSync();
+      }
+      if (matches.length !== 1 || !matches[0]) {
+        throw new CandidateStoreFailure(
+          matches.length > 1
+            ? "candidate_store_recovery_ambiguous"
+            : "candidate_store_recovery_target_unavailable",
+          null,
+          true,
+          rawRecoveryId,
+        );
+      }
+      try {
+        stableRemove(
+          runtime,
+          matches[0].target,
+          matches[0].identity,
+          "before_discard_remove",
+        );
+      } catch {
+        throw new CandidateStoreFailure(
+          "candidate_store_recovery_cleanup_unconfirmed",
+          null,
+          true,
+          rawRecoveryId,
+        );
+      }
+      return Object.freeze({
+        status: "recovered" as const,
+        reason: "candidate_store_exact_entry_recovered",
+        manualRecoveryRequired: false,
+        hostPathReported: false,
+      });
+    });
+    return locked.status === "completed"
+      ? locked.value
+      : blockedResult(
+          locked.reason,
+          locked.recoveryId,
+          locked.manualRecoveryRequired,
+          locked.storeRecoveryId,
+        );
+  } catch {
+    return blockedResult("candidate_store_recovery_failed", null, true);
   }
 }
 
@@ -1127,6 +1471,7 @@ function runCandidateStoreGcWithRuntime(runtime: CandidateStoreRuntime) {
           locked.reason,
           locked.recoveryId,
           locked.manualRecoveryRequired,
+          locked.storeRecoveryId,
         );
   } catch {
     return blockedResult("candidate_store_gc_failed", null, true);
@@ -1165,6 +1510,13 @@ export function discardRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
   );
 }
 
+export function recoverRuntimeOwnedCandidateStore(rawRecoveryId: unknown) {
+  return recoverRuntimeOwnedCandidateStoreWithRuntime(
+    PRODUCTION_RUNTIME,
+    rawRecoveryId,
+  );
+}
+
 export function runRuntimeOwnedCandidateStoreStartupGc() {
   return runCandidateStoreGcWithRuntime(PRODUCTION_RUNTIME);
 }
@@ -1180,6 +1532,7 @@ export function createCandidateBundleStoreTestingAdapter(
     throw new Error("candidate_store_testing_options_invalid");
   }
   const runtime = Object.freeze({
+    securityBoundary: "testing" as const,
     temporaryDirectory: () => options.temporaryDirectory,
     nowMs: options.nowMs ?? Date.now,
     randomBytes: options.randomBytes ?? randomBytes,
@@ -1198,8 +1551,10 @@ export function createCandidateBundleStoreTestingAdapter(
       publishRuntimeOwnedCandidateBundleWithRuntime(runtime, rawRecoveryId),
     discard: (rawCandidateId: unknown) =>
       discardRuntimeOwnedCandidateBundleWithRuntime(runtime, rawCandidateId),
+    recoverStore: (rawRecoveryId: unknown) =>
+      recoverRuntimeOwnedCandidateStoreWithRuntime(runtime, rawRecoveryId),
     startupGc: () => runCandidateStoreGcWithRuntime(runtime),
-    testingStoreDirectory: () => storeDirectory(runtime),
+    testingStoreDirectory: () => storeDirectory(runtime).store,
   });
 }
 
@@ -1214,9 +1569,11 @@ export function describeCandidateBundleStoreContract() {
     physicalDeletion:
       "best_effort_bounded_gc_without_strict_instant_deletion_claim",
     crossProcessSerialization:
-      "fixed_selected_user_temporary_store_exclusive_lock_fail_closed_without_guessed_stale_deletion",
+      "selected_user_sid_store_identity_and_protection_bound_windows_kernel_named_pipe_lock_released_on_process_termination",
+    rootProtection:
+      "windows_known_folder_fixed_volume_non_reparse_selected_user_owner_exact_protected_dacl_observed_before_and_after",
     recovery:
-      "pending_staged_or_published_exact_one_resolution_by_candidate_recovery_id",
+      "pending_staged_or_published_exact_one_candidate_recovery_and_unknown_or_damaged_exact_entry_store_recovery",
     capacity: Object.freeze({
       maximumEntries: MAXIMUM_STORE_ENTRIES,
       maximumBytes: MAXIMUM_STORE_BYTES,

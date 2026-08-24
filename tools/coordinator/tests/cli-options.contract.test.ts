@@ -643,6 +643,24 @@ test("candidateはopaque IDの明示ExportまたはDiscardだけを受理する"
       .status,
     "blocked",
   );
+  const storeRecoveryId = `candidate-store-recovery.${"3".repeat(64)}`;
+  const storeRecovery = parseCandidateArguments([
+    "recover-store",
+    "--recovery-id",
+    storeRecoveryId,
+    "--confirm",
+    "--json",
+  ]);
+  assert.equal(storeRecovery.status, "ok");
+  assert.equal(
+    Reflect.get(storeRecovery.value as object, "recoveryId"),
+    storeRecoveryId,
+  );
+  assert.equal(
+    parseCandidateArguments(["recover-store", "--recovery-id", storeRecoveryId])
+      .status,
+    "blocked",
+  );
 });
 
 test("実task CLIは曖昧JSONと偽RepositoryをProvider Effect前に拒否する", () => {

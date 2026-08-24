@@ -10,6 +10,7 @@ export const PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES = 150;
 const requestMagic = Buffer.from("CRDDPH01", "ascii");
 const responseMagic = Buffer.from("CRDDHO01", "ascii");
 const PROVIDERS = Object.freeze({ codex: 1, claude: 2 } as const);
+const CANDIDATE_STORE_PROVIDER_VALUE = 3;
 const RESPONSE_STATUS_CANDIDATE = 1;
 const OBSERVATION_CANDIDATE_REASON = 100;
 const MOUNT_SOURCE_HASH_DOMAIN = Buffer.from(
@@ -188,6 +189,41 @@ export function createProviderHomeObservationRequest(
   }
 }
 
+export function createCandidateStoreObservationRequest(
+  mountSourcePath: unknown,
+  initializeIfMissing: unknown,
+  nonceSource: () => Buffer = () => randomBytes(32),
+) {
+  try {
+    if (
+      typeof mountSourcePath !== "string" ||
+      mountSourcePath.length === 0 ||
+      mountSourcePath.length > 32_767 ||
+      mountSourcePath.includes("\0") ||
+      typeof initializeIfMissing !== "boolean"
+    ) {
+      return null;
+    }
+    const nonce = snapshotBuffer(nonceSource(), 32);
+    if (!nonce) return null;
+    const mountSourceHash = createHash("sha256")
+      .update(MOUNT_SOURCE_HASH_DOMAIN)
+      .update(Buffer.from([CANDIDATE_STORE_PROVIDER_VALUE]))
+      .update(Buffer.from(mountSourcePath, "utf16le"))
+      .digest();
+    const request = Buffer.alloc(PROVIDER_HOME_OBSERVATION_REQUEST_BYTES);
+    requestMagic.copy(request, 0);
+    request.writeUInt16LE(PROVIDER_HOME_OBSERVATION_PROTOCOL_REVISION, 8);
+    request[10] = CANDIDATE_STORE_PROVIDER_VALUE;
+    request[11] = initializeIfMissing ? 1 : 0;
+    nonce.copy(request, 12);
+    mountSourceHash.copy(request, 44);
+    return Object.freeze({ nonce, request });
+  } catch {
+    return null;
+  }
+}
+
 export function evaluateProviderHomeObservationResponseCandidate(
   rawResponse: unknown,
   expectedNonce: unknown,
@@ -283,6 +319,74 @@ export function evaluateProviderHomeObservationResponseCandidate(
   }
 }
 
+export function evaluateCandidateStoreObservationResponseCandidate(
+  rawResponse: unknown,
+  expectedNonce: unknown,
+) {
+  try {
+    const response = snapshotBuffer(
+      rawResponse,
+      PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
+    );
+    const nonce = snapshotBuffer(expectedNonce, 32);
+    if (
+      !response ||
+      !nonce ||
+      !matchesBytes(response, 0, responseMagic) ||
+      readUInt16LittleEndian(response, 8) !==
+        PROVIDER_HOME_OBSERVATION_PROTOCOL_REVISION ||
+      readByte(response, 10) !== CANDIDATE_STORE_PROVIDER_VALUE ||
+      readByte(response, 11) !== RESPONSE_STATUS_CANDIDATE ||
+      !matchesBytes(response, 12, nonce) ||
+      readUInt16LittleEndian(response, 44) !== OBSERVATION_CANDIDATE_REASON
+    ) {
+      return blocked("candidate_store_observation_response_invalid");
+    }
+    const principalFlags = readUInt32LittleEndian(response, 46);
+    const homeFlags = readUInt32LittleEndian(response, 50);
+    if (
+      (principalFlags & ~KNOWN_PRINCIPAL_FLAGS) !== 0 ||
+      (principalFlags & REQUIRED_PRINCIPAL_FLAGS) !==
+        REQUIRED_PRINCIPAL_FLAGS ||
+      (principalFlags & FORBIDDEN_PRINCIPAL_FLAGS) !== 0 ||
+      homeFlags !== REQUIRED_HOME_FLAGS
+    ) {
+      return blocked("candidate_store_observation_response_invalid");
+    }
+    const candidateStoreIdentityHash = nonzeroHash(response, 54);
+    const candidateStoreProtectionHash = nonzeroHash(response, 86);
+    const localUserBindingHash = nonzeroHash(response, 118);
+    if (
+      !candidateStoreIdentityHash ||
+      !candidateStoreProtectionHash ||
+      !localUserBindingHash ||
+      candidateStoreIdentityHash === candidateStoreProtectionHash ||
+      candidateStoreIdentityHash === localUserBindingHash ||
+      candidateStoreProtectionHash === localUserBindingHash
+    ) {
+      return blocked("candidate_store_observation_response_invalid");
+    }
+    return Object.freeze({
+      status: "candidate" as const,
+      reason: "runtime_owned_candidate_store_observed_candidate",
+      candidateStoreIdentityHash,
+      candidateStoreProtectionHash,
+      localUserBindingHash,
+      selectedUserBindingVerified: true,
+      protectionVerified: true,
+      stableIdentityObserved: true,
+      pathReported: false,
+      principalReported: false,
+      aclReported: false,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+      runtimeAuthorityIssued: false,
+    });
+  } catch {
+    return blocked("candidate_store_observation_response_invalid");
+  }
+}
+
 export function describeProviderHomeObservationContract() {
   return Object.freeze({
     contract: PROVIDER_HOME_OBSERVATION_CONTRACT,
@@ -297,6 +401,11 @@ export function describeProviderHomeObservationContract() {
     requestPrincipalField: false,
     nativeRootSource: "windows_known_folder_local_app_data",
     fixedSegments: Object.freeze(["Qual-Lab", "CRDD", "ProviderHomes"]),
+    candidateStoreFixedSegments: Object.freeze([
+      "Qual-Lab",
+      "CRDD",
+      "CandidateStore",
+    ]),
     selectedUserBinder:
       "native_current_primary_local_interactive_token_sid_authentication_luid_and_flags",
     protectionObservation:

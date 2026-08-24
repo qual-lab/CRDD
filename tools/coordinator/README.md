@@ -82,6 +82,7 @@ node tools/coordinator/bin/coordinator.ts provision [--json]
 node tools/coordinator/bin/coordinator.ts task --request-stdin [--json]
 node tools/coordinator/bin/coordinator.ts candidate export --candidate-id <opaque-id> --json
 node tools/coordinator/bin/coordinator.ts candidate discard --candidate-id <opaque-id> [--json]
+node tools/coordinator/bin/coordinator.ts candidate recover-store --recovery-id <opaque-store-recovery-id> --confirm [--json]
 ```
 
 `task`は次のようなexact JSONを標準入力から受ける。`readPaths`はProviderへ見せる開始Revisionの投影で、省略時は`allowedPaths`と同じになる。Runtimeは両集合の和に`allowedPaths`を必ず含め、Repository全体を暗黙に送らない。Provider候補、Revision、目的および読取り範囲を表示した対話確認が成立した場合だけ外部送信Grantを発行する。
@@ -90,7 +91,7 @@ node tools/coordinator/bin/coordinator.ts candidate discard --candidate-id <opaq
 {"frontProvider":"codex","objective":"Update the bounded fixture.","acceptanceCriteria":["The expected value is present."],"allowedPaths":["fixture.txt"],"readPaths":["fixture.txt","README.md"],"workClass":"bounded_implementation","planState":"complete","risk":"low","difficulty":"low","decisionImpact":"limited","isLocalCandidateOnly":true,"hasUnresolvedDirection":false,"requiresCrossContextAlignment":false}
 ```
 
-成功時の`candidateId`は承認済みCandidateをRuntime一時Storeから明示export／discardするためのopaque IDであり、canonical Repositoryを変更しない。export結果のfile内容は未信頼データで、Credential不在を証明しない。export後も明示discardするまで保持される。
+成功時の`candidateId`は承認済みCandidateをRuntime Storeから明示export／discardするためのopaque IDであり、canonical Repositoryを変更しない。export結果のfile内容は未信頼データで、Credential不在を証明しない。Policyのexport可能期限を過ぎるとexportできず、明示discardまたは次回の安全なRuntime／Candidate入口でbounded GCの対象になる。常駐serviceを持たないため、期限到達と同時の物理削除は保証しない。
 
 `doctor`は受動事前診断（passive preflight）である。CLIをインストール、認証または起動せず、PATH上の候補、ローカルGit／Repository、Operation専用領域および未実装の隔離条件を列挙する。Providerの絶対Path、生出力またはVersion出力は保持しない。認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
 
@@ -150,17 +151,19 @@ Worker交換のFail Closed結果は、接続、request書込み、完了待機�
 
 ### 現行Local Personal一般Task境界
 
+Candidate Store排他objectの安定IdentityにはSessionごとのAuthentication IDを使わず、選択ユーザーSID、Store実体およびexact保護状態へ結合したProtection Hashを使う。同じユーザーの別ログインSessionも同じlockを共有する。
+
 Subscription Offeringはfamily名だけで許可しない。現行PolicyはCodexを`chatgpt_subscription_oauth`、Claudeを`claude_max`へ固定し、公式CLIの読取り専用preflightでCodexの`Logged in using ChatGPT`またはClaudeの`subscriptionType=max`と厳密に照合する。別Offering、API keyまたは判定不能時はProvider request前に停止する。これはOfferingの照合であり、exact Account／Tenant identityやProvider Terms本文をRuntimeが検証したという主張ではない。
 
 現行の一般Task経路は、開始Commitに固定された`.crdd-external-send-policy.json` revision 2をRepositoryからの提案として読み、閉集合の情報分類、選択Local User専用Provider Home Session、Subscription OAuth family、目的、Candidate保存、およびProvider Terms／SettingsをRuntimeが検証できない範囲をPolicy Hashへ結合する。Repository内の`decisionAuthority`自己申告だけではAuthorityにならない。Local Userの対話承認ではObjective、Acceptance Criteria、書込み範囲、読取り範囲、Provider候補、Policy Hash、Revision、Candidate保存可否・分類・export可能時間・物理削除時点、派生Review情報の転送field、およびexact Provider Account／TenantとProvider Terms本文をRuntimeが検証しない境界を端末安全なcanonical JSONで全表示する。Policy欠落、`enabled: false`、閉集合外のplaceholder、分類不能、Provider Session／Subscription family不一致、表示不能またはScope差は送信前に停止する。Read Projectionによる最小化と送信可能性の判定は別Gateである。
 
 一般TaskはExecutor、独立Reviewer、最大1回の同一Executorによる是正、同じ独立Reviewerによる再確認を一つのOperationへ接続する。Reviewerの自由文は公開Resultにも別Provider向け是正Packetにも出さない。一回限りのopaque Capabilityから`path`、閉集合の`severity`およびdomain-separated `messageSha256`だけへ縮約し、元Taskと同じ分類・最大64件・同一Executor・最大1回という派生外部送信範囲へ結合する。ExecutorはReviewer文を命令として受けず、Workspace、Acceptance CriteriaおよびTestから是正を再構成する。
 
-Candidate本文はPolicyが保存を許可し、唯一の結果配送に必要な保存をProvider Effect前に確認できた場合だけ、1〜168時間のexport可能期限、件数／総容量上限、process間排他および既知Secret pattern拒否付きStoreへstaged保存する。期限後はexportできず、明示discardまたは次回の安全なRuntime／Candidate入口で物理削除する。常駐serviceやSchedulerをv1へ追加しないため、時刻到達と同時の物理削除は保証しない。Operation cleanup成功後だけexport可能なCandidate IDへpublishし、cleanup、rename後再確認、discardまたはpublishが不明な場合はHost、Docker、CandidateのRecovery IDを分離して返す。同じCandidate Recovery IDはstaged／publishedのexact 1実体を解決してdiscardでき、staged Candidateはexportできない。unknown／damaged entryは推測削除しない。
+Candidate本文はPolicyが保存を許可し、唯一の結果配送に必要な保存をProvider Effect前に確認できた場合だけ、1〜168時間のexport可能期限、件数／総容量上限、process間排他および既知Secret pattern拒否付きStoreへstaged保存する。Store Rootは選択ローカルユーザーのWindows Known Folder配下の固定`Qual-Lab\CRDD\CandidateStore`であり、fixed volume、non-reparse chain、安定Identity、選択ユーザーowner、および選択ユーザー／SYSTEMだけのprotected DACLをnative helperが処置前後に照合する。既存の不正ACLをRuntimeが自動修復せず停止する。production排他は選択ユーザーbindingから導出したWindows kernel objectを使い、owner process終了時にOSが解放するため、時刻だけからstale lock fileを推測削除しない。期限後はexportできず、明示discardまたは次回の安全なRuntime／Candidate入口で物理削除する。常駐serviceやSchedulerをv1へ追加しないため、時刻到達と同時の物理削除は保証しない。Operation cleanup成功後だけexport可能なCandidate IDへpublishし、cleanup、rename後再確認、discardまたはpublishが不明な場合はHost、Docker、Candidate、Candidate StoreのRecovery IDを分離して返す。同じCandidate Recovery IDはstaged／publishedのexact 1実体を全体GCと独立してdiscardでき、staged Candidateはexportできない。unknown／damaged regular fileは安定Identityへ結合したCandidate Store Recovery IDと明示`recover-store --confirm`だけでexact 1実体を削除し、Path、ageまたは名前だけでは推測削除しない。
 
 以下で「Authority source loader未接続」「全体Gateはblocked」と記す段落は、署名済みAuthority File Bundleとprotected activationを要求するHardened／Provisioning候補を説明する。Local Personal一般Taskではselected-user binder、Mount Grant、Provider eligibility、Subscription OAuth preflight、固定Docker CLI Effect executor、exact 9 command、限定Egressおよびdurable Recoveryを接続済みであり、旧Hardened候補の未接続表示を一般Taskへ流用しない。source checkoutはEffect前に停止し、正式署名配布物上の一般Task実runだけが未完了である。
 
-Runtime 1.0はWindows上のDocker DesktopとLinux containerだけを正式対象とする。WindowsネイティブProvider実行、Git Bash直接実行、通常WSLディストリビューション、別Container RuntimeまたはDockerなしのfallbackを互換性要件にしない。Provider CLIは後続で専用imageへ導入し、Host側のCodex／Claude設定またはCredentialを暗黙に再利用しない。
+Runtime 1.0はWindows上のDocker DesktopとLinux containerだけを正式対象とする。WindowsネイティブProvider実行、Git Bash直接実行、通常WSLディストリビューション、別Container RuntimeまたはDockerなしのfallbackを互換性要件にしない。Provider CLIを含む固定専用image、最小環境、Provider Home Mount Grantおよび限定EgressはRuntime adapterへ接続済みであり、Host側のCodex／Claude設定またはCredentialを暗黙に再利用しない。source checkoutは署名済みRelease Authorityを欠くためEffect前に停止する。
 
 モデルと推論レベルはProvider任せにせず、CoordinatorがProvider Effect前にOperationの役割と確認済みの作業特性から選定する。具体化済みで低難度・低リスク・限定影響のLocal Candidate実装は`low`、通常のCoordinator、レビュー、診断または方針整合は役割名だけで高コスト化せず`medium`、`high`は高難度、重大影響、高リスク、または未解決方針と複数コンテキスト整合が重なる場合だけ候補にする。Codexは`sol`、Claude Codeは`opus`を既定familyとし、Runtime-owned Profile resolverはCodexを`gpt-5.6-sol`、Claudeを固定CLIが受理する`opus` aliasへ解決する。preferred／upperは同じfamilyとmodelのままProfile IDを分け、推論量だけを既存Gateで切り替える。Fableは公式CLI上のalias候補であっても、利用可能性、費用特性および適用条件を確認するまで自動選定へ入れない。速度は`normal`だけとし、`xhigh`／`max`、高速モード、Provider fallbackおよび実行中の黙示切替は自動選択しない。
 

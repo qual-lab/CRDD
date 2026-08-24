@@ -308,6 +308,36 @@ export function parseCandidateArguments(rawArguments: unknown) {
   }
   const argumentValues = snapshot.value;
   const isJsonRequested = argumentValues.includes("--json");
+  if (argumentValues[0] === "recover-store") {
+    const recoveryId = argumentValues[2];
+    if (
+      (argumentValues.length !== 4 && argumentValues.length !== 5) ||
+      argumentValues[1] !== "--recovery-id" ||
+      typeof recoveryId !== "string" ||
+      !/^candidate-store-recovery\.[0-9a-f]{64}$/u.test(recoveryId) ||
+      argumentValues[3] !== "--confirm" ||
+      (argumentValues.length === 5 && argumentValues[4] !== "--json")
+    ) {
+      return commandResponse(
+        "blocked",
+        "candidate_arguments_invalid",
+        null,
+        isJsonRequested,
+        true,
+      );
+    }
+    return commandResponse(
+      "ok",
+      null,
+      Object.freeze({
+        action: "recover-store" as const,
+        recoveryId,
+        json: isJsonRequested,
+      }),
+      isJsonRequested,
+      false,
+    );
+  }
   const candidateId = argumentValues[2];
   const isPublishedCandidateId =
     typeof candidateId === "string" &&

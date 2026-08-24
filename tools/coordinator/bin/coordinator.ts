@@ -10,11 +10,16 @@ import {
   parseProvisionArguments,
   parseTaskArguments,
 } from "../src/core/cli-options.ts";
+import {
+  renderSafeHumanCommandReport,
+  type SafeCommandReport,
+} from "../src/core/command-report.ts";
 import { runDoctor } from "../src/core/doctor.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
+  recoverRuntimeOwnedCandidateStore,
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "../src/security/candidate-bundle-store.ts";
 import { parseUnambiguousJsonDocument } from "../src/security/claude-structured-result.ts";
@@ -28,13 +33,6 @@ import { runPlatformProvisionerEffect } from "../src/security/platform-provision
 import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
 
 type EffectCommand = "activate" | "disable";
-type CommandReport = Readonly<{
-  command: string;
-  status: string;
-  reason: string;
-  filesystemEffectIssued?: boolean;
-}>;
-
 class UsageError extends Error {
   readonly usage = true;
 }
@@ -127,6 +125,9 @@ function printHelp() {
     `  coordinator candidate discard --candidate-id <candidate-or-recovery-id> [--json]\n`,
   );
   process.stdout.write(
+    `  coordinator candidate recover-store --recovery-id <store-recovery-id> --confirm [--json]\n`,
+  );
+  process.stdout.write(
     `\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`,
   );
   process.stdout.write(
@@ -184,25 +185,24 @@ async function runTaskCommand(args: readonly string[]) {
     process.exitCode = parsed.usageError ? 64 : 2;
     return;
   }
-  const startupGc = runRuntimeOwnedCandidateStoreStartupGc();
-  if (startupGc.status !== "completed") {
+  let taskRequest: unknown;
+  try {
+    taskRequest = readBoundedTaskRequestFromStdin();
+  } catch (rawError) {
+    const reason =
+      rawError instanceof UsageError
+        ? rawError.message
+        : "coordinator_task_start_failed_closed";
     printCommandReport(
-      Object.freeze({
-        command: "task",
-        status: "blocked",
-        reason: startupGc.reason,
-      }),
+      Object.freeze({ command: "task", status: "blocked", reason }),
       options.json,
     );
-    process.exitCode = 2;
+    process.exitCode = rawError instanceof UsageError ? 64 : 2;
     return;
   }
   let started: ReturnType<typeof startRuntimeOwnedCoordinatorTask>;
   try {
-    started = startRuntimeOwnedCoordinatorTask(
-      readBoundedTaskRequestFromStdin(),
-      process.cwd(),
-    );
+    started = startRuntimeOwnedCoordinatorTask(taskRequest, process.cwd());
   } catch (rawError) {
     const reason =
       rawError instanceof UsageError
@@ -230,8 +230,7 @@ async function runTaskCommand(args: readonly string[]) {
       printCommandReport(
         Object.freeze({
           command: "task",
-          status: result.status,
-          reason: result.reason,
+          ...result,
         }),
         false,
       );
@@ -249,8 +248,12 @@ function runCandidateCommand(args: readonly string[]) {
   if (
     parsed.status !== "ok" ||
     !options ||
-    (options.action !== "export" && options.action !== "discard") ||
-    typeof options.candidateId !== "string" ||
+    (options.action !== "export" &&
+      options.action !== "discard" &&
+      options.action !== "recover-store") ||
+    (options.action === "recover-store"
+      ? typeof options.recoveryId !== "string"
+      : typeof options.candidateId !== "string") ||
     typeof options.json !== "boolean"
   ) {
     printCommandReport(
@@ -264,13 +267,15 @@ function runCandidateCommand(args: readonly string[]) {
     process.exitCode = parsed.usageError ? 64 : 2;
     return;
   }
-  const startupGc = runRuntimeOwnedCandidateStoreStartupGc();
+  const startupGc =
+    options.action === "export"
+      ? runRuntimeOwnedCandidateStoreStartupGc()
+      : Object.freeze({ status: "completed" as const });
   if (startupGc.status !== "completed") {
     printCommandReport(
       Object.freeze({
         command: `candidate ${options.action}`,
-        status: "blocked",
-        reason: startupGc.reason,
+        ...startupGc,
       }),
       options.json,
     );
@@ -280,7 +285,9 @@ function runCandidateCommand(args: readonly string[]) {
   const result =
     options.action === "export"
       ? readRuntimeOwnedCandidateBundle(options.candidateId)
-      : discardRuntimeOwnedCandidateBundle(options.candidateId);
+      : options.action === "discard"
+        ? discardRuntimeOwnedCandidateBundle(options.candidateId)
+        : recoverRuntimeOwnedCandidateStore(options.recoveryId);
   if (!result) {
     printCommandReport(
       Object.freeze({
@@ -308,28 +315,34 @@ function runCandidateCommand(args: readonly string[]) {
   } else {
     printCommandReport(
       Object.freeze({
+        ...result,
         command: `candidate ${options.action}`,
         status,
         reason:
           status === "discarded"
             ? "candidate_discarded"
-            : "candidate_not_available_or_integrity_unconfirmed",
+            : status === "recovered"
+              ? "candidate_store_recovered"
+              : typeof resultRecord?.reason === "string"
+                ? resultRecord.reason
+                : "candidate_not_available_or_integrity_unconfirmed",
       }),
       false,
     );
   }
-  process.exitCode = ["exported", "discarded"].includes(status) ? 0 : 2;
+  process.exitCode = ["exported", "discarded", "recovered"].includes(status)
+    ? 0
+    : 2;
 }
 
-function printCommandReport(report: CommandReport, shouldOutputJson: boolean) {
+function printCommandReport(
+  report: SafeCommandReport,
+  shouldOutputJson: boolean,
+) {
   if (shouldOutputJson) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   } else {
-    process.stdout.write(`Coordinator ${report.command}: ${report.status}\n`);
-    process.stdout.write(`- reason: ${report.reason}\n`);
-    process.stdout.write(
-      `- filesystem effect issued: ${report.filesystemEffectIssued === true ? "yes" : "no"}\n`,
-    );
+    process.stdout.write(renderSafeHumanCommandReport(report));
   }
 }
 

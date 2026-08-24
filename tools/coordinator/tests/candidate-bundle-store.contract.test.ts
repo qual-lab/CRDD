@@ -78,6 +78,19 @@ function requireRecoveryId(value: unknown) {
   return candidateRecoveryId as string;
 }
 
+function requireStoreRecoveryId(value: unknown) {
+  assert.ok(value && typeof value === "object");
+  const candidateStoreRecoveryId = Reflect.get(
+    value,
+    "candidateStoreRecoveryId",
+  );
+  assert.match(
+    candidateStoreRecoveryId,
+    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
+  );
+  return candidateStoreRecoveryId as string;
+}
+
 test("承認済みbundleをrestart後も冪等PublishしRecovery IDでDiscardする", () => {
   const value = fixture();
   try {
@@ -243,22 +256,80 @@ test("同時writer lockとstale lockは推測削除せずboundedにFail Closed�
   }
 });
 
-test("unknownとdamaged entryをGCが推測削除しない", () => {
+test("unknownとdamaged entryは推測削除せずexact明示Recoveryだけで回復する", () => {
   const value = fixture();
   try {
     const store = value.adapter.testingStoreDirectory();
     const damaged = path.join(store, `staged-${"a".repeat(64)}.json`);
     fs.writeFileSync(damaged, "not-json\n", { mode: 0o600 });
-    assert.equal(value.adapter.startupGc().status, "completed");
+    const damagedResult = value.adapter.startupGc();
+    assert.equal(damagedResult.status, "blocked");
+    assert.equal(damagedResult.reason, "candidate_store_damaged_entry");
     assert.equal(fs.existsSync(damaged), true);
+    assert.equal(
+      value.adapter.recoverStore(requireStoreRecoveryId(damagedResult)).status,
+      "recovered",
+    );
+    assert.equal(fs.existsSync(damaged), false);
 
     const unknown = path.join(store, "unknown-entry");
     fs.writeFileSync(unknown, "unknown\n", { mode: 0o600 });
     const result = value.adapter.startupGc();
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, "candidate_store_unknown_entry");
-    assert.equal(fs.existsSync(damaged), true);
     assert.equal(fs.existsSync(unknown), true);
+    assert.equal(
+      value.adapter.recoverStore(requireStoreRecoveryId(result)).status,
+      "recovered",
+    );
+    assert.equal(fs.existsSync(unknown), false);
+    assert.equal(value.adapter.startupGc().status, "completed");
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("個別Discardは無関係なunknown entryの全体GC失敗から独立する", () => {
+  const value = fixture();
+  try {
+    const persisted = value.adapter.persist(bundle(), persistencePolicy);
+    const candidateRecoveryId = requireRecoveryId(persisted);
+    const unknown = path.join(
+      value.adapter.testingStoreDirectory(),
+      "unrelated-unknown-entry",
+    );
+    fs.writeFileSync(unknown, "unknown\n", { mode: 0o600 });
+    assert.equal(value.adapter.startupGc().status, "blocked");
+    assert.deepEqual(value.adapter.discard(candidateRecoveryId), {
+      status: "discarded",
+    });
+    assert.equal(fs.existsSync(unknown), true);
+  } finally {
+    value.cleanup();
+  }
+});
+
+test("Store Recovery ID取得後に実体が変わった場合は削除せず新しいIDを要求する", () => {
+  const value = fixture();
+  try {
+    const unknown = path.join(
+      value.adapter.testingStoreDirectory(),
+      "unknown-entry",
+    );
+    fs.writeFileSync(unknown, "first\n", { mode: 0o600 });
+    const first = value.adapter.startupGc();
+    const firstRecoveryId = requireStoreRecoveryId(first);
+    fs.writeFileSync(unknown, "second-content\n", { mode: 0o600 });
+    const staleRecovery = value.adapter.recoverStore(firstRecoveryId);
+    assert.equal(staleRecovery.status, "blocked");
+    assert.equal(fs.existsSync(unknown), true);
+    const second = value.adapter.startupGc();
+    const secondRecoveryId = requireStoreRecoveryId(second);
+    assert.notEqual(secondRecoveryId, firstRecoveryId);
+    assert.equal(
+      value.adapter.recoverStore(secondRecoveryId).status,
+      "recovered",
+    );
   } finally {
     value.cleanup();
   }
@@ -280,15 +351,18 @@ test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格�
     assert.equal(value.adapter.persist(bundle(), persistencePolicy), null);
 
     value.setClock(2_000_000_000_000);
-    const store = value.adapter.testingStoreDirectory();
     for (let index = 0; index < 128; index += 1) {
-      fs.writeFileSync(
-        path.join(store, `pending-${index.toString(16).padStart(64, "0")}.tmp`),
-        "damaged\n",
-        { mode: 0o600 },
+      assert.equal(
+        value.adapter.persist(bundle(), persistencePolicy)?.status,
+        "staged",
       );
     }
-    assert.equal(value.adapter.persist(bundle(), persistencePolicy), null);
+    const capacity = value.adapter.persist(bundle(), persistencePolicy);
+    assert.equal(capacity?.status, "blocked");
+    assert.equal(
+      capacity?.status === "blocked" ? capacity.reason : null,
+      "candidate_store_capacity_reservation_failed",
+    );
   } finally {
     value.cleanup();
   }
@@ -296,8 +370,9 @@ test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格�
 
 test("公開契約は排他、bounded GC、Recoveryと非canonical Effectを固定する", () => {
   const contract = describeCandidateBundleStoreContract();
-  assert.equal(contract.contractRevision, 3);
-  assert.match(contract.crossProcessSerialization, /exclusive_lock/u);
+  assert.equal(contract.contractRevision, 4);
+  assert.match(contract.crossProcessSerialization, /kernel_named_pipe/u);
+  assert.match(contract.rootProtection, /selected_user_owner/u);
   assert.match(contract.physicalDeletion, /without_strict_instant/u);
   assert.match(contract.recovery, /exact_one/u);
   assert.equal(contract.canonicalRepositoryWriteAllowed, false);

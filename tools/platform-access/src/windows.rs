@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 
 use windows_sys::Win32::Foundation::{
-    CloseHandle, ERROR_INSUFFICIENT_BUFFER, HANDLE, INVALID_HANDLE_VALUE, LocalFree,
+    CloseHandle, ERROR_ALREADY_EXISTS, ERROR_INSUFFICIENT_BUFFER, GetLastError, HANDLE,
+    INVALID_HANDLE_VALUE, LocalFree,
 };
 use windows_sys::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
 use windows_sys::Win32::Security::Cryptography::{
@@ -14,24 +15,26 @@ use windows_sys::Win32::Security::Cryptography::{
     BCryptOpenAlgorithmProvider,
 };
 use windows_sys::Win32::Security::{
-    ACCESS_ALLOWED_ACE, ACL_SIZE_INFORMATION, AccessCheck, AclSizeInformation,
-    CheckTokenMembership, CreateWellKnownSid, DACL_SECURITY_INFORMATION, DuplicateToken,
-    GENERIC_MAPPING, GROUP_SECURITY_INFORMATION, GetAce, GetAclInformation, GetLengthSid,
-    GetSecurityDescriptorControl, GetSecurityDescriptorDacl, GetSecurityDescriptorOwner,
-    GetTokenInformation, IsTokenRestricted, IsValidSid, MapGenericMask, OWNER_SECURITY_INFORMATION,
-    PRIVILEGE_SET, PSECURITY_DESCRIPTOR, PSID, SE_DACL_PROTECTED, SecurityImpersonation,
-    TOKEN_DUPLICATE, TOKEN_QUERY, TOKEN_STATISTICS, TOKEN_USER, TokenIsAppContainer, TokenPrimary,
-    TokenSessionId, TokenStatistics, TokenType, TokenUser, WinBatchSid, WinInteractiveSid,
-    WinLocalSystemSid, WinNetworkSid, WinServiceSid,
+    ACCESS_ALLOWED_ACE, ACL, ACL_REVISION, ACL_SIZE_INFORMATION, AccessCheck, AclSizeInformation,
+    AddAccessAllowedAceEx, CheckTokenMembership, CreateWellKnownSid, DACL_SECURITY_INFORMATION,
+    DuplicateToken, GENERIC_MAPPING, GROUP_SECURITY_INFORMATION, GetAce, GetAclInformation,
+    GetLengthSid, GetSecurityDescriptorControl, GetSecurityDescriptorDacl,
+    GetSecurityDescriptorOwner, GetTokenInformation, InitializeAcl, InitializeSecurityDescriptor,
+    IsTokenRestricted, IsValidSid, MapGenericMask, OWNER_SECURITY_INFORMATION, PRIVILEGE_SET,
+    PSECURITY_DESCRIPTOR, PSID, SE_DACL_PROTECTED, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR,
+    SecurityImpersonation, SetSecurityDescriptorControl, SetSecurityDescriptorDacl,
+    SetSecurityDescriptorOwner, TOKEN_DUPLICATE, TOKEN_QUERY, TOKEN_STATISTICS, TOKEN_USER,
+    TokenIsAppContainer, TokenPrimary, TokenSessionId, TokenStatistics, TokenType, TokenUser,
+    WinBatchSid, WinInteractiveSid, WinLocalSystemSid, WinNetworkSid, WinServiceSid,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    BY_HANDLE_FILE_INFORMATION, CreateFileW, DELETE, FILE_ADD_FILE, FILE_ADD_SUBDIRECTORY,
-    FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_DELETE_CHILD,
-    FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_GENERIC_EXECUTE,
-    FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_LIST_DIRECTORY, FILE_READ_ATTRIBUTES,
-    FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE, FILE_WRITE_ATTRIBUTES,
-    FILE_WRITE_EA, GetDriveTypeW, GetFileInformationByHandle, GetFinalPathNameByHandleW,
-    OPEN_EXISTING, READ_CONTROL, WRITE_DAC, WRITE_OWNER,
+    BY_HANDLE_FILE_INFORMATION, CreateDirectoryW, CreateFileW, DELETE, FILE_ADD_FILE,
+    FILE_ADD_SUBDIRECTORY, FILE_ALL_ACCESS, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+    FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+    FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_LIST_DIRECTORY,
+    FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_TRAVERSE,
+    FILE_WRITE_ATTRIBUTES, FILE_WRITE_EA, GetDriveTypeW, GetFileInformationByHandle,
+    GetFinalPathNameByHandleW, OPEN_EXISTING, READ_CONTROL, WRITE_DAC, WRITE_OWNER,
 };
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 use windows_sys::core::GUID;
@@ -80,6 +83,7 @@ const FORBIDDEN_SELECTED_USER_PRINCIPAL_FLAGS: u32 = PRINCIPAL_SERVICE_GROUP
     | PRINCIPAL_RESTRICTED_TOKEN
     | PRINCIPAL_APP_CONTAINER;
 const PROVIDER_HOME_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "ProviderHomes"];
+const CANDIDATE_STORE_SEGMENTS: [&str; 3] = ["Qual-Lab", "CRDD", "CandidateStore"];
 const DRIVE_FIXED: u32 = 3;
 const ACCESS_ALLOWED_ACE_TYPE: u8 = 0;
 const INHERITED_ACE: u8 = 0x10;
@@ -299,6 +303,102 @@ fn local_app_data_path() -> Option<PathBuf> {
     result
 }
 
+fn initialize_candidate_store_if_missing(primary_token: HANDLE) -> bool {
+    let mut candidate_store = match local_app_data_path() {
+        Some(value) => value,
+        None => return false,
+    };
+    for segment in CANDIDATE_STORE_SEGMENTS {
+        candidate_store.push(segment);
+    }
+    let user_sid = match token_user_sid_bytes(primary_token) {
+        Some(value) => value,
+        None => return false,
+    };
+    let system_sid = match local_system_sid_bytes() {
+        Some(value) => value,
+        None => return false,
+    };
+    let ace_bytes = |sid_length: usize| {
+        size_of::<ACCESS_ALLOWED_ACE>()
+            .checked_sub(size_of::<u32>())?
+            .checked_add(sid_length)
+    };
+    let acl_bytes = match size_of::<ACL>()
+        .checked_add(ace_bytes(user_sid.len()).unwrap_or(usize::MAX))
+        .and_then(|value| value.checked_add(ace_bytes(system_sid.len()).unwrap_or(usize::MAX)))
+    {
+        Some(value) if value <= MAXIMUM_SECURITY_DESCRIPTOR_BYTES => value,
+        _ => return false,
+    };
+    let mut acl_storage = vec![0_u32; acl_bytes.div_ceil(size_of::<u32>())];
+    let acl = acl_storage.as_mut_ptr().cast::<ACL>();
+    let acl_length = match u32::try_from(acl_bytes) {
+        Ok(value) => value,
+        Err(_) => return false,
+    };
+    // SAFETY: acl points to an aligned writable allocation of acl_length bytes.
+    if unsafe { InitializeAcl(acl, acl_length, ACL_REVISION) } == 0 {
+        return false;
+    }
+    let ace_flags = u32::from(OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE);
+    // SAFETY: both SID buffers contain values copied from validated Windows token/well-known SID
+    // sources and remain alive through CreateDirectoryW.
+    if unsafe {
+        AddAccessAllowedAceEx(
+            acl,
+            ACL_REVISION,
+            ace_flags,
+            FILE_ALL_ACCESS,
+            user_sid.as_ptr().cast_mut().cast(),
+        )
+    } == 0
+        || unsafe {
+            AddAccessAllowedAceEx(
+                acl,
+                ACL_REVISION,
+                ace_flags,
+                FILE_ALL_ACCESS,
+                system_sid.as_ptr().cast_mut().cast(),
+            )
+        } == 0
+    {
+        return false;
+    }
+    let mut descriptor = SECURITY_DESCRIPTOR::default();
+    let descriptor_pointer = (&raw mut descriptor).cast::<c_void>();
+    // SAFETY: descriptor is a writable absolute security descriptor and all referenced buffers
+    // remain alive until the synchronous CreateDirectoryW call returns.
+    if unsafe { InitializeSecurityDescriptor(descriptor_pointer, 1) } == 0
+        || unsafe {
+            SetSecurityDescriptorOwner(descriptor_pointer, user_sid.as_ptr().cast_mut().cast(), 0)
+        } == 0
+        || unsafe { SetSecurityDescriptorDacl(descriptor_pointer, 1, acl, 0) } == 0
+        || unsafe {
+            SetSecurityDescriptorControl(descriptor_pointer, SE_DACL_PROTECTED, SE_DACL_PROTECTED)
+        } == 0
+    {
+        return false;
+    }
+    let mut wide: Vec<u16> = candidate_store.as_os_str().encode_wide().collect();
+    if wide.is_empty() || wide.len() >= MAXIMUM_KNOWN_FOLDER_CODE_UNITS {
+        return false;
+    }
+    wide.push(0);
+    let attributes = SECURITY_ATTRIBUTES {
+        nLength: u32::try_from(size_of::<SECURITY_ATTRIBUTES>()).unwrap_or(0),
+        lpSecurityDescriptor: descriptor_pointer,
+        bInheritHandle: 0,
+    };
+    // SAFETY: wide and attributes are valid for the duration of this synchronous call.
+    if unsafe { CreateDirectoryW(wide.as_ptr(), &raw const attributes) } != 0 {
+        return true;
+    }
+    // An existing object is never repaired here. The following read-only observation must prove
+    // that it is the exact protected directory before any caller may use it.
+    (unsafe { GetLastError() }) == ERROR_ALREADY_EXISTS
+}
+
 fn open_provider_home_chain(
     request: &ProviderHomeRequest,
 ) -> Result<ProviderHomeChain, ProviderHomeChainError> {
@@ -306,12 +406,19 @@ fn open_provider_home_chain(
         local_app_data_path().ok_or(ProviderHomeChainError::KnownFolderUnavailable)?;
     let mut paths = Vec::with_capacity(PROVIDER_HOME_SEGMENTS.len() + 2);
     paths.push(current.clone());
-    for segment in PROVIDER_HOME_SEGMENTS {
-        current.push(segment);
-        paths.push(current.clone());
+    if request.provider == crate::protocol::Provider::CandidateStore {
+        for segment in CANDIDATE_STORE_SEGMENTS {
+            current.push(segment);
+            paths.push(current.clone());
+        }
+    } else {
+        for segment in PROVIDER_HOME_SEGMENTS {
+            current.push(segment);
+            paths.push(current.clone());
+        }
+        current.push(request.provider.directory_name());
+        paths.push(current);
     }
-    current.push(request.provider.directory_name());
-    paths.push(current);
     let mount_source_hash = paths
         .last()
         .and_then(|path| provider_home_mount_source_hash(request, path))
@@ -943,6 +1050,12 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
     else {
         return blocked_provider_home(request, ProviderHomeReason::PrincipalNotSelectedLocalUser);
     };
+    if request.provider == crate::protocol::Provider::CandidateStore
+        && request.initialize_if_missing
+        && !initialize_candidate_store_if_missing(primary_token.0)
+    {
+        return blocked_provider_home(request, ProviderHomeReason::HomeUnavailable);
+    }
     let chain = match open_provider_home_chain(request) {
         Ok(value) => value,
         Err(ProviderHomeChainError::KnownFolderUnavailable) => {
@@ -1175,11 +1288,13 @@ mod tests {
     fn provider_home_hash_domains_bind_provider_identity_and_login_session() {
         let codex = ProviderHomeRequest {
             provider: crate::protocol::Provider::Codex,
+            initialize_if_missing: false,
             nonce: [1_u8; 32],
             mount_source_hash: [2_u8; 32],
         };
         let claude = ProviderHomeRequest {
             provider: crate::protocol::Provider::Claude,
+            initialize_if_missing: false,
             nonce: [1_u8; 32],
             mount_source_hash: [2_u8; 32],
         };

@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createCandidateStoreObservationRequest,
   createProviderHomeObservationRequest,
   describeProviderHomeObservationContract,
+  evaluateCandidateStoreObservationResponseCandidate,
   evaluateProviderHomeObservationResponseCandidate,
   PROVIDER_HOME_OBSERVATION_REQUEST_BYTES,
   PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
@@ -14,7 +16,7 @@ import {
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "../src/security/provider-home-windows-adapter.ts";
 
-function response(provider: 1 | 2, nonce: Buffer) {
+function response(provider: 1 | 2 | 3, nonce: Buffer) {
   const bytes = Buffer.alloc(PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES);
   bytes.write("CRDDHO01", 0, "ascii");
   bytes.writeUInt16LE(2, 8);
@@ -29,6 +31,38 @@ function response(provider: 1 | 2, nonce: Buffer) {
   bytes.fill(3, 118, 150);
   return bytes;
 }
+
+test("Candidate Store requestは固定種別と初期化bitだけをnative Known Folder照合へ渡す", () => {
+  const nonce = Buffer.alloc(32, 8);
+  const source =
+    "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\CandidateStore";
+  const created = createCandidateStoreObservationRequest(
+    source,
+    true,
+    () => nonce,
+  );
+  assert.ok(created);
+  assert.equal(created.request[10], 3);
+  assert.equal(created.request[11], 1);
+  assert.deepEqual(created.request.subarray(12, 44), nonce);
+  assert.equal(created.request.includes(Buffer.from("C:\\", "ascii")), false);
+  const observed = evaluateCandidateStoreObservationResponseCandidate(
+    response(3, nonce),
+    nonce,
+  );
+  assert.equal(observed.status, "candidate");
+  assert.equal(observed.selectedUserBindingVerified, true);
+  assert.equal(observed.protectionVerified, true);
+  assert.equal(observed.pathReported, false);
+  assert.equal(
+    evaluateCandidateStoreObservationResponseCandidate(
+      response(3, nonce),
+      Buffer.alloc(32, 9),
+    ).status,
+    "blocked",
+  );
+  assert.equal(createCandidateStoreObservationRequest(source, "yes"), null);
+});
 
 test("Provider Home requestはRuntime nonce、Providerとraw Pathでないmount source Hashだけを含める", () => {
   const nonce = Buffer.alloc(32, 7);
@@ -134,6 +168,11 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
   assert.equal(contract.requestPathField, false);
   assert.equal(contract.requestMountSourceHashField, true);
   assert.equal(contract.requestMountSourceHashAuthority, false);
+  assert.deepEqual(contract.candidateStoreFixedSegments, [
+    "Qual-Lab",
+    "CRDD",
+    "CandidateStore",
+  ]);
   assert.equal(contract.credentialContentRead, false);
   assert.equal(contract.rawPathReported, false);
   assert.equal(contract.runtimeAuthorityIssued, false);
