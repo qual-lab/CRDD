@@ -1002,24 +1002,28 @@ unsafe fn process_appcontainer_binding(
     process: Handle,
     expected_appcontainer_sid: *mut c_void,
     expected_authentication_session_hash: &[u8; 32],
-) -> bool {
+) -> u8 {
     // SAFETY: the suspended process and derived AppContainer SID remain live for every synchronous
     // query. The process token is uniquely owned here and closed before return.
     let mut token = null_mut();
     if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) } == 0 || token.is_null() {
-        return false;
+        return 27;
     }
-    let valid = (|| {
-        if unsafe { token_u32_information(token, TokenType) }?
-            != u32::try_from(TokenPrimary).ok()?
-            || unsafe { token_u32_information(token, TokenIsAppContainer) }? != 1
-            || unsafe { IsTokenRestricted(token) } == 0
-        {
-            return None;
+    let stage = (|| {
+        if unsafe { token_u32_information(token, TokenType) } != u32::try_from(TokenPrimary).ok() {
+            return 28;
         }
-        let actual_session = unsafe { token_authentication_session_hash(token) }?;
+        if unsafe { token_u32_information(token, TokenIsAppContainer) } != Some(1) {
+            return 29;
+        }
+        if unsafe { IsTokenRestricted(token) } == 0 {
+            return 30;
+        }
+        let Some(actual_session) = (unsafe { token_authentication_session_hash(token) }) else {
+            return 31;
+        };
         if !equal_u8_exact(&actual_session, expected_authentication_session_hash) {
-            return None;
+            return 32;
         }
         let mut appcontainer = TOKEN_APPCONTAINER_INFORMATION::default();
         let mut returned = 0_u32;
@@ -1035,15 +1039,16 @@ unsafe fn process_appcontainer_binding(
             || returned as usize != size_of::<TOKEN_APPCONTAINER_INFORMATION>()
             || appcontainer.TokenAppContainer.is_null()
             || expected_appcontainer_sid.is_null()
-            || unsafe { EqualSid(appcontainer.TokenAppContainer, expected_appcontainer_sid) } == 0
         {
-            return None;
+            return 33;
         }
-        Some(())
-    })()
-    .is_some();
+        if unsafe { EqualSid(appcontainer.TokenAppContainer, expected_appcontainer_sid) } == 0 {
+            return 34;
+        }
+        0
+    })();
     unsafe { CloseHandle(token) };
-    valid
+    stage
 }
 
 fn selected_local_interactive_flags(flags: u32) -> bool {
@@ -2643,10 +2648,11 @@ unsafe fn launch_worker() -> Option<u32> {
     }
     FAILURE_STAGE.store(7, Ordering::Relaxed);
 
-    FAILURE_STAGE.store(27, Ordering::Relaxed);
-    if !unsafe {
+    let child_principal_stage = unsafe {
         process_appcontainer_binding(process.hProcess, sid, &selected_authentication_session_hash)
-    } {
+    };
+    FAILURE_STAGE.store(child_principal_stage, Ordering::Relaxed);
+    if child_principal_stage != 0 {
         unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
         unsafe { CloseHandle(pipe) };
         unsafe { close_handles(&[process.hProcess, process.hThread, job]) };
@@ -2654,6 +2660,7 @@ unsafe fn launch_worker() -> Option<u32> {
         unsafe { FreeSid(sid) };
         return None;
     }
+    FAILURE_STAGE.store(7, Ordering::Relaxed);
     unsafe { FreeSid(sid) };
 
     if !unsafe {
@@ -2824,7 +2831,7 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
             let response = if REGISTRY_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
                 match FAILURE_STAGE.load(Ordering::Relaxed) {
                     3 => native_bootstrap_core::REGISTRY_PROCESS_MANUAL_RECOVERY_BLOCKED,
-                    7 | 27 => {
+                    7 | 27..=34 => {
                         native_bootstrap_core::REGISTRY_CREATED_PROCESS_MANUAL_RECOVERY_BLOCKED
                     }
                     8.. => native_bootstrap_core::REGISTRY_WORKER_MANUAL_RECOVERY_BLOCKED,
@@ -2832,7 +2839,7 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                 }
             } else if MANUAL_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
                 let stage = FAILURE_STAGE.load(Ordering::Relaxed);
-                if stage >= 8 && stage != 27 {
+                if stage >= 8 && !(27..=34).contains(&stage) {
                     native_bootstrap_core::WORKER_MANUAL_RECOVERY_BLOCKED
                 } else {
                     native_bootstrap_core::PROCESS_MANUAL_RECOVERY_BLOCKED
@@ -2867,6 +2874,13 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     25 => native_bootstrap_core::SELECTED_USER_REOBSERVATION_UNAVAILABLE_BLOCKED,
                     26 => native_bootstrap_core::SELECTED_USER_REOBSERVATION_MISMATCH_BLOCKED,
                     27 => native_bootstrap_core::CHILD_PRINCIPAL_BINDING_BLOCKED,
+                    28 => native_bootstrap_core::CHILD_TOKEN_TYPE_BLOCKED,
+                    29 => native_bootstrap_core::CHILD_APPCONTAINER_STATE_BLOCKED,
+                    30 => native_bootstrap_core::CHILD_RESTRICTED_STATE_BLOCKED,
+                    31 => native_bootstrap_core::CHILD_AUTHENTICATION_SESSION_UNAVAILABLE_BLOCKED,
+                    32 => native_bootstrap_core::CHILD_AUTHENTICATION_SESSION_MISMATCH_BLOCKED,
+                    33 => native_bootstrap_core::CHILD_APPCONTAINER_SID_UNAVAILABLE_BLOCKED,
+                    34 => native_bootstrap_core::CHILD_APPCONTAINER_SID_MISMATCH_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };

@@ -155,6 +155,34 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_child_principal_binding_invalid",
         ),
         (
+            native_bootstrap_core::CHILD_TOKEN_TYPE_BLOCKED,
+            "native_provision_child_token_type_invalid",
+        ),
+        (
+            native_bootstrap_core::CHILD_APPCONTAINER_STATE_BLOCKED,
+            "native_provision_child_appcontainer_state_invalid",
+        ),
+        (
+            native_bootstrap_core::CHILD_RESTRICTED_STATE_BLOCKED,
+            "native_provision_child_restricted_state_invalid",
+        ),
+        (
+            native_bootstrap_core::CHILD_AUTHENTICATION_SESSION_UNAVAILABLE_BLOCKED,
+            "native_provision_child_authentication_session_unavailable",
+        ),
+        (
+            native_bootstrap_core::CHILD_AUTHENTICATION_SESSION_MISMATCH_BLOCKED,
+            "native_provision_child_authentication_session_mismatch",
+        ),
+        (
+            native_bootstrap_core::CHILD_APPCONTAINER_SID_UNAVAILABLE_BLOCKED,
+            "native_provision_child_appcontainer_sid_unavailable",
+        ),
+        (
+            native_bootstrap_core::CHILD_APPCONTAINER_SID_MISMATCH_BLOCKED,
+            "native_provision_child_appcontainer_sid_mismatch",
+        ),
+        (
             native_bootstrap_core::PROCESS_CREATED_BLOCKED,
             "native_provision_created_process_rejected",
         ),
