@@ -12,7 +12,7 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 ## 現在の残件
 
-2026-08-25の現行Coordinator Runtime 1.0縦結合では、固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Provider Home四Hash、Mount Grantおよび一般Task E2Eをproduction経路へ接続済みである。現在の残件は[`CHG-000015`第六次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とし、commit sidecar付きRuntimeState回復journal、exact inventory、回復handoff、複数Recovery IDおよびcleanup tombstoneを含む新固定版の独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。下表は`In Progress`を維持し、監査Pass前に`Completed`へ先取りしない。
+2026-08-25の現行Coordinator Runtime 1.0縦結合では、固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Provider Home四Hash、Mount Grantおよび一般Task E2Eをproduction経路へ接続済みである。現在の残件は[`CHG-000015`第七次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とし、atomic delete／move intent、cleanup manifest＋Root anchor、`Host Operation → logical Home → RuntimeState`の固定lock順、commit済みsubmission／receipt、Host遷移照合、actionable Recovery IDおよびproduction共用crash状態機械を含む新固定版の独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。下表は`In Progress`を維持し、監査Pass前に`Completed`へ先取りしない。
 
 | ID | 件名 | Work State | Scope / Target | Source | Next action / Re-evaluation trigger |
 | --- | --- | --- | --- | --- | --- |

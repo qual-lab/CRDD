@@ -212,7 +212,7 @@ type ControlRecord = {
   dockerHandoffs: Array<{
     capability: object;
     recoveryId: string;
-    abandoned: boolean;
+    state: "active" | "finalizable" | "finalized" | "abandoned";
   }>;
 };
 type RuntimeState = Readonly<{
@@ -275,7 +275,20 @@ function stringValue(value: unknown) {
 
 function controlDockerRecoveryIds(control: ControlRecord) {
   return Object.freeze([
-    ...new Set(control.dockerHandoffs.map((handoff) => handoff.recoveryId)),
+    ...new Set(
+      control.dockerHandoffs
+        .filter((handoff) => handoff.state !== "finalized")
+        .map((handoff) => handoff.recoveryId),
+    ),
+  ]);
+}
+
+function actionableDockerRecoveryIds(
+  control: ControlRecord,
+  preferred: readonly string[] = [],
+) {
+  return Object.freeze([
+    ...new Set([...preferred, ...controlDockerRecoveryIds(control)]),
   ]);
 }
 
@@ -571,7 +584,7 @@ async function executeStage(
         control.dockerHandoffs.push({
           capability,
           recoveryId: id,
-          abandoned: false,
+          state: "active",
         });
         return true;
       },
@@ -640,6 +653,7 @@ async function executeStage(
       );
     }
     if (finalizationCapability && startedDockerRecoveryId) {
+      if (handoff) handoff.state = "finalizable";
       control.dockerFinalizations.push(
         Object.freeze({
           capability: finalizationCapability,
@@ -1106,9 +1120,10 @@ function retainRuntimeRecoveryState(
 ) {
   control.retainOperationRoot = true;
   for (const handoff of control.dockerHandoffs) {
-    if (handoff.abandoned) continue;
+    if (handoff.state === "finalized" || handoff.state === "abandoned")
+      continue;
     if (state.dependencies.abandonDockerRecovery?.(handoff.capability) === true)
-      handoff.abandoned = true;
+      handoff.state = "abandoned";
   }
   void abandonOwnedHostOperationGenerationLock(control.managementCapability);
 }
@@ -1156,7 +1171,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
             ...(stringValue(rawResultRecord.dockerRecoveryId)
               ? [String(rawResultRecord.dockerRecoveryId)]
               : []),
-            ...control.dockerHandoffs.map((handoff) => handoff.recoveryId),
+            ...controlDockerRecoveryIds(control),
           ];
           const uniqueDockerRecoveryIds = Object.freeze([
             ...new Set(allDockerRecoveryIds),
@@ -1203,7 +1218,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   stringValue(result.candidateRecoveryId),
                   false,
                   stringValue(result.candidateStoreRecoveryId),
-                  uniqueDockerRecoveryIds,
+                  actionableDockerRecoveryIds(control, [
+                    finalization.recoveryId,
+                  ]),
                 );
               }
               control.hostRecoveryId = hostRecoveryId;
@@ -1229,7 +1246,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   stringValue(result.candidateRecoveryId),
                   false,
                   stringValue(result.candidateStoreRecoveryId),
-                  uniqueDockerRecoveryIds,
+                  actionableDockerRecoveryIds(control, [
+                    finalization.recoveryId,
+                  ]),
                 );
               }
             }
@@ -1251,9 +1270,32 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   stringValue(result.candidateRecoveryId),
                   false,
                   stringValue(result.candidateStoreRecoveryId),
-                  uniqueDockerRecoveryIds,
+                  actionableDockerRecoveryIds(control, [
+                    finalization.recoveryId,
+                  ]),
                 );
               }
+              const handoff = control.dockerHandoffs.find(
+                (candidate) =>
+                  candidate.capability === finalization.capability &&
+                  candidate.recoveryId === finalization.recoveryId,
+              );
+              if (handoff?.state !== "finalizable") {
+                retainRuntimeRecoveryState(state, control);
+                return blocked(
+                  "coordinator_task_docker_recovery_handoff_state_invalid",
+                  true,
+                  null,
+                  finalization.recoveryId,
+                  stringValue(result.candidateRecoveryId),
+                  false,
+                  stringValue(result.candidateStoreRecoveryId),
+                  actionableDockerRecoveryIds(control, [
+                    finalization.recoveryId,
+                  ]),
+                );
+              }
+              handoff.state = "finalized";
             }
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
             if (!candidateRecoveryId) return result;
@@ -1327,7 +1369,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               discarded?.status === "discarded" ? null : candidateRecoveryId,
               null,
               stringValue(discarded?.candidateStoreRecoveryId),
-              uniqueDockerRecoveryIds,
+              actionableDockerRecoveryIds(control),
             );
           }
         })

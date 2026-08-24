@@ -47,6 +47,7 @@ function fixture(
     processStartFailureRole?: "executor" | "reviewer";
     processCleanupFailureRole?: "executor" | "reviewer";
     hostCleanupWal?: boolean;
+    dockerFinalizeFailsAt?: number;
   } = {},
 ) {
   const owned = Object.freeze({});
@@ -66,6 +67,7 @@ function fixture(
   let selectionCount = 0;
   let discardCount = 0;
   let externalAuthorizationCount = 0;
+  let dockerFinalizeCount = 0;
   let releasePausedProcess: (() => void) | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
@@ -350,7 +352,13 @@ function fixture(
           },
           finalizeDockerRecovery: () => {
             events.push("docker-finalize");
-            return Object.freeze({ status: "completed" });
+            dockerFinalizeCount += 1;
+            return Object.freeze({
+              status:
+                options.dockerFinalizeFailsAt === dockerFinalizeCount
+                  ? "blocked"
+                  : "completed",
+            });
           },
         }
       : {}),
@@ -418,6 +426,40 @@ test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfin
     "docker-finalize",
     "docker-finalize",
   ]);
+});
+
+test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しない", async () => {
+  const harness = fixture({ hostCleanupWal: true, dockerFinalizeFailsAt: 2 });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_docker_recovery_finalization_unconfirmed",
+  );
+  assert.deepEqual(result.dockerRecoveryIds, [
+    "docker.fixture.reviewer.active",
+  ]);
+  assert.equal(result.dockerRecoveryId, "docker.fixture.reviewer.active");
+});
+
+test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さない", async () => {
+  const harness = fixture({
+    hostCleanupWal: true,
+    candidatePersistenceFails: true,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
+  assert.deepEqual(result.dockerRecoveryIds, []);
+  assert.equal(result.dockerRecoveryId, null);
 });
 
 test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格しない", async () => {

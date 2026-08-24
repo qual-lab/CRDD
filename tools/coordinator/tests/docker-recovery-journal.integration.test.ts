@@ -8,12 +8,15 @@ import test from "node:test";
 
 import {
   dockerRecoveryCommitName,
+  describeDockerRecoveryJournalContract,
+  discoverDockerRecoveryJournalJson,
+  inspectDockerRecoveryJournalDirectory,
   isDockerRecoveryJournalTemporaryName,
   readCommittedDockerRecoveryJson,
   removeCommittedDockerRecoveryJson,
+  resumeDockerRecoveryJournalDirectory,
   writeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
-import { inspectDockerRecoveryRootSnapshot } from "../src/security/docker-recovery-runtime.ts";
 
 function temporaryDirectory() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-journal-test-"));
@@ -68,7 +71,104 @@ function crashWriter(
   );
 }
 
-function createRecoveryRecord(
+function crashMutation(
+  root: string,
+  operation: "delete" | "move" | "cleanup",
+  boundary:
+    | "fsync"
+    | "rename-1"
+    | "rename-2"
+    | "rename-3"
+    | "rm-1"
+    | "rm-2"
+    | "rmdir",
+) {
+  const moduleUrl = pathToFileURL(
+    path.resolve("src/security/docker-recovery-journal.ts"),
+  ).href;
+  const source = `
+    import fs from "node:fs";
+    import path from "node:path";
+    const root = process.argv[1];
+    const operation = process.argv[2];
+    const boundary = process.argv[3];
+    const journal = await import(${JSON.stringify(moduleUrl)});
+    const sourceDirectory = path.join(root, "source");
+    const targetDirectory = path.join(root, "target");
+    fs.mkdirSync(sourceDirectory);
+    if (operation === "move") fs.mkdirSync(targetDirectory);
+    const written = journal.writeCommittedDockerRecoveryJson(
+      sourceDirectory,
+      "record.json",
+      "record.json",
+      { schema: "fixture/v1", value: true },
+    );
+    if (operation === "cleanup") {
+      fs.mkdirSync(path.join(sourceDirectory, "empty"));
+    }
+    let fsyncCount = 0;
+    let renameCount = 0;
+    let rmCount = 0;
+    let rmdirCount = 0;
+    const originalFsync = fs.fsyncSync;
+    const originalRename = fs.renameSync;
+    const originalRm = fs.rmSync;
+    const originalRmdir = fs.rmdirSync;
+    fs.fsyncSync = (...args) => {
+      const result = originalFsync(...args);
+      fsyncCount += 1;
+      if (boundary === "fsync" && fsyncCount === 1) process.kill(process.pid, "SIGKILL");
+      return result;
+    };
+    fs.renameSync = (...args) => {
+      const result = originalRename(...args);
+      renameCount += 1;
+      if (boundary === "rename-" + renameCount) process.kill(process.pid, "SIGKILL");
+      return result;
+    };
+    fs.rmSync = (...args) => {
+      const result = originalRm(...args);
+      rmCount += 1;
+      if (boundary === "rm-" + rmCount) process.kill(process.pid, "SIGKILL");
+      return result;
+    };
+    fs.rmdirSync = (...args) => {
+      const result = originalRmdir(...args);
+      rmdirCount += 1;
+      if (boundary === "rmdir" && rmdirCount === 2) process.kill(process.pid, "SIGKILL");
+      return result;
+    };
+    if (operation === "delete") {
+      journal.removeCommittedDockerRecoveryJson(written.target);
+    } else if (operation === "move") {
+      journal.moveCommittedDockerRecoveryJson(
+        written,
+        path.join(targetDirectory, "record.json"),
+      );
+    } else {
+      journal.removeDockerRecoveryCleanupDirectory(
+        root,
+        sourceDirectory,
+        "docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}",
+      );
+    }
+  `;
+  return spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      "--input-type=module",
+      "-e",
+      source,
+      root,
+      operation,
+      boundary,
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+}
+
+function _createRecoveryRecord(
   root: string,
   stableLogicalHomeBindingHash: string,
   nonce: string,
@@ -232,74 +332,250 @@ test("commit rename直後のprocess killでも親processが完全な組を再検
   }
 });
 
-test("production共用inventoryは複数recordをactive pointer優先で安全投影する", () => {
-  const root = temporaryDirectory();
-  try {
-    const first = createRecoveryRecord(root, "8".repeat(64), "a".repeat(64));
-    const second = createRecoveryRecord(root, "9".repeat(64), "b".repeat(64));
-    writeCommittedDockerRecoveryJson(
-      root,
-      `active-lease-${"9".repeat(64)}.json`,
-      `active-lease-${"9".repeat(64)}.json`,
-      Object.freeze({
-        schema: "crdd-coordinator-provider-home-active-lease/v1",
-        stableLogicalHomeBindingHash: "9".repeat(64),
-        operationName: `docker-task-${"b".repeat(64)}`,
-        recoveryId: second.recoveryId,
-        baseHash: second.baseHash,
-      }),
-    );
-    const inventory = inspectDockerRecoveryRootSnapshot(root);
-    assert.equal(inventory.status, "completed");
-    assert.deepEqual(inventory.dockerRecoveryIds, [
-      second.recoveryId,
-      first.recoveryId,
-    ]);
-    assert.deepEqual(inventory.activeStableLogicalHomeBindingHashes, [
-      "9".repeat(64),
-    ]);
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true });
-  }
-});
-
-test("production共用inventoryはunknownと未commit finalを削除せずglobal blockする", () => {
-  for (const entryName of ["unknown.bin", "orphan.json"] as const) {
+test("delete intentは全process-kill境界からexact pair削除を再開する", () => {
+  for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
     const root = temporaryDirectory();
     try {
-      fs.writeFileSync(path.join(root, entryName), "fixture", "utf8");
-      const inventory = inspectDockerRecoveryRootSnapshot(root);
-      assert.equal(inventory.status, "blocked");
-      assert.equal(inventory.manualRecoveryRequired, true);
-      assert.equal(fs.existsSync(path.join(root, entryName)), true);
+      const child = crashMutation(root, "delete", boundary);
+      assert.notEqual(child.status, 0, boundary);
+      const sourceDirectory = path.join(root, "source");
+      resumeDockerRecoveryJournalDirectory(sourceDirectory);
+      assert.deepEqual(fs.readdirSync(sourceDirectory), [], boundary);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
   }
 });
 
-test("cleanup tombstoneのpartial既知entryは同じRecovery IDとして列挙する", () => {
+test("move intentはsource／targetの全既知中間状態からexact targetへ収束する", () => {
+  for (const boundary of [
+    "fsync",
+    "rename-1",
+    "rename-2",
+    "rename-3",
+    "rm-1",
+  ] as const) {
+    const root = temporaryDirectory();
+    try {
+      const child = crashMutation(root, "move", boundary);
+      assert.notEqual(child.status, 0, boundary);
+      const sourceDirectory = path.join(root, "source");
+      const targetDirectory = path.join(root, "target");
+      resumeDockerRecoveryJournalDirectory(sourceDirectory);
+      const moved = readCommittedDockerRecoveryJson(
+        path.join(targetDirectory, "record.json"),
+      );
+      assert.deepEqual(moved.value, { schema: "fixture/v1", value: true });
+      assert.deepEqual(fs.readdirSync(sourceDirectory), [], boundary);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再開する", () => {
+  for (const boundary of ["fsync", "rename-1", "rm-1", "rm-2"] as const) {
+    const root = temporaryDirectory();
+    try {
+      const child = crashMutation(root, "cleanup", boundary);
+      assert.notEqual(child.status, 0, boundary);
+      resumeDockerRecoveryJournalDirectory(root);
+      assert.deepEqual(fs.readdirSync(root), [], boundary);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("delete／moveの第三状態は上書きせずintentと観測物を保持する", () => {
+  for (const [operation, boundary, replacement] of [
+    ["delete", "rm-1", path.join("source", "record.json.crdd-commit.json")],
+    ["move", "rename-2", path.join("target", "record.json")],
+  ] as const) {
+    const root = temporaryDirectory();
+    try {
+      const child = crashMutation(root, operation, boundary);
+      assert.notEqual(child.status, 0);
+      const replacementPath = path.join(root, replacement);
+      fs.writeFileSync(replacementPath, "third-state", "utf8");
+      assert.throws(
+        () => resumeDockerRecoveryJournalDirectory(path.join(root, "source")),
+        /docker_recovery_(?:intent|move)_third_state/u,
+      );
+      assert.equal(fs.readFileSync(replacementPath, "utf8"), "third-state");
+      assert.equal(
+        fs
+          .readdirSync(path.join(root, "source"))
+          .some((name) => name.startsWith(".crdd-")),
+        true,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("cleanup第三状態はrecursive deleteせずanchorとunknownを保持する", () => {
   const root = temporaryDirectory();
   try {
-    const stable = "8".repeat(64);
-    const nonce = "a".repeat(64);
-    const baseHash = "b".repeat(64);
-    const cleanupDirectory = path.join(
-      root,
-      `cleanup-docker-task-${stable}-${nonce}-${baseHash}`,
+    const child = crashMutation(root, "cleanup", "rm-1");
+    assert.notEqual(child.status, 0);
+    const cleanupDirectory = path.join(root, "source");
+    fs.writeFileSync(path.join(cleanupDirectory, "unknown.bin"), "unknown");
+    assert.throws(
+      () => resumeDockerRecoveryJournalDirectory(root),
+      /docker_recovery_cleanup_intent_third_state/u,
     );
-    fs.mkdirSync(cleanupDirectory);
-    fs.writeFileSync(
-      path.join(cleanupDirectory, "base.json.crdd-commit.json"),
-      "partial",
-      "utf8",
+    assert.equal(
+      fs.readFileSync(path.join(cleanupDirectory, "unknown.bin"), "utf8"),
+      "unknown",
     );
-    const inventory = inspectDockerRecoveryRootSnapshot(root);
-    assert.equal(inventory.status, "completed");
-    assert.deepEqual(inventory.dockerRecoveryIds, [
-      `docker-task.${stable}.${nonce}.${baseHash}`,
-    ]);
+    assert.equal(
+      fs.readdirSync(root).some((name) => name.startsWith(".crdd-cleanup-")),
+      true,
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("read-only intent inventoryはdelete／move／cleanupのAuthorityを厳密投影する", () => {
+  for (const [operation, boundary] of [
+    ["delete", "rm-1"],
+    ["move", "rename-2"],
+    ["cleanup", "rm-1"],
+  ] as const) {
+    const root = temporaryDirectory();
+    try {
+      const child = crashMutation(root, operation, boundary);
+      assert.notEqual(child.status, 0);
+      const directory =
+        operation === "cleanup" ? root : path.join(root, "source");
+      const intents = inspectDockerRecoveryJournalDirectory(directory);
+      assert.equal(intents.length, 1);
+      assert.equal(
+        intents[0]?.schema,
+        operation === "delete"
+          ? "crdd-coordinator-durable-json-delete/v1"
+          : operation === "move"
+            ? "crdd-coordinator-durable-json-move/v1"
+            : "crdd-coordinator-recovery-cleanup-delete/v1",
+      );
+      if (operation === "move") {
+        const discovered = discoverDockerRecoveryJournalJson(
+          directory,
+          "record.json",
+        );
+        assert.deepEqual(discovered?.value, {
+          schema: "fixture/v1",
+          value: true,
+        });
+        assert.equal(
+          discoverDockerRecoveryJournalJson(directory, "missing.json"),
+          null,
+        );
+      }
+      if (operation === "cleanup")
+        assert.match(
+          intents[0]?.recoveryId ?? "",
+          /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u,
+        );
+      else assert.equal(intents[0]?.recoveryId, null);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("journal contractはprocess-crash回復とpower-loss非保証を分離する", () => {
+  assert.deepEqual(describeDockerRecoveryJournalContract(), {
+    commitSchema: "crdd-coordinator-durable-json-commit/v1",
+    processCrashBoundary:
+      "fsynced_temp_atomic_rename_then_fsynced_commit_atomic_rename",
+    uncommittedFinalTreatment: "retain_and_fail_closed",
+    orphanTemporaryTreatment: "retain_and_fail_closed",
+    deleteBoundary: "single_atomic_anchor_then_target_commit_anchor",
+    moveBoundary: "single_atomic_anchor_then_content_commit_anchor",
+    powerLossDurabilityClaimed: false,
+  });
+});
+
+test("pending intent再入、cleanup rmdir後、競合anchorを決定的に分類する", () => {
+  {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(crashMutation(root, "delete", "fsync").status, 0);
+      const source = path.join(root, "source");
+      const record = readCommittedDockerRecoveryJson(
+        path.join(source, "record.json"),
+      );
+      assert.equal(removeCommittedDockerRecoveryJson(record.target), true);
+      assert.deepEqual(fs.readdirSync(source), []);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+  {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(crashMutation(root, "cleanup", "rmdir").status, 0);
+      assert.equal(fs.existsSync(path.join(root, "source")), false);
+      resumeDockerRecoveryJournalDirectory(root);
+      assert.deepEqual(fs.readdirSync(root), []);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+  {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(crashMutation(root, "delete", "rename-1").status, 0);
+      const source = path.join(root, "source");
+      const anchor = fs
+        .readdirSync(source)
+        .find((name) => name.startsWith(".crdd-delete-"));
+      assert.ok(anchor);
+      fs.copyFileSync(
+        path.join(source, anchor),
+        path.join(source, `${anchor}.pending`),
+      );
+      assert.throws(
+        () => inspectDockerRecoveryJournalDirectory(source),
+        /docker_recovery_intent_third_state/u,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("不正intent schemaと変更されたempty directoryをEvidenceとして保持する", () => {
+  {
+    const root = temporaryDirectory();
+    try {
+      fs.writeFileSync(
+        path.join(root, `.crdd-delete-${"a".repeat(64)}.json`),
+        `${JSON.stringify({ schema: "unknown/v1" })}\n`,
+      );
+      assert.throws(
+        () => resumeDockerRecoveryJournalDirectory(root),
+        /docker_recovery_intent_invalid/u,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+  {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(crashMutation(root, "cleanup", "fsync").status, 0);
+      fs.writeFileSync(path.join(root, "source", "empty", "changed"), "x");
+      assert.throws(
+        () => inspectDockerRecoveryJournalDirectory(root),
+        /docker_recovery_cleanup_intent_third_state/u,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   }
 });
