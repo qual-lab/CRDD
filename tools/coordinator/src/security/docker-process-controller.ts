@@ -132,7 +132,7 @@ type RuntimeState = Readonly<{
 }>;
 type ExecutionResult = ReturnType<typeof createFinalResult>;
 
-function createBlockedStart(reason: string) {
+function createBlockedStart(reason: string, preEffectCleanupConfirmed = false) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
@@ -140,6 +140,8 @@ function createBlockedStart(reason: string) {
     completion: null,
     operationId: null,
     recoveryId: null,
+    cleanupConfirmed: preEffectCleanupConfirmed,
+    manualRecoveryRequired: !preEffectCleanupConfirmed,
     dockerEffectStarted: false,
     providerRequestStarted: false,
     normalizedResult: null,
@@ -441,11 +443,14 @@ function start(
   if (!plan || !isPlanValid(plan))
     return createBlockedStart("docker_process_controller_plan_invalid");
   if (!state.dependencies.verifyRevision(managementCapability)) {
-    state.dependencies.completeMount(
+    const completed = state.dependencies.completeMount(
       plan.activeMountCapability,
       managementCapability,
     );
-    return createBlockedStart("docker_process_controller_revision_invalid");
+    return createBlockedStart(
+      "docker_process_controller_revision_invalid",
+      completed.status === "completed",
+    );
   }
   const authority = state.dependencies.consumeProviderAuthority(
     plan.authorityUseCapability,
@@ -461,19 +466,25 @@ function start(
     authority.runtimeAuthorityIssued !== true ||
     authority.providerEffectAllowed !== true
   ) {
-    state.dependencies.completeMount(
+    const completed = state.dependencies.completeMount(
       plan.activeMountCapability,
       managementCapability,
     );
-    return createBlockedStart("docker_process_controller_authority_invalid");
+    return createBlockedStart(
+      "docker_process_controller_authority_invalid",
+      completed.status === "completed",
+    );
   }
   const recovery = state.dependencies.beginRecovery(plan, managementCapability);
   if (!recovery) {
-    state.dependencies.completeMount(
+    const completed = state.dependencies.completeMount(
       plan.activeMountCapability,
       managementCapability,
     );
-    return createBlockedStart("docker_process_controller_recovery_unavailable");
+    return createBlockedStart(
+      "docker_process_controller_recovery_unavailable",
+      completed.status === "completed",
+    );
   }
   const controlCapability = Object.freeze({});
   const record: ExecutionRecord = {

@@ -367,6 +367,8 @@ test("起動直前Authority不成立ならMountを返しDocker Effectを開始�
   assert.equal(blocked.status, "blocked");
   assert.equal(blocked.reason, "docker_process_controller_authority_invalid");
   assert.equal(blocked.dockerEffectStarted, false);
+  assert.equal(blocked.cleanupConfirmed, true);
+  assert.equal(blocked.manualRecoveryRequired, false);
   assert.equal(fixture.getCommandCount(), 0);
   assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
@@ -381,6 +383,8 @@ test("起動直前にRepository Revisionが一致しなければEffectを開始�
   assert.equal(blocked.status, "blocked");
   assert.equal(blocked.reason, "docker_process_controller_revision_invalid");
   assert.equal(blocked.dockerEffectStarted, false);
+  assert.equal(blocked.cleanupConfirmed, true);
+  assert.equal(blocked.manualRecoveryRequired, false);
   assert.equal(fixture.getCommandCount(), 0);
   assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
