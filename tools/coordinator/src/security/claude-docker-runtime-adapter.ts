@@ -13,11 +13,15 @@ import {
   borrowRuntimeOwnedActiveProviderHomeMountSource,
   completeRuntimeOwnedProviderHomeMount,
 } from "./provider-home-mount-grant-runtime.ts";
+import {
+  issueRuntimeOwnedProviderAuthority,
+  revokeRuntimeOwnedProviderAuthority,
+} from "./provider-authority-runtime.ts";
 import { selectProviderModelCandidate } from "./provider-model-selection-runtime.ts";
 
 export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/claude-docker-runtime-adapter";
-export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 1;
+export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 2;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -49,6 +53,8 @@ type PreparedPlan = Readonly<{
   grantRef: string;
   profileId: string;
   activeMountCapability: object;
+  authorityUseCapability: object;
+  authorityControlCapability: object;
   providerHomeSourcePath: string;
   preparedWallClockMs: number;
   preparedMonotonicMs: number;
@@ -118,6 +124,23 @@ type RuntimeState = Readonly<{
     useCapability: unknown,
     managementCapability: unknown,
   ) => ConsumedModelSelection | null;
+  issueProviderAuthority: (
+    managementCapability: unknown,
+    activeMountCapability: unknown,
+  ) => Readonly<{
+    status: string;
+    useCapability: object | null;
+    controlCapability: object | null;
+    operationId: string | null;
+    provider: string | null;
+    profileId: string | null;
+    providerHomeMountGrantRef: string | null;
+    runtimeAuthorityIssued: boolean;
+  }>;
+  revokeProviderAuthority: (
+    controlCapability: unknown,
+    managementCapability: unknown,
+  ) => Readonly<{ status: string }>;
 }>;
 
 function createRuntimeState(
@@ -139,6 +162,8 @@ const productionState = createRuntimeState({
   monotonicNow: performance.now.bind(performance),
   randomBytes,
   consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
+  issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
+  revokeProviderAuthority: revokeRuntimeOwnedProviderAuthority,
 });
 
 function createBlockedResult(reason: string) {
@@ -450,6 +475,7 @@ function prepare(
     );
   }
   const activeMountCapability = activation.activeMountCapability;
+  let issuedAuthorityControlCapability: object | null = null;
   const activatedMount = Object.freeze({
     grant: activation.grant,
     activeMountCapability,
@@ -480,7 +506,7 @@ function prepare(
     );
     const preparedWallClockMs = state.wallNow();
     const preparedMonotonicMs = state.monotonicNow();
-    const plan =
+    const planCandidate =
       typeof providerHomeSourcePath === "string" &&
       Number.isFinite(preparedWallClockMs) &&
       Number.isFinite(preparedMonotonicMs) &&
@@ -496,10 +522,42 @@ function prepare(
             preparedMonotonicMs,
           )
         : null;
-    if (!plan) {
+    if (!planCandidate) {
       state.completeMount(activeMountCapability, managementCapability);
       return createBlockedResult("claude_docker_runtime_plan_invalid");
     }
+    const authority = state.issueProviderAuthority(
+      managementCapability,
+      activeMountCapability,
+    );
+    if (authority.status === "issued" && authority.controlCapability) {
+      issuedAuthorityControlCapability = authority.controlCapability;
+    }
+    if (
+      authority.status !== "issued" ||
+      !authority.useCapability ||
+      !authority.controlCapability ||
+      authority.operationId !== binding.operationId ||
+      authority.provider !== "claude" ||
+      authority.profileId !== activation.grant.profileId ||
+      authority.providerHomeMountGrantRef !== activation.grant.grantRef ||
+      authority.runtimeAuthorityIssued !== true
+    ) {
+      if (issuedAuthorityControlCapability) {
+        state.revokeProviderAuthority(
+          issuedAuthorityControlCapability,
+          managementCapability,
+        );
+        issuedAuthorityControlCapability = null;
+      }
+      state.completeMount(activeMountCapability, managementCapability);
+      return createBlockedResult("claude_docker_runtime_authority_invalid");
+    }
+    const plan = Object.freeze({
+      ...planCandidate,
+      authorityUseCapability: authority.useCapability,
+      authorityControlCapability: authority.controlCapability,
+    });
     const preparedCapability = Object.freeze({});
     state.prepared.set(preparedCapability, plan);
     state.managementCapabilities.set(
@@ -521,6 +579,12 @@ function prepare(
       providerHomeMountLeaseActive: true,
     });
   } catch (error) {
+    if (issuedAuthorityControlCapability) {
+      state.revokeProviderAuthority(
+        issuedAuthorityControlCapability,
+        managementCapability,
+      );
+    }
     state.completeMount(activeMountCapability, managementCapability);
     throw error;
   }
@@ -568,6 +632,10 @@ function cancel(
       "claude_docker_runtime_prepared_capability_invalid",
     );
   }
+  const revoked = state.revokeProviderAuthority(
+    plan.authorityControlCapability,
+    managementCapability,
+  );
   const completed = state.completeMount(
     plan.activeMountCapability,
     managementCapability,
@@ -578,6 +646,11 @@ function cancel(
     );
   }
   removePrepared(state, preparedCapability);
+  if (revoked.status !== "revoked") {
+    return createBlockedResult(
+      "claude_docker_runtime_authority_revoke_invalid",
+    );
+  }
   const isExpired = !isPlanFresh(state, plan);
   return Object.freeze({
     ...createBlockedResult(
@@ -604,6 +677,10 @@ function consumePreparedPlan(
     return null;
   }
   if (!isPlanFresh(state, plan)) {
+    state.revokeProviderAuthority(
+      plan.authorityControlCapability,
+      managementCapability,
+    );
     const completed = state.completeMount(
       plan.activeMountCapability,
       managementCapability,
@@ -717,6 +794,8 @@ export function describeClaudeDockerRuntimeAdapterContract() {
       "same_runtime_owned_management_and_mount_capability_generation",
     providerHomeBinding:
       "consumed_mount_authorization_and_native_known_folder_source_hash",
+    providerAuthority:
+      "runtime_owned_short_lived_use_capability_required_in_prepared_plan",
     preparedLifetimeMs: PREPARED_LIFETIME_MS,
     providerImage: "fixed_digest_only_pull_never",
     proxyImage: "fixed_digest_only_pull_never",
@@ -749,7 +828,8 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     networkEffectIssued: false,
     processEffectIssued: false,
     providerRequestIssued: false,
-    runtimeAuthorityIssued: false,
+    runtimeAuthorityIssued:
+      "candidate_issuer_connected_production_source_loader_not_connected",
     operationCapabilityIssued: false,
     processController:
       "candidate_consumer_implemented_production_effect_not_connected",

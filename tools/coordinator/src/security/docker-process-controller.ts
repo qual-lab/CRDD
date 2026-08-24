@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 
 import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
+import { consumeRuntimeOwnedProviderAuthority } from "./provider-authority-runtime.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 2;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 3;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -28,7 +29,9 @@ type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 type PreparedPlan = Readonly<{
   operationId: string;
   grantRef: string;
+  profileId: string;
   activeMountCapability: object;
+  authorityUseCapability: object;
   providerContainerName: string;
   proxyContainerName: string;
   internalNetworkName: string;
@@ -85,6 +88,18 @@ type RuntimeDependencies = Readonly<{
     recoveryCapability: object,
     managementCapability: unknown,
   ) => Readonly<{ status: string }>;
+  consumeProviderAuthority: (
+    useCapability: unknown,
+    activeMountCapability: unknown,
+    managementCapability: unknown,
+  ) => Readonly<{
+    operationId: string;
+    provider: string;
+    profileId: string;
+    providerHomeMountGrantRef: string;
+    runtimeAuthorityIssued: true;
+    providerEffectAllowed: true;
+  }> | null;
 }>;
 type ExecutionRecord = {
   managementCapability: object;
@@ -175,9 +190,12 @@ function isPlanValid(plan: PreparedPlan) {
   return (
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
     /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) &&
+    /^PROFILE-[0-9]{6,}$/u.test(plan.profileId) &&
     /^MODELSEL-[A-Z0-9-]{8,80}$/u.test(plan.selectionRecordId) &&
     plan.activeMountCapability !== null &&
     typeof plan.activeMountCapability === "object" &&
+    plan.authorityUseCapability !== null &&
+    typeof plan.authorityUseCapability === "object" &&
     [
       plan.providerContainerName,
       plan.proxyContainerName,
@@ -385,6 +403,26 @@ function start(
   );
   if (!plan || !isPlanValid(plan))
     return createBlockedStart("docker_process_controller_plan_invalid");
+  const authority = state.dependencies.consumeProviderAuthority(
+    plan.authorityUseCapability,
+    plan.activeMountCapability,
+    managementCapability,
+  );
+  if (
+    !authority ||
+    authority.operationId !== plan.operationId ||
+    authority.provider !== "claude" ||
+    authority.profileId !== plan.profileId ||
+    authority.providerHomeMountGrantRef !== plan.grantRef ||
+    authority.runtimeAuthorityIssued !== true ||
+    authority.providerEffectAllowed !== true
+  ) {
+    state.dependencies.completeMount(
+      plan.activeMountCapability,
+      managementCapability,
+    );
+    return createBlockedStart("docker_process_controller_authority_invalid");
+  }
   const recovery = state.dependencies.beginRecovery(plan, managementCapability);
   if (!recovery) {
     state.dependencies.completeMount(
@@ -465,6 +503,7 @@ const productionState: RuntimeState = Object.freeze({
       }),
     completeMount: () => Object.freeze({ status: "blocked" }),
     completeRecovery: () => Object.freeze({ status: "blocked" }),
+    consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
   }),
   controls: new WeakMap(),
 });
@@ -529,6 +568,8 @@ export function describeDockerProcessControllerContract() {
     stderrLimitBytes: STDERR_LIMIT_BYTES,
     preparedPlan: "opaque_single_use_adapter_capability_only",
     recoveryBeforeDockerEffect: true,
+    providerAuthority:
+      "opaque_single_use_reverified_and_consumed_before_recovery_or_docker_effect",
     cancellation: "opaque_control_capability_exactly_once",
     cleanup:
       "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",

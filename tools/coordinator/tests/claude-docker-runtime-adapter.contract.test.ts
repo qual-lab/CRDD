@@ -47,9 +47,12 @@ function createFixture(
   const mountAuthorizationCapability = Object.freeze({});
   const selectionUseCapability = Object.freeze({});
   const activeMountCapability = Object.freeze({});
+  const authorityUseCapability = Object.freeze({});
+  const authorityControlCapability = Object.freeze({});
   let wallClockMs = 1_000;
   let monotonicMs = 2_000;
   let completionCount = 0;
+  let revocationCount = 0;
   let randomValue = 0;
   const dependencies = {
     verifyOperationMount: (management: unknown, mount: unknown) => {
@@ -104,6 +107,26 @@ function createFixture(
       assert.equal(management, managementCapability);
       return modelSelection;
     },
+    issueProviderAuthority: (management: unknown, active: unknown) => {
+      assert.equal(management, managementCapability);
+      assert.equal(active, activeMountCapability);
+      return Object.freeze({
+        status: "issued",
+        useCapability: authorityUseCapability,
+        controlCapability: authorityControlCapability,
+        operationId: "OP-123456",
+        provider: "claude",
+        profileId: "PROFILE-123456",
+        providerHomeMountGrantRef: "PHMGRANT-123456",
+        runtimeAuthorityIssued: true,
+      });
+    },
+    revokeProviderAuthority: (control: unknown, management: unknown) => {
+      assert.equal(control, authorityControlCapability);
+      assert.equal(management, managementCapability);
+      revocationCount += 1;
+      return Object.freeze({ status: "revoked" });
+    },
     ...overrides,
   };
   const adapter =
@@ -115,6 +138,7 @@ function createFixture(
     mountAuthorizationCapability,
     selectionUseCapability,
     getCompletionCount: () => completionCount,
+    getRevocationCount: () => revocationCount,
     advanceBeyondLifetime: () => {
       wallClockMs += 30_000;
       monotonicMs += 30_000;
@@ -200,6 +224,7 @@ test("cancelはMount leaseを完了しprepared capabilityを再利用不能に�
   );
   assert.equal(cancelled.status, "cancelled");
   assert.equal(fixture.getCompletionCount(), 1);
+  assert.equal(fixture.getRevocationCount(), 1);
   assert.equal(
     fixture.adapter.cancel(
       prepared.preparedCapability,
@@ -349,6 +374,85 @@ test("Selection GrantをconsumeできなければMount leaseだけ回収して�
   assert.equal(fixture.getCompletionCount(), 1);
 });
 
+test("Provider Authorityを発行できなければMount leaseを返しPlanを作らない", () => {
+  const fixture = createFixture({
+    issueProviderAuthority: () =>
+      Object.freeze({
+        status: "blocked",
+        useCapability: null,
+        controlCapability: null,
+        operationId: null,
+        provider: null,
+        profileId: null,
+        providerHomeMountGrantRef: null,
+        runtimeAuthorityIssued: false,
+      }),
+  });
+  const prepared = fixture.adapter.prepare(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+  );
+  assert.equal(prepared.status, "blocked");
+  assert.equal(prepared.reason, "claude_docker_runtime_authority_invalid");
+  assert.equal(fixture.getCompletionCount(), 1);
+});
+
+test("不一致の発行済みProvider Authorityは失効してMount leaseを返す", () => {
+  let revocations = 0;
+  const fixture = createFixture({
+    issueProviderAuthority: () =>
+      Object.freeze({
+        status: "issued",
+        useCapability: Object.freeze({}),
+        controlCapability: Object.freeze({}),
+        operationId: "OP-123456",
+        provider: "claude",
+        profileId: "PROFILE-DIFFERENT",
+        providerHomeMountGrantRef: "PHMGRANT-123456",
+        runtimeAuthorityIssued: true,
+      }),
+    revokeProviderAuthority: () => {
+      revocations += 1;
+      return Object.freeze({ status: "revoked" });
+    },
+  });
+  const prepared = fixture.adapter.prepare(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+  );
+  assert.equal(prepared.status, "blocked");
+  assert.equal(prepared.reason, "claude_docker_runtime_authority_invalid");
+  assert.equal(fixture.getCompletionCount(), 1);
+  assert.equal(revocations, 1);
+});
+
+test("prepared取消はAuthority失効とMount解放の両方を要求する", () => {
+  const fixture = createFixture({
+    revokeProviderAuthority: () => Object.freeze({ status: "blocked" }),
+  });
+  const prepared = fixture.adapter.prepare(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+  );
+  assert.equal(prepared.status, "prepared");
+  const cancelled = fixture.adapter.cancel(
+    prepared.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(cancelled.status, "blocked");
+  assert.equal(
+    cancelled.reason,
+    "claude_docker_runtime_authority_revoke_invalid",
+  );
+  assert.equal(fixture.getCompletionCount(), 1);
+});
+
 test("production adapterは未発行のCapabilityと未接続Selection Grantを拒否する", () => {
   const prepared = prepareRuntimeOwnedClaudeDockerCandidate({}, {}, {}, {});
   assert.equal(prepared.status, "blocked");
@@ -361,6 +465,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeClaudeDockerRuntimeAdapterContract();
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.coordinatorPrelaunchModelSelectionAllowed, true);
   assert.equal(contract.providerAutomaticModelSwitchingAllowed, false);
   assert.equal(contract.midExecutionModelSwitchingAllowed, false);
@@ -369,6 +474,7 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
   assert.equal(contract.fallbackModelArgumentAllowed, false);
   assert.equal(contract.providerDirectEgress, false);
   assert.equal(contract.commandPlanReported, false);
+  assert.match(contract.providerAuthority, /short_lived/u);
   assert.equal(
     contract.processController,
     "candidate_consumer_implemented_production_effect_not_connected",

@@ -27,19 +27,19 @@ import { canonicalJson } from "./test-support.ts";
 function profile() {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     profileId: "PROFILE-000001",
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     providerHomeMountGrant: {
-      grantRef: "PHMGRANT-000001",
       provider: "codex",
       profileId: "PROFILE-000001",
       operationId: "OP-000001",
-      grantIssued: false,
-      verification: "not_implemented",
+      issuer: "runtime_owned",
+      requiredState: "active",
+      verification: "runtime_capability_required",
     },
     egress: { origins: ["https://api.example.test"] },
   };
@@ -49,7 +49,7 @@ function fixture(manifestOverrides = {}, policyOverrides = {}) {
   const rawProfile = profile();
   const registry = {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: "2026-08-11T00:00:00.000Z",
@@ -64,12 +64,12 @@ function fixture(manifestOverrides = {}, policyOverrides = {}) {
         profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
         providerHomeMountGrant: {
-          grantRef: "PHMGRANT-000001",
           provider: "codex",
           profileId: "PROFILE-000001",
           operationId: "OP-000001",
-          grantIssued: false,
-          verification: "not_implemented",
+          issuer: "runtime_owned",
+          requiredState: "active",
+          verification: "runtime_capability_required",
         },
         operationId: "OP-000001",
         scopeId: "SCOPE-000001",

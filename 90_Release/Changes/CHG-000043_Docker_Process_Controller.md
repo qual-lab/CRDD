@@ -28,8 +28,8 @@ Claude CLIのJSON Envelope normalizerを追加し、単一JSON document、重複
 
 ## 現在状態と残件
 
-Claude Result normalizer、Process Controller revision 2および隔離integrationを追加した。対象試験16／16で、Selection Grant→Claude Adapter→9 command Process Controller→exact `{status: true}`→全cleanup→Mount lease解放→Recovery完了を一続きで確認した。Result不正、timeout、取消、cleanup不明およびRecovery開始失敗も同じ状態機械でfail closedになる。新normalizerの実測coverageはline 97.27%、branch 94.50%、function 100%であり、未到達lineは先行字句走査後の`JSON.parse`が例外化した場合に備える防御catchと、loop末端の防御returnである。
+Claude Result normalizer、Process Controller revision 3および隔離integrationを追加した。Selection Grant→Claude Adapter→短命Runtime Provider Authority発行→起動直前の再検証／一回消費→9 command Process Controller→exact `{status: true}`→全cleanup→Mount lease解放→Recovery完了を一続きで確認した。Result不正、Authority不成立、timeout、取消、cleanup不明およびRecovery開始失敗も同じ状態機械でfail closedになる。新normalizerの実測coverageはline 97.27%、branch 94.50%、function 100%であり、未到達lineは先行字句走査後の`JSON.parse`が例外化した場合に備える防御catchと、loop末端の防御returnである。
 
-productionの検証済みDocker CLI Effect executor、durable Recovery adapter、Provider eligibility／Profile resolverおよびProvider Authorityは未接続であり、本番入口はEffect前に`blocked`である。次はこれらを任意Docker command APIへ一般化せず、exact prepared planとAuthorityへ結合した狭いproduction Effect adapterとして接続し、実Docker異常系と実Claude vertical sliceを閉じる。
+productionの検証済みDocker CLI Effect executor、durable Recovery adapter、Provider eligibility／Profile resolverおよび有効化済みAuthority source loaderは未接続であり、本番入口はEffect前に`blocked`である。次はこれらを任意Docker command APIへ一般化せず、exact prepared planと短命Authorityへ結合した狭いproduction Effect adapterとして接続し、実Docker異常系と実Claude vertical sliceを閉じる。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。

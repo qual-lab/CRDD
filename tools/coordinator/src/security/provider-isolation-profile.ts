@@ -3,11 +3,10 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
-import { isProviderHomeMountGrantRef } from "./provider-home-mount-grant.ts";
 
 export const PROVIDER_ISOLATION_CONTRACT =
   "crdd-coordinator/provider-isolation-profile";
-export const PROVIDER_ISOLATION_CONTRACT_REVISION = 2;
+export const PROVIDER_ISOLATION_CONTRACT_REVISION = 3;
 
 const SUPPORTED_PROVIDERS = new Set(["codex", "claude"]);
 export const PROVIDER_INPUT_LIMITS = Object.freeze({
@@ -100,11 +99,11 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
   const authority = snapshotPlainRecord(top.authority, authorityKeys);
   if (!authority) return blocked("authority_shape_invalid");
   const mountGrantKeys = new Set([
-    "grantRef",
     "provider",
     "profileId",
     "operationId",
-    "grantIssued",
+    "issuer",
+    "requiredState",
     "verification",
   ]);
   const providerHomeMountGrant = snapshotPlainRecord(
@@ -152,12 +151,12 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
     return blocked("authority_reference_invalid");
 
   if (
-    !isProviderHomeMountGrantRef(providerHomeMountGrant.grantRef) ||
     providerHomeMountGrant.provider !== top.provider ||
     providerHomeMountGrant.profileId !== top.profileId ||
     providerHomeMountGrant.operationId !== top.operationId ||
-    providerHomeMountGrant.grantIssued !== false ||
-    providerHomeMountGrant.verification !== "not_implemented"
+    providerHomeMountGrant.issuer !== "runtime_owned" ||
+    providerHomeMountGrant.requiredState !== "active" ||
+    providerHomeMountGrant.verification !== "runtime_capability_required"
   )
     return blocked("provider_home_mount_grant_reference_invalid");
 
@@ -195,12 +194,12 @@ function validateProviderIsolationProfileInternal(candidate: unknown) {
       grantRef: authority.grantRef,
     }),
     providerHomeMountGrant: Object.freeze({
-      grantRef: providerHomeMountGrant.grantRef,
       provider: providerHomeMountGrant.provider,
       profileId: providerHomeMountGrant.profileId,
       operationId: providerHomeMountGrant.operationId,
-      grantIssued: false,
-      verification: "not_implemented",
+      issuer: "runtime_owned",
+      requiredState: "active",
+      verification: "runtime_capability_required",
     }),
     egress: Object.freeze({ origins: Object.freeze(uniqueOrigins) }),
     requiredCapabilities: Object.freeze([
@@ -236,7 +235,7 @@ export function describeProviderIsolationContract() {
     contractRevision: PROVIDER_ISOLATION_CONTRACT_REVISION,
     crddVersionSpecific: false,
     validationState: "candidate",
-    authorityVerification: "not_implemented",
+    authorityVerification: "runtime_capability_required",
     supportedProviders: Object.freeze([...SUPPORTED_PROVIDERS]),
     supportedWriteBackend: "docker",
     localFallbackAllowed: false,
@@ -244,10 +243,12 @@ export function describeProviderIsolationContract() {
     authMethod: "subscription_oauth",
     subscriptionOauthProviderHomeMountGrant: Object.freeze({
       contractOwner: "provider_lifecycle",
-      implementationState: "not_implemented",
+      implementationState: "runtime_owned_lifecycle_connected",
       tokenCopyOrInjectionAllowed: false,
-      grantIssued: false,
-      verification: "not_implemented",
+      dynamicGrantRefInSignedProfile: false,
+      requiredIssuer: "runtime_owned",
+      requiredState: "active",
+      verification: "runtime_capability_required",
     }),
     wildcardEgressAllowed: false,
   });

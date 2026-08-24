@@ -17,19 +17,19 @@ import {
 function profile(overrides = {}) {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     profileId: "PROFILE-000001",
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     providerHomeMountGrant: {
-      grantRef: "PHMGRANT-000001",
       provider: "codex",
       profileId: "PROFILE-000001",
       operationId: "OP-000001",
-      grantIssued: false,
-      verification: "not_implemented",
+      issuer: "runtime_owned",
+      requiredState: "active",
+      verification: "runtime_capability_required",
     },
     egress: { origins: ["https://api.example.test"] },
     ...overrides,
@@ -44,7 +44,7 @@ function registry(
   const profileHash = validateProviderIsolationProfile(rawProfile).profileHash;
   return {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: "2026-08-11T00:00:00.000Z",
@@ -59,12 +59,12 @@ function registry(
         profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
         providerHomeMountGrant: {
-          grantRef: "PHMGRANT-000001",
           provider: "codex",
           profileId: "PROFILE-000001",
           operationId: "OP-000001",
-          grantIssued: false,
-          verification: "not_implemented",
+          issuer: "runtime_owned",
+          requiredState: "active",
+          verification: "runtime_capability_required",
         },
         operationId: "OP-000001",
         scopeId: "SCOPE-000001",
@@ -98,10 +98,6 @@ function grants(
     return {
       ...base,
       grantRef: `AUTH-${String(index + 1).padStart(6, "0")}`,
-      providerHomeMountGrant: {
-        ...base.providerHomeMountGrant,
-        grantRef: `PHMGRANT-${String(index + 1).padStart(6, "0")}`,
-      },
       origins: originFactory(index),
     };
   });
@@ -134,7 +130,7 @@ test("Grant照合はOperationとScopeを含む候補根拠を返す", () => {
   assert.equal(result.verification.providerHomeMountGrantIssued, false);
   assert.equal(
     result.verification.providerHomeMountGrantVerification,
-    "not_implemented",
+    "runtime_capability_required",
   );
   assert.equal(result.verification.validUntil, "2026-08-12T00:00:00.000Z");
 });
@@ -198,12 +194,12 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
       registry(profile(), {
         provider: "claude",
         providerHomeMountGrant: {
-          grantRef: "PHMGRANT-000001",
           provider: "claude",
           profileId: "PROFILE-000001",
           operationId: "OP-000001",
-          grantIssued: false,
-          verification: "not_implemented",
+          issuer: "runtime_owned",
+          requiredState: "active",
+          verification: "runtime_capability_required",
         },
       }),
       context,
@@ -216,28 +212,14 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
     ],
     [
       registry(profile(), {
-        providerHomeMountGrant: {
-          grantRef: "PHMGRANT-000002",
-          provider: "codex",
-          profileId: "PROFILE-000001",
-          operationId: "OP-000001",
-          grantIssued: false,
-          verification: "not_implemented",
-        },
-      }),
-      context,
-      "authority_provider_home_mount_grant_mismatch",
-    ],
-    [
-      registry(profile(), {
         operationId: "OP-000002",
         providerHomeMountGrant: {
-          grantRef: "PHMGRANT-000001",
           provider: "codex",
           profileId: "PROFILE-000001",
           operationId: "OP-000002",
-          grantIssued: false,
-          verification: "not_implemented",
+          issuer: "runtime_owned",
+          requiredState: "active",
+          verification: "runtime_capability_required",
         },
       }),
       context,
@@ -263,11 +245,6 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
       { ...context, profileId: "PROFILE-000002" },
       "authority_provider_profile_operation_mismatch",
     ],
-    [
-      registry(),
-      { ...context, providerHomeMountGrantRef: "PHMGRANT-000002" },
-      "authority_provider_home_mount_grant_context_mismatch",
-    ],
   ];
   for (const [rawRegistry, rawContext, reason] of cases) {
     assert.equal(
@@ -276,6 +253,23 @@ test("Provider、Origin、Mount Grant、Operation、Scope、Profile Hashの差�
       reason,
     );
   }
+});
+
+test("静的Authority要件を実行時の動的Mount Grant refへ結合する", () => {
+  const result = evaluateAuthorityGrantCandidate(profile(), registry(), {
+    ...context,
+    providerHomeMountGrantRef: "PHMGRANT-000002",
+  });
+  assert.equal(result.status, "candidate");
+  assert.equal(
+    result.verification.providerHomeMountGrantRef,
+    "PHMGRANT-000002",
+  );
+  assert.equal(result.verification.providerHomeMountGrantIssued, false);
+  assert.equal(
+    result.verification.providerHomeMountGrantVerification,
+    "runtime_capability_required",
+  );
 });
 
 test("Authority contextはMount Grant参照を必須exact keyとして検査する", () => {
@@ -323,16 +317,16 @@ test("Registry参照差、重複Grant、非UTC時刻および不正nowをfail cl
     validateAuthorityRegistryCandidate(duplicate).reason,
     "authority_registry_grant_duplicate",
   );
-  const reusedMountGrant = registry();
-  const reusedBase = reusedMountGrant.grants[0];
-  assert.ok(reusedBase);
-  reusedMountGrant.grants.push({
-    ...reusedBase,
+  const sharedMountRequirement = registry();
+  const sharedBase = sharedMountRequirement.grants[0];
+  assert.ok(sharedBase);
+  sharedMountRequirement.grants.push({
+    ...sharedBase,
     grantRef: "AUTH-000002",
   });
   assert.equal(
-    validateAuthorityRegistryCandidate(reusedMountGrant).reason,
-    "authority_provider_home_mount_grant_duplicate",
+    validateAuthorityRegistryCandidate(sharedMountRequirement).status,
+    "candidate",
   );
   assert.equal(
     validateAuthorityRegistryCandidate(

@@ -477,7 +477,7 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
     report.providerLifecycle.providerHomeMountGrant.grantIssued,
     false,
   );
-  assert.equal(report.egress.isolationProfileContract.contractRevision, 2);
+  assert.equal(report.egress.isolationProfileContract.contractRevision, 3);
   const providerChecks = report.checks.filter((item) =>
     item.id.startsWith("provider."),
   );
@@ -1926,7 +1926,7 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
   );
   assert.equal(
     report.egress.isolationProfileContract.authorityVerification,
-    "not_implemented",
+    "runtime_capability_required",
   );
   assert.equal(report.egress.activation, "blocked");
   assert.equal(

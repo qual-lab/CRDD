@@ -23,7 +23,7 @@ type ProfileFixture = Record<string, unknown> & {
 function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     profileId: "PROFILE-000001",
     provider: "codex",
     operationId: "OP-000001",
@@ -33,12 +33,12 @@ function candidate(overrides: Record<string, unknown> = {}): ProfileFixture {
       grantRef: "AUTH-000001",
     },
     providerHomeMountGrant: {
-      grantRef: "PHMGRANT-000001",
       provider: "codex",
       profileId: "PROFILE-000001",
       operationId: "OP-000001",
-      grantIssued: false,
-      verification: "not_implemented",
+      issuer: "runtime_owned",
+      requiredState: "active",
+      verification: "runtime_capability_required",
     },
     egress: {
       origins: ["https://api.example.test"],
@@ -60,7 +60,8 @@ test("限定参照だけを含むProfileをAuthority確認待ち候補として�
   assert.match(result.profileHash, /^[a-f0-9]{64}$/u);
   assert.deepEqual(result.profile.egress.origins, ["https://api.example.test"]);
   assert.equal(JSON.stringify(result).includes("CRDD-v0.18"), false);
-  assert.equal(result.profile.providerHomeMountGrant.grantIssued, false);
+  assert.equal(result.profile.providerHomeMountGrant.issuer, "runtime_owned");
+  assert.equal(result.profile.providerHomeMountGrant.requiredState, "active");
   assert.equal(
     result.profile.requiredCapabilities.includes(
       "provider_home_mount_grant_verification",
@@ -74,11 +75,11 @@ test("Profile契約はCRDD版ごとに分岐しない", () => {
   assert.equal(contract.crddVersionSpecific, false);
   assert.equal(contract.supportedWriteBackend, "docker");
   assert.equal(contract.localFallbackAllowed, false);
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.authMethod, "subscription_oauth");
   assert.equal(
     contract.subscriptionOauthProviderHomeMountGrant.implementationState,
-    "not_implemented",
+    "runtime_owned_lifecycle_connected",
   );
   assert.equal(
     contract.subscriptionOauthProviderHomeMountGrant
@@ -204,7 +205,7 @@ test("Profile入口はtop、nested、array accessorを実行しない", () => {
   }
 });
 
-test("Provider tokenらしい値を参照fieldへ偽装できない", () => {
+test("Provider tokenらしい値をAuthority参照へ偽装できない", () => {
   const values = [
     "sk-proj-example",
     "sk-ant-example",
@@ -217,13 +218,6 @@ test("Provider tokenらしい値を参照fieldへ偽装できない", () => {
     assert.equal(
       validateProviderIsolationProfile(authority).reason,
       "authority_reference_invalid",
-      value,
-    );
-    const mountGrant = candidate();
-    mountGrant.providerHomeMountGrant.grantRef = value;
-    assert.equal(
-      validateProviderIsolationProfile(mountGrant).reason,
-      "provider_home_mount_grant_reference_invalid",
       value,
     );
   }
@@ -240,18 +234,12 @@ test("自己申告の承認内容と旧時刻fieldをProfileへ保持できな�
   );
 });
 
-test("AuthorityとProvider Home mount Grantの参照namespaceを相互利用できない", () => {
+test("Authority参照へ動的Mount Grant namespaceを流用できない", () => {
   const authority = candidate();
   authority.authority.grantRef = "PHMGRANT-000001";
   assert.equal(
     validateProviderIsolationProfile(authority).reason,
     "authority_reference_invalid",
-  );
-  const mountGrant = candidate();
-  mountGrant.providerHomeMountGrant.grantRef = "AUTH-000001";
-  assert.equal(
-    validateProviderIsolationProfile(mountGrant).reason,
-    "provider_home_mount_grant_reference_invalid",
   );
 });
 
@@ -277,6 +265,28 @@ test("Mount GrantはProvider、ProfileおよびOperationへ完全結合する", 
     ["provider", "claude"],
     ["profileId", "PROFILE-000002"],
     ["operationId", "OP-000002"],
+  ] as const) {
+    const changed = candidate();
+    changed.providerHomeMountGrant[field] = value;
+    assert.equal(
+      validateProviderIsolationProfile(changed).reason,
+      "provider_home_mount_grant_reference_invalid",
+      field,
+    );
+  }
+});
+
+test("署名Profileへ動的Grant refまたは未検証状態を保持できない", () => {
+  const dynamicReference = candidate();
+  dynamicReference.providerHomeMountGrant.grantRef = "PHMGRANT-000001";
+  assert.equal(
+    validateProviderIsolationProfile(dynamicReference).reason,
+    "provider_home_mount_grant_shape_invalid",
+  );
+  for (const [field, value] of [
+    ["issuer", "caller"],
+    ["requiredState", "issued"],
+    ["verification", "not_implemented"],
   ] as const) {
     const changed = candidate();
     changed.providerHomeMountGrant[field] = value;

@@ -23,19 +23,19 @@ import { canonicalJson } from "./test-support.ts";
 function profile() {
   return {
     contract: PROVIDER_ISOLATION_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     profileId: "PROFILE-000001",
     provider: "codex",
     operationId: "OP-000001",
     authMethod: "subscription_oauth",
     authority: { registryId: "AUTHREG-000001", grantRef: "AUTH-000001" },
     providerHomeMountGrant: {
-      grantRef: "PHMGRANT-000001",
       provider: "codex",
       profileId: "PROFILE-000001",
       operationId: "OP-000001",
-      grantIssued: false,
-      verification: "not_implemented",
+      issuer: "runtime_owned",
+      requiredState: "active",
+      verification: "runtime_capability_required",
     },
     egress: { origins: ["https://api.example.test"] },
   };
@@ -46,7 +46,7 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
   const now = Date.now();
   const registry = {
     contract: AUTHORITY_REGISTRY_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     registryId: "AUTHREG-000001",
     registryRevision: 3,
     observedAt: new Date(now - 60_000).toISOString(),
@@ -61,12 +61,12 @@ function fixture(grantOverrides = {}, policyOverrides = {}) {
         profileId: "PROFILE-000001",
         origins: ["https://api.example.test"],
         providerHomeMountGrant: {
-          grantRef: "PHMGRANT-000001",
           provider: "codex",
           profileId: "PROFILE-000001",
           operationId: "OP-000001",
-          grantIssued: false,
-          verification: "not_implemented",
+          issuer: "runtime_owned",
+          requiredState: "active",
+          verification: "runtime_capability_required",
         },
         operationId: "OP-000001",
         scopeId: "SCOPE-000001",
@@ -143,7 +143,7 @@ test("Runtime時計でGrantを起動直前に再確認する候補を作る", ()
   assert.equal(result.verification.providerHomeMountGrantIssued, false);
   assert.equal(
     result.verification.providerHomeMountGrantVerification,
-    "not_implemented",
+    "runtime_capability_required",
   );
   assert.equal(result.verification.trustPolicyId, trustPolicy.policyId);
   assert.equal(
@@ -184,7 +184,7 @@ test("呼出側時刻を受理せず固定Contextだけを使う", () => {
   assert.equal(getterCalls, 0);
 });
 
-test("Prelaunch contextはMount Grant参照の欠落、namespace差およびref差を拒否する", () => {
+test("Prelaunch contextはMount Grant参照の欠落とnamespace差を拒否する", () => {
   const { rawProfile, bundle } = fixture();
   const { providerHomeMountGrantRef: unusedRef, ...missing } = CONTEXT;
   void unusedRef;
@@ -192,26 +192,34 @@ test("Prelaunch contextはMount Grant参照の欠落、namespace差およびref�
     missing,
     { ...CONTEXT, providerHomeMountGrantRef: "AUTH-000001" },
     { ...CONTEXT, providerHomeMountGrantRef: "CGRANT-000001" },
-    { ...CONTEXT, providerHomeMountGrantRef: "PHMGRANT-000002" },
     { ...CONTEXT, extra: true },
   ]) {
-    const isReferenceMismatch =
-      "providerHomeMountGrantRef" in changed &&
-      changed.providerHomeMountGrantRef === "PHMGRANT-000002";
     const result = reverifyAuthorityBeforeProviderLaunch(
       rawProfile,
       bundle,
       changed,
     );
     assert.equal(result.status, "blocked");
-    assert.equal(
-      result.reason,
-      isReferenceMismatch
-        ? "authority_provider_home_mount_grant_context_mismatch"
-        : "prelaunch_authority_context_invalid",
-    );
+    assert.equal(result.reason, "prelaunch_authority_context_invalid");
     assert.equal(result.runtimeCapabilityIssued, false);
   }
+});
+
+test("Prelaunchは静的要件を現在の動的Mount Grant refへ結合する", () => {
+  const { rawProfile, bundle } = fixture();
+  const result = reverifyAuthorityBeforeProviderLaunch(rawProfile, bundle, {
+    ...CONTEXT,
+    providerHomeMountGrantRef: "PHMGRANT-000002",
+  });
+  assert.equal(result.status, "candidate");
+  assert.equal(
+    result.verification.providerHomeMountGrantRef,
+    "PHMGRANT-000002",
+  );
+  assert.equal(
+    result.verification.providerHomeMountGrantVerification,
+    "runtime_capability_required",
+  );
 });
 
 test("失効GrantとTrust Policy不一致をCapabilityへ昇格させない", () => {

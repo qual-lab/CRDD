@@ -515,6 +515,40 @@ function activeMountSource(
   return active.runtimeGrant.activeMountSourcePath;
 }
 
+function inspectActiveMount(
+  state: RuntimeState,
+  activeMountCapability: unknown,
+  managementCapability: unknown,
+) {
+  const active = alias(state, activeMountCapability, "active_mount");
+  if (
+    !active ||
+    !sameManagementCapability(
+      state,
+      active.runtimeGrant,
+      managementCapability,
+    ) ||
+    !active.runtimeGrant.mountActive ||
+    !active.runtimeGrant.activeMountSourcePath ||
+    !currentRuntimeAge(state, active.runtimeGrant)
+  ) {
+    return blocked("provider_home_active_mount_inspection_invalid");
+  }
+  const grant = active.runtimeGrant.grant;
+  return Object.freeze({
+    ...blocked("provider_home_active_mount_confirmed"),
+    status: "active" as const,
+    grant,
+    grantRef: grant.grantRef,
+    provider: grant.provider,
+    profileId: grant.profileId,
+    operationId: grant.operationId,
+    providerHomeMountGrantIssued: true,
+    providerHomeMounted: true,
+    runtimeAuthorityIssued: false,
+  });
+}
+
 function completeMount(
   state: RuntimeState,
   activeMountCapability: unknown,
@@ -712,6 +746,19 @@ export function borrowRuntimeOwnedActiveProviderHomeMountSource(
   }
 }
 
+export function inspectRuntimeOwnedActiveProviderHomeMount(
+  activeMountCapability: unknown,
+  managementCapability: unknown,
+) {
+  return failClosed("provider_home_active_mount_inspection_failed_closed", () =>
+    inspectActiveMount(
+      productionState,
+      activeMountCapability,
+      managementCapability,
+    ),
+  );
+}
+
 export function completeRuntimeOwnedProviderHomeMount(
   activeMountCapability: unknown,
   managementCapability: unknown,
@@ -798,6 +845,13 @@ export function createIsolatedProviderHomeMountGrantRuntimeCandidate(
         return null;
       }
     },
+    inspectActiveMount: (
+      activeMountCapability: unknown,
+      managementCapability: unknown,
+    ) =>
+      failClosed("provider_home_active_mount_inspection_failed_closed", () =>
+        inspectActiveMount(state, activeMountCapability, managementCapability),
+      ),
     completeMount: (
       activeMountCapability: unknown,
       managementCapability: unknown,
@@ -842,6 +896,8 @@ export function describeProviderHomeMountGrantRuntimeContract() {
     credentialReported: false,
     activeMountSourceLease:
       "implemented_opaque_internal_docker_adapter_handoff_candidate",
+    activeMountAuthorityInspection:
+      "implemented_runtime_owned_metadata_only_no_path_or_credential",
     providerHomeMounted: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,

@@ -8,7 +8,10 @@ import {
   startRuntimeOwnedDockerProcessController,
 } from "../src/security/docker-process-controller.ts";
 
-function createPlan(activeMountCapability: object) {
+function createPlan(
+  activeMountCapability: object,
+  authorityUseCapability: object,
+) {
   const suffix = "0101010101010101";
   const purposes = [
     "create_internal_network",
@@ -24,7 +27,9 @@ function createPlan(activeMountCapability: object) {
   return Object.freeze({
     operationId: "OP-123456",
     grantRef: "PHMGRANT-123456",
+    profileId: "PROFILE-123456",
     activeMountCapability,
+    authorityUseCapability,
     providerContainerName: `crdd-claude-${suffix}`,
     proxyContainerName: `crdd-proxy-${suffix}`,
     internalNetworkName: `crdd-internal-${suffix}`,
@@ -55,8 +60,9 @@ function createFixture(overrides: Record<string, unknown> = {}) {
   const managementCapability = Object.freeze({});
   const preparedCapability = Object.freeze({});
   const activeMountCapability = Object.freeze({});
+  const authorityUseCapability = Object.freeze({});
   const recoveryCapability = Object.freeze({});
-  const plan = createPlan(activeMountCapability);
+  const plan = createPlan(activeMountCapability, authorityUseCapability);
   let mountCompletionCount = 0;
   let recoveryCompletionCount = 0;
   let commandCount = 0;
@@ -104,6 +110,23 @@ function createFixture(overrides: Record<string, unknown> = {}) {
     completeRecovery: () => {
       recoveryCompletionCount += 1;
       return Object.freeze({ status: "completed" });
+    },
+    consumeProviderAuthority: (
+      use: unknown,
+      active: unknown,
+      management: unknown,
+    ) => {
+      assert.equal(use, authorityUseCapability);
+      assert.equal(active, activeMountCapability);
+      assert.equal(management, managementCapability);
+      return Object.freeze({
+        operationId: "OP-123456",
+        provider: "claude",
+        profileId: "PROFILE-123456",
+        providerHomeMountGrantRef: "PHMGRANT-123456",
+        runtimeAuthorityIssued: true as const,
+        providerEffectAllowed: true as const,
+      });
     },
     ...overrides,
   };
@@ -326,13 +349,28 @@ test("Recovery記録前とproduction未接続入口はDocker Effectを開始し�
   );
 });
 
+test("起動直前Authority不成立ならMountを返しDocker Effectを開始しない", () => {
+  const fixture = createFixture({ consumeProviderAuthority: () => null });
+  const blocked = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(blocked.status, "blocked");
+  assert.equal(blocked.reason, "docker_process_controller_authority_invalid");
+  assert.equal(blocked.dockerEffectStarted, false);
+  assert.equal(fixture.getCommandCount(), 0);
+  assert.equal(fixture.getMountCompletionCount(), 1);
+  assert.equal(fixture.getRecoveryCompletionCount(), 0);
+});
+
 test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を固定する", () => {
   const contract = describeDockerProcessControllerContract();
   assert.equal(contract.setupTimeoutMs, 10_000);
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
+  assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,
     "exact_claude_boolean_result_published_after_cleanup_only",

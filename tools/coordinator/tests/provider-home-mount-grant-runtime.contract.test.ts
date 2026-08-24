@@ -6,6 +6,7 @@ import {
   consumeRuntimeOwnedProviderHomeMountGrant,
   createIsolatedProviderHomeMountGrantRuntimeCandidate,
   describeProviderHomeMountGrantRuntimeContract,
+  inspectRuntimeOwnedActiveProviderHomeMount,
   inspectRuntimeOwnedProviderHomeMountAuthorization,
   issueRuntimeOwnedProviderHomeMountGrant,
   PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT,
@@ -214,6 +215,27 @@ test("fresh観測でconsumeし、productionから隔離されたMount Authorizat
     ),
     "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude",
   );
+  const inspected = h.runtime.inspectActiveMount(
+    activated.activeMountCapability,
+    h.managementCapability,
+  );
+  assert.equal(inspected.status, "active");
+  assert.equal(inspected.grantRef, issued.grantRef);
+  assert.equal(inspected.provider, "claude");
+  assert.equal(inspected.profileId, "PROFILE-123456");
+  assert.equal(inspected.operationId, "OP-123456");
+  assert.equal(inspected.providerHomeMountGrantIssued, true);
+  assert.equal(inspected.providerHomeMounted, true);
+  assert.equal(inspected.runtimeAuthorityIssued, false);
+  assert.equal(inspected.pathReported, false);
+  assert.equal(inspected.credentialReported, false);
+  assert.equal(
+    inspectRuntimeOwnedActiveProviderHomeMount(
+      activated.activeMountCapability,
+      h.managementCapability,
+    ).status,
+    "blocked",
+  );
   assert.equal(
     h.runtime.revoke(issued.controlCapability, h.managementCapability).reason,
     "provider_home_mount_grant_runtime_unmount_required",
@@ -224,6 +246,13 @@ test("fresh観測でconsumeし、productionから隔離されたMount Authorizat
       h.managementCapability,
     ).status,
     "completed",
+  );
+  assert.equal(
+    h.runtime.inspectActiveMount(
+      activated.activeMountCapability,
+      h.managementCapability,
+    ).status,
+    "blocked",
   );
 
   h.advance(1_000);
@@ -518,6 +547,7 @@ test("Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開
   assert.equal(contract.callerSuppliedObservationHashAccepted, false);
   assert.equal(contract.providerHomeMounted, false);
   assert.match(contract.activeMountSourceLease, /implemented/u);
+  assert.match(contract.activeMountAuthorityInspection, /implemented/u);
   assert.equal(contract.filesystemEffectIssued, false);
   assert.equal(contract.runtimeAuthorityIssued, false);
   assert.equal(

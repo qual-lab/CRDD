@@ -12,7 +12,7 @@ import {
 
 export const AUTHORITY_REGISTRY_CONTRACT =
   "crdd-coordinator/authority-registry";
-export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 2;
+export const AUTHORITY_REGISTRY_CONTRACT_REVISION = 3;
 
 const REGISTRY_ID = /^AUTHREG-[0-9]{6,}$/u;
 const GRANT_REF = /^AUTH-[0-9]{6,}$/u;
@@ -63,12 +63,12 @@ type AuthorityGrant = {
   profileId: string;
   origins: readonly string[];
   providerHomeMountGrant: Readonly<{
-    grantRef: string;
     provider: string;
     profileId: string;
     operationId: string;
-    grantIssued: false;
-    verification: "not_implemented";
+    issuer: "runtime_owned";
+    requiredState: "active";
+    verification: "runtime_capability_required";
   }>;
   operationId: string;
   scopeId: string;
@@ -175,11 +175,11 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   const providerHomeMountGrant = snapshotPlainRecord(
     snapshot.providerHomeMountGrant,
     new Set([
-      "grantRef",
       "provider",
       "profileId",
       "operationId",
-      "grantIssued",
+      "issuer",
+      "requiredState",
       "verification",
     ]),
   );
@@ -214,15 +214,12 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
   const expiresAt = normalizedUtc(snapshot.expiresAt);
   if (!validFrom || !expiresAt || validFrom >= expiresAt) return null;
   if (
-    typeof providerHomeMountGrant.grantRef !== "string" ||
-    providerHomeMountGrant.grantRef.length >
-      PROVIDER_INPUT_LIMITS.identifierLength ||
-    !isProviderHomeMountGrantRef(providerHomeMountGrant.grantRef) ||
     providerHomeMountGrant.provider !== snapshot.provider ||
     providerHomeMountGrant.profileId !== snapshot.profileId ||
     providerHomeMountGrant.operationId !== snapshot.operationId ||
-    providerHomeMountGrant.grantIssued !== false ||
-    providerHomeMountGrant.verification !== "not_implemented"
+    providerHomeMountGrant.issuer !== "runtime_owned" ||
+    providerHomeMountGrant.requiredState !== "active" ||
+    providerHomeMountGrant.verification !== "runtime_capability_required"
   )
     return null;
   return Object.freeze({
@@ -235,12 +232,12 @@ function normalizeGrant(grant: unknown): Readonly<AuthorityGrant> | null {
     profileId: snapshot.profileId,
     origins: Object.freeze(origins),
     providerHomeMountGrant: Object.freeze({
-      grantRef: providerHomeMountGrant.grantRef,
       provider: providerHomeMountGrant.provider,
       profileId: providerHomeMountGrant.profileId,
       operationId: providerHomeMountGrant.operationId,
-      grantIssued: false,
-      verification: "not_implemented",
+      issuer: "runtime_owned",
+      requiredState: "active",
+      verification: "runtime_capability_required",
     }),
     operationId: snapshot.operationId,
     scopeId: snapshot.scopeId,
@@ -295,11 +292,6 @@ function validateAuthorityRegistryCandidateInternal(candidate: unknown) {
   const identities = normalizedGrants.map((grant) => grant.grantRef);
   if (new Set(identities).size !== identities.length)
     return blocked("authority_registry_grant_duplicate");
-  const mountGrantRefs = normalizedGrants.map(
-    (grant) => grant.providerHomeMountGrant.grantRef,
-  );
-  if (new Set(mountGrantRefs).size !== mountGrantRefs.length)
-    return blocked("authority_provider_home_mount_grant_duplicate");
   const registry = Object.freeze({
     contract: AUTHORITY_REGISTRY_CONTRACT,
     contractRevision: AUTHORITY_REGISTRY_CONTRACT_REVISION,
@@ -445,13 +437,8 @@ function evaluateAuthorityGrantCandidateInternal(
   ) {
     return blocked("authority_provider_home_mount_grant_mismatch");
   }
-  if (
-    contextSnapshot.providerHomeMountGrantRef !==
-      profileResult.profile.providerHomeMountGrant.grantRef ||
-    contextSnapshot.providerHomeMountGrantRef !==
-      grant.providerHomeMountGrant.grantRef
-  ) {
-    return blocked("authority_provider_home_mount_grant_context_mismatch");
+  if (!isProviderHomeMountGrantRef(contextSnapshot.providerHomeMountGrantRef)) {
+    return blocked("authority_provider_home_mount_grant_context_invalid");
   }
   if (
     grant.operationId !== contextSnapshot.operationId ||
@@ -473,9 +460,9 @@ function evaluateAuthorityGrantCandidateInternal(
     profileId: contextSnapshot.profileId,
     operationId: contextSnapshot.operationId,
     scopeId: contextSnapshot.scopeId,
-    providerHomeMountGrantRef: grant.providerHomeMountGrant.grantRef,
+    providerHomeMountGrantRef: contextSnapshot.providerHomeMountGrantRef,
     providerHomeMountGrantIssued: false,
-    providerHomeMountGrantVerification: "not_implemented",
+    providerHomeMountGrantVerification: "runtime_capability_required",
     evaluatedAt: now,
     validUntil: grant.expiresAt,
   });
