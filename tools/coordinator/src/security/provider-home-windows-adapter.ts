@@ -16,10 +16,11 @@ import {
   type ProviderHomeObservationProvider,
 } from "./provider-home-observation.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
+import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 
 export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT =
   "crdd-coordinator/provider-home-windows-adapter";
-export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 1;
+export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 2;
 
 const bundledDistributionRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
@@ -39,8 +40,38 @@ const observationCapabilities = new WeakMap<
     localUserBindingHash: string;
     observedWallClockMs: number;
     observedMonotonicMs: number;
+    providerHomeMountSourceCapability: object;
   }>
 >();
+const mountSourceCapabilities = new WeakMap<
+  object,
+  Readonly<{
+    provider: ProviderHomeObservationProvider;
+    sourcePath: string;
+  }>
+>();
+
+function runtimeOwnedProviderHomeMountSourceCandidate(provider: unknown) {
+  if (provider !== "codex" && provider !== "claude") return null;
+  const localAppData = process.env.LOCALAPPDATA;
+  if (
+    !isSupportedWindowsAbsolutePathCandidate(localAppData) ||
+    path.win32.normalize(localAppData) !== localAppData
+  ) {
+    return null;
+  }
+  const sourcePath = path.win32.join(
+    localAppData,
+    "Qual-Lab",
+    "CRDD",
+    "ProviderHomes",
+    provider,
+  );
+  return isSupportedWindowsAbsolutePathCandidate(sourcePath) &&
+    !sourcePath.includes(",")
+    ? sourcePath
+    : null;
+}
 
 function blocked(
   reason: string,
@@ -116,7 +147,12 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   if (process.platform !== "win32") {
     return blocked("provider_home_windows_adapter_platform_unsupported");
   }
-  const request = createProviderHomeObservationRequest(provider);
+  const mountSourcePath =
+    runtimeOwnedProviderHomeMountSourceCandidate(provider);
+  const request = createProviderHomeObservationRequest(
+    provider,
+    mountSourcePath,
+  );
   if (!request) {
     return blocked("provider_home_windows_adapter_provider_invalid");
   }
@@ -212,6 +248,14 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
   const observedWallClockMs = Date.now();
   const observedMonotonicMs = performance.now();
   const observationCapability = Object.freeze({});
+  const providerHomeMountSourceCapability = Object.freeze({});
+  mountSourceCapabilities.set(
+    providerHomeMountSourceCapability,
+    Object.freeze({
+      provider: request.provider,
+      sourcePath: mountSourcePath as string,
+    }),
+  );
   observationCapabilities.set(
     observationCapability,
     Object.freeze({
@@ -221,6 +265,7 @@ export function inspectRuntimeOwnedWindowsProviderHomeCandidate(
       localUserBindingHash: observation.localUserBindingHash,
       observedWallClockMs,
       observedMonotonicMs,
+      providerHomeMountSourceCapability,
     }),
   );
   return Object.freeze({
@@ -257,9 +302,34 @@ export function consumeRuntimeOwnedProviderHomeObservationCapability(
     wallAge > OBSERVATION_CAPABILITY_MAXIMUM_AGE_MS ||
     monotonicAge > OBSERVATION_CAPABILITY_MAXIMUM_AGE_MS
   ) {
+    mountSourceCapabilities.delete(
+      observation.providerHomeMountSourceCapability,
+    );
     return null;
   }
   return observation;
+}
+
+export function consumeRuntimeOwnedProviderHomeMountSourceCapability(
+  capability: unknown,
+  expectedProvider: unknown,
+) {
+  if (!capability || typeof capability !== "object") return null;
+  const source = mountSourceCapabilities.get(capability);
+  mountSourceCapabilities.delete(capability);
+  return source && source.provider === expectedProvider
+    ? source.sourcePath
+    : null;
+}
+
+export function revokeRuntimeOwnedProviderHomeMountSourceCapability(
+  capability: unknown,
+) {
+  return (
+    !!capability &&
+    typeof capability === "object" &&
+    mountSourceCapabilities.delete(capability)
+  );
 }
 
 export function describeProviderHomeWindowsAdapterContract() {
@@ -275,6 +345,9 @@ export function describeProviderHomeWindowsAdapterContract() {
     shellInvocation: false,
     pathLookup: false,
     callerSuppliedPathAccepted: false,
+    inheritedEnvironmentPathTrustedDirectly: false,
+    mountSourceBinding:
+      "runtime_candidate_hash_exactly_matched_by_native_known_folder_derivation",
     environment: "empty",
     timeoutMs: HELPER_TIMEOUT_MS,
     maximumStdoutBytes: PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
@@ -285,6 +358,7 @@ export function describeProviderHomeWindowsAdapterContract() {
     processTreeTerminationConfirmation:
       "not_implemented_step_4_runtime_process_controller_required",
     rawPathReported: false,
+    rawPathAvailableOnlyToTrustedMountEffectAdapter: true,
     rawPrincipalReported: false,
     rawAclReported: false,
     credentialContentRead: false,

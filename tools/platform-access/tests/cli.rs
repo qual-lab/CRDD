@@ -73,12 +73,13 @@ fn request(path: &str, identity: [u32; 3], nonce: [u8; 32]) -> Vec<u8> {
     bytes
 }
 
-fn provider_home_request(provider: u8, nonce: [u8; 32]) -> [u8; 44] {
-    let mut bytes = [0_u8; 44];
+fn provider_home_request(provider: u8, nonce: [u8; 32]) -> [u8; 76] {
+    let mut bytes = [0_u8; 76];
     bytes[..8].copy_from_slice(b"CRDDPH01");
-    bytes[8..10].copy_from_slice(&1_u16.to_le_bytes());
+    bytes[8..10].copy_from_slice(&2_u16.to_le_bytes());
     bytes[10] = provider;
     bytes[12..44].copy_from_slice(&nonce);
+    bytes[44..76].copy_from_slice(&[7_u8; 32]);
     bytes
 }
 

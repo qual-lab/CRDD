@@ -9,7 +9,11 @@ import {
   PROVIDER_HOME_MOUNT_GRANT_CONTRACT_REVISION,
   PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
 } from "./provider-home-mount-grant.ts";
-import { consumeRuntimeOwnedProviderHomeObservationCapability } from "./provider-home-windows-adapter.ts";
+import {
+  consumeRuntimeOwnedProviderHomeMountSourceCapability,
+  consumeRuntimeOwnedProviderHomeObservationCapability,
+  revokeRuntimeOwnedProviderHomeMountSourceCapability,
+} from "./provider-home-windows-adapter.ts";
 
 export const PROVIDER_HOME_MOUNT_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-home-mount-grant-runtime";
@@ -39,7 +43,7 @@ type Grant = Readonly<{
   consumptionCount: 0 | 1;
 }>;
 
-type AliasRole = "control" | "use" | "mount_authorization";
+type AliasRole = "control" | "use" | "mount_authorization" | "active_mount";
 
 type RuntimeGrant = {
   grant: Grant;
@@ -48,6 +52,8 @@ type RuntimeGrant = {
   issuedMonotonicMs: number;
   aliases: Set<object>;
   mountActive: boolean;
+  mountSourceCapability: object | null;
+  activeMountSourcePath: string | null;
 };
 
 type Observation = NonNullable<
@@ -62,6 +68,8 @@ type RuntimeState = Readonly<{
   activeGrants: Map<string, RuntimeGrant>;
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   consumeObservation: (capability: unknown) => Observation | null;
+  consumeMountSource: typeof consumeRuntimeOwnedProviderHomeMountSourceCapability;
+  revokeMountSource: typeof revokeRuntimeOwnedProviderHomeMountSourceCapability;
   wallNow: () => number;
   monotonicNow: () => number;
   randomBytes: (size: number) => Buffer;
@@ -73,6 +81,8 @@ function createRuntimeState(
     RuntimeState,
     | "verifyOperation"
     | "consumeObservation"
+    | "consumeMountSource"
+    | "revokeMountSource"
     | "wallNow"
     | "monotonicNow"
     | "randomBytes"
@@ -89,6 +99,8 @@ function createRuntimeState(
 const productionState = createRuntimeState({
   verifyOperation: verifyOwnedOperationManagementCapability,
   consumeObservation: consumeRuntimeOwnedProviderHomeObservationCapability,
+  consumeMountSource: consumeRuntimeOwnedProviderHomeMountSourceCapability,
+  revokeMountSource: revokeRuntimeOwnedProviderHomeMountSourceCapability,
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
   randomBytes,
@@ -104,6 +116,7 @@ function blocked(reason: string) {
     controlCapability: null,
     useCapability: null,
     mountAuthorizationCapability: null,
+    activeMountCapability: null,
     providerHomeMountGrantIssued: false,
     mountAuthorizationIssued: false,
     providerHomeMounted: false,
@@ -272,6 +285,13 @@ function revokeAllAliases(state: RuntimeState, runtimeGrant: RuntimeGrant) {
   runtimeGrant.aliases.clear();
 }
 
+function revokeMountSource(state: RuntimeState, runtimeGrant: RuntimeGrant) {
+  if (runtimeGrant.mountSourceCapability) {
+    state.revokeMountSource(runtimeGrant.mountSourceCapability);
+    runtimeGrant.mountSourceCapability = null;
+  }
+}
+
 function issue(
   state: RuntimeState,
   managementCapability: unknown,
@@ -295,6 +315,7 @@ function issue(
   }
   const grantRef = runtimeGrantRef(state);
   if (!grantRef) {
+    state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return blocked("provider_home_mount_grant_runtime_reference_unavailable");
   }
   const issuedWallClockMs = state.wallNow();
@@ -305,6 +326,7 @@ function issue(
     issuedWallClockMs < 0 ||
     issuedMonotonicMs < 0
   ) {
+    state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return blocked("provider_home_mount_grant_runtime_clock_invalid");
   }
   const grant = grantRecord(
@@ -315,6 +337,7 @@ function issue(
     issuedWallClockMs,
   );
   if (!grant) {
+    state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return blocked("provider_home_mount_grant_runtime_issuance_invalid");
   }
   const runtimeGrant: RuntimeGrant = {
@@ -324,6 +347,8 @@ function issue(
     issuedMonotonicMs,
     aliases: new Set<object>(),
     mountActive: false,
+    mountSourceCapability: observation.providerHomeMountSourceCapability,
+    activeMountSourcePath: null,
   };
   const controlCapability = createAlias(state, runtimeGrant, "control");
   const useCapability = createAlias(state, runtimeGrant, "use");
@@ -367,6 +392,7 @@ function consume(
   }
   const age = currentRuntimeAge(state, runtimeGrant);
   if (!age) {
+    state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return blocked("provider_home_mount_grant_runtime_expired");
   }
   if (
@@ -377,6 +403,7 @@ function consume(
       runtimeGrant.grant.providerHomeProtectionHash ||
     observation.localUserBindingHash !== runtimeGrant.grant.localUserBindingHash
   ) {
+    state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return blocked("provider_home_mount_grant_runtime_observation_mismatch");
   }
   const next: Grant = Object.freeze({
@@ -390,8 +417,12 @@ function consume(
     next,
   });
   if (transition.status !== "candidate") {
+    state.revokeMountSource(observation.providerHomeMountSourceCapability);
     return blocked("provider_home_mount_grant_runtime_consumption_invalid");
   }
+  revokeMountSource(state, runtimeGrant);
+  runtimeGrant.mountSourceCapability =
+    observation.providerHomeMountSourceCapability;
   runtimeGrant.grant = transition.grant as Grant;
   removeAlias(state, runtimeGrant, useCapability);
   const mountAuthorizationCapability = createAlias(
@@ -407,6 +438,113 @@ function consume(
     mountAuthorizationCapability,
     providerHomeMountGrantIssued: true,
     mountAuthorizationIssued: true,
+  });
+}
+
+function activateMount(
+  state: RuntimeState,
+  mountAuthorizationCapability: unknown,
+  managementCapability: unknown,
+) {
+  const authorization = alias(
+    state,
+    mountAuthorizationCapability,
+    "mount_authorization",
+  );
+  if (
+    !authorization ||
+    !mountAuthorizationCapability ||
+    typeof mountAuthorizationCapability !== "object" ||
+    !sameManagementCapability(
+      state,
+      authorization.runtimeGrant,
+      managementCapability,
+    ) ||
+    authorization.runtimeGrant.grant.state !== "consumed" ||
+    authorization.runtimeGrant.mountActive ||
+    !currentRuntimeAge(state, authorization.runtimeGrant)
+  ) {
+    return blocked("provider_home_mount_activation_invalid");
+  }
+  const runtimeGrant = authorization.runtimeGrant;
+  const sourcePath = state.consumeMountSource(
+    runtimeGrant.mountSourceCapability,
+    runtimeGrant.grant.provider,
+  );
+  runtimeGrant.mountSourceCapability = null;
+  if (!sourcePath) {
+    return blocked("provider_home_mount_source_binding_invalid");
+  }
+  runtimeGrant.mountActive = true;
+  runtimeGrant.activeMountSourcePath = sourcePath;
+  removeAlias(state, runtimeGrant, mountAuthorizationCapability);
+  const activeMountCapability = createAlias(
+    state,
+    runtimeGrant,
+    "active_mount",
+  );
+  return Object.freeze({
+    ...blocked("provider_home_mount_activated"),
+    status: "activated" as const,
+    grant: runtimeGrant.grant,
+    grantRef: runtimeGrant.grant.grantRef,
+    activeMountCapability,
+    providerHomeMountGrantIssued: true,
+    mountAuthorizationIssued: true,
+  });
+}
+
+function activeMountSource(
+  state: RuntimeState,
+  activeMountCapability: unknown,
+  managementCapability: unknown,
+) {
+  const active = alias(state, activeMountCapability, "active_mount");
+  if (
+    !active ||
+    !sameManagementCapability(
+      state,
+      active.runtimeGrant,
+      managementCapability,
+    ) ||
+    !active.runtimeGrant.mountActive ||
+    !active.runtimeGrant.activeMountSourcePath
+  ) {
+    return null;
+  }
+  return active.runtimeGrant.activeMountSourcePath;
+}
+
+function completeMount(
+  state: RuntimeState,
+  activeMountCapability: unknown,
+  managementCapability: unknown,
+) {
+  const active = alias(state, activeMountCapability, "active_mount");
+  if (
+    !active ||
+    !activeMountCapability ||
+    typeof activeMountCapability !== "object" ||
+    !sameManagementCapability(
+      state,
+      active.runtimeGrant,
+      managementCapability,
+    ) ||
+    !active.runtimeGrant.mountActive ||
+    !active.runtimeGrant.activeMountSourcePath
+  ) {
+    return blocked("provider_home_mount_completion_invalid");
+  }
+  const runtimeGrant = active.runtimeGrant;
+  runtimeGrant.mountActive = false;
+  runtimeGrant.activeMountSourcePath = null;
+  removeAlias(state, runtimeGrant, activeMountCapability);
+  return Object.freeze({
+    ...blocked("provider_home_mount_completed"),
+    status: "completed" as const,
+    grant: runtimeGrant.grant,
+    grantRef: runtimeGrant.grant.grantRef,
+    providerHomeMountGrantIssued: true,
   });
 }
 
@@ -476,6 +614,7 @@ function revoke(
     return blocked("provider_home_mount_grant_runtime_revocation_invalid");
   }
   runtimeGrant.grant = transition.grant as Grant;
+  revokeMountSource(state, runtimeGrant);
   revokeAllAliases(state, runtimeGrant);
   state.activeGrants.delete(runtimeGrant.grant.grantRef);
   return Object.freeze({
@@ -545,10 +684,49 @@ export function revokeRuntimeOwnedProviderHomeMountGrant(
   );
 }
 
+export function activateRuntimeOwnedProviderHomeMount(
+  mountAuthorizationCapability: unknown,
+  managementCapability: unknown,
+) {
+  return failClosed("provider_home_mount_activation_failed_closed", () =>
+    activateMount(
+      productionState,
+      mountAuthorizationCapability,
+      managementCapability,
+    ),
+  );
+}
+
+export function borrowRuntimeOwnedActiveProviderHomeMountSource(
+  activeMountCapability: unknown,
+  managementCapability: unknown,
+) {
+  try {
+    return activeMountSource(
+      productionState,
+      activeMountCapability,
+      managementCapability,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function completeRuntimeOwnedProviderHomeMount(
+  activeMountCapability: unknown,
+  managementCapability: unknown,
+) {
+  return failClosed("provider_home_mount_completion_failed_closed", () =>
+    completeMount(productionState, activeMountCapability, managementCapability),
+  );
+}
+
 export function createIsolatedProviderHomeMountGrantRuntimeCandidate(
   dependencies: Readonly<{
     verifyOperation: RuntimeState["verifyOperation"];
     consumeObservation: RuntimeState["consumeObservation"];
+    consumeMountSource: RuntimeState["consumeMountSource"];
+    revokeMountSource: RuntimeState["revokeMountSource"];
     wallNow: RuntimeState["wallNow"];
     monotonicNow: RuntimeState["monotonicNow"];
     randomBytes: RuntimeState["randomBytes"];
@@ -595,6 +773,38 @@ export function createIsolatedProviderHomeMountGrantRuntimeCandidate(
             managementCapability,
           ),
       ),
+    activateMount: (
+      mountAuthorizationCapability: unknown,
+      managementCapability: unknown,
+    ) =>
+      failClosed("provider_home_mount_activation_failed_closed", () =>
+        activateMount(
+          state,
+          mountAuthorizationCapability,
+          managementCapability,
+        ),
+      ),
+    borrowActiveMountSource: (
+      activeMountCapability: unknown,
+      managementCapability: unknown,
+    ) => {
+      try {
+        return activeMountSource(
+          state,
+          activeMountCapability,
+          managementCapability,
+        );
+      } catch {
+        return null;
+      }
+    },
+    completeMount: (
+      activeMountCapability: unknown,
+      managementCapability: unknown,
+    ) =>
+      failClosed("provider_home_mount_completion_failed_closed", () =>
+        completeMount(state, activeMountCapability, managementCapability),
+      ),
     revoke: (controlCapability: unknown, managementCapability: unknown) =>
       failClosed(
         "provider_home_mount_grant_runtime_revocation_failed_closed",
@@ -612,7 +822,12 @@ export function describeProviderHomeMountGrantRuntimeContract() {
     referenceSource: "runtime_owned_cryptographic_random_18_decimal_digits",
     observationInput: "opaque_single_use_runtime_owned_capability",
     operationInput: "opaque_runtime_owned_management_capability",
-    aliases: Object.freeze(["control", "use", "mount_authorization"]),
+    aliases: Object.freeze([
+      "control",
+      "use",
+      "mount_authorization",
+      "active_mount",
+    ]),
     controlAndUseAliasesSeparated: true,
     allAliasesRevokedTogether: true,
     lifetimeMs: PROVIDER_HOME_MOUNT_GRANT_MAXIMUM_LIFETIME_MS,
@@ -625,6 +840,8 @@ export function describeProviderHomeMountGrantRuntimeContract() {
     callerSuppliedObservationHashAccepted: false,
     pathReported: false,
     credentialReported: false,
+    activeMountSourceLease:
+      "implemented_opaque_internal_docker_adapter_handoff_candidate",
     providerHomeMounted: false,
     filesystemEffectIssued: false,
     networkEffectIssued: false,

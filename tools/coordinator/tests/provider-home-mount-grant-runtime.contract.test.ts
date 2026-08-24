@@ -25,12 +25,14 @@ type Observation = Readonly<{
   localUserBindingHash: string;
   observedWallClockMs: number;
   observedMonotonicMs: number;
+  providerHomeMountSourceCapability: object;
 }>;
 
 function harness() {
   const managementCapability = Object.freeze({});
   const otherManagementCapability = Object.freeze({});
   const observations = new WeakMap<object, Observation>();
+  const mountSources = new WeakMap<object, string>();
   let wallClockMs = Date.parse("2026-08-24T00:00:00.000Z");
   let monotonicMs = 10_000;
   let randomValue = 0n;
@@ -38,6 +40,11 @@ function harness() {
 
   function observe(overrides: Partial<Observation> = {}) {
     const capability = Object.freeze({});
+    const providerHomeMountSourceCapability = Object.freeze({});
+    mountSources.set(
+      providerHomeMountSourceCapability,
+      "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude",
+    );
     observations.set(
       capability,
       Object.freeze({
@@ -47,6 +54,7 @@ function harness() {
         localUserBindingHash: userHash,
         observedWallClockMs: wallClockMs,
         observedMonotonicMs: monotonicMs,
+        providerHomeMountSourceCapability,
         ...overrides,
       }),
     );
@@ -68,6 +76,19 @@ function harness() {
       const observation = observations.get(capability) ?? null;
       observations.delete(capability);
       return observation;
+    },
+    consumeMountSource(capability, expectedProvider) {
+      if (!capability || typeof capability !== "object") return null;
+      const source = mountSources.get(capability) ?? null;
+      mountSources.delete(capability);
+      return expectedProvider === "claude" ? source : null;
+    },
+    revokeMountSource(capability) {
+      return (
+        !!capability &&
+        typeof capability === "object" &&
+        mountSources.delete(capability)
+      );
     },
     wallNow() {
       if (failingDependency === "clock") throw new Error("clock");
@@ -178,6 +199,31 @@ test("fresh観測でconsumeし、productionから隔離されたMount Authorizat
       h.managementCapability,
     ).status,
     "blocked",
+  );
+
+  const activated = h.runtime.activateMount(
+    consumed.mountAuthorizationCapability,
+    h.managementCapability,
+  );
+  assert.equal(activated.status, "activated");
+  assert.ok(activated.activeMountCapability);
+  assert.equal(
+    h.runtime.borrowActiveMountSource(
+      activated.activeMountCapability,
+      h.managementCapability,
+    ),
+    "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude",
+  );
+  assert.equal(
+    h.runtime.revoke(issued.controlCapability, h.managementCapability).reason,
+    "provider_home_mount_grant_runtime_unmount_required",
+  );
+  assert.equal(
+    h.runtime.completeMount(
+      activated.activeMountCapability,
+      h.managementCapability,
+    ).status,
+    "completed",
   );
 
   h.advance(1_000);
@@ -399,6 +445,8 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
       observations.delete(capability);
       return result;
     },
+    consumeMountSource: () => null,
+    revokeMountSource: () => false,
     wallNow: () => Date.parse("2026-08-24T00:00:00.000Z"),
     monotonicNow: () => 1,
     randomBytes: () => Buffer.alloc(8, 7),
@@ -412,6 +460,7 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
       localUserBindingHash: userHash,
       observedWallClockMs: 0,
       observedMonotonicMs: 0,
+      providerHomeMountSourceCapability: Object.freeze({}),
     });
     return capability;
   }
@@ -455,7 +504,12 @@ test("Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開
   );
   assert.equal(contract.store, "process_local_atomic_map");
   assert.equal(contract.clock, "runtime_owned_wall_and_monotonic");
-  assert.deepEqual(contract.aliases, ["control", "use", "mount_authorization"]);
+  assert.deepEqual(contract.aliases, [
+    "control",
+    "use",
+    "mount_authorization",
+    "active_mount",
+  ]);
   assert.equal(contract.controlAndUseAliasesSeparated, true);
   assert.equal(contract.allAliasesRevokedTogether, true);
   assert.equal(contract.processRestartBehavior, "all_grants_lost_fail_closed");
@@ -463,6 +517,7 @@ test("Mount Grant Runtime契約はprocess-local storeと非Effect境界を公開
   assert.equal(contract.callerSuppliedOperationIdAccepted, false);
   assert.equal(contract.callerSuppliedObservationHashAccepted, false);
   assert.equal(contract.providerHomeMounted, false);
+  assert.match(contract.activeMountSourceLease, /implemented/u);
   assert.equal(contract.filesystemEffectIssued, false);
   assert.equal(contract.runtimeAuthorityIssued, false);
   assert.equal(

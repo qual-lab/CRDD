@@ -17,7 +17,7 @@ import {
 function response(provider: 1 | 2, nonce: Buffer) {
   const bytes = Buffer.alloc(PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES);
   bytes.write("CRDDHO01", 0, "ascii");
-  bytes.writeUInt16LE(1, 8);
+  bytes.writeUInt16LE(2, 8);
   bytes[10] = provider;
   bytes[11] = 1;
   nonce.copy(bytes, 12);
@@ -30,20 +30,33 @@ function response(provider: 1 | 2, nonce: Buffer) {
   return bytes;
 }
 
-test("Provider Home requestはRuntime nonceとProviderだけを固定frameへ含める", () => {
+test("Provider Home requestはRuntime nonce、Providerとraw Pathでないmount source Hashだけを含める", () => {
   const nonce = Buffer.alloc(32, 7);
-  const created = createProviderHomeObservationRequest("claude", () => nonce);
+  const source =
+    "C:\\Users\\selected\\AppData\\Local\\Qual-Lab\\CRDD\\ProviderHomes\\claude";
+  const created = createProviderHomeObservationRequest(
+    "claude",
+    source,
+    () => nonce,
+  );
   assert.ok(created);
   assert.equal(created.request.length, PROVIDER_HOME_OBSERVATION_REQUEST_BYTES);
   assert.equal(created.request.subarray(0, 8).toString("ascii"), "CRDDPH01");
-  assert.equal(created.request.readUInt16LE(8), 1);
+  assert.equal(created.request.readUInt16LE(8), 2);
   assert.equal(created.request[10], 2);
   assert.equal(created.request[11], 0);
-  assert.deepEqual(created.request.subarray(12), nonce);
-  assert.equal(created.request.includes(Buffer.from("C:\\", "ascii")), false);
-  assert.equal(createProviderHomeObservationRequest("other"), null);
+  assert.deepEqual(created.request.subarray(12, 44), nonce);
   assert.equal(
-    createProviderHomeObservationRequest("codex", () => Buffer.alloc(31)),
+    created.request.subarray(44, 76).equals(Buffer.alloc(32)),
+    false,
+  );
+  assert.equal(created.request.includes(Buffer.from("C:\\", "ascii")), false);
+  assert.equal(createProviderHomeObservationRequest("other", source), null);
+  assert.equal(createProviderHomeObservationRequest("codex", ""), null);
+  assert.equal(
+    createProviderHomeObservationRequest("codex", source, () =>
+      Buffer.alloc(31),
+    ),
     null,
   );
 });
@@ -119,6 +132,8 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
   const contract = describeProviderHomeObservationContract();
   assert.equal(contract.callerSuppliedPathAccepted, false);
   assert.equal(contract.requestPathField, false);
+  assert.equal(contract.requestMountSourceHashField, true);
+  assert.equal(contract.requestMountSourceHashAuthority, false);
   assert.equal(contract.credentialContentRead, false);
   assert.equal(contract.rawPathReported, false);
   assert.equal(contract.runtimeAuthorityIssued, false);

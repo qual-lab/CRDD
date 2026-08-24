@@ -49,3 +49,5 @@ Grantは`prepared → issued → consumed → revoked`、最長5分、使用上�
 - 実Provider Home mount／unmount、Docker container／network cleanup、Operation終了時の統合revoke、process tree recovery、正式署名同時run、Provider E2E、独立レビュー／監査およびPRは後続である。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。
+
+後続[`CHG-000041`](CHG-000041_Explainable_Model_Selection_And_Claude_Docker_Adapter.md)で、mount authorizationを`active_mount` aliasへ一回だけ遷移し、trusted Docker adapterが内部source Pathをborrowしている間は通常revokeを拒否し、mount完了確認後だけleaseを解放できる候補を追加した。上記3 aliasと未実装active分岐はこの変更時点の履歴であり、現在のMount Grant Runtimeはcontrol、use、mount authorization、active mountの4 aliasを所有する。

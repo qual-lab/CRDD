@@ -52,3 +52,5 @@ requestはProvider閉集合とRuntime生成nonceだけ、responseはProvider、n
 - Runtime-owned Mount Grant store／clock／issuer、mount／revoke、Docker／Egress、Provider E2E、双方向Coordinator invocation、独立レビュー／監査およびPRは後続である。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。
+
+後続[`CHG-000041`](CHG-000041_Explainable_Model_Selection_And_Claude_Docker_Adapter.md)で、Docker mountへ使用するsourceをcaller Pathへ戻さず結合するため、Provider Home observation wireをrevision 2／76 byteへ更新した。requestは従来のProviderとRuntime nonceに、Windows Known FolderからTypeScriptとnative observerが独立導出するmount source Hashを追加する。上記revision 1／44 byteはこの変更時点の履歴であり、現在のproducer／consumerは旧wireへfallbackしない。

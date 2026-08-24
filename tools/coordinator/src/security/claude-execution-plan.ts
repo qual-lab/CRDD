@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 7;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 8;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const BILLING_POLICY = describeProviderBillingPolicyContract();
@@ -334,6 +334,7 @@ const FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION = Object.freeze({
   networkResidue: 0,
 });
 const ACTIVATION_BLOCKERS = Object.freeze([
+  "runtime_owned_model_selection_grant_not_connected",
   "manifest_signature_verification_not_connected_to_runtime",
   "fixed_image_distribution_not_connected_to_runtime",
   "environment_replacement_runtime_adapter_not_connected",
@@ -380,6 +381,15 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     distributionBinding: DISTRIBUTION_BINDING,
     noNetworkVersionProbe,
     command: DISTRIBUTION_BINDING.identity.executablePath,
+    modelSelection:
+      "coordinator_explainable_selection_and_verified_profile_required",
+    effortSelection:
+      "coordinator_cost_guarded_selection_and_authority_binding_required",
+    fallbackModelAllowed: false,
+    providerAutomaticModelSwitchingAllowed: false,
+    coordinatorPrelaunchModelSelectionAllowed: true,
+    midExecutionModelSwitchingAllowed: false,
+    speedMode: "normal_only",
     argv: FIXED_ARGV,
     structuredOutputSchema: FIXED_STRUCTURED_OUTPUT_SCHEMA,
     environmentMode: "replace_required",
@@ -481,6 +491,15 @@ export function describeClaudeExecutionPlanContract() {
       distributionBinding: DISTRIBUTION_BINDING,
       noNetworkVersionProbe,
       command: DISTRIBUTION_BINDING.identity.executablePath,
+      modelSelection:
+        "coordinator_explainable_selection_and_verified_profile_required",
+      effortSelection:
+        "coordinator_cost_guarded_selection_and_authority_binding_required",
+      fallbackModelAllowed: false,
+      providerAutomaticModelSwitchingAllowed: false,
+      coordinatorPrelaunchModelSelectionAllowed: true,
+      midExecutionModelSwitchingAllowed: false,
+      speedMode: "normal_only",
       argv: FIXED_ARGV,
       structuredOutputSchema: FIXED_STRUCTURED_OUTPUT_SCHEMA,
       environmentMode: "replace_required",

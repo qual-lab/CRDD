@@ -119,6 +119,7 @@ enum ProviderHomeChainError {
     KnownFolderUnavailable,
     HomeUnavailable,
     ReparseRejected,
+    MountSourceMismatch,
 }
 
 struct OwnedHandle(HANDLE);
@@ -311,6 +312,13 @@ fn open_provider_home_chain(
     }
     current.push(request.provider.directory_name());
     paths.push(current);
+    let mount_source_hash = paths
+        .last()
+        .and_then(|path| provider_home_mount_source_hash(request, path))
+        .ok_or(ProviderHomeChainError::KnownFolderUnavailable)?;
+    if mount_source_hash != request.mount_source_hash {
+        return Err(ProviderHomeChainError::MountSourceMismatch);
+    }
 
     let mut handles = Vec::with_capacity(paths.len());
     let mut identities = Vec::with_capacity(paths.len());
@@ -764,6 +772,18 @@ fn provider_home_identity_hash(
     ])
 }
 
+fn provider_home_mount_source_hash(request: &ProviderHomeRequest, path: &Path) -> Option<[u8; 32]> {
+    const DOMAIN: &[u8] = b"CRDD\0PROVIDER-HOME-MOUNT-SOURCE\0V1\0";
+    let mut path_bytes = Vec::new();
+    for unit in path.as_os_str().encode_wide() {
+        path_bytes.extend_from_slice(&unit.to_le_bytes());
+    }
+    if path_bytes.is_empty() || path_bytes.len() > 65_534 {
+        return None;
+    }
+    sha256(&[DOMAIN, &[request.provider as u8], &path_bytes])
+}
+
 fn observe_provider_home_protection(
     request: &ProviderHomeRequest,
     descriptor: PSECURITY_DESCRIPTOR,
@@ -933,6 +953,9 @@ pub fn observe_provider_home(request: &ProviderHomeRequest) -> ProviderHomeRespo
         }
         Err(ProviderHomeChainError::ReparseRejected) => {
             return blocked_provider_home(request, ProviderHomeReason::HomeReparseRejected);
+        }
+        Err(ProviderHomeChainError::MountSourceMismatch) => {
+            return blocked_provider_home(request, ProviderHomeReason::MountSourceMismatch);
         }
     };
     if !provider_home_on_fixed_volume(&chain) {
@@ -1153,10 +1176,12 @@ mod tests {
         let codex = ProviderHomeRequest {
             provider: crate::protocol::Provider::Codex,
             nonce: [1_u8; 32],
+            mount_source_hash: [2_u8; 32],
         };
         let claude = ProviderHomeRequest {
             provider: crate::protocol::Provider::Claude,
             nonce: [1_u8; 32],
+            mount_source_hash: [2_u8; 32],
         };
         let identity = DirectoryIdentity {
             volume_serial_number: 1,
@@ -1169,6 +1194,10 @@ mod tests {
         assert_ne!(
             provider_home_identity_hash(&codex, identity),
             provider_home_identity_hash(&claude, identity)
+        );
+        assert_ne!(
+            provider_home_mount_source_hash(&codex, Path::new(r"C:\ProviderHomes\codex")),
+            provider_home_mount_source_hash(&claude, Path::new(r"C:\ProviderHomes\claude"))
         );
 
         let binding = TokenBindingObservation {

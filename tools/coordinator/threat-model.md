@@ -31,7 +31,9 @@ OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM�
 | Provider子プロセス | 確定Packet内の限定処理 | Filesystem、Network、Credential、外部Repositoryへの一般アクセス |
 | Reviewer | 固定対象と基準からの独立再構成 | Executorの要約、旧Candidate RevisionのReview |
 
-悪意ある同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifier侵害による起動前置換、検査回避、debugger／injection等への完全なtamper resistanceはv1の保証対象外である。この境界は攻撃検出の成功を主張するものではない。対象内で観測可能な署名、manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離または終了状態の差と、判定情報不足は引き続きfail closedとする。同一ユーザー、管理者またはOS侵害への耐性が必要になった場合は、OS保護済みbootstrap、managed install root、実行制御またはhardware-backed trustをHardened／Managed profileとして再評価する。
+悪意ある同一ローカルユーザー、machine Administrator／SYSTEM、kernel、OSまたはVerifier侵害による起動前置換、検査回避、debugger／injection等への完全なtamper resistanceはv1の保証対象外である。この境界は攻撃検出の成功を主張するものではない。対象内で観測可能な署名、manifest、artifact／Provider／Repository／Revision Identity、Authority、Provider Home、Egress、隔離または終了状態の差と、判定情報不足は引き続きfail closedとする。
+
+現在および将来の既定Trust Profileは、RuntimeによるAuthority／Context／Egress制御を行うT1相当と、署名済みRelease／Artifact／Provider Identityを確認するT2相当までとする。T3相当のOS保護済みbootstrap／managed install rootと、T4相当のTPM／hardware-backed Identityは成熟度の必須段階または既定Roadmapにしない。同一ユーザー、管理者またはOS侵害への具体的な耐性、ComplianceまたはManaged fleet要件が発生し、保証対象、導入・更新・失効・端末交換・障害回復の責任および費用を人間が別変更として承認した場合だけHardened／Managed Profileとして再評価する。既存のkeystore／TPM pure候補はAuthority、Capability、EffectまたはRuntime完成blockerへ昇格させず、必要性が成立するまで追加実装しない。
 
 ## 3. Operation専用領域
 
@@ -278,7 +280,7 @@ AppContainer WorkerはLow integrityであり、MICはDACLより先に評価さ�
 - OS保護済みbootstrap、managed installer、vendor-integrated launcherおよびhardware-backed trustのv1必須化
 - 外部Effectの実行または回復
 - Remote Repository操作
-- 複数Provider RoutingまたはRole交換
+- Provider同士の直接spawn、Coordinatorを迂回するRole交換または循環委譲。Front Codex／Claude CodeからCoordinator Gateを経由してCodex／Claude Code Executorを選ぶ4経路のbrokered routingはRuntime 1.0対象に含む
 - Git以外のRepository Backend
 - Raw Provider Logの保管
 - 汎用Migrationまたは複数Protocol Reader

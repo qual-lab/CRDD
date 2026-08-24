@@ -1,10 +1,10 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 export const PROVIDER_HOME_OBSERVATION_CONTRACT =
   "crdd-coordinator/provider-home-observation";
-export const PROVIDER_HOME_OBSERVATION_CONTRACT_REVISION = 1;
-export const PROVIDER_HOME_OBSERVATION_PROTOCOL_REVISION = 1;
-export const PROVIDER_HOME_OBSERVATION_REQUEST_BYTES = 44;
+export const PROVIDER_HOME_OBSERVATION_CONTRACT_REVISION = 2;
+export const PROVIDER_HOME_OBSERVATION_PROTOCOL_REVISION = 2;
+export const PROVIDER_HOME_OBSERVATION_REQUEST_BYTES = 76;
 export const PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES = 150;
 
 const requestMagic = Buffer.from("CRDDPH01", "ascii");
@@ -12,6 +12,10 @@ const responseMagic = Buffer.from("CRDDHO01", "ascii");
 const PROVIDERS = Object.freeze({ codex: 1, claude: 2 } as const);
 const RESPONSE_STATUS_CANDIDATE = 1;
 const OBSERVATION_CANDIDATE_REASON = 100;
+const MOUNT_SOURCE_HASH_DOMAIN = Buffer.from(
+  "CRDD\0PROVIDER-HOME-MOUNT-SOURCE\0V1\0",
+  "ascii",
+);
 const PRINCIPAL_FLAGS = Object.freeze({
   primaryToken: 1 << 0,
   interactiveGroup: 1 << 1,
@@ -147,18 +151,33 @@ function nonzeroHash(bytes: Buffer, start: number): string | null {
 
 export function createProviderHomeObservationRequest(
   provider: unknown,
+  mountSourcePath: unknown,
   nonceSource: () => Buffer = () => randomBytes(32),
 ) {
   try {
     const selectedProvider = providerValue(provider);
-    if (!selectedProvider) return null;
+    if (
+      !selectedProvider ||
+      typeof mountSourcePath !== "string" ||
+      mountSourcePath.length === 0 ||
+      mountSourcePath.length > 32_767 ||
+      mountSourcePath.includes("\0")
+    ) {
+      return null;
+    }
     const nonce = snapshotBuffer(nonceSource(), 32);
     if (!nonce) return null;
+    const mountSourceHash = createHash("sha256")
+      .update(MOUNT_SOURCE_HASH_DOMAIN)
+      .update(Buffer.from([selectedProvider]))
+      .update(Buffer.from(mountSourcePath, "utf16le"))
+      .digest();
     const request = Buffer.alloc(PROVIDER_HOME_OBSERVATION_REQUEST_BYTES);
     requestMagic.copy(request, 0);
     request.writeUInt16LE(PROVIDER_HOME_OBSERVATION_PROTOCOL_REVISION, 8);
     request[10] = selectedProvider;
     nonce.copy(request, 12);
+    mountSourceHash.copy(request, 44);
     return Object.freeze({
       provider: provider as ProviderHomeObservationProvider,
       nonce,
@@ -273,6 +292,8 @@ export function describeProviderHomeObservationContract() {
     requestBytes: PROVIDER_HOME_OBSERVATION_REQUEST_BYTES,
     responseBytes: PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
     requestPathField: false,
+    requestMountSourceHashField: true,
+    requestMountSourceHashAuthority: false,
     requestPrincipalField: false,
     nativeRootSource: "windows_known_folder_local_app_data",
     fixedSegments: Object.freeze(["Qual-Lab", "CRDD", "ProviderHomes"]),

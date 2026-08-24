@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 
 pub const PROTOCOL_REVISION: u16 = 3;
-pub const PROVIDER_HOME_PROTOCOL_REVISION: u16 = 1;
+pub const PROVIDER_HOME_PROTOCOL_REVISION: u16 = 2;
 pub const MAXIMUM_REQUEST_BYTES: usize = 65_536;
 pub const MAXIMUM_PATH_BYTES: usize = 4_096;
 const REQUEST_MAGIC: &[u8; 8] = b"CRDDPA03";
@@ -10,7 +10,7 @@ const PROVIDER_HOME_REQUEST_MAGIC: &[u8; 8] = b"CRDDPH01";
 const PROVIDER_HOME_RESPONSE_MAGIC: &[u8; 8] = b"CRDDHO01";
 const REQUEST_HEADER_BYTES: usize = 60;
 const RESPONSE_BYTES: usize = 86;
-pub const PROVIDER_HOME_REQUEST_BYTES: usize = 44;
+pub const PROVIDER_HOME_REQUEST_BYTES: usize = 76;
 pub const PROVIDER_HOME_RESPONSE_BYTES: usize = 150;
 
 pub const PRINCIPAL_PRIMARY_TOKEN: u32 = 1 << 0;
@@ -92,6 +92,7 @@ pub struct Request {
 pub struct ProviderHomeRequest {
     pub provider: Provider,
     pub nonce: [u8; 32],
+    pub mount_source_hash: [u8; 32],
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -127,6 +128,7 @@ pub enum ProviderHomeReason {
     HomeDaclNotProtected = 12,
     HomeDaclNotRestricted = 13,
     HomeAccessInsufficient = 14,
+    MountSourceMismatch = 15,
     ObservationCandidate = 100,
 }
 
@@ -215,10 +217,12 @@ pub fn parse_provider_home_request(bytes: &[u8]) -> Option<ProviderHomeRequest> 
     {
         return None;
     }
-    Some(ProviderHomeRequest {
+    let request = ProviderHomeRequest {
         provider: Provider::parse(*bytes.get(10)?)?,
         nonce: bytes.get(12..44)?.try_into().ok()?,
-    })
+        mount_source_hash: bytes.get(44..76)?.try_into().ok()?,
+    };
+    (request.mount_source_hash != [0_u8; 32]).then_some(request)
 }
 
 pub fn encode_response(response: Response) -> [u8; RESPONSE_BYTES] {
@@ -323,6 +327,7 @@ mod tests {
         bytes[8..10].copy_from_slice(&PROVIDER_HOME_PROTOCOL_REVISION.to_le_bytes());
         bytes[10] = provider;
         bytes[12..44].copy_from_slice(&[6_u8; 32]);
+        bytes[44..76].copy_from_slice(&[7_u8; 32]);
         bytes
     }
 
@@ -437,6 +442,7 @@ mod tests {
         let request = parse_provider_home_request(&provider_home_request_bytes(2)).unwrap();
         assert_eq!(request.provider, Provider::Claude);
         assert_eq!(request.nonce, [6_u8; 32]);
+        assert_eq!(request.mount_source_hash, [7_u8; 32]);
         for provider in [0, 3, u8::MAX] {
             assert!(parse_provider_home_request(&provider_home_request_bytes(provider)).is_none());
         }
@@ -450,6 +456,9 @@ mod tests {
         legacy[..8].copy_from_slice(b"CRDDPH00");
         legacy[8..10].copy_from_slice(&0_u16.to_le_bytes());
         assert!(parse_provider_home_request(&legacy).is_none());
+        let mut zero_source = provider_home_request_bytes(1);
+        zero_source[44..76].fill(0);
+        assert!(parse_provider_home_request(&zero_source).is_none());
     }
 
     #[test]

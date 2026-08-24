@@ -1077,6 +1077,49 @@ export function verifyOwnedOperationManagementCapability(
   });
 }
 
+export function verifyOwnedOperationManagementMountBinding(
+  managementCapability: unknown,
+  mountCapability: unknown,
+): Readonly<{
+  operationId: string;
+  createdAt: string;
+  mounts: OwnedMountPaths;
+}> {
+  const management = isObject(managementCapability)
+    ? (operationManagementCapabilities.get(managementCapability) ?? null)
+    : null;
+  const mount = isObject(mountCapability)
+    ? (mountCapabilities.get(mountCapability) ?? null)
+    : null;
+  if (!management || !mount || management.owned !== mount.owned) {
+    throw new Error("owned_operation_management_mount_binding_required");
+  }
+  const identity = ownedIdentities.get(management.owned);
+  if (
+    !identity ||
+    identity.operationId !== management.operationId ||
+    identity.createdAt !== management.createdAt
+  ) {
+    throw new Error("owned_operation_management_mount_binding_required");
+  }
+  const children = validateOwnedOperationIdentity(management.owned, identity);
+  if (children !== mount.children) {
+    throw new Error("owned_operation_management_mount_binding_required");
+  }
+  return Object.freeze({
+    operationId: management.operationId,
+    createdAt: management.createdAt,
+    mounts: Object.freeze({
+      workspace: validateDirectorySnapshot(children.workspace),
+      providerHome: validateDirectorySnapshot(children.providerHome),
+      tmp: validateDirectorySnapshot(children.tmp),
+      events: validateDirectorySnapshot(children.events),
+      projection: validateDirectorySnapshot(children.projection),
+      management: validateDirectorySnapshot(children.management),
+    }),
+  });
+}
+
 function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
   const known = new Set(
     Object.values(children).map((snapshot) => snapshot.name),

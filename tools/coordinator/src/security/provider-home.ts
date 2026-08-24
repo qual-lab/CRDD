@@ -11,7 +11,7 @@ import {
 } from "./provider-home-windows-adapter.ts";
 
 export const PROVIDER_HOME_CONTRACT = "crdd-coordinator/provider-home";
-export const PROVIDER_HOME_CONTRACT_REVISION = 4;
+export const PROVIDER_HOME_CONTRACT_REVISION = 5;
 
 export const PROVIDER_HOME_ROOT_SEGMENTS = Object.freeze([
   "Qual-Lab",
