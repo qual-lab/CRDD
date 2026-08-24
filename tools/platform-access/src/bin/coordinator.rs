@@ -1016,9 +1016,6 @@ unsafe fn process_appcontainer_binding(
         if unsafe { token_u32_information(token, TokenIsAppContainer) } != Some(1) {
             return 29;
         }
-        if unsafe { IsTokenRestricted(token) } == 0 {
-            return 30;
-        }
         let Some(actual_session) = (unsafe { token_authentication_session_hash(token) }) else {
             return 31;
         };
@@ -2876,6 +2873,9 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     27 => native_bootstrap_core::CHILD_PRINCIPAL_BINDING_BLOCKED,
                     28 => native_bootstrap_core::CHILD_TOKEN_TYPE_BLOCKED,
                     29 => native_bootstrap_core::CHILD_APPCONTAINER_STATE_BLOCKED,
+                    // Reserved for the diagnostic result emitted before the
+                    // IsTokenRestricted contract was corrected. AppContainer
+                    // identity is checked by stages 29, 33 and 34.
                     30 => native_bootstrap_core::CHILD_RESTRICTED_STATE_BLOCKED,
                     31 => native_bootstrap_core::CHILD_AUTHENTICATION_SESSION_UNAVAILABLE_BLOCKED,
                     32 => native_bootstrap_core::CHILD_AUTHENTICATION_SESSION_MISMATCH_BLOCKED,
