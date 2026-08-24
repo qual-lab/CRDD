@@ -1,10 +1,12 @@
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
+import { describeProviderBillingPolicyContract } from "./provider-billing-policy.ts";
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 6;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 7;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
+const BILLING_POLICY = describeProviderBillingPolicyContract();
 const FIXED_PROMPT =
   "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
 const FIXED_STRUCTURED_OUTPUT_SCHEMA = Object.freeze({
@@ -402,6 +404,7 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     apiKeyAllowed: false,
     additionalCreditPurchaseAllowed: false,
     automaticPlanSwitchAllowed: false,
+    billingPolicy: BILLING_POLICY,
     sessionResumeAllowed: false,
     sessionPersistenceAllowed: false,
     builtInToolsRequested: "none",
@@ -473,6 +476,7 @@ export function describeClaudeExecutionPlanContract() {
       rawAuthOutputRecorded: false,
       oauthTokenReadByRuntime: false,
     }),
+    billingPolicy: BILLING_POLICY,
     readOnlyProbe: Object.freeze({
       distributionBinding: DISTRIBUTION_BINDING,
       noNetworkVersionProbe,

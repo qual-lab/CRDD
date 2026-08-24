@@ -2,12 +2,13 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import { describeProviderBillingPolicyContract } from "./provider-billing-policy.ts";
 import { describeProviderHomeContract } from "./provider-home.ts";
 import { describeProviderHomeMountGrantContract } from "./provider-home-mount-grant.ts";
 
 export const PROVIDER_LIFECYCLE_CONTRACT =
   "crdd-coordinator/provider-lifecycle";
-export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 5;
+export const PROVIDER_LIFECYCLE_CONTRACT_REVISION = 6;
 
 const PROVIDERS = Object.freeze(["codex", "claude"] as const);
 const MODES = Object.freeze(["login", "run"] as const);
@@ -22,6 +23,7 @@ const FAKE_STATES = Object.freeze([
   "cleanup_confirmed",
 ]);
 const PLAN_KEYS = new Set(["provider", "mode"]);
+const BILLING_POLICY = describeProviderBillingPolicyContract();
 const OBSERVATION_KEYS = new Set([
   "contract",
   "contractRevision",
@@ -66,6 +68,7 @@ const AUTH_POLICIES = Object.freeze({
     quotaProbe: "not_implemented",
     billingProbe: "not_implemented",
     dedicatedHomeScope: "local_os_user_and_provider",
+    paidApiProfileSelected: false,
   }),
   claude: Object.freeze({
     provider: "claude",
@@ -84,6 +87,7 @@ const AUTH_POLICIES = Object.freeze({
     quotaProbe: "not_implemented",
     billingProbe: "not_implemented",
     dedicatedHomeScope: "local_os_user_and_provider",
+    paidApiProfileSelected: false,
   }),
 });
 
@@ -116,6 +120,7 @@ function blocked(reason: string) {
     processAbsenceVerified: false,
     resultNormalizationVerified: false,
     providerHomeMountGrantIssued: false,
+    billingPolicy: BILLING_POLICY,
   });
 }
 
@@ -143,6 +148,7 @@ export function planProviderLifecycle(candidate: unknown) {
     hostCredentialImportAllowed: false,
     apiKeyAllowed: false,
     additionalCreditPurchaseAllowed: false,
+    billingPolicy: BILLING_POLICY,
     shellAllowed: false,
     pathLookupAllowed: false,
   });
@@ -282,6 +288,7 @@ export function describeProviderLifecycleContract() {
     realProviderEgress: "not_implemented",
     apiKeyAllowed: false,
     additionalCreditPurchaseAllowed: false,
+    billingPolicy: BILLING_POLICY,
     rawAuthOutputRecorded: false,
     oauthTokenReadByRuntime: false,
     syntheticFakeObservationState: "candidate_non_authoritative",

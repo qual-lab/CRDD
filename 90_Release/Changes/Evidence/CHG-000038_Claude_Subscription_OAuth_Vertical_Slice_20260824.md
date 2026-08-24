@@ -155,12 +155,12 @@ OAuth URL、PKCE state、code、token、email、organization情報およびProvi
 
 ## 検証と終了状態
 
-- focused contract tests: 18／18 Pass
-- Coordinator全contract tests: 444／444 Pass
+- focused contract tests: 19／19 Pass
+- Coordinator全contract tests: 446／446 Pass
 - Coordinator strict TypeScript typecheck: Pass
 - Coordinator Biome lint: Pass
 - Coordinator Biome format check: Pass
-- Repository全体checker: 591 files、371 Markdown、2,113 local links、583 anchors、Error 0／Warning 0
+- Repository全体checker: 593 files、371 Markdown、2,110 local links、580 anchors、Error 0／Warning 0
 - Egress probe container／network: residue 0
 - OAuth container／network: cleanup verified、residue 0
 - API key、追加購入、Repository Effect、merge、Release: Effect 0

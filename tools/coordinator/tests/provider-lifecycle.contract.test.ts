@@ -45,7 +45,7 @@ function observation(overrides: Record<string, unknown> = {}) {
   };
 }
 
-test("Provider認証方針は既存subscription OAuthだけを許可する", () => {
+test("Provider認証方針は標準Profileをsubscription OAuthへ限定する", () => {
   const contract = describeProviderLifecycleContract();
   assert.equal(
     contract.authPolicies.codex.loginPolicy,
@@ -57,11 +57,19 @@ test("Provider認証方針は既存subscription OAuthだけを許可する", () 
   );
   assert.equal(contract.apiKeyAllowed, false);
   assert.equal(contract.additionalCreditPurchaseAllowed, false);
+  assert.equal(contract.billingPolicy.defaultProfile, "subscription_only");
+  assert.equal(
+    contract.billingPolicy.defaultPaidApiDisposition,
+    "prohibited_and_unsupported",
+  );
+  assert.equal(contract.billingPolicy.implicitFallbackAllowed, false);
+  assert.equal(contract.billingPolicy.quotaExhaustionFallbackAllowed, false);
   assert.equal(contract.oauthTokenReadByRuntime, false);
   assert.equal(contract.rawAuthOutputRecorded, false);
   assert.equal(contract.authPolicies.codex.accountCardinality, 1);
   assert.equal(contract.authPolicies.codex.billingMode, "subscription_only");
   assert.equal(contract.authPolicies.codex.automaticPlanSwitchAllowed, false);
+  assert.equal(contract.authPolicies.codex.paidApiProfileSelected, false);
   assert.equal(contract.authPolicies.codex.exactCliVersionRequired, true);
   assert.equal(contract.authPolicies.codex.exactCliVersionConfigured, false);
   assert.equal(
@@ -93,6 +101,7 @@ test("Provider認証方針は既存subscription OAuthだけを許可する", () 
     "not_implemented",
   );
   assert.equal(contract.authPolicies.claude.quotaProbe, "not_implemented");
+  assert.equal(contract.authPolicies.claude.paidApiProfileSelected, false);
 });
 
 test("専用Provider HomeはProvider単位で永続しOperation cleanupへ含めない", () => {
@@ -126,6 +135,10 @@ test("実Providerのloginとrunはいずれもspawn前にblockedとなる", () =
   );
   assert.equal(codex.spawnAllowed, false);
   assert.equal(claude.spawnAllowed, false);
+  assert.equal(
+    claude.billingPolicy.userConfigurationEffect,
+    "enables_separate_paid_api_policy_evaluation_only",
+  );
 });
 
 test("任意Provider、mode、余分field、accessorおよびProxyを拒否する", () => {

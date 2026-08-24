@@ -206,7 +206,8 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
 });
 
 test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を拒否する", () => {
-  const authentication = describeClaudeExecutionPlanContract().authentication;
+  const contract = describeClaudeExecutionPlanContract();
+  const authentication = contract.authentication;
   assert.equal(authentication.loginPolicy, "existing_subscription_oauth");
   assert.deepEqual(authentication.explicitLoginCommand, [
     "/opt/crdd/providers/claude/2.1.220/claude",
@@ -223,9 +224,25 @@ test("Claude認証はsubscription OAuth候補だけを残しAPI課金経路を�
   assert.equal(authentication.oauthTokenReadByRuntime, false);
   assert.equal(authentication.verification.loginMethod, "claude.ai");
   assert.equal(authentication.verification.subscriptionType, "max");
+  assert.equal(contract.billingPolicy.defaultProfile, "subscription_only");
+  assert.equal(
+    contract.billingPolicy.defaultPaidApiDisposition,
+    "prohibited_and_unsupported",
+  );
+  assert.equal(
+    contract.billingPolicy.paidApiCapability,
+    "not_implemented_separate_opt_in_profile",
+  );
+  assert.equal(contract.billingPolicy.implicitFallbackAllowed, false);
+  assert.equal(contract.billingPolicy.quotaExhaustionFallbackAllowed, false);
+  assert.equal(
+    contract.billingPolicy.userConfigurationEffect,
+    "enables_separate_paid_api_policy_evaluation_only",
+  );
 });
 
 test("読取専用probe候補は固定argv、環境置換要求、未検証制約を投影する", () => {
+  const contract = describeClaudeExecutionPlanContract();
   const plan = planClaudeReadOnlyProbe({
     provider: "claude",
     mode: "read_only_probe",
@@ -324,6 +341,7 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
   assert.equal(plan.apiKeyAllowed, false);
   assert.equal(plan.additionalCreditPurchaseAllowed, false);
   assert.equal(plan.automaticPlanSwitchAllowed, false);
+  assert.deepEqual(plan.billingPolicy, contract.billingPolicy);
   assert.equal(plan.sessionResumeAllowed, false);
   assert.equal(plan.sessionPersistenceAllowed, false);
   assert.equal(plan.builtInToolsRequested, "none");
@@ -371,6 +389,14 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
   assert.equal(
     planClaudeReadOnlyProbe({ provider: "claude", mode: "run" }).reason,
     "claude_execution_plan_mode_not_supported",
+  );
+  assert.equal(
+    planClaudeReadOnlyProbe({
+      provider: "claude",
+      mode: "read_only_probe",
+      billingProfile: "paid_api",
+    }).reason,
+    "claude_execution_plan_shape_invalid",
   );
   assert.equal(
     planClaudeReadOnlyProbe({

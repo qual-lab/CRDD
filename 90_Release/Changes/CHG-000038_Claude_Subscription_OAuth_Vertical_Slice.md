@@ -6,7 +6,7 @@
 - 判断日: 2026-08-24
 - 対象: Claude Code 2.1.220の固定image、最小環境、専用Provider Home、限定Egressおよび既存Subscription OAuthの縦接続
 - 対象version: v0.18.0 Candidate
-- 変更分類: `breaking`（private Claude Execution Plan revision 3→6。通常Runtime Gateはまだ有効化しない）
+- 変更分類: `breaking`（private Claude Execution Plan revision 3→7、Provider Lifecycle revision 5→6。通常Runtime Gateはまだ有効化しない）
 - 移行要否: `migration_required: true`（発行済みproduction state、Mount Grantおよびconsumerは0。旧revisionへのalias／fallbackは設けない）
 - 関連正本: [`CHG-000028`](CHG-000028_Claude_Execution_Plan_Foundation.md)、[`CHG-000030`](CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md)、[`CHG-000037`](CHG-000037_Claude_No_Network_Version_Probe.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
 
@@ -34,6 +34,12 @@ Claude Code 2.1.220の`--bare`はOAuth／Keychainを読まずAPI key経路だけ
 - 非発火例: 通常`doctor`、API key、Console login、Host既定Claude home、Host proxy、PATH lookup、Repository mountまたは固定prompt requestからOAuthを開始しない。
 - 境界例: transient bind mountとEgress probeの成功はRuntime-owned Mount Grant、Authorityまたはproduction Egress Capabilityの発行ではない。OAuth login成功も自動化されたSubscription利用許可、quota十分性または追加購入許可を意味しない。
 - 判定情報不足例: image Identity、Provider Home保護、mount先、Proxy、network attachment、cleanup、認証方式または人間Authorityの一件でも確認不能なら、login／requestを成功扱いにしない。
+
+## API課金の別Profile境界
+
+人間の決定権限者は、標準ProfileをSubscription専用とし、API key、従量API、追加credit購入および自動plan切替を原則禁止かつv1非対応とする方針を採用した。quota不足、認証失敗、Provider errorまたはSubscription条件不成立を、有料APIへのfallback契機にしない。
+
+将来有料APIを利用する場合は、Subscription経路の例外またはfallbackではなく、ユーザーが明示設定する別の有料API Profileとして扱う。設定は有料API Policyの評価を可能にするだけで、request、購入または実行Authorityを単独では発行しない。exact Provider／Account、Subscription Homeと分離したCredential source、明示予算およびOperation Authorityをすべて結合できる場合だけ、別Capabilityとして将来評価する。現在のClaude Vertical Sliceに有料API Profileの設定面、Credential取込みまたは実行経路は追加しない。
 
 ## 実測状態
 

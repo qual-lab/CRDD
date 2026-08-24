@@ -447,6 +447,18 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
   assert.equal(report.providerLifecycle.apiKeyAllowed, false);
   assert.equal(report.providerLifecycle.additionalCreditPurchaseAllowed, false);
   assert.equal(
+    report.providerLifecycle.billingPolicy.defaultPaidApiDisposition,
+    "prohibited_and_unsupported",
+  );
+  assert.equal(
+    report.providerLifecycle.billingPolicy.implicitFallbackAllowed,
+    false,
+  );
+  assert.equal(
+    report.providerLifecycle.billingPolicy.paidApiCapability,
+    "not_implemented_separate_opt_in_profile",
+  );
+  assert.equal(
     report.providerLifecycle.syntheticFakeObservationState,
     "candidate_non_authoritative",
   );
