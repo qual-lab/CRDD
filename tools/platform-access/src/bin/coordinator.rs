@@ -2466,6 +2466,20 @@ unsafe fn launch_worker() -> Option<u32> {
         && worker_identity.is_some()
         && manifest_identity.is_some()
         && local_app_data_identity.is_some();
+    if !identities_valid {
+        FAILURE_STAGE.store(
+            if supervisor_identity.is_none() {
+                18
+            } else if worker_identity.is_none() {
+                22
+            } else if manifest_identity.is_none() {
+                23
+            } else {
+                24
+            },
+            Ordering::Relaxed,
+        );
+    }
     let authenticode_valid = if identities_valid {
         FAILURE_STAGE.store(20, Ordering::Relaxed);
         unsafe {
@@ -2741,6 +2755,9 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     19 => native_bootstrap_core::REGISTRY_EFFECT_BLOCKED,
                     20 => native_bootstrap_core::AUTHENTICODE_TRUST_BLOCKED,
                     21 => native_bootstrap_core::SIGNED_MANIFEST_BLOCKED,
+                    22 => native_bootstrap_core::WORKER_ARTIFACT_IDENTITY_BLOCKED,
+                    23 => native_bootstrap_core::MANIFEST_ARTIFACT_IDENTITY_BLOCKED,
+                    24 => native_bootstrap_core::LOCAL_APP_DATA_IDENTITY_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };

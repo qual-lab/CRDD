@@ -75,6 +75,18 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_release_trust_invalid",
         ),
         (
+            native_bootstrap_core::WORKER_ARTIFACT_IDENTITY_BLOCKED,
+            "native_provision_worker_artifact_identity_invalid",
+        ),
+        (
+            native_bootstrap_core::MANIFEST_ARTIFACT_IDENTITY_BLOCKED,
+            "native_provision_manifest_artifact_identity_invalid",
+        ),
+        (
+            native_bootstrap_core::LOCAL_APP_DATA_IDENTITY_BLOCKED,
+            "native_provision_local_app_data_identity_invalid",
+        ),
+        (
             native_bootstrap_core::AUTHENTICODE_TRUST_BLOCKED,
             "native_provision_authenticode_trust_invalid",
         ),
