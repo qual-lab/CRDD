@@ -151,6 +151,10 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_selected_user_reobservation_mismatch",
         ),
         (
+            native_bootstrap_core::CHILD_PRINCIPAL_BINDING_BLOCKED,
+            "native_provision_child_principal_binding_invalid",
+        ),
+        (
             native_bootstrap_core::PROCESS_CREATED_BLOCKED,
             "native_provision_created_process_rejected",
         ),

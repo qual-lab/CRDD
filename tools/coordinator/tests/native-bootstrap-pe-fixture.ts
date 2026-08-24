@@ -66,6 +66,7 @@ const LIBRARIES = Object.freeze([
       "ConvertStringSecurityDescriptorToSecurityDescriptorW",
       "CreateWellKnownSid",
       "DuplicateToken",
+      "EqualSid",
       "FreeSid",
       "GetLengthSid",
       "GetTokenInformation",

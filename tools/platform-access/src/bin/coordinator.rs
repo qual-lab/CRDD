@@ -12,10 +12,12 @@ use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use windows_sys::Win32::Foundation::{FILETIME, SYSTEMTIME};
 use windows_sys::Win32::Security::Isolation::DeriveAppContainerSidFromAppContainerName;
 use windows_sys::Win32::Security::{
-    CheckTokenMembership, CreateWellKnownSid, DuplicateToken, GetLengthSid, GetTokenInformation,
-    IsTokenRestricted, IsValidSid, SECURITY_CAPABILITIES, SecurityImpersonation, TOKEN_DUPLICATE,
-    TOKEN_QUERY, TOKEN_USER, TokenIsAppContainer, TokenPrimary, TokenSessionId, TokenType,
-    TokenUser, WinBatchSid, WinInteractiveSid, WinNetworkSid, WinServiceSid,
+    CheckTokenMembership, CreateWellKnownSid, DuplicateToken, EqualSid, GetLengthSid,
+    GetTokenInformation, IsTokenRestricted, IsValidSid, SECURITY_CAPABILITIES,
+    SecurityImpersonation, TOKEN_APPCONTAINER_INFORMATION, TOKEN_DUPLICATE, TOKEN_QUERY,
+    TOKEN_STATISTICS, TOKEN_USER, TokenAppContainerSid, TokenIsAppContainer, TokenPrimary,
+    TokenSessionId, TokenStatistics, TokenType, TokenUser, WinBatchSid, WinInteractiveSid,
+    WinNetworkSid, WinServiceSid,
 };
 use windows_sys::Win32::Storage::FileSystem::{
     BY_HANDLE_FILE_INFORMATION, CreateFileW, FILE_ATTRIBUTE_REPARSE_POINT,
@@ -972,13 +974,85 @@ unsafe fn token_user_hash(token: Handle) -> Option<[u8; 32]> {
     unsafe { sha256_parts(&[DOMAIN, &length, sid]) }
 }
 
+unsafe fn token_authentication_session_hash(token: Handle) -> Option<[u8; 32]> {
+    // SAFETY: the fixed TOKEN_STATISTICS output remains live for the synchronous token query.
+    let mut statistics = TOKEN_STATISTICS::default();
+    let mut returned = 0_u32;
+    if unsafe {
+        GetTokenInformation(
+            token,
+            TokenStatistics,
+            (&raw mut statistics).cast(),
+            size_of::<TOKEN_STATISTICS>() as u32,
+            &mut returned,
+        )
+    } == 0
+        || returned as usize != size_of::<TOKEN_STATISTICS>()
+        || (statistics.AuthenticationId.LowPart == 0 && statistics.AuthenticationId.HighPart == 0)
+    {
+        return None;
+    }
+    const DOMAIN: &[u8] = b"CRDD\0WINDOWS-AUTHENTICATION-SESSION\0V1\0";
+    let low = statistics.AuthenticationId.LowPart.to_le_bytes();
+    let high = statistics.AuthenticationId.HighPart.to_le_bytes();
+    unsafe { sha256_parts(&[DOMAIN, &low, &high]) }
+}
+
+unsafe fn process_appcontainer_binding(
+    process: Handle,
+    expected_appcontainer_sid: *mut c_void,
+    expected_authentication_session_hash: &[u8; 32],
+) -> bool {
+    // SAFETY: the suspended process and derived AppContainer SID remain live for every synchronous
+    // query. The process token is uniquely owned here and closed before return.
+    let mut token = null_mut();
+    if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) } == 0 || token.is_null() {
+        return false;
+    }
+    let valid = (|| {
+        if unsafe { token_u32_information(token, TokenType) }?
+            != u32::try_from(TokenPrimary).ok()?
+            || unsafe { token_u32_information(token, TokenIsAppContainer) }? != 1
+            || unsafe { IsTokenRestricted(token) } == 0
+        {
+            return None;
+        }
+        let actual_session = unsafe { token_authentication_session_hash(token) }?;
+        if !equal_u8_exact(&actual_session, expected_authentication_session_hash) {
+            return None;
+        }
+        let mut appcontainer = TOKEN_APPCONTAINER_INFORMATION::default();
+        let mut returned = 0_u32;
+        if unsafe {
+            GetTokenInformation(
+                token,
+                TokenAppContainerSid,
+                (&raw mut appcontainer).cast(),
+                size_of::<TOKEN_APPCONTAINER_INFORMATION>() as u32,
+                &mut returned,
+            )
+        } == 0
+            || returned as usize != size_of::<TOKEN_APPCONTAINER_INFORMATION>()
+            || appcontainer.TokenAppContainer.is_null()
+            || expected_appcontainer_sid.is_null()
+            || unsafe { EqualSid(appcontainer.TokenAppContainer, expected_appcontainer_sid) } == 0
+        {
+            return None;
+        }
+        Some(())
+    })()
+    .is_some();
+    unsafe { CloseHandle(token) };
+    valid
+}
+
 fn selected_local_interactive_flags(flags: u32) -> bool {
     flags & (PRINCIPAL_PRIMARY_TOKEN | PRINCIPAL_INTERACTIVE_GROUP | PRINCIPAL_NONZERO_SESSION)
         == (PRINCIPAL_PRIMARY_TOKEN | PRINCIPAL_INTERACTIVE_GROUP | PRINCIPAL_NONZERO_SESSION)
         && flags & FORBIDDEN_SELECTED_USER_FLAGS == 0
 }
 
-unsafe fn current_supervisor_principal() -> Option<([u8; 32], u32)> {
+unsafe fn current_supervisor_principal() -> Option<([u8; 32], [u8; 32], u32)> {
     // SAFETY: all token handles are exclusively owned, queried synchronously, and closed before
     // return. The process pseudo-handle is borrowed and never closed.
     let mut primary = null_mut();
@@ -1001,6 +1075,7 @@ unsafe fn current_supervisor_principal() -> Option<([u8; 32], u32)> {
         return None;
     }
     let hash = unsafe { token_user_hash(primary) };
+    let authentication_session_hash = unsafe { token_authentication_session_hash(primary) };
     let flags = (|| {
         if unsafe { token_u32_information(primary, TokenType) }?
             != u32::try_from(TokenPrimary).ok()?
@@ -1032,8 +1107,9 @@ unsafe fn current_supervisor_principal() -> Option<([u8; 32], u32)> {
     unsafe { CloseHandle(impersonation) };
     unsafe { CloseHandle(primary) };
     let hash = hash?;
+    let authentication_session_hash = authentication_session_hash?;
     let flags = flags?;
-    selected_local_interactive_flags(flags).then_some((hash, flags))
+    selected_local_interactive_flags(flags).then_some((hash, authentication_session_hash, flags))
 }
 
 fn file_size(information: &BY_HANDLE_FILE_INFORMATION) -> u64 {
@@ -2516,7 +2592,7 @@ unsafe fn launch_worker() -> Option<u32> {
         return None;
     }
     FAILURE_STAGE.store(16, Ordering::Relaxed);
-    let Some((selected_user_hash, selected_user_flags)) =
+    let Some((selected_user_hash, selected_authentication_session_hash, selected_user_flags)) =
         (unsafe { current_supervisor_principal() })
     else {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
@@ -2557,15 +2633,28 @@ unsafe fn launch_worker() -> Option<u32> {
     supervisor_path[distribution_root_length] = saved_distribution_root_terminator;
     unsafe { DeleteProcThreadAttributeList(attributes) };
     unsafe { HeapFree(heap, 0, attributes) };
-    unsafe { FreeSid(sid) };
     if !created || process.hProcess.is_null() || process.hThread.is_null() {
         unsafe { CloseHandle(job) };
         unsafe { CloseHandle(pipe) };
         unsafe { close_handles(&[process.hProcess, process.hThread]) };
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
+        unsafe { FreeSid(sid) };
         return None;
     }
     FAILURE_STAGE.store(7, Ordering::Relaxed);
+
+    FAILURE_STAGE.store(27, Ordering::Relaxed);
+    if !unsafe {
+        process_appcontainer_binding(process.hProcess, sid, &selected_authentication_session_hash)
+    } {
+        unsafe { cleanup_or_mark_manual_recovery(job, process.hProcess) };
+        unsafe { CloseHandle(pipe) };
+        unsafe { close_handles(&[process.hProcess, process.hThread, job]) };
+        unsafe { close_handles(&locked_handles[..locked_handle_count]) };
+        unsafe { FreeSid(sid) };
+        return None;
+    }
+    unsafe { FreeSid(sid) };
 
     if !unsafe {
         loaded_image_matches(
@@ -2661,21 +2750,19 @@ unsafe fn launch_worker() -> Option<u32> {
         FAILURE_STAGE.store(25, Ordering::Relaxed);
         return None;
     }
-    let (reobserved_user_hash, reobserved_user_flags) = reobserved_principal?;
+    let (reobserved_user_hash, reobserved_authentication_session_hash, reobserved_user_flags) =
+        reobserved_principal?;
     if !equal_u8_exact(&selected_user_hash, &reobserved_user_hash)
+        || !equal_u8_exact(
+            &selected_authentication_session_hash,
+            &reobserved_authentication_session_hash,
+        )
         || selected_user_flags != reobserved_user_flags
     {
         FAILURE_STAGE.store(26, Ordering::Relaxed);
         return None;
     }
-    let selected_user_matches =
-        worker_response_valid && response.get(50..82) == Some(reobserved_user_hash.as_slice());
-    if !worker_response_valid || !selected_user_matches {
-        if worker_response_valid {
-            FAILURE_STAGE.store(17, Ordering::Relaxed);
-        }
-        return None;
-    }
+    response[50..82].copy_from_slice(&reobserved_user_hash);
     response[82..86].copy_from_slice(&selected_user_flags.to_le_bytes());
     if !unsafe { registry_effect.restore() } {
         return None;
@@ -2737,12 +2824,15 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
             let response = if REGISTRY_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
                 match FAILURE_STAGE.load(Ordering::Relaxed) {
                     3 => native_bootstrap_core::REGISTRY_PROCESS_MANUAL_RECOVERY_BLOCKED,
-                    7 => native_bootstrap_core::REGISTRY_CREATED_PROCESS_MANUAL_RECOVERY_BLOCKED,
+                    7 | 27 => {
+                        native_bootstrap_core::REGISTRY_CREATED_PROCESS_MANUAL_RECOVERY_BLOCKED
+                    }
                     8.. => native_bootstrap_core::REGISTRY_WORKER_MANUAL_RECOVERY_BLOCKED,
                     _ => native_bootstrap_core::REGISTRY_PRECONDITION_MANUAL_RECOVERY_BLOCKED,
                 }
             } else if MANUAL_RECOVERY_REQUIRED.load(Ordering::Relaxed) {
-                if FAILURE_STAGE.load(Ordering::Relaxed) >= 8 {
+                let stage = FAILURE_STAGE.load(Ordering::Relaxed);
+                if stage >= 8 && stage != 27 {
                     native_bootstrap_core::WORKER_MANUAL_RECOVERY_BLOCKED
                 } else {
                     native_bootstrap_core::PROCESS_MANUAL_RECOVERY_BLOCKED
@@ -2776,6 +2866,7 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     24 => native_bootstrap_core::LOCAL_APP_DATA_IDENTITY_BLOCKED,
                     25 => native_bootstrap_core::SELECTED_USER_REOBSERVATION_UNAVAILABLE_BLOCKED,
                     26 => native_bootstrap_core::SELECTED_USER_REOBSERVATION_MISMATCH_BLOCKED,
+                    27 => native_bootstrap_core::CHILD_PRINCIPAL_BINDING_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };
@@ -2884,6 +2975,20 @@ mod tests {
                 0xf2, 0x00, 0x15, 0xad,
             ]
         );
+    }
+
+    #[test]
+    fn authentication_session_hash_is_stable_for_current_process() {
+        let mut token = null_mut();
+        assert_ne!(
+            unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) },
+            0
+        );
+        let first = unsafe { token_authentication_session_hash(token) }.expect("session hash");
+        let second = unsafe { token_authentication_session_hash(token) }.expect("session hash");
+        unsafe { CloseHandle(token) };
+        assert_eq!(first, second);
+        assert!(first.iter().any(|byte| *byte != 0));
     }
 
     #[test]
