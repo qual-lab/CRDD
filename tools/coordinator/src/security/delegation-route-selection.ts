@@ -6,7 +6,7 @@ import { selectProviderModelCandidate } from "./provider-model-selection-runtime
 
 export const DELEGATION_ROUTE_SELECTION_CONTRACT =
   "crdd-coordinator/delegation-route-selection";
-export const DELEGATION_ROUTE_SELECTION_CONTRACT_REVISION = 2;
+export const DELEGATION_ROUTE_SELECTION_CONTRACT_REVISION = 3;
 
 const MAXIMUM_DELEGATION_DEPTH = 2;
 const MAXIMUM_ANCESTOR_OPERATIONS = 2;
@@ -85,6 +85,7 @@ type ProviderEligibility = Readonly<{
   status: "eligible" | "ineligible";
   reason:
     | "ready"
+    | "runtime_preflight_required"
     | "bounded_request_check"
     | "required_capability_unavailable"
     | "subscription_auth_unavailable"
@@ -195,6 +196,7 @@ function snapshotProviderEligibility(raw: unknown) {
       typeof entry.reason !== "string" ||
       (entry.status === "eligible" &&
         entry.reason !== "ready" &&
+        entry.reason !== "runtime_preflight_required" &&
         entry.reason !== "bounded_request_check") ||
       (entry.status === "ineligible" &&
         !INELIGIBILITY_REASONS.has(entry.reason))

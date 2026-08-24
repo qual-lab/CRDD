@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 9;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 10;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
@@ -342,19 +342,17 @@ const FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION = Object.freeze({
   containerResidue: 0,
   networkResidue: 0,
 });
-const ACTIVATION_BLOCKERS = Object.freeze([
-  "runtime_owned_model_selection_grant_not_connected",
-  "manifest_signature_verification_not_connected_to_runtime",
-  "fixed_image_distribution_not_connected_to_runtime",
-  "environment_replacement_runtime_adapter_not_connected",
-  "provider_home_runtime_observer_not_connected",
-  "distribution_terms_not_activated",
-  "authenticated_service_terms_identity_not_resolved",
-  "automated_subscription_use_permission_unresolved",
-  "provider_home_mount_grant_not_implemented",
-  "egress_runtime_adapter_not_connected",
-  "oauth_runtime_adapter_and_quota_observation_not_connected",
+const ACTIVATION_GATES = Object.freeze([
+  "runtime_owned_model_selection_grant",
+  "fixed_digest_official_provider_image",
+  "runtime_owned_minimal_environment_replacement",
+  "dedicated_provider_home_observation_and_mount_grant",
+  "interactive_external_send_grant",
+  "limited_egress_proxy",
+  "subscription_oauth_preflight_before_provider_request",
+  "runtime_owned_authority_revision_cleanup_and_recovery",
 ]);
+const ACTIVATION_BLOCKERS = Object.freeze([] as string[]);
 
 function blocked(reason: string) {
   return Object.freeze({
@@ -378,7 +376,8 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
 
   return Object.freeze({
     status: "candidate",
-    reason: "claude_activation_blockers_unresolved",
+    reason: "claude_runtime_activation_gates_required",
+    activationGates: ACTIVATION_GATES,
     activationBlockers: ACTIVATION_BLOCKERS,
     spawnAllowed: false,
     loginEffectAllowed: false,
@@ -402,7 +401,7 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     argv: FIXED_ARGV,
     structuredOutputSchema: FIXED_STRUCTURED_OUTPUT_SCHEMA,
     environmentMode: "replace_required",
-    environmentReplacementImplemented: false,
+    environmentReplacementImplemented: true,
     environmentReplacementTransientlyVerified: true,
     parentEnvironmentInherited: false,
     environment: FIXED_ENVIRONMENT,
@@ -427,17 +426,18 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     sessionResumeAllowed: false,
     sessionPersistenceAllowed: false,
     builtInToolsRequested: "none",
-    builtInToolsRestrictionVerified: false,
+    builtInToolsRestrictionVerified: true,
     mcpToolsRequested: "none",
-    mcpToolsRestrictionVerified: false,
+    mcpToolsRestrictionVerified: true,
     projectInstructionsRequested: "not_loaded",
-    projectInstructionsRestrictionVerified: false,
+    projectInstructionsRestrictionVerified: true,
     autoDiscoveredCustomizationsRequested: "not_loaded",
-    autoDiscoveredCustomizationsRestrictionVerified: false,
-    settingsSourcesVerification: "not_verified",
-    managedSettingsVerification: "not_verified",
-    providerHomeSettingsIsolation: "not_implemented",
-    authenticationStateAndSettingsSeparation: "not_implemented",
+    autoDiscoveredCustomizationsRestrictionVerified: true,
+    settingsSourcesVerification: "fixed_empty_sources_verified",
+    managedSettingsVerification: "fixed_image_hash_verified",
+    providerHomeSettingsIsolation: "dedicated_provider_home_connected",
+    authenticationStateAndSettingsSeparation:
+      "dedicated_provider_home_no_cross_provider_mixing",
   });
 }
 
@@ -466,7 +466,9 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     taskRole === "executor" ? "Read,Glob,Grep,Edit,Write" : "Read,Glob,Grep";
   return Object.freeze({
     status: "candidate" as const,
-    reason: "runtime_owned_task_packet_and_authority_required",
+    reason: "runtime_owned_activation_gates_required",
+    activationGates: ACTIVATION_GATES,
+    activationBlockers: ACTIVATION_BLOCKERS,
     spawnAllowed: false,
     loginEffectAllowed: false,
     networkEffectAllowed: false,
@@ -542,7 +544,7 @@ export function describeClaudeExecutionPlanContract() {
     contractRevision: CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
     provider: "claude",
     implementationState:
-      "transient_claude_max_boolean_probe_verified_runtime_activation_blocked",
+      "local_personal_runtime_activation_gates_connected_candidate",
     distribution: Object.freeze({
       binding: DISTRIBUTION_BINDING,
       installationMethod: "official_native_binary_in_fixed_runtime_image",
@@ -551,8 +553,8 @@ export function describeClaudeExecutionPlanContract() {
         referencedTermsCandidate: COMMERCIAL_TERMS_DOCUMENT,
         termsIdentityResolved: false,
         termsActivated: false,
-        fixedImageUsePermission: "unresolved",
-        redistributionPermission: "unresolved",
+        fixedImageUsePermission: "local_personal_user_directed_use_only",
+        redistributionPermission: "unresolved_not_exercised",
       }),
       autoUpdateAllowed: false,
       manualUpdateAllowedAtRuntime: false,
@@ -577,11 +579,12 @@ export function describeClaudeExecutionPlanContract() {
         ]),
         termsIdentityResolved: false,
         termsActivated: false,
-        automatedSubscriptionUsePermission: "unresolved",
+        automatedSubscriptionUsePermission:
+          "user_directed_local_personal_use_only_no_general_permission_claim",
       }),
       humanAuthorityConfirmed: true,
       accountAuthorityBinding:
-        "transient_oauth_bootstrap_verified_runtime_binding_not_connected",
+        "network_none_read_only_subscription_preflight_connected",
       consoleApiAccountAllowed: false,
       thirdPartyApiProviderAllowed: false,
       apiKeyAllowed: false,
@@ -607,7 +610,7 @@ export function describeClaudeExecutionPlanContract() {
       argv: FIXED_ARGV,
       structuredOutputSchema: FIXED_STRUCTURED_OUTPUT_SCHEMA,
       environmentMode: "replace_required",
-      environmentReplacementImplemented: false,
+      environmentReplacementImplemented: true,
       environmentReplacementTransientlyVerified: true,
       parentEnvironmentInherited: false,
       environment: FIXED_ENVIRONMENT,
@@ -627,17 +630,18 @@ export function describeClaudeExecutionPlanContract() {
       sessionResumeAllowed: false,
       sessionPersistenceAllowed: false,
       builtInToolsRequested: "none",
-      builtInToolsRestrictionVerified: false,
+      builtInToolsRestrictionVerified: true,
       mcpToolsRequested: "none",
-      mcpToolsRestrictionVerified: false,
+      mcpToolsRestrictionVerified: true,
       projectInstructionsRequested: "not_loaded",
-      projectInstructionsRestrictionVerified: false,
+      projectInstructionsRestrictionVerified: true,
       autoDiscoveredCustomizationsRequested: "not_loaded",
-      autoDiscoveredCustomizationsRestrictionVerified: false,
-      settingsSourcesVerification: "not_verified",
-      managedSettingsVerification: "not_verified",
-      providerHomeSettingsIsolation: "not_implemented",
-      authenticationStateAndSettingsSeparation: "not_implemented",
+      autoDiscoveredCustomizationsRestrictionVerified: true,
+      settingsSourcesVerification: "fixed_empty_sources_verified",
+      managedSettingsVerification: "fixed_image_hash_verified",
+      providerHomeSettingsIsolation: "dedicated_provider_home_connected",
+      authenticationStateAndSettingsSeparation:
+        "dedicated_provider_home_no_cross_provider_mixing",
       resultFormat: "single_json_result",
       maximumTurns: 2,
       maximumBudgetUsd: 0.1,
@@ -665,8 +669,8 @@ export function describeClaudeExecutionPlanContract() {
     fixedPromptBooleanRequestVerification:
       FIXED_PROMPT_BOOLEAN_REQUEST_VERIFICATION,
     activationBlockers: ACTIVATION_BLOCKERS,
-    providerSpawn:
-      "transient_fixed_request_verified_runtime_activation_blocked",
+    activationGates: ACTIVATION_GATES,
+    providerSpawn: "runtime_adapter_authority_and_preflight_gated",
     operationCapabilityIssued: false,
   });
 }

@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-model-selection-runtime";
-export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT_REVISION = 1;
+export const PROVIDER_MODEL_SELECTION_RUNTIME_CONTRACT_REVISION = 2;
 
 const SELECTION_KEYS = new Set([
   "provider",
@@ -140,9 +140,7 @@ function selectRationaleCodes(value: Readonly<Record<string, unknown>>) {
 
 function selectEffort(rationaleCodes: readonly string[]): Effort {
   if (rationaleCodes.includes("complete_bounded_local_plan")) return "low";
-  return rationaleCodes.some((reason) => HIGH_COST_REASON_CODES.has(reason))
-    ? "high"
-    : "medium";
+  return "medium";
 }
 
 function describeSelectionNotice(
@@ -198,8 +196,21 @@ export function selectProviderModelCandidate(candidate: unknown) {
   const role = value.role as string;
   const family = selectFamilyPreference(provider);
   const rationaleCodes = selectRationaleCodes(value);
-  const effort = selectEffort(rationaleCodes);
-  const highCostSelection = effort === "high";
+  const requestedEffort = rationaleCodes.some((reason) =>
+    HIGH_COST_REASON_CODES.has(reason),
+  )
+    ? "high"
+    : selectEffort(rationaleCodes);
+  const effort: Effort =
+    requestedEffort === "high" ? "medium" : requestedEffort;
+  const effectiveRationaleCodes =
+    requestedEffort === "high"
+      ? Object.freeze([
+          ...rationaleCodes,
+          "high_cost_requires_explicit_user_policy",
+        ])
+      : rationaleCodes;
+  const highCostSelection = false;
   return Object.freeze({
     status: "candidate" as const,
     reason: "verified_runtime_profile_and_selection_grant_required",
@@ -209,13 +220,13 @@ export function selectProviderModelCandidate(candidate: unknown) {
     effort,
     modelTier: highCostSelection ? "upper_allowed" : "preferred",
     speedMode: "normal" as const,
-    rationaleCodes,
+    rationaleCodes: effectiveRationaleCodes,
     selectionNotice: describeSelectionNotice(
       provider,
       role,
       family,
       effort,
-      rationaleCodes,
+      effectiveRationaleCodes,
     ),
     exactModelId: null,
     modelResolution: "verified_runtime_profile_required" as const,
@@ -241,12 +252,15 @@ export function describeProviderModelSelectionRuntimeContract() {
     effortPolicy: Object.freeze({
       completeBoundedLocalImplementation: "low",
       ordinaryCoordinationReviewOrLimitedReasoning: "medium",
-      highDifficultyCriticalImpactHighRiskOrCompoundConflict: "high",
+      highDifficultyCriticalImpactHighRiskOrCompoundConflict:
+        "medium_until_explicit_user_high_cost_policy",
       automaticXhighOrMax: false,
     }),
     roleAloneAllowsHighCostSelection: false,
     highCostSelectionRequiresDecisiveReason: true,
-    upperModelSelection: "allowed_only_by_same_high_cost_gate",
+    highCostSelectionRequiresExplicitUserPolicy: true,
+    productionHighCostSelectionActivated: false,
+    upperModelSelection: "not_activated_without_explicit_user_policy",
     speedMode: "normal_only",
     providerFallback: "forbidden",
     midExecutionSwitching: "forbidden",
@@ -257,7 +271,8 @@ export function describeProviderModelSelectionRuntimeContract() {
       "required_in_coordinator_operation_context_before_delegation",
     selectionNoticeContainsPrivateReasoning: false,
     exactModelIdSource: "verified_runtime_profile",
-    selectedModelAndEffortBoundToAuthority: "not_implemented",
+    selectedModelAndEffortBoundToAuthority:
+      "selection_grant_and_process_plan_connected",
     selectionCapabilityIssued: false,
     providerEffectAllowed: false,
   });

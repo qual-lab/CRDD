@@ -284,7 +284,7 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
 
 test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する", () => {
   const contract = describeRepositoryWorkspaceRuntimeContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.providerGitMetadataVisible, false);
   assert.equal(contract.workspaceWrite, "isolated_runtime_owned_only");
   assert.deepEqual(contract.candidateRevision, [

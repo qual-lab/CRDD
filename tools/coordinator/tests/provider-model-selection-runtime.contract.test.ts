@@ -38,7 +38,7 @@ test("具体化済みの局所実装は通常速度の低推論候補になる",
   assert.equal(selected.providerEffectAllowed, false);
 });
 
-test("独立Securityレビューは上位familyの高推論候補になる", () => {
+test("高難度レビュー自己申告だけでは高推論を発行せず中推論へ抑制する", () => {
   const selected = selectProviderModelCandidate({
     ...createBoundedImplementation("codex"),
     role: "independent_reviewer",
@@ -51,8 +51,8 @@ test("独立Securityレビューは上位familyの高推論候補になる", () 
   });
   assert.equal(selected.status, "candidate");
   assert.equal(selected.familyPreference, "sol");
-  assert.equal(selected.effort, "high");
-  assert.equal(selected.modelTier, "upper_allowed");
+  assert.equal(selected.effort, "medium");
+  assert.equal(selected.modelTier, "preferred");
   assert.deepEqual(selected.rationaleCodes, [
     "independent_review_requires_critique",
     "architecture_or_security_review_required",
@@ -60,6 +60,7 @@ test("独立Securityレビューは上位familyの高推論候補になる", () 
     "high_risk_change",
     "high_difficulty",
     "critical_decision_impact",
+    "high_cost_requires_explicit_user_policy",
   ]);
   assert.match(selected.selectionNotice ?? "", /role=independent_reviewer/);
 });
@@ -143,6 +144,7 @@ test("不足・余分・不正な分類情報は固定理由でfail closedにな
 
 test("公開契約は通常速度・説明可能選定・再選定境界を固定する", () => {
   const contract = describeProviderModelSelectionRuntimeContract();
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.selectionOwner, "coordinator_runtime");
   assert.equal(contract.selectionUnit, "operation_role");
   assert.deepEqual(contract.defaultFamilies, {
@@ -155,10 +157,12 @@ test("公開契約は通常速度・説明可能選定・再選定境界を固�
   assert.equal(contract.rationaleRequired, true);
   assert.equal(contract.roleAloneAllowsHighCostSelection, false);
   assert.equal(contract.highCostSelectionRequiresDecisiveReason, true);
+  assert.equal(contract.highCostSelectionRequiresExplicitUserPolicy, true);
+  assert.equal(contract.productionHighCostSelectionActivated, false);
   assert.equal(contract.selectionNoticeContainsPrivateReasoning, false);
   assert.equal(
     contract.selectedModelAndEffortBoundToAuthority,
-    "not_implemented",
+    "selection_grant_and_process_plan_connected",
   );
   assert.equal(contract.providerEffectAllowed, false);
 });

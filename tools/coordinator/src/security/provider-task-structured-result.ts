@@ -2,7 +2,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 1;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 3;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -66,9 +66,8 @@ function executorResult(value: Record<string, unknown>) {
   }
   return Object.freeze({
     status: "completed" as const,
-    summary: value.summary as string,
     changedPaths: Object.freeze([...(value.changedPaths as string[])]),
-    verification: Object.freeze([...(value.verification as string[])]),
+    verificationCount: value.verification.length,
   });
 }
 
@@ -110,14 +109,15 @@ function reviewerResult(value: Record<string, unknown>) {
     return null;
   return Object.freeze({
     decision: value.decision as "approved" | "changes_requested",
-    summary: value.summary as string,
-    findings: Object.freeze(
-      findings as Exclude<(typeof findings)[number], null>[],
-    ),
+    findingCount: findings.length,
   });
 }
 
-function structuredValue(provider: "codex" | "claude", raw: string) {
+function structuredValue(
+  provider: "codex" | "claude",
+  selectedEffort: "low" | "medium" | "high",
+  raw: string,
+) {
   const parsed = parseUnambiguousJsonDocument(raw);
   if (provider === "codex") return parsed;
   if (!isRecord(parsed)) return null;
@@ -134,7 +134,12 @@ function structuredValue(provider: "codex" | "claude", raw: string) {
     typeof cost !== "number" ||
     !Number.isFinite(cost) ||
     cost < 0 ||
-    cost > 0.5
+    cost >
+      (selectedEffort === "low"
+        ? 0.2
+        : selectedEffort === "medium"
+          ? 0.35
+          : 0.5)
   ) {
     return null;
   }
@@ -144,11 +149,15 @@ function structuredValue(provider: "codex" | "claude", raw: string) {
 export function normalizeProviderTaskStructuredResult(
   provider: unknown,
   taskRole: unknown,
+  selectedEffort: unknown,
   raw: unknown,
 ) {
   if (
     (provider !== "codex" && provider !== "claude") ||
     (taskRole !== "executor" && taskRole !== "reviewer") ||
+    (selectedEffort !== "low" &&
+      selectedEffort !== "medium" &&
+      selectedEffort !== "high") ||
     typeof raw !== "string" ||
     Buffer.byteLength(raw, "utf8") > MAXIMUM_RAW_BYTES
   ) {
@@ -157,7 +166,7 @@ export function normalizeProviderTaskStructuredResult(
       normalizedResult: null,
     });
   }
-  const value = structuredValue(provider, raw);
+  const value = structuredValue(provider, selectedEffort, raw);
   const normalizedResult = isRecord(value)
     ? taskRole === "executor"
       ? executorResult(value)
@@ -170,11 +179,15 @@ export function normalizeProviderTaskStructuredResult(
         taskRole,
         normalizedResult,
         rawOutputReported: false,
+        untrustedProviderTextReported: false,
+        credentialAbsenceVerified: false,
       })
     : Object.freeze({
         status: "blocked" as const,
         normalizedResult: null,
         rawOutputReported: false,
+        untrustedProviderTextReported: false,
+        credentialAbsenceVerified: false,
       });
 }
 
@@ -186,8 +199,14 @@ export function describeProviderTaskStructuredResultContract() {
     roles: Object.freeze(["executor", "reviewer"]),
     maximumRawBytes: MAXIMUM_RAW_BYTES,
     claudeMaximumTurns: 8,
-    claudeMaximumApiEquivalentCostUsd: 0.5,
+    claudeMaximumApiEquivalentCostUsdByEffort: Object.freeze({
+      low: 0.2,
+      medium: 0.35,
+      high: 0.5,
+    }),
     duplicateKeysAllowed: false,
     rawOutputReported: false,
+    untrustedProviderTextReported: false,
+    credentialAbsenceVerified: false,
   });
 }

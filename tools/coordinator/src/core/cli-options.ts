@@ -292,6 +292,53 @@ export function parseTaskArguments(rawArguments: unknown) {
   );
 }
 
+export function parseCandidateArguments(rawArguments: unknown) {
+  const snapshot = snapshotPlainArray<string>(rawArguments, MAXIMUM_ARGUMENTS);
+  if (
+    snapshot.status !== "ok" ||
+    snapshot.value.some((value) => !validToken(value))
+  ) {
+    return commandResponse(
+      "blocked",
+      "candidate_arguments_invalid",
+      null,
+      false,
+      true,
+    );
+  }
+  const argumentValues = snapshot.value;
+  const isJsonRequested = argumentValues.includes("--json");
+  if (
+    argumentValues.length < 3 ||
+    argumentValues.length > 4 ||
+    (argumentValues[0] !== "export" && argumentValues[0] !== "discard") ||
+    argumentValues[1] !== "--candidate-id" ||
+    typeof argumentValues[2] !== "string" ||
+    !/^candidate\.[0-9a-f]{64}\.[0-9a-f]{64}$/u.test(argumentValues[2]) ||
+    (argumentValues.length === 4 && argumentValues[3] !== "--json") ||
+    (argumentValues[0] === "export" && !isJsonRequested)
+  ) {
+    return commandResponse(
+      "blocked",
+      "candidate_arguments_invalid",
+      null,
+      isJsonRequested,
+      true,
+    );
+  }
+  return commandResponse(
+    "ok",
+    null,
+    Object.freeze({
+      action: argumentValues[0] as "export" | "discard",
+      candidateId: argumentValues[2],
+      json: isJsonRequested,
+    }),
+    isJsonRequested,
+    false,
+  );
+}
+
 export function parseDoctorArguments(
   rawArguments: unknown,
   environmentRoot: unknown,

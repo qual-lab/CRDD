@@ -81,6 +81,7 @@ function createFixture(
           provider: "codex",
           profileId: "PROFILE-100001",
           operationId: "OP-123456",
+          providerHomeIdentityHash: "b".repeat(64),
         }),
         activeMountCapability,
       });
@@ -179,9 +180,12 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     fixture.managementCapability,
   );
   assert.ok(plan);
+  assert.equal(plan.providerContainerName, `crdd-codex-${"b".repeat(16)}`);
   assert.equal(plan.selectionRecordId, "MODELSEL-12345678");
   const purposes = plan.commands.map((candidate) => candidate.purpose);
   assert.deepEqual(purposes, [
+    "create_subscription_auth_probe",
+    "start_subscription_auth_probe_attached",
     "create_internal_network",
     "create_egress_network",
     "create_proxy",
@@ -190,7 +194,7 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     "start_proxy",
     "start_provider_attached",
   ]);
-  const internalNetwork = plan.commands[0]?.argv ?? [];
+  const internalNetwork = plan.commands[2]?.argv ?? [];
   assert.equal(internalNetwork.includes("--internal"), true);
   const provider = plan.commands.find(
     (candidate) => candidate.purpose === "create_provider",
@@ -502,7 +506,11 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeCodexDockerRuntimeAdapterContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
+  assert.equal(
+    contract.providerHomeCrossProcessLease,
+    "docker_global_provider_home_identity_container_name_fail_closed",
+  );
   assert.equal(contract.coordinatorPrelaunchModelSelectionAllowed, true);
   assert.equal(contract.providerAutomaticModelSwitchingAllowed, false);
   assert.equal(contract.midExecutionModelSwitchingAllowed, false);

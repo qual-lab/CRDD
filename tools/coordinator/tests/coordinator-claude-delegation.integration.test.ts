@@ -179,6 +179,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
           provider: "claude",
           profileId: "PROFILE-123456",
           operationId: "OP-123456",
+          providerHomeIdentityHash: "c".repeat(64),
         }),
         activeMountCapability,
       });
@@ -240,7 +241,15 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
                     total_cost_usd: 0.04699,
                     structured_output: { status: true },
                   })}\n`
-                : "",
+                : command.purpose === "start_subscription_auth_probe_attached"
+                  ? JSON.stringify({
+                      loggedIn: true,
+                      authMethod: "claude.ai",
+                      apiProvider: "firstParty",
+                      forcedLoginMethod: "claudeai",
+                      subscriptionType: "max",
+                    })
+                  : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -281,6 +290,8 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
   assert.equal(mountCompletionCount, 1);
   assert.equal(recoveryCompletionCount, 1);
   assert.deepEqual(purposes, [
+    "create_subscription_auth_probe",
+    "start_subscription_auth_probe_attached",
     "create_internal_network",
     "create_egress_network",
     "create_proxy",

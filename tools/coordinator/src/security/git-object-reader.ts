@@ -4,7 +4,7 @@ import path from "node:path";
 import { inflateSync } from "node:zlib";
 
 export const GIT_OBJECT_READER_CONTRACT = "crdd-coordinator/git-object-reader";
-export const GIT_OBJECT_READER_CONTRACT_REVISION = 1;
+export const GIT_OBJECT_READER_CONTRACT_REVISION = 2;
 
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
 const PACK_INDEX_MAGIC = 0xff744f63;
@@ -34,6 +34,28 @@ type WorkspaceEntry = Readonly<{
   mode: "100644" | "100755";
   bytes: Buffer;
 }>;
+
+function pathSelected(relativePath: string, readPaths: readonly string[]) {
+  return readPaths.some((readPath) =>
+    readPath.endsWith("/")
+      ? relativePath.startsWith(readPath)
+      : relativePath === readPath,
+  );
+}
+
+function treeSelected(relativePath: string, readPaths: readonly string[]) {
+  const prefix = `${relativePath}/`;
+  return readPaths.some((readPath) => {
+    const normalized = readPath.endsWith("/")
+      ? readPath.slice(0, -1)
+      : readPath;
+    return (
+      normalized === relativePath ||
+      normalized.startsWith(prefix) ||
+      relativePath.startsWith(`${normalized}/`)
+    );
+  });
+}
 
 function stableFile(target: string, maximumBytes: number) {
   const handle = fs.openSync(target, "r");
@@ -517,6 +539,7 @@ function parseTree(
   entries: WorkspaceEntry[],
   depth: number,
   budget: { bytes: number; files: number },
+  readPaths: readonly string[] | null,
 ) {
   if (depth > MAXIMUM_TREE_DEPTH) throw new Error("git_tree_depth_exceeded");
   const tree = readObject(treeId);
@@ -548,8 +571,22 @@ function parseTree(
     if (Buffer.byteLength(relativePath, "utf8") > MAXIMUM_RELATIVE_PATH_BYTES)
       throw new Error("git_tree_path_budget_exceeded");
     if (mode === "40000" || mode === "040000") {
-      parseTree(readObject, objectId, relativePath, entries, depth + 1, budget);
+      if (!readPaths || treeSelected(relativePath, readPaths)) {
+        parseTree(
+          readObject,
+          objectId,
+          relativePath,
+          entries,
+          depth + 1,
+          budget,
+          readPaths,
+        );
+      }
     } else if (mode === "100644" || mode === "100755") {
+      if (readPaths && !pathSelected(relativePath, readPaths)) {
+        nextIndex = nulIndex + 21;
+        continue;
+      }
       const blob = readObject(objectId);
       if (blob.type !== "blob") throw new Error("git_blob_object_invalid");
       budget.files += 1;
@@ -605,10 +642,21 @@ function contentManifest(entries: readonly WorkspaceEntry[]) {
 
 export function materializeGitCommitTreeCandidate(candidate: unknown) {
   try {
+    const candidateKeys =
+      candidate && typeof candidate === "object"
+        ? Reflect.ownKeys(candidate)
+        : [];
     if (
       !candidate ||
       typeof candidate !== "object" ||
-      Reflect.ownKeys(candidate).length !== 3
+      ![3, 4].includes(candidateKeys.length) ||
+      candidateKeys.some(
+        (key) =>
+          typeof key !== "string" ||
+          !["commonDirectory", "revision", "workspace", "readPaths"].includes(
+            key,
+          ),
+      )
     ) {
       return null;
     }
@@ -617,6 +665,23 @@ export function materializeGitCommitTreeCandidate(candidate: unknown) {
       typeof value.commonDirectory !== "string" ||
       typeof value.revision !== "string" ||
       typeof value.workspace !== "string" ||
+      (value.readPaths !== undefined &&
+        (!Array.isArray(value.readPaths) ||
+          value.readPaths.length === 0 ||
+          value.readPaths.some(
+            (readPath) =>
+              typeof readPath !== "string" ||
+              readPath.length === 0 ||
+              path.isAbsolute(readPath) ||
+              readPath.includes("\\") ||
+              readPath
+                .split("/")
+                .some((segment, index, segments) =>
+                  index === segments.length - 1 && segment === ""
+                    ? false
+                    : !validSegment(segment),
+                ),
+          ))) ||
       !path.isAbsolute(value.commonDirectory) ||
       !path.isAbsolute(value.workspace) ||
       !OBJECT_ID.test(value.revision)
@@ -629,7 +694,10 @@ export function materializeGitCommitTreeCandidate(candidate: unknown) {
     const treeId = commitTree(readObject(value.revision));
     const entries: WorkspaceEntry[] = [];
     const budget = { bytes: 0, files: 0 };
-    parseTree(readObject, treeId, "", entries, 0, budget);
+    const readPaths = Array.isArray(value.readPaths)
+      ? Object.freeze([...(value.readPaths as string[])])
+      : null;
+    parseTree(readObject, treeId, "", entries, 0, budget, readPaths);
     entries.sort((left, right) =>
       Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
     );
@@ -678,6 +746,7 @@ export function describeGitObjectReaderContract() {
     maximumWorkspaceFiles: MAXIMUM_WORKSPACE_FILES,
     maximumWorkspaceBytes: MAXIMUM_WORKSPACE_BYTES,
     pathReported: false,
+    readProjection: "explicit_file_or_directory_prefix_when_supplied",
     authorityEstablished: false,
   });
 }

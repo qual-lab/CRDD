@@ -36,17 +36,28 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
   const codex = normalizeProviderTaskStructuredResult(
     "codex",
     "executor",
+    "low",
     executor,
   );
   assert.equal(codex.status, "confirmed");
-  assert.deepEqual(codex.normalizedResult, JSON.parse(executor));
+  assert.deepEqual(codex.normalizedResult, {
+    status: "completed",
+    changedPaths: ["fixture.txt"],
+    verificationCount: 1,
+  });
   const claudeResult = normalizeProviderTaskStructuredResult(
     "claude",
     "reviewer",
+    "medium",
     claude(JSON.parse(reviewer)),
   );
   assert.equal(claudeResult.status, "confirmed");
-  assert.deepEqual(claudeResult.normalizedResult, JSON.parse(reviewer));
+  assert.deepEqual(claudeResult.normalizedResult, {
+    decision: "changes_requested",
+    findingCount: 1,
+  });
+  assert.equal(claudeResult.untrustedProviderTextReported, false);
+  assert.equal(claudeResult.credentialAbsenceVerified, false);
 });
 
 test("Reviewer decisionとfinding件数の矛盾、余分field、path traversalを拒否する", () => {
@@ -68,6 +79,7 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
       normalizeProviderTaskStructuredResult(
         "codex",
         "reviewer",
+        "medium",
         JSON.stringify(value),
       ).status,
       "blocked",
@@ -80,6 +92,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
     normalizeProviderTaskStructuredResult(
       "claude",
       "executor",
+      "high",
       claude(JSON.parse(executor), { num_turns: 9 }),
     ).status,
     "blocked",
@@ -88,6 +101,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
     normalizeProviderTaskStructuredResult(
       "claude",
       "executor",
+      "high",
       claude(JSON.parse(executor), { total_cost_usd: 0.51 }),
     ).status,
     "blocked",
@@ -96,6 +110,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
     normalizeProviderTaskStructuredResult(
       "codex",
       "executor",
+      "low",
       '{"status":"completed","status":"completed","summary":"x","changedPaths":[],"verification":[]}',
     ).status,
     "blocked",
@@ -104,6 +119,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
     normalizeProviderTaskStructuredResult(
       "codex",
       "executor",
+      "low",
       `${executor}\n{}`,
     ).status,
     "blocked",
@@ -112,7 +128,29 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
     normalizeProviderTaskStructuredResult(
       "codex",
       "executor",
+      "low",
       "x".repeat(65_537),
+    ).status,
+    "blocked",
+  );
+});
+
+test("Claude costはSelectionで固定したeffort上限を超えられない", () => {
+  assert.equal(
+    normalizeProviderTaskStructuredResult(
+      "claude",
+      "executor",
+      "low",
+      claude(JSON.parse(executor), { total_cost_usd: 0.21 }),
+    ).status,
+    "blocked",
+  );
+  assert.equal(
+    normalizeProviderTaskStructuredResult(
+      "claude",
+      "executor",
+      "medium",
+      claude(JSON.parse(executor), { total_cost_usd: 0.36 }),
     ).status,
     "blocked",
   );
@@ -120,10 +158,16 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 3);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);
-  assert.equal(contract.claudeMaximumApiEquivalentCostUsd, 0.5);
+  assert.deepEqual(contract.claudeMaximumApiEquivalentCostUsdByEffort, {
+    low: 0.2,
+    medium: 0.35,
+    high: 0.5,
+  });
   assert.equal(contract.rawOutputReported, false);
+  assert.equal(contract.untrustedProviderTextReported, false);
+  assert.equal(contract.credentialAbsenceVerified, false);
 });

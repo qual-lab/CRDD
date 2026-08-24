@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { persistRuntimeOwnedCandidateBundle } from "./candidate-bundle-store.ts";
 import { verifyOwnedOperationManagementMountBinding } from "./execution-environment.ts";
 import { materializeGitCommitTreeCandidate } from "./git-object-reader.ts";
 import {
@@ -11,12 +12,13 @@ import {
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 1;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 2;
 
 const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_FILES = 20_000;
 const MAXIMUM_CHANGED_PATHS = 1_000;
+const MAXIMUM_CANDIDATE_CONTENT_BYTES = 16 * 1024 * 1024;
 const MAXIMUM_ALLOWED_PATHS = 64;
 const MAXIMUM_ALLOWED_PATH_BYTES = 1_024;
 const RESERVED_WINDOWS_SEGMENT =
@@ -123,6 +125,57 @@ function stableFile(target: string, maximumBytes: number) {
     return Object.freeze({
       byteLength: Number(before.size),
       sha256: hash.digest("hex"),
+    });
+  } finally {
+    fs.closeSync(handle);
+  }
+}
+
+function stableFileContent(target: string, maximumBytes: number) {
+  const handle = fs.openSync(target, "r");
+  try {
+    const before = fs.fstatSync(handle, { bigint: true });
+    if (
+      !before.isFile() ||
+      before.isSymbolicLink() ||
+      before.size > BigInt(maximumBytes)
+    ) {
+      throw new Error("repository_workspace_file_invalid");
+    }
+    const content = Buffer.alloc(Number(before.size));
+    let offset = 0;
+    while (offset < content.byteLength) {
+      const readBytes = fs.readSync(
+        handle,
+        content,
+        offset,
+        content.byteLength - offset,
+        offset,
+      );
+      if (readBytes <= 0) throw new Error("repository_workspace_file_changed");
+      offset += readBytes;
+    }
+    const after = fs.fstatSync(handle, { bigint: true });
+    const current = fs.lstatSync(target, { bigint: true });
+    if (
+      before.dev !== after.dev ||
+      before.ino !== after.ino ||
+      before.birthtimeNs !== after.birthtimeNs ||
+      before.size !== after.size ||
+      before.mtimeNs !== after.mtimeNs ||
+      before.ctimeNs !== after.ctimeNs ||
+      !current.isFile() ||
+      current.isSymbolicLink() ||
+      current.dev !== before.dev ||
+      current.ino !== before.ino ||
+      current.birthtimeNs !== before.birthtimeNs
+    ) {
+      throw new Error("repository_workspace_file_changed");
+    }
+    return Object.freeze({
+      content,
+      byteLength: content.byteLength,
+      sha256: createHash("sha256").update(content).digest("hex"),
     });
   } finally {
     fs.closeSync(handle);
@@ -277,6 +330,7 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
   mountCapability: unknown,
+  rawReadPaths?: unknown,
 ) {
   try {
     if (
@@ -298,10 +352,14 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
       mountCapability,
     );
     if (!source || source.operationId !== binding.operationId) return null;
+    const readPaths =
+      rawReadPaths === undefined ? null : allowedPaths(rawReadPaths);
+    if (rawReadPaths !== undefined && !readPaths) return null;
     const materialized = materializeGitCommitTreeCandidate({
       commonDirectory: source.commonDirectory,
       revision: source.revision,
       workspace: binding.mounts.workspace,
+      ...(readPaths ? { readPaths } : {}),
     });
     if (!materialized) return null;
     const verifiedRepository = verifyRuntimeOwnedRepositoryBindingCapability(
@@ -330,6 +388,12 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
       baseTree: workspaceRecord.baseTree,
       baseManifestHash,
       fileCount: baseInventory.length,
+      readProjectionHash: readPaths
+        ? createHash("sha256")
+            .update("crdd-read-projection-v1\0")
+            .update(readPaths.join("\0"))
+            .digest("hex")
+        : null,
       workspaceCapability,
       pathReported: false,
     });
@@ -502,11 +566,111 @@ export function verifyRuntimeOwnedCandidateRevision(
   }
 }
 
+export function persistRuntimeOwnedCandidateRevision(
+  candidateCapability: unknown,
+  repositoryBindingCapability: unknown,
+  managementCapability: unknown,
+  mountCapability: unknown,
+) {
+  try {
+    if (!candidateCapability || typeof candidateCapability !== "object")
+      return null;
+    const record = candidates.get(candidateCapability);
+    if (
+      !record ||
+      record.workspaceRecord.repositoryBindingCapability !==
+        repositoryBindingCapability ||
+      record.workspaceRecord.managementCapability !== managementCapability ||
+      record.workspaceRecord.mountCapability !== mountCapability ||
+      !verifyRuntimeOwnedRepositoryBindingCapability(
+        repositoryBindingCapability,
+        managementCapability,
+      )
+    ) {
+      return null;
+    }
+    const binding = verifyOwnedOperationManagementMountBinding(
+      managementCapability,
+      mountCapability,
+    );
+    const currentInventory = inventory(binding.mounts.workspace);
+    const currentEntries = entryMap(currentInventory);
+    if (manifestHash(currentInventory) !== record.contentManifestHash)
+      return null;
+    let totalBytes = 0;
+    const entries = [];
+    for (const relativePath of record.changedPaths) {
+      const inventoryEntry = currentEntries.get(relativePath);
+      if (!inventoryEntry) {
+        entries.push(
+          Object.freeze({
+            relativePath,
+            operation: "delete" as const,
+            byteLength: 0,
+            sha256: null,
+            contentBase64: null,
+          }),
+        );
+        continue;
+      }
+      const remainingBytes = MAXIMUM_CANDIDATE_CONTENT_BYTES - totalBytes;
+      if (remainingBytes < 0) return null;
+      const observed = stableFileContent(
+        path.join(binding.mounts.workspace, ...relativePath.split("/")),
+        Math.min(MAXIMUM_FILE_BYTES, remainingBytes),
+      );
+      if (
+        observed.byteLength !== inventoryEntry.byteLength ||
+        observed.sha256 !== inventoryEntry.sha256
+      ) {
+        return null;
+      }
+      totalBytes += observed.byteLength;
+      entries.push(
+        Object.freeze({
+          relativePath,
+          operation: "upsert" as const,
+          byteLength: observed.byteLength,
+          sha256: observed.sha256,
+          contentBase64: observed.content.toString("base64"),
+        }),
+      );
+    }
+    const persisted = persistRuntimeOwnedCandidateBundle(
+      Object.freeze({
+        schema: "crdd-coordinator-candidate-bundle/v1",
+        baseCommit: record.workspaceRecord.baseCommit,
+        baseTree: record.workspaceRecord.baseTree,
+        baseManifestHash: record.workspaceRecord.baseManifestHash,
+        patchHash: record.patchHash,
+        contentManifestHash: record.contentManifestHash,
+        allowedPathsHash: record.allowedPathsHash,
+        changedPaths: record.changedPaths,
+        entries: Object.freeze(entries),
+      }),
+    );
+    return persisted
+      ? Object.freeze({
+          status: "persisted" as const,
+          candidateId: persisted.candidateId,
+          bundleHash: persisted.bundleHash,
+          byteLength: persisted.byteLength,
+          hostPathReported: false,
+          canonicalRepositoryChanged: false,
+        })
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function describeRepositoryWorkspaceRuntimeContract() {
   return Object.freeze({
     contract: REPOSITORY_WORKSPACE_RUNTIME_CONTRACT,
     contractRevision: REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION,
     source: "exact_head_commit_tree_without_external_git_cli",
+    providerReadProjection:
+      "explicit_file_or_directory_prefix_plus_write_scope",
     providerGitMetadataVisible: false,
     workspaceWrite: "isolated_runtime_owned_only",
     allowedPathGuard: "exact_file_or_directory_prefix_fail_closed",
@@ -517,6 +681,8 @@ export function describeRepositoryWorkspaceRuntimeContract() {
       "content_manifest_hash",
       "allowed_paths_hash",
     ]),
+    approvedCandidateTransfer:
+      "opaque_id_local_transient_bundle_explicit_export_and_discard",
     canonicalRepositoryWriteAllowed: false,
     pathReported: false,
   });

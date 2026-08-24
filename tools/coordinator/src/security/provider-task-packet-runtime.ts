@@ -2,19 +2,23 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import {
+  compileExternalSendScopeHash,
+  consumeRuntimeOwnedExternalSendGrant,
+} from "./external-send-grant-runtime.ts";
+import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 1;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 2;
 
 const PACKET_KEYS = new Set([
   "objective",
   "acceptanceCriteria",
   "allowedPaths",
-  "contentPolicy",
+  "readPaths",
 ]);
 const MAXIMUM_OBJECTIVE_BYTES = 8_192;
 const MAXIMUM_CRITERIA = 16;
@@ -33,7 +37,8 @@ type TaskPacket = Readonly<{
   objective: string;
   acceptanceCriteria: readonly string[];
   allowedPaths: readonly string[];
-  contentPolicy: "authenticated_local_user_approved";
+  readPaths: readonly string[];
+  externalSendScopeHash: string;
   taskPacketHash: string;
 }>;
 type PacketRecord = Readonly<{
@@ -43,8 +48,23 @@ type PacketRecord = Readonly<{
   useCapability: object;
 }>;
 
-const controlRecords = new WeakMap<object, PacketRecord>();
-const useRecords = new WeakMap<object, PacketRecord>();
+type RuntimeState = Readonly<{
+  controlRecords: WeakMap<object, PacketRecord>;
+  useRecords: WeakMap<object, PacketRecord>;
+  consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant;
+}>;
+
+function createState(
+  consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant,
+): RuntimeState {
+  return Object.freeze({
+    controlRecords: new WeakMap(),
+    useRecords: new WeakMap(),
+    consumeExternalSendGrant,
+  });
+}
+
+const productionState = createState(consumeRuntimeOwnedExternalSendGrant);
 
 function validText(value: unknown, maximumBytes: number) {
   return (
@@ -119,9 +139,10 @@ function taskHash(
   objective: string,
   acceptanceCriteria: readonly string[],
   allowedPaths: readonly string[],
+  readPaths: readonly string[],
 ) {
   return createHash("sha256")
-    .update("crdd-provider-task-packet-v1\0")
+    .update("crdd-provider-task-packet-v2\0")
     .update(operationId)
     .update("\0")
     .update(taskRole)
@@ -131,7 +152,8 @@ function taskHash(
     .update(acceptanceCriteria.join("\0"))
     .update("\0")
     .update(allowedPaths.join("\0"))
-    .update("\0authenticated_local_user_approved")
+    .update("\0")
+    .update(readPaths.join("\0"))
     .digest("hex");
 }
 
@@ -146,21 +168,29 @@ function promptFor(packet: TaskPacket) {
     `Objective:\n${packet.objective}`,
     `Acceptance criteria:\n${packet.acceptanceCriteria.map((item) => `- ${item}`).join("\n")}`,
     `Allowed paths:\n${packet.allowedPaths.map((item) => `- ${item}`).join("\n")}`,
+    `Readable paths:\n${packet.readPaths.map((item) => `- ${item}`).join("\n")}`,
     packet.taskRole === "executor"
       ? "Return the required executor JSON only after completing the local candidate."
       : "Return the required reviewer JSON only after reviewing the exact candidate.",
   ].join("\n\n");
 }
 
-export function issueRuntimeOwnedProviderTaskPacket(
+function issue(
+  state: RuntimeState,
   managementCapability: unknown,
+  repositoryBindingCapability: unknown,
+  provider: unknown,
   taskRole: unknown,
+  externalSendGrantCapability: unknown,
   rawPacket: unknown,
 ) {
   try {
     if (
       !managementCapability ||
       typeof managementCapability !== "object" ||
+      !repositoryBindingCapability ||
+      typeof repositoryBindingCapability !== "object" ||
+      (provider !== "codex" && provider !== "claude") ||
       (taskRole !== "executor" && taskRole !== "reviewer")
     ) {
       return null;
@@ -176,22 +206,40 @@ export function issueRuntimeOwnedProviderTaskPacket(
         )
       : null;
     const allowedPaths = value ? normalizedPaths(value.allowedPaths) : null;
+    const readPaths = value ? normalizedPaths(value.readPaths) : null;
     if (
       !value ||
       !validText(value.objective, MAXIMUM_OBJECTIVE_BYTES) ||
       !acceptanceCriteria ||
       !allowedPaths ||
-      value.contentPolicy !== "authenticated_local_user_approved"
+      !readPaths
     ) {
       return null;
     }
     const objective = value.objective as string;
+    const externalSendScopeHash = compileExternalSendScopeHash(value);
+    const externalSendGrant = state.consumeExternalSendGrant(
+      externalSendGrantCapability,
+      managementCapability,
+      repositoryBindingCapability,
+      provider,
+      taskRole,
+      value,
+    );
+    if (
+      !externalSendScopeHash ||
+      externalSendGrant?.status !== "consumed" ||
+      externalSendGrant.scopeHash !== externalSendScopeHash
+    ) {
+      return null;
+    }
     const taskPacketHash = taskHash(
       operation.operationId,
       taskRole,
       objective,
       acceptanceCriteria,
       allowedPaths,
+      readPaths,
     );
     const taskPacketRef = `TASKPKT-${randomBytes(16).toString("hex").toUpperCase()}`;
     const controlCapability = Object.freeze({});
@@ -203,7 +251,8 @@ export function issueRuntimeOwnedProviderTaskPacket(
       objective,
       acceptanceCriteria,
       allowedPaths,
-      contentPolicy: "authenticated_local_user_approved" as const,
+      readPaths,
+      externalSendScopeHash,
       taskPacketHash,
     });
     const record = Object.freeze({
@@ -212,8 +261,8 @@ export function issueRuntimeOwnedProviderTaskPacket(
       controlCapability,
       useCapability,
     });
-    controlRecords.set(controlCapability, record);
-    useRecords.set(useCapability, record);
+    state.controlRecords.set(controlCapability, record);
+    state.useRecords.set(useCapability, record);
     return Object.freeze({
       status: "issued" as const,
       taskPacketRef,
@@ -227,18 +276,19 @@ export function issueRuntimeOwnedProviderTaskPacket(
   }
 }
 
-export function consumeRuntimeOwnedProviderTaskPacket(
+function consume(
+  state: RuntimeState,
   useCapability: unknown,
   managementCapability: unknown,
 ) {
   try {
     if (!useCapability || typeof useCapability !== "object") return null;
-    const record = useRecords.get(useCapability);
+    const record = state.useRecords.get(useCapability);
     if (!record || record.managementCapability !== managementCapability)
       return null;
     verifyOwnedOperationManagementCapability(managementCapability);
-    controlRecords.delete(record.controlCapability);
-    useRecords.delete(record.useCapability);
+    state.controlRecords.delete(record.controlCapability);
+    state.useRecords.delete(record.useCapability);
     return Object.freeze({
       ...record.packet,
       prompt: promptFor(record.packet),
@@ -250,22 +300,86 @@ export function consumeRuntimeOwnedProviderTaskPacket(
   }
 }
 
-export function revokeRuntimeOwnedProviderTaskPacket(
+function revoke(
+  state: RuntimeState,
   controlCapability: unknown,
   managementCapability: unknown,
 ) {
   try {
     if (!controlCapability || typeof controlCapability !== "object")
       return Object.freeze({ status: "blocked" as const });
-    const record = controlRecords.get(controlCapability);
+    const record = state.controlRecords.get(controlCapability);
     if (!record || record.managementCapability !== managementCapability)
       return Object.freeze({ status: "blocked" as const });
-    controlRecords.delete(record.controlCapability);
-    useRecords.delete(record.useCapability);
+    state.controlRecords.delete(record.controlCapability);
+    state.useRecords.delete(record.useCapability);
     return Object.freeze({ status: "revoked" as const });
   } catch {
     return Object.freeze({ status: "blocked" as const });
   }
+}
+
+export function issueRuntimeOwnedProviderTaskPacket(
+  managementCapability: unknown,
+  repositoryBindingCapability: unknown,
+  provider: unknown,
+  taskRole: unknown,
+  externalSendGrantCapability: unknown,
+  rawPacket: unknown,
+) {
+  return issue(
+    productionState,
+    managementCapability,
+    repositoryBindingCapability,
+    provider,
+    taskRole,
+    externalSendGrantCapability,
+    rawPacket,
+  );
+}
+
+export function consumeRuntimeOwnedProviderTaskPacket(
+  useCapability: unknown,
+  managementCapability: unknown,
+) {
+  return consume(productionState, useCapability, managementCapability);
+}
+
+export function revokeRuntimeOwnedProviderTaskPacket(
+  controlCapability: unknown,
+  managementCapability: unknown,
+) {
+  return revoke(productionState, controlCapability, managementCapability);
+}
+
+export function createIsolatedProviderTaskPacketRuntimeCandidate(
+  consumeExternalSendGrant: typeof consumeRuntimeOwnedExternalSendGrant,
+) {
+  const state = createState(consumeExternalSendGrant);
+  return Object.freeze({
+    productionAuthority: false as const,
+    issue: (
+      managementCapability: unknown,
+      repositoryBindingCapability: unknown,
+      provider: unknown,
+      taskRole: unknown,
+      externalSendGrantCapability: unknown,
+      rawPacket: unknown,
+    ) =>
+      issue(
+        state,
+        managementCapability,
+        repositoryBindingCapability,
+        provider,
+        taskRole,
+        externalSendGrantCapability,
+        rawPacket,
+      ),
+    consume: (useCapability: unknown, managementCapability: unknown) =>
+      consume(state, useCapability, managementCapability),
+    revoke: (controlCapability: unknown, managementCapability: unknown) =>
+      revoke(state, controlCapability, managementCapability),
+  });
 }
 
 export function describeProviderTaskPacketRuntimeContract() {
@@ -273,10 +387,12 @@ export function describeProviderTaskPacketRuntimeContract() {
     contract: PROVIDER_TASK_PACKET_RUNTIME_CONTRACT,
     contractRevision: PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION,
     roles: Object.freeze(["executor", "reviewer"]),
-    contentPolicy: "authenticated_local_user_approved",
+    externalSendAuthority:
+      "opaque_interactive_local_user_grant_consumed_per_provider_and_role",
     promptTransport: "provider_stdin_only",
     promptInDockerArgvAllowed: false,
     allowedPaths: "exact_file_or_directory_prefix",
+    readablePaths: "explicit_projection_exact_file_or_directory_prefix",
     singleUse: true,
     canonicalRepositoryEffectAllowed: false,
     rawPromptReported: false,

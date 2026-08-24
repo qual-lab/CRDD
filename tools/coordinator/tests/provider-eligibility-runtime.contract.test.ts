@@ -92,18 +92,18 @@ test("unknownを同一Providerへの推測fallback根拠にしない", () => {
   assert.equal(selected.reason, "delegation_route_executor_unavailable");
 });
 
-test("別probeで課金せず認証とquotaを同じbounded requestで確認する", () => {
+test("認証preflightとquotaのbounded request確認を区別する", () => {
   const runtime = createIsolatedProviderEligibilityRuntimeCandidate({
     observeProvider: () =>
       createObservation({
-        subscriptionAuth: "bounded_request_check",
+        subscriptionAuth: "runtime_preflight_required",
         subscriptionQuota: "bounded_request_check",
       }),
   });
   assert.deepEqual(runtime.observe()[0], {
     provider: "codex",
     status: "eligible",
-    reason: "bounded_request_check",
+    reason: "runtime_preflight_required",
   });
   const selected = selectDelegationRouteCandidate(createRequest(), {
     providerEligibility: runtime.observe(),
@@ -154,17 +154,17 @@ test("accessor、Proxy、余分なkeyとobserver例外を実行せずfail closed
   assert.equal(extraKey.observe()[0]?.reason, "observation_unavailable");
 });
 
-test("productionはCodexとClaudeをbounded request候補として公開する", () => {
+test("productionはCodexとClaudeを認証preflight必須候補として公開する", () => {
   assert.deepEqual(observeRuntimeOwnedProviderEligibility(), [
     {
       provider: "codex",
       status: "eligible",
-      reason: "bounded_request_check",
+      reason: "runtime_preflight_required",
     },
     {
       provider: "claude",
       status: "eligible",
-      reason: "bounded_request_check",
+      reason: "runtime_preflight_required",
     },
   ]);
 });
@@ -177,7 +177,7 @@ test("公開契約はcaller claimと有料API fallbackを認めない", () => {
   assert.equal(contract.unknownHandling, "ineligible_observation_unavailable");
   assert.equal(
     contract.nonPreobservableSubscriptionState,
-    "bounded_authorized_request_checks_auth_and_quota_without_separate_probe",
+    "network_none_auth_preflight_then_bounded_request_checks_quota",
   );
   assert.equal(contract.paidApiFallback, "prohibited_unsupported_by_default");
 });

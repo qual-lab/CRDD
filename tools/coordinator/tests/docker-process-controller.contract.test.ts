@@ -14,6 +14,8 @@ function createPlan(
 ) {
   const suffix = "0101010101010101";
   const purposes = [
+    "create_subscription_auth_probe",
+    "start_subscription_auth_probe_attached",
     "create_internal_network",
     "create_egress_network",
     "create_proxy",
@@ -30,6 +32,7 @@ function createPlan(
     activeMountCapability,
     authorityUseCapability,
     providerHomeSourcePath: "C:\\runtime-owned\\claude-home",
+    authContainerName: `crdd-auth-${suffix}`,
     providerContainerName: `crdd-claude-${suffix}`,
     proxyContainerName: `crdd-proxy-${suffix}`,
     internalNetworkName: `crdd-internal-${suffix}`,
@@ -70,6 +73,16 @@ function createProviderOutput(overrides: Record<string, unknown> = {}) {
   })}\n`;
 }
 
+function createSubscriptionAuthOutput() {
+  return JSON.stringify({
+    loggedIn: true,
+    authMethod: "claude.ai",
+    apiProvider: "firstParty",
+    forcedLoginMethod: "claudeai",
+    subscriptionType: "max",
+  });
+}
+
 function createFixture(
   overrides: Record<string, unknown> = {},
   planOverrides: Record<string, unknown> = {},
@@ -103,12 +116,18 @@ function createFixture(
     startCommand: (command: { purpose: string }) => {
       commandCount += 1;
       const isProvider = command.purpose === "start_provider_attached";
+      const isAuth =
+        command.purpose === "start_subscription_auth_probe_attached";
       return Object.freeze({
         wait: async () =>
           Object.freeze({
             status: 0,
             signal: null,
-            stdout: isProvider ? createProviderOutput() : "",
+            stdout: isProvider
+              ? createProviderOutput()
+              : isAuth
+                ? createSubscriptionAuthOutput()
+                : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -187,10 +206,49 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.match(result.resultSha256 ?? "", /^[a-f0-9]{64}$/);
   assert.deepEqual(result.normalizedResult, { status: true });
   assert.equal(result.rawOutputReported, false);
-  assert.equal(fixture.getCommandCount(), 7);
+  assert.equal(fixture.getCommandCount(), 9);
+  assert.equal(result.subscriptionAuthConfirmed, true);
   assert.equal(fixture.getCleanupCount(), 1);
   assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 1);
+});
+
+test("Subscription OAuthを確認できなければProvider request前に停止する", async () => {
+  let providerStarted = false;
+  const fixture = createFixture({
+    startCommand: (command: { purpose: string }) => {
+      if (command.purpose === "start_provider_attached") providerStarted = true;
+      return Object.freeze({
+        wait: async () =>
+          Object.freeze({
+            status: 0,
+            signal: null,
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? JSON.stringify({
+                    loggedIn: true,
+                    authMethod: "apiKey",
+                    apiProvider: "firstParty",
+                    forcedLoginMethod: null,
+                    subscriptionType: null,
+                  })
+                : "",
+            stderr: "",
+            outputExceeded: false,
+          }),
+        terminateAndWait: async () => true,
+      });
+    },
+  });
+  const result = await fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  ).completion;
+  assert.equal(result?.status, "blocked");
+  assert.equal(result?.reason, "provider_subscription_auth_not_confirmed");
+  assert.equal(result?.subscriptionAuthConfirmed, false);
+  assert.equal(providerStarted, false);
+  assert.equal(fixture.getCleanupCount(), 1);
 });
 
 test("provider timeoutは終了要求後もcleanupを必須にする", async () => {
@@ -203,7 +261,10 @@ test("provider timeoutは終了要求後もcleanupを必須にする", async () 
           : {
               status: 0,
               signal: null,
-              stdout: "",
+              stdout:
+                command.purpose === "start_subscription_auth_probe_attached"
+                  ? createSubscriptionAuthOutput()
+                  : "",
               stderr: "",
               outputExceeded: false,
             },
@@ -235,7 +296,10 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
           wait: async () => ({
             status: 0,
             signal: null,
-            stdout: "",
+            stdout:
+              command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -328,7 +392,9 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
         stdout:
           command.purpose === "start_provider_attached"
             ? createProviderOutput({ structured_output: { status: false } })
-            : "",
+            : command.purpose === "start_subscription_auth_probe_attached"
+              ? createSubscriptionAuthOutput()
+              : "",
         stderr: "",
         outputExceeded: false,
       }),
@@ -369,7 +435,11 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
           status: 0,
           signal: null,
           stdout:
-            command.purpose === "start_provider_attached" ? taskOutput : "",
+            command.purpose === "start_provider_attached"
+              ? taskOutput
+              : command.purpose === "start_subscription_auth_probe_attached"
+                ? createSubscriptionAuthOutput()
+                : "",
           stderr: "",
           outputExceeded: false,
         }),
@@ -396,10 +466,11 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
   assert.equal(result.cleanupConfirmed, true);
   assert.deepEqual(result.normalizedResult, {
     decision: "approved",
-    summary: "The exact candidate is acceptable.",
-    findings: [],
+    findingCount: 0,
   });
   assert.equal(result.rawOutputReported, false);
+  assert.equal(result.untrustedProviderTextReported, false);
+  assert.equal(result.credentialAbsenceVerified, false);
 });
 
 test("Recovery記録前と偽造production CapabilityはDocker Effectを開始しない", async () => {
@@ -486,7 +557,8 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 9);
+  assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,

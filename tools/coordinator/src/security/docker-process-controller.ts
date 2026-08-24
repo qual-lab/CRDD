@@ -5,6 +5,7 @@ import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
 import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "./codex-docker-runtime-adapter.ts";
 import { normalizeCodexStructuredResult } from "./codex-structured-result.ts";
 import { normalizeProviderTaskStructuredResult } from "./provider-task-structured-result.ts";
+import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 import {
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
@@ -19,7 +20,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 7;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 9;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -27,6 +28,8 @@ const CANCELLATION_GRACE_MS = 5_000;
 const STDOUT_LIMIT_BYTES = 1_048_576;
 const STDERR_LIMIT_BYTES = 262_144;
 const PURPOSES = Object.freeze([
+  "create_subscription_auth_probe",
+  "start_subscription_auth_probe_attached",
   "create_internal_network",
   "create_egress_network",
   "create_proxy",
@@ -36,7 +39,7 @@ const PURPOSES = Object.freeze([
   "start_provider_attached",
 ]);
 const SAFE_IDENTIFIER =
-  /^crdd-(?:internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
+  /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 
 type Command = Readonly<{ purpose: string; argv: readonly string[] }>;
 type PreparedPlan = Readonly<{
@@ -47,6 +50,7 @@ type PreparedPlan = Readonly<{
   activeMountCapability: object;
   authorityUseCapability: object;
   providerHomeSourcePath: string;
+  authContainerName: string;
   providerContainerName: string;
   proxyContainerName: string;
   internalNetworkName: string;
@@ -156,6 +160,8 @@ function createBlockedStart(reason: string, preEffectCleanupConfirmed = false) {
     providerRequestStarted: false,
     normalizedResult: null,
     rawOutputReported: false,
+    untrustedProviderTextReported: false,
+    credentialAbsenceVerified: false,
     hostPathReported: false,
     proxyCredentialReported: false,
   });
@@ -177,6 +183,7 @@ function createFinalResult(
     resultSha256: string | null;
     resultBytes: number;
     normalizedResult: unknown | null;
+    subscriptionAuthConfirmed: boolean;
   }>,
 ) {
   const cleanupConfirmed =
@@ -211,7 +218,10 @@ function createFinalResult(
       cleanupConfirmed && status === "completed"
         ? details.normalizedResult
         : null,
+    subscriptionAuthConfirmed: details.subscriptionAuthConfirmed,
     rawOutputReported: false,
+    untrustedProviderTextReported: false,
+    credentialAbsenceVerified: false,
     hostPathReported: false,
     proxyCredentialReported: false,
   });
@@ -248,6 +258,7 @@ function isPlanValid(plan: PreparedPlan) {
         plan.workspaceMountMode === null) &&
     [
       plan.providerContainerName,
+      plan.authContainerName,
       plan.proxyContainerName,
       plan.internalNetworkName,
       plan.egressNetworkName,
@@ -267,6 +278,25 @@ function isPlanValid(plan: PreparedPlan) {
             !value.includes("\0"),
         ),
     )
+  );
+}
+
+function subscriptionAuthConfirmed(
+  provider: "codex" | "claude",
+  stdout: string,
+) {
+  if (provider === "codex") return stdout.trim() === "Logged in using ChatGPT";
+  const parsed = parseUnambiguousJsonDocument(stdout);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    return false;
+  const status = parsed as Record<string, unknown>;
+  return (
+    status.loggedIn === true &&
+    status.authMethod === "claude.ai" &&
+    status.apiProvider === "firstParty" &&
+    status.forcedLoginMethod === "claudeai" &&
+    typeof status.subscriptionType === "string" &&
+    ["pro", "max", "team", "enterprise"].includes(status.subscriptionType)
   );
 }
 
@@ -321,6 +351,7 @@ async function executePlan(
   let resultSha256: string | null = null;
   let resultBytes = 0;
   let normalizedResult: unknown | null = null;
+  let isSubscriptionAuthConfirmed = false;
 
   try {
     for (const command of plan.commands) {
@@ -354,12 +385,24 @@ async function executePlan(
           await handle.terminateAndWait(CANCELLATION_GRACE_MS);
         break;
       }
+      if (
+        command.purpose === "start_subscription_auth_probe_attached" &&
+        execution
+      ) {
+        if (!subscriptionAuthConfirmed(plan.provider, execution.stdout)) {
+          requestedStatus = "blocked";
+          reason = "provider_subscription_auth_not_confirmed";
+          break;
+        }
+        isSubscriptionAuthConfirmed = true;
+      }
       if (isProvider && execution) {
         const providerResult =
           plan.operationMode === "isolated_task"
             ? normalizeProviderTaskStructuredResult(
                 plan.provider,
                 plan.taskRole,
+                plan.selectedEffort,
                 execution.stdout,
               )
             : plan.provider === "codex"
@@ -457,6 +500,7 @@ async function executePlan(
     resultSha256,
     resultBytes,
     normalizedResult,
+    subscriptionAuthConfirmed: isSubscriptionAuthConfirmed,
   });
 }
 
@@ -544,6 +588,8 @@ function start(
     dockerEffectStarted: true,
     providerRequestStarted: false,
     rawOutputReported: false,
+    untrustedProviderTextReported: false,
+    credentialAbsenceVerified: false,
     normalizedResult: null,
     normalizedResultReportedAfterCleanupOnly: true,
     hostPathReported: false,
@@ -665,12 +711,16 @@ export function describeDockerProcessControllerContract() {
     recoveryBeforeDockerEffect: true,
     providerAuthority:
       "opaque_single_use_reverified_and_consumed_before_recovery_or_docker_effect",
+    subscriptionAuthentication:
+      "network_none_read_only_provider_home_probe_required_before_provider_request",
     cancellation: "opaque_control_capability_exactly_once",
     cleanup:
       "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",
     cleanupFailure: "manual_recovery_required_fail_closed",
     structuredResult:
       "exact_provider_boolean_or_role_task_result_published_after_cleanup_only",
+    providerTextPublication: "validated_then_discarded_not_reported",
+    credentialAbsenceVerification: "not_claimed",
     taskPrompt: "runtime_owned_stdin_only_not_reported",
     rawOutputReported: false,
     hostPathReported: false,

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   parseActivateArguments,
+  parseCandidateArguments,
   parseDisableArguments,
   parseDoctorArguments,
   parseProvisionArguments,
@@ -606,6 +607,34 @@ test("taskは明示stdin入力だけを受理しrequestをargvへ置かない", 
   }
 });
 
+test("candidateはopaque IDの明示ExportまたはDiscardだけを受理する", () => {
+  const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
+  const exported = parseCandidateArguments([
+    "export",
+    "--candidate-id",
+    candidateId,
+    "--json",
+  ]);
+  assert.equal(exported.status, "ok");
+  assertPresent(exported.value);
+  assert.equal(exported.value.action, "export");
+  assert.equal(exported.value.candidateId, candidateId);
+  assert.equal(exported.value.json, true);
+  assert.equal(
+    parseCandidateArguments(["export", "--candidate-id", candidateId]).status,
+    "blocked",
+  );
+  assert.equal(
+    parseCandidateArguments(["discard", "--candidate-id", candidateId]).status,
+    "ok",
+  );
+  assert.equal(
+    parseCandidateArguments(["export", "--candidate-id", "candidate.bad"])
+      .status,
+    "blocked",
+  );
+});
+
 test("実task CLIは曖昧JSONと偽RepositoryをProvider Effect前に拒否する", () => {
   const ambiguous = spawnSync(
     process.execPath,
@@ -633,7 +662,6 @@ test("実task CLIは曖昧JSONと偽RepositoryをProvider Effect前に拒否す�
         objective: "Bounded synthetic task.",
         acceptanceCriteria: ["No effect is issued."],
         allowedPaths: ["fixture.txt"],
-        contentPolicy: "authenticated_local_user_approved",
         workClass: "bounded_implementation",
         planState: "complete",
         risk: "low",

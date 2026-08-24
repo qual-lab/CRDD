@@ -25,7 +25,7 @@ import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-ru
 
 export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/claude-docker-runtime-adapter";
-export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 3;
+export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 4;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -64,6 +64,7 @@ type PreparedPlan = Readonly<{
   providerHomeSourcePath: string;
   preparedWallClockMs: number;
   preparedMonotonicMs: number;
+  authContainerName: string;
   providerContainerName: string;
   proxyContainerName: string;
   internalNetworkName: string;
@@ -128,6 +129,7 @@ type RuntimeState = Readonly<{
       provider: string;
       profileId: string;
       operationId: string;
+      providerHomeIdentityHash: string;
     }> | null;
     activeMountCapability: object | null;
   }>;
@@ -280,6 +282,7 @@ function buildPlan(
       provider: string;
       profileId: string;
       operationId: string;
+      providerHomeIdentityHash: string;
     }>;
     activeMountCapability: object;
   }>,
@@ -354,12 +357,16 @@ function buildPlan(
   const internalNetworkName = `crdd-internal-${suffix}`;
   const egressNetworkName = `crdd-egress-${suffix}`;
   const proxyContainerName = `crdd-proxy-${suffix}`;
-  const providerContainerName = `crdd-claude-${suffix}`;
+  const authContainerName = `crdd-auth-${suffix}`;
+  if (!/^[a-f0-9]{64}$/u.test(activation.grant.providerHomeIdentityHash))
+    return null;
+  const providerContainerName = `crdd-claude-${activation.grant.providerHomeIdentityHash.slice(0, 16)}`;
   if (
     [
       internalNetworkName,
       egressNetworkName,
       proxyContainerName,
+      authContainerName,
       providerContainerName,
     ].some((value) => value.length > MAXIMUM_IDENTIFIER_LENGTH)
   ) {
@@ -379,6 +386,33 @@ function buildPlan(
     ...fixedEnvironment,
   ];
   const commands = Object.freeze([
+    createCommand("create_subscription_auth_probe", [
+      "create",
+      "--pull=never",
+      "--network=none",
+      "--read-only",
+      "--name",
+      authContainerName,
+      "--label",
+      ownershipLabel,
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=32",
+      "--user=65534:65534",
+      "--env",
+      `HOME=${PROVIDER_HOME_DESTINATION}`,
+      "--mount",
+      `${providerHomeMount},readonly`,
+      providerImageDigest,
+      "auth",
+      "status",
+      "--json",
+    ]),
+    createCommand("start_subscription_auth_probe_attached", [
+      "start",
+      "--attach",
+      authContainerName,
+    ]),
     createCommand("create_internal_network", [
       "network",
       "create",
@@ -479,6 +513,7 @@ function buildPlan(
     providerHomeSourcePath,
     preparedWallClockMs,
     preparedMonotonicMs,
+    authContainerName,
     providerContainerName,
     proxyContainerName,
     internalNetworkName,
@@ -925,6 +960,10 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     noNewPrivileges: true,
     processLimit: 64,
     providerHomeMount: "read_write_rprivate_dedicated_home",
+    providerHomeCrossProcessLease:
+      "docker_global_provider_home_identity_container_name_fail_closed",
+    subscriptionAuthentication:
+      "network_none_read_only_provider_home_probe_before_provider_request",
     operationTmpMount: "read_write_rprivate_owned_operation_tmp",
     repositoryMounted: false,
     isolatedWorkspace:

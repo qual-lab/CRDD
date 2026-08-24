@@ -2,7 +2,7 @@ import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 
 export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-eligibility-runtime";
-export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT_REVISION = 2;
+export const PROVIDER_ELIGIBILITY_RUNTIME_CONTRACT_REVISION = 3;
 
 const OBSERVATION_KEYS = new Set([
   "requiredCapability",
@@ -13,6 +13,7 @@ const OBSERVATION_KEYS = new Set([
 ]);
 const OBSERVATION_STATES = new Set([
   "confirmed",
+  "runtime_preflight_required",
   "bounded_request_check",
   "unavailable",
   "unknown",
@@ -21,6 +22,7 @@ const OBSERVATION_STATES = new Set([
 type Provider = "codex" | "claude";
 type ObservationState =
   | "confirmed"
+  | "runtime_preflight_required"
   | "bounded_request_check"
   | "unavailable"
   | "unknown";
@@ -106,19 +108,19 @@ function createEligibility(
     observation.requiredCapability === "confirmed" &&
     observation.officialDistribution === "confirmed" &&
     observation.policy === "confirmed" &&
-    ["confirmed", "bounded_request_check"].includes(
+    ["confirmed", "runtime_preflight_required"].includes(
       observation.subscriptionAuth,
     ) &&
     ["confirmed", "bounded_request_check"].includes(
       observation.subscriptionQuota,
     ) &&
-    (observation.subscriptionAuth === "bounded_request_check" ||
+    (observation.subscriptionAuth === "runtime_preflight_required" ||
       observation.subscriptionQuota === "bounded_request_check")
   ) {
     return Object.freeze({
       provider,
       status: "eligible" as const,
-      reason: "bounded_request_check" as const,
+      reason: "runtime_preflight_required" as const,
     });
   }
   if (
@@ -159,7 +161,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   observeProvider: (_provider: Provider) =>
     Object.freeze({
       requiredCapability: "confirmed",
-      subscriptionAuth: "bounded_request_check",
+      subscriptionAuth: "runtime_preflight_required",
       subscriptionQuota: "bounded_request_check",
       officialDistribution: "confirmed",
       policy: "confirmed",
@@ -195,8 +197,9 @@ export function describeProviderEligibilityRuntimeContract() {
     callerClaimsAccepted: false,
     unknownHandling: "ineligible_observation_unavailable",
     nonPreobservableSubscriptionState:
-      "bounded_authorized_request_checks_auth_and_quota_without_separate_probe",
+      "network_none_auth_preflight_then_bounded_request_checks_quota",
     paidApiFallback: "prohibited_unsupported_by_default",
-    productionState: "codex_and_claude_bounded_request_check",
+    productionState:
+      "codex_and_claude_auth_preflight_required_quota_bounded_request_check",
   });
 }

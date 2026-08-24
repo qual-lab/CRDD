@@ -91,7 +91,7 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   assert.equal(plan.spawnAllowed, false);
   assert.equal(
     contract.providerSpawn,
-    "transient_fixed_request_verified_runtime_activation_blocked",
+    "runtime_adapter_authority_and_preflight_gated",
   );
   assert.deepEqual(contract.readOnlyProbe.noNetworkVersionProbe, {
     status: "verified",
@@ -123,8 +123,14 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
   const serviceTerms = authentication.authenticatedServiceTerms;
   assert.equal(distributionTerms.termsIdentityResolved, false);
   assert.equal(distributionTerms.termsActivated, false);
-  assert.equal(distributionTerms.fixedImageUsePermission, "unresolved");
-  assert.equal(distributionTerms.redistributionPermission, "unresolved");
+  assert.equal(
+    distributionTerms.fixedImageUsePermission,
+    "local_personal_user_directed_use_only",
+  );
+  assert.equal(
+    distributionTerms.redistributionPermission,
+    "unresolved_not_exercised",
+  );
   assert.deepEqual(distributionTerms.licenseDocument, {
     documentIdentity: "claude_code_license_at_release_v2.1.220",
     sourceRevision: "7ef6eec9d9ba84ea6f233f26c45f1df5c5991843",
@@ -199,11 +205,14 @@ test("配布物条件と認証service条件を別axisの未解決条件にする
   ]);
   assert.equal(serviceTerms.termsIdentityResolved, false);
   assert.equal(serviceTerms.termsActivated, false);
-  assert.equal(serviceTerms.automatedSubscriptionUsePermission, "unresolved");
+  assert.equal(
+    serviceTerms.automatedSubscriptionUsePermission,
+    "user_directed_local_personal_use_only_no_general_permission_claim",
+  );
   assert.equal(authentication.humanAuthorityConfirmed, true);
   assert.equal(
     authentication.accountAuthorityBinding,
-    "transient_oauth_bootstrap_verified_runtime_binding_not_connected",
+    "network_none_read_only_subscription_preflight_connected",
   );
   assert.equal("supportedSubscriptions" in authentication, false);
   assert.equal("termsReview" in contract.distribution, false);
@@ -252,7 +261,12 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
     mode: "read_only_probe",
   });
   assert.equal(plan.status, "candidate");
-  assert.equal(plan.reason, "claude_activation_blockers_unresolved");
+  assert.equal(plan.reason, "claude_runtime_activation_gates_required");
+  assert.equal(plan.activationBlockers.length, 0);
+  assert.equal(
+    plan.activationGates.includes("interactive_external_send_grant"),
+    true,
+  );
   assert.equal(plan.command, "/opt/crdd/providers/claude/2.1.220/claude");
   assert.deepEqual(plan.argv, [
     "--safe-mode",
@@ -288,7 +302,7 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
     "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
   );
   assert.equal(plan.environmentMode, "replace_required");
-  assert.equal(plan.environmentReplacementImplemented, false);
+  assert.equal(plan.environmentReplacementImplemented, true);
   assert.equal(plan.environmentReplacementTransientlyVerified, true);
   assert.equal(plan.parentEnvironmentInherited, false);
   assert.deepEqual(plan.environment, {
@@ -349,19 +363,25 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
   assert.equal(plan.sessionResumeAllowed, false);
   assert.equal(plan.sessionPersistenceAllowed, false);
   assert.equal(plan.builtInToolsRequested, "none");
-  assert.equal(plan.builtInToolsRestrictionVerified, false);
+  assert.equal(plan.builtInToolsRestrictionVerified, true);
   assert.equal(plan.mcpToolsRequested, "none");
-  assert.equal(plan.mcpToolsRestrictionVerified, false);
+  assert.equal(plan.mcpToolsRestrictionVerified, true);
   assert.equal(plan.projectInstructionsRequested, "not_loaded");
-  assert.equal(plan.projectInstructionsRestrictionVerified, false);
+  assert.equal(plan.projectInstructionsRestrictionVerified, true);
   assert.equal(plan.autoDiscoveredCustomizationsRequested, "not_loaded");
-  assert.equal(plan.autoDiscoveredCustomizationsRestrictionVerified, false);
-  assert.equal(plan.settingsSourcesVerification, "not_verified");
-  assert.equal(plan.managedSettingsVerification, "not_verified");
-  assert.equal(plan.providerHomeSettingsIsolation, "not_implemented");
+  assert.equal(plan.autoDiscoveredCustomizationsRestrictionVerified, true);
+  assert.equal(
+    plan.settingsSourcesVerification,
+    "fixed_empty_sources_verified",
+  );
+  assert.equal(plan.managedSettingsVerification, "fixed_image_hash_verified");
+  assert.equal(
+    plan.providerHomeSettingsIsolation,
+    "dedicated_provider_home_connected",
+  );
   assert.equal(
     plan.authenticationStateAndSettingsSeparation,
-    "not_implemented",
+    "dedicated_provider_home_no_cross_provider_mixing",
   );
   assert.equal("customizationsLoaded" in plan, false);
   assert.equal(plan.operationCapabilityIssued, false);
@@ -398,6 +418,13 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     effort: "high",
   });
   assert.equal(executor.status, "candidate");
+  assert.equal(executor.activationBlockers.length, 0);
+  assert.equal(
+    executor.activationGates.includes(
+      "subscription_oauth_preflight_before_provider_request",
+    ),
+    true,
+  );
   assert.equal(executor.workspaceMountMode, "read_write");
   assert.equal(executor.maximumTurns, 4);
   assert.equal(executor.maximumBudgetUsd, 0.2);
@@ -497,39 +524,20 @@ test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否す
   );
 });
 
-test("全activation blockerとEffect非発行を説明契約へ保持する", () => {
+test("全Runtime activation gateとPlan単体のEffect非発行を説明契約へ保持する", () => {
   const contract = describeClaudeExecutionPlanContract();
   assert.equal(
     contract.implementationState,
-    "transient_claude_max_boolean_probe_verified_runtime_activation_blocked",
+    "local_personal_runtime_activation_gates_connected_candidate",
   );
+  assert.deepEqual(contract.activationBlockers, []);
   assert.equal(
-    contract.activationBlockers.includes(
-      "manifest_signature_verification_not_connected_to_runtime",
-    ),
+    contract.activationGates.includes("interactive_external_send_grant"),
     true,
   );
   assert.equal(
-    contract.activationBlockers.includes(
-      "automated_subscription_use_permission_unresolved",
-    ),
-    true,
-  );
-  assert.equal(
-    contract.activationBlockers.includes(
-      "selected_account_offering_not_observed",
-    ),
-    false,
-  );
-  assert.equal(
-    contract.activationBlockers.includes(
-      "human_account_authority_not_confirmed",
-    ),
-    false,
-  );
-  assert.equal(
-    contract.activationBlockers.includes(
-      "environment_replacement_runtime_adapter_not_connected",
+    contract.activationGates.includes(
+      "subscription_oauth_preflight_before_provider_request",
     ),
     true,
   );
@@ -653,11 +661,6 @@ test("全activation blockerとEffect非発行を説明契約へ保持する", ()
     containerResidue: 0,
     networkResidue: 0,
   });
-  assert.equal(
-    contract.activationBlockers.includes(
-      "fixed_prompt_structured_result_not_verified",
-    ),
-    false,
-  );
+  assert.deepEqual(contract.activationBlockers, []);
   assert.equal(contract.operationCapabilityIssued, false);
 });

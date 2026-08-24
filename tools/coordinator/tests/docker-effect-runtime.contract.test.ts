@@ -38,6 +38,7 @@ function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
           provider: "claude",
           profileId: "PROFILE-200001",
           operationId: "OP-123456",
+          providerHomeIdentityHash: "d".repeat(64),
         }),
         activeMountCapability,
       }),
@@ -320,7 +321,7 @@ test("cleanupは全handle終了と所有resource不存在後だけconfigを除�
     configCreated: 1,
     configRemoved: 1,
   });
-  assert.equal(fixture.invocations.length, 9);
+  assert.equal(fixture.invocations.length, 11);
 });
 
 test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める", async () => {
@@ -365,14 +366,14 @@ test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める"
 
 test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.dockerCli.bytes, 41_631_088);
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);
   assert.equal(contract.environment, "runtime_owned_minimal_replacement");
   assert.equal(
     contract.commandPlan,
-    "exact_seven_command_provider_probe_or_isolated_task",
+    "exact_nine_command_subscription_preflight_provider_probe_or_isolated_task",
   );
   assert.equal(contract.taskInput, "runtime_owned_stdin_only_not_docker_argv");
   assert.equal(contract.callerCommandAllowed, false);

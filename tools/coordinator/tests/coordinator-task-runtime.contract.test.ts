@@ -13,7 +13,7 @@ function request(overrides: Record<string, unknown> = {}) {
     objective: "Update the bounded fixture.",
     acceptanceCriteria: ["The fixture contains the expected value."],
     allowedPaths: ["fixture.txt"],
-    contentPolicy: "authenticated_local_user_approved",
+    readPaths: ["fixture.txt"],
     workClass: "bounded_implementation",
     planState: "complete",
     risk: "low",
@@ -33,6 +33,8 @@ function fixture(
     cleanupThrows?: boolean;
     completionRejectRole?: "executor" | "reviewer";
     candidateVerificationFails?: boolean;
+    candidatePersistenceFails?: boolean;
+    externalSendDenied?: boolean;
     pauseRole?: "executor" | "reviewer";
   } = {},
 ) {
@@ -42,11 +44,13 @@ function fixture(
   const repositoryBindingCapability = Object.freeze({});
   const workspaceCapability = Object.freeze({});
   const candidateCapability = Object.freeze({});
+  const externalSendGrantCapability = Object.freeze({});
   const packetRoles = new WeakMap<object, "executor" | "reviewer">();
   const preparedRoles = new WeakMap<object, "executor" | "reviewer">();
   const selectionRequests: Array<Record<string, unknown>> = [];
   let cleanupCount = 0;
   let selectionCount = 0;
+  let discardCount = 0;
   let releasePausedProcess: (() => void) | null = null;
   const dependencies = {
     createOperation: () =>
@@ -55,6 +59,7 @@ function fixture(
         mountCapability,
         managementCapability,
         operationId: "OP-123456",
+        hostRecoveryId: "host.fixture.recovery.record",
       }),
     cleanupOperation: (candidate: object) => {
       assert.equal(candidate, owned);
@@ -102,10 +107,21 @@ function fixture(
         mountAuthorizationCapability: Object.freeze({}),
       }),
     revokeMountGrant: () => Object.freeze({ status: "revoked" }),
+    authorizeExternalSend: () =>
+      options.externalSendDenied
+        ? null
+        : Object.freeze({
+            status: "issued",
+            capability: externalSendGrantCapability,
+          }),
     issueTaskPacket: (
       _management: object,
+      _repository: object,
+      _provider: "codex" | "claude",
       taskRole: "executor" | "reviewer",
+      externalSendGrant: object,
     ) => {
+      assert.equal(externalSendGrant, externalSendGrantCapability);
       const useCapability = Object.freeze({});
       packetRoles.set(useCapability, taskRole);
       return Object.freeze({
@@ -146,28 +162,14 @@ function fixture(
           role === "executor"
             ? Object.freeze({
                 status: "completed",
-                summary: "Updated the fixture.",
                 changedPaths: Object.freeze([
                   ...(options.executorChangedPaths ?? ["fixture.txt"]),
                 ]),
-                verification: Object.freeze(["Checked the value."]),
+                verificationCount: 1,
               })
             : Object.freeze({
                 decision: reviewerDecision,
-                summary:
-                  reviewerDecision === "approved"
-                    ? "The candidate is acceptable."
-                    : "A change is required.",
-                findings:
-                  reviewerDecision === "approved"
-                    ? Object.freeze([])
-                    : Object.freeze([
-                        Object.freeze({
-                          severity: "medium",
-                          path: "fixture.txt",
-                          message: "Correct the value.",
-                        }),
-                      ]),
+                findingCount: reviewerDecision === "approved" ? 0 : 1,
               }),
       });
       const completion =
@@ -202,6 +204,17 @@ function fixture(
         allowedPathsHash: "5".repeat(64),
         changedPaths: Object.freeze(["fixture.txt"]),
       }),
+    persistCandidate: () =>
+      options.candidatePersistenceFails
+        ? null
+        : Object.freeze({
+            status: "persisted",
+            candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
+          }),
+    discardCandidate: () => {
+      discardCount += 1;
+      return Object.freeze({ status: "discarded" });
+    },
   };
   const runtime = createIsolatedCoordinatorTaskRuntimeCandidate(
     dependencies as Parameters<
@@ -212,6 +225,7 @@ function fixture(
     runtime,
     selectionRequests,
     cleanupCount: () => cleanupCount,
+    discardCount: () => discardCount,
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
       releasePausedProcess();
@@ -233,6 +247,10 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(result.reviewerProvider, "codex");
   assert.equal(result.canonicalRepositoryChanged, false);
   assert.deepEqual(result.candidateRevision?.changedPaths, ["fixture.txt"]);
+  assert.equal(
+    result.candidateId,
+    `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
+  );
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.selectionRequests.length, 2);
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
@@ -253,6 +271,19 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     "coordinator_task_independent_review_not_approved",
   );
   assert.equal(result.candidateRevision, null);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
+  const harness = fixture({ externalSendDenied: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_external_send_not_authorized");
+  assert.equal(harness.selectionRequests.length, 0);
   assert.equal(harness.cleanupCount(), 1);
 });
 
@@ -281,6 +312,21 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
     "coordinator_task_operation_cleanup_unconfirmed",
   );
   assert.equal(cleanupResult.manualRecoveryRequired, true);
+  assert.equal(cleanupResult.hostRecoveryId, "host.fixture.recovery.record");
+  assert.equal(cleanupFailure.discardCount(), 1);
+});
+
+test("承認済みCandidateを永続化できない場合はIDを公開せずFail Closedする", async () => {
+  const harness = fixture({ candidatePersistenceFails: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_candidate_persistence_failed");
+  assert.equal(result.candidateId, null);
+  assert.equal(harness.cleanupCount(), 1);
 });
 
 test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {
@@ -296,6 +342,7 @@ test("Provider completion rejectは取消を試みOperation RootをRecovery用�
     "coordinator_task_process_completion_unconfirmed",
   );
   assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.equal(harness.cleanupCount(), 0);
 });
 
@@ -349,11 +396,15 @@ test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
   assert.equal(contract.canonicalRepositoryEffectAllowed, false);
   assert.equal(contract.directProviderToProviderSpawnAllowed, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
+  assert.equal(
+    contract.approvedCandidateTransfer,
+    "opaque_id_local_transient_bundle_explicit_export_and_discard",
+  );
 });

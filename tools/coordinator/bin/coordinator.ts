@@ -6,11 +6,16 @@ import { types as utilTypes } from "node:util";
 import { runDoctor } from "../src/core/doctor.ts";
 import {
   parseActivateArguments,
+  parseCandidateArguments,
   parseDisableArguments,
   parseDoctorArguments,
   parseProvisionArguments,
   parseTaskArguments,
 } from "../src/core/cli-options.ts";
+import {
+  discardRuntimeOwnedCandidateBundle,
+  readRuntimeOwnedCandidateBundle,
+} from "../src/security/candidate-bundle-store.ts";
 import { parseUnambiguousJsonDocument } from "../src/security/claude-structured-result.ts";
 import {
   cancelRuntimeOwnedCoordinatorTask,
@@ -116,6 +121,12 @@ function printHelp() {
     `  coordinator task --request-stdin [--json]  # repository is the current directory\n`,
   );
   process.stdout.write(
+    `  coordinator candidate export --candidate-id <opaque-id> --json\n`,
+  );
+  process.stdout.write(
+    `  coordinator candidate discard --candidate-id <opaque-id> [--json]\n`,
+  );
+  process.stdout.write(
     `\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`,
   );
   process.stdout.write(
@@ -194,8 +205,8 @@ async function runTaskCommand(args: readonly string[]) {
   const cancel = () => {
     void cancelRuntimeOwnedCoordinatorTask(started.controlCapability);
   };
-  process.once("SIGINT", cancel);
-  process.once("SIGTERM", cancel);
+  process.on("SIGINT", cancel);
+  process.on("SIGTERM", cancel);
   try {
     const result = await started.completion;
     if (options.json) {
@@ -217,6 +228,71 @@ async function runTaskCommand(args: readonly string[]) {
     process.removeListener("SIGINT", cancel);
     process.removeListener("SIGTERM", cancel);
   }
+}
+
+function runCandidateCommand(args: readonly string[]) {
+  const parsed = parseCandidateArguments(args);
+  const options = plainRecord(parsed.value);
+  if (
+    parsed.status !== "ok" ||
+    !options ||
+    (options.action !== "export" && options.action !== "discard") ||
+    typeof options.candidateId !== "string" ||
+    typeof options.json !== "boolean"
+  ) {
+    printCommandReport(
+      Object.freeze({
+        command: "candidate",
+        status: "blocked",
+        reason: parsed.reason ?? "candidate_arguments_invalid",
+      }),
+      parsed.jsonRequested,
+    );
+    process.exitCode = parsed.usageError ? 64 : 2;
+    return;
+  }
+  const result =
+    options.action === "export"
+      ? readRuntimeOwnedCandidateBundle(options.candidateId)
+      : discardRuntimeOwnedCandidateBundle(options.candidateId);
+  if (!result) {
+    printCommandReport(
+      Object.freeze({
+        command: `candidate ${options.action}`,
+        status: "blocked",
+        reason: "candidate_not_available_or_integrity_unconfirmed",
+      }),
+      options.json,
+    );
+    process.exitCode = 2;
+    return;
+  }
+  const resultRecord = plainRecord(result);
+  const status =
+    typeof resultRecord?.status === "string" ? resultRecord.status : "blocked";
+  if (options.json) {
+    process.stdout.write(
+      `${JSON.stringify({
+        command: `candidate ${options.action}`,
+        ...result,
+        candidateContentUntrusted: options.action === "export",
+        credentialAbsenceVerified: false,
+      })}\n`,
+    );
+  } else {
+    printCommandReport(
+      Object.freeze({
+        command: `candidate ${options.action}`,
+        status,
+        reason:
+          status === "discarded"
+            ? "candidate_discarded"
+            : "candidate_not_available_or_integrity_unconfirmed",
+      }),
+      false,
+    );
+  }
+  process.exitCode = ["exported", "discarded"].includes(status) ? 0 : 2;
 }
 
 function printCommandReport(report: CommandReport, shouldOutputJson: boolean) {
@@ -349,6 +425,8 @@ if (
   process.exitCode = !isParsed ? 64 : 2;
 } else if (command === "task") {
   await runTaskCommand(args);
+} else if (command === "candidate") {
+  runCandidateCommand(args);
 } else if (command === "doctor") {
   try {
     const parsed = parseDoctorArguments(

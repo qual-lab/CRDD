@@ -102,6 +102,55 @@ test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成�
   assert.equal(result?.workspacePathReported, false);
 });
 
+test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
+  const fixture = temporaryFixture(t);
+  const visibleId = writeObject(
+    fixture.commonDirectory,
+    "blob",
+    Buffer.from("visible\n"),
+  );
+  const hiddenId = writeObject(
+    fixture.commonDirectory,
+    "blob",
+    Buffer.from("hidden\n"),
+  );
+  const sourceTreeId = writeObject(
+    fixture.commonDirectory,
+    "tree",
+    Buffer.concat([
+      treeEntry("100644", "visible.ts", visibleId),
+      treeEntry("100644", "hidden.ts", hiddenId),
+    ]),
+  );
+  const rootTreeId = writeObject(
+    fixture.commonDirectory,
+    "tree",
+    treeEntry("40000", "src", sourceTreeId),
+  );
+  const commitId = writeObject(
+    fixture.commonDirectory,
+    "commit",
+    Buffer.from(`tree ${rootTreeId}\n\nfixture\n`),
+  );
+
+  const result = materializeGitCommitTreeCandidate({
+    commonDirectory: fixture.commonDirectory,
+    revision: commitId,
+    workspace: fixture.workspace,
+    readPaths: ["src/visible.ts"],
+  });
+  assert.equal(result?.status, "materialized");
+  assert.equal(result?.fileCount, 1);
+  assert.equal(
+    fs.readFileSync(path.join(fixture.workspace, "src", "visible.ts"), "utf8"),
+    "visible\n",
+  );
+  assert.equal(
+    fs.existsSync(path.join(fixture.workspace, "src", "hidden.ts")),
+    false,
+  );
+});
+
 test("symlink、submodule、Windows case衝突と非empty workspaceを拒否する", (t) => {
   for (const scenario of [
     "symlink",
@@ -191,7 +240,7 @@ test("object改変、余分field、SHA-256 Repository IDと動的入力をfail c
 
 test("公開契約は限定Git object readerと非Authority境界を固定する", () => {
   const contract = describeGitObjectReaderContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.objectFormat, "sha1_only");
   assert.equal(contract.externalGitCliUsed, false);
   assert.deepEqual(contract.rejectedTreeModes, ["120000", "160000", "unknown"]);

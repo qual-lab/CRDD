@@ -16,7 +16,7 @@ import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 3;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 4;
 
 const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
@@ -31,7 +31,7 @@ const STDOUT_LIMIT_BYTES = 1_048_576;
 const STDERR_LIMIT_BYTES = 262_144;
 const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
 const SAFE_IDENTIFIER =
-  /^crdd-(?:internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
+  /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 const SAFE_IMAGE_DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const SAFE_OWNERSHIP_LABEL = /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u;
 
@@ -44,6 +44,7 @@ type PreparedPlan = Readonly<{
   activeMountCapability: object;
   authorityUseCapability: object;
   providerHomeSourcePath: string;
+  authContainerName: string;
   providerContainerName: string;
   proxyContainerName: string;
   internalNetworkName: string;
@@ -355,7 +356,7 @@ function expectedCommands(
   ) {
     return null;
   }
-  const proxyCommand = plan.commands[2];
+  const proxyCommand = plan.commands[4];
   const proxyAuth = proxyCommand?.argv.find((value) =>
     value.startsWith("CRDD_PROXY_AUTH="),
   );
@@ -391,6 +392,32 @@ function expectedCommands(
         }`
       : null;
   const commands = [
+    [
+      "create",
+      "--pull=never",
+      "--network=none",
+      "--read-only",
+      "--name",
+      plan.authContainerName,
+      "--label",
+      plan.ownershipLabel,
+      "--cap-drop=ALL",
+      "--security-opt=no-new-privileges",
+      "--pids-limit=32",
+      "--user=65534:65534",
+      "--env",
+      "HOME=/provider-home",
+      ...(plan.provider === "codex"
+        ? ["--env", "CODEX_HOME=/provider-home"]
+        : []),
+      "--mount",
+      `${providerHomeMount},readonly`,
+      plan.providerImageDigest,
+      ...(plan.provider === "codex"
+        ? ["login", "status"]
+        : ["auth", "status", "--json"]),
+    ],
+    ["start", "--attach", plan.authContainerName],
     [
       "network",
       "create",
@@ -470,6 +497,8 @@ function expectedCommands(
     ],
   ];
   const purposes = [
+    "create_subscription_auth_probe",
+    "start_subscription_auth_probe_attached",
     "create_internal_network",
     "create_egress_network",
     "create_proxy",
@@ -508,6 +537,7 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
     !["preferred", "upper_allowed"].includes(plan.selectedModelTier) ||
     [
       plan.providerContainerName,
+      plan.authContainerName,
       plan.proxyContainerName,
       plan.internalNetworkName,
       plan.egressNetworkName,
@@ -762,6 +792,12 @@ function createRuntime(dependencies: RuntimeDependencies) {
       plan.providerContainerName,
       plan.ownershipLabel,
     );
+    const authAbsent = await removeOwned(
+      context,
+      "container",
+      plan.authContainerName,
+      plan.ownershipLabel,
+    );
     const proxyAbsent = await removeOwned(
       context,
       "container",
@@ -780,7 +816,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
       plan.egressNetworkName,
       plan.ownershipLabel,
     );
-    const containersAbsent = providerAbsent && proxyAbsent;
+    const containersAbsent = providerAbsent && authAbsent && proxyAbsent;
     const networksAbsent = internalAbsent && egressAbsent;
     let configRemoved = false;
     if (
@@ -871,7 +907,8 @@ export function describeDockerEffectRuntimeContract() {
     }),
     engine: DOCKER_ENGINE,
     environment: "runtime_owned_minimal_replacement",
-    commandPlan: "exact_seven_command_provider_probe_or_isolated_task",
+    commandPlan:
+      "exact_nine_command_subscription_preflight_provider_probe_or_isolated_task",
     taskInput: "runtime_owned_stdin_only_not_docker_argv",
     cleanup: "ownership_label_then_exact_name_absence",
     processTreeTermination: "taskkill_exact_pid_tree_then_close",
