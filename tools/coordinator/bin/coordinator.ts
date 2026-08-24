@@ -124,7 +124,7 @@ function printHelp() {
     `  coordinator candidate export --candidate-id <opaque-id> --json\n`,
   );
   process.stdout.write(
-    `  coordinator candidate discard --candidate-id <opaque-id> [--json]\n`,
+    `  coordinator candidate discard --candidate-id <candidate-or-recovery-id> [--json]\n`,
   );
   process.stdout.write(
     `\n--enable-runtime requests a diagnostic candidate; it does not activate the Runtime.\n`,

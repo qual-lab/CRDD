@@ -1,6 +1,9 @@
 import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "./claude-docker-runtime-adapter.ts";
 import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "./codex-docker-runtime-adapter.ts";
-import { discardRuntimeOwnedCandidateBundle } from "./candidate-bundle-store.ts";
+import {
+  discardRuntimeOwnedCandidateBundle,
+  publishRuntimeOwnedCandidateBundle,
+} from "./candidate-bundle-store.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
@@ -10,6 +13,7 @@ import {
   startRuntimeOwnedDockerProcessController,
 } from "./docker-process-controller.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
+import { resolveRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
@@ -43,7 +47,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 2;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 3;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -113,15 +117,23 @@ type RuntimeDependencies = Readonly<{
   authorizeExternalSend: (
     managementCapability: object,
     repositoryBindingCapability: object,
+    policyCapability: object,
     scope: RuntimeRecord,
     providers: readonly Provider[],
   ) => RuntimeRecord | null;
+  resolveExternalSendPolicy: (
+    managementCapability: object,
+    repositoryBindingCapability: object,
+  ) => RuntimeRecord | null;
+  reportSelectionNotice: (notice: RuntimeRecord) => boolean;
   issueTaskPacket: (
     managementCapability: object,
     repositoryBindingCapability: object,
     provider: Provider,
     taskRole: TaskRole,
+    taskAttempt: 0 | 1,
     externalSendGrantCapability: object,
+    remediationCapability: object | null,
     packet: RuntimeRecord,
   ) => RuntimeRecord | null;
   revokeTaskPacket: (
@@ -162,8 +174,10 @@ type RuntimeDependencies = Readonly<{
     repositoryBindingCapability: object,
     managementCapability: object,
     mountCapability: object,
+    persistencePolicy: RuntimeRecord,
   ) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
+  publishCandidate: (candidateRecoveryId: string) => RuntimeRecord | null;
 }>;
 type ControlRecord = {
   managementCapability: object;
@@ -182,13 +196,21 @@ function blocked(
   reason: string,
   manualRecoveryRequired = false,
   hostRecoveryId: string | null = null,
+  dockerRecoveryId: string | null = null,
+  candidateRecoveryId: string | null = null,
+  cleanupConfirmedOverride: boolean | null = null,
 ) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
-    cleanupConfirmed: !manualRecoveryRequired,
+    cleanupConfirmed:
+      cleanupConfirmedOverride === null
+        ? !manualRecoveryRequired
+        : cleanupConfirmedOverride,
     manualRecoveryRequired,
     hostRecoveryId: manualRecoveryRequired ? hostRecoveryId : null,
+    dockerRecoveryId: manualRecoveryRequired ? dockerRecoveryId : null,
+    candidateRecoveryId: manualRecoveryRequired ? candidateRecoveryId : null,
     executorProvider: null,
     reviewerProvider: null,
     executorSelectionNotice: null,
@@ -262,6 +284,7 @@ function selectionRequest(
   operationId: string,
   role: "executor" | "independent_reviewer",
   subjectProvider: Provider | null,
+  requestedProvider: Provider | null,
 ) {
   const independent = role === "independent_reviewer";
   return Object.freeze({
@@ -270,7 +293,7 @@ function selectionRequest(
     delegationReason: independent
       ? "independent_review_required"
       : "specialized_executor_benefit",
-    requestedExecutorProvider: "auto",
+    requestedExecutorProvider: requestedProvider ?? "auto",
     subjectProvider,
     requiresIndependentProvider: independent,
     role,
@@ -328,7 +351,10 @@ async function executeStage(
   externalSendGrantCapability: object,
   evaluationTime: unknown,
   role: TaskRole,
+  taskAttempt: 0 | 1,
   subjectProvider: Provider | null,
+  requestedProvider: Provider | null,
+  remediationCapability: object | null,
   control: ControlRecord,
 ) {
   if (control.cancellationRequested) {
@@ -341,6 +367,7 @@ async function executeStage(
       operation.operationId,
       role === "executor" ? "executor" : "independent_reviewer",
       subjectProvider,
+      requestedProvider,
     ),
   );
   const provider =
@@ -383,6 +410,32 @@ async function executeStage(
     }
   };
   try {
+    if (
+      !state.dependencies.reportSelectionNotice(
+        Object.freeze({
+          event: "coordinator_selection_before_provider_effect",
+          taskRole: role,
+          provider,
+          model: selection.selectedModel,
+          effort: selection.selectedEffort,
+          speedMode: selection.speedMode,
+          selectionReason: selection.selectionNotice,
+          inputBasis:
+            "caller_declared_task_attributes_plus_runtime_verified_provider_eligibility",
+          callerDeclaredAttributes: Object.freeze([
+            "workClass",
+            "planState",
+            "risk",
+            "difficulty",
+            "decisionImpact",
+          ]),
+          highCostSelectionAllowed: false,
+        }),
+      )
+    ) {
+      revokeUnconsumed();
+      return blocked("coordinator_task_selection_notice_unavailable");
+    }
     const first = state.dependencies.observeProviderHome(
       provider,
       evaluationTime,
@@ -430,7 +483,9 @@ async function executeStage(
       repositoryBindingCapability,
       provider,
       role,
+      taskAttempt,
       externalSendGrantCapability,
+      remediationCapability,
       packetRequest(request),
     );
     taskControl = objectCapability(packet?.controlCapability);
@@ -467,6 +522,10 @@ async function executeStage(
       return blocked(
         stringValue(process.reason) ?? "coordinator_task_process_start_failed",
         process.cleanupConfirmed !== true,
+        process.cleanupConfirmed !== true ? operation.hostRecoveryId : null,
+        process.cleanupConfirmed !== true
+          ? stringValue(process.recoveryId)
+          : null,
       );
     }
     control.currentProcessControl = processControl;
@@ -488,8 +547,11 @@ async function executeStage(
         ...blocked(
           stringValue(result.reason) ?? "coordinator_task_provider_failed",
           result.cleanupConfirmed !== true,
+          result.cleanupConfirmed !== true ? operation.hostRecoveryId : null,
+          result.cleanupConfirmed !== true
+            ? stringValue(result.recoveryId)
+            : null,
         ),
-        processResult: result,
       });
     }
     return Object.freeze({
@@ -552,9 +614,29 @@ async function run(
     if (repository?.repositoryBound !== true || !repositoryBinding) {
       return blocked("coordinator_task_repository_binding_failed");
     }
+    const externalSendPolicy = state.dependencies.resolveExternalSendPolicy(
+      operation.managementCapability,
+      repositoryBinding,
+    );
+    const externalSendPolicyCapability = objectCapability(
+      externalSendPolicy?.capability,
+    );
+    if (
+      externalSendPolicy?.status !== "resolved" ||
+      !externalSendPolicyCapability
+    ) {
+      return blocked("coordinator_task_external_send_policy_unresolved");
+    }
+    const candidatePersistencePolicy = Object.freeze({
+      candidatePersistenceAllowed:
+        externalSendPolicy.candidatePersistenceAllowed === true,
+      candidateRetentionHours: externalSendPolicy.candidateRetentionHours,
+      informationClassification: externalSendPolicy.informationClassification,
+    });
     const externalSendGrant = state.dependencies.authorizeExternalSend(
       operation.managementCapability,
       repositoryBinding,
+      externalSendPolicyCapability,
       packetRequest(request),
       Object.freeze(["codex", "claude"]),
     );
@@ -587,6 +669,9 @@ async function run(
       externalSendGrantCapability,
       evaluationTime,
       "executor",
+      0,
+      null,
+      null,
       null,
       control,
     );
@@ -597,17 +682,16 @@ async function run(
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_before_candidate_capture");
     }
-    const executorResult = executor.normalizedResult as RuntimeRecord;
-    const candidate = state.dependencies.captureCandidate(
+    let finalExecutor = executor;
+    let executorResult = executor.normalizedResult as RuntimeRecord;
+    let candidate = state.dependencies.captureCandidate(
       workspaceCapability,
       repositoryBinding,
       operation.managementCapability,
       operation.mountCapability,
       request.allowedPaths as readonly string[],
     );
-    const candidateCapability = objectCapability(
-      candidate?.candidateCapability,
-    );
+    let candidateCapability = objectCapability(candidate?.candidateCapability);
     if (
       candidate?.status !== "candidate" ||
       !candidateCapability ||
@@ -619,7 +703,7 @@ async function run(
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_before_independent_review");
     }
-    const reviewer = await executeStage(
+    let reviewer = await executeStage(
       state,
       operation,
       request,
@@ -627,12 +711,81 @@ async function run(
       externalSendGrantCapability,
       evaluationTime,
       "reviewer",
+      0,
       executor.provider as Provider,
+      null,
+      null,
       control,
     );
     if (reviewer.status !== "completed") {
       retainOperationRoot = reviewer.manualRecoveryRequired === true;
       return reviewer;
+    }
+    let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
+    let remediationPerformed = false;
+    if (reviewerResult?.decision === "changes_requested") {
+      const remediationCapability = objectCapability(
+        reviewerResult.remediationCapability,
+      );
+      if (!remediationCapability || reviewerResult.findingCount === 0) {
+        return blocked("coordinator_task_review_remediation_invalid");
+      }
+      const remediation = await executeStage(
+        state,
+        operation,
+        request,
+        repositoryBinding,
+        externalSendGrantCapability,
+        evaluationTime,
+        "executor",
+        1,
+        null,
+        executor.provider as Provider,
+        remediationCapability,
+        control,
+      );
+      if (remediation.status !== "completed") {
+        retainOperationRoot = remediation.manualRecoveryRequired === true;
+        return remediation;
+      }
+      remediationPerformed = true;
+      finalExecutor = remediation;
+      executorResult = remediation.normalizedResult as RuntimeRecord;
+      candidate = state.dependencies.captureCandidate(
+        workspaceCapability,
+        repositoryBinding,
+        operation.managementCapability,
+        operation.mountCapability,
+        request.allowedPaths as readonly string[],
+      );
+      candidateCapability = objectCapability(candidate?.candidateCapability);
+      if (
+        candidate?.status !== "candidate" ||
+        !candidateCapability ||
+        executorResult?.status !== "completed" ||
+        !samePaths(executorResult.changedPaths, candidate.changedPaths)
+      ) {
+        return blocked("coordinator_task_remediated_candidate_invalid");
+      }
+      reviewer = await executeStage(
+        state,
+        operation,
+        request,
+        repositoryBinding,
+        externalSendGrantCapability,
+        evaluationTime,
+        "reviewer",
+        1,
+        executor.provider as Provider,
+        reviewer.provider as Provider,
+        null,
+        control,
+      );
+      if (reviewer.status !== "completed") {
+        retainOperationRoot = reviewer.manualRecoveryRequired === true;
+        return reviewer;
+      }
+      reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     }
     const verified = state.dependencies.verifyCandidate(
       candidateCapability,
@@ -640,7 +793,6 @@ async function run(
       operation.managementCapability,
       operation.mountCapability,
     );
-    const reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     if (
       verified?.status !== "verified" ||
       reviewerResult?.decision !== "approved" ||
@@ -653,9 +805,10 @@ async function run(
       repositoryBinding,
       operation.managementCapability,
       operation.mountCapability,
+      candidatePersistencePolicy,
     );
-    const candidateId = stringValue(persisted?.candidateId);
-    if (persisted?.status !== "persisted" || !candidateId) {
+    const candidateRecoveryId = stringValue(persisted?.candidateRecoveryId);
+    if (persisted?.status !== "staged" || !candidateRecoveryId) {
       return blocked("coordinator_task_candidate_persistence_failed");
     }
     return Object.freeze({
@@ -665,8 +818,9 @@ async function run(
       manualRecoveryRequired: false,
       executorProvider: executor.provider,
       reviewerProvider: reviewer.provider,
-      executorSelectionNotice: executor.selectionNotice,
+      executorSelectionNotice: finalExecutor.selectionNotice,
       reviewerSelectionNotice: reviewer.selectionNotice,
+      remediationPerformed,
       candidateRevision: Object.freeze({
         baseCommit: verified.baseCommit,
         baseTree: verified.baseTree,
@@ -675,7 +829,8 @@ async function run(
         allowedPathsHash: verified.allowedPathsHash,
         changedPaths: verified.changedPaths,
       }),
-      candidateId,
+      candidateId: null,
+      candidateRecoveryId,
       executorResult: Object.freeze({
         status: executorResult.status,
         changedPaths: Object.freeze([
@@ -743,6 +898,17 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   consumeMountGrant: consumeRuntimeOwnedProviderHomeMountGrant,
   revokeMountGrant: revokeRuntimeOwnedProviderHomeMountGrant,
   authorizeExternalSend: requestRuntimeOwnedExternalSendGrant,
+  resolveExternalSendPolicy: resolveRuntimeOwnedExternalSendPolicy,
+  reportSelectionNotice: (notice) => {
+    try {
+      process.stderr.write(
+        `[Coordinator selection] ${JSON.stringify(notice)}\n`,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  },
   issueTaskPacket: issueRuntimeOwnedProviderTaskPacket,
   revokeTaskPacket: revokeRuntimeOwnedProviderTaskPacket,
   prepareProvider: (
@@ -774,6 +940,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   verifyCandidate: verifyRuntimeOwnedCandidateRevision,
   persistCandidate: persistRuntimeOwnedCandidateRevision,
   discardCandidate: discardRuntimeOwnedCandidateBundle,
+  publishCandidate: publishRuntimeOwnedCandidateBundle,
 });
 
 function createRuntime(dependencies: RuntimeDependencies) {
@@ -810,14 +977,37 @@ function createRuntime(dependencies: RuntimeDependencies) {
             if (control.ownedOperation && !control.retainOperationRoot) {
               state.dependencies.cleanupOperation(control.ownedOperation);
             }
-            return result;
+            const candidateRecoveryId = stringValue(result.candidateRecoveryId);
+            if (!candidateRecoveryId) return result;
+            const published =
+              state.dependencies.publishCandidate(candidateRecoveryId);
+            const candidateId = stringValue(published?.candidateId);
+            if (published?.status !== "published" || !candidateId) {
+              return blocked(
+                "coordinator_task_candidate_publish_unconfirmed",
+                true,
+                null,
+                null,
+                candidateRecoveryId,
+                true,
+              );
+            }
+            return Object.freeze({
+              ...result,
+              candidateId,
+              candidateRecoveryId: null,
+            });
           } catch {
-            const candidateId = stringValue(result.candidateId);
-            if (candidateId) state.dependencies.discardCandidate(candidateId);
+            const candidateRecoveryId = stringValue(result.candidateRecoveryId);
+            const discarded = candidateRecoveryId
+              ? state.dependencies.discardCandidate(candidateRecoveryId)
+              : null;
             return blocked(
               "coordinator_task_operation_cleanup_unconfirmed",
               true,
               control.hostRecoveryId,
+              null,
+              discarded?.status === "discarded" ? null : candidateRecoveryId,
             );
           }
         })
@@ -897,12 +1087,19 @@ export function describeCoordinatorTaskRuntimeContract() {
       "front_claude__executor_claude",
     ]),
     providerSelection: "explainable_cross_provider_preferred_cost_bounded",
+    selectionNotice:
+      "safe_event_before_provider_effect_with_caller_claim_and_runtime_observation_separated",
     executorWorkspace: "runtime_owned_exact_commit_read_write",
     reviewerWorkspace: "same_exact_candidate_read_only",
     taskTransport: "opaque_single_use_provider_stdin_only",
     approvedCandidateTransfer:
-      "opaque_id_local_transient_bundle_explicit_export_and_discard",
+      "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
     independentReview: "subject_provider_excluded",
+    boundedRemediation:
+      "maximum_one_same_executor_then_same_independent_reviewer",
+    externalSendPolicy:
+      "exact_bound_repository_commit_policy_plus_terminal_safe_full_scope_confirmation",
+    recoveryIdentifiers: Object.freeze(["host", "docker", "candidate"]),
     resultPublication: "cleanup_and_candidate_reverification_required",
     canonicalRepositoryEffectAllowed: false,
     directProviderToProviderSpawnAllowed: false,

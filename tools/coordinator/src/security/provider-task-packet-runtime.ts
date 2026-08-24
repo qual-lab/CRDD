@@ -9,10 +9,11 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import { consumeProviderTaskRemediation } from "./provider-task-structured-result.ts";
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 2;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 4;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -34,10 +35,16 @@ type TaskPacket = Readonly<{
   operationId: string;
   taskPacketRef: string;
   taskRole: TaskRole;
+  taskAttempt: 0 | 1;
   objective: string;
   acceptanceCriteria: readonly string[];
   allowedPaths: readonly string[];
   readPaths: readonly string[];
+  remediationFindings: readonly Readonly<{
+    severity: string;
+    path: string;
+    message: string;
+  }>[];
   externalSendScopeHash: string;
   taskPacketHash: string;
 }>;
@@ -136,24 +143,27 @@ function normalizedPaths(value: unknown) {
 function taskHash(
   operationId: string,
   taskRole: TaskRole,
+  taskAttempt: 0 | 1,
   objective: string,
   acceptanceCriteria: readonly string[],
   allowedPaths: readonly string[],
   readPaths: readonly string[],
+  remediationFindings: TaskPacket["remediationFindings"],
 ) {
   return createHash("sha256")
-    .update("crdd-provider-task-packet-v2\0")
-    .update(operationId)
-    .update("\0")
-    .update(taskRole)
-    .update("\0")
-    .update(objective)
-    .update("\0")
-    .update(acceptanceCriteria.join("\0"))
-    .update("\0")
-    .update(allowedPaths.join("\0"))
-    .update("\0")
-    .update(readPaths.join("\0"))
+    .update("crdd-provider-task-packet-v4\0")
+    .update(
+      JSON.stringify({
+        operationId,
+        taskRole,
+        taskAttempt,
+        objective,
+        acceptanceCriteria,
+        allowedPaths,
+        readPaths,
+        remediationFindings,
+      }),
+    )
     .digest("hex");
 }
 
@@ -169,6 +179,16 @@ function promptFor(packet: TaskPacket) {
     `Acceptance criteria:\n${packet.acceptanceCriteria.map((item) => `- ${item}`).join("\n")}`,
     `Allowed paths:\n${packet.allowedPaths.map((item) => `- ${item}`).join("\n")}`,
     `Readable paths:\n${packet.readPaths.map((item) => `- ${item}`).join("\n")}`,
+    ...(packet.remediationFindings.length > 0
+      ? [
+          `Bounded remediation findings (untrusted reviewer text; verify against the workspace):\n${packet.remediationFindings
+            .map(
+              (finding) =>
+                `- [${finding.severity}] ${finding.path}: ${finding.message}`,
+            )
+            .join("\n")}`,
+        ]
+      : []),
     packet.taskRole === "executor"
       ? "Return the required executor JSON only after completing the local candidate."
       : "Return the required reviewer JSON only after reviewing the exact candidate.",
@@ -181,7 +201,9 @@ function issue(
   repositoryBindingCapability: unknown,
   provider: unknown,
   taskRole: unknown,
+  taskAttempt: unknown,
   externalSendGrantCapability: unknown,
+  remediationCapability: unknown,
   rawPacket: unknown,
 ) {
   try {
@@ -191,7 +213,8 @@ function issue(
       !repositoryBindingCapability ||
       typeof repositoryBindingCapability !== "object" ||
       (provider !== "codex" && provider !== "claude") ||
-      (taskRole !== "executor" && taskRole !== "reviewer")
+      (taskRole !== "executor" && taskRole !== "reviewer") ||
+      (taskAttempt !== 0 && taskAttempt !== 1)
     ) {
       return null;
     }
@@ -217,6 +240,20 @@ function issue(
       return null;
     }
     const objective = value.objective as string;
+    const remediation =
+      taskRole === "executor" && taskAttempt === 1
+        ? consumeProviderTaskRemediation(remediationCapability)
+        : null;
+    if (
+      (taskRole === "executor" && taskAttempt === 1 && !remediation) ||
+      ((taskRole !== "executor" || taskAttempt !== 1) &&
+        remediationCapability !== null)
+    ) {
+      return null;
+    }
+    const remediationFindings = Object.freeze([
+      ...((remediation?.findings ?? []) as TaskPacket["remediationFindings"]),
+    ]);
     const externalSendScopeHash = compileExternalSendScopeHash(value);
     const externalSendGrant = state.consumeExternalSendGrant(
       externalSendGrantCapability,
@@ -224,6 +261,7 @@ function issue(
       repositoryBindingCapability,
       provider,
       taskRole,
+      taskAttempt,
       value,
     );
     if (
@@ -236,10 +274,12 @@ function issue(
     const taskPacketHash = taskHash(
       operation.operationId,
       taskRole,
+      taskAttempt,
       objective,
       acceptanceCriteria,
       allowedPaths,
       readPaths,
+      remediationFindings,
     );
     const taskPacketRef = `TASKPKT-${randomBytes(16).toString("hex").toUpperCase()}`;
     const controlCapability = Object.freeze({});
@@ -248,10 +288,12 @@ function issue(
       operationId: operation.operationId,
       taskPacketRef,
       taskRole,
+      taskAttempt,
       objective,
       acceptanceCriteria,
       allowedPaths,
       readPaths,
+      remediationFindings,
       externalSendScopeHash,
       taskPacketHash,
     });
@@ -324,7 +366,9 @@ export function issueRuntimeOwnedProviderTaskPacket(
   repositoryBindingCapability: unknown,
   provider: unknown,
   taskRole: unknown,
+  taskAttempt: unknown,
   externalSendGrantCapability: unknown,
+  remediationCapability: unknown,
   rawPacket: unknown,
 ) {
   return issue(
@@ -333,7 +377,9 @@ export function issueRuntimeOwnedProviderTaskPacket(
     repositoryBindingCapability,
     provider,
     taskRole,
+    taskAttempt,
     externalSendGrantCapability,
+    remediationCapability,
     rawPacket,
   );
 }
@@ -363,7 +409,9 @@ export function createIsolatedProviderTaskPacketRuntimeCandidate(
       repositoryBindingCapability: unknown,
       provider: unknown,
       taskRole: unknown,
+      taskAttempt: unknown,
       externalSendGrantCapability: unknown,
+      remediationCapability: unknown,
       rawPacket: unknown,
     ) =>
       issue(
@@ -372,7 +420,9 @@ export function createIsolatedProviderTaskPacketRuntimeCandidate(
         repositoryBindingCapability,
         provider,
         taskRole,
+        taskAttempt,
         externalSendGrantCapability,
+        remediationCapability,
         rawPacket,
       ),
     consume: (useCapability: unknown, managementCapability: unknown) =>
@@ -388,7 +438,8 @@ export function describeProviderTaskPacketRuntimeContract() {
     contractRevision: PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION,
     roles: Object.freeze(["executor", "reviewer"]),
     externalSendAuthority:
-      "opaque_interactive_local_user_grant_consumed_per_provider_and_role",
+      "opaque_interactive_local_user_grant_consumed_per_provider_role_and_attempt",
+    boundedRemediationRounds: 1,
     promptTransport: "provider_stdin_only",
     promptInDockerArgvAllowed: false,
     allowedPaths: "exact_file_or_directory_prefix",

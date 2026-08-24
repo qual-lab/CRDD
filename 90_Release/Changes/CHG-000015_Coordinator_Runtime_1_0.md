@@ -3,7 +3,7 @@
 変更トレースID: `CHG-000015`
 状態: `Draft`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-16
+最終更新日: 2026-08-25
 対象系列: Coordinator Runtime 1.x
 対象バージョン: 1.0 Candidate
 変更分類: `additive`（非規範Reference Implementation候補）
@@ -40,14 +40,16 @@ Qual-Labの人間の決定権限者は、v0.18.0 Architecture Candidateに基づ
 - Executorの未コミット成果はCandidate Revision Identityとして固定し、Verification、ReviewおよびCurrent Decision Setを同Identityへ結び付ける。
 - Providerの生Prompt、生応答、完全なstdout／stderr、Credential、Session TokenまたはConversation全文を既定で永続化しない。
 - Immutable Event Logを履歴正本とし、ProjectionとSnapshotだけを再生成可能にする。
-- Codex Coordinator、Claude Code Executor、独立Codex Reviewerの一構成だけを正式サポートする。
+- Front Codex／Claude CodeからCoordinatorを経由し、Codex／Claude Code Executorと対象Providerを除外した独立Reviewerを選ぶ4経路を同じ仲介Authority Treeで扱う。
+- 既定はcross-providerでSubscription枠を分散し、移譲不要、Provider固有の検証特性または反対Providerの実測不能時だけ同一Provider／Front-onlyを理由付きで選ぶ。
 
 ## 4. 1.0へ含めないもの
 
 - `existing_worktree`への直接書込み
 - commit、push、merge、rebase、tagまたはRelease操作
 - 汎用Migration Engineまたは複数CRDD版の同時互換
-- Provider Role交換、動的Routingまたは複数Provider最適化
+- Provider同士の直接spawn、再帰的Authority cycleまたはCoordinator外の動的Routing
+- API key、従量API、追加credit購入、quota不足からの有料経路fallback
 - Scheduler、MCP Server、自律的なタスク発見
 - 外部Effect Adapter、公開、対象者接触または費用執行
 - Provider Raw Logの保存
@@ -1195,3 +1197,21 @@ Gap監査はCLI helpだけが`provision installs...`と現在導入できるよ�
 command名、引数grammar、JSON Schema、reason／status、妥当な`provision`要求のexit 2、12 blocker、6 current-run evidence、Gate `blocked`、Authority／Capability非発行および非Release境界は変更しない。本処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの全機械確認と固定監査集合完了前はFindingを`Resolved`としない。
 
 固定Commit `eb58fb02cebc489f565c0c403803c0f7aba09eb5`／Tree `a26c5256aae59bfea70a8783425382dcede44285`へのAgent／Architecture／Security Review、Document Audit、Gap／Impact AuditおよびConformance Auditはすべて`Pass`／Finding 0で完了した。`DOC-ROOT-OBSERVATION-001`／`R01`、85bのAgent Major 2件、および`GCI-PLATFORM-PROVISIONER-CLI-001`は現在固定版で`Resolved`とする。旧dda以前の監査集合は履歴として保持し、現在判定へ流用しない。結果と未評価境界は[`CHG-000015_Current_Review_Record_eb58fb0.md`](Evidence/CHG-000015_Current_Review_Record_eb58fb0.md)へ接続する。監査Passから採用、統合、準拠、StableまたはReleaseを成立させない。
+
+#### 2026-08-25 — Local Personal一般Task縦結合と`f139c3b`監査集合の是正
+
+固定Commit `f139c3b3e47ed209b1d2c99c64ac3225dae1bb4e`／Tree `f4b16fe664bcedd8752781d1b9e0c8fe6f6084d5`を、Coordinator 626 / 626、package check、full checker Error 0／Warning 0およびcleanを共通入力として、Agent／Architecture／Security ReviewとDocument／Gap／Impact Auditへ渡した。Agent監査は旧8件中6件を`Resolved`、2件を`Unresolved`とし、新規を含むMajor 3件で`Fail`だった。Document／Gap監査はMajor 6件で`Fail`だった。Criticalは0件である。旧`eb58fb0`監査Passは当時のPlatform Provisioner候補だけの履歴であり、一般Taskの現在判定へ流用しない。
+
+統合した是正対象は、外部送信承認画面の制御文字／非表示field、Repository所有の情報分類・処理境界Policy欠落、Scope／Task Packet Hashの配列境界衝突、選定理由のEffect前表示とcaller申告区分、Provider cleanup不明時のHost Recovery ID欠落、Candidate cleanup失敗時の孤児化、保持期限／容量／Secret境界、および独立Review指摘を是正へ接続できないapproval-only Gateである。README／Threat Model／本CHGの現行表示と、Hardened／Provisioning候補の旧blocked表示の競合も同じ集合へ含めた。
+
+是正後のLocal Personal一般Taskは次を現在契約とする。
+
+- 開始Commitの固定`.crdd-external-send-policy.json`を内蔵Git object readerで上限付き読取りし、情報分類、決定権限、Provider別Account／Tenant境界、Subscription、目的・操作、保持・削除、二次利用・学習、再委託および適用Terms／Policy IdentityをPolicy Hashへ結合する。不明時は送信しない。
+- Objective、Acceptance Criteria、書込み範囲、読取り範囲、Provider候補、Revision、Policy HashおよびScope Hashを端末安全なcanonical JSONで全表示し、表示と送信Packetを同じ一意Hashへ結合する。配列はNUL joinせずschema固定JSONでHash化する。
+- 選定EventはProvider、model、effort、速度、理由、高コスト可否と、caller申告field／Runtime実測fieldの区分をProvider Home観測およびprocess起動前へ出す。表示不能なら停止する。明示人間Policyがない`high`は自動選択しない。
+- Reviewerが変更を要求した場合、上限付きFindingは公開Resultへ出さず一回限りのopaque Capabilityに保持し、最大1回だけ同一Executorへ是正Packetとして渡す。同じ独立Reviewerへ再Reviewし、二回目が承認でなければCandidateを公開しない。
+- Candidate本文はRepository Policyが保存を許可した場合だけstaged保存する。保持期限は1〜168時間、Store上限は128件／256 MiB、既知Secret patternは拒否し、Credential不存在は主張しない。Operation cleanup成功後だけexport可能なIDへpublishする。
+- Provider開始／完了のcleanup不明時はHost Recovery IDとDocker Recovery IDを分離して返す。Operation cleanupとCandidate discardが同時に失敗してもexport不能なCandidate Recovery IDを保持し、publish失敗でも同IDから明示discardできる。
+- Local Personal一般Taskと、署名済みAuthority File Bundle／protected activationを要求するHardened／Provisioning候補を分離する。後者の未接続表示を前者の未実装根拠へ流用しない。Docker Effectは認証preflightを含むexact 9 commandであり、旧exact 7 command表示を現在判定に使用しない。
+
+API key、従量API、追加credit購入、自動plan切替、Provider同士の直接spawn、canonical Repositoryへのcommit／merge／copy、T3／T4、Managed／Enterprise、および悪意ある同一OS User／Administrator／Kernel耐性は引き続き対象外または別Capabilityである。実装中の処置は`Applied`／`Self-checked`であり、新固定Commit／Treeへの全機械確認とAgent／Architecture／Security再レビュー、Document／Gap／Impact再監査が完了する前はFindingを`Resolved`、Runtime完成、採用、統合、準拠、Stable、ReleaseまたはPR最終候補としない。残る実行Gateは正式署名配布物上の一般Task実runであり、Release鍵passphraseと外部送信対話承認は人間入力なしに代行しない。

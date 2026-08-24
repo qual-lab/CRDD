@@ -1,0 +1,38 @@
+{
+  "schema": "crdd-coordinator/external-send-policy/v1",
+  "policyId": "qual-lab/crdd/local-personal/v1",
+  "informationClassification": "public",
+  "decisionAuthority": "authenticated_local_user",
+  "candidatePersistenceAllowed": true,
+  "candidateRetentionHours": 24,
+  "destinations": [
+    {
+      "provider": "codex",
+      "accountTenantBoundary": "selected-local-user/chatgpt-subscription",
+      "subscriptionOffering": "chatgpt",
+      "purposeOperations": [
+        "task_execution",
+        "independent_review",
+        "bounded_remediation"
+      ],
+      "retentionDeletion": "governed-by-provider-subscription-terms",
+      "secondaryUseTraining": "governed-by-provider-subscription-terms",
+      "onwardTransferSubprocessing": "governed-by-provider-subscription-terms",
+      "termsPolicyIdentity": "user-configured/openai-codex-subscription-terms"
+    },
+    {
+      "provider": "claude",
+      "accountTenantBoundary": "selected-local-user/claude-subscription",
+      "subscriptionOffering": "claude_max",
+      "purposeOperations": [
+        "task_execution",
+        "independent_review",
+        "bounded_remediation"
+      ],
+      "retentionDeletion": "governed-by-provider-subscription-terms",
+      "secondaryUseTraining": "governed-by-provider-subscription-terms",
+      "onwardTransferSubprocessing": "governed-by-provider-subscription-terms",
+      "termsPolicyIdentity": "user-configured/anthropic-claude-code-subscription-terms"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ import {
   describeProviderTaskPacketRuntimeContract,
 } from "../src/security/provider-task-packet-runtime.ts";
 import { compileExternalSendScopeHash } from "../src/security/external-send-grant-runtime.ts";
+import { normalizeProviderTaskStructuredResult } from "../src/security/provider-task-structured-result.ts";
 
 function operation() {
   const owned = createOwnedOperationDirectories();
@@ -41,11 +42,20 @@ function packetRuntime() {
   const repositoryBindingCapability = Object.freeze({});
   const externalSendGrantCapability = Object.freeze({});
   const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(
-    (capability, _management, repositoryBinding, provider, taskRole, scope) =>
+    (
+      capability,
+      _management,
+      repositoryBinding,
+      provider,
+      taskRole,
+      taskAttempt,
+      scope,
+    ) =>
       capability === externalSendGrantCapability &&
       repositoryBinding === repositoryBindingCapability &&
       (provider === "codex" || provider === "claude") &&
       (taskRole === "executor" || taskRole === "reviewer") &&
+      (taskAttempt === 0 || taskAttempt === 1) &&
       compileExternalSendScopeHash(scope)
         ? Object.freeze({
             status: "consumed" as const,
@@ -53,6 +63,7 @@ function packetRuntime() {
             revision: "1".repeat(40),
             provider,
             taskRole,
+            taskAttempt,
             scopeHash: compileExternalSendScopeHash(scope) as string,
             externalSendAuthorized: true as const,
           })
@@ -70,7 +81,9 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
       isolated.repositoryBindingCapability,
       "claude",
       "executor",
+      0,
       isolated.externalSendGrantCapability,
+      null,
       packet(),
     );
     assert.equal(issued?.status, "issued");
@@ -107,7 +120,9 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
       isolated.repositoryBindingCapability,
       "codex",
       "reviewer",
+      0,
       isolated.externalSendGrantCapability,
+      null,
       packet(),
     );
     assert.equal(
@@ -146,7 +161,9 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
         isolated.repositoryBindingCapability,
         "claude",
         "executor",
+        0,
         isolated.externalSendGrantCapability,
+        null,
         dynamic,
       ),
       null,
@@ -176,7 +193,9 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
           isolated.repositoryBindingCapability,
           "claude",
           "executor",
+          0,
           isolated.externalSendGrantCapability,
+          null,
           invalid,
         ),
         null,
@@ -188,7 +207,65 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
         isolated.repositoryBindingCapability,
         "claude",
         "coordinator",
+        0,
         isolated.externalSendGrantCapability,
+        null,
+        packet(),
+      ),
+      null,
+    );
+  } finally {
+    cleanupOwnedOperationDirectories(current.owned);
+  }
+});
+
+test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ変換する", () => {
+  const current = operation();
+  const isolated = packetRuntime();
+  try {
+    const reviewed = normalizeProviderTaskStructuredResult(
+      "codex",
+      "reviewer",
+      "low",
+      JSON.stringify({
+        decision: "changes_requested",
+        summary: "A bounded fix is required.",
+        findings: [
+          {
+            severity: "high",
+            path: "fixture.txt",
+            message: "Restore the required invariant.",
+          },
+        ],
+      }),
+    );
+    const normalized = reviewed.normalizedResult;
+    assert.ok(normalized && "remediationCapability" in normalized);
+    const issued = isolated.runtime.issue(
+      current.managementCapability,
+      isolated.repositoryBindingCapability,
+      "claude",
+      "executor",
+      1,
+      isolated.externalSendGrantCapability,
+      normalized.remediationCapability,
+      packet(),
+    );
+    const consumed = isolated.runtime.consume(
+      issued?.useCapability,
+      current.managementCapability,
+    );
+    assert.match(consumed?.prompt ?? "", /untrusted reviewer text/u);
+    assert.match(consumed?.prompt ?? "", /fixture\.txt/u);
+    assert.equal(
+      isolated.runtime.issue(
+        current.managementCapability,
+        isolated.repositoryBindingCapability,
+        "claude",
+        "executor",
+        1,
+        isolated.externalSendGrantCapability,
+        normalized.remediationCapability,
         packet(),
       ),
       null,
@@ -200,7 +277,7 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.promptTransport, "provider_stdin_only");
   assert.equal(contract.promptInDockerArgvAllowed, false);
   assert.equal(contract.canonicalRepositoryEffectAllowed, false);

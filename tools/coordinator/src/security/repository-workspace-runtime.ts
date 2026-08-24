@@ -12,7 +12,7 @@ import {
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 2;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 3;
 
 const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
@@ -571,6 +571,7 @@ export function persistRuntimeOwnedCandidateRevision(
   repositoryBindingCapability: unknown,
   managementCapability: unknown,
   mountCapability: unknown,
+  persistencePolicy: unknown,
 ) {
   try {
     if (!candidateCapability || typeof candidateCapability !== "object")
@@ -648,13 +649,15 @@ export function persistRuntimeOwnedCandidateRevision(
         changedPaths: record.changedPaths,
         entries: Object.freeze(entries),
       }),
+      persistencePolicy,
     );
     return persisted
       ? Object.freeze({
-          status: "persisted" as const,
-          candidateId: persisted.candidateId,
+          status: "staged" as const,
+          candidateRecoveryId: persisted.candidateRecoveryId,
           bundleHash: persisted.bundleHash,
           byteLength: persisted.byteLength,
+          expiresAtMs: persisted.expiresAtMs,
           hostPathReported: false,
           canonicalRepositoryChanged: false,
         })
@@ -682,7 +685,7 @@ export function describeRepositoryWorkspaceRuntimeContract() {
       "allowed_paths_hash",
     ]),
     approvedCandidateTransfer:
-      "opaque_id_local_transient_bundle_explicit_export_and_discard",
+      "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
     canonicalRepositoryWriteAllowed: false,
     pathReported: false,
   });

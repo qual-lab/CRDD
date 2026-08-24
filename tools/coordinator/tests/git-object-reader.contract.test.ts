@@ -9,6 +9,7 @@ import { deflateSync } from "node:zlib";
 import {
   describeGitObjectReaderContract,
   materializeGitCommitTreeCandidate,
+  readGitCommitFileCandidate,
 } from "../src/security/git-object-reader.ts";
 
 function temporaryFixture(t: test.TestContext) {
@@ -100,6 +101,21 @@ test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成�
   );
   assert.equal(result?.repositoryPathReported, false);
   assert.equal(result?.workspacePathReported, false);
+  const fixedFile = readGitCommitFileCandidate({
+    commonDirectory: fixture.commonDirectory,
+    revision: commitId,
+    relativePath: "README.md",
+  });
+  assert.equal(fixedFile?.status, "read");
+  assert.equal(fixedFile?.bytes.toString("utf8"), "hello\n");
+  assert.equal(
+    readGitCommitFileCandidate({
+      commonDirectory: fixture.commonDirectory,
+      revision: commitId,
+      relativePath: "missing.md",
+    }),
+    null,
+  );
 });
 
 test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {

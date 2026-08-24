@@ -2,7 +2,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 3;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 4;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -10,6 +10,14 @@ const MAXIMUM_PATHS = 1_000;
 const MAXIMUM_FINDINGS = 64;
 const MAXIMUM_FINDING_MESSAGE_BYTES = 4_096;
 const SEVERITIES = new Set(["critical", "high", "medium", "low", "info"]);
+const remediationRecords = new WeakMap<
+  object,
+  readonly Readonly<{
+    severity: "critical" | "high" | "medium" | "low" | "info";
+    path: string;
+    message: string;
+  }>[]
+>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -107,9 +115,34 @@ function reviewerResult(value: Record<string, unknown>) {
   if (value.decision === "approved" && findings.length > 0) return null;
   if (value.decision === "changes_requested" && findings.length === 0)
     return null;
+  const remediationCapability =
+    value.decision === "changes_requested" ? Object.freeze({}) : null;
+  if (remediationCapability) {
+    remediationRecords.set(
+      remediationCapability,
+      Object.freeze([
+        ...(findings as NonNullable<(typeof findings)[number]>[]),
+      ]),
+    );
+  }
   return Object.freeze({
     decision: value.decision as "approved" | "changes_requested",
     findingCount: findings.length,
+    ...(remediationCapability ? { remediationCapability } : {}),
+  });
+}
+
+export function consumeProviderTaskRemediation(remediationCapability: unknown) {
+  if (!remediationCapability || typeof remediationCapability !== "object")
+    return null;
+  const findings = remediationRecords.get(remediationCapability);
+  if (!findings) return null;
+  remediationRecords.delete(remediationCapability);
+  return Object.freeze({
+    status: "consumed" as const,
+    findings,
+    findingCount: findings.length,
+    untrustedProviderTextReported: false,
   });
 }
 
@@ -207,6 +240,8 @@ export function describeProviderTaskStructuredResultContract() {
     duplicateKeysAllowed: false,
     rawOutputReported: false,
     untrustedProviderTextReported: false,
+    boundedRemediationCapability:
+      "opaque_single_use_findings_for_internal_coordinator_packet",
     credentialAbsenceVerified: false,
   });
 }

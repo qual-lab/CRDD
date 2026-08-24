@@ -733,6 +733,66 @@ export function materializeGitCommitTreeCandidate(candidate: unknown) {
   }
 }
 
+export function readGitCommitFileCandidate(candidate: unknown) {
+  try {
+    const value = candidate as Record<string, unknown>;
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      Array.isArray(candidate) ||
+      Reflect.ownKeys(candidate).length !== 3 ||
+      !Reflect.ownKeys(candidate).every(
+        (key) =>
+          typeof key === "string" &&
+          ["commonDirectory", "revision", "relativePath"].includes(key),
+      ) ||
+      typeof value.commonDirectory !== "string" ||
+      typeof value.revision !== "string" ||
+      typeof value.relativePath !== "string" ||
+      !path.isAbsolute(value.commonDirectory) ||
+      !OBJECT_ID.test(value.revision) ||
+      value.relativePath.length === 0 ||
+      value.relativePath.endsWith("/") ||
+      value.relativePath.includes("\\") ||
+      value.relativePath.split("/").some((segment) => !validSegment(segment))
+    ) {
+      return null;
+    }
+    const commonDirectory = fs.realpathSync.native(value.commonDirectory);
+    const readObject = createObjectReader(commonDirectory);
+    const treeId = commitTree(readObject(value.revision));
+    const entries: WorkspaceEntry[] = [];
+    const budget = { bytes: 0, files: 0 };
+    parseTree(
+      readObject,
+      treeId,
+      "",
+      entries,
+      0,
+      budget,
+      Object.freeze([value.relativePath]),
+    );
+    if (
+      entries.length !== 1 ||
+      entries[0]?.relativePath !== value.relativePath ||
+      entries[0].bytes.byteLength > 65_536
+    ) {
+      return null;
+    }
+    return Object.freeze({
+      status: "read" as const,
+      revision: value.revision,
+      relativePath: value.relativePath,
+      mode: entries[0].mode,
+      bytes: Buffer.from(entries[0].bytes),
+      sha256: createHash("sha256").update(entries[0].bytes).digest("hex"),
+      repositoryPathReported: false,
+    });
+  } catch {
+    return null;
+  }
+}
+
 export function describeGitObjectReaderContract() {
   return Object.freeze({
     contract: GIT_OBJECT_READER_CONTRACT,
@@ -747,6 +807,8 @@ export function describeGitObjectReaderContract() {
     maximumWorkspaceBytes: MAXIMUM_WORKSPACE_BYTES,
     pathReported: false,
     readProjection: "explicit_file_or_directory_prefix_when_supplied",
+    fixedRevisionFileRead:
+      "single_explicit_non_git_path_bounded_to_65536_bytes",
     authorityEstablished: false,
   });
 }

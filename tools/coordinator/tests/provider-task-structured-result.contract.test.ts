@@ -52,10 +52,11 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
     claude(JSON.parse(reviewer)),
   );
   assert.equal(claudeResult.status, "confirmed");
-  assert.deepEqual(claudeResult.normalizedResult, {
-    decision: "changes_requested",
-    findingCount: 1,
-  });
+  const normalized = claudeResult.normalizedResult;
+  assert.ok(normalized && "decision" in normalized);
+  assert.equal(normalized.decision, "changes_requested");
+  assert.equal(normalized.findingCount, 1);
+  assert.ok(normalized.remediationCapability);
   assert.equal(claudeResult.untrustedProviderTextReported, false);
   assert.equal(claudeResult.credentialAbsenceVerified, false);
 });
@@ -158,7 +159,7 @@ test("Claude costはSelectionで固定したeffort上限を超えられない", 
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);

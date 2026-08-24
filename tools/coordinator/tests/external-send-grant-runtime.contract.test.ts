@@ -17,6 +17,7 @@ const scope = Object.freeze({
 function fixture(confirm = true) {
   const managementCapability = Object.freeze({});
   const repositoryBindingCapability = Object.freeze({});
+  const policyCapability = Object.freeze({});
   let wall = 1_000_000;
   let monotonic = 10_000;
   let revision = "1".repeat(40);
@@ -32,6 +33,45 @@ function fixture(confirm = true) {
         ? Object.freeze({
             operationId: "OP-EXTERNAL-SEND",
             revision,
+          })
+        : null,
+    verifyPolicy: (candidate: unknown) =>
+      candidate === policyCapability
+        ? Object.freeze({
+            policyId: "fixture/policy/v1",
+            policyHash: "a".repeat(64),
+            informationClassification: "public",
+            decisionAuthority: "authenticated_local_user",
+            destinations: Object.freeze([
+              Object.freeze({
+                provider: "codex",
+                accountTenantBoundary: "selected-local-user/chatgpt",
+                subscriptionOffering: "chatgpt",
+                purposeOperations: Object.freeze([
+                  "task_execution",
+                  "independent_review",
+                  "bounded_remediation",
+                ]),
+                retentionDeletion: "provider-terms",
+                secondaryUseTraining: "provider-terms",
+                onwardTransferSubprocessing: "provider-terms",
+                termsPolicyIdentity: "fixture/codex-terms",
+              }),
+              Object.freeze({
+                provider: "claude",
+                accountTenantBoundary: "selected-local-user/claude",
+                subscriptionOffering: "claude_max",
+                purposeOperations: Object.freeze([
+                  "task_execution",
+                  "independent_review",
+                  "bounded_remediation",
+                ]),
+                retentionDeletion: "provider-terms",
+                secondaryUseTraining: "provider-terms",
+                onwardTransferSubprocessing: "provider-terms",
+                termsPolicyIdentity: "fixture/claude-terms",
+              }),
+            ]),
           })
         : null,
     confirm: (notice: string, challenge: string) => {
@@ -51,6 +91,7 @@ function fixture(confirm = true) {
     runtime,
     managementCapability,
     repositoryBindingCapability,
+    policyCapability,
     notices,
     advance: (milliseconds: number) => {
       wall += milliseconds;
@@ -67,6 +108,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
   const issued = current.runtime.request(
     current.managementCapability,
     current.repositoryBindingCapability,
+    current.policyCapability,
     scope,
     ["claude", "codex"],
   );
@@ -83,6 +125,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
     current.repositoryBindingCapability,
     "claude",
     "executor",
+    0,
     scope,
   );
   assert.equal(executor?.status, "consumed");
@@ -94,6 +137,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
       current.repositoryBindingCapability,
       "codex",
       "executor",
+      0,
       scope,
     ),
     null,
@@ -105,6 +149,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
       current.repositoryBindingCapability,
       "codex",
       "reviewer",
+      0,
       scope,
     )?.status,
     "consumed",
@@ -116,6 +161,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
       current.repositoryBindingCapability,
       "claude",
       "reviewer",
+      0,
       scope,
     ),
     null,
@@ -128,6 +174,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
     denied.runtime.request(
       denied.managementCapability,
       denied.repositoryBindingCapability,
+      denied.policyCapability,
       scope,
       ["claude"],
     ),
@@ -139,11 +186,12 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
     const issued = current.runtime.request(
       current.managementCapability,
       current.repositoryBindingCapability,
+      current.policyCapability,
       scope,
       ["claude"],
     );
     assert.equal(issued?.status, "issued");
-    if (scenario === "expired") current.advance(300_000);
+    if (scenario === "expired") current.advance(1_500_000);
     if (scenario === "revision") current.replaceRevision();
     const consumeScope =
       scenario === "scope"
@@ -156,6 +204,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
         current.repositoryBindingCapability,
         "claude",
         "executor",
+        0,
         consumeScope,
       ),
       null,
@@ -165,10 +214,45 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 1);
-  assert.equal(contract.maximumUses, 2);
-  assert.equal(contract.lifetimeMs, 300_000);
+  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.maximumUses, 4);
+  assert.equal(contract.lifetimeMs, 1_500_000);
   assert.equal(contract.callerPolicyStringAcceptedAsAuthority, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.additionalPurchaseAllowed, false);
+});
+
+test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", () => {
+  const left = {
+    objective: "Update fixture.\nDo not widen scope.\u202e",
+    acceptanceCriteria: ["a"],
+    allowedPaths: ["b", "c"],
+    readPaths: ["d"],
+  };
+  const right = {
+    objective: left.objective,
+    acceptanceCriteria: ["a", "b"],
+    allowedPaths: ["c"],
+    readPaths: ["d"],
+  };
+  assert.notEqual(
+    compileExternalSendScopeHash(left),
+    compileExternalSendScopeHash(right),
+  );
+  const current = fixture();
+  const issued = current.runtime.request(
+    current.managementCapability,
+    current.repositoryBindingCapability,
+    current.policyCapability,
+    left,
+    ["codex", "claude"],
+  );
+  assert.equal(issued?.status, "issued");
+  const notice = current.notices[0] ?? "";
+  assert.match(notice, /acceptanceCriteria/u);
+  assert.match(notice, /allowedPaths/u);
+  assert.match(notice, /readPaths/u);
+  assert.match(notice, /policyHash/u);
+  assert.match(notice, /\\u202e/u);
+  assert.doesNotMatch(notice, /\u202e/u);
 });

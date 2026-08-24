@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { performance } from "node:perf_hooks";
 
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
+import { verifyRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
   snapshotPlainArray,
   snapshotPlainRecord,
@@ -11,9 +12,9 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 1;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 2;
 
-const GRANT_LIFETIME_MS = 300_000;
+const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
   "objective",
   "acceptanceCriteria",
@@ -23,7 +24,6 @@ const SCOPE_KEYS = new Set([
 const PROVIDERS = new Set(["codex", "claude"]);
 
 type Provider = "codex" | "claude";
-type TaskRole = "executor" | "reviewer";
 type Scope = Readonly<{
   objective: string;
   acceptanceCriteria: readonly string[];
@@ -36,14 +36,17 @@ type GrantRecord = {
   operationId: string;
   revision: string;
   scopeHash: string;
+  policyCapability: object;
+  policyHash: string;
   providers: ReadonlySet<Provider>;
-  consumedRoles: Set<TaskRole>;
+  consumedStages: Set<string>;
   issuedWallClockMs: number;
   issuedMonotonicMs: number;
 };
 type RuntimeDependencies = Readonly<{
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   verifyRepository: typeof verifyRuntimeOwnedRepositoryBindingCapability;
+  verifyPolicy: typeof verifyRuntimeOwnedExternalSendPolicy;
   confirm: (notice: string, challenge: string) => boolean;
   wallNow: () => number;
   monotonicNow: () => number;
@@ -113,16 +116,25 @@ export function compileExternalSendScopeHash(rawScope: unknown) {
   const scope = normalizedScope(rawScope);
   return scope
     ? createHash("sha256")
-        .update("crdd-external-send-scope-v1\0")
-        .update(scope.objective)
-        .update("\0")
-        .update(scope.acceptanceCriteria.join("\0"))
-        .update("\0")
-        .update(scope.allowedPaths.join("\0"))
-        .update("\0")
-        .update(scope.readPaths.join("\0"))
+        .update("crdd-external-send-scope-v2\0")
+        .update(
+          JSON.stringify({
+            objective: scope.objective,
+            acceptanceCriteria: scope.acceptanceCriteria,
+            allowedPaths: scope.allowedPaths,
+            readPaths: scope.readPaths,
+          }),
+        )
         .digest("hex")
     : null;
+}
+
+function terminalSafeJson(value: unknown) {
+  return JSON.stringify(value, null, 2).replace(
+    /[\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/gu,
+    (character) =>
+      `\\u${character.codePointAt(0)?.toString(16).padStart(4, "0")}`,
+  );
 }
 
 function consoleConfirmation(notice: string, challenge: string) {
@@ -164,6 +176,7 @@ const productionState = createState(
   Object.freeze({
     verifyOperation: verifyOwnedOperationManagementCapability,
     verifyRepository: verifyRuntimeOwnedRepositoryBindingCapability,
+    verifyPolicy: verifyRuntimeOwnedExternalSendPolicy,
     confirm: consoleConfirmation,
     wallNow: Date.now,
     monotonicNow: performance.now.bind(performance),
@@ -175,6 +188,7 @@ function requestGrant(
   state: RuntimeState,
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
+  policyCapability: unknown,
   rawScope: unknown,
   rawProviders: unknown,
 ) {
@@ -184,6 +198,8 @@ function requestGrant(
       typeof managementCapability !== "object" ||
       !repositoryBindingCapability ||
       typeof repositoryBindingCapability !== "object" ||
+      !policyCapability ||
+      typeof policyCapability !== "object" ||
       !Array.isArray(rawProviders)
     ) {
       return null;
@@ -204,6 +220,11 @@ function requestGrant(
     );
     const scope = normalizedScope(rawScope);
     const scopeHash = compileExternalSendScopeHash(rawScope);
+    const policy = state.dependencies.verifyPolicy(
+      policyCapability,
+      managementCapability,
+      repositoryBindingCapability,
+    );
     const challenge = state.dependencies.randomChallenge();
     const issuedWallClockMs = state.dependencies.wallNow();
     const issuedMonotonicMs = state.dependencies.monotonicNow();
@@ -212,18 +233,31 @@ function requestGrant(
       repository.operationId !== operation.operationId ||
       !scope ||
       !scopeHash ||
+      !policy ||
       !/^[0-9]{6}$/u.test(challenge) ||
       !Number.isFinite(issuedWallClockMs) ||
       !Number.isFinite(issuedMonotonicMs)
     ) {
       return null;
     }
+    const authorizedDestinations = policy.destinations.filter((destination) =>
+      providers.includes(destination.provider),
+    );
+    if (authorizedDestinations.length !== providers.length) return null;
+    const displayedAuthorization = Object.freeze({
+      policyId: policy.policyId,
+      policyHash: policy.policyHash,
+      informationClassification: policy.informationClassification,
+      decisionAuthority: policy.decisionAuthority,
+      repositoryRevision: repository.revision,
+      providerDestinations: authorizedDestinations,
+      taskPayload: scope,
+      scopeHash,
+      boundedRemediation: Object.freeze({ maximumRounds: 1 }),
+    });
     const notice = [
-      "Coordinator Runtime 外部送信承認",
-      `Provider候補: ${providers.join(", ")}`,
-      `Repository revision: ${repository.revision}`,
-      `目的: ${scope.objective}`,
-      `読取り範囲: ${scope.readPaths.join(", ")}`,
+      "Coordinator Runtime 外部送信承認（表示内容が送信Authorityの全範囲です）",
+      terminalSafeJson(displayedAuthorization),
       "対象内容はProviderへ送信され、Subscription枠を消費する可能性があります。API key fallbackと追加購入は行いません。",
     ].join("\n");
     if (!state.dependencies.confirm(notice, challenge)) return null;
@@ -234,8 +268,10 @@ function requestGrant(
       operationId: operation.operationId,
       revision: repository.revision,
       scopeHash,
+      policyCapability,
+      policyHash: policy.policyHash,
       providers: new Set(providers as Provider[]),
-      consumedRoles: new Set(),
+      consumedStages: new Set(),
       issuedWallClockMs,
       issuedMonotonicMs,
     });
@@ -243,6 +279,7 @@ function requestGrant(
       status: "issued" as const,
       capability,
       scopeHash,
+      policyHash: policy.policyHash,
       revision: repository.revision,
       providerCandidates: Object.freeze(providers),
       externalSendAuthorized: true,
@@ -263,6 +300,7 @@ function consumeGrant(
   repositoryBindingCapability: unknown,
   provider: unknown,
   taskRole: unknown,
+  taskAttempt: unknown,
   rawScope: unknown,
 ) {
   try {
@@ -274,7 +312,8 @@ function consumeGrant(
       !repositoryBindingCapability ||
       typeof repositoryBindingCapability !== "object" ||
       (provider !== "codex" && provider !== "claude") ||
-      (taskRole !== "executor" && taskRole !== "reviewer")
+      (taskRole !== "executor" && taskRole !== "reviewer") ||
+      (taskAttempt !== 0 && taskAttempt !== 1)
     ) {
       return null;
     }
@@ -298,7 +337,7 @@ function consumeGrant(
       repository.revision !== record.revision ||
       compileExternalSendScopeHash(rawScope) !== record.scopeHash ||
       !record.providers.has(provider) ||
-      record.consumedRoles.has(taskRole) ||
+      record.consumedStages.has(`${taskRole}:${taskAttempt}`) ||
       !Number.isFinite(wallAge) ||
       !Number.isFinite(monotonicAge) ||
       wallAge < 0 ||
@@ -308,14 +347,15 @@ function consumeGrant(
     ) {
       return null;
     }
-    record.consumedRoles.add(taskRole);
-    if (record.consumedRoles.size === 2) state.grants.delete(capability);
+    record.consumedStages.add(`${taskRole}:${taskAttempt}`);
+    if (record.consumedStages.size === 4) state.grants.delete(capability);
     return Object.freeze({
       status: "consumed" as const,
       operationId: record.operationId,
       revision: record.revision,
       provider,
       taskRole,
+      taskAttempt,
       scopeHash: record.scopeHash,
       externalSendAuthorized: true,
     });
@@ -327,6 +367,7 @@ function consumeGrant(
 export function requestRuntimeOwnedExternalSendGrant(
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
+  policyCapability: unknown,
   rawScope: unknown,
   rawProviders: unknown,
 ) {
@@ -334,6 +375,7 @@ export function requestRuntimeOwnedExternalSendGrant(
     productionState,
     managementCapability,
     repositoryBindingCapability,
+    policyCapability,
     rawScope,
     rawProviders,
   );
@@ -345,6 +387,7 @@ export function consumeRuntimeOwnedExternalSendGrant(
   repositoryBindingCapability: unknown,
   provider: unknown,
   taskRole: unknown,
+  taskAttempt: unknown,
   rawScope: unknown,
 ) {
   return consumeGrant(
@@ -354,6 +397,7 @@ export function consumeRuntimeOwnedExternalSendGrant(
     repositoryBindingCapability,
     provider,
     taskRole,
+    taskAttempt,
     rawScope,
   );
 }
@@ -367,6 +411,7 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
     request: (
       managementCapability: unknown,
       repositoryBindingCapability: unknown,
+      policyCapability: unknown,
       rawScope: unknown,
       rawProviders: unknown,
     ) =>
@@ -374,6 +419,7 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
         state,
         managementCapability,
         repositoryBindingCapability,
+        policyCapability,
         rawScope,
         rawProviders,
       ),
@@ -383,6 +429,7 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
       repositoryBindingCapability: unknown,
       provider: unknown,
       taskRole: unknown,
+      taskAttempt: unknown,
       rawScope: unknown,
     ) =>
       consumeGrant(
@@ -392,6 +439,7 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
         repositoryBindingCapability,
         provider,
         taskRole,
+        taskAttempt,
         rawScope,
       ),
   });
@@ -408,11 +456,18 @@ export function describeExternalSendGrantRuntimeContract() {
       "repository_identity",
       "revision",
       "task_scope_hash",
+      "repository_external_send_policy_hash",
       "provider",
       "task_role",
     ]),
-    maximumUses: 2,
-    roleUses: Object.freeze(["executor", "reviewer"]),
+    maximumUses: 4,
+    roleUses: Object.freeze([
+      "executor:0",
+      "reviewer:0",
+      "executor:1",
+      "reviewer:1",
+    ]),
+    boundedRemediationRounds: 1,
     lifetimeMs: GRANT_LIFETIME_MS,
     callerPolicyStringAcceptedAsAuthority: false,
     apiKeyFallbackAllowed: false,

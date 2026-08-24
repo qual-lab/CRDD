@@ -148,11 +148,21 @@ Worker交換のFail Closed結果は、接続、request書込み、完了待機�
 
 ## Runtime 1.0の実行基盤
 
+### 現行Local Personal一般Task境界
+
+現行の一般Task経路は、開始Commitに固定された`.crdd-external-send-policy.json`から情報分類、Provider別Account／Tenant境界、Subscription、目的、保持・削除、二次利用・学習、再委託および適用Terms／Policy Identityを解決する。Local Userの対話承認ではObjective、Acceptance Criteria、書込み範囲、読取り範囲、Provider候補、Policy HashおよびRevisionを端末安全なcanonical JSONで全表示し、そのScope Hashを最大1回の型付き是正を含む最大4 Provider stageへ結合する。Policy欠落、分類不能、Provider境界不一致、表示不能またはScope差は送信前に停止する。Read Projectionによる最小化と送信可能性の判定は別Gateである。
+
+一般TaskはExecutor、独立Reviewer、最大1回の同一Executorによる是正、同じ独立Reviewerによる再確認を一つのOperationへ接続する。Reviewerの自由文は公開Resultへ出さず、一回限りのopaque Capabilityから上限付き是正Packetへだけ変換する。Candidate本文はPolicyが保存を許可した場合に限り、1〜168時間の期限、件数／総容量上限および既知Secret pattern拒否付きStoreへstaged保存する。Operation cleanup成功後だけexport可能なCandidate IDへpublishし、cleanupまたはpublish不明時はHost、Docker、CandidateのRecovery IDを分離して返す。staged Candidateはexportできない。
+
+以下で「Authority source loader未接続」「全体Gateはblocked」と記す段落は、署名済みAuthority File Bundleとprotected activationを要求するHardened／Provisioning候補を説明する。Local Personal一般Taskではselected-user binder、Mount Grant、Provider eligibility、Subscription OAuth preflight、固定Docker CLI Effect executor、exact 9 command、限定Egressおよびdurable Recoveryを接続済みであり、旧Hardened候補の未接続表示を一般Taskへ流用しない。source checkoutはEffect前に停止し、正式署名配布物上の一般Task実runだけが未完了である。
+
 Runtime 1.0はWindows上のDocker DesktopとLinux containerだけを正式対象とする。WindowsネイティブProvider実行、Git Bash直接実行、通常WSLディストリビューション、別Container RuntimeまたはDockerなしのfallbackを互換性要件にしない。Provider CLIは後続で専用imageへ導入し、Host側のCodex／Claude設定またはCredentialを暗黙に再利用しない。
 
 モデルと推論レベルはProvider任せにせず、CoordinatorがProvider Effect前にOperationの役割と確認済みの作業特性から選定する。具体化済みで低難度・低リスク・限定影響のLocal Candidate実装は`low`、通常のCoordinator、レビュー、診断または方針整合は役割名だけで高コスト化せず`medium`、`high`は高難度、重大影響、高リスク、または未解決方針と複数コンテキスト整合が重なる場合だけ候補にする。Codexは`sol`、Claude Codeは`opus`を既定familyとし、Runtime-owned Profile resolverはCodexを`gpt-5.6-sol`、Claudeを固定CLIが受理する`opus` aliasへ解決する。preferred／upperは同じfamilyとmodelのままProfile IDを分け、推論量だけを既存Gateで切り替える。Fableは公式CLI上のalias候補であっても、利用可能性、費用特性および適用条件を確認するまで自動選定へ入れない。速度は`normal`だけとし、`xhigh`／`max`、高速モード、Provider fallbackおよび実行中の黙示切替は自動選択しない。
 
 選定時はProvider、役割、family、推論レベル、速度、選定理由、高コスト選択の有無および再選定条件をCoordinatorのOperation contextへProvider Effect前に表示する。内部推論全文ではなく、人間と独立Reviewerが検証できる判断要約を保持する。選定理由の欠落、閉集合外の分類、Profile不一致、またはRuntime-owned Selection Grant未接続では実行しない。再選定はProvider内fallbackではなくCoordinatorへ戻り、旧選定をsupersedeする新しいGrantとして扱う。
+
+作業特性の`workClass`、`planState`、`risk`、`difficulty`および`decisionImpact`はcaller申告であり、Provider適格性、Profile、Subscription認証および実行CapabilityのRuntime実測と区別する。選定Eventはこの根拠区分を含め、Provider Home観測またはprocess起動より前に安全なEvent channelへ出す。表示不能なら実行しない。高コスト`high`は明示的な人間Policyが未実装の現版ではcaller申告にかかわらず自動選択しない。
 
 委譲経路選定（Delegation Route Selection）は、まず移譲が必要かを判断する。Front Agentだけで安全かつ十分に完了できる場合は`front_codex_only`または`front_claude_only`の`retained`結果を理由付きで返し、Selection Grant、子AgentまたはProvider Effectを発行しない。移譲が必要な場合だけFront ProviderとExecutor Providerを独立軸とし、`Front Codex → Codex`、`Front Codex → Claude Code`、`Front Claude Code → Codex`、`Front Claude Code → Claude Code`の4経路を同じ契約で候補化する。既定はFrontと反対のProviderを選び、Front側Subscription枠を実作業で消費し続けないよう負荷を分散する。ただし、検証、診断、方針整合、Architecture／Security review、Gap／Impact Auditおよび結果統合のように説明可能なProvider固有特性がある場合はCodexを優先でき、Front CodexからCodexへの委譲も許可する。例えば具体化済み実装をClaudeへ移譲し、その独立レビューをCodexへ移譲する構成と、Front Codex自身がレビューを完了して子を作らない構成の両方を許可する。役割名だけで高コストmodel／effortへ上げることはない。同一Provider経路は、この説明可能な作業特性、ユーザーの明示制約、独立Review対象、または実行前のRuntime-owned観測で反対Providerの必要Capability、Subscription認証／quota、公式配布物もしくはPolicy適格性が不成立と確認された場合だけ許可する。適格性が不明なだけでは同一Providerへ推測fallbackしない。quota不足から有料APIへ切り替えず、選定後の差はCoordinatorへ戻して新しいSelection Grantを発行する。全経路でCoordinator Gate、別Operation、別Provider Homeおよび最大深度2を要求し、循環またはProvider同士の直接spawnを拒否する。
 
@@ -200,7 +210,7 @@ Provider Egress ProxyのPolicy候補は、生Profileを内部Validatorで再検�
 
 DNS結果は32／128 bitへ正規化し、固定したIANA IPv4／IPv6 Special-Purpose Address Registry snapshotを最長prefix一致で評価する。IPv6はさらにIANA IPv6 Global Unicast Address Spaceの`ALLOCATED` snapshotへ照合し、special-purpose規則で許可された範囲または明示的な割当範囲だけを候補にする。`Globally Reachable`が`true`でない登録、未割当／予約範囲、legacy compatible IPv6、site-local、multicast、判定不能なaddress、またはpublic addressに混在するspecial addressを拒否する。IPv4-mapped IPv6と`64:ff9b::/96`のNAT64 addressは埋込みIPv4へ還元して同じ規則を適用する。この判定とfixtureはRuntime ProxyによるDNS固定、TLSおよびsocket接続の実強制ではなく、実強制前は候補のままとする。
 
-正式TopologyではProvider containerをOperation専用のinternal Docker Networkだけへ接続し、外部Networkへ直接接続しない。ProxyだけがOperation internal Networkと専用Egress Networkへ接続し、Docker socket、Host NetworkまたはHost fallbackを使用しない。Docker Engine 28は`--network=none`で作成したcontainerを別Networkへ後接続できないため、Proxyは作成時にinternal Networkへ接続し、その後Egress Networkへ接続する。Providerも作成時からinternal Networkだけへ接続する。固定named pipe、固定image digest、read-only root、全Capability削除、`no-new-privileges`、PID上限、UID／GID 65534、固定Proxy Profile、exact 7 command、短命Runtime Provider Authority、Process Controller、Docker Effect executorおよびdurable Recovery adapterをCodex／Claudeの両経路へ接続した。source checkoutでは署名Releaseと有効化済みAuthorityがないためEffect前に停止し、通常Gateを開かない。
+正式TopologyではProvider containerをOperation専用のinternal Docker Networkだけへ接続し、外部Networkへ直接接続しない。ProxyだけがOperation internal Networkと専用Egress Networkへ接続し、Docker socket、Host NetworkまたはHost fallbackを使用しない。Docker Engine 28は`--network=none`で作成したcontainerを別Networkへ後接続できないため、Proxyは作成時にinternal Networkへ接続し、その後Egress Networkへ接続する。Providerも作成時からinternal Networkだけへ接続する。固定named pipe、固定image digest、read-only root、全Capability削除、`no-new-privileges`、PID上限、UID／GID 65534、固定Proxy Profile、認証preflightを含むexact 9 command、短命Runtime Provider Authority、Process Controller、Docker Effect executorおよびdurable Recovery adapterをCodex／Claudeの両経路へ接続した。source checkoutはEffect前に停止し、正式署名配布物上の一般Task実runは未完了である。
 
 ## 承認済みProvisioning実装パッケージ
 

@@ -29,6 +29,7 @@ function request(overrides: Record<string, unknown> = {}) {
 function fixture(
   options: {
     reviewerDecision?: "approved" | "changes_requested";
+    finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
     cleanupThrows?: boolean;
     completionRejectRole?: "executor" | "reviewer";
@@ -36,6 +37,10 @@ function fixture(
     candidatePersistenceFails?: boolean;
     externalSendDenied?: boolean;
     pauseRole?: "executor" | "reviewer";
+    discardFails?: boolean;
+    publishFails?: boolean;
+    processStartFailureRole?: "executor" | "reviewer";
+    processCleanupFailureRole?: "executor" | "reviewer";
   } = {},
 ) {
   const owned = Object.freeze({});
@@ -45,9 +50,12 @@ function fixture(
   const workspaceCapability = Object.freeze({});
   const candidateCapability = Object.freeze({});
   const externalSendGrantCapability = Object.freeze({});
+  const externalSendPolicyCapability = Object.freeze({});
   const packetRoles = new WeakMap<object, "executor" | "reviewer">();
   const preparedRoles = new WeakMap<object, "executor" | "reviewer">();
   const selectionRequests: Array<Record<string, unknown>> = [];
+  const selectionNotices: Array<Record<string, unknown>> = [];
+  const events: string[] = [];
   let cleanupCount = 0;
   let selectionCount = 0;
   let discardCount = 0;
@@ -71,6 +79,19 @@ function fixture(
         repositoryBound: true,
         repositoryBindingCapability,
       }),
+    resolveExternalSendPolicy: () =>
+      Object.freeze({
+        status: "resolved",
+        capability: externalSendPolicyCapability,
+        candidatePersistenceAllowed: true,
+        candidateRetentionHours: 24,
+        informationClassification: "public",
+      }),
+    reportSelectionNotice: (notice: Record<string, unknown>) => {
+      selectionNotices.push(notice);
+      events.push(`notice:${String(notice.taskRole)}`);
+      return true;
+    },
     materializeWorkspace: () =>
       Object.freeze({ status: "materialized", workspaceCapability }),
     issueSelection: (
@@ -79,7 +100,13 @@ function fixture(
     ) => {
       selectionCount += 1;
       selectionRequests.push(selection);
-      const executor = selectionCount === 1 ? "claude" : "codex";
+      const requested = selection.requestedExecutorProvider;
+      const executor =
+        requested === "claude" || requested === "codex"
+          ? requested
+          : selectionCount === 1
+            ? "claude"
+            : "codex";
       return Object.freeze({
         status: "issued",
         executorProvider: executor,
@@ -119,7 +146,9 @@ function fixture(
       _repository: object,
       _provider: "codex" | "claude",
       taskRole: "executor" | "reviewer",
+      _taskAttempt: 0 | 1,
       externalSendGrant: object,
+      _remediationCapability: object | null,
     ) => {
       assert.equal(externalSendGrant, externalSendGrantCapability);
       const useCapability = Object.freeze({});
@@ -153,11 +182,27 @@ function fixture(
     startProcess: (preparedCapability: object) => {
       const role = preparedRoles.get(preparedCapability);
       assert.ok(role);
+      events.push(`start:${role}`);
+      if (options.processStartFailureRole === role) {
+        return Object.freeze({
+          status: "blocked",
+          reason: "fixture_start_failed",
+          cleanupConfirmed: false,
+          recoveryId: `docker.fixture.${role}.start`,
+        });
+      }
       const reviewerDecision = options.reviewerDecision ?? "approved";
+      const reviewerAttempt = selectionCount > 3 ? 1 : 0;
+      const effectiveReviewerDecision =
+        role === "reviewer" && reviewerAttempt === 1
+          ? (options.finalReviewerDecision ?? reviewerDecision)
+          : reviewerDecision;
+      const cleanupFails = options.processCleanupFailureRole === role;
       const completedResult = Object.freeze({
-        status: "completed",
-        reason: "completed",
-        cleanupConfirmed: true,
+        status: cleanupFails ? "blocked" : "completed",
+        reason: cleanupFails ? "fixture_cleanup_failed" : "completed",
+        cleanupConfirmed: !cleanupFails,
+        recoveryId: cleanupFails ? `docker.fixture.${role}.completion` : null,
         normalizedResult:
           role === "executor"
             ? Object.freeze({
@@ -168,8 +213,12 @@ function fixture(
                 verificationCount: 1,
               })
             : Object.freeze({
-                decision: reviewerDecision,
-                findingCount: reviewerDecision === "approved" ? 0 : 1,
+                decision: effectiveReviewerDecision,
+                findingCount: effectiveReviewerDecision === "approved" ? 0 : 1,
+                remediationCapability:
+                  effectiveReviewerDecision === "changes_requested"
+                    ? Object.freeze({})
+                    : null,
               }),
       });
       const completion =
@@ -208,13 +257,22 @@ function fixture(
       options.candidatePersistenceFails
         ? null
         : Object.freeze({
-            status: "persisted",
-            candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
+            status: "staged",
+            candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
           }),
     discardCandidate: () => {
       discardCount += 1;
-      return Object.freeze({ status: "discarded" });
+      return Object.freeze({
+        status: options.discardFails ? "blocked" : "discarded",
+      });
     },
+    publishCandidate: () =>
+      options.publishFails
+        ? null
+        : Object.freeze({
+            status: "published",
+            candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
+          }),
   };
   const runtime = createIsolatedCoordinatorTaskRuntimeCandidate(
     dependencies as Parameters<
@@ -224,6 +282,8 @@ function fixture(
   return {
     runtime,
     selectionRequests,
+    selectionNotices,
+    events,
     cleanupCount: () => cleanupCount,
     discardCount: () => discardCount,
     releasePausedProcess: () => {
@@ -274,6 +334,50 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続する", async () => {
+  const harness = fixture({
+    reviewerDecision: "changes_requested",
+    finalReviewerDecision: "approved",
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "completed");
+  assert.equal(result.remediationPerformed, true);
+  assert.equal(harness.selectionRequests.length, 4);
+  assert.equal(
+    harness.selectionRequests[2]?.requestedExecutorProvider,
+    "claude",
+  );
+  assert.equal(
+    harness.selectionRequests[3]?.requestedExecutorProvider,
+    "codex",
+  );
+  assert.equal(harness.selectionNotices.length, 4);
+});
+
+test("選定理由は各Provider Effectより前に安全なCoordinator eventへ出す", async () => {
+  const harness = fixture();
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "completed");
+  assert.deepEqual(harness.events, [
+    "notice:executor",
+    "start:executor",
+    "notice:reviewer",
+    "start:reviewer",
+  ]);
+  assert.equal(
+    harness.selectionNotices[0]?.inputBasis,
+    "caller_declared_task_attributes_plus_runtime_verified_provider_eligibility",
+  );
+});
+
 test("対話的External Send Grantが無ければWorkspaceとProvider Effect前に停止する", async () => {
   const harness = fixture({ externalSendDenied: true });
   const result = await harness.runtime.start(
@@ -316,6 +420,38 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   assert.equal(cleanupFailure.discardCount(), 1);
 });
 
+test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わない", async () => {
+  const harness = fixture({ cleanupThrows: true, discardFails: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.match(
+    result.candidateRecoveryId ?? "",
+    /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
+  );
+  assert.equal(result.candidateId, null);
+});
+
+test("Candidate publish失敗はexport不能なRecovery IDだけを返す", async () => {
+  const harness = fixture({ publishFails: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.hostRecoveryId, null);
+  assert.match(
+    result.candidateRecoveryId ?? "",
+    /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
+  );
+});
+
 test("承認済みCandidateを永続化できない場合はIDを公開せずFail Closedする", async () => {
   const harness = fixture({ candidatePersistenceFails: true });
   const result = await harness.runtime.start(
@@ -344,6 +480,35 @@ test("Provider completion rejectは取消を試みOperation RootをRecovery用�
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.equal(harness.cleanupCount(), 0);
+});
+
+test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを分離する", async () => {
+  for (const [options, expected] of [
+    [
+      { processStartFailureRole: "executor" as const },
+      "docker.fixture.executor.start",
+    ],
+    [
+      { processCleanupFailureRole: "executor" as const },
+      "docker.fixture.executor.completion",
+    ],
+    [
+      { processCleanupFailureRole: "reviewer" as const },
+      "docker.fixture.reviewer.completion",
+    ],
+  ] as const) {
+    const harness = fixture(options);
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+    assert.equal(result.dockerRecoveryId, expected);
+    assert.equal(harness.cleanupCount(), 0);
+  }
 });
 
 test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しない", async () => {
@@ -396,7 +561,7 @@ test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
@@ -405,6 +570,10 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(
     contract.approvedCandidateTransfer,
-    "opaque_id_local_transient_bundle_explicit_export_and_discard",
+    "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
+  );
+  assert.equal(
+    contract.boundedRemediation,
+    "maximum_one_same_executor_then_same_independent_reviewer",
   );
 });
