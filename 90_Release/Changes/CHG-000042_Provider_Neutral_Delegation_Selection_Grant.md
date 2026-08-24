@@ -40,6 +40,6 @@ Selection Grantは候補をRuntime-owned Operation、観測済みProvider eligib
 
 - 基準Node.js v24.19.0でstrict source／test typecheckと対象contract test 36／36を確認した。Selection Grantのopaque use aliasをClaude Adapterへ接続するcomponent integrationを含む。
 - 4経路、cross-provider既定、明示制約、必要Capability／Subscription quota不成立時だけの同一Provider、適格性不明時の停止、独立Provider、循環、深度、Operation差、Profile差、期限、clock rollback、乱数衝突、revoke、一回consumeおよびproduction偽造入口を確認した。
-- 残件はproduction eligibility observer／Profile resolver、Provider Authority、Codex Adapter、Docker Process Controller、timeout／cancel／cleanup／Recovery、4経路E2E、独立レビュー／監査およびPRである。
+- Selection Grant→Claude Adapter→Docker Process Controller→構造化Result→cleanup／Recovery完了の隔離E2Eを`CHG-000043`で接続した。残件はproduction eligibility observer／Profile resolver、Provider Authority、狭いDocker Effect／durable Recovery adapter、Codex Adapter、実Docker／Claude E2E、残る経路E2E、独立レビュー／監査およびPRである。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。

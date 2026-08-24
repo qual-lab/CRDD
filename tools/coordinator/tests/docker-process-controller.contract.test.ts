@@ -39,6 +39,18 @@ function createPlan(activeMountCapability: object) {
   });
 }
 
+function createProviderOutput(overrides: Record<string, unknown> = {}) {
+  return `${JSON.stringify({
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    num_turns: 2,
+    total_cost_usd: 0.04699,
+    structured_output: { status: true },
+    ...overrides,
+  })}\n`;
+}
+
 function createFixture(overrides: Record<string, unknown> = {}) {
   const managementCapability = Object.freeze({});
   const preparedCapability = Object.freeze({});
@@ -69,7 +81,7 @@ function createFixture(overrides: Record<string, unknown> = {}) {
           Object.freeze({
             status: 0,
             signal: null,
-            stdout: isProvider ? '{"status":true}\n' : "",
+            stdout: isProvider ? createProviderOutput() : "",
             stderr: "",
             outputExceeded: false,
           }),
@@ -127,8 +139,9 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.equal(result.networksAbsent, true);
   assert.equal(result.mountLeaseReleased, true);
   assert.equal(result.recoveryCompleted, true);
-  assert.equal(result.resultBytes, Buffer.byteLength('{"status":true}\n'));
+  assert.equal(result.resultBytes, Buffer.byteLength(createProviderOutput()));
   assert.match(result.resultSha256 ?? "", /^[a-f0-9]{64}$/);
+  assert.deepEqual(result.normalizedResult, { status: true });
   assert.equal(result.rawOutputReported, false);
   assert.equal(fixture.getCommandCount(), 9);
   assert.equal(fixture.getCleanupCount(), 1);
@@ -257,8 +270,39 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
   assert.equal(result.recoveryId, "docker.runtime.RECOVERY-123456");
   assert.equal(result.resultSha256, null);
   assert.equal(result.resultBytes, 0);
+  assert.equal(result.normalizedResult, null);
   assert.equal(fixture.getMountCompletionCount(), 0);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
+});
+
+test("Provider Result不正時もcleanupし正規化Resultを公開しない", async () => {
+  const fixture = createFixture({
+    startCommand: (command: { purpose: string }) => ({
+      wait: async () => ({
+        status: 0,
+        signal: null,
+        stdout:
+          command.purpose === "start_provider_attached"
+            ? createProviderOutput({ structured_output: { status: false } })
+            : "",
+        stderr: "",
+        outputExceeded: false,
+      }),
+      terminateAndWait: async () => true,
+    }),
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.ok(started.completion);
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "provider_result_invalid");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.normalizedResult, null);
+  assert.equal(result.resultSha256, null);
+  assert.equal(result.resultBytes, 0);
 });
 
 test("Recovery記録前とproduction未接続入口はDocker Effectを開始しない", async () => {
@@ -288,6 +332,11 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
+  assert.equal(contract.contractRevision, 2);
+  assert.equal(
+    contract.structuredResult,
+    "exact_claude_boolean_result_published_after_cleanup_only",
+  );
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.hostPathReported, false);
   assert.equal(contract.proxyCredentialReported, false);

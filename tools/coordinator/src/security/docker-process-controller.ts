@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 
+import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
+
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 1;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 2;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -106,6 +108,7 @@ function createBlockedStart(reason: string) {
     recoveryId: null,
     dockerEffectStarted: false,
     providerRequestStarted: false,
+    normalizedResult: null,
     rawOutputReported: false,
     hostPathReported: false,
     proxyCredentialReported: false,
@@ -127,6 +130,7 @@ function createFinalResult(
     recoveryCompleted: boolean;
     resultSha256: string | null;
     resultBytes: number;
+    normalizedResult: Readonly<{ status: true }> | null;
   }>,
 ) {
   const cleanupConfirmed =
@@ -153,8 +157,14 @@ function createFinalResult(
     mountLeaseReleased: details.mountLeaseReleased,
     recoveryCompleted: details.recoveryCompleted,
     cleanupConfirmed,
-    resultSha256: cleanupConfirmed ? details.resultSha256 : null,
-    resultBytes: cleanupConfirmed ? details.resultBytes : 0,
+    resultSha256:
+      cleanupConfirmed && status === "completed" ? details.resultSha256 : null,
+    resultBytes:
+      cleanupConfirmed && status === "completed" ? details.resultBytes : 0,
+    normalizedResult:
+      cleanupConfirmed && status === "completed"
+        ? details.normalizedResult
+        : null,
     rawOutputReported: false,
     hostPathReported: false,
     proxyCredentialReported: false,
@@ -242,6 +252,7 @@ async function executePlan(
   let providerRequestStarted = false;
   let resultSha256: string | null = null;
   let resultBytes = 0;
+  let normalizedResult: Readonly<{ status: true }> | null = null;
 
   try {
     for (const command of plan.commands) {
@@ -275,6 +286,15 @@ async function executePlan(
         break;
       }
       if (isProvider && execution) {
+        const providerResult = normalizeClaudeStructuredResult(
+          execution.stdout,
+        );
+        if (providerResult.status !== "confirmed") {
+          requestedStatus = "blocked";
+          reason = "provider_result_invalid";
+          break;
+        }
+        normalizedResult = providerResult.normalizedResult;
         resultBytes = classified.stdoutBytes ?? 0;
         resultSha256 = createHash("sha256")
           .update(execution.stdout, "utf8")
@@ -343,6 +363,7 @@ async function executePlan(
     recoveryCompleted,
     resultSha256,
     resultBytes,
+    normalizedResult,
   });
 }
 
@@ -394,6 +415,8 @@ function start(
     dockerEffectStarted: true,
     providerRequestStarted: false,
     rawOutputReported: false,
+    normalizedResult: null,
+    normalizedResultReportedAfterCleanupOnly: true,
     hostPathReported: false,
     proxyCredentialReported: false,
   });
@@ -510,6 +533,8 @@ export function describeDockerProcessControllerContract() {
     cleanup:
       "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",
     cleanupFailure: "manual_recovery_required_fail_closed",
+    structuredResult:
+      "exact_claude_boolean_result_published_after_cleanup_only",
     rawOutputReported: false,
     hostPathReported: false,
     proxyCredentialReported: false,
