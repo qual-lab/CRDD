@@ -86,6 +86,24 @@ export function acquireRuntimeOwnedLogicalProviderHomeKernelLock(
   return acquireNamedPipeKernelLock(pipeName);
 }
 
+export function acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+  runtimeStateBindingHash: unknown,
+) {
+  if (
+    process.platform !== "win32" ||
+    typeof runtimeStateBindingHash !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(runtimeStateBindingHash)
+  )
+    return null;
+  const lockIdentity = createHash("sha256")
+    .update("crdd-docker-runtime-state-kernel-lock-v1\0")
+    .update(runtimeStateBindingHash)
+    .digest("hex")
+    .slice(0, 32);
+  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.DockerRuntimeState.${lockIdentity}`;
+  return acquireNamedPipeKernelLock(pipeName);
+}
+
 export function hostOperationGenerationBindingHash(
   rootName: unknown,
   nonce: unknown,
@@ -123,6 +141,7 @@ export function describeCandidateStoreKernelLockContract() {
       "selected_user_sid_store_identity_and_exact_protection_hash_domain_separated",
     abandonedOwnerHandling: "kernel_release_on_process_termination",
     staleFileDeletion: false,
+    dockerRuntimeStateInventorySerialized: true,
     arbitraryPathAccepted: false,
     acquireTimeoutMs: LOCK_ACQUIRE_TIMEOUT_MS,
     releaseTimeoutMs: LOCK_RELEASE_TIMEOUT_MS,

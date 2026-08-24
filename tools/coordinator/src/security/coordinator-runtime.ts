@@ -11,6 +11,12 @@ import {
   startRuntimeOwnedDockerProcessController,
 } from "./docker-process-controller.ts";
 import {
+  abandonRuntimeOwnedDockerRecovery,
+  finalizeRuntimeOwnedDockerRecovery,
+  prepareRuntimeOwnedDockerHostCleanup,
+  recordRuntimeOwnedDockerHostCleanupReceipt,
+} from "./docker-recovery-runtime.ts";
+import {
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -27,7 +33,7 @@ import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "./provider-home
 import { bindRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
 
 export const COORDINATOR_RUNTIME_CONTRACT = "crdd-coordinator/runtime";
-export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 2;
+export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 3;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -116,6 +122,10 @@ type RuntimeDependencies = Readonly<{
   startProcess: (
     preparedCapability: object,
     managementCapability: object,
+    registerRecoveryHandoff: (
+      recoveryCapability: unknown,
+      recoveryId: unknown,
+    ) => boolean,
   ) => Readonly<{
     status: string;
     reason: string;
@@ -128,6 +138,12 @@ type RuntimeDependencies = Readonly<{
     controlCapability: object,
     managementCapability: object,
   ) => Promise<unknown>;
+  abandonDockerRecovery: (recoveryCapability: object) => boolean;
+  prepareDockerHostCleanup: (recoveryCapability: object) => string | null;
+  recordDockerHostCleanupReceipt: (recoveryCapability: object) => boolean;
+  finalizeDockerRecovery: (recoveryCapability: object) => Readonly<{
+    status: string;
+  }>;
 }>;
 
 type ControlRecord = Readonly<{
@@ -394,15 +410,34 @@ function start(
         "coordinator_runtime_provider_prepare_failed",
       );
     }
+    let recoveryHandoffCapability: object | null = null;
+    let recoveryHandoffId: string | null = null;
     const process = state.dependencies.startProcess(
       prepared.preparedCapability,
       managementCapability,
+      (recoveryCapability, recoveryId) => {
+        if (
+          recoveryHandoffCapability ||
+          !recoveryCapability ||
+          typeof recoveryCapability !== "object" ||
+          typeof recoveryId !== "string" ||
+          !recoveryId
+        )
+          return false;
+        recoveryHandoffCapability = recoveryCapability;
+        recoveryHandoffId = recoveryId;
+        return true;
+      },
     );
     if (
       process.status !== "started" ||
       !process.controlCapability ||
       !process.completion
     ) {
+      if (recoveryHandoffCapability)
+        void state.dependencies.abandonDockerRecovery(
+          recoveryHandoffCapability,
+        );
       return process.cleanupConfirmed === true
         ? cleanupBeforeEffect(
             state,
@@ -433,10 +468,35 @@ function start(
           cleanupConfirmed?: boolean;
           manualRecoveryRequired?: boolean;
           normalizedResult?: unknown;
+          recoveryFinalizationCapability?: object | null;
         }>;
-        if (result.cleanupConfirmed !== true) return result;
+        if (result.cleanupConfirmed !== true) {
+          if (recoveryHandoffCapability)
+            void state.dependencies.abandonDockerRecovery(
+              recoveryHandoffCapability,
+            );
+          return result;
+        }
         try {
+          if (
+            !recoveryHandoffCapability ||
+            !recoveryHandoffId ||
+            result.recoveryFinalizationCapability !==
+              recoveryHandoffCapability ||
+            !state.dependencies.prepareDockerHostCleanup(
+              recoveryHandoffCapability,
+            )
+          )
+            throw new Error("coordinator_runtime_recovery_handoff_invalid");
           state.dependencies.cleanupOperation(owned);
+          if (
+            !state.dependencies.recordDockerHostCleanupReceipt(
+              recoveryHandoffCapability,
+            ) ||
+            state.dependencies.finalizeDockerRecovery(recoveryHandoffCapability)
+              .status !== "completed"
+          )
+            throw new Error("coordinator_runtime_recovery_finalize_failed");
           return Object.freeze({
             ...result,
             operationRootRemoved: true,
@@ -447,6 +507,10 @@ function start(
             credentialReported: false,
           });
         } catch {
+          if (recoveryHandoffCapability)
+            void state.dependencies.abandonDockerRecovery(
+              recoveryHandoffCapability,
+            );
           return Object.freeze({
             status: "blocked" as const,
             reason: "coordinator_runtime_operation_cleanup_unconfirmed",
@@ -454,6 +518,10 @@ function start(
             manualRecoveryRequired: true,
             normalizedResult: null,
             operationRootRemoved: false,
+            dockerRecoveryId: recoveryHandoffId,
+            dockerRecoveryIds: recoveryHandoffId
+              ? Object.freeze([recoveryHandoffId])
+              : Object.freeze([]),
             rawOutputReported: false,
             hostPathReported: false,
             credentialReported: false,
@@ -539,6 +607,10 @@ const productionState: RuntimeState = Object.freeze({
           ),
     startProcess: startRuntimeOwnedDockerProcessController,
     cancelProcess: cancelRuntimeOwnedDockerProcessController,
+    abandonDockerRecovery: abandonRuntimeOwnedDockerRecovery,
+    prepareDockerHostCleanup: prepareRuntimeOwnedDockerHostCleanup,
+    recordDockerHostCleanupReceipt: recordRuntimeOwnedDockerHostCleanupReceipt,
+    finalizeDockerRecovery: finalizeRuntimeOwnedDockerRecovery,
   }),
   controls: new WeakMap(),
 });

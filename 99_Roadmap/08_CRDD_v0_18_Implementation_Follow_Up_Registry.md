@@ -12,7 +12,7 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 ## 現在の残件
 
-2026-08-25の現行Coordinator Runtime 1.0縦結合では、固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Provider Home四Hash、Mount Grantおよび一般Task E2Eをproduction経路へ接続済みである。現在の残件は[`CHG-000015`第五次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とし、Host owner generation、RuntimeState回復WALおよび完全inventoryを含む新固定版の独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。下表は`In Progress`を維持し、監査Pass前に`Completed`へ先取りしない。
+2026-08-25の現行Coordinator Runtime 1.0縦結合では、固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Provider Home四Hash、Mount Grantおよび一般Task E2Eをproduction経路へ接続済みである。現在の残件は[`CHG-000015`第六次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とし、commit sidecar付きRuntimeState回復journal、exact inventory、回復handoff、複数Recovery IDおよびcleanup tombstoneを含む新固定版の独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。下表は`In Progress`を維持し、監査Pass前に`Completed`へ先取りしない。
 
 | ID | 件名 | Work State | Scope / Target | Source | Next action / Re-evaluation trigger |
 | --- | --- | --- | --- | --- | --- |
@@ -27,4 +27,4 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 - `Completed`はCHG-000028の非実行候補の検証完了だけを表し、Effect、採用、統合または実Provider readinessを許可しない。`In Progress`は人間判断による設計blockerが解消して後続実装を開始した状態であり、component、operational one-shot、Gateまたは実Provider readinessの成立を意味しない。`Blocked`はSourceが示す停止条件の解消に人間判断または別変更が必要であることを表す。`Unscheduled`は後続CHGと実施時期が未設定であり、不要、終了または許可済みを意味しない。
 - `FU-018-CLAUDE-DIST`はbinary配布物の条件と認証済みservice利用条件を別々に解決する。Pro／MaxまたはTeam／Enterpriseという提供形態候補だけから適用条件を確定しない。
 - 標準ProfileのAPI key、Console API account、第三者API Provider、追加credit購入、自動plan切替およびHost fallbackは残件ではなく、原則禁止かつv1非対応の境界である。将来有料APIを扱う場合はSubscriptionのfallbackではなく、ユーザー明示設定、exact Provider／Account、分離Credential source、予算およびOperation Authorityを要求する別Profile／別Capabilityの固有CHGとして開始する。
-- Codex Provider実装はClaude-firstの現在範囲外であり、別CHGがSourceを確立した時点で本台帳へ追加する。
+- Codex／Claude Codeの両Provider Adapterは一般Task経路へ接続済みである。両経路とも現固定版の独立再レビュー／再監査と正式署名一般Task実run前は`Completed`へ昇格しない。

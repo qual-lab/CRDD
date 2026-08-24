@@ -7,6 +7,7 @@ import { normalizeCodexStructuredResult } from "./codex-structured-result.ts";
 import { normalizeProviderTaskStructuredResult } from "./provider-task-structured-result.ts";
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 import {
+  abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
   markRuntimeOwnedDockerResourceSubmission,
@@ -24,7 +25,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 12;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 13;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -105,7 +106,8 @@ type Recovery = Readonly<{
 }>;
 type BlockedRecovery = Readonly<{
   status: "blocked";
-  recoveryId: string;
+  recoveryId: string | null;
+  manualRecoveryRequired?: boolean;
 }>;
 type CleanupObservation = Readonly<{
   confirmed: boolean;
@@ -124,6 +126,7 @@ type RuntimeDependencies = Readonly<{
     plan: PreparedPlan,
     managementCapability: unknown,
   ) => Recovery | BlockedRecovery | null;
+  abandonRecovery?: (recoveryCapability: object) => boolean;
   startCommand: (
     command: Command,
     plan: PreparedPlan,
@@ -612,6 +615,7 @@ function start(
   state: RuntimeState,
   preparedCapability: unknown,
   managementCapability: unknown,
+  registerRecoveryHandoff: unknown,
 ) {
   if (
     !state.dependencies.effectExecutorAvailable ||
@@ -669,6 +673,20 @@ function start(
       "docker_process_controller_recovery_unavailable",
       completed.status === "completed",
       recovery?.recoveryId ?? null,
+    );
+  }
+  if (
+    typeof registerRecoveryHandoff !== "function" ||
+    registerRecoveryHandoff(
+      recovery.recoveryCapability,
+      recovery.recoveryId,
+    ) !== true
+  ) {
+    void state.dependencies.abandonRecovery?.(recovery.recoveryCapability);
+    return createBlockedStart(
+      "docker_process_controller_recovery_handoff_unavailable",
+      false,
+      recovery.recoveryId,
     );
   }
   const controlCapability = Object.freeze({});
@@ -745,6 +763,7 @@ const productionState: RuntimeState = Object.freeze({
         managementCapability,
       ),
     beginRecovery: beginRuntimeOwnedDockerRecovery,
+    abandonRecovery: abandonRuntimeOwnedDockerRecovery,
     startCommand: startRuntimeOwnedDockerCommand,
     cleanupOwnedResources: cleanupRuntimeOwnedDockerResources,
     completeMount: completeRuntimeOwnedProviderHomeMount,
@@ -761,9 +780,15 @@ const productionState: RuntimeState = Object.freeze({
 export function startRuntimeOwnedDockerProcessController(
   preparedCapability: unknown,
   managementCapability: unknown,
+  registerRecoveryHandoff?: unknown,
 ) {
   try {
-    return start(productionState, preparedCapability, managementCapability);
+    return start(
+      productionState,
+      preparedCapability,
+      managementCapability,
+      registerRecoveryHandoff,
+    );
   } catch {
     return createBlockedStart("docker_process_controller_start_failed_closed");
   }
@@ -793,9 +818,18 @@ export function createIsolatedDockerProcessControllerCandidate(
   });
   return Object.freeze({
     productionAuthority: false as const,
-    start: (preparedCapability: unknown, managementCapability: unknown) => {
+    start: (
+      preparedCapability: unknown,
+      managementCapability: unknown,
+      registerRecoveryHandoff: unknown = () => true,
+    ) => {
       try {
-        return start(state, preparedCapability, managementCapability);
+        return start(
+          state,
+          preparedCapability,
+          managementCapability,
+          registerRecoveryHandoff,
+        );
       } catch {
         return createBlockedStart(
           "docker_process_controller_start_failed_closed",

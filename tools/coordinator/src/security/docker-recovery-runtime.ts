@@ -5,7 +5,6 @@ import path from "node:path";
 
 import {
   beginOwnedDockerSubmissionRecovery,
-  acquireHostOperationRecoveryGeneration,
   acquireHostOperationRecoveryGenerationByIdentity,
   completeOwnedDockerSubmissionRecovery,
   getOwnedHostRecoveryIdByManagementCapability,
@@ -18,7 +17,10 @@ import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "./host-recovery-record.ts";
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "./candidate-store-kernel-lock.ts";
+import {
+  acquireRuntimeOwnedDockerRuntimeStateKernelLock,
+  acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+} from "./candidate-store-kernel-lock.ts";
 import {
   consumeRuntimeOwnedRuntimeStateRootCapability,
   inspectRuntimeOwnedWindowsRuntimeState,
@@ -27,10 +29,18 @@ import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "./provider-home-windows-adapter.ts";
+import {
+  dockerRecoveryCommitName,
+  isDockerRecoveryJournalTemporaryName,
+  moveCommittedDockerRecoveryJson,
+  readCommittedDockerRecoveryJson,
+  removeCommittedDockerRecoveryJson,
+  writeCommittedDockerRecoveryJson,
+} from "./docker-recovery-journal.ts";
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 3;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 4;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -90,6 +100,7 @@ type DurableRecord = Readonly<{
 }>;
 
 const durableRecords = new WeakMap<object, DurableRecord>();
+const releasedLogicalHomeLeases = new WeakSet<object>();
 
 function canonical(value: unknown) {
   return `${JSON.stringify(value)}\n`;
@@ -121,56 +132,32 @@ function moveDurableFile(
     serialized: string;
     hash: string;
     identity: Readonly<{ dev: bigint; ino: bigint; birthtimeNs: bigint }>;
+    identityText: string;
+    logicalKey: string;
+    target: string;
+    commit: string;
+    value: unknown;
   }>,
 ) {
-  fs.renameSync(source, target);
-  const metadata = fs.lstatSync(target, { bigint: true });
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.dev !== expected.identity.dev ||
-    metadata.ino !== expected.identity.ino ||
-    metadata.birthtimeNs !== expected.identity.birthtimeNs ||
-    fs.readFileSync(target, "utf8") !== expected.serialized
-  )
+  if (source !== expected.target)
     throw new Error("docker_recovery_record_changed");
-  return Object.freeze({ ...expected, target });
+  return moveCommittedDockerRecoveryJson(expected, target);
 }
 
-function writeDurableJson(directory: string, name: string, value: unknown) {
-  const target = path.join(directory, name);
-  const serialized = canonical(value);
-  const handle = fs.openSync(target, "wx", 0o600);
-  try {
-    fs.writeFileSync(handle, serialized, "utf8");
-    fs.fsyncSync(handle);
-  } finally {
-    fs.closeSync(handle);
-  }
+function writeDurableJson(
+  directory: string,
+  name: string,
+  value: unknown,
+  logicalKey = name,
+) {
+  const record = writeCommittedDockerRecoveryJson(
+    directory,
+    name,
+    logicalKey,
+    value,
+  );
   commitDirectoryMutationBoundary(directory);
-  const before = fs.lstatSync(target, { bigint: true });
-  if (!before.isFile() || before.isSymbolicLink())
-    throw new Error("docker_recovery_record_invalid");
-  const observed = fs.readFileSync(target, "utf8");
-  const after = fs.lstatSync(target, { bigint: true });
-  if (
-    observed !== serialized ||
-    before.dev !== after.dev ||
-    before.ino !== after.ino ||
-    before.birthtimeNs !== after.birthtimeNs
-  ) {
-    throw new Error("docker_recovery_record_changed");
-  }
-  return Object.freeze({
-    target,
-    serialized,
-    hash: createHash("sha256").update(serialized).digest("hex"),
-    identity: Object.freeze({
-      dev: before.dev,
-      ino: before.ino,
-      birthtimeNs: before.birthtimeNs,
-    }),
-  });
+  return record;
 }
 
 function validProductionPlan(plan: ProductionPlan) {
@@ -237,6 +224,55 @@ function hostRecoveryIdentity(token: string) {
   });
 }
 
+function classifyHostMarkerTransition(
+  intent: Record<string, unknown>,
+  expectedRoot: string,
+  expectedNonce: string,
+) {
+  const currentToken = String(intent.currentToken ?? "");
+  const expectedToken = String(intent.expectedToken ?? "");
+  const current = parseHostRecoveryToken(currentToken);
+  const expected = parseHostRecoveryToken(expectedToken);
+  if (
+    current.rootName !== path.basename(expectedRoot) ||
+    expected.rootName !== current.rootName ||
+    current.nonce !== expectedNonce ||
+    expected.nonce !== expectedNonce
+  )
+    throw new Error("docker_task_recovery_host_transition_mismatch");
+  try {
+    const loaded = loadHostRecoveryRecordByToken(expectedToken);
+    if (
+      path.join(loaded.parent, loaded.parsed.rootName) !== expectedRoot ||
+      loaded.marker !== (intent.markerPath ?? loaded.marker)
+    )
+      throw new Error("docker_task_recovery_host_transition_mismatch");
+    return Object.freeze({
+      state: "expected" as const,
+      currentToken,
+      expectedToken,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "docker_task_recovery_host_transition_mismatch"
+    )
+      throw error;
+  }
+  try {
+    const loaded = loadHostRecoveryRecordByToken(currentToken);
+    if (path.join(loaded.parent, loaded.parsed.rootName) !== expectedRoot)
+      throw new Error("docker_task_recovery_host_transition_mismatch");
+    return Object.freeze({
+      state: "previous" as const,
+      currentToken,
+      expectedToken,
+    });
+  } catch {
+    throw new Error("docker_task_recovery_host_transition_third_state");
+  }
+}
+
 function beginProductionRecovery(
   plan: ProductionPlan,
   managementCapability: unknown,
@@ -279,17 +315,37 @@ function beginProductionRecovery(
   if (
     observation.status !== "candidate" ||
     !root ||
-    !HEX64.test(root.stableLogicalHomeBindingHash)
+    !HEX64.test(root.stableLogicalHomeBindingHash) ||
+    root.localUserBindingHash !== plan.localUserBindingHash
   )
     return null;
+  const runtimeStateLock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+    root.stableLogicalHomeBindingHash,
+  );
+  if (!runtimeStateLock) return null;
   const lock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
     plan.stableLogicalHomeBindingHash,
   );
-  if (!lock) return null;
+  if (!lock) {
+    void runtimeStateLock.release();
+    return null;
+  }
   let leaseTransferred = false;
   let recoverableId: string | null = null;
-  const preCommitArtifacts: string[] = [];
   try {
+    const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
+    const recoveryInventory = inspectRuntimeOwnedDockerTaskRecoveryState();
+    const rootAfter = fs.lstatSync(root.rootPath, { bigint: true });
+    if (
+      recoveryInventory.status !== "completed" ||
+      rootBefore.dev !== rootAfter.dev ||
+      rootBefore.ino !== rootAfter.ino ||
+      rootBefore.birthtimeNs !== rootAfter.birthtimeNs ||
+      recoveryInventory.activeStableLogicalHomeBindingHashes.some(
+        (value: unknown) => value === plan.stableLogicalHomeBindingHash,
+      )
+    )
+      throw new Error("docker_recovery_runtime_state_conflict");
     const operationNonce = randomBytes(32).toString("hex");
     const operationName = `docker-task-${operationNonce}`;
     const operationDirectory = path.join(root.rootPath, operationName);
@@ -356,8 +412,8 @@ function beginProductionRecovery(
       root.rootPath,
       `pending-docker-task-${operationNonce}.json`,
       base,
+      "base.json",
     );
-    preCommitArtifacts.push(pendingBase.target);
     const recoveryId = `docker-task.${plan.stableLogicalHomeBindingHash}.${operationNonce}.${pendingBase.hash}`;
     const pendingCommit = writeDurableJson(
       root.rootPath,
@@ -369,6 +425,7 @@ function beginProductionRecovery(
         baseHash: pendingBase.hash,
         recoveryId,
       }),
+      "base-commit.json",
     );
     recoverableId = recoveryId;
     fs.mkdirSync(operationDirectory, { mode: 0o700 });
@@ -459,23 +516,19 @@ function beginProductionRecovery(
       recoveryCapability,
     });
   } catch {
-    if (!recoverableId) {
-      for (const artifact of preCommitArtifacts) {
-        try {
-          if (fs.existsSync(artifact)) fs.rmSync(artifact);
-        } catch {
-          return null;
-        }
-      }
-    }
     return recoverableId
       ? Object.freeze({
           status: "blocked" as const,
           recoveryId: recoverableId,
         })
-      : null;
+      : Object.freeze({
+          status: "blocked" as const,
+          recoveryId: null,
+          manualRecoveryRequired: true as const,
+        });
   } finally {
     if (!leaseTransferred) void lock.release();
+    void runtimeStateLock.release();
   }
 }
 
@@ -678,7 +731,8 @@ function completeProductionRecovery(
       activeHostBinding.baseHash !== record.baseHash
     )
       return Object.freeze({ status: "blocked" as const });
-    fs.rmSync(record.hostActiveBindingPath);
+    if (!removeCommittedDockerRecoveryJson(record.hostActiveBindingPath))
+      return Object.freeze({ status: "blocked" as const });
     if (fs.existsSync(record.hostActiveBindingPath))
       return Object.freeze({ status: "blocked" as const });
     const pointer = readExactJson(record.pointerPath);
@@ -692,10 +746,12 @@ function completeProductionRecovery(
       pointerValue.baseHash !== record.baseHash
     )
       return Object.freeze({ status: "blocked" as const });
-    fs.rmSync(record.pointerPath);
+    if (!removeCommittedDockerRecoveryJson(record.pointerPath))
+      return Object.freeze({ status: "blocked" as const });
     commitDirectoryMutationBoundary(record.rootPath);
     if (!record.logicalHomeLease.release())
       return Object.freeze({ status: "blocked" as const });
+    releasedLogicalHomeLeases.add(recoveryCapability as object);
     writeDurableJson(
       record.operationDirectory,
       "lease-release-receipt.json",
@@ -736,19 +792,15 @@ export function finalizeRuntimeOwnedDockerRecovery(
       )
     )
       return Object.freeze({ status: "blocked" as const });
-    const allowed =
-      /^(?:base|base-commit|host-(?:begin|complete|cleanup)-(?:intent|receipt)|submission-[a-z_]+|receipt-[a-z_]+|docker-absence|mount-completion|lease-release-receipt|normal-run-complete)\.json$/u;
-    const entries = fs.readdirSync(record.operationDirectory);
-    if (entries.length > 32 || entries.some((entry) => !allowed.test(entry)))
-      return Object.freeze({ status: "blocked" as const });
-    for (const entry of entries) {
-      const target = path.join(record.operationDirectory, entry);
-      const metadata = fs.lstatSync(target);
-      if (!metadata.isFile() || metadata.isSymbolicLink())
-        return Object.freeze({ status: "blocked" as const });
-      fs.rmSync(target);
-    }
-    fs.rmdirSync(record.operationDirectory);
+    const parsed = parseDockerTaskRecoveryId(record.recoveryId);
+    if (!parsed) return Object.freeze({ status: "blocked" as const });
+    removeRecoveryOperationDirectory(
+      record.operationDirectory,
+      record.recoveryId,
+      parsed.operationNonce,
+      record.baseHash,
+      record.stableLogicalHomeBindingHash,
+    );
     commitDirectoryMutationBoundary(record.rootPath);
     durableRecords.delete(recoveryFinalizationCapability as object);
     return Object.freeze({ status: "completed" as const });
@@ -850,7 +902,10 @@ export function recordRuntimeOwnedDockerHostCleanupReceipt(
 export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
   const record = durableRecord(recoveryCapability);
   if (!record) return false;
-  return record.logicalHomeLease.release();
+  if (releasedLogicalHomeLeases.has(recoveryCapability as object)) return true;
+  const released = record.logicalHomeLease.release();
+  if (released) releasedLogicalHomeLeases.add(recoveryCapability as object);
+  return released;
 }
 
 function parseDockerTaskRecoveryId(token: unknown) {
@@ -869,32 +924,11 @@ function parseDockerTaskRecoveryId(token: unknown) {
     : null;
 }
 
-function readExactJson(file: string) {
-  const before = fs.lstatSync(file, { bigint: true });
-  if (
-    !before.isFile() ||
-    before.isSymbolicLink() ||
-    before.size <= 0n ||
-    before.size > 65_536n
-  )
-    throw new Error("docker_task_recovery_record_invalid");
-  const serialized = fs.readFileSync(file, "utf8");
-  const after = fs.lstatSync(file, { bigint: true });
-  if (
-    before.dev !== after.dev ||
-    before.ino !== after.ino ||
-    before.birthtimeNs !== after.birthtimeNs ||
-    before.size !== after.size
-  )
-    throw new Error("docker_task_recovery_record_changed");
-  const value = JSON.parse(serialized);
-  if (canonical(value) !== serialized)
-    throw new Error("docker_task_recovery_record_noncanonical");
+function readExactJson(file: string, logicalKey = path.basename(file)) {
+  const record = readCommittedDockerRecoveryJson(file, logicalKey);
   return Object.freeze({
-    value,
-    serialized,
-    hash: createHash("sha256").update(serialized).digest("hex"),
-    identity: `${before.dev}:${before.ino}:${before.birthtimeNs}`,
+    ...record,
+    identity: record.identityText,
   });
 }
 
@@ -908,6 +942,340 @@ function exactRecordKeys(value: unknown, keys: readonly string[]) {
       .sort()
       .join("\0") === [...keys].sort().join("\0")
   );
+}
+
+const OPERATION_RECORD_NAME =
+  /^(?:base|base-commit|host-(?:begin|complete|crash-absence|cleanup)-(?:intent|receipt)|submission-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|receipt-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|docker-absence(?:-crash)?|mount-(?:completion|crash-absence)|lease-release-receipt|normal-run-complete)\.json$/u;
+
+function validateHostSnapshot(value: unknown, initialToken: string) {
+  if (
+    !exactRecordKeys(value, [
+      "token",
+      "recordHash",
+      "directoryIdentity",
+      "markerIdentity",
+      "record",
+    ])
+  )
+    return false;
+  const snapshot = value as Record<string, unknown>;
+  const parsed = parseHostRecoveryToken(initialToken);
+  const record = snapshot.record;
+  const hostRecord = record as Record<string, unknown>;
+  const rootIdentity = hostRecord?.rootIdentity;
+  const childIdentities = hostRecord?.childIdentities;
+  const identityValid = (identity: unknown, isChild: boolean) =>
+    exactRecordKeys(
+      identity,
+      isChild
+        ? ["pathName", "dev", "ino", "birthtimeNs"]
+        : ["dev", "ino", "birthtimeNs"],
+    ) &&
+    ["dev", "ino", "birthtimeNs"].every(
+      (key) =>
+        typeof (identity as Record<string, unknown>)[key] === "string" &&
+        /^\d+$/u.test(String((identity as Record<string, unknown>)[key])),
+    ) &&
+    (!isChild ||
+      (typeof (identity as Record<string, unknown>).pathName === "string" &&
+        /^[A-Za-z0-9_-]{1,80}$/u.test(
+          String((identity as Record<string, unknown>).pathName),
+        )));
+  return (
+    snapshot.token === initialToken &&
+    snapshot.recordHash === parsed.recordHash &&
+    typeof snapshot.directoryIdentity === "string" &&
+    /^\d+:\d+:\d+$/u.test(snapshot.directoryIdentity) &&
+    typeof snapshot.markerIdentity === "string" &&
+    /^\d+:\d+:\d+$/u.test(snapshot.markerIdentity) &&
+    exactRecordKeys(record, [
+      "schema",
+      "state",
+      "rootName",
+      "rootIdentity",
+      "childIdentities",
+      "createdAt",
+    ]) &&
+    hostRecord.schema === "crdd-coordinator-host-recovery/v1" &&
+    hostRecord.rootName === parsed.rootName &&
+    ["host_only", "docker_submission_started"].includes(
+      String(hostRecord.state),
+    ) &&
+    typeof hostRecord.createdAt === "string" &&
+    identityValid(rootIdentity, false) &&
+    childIdentities !== null &&
+    typeof childIdentities === "object" &&
+    !Array.isArray(childIdentities) &&
+    Object.keys(childIdentities as Record<string, unknown>).length <= 8 &&
+    Object.values(childIdentities as Record<string, unknown>).every(
+      (identity) => identityValid(identity, true),
+    ) &&
+    Object.hasOwn(childIdentities as Record<string, unknown>, "management")
+  );
+}
+
+function validateDockerRecoveryBase(value: unknown, nonce: string) {
+  if (
+    !exactRecordKeys(value, [
+      "schema",
+      "operationNonce",
+      "provider",
+      "operationId",
+      "grantRef",
+      "profileId",
+      "stableLogicalHomeBindingHash",
+      "providerHomeIdentityHash",
+      "providerHomeProtectionHash",
+      "localUserBindingHash",
+      "ownershipLabel",
+      "resources",
+      "images",
+      "operationMode",
+      "workspaceMountMode",
+      "initialHostRecoveryId",
+      "initialHostRecovery",
+      "hostPaths",
+    ])
+  )
+    return false;
+  const base = value as Record<string, unknown>;
+  const resources = base.resources;
+  const images = base.images;
+  const hostPaths = base.hostPaths;
+  const initialToken = String(base.initialHostRecoveryId ?? "");
+  try {
+    parseHostRecoveryToken(initialToken);
+  } catch {
+    return false;
+  }
+  return (
+    base.schema === "crdd-coordinator-task-docker-recovery/v1" &&
+    base.operationNonce === nonce &&
+    (base.provider === "codex" || base.provider === "claude") &&
+    /^OP-[0-9]{6,}$/u.test(String(base.operationId ?? "")) &&
+    /^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(String(base.grantRef ?? "")) &&
+    /^PROFILE-[0-9]{6,}$/u.test(String(base.profileId ?? "")) &&
+    [
+      base.stableLogicalHomeBindingHash,
+      base.providerHomeIdentityHash,
+      base.providerHomeProtectionHash,
+      base.localUserBindingHash,
+    ].every((item) => typeof item === "string" && HEX64.test(item)) &&
+    /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
+      String(base.ownershipLabel ?? ""),
+    ) &&
+    exactRecordKeys(resources, [
+      "auth",
+      "provider",
+      "proxy",
+      "internal",
+      "egress",
+    ]) &&
+    Object.values(resources as Record<string, unknown>).every(
+      (item) => typeof item === "string" && SAFE_RESOURCE.test(item),
+    ) &&
+    exactRecordKeys(images, ["provider", "proxy"]) &&
+    Object.values(images as Record<string, unknown>).every(
+      (item) => typeof item === "string" && /^sha256:[a-f0-9]{64}$/u.test(item),
+    ) &&
+    (base.operationMode === "boolean_probe" ||
+      base.operationMode === "isolated_task") &&
+    (base.workspaceMountMode === null ||
+      base.workspaceMountMode === "read_only" ||
+      base.workspaceMountMode === "read_write") &&
+    validateHostSnapshot(base.initialHostRecovery, initialToken) &&
+    exactRecordKeys(hostPaths, ["root", "marker"]) &&
+    typeof (hostPaths as Record<string, unknown>).root === "string" &&
+    typeof (hostPaths as Record<string, unknown>).marker === "string"
+  );
+}
+
+function validateOperationRecord(
+  name: string,
+  value: unknown,
+  recoveryId: string,
+  nonce: string,
+  baseHash: string,
+) {
+  if (name === "base.json") return validateDockerRecoveryBase(value, nonce);
+  if (name === "base-commit.json")
+    return (
+      exactRecordKeys(value, [
+        "schema",
+        "operationNonce",
+        "stableLogicalHomeBindingHash",
+        "baseHash",
+        "recoveryId",
+      ]) &&
+      (value as Record<string, unknown>).schema ===
+        "crdd-coordinator-task-docker-base-commit/v1" &&
+      (value as Record<string, unknown>).operationNonce === nonce &&
+      (value as Record<string, unknown>).baseHash === baseHash &&
+      (value as Record<string, unknown>).recoveryId === recoveryId
+    );
+  if (/^submission-/u.test(name))
+    return (
+      exactRecordKeys(value, ["schema", "purpose", "recoveryId"]) &&
+      (value as Record<string, unknown>).schema ===
+        "crdd-coordinator-docker-resource-submission/v1" &&
+      (value as Record<string, unknown>).recoveryId === recoveryId &&
+      CREATE_PURPOSES.has(String((value as Record<string, unknown>).purpose))
+    );
+  if (/^receipt-/u.test(name))
+    return (
+      exactRecordKeys(value, ["schema", "purpose", "dockerId", "recoveryId"]) &&
+      (value as Record<string, unknown>).schema ===
+        "crdd-coordinator-docker-resource-receipt/v1" &&
+      (value as Record<string, unknown>).recoveryId === recoveryId &&
+      CREATE_PURPOSES.has(String((value as Record<string, unknown>).purpose)) &&
+      HEX64.test(String((value as Record<string, unknown>).dockerId))
+    );
+  const record = value as Record<string, unknown>;
+  if (name === "docker-absence.json")
+    return (
+      exactRecordKeys(value, [
+        "schema",
+        "recoveryId",
+        "allExactResourcesAbsent",
+      ]) &&
+      record.schema === "crdd-coordinator-docker-absence/v1" &&
+      record.recoveryId === recoveryId &&
+      record.allExactResourcesAbsent === true
+    );
+  if (name === "docker-absence-crash.json")
+    return (
+      exactRecordKeys(value, [
+        "schema",
+        "recoveryId",
+        "allExactResourcesAbsent",
+        "evidence",
+      ]) &&
+      record.schema === "crdd-coordinator-docker-absence/v1" &&
+      record.recoveryId === recoveryId &&
+      record.allExactResourcesAbsent === true &&
+      record.evidence === "crash_recovery_exact_id_and_configuration"
+    );
+  if (name === "mount-completion.json" || name === "mount-crash-absence.json")
+    return (
+      exactRecordKeys(value, ["schema", "recoveryId", "evidence"]) &&
+      record.schema === "crdd-coordinator-provider-home-mount-completion/v1" &&
+      record.recoveryId === recoveryId &&
+      typeof record.evidence === "string"
+    );
+  if (/^host-(?:begin|complete|crash-absence)-intent\.json$/u.test(name))
+    return (
+      exactRecordKeys(value, [
+        "currentToken",
+        "expectedToken",
+        "rootName",
+        "nonce",
+        "currentState",
+        "nextState",
+      ]) &&
+      typeof record.currentToken === "string" &&
+      typeof record.expectedToken === "string" &&
+      typeof record.rootName === "string" &&
+      typeof record.nonce === "string"
+    );
+  if (/^host-(?:begin|complete|crash-absence)-receipt\.json$/u.test(name))
+    return (
+      exactRecordKeys(value, ["previous", "observed"]) &&
+      typeof record.previous === "string" &&
+      typeof record.observed === "string"
+    );
+  if (name === "host-cleanup-intent.json")
+    return (
+      exactRecordKeys(value, [
+        "schema",
+        "recoveryId",
+        "currentHostRecoveryId",
+      ]) &&
+      record.schema === "crdd-coordinator-host-cleanup-intent/v1" &&
+      record.recoveryId === recoveryId &&
+      typeof record.currentHostRecoveryId === "string"
+    );
+  if (name === "host-cleanup-receipt.json")
+    return (
+      exactRecordKeys(value, [
+        "schema",
+        "recoveryId",
+        "hostRootAbsent",
+        "hostMarkerAbsent",
+      ]) &&
+      record.schema === "crdd-coordinator-host-cleanup-receipt/v1" &&
+      record.recoveryId === recoveryId &&
+      record.hostRootAbsent === true &&
+      record.hostMarkerAbsent === true
+    );
+  if (name === "lease-release-receipt.json")
+    return (
+      exactRecordKeys(value, ["schema", "recoveryId", "pointerAbsent"]) &&
+      record.schema === "crdd-coordinator-provider-home-lease-release/v1" &&
+      record.recoveryId === recoveryId &&
+      record.pointerAbsent === true
+    );
+  if (name === "normal-run-complete.json")
+    return (
+      exactRecordKeys(value, ["schema", "recoveryId", "hostSuccessor"]) &&
+      record.schema === "crdd-coordinator-docker-run-completion/v1" &&
+      record.recoveryId === recoveryId &&
+      typeof record.hostSuccessor === "string"
+    );
+  return false;
+}
+
+function inventoryOperationDirectory(
+  operationDirectory: string,
+  recoveryId: string,
+  nonce: string,
+  baseHash: string,
+) {
+  const entries = fs.readdirSync(operationDirectory, { withFileTypes: true });
+  if (entries.length > 96)
+    throw new Error("docker_task_recovery_operation_entry_limit_exceeded");
+  const names = new Set(entries.map((entry) => entry.name));
+  const dataNames: string[] = [];
+  for (const entry of entries) {
+    const target = path.join(operationDirectory, entry.name);
+    if (entry.name === "recovery-docker-cli-config") {
+      if (
+        !entry.isDirectory() ||
+        entry.isSymbolicLink() ||
+        fs.readdirSync(target).length !== 0
+      )
+        throw new Error("docker_task_recovery_config_untrusted");
+      continue;
+    }
+    if (isDockerRecoveryJournalTemporaryName(entry.name))
+      throw new Error("docker_task_recovery_orphan_temporary");
+    if (!entry.isFile() || entry.isSymbolicLink())
+      throw new Error("docker_task_recovery_unknown_entry");
+    if (entry.name.endsWith(".crdd-commit.json")) {
+      const dataName = entry.name.slice(0, -".crdd-commit.json".length);
+      if (!names.has(dataName) || !OPERATION_RECORD_NAME.test(dataName))
+        throw new Error("docker_task_recovery_orphan_commit");
+      continue;
+    }
+    if (
+      !OPERATION_RECORD_NAME.test(entry.name) ||
+      !names.has(dockerRecoveryCommitName(entry.name))
+    )
+      throw new Error("docker_task_recovery_unknown_entry");
+    dataNames.push(entry.name);
+  }
+  for (const name of dataNames) {
+    const record = readExactJson(path.join(operationDirectory, name));
+    if (
+      !validateOperationRecord(name, record.value, recoveryId, nonce, baseHash)
+    )
+      throw new Error("docker_task_recovery_record_invalid");
+  }
+  if (
+    !dataNames.includes("base.json") ||
+    !dataNames.includes("base-commit.json")
+  )
+    throw new Error("docker_task_recovery_base_invalid");
+  return Object.freeze([...dataNames].sort());
 }
 
 function ensureHostCleanupReceipt(
@@ -974,25 +1342,83 @@ function hostPathsFromBase(base: Record<string, unknown>) {
   return Object.freeze({ root, marker });
 }
 
-function removeRecoveryOperationDirectory(operationDirectory: string) {
-  for (const entry of fs.readdirSync(operationDirectory, {
-    withFileTypes: true,
-  })) {
-    const target = path.join(operationDirectory, entry.name);
-    if (
-      entry.isDirectory() &&
-      !entry.isSymbolicLink() &&
-      entry.name === "recovery-docker-cli-config" &&
-      fs.readdirSync(target).length === 0
-    ) {
-      fs.rmdirSync(target);
+function managementDirectoryNameFromBase(base: Record<string, unknown>) {
+  const snapshot = base.initialHostRecovery as Record<string, unknown>;
+  const hostRecord = snapshot?.record as Record<string, unknown>;
+  const childIdentities = hostRecord?.childIdentities as Record<
+    string,
+    unknown
+  >;
+  const management = childIdentities?.management as Record<string, unknown>;
+  const name = management?.pathName;
+  if (
+    typeof name !== "string" ||
+    !/^[A-Za-z0-9_-]{1,80}$/u.test(name) ||
+    path.basename(name) !== name
+  )
+    throw new Error("docker_task_recovery_base_mismatch");
+  return name;
+}
+
+function removeRecoveryOperationDirectory(
+  operationDirectory: string,
+  recoveryId: string,
+  nonce: string,
+  baseHash: string,
+  stableLogicalHomeBindingHash: string,
+) {
+  inventoryOperationDirectory(operationDirectory, recoveryId, nonce, baseHash);
+  const cleanupDirectory = path.join(
+    path.dirname(operationDirectory),
+    `cleanup-docker-task-${stableLogicalHomeBindingHash}-${nonce}-${baseHash}`,
+  );
+  if (fs.existsSync(cleanupDirectory))
+    throw new Error("docker_task_recovery_cleanup_tombstone_conflict");
+  fs.renameSync(operationDirectory, cleanupDirectory);
+  commitDirectoryMutationBoundary(path.dirname(operationDirectory));
+  removeRecoveryCleanupTombstone(cleanupDirectory);
+}
+
+function inventoryRecoveryCleanupTombstone(cleanupDirectory: string) {
+  const entries = fs.readdirSync(cleanupDirectory, { withFileTypes: true });
+  if (entries.length > 96)
+    throw new Error("docker_task_recovery_cleanup_entry_limit_exceeded");
+  for (const entry of entries) {
+    const target = path.join(cleanupDirectory, entry.name);
+    if (entry.name === "recovery-docker-cli-config") {
+      if (
+        !entry.isDirectory() ||
+        entry.isSymbolicLink() ||
+        fs.readdirSync(target).length !== 0
+      )
+        throw new Error("docker_task_recovery_config_untrusted");
       continue;
     }
-    if (!entry.isFile() || entry.isSymbolicLink())
-      throw new Error("docker_task_recovery_unknown_entry");
-    fs.rmSync(target);
+    const dataName = entry.name.endsWith(".crdd-commit.json")
+      ? entry.name.slice(0, -".crdd-commit.json".length)
+      : entry.name;
+    if (
+      !entry.isFile() ||
+      entry.isSymbolicLink() ||
+      !OPERATION_RECORD_NAME.test(dataName)
+    )
+      throw new Error("docker_task_recovery_cleanup_unknown_entry");
   }
-  fs.rmdirSync(operationDirectory);
+  return Object.freeze(entries.map((entry) => entry.name).sort());
+}
+
+function removeRecoveryCleanupTombstone(cleanupDirectory: string) {
+  const names = inventoryRecoveryCleanupTombstone(cleanupDirectory);
+  const configDirectory = path.join(
+    cleanupDirectory,
+    "recovery-docker-cli-config",
+  );
+  if (fs.existsSync(configDirectory)) fs.rmdirSync(configDirectory);
+  for (const name of names) {
+    const target = path.join(cleanupDirectory, name);
+    if (fs.existsSync(target)) fs.rmSync(target);
+  }
+  fs.rmdirSync(cleanupDirectory);
 }
 
 function hostRecoveryInventoryReady(
@@ -1000,6 +1426,8 @@ function hostRecoveryInventoryReady(
   hostRoot: string,
   targetOperationDirectory: string,
 ) {
+  const audited = inspectRuntimeOwnedDockerTaskRecoveryState();
+  if (audited.status !== "completed") return false;
   const entries = fs.readdirSync(runtimeStateRoot, { withFileTypes: true });
   if (entries.length > 128) return false;
   for (const entry of entries) {
@@ -1397,6 +1825,32 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       reason: "docker_task_runtime_state_unavailable",
       recoveryId: parsed.token,
     });
+  const runtimeStateLock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+    root.stableLogicalHomeBindingHash,
+  );
+  if (!runtimeStateLock)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "docker_task_runtime_state_generation_active_or_unknown",
+      recoveryId: parsed.token,
+    });
+  let isInventoryValid = false;
+  try {
+    const inventory = inspectRuntimeOwnedDockerTaskRecoveryState();
+    isInventoryValid =
+      inventory.status === "completed" &&
+      inventory.dockerRecoveryIds.some(
+        (value: unknown) => value === parsed.token,
+      );
+  } finally {
+    void runtimeStateLock.release();
+  }
+  if (!isInventoryValid)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "docker_task_runtime_state_audit_failed",
+      recoveryId: parsed.token,
+    });
   const processAbsenceLock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
     parsed.stableLogicalHomeBindingHash,
   );
@@ -1412,6 +1866,21 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       root.rootPath,
       `docker-task-${parsed.operationNonce}`,
     );
+    const cleanupDirectory = path.join(
+      root.rootPath,
+      `cleanup-docker-task-${parsed.stableLogicalHomeBindingHash}-${parsed.operationNonce}-${parsed.baseHash}`,
+    );
+    if (fs.existsSync(cleanupDirectory)) {
+      if (fs.existsSync(operationDirectory))
+        throw new Error("docker_task_recovery_cleanup_tombstone_conflict");
+      removeRecoveryCleanupTombstone(cleanupDirectory);
+      commitDirectoryMutationBoundary(root.rootPath);
+      return Object.freeze({
+        status: "recovered" as const,
+        reason: "docker_task_recovery_cleanup_tombstone_completed",
+        recoveryId: null,
+      });
+    }
     const pendingBasePath = path.join(
       root.rootPath,
       `pending-docker-task-${parsed.operationNonce}.json`,
@@ -1434,15 +1903,24 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         fs.readdirSync(operationDirectory).length !== 0
       )
         throw new Error("docker_task_recovery_operation_invalid");
-      fs.renameSync(pendingBasePath, basePath);
-      fs.renameSync(pendingCommitPath, baseCommitPath);
+      moveCommittedDockerRecoveryJson(
+        readCommittedDockerRecoveryJson(pendingBasePath, "base.json"),
+        basePath,
+      );
+      moveCommittedDockerRecoveryJson(
+        readCommittedDockerRecoveryJson(pendingCommitPath, "base-commit.json"),
+        baseCommitPath,
+      );
     } else if (fs.existsSync(pendingBasePath)) {
       throw new Error("docker_task_recovery_duplicate_base");
     }
     if (!fs.existsSync(baseCommitPath)) {
       if (!fs.existsSync(pendingCommitPath))
         throw new Error("docker_task_recovery_base_commit_missing");
-      fs.renameSync(pendingCommitPath, baseCommitPath);
+      moveCommittedDockerRecoveryJson(
+        readCommittedDockerRecoveryJson(pendingCommitPath, "base-commit.json"),
+        baseCommitPath,
+      );
     } else if (fs.existsSync(pendingCommitPath)) {
       throw new Error("docker_task_recovery_duplicate_base_commit");
     }
@@ -1538,6 +2016,23 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
     )
       throw new Error("docker_task_recovery_base_mismatch");
     const hostPaths = hostPathsFromBase(base);
+    const managementDirectoryName = managementDirectoryNameFromBase(base);
+    const initialHostRecoveryId = String(base.initialHostRecoveryId ?? "");
+    const initialHostIdentity = parseHostRecoveryToken(initialHostRecoveryId);
+    hostOperationGeneration = acquireHostOperationRecoveryGenerationByIdentity(
+      hostPaths.root,
+      initialHostIdentity.nonce,
+    );
+    if (!hostOperationGeneration)
+      throw new Error(
+        "docker_task_host_operation_generation_active_or_unknown",
+      );
+    inventoryOperationDirectory(
+      operationDirectory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+    );
     const normalRunCompletePath = path.join(
       operationDirectory,
       "normal-run-complete.json",
@@ -1558,12 +2053,16 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         string,
         unknown
       >;
-      const expectedToken = String(intent.expectedToken ?? "");
-      loadHostRecoveryRecordByToken(expectedToken);
-      writeDurableJson(operationDirectory, "host-complete-receipt.json", {
-        previous: intent.currentToken,
-        observed: expectedToken,
-      });
+      const transition = classifyHostMarkerTransition(
+        intent,
+        hostPaths.root,
+        initialHostIdentity.nonce,
+      );
+      if (transition.state === "expected")
+        writeDurableJson(operationDirectory, "host-complete-receipt.json", {
+          previous: transition.currentToken,
+          observed: transition.expectedToken,
+        });
     }
     if (
       !fs.existsSync(normalRunCompletePath) &&
@@ -1582,7 +2081,7 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       parseHostRecoveryToken(observedHostSuccessor);
       const activeHostBindingPath = path.join(
         hostPaths.root,
-        "management",
+        managementDirectoryName,
         "active-docker-task-v1.json",
       );
       if (fs.existsSync(activeHostBindingPath)) {
@@ -1592,7 +2091,8 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         >;
         if (active.recoveryId !== parsed.token)
           throw new Error("docker_task_recovery_active_run_mismatch");
-        fs.rmSync(activeHostBindingPath);
+        if (!removeCommittedDockerRecoveryJson(activeHostBindingPath))
+          throw new Error("docker_task_recovery_active_run_mismatch");
       }
       const pointerPath = path.join(
         root.rootPath,
@@ -1605,7 +2105,8 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         >;
         if (pointer.recoveryId !== parsed.token)
           throw new Error("docker_task_recovery_pointer_mismatch");
-        fs.rmSync(pointerPath);
+        if (!removeCommittedDockerRecoveryJson(pointerPath))
+          throw new Error("docker_task_recovery_pointer_mismatch");
       }
       if (
         !fs.existsSync(
@@ -1630,11 +2131,8 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       >;
       const hostSuccessor = String(normalRun.hostSuccessor ?? "");
       const hostIdentity = parseHostRecoveryToken(hostSuccessor);
-      hostOperationGeneration =
-        acquireHostOperationRecoveryGenerationByIdentity(
-          hostPaths.root,
-          hostIdentity.nonce,
-        );
+      if (hostIdentity.nonce !== initialHostIdentity.nonce)
+        throw new Error("docker_task_recovery_host_transition_mismatch");
       if (!hostOperationGeneration)
         throw new Error(
           "docker_task_host_operation_generation_active_or_unknown",
@@ -1645,7 +2143,7 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       );
       const activeHostBindingPath = path.join(
         hostPaths.root,
-        "management",
+        managementDirectoryName,
         "active-docker-task-v1.json",
       );
       if (
@@ -1683,7 +2181,13 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
           throw new Error(hostRecovery.reason);
       }
       ensureHostCleanupReceipt(operationDirectory, parsed.token, hostPaths);
-      removeRecoveryOperationDirectory(operationDirectory);
+      removeRecoveryOperationDirectory(
+        operationDirectory,
+        parsed.token,
+        parsed.operationNonce,
+        parsed.baseHash,
+        parsed.stableLogicalHomeBindingHash,
+      );
       return Object.freeze({
         status: "recovered" as const,
         reason: "docker_task_recovery_finalization_completed",
@@ -1699,15 +2203,8 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         .value as Record<string, unknown>;
       const dockerAbsentHostToken = String(crashReceipt.observed ?? "");
       const hostIdentity = parseHostRecoveryToken(dockerAbsentHostToken);
-      hostOperationGeneration =
-        acquireHostOperationRecoveryGenerationByIdentity(
-          hostPaths.root,
-          hostIdentity.nonce,
-        );
-      if (!hostOperationGeneration)
-        throw new Error(
-          "docker_task_host_operation_generation_active_or_unknown",
-        );
+      if (hostIdentity.nonce !== initialHostIdentity.nonce)
+        throw new Error("docker_task_recovery_host_transition_mismatch");
       if (
         !fs.existsSync(
           path.join(operationDirectory, "docker-absence-crash.json"),
@@ -1716,7 +2213,7 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         throw new Error("docker_task_recovery_crash_evidence_missing");
       const activeHostBindingPath = path.join(
         hostPaths.root,
-        "management",
+        managementDirectoryName,
         "active-docker-task-v1.json",
       );
       if (fs.existsSync(activeHostBindingPath)) {
@@ -1726,7 +2223,8 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         >;
         if (active.recoveryId !== parsed.token)
           throw new Error("docker_task_recovery_active_run_mismatch");
-        fs.rmSync(activeHostBindingPath);
+        if (!removeCommittedDockerRecoveryJson(activeHostBindingPath))
+          throw new Error("docker_task_recovery_active_run_mismatch");
       }
       const mountCrashPath = path.join(
         operationDirectory,
@@ -1749,7 +2247,8 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         >;
         if (pointer.recoveryId !== parsed.token)
           throw new Error("docker_task_recovery_pointer_mismatch");
-        fs.rmSync(pointerPath);
+        if (!removeCommittedDockerRecoveryJson(pointerPath))
+          throw new Error("docker_task_recovery_pointer_mismatch");
       }
       if (
         !hostRecoveryInventoryReady(
@@ -1783,7 +2282,13 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         if (recovered.status !== "recovered") throw new Error(recovered.reason);
       }
       ensureHostCleanupReceipt(operationDirectory, parsed.token, hostPaths);
-      removeRecoveryOperationDirectory(operationDirectory);
+      removeRecoveryOperationDirectory(
+        operationDirectory,
+        parsed.token,
+        parsed.operationNonce,
+        parsed.baseHash,
+        parsed.stableLogicalHomeBindingHash,
+      );
       return Object.freeze({
         status: "recovered" as const,
         reason: "docker_task_recovery_crash_finalization_completed",
@@ -1794,8 +2299,6 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       operationDirectory,
       "host-begin-intent.json",
     );
-    const initialHostRecoveryId = String(base.initialHostRecoveryId ?? "");
-    parseHostRecoveryToken(initialHostRecoveryId);
     if (!fs.existsSync(hostBeginIntentPath))
       writeDurableJson(
         operationDirectory,
@@ -1813,13 +2316,6 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
     const hostBeginExpectedToken = hostBeginIntent.expectedToken ?? "";
     parseHostRecoveryToken(hostBeginCurrentToken);
     parseHostRecoveryToken(hostBeginExpectedToken);
-    hostOperationGeneration = acquireHostOperationRecoveryGeneration(
-      hostBeginCurrentToken,
-    );
-    if (!hostOperationGeneration)
-      throw new Error(
-        "docker_task_host_operation_generation_active_or_unknown",
-      );
     const hostBeginReceiptPath = path.join(
       operationDirectory,
       "host-begin-receipt.json",
@@ -1832,8 +2328,12 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         string
       >;
     } else {
-      try {
-        loadHostRecoveryRecordByToken(hostBeginExpectedToken);
+      const transition = classifyHostMarkerTransition(
+        hostBeginIntent,
+        hostPaths.root,
+        initialHostIdentity.nonce,
+      );
+      if (transition.state === "expected") {
         hostReceipt = {
           previous: hostBeginCurrentToken,
           observed: hostBeginExpectedToken,
@@ -1843,8 +2343,14 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
           "host-begin-receipt.json",
           hostReceipt,
         );
-      } catch {
-        loadHostRecoveryRecordByToken(hostBeginCurrentToken);
+      } else {
+        const hasSubmission = [...CREATE_PURPOSES].some((purpose) =>
+          fs.existsSync(
+            path.join(operationDirectory, `submission-${purpose}.json`),
+          ),
+        );
+        if (hasSubmission)
+          throw new Error("docker_task_recovery_host_begin_mismatch");
         hostSubmissionStarted = false;
         hostReceipt = {
           previous: hostBeginCurrentToken,
@@ -1902,12 +2408,14 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         pointer.baseHash !== parsed.baseHash
       )
         throw new Error("docker_task_recovery_pointer_mismatch");
-      fs.rmSync(pointerPath);
+      if (!removeCommittedDockerRecoveryJson(pointerPath))
+        throw new Error("docker_task_recovery_pointer_mismatch");
       commitDirectoryMutationBoundary(root.rootPath);
     };
     if (!hostSubmissionStarted) {
       if (fs.existsSync(hostActiveBindingPath))
-        fs.rmSync(hostActiveBindingPath);
+        if (!removeCommittedDockerRecoveryJson(hostActiveBindingPath))
+          throw new Error("docker_task_recovery_active_run_mismatch");
       releasePointer();
       if (!processAbsenceLock.release())
         throw new Error("docker_task_recovery_lock_release_unconfirmed");
@@ -1927,7 +2435,13 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
           recoveryId: parsed.token,
         });
       ensureHostCleanupReceipt(operationDirectory, parsed.token, hostPaths);
-      removeRecoveryOperationDirectory(operationDirectory);
+      removeRecoveryOperationDirectory(
+        operationDirectory,
+        parsed.token,
+        parsed.operationNonce,
+        parsed.baseHash,
+        parsed.stableLogicalHomeBindingHash,
+      );
       commitDirectoryMutationBoundary(root.rootPath);
       return Object.freeze({
         status: "recovered" as const,
@@ -2074,7 +2588,8 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         .value as Record<string, unknown>;
       if (activeBinding.recoveryId !== parsed.token)
         throw new Error("docker_task_recovery_active_run_mismatch");
-      fs.rmSync(hostActiveBindingPath);
+      if (!removeCommittedDockerRecoveryJson(hostActiveBindingPath))
+        throw new Error("docker_task_recovery_active_run_mismatch");
     }
     const mountCrashPath = path.join(
       operationDirectory,
@@ -2112,7 +2627,13 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
         recoveryId: parsed.token,
       });
     ensureHostCleanupReceipt(operationDirectory, parsed.token, hostPaths);
-    removeRecoveryOperationDirectory(operationDirectory);
+    removeRecoveryOperationDirectory(
+      operationDirectory,
+      parsed.token,
+      parsed.operationNonce,
+      parsed.baseHash,
+      parsed.stableLogicalHomeBindingHash,
+    );
     commitDirectoryMutationBoundary(root.rootPath);
     return Object.freeze({
       status: "recovered" as const,
@@ -2132,24 +2653,26 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
   }
 }
 
-export function inspectRuntimeOwnedDockerTaskRecoveryState() {
+export function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
   try {
-    const observation = inspectRuntimeOwnedWindowsRuntimeState(
-      true,
-      new Date().toISOString(),
-    );
-    const root = consumeRuntimeOwnedRuntimeStateRootCapability(
-      observation.rootCapability,
-    );
-    if (observation.status !== "candidate" || !root)
+    if (typeof rootPath !== "string" || !path.isAbsolute(rootPath))
       return Object.freeze({
         status: "blocked" as const,
         reason: "docker_task_runtime_state_unavailable",
         manualRecoveryRequired: true,
         dockerRecoveryId: null,
+        dockerRecoveryIds: Object.freeze([]),
+        activeStableLogicalHomeBindingHashes: Object.freeze([]),
       });
-    const entries = fs.readdirSync(root.rootPath, { withFileTypes: true });
-    if (entries.length > 128)
+    const rootMetadata = fs.lstatSync(rootPath);
+    if (
+      !rootMetadata.isDirectory() ||
+      rootMetadata.isSymbolicLink() ||
+      fs.realpathSync(rootPath) !== rootPath
+    )
+      throw new Error("docker_task_runtime_state_root_replaced");
+    const entries = fs.readdirSync(rootPath, { withFileTypes: true });
+    if (entries.length > 256)
       throw new Error("docker_task_runtime_state_entry_limit_exceeded");
     const sorted = [...entries].sort((left, right) =>
       left.name.localeCompare(right.name),
@@ -2160,20 +2683,32 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState() {
         reason: "docker_task_runtime_state_clean",
         manualRecoveryRequired: false,
         dockerRecoveryId: null,
+        dockerRecoveryIds: Object.freeze([]),
+        activeStableLogicalHomeBindingHashes: Object.freeze([]),
       });
     const records = new Map<
       string,
-      Readonly<{ token: string; stable: string; nonce: string }>
+      Readonly<{
+        token: string;
+        stable: string;
+        nonce: string;
+        cleanup: boolean;
+      }>
     >();
     const pendingBaseNames = new Set<string>();
     const pendingCommitNames = new Set<string>();
-    const pointers: Array<Record<string, unknown>> = [];
+    const entryNames = new Set(entries.map((entry) => entry.name));
+    const pointers: Array<
+      Readonly<{ name: string; value: Record<string, unknown> }>
+    > = [];
     const addRecord = (basePath: string, commitPath: string, nonce: string) => {
-      const base = readExactJson(basePath);
-      const commit = readExactJson(commitPath).value as Record<string, unknown>;
+      const base = readExactJson(basePath, "base.json");
+      const commit = readExactJson(commitPath, "base-commit.json")
+        .value as Record<string, unknown>;
       const value = base.value as Record<string, unknown>;
       const stable = value.stableLogicalHomeBindingHash;
       if (
+        !validateDockerRecoveryBase(value, nonce) ||
         !exactRecordKeys(commit, [
           "schema",
           "operationNonce",
@@ -2193,27 +2728,71 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState() {
       const token = `docker-task.${stable}.${nonce}.${base.hash}`;
       if (commit.recoveryId !== token || records.has(nonce))
         throw new Error("docker_task_runtime_state_base_invalid");
-      records.set(nonce, Object.freeze({ token, stable, nonce }));
+      records.set(
+        nonce,
+        Object.freeze({ token, stable, nonce, cleanup: false }),
+      );
+      const directory = path.join(rootPath, `docker-task-${nonce}`);
+      if (
+        fs.existsSync(path.join(directory, "base.json")) &&
+        fs.existsSync(path.join(directory, "base-commit.json"))
+      )
+        inventoryOperationDirectory(directory, token, nonce, base.hash);
     };
     for (const entry of sorted) {
-      let match = /^docker-task-([a-f0-9]{64})$/u.exec(entry.name);
+      if (isDockerRecoveryJournalTemporaryName(entry.name))
+        throw new Error("docker_task_runtime_state_orphan_temporary");
+      if (entry.name.endsWith(".crdd-commit.json")) {
+        const dataName = entry.name.slice(0, -".crdd-commit.json".length);
+        if (
+          !entry.isFile() ||
+          entry.isSymbolicLink() ||
+          !entryNames.has(dataName)
+        )
+          throw new Error("docker_task_runtime_state_orphan_commit");
+        continue;
+      }
+      let match =
+        /^cleanup-docker-task-([a-f0-9]{64})-([a-f0-9]{64})-([a-f0-9]{64})$/u.exec(
+          entry.name,
+        );
+      if (match?.[1] && match[2] && match[3]) {
+        if (
+          !entry.isDirectory() ||
+          entry.isSymbolicLink() ||
+          records.has(match[2])
+        )
+          throw new Error("docker_task_runtime_state_cleanup_replaced");
+        inventoryRecoveryCleanupTombstone(path.join(rootPath, entry.name));
+        records.set(
+          match[2],
+          Object.freeze({
+            token: `docker-task.${match[1]}.${match[2]}.${match[3]}`,
+            stable: match[1],
+            nonce: match[2],
+            cleanup: true,
+          }),
+        );
+        continue;
+      }
+      match = /^docker-task-([a-f0-9]{64})$/u.exec(entry.name);
       if (match?.[1]) {
         if (!entry.isDirectory() || entry.isSymbolicLink())
           throw new Error("docker_task_runtime_state_entry_replaced");
-        const directoryBase = path.join(root.rootPath, entry.name, "base.json");
+        const directoryBase = path.join(rootPath, entry.name, "base.json");
         const directoryCommit = path.join(
-          root.rootPath,
+          rootPath,
           entry.name,
           "base-commit.json",
         );
         addRecord(
           fs.existsSync(directoryBase)
             ? directoryBase
-            : path.join(root.rootPath, `pending-docker-task-${match[1]}.json`),
+            : path.join(rootPath, `pending-docker-task-${match[1]}.json`),
           fs.existsSync(directoryCommit)
             ? directoryCommit
             : path.join(
-                root.rootPath,
+                rootPath,
                 `pending-docker-task-${match[1]}.commit.json`,
               ),
           match[1],
@@ -2222,7 +2801,11 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState() {
       }
       match = /^pending-docker-task-([a-f0-9]{64})\.json$/u.exec(entry.name);
       if (match?.[1]) {
-        if (!entry.isFile() || entry.isSymbolicLink())
+        if (
+          !entry.isFile() ||
+          entry.isSymbolicLink() ||
+          !entryNames.has(dockerRecoveryCommitName(entry.name))
+        )
           throw new Error("docker_task_runtime_state_entry_replaced");
         pendingBaseNames.add(match[1]);
         continue;
@@ -2231,19 +2814,28 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState() {
         entry.name,
       );
       if (match?.[1]) {
-        if (!entry.isFile() || entry.isSymbolicLink())
+        if (
+          !entry.isFile() ||
+          entry.isSymbolicLink() ||
+          !entryNames.has(dockerRecoveryCommitName(entry.name))
+        )
           throw new Error("docker_task_runtime_state_entry_replaced");
         pendingCommitNames.add(match[1]);
         continue;
       }
       if (/^active-lease-[a-f0-9]{64}\.json$/u.test(entry.name)) {
-        if (!entry.isFile() || entry.isSymbolicLink())
+        if (
+          !entry.isFile() ||
+          entry.isSymbolicLink() ||
+          !entryNames.has(dockerRecoveryCommitName(entry.name))
+        )
           throw new Error("docker_task_runtime_state_entry_replaced");
         pointers.push(
-          readExactJson(path.join(root.rootPath, entry.name)).value as Record<
-            string,
-            unknown
-          >,
+          Object.freeze({
+            name: entry.name,
+            value: readExactJson(path.join(rootPath, entry.name))
+              .value as Record<string, unknown>,
+          }),
         );
         continue;
       }
@@ -2255,13 +2847,18 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState() {
       if (!pendingBaseNames.has(nonce) || !pendingCommitNames.has(nonce))
         throw new Error("docker_task_runtime_state_pending_incomplete");
       addRecord(
-        path.join(root.rootPath, `pending-docker-task-${nonce}.json`),
-        path.join(root.rootPath, `pending-docker-task-${nonce}.commit.json`),
+        path.join(rootPath, `pending-docker-task-${nonce}.json`),
+        path.join(rootPath, `pending-docker-task-${nonce}.commit.json`),
         nonce,
       );
     }
     const pointerTokens = new Set<string>();
-    for (const pointer of pointers) {
+    const activeStableLogicalHomeBindingHashes = new Set<string>();
+    for (const pointerRecord of pointers) {
+      const pointer = pointerRecord.value;
+      const filenameHash = /^active-lease-([a-f0-9]{64})\.json$/u.exec(
+        pointerRecord.name,
+      )?.[1];
       if (
         !exactRecordKeys(pointer, [
           "schema",
@@ -2271,32 +2868,47 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState() {
           "baseHash",
         ]) ||
         pointer.schema !== "crdd-coordinator-provider-home-active-lease/v1" ||
+        filenameHash !== pointer.stableLogicalHomeBindingHash ||
+        typeof pointer.baseHash !== "string" ||
         typeof pointer.recoveryId !== "string" ||
         ![...records.values()].some(
           (record) =>
             record.token === pointer.recoveryId &&
+            record.cleanup === false &&
             record.stable === pointer.stableLogicalHomeBindingHash &&
-            `docker-task-${record.nonce}` === pointer.operationName,
+            `docker-task-${record.nonce}` === pointer.operationName &&
+            record.token.endsWith(`.${pointer.baseHash}`),
         ) ||
         pointerTokens.has(pointer.recoveryId)
       )
         throw new Error("docker_task_runtime_state_orphan_pointer");
       pointerTokens.add(pointer.recoveryId);
+      activeStableLogicalHomeBindingHashes.add(
+        String(pointer.stableLogicalHomeBindingHash),
+      );
     }
     const recoveryIds = [...records.values()]
-      .map((record) => record.token)
-      .sort();
+      .sort((left, right) => {
+        const activeOrder =
+          Number(pointerTokens.has(right.token)) -
+          Number(pointerTokens.has(left.token));
+        return activeOrder || left.token.localeCompare(right.token);
+      })
+      .map((record) => record.token);
     if (recoveryIds.length === 0)
       throw new Error("docker_task_runtime_state_orphan_pointer");
     return Object.freeze({
-      status: "blocked" as const,
+      status: "completed" as const,
       reason:
         recoveryIds.length === 1
-          ? "docker_task_recovery_required"
-          : "docker_task_multiple_recoveries_required",
+          ? "docker_task_recovery_inventory_available"
+          : "docker_task_multiple_recovery_inventory_available",
       manualRecoveryRequired: true,
       dockerRecoveryId: recoveryIds.length === 1 ? recoveryIds[0] : null,
       dockerRecoveryIds: Object.freeze(recoveryIds),
+      activeStableLogicalHomeBindingHashes: Object.freeze(
+        [...activeStableLogicalHomeBindingHashes].sort(),
+      ),
     });
   } catch (error) {
     return Object.freeze({
@@ -2307,6 +2919,39 @@ export function inspectRuntimeOwnedDockerTaskRecoveryState() {
       ),
       manualRecoveryRequired: true,
       dockerRecoveryId: null,
+      dockerRecoveryIds: Object.freeze([]),
+      activeStableLogicalHomeBindingHashes: Object.freeze([]),
+    });
+  }
+}
+
+export function inspectRuntimeOwnedDockerTaskRecoveryState() {
+  try {
+    const observation = inspectRuntimeOwnedWindowsRuntimeState(
+      true,
+      new Date().toISOString(),
+    );
+    const root = consumeRuntimeOwnedRuntimeStateRootCapability(
+      observation.rootCapability,
+    );
+    if (observation.status !== "candidate" || !root)
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "docker_task_runtime_state_unavailable",
+        manualRecoveryRequired: true,
+        dockerRecoveryId: null,
+        dockerRecoveryIds: Object.freeze([]),
+        activeStableLogicalHomeBindingHashes: Object.freeze([]),
+      });
+    return inspectDockerRecoveryRootSnapshot(root.rootPath);
+  } catch {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "docker_task_runtime_state_audit_failed",
+      manualRecoveryRequired: true,
+      dockerRecoveryId: null,
+      dockerRecoveryIds: Object.freeze([]),
+      activeStableLogicalHomeBindingHashes: Object.freeze([]),
     });
   }
 }

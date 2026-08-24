@@ -7,7 +7,8 @@ export type SafeCommandReport = Readonly<{
   expiresAtMs?: number | null;
   manualRecoveryRequired?: boolean;
   hostRecoveryId?: string | null;
-  dockerRecoveryId?: string | null;
+  dockerRecoveryId?: string | null | undefined;
+  dockerRecoveryIds?: readonly string[] | undefined;
   candidateRecoveryId?: string | null;
   candidateStoreRecoveryId?: string | null;
 }>;
@@ -52,8 +53,30 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
       /^candidate-store-recovery\.[0-9a-f]{64}$/u,
     ],
   ] as const;
+  const dockerRecoveryIds = [
+    ...(Array.isArray(report.dockerRecoveryIds)
+      ? report.dockerRecoveryIds
+      : []),
+    ...(typeof report.dockerRecoveryId === "string"
+      ? [report.dockerRecoveryId]
+      : []),
+  ].filter((value, index, values) => values.indexOf(value) === index);
+  for (const recoveryId of dockerRecoveryIds) {
+    if (
+      /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+        recoveryId,
+      )
+    ) {
+      lines.push(
+        `- Docker recovery ID: ${recoveryId}`,
+        `- next: coordinator doctor --recover-isolation ${recoveryId}`,
+      );
+    }
+  }
   for (const [label, value, pattern] of recoveryFields) {
     if (typeof value === "string" && pattern.test(value)) {
+      if (label === "Docker recovery ID" && dockerRecoveryIds.includes(value))
+        continue;
       lines.push(`- ${label}: ${value}`);
     }
   }

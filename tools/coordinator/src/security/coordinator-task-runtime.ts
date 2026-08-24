@@ -57,7 +57,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 6;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 7;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -163,6 +163,10 @@ type RuntimeDependencies = Readonly<{
   startProcess: (
     preparedCapability: object,
     managementCapability: object,
+    registerRecoveryHandoff: (
+      recoveryCapability: unknown,
+      recoveryId: unknown,
+    ) => boolean,
   ) => RuntimeRecord;
   cancelProcess: (
     controlCapability: object,
@@ -205,6 +209,11 @@ type ControlRecord = {
   dockerFinalizations: Array<
     Readonly<{ capability: object; recoveryId: string }>
   >;
+  dockerHandoffs: Array<{
+    capability: object;
+    recoveryId: string;
+    abandoned: boolean;
+  }>;
 };
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
@@ -219,6 +228,9 @@ function blocked(
   candidateRecoveryId: string | null = null,
   cleanupConfirmedOverride: boolean | null = null,
   candidateStoreRecoveryId: string | null = null,
+  dockerRecoveryIds: readonly string[] = dockerRecoveryId
+    ? [dockerRecoveryId]
+    : [],
 ) {
   return Object.freeze({
     status: "blocked" as const,
@@ -230,6 +242,9 @@ function blocked(
     manualRecoveryRequired,
     hostRecoveryId: manualRecoveryRequired ? hostRecoveryId : null,
     dockerRecoveryId: manualRecoveryRequired ? dockerRecoveryId : null,
+    dockerRecoveryIds: manualRecoveryRequired
+      ? Object.freeze([...new Set(dockerRecoveryIds)])
+      : Object.freeze([]),
     candidateRecoveryId: manualRecoveryRequired ? candidateRecoveryId : null,
     candidateStoreRecoveryId: manualRecoveryRequired
       ? candidateStoreRecoveryId
@@ -256,6 +271,12 @@ function objectCapability(value: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function controlDockerRecoveryIds(control: ControlRecord) {
+  return Object.freeze([
+    ...new Set(control.dockerHandoffs.map((handoff) => handoff.recoveryId)),
+  ]);
 }
 
 function snapshotRequest(rawRequest: unknown) {
@@ -535,6 +556,25 @@ async function executeStage(
     const process = state.dependencies.startProcess(
       preparedCapability,
       operation.managementCapability,
+      (recoveryCapability, recoveryId) => {
+        const capability = objectCapability(recoveryCapability);
+        const id = stringValue(recoveryId);
+        if (
+          !capability ||
+          !id ||
+          control.dockerHandoffs.some(
+            (handoff) =>
+              handoff.capability === capability || handoff.recoveryId === id,
+          )
+        )
+          return false;
+        control.dockerHandoffs.push({
+          capability,
+          recoveryId: id,
+          abandoned: false,
+        });
+        return true;
+      },
     );
     const processControl = objectCapability(process.controlCapability);
     const completion = process.completion;
@@ -582,9 +622,15 @@ async function executeStage(
     const finalizationCapability = objectCapability(
       result.recoveryFinalizationCapability,
     );
+    const handoff = control.dockerHandoffs.find(
+      (candidate) => candidate.recoveryId === startedDockerRecoveryId,
+    );
     if (
       state.dependencies.finalizeDockerRecovery &&
-      (!finalizationCapability || !startedDockerRecoveryId)
+      (!finalizationCapability ||
+        !startedDockerRecoveryId ||
+        !handoff ||
+        handoff.capability !== finalizationCapability)
     ) {
       return blocked(
         "coordinator_task_docker_finalization_capability_missing",
@@ -1059,8 +1105,11 @@ function retainRuntimeRecoveryState(
   control: ControlRecord,
 ) {
   control.retainOperationRoot = true;
-  for (const finalization of control.dockerFinalizations)
-    void state.dependencies.abandonDockerRecovery?.(finalization.capability);
+  for (const handoff of control.dockerHandoffs) {
+    if (handoff.abandoned) continue;
+    if (state.dependencies.abandonDockerRecovery?.(handoff.capability) === true)
+      handoff.abandoned = true;
+  }
   void abandonOwnedHostOperationGenerationLock(control.managementCapability);
 }
 
@@ -1084,6 +1133,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         retainOperationRoot: false,
         hostRecoveryId: null,
         dockerFinalizations: [],
+        dockerHandoffs: [],
       };
       state.controls.set(controlCapability, control);
       const completion = run(
@@ -1094,7 +1144,35 @@ function createRuntime(dependencies: RuntimeDependencies) {
         controlCapability,
         control,
       )
-        .then((result) => {
+        .then((rawResult) => {
+          const rawResultRecord = rawResult as RuntimeRecord;
+          const allDockerRecoveryIds = [
+            ...(Array.isArray(rawResultRecord.dockerRecoveryIds)
+              ? rawResultRecord.dockerRecoveryIds.filter(
+                  (value: unknown): value is string =>
+                    typeof value === "string",
+                )
+              : []),
+            ...(stringValue(rawResultRecord.dockerRecoveryId)
+              ? [String(rawResultRecord.dockerRecoveryId)]
+              : []),
+            ...control.dockerHandoffs.map((handoff) => handoff.recoveryId),
+          ];
+          const uniqueDockerRecoveryIds = Object.freeze([
+            ...new Set(allDockerRecoveryIds),
+          ]);
+          const projectedDockerRecoveryIds =
+            rawResult.manualRecoveryRequired === true
+              ? uniqueDockerRecoveryIds
+              : Object.freeze([] as string[]);
+          const result = Object.freeze({
+            ...rawResult,
+            dockerRecoveryId:
+              projectedDockerRecoveryIds.length === 1
+                ? projectedDockerRecoveryIds[0]
+                : null,
+            dockerRecoveryIds: projectedDockerRecoveryIds,
+          });
           try {
             if (
               (result.manualRecoveryRequired === true &&
@@ -1125,6 +1203,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   stringValue(result.candidateRecoveryId),
                   false,
                   stringValue(result.candidateStoreRecoveryId),
+                  uniqueDockerRecoveryIds,
                 );
               }
               control.hostRecoveryId = hostRecoveryId;
@@ -1150,6 +1229,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   stringValue(result.candidateRecoveryId),
                   false,
                   stringValue(result.candidateStoreRecoveryId),
+                  uniqueDockerRecoveryIds,
                 );
               }
             }
@@ -1171,6 +1251,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   stringValue(result.candidateRecoveryId),
                   false,
                   stringValue(result.candidateStoreRecoveryId),
+                  uniqueDockerRecoveryIds,
                 );
               }
             }
@@ -1246,6 +1327,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               discarded?.status === "discarded" ? null : candidateRecoveryId,
               null,
               stringValue(discarded?.candidateStoreRecoveryId),
+              uniqueDockerRecoveryIds,
             );
           }
         })
@@ -1255,6 +1337,11 @@ function createRuntime(dependencies: RuntimeDependencies) {
             "coordinator_task_operation_cleanup_unconfirmed",
             true,
             control.hostRecoveryId,
+            null,
+            null,
+            null,
+            null,
+            controlDockerRecoveryIds(control),
           );
         })
         .finally(() => state.controls.delete(controlCapability));

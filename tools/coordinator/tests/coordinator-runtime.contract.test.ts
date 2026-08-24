@@ -159,9 +159,21 @@ function fixture(overrides: Record<string, unknown> = {}) {
         selectionNotice: "経路選定理由: bounded implementation",
       });
     },
-    startProcess: (prepared: object, management: object) => {
+    startProcess: (
+      prepared: object,
+      management: object,
+      registerRecoveryHandoff: (
+        capability: unknown,
+        recoveryId: unknown,
+      ) => boolean,
+    ) => {
       assert.equal(prepared, preparedCapability);
       assert.equal(management, managementCapability);
+      const recoveryCapability = Object.freeze({});
+      assert.equal(
+        registerRecoveryHandoff(recoveryCapability, "docker.fixture.probe"),
+        true,
+      );
       calls.push("start_process");
       return Object.freeze({
         status: "started",
@@ -174,6 +186,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
             cleanupConfirmed: true,
             manualRecoveryRequired: false,
             normalizedResult: Object.freeze({ status: true }),
+            recoveryFinalizationCapability: recoveryCapability,
           }),
         ),
       });
@@ -184,6 +197,10 @@ function fixture(overrides: Record<string, unknown> = {}) {
       cancelCount += 1;
       return Object.freeze({ status: "requested" });
     },
+    abandonDockerRecovery: () => true,
+    prepareDockerHostCleanup: () => "host.fixture.recovery",
+    recordDockerHostCleanupReceipt: () => true,
+    finalizeDockerRecovery: () => Object.freeze({ status: "completed" }),
     ...overrides,
   };
   const runtime = createIsolatedCoordinatorRuntimeCandidate(
@@ -275,8 +292,20 @@ test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する"
         selectionNotice: "cross_provider_route_selected",
       });
     },
-    startProcess: () =>
-      Object.freeze({
+    startProcess: (
+      _prepared: object,
+      _management: object,
+      registerRecoveryHandoff: (
+        capability: unknown,
+        recoveryId: unknown,
+      ) => boolean,
+    ) => {
+      const recoveryCapability = Object.freeze({});
+      assert.equal(
+        registerRecoveryHandoff(recoveryCapability, "docker.fixture.codex"),
+        true,
+      );
+      return Object.freeze({
         status: "started",
         reason: "started",
         controlCapability: Object.freeze({}),
@@ -287,9 +316,11 @@ test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する"
             cleanupConfirmed: true,
             manualRecoveryRequired: false,
             normalizedResult: Object.freeze({ status: true }),
+            recoveryFinalizationCapability: recoveryCapability,
           }),
         ),
-      }),
+      });
+    },
   });
   const started = h.runtime.start(
     request({ frontProvider: "claude" }),
@@ -454,7 +485,7 @@ test("動的入力とsource checkoutのProduction入口はProvider Effect前に�
 
 test("公開契約はSubscription probeと非canonical Effect境界を固定する", () => {
   const contract = describeCoordinatorRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(
     contract.currentVerticalSlice,
     "codex_and_claude_subscription_boolean_probe",

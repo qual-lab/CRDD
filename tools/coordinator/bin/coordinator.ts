@@ -28,7 +28,10 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
-import { recoverRuntimeOwnedDockerTask } from "../src/security/docker-recovery-runtime.ts";
+import {
+  inspectRuntimeOwnedDockerTaskRecoveryState,
+  recoverRuntimeOwnedDockerTask,
+} from "../src/security/docker-recovery-runtime.ts";
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { runPlatformProvisionerEffect } from "../src/security/platform-provisioner-effect.ts";
 import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
@@ -500,10 +503,13 @@ if (
           : recoveryId.startsWith("docker-task.")
             ? recoverRuntimeOwnedDockerTask(recoveryId)
             : recoverDockerIsolationProbe(recoveryId)
-        : runDoctor({
-            activeIsolation: options.activeIsolation,
-            cwd: process.cwd(),
-            runtimeRootRequest: options.runtimeRootRequest,
+        : Object.freeze({
+            ...runDoctor({
+              activeIsolation: options.activeIsolation,
+              cwd: process.cwd(),
+              runtimeRootRequest: options.runtimeRootRequest,
+            }),
+            dockerTaskRecovery: inspectRuntimeOwnedDockerTaskRecoveryState(),
           });
     const reportValue = plainRecord(report);
     if (!reportValue || typeof reportValue.status !== "string") {
@@ -572,6 +578,27 @@ if (
         process.stdout.write(
           `- recovery: run doctor --recover-isolation with the returned recovery ID\n`,
         );
+      }
+      const dockerTaskRecovery = plainRecord(reportValue.dockerTaskRecovery);
+      const dockerRecoveryIds = plainArray(
+        dockerTaskRecovery?.dockerRecoveryIds,
+      ).filter(
+        (value): value is string =>
+          typeof value === "string" &&
+          /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+            value,
+          ),
+      );
+      if (dockerRecoveryIds.length > 0) {
+        process.stdout.write(
+          `- Docker Task recoveries: ${dockerRecoveryIds.length}\n`,
+        );
+        for (const dockerRecoveryId of dockerRecoveryIds) {
+          process.stdout.write(`  - recovery ID: ${dockerRecoveryId}\n`);
+          process.stdout.write(
+            `    next: coordinator doctor --recover-isolation ${dockerRecoveryId}\n`,
+          );
+        }
       }
       const blockers = plainArray(reportValue.blockers);
       process.stdout.write(`- blockers: ${blockers.length}\n`);

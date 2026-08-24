@@ -67,6 +67,7 @@ function fixture(
   let discardCount = 0;
   let externalAuthorizationCount = 0;
   let releasePausedProcess: (() => void) | null = null;
+  const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
     createOperation: () =>
       Object.freeze({
@@ -201,7 +202,14 @@ function fixture(
         selectionNotice: `${role}-selection-notice`,
       });
     },
-    startProcess: (preparedCapability: object) => {
+    startProcess: (
+      preparedCapability: object,
+      _managementCapability: object,
+      registerRecoveryHandoff: (
+        capability: unknown,
+        recoveryId: unknown,
+      ) => boolean,
+    ) => {
       const role = preparedRoles.get(preparedCapability);
       assert.ok(role);
       events.push(`start:${role}`);
@@ -214,6 +222,14 @@ function fixture(
         });
       }
       const reviewerDecision = options.reviewerDecision ?? "approved";
+      const recoveryCapability = Object.freeze({ role });
+      const processCount = (processCounts.get(role) ?? 0) + 1;
+      processCounts.set(role, processCount);
+      const activeRecoveryId = `docker.fixture.${role}.active${processCount === 1 ? "" : `-${processCount}`}`;
+      assert.equal(
+        registerRecoveryHandoff(recoveryCapability, activeRecoveryId),
+        true,
+      );
       const reviewerAttempt = selectionCount > 3 ? 1 : 0;
       const effectiveReviewerDecision =
         role === "reviewer" && reviewerAttempt === 1
@@ -224,9 +240,9 @@ function fixture(
         status: cleanupFails ? "blocked" : "completed",
         reason: cleanupFails ? "fixture_cleanup_failed" : "completed",
         cleanupConfirmed: !cleanupFails,
-        recoveryId: cleanupFails ? `docker.fixture.${role}.completion` : null,
+        recoveryId: cleanupFails ? activeRecoveryId : null,
         ...(options.hostCleanupWal
-          ? { recoveryFinalizationCapability: Object.freeze({ role }) }
+          ? { recoveryFinalizationCapability: recoveryCapability }
           : {}),
         normalizedResult:
           role === "executor"
@@ -258,7 +274,7 @@ function fixture(
         status: "started",
         reason: "started",
         controlCapability: Object.freeze({}),
-        recoveryId: `docker.fixture.${role}.active`,
+        recoveryId: activeRecoveryId,
         completion,
       });
     },
@@ -653,18 +669,18 @@ test("Provider completion rejectは取消を試みOperation RootをRecovery用�
 });
 
 test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを分離する", async () => {
-  for (const [options, expected] of [
+  for (const [options, expectedIds] of [
     [
       { processStartFailureRole: "executor" as const },
-      "docker.fixture.executor.start",
+      ["docker.fixture.executor.start"],
     ],
     [
       { processCleanupFailureRole: "executor" as const },
-      "docker.fixture.executor.completion",
+      ["docker.fixture.executor.active"],
     ],
     [
       { processCleanupFailureRole: "reviewer" as const },
-      "docker.fixture.reviewer.completion",
+      ["docker.fixture.reviewer.active", "docker.fixture.executor.active"],
     ],
   ] as const) {
     const harness = fixture(options);
@@ -676,7 +692,11 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
-    assert.equal(result.dockerRecoveryId, expected);
+    assert.equal(
+      result.dockerRecoveryId,
+      expectedIds.length === 1 ? expectedIds[0] : null,
+    );
+    assert.deepEqual(result.dockerRecoveryIds, expectedIds);
     assert.equal(harness.cleanupCount(), 0);
   }
 });
@@ -731,7 +751,7 @@ test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
