@@ -47,7 +47,7 @@ type RuntimeState = Readonly<{
   verifyOperation: (
     managementCapability: unknown,
   ) => Readonly<{ operationId: string; createdAt: string }>;
-  observeAvailableProviders: () => readonly Provider[] | null;
+  observeProviderEligibility: () => unknown;
   resolveModelProfile: (route: CandidateRoute) => ResolvedModelProfile | null;
   wallNow: () => number;
   monotonicNow: () => number;
@@ -70,7 +70,7 @@ function createRuntimeState(
 
 const productionState = createRuntimeState({
   verifyOperation: verifyOwnedOperationManagementCapability,
-  observeAvailableProviders: () => null,
+  observeProviderEligibility: () => null,
   resolveModelProfile: () => null,
   wallNow: Date.now,
   monotonicNow: performance.now.bind(performance),
@@ -160,14 +160,14 @@ function issueSelectionGrant(
     );
   }
   const operation = state.verifyOperation(managementCapability);
-  const availableProviders = state.observeAvailableProviders();
-  if (!availableProviders) {
+  const providerEligibility = state.observeProviderEligibility();
+  if (!providerEligibility) {
     return createBlockedResult(
       "delegation_selection_provider_observation_unavailable",
     );
   }
   const route = selectDelegationRouteCandidate(rawRequest, {
-    availableProviders,
+    providerEligibility,
   });
   if (
     route.status !== "candidate" ||
@@ -446,8 +446,8 @@ export function describeDelegationSelectionGrantRuntimeContract() {
     aliases: Object.freeze(["control", "use"]),
     maximumUses: 1,
     operationBinding: "runtime_owned_management_capability",
-    providerAvailability:
-      "runtime_observation_required_production_not_connected",
+    providerEligibility:
+      "runtime_capability_auth_subscription_quota_distribution_and_policy_observation_required_production_not_connected",
     exactModelId: "verified_provider_profile_required",
     billingMode: "subscription_oauth_only",
     speedMode: "normal_only",

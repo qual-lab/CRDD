@@ -12,6 +12,8 @@ function createRequest(
 ) {
   return {
     frontProvider,
+    delegationNeed: "beneficial",
+    delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
     subjectProvider: null,
     requiresIndependentProvider: false,
@@ -32,14 +34,17 @@ function createRequest(
   };
 }
 
-const bothAvailable = Object.freeze({
-  availableProviders: Object.freeze(["codex", "claude"]),
+const bothEligible = Object.freeze({
+  providerEligibility: Object.freeze([
+    Object.freeze({ provider: "codex", status: "eligible", reason: "ready" }),
+    Object.freeze({ provider: "claude", status: "eligible", reason: "ready" }),
+  ]),
 });
 
 test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("codex"),
-    bothAvailable,
+    bothEligible,
   );
   assert.equal(selected.status, "candidate");
   assert.equal(selected.route, "front_codex__executor_claude");
@@ -47,6 +52,24 @@ test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => 
   assert.equal(selected.modelSelection?.effort, "low");
   assert.match(selected.selectionNotice ?? "", /front=codex executor=claude/);
   assert.equal(selected.providerEffectAllowed, false);
+});
+
+test("移譲不要ならProvider eligibilityなしでFront Agentだけに保持する", () => {
+  const selected = selectDelegationRouteCandidate(
+    createRequest("codex", {
+      delegationNeed: "none",
+      delegationReason:
+        "front_can_complete_without_specialized_or_independent_child",
+    }),
+    { providerEligibility: null },
+  );
+  assert.equal(selected.status, "retained");
+  assert.equal(selected.route, "front_codex_only");
+  assert.equal(selected.executorProvider, null);
+  assert.equal(selected.delegationDepth, 0);
+  assert.equal(selected.selectionCapabilityIssued, false);
+  assert.equal(selected.providerEffectAllowed, false);
+  assert.match(selected.selectionNotice ?? "", /子Agent費用=no/);
 });
 
 test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
@@ -62,7 +85,7 @@ test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
       isLocalCandidateOnly: false,
       requiresCrossContextAlignment: true,
     }),
-    bothAvailable,
+    bothEligible,
   );
   assert.equal(selected.status, "candidate");
   assert.equal(selected.route, "front_claude__executor_codex");
@@ -74,29 +97,35 @@ test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
   );
 });
 
-test("Front Codexから検証をCodexへ選ぶ①経路", () => {
+test("Codex向きの検証特性ならFront CodexからCodexへ委譲する①経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("codex", {
       workClass: "bounded_verification",
       role: "executor",
     }),
-    bothAvailable,
+    bothEligible,
   );
   assert.equal(selected.status, "candidate");
   assert.equal(selected.route, "front_codex__executor_codex");
   assert.equal(selected.executorProvider, "codex");
+  assert.equal(
+    selected.selectionReasonCodes.includes(
+      "same_provider_due_task_characteristic",
+    ),
+    true,
+  );
 });
 
-test("Front Claudeから具体実装をClaudeへ選ぶ④経路", () => {
+test("Front Claudeから具体実装をCodexへ分散する③経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("claude"),
-    bothAvailable,
+    bothEligible,
   );
   assert.equal(selected.status, "candidate");
-  assert.equal(selected.route, "front_claude__executor_claude");
-  assert.equal(selected.executorProvider, "claude");
+  assert.equal(selected.route, "front_claude__executor_codex");
+  assert.equal(selected.executorProvider, "codex");
   assert.equal(
-    selected.selectionReasonCodes.includes("same_provider_route_allowed"),
+    selected.selectionReasonCodes.includes("cross_provider_route_selected"),
     true,
   );
 });
@@ -104,7 +133,7 @@ test("Front Claudeから具体実装をClaudeへ選ぶ④経路", () => {
 test("明示Executor制約を優先し利用不能時に無言で変更しない", () => {
   const explicit = selectDelegationRouteCandidate(
     createRequest("codex", { requestedExecutorProvider: "codex" }),
-    bothAvailable,
+    bothEligible,
   );
   assert.equal(explicit.executorProvider, "codex");
   assert.equal(
@@ -113,29 +142,86 @@ test("明示Executor制約を優先し利用不能時に無言で変更しない
   );
   const unavailable = selectDelegationRouteCandidate(
     createRequest("codex", { requestedExecutorProvider: "codex" }),
-    { availableProviders: ["claude"] },
+    {
+      providerEligibility: [
+        {
+          provider: "codex",
+          status: "ineligible",
+          reason: "subscription_quota_unavailable",
+        },
+        { provider: "claude", status: "eligible", reason: "ready" },
+      ],
+    },
   );
   assert.equal(unavailable.status, "blocked");
   assert.equal(unavailable.reason, "delegation_route_executor_unavailable");
 });
 
-test("選定前に優先Providerが利用不能なら理由を表示して代替候補を選ぶ", () => {
+test("反対ProviderのSubscription quota不足時だけ同一Providerへ戻す", () => {
   const selected = selectDelegationRouteCandidate(createRequest("codex"), {
-    availableProviders: ["codex"],
+    providerEligibility: [
+      { provider: "codex", status: "eligible", reason: "ready" },
+      {
+        provider: "claude",
+        status: "ineligible",
+        reason: "subscription_quota_unavailable",
+      },
+    ],
   });
   assert.equal(selected.status, "candidate");
   assert.equal(selected.executorProvider, "codex");
   assert.equal(
     selected.selectionReasonCodes[0],
-    "preferred_provider_unavailable_before_selection",
+    "cross_provider_subscription_quota_unavailable_before_selection",
   );
   assert.match(
     selected.selectionNotice ?? "",
-    /preferred_provider_unavailable_before_selection/,
+    /cross_provider_subscription_quota_unavailable_before_selection/,
+  );
+  assert.equal(
+    selected.selectionReasonCodes.includes(
+      "same_provider_due_cross_provider_ineligibility",
+    ),
+    true,
   );
 });
 
-test("独立Provider欠落、循環、深度超過と不正availabilityをfail closedにする", () => {
+test("反対Providerのeligibilityが不明なら同一Providerへ推測fallbackしない", () => {
+  const selected = selectDelegationRouteCandidate(createRequest("codex"), {
+    providerEligibility: [
+      { provider: "codex", status: "eligible", reason: "ready" },
+      {
+        provider: "claude",
+        status: "ineligible",
+        reason: "observation_unavailable",
+      },
+    ],
+  });
+  assert.equal(selected.status, "blocked");
+  assert.equal(selected.reason, "delegation_route_executor_unavailable");
+});
+
+test("反対Providerに必要CapabilityがなければFront ClaudeからClaudeへ戻す④経路", () => {
+  const selected = selectDelegationRouteCandidate(createRequest("claude"), {
+    providerEligibility: [
+      {
+        provider: "codex",
+        status: "ineligible",
+        reason: "required_capability_unavailable",
+      },
+      { provider: "claude", status: "eligible", reason: "ready" },
+    ],
+  });
+  assert.equal(selected.status, "candidate");
+  assert.equal(selected.route, "front_claude__executor_claude");
+  assert.equal(selected.executorProvider, "claude");
+  assert.equal(
+    selected.selectionReasonCodes[0],
+    "cross_provider_required_capability_unavailable_before_selection",
+  );
+});
+
+test("独立Provider欠落、循環、深度超過と不正eligibilityをfail closedにする", () => {
   const noIndependent = selectDelegationRouteCandidate(
     createRequest("claude", {
       subjectProvider: "claude",
@@ -143,7 +229,16 @@ test("独立Provider欠落、循環、深度超過と不正availabilityをfail c
       role: "independent_reviewer",
       workClass: "security_review",
     }),
-    { availableProviders: ["claude"] },
+    {
+      providerEligibility: [
+        {
+          provider: "codex",
+          status: "ineligible",
+          reason: "subscription_quota_unavailable",
+        },
+        { provider: "claude", status: "eligible", reason: "ready" },
+      ],
+    },
   );
   assert.equal(noIndependent.reason, "delegation_route_executor_unavailable");
   const cycle = selectDelegationRouteCandidate(
@@ -153,7 +248,7 @@ test("独立Provider欠落、循環、深度超過と不正availabilityをfail c
       ancestorOperationIds: ["OP-123456"],
       delegationDepth: 1,
     }),
-    bothAvailable,
+    bothEligible,
   );
   assert.equal(cycle.reason, "delegation_route_operation_chain_invalid");
   const depth = selectDelegationRouteCandidate(
@@ -163,14 +258,17 @@ test("独立Provider欠落、循環、深度超過と不正availabilityをfail c
       ancestorOperationIds: ["OP-111111", "OP-222222"],
       delegationDepth: 2,
     }),
-    bothAvailable,
+    bothEligible,
   );
   assert.equal(depth.reason, "delegation_route_operation_chain_invalid");
   assert.equal(
     selectDelegationRouteCandidate(createRequest("codex"), {
-      availableProviders: ["codex", "codex"],
+      providerEligibility: [
+        { provider: "codex", status: "eligible", reason: "ready" },
+        { provider: "codex", status: "eligible", reason: "ready" },
+      ],
     }).reason,
-    "delegation_route_availability_invalid",
+    "delegation_route_provider_eligibility_invalid",
   );
 });
 
@@ -181,9 +279,24 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
         role: "independent_reviewer",
         workClass: "security_review",
       }),
-      bothAvailable,
+      bothEligible,
     ).reason,
     "delegation_route_independence_invalid",
+  );
+  assert.equal(
+    selectDelegationRouteCandidate(
+      createRequest("codex", {
+        delegationNeed: "none",
+        delegationReason:
+          "front_can_complete_without_specialized_or_independent_child",
+        role: "independent_reviewer",
+        workClass: "security_review",
+        subjectProvider: "claude",
+        requiresIndependentProvider: true,
+      }),
+      { providerEligibility: null },
+    ).reason,
+    "delegation_route_request_invalid",
   );
   assert.equal(
     selectDelegationRouteCandidate(
@@ -193,7 +306,7 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
         subjectProvider: "claude",
         requiresIndependentProvider: false,
       }),
-      bothAvailable,
+      bothEligible,
     ).reason,
     "delegation_route_independence_invalid",
   );
@@ -208,6 +321,22 @@ test("公開契約は4経路とCoordinator Gateを固定する", () => {
     "front_claude__executor_claude",
   ]);
   assert.equal(contract.frontAndExecutorIndependentAxes, true);
+  assert.equal(
+    contract.defaultRoutePreference,
+    "cross_provider_to_distribute_front_subscription_capacity",
+  );
+  assert.equal(
+    contract.taskRoleAffectsExecutorProvider,
+    "only_explainable_provider_specific_characteristics",
+  );
+  assert.equal(
+    contract.frontOnlyDisposition,
+    "implemented_as_retained_result_without_selection_grant_or_provider_effect",
+  );
+  assert.equal(
+    contract.unknownCrossProviderEligibilityAllowsSameProvider,
+    false,
+  );
   assert.equal(contract.maximumDelegationDepth, 2);
   assert.equal(contract.cyclicOperationChainAllowed, false);
   assert.equal(contract.directProviderSpawnAllowed, false);

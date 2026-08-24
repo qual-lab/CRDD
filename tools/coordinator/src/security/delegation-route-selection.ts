@@ -6,13 +6,15 @@ import { selectProviderModelCandidate } from "./provider-model-selection-runtime
 
 export const DELEGATION_ROUTE_SELECTION_CONTRACT =
   "crdd-coordinator/delegation-route-selection";
-export const DELEGATION_ROUTE_SELECTION_CONTRACT_REVISION = 1;
+export const DELEGATION_ROUTE_SELECTION_CONTRACT_REVISION = 2;
 
 const MAXIMUM_DELEGATION_DEPTH = 2;
 const MAXIMUM_ANCESTOR_OPERATIONS = 2;
 const OPERATION_ID = /^OP-[0-9]{6,}$/u;
 const REQUEST_KEYS = new Set([
   "frontProvider",
+  "delegationNeed",
+  "delegationReason",
   "requestedExecutorProvider",
   "subjectProvider",
   "requiresIndependentProvider",
@@ -30,9 +32,33 @@ const REQUEST_KEYS = new Set([
   "ancestorOperationIds",
   "delegationDepth",
 ]);
-const OBSERVATION_KEYS = new Set(["availableProviders"]);
+const OBSERVATION_KEYS = new Set(["providerEligibility"]);
+const ELIGIBILITY_KEYS = new Set(["provider", "status", "reason"]);
 const PROVIDERS = new Set(["codex", "claude"]);
+const INELIGIBILITY_REASONS = new Set([
+  "required_capability_unavailable",
+  "subscription_auth_unavailable",
+  "subscription_quota_unavailable",
+  "provider_distribution_unavailable",
+  "policy_blocked",
+  "observation_unavailable",
+]);
+const SAME_PROVIDER_FALLBACK_REASONS = new Set([
+  "required_capability_unavailable",
+  "subscription_auth_unavailable",
+  "subscription_quota_unavailable",
+  "provider_distribution_unavailable",
+  "policy_blocked",
+]);
 const REQUESTED_PROVIDERS = new Set(["auto", "codex", "claude"]);
+const DELEGATION_NEEDS = new Set(["none", "beneficial", "required"]);
+const DELEGATION_REASONS = new Set([
+  "front_can_complete_without_specialized_or_independent_child",
+  "specialized_executor_benefit",
+  "independent_review_required",
+  "parallel_execution_benefit",
+  "explicit_user_delegation",
+]);
 const ROLES = new Set([
   "coordinator",
   "executor",
@@ -54,6 +80,18 @@ const DIFFICULTIES = new Set(["low", "medium", "high"]);
 const DECISION_IMPACTS = new Set(["limited", "material", "critical"]);
 
 type Provider = "codex" | "claude";
+type ProviderEligibility = Readonly<{
+  provider: Provider;
+  status: "eligible" | "ineligible";
+  reason:
+    | "ready"
+    | "required_capability_unavailable"
+    | "subscription_auth_unavailable"
+    | "subscription_quota_unavailable"
+    | "provider_distribution_unavailable"
+    | "policy_blocked"
+    | "observation_unavailable";
+}>;
 
 function createBlockedResult(reason: string) {
   return Object.freeze({
@@ -82,19 +120,47 @@ function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
 
+function isDelegationDispositionValid(
+  need: unknown,
+  reason: unknown,
+  role: unknown,
+) {
+  if (
+    typeof need !== "string" ||
+    !DELEGATION_NEEDS.has(need) ||
+    typeof reason !== "string" ||
+    !DELEGATION_REASONS.has(reason)
+  ) {
+    return false;
+  }
+  if (need === "none") {
+    return (
+      reason ===
+        "front_can_complete_without_specialized_or_independent_child" &&
+      role !== "independent_reviewer"
+    );
+  }
+  return (
+    reason !== "front_can_complete_without_specialized_or_independent_child"
+  );
+}
+
 function selectPreferredProvider(
+  frontProvider: Provider,
   role: unknown,
   workClass: unknown,
   subjectProvider: Provider | null,
   shouldUseIndependentProvider: boolean,
-): Provider {
+): Readonly<{ provider: Provider; reason: string }> {
   if (shouldUseIndependentProvider && subjectProvider) {
-    return subjectProvider === "codex" ? "claude" : "codex";
+    return Object.freeze({
+      provider: subjectProvider === "codex" ? "claude" : "codex",
+      reason: "independent_provider_required",
+    });
   }
   if (
-    role === "independent_reviewer" ||
-    role === "result_integration" ||
     role === "coordinator" ||
+    role === "result_integration" ||
     workClass === "bounded_verification" ||
     workClass === "diagnosis" ||
     workClass === "design_alignment" ||
@@ -102,21 +168,56 @@ function selectPreferredProvider(
     workClass === "security_review" ||
     workClass === "gap_impact_audit"
   ) {
-    return "codex";
+    return Object.freeze({
+      provider: "codex",
+      reason: "task_characteristic_codex_preference",
+    });
   }
-  return "claude";
+  return Object.freeze({
+    provider: frontProvider === "codex" ? "claude" : "codex",
+    reason: "cross_provider_credit_distribution_preference",
+  });
+}
+
+function snapshotProviderEligibility(raw: unknown) {
+  const values = snapshotPlainArray<unknown>(raw, PROVIDERS.size);
+  if (values.status !== "ok" || values.value.length !== PROVIDERS.size) {
+    return null;
+  }
+  const entries: ProviderEligibility[] = [];
+  for (const value of values.value) {
+    const entry = snapshotPlainRecord(value, ELIGIBILITY_KEYS);
+    if (
+      !entry ||
+      !isProvider(entry.provider) ||
+      (entry.status !== "eligible" && entry.status !== "ineligible") ||
+      typeof entry.reason !== "string" ||
+      (entry.status === "eligible" && entry.reason !== "ready") ||
+      (entry.status === "ineligible" &&
+        !INELIGIBILITY_REASONS.has(entry.reason))
+    ) {
+      return null;
+    }
+    entries.push(entry as ProviderEligibility);
+  }
+  if (new Set(entries.map((entry) => entry.provider)).size !== PROVIDERS.size) {
+    return null;
+  }
+  return new Map(entries.map((entry) => [entry.provider, entry]));
 }
 
 function selectExecutorProvider(
   requestedProvider: "auto" | Provider,
   preferredProvider: Provider,
-  availableProviders: ReadonlySet<Provider>,
+  preferredReason: string,
+  frontProvider: Provider,
+  providerEligibility: ReadonlyMap<Provider, ProviderEligibility>,
   subjectProvider: Provider | null,
   shouldUseIndependentProvider: boolean,
 ) {
   const candidates = (["codex", "claude"] as const).filter(
     (provider) =>
-      availableProviders.has(provider) &&
+      providerEligibility.get(provider)?.status === "eligible" &&
       (!shouldUseIndependentProvider || provider !== subjectProvider),
   );
   if (requestedProvider !== "auto") {
@@ -130,14 +231,25 @@ function selectExecutorProvider(
   if (candidates.includes(preferredProvider)) {
     return Object.freeze({
       provider: preferredProvider,
-      reason: "role_and_work_class_preference",
+      reason: preferredReason,
     });
+  }
+  const preferredEligibility = providerEligibility.get(preferredProvider);
+  if (
+    preferredProvider !== frontProvider &&
+    (preferredEligibility?.status !== "ineligible" ||
+      !SAME_PROVIDER_FALLBACK_REASONS.has(preferredEligibility.reason))
+  ) {
+    return null;
   }
   const alternateProvider = candidates[0];
   return alternateProvider
     ? Object.freeze({
         provider: alternateProvider,
-        reason: "preferred_provider_unavailable_before_selection",
+        reason:
+          preferredProvider === frontProvider
+            ? `task_preferred_provider_${preferredEligibility?.reason}_before_selection`
+            : `cross_provider_${preferredEligibility?.reason}_before_selection`,
       })
     : null;
 }
@@ -219,6 +331,11 @@ export function selectDelegationRouteCandidate(
   }
   if (
     !isProvider(request.frontProvider) ||
+    !isDelegationDispositionValid(
+      request.delegationNeed,
+      request.delegationReason,
+      request.role,
+    ) ||
     typeof request.requestedExecutorProvider !== "string" ||
     !REQUESTED_PROVIDERS.has(request.requestedExecutorProvider) ||
     (request.subjectProvider !== null &&
@@ -233,6 +350,14 @@ export function selectDelegationRouteCandidate(
     !isBoolean(request.isLocalCandidateOnly) ||
     !isBoolean(request.hasUnresolvedDirection) ||
     !isBoolean(request.requiresCrossContextAlignment)
+  ) {
+    return createBlockedResult("delegation_route_request_invalid");
+  }
+  if (
+    request.delegationNeed === "none" &&
+    (request.requestedExecutorProvider !== "auto" ||
+      request.subjectProvider !== null ||
+      request.requiresIndependentProvider !== false)
   ) {
     return createBlockedResult("delegation_route_request_invalid");
   }
@@ -253,19 +378,40 @@ export function selectDelegationRouteCandidate(
   if (!operationChain) {
     return createBlockedResult("delegation_route_operation_chain_invalid");
   }
-  const available = snapshotPlainArray<unknown>(
-    observation.availableProviders,
-    PROVIDERS.size,
+  const frontProvider = request.frontProvider as Provider;
+  if (request.delegationNeed === "none") {
+    const route = `front_${frontProvider}_only`;
+    const selectionReasonCodes = Object.freeze([
+      request.delegationReason as string,
+      "selection_grant_not_required",
+    ]);
+    return Object.freeze({
+      ...createBlockedResult("front_agent_retained"),
+      status: "retained" as const,
+      reason: "front_agent_retained",
+      frontProvider,
+      route,
+      selectionReasonCodes,
+      selectionNotice: [
+        `[委譲判断] front=${frontProvider} route=${route}`,
+        `移譲しない理由=${request.delegationReason}`,
+        "子Agent費用=no",
+      ].join("\n"),
+      operationId: operationChain.operationId,
+      parentOperationId: operationChain.parentOperationId,
+      ancestorOperationIds: operationChain.ancestorOperationIds,
+      delegationDepth: operationChain.delegationDepth,
+    });
+  }
+  const providerEligibility = snapshotProviderEligibility(
+    observation.providerEligibility,
   );
-  if (
-    available.status !== "ok" ||
-    !available.value.every(isProvider) ||
-    new Set(available.value).size !== available.value.length
-  ) {
-    return createBlockedResult("delegation_route_availability_invalid");
+  if (!providerEligibility) {
+    return createBlockedResult("delegation_route_provider_eligibility_invalid");
   }
   const subjectProvider = request.subjectProvider as Provider | null;
-  const preferredProvider = selectPreferredProvider(
+  const preferred = selectPreferredProvider(
+    frontProvider,
     request.role,
     request.workClass,
     subjectProvider,
@@ -273,8 +419,10 @@ export function selectDelegationRouteCandidate(
   );
   const selected = selectExecutorProvider(
     request.requestedExecutorProvider as "auto" | Provider,
-    preferredProvider,
-    new Set(available.value),
+    preferred.provider,
+    preferred.reason,
+    frontProvider,
+    providerEligibility,
     subjectProvider,
     request.requiresIndependentProvider,
   );
@@ -301,12 +449,18 @@ export function selectDelegationRouteCandidate(
   ) {
     return createBlockedResult("delegation_route_model_selection_invalid");
   }
-  const route = `front_${request.frontProvider}__executor_${executorProvider}`;
+  const route = `front_${frontProvider}__executor_${executorProvider}`;
   const selectionReasonCodes = Object.freeze([
     selected.reason,
     request.requiresIndependentProvider
       ? "independent_provider_required"
-      : "same_provider_route_allowed",
+      : executorProvider !== frontProvider
+        ? "cross_provider_route_selected"
+        : request.requestedExecutorProvider !== "auto"
+          ? "same_provider_user_constraint"
+          : selected.reason === "task_characteristic_codex_preference"
+            ? "same_provider_due_task_characteristic"
+            : "same_provider_due_cross_provider_ineligibility",
     `work_class_${request.workClass}`,
   ]);
   return Object.freeze({
@@ -317,7 +471,7 @@ export function selectDelegationRouteCandidate(
     route,
     selectionReasonCodes,
     selectionNotice: describeSelectionNotice(
-      request.frontProvider,
+      frontProvider,
       executorProvider,
       route,
       selectionReasonCodes,
@@ -350,10 +504,24 @@ export function describeDelegationRouteSelectionContract() {
     automaticSelection: "before_provider_effect_from_closed_runtime_facts",
     explicitUserExecutorConstraint:
       "restricts_candidates_never_silently_ignored",
-    ordinaryImplementationPreference: "claude",
-    verificationCoordinationAndReviewPreference: "codex",
+    defaultRoutePreference:
+      "cross_provider_to_distribute_front_subscription_capacity",
+    taskRoleAffectsExecutorProvider:
+      "only_explainable_provider_specific_characteristics",
+    taskRoleAffectsModelAndEffort: true,
+    frontOnlyDisposition:
+      "implemented_as_retained_result_without_selection_grant_or_provider_effect",
     independentReview: "subject_provider_excluded",
-    sameProviderRoute: "allowed_through_coordinator_gate_only",
+    sameProviderRoute:
+      "only_explicit_user_constraint_or_runtime_observed_cross_provider_ineligibility",
+    providerEligibilityReasons: Object.freeze([
+      "required_capability_unavailable",
+      "subscription_auth_unavailable",
+      "subscription_quota_unavailable",
+      "provider_distribution_unavailable",
+      "policy_blocked",
+    ]),
+    unknownCrossProviderEligibilityAllowsSameProvider: false,
     maximumDelegationDepth: MAXIMUM_DELEGATION_DEPTH,
     cyclicOperationChainAllowed: false,
     directProviderSpawnAllowed: false,

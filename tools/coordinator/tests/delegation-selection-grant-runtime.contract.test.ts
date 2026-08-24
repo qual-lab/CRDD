@@ -13,6 +13,8 @@ import {
 function createRequest(overrides: Record<string, unknown> = {}) {
   return {
     frontProvider: "codex",
+    delegationNeed: "beneficial",
+    delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
     subjectProvider: null,
     requiresIndependentProvider: false,
@@ -50,7 +52,19 @@ function createFixture(
         createdAt: "2026-08-24T00:00:00.000Z",
       });
     },
-    observeAvailableProviders: () => Object.freeze(["codex", "claude"]),
+    observeProviderEligibility: () =>
+      Object.freeze([
+        Object.freeze({
+          provider: "codex",
+          status: "eligible",
+          reason: "ready",
+        }),
+        Object.freeze({
+          provider: "claude",
+          status: "eligible",
+          reason: "ready",
+        }),
+      ]),
     resolveModelProfile: (route) =>
       Object.freeze({
         provider: route.executorProvider,
@@ -146,6 +160,22 @@ test("control aliasは未使用Selection Grantを全aliasごと失効する", ()
   );
 });
 
+test("Front Agent retained結果へSelection Grantを発行しない", () => {
+  const fixture = createFixture();
+  const retained = fixture.runtime.issue(
+    fixture.managementCapability,
+    createRequest({
+      delegationNeed: "none",
+      delegationReason:
+        "front_can_complete_without_specialized_or_independent_child",
+    }),
+  );
+  assert.equal(retained.status, "blocked");
+  assert.equal(retained.reason, "delegation_selection_route_invalid");
+  assert.equal(retained.selectionCapabilityIssued, false);
+  assert.equal(retained.providerEffectAllowed, false);
+});
+
 test("再選定はreplacement検証後にだけ旧Grantを失効する", () => {
   const fixture = createFixture();
   const issued = fixture.runtime.issue(
@@ -222,7 +252,19 @@ test("別Operation、利用不能ProviderとProfile差をGrant発行前に拒否
     "delegation_selection_route_invalid",
   );
   const unavailable = createFixture({
-    observeAvailableProviders: () => Object.freeze([]),
+    observeProviderEligibility: () =>
+      Object.freeze([
+        Object.freeze({
+          provider: "codex",
+          status: "ineligible",
+          reason: "policy_blocked",
+        }),
+        Object.freeze({
+          provider: "claude",
+          status: "ineligible",
+          reason: "subscription_quota_unavailable",
+        }),
+      ]),
   });
   assert.equal(
     unavailable.runtime.issue(unavailable.managementCapability, createRequest())
@@ -291,7 +333,7 @@ test("30秒期限、clock rollbackと乱数衝突をfail closedにする", () =>
   );
 });
 
-test("production入口はAvailability／Profile未接続で偽造Capabilityを拒否する", () => {
+test("production入口はEligibility／Profile未接続で偽造Capabilityを拒否する", () => {
   const issued = issueRuntimeOwnedDelegationSelectionGrant({}, createRequest());
   assert.equal(issued.status, "blocked");
   assert.equal(issued.providerEffectAllowed, false);

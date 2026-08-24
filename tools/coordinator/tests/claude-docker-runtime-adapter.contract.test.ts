@@ -256,7 +256,19 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
           operationId: "OP-123456",
           createdAt: "2026-08-24T00:00:00.000Z",
         }),
-      observeAvailableProviders: () => Object.freeze(["codex", "claude"]),
+      observeProviderEligibility: () =>
+        Object.freeze([
+          Object.freeze({
+            provider: "codex",
+            status: "eligible",
+            reason: "ready",
+          }),
+          Object.freeze({
+            provider: "claude",
+            status: "eligible",
+            reason: "ready",
+          }),
+        ]),
       resolveModelProfile: (route) =>
         Object.freeze({
           provider: route.executorProvider,
@@ -280,6 +292,8 @@ test("Selection Grantのopaque use aliasをClaude adapterへ一回だけ接続�
   });
   const issued = selectionRuntime.issue(fixture.managementCapability, {
     frontProvider: "codex",
+    delegationNeed: "beneficial",
+    delegationReason: "specialized_executor_benefit",
     requestedExecutorProvider: "auto",
     subjectProvider: null,
     requiresIndependentProvider: false,

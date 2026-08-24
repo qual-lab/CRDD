@@ -280,7 +280,7 @@ AppContainer WorkerはLow integrityであり、MICはDACLより先に評価さ�
 - OS保護済みbootstrap、managed installer、vendor-integrated launcherおよびhardware-backed trustのv1必須化
 - 外部Effectの実行または回復
 - Remote Repository操作
-- Provider同士の直接spawn、Coordinatorを迂回するRole交換または循環委譲。Front Codex／Claude CodeからCoordinator Gateを経由してCodex／Claude Code Executorを選ぶ4経路のbrokered routingはRuntime 1.0対象に含む
+- Provider同士の直接spawn、Coordinatorを迂回するRole交換または循環委譲。Front Agentだけで十分な場合は子Agentを起動せず、移譲が必要な場合だけCoordinator Gateを経由してCodex／Claude Code Executorを選ぶ4経路のbrokered routingをRuntime 1.0対象に含む。既定はFrontと反対のProviderでSubscription枠を分散するが、説明可能なProvider固有の作業特性、明示制約、独立性、または反対Providerの必要Capability・Subscription認証／quota・公式配布物・Policy適格性の実測不成立時は同一Providerも候補化できる。適格性不明やquota不足から有料APIへfallbackしない
 - Git以外のRepository Backend
 - Raw Provider Logの保管
 - 汎用Migrationまたは複数Protocol Reader
