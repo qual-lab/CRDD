@@ -20,6 +20,7 @@
     "platform-access:native-bootstrap-build": "node ./scripts/build-native-bootstrap.ts",
     "platform-access:native-bootstrap-lint": "cargo +1.94.1-x86_64-pc-windows-msvc clippy --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin coordinator --features native-bootstrap-release -- -D warnings",
     "platform-access:native-bootstrap-pe": "node ./scripts/check-native-bootstrap-pe.ts",
+    "platform-access:native-runtime-trace": "node ./scripts/check-native-runtime-trace.ts",
     "platform-access:test": "cargo +1.94.1-x86_64-pc-windows-msvc test --manifest-path ../platform-access/Cargo.toml --frozen --all-features --target x86_64-pc-windows-msvc",
     "platform-access:ts-coverage": "node ./scripts/check-platform-access-ts-coverage.ts",
     "platform-access:worker-build": "cargo +1.94.1-x86_64-pc-windows-msvc build --manifest-path ../platform-access/Cargo.toml --frozen --release --target x86_64-pc-windows-msvc --bin crdd-platform-access",

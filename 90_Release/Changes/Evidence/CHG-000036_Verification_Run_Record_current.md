@@ -64,9 +64,32 @@ Manifestは署名後にexact byteを一時退避し、固定Release pathへ再ma
 - CurrentUser Trust StoreのSecurity Warningは通常Operationまたは無人fallbackへ持ち込まない。今回の一時self-signed証明書、目的、期間、Storeおよびrollbackに対する人間承認だけで実行した。
 - E2E後の全suite確認で、既存`platform-access:test`の`--all-features`期待値、Cargo build script `build.rs`の正本／母集団およびClaude計画内local bindingの命名同期漏れを検出した。固定command、exact `build.rs`だけの許可および`noNetworkVersionProbe`への意味不変renameで是正し、Checker 151／151と両private package `check`を再合格させた。
 
+## ETW観測経路の限定検証
+
+2026-08-24に、後続の正式署名runで全module集合とNetwork非発火を同時観測するための決定論的QA観測器を実装し、未署名Workerの単体実行で観測経路を検証した。観測対象は固定Git commit `b6b58c80d44cdd3f41a2718f0f7b04bed698478d`／tree `6f173b82fe1b55ce946e95969c5c05870555614c`からbuild済みのWorkerで、SHA-256は`85cbffe0147705c8942c4fef1fbe508c99370cb4fa27d5c9776cc6e2e37e1d77`、byte lengthは`139264`だった。
+
+Windows Performance Recorderのbuilt-in `Network.light` profileで同一traceを取得し、`Microsoft-Windows-TCPIP`（`2f07e2ee-15db-40f1-90ef-9d7ba282188a`）、Image Load classic（`2cb15d1d-5fc1-11d2-abe1-00a0c911f518`）およびProcess classic（`3d6fa8d0-fe05-11d0-9dda-00c04fd7ba7c`）だけを`xperf`で抽出した。対象Worker exact 1 start／end、対象image exact 1、全Image Load、対象TCP/IP event 0、同一trace内の`curl.exe`による`127.0.0.1:9`だけの陽性対照、ならびに`xperf -a tracestats`のlost event／buffer 0をQA観測器へ入力した。
+
+| 観測 | 結果 |
+| --- | --- |
+| trace lost events／buffers | `0`／`0` |
+| 対象Worker PID／終了 | `27392`／exact 1 end |
+| 対象module数 | `11` |
+| 対象TCP/IP event数 | `0` |
+| ループバック陽性対照PID／TCP/IP event数 | `31712`／`28` |
+| 観測器結果 | `accepted` |
+| 観測器契約試験 | `6` passed、`0` failed |
+| 観測器line／function／branch coverage | `100.00%`／`100.00%`／`95.00%` |
+
+対象module集合は、対象Worker自身、`advapi32.dll`、`bcrypt.dll`、`kernel32.dll`、`KernelBase.dll`、`msvcrt.dll`、`ntdll.dll`、`rpcrt4.dll`、`sechost.dll`、`ucrtbase.dll`および`vcruntime140.dll`だった。対象Worker以外はすべて`C:\Windows\System32`配下だった。観測器は、trace loss、対象／陽性対照の欠落・重複・終了欠落、対象image欠落、System32外module、対象Network event、陽性対照Network event欠落またはloopback外addressのいずれかでFail Closedとする。
+
+観測器追加後の全体確認は、Coordinator契約試験443件、Checker契約試験151件、両packageのTypeScript／Biome check、ならびにRepository全体CheckerのMarkdown 369件、local link 2,107件、anchor 583件で、error／warning 0だった。
+
+この限定検証は、未署名WorkerをAppContainer外で単体起動し、stdin EOFによるexit 2までを観測したものである。したがって、正式署名Supervisor、AppContainer、native `provision`、PA03／PR03、selected-user binder、Registry復元または正式配布treeの同時成立根拠ではなく、前節の署名済みE2Eと合成して正式runを成立させない。実測後はWPR停止、trace／抽出結果を含む一時directory不存在を確認した。Registry、Trust Store、Provider credentialまたはNetwork外部送信のEffectは発行していない。
+
 ## 未完了と適用限界
 
-- 実processの全module集合とNetwork非発火は今回の正式runでは直接観測していない。static PEの直接Network import 0、capabilityなしAppContainerまたは`networkEffectIssued:false`を実測へ読み替えない。
+- 全module集合とNetwork非発火のETW観測経路は未署名Worker単体で陽性対照を含めて成立したが、今回の正式署名runとは別runである。static PEの直接Network import 0、capabilityなしAppContainer、`networkEffectIssued:false`または別runの観測を、正式署名AppContainer Workerの同時実測へ読み替えない。
 - protected active、Provider Home保護、Mount Grant issuer／store／clock／失効、Runtime-owned Claude artifact verifier、Egress、OAuth／subscription条件および固定prompt Provider requestは未完了である。
 - mapped Supervisor imageと後からopenしたartifactの原子的自己結合は、採用済みMinimum Trust Boundaryではv1必須条件にしないが、方式成立またはVerified Imageを主張しない。
 - 一時証明書を公式Publisher、次回run、Releaseまたは残存risk受容へ流用しない。正式Release用PublisherとTrust Store処置は別の人間判断を要する。
