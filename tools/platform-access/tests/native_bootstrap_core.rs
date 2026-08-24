@@ -75,6 +75,14 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_release_trust_invalid",
         ),
         (
+            native_bootstrap_core::AUTHENTICODE_TRUST_BLOCKED,
+            "native_provision_authenticode_trust_invalid",
+        ),
+        (
+            native_bootstrap_core::SIGNED_MANIFEST_BLOCKED,
+            "native_provision_signed_manifest_invalid",
+        ),
+        (
             native_bootstrap_core::REGISTRY_EFFECT_BLOCKED,
             "native_provision_registry_effect_unavailable",
         ),

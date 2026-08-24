@@ -2462,17 +2462,24 @@ unsafe fn launch_worker() -> Option<u32> {
             &mut locked_handle_count,
         )
     };
-    if supervisor_identity.is_none()
-        || worker_identity.is_none()
-        || manifest_identity.is_none()
-        || local_app_data_identity.is_none()
-        || !unsafe {
+    let identities_valid = supervisor_identity.is_some()
+        && worker_identity.is_some()
+        && manifest_identity.is_some()
+        && local_app_data_identity.is_some();
+    let authenticode_valid = if identities_valid {
+        FAILURE_STAGE.store(20, Ordering::Relaxed);
+        unsafe {
             authenticode_trust_is_valid(
                 supervisor_path.as_ptr(),
                 locked_handles[supervisor_leaf_index.unwrap_or(locked_handles.len())],
             )
         }
-        || !unsafe {
+    } else {
+        false
+    };
+    let manifest_valid = if authenticode_valid {
+        FAILURE_STAGE.store(21, Ordering::Relaxed);
+        unsafe {
             signed_manifest_matches(
                 locked_handles[manifest_leaf_index.unwrap_or(locked_handles.len())],
                 manifest_identity.as_ref().unwrap(),
@@ -2482,7 +2489,10 @@ unsafe fn launch_worker() -> Option<u32> {
                 worker_identity.as_ref().unwrap(),
             )
         }
-    {
+    } else {
+        false
+    };
+    if !identities_valid || !authenticode_valid || !manifest_valid {
         unsafe { close_handles(&locked_handles[..locked_handle_count]) };
         unsafe { DeleteProcThreadAttributeList(attributes) };
         unsafe { HeapFree(heap, 0, attributes) };
@@ -2729,6 +2739,8 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     17 => native_bootstrap_core::SELECTED_USER_MISMATCH_BLOCKED,
                     18 => native_bootstrap_core::RELEASE_TRUST_BLOCKED,
                     19 => native_bootstrap_core::REGISTRY_EFFECT_BLOCKED,
+                    20 => native_bootstrap_core::AUTHENTICODE_TRUST_BLOCKED,
+                    21 => native_bootstrap_core::SIGNED_MANIFEST_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };
