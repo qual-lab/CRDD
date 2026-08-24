@@ -3,9 +3,10 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 8;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 9;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
+const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
 const BILLING_POLICY = describeProviderBillingPolicyContract();
 const FIXED_PROMPT =
   "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
@@ -19,6 +20,11 @@ const FIXED_STRUCTURED_OUTPUT_SCHEMA = Object.freeze({
 });
 const FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT =
   '{"type":"object","properties":{"status":{"const":true}},"required":["status"],"additionalProperties":false}';
+const TASK_SETTINGS_PATH = "/etc/crdd/claude-task-settings.json";
+const EXECUTOR_SCHEMA_ARGUMENT =
+  '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1,"maxLength":8192},"changedPaths":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":1024}},"verification":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":1024}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
+const REVIEWER_SCHEMA_ARGUMENT =
+  '{"type":"object","properties":{"decision":{"type":"string","enum":["approved","changes_requested"]},"summary":{"type":"string","minLength":1,"maxLength":8192},"findings":{"type":"array","maxItems":64,"items":{"type":"object","properties":{"severity":{"type":"string","enum":["critical","high","medium","low","info"]},"path":{"type":"string","minLength":1,"maxLength":1024},"message":{"type":"string","minLength":1,"maxLength":4096}},"required":["severity","path","message"],"additionalProperties":false}}},"required":["decision","summary","findings"],"additionalProperties":false}';
 const FIXED_ARGV = Object.freeze([
   "--safe-mode",
   "--setting-sources=",
@@ -100,15 +106,18 @@ const DISTRIBUTION_BINDING = Object.freeze({
   releaseSigningKeyFingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE",
   fixedDigestImageRequired: true,
   fixedImageDigest:
-    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
   fixedImageEvidence: Object.freeze({
-    verifiedAt: "2026-08-24",
+    verifiedAt: "2026-08-25",
     buildNetworkMode: "none",
     baseImageDigest:
       "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
     embeddedBinaryLengthAndSha256Matched: true,
     managedSettingsSha256:
       "736c1447df695f074743f52564eefd4f9f8d8850737657d54a1f3d6052151ee8",
+    taskSettingsSha256:
+      "1924f4754c93793668056446ee68e3cd1b0f45dd38db6b137c5aa43441599ca1",
+    fixedImageBytes: 129_732_853,
     imageUser: "65534:65534",
     imageWorkingDirectory: "/work",
     imageEntrypoint: DISTRIBUTION_IDENTITY.executablePath,
@@ -118,7 +127,7 @@ const DISTRIBUTION_BINDING = Object.freeze({
   argvCompatibilityRequired: true,
   argvCompatibilityVerified: true,
   argvCompatibilityEvidence: Object.freeze({
-    verifiedAt: "2026-08-24",
+    verifiedAt: "2026-08-25",
     exactBinaryVersion: "2.1.220",
     networkMode: "none",
     credentialOrProviderHomeMounted: false,
@@ -432,6 +441,102 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
   });
 }
 
+export function planClaudeIsolatedTask(candidate: unknown) {
+  const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
+  if (!value) return blocked("claude_task_execution_plan_shape_invalid");
+  if (value.provider !== "claude")
+    return blocked("claude_task_execution_plan_provider_mismatch");
+  if (value.mode !== "isolated_task")
+    return blocked("claude_task_execution_plan_mode_not_supported");
+  if (value.taskRole !== "executor" && value.taskRole !== "reviewer")
+    return blocked("claude_task_execution_plan_role_invalid");
+  if (
+    value.effort !== "low" &&
+    value.effort !== "medium" &&
+    value.effort !== "high"
+  ) {
+    return blocked("claude_task_execution_plan_effort_invalid");
+  }
+  const taskRole = value.taskRole;
+  const effort = value.effort;
+  const maximumTurns = effort === "low" ? 4 : effort === "medium" ? 6 : 8;
+  const maximumBudgetUsd =
+    effort === "low" ? "0.20" : effort === "medium" ? "0.35" : "0.50";
+  const tools =
+    taskRole === "executor" ? "Read,Glob,Grep,Edit,Write" : "Read,Glob,Grep";
+  return Object.freeze({
+    status: "candidate" as const,
+    reason: "runtime_owned_task_packet_and_authority_required",
+    spawnAllowed: false,
+    loginEffectAllowed: false,
+    networkEffectAllowed: false,
+    filesystemEffectAllowed: false,
+    operationCapabilityIssued: false,
+    provider: "claude" as const,
+    mode: "isolated_task" as const,
+    taskRole,
+    effort,
+    distributionBinding: DISTRIBUTION_BINDING,
+    command: DISTRIBUTION_BINDING.identity.executablePath,
+    speedMode: "normal_only" as const,
+    argv: Object.freeze([
+      "--safe-mode",
+      "--setting-sources=",
+      "--settings",
+      TASK_SETTINGS_PATH,
+      "--strict-mcp-config",
+      "--mcp-config",
+      '{"mcpServers":{}}',
+      "--no-chrome",
+      "--json-schema",
+      taskRole === "executor"
+        ? EXECUTOR_SCHEMA_ARGUMENT
+        : REVIEWER_SCHEMA_ARGUMENT,
+      "-p",
+      "--output-format",
+      "json",
+      "--max-turns",
+      maximumTurns.toString(),
+      "--max-budget-usd",
+      maximumBudgetUsd,
+      "--no-session-persistence",
+      "--permission-mode",
+      "dontAsk",
+      "--tools",
+      tools,
+      "--disallowedTools",
+      "Bash,WebFetch,WebSearch,Task,NotebookEdit,mcp__*",
+      "--disable-slash-commands",
+      "--prompt-suggestions",
+      "false",
+    ]),
+    environment: FIXED_ENVIRONMENT,
+    environmentMode: "replace_required" as const,
+    parentEnvironmentInherited: false,
+    providerHomeMountRequired: true,
+    workspaceMountRequired: true,
+    workspaceMountMode:
+      taskRole === "executor" ? "read_write" : "read_only",
+    taskPromptTransport: "stdin_only" as const,
+    taskPromptInArgvAllowed: false,
+    shellAllowed: false,
+    commandNetworkAccessAllowed: false,
+    webToolsAllowed: false,
+    mcpAllowed: false,
+    subagentAllowed: false,
+    providerHomeBuiltInToolAccessAllowed: false,
+    maximumTurns,
+    maximumBudgetUsd: Number(maximumBudgetUsd),
+    sessionPersistenceAllowed: false,
+    loginPolicy: "existing_claude_subscription_oauth" as const,
+    billingPolicy: BILLING_POLICY,
+    apiKeyAllowed: false,
+    paidApiFallbackAllowed: false,
+    additionalCreditPurchaseAllowed: false,
+    automaticPlanSwitchAllowed: false,
+  });
+}
+
 export function describeClaudeExecutionPlanContract() {
   return Object.freeze({
     contract: CLAUDE_EXECUTION_PLAN_CONTRACT,
@@ -537,6 +642,23 @@ export function describeClaudeExecutionPlanContract() {
       resultFormat: "single_json_result",
       maximumTurns: 2,
       maximumBudgetUsd: 0.1,
+    }),
+    isolatedTask: Object.freeze({
+      roles: Object.freeze(["executor", "reviewer"]),
+      shellAllowed: false,
+      tools: "role_bounded_built_in_filesystem_tools_only",
+      providerHomeBuiltInToolAccessAllowed: false,
+      commandNetworkAccessAllowed: false,
+      webToolsAllowed: false,
+      mcpAllowed: false,
+      taskPromptTransport: "stdin_only",
+      promptInArgvAllowed: false,
+      maximumTurnsByEffort: Object.freeze({ low: 4, medium: 6, high: 8 }),
+      maximumBudgetUsdByEffort: Object.freeze({
+        low: 0.2,
+        medium: 0.35,
+        high: 0.5,
+      }),
     }),
     fixedPromptRequestAttempt: FIXED_PROMPT_REQUEST_ATTEMPT,
     fixedPromptSchemaRequestAttempt: FIXED_PROMPT_SCHEMA_REQUEST_ATTEMPT,

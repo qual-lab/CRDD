@@ -4,6 +4,7 @@ import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "./claud
 import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
 import { consumeRuntimeOwnedCodexDockerPlanForProcessController } from "./codex-docker-runtime-adapter.ts";
 import { normalizeCodexStructuredResult } from "./codex-structured-result.ts";
+import { normalizeProviderTaskStructuredResult } from "./provider-task-structured-result.ts";
 import {
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
@@ -18,7 +19,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 6;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 7;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -57,6 +58,13 @@ type PreparedPlan = Readonly<{
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
+  operationMode: "boolean_probe" | "isolated_task";
+  taskRole: "executor" | "reviewer" | null;
+  taskPacketRef: string | null;
+  taskPacketHash: string | null;
+  providerInput: string | null;
+  workspaceSourcePath: string | null;
+  workspaceMountMode: "read_write" | "read_only" | null;
   commands: readonly Command[];
 }>;
 type CommandExecution = Readonly<{
@@ -168,7 +176,7 @@ function createFinalResult(
     recoveryCompleted: boolean;
     resultSha256: string | null;
     resultBytes: number;
-    normalizedResult: Readonly<{ status: true }> | null;
+    normalizedResult: unknown | null;
   }>,
 ) {
   const cleanupConfirmed =
@@ -210,6 +218,7 @@ function createFinalResult(
 }
 
 function isPlanValid(plan: PreparedPlan) {
+  const isTaskPlan = plan.operationMode === "isolated_task";
   return (
     (plan.provider === "codex" || plan.provider === "claude") &&
     /^OP-[0-9]{6,}$/u.test(plan.operationId) &&
@@ -220,6 +229,23 @@ function isPlanValid(plan: PreparedPlan) {
     typeof plan.activeMountCapability === "object" &&
     plan.authorityUseCapability !== null &&
     typeof plan.authorityUseCapability === "object" &&
+    (plan.operationMode === "boolean_probe" || isTaskPlan) &&
+    (isTaskPlan
+      ? (plan.taskRole === "executor" || plan.taskRole === "reviewer") &&
+        /^TASKPKT-[A-F0-9]{32}$/u.test(plan.taskPacketRef ?? "") &&
+        /^[a-f0-9]{64}$/u.test(plan.taskPacketHash ?? "") &&
+        typeof plan.providerInput === "string" &&
+        plan.providerInput.length > 0 &&
+        typeof plan.workspaceSourcePath === "string" &&
+        plan.workspaceSourcePath.length > 0 &&
+        plan.workspaceMountMode ===
+          (plan.taskRole === "executor" ? "read_write" : "read_only")
+      : plan.taskRole === null &&
+        plan.taskPacketRef === null &&
+        plan.taskPacketHash === null &&
+        plan.providerInput === null &&
+        plan.workspaceSourcePath === null &&
+        plan.workspaceMountMode === null) &&
     [
       plan.providerContainerName,
       plan.proxyContainerName,
@@ -294,7 +320,7 @@ async function executePlan(
   let providerRequestStarted = false;
   let resultSha256: string | null = null;
   let resultBytes = 0;
-  let normalizedResult: Readonly<{ status: true }> | null = null;
+  let normalizedResult: unknown | null = null;
 
   try {
     for (const command of plan.commands) {
@@ -330,9 +356,15 @@ async function executePlan(
       }
       if (isProvider && execution) {
         const providerResult =
-          plan.provider === "codex"
-            ? normalizeCodexStructuredResult(execution.stdout)
-            : normalizeClaudeStructuredResult(execution.stdout);
+          plan.operationMode === "isolated_task"
+            ? normalizeProviderTaskStructuredResult(
+                plan.provider,
+                plan.taskRole,
+                execution.stdout,
+              )
+            : plan.provider === "codex"
+              ? normalizeCodexStructuredResult(execution.stdout)
+              : normalizeClaudeStructuredResult(execution.stdout);
         if (providerResult.status !== "confirmed") {
           requestedStatus = "blocked";
           reason = "provider_result_invalid";
@@ -638,7 +670,8 @@ export function describeDockerProcessControllerContract() {
       "owned_containers_and_networks_absent_then_mount_release_then_recovery_complete",
     cleanupFailure: "manual_recovery_required_fail_closed",
     structuredResult:
-      "exact_provider_boolean_result_published_after_cleanup_only",
+      "exact_provider_boolean_or_role_task_result_published_after_cleanup_only",
+    taskPrompt: "runtime_owned_stdin_only_not_reported",
     rawOutputReported: false,
     hostPathReported: false,
     proxyCredentialReported: false,

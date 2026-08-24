@@ -43,6 +43,13 @@ function createPlan(
     selectedModel: "opus",
     selectedEffort: "low" as const,
     selectedModelTier: "preferred",
+    operationMode: "boolean_probe" as const,
+    taskRole: null,
+    taskPacketRef: null,
+    taskPacketHash: null,
+    providerInput: null,
+    workspaceSourcePath: null,
+    workspaceMountMode: null,
     commands: Object.freeze(
       purposes.map((purpose) =>
         Object.freeze({ purpose, argv: Object.freeze([purpose]) }),
@@ -63,13 +70,19 @@ function createProviderOutput(overrides: Record<string, unknown> = {}) {
   })}\n`;
 }
 
-function createFixture(overrides: Record<string, unknown> = {}) {
+function createFixture(
+  overrides: Record<string, unknown> = {},
+  planOverrides: Record<string, unknown> = {},
+) {
   const managementCapability = Object.freeze({});
   const preparedCapability = Object.freeze({});
   const activeMountCapability = Object.freeze({});
   const authorityUseCapability = Object.freeze({});
   const recoveryCapability = Object.freeze({});
-  const plan = createPlan(activeMountCapability, authorityUseCapability);
+  const plan = Object.freeze({
+    ...createPlan(activeMountCapability, authorityUseCapability),
+    ...planOverrides,
+  });
   let mountCompletionCount = 0;
   let recoveryCompletionCount = 0;
   let commandCount = 0;
@@ -336,6 +349,59 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
   assert.equal(result.resultBytes, 0);
 });
 
+test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () => {
+  const taskOutput = JSON.stringify({
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    num_turns: 3,
+    total_cost_usd: 0.12,
+    structured_output: {
+      decision: "approved",
+      summary: "The exact candidate is acceptable.",
+      findings: [],
+    },
+  });
+  const fixture = createFixture(
+    {
+      startCommand: (command: { purpose: string }) => ({
+        wait: async () => ({
+          status: 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_provider_attached" ? taskOutput : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => true,
+      }),
+    },
+    {
+      operationMode: "isolated_task",
+      taskRole: "reviewer",
+      taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+      taskPacketHash: "c".repeat(64),
+      providerInput: "Review the exact local candidate.",
+      workspaceSourcePath: "C:\\runtime-owned\\workspace",
+      workspaceMountMode: "read_only",
+    },
+  );
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.ok(started.completion);
+  const result = await started.completion;
+  assert.equal(result.status, "completed");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.deepEqual(result.normalizedResult, {
+    decision: "approved",
+    summary: "The exact candidate is acceptable.",
+    findings: [],
+  });
+  assert.equal(result.rawOutputReported, false);
+});
+
 test("Recovery記録前と偽造production CapabilityはDocker Effectを開始しない", async () => {
   const fixture = createFixture({ beginRecovery: () => null });
   const blocked = fixture.controller.start(
@@ -420,11 +486,11 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,
-    "exact_provider_boolean_result_published_after_cleanup_only",
+    "exact_provider_boolean_or_role_task_result_published_after_cleanup_only",
   );
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.hostPathReported, false);

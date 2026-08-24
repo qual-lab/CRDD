@@ -3,14 +3,20 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-import { planClaudeReadOnlyProbe } from "./claude-execution-plan.ts";
-import { planCodexReadOnlyProbe } from "./codex-execution-plan.ts";
+import {
+  planClaudeIsolatedTask,
+  planClaudeReadOnlyProbe,
+} from "./claude-execution-plan.ts";
+import {
+  planCodexIsolatedTask,
+  planCodexReadOnlyProbe,
+} from "./codex-execution-plan.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import { borrowOwnedDockerExecutionPaths } from "./execution-environment.ts";
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 2;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 3;
 
 const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
@@ -23,6 +29,7 @@ const DOCKER_CONFIG_DIRECTORY = "docker-cli-config";
 const SHORT_COMMAND_TIMEOUT_MS = 10_000;
 const STDOUT_LIMIT_BYTES = 1_048_576;
 const STDERR_LIMIT_BYTES = 262_144;
+const PROVIDER_INPUT_LIMIT_BYTES = 128 * 1024;
 const SAFE_IDENTIFIER =
   /^crdd-(?:internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
 const SAFE_IMAGE_DIGEST = /^sha256:[a-f0-9]{64}$/u;
@@ -48,6 +55,13 @@ type PreparedPlan = Readonly<{
   selectedModel: string;
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
+  operationMode: "boolean_probe" | "isolated_task";
+  taskRole: "executor" | "reviewer" | null;
+  taskPacketRef: string | null;
+  taskPacketHash: string | null;
+  providerInput: string | null;
+  workspaceSourcePath: string | null;
+  workspaceMountMode: "read_write" | "read_only" | null;
   commands: readonly Command[];
 }>;
 type CommandExecution = Readonly<{
@@ -89,6 +103,7 @@ type RuntimeDependencies = Readonly<{
     executable: string,
     argv: readonly string[],
     environment: Readonly<Record<string, string>>,
+    stdin: string | null,
   ) => OwnedCommandHandle;
 }>;
 
@@ -212,22 +227,31 @@ function startOwnedProcess(
   executable: string,
   argv: readonly string[],
   environment: Readonly<Record<string, string>>,
+  stdin: string | null,
 ): OwnedCommandHandle {
   const child = spawn(executable, [...argv], {
     windowsHide: true,
     shell: false,
     env: environment,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: [stdin === null ? "ignore" : "pipe", "pipe", "pipe"],
   });
   const stdoutChunks: Buffer[] = [];
   const stderrChunks: Buffer[] = [];
   let stdoutBytes = 0;
   let stderrBytes = 0;
   let exceeded = false;
+  let transportFailed = false;
   let closed = false;
   let terminationRequested = false;
   if (!child.stdout || !child.stderr)
     throw new Error("docker_effect_stdio_unavailable");
+  if (stdin !== null) {
+    if (!child.stdin) throw new Error("docker_effect_stdin_unavailable");
+    child.stdin.once("error", () => {
+      transportFailed = true;
+    });
+    child.stdin.end(stdin, "utf8");
+  }
   const append = (chunk: Buffer | string, stdout: boolean) => {
     const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     if (stdout) stdoutBytes += value.byteLength;
@@ -248,7 +272,7 @@ function startOwnedProcess(
     child,
     stdoutChunks,
     stderrChunks,
-    () => exceeded,
+    () => exceeded || transportFailed,
   );
 
   async function terminateAndWait(graceMs: number) {
@@ -299,15 +323,29 @@ function expectedCommands(
 ): readonly Command[] | null {
   const providerPlan =
     plan.provider === "codex"
-      ? planCodexReadOnlyProbe({
-          provider: "codex",
-          mode: "read_only_probe",
-          effort: plan.selectedEffort,
-        })
-      : planClaudeReadOnlyProbe({
-          provider: "claude",
-          mode: "read_only_probe",
-        });
+      ? plan.operationMode === "isolated_task"
+        ? planCodexIsolatedTask({
+            provider: "codex",
+            mode: "isolated_task",
+            effort: plan.selectedEffort,
+            taskRole: plan.taskRole,
+          })
+        : planCodexReadOnlyProbe({
+            provider: "codex",
+            mode: "read_only_probe",
+            effort: plan.selectedEffort,
+          })
+      : plan.operationMode === "isolated_task"
+        ? planClaudeIsolatedTask({
+            provider: "claude",
+            mode: "isolated_task",
+            taskRole: plan.taskRole,
+            effort: plan.selectedEffort,
+          })
+        : planClaudeReadOnlyProbe({
+            provider: "claude",
+            mode: "read_only_probe",
+          });
   const egress = describeEgressProxyTopology(plan.provider);
   if (
     providerPlan.status !== "candidate" ||
@@ -346,6 +384,12 @@ function expectedCommands(
   ];
   const providerHomeMount = `type=bind,src=${plan.providerHomeSourcePath},dst=/provider-home,bind-propagation=rprivate`;
   const tmpMount = `type=bind,src=${tmpSourcePath},dst=/tmp,bind-propagation=rprivate`;
+  const workspaceMount =
+    plan.operationMode === "isolated_task" && plan.workspaceSourcePath
+      ? `type=bind,src=${plan.workspaceSourcePath},dst=/work,bind-propagation=rprivate${
+          plan.workspaceMountMode === "read_only" ? ",readonly" : ""
+        }`
+      : null;
   const commands = [
     [
       "network",
@@ -391,6 +435,7 @@ function expectedCommands(
     ["network", "connect", plan.egressNetworkName, plan.proxyContainerName],
     [
       "create",
+      ...(plan.operationMode === "isolated_task" ? ["--interactive"] : []),
       "--pull=never",
       "--network",
       plan.internalNetworkName,
@@ -409,6 +454,7 @@ function expectedCommands(
       providerHomeMount,
       "--mount",
       tmpMount,
+      ...(workspaceMount ? ["--mount", workspaceMount] : []),
       plan.providerImageDigest,
       ...(plan.provider === "claude"
         ? ["--model", plan.selectedModel, "--effort", plan.selectedEffort]
@@ -416,7 +462,12 @@ function expectedCommands(
       ...providerPlan.argv,
     ],
     ["start", plan.proxyContainerName],
-    ["start", "--attach", plan.providerContainerName],
+    [
+      "start",
+      "--attach",
+      ...(plan.operationMode === "isolated_task" ? ["--interactive"] : []),
+      plan.providerContainerName,
+    ],
   ];
   const purposes = [
     "create_internal_network",
@@ -466,6 +517,32 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   ) {
     return false;
   }
+  const isTaskPlan = plan.operationMode === "isolated_task";
+  if (
+    (plan.operationMode !== "boolean_probe" && !isTaskPlan) ||
+    (isTaskPlan &&
+      ((plan.taskRole !== "executor" && plan.taskRole !== "reviewer") ||
+        !/^TASKPKT-[A-F0-9]{32}$/u.test(plan.taskPacketRef ?? "") ||
+        !/^[a-f0-9]{64}$/u.test(plan.taskPacketHash ?? "") ||
+        typeof plan.providerInput !== "string" ||
+        plan.providerInput.length === 0 ||
+        Buffer.byteLength(plan.providerInput, "utf8") >
+          PROVIDER_INPUT_LIMIT_BYTES ||
+        typeof plan.workspaceSourcePath !== "string" ||
+        plan.workspaceSourcePath.length === 0 ||
+        /[\0\r\n,]/u.test(plan.workspaceSourcePath) ||
+        plan.workspaceMountMode !==
+          (plan.taskRole === "executor" ? "read_write" : "read_only"))) ||
+    (!isTaskPlan &&
+      (plan.taskRole !== null ||
+        plan.taskPacketRef !== null ||
+        plan.taskPacketHash !== null ||
+        plan.providerInput !== null ||
+        plan.workspaceSourcePath !== null ||
+        plan.workspaceMountMode !== null))
+  ) {
+    return false;
+  }
   const expected = expectedCommands(plan, tmpSourcePath);
   return (
     expected !== null &&
@@ -484,6 +561,9 @@ function planIdentity(plan: PreparedPlan) {
       JSON.stringify({
         operationId: plan.operationId,
         selectionRecordId: plan.selectionRecordId,
+        operationMode: plan.operationMode,
+        taskRole: plan.taskRole,
+        taskPacketHash: plan.taskPacketHash,
         ownershipLabel: plan.ownershipLabel,
         commands: plan.commands,
       }),
@@ -549,6 +629,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
         ...command.argv,
       ],
       dockerEnvironment(),
+      command.purpose === "start_provider_attached"
+        ? plan.providerInput
+        : null,
     );
     context.handles.add(handle);
     return handle;
@@ -560,6 +643,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
       DOCKER_EXECUTABLE,
       ["--host", DOCKER_ENGINE, "--config", context.configDirectory, ...argv],
       dockerEnvironment(),
+      null,
     );
     context.handles.add(handle);
     const result = await handle.wait(SHORT_COMMAND_TIMEOUT_MS);
@@ -789,7 +873,8 @@ export function describeDockerEffectRuntimeContract() {
     }),
     engine: DOCKER_ENGINE,
     environment: "runtime_owned_minimal_replacement",
-    commandPlan: "exact_nine_command_claude_plan_only",
+    commandPlan: "exact_seven_command_provider_probe_or_isolated_task",
+    taskInput: "runtime_owned_stdin_only_not_docker_argv",
     cleanup: "ownership_label_then_exact_name_absence",
     processTreeTermination: "taskkill_exact_pid_tree_then_close",
     callerCommandAllowed: false,

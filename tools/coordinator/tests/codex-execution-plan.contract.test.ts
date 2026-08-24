@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   describeCodexExecutionPlanContract,
+  planCodexIsolatedTask,
   planCodexReadOnlyProbe,
 } from "../src/security/codex-execution-plan.ts";
 
@@ -56,9 +57,67 @@ test("Codex Structured Output Schemaはboolean型を明示したexact形に固�
   });
 });
 
+test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定する", () => {
+  const executor = planCodexIsolatedTask({
+    provider: "codex",
+    mode: "isolated_task",
+    effort: "low",
+    taskRole: "executor",
+  });
+  const reviewer = planCodexIsolatedTask({
+    provider: "codex",
+    mode: "isolated_task",
+    effort: "high",
+    taskRole: "reviewer",
+  });
+  assert.equal(executor.status, "candidate");
+  assert.equal(executor.workspaceMountMode, "read_write");
+  assert.equal(reviewer.status, "candidate");
+  assert.equal(reviewer.workspaceMountMode, "read_only");
+  for (const plan of [executor, reviewer]) {
+    assert.equal(plan.taskPromptTransport, "stdin_only");
+    assert.equal(plan.taskPromptInArgvAllowed, false);
+    assert.equal(plan.commandNetworkAccessAllowed, false);
+    assert.equal(plan.webSearchAllowed, false);
+    assert.equal(plan.providerHomeCommandReadAllowed, false);
+    assert.equal(plan.argv.at(-1), "-");
+    assert.equal(plan.argv.includes("--sandbox"), false);
+    assert.equal(
+      plan.argv.some((value) =>
+        value.includes('filesystem={":root"="deny"'),
+      ),
+      true,
+    );
+  }
+});
+
+test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () => {
+  const executor = JSON.parse(
+    fs.readFileSync(
+      new URL("../runtime/codex-executor-result-schema.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const reviewer = JSON.parse(
+    fs.readFileSync(
+      new URL("../runtime/codex-reviewer-result-schema.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(executor.required, [
+    "status",
+    "summary",
+    "changedPaths",
+    "verification",
+  ]);
+  assert.deepEqual(reviewer.required, ["decision", "summary", "findings"]);
+  assert.equal(executor.additionalProperties, false);
+  assert.equal(reviewer.additionalProperties, false);
+});
+
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.distributionVerification.sigstoreBlobSignatureVerified, true);
   assert.equal(contract.distributionVerification.sigstoreCertificateIdentityMatched, true);
   assert.equal(contract.authentication, "existing_chatgpt_subscription_oauth_only");

@@ -7,7 +7,7 @@ import {
   describeDockerEffectRuntimeContract,
 } from "../src/security/docker-effect-runtime.ts";
 
-function createPlanFixture() {
+function createPlanFixture(taskRole: "executor" | "reviewer" | null = null) {
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
@@ -77,6 +77,15 @@ function createPlanFixture() {
           "[委譲経路選定] front=codex executor=claude\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
         delegationDepth: 1,
       }),
+    consumeTaskPacket: () =>
+      Object.freeze({
+        operationId: "OP-123456",
+        taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+        taskRole: taskRole ?? "executor",
+        taskPacketHash: "d".repeat(64),
+        prompt: "Execute the exact isolated task.",
+        promptTransport: "provider_stdin_only" as const,
+      }),
     issueProviderAuthority: () =>
       Object.freeze({
         status: "issued",
@@ -90,12 +99,20 @@ function createPlanFixture() {
       }),
     revokeProviderAuthority: () => Object.freeze({ status: "revoked" }),
   });
-  const prepared = adapter.prepare(
-    managementCapability,
-    mountCapability,
-    mountAuthorizationCapability,
-    selectionUseCapability,
-  );
+  const prepared = taskRole
+    ? adapter.prepareTask(
+        managementCapability,
+        mountCapability,
+        mountAuthorizationCapability,
+        selectionUseCapability,
+        Object.freeze({}),
+      )
+    : adapter.prepare(
+        managementCapability,
+        mountCapability,
+        mountAuthorizationCapability,
+        selectionUseCapability,
+      );
   assert.equal(prepared.status, "prepared");
   const plan = adapter.consumeForProcessController(
     prepared.preparedCapability,
@@ -107,6 +124,7 @@ function createPlanFixture() {
 
 function createEffectFixture(
   options: Readonly<{
+    taskRole?: "executor" | "reviewer";
     configEntries?: readonly string[];
     outputForInvocation?: (
       argv: readonly string[],
@@ -120,11 +138,14 @@ function createEffectFixture(
     }>;
   }> = {},
 ) {
-  const { plan, managementCapability } = createPlanFixture();
+  const { plan, managementCapability } = createPlanFixture(
+    options.taskRole ?? null,
+  );
   const invocations: Array<{
     executable: string;
     argv: readonly string[];
     environment: Readonly<Record<string, string>>;
+    stdin: string | null;
   }> = [];
   let configCreated = 0;
   let configRemoved = 0;
@@ -155,8 +176,8 @@ function createEffectFixture(
     removeConfig: () => {
       configRemoved += 1;
     },
-    startProcess: (executable, argv, environment) => {
-      invocations.push({ executable, argv, environment });
+    startProcess: (executable, argv, environment, stdin) => {
+      invocations.push({ executable, argv, environment, stdin });
       let closed = false;
       const completion = Object.freeze(
         options.outputForInvocation?.(argv, invocations.length - 1) ?? {
@@ -254,6 +275,26 @@ test("plain command copyと変更planはDocker processを開始しない", () =>
   assert.equal(fixture.invocations.length, 0);
 });
 
+test("Task本文はprovider startのstdinだけへ渡しDocker argvへ含めない", async () => {
+  const fixture = createEffectFixture({ taskRole: "executor" });
+  const providerStart = fixture.plan.commands.find(
+    (command) => command.purpose === "start_provider_attached",
+  );
+  assert.ok(providerStart);
+  const handle = fixture.runtime.startCommand(
+    providerStart,
+    fixture.plan,
+    fixture.managementCapability,
+  );
+  assert.equal((await handle.wait(10_000))?.status, 0);
+  assert.equal(fixture.invocations.length, 1);
+  const invocation = fixture.invocations[0];
+  assert.ok(invocation);
+  assert.equal(invocation.stdin, "Execute the exact isolated task.");
+  assert.equal(invocation.argv.includes(invocation.stdin ?? ""), false);
+  assert.equal(invocation.argv.includes("--interactive"), true);
+});
+
 test("cleanupは全handle終了と所有resource不存在後だけconfigを除去する", async () => {
   const fixture = createEffectFixture();
   const firstCommand = fixture.plan.commands[0];
@@ -324,12 +365,16 @@ test("foreign labelまたはconfig残存はcleanupとRecovery完了を止める"
 
 test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.dockerCli.bytes, 41_631_088);
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);
   assert.equal(contract.environment, "runtime_owned_minimal_replacement");
-  assert.equal(contract.commandPlan, "exact_nine_command_claude_plan_only");
+  assert.equal(
+    contract.commandPlan,
+    "exact_seven_command_provider_probe_or_isolated_task",
+  );
+  assert.equal(contract.taskInput, "runtime_owned_stdin_only_not_docker_argv");
   assert.equal(contract.callerCommandAllowed, false);
   assert.equal(contract.providerEffectAllowed, true);
 });

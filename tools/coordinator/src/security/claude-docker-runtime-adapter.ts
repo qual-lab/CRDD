@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
-import { planClaudeReadOnlyProbe } from "./claude-execution-plan.ts";
+import {
+  planClaudeIsolatedTask,
+  planClaudeReadOnlyProbe,
+} from "./claude-execution-plan.ts";
 import { consumeRuntimeOwnedDelegationSelectionGrant } from "./delegation-selection-grant-runtime.ts";
 import { describeEgressProxyTopology } from "./egress-proxy-policy.ts";
 import {
@@ -18,14 +21,16 @@ import {
   revokeRuntimeOwnedProviderAuthority,
 } from "./provider-authority-runtime.ts";
 import { selectProviderModelCandidate } from "./provider-model-selection-runtime.ts";
+import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-runtime.ts";
 
 export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/claude-docker-runtime-adapter";
-export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 2;
+export const CLAUDE_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 3;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
 const TMP_DESTINATION = "/tmp";
+const WORKSPACE_DESTINATION = "/work";
 const PROXY_PORT = 8080;
 const MAXIMUM_IDENTIFIER_LENGTH = 63;
 const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
@@ -71,7 +76,23 @@ type PreparedPlan = Readonly<{
   selectedEffort: "low" | "medium" | "high";
   selectedModelTier: string;
   selectionNotice: string;
+  operationMode: "boolean_probe" | "isolated_task";
+  taskRole: "executor" | "reviewer" | null;
+  taskPacketRef: string | null;
+  taskPacketHash: string | null;
+  providerInput: string | null;
+  workspaceSourcePath: string | null;
+  workspaceMountMode: "read_write" | "read_only" | null;
   commands: readonly Command[];
+}>;
+
+type ConsumedTaskPacket = Readonly<{
+  operationId: string;
+  taskPacketRef: string;
+  taskRole: "executor" | "reviewer";
+  taskPacketHash: string;
+  prompt: string;
+  promptTransport: "provider_stdin_only";
 }>;
 
 type ConsumedModelSelection = Readonly<{
@@ -125,6 +146,10 @@ type RuntimeState = Readonly<{
     useCapability: unknown,
     managementCapability: unknown,
   ) => ConsumedModelSelection | null;
+  consumeTaskPacket?: (
+    useCapability: unknown,
+    managementCapability: unknown,
+  ) => ConsumedTaskPacket | null;
   issueProviderAuthority: (
     managementCapability: unknown,
     activeMountCapability: unknown,
@@ -163,6 +188,7 @@ const productionState = createRuntimeState({
   monotonicNow: performance.now.bind(performance),
   randomBytes,
   consumeModelSelection: consumeRuntimeOwnedDelegationSelectionGrant,
+  consumeTaskPacket: consumeRuntimeOwnedProviderTaskPacket,
   issueProviderAuthority: issueRuntimeOwnedProviderAuthority,
   revokeProviderAuthority: revokeRuntimeOwnedProviderAuthority,
 });
@@ -261,11 +287,19 @@ function buildPlan(
   providerHomeSourcePath: string,
   preparedWallClockMs: number,
   preparedMonotonicMs: number,
+  taskPacket: ConsumedTaskPacket | null,
 ) {
-  const claude = planClaudeReadOnlyProbe({
-    provider: "claude",
-    mode: "read_only_probe",
-  });
+  const claude = taskPacket
+    ? planClaudeIsolatedTask({
+        provider: "claude",
+        mode: "isolated_task",
+        taskRole: taskPacket.taskRole,
+        effort: consumedModelSelection.effort,
+      })
+    : planClaudeReadOnlyProbe({
+        provider: "claude",
+        mode: "read_only_probe",
+      });
   const egress = describeEgressProxyTopology();
   const selection = selectProviderModelCandidate(consumedModelSelection.basis);
   if (
@@ -286,6 +320,9 @@ function buildPlan(
     !normalizeExactModelId(consumedModelSelection.model) ||
     claude.status !== "candidate" ||
     claude.provider !== "claude" ||
+    (taskPacket !== null &&
+      (taskPacket.operationId !== binding.operationId ||
+        taskPacket.promptTransport !== "provider_stdin_only")) ||
     claude.distributionBinding.fixedDigestImageRequired !== true ||
     egress.providerNetworkInternal !== true ||
     egress.providerDirectExternalNetwork !== false ||
@@ -299,12 +336,16 @@ function buildPlan(
     PROVIDER_HOME_DESTINATION,
   );
   const tmpMount = createSafeMount(binding.mounts.tmp, TMP_DESTINATION);
+  const workspaceMount = taskPacket
+    ? createSafeMount(binding.mounts.workspace, WORKSPACE_DESTINATION)
+    : null;
   const suffix = createRandomHex(state, 8);
   const proxyToken = createRandomHex(state, 32);
   if (
     !fixedEnvironment ||
     !providerHomeMount ||
     !tmpMount ||
+    (taskPacket !== null && !workspaceMount) ||
     !suffix ||
     !proxyToken
   ) {
@@ -387,6 +428,7 @@ function buildPlan(
     ]),
     createCommand("create_provider", [
       "create",
+      ...(taskPacket ? ["--interactive"] : []),
       "--pull=never",
       "--network",
       internalNetworkName,
@@ -405,6 +447,14 @@ function buildPlan(
       providerHomeMount,
       "--mount",
       tmpMount,
+      ...(taskPacket && workspaceMount
+        ? [
+            "--mount",
+            taskPacket.taskRole === "reviewer"
+              ? `${workspaceMount},readonly`
+              : workspaceMount,
+          ]
+        : []),
       providerImageDigest,
       "--model",
       consumedModelSelection.model,
@@ -416,6 +466,7 @@ function buildPlan(
     createCommand("start_provider_attached", [
       "start",
       "--attach",
+      ...(taskPacket ? ["--interactive"] : []),
       providerContainerName,
     ]),
   ]);
@@ -440,6 +491,17 @@ function buildPlan(
     selectedEffort: selection.effort,
     selectedModelTier: selection.modelTier,
     selectionNotice: consumedModelSelection.selectionNotice,
+    operationMode: taskPacket ? "isolated_task" : "boolean_probe",
+    taskRole: taskPacket?.taskRole ?? null,
+    taskPacketRef: taskPacket?.taskPacketRef ?? null,
+    taskPacketHash: taskPacket?.taskPacketHash ?? null,
+    providerInput: taskPacket?.prompt ?? null,
+    workspaceSourcePath: taskPacket ? binding.mounts.workspace : null,
+    workspaceMountMode: taskPacket
+      ? taskPacket.taskRole === "executor"
+        ? "read_write"
+        : "read_only"
+      : null,
     commands,
   });
 }
@@ -450,6 +512,7 @@ function prepare(
   mountCapability: unknown,
   mountAuthorizationCapability: unknown,
   selectionUseCapability: unknown,
+  taskPacketUseCapability: unknown = null,
 ) {
   const binding = state.verifyOperationMount(
     managementCapability,
@@ -494,6 +557,17 @@ function prepare(
         "claude_docker_runtime_model_selection_invalid",
       );
     }
+    const taskPacket =
+      taskPacketUseCapability === null
+        ? null
+        : state.consumeTaskPacket?.(
+            taskPacketUseCapability,
+            managementCapability,
+          ) ?? null;
+    if (taskPacketUseCapability !== null && !taskPacket) {
+      state.completeMount(activeMountCapability, managementCapability);
+      return createBlockedResult("claude_docker_runtime_task_packet_invalid");
+    }
     const providerHomeSourcePath = state.borrowMountSource(
       activeMountCapability,
       managementCapability,
@@ -514,6 +588,7 @@ function prepare(
             providerHomeSourcePath,
             preparedWallClockMs,
             preparedMonotonicMs,
+            taskPacket,
           )
         : null;
     if (!planCandidate) {
@@ -705,6 +780,27 @@ export function prepareRuntimeOwnedClaudeDockerCandidate(
   );
 }
 
+export function prepareRuntimeOwnedClaudeDockerTaskCandidate(
+  managementCapability: unknown,
+  mountCapability: unknown,
+  mountAuthorizationCapability: unknown,
+  selectionUseCapability: unknown,
+  taskPacketUseCapability: unknown,
+) {
+  return performSafely(
+    "claude_docker_runtime_task_preparation_failed_closed",
+    () =>
+      prepare(
+        productionState,
+        managementCapability,
+        mountCapability,
+        mountAuthorizationCapability,
+        selectionUseCapability,
+        taskPacketUseCapability,
+      ),
+  );
+}
+
 export function cancelRuntimeOwnedClaudeDockerCandidate(
   preparedCapability: unknown,
   managementCapability: unknown,
@@ -749,6 +845,25 @@ export function createIsolatedClaudeDockerRuntimeAdapterCandidate(
           mountAuthorizationCapability,
           selectionUseCapability,
         ),
+      ),
+    prepareTask: (
+      managementCapability: unknown,
+      mountCapability: unknown,
+      mountAuthorizationCapability: unknown,
+      selectionUseCapability: unknown,
+      taskPacketUseCapability: unknown,
+    ) =>
+      performSafely(
+        "claude_docker_runtime_task_preparation_failed_closed",
+        () =>
+          prepare(
+            state,
+            managementCapability,
+            mountCapability,
+            mountAuthorizationCapability,
+            selectionUseCapability,
+            taskPacketUseCapability,
+          ),
       ),
     cancel: (preparedCapability: unknown, managementCapability: unknown) =>
       performSafely("claude_docker_runtime_cancellation_failed_closed", () =>
@@ -812,6 +927,9 @@ export function describeClaudeDockerRuntimeAdapterContract() {
     providerHomeMount: "read_write_rprivate_dedicated_home",
     operationTmpMount: "read_write_rprivate_owned_operation_tmp",
     repositoryMounted: false,
+    isolatedWorkspace:
+      "runtime_owned_exact_commit_executor_read_write_reviewer_read_only",
+    taskPacket: "opaque_single_use_prompt_to_provider_stdin_only",
     shellInvocation: false,
     pathLookup: false,
     commandPlanReported: false,

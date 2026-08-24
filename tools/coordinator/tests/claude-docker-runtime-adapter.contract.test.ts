@@ -107,6 +107,15 @@ function createFixture(
       assert.equal(management, managementCapability);
       return modelSelection;
     },
+    consumeTaskPacket: () =>
+      Object.freeze({
+        operationId: "OP-123456",
+        taskPacketRef: "TASKPKT-00112233445566778899AABBCCDDEEFF",
+        taskRole: "reviewer" as const,
+        taskPacketHash: "b".repeat(64),
+        prompt: "Review the exact local candidate.",
+        promptTransport: "provider_stdin_only" as const,
+      }),
     issueProviderAuthority: (management: unknown, active: unknown) => {
       assert.equal(management, managementCapability);
       assert.equal(active, activeMountCapability);
@@ -233,6 +242,34 @@ test("cancelはMount leaseを完了しprepared capabilityを再利用不能に�
       fixture.managementCapability,
     ).status,
     "blocked",
+  );
+});
+
+test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する", () => {
+  const fixture = createFixture();
+  const prepared = fixture.adapter.prepareTask(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+    Object.freeze({}),
+  );
+  assert.equal(prepared.status, "prepared");
+  const plan = fixture.adapter.consumeForProcessController(
+    prepared.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.ok(plan);
+  assert.equal(plan.operationMode, "isolated_task");
+  assert.equal(plan.taskRole, "reviewer");
+  assert.equal(plan.workspaceMountMode, "read_only");
+  assert.equal(plan.providerInput, "Review the exact local candidate.");
+  const argv = plan.commands.flatMap((command) => command.argv);
+  assert.equal(argv.includes(plan.providerInput), false);
+  assert.equal(argv.includes("--interactive"), true);
+  assert.equal(
+    argv.some((value) => value.includes("dst=/work") && value.includes("readonly")),
+    true,
   );
 });
 
@@ -467,7 +504,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeClaudeDockerRuntimeAdapterContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.coordinatorPrelaunchModelSelectionAllowed, true);
   assert.equal(contract.providerAutomaticModelSwitchingAllowed, false);
   assert.equal(contract.midExecutionModelSwitchingAllowed, false);

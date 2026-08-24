@@ -3,13 +3,16 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 1;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 2;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
+const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
 const EFFORTS = new Set(["low", "medium", "high"]);
 const FIXED_PROMPT =
   "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
 const FIXED_SCHEMA_PATH = "/etc/crdd/codex-result-schema.json";
+const EXECUTOR_SCHEMA_PATH = "/etc/crdd/codex-executor-result-schema.json";
+const REVIEWER_SCHEMA_PATH = "/etc/crdd/codex-reviewer-result-schema.json";
 const DISTRIBUTION_IDENTITY = Object.freeze({
   targetPlatform: "linux-x64-musl",
   executablePath: "/opt/crdd/providers/codex/0.149.1/codex",
@@ -28,8 +31,12 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
     "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
   sigstoreIssuer: "https://token.actions.githubusercontent.com",
   fixedImageDigest:
-    "sha256:8362d00d6831fb1a5302490f0053198911988a21fb70733d07ab1dcf0f3d7bae",
-  fixedImageBytes: 145_025_527,
+    "sha256:3cfea67579250d38b28ac3324686c210fc73965462f8b4981f449211fc4a1699",
+  fixedImageBytes: 145_027_340,
+  executorSchemaSha256:
+    "ac1e1e6c0412a573b8b98eacc7232e98fff1d59d0e29643a8323f94dc5cfd7d4",
+  reviewerSchemaSha256:
+    "7eedfb76ae82c938e4de00b2770fedd6d4460a4149175a99bb68151a262dabcf",
   imageBuildDefinition:
     "tools/coordinator/runtime/codex-provider.Dockerfile",
   releaseUrl:
@@ -119,6 +126,105 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
   });
 }
 
+export function planCodexIsolatedTask(candidate: unknown) {
+  const value = snapshotPlainRecord(candidate, TASK_PLAN_KEYS);
+  if (!value) return blocked("codex_task_execution_plan_shape_invalid");
+  if (value.provider !== "codex")
+    return blocked("codex_task_execution_plan_provider_mismatch");
+  if (value.mode !== "isolated_task")
+    return blocked("codex_task_execution_plan_mode_not_supported");
+  if (typeof value.effort !== "string" || !EFFORTS.has(value.effort))
+    return blocked("codex_task_execution_plan_effort_invalid");
+  if (value.taskRole !== "executor" && value.taskRole !== "reviewer")
+    return blocked("codex_task_execution_plan_role_invalid");
+
+  const effort = value.effort as "low" | "medium" | "high";
+  const taskRole = value.taskRole as "executor" | "reviewer";
+  const permissionProfile = `crdd-${taskRole}`;
+  const workspaceAccess = taskRole === "executor" ? "write" : "read";
+  return Object.freeze({
+    status: "candidate" as const,
+    reason: "runtime_owned_task_packet_and_authority_required",
+    spawnAllowed: false,
+    providerEffectAllowed: false,
+    provider: "codex" as const,
+    mode: "isolated_task" as const,
+    taskRole,
+    distributionBinding: DISTRIBUTION_BINDING,
+    command: DISTRIBUTION_IDENTITY.executablePath,
+    exactModel: "gpt-5.6-sol",
+    effort,
+    speedMode: "normal" as const,
+    argv: Object.freeze([
+      "exec",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--ignore-rules",
+      "--strict-config",
+      "--model",
+      "gpt-5.6-sol",
+      "--config",
+      `model_reasoning_effort="${effort}"`,
+      "--config",
+      'approval_policy="never"',
+      "--config",
+      'web_search="disabled"',
+      "--config",
+      "features.plugins=false",
+      "--config",
+      "features.memories=false",
+      "--config",
+      "agents.enabled=false",
+      "--config",
+      "memories.generate_memories=false",
+      "--config",
+      "memories.use_memories=false",
+      "--config",
+      "project_doc_max_bytes=0",
+      "--config",
+      `default_permissions="${permissionProfile}"`,
+      "--config",
+      `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"}}`,
+      "--config",
+      `permissions.${permissionProfile}.network.enabled=false`,
+      "--skip-git-repo-check",
+      "--cd",
+      "/work",
+      "--output-schema",
+      taskRole === "executor" ? EXECUTOR_SCHEMA_PATH : REVIEWER_SCHEMA_PATH,
+      "--color",
+      "never",
+      "-",
+    ]),
+    environment: Object.freeze({
+      CODEX_HOME: "/provider-home",
+      CODEX_DISABLE_AUTO_UPDATE: "1",
+    }),
+    providerHomeMountRequired: true,
+    workspaceMountRequired: true,
+    workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
+    rootFilesystemReadOnly: true,
+    taskPromptTransport: "stdin_only" as const,
+    taskPromptInArgvAllowed: false,
+    commandNetworkAccessAllowed: false,
+    webSearchAllowed: false,
+    mcpAllowed: false,
+    pluginAllowed: false,
+    subagentAllowed: false,
+    memoryAllowed: false,
+    projectInstructionsLoaded: false,
+    userConfigLoaded: false,
+    providerHomeCommandReadAllowed: false,
+    sessionPersistenceAllowed: false,
+    loginPolicy: "existing_chatgpt_subscription_oauth" as const,
+    billingPolicy: BILLING_POLICY,
+    apiKeyAllowed: false,
+    paidApiFallbackAllowed: false,
+    additionalCreditPurchaseAllowed: false,
+    automaticPlanSwitchAllowed: false,
+  });
+}
+
 export function describeCodexExecutionPlanContract() {
   return Object.freeze({
     contract: CODEX_EXECUTION_PLAN_CONTRACT,
@@ -150,6 +256,15 @@ export function describeCodexExecutionPlanContract() {
     exactModel: "gpt-5.6-sol",
     efforts: Object.freeze(["low", "medium", "high"]),
     speedMode: "normal_only",
+    isolatedTask: Object.freeze({
+      roles: Object.freeze(["executor", "reviewer"]),
+      permissionProfile: "root_deny_minimal_read_workspace_role_access",
+      providerHomeCommandReadAllowed: false,
+      commandNetworkAccessAllowed: false,
+      webSearchAllowed: false,
+      taskPromptTransport: "stdin_only",
+      promptInArgvAllowed: false,
+    }),
     repositoryMounted: false,
     workspaceMountRequired: false,
     directProviderSpawnAllowed: false,

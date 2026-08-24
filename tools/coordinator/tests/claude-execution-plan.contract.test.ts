@@ -7,6 +7,7 @@ import {
   CLAUDE_EXECUTION_PLAN_CONTRACT,
   CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION,
   describeClaudeExecutionPlanContract,
+  planClaudeIsolatedTask,
   planClaudeReadOnlyProbe,
 } from "../src/security/claude-execution-plan.ts";
 
@@ -40,16 +41,19 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   });
   assert.equal(
     binding.fixedImageDigest,
-    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
   );
   assert.deepEqual(binding.fixedImageEvidence, {
-    verifiedAt: "2026-08-24",
+    verifiedAt: "2026-08-25",
     buildNetworkMode: "none",
     baseImageDigest:
       "sha256:d67a7b66b989ad6b6d6b10d428dcc5e0bfc3e5f88906e67d490c4d3daac57047",
     embeddedBinaryLengthAndSha256Matched: true,
     managedSettingsSha256:
       "736c1447df695f074743f52564eefd4f9f8d8850737657d54a1f3d6052151ee8",
+    taskSettingsSha256:
+      "1924f4754c93793668056446ee68e3cd1b0f45dd38db6b137c5aa43441599ca1",
+    fixedImageBytes: 129_732_853,
     imageUser: "65534:65534",
     imageWorkingDirectory: "/work",
     imageEntrypoint: "/opt/crdd/providers/claude/2.1.220/claude",
@@ -59,7 +63,7 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   assert.equal(binding.argvCompatibilityRequired, true);
   assert.equal(binding.argvCompatibilityVerified, true);
   assert.deepEqual(binding.argvCompatibilityEvidence, {
-    verifiedAt: "2026-08-24",
+    verifiedAt: "2026-08-25",
     exactBinaryVersion: "2.1.220",
     networkMode: "none",
     credentialOrProviderHomeMounted: false,
@@ -81,7 +85,7 @@ test("Claude配布候補は固定絶対pathと同じexact artifact Identityへ�
   assert.equal(plan.distributionBinding.manifestSignatureVerified, true);
   assert.equal(
     plan.distributionBinding.fixedImageDigest,
-    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
   );
   assert.equal(plan.distributionBinding.argvCompatibilityVerified, true);
   assert.equal(plan.spawnAllowed, false);
@@ -281,7 +285,7 @@ test("読取専用probe候補は固定argv、環境置換要求、未検証制�
   assert.equal(plan.distributionBinding.argvCompatibilityVerified, true);
   assert.equal(
     plan.distributionBinding.fixedImageDigest,
-    "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+    "sha256:ddd766072db6e69f55efb11fc3e82b401542cb5583c179f56aac4004f4ea317a",
   );
   assert.equal(plan.environmentMode, "replace_required");
   assert.equal(plan.environmentReplacementImplemented, false);
@@ -378,6 +382,62 @@ test("Managed Settingsの固定byte列を検証済みimage identityへ結合す�
     forceLoginMethod: "claudeai",
     skipWebFetchPreflight: true,
   });
+});
+
+test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定する", () => {
+  const executor = planClaudeIsolatedTask({
+    provider: "claude",
+    mode: "isolated_task",
+    taskRole: "executor",
+    effort: "low",
+  });
+  const reviewer = planClaudeIsolatedTask({
+    provider: "claude",
+    mode: "isolated_task",
+    taskRole: "reviewer",
+    effort: "high",
+  });
+  assert.equal(executor.status, "candidate");
+  assert.equal(executor.workspaceMountMode, "read_write");
+  assert.equal(executor.maximumTurns, 4);
+  assert.equal(executor.maximumBudgetUsd, 0.2);
+  assert.equal(reviewer.status, "candidate");
+  assert.equal(reviewer.workspaceMountMode, "read_only");
+  assert.equal(reviewer.maximumTurns, 8);
+  assert.equal(reviewer.maximumBudgetUsd, 0.5);
+  for (const plan of [executor, reviewer]) {
+    assert.equal(plan.taskPromptTransport, "stdin_only");
+    assert.equal(plan.taskPromptInArgvAllowed, false);
+    assert.equal(plan.shellAllowed, false);
+    assert.equal(plan.commandNetworkAccessAllowed, false);
+    assert.equal(plan.providerHomeBuiltInToolAccessAllowed, false);
+    assert.equal(plan.argv.includes("--settings"), true);
+    assert.equal(plan.argv.includes("/etc/crdd/claude-task-settings.json"), true);
+    assert.equal(plan.argv.includes("--permission-mode"), true);
+    assert.equal(plan.argv.includes("dontAsk"), true);
+  }
+});
+
+test("Claude Task SettingsはProvider Homeと外部Toolをdenyする", () => {
+  const settings = JSON.parse(
+    readFileSync(
+      new URL("../runtime/claude-task-settings.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(settings.permissions.deny, [
+    "Read(//provider-home/**)",
+    "Edit(//provider-home/**)",
+    "Write(//provider-home/**)",
+    "Glob(//provider-home/**)",
+    "Grep(//provider-home/**)",
+    "Bash",
+    "WebFetch",
+    "WebSearch",
+    "Task",
+    "NotebookEdit",
+    "mcp__*",
+  ]);
 });
 
 test("probeの任意Provider、mode、余分field、accessor、Proxyを拒否する", () => {
