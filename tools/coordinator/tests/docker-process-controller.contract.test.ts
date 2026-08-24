@@ -30,12 +30,20 @@ function createPlan(
     profileId: "PROFILE-123456",
     activeMountCapability,
     authorityUseCapability,
+    providerHomeSourcePath: "C:\\runtime-owned\\claude-home",
     providerContainerName: `crdd-claude-${suffix}`,
     proxyContainerName: `crdd-proxy-${suffix}`,
     internalNetworkName: `crdd-internal-${suffix}`,
     egressNetworkName: `crdd-egress-${suffix}`,
     ownershipLabel: `crdd.coordinator.runtime=${suffix}`,
+    providerImageDigest:
+      "sha256:9815772cdc09551d2635f8cf15d90077b2da07ee87f4fe83c7c29dd59cb48ec7",
+    proxyImageDigest:
+      "sha256:f8dad0fbda2d96669dff0a7a0d56864047640af0f4514cbd1383abada91d5d68",
     selectionRecordId: "MODELSEL-12345678",
+    selectedModel: "opus",
+    selectedEffort: "low" as const,
+    selectedModelTier: "preferred",
     commands: Object.freeze(
       purposes.map((purpose) =>
         Object.freeze({ purpose, argv: Object.freeze([purpose]) }),
@@ -328,7 +336,7 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
   assert.equal(result.resultBytes, 0);
 });
 
-test("Recovery記録前とproduction未接続入口はDocker Effectを開始しない", async () => {
+test("Recovery記録前と偽造production CapabilityはDocker Effectを開始しない", async () => {
   const fixture = createFixture({ beginRecovery: () => null });
   const blocked = fixture.controller.start(
     fixture.preparedCapability,
@@ -369,7 +377,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
     contract.structuredResult,
@@ -387,5 +395,5 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
     contract.productionMountCompletion,
     "runtime_owned_mount_lease_connected",
   );
-  assert.equal(contract.productionEffectExecutor, "not_connected");
+  assert.equal(contract.productionEffectExecutor, "fixed_docker_cli_connected");
 });

@@ -6,12 +6,16 @@ import {
   beginRuntimeOwnedDockerRecovery,
   completeRuntimeOwnedDockerRecovery,
 } from "./docker-recovery-runtime.ts";
+import {
+  cleanupRuntimeOwnedDockerResources,
+  startRuntimeOwnedDockerCommand,
+} from "./docker-effect-runtime.ts";
 import { consumeRuntimeOwnedProviderAuthority } from "./provider-authority-runtime.ts";
 import { completeRuntimeOwnedProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 4;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 5;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -38,12 +42,18 @@ type PreparedPlan = Readonly<{
   profileId: string;
   activeMountCapability: object;
   authorityUseCapability: object;
+  providerHomeSourcePath: string;
   providerContainerName: string;
   proxyContainerName: string;
   internalNetworkName: string;
   egressNetworkName: string;
   ownershipLabel: string;
+  providerImageDigest: string;
+  proxyImageDigest: string;
   selectionRecordId: string;
+  selectedModel: string;
+  selectedEffort: "low" | "medium" | "high";
+  selectedModelTier: string;
   commands: readonly Command[];
 }>;
 type CommandExecution = Readonly<{
@@ -79,6 +89,7 @@ type RuntimeDependencies = Readonly<{
   ) => Recovery | null;
   startCommand: (
     command: Command,
+    plan: PreparedPlan,
     managementCapability: unknown,
   ) => CommandHandle;
   cleanupOwnedResources: (
@@ -289,6 +300,7 @@ async function executePlan(
       if (isProvider) providerRequestStarted = true;
       const handle = state.dependencies.startCommand(
         command,
+        plan,
         record.managementCapability,
       );
       record.activeHandle = handle;
@@ -494,20 +506,12 @@ async function cancel(
 
 const productionState: RuntimeState = Object.freeze({
   dependencies: Object.freeze({
-    effectExecutorAvailable: false,
+    effectExecutorAvailable: true,
     consumePreparedPlan:
       consumeRuntimeOwnedClaudeDockerPlanForProcessController,
     beginRecovery: beginRuntimeOwnedDockerRecovery,
-    startCommand: () => {
-      throw new Error("docker_process_controller_effect_unavailable");
-    },
-    cleanupOwnedResources: async () =>
-      Object.freeze({
-        confirmed: false,
-        processTreeTerminated: false,
-        containersAbsent: false,
-        networksAbsent: false,
-      }),
+    startCommand: startRuntimeOwnedDockerCommand,
+    cleanupOwnedResources: cleanupRuntimeOwnedDockerResources,
     completeMount: completeRuntimeOwnedProviderHomeMount,
     completeRecovery: completeRuntimeOwnedDockerRecovery,
     consumeProviderAuthority: consumeRuntimeOwnedProviderAuthority,
@@ -589,6 +593,6 @@ export function describeDockerProcessControllerContract() {
     productionPreparedPlan: "runtime_owned_adapter_connected",
     productionRecovery: "durable_host_recovery_connected",
     productionMountCompletion: "runtime_owned_mount_lease_connected",
-    productionEffectExecutor: "not_connected",
+    productionEffectExecutor: "fixed_docker_cli_connected",
   });
 }

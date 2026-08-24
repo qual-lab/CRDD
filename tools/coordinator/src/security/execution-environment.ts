@@ -1214,6 +1214,21 @@ export function verifyOwnedOperationManagementMountBinding(
   });
 }
 
+export function borrowOwnedDockerExecutionPaths(
+  managementCapability: unknown,
+): Readonly<{ tmp: string; management: string }> {
+  const { binding } =
+    ownedOperationFromManagementCapability(managementCapability);
+  const identity = ownedIdentities.get(binding.owned);
+  if (!identity?.children)
+    throw new Error("owned_operation_management_binding_required");
+  const children = validateOwnedOperationIdentity(binding.owned, identity);
+  return Object.freeze({
+    tmp: validateDirectorySnapshot(children.tmp),
+    management: validateDirectorySnapshot(children.management),
+  });
+}
+
 function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
   const known = new Set(
     Object.values(children).map((snapshot) => snapshot.name),

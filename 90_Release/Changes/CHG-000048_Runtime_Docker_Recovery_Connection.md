@@ -35,6 +35,6 @@
 
 Docker Recovery Runtimeの隔離契約試験とProduction Host Recovery遷移試験を追加した。基準Node.js v24.19.0でRecovery 5試験、Process Controllerを含む対象22試験およびstrict source／test typecheckを通過した。新Recovery Runtimeの単独coverageはline 98.86%、branch 96.30%、function 100%であり、未到達lineはProduction dependencyがRecovery開始後に例外化した場合の防御catchである。実Docker Effectは未接続なので発火していない。
 
-残件は固定Docker CLI Effect executor、実cleanup／timeout／cancel異常系、Provider eligibility実観測、有効化済みAuthority source loader、Codex Adapter、実Provider E2E、独立レビュー／監査およびPRである。
+残件は実cleanup／timeout／cancel異常系、Provider eligibility実観測、有効化済みAuthority source loader、Codex Adapter、実Provider E2E、独立レビュー／監査およびPRである。固定Docker CLI Effect executorは`CHG-000049`で接続済みである。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。
