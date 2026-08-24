@@ -143,6 +143,14 @@ fn fixed_failure_results_distinguish_each_fail_closed_stage() {
             "native_provision_selected_user_mismatch",
         ),
         (
+            native_bootstrap_core::SELECTED_USER_REOBSERVATION_UNAVAILABLE_BLOCKED,
+            "native_provision_selected_user_reobservation_unavailable",
+        ),
+        (
+            native_bootstrap_core::SELECTED_USER_REOBSERVATION_MISMATCH_BLOCKED,
+            "native_provision_selected_user_reobservation_mismatch",
+        ),
+        (
             native_bootstrap_core::PROCESS_CREATED_BLOCKED,
             "native_provision_created_process_rejected",
         ),

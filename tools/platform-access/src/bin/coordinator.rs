@@ -2652,8 +2652,24 @@ unsafe fn launch_worker() -> Option<u32> {
             request_binding,
             exit_code,
         );
+    let reobserved_principal = if worker_response_valid {
+        unsafe { current_supervisor_principal() }
+    } else {
+        None
+    };
+    if worker_response_valid && reobserved_principal.is_none() {
+        FAILURE_STAGE.store(25, Ordering::Relaxed);
+        return None;
+    }
+    let (reobserved_user_hash, reobserved_user_flags) = reobserved_principal?;
+    if !equal_u8_exact(&selected_user_hash, &reobserved_user_hash)
+        || selected_user_flags != reobserved_user_flags
+    {
+        FAILURE_STAGE.store(26, Ordering::Relaxed);
+        return None;
+    }
     let selected_user_matches =
-        worker_response_valid && response.get(50..82) == Some(selected_user_hash.as_slice());
+        worker_response_valid && response.get(50..82) == Some(reobserved_user_hash.as_slice());
     if !worker_response_valid || !selected_user_matches {
         if worker_response_valid {
             FAILURE_STAGE.store(17, Ordering::Relaxed);
@@ -2758,6 +2774,8 @@ pub extern "system" fn crdd_coordinator_entry() -> ! {
                     22 => native_bootstrap_core::WORKER_ARTIFACT_IDENTITY_BLOCKED,
                     23 => native_bootstrap_core::MANIFEST_ARTIFACT_IDENTITY_BLOCKED,
                     24 => native_bootstrap_core::LOCAL_APP_DATA_IDENTITY_BLOCKED,
+                    25 => native_bootstrap_core::SELECTED_USER_REOBSERVATION_UNAVAILABLE_BLOCKED,
+                    26 => native_bootstrap_core::SELECTED_USER_REOBSERVATION_MISMATCH_BLOCKED,
                     _ => native_bootstrap_core::ISOLATION_BLOCKED,
                 }
             };
@@ -2853,6 +2871,19 @@ mod tests {
         );
         assert_eq!(pipe[length], 0);
         assert_eq!(PIPE_REJECT_REMOTE_CLIENTS, 0x0000_0008);
+    }
+
+    #[test]
+    fn principal_hash_primitive_matches_sha256_known_vector() {
+        let actual = unsafe { sha256_parts(&[b"a", b"b", b"c"]) }.expect("SHA-256");
+        assert_eq!(
+            actual,
+            [
+                0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
+                0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
+                0xf2, 0x00, 0x15, 0xad,
+            ]
+        );
     }
 
     #[test]
