@@ -7,9 +7,9 @@
 Expertise and execution to AI. Ideas, decisions, and accountability to humans. Intent to the Context Repository.
 ```
 
-Status: **v0.18.0 Candidate — Current Decision Set, Communication, and Architecture Evaluation / 現在の判断集合・Communication・Architecture評価**
+Status: **v0.18.0 Candidate — Current Decision Set, Communication, Agent Organization, and Architecture Evaluation / 現在の判断集合・Communication・Agent Organization・Architecture評価**
 
-> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, plus non-normative v0.18.0 Architecture Candidate material. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合とCommunicationの規範変更候補に加え、非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはReleaseは成立しない。See / 参照: [v0.18.0 Architecture Candidate](99_Roadmap/01_CRDD_v0_18_Concept.md).
+> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative v0.18.0 Architecture Candidate material. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合とCommunicationの規範変更候補、Agent Organizationの規範的な基礎正本候補、および非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはReleaseは成立しない。See / 参照: [Agent Organization](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](99_Roadmap/01_CRDD_v0_18_Concept.md).
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -84,7 +84,7 @@ Use this non-normative map to choose an entry point. The linked canonical contra
 | Establish whether the result actually holds | obligations, population, exclusions, oracle, evidence, results, and remaining risk | [Verification](29_Verification.md) and [Quality Assurance](16_Quality_Assurance.md) |
 | Explore adoption and prepare external communication | Discovery-owned market, segment, and adoption hypotheses; Communication-owned audience, message, channel, artifact, path, publication, measurement, and learning return | [Communication](17_Communication.md) and [Discovery](21_Discovery.md) |
 | Manage shared context or artifact dependencies | authority, adopted version, consumers, update, override, risk, and recovery | [Context Dependency](18_Context_Dependency.md) |
-| Control AI, tools, and external research | authority, skill, delegation, information classification, permitted processing boundary, and untrusted input | [Agent](10_Agent.md), [Skill](11_Skill.md), and [Principles](01_Principles.md#external-information-boundary) |
+| Control AI, tools, and external research | authority, skill, delegation, information classification, permitted processing boundary, and untrusted input | [Agent Organization](04_Agent_Organization.md), [Agent](10_Agent.md), [Skill](11_Skill.md), and [Principles](01_Principles.md#external-information-boundary) |
 | Change or migrate CRDD operation | change reason, affected contracts and consumers, evidence, audits, migration, release, and rollback | [Change](12_Change.md) and [Maintenance](19_Maintenance.md) |
 
 Choose the shortest route that matches the work:
@@ -117,7 +117,7 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and Authority Safety, Background versus Human Decision separation, and Operation Health. They are future, non-normative design material—not part of v0.17.0 conformance:
 
-The integrated v0.18.0 candidate combines normative change candidates for Current Decision Set and Communication with non-normative architecture material. The architecture material extends the decision boundary across multiple executions: a Coordinator integrates Executor, Reviewer, Provider, and Run results before passing only the current decision set to a Human interface. It does not make a Coordinator product, agent layout, queue UI, autonomous approval, or runtime capability mandatory. Changes to the normative candidates or released baseline require a new semantic comparison; the former feature branches are provenance, not continuing synchronization sources.
+The integrated v0.18.0 candidate combines normative change candidates for Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative architecture material. Agent Organization defines how responsibility, specialty, capability, authority, delegation, review, cost, and result integration remain distinct without requiring multiple agents. The architecture material explores how those boundaries can be projected across executions. Neither category makes a Coordinator product, agent layout, queue UI, autonomous approval, or runtime capability mandatory. Changes to the normative candidates or released baseline require a new semantic comparison; the former feature branches are provenance, not continuing synchronization sources.
 
 #### What this candidate does not provide by itself
 
@@ -146,7 +146,7 @@ For example, a Codex scheduled task may explicitly start a read-only weekly revi
 - [Forward compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
 - [Agent and provider orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
 
-The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation candidate](04_Agent_Organization.md). Its document status, not its inclusion in this list, governs whether it has been adopted.
+The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation candidate](04_Agent_Organization.md). Neither inclusion in this list nor `Candidate` status establishes adoption; adoption follows the baseline-adoption assessment, Human activation decision, and release contracts.
 
 The product transformation is connected end to end, but it is not a fixed waterfall:
 
@@ -378,6 +378,7 @@ The authoritative placement, artifact, Evidence, Decision, Stable Context ID, an
 | See the complete repository and document map | [Overview](00_Overview.md) |
 | Resolve canonical concepts, status, and authority terms | [Terminology](02_Terminology.md) |
 | Structure repositories, artifacts, evidence, decisions, IDs, and traces | [Documentation](03_Documentation.md) |
+| Organize AI work by specialty, responsibility, delegation, verification, and authority boundaries | [Agent Organization](04_Agent_Organization.md) |
 | Run or delegate AI work | [Agent](10_Agent.md) and [Skill](11_Skill.md) |
 | Trace a change, release a product, or define a repeatable workflow | [Change](12_Change.md), [Release](13_Release.md), and [Workflow](14_Workflow.md) |
 | Track progress and health across any development method | [Progress](15_Progress.md) |
@@ -511,7 +512,7 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
 
-統合v0.18.0候補は、現在の判断集合とCommunicationの規範変更候補に、非規範のArchitecture資料を組み合わせる。Architecture資料は判断境界を複数実行へ拡張し、CoordinatorがExecutor、Reviewer、Providerおよび各Runの結果を統合してから、現在の判断集合だけをHuman Interfaceへ渡す。特定Coordinator製品、Agent構成、Queue UI、自律承認またはRuntime Capabilityを必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
+統合v0.18.0候補は、現在の判断集合とCommunicationの規範変更候補、Agent Organizationの規範的な基礎正本候補、および非規範のArchitecture資料を組み合わせる。Agent Organizationは責務、専門性、能力、決定権限、委譲、レビュー、費用および結果統合を、複数Agentを必須にせず分離する。Architecture資料は、その境界を複数実行へ投影する方法を検討する。いずれも特定Coordinator製品、Agent構成、Queue UI、自律承認またはRuntime Capabilityを必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
 
 #### この候補が単独では提供しないもの
 
@@ -540,7 +541,7 @@ Representable != Enabled != Accessible != Authorized != Promoted
 - [Forward Compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
 - [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
 
-この候補が使用する横断概念は、[Agent Organizationの基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載ではなく、同文書の状態が採用状況を決める。
+この候補が使用する横断概念は、[Agent Organizationの基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載や`Candidate`状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびRelease契約に従う。
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 
@@ -770,7 +771,7 @@ node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary
 | リポジトリと文書体系の全体像を確認する | [概要](00_Overview.md) |
 | 正式概念、状態、決定権限の用語を確認する | [用語](02_Terminology.md) |
 | リポジトリ、成果物、根拠、判断、ID、追跡関係を設計する | [文書化](03_Documentation.md) |
-| AIを専門性、責務、委譲、検証およびAuthorityの境界で編成する | [エージェント組織](04_Agent_Organization.md) |
+| AIを専門性、責務、委譲、検証および決定権限の境界で編成する | [エージェント組織](04_Agent_Organization.md) |
 | AI作業を実行・委譲する | [エージェント](10_Agent.md)と[スキル](11_Skill.md) |
 | 変更、プロダクトリリース、反復作業を扱う | [変更](12_Change.md)、[リリース](13_Release.md)、[作業手順](14_Workflow.md) |
 | 開発方式を問わず進捗と健全性を把握する | [進捗管理](15_Progress.md) |

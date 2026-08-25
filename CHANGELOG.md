@@ -9,6 +9,35 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ## English
 
+<a id="changelog-v0180-en"></a>
+
+### v0.18.0 Candidate — Current Decision Set, Agent Organization, Communication, and Architecture Evaluation (Unreleased)
+
+This unreleased candidate combines normative changes for the Current Decision Set and Communication, the new Agent Organization foundation contract, and non-normative architecture evaluation. Agent Organization separates role, specialty, capability, authority, delegation, independent review, cost optimization, and result integration without requiring multiple agents, a fixed topology, a specific Provider, or Coordinator Runtime.
+
+Compared with v0.17.0:
+
+- Adds `04_Agent_Organization.md` as the Candidate foundation authority for organizing specialized AI work while retaining Human Authority.
+- Adds Agentic Delivery criterion AD-22. Where work uses role assignment, delegation, execution-actor／Provider／Model selection, independent review, or Coordinator integration, it evaluates the separation of responsibility, specialty, capability, authority, verification, and integration; avoids unnecessary agents or delegation; does not infer quality, independence, or authority from a Provider or configuration name; compares cost, quota, or credit only among eligible candidates; and does not promote a result or `Pass` into Human Authority.
+- Extends Agentic Delivery claims from AD-01–AD-21 to AD-01–AD-22 without requiring a permanent organization registry, fixed schema, multi-agent execution, or retrospective rewriting of closed work.
+- Separates the Agent Organization concept from the non-normative Agent／Provider Orchestration architecture candidate and the current Coordinator Runtime implementation.
+- Keeps the released baseline at v0.17.0. Candidate documents, branch co-location, checker success, or runtime implementation do not establish adoption, conformance, activation, or release.
+
+Adoption impact: this is a normative, non-structural Agentic Delivery change. A project adopting v0.18.0 from an earlier baseline evaluates AD-22 for an Agentic Delivery claim and confirms that its active AI entry points and work-routing evidence preserve the new organization boundary. Historical completed work and old conformance records remain history and are not rewritten solely to match AD-22.
+
+Migration note (v0.17.0 → v0.18.0):
+
+- `migration_required: true`
+- `change_classification: normative`
+- Required: perform the baseline-adoption assessment and satisfy Migration Completeness before activating v0.18.0. Record the Human activation decision and rollback boundary.
+- Required for Agentic Delivery conformance: evaluate AD-22 for the claimed scope. Existing Work Assignment, routing, review, and integration evidence may be reused when it already shows the required boundaries; no dedicated registry is required.
+- Conditional: update AI entry points, routing policies, review procedures, or local guidance only where they infer capability or authority from a role, Provider, Model, connection, or session; add unnecessary delegation; compare cost before eligibility; treat Provider difference as review independence; or promote an agent result into Human Authority.
+- Not required: use multiple agents, a Coordinator product, a fixed Planner／Executor／Reviewer flow, a particular Provider or Model, a permanent organization artifact, a new Stable Context ID, or retrospective rewriting of completed history.
+- Rollback / recovery: keep v0.17.0 as the active baseline until Migration Completeness and Human activation finish. If partial adoption is reversed, restore the previous AI entry and conformance scope while preserving candidate records as history.
+- Known risk if deferred: routing may conflate role, capability, and authority; unnecessary agents may consume quota; cost may override eligibility; Provider difference may be mistaken for independent review; or an integrated AI result may be mistaken for Human approval.
+- Verification: run the full repository checker on one fixed revision, then independently review Agent operation and Architecture and run Document, Gap／Impact, and Conformance Audits against that same revision.
+- Known limitation: the contract improves explainability and control of Agent composition but cannot prove Provider capability, eliminate every cost or quota failure, guarantee review quality, or replace Human Authority and qualified independent review.
+
 <a id="changelog-v0170-en"></a>
 
 ### v0.17.0 — Expert Exploration, Convergence, and External Information Boundary (2026-08-10)
@@ -776,6 +805,35 @@ The following describes the historical v0.1.0 files and does not describe the cu
 ---
 
 ## 日本語
+
+<a id="changelog-v0180-ja"></a>
+
+### v0.18.0候補 — 現在の判断集合、Agent Organization、Communication、Architecture評価（未リリース）
+
+この未リリース候補は、現在の判断集合とCommunicationの規範変更、Agent Organizationの新しい基礎契約、および非規範のArchitecture評価を組み合わせる。Agent Organizationは、複数Agent、固定構成、特定ProviderまたはCoordinator Runtimeを必須にせず、役割、専門性、能力、決定権限、委譲、独立レビュー、費用最適化および結果統合を分離する。
+
+v0.17.0からの変更:
+
+- 専門化したAI作業を編成しながらHuman Authorityを維持するCandidate基礎正本として`04_Agent_Organization.md`を追加する。
+- Agentic Delivery基準AD-22を追加する。役割分担、委譲、実行主体／Provider／Model選定、独立レビューまたはCoordinator統合を行う場合に、責務、専門性、能力、決定権限、検証および統合の分離、不要なAgent／委譲の非発火、Provider名や構成名から品質・独立性・決定権限を推定しないこと、適格候補間だけで費用・割当量・利用枠を比較すること、およびResultや`Pass`をHuman Authorityへ昇格しないことを評価する。
+- Agentic Delivery準拠表明の必須範囲をAD-01〜AD-21からAD-01〜AD-22へ拡張する。恒久的な組織台帳、固定Schema、Multi-Agent実行または完了済み履歴の遡及書換えは要求しない。
+- Agent Organizationの概念、非規範のAgent／Provider Orchestration Architecture候補、および現在のCoordinator Runtime実装を分離する。
+- 公開済み基準はv0.17.0のままとする。Candidate文書、branchへの同居、Checker合格またはRuntime実装から、採用、準拠、有効化またはReleaseを成立させない。
+
+採用への影響: これはAgentic Deliveryに対する非構造的な規範変更である。以前の基準版からv0.18.0を採用するProjectは、Agentic Delivery準拠表明の対象についてAD-22を評価し、現在のAI入口とWork Routingの根拠が新しい組織境界を保持できることを確認する。完了済みの過去作業や過去の準拠記録を、AD-22の形式へ合わせるだけの理由で書き換えない。
+
+移行注記（v0.17.0 → v0.18.0）:
+
+- `migration_required: true`
+- `change_classification: normative`
+- 必須: v0.18.0を有効化する前に基準版採用評価を行い、移行完了の条件を満たす。人間による有効化判断と復旧境界を記録する。
+- Agentic Delivery準拠で必須: 対象範囲のAD-22を評価する。既存のWork Assignment、Routing、Reviewおよび統合の根拠が必要境界を示せる場合は再利用でき、専用台帳を要求しない。
+- 条件付き: 役割、Provider、Model、接続またはSessionから能力・決定権限を推定する、不要な委譲を追加する、適格性判定より先に費用を比較する、Provider差を独立レビューとみなす、またはAgent ResultをHuman Authorityへ昇格するAI入口、Routing Policy、Review手順またはローカル案内だけを更新する。
+- 不要: Multi-Agent、Coordinator製品、固定Planner／Executor／Reviewer Flow、特定Provider／Model、恒久的な組織成果物、新しい安定コンテキストID、または完了済み履歴の遡及書換え。
+- 切戻し／復旧: 移行完了と人間による有効化が終わるまでv0.17.0を有効基準として維持する。部分採用を戻す場合は、候補記録を履歴として保持しながら、以前のAI入口と準拠範囲を復元する。
+- 延期時の既知リスク: Routingが役割、能力、決定権限を混同し、不要Agentが利用枠を消費し、費用が適格性より優先され、Provider差が独立レビューと誤認され、統合したAI Resultが人間の承認と誤認される可能性がある。
+- 検証: 一つの固定改訂版へRepository全体Checkerを実行し、同じ改訂版に対してAgent／Architecture独立レビュー、Document Audit、Gap／Impact AuditおよびConformance Auditを実行する。
+- 既知の限界: この契約はAgent編成の説明可能性と統制を高めるが、Provider能力の証明、すべての費用／利用枠失敗の除去、レビュー品質の保証、Human Authorityまたは適格な独立レビューの代替はできない。
 
 <a id="changelog-v0170-ja"></a>
 
