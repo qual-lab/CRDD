@@ -45,6 +45,35 @@ function temporaryRepository(t: TestContext) {
   return root;
 }
 
+function linkedRepository(t: TestContext) {
+  const parent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-operation-linked-repository-"),
+  );
+  const root = path.join(parent, "linked");
+  const commonGitDirectory = path.join(parent, "main.git");
+  const git = path.join(commonGitDirectory, "worktrees", "linked");
+  fs.mkdirSync(root);
+  fs.mkdirSync(path.join(commonGitDirectory, "refs", "heads"), {
+    recursive: true,
+  });
+  fs.mkdirSync(git, { recursive: true });
+  fs.writeFileSync(path.join(root, ".git"), `gitdir: ${git}\n`, "utf8");
+  fs.writeFileSync(path.join(git, "commondir"), "../..\n", "utf8");
+  fs.writeFileSync(path.join(git, "HEAD"), "ref: refs/heads/main\n", "utf8");
+  fs.writeFileSync(
+    path.join(commonGitDirectory, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(commonGitDirectory, "refs", "heads", "main"),
+    `${firstRevision}\n`,
+    "utf8",
+  );
+  t.after(() => fs.rmSync(parent, { recursive: true, force: true }));
+  return { root, commonGitDirectory };
+}
+
 function operation(t: TestContext) {
   const owned = createOwnedOperationDirectories();
   t.after(() => cleanupOwnedOperationDirectories(owned));
@@ -215,6 +244,64 @@ test("宣言Object Formatとdetached／loose／packed Revision幅の不一致を
     inspectRepositoryObjectFormatCandidate(sha256WithSha1Revision),
     null,
   );
+});
+
+test("loose refの中間junctionと最終symlinkをRepository境界外としてpreflightで拒否する", (t) => {
+  for (const linkedSegment of ["refs", "refs/heads"] as const) {
+    const repository = temporaryRepository(t);
+    const external = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-operation-external-ref-"),
+    );
+    t.after(() => fs.rmSync(external, { recursive: true, force: true }));
+    const link = path.join(repository, ".git", ...linkedSegment.split("/"));
+    fs.rmSync(link, { recursive: true, force: true });
+    const destination =
+      linkedSegment === "refs"
+        ? path.join(external, "refs")
+        : path.join(external, "heads");
+    fs.mkdirSync(
+      linkedSegment === "refs" ? path.join(destination, "heads") : destination,
+      { recursive: true },
+    );
+    fs.writeFileSync(
+      linkedSegment === "refs"
+        ? path.join(destination, "heads", "main")
+        : path.join(destination, "main"),
+      `${firstRevision}\n`,
+      "utf8",
+    );
+    fs.symlinkSync(
+      destination,
+      link,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.equal(inspectRepositoryObjectFormatCandidate(repository), null);
+  }
+
+  const repository = temporaryRepository(t);
+  const externalFile = path.join(repository, "external-main");
+  fs.writeFileSync(externalFile, `${firstRevision}\n`, "utf8");
+  const ref = path.join(repository, ".git", "refs", "heads", "main");
+  fs.rmSync(ref);
+  fs.symlinkSync(externalFile, ref, "file");
+  assert.equal(inspectRepositoryObjectFormatCandidate(repository), null);
+});
+
+test("linked worktreeのCommon Git Directoryでもloose ref junctionをpreflightで拒否する", (t) => {
+  const repository = linkedRepository(t);
+  const external = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-operation-linked-external-ref-"),
+  );
+  t.after(() => fs.rmSync(external, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(external, "main"), `${firstRevision}\n`, "utf8");
+  const heads = path.join(repository.commonGitDirectory, "refs", "heads");
+  fs.rmSync(heads, { recursive: true, force: true });
+  fs.symlinkSync(
+    external,
+    heads,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  assert.equal(inspectRepositoryObjectFormatCandidate(repository.root), null);
 });
 
 test("公開契約はcaller supplied identityを採用せずPathを返さない", () => {

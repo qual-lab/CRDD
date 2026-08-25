@@ -150,6 +150,9 @@ function readStableFileBytes(
   shouldAllowEmpty = false,
 ): StableFileBytes {
   verifySnapshots(parentSnapshots);
+  if (fs.realpathSync.native(target) !== target) {
+    throw new Error("repository_git_file_boundary_invalid");
+  }
   const pathBefore = identity(fs.lstatSync(target, { bigint: true }), "file");
   if (
     (!shouldAllowEmpty && pathBefore.size <= 0n) ||
@@ -188,7 +191,11 @@ function readStableFileBytes(
       throw new Error("repository_git_file_changed");
     const after = identity(fs.fstatSync(descriptor, { bigint: true }), "file");
     const pathAfter = identity(fs.lstatSync(target, { bigint: true }), "file");
-    if (!sameIdentity(before, after) || !sameIdentity(before, pathAfter)) {
+    if (
+      !sameIdentity(before, after) ||
+      !sameIdentity(before, pathAfter) ||
+      fs.realpathSync.native(target) !== target
+    ) {
       throw new Error("repository_git_file_changed");
     }
     result = Object.freeze({

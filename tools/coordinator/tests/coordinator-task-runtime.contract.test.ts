@@ -447,6 +447,34 @@ function mismatchedRepository(t: TestContext) {
   return root;
 }
 
+function junctionRefRepository(t: TestContext) {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-junction-ref-task-"),
+  );
+  const external = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-junction-ref-external-"),
+  );
+  const git = path.join(root, ".git");
+  fs.mkdirSync(git, { recursive: true });
+  fs.mkdirSync(external, { recursive: true });
+  fs.writeFileSync(path.join(git, "HEAD"), "ref: refs/heads/main\n", "utf8");
+  fs.writeFileSync(
+    path.join(git, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+    "utf8",
+  );
+  fs.writeFileSync(path.join(external, "main"), `${"a".repeat(40)}\n`, "utf8");
+  fs.mkdirSync(path.join(git, "refs"));
+  fs.symlinkSync(
+    external,
+    path.join(git, "refs", "heads"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(external, { recursive: true, force: true }));
+  return root;
+}
+
 test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止する", async (t) => {
   const harness = fixture({
     inspectRepository: inspectRepositoryObjectFormatCandidate,
@@ -474,6 +502,25 @@ test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failure�
   const result = await harness.runtime.start(
     request(),
     mismatchedRepository(t),
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
+  assert.equal(harness.operationCreateCount(), 0);
+  assert.equal(harness.externalAuthorizationCount(), 0);
+  assert.equal(harness.candidateStorePrepareCount(), 0);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 0);
+});
+
+test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる", async (t) => {
+  const harness = fixture({
+    inspectRepository: inspectRepositoryObjectFormatCandidate,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    junctionRefRepository(t),
     "2026-08-25T00:00:00.000Z",
   ).completion;
   assert.equal(result.status, "blocked");
