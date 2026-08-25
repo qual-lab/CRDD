@@ -140,6 +140,7 @@ For example, a Codex scheduled task may explicitly start a read-only weekly revi
 
 - [Concept and vision](05_Autonomous_Operation.md)
 - [Responsibility boundaries](05_Autonomous_Operation.md#autonomous-operation-responsibility)
+- [Long-term evolution direction](01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)
 - [Open work and reference experiments](99_Roadmap/01_Product_Roadmap.md)
 - [Autonomous safety architecture](05_Autonomous_Operation.md#autonomous-operation-safety)
 - [Operation health and Human interface](05_Autonomous_Operation.md#operation-health-and-human-interface)
@@ -535,6 +536,7 @@ Representable != Enabled != Accessible != Authorized != Promoted
 
 - [Conceptと全体像](05_Autonomous_Operation.md)
 - [責務境界](05_Autonomous_Operation.md#autonomous-operation-responsibility)
+- [長期発展方針](01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針)
 - [未完了作業と参照実証](99_Roadmap/01_Product_Roadmap.md)
 - [自律安全Architecture](05_Autonomous_Operation.md#autonomous-operation-safety)
 - [Operation HealthとHuman Interface](05_Autonomous_Operation.md#operation-health-and-human-interface)
