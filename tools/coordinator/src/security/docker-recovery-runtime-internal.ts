@@ -1,14 +1,40 @@
-import { createHash, randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-
 import {
-  beginOwnedDockerSubmissionRecovery,
+  acquireRuntimeOwnedDockerRuntimeStateKernelLock,
+  acquireRuntimeOwnedLogicalProviderHomeKernelLock,
+} from "./candidate-store-kernel-lock.ts";
+import {
+  consumeRuntimeOwnedRuntimeStateRootCapability,
+  inspectRuntimeOwnedWindowsRuntimeState,
+} from "./candidate-store-windows-adapter.ts";
+import { validateDockerHostTransitionLineage } from "./docker-host-transition-state.ts";
+import {
+  discoverDockerRecoveryJournalJsonForRecovery,
+  dockerRecoveryCommitName,
+  inspectDockerRecoveryJournalDirectory,
+  inspectDockerRecoveryMoveJournalForRecovery,
+  isDockerRecoveryJournalIntentName,
+  isDockerRecoveryJournalTemporaryName,
+  moveCommittedDockerRecoveryJson,
+  readCommittedDockerRecoveryJson,
+  removeCommittedDockerRecoveryJson,
+  removeDockerRecoveryCleanupDirectory,
+  resumeDockerRecoveryJournalDirectory,
+  resumeDockerRecoveryJournalDirectoryForRecovery,
+  writeCommittedDockerRecoveryJson,
+} from "./docker-recovery-journal.ts";
+import { createDockerRecoveryRuntimeStateLockController } from "./docker-recovery-lock-controller.ts";
+import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
+import { isExactDockerRuntimeStateMutationBoundary } from "./docker-runtime-state-binding.ts";
+import {
   acquireHostOperationRecoveryGenerationByIdentity,
+  beginOwnedDockerSubmissionRecovery,
   completeOwnedDockerSubmissionRecovery,
-  getOwnedHostRecoveryIdByManagementCapability,
   confirmOwnedDockerAbsenceForRecovery,
+  getOwnedHostRecoveryIdByManagementCapability,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
@@ -18,40 +44,13 @@ import {
   parseHostRecoveryToken,
 } from "./host-recovery-record.ts";
 import {
-  acquireRuntimeOwnedDockerRuntimeStateKernelLock,
-  acquireRuntimeOwnedLogicalProviderHomeKernelLock,
-} from "./candidate-store-kernel-lock.ts";
-import {
-  consumeRuntimeOwnedRuntimeStateRootCapability,
-  inspectRuntimeOwnedWindowsRuntimeState,
-} from "./candidate-store-windows-adapter.ts";
-import {
   consumeRuntimeOwnedProviderHomeObservationCapability,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "./provider-home-windows-adapter.ts";
-import {
-  dockerRecoveryCommitName,
-  discoverDockerRecoveryJournalJsonForRecovery,
-  isDockerRecoveryJournalTemporaryName,
-  isDockerRecoveryJournalIntentName,
-  inspectDockerRecoveryJournalDirectory,
-  inspectDockerRecoveryMoveJournalForRecovery,
-  moveCommittedDockerRecoveryJson,
-  readCommittedDockerRecoveryJson,
-  removeDockerRecoveryCleanupDirectory,
-  removeCommittedDockerRecoveryJson,
-  resumeDockerRecoveryJournalDirectory,
-  resumeDockerRecoveryJournalDirectoryForRecovery,
-  writeCommittedDockerRecoveryJson,
-} from "./docker-recovery-journal.ts";
-import { validateDockerHostTransitionLineage } from "./docker-host-transition-state.ts";
-import { createDockerRecoveryRuntimeStateLockController } from "./docker-recovery-lock-controller.ts";
-import { isExactDockerRuntimeStateMutationBoundary } from "./docker-runtime-state-binding.ts";
-import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 10;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 11;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -2570,6 +2569,18 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       recoveryId: parsed.token,
     });
   }
+  const preliminaryInventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
+  if (
+    preliminaryInventory.status !== "completed" ||
+    !preliminaryInventory.dockerRecoveryIds.some(
+      (value: unknown) => value === parsed.token,
+    )
+  )
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "docker_task_runtime_state_audit_failed",
+      recoveryId: parsed.token,
+    });
   const cleanupDirectoryCandidate = path.join(
     root.rootPath,
     `cleanup-docker-task-${parsed.stableLogicalHomeBindingHash}-${parsed.operationNonce}-${parsed.baseHash}`,
@@ -2684,6 +2695,19 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
   };
   try {
     verifyRecoveryRuntimeStateBoundary();
+    const initialInventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
+    if (initialInventory.status !== "completed")
+      throw new Error("docker_task_runtime_state_audit_failed");
+    if (
+      !initialInventory.dockerRecoveryIds.some(
+        (value: unknown) => value === parsed.token,
+      )
+    )
+      return Object.freeze({
+        status: "recovered" as const,
+        reason: "docker_task_recovery_cleanup_tombstone_completed",
+        recoveryId: null,
+      });
     resumeDockerRecoveryJournalDirectoryForRecovery(
       root.rootPath,
       parsed.token,
@@ -3728,6 +3752,140 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         throw error;
       }
     };
+    type BootstrapRecord = ReturnType<typeof readRootRecord>;
+    type BootstrapPairState =
+      | "absent"
+      | "move_content"
+      | "move_commit"
+      | "complete";
+    type BootstrapPairInspection = Readonly<{
+      state: BootstrapPairState;
+      hasIntent: boolean;
+    }>;
+    const sameBootstrapRecord = (
+      left: BootstrapRecord,
+      right: BootstrapRecord,
+    ) =>
+      left.logicalKey === right.logicalKey &&
+      left.serialized === right.serialized &&
+      left.hash === right.hash &&
+      left.identityText === right.identityText;
+    const inspectBootstrapPairState = (
+      directory: string,
+      recoveryId: string,
+      logicalKey: "base.json" | "base-commit.json",
+      record: BootstrapRecord,
+    ): BootstrapPairInspection => {
+      const target = path.join(directory, logicalKey);
+      const targetCommit = path.join(
+        directory,
+        dockerRecoveryCommitName(logicalKey),
+      );
+      const matchingIntents = journalIntents.filter(
+        (intent) =>
+          intent.schema === "crdd-coordinator-durable-json-move/v1" &&
+          intent.recoveryId === recoveryId &&
+          intent.pairLogicalKey === logicalKey &&
+          intent.targetContentName === logicalKey &&
+          intent.targetCommitName === dockerRecoveryCommitName(logicalKey),
+      );
+      if (matchingIntents.length > 1)
+        throw new Error("docker_task_runtime_state_base_invalid");
+      if (matchingIntents.length === 1) {
+        const inspected = inspectDockerRecoveryMoveJournalForRecovery(
+          rootPath,
+          recoveryId,
+          logicalKey,
+          directory,
+          logicalKey,
+        );
+        if (!sameBootstrapRecord(record, inspected))
+          throw new Error("docker_task_runtime_state_base_invalid");
+        return Object.freeze({ state: inspected.moveState, hasIntent: true });
+      }
+      const targetPresent = fs.existsSync(target);
+      const targetCommitPresent = fs.existsSync(targetCommit);
+      if (!targetPresent && !targetCommitPresent)
+        return Object.freeze({ state: "absent" as const, hasIntent: false });
+      if (!targetPresent || !targetCommitPresent)
+        throw new Error("docker_task_runtime_state_base_invalid");
+      const inspected = readExactJson(target, logicalKey);
+      if (!sameBootstrapRecord(record, inspected))
+        throw new Error("docker_task_runtime_state_base_invalid");
+      return Object.freeze({ state: "complete" as const, hasIntent: false });
+    };
+    const inventoryBootstrapOperationDirectory = (
+      directory: string,
+      recoveryId: string,
+      base: BootstrapRecord,
+      commit: BootstrapRecord,
+    ) => {
+      const before = fs.lstatSync(directory, { bigint: true });
+      if (!before.isDirectory() || before.isSymbolicLink())
+        throw new Error("docker_task_runtime_state_entry_replaced");
+      const baseState = inspectBootstrapPairState(
+        directory,
+        recoveryId,
+        "base.json",
+        base,
+      );
+      const commitState = inspectBootstrapPairState(
+        directory,
+        recoveryId,
+        "base-commit.json",
+        commit,
+      );
+      if (
+        (baseState.state !== "complete" && commitState.state !== "absent") ||
+        (baseState.hasIntent && commitState.state !== "absent")
+      )
+        throw new Error("docker_task_runtime_state_base_invalid");
+      if (baseState.state === "complete" && commitState.state === "complete") {
+        const after = fs.lstatSync(directory, { bigint: true });
+        if (
+          before.dev !== after.dev ||
+          before.ino !== after.ino ||
+          before.birthtimeNs !== after.birthtimeNs
+        )
+          throw new Error("docker_task_runtime_state_entry_replaced");
+        return Object.freeze({
+          baseState: baseState.state,
+          commitState: commitState.state,
+        });
+      }
+      const allowed = new Set<string>();
+      for (const [name, state] of [
+        ["base.json", baseState.state],
+        ["base-commit.json", commitState.state],
+      ] as const) {
+        if (state === "move_commit" || state === "complete") allowed.add(name);
+        if (state === "complete") allowed.add(dockerRecoveryCommitName(name));
+      }
+      const entries = fs.readdirSync(directory, { withFileTypes: true });
+      if (entries.length > 8)
+        throw new Error("docker_task_recovery_operation_entry_limit_exceeded");
+      if (
+        entries.length !== allowed.size ||
+        entries.some(
+          (entry) =>
+            !allowed.has(entry.name) ||
+            !entry.isFile() ||
+            entry.isSymbolicLink(),
+        )
+      )
+        throw new Error("docker_task_runtime_state_unknown_entry");
+      const after = fs.lstatSync(directory, { bigint: true });
+      if (
+        before.dev !== after.dev ||
+        before.ino !== after.ino ||
+        before.birthtimeNs !== after.birthtimeNs
+      )
+        throw new Error("docker_task_runtime_state_entry_replaced");
+      return Object.freeze({
+        baseState: baseState.state,
+        commitState: commitState.state,
+      });
+    };
     const addRecord = (
       basePath: string,
       commitPath: string,
@@ -3773,51 +3931,22 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         Object.freeze({ token, stable, nonce, cleanup: false }),
       );
       const directory = path.join(rootPath, `docker-task-${nonce}`);
-      if (
-        fs.existsSync(path.join(directory, "base.json")) &&
-        fs.existsSync(path.join(directory, "base-commit.json"))
-      )
-        if (fs.existsSync(path.join(directory, "cleanup-manifest.json")))
-          verifyRecoveryCleanupManifest(directory, token);
-        else {
-          const splitMoveRecords = new Map<
-            string,
-            Readonly<{ value: unknown }>
-          >();
-          if (
-            !fs.existsSync(
-              path.join(
-                directory,
-                dockerRecoveryCommitName("base-commit.json"),
-              ),
-            )
-          ) {
-            const matchingIntents = journalIntents.filter(
-              (intent) =>
-                intent.schema === "crdd-coordinator-durable-json-move/v1" &&
-                intent.recoveryId === token &&
-                intent.pairLogicalKey === "base-commit.json" &&
-                intent.targetContentName === "base-commit.json" &&
-                intent.targetCommitName ===
-                  dockerRecoveryCommitName("base-commit.json"),
-            );
-            if (matchingIntents.length !== 1)
-              throw new Error("docker_task_runtime_state_base_invalid");
-            if (
-              !("moveState" in commitRecord) ||
-              commitRecord.moveState !== "move_commit"
-            )
-              throw new Error("docker_task_runtime_state_base_invalid");
-            splitMoveRecords.set("base-commit.json", commitRecord);
-          }
-          inventoryOperationDirectory(
-            directory,
-            token,
-            nonce,
-            base.hash,
-            splitMoveRecords,
-          );
+      if (fs.existsSync(directory)) {
+        const bootstrap = inventoryBootstrapOperationDirectory(
+          directory,
+          token,
+          base,
+          commitRecord,
+        );
+        if (
+          bootstrap.baseState === "complete" &&
+          bootstrap.commitState === "complete"
+        ) {
+          if (fs.existsSync(path.join(directory, "cleanup-manifest.json")))
+            verifyRecoveryCleanupManifest(directory, token);
+          else inventoryOperationDirectory(directory, token, nonce, base.hash);
         }
+      }
     };
     for (const entry of sorted) {
       if (isDockerRecoveryJournalIntentName(entry.name)) continue;
