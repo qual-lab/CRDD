@@ -1,7 +1,7 @@
 # 変更トレース: 内部ツールのコーディング規約と命名移行
 
 - 変更ID: `CHG-000017`
-- 状態: `Reopened`
+- 状態: `Ready for Release Handoff`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
 - 対象: CRDD公式Repositoryの`tools/**`と配布用`template/tools/**`
@@ -277,3 +277,15 @@ Boolean規則は、補助動詞prefix 9件、主語先行suffix 31件、standalo
 統合修正案を各確認者へ編集前に再提示し、追加の人間判断なしでAcceptされた。0件拒否をpackage-privateな`requireCheckerTestFiles()`へ移し、runnerは列挙結果を必ず同Gateへ通してからprocessを開始する。契約試験は空集合のthrowと、非空集合が同一参照・同一順序のまま返ることをproductionと同じGateで確認する。suffix件数は31件へ訂正し、正本、exact Set、predicateおよび全許可値試験は変更していない。
 
 是正後の機械確認はChecker 153／153、Coordinator 740／740、両packageの型検査／Lint／Formatter、Repository全体Checker 697 file／387 Markdown／2242 link／621 anchor、Error 0／Warning 0、および`git diff --check`がPassした。この結果も`Applied`／`Self-checked`であり、新固定Commit／Treeに対する同じ四監査の統合Passまでは、`85e0893`のFindingを`Resolved`または本変更を`Verified`としない。
+
+## 再開変更の完了とRelease引き渡し
+
+再開変更の実質固定版はCommit `7dbf610c43b827a82901a270c039e44e887782c7`、Tree `b40c7f4924651596c1a813b7abc548364df4cbc1`である。Repository全体Checkerは697 file／387 Markdown／2242 local link／621 anchor、Error 0／Warning 0、Checker契約試験は153／153、Coordinator契約試験は740／740、両package checkおよび`git diff --check`は全てPassした。CheckerとCoordinatorの試験結果は、この固定版と同一のコード実体に対する根拠である。
+
+同じ固定版に対するエージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査は、全て`Pass`／Finding 0で完了した。再開後に検出した試験列挙、0件Gate、Boolean閉集合、文書強度伝播、Roadmap責務、終了順および記録件数のFindingは全て`Resolved`である。旧固定版の結果は履歴として保持するが、現在の合否へ流用しない。
+
+実際の影響は、現行所有sourceと試験を漏れなく検査する命名契約、nested testを含む決定論的な試験列挙、試験0件成功の拒否、および未リリース変更を変更意図単位で是正する保守境界の確立である。公開CheckerのCLI／JSON／Schema、Coordinator Runtime動作、外部machine key、v0.17.0 Released Baselineおよび既存公開Releaseは変更していない。
+
+残存リスクは、悪意ある同一OS User、特殊なfilesystem／hardlink／mount、正式署名一般Taskの実Provider run、および将来の新しいsource／test形態である。前二者は現在の脅威・検査境界外、実Provider runはProduct RoadmapのCoordinator Runtime項目、新しい形態は本規則と契約試験による変更時確認へ接続する。
+
+本変更はv0.18.0 Candidateの最終Release項目へ引き渡せる状態である。`Ready for Release Handoff`は、統合、採用、準拠表明、Stable化、タグまたはReleaseを意味しない。v0.18.0の統合とRelease、正式署名一般Task、Issue #30の再評価はそれぞれ別の未完了事項であり、本変更の残件へ混同しない。現在、人間による追加判断は必要ない。

@@ -1,7 +1,7 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 - 変更ID: `CHG-000054`
-- 状態: `Reopened`
+- 状態: `Ready for Release Handoff`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25
 - 対象: エージェント組織の基礎正本候補、エージェント／プロバイダー調整アーキテクチャ、Coordinator Runtime実装README、用語集、監査接続、配布ひな型、変更トレース／Roadmap責務およびv0.18候補文書の配置
@@ -130,3 +130,15 @@ Product Roadmapでは、正式署名一般Task、命名／文書是正の再検�
 Checker 153／153、Coordinator 740／740およびChecker package checkはPassした。この結果は`Applied`／`Self-checked`であり、新固定Commit／Treeの全体Checker、両package check、`git diff --check`、エージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査の統合Passまでは、Findingを`Resolved`、監査を`Pass`または本変更を`Verified`としない。Runtime動作、公開Schema／CLI、AD-22、v0.17公開基準、Issue #30、統合またはReleaseは変更していない。現在、人間による追加判断は必要ない。
 
 固定改訂版`85e0893af0541bd264cf70eb0ce3563855357ce4`の再監査では、本変更が所有する規範強度の伝播、意味別リンク、Roadmap判断軸および終了順Findingは全て解消済みと確認された。ただし必須監査集合は、[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)が所有するChecker 0件拒否の共有負試験不足とBoolean suffix件数転記を検出したため、全体として`Fail`である。発見元だけを理由に本変更へ命名規則を再移管せず、原因契約の同じ未リリース意図で是正し、新固定版の監査集合が統合Passするまで本変更も`Reopened`を維持する。
+
+## 再開変更の完了とRelease引き渡し
+
+再開変更の実質固定版はCommit `7dbf610c43b827a82901a270c039e44e887782c7`、Tree `b40c7f4924651596c1a813b7abc548364df4cbc1`である。Repository全体Checkerは697 file／387 Markdown／2242 local link／621 anchor、Error 0／Warning 0、Checker契約試験は153／153、Coordinator契約試験は740／740、両package checkおよび`git diff --check`は全てPassした。CheckerとCoordinatorの試験結果は、この固定版と同一のコード実体に対する根拠である。
+
+同じ固定版に対するエージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査は、全て`Pass`／Finding 0で完了した。再開後に検出した規範／非規範境界、意味別参照、Roadmap／CHG責務、旧PoC移管、終了順、およびCHG-000017へ接続したChecker契約のFindingは全て`Resolved`である。旧固定版の結果は履歴として保持するが、現在の合否へ流用しない。
+
+実際の影響は、エージェント組織（Agent Organization）の概念・規範候補をルート`04`へ、プロバイダー非依存の実行Architectureを同書§12へ、恒久的な自律Operation Architectureをルート`05`～`09`へ集約し、`tools/coordinator/README.md`を実装責務へ戻したことである。単一Product Roadmapには未完了作業だけを残し、完了結果と変更履歴は責務正本およびCHGへ移した。Coordinator Runtimeのコード、試験、Threat Model、公開済みv0.17.0、Issue #30の採否／closeおよび既存公開Releaseは変更していない。
+
+残存リスクは、非規範Architecture Candidateの将来採否、正式署名一般Taskの実Provider run、上流工程強化、自律Operationの参照実証、Issue #30の再評価、およびv0.18.0の統合／Release判断である。これらはProduct Roadmapの独立した未完了項目へ接続し、本変更の完了阻害へ混同しない。
+
+本変更はv0.18.0 Candidateの最終Release項目へ引き渡せる状態である。`Ready for Release Handoff`は、統合、採用、準拠表明、Stable化、タグまたはReleaseを意味しない。Product Roadmapの完了済み再検証行は、本節へ結果と参照を移した後に除去する。CHG-000014 §5.1は固定時点の移管スナップショットであり、現在状態へ書き換えない。現在、人間による追加判断は必要ない。
