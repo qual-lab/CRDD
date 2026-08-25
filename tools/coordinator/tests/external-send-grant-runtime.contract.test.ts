@@ -57,9 +57,54 @@ test("承認失敗は公開値を含まないbounded outcomeへ分類する", as
     }),
   );
   assert.deepEqual(declined, { status: "declined_invalid" });
+
+  let writeCount = 0;
+  const readFailed =
+    await confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
+      "safe notice",
+      "123456",
+      { input: 1, output: 2 },
+      new AbortController().signal,
+      Object.freeze({
+        writeText: async () => {
+          writeCount += 1;
+          return true;
+        },
+        readLine: async () => {
+          throw new Error("fixture_read_failed");
+        },
+      }),
+    );
+  assert.deepEqual(readFailed, { status: "reader_failed" });
+  assert.equal(writeCount, 2);
+
+  for (const [line, expected] of [
+    ["123456", "unavailable"],
+    ["654321", "declined_invalid"],
+  ] as const) {
+    let writes = 0;
+    const newlineFailed =
+      await confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
+        "safe notice",
+        "123456",
+        { input: 1, output: 2 },
+        new AbortController().signal,
+        Object.freeze({
+          writeText: async () => {
+            writes += 1;
+            return writes === 1;
+          },
+          readLine: async () =>
+            Object.freeze({ status: "completed" as const, line }),
+        }),
+      );
+    assert.deepEqual(newlineFailed, { status: expected });
+  }
 });
 
-function fixture(shouldConfirm = true) {
+function fixture(
+  shouldConfirm: boolean | Readonly<{ status: "cleanup_unknown" }> = true,
+) {
   const managementCapability = Object.freeze({});
   const repositoryBindingCapability = Object.freeze({});
   const policyCapability = Object.freeze({});
@@ -206,6 +251,26 @@ test("承認表示完了後だけchallengeを読み最終表示完了後だけ�
   assert.equal(isConfirmationCompleted, false);
   resolveDeferredBoolean(completeNewline, true);
   assert.equal(await confirmation, true);
+});
+
+test("cleanup不明はProcess再起動要求だけをbounded結果へ返す", async () => {
+  const current = fixture(Object.freeze({ status: "cleanup_unknown" }));
+  const result = await current.runtime.request(
+    current.managementCapability,
+    current.repositoryBindingCapability,
+    current.policyCapability,
+    SCOPE,
+    ["codex", "claude"],
+  );
+  assert.deepEqual(result, {
+    status: "blocked",
+    reason:
+      "external_send_confirmation_cleanup_unknown_process_restart_required",
+    manualRecoveryRequired: true,
+    externalSendAuthorized: false,
+    rawContentReported: false,
+    hostPathReported: false,
+  });
 });
 
 test("承認表示・入力・最終表示の各失敗をGrant候補へ進めない", async () => {
@@ -520,7 +585,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(
     contract.interactiveConfirmation,
     "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",

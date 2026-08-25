@@ -55,7 +55,7 @@ test("Candidate Store adapterは固定Known Folderとexact保護観測だけをA
   assert.equal(contract.inheritedEnvironmentTrustedDirectly, false);
   assert.equal(
     contract.environment,
-    "validated_windows_directory_and_fixed_neutral_ambient_names",
+    "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
   );
   assert.equal(contract.rawPathReported, false);
   assert.equal(contract.networkEffectIssued, false);

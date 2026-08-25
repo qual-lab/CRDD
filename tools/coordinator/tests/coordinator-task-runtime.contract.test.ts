@@ -45,6 +45,7 @@ function fixture(
     candidatePersistenceAllowed?: boolean;
     candidateStoreUnavailable?: boolean;
     externalSendDenied?: boolean;
+    externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseRole?: "executor" | "reviewer";
     discardFails?: boolean;
@@ -198,12 +199,17 @@ function fixture(
     ) => {
       externalAuthorizationCount += 1;
       externalCancellationSignal = cancellationSignal;
-      const authorization = options.externalSendDenied
-        ? null
-        : Object.freeze({
-            status: "issued",
-            capability: externalSendGrantCapability,
-          });
+      const authorization = options.externalSendReason
+        ? Object.freeze({
+            status: "blocked",
+            reason: options.externalSendReason,
+          })
+        : options.externalSendDenied
+          ? null
+          : Object.freeze({
+              status: "issued",
+              capability: externalSendGrantCapability,
+            });
       return options.pauseExternalAuthorization
         ? new Promise<typeof authorization>((resolve) => {
             releaseExternalAuthorization = () => resolve(authorization);
@@ -739,6 +745,42 @@ test("対話的External Send Grantが無ければWorkspaceとProvider Effect前�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独立して処置する", async () => {
+  const reason =
+    "external_send_confirmation_cleanup_unknown_process_restart_required";
+  const harness = fixture({ externalSendReason: reason });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(
+    result.reason,
+    "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required",
+  );
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, null);
+  assert.equal(harness.cleanupCount(), 1);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+
+  const cleanupFailure = fixture({
+    externalSendReason: reason,
+    cleanupThrows: true,
+  });
+  const combined = await cleanupFailure.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(
+    combined.reason,
+    "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_and_operation_recovery_required",
+  );
+  assert.equal(combined.manualRecoveryRequired, true);
+  assert.equal(combined.hostRecoveryId, "host.fixture.recovery.record");
+});
+
 test("Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしない", async () => {
   const mismatch = fixture({ executorChangedPaths: [] });
   const mismatchResult = await mismatch.runtime.start(
@@ -1020,7 +1062,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");

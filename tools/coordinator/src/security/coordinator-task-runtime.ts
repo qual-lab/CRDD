@@ -33,6 +33,7 @@ import {
 } from "./execution-environment.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
 import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "./platform-provisioner-package-filesystem.ts";
+import { isRuntimeProcessPoisoned } from "../core/runtime-process-safety-state.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
   snapshotPlainArray,
@@ -61,7 +62,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 9;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 10;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -85,6 +86,7 @@ const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
   "external_send_confirmation_unavailable",
   "external_send_confirmation_reader_failed",
   "external_send_confirmation_cleanup_unknown",
+  "external_send_confirmation_cleanup_unknown_process_restart_required",
 ]);
 
 type Provider = "codex" | "claude";
@@ -876,15 +878,10 @@ async function runCoordinatorTask(
         grantReason && EXTERNAL_SEND_CONFIRMATION_REASONS.has(grantReason)
           ? `coordinator_task_${grantReason}`
           : "coordinator_task_external_send_not_authorized";
-      const isCleanupUnknown =
-        reason ===
-        "coordinator_task_external_send_confirmation_cleanup_unknown";
-      if (isCleanupUnknown) shouldRetainOperationRoot = true;
-      return blocked(
-        reason,
-        isCleanupUnknown,
-        isCleanupUnknown ? operation.hostRecoveryId : null,
+      const isCleanupUnknown = reason.includes(
+        "external_send_confirmation_cleanup_unknown",
       );
+      return blocked(reason, isCleanupUnknown, null);
     }
     const workspace = state.dependencies.materializeWorkspace(
       repositoryBinding,
@@ -1289,9 +1286,13 @@ function createRuntime(dependencies: RuntimeDependencies) {
             dockerRecoveryIds: projectedDockerRecoveryIds,
           });
           try {
+            const isProcessRestartOnly =
+              result.reason ===
+              "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required";
             if (
               (result.manualRecoveryRequired === true &&
-                !stringValue(result.candidateRecoveryId)) ||
+                !stringValue(result.candidateRecoveryId) &&
+                !isProcessRestartOnly) ||
               ("hostRecoveryId" in result &&
                 stringValue(result.hostRecoveryId)) ||
               ("dockerRecoveryId" in result &&
@@ -1474,7 +1475,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
               ? state.dependencies.discardCandidate(candidateRecoveryId)
               : null;
             return blocked(
-              "coordinator_task_operation_cleanup_unconfirmed",
+              result.reason ===
+                "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required"
+                ? "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_and_operation_recovery_required"
+                : "coordinator_task_operation_cleanup_unconfirmed",
               true,
               control.hostRecoveryId,
               null,
@@ -1537,6 +1541,9 @@ export function startRuntimeOwnedCoordinatorTask(
   repositoryRoot: unknown,
   verifiedPackageCapability: unknown,
 ) {
+  if (isRuntimeProcessPoisoned()) {
+    throw new Error("coordinator_task_process_restart_required");
+  }
   if (
     !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
       verifiedPackageCapability,

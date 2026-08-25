@@ -3,7 +3,7 @@
 変更トレースID: `CHG-000015`
 状態: `Draft`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-25
+最終更新日: 2026-08-26
 対象系列: Coordinator Runtime 1.x
 対象バージョン: 1.0 Candidate
 変更分類: `normative`（Runtime実装に加え、標準保守と公式／配布AI入口の一般規則を強化）
@@ -1592,10 +1592,22 @@ cleanupは例外を捕捉した事実だけで成功にせず、全remove／clos
 
 固定manifestの署名、Release Identity、Commit／Tree、package content rootおよび固定reader artifactを再検証した同一Processだけが、短命・一回限り・非serializeのopaque verified-package capabilityを発行できる。公開Task入口と正式Runnerは同じ発行経路を使用し、Task本番facadeはconsume時にfresh検証とIdentity一致を再確認する。欠落、偽造、別配布Root、別Release、差替えまたは期限切れは、Operation、console、kernel lock、Candidate Store、workspace、ProviderおよびNetwork Effectより前に停止する。Task JSON schema、argv、環境、fileまたはcaller claimで検証済み状態を移送しない。
 
-WindowsではNodeへ空または非空の環境mapを渡した事実を親環境非継承の根拠にしない。内部Node reader、署名済みnative helperおよびDocker CLIは用途別の固定Profileを使い、検証したWindows directoryだけを実値として渡し、OSが補い得るPATH、HOME、profile、proxy、Credential helperおよびNode injection名は固定neutral値へ閉じる。実子が観測するkey集合とneutral状態を秘密値なしで確認する。Worker threadの`env:{}`はCreateProcess環境ではないため別契約として理由付き非該当とする。argv契約は固定絶対entrypoint exact 1件と追加引数0件を示す`fixed_entrypoint_only_no_dynamic_arguments`へ統一する。
+WindowsではNodeへ空または非空の環境mapを渡した事実を親環境非継承の根拠にしない。内部Node reader、署名済みnative helperおよびDocker CLIは用途別の固定Profileを使い、PATH、HOME、profile、proxy、Credential helperおよびNode injection名を固定neutral値へ閉じる。Windows directoryは親`process.env`をAuthorityにせず、現在ProcessへOS loaderが読み込んだ`kernel32.dll`のmodule PathからSystem32とWindows directoryを再構成し、non-reparse実体とcanonical Pathを確認してだけ渡す。実子が観測するkey集合とneutral状態を秘密値なしで確認する。Worker threadの`env:{}`はCreateProcess環境ではないため別契約として理由付き非該当とする。argv契約は固定絶対entrypoint exact 1件と追加引数0件を示す`fixed_entrypoint_only_no_dynamic_arguments`へ統一する。
 
 対話結果は内部の`confirmed`、`declined_invalid`、`cancelled`、`timeout`、`unavailable`、`reader_failed`および`cleanup_unknown`へ上限付き分類する。入力値、challenge、PID、Path、環境値または生OS errorは公開しない。Prompt後の改行は表示上のbest effortであり、cleanup成立の代替にしない。Grantは確認成功、取消なしおよび全cleanup成立時だけ発行し、`cleanup_unknown`は通常拒否へ弱めず手動回復を要求する。
 
 本CHGはRuntime実装だけでなく、`10_Agent.md`、`19_Maintenance.md`、公式`AGENTS.md`、配布`template/AGENTS.md`および`tools/coding-standards.md`の規範を同じ未リリース意図で変更しているため、最大強度を`normative`、v0.18.0候補のリリースレベルを`MINOR`、`migration_required`を`true`へ是正する。採用側は標準保守、公式／配布AI入口、resource-role分離、preflight同等性、cleanup結合および監査往復の汎化利用側を棚卸しし、移行、置換、据え置きまたは対象外を記録する。Node IPC、Windows console名、具体的環境key、timeoutおよびbyte上限はCoordinator実装へ残し、一般規範へ昇格しない。最終Release、統合および残存リスク受容は人間の決定権限に残す。
 
 本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で、親Process強制終了、実子Environment、Package Capability、外部送信承認、Task入口およびDocker cleanupを含む重点117試験、Coordinator全790試験、Checker全153試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、Repository全体Checkerおよび`git diff --check`をPassした。全体Checkerは704 files／384 Markdown／2237 links／652 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／TreeへのArchitecture／Security、Document／Gap、Test／UXおよび規範変更に対するConformance確認を含む全再監査が`Pass`する前に`Resolved`、再署名、正式一般Task、Provider Effect、Runtime完成またはRelease可能へ昇格しない。リリース順序`2026082502`は再利用しない。
+
+##### Gate順序・OS Context・cleanup意味を閉じるrevision 8是正
+
+固定Commit `71cca741fdd73482d34fc104ec809502f4730acf`／Tree `b88be4afc5b2d7301bf49193f38ad97eacb680fe`へのArchitecture／Security、Document／GapおよびTest／UX独立再監査は、旧親Process孤児化、fd0分離、固定argv、Windows ambient値のneutral化、Package Capability構造および規範分類を解消済みとした一方、統合してMajor 6件、Minor 3件相当を`Fail`とした。親環境の`SystemRoot`／`WINDIR`をOS Authorityとしていたこと、console descriptor／kernel lock cleanup不明を通常利用不能へ畳んだこと、正式RunnerがPackage Gateより前にconsole preflightを行ったこと、Windows用Profileを共通readerへ適用してPOSIXを停止したこと、子failsafeが親timeoutより先だったこと、およびPackage Capability成功状態機械のEvidence不足が主因である。最終改行、次readerとlock、更新日にも小さな不整合があった。3監査へ統合是正方針を再提示し、競合なしの`Accept with Conditions`を得た。現在追加の人間判断は不要である。
+
+Windows directoryは親環境から取得せず、現在ProcessへOS loaderが読み込んだexact `kernel32.dll`のmodule Pathから観測し、System32、Windows directory、canonical realpathおよびnon-reparse実体を検証する。偽Windows treeと偽親環境を与えてもそのPathを子へ渡さない。PATH、Home、profile、proxy、Credential helperおよびNode injection値のneutral化は維持する。POSIX readerは固定空環境へ分離し、Windows Local Personalの正式保証範囲をPOSIXへ拡張しない。
+
+Console所有結果は`completed`、`unavailable`、`operation_failed`および`cleanup_unknown`へ分け、両descriptor closeを全試行する。出力writerも`completed`、`write_failed`、`cleanup_unknown`へ分け、Promptと最終改行をboundedにする。Prompt後は取消やread失敗を含む全経路で改行を一度だけ試すが、改行単独失敗は表示失敗としてGrant 0、manual recoveryなしにし、listener、reader child、descriptorまたはlockの回収不明だけをprocess再起動要求へする。cleanup不明になったProcessは非serializeのprocess-local poison状態へ移し、同一Processの後続Package発行とTask開始を全Effect前に拒否する。無関係なOperation Recovery IDをconsole回復Authorityとして返さず、Operation cleanupも失敗した場合だけprocess再起動条件と正当なHost Recovery IDを両方保持する。
+
+正式RunnerはNode Gate、Package Capability発行とRelease Identity確認、console preflight、Task開始の順へ固定する。Package Capabilityの内部状態機械は、単独でOperation Authorityを与えない隔離候補で成功、fresh exact Identity、single use、replay、期限切れ、全Identity差およびproduction consumer非互換を検証する。親timeout、取消猶予およびcleanup marginの合計を子orphan failsafeより短く固定し、親消失時だけ子failsafeを最後の境界とする。親kill後の次readerは、再取得したkernel lockをreader closeまで保持する。
+
+本処置は`Applied`／`Self-checked`である。Node.js 24.19.0でCoordinator全798試験、Checker全153試験、対話境界重点18試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、Repository全体Checkerおよび`git diff --check`をPassした。全体Checkerは706 files／384 Markdown／2,237 links／652 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Treeへの全監査Pass前に`Resolved`、署名、正式一般Task、Provider EffectまたはRuntime完成へ昇格しない。リリース順序`2026082502`は再利用しない。

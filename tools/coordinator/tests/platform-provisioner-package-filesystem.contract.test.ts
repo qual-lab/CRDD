@@ -11,6 +11,7 @@ import {
   inspectPlatformProvisionerPackageFilesystemCandidate,
   issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   consumeRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  createIsolatedVerifiedPackageCapabilityStateCandidate,
   verifyBundledCoordinatorPackageCandidate,
 } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -36,6 +37,41 @@ test("Task package capabilityは偽造・不正入力・再利用を受理しな
     consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(forged),
     false,
   );
+});
+
+test("Package Capability状態機械はfresh exact Identityを一度だけ受理する", () => {
+  const state = createIsolatedVerifiedPackageCapabilityStateCandidate();
+  const identity = Object.freeze({
+    manifestHash: "1".repeat(64),
+    releaseSequence: 19,
+    crddCommit: "2".repeat(40),
+    crddTree: "3".repeat(40),
+    packageContentRootSha256: "4".repeat(64),
+    interactiveConsoleReaderArtifactSha256: "5".repeat(64),
+  });
+  const capability = state.issue(identity, 1_000);
+  assert.equal(state.consume(capability, identity, 1_001), true);
+  assert.equal(state.consume(capability, identity, 1_002), false);
+  const stale = state.issue(identity, 1_000);
+  assert.equal(state.consume(stale, identity, 6_000), false);
+  for (const key of Object.keys(identity)) {
+    const changed = Object.freeze({
+      ...identity,
+      [key]:
+        key === "releaseSequence"
+          ? 20
+          : "6".repeat(String(identity[key as keyof typeof identity]).length),
+    });
+    const mismatched = state.issue(identity, 1_000);
+    assert.equal(state.consume(mismatched, changed, 1_001), false, key);
+  }
+  const isolated = state.issue(identity, 1_000);
+  assert.equal(
+    consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(isolated),
+    false,
+  );
+  assert.equal(state.runtimeAuthorityIssued, false);
+  assert.equal(state.productionConsumerCompatible, false);
 });
 
 function frame(payload: Record<string, unknown>) {
@@ -306,7 +342,7 @@ test("不正Root、Release Identity不一致およびpackage metadataをfail clo
 
 test("package Filesystem contractは観測をTrustおよびEffectから分離する", () => {
   const contract = describePlatformProvisionerPackageFilesystemContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(
     contract.runtimeOwnedPackageFilesystemRead,
     "implemented_candidate_without_permission_authority",

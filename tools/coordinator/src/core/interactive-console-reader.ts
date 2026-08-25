@@ -4,6 +4,7 @@ export const INTERACTIVE_CONSOLE_READER_CONTRACT =
   "crdd-coordinator/interactive-console-reader";
 export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 2;
 export const INTERACTIVE_CONSOLE_READER_MAXIMUM_BYTES = 64;
+export const INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS = 120_000;
 
 type ReaderInput = Readonly<{
   isTTY?: boolean;
@@ -185,7 +186,10 @@ function writeResult(
 async function main() {
   process.exitCode = 2;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
+  );
   timeout.unref();
   const onMessage = (message: unknown) => {
     if (message === "cancel") controller.abort();

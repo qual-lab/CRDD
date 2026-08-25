@@ -355,7 +355,8 @@ export function describeProviderHomeWindowsAdapterContract() {
     inheritedEnvironmentPathTrustedDirectly: false,
     mountSourceBinding:
       "runtime_candidate_hash_exactly_matched_by_native_known_folder_derivation",
-    environment: "validated_windows_directory_and_fixed_neutral_ambient_names",
+    environment:
+      "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
     timeoutMs: HELPER_TIMEOUT_MS,
     maximumStdoutBytes: PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
     maximumStderrBytes: 0,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
@@ -14,9 +15,11 @@ import {
   readInteractiveConsoleLine,
   readInteractiveConsoleLineUsingAdapter,
   readTerminalLineUsingStream,
+  withInteractiveConsoleAsyncOutcomeUsingAdapter,
   withInteractiveConsoleAsyncUsingAdapter,
   withInteractiveConsoleUsingAdapter,
   writeInteractiveConsoleTextUsingAdapter,
+  writeWindowsTerminalTextOutcomeUsingStream,
   writeWindowsTerminalTextUsingStream,
 } from "../src/core/interactive-console.ts";
 import {
@@ -30,6 +33,7 @@ import {
 } from "../src/core/node-runtime-version.ts";
 import {
   createWindowsDockerCliEnvironment,
+  createInteractiveConsoleReaderEnvironment,
   createWindowsNativeHelperEnvironment,
   createWindowsNodeConsoleReaderEnvironment,
 } from "../src/core/windows-child-environment.ts";
@@ -51,9 +55,10 @@ function sourceFiles(root: string): string[] {
 }
 
 test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", () => {
-  assert.deepEqual(describeInteractiveConsoleContract(), {
+  const contract = describeInteractiveConsoleContract();
+  assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 7,
+    contractRevision: 8,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsUnicodeOutput: "node_unicode_tty_output_required",
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
@@ -63,7 +68,11 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
       "single_use_verified_package_capability_and_fresh_content_root",
     readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
     readerEnvironment:
-      "validated_windows_directory_and_fixed_neutral_ambient_names",
+      "windows_loaded_kernel32_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
+    readerTimeoutMs: 110_000,
+    readerCancelGraceMs: 500,
+    readerCleanupSchedulingMarginMs: 5_000,
+    readerOrphanFailsafeMs: 120_000,
     readerStandardIo:
       "exact_console_input_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:
@@ -77,6 +86,13 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     shellTransportAllowed: false,
     unavailableResult: "fail_closed",
   });
+  assert.equal(
+    contract.readerTimeoutMs +
+      contract.readerCancelGraceMs +
+      contract.readerCleanupSchedulingMarginMs <
+      contract.readerOrphanFailsafeMs,
+    true,
+  );
 
   const executableSources = ["bin", "scripts", "src"]
     .flatMap((directory) => sourceFiles(path.join(coordinatorRoot, directory)))
@@ -101,6 +117,80 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes("process.stdin"), true);
   assert.equal(cliSource.includes("fs.readSync(0"), true);
+});
+
+test("Console非同期所有はoperationと全close失敗を構造化する", async () => {
+  const closedDescriptors: number[] = [];
+  const cleanupUnknown = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
+    "win32",
+    Object.freeze({
+      open: (_name: string, flags: "r" | "w") => (flags === "r" ? 1 : 2),
+      close: (descriptor: number) => {
+        closedDescriptors.push(descriptor);
+        if (descriptor === 1) throw new Error("fixture_close_failed");
+      },
+      validate: () => true,
+    }),
+    async () => "completed",
+  );
+  assert.deepEqual(cleanupUnknown, {
+    status: "cleanup_unknown",
+    value: "completed",
+  });
+  assert.deepEqual(closedDescriptors, [1, 2]);
+
+  const operationFailed = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
+    "win32",
+    Object.freeze({
+      open: (_name: string, flags: "r" | "w") => (flags === "r" ? 1 : 2),
+      close: () => undefined,
+      validate: () => true,
+    }),
+    async () => {
+      throw new Error("fixture_operation_failed");
+    },
+  );
+  assert.deepEqual(operationFailed, {
+    status: "operation_failed",
+    value: null,
+  });
+});
+
+test("Windows writerはwrite失敗とlistener cleanup不明を分離する", async () => {
+  const outcome = await writeWindowsTerminalTextOutcomeUsingStream("value", {
+    isTTY: true,
+    destroyed: false,
+    writable: true,
+    once: () => undefined,
+    removeListener: () => {
+      throw new Error("fixture_listener_cleanup_failed");
+    },
+    write: (_value: string, callback: (error?: Error | null) => void) => {
+      callback(null);
+      return true;
+    },
+  });
+  assert.deepEqual(outcome, { status: "cleanup_unknown" });
+
+  let lateCallback: ((error?: Error | null) => void) | null = null;
+  const timedOut = await writeWindowsTerminalTextOutcomeUsingStream("value", {
+    isTTY: true,
+    destroyed: false,
+    writable: true,
+    once: () => undefined,
+    removeListener: () => undefined,
+    write: (_value: string, callback: (error?: Error | null) => void) => {
+      lateCallback = callback;
+      return true;
+    },
+  });
+  assert.deepEqual(timedOut, { status: "write_failed" });
+  assert.equal(typeof lateCallback, "function");
+  (lateCallback as unknown as (error?: Error | null) => void)(null);
+});
+
+test("POSIX reader Profileは親環境を受けない固定空集合にする", () => {
+  assert.deepEqual(createInteractiveConsoleReaderEnvironment("linux"), {});
 });
 
 test("Windows対話表示はUnicode TTYの完了へ結合しredirect時にFail Closedとなる", async () => {
@@ -577,12 +667,11 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     createWindowsNativeHelperEnvironment(),
   ]) {
     assert.ok(environment);
-    const expectedKeys = Object.keys(environment).sort();
     const result = spawnSync(
       process.execPath,
       [
         "-e",
-        "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR'].includes(k.toUpperCase())).every(([,v])=>v==='')}))",
+        "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR'].includes(k.toUpperCase())).every(([,v])=>v===''),systemRoot:process.env.SystemRoot,windir:process.env.WINDIR}))",
       ],
       {
         shell: false,
@@ -593,10 +682,16 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     );
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.stderr, "");
-    assert.deepEqual(JSON.parse(result.stdout), {
-      keys: expectedKeys,
-      neutral: true,
-    });
+    const observed = JSON.parse(result.stdout);
+    assert.equal(observed.neutral, true);
+    assert.equal(typeof observed.systemRoot, "string");
+    assert.equal(observed.systemRoot.length > 0, true);
+    assert.equal(observed.windir, observed.systemRoot);
+    assert.equal(
+      observed.keys.includes("SystemRoot") ||
+        observed.keys.includes("SYSTEMROOT"),
+      true,
+    );
   }
   const dockerEnvironment = createWindowsDockerCliEnvironment({
     dockerConfig: "C:\\runtime-owned\\docker-config",
@@ -607,7 +702,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     process.execPath,
     [
       "-e",
-      "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),pathNeutral:process.env.PATH==='',proxyNeutral:process.env.HTTPS_PROXY==='',homeOwned:process.env.HOME==='C:\\\\runtime-owned\\\\docker-home',configOwned:process.env.DOCKER_CONFIG==='C:\\\\runtime-owned\\\\docker-config'}))",
+      "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),pathNeutral:process.env.PATH==='',proxyNeutral:process.env.HTTPS_PROXY==='',homeOwned:process.env.HOME==='C:\\\\runtime-owned\\\\docker-home',configOwned:process.env.DOCKER_CONFIG==='C:\\\\runtime-owned\\\\docker-config',systemRoot:process.env.SystemRoot,windir:process.env.WINDIR}))",
     ],
     {
       shell: false,
@@ -617,13 +712,56 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     },
   );
   assert.equal(dockerResult.status, 0, dockerResult.stderr);
-  assert.deepEqual(JSON.parse(dockerResult.stdout), {
-    keys: Object.keys(dockerEnvironment).sort(),
-    pathNeutral: true,
-    proxyNeutral: true,
-    homeOwned: true,
-    configOwned: true,
-  });
+  const observedDocker = JSON.parse(dockerResult.stdout);
+  assert.equal(observedDocker.pathNeutral, true);
+  assert.equal(observedDocker.proxyNeutral, true);
+  assert.equal(observedDocker.homeOwned, true);
+  assert.equal(observedDocker.configOwned, true);
+  assert.equal(observedDocker.systemRoot, observedDocker.windir);
+  assert.equal(typeof observedDocker.systemRoot, "string");
+});
+
+test("Windows directoryの親環境差替えを子Environment Authorityにしない", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-fake-windows-"));
+  const system32 = path.join(root, "System32");
+  fs.mkdirSync(system32);
+  fs.copyFileSync(
+    path.join(String(process.env.SystemRoot), "System32", "kernel32.dll"),
+    path.join(system32, "kernel32.dll"),
+  );
+  const originalSystemRoot = process.env.SystemRoot;
+  const originalWindir = process.env.WINDIR;
+  try {
+    process.env.SystemRoot = root;
+    process.env.WINDIR = root;
+    const environment = createWindowsNodeConsoleReaderEnvironment();
+    assert.ok(environment);
+    const values = environment as Readonly<Record<string, string>>;
+    assert.equal(values.SystemRoot, originalSystemRoot);
+    assert.equal(values.WINDIR, originalSystemRoot);
+    const result = spawnSync(
+      process.execPath,
+      ["-e", "process.stdout.write(String(process.env.SystemRoot))"],
+      { shell: false, env: environment, encoding: "utf8", timeout: 5_000 },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.notEqual(
+      result.stdout.toLocaleLowerCase("en-US"),
+      root.toLocaleLowerCase("en-US"),
+    );
+  } finally {
+    if (originalSystemRoot === undefined) delete process.env.SystemRoot;
+    else process.env.SystemRoot = originalSystemRoot;
+    if (originalWindir === undefined) delete process.env.WINDIR;
+    else process.env.WINDIR = originalWindir;
+    fs.rmSync(path.join(system32, "kernel32.dll"));
+    fs.rmdirSync(system32);
+    fs.rmdirSync(root);
+  }
 });
 
 test("Windows実Console descriptorの取消は固定reader終了後に戻る", async (context) => {
@@ -766,7 +904,6 @@ test("Windows固定readerは親Process消失時に終了しLockを次回へ返�
   assert.equal(readerExists, false);
   const lock = acquireRuntimeOwnedInteractiveConsoleKernelLock();
   assert.ok(lock);
-  assert.equal(lock.release(), true);
   const descriptor = fs.openSync("\\\\.\\CONIN$", "r");
   try {
     const controller = new AbortController();
@@ -775,6 +912,7 @@ test("Windows固定readerは親Process消失時に終了しLockを次回へ返�
     assert.equal(await pending, null);
   } finally {
     fs.closeSync(descriptor);
+    assert.equal(lock.release(), true);
   }
 });
 
@@ -859,6 +997,10 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
       (env as Record<string, string>).SystemRoot,
       process.env.SystemRoot,
     );
+    assert.equal(
+      (env as Record<string, string>).WINDIR,
+      process.env.SystemRoot,
+    );
 
     let isCompleted = false;
     void pending.then(() => {
@@ -907,7 +1049,7 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
     if (stopSource === "cancel") controller.abort();
     else
       scenario.timers
-        .find((timer) => timer.milliseconds === 125_000)
+        .find((timer) => timer.milliseconds === 110_000)
         ?.callback();
     assert.deepEqual(scenario.messages, ["cancel"]);
     scenario.timers.find((timer) => timer.milliseconds === 500)?.callback();

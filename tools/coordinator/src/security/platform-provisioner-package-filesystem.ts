@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isRuntimeProcessPoisoned } from "../core/runtime-process-safety-state.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
@@ -46,18 +47,73 @@ const EXPECTED_RELEASE_KEYS = new Set([
   "packageContentRootSha256",
 ]);
 const VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS = 5_000;
-const verifiedPackageCapabilities = new WeakMap<
-  object,
-  Readonly<{
-    issuedAtMs: number;
-    manifestHash: string;
-    releaseSequence: number;
-    crddCommit: string;
-    crddTree: string;
-    packageContentRootSha256: string;
-    interactiveConsoleReaderArtifactSha256: string;
-  }>
->();
+type VerifiedPackageIdentity = Readonly<{
+  manifestHash: string;
+  releaseSequence: number;
+  crddCommit: string;
+  crddTree: string;
+  packageContentRootSha256: string;
+  interactiveConsoleReaderArtifactSha256: string;
+}>;
+
+function sameVerifiedPackageIdentity(
+  left: VerifiedPackageIdentity,
+  right: VerifiedPackageIdentity,
+) {
+  return (
+    left.manifestHash === right.manifestHash &&
+    left.releaseSequence === right.releaseSequence &&
+    left.crddCommit === right.crddCommit &&
+    left.crddTree === right.crddTree &&
+    left.packageContentRootSha256 === right.packageContentRootSha256 &&
+    left.interactiveConsoleReaderArtifactSha256 ===
+      right.interactiveConsoleReaderArtifactSha256
+  );
+}
+
+function createVerifiedPackageCapabilityState() {
+  const capabilities = new WeakMap<
+    object,
+    Readonly<{ issuedAtMs: number; identity: VerifiedPackageIdentity }>
+  >();
+  return Object.freeze({
+    issue: (identity: VerifiedPackageIdentity, issuedAtMs: number) => {
+      const capability = Object.freeze({});
+      capabilities.set(capability, Object.freeze({ identity, issuedAtMs }));
+      return capability;
+    },
+    consume: (
+      capability: unknown,
+      current: VerifiedPackageIdentity | null,
+      currentMs: number,
+    ) => {
+      if (!capability || typeof capability !== "object") return false;
+      const record = capabilities.get(capability);
+      capabilities.delete(capability);
+      return Boolean(
+        record &&
+          current &&
+          Number.isFinite(currentMs) &&
+          currentMs - record.issuedAtMs >= 0 &&
+          currentMs - record.issuedAtMs <
+            VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS &&
+          sameVerifiedPackageIdentity(record.identity, current),
+      );
+    },
+  });
+}
+
+const verifiedPackageCapabilityState = createVerifiedPackageCapabilityState();
+
+export function createIsolatedVerifiedPackageCapabilityStateCandidate() {
+  const state = createVerifiedPackageCapabilityState();
+  return Object.freeze({
+    issue: state.issue,
+    consume: state.consume,
+    runtimeAuthorityIssued: false,
+    productionConsumerCompatible: false,
+  });
+}
 
 type EntityIdentity = Readonly<{
   dev: bigint;
@@ -665,6 +721,12 @@ function verifiedFixedPackageRecord(
 export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
   rawInput: unknown,
 ) {
+  if (isRuntimeProcessPoisoned()) {
+    return Object.freeze({
+      verification: blocked("platform_provisioner_process_restart_required"),
+      capability: null,
+    });
+  }
   const input = snapshotPlainRecord(rawInput, VERIFY_FIXED_MANIFEST_KEYS);
   if (!input) {
     return Object.freeze({
@@ -678,13 +740,9 @@ export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
     verifyBundledCoordinatorPackageFromFixedManifestCandidate(input);
   const record = verifiedFixedPackageRecord(verification);
   if (!record) return Object.freeze({ verification, capability: null });
-  const capability = Object.freeze({});
-  verifiedPackageCapabilities.set(
-    capability,
-    Object.freeze({
-      ...record,
-      issuedAtMs: performance.now(),
-    }),
+  const capability = verifiedPackageCapabilityState.issue(
+    record,
+    performance.now(),
   );
   return Object.freeze({ verification, capability });
 }
@@ -692,32 +750,15 @@ export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
 export function consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
   capability: unknown,
 ) {
-  if (!capability || typeof capability !== "object") return false;
-  const record = verifiedPackageCapabilities.get(capability);
-  verifiedPackageCapabilities.delete(capability);
-  if (
-    !record ||
-    !Number.isFinite(record.issuedAtMs) ||
-    performance.now() - record.issuedAtMs < 0 ||
-    performance.now() - record.issuedAtMs >=
-      VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS
-  ) {
-    return false;
-  }
   const current = verifiedFixedPackageRecord(
     verifyBundledCoordinatorPackageFromFixedManifestCandidate({
       evaluationTime: new Date().toISOString(),
     }),
   );
-  return (
-    current !== null &&
-    current.manifestHash === record.manifestHash &&
-    current.releaseSequence === record.releaseSequence &&
-    current.crddCommit === record.crddCommit &&
-    current.crddTree === record.crddTree &&
-    current.packageContentRootSha256 === record.packageContentRootSha256 &&
-    current.interactiveConsoleReaderArtifactSha256 ===
-      record.interactiveConsoleReaderArtifactSha256
+  return verifiedPackageCapabilityState.consume(
+    capability,
+    current,
+    performance.now(),
   );
 }
 
@@ -810,7 +851,7 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
 export function describePlatformProvisionerPackageFilesystemContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-filesystem",
-    contractRevision: 3,
+    contractRevision: 4,
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",

@@ -423,25 +423,16 @@ export async function runSignedGeneralTaskVerification(
     );
   }
   let isSupportedRuntime = false;
-  let isInteractiveConsoleAvailable = false;
   try {
     isSupportedRuntime = isSupportedCoordinatorNodeRuntime(
       dependencies.runtimeVersion(),
     );
-    isInteractiveConsoleAvailable = dependencies.inspectInteractiveConsole();
   } catch {
     // The explicit prerequisites remain unconfirmed.
   }
   if (!isSupportedRuntime) {
     return blocked(
       "signed_general_task_node_version_unsupported",
-      null,
-      Object.freeze({ canonicalRepositoryChanged: false }),
-    );
-  }
-  if (!isInteractiveConsoleAvailable) {
-    return blocked(
-      "signed_general_task_interactive_console_required",
       null,
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
@@ -474,6 +465,19 @@ export async function runSignedGeneralTaskVerification(
   ) {
     return blocked(
       "signed_general_task_git_object_format_unsupported",
+      release,
+      Object.freeze({ canonicalRepositoryChanged: false }),
+    );
+  }
+  let isInteractiveConsoleAvailable = false;
+  try {
+    isInteractiveConsoleAvailable = dependencies.inspectInteractiveConsole();
+  } catch {
+    // The console prerequisite remains unconfirmed.
+  }
+  if (!isInteractiveConsoleAvailable) {
+    return blocked(
+      "signed_general_task_interactive_console_required",
       release,
       Object.freeze({ canonicalRepositoryChanged: false }),
     );

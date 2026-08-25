@@ -210,7 +210,7 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
   assert.equal(adapter.callerSuppliedPathAccepted, false);
   assert.equal(
     adapter.environment,
-    "validated_windows_directory_and_fixed_neutral_ambient_names",
+    "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
   );
   assert.equal(
     adapter.processTreeTerminationConfirmation.includes("step_4"),

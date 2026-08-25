@@ -7,22 +7,25 @@ import { fileURLToPath } from "node:url";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
+  INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
   readInteractiveConsoleLineFromStream,
 } from "./interactive-console-reader.ts";
-import { createWindowsNodeConsoleReaderEnvironment } from "./windows-child-environment.ts";
+import { createInteractiveConsoleReaderEnvironment } from "./windows-child-environment.ts";
 
 export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 7;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 8;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
 );
 const READER_MAXIMUM_OUTPUT_BYTES = 512;
 const READER_CANCEL_GRACE_MS = 500;
-const READER_TIMEOUT_MS = 125_000;
+const READER_TIMEOUT_MS = 110_000;
+const READER_CLEANUP_SCHEDULING_MARGIN_MS = 5_000;
+const TERMINAL_WRITE_TIMEOUT_MS = 1_000;
 
 type InteractiveConsoleHandles = Readonly<{
   input: number;
@@ -37,8 +40,19 @@ type InteractiveConsoleAdapter = Readonly<{
 
 type InteractiveConsoleTextAdapter = Readonly<{
   isWindowsTerminal: boolean;
-  writeWindowsTerminal: (value: string) => Promise<boolean>;
+  writeWindowsTerminal: (
+    value: string,
+  ) => Promise<boolean | InteractiveConsoleTextWriteOutcome>;
   writeDescriptor: (descriptor: number, value: string) => void;
+}>;
+
+export type InteractiveConsoleTextWriteOutcome = Readonly<{
+  status: "completed" | "write_failed" | "cleanup_unknown";
+}>;
+
+export type InteractiveConsoleOperationOutcome<T> = Readonly<{
+  status: "completed" | "unavailable" | "operation_failed" | "cleanup_unknown";
+  value: T | null;
 }>;
 
 type WindowsTerminalStream = Readonly<{
@@ -128,24 +142,38 @@ export async function withInteractiveConsoleAsyncUsingAdapter<T>(
   adapter: InteractiveConsoleAdapter,
   operation: (handles: InteractiveConsoleHandles) => Promise<T>,
 ): Promise<T | null> {
+  const outcome = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
+    platform,
+    adapter,
+    operation,
+  );
+  return outcome.status === "completed" ? outcome.value : null;
+}
+
+export async function withInteractiveConsoleAsyncOutcomeUsingAdapter<T>(
+  platform: NodeJS.Platform,
+  adapter: InteractiveConsoleAdapter,
+  operation: (handles: InteractiveConsoleHandles) => Promise<T>,
+): Promise<InteractiveConsoleOperationOutcome<T>> {
   const names =
     platform === "win32"
       ? Object.freeze({ input: "\\\\.\\CONIN$", output: "\\\\.\\CONOUT$" })
       : Object.freeze({ input: "/dev/tty", output: "/dev/tty" });
   let input: number | null = null;
   let output: number | null = null;
-  let result: Readonly<{ value: T }> | null = null;
+  let status: InteractiveConsoleOperationOutcome<T>["status"] = "unavailable";
+  let value: T | null = null;
   try {
     input = adapter.open(names.input, "r");
     output = adapter.open(names.output, "w");
     if (adapter.validate && !adapter.validate({ input, output })) {
       throw new Error("interactive_console_validation_failed");
     }
-    result = Object.freeze({
-      value: await operation(Object.freeze({ input, output })),
-    });
+    value = await operation(Object.freeze({ input, output }));
+    status = "completed";
   } catch {
-    result = null;
+    status =
+      input !== null && output !== null ? "operation_failed" : "unavailable";
   }
   let isCleanupSuccessful = true;
   if (input !== null) {
@@ -162,7 +190,8 @@ export async function withInteractiveConsoleAsyncUsingAdapter<T>(
       isCleanupSuccessful = false;
     }
   }
-  return isCleanupSuccessful && result ? result.value : null;
+  if (!isCleanupSuccessful) status = "cleanup_unknown";
+  return Object.freeze({ status, value });
 }
 
 export function withInteractiveConsoleAsync<T>(
@@ -179,59 +208,111 @@ export function withInteractiveConsoleAsync<T>(
   );
 }
 
+export function withInteractiveConsoleAsyncOutcome<T>(
+  operation: (handles: InteractiveConsoleHandles) => Promise<T>,
+) {
+  return withInteractiveConsoleAsyncOutcomeUsingAdapter(
+    process.platform,
+    Object.freeze({
+      open: fs.openSync,
+      close: fs.closeSync,
+      validate: validateInteractiveConsoleHandles,
+    }),
+    operation,
+  );
+}
+
+export async function writeInteractiveConsoleTextOutcomeUsingAdapter(
+  platform: NodeJS.Platform,
+  outputDescriptor: number,
+  value: string,
+  adapter: InteractiveConsoleTextAdapter,
+): Promise<InteractiveConsoleTextWriteOutcome> {
+  try {
+    if (platform === "win32") {
+      if (!adapter.isWindowsTerminal)
+        return Object.freeze({ status: "write_failed" });
+      const result = await adapter.writeWindowsTerminal(value);
+      return typeof result === "boolean"
+        ? Object.freeze({ status: result ? "completed" : "write_failed" })
+        : result;
+    }
+    adapter.writeDescriptor(outputDescriptor, value);
+    return Object.freeze({ status: "completed" });
+  } catch {
+    return Object.freeze({ status: "write_failed" });
+  }
+}
+
 export async function writeInteractiveConsoleTextUsingAdapter(
   platform: NodeJS.Platform,
   outputDescriptor: number,
   value: string,
   adapter: InteractiveConsoleTextAdapter,
 ) {
-  try {
-    if (platform === "win32") {
-      if (!adapter.isWindowsTerminal) return false;
-      return (await adapter.writeWindowsTerminal(value)) === true;
-    } else {
-      adapter.writeDescriptor(outputDescriptor, value);
-    }
-    return true;
-  } catch {
-    return false;
-  }
+  const outcome = await writeInteractiveConsoleTextOutcomeUsingAdapter(
+    platform,
+    outputDescriptor,
+    value,
+    adapter,
+  );
+  return outcome.status === "completed";
 }
 
-export function writeWindowsTerminalTextUsingStream(
+export function writeWindowsTerminalTextOutcomeUsingStream(
   value: string,
   stream: WindowsTerminalStream,
-): Promise<boolean> {
+): Promise<InteractiveConsoleTextWriteOutcome> {
   if (stream.isTTY !== true || stream.destroyed || !stream.writable) {
-    return Promise.resolve(false);
+    return Promise.resolve(Object.freeze({ status: "write_failed" }));
   }
   return new Promise((resolve) => {
     let isSettled = false;
     let deferredCompletion: NodeJS.Immediate | null = null;
-    const settle = (isSuccessful: boolean) => {
+    const timeout = setTimeout(
+      () => settle("write_failed"),
+      TERMINAL_WRITE_TIMEOUT_MS,
+    );
+    timeout.unref();
+    const settle = (status: InteractiveConsoleTextWriteOutcome["status"]) => {
       if (isSettled) return;
       isSettled = true;
+      clearTimeout(timeout);
       if (deferredCompletion) clearImmediate(deferredCompletion);
-      let isCleanupSuccessful = true;
       try {
         stream.removeListener("error", onError);
       } catch {
-        isCleanupSuccessful = false;
+        status = "cleanup_unknown";
       }
-      resolve(isSuccessful && isCleanupSuccessful);
+      resolve(Object.freeze({ status }));
     };
-    const deferSettlement = (isSuccessful: boolean) => {
+    const deferSettlement = (
+      status: InteractiveConsoleTextWriteOutcome["status"],
+    ) => {
       if (isSettled || deferredCompletion) return;
-      deferredCompletion = setImmediate(() => settle(isSuccessful));
+      deferredCompletion = setImmediate(() => settle(status));
     };
-    const onError = () => settle(false);
+    const onError = () => settle("write_failed");
     stream.once("error", onError);
     try {
-      stream.write(value, (error) => deferSettlement(!error));
+      stream.write(value, (error) =>
+        deferSettlement(error ? "write_failed" : "completed"),
+      );
     } catch {
-      deferSettlement(false);
+      deferSettlement("write_failed");
     }
   });
+}
+
+export async function writeWindowsTerminalTextUsingStream(
+  value: string,
+  stream: WindowsTerminalStream,
+) {
+  const outcome = await writeWindowsTerminalTextOutcomeUsingStream(
+    value,
+    stream,
+  );
+  return outcome.status === "completed";
 }
 
 function validateInteractiveConsoleHandles(handles: InteractiveConsoleHandles) {
@@ -301,7 +382,7 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
   return new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
     try {
-      const environment = createWindowsNodeConsoleReaderEnvironment();
+      const environment = createInteractiveConsoleReaderEnvironment();
       if (!environment) {
         resolve(Object.freeze({ status: "reader_failed", line: null }));
         return;
@@ -515,14 +596,14 @@ export function readInteractiveConsoleLineOutcome(
 }
 
 function writeWindowsTerminalText(value: string) {
-  return writeWindowsTerminalTextUsingStream(value, process.stdout);
+  return writeWindowsTerminalTextOutcomeUsingStream(value, process.stdout);
 }
 
-export function writeInteractiveConsoleText(
+export function writeInteractiveConsoleTextOutcome(
   outputDescriptor: number,
   value: string,
 ) {
-  return writeInteractiveConsoleTextUsingAdapter(
+  return writeInteractiveConsoleTextOutcomeUsingAdapter(
     process.platform,
     outputDescriptor,
     value,
@@ -533,6 +614,15 @@ export function writeInteractiveConsoleText(
         fs.writeSync(descriptor, text, null, "utf8");
       },
     }),
+  );
+}
+
+export function writeInteractiveConsoleText(
+  outputDescriptor: number,
+  value: string,
+) {
+  return writeInteractiveConsoleTextOutcome(outputDescriptor, value).then(
+    (outcome) => outcome.status === "completed",
   );
 }
 
@@ -553,7 +643,11 @@ export function describeInteractiveConsoleContract() {
       "single_use_verified_package_capability_and_fresh_content_root",
     readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
     readerEnvironment:
-      "validated_windows_directory_and_fixed_neutral_ambient_names",
+      "windows_loaded_kernel32_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
+    readerTimeoutMs: READER_TIMEOUT_MS,
+    readerCancelGraceMs: READER_CANCEL_GRACE_MS,
+    readerCleanupSchedulingMarginMs: READER_CLEANUP_SCHEDULING_MARGIN_MS,
+    readerOrphanFailsafeMs: INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
     readerStandardIo:
       "exact_console_input_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:

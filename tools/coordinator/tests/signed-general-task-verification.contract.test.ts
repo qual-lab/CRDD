@@ -132,24 +132,30 @@ function dependencies(
 ) {
   const calls = {
     verifies: 0,
+    consoleInspections: 0,
     starts: 0,
     reads: 0,
     discards: 0,
     bound: 0,
     unbound: 0,
+    issuedCapability: null as object | null,
+    passedCapability: null as unknown,
   };
   return Object.freeze({
     calls,
     value: Object.freeze({
       issuePackageCapability: () => {
         calls.verifies += 1;
+        const capability = Object.freeze({});
+        calls.issuedCapability = capability;
         return Object.freeze({
           verification: options.release ?? release(),
-          capability: Object.freeze({}),
+          capability,
         });
       },
-      startTask: () => {
+      startTask: (_request: unknown, _root: string, capability: unknown) => {
         calls.starts += 1;
+        calls.passedCapability = capability;
         return Object.freeze({
           controlCapability: Object.freeze({}),
           completion: options.completionRejects
@@ -172,7 +178,10 @@ function dependencies(
       },
       now: () => "2026-08-25T00:00:00.000Z",
       runtimeVersion: () => options.runtimeVersion ?? "24.19.0",
-      inspectInteractiveConsole: () => options.interactiveConsole ?? true,
+      inspectInteractiveConsole: () => {
+        calls.consoleInspections += 1;
+        return options.interactiveConsole ?? true;
+      },
       bindCancellation: () => {
         calls.bound += 1;
         return Object.freeze({
@@ -243,11 +252,10 @@ test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => 
   assert.equal(parsed.canonicalRepositoryChanged, false);
 });
 
-test("Node 24.12未満または対話Console不成立をRelease検証前に拒否する", async () => {
+test("Node GateはPackage前、Package Gateは対話Console前に拒否する", async () => {
   for (const fixture of [
     dependencies({ runtimeVersion: "24.11.9" }),
     dependencies({ runtimeVersion: "22.18.0" }),
-    dependencies({ interactiveConsole: false }),
   ]) {
     const result = await runSignedGeneralTaskVerification(
       path.resolve("."),
@@ -255,8 +263,18 @@ test("Node 24.12未満または対話Console不成立をRelease検証前に拒�
     );
     assert.equal(result.status, "blocked");
     assert.equal(fixture.calls.verifies, 0);
+    assert.equal(fixture.calls.consoleInspections, 0);
     assert.equal(fixture.calls.starts, 0);
   }
+  const consoleBlocked = dependencies({ interactiveConsole: false });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    consoleBlocked.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(consoleBlocked.calls.verifies, 1);
+  assert.equal(consoleBlocked.calls.consoleInspections, 1);
+  assert.equal(consoleBlocked.calls.starts, 0);
 });
 
 test("署名Release不成立時はTaskを開始しない", async () => {
@@ -317,6 +335,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.crddCommit, baseCommit);
   assert.equal(result.crddTree, baseTree);
   assert.equal(fixture.calls.starts, 1);
+  assert.equal(fixture.calls.passedCapability, fixture.calls.issuedCapability);
   assert.equal(fixture.calls.reads, 1);
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);

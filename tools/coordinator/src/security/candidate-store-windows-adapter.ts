@@ -341,7 +341,8 @@ export function describeCandidateStoreWindowsAdapterContract() {
       "fixed_signed_manifest_release_identity_and_artifact_hash_before_and_after",
     callerSuppliedPathAccepted: false,
     inheritedEnvironmentTrustedDirectly: false,
-    environment: "validated_windows_directory_and_fixed_neutral_ambient_names",
+    environment:
+      "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
     rawPathReported: false,
     rawPrincipalReported: false,
     rawAclReported: false,

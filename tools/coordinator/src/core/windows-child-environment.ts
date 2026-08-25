@@ -40,48 +40,9 @@ const NEUTRAL_NAMES = Object.freeze([
   "USERPROFILE",
 ] as const);
 
-function observedWindowsDirectory() {
-  if (process.platform !== "win32") return null;
-  const systemRoot = process.env.SystemRoot;
-  const windir = process.env.WINDIR;
-  if (
-    typeof systemRoot !== "string" ||
-    typeof windir !== "string" ||
-    systemRoot.length === 0 ||
-    systemRoot.includes("\0") ||
-    windir.includes("\0") ||
-    !path.win32.isAbsolute(systemRoot) ||
-    systemRoot.toLocaleLowerCase("en-US") !== windir.toLocaleLowerCase("en-US")
-  ) {
-    return null;
-  }
-  try {
-    const resolved = path.win32.normalize(systemRoot);
-    const metadata = fs.lstatSync(resolved);
-    const system32 = fs.lstatSync(path.join(resolved, "System32"));
-    const kernel32 = fs.lstatSync(
-      path.join(resolved, "System32", "kernel32.dll"),
-    );
-    if (
-      !metadata.isDirectory() ||
-      metadata.isSymbolicLink() ||
-      !system32.isDirectory() ||
-      system32.isSymbolicLink() ||
-      !kernel32.isFile() ||
-      kernel32.isSymbolicLink() ||
-      fs.realpathSync.native(resolved).toLocaleLowerCase("en-US") !==
-        resolved.toLocaleLowerCase("en-US")
-    ) {
-      return null;
-    }
-    return resolved;
-  } catch {
-    return null;
-  }
-}
-
 function fixedWindowsEnvironment(additions: Readonly<Record<string, string>>) {
-  const windowsDirectory = observedWindowsDirectory();
+  if (process.platform !== "win32") return null;
+  const windowsDirectory = observedWindowsDirectoryFromLoadedSystemModule();
   if (!windowsDirectory) return null;
   const environment: Record<string, string> = Object.create(null);
   for (const name of NEUTRAL_NAMES) environment[name] = "";
@@ -107,8 +68,60 @@ function fixedWindowsEnvironment(additions: Readonly<Record<string, string>>) {
   return Object.freeze(environment);
 }
 
+function observedWindowsDirectoryFromLoadedSystemModule() {
+  try {
+    const report = process.report.getReport() as Readonly<{
+      sharedObjects?: unknown;
+    }>;
+    const sharedObjects = report.sharedObjects;
+    if (!Array.isArray(sharedObjects)) return null;
+    const candidates = sharedObjects.filter(
+      (candidate): candidate is string =>
+        typeof candidate === "string" &&
+        path.win32.basename(candidate).toLocaleLowerCase("en-US") ===
+          "kernel32.dll" &&
+        path.win32
+          .basename(path.win32.dirname(candidate))
+          .toLocaleLowerCase("en-US") === "system32",
+    );
+    if (candidates.length !== 1) return null;
+    const candidate = candidates[0];
+    if (!candidate) return null;
+    const kernel32 = path.win32.normalize(candidate);
+    const system32 = path.win32.dirname(kernel32);
+    const windowsDirectory = path.win32.dirname(system32);
+    const rootMetadata = fs.lstatSync(windowsDirectory);
+    const system32Metadata = fs.lstatSync(system32);
+    const kernelMetadata = fs.lstatSync(kernel32);
+    if (
+      !rootMetadata.isDirectory() ||
+      rootMetadata.isSymbolicLink() ||
+      !system32Metadata.isDirectory() ||
+      system32Metadata.isSymbolicLink() ||
+      !kernelMetadata.isFile() ||
+      kernelMetadata.isSymbolicLink() ||
+      fs.realpathSync.native(windowsDirectory).toLocaleLowerCase("en-US") !==
+        windowsDirectory.toLocaleLowerCase("en-US") ||
+      fs.realpathSync.native(kernel32).toLocaleLowerCase("en-US") !==
+        kernel32.toLocaleLowerCase("en-US")
+    ) {
+      return null;
+    }
+    return windowsDirectory;
+  } catch {
+    return null;
+  }
+}
+
+export function createInteractiveConsoleReaderEnvironment(
+  platform: NodeJS.Platform = process.platform,
+) {
+  if (platform === "win32") return fixedWindowsEnvironment(Object.freeze({}));
+  return Object.freeze({});
+}
+
 export function createWindowsNodeConsoleReaderEnvironment() {
-  return fixedWindowsEnvironment(Object.freeze({}));
+  return createInteractiveConsoleReaderEnvironment("win32");
 }
 
 export function createWindowsNativeHelperEnvironment() {
@@ -145,7 +158,8 @@ export function describeWindowsChildEnvironmentContract() {
   return Object.freeze({
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
     contractRevision: WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION,
-    provenance: "validated_windows_directory_plus_fixed_runtime_values_only",
+    provenance:
+      "loaded_kernel32_os_observation_plus_fixed_neutral_values_no_parent_environment_authority",
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
     actualChildObservationRequired: true,
