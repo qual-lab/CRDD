@@ -9,7 +9,7 @@ Expertise and execution to AI. Ideas, decisions, and accountability to humans. I
 
 Status: **v0.18.0 Candidate — Current Decision Set, Communication, Agent Organization, and Architecture Evaluation / 現在の判断集合・外部コミュニケーション・エージェント組織・アーキテクチャ評価**
 
-> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative v0.18.0 Architecture Candidate material. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合と外部コミュニケーションの規範変更候補、エージェント組織の規範的な基礎正本候補、および非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはリリースは成立しない。See / 参照: [エージェント組織](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](99_Roadmap/01_CRDD_v0_18_Concept.md).
+> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative v0.18.0 Architecture Candidate material. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合と外部コミュニケーションの規範変更候補、エージェント組織の規範的な基礎正本候補、および非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはリリースは成立しない。See / 参照: [エージェント組織](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](05_Autonomous_Operation.md).
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -138,13 +138,13 @@ Representable != Enabled != Accessible != Authorized != Promoted
 
 For example, a Codex scheduled task may explicitly start a read-only weekly review. The candidate defines what that review may read, what result it must return, and where it must stop; it does not register the schedule or grant write, publication, or external-send authority.
 
-- [Concept and vision](99_Roadmap/01_CRDD_v0_18_Concept.md)
-- [Responsibility boundaries](99_Roadmap/02_CRDD_v0_18_Responsibility_Boundary.md)
-- [Activation profiles and reference implementation](99_Roadmap/03_CRDD_v0_18_PoC_Plan.md)
-- [Autonomous safety architecture](99_Roadmap/04_CRDD_v0_18_Autonomous_Safety_Architecture.md)
-- [Operation health and Human interface](99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md)
-- [Forward compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
-- [Agent and provider orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- [Concept and vision](05_Autonomous_Operation.md)
+- [Responsibility boundaries](06_Autonomous_Operation_Responsibility.md)
+- [Open work and reference experiments](99_Roadmap/01_Product_Roadmap.md)
+- [Autonomous safety architecture](07_Autonomous_Operation_Safety.md)
+- [Operation health and Human interface](08_Operation_Health_and_Human_Interface.md)
+- [Forward compatibility](09_Forward_Compatibility.md)
+- [Agent and provider orchestration](04_Agent_Organization.md)
 
 The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation candidate](04_Agent_Organization.md). Neither inclusion in this list nor `Candidate` status establishes adoption; adoption follows the baseline-adoption assessment, Human activation decision, and release contracts.
 
@@ -533,13 +533,13 @@ Representable != Enabled != Accessible != Authorized != Promoted
 
 例えば、Codex Scheduled Taskから読み取り専用の週次レビューを明示的に開始できる。この候補が定めるのは、そのレビューが何を読み、どのResultを返し、どこで停止するかであり、Scheduleの登録や、書き込み、公開または外部送信のAuthorityを与えることではない。
 
-- [Conceptと全体像](99_Roadmap/01_CRDD_v0_18_Concept.md)
-- [責務境界](99_Roadmap/02_CRDD_v0_18_Responsibility_Boundary.md)
-- [Activation ProfileとReference Implementation](99_Roadmap/03_CRDD_v0_18_PoC_Plan.md)
-- [自律安全Architecture](99_Roadmap/04_CRDD_v0_18_Autonomous_Safety_Architecture.md)
-- [Operation HealthとHuman Interface](99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md)
-- [Forward Compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
-- [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- [Conceptと全体像](05_Autonomous_Operation.md)
+- [責務境界](06_Autonomous_Operation_Responsibility.md)
+- [未完了作業と参照実証](99_Roadmap/01_Product_Roadmap.md)
+- [自律安全Architecture](07_Autonomous_Operation_Safety.md)
+- [Operation HealthとHuman Interface](08_Operation_Health_and_Human_Interface.md)
+- [Forward Compatibility](09_Forward_Compatibility.md)
+- [Agent／Provider Orchestration](04_Agent_Organization.md)
 
 この候補が使用する横断概念は、[エージェント組織の基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載や`Candidate`状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびリリース契約に従う。
 

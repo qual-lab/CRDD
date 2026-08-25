@@ -55,7 +55,7 @@
 
 ## 未評価範囲と後続処置
 
-- Runtime Adapter、Operation Contract、Effect Manifest、Decision Queue FixtureおよびOperation Healthの実装・実測は、[`03_CRDD_v0_18_PoC_Plan.md`](../../../99_Roadmap/03_CRDD_v0_18_PoC_Plan.md)の非規範PoC候補であり、本固定版では未実施である。
+- Runtime Adapter、Operation Contract、Effect Manifest、Decision Queue FixtureおよびOperation Healthの実装・実測は、[`99_Roadmap/01_Product_Roadmap.md`](../../../99_Roadmap/01_Product_Roadmap.md)の非規範PoC候補であり、本固定版では未実施である。
 - v0.17.0からv0.18.0への正式な採用単位、移行内容および復旧条件は、Owner `Qual-Lab`がCHANGELOGと移行注記を準備するRelease工程で確定する。完了条件は、公開基準からの純粋差分、規範候補と非規範Architectureの区別、Migration Completenessおよび採用側への影響を同じ最終Release候補Identityで確認できることである。
 - Release Workflow自動化は採用済み作業ではない。Owner `Qual-Lab`は、v0.18.0のRelease準備または候補差替え・手動誤りの反復が再発した時点で、状態遷移図、正規Workflow、検証コマンド統合および現在状態出力を別CHG候補として再評価する。
 - 実際の隔離評価、採用Repository固有の接続部、権限、Runtime／Provider認証、対象branch保護規則、CI、統合、タグおよび公開結果は未評価である。

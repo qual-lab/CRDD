@@ -3,7 +3,7 @@
 変更トレースID: `CHG-000014`
 状態: `Ready for Verification`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-11
+最終更新日: 2026-08-25
 対象系列: v0.18.x
 対象バージョン: v0.18.0 Candidate
 変更分類: `breaking`（統合差分としての候補、最終確認前）
@@ -52,15 +52,17 @@ Communicationの旧IDと旧ファイル名はsource Commitを解釈する来歴�
 
 | 旧v2名称 | 統合時の旧v1名称 | 現名称 |
 |---|---|---|
-| `01_CRDD_v2_Concept.md` | `01_CRDD_v1_Concept.md` | `01_CRDD_v0_18_Concept.md` |
-| `02_CRDD_v2_Responsibility_Boundary.md` | `02_CRDD_v1_Responsibility_Boundary.md` | `02_CRDD_v0_18_Responsibility_Boundary.md` |
-| `03_CRDD_v2_PoC_Plan.md` | `03_CRDD_v1_PoC_Plan.md` | `03_CRDD_v0_18_PoC_Plan.md` |
-| `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` | `04_CRDD_v0_18_Autonomous_Safety_Architecture.md` |
-| `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` | `05_CRDD_v0_18_Operation_Health_and_Human_Interface.md` |
-| `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` | `06_CRDD_v0_18_Forward_Compatibility.md` |
-| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | `07_CRDD_v0_18_Agent_and_Provider_Orchestration.md` |
+| `01_CRDD_v2_Concept.md` | `01_CRDD_v1_Concept.md` | `05_Autonomous_Operation.md` |
+| `02_CRDD_v2_Responsibility_Boundary.md` | `02_CRDD_v1_Responsibility_Boundary.md` | `06_Autonomous_Operation_Responsibility.md` |
+| `03_CRDD_v2_PoC_Plan.md` | `03_CRDD_v1_PoC_Plan.md` | `99_Roadmap/01_Product_Roadmap.md` |
+| `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` | `07_Autonomous_Operation_Safety.md` |
+| `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` | `08_Operation_Health_and_Human_Interface.md` |
+| `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` | `09_Forward_Compatibility.md` |
+| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | `04_Agent_Organization.md`の実行アーキテクチャ |
 
 renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との来歴、Target、相互リンクおよびREADME英日を、公開済みv0.17.0、v0.18.0規範変更候補、非規範v0.18.0 Architecture Candidateの境界へ再基準化した。
+
+2026-08-25の文書責務是正では、Roadmapに育った恒久Architectureをルート候補正本へ移し、未完了作業だけを単一の`99_Roadmap/01_Product_Roadmap.md`へ残した。概念、責務、安全、Operation HealthおよびForward Compatibilityは`05`〜`09`、Agent／Provider Orchestrationは`04_Agent_Organization.md`の実行アーキテクチャへ統合した。旧PoC計画の未完了候補はProduct Roadmapへ縮約し、完了状態の保管や第二の正本となる旧Roadmap詳細は削除した。旧名称と固定改訂版は本CHGおよびGit履歴から再構成し、現在の参照先として使用しない。
 
 ## 6. 契約母集団と代表ケース
 

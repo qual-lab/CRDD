@@ -1,16 +1,26 @@
-# CRDD v0.18.0 Architecture Candidate — Forward Compatibility
+<a id="forward-compatibility"></a>
 
-Status: Concept / Non-normative Architecture Candidate
-Target: CRDD v0.18.0 Architecture Candidate
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+# 将来互換性（Forward Compatibility）
 
-> 本書は非規範の将来互換Architecture候補である。現在のCRDD v0.17.0、安定コンテキストID、Human Authority、External Information Boundary、準拠基準または採用側のRepository構成を変更しない。ここで表現できる将来能力は、独立した採用・検証・人間判断を経るまで有効化または許可されない。
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
+Owner: Qual-Lab
+Last Updated: 2026-08-25
+Related:
+- [01_Principles.md](01_Principles.md)
+- [05_Autonomous_Operation.md](05_Autonomous_Operation.md)
+- [06_Autonomous_Operation_Responsibility.md](06_Autonomous_Operation_Responsibility.md)
+- [07_Autonomous_Operation_Safety.md](07_Autonomous_Operation_Safety.md)
+- [18_Context_Dependency.md](18_Context_Dependency.md)
+
+> 本書はRepository Identity、Context Reference、来歴および決定権限を現在の物理実装へ固定しないための候補正本である。将来能力を表現できることから、その能力の有効化、アクセスまたは許可を推定しない。
 
 ---
 
 ## 1. 目的
 
-本Architecture Candidateは、一つのCRDD Repositoryを基本的なコンテキスト境界として、再評価、候補形成、許可範囲内の実行、検証、学びを行う。
+本候補は、一つのCRDD Repositoryを基本的なコンテキスト境界として、再評価、候補形成、許可範囲内の実行、検証、学びを行う。
 
 将来、複数Repositoryやより広い業務範囲へ接続するとしても、本候補でその能力を先行実装しない。一方、本候補の実行Identity、参照、由来、決定権限を物理Locationや現在の実行主体へ固定し、将来Core Contractの全面変更が必要になる状態も避ける。
 
@@ -166,7 +176,7 @@ Representable
 
 前段の成立から後段を推定しない。未知のIdentity、Reference、Authority型または拡張情報をRuntimeが理解できない場合、それを無視してEffectを許可せず、対象EffectについてFail Closedとする。未知情報を保持して後続へ渡すことと、その意味に基づいて操作することも分ける。
 
-ProviderまたはModelはExecution Provenanceの一部になり得るが、Repository Identity、Context Identity、Authorityまたは成果物の意味そのものではない。Providerを変更できることから、そのProviderへのアクセス、送信、実行またはReview独立性を推定しない。安全なRoutingの責務は[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置く。
+ProviderまたはModelはExecution Provenanceの一部になり得るが、Repository Identity、Context Identity、Authorityまたは成果物の意味そのものではない。Providerを変更できることから、そのProviderへのアクセス、送信、実行またはReview独立性を推定しない。安全なRoutingの責務は[エージェント組織の実行アーキテクチャ](04_Agent_Organization.md#12-execution-architecture)に置く。
 
 ---
 

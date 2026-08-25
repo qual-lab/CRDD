@@ -61,7 +61,7 @@ manifestはversion `2.1.220`、commit `4073f59596e272f39393db4f96abc5f4b10eff21`
 - pure production母集団`claude-execution-plan.ts`と直接依存`plain-data-snapshot.ts`のline、functionおよびbranch coverageを100%にする。
 - strict typecheck、Biome warning 0、format差分0、全Coordinator contract test、Checker package testおよび全Repository checkerを別軸で確認する。
 - 固定候補commitにAgent／Architecture／Security、Document、Gap／ImpactおよびConformanceの独立確認を行い、全結果を統合する。
-- manifest署名検証、binary取得、fixed image build／digest、argv互換性、配布条件とservice条件の有効化、Provider Home Effect、Mount Grant、Egress Proxy、Telemetry、login／logout、quota probeおよび実Provider probeは[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)から後続変更として追跡する。
+- manifest署名検証、binary取得、fixed image build／digest、argv互換性、配布条件とservice条件の有効化、Provider Home Effect、Mount Grant、Egress Proxy、Telemetry、login／logout、quota probeおよび実Provider probeは[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)から後続変更として追跡する。
 
 基準Node.js `v24.19.0`で、Coordinator strict typecheck／Biome lint／formatはPass、全contract testは392／392、Checker package checkはPass、contract testは151／151だった。専用coverage commandはproduction source `claude-execution-plan.ts`と`plain-data-snapshot.ts`のline、functionおよびbranchを各100.00%とした。Repository全体checkerは529 files、335 Markdown、1,968 local links、575 anchorsを確認し、Error 0／Warning 0だった。実Provider、Docker、Network、Filesystem、OAuthまたは課金Effectは本確認で発火していない。
 

@@ -1,10 +1,23 @@
-# CRDD v0.18.0 Architecture Candidate — 責務境界
+<a id="autonomous-operation-responsibility"></a>
 
-Status: Concept / Non-normative Architecture Candidate
-Target: CRDD v0.18.0 Architecture Candidate
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [実証計画](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [エージェント組織](../04_Agent_Organization.md)
+# 自律Operationの責務境界（Autonomous Operation Responsibility）
 
-> 本書は非規範の責務整理である。現在のCRDD、Agent Contract、Skill Contract、Human Authority、External Information Boundaryまたは準拠基準を変更しない。
+Version: v0.18.0
+Status: Candidate
+Released Baseline: v0.17.0
+Owner: Qual-Lab
+Last Updated: 2026-08-25
+Related:
+- [01_Principles.md](01_Principles.md)
+- [04_Agent_Organization.md](04_Agent_Organization.md)
+- [05_Autonomous_Operation.md](05_Autonomous_Operation.md)
+- [07_Autonomous_Operation_Safety.md](07_Autonomous_Operation_Safety.md)
+- [08_Operation_Health_and_Human_Interface.md](08_Operation_Health_and_Human_Interface.md)
+- [09_Forward_Compatibility.md](09_Forward_Compatibility.md)
+- [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
+
+> 本書は自律Operation、CRDD、Agent、Skill、Runtime、Toolおよび決定権限の責務境界を所有する候補正本である。接続可能性から有効化または決定権限を推定しない。
 
 ---
 
@@ -22,7 +35,7 @@ Authority = 誰が何を判断・操作できるか
 Human     = 価値、方向、責任、リスク受容
 ```
 
-本Architecture Candidateはこれらを一つの巨大Platformへ統合せず、意味と実行を分けたまま接続する。
+本候補はこれらを一つの巨大Platformへ統合せず、意味と実行を分けたまま接続する。
 
 ---
 
@@ -208,11 +221,11 @@ Silent Failureを減らすため、「問題なし」という結論にも探索
 
 Coordinatorは、Executor、Reviewer、Providerまたは複数Runが返した結果を、人間への質問または採用済みの結論へ直接変換しない。Execution Identity、対象改訂版、Current State、Evidence、Verification、Policy結果、未評価範囲および結果の有効性を照合し、競合、重複、失効した結果、解消済み事項、報告のみの事項を分ける。
 
-人間判断候補は、[判断支援契約](../11_Skill.md#53-decision-support-contract)に従い、現在の対象改訂版から**現在の判断集合（Current Decision Set）**として再構成する。監査またはレビューでは現在の固定改訂版を用いる。ExecutorまたはReviewerが`Decision Required`、承認要求または`Pass`を返しても、その申告からHuman Authority、採用、Risk Acceptance、Promotionまたは質問件数を推定しない。
+人間判断候補は、[判断支援契約](11_Skill.md#53-decision-support-contract)に従い、現在の対象改訂版から**現在の判断集合（Current Decision Set）**として再構成する。監査またはレビューでは現在の固定改訂版を用いる。ExecutorまたはReviewerが`Decision Required`、承認要求または`Pass`を返しても、その申告からHuman Authority、採用、Risk Acceptance、Promotionまたは質問件数を推定しない。
 
 Coordinatorは結果を、少なくとも次の既存経路へ接続する。
 
-- Authority、停止条件、収束条件およびBudgetの範囲でAIが一意に是正できる事項は、責務を持つ実行主体へ戻し、更新後の対象改訂版を固定して再実行・再検証する。その対象契約、変更分類およびリスクからIndependent Reviewの適用要否を再評価し、正式なFindingを是正した場合は、[既存の解消契約](../10_Agent.md#multi-location-remediation)に従い、作成責務から分離した確認者が同じ更新後固定改訂版、基準およびEvidenceから独立再レビューする。`Applied`、自己確認、Verification、古いResult／Reviewまたは実行主体の完了申告だけでFindingを`Resolved`にしない。
+- Authority、停止条件、収束条件およびBudgetの範囲でAIが一意に是正できる事項は、責務を持つ実行主体へ戻し、更新後の対象改訂版を固定して再実行・再検証する。その対象契約、変更分類およびリスクからIndependent Reviewの適用要否を再評価し、正式なFindingを是正した場合は、[既存の解消契約](10_Agent.md#multi-location-remediation)に従い、作成責務から分離した確認者が同じ更新後固定改訂版、基準およびEvidenceから独立再レビューする。`Applied`、自己確認、Verification、古いResult／Reviewまたは実行主体の完了申告だけでFindingを`Resolved`にしない。
 - 解消済み事項は、是正結果と実際の影響を報告するが、現在の判断要求へ戻さない。
 - 報告のみの事項は追跡可能な詳細へ置き、現在の判断集合へ含めない。
 - 将来に判断、再確認または監視が必要な事項は、現在の作業、Gate、停止判断、採用／却下、重大Risk受容または不可逆Effectへ影響せず、安全に独立保留でき、かつ担当責任者、再評価契機、保留影響および元のResult／Finding／Evidenceを既存の未完了事項、Roadmapまたは変更トレースへ接続できる場合に限り、現在のDecision Queueから除外する。将来という時点または追跡情報があることだけでは除外しない。条件または影響が不明な場合は、不足情報と確認先を示して現在判定から除外しない。
@@ -224,11 +237,11 @@ Coordinatorは結果を、少なくとも次の既存経路へ接続する。
 
 `Policy-contained Completion`は、事前承認されたOperationについて、必要なResultとVerificationが許可範囲内で成立し、そのRunを終了できる実行上の境界を意味する。Canonical Adoption、Promotion、Risk Acceptance、ReleaseまたはHuman Authorityを自動的に成立させない。
 
-これは新しい第一級成果物、独立した状態軸または承認段階ではない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md)のPromotion Policyを別途適用する。Policy、Authority、必須Result、Verificationまたは未解決Riskを確認できないRunを、`Policy-contained Completion`へ丸めない。
+これは新しい第一級成果物、独立した状態軸または承認段階ではない。Current／Canonical Stateへ反映する場合は、[自律安全Architecture](07_Autonomous_Operation_Safety.md)のPromotion Policyを別途適用する。Policy、Authority、必須Result、Verificationまたは未解決Riskを確認できないRunを、`Policy-contained Completion`へ丸めない。
 
 ### 4.6. Identity、Reference、Provenance、Authority
 
-本書は実行時の責務分離を所有し、将来互換の意味上の合成関係は[Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md)へ接続する。
+本書は実行時の責務分離を所有し、将来互換の意味上の合成関係は[Forward Compatibility](09_Forward_Compatibility.md)へ接続する。
 
 ```text
 Execution Identity
@@ -346,7 +359,7 @@ Operation Goal
 Reasoning / Result
 ```
 
-ただし本Architecture Candidateを特定製品専用にしない。必要能力を示し、製品、CLI、API、MCP、将来Runtimeは交換可能なAdapterとして扱う。
+ただし本候補を特定製品専用にしない。必要能力を示し、製品、CLI、API、MCP、将来Runtimeは交換可能なAdapterとして扱う。
 
 READMEやAGENTS.mdは導入方法と起動例を案内できるが、CRDD Coreの意味正本や固定Promptにしない。
 
@@ -368,9 +381,9 @@ Repository数やOperation数が増えた場合だけ、Registry、Scheduler、�
 
 ## 9. エージェント組織（Agent Organization）
 
-エージェント組織の目的と概念境界は[エージェント組織](../04_Agent_Organization.md)を正本とする。本節は、複数の実行主体へ作業を割り当てる場合も、CRDDが必要なコンテキスト、決定権限、能力、期待結果および検証要求を所有し続けるという責務境界だけを示す。
+エージェント組織の目的と概念境界は[エージェント組織](04_Agent_Organization.md)を正本とする。本節は、複数の実行主体へ作業を割り当てる場合も、CRDDが必要なコンテキスト、決定権限、能力、期待結果および検証要求を所有し続けるという責務境界だけを示す。
 
-採用側ポリシーは利用可能な実行境界を定め、実行環境は適格性判定と適格集合内の最適化を実行し、プロバイダーアダプターは固有APIと入出力変換を担う。この経路制御アーキテクチャは[エージェント／プロバイダー調整](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置く。複数エージェント、固定役割または別プロバイダーの使用を品質や独立性の根拠にしない。
+採用側ポリシーは利用可能な実行境界を定め、実行環境は適格性判定と適格集合内の最適化を実行し、プロバイダーアダプターは固有APIと入出力変換を担う。この経路制御アーキテクチャは[エージェント組織の実行アーキテクチャ](04_Agent_Organization.md#12-execution-architecture)に置く。複数エージェント、固定役割または別プロバイダーの使用を品質や独立性の根拠にしない。
 
 ---
 
@@ -423,7 +436,7 @@ AIが自律的に行える初期候補：
 
 契機駆動Operationの安全性をAgentの自己申告だけへ依存させない。
 
-実行前後の安全契約、候補状態と正本状態の分離、実行効果の分類、Policy評価、対象同一性の再確認、累積予算、停止と回復は[自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md)に置く。本書はCRDD、Runtime、Tool、Authorityの責務分離を所有し、安全文書はその境界を再定義しない。
+実行前後の安全契約、候補状態と正本状態の分離、実行効果の分類、Policy評価、対象同一性の再確認、累積予算、停止と回復は[自律安全Architecture](07_Autonomous_Operation_Safety.md)に置く。本書はCRDD、Runtime、Tool、Authorityの責務分離を所有し、安全文書はその境界を再定義しない。
 
 ---
 
@@ -435,4 +448,4 @@ AIが自律的に行える初期候補：
 - Context Dependency：Runtime、MCP、外部Toolの依存と権限を管理し、接続結果を無条件流用しない。
 - CRDD Maintenance：運用上の手戻りから改善候補を作れるが、Coreを自動変更しない。
 
-Background Lane、Decision Queue、通知集約、運用健全性、頻度変更、Pause、廃止の責務は[Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md)に置く。Operation Contractが目的と期待結果を所有し、Health評価はOperationの意味や採用判断を自己変更しない。
+Background Lane、Decision Queue、通知集約、運用健全性、頻度変更、Pause、廃止の責務は[Operation HealthとHuman Interface](08_Operation_Health_and_Human_Interface.md)に置く。Operation Contractが目的と期待結果を所有し、Health評価はOperationの意味や採用判断を自己変更しない。

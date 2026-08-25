@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`（private Platform Provisioner Effect result／descriptor、Runtime Activation説明／recordおよびdoctor reportのSchemaを同時更新する）
 - 移行要否: `migration_required: true`（Effect contract revision 1→2、Runtime Activation revision 1→2、doctor report version 6→7、CLI result reason／keyおよびRepository内exact consumerを同時移行し、旧revision／versionのaliasまたはfallbackを設けない。supported production decoder、発行済みactivation record、永続stateおよび実Effectは0なので永続変換はない）
-- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000021`](CHG-000021_Protected_Active_Pointer.md)、[`CHG-000032`](CHG-000032_Current_Process_Principal_Observation.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000021`](CHG-000021_Protected_Active_Pointer.md)、[`CHG-000032`](CHG-000032_Current_Process_Principal_Observation.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と承認済み境界
 

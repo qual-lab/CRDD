@@ -1,18 +1,18 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 - 変更ID: `CHG-000054`
-- 状態: `Verified`
+- 状態: `Reopened`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25
-- 対象: エージェント組織の基礎正本候補、エージェント／プロバイダー調整アーキテクチャ、Coordinator Runtime実装README、用語集、監査接続、配布ひな型およびv0.18候補入口
+- 対象: エージェント組織の基礎正本候補、エージェント／プロバイダー調整アーキテクチャ、Coordinator Runtime実装README、用語集、監査接続、配布ひな型、変更トレース／Roadmap責務およびv0.18候補文書の配置
 - 対象version: v0.18.0 Candidate
 - 変更分類: `normative`（v0.18.0候補への基礎正本とエージェント型提供基準AD-22の追加。公開済み基準、Runtime動作またはリリースは変更しない）
 - 移行要否: `migration_required: true`（v0.18.0採用時に、既存のエージェント型提供対象のAD-22根拠を基準版採用評価で再評価する）
-- 関連正本: [エージェント組織](../../04_Agent_Organization.md)、[エージェント／プロバイダー調整](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)、[文書化](../../03_Documentation.md)、[エージェント契約](../../10_Agent.md)
+- 関連正本: [エージェント組織](../../04_Agent_Organization.md)、[文書化](../../03_Documentation.md)、[変更](../../12_Change.md)、[保守](../../19_Maintenance.md)、[課題探索・要求形成](../../21_Discovery.md)
 
 ## 結論
 
-`tools/coordinator/README.md`をエージェント組織、費用、独立レビューまたは決定権限の意味正本にしない。エージェント組織をルートの`04_Agent_Organization.md`へ基礎正本候補として集約し、既存のエージェント／プロバイダー調整を未完了の実行アーキテクチャ候補、`tools/coordinator`を現在の実装と強制方法へ限定する。
+`tools/coordinator/README.md`をエージェント組織、費用、独立レビューまたは決定権限の意味正本にしない。エージェント組織とプロバイダー非依存の経路制御をルートの`04_Agent_Organization.md`へ集約し、`tools/coordinator`を現在の実装と強制方法へ限定する。併せて、恒久的な自律Operation候補をルート正本へ、未完了作業だけを単一のProduct Roadmapへ置き、CHGを変更意図より細かく分割しない境界を明示する。
 
 決定権限、人間の決定権限、独立レビューおよび品質の既存決定権限は維持する。新しいエージェント組織文書はそれらを組織概念へ適用する候補基礎正本であり、文書の`Candidate`状態だけから公開済み基準、準拠表明、特定プロバイダー、固定役割、固定フローまたはRuntime必須条件を成立させない。
 
@@ -41,7 +41,7 @@
 1. `tools/coordinator/README.md`を中心のまま維持する案は、実装READMEを上流コンテキストや判断理由の暗黙正本にしないという文書化契約に反するため不採用。
 2. `07 Agent & Provider Orchestration`だけを拡張する案は、エージェント組織の目的／内容と経路制御／適格性の方法を同じ文書へ残し、将来別Runtimeから参照しにくいため不採用。
 3. `99_Roadmap`へ概念本文を置く案は、未完了作業の登録簿を第二の正本にするため不採用。初稿ではこの案を採ったが、文書監査、不足／影響監査および準拠監査の指摘により撤回した。
-4. `00`–`09`の基礎帯に`04_Agent_Organization.md`を候補基礎正本として置き、07を未完了アーキテクチャ候補、tools READMEを実装へ分ける案は、概念の抽象度と文書責務を一致させるため採用。
+4. `00`–`09`の基礎帯に`04_Agent_Organization.md`を候補基礎正本として置き、プロバイダー非依存の経路制御も同書の実行アーキテクチャへ統合し、tools READMEを実装へ分ける案は、概念の抽象度と文書責務を一致させるため採用。
 
 反証として、概念文書がエージェント契約、独立レビューまたは決定権限を再定義する危険と、実装READMEから安全条件を削りすぎる危険を確認した。前者は既存Coreを最終正本として直接参照し、後者は実装が強制する具体条件をREADMEへ保持しつつ意味正本ではないと明示して回避する。
 
@@ -56,7 +56,7 @@
 
 ## 変更と確認
 
-予定編集は、基礎正本候補の新設、用語登録、概要、README日英入口、v0.18候補文書、準拠監査のAD-22、CHANGELOG日英候補節、配布ひな型およびtools READMEの参照・責務更新、Roadmap内の重複削減である。Coordinator Runtimeのコード、試験、脅威モデル、現在の判断ゲート、Issue #30、リリースIdentityおよび過去CHG／根拠／CHANGELOG履歴は変更しない。
+予定編集は、基礎正本候補の新設、用語登録、概要、README日英入口、v0.18候補文書、準拠監査のAD-22、CHANGELOG日英候補節、配布ひな型およびtools READMEの参照・責務更新、Roadmap内の重複削減である。再開後は、エージェント／プロバイダー調整を同じ正本へ統合し、恒久Architectureをルートへ移し、単一Product Roadmapへ未完了作業だけを残し、未リリースCHGを変更意図より細かく分けない規則を同じ文書責務是正として扱う。Coordinator Runtimeのコード、試験、脅威モデル、現在の判断ゲート、Issue #30の採否／close、リリースIdentityおよび過去CHANGELOG履歴は変更しない。
 
 初回固定前に、予定した契約母集団、利用側母集団、代表例、変更禁止範囲と実際の差分を照合する。固定改訂版へRepository全体Checkerを一度実行し、その共通結果を独立レビューと必須監査へ渡す。指摘事項があれば全監査結果を統合してから修正し、新しい固定改訂版を再確認する。
 
@@ -68,10 +68,23 @@
 
 固定改訂版`74c498c`のエージェント／アーキテクチャレビュー、文書監査、不足／影響監査および準拠監査は、基礎配置と旧3指摘の解消を確認した一方、エージェント組織の主要境界を準拠判定へ完全投影するAD-22、README日英の3区分と導線、採用短絡表現、locale-first表示、概要と配布入口の読込境界、規範分類と移行影響を新たに指摘した。全結果を統合し、AD-22を既存AD-04／07／08／11の再定義ではなく編成固有の横断基準として追加し、`normative`／`migration_required: true`、CHANGELOG日英、README、表示名および読込境界を一括是正する方針を各監査へ再提示した。各監査は条件付きで受け入れ、人間の決定権限者が規範追加を承認した。
 
-規範追加後の固定前Repository全体CheckerはMarkdown 389件、local link 2240件、anchor 588件、Related block 27件、versioned document 27件、remediation row 74件を確認し、error 0／warning 0である。`tools/checker`の契約試験は151件中150件が合格し、今回変更していない`tools/coordinator/runtime/claude-managed-settings.json`を既存命名規則が認識しない1件だけが不合格だった。エージェント組織、AD-22、CHANGELOGまたは文書構造に関する試験失敗ではないが、試験全体を合格とは扱わず、本変更の固定改訂版と共通入力にこの既知の未関連結果を含める。命名規則またはRuntime配布物を本変更へ無断で追加せず、担当責任者、再評価契機および完了条件は実装残件台帳の[`FU-018-CHECKER-NAMING`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md#fu-018-checker-naming)で追跡する。
+規範追加後の固定前Repository全体CheckerはMarkdown 389件、local link 2240件、anchor 588件、Related block 27件、versioned document 27件、remediation row 74件を確認し、error 0／warning 0である。`tools/checker`の契約試験は151件中150件が合格し、`tools/coordinator/runtime/claude-managed-settings.json`を既存命名規則が認識していない1件を検出した。当時は本変更と別の残件として記録したが、後続確認で同じ未リリース命名変更の契約不足と判定し、原因契約を所有する[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)を再開した。
 
-固定改訂版`34d7496`のエージェント／アーキテクチャ独立レビューと準拠監査は`Pass`だった。文書監査と不足／影響監査は、現行v0.18英日CHANGELOGがCHG-000012／013／014／054の統合集合を名乗りながらAD-22だけへ移行内容を縮約し、集合最上位の`breaking`を`normative`と過小表示したMajor 1件、今回変更した日本語説明面のlocale-first不一致と、契約試験150／151の後続追跡不足というMinor 2件を返した。全監査結果を統合し、英日CHANGELOGを三つの規範差分と非規範アーキテクチャに分けて`breaking`／`migration_required: true`へ再構成し、CHG-000054単体の`normative`／`true`を維持し、変更した説明面を日本語主体へ整え、命名不整合を実装残件台帳へ接続する方針を各監査へ再提示した。各監査は条件付きで受け入れ、是正を適用・自己確認中である。新しい固定改訂版の必須再監査前に、これらを`Resolved`または`Pass`と扱わない。
+固定改訂版`34d7496`のエージェント／アーキテクチャ独立レビューと準拠監査は`Pass`だった。文書監査と不足／影響監査は、現行v0.18英日CHANGELOGがCHG-000012／013／014／054の統合集合を名乗りながらAD-22だけへ移行内容を縮約し、集合最上位の`breaking`を`normative`と過小表示したMajor 1件、今回変更した日本語説明面のlocale-first不一致と、契約試験150／151の後続追跡不足というMinor 2件を返した。全監査結果を統合し、英日CHANGELOGを三つの規範差分と非規範アーキテクチャに分けて`breaking`／`migration_required: true`へ再構成し、CHG-000054単体の`normative`／`true`を維持し、変更した説明面を日本語主体へ整え、命名不整合へ追跡先を設定する方針を各監査へ再提示した。各監査は条件付きで受け入れ、是正を適用・自己確認中である。新しい固定改訂版の必須再監査前に、これらを`Resolved`または`Pass`と扱わない。
 
-固定改訂版`51d81ec823ce08497a1d561db7c85110ffd1e36b`に対するエージェント／アーキテクチャ独立レビュー、文書監査、不足／影響監査および準拠監査は、Critical／Major／Minor 0件で全て`Pass`した。旧指摘事項は全て`Resolved`であり、Repository全体CheckerもMarkdown 389件、local link 2243件、anchor 590件、Related block 27件、versioned document 27件、remediation row 74件、error 0／warning 0だった。命名個別契約試験の1件不合格は全体Passへ丸めず、実装残件台帳の`FU-018-CHECKER-NAMING`へ`Unscheduled`で保持した。概念を所有しない一時索引`99_Roadmap/09_CRDD_v0_18_Agent_Organization.md`は、必須監査集合の統合Passと別の未完了作業がないことを確認したため削除する。削除後改訂版にはRepository全体Checkerと、文書構造・参照・未完了追跡・準拠境界のstatus-only確認を行い、削除前のPassだけを最終根拠へ流用しない。
+固定改訂版`51d81ec823ce08497a1d561db7c85110ffd1e36b`に対するエージェント／アーキテクチャ独立レビュー、文書監査、不足／影響監査および準拠監査は、Critical／Major／Minor 0件で全て`Pass`した。旧指摘事項は全て`Resolved`であり、Repository全体CheckerもMarkdown 389件、local link 2243件、anchor 590件、Related block 27件、versioned document 27件、remediation row 74件、error 0／warning 0だった。命名個別契約試験の1件不合格は全体Passへ丸めず後続追跡した。概念を所有しない一時索引`99_Roadmap/09_CRDD_v0_18_Agent_Organization.md`は、必須監査集合の統合Passと別の未完了作業がないことを確認したため削除した。その後、命名不整合は[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)の同じ未リリース意図で、分類器、現行ソース、契約試験およびChecker test runnerを一括是正し、Coordinator 740件、Checker 151件と両package checkを合格させた。完了結果をRoadmapへ残さない。
+
+## 同じ未リリース意図としての再開
+
+人間の決定権限者は、恒久的なエージェント組織／自律Operation文書がRoadmapへ残り、同一対象バージョンのRoadmap詳細が分裂し、命名是正が発見元と原因契約の別CHGへ細分化されかけた状態を、同じ未リリース文書アーキテクチャの不足として是正するよう承認した。本変更を`Reopened`とし、次を同じ変更意図へ含める。
+
+- プロバイダー非依存の経路制御、適格性、最適化、コンテキスト投影、代替経路および実行来歴を`04_Agent_Organization.md`へ統合する。
+- 自律Operationの恒久候補をルート`05`〜`09`へ昇格し、再利用可能な本文から特定バージョンの説明を除く。バージョンと移管履歴はヘッダー、CHGおよびRelease成果物で扱う。
+- `99_Roadmap`を単一Product Roadmapへ縮約し、現在も未完了のRuntime最終run、上流工程強化、自律Operation実証、Issue #30再評価およびRelease準備だけを残す。完了済み命名是正と部品別Runtime状態は各CHGへ閉じる。
+- 未リリースCHGは工程、ファイル、コミット、確認者または個別Findingだけで分割せず、変更意図、決定権限、移行／切戻しおよびリリース境界が同じなら原因契約を所有するCHGを再開する。
+
+発火例は未リリース命名分類器の現行source漏れ、非発火例は独立して採否できるProvider認証不具合、境界例は二つの独立してリリース可能な契約へ及ぶFinding、判定情報不足例は意図／決定権限／移行／Release境界を再構成できない場合である。判定情報不足では新CHGを機械的に作らず停止または再整理する。
+
+この再開は文書責務と現在のRepository配置を是正する。公開済み基準、Runtime動作、Issue #30の採否／close、v0.18.0の統合またはReleaseを決定しない。移管後の固定改訂版へ全体Checker、独立エージェント／アーキテクチャレビュー、文書監査、不足／影響監査および準拠影響確認を取り直すまで、過去の`Pass`を現在の解消根拠へ流用しない。
 
 現在、人間による追加判断は必要ない。基礎正本候補の作成と責務分離は人間が承認済みだが、v0.18採用、統合またはReleaseは別判断である。

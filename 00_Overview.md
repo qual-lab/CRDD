@@ -124,6 +124,11 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `02_Terminology.md` | 中核コンテキスト種別、補助概念、責務・決定権限、状態遷移 / 状態用語、別名 |
 | `03_Documentation.md` | リポジトリ、成果物、文書記法、根拠、判断、安定コンテキストID、成果物参照、追跡可能性 |
 | `04_Agent_Organization.md` | エージェント組織の目的、役割／専門性／能力／決定権限の分離、委譲、独立レビュー、費用および結果統合の共通原則 |
+| `05_Autonomous_Operation.md` | 能動的な再評価と自律Operation候補の全体像、意味契約、実行契約およびRuntime Adapterの分離 |
+| `06_Autonomous_Operation_Responsibility.md` | 再評価、Operation、Runtime、能力、決定権限、結果統合およびポリシー内完了の責務境界 |
+| `07_Autonomous_Operation_Safety.md` | 候補状態、Effect、外部送信、予算、停止、回復およびRuntime強制の安全候補 |
+| `08_Operation_Health_and_Human_Interface.md` | Operationの有用性、安全性、誤起動、収束、人間負荷および通知・判断接続の評価候補 |
+| `09_Forward_Compatibility.md` | Repository／Context／Authority／Execution Identityを将来の実行形態へ接続する互換性候補 |
 | `10_Agent.md` | エージェント共通入力 / 出力、決定権限、委譲、サブエージェント統合、レビュー |
 | `11_Skill.md` | スキル共通状態遷移、専門探索・収束、視覚制作・材質／空間表現、外部調査・接続ツール実行、経路、中断・再開、レビュー、引き渡し、Git / Markdownの実行プロファイル |
 | `12_Change.md` | `90_Release/Changes/CHG-*.md`による契機、変更意図、想定／実際の影響、実装、検証、終了のトレース |

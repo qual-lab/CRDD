@@ -13,7 +13,7 @@ Status: Implementation Candidate
 ```
 
 - 概念: [エージェント組織](../../04_Agent_Organization.md)
-- アーキテクチャ: [エージェント／プロバイダー調整](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- アーキテクチャ: [エージェント／プロバイダー調整](../../04_Agent_Organization.md)
 - 現行規範: [原則](../../01_Principles.md)、[Agent契約](../../10_Agent.md)、[品質保証](../../16_Quality_Assurance.md)
 - 実装: 本README、同Directoryのsource／test、[脅威モデル](threat-model.md)
 

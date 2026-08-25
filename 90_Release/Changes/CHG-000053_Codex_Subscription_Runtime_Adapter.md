@@ -58,4 +58,4 @@ Coordinator Runtime revision 2は、Front Claude CodeからCodex Executorを選�
 
 ## 2026-08-25 現在状態への接続
 
-上記「残件」はCodex boolean probeを固定した時点の履歴であり、現在の残件表示ではない。一般Task Packet、隔離workspace、両Providerの一般Structured Result、Coordinator facadeおよびcross-provider経路は後続変更でproduction候補へ接続済みである。Coordinator Runtime 1.0の現在状態と残件は[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)および[`Roadmap 08`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)を正本とする。Issue #30は[`CHG-000013`](CHG-000013_Communication_Market_and_Adoption_Exploration.md)が所有するCommunication／Market／Adoptionの別follow-upであり、本Runtime変更の解消またはclose対象ではない。上流工程強化もRuntime完成判定から分離した後続変更として扱う。
+上記「残件」はCodex boolean probeを固定した時点の履歴であり、現在の残件表示ではない。一般Task Packet、隔離workspace、両Providerの一般Structured Result、Coordinator facadeおよびcross-provider経路は後続変更でproduction候補へ接続済みである。Coordinator Runtime 1.0の現在状態と残件は[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)および[`Roadmap 08`](../../99_Roadmap/01_Product_Roadmap.md)を正本とする。Issue #30は[`CHG-000013`](CHG-000013_Communication_Market_and_Adoption_Exploration.md)が所有するCommunication／Market／Adoptionの別follow-upであり、本Runtime変更の解消またはclose対象ではない。上流工程強化もRuntime完成判定から分離した後続変更として扱う。

@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`（private Claude Execution Plan revision 3→7、Provider Lifecycle revision 5→6。通常Runtime Gateはまだ有効化しない）
 - 移行要否: `migration_required: true`（発行済みproduction state、Mount Grantおよびconsumerは0。旧revisionへのalias／fallbackは設けない）
-- 関連正本: [`CHG-000028`](CHG-000028_Claude_Execution_Plan_Foundation.md)、[`CHG-000030`](CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md)、[`CHG-000037`](CHG-000037_Claude_No_Network_Version_Probe.md)、[`実装残件台帳`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)
+- 関連正本: [`CHG-000028`](CHG-000028_Claude_Execution_Plan_Foundation.md)、[`CHG-000030`](CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md)、[`CHG-000037`](CHG-000037_Claude_No_Network_Version_Probe.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と変更経路
 
