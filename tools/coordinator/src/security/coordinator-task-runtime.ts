@@ -62,7 +62,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 10;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 11;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -1592,6 +1592,10 @@ export function describeCoordinatorTaskRuntimeContract() {
     taskTransport: "opaque_single_use_provider_stdin_only",
     productionPackageGate:
       "single_use_runtime_private_verified_distribution_capability_before_all_effects",
+    processPoisonGate:
+      "before_package_consume_operation_console_store_workspace_provider_and_network",
+    interactiveCleanupRecovery:
+      "restart_only_without_operation_recovery_id_unless_operation_cleanup_also_fails",
     approvedCandidateTransfer:
       "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
     candidateStorePreflight:

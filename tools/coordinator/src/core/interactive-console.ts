@@ -11,12 +11,13 @@ import {
   readInteractiveConsoleLineFromStream,
 } from "./interactive-console-reader.ts";
 import { createInteractiveConsoleReaderEnvironment } from "./windows-child-environment.ts";
+import { poisonRuntimeProcessAfterInteractiveCleanupUnknown } from "./runtime-process-safety-state.ts";
 
 export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 8;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 9;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -55,6 +56,10 @@ export type InteractiveConsoleOperationOutcome<T> = Readonly<{
   value: T | null;
 }>;
 
+export type InteractiveConsoleAvailabilityOutcome = Readonly<{
+  status: "available" | "unavailable" | "cleanup_unknown";
+}>;
+
 type WindowsTerminalStream = Readonly<{
   isTTY?: boolean;
   destroyed: boolean;
@@ -86,24 +91,39 @@ export function withInteractiveConsoleUsingAdapter<T>(
   adapter: InteractiveConsoleAdapter,
   operation: (handles: InteractiveConsoleHandles) => T,
 ): T | null {
+  const outcome = withInteractiveConsoleOutcomeUsingAdapter(
+    platform,
+    adapter,
+    operation,
+  );
+  return outcome.status === "completed" ? outcome.value : null;
+}
+
+export function withInteractiveConsoleOutcomeUsingAdapter<T>(
+  platform: NodeJS.Platform,
+  adapter: InteractiveConsoleAdapter,
+  operation: (handles: InteractiveConsoleHandles) => T,
+): InteractiveConsoleOperationOutcome<T> {
   const names =
     platform === "win32"
       ? Object.freeze({ input: "\\\\.\\CONIN$", output: "\\\\.\\CONOUT$" })
       : Object.freeze({ input: "/dev/tty", output: "/dev/tty" });
   let input: number | null = null;
   let output: number | null = null;
-  let result: Readonly<{ value: T }> | null = null;
+  let status: InteractiveConsoleOperationOutcome<T>["status"] = "unavailable";
+  let value: T | null = null;
+  let isOperationStarted = false;
   try {
     input = adapter.open(names.input, "r");
     output = adapter.open(names.output, "w");
     if (adapter.validate && !adapter.validate({ input, output })) {
       throw new Error("interactive_console_validation_failed");
     }
-    result = Object.freeze({
-      value: operation(Object.freeze({ input, output })),
-    });
+    isOperationStarted = true;
+    value = operation(Object.freeze({ input, output }));
+    status = "completed";
   } catch {
-    result = null;
+    status = isOperationStarted ? "operation_failed" : "unavailable";
   }
   let isCleanupSuccessful = true;
   if (input !== null) {
@@ -120,7 +140,8 @@ export function withInteractiveConsoleUsingAdapter<T>(
       isCleanupSuccessful = false;
     }
   }
-  return isCleanupSuccessful && result ? result.value : null;
+  if (!isCleanupSuccessful) status = "cleanup_unknown";
+  return Object.freeze({ status, value });
 }
 
 export function withInteractiveConsole<T>(
@@ -163,17 +184,18 @@ export async function withInteractiveConsoleAsyncOutcomeUsingAdapter<T>(
   let output: number | null = null;
   let status: InteractiveConsoleOperationOutcome<T>["status"] = "unavailable";
   let value: T | null = null;
+  let isOperationStarted = false;
   try {
     input = adapter.open(names.input, "r");
     output = adapter.open(names.output, "w");
     if (adapter.validate && !adapter.validate({ input, output })) {
       throw new Error("interactive_console_validation_failed");
     }
+    isOperationStarted = true;
     value = await operation(Object.freeze({ input, output }));
     status = "completed";
   } catch {
-    status =
-      input !== null && output !== null ? "operation_failed" : "unavailable";
+    status = isOperationStarted ? "operation_failed" : "unavailable";
   }
   let isCleanupSuccessful = true;
   if (input !== null) {
@@ -270,19 +292,24 @@ export function writeWindowsTerminalTextOutcomeUsingStream(
     let isSettled = false;
     let deferredCompletion: NodeJS.Immediate | null = null;
     const timeout = setTimeout(
-      () => settle("write_failed"),
+      () => settle("cleanup_unknown", true),
       TERMINAL_WRITE_TIMEOUT_MS,
     );
     timeout.unref();
-    const settle = (status: InteractiveConsoleTextWriteOutcome["status"]) => {
+    const settle = (
+      status: InteractiveConsoleTextWriteOutcome["status"],
+      shouldRetainLateErrorSink = false,
+    ) => {
       if (isSettled) return;
       isSettled = true;
       clearTimeout(timeout);
       if (deferredCompletion) clearImmediate(deferredCompletion);
-      try {
-        stream.removeListener("error", onError);
-      } catch {
-        status = "cleanup_unknown";
+      if (!shouldRetainLateErrorSink) {
+        try {
+          stream.removeListener("error", onError);
+        } catch {
+          status = "cleanup_unknown";
+        }
       }
       resolve(Object.freeze({ status }));
     };
@@ -481,12 +508,16 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
       );
     };
     const forceStop = () => {
+      let isTerminationUnknown = false;
       try {
-        if (!child.kill("SIGKILL")) isInvalid = true;
+        if (!child.kill("SIGKILL")) isTerminationUnknown = true;
       } catch {
-        isInvalid = true;
+        isTerminationUnknown = true;
       }
-      if (isInvalid) outcomeStatus = "cleanup_unknown";
+      if (isTerminationUnknown) {
+        isInvalid = true;
+        outcomeStatus = "cleanup_unknown";
+      }
     };
     const requestStop = (
       reason: Exclude<
@@ -627,7 +658,26 @@ export function writeInteractiveConsoleText(
 }
 
 export function interactiveConsoleAvailable() {
-  return withInteractiveConsole(() => true) === true;
+  return interactiveConsoleAvailabilityOutcome().status === "available";
+}
+
+export function interactiveConsoleAvailabilityOutcome(): InteractiveConsoleAvailabilityOutcome {
+  const outcome = withInteractiveConsoleOutcomeUsingAdapter(
+    process.platform,
+    Object.freeze({
+      open: fs.openSync,
+      close: fs.closeSync,
+      validate: validateInteractiveConsoleHandles,
+    }),
+    () => true,
+  );
+  if (outcome.status === "cleanup_unknown") {
+    poisonRuntimeProcessAfterInteractiveCleanupUnknown();
+    return Object.freeze({ status: "cleanup_unknown" });
+  }
+  return Object.freeze({
+    status: outcome.status === "completed" ? "available" : "unavailable",
+  });
 }
 
 export function describeInteractiveConsoleContract() {
@@ -636,6 +686,17 @@ export function describeInteractiveConsoleContract() {
     contractRevision: INTERACTIVE_CONSOLE_CONTRACT_REVISION,
     windowsDevices: Object.freeze(["\\\\.\\CONIN$", "\\\\.\\CONOUT$"]),
     windowsUnicodeOutput: "node_unicode_tty_output_required",
+    windowsTerminalWriteTimeoutMs: TERMINAL_WRITE_TIMEOUT_MS,
+    windowsTerminalWriteOutcomes: Object.freeze([
+      "completed",
+      "write_failed",
+      "cleanup_unknown_process_restart_required",
+    ]),
+    synchronousPreflightOutcomes: Object.freeze([
+      "available",
+      "unavailable",
+      "cleanup_unknown_process_restart_required",
+    ]),
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",
@@ -644,6 +705,8 @@ export function describeInteractiveConsoleContract() {
     readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
     readerEnvironment:
       "windows_loaded_kernel32_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
+    platformGuarantee:
+      "windows_local_personal_only_posix_fixed_empty_candidate_not_promoted",
     readerTimeoutMs: READER_TIMEOUT_MS,
     readerCancelGraceMs: READER_CANCEL_GRACE_MS,
     readerCleanupSchedulingMarginMs: READER_CLEANUP_SCHEDULING_MARGIN_MS,

@@ -123,7 +123,11 @@ function dependencies(
     candidate?: Readonly<Record<string, unknown>> | null;
     discard?: Readonly<Record<string, unknown>>;
     runtimeVersion?: string;
-    interactiveConsole?: boolean;
+    interactiveConsole?:
+      | boolean
+      | Readonly<{
+          status: "available" | "unavailable" | "cleanup_unknown";
+        }>;
     completionRejects?: boolean;
     readThrows?: boolean;
     discardThrows?: boolean;
@@ -131,6 +135,7 @@ function dependencies(
   } = {},
 ) {
   const calls = {
+    events: [] as string[],
     verifies: 0,
     consoleInspections: 0,
     starts: 0,
@@ -145,6 +150,7 @@ function dependencies(
     calls,
     value: Object.freeze({
       issuePackageCapability: () => {
+        calls.events.push("package");
         calls.verifies += 1;
         const capability = Object.freeze({});
         calls.issuedCapability = capability;
@@ -154,6 +160,7 @@ function dependencies(
         });
       },
       startTask: (_request: unknown, _root: string, capability: unknown) => {
+        calls.events.push("task");
         calls.starts += 1;
         calls.passedCapability = capability;
         return Object.freeze({
@@ -177,8 +184,12 @@ function dependencies(
         return options.discard ?? Object.freeze({ status: "discarded" });
       },
       now: () => "2026-08-25T00:00:00.000Z",
-      runtimeVersion: () => options.runtimeVersion ?? "24.19.0",
+      runtimeVersion: () => {
+        calls.events.push("node");
+        return options.runtimeVersion ?? "24.19.0";
+      },
       inspectInteractiveConsole: () => {
+        calls.events.push("console");
         calls.consoleInspections += 1;
         return options.interactiveConsole ?? true;
       },
@@ -218,6 +229,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);
@@ -227,6 +239,14 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(contract.paidApiFallbackAllowed, false);
   assert.equal(contract.minimumNodeVersion, "24.12.0");
   assert.equal(contract.nodeSelection, "absolute_preverified_executable_only");
+  assert.equal(
+    contract.interactiveConsolePreflight,
+    "required_after_release_and_repository_format_verification_before_task_effects",
+  );
+  assert.equal(
+    contract.interactiveConsoleCleanupUnknown,
+    "process_restart_required_manual_recovery_without_recovery_id",
+  );
 });
 
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
@@ -265,6 +285,7 @@ test("Node GateはPackage前、Package Gateは対話Console前に拒否する", 
     assert.equal(fixture.calls.verifies, 0);
     assert.equal(fixture.calls.consoleInspections, 0);
     assert.equal(fixture.calls.starts, 0);
+    assert.deepEqual(fixture.calls.events, ["node"]);
   }
   const consoleBlocked = dependencies({ interactiveConsole: false });
   const result = await runSignedGeneralTaskVerification(
@@ -275,6 +296,24 @@ test("Node GateはPackage前、Package Gateは対話Console前に拒否する", 
   assert.equal(consoleBlocked.calls.verifies, 1);
   assert.equal(consoleBlocked.calls.consoleInspections, 1);
   assert.equal(consoleBlocked.calls.starts, 0);
+  assert.deepEqual(consoleBlocked.calls.events, ["node", "package", "console"]);
+});
+
+test("Console cleanup不明はPackage後・Task前に再起動要求へ閉じる", async () => {
+  const fixture = dependencies({
+    interactiveConsole: Object.freeze({ status: "cleanup_unknown" }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "signed_general_task_process_restart_required");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, null);
+  assert.deepEqual(result.hostRecoveryIds, []);
+  assert.equal(fixture.calls.starts, 0);
+  assert.deepEqual(fixture.calls.events, ["node", "package", "console"]);
 });
 
 test("署名Release不成立時はTaskを開始しない", async () => {
@@ -293,6 +332,8 @@ test("署名Release不成立時はTaskを開始しない", async () => {
   assert.equal(fixture.calls.starts, 0);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
+  assert.equal(fixture.calls.consoleInspections, 0);
+  assert.deepEqual(fixture.calls.events, ["node", "package"]);
 });
 
 test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否する", async () => {
@@ -316,6 +357,8 @@ test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明�
   assert.equal(fixture.calls.bound, 0);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
+  assert.equal(fixture.calls.consoleInspections, 0);
+  assert.deepEqual(fixture.calls.events, ["node", "package"]);
 });
 
 test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合する", async () => {
@@ -329,6 +372,12 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.exactCandidateContentVerified, true);
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.cleanupConfirmed, true);
+  assert.deepEqual(fixture.calls.events, [
+    "node",
+    "package",
+    "console",
+    "task",
+  ]);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.canonicalRepositoryChanged, false);
   assert.deepEqual(result.changedPaths, [TARGET_PATH]);

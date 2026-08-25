@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-import { interactiveConsoleAvailable } from "../src/core/interactive-console.ts";
+import {
+  interactiveConsoleAvailabilityOutcome,
+  type InteractiveConsoleAvailabilityOutcome,
+} from "../src/core/interactive-console.ts";
 import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
@@ -25,7 +28,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 1;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 2;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -69,7 +72,9 @@ type VerificationDependencies = Readonly<{
   discardCandidate: (candidateId: string) => RuntimeRecord;
   now: () => string;
   runtimeVersion: () => string;
-  inspectInteractiveConsole: () => boolean;
+  inspectInteractiveConsole: () =>
+    | boolean
+    | InteractiveConsoleAvailabilityOutcome;
   bindCancellation: (
     controlCapability: object,
     cancel: (controlCapability: object) => unknown,
@@ -115,7 +120,7 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   discardCandidate: discardRuntimeOwnedCandidateBundle,
   now: () => new Date().toISOString(),
   runtimeVersion: () => process.versions.node,
-  inspectInteractiveConsole: interactiveConsoleAvailable,
+  inspectInteractiveConsole: interactiveConsoleAvailabilityOutcome,
   bindCancellation: (controlCapability, cancel) =>
     bindSignedGeneralTaskCancellation(process, controlCapability, cancel),
 });
@@ -448,6 +453,16 @@ export async function runSignedGeneralTaskVerification(
   } catch {
     // The package verifier result remains unavailable and cannot open the gate.
   }
+  if (release?.reason === "platform_provisioner_process_restart_required") {
+    return blocked(
+      "signed_general_task_process_restart_required",
+      release,
+      Object.freeze({
+        canonicalRepositoryChanged: false,
+        manualRecoveryRequired: true,
+      }),
+    );
+  }
   if (
     !verifiedPackage(release) ||
     !verifiedPackageCapability ||
@@ -469,13 +484,30 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
-  let isInteractiveConsoleAvailable = false;
+  let consoleStatus: InteractiveConsoleAvailabilityOutcome["status"] =
+    "unavailable";
   try {
-    isInteractiveConsoleAvailable = dependencies.inspectInteractiveConsole();
+    const observed = dependencies.inspectInteractiveConsole();
+    consoleStatus =
+      typeof observed === "boolean"
+        ? observed
+          ? "available"
+          : "unavailable"
+        : observed.status;
   } catch {
     // The console prerequisite remains unconfirmed.
   }
-  if (!isInteractiveConsoleAvailable) {
+  if (consoleStatus === "cleanup_unknown") {
+    return blocked(
+      "signed_general_task_process_restart_required",
+      release,
+      Object.freeze({
+        canonicalRepositoryChanged: false,
+        manualRecoveryRequired: true,
+      }),
+    );
+  }
+  if (consoleStatus !== "available") {
     return blocked(
       "signed_general_task_interactive_console_required",
       release,
@@ -632,7 +664,12 @@ export function describeSignedGeneralTaskVerificationContract() {
     invocation: "direct_repository_owned_node_entrypoint",
     minimumNodeVersion: MINIMUM_COORDINATOR_NODE_VERSION,
     nodeSelection: "absolute_preverified_executable_only",
-    interactiveConsolePreflight: "required_before_release_verification",
+    interactiveConsolePreflight:
+      "required_after_release_and_repository_format_verification_before_task_effects",
+    interactiveConsoleCleanupUnknown:
+      "process_restart_required_manual_recovery_without_recovery_id",
+    unconsumedPackageCapability:
+      "runtime_local_nonserializable_nonexported_not_reusable_after_preflight_failure",
     requestConstruction: "fixed_public_request_constructed_in_process",
     requestShellTransportAllowed: false,
     powershellTextPipelineAllowed: false,

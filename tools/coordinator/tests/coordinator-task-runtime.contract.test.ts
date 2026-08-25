@@ -781,6 +781,36 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
   assert.equal(combined.hostRecoveryId, "host.fixture.recovery.record");
 });
 
+test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影する", async () => {
+  for (const status of [
+    "declined_invalid",
+    "cancelled",
+    "timeout",
+    "unavailable",
+    "reader_failed",
+    "cleanup_unknown_process_restart_required",
+  ] as const) {
+    const externalReason = `external_send_confirmation_${status}`;
+    const harness = fixture({ externalSendReason: externalReason });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.reason, `coordinator_task_${externalReason}`);
+    assert.equal(
+      result.manualRecoveryRequired,
+      status === "cleanup_unknown_process_restart_required",
+    );
+    const projected = result as Readonly<Record<string, unknown>>;
+    assert.equal(projected.hostRecoveryId, null);
+    assert.deepEqual(projected.dockerRecoveryIds, []);
+    assert.equal(harness.cleanupCount(), 1);
+    assert.equal(harness.workspaceMaterializeCount(), 0);
+    assert.equal(harness.processStartCount(), 0);
+  }
+});
+
 test("Executor自己申告と実Candidate差またはOperation cleanup不明を成功にしない", async () => {
   const mismatch = fixture({ executorChangedPaths: [] });
   const mismatchResult = await mismatch.runtime.start(
@@ -1062,13 +1092,21 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 10);
+  assert.equal(contract.contractRevision, 11);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
   assert.equal(contract.canonicalRepositoryEffectAllowed, false);
   assert.equal(contract.directProviderToProviderSpawnAllowed, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
+  assert.equal(
+    contract.processPoisonGate,
+    "before_package_consume_operation_console_store_workspace_provider_and_network",
+  );
+  assert.equal(
+    contract.interactiveCleanupRecovery,
+    "restart_only_without_operation_recovery_id_unless_operation_cleanup_also_fails",
+  );
   assert.equal(
     contract.approvedCandidateTransfer,
     "policy_bounded_staged_bundle_published_only_after_operation_cleanup",

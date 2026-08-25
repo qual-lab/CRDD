@@ -13,10 +13,11 @@ import {
   describeInteractiveConsoleContract,
   INTERACTIVE_CONSOLE_CONTRACT,
   readInteractiveConsoleLine,
-  readInteractiveConsoleLineUsingAdapter,
+  readInteractiveConsoleLineOutcomeUsingAdapter,
   readTerminalLineUsingStream,
   withInteractiveConsoleAsyncOutcomeUsingAdapter,
   withInteractiveConsoleAsyncUsingAdapter,
+  withInteractiveConsoleOutcomeUsingAdapter,
   withInteractiveConsoleUsingAdapter,
   writeInteractiveConsoleTextUsingAdapter,
   writeWindowsTerminalTextOutcomeUsingStream,
@@ -37,7 +38,7 @@ import {
   createWindowsNativeHelperEnvironment,
   createWindowsNodeConsoleReaderEnvironment,
 } from "../src/core/windows-child-environment.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../src/security/candidate-store-kernel-lock.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 
@@ -58,9 +59,20 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 8,
+    contractRevision: 9,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsUnicodeOutput: "node_unicode_tty_output_required",
+    windowsTerminalWriteTimeoutMs: 1_000,
+    windowsTerminalWriteOutcomes: [
+      "completed",
+      "write_failed",
+      "cleanup_unknown_process_restart_required",
+    ],
+    synchronousPreflightOutcomes: [
+      "available",
+      "unavailable",
+      "cleanup_unknown_process_restart_required",
+    ],
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",
@@ -69,6 +81,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
     readerEnvironment:
       "windows_loaded_kernel32_os_directory_plus_fixed_neutral_names_posix_fixed_empty",
+    platformGuarantee:
+      "windows_local_personal_only_posix_fixed_empty_candidate_not_promoted",
     readerTimeoutMs: 110_000,
     readerCancelGraceMs: 500,
     readerCleanupSchedulingMarginMs: 5_000,
@@ -154,6 +168,33 @@ test("Console非同期所有はoperationと全close失敗を構造化する", as
     status: "operation_failed",
     value: null,
   });
+
+  for (const validation of [
+    () => false,
+    () => {
+      throw new Error("fixture_validation_failed");
+    },
+  ]) {
+    const validationClosedDescriptors: number[] = [];
+    let operationCount = 0;
+    const unavailable = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
+      "win32",
+      Object.freeze({
+        open: (_name: string, flags: "r" | "w") => (flags === "r" ? 1 : 2),
+        close: (descriptor: number) => {
+          validationClosedDescriptors.push(descriptor);
+        },
+        validate: validation,
+      }),
+      async () => {
+        operationCount += 1;
+        return "unexpected";
+      },
+    );
+    assert.deepEqual(unavailable, { status: "unavailable", value: null });
+    assert.equal(operationCount, 0);
+    assert.deepEqual(validationClosedDescriptors, [1, 2]);
+  }
 });
 
 test("Windows writerはwrite失敗とlistener cleanup不明を分離する", async () => {
@@ -173,20 +214,26 @@ test("Windows writerはwrite失敗とlistener cleanup不明を分離する", asy
   assert.deepEqual(outcome, { status: "cleanup_unknown" });
 
   let lateCallback: ((error?: Error | null) => void) | null = null;
+  const lateEvents = new EventEmitter();
   const timedOut = await writeWindowsTerminalTextOutcomeUsingStream("value", {
     isTTY: true,
     destroyed: false,
     writable: true,
-    once: () => undefined,
-    removeListener: () => undefined,
+    once: (event, listener) => lateEvents.once(event, listener),
+    removeListener: (event, listener) =>
+      lateEvents.removeListener(event, listener),
     write: (_value: string, callback: (error?: Error | null) => void) => {
       lateCallback = callback;
       return true;
     },
   });
-  assert.deepEqual(timedOut, { status: "write_failed" });
+  assert.deepEqual(timedOut, { status: "cleanup_unknown" });
+  assert.equal(lateEvents.listenerCount("error"), 1);
   assert.equal(typeof lateCallback, "function");
   (lateCallback as unknown as (error?: Error | null) => void)(null);
+  assert.equal(lateEvents.listenerCount("error"), 1);
+  lateEvents.emit("error", new Error("fixture_late_error"));
+  assert.equal(lateEvents.listenerCount("error"), 0);
 });
 
 test("POSIX reader Profileは親環境を受けない固定空集合にする", () => {
@@ -902,8 +949,10 @@ test("Windows固定readerは親Process消失時に終了しLockを次回へ返�
     await new Promise<void>((resolve) => setTimeout(resolve, 25));
   }
   assert.equal(readerExists, false);
-  const lock = acquireRuntimeOwnedInteractiveConsoleKernelLock();
-  assert.ok(lock);
+  const lockOutcome =
+    await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
+  assert.equal(lockOutcome.status, "acquired");
+  assert.ok(lockOutcome.lock);
   const descriptor = fs.openSync("\\\\.\\CONIN$", "r");
   try {
     const controller = new AbortController();
@@ -912,7 +961,7 @@ test("Windows固定readerは親Process消失時に終了しLockを次回へ返�
     assert.equal(await pending, null);
   } finally {
     fs.closeSync(descriptor);
-    assert.equal(lock.release(), true);
+    assert.equal(await lockOutcome.lock.release(), "released");
   }
 });
 
@@ -966,11 +1015,11 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
 
   {
     const scenario = readerProcessScenario();
-    const pending = readInteractiveConsoleLineUsingAdapter(
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
       17,
       new AbortController().signal,
       scenario.adapter as unknown as Parameters<
-        typeof readInteractiveConsoleLineUsingAdapter
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
       >[2],
     );
     assert.equal(scenario.spawnRecords.length, 1);
@@ -1022,7 +1071,7 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(isCompleted, false);
     scenario.child.stdout.emit("close");
-    assert.equal(await pending, "123456");
+    assert.deepEqual(await pending, { status: "completed", line: "123456" });
     scenario.child.emit("close", 0);
     scenario.child.stdout.emit("close");
     assert.equal(scenario.child.listenerCount("error"), 0);
@@ -1039,11 +1088,11 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
   for (const stopSource of ["cancel", "timeout"] as const) {
     const scenario = readerProcessScenario(false);
     const controller = new AbortController();
-    const pending = readInteractiveConsoleLineUsingAdapter(
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
       17,
       controller.signal,
       scenario.adapter as unknown as Parameters<
-        typeof readInteractiveConsoleLineUsingAdapter
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
       >[2],
     );
     if (stopSource === "cancel") controller.abort();
@@ -1062,12 +1111,143 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
     assert.equal(isCompleted, false, stopSource);
     scenario.child.stdout.emit("close");
     scenario.child.emit("close", null);
-    assert.equal(await pending, null, stopSource);
+    assert.deepEqual(
+      await pending,
+      { status: "cleanup_unknown", line: null },
+      stopSource,
+    );
     assert.equal(scenario.child.listenerCount("error"), 0, stopSource);
     assert.equal(scenario.child.listenerCount("close"), 0, stopSource);
     assert.equal(scenario.child.stdout.listenerCount("data"), 0, stopSource);
     assert.equal(scenario.child.stdout.listenerCount("error"), 0, stopSource);
     assert.equal(scenario.child.stdout.listenerCount("close"), 0, stopSource);
+  }
+
+  {
+    const scenario = readerProcessScenario(true);
+    const controller = new AbortController();
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
+      17,
+      controller.signal,
+      scenario.adapter as unknown as Parameters<
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
+      >[2],
+    );
+    controller.abort();
+    scenario.timers.find((timer) => timer.milliseconds === 500)?.callback();
+    let isCompleted = false;
+    void pending.then(() => {
+      isCompleted = true;
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(isCompleted, false);
+    scenario.child.emit("close", null);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(isCompleted, false);
+    scenario.child.stdout.emit("close");
+    assert.deepEqual(await pending, { status: "cancelled", line: null });
+  }
+
+  for (const failurePoint of [
+    "child_listener",
+    "stdout_listener",
+    "abort_listener",
+    "disconnect",
+  ] as const) {
+    const scenario = readerProcessScenario();
+    const childRemoveListener = scenario.child.removeListener.bind(
+      scenario.child,
+    );
+    const stdoutRemoveListener = scenario.child.stdout.removeListener.bind(
+      scenario.child.stdout,
+    );
+    let childRemoveCount = 0;
+    let stdoutRemoveCount = 0;
+    let abortRemoveCount = 0;
+    let disconnectCount = 0;
+    scenario.child.removeListener = ((event: string, listener: () => void) => {
+      childRemoveCount += 1;
+      if (failurePoint === "child_listener" && event === "error")
+        throw new Error("fixture_child_listener_cleanup_failed");
+      return childRemoveListener(event, listener);
+    }) as typeof scenario.child.removeListener;
+    scenario.child.stdout.removeListener = ((
+      event: string,
+      listener: () => void,
+    ) => {
+      stdoutRemoveCount += 1;
+      if (failurePoint === "stdout_listener" && event === "data")
+        throw new Error("fixture_stdout_listener_cleanup_failed");
+      return stdoutRemoveListener(event, listener);
+    }) as typeof scenario.child.stdout.removeListener;
+    scenario.child.disconnect = () => {
+      disconnectCount += 1;
+      if (failurePoint === "disconnect")
+        throw new Error("fixture_disconnect_failed");
+      scenario.child.connected = false;
+    };
+    const cancellationSignal = Object.freeze({
+      aborted: false,
+      addEventListener: () => undefined,
+      removeEventListener: () => {
+        abortRemoveCount += 1;
+        if (failurePoint === "abort_listener")
+          throw new Error("fixture_abort_listener_cleanup_failed");
+      },
+    }) as unknown as AbortSignal;
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
+      17,
+      cancellationSignal,
+      scenario.adapter as unknown as Parameters<
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
+      >[2],
+    );
+    scenario.child.stdout.emit(
+      "data",
+      Buffer.from(
+        `${JSON.stringify({
+          contract: INTERACTIVE_CONSOLE_READER_CONTRACT,
+          contractRevision: INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
+          status: "completed",
+          line: "123456",
+        })}\n`,
+        "utf8",
+      ),
+    );
+    scenario.child.stdout.emit("close");
+    scenario.child.emit("close", 0);
+    assert.deepEqual(
+      await pending,
+      { status: "cleanup_unknown", line: null },
+      failurePoint,
+    );
+    assert.equal(childRemoveCount >= 2, true, failurePoint);
+    assert.equal(stdoutRemoveCount >= 3, true, failurePoint);
+    assert.equal(abortRemoveCount, 1, failurePoint);
+    assert.equal(disconnectCount, 1, failurePoint);
+  }
+
+  {
+    const scenario = readerProcessScenario();
+    scenario.child.kill = () => {
+      throw new Error("fixture_kill_failed");
+    };
+    const controller = new AbortController();
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
+      17,
+      controller.signal,
+      scenario.adapter as unknown as Parameters<
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
+      >[2],
+    );
+    controller.abort();
+    scenario.timers.find((timer) => timer.milliseconds === 500)?.callback();
+    scenario.child.stdout.emit("close");
+    scenario.child.emit("close", null);
+    assert.deepEqual(await pending, {
+      status: "cleanup_unknown",
+      line: null,
+    });
   }
 });
 
@@ -1178,6 +1358,20 @@ test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで�
   assert.equal(operationCalls, 0);
   assert.deepEqual(validationFailure.closedDescriptors, [11, 12]);
 
+  const validationOutcome = scenario();
+  assert.deepEqual(
+    withInteractiveConsoleOutcomeUsingAdapter(
+      "win32",
+      Object.freeze({
+        ...validationOutcome.adapter,
+        validate: () => false,
+      }),
+      () => true,
+    ),
+    { status: "unavailable", value: null },
+  );
+  assert.deepEqual(validationOutcome.closedDescriptors, [11, 12]);
+
   for (const failedDescriptor of [11, 12]) {
     const closeFailure = scenario({
       failClose: new Set([failedDescriptor]),
@@ -1191,6 +1385,18 @@ test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで�
       null,
     );
     assert.deepEqual(closeFailure.closedDescriptors, [11, 12]);
+    const structuredCloseFailure = scenario({
+      failClose: new Set([failedDescriptor]),
+    });
+    assert.deepEqual(
+      withInteractiveConsoleOutcomeUsingAdapter(
+        "win32",
+        structuredCloseFailure.adapter,
+        () => true,
+      ),
+      { status: "cleanup_unknown", value: true },
+    );
+    assert.deepEqual(structuredCloseFailure.closedDescriptors, [11, 12]);
   }
 });
 

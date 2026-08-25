@@ -3,10 +3,12 @@ import fs from "node:fs";
 import tty from "node:tty";
 
 import { readInteractiveConsoleLineOutcomeUsingAdapter } from "../../src/core/interactive-console.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLock } from "../../src/security/candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../../src/security/candidate-store-kernel-lock.ts";
 
-const lock = acquireRuntimeOwnedInteractiveConsoleKernelLock();
-if (!lock) process.exit(3);
+const lockOutcome =
+  await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
+if (lockOutcome.status !== "acquired" || !lockOutcome.lock) process.exit(3);
+const lock = lockOutcome.lock;
 
 let descriptor: number | null = null;
 try {
@@ -34,5 +36,5 @@ try {
   process.stdout.write(`${JSON.stringify({ outcome: outcome.status })}\n`);
 } finally {
   if (descriptor !== null) fs.closeSync(descriptor);
-  if (!lock.release()) process.exitCode = 4;
+  if ((await lock.release()) !== "released") process.exitCode = 4;
 }

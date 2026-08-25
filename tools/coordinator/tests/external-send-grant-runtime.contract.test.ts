@@ -103,7 +103,18 @@ test("承認失敗は公開値を含まないbounded outcomeへ分類する", as
 });
 
 function fixture(
-  shouldConfirm: boolean | Readonly<{ status: "cleanup_unknown" }> = true,
+  shouldConfirm:
+    | boolean
+    | Readonly<{
+        status:
+          | "confirmed"
+          | "declined_invalid"
+          | "cancelled"
+          | "timeout"
+          | "unavailable"
+          | "reader_failed"
+          | "cleanup_unknown";
+      }> = true,
 ) {
   const managementCapability = Object.freeze({});
   const repositoryBindingCapability = Object.freeze({});
@@ -271,6 +282,44 @@ test("cleanup不明はProcess再起動要求だけをbounded結果へ返す", as
     rawContentReported: false,
     hostPathReported: false,
   });
+});
+
+test("External Sendの7対話状態はGrant・手動回復・Recovery ID境界へ完全投影する", async () => {
+  for (const status of [
+    "confirmed",
+    "declined_invalid",
+    "cancelled",
+    "timeout",
+    "unavailable",
+    "reader_failed",
+    "cleanup_unknown",
+  ] as const) {
+    const current = fixture(Object.freeze({ status }));
+    const result = await current.runtime.request(
+      current.managementCapability,
+      current.repositoryBindingCapability,
+      current.policyCapability,
+      SCOPE,
+      ["codex", "claude"],
+    );
+    if (status === "confirmed") {
+      assert.equal(result?.status, "issued");
+      assert.equal(typeof result?.capability, "object");
+      continue;
+    }
+    assert.deepEqual(result, {
+      status: "blocked",
+      reason:
+        status === "cleanup_unknown"
+          ? "external_send_confirmation_cleanup_unknown_process_restart_required"
+          : `external_send_confirmation_${status}`,
+      manualRecoveryRequired: status === "cleanup_unknown",
+      externalSendAuthorized: false,
+      rawContentReported: false,
+      hostPathReported: false,
+    });
+    assert.equal(Object.hasOwn(result ?? {}, "hostRecoveryId"), false);
+  }
 });
 
 test("承認表示・入力・最終表示の各失敗をGrant候補へ進めない", async () => {
@@ -585,7 +634,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.equal(
     contract.interactiveConfirmation,
     "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
@@ -596,6 +645,14 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
     "operation_authorized_single_use_before_workspace_provider_and_network",
   );
   assert.equal(contract.concurrentReaderExclusion, "windows_kernel_lock");
+  assert.equal(
+    contract.cleanupUnknownHandling,
+    "process_local_poison_restart_required_no_operation_recovery_id",
+  );
+  assert.equal(
+    contract.processPoisonGate,
+    "before_external_send_reentry_package_issue_task_consume_and_all_effects",
+  );
   assert.equal(contract.maximumUses, 4);
   assert.equal(contract.lifetimeMs, 1_500_000);
   assert.equal(contract.callerPolicyStringAcceptedAsAuthority, false);

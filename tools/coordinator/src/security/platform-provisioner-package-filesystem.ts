@@ -851,7 +851,7 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
 export function describePlatformProvisionerPackageFilesystemContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-filesystem",
-    contractRevision: 4,
+    contractRevision: 5,
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
@@ -878,6 +878,9 @@ export function describePlatformProvisionerPackageFilesystemContract() {
       "crdd_version_commit_tree_and_coordinator_package_content_root",
     taskRuntimeCapability:
       "single_use_process_private_exact_release_package_and_reader_identity",
+    taskGateAuthority:
+      "held_alone_grants_no_operation_console_filesystem_provider_or_network_authority",
+    processPoisonGate: "before_manifest_package_filesystem_observation",
     policyIdentityBinding:
       "owned_root_protection_and_key_storage_policy_hashes_required",
     signedManifestPath: "90_Release/coordinator-package-manifest.json",

@@ -12,7 +12,7 @@ import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterInteractiveCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
-import { acquireRuntimeOwnedInteractiveConsoleKernelLock } from "./candidate-store-kernel-lock.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "./candidate-store-kernel-lock.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { verifyRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
@@ -23,7 +23,7 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 8;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 9;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -288,15 +288,23 @@ async function consoleConfirmation(
 ) {
   if (isRuntimeProcessPoisoned())
     return Object.freeze({ status: "cleanup_unknown" as const });
-  let consoleLock: ReturnType<
-    typeof acquireRuntimeOwnedInteractiveConsoleKernelLock
-  > = null;
+  let lockOutcome: Awaited<
+    ReturnType<typeof acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome>
+  >;
   try {
-    consoleLock = acquireRuntimeOwnedInteractiveConsoleKernelLock();
+    lockOutcome =
+      await acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome();
   } catch {
-    return Object.freeze({ status: "unavailable" as const });
+    poisonRuntimeProcessAfterInteractiveCleanupUnknown();
+    return Object.freeze({ status: "cleanup_unknown" as const });
   }
-  if (!consoleLock) return Object.freeze({ status: "unavailable" as const });
+  if (lockOutcome.status === "unavailable")
+    return Object.freeze({ status: "unavailable" as const });
+  if (lockOutcome.status === "cleanup_unknown" || !lockOutcome.lock) {
+    poisonRuntimeProcessAfterInteractiveCleanupUnknown();
+    return Object.freeze({ status: "cleanup_unknown" as const });
+  }
+  const consoleLock = lockOutcome.lock;
   let outcome: ConsoleConfirmationOutcome = Object.freeze({
     status: "reader_failed",
   });
@@ -329,7 +337,7 @@ async function consoleConfirmation(
   }
   let isLockReleased = false;
   try {
-    isLockReleased = consoleLock.release() === true;
+    isLockReleased = (await consoleLock.release()) === "released";
   } catch {
     isLockReleased = false;
   }
@@ -586,6 +594,7 @@ export function requestRuntimeOwnedExternalSendGrant(
   rawProviders: unknown,
   cancellationSignal: AbortSignal,
 ) {
+  if (isRuntimeProcessPoisoned()) return Promise.resolve(null);
   return requestGrant(
     productionState,
     managementCapability,
@@ -675,6 +684,10 @@ export function describeExternalSendGrantRuntimeContract() {
     readerProcessEffect:
       "operation_authorized_single_use_before_workspace_provider_and_network",
     concurrentReaderExclusion: "windows_kernel_lock",
+    cleanupUnknownHandling:
+      "process_local_poison_restart_required_no_operation_recovery_id",
+    processPoisonGate:
+      "before_external_send_reentry_package_issue_task_consume_and_all_effects",
     binding: Object.freeze([
       "operation",
       "repository_identity",

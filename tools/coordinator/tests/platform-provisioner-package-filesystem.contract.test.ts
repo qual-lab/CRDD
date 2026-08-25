@@ -342,7 +342,7 @@ test("不正Root、Release Identity不一致およびpackage metadataをfail clo
 
 test("package Filesystem contractは観測をTrustおよびEffectから分離する", () => {
   const contract = describePlatformProvisionerPackageFilesystemContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(
     contract.runtimeOwnedPackageFilesystemRead,
     "implemented_candidate_without_permission_authority",
@@ -382,6 +382,14 @@ test("package Filesystem contractは観測をTrustおよびEffectから分離す
   assert.equal(
     contract.effectController,
     "not_implemented_effective_access_required",
+  );
+  assert.equal(
+    contract.taskGateAuthority,
+    "held_alone_grants_no_operation_console_filesystem_provider_or_network_authority",
+  );
+  assert.equal(
+    contract.processPoisonGate,
+    "before_manifest_package_filesystem_observation",
   );
   assert.equal(
     contract.releaseIdentityRollbackFloorPersistence,
