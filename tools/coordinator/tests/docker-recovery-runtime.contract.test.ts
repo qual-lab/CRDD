@@ -308,6 +308,23 @@ function copyCommittedJsonWithFreshIdentity(
   );
 }
 
+function addActivePointer(root: string, recoveryId: string) {
+  const [, stable, nonce, baseHash] = recoveryId.split(".");
+  assert.ok(stable && nonce && baseHash);
+  writeCommittedDockerRecoveryJson(
+    root,
+    `active-lease-${stable}.json`,
+    `active-lease-${stable}.json`,
+    Object.freeze({
+      schema: "crdd-coordinator-provider-home-active-lease/v1",
+      stableLogicalHomeBindingHash: stable,
+      operationName: `docker-task-${nonce}`,
+      recoveryId,
+      baseHash,
+    }),
+  );
+}
+
 function addKilledProductionCleanup(
   root: string,
   stableHome: string,
@@ -1244,6 +1261,54 @@ test("production inventoryはpending base-onlyの改変・置換・orphanを採�
   }
 });
 
+test("production inventoryはpointer生成前の全bootstrap状態にactive pointerを結合しない", () => {
+  const states = [
+    Object.freeze({ move: "pending_base_only" as const, boundary: 2 as const }),
+    Object.freeze({ move: "pending_pairs" as const, boundary: 2 as const }),
+    Object.freeze({ move: "empty_directory" as const, boundary: 2 as const }),
+    Object.freeze({ move: "base" as const, boundary: 1 as const }),
+    Object.freeze({ move: "base" as const, boundary: 2 as const }),
+    Object.freeze({ move: "base" as const, boundary: 3 as const }),
+    Object.freeze({ move: "base_complete" as const, boundary: 2 as const }),
+    Object.freeze({ move: "base_commit" as const, boundary: 1 as const }),
+    Object.freeze({ move: "base_commit" as const, boundary: 2 as const }),
+    Object.freeze({ move: "base_commit" as const, boundary: 3 as const }),
+    Object.freeze({ move: "full" as const, boundary: 2 as const }),
+  ];
+  for (const state of states) {
+    for (const sameHome of [false, true]) {
+      const rootPath = fs.mkdtempSync(
+        path.join(os.tmpdir(), "crdd-runtime-premature-pointer-test-"),
+      );
+      try {
+        const recoveryId = addSplitRootBaseMove(
+          rootPath,
+          "a",
+          state.move,
+          "a",
+          state.boundary,
+        );
+        addSplitRootBaseMove(rootPath, "b", "full", sameHome ? "a" : "b");
+        addActivePointer(rootPath, recoveryId);
+        const before = snapshotRecoveryTree(rootPath);
+        const result = inspectDockerRecoveryRootSnapshotWithLock(
+          verifiedRoot(rootPath),
+          () => Object.freeze({ release: () => true }),
+        );
+        assert.equal(
+          result.status,
+          "blocked",
+          `${state.move}:${state.boundary}:${sameHome}`,
+        );
+        assert.deepEqual(result.dockerRecoveryIds, []);
+        assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+      } finally {
+        fs.rmSync(rootPath, { recursive: true, force: true });
+      }
+    }
+  }
+});
+
 test("production inventoryはbase完了anchor残存中に次pairを開始した順序外状態を拒否する", () => {
   const rootPath = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-bootstrap-order-test-"),
@@ -1621,6 +1686,57 @@ test("production Task admission／Recoveryはno-intent duplicateを最初のmuta
   }
 });
 
+test("production Task admission／Recoveryはpremature active pointerを最初のmutation前に拒否する", () => {
+  const rootPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-premature-pointer-gate-test-"),
+  );
+  const root = verifiedRoot(rootPath);
+  const recoveryId = addSplitRootBaseMove(rootPath, "a", "pending_pairs", "a");
+  addActivePointer(rootPath, recoveryId);
+  const before = snapshotRecoveryTree(rootPath);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const plan = productionPlan(operation.operationId, "e".repeat(64));
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  try {
+    assert.equal(
+      beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+        plan,
+        management,
+        providerHomeForPlan(plan),
+        root,
+        () => root,
+      )?.status,
+      "blocked",
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        recoveryId,
+        root,
+        () => root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_runtime_state_audit_failed",
+        recoveryId,
+      },
+    );
+    assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    assert.equal(
+      loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
+      "host_only",
+    );
+  } finally {
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
 test("production共有回復engineはcleanup途中のprocess killから残存0へ収束する", () => {
   const root = createKilledProductionCleanupRoot();
   try {
@@ -1820,6 +1936,11 @@ test("production共有回復engineはHost previous世代のprocess killをEffect
   const fixture = createKilledFullProductionRecoveryRoot("previous");
   const root = verifiedRoot(fixture.root);
   try {
+    const active = inspectDockerRecoveryRootSnapshotWithLock(root, () =>
+      Object.freeze({ release: () => true }),
+    );
+    assert.equal(active.status, "completed");
+    assert.deepEqual(active.dockerRecoveryIds, [fixture.recoveryId]);
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         fixture.recoveryId,
@@ -2178,7 +2299,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 12,
+    contractRevision: 13,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

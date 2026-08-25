@@ -50,7 +50,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 12;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 13;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -3759,6 +3759,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         cleanup: boolean;
         pendingBaseSource?: "required" | "absent" | "journal";
         pendingCommitSource?: "required" | "absent" | "journal";
+        pointerEligible?: boolean;
       }>
     >();
     const pendingBaseNames = new Set<string>();
@@ -4008,6 +4009,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       const directory = path.join(rootPath, `docker-task-${nonce}`);
       let pendingBaseSource: "required" | "absent" | "journal" = "required";
       let pendingCommitSource: "required" | "absent" | "journal" = "required";
+      let pointerEligible = false;
       if (fs.existsSync(directory)) {
         const bootstrap = inventoryBootstrapOperationDirectory(
           directory,
@@ -4023,7 +4025,28 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         ) {
           if (fs.existsSync(path.join(directory, "cleanup-manifest.json")))
             verifyRecoveryCleanupManifest(directory, token);
-          else inventoryOperationDirectory(directory, token, nonce, base.hash);
+          else {
+            const names = inventoryOperationDirectory(
+              directory,
+              token,
+              nonce,
+              base.hash,
+            );
+            if (names.includes("host-begin-intent.json")) {
+              const intent = readExactJson(
+                path.join(directory, "host-begin-intent.json"),
+              ).value as Record<string, unknown>;
+              const lineage = validateHostTransitionLineage(
+                intent,
+                "docker_submission_started",
+              );
+              if (lineage.currentToken !== value.initialHostRecoveryId)
+                throw new Error(
+                  "docker_task_recovery_host_transition_mismatch",
+                );
+              pointerEligible = true;
+            }
+          }
         }
       }
       records.set(
@@ -4035,6 +4058,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           cleanup: false,
           pendingBaseSource,
           pendingCommitSource,
+          pointerEligible,
         }),
       );
     };
@@ -4265,6 +4289,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           (record) =>
             record.token === pointer.recoveryId &&
             record.cleanup === false &&
+            record.pointerEligible === true &&
             record.stable === pointer.stableLogicalHomeBindingHash &&
             `docker-task-${record.nonce}` === pointer.operationName &&
             record.token.endsWith(`.${pointer.baseHash}`),
@@ -4285,6 +4310,8 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         record.token,
       );
       if (!pointer) continue;
+      if (record.pointerEligible !== true)
+        throw new Error("docker_task_runtime_state_orphan_pointer");
       const value = pointer.value as Record<string, unknown>;
       if (
         !exactRecordKeys(value, [
