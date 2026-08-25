@@ -296,6 +296,29 @@ test("未対応Repository Object FormatはOperation作成前に専用理由で�
   assert.equal(h.getCleanupCount(), 0);
 });
 
+test("Repository Object Format判定不能はOperation作成前にpreflight failureへ閉じる", () => {
+  let inspectCount = 0;
+  const h = fixture({
+    inspectRepository: () => {
+      inspectCount += 1;
+      return null;
+    },
+  });
+  const result = h.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_runtime_repository_preflight_failed",
+  );
+  assert.equal(inspectCount, 1);
+  assert.deepEqual(h.calls, []);
+  assert.equal(h.getCleanupCount(), 0);
+});
+
 test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する", async () => {
   const h = fixture({
     issueSelection: () =>

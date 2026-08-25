@@ -5,7 +5,10 @@ import { TextDecoder } from "node:util";
 const MAX_CONTROL_FILE_BYTES = 4096;
 const MAX_CONFIG_FILE_BYTES = 1024 * 1024;
 const MAX_EXCLUDE_FILE_BYTES = 128 * 1024;
+const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const SAFE_REF = /^refs\/(?:heads|tags)\/[A-Za-z0-9._/-]{1,1024}$/u;
 
 type EntityType = "file" | "directory";
 type LayoutKind = "normal_worktree" | "gitfile_worktree" | "linked_worktree";
@@ -350,6 +353,73 @@ function parseNarrowRepositoryConfig(
   });
 }
 
+function isValidRef(value: string): boolean {
+  return (
+    SAFE_REF.test(value) &&
+    !value.includes("..") &&
+    !value.includes("//") &&
+    !value.endsWith("/")
+  );
+}
+
+function inspectRevisionHexLength(
+  gitDirectory: EntitySnapshot,
+  commonDirectory: EntitySnapshot,
+  snapshots: EntitySnapshot[],
+): 40 | 64 {
+  const head = readControlFile(path.join(gitDirectory.realPath, "HEAD"), [
+    gitDirectory,
+  ]);
+  snapshots.push(head.snapshot);
+  let revision = head.line;
+  if (revision.startsWith("ref: ")) {
+    const ref = revision.slice("ref: ".length);
+    if (!isValidRef(ref)) throw new Error("repository_git_revision_invalid");
+    try {
+      const loose = readControlFile(
+        path.join(commonDirectory.realPath, ...ref.split("/")),
+        [commonDirectory],
+      );
+      snapshots.push(loose.snapshot);
+      revision = loose.line;
+    } catch (error) {
+      if (!isEnoent(error)) throw error;
+      const packed = readStableFileBytes(
+        path.join(commonDirectory.realPath, "packed-refs"),
+        MAX_PACKED_REFS_BYTES,
+        [commonDirectory],
+      );
+      snapshots.push(packed.snapshot);
+      const text = decodeUtf8(packed.value, "repository_git_revision_invalid");
+      if (/\r(?!\n)/u.test(text))
+        throw new Error("repository_git_revision_invalid");
+      const matches = text
+        .split(/\r?\n/u)
+        .filter((line) => !line.startsWith("#") && !line.startsWith("^"))
+        .map((line) => line.split(" "))
+        .filter((parts) => parts.length === 2 && parts[1] === ref);
+      if (matches.length !== 1)
+        throw new Error("repository_git_revision_invalid");
+      revision = matches[0]?.[0] ?? "";
+    }
+  }
+  if (!OBJECT_ID.test(revision))
+    throw new Error("repository_git_revision_invalid");
+  return revision.length as 40 | 64;
+}
+
+function assertObjectFormatMatchesRevision(
+  objectFormat: "sha1" | "sha256",
+  revisionHexLength: 40 | 64,
+): void {
+  if (
+    (objectFormat === "sha1" && revisionHexLength !== 40) ||
+    (objectFormat === "sha256" && revisionHexLength !== 64)
+  ) {
+    throw new Error("repository_git_object_format_inconsistent");
+  }
+}
+
 export function inspectRepositoryGitObjectFormatCandidate(
   repositoryRoot: unknown,
 ) {
@@ -379,19 +449,22 @@ export function inspectRepositoryGitObjectFormatCandidate(
     const commonDirectory =
       optionalCommonDirectory(gitDirectory, snapshots) ?? gitDirectory;
     if (commonDirectory !== gitDirectory) snapshots.push(commonDirectory);
-    snapshots.push(
-      readControlFile(path.join(gitDirectory.realPath, "HEAD"), [gitDirectory])
-        .snapshot,
-    );
     const config = parseNarrowRepositoryConfig(
       path.join(commonDirectory.realPath, "config"),
       commonDirectory,
     );
     snapshots.push(config.snapshot);
+    const revisionHexLength = inspectRevisionHexLength(
+      gitDirectory,
+      commonDirectory,
+      snapshots,
+    );
+    assertObjectFormatMatchesRevision(config.objectFormat, revisionHexLength);
     verifySnapshots(snapshots);
     return Object.freeze({
       status: "candidate" as const,
       objectFormat: config.objectFormat,
+      revisionHexLength,
       repositoryPathReported: false,
     });
   } catch {

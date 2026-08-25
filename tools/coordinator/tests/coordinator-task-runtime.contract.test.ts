@@ -433,6 +433,20 @@ function sha256Repository(t: TestContext) {
   return root;
 }
 
+function mismatchedRepository(t: TestContext) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-mismatched-task-"));
+  const git = path.join(root, ".git");
+  fs.mkdirSync(git, { recursive: true });
+  fs.writeFileSync(path.join(git, "HEAD"), `${"a".repeat(64)}\n`, "utf8");
+  fs.writeFileSync(
+    path.join(git, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+    "utf8",
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  return root;
+}
+
 test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止する", async (t) => {
   const harness = fixture({
     inspectRepository: inspectRepositoryObjectFormatCandidate,
@@ -445,6 +459,25 @@ test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Process
   const result = await started.completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "coordinator_task_git_object_format_unsupported");
+  assert.equal(harness.operationCreateCount(), 0);
+  assert.equal(harness.externalAuthorizationCount(), 0);
+  assert.equal(harness.candidateStorePrepareCount(), 0);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 0);
+});
+
+test("宣言FormatとRevision幅の不一致は全Effect前にpreflight failureへ閉じる", async (t) => {
+  const harness = fixture({
+    inspectRepository: inspectRepositoryObjectFormatCandidate,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    mismatchedRepository(t),
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_repository_preflight_failed");
   assert.equal(harness.operationCreateCount(), 0);
   assert.equal(harness.externalAuthorizationCount(), 0);
   assert.equal(harness.candidateStorePrepareCount(), 0);

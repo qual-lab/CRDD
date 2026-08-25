@@ -174,6 +174,49 @@ test("SHA-256 RepositoryはOperation capability発行前の専用preflightで拒
   );
 });
 
+test("宣言Object Formatとdetached／loose／packed Revision幅の不一致をpreflightで拒否する", (t) => {
+  const detached = temporaryRepository(t);
+  fs.writeFileSync(
+    path.join(detached, ".git", "HEAD"),
+    `${"a".repeat(64)}\n`,
+    "utf8",
+  );
+  assert.equal(inspectRepositoryObjectFormatCandidate(detached), null);
+
+  const loose = temporaryRepository(t);
+  fs.writeFileSync(
+    path.join(loose, ".git", "refs", "heads", "main"),
+    `${"b".repeat(64)}\n`,
+    "utf8",
+  );
+  assert.equal(inspectRepositoryObjectFormatCandidate(loose), null);
+
+  const packed = temporaryRepository(t);
+  fs.rmSync(path.join(packed, ".git", "refs", "heads", "main"));
+  fs.writeFileSync(
+    path.join(packed, ".git", "packed-refs"),
+    `${"c".repeat(64)} refs/heads/main\n`,
+    "utf8",
+  );
+  assert.equal(inspectRepositoryObjectFormatCandidate(packed), null);
+
+  const sha256WithSha1Revision = temporaryRepository(t);
+  fs.writeFileSync(
+    path.join(sha256WithSha1Revision, ".git", "HEAD"),
+    `${firstRevision}\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(sha256WithSha1Revision, ".git", "config"),
+    "[core]\n\trepositoryformatversion = 1\n\tbare = false\n[extensions]\n\tobjectformat = sha256\n",
+    "utf8",
+  );
+  assert.equal(
+    inspectRepositoryObjectFormatCandidate(sha256WithSha1Revision),
+    null,
+  );
+});
+
 test("公開契約はcaller supplied identityを採用せずPathを返さない", () => {
   const contract = describeRepositoryOperationRuntimeContract();
   assert.equal(contract.contractRevision, 2);
