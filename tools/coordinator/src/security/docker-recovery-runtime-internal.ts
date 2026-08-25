@@ -50,7 +50,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 13;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 14;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -4021,7 +4021,9 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         pendingCommitSource = bootstrap.pendingCommitSource;
         if (
           bootstrap.baseState === "complete" &&
-          bootstrap.commitState === "complete"
+          bootstrap.commitState === "complete" &&
+          bootstrap.pendingBaseSource === "absent" &&
+          bootstrap.pendingCommitSource === "absent"
         ) {
           if (fs.existsSync(path.join(directory, "cleanup-manifest.json")))
             verifyRecoveryCleanupManifest(directory, token);
@@ -4032,7 +4034,16 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
               nonce,
               base.hash,
             );
-            if (names.includes("host-begin-intent.json")) {
+            const pointerReleaseStarted = [
+              "lease-release-receipt.json",
+              "normal-run-complete.json",
+              "host-cleanup-intent.json",
+              "host-cleanup-receipt.json",
+            ].some((name) => names.includes(name));
+            if (
+              names.includes("host-begin-intent.json") &&
+              !pointerReleaseStarted
+            ) {
               const intent = readExactJson(
                 path.join(directory, "host-begin-intent.json"),
               ).value as Record<string, unknown>;

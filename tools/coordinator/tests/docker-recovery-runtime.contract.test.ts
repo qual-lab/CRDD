@@ -12,6 +12,7 @@ import {
   inspectDockerRecoveryJournalDirectory,
   moveCommittedDockerRecoveryJson,
   readCommittedDockerRecoveryJson,
+  removeCommittedDockerRecoveryJson,
   resumeDockerRecoveryJournalDirectoryForRecovery,
   writeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
@@ -104,7 +105,7 @@ function addSplitRootBaseMove(
     | "base_complete"
     | "base_commit"
     | "full" = "base",
-  stableDiscriminator: "a" | "b" = discriminator,
+  stableDiscriminator: "a" | "b" | "c" = discriminator,
   killAfterRename: 1 | 2 | 3 = 2,
 ) {
   const stable = stableDiscriminator.repeat(64);
@@ -322,6 +323,111 @@ function addActivePointer(root: string, recoveryId: string) {
       recoveryId,
       baseHash,
     }),
+  );
+}
+
+function leaveCommittedPairMoveAnchor(
+  root: string,
+  recoveryId: string,
+  logicalKey: "base.json" | "base-commit.json",
+) {
+  const nonce = recoveryId.split(".")[2];
+  assert.ok(nonce);
+  const operationDirectory = path.join(root, `docker-task-${nonce}`);
+  const target = path.join(operationDirectory, logicalKey);
+  const pending = path.join(
+    root,
+    logicalKey === "base.json"
+      ? `pending-docker-task-${nonce}.json`
+      : `pending-docker-task-${nonce}.commit.json`,
+  );
+  fs.renameSync(target, pending);
+  fs.renameSync(
+    dockerRecoveryCommitName(target),
+    dockerRecoveryCommitName(pending),
+  );
+  const source = readCommittedDockerRecoveryJson(pending, logicalKey);
+  const originalRename = fs.renameSync;
+  let renameCount = 0;
+  Reflect.set(fs, "renameSync", (...args: Parameters<typeof fs.renameSync>) => {
+    originalRename(...args);
+    renameCount += 1;
+    if (renameCount === 3)
+      throw new Error("simulated_process_kill_after_pair_move");
+  });
+  try {
+    assert.throws(
+      () => moveCommittedDockerRecoveryJson(source, target),
+      /simulated_process_kill_after_pair_move/u,
+    );
+  } finally {
+    Reflect.set(fs, "renameSync", originalRename);
+  }
+}
+
+function leaveActivePointerDeleteJournal(root: string, recoveryId: string) {
+  const stable = recoveryId.split(".")[1];
+  assert.ok(stable);
+  const pointer = path.join(root, `active-lease-${stable}.json`);
+  const originalRm = fs.rmSync;
+  let removeCount = 0;
+  Reflect.set(fs, "rmSync", (...args: Parameters<typeof fs.rmSync>) => {
+    const result = originalRm(...args);
+    removeCount += 1;
+    if (removeCount === 1)
+      throw new Error("simulated_process_kill_during_pointer_delete");
+    return result;
+  });
+  try {
+    assert.throws(
+      () => removeCommittedDockerRecoveryJson(pointer),
+      /simulated_process_kill_during_pointer_delete/u,
+    );
+  } finally {
+    Reflect.set(fs, "rmSync", originalRm);
+  }
+}
+
+function addPointerReleaseEvidence(
+  root: string,
+  recoveryId: string,
+  name:
+    | "lease-release-receipt.json"
+    | "normal-run-complete.json"
+    | "host-cleanup-intent.json"
+    | "host-cleanup-receipt.json",
+) {
+  const nonce = recoveryId.split(".")[2];
+  assert.ok(nonce);
+  const operationDirectory = path.join(root, `docker-task-${nonce}`);
+  const values = {
+    "lease-release-receipt.json": Object.freeze({
+      schema: "crdd-coordinator-provider-home-lease-release/v1",
+      recoveryId,
+      pointerAbsent: true,
+    }),
+    "normal-run-complete.json": Object.freeze({
+      schema: "crdd-coordinator-docker-run-completion/v1",
+      recoveryId,
+      hostSuccessor: "host-successor-fixture",
+    }),
+    "host-cleanup-intent.json": Object.freeze({
+      schema: "crdd-coordinator-host-cleanup-intent/v1",
+      recoveryId,
+      currentHostRecoveryId: "host-cleanup-fixture",
+    }),
+    "host-cleanup-receipt.json": Object.freeze({
+      schema: "crdd-coordinator-host-cleanup-receipt/v1",
+      recoveryId,
+      hostRootAbsent: true,
+      hostMarkerAbsent: true,
+    }),
+  } as const;
+  writeCommittedDockerRecoveryJson(
+    operationDirectory,
+    name,
+    name,
+    values[name],
   );
 }
 
@@ -1309,6 +1415,84 @@ test("production inventoryはpointer生成前の全bootstrap状態にactive poin
   }
 });
 
+test("production inventoryはmove anchor残存中のcommitted／journal pointerを採用しない", () => {
+  for (const logicalKey of ["base.json", "base-commit.json"] as const) {
+    for (const pointerState of ["committed", "journal"] as const) {
+      for (const sameHome of [false, true]) {
+        const fixture = createKilledFullProductionRecoveryRoot("previous");
+        try {
+          addSplitRootBaseMove(fixture.root, "b", "full", sameHome ? "c" : "b");
+          leaveCommittedPairMoveAnchor(
+            fixture.root,
+            fixture.recoveryId,
+            logicalKey,
+          );
+          if (pointerState === "journal")
+            leaveActivePointerDeleteJournal(fixture.root, fixture.recoveryId);
+          const before = snapshotRecoveryTree(fixture.root);
+          const result = inspectDockerRecoveryRootSnapshotWithLock(
+            verifiedRoot(fixture.root),
+            () => Object.freeze({ release: () => true }),
+          );
+          assert.equal(
+            result.status,
+            "blocked",
+            `${logicalKey}:${pointerState}:${sameHome}`,
+          );
+          assert.deepEqual(result.dockerRecoveryIds, []);
+          assert.deepEqual(snapshotRecoveryTree(fixture.root), before);
+        } finally {
+          fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+          fs.rmSync(fixture.hostMarker, { force: true });
+          fs.rmSync(fixture.parent, { recursive: true, force: true });
+        }
+      }
+    }
+  }
+});
+
+test("production inventoryはpointer解放後Evidenceとcommitted／journal pointerの第三状態を採用しない", () => {
+  const evidenceNames = [
+    "lease-release-receipt.json",
+    "normal-run-complete.json",
+    "host-cleanup-intent.json",
+    "host-cleanup-receipt.json",
+  ] as const;
+  for (const evidenceName of evidenceNames) {
+    for (const pointerState of ["committed", "journal"] as const) {
+      for (const sameHome of [false, true]) {
+        const fixture = createKilledFullProductionRecoveryRoot("previous");
+        try {
+          addSplitRootBaseMove(fixture.root, "b", "full", sameHome ? "c" : "b");
+          addPointerReleaseEvidence(
+            fixture.root,
+            fixture.recoveryId,
+            evidenceName,
+          );
+          if (pointerState === "journal")
+            leaveActivePointerDeleteJournal(fixture.root, fixture.recoveryId);
+          const before = snapshotRecoveryTree(fixture.root);
+          const result = inspectDockerRecoveryRootSnapshotWithLock(
+            verifiedRoot(fixture.root),
+            () => Object.freeze({ release: () => true }),
+          );
+          assert.equal(
+            result.status,
+            "blocked",
+            `${evidenceName}:${pointerState}:${sameHome}`,
+          );
+          assert.deepEqual(result.dockerRecoveryIds, []);
+          assert.deepEqual(snapshotRecoveryTree(fixture.root), before);
+        } finally {
+          fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+          fs.rmSync(fixture.hostMarker, { force: true });
+          fs.rmSync(fixture.parent, { recursive: true, force: true });
+        }
+      }
+    }
+  }
+});
+
 test("production inventoryはbase完了anchor残存中に次pairを開始した順序外状態を拒否する", () => {
   const rootPath = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-runtime-bootstrap-order-test-"),
@@ -1734,6 +1918,58 @@ test("production Task admission／Recoveryはpremature active pointerを最初�
     fs.rmSync(owned.root, { recursive: true, force: true });
     fs.rmSync(initialHost.marker, { force: true });
     fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
+test("production Task admission／Recoveryはpointer解放後の再出現を最初のmutation前に拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const root = verifiedRoot(fixture.root);
+  addPointerReleaseEvidence(
+    fixture.root,
+    fixture.recoveryId,
+    "lease-release-receipt.json",
+  );
+  const before = snapshotRecoveryTree(fixture.root);
+  const hostBefore = fs.readFileSync(fixture.hostMarker);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const plan = productionPlan(operation.operationId, "e".repeat(64));
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  try {
+    assert.equal(
+      beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+        plan,
+        management,
+        providerHomeForPlan(plan),
+        root,
+        () => root,
+      )?.status,
+      "blocked",
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_runtime_state_audit_failed",
+        recoveryId: fixture.recoveryId,
+      },
+    );
+    assert.deepEqual(snapshotRecoveryTree(fixture.root), before);
+    assert.deepEqual(fs.readFileSync(fixture.hostMarker), hostBefore);
+  } finally {
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
   }
 });
 
@@ -2299,7 +2535,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 13,
+    contractRevision: 14,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
