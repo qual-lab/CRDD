@@ -276,4 +276,4 @@ Boolean規則は、補助動詞prefix 9件、主語先行suffix 31件、standalo
 
 統合修正案を各確認者へ編集前に再提示し、追加の人間判断なしでAcceptされた。0件拒否をpackage-privateな`requireCheckerTestFiles()`へ移し、runnerは列挙結果を必ず同Gateへ通してからprocessを開始する。契約試験は空集合のthrowと、非空集合が同一参照・同一順序のまま返ることをproductionと同じGateで確認する。suffix件数は31件へ訂正し、正本、exact Set、predicateおよび全許可値試験は変更していない。
 
-是正後の機械確認はChecker 153／153、Coordinator 740／740、両packageの型検査／Lint／Formatter、Repository全体Checker 697 file／387 Markdown／2241 link／621 anchor、Error 0／Warning 0、および`git diff --check`がPassした。この結果も`Applied`／`Self-checked`であり、新固定Commit／Treeに対する同じ四監査の統合Passまでは、`85e0893`のFindingを`Resolved`または本変更を`Verified`としない。
+是正後の機械確認はChecker 153／153、Coordinator 740／740、両packageの型検査／Lint／Formatter、Repository全体Checker 697 file／387 Markdown／2242 link／621 anchor、Error 0／Warning 0、および`git diff --check`がPassした。この結果も`Applied`／`Self-checked`であり、新固定Commit／Treeに対する同じ四監査の統合Passまでは、`85e0893`のFindingを`Resolved`または本変更を`Verified`としない。
