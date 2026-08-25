@@ -34,7 +34,9 @@ import {
 } from "../src/security/execution-environment.ts";
 import { loadHostRecoveryRecordByToken } from "../src/security/host-recovery-record.ts";
 import {
+  inspectDockerRecoveryJournalDirectory,
   moveCommittedDockerRecoveryJson,
+  resumeDockerRecoveryJournalDirectoryForRecovery,
   writeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
 
@@ -89,8 +91,14 @@ function providerHomeForPlan(plan: ReturnType<typeof productionPlan>) {
   });
 }
 
-function addSplitRootBaseMove(root: string, discriminator: "a" | "b") {
-  const stable = discriminator.repeat(64);
+function addSplitRootBaseMove(
+  root: string,
+  discriminator: "a" | "b",
+  move: "base" | "base_commit" = "base",
+  stableDiscriminator: "a" | "b" = discriminator,
+  killAfterRename: 1 | 2 | 3 = 2,
+) {
+  const stable = stableDiscriminator.repeat(64);
   const nonce = discriminator.repeat(64);
   const hostHash = "f".repeat(64);
   const initialHostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
@@ -149,14 +157,16 @@ function addSplitRootBaseMove(root: string, discriminator: "a" | "b") {
     }),
     hostPaths: Object.freeze({ root: "host-root", marker: "host-marker" }),
   });
-  const pendingBase = writeCommittedDockerRecoveryJson(
-    root,
-    `pending-docker-task-${nonce}.json`,
+  const operationDirectory = path.join(root, `docker-task-${nonce}`);
+  fs.mkdirSync(operationDirectory);
+  const baseRecord = writeCommittedDockerRecoveryJson(
+    move === "base" ? root : operationDirectory,
+    move === "base" ? `pending-docker-task-${nonce}.json` : "base.json",
     "base.json",
     base,
   );
-  const recoveryId = `docker-task.${stable}.${nonce}.${pendingBase.hash}`;
-  writeCommittedDockerRecoveryJson(
+  const recoveryId = `docker-task.${stable}.${nonce}.${baseRecord.hash}`;
+  const pendingCommit = writeCommittedDockerRecoveryJson(
     root,
     `pending-docker-task-${nonce}.commit.json`,
     "base-commit.json",
@@ -164,27 +174,26 @@ function addSplitRootBaseMove(root: string, discriminator: "a" | "b") {
       schema: "crdd-coordinator-task-docker-base-commit/v1",
       operationNonce: nonce,
       stableLogicalHomeBindingHash: stable,
-      baseHash: pendingBase.hash,
+      baseHash: baseRecord.hash,
       recoveryId,
     }),
   );
-  const operationDirectory = path.join(root, `docker-task-${nonce}`);
-  fs.mkdirSync(operationDirectory);
+  const source = move === "base" ? baseRecord : pendingCommit;
+  const target = path.join(
+    operationDirectory,
+    move === "base" ? "base.json" : "base-commit.json",
+  );
   const originalRename = fs.renameSync;
   let renameCount = 0;
   Reflect.set(fs, "renameSync", (...args: Parameters<typeof fs.renameSync>) => {
     originalRename(...args);
     renameCount += 1;
-    if (renameCount === 2)
+    if (renameCount === killAfterRename)
       throw new Error("simulated_process_kill_after_content_move");
   });
   try {
     assert.throws(
-      () =>
-        moveCommittedDockerRecoveryJson(
-          pendingBase,
-          path.join(operationDirectory, "base.json"),
-        ),
+      () => moveCommittedDockerRecoveryJson(source, target),
       /simulated_process_kill_after_content_move/u,
     );
   } finally {
@@ -859,6 +868,88 @@ test("production inventoryは別Homeの複数base move中間状態をexact ID別
   }
 });
 
+test("production inventoryはbase-commit moveの全境界を同一／別Homeともexact ID別に列挙する", () => {
+  for (const killAfterRename of [1, 2, 3] as const) {
+    for (const sameHome of [false, true]) {
+      const rootPath = fs.mkdtempSync(
+        path.join(os.tmpdir(), "crdd-runtime-base-commit-move-test-"),
+      );
+      try {
+        const first = addSplitRootBaseMove(
+          rootPath,
+          "a",
+          "base_commit",
+          "a",
+          killAfterRename,
+        );
+        const second = addSplitRootBaseMove(
+          rootPath,
+          "b",
+          "base_commit",
+          sameHome ? "a" : "b",
+          killAfterRename,
+        );
+        const beforeIntents = inspectDockerRecoveryJournalDirectory(rootPath);
+        const secondIntent = beforeIntents.find(
+          (intent) => intent.recoveryId === second,
+        );
+        assert.ok(secondIntent);
+        const secondAnchor = path.join(rootPath, secondIntent.name);
+        const secondBytes = fs.readFileSync(secondAnchor);
+        const secondIdentity = fs.lstatSync(secondAnchor, { bigint: true });
+
+        const initial = inspectDockerRecoveryRootSnapshotWithLock(
+          verifiedRoot(rootPath),
+          () => Object.freeze({ release: () => true }),
+        );
+        assert.equal(initial.status, "completed", JSON.stringify(initial));
+        assert.deepEqual(initial.dockerRecoveryIds, [first, second].sort());
+        assert.deepEqual(fs.readFileSync(secondAnchor), secondBytes);
+
+        assert.equal(
+          resumeDockerRecoveryJournalDirectoryForRecovery(rootPath, first, {
+            runtimeStateIdentityHash: "4".repeat(64),
+            runtimeStateProtectionHash: "5".repeat(64),
+            localUserBindingHash: "6".repeat(64),
+            runtimeStateBindingHash: "7".repeat(64),
+          }),
+          true,
+        );
+        const afterFirst = inspectDockerRecoveryRootSnapshotWithLock(
+          verifiedRoot(rootPath),
+          () => Object.freeze({ release: () => true }),
+        );
+        assert.equal(
+          afterFirst.status,
+          "completed",
+          JSON.stringify(afterFirst),
+        );
+        assert.deepEqual(afterFirst.dockerRecoveryIds, [first, second].sort());
+        assert.deepEqual(fs.readFileSync(secondAnchor), secondBytes);
+        const afterIdentity = fs.lstatSync(secondAnchor, { bigint: true });
+        assert.deepEqual(
+          [afterIdentity.dev, afterIdentity.ino, afterIdentity.birthtimeNs],
+          [secondIdentity.dev, secondIdentity.ino, secondIdentity.birthtimeNs],
+        );
+
+        assert.equal(
+          resumeDockerRecoveryJournalDirectoryForRecovery(rootPath, second, {
+            runtimeStateIdentityHash: "4".repeat(64),
+            runtimeStateProtectionHash: "5".repeat(64),
+            localUserBindingHash: "6".repeat(64),
+            runtimeStateBindingHash: "7".repeat(64),
+          }),
+          true,
+        );
+        assert.equal(inspectDockerRecoveryJournalDirectory(rootPath).length, 0);
+      } finally {
+        fs.rmSync(rootPath, { recursive: true, force: true });
+        assert.equal(fs.existsSync(rootPath), false);
+      }
+    }
+  }
+});
+
 test("production共有回復engineはcleanup途中のprocess killから残存0へ収束する", () => {
   const root = createKilledProductionCleanupRoot();
   try {
@@ -1381,7 +1472,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 8,
+    contractRevision: 9,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

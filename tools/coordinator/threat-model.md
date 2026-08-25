@@ -4,7 +4,7 @@ Local PersonalのSubscription OfferingはCodexの`chatgpt_subscription_oauth`と
 
 Status: Implementation Candidate
 
-第十二次是正は、Node.js 24.19.0で全724試験、journal重点29試験、production回復／CLI重点27試験、private package checkおよび固定coverage下限を通過した。現在の未完了Gateは全体Checker、新固定版への独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。
+第十三次是正は、Node.js 24.19.0で全725試験、journal重点29試験、production回復／CLI重点28試験、private package check、固定coverage下限および全体Checkerを通過した。現在の未完了Gateは新固定版への独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。
 
 ### 現行revisionのProvider Home／Docker Task回復補正
 
@@ -19,6 +19,8 @@ OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM�
 準備記録と登録証明書のpure結合候補は、Recordの全署名鍵を現在の登録証明書、Platform scope、Provisioner Identity、公開SPKIおよびCA seriesへ1対1で結ぶ。未結合署名、重複証明書または余分なbindingはfail closedで拒否し、この一致だけからRuntime所有Trust、時計、Filesystem、activationまたはAuthorityを成立させない。
 
 登録証明書更新のpure遷移候補は、同じenrollment、Platform scope、Provisioner Identityおよび端末導入鍵を維持し、旧証明書の残り30日以内かつ失効前に新証明書を発行し、重複期間を最大30日に限定する。caller supplied時刻やissuer鍵からRuntime所有時計、CA Trust、rollback防止、保存または自動更新Effectを成立させない。
+
+`base-commit.json` moveのsplit pairは、exact Recovery ID、logical key、固定target content／commit名および単一validated move intentが一致する場合だけ読み取り専用inventoryへ投影する。commit sidecar欠落を一般許可せず、unknown、複数intent、Recovery ID差、target名差または第三状態は停止する。inventoryはjournal resumeやFilesystem mutationを起こさない。
 
 本書は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)の実装固有脅威モデルである。CRDDのHuman Authority、External Information Boundary、Independent Reviewまたは準拠条件を再定義しない。
 

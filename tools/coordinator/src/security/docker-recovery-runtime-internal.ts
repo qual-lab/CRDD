@@ -50,7 +50,7 @@ import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 8;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 9;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -1634,6 +1634,10 @@ function inventoryOperationDirectory(
   recoveryId: string,
   nonce: string,
   baseHash: string,
+  splitMoveRecords: ReadonlyMap<
+    string,
+    Readonly<{ value: unknown }>
+  > = new Map(),
 ) {
   const entries = fs.readdirSync(operationDirectory, { withFileTypes: true });
   if (entries.length > 96)
@@ -1663,13 +1667,16 @@ function inventoryOperationDirectory(
     }
     if (
       !OPERATION_RECORD_NAME.test(entry.name) ||
-      !names.has(dockerRecoveryCommitName(entry.name))
+      (!names.has(dockerRecoveryCommitName(entry.name)) &&
+        !splitMoveRecords.has(entry.name))
     )
       throw new Error("docker_task_recovery_unknown_entry");
     dataNames.push(entry.name);
   }
   for (const name of dataNames) {
-    const record = readExactJson(path.join(operationDirectory, name));
+    const record =
+      splitMoveRecords.get(name) ??
+      readExactJson(path.join(operationDirectory, name));
     if (
       !validateOperationRecord(name, record.value, recoveryId, nonce, baseHash)
     )
@@ -3718,11 +3725,12 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       expectedRecoveryId: string | null = recoveryIdForNonce(nonce),
     ) => {
       const base = readRootRecord(basePath, "base.json", expectedRecoveryId);
-      const commit = readRootRecord(
+      const commitRecord = readRootRecord(
         commitPath,
         "base-commit.json",
         expectedRecoveryId,
-      ).value as Record<string, unknown>;
+      );
+      const commit = commitRecord.value as Record<string, unknown>;
       const value = base.value as Record<string, unknown>;
       const stable = value.stableLogicalHomeBindingHash;
       if (
@@ -3761,7 +3769,40 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       )
         if (fs.existsSync(path.join(directory, "cleanup-manifest.json")))
           verifyRecoveryCleanupManifest(directory, token);
-        else inventoryOperationDirectory(directory, token, nonce, base.hash);
+        else {
+          const splitMoveRecords = new Map<
+            string,
+            Readonly<{ value: unknown }>
+          >();
+          if (
+            !fs.existsSync(
+              path.join(
+                directory,
+                dockerRecoveryCommitName("base-commit.json"),
+              ),
+            )
+          ) {
+            const matchingIntents = journalIntents.filter(
+              (intent) =>
+                intent.schema === "crdd-coordinator-durable-json-move/v1" &&
+                intent.recoveryId === token &&
+                intent.pairLogicalKey === "base-commit.json" &&
+                intent.targetContentName === "base-commit.json" &&
+                intent.targetCommitName ===
+                  dockerRecoveryCommitName("base-commit.json"),
+            );
+            if (matchingIntents.length !== 1)
+              throw new Error("docker_task_runtime_state_base_invalid");
+            splitMoveRecords.set("base-commit.json", commitRecord);
+          }
+          inventoryOperationDirectory(
+            directory,
+            token,
+            nonce,
+            base.hash,
+            splitMoveRecords,
+          );
+        }
     };
     for (const entry of sorted) {
       if (isDockerRecoveryJournalIntentName(entry.name)) continue;

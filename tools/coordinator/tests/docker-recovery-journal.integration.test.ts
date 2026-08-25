@@ -224,7 +224,7 @@ function crashScopedCleanup(root: string, discriminator: "a" | "b") {
 
 function crashRecoveryIdentityIntent(
   root: string,
-  operation: "base_move" | "pointer_delete",
+  operation: "base_move" | "base_commit_move" | "pointer_delete",
   discriminator: "1" | "a" | "b" = "1",
 ) {
   const moduleUrl = pathToFileURL(
@@ -257,6 +257,34 @@ function crashRecoveryIdentityIntent(
         return result;
       };
       journal.moveCommittedDockerRecoveryJson(record, path.join(target, "base.json"));
+    } else if (operation === "base_commit_move") {
+      const operationDirectory = path.join(root, "docker-task-" + nonce);
+      fs.mkdirSync(operationDirectory);
+      const base = journal.writeCommittedDockerRecoveryJson(
+        operationDirectory,
+        "base.json",
+        "base.json",
+        { schema: "crdd-coordinator-task-docker-recovery/v1", operationNonce: nonce, stableLogicalHomeBindingHash: stable, runtimeStateBinding },
+      );
+      const recoveryId = "docker-task." + stable + "." + nonce + "." + base.hash;
+      const record = journal.writeCommittedDockerRecoveryJson(
+        root,
+        "pending-docker-task-" + nonce + ".commit.json",
+        "base-commit.json",
+        { schema: "crdd-coordinator-task-docker-base-commit/v1", operationNonce: nonce, stableLogicalHomeBindingHash: stable, baseHash: base.hash, recoveryId },
+      );
+      const originalRename = fs.renameSync;
+      let renameCount = 0;
+      fs.renameSync = (...args) => {
+        const result = originalRename(...args);
+        renameCount += 1;
+        if (renameCount === 2) process.kill(process.pid, "SIGKILL");
+        return result;
+      };
+      journal.moveCommittedDockerRecoveryJson(
+        record,
+        path.join(operationDirectory, "base-commit.json"),
+      );
     } else {
       const operationDirectory = path.join(root, "docker-task-" + nonce);
       fs.mkdirSync(operationDirectory);
@@ -833,8 +861,12 @@ test("intent anchorの改名、複製、commit semantic差を保持して拒否�
   }
 });
 
-test("root base moveとpointer deleteのkill後もexact Recovery IDを再発見する", () => {
-  for (const operation of ["base_move", "pointer_delete"] as const) {
+test("root base／base-commit moveとpointer deleteのkill後もexact Recovery IDを再発見する", () => {
+  for (const operation of [
+    "base_move",
+    "base_commit_move",
+    "pointer_delete",
+  ] as const) {
     const root = temporaryDirectory();
     try {
       assert.notEqual(crashRecoveryIdentityIntent(root, operation).status, 0);
@@ -850,8 +882,12 @@ test("root base moveとpointer deleteのkill後もexact Recovery IDを再発見�
   }
 });
 
-test("Root-level intent探索とresumeはRecovery ID別にAだけを進めBを不変にする", () => {
-  for (const operation of ["base_move", "pointer_delete"] as const) {
+test("Root-level intent探索とresumeは全schemaでRecovery ID別にAだけを進めBを不変にする", () => {
+  for (const operation of [
+    "base_move",
+    "base_commit_move",
+    "pointer_delete",
+  ] as const) {
     const root = temporaryDirectory();
     try {
       assert.notEqual(
@@ -874,7 +910,9 @@ test("Root-level intent探索とresumeはRecovery ID別にAだけを進めBを�
       const logicalKey =
         operation === "base_move"
           ? "base.json"
-          : `active-lease-${"a".repeat(64)}.json`;
+          : operation === "base_commit_move"
+            ? "base-commit.json"
+            : `active-lease-${"a".repeat(64)}.json`;
       assert.ok(
         discoverDockerRecoveryJournalJsonForRecovery(
           root,
@@ -916,8 +954,12 @@ test("Root-level intent探索とresumeはRecovery ID別にAだけを進めBを�
   }
 });
 
-test("Root-level base／pointer intentはbinding不一致時に全anchorを保持する", () => {
-  for (const operation of ["base_move", "pointer_delete"] as const) {
+test("Root-level base／base-commit／pointer intentはbinding不一致時に全anchorを保持する", () => {
+  for (const operation of [
+    "base_move",
+    "base_commit_move",
+    "pointer_delete",
+  ] as const) {
     const root = temporaryDirectory();
     try {
       assert.notEqual(

@@ -1158,8 +1158,11 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
       recoveryId: string | null;
       name: string;
       runtimeStateBinding: Readonly<Record<string, unknown>> | null;
+      pairLogicalKey: string | null;
       pairContentName: string | null;
       pairCommitName: string | null;
+      targetContentName: string | null;
+      targetCommitName: string | null;
     }>
   > = [];
   for (const name of fs
@@ -1191,6 +1194,11 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
           schema === "crdd-coordinator-recovery-cleanup-delete/v1"
             ? (value.runtimeStateBinding as Readonly<Record<string, unknown>>)
             : null,
+        pairLogicalKey:
+          schema === "crdd-coordinator-durable-json-delete/v1" ||
+          schema === "crdd-coordinator-durable-json-move/v1"
+            ? String((value.pair as Record<string, unknown>).logicalKey)
+            : null,
         pairContentName:
           schema === "crdd-coordinator-durable-json-delete/v1" ||
           schema === "crdd-coordinator-durable-json-move/v1"
@@ -1200,6 +1208,14 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
           schema === "crdd-coordinator-durable-json-delete/v1" ||
           schema === "crdd-coordinator-durable-json-move/v1"
             ? String((value.pair as Record<string, unknown>).commitName)
+            : null,
+        targetContentName:
+          schema === "crdd-coordinator-durable-json-move/v1"
+            ? String(value.targetContentName)
+            : null,
+        targetCommitName:
+          schema === "crdd-coordinator-durable-json-move/v1"
+            ? String(value.targetCommitName)
             : null,
       }),
     );
