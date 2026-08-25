@@ -38,3 +38,7 @@ Repository実体／Revision binding、opaque capability、二重発行拒否、l
 残件はCoordinator facade、実Claude production-like E2E、Codex adapter／逆方向経路、独立レビュー／監査および最終統合判断である。
 
 現在、人間による追加判断は必要ない。保護対象の採用、統合、Releaseまたはリスク受容は行わない。
+
+## 2026-08-25 現在状態への接続
+
+上記「現在の検証結果と残件」は本変更を固定した時点の履歴であり、現在の残件表示ではない。Coordinator一般Task facade、Codex／Claude両Adapterおよびcross-provider経路は後続変更でproduction候補へ接続済みである。Coordinator Runtime 1.0の現在状態と残件は[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)および[`Roadmap 08`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md)を正本とする。本変更のRepository／Revision bindingと結果公開前再照合は維持する。

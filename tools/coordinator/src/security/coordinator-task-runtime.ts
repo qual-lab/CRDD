@@ -292,6 +292,58 @@ function actionableDockerRecoveryIds(
   ]);
 }
 
+function projectCurrentDockerRecovery<T extends RuntimeRecord>(
+  result: T,
+  control: ControlRecord,
+) {
+  const finalizedDockerRecoveryIds = new Set(
+    control.dockerHandoffs
+      .filter((handoff) => handoff.state === "finalized")
+      .map((handoff) => handoff.recoveryId),
+  );
+  const explicitNonDockerRecovery = Boolean(
+    stringValue(result.hostRecoveryId) ||
+      stringValue(result.candidateRecoveryId) ||
+      stringValue(result.candidateStoreRecoveryId),
+  );
+  const rawDockerRecoveryIds = Array.isArray(result.dockerRecoveryIds)
+    ? result.dockerRecoveryIds.filter(
+        (value: unknown): value is string => typeof value === "string",
+      )
+    : [];
+  const dockerRecoveryIds = Object.freeze([
+    ...new Set(
+      [
+        ...rawDockerRecoveryIds,
+        ...(stringValue(result.dockerRecoveryId)
+          ? [String(result.dockerRecoveryId)]
+          : []),
+        ...controlDockerRecoveryIds(control),
+      ].filter((value) => !finalizedDockerRecoveryIds.has(value)),
+    ),
+  ]);
+  const recoveryWithoutIdentifier =
+    result.manualRecoveryRequired === true &&
+    !explicitNonDockerRecovery &&
+    rawDockerRecoveryIds.length === 0 &&
+    !stringValue(result.dockerRecoveryId);
+  const manualRecoveryRequired =
+    explicitNonDockerRecovery ||
+    dockerRecoveryIds.length > 0 ||
+    recoveryWithoutIdentifier;
+  return Object.freeze({
+    ...result,
+    manualRecoveryRequired,
+    cleanupConfirmed:
+      manualRecoveryRequired === false
+        ? true
+        : result.cleanupConfirmed === true,
+    dockerRecoveryId:
+      dockerRecoveryIds.length === 1 ? dockerRecoveryIds[0] : null,
+    dockerRecoveryIds,
+  });
+}
+
 function snapshotRequest(rawRequest: unknown) {
   const request = snapshotPlainRecord(rawRequest, REQUEST_KEYS);
   const acceptance = request
@@ -660,6 +712,8 @@ async function executeStage(
           recoveryId: startedDockerRecoveryId,
         }),
       );
+    } else if (!state.dependencies.finalizeDockerRecovery && handoff) {
+      handoff.state = "finalized";
     }
     return Object.freeze({
       status: "completed" as const,
@@ -1298,19 +1352,28 @@ function createRuntime(dependencies: RuntimeDependencies) {
               handoff.state = "finalized";
             }
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
-            if (!candidateRecoveryId) return result;
+            if (!candidateRecoveryId)
+              return projectCurrentDockerRecovery(result, control);
             if (result.status !== "completed") {
               const discarded =
                 state.dependencies.discardCandidate(candidateRecoveryId);
               if (discarded?.status === "discarded") {
+                const currentDockerRecoveryIds =
+                  controlDockerRecoveryIds(control);
                 const manualRecoveryRequired = Boolean(
                   stringValue(result.hostRecoveryId) ||
-                    stringValue(result.dockerRecoveryId) ||
-                    stringValue(result.candidateStoreRecoveryId),
+                    stringValue(result.candidateStoreRecoveryId) ||
+                    currentDockerRecoveryIds.length > 0,
                 );
                 return Object.freeze({
                   ...result,
                   manualRecoveryRequired,
+                  cleanupConfirmed: !manualRecoveryRequired,
+                  dockerRecoveryId:
+                    currentDockerRecoveryIds.length === 1
+                      ? currentDockerRecoveryIds[0]
+                      : null,
+                  dockerRecoveryIds: currentDockerRecoveryIds,
                   candidateRecoveryId: null,
                   candidateStoreRecoveryId: stringValue(
                     result.candidateStoreRecoveryId,
@@ -1344,17 +1407,20 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 candidateStoreRecoveryId,
               );
             }
-            return Object.freeze({
-              ...result,
-              candidateId,
-              expiresAtMs:
-                Number.isSafeInteger(published.expiresAtMs) &&
-                Number(published.expiresAtMs) >= 0
-                  ? Number(published.expiresAtMs)
-                  : null,
-              candidateRecoveryId: null,
-              candidateStoreRecoveryId: null,
-            });
+            return projectCurrentDockerRecovery(
+              Object.freeze({
+                ...result,
+                candidateId,
+                expiresAtMs:
+                  Number.isSafeInteger(published.expiresAtMs) &&
+                  Number(published.expiresAtMs) >= 0
+                    ? Number(published.expiresAtMs)
+                    : null,
+                candidateRecoveryId: null,
+                candidateStoreRecoveryId: null,
+              }),
+              control,
+            );
           } catch {
             retainRuntimeRecoveryState(state, control);
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
@@ -1365,7 +1431,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               "coordinator_task_operation_cleanup_unconfirmed",
               true,
               control.hostRecoveryId,
-              control.dockerFinalizations[0]?.recoveryId ?? null,
+              null,
               discarded?.status === "discarded" ? null : candidateRecoveryId,
               null,
               stringValue(discarded?.candidateStoreRecoveryId),

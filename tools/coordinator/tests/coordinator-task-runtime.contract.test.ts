@@ -42,7 +42,9 @@ function fixture(
     externalSendDenied?: boolean;
     pauseRole?: "executor" | "reviewer";
     discardFails?: boolean;
+    discardThrows?: boolean;
     publishFails?: boolean;
+    publishThrows?: boolean;
     publishNeedsStoreRecovery?: boolean;
     processStartFailureRole?: "executor" | "reviewer";
     processCleanupFailureRole?: "executor" | "reviewer";
@@ -321,12 +323,14 @@ function fixture(
               }),
     discardCandidate: () => {
       discardCount += 1;
+      if (options.discardThrows) throw new Error("fixture_discard_failure");
       return Object.freeze({
         status: options.discardFails ? "blocked" : "discarded",
       });
     },
-    publishCandidate: () =>
-      options.publishFails
+    publishCandidate: () => {
+      if (options.publishThrows) throw new Error("fixture_publish_failure");
+      return options.publishFails
         ? null
         : options.publishNeedsStoreRecovery
           ? Object.freeze({
@@ -339,7 +343,8 @@ function fixture(
               status: "published",
               candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
               expiresAtMs: 1_800_000_000_000,
-            }),
+            });
+    },
     ...(options.hostCleanupWal
       ? {
           prepareDockerHostCleanup: () => {
@@ -692,6 +697,34 @@ test("Candidate永続化の中間障害はcleanup後にRecovery IDで自動破�
   assert.equal(harness.cleanupCount(), 1);
 });
 
+test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを再投影しない", async () => {
+  const harness = fixture({ hostCleanupWal: true, publishThrows: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.dockerRecoveryId, null);
+  assert.deepEqual(result.dockerRecoveryIds, []);
+});
+
+test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない", async () => {
+  const harness = fixture({
+    hostCleanupWal: true,
+    candidatePersistenceNeedsRecovery: true,
+    discardThrows: true,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.dockerRecoveryId, null);
+  assert.deepEqual(result.dockerRecoveryIds, []);
+});
+
 test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {
   const harness = fixture({ completionRejectRole: "executor" });
   const result = await harness.runtime.start(
@@ -722,7 +755,7 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
     ],
     [
       { processCleanupFailureRole: "reviewer" as const },
-      ["docker.fixture.reviewer.active", "docker.fixture.executor.active"],
+      ["docker.fixture.reviewer.active"],
     ],
   ] as const) {
     const harness = fixture(options);

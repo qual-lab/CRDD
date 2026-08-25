@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -163,6 +164,72 @@ function crashMutation(
       root,
       operation,
       boundary,
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+}
+
+function crashRecoveryIdentityIntent(
+  root: string,
+  operation: "base_move" | "pointer_delete",
+) {
+  const moduleUrl = pathToFileURL(
+    path.resolve("src/security/docker-recovery-journal.ts"),
+  ).href;
+  const stable = "1".repeat(64);
+  const nonce = "2".repeat(64);
+  const source = `
+    import fs from "node:fs";
+    import path from "node:path";
+    const journal = await import(${JSON.stringify(moduleUrl)});
+    const root = process.argv[1];
+    const operation = process.argv[2];
+    const stable = ${JSON.stringify(stable)};
+    const nonce = ${JSON.stringify(nonce)};
+    if (operation === "base_move") {
+      const target = path.join(root, "docker-task-" + nonce);
+      fs.mkdirSync(target);
+      const record = journal.writeCommittedDockerRecoveryJson(
+        root,
+        "pending-docker-task-" + nonce + ".json",
+        "base.json",
+        { schema: "crdd-coordinator-task-docker-recovery/v1", operationNonce: nonce, stableLogicalHomeBindingHash: stable },
+      );
+      const originalRename = fs.renameSync;
+      fs.renameSync = (...args) => {
+        const result = originalRename(...args);
+        process.kill(process.pid, "SIGKILL");
+        return result;
+      };
+      journal.moveCommittedDockerRecoveryJson(record, path.join(target, "base.json"));
+    } else {
+      const recoveryId = "docker-task." + stable + "." + nonce + "." + "3".repeat(64);
+      const name = "active-lease-" + stable + ".json";
+      journal.writeCommittedDockerRecoveryJson(root, name, name, {
+        schema: "crdd-coordinator-provider-home-active-lease/v1",
+        stableLogicalHomeBindingHash: stable,
+        operationName: "docker-task-" + nonce,
+        recoveryId,
+        baseHash: "3".repeat(64),
+      });
+      const originalRemove = fs.rmSync;
+      fs.rmSync = (...args) => {
+        const result = originalRemove(...args);
+        process.kill(process.pid, "SIGKILL");
+        return result;
+      };
+      journal.removeCommittedDockerRecoveryJson(path.join(root, name));
+    }
+  `;
+  return spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      "--input-type=module",
+      "-e",
+      source,
+      root,
+      operation,
     ],
     { windowsHide: true, encoding: "utf8", timeout: 10_000 },
   );
@@ -573,6 +640,68 @@ test("不正intent schemaと変更されたempty directoryをEvidenceとして�
       assert.throws(
         () => inspectDockerRecoveryJournalDirectory(root),
         /docker_recovery_cleanup_intent_third_state/u,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("intent anchorの改名、複製、commit semantic差を保持して拒否する", () => {
+  for (const mutation of ["rename", "duplicate", "commit"] as const) {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(crashMutation(root, "delete", "rename-1").status, 0);
+      const source = path.join(root, "source");
+      const anchor = fs
+        .readdirSync(source)
+        .find((name) => name.startsWith(".crdd-delete-"));
+      assert.ok(anchor);
+      const anchorPath = path.join(source, anchor);
+      if (mutation === "rename")
+        fs.renameSync(
+          anchorPath,
+          path.join(source, `.crdd-delete-${"b".repeat(64)}.json`),
+        );
+      if (mutation === "duplicate")
+        fs.copyFileSync(
+          anchorPath,
+          path.join(source, `.crdd-delete-${"c".repeat(64)}.json`),
+        );
+      if (mutation === "commit") {
+        const value = JSON.parse(fs.readFileSync(anchorPath, "utf8"));
+        const commit = JSON.parse(value.pair.commitSerialized);
+        commit.contentHash = "0".repeat(64);
+        value.pair.commitSerialized = `${JSON.stringify(commit)}\n`;
+        value.pair.commitHash = createHash("sha256")
+          .update(value.pair.commitSerialized)
+          .digest("hex");
+        value.pair.commitBytes = Buffer.byteLength(
+          value.pair.commitSerialized,
+          "utf8",
+        );
+        fs.writeFileSync(anchorPath, `${JSON.stringify(value)}\n`);
+      }
+      assert.throws(
+        () => inspectDockerRecoveryJournalDirectory(source),
+        /docker_recovery_(?:delete_)?intent_invalid/u,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("root base moveとpointer deleteのkill後もexact Recovery IDを再発見する", () => {
+  for (const operation of ["base_move", "pointer_delete"] as const) {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(crashRecoveryIdentityIntent(root, operation).status, 0);
+      const intents = inspectDockerRecoveryJournalDirectory(root);
+      assert.equal(intents.length, 1);
+      assert.match(
+        intents[0]?.recoveryId ?? "",
+        /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u,
       );
     } finally {
       fs.rmSync(root, { recursive: true, force: true });

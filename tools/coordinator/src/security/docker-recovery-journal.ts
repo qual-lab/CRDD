@@ -181,23 +181,132 @@ function validPairEvidence(value: unknown) {
   )
     return false;
   const evidence = value as Record<string, unknown>;
-  return (
-    typeof evidence.logicalKey === "string" &&
-    typeof evidence.contentName === "string" &&
-    path.basename(evidence.contentName) === evidence.contentName &&
-    typeof evidence.commitName === "string" &&
-    evidence.commitName === `${evidence.contentName}${COMMIT_SUFFIX}` &&
-    typeof evidence.contentSerialized === "string" &&
-    typeof evidence.commitSerialized === "string" &&
-    evidence.contentHash === hashText(evidence.contentSerialized) &&
-    evidence.commitHash === hashText(evidence.commitSerialized) &&
-    typeof evidence.contentIdentity === "string" &&
-    typeof evidence.commitIdentity === "string" &&
-    evidence.contentBytes ===
-      Buffer.byteLength(evidence.contentSerialized, "utf8") &&
-    evidence.commitBytes ===
-      Buffer.byteLength(evidence.commitSerialized, "utf8")
+  if (
+    !(
+      typeof evidence.logicalKey === "string" &&
+      typeof evidence.contentName === "string" &&
+      path.basename(evidence.contentName) === evidence.contentName &&
+      typeof evidence.commitName === "string" &&
+      evidence.commitName === `${evidence.contentName}${COMMIT_SUFFIX}` &&
+      typeof evidence.contentSerialized === "string" &&
+      typeof evidence.commitSerialized === "string" &&
+      evidence.contentHash === hashText(evidence.contentSerialized) &&
+      evidence.commitHash === hashText(evidence.commitSerialized) &&
+      typeof evidence.contentIdentity === "string" &&
+      typeof evidence.commitIdentity === "string" &&
+      evidence.contentBytes ===
+        Buffer.byteLength(evidence.contentSerialized, "utf8") &&
+      evidence.commitBytes ===
+        Buffer.byteLength(evidence.commitSerialized, "utf8")
+    )
+  )
+    return false;
+  try {
+    const contentValue = JSON.parse(evidence.contentSerialized);
+    const commitValue = JSON.parse(evidence.commitSerialized);
+    return (
+      canonical(contentValue) === evidence.contentSerialized &&
+      canonical(commitValue) === evidence.commitSerialized &&
+      exactKeys(commitValue, [
+        "schema",
+        "logicalKey",
+        "contentHash",
+        "contentIdentity",
+        "contentBytes",
+      ]) &&
+      commitValue.schema === "crdd-coordinator-durable-json-commit/v1" &&
+      commitValue.logicalKey === evidence.logicalKey &&
+      commitValue.contentHash === evidence.contentHash &&
+      commitValue.contentIdentity === evidence.contentIdentity &&
+      commitValue.contentBytes === evidence.contentBytes
+    );
+  } catch {
+    return false;
+  }
+}
+
+function finalIntentName(anchor: string) {
+  const name = path.basename(anchor);
+  return name.endsWith(INTENT_PENDING_SUFFIX)
+    ? name.slice(0, -INTENT_PENDING_SUFFIX.length)
+    : name;
+}
+
+function validateIntentAnchorName(
+  anchor: string,
+  value: Record<string, unknown>,
+) {
+  const directory = path.dirname(anchor);
+  let digest: string;
+  if (value.schema === "crdd-coordinator-durable-json-delete/v1") {
+    const pair = value.pair as Record<string, unknown>;
+    digest = hashText(
+      `${String(pair.contentName)}\0${String(pair.contentHash)}\0${String(pair.contentIdentity)}`,
+    );
+    if (finalIntentName(anchor) !== `${DELETE_PREFIX}${digest}.json`)
+      throw new Error("docker_recovery_delete_intent_invalid");
+    return;
+  }
+  if (value.schema === "crdd-coordinator-durable-json-move/v1") {
+    const pair = value.pair as Record<string, unknown>;
+    const source = path.join(directory, String(pair.contentName));
+    const target = path.join(
+      String(value.targetDirectory),
+      String(value.targetContentName),
+    );
+    digest = hashText(
+      `${source}\0${target}\0${String(pair.contentHash)}\0${String(pair.contentIdentity)}`,
+    );
+    if (finalIntentName(anchor) !== `${MOVE_PREFIX}${digest}.json`)
+      throw new Error("docker_recovery_move_intent_invalid");
+    return;
+  }
+  digest = hashText(
+    `${String(value.cleanupName)}\0${String(value.cleanupIdentity)}\0${String(value.recoveryId)}`,
   );
+  if (finalIntentName(anchor) !== `${CLEANUP_PREFIX}${digest}.json`)
+    throw new Error("docker_recovery_cleanup_intent_invalid");
+}
+
+function recoveryIdFromIntent(value: Record<string, unknown>) {
+  if (
+    value.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
+    typeof value.recoveryId === "string"
+  )
+    return value.recoveryId;
+  if (
+    value.schema !== "crdd-coordinator-durable-json-delete/v1" &&
+    value.schema !== "crdd-coordinator-durable-json-move/v1"
+  )
+    return null;
+  const pair = value.pair as Record<string, unknown>;
+  try {
+    const content = JSON.parse(String(pair.contentSerialized)) as Record<
+      string,
+      unknown
+    >;
+    if (
+      typeof content.recoveryId === "string" &&
+      /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+        content.recoveryId,
+      )
+    )
+      return content.recoveryId;
+    if (
+      content.schema === "crdd-coordinator-task-docker-recovery/v1" &&
+      typeof content.operationNonce === "string" &&
+      typeof content.stableLogicalHomeBindingHash === "string"
+    ) {
+      const token = `docker-task.${content.stableLogicalHomeBindingHash}.${content.operationNonce}.${String(pair.contentHash)}`;
+      if (
+        /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(token)
+      )
+        return token;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function resumeDeleteAnchor(anchor: string) {
@@ -347,6 +456,7 @@ function validateIntentSnapshot(anchor: string) {
       !validPairEvidence(value.pair)
     )
       throw new Error("docker_recovery_delete_intent_invalid");
+    validateIntentAnchorName(anchor, value);
     return value;
   }
   if (value.schema === "crdd-coordinator-durable-json-move/v1") {
@@ -372,6 +482,7 @@ function validateIntentSnapshot(anchor: string) {
       value.targetCommitName !== `${value.targetContentName}${COMMIT_SUFFIX}`
     )
       throw new Error("docker_recovery_move_intent_invalid");
+    validateIntentAnchorName(anchor, value);
     return value;
   }
   if (
@@ -397,6 +508,7 @@ function validateIntentSnapshot(anchor: string) {
     !value.entries.every(validCleanupEntry)
   )
     throw new Error("docker_recovery_cleanup_intent_invalid");
+  validateIntentAnchorName(anchor, value);
   const cleanupDirectory = path.join(path.dirname(anchor), value.cleanupName);
   if (fs.existsSync(cleanupDirectory)) {
     if (stableDirectoryIdentity(cleanupDirectory) !== value.cleanupIdentity)
@@ -828,11 +940,7 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
     values.push(
       Object.freeze({
         schema,
-        recoveryId:
-          schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
-          typeof value.recoveryId === "string"
-            ? value.recoveryId
-            : null,
+        recoveryId: recoveryIdFromIntent(value),
         name,
       }),
     );
@@ -852,7 +960,8 @@ export function discoverDockerRecoveryJournalJson(
     .sort()) {
     const value = readIntentAnchor(path.join(directory, name));
     if (
-      value.schema !== "crdd-coordinator-durable-json-move/v1" ||
+      (value.schema !== "crdd-coordinator-durable-json-move/v1" &&
+        value.schema !== "crdd-coordinator-durable-json-delete/v1") ||
       !validPairEvidence(value.pair)
     )
       continue;
