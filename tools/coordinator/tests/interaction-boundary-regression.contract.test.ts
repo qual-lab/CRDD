@@ -6,8 +6,10 @@ import test from "node:test";
 import {
   describeInteractiveConsoleContract,
   INTERACTIVE_CONSOLE_CONTRACT,
+  withInteractiveConsoleAsyncUsingAdapter,
   withInteractiveConsoleUsingAdapter,
   writeInteractiveConsoleTextUsingAdapter,
+  writeWindowsTerminalTextUsingStream,
 } from "../src/core/interactive-console.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
@@ -15,6 +17,11 @@ import {
 } from "../src/core/node-runtime-version.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
+
+function resolveDeferredBoolean(resolver: unknown, isResolved: boolean) {
+  assert.equal(typeof resolver, "function");
+  (resolver as (isSuccessful: boolean) => void)(isResolved);
+}
 
 function sourceFiles(root: string): string[] {
   return fs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -27,7 +34,7 @@ function sourceFiles(root: string): string[] {
 test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", () => {
   assert.deepEqual(describeInteractiveConsoleContract(), {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 3,
+    contractRevision: 4,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsUnicodeOutput: "node_unicode_tty_output_required",
     windowsRedirectedOutput: "fail_closed",
@@ -46,7 +53,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   }
 });
 
-test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedとなる", () => {
+test("Windows対話表示はUnicode TTYの完了へ結合しredirect時にFail Closedとなる", async () => {
   function scenario(isWindowsTerminal: boolean) {
     const terminalWrites: string[] = [];
     const descriptorWrites: Array<Readonly<[number, string]>> = [];
@@ -55,8 +62,9 @@ test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedと�
       descriptorWrites,
       adapter: Object.freeze({
         isWindowsTerminal,
-        writeWindowsTerminal: (value: string) => {
+        writeWindowsTerminal: async (value: string) => {
           terminalWrites.push(value);
+          return true;
         },
         writeDescriptor: (descriptor: number, value: string) => {
           descriptorWrites.push(Object.freeze([descriptor, value]));
@@ -67,7 +75,7 @@ test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedと�
 
   const windows = scenario(true);
   assert.equal(
-    writeInteractiveConsoleTextUsingAdapter(
+    await writeInteractiveConsoleTextUsingAdapter(
       "win32",
       12,
       "外部送信を確認",
@@ -80,7 +88,7 @@ test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedと�
 
   const redirected = scenario(false);
   assert.equal(
-    writeInteractiveConsoleTextUsingAdapter(
+    await writeInteractiveConsoleTextUsingAdapter(
       "win32",
       12,
       "外部送信を確認",
@@ -93,7 +101,7 @@ test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedと�
 
   const posix = scenario(false);
   assert.equal(
-    writeInteractiveConsoleTextUsingAdapter(
+    await writeInteractiveConsoleTextUsingAdapter(
       "linux",
       12,
       "外部送信を確認",
@@ -107,12 +115,12 @@ test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedと�
   const failed = scenario(true);
   const failingAdapter = Object.freeze({
     ...failed.adapter,
-    writeWindowsTerminal: () => {
+    writeWindowsTerminal: async () => {
       throw new Error("write failed");
     },
   });
   assert.equal(
-    writeInteractiveConsoleTextUsingAdapter(
+    await writeInteractiveConsoleTextUsingAdapter(
       "win32",
       12,
       "外部送信を確認",
@@ -120,6 +128,102 @@ test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedと�
     ),
     false,
   );
+
+  let completeWrite: ((isSuccessful: boolean) => void) | null = null;
+  const deferredAdapter = Object.freeze({
+    ...scenario(true).adapter,
+    writeWindowsTerminal: () =>
+      new Promise<boolean>((resolve) => {
+        completeWrite = resolve;
+      }),
+  });
+  const pendingWrite = writeInteractiveConsoleTextUsingAdapter(
+    "win32",
+    12,
+    "外部送信を確認",
+    deferredAdapter,
+  );
+  let isWriteCompleted = false;
+  void pendingWrite.then(() => {
+    isWriteCompleted = true;
+  });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(isWriteCompleted, false);
+  resolveDeferredBoolean(completeWrite, true);
+  assert.equal(await pendingWrite, true);
+});
+
+test("Windows TTY writeのcallback・stream error・backpressureを一度だけ完了させる", async () => {
+  function streamScenario(
+    outcome: "success" | "callback_error" | "stream_error" | "throw",
+    isTTY = true,
+  ) {
+    let errorListener: (() => void) | null = null;
+    let removeCount = 0;
+    const values: string[] = [];
+    const stream = Object.freeze({
+      isTTY,
+      destroyed: false,
+      writable: true,
+      once: (_event: "error", listener: () => void) => {
+        errorListener = listener;
+      },
+      removeListener: (_event: "error", listener: () => void) => {
+        if (errorListener === listener) errorListener = null;
+        removeCount += 1;
+      },
+      write: (value: string, callback: (error?: Error | null) => void) => {
+        values.push(value);
+        if (outcome === "throw") throw new Error("write failed");
+        setImmediate(() => {
+          if (outcome === "stream_error") errorListener?.();
+          else
+            callback(
+              outcome === "callback_error"
+                ? new Error("callback failed")
+                : null,
+            );
+        });
+        return false;
+      },
+    });
+    return {
+      stream,
+      values,
+      removeCount: () => removeCount,
+      errorListener: () => errorListener,
+    };
+  }
+
+  for (const [outcome, isExpected] of [
+    ["success", true],
+    ["callback_error", false],
+    ["stream_error", false],
+    ["throw", false],
+  ] as const) {
+    const scenario = streamScenario(outcome);
+    assert.equal(
+      await writeWindowsTerminalTextUsingStream(
+        "外部送信を確認",
+        scenario.stream,
+      ),
+      isExpected,
+      outcome,
+    );
+    assert.deepEqual(scenario.values, ["外部送信を確認"]);
+    assert.equal(scenario.removeCount(), 1);
+    assert.equal(scenario.errorListener(), null);
+  }
+
+  const redirected = streamScenario("success", false);
+  assert.equal(
+    await writeWindowsTerminalTextUsingStream(
+      "外部送信を確認",
+      redirected.stream,
+    ),
+    false,
+  );
+  assert.deepEqual(redirected.values, []);
 });
 
 test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じる", () => {
@@ -224,6 +328,61 @@ test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで�
     );
     assert.deepEqual(closeFailure.closedDescriptors, [11, 12]);
   }
+});
+
+test("非同期対話処理が完了するまで両OS deviceを保持してから回収する", async () => {
+  const closedDescriptors: number[] = [];
+  let completeOperation: ((isSuccessful: boolean) => void) | null = null;
+  const adapter = Object.freeze({
+    open: (device: string) => (device.endsWith("CONIN$") ? 11 : 12),
+    close: (descriptor: number) => {
+      closedDescriptors.push(descriptor);
+    },
+  });
+  const pendingOperation = withInteractiveConsoleAsyncUsingAdapter(
+    "win32",
+    adapter,
+    () =>
+      new Promise<boolean>((resolve) => {
+        completeOperation = resolve;
+      }),
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(closedDescriptors, []);
+  resolveDeferredBoolean(completeOperation, true);
+  assert.equal(await pendingOperation, true);
+  assert.deepEqual(closedDescriptors, [11, 12]);
+
+  closedDescriptors.length = 0;
+  assert.equal(
+    await withInteractiveConsoleAsyncUsingAdapter(
+      "win32",
+      adapter,
+      async () => {
+        throw new Error("operation failed");
+      },
+    ),
+    null,
+  );
+  assert.deepEqual(closedDescriptors, [11, 12]);
+
+  const closeFailureClosedDescriptors: number[] = [];
+  const closeFailureAdapter = Object.freeze({
+    ...adapter,
+    close: (descriptor: number) => {
+      closeFailureClosedDescriptors.push(descriptor);
+      if (descriptor === 11) throw new Error("close failed");
+    },
+  });
+  assert.equal(
+    await withInteractiveConsoleAsyncUsingAdapter(
+      "win32",
+      closeFailureAdapter,
+      async () => true,
+    ),
+    null,
+  );
+  assert.deepEqual(closeFailureClosedDescriptors, [11, 12]);
 });
 
 test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入しない", () => {

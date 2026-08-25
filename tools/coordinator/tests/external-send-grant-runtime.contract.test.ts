@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   compileExternalSendScopeHash,
+  confirmInteractiveConsoleChallengeUsingAdapter,
   createIsolatedExternalSendGrantRuntimeCandidate,
   describeExternalSendGrantRuntimeContract,
 } from "../src/security/external-send-grant-runtime.ts";
@@ -13,6 +14,11 @@ const SCOPE = Object.freeze({
   allowedPaths: Object.freeze(["fixture.txt"]),
   readPaths: Object.freeze(["fixture.txt", "README.md"]),
 });
+
+function resolveDeferredBoolean(resolver: unknown, isResolved: boolean) {
+  assert.equal(typeof resolver, "function");
+  (resolver as (isSuccessful: boolean) => void)(isResolved);
+}
 
 function fixture(shouldConfirm = true) {
   const managementCapability = Object.freeze({});
@@ -92,7 +98,7 @@ function fixture(shouldConfirm = true) {
             ]),
           })
         : null,
-    confirm: (notice: string, challenge: string) => {
+    confirm: async (notice: string, challenge: string) => {
       notices.push(`${notice}\nchallenge=${challenge}`);
       return shouldConfirm;
     },
@@ -121,9 +127,98 @@ function fixture(shouldConfirm = true) {
   };
 }
 
-test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合する", () => {
+test("承認表示完了後だけchallengeを読み最終表示完了後だけ成功する", async () => {
+  const challenge = "123456";
+  const inputBytes = [...Buffer.from(`${challenge}\n`, "utf8")];
+  const readValues: number[] = [];
+  const writtenValues: string[] = [];
+  let completePrompt: ((isSuccessful: boolean) => void) | null = null;
+  let completeNewline: ((isSuccessful: boolean) => void) | null = null;
+  const confirmation = confirmInteractiveConsoleChallengeUsingAdapter(
+    "確認対象",
+    challenge,
+    Object.freeze({ input: 11, output: 12 }),
+    Object.freeze({
+      writeText: (_descriptor: number, value: string) => {
+        writtenValues.push(value);
+        return new Promise<boolean>((resolve) => {
+          if (writtenValues.length === 1) completePrompt = resolve;
+          else completeNewline = resolve;
+        });
+      },
+      readByte: async () => {
+        const value = inputBytes.shift() ?? null;
+        if (value !== null) readValues.push(value);
+        return value;
+      },
+    }),
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(readValues, []);
+  resolveDeferredBoolean(completePrompt, true);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(readValues, [...Buffer.from(`${challenge}\n`, "utf8")]);
+  assert.equal(typeof completeNewline, "function");
+  let isConfirmationCompleted = false;
+  void confirmation.then(() => {
+    isConfirmationCompleted = true;
+  });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(isConfirmationCompleted, false);
+  resolveDeferredBoolean(completeNewline, true);
+  assert.equal(await confirmation, true);
+});
+
+test("承認表示・入力・最終表示の各失敗をGrant候補へ進めない", async () => {
+  const handles = Object.freeze({ input: 11, output: 12 });
+  let readCount = 0;
+  assert.equal(
+    await confirmInteractiveConsoleChallengeUsingAdapter(
+      "確認対象",
+      "123456",
+      handles,
+      Object.freeze({
+        writeText: async () => false,
+        readByte: async () => {
+          readCount += 1;
+          return 0x0a;
+        },
+      }),
+    ),
+    false,
+  );
+  assert.equal(readCount, 0);
+
+  for (const scenario of ["cancelled", "newline", "incorrect"] as const) {
+    const inputBytes =
+      scenario === "cancelled"
+        ? []
+        : [
+            ...Buffer.from(
+              `${scenario === "incorrect" ? "654321" : "123456"}\n`,
+            ),
+          ];
+    let writeCount = 0;
+    const isConfirmed = await confirmInteractiveConsoleChallengeUsingAdapter(
+      "確認対象",
+      "123456",
+      handles,
+      Object.freeze({
+        writeText: async () => {
+          writeCount += 1;
+          return scenario !== "newline" || writeCount === 1;
+        },
+        readByte: async () => inputBytes.shift() ?? null,
+      }),
+    );
+    assert.equal(isConfirmed, false, scenario);
+    assert.equal(writeCount, scenario === "cancelled" ? 1 : 2, scenario);
+  }
+});
+
+test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合する", async () => {
   const current = fixture();
-  const issued = current.runtime.request(
+  const issued = await current.runtime.request(
     current.managementCapability,
     current.repositoryBindingCapability,
     current.policyCapability,
@@ -186,10 +281,10 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
   );
 });
 
-test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しない", () => {
+test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しない", async () => {
   const denied = fixture(false);
   assert.equal(
-    denied.runtime.request(
+    await denied.runtime.request(
       denied.managementCapability,
       denied.repositoryBindingCapability,
       denied.policyCapability,
@@ -201,7 +296,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
   for (const scenario of ["expired", "revision", "scope"] as const) {
     const current = fixture();
-    const issued = current.runtime.request(
+    const issued = await current.runtime.request(
       current.managementCapability,
       current.repositoryBindingCapability,
       current.policyCapability,
@@ -232,7 +327,11 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
+  assert.equal(
+    contract.interactiveConfirmation,
+    "async_prompt_completion_input_final_output_and_console_cleanup",
+  );
   assert.equal(contract.maximumUses, 4);
   assert.equal(contract.lifetimeMs, 1_500_000);
   assert.equal(contract.callerPolicyStringAcceptedAsAuthority, false);
@@ -241,7 +340,7 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
   assert.equal(contract.reviewerMessageTextForwarded, false);
 });
 
-test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", () => {
+test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", async () => {
   const left = {
     objective: "Update fixture.\nDo not widen scope.\u202e",
     acceptanceCriteria: ["a"],
@@ -259,7 +358,7 @@ test("配列境界を含むScope Hashは一意で、承認表示に全送信fiel
     compileExternalSendScopeHash(right),
   );
   const current = fixture();
-  const issued = current.runtime.request(
+  const issued = await current.runtime.request(
     current.managementCapability,
     current.repositoryBindingCapability,
     current.policyCapability,

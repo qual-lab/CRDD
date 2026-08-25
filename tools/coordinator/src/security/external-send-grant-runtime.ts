@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { performance } from "node:perf_hooks";
 
 import {
-  withInteractiveConsole,
+  withInteractiveConsoleAsync,
   writeInteractiveConsoleText,
 } from "../core/interactive-console.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
@@ -16,7 +16,7 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 3;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 4;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -59,7 +59,7 @@ type RuntimeDependencies = Readonly<{
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   verifyRepository: typeof verifyRuntimeOwnedRepositoryBindingCapability;
   verifyPolicy: typeof verifyRuntimeOwnedExternalSendPolicy;
-  confirm: (notice: string, challenge: string) => boolean;
+  confirm: (notice: string, challenge: string) => Promise<boolean>;
   wallNow: () => number;
   monotonicNow: () => number;
   randomChallenge: () => string;
@@ -150,29 +150,79 @@ function terminalSafeJson(value: unknown) {
   );
 }
 
-function consoleConfirmation(notice: string, challenge: string) {
+type ConsoleConfirmationAdapter = Readonly<{
+  writeText: (outputDescriptor: number, value: string) => Promise<boolean>;
+  readByte: (inputDescriptor: number, buffer: Buffer) => Promise<number | null>;
+}>;
+
+function readConsoleByte(inputDescriptor: number, buffer: Buffer) {
+  return new Promise<number | null>((resolve) => {
+    let isSettled = false;
+    const settle = (value: number | null) => {
+      if (isSettled) return;
+      isSettled = true;
+      process.removeListener("SIGINT", onCancel);
+      process.removeListener("SIGTERM", onCancel);
+      resolve(value);
+    };
+    const onCancel = () => settle(null);
+    process.once("SIGINT", onCancel);
+    process.once("SIGTERM", onCancel);
+    try {
+      fs.read(inputDescriptor, buffer, 0, 1, null, (error, bytesRead) => {
+        if (error || bytesRead !== 1) {
+          settle(null);
+          return;
+        }
+        settle(buffer[0] as number);
+      });
+    } catch {
+      settle(null);
+    }
+  });
+}
+
+export async function confirmInteractiveConsoleChallengeUsingAdapter(
+  notice: string,
+  challenge: string,
+  handles: Readonly<{ input: number; output: number }>,
+  adapter: ConsoleConfirmationAdapter,
+) {
+  if (
+    !(await adapter.writeText(
+      handles.output,
+      `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
+    ))
+  ) {
+    return false;
+  }
+  const bytes: number[] = [];
+  const buffer = Buffer.alloc(1);
+  while (bytes.length <= 64) {
+    const value = await adapter.readByte(handles.input, buffer);
+    if (value === null) return false;
+    if (value === 0x0a) break;
+    if (value !== 0x0d) bytes.push(value);
+  }
   return (
-    withInteractiveConsole(({ input, output }) => {
-      if (
-        !writeInteractiveConsoleText(
-          output,
-          `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
-        )
-      ) {
-        return false;
-      }
-      const bytes: number[] = [];
-      const buffer = Buffer.alloc(1);
-      while (bytes.length <= 64) {
-        const readBytes = fs.readSync(input, buffer, 0, 1, null);
-        if (readBytes !== 1 || buffer[0] === 0x0a) break;
-        if (buffer[0] !== 0x0d) bytes.push(buffer[0] as number);
-      }
-      return (
-        writeInteractiveConsoleText(output, "\n") &&
-        Buffer.from(bytes).toString("utf8") === challenge
-      );
-    }) ?? false
+    (await adapter.writeText(handles.output, "\n")) &&
+    Buffer.from(bytes).toString("utf8") === challenge
+  );
+}
+
+async function consoleConfirmation(notice: string, challenge: string) {
+  return (
+    (await withInteractiveConsoleAsync((handles) =>
+      confirmInteractiveConsoleChallengeUsingAdapter(
+        notice,
+        challenge,
+        handles,
+        Object.freeze({
+          writeText: writeInteractiveConsoleText,
+          readByte: readConsoleByte,
+        }),
+      ),
+    )) ?? false
   );
 }
 
@@ -192,7 +242,7 @@ const productionState = createState(
   }),
 );
 
-function requestGrant(
+async function requestGrant(
   state: RuntimeState,
   managementCapability: unknown,
   repositoryBindingCapability: unknown,
@@ -281,7 +331,7 @@ function requestGrant(
       terminalSafeJson(displayedAuthorization),
       "対象内容はProviderへ送信され、Subscription枠を消費する可能性があります。API key fallbackと追加購入は行いません。",
     ].join("\n");
-    if (!state.dependencies.confirm(notice, challenge)) return null;
+    if (!(await state.dependencies.confirm(notice, challenge))) return null;
     const capability = Object.freeze({});
     state.grants.set(capability, {
       managementCapability,
@@ -473,6 +523,8 @@ export function describeExternalSendGrantRuntimeContract() {
     contractRevision: EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION,
     authoritySource:
       "authenticated_local_user_interactive_console_confirmation",
+    interactiveConfirmation:
+      "async_prompt_completion_input_final_output_and_console_cleanup",
     binding: Object.freeze([
       "operation",
       "repository_identity",

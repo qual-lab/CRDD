@@ -134,7 +134,7 @@ type RuntimeDependencies = Readonly<{
     policyCapability: object,
     scope: RuntimeRecord,
     providers: readonly Provider[],
-  ) => RuntimeRecord | null;
+  ) => RuntimeRecord | null | Promise<RuntimeRecord | null>;
   resolveExternalSendPolicy: (
     managementCapability: object,
     repositoryBindingCapability: object,
@@ -840,7 +840,7 @@ async function runCoordinatorTask(
         stringValue(candidateStore.candidateStoreRecoveryId),
       );
     }
-    const externalSendGrant = state.dependencies.authorizeExternalSend(
+    const externalSendGrant = await state.dependencies.authorizeExternalSend(
       operation.managementCapability,
       repositoryBinding,
       externalSendPolicyCapability,
