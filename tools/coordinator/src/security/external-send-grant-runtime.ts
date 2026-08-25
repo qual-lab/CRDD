@@ -2,6 +2,7 @@ import { createHash, randomInt } from "node:crypto";
 import fs from "node:fs";
 import { performance } from "node:perf_hooks";
 
+import { withInteractiveConsole } from "../core/interactive-console.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { verifyRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
@@ -147,34 +148,25 @@ function terminalSafeJson(value: unknown) {
 }
 
 function consoleConfirmation(notice: string, challenge: string) {
-  const inputName = process.platform === "win32" ? "CONIN$" : "/dev/tty";
-  const outputName = process.platform === "win32" ? "CONOUT$" : "/dev/tty";
-  let input: number | null = null;
-  let output: number | null = null;
-  try {
-    input = fs.openSync(inputName, "r");
-    output = fs.openSync(outputName, "w");
-    fs.writeSync(
-      output,
-      `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
-      null,
-      "utf8",
-    );
-    const bytes: number[] = [];
-    const buffer = Buffer.alloc(1);
-    while (bytes.length <= 64) {
-      const readBytes = fs.readSync(input, buffer, 0, 1, null);
-      if (readBytes !== 1 || buffer[0] === 0x0a) break;
-      if (buffer[0] !== 0x0d) bytes.push(buffer[0] as number);
-    }
-    fs.writeSync(output, "\n", null, "utf8");
-    return Buffer.from(bytes).toString("utf8") === challenge;
-  } catch {
-    return false;
-  } finally {
-    if (input !== null) fs.closeSync(input);
-    if (output !== null) fs.closeSync(output);
-  }
+  return (
+    withInteractiveConsole(({ input, output }) => {
+      fs.writeSync(
+        output,
+        `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
+        null,
+        "utf8",
+      );
+      const bytes: number[] = [];
+      const buffer = Buffer.alloc(1);
+      while (bytes.length <= 64) {
+        const readBytes = fs.readSync(input, buffer, 0, 1, null);
+        if (readBytes !== 1 || buffer[0] === 0x0a) break;
+        if (buffer[0] !== 0x0d) bytes.push(buffer[0] as number);
+      }
+      fs.writeSync(output, "\n", null, "utf8");
+      return Buffer.from(bytes).toString("utf8") === challenge;
+    }) ?? false
+  );
 }
 
 function createState(dependencies: RuntimeDependencies): RuntimeState {

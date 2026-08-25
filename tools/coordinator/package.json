@@ -48,7 +48,7 @@
     "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
   },
   "engines": {
-    "node": ">=24.12"
+    "node": ">=24.12.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",

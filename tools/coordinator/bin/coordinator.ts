@@ -16,6 +16,7 @@ import {
 } from "../src/core/command-report.ts";
 import { runDoctor } from "../src/core/doctor.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
+import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
@@ -396,7 +397,20 @@ function runInactiveEffectCommand(
 
 const [, , command, ...args] = process.argv;
 
-if (
+if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
+  const report = Object.freeze({
+    status: "blocked" as const,
+    reason: "coordinator_node_version_unsupported",
+  });
+  if (args.includes("--json")) {
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+  } else {
+    process.stderr.write(
+      "Coordinator Runtime requires a preverified Node.js 24.12.0 or newer executable.\n",
+    );
+  }
+  process.exitCode = 2;
+} else if (
   !command ||
   command === "help" ||
   command === "--help" ||

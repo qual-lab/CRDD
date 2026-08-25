@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
 
+import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
+
 import {
   cleanupOwnedOperationDirectories,
   createOwnedOperationDirectories,
@@ -283,13 +285,7 @@ function probeGitRepository(cwd: string) {
   };
 }
 
-export function isSupportedNodeVersion(version: string): boolean {
-  const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.exec(version);
-  if (!match) return false;
-  const major = Number(match[1]);
-  const minor = Number(match[2]);
-  return major > 24 || (major === 24 && minor >= 12);
-}
+export const isSupportedNodeVersion = isSupportedCoordinatorNodeRuntime;
 
 function nodeSupported(): boolean {
   return isSupportedNodeVersion(process.versions.node);

@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readHiddenLine } from "./generate-release-key.ts";
+import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import {
   beginReleaseStagingManifestSession,
   placeReleaseStagingManifestCandidate,
@@ -338,6 +339,7 @@ function parseArguments(args: readonly string[]) {
 }
 
 async function main() {
+  assertSupportedCoordinatorNodeRuntime(process.versions.node);
   const options = parseArguments(process.argv.slice(2));
   const passphrase = await readHiddenLine("Release key passphrase: ");
   const result = signReleaseManifest({ ...options, passphrase });

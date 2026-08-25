@@ -11,6 +11,11 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
+import {
+  isSupportedCoordinatorNodeRuntime,
+  MINIMUM_COORDINATOR_NODE_VERSION,
+} from "../src/core/node-runtime-version.ts";
+import { interactiveConsoleAvailable } from "../src/core/interactive-console.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 
@@ -22,9 +27,22 @@ const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+type ReleaseIdentity = RuntimeRecord &
+  Readonly<{
+    manifestHash: string;
+    packageContentRootSha256: string;
+    crddVersion: string;
+    releaseSequence: number;
+    crddCommit: string;
+    crddTree: string;
+  }>;
 type StartedTask = Readonly<{
   controlCapability: object;
   completion: Promise<RuntimeRecord>;
+}>;
+type CancellationBinding = Readonly<{
+  unbind: () => void;
+  requested: () => boolean;
 }>;
 type VerificationDependencies = Readonly<{
   verifyPackage: (input: Readonly<{ evaluationTime: string }>) => RuntimeRecord;
@@ -33,10 +51,12 @@ type VerificationDependencies = Readonly<{
   readCandidate: (candidateId: string) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
   now: () => string;
+  runtimeVersion: () => string;
+  inspectInteractiveConsole: () => boolean;
   bindCancellation: (
     controlCapability: object,
     cancel: (controlCapability: object) => unknown,
-  ) => () => void;
+  ) => CancellationBinding;
 }>;
 
 const productionDependencies: VerificationDependencies = Object.freeze({
@@ -46,16 +66,23 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   readCandidate: readRuntimeOwnedCandidateBundle,
   discardCandidate: discardRuntimeOwnedCandidateBundle,
   now: () => new Date().toISOString(),
+  runtimeVersion: () => process.versions.node,
+  inspectInteractiveConsole: interactiveConsoleAvailable,
   bindCancellation: (controlCapability, cancel) => {
+    let isRequested = false;
     const requestCancellation = () => {
+      isRequested = true;
       void cancel(controlCapability);
     };
     process.on("SIGINT", requestCancellation);
     process.on("SIGTERM", requestCancellation);
-    return () => {
-      process.removeListener("SIGINT", requestCancellation);
-      process.removeListener("SIGTERM", requestCancellation);
-    };
+    return Object.freeze({
+      unbind: () => {
+        process.removeListener("SIGINT", requestCancellation);
+        process.removeListener("SIGTERM", requestCancellation);
+      },
+      requested: () => isRequested,
+    });
   },
 });
 
@@ -93,12 +120,12 @@ function plainRecord(value: unknown): RuntimeRecord | null {
   }
 }
 
-function exactStringArray(value: unknown, expected: readonly string[]) {
-  const snapshot = snapshotPlainArray<unknown>(value, expected.length);
+function exactStringArray(value: unknown, expectedValues: readonly string[]) {
+  const snapshot = snapshotPlainArray<unknown>(value, expectedValues.length);
   return (
     snapshot.status === "ok" &&
-    snapshot.value.length === expected.length &&
-    expected.every((item, index) => snapshot.value[index] === item)
+    snapshot.value.length === expectedValues.length &&
+    expectedValues.every((item, index) => snapshot.value[index] === item)
   );
 }
 
@@ -106,6 +133,14 @@ function safeReason(value: unknown, fallback: string) {
   return typeof value === "string" && /^[a-z0-9_]+$/u.test(value)
     ? value
     : fallback;
+}
+
+function sha256(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
+}
+
+function gitObjectId(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{40}$/u.test(value);
 }
 
 function recoveryProjection(result: RuntimeRecord | null) {
@@ -145,13 +180,13 @@ function blocked(
   source: RuntimeRecord | null = null,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
-  const canonicalRepositoryChanged =
+  const wasCanonicalRepositoryChanged =
     source?.canonicalRepositoryChanged === true
       ? true
       : source?.canonicalRepositoryChanged === false
         ? false
-        : extra.canonicalRepositoryChanged === false
-          ? false
+        : typeof extra.canonicalRepositoryChanged === "boolean"
+          ? extra.canonicalRepositoryChanged
           : null;
   return Object.freeze({
     contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -160,7 +195,7 @@ function blocked(
     reason,
     ...recoveryProjection(source),
     ...extra,
-    canonicalRepositoryChanged,
+    canonicalRepositoryChanged: wasCanonicalRepositoryChanged,
     rawProviderOutputReported: false,
     hostPathReported: false,
     credentialReported: false,
@@ -189,9 +224,23 @@ export function createSignedGeneralTaskVerificationRequest() {
   });
 }
 
-function verifiedPackage(release: RuntimeRecord | null) {
+function verifiedPackage(
+  release: RuntimeRecord | null,
+): release is ReleaseIdentity {
   return (
     release?.status === "candidate" &&
+    release.stableFilesystemIdentityObserved === true &&
+    release.runtimeOwnedPackageRoot === true &&
+    sha256(release.manifestHash) &&
+    sha256(release.packageContentRootSha256) &&
+    typeof release.crddVersion === "string" &&
+    /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(
+      release.crddVersion,
+    ) &&
+    Number.isSafeInteger(release.releaseSequence) &&
+    Number(release.releaseSequence) >= 1 &&
+    gitObjectId(release.crddCommit) &&
+    gitObjectId(release.crddTree) &&
     release.qualLabManifestCryptographicMatch === true &&
     release.runtimeOwnedReleaseTrustConfirmed === true &&
     release.releaseIdentityRuntimeOwned === true &&
@@ -199,10 +248,14 @@ function verifiedPackage(release: RuntimeRecord | null) {
   );
 }
 
-function verifiedTaskResult(result: RuntimeRecord | null) {
+function verifiedTaskResult(
+  result: RuntimeRecord | null,
+  release: ReleaseIdentity,
+) {
   const candidateRevision = plainRecord(result?.candidateRevision);
   const executorResult = plainRecord(result?.executorResult);
   const reviewerResult = plainRecord(result?.reviewerResult);
+  if (!candidateRevision) return false;
   return (
     result?.status === "completed" &&
     result.reason === "coordinator_task_candidate_approved" &&
@@ -210,6 +263,11 @@ function verifiedTaskResult(result: RuntimeRecord | null) {
     result.manualRecoveryRequired === false &&
     result.executorProvider === "claude" &&
     result.reviewerProvider === "codex" &&
+    candidateRevision?.baseCommit === release?.crddCommit &&
+    candidateRevision.baseTree === release.crddTree &&
+    sha256(candidateRevision.patchHash) &&
+    sha256(candidateRevision.contentManifestHash) &&
+    sha256(candidateRevision.allowedPathsHash) &&
     exactStringArray(candidateRevision?.changedPaths, [TARGET_PATH]) &&
     exactStringArray(executorResult?.changedPaths, [TARGET_PATH]) &&
     reviewerResult?.decision === "approved" &&
@@ -230,8 +288,10 @@ function verifiedTaskResult(result: RuntimeRecord | null) {
 function verifiedCandidate(
   candidate: RuntimeRecord | null,
   candidateId: string,
+  taskResult: RuntimeRecord | null,
 ) {
   const bundle = plainRecord(candidate?.bundle);
+  const candidateRevision = plainRecord(taskResult?.candidateRevision);
   const entries = snapshotPlainArray<unknown>(bundle?.entries, 1);
   const entry =
     entries.status === "ok" && entries.value.length === 1
@@ -242,6 +302,17 @@ function verifiedCandidate(
     candidate?.status !== "exported" ||
     candidate.candidateId !== candidateId ||
     bundle?.schema !== "crdd-coordinator-candidate-bundle/v1" ||
+    !gitObjectId(bundle.baseCommit) ||
+    !gitObjectId(bundle.baseTree) ||
+    !sha256(bundle.baseManifestHash) ||
+    !sha256(bundle.patchHash) ||
+    !sha256(bundle.contentManifestHash) ||
+    !sha256(bundle.allowedPathsHash) ||
+    bundle.baseCommit !== candidateRevision?.baseCommit ||
+    bundle.baseTree !== candidateRevision.baseTree ||
+    bundle.patchHash !== candidateRevision.patchHash ||
+    bundle.contentManifestHash !== candidateRevision.contentManifestHash ||
+    bundle.allowedPathsHash !== candidateRevision.allowedPathsHash ||
     !exactStringArray(bundle.changedPaths, [TARGET_PATH]) ||
     !entry ||
     entry.relativePath !== TARGET_PATH ||
@@ -252,8 +323,23 @@ function verifiedCandidate(
   ) {
     return false;
   }
+  const expectedPatchHash = createHash("sha256")
+    .update("crdd-candidate-revision-v1\0")
+    .update(bundle.baseCommit)
+    .update("\0")
+    .update(bundle.baseTree)
+    .update("\0")
+    .update(bundle.baseManifestHash)
+    .update("\0")
+    .update(bundle.contentManifestHash)
+    .update("\0")
+    .update(bundle.allowedPathsHash)
+    .update("\0")
+    .update(TARGET_PATH)
+    .digest("hex");
   const content = Buffer.from(contentBase64, "base64");
   return (
+    bundle.patchHash === expectedPatchHash &&
     content.toString("base64") === contentBase64 &&
     content.equals(Buffer.from(EXPECTED_CONTENT, "utf8")) &&
     entry.byteLength === content.byteLength &&
@@ -272,9 +358,38 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
-  const release = plainRecord(
-    dependencies.verifyPackage({ evaluationTime: dependencies.now() }),
-  );
+  let isSupportedRuntime = false;
+  let isInteractiveConsoleAvailable = false;
+  try {
+    isSupportedRuntime = isSupportedCoordinatorNodeRuntime(
+      dependencies.runtimeVersion(),
+    );
+    isInteractiveConsoleAvailable = dependencies.inspectInteractiveConsole();
+  } catch {
+    // The explicit prerequisites remain unconfirmed.
+  }
+  if (!isSupportedRuntime) {
+    return blocked(
+      "signed_general_task_node_version_unsupported",
+      null,
+      Object.freeze({ canonicalRepositoryChanged: false }),
+    );
+  }
+  if (!isInteractiveConsoleAvailable) {
+    return blocked(
+      "signed_general_task_interactive_console_required",
+      null,
+      Object.freeze({ canonicalRepositoryChanged: false }),
+    );
+  }
+  let release: RuntimeRecord | null = null;
+  try {
+    release = plainRecord(
+      dependencies.verifyPackage({ evaluationTime: dependencies.now() }),
+    );
+  } catch {
+    // The package verifier result remains unavailable and cannot open the gate.
+  }
   if (!verifiedPackage(release)) {
     return blocked(
       "signed_general_task_release_verification_failed",
@@ -302,83 +417,125 @@ export async function runSignedGeneralTaskVerification(
   );
   let taskResult: RuntimeRecord | null = null;
   try {
-    taskResult = plainRecord(await started.completion);
-  } catch {
-    return blocked(
-      "signed_general_task_completion_failed_closed",
-      null,
-      Object.freeze({ manualRecoveryRequired: true }),
-    );
+    try {
+      taskResult = plainRecord(await started.completion);
+    } catch {
+      return blocked(
+        "signed_general_task_completion_failed_closed",
+        null,
+        Object.freeze({ manualRecoveryRequired: true }),
+      );
+    }
+
+    if (!taskResult) {
+      return blocked(
+        "signed_general_task_result_contract_mismatch",
+        null,
+        Object.freeze({ manualRecoveryRequired: true }),
+      );
+    }
+
+    const candidateId = taskResult.candidateId;
+    let isCandidateVerified = false;
+    let discarded: RuntimeRecord | null = null;
+    if (typeof candidateId === "string") {
+      try {
+        const candidate = plainRecord(dependencies.readCandidate(candidateId));
+        isCandidateVerified = verifiedCandidate(
+          candidate,
+          candidateId,
+          taskResult,
+        );
+      } catch {
+        isCandidateVerified = false;
+      }
+      try {
+        discarded = plainRecord(dependencies.discardCandidate(candidateId));
+      } catch {
+        discarded = null;
+      }
+      if (discarded?.status !== "discarded") {
+        return blocked(
+          "signed_general_task_candidate_discard_failed",
+          discarded,
+          Object.freeze({
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            candidateIdForManualDiscard: candidateId,
+            canonicalRepositoryChanged:
+              taskResult.canonicalRepositoryChanged === true
+                ? true
+                : taskResult.canonicalRepositoryChanged === false
+                  ? false
+                  : null,
+          }),
+        );
+      }
+    }
+
+    if (!verifiedTaskResult(taskResult, release)) {
+      return blocked(
+        taskResult?.status === "blocked"
+          ? safeReason(
+              taskResult.reason,
+              "signed_general_task_result_contract_mismatch",
+            )
+          : "signed_general_task_result_contract_mismatch",
+        taskResult,
+        Object.freeze({
+          candidateDiscarded: discarded?.status === "discarded",
+        }),
+      );
+    }
+    if (typeof candidateId !== "string") {
+      return blocked("signed_general_task_candidate_id_missing", taskResult);
+    }
+    if (!isCandidateVerified) {
+      return blocked(
+        "signed_general_task_candidate_content_mismatch",
+        taskResult,
+        Object.freeze({ candidateDiscarded: true }),
+      );
+    }
+    if (unbindCancellation.requested()) {
+      return blocked(
+        "signed_general_task_cancelled",
+        taskResult,
+        Object.freeze({ candidateDiscarded: true }),
+      );
+    }
+
+    return Object.freeze({
+      contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
+      contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
+      status: "completed" as const,
+      reason: "signed_general_task_verification_completed",
+      manifestHash: release.manifestHash,
+      packageContentRootSha256: release.packageContentRootSha256,
+      crddVersion: release.crddVersion,
+      releaseSequence: release.releaseSequence,
+      crddCommit: release.crddCommit,
+      crddTree: release.crddTree,
+      executorProvider: "claude" as const,
+      reviewerProvider: "codex" as const,
+      changedPaths: Object.freeze([TARGET_PATH]),
+      exactCandidateContentVerified: true,
+      candidateDiscarded: true,
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      hostRecoveryId: null,
+      dockerRecoveryId: null,
+      dockerRecoveryIds: Object.freeze([]),
+      candidateRecoveryId: null,
+      candidateStoreRecoveryId: null,
+      canonicalRepositoryChanged: false,
+      rawProviderOutputReported: false,
+      hostPathReported: false,
+      credentialReported: false,
+    });
   } finally {
-    unbindCancellation();
+    unbindCancellation.unbind();
   }
-  if (!verifiedTaskResult(taskResult)) {
-    return blocked(
-      taskResult?.status === "blocked"
-        ? safeReason(
-            taskResult.reason,
-            "signed_general_task_result_contract_mismatch",
-          )
-        : "signed_general_task_result_contract_mismatch",
-      taskResult,
-    );
-  }
-
-  const candidateId = taskResult?.candidateId;
-  if (typeof candidateId !== "string") {
-    return blocked("signed_general_task_candidate_id_missing", taskResult);
-  }
-  const candidate = plainRecord(dependencies.readCandidate(candidateId));
-  const candidateVerified = verifiedCandidate(candidate, candidateId);
-  const discarded = plainRecord(dependencies.discardCandidate(candidateId));
-  if (discarded?.status !== "discarded") {
-    return blocked(
-      "signed_general_task_candidate_discard_failed",
-      discarded,
-      Object.freeze({
-        cleanupConfirmed: false,
-        manualRecoveryRequired: true,
-        candidateIdForManualDiscard: candidateId,
-        canonicalRepositoryChanged: false,
-      }),
-    );
-  }
-  if (!candidateVerified) {
-    return blocked(
-      "signed_general_task_candidate_content_mismatch",
-      taskResult,
-    );
-  }
-
-  return Object.freeze({
-    contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
-    contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
-    status: "completed" as const,
-    reason: "signed_general_task_verification_completed",
-    crddVersion:
-      typeof release?.crddVersion === "string" ? release.crddVersion : null,
-    releaseSequence:
-      Number.isSafeInteger(release?.releaseSequence) &&
-      Number(release?.releaseSequence) >= 1
-        ? release?.releaseSequence
-        : null,
-    executorProvider: "claude" as const,
-    reviewerProvider: "codex" as const,
-    changedPaths: Object.freeze([TARGET_PATH]),
-    exactCandidateContentVerified: true,
-    candidateDiscarded: true,
-    cleanupConfirmed: true,
-    manualRecoveryRequired: false,
-    hostRecoveryId: null,
-    dockerRecoveryId: null,
-    dockerRecoveryIds: Object.freeze([]),
-    candidateRecoveryId: null,
-    candidateStoreRecoveryId: null,
-    canonicalRepositoryChanged: false,
-    rawProviderOutputReported: false,
-    hostPathReported: false,
-    credentialReported: false,
-  });
 }
 
 export function describeSignedGeneralTaskVerificationContract() {
@@ -386,6 +543,9 @@ export function describeSignedGeneralTaskVerificationContract() {
     contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     invocation: "direct_repository_owned_node_entrypoint",
+    minimumNodeVersion: MINIMUM_COORDINATOR_NODE_VERSION,
+    nodeSelection: "absolute_preverified_executable_only",
+    interactiveConsolePreflight: "required_before_release_verification",
     requestConstruction: "fixed_public_request_constructed_in_process",
     requestShellTransportAllowed: false,
     powershellTextPipelineAllowed: false,
@@ -417,7 +577,17 @@ if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
       error instanceof Error ? error.message : null,
       "signed_general_task_verification_failed_closed",
     );
-    process.stdout.write(`${JSON.stringify(blocked(reason), null, 2)}\n`);
+    process.stdout.write(
+      `${JSON.stringify(
+        blocked(
+          reason,
+          null,
+          Object.freeze({ canonicalRepositoryChanged: false }),
+        ),
+        null,
+        2,
+      )}\n`,
+    );
     process.exitCode = 2;
   });
 }

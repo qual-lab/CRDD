@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
+
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const PRIVATE_KEY_FILE = "crdd-release-v1-private.pem";
 const PUBLIC_KEY_FILE = "crdd-release-v1-public.spki.der";
@@ -142,6 +144,7 @@ export async function readHiddenLine(prompt: string) {
 }
 
 async function main() {
+  assertSupportedCoordinatorNodeRuntime(process.versions.node);
   const args = process.argv.slice(2);
   if (args.length !== 2 || args[0] !== "--output") {
     throw new Error(
