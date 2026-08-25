@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   describeInteractiveConsoleContract,
   INTERACTIVE_CONSOLE_CONTRACT,
+  withInteractiveConsoleUsingAdapter,
 } from "../src/core/interactive-console.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
@@ -39,6 +40,110 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   for (const file of executableSources) {
     const source = fs.readFileSync(file, "utf8");
     assert.equal(/CONIN\$|CONOUT\$|\/dev\/tty/u.test(source), false, file);
+  }
+});
+
+test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じる", () => {
+  function scenario(
+    options: { failOpenAt?: number; failClose?: ReadonlySet<number> } = {},
+  ) {
+    const deviceOpenRecords: Array<Readonly<[string, "r" | "w"]>> = [];
+    const closedDescriptors: number[] = [];
+    return {
+      deviceOpenRecords,
+      closedDescriptors,
+      adapter: Object.freeze({
+        open: (device: string, flags: "r" | "w") => {
+          deviceOpenRecords.push(Object.freeze([device, flags]));
+          if (deviceOpenRecords.length === options.failOpenAt) {
+            throw new Error("open failed");
+          }
+          return 10 + deviceOpenRecords.length;
+        },
+        close: (descriptor: number) => {
+          closedDescriptors.push(descriptor);
+          if (options.failClose?.has(descriptor)) {
+            throw new Error("close failed");
+          }
+        },
+      }),
+    };
+  }
+
+  const windows = scenario();
+  assert.deepEqual(
+    withInteractiveConsoleUsingAdapter(
+      "win32",
+      windows.adapter,
+      (handles) => handles,
+    ),
+    { input: 11, output: 12 },
+  );
+  assert.deepEqual(windows.deviceOpenRecords, [
+    ["\\\\.\\CONIN$", "r"],
+    ["\\\\.\\CONOUT$", "w"],
+  ]);
+  assert.deepEqual(windows.closedDescriptors, [11, 12]);
+
+  const posix = scenario();
+  assert.equal(
+    withInteractiveConsoleUsingAdapter("linux", posix.adapter, () => true),
+    true,
+  );
+  assert.deepEqual(posix.deviceOpenRecords, [
+    ["/dev/tty", "r"],
+    ["/dev/tty", "w"],
+  ]);
+  assert.deepEqual(posix.closedDescriptors, [11, 12]);
+
+  const inputOpenFailure = scenario({ failOpenAt: 1 });
+  assert.equal(
+    withInteractiveConsoleUsingAdapter(
+      "win32",
+      inputOpenFailure.adapter,
+      () => true,
+    ),
+    null,
+  );
+  assert.deepEqual(inputOpenFailure.closedDescriptors, []);
+
+  const outputOpenFailure = scenario({ failOpenAt: 2 });
+  assert.equal(
+    withInteractiveConsoleUsingAdapter(
+      "win32",
+      outputOpenFailure.adapter,
+      () => true,
+    ),
+    null,
+  );
+  assert.deepEqual(outputOpenFailure.closedDescriptors, [11]);
+
+  const operationFailure = scenario();
+  assert.equal(
+    withInteractiveConsoleUsingAdapter(
+      "win32",
+      operationFailure.adapter,
+      () => {
+        throw new Error("operation failed");
+      },
+    ),
+    null,
+  );
+  assert.deepEqual(operationFailure.closedDescriptors, [11, 12]);
+
+  for (const failedDescriptor of [11, 12]) {
+    const closeFailure = scenario({
+      failClose: new Set([failedDescriptor]),
+    });
+    assert.equal(
+      withInteractiveConsoleUsingAdapter(
+        "win32",
+        closeFailure.adapter,
+        () => true,
+      ),
+      null,
+    );
+    assert.deepEqual(closeFailure.closedDescriptors, [11, 12]);
   }
 });
 

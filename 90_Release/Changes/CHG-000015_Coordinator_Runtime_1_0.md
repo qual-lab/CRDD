@@ -1522,14 +1522,18 @@ Object FormatとOID幅の是正後、初回から存在した中間junction境�
 
 既存の着手前整合確認、複数箇所是正、初回レビュー網羅性および変更実行契約を正本としたまま、Trust／Security／Authority／Effect境界では入力／状態、alias・indirection・境界、lifecycle段階およびEffect発生点を適用可能な確認軸として先に固定する。preflightと後段Gate等が同じ対象を読む場合は、全observer／reader／parserと利用側を列挙し、共通bounded primitiveまたは同等性と意図した差の試験へ接続する。再レビューで既知母集団内の見落としを検出した場合は一箇所だけを再修正せず、未走査組合せと並行Gateを修正担当側で一括再照合して次の固定候補へまとめる。`10_Agent.md`、`19_Maintenance.md`および`tools/coding-standards.md`の既存条項をこの具体性まで強化し、新しい監査、承認段階、正本文書、恒久表または安定コンテキストIDは追加しない。Coordinator実装READMEは、上位Coordinatorが`acceptanceCriteria`へ確認母集団を具体化する接続と、Task Packet Runtime自身は自然言語上の完全性を生成・証明しない現在限界を明示する。
 
-##### Windows対話Console device path是正
+##### Windowsの対話コンソール用デバイスパスの是正
 
-最終候補`f09694b6d3ea1d4d73d4c56e6e2dc86dce8d4c11`を署名した正式一般Taskの実行では、可視PowerShell、明示`conhost.exe`および可視`cmd.exe`のいずれから起動しても、Release検証またはTask Effectより前に`signed_general_task_interactive_console_required`で停止した。全停止でProvider、Docker、Network、Candidateまたはcanonical Repository Effectは0、Recovery IDはなく、手動回復は不要だった。
+最終候補`f09694b6d3ea1d4d73d4c56e6e2dc86dce8d4c11`を署名した正式一般タスクの実行では、可視PowerShell、明示`conhost.exe`および可視`cmd.exe`のいずれから起動しても、リリース検証またはタスクの効果より前に`signed_general_task_interactive_console_required`で停止した。全停止でプロバイダー、Docker、ネットワーク、候補または正規リポジトリへの効果は0、回復IDはなく、手動回復は不要だった。
 
-原因は起動Shellではなく、共通対話Console primitiveがWindows deviceを相対名`CONIN$`／`CONOUT$`で開いていたことである。Node.js 24系のWindows filesystem APIはこれらを現在Directory配下の相対Pathとして扱い`ENOENT`にし、明示device namespace `\\.\CONIN$`／`\\.\CONOUT$`だけをConsole deviceとして開ける。これは外部送信Grantと正式Runnerが共有する同一primitiveの実装不具合であり、人間へ手動Command Prompt起動を要求しても解消しない。
+原因は起動シェルではなく、共通対話コンソール基本機能がWindowsデバイスを相対名`CONIN$`／`CONOUT$`で開いていたことである。Node.js 24系のWindowsファイルシステムAPIでは相対デバイス名が現在ディレクトリからの相対パスとして解釈され、先に開く`CONIN$`が`ENOENT`となった。`CONOUT$`もデバイスとしての同一性を保証せず、通常ファイルを作成し得る。両方を明示デバイス名前空間`\\.\CONIN$`／`\\.\CONOUT$`へ固定する必要がある。これは外部送信Grantと正式Runnerが共有する同一基本機能の実装不具合であり、人間へ手動Command Prompt起動を要求しても解消しない。
 
-是正ではWindows device名だけを明示namespaceへ変更し、共通対話Console契約をrevision 2へ更新する。POSIX `/dev/tty`、標準入力fallback禁止、Shell搬送禁止、Console不在／open失敗時のFail Closed、challengeの一回限り入力および出力境界は変更しない。外部送信Grantと正式Runnerは共通primitive参照で追従し、個別fallbackまたは別Console所有者を追加しない。未リリースCHG-000015内の回帰として同じ変更、検証、切戻しおよびリリース境界で是正し、別CHGへ分割しない。
+是正ではWindowsデバイス名だけを明示名前空間へ変更し、共通対話コンソール契約をrevision 2へ更新する。POSIX `/dev/tty`、標準入力への代替禁止、シェル搬送禁止、コンソール不在／open失敗時のFail Closed、challengeの一回限り入力および出力境界は変更しない。外部送信Grantと正式Runnerは共通基本機能の参照で追従し、個別の代替経路または別のコンソール所有者を追加しない。未リリースCHG-000015内の回帰として同じ変更、検証、切戻しおよびリリース境界で是正し、別CHGへ分割しない。
 
-発火例は実Win32 Consoleへ接続したWindows processで両明示deviceを開ける場合、非発火例はConsoleを必要としない通常の非対話処理、境界例はstdin／stdoutがpipeでもprocessがConsoleへ接続されている場合、判定情報不足例はdevice openの一方または両方が失敗する場合である。最後のケースは従来どおりEffect前に停止する。
+発火例は実Win32 Consoleへ接続したWindowsプロセスで両明示デバイスを開ける場合、非発火例はコンソールを必要としない通常の非対話処理、境界例は標準入出力がpipeでもプロセスがコンソールへ接続されている場合、判定情報不足例はデバイスopenの一方または両方が失敗する場合である。正式Runnerは最後のケースをリリース検証、タスク開始およびタスクの効果より前に停止する。外部送信Grantの利用側は、先行するローカルのオペレーション／Candidate Store準備を回復契約に従って片付け、外部送信の決定権限、プロバイダーおよびネットワークの効果より前に停止する。
 
-本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で共通Console／正式Runner／外部送信Grant重点19試験、Coordinator全771試験、Checker全試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、リポジトリ全体Checkerおよび`git diff --check`をPassした。全体Checkerは701 files／384 Markdown／2,235 links／650 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。固定Commit／Tree、共通primitiveの利用側水平確認、独立Architecture／SecurityおよびTest／UX再レビュー、再署名、正式一般Task実runと残存0確認が完了する前に本指摘事項を`Resolved`、Runtime完成またはリリース可能へ昇格しない。
+初回固定版`a7d61aa68c9cd5056bb62f3e4dd92e352798b45b`へのArchitecture／Securityレビューは`Pass`した。Document／Gapレビューは利用者ロケール優先表示のMinor 1件、Test／UXレビューは実device open経路を直接試験しないMajor 1件と、原因記録および効果発生点のMinor 2件を検出した。旧固定版の部分Passを現在判定へ流用しない。
+
+再処置では、共通基本機能へ内部OS adapterを与え、Windowsの正確な`\\.\CONIN$`＋`r`、`\\.\CONOUT$`＋`w`、POSIXの`/dev/tty`、両handle引渡し、成功時回収、入力open失敗、出力open失敗、処理例外、各close例外および一方のclose失敗後も他方を回収する全組合せを決定論的に試験する。productionの公開package入口へadapter、handleまたは汎用コンソール能力を追加せず、相対名、標準入出力またはシェルへの代替を許さない。
+
+本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で共通コンソール／正式Runner／外部送信Grant重点20試験、Coordinator全772試験、Checker全153試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、リポジトリ全体Checkerおよび`git diff --check`をPassした。全体Checkerは701 files／384 Markdown／2,235 links／650 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Tree、独立Architecture／Security、Document／GapおよびTest／UX再レビュー、再署名、正式一般タスク実runと残存0確認が完了する前に本指摘事項を`Resolved`、Runtime完成またはリリース可能へ昇格しない。
