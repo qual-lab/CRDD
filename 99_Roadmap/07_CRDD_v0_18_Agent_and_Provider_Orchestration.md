@@ -13,7 +13,7 @@ Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD
 
 > **CRDD Agent / Provider Orchestrationは、Provider非依存のContextを、Authority・Information Boundary・Capability・Verification Requirementを満たす実行主体へ安全にRoutingし、その実行結果とProvenanceをCRDDへ還流する仕組みである。**
 
-エージェント組織（Agent Organization）の目的、役割、専門性、委譲、独立レビュー、費用、決定権限および人間との境界は[エージェント組織](../04_Agent_Organization.md)を正本とする。本書は、その概念を実行境界へ投影する経路制御、適格性、最適化、コンテキスト投影、代替経路および実行来歴の未完了Architecture候補を扱う。特定Runtimeの構築、command、Docker、Provider argv、永続状態または回復実装を所有しない。
+エージェント組織（Agent Organization）の目的、役割、専門性、委譲、独立レビュー、費用、決定権限および人間との境界は[エージェント組織](../04_Agent_Organization.md)を正本とする。本書は、その概念を実行境界へ投影する経路制御、適格性、最適化、コンテキスト投影、代替経路および実行来歴の未完了アーキテクチャ候補を扱う。特定Runtimeの構築、command、Docker、Provider argv、永続状態または回復実装を所有しない。
 
 主題はAI同士の会話、Agent数、特定Providerの組合せまたはCredit節約ではない。異なるTrust Boundary、能力、権限、Tool Accessを持つ実行主体へ、意味、制約、根拠、決定権限を失わずに作業を引き渡せるかを扱う。
 
@@ -198,7 +198,7 @@ Executor、ReviewerまたはProviderが返す人間判断事項、承認要求�
 
 ## 8. Agent RoleとIndependent Review
 
-役割と独立レビューの概念は[エージェント組織](../04_Agent_Organization.md)、適用条件と独立性の実行契約は[エージェント契約](../10_Agent.md)および[品質保証](../16_Quality_Assurance.md)を参照する。本書は、レビューが必要な経路制御候補に作成責務と分離した確認主体、対象、基準および必要なコンテキストを含め、適格性判定で独立性条件を満たさない候補を除外するArchitectureだけを扱う。
+役割と独立レビューの概念は[エージェント組織](../04_Agent_Organization.md)、適用条件と独立性の実行契約は[エージェント契約](../10_Agent.md)および[品質保証](../16_Quality_Assurance.md)を参照する。本書は、レビューが必要な経路制御候補に作成責務と分離した確認主体、対象、基準および必要なコンテキストを含め、適格性判定で独立性条件を満たさない候補を除外するアーキテクチャだけを扱う。
 
 ---
 

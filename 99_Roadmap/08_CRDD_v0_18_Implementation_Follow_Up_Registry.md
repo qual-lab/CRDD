@@ -26,7 +26,7 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 ### `FU-018-CHECKER-NAMING` — Coordinator配布設定の命名契約
 
-- 対応状態: `In Progress`
+- 対応状態: `Unscheduled`
 - 担当責任者: Qual-Lab
 - 対象: `tools/checker/tools-naming.contract.test.ts`が`tools/coordinator/runtime/claude-managed-settings.json`を所有済み命名規則として認識できる状態
 - 情報源: [CHG-000054](../90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md)で観測した`tools/checker`契約試験151件中150件合格、1件不合格

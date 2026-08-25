@@ -106,7 +106,7 @@ AIが有力案を提示し、実装し、独立レビューで`Pass`を返して
 
 調整役または採用側の実行環境は、作業を一つ以上の実行編成候補へ投影できる。候補には、担当する役割、必要な実行境界、委譲、検証、結果統合および人間の判断ゲートを含められる。
 
-これは新しい正式用語、固定スキーマまたは永続成果物を導入するものではない。候補選択の実行Architecture、適格性判定（Eligibility Gate）、適格集合（Eligible Set）内の最適化（Optimization）、代替経路（Fallback）およびコンテキスト投影（Context Projection）は[エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照する。同文書は未完了Architecture候補であり、本書の概念を再定義しない。
+これは新しい正式用語、固定スキーマまたは永続成果物を導入するものではない。候補選択の実行アーキテクチャ、適格性判定（Eligibility Gate）、適格集合（Eligible Set）内の最適化（Optimization）、代替経路（Fallback）およびコンテキスト投影（Context Projection）は[エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照する。同文書は未完了アーキテクチャ候補であり、本書の概念を再定義しない。
 
 ---
 
@@ -161,7 +161,7 @@ AIが有力案を提示し、実装し、独立レビューで`Pass`を返して
 ```text
 エージェント組織の概念
         ↓
-エージェント／プロバイダー調整Architecture
+エージェント／プロバイダー調整アーキテクチャ
         ↓
 Coordinator Runtime／その他の実行環境
         ↓
@@ -193,7 +193,7 @@ Coordinator Runtime／その他の実行環境
 | 層 | 所有するもの | 所有しないもの |
 |---|---|---|
 | 本書 | エージェント組織の目的、概念境界、役割／専門性／委譲／統合の関係 | Runtime command、Provider argv、Docker、永続スキーマ |
-| [エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md) | 経路制御、適格性判定、最適化、投影、代替経路、実行来歴の未完了Architecture候補 | 人間の決定権限の再定義、特定実行環境の実装手順 |
+| [エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md) | 経路制御、適格性判定、最適化、投影、代替経路、実行来歴の未完了アーキテクチャ候補 | 人間の決定権限の再定義、特定実行環境の実装手順 |
 | [`tools/coordinator`](tools/coordinator/README.md) | 現在のCoordinator Runtimeによる実装、強制、構築、実行、回復、試験 | エージェント組織、決定権限、独立レビューまたは費用原則の意味正本 |
 | 現行Core契約 | 人間の決定権限、エージェント契約、独立レビュー、品質、外部情報境界 | 特定実行環境の実装詳細 |
 

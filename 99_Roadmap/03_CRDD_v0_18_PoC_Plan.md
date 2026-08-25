@@ -364,7 +364,7 @@ PoCの成功や過去の一回承認から、新しい判断・操作権限を�
 
 ### Profile 5 — エージェント組織（Agent Organization）
 
-- 概念境界は[エージェント組織](../04_Agent_Organization.md)、経路制御Architectureは[エージェント／プロバイダー調整](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照
+- 概念境界は[エージェント組織](../04_Agent_Organization.md)、経路制御アーキテクチャは[エージェント／プロバイダー調整](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照
 - 必要な専門観点だけを分担
 - 独立性、権限、引き渡し、競合解決を評価
 - Agent数を品質根拠にしない

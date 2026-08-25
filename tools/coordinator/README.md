@@ -8,16 +8,16 @@ Status: Implementation Candidate
 
 ```text
 エージェント組織の概念
-  → エージェント／プロバイダー調整Architecture
+  → エージェント／プロバイダー調整アーキテクチャ
     → Coordinator Runtimeの実装
 ```
 
 - 概念: [エージェント組織](../../04_Agent_Organization.md)
-- Architecture: [エージェント／プロバイダー調整](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- アーキテクチャ: [エージェント／プロバイダー調整](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
 - 現行規範: [原則](../../01_Principles.md)、[Agent契約](../../10_Agent.md)、[品質保証](../../16_Quality_Assurance.md)
 - 実装: 本README、同Directoryのsource／test、[脅威モデル](threat-model.md)
 
-本READMEに費用、独立性または決定権限の条件を記す場合、それは上位概念／Architecture／規範を現在のRuntimeがどう投影・強制するかを示す。実装の変更から上位概念、人間の決定権限、独立レビューまたはCRDD準拠条件の変更を推定しない。
+本READMEに費用、独立性または決定権限の条件を記す場合、それは上位概念／アーキテクチャ／規範を現在のRuntimeがどう投影・強制するかを示す。実装の変更から上位概念、人間の決定権限、独立レビューまたはCRDD準拠条件の変更を推定しない。
 
 OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecure Enclave、LinuxのTPM 2.0をP-256優先Backendとして固定し、software fallbackは初回setupでの明示承認がある場合だけ候補化する。公開P-256 SPKIとBackend選択の形だけを検査し、秘密鍵、鍵handleまたはPathを入力・出力しない。実native Adapter、software鍵保護、署名済みPlatform Provisionerとの結合およびkey-handle所有証明は未実装であり、policy候補を実鍵保護、Trust、Authority、CapabilityまたはEffectへ昇格しない。
 
