@@ -127,7 +127,7 @@ Runtimeが解決できる影響なし、重複、Policy内処理、拒否を人�
 
 > 自律Operationは、人間の判断負荷を増やすだけなら成功ではない。
 
-エージェント組織（Agent Organization）と継続的学習（Continuous Learning）は、この5本柱を支える横断能力として扱う。エージェント数や実行回数を自律性の価値とみなさず、学びを自動的に原則化しない。エージェント組織の目的、概念境界および複数エージェントまたはプロバイダーを利用する場合の安全なコンテキスト経路制御は[エージェント組織](04_Agent_Organization.md)に置き、固定フローまたはプロバイダー対応関係を本書へ持ち込まない。
+エージェント組織（Agent Organization）と継続的学習（Continuous Learning）は、この5本柱を支える横断能力として扱う。エージェント数や実行回数を自律性の価値とみなさず、学びを自動的に原則化しない。エージェント組織の目的と概念境界は[エージェント組織の共通原則](04_Agent_Organization.md)に、複数エージェントまたはプロバイダーを利用する場合の安全なコンテキスト経路制御案は[非規範の実行Architecture候補](04_Agent_Organization.md#12-execution-architecture)に置き、固定フローまたはプロバイダー対応関係を本書へ持ち込まない。
 
 Forward Compatibilityも5本柱を置き換える新しい柱ではなく、横断する設計制約として扱う。本候補で将来Capabilityを先行実装せず、Repository Identity、Context Reference、Provenance、Authorityの意味を現在の物理Locationまたは実行主体へ固定しない。表現できることを、有効化、アクセス、許可またはCurrent Stateへの反映とみなさない。詳細は[Forward Compatibility](09_Forward_Compatibility.md)に置く。
 

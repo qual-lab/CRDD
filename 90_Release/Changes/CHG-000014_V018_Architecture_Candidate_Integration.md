@@ -58,11 +58,11 @@ Communicationの旧IDと旧ファイル名はsource Commitを解釈する来歴�
 | `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` | `07_Autonomous_Operation_Safety.md` |
 | `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` | `08_Operation_Health_and_Human_Interface.md` |
 | `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` | `09_Forward_Compatibility.md` |
-| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | `04_Agent_Organization.md`の実行アーキテクチャ |
+| `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | [`04_Agent_Organization.md`の非規範実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture) |
 
 renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との来歴、Target、相互リンクおよびREADME英日を、公開済みv0.17.0、v0.18.0規範変更候補、非規範v0.18.0 Architecture Candidateの境界へ再基準化した。
 
-2026-08-25の文書責務是正では、Roadmapに育った恒久Architectureをルート候補正本へ移し、未完了作業だけを単一の`99_Roadmap/01_Product_Roadmap.md`へ残した。概念、責務、安全、Operation HealthおよびForward Compatibilityは`05`〜`09`、Agent／Provider Orchestrationは`04_Agent_Organization.md`の実行アーキテクチャへ統合した。旧PoC計画の未完了候補はProduct Roadmapへ縮約し、完了状態の保管や第二の正本となる旧Roadmap詳細は削除した。旧名称と固定改訂版は本CHGおよびGit履歴から再構成し、現在の参照先として使用しない。
+2026-08-25の文書責務是正では、Roadmapに育った恒久Architectureをルート候補正本へ移し、未完了作業だけを単一の`99_Roadmap/01_Product_Roadmap.md`へ残した。概念、責務、安全、Operation HealthおよびForward Compatibilityは`05`〜`09`、Agent／Provider Orchestrationは[`04_Agent_Organization.md`の非規範実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture)へ統合した。旧PoC計画の未完了候補はProduct Roadmapへ縮約し、完了状態の保管や第二の正本となる旧Roadmap詳細は削除した。旧名称と固定改訂版は本CHGおよびGit履歴から再構成し、現在の参照先として使用しない。
 
 <a id="51-未終了変更トレースの移管スナップショット"></a>
 

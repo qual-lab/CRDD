@@ -1,14 +1,10 @@
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { discoverCheckerTestFiles } from "./test-discovery.ts";
 
 const checkerRoot = path.dirname(fileURLToPath(import.meta.url));
-const testFiles = fs
-  .readdirSync(checkerRoot, { withFileTypes: true })
-  .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
-  .map((entry) => entry.name)
-  .sort((left, right) => left.localeCompare(right));
+const testFiles = discoverCheckerTestFiles(checkerRoot);
 
 if (testFiles.length === 0) {
   process.stderr.write("Checker test files were not found.\n");

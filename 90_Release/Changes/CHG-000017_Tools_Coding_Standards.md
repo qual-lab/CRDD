@@ -254,3 +254,18 @@ Checkerの全試験入口はshell globを廃止し、package所有の`*.test.ts`
 - 命名対象: 236 owned source、未所属／余剰0、命名違反0
 
 これは再開後候補の`Applied`／`Self-checked`である。Repository全体Checker、両packageのLint／Formatter、固定改訂版に対する独立Agent／Architecture／Security Review、Document Audit、Gap / Impact AuditおよびConformance Auditが完了するまでは`Verified`へ戻さない。旧`5185946`のPassは当時版の履歴であり、現在の合否へ流用しない。
+
+## 文書移管固定版と結合した再監査
+
+固定改訂版`d60bcd8b835d684829d1059d304c9ab369bb3a99`を対象に、全体Checker、Checker 151／151、Coordinator 740／740、両package checkおよび`git diff --check`を共通入力として、エージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査を実行した。前回までの命名違反、試験0件成功および文書移管Findingは解消していたが、エージェント／Architectureレビューは本変更に次のMajor 2件を返した。
+
+1. `test-runner.ts`はpackage直下の`.test.ts`だけを列挙する一方、Path規則、TypeScript projectおよび所有source契約はnested testを禁止しておらず、将来のnested testが型検査へ入りながら`npm test`で未実行になり得た。
+2. Boolean predicateの実装は補助動詞prefix、主語先行suffixおよびstandalone stateの閉集合を持つ一方、正本はsuffixを「等」と省略しており、実装正規表現だけを変更しても正本差分を検出できなかった。
+
+全監査結果を統合し、安全な再帰列挙の共通化、runner列挙集合とTypeScript project所有試験集合のPath完全一致、およびBoolean三集合の正本化とexact Set実装を一つの是正として各確認者へ編集前に再提示した。全確認者は、公開Checker CLI／JSON／Schema、Coordinator試験入口、Runtime Security、v0.17公開基準およびRelease状態を変更しない条件でAcceptした。
+
+是正候補では、package-privateな`test-discovery.ts`がrootと全entryを検査し、nested testを正規化relative Pathのordinal順で列挙する。root外解決、重複／case衝突、symbolic link／junction、未対応entryをFail Closedにし、`node_modules`はexact名かつ実Directoryの場合だけ除外する。同じ列挙器をrunnerと命名contractから使用しつつ、TypeScript projectの所有試験集合との独立した完全一致を要求した。direct／nested／0件／欠落／余剰／case衝突／junction／未知entryを正負fixtureで固定した。
+
+Boolean規則は、補助動詞prefix 9件、主語先行suffix 32件、standalone state 9件を`tools/coding-standards.md`へ全数列挙し、実装を同じ三つのexact Setへ分解した。全許可値の正例と、prefix単独、未知suffix、大小文字差および一文字違いの負例を固定した。外部Schema／property key、CLI flag、reason、status、protocolおよび暗号domainは変更していない。
+
+是正後のSelf-checkはChecker 153／153、Coordinator 740／740、Checker packageの型検査／Lint／Formatter Pass、237 owned TypeScript sourceの未所属／余剰0、命名違反0である。この結果は`Applied`／`Self-checked`であり、新固定Commit／Treeの全体Checker、両package checkと同じ四監査が完了するまではFindingを`Resolved`、監査を`Pass`または本変更を`Verified`としない。

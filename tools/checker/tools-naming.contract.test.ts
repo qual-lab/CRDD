@@ -5,6 +5,11 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  assertExactCheckerTestPopulation,
+  discoverCheckerTestFiles,
+  type TestDiscoveryOperations,
+} from "./test-discovery.ts";
+import {
   isArrowFunction,
   isAsExpression,
   isArrayLiteralExpression,
@@ -73,18 +78,71 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "tools", "coordinator", "tsconfig.tests.json"),
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
-  checkerAndTemplate: 6,
+  checkerAndTemplate: 7,
   coordinatorProduction: 119,
   coordinatorTests: 111,
   rustPlatformAccess: 8,
-  uniqueTotal: 236,
+  uniqueTotal: 237,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/u;
 const UPPER_SNAKE_CASE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/u;
-const BOOLEAN_NAME =
-  /^(?:(?:is|has|can|should|did|does|was|were|will)[A-Z][A-Za-z0-9]*|[a-z][A-Za-z0-9]*(?:Active|Allowed|Available|Complete|Completed|Confirmed|Created|Eligible|Exceeded|Executed|Failed|Issued|Present|Absent|Recorded|Released|Removed|Requested|Required|Settled|Spawned|Started|Submitted|Terminated|Transferred|Exists|Fails|Match|Matches|Throw|Performed)|released|closed|submitted|present|settled|exceeded|confirmed|terminated|exists)$/u;
+const BOOLEAN_AUXILIARY_PREFIXES = new Set([
+  "is",
+  "has",
+  "can",
+  "should",
+  "did",
+  "does",
+  "was",
+  "were",
+  "will",
+]);
+const SUBJECT_BOOLEAN_SUFFIXES = new Set([
+  "Active",
+  "Allowed",
+  "Available",
+  "Complete",
+  "Completed",
+  "Confirmed",
+  "Created",
+  "Eligible",
+  "Exceeded",
+  "Executed",
+  "Failed",
+  "Issued",
+  "Present",
+  "Absent",
+  "Recorded",
+  "Released",
+  "Removed",
+  "Requested",
+  "Required",
+  "Settled",
+  "Spawned",
+  "Started",
+  "Submitted",
+  "Terminated",
+  "Transferred",
+  "Exists",
+  "Fails",
+  "Match",
+  "Matches",
+  "Throw",
+  "Performed",
+]);
+const STANDALONE_BOOLEAN_NAMES = new Set([
+  "released",
+  "closed",
+  "submitted",
+  "present",
+  "settled",
+  "exceeded",
+  "confirmed",
+  "terminated",
+  "exists",
+]);
 const PLURAL_NAME =
   /(?:s|Children|Criteria|Evidence|Indices|Inventory|Vertices|People|Media|Data)$/u;
 const TECHNICAL_VECTOR_NAME = /^argv$/u;
@@ -408,6 +466,24 @@ function isOwnedProgramFile(file: string): boolean {
 
 function isNullish(type: Type): boolean {
   return Boolean(type.flags & (TypeFlags.Null | TypeFlags.Undefined));
+}
+
+function isAllowedBooleanName(name: string): boolean {
+  if (STANDALONE_BOOLEAN_NAMES.has(name)) return true;
+  if (!CAMEL_CASE.test(name)) return false;
+  for (const prefix of BOOLEAN_AUXILIARY_PREFIXES) {
+    const nextCharacter = name[prefix.length];
+    if (
+      name.startsWith(prefix) &&
+      nextCharacter !== undefined &&
+      /[A-Z]/u.test(nextCharacter)
+    )
+      return true;
+  }
+  for (const suffix of SUBJECT_BOOLEAN_SUFFIXES) {
+    if (name.length > suffix.length && name.endsWith(suffix)) return true;
+  }
+  return false;
 }
 
 function nonNullishTypes(type: Type): readonly Type[] {
@@ -1322,7 +1398,7 @@ function inspectIdentifier(
     return violations;
   }
   if (isBooleanType(type)) {
-    if (!BOOLEAN_NAME.test(name)) {
+    if (!isAllowedBooleanName(name)) {
       violations.push(identifierLocation(identifier, kind, "boolean-prefix"));
     }
     return violations;
@@ -1550,6 +1626,17 @@ test("toolsのPathと型付きsource identifierは内部コーディング規約
         checkerFiles?.length,
         EXPECTED_OWNED_SOURCE_COUNTS.checkerAndTemplate,
       );
+      const projectCheckerTests =
+        checkerFiles
+          ?.filter(
+            (file) =>
+              file.endsWith(".test.ts") && isContainedPath(file, checkerRoot),
+          )
+          .map(resolveOwnedSource) ?? [];
+      assertExactCheckerTestPopulation(
+        discoverCheckerTestFiles(checkerRoot),
+        projectCheckerTests,
+      );
       assert.equal(
         productionFiles?.length,
         EXPECTED_OWNED_SOURCE_COUNTS.coordinatorProduction,
@@ -1602,6 +1689,114 @@ test("toolsのPathと型付きsource identifierは内部コーディング規約
   } finally {
     api.close();
   }
+});
+
+test("Checker試験の実行集合はnested配置を含む所有集合と完全一致する", () => {
+  const temporaryRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-checker-test-discovery-"),
+  );
+  try {
+    const nestedRoot = path.join(temporaryRoot, "nested-subject");
+    const dependencyRoot = path.join(temporaryRoot, "node_modules");
+    fs.mkdirSync(nestedRoot);
+    fs.mkdirSync(dependencyRoot);
+    const directTest = path.join(temporaryRoot, "alpha.contract.test.ts");
+    const nestedTest = path.join(nestedRoot, "beta.unit.test.ts");
+    fs.writeFileSync(directTest, "", "utf8");
+    fs.writeFileSync(nestedTest, "", "utf8");
+    fs.writeFileSync(
+      path.join(temporaryRoot, "ordinary-source.ts"),
+      "",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(dependencyRoot, "ignored.contract.test.ts"),
+      "",
+      "utf8",
+    );
+
+    const discoveredTests = discoverCheckerTestFiles(temporaryRoot);
+    assert.deepEqual(discoveredTests, [
+      fs.realpathSync.native(directTest),
+      fs.realpathSync.native(nestedTest),
+    ]);
+    assertExactCheckerTestPopulation(discoveredTests, discoveredTests);
+    assert.throws(
+      () =>
+        assertExactCheckerTestPopulation(discoveredTests, [
+          directTest,
+          nestedTest,
+          path.join(temporaryRoot, "missing.contract.test.ts"),
+        ]),
+      /missing from runner/u,
+    );
+    assert.throws(
+      () => assertExactCheckerTestPopulation(discoveredTests, [directTest]),
+      /missing from project/u,
+    );
+    assert.throws(
+      () =>
+        assertExactCheckerTestPopulation(
+          [directTest, directTest.toUpperCase()],
+          [directTest],
+        ),
+      /duplicate or case-colliding/u,
+    );
+
+    const emptyRoot = path.join(temporaryRoot, "empty-root");
+    fs.mkdirSync(emptyRoot);
+    assert.deepEqual(discoverCheckerTestFiles(emptyRoot), []);
+
+    const junctionTarget = path.join(temporaryRoot, "junction-target");
+    fs.mkdirSync(junctionTarget);
+    fs.symlinkSync(
+      junctionTarget,
+      path.join(temporaryRoot, "linked-tests"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    assert.throws(() => discoverCheckerTestFiles(temporaryRoot), /symbolic/u);
+    fs.rmSync(path.join(temporaryRoot, "linked-tests"));
+
+    const unsupportedEntry = path.join(temporaryRoot, "unsupported-entry");
+    fs.writeFileSync(unsupportedEntry, "", "utf8");
+    const unknownEntryOperations: TestDiscoveryOperations = {
+      inspectPath: (target) =>
+        target === unsupportedEntry
+          ? {
+              isDirectory: () => false,
+              isFile: () => false,
+              isSymbolicLink: () => false,
+            }
+          : fs.lstatSync(target),
+      listNames: (target) => fs.readdirSync(target),
+      resolvePath: (target) => fs.realpathSync.native(target),
+    };
+    assert.throws(
+      () => discoverCheckerTestFiles(temporaryRoot, unknownEntryOperations),
+      /Unsupported Checker test entry/u,
+    );
+  } finally {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test("Boolean predicateの文法は正本化した三つの閉集合だけを許可する", () => {
+  for (const prefix of BOOLEAN_AUXILIARY_PREFIXES)
+    assert.equal(isAllowedBooleanName(`${prefix}Ready`), true, prefix);
+  for (const suffix of SUBJECT_BOOLEAN_SUFFIXES)
+    assert.equal(isAllowedBooleanName(`subject${suffix}`), true, suffix);
+  for (const standaloneName of STANDALONE_BOOLEAN_NAMES)
+    assert.equal(isAllowedBooleanName(standaloneName), true, standaloneName);
+  for (const invalidName of [
+    "is",
+    "isready",
+    "subjectUnknown",
+    "subjectcompleted",
+    "subjectCompletedd",
+    "Released",
+    "release",
+  ])
+    assert.equal(isAllowedBooleanName(invalidName), false, invalidName);
 });
 
 test("Path classifierは不正folderと不正fileを別々に拒否する", () => {

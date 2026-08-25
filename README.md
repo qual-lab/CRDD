@@ -144,7 +144,7 @@ For example, a Codex scheduled task may explicitly start a read-only weekly revi
 - [Autonomous safety architecture](07_Autonomous_Operation_Safety.md)
 - [Operation health and Human interface](08_Operation_Health_and_Human_Interface.md)
 - [Forward compatibility](09_Forward_Compatibility.md)
-- [Agent and provider orchestration](04_Agent_Organization.md)
+- [Agent and provider orchestration](04_Agent_Organization.md#12-execution-architecture)
 
 The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation candidate](04_Agent_Organization.md). Neither inclusion in this list nor `Candidate` status establishes adoption; adoption follows the baseline-adoption assessment, Human activation decision, and release contracts.
 
@@ -539,7 +539,7 @@ Representable != Enabled != Accessible != Authorized != Promoted
 - [自律安全Architecture](07_Autonomous_Operation_Safety.md)
 - [Operation HealthとHuman Interface](08_Operation_Health_and_Human_Interface.md)
 - [Forward Compatibility](09_Forward_Compatibility.md)
-- [Agent／Provider Orchestration](04_Agent_Organization.md)
+- [Agent／Provider Orchestration](04_Agent_Organization.md#12-execution-architecture)
 
 この候補が使用する横断概念は、[エージェント組織の基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載や`Candidate`状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびリリース契約に従う。
 

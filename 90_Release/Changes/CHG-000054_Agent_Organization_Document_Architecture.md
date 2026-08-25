@@ -112,3 +112,19 @@
 - Product Roadmapは未完了項目だけを表示し、完了項目は結果を責務正本へ反映して主要表示から除去する。現在参照だけを`Product Roadmap`または`04`§12へ更新し、過去固定時点の説明は履歴として書き換えない。
 
 この処置は`Applied`／`Self-checked`であり、指摘事項を`Resolved`、監査を`Pass`または本変更を`Verified`とする根拠ではない。新しいCommit／Treeへ全体Checker、Checker契約試験、エージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査を取り直し、同じ監査集合の統合Passを得るまで`Reopened`を維持する。公開済みv0.17.0、Runtime動作、Issue #30、v0.18採用、統合またはReleaseは変更していない。現在、人間による追加判断は必要ない。
+
+## 文書移管是正版`d60bcd8`の再監査
+
+固定改訂版`d60bcd8b835d684829d1059d304c9ab369bb3a99`に対し、エージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査を同じ共通機械確認で実行した。前節の6 Findingは全て解消済みだったが、監査集合は新たに次の文書アーキテクチャFindingを返し、全体として`Fail`となった。
+
+1. `04_Agent_Organization.md`を節単位で規範／非規範へ分けた後も、`00_Overview.md`の番号帯、`05_Autonomous_Operation.md`、README英日、Coordinator READMEおよびCHG-000014の現行移管導線が文書全体を一つの強度として参照していた。
+2. Product RoadmapのCHG／保守契約が実行根拠となる3項目へ判断状態`Adopted`を重複表示し、採否対象と実行・参照項目を分ける`21_Discovery.md`§6.3と不一致だった。
+3. `00_Overview.md`の終了図だけが、詳細固有情報を正本へ移管する前に完了項目を主要表示から除去する順となり、一時的に発見経路を失い得た。
+
+同じレビューで検出したChecker試験母集団とBoolean閉集合のMajor 2件は、原因契約を所有する[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)へ同じ未リリース意図として接続した。Findingを発見元ごとに新しいCHGへ分割していない。
+
+統合是正方針は編集前に全確認者へ再提示し、条件付きでAcceptされた。`00`は`00`～`03`と`04`§1～§11の基礎規範候補、`04`§12と`05`～`09`の非規範Architecture Candidate、`04`§13～§15の参照元強度を継承する共有境界へ分けた。一般的なエージェント組織、AD-22およびAuthorityの参照は規範候補へ保ち、Orchestration、Routing、経路制御または実行Architectureを説明する現在導線だけを§12へ直結した。履歴引用は書き換えていない。
+
+Product Roadmapでは、正式署名一般Task、命名／文書是正の再検証およびv0.18最終化の判断状態を`—（非適用）`とし、対応状態とCHG／保守契約の実行根拠を維持した。上流工程強化の`Adopted`、自律OperationとIssue #30の`Exploring`は変更していない。終了図は、詳細固有情報の正本移管、終了結果／参照反映、参照確認、主要表示除去、詳細削除の順へ揃えた。
+
+Checker 153／153、Coordinator 740／740およびChecker package checkはPassした。この結果は`Applied`／`Self-checked`であり、新固定Commit／Treeの全体Checker、両package check、`git diff --check`、エージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査の統合Passまでは、Findingを`Resolved`、監査を`Pass`または本変更を`Verified`としない。Runtime動作、公開Schema／CLI、AD-22、v0.17公開基準、Issue #30、統合またはReleaseは変更していない。現在、人間による追加判断は必要ない。
