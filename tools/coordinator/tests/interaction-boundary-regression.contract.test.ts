@@ -32,6 +32,7 @@ import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
+import { isRuntimeProcessPoisoned } from "../src/core/runtime-process-safety-state.ts";
 import {
   createWindowsDockerCliEnvironment,
   createInteractiveConsoleReaderEnvironment,
@@ -59,7 +60,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 10,
+    contractRevision: 11,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsUnicodeOutput: "node_unicode_tty_output_required",
     windowsTerminalWriteTimeoutMs: 1_000,
@@ -75,6 +76,21 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     ],
     productionPoisonTiming:
       "synchronous_on_cleanup_unknown_observation_before_return_or_next_non_cleanup_await",
+    productionPoisonPreservingEntrypoints: [
+      "withInteractiveConsoleOutcome",
+      "withInteractiveConsole",
+      "withInteractiveConsoleAsyncOutcome",
+      "withInteractiveConsoleAsync",
+      "readInteractiveConsoleLineOutcome",
+      "readInteractiveConsoleLine",
+      "writeInteractiveConsoleTextOutcome",
+      "writeInteractiveConsoleText",
+      "interactiveConsoleAvailabilityOutcome",
+      "interactiveConsoleAvailable",
+    ],
+    genericUsingAdapterAuthority:
+      "non_authority_pure_no_production_process_state",
+    productionNoncompletedValue: "null",
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",
@@ -133,6 +149,39 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
   assert.equal(readerSource.includes("process.stdin"), true);
   assert.equal(cliSource.includes("fs.readSync(0"), true);
+});
+
+test("generic Console adapterはcleanup不明でもproduction stateを変更しない", async () => {
+  assert.equal(isRuntimeProcessPoisoned(), false);
+  const syncOutcome = withInteractiveConsoleOutcomeUsingAdapter(
+    "win32",
+    Object.freeze({
+      open: (device: string) => (device.endsWith("CONIN$") ? 11 : 12),
+      close: () => {
+        throw new Error("fixture_close_failed");
+      },
+    }),
+    () => "candidate",
+  );
+  assert.deepEqual(syncOutcome, {
+    status: "cleanup_unknown",
+    value: "candidate",
+  });
+  const asyncOutcome = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
+    "win32",
+    Object.freeze({
+      open: (device: string) => (device.endsWith("CONIN$") ? 11 : 12),
+      close: () => {
+        throw new Error("fixture_close_failed");
+      },
+    }),
+    async () => Promise.resolve("candidate"),
+  );
+  assert.deepEqual(asyncOutcome, {
+    status: "cleanup_unknown",
+    value: "candidate",
+  });
+  assert.equal(isRuntimeProcessPoisoned(), false);
 });
 
 test("Console非同期所有はoperationと全close失敗を構造化する", async () => {

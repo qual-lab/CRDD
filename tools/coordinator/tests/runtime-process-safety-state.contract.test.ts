@@ -48,6 +48,11 @@ test("全cleanup起点のproduction process poisonは保留cleanup中から全�
     "reader_cleanup",
     "lock_acquire_cleanup",
     "lock_release_cleanup",
+    "sync_convenience_cleanup",
+    "async_convenience_cleanup",
+    "reader_convenience_cleanup",
+    "sync_outcome_cleanup",
+    "async_outcome_cleanup",
   ]) {
     const result = spawnSync(process.execPath, [fixture, mode], {
       shell: false,
@@ -62,9 +67,14 @@ test("全cleanup起点のproduction process poisonは保留cleanup中から全�
     assert.deepEqual(JSON.parse(result.stdout), {
       mode,
       initialPoisonState: false,
-      originStatus: "cleanup_unknown",
+      originStatus: mode.endsWith("convenience_cleanup")
+        ? "null"
+        : mode.endsWith("outcome_cleanup")
+          ? "cleanup_unknown:null"
+          : "cleanup_unknown",
       originPendingAtGate:
         mode === "writer_cleanup" || mode === "reader_cleanup",
+      poisonedAtOriginBoundary: true,
       finalPoisonState: true,
       packageReason: "platform_provisioner_process_restart_required",
       packageCapabilityIsNull: true,

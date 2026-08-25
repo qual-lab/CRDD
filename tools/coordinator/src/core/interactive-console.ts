@@ -17,7 +17,7 @@ export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 10;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 11;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -147,7 +147,14 @@ export function withInteractiveConsoleOutcomeUsingAdapter<T>(
 export function withInteractiveConsole<T>(
   operation: (handles: InteractiveConsoleHandles) => T,
 ): T | null {
-  return withInteractiveConsoleUsingAdapter(
+  const outcome = withInteractiveConsoleOutcome(operation);
+  return outcome.status === "completed" ? outcome.value : null;
+}
+
+export function withInteractiveConsoleOutcome<T>(
+  operation: (handles: InteractiveConsoleHandles) => T,
+): InteractiveConsoleOperationOutcome<T> {
+  const outcome = withInteractiveConsoleOutcomeUsingAdapter(
     process.platform,
     Object.freeze({
       open: fs.openSync,
@@ -156,6 +163,12 @@ export function withInteractiveConsole<T>(
     }),
     operation,
   );
+  if (outcome.status === "cleanup_unknown")
+    poisonRuntimeProcessAfterInteractiveCleanupUnknown();
+  return Object.freeze({
+    status: outcome.status,
+    value: outcome.status === "completed" ? outcome.value : null,
+  });
 }
 
 export async function withInteractiveConsoleAsyncUsingAdapter<T>(
@@ -219,14 +232,8 @@ export async function withInteractiveConsoleAsyncOutcomeUsingAdapter<T>(
 export function withInteractiveConsoleAsync<T>(
   operation: (handles: InteractiveConsoleHandles) => Promise<T>,
 ) {
-  return withInteractiveConsoleAsyncUsingAdapter(
-    process.platform,
-    Object.freeze({
-      open: fs.openSync,
-      close: fs.closeSync,
-      validate: validateInteractiveConsoleHandles,
-    }),
-    operation,
+  return withInteractiveConsoleAsyncOutcome(operation).then((outcome) =>
+    outcome.status === "completed" ? outcome.value : null,
   );
 }
 
@@ -244,7 +251,10 @@ export function withInteractiveConsoleAsyncOutcome<T>(
   ).then((outcome) => {
     if (outcome.status === "cleanup_unknown")
       poisonRuntimeProcessAfterInteractiveCleanupUnknown();
-    return outcome;
+    return Object.freeze({
+      status: outcome.status,
+      value: outcome.status === "completed" ? outcome.value : null,
+    });
   });
 }
 
@@ -602,16 +612,10 @@ export function readInteractiveConsoleLine(
   inputDescriptor: number,
   cancellationSignal: AbortSignal,
 ) {
-  return readInteractiveConsoleLineUsingAdapter(
+  return readInteractiveConsoleLineOutcome(
     inputDescriptor,
     cancellationSignal,
-    Object.freeze({
-      isTty: tty.isatty,
-      spawn,
-      setTimeout,
-      clearTimeout,
-    }),
-  );
+  ).then((outcome) => (outcome.status === "completed" ? outcome.line : null));
 }
 
 export function readInteractiveConsoleLineOutcome(
@@ -711,6 +715,21 @@ export function describeInteractiveConsoleContract() {
     ]),
     productionPoisonTiming:
       "synchronous_on_cleanup_unknown_observation_before_return_or_next_non_cleanup_await",
+    productionPoisonPreservingEntrypoints: Object.freeze([
+      "withInteractiveConsoleOutcome",
+      "withInteractiveConsole",
+      "withInteractiveConsoleAsyncOutcome",
+      "withInteractiveConsoleAsync",
+      "readInteractiveConsoleLineOutcome",
+      "readInteractiveConsoleLine",
+      "writeInteractiveConsoleTextOutcome",
+      "writeInteractiveConsoleText",
+      "interactiveConsoleAvailabilityOutcome",
+      "interactiveConsoleAvailable",
+    ]),
+    genericUsingAdapterAuthority:
+      "non_authority_pure_no_production_process_state",
+    productionNoncompletedValue: "null",
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",

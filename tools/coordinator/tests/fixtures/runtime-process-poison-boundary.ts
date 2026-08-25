@@ -6,7 +6,14 @@ import tty from "node:tty";
 import workerThreads from "node:worker_threads";
 
 import { runSignedGeneralTaskVerification } from "../../scripts/verify-signed-general-task.ts";
-import { interactiveConsoleAvailabilityOutcome } from "../../src/core/interactive-console.ts";
+import {
+  interactiveConsoleAvailabilityOutcome,
+  readInteractiveConsoleLine,
+  withInteractiveConsole,
+  withInteractiveConsoleAsync,
+  withInteractiveConsoleAsyncOutcome,
+  withInteractiveConsoleOutcome,
+} from "../../src/core/interactive-console.ts";
 import { isRuntimeProcessPoisoned } from "../../src/core/runtime-process-safety-state.ts";
 import { startRuntimeOwnedCoordinatorTask } from "../../src/security/coordinator-task-runtime.ts";
 import {
@@ -21,6 +28,11 @@ const MODES = new Set([
   "reader_cleanup",
   "lock_acquire_cleanup",
   "lock_release_cleanup",
+  "sync_convenience_cleanup",
+  "async_convenience_cleanup",
+  "reader_convenience_cleanup",
+  "sync_outcome_cleanup",
+  "async_outcome_cleanup",
 ]);
 const mode = process.argv[2];
 if (!mode || !MODES.has(mode)) process.exit(64);
@@ -89,7 +101,7 @@ function fixtureReaderProcess() {
   child.send = () => true;
   child.kill = () => true;
   child.disconnect = () => {
-    if (mode === "reader_cleanup")
+    if (mode === "reader_cleanup" || mode === "reader_convenience_cleanup")
       throw new Error("fixture_reader_disconnect_cleanup_unknown");
     child.connected = false;
   };
@@ -118,7 +130,13 @@ try {
   fs.openSync = ((_path: string, flags: string) =>
     flags === "r" ? 101 : 102) as typeof fs.openSync;
   fs.closeSync = ((descriptor: number) => {
-    if (mode === "descriptor_close")
+    if (
+      mode === "descriptor_close" ||
+      mode === "sync_convenience_cleanup" ||
+      mode === "async_convenience_cleanup" ||
+      mode === "sync_outcome_cleanup" ||
+      mode === "async_outcome_cleanup"
+    )
       throw new Error(`fixture_descriptor_${descriptor}_close_failed`);
   }) as typeof fs.closeSync;
   tty.isatty = (() => true) as typeof tty.isatty;
@@ -147,6 +165,33 @@ try {
   if (mode === "descriptor_close") {
     originStatus = interactiveConsoleAvailabilityOutcome().status;
     isOriginSettled = true;
+  } else if (mode === "sync_convenience_cleanup") {
+    const value = withInteractiveConsole(() => "must_not_escape");
+    originStatus = value === null ? "null" : "value_escaped";
+    isOriginSettled = true;
+  } else if (mode === "async_convenience_cleanup") {
+    const value = await withInteractiveConsoleAsync(async () =>
+      Promise.resolve("must_not_escape"),
+    );
+    originStatus = value === null ? "null" : "value_escaped";
+    isOriginSettled = true;
+  } else if (mode === "reader_convenience_cleanup") {
+    const value = await readInteractiveConsoleLine(
+      101,
+      new AbortController().signal,
+    );
+    originStatus = value === null ? "null" : "value_escaped";
+    isOriginSettled = true;
+  } else if (mode === "sync_outcome_cleanup") {
+    const outcome = withInteractiveConsoleOutcome(() => "must_not_escape");
+    originStatus = `${outcome.status}:${outcome.value === null ? "null" : "value_escaped"}`;
+    isOriginSettled = true;
+  } else if (mode === "async_outcome_cleanup") {
+    const outcome = await withInteractiveConsoleAsyncOutcome(async () =>
+      Promise.resolve("must_not_escape"),
+    );
+    originStatus = `${outcome.status}:${outcome.value === null ? "null" : "value_escaped"}`;
+    isOriginSettled = true;
   } else {
     originPromise = confirmRuntimeOwnedExternalSendUsingConsole(
       "fixture notice",
@@ -163,6 +208,7 @@ try {
   }
 
   const wasOriginPendingAtGate = !isOriginSettled;
+  const wasPoisonedAtOriginBoundary = isRuntimeProcessPoisoned();
   let packageInputReadCount = 0;
   const packageInput = new Proxy(Object.create(null), {
     get: () => {
@@ -227,6 +273,7 @@ try {
       initialPoisonState: isInitiallyPoisoned,
       originStatus,
       originPendingAtGate: wasOriginPendingAtGate,
+      poisonedAtOriginBoundary: wasPoisonedAtOriginBoundary,
       finalPoisonState: isRuntimeProcessPoisoned(),
       packageReason:
         issued.verification && typeof issued.verification === "object"
