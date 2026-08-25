@@ -632,6 +632,12 @@ test("delete／moveの第三状態は上書きせずintentと観測物を保持�
       assert.notEqual(child.status, 0);
       const replacementPath = path.join(root, replacement);
       fs.writeFileSync(replacementPath, "third-state", "utf8");
+      if (operation === "move")
+        assert.throws(
+          () =>
+            inspectDockerRecoveryJournalDirectory(path.join(root, "source")),
+          /docker_recovery_(?:move_)?intent_third_state/u,
+        );
       assert.throws(
         () => resumeDockerRecoveryJournalDirectory(path.join(root, "source")),
         /docker_recovery_(?:intent|move)_third_state/u,

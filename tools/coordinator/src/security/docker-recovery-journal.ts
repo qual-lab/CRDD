@@ -477,36 +477,13 @@ function resumeDeleteAnchor(anchor: string) {
   return true;
 }
 
-function resumeMoveAnchor(anchor: string) {
-  const intent = readIntentAnchor(anchor);
-  if (
-    !exactKeys(intent, [
-      "schema",
-      "sourceParentIdentity",
-      "targetParentIdentity",
-      "targetDirectory",
-      "pair",
-      "targetContentName",
-      "targetCommitName",
-    ]) ||
-    intent.schema !== "crdd-coordinator-durable-json-move/v1" ||
-    !validPairEvidence(intent.pair) ||
-    typeof intent.targetContentName !== "string" ||
-    path.basename(intent.targetContentName) !== intent.targetContentName ||
-    intent.targetCommitName !== `${intent.targetContentName}${COMMIT_SUFFIX}`
-  )
+function inspectMoveAnchorState(anchor: string) {
+  const intent = validateIntentSnapshot(anchor);
+  if (intent.schema !== "crdd-coordinator-durable-json-move/v1")
     throw new Error("docker_recovery_move_intent_invalid");
   const pair = intent.pair as Record<string, unknown>;
   const sourceDirectory = path.dirname(anchor);
-  const targetDirectory = String(
-    (intent as Record<string, unknown>).targetDirectory ?? "",
-  );
-  if (
-    stableDirectoryIdentity(sourceDirectory) !== intent.sourceParentIdentity ||
-    !path.isAbsolute(targetDirectory) ||
-    stableDirectoryIdentity(targetDirectory) !== intent.targetParentIdentity
-  )
-    throw new Error("docker_recovery_move_intent_invalid");
+  const targetDirectory = String(intent.targetDirectory);
   const sourceTarget = path.join(sourceDirectory, String(pair.contentName));
   const sourceCommit = path.join(sourceDirectory, String(pair.commitName));
   const target = path.join(targetDirectory, String(intent.targetContentName));
@@ -542,6 +519,30 @@ function resumeMoveAnchor(anchor: string) {
   );
   if (state === "third_state")
     throw new Error("docker_recovery_move_intent_third_state");
+  return Object.freeze({
+    intent,
+    pair,
+    state,
+    sourceDirectory,
+    targetDirectory,
+    sourceTarget,
+    sourceCommit,
+    target,
+    targetCommit,
+    record: Object.freeze({
+      serialized: String(pair.contentSerialized),
+      hash: String(pair.contentHash),
+      identityText: String(pair.contentIdentity),
+      logicalKey: String(pair.logicalKey),
+      value: JSON.parse(String(pair.contentSerialized)),
+    }),
+  });
+}
+
+function resumeMoveAnchor(anchor: string) {
+  const inspected = inspectMoveAnchorState(anchor);
+  const { pair, sourceTarget, sourceCommit, target, targetCommit, state } =
+    inspected;
   if (state === "move_content") fs.renameSync(sourceTarget, target);
   if (state !== "complete") {
     if (!fs.existsSync(target) || fs.existsSync(sourceTarget))
@@ -1150,6 +1151,52 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
   return true;
 }
 
+export function inspectDockerRecoveryMoveJournalForRecovery(
+  directory: string,
+  recoveryId: string,
+  logicalKey: string,
+  targetDirectory: string,
+  targetContentName: string,
+) {
+  stableDirectoryIdentity(directory);
+  stableDirectoryIdentity(targetDirectory);
+  if (
+    !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+      recoveryId,
+    ) ||
+    path.basename(targetContentName) !== targetContentName
+  )
+    throw new Error("docker_recovery_target_invalid");
+  const matches = fs
+    .readdirSync(directory)
+    .filter(isDockerRecoveryJournalIntentName)
+    .sort()
+    .flatMap((name) => {
+      const anchor = path.join(directory, name);
+      const value = validateIntentSnapshot(anchor);
+      if (value.schema !== "crdd-coordinator-durable-json-move/v1") return [];
+      const inspected = inspectMoveAnchorState(anchor);
+      if (
+        recoveryIdFromIntent(value) !== recoveryId ||
+        inspected.record.logicalKey !== logicalKey ||
+        inspected.targetDirectory !== targetDirectory ||
+        value.targetContentName !== targetContentName ||
+        value.targetCommitName !== dockerRecoveryCommitName(targetContentName)
+      )
+        return [];
+      return [
+        Object.freeze({
+          ...inspected.record,
+          moveState: inspected.state,
+        }),
+      ];
+    });
+  const match = matches[0];
+  if (matches.length !== 1 || !match)
+    throw new Error("docker_recovery_move_target_unverified");
+  return match;
+}
+
 export function inspectDockerRecoveryJournalDirectory(directory: string) {
   stableDirectoryIdentity(directory);
   const values: Array<
@@ -1163,6 +1210,7 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
       pairCommitName: string | null;
       targetContentName: string | null;
       targetCommitName: string | null;
+      moveState: "move_content" | "move_commit" | "complete" | null;
     }>
   > = [];
   for (const name of fs
@@ -1185,6 +1233,10 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
       schema !== "crdd-coordinator-recovery-cleanup-delete/v1"
     )
       throw new Error("docker_recovery_intent_invalid");
+    const moveInspection =
+      schema === "crdd-coordinator-durable-json-move/v1"
+        ? inspectMoveAnchorState(path.join(directory, name))
+        : null;
     values.push(
       Object.freeze({
         schema,
@@ -1217,6 +1269,7 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
           schema === "crdd-coordinator-durable-json-move/v1"
             ? String(value.targetCommitName)
             : null,
+        moveState: moveInspection?.state ?? null,
       }),
     );
   }

@@ -35,6 +35,7 @@ import {
   isDockerRecoveryJournalTemporaryName,
   isDockerRecoveryJournalIntentName,
   inspectDockerRecoveryJournalDirectory,
+  inspectDockerRecoveryMoveJournalForRecovery,
   moveCommittedDockerRecoveryJson,
   readCommittedDockerRecoveryJson,
   removeDockerRecoveryCleanupDirectory,
@@ -50,7 +51,7 @@ import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 9;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 10;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -3704,11 +3705,20 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     ):
       | ReturnType<typeof readExactJson>
       | (ReturnType<typeof discoverDockerRecoveryJournalJsonForRecovery> &
-          object) => {
+          object)
+      | ReturnType<typeof inspectDockerRecoveryMoveJournalForRecovery> => {
       try {
         return readExactJson(file, logicalKey);
       } catch (error) {
         if (!recoveryId) throw error;
+        if (fs.existsSync(file))
+          return inspectDockerRecoveryMoveJournalForRecovery(
+            rootPath,
+            recoveryId,
+            logicalKey,
+            path.dirname(file),
+            path.basename(file),
+          );
         const discovered = discoverDockerRecoveryJournalJsonForRecovery(
           rootPath,
           logicalKey,
@@ -3792,6 +3802,11 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
                   dockerRecoveryCommitName("base-commit.json"),
             );
             if (matchingIntents.length !== 1)
+              throw new Error("docker_task_runtime_state_base_invalid");
+            if (
+              !("moveState" in commitRecord) ||
+              commitRecord.moveState !== "move_commit"
+            )
               throw new Error("docker_task_runtime_state_base_invalid");
             splitMoveRecords.set("base-commit.json", commitRecord);
           }

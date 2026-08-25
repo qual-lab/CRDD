@@ -34,6 +34,7 @@ import {
 } from "../src/security/execution-environment.ts";
 import { loadHostRecoveryRecordByToken } from "../src/security/host-recovery-record.ts";
 import {
+  dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
   moveCommittedDockerRecoveryJson,
   resumeDockerRecoveryJournalDirectoryForRecovery,
@@ -200,6 +201,53 @@ function addSplitRootBaseMove(
     Reflect.set(fs, "renameSync", originalRename);
   }
   return recoveryId;
+}
+
+function snapshotRecoveryTree(root: string) {
+  const snapshots: Array<
+    Readonly<{
+      name: string;
+      type: "directory" | "file";
+      bytes: Buffer | null;
+      identity: readonly [bigint, bigint, bigint];
+    }>
+  > = [];
+  const visit = (directory: string) => {
+    for (const entry of fs
+      .readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => left.name.localeCompare(right.name))) {
+      const target = path.join(directory, entry.name);
+      const metadata = fs.lstatSync(target, { bigint: true });
+      const name = path.relative(root, target);
+      if (entry.isDirectory() && !entry.isSymbolicLink()) {
+        snapshots.push(
+          Object.freeze({
+            name,
+            type: "directory" as const,
+            bytes: null,
+            identity: [
+              metadata.dev,
+              metadata.ino,
+              metadata.birthtimeNs,
+            ] as const,
+          }),
+        );
+        visit(target);
+        continue;
+      }
+      assert.equal(entry.isFile() && !entry.isSymbolicLink(), true);
+      snapshots.push(
+        Object.freeze({
+          name,
+          type: "file" as const,
+          bytes: fs.readFileSync(target),
+          identity: [metadata.dev, metadata.ino, metadata.birthtimeNs] as const,
+        }),
+      );
+    }
+  };
+  visit(root);
+  return Object.freeze(snapshots);
 }
 
 function addKilledProductionCleanup(
@@ -897,6 +945,13 @@ test("production inventoryはbase-commit moveの全境界を同一／別Homeと�
         const secondAnchor = path.join(rootPath, secondIntent.name);
         const secondBytes = fs.readFileSync(secondAnchor);
         const secondIdentity = fs.lstatSync(secondAnchor, { bigint: true });
+        const secondNonce = second.split(".")[2];
+        assert.ok(secondNonce);
+        const secondTree = snapshotRecoveryTree(rootPath).filter(
+          (entry) =>
+            entry.name.includes(secondNonce) ||
+            entry.name === secondIntent.name,
+        );
 
         const initial = inspectDockerRecoveryRootSnapshotWithLock(
           verifiedRoot(rootPath),
@@ -905,6 +960,14 @@ test("production inventoryはbase-commit moveの全境界を同一／別Homeと�
         assert.equal(initial.status, "completed", JSON.stringify(initial));
         assert.deepEqual(initial.dockerRecoveryIds, [first, second].sort());
         assert.deepEqual(fs.readFileSync(secondAnchor), secondBytes);
+        assert.deepEqual(
+          snapshotRecoveryTree(rootPath).filter(
+            (entry) =>
+              entry.name.includes(secondNonce) ||
+              entry.name === secondIntent.name,
+          ),
+          secondTree,
+        );
 
         assert.equal(
           resumeDockerRecoveryJournalDirectoryForRecovery(rootPath, first, {
@@ -926,6 +989,14 @@ test("production inventoryはbase-commit moveの全境界を同一／別Homeと�
         );
         assert.deepEqual(afterFirst.dockerRecoveryIds, [first, second].sort());
         assert.deepEqual(fs.readFileSync(secondAnchor), secondBytes);
+        assert.deepEqual(
+          snapshotRecoveryTree(rootPath).filter(
+            (entry) =>
+              entry.name.includes(secondNonce) ||
+              entry.name === secondIntent.name,
+          ),
+          secondTree,
+        );
         const afterIdentity = fs.lstatSync(secondAnchor, { bigint: true });
         assert.deepEqual(
           [afterIdentity.dev, afterIdentity.ino, afterIdentity.birthtimeNs],
@@ -945,6 +1016,95 @@ test("production inventoryはbase-commit moveの全境界を同一／別Homeと�
       } finally {
         fs.rmSync(rootPath, { recursive: true, force: true });
         assert.equal(fs.existsSync(rootPath), false);
+      }
+    }
+  }
+});
+
+test("production inventoryはsplit moveの改変・置換・第三状態を採用せず全Evidenceを保持する", () => {
+  for (const move of ["base", "base_commit"] as const) {
+    for (const mutation of [
+      "target_bytes",
+      "target_replacement",
+      "source_commit_bytes",
+      "source_and_target",
+      "all_missing",
+      "target_sidecar",
+      "target_directory_replacement",
+    ] as const) {
+      const boundary =
+        mutation === "source_and_target" || mutation === "all_missing" ? 1 : 2;
+      const rootPath = fs.mkdtempSync(
+        path.join(os.tmpdir(), "crdd-runtime-split-negative-test-"),
+      );
+      let external: string | null = null;
+      try {
+        const recoveryId = addSplitRootBaseMove(
+          rootPath,
+          "a",
+          move,
+          "a",
+          boundary,
+        );
+        addSplitRootBaseMove(rootPath, "b", "base_commit", "b", 2);
+        const nonce = recoveryId.split(".")[2];
+        assert.ok(nonce);
+        const sourceName =
+          move === "base"
+            ? `pending-docker-task-${nonce}.json`
+            : `pending-docker-task-${nonce}.commit.json`;
+        const targetName = move === "base" ? "base.json" : "base-commit.json";
+        const source = path.join(rootPath, sourceName);
+        const sourceCommit = path.join(
+          rootPath,
+          dockerRecoveryCommitName(sourceName),
+        );
+        const targetDirectory = path.join(rootPath, `docker-task-${nonce}`);
+        const target = path.join(targetDirectory, targetName);
+        const targetCommit = path.join(
+          targetDirectory,
+          dockerRecoveryCommitName(targetName),
+        );
+
+        if (mutation === "target_bytes") fs.writeFileSync(target, "{}\n");
+        if (mutation === "target_replacement") {
+          external = fs.mkdtempSync(
+            path.join(os.tmpdir(), "crdd-runtime-replacement-"),
+          );
+          const replacement = path.join(external, "replacement.json");
+          const original = path.join(external, "original.json");
+          fs.writeFileSync(replacement, fs.readFileSync(target));
+          fs.renameSync(target, original);
+          fs.renameSync(replacement, target);
+        }
+        if (mutation === "source_commit_bytes")
+          fs.writeFileSync(sourceCommit, "{}\n");
+        if (mutation === "source_and_target") fs.copyFileSync(source, target);
+        if (mutation === "all_missing") {
+          fs.rmSync(source);
+          fs.rmSync(sourceCommit);
+        }
+        if (mutation === "target_sidecar")
+          fs.writeFileSync(targetCommit, "{}\n");
+        if (mutation === "target_directory_replacement") {
+          external = fs.mkdtempSync(
+            path.join(os.tmpdir(), "crdd-runtime-directory-replacement-"),
+          );
+          fs.renameSync(targetDirectory, path.join(external, "original"));
+          fs.mkdirSync(targetDirectory);
+        }
+
+        const before = snapshotRecoveryTree(rootPath);
+        const result = inspectDockerRecoveryRootSnapshotWithLock(
+          verifiedRoot(rootPath),
+          () => Object.freeze({ release: () => true }),
+        );
+        assert.equal(result.status, "blocked", `${move}:${mutation}`);
+        assert.deepEqual(result.dockerRecoveryIds, []);
+        assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+      } finally {
+        fs.rmSync(rootPath, { recursive: true, force: true });
+        if (external) fs.rmSync(external, { recursive: true, force: true });
       }
     }
   }
@@ -1472,7 +1632,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 9,
+    contractRevision: 10,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

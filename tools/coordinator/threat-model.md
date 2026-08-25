@@ -4,7 +4,7 @@ Local PersonalのSubscription OfferingはCodexの`chatgpt_subscription_oauth`と
 
 Status: Implementation Candidate
 
-第十三次是正は、Node.js 24.19.0で全725試験、journal重点29試験、production回復／CLI重点28試験、private package check、固定coverage下限および全体Checkerを通過した。現在の未完了Gateは新固定版への独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。
+第十四次是正は、Node.js 24.19.0で全726試験、journal重点29試験、production回復／CLI重点29試験、private package check、固定coverage下限および全体Checkerを通過した。現在の未完了Gateは新固定版への独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。
 
 ### 現行revisionのProvider Home／Docker Task回復補正
 
