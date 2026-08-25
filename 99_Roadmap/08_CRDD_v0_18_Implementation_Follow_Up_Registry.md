@@ -12,7 +12,7 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 ## 現在の残件
 
-2026-08-25の現行Coordinator Runtime 1.0縦結合では、固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Provider Home四Hash、Mount Grantおよび一般Task E2Eをproduction経路へ接続済みである。現在の残件は[`CHG-000015`第十八次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とする。固定Commit `d4cbdff079e5e2270b71263d6edbfe32e5332dd1`／Tree `d9cdf6265ab09cdac6dacde0bded41b6bd107a81`へのAgent／Architecture／Security再レビュー、Document Audit、Gap／Impact AuditおよびConformance AuditはCritical／Major／Minor 0件で全て`Pass`し、`AG-DRR-016-01`を`Resolved`とした。第十八次是正はactive pointer適格性を、両bootstrap pair完了、Root source／move intent不存在、通常Operation inventory、exact `host-begin-intent`、base initial Host lineage一致、およびpointer解放後Evidence不存在へ結合した。partial、pre-host-intent、move anchor残存またはpointer解放後のcommitted pointer／pointer journalはRecovery ID空で停止し、Task admissionと明示Recoveryも最初のmutation前に拒否する。現在の未完了Gateは正式署名配布物上の一般Task実runであり、それが完了する前に下表を`Completed`へ昇格しない。
+2026-08-25の現行Coordinator Runtime 1.0縦結合では、固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Provider Home四Hash、Mount Grantおよび一般Task E2Eをproduction経路へ接続済みである。現在の残件は[`CHG-000015`第十八次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とする。固定Commit `d4cbdff079e5e2270b71263d6edbfe32e5332dd1`／Tree `d9cdf6265ab09cdac6dacde0bded41b6bd107a81`へのAgent／Architecture／Security再レビュー、Document Audit、Gap／Impact AuditおよびConformance AuditはCritical／Major／Minor 0件で全て`Pass`し、`AG-DRR-016-01`を`Resolved`とした。第十八次是正はactive pointer適格性を、両bootstrap pair完了、Root source／move intent不存在、通常Operation inventory、exact `host-begin-intent`、base initial Host lineage一致、およびpointer解放後Evidence不存在へ結合した。partial、pre-host-intent、move anchor残存またはpointer解放後のcommitted pointer／pointer journalはRecovery ID空で停止し、Task admissionと明示Recoveryも最初のmutation前に拒否する。Coordinator Runtimeの実行成立に関する現在の唯一の未完了Gateは、正式署名配布物上の一般Task実runである。それが完了する前に下表のRuntime項目を`Completed`へ昇格しない。これとは別に、ツール契約の未完了事項を[`FU-018-CHECKER-NAMING`](#fu-018-checker-naming)で追跡する。
 
 | ID | 件名 | Work State | Scope / Target | Source | Next action / Re-evaluation trigger |
 | --- | --- | --- | --- | --- | --- |
@@ -21,6 +21,19 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 | `FU-018-PROVIDER-HOME` | Provider Home保護とMount Grant | In Progress | local OS user単位の専用Home、settings分離、opaqueな一回限りmount許可と失効 | [CHG-000029](../90_Release/Changes/CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md)、[CHG-000030](../90_Release/Changes/CHG-000030_Provider_Home_Mount_Grant_Runtime_Store.md)、[CHG-000031](../90_Release/Changes/CHG-000031_Runtime_Owned_Operation_Context_Capability.md)、[CHG-000032](../90_Release/Changes/CHG-000032_Current_Process_Principal_Observation.md)、[CHG-000033](../90_Release/Changes/CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md)、[CHG-000034](../90_Release/Changes/CHG-000034_Native_Direct_Provision_Supervisor_Entrypoint.md)、[CHG-000035](../90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)、[CHG-000036](../90_Release/Changes/CHG-000036_AppContainer_Provision_Worker_Candidate.md)、[CHG-000039](../90_Release/Changes/CHG-000039_Runtime_Owned_Provider_Home_Observation.md)、[CHG-000040](../90_Release/Changes/CHG-000040_Runtime_Owned_Provider_Home_Mount_Grant.md)、[CHG-000044](../90_Release/Changes/CHG-000044_Runtime_Provider_Authority_Capability.md) | selected-user observerの四Hash、Grant issue／consume／owner限定complete／revoke、実Docker bind mount、logical Home／Host Operation kernel lock、active pointer、Task回復記録およびcleanup WALはproduction経路へ接続済み。正式署名一般Task実runで閉じる |
 | `FU-018-EGRESS` | EgressとTelemetry制御 | In Progress | endpoint限定Proxy、親環境遮断、Telemetry判断と観測 | [CHG-000038](../90_Release/Changes/CHG-000038_Claude_Subscription_OAuth_Vertical_Slice.md) | IANA snapshot、限定Proxy、固定Docker network、親環境を継承しない最小環境およびcleanupはRuntime adapterへ接続済み。正式署名一般Task実runで閉じる |
 | `FU-018-CLAUDE-AUTH` | Claude OAuth lifecycleと実probe | In Progress | login、logout、refresh、quota観測、追加購入停止、実request、終了とcleanup | [CHG-000038](../90_Release/Changes/CHG-000038_Claude_Subscription_OAuth_Vertical_Slice.md) | 専用Provider Home、Claude Max OAuth、読取り専用Subscription preflight、bounded request、追加購入／API fallback禁止およびMount Grant付き実行は接続済み。logout／再loginは別Lifecycleとし、現固定版の正式署名一般Task実runを残す |
+
+<a id="fu-018-checker-naming"></a>
+
+### `FU-018-CHECKER-NAMING` — Coordinator配布設定の命名契約
+
+- 対応状態: `In Progress`
+- 担当責任者: Qual-Lab
+- 対象: `tools/checker/tools-naming.contract.test.ts`が`tools/coordinator/runtime/claude-managed-settings.json`を所有済み命名規則として認識できる状態
+- 情報源: [CHG-000054](../90_Release/Changes/CHG-000054_Agent_Organization_Document_Architecture.md)で観測した`tools/checker`契約試験151件中150件合格、1件不合格
+- 影響: リポジトリ全体Checkerはerror 0／warning 0だが、契約試験全体を合格とは表示できない。エージェント組織、AD-22またはCoordinator Runtimeの実行成立Gateに起因する失敗ではない
+- 次の処置: 原因変更を所有するCHG-000038または次のChecker／Coordinator保守変更へ是正を統合し、その変更内で契約母集団と利用側を照合する。独立した移行、リスク、切戻しまたは検証境界が必要な場合だけ新しいCHGへ分ける。CHG-000054の文書変更へRuntime／Checker修正を混入させない
+- 再評価契機: `tools/checker`の命名規則変更、Coordinator Runtimeの配布設定または対象ファイル変更、もしくはv0.18.0 Release準備の開始
+- 完了条件: 固定改訂版で契約試験151件中151件の合格を確認する。または、人間の決定権限者が理由、受容する影響および再評価条件を記録して終了する
 
 ## 境界
 

@@ -13,30 +13,35 @@ CRDD自身（このフォルダ内のメソドロジー文書）の変更履歴�
 
 ### v0.18.0 Candidate — Current Decision Set, Agent Organization, Communication, and Architecture Evaluation (Unreleased)
 
-This unreleased candidate combines normative changes for the Current Decision Set and Communication, the new Agent Organization foundation contract, and non-normative architecture evaluation. Agent Organization separates role, specialty, capability, authority, delegation, independent review, cost optimization, and result integration without requiring multiple agents, a fixed topology, a specific Provider, or Coordinator Runtime.
+This unreleased candidate combines three normative difference sets and a separate non-normative architecture evaluation. The Current Decision Set contract reconstructs what humans must decide from the current revision after remediation and re-review. The Communication contract conditionally connects adoption-oriented external communication to Discovery-owned market and adoption exploration and preserves safety boundaries for human-subject research and persuasion. The Agent Organization foundation separates role, specialty, capability, authority, delegation, independent review, cost optimization, and result integration. The architecture material evaluates future execution projections but is not a normative requirement or a statement that Coordinator Runtime is available.
 
 Compared with v0.17.0:
 
+- Adds the Current Decision Set contract so resolved, AI-remediable, report-only, and safely deferrable matters are not returned as current Human decisions, while current major risk, irreversible effect, residual-risk acceptance, or authority conflict remains visible.
+- Adds the Communication market／adoption exploration contract. Its compound trigger applies when external communication creates or changes audience, message, channel, advertising, or market-response treatment for adoption formation; it keeps Discovery authority over market and adoption hypotheses, separates observed signals from causes, checks delivery readiness before inducing external action, and preserves consent, autonomy, information minimization, selection bias, and generalization limits for human-subject work.
 - Adds `04_Agent_Organization.md` as the Candidate foundation authority for organizing specialized AI work while retaining Human Authority.
 - Adds Agentic Delivery criterion AD-22. Where work uses role assignment, delegation, execution-actor／Provider／Model selection, independent review, or Coordinator integration, it evaluates the separation of responsibility, specialty, capability, authority, verification, and integration; avoids unnecessary agents or delegation; does not infer quality, independence, or authority from a Provider or configuration name; compares cost, quota, or credit only among eligible candidates; and does not promote a result or `Pass` into Human Authority.
 - Extends Agentic Delivery claims from AD-01–AD-21 to AD-01–AD-22 without requiring a permanent organization registry, fixed schema, multi-agent execution, or retrospective rewriting of closed work.
 - Separates the Agent Organization concept from the non-normative Agent／Provider Orchestration architecture candidate and the current Coordinator Runtime implementation.
+- Keeps the v0.18 Architecture Candidate non-normative. Its branch co-location, diagrams, runtime candidates, or future profiles do not add conformance criteria or establish implementation availability.
 - Keeps the released baseline at v0.17.0. Candidate documents, branch co-location, checker success, or runtime implementation do not establish adoption, conformance, activation, or release.
 
-Adoption impact: this is a normative, non-structural Agentic Delivery change. A project adopting v0.18.0 from an earlier baseline evaluates AD-22 for an Agentic Delivery claim and confirms that its active AI entry points and work-routing evidence preserve the new organization boundary. Historical completed work and old conformance records remain history and are not rewritten solely to match AD-22.
+Adoption impact: the combined release-candidate difference set is classified as breaking because it includes the Communication change, while the Current Decision Set and Agent Organization changes are normative. A project adopting v0.18.0 from v0.17.0 evaluates all applicable active decision-support, Communication／Discovery, Agentic Delivery, AI-entry, review, and routing consumers through baseline adoption and Migration Completeness. The non-normative architecture material does not itself trigger migration. Historical completed work and old conformance records remain history and are not rewritten solely to match the new presentation or AD-22.
 
 Migration note (v0.17.0 → v0.18.0):
 
 - `migration_required: true`
-- `change_classification: normative`
-- Required: perform the baseline-adoption assessment and satisfy Migration Completeness before activating v0.18.0. Record the Human activation decision and rollback boundary.
+- `change_classification: breaking`
+- Required: perform the baseline-adoption assessment and satisfy Migration Completeness before activating v0.18.0. Inventory all applicable consumers of CHG-000012, CHG-000013, and CHG-000054; record their migration, replacement, retained, or not-applicable disposition; obtain independent meaning-preservation review; and record the Human activation decision and rollback boundary.
+- Required for decision support: update active Agent, Skill, quality, audit, and AI-entry guidance where it forwards stale or already-resolved findings, creates approval requests when no current Human decision remains, hides major unresolved risk, or groups separable decisions. Derive the Current Decision Set from the current revision after remediation and re-review.
+- Required where the Communication compound trigger applies: connect adoption-oriented audience, message, channel, advertising, or market-response changes to Discovery-owned market／adoption exploration; preserve evidence type, selection and nonresponse bias, generalization limits, research consent and refusal, information minimization, autonomy, delivery readiness, stop conditions, and Human authority before external action. Communication scopes that do not meet the trigger do not create empty market-exploration artifacts.
 - Required for Agentic Delivery conformance: evaluate AD-22 for the claimed scope. Existing Work Assignment, routing, review, and integration evidence may be reused when it already shows the required boundaries; no dedicated registry is required.
-- Conditional: update AI entry points, routing policies, review procedures, or local guidance only where they infer capability or authority from a role, Provider, Model, connection, or session; add unnecessary delegation; compare cost before eligibility; treat Provider difference as review independence; or promote an agent result into Human Authority.
-- Not required: use multiple agents, a Coordinator product, a fixed Planner／Executor／Reviewer flow, a particular Provider or Model, a permanent organization artifact, a new Stable Context ID, or retrospective rewriting of completed history.
-- Rollback / recovery: keep v0.17.0 as the active baseline until Migration Completeness and Human activation finish. If partial adoption is reversed, restore the previous AI entry and conformance scope while preserving candidate records as history.
-- Known risk if deferred: routing may conflate role, capability, and authority; unnecessary agents may consume quota; cost may override eligibility; Provider difference may be mistaken for independent review; or an integrated AI result may be mistaken for Human approval.
-- Verification: run the full repository checker on one fixed revision, then independently review Agent operation and Architecture and run Document, Gap／Impact, and Conformance Audits against that same revision.
-- Known limitation: the contract improves explainability and control of Agent composition but cannot prove Provider capability, eliminate every cost or quota failure, guarantee review quality, or replace Human Authority and qualified independent review.
+- Conditional: update only active or resumed consumers that violate one of these contracts. For Agent Organization, this includes inferring capability or authority from a role, Provider, Model, connection, or session; adding unnecessary delegation; comparing cost before eligibility; treating Provider difference as review independence; or promoting an Agent result into Human Authority. For Communication, re-evaluate fixed participant counts, fixed channel sequences, unsupported advertising metrics, or externally induced actions whose delivery path is unverified.
+- Not required: adopt the non-normative Architecture Candidate, make Coordinator Runtime part of the release, use multiple agents, require a fixed Planner／Executor／Reviewer flow or Provider／Model, add a permanent organization artifact or Stable Context ID, create Communication artifacts for a non-applicable scope, or retrospectively rewrite completed history.
+- Rollback / recovery: keep v0.17.0 as the active baseline until Migration Completeness and Human activation finish. If partial adoption is reversed, restore the previous active AI entry, decision-support, Communication／Discovery, and conformance scope while preserving candidate and migration records as history; do not treat rollback as erasing externally observed evidence or completed Human-subject interactions.
+- Known risk if deferred: humans may be asked to re-decide resolved matters or may miss current major risk; Communication may infer market causes from weak signals, target the wrong population, pressure participants, expose unnecessary information, or promise an unsupported action; routing may conflate role, capability, and authority, let cost override eligibility, mistake Provider difference for independent review, or mistake an integrated AI result for Human approval.
+- Verification: run the full repository checker on one fixed revision, then independently review Agent operation and Architecture and run Document, Gap／Impact, and Conformance Audits against that same revision. Verify the Current Decision Set representative cases, Communication trigger／non-trigger／unknown cases and human-subject boundaries, AD-22 and AD-01–AD-22 claims, bilingual migration equivalence, v0.17 preservation, and non-normative Architecture separation.
+- Known limitation: these contracts improve decision presentation, adoption-exploration discipline, and explainable Agent composition, but they cannot prove a market, representative sampling, causality, delivery capacity, Provider capability, review quality, or the absence of every cost, quota, privacy, legal, or security failure. They do not replace Human Authority, qualified independent review, specialist judgment, consent, or applicable law and contract.
 
 <a id="changelog-v0170-en"></a>
 
@@ -808,32 +813,37 @@ The following describes the historical v0.1.0 files and does not describe the cu
 
 <a id="changelog-v0180-ja"></a>
 
-### v0.18.0候補 — 現在の判断集合、Agent Organization、Communication、Architecture評価（未リリース）
+### v0.18.0候補 — 現在の判断集合、エージェント組織、外部コミュニケーション、Architecture評価（未リリース）
 
-この未リリース候補は、現在の判断集合とCommunicationの規範変更、Agent Organizationの新しい基礎契約、および非規範のArchitecture評価を組み合わせる。Agent Organizationは、複数Agent、固定構成、特定ProviderまたはCoordinator Runtimeを必須にせず、役割、専門性、能力、決定権限、委譲、独立レビュー、費用最適化および結果統合を分離する。
+この未リリース候補は、三つの規範差分と、それらとは別の非規範Architecture評価を組み合わせる。現在の判断集合（Current Decision Set）の契約は、是正・再レビュー後の現在改訂版から人間が今決める事項を再構成する。外部コミュニケーション（Communication）の契約は、採用形成を目的とする外部説明を条件付きで課題探索が所有する市場・採用探索へ接続し、人間対象調査と説得の安全境界を維持する。エージェント組織（Agent Organization）の基礎正本は、役割、専門性、能力、決定権限、委譲、独立レビュー、費用最適化および結果統合を分離する。Architecture資料は将来の実行投影を評価するが、規範要件でもCoordinator Runtimeの利用可能性の表明でもない。
 
 v0.17.0からの変更:
 
-- 専門化したAI作業を編成しながらHuman Authorityを維持するCandidate基礎正本として`04_Agent_Organization.md`を追加する。
-- Agentic Delivery基準AD-22を追加する。役割分担、委譲、実行主体／Provider／Model選定、独立レビューまたはCoordinator統合を行う場合に、責務、専門性、能力、決定権限、検証および統合の分離、不要なAgent／委譲の非発火、Provider名や構成名から品質・独立性・決定権限を推定しないこと、適格候補間だけで費用・割当量・利用枠を比較すること、およびResultや`Pass`をHuman Authorityへ昇格しないことを評価する。
-- Agentic Delivery準拠表明の必須範囲をAD-01〜AD-21からAD-01〜AD-22へ拡張する。恒久的な組織台帳、固定Schema、Multi-Agent実行または完了済み履歴の遡及書換えは要求しない。
-- Agent Organizationの概念、非規範のAgent／Provider Orchestration Architecture候補、および現在のCoordinator Runtime実装を分離する。
-- 公開済み基準はv0.17.0のままとする。Candidate文書、branchへの同居、Checker合格またはRuntime実装から、採用、準拠、有効化またはReleaseを成立させない。
+- 是正済み、AIが一意に修正可能、報告のみ、または安全に独立保留できる事項を現在の人間判断へ戻さず、現在の重大リスク、不可逆な効果、残存リスク受容または決定権限競合を隠さない現在の判断集合契約を追加する。
+- 外部コミュニケーションの市場・採用探索契約を追加する。採用形成を目的として受け手、訴求、媒体、広告または市場反応の扱いを新設・変更する場合に複合条件で発火し、市場・採用仮説の決定権限を課題探索へ保持し、観測と原因を分け、外部行動を促す前に提供準備を確認し、人間対象作業の同意、自律性、情報最小化、選定偏りおよび一般化限界を維持する。
+- 専門化したAI作業を編成しながら人間の決定権限を維持する候補基礎正本として`04_Agent_Organization.md`を追加する。
+- エージェント型提供基準AD-22を追加する。役割分担、委譲、実行主体／プロバイダー／モデル選定、独立レビューまたは調整役による統合を行う場合に、責務、専門性、能力、決定権限、検証および統合の分離、不要なエージェント／委譲の非発火、名称から品質・独立性・決定権限を推定しないこと、適格候補間だけで費用・割当量・利用枠を比較すること、および結果や`Pass`を人間の決定権限へ昇格しないことを評価する。
+- エージェント型提供の準拠表明範囲をAD-01〜AD-21からAD-01〜AD-22へ拡張する。恒久的な組織台帳、固定スキーマ、複数エージェント実行または完了済み履歴の遡及書換えは要求しない。
+- エージェント組織の概念、非規範のエージェント／プロバイダー調整Architecture候補、および現在のCoordinator Runtime実装を分離する。
+- v0.18 Architecture Candidateは非規範のまま維持する。同一branchへの同居、図、実行環境候補または将来Profileから準拠基準や実装利用可能性を成立させない。
+- 公開済み基準はv0.17.0のままとする。候補文書、branchへの同居、Checker合格またはRuntime実装から、採用、準拠、有効化またはリリースを成立させない。
 
-採用への影響: これはAgentic Deliveryに対する非構造的な規範変更である。以前の基準版からv0.18.0を採用するProjectは、Agentic Delivery準拠表明の対象についてAD-22を評価し、現在のAI入口とWork Routingの根拠が新しい組織境界を保持できることを確認する。完了済みの過去作業や過去の準拠記録を、AD-22の形式へ合わせるだけの理由で書き換えない。
+採用への影響: 統合したリリース候補の差分集合は、破壊的な外部コミュニケーション変更を含むため`breaking`に分類する。現在の判断集合とエージェント組織の変更は規範変更である。v0.17.0からv0.18.0を採用するプロジェクトは、基準版採用評価と移行完了の条件を通じて、該当する現在の判断支援、外部コミュニケーション／課題探索、エージェント型提供、AI入口、レビューおよび経路制御の利用側をすべて評価する。非規範Architecture資料自体は移行を発火しない。完了済みの過去作業や過去の準拠記録を、新しい表示形式やAD-22へ合わせるだけの理由で書き換えない。
 
 移行注記（v0.17.0 → v0.18.0）:
 
 - `migration_required: true`
-- `change_classification: normative`
-- 必須: v0.18.0を有効化する前に基準版採用評価を行い、移行完了の条件を満たす。人間による有効化判断と復旧境界を記録する。
-- Agentic Delivery準拠で必須: 対象範囲のAD-22を評価する。既存のWork Assignment、Routing、Reviewおよび統合の根拠が必要境界を示せる場合は再利用でき、専用台帳を要求しない。
-- 条件付き: 役割、Provider、Model、接続またはSessionから能力・決定権限を推定する、不要な委譲を追加する、適格性判定より先に費用を比較する、Provider差を独立レビューとみなす、またはAgent ResultをHuman Authorityへ昇格するAI入口、Routing Policy、Review手順またはローカル案内だけを更新する。
-- 不要: Multi-Agent、Coordinator製品、固定Planner／Executor／Reviewer Flow、特定Provider／Model、恒久的な組織成果物、新しい安定コンテキストID、または完了済み履歴の遡及書換え。
-- 切戻し／復旧: 移行完了と人間による有効化が終わるまでv0.17.0を有効基準として維持する。部分採用を戻す場合は、候補記録を履歴として保持しながら、以前のAI入口と準拠範囲を復元する。
-- 延期時の既知リスク: Routingが役割、能力、決定権限を混同し、不要Agentが利用枠を消費し、費用が適格性より優先され、Provider差が独立レビューと誤認され、統合したAI Resultが人間の承認と誤認される可能性がある。
-- 検証: 一つの固定改訂版へRepository全体Checkerを実行し、同じ改訂版に対してAgent／Architecture独立レビュー、Document Audit、Gap／Impact AuditおよびConformance Auditを実行する。
-- 既知の限界: この契約はAgent編成の説明可能性と統制を高めるが、Provider能力の証明、すべての費用／利用枠失敗の除去、レビュー品質の保証、Human Authorityまたは適格な独立レビューの代替はできない。
+- `change_classification: breaking`
+- 必須: v0.18.0を有効化する前に基準版採用評価と移行完了の条件を満たす。CHG-000012、CHG-000013およびCHG-000054の該当利用側を棚卸しし、移行、置換、据え置きまたは対象外の処遇を記録し、意味保持の独立レビュー、人間による有効化判断および切戻し境界を取得する。
+- 判断支援で必須: 古い指摘や解消済み事項を人間判断へ転送する、現在判断がないのに承認を作る、現在の重大リスクを隠す、または独立に採否できる判断を束ねるエージェント、スキル、品質、監査およびAI入口の案内を更新する。是正・再レビュー後の現在改訂版から現在の判断集合を導出する。
+- 外部コミュニケーションの複合発火条件が成立する場合に必須: 採用形成を目的とする受け手、訴求、媒体、広告または市場反応の変更を、課題探索が所有する市場・採用探索へ接続する。根拠の性質、選定・無反応の偏り、一般化限界、調査の同意と拒否、情報最小化、自律性、提供準備、停止条件および外部行動前の人間の決定権限を維持する。発火しない範囲へ空の市場探索成果物を追加しない。
+- エージェント型提供の準拠で必須: 対象範囲のAD-22を評価する。既存の作業割当、経路制御、レビューおよび統合の根拠が必要境界を示せる場合は再利用でき、専用台帳を要求しない。
+- 条件付き: 契約に反する現在または再開対象の利用側だけを更新する。エージェント組織では、役割、プロバイダー、モデル、接続またはセッションから能力・決定権限を推定する、不要な委譲を追加する、適格性判定より先に費用を比較する、プロバイダー差を独立レビューとみなす、またはエージェント結果を人間の決定権限へ昇格する場合が該当する。外部コミュニケーションでは、固定人数、固定媒体順、根拠のない広告指標または提供経路を確認できない外部行動を再評価する。
+- 不要: 非規範Architecture Candidateの採用、Coordinator Runtimeのリリース範囲への追加、複数エージェント、固定の計画者／実行者／確認者フロー、特定プロバイダー／モデル、恒久的な組織成果物、新しい安定コンテキストID、非適用範囲の外部コミュニケーション成果物、または完了済み履歴の遡及書換え。
+- 切戻し／復旧: 移行完了と人間による有効化が終わるまでv0.17.0を有効基準として維持する。部分採用を戻す場合は、候補・移行記録を履歴として保持しながら、以前のAI入口、判断支援、外部コミュニケーション／課題探索および準拠範囲を復元する。外部で既に観測した根拠や完了済みの人間対象作業を切戻しで消去したことにしない。
+- 延期時の既知リスク: 人間が解消済み事項を再判断させられる、または現在の重大リスクを見落とす可能性がある。外部コミュニケーションが弱い信号から市場原因を断定し、対象者を誤り、回答圧力や不要な情報開示を生み、提供できない行動を約束する可能性がある。経路制御が役割、能力、決定権限を混同し、費用を適格性より優先し、プロバイダー差を独立レビューと誤認し、統合したAI結果を人間の承認と誤認する可能性がある。
+- 検証: 一つの固定改訂版へリポジトリ全体Checkerを実行し、同じ改訂版に対してエージェント／Architecture独立レビュー、文書監査、不足／影響監査および準拠監査を実行する。現在の判断集合の代表例、外部コミュニケーションの発火／非発火／情報不足と人間対象境界、AD-22とAD-01〜AD-22準拠表明、英日移行注記の同義性、v0.17.0の保持および非規範Architectureの分離を確認する。
+- 既知の限界: これらの契約は判断表示、市場・採用探索およびエージェント編成の説明可能性と統制を高めるが、市場、標本の代表性、因果、提供能力、プロバイダー能力、レビュー品質、またはすべての費用・割当量・プライバシー・法務・セキュリティ失敗の不存在を証明しない。人間の決定権限、適格な独立レビュー、専門家判断、同意または適用法令・契約を代替しない。
 
 <a id="changelog-v0170-ja"></a>
 

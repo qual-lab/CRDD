@@ -2,7 +2,7 @@
 
 Status: Concept / Non-normative Architecture Candidate
 Target: CRDD v0.18.0 Architecture Candidate
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [実証計画](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [Agent Organization](../04_Agent_Organization.md)
+Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [実証計画](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [エージェント組織](../04_Agent_Organization.md)
 
 > 本書は非規範の責務整理である。現在のCRDD、Agent Contract、Skill Contract、Human Authority、External Information Boundaryまたは準拠基準を変更しない。
 
@@ -366,11 +366,11 @@ Repository数やOperation数が増えた場合だけ、Registry、Scheduler、�
 
 ---
 
-## 9. Agent Organization
+## 9. エージェント組織（Agent Organization）
 
-エージェント組織（Agent Organization）の目的と概念境界は[Agent Organization](../04_Agent_Organization.md)を正本とする。本節は、複数の実行主体へWorkを割り当てる場合も、CRDDが必要Context、Authority、Capability、期待結果およびVerification Requirementを所有し続けるという責務境界だけを示す。
+エージェント組織の目的と概念境界は[エージェント組織](../04_Agent_Organization.md)を正本とする。本節は、複数の実行主体へ作業を割り当てる場合も、CRDDが必要なコンテキスト、決定権限、能力、期待結果および検証要求を所有し続けるという責務境界だけを示す。
 
-採用側Policyは利用可能なExecution Boundaryを定め、RuntimeはEligibility GateとEligible Set内のOptimizationを実行し、Provider Adapterは固有APIと入出力変換を担う。このRouting Architectureは[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置く。複数Agent、固定Roleまたは別Providerの使用を品質や独立性の根拠にしない。
+採用側ポリシーは利用可能な実行境界を定め、実行環境は適格性判定と適格集合内の最適化を実行し、プロバイダーアダプターは固有APIと入出力変換を担う。この経路制御Architectureは[エージェント／プロバイダー調整](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置く。複数エージェント、固定役割または別プロバイダーの使用を品質や独立性の根拠にしない。
 
 ---
 

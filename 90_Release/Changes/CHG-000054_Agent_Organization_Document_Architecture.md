@@ -1,73 +1,75 @@
-# 変更トレース: Agent Organization文書Architecture
+# 変更トレース: エージェント組織の文書Architecture
 
 - 変更ID: `CHG-000054`
 - 状態: `Implementation in Progress`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25
-- 対象: Agent Organizationの基礎正本候補、Agent／Provider Orchestration Architecture、Coordinator Runtime実装README、用語集、Audit接続、配布ひな型およびv0.18候補入口
+- 対象: エージェント組織の基礎正本候補、エージェント／プロバイダー調整Architecture、Coordinator Runtime実装README、用語集、監査接続、配布ひな型およびv0.18候補入口
 - 対象version: v0.18.0 Candidate
-- 変更分類: `normative`（v0.18.0 Candidateへの基礎正本とAgentic Delivery基準AD-22の追加。Released Baseline、Runtime動作またはReleaseは変更しない）
-- 移行要否: `migration_required: true`（v0.18.0採用時に、既存Agentic Delivery対象のAD-22根拠を基準版採用評価で再評価する）
-- 関連正本: [Agent Organization](../../04_Agent_Organization.md)、[Agent & Provider Orchestration](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)、[文書化](../../03_Documentation.md)、[Agent契約](../../10_Agent.md)
+- 変更分類: `normative`（v0.18.0候補への基礎正本とエージェント型提供基準AD-22の追加。公開済み基準、Runtime動作またはリリースは変更しない）
+- 移行要否: `migration_required: true`（v0.18.0採用時に、既存のエージェント型提供対象のAD-22根拠を基準版採用評価で再評価する）
+- 関連正本: [エージェント組織](../../04_Agent_Organization.md)、[エージェント／プロバイダー調整](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)、[文書化](../../03_Documentation.md)、[エージェント契約](../../10_Agent.md)
 
 ## 結論
 
-`tools/coordinator/README.md`をAgent Organization、Cost、Independent ReviewまたはAuthorityの意味正本にしない。Agent Organizationをルートの`04_Agent_Organization.md`へ基礎正本候補として集約し、既存Agent & Provider Orchestrationを未完了の実行Architecture候補、`tools/coordinator`を現在の実装と強制方法へ限定する。
+`tools/coordinator/README.md`をエージェント組織、費用、独立レビューまたは決定権限の意味正本にしない。エージェント組織をルートの`04_Agent_Organization.md`へ基礎正本候補として集約し、既存のエージェント／プロバイダー調整を未完了の実行Architecture候補、`tools/coordinator`を現在の実装と強制方法へ限定する。
 
-Authority、Human Authority、Independent Reviewおよび品質の既存決定権限は維持する。新しいAgent Organization文書はそれらを組織概念へ適用するCandidate基礎正本であり、文書のCandidate状態だけからReleased Baseline、準拠表明、特定Provider、固定Role、固定FlowまたはRuntime必須条件を成立させない。
+決定権限、人間の決定権限、独立レビューおよび品質の既存決定権限は維持する。新しいエージェント組織文書はそれらを組織概念へ適用する候補基礎正本であり、文書の`Candidate`状態だけから公開済み基準、準拠表明、特定プロバイダー、固定役割、固定フローまたはRuntime必須条件を成立させない。
 
 ## 着手前整合
 
-- 受付: Agent Organizationを一つのMDへ分かりやすく集約し、Concept／Policy／ArchitectureをImplementation READMEから分離したいという人間判断。
-- 基準改訂版: `5cea6d4`。Coordinator Runtimeのstatus-only独立確認、Document Audit、Gap／Impact AuditおよびConformance AuditはFinding 0で`Pass`。
-- 変更する契約母集団: Agent Organizationの定義、概念責務、Architecture責務、Implementation READMEの責務表示、正式用語の境界表示。
-- 既知の利用側母集団: Overview、Terminology、README日英v0.18候補入口、v0.18 Concept、Responsibility Boundary、PoC Profile 5、Operation Health、Agent & Provider Orchestration、Coordinator Runtime README、Conformance Audit、CHANGELOG日英候補節、`template/AGENTS.md`、`template/CLAUDE.md`。
-- 保持する意図: Human Authority、RoleとAuthorityの分離、Provider／Runtime非依存、不要なMulti-Agentの非必須、CostはEligible Set内だけで最適化、Provider差とReview独立性の分離、CoordinatorはHuman Authorityを取得しない。
-- 目指さないこと: Runtime feature、固定Workflow、固定Provider mapping、新しいSchema、`Execution Slate`の正式用語化、専用Audit、v0.18の採用またはRelease、既存成果物や履歴の一括書換え。
-- 必須確認: Agent／Architecture独立レビュー、Document Audit、Gap／Impact Audit、Conformance Audit。
-- 非該当: 実装・Security監査。コード、Runtime実行契約または配布物を変更しないため。Release判断は本変更で行わないが、将来採用時の移行影響はCHANGELOG、Gap／Impact AuditおよびConformance Auditの対象に含める。
-- 経路変更: 初稿Audit後、人間の決定権限者がAgent OrganizationをFoundation帯の`04_Agent_Organization.md`へ置く方針を決定した。これにより、非規範Roadmap候補の新設からCandidate基礎正本の追加へ変更分類と利用側を再計算した。
+- 受付: エージェント組織を一つのMDへ分かりやすく集約し、概念／ポリシー／Architectureを実装READMEから分離したいという人間判断。
+- 基準改訂版: `5cea6d4`。Coordinator Runtimeの状態表示だけを対象とする独立確認、文書監査、不足／影響監査および準拠監査は指摘事項0件で`Pass`。
+- 変更する契約母集団: エージェント組織の定義、概念責務、Architecture責務、実装READMEの責務表示、正式用語の境界表示。
+- 既知の利用側母集団: 概要、用語、README日英v0.18候補入口、v0.18構想、責務境界、PoC Profile 5、運用健全性、エージェント／プロバイダー調整、Coordinator Runtime README、準拠監査、CHANGELOG日英候補節、`template/AGENTS.md`、`template/CLAUDE.md`。
+- 保持する意図: 人間の決定権限、役割と決定権限の分離、プロバイダー／Runtime非依存、不要な複数エージェントの非必須、費用は適格集合内だけで最適化、プロバイダー差とレビュー独立性の分離、調整役は人間の決定権限を取得しない。
+- 目指さないこと: Runtime機能、固定作業手順、固定プロバイダー対応関係、新しいスキーマ、`Execution Slate`の正式用語化、専用監査、v0.18の採用またはリリース、既存成果物や履歴の一括書換え。
+- 必須確認: エージェント／Architecture独立レビュー、文書監査、不足／影響監査、準拠監査。
+- 非該当: 実装・セキュリティ監査。コード、Runtime実行契約または配布物を変更しないため。リリース判断は本変更で行わないが、将来採用時の移行影響はCHANGELOG、不足／影響監査および準拠監査の対象に含める。
+- 経路変更: 初稿監査後、人間の決定権限者がエージェント組織を基礎帯の`04_Agent_Organization.md`へ置く方針を決定した。これにより、非規範Roadmap候補の新設から候補基礎正本の追加へ変更分類と利用側を再計算した。
 - 規範追加の承認: 固定改訂版`74c498c`の監査集合で、主要境界を準拠評価へ投影するAD-22と将来採用時の移行が必要と判明した。人間の決定権限者は2026-08-25に、この規範追加を承認した。
-- 停止条件: Released Baselineの変更、v0.18採用または準拠表明の確定、既存Runtime動作変更、Human Authority変更、または人間判断なしに一意化できない概念競合を検出した場合。
+- 停止条件: 公開済み基準の変更、v0.18採用または準拠表明の確定、既存Runtime動作変更、人間の決定権限変更、または人間判断なしに一意化できない概念競合を検出した場合。
 
-着手前整合確認の結果は`着手可`。用語・表現は日本語を主要表示とし、初出で正式英語名を併記する。Agent Organizationは複数文書で独立概念として使用され、固有の責務境界を持つため、同じ変更で用語集へ登録する。
+着手前整合確認の結果は`着手可`。用語・表現は日本語を主要表示とし、初出で正式英語名を併記する。エージェント組織は複数文書で独立概念として使用され、固有の責務境界を持つため、同じ変更で用語集へ登録する。
 
 ## 専門探索と収束
 
-判断を変え得る不確実性は、概念の配置、非規範／規範の強さ、既存Orchestration文書との重複、およびtools READMEに残すべき実装上の安全制約であった。
+判断を変え得る不確実性は、概念の配置、非規範／規範の強さ、既存の調整文書との重複、およびtools READMEに残すべき実装上の安全制約であった。
 
 比較した案は次のとおりである。
 
-1. `tools/coordinator/README.md`を中心のまま維持する案は、実装READMEを上流Contextや判断理由の暗黙正本にしないという文書化契約に反するため不採用。
-2. `07 Agent & Provider Orchestration`だけを拡張する案は、Agent OrganizationのWhy／WhatとRouting／EligibilityのHowを同じ文書へ残し、将来別Runtimeから参照しにくいため不採用。
-3. `99_Roadmap`へ概念本文を置く案は、未完了作業の登録簿を第二の正本にするため不採用。初稿ではこの案を採ったが、Document Audit、Gap／Impact AuditおよびConformance Auditの指摘により撤回した。
-4. `00`–`09`のFoundation帯に`04_Agent_Organization.md`をCandidate基礎正本として置き、07を未完了Architecture候補、tools READMEをImplementationへ分ける案は、概念の抽象度と文書責務を一致させるため採用。
+1. `tools/coordinator/README.md`を中心のまま維持する案は、実装READMEを上流コンテキストや判断理由の暗黙正本にしないという文書化契約に反するため不採用。
+2. `07 Agent & Provider Orchestration`だけを拡張する案は、エージェント組織の目的／内容と経路制御／適格性の方法を同じ文書へ残し、将来別Runtimeから参照しにくいため不採用。
+3. `99_Roadmap`へ概念本文を置く案は、未完了作業の登録簿を第二の正本にするため不採用。初稿ではこの案を採ったが、文書監査、不足／影響監査および準拠監査の指摘により撤回した。
+4. `00`–`09`の基礎帯に`04_Agent_Organization.md`を候補基礎正本として置き、07を未完了Architecture候補、tools READMEを実装へ分ける案は、概念の抽象度と文書責務を一致させるため採用。
 
-反証として、概念文書がAgent契約、Independent ReviewまたはAuthorityを再定義する危険と、実装READMEから安全条件を削りすぎる危険を確認した。前者は既存Coreを最終正本として直接参照し、後者は実装が強制する具体条件をREADMEへ保持しつつ意味正本ではないと明示して回避する。
+反証として、概念文書がエージェント契約、独立レビューまたは決定権限を再定義する危険と、実装READMEから安全条件を削りすぎる危険を確認した。前者は既存Coreを最終正本として直接参照し、後者は実装が強制する具体条件をREADMEへ保持しつつ意味正本ではないと明示して回避する。
 
-専用のAgent Organization Auditを追加する案も確認したが、Agent契約と品質保証のIndependent Review、Document Audit、Conformance AuditおよびGap／Impact Auditで現在の適用条件、判定、根拠を扱えるため不採用とした。既存Auditで表現できない固有契約が生じた場合だけ再評価する。
+専用のエージェント組織監査を追加する案も確認したが、エージェント契約と品質保証の独立レビュー、文書監査、準拠監査および不足／影響監査で現在の適用条件、判定、根拠を扱えるため不採用とした。既存監査で表現できない固有契約が生じた場合だけ再評価する。
 
 ## 代表例と境界
 
-- 発火例: 複数Agent／ProviderへWorkを割り当てる場合、Agent Organizationの概念、07のEligibility／Routing、Runtimeの具体強制を順に参照する。
-- 非発火例: 単一Agentで成立する通常Workへ、Agent Organizationを理由にCoordinator、別ProviderまたはIndependent Reviewを追加しない。
-- 境界例: Cost／Credit分散はEligible Set内で比較できるが、Authority、Safety、Privacy、CapabilityまたはVerificationを弱めない。
-- 判定情報不足例: AgentのCapability、独立性、Authorityまたは情報境界を確認できない場合、低Cost候補として選ばず既存の停止／Human Decisionへ戻す。
+- 発火例: 複数エージェント／プロバイダーへ作業を割り当てる場合、エージェント組織の概念、07の適格性／経路制御、Runtimeの具体強制を順に参照する。
+- 非発火例: 単一エージェントで成立する通常作業へ、エージェント組織を理由に調整役、別プロバイダーまたは独立レビューを追加しない。
+- 境界例: 費用／利用枠の分散は適格集合内で比較できるが、決定権限、安全性、プライバシー、能力または検証を弱めない。
+- 判定情報不足例: エージェントの能力、独立性、決定権限または情報境界を確認できない場合、低費用候補として選ばず既存の停止／人間判断へ戻す。
 
 ## 変更と確認
 
-予定編集は、Foundation正本候補の新設、Terminology登録、Overview、README日英入口、v0.18候補文書、Conformance AuditのAD-22、CHANGELOG日英候補節、配布ひな型およびtools READMEの参照・責務更新、Roadmap内の重複削減である。Coordinator Runtimeのコード、試験、Threat Model、現在Gate、Issue #30、Release Identityおよび過去CHG／Evidence／CHANGELOG履歴は変更しない。
+予定編集は、基礎正本候補の新設、用語登録、概要、README日英入口、v0.18候補文書、準拠監査のAD-22、CHANGELOG日英候補節、配布ひな型およびtools READMEの参照・責務更新、Roadmap内の重複削減である。Coordinator Runtimeのコード、試験、脅威モデル、現在の判断ゲート、Issue #30、リリースIdentityおよび過去CHG／根拠／CHANGELOG履歴は変更しない。
 
 初回固定前に、予定した契約母集団、利用側母集団、代表例、変更禁止範囲と実際の差分を照合する。固定改訂版へRepository全体Checkerを一度実行し、その共通結果を独立レビューと必須監査へ渡す。指摘事項があれば全監査結果を統合してから修正し、新しい固定改訂版を再確認する。
 
 初稿のRepository全体CheckerはMarkdown 388件、local link 2211件、anchor 588件、Related block 26件、versioned document 26件、remediation row 74件を確認し、error 0／warning 0である。コード、Runtime契約、Threat Modelおよび試験の差分はない。
 
-初稿固定改訂版`722fe6e`に対するAgent／Architecture独立レビューはFinding 0で`Pass`だった。一方、同じ固定改訂版に対するDocument Audit、Gap／Impact AuditおよびConformance Auditは、Roadmapを概念正本候補にしたこと、Responsibility Boundary／Orchestration／Operation Healthに概念重複を残したこと、再利用可能な用語定義へ具体versionを埋め込んだことを指摘し、`Fail`となった。この結果を統合し、Foundation正本候補への移設、利用側全数更新、重複縮約およびversion非依存化を一つの是正として実施する。初稿の監査結果を修正版の合格根拠へ流用しない。
+初稿固定改訂版`722fe6e`に対するエージェント／Architecture独立レビューは指摘事項0件で`Pass`だった。一方、同じ固定改訂版に対する文書監査、不足／影響監査および準拠監査は、Roadmapを概念正本候補にしたこと、責務境界／調整／運用健全性に概念重複を残したこと、再利用可能な用語定義へ具体versionを埋め込んだことを指摘し、`Fail`となった。この結果を統合し、基礎正本候補への移設、利用側全数更新、重複縮約およびversion非依存化を一つの是正として実施する。初稿の監査結果を修正版の合格根拠へ流用しない。
 
 是正後の固定前Repository全体CheckerはMarkdown 389件、local link 2234件、anchor 588件、Related block 27件、versioned document 27件、remediation row 74件を確認し、error 0／warning 0である。`09_CRDD_v0_18_Agent_Organization.md`は概念本文を持たない一時索引へ縮約し、CHG-000054の必須確認完了後に別の未完了作業がなければ削除する。
 
-固定改訂版`74c498c`のAgent／Architectureレビュー、Document Audit、Gap／Impact AuditおよびConformance Auditは、Foundation配置と旧3指摘の解消を確認した一方、Agent Organizationの主要境界を準拠判定へ完全投影するAD-22、README日英の3区分と導線、採用短絡表現、locale-first表示、Overviewと配布入口の読込境界、規範分類と移行影響を新たに指摘した。全結果を統合し、AD-22を既存AD-04／07／08／11の再定義ではなく編成固有の横断基準として追加し、`normative`／`migration_required: true`、CHANGELOG日英、README、表示名および読込境界を一括是正する方針を各監査へ再提示した。各監査は条件付きで受け入れ、人間の決定権限者が規範追加を承認した。
+固定改訂版`74c498c`のエージェント／Architectureレビュー、文書監査、不足／影響監査および準拠監査は、基礎配置と旧3指摘の解消を確認した一方、エージェント組織の主要境界を準拠判定へ完全投影するAD-22、README日英の3区分と導線、採用短絡表現、locale-first表示、概要と配布入口の読込境界、規範分類と移行影響を新たに指摘した。全結果を統合し、AD-22を既存AD-04／07／08／11の再定義ではなく編成固有の横断基準として追加し、`normative`／`migration_required: true`、CHANGELOG日英、README、表示名および読込境界を一括是正する方針を各監査へ再提示した。各監査は条件付きで受け入れ、人間の決定権限者が規範追加を承認した。
 
-規範追加後の固定前Repository全体CheckerはMarkdown 389件、local link 2240件、anchor 588件、Related block 27件、versioned document 27件、remediation row 74件を確認し、error 0／warning 0である。`tools/checker`の契約試験は151件中150件が合格し、今回変更していない`tools/coordinator/runtime/claude-managed-settings.json`を既存命名規則が認識しない1件だけが不合格だった。Agent Organization、AD-22、CHANGELOGまたは文書構造に関する試験失敗ではないが、試験全体を合格とは扱わず、本変更の固定改訂版と共通入力にこの既知の未関連結果を含める。命名規則またはRuntime配布物を本変更へ無断で追加せず、別の対象範囲で影響と所有責務を評価する。
+規範追加後の固定前Repository全体CheckerはMarkdown 389件、local link 2240件、anchor 588件、Related block 27件、versioned document 27件、remediation row 74件を確認し、error 0／warning 0である。`tools/checker`の契約試験は151件中150件が合格し、今回変更していない`tools/coordinator/runtime/claude-managed-settings.json`を既存命名規則が認識しない1件だけが不合格だった。エージェント組織、AD-22、CHANGELOGまたは文書構造に関する試験失敗ではないが、試験全体を合格とは扱わず、本変更の固定改訂版と共通入力にこの既知の未関連結果を含める。命名規則またはRuntime配布物を本変更へ無断で追加せず、担当責任者、再評価契機および完了条件は実装残件台帳の[`FU-018-CHECKER-NAMING`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md#fu-018-checker-naming)で追跡する。
+
+固定改訂版`34d7496`のエージェント／Architecture独立レビューと準拠監査は`Pass`だった。文書監査と不足／影響監査は、現行v0.18英日CHANGELOGがCHG-000012／013／014／054の統合集合を名乗りながらAD-22だけへ移行内容を縮約し、集合最上位の`breaking`を`normative`と過小表示したMajor 1件、今回変更した日本語説明面のlocale-first不一致と、契約試験150／151の後続追跡不足というMinor 2件を返した。全監査結果を統合し、英日CHANGELOGを三つの規範差分と非規範Architectureに分けて`breaking`／`migration_required: true`へ再構成し、CHG-000054単体の`normative`／`true`を維持し、変更した説明面を日本語主体へ整え、命名不整合を実装残件台帳へ接続する方針を各監査へ再提示した。各監査は条件付きで受け入れ、是正を適用・自己確認中である。新しい固定改訂版の必須再監査前に、これらを`Resolved`または`Pass`と扱わない。
 
 現在、人間による追加判断は必要ない。基礎正本候補の作成と責務分離は人間が承認済みだが、v0.18採用、統合またはReleaseは別判断である。

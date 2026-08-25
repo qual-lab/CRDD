@@ -7,9 +7,9 @@
 Expertise and execution to AI. Ideas, decisions, and accountability to humans. Intent to the Context Repository.
 ```
 
-Status: **v0.18.0 Candidate — Current Decision Set, Communication, Agent Organization, and Architecture Evaluation / 現在の判断集合・Communication・Agent Organization・Architecture評価**
+Status: **v0.18.0 Candidate — Current Decision Set, Communication, Agent Organization, and Architecture Evaluation / 現在の判断集合・外部コミュニケーション・エージェント組織・Architecture評価**
 
-> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative v0.18.0 Architecture Candidate material. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合とCommunicationの規範変更候補、Agent Organizationの規範的な基礎正本候補、および非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはReleaseは成立しない。See / 参照: [Agent Organization](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](99_Roadmap/01_CRDD_v0_18_Concept.md).
+> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative v0.18.0 Architecture Candidate material. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合と外部コミュニケーションの規範変更候補、エージェント組織の規範的な基礎正本候補、および非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはリリースは成立しない。See / 参照: [エージェント組織](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](99_Roadmap/01_CRDD_v0_18_Concept.md).
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -512,7 +512,7 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
 
-統合v0.18.0候補は、現在の判断集合とCommunicationの規範変更候補、Agent Organizationの規範的な基礎正本候補、および非規範のArchitecture資料を組み合わせる。Agent Organizationは責務、専門性、能力、決定権限、委譲、レビュー、費用および結果統合を、複数Agentを必須にせず分離する。Architecture資料は、その境界を複数実行へ投影する方法を検討する。いずれも特定Coordinator製品、Agent構成、Queue UI、自律承認またはRuntime Capabilityを必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
+統合v0.18.0候補は、現在の判断集合と外部コミュニケーションの規範変更候補、エージェント組織の規範的な基礎正本候補、および非規範のArchitecture資料を組み合わせる。エージェント組織は責務、専門性、能力、決定権限、委譲、レビュー、費用および結果統合を、複数エージェントを必須にせず分離する。Architecture資料は、その境界を複数実行へ投影する方法を検討する。いずれも特定の調整役製品、エージェント構成、Queue UI、自律承認またはRuntime能力を必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
 
 #### この候補が単独では提供しないもの
 
@@ -541,7 +541,7 @@ Representable != Enabled != Accessible != Authorized != Promoted
 - [Forward Compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
 - [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
 
-この候補が使用する横断概念は、[Agent Organizationの基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載や`Candidate`状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびRelease契約に従う。
+この候補が使用する横断概念は、[エージェント組織の基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載や`Candidate`状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびリリース契約に従う。
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 

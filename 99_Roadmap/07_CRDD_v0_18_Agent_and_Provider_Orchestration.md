@@ -3,7 +3,7 @@
 Status: Concept / Non-normative Architecture Candidate
 Target: CRDD v0.18.0 Architecture Candidate
 Subtitle: Safe Context Routing Across Execution Boundaries
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent Organization](../04_Agent_Organization.md)
+Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [エージェント組織](../04_Agent_Organization.md)
 
 > 本書は非規範のAgent／Provider Orchestration候補である。現在のCRDD v0.17.0、Human Authority、Independent Review、External Information Boundary、準拠基準または採用側のProvider契約を変更しない。特定Provider、Model、Agent構成、固定Schemaまたは複数Agentの利用をCRDD準拠条件にしない。
 
@@ -13,7 +13,7 @@ Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD
 
 > **CRDD Agent / Provider Orchestrationは、Provider非依存のContextを、Authority・Information Boundary・Capability・Verification Requirementを満たす実行主体へ安全にRoutingし、その実行結果とProvenanceをCRDDへ還流する仕組みである。**
 
-Agent Organizationの目的、Role、Specialty、Delegation、Independent Review、Cost、AuthorityおよびHuman Boundaryは[Agent Organization](../04_Agent_Organization.md)を正本とする。本書は、その概念を実行境界へ投影するRouting、Eligibility、Optimization、Context Projection、FallbackおよびExecution Provenanceの未完了Architecture候補を扱う。特定RuntimeのBuild、command、Docker、Provider argv、永続状態またはRecovery実装を所有しない。
+エージェント組織（Agent Organization）の目的、役割、専門性、委譲、独立レビュー、費用、決定権限および人間との境界は[エージェント組織](../04_Agent_Organization.md)を正本とする。本書は、その概念を実行境界へ投影する経路制御、適格性、最適化、コンテキスト投影、代替経路および実行来歴の未完了Architecture候補を扱う。特定Runtimeの構築、command、Docker、Provider argv、永続状態または回復実装を所有しない。
 
 主題はAI同士の会話、Agent数、特定Providerの組合せまたはCredit節約ではない。異なるTrust Boundary、能力、権限、Tool Accessを持つ実行主体へ、意味、制約、根拠、決定権限を失わずに作業を引き渡せるかを扱う。
 
@@ -171,7 +171,7 @@ Optimization Policyが同じ条件でProviderを頻繁に切り替える場合�
 
 ## 7. Work／Result／Reviewの投影
 
-Role、Work Assignment、結果統合および独立性の意味は[Agent Organization](../04_Agent_Organization.md)を参照する。本節は新しいTask、Result、Reviewの意味正本を作らず、Runtimeが既存契約から構成する実行用の投影だけを扱う。
+役割、作業割当、結果統合および独立性の意味は[エージェント組織](../04_Agent_Organization.md)を参照する。本節は新しいタスク、結果、レビューの意味正本を作らず、Runtimeが既存契約から構成する実行用の投影だけを扱う。
 
 ```text
 Work Assignment View
@@ -198,7 +198,7 @@ Executor、ReviewerまたはProviderが返す人間判断事項、承認要求�
 
 ## 8. Agent RoleとIndependent Review
 
-RoleとIndependent Reviewの概念は[Agent Organization](../04_Agent_Organization.md)、適用条件と独立性の実行契約は[Agent契約](../10_Agent.md)および[品質保証](../16_Quality_Assurance.md)を参照する。本書は、Reviewが必要なRouting Candidateに作成責務と分離した確認主体、対象、基準および必要Contextを含め、Eligibilityで独立性条件を満たさない候補を除外するArchitectureだけを扱う。
+役割と独立レビューの概念は[エージェント組織](../04_Agent_Organization.md)、適用条件と独立性の実行契約は[エージェント契約](../10_Agent.md)および[品質保証](../16_Quality_Assurance.md)を参照する。本書は、レビューが必要な経路制御候補に作成責務と分離した確認主体、対象、基準および必要なコンテキストを含め、適格性判定で独立性条件を満たさない候補を除外するArchitectureだけを扱う。
 
 ---
 

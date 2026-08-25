@@ -1481,7 +1481,7 @@ Progress Work State
 | 提案（`Proposal`） | `Idea` / `Solution Candidate` / `Recommendation` | 状態が採用前である限り、提案として扱う |
 | 判断（`Decision`） | `Adopted Proposal` / `Approval` | 人間の決定権限者による判断だけを判断として扱う |
 | コンテキストリポジトリ（`Context Repository`） | `Documentation Repository` | コンテキスト、トレース、判断を扱う場合に、文書だけを置く場所へ意味を狭めない |
-| エージェント組織（`Agent Organization`） | `Multi-Agent Runtime` / `Subagent Tree` / `Coordinator Runtime` | 対象Workに必要な専門性、責務、能力、決定権限の境界および検証を組み合わせ、同じ目的と前提へ結果を統合する横断概念。常時Multi-Agent、固定親子構造、特定Coordinator製品またはRuntimeを意味せず、役割、能力および決定権限を同一視しない。詳細は[エージェント組織](04_Agent_Organization.md)を参照する |
+| エージェント組織（`Agent Organization`） | `Multi-Agent Runtime` / `Subagent Tree` / `Coordinator Runtime` | 対象作業に必要な専門性、責務、能力、決定権限の境界および検証を組み合わせ、同じ目的と前提へ結果を統合する横断概念。常時複数エージェント、固定親子構造、特定の調整役製品または実行環境を意味せず、役割、能力および決定権限を同一視しない。詳細は[エージェント組織](04_Agent_Organization.md)を参照する |
 | 正本成果物（`Canonical Artifact`） | `Draft` / `Copy` / `Index` / `View` | 現在の決定権限を持つ成果物だけを正本と呼ぶ。参照用の表示は正本を置き換えない |
 | 投影（`Projection`） | `View` / `Screen` | 同じ実体、正本成果物またはそれらの集合を、目的に応じて表す複数の表現形のそれぞれ。情報源の決定権限を置き換えず、正本成果物の関連表現である`View`やUIの画面そのものとも同一視しない。IAにおけるオブジェクト境界の規則は[投影](#225-projection)を正本とする |
 | 外部コミュニケーション（`Communication`） | `PR` / `Marketing` / `SEO` | 定義した受け手へ価値、意味、主張を伝え、公開後の反応を新しい根拠として戻す共通責務。広報、販売促進または検索対応だけへ狭めず、新しい直列工程にも扱わない。意味と決定権限は[外部コミュニケーション](17_Communication.md)を正本とする |

@@ -199,7 +199,7 @@ Affected Context
 
 単一の指標を最適化しない。例えば通知を減らして見逃しが増えた場合、人間負荷低下を成功とみなさない。安全性、有用性、見逃し、人間負荷、費用を分けて評価する。
 
-ProviderまたはCreditの均等分散も成功条件にしない。Hard Cost／Effect Budget Ceiling違反または実行Capacity不足はEligibilityの拒否として扱い、Estimated CostやQuota／Credit Efficiencyとは別のHealth信号にする。本書はこれらの観測と運用評価を所有し、Costを品質成立条件より先に置かない共通原則は[Agent Organization](../04_Agent_Organization.md)、Eligible候補間のOptimizationは[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照する。
+プロバイダーまたは利用枠の均等分散も成功条件にしない。費用上限／Effect Budget Ceiling違反または実行能力不足は適格性の拒否として扱い、見積費用や割当量／利用枠効率とは別の健全性信号にする。本書はこれらの観測と運用評価を所有し、費用を品質成立条件より先に置かない共通原則は[エージェント組織](../04_Agent_Organization.md)、適格候補間の最適化は[エージェント／プロバイダー調整](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照する。
 
 ---
 

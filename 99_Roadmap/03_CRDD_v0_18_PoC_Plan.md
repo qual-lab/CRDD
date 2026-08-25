@@ -2,7 +2,7 @@
 
 Status: Concept / Non-normative PoC Candidate
 Target: CRDD v0.18.0 Architecture Candidate
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [実装残件台帳](08_CRDD_v0_18_Implementation_Follow_Up_Registry.md), [Agent Organization](../04_Agent_Organization.md)
+Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [実装残件台帳](08_CRDD_v0_18_Implementation_Follow_Up_Registry.md), [エージェント組織](../04_Agent_Organization.md)
 
 > 本書は非規範の実証計画である。v0.18.0 Architecture Candidate全体の仕様を最初のPoCへ限定しない。PoCの成功、Coding Agentの実行、試験合格または本書の存在だけで、本候補の規範採用、Authority拡張、現行標準変更を意味しない。
 
@@ -362,9 +362,9 @@ PoCの成功や過去の一回承認から、新しい判断・操作権限を�
 - 失敗影響を限定でき、検出可能で、RecoveryまたはCompensating Actionが成立し、Effect Boundary内で検証可能な操作だけを候補化
 - 外部公開、本番、費用、法務、権限変更はHuman Gateを維持
 
-### Profile 5 — Agent Organization
+### Profile 5 — エージェント組織（Agent Organization）
 
-- 概念境界は[Agent Organization](../04_Agent_Organization.md)、Routing Architectureは[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照
+- 概念境界は[エージェント組織](../04_Agent_Organization.md)、経路制御Architectureは[エージェント／プロバイダー調整](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照
 - 必要な専門観点だけを分担
 - 独立性、権限、引き渡し、競合解決を評価
 - Agent数を品質根拠にしない

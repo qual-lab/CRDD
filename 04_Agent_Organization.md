@@ -15,7 +15,7 @@ Related:
 - [51_Document_Audit.md](51_Document_Audit.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
 - [53_Gap_Impact_Audit.md](53_Gap_Impact_Audit.md)
-- [Agent & Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- [エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
 
 ---
 
@@ -24,7 +24,7 @@ Related:
 > - CRDDがAIを一つの万能主体ではなく組織として扱う理由
 > - 役割、専門性、能力、決定権限をどう分けるか
 > - 委譲、独立レビュー、費用、結果統合をどう扱うか
-> - Coordinator Runtimeや特定Providerと概念をどう分離するか
+> - Coordinator Runtimeや特定プロバイダーと概念をどう分離するか
 
 本書は、エージェント組織の目的、概念境界および共通原則を所有する基礎正本である。現在の状態は`Candidate`であり、公開済み基準、準拠表明、採用側の基準版またはRuntime利用可能性を自動的に変更しない。
 
@@ -32,89 +32,89 @@ Related:
 
 ## 1. 目的
 
-エージェント組織は、AIを単一の万能主体として扱う代わりに、対象Workに必要な専門性（Specialty）、役割（Role）、能力（Capability）、決定権限（Authority）の境界および検証を組み合わせ、結果を同じ目的と前提へ統合するCRDDの横断概念である。
+エージェント組織は、AIを単一の万能主体として扱う代わりに、対象作業（Work）に必要な専門性（Specialty）、役割（Role）、能力（Capability）、決定権限（Authority）の境界および検証を組み合わせ、結果を同じ目的と前提へ統合するCRDDの横断概念である。
 
 ```text
-Human
-  ├ Idea / Value / Direction
-  ├ Decision Authority
-  └ Accountability
+人間
+  ├ アイデア／価値／方向
+  ├ 判断の決定権限
+  └ 最終責任
         ↓
-Agent Organization
-  ├ Specialized Execution
-  ├ Critique / Verification
-  └ Result Integration
+エージェント組織
+  ├ 専門化した実行
+  ├ 批評／検証
+  └ 結果統合
         ↓
-Human Decision / Policy-contained Completion
+人間の判断／ポリシー内完了
 ```
 
-Agent数を増やすこと、別Providerを使うこと、会話を再帰的に続けること自体を目的にしない。一つの主体で成立するWorkへ、不要な委譲、レビューまたは固定組織を追加しない。
+エージェント数を増やすこと、別プロバイダーを使うこと、会話を再帰的に続けること自体を目的にしない。一つの主体で成立する作業へ、不要な委譲、レビューまたは固定組織を追加しない。
 
 ---
 
 ## 2. 人間とAIの責務
 
-CRDDでは、AIが許可範囲内の探索、整理、比較、設計、実装、検証および結果統合を担える。人間は価値、方向、採否、リスク受容（Risk Acceptance）、公開、Releaseその他のHuman Authorityと最終責任を保持する。
+CRDDでは、AIが許可範囲内の探索、整理、比較、設計、実装、検証および結果統合を担える。人間は価値、方向、採否、リスク受容（Risk Acceptance）、公開、リリースその他の人間の決定権限（Human Authority）と最終責任を保持する。
 
-AIが有力案を提示し、実装し、独立レビューで`Pass`を返しても、それだけから採用、昇格（Promotion）、リスク受容またはHuman Authorityを成立させない。調整役（Coordinator）も例外ではない。
+AIが有力案を提示し、実装し、独立レビューで`Pass`を返しても、それだけから採用、昇格（Promotion）、リスク受容または人間の決定権限を成立させない。調整役（Coordinator）も例外ではない。
 
 ---
 
 ## 3. 概念モデル
 
 ```text
-Agent Organization
-├ Work Goal and Preserved Intent
-├ Role and Responsibility
-├ Specialty and Required Capability
-├ Work Assignment and Context Scope
-├ Delegation and Handoff
-├ Verification and Independent Review
-├ Result Integration and Escalation
-└ Authority and Human Boundary
+エージェント組織
+├ 作業目標と保持する意図
+├ 役割と責務
+├ 専門性と必要能力
+├ 作業割当とコンテキスト範囲
+├ 委譲と引き渡し
+├ 検証と独立レビュー
+├ 結果統合と上位判断への移送
+└ 決定権限と人間との境界
 ```
 
-これは固定Schemaまたは必須成果物一覧ではない。同じ意味を既存のOperation Contract、Agent Contract、作業割当（Work Assignment）、Result、Reviewおよび現在の判断集合から取得できる場合、新しい中央台帳へ複製しない。
+これは固定スキーマまたは必須成果物一覧ではない。同じ意味を既存の操作契約（Operation Contract）、エージェント契約（Agent Contract）、作業割当（Work Assignment）、結果（Result）、レビュー（Review）および現在の判断集合から取得できる場合、新しい中央台帳へ複製しない。
 
 ---
 
 ## 4. 役割、専門性、能力
 
-役割は対象Work内の責務を示す。専門性は適用する専門観点、能力はそのWorkを実行または検証するために必要な能力や接続条件を示す。
+役割は対象作業内の責務を示す。専門性は適用する専門観点、能力はその作業を実行または検証するために必要な能力や接続条件を示す。
 
 ```text
-Role ≠ Specialty ≠ Capability ≠ Authority
+役割 ≠ 専門性 ≠ 能力 ≠ 決定権限
 ```
 
-実行者（Executor）という役割からRepository変更の決定権限を推定しない。確認者（Reviewer）という役割から昇格の決定権限を推定しない。特定ModelまたはProviderの名称から専門品質、独立性、能力または決定権限を推定しない。
+実行者（Executor）という役割からリポジトリ変更の決定権限を推定しない。確認者（Reviewer）という役割から昇格の決定権限を推定しない。特定モデルまたはプロバイダーの名称から専門品質、独立性、能力または決定権限を推定しない。
 
-計画者（Planner）、実行者、確認者、調整役は有力な任意の役割であり、CRDD全体の基本役割や固定Flowではない。一つの主体が複数責務を持てる場合も、どの責務を担ったかと、独立性が必要な責務を分ける。
+計画者（Planner）、実行者、確認者、調整役は有力な任意の役割であり、CRDD全体の基本役割や固定フローではない。一つの主体が複数責務を持てる場合も、どの責務を担ったかと、独立性が必要な責務を分ける。
 
 ---
 
 ## 5. 作業割当、委譲、引き渡し
 
-作業割当は、Goal、必要Context、保持条件、Acceptance Criteria、決定権限、禁止操作、Required Evidenceおよび停止条件を、受け手に必要な粒度で投影する。
+作業割当は、目標（Goal）、必要なコンテキスト（Context）、保持条件、受入基準（Acceptance Criteria）、決定権限、禁止操作、必要な根拠（Required Evidence）および停止条件を、受け手に必要な粒度で投影する。
 
-委譲（Delegation）は作業責務の移譲であり、親または呼出元が持たない決定権限、情報アクセス、Tool AccessまたはEffectを子へ追加する経路ではない。委譲先のAgent、Model、ProviderまたはRuntimeが変わる場合も、Context、決定権限、情報境界およびVerification Requirementを暗黙に流用しない。
+委譲（Delegation）は作業責務の移譲であり、親または呼出元が持たない決定権限、情報アクセス、ツールアクセス（Tool Access）または効果（Effect）を子へ追加する経路ではない。委譲先のエージェント、モデル、プロバイダーまたは実行環境が変わる場合も、コンテキスト、決定権限、情報境界および検証要求（Verification Requirement）を暗黙に流用しない。
 
-引き渡し（Handoff）は自由形式の会話履歴だけに依存せず、対象Revision、情報源、保持条件、実際のResult、Evidence、未解決事項、未評価範囲および次の責務を再構成可能にする。
+引き渡し（Handoff）は自由形式の会話履歴だけに依存せず、対象改訂版（Revision）、情報源、保持条件、実際の結果、根拠（Evidence）、未解決事項、未評価範囲および次の責務を再構成可能にする。
 
 ---
 
 ## 6. 編成候補と選択
 
-調整役または採用側Runtimeは、Workを一つ以上の実行編成候補へ投影できる。候補には、担当する役割、必要な実行境界、委譲、検証、結果統合およびHuman Gateを含められる。
+調整役または採用側の実行環境は、作業を一つ以上の実行編成候補へ投影できる。候補には、担当する役割、必要な実行境界、委譲、検証、結果統合および人間の判断ゲートを含められる。
 
-これは新しい正式用語、固定Schemaまたは永続成果物を導入するものではない。候補選択の実行Architecture、適格性判定（Eligibility Gate）、適格集合（Eligible Set）内の最適化（Optimization）、FallbackおよびContext Projectionは[Agent & Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照する。同文書は未完了Architecture候補であり、本書の概念を再定義しない。
+これは新しい正式用語、固定スキーマまたは永続成果物を導入するものではない。候補選択の実行Architecture、適格性判定（Eligibility Gate）、適格集合（Eligible Set）内の最適化（Optimization）、代替経路（Fallback）およびコンテキスト投影（Context Projection）は[エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)を参照する。同文書は未完了Architecture候補であり、本書の概念を再定義しない。
 
 ---
 
 ## 7. 独立レビュー
 
-複数Agentや別Providerの使用を独立レビュー（Independent Review）の根拠にしない。独立性は、作成責務から分離し、対象、基準およびEvidenceから結論を独立に再構成できることで確認する。
+複数エージェントや別プロバイダーの使用を独立レビュー（Independent Review）の根拠にしない。独立性は、作成責務から分離し、対象、基準および根拠から結論を独立に再構成できることで確認する。
 
-別Providerでも実行者の要約または結論を前提にするだけなら独立ではない。同じProviderでも、責務とContextが分離され、現在の固定改訂版を基準から評価できれば独立性が成立し得る。
+別プロバイダーでも実行者の要約または結論を前提にするだけなら独立ではない。同じプロバイダーでも、責務とコンテキストが分離され、現在の固定改訂版を基準から評価できれば独立性が成立し得る。
 
 独立レビューの適用条件、確認者の能力根拠、結果および工程移行は[Agent契約](10_Agent.md)と[品質保証](16_Quality_Assurance.md)を正本とする。本書は新しいレビュー段階を追加しない。
 
@@ -122,53 +122,53 @@ Role ≠ Specialty ≠ Capability ≠ Authority
 
 ## 8. 費用、割当量、利用枠
 
-不要なAgent、委譲、再試行または上位Modelを起動しない。具体化済みで低リスクのWorkは、必要品質を満たす低費用（Cost）の候補で処理できる。難易度、曖昧性、失敗影響、専門性または検証要求が高い場合だけ、より高い能力や推論量を候補化する。
+不要なエージェント、委譲、再試行または上位モデルを起動しない。具体化済みで低リスクの作業は、必要品質を満たす低費用（Cost）の候補で処理できる。難易度、曖昧性、失敗影響、専門性または検証要求が高い場合だけ、より高い能力や推論量を候補化する。
 
-ただし費用、割当量（Quota）または利用枠（Credit）はSafety、Privacy、決定権限、必要能力、Verification Requirementまたは品質成立条件を弱める理由にしない。費用や利用枠の分散は適格集合内の運用最適化であり、エージェント組織の目的、Provider採用理由または独立性の根拠ではない。
+ただし費用、割当量（Quota）または利用枠（Credit）は安全性（Safety）、プライバシー（Privacy）、決定権限、必要能力、検証要求または品質成立条件を弱める理由にしない。費用や利用枠の分散は適格集合内の運用最適化であり、エージェント組織の目的、プロバイダー採用理由または独立性の根拠ではない。
 
-選定は対象Workに対して説明可能でなければならない。Provider、Model、推論量、速度および委譲経路を使う場合は、採用理由と、より高価な候補を使う必要性または使わない理由をExecution Provenanceから再構成可能にする。
+選定は対象作業に対して説明可能でなければならない。プロバイダー、モデル、推論量、速度および委譲経路を使う場合は、採用理由と、より高価な候補を使う必要性または使わない理由を実行来歴（Execution Provenance）から再構成可能にする。
 
 ---
 
 ## 9. 決定権限とセキュリティ（Security）
 
-エージェント組織は決定権限の配布機構ではない。役割、接続可能性、認証済みSession、能力の存在および過去の成功から、今回の決定権限を推定しない。
+エージェント組織は決定権限の配布機構ではない。役割、接続可能性、認証済みセッション、能力の存在および過去の成功から、今回の決定権限を推定しない。
 
 ```text
-Available ≠ Enabled ≠ Accessible ≠ Authorized ≠ Promoted
+利用可能 ≠ 有効 ≠ アクセス可能 ≠ 許可済み ≠ 昇格済み
 ```
 
-子Agentまたは委譲先へ渡せる決定権限は、親の許可範囲と対象OperationのGrantを超えない。外部送信、Repository変更、昇格、push、merge、Release、Publication、Financial Effectその他のEffectは、対象の決定権限とRuntime Enforcementが成立する場合だけ処置できる。
+子エージェントまたは委譲先へ渡せる決定権限は、親の許可範囲と対象操作の許可を超えない。外部送信、リポジトリ変更、昇格、push、merge、リリース、公開、金銭的効果その他の効果は、対象の決定権限と実行時強制が成立する場合だけ処置できる。
 
-決定権限の一般規則は[原則](01_Principles.md)と[Agent契約](10_Agent.md)、実行境界のRoutingは[Agent & Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)、現在のCoordinator Runtimeによる強制方法は[`tools/coordinator`](tools/coordinator/README.md)を参照する。実装READMEを概念または決定権限の正本にしない。
+決定権限の一般規則は[原則](01_Principles.md)と[エージェント契約](10_Agent.md)、実行境界の経路制御は[エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)、現在のCoordinator Runtimeによる強制方法は[`tools/coordinator`](tools/coordinator/README.md)を参照する。実装READMEを概念または決定権限の正本にしない。
 
 ---
 
 ## 10. 調整役と結果統合
 
-調整役は、対象Workに必要な編成候補を評価し、許可された実行主体へWorkを割り当て、Result、Evidence、Verification、Policy結果および未解決事項を現在の対象改訂版へ統合する責務である。
+調整役は、対象作業に必要な編成候補を評価し、許可された実行主体へ作業を割り当て、結果、根拠、検証、ポリシー結果および未解決事項を現在の対象改訂版へ統合する責務である。
 
 実行者または確認者が返した質問、承認要求、完了申告または`Pass`を、そのまま人間の判断事項へ変換しない。調整役は現在の判断集合を再構成し、AIが一意に処置できる事項、解消済み事項、報告だけの事項および安全に独立保留できる将来事項を除いたうえで、現在も人間の決定権限が必要な事項だけを返す。
 
-調整役は概念上の責務であり、特定製品、常駐Service、親子Process、Provider同士の直接Invocationまたは専用Runtimeを必須にしない。
+調整役は概念上の責務であり、特定製品、常駐サービス、親子プロセス、プロバイダー同士の直接呼出しまたは専用実行環境を必須にしない。
 
 ---
 
-## 11. Provider／Runtime非依存性
+## 11. プロバイダー／実行環境の非依存性
 
-エージェント組織は特定Providerの組合せへ固定しない。Provider間の相互補完はReference Use Caseになり得るが、同一Providerだけで成立するWork、単一Agentだけで成立するWorkまたは将来Providerも同じ概念境界で扱える。
+エージェント組織は特定プロバイダーの組合せへ固定しない。プロバイダー間の相互補完は参照利用例（Reference Use Case）になり得るが、同一プロバイダーだけで成立する作業、単一エージェントだけで成立する作業または将来のプロバイダーも同じ概念境界で扱える。
 
 ```text
-Agent Organization Concept
+エージェント組織の概念
         ↓
-Agent & Provider Orchestration Architecture
+エージェント／プロバイダー調整Architecture
         ↓
-Coordinator Runtime / Other Runtime
+Coordinator Runtime／その他の実行環境
         ↓
-Provider Adapter and Execution Environment
+プロバイダーアダプターと実行環境
 ```
 
-現在のCoordinator Runtimeはこの概念を実装する一候補であり、エージェント組織そのものではない。Runtime実装の変更から、概念、Human AuthorityまたはCRDD準拠条件の変更を推定しない。
+現在のCoordinator Runtimeはこの概念を実装する一候補であり、エージェント組織そのものではない。実行環境の実装変更から、概念、人間の決定権限またはCRDD準拠条件の変更を推定しない。
 
 ---
 
@@ -176,15 +176,15 @@ Provider Adapter and Execution Environment
 
 本書は次を目的にしない。
 
-- 常時Multi-Agentまたは常時Cross-providerにする
-- 固定Planner／Executor／Reviewer Flowを要求する
-- Agent数、Provider数、会話量、Routing回数または利用枠の分散率を品質指標にする
-- Provider差を独立レビューとみなす
-- AIへ無制限の決定権限、自己拡張またはHuman Authorityを与える
-- Provider同士の直接spawn、循環委譲または無制限再帰を要求する
-- 費用のためにSafety、Privacy、決定権限またはVerificationを弱める
+- 常時複数エージェントまたは常時プロバイダー横断にする
+- 固定の計画者／実行者／確認者フローを要求する
+- エージェント数、プロバイダー数、会話量、経路制御回数または利用枠の分散率を品質指標にする
+- プロバイダー差を独立レビューとみなす
+- AIへ無制限の決定権限、自己拡張または人間の決定権限を与える
+- プロバイダー同士の直接spawn、循環委譲または無制限再帰を要求する
+- 費用のために安全性、プライバシー、決定権限または検証を弱める
 - `tools/coordinator`をCRDD概念の正本にする
-- 本書のCandidate状態だけから準拠基準、Released BaselineまたはRuntime利用可能性を成立させる
+- 本書の`Candidate`状態だけから準拠基準、公開済み基準または実行環境の利用可能性を成立させる
 
 ---
 
@@ -192,10 +192,10 @@ Provider Adapter and Execution Environment
 
 | 層 | 所有するもの | 所有しないもの |
 |---|---|---|
-| 本書 | エージェント組織の目的、概念境界、役割／専門性／委譲／統合の関係 | Runtime command、Provider argv、Docker、永続Schema |
-| [Agent & Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md) | Routing、適格性判定、最適化、Projection、Fallback、Execution Provenanceの未完了Architecture候補 | Human Authorityの再定義、特定Runtimeの実装手順 |
-| [`tools/coordinator`](tools/coordinator/README.md) | 現在のCoordinator Runtimeによる実装、強制、Build、Run、Recovery、Test | エージェント組織、決定権限、独立レビューまたは費用原則の意味正本 |
-| 現行Core契約 | 人間の決定権限（Human Authority）、Agent契約、独立レビュー、品質、外部情報境界 | 特定Runtimeの実装詳細 |
+| 本書 | エージェント組織の目的、概念境界、役割／専門性／委譲／統合の関係 | Runtime command、Provider argv、Docker、永続スキーマ |
+| [エージェント／プロバイダー調整](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md) | 経路制御、適格性判定、最適化、投影、代替経路、実行来歴の未完了Architecture候補 | 人間の決定権限の再定義、特定実行環境の実装手順 |
+| [`tools/coordinator`](tools/coordinator/README.md) | 現在のCoordinator Runtimeによる実装、強制、構築、実行、回復、試験 | エージェント組織、決定権限、独立レビューまたは費用原則の意味正本 |
+| 現行Core契約 | 人間の決定権限、エージェント契約、独立レビュー、品質、外部情報境界 | 特定実行環境の実装詳細 |
 
 他文書はエージェント組織を再定義せず、必要な短い説明と本書への参照を置く。
 
@@ -203,6 +203,6 @@ Provider Adapter and Execution Environment
 
 ## 14. レビューと監査（Review and Audit）
 
-個々のAgentの委譲、統合および独立レビューは[Agent契約](10_Agent.md)、品質状態と工程移行は[品質保証](16_Quality_Assurance.md)に従う。
+個々のエージェントの委譲、統合および独立レビューは[エージェント契約](10_Agent.md)、品質状態と工程移行は[品質保証](16_Quality_Assurance.md)に従う。
 
-本書と利用側の文書構造、用語、参照および責務重複は[Document Audit](51_Document_Audit.md)、CRDD基準と準拠表明への影響は[Conformance Audit](52_Conformance_Audit.md)、複数正本、工程、Runtimeまたは採用側への波及は[Gap／Impact Audit](53_Gap_Impact_Audit.md)で確認する。エージェント組織の名称だけを理由に専用Auditを追加しない。既存Auditで表現できない固有の適用条件、合否判定または根拠契約が生じた場合に限り、独立したAudit契約を検討する。
+本書と利用側の文書構造、用語、参照および責務重複は[文書監査](51_Document_Audit.md)、CRDD基準と準拠表明への影響は[準拠監査](52_Conformance_Audit.md)、複数正本、工程、実行環境または採用側への波及は[不足／影響監査](53_Gap_Impact_Audit.md)で確認する。エージェント組織の名称だけを理由に専用監査を追加しない。既存監査で表現できない固有の適用条件、合否判定または根拠契約が生じた場合に限り、独立した監査契約を検討する。
