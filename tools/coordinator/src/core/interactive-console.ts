@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 2;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 3;
 
 type InteractiveConsoleHandles = Readonly<{
   input: number;
@@ -12,6 +12,12 @@ type InteractiveConsoleHandles = Readonly<{
 type InteractiveConsoleAdapter = Readonly<{
   open: (path: string, flags: "r" | "w") => number;
   close: (descriptor: number) => void;
+}>;
+
+type InteractiveConsoleTextAdapter = Readonly<{
+  isWindowsTerminal: boolean;
+  writeWindowsTerminal: (value: string) => void;
+  writeDescriptor: (descriptor: number, value: string) => void;
 }>;
 
 export function withInteractiveConsoleUsingAdapter<T>(
@@ -63,6 +69,45 @@ export function withInteractiveConsole<T>(
   );
 }
 
+export function writeInteractiveConsoleTextUsingAdapter(
+  platform: NodeJS.Platform,
+  outputDescriptor: number,
+  value: string,
+  adapter: InteractiveConsoleTextAdapter,
+) {
+  try {
+    if (platform === "win32") {
+      if (!adapter.isWindowsTerminal) return false;
+      adapter.writeWindowsTerminal(value);
+    } else {
+      adapter.writeDescriptor(outputDescriptor, value);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function writeInteractiveConsoleText(
+  outputDescriptor: number,
+  value: string,
+) {
+  return writeInteractiveConsoleTextUsingAdapter(
+    process.platform,
+    outputDescriptor,
+    value,
+    Object.freeze({
+      isWindowsTerminal: process.stdout.isTTY === true,
+      writeWindowsTerminal: (text: string) => {
+        process.stdout.write(text);
+      },
+      writeDescriptor: (descriptor: number, text: string) => {
+        fs.writeSync(descriptor, text, null, "utf8");
+      },
+    }),
+  );
+}
+
 export function interactiveConsoleAvailable() {
   return withInteractiveConsole(() => true) === true;
 }
@@ -72,6 +117,8 @@ export function describeInteractiveConsoleContract() {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
     contractRevision: INTERACTIVE_CONSOLE_CONTRACT_REVISION,
     windowsDevices: Object.freeze(["\\\\.\\CONIN$", "\\\\.\\CONOUT$"]),
+    windowsUnicodeOutput: "node_unicode_tty_output_required",
+    windowsRedirectedOutput: "fail_closed",
     posixDevice: "/dev/tty",
     standardInputFallbackAllowed: false,
     shellTransportAllowed: false,

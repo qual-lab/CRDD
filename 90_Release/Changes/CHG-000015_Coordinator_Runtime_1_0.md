@@ -1537,3 +1537,13 @@ Object FormatとOID幅の是正後、初回から存在した中間junction境�
 再処置では、共通基本機能へ内部OSアダプターを与え、Windowsの正確な`\\.\CONIN$`＋`r`、`\\.\CONOUT$`＋`w`、POSIXの`/dev/tty`、両ハンドルの引き渡し、成功時の回収、入力／出力デバイスを開く処理の失敗、処理例外、各ハンドルを閉じる処理の例外および一方の回収失敗後も他方を回収する全組合せを決定論的に試験する。本番の公開パッケージ入口へアダプター、ハンドルまたは汎用コンソール能力を追加せず、相対名、標準入出力またはシェルへの代替を許さない。
 
 本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で共通コンソール／正式Runner／外部送信Grant重点20試験、Coordinator全772試験、Checker全153試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、リポジトリ全体Checkerおよび`git diff --check`をPassした。全体Checkerは701 files／384 Markdown／2,235 links／650 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Tree、独立Architecture／Security、Document／GapおよびTest／UX再レビュー、再署名、正式一般タスクの実行と残存0確認が完了する前に本指摘事項を`Resolved`、Runtime完成またはリリース可能へ昇格しない。
+
+##### Windows対話表示のUnicode境界是正
+
+固定版`1461b4534629047cff0c0f2d54a21202e1ce49f1`／Tree `3a18948d879a74f3be68127f479b34c08b71671b`は三つの独立再レビューでCritical／Major／Minor 0となり、Release Sequence `2026082502`、manifest SHA-256 `c5e12c52a7371c472e70cccf97c1f90aac2e769699d39290ef61745384f8a810`として署名に成功した。修正済みの明示デバイス名により正式Runnerは対話確認まで到達したが、Windowsの`CONOUT$`へUTF-8 byteを直接書いた承認表示が文字化けし、人間が内容を判読できなかった。承認challengeは入力せず`Ctrl+C`で停止した。Candidate Store／RuntimeStateは空、今回由来のDocker、Provider Home更新、Provider／Network効果、Recovery IDおよび一時出力残存は0である。Sequence `2026082502`の署名済み配布候補は現在の修正後Identityへ流用または再署名しない。
+
+原因はデバイス名や起動シェルではなく、Windowsコンソールハンドルへ`fs.writeSync`でUTF-8 byteを書いたことである。Windowsコンソールは現在の出力コードページでbyteを解釈するため、Unicode文字列の表示成立を保証しない。外部`chcp`、シェル搬送、親環境または文字化けした承認の受理を代替経路にせず、WindowsではNodeのTTY出力だけをUnicode表示経路とし、`CONOUT$`は実コンソールの存在確認に維持する。TTYでない標準出力、表示例外またはコンソールデバイス不成立はGrantを発行せずFail Closedとする。POSIXは従来どおり`/dev/tty`へUTF-8で直接表示する。
+
+共通対話コンソール契約はrevision 3とする。発火例はWindowsで明示`CONIN$`／`CONOUT$`を開け、かつ標準出力がUnicode対応TTYである直接実行、非発火例は対話確認を要しない処理、境界例は標準出力をリダイレクトしたWindowsプロセス、判定情報不足例はTTY判定または表示処理が成立しない場合である。最後の二例は別の出力、コードページ変更またはシェルへ代替せず、外部送信Grantを発行しない。決定論的試験はWindows TTYへの日本語文字列、リダイレクト時の拒否、POSIXデバイス表示および表示例外を固定し、既存のデバイスopen／処理／回収の全失敗位置試験と組み合わせる。
+
+本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で対話表示／正式Runner／外部送信Grant重点21試験、Coordinator全773試験、Checker全153試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、リポジトリ全体Checkerおよび`git diff --check`をPassした。全体Checkerは701 files／384 Markdown／2,235 links／650 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Tree、独立Architecture／Security、Document／GapおよびTest／UXレビュー、再署名、可視Windows TTYでの日本語承認表示、正式一般タスクの実行と残存0確認が完了する前に本指摘事項を`Resolved`、Runtime完成またはリリース可能へ昇格しない。

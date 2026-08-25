@@ -7,6 +7,7 @@ import {
   describeInteractiveConsoleContract,
   INTERACTIVE_CONSOLE_CONTRACT,
   withInteractiveConsoleUsingAdapter,
+  writeInteractiveConsoleTextUsingAdapter,
 } from "../src/core/interactive-console.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
@@ -26,8 +27,10 @@ function sourceFiles(root: string): string[] {
 test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", () => {
   assert.deepEqual(describeInteractiveConsoleContract(), {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
+    windowsUnicodeOutput: "node_unicode_tty_output_required",
+    windowsRedirectedOutput: "fail_closed",
     posixDevice: "/dev/tty",
     standardInputFallbackAllowed: false,
     shellTransportAllowed: false,
@@ -41,6 +44,82 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     const source = fs.readFileSync(file, "utf8");
     assert.equal(/CONIN\$|CONOUT\$|\/dev\/tty/u.test(source), false, file);
   }
+});
+
+test("Windows対話表示はUnicode TTYへ限定しredirect時にFail Closedとなる", () => {
+  function scenario(isWindowsTerminal: boolean) {
+    const terminalWrites: string[] = [];
+    const descriptorWrites: Array<Readonly<[number, string]>> = [];
+    return {
+      terminalWrites,
+      descriptorWrites,
+      adapter: Object.freeze({
+        isWindowsTerminal,
+        writeWindowsTerminal: (value: string) => {
+          terminalWrites.push(value);
+        },
+        writeDescriptor: (descriptor: number, value: string) => {
+          descriptorWrites.push(Object.freeze([descriptor, value]));
+        },
+      }),
+    };
+  }
+
+  const windows = scenario(true);
+  assert.equal(
+    writeInteractiveConsoleTextUsingAdapter(
+      "win32",
+      12,
+      "外部送信を確認",
+      windows.adapter,
+    ),
+    true,
+  );
+  assert.deepEqual(windows.terminalWrites, ["外部送信を確認"]);
+  assert.deepEqual(windows.descriptorWrites, []);
+
+  const redirected = scenario(false);
+  assert.equal(
+    writeInteractiveConsoleTextUsingAdapter(
+      "win32",
+      12,
+      "外部送信を確認",
+      redirected.adapter,
+    ),
+    false,
+  );
+  assert.deepEqual(redirected.terminalWrites, []);
+  assert.deepEqual(redirected.descriptorWrites, []);
+
+  const posix = scenario(false);
+  assert.equal(
+    writeInteractiveConsoleTextUsingAdapter(
+      "linux",
+      12,
+      "外部送信を確認",
+      posix.adapter,
+    ),
+    true,
+  );
+  assert.deepEqual(posix.terminalWrites, []);
+  assert.deepEqual(posix.descriptorWrites, [[12, "外部送信を確認"]]);
+
+  const failed = scenario(true);
+  const failingAdapter = Object.freeze({
+    ...failed.adapter,
+    writeWindowsTerminal: () => {
+      throw new Error("write failed");
+    },
+  });
+  assert.equal(
+    writeInteractiveConsoleTextUsingAdapter(
+      "win32",
+      12,
+      "外部送信を確認",
+      failingAdapter,
+    ),
+    false,
+  );
 });
 
 test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じる", () => {

@@ -2,7 +2,10 @@ import { createHash, randomInt } from "node:crypto";
 import fs from "node:fs";
 import { performance } from "node:perf_hooks";
 
-import { withInteractiveConsole } from "../core/interactive-console.ts";
+import {
+  withInteractiveConsole,
+  writeInteractiveConsoleText,
+} from "../core/interactive-console.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { verifyRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
@@ -150,12 +153,14 @@ function terminalSafeJson(value: unknown) {
 function consoleConfirmation(notice: string, challenge: string) {
   return (
     withInteractiveConsole(({ input, output }) => {
-      fs.writeSync(
-        output,
-        `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
-        null,
-        "utf8",
-      );
+      if (
+        !writeInteractiveConsoleText(
+          output,
+          `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
+        )
+      ) {
+        return false;
+      }
       const bytes: number[] = [];
       const buffer = Buffer.alloc(1);
       while (bytes.length <= 64) {
@@ -163,8 +168,10 @@ function consoleConfirmation(notice: string, challenge: string) {
         if (readBytes !== 1 || buffer[0] === 0x0a) break;
         if (buffer[0] !== 0x0d) bytes.push(buffer[0] as number);
       }
-      fs.writeSync(output, "\n", null, "utf8");
-      return Buffer.from(bytes).toString("utf8") === challenge;
+      return (
+        writeInteractiveConsoleText(output, "\n") &&
+        Buffer.from(bytes).toString("utf8") === challenge
+      );
     }) ?? false
   );
 }
