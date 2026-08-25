@@ -17,7 +17,7 @@ export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 9;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 10;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -241,7 +241,11 @@ export function withInteractiveConsoleAsyncOutcome<T>(
       validate: validateInteractiveConsoleHandles,
     }),
     operation,
-  );
+  ).then((outcome) => {
+    if (outcome.status === "cleanup_unknown")
+      poisonRuntimeProcessAfterInteractiveCleanupUnknown();
+    return outcome;
+  });
 }
 
 export async function writeInteractiveConsoleTextOutcomeUsingAdapter(
@@ -623,7 +627,11 @@ export function readInteractiveConsoleLineOutcome(
       setTimeout,
       clearTimeout,
     }),
-  );
+  ).then((outcome) => {
+    if (outcome.status === "cleanup_unknown")
+      poisonRuntimeProcessAfterInteractiveCleanupUnknown();
+    return outcome;
+  });
 }
 
 function writeWindowsTerminalText(value: string) {
@@ -645,7 +653,11 @@ export function writeInteractiveConsoleTextOutcome(
         fs.writeSync(descriptor, text, null, "utf8");
       },
     }),
-  );
+  ).then((outcome) => {
+    if (outcome.status === "cleanup_unknown")
+      poisonRuntimeProcessAfterInteractiveCleanupUnknown();
+    return outcome;
+  });
 }
 
 export function writeInteractiveConsoleText(
@@ -697,6 +709,8 @@ export function describeInteractiveConsoleContract() {
       "unavailable",
       "cleanup_unknown_process_restart_required",
     ]),
+    productionPoisonTiming:
+      "synchronous_on_cleanup_unknown_observation_before_return_or_next_non_cleanup_await",
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",

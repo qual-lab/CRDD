@@ -634,7 +634,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
   assert.equal(
     contract.interactiveConfirmation,
     "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
@@ -653,6 +653,15 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
     contract.processPoisonGate,
     "before_external_send_reentry_package_issue_task_consume_and_all_effects",
   );
+  assert.equal(
+    contract.cleanupUnknownPoisonTiming,
+    "before_console_lock_release_await_when_operation_cleanup_is_unknown",
+  );
+  assert.equal(
+    contract.processPoisonReentryResult,
+    "bounded_cleanup_unknown_process_restart_required_no_input_or_authority_observation",
+  );
+  assert.equal(contract.runtimeOwnedConsoleConfirmationPackageExported, false);
   assert.equal(contract.maximumUses, 4);
   assert.equal(contract.lifetimeMs, 1_500_000);
   assert.equal(contract.callerPolicyStringAcceptedAsAuthority, false);

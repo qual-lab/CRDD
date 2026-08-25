@@ -23,7 +23,7 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 9;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 10;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -281,7 +281,7 @@ export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
   return Object.freeze({ status });
 }
 
-async function consoleConfirmation(
+export async function confirmRuntimeOwnedExternalSendUsingConsole(
   notice: string,
   challenge: string,
   cancellationSignal: AbortSignal,
@@ -335,6 +335,8 @@ async function consoleConfirmation(
   } catch {
     outcome = Object.freeze({ status: "reader_failed" });
   }
+  if (outcome.status === "cleanup_unknown")
+    poisonRuntimeProcessAfterInteractiveCleanupUnknown();
   let isLockReleased = false;
   try {
     isLockReleased = (await consoleLock.release()) === "released";
@@ -357,7 +359,7 @@ const productionState = createState(
     verifyOperation: verifyOwnedOperationManagementCapability,
     verifyRepository: verifyRuntimeOwnedRepositoryBindingCapability,
     verifyPolicy: verifyRuntimeOwnedExternalSendPolicy,
-    confirm: consoleConfirmation,
+    confirm: confirmRuntimeOwnedExternalSendUsingConsole,
     wallNow: Date.now,
     monotonicNow: performance.now.bind(performance),
     randomChallenge: () => randomInt(0, 1_000_000).toString().padStart(6, "0"),
@@ -594,7 +596,19 @@ export function requestRuntimeOwnedExternalSendGrant(
   rawProviders: unknown,
   cancellationSignal: AbortSignal,
 ) {
-  if (isRuntimeProcessPoisoned()) return Promise.resolve(null);
+  if (isRuntimeProcessPoisoned()) {
+    return Promise.resolve(
+      Object.freeze({
+        status: "blocked" as const,
+        reason:
+          "external_send_confirmation_cleanup_unknown_process_restart_required" as const,
+        manualRecoveryRequired: true,
+        externalSendAuthorized: false,
+        rawContentReported: false,
+        hostPathReported: false,
+      }),
+    );
+  }
   return requestGrant(
     productionState,
     managementCapability,
@@ -686,8 +700,13 @@ export function describeExternalSendGrantRuntimeContract() {
     concurrentReaderExclusion: "windows_kernel_lock",
     cleanupUnknownHandling:
       "process_local_poison_restart_required_no_operation_recovery_id",
+    cleanupUnknownPoisonTiming:
+      "before_console_lock_release_await_when_operation_cleanup_is_unknown",
     processPoisonGate:
       "before_external_send_reentry_package_issue_task_consume_and_all_effects",
+    processPoisonReentryResult:
+      "bounded_cleanup_unknown_process_restart_required_no_input_or_authority_observation",
+    runtimeOwnedConsoleConfirmationPackageExported: false,
     binding: Object.freeze([
       "operation",
       "repository_identity",

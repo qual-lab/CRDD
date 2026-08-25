@@ -763,6 +763,8 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.workspaceMaterializeCount(), 0);
   assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.externalAuthorizationCount(), 1);
+  assert.equal(harness.selectionRequests.length, 0);
 
   const cleanupFailure = fixture({
     externalSendReason: reason,
@@ -779,6 +781,10 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
   );
   assert.equal(combined.manualRecoveryRequired, true);
   assert.equal(combined.hostRecoveryId, "host.fixture.recovery.record");
+  assert.equal(cleanupFailure.cleanupCount(), 1);
+  assert.equal(cleanupFailure.workspaceMaterializeCount(), 0);
+  assert.equal(cleanupFailure.processStartCount(), 0);
+  assert.equal(cleanupFailure.selectionRequests.length, 0);
 });
 
 test("External Send拒否状態はTaskの理由・回復・Effect 0へ完全投影する", async () => {

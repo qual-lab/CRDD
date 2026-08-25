@@ -59,7 +59,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 9,
+    contractRevision: 10,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsUnicodeOutput: "node_unicode_tty_output_required",
     windowsTerminalWriteTimeoutMs: 1_000,
@@ -73,6 +73,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
       "unavailable",
       "cleanup_unknown_process_restart_required",
     ],
+    productionPoisonTiming:
+      "synchronous_on_cleanup_unknown_observation_before_return_or_next_non_cleanup_await",
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",
