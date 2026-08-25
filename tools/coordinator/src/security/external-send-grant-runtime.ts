@@ -6,6 +6,7 @@ import {
   withInteractiveConsoleAsync,
   writeInteractiveConsoleText,
 } from "../core/interactive-console.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLock } from "./candidate-store-kernel-lock.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { verifyRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
@@ -16,7 +17,7 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 5;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 6;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -156,7 +157,10 @@ function terminalSafeJson(value: unknown) {
 
 type ConsoleConfirmationAdapter = Readonly<{
   writeText: (outputDescriptor: number, value: string) => Promise<boolean>;
-  readLine: (cancellationSignal: AbortSignal) => Promise<string | null>;
+  readLine: (
+    inputDescriptor: number,
+    cancellationSignal: AbortSignal,
+  ) => Promise<string | null>;
 }>;
 
 function isCancellationSignal(value: unknown): value is AbortSignal {
@@ -181,7 +185,7 @@ export async function confirmInteractiveConsoleChallengeUsingAdapter(
     return false;
   }
   if (cancellationSignal.aborted) return false;
-  const line = await adapter.readLine(cancellationSignal);
+  const line = await adapter.readLine(handles.input, cancellationSignal);
   if (line === null || cancellationSignal.aborted) return false;
   return (
     (await adapter.writeText(handles.output, "\n")) &&
@@ -195,20 +199,27 @@ async function consoleConfirmation(
   challenge: string,
   cancellationSignal: AbortSignal,
 ) {
-  return (
-    (await withInteractiveConsoleAsync((handles) =>
-      confirmInteractiveConsoleChallengeUsingAdapter(
-        notice,
-        challenge,
-        handles,
-        cancellationSignal,
-        Object.freeze({
-          writeText: writeInteractiveConsoleText,
-          readLine: readInteractiveConsoleLine,
-        }),
-      ),
-    )) ?? false
-  );
+  const consoleLock = acquireRuntimeOwnedInteractiveConsoleKernelLock();
+  if (!consoleLock) return false;
+  let confirmed = false;
+  try {
+    confirmed =
+      (await withInteractiveConsoleAsync((handles) =>
+        confirmInteractiveConsoleChallengeUsingAdapter(
+          notice,
+          challenge,
+          handles,
+          cancellationSignal,
+          Object.freeze({
+            writeText: writeInteractiveConsoleText,
+            readLine: readInteractiveConsoleLine,
+          }),
+        ),
+      )) ?? false;
+  } catch {
+    confirmed = false;
+  }
+  return consoleLock.release() ? confirmed : false;
 }
 
 function createState(dependencies: RuntimeDependencies): RuntimeState {
@@ -524,7 +535,11 @@ export function describeExternalSendGrantRuntimeContract() {
     authoritySource:
       "authenticated_local_user_interactive_console_confirmation",
     interactiveConfirmation:
-      "async_prompt_completion_cancellable_tty_input_final_output_and_console_cleanup",
+      "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
+    taskStandardInputRole: "structured_transport_only",
+    readerProcessEffect:
+      "operation_authorized_single_use_before_workspace_provider_and_network",
+    concurrentReaderExclusion: "windows_kernel_lock",
     binding: Object.freeze([
       "operation",
       "repository_identity",

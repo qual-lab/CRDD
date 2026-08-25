@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   acquireRuntimeOwnedCandidateStoreKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
+  acquireRuntimeOwnedInteractiveConsoleKernelLock,
 } from "../src/security/candidate-store-kernel-lock.ts";
 
 test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒否する", () => {
@@ -25,6 +26,17 @@ test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒�
   assert.equal(first.release(), true);
   assert.equal(first.release(), false);
   const next = acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
+  assert.ok(next);
+  assert.equal(next.release(), true);
+});
+
+test("Windows対話Console lockは同時承認readerを一つへ限定する", () => {
+  if (process.platform !== "win32") return;
+  const first = acquireRuntimeOwnedInteractiveConsoleKernelLock();
+  assert.ok(first);
+  assert.equal(acquireRuntimeOwnedInteractiveConsoleKernelLock(), null);
+  assert.equal(first.release(), true);
+  const next = acquireRuntimeOwnedInteractiveConsoleKernelLock();
   assert.ok(next);
   assert.equal(next.release(), true);
 });

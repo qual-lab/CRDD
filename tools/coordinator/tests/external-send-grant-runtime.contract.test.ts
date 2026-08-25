@@ -479,11 +479,17 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(
     contract.interactiveConfirmation,
-    "async_prompt_completion_cancellable_tty_input_final_output_and_console_cleanup",
+    "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
   );
+  assert.equal(contract.taskStandardInputRole, "structured_transport_only");
+  assert.equal(
+    contract.readerProcessEffect,
+    "operation_authorized_single_use_before_workspace_provider_and_network",
+  );
+  assert.equal(contract.concurrentReaderExclusion, "windows_kernel_lock");
   assert.equal(contract.maximumUses, 4);
   assert.equal(contract.lifetimeMs, 1_500_000);
   assert.equal(contract.callerPolicyStringAcceptedAsAuthority, false);

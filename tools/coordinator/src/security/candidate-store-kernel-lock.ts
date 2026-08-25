@@ -104,6 +104,17 @@ export function acquireRuntimeOwnedDockerRuntimeStateKernelLock(
   return acquireNamedPipeKernelLock(pipeName);
 }
 
+export function acquireRuntimeOwnedInteractiveConsoleKernelLock() {
+  if (process.platform !== "win32") return null;
+  const lockIdentity = createHash("sha256")
+    .update("crdd-interactive-console-kernel-lock-v1\0")
+    .digest("hex")
+    .slice(0, 32);
+  return acquireNamedPipeKernelLock(
+    `\\\\.\\pipe\\CRDD.Coordinator.InteractiveConsole.${lockIdentity}`,
+  );
+}
+
 export function hostOperationGenerationBindingHash(
   rootName: unknown,
   nonce: unknown,

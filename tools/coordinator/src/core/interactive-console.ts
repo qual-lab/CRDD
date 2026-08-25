@@ -1,8 +1,27 @@
+import { spawn } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
+import tty from "node:tty";
+import { fileURLToPath } from "node:url";
+
+import {
+  INTERACTIVE_CONSOLE_READER_CONTRACT,
+  INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
+  readInteractiveConsoleLineFromStream,
+} from "./interactive-console-reader.ts";
+
+export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 5;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 6;
+
+const readerEntrypoint = fileURLToPath(
+  new URL("./interactive-console-reader.ts", import.meta.url),
+);
+const READER_MAXIMUM_OUTPUT_BYTES = 512;
+const READER_CANCEL_GRACE_MS = 500;
+const READER_TIMEOUT_MS = 125_000;
 
 type InteractiveConsoleHandles = Readonly<{
   input: number;
@@ -12,6 +31,7 @@ type InteractiveConsoleHandles = Readonly<{
 type InteractiveConsoleAdapter = Readonly<{
   open: (path: string, flags: "r" | "w") => number;
   close: (descriptor: number) => void;
+  validate?: (handles: InteractiveConsoleHandles) => boolean;
 }>;
 
 type InteractiveConsoleTextAdapter = Readonly<{
@@ -29,21 +49,11 @@ type WindowsTerminalStream = Readonly<{
   write: (value: string, callback: (error?: Error | null) => void) => boolean;
 }>;
 
-type TerminalInputStream = Readonly<{
-  isTTY?: boolean;
-  destroyed: boolean;
-  readable: boolean;
-  readableEncoding: BufferEncoding | null;
-  readableFlowing: boolean | null;
-  listenerCount: (event: "data") => number;
-  on: (event: "data", listener: (chunk: Buffer | string) => void) => unknown;
-  once: (event: "error" | "end", listener: (error?: Error) => void) => unknown;
-  removeListener: (
-    event: "data" | "error" | "end",
-    listener: ((chunk: Buffer | string) => void) | ((error?: Error) => void),
-  ) => unknown;
-  pause: () => unknown;
-  resume: () => unknown;
+type InteractiveConsoleReaderProcessAdapter = Readonly<{
+  isTty: (descriptor: number) => boolean;
+  spawn: typeof spawn;
+  setTimeout: typeof setTimeout;
+  clearTimeout: typeof clearTimeout;
 }>;
 
 export function withInteractiveConsoleUsingAdapter<T>(
@@ -61,6 +71,9 @@ export function withInteractiveConsoleUsingAdapter<T>(
   try {
     input = adapter.open(names.input, "r");
     output = adapter.open(names.output, "w");
+    if (adapter.validate && !adapter.validate({ input, output })) {
+      throw new Error("interactive_console_validation_failed");
+    }
     result = Object.freeze({
       value: operation(Object.freeze({ input, output })),
     });
@@ -90,7 +103,11 @@ export function withInteractiveConsole<T>(
 ): T | null {
   return withInteractiveConsoleUsingAdapter(
     process.platform,
-    Object.freeze({ open: fs.openSync, close: fs.closeSync }),
+    Object.freeze({
+      open: fs.openSync,
+      close: fs.closeSync,
+      validate: validateInteractiveConsoleHandles,
+    }),
     operation,
   );
 }
@@ -110,6 +127,9 @@ export async function withInteractiveConsoleAsyncUsingAdapter<T>(
   try {
     input = adapter.open(names.input, "r");
     output = adapter.open(names.output, "w");
+    if (adapter.validate && !adapter.validate({ input, output })) {
+      throw new Error("interactive_console_validation_failed");
+    }
     result = Object.freeze({
       value: await operation(Object.freeze({ input, output })),
     });
@@ -139,7 +159,11 @@ export function withInteractiveConsoleAsync<T>(
 ) {
   return withInteractiveConsoleAsyncUsingAdapter(
     process.platform,
-    Object.freeze({ open: fs.openSync, close: fs.closeSync }),
+    Object.freeze({
+      open: fs.openSync,
+      close: fs.closeSync,
+      validate: validateInteractiveConsoleHandles,
+    }),
     operation,
   );
 }
@@ -177,8 +201,13 @@ export function writeWindowsTerminalTextUsingStream(
       if (isSettled) return;
       isSettled = true;
       if (deferredCompletion) clearImmediate(deferredCompletion);
-      stream.removeListener("error", onError);
-      resolve(isSuccessful);
+      let isCleanupSuccessful = true;
+      try {
+        stream.removeListener("error", onError);
+      } catch {
+        isCleanupSuccessful = false;
+      }
+      resolve(isSuccessful && isCleanupSuccessful);
     };
     const deferSettlement = (isSuccessful: boolean) => {
       if (isSettled || deferredCompletion) return;
@@ -194,111 +223,212 @@ export function writeWindowsTerminalTextUsingStream(
   });
 }
 
-export function readTerminalLineUsingStream(
-  stream: TerminalInputStream,
+function validateInteractiveConsoleHandles(handles: InteractiveConsoleHandles) {
+  try {
+    if (!tty.isatty(handles.input) || !tty.isatty(handles.output)) return false;
+    return (
+      process.platform !== "win32" ||
+      (process.stdout.isTTY === true &&
+        !process.stdout.destroyed &&
+        process.stdout.writable)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function parseReaderResult(source: Buffer) {
+  if (
+    source.byteLength === 0 ||
+    source.byteLength > READER_MAXIMUM_OUTPUT_BYTES
+  )
+    return null;
+  let value: unknown;
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(source);
+    if (!text.endsWith("\n") || text.indexOf("\n") !== text.length - 1)
+      return null;
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  if (
+    keys.join("\0") !==
+      ["contract", "contractRevision", "line", "status"].sort().join("\0") ||
+    record.contract !== INTERACTIVE_CONSOLE_READER_CONTRACT ||
+    record.contractRevision !== INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION ||
+    record.status !== "completed" ||
+    typeof record.line !== "string" ||
+    !/^[0-9]{6}$/u.test(record.line)
+  ) {
+    return null;
+  }
+  return record.line;
+}
+
+export function readInteractiveConsoleLineUsingAdapter(
+  inputDescriptor: number,
   cancellationSignal: AbortSignal,
+  adapter: InteractiveConsoleReaderProcessAdapter,
 ): Promise<string | null> {
   if (
-    stream.isTTY !== true ||
-    stream.destroyed ||
-    !stream.readable ||
-    stream.readableEncoding !== null ||
-    stream.readableFlowing === true ||
-    stream.listenerCount("data") !== 0 ||
-    cancellationSignal.aborted
+    !Number.isSafeInteger(inputDescriptor) ||
+    inputDescriptor < 0 ||
+    cancellationSignal.aborted ||
+    !adapter.isTty(inputDescriptor)
   ) {
     return Promise.resolve(null);
   }
   return new Promise((resolve) => {
-    let isSettled = false;
-    let isPaused = false;
-    let deferredCompletion: NodeJS.Immediate | null = null;
-    const bytes: number[] = [];
-    const removeListenerSafely = (
-      event: "data" | "error" | "end",
-      listener: ((chunk: Buffer | string) => void) | ((error?: Error) => void),
-    ) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = adapter.spawn(process.execPath, [readerEntrypoint], {
+        shell: false,
+        detached: false,
+        windowsHide: true,
+        cwd: path.dirname(readerEntrypoint),
+        env: Object.freeze({}),
+        stdio: [inputDescriptor, "pipe", "ignore", "ipc"],
+      });
+    } catch {
+      resolve(null);
+      return;
+    }
+    let settled = false;
+    let isInvalid = false;
+    let isChildClosed = false;
+    let childExitCode: number | null = null;
+    let isOutputClosed = false;
+    let outputBytes = 0;
+    const outputBuffers: Buffer[] = [];
+    let killTimer: NodeJS.Timeout | null = null;
+    const timeout = adapter.setTimeout(() => requestStop(), READER_TIMEOUT_MS);
+    const finish = () => {
+      if (settled || !isChildClosed || !isOutputClosed) return;
+      settled = true;
+      adapter.clearTimeout(timeout);
+      if (killTimer) adapter.clearTimeout(killTimer);
       try {
-        stream.removeListener(event, listener);
+        child.removeListener("error", onFailure);
       } catch {
-        // Settlement remains fail closed even if the stream is already broken.
+        isInvalid = true;
+      }
+      try {
+        child.removeListener("close", onClose);
+      } catch {
+        isInvalid = true;
+      }
+      if (child.stdout) {
+        try {
+          child.stdout.removeListener("data", onData);
+        } catch {
+          isInvalid = true;
+        }
+        try {
+          child.stdout.removeListener("error", onFailure);
+        } catch {
+          isInvalid = true;
+        }
+        try {
+          child.stdout.removeListener("close", onOutputClose);
+        } catch {
+          isInvalid = true;
+        }
+      }
+      try {
+        cancellationSignal.removeEventListener("abort", requestStop);
+      } catch {
+        isInvalid = true;
+      }
+      try {
+        if (child.connected) child.disconnect();
+      } catch {
+        isInvalid = true;
+      }
+      resolve(
+        !isInvalid && childExitCode === 0 && !cancellationSignal.aborted
+          ? parseReaderResult(Buffer.concat(outputBuffers, outputBytes))
+          : null,
+      );
+    };
+    const forceStop = () => {
+      try {
+        if (!child.kill("SIGKILL")) isInvalid = true;
+      } catch {
+        isInvalid = true;
       }
     };
-    const settle = (line: string | null) => {
-      if (isSettled) return;
-      isSettled = true;
-      if (deferredCompletion) clearImmediate(deferredCompletion);
-      removeListenerSafely("data", onData);
-      removeListenerSafely("error", onFailure);
-      removeListenerSafely("end", onFailure);
+    const requestStop = () => {
+      isInvalid = true;
       try {
-        cancellationSignal.removeEventListener("abort", onFailure);
+        if (child.connected) child.send("cancel");
       } catch {
-        line = null;
+        // The exact child is force-terminated below.
       }
-      try {
-        if (!isPaused) stream.pause();
-        resolve(line);
-      } catch {
-        resolve(null);
+      if (!killTimer) {
+        killTimer = adapter.setTimeout(forceStop, READER_CANCEL_GRACE_MS);
       }
     };
-    const deferSuccessfulSettlement = (line: string) => {
-      if (isSettled || deferredCompletion) return;
-      try {
-        stream.pause();
-        isPaused = true;
-      } catch {
-        settle(null);
-        return;
-      }
-      deferredCompletion = setImmediate(() => settle(line));
-    };
-    const onFailure = () => settle(null);
+    const onFailure = () => requestStop();
     const onData = (chunk: Buffer | string) => {
-      if (deferredCompletion) return;
       if (!Buffer.isBuffer(chunk)) {
-        settle(null);
+        requestStop();
         return;
       }
-      for (const value of chunk) {
-        if (value === 0x0a) {
-          deferSuccessfulSettlement(Buffer.from(bytes).toString("utf8"));
-          return;
-        }
-        if (value !== 0x0d) bytes.push(value);
-        if (bytes.length > 64) {
-          settle(null);
-          return;
-        }
+      outputBytes += chunk.byteLength;
+      if (outputBytes > READER_MAXIMUM_OUTPUT_BYTES) {
+        requestStop();
+        return;
       }
+      outputBuffers.push(Buffer.from(chunk));
+    };
+    const onClose = (code: number | null) => {
+      isChildClosed = true;
+      childExitCode = code;
+      finish();
+    };
+    const onOutputClose = () => {
+      isOutputClosed = true;
+      finish();
     };
     try {
-      stream.on("data", onData);
-      if (isSettled) return;
-      stream.once("error", onFailure);
-      if (isSettled) return;
-      stream.once("end", onFailure);
-      if (isSettled) return;
-      cancellationSignal.addEventListener("abort", onFailure, { once: true });
+      child.once("error", onFailure);
+      child.once("close", onClose);
+      if (!child.stdout) {
+        isOutputClosed = true;
+        requestStop();
+      } else {
+        child.stdout.on("data", onData);
+        child.stdout.once("error", onFailure);
+        child.stdout.once("close", onOutputClose);
+      }
+      cancellationSignal.addEventListener("abort", requestStop, {
+        once: true,
+      });
+      if (cancellationSignal.aborted) requestStop();
     } catch {
-      settle(null);
-      return;
-    }
-    if (cancellationSignal.aborted) {
-      settle(null);
-      return;
-    }
-    try {
-      stream.resume();
-    } catch {
-      settle(null);
+      requestStop();
     }
   });
 }
 
-export function readInteractiveConsoleLine(cancellationSignal: AbortSignal) {
-  return readTerminalLineUsingStream(process.stdin, cancellationSignal);
+export function readInteractiveConsoleLine(
+  inputDescriptor: number,
+  cancellationSignal: AbortSignal,
+) {
+  return readInteractiveConsoleLineUsingAdapter(
+    inputDescriptor,
+    cancellationSignal,
+    Object.freeze({
+      isTty: tty.isatty,
+      spawn,
+      setTimeout,
+      clearTimeout,
+    }),
+  );
 }
 
 function writeWindowsTerminalText(value: string) {
@@ -333,7 +463,17 @@ export function describeInteractiveConsoleContract() {
     contractRevision: INTERACTIVE_CONSOLE_CONTRACT_REVISION,
     windowsDevices: Object.freeze(["\\\\.\\CONIN$", "\\\\.\\CONOUT$"]),
     windowsUnicodeOutput: "node_unicode_tty_output_required",
-    validatedTtyInput: "node_tty_input_required",
+    validatedTtyInput: "exact_console_descriptor_child_tty_required",
+    taskStandardInputRole: "structured_transport_only",
+    readerEntrypoint: "fixed_runtime_owned_non_exported_module",
+    readerArtifactIdentity: "signed_package_content_root_preflight",
+    readerArguments: "fixed_empty",
+    readerEnvironment: "empty_no_parent_environment_inheritance",
+    readerStandardIo:
+      "exact_console_input_bounded_stdout_discarded_stderr_private_ipc",
+    readerCancellation: "ipc_then_exact_child_force_termination",
+    readerCompletion:
+      "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
     windowsRedirectedOutput: "fail_closed",
     redirectedStandardInputAllowed: false,
     posixDevice: "/dev/tty",
