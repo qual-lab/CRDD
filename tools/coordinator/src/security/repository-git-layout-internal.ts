@@ -247,7 +247,10 @@ function readControlFile(
 function parseNarrowRepositoryConfig(
   target: string,
   commonDirectory: EntitySnapshot,
-): EntitySnapshot {
+): Readonly<{
+  snapshot: EntitySnapshot;
+  objectFormat: "sha1" | "sha256";
+}> {
   const bytes = readStableFileBytes(target, MAX_CONFIG_FILE_BYTES, [
     commonDirectory,
   ]);
@@ -258,6 +261,8 @@ function parseNarrowRepositoryConfig(
   let isSubsection = false;
   let formatVersion = null;
   let bare = null;
+  let objectFormat = null;
+  let compatibilityObjectFormat = null;
   for (const rawLine of text.split(/\r?\n/u)) {
     const line = rawLine.trim();
     if (line === "" || line.startsWith("#") || line.startsWith(";")) continue;
@@ -268,11 +273,7 @@ function parseNarrowRepositoryConfig(
         throw new Error("repository_git_config_unsupported");
       section = sectionName.toLocaleLowerCase("en-US");
       isSubsection = sectionMatch[2] !== undefined;
-      if (
-        section === "extensions" ||
-        section === "include" ||
-        section === "includeif"
-      ) {
+      if (section === "include" || section === "includeif") {
         throw new Error("repository_git_config_unsupported");
       }
       continue;
@@ -306,11 +307,96 @@ function parseNarrowRepositoryConfig(
     if (section === "core" && !isSubsection && key === "worktree") {
       throw new Error("repository_git_config_unsupported");
     }
+    if (section === "extensions" && !isSubsection && key === "objectformat") {
+      if (objectFormat !== null)
+        throw new Error("repository_git_config_unsupported");
+      objectFormat = value;
+    }
+    if (
+      section === "extensions" &&
+      !isSubsection &&
+      key === "compatobjectformat"
+    ) {
+      if (compatibilityObjectFormat !== null)
+        throw new Error("repository_git_config_unsupported");
+      compatibilityObjectFormat = value;
+    }
+    if (
+      section === "extensions" &&
+      (isSubsection || (key !== "objectformat" && key !== "compatobjectformat"))
+    ) {
+      throw new Error("repository_git_config_unsupported");
+    }
   }
-  if (formatVersion !== "0" || bare !== "false") {
+  const detectedObjectFormat =
+    formatVersion === "0" &&
+    bare === "false" &&
+    objectFormat === null &&
+    compatibilityObjectFormat === null
+      ? "sha1"
+      : formatVersion === "1" &&
+          bare === "false" &&
+          objectFormat === "sha256" &&
+          (compatibilityObjectFormat === null ||
+            compatibilityObjectFormat === "sha1")
+        ? "sha256"
+        : null;
+  if (!detectedObjectFormat) {
     throw new Error("repository_git_config_unsupported");
   }
-  return bytes.snapshot;
+  return Object.freeze({
+    snapshot: bytes.snapshot,
+    objectFormat: detectedObjectFormat,
+  });
+}
+
+export function inspectRepositoryGitObjectFormatCandidate(
+  repositoryRoot: unknown,
+) {
+  try {
+    if (typeof repositoryRoot !== "string" || repositoryRoot.length === 0)
+      return null;
+    const snapshots: EntitySnapshot[] = [];
+    const root = directoryRealpath(repositoryRoot);
+    snapshots.push(root);
+    const marker = path.join(root.realPath, ".git");
+    const markerMetadata = fs.lstatSync(marker, { bigint: true });
+    if (markerMetadata.isSymbolicLink()) return null;
+    let gitDirectory: EntitySnapshot;
+    if (markerMetadata.isDirectory()) {
+      gitDirectory = directoryRealpath(marker);
+    } else if (markerMetadata.isFile()) {
+      const control = readControlFile(marker, [root]);
+      snapshots.push(control.snapshot);
+      if (!control.line.startsWith("gitdir: ")) return null;
+      const value = control.line.slice("gitdir: ".length);
+      if (!value || /[\u0000-\u001f\u007f]/u.test(value)) return null;
+      gitDirectory = directoryRealpath(
+        path.isAbsolute(value) ? value : path.resolve(root.realPath, value),
+      );
+    } else return null;
+    snapshots.push(gitDirectory);
+    const commonDirectory =
+      optionalCommonDirectory(gitDirectory, snapshots) ?? gitDirectory;
+    if (commonDirectory !== gitDirectory) snapshots.push(commonDirectory);
+    snapshots.push(
+      readControlFile(path.join(gitDirectory.realPath, "HEAD"), [gitDirectory])
+        .snapshot,
+    );
+    const config = parseNarrowRepositoryConfig(
+      path.join(commonDirectory.realPath, "config"),
+      commonDirectory,
+    );
+    snapshots.push(config.snapshot);
+    verifySnapshots(snapshots);
+    return Object.freeze({
+      status: "candidate" as const,
+      objectFormat: config.objectFormat,
+      repositoryPathReported: false,
+    });
+  } catch {
+    return null;
+  }
 }
 
 function optionalCommonDirectory(
@@ -406,12 +492,13 @@ export function resolveRepositoryGitLayout(
     readControlFile(path.join(gitDirectory.realPath, "HEAD"), [gitDirectory])
       .snapshot,
   );
-  entitySnapshots.push(
-    parseNarrowRepositoryConfig(
-      path.join(commonDirectory.realPath, "config"),
-      commonDirectory,
-    ),
+  const config = parseNarrowRepositoryConfig(
+    path.join(commonDirectory.realPath, "config"),
+    commonDirectory,
   );
+  if (config.objectFormat !== "sha1")
+    throw new Error("repository_git_object_format_unsupported");
+  entitySnapshots.push(config.snapshot);
   const boundary = resolveExcludeBoundary(commonDirectory, entitySnapshots);
   verifySnapshots(entitySnapshots);
   if (boundary.excludeSnapshot) verifySnapshot(boundary.excludeSnapshot);

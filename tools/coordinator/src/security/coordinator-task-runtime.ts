@@ -1,10 +1,10 @@
-import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "./claude-docker-runtime-adapter.ts";
-import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   publishRuntimeOwnedCandidateBundle,
   runRuntimeOwnedCandidateStoreStartupGc,
 } from "./candidate-bundle-store.ts";
+import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "./claude-docker-runtime-adapter.ts";
+import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
@@ -20,11 +20,9 @@ import {
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerHostCleanupReceipt,
 } from "./docker-recovery-runtime.ts";
-import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
-import { resolveRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
-  activateOwnedHostOperationGenerationLock,
   abandonOwnedHostOperationGenerationLock,
+  activateOwnedHostOperationGenerationLock,
   cleanupOwnedOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -33,6 +31,12 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
+import { resolveRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
+import {
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "./plain-data-snapshot.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
   issueRuntimeOwnedProviderHomeMountGrant,
@@ -43,21 +47,20 @@ import {
   issueRuntimeOwnedProviderTaskPacket,
   revokeRuntimeOwnedProviderTaskPacket,
 } from "./provider-task-packet-runtime.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
+import {
+  bindRuntimeOwnedRepositoryOperation,
+  inspectRepositoryObjectFormatCandidate,
+} from "./repository-operation-runtime.ts";
 import {
   captureRuntimeOwnedCandidateRevision,
   materializeRuntimeOwnedRepositoryWorkspace,
   persistRuntimeOwnedCandidateRevision,
   verifyRuntimeOwnedCandidateRevision,
 } from "./repository-workspace-runtime.ts";
-import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "./plain-data-snapshot.ts";
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 7;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 8;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -86,6 +89,7 @@ type Operation = Readonly<{
   hostRecoveryId: string;
 }>;
 type RuntimeDependencies = Readonly<{
+  inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
   createOperation: () => Operation;
   cleanupOperation: (owned: object) => void;
   bindRepository: (
@@ -761,6 +765,14 @@ async function runCoordinatorTask(
   if (!request || typeof repositoryRoot !== "string" || !repositoryRoot) {
     return blocked("coordinator_task_request_invalid");
   }
+  const repositoryPreflight =
+    state.dependencies.inspectRepository(repositoryRoot);
+  if (repositoryPreflight?.status !== "candidate") {
+    return blocked("coordinator_task_repository_preflight_failed");
+  }
+  if (repositoryPreflight.runtimeSupported !== true) {
+    return blocked("coordinator_task_git_object_format_unsupported");
+  }
   const dockerRecoveryState = state.dependencies.prepareDockerRecoveryState?.();
   if (dockerRecoveryState && dockerRecoveryState.status !== "completed") {
     return blocked(
@@ -1108,6 +1120,7 @@ function createProductionOperation() {
 }
 
 const productionDependencies: RuntimeDependencies = Object.freeze({
+  inspectRepository: inspectRepositoryObjectFormatCandidate,
   createOperation: createProductionOperation,
   cleanupOperation: cleanupOwnedOperationDirectories,
   bindRepository: bindRuntimeOwnedRepositoryOperation,
@@ -1523,6 +1536,8 @@ export function describeCoordinatorTaskRuntimeContract() {
       "front_claude__executor_claude",
     ]),
     providerSelection: "explainable_cross_provider_preferred_cost_bounded",
+    repositoryObjectFormat:
+      "sha1_only_preflight_before_operation_external_send_or_candidate_store",
     selectionNotice:
       "safe_preselection_event_before_provider_effect_with_deferred_preflight_explicit",
     executorWorkspace: "runtime_owned_exact_commit_read_write",

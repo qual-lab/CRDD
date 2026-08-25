@@ -101,7 +101,7 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
   assert.match(signerSource, /inspectGitCommitTreeCandidate/u);
 });
 
-test("SHA-256 Git Repositoryはpassphrase利用とFilesystem観測より前に明示拒否する", () => {
+test("SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より前に明示拒否する", () => {
   assert.throws(
     () =>
       signReleaseManifest({

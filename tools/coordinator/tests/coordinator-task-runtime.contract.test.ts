@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import type { TestContext } from "node:test";
 import test from "node:test";
 
 import {
@@ -6,6 +10,7 @@ import {
   describeCoordinatorTaskRuntimeContract,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
+import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -50,6 +55,7 @@ function fixture(
     processCleanupFailureRole?: "executor" | "reviewer";
     hostCleanupWal?: boolean;
     dockerFinalizeFailsAt?: number;
+    inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
   } = {},
 ) {
   const owned = Object.freeze({});
@@ -70,17 +76,33 @@ function fixture(
   let discardCount = 0;
   let externalAuthorizationCount = 0;
   let dockerFinalizeCount = 0;
+  let operationCreateCount = 0;
+  let candidateStorePrepareCount = 0;
+  let workspaceMaterializeCount = 0;
+  let processStartCount = 0;
   let releasePausedProcess: (() => void) | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
-    createOperation: () =>
-      Object.freeze({
+    inspectRepository:
+      options.inspectRepository ??
+      (() =>
+        Object.freeze({
+          status: "candidate" as const,
+          objectFormat: "sha1",
+          runtimeSupported: true,
+          revisionReported: false,
+          repositoryPathReported: false,
+        })),
+    createOperation: () => {
+      operationCreateCount += 1;
+      return Object.freeze({
         owned,
         mountCapability,
         managementCapability,
         operationId: "OP-123456",
         hostRecoveryId: "host.fixture.recovery.record",
-      }),
+      });
+    },
     cleanupOperation: (candidate: object) => {
       assert.equal(candidate, owned);
       if (options.hostCleanupWal) events.push("host-cleanup");
@@ -103,22 +125,26 @@ function fixture(
         candidatePhysicalDeletion:
           "next_safe_runtime_entry_after_expiry_or_explicit_discard",
       }),
-    prepareCandidateStore: () =>
-      options.candidateStoreUnavailable
+    prepareCandidateStore: () => {
+      candidateStorePrepareCount += 1;
+      return options.candidateStoreUnavailable
         ? Object.freeze({
             status: "blocked",
             reason: "candidate_store_damaged_entry",
             candidateStoreRecoveryId: `candidate-store-recovery.${"8".repeat(64)}`,
             manualRecoveryRequired: true,
           })
-        : Object.freeze({ status: "completed" }),
+        : Object.freeze({ status: "completed" });
+    },
     reportSelectionNotice: (notice: Record<string, unknown>) => {
       selectionNotices.push(notice);
       events.push(`notice:${String(notice.taskRole)}`);
       return true;
     },
-    materializeWorkspace: () =>
-      Object.freeze({ status: "materialized", workspaceCapability }),
+    materializeWorkspace: () => {
+      workspaceMaterializeCount += 1;
+      return Object.freeze({ status: "materialized", workspaceCapability });
+    },
     issueSelection: (
       _management: object,
       selection: Record<string, unknown>,
@@ -214,6 +240,7 @@ function fixture(
         recoveryId: unknown,
       ) => boolean,
     ) => {
+      processStartCount += 1;
       const role = preparedRoles.get(preparedCapability);
       assert.ok(role);
       events.push(`start:${role}`);
@@ -381,12 +408,50 @@ function fixture(
     cleanupCount: () => cleanupCount,
     discardCount: () => discardCount,
     externalAuthorizationCount: () => externalAuthorizationCount,
+    operationCreateCount: () => operationCreateCount,
+    candidateStorePrepareCount: () => candidateStorePrepareCount,
+    workspaceMaterializeCount: () => workspaceMaterializeCount,
+    processStartCount: () => processStartCount,
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
       releasePausedProcess();
     },
   };
 }
+
+function sha256Repository(t: TestContext) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-sha256-task-"));
+  const git = path.join(root, ".git");
+  fs.mkdirSync(git, { recursive: true });
+  fs.writeFileSync(path.join(git, "HEAD"), `${"a".repeat(64)}\n`, "utf8");
+  fs.writeFileSync(
+    path.join(git, "config"),
+    "[core]\n\trepositoryformatversion = 1\n\tbare = false\n[extensions]\n\tobjectformat = sha256\n",
+    "utf8",
+  );
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  return root;
+}
+
+test("対象SHA-256 RepositoryはOperation／Grant／Store／Workspace／Processより前に専用停止する", async (t) => {
+  const harness = fixture({
+    inspectRepository: inspectRepositoryObjectFormatCandidate,
+  });
+  const started = harness.runtime.start(
+    request(),
+    sha256Repository(t),
+    "2026-08-25T00:00:00.000Z",
+  );
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_git_object_format_unsupported");
+  assert.equal(harness.operationCreateCount(), 0);
+  assert.equal(harness.externalAuthorizationCount(), 0);
+  assert.equal(harness.candidateStorePrepareCount(), 0);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 0);
+});
 
 test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
   const harness = fixture();
@@ -826,7 +891,7 @@ test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");

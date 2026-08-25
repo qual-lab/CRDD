@@ -663,7 +663,7 @@ test("candidateはopaque IDの明示ExportまたはDiscardだけを受理する"
   );
 });
 
-test("実task CLIは曖昧JSONと偽RepositoryをProvider Effect前に拒否する", () => {
+test("実task CLIは曖昧JSON、偽RepositoryとSHA-256 RepositoryをProvider Effect前に拒否する", (t) => {
   const ambiguous = spawnSync(
     process.execPath,
     [coordinatorExecutable, "task", "--request-stdin", "--json"],
@@ -690,6 +690,7 @@ test("実task CLIは曖昧JSONと偽RepositoryをProvider Effect前に拒否す�
         objective: "Bounded synthetic task.",
         acceptanceCriteria: ["No effect is issued."],
         allowedPaths: ["fixture.txt"],
+        readPaths: ["fixture.txt"],
         workClass: "bounded_implementation",
         planState: "complete",
         risk: "low",
@@ -709,6 +710,77 @@ test("実task CLIは曖昧JSONと偽RepositoryをProvider Effect前に拒否す�
   assert.equal(report.status, "blocked");
   assert.equal(report.rawOutputReported, false);
   assert.equal(invalidRepository.stdout.includes(os.tmpdir()), false);
+
+  const sha256Repository = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-task-cli-sha256-"),
+  );
+  t.after(() => fs.rmSync(sha256Repository, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(sha256Repository, ".git"));
+  fs.writeFileSync(
+    path.join(sha256Repository, ".git", "HEAD"),
+    `${"a".repeat(64)}\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(sha256Repository, ".git", "config"),
+    "[core]\n\trepositoryformatversion = 1\n\tbare = false\n[extensions]\n\tobjectformat = sha256\n",
+    "utf8",
+  );
+  const unsupported = spawnSync(
+    process.execPath,
+    [coordinatorExecutable, "task", "--request-stdin", "--json"],
+    {
+      cwd: sha256Repository,
+      input: JSON.stringify({
+        frontProvider: "codex",
+        objective: "Bounded synthetic task.",
+        acceptanceCriteria: ["No effect is issued."],
+        allowedPaths: ["fixture.txt"],
+        readPaths: ["fixture.txt"],
+        workClass: "bounded_implementation",
+        planState: "complete",
+        risk: "low",
+        difficulty: "low",
+        decisionImpact: "limited",
+        isLocalCandidateOnly: true,
+        hasUnresolvedDirection: false,
+        requiresCrossContextAlignment: false,
+      }),
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+  assert.equal(unsupported.status, 2);
+  assert.equal(unsupported.stderr, "");
+  assert.deepEqual(JSON.parse(unsupported.stdout), {
+    command: "task",
+    status: "blocked",
+    reason: "coordinator_task_git_object_format_unsupported",
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    hostRecoveryId: null,
+    dockerRecoveryId: null,
+    dockerRecoveryIds: [],
+    candidateRecoveryId: null,
+    candidateStoreRecoveryId: null,
+    executorProvider: null,
+    reviewerProvider: null,
+    executorSelectionNotice: null,
+    reviewerSelectionNotice: null,
+    candidateRevision: null,
+    candidateId: null,
+    executorResult: null,
+    reviewerResult: null,
+    canonicalRepositoryChanged: false,
+    rawOutputReported: false,
+    hostPathReported: false,
+    untrustedProviderTextReported: false,
+    credentialAbsenceVerified: false,
+  });
+  assert.equal(
+    fs.existsSync(path.join(sha256Repository, ".crdd-runtime")),
+    false,
+  );
 });
 
 test("helpはProvision Effect未実装と処置前blockedを一意に表示する", () => {

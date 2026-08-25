@@ -4,14 +4,16 @@ import path from "node:path";
 
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import { inspectGitCommitTreeCandidate } from "./git-object-reader.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "./release-identity-grammar.ts";
 import {
+  inspectRepositoryGitObjectFormatCandidate,
   type RepositoryGitLayout,
   resolveRepositoryGitLayout,
 } from "./repository-git-layout-internal.ts";
 
 export const REPOSITORY_OPERATION_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-operation-runtime";
-export const REPOSITORY_OPERATION_RUNTIME_CONTRACT_REVISION = 1;
+export const REPOSITORY_OPERATION_RUNTIME_CONTRACT_REVISION = 2;
 
 const MAX_HEAD_BYTES = 4_096;
 const MAX_PACKED_REFS_BYTES = 4 * 1024 * 1024;
@@ -173,6 +175,32 @@ function observe(repositoryRoot: string) {
   });
 }
 
+export function inspectRepositoryObjectFormatCandidate(
+  repositoryRoot: unknown,
+) {
+  try {
+    if (
+      typeof repositoryRoot !== "string" ||
+      !path.isAbsolute(repositoryRoot) ||
+      repositoryRoot.length > 4_096 ||
+      /[\0-\x1f\x7f]/u.test(repositoryRoot)
+    ) {
+      return null;
+    }
+    const format = inspectRepositoryGitObjectFormatCandidate(repositoryRoot);
+    if (format?.status !== "candidate") return null;
+    return Object.freeze({
+      status: "candidate" as const,
+      objectFormat: format.objectFormat,
+      runtimeSupported: format.objectFormat === "sha1",
+      revisionReported: false,
+      repositoryPathReported: false,
+    });
+  } catch {
+    return null;
+  }
+}
+
 export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
   try {
     if (
@@ -223,6 +251,7 @@ export function bindRuntimeOwnedRepositoryOperation(
     const operation =
       verifyOwnedOperationManagementCapability(managementCapability);
     const observation = observe(repositoryRoot);
+    if (!isSupportedCrddRuntimeGitObjectId(observation.revision)) return null;
     const binding = Object.freeze({
       managementCapability,
       operationId: operation.operationId,
@@ -358,6 +387,8 @@ export function describeRepositoryOperationRuntimeContract() {
     callerRevisionAccepted: false,
     internalSourceBorrow:
       "same_runtime_owned_binding_and_current_revision_only",
+    runtimeSupportedObjectFormats: Object.freeze(["sha1"]),
+    unsupportedObjectFormatResult: "fail_closed_before_operation_effect",
     providerEffectAllowed: false,
   });
 }

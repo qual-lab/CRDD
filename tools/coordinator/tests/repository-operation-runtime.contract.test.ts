@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
 import type { TestContext } from "node:test";
+import test from "node:test";
 
 import {
   cleanupOwnedOperationDirectories,
@@ -15,6 +15,7 @@ import {
 import {
   bindRuntimeOwnedRepositoryOperation,
   describeRepositoryOperationRuntimeContract,
+  inspectRepositoryObjectFormatCandidate,
   verifyRuntimeOwnedRepositoryBindingCapability,
   verifyRuntimeOwnedRepositoryOperation,
 } from "../src/security/repository-operation-runtime.ts";
@@ -147,11 +148,38 @@ test("detached HEADとpacked refを限定形式で解決し不正入力を拒否
   );
 });
 
+test("SHA-256 RepositoryはOperation capability発行前の専用preflightで拒否する", (t) => {
+  const repository = temporaryRepository(t);
+  const revision = "a".repeat(64);
+  fs.writeFileSync(
+    path.join(repository, ".git", "refs", "heads", "main"),
+    `${revision}\n`,
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(repository, ".git", "config"),
+    "[core]\n\trepositoryformatversion = 1\n\tbare = false\n[extensions]\n\tobjectformat = sha256\n",
+    "utf8",
+  );
+  assert.deepEqual(inspectRepositoryObjectFormatCandidate(repository), {
+    status: "candidate",
+    objectFormat: "sha256",
+    runtimeSupported: false,
+    revisionReported: false,
+    repositoryPathReported: false,
+  });
+  assert.equal(
+    bindRuntimeOwnedRepositoryOperation(operation(t), repository),
+    null,
+  );
+});
+
 test("公開契約はcaller supplied identityを採用せずPathを返さない", () => {
   const contract = describeRepositoryOperationRuntimeContract();
-  assert.equal(contract.contractRevision, 1);
+  assert.equal(contract.contractRevision, 2);
   assert.equal(contract.callerRevisionAccepted, false);
   assert.equal(contract.pathReported, false);
   assert.equal(contract.providerEffectAllowed, false);
+  assert.deepEqual(contract.runtimeSupportedObjectFormats, ["sha1"]);
   assert.match(contract.revision, /reobserved_before_effect_and_result/u);
 });

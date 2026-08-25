@@ -30,10 +30,13 @@ import {
   revokeRuntimeOwnedProviderHomeMountGrant,
 } from "./provider-home-mount-grant-runtime.ts";
 import { inspectRuntimeOwnedWindowsProviderHomeCandidate } from "./provider-home-windows-adapter.ts";
-import { bindRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
+import {
+  bindRuntimeOwnedRepositoryOperation,
+  inspectRepositoryObjectFormatCandidate,
+} from "./repository-operation-runtime.ts";
 
 export const COORDINATOR_RUNTIME_CONTRACT = "crdd-coordinator/runtime";
-export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 3;
+export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 4;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -54,6 +57,9 @@ const REQUEST_KEYS = new Set([
 ]);
 
 type RuntimeDependencies = Readonly<{
+  inspectRepository: (
+    repositoryRoot: string,
+  ) => Readonly<{ status: string; runtimeSupported: boolean }> | null;
   createOperation: () => Readonly<{
     owned: object;
     mountCapability: object;
@@ -270,6 +276,14 @@ function start(
     repositoryRoot.length === 0
   ) {
     return blocked("coordinator_runtime_request_invalid");
+  }
+  const repositoryPreflight =
+    state.dependencies.inspectRepository(repositoryRoot);
+  if (repositoryPreflight?.status !== "candidate") {
+    return blocked("coordinator_runtime_repository_preflight_failed");
+  }
+  if (repositoryPreflight.runtimeSupported !== true) {
+    return blocked("coordinator_runtime_git_object_format_unsupported");
   }
   let operation: ReturnType<RuntimeDependencies["createOperation"]>;
   try {
@@ -576,6 +590,7 @@ function createProductionOperation() {
 
 const productionState: RuntimeState = Object.freeze({
   dependencies: Object.freeze({
+    inspectRepository: inspectRepositoryObjectFormatCandidate,
     createOperation: createProductionOperation,
     cleanupOperation: cleanupOwnedOperationDirectories,
     bindRepository: bindRuntimeOwnedRepositoryOperation,
@@ -671,6 +686,8 @@ export function describeCoordinatorRuntimeContract() {
     contractRevision: COORDINATOR_RUNTIME_CONTRACT_REVISION,
     currentVerticalSlice: "codex_and_claude_subscription_boolean_probe",
     repositoryBinding: "runtime_owned_exact_revision",
+    repositoryObjectFormat:
+      "sha1_only_preflight_before_operation_or_provider_effect",
     providerSelection: "coordinator_explainable_selection_grant",
     providerHome: "selected_user_observed_twice_mount_grant_single_use",
     authority: "signed_release_bound_local_personal",

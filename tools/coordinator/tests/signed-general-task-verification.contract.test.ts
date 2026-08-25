@@ -274,7 +274,7 @@ test("署名Release不成立時はTaskを開始しない", async () => {
   assert.equal(fixture.calls.discards, 0);
 });
 
-test("SHA-256 Git Repositoryはv1能力外としてTask Effect前に明示拒否する", async () => {
+test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明示拒否する", async () => {
   const fixture = dependencies({
     release: release({
       crddCommit: "a".repeat(64),

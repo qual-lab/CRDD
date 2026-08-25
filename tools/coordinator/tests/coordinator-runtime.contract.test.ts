@@ -48,6 +48,13 @@ function fixture(overrides: Record<string, unknown> = {}) {
   let cancelCount = 0;
   const calls: string[] = [];
   const dependencies = {
+    inspectRepository: () => {
+      calls.push("inspect_repository");
+      return Object.freeze({
+        status: "candidate",
+        runtimeSupported: true,
+      });
+    },
     createOperation: () => {
       calls.push("create_operation");
       return Object.freeze({
@@ -244,6 +251,7 @@ test("RepositoryからClaude Resultまでを理由付き選定と全cleanupへ�
   assert.equal(result.rawOutputReported, false);
   assert.equal(h.getCleanupCount(), 1);
   assert.deepEqual(h.calls, [
+    "inspect_repository",
     "create_operation",
     "bind_repository",
     "issue_selection",
@@ -260,6 +268,32 @@ test("RepositoryからClaude Resultまでを理由付き選定と全cleanupへ�
       .status,
     "blocked",
   );
+});
+
+test("未対応Repository Object FormatはOperation作成前に専用理由で停止する", () => {
+  let inspectCount = 0;
+  const h = fixture({
+    inspectRepository: () => {
+      inspectCount += 1;
+      return Object.freeze({
+        status: "candidate",
+        runtimeSupported: false,
+      });
+    },
+  });
+  const result = h.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_runtime_git_object_format_unsupported",
+  );
+  assert.equal(inspectCount, 1);
+  assert.deepEqual(h.calls, []);
+  assert.equal(h.getCleanupCount(), 0);
 });
 
 test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する", async () => {
@@ -485,7 +519,7 @@ test("動的入力とsource checkoutのProduction入口はProvider Effect前に�
 
 test("公開契約はSubscription probeと非canonical Effect境界を固定する", () => {
   const contract = describeCoordinatorRuntimeContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(
     contract.currentVerticalSlice,
     "codex_and_claude_subscription_boolean_probe",
