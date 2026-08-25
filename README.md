@@ -145,6 +145,7 @@ For example, a Codex scheduled task may explicitly start a read-only weekly revi
 - [Operation health and Human interface](99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md)
 - [Forward compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
 - [Agent and provider orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- [Agent Organization](99_Roadmap/09_CRDD_v0_18_Agent_Organization.md)
 
 The product transformation is connected end to end, but it is not a fixed waterfall:
 
@@ -537,6 +538,7 @@ Representable != Enabled != Accessible != Authorized != Promoted
 - [Operation HealthとHuman Interface](99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md)
 - [Forward Compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
 - [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- [Agent Organization](99_Roadmap/09_CRDD_v0_18_Agent_Organization.md)
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 

@@ -2,7 +2,7 @@
 
 Status: Concept / Non-normative Architecture Candidate
 Target: CRDD v0.18.0 Architecture Candidate
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [実証計画](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [実証計画](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [Agent Organization](09_CRDD_v0_18_Agent_Organization.md)
 
 > 本書は非規範の責務整理である。現在のCRDD、Agent Contract、Skill Contract、Human Authority、External Information Boundaryまたは準拠基準を変更しない。
 
@@ -368,6 +368,8 @@ Repository数やOperation数が増えた場合だけ、Registry、Scheduler、�
 
 ## 9. Agent Organization
 
+エージェント組織（Agent Organization）の目的、Role、Specialty、Work Assignment、Delegation、Independent Review、Cost、AuthorityおよびHuman Boundaryの概念関係は[Agent Organization](09_CRDD_v0_18_Agent_Organization.md)を正本候補とする。本節は責務境界だけを要約し、概念を再定義しない。
+
 ```text
 Goal
  ↓
@@ -394,7 +396,7 @@ Proposal / Authorized Execution
 
 複数Agentを使うこと自体を品質や独立性の根拠にしない。
 
-複数のAgent、ModelまたはProviderへWorkを割り当てる場合、CRDDは必要Context、Authority、Capability、期待結果、Verification Requirementを所有する。採用側Policyは利用可能なExecution Boundaryを定め、RuntimeはEligibility GateとEligible Set内のOptimizationを実行する。Provider Adapterは固有APIと入出力変換を担う。このRouting責務は[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置く。
+複数のAgent、ModelまたはProviderへWorkを割り当てる場合、CRDDは必要Context、Authority、Capability、期待結果、Verification Requirementを所有する。採用側Policyは利用可能なExecution Boundaryを定め、RuntimeはEligibility GateとEligible Set内のOptimizationを実行する。Provider Adapterは固有APIと入出力変換を担う。このRouting Architectureは[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置く。
 
 Planner、Executor、ReviewerはOptional Profileであり、基本Roleまたは固定Flowではない。Providerが異なることをIndependent Reviewの根拠にせず、Task／Result／Reviewの実行表現を既存ContractのRuntime Projectionとして扱う。
 

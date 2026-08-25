@@ -3,7 +3,7 @@
 Status: Concept / Non-normative Architecture Candidate
 Target: CRDD v0.18.0 Architecture Candidate
 Subtitle: Safe Context Routing Across Execution Boundaries
-Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md)
+Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [Activation ProfileとReference Implementation](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent Organization](09_CRDD_v0_18_Agent_Organization.md)
 
 > 本書は非規範のAgent／Provider Orchestration候補である。現在のCRDD v0.17.0、Human Authority、Independent Review、External Information Boundary、準拠基準または採用側のProvider契約を変更しない。特定Provider、Model、Agent構成、固定Schemaまたは複数Agentの利用をCRDD準拠条件にしない。
 
@@ -12,6 +12,8 @@ Related: [v0.18.0候補構想](01_CRDD_v0_18_Concept.md), [責務境界](02_CRDD
 ## 1. 中心目的
 
 > **CRDD Agent / Provider Orchestrationは、Provider非依存のContextを、Authority・Information Boundary・Capability・Verification Requirementを満たす実行主体へ安全にRoutingし、その実行結果とProvenanceをCRDDへ還流する仕組みである。**
+
+Agent Organizationの目的、Role、Specialty、Delegation、Independent Review、Cost、AuthorityおよびHuman Boundaryは[Agent Organization](09_CRDD_v0_18_Agent_Organization.md)を正本候補とする。本書は、その概念を実行境界へ投影するRouting、Eligibility、Optimization、Context Projection、FallbackおよびExecution ProvenanceのArchitectureを所有する。特定RuntimeのBuild、command、Docker、Provider argv、永続状態またはRecovery実装を所有しない。
 
 主題はAI同士の会話、Agent数、特定Providerの組合せまたはCredit節約ではない。異なるTrust Boundary、能力、権限、Tool Accessを持つ実行主体へ、意味、制約、根拠、決定権限を失わずに作業を引き渡せるかを扱う。
 

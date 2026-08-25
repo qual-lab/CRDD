@@ -2,7 +2,7 @@
 
 Status: Concept / Non-normative Architecture Candidate
 Target: CRDD v0.18.0 Architecture Candidate
-Related: [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [実証計画](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+Related: [責務境界](02_CRDD_v0_18_Responsibility_Boundary.md), [実証計画](03_CRDD_v0_18_PoC_Plan.md), [自律安全Architecture](04_CRDD_v0_18_Autonomous_Safety_Architecture.md), [Operation HealthとHuman Interface](05_CRDD_v0_18_Operation_Health_and_Human_Interface.md), [Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md), [Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md), [Agent Organization](09_CRDD_v0_18_Agent_Organization.md)
 
 > 本書は非規範の将来構想である。公開済みCRDD v0.17.0、v0.18.0規範変更候補、準拠基準または採用側の責務を変更しない。ここに記載した契約、成果物、状態、ツール、実行方式は、独立した変更・検証・人間判断を経るまでCRDD標準ではない。
 
@@ -129,7 +129,7 @@ Runtimeが解決できる影響なし、重複、Policy内処理、拒否を人�
 
 > 自律Operationは、人間の判断負荷を増やすだけなら成功ではない。
 
-Agent OrganizationとContinuous Learningは、この5本柱を支える横断能力として扱う。Agent数や実行回数を自律性の価値とみなさず、学びを自動的に原則化しない。複数AgentまたはProviderを利用する場合の安全なContext Routingは[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置き、固定FlowまたはProvider Mappingを本書へ持ち込まない。
+エージェント組織（Agent Organization）とContinuous Learningは、この5本柱を支える横断能力として扱う。Agent数や実行回数を自律性の価値とみなさず、学びを自動的に原則化しない。Agent Organizationの目的と概念境界は[Agent Organization](09_CRDD_v0_18_Agent_Organization.md)、複数AgentまたはProviderを利用する場合の安全なContext Routingは[Agent & Provider Orchestration](07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)に置き、固定FlowまたはProvider Mappingを本書へ持ち込まない。
 
 Forward Compatibilityも5本柱を置き換える新しい柱ではなく、横断する設計制約として扱う。本候補で将来Capabilityを先行実装せず、Repository Identity、Context Reference、Provenance、Authorityの意味を現在の物理Locationまたは実行主体へ固定しない。表現できることを、有効化、アクセス、許可またはCurrent Stateへの反映とみなさない。詳細は[Forward Compatibility](06_CRDD_v0_18_Forward_Compatibility.md)に置く。
 

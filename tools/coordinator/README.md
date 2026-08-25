@@ -2,6 +2,23 @@
 
 Status: Implementation Candidate
 
+## 文書責務
+
+本READMEは、Coordinator Runtime 1.0の現在の実装、強制境界、Build、Run、RecoveryおよびTestを説明する。エージェント組織（Agent Organization）の目的、Role、Specialty、Delegation、Independent Review、Cost、AuthorityまたはHuman Boundaryの意味正本ではない。
+
+```text
+Agent Organization Concept
+  → Agent / Provider Orchestration Architecture
+    → Coordinator Runtime Implementation
+```
+
+- Concept: [Agent Organization](../../99_Roadmap/09_CRDD_v0_18_Agent_Organization.md)
+- Architecture: [Agent & Provider Orchestration](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
+- 現行規範: [原則](../../01_Principles.md)、[Agent契約](../../10_Agent.md)、[品質保証](../../16_Quality_Assurance.md)
+- Implementation: 本README、同Directoryのsource／test、[脅威モデル](threat-model.md)
+
+本READMEにCost、独立性またはAuthority条件を記す場合、それは上位Concept／Architecture／規範を現在のRuntimeがどう投影・強制するかを示す。実装の変更から上位概念、Human Authority、Independent ReviewまたはCRDD準拠条件の変更を推定しない。
+
 OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecure Enclave、LinuxのTPM 2.0をP-256優先Backendとして固定し、software fallbackは初回setupでの明示承認がある場合だけ候補化する。公開P-256 SPKIとBackend選択の形だけを検査し、秘密鍵、鍵handleまたはPathを入力・出力しない。実native Adapter、software鍵保護、署名済みPlatform Provisionerとの結合およびkey-handle所有証明は未実装であり、policy候補を実鍵保護、Trust、Authority、CapabilityまたはEffectへ昇格しない。
 
 準備認証局（Provisioning CA）のpure Core候補は、caller suppliedのoffline root集合、rootがEd25519署名したonline／offline issuing key証明書、およびroot署名済み失効一覧を検査する。issuing keyは最大365日、失効一覧は最大24時間、列挙された鍵は`revokedAt`の過去／現在／未来にかかわらず即時拒否する。正常なchainもRuntime同梱root Trust、rollback floor、Runtime時計または配布確認ではないため、Authority、CapabilityまたはGateを開かない。
@@ -10,7 +27,7 @@ OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecur
 
 登録証明書更新のpure遷移候補は、同じenrollment、Platform scope、Provisioner Identityおよび端末導入鍵を維持し、旧証明書の残り30日以内かつ失効前に新証明書を発行し、重複期間を最大30日に限定する。発行、自動更新、保存およびRuntime所有時計・CA Trustは未実装である。
 
-`Coordinator Runtime`は、Codex／Claude CodeのどちらをFrontにした場合も、Coordinatorが必要性、適格性、費用、Provider特性および独立性を理由付きで判定し、必要なら別ProviderのExecutorまたはReviewerへ安全に委譲するローカルWorkflow Runtimeである。Frontだけで完了できる作業は委譲せず、委譲時はcredit分散のためCodex→Claude Code／Claude Code→Codexを既定候補とし、同一Providerは特性、独立性または反対Providerの明示的不適格性を説明できる場合だけ選ぶ。
+現在の`Coordinator Runtime`実装は、Codex／Claude CodeのどちらをFrontにした場合も、Coordinatorが必要性、適格性、費用、Provider特性および独立性を理由付きで判定し、必要なら別ProviderのExecutorまたはReviewerへ安全に委譲する。Frontだけで完了できる作業は委譲せず、委譲時はcredit分散のためCodex→Claude Code／Claude Code→Codexを既定候補とし、同一Providerは特性、独立性または反対Providerの明示的不適格性を説明できる場合だけ選ぶ。これは現在のRuntime Strategyであり、Agent Organizationの固定Provider Mappingではない。
 
 RuntimeはCRDDのAuthority、固定改訂版、検証、ReviewおよびCurrent Decision Setへ各役割を接続する。push、merge、Release、公開、購入または一般外部EffectはRuntime 1.0の対象外であり、Provider認証は公式CLIが既存Subscription OAuth Sessionを自身の専用Homeから利用する経路だけを標準対応とする。
 
