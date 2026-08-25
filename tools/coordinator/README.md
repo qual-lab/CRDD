@@ -116,6 +116,18 @@ node tools/coordinator/bin/coordinator.ts candidate recover-store --recovery-id 
 {"frontProvider":"codex","objective":"Update the bounded fixture.","acceptanceCriteria":["The expected value is present."],"allowedPaths":["fixture.txt"],"readPaths":["fixture.txt","README.md"],"workClass":"bounded_implementation","planState":"complete","risk":"low","difficulty":"low","decisionImpact":"limited","isLocalCandidateOnly":true,"hasUnresolvedDirection":false,"requiresCrossContextAlignment":false}
 ```
 
+### 正式署名一般Taskの固定検証
+
+正式署名配布物のRelease Gateでは、上記の汎用stdin入口へShellからJSONを組み立てて渡さない。対象Repositoryを現在Directoryにした対話端末から、署名済み配布物内の固定Runnerを直接起動する。
+
+```powershell
+node <signed-distribution-root>\tools\coordinator\scripts\verify-signed-general-task.ts
+```
+
+このRunnerは公開の合成Taskをprocess内で固定構成し、Codex FrontからClaude Code Executorへ委譲し、Codex Independent Reviewerで確認する。変更候補は`tools/coordinator/runtime/general-task-verification.txt`のexact 1件に限定し、期待byteとの完全一致をRuntime Candidate Storeから再確認した後にdiscardする。署名Release Identity、経路、独立Review、Candidate Revision、cleanup、Recovery ID不存在、canonical Repository非変更およびCandidate残存0がすべて成立した場合だけPassを返す。通常の`coordinator task --request-stdin`契約は変更しない。
+
+対話境界を、PowerShellのtext pipeline、`ConvertTo-Json`、一時request file、長い`Start-Process ... -Command`または入れ子Shellへ再構成してはならない。Windows PowerShell 5.1とPowerShell 7ではprocess標準入力API、既定encodingおよび引数再構成が異なり、正しいTaskが実行前に壊れるためである。Release鍵生成／署名は既存のdirect TTY command、外部送信承認はRuntime所有のconsole challenge、OAuth bootstrapは公式Provider CLIと外部system browserをそれぞれ唯一の対話入口とする。対話端末を取得できない場合は別搬送へfallbackせず停止する。
+
 成功時の`candidateId`は承認済みCandidateをRuntime Storeから明示export／discardするためのopaque IDであり、canonical Repositoryを変更しない。export結果のfile内容は未信頼データで、Credential不在を証明しない。Policyのexport可能期限を過ぎるとexportできず、明示discardまたは次回の安全なRuntime／Candidate入口でbounded GCの対象になる。常駐serviceを持たないため、期限到達と同時の物理削除は保証しない。
 
 `doctor`は受動事前診断（passive preflight）である。CLIをインストール、認証または起動せず、PATH上の候補、ローカルGit／Repository、Operation専用領域および未実装の隔離条件を列挙する。Providerの絶対Path、生出力またはVersion出力は保持しない。認証、Filesystem、Credential Store、EgressまたはProcess lifecycleの確認が未実装・未評価である限り非ゼロ終了し、後続Operationを開始しない。
