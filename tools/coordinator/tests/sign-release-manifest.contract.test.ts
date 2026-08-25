@@ -473,6 +473,7 @@ test("固定公開鍵に対応しない秘密鍵ではmanifestを生成しない
         version: "0.0.0-development",
         private: true,
         type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
         scripts: {},
         engines: {},
         devDependencies: {},

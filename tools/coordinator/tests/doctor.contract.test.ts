@@ -2765,6 +2765,7 @@ test("生存中TaskのHost owner世代は別Recoveryによるroot回収を拒否
   assert.deepEqual(recoverOwnedOperationDirectories(token), {
     status: "blocked",
     reason: "host_recovery_generation_active",
+    recoveryId: token,
   });
   assert.equal(fs.existsSync(owned.root), true);
   cleanupOwnedOperationDirectories(owned);
@@ -3031,6 +3032,7 @@ test("Host recoveryの未知entry停止は世代を失効せず除去後に全al
   assert.deepEqual(recoverOwnedOperationDirectories(token), {
     status: "blocked",
     reason: "host_recovery_unknown_child",
+    recoveryId: token,
   });
   assert.equal(fs.existsSync(owned.root), true);
   assert.match(
@@ -3067,6 +3069,7 @@ test("Host recoveryのchild置換は世代を不可逆に失効し復元後だ�
   assert.deepEqual(recoverOwnedOperationDirectories(token), {
     status: "blocked",
     reason: "host_recovery_child_replaced",
+    recoveryId: token,
   });
   assert.throws(
     () => verifyOwnedOperationContextCapability(context),
@@ -3197,6 +3200,7 @@ test("別nonceへ複製したmarkerはactive世代へ作用せず全aliasを保�
   assert.deepEqual(recoverOwnedOperationDirectories(copiedToken), {
     status: "blocked",
     reason: "host_recovery_generation_mismatch",
+    recoveryId: copiedToken,
   });
   assert.equal(fs.existsSync(owned.root), true);
   assert.equal(fs.existsSync(originalMarker), true);
@@ -3309,6 +3313,7 @@ test("Host recoveryはroot削除済みでも外部markerを安全に完了する
   assert.deepEqual(recovered, {
     status: "recovered",
     reason: "host_root_already_absent",
+    recoveryId: null,
   });
   assert.throws(
     () => verifyOwnedOperationContextCapability(capability),
@@ -3337,6 +3342,7 @@ test("通常Host cleanupはgeneration release不明時にmarkerを保持して�
   assert.deepEqual(recoverOwnedOperationDirectories(recoveryId), {
     status: "recovered",
     reason: "host_root_already_absent",
+    recoveryId: null,
   });
   assert.equal(fs.existsSync(marker), false);
 });
@@ -3352,6 +3358,7 @@ test("Host doctorは自分のgeneration release不明時に成功せずmarkerを
     {
       status: "blocked",
       reason: "host_recovery_generation_release_unconfirmed",
+      recoveryId,
     },
   );
   assert.equal(fs.existsSync(owned.root), false);
@@ -3359,6 +3366,7 @@ test("Host doctorは自分のgeneration release不明時に成功せずmarkerを
   assert.deepEqual(recoverOwnedOperationDirectories(recoveryId), {
     status: "recovered",
     reason: "host_root_already_absent",
+    recoveryId: null,
   });
   assert.equal(fs.existsSync(marker), false);
 });

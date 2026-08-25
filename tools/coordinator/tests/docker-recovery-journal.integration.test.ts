@@ -11,6 +11,7 @@ import {
   dockerRecoveryCommitName,
   describeDockerRecoveryJournalContract,
   discoverDockerRecoveryJournalJson,
+  discoverDockerRecoveryJournalJsonForRecovery,
   inspectDockerRecoveryJournalDirectory,
   isDockerRecoveryJournalTemporaryName,
   readCommittedDockerRecoveryJson,
@@ -224,12 +225,13 @@ function crashScopedCleanup(root: string, discriminator: "a" | "b") {
 function crashRecoveryIdentityIntent(
   root: string,
   operation: "base_move" | "pointer_delete",
+  discriminator: "1" | "a" | "b" = "1",
 ) {
   const moduleUrl = pathToFileURL(
     path.resolve("src/security/docker-recovery-journal.ts"),
   ).href;
-  const stable = "1".repeat(64);
-  const nonce = "2".repeat(64);
+  const stable = discriminator.repeat(64);
+  const nonce = (discriminator === "1" ? "2" : discriminator).repeat(64);
   const source = `
     import fs from "node:fs";
     import path from "node:path";
@@ -238,6 +240,7 @@ function crashRecoveryIdentityIntent(
     const operation = process.argv[2];
     const stable = ${JSON.stringify(stable)};
     const nonce = ${JSON.stringify(nonce)};
+    const runtimeStateBinding = ${JSON.stringify(scopedRuntimeStateBinding)};
     if (operation === "base_move") {
       const target = path.join(root, "docker-task-" + nonce);
       fs.mkdirSync(target);
@@ -245,7 +248,7 @@ function crashRecoveryIdentityIntent(
         root,
         "pending-docker-task-" + nonce + ".json",
         "base.json",
-        { schema: "crdd-coordinator-task-docker-recovery/v1", operationNonce: nonce, stableLogicalHomeBindingHash: stable },
+        { schema: "crdd-coordinator-task-docker-recovery/v1", operationNonce: nonce, stableLogicalHomeBindingHash: stable, runtimeStateBinding },
       );
       const originalRename = fs.renameSync;
       fs.renameSync = (...args) => {
@@ -255,7 +258,15 @@ function crashRecoveryIdentityIntent(
       };
       journal.moveCommittedDockerRecoveryJson(record, path.join(target, "base.json"));
     } else {
-      const recoveryId = "docker-task." + stable + "." + nonce + "." + "3".repeat(64);
+      const operationDirectory = path.join(root, "docker-task-" + nonce);
+      fs.mkdirSync(operationDirectory);
+      const base = journal.writeCommittedDockerRecoveryJson(
+        operationDirectory,
+        "base.json",
+        "base.json",
+        { schema: "crdd-coordinator-task-docker-recovery/v1", operationNonce: nonce, stableLogicalHomeBindingHash: stable, runtimeStateBinding },
+      );
+      const recoveryId = "docker-task." + stable + "." + nonce + "." + base.hash;
       const name = "active-lease-" + stable + ".json";
       journal.writeCommittedDockerRecoveryJson(root, name, name, {
         schema: "crdd-coordinator-provider-home-active-lease/v1",
@@ -282,6 +293,7 @@ function crashRecoveryIdentityIntent(
       source,
       root,
       operation,
+      discriminator,
     ],
     { windowsHide: true, encoding: "utf8", timeout: 10_000 },
   );
@@ -831,6 +843,109 @@ test("root base moveとpointer deleteのkill後もexact Recovery IDを再発見�
       assert.match(
         intents[0]?.recoveryId ?? "",
         /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u,
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("Root-level intent探索とresumeはRecovery ID別にAだけを進めBを不変にする", () => {
+  for (const operation of ["base_move", "pointer_delete"] as const) {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(
+        crashRecoveryIdentityIntent(root, operation, "a").status,
+        0,
+      );
+      assert.notEqual(
+        crashRecoveryIdentityIntent(root, operation, "b").status,
+        0,
+      );
+      const intents = inspectDockerRecoveryJournalDirectory(root);
+      const recoveryIds = intents
+        .map((intent) => intent.recoveryId)
+        .filter((value): value is string => value !== null)
+        .sort();
+      assert.equal(recoveryIds.length, 2);
+      const [recoveryA, recoveryB] = recoveryIds;
+      assert.ok(recoveryA);
+      assert.ok(recoveryB);
+      const logicalKey =
+        operation === "base_move"
+          ? "base.json"
+          : `active-lease-${"a".repeat(64)}.json`;
+      assert.ok(
+        discoverDockerRecoveryJournalJsonForRecovery(
+          root,
+          logicalKey,
+          recoveryA,
+        ),
+      );
+      const bIntent = intents.find((intent) => intent.recoveryId === recoveryB);
+      assert.ok(bIntent);
+      const bPath = path.join(root, bIntent.name);
+      const bBytes = fs.readFileSync(bPath);
+      const bIdentity = fs.lstatSync(bPath, { bigint: true });
+      assert.equal(
+        resumeDockerRecoveryJournalDirectoryForRecovery(
+          root,
+          recoveryA,
+          scopedRuntimeStateBinding,
+        ),
+        true,
+      );
+      assert.deepEqual(fs.readFileSync(bPath), bBytes);
+      const afterBIdentity = fs.lstatSync(bPath, { bigint: true });
+      assert.deepEqual(
+        [afterBIdentity.dev, afterBIdentity.ino, afterBIdentity.birthtimeNs],
+        [bIdentity.dev, bIdentity.ino, bIdentity.birthtimeNs],
+      );
+      assert.equal(
+        resumeDockerRecoveryJournalDirectoryForRecovery(
+          root,
+          recoveryB,
+          scopedRuntimeStateBinding,
+        ),
+        true,
+      );
+      assert.equal(inspectDockerRecoveryJournalDirectory(root).length, 0);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("Root-level base／pointer intentはbinding不一致時に全anchorを保持する", () => {
+  for (const operation of ["base_move", "pointer_delete"] as const) {
+    const root = temporaryDirectory();
+    try {
+      assert.notEqual(
+        crashRecoveryIdentityIntent(root, operation, "a").status,
+        0,
+      );
+      const intent = inspectDockerRecoveryJournalDirectory(root)[0];
+      assert.ok(intent?.recoveryId);
+      const anchor = path.join(root, intent.name);
+      const before = fs.readFileSync(anchor);
+      const identity = fs.lstatSync(anchor, { bigint: true });
+      assert.throws(
+        () =>
+          resumeDockerRecoveryJournalDirectoryForRecovery(
+            root,
+            intent.recoveryId as string,
+            {
+              ...scopedRuntimeStateBinding,
+              localUserBindingHash: "f".repeat(64),
+            },
+          ),
+        /docker_recovery_target_binding_mismatch/u,
+      );
+      assert.deepEqual(fs.readFileSync(anchor), before);
+      const after = fs.lstatSync(anchor, { bigint: true });
+      assert.deepEqual(
+        [after.dev, after.ino, after.birthtimeNs],
+        [identity.dev, identity.ino, identity.birthtimeNs],
       );
     } finally {
       fs.rmSync(root, { recursive: true, force: true });

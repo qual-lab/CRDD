@@ -33,6 +33,10 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
 import { loadHostRecoveryRecordByToken } from "../src/security/host-recovery-record.ts";
+import {
+  moveCommittedDockerRecoveryJson,
+  writeCommittedDockerRecoveryJson,
+} from "../src/security/docker-recovery-journal.ts";
 
 const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -83,6 +87,110 @@ function providerHomeForPlan(plan: ReturnType<typeof productionPlan>) {
     localUserBindingHash: plan.localUserBindingHash,
     stableLogicalHomeBindingHash: plan.stableLogicalHomeBindingHash,
   });
+}
+
+function addSplitRootBaseMove(root: string, discriminator: "a" | "b") {
+  const stable = discriminator.repeat(64);
+  const nonce = discriminator.repeat(64);
+  const hostHash = "f".repeat(64);
+  const initialHostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${hostHash}`;
+  const base = Object.freeze({
+    schema: "crdd-coordinator-task-docker-recovery/v1",
+    operationNonce: nonce,
+    provider: "claude",
+    operationId: "OP-123456",
+    grantRef: "PHMGRANT-FIXTURE",
+    profileId: "PROFILE-123456",
+    stableLogicalHomeBindingHash: stable,
+    providerHomeIdentityHash: "8".repeat(64),
+    providerHomeProtectionHash: "9".repeat(64),
+    localUserBindingHash: "6".repeat(64),
+    runtimeStateBinding: Object.freeze({
+      runtimeStateIdentityHash: "4".repeat(64),
+      runtimeStateProtectionHash: "5".repeat(64),
+      localUserBindingHash: "6".repeat(64),
+      runtimeStateBindingHash: "7".repeat(64),
+    }),
+    ownershipLabel: "crdd.coordinator.runtime=0123456789abcdef",
+    resources: Object.freeze({
+      auth: "crdd-auth-0123456789abcdef",
+      provider: "crdd-claude-0123456789abcdef",
+      proxy: "crdd-proxy-0123456789abcdef",
+      internal: "crdd-internal-0123456789abcdef",
+      egress: "crdd-egress-0123456789abcdef",
+    }),
+    images: Object.freeze({
+      provider: `sha256:${"a".repeat(64)}`,
+      proxy: `sha256:${"b".repeat(64)}`,
+    }),
+    operationMode: "isolated_task",
+    workspaceMountMode: "read_write",
+    initialHostRecoveryId,
+    initialHostRecovery: Object.freeze({
+      token: initialHostRecoveryId,
+      recordHash: hostHash,
+      directoryIdentity: "1:2:3",
+      markerIdentity: "1:2:4",
+      record: Object.freeze({
+        schema: "crdd-coordinator-host-recovery/v1",
+        state: "host_only",
+        rootName: "crdd-coordinator-doctor-fixture",
+        rootIdentity: Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+        childIdentities: Object.freeze({
+          management: Object.freeze({
+            pathName: "management",
+            dev: "1",
+            ino: "3",
+            birthtimeNs: "4",
+          }),
+        }),
+        createdAt: "2026-08-25T00:00:00.000Z",
+      }),
+    }),
+    hostPaths: Object.freeze({ root: "host-root", marker: "host-marker" }),
+  });
+  const pendingBase = writeCommittedDockerRecoveryJson(
+    root,
+    `pending-docker-task-${nonce}.json`,
+    "base.json",
+    base,
+  );
+  const recoveryId = `docker-task.${stable}.${nonce}.${pendingBase.hash}`;
+  writeCommittedDockerRecoveryJson(
+    root,
+    `pending-docker-task-${nonce}.commit.json`,
+    "base-commit.json",
+    Object.freeze({
+      schema: "crdd-coordinator-task-docker-base-commit/v1",
+      operationNonce: nonce,
+      stableLogicalHomeBindingHash: stable,
+      baseHash: pendingBase.hash,
+      recoveryId,
+    }),
+  );
+  const operationDirectory = path.join(root, `docker-task-${nonce}`);
+  fs.mkdirSync(operationDirectory);
+  const originalRename = fs.renameSync;
+  let renameCount = 0;
+  Reflect.set(fs, "renameSync", (...args: Parameters<typeof fs.renameSync>) => {
+    originalRename(...args);
+    renameCount += 1;
+    if (renameCount === 2)
+      throw new Error("simulated_process_kill_after_content_move");
+  });
+  try {
+    assert.throws(
+      () =>
+        moveCommittedDockerRecoveryJson(
+          pendingBase,
+          path.join(operationDirectory, "base.json"),
+        ),
+      /simulated_process_kill_after_content_move/u,
+    );
+  } finally {
+    Reflect.set(fs, "renameSync", originalRename);
+  }
+  return recoveryId;
 }
 
 function addKilledProductionCleanup(
@@ -705,6 +813,47 @@ test("RuntimeState inventoryはlock release false／throwを成功へ投影し�
           activeStableLogicalHomeBindingHashes: [],
         },
       );
+    const recoveryId = addKilledProductionCleanup(
+      rootPath,
+      STABLE_HOME,
+      OPERATION_NONCE,
+      BASE_HASH,
+    );
+    assert.deepEqual(
+      inspectDockerRecoveryRootSnapshotWithLock(root, () => ({
+        release: () => false,
+      })),
+      {
+        status: "blocked",
+        reason: "docker_task_runtime_state_lock_release_unconfirmed",
+        manualRecoveryRequired: true,
+        dockerRecoveryId: recoveryId,
+        dockerRecoveryIds: [recoveryId],
+        activeStableLogicalHomeBindingHashes: [],
+      },
+    );
+  } finally {
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
+test("production inventoryは別Homeの複数base move中間状態をexact ID別に列挙する", () => {
+  const rootPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-multiple-base-move-test-"),
+  );
+  try {
+    const first = addSplitRootBaseMove(rootPath, "a");
+    const second = addSplitRootBaseMove(rootPath, "b");
+    const result = inspectDockerRecoveryRootSnapshotWithLock(
+      verifiedRoot(rootPath),
+      () => Object.freeze({ release: () => true }),
+    );
+    assert.equal(result.status, "completed", JSON.stringify(result));
+    assert.equal(
+      result.reason,
+      "docker_task_multiple_recovery_inventory_available",
+    );
+    assert.deepEqual(result.dockerRecoveryIds, [first, second]);
   } finally {
     fs.rmSync(rootPath, { recursive: true, force: true });
   }
@@ -975,6 +1124,7 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     assert.deepEqual(recoverOwnedOperationDirectories(hostCleanupToken), {
       status: "recovered",
       reason: "host_cleanup_recovered",
+      recoveryId: null,
     });
     assert.equal(
       recordRuntimeOwnedDockerHostCleanupReceipt(recoveryCapability),
@@ -1231,7 +1381,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 7,
+    contractRevision: 8,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

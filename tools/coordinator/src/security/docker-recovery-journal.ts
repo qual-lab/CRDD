@@ -341,6 +341,105 @@ function sameRuntimeStateBindingEvidence(left: unknown, right: unknown) {
   );
 }
 
+function runtimeStateBindingFromIntent(value: Record<string, unknown>) {
+  if (
+    value.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
+    validRuntimeStateBindingEvidence(value.runtimeStateBinding)
+  )
+    return value.runtimeStateBinding as Readonly<Record<string, unknown>>;
+  if (
+    (value.schema === "crdd-coordinator-durable-json-delete/v1" ||
+      value.schema === "crdd-coordinator-durable-json-move/v1") &&
+    validPairEvidence(value.pair)
+  ) {
+    const pair = value.pair as Record<string, unknown>;
+    const content = JSON.parse(String(pair.contentSerialized)) as Record<
+      string,
+      unknown
+    >;
+    if (validRuntimeStateBindingEvidence(content.runtimeStateBinding))
+      return content.runtimeStateBinding as Readonly<Record<string, unknown>>;
+  }
+  return null;
+}
+
+function resolveRuntimeStateBindingForRecovery(
+  directory: string,
+  recoveryId: string,
+  intents: readonly Record<string, unknown>[],
+) {
+  const candidates: Readonly<Record<string, unknown>>[] = [];
+  for (const intent of intents) {
+    if (recoveryIdFromIntent(intent) !== recoveryId) continue;
+    const binding = runtimeStateBindingFromIntent(intent);
+    if (binding) candidates.push(binding);
+  }
+  const match =
+    /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u.exec(
+      recoveryId,
+    );
+  if (!match?.[2] || !match[3])
+    throw new Error("docker_recovery_target_invalid");
+  for (const file of [
+    path.join(directory, `docker-task-${match[2]}`, "base.json"),
+    path.join(directory, `pending-docker-task-${match[2]}.json`),
+  ]) {
+    if (!fs.existsSync(file)) continue;
+    try {
+      const base = readCommittedDockerRecoveryJson(file, "base.json");
+      const value = base.value as Record<string, unknown>;
+      if (
+        base.hash === match[3] &&
+        value.operationNonce === match[2] &&
+        value.stableLogicalHomeBindingHash === match[1] &&
+        validRuntimeStateBindingEvidence(value.runtimeStateBinding)
+      )
+        candidates.push(
+          value.runtimeStateBinding as Readonly<Record<string, unknown>>,
+        );
+    } catch {
+      // A split committed pair is represented by its validated move/delete
+      // intent and must not be guessed from a partial filesystem state.
+    }
+  }
+  const baseCommitIntentPresent = intents.some((intent) => {
+    if (recoveryIdFromIntent(intent) !== recoveryId) return false;
+    const pair = intent.pair as Record<string, unknown>;
+    return validPairEvidence(pair) && pair.logicalKey === "base-commit.json";
+  });
+  const splitBase = path.join(
+    directory,
+    `docker-task-${match[2]}`,
+    "base.json",
+  );
+  if (baseCommitIntentPresent && fs.existsSync(splitBase)) {
+    const stable = readStableFile(splitBase);
+    const value = JSON.parse(stable.serialized) as Record<string, unknown>;
+    if (
+      canonical(value) !== stable.serialized ||
+      hashText(stable.serialized) !== match[3] ||
+      value.operationNonce !== match[2] ||
+      value.stableLogicalHomeBindingHash !== match[1] ||
+      !validRuntimeStateBindingEvidence(value.runtimeStateBinding)
+    )
+      throw new Error("docker_recovery_target_binding_mismatch");
+    candidates.push(
+      value.runtimeStateBinding as Readonly<Record<string, unknown>>,
+    );
+  }
+  if (candidates.length === 0)
+    throw new Error("docker_recovery_target_binding_missing");
+  const first = candidates[0];
+  if (
+    !first ||
+    candidates.some(
+      (candidate) => !sameRuntimeStateBindingEvidence(candidate, first),
+    )
+  )
+    throw new Error("docker_recovery_target_binding_mismatch");
+  return first;
+}
+
 function resumeDeleteAnchor(anchor: string) {
   const intent = readIntentAnchor(anchor);
   if (
@@ -1001,15 +1100,6 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
       const intentRecoveryId = recoveryIdFromIntent(value);
       if (!intentRecoveryId)
         throw new Error("docker_recovery_intent_recovery_id_missing");
-      if (
-        intentRecoveryId === recoveryId &&
-        value.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
-        !sameRuntimeStateBindingEvidence(
-          value.runtimeStateBinding,
-          runtimeStateBinding,
-        )
-      )
-        throw new Error("docker_recovery_target_binding_mismatch");
       return Object.freeze({
         name,
         anchorName,
@@ -1019,6 +1109,13 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
         target: intentRecoveryId === recoveryId,
       });
     });
+  const targetBinding = resolveRuntimeStateBindingForRecovery(
+    directory,
+    recoveryId,
+    snapshots.map((snapshot) => snapshot.value),
+  );
+  if (!sameRuntimeStateBindingEvidence(targetBinding, runtimeStateBinding))
+    throw new Error("docker_recovery_target_binding_mismatch");
   for (const snapshot of snapshots) {
     if (!snapshot.target) continue;
     let anchor = path.join(directory, snapshot.name);
@@ -1061,6 +1158,8 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
       recoveryId: string | null;
       name: string;
       runtimeStateBinding: Readonly<Record<string, unknown>> | null;
+      pairContentName: string | null;
+      pairCommitName: string | null;
     }>
   > = [];
   for (const name of fs
@@ -1092,6 +1191,16 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
           schema === "crdd-coordinator-recovery-cleanup-delete/v1"
             ? (value.runtimeStateBinding as Readonly<Record<string, unknown>>)
             : null,
+        pairContentName:
+          schema === "crdd-coordinator-durable-json-delete/v1" ||
+          schema === "crdd-coordinator-durable-json-move/v1"
+            ? String((value.pair as Record<string, unknown>).contentName)
+            : null,
+        pairCommitName:
+          schema === "crdd-coordinator-durable-json-delete/v1" ||
+          schema === "crdd-coordinator-durable-json-move/v1"
+            ? String((value.pair as Record<string, unknown>).commitName)
+            : null,
       }),
     );
   }
@@ -1108,7 +1217,15 @@ export function discoverDockerRecoveryJournalJson(
     .readdirSync(directory)
     .filter(isDockerRecoveryJournalIntentName)
     .sort()) {
-    const value = readIntentAnchor(path.join(directory, name));
+    const anchorName = name.endsWith(INTENT_PENDING_SUFFIX)
+      ? name.slice(0, -INTENT_PENDING_SUFFIX.length)
+      : name;
+    if (
+      name.endsWith(INTENT_PENDING_SUFFIX) &&
+      fs.existsSync(path.join(directory, anchorName))
+    )
+      throw new Error("docker_recovery_intent_third_state");
+    const value = validateIntentSnapshot(path.join(directory, name));
     if (
       (value.schema !== "crdd-coordinator-durable-json-move/v1" &&
         value.schema !== "crdd-coordinator-durable-json-delete/v1") ||
@@ -1117,6 +1234,60 @@ export function discoverDockerRecoveryJournalJson(
       continue;
     const pair = value.pair as Record<string, unknown>;
     if (pair.logicalKey !== logicalKey) continue;
+    const serialized = String(pair.contentSerialized);
+    const parsed = JSON.parse(serialized);
+    if (canonical(parsed) !== serialized)
+      throw new Error("docker_recovery_intent_noncanonical");
+    matches.push(
+      Object.freeze({
+        serialized,
+        hash: String(pair.contentHash),
+        identityText: String(pair.contentIdentity),
+        logicalKey,
+        value: parsed,
+      }),
+    );
+  }
+  if (matches.length > 1) throw new Error("docker_recovery_intent_third_state");
+  return matches[0] ?? null;
+}
+
+export function discoverDockerRecoveryJournalJsonForRecovery(
+  directory: string,
+  logicalKey: string,
+  recoveryId: string,
+) {
+  stableDirectoryIdentity(directory);
+  if (
+    !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(recoveryId)
+  )
+    throw new Error("docker_recovery_target_invalid");
+  const matches: DiscoveredJournalJson[] = [];
+  for (const name of fs
+    .readdirSync(directory)
+    .filter(isDockerRecoveryJournalIntentName)
+    .sort()) {
+    const anchorName = name.endsWith(INTENT_PENDING_SUFFIX)
+      ? name.slice(0, -INTENT_PENDING_SUFFIX.length)
+      : name;
+    if (
+      name.endsWith(INTENT_PENDING_SUFFIX) &&
+      fs.existsSync(path.join(directory, anchorName))
+    )
+      throw new Error("docker_recovery_intent_third_state");
+    const value = validateIntentSnapshot(path.join(directory, name));
+    if (
+      (value.schema !== "crdd-coordinator-durable-json-move/v1" &&
+        value.schema !== "crdd-coordinator-durable-json-delete/v1") ||
+      !validPairEvidence(value.pair)
+    )
+      continue;
+    const pair = value.pair as Record<string, unknown>;
+    if (
+      pair.logicalKey !== logicalKey ||
+      recoveryIdFromIntent(value) !== recoveryId
+    )
+      continue;
     const serialized = String(pair.contentSerialized);
     const parsed = JSON.parse(serialized);
     if (canonical(parsed) !== serialized)

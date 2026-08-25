@@ -121,6 +121,7 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
         version: "0.0.0-development",
         private: true,
         type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
         scripts: {},
         engines: {},
         devDependencies: {},
@@ -149,6 +150,41 @@ test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反�
   }
 });
 
+test("Coordinator packageはexact CLI-only exports境界を必須にする", () => {
+  for (const exportsValue of [
+    undefined,
+    {},
+    { "./cli": "./bin/coordinator.ts", "./internal": "./src/internal.ts" },
+    { "./cli": "./src/security/docker-recovery-runtime-internal.ts" },
+  ]) {
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-package-exports-boundary-"),
+    );
+    try {
+      const metadata: Record<string, unknown> = {
+        name: "@qual-lab/crdd-coordinator",
+        version: "0.0.0-development",
+        private: true,
+        type: "module",
+        scripts: {},
+        engines: {},
+        devDependencies: {},
+      };
+      if (exportsValue !== undefined) metadata.exports = exportsValue;
+      fs.writeFileSync(
+        path.join(root, "package.json"),
+        JSON.stringify(metadata),
+      );
+      assert.equal(
+        inspectPlatformProvisionerPackageFilesystemCandidate(root).status,
+        "blocked",
+      );
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
 test("入れ子directoryの走査中にentryを追加・削除・型変更しても安定inventoryへ流用しない", () => {
   for (const scenario of ["add", "remove", "replace_type"] as const) {
     const root = fs.mkdtempSync(
@@ -163,6 +199,7 @@ test("入れ子directoryの走査中にentryを追加・削除・型変更して
         version: "0.0.0-development",
         private: true,
         type: "module",
+        exports: { "./cli": "./bin/coordinator.ts" },
         scripts: {},
         engines: {},
         devDependencies: {},

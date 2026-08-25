@@ -325,20 +325,20 @@ function packageMetadata(bytes: Buffer | null) {
     "engines",
     "devDependencies",
   ];
-  const metadata =
-    snapshotPlainRecord(parsed, new Set([...baseKeys, "exports"])) ??
-    snapshotPlainRecord(parsed, new Set(baseKeys));
-  const exportsValue =
-    metadata?.exports === undefined
-      ? null
-      : snapshotPlainRecord(metadata.exports, new Set(["./cli"]));
+  const metadata = snapshotPlainRecord(
+    parsed,
+    new Set([...baseKeys, "exports"]),
+  );
+  const exportsValue = snapshotPlainRecord(
+    metadata?.exports,
+    new Set(["./cli"]),
+  );
   if (
     metadata?.name !== "@qual-lab/crdd-coordinator" ||
     typeof metadata.version !== "string" ||
     metadata.private !== true ||
     metadata.type !== "module" ||
-    (metadata.exports !== undefined &&
-      exportsValue?.["./cli"] !== "./bin/coordinator.ts")
+    exportsValue?.["./cli"] !== "./bin/coordinator.ts"
   ) {
     throw new Error("platform_provisioner_package_metadata_invalid");
   }

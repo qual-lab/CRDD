@@ -1536,9 +1536,14 @@ function loadHostRecoveryRecord(token: unknown): Readonly<{
 export function recoverOwnedOperationDirectories(
   token: unknown,
   suppliedRecoveryGenerationCapability: unknown = null,
-): Readonly<{ status: "recovered" | "blocked"; reason: string }> {
+): Readonly<{
+  status: "recovered" | "blocked";
+  reason: string;
+  recoveryId: string | null;
+}> {
   let recoveryGeneration: Readonly<{ root: string; nonce: string }> | null =
     null;
+  let verifiedRecoveryId: string | null = null;
   let markerPendingAfterRelease: string | null = null;
   const ownedRecoveryGenerationCapability = suppliedRecoveryGenerationCapability
     ? null
@@ -1548,6 +1553,7 @@ export function recoverOwnedOperationDirectories(
   const result = (() => {
     try {
       const { parsed, parent, marker, record } = loadHostRecoveryRecord(token);
+      verifiedRecoveryId = typeof token === "string" ? token : null;
       if (record.state === "docker_submission_started")
         throw new Error("host_recovery_requires_docker_absence");
       if (!["host_only", "docker_absent_confirmed"].includes(record.state))
@@ -1607,7 +1613,7 @@ export function recoverOwnedOperationDirectories(
         throw new Error("host_recovery_generation_release_unconfirmed");
       if (ownedRecoveryGenerationCapability) markerPendingAfterRelease = marker;
       else fs.rmSync(marker);
-      return { status: "recovered" as const, reason };
+      return { status: "recovered" as const, reason, recoveryId: null };
     } catch (error) {
       const allowed = new Set([
         "host_recovery_token_invalid",
@@ -1639,6 +1645,7 @@ export function recoverOwnedOperationDirectories(
         status: "blocked" as const,
         reason:
           message && allowed.has(message) ? message : "host_recovery_failed",
+        recoveryId: verifiedRecoveryId,
       };
     }
   })();
@@ -1649,6 +1656,7 @@ export function recoverOwnedOperationDirectories(
     return {
       status: "blocked",
       reason: "host_recovery_generation_release_unconfirmed",
+      recoveryId: verifiedRecoveryId,
     };
   if (result.status === "recovered" && markerPendingAfterRelease) {
     try {
@@ -1659,7 +1667,11 @@ export function recoverOwnedOperationDirectories(
         fs.rmSync(markerPendingAfterRelease);
       }
     } catch {
-      return { status: "blocked", reason: "host_recovery_record_replaced" };
+      return {
+        status: "blocked",
+        reason: "host_recovery_record_replaced",
+        recoveryId: verifiedRecoveryId,
+      };
     }
   }
   return result;

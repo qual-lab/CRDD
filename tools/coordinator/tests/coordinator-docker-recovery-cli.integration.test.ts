@@ -10,6 +10,7 @@ import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-co
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
 
 const RECOVERY_ID = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+const HOST_RECOVERY_ID = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
 
 function invokeCli(isJson: boolean) {
   return spawnSync(
@@ -96,6 +97,28 @@ test("実CLIの人間表示はexact回復commandを保持しHost Pathを出さ�
   );
   assert.doesNotMatch(result.stdout, /C:\\/u);
   assert.equal(result.stderr, "");
+});
+
+test("CLI共通projectorはHost release不明時もexact IDと再実行commandを保持する", () => {
+  const report = Object.freeze({
+    status: "blocked",
+    reason: "host_recovery_generation_release_unconfirmed",
+    recoveryId: HOST_RECOVERY_ID,
+  });
+  const json = renderDockerRecoveryDoctorReport(report, true);
+  assert.equal(json.exitCode, 2);
+  assert.deepEqual(JSON.parse(json.stdout), report);
+  const human = renderDockerRecoveryDoctorReport(report, false);
+  assert.equal(human.exitCode, 2);
+  assert.match(human.stdout, new RegExp(HOST_RECOVERY_ID, "u"));
+  assert.match(
+    human.stdout,
+    new RegExp(
+      `next: coordinator doctor --recover-isolation ${HOST_RECOVERY_ID}`,
+      "u",
+    ),
+  );
+  assert.doesNotMatch(human.stdout, /C:\\/u);
 });
 
 test("CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示へexact投影する", () => {
