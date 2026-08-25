@@ -9,7 +9,7 @@
 - Runtime基準: private doctor reportVersion 11はRepository基準と同じNode.js 24.12.0以上だけを受理し、Node 22.xおよび24.11以下をRuntime基準へ昇格しない。
 - 変更分類: `breaking`
 - 移行要否: `migration_required: true`（entrypoint contract revision 2、native result contract revision 2およびPA03／PR03は維持する。有効化前準備一回実行revision 3→5、Platform Provisioner Effect revision 4→5、Platform Access Adapter revision 2→3、private doctor reportVersion 9→11へ上げ、Runtime Activation revision 4は入れ子契約自身のrevisionで追跡する。旧revisionへのalias／fallbackは設けず、発行済みproduction stateは0なので永続変換なし。旧`SUPERVISOR_IMAGE_BLOCKED` reasonは過去結果として保持するが現sourceから発行しない）
-- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-crdd内部実装のtypescriptrust境界)、[`CHG-000035`](CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-crdd内部実装のtypescriptrust境界)、[`CHG-000035`](CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)、[`Product Roadmap`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と変更経路
 

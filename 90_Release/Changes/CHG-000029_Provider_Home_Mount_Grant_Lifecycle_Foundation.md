@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`（privateなProvider Home contractをrevision 2、Provider Lifecycle contractをrevision 5、doctor reportをversion 6へ更新し、Mount Grantの構造・状態・遷移・使用候補を固定する）
 - 移行要否: `migration_required: true`（新しい内部contractと試験を追加し、説明contract、doctor producer／exact test／README、固定source母集団を同時更新する。doctor version 5以前のalias／fallbackは設けない。supported production consumer、発行済みGrant、永続stateおよび実mountは0で、永続変換はない）
-- 関連正本: [`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)、[`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000022`](CHG-000022_Provider_Lifecycle_Foundation.md)、[`CHG-000026`](CHG-000026_Provider_Home_Protection_Foundation.md)、[`CHG-000028`](CHG-000028_Claude_Execution_Plan_Foundation.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
+- 関連正本: [`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)、[`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000022`](CHG-000022_Provider_Lifecycle_Foundation.md)、[`CHG-000026`](CHG-000026_Provider_Home_Protection_Foundation.md)、[`CHG-000028`](CHG-000028_Claude_Execution_Plan_Foundation.md)、[`Product Roadmap`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と変更経路
 

@@ -16,7 +16,7 @@ Related:
 - [09_Forward_Compatibility.md](09_Forward_Compatibility.md)
 - [99_Roadmap/01_Product_Roadmap.md](99_Roadmap/01_Product_Roadmap.md)
 
-> 本書は自律Operationの目的と全体像を所有する候補正本である。候補の存在だけから、採用側の有効化、決定権限、Capability、準拠またはReleaseを成立させない。
+> 本書は自律Operationの目的と全体像を保持する非規範のArchitecture Candidateである。将来の規範化候補を評価できる正本資料だが、現在の規範要件ではない。候補の存在だけから、採用側の有効化、決定権限、Capability、準拠またはReleaseを成立させない。
 
 ---
 

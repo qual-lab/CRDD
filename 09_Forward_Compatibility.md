@@ -14,7 +14,7 @@ Related:
 - [07_Autonomous_Operation_Safety.md](07_Autonomous_Operation_Safety.md)
 - [18_Context_Dependency.md](18_Context_Dependency.md)
 
-> 本書はRepository Identity、Context Reference、来歴および決定権限を現在の物理実装へ固定しないための候補正本である。将来能力を表現できることから、その能力の有効化、アクセスまたは許可を推定しない。
+> 本書はRepository Identity、Context Reference、来歴および決定権限を現在の物理実装へ固定しないための非規範Architecture Candidateである。将来の規範化候補を評価できる正本資料だが、現在の規範要件ではない。将来能力を表現できることから、その能力の有効化、アクセスまたは許可を推定しない。
 
 ---
 

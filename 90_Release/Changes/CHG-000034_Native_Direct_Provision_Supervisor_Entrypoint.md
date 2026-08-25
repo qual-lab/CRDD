@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`
 - 移行要否: `migration_required: true`（one-shot 1→2、Effect 2→3、Runtime Activation 2→3、doctor 7→8、package manifest 1→2、package filesystem descriptor 1→2、Release Identity descriptor 1→2、Release staging manifest descriptorの旧unversioned shape→2、署名結果 1相当→2。旧revision／versionのaliasまたはfallbackなし。supported production decoder、発行済みrecord、installed stateおよび実Effectは0なので永続変換なし）
-- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000021`](CHG-000021_Protected_Active_Pointer.md)、[`CHG-000033`](CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000021`](CHG-000021_Protected_Active_Pointer.md)、[`CHG-000033`](CHG-000033_Pre_Active_Provisioning_One_Shot_Contract.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`Product Roadmap`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と変更経路
 

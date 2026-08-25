@@ -4,7 +4,7 @@ Status: Implementation Candidate
 
 ## 文書責務
 
-本READMEは、Coordinator Runtime 1.0の現在の実装、強制境界、構築、実行、回復および試験を説明する。エージェント組織（Agent Organization）の目的、役割、専門性、委譲、独立レビュー、費用、決定権限または人間との境界の意味正本ではない。
+本READMEは、Coordinator Runtime 1.0の現在の実装、強制境界、構築、実行、回復および試験を説明する。エージェント組織（Agent Organization）の目的、役割、専門性、委譲、独立レビュー、費用、決定権限または人間との境界は[`04_Agent_Organization.md`の規範候補§1～§11](../../04_Agent_Organization.md)を参照し、プロバイダー非依存の経路制御案は同書の[非規範実行Architecture Candidate §12](../../04_Agent_Organization.md#12-execution-architecture)を参照する。本READMEはどちらの意味正本でもなく、§12または現在実装の存在から準拠要件を追加しない。
 
 ```text
 エージェント組織の概念

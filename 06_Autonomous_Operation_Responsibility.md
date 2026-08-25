@@ -17,7 +17,7 @@ Related:
 - [10_Agent.md](10_Agent.md)
 - [11_Skill.md](11_Skill.md)
 
-> 本書は自律Operation、CRDD、Agent、Skill、Runtime、Toolおよび決定権限の責務境界を所有する候補正本である。接続可能性から有効化または決定権限を推定しない。
+> 本書は自律Operation、CRDD、Agent、Skill、Runtime、Toolおよび決定権限の責務境界を保持する非規範のArchitecture Candidateである。将来の規範化候補を評価できる正本資料だが、現在の規範要件ではない。接続可能性から有効化または決定権限を推定しない。
 
 ---
 
@@ -155,6 +155,19 @@ Activation Profile
 ```
 
 ProfileはOperation Contractの必須結果、停止条件、根拠、探索・収束、セキュリティを省略しない。権限を狭めることはできるが、定義済みであることを理由に権限を広げない。
+
+Activationは成熟度や品質の等級ではなく、採用先が有効にするTrigger、接続およびEffectの範囲を段階的に評価する。旧PoCで用いた次のProfile 0～5は固定Schemaや必須導入順ではないが、各段階の意味と人間ゲートを失わないための参照候補である。
+
+| Profile候補 | 有効化する主な範囲 | 維持する境界 |
+|---|---|---|
+| 0 構想と境界 | 契約、責務、Authority、停止の設計評価 | 実行Capabilityや採用を成立させない |
+| 1 Scheduled Advice | 時間契機、読取り、提案 | 外部公開、本番変更、費用Effectを許可しない |
+| 2 Event-driven Advice | 意味変更が疑われるEventによる再評価 | Event発生だけで起動せず、重複と再帰を制御する |
+| 3 Connected Observation | 承認済みToolからの観測 | 接続済みであることをAuthorityとみなさず、外部情報境界を維持する |
+| 4 Governed Execution | 影響限定、検出、回復および検証が成立するEffect | 外部公開、本番、費用、法務、権限変更の人間ゲートを維持する |
+| 5 Agent Organization | 必要な専門責務の編成、委譲、独立レビュー、統合 | Agent数やProvider差を品質・独立性・Authorityの根拠にしない |
+
+将来の継続的改善候補も、`Observe → Discover → Reason → Propose → Authorized Execute → Verify → Learn`の各境界を維持する。Profile間の移行や継続的改善は自動昇格ではなく、対象Capability、Authority、Evidence、回復条件および人間判断を別途必要とする。
 
 ### 4.2. Execution Contract
 

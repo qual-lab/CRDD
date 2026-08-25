@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`（private Claude Execution Plan revision 2→3。実Provider requestは有効化しない）
 - 移行要否: `migration_required: true`（発行済みProvider state、OAuth session、Mount Grantおよびproduction consumerは0。旧revisionへのalias／fallbackは設けず永続変換なし）
-- 関連正本: [`CHG-000028`](CHG-000028_Claude_Execution_Plan_Foundation.md)、[`CHG-000036`](CHG-000036_AppContainer_Provision_Worker_Candidate.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
+- 関連正本: [`CHG-000028`](CHG-000028_Claude_Execution_Plan_Foundation.md)、[`CHG-000036`](CHG-000036_AppContainer_Provision_Worker_Candidate.md)、[`Product Roadmap`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と変更経路
 

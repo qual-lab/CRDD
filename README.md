@@ -9,7 +9,7 @@ Expertise and execution to AI. Ideas, decisions, and accountability to humans. I
 
 Status: **v0.18.0 Candidate — Current Decision Set, Communication, Agent Organization, and Architecture Evaluation / 現在の判断集合・外部コミュニケーション・エージェント組織・アーキテクチャ評価**
 
-> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative v0.18.0 Architecture Candidate material. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合と外部コミュニケーションの規範変更候補、エージェント組織の規範的な基礎正本候補、および非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはリリースは成立しない。See / 参照: [エージェント組織](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](05_Autonomous_Operation.md).
+> **Branch note / ブランチ注記:** This branch is the integrated **v0.18.0 Candidate**. It contains normative change candidates for the Current Decision Set and Communication, the normative Agent Organization foundation in sections 1–11 of `04_Agent_Organization.md`, and non-normative v0.18.0 Architecture Candidate material including section 12 of that document. The released baseline remains **v0.17.0**; candidate co-location does not establish v0.18.0 conformance, adoption, authority, automatic AI loading, runtime availability, or release. / このbranchは統合**v0.18.0候補**である。現在の判断集合と外部コミュニケーションの規範変更候補、`04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範候補、および同書§12を含む非規範のv0.18.0 Architecture Candidate資料を含む。公開済み基準は引き続き**v0.17.0**であり、候補が同居することからv0.18.0準拠、採用、決定権限、AIによる自動読込、Runtimeの利用可能性またはリリースは成立しない。See / 参照: [エージェント組織](04_Agent_Organization.md), [v0.18.0 Architecture Candidate](05_Autonomous_Operation.md).
 
 **[English](#english)** | **[日本語](#日本語)** | **[Contributing](CONTRIBUTING.md)** | **[Changelog](CHANGELOG.md)**
 
@@ -117,7 +117,7 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 Its five candidate pillars are Re-evaluation and Trigger, Operation, Effect and Authority Safety, Background versus Human Decision separation, and Operation Health. They are future, non-normative design material—not part of v0.17.0 conformance:
 
-The integrated v0.18.0 candidate combines normative change candidates for Current Decision Set and Communication, the normative Agent Organization foundation candidate, and non-normative architecture material. Agent Organization defines how responsibility, specialty, capability, authority, delegation, review, cost, and result integration remain distinct without requiring multiple agents. The architecture material explores how those boundaries can be projected across executions. Neither category makes a Coordinator product, agent layout, queue UI, autonomous approval, or runtime capability mandatory. Changes to the normative candidates or released baseline require a new semantic comparison; the former feature branches are provenance, not continuing synchronization sources.
+The integrated v0.18.0 candidate combines normative change candidates for Current Decision Set and Communication, the normative Agent Organization foundation in `04_Agent_Organization.md` sections 1–11, and non-normative architecture material including section 12. Agent Organization defines how responsibility, specialty, capability, authority, delegation, review, cost, and result integration remain distinct without requiring multiple agents. The architecture material explores how those boundaries can be projected across executions. Neither category makes a Coordinator product, agent layout, queue UI, autonomous approval, or runtime capability mandatory. Changes to the normative candidates or released baseline require a new semantic comparison; the former feature branches are provenance, not continuing synchronization sources.
 
 #### What this candidate does not provide by itself
 
@@ -512,7 +512,7 @@ Trigger → Think → Controlled Effect → Verify → Learn
 
 候補の5本柱は、再評価と契機、Operation、EffectとAuthorityの安全性、BackgroundとHuman Decisionの分離、Operation Healthである。これらは将来の非規範設計資料であり、v0.17.0準拠の一部ではない。
 
-統合v0.18.0候補は、現在の判断集合と外部コミュニケーションの規範変更候補、エージェント組織の規範的な基礎正本候補、および非規範のアーキテクチャ資料を組み合わせる。エージェント組織は責務、専門性、能力、決定権限、委譲、レビュー、費用および結果統合を、複数エージェントを必須にせず分離する。アーキテクチャ資料は、その境界を複数実行へ投影する方法を検討する。いずれも特定の調整役製品、エージェント構成、Queue UI、自律承認またはRuntime能力を必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
+統合v0.18.0候補は、現在の判断集合と外部コミュニケーションの規範変更候補、`04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範候補、および同書§12を含む非規範のアーキテクチャ資料を組み合わせる。エージェント組織は責務、専門性、能力、決定権限、委譲、レビュー、費用および結果統合を、複数エージェントを必須にせず分離する。アーキテクチャ資料は、その境界を複数実行へ投影する方法を検討する。いずれも特定の調整役製品、エージェント構成、Queue UI、自律承認またはRuntime能力を必須にしない。規範変更候補または公開基準が変わった場合は、新しい意味差として再評価する。旧feature branchは来歴であり、継続同期元ではない。
 
 #### この候補が単独では提供しないもの
 

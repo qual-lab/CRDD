@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`（private Rust wire protocolをrevision 2から3へ更新し、旧revisionのalias／fallbackを設けない）
 - 移行要否: `migration_required: true`（署名manifestのRust成果物Identityとprotocol revision、TypeScript decoderおよびRepository内fixtureを同時更新する。supported production active generationは0で、端末state変換はない）
-- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000021`](CHG-000021_Protected_Active_Pointer.md)、[`CHG-000026`](CHG-000026_Provider_Home_Protection_Foundation.md)、[`CHG-000029`](CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md)、[`CHG-000031`](CHG-000031_Runtime_Owned_Operation_Context_Capability.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000021`](CHG-000021_Protected_Active_Pointer.md)、[`CHG-000026`](CHG-000026_Provider_Home_Protection_Foundation.md)、[`CHG-000029`](CHG-000029_Provider_Home_Mount_Grant_Lifecycle_Foundation.md)、[`CHG-000031`](CHG-000031_Runtime_Owned_Operation_Context_Capability.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`Product Roadmap`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と変更経路
 

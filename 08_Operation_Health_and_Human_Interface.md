@@ -15,7 +15,7 @@ Related:
 - [10_Agent.md](10_Agent.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
 
-> 本書は自律Operationの健全性、人間への判断提示、通知集約および適応の候補正本である。活動量や自動化率を成功または品質へ読み替えない。
+> 本書は自律Operationの健全性、人間への判断提示、通知集約および適応を保持する非規範のArchitecture Candidateである。将来の規範化候補を評価できる正本資料だが、現在の規範要件ではない。活動量や自動化率を成功または品質へ読み替えない。
 
 ---
 
@@ -286,6 +286,23 @@ Humanが所有するもの：
 
 ## 11. PoCで確認すること
 
+<a id="reference-operation-experiments"></a>
+
+### 11.1. 参照Operation実証
+
+最初の実証は専用Platformの規模ではなく、契機とGoalだけを与えたときに、AIが固定Promptへ探索順を書かなくてもCRDDコンテキストから判断価値のある結果へ到達できるかを確認する。次の四つは比較可能な候補であり、すべての採用先へ実装を要求しない。
+
+| 候補 | 意味変更の判断 | 確認する固有境界 |
+|---|---|---|
+| 週次プロダクトレビュー | Current State、重要変化、Risk、Roadmap影響および次の判断を再構成する | 変化なし／再評価不要／現行方向維持を正しい結果として返し、改善案を捏造しない |
+| Communication結果レビュー | Publication Result／MeasurementをCommunication Contextと比較する | 数値最適化へ縮約せず、Audience、Claim、Evidence、Design Direction、外部公開Authorityを維持する |
+| Roadmap再評価 | 再評価条件と現在Evidenceを、登録時の判断・根拠へ照合する | RoadmapをTask一覧とみなさず、条件成立を採用や優先順位確定へ昇格させず、不要な再評価を乱発しない |
+| Repository Event | 統合差分等が意味変更を生じたかを判定する | Event発生だけで起動せず、意味影響なしを根拠付きで終了し、同じEventから再帰起動しない |
+
+Communication結果ではAudience、Claim、EvidenceまたはProduct Directionとの競合、Roadmapでは前提の実変化とDiscovery再開要否、Repository Eventでは実装差分と意味変更の区別を取得可能にする。これらの判断条件をScheduler、固定WorkflowまたはProvider固有Promptへ埋め込まない。
+
+### 11.2. 共通評価軸
+
 - 100件相当の背景結果から、判断が必要なものだけを一つのQueueへ集約できる。
 - No-impactと重複結果が人間へ逐次通知されない。
 - Policy拒否が承認要求の連打にならない。
@@ -295,5 +312,17 @@ Humanが所有するもの：
 - Human minutes per useful decisionとCost per useful findingを測定できる。
 - Health悪化時に頻度低下、Pause、再設計候補を提示できる。
 - Agentの自己判断だけでProfile昇格やPause解除を行わない。
+
+加えて、コンテキスト探索、推論、Authority、出力および運用を分けて評価する。
+
+| 観点 | 評価する内容 |
+|---|---|
+| コンテキスト探索 | 必要範囲を自ら発見し、CurrentとHistoricalを分け、Repository全体を無差別に読まない |
+| 推論 | Summaryで終わらず、変化、過去判断との差、根本原因および適切な再評価先を説明する |
+| Authority／情報境界 | ProposalとDecision、接続と許可、外部入力と認証済み指示を混同しない |
+| 出力 | Current State、Evidence、Risk、Recommendation、未評価範囲、残存不確実性、収束理由を分ける |
+| 運用 | 判断価値、見逃し、誤起動、収束、費用、人間確認負荷および学びを測る |
+
+Routing、Fallback、Coordinator Result Integration、安全なEffect、将来互換性は、[エージェント組織の実行Architecture候補](04_Agent_Organization.md#12-execution-architecture)、[責務境界](06_Autonomous_Operation_Responsibility.md#4-operation-contract)、[安全境界の合成Fixture](07_Autonomous_Operation_Safety.md#14-pocで確認する境界)および[将来互換性の確認候補](09_Forward_Compatibility.md#6-将来互換性の確認候補)へ分担し、本節へ重複させない。
 
 PoCの合格は背景実行数ではなく、人間が処理する判断を減らしながら、重要な見逃し、安全違反、未処理Riskを増やさないことで評価する。

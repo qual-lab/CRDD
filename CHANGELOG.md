@@ -22,7 +22,7 @@ Compared with v0.17.0:
 - Adds `04_Agent_Organization.md` as the Candidate foundation authority for organizing specialized AI work while retaining Human Authority.
 - Adds Agentic Delivery criterion AD-22. Where work uses role assignment, delegation, execution-actor／Provider／Model selection, independent review, or Coordinator integration, it evaluates the separation of responsibility, specialty, capability, authority, verification, and integration; avoids unnecessary agents or delegation; does not infer quality, independence, or authority from a Provider or configuration name; compares cost, quota, or credit only among eligible candidates; and does not promote a result or `Pass` into Human Authority.
 - Extends Agentic Delivery claims from AD-01–AD-21 to AD-01–AD-22 without requiring a permanent organization registry, fixed schema, multi-agent execution, or retrospective rewriting of closed work.
-- Separates the Agent Organization concept from the non-normative Agent／Provider Orchestration architecture candidate and the current Coordinator Runtime implementation.
+- Separates the normative Agent Organization foundation in `04_Agent_Organization.md` sections 1–11 from its non-normative execution architecture candidate in section 12 and from the current Coordinator Runtime implementation.
 - Keeps the v0.18 Architecture Candidate non-normative. Its branch co-location, diagrams, runtime candidates, or future profiles do not add conformance criteria or establish implementation availability.
 - Keeps the released baseline at v0.17.0. Candidate documents, branch co-location, checker success, or runtime implementation do not establish adoption, conformance, activation, or release.
 
@@ -824,7 +824,7 @@ v0.17.0からの変更:
 - 専門化したAI作業を編成しながら人間の決定権限を維持する候補基礎正本として`04_Agent_Organization.md`を追加する。
 - エージェント型提供基準AD-22を追加する。役割分担、委譲、実行主体／プロバイダー／モデル選定、独立レビューまたは調整役による統合を行う場合に、責務、専門性、能力、決定権限、検証および統合の分離、不要なエージェント／委譲の非発火、名称から品質・独立性・決定権限を推定しないこと、適格候補間だけで費用・割当量・利用枠を比較すること、および結果や`Pass`を人間の決定権限へ昇格しないことを評価する。
 - エージェント型提供の準拠表明範囲をAD-01〜AD-21からAD-01〜AD-22へ拡張する。恒久的な組織台帳、固定スキーマ、複数エージェント実行または完了済み履歴の遡及書換えは要求しない。
-- エージェント組織の概念、非規範のエージェント／プロバイダー調整アーキテクチャ候補、および現在のCoordinator Runtime実装を分離する。
+- `04_Agent_Organization.md`§1～§11のエージェント組織の基礎規範候補、§12の非規範実行Architecture候補、および現在のCoordinator Runtime実装を分離する。
 - v0.18 Architecture Candidateは非規範のまま維持する。同一branchへの同居、図、実行環境候補または将来Profileから準拠基準や実装利用可能性を成立させない。
 - 公開済み基準はv0.17.0のままとする。候補文書、branchへの同居、Checker合格またはRuntime実装から、採用、準拠、有効化またはリリースを成立させない。
 

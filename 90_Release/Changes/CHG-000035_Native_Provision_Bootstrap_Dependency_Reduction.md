@@ -8,7 +8,7 @@
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`
 - 移行要否: `migration_required: true`（native entrypoint contract revision 1→2。manifest revision 2、V2署名domain、native result contract revision 1、one-shot revision 2、Effect revision 3、Runtime Activation revision 3およびdoctor version 8は維持する。旧entrypoint revision 1を署名済みmanifestごと拒否し、aliasまたはfallbackを設けない。発行済みproduction manifest、installed state、観測、Authority、CapabilityおよびEffectは0なので永続変換なし）
-- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000034`](CHG-000034_Native_Direct_Provision_Supervisor_Entrypoint.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`実装残件台帳`](../../99_Roadmap/01_Product_Roadmap.md)
+- 関連正本: [`19_Maintenance.md`](../../19_Maintenance.md#33-internal-typescript-runtime)、[`CHG-000034`](CHG-000034_Native_Direct_Provision_Supervisor_Entrypoint.md)、[`Coordinator README`](../../tools/coordinator/README.md)、[`脅威モデル`](../../tools/coordinator/threat-model.md)、[`Product Roadmap`](../../99_Roadmap/01_Product_Roadmap.md)
 
 ## 結論と変更経路
 

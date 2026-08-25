@@ -41,4 +41,4 @@ Subscription認証状態とquotaは、別の有料probeを発火せず、同じ�
 
 ## 2026-08-25 現在状態への接続
 
-上記「現在の検証結果と残件」は本変更を固定した時点の履歴であり、現在の残件表示ではない。Repository／Revision binding、Coordinator一般Task facade、Codex／Claude両Adapterおよびcross-provider経路は後続変更でproduction候補へ接続済みである。Coordinator Runtime 1.0の現在状態と残件は[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)および[`Roadmap 08`](../../99_Roadmap/01_Product_Roadmap.md)を正本とする。本変更のAuthority／Eligibility判断とSubscription-only境界は維持する。
+上記「現在の検証結果と残件」は本変更を固定した時点の履歴であり、現在の残件表示ではない。Repository／Revision binding、Coordinator一般Task facade、Codex／Claude両Adapterおよびcross-provider経路は後続変更でproduction候補へ接続済みである。Coordinator Runtime 1.0の現在状態と残件は[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)および[`Product Roadmap`](../../99_Roadmap/01_Product_Roadmap.md)を正本とする。本変更のAuthority／Eligibility判断とSubscription-only境界は維持する。

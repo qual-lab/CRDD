@@ -15,7 +15,7 @@ Related:
 - [09_Forward_Compatibility.md](09_Forward_Compatibility.md)
 - [10_Agent.md](10_Agent.md)
 
-> 本書は自律Operationの安全目標、Effect、候補状態、昇格、停止およびRuntime強制の候補正本である。候補を採用側の権限または実行許可へ自動的に昇格しない。
+> 本書は自律Operationの安全目標、Effect、候補状態、昇格、停止およびRuntime強制を保持する非規範のArchitecture Candidateである。将来の規範化候補を評価できる正本資料だが、現在の規範要件ではない。候補を採用側の権限、実行許可または準拠要件へ自動的に昇格しない。
 
 ---
 
