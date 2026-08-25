@@ -108,8 +108,9 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | 帯域 | 責務 |
 |---|---|
 | `00`–`03`、`04`§1～§11 | 基礎規範候補：概要、原則、用語、文書化、エージェント組織の共通原則 |
-| `04`§12、`05`–`09` | 非規範Architecture Candidate：エージェント／プロバイダー実行経路、自律Operation、責務、安全、運用健全性、Forward Compatibility |
+| `04`§12、`05` | 非規範Architecture Candidate：エージェント／プロバイダー実行経路、自律Operation、責務、安全、運用健全性、Forward Compatibility |
 | `04`§13～§15 | 共有境界：参照する規範原則または非規範Architectureの強度を継承 |
+| `06`–`09` | 予約 |
 | `10`–`19` | 共通実行・提供・CRDD保守：エージェント、スキル、変更、リリース、作業手順、進捗、保守 |
 | `20`–`29` | プロダクト工程条項とUI／振る舞い仕様横断契約 |
 | `30`–`49` | 予約 |
@@ -119,7 +120,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 
 ## 3.2. 基礎原則、非規範Architecture候補と横断する決定権限
 
-`00`～`03`と`04_Agent_Organization.md`§1～§11はv0.18.0の基礎規範候補、同書§12と`05`～`09`はその境界を将来の実行形態へ投影して評価する非規範Architecture Candidateである。同書§13～§15の共有境界は、参照する規範原則または非規範Architectureの強度を継承する。ルート配置、ファイル単位の導線および文書番号は規範性を意味しない。非規範候補の存在、図、Profileまたは実証成功から、準拠要件、採用、Authority、Capability、Runtime利用可能性またはReleaseを成立させない。
+`00`～`03`と`04_Agent_Organization.md`§1～§11はv0.18.0の基礎規範候補、同書§12と`05_Autonomous_Operation.md`はその境界を将来の実行形態へ投影して評価する非規範Architecture Candidateである。同書§13～§15の共有境界は、参照する規範原則または非規範Architectureの強度を継承する。ルート配置、ファイル単位の導線および文書番号は規範性を意味しない。非規範候補の存在、図、Profileまたは実証成功から、準拠要件、採用、Authority、Capability、Runtime利用可能性またはReleaseを成立させない。
 
 | ファイル | 責務 |
 |---|---|
@@ -128,11 +129,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `02_Terminology.md` | 中核コンテキスト種別、補助概念、責務・決定権限、状態遷移 / 状態用語、別名 |
 | `03_Documentation.md` | リポジトリ、成果物、文書記法、根拠、判断、安定コンテキストID、成果物参照、追跡可能性 |
 | `04_Agent_Organization.md` | §1～§11はエージェント組織の共通原則、§12は非規範の実行Architecture候補、§13～§15は参照元の強度を継承する共有境界 |
-| `05_Autonomous_Operation.md` | 能動的な再評価と自律Operation候補の全体像、意味契約、実行契約およびRuntime Adapterの分離 |
-| `06_Autonomous_Operation_Responsibility.md` | 再評価、Operation、Runtime、能力、決定権限、結果統合およびポリシー内完了の責務境界 |
-| `07_Autonomous_Operation_Safety.md` | 候補状態、Effect、外部送信、予算、停止、回復およびRuntime強制の安全候補 |
-| `08_Operation_Health_and_Human_Interface.md` | Operationの有用性、安全性、誤起動、収束、人間負荷および通知・判断接続の評価候補 |
-| `09_Forward_Compatibility.md` | Repository／Context／Authority／Execution Identityを将来の実行形態へ接続する互換性候補 |
+| `05_Autonomous_Operation.md` | 能動的な再評価と自律Operation候補の全体像、責務境界、実行契約、安全、Operation健全性、人間接続および将来互換性 |
 | `10_Agent.md` | エージェント共通入力 / 出力、決定権限、委譲、サブエージェント統合、レビュー |
 | `11_Skill.md` | スキル共通状態遷移、専門探索・収束、視覚制作・材質／空間表現、外部調査・接続ツール実行、経路、中断・再開、レビュー、引き渡し、Git / Markdownの実行プロファイル |
 | `12_Change.md` | `90_Release/Changes/CHG-*.md`による契機、変更意図、想定／実際の影響、実装、検証、終了のトレース |

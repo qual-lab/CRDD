@@ -1,14 +1,14 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 - 変更ID: `CHG-000054`
-- 状態: `Ready for Release Handoff`
+- 状態: `Ready for Verification`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25
 - 対象: エージェント組織の基礎正本候補、エージェント／プロバイダー調整アーキテクチャ、Coordinator Runtime実装README、用語集、監査接続、配布ひな型、変更トレース／Roadmap責務およびv0.18候補文書の配置
 - 対象version: v0.18.0 Candidate
 - 変更分類: `normative`（v0.18.0候補への基礎正本とエージェント型提供基準AD-22の追加。公開済み基準、Runtime動作またはリリースは変更しない）
 - 移行要否: `migration_required: true`（v0.18.0採用時に、既存のエージェント型提供対象のAD-22根拠を基準版採用評価で再評価する）
-- 関連正本: [エージェント組織](../../04_Agent_Organization.md)、[文書化](../../03_Documentation.md)、[変更](../../12_Change.md)、[保守](../../19_Maintenance.md)、[課題探索・要求形成](../../21_Discovery.md)
+- 関連正本: [エージェント組織](../../04_Agent_Organization.md)、[自律Operation](../../05_Autonomous_Operation.md)、[文書化](../../03_Documentation.md)、[変更](../../12_Change.md)、[保守](../../19_Maintenance.md)、[課題探索・要求形成](../../21_Discovery.md)
 
 ## 結論
 
@@ -79,7 +79,7 @@
 人間の決定権限者は、恒久的なエージェント組織／自律Operation文書がRoadmapへ残り、同一対象バージョンのRoadmap詳細が分裂し、命名是正が発見元と原因契約の別CHGへ細分化されかけた状態を、同じ未リリース文書アーキテクチャの不足として是正するよう承認した。本変更を`Reopened`とし、次を同じ変更意図へ含める。
 
 - プロバイダー非依存の経路制御、適格性、最適化、コンテキスト投影、代替経路および実行来歴を`04_Agent_Organization.md`へ統合する。
-- 自律Operationの恒久候補をルート`05`〜`09`へ昇格し、再利用可能な本文から特定バージョンの説明を除く。バージョンと移管履歴はヘッダー、CHGおよびRelease成果物で扱う。
+- 自律Operationの恒久候補をルート`05_Autonomous_Operation.md`へ集約し、再利用可能な本文から特定バージョンの説明を除く。バージョンと移管履歴はヘッダー、CHGおよびRelease成果物で扱う。
 - `99_Roadmap`を単一Product Roadmapへ縮約し、現在も未完了のRuntime最終run、上流工程強化、自律Operation実証、Issue #30再評価およびRelease準備だけを残す。完了済み命名是正と部品別Runtime状態は各CHGへ閉じる。
 - 未リリースCHGは工程、ファイル、コミット、確認者または個別Findingだけで分割せず、変更意図、決定権限、移行／切戻しおよびリリース境界が同じなら原因契約を所有するCHGを再開する。
 
@@ -95,7 +95,7 @@
 
 同じ固定改訂版を対象とした必須監査集合は、エージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査である。結果は全体として`Fail`で、次を一括是正対象とした。
 
-1. `00_Overview.md`が`00`～`09`全体を基礎規範と表示し、`05`～`09`の非規範Architecture Candidate境界を失わせた。
+1. `00_Overview.md`が`00`～`09`全体を基礎規範と表示し、`05`の非規範Architecture Candidate境界を失わせた。
 2. `04_Agent_Organization.md`で§1～§11の基礎規範候補と§12の非規範実行Architecture候補が混在し、AD-22、Coordinator README、README／CHANGELOGへ強度が一意に伝播していなかった。
 3. `12_Change.md`が、未リリース変更だけを`Reopened`にする保守契約と競合し、リリース後の同一意図を再開できる余地を残した。
 4. 単一Product Roadmapへの縮約後、未終了CHGの全数割当と、会話で採用した上流工程強化の情報源を再構成できなかった。
@@ -104,7 +104,7 @@
 
 全監査結果を統合した是正方針を各確認者へ編集前に再提示し、条件付きAcceptを得た。補正後の処置は次のとおりである。
 
-- `00`～`04`を基礎規範候補、`05`～`09`を非規範Architecture Candidateとして、概要と各文書から直接判別可能にした。
+- `00`～`04`を基礎規範候補、`05`を非規範Architecture Candidateとして、概要と各文書から直接判別可能にした。
 - `04`の§1～§11を規範候補、§12を非規範Architecture Candidate、§13～§15を強度を継承する共有境界とした。適格性成立後の最適化、判定不能時停止、外部送信、FallbackおよびContext最小化の規範根拠は§5、§8～§9、`01_Principles.md`およびAD-22へ残した。
 - `Reopened`を未リリースの同じ変更意図へ限定し、リリース後の不足または回帰は原因が同じでも参照付き新CHGとした。
 - [`CHG-000014`](CHG-000014_V018_Architecture_Candidate_Integration.md#51-未終了変更トレースの移管スナップショット)へ、固定改訂時点の全54 CHGの割当スナップショットと、旧PoC全節の移管／終了表を置いた。これは現在状態の第二台帳にしない。
@@ -123,7 +123,7 @@
 
 同じレビューで検出したChecker試験母集団とBoolean閉集合のMajor 2件は、原因契約を所有する[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)へ同じ未リリース意図として接続した。Findingを発見元ごとに新しいCHGへ分割していない。
 
-統合是正方針は編集前に全確認者へ再提示し、条件付きでAcceptされた。`00`は`00`～`03`と`04`§1～§11の基礎規範候補、`04`§12と`05`～`09`の非規範Architecture Candidate、`04`§13～§15の参照元強度を継承する共有境界へ分けた。一般的なエージェント組織、AD-22およびAuthorityの参照は規範候補へ保ち、Orchestration、Routing、経路制御または実行Architectureを説明する現在導線だけを§12へ直結した。履歴引用は書き換えていない。
+統合是正方針は編集前に全確認者へ再提示し、条件付きでAcceptされた。`00`は`00`～`03`と`04`§1～§11の基礎規範候補、`04`§12と`05`の非規範Architecture Candidate、`04`§13～§15の参照元強度を継承する共有境界へ分けた。一般的なエージェント組織、AD-22およびAuthorityの参照は規範候補へ保ち、Orchestration、Routing、経路制御または実行Architectureを説明する現在導線だけを§12へ直結した。履歴引用は書き換えていない。
 
 Product Roadmapでは、正式署名一般Task、命名／文書是正の再検証およびv0.18最終化の判断状態を`—（非適用）`とし、対応状態とCHG／保守契約の実行根拠を維持した。上流工程強化の`Adopted`、自律OperationとIssue #30の`Exploring`は変更していない。終了図は、詳細固有情報の正本移管、終了結果／参照反映、参照確認、主要表示除去、詳細削除の順へ揃えた。
 
@@ -137,8 +137,16 @@ Checker 153／153、Coordinator 740／740およびChecker package checkはPass�
 
 同じ固定版に対するエージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査は、全て`Pass`／Finding 0で完了した。再開後に検出した規範／非規範境界、意味別参照、Roadmap／CHG責務、旧PoC移管、終了順、およびCHG-000017へ接続したChecker契約のFindingは全て`Resolved`である。旧固定版の結果は履歴として保持するが、現在の合否へ流用しない。
 
-実際の影響は、エージェント組織（Agent Organization）の概念・規範候補をルート`04`へ、プロバイダー非依存の実行Architectureを同書§12へ、恒久的な自律Operation Architectureをルート`05`～`09`へ集約し、`tools/coordinator/README.md`を実装責務へ戻したことである。単一Product Roadmapには未完了作業だけを残し、完了結果と変更履歴は責務正本およびCHGへ移した。Coordinator Runtimeのコード、試験、Threat Model、公開済みv0.17.0、Issue #30の採否／closeおよび既存公開Releaseは変更していない。
+実際の影響は、エージェント組織（Agent Organization）の概念・規範候補をルート`04`へ、プロバイダー非依存の実行Architectureを同書§12へ、恒久的な自律Operation Architectureをルート`05`へ集約し、`tools/coordinator/README.md`を実装責務へ戻したことである。単一Product Roadmapには未完了作業だけを残し、完了結果と変更履歴は責務正本およびCHGへ移した。Coordinator Runtimeのコード、試験、Threat Model、公開済みv0.17.0、Issue #30の採否／closeおよび既存公開Releaseは変更していない。
 
 残存リスクは、非規範Architecture Candidateの将来採否、正式署名一般Taskの実Provider run、上流工程強化、自律Operationの参照実証、Issue #30の再評価、およびv0.18.0の統合／Release判断である。これらはProduct Roadmapの独立した未完了項目へ接続し、本変更の完了阻害へ混同しない。
 
-本変更はv0.18.0 Candidateの最終Release項目へ引き渡せる状態である。`Ready for Release Handoff`は、統合、採用、準拠表明、Stable化、タグまたはReleaseを意味しない。Product Roadmapの完了済み再検証行は、本節へ結果と参照を移した後に除去する。CHG-000014 §5.1は固定時点の移管スナップショットであり、現在状態へ書き換えない。現在、人間による追加判断は必要ない。
+この固定版では、v0.18.0 Candidateの最終Release項目へ引き渡せる状態まで到達していた。`Ready for Release Handoff`は、統合、採用、準拠表明、Stable化、タグまたはReleaseを意味しない。Product Roadmapの完了済み再検証行は、本節へ結果と参照を移した後に除去する。CHG-000014 §5.1は固定時点の移管スナップショットであり、現在状態へ書き換えない。当時、人間による追加判断は必要なかった。
+
+## 自律Operation候補文書の最終統合
+
+Release前の文書構造再確認で、`05`～`09`は同じv0.18.0 Candidate、同じ決定権限、同じ非規範Architecture強度および同じ変更lifecycleを持ち、分割を独立した採否、移行、レビューまたは利用形態へ結び付ける根拠がないと判定した。責務、安全、Operation健全性、人間接続および将来互換は自律Operation全体を理解する連続した章であり、分割したままでは相互参照と正本選択を増やす。このため、旧`06`～`09`の本文を`05_Autonomous_Operation.md`の§10～§13へ意味を変えず統合し、旧ファイルを互換shimなしで削除する。過去または現在の参照に使われた主要anchorは統合先へ保持し、README、概要、Agent Organization、Product RoadmapおよびCHG-000014の現在参照を新しい単一正本へ接続する。
+
+`04_Agent_Organization.md`への全統合案も再評価したが採用しない。`04`§1～§11は役割、専門性、委譲、独立レビュー、費用、Authorityおよび人間境界を所有する規範候補であり、`05`は再評価、Operation Contract、Effect、安全、健全性および将来互換を所有する非規範Architecture Candidateである。両者を一ファイルへ統合すると、規範強度、変更頻度、採用単位およびレビュー範囲が不必要に結合する。したがって、`04`を「AIチームをどう編成・統治するか」、`05`を「そのチームがどう安全にOperationするか」の二正本として維持する。
+
+この整理は新しい概念、規範、Runtime機能、準拠要件、決定権限またはRelease判断を追加しない。`06`～`09`は予約へ戻し、番号を埋めるための空文書、redirectまたは互換wrapperを残さない。現在状態を`Ready for Verification`へ戻し、統合後の同一固定改訂版に対する文書監査、不足／影響監査および必要な準拠影響確認がFinding 0で完了するまで、以前の`Ready for Release Handoff`を現在結果へ流用しない。

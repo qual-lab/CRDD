@@ -53,16 +53,16 @@ Communicationの旧IDと旧ファイル名はsource Commitを解釈する来歴�
 | 旧v2名称 | 統合時の旧v1名称 | 現名称 |
 |---|---|---|
 | `01_CRDD_v2_Concept.md` | `01_CRDD_v1_Concept.md` | `05_Autonomous_Operation.md` |
-| `02_CRDD_v2_Responsibility_Boundary.md` | `02_CRDD_v1_Responsibility_Boundary.md` | `06_Autonomous_Operation_Responsibility.md` |
+| `02_CRDD_v2_Responsibility_Boundary.md` | `02_CRDD_v1_Responsibility_Boundary.md` | `05_Autonomous_Operation.md` |
 | `03_CRDD_v2_PoC_Plan.md` | `03_CRDD_v1_PoC_Plan.md` | `99_Roadmap/01_Product_Roadmap.md` |
-| `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` | `07_Autonomous_Operation_Safety.md` |
-| `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` | `08_Operation_Health_and_Human_Interface.md` |
-| `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` | `09_Forward_Compatibility.md` |
+| `04_CRDD_v2_Autonomous_Safety_Architecture.md` | `04_CRDD_v1_Autonomous_Safety_Architecture.md` | `05_Autonomous_Operation.md` |
+| `05_CRDD_v2_Operation_Health_and_Human_Interface.md` | `05_CRDD_v1_Operation_Health_and_Human_Interface.md` | `05_Autonomous_Operation.md` |
+| `06_CRDD_v2_Forward_Compatibility.md` | `06_CRDD_v1_Forward_Compatibility.md` | `05_Autonomous_Operation.md` |
 | `07_CRDD_v2_Agent_and_Provider_Orchestration.md` | `07_CRDD_v1_Agent_and_Provider_Orchestration.md` | [`04_Agent_Organization.md`の非規範実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture) |
 
 renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との来歴、Target、相互リンクおよびREADME英日を、公開済みv0.17.0、v0.18.0規範変更候補、非規範v0.18.0 Architecture Candidateの境界へ再基準化した。
 
-2026-08-25の文書責務是正では、Roadmapに育った恒久Architectureをルート候補正本へ移し、未完了作業だけを単一の`99_Roadmap/01_Product_Roadmap.md`へ残した。概念、責務、安全、Operation HealthおよびForward Compatibilityは`05`〜`09`、Agent／Provider Orchestrationは[`04_Agent_Organization.md`の非規範実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture)へ統合した。旧PoC計画の未完了候補はProduct Roadmapへ縮約し、完了状態の保管や第二の正本となる旧Roadmap詳細は削除した。旧名称と固定改訂版は本CHGおよびGit履歴から再構成し、現在の参照先として使用しない。
+2026-08-25の文書責務是正では、Roadmapに育った恒久Architectureをルート候補正本へ移し、未完了作業だけを単一の`99_Roadmap/01_Product_Roadmap.md`へ残した。概念、責務、安全、Operation HealthおよびForward Compatibilityは`05_Autonomous_Operation.md`、Agent／Provider Orchestrationは[`04_Agent_Organization.md`の非規範実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture)へ統合した。旧PoC計画の未完了候補はProduct Roadmapへ縮約し、完了状態の保管や第二の正本となる旧Roadmap詳細は削除した。旧名称と固定改訂版は本CHGおよびGit履歴から再構成し、現在の参照先として使用しない。
 
 <a id="51-未終了変更トレースの移管スナップショット"></a>
 
@@ -91,18 +91,18 @@ renameだけでなく、旧系列分離、同期方向、旧v1／v2候補との�
 
 | 旧節 | 処置 | 現在の所有先／理由 |
 |---|---|---|
-| 1. Core Architectureと最初のActivation | ルート候補正本へ移管 | [仕様とActivationの分離](../../06_Autonomous_Operation_Responsibility.md#41-仕様とactivationの分離)。Profileは成熟度や品質等級でなく、Trigger、接続、CapabilityおよびAuthorityの有効化範囲である意味を保持 |
+| 1. Core Architectureと最初のActivation | ルート候補正本へ移管 | [仕様とActivationの分離](../../05_Autonomous_Operation.md#41-仕様とactivationの分離)。Profileは成熟度や品質等級でなく、Trigger、接続、CapabilityおよびAuthorityの有効化範囲である意味を保持 |
 | 2. 最小Reference Implementation | ルート候補正本とRoadmapへ分担 | [自律Operationの中心仮説](../../05_Autonomous_Operation.md#1-中心仮説)が固定Workflow化しない実証意図を、Product Roadmapの「自律Operationの参照実証」が未完了の選定を保持。専用Server等を作らないという当時の実装案は恒久要件にしない |
-| 3. 週次プロダクトレビュー | ルート候補正本へ移管 | [参照Operation実証](../../08_Operation_Health_and_Human_Interface.md#reference-operation-experiments) |
-| 4. Communication結果レビュー | ルート候補正本へ移管 | 同じ[参照Operation実証](../../08_Operation_Health_and_Human_Interface.md#reference-operation-experiments)。Audience、Claim、Evidence、方向および公開Authorityの維持を固有条件として保持 |
-| 5. Roadmap再評価 | ルート候補正本へ移管 | 同じ[参照Operation実証](../../08_Operation_Health_and_Human_Interface.md#reference-operation-experiments)。登録時判断、前提変化、再評価乱発防止および採用短絡禁止を保持 |
-| 6. Repository Event | ルート候補正本へ移管 | 同じ[参照Operation実証](../../08_Operation_Health_and_Human_Interface.md#reference-operation-experiments)。Eventと意味変更、根拠付きNo-impactおよび再帰抑止を分離 |
-| 7.1～7.5. 探索／推論／Authority／出力／運用 | ルート候補正本へ移管 | [共通評価軸](../../08_Operation_Health_and_Human_Interface.md#112-共通評価軸)と既存のOperation Health測定へ統合 |
-| 7.6. Forward Compatibility fixtures | ルート候補正本へ移管 | [将来互換性の確認候補](../../09_Forward_Compatibility.md#6-将来互換性の確認候補) |
-| 7.7. Agent／Provider Routing fixtures | ルート候補正本へ移管 | [非規範の実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture)と[安全境界の合成Fixture](../../07_Autonomous_Operation_Safety.md#14-pocで確認する境界)へ分担 |
-| 7.8. Coordinator Result Integration fixtures | ルート候補正本へ移管 | [Coordinatorによる結果統合](../../06_Autonomous_Operation_Responsibility.md#44-coordinatorによる結果統合)と[安全境界の合成Fixture](../../07_Autonomous_Operation_Safety.md#14-pocで確認する境界)へ分担 |
-| 8. 避けるべき失敗 | 既存候補正本へ統合 | Workflow固定、Trigger乱発、Proposal Spam、コンテキスト過剰共有、Core肥大化および自律性の自己拡張は、[`04`](../../04_Agent_Organization.md#13-agent-organization-non-goals)、[`05`](../../05_Autonomous_Operation.md#6-新設しないもの)、[`07`](../../07_Autonomous_Operation_Safety.md#13-安全不変条件候補)、[`08`](../../08_Operation_Health_and_Human_Interface.md#7-operation-health)の既存境界へ包含。重複本文は保持しない |
-| 9. Activation Profile 0～5／Continuous Product Evolution | ルート候補正本へ移管 | [仕様とActivationの分離](../../06_Autonomous_Operation_Responsibility.md#41-仕様とactivationの分離)へ各段階の意味と自動昇格禁止を保持 |
+| 3. 週次プロダクトレビュー | ルート候補正本へ移管 | [参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments) |
+| 4. Communication結果レビュー | ルート候補正本へ移管 | 同じ[参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments)。Audience、Claim、Evidence、方向および公開Authorityの維持を固有条件として保持 |
+| 5. Roadmap再評価 | ルート候補正本へ移管 | 同じ[参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments)。登録時判断、前提変化、再評価乱発防止および採用短絡禁止を保持 |
+| 6. Repository Event | ルート候補正本へ移管 | 同じ[参照Operation実証](../../05_Autonomous_Operation.md#reference-operation-experiments)。Eventと意味変更、根拠付きNo-impactおよび再帰抑止を分離 |
+| 7.1～7.5. 探索／推論／Authority／出力／運用 | ルート候補正本へ移管 | [共通評価軸](../../05_Autonomous_Operation.md#112-共通評価軸)と既存のOperation Health測定へ統合 |
+| 7.6. Forward Compatibility fixtures | ルート候補正本へ移管 | [将来互換性の確認候補](../../05_Autonomous_Operation.md#6-将来互換性の確認候補) |
+| 7.7. Agent／Provider Routing fixtures | ルート候補正本へ移管 | [非規範の実行Architecture候補](../../04_Agent_Organization.md#12-execution-architecture)と[安全境界の合成Fixture](../../05_Autonomous_Operation.md#14-pocで確認する境界)へ分担 |
+| 7.8. Coordinator Result Integration fixtures | ルート候補正本へ移管 | [Coordinatorによる結果統合](../../05_Autonomous_Operation.md#44-coordinatorによる結果統合)と[安全境界の合成Fixture](../../05_Autonomous_Operation.md#14-pocで確認する境界)へ分担 |
+| 8. 避けるべき失敗 | 既存候補正本へ統合 | Workflow固定、Trigger乱発、Proposal Spam、コンテキスト過剰共有、Core肥大化および自律性の自己拡張は、[エージェント組織のNon-goals](../../04_Agent_Organization.md#13-agent-organization-non-goals)、[自律Operationで新設しないもの](../../05_Autonomous_Operation.md#6-新設しないもの)、[安全不変条件](../../05_Autonomous_Operation.md#13-安全不変条件候補)および[Operation Health](../../05_Autonomous_Operation.md#7-operation-health)へ包含。重複本文は保持しない |
+| 9. Activation Profile 0～5／Continuous Product Evolution | ルート候補正本へ移管 | [仕様とActivationの分離](../../05_Autonomous_Operation.md#41-仕様とactivationの分離)へ各段階の意味と自動昇格禁止を保持 |
 | 10. 次の具体的処置 | 未完了だけRoadmapへ縮約 | Product Roadmapの「自律Operationの参照実証」。固定Prompt化せず、合成Fixture、判断価値、誤起動、見逃し、費用、人間負荷を評価する。完了済みまたは正本化済みの手順は削除 |
 
 この移管では、旧PoCの四実験、評価軸、安全Fixture、将来互換Fixture、Routing／Result Integration FixtureおよびActivation段階の意味を保持した。旧ファイル名、旧番号、当時の固定実装案または進捗状態だけを恒久正本として残さない。

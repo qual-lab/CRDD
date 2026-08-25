@@ -11,8 +11,6 @@ Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [05_Autonomous_Operation.md](05_Autonomous_Operation.md)
-- [06_Autonomous_Operation_Responsibility.md](06_Autonomous_Operation_Responsibility.md)
-- [07_Autonomous_Operation_Safety.md](07_Autonomous_Operation_Safety.md)
 - [10_Agent.md](10_Agent.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [51_Document_Audit.md](51_Document_Audit.md)

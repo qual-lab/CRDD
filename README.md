@@ -139,11 +139,11 @@ Representable != Enabled != Accessible != Authorized != Promoted
 For example, a Codex scheduled task may explicitly start a read-only weekly review. The candidate defines what that review may read, what result it must return, and where it must stop; it does not register the schedule or grant write, publication, or external-send authority.
 
 - [Concept and vision](05_Autonomous_Operation.md)
-- [Responsibility boundaries](06_Autonomous_Operation_Responsibility.md)
+- [Responsibility boundaries](05_Autonomous_Operation.md#autonomous-operation-responsibility)
 - [Open work and reference experiments](99_Roadmap/01_Product_Roadmap.md)
-- [Autonomous safety architecture](07_Autonomous_Operation_Safety.md)
-- [Operation health and Human interface](08_Operation_Health_and_Human_Interface.md)
-- [Forward compatibility](09_Forward_Compatibility.md)
+- [Autonomous safety architecture](05_Autonomous_Operation.md#autonomous-operation-safety)
+- [Operation health and Human interface](05_Autonomous_Operation.md#operation-health-and-human-interface)
+- [Forward compatibility](05_Autonomous_Operation.md#forward-compatibility)
 - [Agent and provider orchestration](04_Agent_Organization.md#12-execution-architecture)
 
 The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation candidate](04_Agent_Organization.md). Neither inclusion in this list nor `Candidate` status establishes adoption; adoption follows the baseline-adoption assessment, Human activation decision, and release contracts.
@@ -534,11 +534,11 @@ Representable != Enabled != Accessible != Authorized != Promoted
 例えば、Codex Scheduled Taskから読み取り専用の週次レビューを明示的に開始できる。この候補が定めるのは、そのレビューが何を読み、どのResultを返し、どこで停止するかであり、Scheduleの登録や、書き込み、公開または外部送信のAuthorityを与えることではない。
 
 - [Conceptと全体像](05_Autonomous_Operation.md)
-- [責務境界](06_Autonomous_Operation_Responsibility.md)
+- [責務境界](05_Autonomous_Operation.md#autonomous-operation-responsibility)
 - [未完了作業と参照実証](99_Roadmap/01_Product_Roadmap.md)
-- [自律安全Architecture](07_Autonomous_Operation_Safety.md)
-- [Operation HealthとHuman Interface](08_Operation_Health_and_Human_Interface.md)
-- [Forward Compatibility](09_Forward_Compatibility.md)
+- [自律安全Architecture](05_Autonomous_Operation.md#autonomous-operation-safety)
+- [Operation HealthとHuman Interface](05_Autonomous_Operation.md#operation-health-and-human-interface)
+- [Forward Compatibility](05_Autonomous_Operation.md#forward-compatibility)
 - [Agent／Provider Orchestration](04_Agent_Organization.md#12-execution-architecture)
 
 この候補が使用する横断概念は、[エージェント組織の基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載や`Candidate`状態だけでは採用を成立させず、採用は基準版採用評価、人間による有効化判断およびリリース契約に従う。
