@@ -8,6 +8,7 @@ import { deflateSync } from "node:zlib";
 
 import {
   describeGitObjectReaderContract,
+  inspectGitCommitTreeCandidate,
   materializeGitCommitTreeCandidate,
   readGitCommitFileCandidate,
 } from "../src/security/git-object-reader.ts";
@@ -47,6 +48,56 @@ function treeEntry(mode: string, name: string, objectId: string) {
     Buffer.from(objectId, "hex"),
   ]);
 }
+
+test("Commit treeはheader先頭だけを採用し本文、欠落、重複と非Tree参照を拒否する", (t) => {
+  const fixture = temporaryFixture(t);
+  const treeId = writeObject(fixture.commonDirectory, "tree", Buffer.alloc(0));
+  const otherTreeId = writeObject(
+    fixture.commonDirectory,
+    "tree",
+    treeEntry(
+      "100644",
+      "fixture.txt",
+      writeObject(fixture.commonDirectory, "blob", Buffer.from("fixture\n")),
+    ),
+  );
+  const blobId = writeObject(
+    fixture.commonDirectory,
+    "blob",
+    Buffer.from("not a tree\n"),
+  );
+  const inspect = (commitBytes: string) =>
+    inspectGitCommitTreeCandidate({
+      commonDirectory: fixture.commonDirectory,
+      revision: writeObject(
+        fixture.commonDirectory,
+        "commit",
+        Buffer.from(commitBytes),
+      ),
+    });
+
+  assert.equal(
+    inspect(
+      `author A <a@example.test> 0 +0000\ncommitter A <a@example.test> 0 +0000\n\nmessage\ntree ${treeId}\n`,
+    ),
+    null,
+  );
+  assert.equal(
+    inspect(`tree ${treeId}\nauthor A <a@example.test> 0 +0000`),
+    null,
+  );
+  assert.equal(
+    inspect(`tree ${treeId}\ntree ${otherTreeId}\n\nmessage\n`),
+    null,
+  );
+  assert.equal(inspect(`tree ${blobId}\n\nmessage\n`), null);
+
+  const valid = inspect(
+    `tree ${treeId}\nauthor A <a@example.test> 0 +0000\ncommitter A <a@example.test> 0 +0000\n\nmessage\ntree ${otherTreeId}\n`,
+  );
+  assert.equal(valid?.status, "candidate");
+  assert.equal(valid?.tree, treeId);
+});
 
 test("loose Commit／Tree／BlobをGit CLIなしで隔離workspaceへ再構成する", (t) => {
   const fixture = temporaryFixture(t);

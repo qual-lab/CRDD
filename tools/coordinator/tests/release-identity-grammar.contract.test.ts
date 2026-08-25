@@ -5,12 +5,15 @@ import {
   describeReleaseIdentityGrammarContract,
   isCanonicalCrddGitObjectId,
   isCanonicalCrddVersion,
+  isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
 
 test("Release IdentityはSHA-1／SHA-256 Git IDとprereleaseを同じ正本で受理する", () => {
   for (const objectId of ["a".repeat(40), "b".repeat(64)]) {
     assert.equal(isCanonicalCrddGitObjectId(objectId), true);
   }
+  assert.equal(isSupportedCrddRuntimeGitObjectId("a".repeat(40)), true);
+  assert.equal(isSupportedCrddRuntimeGitObjectId("b".repeat(64)), false);
   for (const version of ["v0.18.0", "v1.2.3-rc.1", "v10.20.30-alpha-2"]) {
     assert.equal(isCanonicalCrddVersion(version), true);
   }
@@ -38,6 +41,9 @@ test("Release Identityの長さ・大小文字・suffix境界をFail Closedに�
     contract: "crdd-coordinator/release-identity-grammar",
     contractRevision: 1,
     gitObjectIdHexLengths: [40, 64],
+    runtimeSupportedGitObjectIdHexLengths: [40],
+    unsupportedRuntimeObjectFormatResult:
+      "fail_closed_before_secret_input_or_effect",
     prereleaseVersionAllowed: true,
     callerExtensionAllowed: false,
   });

@@ -5,17 +5,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
-  assertExactCheckerTestPopulation,
-  discoverCheckerTestFiles,
-  requireCheckerTestFiles,
-  type TestDiscoveryOperations,
-} from "./test-discovery.ts";
-import {
+  type Expression,
+  type Identifier,
+  isArrayLiteralExpression,
   isArrowFunction,
   isAsExpression,
-  isArrayLiteralExpression,
-  isBindingElement,
   isBinaryExpression,
+  isBindingElement,
   isCallExpression,
   isClassDeclaration,
   isClassExpression,
@@ -28,39 +24,43 @@ import {
   isIdentifier,
   isInterfaceDeclaration,
   isMethodDeclaration,
-  isNoSubstitutionTemplateLiteral,
   isNewExpression,
   isNonNullExpression,
+  isNoSubstitutionTemplateLiteral,
   isObjectLiteralExpression,
   isParameterDeclaration,
   isParenthesizedExpression,
-  isPropertyAssignment,
   isPropertyAccessExpression,
+  isPropertyAssignment,
   isRegularExpressionLiteral,
+  isSatisfiesExpression,
   isSetAccessorDeclaration,
   isStringLiteral,
-  isSatisfiesExpression,
   isTaggedTemplateExpression,
   isTemplateExpression,
   isTemplateSpan,
   isTypeAliasDeclaration,
   isVariableDeclaration,
-  NodeFlags,
-  SyntaxKind,
-  type Expression,
-  type Identifier,
   type Node,
+  NodeFlags,
   type SourceFile,
+  SyntaxKind,
   type VariableDeclaration,
 } from "typescript/unstable/ast";
 import {
   API,
-  SymbolFlags,
-  TypeFlags,
   type Checker,
   type Project,
+  SymbolFlags,
   type Type,
+  TypeFlags,
 } from "typescript/unstable/sync";
+import {
+  assertExactCheckerTestPopulation,
+  discoverCheckerTestFiles,
+  requireCheckerTestFiles,
+  type TestDiscoveryOperations,
+} from "./test-discovery.ts";
 
 const checkerRoot = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(checkerRoot, "../..");
@@ -80,10 +80,10 @@ const projectConfigs = Object.freeze([
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 7,
-  coordinatorProduction: 122,
+  coordinatorProduction: 121,
   coordinatorTests: 115,
   rustPlatformAccess: 8,
-  uniqueTotal: 245,
+  uniqueTotal: 244,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;

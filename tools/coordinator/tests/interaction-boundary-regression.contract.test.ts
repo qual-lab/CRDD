@@ -81,6 +81,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   }
   assert.equal(packageDocument.scripts?.["release-key:generate"], undefined);
   assert.equal(packageDocument.scripts?.["release-manifest:sign"], undefined);
+  assert.equal(packageDocument.scripts?.doctor, undefined);
 
   for (const relative of [
     "scripts/sign-release-manifest.ts",
@@ -111,7 +112,6 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/security/docker-isolation.ts",
     "src/security/docker-recovery-runtime-internal.ts",
     "src/security/provider-home-windows-adapter.ts",
-    "src/security/windows-common-application-data.ts",
   ]);
 
   for (const directory of ["bin", "scripts", "src"]) {
@@ -156,15 +156,15 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   );
   assert.match(
     readme,
-    /<absolute-preverified-node-24\.12\+-executable> <absolute-crdd-source-root>\\tools\\coordinator\\scripts\\generate-release-key\.ts/u,
+    /"<absolute-preverified-node-24\.12\+-executable>" "<absolute-crdd-source-root>\\tools\\coordinator\\scripts\\generate-release-key\.ts"/u,
   );
   assert.match(
     readme,
-    /<absolute-preverified-node-24\.12\+-executable> <absolute-crdd-source-root>\\tools\\coordinator\\scripts\\sign-release-manifest\.ts/u,
+    /"<absolute-preverified-node-24\.12\+-executable>" "<absolute-crdd-source-root>\\tools\\coordinator\\scripts\\sign-release-manifest\.ts"/u,
   );
   assert.match(
     readme,
-    /<absolute-preverified-node-24\.12\+-executable> <absolute-crdd-source-root>\\tools\\coordinator\\bin\\coordinator\.ts doctor/u,
+    /"<absolute-preverified-node-24\.12\+-executable>" "<absolute-crdd-source-root>\\tools\\coordinator\\bin\\coordinator\.ts" doctor/u,
   );
   assert.equal(readme.includes("$CRDD_NODE"), false);
   assert.equal(readme.includes("$CRDD_COORDINATOR"), false);
@@ -173,5 +173,28 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
       readme,
     ),
     false,
+  );
+  assert.match(readme, /--runtime-root "<absolute-path>"/u);
+  assert.match(
+    readme,
+    /"<signed-distribution-root>\\tools\\coordinator\\scripts\\verify-signed-general-task\.ts"/u,
+  );
+  assert.match(readme, /--distribution-root "<absolute-staging-root>"/u);
+  assert.match(
+    readme,
+    /--private-key "C:\\project\\key\\CRDD\\crdd-release-v1-private\.pem"/u,
+  );
+  assert.equal(
+    /```powershell\r?\n& <absolute-preverified-node/u.test(readme),
+    false,
+  );
+
+  const keyGeneratorSource = fs.readFileSync(
+    path.join(coordinatorRoot, "scripts", "generate-release-key.ts"),
+    "utf8",
+  );
+  assert.match(
+    keyGeneratorSource,
+    /usage: & "<absolute-preverified-node-24\.12\+-executable>"/u,
   );
 });

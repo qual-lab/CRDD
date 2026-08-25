@@ -525,9 +525,17 @@ function commitTree(object: GitObject) {
   if (object.type !== "commit") throw new Error("git_revision_not_commit");
   const text = new TextDecoder("utf-8", { fatal: true }).decode(object.bytes);
   if (text.includes("\r")) throw new Error("git_commit_invalid");
-  const matches = text.split("\n").filter((line) => line.startsWith("tree "));
-  if (matches.length !== 1) throw new Error("git_commit_invalid");
-  const treeId = matches[0]?.slice(5) ?? "";
+  const separatorIndex = text.indexOf("\n\n");
+  if (separatorIndex < 0) throw new Error("git_commit_invalid");
+  const headerLines = text.slice(0, separatorIndex).split("\n");
+  const treeHeader = headerLines[0] ?? "";
+  if (!/^tree [0-9a-f]{40}$/u.test(treeHeader)) {
+    throw new Error("git_commit_invalid");
+  }
+  if (headerLines.slice(1).some((line) => line.startsWith("tree "))) {
+    throw new Error("git_commit_invalid");
+  }
+  const treeId = treeHeader.slice(5);
   if (!OBJECT_ID.test(treeId)) throw new Error("git_commit_invalid");
   return treeId;
 }
@@ -667,6 +675,7 @@ export function inspectGitCommitTreeCandidate(candidate: unknown) {
     const commonDirectory = fs.realpathSync.native(value.commonDirectory);
     const readObject = createObjectReader(commonDirectory);
     const tree = commitTree(readObject(value.revision));
+    if (readObject(tree).type !== "tree") return null;
     return Object.freeze({
       status: "candidate" as const,
       commit: value.revision,

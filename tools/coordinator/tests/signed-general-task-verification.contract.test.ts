@@ -274,6 +274,29 @@ test("署名Release不成立時はTaskを開始しない", async () => {
   assert.equal(fixture.calls.discards, 0);
 });
 
+test("SHA-256 Git Repositoryはv1能力外としてTask Effect前に明示拒否する", async () => {
+  const fixture = dependencies({
+    release: release({
+      crddCommit: "a".repeat(64),
+      crddTree: "b".repeat(64),
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "signed_general_task_git_object_format_unsupported",
+  );
+  assert.equal(fixture.calls.verifies, 1);
+  assert.equal(fixture.calls.starts, 0);
+  assert.equal(fixture.calls.bound, 0);
+  assert.equal(fixture.calls.reads, 0);
+  assert.equal(fixture.calls.discards, 0);
+});
+
 test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合する", async () => {
   const fixture = dependencies();
   const result = await runSignedGeneralTaskVerification(

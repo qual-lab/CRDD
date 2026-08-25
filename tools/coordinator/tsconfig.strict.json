@@ -88,7 +88,6 @@
     "src/security/runtime-activation-transition.ts",
     "src/security/runtime-activation-record.ts",
     "src/security/runtime-root-path-identity.ts",
-    "src/security/runtime-root-profile.ts",
-    "src/security/windows-common-application-data.ts"
+    "src/security/runtime-root-profile.ts"
   ]
 }

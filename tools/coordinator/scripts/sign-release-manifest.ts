@@ -7,14 +7,8 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-import { readHiddenLine } from "./generate-release-key.ts";
 import { assertSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
-import {
-  beginReleaseStagingManifestSession,
-  placeReleaseStagingManifestCandidate,
-  verifyReleaseStagingManifestSession,
-} from "./release-staging-manifest.ts";
+import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
 import { inspectPlatformProvisionerPackageFilesystemCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { getPlatformProvisionerPolicyIdentity } from "../src/security/platform-provisioner-policy-identity.ts";
 import { inspectPlatformProvisionerReleaseIdentityCandidate } from "../src/security/platform-provisioner-release-identity.ts";
@@ -26,8 +20,14 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
-import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
+import { isSupportedCrddRuntimeGitObjectId } from "../src/security/release-identity-grammar.ts";
 import { resolveRepositoryGitLayout } from "../src/security/repository-git-layout-internal.ts";
+import { readHiddenLine } from "./generate-release-key.ts";
+import {
+  beginReleaseStagingManifestSession,
+  placeReleaseStagingManifestCandidate,
+  verifyReleaseStagingManifestSession,
+} from "./release-staging-manifest.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
@@ -165,7 +165,20 @@ function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
   }
 }
 
+function assertSupportedReleaseGitObjectFormat(
+  crddCommit: string,
+  crddTree: string,
+) {
+  if (
+    !isSupportedCrddRuntimeGitObjectId(crddCommit) ||
+    !isSupportedCrddRuntimeGitObjectId(crddTree)
+  ) {
+    throw new Error("release_manifest_git_object_format_unsupported");
+  }
+}
+
 export function signReleaseManifest(options: ManifestOptions) {
+  assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   const distributionRoot = externalDistributionRoot(options.distributionRoot);
   const packageRoot = path.join(distributionRoot, "tools", "coordinator");
   const packageObservation =
@@ -340,6 +353,7 @@ function parseArguments(args: readonly string[]) {
 async function main() {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
   const options = parseArguments(process.argv.slice(2));
+  assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   const passphrase = await readHiddenLine("Release key passphrase: ");
   const result = signReleaseManifest({ ...options, passphrase });
   process.stdout.write(`${JSON.stringify(result)}\n`);

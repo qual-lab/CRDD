@@ -71,7 +71,7 @@ Runtime 1.0が許可する変更は、Operation専用の隔離workspace内のロ
 OpenSSLは不要である。対話端末から次を実行し、Repository外にある未作成の絶対Pathへ鍵を生成する。20文字未満のpassphrase、既存directoryおよびRepository内Pathは拒否する。秘密鍵はAES-256-CBCで暗号化したPKCS#8 PEM、公開鍵はSPKI DERとして生成し、秘密鍵またはpassphraseを標準出力へ表示しない。
 
 ```powershell
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\scripts\generate-release-key.ts --output "$env:USERPROFILE\CRDD-Release-Key-v1"
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\scripts\generate-release-key.ts" --output "$env:USERPROFILE\CRDD-Release-Key-v1"
 ```
 
 CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crdd-release-v1-private.pem`はRepository、Issue、Pull Request、チャットまたはCIへ渡さず、Qual-LabのRelease保管領域と暗号化backupで管理する。このコマンドは鍵生成だけを行い、Manifest署名、ReleaseまたはEffectを自動実行しない。現在の公開鍵はCRDD所有の不変source literalへ固定済みで、SPKI SHA-256は`6b250a21be0f8fd582907731a2cba6aae44b991cbff82234c4ee838548c5e95f`である。
@@ -81,10 +81,12 @@ CRDDへ取り込むのは`crdd-release-v1-public.spki.der`だけである。`crd
 署名済みRelease manifestは、対象Commit／Treeへ自己参照させないため、対象Git Treeを確定して外部の配布ステージングRootへ展開した後に生成する。manifest自身は対象Git Treeへ含めず、配布物内の固定Path`90_Release/coordinator-package-manifest.json`へ後置する。生成commandはRepository内、既存manifest、link、固定公開鍵と一致しない秘密鍵、非canonical時刻または不正なIdentityを拒否する。秘密鍵のpassphraseは対話端末でだけ入力し、標準出力へ出さない。
 
 ```powershell
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\scripts\sign-release-manifest.ts --distribution-root <absolute-staging-root> --private-key C:\project\key\CRDD\crdd-release-v1-private.pem --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\scripts\sign-release-manifest.ts" --distribution-root "<absolute-staging-root>" --private-key "C:\project\key\CRDD\crdd-release-v1-private.pem" --crdd-version <vX.Y.Z> --release-sequence <positive-safe-integer> --crdd-commit <commit-id> --crdd-tree <tree-id> --issued-at <canonical-utc> --expires-at <canonical-utc>
 ```
 
 `<absolute-staging-root>`には対象Git Treeのblob byteを変換せず展開したCRDD配布物と、固定Path `90_Release/platform-access/x86_64-pc-windows-msvc/crdd-platform-access.exe`へ配置したlocked release build成果物が必要である。Windowsを含め、Release archiveは`git -c core.autocrlf=false archive`相当で生成し、改行変換された作業Treeを流用しない。`releaseSequence`は1以上のsafe integerとしてReleaseごとに単調増加させ、同じ値を別Identityへ再利用しない。commandは同Rootの`tools/coordinator`とRust成果物を安定したnon-link fileとして再走査し、package content root、Root保護Policy、鍵保管Policy、Rust target／protocol／toolchain／byte長／SHA-256を署名payloadへ入れる。固定Path loaderはBOMなしRFC 8785 canonical UTF-8だけを同一file handleで読み、署名Coreへ渡す。Release Identity候補は配布Root全体のGit Object IDをnon-linkの同一handle読取りから再計算し、後置manifestと後置Rust成果物を除外したRoot Treeを署名済み`crddTree`へ一致させる。Rust成果物の読み取り専用観測候補と、明示Release署名commandによるmanifest配置処置は実装した。後者はリリースステージングのファイルシステム処置（Release Staging Filesystem Effect）であり、Release採用、署名Authority、Runtime Authority、CapabilityまたはProtection成立を付与しない。端末側stateは次候補exact 1件の`staging`と現在候補exact 1件を示す`active-pointer.json`だけを使う。有効ポインター（Active Pointer）のcanonical codec、単調な直前Hash遷移、Supervisor前後の選択user再観測と停止中子processの同一logon session／固定AppContainer SIDを要求するbinder source候補、および安定同一file読取りは実装した。binderとETWを含む正式署名runは完了したが、native durable有効ポインター切替、保護済みactiveおよびRuntime readerは未完了である。旧release floor／active release／transactionの互換読取り、自動rollbackまたはDirectory探索fallbackはない。source checkoutのように固定manifestまたは成果物結合がない場合はPath入力やprocess起動より前に`blocked`となる。Root観測への接続、DACL適用、staging配置およびEffect controllerは未実装である。DACL構造claimのpure評価、Rust Coreまたは成果物観測・署名manifest候補だけでは保護成立を主張しない。SID、Path、ACEおよびraw errorは公開しない。実装、設定、試験および相対レイアウトはRepository内を正本とし、端末固有の導入状態、秘密鍵、旧配置aliasまたはshimをRepositoryへ含めない。実鍵によるmanifest生成は、対象Sequence／Version／Commit／Tree、有効期間、Rust release成果物および配布ステージングRootをRelease判断で固定した後にだけ行う。manifest配置後の同一fd再読取り、成果物またはRootの再確認に失敗したステージングRootは自動削除せず保持し、再利用または再署名を禁止してRoot全体を破棄し、新規ステージングからやり直す。
+
+Release Identity Schemaは40桁SHA-1と64桁SHA-256のGit Object IDを表現できるが、Coordinator Runtime 1.0のRepository reader、Candidate Storeおよび一般Taskは40桁SHA-1 Repositoryだけを実行対象とする。64桁Identityを入力した場合、署名commandはpassphrase取得とFilesystem観測より前、正式RunnerはTask Effectより前に専用reasonで停止する。64桁を40桁へ変換、切り詰め、別Repositoryへ読み替え、または後段の一般エラーへ流さない。これはSourceTree等のGit client選択ではなく、Repository Object Formatの能力境界である。
 
 manifest revision 2では、上記worker成果物に加えて`90_Release/coordinator/x86_64-pc-windows-msvc/coordinator.exe`のnative supervisor成果物を別Identityとして必須にする。署名payloadは両成果物の固定相対Path、target、Rust toolchain、byte長、SHA-256と、それぞれのprotocolまたはentrypoint contract revisionを結合する。native entrypoint contract revision 2は、`no_std`／`no_main`、固定entrypoint、raw command lineのexact `provision`だけ、段階別固定blocked byte、終了2またはWorker終了値、stderr空を要求する。locked release PEの決定論的検査はx64／CUI、実行可能entrypoint、ASLR／NX、`ADVAPI32.dll`、`bcrypt.dll`、`CRYPT32.dll`、`KERNEL32.dll`、`USERENV.dll`および`WINTRUST.dll`の実装所有exact API集合、delay import／TLS／bound import／CLR 0、非実行・非書込みsection内のworker Hash結合を確認する。native成果物観測は同一fdから所有した上限付きbyteへPE検査を行い、その同じbyteからSHA-256とmanifest artifactを投影する。Release stagingはsupervisor内部のworker Hashと同時に観測したworker artifact Hashの一致を必須とする。実行時は固定Ed25519公開鍵でcanonical manifestを検証し、両成果物の同一handle byte長／Hash、全parent non-reparse handle、fixed local volume、worker loaded imageのPath／file Identityを同じrunへ束縛する。Ed25519 manifest signerとAuthenticode publisher certificate SHA-256は別のTrust軸であり、いずれかの未設定、差または失効判定不能を成功へ流用しない。旧manifest revision 1、entrypoint contract revision 1、別成果物へのaliasまたは欠落時fallbackはない。
 
@@ -92,27 +94,27 @@ manifest revision 2では、上記worker成果物に加えて`90_Release/coordin
 
 ## 現在利用できるコマンド
 
-以下の`node`は表記上の短縮であり、実行時は絶対Path、version 24.12.0以上および実体を確認したNodeへ置き換える。Coordinator CLI、Release鍵生成、Release manifest署名および正式署名一般Task Runnerは、未対応Nodeを対話入力、Release検証またはEffectより前に拒否し、PATH上の別Nodeへfallbackしない。package scriptを使う検証では、親のnpmだけでなくscript内の`node`とその子Processも同じ検証済みNodeへ解決されることを確認する。親だけを絶対Pathで起動し、子がPATH上の旧Nodeへ戻る状態を検証済みと扱わない。Sourceや試験のPathは、現在DirectoryをRepository Identityとして意図的に使う公開契約を除き、module基準の絶対Pathへ固定する。
+以下の絶対Node placeholderは、version 24.12.0以上と実体を確認したNodeへ置き換える。Coordinator CLI、Release鍵生成、Release manifest署名および正式署名一般Task Runnerは、未対応Nodeを対話入力、Release検証またはEffectより前に拒否し、PATH上の別Nodeへfallbackしない。package scriptを使う検証では、親のnpmだけでなくscript内の`node`とその子Processも同じ検証済みNodeへ解決されることを確認する。親だけを絶対Pathで起動し、子がPATH上の旧Nodeへ戻る状態を検証済みと扱わない。Sourceや試験のPathは、現在DirectoryをRepository Identityとして意図的に使う公開契約を除き、module基準の絶対Pathへ固定する。
 
 `state/active-pointer.json`のcodecと安定同一file読取りはcomponent候補である。native durable store、stagingからactiveへのatomic切替および保護済みRuntime readerは未実装で、端末状態を作成・更新しない。旧`release-floor.json`、`active-release.json`または`provision-transaction.json`を読み替えず、Directory探索や自動rollbackも行わない。readerはProgramData探索、pointer、manifestまたはpackage読取りより前に`blocked`となる。単独component候補またはRelease Staging Filesystem EffectをGate、Runtime AuthorityまたはRuntime Capabilityの成立根拠へ流用しない。
 
 ```powershell
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts doctor
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts doctor --json
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts doctor --isolation --json
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts doctor --enable-runtime --json
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts doctor --enable-runtime --runtime-root <absolute-path> --json
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts doctor --recover-isolation <recovery-id> --json
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts disable [--runtime-root <absolute-path>] [--json]
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts provision [--json]
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts task --request-stdin [--json]
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts candidate export --candidate-id <opaque-id> --json
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts candidate discard --candidate-id <opaque-id> [--json]
-& <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts candidate recover-store --recovery-id <opaque-store-recovery-id> --confirm [--json]
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" doctor
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" doctor --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" doctor --isolation --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" doctor --enable-runtime --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" doctor --enable-runtime --runtime-root "<absolute-path>" --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" doctor --recover-isolation <recovery-id> --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" activate [--runtime-root "<absolute-path>"] [--authority-root "<absolute-path>"] [--json]
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" disable [--runtime-root "<absolute-path>"] [--json]
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" provision [--json]
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" task --request-stdin [--json]
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" candidate export --candidate-id <opaque-id> --json
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" candidate discard --candidate-id <opaque-id> [--json]
+& "<absolute-preverified-node-24.12+-executable>" "<absolute-crdd-source-root>\tools\coordinator\bin\coordinator.ts" candidate recover-store --recovery-id <opaque-store-recovery-id> --confirm [--json]
 ```
 
-各placeholderは同じ保守sessionで検証した絶対Pathへ置き換える。保護操作をsession変数、PATH上の裸の`node`、相対entrypoint、または内部で別Runtimeを再選択するpackage aliasへ置き換えない。`doctor`とRelease manifest署名は外部Git CLIを起動せず、Repository所有のbounded Git object readerでCommit／Treeを読む。
+実行Pathを表す各placeholderは同じ保守sessionで検証した絶対Pathへ置き換える。保護操作をsession変数、PATH上の裸の`node`、相対entrypoint、または内部で別Runtimeを再選択するpackage aliasへ置き換えない。`doctor`とRelease manifest署名は外部Git CLIを起動せず、Repository所有のbounded Git object readerでCommit／Treeを読む。
 
 `task`は次のようなexact JSONを標準入力から受ける。`readPaths`はProviderへ見せる開始Revisionの投影で、省略時は`allowedPaths`と同じになる。Runtimeは両集合の和に`allowedPaths`を必ず含め、Repository全体を暗黙に送らない。Provider候補、Revision、目的および読取り範囲を表示した対話確認が成立した場合だけ外部送信Grantを発行する。
 
@@ -125,7 +127,7 @@ manifest revision 2では、上記worker成果物に加えて`90_Release/coordin
 正式署名配布物のRelease Gateでは、上記の汎用stdin入口へShellからJSONを組み立てて渡さない。対象Repositoryを現在Directoryにした対話端末から、署名済み配布物内の固定Runnerを直接起動する。
 
 ```powershell
-& <absolute-preverified-node-24.12+-executable> <signed-distribution-root>\tools\coordinator\scripts\verify-signed-general-task.ts
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\tools\coordinator\scripts\verify-signed-general-task.ts"
 ```
 
 `<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身もNode versionと対話consoleをRelease検証およびTask開始より前に再確認し、不成立ならEffectなしで停止する。

@@ -12,7 +12,6 @@
     "claude-execution-plan:coverage": "node --experimental-test-coverage --test ./tests/plain-data-snapshot.contract.test.ts ./tests/claude-execution-plan.contract.test.ts",
     "coordinator-runtime:coverage": "node --experimental-test-coverage --test ./tests/coordinator-runtime.contract.test.ts ./tests/coordinator-claude-delegation.integration.test.ts",
     "coordinator-task-runtime:coverage": "node --experimental-test-coverage --test ./tests/coordinator-task-runtime.contract.test.ts ./tests/provider-task-packet-runtime.contract.test.ts ./tests/provider-task-structured-result.contract.test.ts",
-    "doctor": "node ./bin/coordinator.ts doctor",
     "dynamic-fake-provider:coverage": "node ./scripts/check-dynamic-fake-provider-coverage.ts",
     "dynamic-fake-provider:verify-cancellation": "node ./scripts/verify-dynamic-fake-provider-cancellation.ts",
     "dynamic-fake-provider:verify-failures": "node ./scripts/verify-dynamic-fake-provider-failures.ts",

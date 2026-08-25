@@ -20,6 +20,7 @@ import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../sr
 import {
   isCanonicalCrddGitObjectId,
   isCanonicalCrddVersion,
+  isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
@@ -450,6 +451,16 @@ export async function runSignedGeneralTaskVerification(
   if (!verifiedPackage(release)) {
     return blocked(
       "signed_general_task_release_verification_failed",
+      release,
+      Object.freeze({ canonicalRepositoryChanged: false }),
+    );
+  }
+  if (
+    !isSupportedCrddRuntimeGitObjectId(release.crddCommit) ||
+    !isSupportedCrddRuntimeGitObjectId(release.crddTree)
+  ) {
+    return blocked(
+      "signed_general_task_git_object_format_unsupported",
       release,
       Object.freeze({ canonicalRepositoryChanged: false }),
     );

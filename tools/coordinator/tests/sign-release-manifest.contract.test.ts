@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { generateKeyPairSync, sign } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -98,6 +99,57 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
     false,
   );
   assert.match(signerSource, /inspectGitCommitTreeCandidate/u);
+});
+
+test("SHA-256 Git Repositoryはpassphrase利用とFilesystem観測より前に明示拒否する", () => {
+  assert.throws(
+    () =>
+      signReleaseManifest({
+        distributionRoot: "fixture-distribution-root-not-read",
+        privateKeyPath: "fixture-private-key-not-read",
+        passphrase: "fixture-passphrase-not-read",
+        crddVersion: "v0.18.0",
+        releaseSequence: 1,
+        crddCommit: "a".repeat(64),
+        crddTree: "b".repeat(64),
+        issuedAt: "2026-08-25T00:00:00.000Z",
+        expiresAt: "2027-08-25T00:00:00.000Z",
+      }),
+    /release_manifest_git_object_format_unsupported/u,
+  );
+
+  const cli = spawnSync(
+    process.execPath,
+    [
+      path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+      "--distribution-root",
+      "fixture-distribution-root-not-read",
+      "--private-key",
+      "fixture-private-key-not-read",
+      "--crdd-version",
+      "v0.18.0",
+      "--release-sequence",
+      "1",
+      "--crdd-commit",
+      "a".repeat(64),
+      "--crdd-tree",
+      "b".repeat(64),
+      "--issued-at",
+      "2026-08-25T00:00:00.000Z",
+      "--expires-at",
+      "2027-08-25T00:00:00.000Z",
+    ],
+    {
+      encoding: "utf8",
+      input: "",
+      shell: false,
+      timeout: 2_000,
+      windowsHide: true,
+    },
+  );
+  assert.equal(cli.status, 1);
+  assert.equal(cli.stdout, "");
+  assert.equal(cli.stderr, "release_manifest_git_object_format_unsupported\n");
 });
 
 function ephemeralEnvelopeBytes() {
