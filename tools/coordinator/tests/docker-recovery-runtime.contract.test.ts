@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
@@ -96,11 +97,13 @@ function addSplitRootBaseMove(
   root: string,
   discriminator: "a" | "b",
   move:
-    | "pending_only"
+    | "pending_base_only"
+    | "pending_pairs"
     | "empty_directory"
     | "base"
     | "base_complete"
-    | "base_commit" = "base",
+    | "base_commit"
+    | "full" = "base",
   stableDiscriminator: "a" | "b" = discriminator,
   killAfterRename: 1 | 2 | 3 = 2,
 ) {
@@ -164,17 +167,20 @@ function addSplitRootBaseMove(
     hostPaths: Object.freeze({ root: "host-root", marker: "host-marker" }),
   });
   const operationDirectory = path.join(root, `docker-task-${nonce}`);
-  if (move !== "pending_only") fs.mkdirSync(operationDirectory);
+  if (move !== "pending_base_only" && move !== "pending_pairs")
+    fs.mkdirSync(operationDirectory);
   const baseRecord = writeCommittedDockerRecoveryJson(
     move === "base" ||
       move === "base_complete" ||
-      move === "pending_only" ||
+      move === "pending_base_only" ||
+      move === "pending_pairs" ||
       move === "empty_directory"
       ? root
       : operationDirectory,
     move === "base" ||
       move === "base_complete" ||
-      move === "pending_only" ||
+      move === "pending_base_only" ||
+      move === "pending_pairs" ||
       move === "empty_directory"
       ? `pending-docker-task-${nonce}.json`
       : "base.json",
@@ -182,6 +188,7 @@ function addSplitRootBaseMove(
     base,
   );
   const recoveryId = `docker-task.${stable}.${nonce}.${baseRecord.hash}`;
+  if (move === "pending_base_only") return recoveryId;
   const pendingCommit = writeCommittedDockerRecoveryJson(
     root,
     `pending-docker-task-${nonce}.commit.json`,
@@ -194,7 +201,14 @@ function addSplitRootBaseMove(
       recoveryId,
     }),
   );
-  if (move === "pending_only" || move === "empty_directory") return recoveryId;
+  if (move === "full") {
+    moveCommittedDockerRecoveryJson(
+      pendingCommit,
+      path.join(operationDirectory, "base-commit.json"),
+    );
+    return recoveryId;
+  }
+  if (move === "pending_pairs" || move === "empty_directory") return recoveryId;
   if (move === "base_complete") {
     moveCommittedDockerRecoveryJson(
       baseRecord,
@@ -271,6 +285,27 @@ function snapshotRecoveryTree(root: string) {
   };
   visit(root);
   return Object.freeze(snapshots);
+}
+
+function copyCommittedJsonWithFreshIdentity(
+  source: string,
+  target: string,
+  logicalKey: string,
+) {
+  fs.copyFileSync(source, target);
+  const serialized = fs.readFileSync(target, "utf8");
+  const identity = fs.lstatSync(target, { bigint: true });
+  fs.writeFileSync(
+    `${target}.crdd-commit.json`,
+    `${JSON.stringify({
+      schema: "crdd-coordinator-durable-json-commit/v1",
+      logicalKey,
+      contentHash: createHash("sha256").update(serialized).digest("hex"),
+      contentIdentity: `${identity.dev}:${identity.ino}:${identity.birthtimeNs}`,
+      contentBytes: Buffer.byteLength(serialized, "utf8"),
+    })}\n`,
+    "utf8",
+  );
 }
 
 function addKilledProductionCleanup(
@@ -365,7 +400,7 @@ function spawnLogicalHomeLockHolder(stableHome: string) {
 }
 
 function createKilledFullProductionRecoveryRoot(
-  hostPhase: "previous" | "expected" | "receipt" = "expected",
+  hostPhase: "pending_base" | "previous" | "expected" | "receipt" = "expected",
 ) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-full-recovery-test-"),
@@ -432,7 +467,30 @@ function createKilledFullProductionRecoveryRoot(
         operationMode: "isolated_task",
         workspaceMountMode: "read_write",
       });
-      if (hostPhase === "previous") {
+      if (hostPhase === "pending_base") {
+        begun = recovery.beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver(
+          plan,
+          management,
+          providerHome,
+          runtimeRoot,
+          (recoveryId) => {
+            const currentHostRecoveryId =
+              host.getOwnedHostRecoveryIdByManagementCapability(management);
+            fs.writeFileSync(
+              handoff,
+              JSON.stringify({
+                recoveryId,
+                hostRoot: owned.root,
+                hostMarker:
+                  hostRecord.loadHostRecoveryRecordByToken(currentHostRecoveryId).marker,
+              }),
+              "utf8",
+            );
+            process.kill(process.pid, "SIGKILL");
+          },
+          () => runtimeRoot,
+        );
+      } else if (hostPhase === "previous") {
         begun = recovery.beginRuntimeOwnedDockerRecoveryWithHostBeginObserver(
           plan,
           management,
@@ -826,6 +884,7 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   );
   for (const symbol of [
     "beginRuntimeOwnedDockerRecoveryWithHostBeginObserver",
+    "beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver",
     "beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver",
     "inspectDockerRecoveryRootSnapshotWithLock",
     "recoverExactDockerResourceWithRunner",
@@ -1056,9 +1115,10 @@ test("production inventoryはbase／base-commit moveの全境界を同一／別H
   }
 });
 
-test("production inventoryはpending-only／空Directory／base完了後をexact bootstrap状態として列挙する", () => {
+test("production inventoryはpending base-only／両pending pair／空Directory／base完了後を列挙する", () => {
   for (const state of [
-    "pending_only",
+    "pending_base_only",
+    "pending_pairs",
     "empty_directory",
     "base_complete",
   ] as const) {
@@ -1085,6 +1145,101 @@ test("production inventoryはpending-only／空Directory／base完了後をexact
       } finally {
         fs.rmSync(rootPath, { recursive: true, force: true });
       }
+    }
+  }
+});
+
+test("production inventoryはno-intentのRoot source／target重複を第三状態として拒否する", () => {
+  for (const duplicate of ["base", "base_commit", "both"] as const) {
+    const rootPath = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-runtime-bootstrap-duplicate-test-"),
+    );
+    try {
+      const state = duplicate === "base" ? "base_complete" : "full";
+      const recoveryId = addSplitRootBaseMove(rootPath, "a", state, "a");
+      addSplitRootBaseMove(rootPath, "b", "full", "b");
+      const nonce = recoveryId.split(".")[2];
+      assert.ok(nonce);
+      const operationDirectory = path.join(rootPath, `docker-task-${nonce}`);
+      if (duplicate === "base" || duplicate === "both") {
+        copyCommittedJsonWithFreshIdentity(
+          path.join(operationDirectory, "base.json"),
+          path.join(rootPath, `pending-docker-task-${nonce}.json`),
+          "base.json",
+        );
+      }
+      if (duplicate === "base_commit" || duplicate === "both") {
+        copyCommittedJsonWithFreshIdentity(
+          path.join(operationDirectory, "base-commit.json"),
+          path.join(rootPath, `pending-docker-task-${nonce}.commit.json`),
+          "base-commit.json",
+        );
+      }
+      const before = snapshotRecoveryTree(rootPath);
+      const result = inspectDockerRecoveryRootSnapshotWithLock(
+        verifiedRoot(rootPath),
+        () => Object.freeze({ release: () => true }),
+      );
+      assert.equal(result.status, "blocked", duplicate);
+      assert.deepEqual(result.dockerRecoveryIds, []);
+      assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    } finally {
+      fs.rmSync(rootPath, { recursive: true, force: true });
+    }
+  }
+});
+
+test("production inventoryはpending base-onlyの改変・置換・orphanを採用しない", () => {
+  for (const mutation of ["bytes", "replacement", "orphan_sidecar"] as const) {
+    const rootPath = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-runtime-pending-base-negative-test-"),
+    );
+    let external: string | null = null;
+    try {
+      const recoveryId = addSplitRootBaseMove(
+        rootPath,
+        "a",
+        "pending_base_only",
+        "a",
+      );
+      addSplitRootBaseMove(rootPath, "b", "full", "b");
+      const nonce = recoveryId.split(".")[2];
+      assert.ok(nonce);
+      const pendingBase = path.join(
+        rootPath,
+        `pending-docker-task-${nonce}.json`,
+      );
+      if (mutation === "bytes") fs.writeFileSync(pendingBase, "{}\n");
+      if (mutation === "replacement") {
+        external = fs.mkdtempSync(
+          path.join(os.tmpdir(), "crdd-runtime-pending-replacement-"),
+        );
+        const replacement = path.join(external, "replacement.json");
+        fs.writeFileSync(replacement, fs.readFileSync(pendingBase));
+        fs.renameSync(pendingBase, path.join(external, "original.json"));
+        fs.renameSync(replacement, pendingBase);
+      }
+      if (mutation === "orphan_sidecar")
+        fs.writeFileSync(
+          path.join(
+            rootPath,
+            dockerRecoveryCommitName(
+              `pending-docker-task-${nonce}.commit.json`,
+            ),
+          ),
+          "{}\n",
+        );
+      const before = snapshotRecoveryTree(rootPath);
+      const result = inspectDockerRecoveryRootSnapshotWithLock(
+        verifiedRoot(rootPath),
+        () => Object.freeze({ release: () => true }),
+      );
+      assert.equal(result.status, "blocked", mutation);
+      assert.deepEqual(result.dockerRecoveryIds, []);
+      assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    } finally {
+      fs.rmSync(rootPath, { recursive: true, force: true });
+      if (external) fs.rmSync(external, { recursive: true, force: true });
     }
   }
 });
@@ -1229,7 +1384,7 @@ test("production inventoryはsplit moveの改変・置換・第三状態を採�
 
 test("production inventoryは全partial bootstrap状態のunknown／orphan／replacementをEffect前に拒否する", () => {
   const states = [
-    Object.freeze({ move: "pending_only" as const, boundary: 2 as const }),
+    Object.freeze({ move: "pending_pairs" as const, boundary: 2 as const }),
     Object.freeze({ move: "empty_directory" as const, boundary: 2 as const }),
     Object.freeze({ move: "base" as const, boundary: 1 as const }),
     Object.freeze({ move: "base" as const, boundary: 2 as const }),
@@ -1400,6 +1555,68 @@ test("production recoveryはpartial bootstrapのunknownをjournal resume前に�
     );
     assert.deepEqual(snapshotRecoveryTree(rootPath), before);
   } finally {
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
+test("production Task admission／Recoveryはno-intent duplicateを最初のmutation前に拒否する", () => {
+  const rootPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-bootstrap-duplicate-gate-test-"),
+  );
+  const root = verifiedRoot(rootPath);
+  const recoveryId = addSplitRootBaseMove(rootPath, "a", "base_complete", "a");
+  const nonce = recoveryId.split(".")[2];
+  assert.ok(nonce);
+  copyCommittedJsonWithFreshIdentity(
+    path.join(rootPath, `docker-task-${nonce}`, "base.json"),
+    path.join(rootPath, `pending-docker-task-${nonce}.json`),
+    "base.json",
+  );
+  const before = snapshotRecoveryTree(rootPath);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const plan = productionPlan(operation.operationId, "e".repeat(64));
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  try {
+    assert.deepEqual(
+      beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+        plan,
+        management,
+        providerHomeForPlan(plan),
+        root,
+        () => root,
+      ),
+      {
+        status: "blocked",
+        recoveryId: null,
+        manualRecoveryRequired: true,
+        reason: "docker_recovery_initialization_failed_closed",
+      },
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        recoveryId,
+        root,
+        () => root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_runtime_state_audit_failed",
+        recoveryId,
+      },
+    );
+    assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    assert.equal(
+      loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
+      "host_only",
+    );
+  } finally {
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
     fs.rmSync(rootPath, { recursive: true, force: true });
   }
 });
@@ -1618,6 +1835,41 @@ test("production共有回復engineはHost previous世代のprocess killをEffect
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
+  } finally {
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("production共有回復engineはpending base完成直後の実process killをRecovery IDから残存0へ収束する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("pending_base");
+  const root = verifiedRoot(fixture.root);
+  try {
+    const inventory = inspectDockerRecoveryRootSnapshotWithLock(root, () =>
+      Object.freeze({ release: () => true }),
+    );
+    assert.equal(inventory.status, "completed");
+    assert.deepEqual(inventory.dockerRecoveryIds, [fixture.recoveryId]);
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed_before_submission",
+        recoveryId: null,
+      },
+    );
+    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assert.equal(fs.existsSync(fixture.hostRoot), false);
+    assert.equal(fs.existsSync(fixture.hostMarker), false);
+    assert.deepEqual(
+      inspectDockerRecoveryRootSnapshotWithLock(root, () =>
+        Object.freeze({ release: () => true }),
+      ).dockerRecoveryIds,
+      [],
+    );
   } finally {
     fs.rmSync(fixture.parent, { recursive: true, force: true });
   }
@@ -1926,7 +2178,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 11,
+    contractRevision: 12,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

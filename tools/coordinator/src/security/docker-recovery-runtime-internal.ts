@@ -50,7 +50,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 11;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 12;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -357,6 +357,7 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
   managementCapability: unknown,
   providerHome: VerifiedProviderHome,
   root: VerifiedRuntimeStateRoot,
+  afterPendingBaseCommit: ((recoveryId: string) => void) | null,
   beforeHostBeginEffect: ((recoveryId: string) => void) | null,
   observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null,
 ) {
@@ -504,6 +505,8 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
       "base.json",
     );
     const recoveryId = `docker-task.${plan.stableLogicalHomeBindingHash}.${operationNonce}.${pendingBase.hash}`;
+    recoverableId = recoveryId;
+    afterPendingBaseCommit?.(recoveryId);
     const pendingCommit = writeDurableJson(
       root.rootPath,
       `pending-docker-task-${operationNonce}.commit.json`,
@@ -516,7 +519,6 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
       }),
       "base-commit.json",
     );
-    recoverableId = recoveryId;
     fs.mkdirSync(operationDirectory, { mode: 0o700 });
     const operationMetadata = fs.lstatSync(operationDirectory);
     if (!operationMetadata.isDirectory() || operationMetadata.isSymbolicLink())
@@ -681,6 +683,7 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
     providerHome,
     root,
     null,
+    null,
     observeRuntimeStateRootFromWindows,
   );
 }
@@ -699,7 +702,28 @@ export function beginRuntimeOwnedDockerRecoveryWithHostBeginObserver(
     managementCapability,
     providerHome,
     root,
+    null,
     beforeHostBeginEffect,
+    observeRuntimeStateRoot,
+  );
+}
+
+/** @internal Package-private earliest process-crash contract seam. */
+export function beginRuntimeOwnedDockerRecoveryWithPendingBaseObserver(
+  plan: ProductionPlan,
+  managementCapability: unknown,
+  providerHome: VerifiedProviderHome,
+  root: VerifiedRuntimeStateRoot,
+  afterPendingBaseCommit: (recoveryId: string) => void,
+  observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null = observeRuntimeStateRootFromWindows,
+) {
+  return beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
+    plan,
+    managementCapability,
+    providerHome,
+    root,
+    afterPendingBaseCommit,
+    null,
     observeRuntimeStateRoot,
   );
 }
@@ -717,6 +741,7 @@ export function beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
     managementCapability,
     providerHome,
     root,
+    null,
     null,
     observeRuntimeStateRoot,
   );
@@ -2781,6 +2806,46 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     );
     const basePath = path.join(operationDirectory, "base.json");
     const baseCommitPath = path.join(operationDirectory, "base-commit.json");
+    if (
+      !fs.existsSync(basePath) &&
+      fs.existsSync(pendingBasePath) &&
+      !fs.existsSync(pendingCommitPath)
+    ) {
+      const pendingBase = readCommittedDockerRecoveryJson(
+        pendingBasePath,
+        "base.json",
+      );
+      const pendingBaseValue = pendingBase.value as Record<string, unknown>;
+      if (
+        pendingBase.hash !== parsed.baseHash ||
+        !validateDockerRecoveryBase(pendingBaseValue, parsed.operationNonce) ||
+        pendingBaseValue.stableLogicalHomeBindingHash !==
+          parsed.stableLogicalHomeBindingHash
+      )
+        throw new Error("docker_task_recovery_base_mismatch");
+      writeDurableJson(
+        root.rootPath,
+        path.basename(pendingCommitPath),
+        Object.freeze({
+          schema: "crdd-coordinator-task-docker-base-commit/v1",
+          operationNonce: parsed.operationNonce,
+          stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+          baseHash: parsed.baseHash,
+          recoveryId: parsed.token,
+        }),
+        "base-commit.json",
+      );
+      const reconstructedInventory = inspectDockerRecoveryRootSnapshot(
+        root.rootPath,
+      );
+      if (
+        reconstructedInventory.status !== "completed" ||
+        !reconstructedInventory.dockerRecoveryIds.some(
+          (value: unknown) => value === parsed.token,
+        )
+      )
+        throw new Error("docker_task_runtime_state_audit_failed");
+    }
     if (!fs.existsSync(basePath)) {
       if (!fs.existsSync(pendingBasePath) || !fs.existsSync(pendingCommitPath))
         throw new Error("docker_task_recovery_base_missing");
@@ -3692,6 +3757,8 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         stable: string;
         nonce: string;
         cleanup: boolean;
+        pendingBaseSource?: "required" | "absent" | "journal";
+        pendingCommitSource?: "required" | "absent" | "journal";
       }>
     >();
     const pendingBaseNames = new Set<string>();
@@ -3762,6 +3829,14 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       state: BootstrapPairState;
       hasIntent: boolean;
     }>;
+    const pendingSourceExpectation = (
+      inspection: BootstrapPairInspection,
+    ): "required" | "absent" | "journal" =>
+      inspection.hasIntent
+        ? "journal"
+        : inspection.state === "absent"
+          ? "required"
+          : "absent";
     const sameBootstrapRecord = (
       left: BootstrapRecord,
       right: BootstrapRecord,
@@ -3851,6 +3926,8 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         return Object.freeze({
           baseState: baseState.state,
           commitState: commitState.state,
+          pendingBaseSource: pendingSourceExpectation(baseState),
+          pendingCommitSource: pendingSourceExpectation(commitState),
         });
       }
       const allowed = new Set<string>();
@@ -3884,6 +3961,8 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       return Object.freeze({
         baseState: baseState.state,
         commitState: commitState.state,
+        pendingBaseSource: pendingSourceExpectation(baseState),
+        pendingCommitSource: pendingSourceExpectation(commitState),
       });
     };
     const addRecord = (
@@ -3926,11 +4005,9 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         records.has(nonce)
       )
         throw new Error("docker_task_runtime_state_base_invalid");
-      records.set(
-        nonce,
-        Object.freeze({ token, stable, nonce, cleanup: false }),
-      );
       const directory = path.join(rootPath, `docker-task-${nonce}`);
+      let pendingBaseSource: "required" | "absent" | "journal" = "required";
+      let pendingCommitSource: "required" | "absent" | "journal" = "required";
       if (fs.existsSync(directory)) {
         const bootstrap = inventoryBootstrapOperationDirectory(
           directory,
@@ -3938,6 +4015,8 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           base,
           commitRecord,
         );
+        pendingBaseSource = bootstrap.pendingBaseSource;
+        pendingCommitSource = bootstrap.pendingCommitSource;
         if (
           bootstrap.baseState === "complete" &&
           bootstrap.commitState === "complete"
@@ -3947,6 +4026,42 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           else inventoryOperationDirectory(directory, token, nonce, base.hash);
         }
       }
+      records.set(
+        nonce,
+        Object.freeze({
+          token,
+          stable,
+          nonce,
+          cleanup: false,
+          pendingBaseSource,
+          pendingCommitSource,
+        }),
+      );
+    };
+    const addPendingBaseOnlyRecord = (basePath: string, nonce: string) => {
+      const base = readExactJson(basePath, "base.json");
+      const value = base.value as Record<string, unknown>;
+      const stable = value.stableLogicalHomeBindingHash;
+      if (
+        !validateDockerRecoveryBase(value, nonce) ||
+        value.operationNonce !== nonce ||
+        typeof stable !== "string" ||
+        !HEX64.test(stable) ||
+        records.has(nonce) ||
+        recoveryIdForNonce(nonce) !== null
+      )
+        throw new Error("docker_task_runtime_state_base_invalid");
+      records.set(
+        nonce,
+        Object.freeze({
+          token: `docker-task.${stable}.${nonce}.${base.hash}`,
+          stable,
+          nonce,
+          cleanup: false,
+          pendingBaseSource: "required" as const,
+          pendingCommitSource: "absent" as const,
+        }),
+      );
     };
     for (const entry of sorted) {
       if (isDockerRecoveryJournalIntentName(entry.name)) continue;
@@ -4098,6 +4213,13 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     const pendingNonces = new Set([...pendingBaseNames, ...pendingCommitNames]);
     for (const nonce of pendingNonces) {
       if (records.has(nonce)) continue;
+      if (pendingBaseNames.has(nonce) && !pendingCommitNames.has(nonce)) {
+        addPendingBaseOnlyRecord(
+          path.join(rootPath, `pending-docker-task-${nonce}.json`),
+          nonce,
+        );
+        continue;
+      }
       if (!pendingBaseNames.has(nonce) || !pendingCommitNames.has(nonce))
         throw new Error("docker_task_runtime_state_pending_incomplete");
       addRecord(
@@ -4106,6 +4228,19 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         nonce,
         recoveryIdForNonce(nonce),
       );
+    }
+    for (const record of records.values()) {
+      if (record.cleanup) continue;
+      for (const [expectation, present] of [
+        [record.pendingBaseSource, pendingBaseNames.has(record.nonce)],
+        [record.pendingCommitSource, pendingCommitNames.has(record.nonce)],
+      ] as const) {
+        if (
+          (expectation === "required" && !present) ||
+          (expectation === "absent" && present)
+        )
+          throw new Error("docker_task_runtime_state_base_invalid");
+      }
     }
     const pointerTokens = new Set<string>();
     const activeStableLogicalHomeBindingHashes = new Set<string>();

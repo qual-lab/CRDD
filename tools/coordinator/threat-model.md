@@ -4,7 +4,7 @@ Local PersonalのSubscription OfferingはCodexの`chatgpt_subscription_oauth`と
 
 Status: Implementation Candidate
 
-固定Commit `fe525bf66837c7531b53b8643718a8d6541c33e6`の第十四次監査は、Agent／Architecture／SecurityとConformanceが`Pass`、DocumentおよびGap／Impactがpartial bootstrap inventoryのMajor 1件で`Fail`だった。第十五次是正はDocker Recovery Runtime contract revision 11へ更新し、全partial bootstrap状態のexact inventory、到達不能なpair順序の拒否、Task admission前検査および明示Recoveryのjournal resume前検査を接続した。Node.js 24.19.0で全731試験、journal重点29試験、production回復／CLI重点34試験、private package check、固定coverage下限および全体Checkerを通過した。現在の未完了Gateは新固定版への同じ独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。
+固定Commit `ea1edd3c81223db4163377c4b9115b64445b3585`の第十五次監査は、ConformanceがFinding 0件で`Pass`だった一方、Agent／Architecture／Securityがpending base-onlyの到達可能状態を回復できないMajor 1件、DocumentおよびGap／Impactがno-intentのRoot source／Operation target重複を採用できるMajor 1件で`Fail`だった。第十六次是正はDocker Recovery Runtime contract revision 12へ更新し、pending base-onlyからのexact Recovery ID再構成とpre-effect cleanup、各pairのRoot source期待状態、到達不能なsource／target重複の拒否を同じRoot inventoryへ接続した。Node.js 24.19.0で全735試験、journal重点29試験、production回復／CLI重点38試験、private package checkおよび固定coverage下限を通過した。現在の未完了Gateは新固定版への同じ独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。
 
 ### 現行revisionのProvider Home／Docker Task回復補正
 
@@ -20,7 +20,7 @@ OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM�
 
 登録証明書更新のpure遷移候補は、同じenrollment、Platform scope、Provisioner Identityおよび端末導入鍵を維持し、旧証明書の残り30日以内かつ失効前に新証明書を発行し、重複期間を最大30日に限定する。caller supplied時刻やissuer鍵からRuntime所有時計、CA Trust、rollback防止、保存または自動更新Effectを成立させない。
 
-`base.json`／`base-commit.json`のbootstrapは、pending-only、空Operation Directory、各pairの`move_content`／`move_commit`／`complete`およびbase完了後・base-commit開始前を明示状態として分類する。split pairはexact Recovery ID、logical key、固定target content／commit名および単一validated move intentが一致する場合だけ読み取り専用inventoryへ投影し、source／target Directory Identityと全componentを現在Filesystemへ再結合する。full stateだけが通常Operation inventoryへ遷移し、partial stateは到達可能状態ごとのexact filename／type／serialized byte／Hash／Filesystem Identity allowlistで全entryを検査する。unknown、orphan temporary、余分sidecar、non-regular、replacement、複数intent、Recovery ID差、target名差または第三状態はRecovery ID空のblockedとなる。Task admissionは新規記録前、明示Recoveryはtarget-scoped journal resumeまたはpending pair移動前にこのRoot inventoryを完了し、inventory自体はFilesystem mutationを起こさない。
+`base.json`／`base-commit.json`のbootstrapは、pending base-only、両pair pending、空Operation Directory、各pairの`move_content`／`move_commit`／`complete`およびbase完了後・base-commit開始前を明示状態として分類する。pending base-onlyはexact Schema、nonce、logical Home、base Hash、commit sidecarおよびFilesystem IdentityからRecovery IDを再構成し、明示RecoveryがProvider／Docker Effectを開始せず欠落commitを決定論的に補ってcleanupへ閉じる。split pairはexact Recovery ID、logical key、固定target content／commit名および単一validated move intentが一致する場合だけ読み取り専用inventoryへ投影し、source／target Directory Identityと全componentを現在Filesystemへ再結合する。各pairはtarget状態に加えてRoot pending sourceの必須・不存在・journal所有を照合するため、move intentなしのsource／target重複を第三状態として拒否する。full stateだけが通常Operation inventoryへ遷移し、partial stateは到達可能状態ごとのexact filename／type／serialized byte／Hash／Filesystem Identity allowlistで全entryを検査する。unknown、orphan temporary、余分sidecar、non-regular、replacement、複数intent、Recovery ID差、target名差または第三状態はRecovery ID空のblockedとなる。Task admissionは新規記録前、明示Recoveryはtarget-scoped journal resume、欠落commit再構成またはpending pair移動前にこのRoot inventoryを完了し、inventory自体はFilesystem mutationを起こさない。
 
 本書は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)の実装固有脅威モデルである。CRDDのHuman Authority、External Information Boundary、Independent Reviewまたは準拠条件を再定義しない。
 
