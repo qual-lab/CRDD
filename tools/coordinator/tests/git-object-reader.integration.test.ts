@@ -11,11 +11,35 @@ import {
   createOwnedOperationManagementCapability,
   verifyOwnedOperationManagementMountBinding,
 } from "../src/security/execution-environment.ts";
-import { materializeGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
+import {
+  inspectGitCommitTreeCandidate,
+  materializeGitCommitTreeCandidate,
+} from "../src/security/git-object-reader.ts";
+import { resolveRepositoryGitLayout } from "../src/security/repository-git-layout-internal.ts";
 import {
   bindRuntimeOwnedRepositoryOperation,
   borrowRuntimeOwnedRepositorySource,
+  inspectRepositoryRevisionCandidate,
 } from "../src/security/repository-operation-runtime.ts";
+
+test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合する", () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const layout = resolveRepositoryGitLayout(repositoryRoot);
+  const repository = inspectRepositoryRevisionCandidate(repositoryRoot);
+  assert.equal(repository?.status, "candidate");
+  assert.equal(repository?.externalGitCliUsed, false);
+  assert.equal(repository?.repositoryPathReported, false);
+  assert.equal(repository?.repositoryKind, layout.kind);
+  const exact = inspectGitCommitTreeCandidate({
+    commonDirectory: layout.commonDirectory.realPath,
+    revision: repository?.commit,
+  });
+  assert.equal(exact?.status, "candidate");
+  assert.equal(exact?.commit, repository?.commit);
+  assert.equal(exact?.tree, repository?.tree);
+  assert.equal(exact?.externalGitCliUsed, false);
+  assert.equal(exact?.repositoryPathReported, false);
+});
 
 test("現行CRDDのpacked objectをRuntime-owned隔離workspaceへ再構成する", (t) => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../..");

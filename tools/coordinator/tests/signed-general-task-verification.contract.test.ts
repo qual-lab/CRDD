@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { EventEmitter } from "node:events";
 import path from "node:path";
 import test from "node:test";
 
 import {
+  bindSignedGeneralTaskCancellation,
   createSignedGeneralTaskVerificationRequest,
   describeSignedGeneralTaskVerificationContract,
   runSignedGeneralTaskVerification,
@@ -431,4 +433,82 @@ test("Candidate discard不成立は残存0とせず手動処置対象を返す",
     (result as Readonly<Record<string, unknown>>).candidateIdForManualDiscard,
     candidateId,
   );
+});
+
+test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      status: "blocked",
+      reason: "coordinator_task_cleanup_unconfirmed",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      hostRecoveryId: "host-recovery-task",
+      dockerRecoveryId: "docker-recovery-task-a",
+      dockerRecoveryIds: Object.freeze([
+        "docker-recovery-task-a",
+        "docker-recovery-task-b",
+      ]),
+      candidateRecoveryId: "candidate-recovery-task",
+    }),
+    discard: Object.freeze({
+      status: "blocked",
+      reason: "candidate_bundle_discard_recovery_required",
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      hostRecoveryId: "host-recovery-discard",
+      dockerRecoveryId: "docker-recovery-discard",
+      candidateRecoveryId: "candidate-recovery-discard",
+      candidateStoreRecoveryId: "candidate-store-recovery-discard",
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    coordinatorRoot,
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, null);
+  assert.deepEqual(result.hostRecoveryIds, [
+    "host-recovery-task",
+    "host-recovery-discard",
+  ]);
+  assert.deepEqual(result.dockerRecoveryIds, [
+    "docker-recovery-task-a",
+    "docker-recovery-task-b",
+    "docker-recovery-discard",
+  ]);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.deepEqual(result.candidateRecoveryIds, [
+    "candidate-recovery-task",
+    "candidate-recovery-discard",
+  ]);
+  assert.deepEqual(result.candidateStoreRecoveryIds, [
+    "candidate-store-recovery-discard",
+  ]);
+  assert.equal(result.recoveryIdentityAmbiguous, true);
+  assert.equal(fixture.calls.discards, 1);
+});
+
+test("SIGINT／SIGTERMは取消をexact onceにしunbind後は不発火にする", () => {
+  const signals = new EventEmitter();
+  const controlCapability = Object.freeze({});
+  let cancellations = 0;
+  const binding = bindSignedGeneralTaskCancellation(
+    signals,
+    controlCapability,
+    (observed) => {
+      assert.equal(observed, controlCapability);
+      cancellations += 1;
+    },
+  );
+  signals.emit("SIGINT");
+  signals.emit("SIGINT");
+  signals.emit("SIGTERM");
+  assert.equal(binding.requested(), true);
+  assert.equal(cancellations, 1);
+  binding.unbind();
+  binding.unbind();
+  signals.emit("SIGTERM");
+  assert.equal(cancellations, 1);
 });

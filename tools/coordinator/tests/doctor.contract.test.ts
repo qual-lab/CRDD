@@ -5,29 +5,43 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { Worker } from "node:worker_threads";
-
-import * as executionEnvironment from "../src/security/execution-environment.ts";
-import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
-import * as dockerIsolation from "../src/security/docker-isolation.ts";
-
+import type { DiagnosticCheck } from "../src/core/doctor.ts";
 import {
   CHECK_STATUS,
-  REQUIRED_CHECK_IDS,
   discoverCommand,
   evaluateReadiness,
   isSupportedNodeVersion,
+  REQUIRED_CHECK_IDS,
   runDoctor,
 } from "../src/core/doctor.ts";
-import type { DiagnosticCheck } from "../src/core/doctor.ts";
+import * as dockerIsolation from "../src/security/docker-isolation.ts";
+import {
+  classifyRecoveryChildren,
+  DOCKER_ISOLATION_PROFILE,
+  DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
+  dockerCreateArgumentsForFailureVerificationFixture,
+  dockerCreateArgumentsForFixture,
+  evaluateDockerCliCandidateForFixture,
+  evaluateDynamicFakeProviderFinalizationForFixture,
+  normalizeContainerAbsence,
+  normalizeContainerCreation,
+  normalizeDockerIsolationResult,
+  normalizeDockerProbeFailure,
+  normalizeDynamicFakeProviderLifecycleForFixture,
+  normalizeHostCleanupResult,
+  recoverDockerIsolationProbe,
+  validateContainerInspect,
+} from "../src/security/docker-isolation.ts";
+import * as executionEnvironment from "../src/security/execution-environment.ts";
 import {
   activateOwnedHostOperationGenerationLock,
   adoptOwnedHostRecoveryRecordTransition,
   cleanupOwnedOperationDirectories,
-  createOwnedMountCapability,
-  createOwnedOperationManagementCapability,
-  createOwnedOperationContextCapability,
   createOperationDirectories,
+  createOwnedMountCapability,
+  createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
+  createOwnedOperationManagementCapability,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
@@ -35,26 +49,10 @@ import {
   recoverOwnedOperationDirectories,
   transitionOwnedDockerSubmissionState,
   verifyOwnedMountCapability,
-  verifyOwnedOperationManagementCapability,
   verifyOwnedOperationContextCapability,
+  verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
-import {
-  DOCKER_ISOLATION_PROFILE,
-  DYNAMIC_FAKE_PROVIDER_FAILURE_SCENARIOS,
-  classifyRecoveryChildren,
-  dockerCreateArgumentsForFixture,
-  dockerCreateArgumentsForFailureVerificationFixture,
-  evaluateDockerCliCandidateForFixture,
-  evaluateDynamicFakeProviderFinalizationForFixture,
-  normalizeContainerAbsence,
-  normalizeContainerCreation,
-  normalizeDockerIsolationResult,
-  normalizeDynamicFakeProviderLifecycleForFixture,
-  normalizeDockerProbeFailure,
-  normalizeHostCleanupResult,
-  recoverDockerIsolationProbe,
-  validateContainerInspect,
-} from "../src/security/docker-isolation.ts";
+import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
 import { assertPresent, errorCode } from "./test-support.ts";
 
 function recordedIdentity(target: string) {
@@ -444,6 +442,8 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
   );
   assert.equal(report.diagnosticMode, "passive_preflight");
   assert.equal(report.status, "blocked");
+  assert.equal(report.repository.externalGitCliUsed, false);
+  assert.equal(report.repository.workingState, "not_observed");
   assert.equal(
     report.providerLifecycle.authPolicies.codex.loginPolicy,
     "existing_chatgpt_plan_subscription_oauth",

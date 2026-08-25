@@ -5,10 +5,10 @@ import path from "node:path";
 import { PLATFORM_PROVISIONER_MANIFEST_RELATIVE_PATH } from "./platform-provisioner-manifest-loader.ts";
 import { PLATFORM_ACCESS_EXECUTABLE_RELATIVE_PATH } from "./platform-access-release.ts";
 import { NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_RELATIVE_PATH } from "./native-provision-supervisor-release.ts";
+import { isCanonicalCrddGitObjectId } from "./release-identity-grammar.ts";
 
 const MAXIMUM_DISTRIBUTION_FILES = 2_048;
 const MAXIMUM_DISTRIBUTION_BYTES = 64 * 1024 * 1024;
-const GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
 
 type HashAlgorithm = "sha1" | "sha256";
 
@@ -51,7 +51,7 @@ function sameIdentity(left: StableIdentity, right: StableIdentity) {
 }
 
 function hashAlgorithm(expectedTree: string): HashAlgorithm | null {
-  if (!GIT_OBJECT_ID.test(expectedTree)) return null;
+  if (!isCanonicalCrddGitObjectId(expectedTree)) return null;
   return expectedTree.length === 40 ? "sha1" : "sha256";
 }
 

@@ -1,10 +1,16 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { types as utilTypes } from "node:util";
-
-import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
-
+import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.ts";
+import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
+import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
+import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
+import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
+import {
+  DOCKER_ISOLATION_PROFILE,
+  runDockerIsolationProbe,
+} from "../security/docker-isolation.ts";
+import { describeEgressProxyTopology } from "../security/egress-proxy-policy.ts";
 import {
   cleanupOwnedOperationDirectories,
   createOwnedOperationDirectories,
@@ -13,35 +19,27 @@ import {
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
 } from "../security/execution-environment.ts";
+import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
 import {
-  DOCKER_ISOLATION_PROFILE,
-  runDockerIsolationProbe,
-} from "../security/docker-isolation.ts";
+  snapshotPlainArray,
+  snapshotPlainRecord,
+} from "../security/plain-data-snapshot.ts";
 import { describeProviderIsolationContract } from "../security/provider-isolation-profile.ts";
 import { describeProviderLifecycleContract } from "../security/provider-lifecycle.ts";
-import { describeEgressProxyTopology } from "../security/egress-proxy-policy.ts";
-import { describeAuthorityGrantVerifierContract } from "../security/authority-grant-verifier.ts";
-import { describeAuthorityTrustLoaderContract } from "../security/authority-trust-loader.ts";
-import { describeAuthorityPrelaunchVerifierContract } from "../security/authority-prelaunch-verifier.ts";
-import { describeAuthorityFileBundleContract } from "../security/authority-file-bundle.ts";
-import { describeAuthorityRootContract } from "../security/authority-root-profile.ts";
-import {
-  describeRuntimeRootContract,
-  selectRuntimeRootCandidate,
-} from "../security/runtime-root-profile.ts";
-import { describeRuntimeActivationContract } from "../security/runtime-activation-record.ts";
+import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
+import { inspectRepositoryRevisionCandidate } from "../security/repository-operation-runtime.ts";
 import { describeRootProtectionPolicyContract } from "../security/root-protection-policy.ts";
+import { describeRuntimeActivationContract } from "../security/runtime-activation-record.ts";
 import {
   describeRuntimeRootPathIdentityContract,
   inspectPosixRuntimeRootModePrecheckCandidate,
   inspectRuntimeRootPathIdentityCandidate,
 } from "../security/runtime-root-path-identity.ts";
-import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
-import { describeRepositoryGitLayoutContract } from "../security/repository-git-layout.ts";
 import {
-  snapshotPlainArray,
-  snapshotPlainRecord,
-} from "../security/plain-data-snapshot.ts";
+  describeRuntimeRootContract,
+  selectRuntimeRootCandidate,
+} from "../security/runtime-root-profile.ts";
+import { isSupportedCoordinatorNodeRuntime } from "./node-runtime-version.ts";
 
 export const CHECK_STATUS = Object.freeze([
   "confirmed",
@@ -261,27 +259,15 @@ export function discoverCommand(
 }
 
 function probeGitRepository(cwd: string) {
-  const runGitCommand = (args: readonly string[]) =>
-    spawnSync("git", args, {
-      cwd,
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: 10_000,
-    });
-  const commit = runGitCommand(["rev-parse", "HEAD"]);
-  const tree = runGitCommand(["rev-parse", "HEAD^{tree}"]);
-  const status = runGitCommand(["status", "--porcelain=v1", "-z"]);
+  const identity = inspectRepositoryRevisionCandidate(cwd);
 
   return {
-    gitAvailable: commit.error == null,
-    identityAvailable:
-      commit.status === 0 && tree.status === 0 && status.status === 0,
-    headCommit: commit.status === 0 ? commit.stdout.trim() : null,
-    headTree: tree.status === 0 ? tree.stdout.trim() : null,
-    workingState:
-      status.status === 0 && status.stdout.length === 0
-        ? "clean"
-        : "dirty_or_unknown",
+    gitAvailable: identity?.status === "candidate",
+    identityAvailable: identity?.status === "candidate",
+    headCommit: identity?.commit ?? null,
+    headTree: identity?.tree ?? null,
+    workingState: "not_observed",
+    externalGitCliUsed: false,
   };
 }
 

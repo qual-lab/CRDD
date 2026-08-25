@@ -3,6 +3,10 @@ import { TextDecoder } from "node:util";
 
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "./provisioning-signature-primitives.ts";
+import {
+  isCanonicalCrddGitObjectId,
+  isCanonicalCrddVersion,
+} from "./release-identity-grammar.ts";
 
 export const PLATFORM_PROVISIONER_ACTIVE_POINTER_CONTRACT =
   "crdd-coordinator/platform-provisioner-active-pointer";
@@ -12,8 +16,6 @@ export const PLATFORM_PROVISIONER_ACTIVE_POINTER_DOMAIN =
 
 const MAXIMUM_ACTIVE_POINTER_BYTES = 16_384;
 const HEX64 = /^[0-9a-f]{64}$/u;
-const GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
-const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 const ACTIVE_ID = /^[0-9a-f]{32}$/u;
 const RUNTIME_PRINCIPAL_MODE = "local_interactive_selected_user";
 const POINTER_KEYS = new Set([
@@ -122,11 +124,11 @@ function normalizeCore(raw: unknown) {
     !Number.isSafeInteger(value.releaseSequence) ||
     value.releaseSequence < 1 ||
     typeof value.crddVersion !== "string" ||
-    !CRDD_VERSION.test(value.crddVersion) ||
+    !isCanonicalCrddVersion(value.crddVersion) ||
     typeof value.crddCommit !== "string" ||
-    !GIT_OBJECT_ID.test(value.crddCommit) ||
+    !isCanonicalCrddGitObjectId(value.crddCommit) ||
     typeof value.crddTree !== "string" ||
-    !GIT_OBJECT_ID.test(value.crddTree) ||
+    !isCanonicalCrddGitObjectId(value.crddTree) ||
     typeof value.platformAccessArtifactByteLength !== "number" ||
     !Number.isSafeInteger(value.platformAccessArtifactByteLength) ||
     value.platformAccessArtifactByteLength < 1 ||

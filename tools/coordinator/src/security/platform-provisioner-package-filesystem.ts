@@ -12,6 +12,10 @@ import {
   calculatePlatformProvisionerPackageContentRootCandidate,
   verifyPlatformProvisionerManifestCandidate,
 } from "./platform-provisioner-trust-core.ts";
+import {
+  isCanonicalCrddGitObjectId,
+  isCanonicalCrddVersion,
+} from "./release-identity-grammar.ts";
 
 const bundledPackageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const bundledDistributionRoot = fileURLToPath(
@@ -41,8 +45,6 @@ const EXPECTED_RELEASE_KEYS = new Set([
   "crddTree",
   "packageContentRootSha256",
 ]);
-const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
-const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 
 type EntityIdentity = Readonly<{
   dev: bigint;
@@ -482,11 +484,11 @@ export function verifyBundledCoordinatorPackageCandidate(rawInput: unknown) {
     if (
       !input ||
       typeof input.expectedCrddVersion !== "string" ||
-      !CRDD_VERSION.test(input.expectedCrddVersion) ||
+      !isCanonicalCrddVersion(input.expectedCrddVersion) ||
       typeof input.expectedCrddCommit !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddCommit) ||
+      !isCanonicalCrddGitObjectId(input.expectedCrddCommit) ||
       typeof input.expectedCrddTree !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddTree)
+      !isCanonicalCrddGitObjectId(input.expectedCrddTree)
     ) {
       return blocked("platform_provisioner_bundled_package_input_invalid");
     }
@@ -626,11 +628,11 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
       !Number.isSafeInteger(expected.releaseSequence) ||
       expected.releaseSequence < 1 ||
       typeof expected.crddVersion !== "string" ||
-      !CRDD_VERSION.test(expected.crddVersion) ||
+      !isCanonicalCrddVersion(expected.crddVersion) ||
       typeof expected.crddCommit !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(expected.crddCommit) ||
+      !isCanonicalCrddGitObjectId(expected.crddCommit) ||
       typeof expected.crddTree !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(expected.crddTree) ||
+      !isCanonicalCrddGitObjectId(expected.crddTree) ||
       typeof expected.packageContentRootSha256 !== "string" ||
       !/^[0-9a-f]{64}$/u.test(expected.packageContentRootSha256)
     ) {

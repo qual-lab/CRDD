@@ -3,9 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
+import { inspectGitCommitTreeCandidate } from "./git-object-reader.ts";
 import {
-  resolveRepositoryGitLayout,
   type RepositoryGitLayout,
+  resolveRepositoryGitLayout,
 } from "./repository-git-layout-internal.ts";
 
 export const REPOSITORY_OPERATION_RUNTIME_CONTRACT =
@@ -170,6 +171,37 @@ function observe(repositoryRoot: string) {
     ),
     revision: readRevision(layout),
   });
+}
+
+export function inspectRepositoryRevisionCandidate(repositoryRoot: unknown) {
+  try {
+    if (
+      typeof repositoryRoot !== "string" ||
+      !path.isAbsolute(repositoryRoot) ||
+      repositoryRoot.length > 4_096 ||
+      /[\0-\x1f\x7f]/u.test(repositoryRoot)
+    ) {
+      return null;
+    }
+    const layout = resolveRepositoryGitLayout(repositoryRoot);
+    const revision = readRevision(layout);
+    const identity = inspectGitCommitTreeCandidate({
+      commonDirectory: layout.commonDirectory.realPath,
+      revision,
+    });
+    return identity?.status === "candidate" && identity.commit === revision
+      ? Object.freeze({
+          status: "candidate" as const,
+          commit: identity.commit,
+          tree: identity.tree,
+          repositoryKind: layout.kind,
+          externalGitCliUsed: false,
+          repositoryPathReported: false,
+        })
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export function bindRuntimeOwnedRepositoryOperation(

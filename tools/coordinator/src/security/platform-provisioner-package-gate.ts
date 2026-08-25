@@ -1,5 +1,9 @@
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { verifyPlatformProvisionerManifestCandidate } from "./platform-provisioner-trust-core.ts";
+import {
+  isCanonicalCrddGitObjectId,
+  isCanonicalCrddVersion,
+} from "./release-identity-grammar.ts";
 
 const INPUT_KEYS = new Set([
   "manifestVerificationInput",
@@ -26,8 +30,6 @@ const MANIFEST_INPUT_KEYS = new Set([
   "evaluationTime",
 ]);
 const HEX64 = /^[0-9a-f]{64}$/u;
-const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
-const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 
 function response<
   S extends "candidate" | "blocked",
@@ -57,11 +59,11 @@ function normalizeObservation(raw: unknown) {
     typeof value.packageContentRootSha256 !== "string" ||
     !HEX64.test(value.packageContentRootSha256) ||
     typeof value.crddVersion !== "string" ||
-    !CRDD_VERSION.test(value.crddVersion) ||
+    !isCanonicalCrddVersion(value.crddVersion) ||
     typeof value.crddCommit !== "string" ||
-    !CRDD_GIT_OBJECT_ID.test(value.crddCommit) ||
+    !isCanonicalCrddGitObjectId(value.crddCommit) ||
     typeof value.crddTree !== "string" ||
-    !CRDD_GIT_OBJECT_ID.test(value.crddTree) ||
+    !isCanonicalCrddGitObjectId(value.crddTree) ||
     value.distributionVerdict !== "verified_crdd_bundle" ||
     value.bundledPackageIdentityStable !== true ||
     value.permissionPolicyMatch !== true
@@ -78,11 +80,11 @@ export function evaluatePlatformProvisionerPackageGateCandidate(
     if (
       !input ||
       typeof input.expectedCrddVersion !== "string" ||
-      !CRDD_VERSION.test(input.expectedCrddVersion) ||
+      !isCanonicalCrddVersion(input.expectedCrddVersion) ||
       typeof input.expectedCrddCommit !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddCommit) ||
+      !isCanonicalCrddGitObjectId(input.expectedCrddCommit) ||
       typeof input.expectedCrddTree !== "string" ||
-      !CRDD_GIT_OBJECT_ID.test(input.expectedCrddTree)
+      !isCanonicalCrddGitObjectId(input.expectedCrddTree)
     ) {
       return response(
         "blocked",

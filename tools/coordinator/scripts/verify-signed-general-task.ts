@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
-
+import { interactiveConsoleAvailable } from "../src/core/interactive-console.ts";
+import {
+  isSupportedCoordinatorNodeRuntime,
+  MINIMUM_COORDINATOR_NODE_VERSION,
+} from "../src/core/node-runtime-version.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
@@ -11,13 +15,12 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
-import {
-  isSupportedCoordinatorNodeRuntime,
-  MINIMUM_COORDINATOR_NODE_VERSION,
-} from "../src/core/node-runtime-version.ts";
-import { interactiveConsoleAvailable } from "../src/core/interactive-console.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
+import {
+  isCanonicalCrddGitObjectId,
+  isCanonicalCrddVersion,
+} from "../src/security/release-identity-grammar.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
@@ -44,6 +47,13 @@ type CancellationBinding = Readonly<{
   unbind: () => void;
   requested: () => boolean;
 }>;
+type CancellationSignalSource = Readonly<{
+  on: (signal: "SIGINT" | "SIGTERM", listener: () => void) => unknown;
+  removeListener: (
+    signal: "SIGINT" | "SIGTERM",
+    listener: () => void,
+  ) => unknown;
+}>;
 type VerificationDependencies = Readonly<{
   verifyPackage: (input: Readonly<{ evaluationTime: string }>) => RuntimeRecord;
   startTask: (request: RuntimeRecord, repositoryRoot: string) => StartedTask;
@@ -59,6 +69,37 @@ type VerificationDependencies = Readonly<{
   ) => CancellationBinding;
 }>;
 
+export function bindSignedGeneralTaskCancellation(
+  signalSource: CancellationSignalSource,
+  controlCapability: object,
+  cancel: (controlCapability: object) => unknown,
+): CancellationBinding {
+  let isRequested = false;
+  let hasCancellationStarted = false;
+  const requestCancellation = () => {
+    isRequested = true;
+    if (hasCancellationStarted) return;
+    hasCancellationStarted = true;
+    try {
+      void cancel(controlCapability);
+    } catch {
+      // The final task and cleanup result remains the recovery authority.
+    }
+  };
+  signalSource.on("SIGINT", requestCancellation);
+  signalSource.on("SIGTERM", requestCancellation);
+  let isBound = true;
+  return Object.freeze({
+    unbind: () => {
+      if (!isBound) return;
+      isBound = false;
+      signalSource.removeListener("SIGINT", requestCancellation);
+      signalSource.removeListener("SIGTERM", requestCancellation);
+    },
+    requested: () => isRequested,
+  });
+}
+
 const productionDependencies: VerificationDependencies = Object.freeze({
   verifyPackage: verifyBundledCoordinatorPackageFromFixedManifestCandidate,
   startTask: startRuntimeOwnedCoordinatorTask,
@@ -68,22 +109,8 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   now: () => new Date().toISOString(),
   runtimeVersion: () => process.versions.node,
   inspectInteractiveConsole: interactiveConsoleAvailable,
-  bindCancellation: (controlCapability, cancel) => {
-    let isRequested = false;
-    const requestCancellation = () => {
-      isRequested = true;
-      void cancel(controlCapability);
-    };
-    process.on("SIGINT", requestCancellation);
-    process.on("SIGTERM", requestCancellation);
-    return Object.freeze({
-      unbind: () => {
-        process.removeListener("SIGINT", requestCancellation);
-        process.removeListener("SIGTERM", requestCancellation);
-      },
-      requested: () => isRequested,
-    });
-  },
+  bindCancellation: (controlCapability, cancel) =>
+    bindSignedGeneralTaskCancellation(process, controlCapability, cancel),
 });
 
 function plainRecord(value: unknown): RuntimeRecord | null {
@@ -139,39 +166,69 @@ function sha256(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
 }
 
-function gitObjectId(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{40}$/u.test(value);
+function boundedRecoveryIds(
+  results: readonly (RuntimeRecord | null)[],
+  singularField: string,
+  pluralField?: string,
+) {
+  const ids: string[] = [];
+  for (const result of results) {
+    const singular = result?.[singularField];
+    if (typeof singular === "string") ids.push(singular);
+    if (!pluralField) continue;
+    const plural = snapshotPlainArray<unknown>(result?.[pluralField], 128);
+    if (plural.status !== "ok") continue;
+    for (const value of plural.value) {
+      if (typeof value === "string") ids.push(value);
+    }
+  }
+  // Each of the two bounded result sources may contribute one singular ID and
+  // at most 128 plural IDs. Preserve the complete composite recovery set.
+  return Object.freeze([...new Set(ids)].slice(0, 260));
 }
 
-function recoveryProjection(result: RuntimeRecord | null) {
-  const recoveryIds = snapshotPlainArray<unknown>(
-    result?.dockerRecoveryIds,
-    128,
+function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
+  const sources = results.filter((result) => result !== null);
+  const hostRecoveryIds = boundedRecoveryIds(sources, "hostRecoveryId");
+  const dockerRecoveryIds = boundedRecoveryIds(
+    sources,
+    "dockerRecoveryId",
+    "dockerRecoveryIds",
   );
-  const dockerRecoveryIds =
-    recoveryIds.status === "ok"
-      ? recoveryIds.value.filter(
-          (value): value is string => typeof value === "string",
-        )
-      : [];
+  const candidateRecoveryIds = boundedRecoveryIds(
+    sources,
+    "candidateRecoveryId",
+    "candidateRecoveryIds",
+  );
+  const candidateStoreRecoveryIds = boundedRecoveryIds(
+    sources,
+    "candidateStoreRecoveryId",
+    "candidateStoreRecoveryIds",
+  );
   return Object.freeze({
-    cleanupConfirmed: result?.cleanupConfirmed === true,
-    manualRecoveryRequired: result?.manualRecoveryRequired === true,
-    hostRecoveryId:
-      typeof result?.hostRecoveryId === "string" ? result.hostRecoveryId : null,
+    cleanupConfirmed:
+      sources.length > 0 &&
+      sources.every((result) => result?.cleanupConfirmed === true),
+    manualRecoveryRequired: sources.some(
+      (result) => result?.manualRecoveryRequired === true,
+    ),
+    hostRecoveryId: hostRecoveryIds.length === 1 ? hostRecoveryIds[0] : null,
+    hostRecoveryIds,
     dockerRecoveryId:
-      typeof result?.dockerRecoveryId === "string"
-        ? result.dockerRecoveryId
-        : null,
-    dockerRecoveryIds: Object.freeze([...new Set(dockerRecoveryIds)]),
+      dockerRecoveryIds.length === 1 ? dockerRecoveryIds[0] : null,
+    dockerRecoveryIds,
     candidateRecoveryId:
-      typeof result?.candidateRecoveryId === "string"
-        ? result.candidateRecoveryId
-        : null,
+      candidateRecoveryIds.length === 1 ? candidateRecoveryIds[0] : null,
+    candidateRecoveryIds,
     candidateStoreRecoveryId:
-      typeof result?.candidateStoreRecoveryId === "string"
-        ? result.candidateStoreRecoveryId
+      candidateStoreRecoveryIds.length === 1
+        ? candidateStoreRecoveryIds[0]
         : null,
+    candidateStoreRecoveryIds,
+    recoveryIdentityAmbiguous:
+      hostRecoveryIds.length > 1 ||
+      candidateRecoveryIds.length > 1 ||
+      candidateStoreRecoveryIds.length > 1,
   });
 }
 
@@ -179,6 +236,9 @@ function blocked(
   reason: string,
   source: RuntimeRecord | null = null,
   extra: RuntimeRecord = Object.freeze({}),
+  additionalRecoverySources: readonly (RuntimeRecord | null)[] = Object.freeze(
+    [],
+  ),
 ) {
   const wasCanonicalRepositoryChanged =
     source?.canonicalRepositoryChanged === true
@@ -193,7 +253,7 @@ function blocked(
     contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
     status: "blocked" as const,
     reason,
-    ...recoveryProjection(source),
+    ...recoveryProjection(source, ...additionalRecoverySources),
     ...extra,
     canonicalRepositoryChanged: wasCanonicalRepositoryChanged,
     rawProviderOutputReported: false,
@@ -233,14 +293,11 @@ function verifiedPackage(
     release.runtimeOwnedPackageRoot === true &&
     sha256(release.manifestHash) &&
     sha256(release.packageContentRootSha256) &&
-    typeof release.crddVersion === "string" &&
-    /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u.test(
-      release.crddVersion,
-    ) &&
+    isCanonicalCrddVersion(release.crddVersion) &&
     Number.isSafeInteger(release.releaseSequence) &&
     Number(release.releaseSequence) >= 1 &&
-    gitObjectId(release.crddCommit) &&
-    gitObjectId(release.crddTree) &&
+    isCanonicalCrddGitObjectId(release.crddCommit) &&
+    isCanonicalCrddGitObjectId(release.crddTree) &&
     release.qualLabManifestCryptographicMatch === true &&
     release.runtimeOwnedReleaseTrustConfirmed === true &&
     release.releaseIdentityRuntimeOwned === true &&
@@ -302,8 +359,8 @@ function verifiedCandidate(
     candidate?.status !== "exported" ||
     candidate.candidateId !== candidateId ||
     bundle?.schema !== "crdd-coordinator-candidate-bundle/v1" ||
-    !gitObjectId(bundle.baseCommit) ||
-    !gitObjectId(bundle.baseTree) ||
+    !isCanonicalCrddGitObjectId(bundle.baseCommit) ||
+    !isCanonicalCrddGitObjectId(bundle.baseTree) ||
     !sha256(bundle.baseManifestHash) ||
     !sha256(bundle.patchHash) ||
     !sha256(bundle.contentManifestHash) ||
@@ -457,7 +514,7 @@ export async function runSignedGeneralTaskVerification(
       if (discarded?.status !== "discarded") {
         return blocked(
           "signed_general_task_candidate_discard_failed",
-          discarded,
+          taskResult,
           Object.freeze({
             cleanupConfirmed: false,
             manualRecoveryRequired: true,
@@ -469,6 +526,7 @@ export async function runSignedGeneralTaskVerification(
                   ? false
                   : null,
           }),
+          Object.freeze([discarded]),
         );
       }
     }

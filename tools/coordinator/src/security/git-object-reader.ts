@@ -640,6 +640,45 @@ function contentManifest(entries: readonly WorkspaceEntry[]) {
   return hash.digest("hex");
 }
 
+export function inspectGitCommitTreeCandidate(candidate: unknown) {
+  try {
+    if (
+      !candidate ||
+      typeof candidate !== "object" ||
+      Array.isArray(candidate) ||
+      Reflect.ownKeys(candidate).length !== 2 ||
+      !Reflect.ownKeys(candidate).every(
+        (key) =>
+          typeof key === "string" &&
+          ["commonDirectory", "revision"].includes(key),
+      )
+    ) {
+      return null;
+    }
+    const value = candidate as Record<string, unknown>;
+    if (
+      typeof value.commonDirectory !== "string" ||
+      !path.isAbsolute(value.commonDirectory) ||
+      typeof value.revision !== "string" ||
+      !OBJECT_ID.test(value.revision)
+    ) {
+      return null;
+    }
+    const commonDirectory = fs.realpathSync.native(value.commonDirectory);
+    const readObject = createObjectReader(commonDirectory);
+    const tree = commitTree(readObject(value.revision));
+    return Object.freeze({
+      status: "candidate" as const,
+      commit: value.revision,
+      tree,
+      externalGitCliUsed: false,
+      repositoryPathReported: false,
+    });
+  } catch {
+    return null;
+  }
+}
+
 export function materializeGitCommitTreeCandidate(candidate: unknown) {
   try {
     const candidateKeys =

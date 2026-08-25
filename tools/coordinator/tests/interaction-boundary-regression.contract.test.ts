@@ -79,6 +79,51 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
       name,
     );
   }
+  assert.equal(packageDocument.scripts?.["release-key:generate"], undefined);
+  assert.equal(packageDocument.scripts?.["release-manifest:sign"], undefined);
+
+  for (const relative of [
+    "scripts/sign-release-manifest.ts",
+    "src/core/doctor.ts",
+  ]) {
+    const source = fs.readFileSync(
+      path.join(coordinatorRoot, relative),
+      "utf8",
+    );
+    assert.equal(
+      /(?:execFile|spawn)Sync\(\s*["']git["']/u.test(source),
+      false,
+      relative,
+    );
+  }
+
+  const productionChildProcessOwners = sourceFiles(
+    path.join(coordinatorRoot, "src"),
+  )
+    .filter((file) =>
+      fs.readFileSync(file, "utf8").includes('from "node:child_process"'),
+    )
+    .map((file) => path.relative(coordinatorRoot, file).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(productionChildProcessOwners, [
+    "src/security/candidate-store-windows-adapter.ts",
+    "src/security/docker-effect-runtime.ts",
+    "src/security/docker-isolation.ts",
+    "src/security/docker-recovery-runtime-internal.ts",
+    "src/security/provider-home-windows-adapter.ts",
+    "src/security/windows-common-application-data.ts",
+  ]);
+
+  for (const directory of ["bin", "scripts", "src"]) {
+    for (const file of sourceFiles(path.join(coordinatorRoot, directory))) {
+      const source = fs.readFileSync(file, "utf8");
+      assert.equal(
+        /(?:execFile|spawn)(?:Sync)?\(\s*["']git["']/u.test(source),
+        false,
+        file,
+      );
+    }
+  }
 });
 
 test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
@@ -104,4 +149,29 @@ test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
     );
     assert.match(source, /CoordinatorNodeRuntime/u, relative);
   }
+
+  const readme = fs.readFileSync(
+    path.join(coordinatorRoot, "README.md"),
+    "utf8",
+  );
+  assert.match(
+    readme,
+    /<absolute-preverified-node-24\.12\+-executable> <absolute-crdd-source-root>\\tools\\coordinator\\scripts\\generate-release-key\.ts/u,
+  );
+  assert.match(
+    readme,
+    /<absolute-preverified-node-24\.12\+-executable> <absolute-crdd-source-root>\\tools\\coordinator\\scripts\\sign-release-manifest\.ts/u,
+  );
+  assert.match(
+    readme,
+    /<absolute-preverified-node-24\.12\+-executable> <absolute-crdd-source-root>\\tools\\coordinator\\bin\\coordinator\.ts doctor/u,
+  );
+  assert.equal(readme.includes("$CRDD_NODE"), false);
+  assert.equal(readme.includes("$CRDD_COORDINATOR"), false);
+  assert.equal(
+    /<absolute-preverified-node-24\.12\+-executable> tools\/coordinator\/scripts\/(?:generate-release-key|sign-release-manifest)\.ts/u.test(
+      readme,
+    ),
+    false,
+  );
 });

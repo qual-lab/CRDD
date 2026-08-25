@@ -4,7 +4,6 @@ import {
   createPublicKey,
   sign,
 } from "node:crypto";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +26,8 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
+import { inspectGitCommitTreeCandidate } from "../src/security/git-object-reader.ts";
+import { resolveRepositoryGitLayout } from "../src/security/repository-git-layout-internal.ts";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const MAXIMUM_PRIVATE_KEY_BYTES = 16 * 1024;
@@ -150,18 +151,16 @@ function signingPassphrase(rawPassphrase: unknown) {
 }
 
 function verifyCommitTreeBinding(crddCommit: string, crddTree: string) {
-  const resolveRevision = (revision: string) =>
-    execFileSync("git", ["rev-parse", "--verify", revision], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-      windowsHide: true,
-      timeout: 10_000,
-      maxBuffer: 4_096,
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  const verifiedCommit = resolveRevision(`${crddCommit}^{commit}`);
-  const verifiedTree = resolveRevision(`${crddCommit}^{tree}`);
-  if (verifiedCommit !== crddCommit || verifiedTree !== crddTree) {
+  const layout = resolveRepositoryGitLayout(repositoryRoot);
+  const identity = inspectGitCommitTreeCandidate({
+    commonDirectory: layout.commonDirectory.realPath,
+    revision: crddCommit,
+  });
+  if (
+    identity?.status !== "candidate" ||
+    identity.commit !== crddCommit ||
+    identity.tree !== crddTree
+  ) {
     throw new Error("release_manifest_commit_tree_mismatch");
   }
 }

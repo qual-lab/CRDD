@@ -960,7 +960,7 @@ Qual-Labの人間の決定権限者は、公開鍵検証とOS保護を組み合�
 
 承認済みの4点結合をexact schemaへ反映し、manifest revision 1の旧`crddRevision`単独fieldを互換aliasなしで`crddVersion`、`crddCommit`、`crddTree`へ置換した。`packageContentRootSha256`と合わせた4値を署名対象へ含め、Gateの期待値と配布観測も同じ4値へ移行する。旧schemaはCandidate時点の履歴であり、現在判定へ使用しない。
 
-OpenSSLがない環境でも人間のRelease操作を安全に継続できるよう、Node.js 24.12の暗号APIを使うprivate保守command `release-key:generate`を追加した。新規のRepository外絶対Pathだけを受理し、対話端末で非表示入力した20文字以上のpassphraseによりEd25519秘密鍵をAES-256-CBC暗号化PKCS#8 PEMとして保存し、公開SPKI DERとSHA-256 key IDだけを返す。既存Path、Repository内Path、短いpassphraseまたは非対話実行を拒否し、秘密鍵を出力結果へ含めない。これは実鍵の生成をAIまたは通常Runtimeへ移すものではなく、人間が明示実行するRelease保守入口である。Trust Anchor投入、Manifest署名、ReleaseおよびEffectは別工程のまま維持する。
+OpenSSLがない環境でも人間のRelease操作を安全に継続できるよう、Node.js 24.12の暗号APIを使うprivate保守entrypoint `scripts/generate-release-key.ts`を追加した。新規のRepository外絶対Pathだけを受理し、対話端末で非表示入力した20文字以上のpassphraseによりEd25519秘密鍵をAES-256-CBC暗号化PKCS#8 PEMとして保存し、公開SPKI DERとSHA-256 key IDだけを返す。既存Path、Repository内Path、短いpassphraseまたは非対話実行を拒否し、秘密鍵を出力結果へ含めない。これは実鍵の生成をAIまたは通常Runtimeへ移すものではなく、人間が検証済みNodeとRepository所有entrypointの絶対Pathを指定して明示実行するRelease保守入口である。Trust Anchor投入、Manifest署名、ReleaseおよびEffectは別工程のまま維持する。
 
 自己確認ではCoordinator 263 / 263、Checker 150 / 150、命名／参照5 / 5、Coordinator private packageの型検査／Biome Lint／Formatter、および全体Checker 416 files／288 Markdown／Error 0／Warning 0がPassした。実Release鍵は人間の非表示passphrase入力を要するため、この固定版の機械試験では一時試験鍵だけを生成して暗号化秘密鍵、公開鍵導出、非漏洩および拒否境界を確認した。本処置は`Applied`／`Self-checked`であり、独立レビューと実公開鍵の投入前は`Resolved`、採用、統合、準拠、StableまたはReleaseではない。
 
@@ -980,7 +980,7 @@ OpenSSLがない環境でも人間のRelease操作を安全に継続できるよ
 
 固定Pathの署名済みRelease manifestについて、対象Commit／Treeとmanifest自身の循環を避ける配布境界を固定した。manifestは対象Git Treeへ含めず、対象Treeを外部の配布ステージングRootへ展開した後、固定Path`90_Release/coordinator-package-manifest.json`へ後置する配布成果物とする。Repository内または対象Treeへmanifestを生成する互換経路は設けない。
 
-private保守command `release-manifest:sign`は、Repository外の絶対ステージングRoot、Repository外の暗号化秘密鍵、CRDD Version／Commit／Tree、canonical UTCの発行／失効時刻を明示入力とする。配布Rootの`tools/coordinator`を既存のnon-link同一handle観測で再計算し、package名／version／content root、Root保護Policyと鍵保管PolicyのRFC 8785 canonical byteに対するSHA-256、CRDD Identityおよび有効期間をrevision 1 payloadへ結ぶ。秘密鍵から導出した公開SPKIがCRDDへ固定したQual-Lab公開鍵と完全一致する場合だけEd25519署名し、既存manifestを上書きしない。passphrase、秘密鍵、生manifest messageまたは鍵Pathを結果へ出力しない。
+private保守entrypoint `scripts/sign-release-manifest.ts`は、Repository外の絶対ステージングRoot、Repository外の暗号化秘密鍵、CRDD Version／Commit／Tree、canonical UTCの発行／失効時刻を明示入力とする。配布Rootの`tools/coordinator`を既存のnon-link同一handle観測で再計算し、package名／version／content root、Root保護Policyと鍵保管PolicyのRFC 8785 canonical byteに対するSHA-256、CRDD Identityおよび有効期間をrevision 1 payloadへ結ぶ。秘密鍵から導出した公開SPKIがCRDDへ固定したQual-Lab公開鍵と完全一致する場合だけEd25519署名し、既存manifestを上書きしない。passphrase、秘密鍵、生manifest messageまたは鍵Pathを結果へ出力しない。保護操作用package aliasは持たず、検証済みNodeとRepository所有entrypointの絶対Pathからだけ開始する。
 
 固定Path loader候補は上限131072 byte、BOMなしstrict UTF-8、RFC 8785 canonical byte完全一致、non-link、読取り前後と同一handleのFilesystem Identity一致を要求する。Runtime用の同梱package検証入口はmodule相対のCRDD配布Rootからこの固定manifestを取得し、固定公開鍵、package content rootおよび期待CRDD Identityへ渡せる。ただし期待CRDD IdentityをRuntime所有の検証済みReleaseから取得するloaderは未実装であり、callerの期待値、source checkoutまたはmanifest自身からRelease Identityを成立させない。
 
@@ -1438,7 +1438,7 @@ Task admissionは新Operationの最初の記録より前に同じRoot inventory�
 
 固定Commit `d4cbdff079e5e2270b71263d6edbfe32e5332dd1`／Tree `d9cdf6265ab09cdac6dacde0bded41b6bd107a81`へのAgent／Architecture／Security再レビュー、Document Audit、Gap／Impact AuditおよびConformance Auditは、Critical／Major／Minor 0件で全て`Pass`した。`AG-DRR-016-01`は`Resolved`、第十七次以前のFindingも解消維持と判定された。確認範囲はbase／base-commit move anchor、4種のpointer解放後Evidence、committed／journal pointer、同一／別Home A/B、Task admission／明示Recoveryのmutation前停止、正式Host begin、host-complete receipt前後、crash-absenceおよび正式pointer delete journal回復を含む。追加是正と現在の人間判断は不要である。
 
-現在の未完了Gateは正式署名配布物上の一般Task実runである。Release鍵passphrase、必要なOAuth再認証および外部Provider送信は人間操作・判断として残し、就寝中または無人状態で開始しない。そのrunと終了後の残存0確認が完了する前は、Coordinator Runtime 1.0完成、PR最終候補、統合、StableまたはReleaseへ昇格しない。Issue #30は引き続き`CHG-000013`所有でありcloseしない。
+`d4cbdff`固定版時点の未完了Gateは正式署名配布物上の一般Task実runだった。Release鍵passphrase、必要なOAuth再認証および外部Provider送信は人間操作・判断として残し、就寝中または無人状態で開始しない。そのrunと終了後の残存0確認が完了する前は、Coordinator Runtime 1.0完成、PR最終候補、統合、StableまたはReleaseへ昇格しない。Issue #30は引き続き`CHG-000013`所有でありcloseしない。
 
 ##### 正式署名一般Taskの対話・搬送境界是正
 
@@ -1467,3 +1467,15 @@ READMEは`d4cbdff`のPassを同固定版の履歴へ限定し、現固定版の�
 同根のsession後退を追加走査した結果、Node version判定が`doctor`と新Gate、OS対話console取得が外部送信Grantと正式Runnerに重複していたため、それぞれ一つの共通contractへ収束した。packageのNode要件も`>=24.12.0`へcanonical化した。実行sourceへ`StandardInputEncoding`、`Start-Process`、`ConvertTo-Json`または`shell:true`を再導入した場合、対話console deviceを共通module外で直接所有した場合、packageと共通Node要件がずれた場合、および保護対象入口がNode Gateを外した場合に失敗する回帰試験を追加した。全`tools/**`の正本である内部Toolコーディング規約へ、Shell非依存の構造化搬送、direct TTY／固定console、実行Runtimeの親子結合、module基準Pathおよび起動Directory差の検証を追加した。実測では親npmをNode 24で起動してもpackage scriptの裸の`node`がPATH上のNode 22.18へ戻る状態をGateがEffect前に拒否し、試験側のRepository root CWD仮定もCoordinator package CWDからの全試験で検出した。後者は`import.meta.dirname`基準の絶対Pathへ是正した。
 
 本処置は`Applied`／`Self-checked`である。Node.js 24.19.0のCoordinator全754試験、Node／対話／正式Runner重点14試験、外部送信／doctorを含む水平重点76試験、Checker全153試験、および両private packageのstrict typecheck／Biome Lint／FormatterをPassした。正式Runner重点coverageはline 91.74%／branch 81.68%／function 80.00%、共通Node Gateはline／function 100.00%だった。全体Checkerは703 files／387 Markdown／2240 links／621 anchors／33 Related／32 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Treeへの同じ独立再レビュー／再監査が完了する前に署名または実Provider runへ進まない。
+
+##### `9611b73`正式署名Runner独立再レビューの是正
+
+固定Commit `9611b738d3d7f3b6fbb7b957b76365fc6595efd0`／Tree `11caf11b05a538af6a1fbc50b575e0095a1c9077`へのArchitecture／Security、Document／GapおよびTest／UX独立再レビューは、旧Major Findingの解消を確認した一方、Major 4件、Minor 2件として`Fail`とした。Task側とCandidate discard側が同時に失敗した場合にRunnerがTask側のHost／Docker／Candidate Recovery Identityを落とした。Release署名と受動`doctor`がPATH上の外部Git CLIを再選択し、保護操作用package aliasと相対entrypointが、絶対Pathで起動した親Nodeから別Nodeへ後退できた。RunnerだけがRelease IdentityのGit IDとVersion grammarを狭く複製し、実SIGINT／SIGTERM bindingのexact onceと解除を直接確認していなかった。READMEには現在版の再レビュー待ちと完了済み表示が競合していた。旧固定版の部分Passを現在判定へ流用せず、追加の人間判断は不要である。
+
+是正では、Task Resultとdiscard Resultを同時に受けるbounded Recovery projectionへ変更し、Host、Docker、CandidateおよびCandidate Storeの全ID集合を重複排除して保持する。単数Identityが競合する場合は単数fieldを`null`、複数fieldへ全候補を保持し、`recoveryIdentityAmbiguous: true`として手動回復へ閉じる。Candidate ID以外のPath、raw Provider出力または自動回復範囲は追加しない。SIGINT／SIGTERM binderは取消をexact onceにし、取消処理のthrowをTask／cleanup結果へ優先させず、Candidate disposition終了後の冪等unbindまでを直接試験する。
+
+Release Identity grammarは40／64文字の小文字Git Object IDとprereleaseを含むVersionを一つのRepository所有moduleへ集約し、Trust、package filesystem、package gate、active pointerおよび正式Runnerで共有する。Release署名は指定CommitのCommit／TreeをRepository所有のbounded Git object readerから読み、`doctor`も同じreaderで現在HEADのCommit／Tree候補だけを受動観測する。外部Git CLI、PATH探索、working tree clean claimまたはRepository Path公開を使わない。保護操作用の鍵生成／Manifest署名package aliasを削除し、人間向けcommandは検証済みNode実行ファイルとRepository所有entrypointの双方を絶対Pathへ固定する。一般の型検査、静的解析、試験またはbuild用package scriptは保護操作Authorityではなく、Node要件不一致を明示停止する開発用orchestrationとして分離する。
+
+同根箇所を、全production `child_process`利用、package command、README、Release鍵、Manifest署名、一般Task、外部送信、OAuth、Provider packet、Docker、Candidate、Recovery、Windows Known FolderおよびGitへ再走査した。PowerShell text pipeline、`StandardInputEncoding`、`ConvertTo-Json`、`Start-Process`、`shell:true`およびPATH Gitは実行sourceに残っていない。残る子Processは、事前検証済みnative helper、Hash／byte長／Filesystem Identityを固定したDocker CLI、System32の固定`taskkill.exe`、または固定SystemRoot配下PowerShellによるcaller入力なしの固定Known Folder読取りであり、いずれもShell再解釈を使用しない。回帰試験は保護操作用package alias、相対Release entrypoint、PATH Git、Release grammar複製、Shell搬送、共通console迂回およびNode Gate迂回を再導入時に拒否する。
+
+本処置は`Applied`／`Self-checked`である。Node.js 24.19.0のCoordinator全759試験、Node／対話／正式Runner重点13試験、Checker全153試験、Coordinator private packageの2 TypeScript project、Biome Lint／Formatter、Repository全体Checkerおよび`git diff --check`をPassした。正式Runner重点coverageはline 94.32%／branch 83.33%／function 88.46%、共通Node Gateはline／function 100.00%だった。全体Checkerは705 files／387 Markdown／2240 links／621 anchors／33 Related／32 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Treeと同じ独立再レビュー／再監査の全Pass前は`Resolved`、Runtime完成、PR最終候補または正式署名実run可能へ昇格しない。Release鍵passphrase、OAuth再認証および外部Provider送信は引き続き人間操作・判断である。

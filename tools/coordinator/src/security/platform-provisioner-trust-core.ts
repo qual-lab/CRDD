@@ -25,6 +25,10 @@ import {
   NATIVE_PROVISION_SUPERVISOR_RUST_TOOLCHAIN,
   NATIVE_PROVISION_SUPERVISOR_TARGET,
 } from "./native-provision-supervisor-release.ts";
+import {
+  isCanonicalCrddGitObjectId,
+  isCanonicalCrddVersion,
+} from "./release-identity-grammar.ts";
 
 export const PLATFORM_PROVISIONER_MANIFEST_REVISION = 2;
 export const PLATFORM_PROVISIONER_MANIFEST_CONTRACT =
@@ -90,8 +94,6 @@ const VERIFY_KEYS = new Set([
 ]);
 const COMPILE_KEYS = new Set(["manifestPayload"]);
 const HEX64 = /^[0-9a-f]{64}$/u;
-const CRDD_GIT_OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
-const CRDD_VERSION = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 const PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/u;
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
@@ -230,14 +232,14 @@ function normalizeManifest(raw: unknown) {
     typeof value.packageVersion !== "string" ||
     !packageIdentity(value.packageName, value.packageVersion) ||
     typeof value.crddVersion !== "string" ||
-    !CRDD_VERSION.test(value.crddVersion) ||
+    !isCanonicalCrddVersion(value.crddVersion) ||
     typeof value.releaseSequence !== "number" ||
     !Number.isSafeInteger(value.releaseSequence) ||
     value.releaseSequence < 1 ||
     typeof value.crddCommit !== "string" ||
-    !CRDD_GIT_OBJECT_ID.test(value.crddCommit) ||
+    !isCanonicalCrddGitObjectId(value.crddCommit) ||
     typeof value.crddTree !== "string" ||
-    !CRDD_GIT_OBJECT_ID.test(value.crddTree) ||
+    !isCanonicalCrddGitObjectId(value.crddTree) ||
     typeof value.packageContentRootSha256 !== "string" ||
     !HEX64.test(value.packageContentRootSha256) ||
     typeof value.rootProtectionPolicySha256 !== "string" ||

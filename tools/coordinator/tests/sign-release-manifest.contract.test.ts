@@ -6,13 +6,13 @@ import path from "node:path";
 import test from "node:test";
 
 import { generateReleaseKeyPair } from "../scripts/generate-release-key.ts";
-import { signReleaseManifest } from "../scripts/sign-release-manifest.ts";
 import {
   beginReleaseStagingManifestSession,
   describeReleaseStagingManifestContract,
   placeReleaseStagingManifestCandidate,
   ReleaseStagingManifestError,
 } from "../scripts/release-staging-manifest.ts";
+import { signReleaseManifest } from "../scripts/sign-release-manifest.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { createNativeBootstrapPeFixture } from "./native-bootstrap-pe-fixture.ts";
 
@@ -87,6 +87,17 @@ test("production署名sourceはTrust差替え、検証skipまたはtest hookを�
   assert.deepEqual(stagingImporters.sort(), [
     "scripts/sign-release-manifest.ts",
   ]);
+
+  const signerSource = fs.readFileSync(
+    path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+    "utf8",
+  );
+  assert.equal(signerSource.includes('from "node:child_process"'), false);
+  assert.equal(
+    /(?:execFile|spawn)Sync\(\s*["']git["']/u.test(signerSource),
+    false,
+  );
+  assert.match(signerSource, /inspectGitCommitTreeCandidate/u);
 });
 
 function ephemeralEnvelopeBytes() {

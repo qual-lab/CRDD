@@ -148,7 +148,7 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.length !== 2 || args[0] !== "--output") {
     throw new Error(
-      "usage: npm run release-key:generate -- --output <absolute-new-directory>",
+      "usage: <absolute-preverified-node-24.12+-executable> <absolute-crdd-source-root>\\tools\\coordinator\\scripts\\generate-release-key.ts --output <absolute-new-directory>",
     );
   }
   const first = await readHiddenLine("Release key passphrase: ");
