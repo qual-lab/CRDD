@@ -4,7 +4,7 @@ Local PersonalのSubscription OfferingはCodexの`chatgpt_subscription_oauth`と
 
 Status: Implementation Candidate
 
-固定Commit `747d5bbdfb057bd10b0e2313226c1de8cf9bd206`の第十七次監査は、Document／Gap／Impact／ConformanceがFinding 0件で`Pass`だった一方、Agent／Architecture／Securityがactive pointerのexact active window不足をMajor 1件で`Fail`だった。第十八次是正はDocker Recovery Runtime contract revision 14へ更新し、active pointerを両bootstrap pair完了、Root source／move intent不存在、通常Operation inventory、exact `host-begin-intent`およびbase initial Host lineage一致へ結合したうえで、lease解放receipt、通常完了およびHost cleanup開始・完了Evidenceの不存在も要求する。partial、pre-host-intent、move anchor残存またはpointer解放後状態のpointerはRecovery ID空で停止し、pointer journalもAuthority Evidenceへ採用しない。現在の未完了Gateは新固定版への同じ独立再レビュー／再監査と、そのPass後の正式署名一般Task実runである。
+固定Commit `d4cbdff079e5e2270b71263d6edbfe32e5332dd1`／Tree `d9cdf6265ab09cdac6dacde0bded41b6bd107a81`の第十八次Agent／Architecture／Security再レビュー、Document Audit、Gap／Impact AuditおよびConformance Auditは、Critical／Major／Minor 0件で全て`Pass`し、`AG-DRR-016-01`を`Resolved`とした。Docker Recovery Runtime contract revision 14はactive pointerを両bootstrap pair完了、Root source／move intent不存在、通常Operation inventory、exact `host-begin-intent`およびbase initial Host lineage一致へ結合したうえで、lease解放receipt、通常完了およびHost cleanup開始・完了Evidenceの不存在も要求する。partial、pre-host-intent、move anchor残存またはpointer解放後状態のpointerはRecovery ID空で停止し、pointer journalもAuthority Evidenceへ採用しない。現在の未完了Gateは正式署名配布物上の一般Task実runであり、それが完了する前はRuntime完成、PR最終候補、StableまたはReleaseへ昇格しない。
 
 ### 現行revisionのProvider Home／Docker Task回復補正
 
