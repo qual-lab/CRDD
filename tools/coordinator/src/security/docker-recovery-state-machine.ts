@@ -62,12 +62,12 @@ export function classifyCommittedPairMoveState(
 export function classifyCleanupDirectoryState(
   directoryPresent: boolean,
   unknownEntryPresent: boolean,
-  identityOrContentMismatch: boolean,
+  hasIdentityOrContentMismatch: boolean,
   expectedEntryCount: number,
 ) {
   if (
     unknownEntryPresent ||
-    identityOrContentMismatch ||
+    hasIdentityOrContentMismatch ||
     !Number.isSafeInteger(expectedEntryCount) ||
     expectedEntryCount < 0
   )

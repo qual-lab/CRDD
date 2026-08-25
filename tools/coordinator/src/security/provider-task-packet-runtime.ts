@@ -133,10 +133,10 @@ function normalizedPaths(value: unknown) {
   if (snapshot.status !== "ok" || snapshot.value.length === 0) return null;
   const paths = snapshot.value.map(normalizedAllowedPath);
   if (paths.some((item) => item === null)) return null;
-  const normalized = paths as string[];
-  const unique = new Set(normalized.map((item) => item.toUpperCase()));
-  return unique.size === normalized.length
-    ? Object.freeze([...normalized])
+  const normalizedPaths = paths as string[];
+  const unique = new Set(normalizedPaths.map((item) => item.toUpperCase()));
+  return unique.size === normalizedPaths.length
+    ? Object.freeze([...normalizedPaths])
     : null;
 }
 

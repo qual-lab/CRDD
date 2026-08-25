@@ -8,7 +8,7 @@
     "format": "biome format --write ../..",
     "format:check": "biome format ../..",
     "lint": "biome lint ../.. --error-on-warnings",
-    "test": "node --test ./*.test.ts",
+    "test": "node ./test-runner.ts",
     "typecheck": "tsc -p ./tsconfig.json",
     "verify:repository": "node ./crdd-check.ts --root ../.. --json --summary"
   },

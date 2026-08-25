@@ -270,7 +270,7 @@ function allowedPaths(rawAllowedPaths: unknown) {
     rawAllowedPaths.length > MAXIMUM_ALLOWED_PATHS
   )
     return null;
-  const result: string[] = [];
+  const normalizedAllowedPaths: string[] = [];
   try {
     const descriptors = Object.getOwnPropertyDescriptors(rawAllowedPaths);
     for (let index = 0; index < rawAllowedPaths.length; index += 1) {
@@ -286,16 +286,19 @@ function allowedPaths(rawAllowedPaths: unknown) {
         ? descriptor.value.slice(0, -1)
         : descriptor.value;
       if (!validRelativePath(relativePath)) return null;
-      result.push(isDirectory ? `${relativePath}/` : relativePath);
+      normalizedAllowedPaths.push(
+        isDirectory ? `${relativePath}/` : relativePath,
+      );
     }
   } catch {
     return null;
   }
-  const unique = [...new Set(result)].sort((left, right) =>
-    Buffer.from(left).compare(Buffer.from(right)),
+  const uniqueAllowedPaths = [...new Set(normalizedAllowedPaths)].sort(
+    (left, right) => Buffer.from(left).compare(Buffer.from(right)),
   );
-  return unique.length === result.length && unique.length > 0
-    ? Object.freeze(unique)
+  return uniqueAllowedPaths.length === normalizedAllowedPaths.length &&
+    uniqueAllowedPaths.length > 0
+    ? Object.freeze(uniqueAllowedPaths)
     : null;
 }
 

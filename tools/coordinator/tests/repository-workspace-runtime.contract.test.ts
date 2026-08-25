@@ -265,7 +265,7 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
     runtime.mountCapability,
   );
   assert.ok(materialized);
-  const dynamic = new Proxy([], {
+  const dynamicAllowedPaths = new Proxy([], {
     getOwnPropertyDescriptor() {
       throw new Error("must not execute");
     },
@@ -276,7 +276,7 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
       runtime.bound.repositoryBindingCapability,
       runtime.managementCapability,
       runtime.mountCapability,
-      dynamic,
+      dynamicAllowedPaths,
     ),
     null,
   );

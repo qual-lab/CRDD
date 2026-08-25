@@ -47,10 +47,10 @@ const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SECOND_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-const STABLE_HOME = "1".repeat(64);
-const OPERATION_NONCE = "2".repeat(64);
-const BASE_HASH = "3".repeat(64);
-const DOCKER_TASK_RECOVERY_ID = `docker-task.${STABLE_HOME}.${OPERATION_NONCE}.${BASE_HASH}`;
+const stableHome = "1".repeat(64);
+const operationNonce = "2".repeat(64);
+const baseHash = "3".repeat(64);
+const dockerTaskRecoveryId = `docker-task.${stableHome}.${operationNonce}.${baseHash}`;
 
 function verifiedRoot(rootPath: string) {
   return Object.freeze({
@@ -485,7 +485,7 @@ function createKilledProductionCleanupRoot() {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-recovery-test-"),
   );
-  addKilledProductionCleanup(root, STABLE_HOME, OPERATION_NONCE, BASE_HASH);
+  addKilledProductionCleanup(root, stableHome, operationNonce, baseHash);
   return root;
 }
 
@@ -766,7 +766,7 @@ function exactContainerRunner(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
     dockerId,
     removeCount: () => removeCount,
-    run(argv: readonly string[]) {
+    runDockerCommand(argv: readonly string[]) {
       if (argv[1] === "inspect")
         return dockerResult(JSON.stringify([inspected]));
       if (argv[1] === "rm") {
@@ -1015,13 +1015,13 @@ test("production facadeとpackage exportsはcaller Root／observer／runner seam
   ])
     assert.equal(facade.includes(symbol), false, symbol);
   for (const root of ["src", "bin"]) {
-    const pending = [path.resolve(root)];
-    while (pending.length > 0) {
-      const current = pending.pop();
+    const pendingSourcePaths = [path.resolve(root)];
+    while (pendingSourcePaths.length > 0) {
+      const current = pendingSourcePaths.pop();
       assert.ok(current);
       for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
         const target = path.join(current, entry.name);
-        if (entry.isDirectory()) pending.push(target);
+        if (entry.isDirectory()) pendingSourcePaths.push(target);
         else if (
           entry.isFile() &&
           entry.name.endsWith(".ts") &&
@@ -1077,9 +1077,9 @@ test("RuntimeState inventoryはlock release false／throwを成功へ投影し�
       );
     const recoveryId = addKilledProductionCleanup(
       rootPath,
-      STABLE_HOME,
-      OPERATION_NONCE,
-      BASE_HASH,
+      stableHome,
+      operationNonce,
+      baseHash,
     );
     assert.deepEqual(
       inspectDockerRecoveryRootSnapshotWithLock(root, () => ({
@@ -1124,7 +1124,7 @@ test("production inventoryは別Homeの複数base move中間状態をexact ID別
 test("production inventoryはbase／base-commit moveの全境界を同一／別Homeともexact ID別に列挙する", () => {
   for (const move of ["base", "base_commit"] as const) {
     for (const killAfterRename of [1, 2, 3] as const) {
-      for (const sameHome of [false, true]) {
+      for (const isSameHome of [false, true]) {
         const rootPath = fs.mkdtempSync(
           path.join(os.tmpdir(), "crdd-runtime-base-commit-move-test-"),
         );
@@ -1140,7 +1140,7 @@ test("production inventoryはbase／base-commit moveの全境界を同一／別H
             rootPath,
             "b",
             move,
-            sameHome ? "a" : "b",
+            isSameHome ? "a" : "b",
             killAfterRename,
           );
           const beforeIntents = inspectDockerRecoveryJournalDirectory(rootPath);
@@ -1153,7 +1153,9 @@ test("production inventoryはbase／base-commit moveの全境界を同一／別H
           const secondIdentity = fs.lstatSync(secondAnchor, { bigint: true });
           const secondNonce = second.split(".")[2];
           assert.ok(secondNonce);
-          const secondTree = snapshotRecoveryTree(rootPath).filter(
+          const secondRecoveryTreeEntries = snapshotRecoveryTree(
+            rootPath,
+          ).filter(
             (entry) =>
               entry.name.includes(secondNonce) ||
               entry.name === secondIntent.name,
@@ -1172,7 +1174,7 @@ test("production inventoryはbase／base-commit moveの全境界を同一／別H
                 entry.name.includes(secondNonce) ||
                 entry.name === secondIntent.name,
             ),
-            secondTree,
+            secondRecoveryTreeEntries,
           );
 
           assert.equal(
@@ -1204,7 +1206,7 @@ test("production inventoryはbase／base-commit moveの全境界を同一／別H
                 entry.name.includes(secondNonce) ||
                 entry.name === secondIntent.name,
             ),
-            secondTree,
+            secondRecoveryTreeEntries,
           );
           const afterIdentity = fs.lstatSync(secondAnchor, { bigint: true });
           assert.deepEqual(
@@ -1245,7 +1247,7 @@ test("production inventoryはpending base-only／両pending pair／空Directory�
     "empty_directory",
     "base_complete",
   ] as const) {
-    for (const sameHome of [false, true]) {
+    for (const isSameHome of [false, true]) {
       const rootPath = fs.mkdtempSync(
         path.join(os.tmpdir(), "crdd-runtime-bootstrap-state-test-"),
       );
@@ -1255,16 +1257,19 @@ test("production inventoryはpending base-only／両pending pair／空Directory�
           rootPath,
           "b",
           state,
-          sameHome ? "a" : "b",
+          isSameHome ? "a" : "b",
         );
-        const before = snapshotRecoveryTree(rootPath);
+        const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
         const result = inspectDockerRecoveryRootSnapshotWithLock(
           verifiedRoot(rootPath),
           () => Object.freeze({ release: () => true }),
         );
-        assert.equal(result.status, "completed", `${state}:${sameHome}`);
+        assert.equal(result.status, "completed", `${state}:${isSameHome}`);
         assert.deepEqual(result.dockerRecoveryIds, [first, second].sort());
-        assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+        assert.deepEqual(
+          snapshotRecoveryTree(rootPath),
+          beforeRecoveryTreeEntries,
+        );
       } finally {
         fs.rmSync(rootPath, { recursive: true, force: true });
       }
@@ -1298,14 +1303,17 @@ test("production inventoryはno-intentのRoot source／target重複を第三状�
           "base-commit.json",
         );
       }
-      const before = snapshotRecoveryTree(rootPath);
+      const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
       const result = inspectDockerRecoveryRootSnapshotWithLock(
         verifiedRoot(rootPath),
         () => Object.freeze({ release: () => true }),
       );
       assert.equal(result.status, "blocked", duplicate);
       assert.deepEqual(result.dockerRecoveryIds, []);
-      assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+      assert.deepEqual(
+        snapshotRecoveryTree(rootPath),
+        beforeRecoveryTreeEntries,
+      );
     } finally {
       fs.rmSync(rootPath, { recursive: true, force: true });
     }
@@ -1352,14 +1360,17 @@ test("production inventoryはpending base-onlyの改変・置換・orphanを採�
           ),
           "{}\n",
         );
-      const before = snapshotRecoveryTree(rootPath);
+      const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
       const result = inspectDockerRecoveryRootSnapshotWithLock(
         verifiedRoot(rootPath),
         () => Object.freeze({ release: () => true }),
       );
       assert.equal(result.status, "blocked", mutation);
       assert.deepEqual(result.dockerRecoveryIds, []);
-      assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+      assert.deepEqual(
+        snapshotRecoveryTree(rootPath),
+        beforeRecoveryTreeEntries,
+      );
     } finally {
       fs.rmSync(rootPath, { recursive: true, force: true });
       if (external) fs.rmSync(external, { recursive: true, force: true });
@@ -1382,7 +1393,7 @@ test("production inventoryはpointer生成前の全bootstrap状態にactive poin
     Object.freeze({ move: "full" as const, boundary: 2 as const }),
   ];
   for (const state of states) {
-    for (const sameHome of [false, true]) {
+    for (const isSameHome of [false, true]) {
       const rootPath = fs.mkdtempSync(
         path.join(os.tmpdir(), "crdd-runtime-premature-pointer-test-"),
       );
@@ -1394,9 +1405,9 @@ test("production inventoryはpointer生成前の全bootstrap状態にactive poin
           "a",
           state.boundary,
         );
-        addSplitRootBaseMove(rootPath, "b", "full", sameHome ? "a" : "b");
+        addSplitRootBaseMove(rootPath, "b", "full", isSameHome ? "a" : "b");
         addActivePointer(rootPath, recoveryId);
-        const before = snapshotRecoveryTree(rootPath);
+        const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
         const result = inspectDockerRecoveryRootSnapshotWithLock(
           verifiedRoot(rootPath),
           () => Object.freeze({ release: () => true }),
@@ -1404,10 +1415,13 @@ test("production inventoryはpointer生成前の全bootstrap状態にactive poin
         assert.equal(
           result.status,
           "blocked",
-          `${state.move}:${state.boundary}:${sameHome}`,
+          `${state.move}:${state.boundary}:${isSameHome}`,
         );
         assert.deepEqual(result.dockerRecoveryIds, []);
-        assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+        assert.deepEqual(
+          snapshotRecoveryTree(rootPath),
+          beforeRecoveryTreeEntries,
+        );
       } finally {
         fs.rmSync(rootPath, { recursive: true, force: true });
       }
@@ -1418,10 +1432,15 @@ test("production inventoryはpointer生成前の全bootstrap状態にactive poin
 test("production inventoryはmove anchor残存中のcommitted／journal pointerを採用しない", () => {
   for (const logicalKey of ["base.json", "base-commit.json"] as const) {
     for (const pointerState of ["committed", "journal"] as const) {
-      for (const sameHome of [false, true]) {
+      for (const isSameHome of [false, true]) {
         const fixture = createKilledFullProductionRecoveryRoot("previous");
         try {
-          addSplitRootBaseMove(fixture.root, "b", "full", sameHome ? "c" : "b");
+          addSplitRootBaseMove(
+            fixture.root,
+            "b",
+            "full",
+            isSameHome ? "c" : "b",
+          );
           leaveCommittedPairMoveAnchor(
             fixture.root,
             fixture.recoveryId,
@@ -1429,7 +1448,7 @@ test("production inventoryはmove anchor残存中のcommitted／journal pointer�
           );
           if (pointerState === "journal")
             leaveActivePointerDeleteJournal(fixture.root, fixture.recoveryId);
-          const before = snapshotRecoveryTree(fixture.root);
+          const beforeRecoveryTreeEntries = snapshotRecoveryTree(fixture.root);
           const result = inspectDockerRecoveryRootSnapshotWithLock(
             verifiedRoot(fixture.root),
             () => Object.freeze({ release: () => true }),
@@ -1437,10 +1456,13 @@ test("production inventoryはmove anchor残存中のcommitted／journal pointer�
           assert.equal(
             result.status,
             "blocked",
-            `${logicalKey}:${pointerState}:${sameHome}`,
+            `${logicalKey}:${pointerState}:${isSameHome}`,
           );
           assert.deepEqual(result.dockerRecoveryIds, []);
-          assert.deepEqual(snapshotRecoveryTree(fixture.root), before);
+          assert.deepEqual(
+            snapshotRecoveryTree(fixture.root),
+            beforeRecoveryTreeEntries,
+          );
         } finally {
           fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
           fs.rmSync(fixture.hostMarker, { force: true });
@@ -1460,10 +1482,15 @@ test("production inventoryはpointer解放後Evidenceとcommitted／journal poin
   ] as const;
   for (const evidenceName of evidenceNames) {
     for (const pointerState of ["committed", "journal"] as const) {
-      for (const sameHome of [false, true]) {
+      for (const isSameHome of [false, true]) {
         const fixture = createKilledFullProductionRecoveryRoot("previous");
         try {
-          addSplitRootBaseMove(fixture.root, "b", "full", sameHome ? "c" : "b");
+          addSplitRootBaseMove(
+            fixture.root,
+            "b",
+            "full",
+            isSameHome ? "c" : "b",
+          );
           addPointerReleaseEvidence(
             fixture.root,
             fixture.recoveryId,
@@ -1471,7 +1498,7 @@ test("production inventoryはpointer解放後Evidenceとcommitted／journal poin
           );
           if (pointerState === "journal")
             leaveActivePointerDeleteJournal(fixture.root, fixture.recoveryId);
-          const before = snapshotRecoveryTree(fixture.root);
+          const beforeRecoveryTreeEntries = snapshotRecoveryTree(fixture.root);
           const result = inspectDockerRecoveryRootSnapshotWithLock(
             verifiedRoot(fixture.root),
             () => Object.freeze({ release: () => true }),
@@ -1479,10 +1506,13 @@ test("production inventoryはpointer解放後Evidenceとcommitted／journal poin
           assert.equal(
             result.status,
             "blocked",
-            `${evidenceName}:${pointerState}:${sameHome}`,
+            `${evidenceName}:${pointerState}:${isSameHome}`,
           );
           assert.deepEqual(result.dockerRecoveryIds, []);
-          assert.deepEqual(snapshotRecoveryTree(fixture.root), before);
+          assert.deepEqual(
+            snapshotRecoveryTree(fixture.root),
+            beforeRecoveryTreeEntries,
+          );
         } finally {
           fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
           fs.rmSync(fixture.hostMarker, { force: true });
@@ -1529,14 +1559,14 @@ test("production inventoryはbase完了anchor残存中に次pairを開始した�
     } finally {
       Reflect.set(fs, "renameSync", originalRename);
     }
-    const before = snapshotRecoveryTree(rootPath);
+    const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
     const result = inspectDockerRecoveryRootSnapshotWithLock(
       verifiedRoot(rootPath),
       () => Object.freeze({ release: () => true }),
     );
     assert.equal(result.status, "blocked");
     assert.deepEqual(result.dockerRecoveryIds, []);
-    assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    assert.deepEqual(snapshotRecoveryTree(rootPath), beforeRecoveryTreeEntries);
   } finally {
     fs.rmSync(rootPath, { recursive: true, force: true });
   }
@@ -1615,14 +1645,17 @@ test("production inventoryはsplit moveの改変・置換・第三状態を採�
           fs.mkdirSync(targetDirectory);
         }
 
-        const before = snapshotRecoveryTree(rootPath);
+        const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
         const result = inspectDockerRecoveryRootSnapshotWithLock(
           verifiedRoot(rootPath),
           () => Object.freeze({ release: () => true }),
         );
         assert.equal(result.status, "blocked", `${move}:${mutation}`);
         assert.deepEqual(result.dockerRecoveryIds, []);
-        assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+        assert.deepEqual(
+          snapshotRecoveryTree(rootPath),
+          beforeRecoveryTreeEntries,
+        );
       } finally {
         fs.rmSync(rootPath, { recursive: true, force: true });
         if (external) fs.rmSync(external, { recursive: true, force: true });
@@ -1699,7 +1732,7 @@ test("production inventoryは全partial bootstrap状態のunknown／orphan／rep
           fs.renameSync(target, original);
           fs.renameSync(replacement, target);
         }
-        const before = snapshotRecoveryTree(rootPath);
+        const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
         const result = inspectDockerRecoveryRootSnapshotWithLock(
           verifiedRoot(rootPath),
           () => Object.freeze({ release: () => true }),
@@ -1710,7 +1743,10 @@ test("production inventoryは全partial bootstrap状態のunknown／orphan／rep
           `${state.move}:${state.boundary}:${mutation}`,
         );
         assert.deepEqual(result.dockerRecoveryIds, []);
-        assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+        assert.deepEqual(
+          snapshotRecoveryTree(rootPath),
+          beforeRecoveryTreeEntries,
+        );
       } finally {
         fs.rmSync(rootPath, { recursive: true, force: true });
         if (external) fs.rmSync(external, { recursive: true, force: true });
@@ -1738,7 +1774,7 @@ test("production Task admissionはpartial bootstrapのunknownを新規記録前�
     path.join(runtimeRootPath, `docker-task-${existingNonce}`, "unknown.txt"),
     "x",
   );
-  const before = snapshotRecoveryTree(runtimeRootPath);
+  const beforeRecoveryTreeEntries = snapshotRecoveryTree(runtimeRootPath);
   const root = verifiedRoot(runtimeRootPath);
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
@@ -1763,7 +1799,10 @@ test("production Task admissionはpartial bootstrapのunknownを新規記録前�
         reason: "docker_recovery_initialization_failed_closed",
       },
     );
-    assert.deepEqual(snapshotRecoveryTree(runtimeRootPath), before);
+    assert.deepEqual(
+      snapshotRecoveryTree(runtimeRootPath),
+      beforeRecoveryTreeEntries,
+    );
     assert.equal(
       loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
       "host_only",
@@ -1789,7 +1828,7 @@ test("production recoveryはpartial bootstrapのunknownをjournal resume前に�
       "x",
     );
     const root = verifiedRoot(rootPath);
-    const before = snapshotRecoveryTree(rootPath);
+    const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         recoveryId,
@@ -1802,7 +1841,7 @@ test("production recoveryはpartial bootstrapのunknownをjournal resume前に�
         recoveryId,
       },
     );
-    assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    assert.deepEqual(snapshotRecoveryTree(rootPath), beforeRecoveryTreeEntries);
   } finally {
     fs.rmSync(rootPath, { recursive: true, force: true });
   }
@@ -1821,7 +1860,7 @@ test("production Task admission／Recoveryはno-intent duplicateを最初のmuta
     path.join(rootPath, `pending-docker-task-${nonce}.json`),
     "base.json",
   );
-  const before = snapshotRecoveryTree(rootPath);
+  const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
   const mounts = createOwnedMountCapability(owned);
@@ -1857,7 +1896,7 @@ test("production Task admission／Recoveryはno-intent duplicateを最初のmuta
         recoveryId,
       },
     );
-    assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    assert.deepEqual(snapshotRecoveryTree(rootPath), beforeRecoveryTreeEntries);
     assert.equal(
       loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
       "host_only",
@@ -1877,7 +1916,7 @@ test("production Task admission／Recoveryはpremature active pointerを最初�
   const root = verifiedRoot(rootPath);
   const recoveryId = addSplitRootBaseMove(rootPath, "a", "pending_pairs", "a");
   addActivePointer(rootPath, recoveryId);
-  const before = snapshotRecoveryTree(rootPath);
+  const beforeRecoveryTreeEntries = snapshotRecoveryTree(rootPath);
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
   const mounts = createOwnedMountCapability(owned);
@@ -1908,7 +1947,7 @@ test("production Task admission／Recoveryはpremature active pointerを最初�
         recoveryId,
       },
     );
-    assert.deepEqual(snapshotRecoveryTree(rootPath), before);
+    assert.deepEqual(snapshotRecoveryTree(rootPath), beforeRecoveryTreeEntries);
     assert.equal(
       loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
       "host_only",
@@ -1929,7 +1968,7 @@ test("production Task admission／Recoveryはpointer解放後の再出現を最�
     fixture.recoveryId,
     "lease-release-receipt.json",
   );
-  const before = snapshotRecoveryTree(fixture.root);
+  const beforeRecoveryTreeEntries = snapshotRecoveryTree(fixture.root);
   const hostBefore = fs.readFileSync(fixture.hostMarker);
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
@@ -1961,7 +2000,10 @@ test("production Task admission／Recoveryはpointer解放後の再出現を最�
         recoveryId: fixture.recoveryId,
       },
     );
-    assert.deepEqual(snapshotRecoveryTree(fixture.root), before);
+    assert.deepEqual(
+      snapshotRecoveryTree(fixture.root),
+      beforeRecoveryTreeEntries,
+    );
     assert.deepEqual(fs.readFileSync(fixture.hostMarker), hostBefore);
   } finally {
     void abandonOwnedHostOperationGenerationLock(management);
@@ -1978,7 +2020,7 @@ test("production共有回復engineはcleanup途中のprocess killから残存0�
   try {
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
-        DOCKER_TASK_RECOVERY_ID,
+        dockerTaskRecoveryId,
         verifiedRoot(root),
         () => verifiedRoot(root),
       ),
@@ -2087,14 +2129,14 @@ test("production共有回復engineは空Rootの未発行tokenを完了済みと�
   try {
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
-        DOCKER_TASK_RECOVERY_ID,
+        dockerTaskRecoveryId,
         root,
         () => root,
       ),
       {
         status: "blocked",
         reason: "docker_task_recovery_evidence_missing",
-        recoveryId: DOCKER_TASK_RECOVERY_ID,
+        recoveryId: dockerTaskRecoveryId,
       },
     );
     assert.deepEqual(fs.readdirSync(rootPath), []);
@@ -2151,7 +2193,7 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
         fixture.recoveryId,
         root,
         () => root,
-        docker.run,
+        docker.runDockerCommand,
       ),
       {
         status: "recovered",
@@ -2378,14 +2420,14 @@ test("cleanup-only回復も作成時selected-user再bind不一致を削除前に
   try {
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
-        DOCKER_TASK_RECOVERY_ID,
+        dockerTaskRecoveryId,
         root,
         () => changedUserRoot,
       ),
       {
         status: "blocked",
         reason: "docker_task_runtime_state_audit_failed",
-        recoveryId: DOCKER_TASK_RECOVERY_ID,
+        recoveryId: dockerTaskRecoveryId,
       },
     );
     assert.deepEqual(fs.readdirSync(rootPath).sort(), beforeEntries);
@@ -2443,18 +2485,18 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
 
 test("独立2 processでも同じHomeはexact-oneとなり別Homeを妨げない", async () => {
   const blockedRoot = createKilledProductionCleanupRoot();
-  const sameHomeHolder = spawnLogicalHomeLockHolder(STABLE_HOME);
+  const sameHomeHolder = spawnLogicalHomeLockHolder(stableHome);
   try {
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
-        DOCKER_TASK_RECOVERY_ID,
+        dockerTaskRecoveryId,
         verifiedRoot(blockedRoot),
         () => verifiedRoot(blockedRoot),
       ),
       {
         status: "blocked",
         reason: "docker_task_process_generation_active_or_unknown",
-        recoveryId: DOCKER_TASK_RECOVERY_ID,
+        recoveryId: dockerTaskRecoveryId,
       },
     );
   } finally {
@@ -2472,7 +2514,7 @@ test("独立2 processでも同じHomeはexact-oneとなり別Homeを妨げない
   try {
     assert.equal(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
-        DOCKER_TASK_RECOVERY_ID,
+        dockerTaskRecoveryId,
         verifiedRoot(completedRoot),
         () => verifiedRoot(completedRoot),
       ).status,
@@ -2494,7 +2536,7 @@ test("production共有Docker回復はexact IDと全構成一致だけを削除�
   const fixture = exactContainerRunner();
   assert.equal(
     recoverExactDockerResourceWithRunner(
-      fixture.run,
+      fixture.runDockerCommand,
       "container",
       fixture.dockerId,
       "provider",
@@ -2515,7 +2557,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
   const fixture = exactContainerRunner({ Name: "/replacement" });
   assert.equal(
     recoverExactDockerResourceWithRunner(
-      fixture.run,
+      fixture.runDockerCommand,
       "container",
       fixture.dockerId,
       "provider",

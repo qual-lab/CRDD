@@ -4,8 +4,8 @@ import test from "node:test";
 
 import { validateDockerHostTransitionLineage } from "../src/security/docker-host-transition-state.ts";
 
-const rootName = "crdd-coordinator-doctor-fixture";
-const nonce = "01234567-89ab-cdef-0123-456789abcdef";
+const ROOT_NAME = "crdd-coordinator-doctor-fixture";
+const NONCE = "01234567-89ab-cdef-0123-456789abcdef";
 
 function canonical(value: unknown) {
   return `${JSON.stringify(value)}\n`;
@@ -13,13 +13,13 @@ function canonical(value: unknown) {
 
 function token(record: unknown) {
   const hash = createHash("sha256").update(canonical(record)).digest("hex");
-  return `host.${rootName}.${nonce}.${hash}`;
+  return `host.${ROOT_NAME}.${NONCE}.${hash}`;
 }
 
 function intent() {
   const recordBefore = Object.freeze({
     schema: "crdd-coordinator-host-recovery/v1",
-    rootName,
+    rootName: ROOT_NAME,
     state: "docker_submission_started",
     childIdentities: Object.freeze({}),
   });
@@ -27,8 +27,8 @@ function intent() {
   return Object.freeze({
     currentToken: token(recordBefore),
     expectedToken: token(successor),
-    rootName,
-    nonce,
+    rootName: ROOT_NAME,
+    nonce: NONCE,
     currentState: "docker_submission_started",
     nextState: "host_only",
     recordBefore,
@@ -37,7 +37,7 @@ function intent() {
 
 test("Host intentはcurrent recordから決定論的successor tokenだけを受理する", () => {
   const accepted = validateDockerHostTransitionLineage(intent(), "host_only");
-  assert.equal(accepted.current.nonce, nonce);
+  assert.equal(accepted.current.nonce, NONCE);
   assert.equal(
     accepted.expected.recordHash,
     token({

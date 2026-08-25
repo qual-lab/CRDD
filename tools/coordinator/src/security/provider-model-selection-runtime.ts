@@ -210,7 +210,7 @@ export function selectProviderModelCandidate(candidate: unknown) {
           "high_cost_requires_explicit_user_policy",
         ])
       : rationaleCodes;
-  const highCostSelection = false;
+  const isHighCostSelection = false;
   return Object.freeze({
     status: "candidate" as const,
     reason: "verified_runtime_profile_and_selection_grant_required",
@@ -218,7 +218,7 @@ export function selectProviderModelCandidate(candidate: unknown) {
     role,
     familyPreference: family,
     effort,
-    modelTier: highCostSelection ? "upper_allowed" : "preferred",
+    modelTier: isHighCostSelection ? "upper_allowed" : "preferred",
     speedMode: "normal" as const,
     rationaleCodes: effectiveRationaleCodes,
     selectionNotice: describeSelectionNotice(
@@ -233,7 +233,7 @@ export function selectProviderModelCandidate(candidate: unknown) {
     selectionCapabilityIssued: false,
     providerEffectAllowed: false,
     automaticProviderFallbackAllowed: false,
-    highCostSelection,
+    highCostSelection: isHighCostSelection,
   });
 }
 

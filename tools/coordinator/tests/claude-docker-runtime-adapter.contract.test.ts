@@ -9,7 +9,7 @@ import {
 } from "../src/security/claude-docker-runtime-adapter.ts";
 import { createIsolatedDelegationSelectionGrantRuntimeCandidate } from "../src/security/delegation-selection-grant-runtime.ts";
 
-const modelSelection = Object.freeze({
+const MODEL_SELECTION = Object.freeze({
   selectionRecordId: "MODELSEL-12345678",
   operationId: "OP-123456",
   frontProvider: "codex" as const,
@@ -109,7 +109,7 @@ function createFixture(
     consumeModelSelection: (selection: unknown, management: unknown) => {
       assert.equal(selection, selectionUseCapability);
       assert.equal(management, managementCapability);
-      return modelSelection;
+      return MODEL_SELECTION;
     },
     consumeTaskPacket: () =>
       Object.freeze({
@@ -197,8 +197,8 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     "start_proxy",
     "start_provider_attached",
   ]);
-  const internalNetwork = plan.commands[2]?.argv ?? [];
-  assert.equal(internalNetwork.includes("--internal"), true);
+  const internalNetworkArguments = plan.commands[2]?.argv ?? [];
+  assert.equal(internalNetworkArguments.includes("--internal"), true);
   const provider = plan.commands.find(
     (candidate) => candidate.purpose === "create_provider",
   );
@@ -305,7 +305,7 @@ test("Profile不一致または高コスト根拠不正ではplanを作らずlea
   const fixture = createFixture({
     consumeModelSelection: () =>
       Object.freeze({
-        ...modelSelection,
+        ...MODEL_SELECTION,
         profileId: "PROFILE-DIFFERENT",
       }),
   });

@@ -1,7 +1,7 @@
 # 変更トレース: 内部ツールのコーディング規約と命名移行
 
 - 変更ID: `CHG-000017`
-- 状態: `Verified`
+- 状態: `Reopened`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
 - 対象: CRDD公式Repositoryの`tools/**`と配布用`template/tools/**`
@@ -235,3 +235,22 @@ source identifierでは、bare `run`、`execute`、`common`および`info`を責
 固定版`5185946ae8193d7bc305be3152558abd45fde020`に対するAgent／Architecture／Security Review、Document AuditおよびGap／Impact＋Conformance Auditは、すべて`Pass`／Finding `0`で完了した。既知Findingは`Resolved`であり、旧`15ff4f7`以前の監査集合は履歴として保持するが現在の合否へ流用しない。固定結果とSHA-256は[`CHG-000017_Current_Review_Record_5185946.md`](Evidence/CHG-000017_Current_Review_Record_5185946.md)を正本とする。
 
 この完了は変更候補の独立確認完了であり、採用、統合、準拠、Stable化またはRelease判断を代替しない。v0.18は`Candidate`、Released Baselineはv0.17.0のままである。
+
+## 未リリース候補の再開
+
+CHG-000038が追加したRuntime配布成果物を独立監査前の共通Checkerへ接続したところ、通常JSON、PythonおよびDockerfileのPath規則が本変更の命名分類器へ伝播していないことを検出した。個別Pathをallowlistへ加えず、CRDD所有の共通命名規則と正負のPath classifier試験へ接続した。
+
+同じ検査を現行Tree全体へ継続した結果、型検査projectへ未所属のCoordinator source、古い所有source件数、Windows shellが展開しないglobによりChecker packageの`npm test`が試験0件で成功する入口、および現行識別子母集団と本変更の規則の不一致を検出した。いずれも未リリースの同じ命名正本、分類器、移行、no-shim、切戻しおよび検証境界に属するため、別CHGを作らず本変更を再開して是正する。CHG-000038は発見契機とRuntime成果物の利用側接続を記録し、命名正本、分類器、全source移行およびChecker試験入口の所有は本変更へ戻す。
+
+発見時の235 owned sourceを型付き分類器へ全数接続すると、243件の違反候補が得られた。型と利用文脈を再確認し、Booleanの閉じたpredicate、配列の不規則複数形・collective・標準引数vector、および宣言だけに存在する未使用parameterの単一underscoreを規則と正負fixtureへ固定した結果、144件は過剰判定、99件は実際のrename対象と確定した。99件はTypeScript symbol単位で宣言と利用側を移行し、object shorthandとdestructuringでは既存Schema／外部property keyを保持した。CLI flag、reason、status、protocol、暗号domain文字列、Docker外部fieldおよび既存machine Schemaは変更していない。
+
+Checkerの全試験入口はshell globを廃止し、package所有の`*.test.ts`を列挙してNode test runnerへ明示する`test-runner.ts`へ置換した。これによりChecker／template 6、Coordinator production 119、Coordinator test 111、Rust 8、重複排除後236 sourceを現在の所有母集団として固定した。新しい試験追加時もpackage scriptの変更なしに全件へ含め、0件なら失敗する。
+
+### 再開後Self-check
+
+- Coordinator TypeScript型検査: Pass
+- Coordinator package試験: 740 / 740 Pass
+- Checker package試験: 151 / 151 Pass。命名契約5 / 5を含む
+- 命名対象: 236 owned source、未所属／余剰0、命名違反0
+
+これは再開後候補の`Applied`／`Self-checked`である。Repository全体Checker、両packageのLint／Formatter、固定改訂版に対する独立Agent／Architecture／Security Review、Document Audit、Gap / Impact AuditおよびConformance Auditが完了するまでは`Verified`へ戻さない。旧`5185946`のPassは当時版の履歴であり、現在の合否へ流用しない。

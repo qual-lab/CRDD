@@ -6,13 +6,13 @@ import {
   normalizeProviderTaskStructuredResult,
 } from "../src/security/provider-task-structured-result.ts";
 
-const executor = JSON.stringify({
+const EXECUTOR = JSON.stringify({
   status: "completed",
   summary: "Updated the isolated fixture.",
   changedPaths: ["fixture.txt"],
   verification: ["Reviewed the resulting file."],
 });
-const reviewer = JSON.stringify({
+const REVIEWER = JSON.stringify({
   decision: "changes_requested",
   summary: "One issue remains.",
   findings: [
@@ -37,7 +37,7 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
     "codex",
     "executor",
     "low",
-    executor,
+    EXECUTOR,
   );
   assert.equal(codex.status, "confirmed");
   assert.deepEqual(codex.normalizedResult, {
@@ -49,7 +49,7 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
     "claude",
     "reviewer",
     "medium",
-    claude(JSON.parse(reviewer)),
+    claude(JSON.parse(REVIEWER)),
   );
   assert.equal(claudeResult.status, "confirmed");
   const normalized = claudeResult.normalizedResult;
@@ -94,7 +94,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
       "claude",
       "executor",
       "high",
-      claude(JSON.parse(executor), { num_turns: 9 }),
+      claude(JSON.parse(EXECUTOR), { num_turns: 9 }),
     ).status,
     "blocked",
   );
@@ -103,7 +103,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
       "claude",
       "executor",
       "high",
-      claude(JSON.parse(executor), { total_cost_usd: 0.51 }),
+      claude(JSON.parse(EXECUTOR), { total_cost_usd: 0.51 }),
     ).status,
     "blocked",
   );
@@ -121,7 +121,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
       "codex",
       "executor",
       "low",
-      `${executor}\n{}`,
+      `${EXECUTOR}\n{}`,
     ).status,
     "blocked",
   );
@@ -142,7 +142,7 @@ test("Claude costはSelectionで固定したeffort上限を超えられない", 
       "claude",
       "executor",
       "low",
-      claude(JSON.parse(executor), { total_cost_usd: 0.21 }),
+      claude(JSON.parse(EXECUTOR), { total_cost_usd: 0.21 }),
     ).status,
     "blocked",
   );
@@ -151,7 +151,7 @@ test("Claude costはSelectionで固定したeffort上限を超えられない", 
       "claude",
       "executor",
       "medium",
-      claude(JSON.parse(executor), { total_cost_usd: 0.36 }),
+      claude(JSON.parse(EXECUTOR), { total_cost_usd: 0.36 }),
     ).status,
     "blocked",
   );

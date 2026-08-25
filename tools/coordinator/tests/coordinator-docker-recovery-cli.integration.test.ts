@@ -9,8 +9,8 @@ import { pathToFileURL } from "node:url";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
 
-const RECOVERY_ID = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
-const HOST_RECOVERY_ID = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+const hostRecoveryId = `host.crdd-coordinator-doctor-fixture.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
 
 function invokeCli(isJson: boolean) {
   return spawnSync(
@@ -20,7 +20,7 @@ function invokeCli(isJson: boolean) {
       path.resolve("bin/coordinator.ts"),
       "doctor",
       "--recover-isolation",
-      RECOVERY_ID,
+      recoveryId,
       ...(isJson ? ["--json"] : []),
     ],
     { windowsHide: true, encoding: "utf8", timeout: 10_000 },
@@ -78,7 +78,7 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
   assert.deepEqual(JSON.parse(result.stdout), {
     status: "blocked",
     reason: "docker_task_runtime_state_unavailable",
-    recoveryId: RECOVERY_ID,
+    recoveryId: recoveryId,
   });
   assert.equal(result.stderr, "");
 });
@@ -87,11 +87,11 @@ test("実CLIの人間表示はexact回復commandを保持しHost Pathを出さ�
   const result = invokeCli(false);
   assert.equal(result.status, 2, result.stderr);
   assert.match(result.stdout, /Coordinator environment: blocked/u);
-  assert.match(result.stdout, new RegExp(`recovery ID: ${RECOVERY_ID}`, "u"));
+  assert.match(result.stdout, new RegExp(`recovery ID: ${recoveryId}`, "u"));
   assert.match(
     result.stdout,
     new RegExp(
-      `next: coordinator doctor --recover-isolation ${RECOVERY_ID}`,
+      `next: coordinator doctor --recover-isolation ${recoveryId}`,
       "u",
     ),
   );
@@ -103,18 +103,18 @@ test("CLI共通projectorはHost release不明時もexact IDと再実行command�
   const report = Object.freeze({
     status: "blocked",
     reason: "host_recovery_generation_release_unconfirmed",
-    recoveryId: HOST_RECOVERY_ID,
+    recoveryId: hostRecoveryId,
   });
   const json = renderDockerRecoveryDoctorReport(report, true);
   assert.equal(json.exitCode, 2);
   assert.deepEqual(JSON.parse(json.stdout), report);
   const human = renderDockerRecoveryDoctorReport(report, false);
   assert.equal(human.exitCode, 2);
-  assert.match(human.stdout, new RegExp(HOST_RECOVERY_ID, "u"));
+  assert.match(human.stdout, new RegExp(hostRecoveryId, "u"));
   assert.match(
     human.stdout,
     new RegExp(
-      `next: coordinator doctor --recover-isolation ${HOST_RECOVERY_ID}`,
+      `next: coordinator doctor --recover-isolation ${hostRecoveryId}`,
       "u",
     ),
   );

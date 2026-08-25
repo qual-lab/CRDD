@@ -14,7 +14,7 @@ const CANDIDATE_STORE_PROVIDER_VALUE = 3;
 const RUNTIME_STATE_PROVIDER_VALUE = 4;
 const RESPONSE_STATUS_CANDIDATE = 1;
 const OBSERVATION_CANDIDATE_REASON = 100;
-const MOUNT_SOURCE_HASH_DOMAIN = Buffer.from(
+const mountSourceHashDomainBytes = Buffer.from(
   "CRDD\0PROVIDER-HOME-MOUNT-SOURCE\0V1\0",
   "ascii",
 );
@@ -171,7 +171,7 @@ export function createProviderHomeObservationRequest(
     const nonce = snapshotBuffer(nonceSource(), 32);
     if (!nonce) return null;
     const mountSourceHash = createHash("sha256")
-      .update(MOUNT_SOURCE_HASH_DOMAIN)
+      .update(mountSourceHashDomainBytes)
       .update(Buffer.from([selectedProvider]))
       .update(Buffer.from(mountSourcePath, "utf16le"))
       .digest();
@@ -209,7 +209,7 @@ export function createCandidateStoreObservationRequest(
     const nonce = snapshotBuffer(nonceSource(), 32);
     if (!nonce) return null;
     const mountSourceHash = createHash("sha256")
-      .update(MOUNT_SOURCE_HASH_DOMAIN)
+      .update(mountSourceHashDomainBytes)
       .update(Buffer.from([CANDIDATE_STORE_PROVIDER_VALUE]))
       .update(Buffer.from(mountSourcePath, "utf16le"))
       .digest();
@@ -244,7 +244,7 @@ export function createRuntimeStateObservationRequest(
     const nonce = snapshotBuffer(nonceSource(), 32);
     if (!nonce) return null;
     const mountSourceHash = createHash("sha256")
-      .update(MOUNT_SOURCE_HASH_DOMAIN)
+      .update(mountSourceHashDomainBytes)
       .update(Buffer.from([RUNTIME_STATE_PROVIDER_VALUE]))
       .update(Buffer.from(mountSourcePath, "utf16le"))
       .digest();

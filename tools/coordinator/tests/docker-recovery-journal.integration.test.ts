@@ -327,94 +327,6 @@ function crashRecoveryIdentityIntent(
   );
 }
 
-function _createRecoveryRecord(
-  root: string,
-  stableLogicalHomeBindingHash: string,
-  nonce: string,
-) {
-  const operationDirectory = path.join(root, `docker-task-${nonce}`);
-  fs.mkdirSync(operationDirectory);
-  const hostNonce = "12345678-1234-1234-1234-123456789abc";
-  const hostHash = "a".repeat(64);
-  const initialHostRecoveryId = `host.crdd-coordinator-doctor-fixture.${hostNonce}.${hostHash}`;
-  const base = Object.freeze({
-    schema: "crdd-coordinator-task-docker-recovery/v1",
-    operationNonce: nonce,
-    provider: "claude",
-    operationId: "OP-123456",
-    grantRef: "PHMGRANT-FIXTURE",
-    profileId: "PROFILE-123456",
-    stableLogicalHomeBindingHash,
-    providerHomeIdentityHash: "1".repeat(64),
-    providerHomeProtectionHash: "2".repeat(64),
-    localUserBindingHash: "3".repeat(64),
-    ownershipLabel: `crdd.coordinator.runtime=${"4".repeat(16)}`,
-    resources: Object.freeze({
-      auth: `crdd-auth-${"1".repeat(16)}`,
-      provider: `crdd-claude-${"2".repeat(16)}`,
-      proxy: `crdd-proxy-${"3".repeat(16)}`,
-      internal: `crdd-internal-${"4".repeat(16)}`,
-      egress: `crdd-egress-${"5".repeat(16)}`,
-    }),
-    images: Object.freeze({
-      provider: `sha256:${"6".repeat(64)}`,
-      proxy: `sha256:${"7".repeat(64)}`,
-    }),
-    operationMode: "isolated_task",
-    workspaceMountMode: "read_write",
-    initialHostRecoveryId,
-    initialHostRecovery: Object.freeze({
-      token: initialHostRecoveryId,
-      recordHash: hostHash,
-      directoryIdentity: "1:2:3",
-      markerIdentity: "1:2:4",
-      record: Object.freeze({
-        schema: "crdd-coordinator-host-recovery/v1",
-        state: "host_only",
-        rootName: "crdd-coordinator-doctor-fixture",
-        rootIdentity: Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
-        childIdentities: Object.freeze({
-          management: Object.freeze({
-            pathName: "management",
-            dev: "1",
-            ino: "3",
-            birthtimeNs: "4",
-          }),
-        }),
-        createdAt: "2026-08-25T00:00:00.000Z",
-      }),
-    }),
-    hostPaths: Object.freeze({
-      root: path.join(root, "crdd-coordinator-doctor-fixture"),
-      marker: path.join(root, `host-${"8".repeat(64)}.json`),
-    }),
-  });
-  const baseRecord = writeCommittedDockerRecoveryJson(
-    operationDirectory,
-    "base.json",
-    "base.json",
-    base,
-  );
-  const recoveryId = `docker-task.${stableLogicalHomeBindingHash}.${nonce}.${baseRecord.hash}`;
-  writeCommittedDockerRecoveryJson(
-    operationDirectory,
-    "base-commit.json",
-    "base-commit.json",
-    Object.freeze({
-      schema: "crdd-coordinator-task-docker-base-commit/v1",
-      operationNonce: nonce,
-      stableLogicalHomeBindingHash,
-      baseHash: baseRecord.hash,
-      recoveryId,
-    }),
-  );
-  return Object.freeze({
-    recoveryId,
-    baseHash: baseRecord.hash,
-    operationDirectory,
-  });
-}
-
 test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとして読む", () => {
   const directory = temporaryDirectory();
   try {
@@ -551,8 +463,8 @@ test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更
   try {
     assert.notEqual(crashScopedCleanup(root, "a").status, 0);
     assert.notEqual(crashScopedCleanup(root, "b").status, 0);
-    const before = inspectDockerRecoveryJournalDirectory(root);
-    const b = before.find(
+    const beforeJournalIntents = inspectDockerRecoveryJournalDirectory(root);
+    const b = beforeJournalIntents.find(
       (intent) =>
         intent.recoveryId ===
         `docker-task.${"b".repeat(64)}.${"b".repeat(64)}.${"b".repeat(64)}`,

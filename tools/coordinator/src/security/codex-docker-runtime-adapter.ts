@@ -347,7 +347,7 @@ function buildPlan(
   ) {
     return null;
   }
-  const fixedEnvironment = buildExactFixedEnvironment(codex.environment);
+  const fixedEnvironmentEntries = buildExactFixedEnvironment(codex.environment);
   const providerHomeMount = createSafeMount(
     providerHomeSourcePath,
     PROVIDER_HOME_DESTINATION,
@@ -359,7 +359,7 @@ function buildPlan(
   const suffix = createRandomHex(state, 8);
   const proxyToken = createRandomHex(state, 32);
   if (
-    !fixedEnvironment ||
+    !fixedEnvironmentEntries ||
     !providerHomeMount ||
     !tmpMount ||
     (taskPacket !== null && !workspaceMount) ||
@@ -390,14 +390,14 @@ function buildPlan(
   const providerImageDigest = codex.distributionBinding.fixedImageDigest;
   const proxyImageDigest = egress.verificationAdapter.imageDigest;
   const proxyUrl = `http://crdd:${proxyToken}@proxy:${PROXY_PORT}`;
-  const providerEnvironment = [
+  const providerEnvironmentEntries = [
     "--env",
     `HOME=${PROVIDER_HOME_DESTINATION}`,
     "--env",
     `TMPDIR=${TMP_DESTINATION}`,
     "--env",
     `HTTPS_PROXY=${proxyUrl}`,
-    ...fixedEnvironment,
+    ...fixedEnvironmentEntries,
   ];
   const commands = Object.freeze([
     createCommand("create_subscription_auth_probe", [
@@ -491,7 +491,7 @@ function buildPlan(
       "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",
-      ...providerEnvironment,
+      ...providerEnvironmentEntries,
       "--mount",
       providerHomeMount,
       "--mount",

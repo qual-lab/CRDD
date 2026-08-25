@@ -83,7 +83,7 @@ type CandidateStoreTestingOptions = Readonly<{
   injectFault?: (operation: CandidateStoreFaultOperation) => void;
 }>;
 
-const PRODUCTION_RUNTIME: CandidateStoreRuntime = Object.freeze({
+const productionRuntime: CandidateStoreRuntime = Object.freeze({
   securityBoundary: "production",
   temporaryDirectory: () => "",
   nowMs: Date.now,
@@ -1085,9 +1085,9 @@ function persistRuntimeOwnedCandidateBundleWithRuntime(
             );
           }
         }
-        let existing: ReturnType<typeof existingTargets>;
+        let existingTargetEntries: ReturnType<typeof existingTargets>;
         try {
-          existing = existingTargets(store, storageId);
+          existingTargetEntries = existingTargets(store, storageId);
         } catch {
           throw new CandidateStoreFailure(
             "candidate_store_persist_recovery_required",
@@ -1095,17 +1095,19 @@ function persistRuntimeOwnedCandidateBundleWithRuntime(
             ownedEntityCreated,
           );
         }
-        const stagedOrPublished = existing.filter(
+        const stagedOrPublishedEntries = existingTargetEntries.filter(
           (entry) => entry.kind === "staged" || entry.kind === "published",
         );
-        if (stagedOrPublished.length > 0) {
+        if (stagedOrPublishedEntries.length > 0) {
           throw new CandidateStoreFailure(
             "candidate_store_persist_recovery_required",
             ownedRecoveryId,
             false,
           );
         }
-        const pending = existing.find((entry) => entry.kind === "pending");
+        const pending = existingTargetEntries.find(
+          (entry) => entry.kind === "pending",
+        );
         if (pending) {
           try {
             stableRemove(
@@ -1209,16 +1211,19 @@ function publishRuntimeOwnedCandidateBundleWithRuntime(
     const locked = withStoreLock(runtime, (store, nowMs) => {
       try {
         storeInventoryAndGc(runtime, store, nowMs);
-        const existing = existingTargets(store, location.storageId);
-        if (existing.length !== 1) {
+        const existingTargetEntries = existingTargets(
+          store,
+          location.storageId,
+        );
+        if (existingTargetEntries.length !== 1) {
           throw new CandidateStoreFailure(
-            existing.length > 1
+            existingTargetEntries.length > 1
               ? "candidate_bundle_recovery_ambiguous"
               : "candidate_bundle_not_available",
-            existing.length > 1 ? location.candidateId : null,
+            existingTargetEntries.length > 1 ? location.candidateId : null,
           );
         }
-        const current = existing[0];
+        const current = existingTargetEntries[0];
         if (!current) {
           throw new CandidateStoreFailure("candidate_bundle_not_available");
         }
@@ -1303,18 +1308,21 @@ function discardRuntimeOwnedCandidateBundleWithRuntime(
       location.expectedHash,
     );
     const locked = withStoreLock(runtime, (store) => {
-      const existing = existingTargets(store, location.storageId).filter(
+      const existingTargetEntries = existingTargets(
+        store,
+        location.storageId,
+      ).filter(
         (entry) => location.kind === "staged" || entry.kind === "published",
       );
-      if (existing.length !== 1) {
+      if (existingTargetEntries.length !== 1) {
         throw new CandidateStoreFailure(
-          existing.length > 1
+          existingTargetEntries.length > 1
             ? "candidate_bundle_recovery_ambiguous"
             : "candidate_bundle_not_available",
-          existing.length > 1 ? ownedRecoveryId : null,
+          existingTargetEntries.length > 1 ? ownedRecoveryId : null,
         );
       }
-      const target = existing[0];
+      const target = existingTargetEntries[0];
       if (!target) {
         throw new CandidateStoreFailure("candidate_bundle_not_available");
       }
@@ -1483,7 +1491,7 @@ export function persistRuntimeOwnedCandidateBundle(
   rawPolicy: unknown,
 ) {
   return persistRuntimeOwnedCandidateBundleWithRuntime(
-    PRODUCTION_RUNTIME,
+    productionRuntime,
     rawBundle,
     rawPolicy,
   );
@@ -1491,34 +1499,34 @@ export function persistRuntimeOwnedCandidateBundle(
 
 export function readRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
   return readRuntimeOwnedCandidateBundleWithRuntime(
-    PRODUCTION_RUNTIME,
+    productionRuntime,
     rawCandidateId,
   );
 }
 
 export function publishRuntimeOwnedCandidateBundle(rawRecoveryId: unknown) {
   return publishRuntimeOwnedCandidateBundleWithRuntime(
-    PRODUCTION_RUNTIME,
+    productionRuntime,
     rawRecoveryId,
   );
 }
 
 export function discardRuntimeOwnedCandidateBundle(rawCandidateId: unknown) {
   return discardRuntimeOwnedCandidateBundleWithRuntime(
-    PRODUCTION_RUNTIME,
+    productionRuntime,
     rawCandidateId,
   );
 }
 
 export function recoverRuntimeOwnedCandidateStore(rawRecoveryId: unknown) {
   return recoverRuntimeOwnedCandidateStoreWithRuntime(
-    PRODUCTION_RUNTIME,
+    productionRuntime,
     rawRecoveryId,
   );
 }
 
 export function runRuntimeOwnedCandidateStoreStartupGc() {
-  return runCandidateStoreGcWithRuntime(PRODUCTION_RUNTIME);
+  return runCandidateStoreGcWithRuntime(productionRuntime);
 }
 
 export function createCandidateBundleStoreTestingAdapter(

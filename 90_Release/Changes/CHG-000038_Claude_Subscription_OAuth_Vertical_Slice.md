@@ -50,6 +50,7 @@ Claude Code 2.1.220の`--bare`はOAuth／Keychainを読まずAPI key経路だけ
 - Claude Code 2.1.220の署名／Hash済みbinaryを固定local imageへ組込み
 - Managed Settingsのbyte列とSHA-256をimage identityへ結合
 - fixed argvのexact binary互換性をnetworkなし・Credentialなしで確認し、request／cost／token 0を観測
+- Coordinator Runtimeが配布するJSON、PythonおよびDockerfileの既存成果物を、個別ファイル例外ではなく共通命名規則と正負のPath classifier試験へ接続
 - OS Known Folder由来の専用Claude Provider Homeを保護し、Host既定homeをimportせず、一時sentinelのwrite／deleteだけでbind mountを確認
 - Provider direct egress拒否、非許可hostname拒否、許可hostname TLS到達およびcleanupを確認
 - Claude.ai Subscription OAuth login成功、Claude Max offering観測、identity非記録の`auth status`成功
@@ -62,6 +63,12 @@ Claude Code 2.1.220の`--bare`はOAuth／Keychainを読まずAPI key経路だけ
 - 単一要素scalar化によるlocal verifier誤判定の決定論的再現と修正
 
 ## 未完了と処置
+
+エージェント組織の独立監査準備で、`tools/checker/tools-naming.contract.test.ts`が本変更で追加済みの`tools/coordinator/runtime/claude-managed-settings.json`を所有済み命名規則として認識せず、Checker契約試験151件中1件だけ不合格になる利用側伝播漏れを検出した。これはエージェント組織変更の欠陥ではなく、未リリースの本変更が追加したRuntime配布成果物と、既存の内部ツール命名正本／検査器の不一致である。本変更は発見契機とRuntime成果物の利用側接続を記録し、命名正本、分類器、全source移行およびChecker試験入口は、同じ未リリース意図を所有する[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)を再開して是正する。
+
+単一の`claude-managed-settings.json`をallowlistへ加えず、`tools/**`と`template/tools/**`の全Pathに対して、通常JSONの`kebab-case.json`、Pythonの`kebab-case.py`、Dockerfileの`kebab-case.Dockerfile`を閉じた所有規則として追加する。既存の固定image、Hash、Docker `COPY`、Provider argvまたは成果物Pathはrenameせず、現在名が共通規則へ適合することと、不正な`snake_case`例が各規則でfail closedになることを同じPath classifier試験で確認する。
+
+この是正後に同じ試験を継続すると、Coordinatorの現行TypeScript scriptが厳格型検査projectへ未所属で、所有source件数も古い固定値のままという同根の伝播漏れを検出した。ファイル名検査だけを先に通して終了せず、CHG-000017で全TypeScript実Pathと型検査project source集合を一致させ、現行識別子母集団と全Checker試験入口まで閉じる。本変更の固定改訂版はCHG-000017の再検証完了へ依存する。
 
 - quota観測と認証状態のRuntime-owned binding
 - Runtime-owned selected-user binder、Provider Home保護effect／観測およびMount Grant lifecycle

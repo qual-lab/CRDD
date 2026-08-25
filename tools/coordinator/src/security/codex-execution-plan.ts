@@ -40,7 +40,7 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
   imageBuildDefinition: "tools/coordinator/runtime/codex-provider.Dockerfile",
   releaseUrl: "https://github.com/openai/codex/releases/tag/rust-v0.149.1",
 });
-const DISTRIBUTION_BINDING = Object.freeze({
+const distributionBinding = Object.freeze({
   identity: DISTRIBUTION_IDENTITY,
   fixedDigestImageRequired: true,
   fixedImageDigest: DISTRIBUTION_IDENTITY.fixedImageDigest,
@@ -48,7 +48,7 @@ const DISTRIBUTION_BINDING = Object.freeze({
   autoUpdateAllowed: false,
   runtimePullAllowed: false,
 });
-const BILLING_POLICY = describeProviderBillingPolicyContract();
+const billingPolicy = describeProviderBillingPolicyContract();
 
 function blocked(reason: string) {
   return Object.freeze({
@@ -79,7 +79,7 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
     providerEffectAllowed: false,
     provider: "codex" as const,
     mode: "read_only_probe" as const,
-    distributionBinding: DISTRIBUTION_BINDING,
+    distributionBinding: distributionBinding,
     command: DISTRIBUTION_IDENTITY.executablePath,
     exactModel: "gpt-5.6-sol",
     effort,
@@ -116,7 +116,7 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
     userConfigLoaded: false,
     networkAccessForModelRequestOnly: true,
     loginPolicy: "existing_chatgpt_subscription_oauth" as const,
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
     apiKeyAllowed: false,
     paidApiFallbackAllowed: false,
     additionalCreditPurchaseAllowed: false,
@@ -148,7 +148,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
     provider: "codex" as const,
     mode: "isolated_task" as const,
     taskRole,
-    distributionBinding: DISTRIBUTION_BINDING,
+    distributionBinding: distributionBinding,
     command: DISTRIBUTION_IDENTITY.executablePath,
     exactModel: "gpt-5.6-sol",
     effort,
@@ -215,7 +215,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
     providerHomeCommandReadAllowed: false,
     sessionPersistenceAllowed: false,
     loginPolicy: "existing_chatgpt_subscription_oauth" as const,
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
     apiKeyAllowed: false,
     paidApiFallbackAllowed: false,
     additionalCreditPurchaseAllowed: false,

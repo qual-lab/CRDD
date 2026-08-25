@@ -83,10 +83,13 @@ test("unknownを同一Providerへの推測fallback根拠にしない", () => {
         ? createObservation({ subscriptionQuota: "unknown" })
         : createObservation(),
   });
-  const providerEligibility = runtime.observe();
-  assert.equal(providerEligibility[1]?.reason, "observation_unavailable");
+  const providerEligibilityResults = runtime.observe();
+  assert.equal(
+    providerEligibilityResults[1]?.reason,
+    "observation_unavailable",
+  );
   const selected = selectDelegationRouteCandidate(createRequest(), {
-    providerEligibility,
+    providerEligibility: providerEligibilityResults,
   });
   assert.equal(selected.status, "blocked");
   assert.equal(selected.reason, "delegation_route_executor_unavailable");

@@ -19,8 +19,8 @@ import {
   verifyRuntimeOwnedRepositoryOperation,
 } from "../src/security/repository-operation-runtime.ts";
 
-const FIRST_REVISION = "1".repeat(40);
-const SECOND_REVISION = "2".repeat(40);
+const firstRevision = "1".repeat(40);
+const secondRevision = "2".repeat(40);
 
 function temporaryRepository(t: TestContext) {
   const root = fs.mkdtempSync(
@@ -37,7 +37,7 @@ function temporaryRepository(t: TestContext) {
   );
   fs.writeFileSync(
     path.join(git, "refs", "heads", "main"),
-    `${FIRST_REVISION}\n`,
+    `${firstRevision}\n`,
     "utf8",
   );
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -57,12 +57,12 @@ test("Repository実体と開始Revisionをopaque capabilityへ固定して再照
   const management = operation(t);
   const bound = bindRuntimeOwnedRepositoryOperation(management, repository);
   assert.ok(bound);
-  assert.equal(bound.revision, FIRST_REVISION);
+  assert.equal(bound.revision, firstRevision);
   assert.equal(bound.repositoryBound, true);
   assert.equal(bound.pathReported, false);
   assert.deepEqual(verifyRuntimeOwnedRepositoryOperation(management), {
     operationId: bound.operationId,
-    revision: FIRST_REVISION,
+    revision: firstRevision,
     repositoryBound: true,
     revisionCurrent: true,
   });
@@ -73,7 +73,7 @@ test("Repository実体と開始Revisionをopaque capabilityへ固定して再照
     ),
     {
       operationId: bound.operationId,
-      revision: FIRST_REVISION,
+      revision: firstRevision,
       repositoryBound: true,
       revisionCurrent: true,
     },
@@ -98,7 +98,7 @@ test("開始後にHEAD参照先が変わればEffectと結果公開の双方で�
   assert.ok(bound);
   fs.writeFileSync(
     path.join(repository, ".git", "refs", "heads", "main"),
-    `${SECOND_REVISION}\n`,
+    `${secondRevision}\n`,
     "utf8",
   );
   assert.equal(verifyRuntimeOwnedRepositoryOperation(management), null);
@@ -115,26 +115,26 @@ test("detached HEADとpacked refを限定形式で解決し不正入力を拒否
   const detached = temporaryRepository(t);
   fs.writeFileSync(
     path.join(detached, ".git", "HEAD"),
-    `${FIRST_REVISION}\n`,
+    `${firstRevision}\n`,
     "utf8",
   );
   const detachedManagement = operation(t);
   assert.equal(
     bindRuntimeOwnedRepositoryOperation(detachedManagement, detached)?.revision,
-    FIRST_REVISION,
+    firstRevision,
   );
 
   const packed = temporaryRepository(t);
   fs.rmSync(path.join(packed, ".git", "refs", "heads", "main"));
   fs.writeFileSync(
     path.join(packed, ".git", "packed-refs"),
-    `# pack-refs with: peeled fully-peeled sorted\n${SECOND_REVISION} refs/heads/main\n`,
+    `# pack-refs with: peeled fully-peeled sorted\n${secondRevision} refs/heads/main\n`,
     "utf8",
   );
   const packedManagement = operation(t);
   assert.equal(
     bindRuntimeOwnedRepositoryOperation(packedManagement, packed)?.revision,
-    SECOND_REVISION,
+    secondRevision,
   );
 
   assert.equal(

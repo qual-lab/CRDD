@@ -73,23 +73,30 @@ const projectConfigs = Object.freeze([
   path.join(repositoryRoot, "tools", "coordinator", "tsconfig.tests.json"),
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
-  checkerAndTemplate: 5,
-  coordinatorProduction: 76,
-  coordinatorTests: 70,
+  checkerAndTemplate: 6,
+  coordinatorProduction: 119,
+  coordinatorTests: 111,
   rustPlatformAccess: 8,
-  uniqueTotal: 154,
+  uniqueTotal: 236,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
 const PASCAL_CASE = /^[A-Z][A-Za-z0-9]*$/u;
 const UPPER_SNAKE_CASE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/u;
-const BOOLEAN_NAME = /^(?:is|has|can|should)[A-Z][A-Za-z0-9]*$/u;
-const PLURAL_NAME = /(?:s|Children|Indices|Vertices|People|Media|Data)$/u;
+const BOOLEAN_NAME =
+  /^(?:(?:is|has|can|should|did|does|was|were|will)[A-Z][A-Za-z0-9]*|[a-z][A-Za-z0-9]*(?:Active|Allowed|Available|Complete|Completed|Confirmed|Created|Eligible|Exceeded|Executed|Failed|Issued|Present|Absent|Recorded|Released|Removed|Requested|Required|Settled|Spawned|Started|Submitted|Terminated|Transferred|Exists|Fails|Match|Matches|Throw|Performed)|released|closed|submitted|present|settled|exceeded|confirmed|terminated|exists)$/u;
+const PLURAL_NAME =
+  /(?:s|Children|Criteria|Evidence|Indices|Inventory|Vertices|People|Media|Data)$/u;
+const TECHNICAL_VECTOR_NAME = /^argv$/u;
+const STANDALONE_COLLECTIVE_NAME = /^evidence$/u;
 const TEST_FILE =
   /^([a-z0-9]+(?:-[a-z0-9]+)*)\.(unit|contract|integration|boundary|golden|current)\.test\.ts$/u;
 const TYPESCRIPT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.ts$/u;
 const RUST_FILE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*\.rs$/u;
 const MARKDOWN_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u;
+const JSON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/u;
+const PYTHON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.py$/u;
+const DOCKERFILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.Dockerfile$/u;
 const RESERVED_FILE_NAMES = new Set([
   ".gitignore",
   "Cargo.lock",
@@ -346,6 +353,18 @@ function assertFileName(file: string): void {
   }
   if (name.endsWith(".md")) {
     assert.match(name, MARKDOWN_FILE, `Markdown filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".json")) {
+    assert.match(name, JSON_FILE, `JSON filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".py")) {
+    assert.match(name, PYTHON_FILE, `Python filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".Dockerfile")) {
+    assert.match(name, DOCKERFILE, `Dockerfile name: ${file}`);
     return;
   }
   assert.fail(`unrecognized filename without an owned convention: ${file}`);
@@ -1254,6 +1273,25 @@ function identifierLocation(
   };
 }
 
+function isUnusedUnderscoreParameter(
+  identifier: Identifier,
+  kind: string,
+  checker: Checker,
+): boolean {
+  if (kind !== "parameter" || !/^_[a-z][A-Za-z0-9]*$/u.test(identifier.text))
+    return false;
+  const symbolId = resolvedSymbolId(identifier, checker);
+  if (symbolId === null) return false;
+  let referenceCount = 0;
+  const visit = (node: Node): void => {
+    if (isIdentifier(node) && resolvedSymbolId(node, checker) === symbolId)
+      referenceCount += 1;
+    node.forEachChild(visit);
+  };
+  visit(identifier.getSourceFile());
+  return referenceCount === 1;
+}
+
 function inspectIdentifier(
   identifier: Identifier,
   kind: string,
@@ -1262,6 +1300,7 @@ function inspectIdentifier(
 ): NamingViolation[] {
   const name = identifier.text;
   const violations: NamingViolation[] = [];
+  if (isUnusedUnderscoreParameter(identifier, kind, checker)) return violations;
   if (FORBIDDEN_BARE_IDENTIFIERS.has(name)) {
     violations.push(
       identifierLocation(identifier, kind, "forbidden-bare-name"),
@@ -1289,7 +1328,12 @@ function inspectIdentifier(
     return violations;
   }
   if (isArrayType(type, checker)) {
-    if (!CAMEL_CASE.test(name) || !PLURAL_NAME.test(name)) {
+    if (
+      !CAMEL_CASE.test(name) ||
+      (!PLURAL_NAME.test(name) &&
+        !TECHNICAL_VECTOR_NAME.test(name) &&
+        !STANDALONE_COLLECTIVE_NAME.test(name))
+    ) {
       violations.push(
         identifierLocation(identifier, kind, "array-plural-camel-case"),
       );
@@ -1600,6 +1644,28 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
       "an unknown sibling package must still use the shared Path classifier",
     );
 
+    for (const validArtifactName of [
+      "provider-settings.json",
+      "provider-egress-proxy.py",
+      "provider-egress-proxy.Dockerfile",
+    ]) {
+      assert.doesNotThrow(
+        () => assertFileName(path.join(validFolder, validArtifactName)),
+        `owned non-TypeScript artifact must follow its shared convention: ${validArtifactName}`,
+      );
+    }
+    for (const [invalidArtifactName, expectedRule] of [
+      ["provider_settings.json", /JSON filename/u],
+      ["provider_egress_proxy.py", /Python filename/u],
+      ["provider_egress_proxy.Dockerfile", /Dockerfile name/u],
+    ] as const) {
+      assert.throws(
+        () => assertFileName(path.join(validFolder, invalidArtifactName)),
+        expectedRule,
+        `invalid non-TypeScript artifact must fail its owned convention: ${invalidArtifactName}`,
+      );
+    }
+
     const generatedTarget = path.join(temporaryRoot, "target");
     fs.mkdirSync(generatedTarget);
     assert.doesNotThrow(() => assertGeneratedTargetDirectory(generatedTarget));
@@ -1740,6 +1806,20 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
         "}",
         "const predicate = (shouldContinue: boolean): boolean => shouldContinue;",
         "const { enabled: hasFeature } = { enabled: true };",
+        "function acceptedPredicates(generationReleased: boolean, configurationMatches: boolean, didOperationThrow: boolean): void {",
+        "  void generationReleased; void configurationMatches; void didOperationThrow;",
+        "}",
+        "function invalidPredicates(highCostSelection: boolean, internal: boolean, sameHome: boolean): void {",
+        "  void highCostSelection; void internal; void sameHome;",
+        "}",
+        "function acceptedCollections(argv: readonly string[], acceptanceCriteria: readonly string[], evidence: readonly string[], currentInventory: readonly string[]): void {",
+        "  void argv; void acceptanceCriteria; void evidence; void currentInventory;",
+        "}",
+        "function invalidCollections(actual: readonly string[], before: readonly string[]): void { void actual; void before; }",
+        "function unusedParameter(_unusedProvider: string): void {}",
+        "function usedUnderscoreParameter(_usedProvider: string): void { void _usedProvider; }",
+        'const _localVariable = "invalid";',
+        "void _localVariable;",
         "function inspectValues(values: string[]): boolean { return values.length > 0; }",
         "class ValidClass extends ExternalBase {",
         "  override methodName(): void {}",
@@ -2142,6 +2222,33 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           ),
           expectedKey(
             fixtureFile,
+            "highCostSelection",
+            "parameter",
+            "boolean-prefix",
+          ),
+          expectedKey(fixtureFile, "internal", "parameter", "boolean-prefix"),
+          expectedKey(fixtureFile, "sameHome", "parameter", "boolean-prefix"),
+          expectedKey(
+            fixtureFile,
+            "actual",
+            "parameter",
+            "array-plural-camel-case",
+          ),
+          expectedKey(
+            fixtureFile,
+            "before",
+            "parameter",
+            "array-plural-camel-case",
+          ),
+          expectedKey(fixtureFile, "_usedProvider", "parameter", "camel-case"),
+          expectedKey(
+            fixtureFile,
+            "_localVariable",
+            "variable",
+            "true-constant-upper-snake-case",
+          ),
+          expectedKey(
+            fixtureFile,
             "invalidConstant",
             "variable",
             "true-constant-upper-snake-case",
@@ -2206,6 +2313,14 @@ test("型付き命名classifierは構文境界の正負例を同じ規則で判�
           "bytes",
           "valueSet",
           "valueMap",
+          "generationReleased",
+          "configurationMatches",
+          "didOperationThrow",
+          "argv",
+          "acceptanceCriteria",
+          "evidence",
+          "currentInventory",
+          "_unusedProvider",
           "enabled",
           "values",
           "FIXED_PATTERN",

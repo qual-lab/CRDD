@@ -117,10 +117,10 @@ type RuntimeDependencies = Readonly<{
 
 function filesystemIdentity(target: string, expected: "file" | "directory") {
   const metadata = fs.lstatSync(target, { bigint: true });
-  const validType =
+  const isValidType =
     expected === "file" ? metadata.isFile() : metadata.isDirectory();
   if (
-    !validType ||
+    !isValidType ||
     metadata.isSymbolicLink() ||
     metadata.dev <= 0n ||
     metadata.ino <= 0n ||
@@ -260,16 +260,16 @@ function startOwnedProcess(
     });
     child.stdin.end(stdin, "utf8");
   }
-  const append = (chunk: Buffer | string, stdout: boolean) => {
+  const append = (chunk: Buffer | string, isStdout: boolean) => {
     const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    if (stdout) stdoutBytes += value.byteLength;
+    if (isStdout) stdoutBytes += value.byteLength;
     else stderrBytes += value.byteLength;
     if (stdoutBytes > STDOUT_LIMIT_BYTES || stderrBytes > STDERR_LIMIT_BYTES) {
       exceeded = true;
       void terminateAndWait(5_000);
       return;
     }
-    (stdout ? stdoutChunks : stderrChunks).push(value);
+    (isStdout ? stdoutChunks : stderrChunks).push(value);
   };
   child.stdout.on("data", (chunk) => append(chunk, true));
   child.stderr.on("data", (chunk) => append(chunk, false));
@@ -319,9 +319,13 @@ function startOwnedProcess(
   });
 }
 
-function exactArray(left: readonly string[], right: readonly string[]) {
+function exactArray(
+  leftItems: readonly string[],
+  rightItems: readonly string[],
+) {
   return (
-    left.length === right.length && left.every((value, i) => value === right[i])
+    leftItems.length === rightItems.length &&
+    leftItems.every((value, i) => value === rightItems[i])
   );
 }
 
@@ -378,7 +382,7 @@ function expectedCommands(
   ) {
     return null;
   }
-  const providerEnvironment = [
+  const providerEnvironmentEntries = [
     "--env",
     "HOME=/provider-home",
     "--env",
@@ -483,7 +487,7 @@ function expectedCommands(
       "--pids-limit=64",
       "--user=65534:65534",
       "--workdir=/work",
-      ...providerEnvironment,
+      ...providerEnvironmentEntries,
       "--mount",
       providerHomeMount,
       "--mount",
@@ -586,14 +590,14 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
   ) {
     return false;
   }
-  const expected = expectedCommands(plan, tmpSourcePath);
+  const expectedCommandPlans = expectedCommands(plan, tmpSourcePath);
   return (
-    expected !== null &&
-    plan.commands.length === expected.length &&
+    expectedCommandPlans !== null &&
+    plan.commands.length === expectedCommandPlans.length &&
     plan.commands.every(
       (command, index) =>
-        command.purpose === expected[index]?.purpose &&
-        exactArray(command.argv, expected[index]?.argv ?? []),
+        command.purpose === expectedCommandPlans[index]?.purpose &&
+        exactArray(command.argv, expectedCommandPlans[index]?.argv ?? []),
     )
   );
 }
@@ -700,7 +704,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     expectedName: string,
     ownershipLabel: string,
     expectedImage: string | null,
-    expectedInternal: boolean | null,
+    shouldBeInternal: boolean | null,
     purpose:
       | "create_subscription_auth_probe"
       | "create_internal_network"
@@ -763,11 +767,11 @@ function createRuntime(dependencies: RuntimeDependencies) {
           : purpose === "create_proxy"
             ? [plan.egressNetworkName, plan.internalNetworkName].sort()
             : [plan.internalNetworkName];
-      const capDrop = Array.isArray(hostConfig?.CapDrop)
+      const droppedCapabilities = Array.isArray(hostConfig?.CapDrop)
         ? hostConfig.CapDrop.map(String)
         : [];
       const capAdd = hostConfig?.CapAdd;
-      const securityOpt = Array.isArray(hostConfig?.SecurityOpt)
+      const securityOptions = Array.isArray(hostConfig?.SecurityOpt)
         ? hostConfig.SecurityOpt.map(String)
         : [];
       const expectedPids =
@@ -835,10 +839,12 @@ function createRuntime(dependencies: RuntimeDependencies) {
         config?.User === "65534:65534" &&
         hostConfig?.ReadonlyRootfs === true &&
         hostConfig?.Privileged === false &&
-        capDrop.length === 1 &&
-        capDrop[0]?.toUpperCase() === "ALL" &&
+        droppedCapabilities.length === 1 &&
+        droppedCapabilities[0]?.toUpperCase() === "ALL" &&
         (capAdd === null || (Array.isArray(capAdd) && capAdd.length === 0)) &&
-        securityOpt.some((option) => option.startsWith("no-new-privileges")) &&
+        securityOptions.some((option) =>
+          option.startsWith("no-new-privileges"),
+        ) &&
         hostConfig?.PidsLimit === expectedPids &&
         networkNames.length === expectedNetworks.length &&
         networkNames.every(
@@ -858,7 +864,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
       (kind === "container" &&
         (resource.Config as Record<string, unknown> | undefined)?.Image !==
           expectedImage) ||
-      (kind === "network" && resource.Internal !== expectedInternal) ||
+      (kind === "network" && resource.Internal !== shouldBeInternal) ||
       !configurationMatches
     )
       return "foreign" as const;
@@ -1020,7 +1026,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     expectedName: string,
     ownershipLabel: string,
     expectedImage: string | null,
-    expectedInternal: boolean | null,
+    shouldBeInternal: boolean | null,
     purpose:
       | "create_subscription_auth_probe"
       | "create_internal_network"
@@ -1038,7 +1044,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
       expectedName,
       ownershipLabel,
       expectedImage,
-      expectedInternal,
+      shouldBeInternal,
       purpose,
       plan,
     );

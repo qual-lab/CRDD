@@ -23,7 +23,7 @@ const FAKE_STATES = Object.freeze([
   "cleanup_confirmed",
 ]);
 const PLAN_KEYS = new Set(["provider", "mode"]);
-const BILLING_POLICY = describeProviderBillingPolicyContract();
+const billingPolicy = describeProviderBillingPolicyContract();
 const OBSERVATION_KEYS = new Set([
   "contract",
   "contractRevision",
@@ -120,7 +120,7 @@ function blocked(reason: string) {
     processAbsenceVerified: false,
     resultNormalizationVerified: false,
     providerHomeMountGrantIssued: false,
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
   });
 }
 
@@ -148,7 +148,7 @@ export function planProviderLifecycle(candidate: unknown) {
     hostCredentialImportAllowed: false,
     apiKeyAllowed: false,
     additionalCreditPurchaseAllowed: false,
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
     shellAllowed: false,
     pathLookupAllowed: false,
   });
@@ -288,7 +288,7 @@ export function describeProviderLifecycleContract() {
     realProviderEgress: "not_implemented",
     apiKeyAllowed: false,
     additionalCreditPurchaseAllowed: false,
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
     rawAuthOutputRecorded: false,
     oauthTokenReadByRuntime: false,
     syntheticFakeObservationState: "candidate_non_authoritative",

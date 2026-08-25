@@ -3,8 +3,8 @@ import test from "node:test";
 
 import { isExactDockerRuntimeStateMutationBoundary } from "../src/security/docker-runtime-state-binding.ts";
 
-const RECOVERY_ID = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
-const BINDING = Object.freeze({
+const recoveryId = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+const binding = Object.freeze({
   rootPath: "C:\\RuntimeState",
   runtimeStateIdentityHash: "d".repeat(64),
   runtimeStateProtectionHash: "e".repeat(64),
@@ -15,10 +15,10 @@ const BINDING = Object.freeze({
 test("RuntimeState mutationはRoot、保護、選択userとRecovery IDの完全一致だけを受理する", () => {
   assert.equal(
     isExactDockerRuntimeStateMutationBoundary(
-      BINDING,
-      BINDING,
-      Object.freeze([RECOVERY_ID]),
-      RECOVERY_ID,
+      binding,
+      binding,
+      Object.freeze([recoveryId]),
+      recoveryId,
     ),
     true,
   );
@@ -34,10 +34,10 @@ test("Root差替え、別selected-user、別bindingと欠落Recovery IDを拒否
   ] as const) {
     assert.equal(
       isExactDockerRuntimeStateMutationBoundary(
-        BINDING,
-        Object.freeze({ ...BINDING, [key]: value }),
-        Object.freeze([RECOVERY_ID]),
-        RECOVERY_ID,
+        binding,
+        Object.freeze({ ...binding, [key]: value }),
+        Object.freeze([recoveryId]),
+        recoveryId,
       ),
       false,
       key,
@@ -45,10 +45,10 @@ test("Root差替え、別selected-user、別bindingと欠落Recovery IDを拒否
   }
   assert.equal(
     isExactDockerRuntimeStateMutationBoundary(
-      BINDING,
-      BINDING,
+      binding,
+      binding,
       Object.freeze([]),
-      RECOVERY_ID,
+      recoveryId,
     ),
     false,
   );

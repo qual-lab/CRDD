@@ -17,6 +17,7 @@
     "./crdd-check.ts",
     "./crdd-check.contract.test.ts",
     "./tools-naming.contract.test.ts",
+    "./test-runner.ts",
     "./fault-injector.ts",
     "../../template/tools/crdd-check.ts"
   ]

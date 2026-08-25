@@ -2097,7 +2097,7 @@ function currentHostRecoveryTokenForInventory(
       if (typeof value[key] === "string") candidates.add(String(value[key]));
     }
   }
-  const current = [...candidates].filter((candidate) => {
+  const currentRecoveryIds = [...candidates].filter((candidate) => {
     try {
       loadHostRecoveryRecordByToken(candidate);
       return true;
@@ -2105,7 +2105,7 @@ function currentHostRecoveryTokenForInventory(
       return false;
     }
   });
-  return current.length === 1 ? current[0] : null;
+  return currentRecoveryIds.length === 1 ? currentRecoveryIds[0] : null;
 }
 
 function verifyRecoveryDockerCli() {
@@ -2185,7 +2185,7 @@ export function recoverExactDockerResourceWithRunner(
   expectedName: string,
   ownershipLabel: string,
   expectedImage: string | null,
-  expectedInternal: boolean | null,
+  shouldBeInternal: boolean | null,
   purpose: string,
   expectedNetworks: readonly string[],
   operationMode: "boolean_probe" | "isolated_task",
@@ -2297,11 +2297,11 @@ export function recoverExactDockerResourceWithRunner(
       networks && typeof networks === "object" && !Array.isArray(networks)
         ? Object.keys(networks as Record<string, unknown>).sort()
         : [];
-    const capDrop = Array.isArray(hostConfig?.CapDrop)
+    const droppedCapabilities = Array.isArray(hostConfig?.CapDrop)
       ? hostConfig.CapDrop.map(String)
       : [];
     const capAdd = hostConfig?.CapAdd;
-    const securityOpt = Array.isArray(hostConfig?.SecurityOpt)
+    const securityOptions = Array.isArray(hostConfig?.SecurityOpt)
       ? hostConfig.SecurityOpt.map(String)
       : [];
     const bindMounts = Array.isArray(value.Mounts)
@@ -2363,10 +2363,12 @@ export function recoverExactDockerResourceWithRunner(
       config?.User === "65534:65534" &&
       hostConfig?.ReadonlyRootfs === true &&
       hostConfig?.Privileged === false &&
-      capDrop.length === 1 &&
-      capDrop[0]?.toUpperCase() === "ALL" &&
+      droppedCapabilities.length === 1 &&
+      droppedCapabilities[0]?.toUpperCase() === "ALL" &&
       (capAdd === null || (Array.isArray(capAdd) && capAdd.length === 0)) &&
-      securityOpt.some((option) => option.startsWith("no-new-privileges")) &&
+      securityOptions.some((option) =>
+        option.startsWith("no-new-privileges"),
+      ) &&
       hostConfig?.PidsLimit ===
         (purpose === "create_subscription_auth_probe" ? 32 : 64) &&
       networkNames.length === expectedNetworks.length &&
@@ -2383,7 +2385,7 @@ export function recoverExactDockerResourceWithRunner(
     name !== expectedName ||
     labels?.["crdd.coordinator.runtime"] !== ownershipLabel.split("=")[1] ||
     (kind === "container" && config?.Image !== expectedImage) ||
-    (kind === "network" && value.Internal !== expectedInternal) ||
+    (kind === "network" && value.Internal !== shouldBeInternal) ||
     !configurationMatches
   )
     return false;
@@ -2412,7 +2414,7 @@ function recoverExactDockerResource(
   expectedName: string,
   ownershipLabel: string,
   expectedImage: string | null,
-  expectedInternal: boolean | null,
+  shouldBeInternal: boolean | null,
   purpose: string,
   expectedNetworks: readonly string[],
   operationMode: "boolean_probe" | "isolated_task",
@@ -2425,7 +2427,7 @@ function recoverExactDockerResource(
     expectedName,
     ownershipLabel,
     expectedImage,
-    expectedInternal,
+    shouldBeInternal,
     purpose,
     expectedNetworks,
     operationMode,
@@ -3460,15 +3462,15 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         false,
       ],
     ] as const;
-    for (const [purpose, kind, name, image, internal] of specs) {
-      const submission = fs.existsSync(
+    for (const [purpose, kind, name, image, isInternal] of specs) {
+      const hasSubmissionMarker = fs.existsSync(
         path.join(operationDirectory, `submission-${purpose}.json`),
       );
       const receiptPath = path.join(
         operationDirectory,
         `receipt-${purpose}.json`,
       );
-      if (!submission) {
+      if (!hasSubmissionMarker) {
         if (fs.existsSync(receiptPath))
           throw new Error("docker_task_recovery_receipt_without_submission");
         continue;
@@ -3501,7 +3503,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
                 name,
                 String(base.ownershipLabel),
                 image,
-                internal,
+                isInternal,
                 purpose,
                 expectedNetworks,
                 operationMode,
@@ -3515,7 +3517,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
                 name,
                 String(base.ownershipLabel),
                 image,
-                internal,
+                isInternal,
                 purpose,
                 expectedNetworks,
                 operationMode,
@@ -3738,7 +3740,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     const entries = fs.readdirSync(rootPath, { withFileTypes: true });
     if (entries.length > 256)
       throw new Error("docker_task_runtime_state_entry_limit_exceeded");
-    const sorted = [...entries].sort((left, right) =>
+    const sortedEntries = [...entries].sort((left, right) =>
       left.name.localeCompare(right.name),
     );
     if (entries.length === 0)
@@ -4098,7 +4100,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         }),
       );
     };
-    for (const entry of sorted) {
+    for (const entry of sortedEntries) {
       if (isDockerRecoveryJournalIntentName(entry.name)) continue;
       if (isDockerRecoveryJournalTemporaryName(entry.name))
         throw new Error("docker_task_runtime_state_orphan_temporary");
@@ -4213,12 +4215,12 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     for (const journalRecoveryId of journalIntentRecoveryIds) {
       const parsedJournal = parseDockerTaskRecoveryId(journalRecoveryId);
       if (!parsedJournal || records.has(parsedJournal.operationNonce)) continue;
-      const cleanupIntent = journalIntents.some(
+      const hasCleanupIntent = journalIntents.some(
         (intent) =>
           intent.recoveryId === journalRecoveryId &&
           intent.schema === "crdd-coordinator-recovery-cleanup-delete/v1",
       );
-      if (cleanupIntent) {
+      if (hasCleanupIntent) {
         records.set(
           parsedJournal.operationNonce,
           Object.freeze({

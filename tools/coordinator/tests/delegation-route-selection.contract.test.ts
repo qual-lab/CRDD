@@ -34,7 +34,7 @@ function createRequest(
   };
 }
 
-const bothEligible = Object.freeze({
+const BOTH_ELIGIBLE = Object.freeze({
   providerEligibility: Object.freeze([
     Object.freeze({ provider: "codex", status: "eligible", reason: "ready" }),
     Object.freeze({ provider: "claude", status: "eligible", reason: "ready" }),
@@ -44,7 +44,7 @@ const bothEligible = Object.freeze({
 test("Front Codexから具体実装をClaude Executorへ選ぶ②経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("codex"),
-    bothEligible,
+    BOTH_ELIGIBLE,
   );
   assert.equal(selected.status, "candidate");
   assert.equal(selected.route, "front_codex__executor_claude");
@@ -85,7 +85,7 @@ test("Front Claudeから独立レビューをCodexへ選ぶ③経路", () => {
       isLocalCandidateOnly: false,
       requiresCrossContextAlignment: true,
     }),
-    bothEligible,
+    BOTH_ELIGIBLE,
   );
   assert.equal(selected.status, "candidate");
   assert.equal(selected.route, "front_claude__executor_codex");
@@ -103,7 +103,7 @@ test("Codex向きの検証特性ならFront CodexからCodexへ委譲する①�
       workClass: "bounded_verification",
       role: "executor",
     }),
-    bothEligible,
+    BOTH_ELIGIBLE,
   );
   assert.equal(selected.status, "candidate");
   assert.equal(selected.route, "front_codex__executor_codex");
@@ -119,7 +119,7 @@ test("Codex向きの検証特性ならFront CodexからCodexへ委譲する①�
 test("Front Claudeから具体実装をCodexへ分散する③経路", () => {
   const selected = selectDelegationRouteCandidate(
     createRequest("claude"),
-    bothEligible,
+    BOTH_ELIGIBLE,
   );
   assert.equal(selected.status, "candidate");
   assert.equal(selected.route, "front_claude__executor_codex");
@@ -133,7 +133,7 @@ test("Front Claudeから具体実装をCodexへ分散する③経路", () => {
 test("明示Executor制約を優先し利用不能時に無言で変更しない", () => {
   const explicit = selectDelegationRouteCandidate(
     createRequest("codex", { requestedExecutorProvider: "codex" }),
-    bothEligible,
+    BOTH_ELIGIBLE,
   );
   assert.equal(explicit.executorProvider, "codex");
   assert.equal(
@@ -248,7 +248,7 @@ test("独立Provider欠落、循環、深度超過と不正eligibilityをfail cl
       ancestorOperationIds: ["OP-123456"],
       delegationDepth: 1,
     }),
-    bothEligible,
+    BOTH_ELIGIBLE,
   );
   assert.equal(cycle.reason, "delegation_route_operation_chain_invalid");
   const depth = selectDelegationRouteCandidate(
@@ -258,7 +258,7 @@ test("独立Provider欠落、循環、深度超過と不正eligibilityをfail cl
       ancestorOperationIds: ["OP-111111", "OP-222222"],
       delegationDepth: 2,
     }),
-    bothEligible,
+    BOTH_ELIGIBLE,
   );
   assert.equal(depth.reason, "delegation_route_operation_chain_invalid");
   assert.equal(
@@ -279,7 +279,7 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
         role: "independent_reviewer",
         workClass: "security_review",
       }),
-      bothEligible,
+      BOTH_ELIGIBLE,
     ).reason,
     "delegation_route_independence_invalid",
   );
@@ -306,7 +306,7 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
         subjectProvider: "claude",
         requiresIndependentProvider: false,
       }),
-      bothEligible,
+      BOTH_ELIGIBLE,
     ).reason,
     "delegation_route_independence_invalid",
   );

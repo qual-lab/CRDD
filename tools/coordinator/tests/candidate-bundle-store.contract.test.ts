@@ -10,7 +10,7 @@ import {
   describeCandidateBundleStoreContract,
 } from "../src/security/candidate-bundle-store.ts";
 
-const persistencePolicy = Object.freeze({
+const PERSISTENCE_POLICY = Object.freeze({
   candidatePersistenceAllowed: true,
   candidateRetentionHours: 1,
   informationClassification: "public",
@@ -94,7 +94,7 @@ function requireStoreRecoveryId(value: unknown) {
 test("承認済みbundleをrestart後も冪等PublishしRecovery IDでDiscardする", () => {
   const value = fixture();
   try {
-    const persisted = value.adapter.persist(bundle(), persistencePolicy);
+    const persisted = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     assert.equal(persisted?.status, "staged");
     const candidateRecoveryId = requireRecoveryId(persisted);
     assert.equal(value.adapter.read(candidateRecoveryId), null);
@@ -133,12 +133,12 @@ test("期限到達後はExportせずstartupと公開入口GCでstagedとpublishe
   try {
     value.faults.add("before_pending_sync");
     value.faults.add("before_discard_remove");
-    const pending = value.adapter.persist(bundle(), persistencePolicy);
+    const pending = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     assert.equal(pending?.status, "blocked");
     requireRecoveryId(pending);
     value.faults.clear();
 
-    const staged = value.adapter.persist(bundle(), persistencePolicy);
+    const staged = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     const stagedRecoveryId = requireRecoveryId(staged);
     value.advance(60 * 60 * 1_000);
     assert.equal(value.adapter.publish(stagedRecoveryId)?.status, "blocked");
@@ -146,7 +146,7 @@ test("期限到達後はExportせずstartupと公開入口GCでstagedとpublishe
     assert.deepEqual(fs.readdirSync(value.adapter.testingStoreDirectory()), []);
 
     value.setClock(1_900_000_000_000);
-    const next = value.adapter.persist(bundle(), persistencePolicy);
+    const next = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     const nextRecoveryId = requireRecoveryId(next);
     const published = value.adapter.publish(nextRecoveryId);
     assert.equal(published?.status, "published");
@@ -163,7 +163,7 @@ test("partial pendingはRecovery IDを失わず明示Discardだけが安定実�
   try {
     value.faults.add("before_pending_sync");
     value.faults.add("before_discard_remove");
-    const failed = value.adapter.persist(bundle(), persistencePolicy);
+    const failed = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     assert.equal(failed?.status, "blocked");
     const candidateRecoveryId = requireRecoveryId(failed);
     assert.equal(
@@ -185,7 +185,7 @@ test("staged障害とpublish rename後障害は同じRecovery IDで再開でき�
   const value = fixture();
   try {
     value.faults.add("after_pending_rename");
-    const stagedFailure = value.adapter.persist(bundle(), persistencePolicy);
+    const stagedFailure = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     assert.equal(stagedFailure?.status, "blocked");
     const candidateRecoveryId = requireRecoveryId(stagedFailure);
     value.faults.clear();
@@ -209,7 +209,7 @@ test("staged障害とpublish rename後障害は同じRecovery IDで再開でき�
 test("期限切れcleanup失敗はtyped Recoveryを返しstrict即時削除を主張しない", () => {
   const value = fixture();
   try {
-    const persisted = value.adapter.persist(bundle(), persistencePolicy);
+    const persisted = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     const candidateRecoveryId = requireRecoveryId(persisted);
     const published = value.adapter.publish(candidateRecoveryId);
     assert.ok(published && "candidateId" in published);
@@ -292,7 +292,7 @@ test("unknownとdamaged entryは推測削除せずexact明示Recoveryだけで�
 test("個別Discardは無関係なunknown entryの全体GC失敗から独立する", () => {
   const value = fixture();
   try {
-    const persisted = value.adapter.persist(bundle(), persistencePolicy);
+    const persisted = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     const candidateRecoveryId = requireRecoveryId(persisted);
     const unknown = path.join(
       value.adapter.testingStoreDirectory(),
@@ -339,25 +339,25 @@ test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格�
   const value = fixture();
   try {
     assert.equal(
-      value.adapter.persist({ ...bundle(), unknown: true }, persistencePolicy),
+      value.adapter.persist({ ...bundle(), unknown: true }, PERSISTENCE_POLICY),
       null,
     );
     const secret = Buffer.from(`token=sk-${"A".repeat(24)}\n`, "utf8");
     assert.equal(
-      value.adapter.persist(bundle(secret), persistencePolicy),
+      value.adapter.persist(bundle(secret), PERSISTENCE_POLICY),
       null,
     );
     value.setClock(-1);
-    assert.equal(value.adapter.persist(bundle(), persistencePolicy), null);
+    assert.equal(value.adapter.persist(bundle(), PERSISTENCE_POLICY), null);
 
     value.setClock(2_000_000_000_000);
     for (let index = 0; index < 128; index += 1) {
       assert.equal(
-        value.adapter.persist(bundle(), persistencePolicy)?.status,
+        value.adapter.persist(bundle(), PERSISTENCE_POLICY)?.status,
         "staged",
       );
     }
-    const capacity = value.adapter.persist(bundle(), persistencePolicy);
+    const capacity = value.adapter.persist(bundle(), PERSISTENCE_POLICY);
     assert.equal(capacity?.status, "blocked");
     assert.equal(
       capacity?.status === "blocked" ? capacity.reason : null,

@@ -226,7 +226,7 @@ function blocked(
   hostRecoveryId: string | null = null,
   dockerRecoveryId: string | null = null,
   candidateRecoveryId: string | null = null,
-  cleanupConfirmedOverride: boolean | null = null,
+  isCleanupConfirmedOverride: boolean | null = null,
   candidateStoreRecoveryId: string | null = null,
   dockerRecoveryIds: readonly string[] = dockerRecoveryId
     ? [dockerRecoveryId]
@@ -236,9 +236,9 @@ function blocked(
     status: "blocked" as const,
     reason,
     cleanupConfirmed:
-      cleanupConfirmedOverride === null
+      isCleanupConfirmedOverride === null
         ? !manualRecoveryRequired
-        : cleanupConfirmedOverride,
+        : isCleanupConfirmedOverride,
     manualRecoveryRequired,
     hostRecoveryId: manualRecoveryRequired ? hostRecoveryId : null,
     dockerRecoveryId: manualRecoveryRequired ? dockerRecoveryId : null,
@@ -285,10 +285,10 @@ function controlDockerRecoveryIds(control: ControlRecord) {
 
 function actionableDockerRecoveryIds(
   control: ControlRecord,
-  preferred: readonly string[] = [],
+  preferredRecoveryIds: readonly string[] = [],
 ) {
   return Object.freeze([
-    ...new Set([...preferred, ...controlDockerRecoveryIds(control)]),
+    ...new Set([...preferredRecoveryIds, ...controlDockerRecoveryIds(control)]),
   ]);
 }
 
@@ -301,7 +301,7 @@ function projectCurrentDockerRecovery<T extends RuntimeRecord>(
       .filter((handoff) => handoff.state === "finalized")
       .map((handoff) => handoff.recoveryId),
   );
-  const explicitNonDockerRecovery = Boolean(
+  const hasExplicitNonDockerRecovery = Boolean(
     stringValue(result.hostRecoveryId) ||
       stringValue(result.candidateRecoveryId) ||
       stringValue(result.candidateStoreRecoveryId),
@@ -322,15 +322,15 @@ function projectCurrentDockerRecovery<T extends RuntimeRecord>(
       ].filter((value) => !finalizedDockerRecoveryIds.has(value)),
     ),
   ]);
-  const recoveryWithoutIdentifier =
+  const hasRecoveryWithoutIdentifier =
     result.manualRecoveryRequired === true &&
-    !explicitNonDockerRecovery &&
+    !hasExplicitNonDockerRecovery &&
     rawDockerRecoveryIds.length === 0 &&
     !stringValue(result.dockerRecoveryId);
   const manualRecoveryRequired =
-    explicitNonDockerRecovery ||
+    hasExplicitNonDockerRecovery ||
     dockerRecoveryIds.length > 0 ||
-    recoveryWithoutIdentifier;
+    hasRecoveryWithoutIdentifier;
   return Object.freeze({
     ...result,
     manualRecoveryRequired,
@@ -395,27 +395,27 @@ function selectionRequest(
   subjectProvider: Provider | null,
   requestedProvider: Provider | null,
 ) {
-  const independent = role === "independent_reviewer";
+  const isIndependentReview = role === "independent_reviewer";
   return Object.freeze({
     frontProvider: request.frontProvider,
-    delegationNeed: independent ? "required" : "beneficial",
-    delegationReason: independent
+    delegationNeed: isIndependentReview ? "required" : "beneficial",
+    delegationReason: isIndependentReview
       ? "independent_review_required"
       : "specialized_executor_benefit",
     requestedExecutorProvider: requestedProvider ?? "auto",
     subjectProvider,
-    requiresIndependentProvider: independent,
+    requiresIndependentProvider: isIndependentReview,
     role,
-    workClass: independent ? "bounded_verification" : request.workClass,
-    planState: independent ? "complete" : request.planState,
+    workClass: isIndependentReview ? "bounded_verification" : request.workClass,
+    planState: isIndependentReview ? "complete" : request.planState,
     risk: request.risk,
     difficulty: request.difficulty,
     decisionImpact: request.decisionImpact,
     isLocalCandidateOnly: true,
-    hasUnresolvedDirection: independent
+    hasUnresolvedDirection: isIndependentReview
       ? false
       : request.hasUnresolvedDirection,
-    requiresCrossContextAlignment: independent
+    requiresCrossContextAlignment: isIndependentReview
       ? false
       : request.requiresCrossContextAlignment,
     operationId,
@@ -442,13 +442,15 @@ function samePaths(left: unknown, right: unknown) {
           Buffer.from(a).compare(Buffer.from(b)),
         )
       : null;
-  const a = normalize(left);
-  const b = normalize(right);
+  const normalizedLeftPaths = normalize(left);
+  const normalizedRightPaths = normalize(right);
   return (
-    a !== null &&
-    b !== null &&
-    a.length === b.length &&
-    a.every((value, index) => value === b[index])
+    normalizedLeftPaths !== null &&
+    normalizedRightPaths !== null &&
+    normalizedLeftPaths.length === normalizedRightPaths.length &&
+    normalizedLeftPaths.every(
+      (value, index) => value === normalizedRightPaths[index],
+    )
   );
 }
 
@@ -747,7 +749,7 @@ async function executeStage(
   }
 }
 
-async function run(
+async function runCoordinatorTask(
   state: RuntimeState,
   rawRequest: unknown,
   repositoryRoot: unknown,
@@ -770,7 +772,7 @@ async function run(
     );
   }
   let operation: Operation | null = null;
-  let retainOperationRoot = false;
+  let shouldRetainOperationRoot = false;
   try {
     operation = state.dependencies.createOperation();
     control.ownedOperation = operation.owned;
@@ -869,7 +871,7 @@ async function run(
       control,
     );
     if (executor.status !== "completed") {
-      retainOperationRoot = executor.manualRecoveryRequired === true;
+      shouldRetainOperationRoot = executor.manualRecoveryRequired === true;
       return executor;
     }
     if (control.cancellationRequested) {
@@ -911,7 +913,7 @@ async function run(
       control,
     );
     if (reviewer.status !== "completed") {
-      retainOperationRoot = reviewer.manualRecoveryRequired === true;
+      shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
       return reviewer;
     }
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
@@ -938,7 +940,7 @@ async function run(
         control,
       );
       if (remediation.status !== "completed") {
-        retainOperationRoot = remediation.manualRecoveryRequired === true;
+        shouldRetainOperationRoot = remediation.manualRecoveryRequired === true;
         return remediation;
       }
       remediationPerformed = true;
@@ -975,7 +977,7 @@ async function run(
         control,
       );
       if (reviewer.status !== "completed") {
-        retainOperationRoot = reviewer.manualRecoveryRequired === true;
+        shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
         return reviewer;
       }
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
@@ -1062,7 +1064,7 @@ async function run(
       credentialAbsenceVerified: false,
     });
   } catch {
-    retainOperationRoot = true;
+    shouldRetainOperationRoot = true;
     return blocked(
       "coordinator_task_failed_closed",
       true,
@@ -1070,7 +1072,7 @@ async function run(
     );
   } finally {
     state.controls.delete(controlCapability);
-    control.retainOperationRoot = retainOperationRoot;
+    control.retainOperationRoot = shouldRetainOperationRoot;
   }
 }
 
@@ -1205,7 +1207,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         dockerHandoffs: [],
       };
       state.controls.set(controlCapability, control);
-      const completion = run(
+      const completion = runCoordinatorTask(
         state,
         rawRequest,
         repositoryRoot,

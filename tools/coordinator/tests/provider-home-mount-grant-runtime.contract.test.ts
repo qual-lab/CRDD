@@ -516,7 +516,7 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
     );
   }
 
-  let first = true;
+  let isFirstGrantIssued = true;
   const observations = new WeakMap<object, Observation>();
   const management = Object.freeze({});
   const collision = createIsolatedProviderHomeMountGrantRuntimeCandidate({
@@ -558,8 +558,8 @@ test("不正capability、全観測hash差分、参照衝突とproduction入口�
     collisionObservation(),
     "PROFILE-123456",
   );
-  first = firstResult.status === "issued";
-  assert.equal(first, true);
+  isFirstGrantIssued = firstResult.status === "issued";
+  assert.equal(isFirstGrantIssued, true);
   assert.equal(
     collision.issue(management, collisionObservation(), "PROFILE-123457")
       .reason,

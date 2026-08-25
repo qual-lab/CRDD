@@ -26,9 +26,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function exactKeys(value: Record<string, unknown>, keys: readonly string[]) {
-  const actual = Object.keys(value);
+  const actualKeys = Object.keys(value);
   return (
-    actual.length === keys.length && keys.every((key) => actual.includes(key))
+    actualKeys.length === keys.length &&
+    keys.every((key) => actualKeys.includes(key))
   );
 }
 

@@ -7,14 +7,14 @@ import {
   describeExternalSendGrantRuntimeContract,
 } from "../src/security/external-send-grant-runtime.ts";
 
-const scope = Object.freeze({
+const SCOPE = Object.freeze({
   objective: "Update only the bounded fixture.",
   acceptanceCriteria: Object.freeze(["The expected value is present."]),
   allowedPaths: Object.freeze(["fixture.txt"]),
   readPaths: Object.freeze(["fixture.txt", "README.md"]),
 });
 
-function fixture(confirm = true) {
+function fixture(shouldConfirm = true) {
   const managementCapability = Object.freeze({});
   const repositoryBindingCapability = Object.freeze({});
   const policyCapability = Object.freeze({});
@@ -94,7 +94,7 @@ function fixture(confirm = true) {
         : null,
     confirm: (notice: string, challenge: string) => {
       notices.push(`${notice}\nchallenge=${challenge}`);
-      return confirm;
+      return shouldConfirm;
     },
     wallNow: () => wall,
     monotonicNow: () => monotonic,
@@ -127,11 +127,11 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
     current.managementCapability,
     current.repositoryBindingCapability,
     current.policyCapability,
-    scope,
+    SCOPE,
     ["claude", "codex"],
   );
   assert.equal(issued?.status, "issued");
-  assert.equal(issued?.scopeHash, compileExternalSendScopeHash(scope));
+  assert.equal(issued?.scopeHash, compileExternalSendScopeHash(SCOPE));
   assert.equal(issued?.apiKeyFallbackAllowed, false);
   assert.equal(issued?.additionalPurchaseAllowed, false);
   assert.match(current.notices[0] ?? "", /Subscription枠/u);
@@ -144,7 +144,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
     "claude",
     "executor",
     0,
-    scope,
+    SCOPE,
   );
   assert.equal(executor?.status, "consumed");
   assert.equal(executor?.provider, "claude");
@@ -156,7 +156,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
       "codex",
       "executor",
       0,
-      scope,
+      SCOPE,
     ),
     null,
   );
@@ -168,7 +168,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
       "codex",
       "reviewer",
       0,
-      scope,
+      SCOPE,
     )?.status,
     "consumed",
   );
@@ -180,7 +180,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
       "claude",
       "reviewer",
       0,
-      scope,
+      SCOPE,
     ),
     null,
   );
@@ -193,7 +193,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
       denied.managementCapability,
       denied.repositoryBindingCapability,
       denied.policyCapability,
-      scope,
+      SCOPE,
       ["claude"],
     ),
     null,
@@ -205,7 +205,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
       current.managementCapability,
       current.repositoryBindingCapability,
       current.policyCapability,
-      scope,
+      SCOPE,
       ["claude"],
     );
     assert.equal(issued?.status, "issued");
@@ -213,8 +213,8 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
     if (scenario === "revision") current.replaceRevision();
     const consumeScope =
       scenario === "scope"
-        ? { ...scope, objective: "A different objective." }
-        : scope;
+        ? { ...SCOPE, objective: "A different objective." }
+        : SCOPE;
     assert.equal(
       current.runtime.consume(
         issued?.capability,

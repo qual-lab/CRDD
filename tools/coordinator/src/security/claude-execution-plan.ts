@@ -7,7 +7,7 @@ export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 10;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
-const BILLING_POLICY = describeProviderBillingPolicyContract();
+const billingPolicy = describeProviderBillingPolicyContract();
 const FIXED_PROMPT =
   "Return one JSON object with the single key status and the boolean value true. Do not use tools.";
 const FIXED_STRUCTURED_OUTPUT_SCHEMA = Object.freeze({
@@ -93,7 +93,7 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
   manifestUrl:
     "https://downloads.claude.ai/claude-code-releases/2.1.220/manifest.json",
 });
-const DISTRIBUTION_BINDING = Object.freeze({
+const distributionBinding = Object.freeze({
   identity: DISTRIBUTION_IDENTITY,
   manifestSignatureRequired: true,
   manifestSignatureVerified: true,
@@ -201,7 +201,7 @@ const OFFERING_CANDIDATES = Object.freeze([
     offeringClass: "organization_offering_candidate",
   }),
 ]);
-const AUTHENTICATION_VERIFICATION = Object.freeze({
+const authenticationVerification = Object.freeze({
   verifiedAt: "2026-08-24",
   loginCommand: Object.freeze([
     DISTRIBUTION_IDENTITY.executablePath,
@@ -386,9 +386,9 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     operationCapabilityIssued: false,
     provider: "claude",
     mode: "read_only_probe",
-    distributionBinding: DISTRIBUTION_BINDING,
+    distributionBinding: distributionBinding,
     noNetworkVersionProbe,
-    command: DISTRIBUTION_BINDING.identity.executablePath,
+    command: distributionBinding.identity.executablePath,
     modelSelection:
       "coordinator_explainable_selection_and_verified_profile_required",
     effortSelection:
@@ -422,7 +422,7 @@ export function planClaudeReadOnlyProbe(candidate: unknown) {
     apiKeyAllowed: false,
     additionalCreditPurchaseAllowed: false,
     automaticPlanSwitchAllowed: false,
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
     sessionResumeAllowed: false,
     sessionPersistenceAllowed: false,
     builtInToolsRequested: "none",
@@ -478,8 +478,8 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     mode: "isolated_task" as const,
     taskRole,
     effort,
-    distributionBinding: DISTRIBUTION_BINDING,
-    command: DISTRIBUTION_BINDING.identity.executablePath,
+    distributionBinding: distributionBinding,
+    command: distributionBinding.identity.executablePath,
     speedMode: "normal_only" as const,
     argv: Object.freeze([
       "--safe-mode",
@@ -530,7 +530,7 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     maximumBudgetUsd: Number(maximumBudgetUsd),
     sessionPersistenceAllowed: false,
     loginPolicy: "existing_claude_subscription_oauth" as const,
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
     apiKeyAllowed: false,
     paidApiFallbackAllowed: false,
     additionalCreditPurchaseAllowed: false,
@@ -546,7 +546,7 @@ export function describeClaudeExecutionPlanContract() {
     implementationState:
       "local_personal_runtime_activation_gates_connected_candidate",
     distribution: Object.freeze({
-      binding: DISTRIBUTION_BINDING,
+      binding: distributionBinding,
       installationMethod: "official_native_binary_in_fixed_runtime_image",
       binaryDistributionTerms: Object.freeze({
         licenseDocument: LICENSE_DOCUMENT,
@@ -571,7 +571,7 @@ export function describeClaudeExecutionPlanContract() {
       offeringCandidates: OFFERING_CANDIDATES,
       selectedAccountOfferingObserved: true,
       selectedAccountOffering: "claude_max",
-      verification: AUTHENTICATION_VERIFICATION,
+      verification: authenticationVerification,
       authenticatedServiceTerms: Object.freeze({
         candidateDocuments: Object.freeze([
           CONSUMER_TERMS_DOCUMENT,
@@ -593,11 +593,11 @@ export function describeClaudeExecutionPlanContract() {
       rawAuthOutputRecorded: false,
       oauthTokenReadByRuntime: false,
     }),
-    billingPolicy: BILLING_POLICY,
+    billingPolicy: billingPolicy,
     readOnlyProbe: Object.freeze({
-      distributionBinding: DISTRIBUTION_BINDING,
+      distributionBinding: distributionBinding,
       noNetworkVersionProbe,
-      command: DISTRIBUTION_BINDING.identity.executablePath,
+      command: distributionBinding.identity.executablePath,
       modelSelection:
         "coordinator_explainable_selection_and_verified_profile_required",
       effortSelection:
