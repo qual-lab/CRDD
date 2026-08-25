@@ -1528,12 +1528,12 @@ Object FormatとOID幅の是正後、初回から存在した中間junction境�
 
 原因は起動シェルではなく、共通対話コンソール基本機能がWindowsデバイスを相対名`CONIN$`／`CONOUT$`で開いていたことである。Node.js 24系のWindowsファイルシステムAPIでは相対デバイス名が現在ディレクトリからの相対パスとして解釈され、先に開く`CONIN$`が`ENOENT`となった。`CONOUT$`もデバイスとしての同一性を保証せず、通常ファイルを作成し得る。両方を明示デバイス名前空間`\\.\CONIN$`／`\\.\CONOUT$`へ固定する必要がある。これは外部送信Grantと正式Runnerが共有する同一基本機能の実装不具合であり、人間へ手動Command Prompt起動を要求しても解消しない。
 
-是正ではWindowsデバイス名だけを明示名前空間へ変更し、共通対話コンソール契約をrevision 2へ更新する。POSIX `/dev/tty`、標準入力への代替禁止、シェル搬送禁止、コンソール不在／open失敗時のFail Closed、challengeの一回限り入力および出力境界は変更しない。外部送信Grantと正式Runnerは共通基本機能の参照で追従し、個別の代替経路または別のコンソール所有者を追加しない。未リリースCHG-000015内の回帰として同じ変更、検証、切戻しおよびリリース境界で是正し、別CHGへ分割しない。
+是正ではWindowsデバイス名だけを明示名前空間へ変更し、共通対話コンソール契約をrevision 2へ更新する。POSIX `/dev/tty`、標準入力への代替禁止、シェル搬送禁止、コンソール不在／デバイスを開く処理の失敗時のFail Closed、一回限りの確認要求と入力および出力境界は変更しない。外部送信Grantと正式Runnerは共通基本機能の参照で追従し、個別の代替経路または別のコンソール所有者を追加しない。未リリースCHG-000015内の回帰として同じ変更、検証、切戻しおよびリリース境界で是正し、別CHGへ分割しない。
 
-発火例は実Win32 Consoleへ接続したWindowsプロセスで両明示デバイスを開ける場合、非発火例はコンソールを必要としない通常の非対話処理、境界例は標準入出力がpipeでもプロセスがコンソールへ接続されている場合、判定情報不足例はデバイスopenの一方または両方が失敗する場合である。正式Runnerは最後のケースをリリース検証、タスク開始およびタスクの効果より前に停止する。外部送信Grantの利用側は、先行するローカルのオペレーション／Candidate Store準備を回復契約に従って片付け、外部送信の決定権限、プロバイダーおよびネットワークの効果より前に停止する。
+発火例は実Win32 Consoleへ接続したWindowsプロセスで両明示デバイスを開ける場合、非発火例はコンソールを必要としない通常の非対話処理、境界例は標準入出力がパイプでもプロセスがコンソールへ接続されている場合、判定情報不足例は一方または両方のデバイスを開けない場合である。正式Runnerは最後のケースをリリース検証、タスク開始およびタスクの効果より前に停止する。外部送信Grantの利用側は、先行するローカルのオペレーション／Candidate Store準備を回復契約に従って片付け、外部送信の決定権限、プロバイダーおよびネットワークの効果より前に停止する。
 
-初回固定版`a7d61aa68c9cd5056bb62f3e4dd92e352798b45b`へのArchitecture／Securityレビューは`Pass`した。Document／Gapレビューは利用者ロケール優先表示のMinor 1件、Test／UXレビューは実device open経路を直接試験しないMajor 1件と、原因記録および効果発生点のMinor 2件を検出した。旧固定版の部分Passを現在判定へ流用しない。
+初回固定版`a7d61aa68c9cd5056bb62f3e4dd92e352798b45b`へのArchitecture／Securityレビューは`Pass`した。Document／Gapレビューは利用者ロケール優先表示のMinor 1件、Test／UXレビューは実デバイスを開く経路を直接試験しないMajor 1件と、原因記録および効果発生点のMinor 2件を検出した。旧固定版の部分Passを現在判定へ流用しない。
 
-再処置では、共通基本機能へ内部OS adapterを与え、Windowsの正確な`\\.\CONIN$`＋`r`、`\\.\CONOUT$`＋`w`、POSIXの`/dev/tty`、両handle引渡し、成功時回収、入力open失敗、出力open失敗、処理例外、各close例外および一方のclose失敗後も他方を回収する全組合せを決定論的に試験する。productionの公開package入口へadapter、handleまたは汎用コンソール能力を追加せず、相対名、標準入出力またはシェルへの代替を許さない。
+再処置では、共通基本機能へ内部OSアダプターを与え、Windowsの正確な`\\.\CONIN$`＋`r`、`\\.\CONOUT$`＋`w`、POSIXの`/dev/tty`、両ハンドルの引き渡し、成功時の回収、入力／出力デバイスを開く処理の失敗、処理例外、各ハンドルを閉じる処理の例外および一方の回収失敗後も他方を回収する全組合せを決定論的に試験する。本番の公開パッケージ入口へアダプター、ハンドルまたは汎用コンソール能力を追加せず、相対名、標準入出力またはシェルへの代替を許さない。
 
-本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で共通コンソール／正式Runner／外部送信Grant重点20試験、Coordinator全772試験、Checker全153試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、リポジトリ全体Checkerおよび`git diff --check`をPassした。全体Checkerは701 files／384 Markdown／2,235 links／650 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Tree、独立Architecture／Security、Document／GapおよびTest／UX再レビュー、再署名、正式一般タスク実runと残存0確認が完了する前に本指摘事項を`Resolved`、Runtime完成またはリリース可能へ昇格しない。
+本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で共通コンソール／正式Runner／外部送信Grant重点20試験、Coordinator全772試験、Checker全153試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、リポジトリ全体Checkerおよび`git diff --check`をPassした。全体Checkerは701 files／384 Markdown／2,235 links／650 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／Tree、独立Architecture／Security、Document／GapおよびTest／UX再レビュー、再署名、正式一般タスクの実行と残存0確認が完了する前に本指摘事項を`Resolved`、Runtime完成またはリリース可能へ昇格しない。
