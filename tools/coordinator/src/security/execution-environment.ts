@@ -219,16 +219,27 @@ function registerOwnedOperationGeneration(
   operationGenerationByRoot.set(identity.root, state);
 }
 
-function revokeOwnedOperationGeneration(root: string, nonce: string): void {
+function revokeOwnedOperationGeneration(root: string, nonce: string) {
   const key = operationGenerationKey(root, nonce);
   const state = operationGenerationsByKey.get(key);
-  if (!state) return;
+  if (!state) return true;
   revokeOwnedOperationContextCapabilities(state.owned);
-  if (state.generationLock) void state.generationLock.release();
+  let generationReleased = true;
+  if (state.generationLock) {
+    try {
+      generationReleased = state.generationLock.release();
+    } catch {
+      generationReleased = false;
+    }
+    state.generationLock = null;
+  }
   ownedIdentities.delete(state.owned);
-  operationGenerationsByKey.delete(key);
-  if (operationGenerationByRoot.get(root) === state)
-    operationGenerationByRoot.delete(root);
+  if (generationReleased) {
+    operationGenerationsByKey.delete(key);
+    if (operationGenerationByRoot.get(root) === state)
+      operationGenerationByRoot.delete(root);
+  } else state.retired = true;
+  return generationReleased;
 }
 
 type HostOperationRecoveryGeneration = Readonly<{
@@ -289,7 +300,11 @@ export function releaseHostOperationRecoveryGeneration(capability: unknown) {
   const generation = hostOperationRecoveryGenerations.get(capability);
   if (!generation) return false;
   hostOperationRecoveryGenerations.delete(capability);
-  return generation.lock.release();
+  try {
+    return generation.lock.release();
+  } catch {
+    return false;
+  }
 }
 
 function verifyHostOperationRecoveryGeneration(
@@ -1177,7 +1192,10 @@ function rollbackInitializingOperationDirectories(owned: unknown): void {
     revokeOwnedOperationContextCapabilities(owned);
     ownedIdentities.delete(owned);
   }
-  revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce);
+  if (
+    !revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce)
+  )
+    throw new Error("owned_operation_generation_release_unconfirmed");
 }
 
 export function createOwnedMountCapability(
@@ -1476,6 +1494,10 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   fs.rmSync(identity.root, { recursive: true, force: false });
   if (fs.existsSync(identity.root))
     throw new Error("owned_operation_directory_cleanup_incomplete");
+  if (
+    !revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce)
+  )
+    throw new Error("owned_operation_generation_release_unconfirmed");
   try {
     const recoveryDirectory = fs.realpathSync(identity.hostRecovery.directory);
     if (
@@ -1492,7 +1514,6 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   } catch (error) {
     if (errorCode(error) !== "ENOENT") throw error;
   }
-  revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce);
 }
 
 function loadHostRecoveryRecord(token: unknown): Readonly<{
@@ -1518,108 +1539,130 @@ export function recoverOwnedOperationDirectories(
 ): Readonly<{ status: "recovered" | "blocked"; reason: string }> {
   let recoveryGeneration: Readonly<{ root: string; nonce: string }> | null =
     null;
+  let markerPendingAfterRelease: string | null = null;
   const ownedRecoveryGenerationCapability = suppliedRecoveryGenerationCapability
     ? null
     : acquireHostOperationRecoveryGeneration(token);
   const recoveryGenerationCapability =
     suppliedRecoveryGenerationCapability ?? ownedRecoveryGenerationCapability;
-  try {
-    const { parsed, parent, marker, record } = loadHostRecoveryRecord(token);
-    if (record.state === "docker_submission_started")
-      throw new Error("host_recovery_requires_docker_absence");
-    if (!["host_only", "docker_absent_confirmed"].includes(record.state))
-      throw new Error("host_recovery_state_invalid");
-    const root = path.join(parent, parsed.rootName);
-    recoveryGeneration = Object.freeze({ root, nonce: parsed.nonce });
-    verifyHostOperationRecoveryGeneration(
-      recoveryGenerationCapability,
-      root,
-      parsed.nonce,
-    );
-    const activeGeneration = operationGenerationByRoot.get(root);
-    if (
-      activeGeneration &&
-      (activeGeneration.nonce !== parsed.nonce ||
-        activeGeneration.currentRecordHash !== parsed.recordHash)
-    )
-      throw new Error("host_recovery_generation_mismatch");
-    if (!fs.existsSync(root)) {
-      fs.rmSync(marker);
-      revokeOwnedOperationGeneration(root, parsed.nonce);
-      return { status: "recovered", reason: "host_root_already_absent" };
-    }
-    if (
-      fs.realpathSync(root) !== root ||
-      path.dirname(root) !== parent ||
-      !identityMatchesRecord(root, record.rootIdentity)
-    )
-      throw new Error("host_recovery_root_replaced");
-    const known = new Set(
-      Object.values(record.childIdentities).map((child) => child.pathName),
-    );
-    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-      if (!known.has(entry.name))
-        throw new Error("host_recovery_unknown_child");
-    }
-    for (const child of Object.values(record.childIdentities)) {
-      const target = path.join(root, child.pathName);
-      try {
-        const metadata = fs.lstatSync(target);
-        if (
-          !metadata.isDirectory() ||
-          metadata.isSymbolicLink() ||
-          fs.realpathSync(target) !== target ||
-          path.dirname(target) !== root ||
-          !identityMatchesRecord(target, child)
-        )
-          throw new Error("host_recovery_child_replaced");
-      } catch (error) {
-        if (errorCode(error) === "ENOENT") continue;
-        throw error;
-      }
-    }
-    fs.rmSync(root, { recursive: true, force: false });
-    if (fs.existsSync(root))
-      throw new Error("host_recovery_cleanup_incomplete");
-    fs.rmSync(marker);
-    revokeOwnedOperationGeneration(root, parsed.nonce);
-    return { status: "recovered", reason: "host_cleanup_recovered" };
-  } catch (error) {
-    const allowed = new Set([
-      "host_recovery_token_invalid",
-      "host_recovery_record_replaced",
-      "host_recovery_record_mismatch",
-      "host_recovery_requires_docker_absence",
-      "host_recovery_state_invalid",
-      "host_recovery_root_replaced",
-      "host_recovery_child_replaced",
-      "host_recovery_unknown_child",
-      "host_recovery_cleanup_incomplete",
-      "host_recovery_generation_mismatch",
-      "host_recovery_generation_active",
-    ]);
-    const message = errorMessage(error);
-    if (
-      recoveryGeneration &&
-      message &&
-      ["host_recovery_root_replaced", "host_recovery_child_replaced"].includes(
-        message,
+  const result = (() => {
+    try {
+      const { parsed, parent, marker, record } = loadHostRecoveryRecord(token);
+      if (record.state === "docker_submission_started")
+        throw new Error("host_recovery_requires_docker_absence");
+      if (!["host_only", "docker_absent_confirmed"].includes(record.state))
+        throw new Error("host_recovery_state_invalid");
+      const root = path.join(parent, parsed.rootName);
+      recoveryGeneration = Object.freeze({ root, nonce: parsed.nonce });
+      verifyHostOperationRecoveryGeneration(
+        recoveryGenerationCapability,
+        root,
+        parsed.nonce,
+      );
+      const activeGeneration = operationGenerationByRoot.get(root);
+      if (
+        activeGeneration &&
+        (activeGeneration.nonce !== parsed.nonce ||
+          activeGeneration.currentRecordHash !== parsed.recordHash)
       )
-    ) {
-      const { root, nonce } = recoveryGeneration;
-      retireOwnedOperationGeneration(root, nonce);
+        throw new Error("host_recovery_generation_mismatch");
+      let reason = "host_root_already_absent";
+      if (fs.existsSync(root)) {
+        if (
+          fs.realpathSync(root) !== root ||
+          path.dirname(root) !== parent ||
+          !identityMatchesRecord(root, record.rootIdentity)
+        )
+          throw new Error("host_recovery_root_replaced");
+        const known = new Set(
+          Object.values(record.childIdentities).map((child) => child.pathName),
+        );
+        for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+          if (!known.has(entry.name))
+            throw new Error("host_recovery_unknown_child");
+        }
+        for (const child of Object.values(record.childIdentities)) {
+          const target = path.join(root, child.pathName);
+          try {
+            const metadata = fs.lstatSync(target);
+            if (
+              !metadata.isDirectory() ||
+              metadata.isSymbolicLink() ||
+              fs.realpathSync(target) !== target ||
+              path.dirname(target) !== root ||
+              !identityMatchesRecord(target, child)
+            )
+              throw new Error("host_recovery_child_replaced");
+          } catch (error) {
+            if (errorCode(error) === "ENOENT") continue;
+            throw error;
+          }
+        }
+        fs.rmSync(root, { recursive: true, force: false });
+        if (fs.existsSync(root))
+          throw new Error("host_recovery_cleanup_incomplete");
+        reason = "host_cleanup_recovered";
+      }
+      if (!revokeOwnedOperationGeneration(root, parsed.nonce))
+        throw new Error("host_recovery_generation_release_unconfirmed");
+      if (ownedRecoveryGenerationCapability) markerPendingAfterRelease = marker;
+      else fs.rmSync(marker);
+      return { status: "recovered" as const, reason };
+    } catch (error) {
+      const allowed = new Set([
+        "host_recovery_token_invalid",
+        "host_recovery_record_replaced",
+        "host_recovery_record_mismatch",
+        "host_recovery_requires_docker_absence",
+        "host_recovery_state_invalid",
+        "host_recovery_root_replaced",
+        "host_recovery_child_replaced",
+        "host_recovery_unknown_child",
+        "host_recovery_cleanup_incomplete",
+        "host_recovery_generation_mismatch",
+        "host_recovery_generation_active",
+        "host_recovery_generation_release_unconfirmed",
+      ]);
+      const message = errorMessage(error);
+      if (
+        recoveryGeneration &&
+        message &&
+        [
+          "host_recovery_root_replaced",
+          "host_recovery_child_replaced",
+        ].includes(message)
+      ) {
+        const { root, nonce } = recoveryGeneration;
+        retireOwnedOperationGeneration(root, nonce);
+      }
+      return {
+        status: "blocked" as const,
+        reason:
+          message && allowed.has(message) ? message : "host_recovery_failed",
+      };
     }
+  })();
+  if (
+    ownedRecoveryGenerationCapability &&
+    !releaseHostOperationRecoveryGeneration(ownedRecoveryGenerationCapability)
+  )
     return {
       status: "blocked",
-      reason:
-        message && allowed.has(message) ? message : "host_recovery_failed",
+      reason: "host_recovery_generation_release_unconfirmed",
     };
-  } finally {
-    if (ownedRecoveryGenerationCapability)
-      void releaseHostOperationRecoveryGeneration(
-        ownedRecoveryGenerationCapability,
-      );
+  if (result.status === "recovered" && markerPendingAfterRelease) {
+    try {
+      if (fs.existsSync(markerPendingAfterRelease)) {
+        const loaded = loadHostRecoveryRecord(token);
+        if (loaded.marker !== markerPendingAfterRelease)
+          throw new Error("host_recovery_record_replaced");
+        fs.rmSync(markerPendingAfterRelease);
+      }
+    } catch {
+      return { status: "blocked", reason: "host_recovery_record_replaced" };
+    }
   }
+  return result;
 }
 
 export function createProviderEnvironment(

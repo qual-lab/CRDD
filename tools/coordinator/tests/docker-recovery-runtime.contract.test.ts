@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { acquireRuntimeOwnedLogicalProviderHomeKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
@@ -15,13 +15,14 @@ import {
   createIsolatedDockerRecoveryRuntimeCandidate,
   describeDockerRecoveryRuntimeContract,
   finalizeRuntimeOwnedDockerRecovery,
+  inspectDockerRecoveryRootSnapshotWithLock,
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerAbsence,
   recordRuntimeOwnedDockerHostCleanupReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverExactDockerResourceWithRunner,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
-} from "../src/security/docker-recovery-runtime.ts";
+} from "../src/security/docker-recovery-runtime-internal.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   createOwnedMountCapability,
@@ -84,11 +85,14 @@ function providerHomeForPlan(plan: ReturnType<typeof productionPlan>) {
   });
 }
 
-function createKilledProductionCleanupRoot() {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "crdd-production-recovery-test-"),
-  );
-  const cleanupName = `cleanup-docker-task-${STABLE_HOME}-${OPERATION_NONCE}-${BASE_HASH}`;
+function addKilledProductionCleanup(
+  root: string,
+  stableHome: string,
+  operationNonce: string,
+  baseHash: string,
+) {
+  const recoveryId = `docker-task.${stableHome}.${operationNonce}.${baseHash}`;
+  const cleanupName = `cleanup-docker-task-${stableHome}-${operationNonce}-${baseHash}`;
   const moduleUrl = pathToFileURL(
     path.resolve("src/security/docker-recovery-journal.ts"),
   ).href;
@@ -123,23 +127,57 @@ function createKilledProductionCleanupRoot() {
   `;
   const crashed = spawnSync(
     process.execPath,
-    [
-      "--experimental-strip-types",
-      "-e",
-      source,
-      root,
-      cleanupName,
-      DOCKER_TASK_RECOVERY_ID,
-    ],
+    ["--experimental-strip-types", "-e", source, root, cleanupName, recoveryId],
     { windowsHide: true, encoding: "utf8", timeout: 10_000 },
   );
   assert.notEqual(crashed.status, 0);
   assert.ok(fs.readdirSync(root).length > 0);
+  return recoveryId;
+}
+
+function createKilledProductionCleanupRoot() {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-recovery-test-"),
+  );
+  addKilledProductionCleanup(root, STABLE_HOME, OPERATION_NONCE, BASE_HASH);
   return root;
 }
 
+function spawnLogicalHomeLockHolder(stableHome: string) {
+  const readyDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-home-lock-holder-"),
+  );
+  const ready = path.join(readyDirectory, "ready");
+  const lockUrl = pathToFileURL(
+    path.resolve("src/security/candidate-store-kernel-lock.ts"),
+  ).href;
+  const source = `
+    import fs from "node:fs";
+    const locks = await import(${JSON.stringify(lockUrl)});
+    const lock = locks.acquireRuntimeOwnedLogicalProviderHomeKernelLock(process.argv[1]);
+    if (!lock) process.exit(75);
+    fs.writeFileSync(process.argv[2], "ready", "utf8");
+    setInterval(() => {}, 1000);
+  `;
+  const child = spawn(
+    process.execPath,
+    ["--experimental-strip-types", "-e", source, stableHome, ready],
+    { windowsHide: true, stdio: "ignore" },
+  );
+  const waitState = new Int32Array(new SharedArrayBuffer(4));
+  const deadline = Date.now() + 5_000;
+  while (
+    !fs.existsSync(ready) &&
+    child.exitCode === null &&
+    Date.now() < deadline
+  )
+    Atomics.wait(waitState, 0, 0, 10);
+  assert.equal(fs.existsSync(ready), true);
+  return Object.freeze({ child, readyDirectory });
+}
+
 function createKilledFullProductionRecoveryRoot(
-  hostPhase: "previous" | "expected" = "expected",
+  hostPhase: "previous" | "expected" | "receipt" = "expected",
 ) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-full-recovery-test-"),
@@ -148,7 +186,7 @@ function createKilledFullProductionRecoveryRoot(
   const handoff = path.join(parent, "handoff.json");
   fs.mkdirSync(root);
   const dockerRecoveryUrl = pathToFileURL(
-    path.resolve("src/security/docker-recovery-runtime.ts"),
+    path.resolve("src/security/docker-recovery-runtime-internal.ts"),
   ).href;
   const executionEnvironmentUrl = pathToFileURL(
     path.resolve("src/security/execution-environment.ts"),
@@ -254,6 +292,17 @@ function createKilledFullProductionRecoveryRoot(
       );
       process.exit(71);
     }
+    if (hostPhase === "receipt") {
+      if (!recovery.markRuntimeOwnedDockerResourceSubmission(
+        begun.recoveryCapability,
+        "create_provider",
+      )) process.exit(73);
+      if (!recovery.recordRuntimeOwnedDockerResourceReceipt(
+        begun.recoveryCapability,
+        "create_provider",
+        "a".repeat(64),
+      )) process.exit(74);
+    }
     fs.writeFileSync(
       handoff,
       JSON.stringify({
@@ -279,6 +328,8 @@ function createKilledFullProductionRecoveryRoot(
   const childDiagnostic = `${handoffText}\n${crashed.stderr}`;
   assert.notEqual(crashed.status, 70, childDiagnostic);
   assert.notEqual(crashed.status, 71, childDiagnostic);
+  assert.notEqual(crashed.status, 73, childDiagnostic);
+  assert.notEqual(crashed.status, 74, childDiagnostic);
   const result = JSON.parse(handoffText) as {
     recoveryId: string;
     hostRoot: string;
@@ -576,6 +627,89 @@ test("Production Docker Recoveryは不完全なTask planをEffect前に拒否す
   );
 });
 
+test("production facadeとpackage exportsはcaller Root／observer／runner seamを閉じる", () => {
+  const packageJson = JSON.parse(
+    fs.readFileSync(path.resolve("package.json"), "utf8"),
+  );
+  assert.deepEqual(packageJson.exports, { "./cli": "./bin/coordinator.ts" });
+  const facade = fs.readFileSync(
+    path.resolve("src/security/docker-recovery-runtime.ts"),
+    "utf8",
+  );
+  for (const symbol of [
+    "beginRuntimeOwnedDockerRecoveryWithHostBeginObserver",
+    "beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver",
+    "inspectDockerRecoveryRootSnapshotWithLock",
+    "recoverExactDockerResourceWithRunner",
+    "recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver",
+  ])
+    assert.equal(facade.includes(symbol), false, symbol);
+  for (const root of ["src", "bin"]) {
+    const pending = [path.resolve(root)];
+    while (pending.length > 0) {
+      const current = pending.pop();
+      assert.ok(current);
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        const target = path.join(current, entry.name);
+        if (entry.isDirectory()) pending.push(target);
+        else if (
+          entry.isFile() &&
+          entry.name.endsWith(".ts") &&
+          target !== path.resolve("src/security/docker-recovery-runtime.ts") &&
+          target !==
+            path.resolve("src/security/docker-recovery-runtime-internal.ts")
+        )
+          assert.equal(
+            fs
+              .readFileSync(target, "utf8")
+              .includes("docker-recovery-runtime-internal.ts"),
+            false,
+            target,
+          );
+      }
+    }
+  }
+  const blocked = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      'await import("@qual-lab/crdd-coordinator/src/security/docker-recovery-runtime-internal.ts")',
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.notEqual(blocked.status, 0);
+  assert.match(blocked.stderr, /ERR_PACKAGE_PATH_NOT_EXPORTED/u);
+});
+
+test("RuntimeState inventoryはlock release false／throwを成功へ投影しない", () => {
+  const rootPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-runtime-inventory-release-test-"),
+  );
+  const root = verifiedRoot(rootPath);
+  try {
+    for (const release of [
+      () => false,
+      () => {
+        throw new Error("release failed");
+      },
+    ])
+      assert.deepEqual(
+        inspectDockerRecoveryRootSnapshotWithLock(root, () => ({ release })),
+        {
+          status: "blocked",
+          reason: "docker_task_runtime_state_lock_release_unconfirmed",
+          manualRecoveryRequired: true,
+          dockerRecoveryId: null,
+          dockerRecoveryIds: [],
+          activeStableLogicalHomeBindingHashes: [],
+        },
+      );
+  } finally {
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
 test("production共有回復engineはcleanup途中のprocess killから残存0へ収束する", () => {
   const root = createKilledProductionCleanupRoot();
   try {
@@ -597,6 +731,115 @@ test("production共有回復engineはcleanup途中のprocess killから残存0�
   }
 });
 
+test("production共有回復engineはTask Aの回復でTask Bのanchor／payloadを変更しない", () => {
+  const rootPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-scoped-recovery-test-"),
+  );
+  const root = verifiedRoot(rootPath);
+  const first = addKilledProductionCleanup(
+    rootPath,
+    "a".repeat(64),
+    "b".repeat(64),
+    "c".repeat(64),
+  );
+  const second = addKilledProductionCleanup(
+    rootPath,
+    "d".repeat(64),
+    "e".repeat(64),
+    "f".repeat(64),
+  );
+  try {
+    const secondNames = fs.readdirSync(rootPath).filter((name) => {
+      if (name.includes("d".repeat(64))) return true;
+      const target = path.join(rootPath, name);
+      return (
+        fs.lstatSync(target).isFile() &&
+        fs.readFileSync(target, "utf8").includes(second)
+      );
+    });
+    const before = new Map(
+      secondNames.map((name) => {
+        const target = path.join(rootPath, name);
+        const metadata = fs.lstatSync(target, { bigint: true });
+        return [
+          name,
+          Object.freeze({
+            identity: [metadata.dev, metadata.ino, metadata.birthtimeNs],
+            bytes: metadata.isFile() ? fs.readFileSync(target) : null,
+          }),
+        ];
+      }),
+    );
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        first,
+        root,
+        () => root,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_cleanup_tombstone_completed",
+        recoveryId: null,
+      },
+    );
+    assert.equal(
+      fs.readdirSync(rootPath).some((name) => name.includes("a".repeat(64))),
+      false,
+    );
+    for (const [name, snapshot] of before) {
+      const target = path.join(rootPath, name);
+      assert.equal(fs.existsSync(target), true, name);
+      const metadata = fs.lstatSync(target, { bigint: true });
+      assert.deepEqual(
+        [metadata.dev, metadata.ino, metadata.birthtimeNs],
+        snapshot.identity,
+        name,
+      );
+      if (snapshot.bytes)
+        assert.deepEqual(fs.readFileSync(target), snapshot.bytes);
+    }
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        first,
+        root,
+        () => root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_evidence_missing",
+        recoveryId: first,
+      },
+    );
+    assert.match(second, /^docker-task\./u);
+  } finally {
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
+test("production共有回復engineは空Rootの未発行tokenを完了済みと推測しない", () => {
+  const rootPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-empty-recovery-test-"),
+  );
+  const root = verifiedRoot(rootPath);
+  try {
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        DOCKER_TASK_RECOVERY_ID,
+        root,
+        () => root,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_evidence_missing",
+        recoveryId: DOCKER_TASK_RECOVERY_ID,
+      },
+    );
+    assert.deepEqual(fs.readdirSync(rootPath), []);
+  } finally {
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
 test("production共有回復engineはHost expected世代のprocess killを残存0へ収束する", () => {
   const fixture = createKilledFullProductionRecoveryRoot();
   const root = verifiedRoot(fixture.root);
@@ -613,6 +856,47 @@ test("production共有回復engineはHost expected世代のprocess killを残存
         recoveryId: null,
       },
     );
+    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assert.equal(fs.existsSync(fixture.hostRoot), false);
+    assert.equal(fs.existsSync(fixture.hostMarker), false);
+  } finally {
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("closed production engineはreceiptからexact Docker削除・Host回復・残存0まで通す", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("receipt");
+  const root = verifiedRoot(fixture.root);
+  const docker = exactContainerRunner({
+    Name: "/crdd-claude-0123456789abcdef",
+    Config: Object.freeze({
+      User: "65534:65534",
+      Image: `sha256:${"a".repeat(64)}`,
+      Labels: Object.freeze({
+        "crdd.coordinator.runtime": "0123456789abcdef",
+      }),
+    }),
+    NetworkSettings: Object.freeze({
+      Networks: Object.freeze({
+        "crdd-internal-0123456789abcdef": Object.freeze({}),
+      }),
+    }),
+  });
+  try {
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+        docker.run,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed",
+        recoveryId: null,
+      },
+    );
+    assert.equal(docker.removeCount(), 1);
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
@@ -853,11 +1137,9 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
   }
 });
 
-test("production共有回復engineは同じHomeをexact-oneにし別Homeを妨げない", () => {
+test("独立2 processでも同じHomeはexact-oneとなり別Homeを妨げない", async () => {
   const blockedRoot = createKilledProductionCleanupRoot();
-  const sameHomeLock =
-    acquireRuntimeOwnedLogicalProviderHomeKernelLock(STABLE_HOME);
-  assert.ok(sameHomeLock);
+  const sameHomeHolder = spawnLogicalHomeLockHolder(STABLE_HOME);
   try {
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
@@ -872,15 +1154,17 @@ test("production共有回復engineは同じHomeをexact-oneにし別Homeを妨�
       },
     );
   } finally {
-    assert.equal(sameHomeLock.release(), true);
+    sameHomeHolder.child.kill();
+    await once(sameHomeHolder.child, "exit");
+    fs.rmSync(sameHomeHolder.readyDirectory, {
+      recursive: true,
+      force: true,
+    });
     fs.rmSync(blockedRoot, { recursive: true, force: true });
   }
 
   const completedRoot = createKilledProductionCleanupRoot();
-  const otherHomeLock = acquireRuntimeOwnedLogicalProviderHomeKernelLock(
-    "8".repeat(64),
-  );
-  assert.ok(otherHomeLock);
+  const otherHomeHolder = spawnLogicalHomeLockHolder("8".repeat(64));
   try {
     assert.equal(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
@@ -892,7 +1176,12 @@ test("production共有回復engineは同じHomeをexact-oneにし別Homeを妨�
     );
     assert.deepEqual(fs.readdirSync(completedRoot), []);
   } finally {
-    assert.equal(otherHomeLock.release(), true);
+    otherHomeHolder.child.kill();
+    await once(otherHomeHolder.child, "exit");
+    fs.rmSync(otherHomeHolder.readyDirectory, {
+      recursive: true,
+      force: true,
+    });
     fs.rmSync(completedRoot, { recursive: true, force: true });
   }
 });
@@ -942,7 +1231,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 6,
+    contractRevision: 7,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
@@ -957,12 +1246,18 @@ test("Docker Recovery contractはEffect前記録とcleanup後完了を固定す�
       "stable_sid_provider_namespace_kernel_lock_and_durable_active_pointer",
     resourceJournal:
       "file_fsync_base_commit_pointer_identity_host_active_binding_then_exact_docker_id_receipt",
+    rootJournalResume:
+      "exact_recovery_id_and_creation_binding_with_non_target_byte_identity_preservation",
+    completionEvidence:
+      "exact_durable_evidence_required_and_empty_root_is_not_a_receipt",
     offlineRecovery:
       "exact_id_and_configuration_only_unknown_create_outcome_never_adopted",
     hostFinalization:
       "host_generation_owner_and_inventory_then_cleanup_intent_receipt_and_exact_removal",
     synchronizationRelease:
       "runtime_state_home_and_host_generation_release_confirmed_before_success",
+    productionFacade:
+      "native_observation_only_with_internal_contract_engine_excluded_by_package_exports",
     cleanupRequiredBeforeCompletion: true,
     callerRecoveryIdAccepted: false,
     providerEffectAllowed: false,

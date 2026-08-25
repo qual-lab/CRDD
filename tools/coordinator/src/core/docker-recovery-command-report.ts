@@ -1,0 +1,111 @@
+import { types as utilTypes } from "node:util";
+
+function plainRecord(value: unknown): Readonly<Record<string, unknown>> | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    utilTypes.isProxy(value)
+  )
+    return null;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null
+    ? (value as Readonly<Record<string, unknown>>)
+    : null;
+}
+
+function plainArray(value: unknown): readonly unknown[] {
+  return Array.isArray(value) && !utilTypes.isProxy(value) ? value : [];
+}
+
+export function renderDockerRecoveryDoctorReport(
+  report: unknown,
+  shouldOutputJson: boolean,
+) {
+  const reportValue = plainRecord(report);
+  if (!reportValue || typeof reportValue.status !== "string")
+    throw new Error("diagnostic_failed");
+  if (shouldOutputJson)
+    return Object.freeze({
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      exitCode: ["ready", "recovered"].includes(reportValue.status) ? 0 : 2,
+    });
+  const lines = [`Coordinator environment: ${reportValue.status}`];
+  if (
+    typeof reportValue.reason === "string" &&
+    /^[a-z0-9_]{1,128}$/u.test(reportValue.reason)
+  )
+    lines.push(`- reason: ${reportValue.reason}`);
+  if (
+    typeof reportValue.recoveryId === "string" &&
+    /^(?:host\.[A-Za-z0-9._-]+|docker\.crdd-coordinator-doctor-[A-Za-z0-9_-]+\.[0-9a-f-]{36}\.[0-9a-f-]{36}\.[0-9a-f]{64}|docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64})$/u.test(
+      reportValue.recoveryId,
+    )
+  ) {
+    lines.push(`- recovery ID: ${reportValue.recoveryId}`);
+    lines.push(
+      `- next: coordinator doctor --recover-isolation ${reportValue.recoveryId}`,
+    );
+  }
+  const providers = plainRecord(reportValue.providers);
+  for (const [name, providerValue] of Object.entries(providers ?? {})) {
+    const provider = plainRecord(providerValue);
+    lines.push(
+      `- ${name}: ${provider?.located === true ? "located" : "not found"}; active probe not executed`,
+    );
+  }
+  if (reportValue.credentials) lines.push("- credential values recorded: no");
+  const filesystem = plainRecord(reportValue.filesystem);
+  if (typeof filesystem?.enforcement === "string")
+    lines.push(`- filesystem enforcement: ${filesystem.enforcement}`);
+  const egress = plainRecord(reportValue.egress);
+  if (typeof egress?.providerAllowlist === "string")
+    lines.push(`- provider egress allowlist: ${egress.providerAllowlist}`);
+  const runtimeRootEvaluation = plainRecord(reportValue.runtimeRootEvaluation);
+  if (typeof runtimeRootEvaluation?.status === "string")
+    lines.push(
+      `- runtime root request: ${runtimeRootEvaluation.status}; activation not performed`,
+    );
+  const recovery = plainRecord(reportValue.recovery);
+  if (recovery?.manualRecoveryRequired === true) {
+    const recoveryReason =
+      typeof recovery.reason === "string" ? recovery.reason : "unknown";
+    lines.push(
+      `- recovery: automatic recovery ID unavailable; manual safety action required (${recoveryReason})`,
+    );
+  } else if (
+    recovery?.required === true &&
+    typeof recovery.recoveryId === "string"
+  )
+    lines.push(
+      "- recovery: run doctor --recover-isolation with the returned recovery ID",
+    );
+  const dockerTaskRecovery = plainRecord(reportValue.dockerTaskRecovery);
+  const dockerRecoveryIds = plainArray(
+    dockerTaskRecovery?.dockerRecoveryIds,
+  ).filter(
+    (value): value is string =>
+      typeof value === "string" &&
+      /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(value),
+  );
+  if (dockerRecoveryIds.length > 0) {
+    lines.push(`- Docker Task recoveries: ${dockerRecoveryIds.length}`);
+    for (const dockerRecoveryId of dockerRecoveryIds) {
+      lines.push(`  - recovery ID: ${dockerRecoveryId}`);
+      lines.push(
+        `    next: coordinator doctor --recover-isolation ${dockerRecoveryId}`,
+      );
+    }
+  }
+  const blockers = plainArray(reportValue.blockers);
+  lines.push(`- blockers: ${blockers.length}`);
+  for (const blockerValue of blockers) {
+    const blocker = plainRecord(blockerValue);
+    if (typeof blocker?.id === "string" && typeof blocker.reason === "string")
+      lines.push(`  - ${blocker.id}: ${blocker.reason}`);
+  }
+  return Object.freeze({
+    stdout: `${lines.join("\n")}\n`,
+    exitCode: ["ready", "recovered"].includes(reportValue.status) ? 0 : 2,
+  });
+}

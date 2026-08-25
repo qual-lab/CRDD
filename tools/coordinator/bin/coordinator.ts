@@ -15,6 +15,7 @@ import {
   type SafeCommandReport,
 } from "../src/core/command-report.ts";
 import { runDoctor } from "../src/core/doctor.ts";
+import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
@@ -68,37 +69,6 @@ function plainRecord(raw: unknown): Readonly<Record<string, unknown>> | null {
     result[key] = descriptor.value;
   }
   return Object.freeze(result);
-}
-
-function plainArray(raw: unknown): readonly unknown[] {
-  if (
-    !Array.isArray(raw) ||
-    utilTypes.isProxy(raw) ||
-    Object.getPrototypeOf(raw) !== Array.prototype
-  )
-    return Object.freeze([]);
-  const length = Object.getOwnPropertyDescriptor(raw, "length");
-  if (
-    !length ||
-    !Object.hasOwn(length, "value") ||
-    !Number.isSafeInteger(length.value) ||
-    length.value < 0
-  )
-    return Object.freeze([]);
-  const snapshotValues: unknown[] = [];
-  for (let index = 0; index < length.value; index += 1) {
-    const descriptor = Object.getOwnPropertyDescriptor(raw, String(index));
-    if (
-      !descriptor ||
-      !Object.hasOwn(descriptor, "value") ||
-      descriptor.get !== undefined ||
-      descriptor.set !== undefined ||
-      !descriptor.enumerable
-    )
-      return Object.freeze([]);
-    snapshotValues.push(descriptor.value);
-  }
-  return Object.freeze(snapshotValues);
 }
 
 function printHelp() {
@@ -511,110 +481,9 @@ if (
             }),
             dockerTaskRecovery: inspectRuntimeOwnedDockerTaskRecoveryState(),
           });
-    const reportValue = plainRecord(report);
-    if (!reportValue || typeof reportValue.status !== "string") {
-      throw new Error("diagnostic_failed");
-    }
-    if (options.json) {
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-    } else {
-      process.stdout.write(`Coordinator environment: ${reportValue.status}\n`);
-      if (
-        typeof reportValue.reason === "string" &&
-        /^[a-z0-9_]{1,128}$/u.test(reportValue.reason)
-      )
-        process.stdout.write(`- reason: ${reportValue.reason}\n`);
-      if (
-        typeof reportValue.recoveryId === "string" &&
-        /^(?:host\.[A-Za-z0-9._-]+|docker\.crdd-coordinator-doctor-[A-Za-z0-9_-]+\.[0-9a-f-]{36}\.[0-9a-f-]{36}\.[0-9a-f]{64}|docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64})$/u.test(
-          reportValue.recoveryId,
-        )
-      ) {
-        process.stdout.write(`- recovery ID: ${reportValue.recoveryId}\n`);
-        process.stdout.write(
-          `- next: coordinator doctor --recover-isolation ${reportValue.recoveryId}\n`,
-        );
-      }
-      const providers = plainRecord(reportValue.providers);
-      for (const [name, providerValue] of Object.entries(providers ?? {})) {
-        const provider = plainRecord(providerValue);
-        process.stdout.write(
-          `- ${name}: ${provider?.located === true ? "located" : "not found"}; active probe not executed\n`,
-        );
-      }
-      if (reportValue.credentials)
-        process.stdout.write(`- credential values recorded: no\n`);
-      const filesystem = plainRecord(reportValue.filesystem);
-      if (typeof filesystem?.enforcement === "string") {
-        process.stdout.write(
-          `- filesystem enforcement: ${filesystem.enforcement}\n`,
-        );
-      }
-      const egress = plainRecord(reportValue.egress);
-      if (typeof egress?.providerAllowlist === "string") {
-        process.stdout.write(
-          `- provider egress allowlist: ${egress.providerAllowlist}\n`,
-        );
-      }
-      const runtimeRootEvaluation = plainRecord(
-        reportValue.runtimeRootEvaluation,
-      );
-      if (typeof runtimeRootEvaluation?.status === "string") {
-        process.stdout.write(
-          `- runtime root request: ${runtimeRootEvaluation.status}; activation not performed\n`,
-        );
-      }
-      const recovery = plainRecord(reportValue.recovery);
-      if (recovery?.manualRecoveryRequired === true) {
-        const recoveryReason =
-          typeof recovery.reason === "string" ? recovery.reason : "unknown";
-        process.stdout.write(
-          `- recovery: automatic recovery ID unavailable; manual safety action required (${recoveryReason})\n`,
-        );
-      } else if (
-        recovery?.required === true &&
-        typeof recovery.recoveryId === "string"
-      ) {
-        process.stdout.write(
-          `- recovery: run doctor --recover-isolation with the returned recovery ID\n`,
-        );
-      }
-      const dockerTaskRecovery = plainRecord(reportValue.dockerTaskRecovery);
-      const dockerRecoveryIds = plainArray(
-        dockerTaskRecovery?.dockerRecoveryIds,
-      ).filter(
-        (value): value is string =>
-          typeof value === "string" &&
-          /^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
-            value,
-          ),
-      );
-      if (dockerRecoveryIds.length > 0) {
-        process.stdout.write(
-          `- Docker Task recoveries: ${dockerRecoveryIds.length}\n`,
-        );
-        for (const dockerRecoveryId of dockerRecoveryIds) {
-          process.stdout.write(`  - recovery ID: ${dockerRecoveryId}\n`);
-          process.stdout.write(
-            `    next: coordinator doctor --recover-isolation ${dockerRecoveryId}\n`,
-          );
-        }
-      }
-      const blockers = plainArray(reportValue.blockers);
-      process.stdout.write(`- blockers: ${blockers.length}\n`);
-      for (const blockerValue of blockers) {
-        const blocker = plainRecord(blockerValue);
-        if (
-          typeof blocker?.id === "string" &&
-          typeof blocker.reason === "string"
-        ) {
-          process.stdout.write(`  - ${blocker.id}: ${blocker.reason}\n`);
-        }
-      }
-    }
-    process.exitCode = ["ready", "recovered"].includes(reportValue.status)
-      ? 0
-      : 2;
+    const rendered = renderDockerRecoveryDoctorReport(report, options.json);
+    process.stdout.write(rendered.stdout);
+    process.exitCode = rendered.exitCode;
   } catch (rawError) {
     const message = rawError instanceof Error ? rawError.message : undefined;
     const reason =

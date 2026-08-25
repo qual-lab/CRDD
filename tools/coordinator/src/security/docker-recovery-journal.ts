@@ -323,6 +323,24 @@ function validRuntimeStateBindingEvidence(value: unknown) {
   );
 }
 
+function sameRuntimeStateBindingEvidence(left: unknown, right: unknown) {
+  if (
+    !validRuntimeStateBindingEvidence(left) ||
+    !validRuntimeStateBindingEvidence(right)
+  )
+    return false;
+  const leftBinding = left as Record<string, unknown>;
+  const rightBinding = right as Record<string, unknown>;
+  return (
+    leftBinding.runtimeStateIdentityHash ===
+      rightBinding.runtimeStateIdentityHash &&
+    leftBinding.runtimeStateProtectionHash ===
+      rightBinding.runtimeStateProtectionHash &&
+    leftBinding.localUserBindingHash === rightBinding.localUserBindingHash &&
+    leftBinding.runtimeStateBindingHash === rightBinding.runtimeStateBindingHash
+  );
+}
+
 function resumeDeleteAnchor(anchor: string) {
   const intent = readIntentAnchor(anchor);
   if (
@@ -938,6 +956,103 @@ export function resumeDockerRecoveryJournalDirectory(directory: string) {
   return true;
 }
 
+/**
+ * RuntimeState recovery is authorized for one exact recovery generation.  The
+ * root lock serializes inventory changes, but it does not authorize one task
+ * to advance another task's journal.  Validate the entire bounded inventory
+ * before the first mutation, then resume only anchors bound to the requested
+ * recovery ID.  Non-target anchors are checked again byte-for-byte and by
+ * filesystem identity before returning.
+ */
+export function resumeDockerRecoveryJournalDirectoryForRecovery(
+  directory: string,
+  recoveryId: string,
+  runtimeStateBinding: Readonly<{
+    runtimeStateIdentityHash: string;
+    runtimeStateProtectionHash: string;
+    localUserBindingHash: string;
+    runtimeStateBindingHash: string;
+  }>,
+) {
+  stableDirectoryIdentity(directory);
+  if (
+    !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
+      recoveryId,
+    ) ||
+    !validRuntimeStateBindingEvidence(runtimeStateBinding)
+  )
+    throw new Error("docker_recovery_target_invalid");
+  const snapshots = fs
+    .readdirSync(directory)
+    .filter(isDockerRecoveryJournalIntentName)
+    .sort()
+    .map((name) => {
+      const anchorName = name.endsWith(INTENT_PENDING_SUFFIX)
+        ? name.slice(0, -INTENT_PENDING_SUFFIX.length)
+        : name;
+      if (
+        name.endsWith(INTENT_PENDING_SUFFIX) &&
+        fs.existsSync(path.join(directory, anchorName))
+      )
+        throw new Error("docker_recovery_intent_third_state");
+      const anchor = path.join(directory, name);
+      const stable = readStableFile(anchor);
+      const value = validateIntentSnapshot(anchor);
+      const intentRecoveryId = recoveryIdFromIntent(value);
+      if (!intentRecoveryId)
+        throw new Error("docker_recovery_intent_recovery_id_missing");
+      if (
+        intentRecoveryId === recoveryId &&
+        value.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
+        !sameRuntimeStateBindingEvidence(
+          value.runtimeStateBinding,
+          runtimeStateBinding,
+        )
+      )
+        throw new Error("docker_recovery_target_binding_mismatch");
+      return Object.freeze({
+        name,
+        anchorName,
+        serialized: stable.serialized,
+        identity: identityText(stable.identity),
+        value,
+        target: intentRecoveryId === recoveryId,
+      });
+    });
+  for (const snapshot of snapshots) {
+    if (!snapshot.target) continue;
+    let anchor = path.join(directory, snapshot.name);
+    if (snapshot.name.endsWith(INTENT_PENDING_SUFFIX)) {
+      const finalAnchor = path.join(directory, snapshot.anchorName);
+      if (fs.existsSync(finalAnchor))
+        throw new Error("docker_recovery_intent_third_state");
+      fs.renameSync(anchor, finalAnchor);
+      anchor = finalAnchor;
+    }
+    const value = readIntentAnchor(anchor);
+    if (recoveryIdFromIntent(value) !== recoveryId)
+      throw new Error("docker_recovery_target_changed");
+    if (value.schema === "crdd-coordinator-durable-json-delete/v1")
+      resumeDeleteAnchor(anchor);
+    else if (value.schema === "crdd-coordinator-durable-json-move/v1")
+      resumeMoveAnchor(anchor);
+    else if (value.schema === "crdd-coordinator-recovery-cleanup-delete/v1")
+      resumeCleanupAnchor(anchor);
+    else throw new Error("docker_recovery_intent_invalid");
+  }
+  for (const snapshot of snapshots) {
+    if (snapshot.target) continue;
+    const anchor = path.join(directory, snapshot.name);
+    const current = readStableFile(anchor);
+    if (
+      current.serialized !== snapshot.serialized ||
+      identityText(current.identity) !== snapshot.identity
+    )
+      throw new Error("docker_recovery_non_target_intent_changed");
+  }
+  return true;
+}
+
 export function inspectDockerRecoveryJournalDirectory(directory: string) {
   stableDirectoryIdentity(directory);
   const values: Array<
@@ -1029,6 +1144,8 @@ export function describeDockerRecoveryJournalContract() {
     orphanTemporaryTreatment: "retain_and_fail_closed",
     deleteBoundary: "single_atomic_anchor_then_target_commit_anchor",
     moveBoundary: "single_atomic_anchor_then_content_commit_anchor",
+    runtimeStateResumeAuthority:
+      "exact_recovery_id_and_creation_binding_non_target_unchanged",
     powerLossDurabilityClaimed: false,
   });
 }

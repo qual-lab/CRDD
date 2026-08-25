@@ -15,9 +15,17 @@ import {
   isDockerRecoveryJournalTemporaryName,
   readCommittedDockerRecoveryJson,
   removeCommittedDockerRecoveryJson,
+  resumeDockerRecoveryJournalDirectoryForRecovery,
   resumeDockerRecoveryJournalDirectory,
   writeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
+
+const scopedRuntimeStateBinding = Object.freeze({
+  runtimeStateIdentityHash: "1".repeat(64),
+  runtimeStateProtectionHash: "2".repeat(64),
+  localUserBindingHash: "3".repeat(64),
+  runtimeStateBindingHash: "4".repeat(64),
+});
 
 function temporaryDirectory() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "crdd-docker-journal-test-"));
@@ -170,6 +178,44 @@ function crashMutation(
       root,
       operation,
       boundary,
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+}
+
+function crashScopedCleanup(root: string, discriminator: "a" | "b") {
+  const moduleUrl = pathToFileURL(
+    path.resolve("src/security/docker-recovery-journal.ts"),
+  ).href;
+  const source = `
+    import fs from "node:fs";
+    import path from "node:path";
+    const journal = await import(${JSON.stringify(moduleUrl)});
+    const discriminator = process.argv[2];
+    const cleanup = path.join(process.argv[1], "cleanup-" + discriminator);
+    fs.mkdirSync(cleanup);
+    fs.writeFileSync(path.join(cleanup, "payload.json"), "{}\\n", "utf8");
+    const originalRm = fs.rmSync;
+    fs.rmSync = (...args) => {
+      originalRm(...args);
+      process.kill(process.pid, "SIGKILL");
+    };
+    journal.removeDockerRecoveryCleanupDirectory(
+      process.argv[1],
+      cleanup,
+      "docker-task." + discriminator.repeat(64) + "." + discriminator.repeat(64) + "." + discriminator.repeat(64),
+      ${JSON.stringify(scopedRuntimeStateBinding)},
+    );
+  `;
+  return spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      "--input-type=module",
+      "-e",
+      source,
+      root,
+      discriminator,
     ],
     { windowsHide: true, encoding: "utf8", timeout: 10_000 },
   );
@@ -460,6 +506,81 @@ test("cleanup root anchorはpayload部分削除からdirectory residue 0へ再�
   }
 });
 
+test("対象限定resumeは別Recovery IDのanchorをbyte／Identityとも変更しない", () => {
+  const root = temporaryDirectory();
+  try {
+    assert.notEqual(crashScopedCleanup(root, "a").status, 0);
+    assert.notEqual(crashScopedCleanup(root, "b").status, 0);
+    const before = inspectDockerRecoveryJournalDirectory(root);
+    const b = before.find(
+      (intent) =>
+        intent.recoveryId ===
+        `docker-task.${"b".repeat(64)}.${"b".repeat(64)}.${"b".repeat(64)}`,
+    );
+    assert.ok(b);
+    const bPath = path.join(root, b.name);
+    const bBytes = fs.readFileSync(bPath);
+    const bIdentity = fs.lstatSync(bPath, { bigint: true });
+    assert.equal(
+      resumeDockerRecoveryJournalDirectoryForRecovery(
+        root,
+        `docker-task.${"a".repeat(64)}.${"a".repeat(64)}.${"a".repeat(64)}`,
+        scopedRuntimeStateBinding,
+      ),
+      true,
+    );
+    assert.equal(fs.existsSync(path.join(root, "cleanup-a")), false);
+    assert.equal(fs.existsSync(path.join(root, "cleanup-b")), true);
+    assert.deepEqual(fs.readFileSync(bPath), bBytes);
+    const afterIdentity = fs.lstatSync(bPath, { bigint: true });
+    assert.deepEqual(
+      [afterIdentity.dev, afterIdentity.ino, afterIdentity.birthtimeNs],
+      [bIdentity.dev, bIdentity.ino, bIdentity.birthtimeNs],
+    );
+    assert.deepEqual(
+      inspectDockerRecoveryJournalDirectory(root).map(
+        (intent) => intent.recoveryId,
+      ),
+      [`docker-task.${"b".repeat(64)}.${"b".repeat(64)}.${"b".repeat(64)}`],
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("対象限定resumeは同一Recovery IDの作成時binding不一致をmutation前に拒否する", () => {
+  const root = temporaryDirectory();
+  try {
+    assert.notEqual(crashScopedCleanup(root, "a").status, 0);
+    const aIntent = inspectDockerRecoveryJournalDirectory(root)[0];
+    assert.ok(aIntent);
+    const aPath = path.join(root, aIntent.name);
+    const before = fs.readFileSync(aPath);
+    const beforeIdentity = fs.lstatSync(aPath, { bigint: true });
+    assert.throws(
+      () =>
+        resumeDockerRecoveryJournalDirectoryForRecovery(
+          root,
+          `docker-task.${"a".repeat(64)}.${"a".repeat(64)}.${"a".repeat(64)}`,
+          {
+            ...scopedRuntimeStateBinding,
+            localUserBindingHash: "f".repeat(64),
+          },
+        ),
+      /docker_recovery_target_binding_mismatch/u,
+    );
+    assert.equal(fs.existsSync(path.join(root, "cleanup-a")), true);
+    assert.deepEqual(fs.readFileSync(aPath), before);
+    const afterIdentity = fs.lstatSync(aPath, { bigint: true });
+    assert.deepEqual(
+      [afterIdentity.dev, afterIdentity.ino, afterIdentity.birthtimeNs],
+      [beforeIdentity.dev, beforeIdentity.ino, beforeIdentity.birthtimeNs],
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("delete／moveの第三状態は上書きせずintentと観測物を保持する", () => {
   for (const [operation, boundary, replacement] of [
     ["delete", "rm-1", path.join("source", "record.json.crdd-commit.json")],
@@ -569,6 +690,8 @@ test("journal contractはprocess-crash回復とpower-loss非保証を分離す�
     orphanTemporaryTreatment: "retain_and_fail_closed",
     deleteBoundary: "single_atomic_anchor_then_target_commit_anchor",
     moveBoundary: "single_atomic_anchor_then_content_commit_anchor",
+    runtimeStateResumeAuthority:
+      "exact_recovery_id_and_creation_binding_non_target_unchanged",
     powerLossDurabilityClaimed: false,
   });
 });

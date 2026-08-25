@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { Worker } from "node:worker_threads";
 
 import * as executionEnvironment from "../src/security/execution-environment.ts";
 import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
@@ -73,6 +74,16 @@ function hostRecoveryMarker(token: string): string {
     "crdd-coordinator-recovery-v1",
     `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
   );
+}
+
+function suppressKernelLockReleaseAcknowledgement<T>(effect: () => T) {
+  const original = Worker.prototype.postMessage;
+  Reflect.set(Worker.prototype, "postMessage", () => undefined);
+  try {
+    return effect();
+  } finally {
+    Reflect.set(Worker.prototype, "postMessage", original);
+  }
 }
 
 function confirmedChecks(): DiagnosticCheck[] {
@@ -3304,6 +3315,52 @@ test("Host recoveryはroot削除済みでも外部markerを安全に完了する
     /capability_required/u,
   );
   assert.equal(recoverOwnedOperationDirectories(token).status, "blocked");
+});
+
+test("通常Host cleanupはgeneration release不明時にmarkerを保持して同じtokenで再開する", () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const recoveryId = getOwnedHostRecoveryId(owned);
+  const marker = hostRecoveryMarker(recoveryId);
+  activateOwnedHostOperationGenerationLock(management);
+  assert.throws(
+    () =>
+      suppressKernelLockReleaseAcknowledgement(() =>
+        cleanupOwnedOperationDirectories(owned),
+      ),
+    /owned_operation_generation_release_unconfirmed/u,
+  );
+  assert.equal(fs.existsSync(owned.root), false);
+  assert.equal(fs.existsSync(marker), true);
+  assert.deepEqual(recoverOwnedOperationDirectories(recoveryId), {
+    status: "recovered",
+    reason: "host_root_already_absent",
+  });
+  assert.equal(fs.existsSync(marker), false);
+});
+
+test("Host doctorは自分のgeneration release不明時に成功せずmarkerを保持する", () => {
+  const owned = createOwnedOperationDirectories();
+  const recoveryId = getOwnedHostRecoveryId(owned);
+  const marker = hostRecoveryMarker(recoveryId);
+  assert.deepEqual(
+    suppressKernelLockReleaseAcknowledgement(() =>
+      recoverOwnedOperationDirectories(recoveryId),
+    ),
+    {
+      status: "blocked",
+      reason: "host_recovery_generation_release_unconfirmed",
+    },
+  );
+  assert.equal(fs.existsSync(owned.root), false);
+  assert.equal(fs.existsSync(marker), true);
+  assert.deepEqual(recoverOwnedOperationDirectories(recoveryId), {
+    status: "recovered",
+    reason: "host_root_already_absent",
+  });
+  assert.equal(fs.existsSync(marker), false);
 });
 
 test("Host cleanupはeventsとprojectionを含む6 childを所有確認する", () => {

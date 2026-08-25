@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
+
+import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
+import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
 
 const RECOVERY_ID = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
 
@@ -17,6 +23,51 @@ function invokeCli(isJson: boolean) {
       ...(isJson ? ["--json"] : []),
     ],
     { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+}
+
+function addCleanupRecovery(root: string, discriminator: string) {
+  const token = `docker-task.${discriminator.repeat(64)}.${discriminator.repeat(64)}.${discriminator.repeat(64)}`;
+  const cleanup = path.join(
+    root,
+    `cleanup-docker-task-${discriminator.repeat(64)}-${discriminator.repeat(64)}-${discriminator.repeat(64)}`,
+  );
+  const journalUrl = pathToFileURL(
+    path.resolve("src/security/docker-recovery-journal.ts"),
+  ).href;
+  const source = `
+    import fs from "node:fs";
+    const journal = await import(${JSON.stringify(journalUrl)});
+    fs.mkdirSync(process.argv[2]);
+    fs.writeFileSync(process.argv[2] + "/payload.json", "{}\\n", "utf8");
+    const original = fs.rmSync;
+    fs.rmSync = (...args) => { original(...args); process.kill(process.pid, "SIGKILL"); };
+    journal.removeDockerRecoveryCleanupDirectory(process.argv[1], process.argv[2], process.argv[3], {
+      runtimeStateIdentityHash: "4".repeat(64),
+      runtimeStateProtectionHash: "5".repeat(64),
+      localUserBindingHash: "6".repeat(64),
+      runtimeStateBindingHash: "7".repeat(64),
+    });
+  `;
+  const result = spawnSync(
+    process.execPath,
+    ["--experimental-strip-types", "-e", source, root, cleanup, token],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+  assert.notEqual(result.status, 0);
+  return token;
+}
+
+function inventory(rootPath: string) {
+  return inspectDockerRecoveryRootSnapshotWithLock(
+    Object.freeze({
+      rootPath,
+      runtimeStateIdentityHash: "4".repeat(64),
+      runtimeStateProtectionHash: "5".repeat(64),
+      localUserBindingHash: "6".repeat(64),
+      stableLogicalHomeBindingHash: "7".repeat(64),
+    }),
+    () => Object.freeze({ release: () => true }),
   );
 }
 
@@ -45,4 +96,61 @@ test("実CLIの人間表示はexact回復commandを保持しHost Pathを出さ�
   );
   assert.doesNotMatch(result.stdout, /C:\\/u);
   assert.equal(result.stderr, "");
+});
+
+test("CLI共通projectorはvalid単一／複数inventoryをJSON／人間表示へexact投影する", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cli-inventory-"));
+  try {
+    const first = addCleanupRecovery(root, "a");
+    const single = inventory(root);
+    assert.equal(single.status, "completed");
+    const singleJson = renderDockerRecoveryDoctorReport(
+      { status: "blocked", dockerTaskRecovery: single, blockers: [] },
+      true,
+    );
+    assert.equal(singleJson.exitCode, 2);
+    assert.deepEqual(JSON.parse(singleJson.stdout).dockerTaskRecovery, single);
+    const second = addCleanupRecovery(root, "b");
+    const multiple = inventory(root);
+    assert.equal(
+      multiple.reason,
+      "docker_task_multiple_recovery_inventory_available",
+    );
+    assert.deepEqual(multiple.dockerRecoveryIds, [first, second]);
+    const human = renderDockerRecoveryDoctorReport(
+      { status: "blocked", dockerTaskRecovery: multiple, blockers: [] },
+      false,
+    );
+    assert.match(human.stdout, /Docker Task recoveries: 2/u);
+    assert.match(human.stdout, new RegExp(first, "u"));
+    assert.match(human.stdout, new RegExp(second, "u"));
+    assert.doesNotMatch(human.stdout, /C:\\/u);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI共通projectorはthird stateをblocked、回復成功をexit 0へ分離する", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-cli-third-state-"));
+  try {
+    addCleanupRecovery(root, "c");
+    fs.writeFileSync(path.join(root, "unknown"), "unknown", "utf8");
+    const third = inventory(root);
+    assert.equal(third.status, "blocked");
+    const blocked = renderDockerRecoveryDoctorReport(third, false);
+    assert.equal(blocked.exitCode, 2);
+    assert.match(blocked.stdout, /docker_task_runtime_state_unknown_entry/u);
+    const recovered = renderDockerRecoveryDoctorReport(
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed",
+        recoveryId: null,
+      },
+      true,
+    );
+    assert.equal(recovered.exitCode, 0);
+    assert.equal(JSON.parse(recovered.stdout).status, "recovered");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
