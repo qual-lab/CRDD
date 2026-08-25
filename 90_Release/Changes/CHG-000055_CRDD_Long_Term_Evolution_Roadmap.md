@@ -37,7 +37,7 @@ Qual-Planner、Qual-TopicおよびQual-MTGは独立したプロジェクト正�
 
 この変更は課題探索・要求形成への非規範の長期方向追加、Roadmapへの状態投影、および既存文書責務の明確化であり、CRDD規範の強さ、安定コンテキストID、公開スキーマ、実行環境、決定権限、セキュリティ、プロバイダー、課金、移行、Issue #30の採否またはリリース判断を変更しない。段階番号は長期方向を説明する表示であり、全段階の直列実施、固定期限、固定成果物、前段の完全終了または実装許可を意味しない。
 
-Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)、上流工程強化の要求候補は[`01_Discovery/01_CRDD_Product_Discovery.md`](../../01_Discovery/01_CRDD_Product_Discovery.md)、v0.18.0の統合境界は[`CHG-000014`](CHG-000014_V018_Architecture_Candidate_Integration.md)が引き続き所有する。Issue #30、自律Operation実証およびRelease作業の意味や状態も本変更へ複製しない。
+Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)、上流工程強化の要求候補は[`01_Discovery/01_CRDD_Product_Discovery.md`](../../01_Discovery/01_CRDD_Product_Discovery.md)、v0.18.0の統合境界は[`CHG-000014`](CHG-000014_V018_Architecture_Candidate_Integration.md)が引き続き所有する。Issue #30、自律オペレーション実証およびリリース作業の意味や状態も本変更へ複製しない。
 
 ## 4. 初回監査結果と統合是正
 
@@ -51,4 +51,4 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordina
 
 同一固定改訂版へリポジトリ全体Checker、アーキテクチャ／セキュリティ／準拠レビュー、文書監査および不足／影響・利用導線監査を一つの必須集合として行う。確認対象は、単一Roadmap原則、第1段階と現在作業の接続、将来候補と要求／実装許可の分離、課題探索・要求形成／Roadmap／CHGの責務、プロジェクト運営の条件付き非置換境界、既存アーキテクチャとの重複、準拠・移行非変更、およびREADME等から必要な導線である。
 
-本変更の記録自体に追加の人間判断は必要ない。v0.18.0への統合およびReleaseは別の人間判断である。
+本変更の記録自体に追加の人間判断は必要ない。v0.18.0への統合およびリリースは別の人間判断である。
