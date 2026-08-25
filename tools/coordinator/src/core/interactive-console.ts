@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 4;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 5;
 
 type InteractiveConsoleHandles = Readonly<{
   input: number;
@@ -27,6 +27,23 @@ type WindowsTerminalStream = Readonly<{
   once: (event: "error", listener: () => void) => unknown;
   removeListener: (event: "error", listener: () => void) => unknown;
   write: (value: string, callback: (error?: Error | null) => void) => boolean;
+}>;
+
+type TerminalInputStream = Readonly<{
+  isTTY?: boolean;
+  destroyed: boolean;
+  readable: boolean;
+  readableEncoding: BufferEncoding | null;
+  readableFlowing: boolean | null;
+  listenerCount: (event: "data") => number;
+  on: (event: "data", listener: (chunk: Buffer | string) => void) => unknown;
+  once: (event: "error" | "end", listener: (error?: Error) => void) => unknown;
+  removeListener: (
+    event: "data" | "error" | "end",
+    listener: ((chunk: Buffer | string) => void) | ((error?: Error) => void),
+  ) => unknown;
+  pause: () => unknown;
+  resume: () => unknown;
 }>;
 
 export function withInteractiveConsoleUsingAdapter<T>(
@@ -155,20 +172,133 @@ export function writeWindowsTerminalTextUsingStream(
   }
   return new Promise((resolve) => {
     let isSettled = false;
+    let deferredCompletion: NodeJS.Immediate | null = null;
     const settle = (isSuccessful: boolean) => {
       if (isSettled) return;
       isSettled = true;
+      if (deferredCompletion) clearImmediate(deferredCompletion);
       stream.removeListener("error", onError);
       resolve(isSuccessful);
+    };
+    const deferSettlement = (isSuccessful: boolean) => {
+      if (isSettled || deferredCompletion) return;
+      deferredCompletion = setImmediate(() => settle(isSuccessful));
     };
     const onError = () => settle(false);
     stream.once("error", onError);
     try {
-      stream.write(value, (error) => settle(!error));
+      stream.write(value, (error) => deferSettlement(!error));
     } catch {
-      settle(false);
+      deferSettlement(false);
     }
   });
+}
+
+export function readTerminalLineUsingStream(
+  stream: TerminalInputStream,
+  cancellationSignal: AbortSignal,
+): Promise<string | null> {
+  if (
+    stream.isTTY !== true ||
+    stream.destroyed ||
+    !stream.readable ||
+    stream.readableEncoding !== null ||
+    stream.readableFlowing === true ||
+    stream.listenerCount("data") !== 0 ||
+    cancellationSignal.aborted
+  ) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    let isSettled = false;
+    let isPaused = false;
+    let deferredCompletion: NodeJS.Immediate | null = null;
+    const bytes: number[] = [];
+    const removeListenerSafely = (
+      event: "data" | "error" | "end",
+      listener: ((chunk: Buffer | string) => void) | ((error?: Error) => void),
+    ) => {
+      try {
+        stream.removeListener(event, listener);
+      } catch {
+        // Settlement remains fail closed even if the stream is already broken.
+      }
+    };
+    const settle = (line: string | null) => {
+      if (isSettled) return;
+      isSettled = true;
+      if (deferredCompletion) clearImmediate(deferredCompletion);
+      removeListenerSafely("data", onData);
+      removeListenerSafely("error", onFailure);
+      removeListenerSafely("end", onFailure);
+      try {
+        cancellationSignal.removeEventListener("abort", onFailure);
+      } catch {
+        line = null;
+      }
+      try {
+        if (!isPaused) stream.pause();
+        resolve(line);
+      } catch {
+        resolve(null);
+      }
+    };
+    const deferSuccessfulSettlement = (line: string) => {
+      if (isSettled || deferredCompletion) return;
+      try {
+        stream.pause();
+        isPaused = true;
+      } catch {
+        settle(null);
+        return;
+      }
+      deferredCompletion = setImmediate(() => settle(line));
+    };
+    const onFailure = () => settle(null);
+    const onData = (chunk: Buffer | string) => {
+      if (deferredCompletion) return;
+      if (!Buffer.isBuffer(chunk)) {
+        settle(null);
+        return;
+      }
+      for (const value of chunk) {
+        if (value === 0x0a) {
+          deferSuccessfulSettlement(Buffer.from(bytes).toString("utf8"));
+          return;
+        }
+        if (value !== 0x0d) bytes.push(value);
+        if (bytes.length > 64) {
+          settle(null);
+          return;
+        }
+      }
+    };
+    try {
+      stream.on("data", onData);
+      if (isSettled) return;
+      stream.once("error", onFailure);
+      if (isSettled) return;
+      stream.once("end", onFailure);
+      if (isSettled) return;
+      cancellationSignal.addEventListener("abort", onFailure, { once: true });
+    } catch {
+      settle(null);
+      return;
+    }
+    if (cancellationSignal.aborted) {
+      settle(null);
+      return;
+    }
+    try {
+      stream.resume();
+    } catch {
+      settle(null);
+    }
+  });
+}
+
+export function readInteractiveConsoleLine(cancellationSignal: AbortSignal) {
+  return readTerminalLineUsingStream(process.stdin, cancellationSignal);
 }
 
 function writeWindowsTerminalText(value: string) {
@@ -203,7 +333,9 @@ export function describeInteractiveConsoleContract() {
     contractRevision: INTERACTIVE_CONSOLE_CONTRACT_REVISION,
     windowsDevices: Object.freeze(["\\\\.\\CONIN$", "\\\\.\\CONOUT$"]),
     windowsUnicodeOutput: "node_unicode_tty_output_required",
+    validatedTtyInput: "node_tty_input_required",
     windowsRedirectedOutput: "fail_closed",
+    redirectedStandardInputAllowed: false,
     posixDevice: "/dev/tty",
     standardInputFallbackAllowed: false,
     shellTransportAllowed: false,

@@ -134,6 +134,7 @@ type RuntimeDependencies = Readonly<{
     policyCapability: object,
     scope: RuntimeRecord,
     providers: readonly Provider[],
+    cancellationSignal: AbortSignal,
   ) => RuntimeRecord | null | Promise<RuntimeRecord | null>;
   resolveExternalSendPolicy: (
     managementCapability: object,
@@ -207,6 +208,7 @@ type ControlRecord = {
   managementCapability: object;
   currentProcessControl: object | null;
   cancellationRequested: boolean;
+  cancellationController: AbortController;
   ownedOperation: object | null;
   retainOperationRoot: boolean;
   hostRecoveryId: string | null;
@@ -846,7 +848,13 @@ async function runCoordinatorTask(
       externalSendPolicyCapability,
       packetRequest(request),
       Object.freeze(["codex", "claude"]),
+      control.cancellationController.signal,
     );
+    if (control.cancellationRequested) {
+      return blocked(
+        "coordinator_task_cancelled_during_external_send_authorization",
+      );
+    }
     const externalSendGrantCapability = objectCapability(
       externalSendGrant?.capability,
     );
@@ -1213,6 +1221,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         managementCapability: Object.freeze({}),
         currentProcessControl: null,
         cancellationRequested: false,
+        cancellationController: new AbortController(),
         ownedOperation: null,
         retainOperationRoot: false,
         hostRecoveryId: null,
@@ -1488,6 +1497,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         return Object.freeze({ status: "blocked" as const });
       }
       control.cancellationRequested = true;
+      control.cancellationController.abort();
       return control.currentProcessControl
         ? state.dependencies.cancelProcess(
             control.currentProcessControl,

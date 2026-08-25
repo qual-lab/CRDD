@@ -1,8 +1,8 @@
 import { createHash, randomInt } from "node:crypto";
-import fs from "node:fs";
 import { performance } from "node:perf_hooks";
 
 import {
+  readInteractiveConsoleLine,
   withInteractiveConsoleAsync,
   writeInteractiveConsoleText,
 } from "../core/interactive-console.ts";
@@ -16,7 +16,7 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 4;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 5;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -59,7 +59,11 @@ type RuntimeDependencies = Readonly<{
   verifyOperation: typeof verifyOwnedOperationManagementCapability;
   verifyRepository: typeof verifyRuntimeOwnedRepositoryBindingCapability;
   verifyPolicy: typeof verifyRuntimeOwnedExternalSendPolicy;
-  confirm: (notice: string, challenge: string) => Promise<boolean>;
+  confirm: (
+    notice: string,
+    challenge: string,
+    cancellationSignal: AbortSignal,
+  ) => Promise<boolean>;
   wallNow: () => number;
   monotonicNow: () => number;
   randomChallenge: () => string;
@@ -152,42 +156,22 @@ function terminalSafeJson(value: unknown) {
 
 type ConsoleConfirmationAdapter = Readonly<{
   writeText: (outputDescriptor: number, value: string) => Promise<boolean>;
-  readByte: (inputDescriptor: number, buffer: Buffer) => Promise<number | null>;
+  readLine: (cancellationSignal: AbortSignal) => Promise<string | null>;
 }>;
 
-function readConsoleByte(inputDescriptor: number, buffer: Buffer) {
-  return new Promise<number | null>((resolve) => {
-    let isSettled = false;
-    const settle = (value: number | null) => {
-      if (isSettled) return;
-      isSettled = true;
-      process.removeListener("SIGINT", onCancel);
-      process.removeListener("SIGTERM", onCancel);
-      resolve(value);
-    };
-    const onCancel = () => settle(null);
-    process.once("SIGINT", onCancel);
-    process.once("SIGTERM", onCancel);
-    try {
-      fs.read(inputDescriptor, buffer, 0, 1, null, (error, bytesRead) => {
-        if (error || bytesRead !== 1) {
-          settle(null);
-          return;
-        }
-        settle(buffer[0] as number);
-      });
-    } catch {
-      settle(null);
-    }
-  });
+function isCancellationSignal(value: unknown): value is AbortSignal {
+  return value instanceof AbortSignal;
 }
 
 export async function confirmInteractiveConsoleChallengeUsingAdapter(
   notice: string,
   challenge: string,
   handles: Readonly<{ input: number; output: number }>,
+  cancellationSignal: AbortSignal,
   adapter: ConsoleConfirmationAdapter,
 ) {
+  if (!isCancellationSignal(cancellationSignal) || cancellationSignal.aborted)
+    return false;
   if (
     !(await adapter.writeText(
       handles.output,
@@ -196,30 +180,31 @@ export async function confirmInteractiveConsoleChallengeUsingAdapter(
   ) {
     return false;
   }
-  const bytes: number[] = [];
-  const buffer = Buffer.alloc(1);
-  while (bytes.length <= 64) {
-    const value = await adapter.readByte(handles.input, buffer);
-    if (value === null) return false;
-    if (value === 0x0a) break;
-    if (value !== 0x0d) bytes.push(value);
-  }
+  if (cancellationSignal.aborted) return false;
+  const line = await adapter.readLine(cancellationSignal);
+  if (line === null || cancellationSignal.aborted) return false;
   return (
     (await adapter.writeText(handles.output, "\n")) &&
-    Buffer.from(bytes).toString("utf8") === challenge
+    !cancellationSignal.aborted &&
+    line === challenge
   );
 }
 
-async function consoleConfirmation(notice: string, challenge: string) {
+async function consoleConfirmation(
+  notice: string,
+  challenge: string,
+  cancellationSignal: AbortSignal,
+) {
   return (
     (await withInteractiveConsoleAsync((handles) =>
       confirmInteractiveConsoleChallengeUsingAdapter(
         notice,
         challenge,
         handles,
+        cancellationSignal,
         Object.freeze({
           writeText: writeInteractiveConsoleText,
-          readByte: readConsoleByte,
+          readLine: readInteractiveConsoleLine,
         }),
       ),
     )) ?? false
@@ -249,8 +234,11 @@ async function requestGrant(
   policyCapability: unknown,
   rawScope: unknown,
   rawProviders: unknown,
+  cancellationSignal: AbortSignal,
 ) {
   try {
+    if (!isCancellationSignal(cancellationSignal) || cancellationSignal.aborted)
+      return null;
     if (
       !managementCapability ||
       typeof managementCapability !== "object" ||
@@ -331,7 +319,15 @@ async function requestGrant(
       terminalSafeJson(displayedAuthorization),
       "対象内容はProviderへ送信され、Subscription枠を消費する可能性があります。API key fallbackと追加購入は行いません。",
     ].join("\n");
-    if (!(await state.dependencies.confirm(notice, challenge))) return null;
+    if (
+      !(await state.dependencies.confirm(
+        notice,
+        challenge,
+        cancellationSignal,
+      )) ||
+      cancellationSignal.aborted
+    )
+      return null;
     const capability = Object.freeze({});
     state.grants.set(capability, {
       managementCapability,
@@ -442,6 +438,7 @@ export function requestRuntimeOwnedExternalSendGrant(
   policyCapability: unknown,
   rawScope: unknown,
   rawProviders: unknown,
+  cancellationSignal: AbortSignal,
 ) {
   return requestGrant(
     productionState,
@@ -450,6 +447,7 @@ export function requestRuntimeOwnedExternalSendGrant(
     policyCapability,
     rawScope,
     rawProviders,
+    cancellationSignal,
   );
 }
 
@@ -486,6 +484,7 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
       policyCapability: unknown,
       rawScope: unknown,
       rawProviders: unknown,
+      cancellationSignal = new AbortController().signal,
     ) =>
       requestGrant(
         state,
@@ -494,6 +493,7 @@ export function createIsolatedExternalSendGrantRuntimeCandidate(
         policyCapability,
         rawScope,
         rawProviders,
+        cancellationSignal,
       ),
     consume: (
       capability: unknown,
@@ -524,7 +524,7 @@ export function describeExternalSendGrantRuntimeContract() {
     authoritySource:
       "authenticated_local_user_interactive_console_confirmation",
     interactiveConfirmation:
-      "async_prompt_completion_input_final_output_and_console_cleanup",
+      "async_prompt_completion_cancellable_tty_input_final_output_and_console_cleanup",
     binding: Object.freeze([
       "operation",
       "repository_identity",

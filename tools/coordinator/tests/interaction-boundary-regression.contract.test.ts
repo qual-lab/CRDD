@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
+import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 
 import {
   describeInteractiveConsoleContract,
   INTERACTIVE_CONSOLE_CONTRACT,
+  readTerminalLineUsingStream,
   withInteractiveConsoleAsyncUsingAdapter,
   withInteractiveConsoleUsingAdapter,
   writeInteractiveConsoleTextUsingAdapter,
@@ -34,10 +37,12 @@ function sourceFiles(root: string): string[] {
 test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", () => {
   assert.deepEqual(describeInteractiveConsoleContract(), {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 4,
+    contractRevision: 5,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsUnicodeOutput: "node_unicode_tty_output_required",
+    validatedTtyInput: "node_tty_input_required",
     windowsRedirectedOutput: "fail_closed",
+    redirectedStandardInputAllowed: false,
     posixDevice: "/dev/tty",
     standardInputFallbackAllowed: false,
     shellTransportAllowed: false,
@@ -177,12 +182,16 @@ test("Windows TTY writeのcallback・stream error・backpressureを一度だけ�
         if (outcome === "throw") throw new Error("write failed");
         setImmediate(() => {
           if (outcome === "stream_error") errorListener?.();
-          else
+          else {
             callback(
               outcome === "callback_error"
                 ? new Error("callback failed")
                 : null,
             );
+            if (outcome === "callback_error") {
+              queueMicrotask(() => errorListener?.());
+            }
+          }
         });
         return false;
       },
@@ -224,6 +233,219 @@ test("Windows TTY writeのcallback・stream error・backpressureを一度だけ�
     false,
   );
   assert.deepEqual(redirected.values, []);
+
+  const actualWritable = new Writable({
+    write: (_chunk, _encoding, callback) => {
+      callback(new Error("actual writable failure"));
+    },
+  });
+  Object.defineProperty(actualWritable, "isTTY", { value: true });
+  assert.equal(
+    await writeWindowsTerminalTextUsingStream(
+      "外部送信を確認",
+      actualWritable as unknown as Parameters<
+        typeof writeWindowsTerminalTextUsingStream
+      >[1],
+    ),
+    false,
+  );
+  assert.equal(actualWritable.listenerCount("error"), 0);
+});
+
+test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ収束する", async () => {
+  function inputScenario(overrides: Record<string, unknown> = {}) {
+    const emitter = new EventEmitter();
+    let pauseCount = 0;
+    let resumeCount = 0;
+    const stream = {
+      isTTY: true,
+      destroyed: false,
+      readable: true,
+      readableEncoding: null,
+      readableFlowing: false,
+      listenerCount: (event: "data") => emitter.listenerCount(event),
+      on: (event: "data", listener: (chunk: Buffer | string) => void) => {
+        emitter.on(event, listener);
+      },
+      once: (event: "error" | "end", listener: (error?: Error) => void) => {
+        emitter.once(event, listener);
+      },
+      removeListener: (
+        event: "data" | "error" | "end",
+        listener:
+          | ((chunk: Buffer | string) => void)
+          | ((error?: Error) => void),
+      ) => {
+        emitter.removeListener(event, listener);
+      },
+      pause: () => {
+        pauseCount += 1;
+      },
+      resume: () => {
+        resumeCount += 1;
+      },
+      ...overrides,
+    };
+    return {
+      stream,
+      emitter,
+      pauseCount: () => pauseCount,
+      resumeCount: () => resumeCount,
+    };
+  }
+
+  {
+    const scenario = inputScenario();
+    const controller = new AbortController();
+    const line = readTerminalLineUsingStream(
+      scenario.stream,
+      controller.signal,
+    );
+    scenario.emitter.emit("data", Buffer.from("123456\r\nignored", "utf8"));
+    assert.equal(await line, "123456");
+    assert.equal(scenario.pauseCount(), 1);
+    assert.equal(scenario.resumeCount(), 1);
+    assert.equal(scenario.emitter.listenerCount("data"), 0);
+    assert.equal(scenario.emitter.listenerCount("error"), 0);
+    assert.equal(scenario.emitter.listenerCount("end"), 0);
+  }
+
+  for (const outcome of ["abort", "error", "end"] as const) {
+    const scenario = inputScenario();
+    const controller = new AbortController();
+    const line = readTerminalLineUsingStream(
+      scenario.stream,
+      controller.signal,
+    );
+    if (outcome === "abort") controller.abort();
+    else scenario.emitter.emit(outcome, new Error(outcome));
+    assert.equal(await line, null, outcome);
+    assert.equal(scenario.pauseCount(), 1, outcome);
+    assert.equal(scenario.emitter.listenerCount("data"), 0, outcome);
+    assert.equal(scenario.emitter.listenerCount("error"), 0, outcome);
+    assert.equal(scenario.emitter.listenerCount("end"), 0, outcome);
+  }
+
+  for (const overrides of [
+    { isTTY: false },
+    { destroyed: true },
+    { readable: false },
+    { readableEncoding: "utf8" },
+    { readableFlowing: true },
+  ]) {
+    const scenario = inputScenario(overrides);
+    assert.equal(
+      await readTerminalLineUsingStream(
+        scenario.stream,
+        new AbortController().signal,
+      ),
+      null,
+    );
+    assert.equal(scenario.resumeCount(), 0);
+  }
+
+  {
+    const scenario = inputScenario({
+      resume: () => {
+        throw new Error("resume failed");
+      },
+    });
+    assert.equal(
+      await readTerminalLineUsingStream(
+        scenario.stream,
+        new AbortController().signal,
+      ),
+      null,
+    );
+    assert.equal(scenario.emitter.listenerCount("data"), 0);
+    assert.equal(scenario.emitter.listenerCount("error"), 0);
+    assert.equal(scenario.emitter.listenerCount("end"), 0);
+  }
+
+  for (const registrationFailure of ["on", "error", "end"] as const) {
+    const scenario = inputScenario({
+      on: (event: "data", listener: (chunk: Buffer | string) => void) => {
+        scenario.emitter.on(event, listener);
+        if (registrationFailure === "on") throw new Error("on failed");
+      },
+      once: (event: "error" | "end", listener: (error?: Error) => void) => {
+        scenario.emitter.once(event, listener);
+        if (registrationFailure === event) throw new Error(`${event} failed`);
+      },
+    });
+    assert.equal(
+      await readTerminalLineUsingStream(
+        scenario.stream,
+        new AbortController().signal,
+      ),
+      null,
+      registrationFailure,
+    );
+    assert.equal(scenario.emitter.listenerCount("data"), 0);
+    assert.equal(scenario.emitter.listenerCount("error"), 0);
+    assert.equal(scenario.emitter.listenerCount("end"), 0);
+  }
+
+  {
+    const scenario = inputScenario({
+      pause: () => {
+        throw new Error("pause failed");
+      },
+    });
+    const line = readTerminalLineUsingStream(
+      scenario.stream,
+      new AbortController().signal,
+    );
+    scenario.emitter.emit("data", Buffer.from("123456\n", "utf8"));
+    assert.equal(await line, null);
+    assert.equal(scenario.emitter.listenerCount("data"), 0);
+    assert.equal(scenario.emitter.listenerCount("error"), 0);
+    assert.equal(scenario.emitter.listenerCount("end"), 0);
+  }
+
+  const actualInput = new PassThrough();
+  Object.defineProperty(actualInput, "isTTY", { value: true });
+  const actualLine = readTerminalLineUsingStream(
+    actualInput as unknown as Parameters<typeof readTerminalLineUsingStream>[0],
+    new AbortController().signal,
+  );
+  actualInput.write(Buffer.from("実入力\r\n", "utf8"));
+  assert.equal(await actualLine, "実入力");
+  assert.equal(actualInput.listenerCount("data"), 0);
+  assert.equal(actualInput.listenerCount("error"), 0);
+  assert.equal(actualInput.listenerCount("end"), 0);
+
+  const delayedErrorInput = new PassThrough();
+  Object.defineProperty(delayedErrorInput, "isTTY", { value: true });
+  const delayedErrorLine = readTerminalLineUsingStream(
+    delayedErrorInput as unknown as Parameters<
+      typeof readTerminalLineUsingStream
+    >[0],
+    new AbortController().signal,
+  );
+  delayedErrorInput.write(Buffer.from("123456\n", "utf8"));
+  queueMicrotask(() =>
+    delayedErrorInput.emit("error", new Error("late error")),
+  );
+  assert.equal(await delayedErrorLine, null);
+  assert.equal(delayedErrorInput.listenerCount("data"), 0);
+  assert.equal(delayedErrorInput.listenerCount("error"), 0);
+  assert.equal(delayedErrorInput.listenerCount("end"), 0);
+
+  const cancelledInput = new PassThrough();
+  Object.defineProperty(cancelledInput, "isTTY", { value: true });
+  const controller = new AbortController();
+  const cancelledLine = readTerminalLineUsingStream(
+    cancelledInput as unknown as Parameters<
+      typeof readTerminalLineUsingStream
+    >[0],
+    controller.signal,
+  );
+  controller.abort();
+  assert.equal(await cancelledLine, null);
+  assert.equal(cancelledInput.listenerCount("data"), 0);
+  assert.equal(cancelledInput.listenerCount("error"), 0);
+  assert.equal(cancelledInput.listenerCount("end"), 0);
 });
 
 test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じる", () => {

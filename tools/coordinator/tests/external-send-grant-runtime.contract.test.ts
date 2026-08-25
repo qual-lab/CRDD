@@ -20,6 +20,11 @@ function resolveDeferredBoolean(resolver: unknown, isResolved: boolean) {
   (resolver as (isSuccessful: boolean) => void)(isResolved);
 }
 
+function resolveDeferredLine(resolver: unknown, line: string | null) {
+  assert.equal(typeof resolver, "function");
+  (resolver as (resolvedLine: string | null) => void)(line);
+}
+
 function fixture(shouldConfirm = true) {
   const managementCapability = Object.freeze({});
   const repositoryBindingCapability = Object.freeze({});
@@ -129,8 +134,8 @@ function fixture(shouldConfirm = true) {
 
 test("承認表示完了後だけchallengeを読み最終表示完了後だけ成功する", async () => {
   const challenge = "123456";
-  const inputBytes = [...Buffer.from(`${challenge}\n`, "utf8")];
-  const readValues: number[] = [];
+  const controller = new AbortController();
+  let readCount = 0;
   const writtenValues: string[] = [];
   let completePrompt: ((isSuccessful: boolean) => void) | null = null;
   let completeNewline: ((isSuccessful: boolean) => void) | null = null;
@@ -138,6 +143,7 @@ test("承認表示完了後だけchallengeを読み最終表示完了後だけ�
     "確認対象",
     challenge,
     Object.freeze({ input: 11, output: 12 }),
+    controller.signal,
     Object.freeze({
       writeText: (_descriptor: number, value: string) => {
         writtenValues.push(value);
@@ -146,18 +152,17 @@ test("承認表示完了後だけchallengeを読み最終表示完了後だけ�
           else completeNewline = resolve;
         });
       },
-      readByte: async () => {
-        const value = inputBytes.shift() ?? null;
-        if (value !== null) readValues.push(value);
-        return value;
+      readLine: async () => {
+        readCount += 1;
+        return challenge;
       },
     }),
   );
   await new Promise<void>((resolve) => setImmediate(resolve));
-  assert.deepEqual(readValues, []);
+  assert.equal(readCount, 0);
   resolveDeferredBoolean(completePrompt, true);
   await new Promise<void>((resolve) => setImmediate(resolve));
-  assert.deepEqual(readValues, [...Buffer.from(`${challenge}\n`, "utf8")]);
+  assert.equal(readCount, 1);
   assert.equal(typeof completeNewline, "function");
   let isConfirmationCompleted = false;
   void confirmation.then(() => {
@@ -171,17 +176,19 @@ test("承認表示完了後だけchallengeを読み最終表示完了後だけ�
 
 test("承認表示・入力・最終表示の各失敗をGrant候補へ進めない", async () => {
   const handles = Object.freeze({ input: 11, output: 12 });
+  const cancellationSignal = new AbortController().signal;
   let readCount = 0;
   assert.equal(
     await confirmInteractiveConsoleChallengeUsingAdapter(
       "確認対象",
       "123456",
       handles,
+      cancellationSignal,
       Object.freeze({
         writeText: async () => false,
-        readByte: async () => {
+        readLine: async () => {
           readCount += 1;
-          return 0x0a;
+          return "123456";
         },
       }),
     ),
@@ -190,30 +197,175 @@ test("承認表示・入力・最終表示の各失敗をGrant候補へ進めな
   assert.equal(readCount, 0);
 
   for (const scenario of ["cancelled", "newline", "incorrect"] as const) {
-    const inputBytes =
+    const line =
       scenario === "cancelled"
-        ? []
-        : [
-            ...Buffer.from(
-              `${scenario === "incorrect" ? "654321" : "123456"}\n`,
-            ),
-          ];
+        ? null
+        : scenario === "incorrect"
+          ? "654321"
+          : "123456";
     let writeCount = 0;
     const isConfirmed = await confirmInteractiveConsoleChallengeUsingAdapter(
       "確認対象",
       "123456",
       handles,
+      cancellationSignal,
       Object.freeze({
         writeText: async () => {
           writeCount += 1;
           return scenario !== "newline" || writeCount === 1;
         },
-        readByte: async () => inputBytes.shift() ?? null,
+        readLine: async () => line,
       }),
     );
     assert.equal(isConfirmed, false, scenario);
     assert.equal(writeCount, scenario === "cancelled" ? 1 : 2, scenario);
   }
+});
+
+test("取消状態を承認表示開始から最終表示完了まで保持する", async () => {
+  const handles = Object.freeze({ input: 11, output: 12 });
+
+  {
+    const controller = new AbortController();
+    controller.abort();
+    let writeCount = 0;
+    assert.equal(
+      await confirmInteractiveConsoleChallengeUsingAdapter(
+        "確認対象",
+        "123456",
+        handles,
+        controller.signal,
+        Object.freeze({
+          writeText: async () => {
+            writeCount += 1;
+            return true;
+          },
+          readLine: async () => "123456",
+        }),
+      ),
+      false,
+    );
+    assert.equal(writeCount, 0);
+  }
+
+  {
+    const controller = new AbortController();
+    let completePrompt: ((isSuccessful: boolean) => void) | null = null;
+    let readCount = 0;
+    const confirmation = confirmInteractiveConsoleChallengeUsingAdapter(
+      "確認対象",
+      "123456",
+      handles,
+      controller.signal,
+      Object.freeze({
+        writeText: () =>
+          new Promise<boolean>((resolve) => {
+            completePrompt = resolve;
+          }),
+        readLine: async () => {
+          readCount += 1;
+          return "123456";
+        },
+      }),
+    );
+    controller.abort();
+    resolveDeferredBoolean(completePrompt, true);
+    assert.equal(await confirmation, false);
+    assert.equal(readCount, 0);
+  }
+
+  {
+    const controller = new AbortController();
+    let completeRead: ((line: string | null) => void) | null = null;
+    let writeCount = 0;
+    const confirmation = confirmInteractiveConsoleChallengeUsingAdapter(
+      "確認対象",
+      "123456",
+      handles,
+      controller.signal,
+      Object.freeze({
+        writeText: async () => {
+          writeCount += 1;
+          return true;
+        },
+        readLine: () =>
+          new Promise<string | null>((resolve) => {
+            completeRead = resolve;
+          }),
+      }),
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    controller.abort();
+    resolveDeferredLine(completeRead, "123456");
+    assert.equal(await confirmation, false);
+    assert.equal(writeCount, 1);
+  }
+
+  {
+    const controller = new AbortController();
+    let completeNewline: ((isSuccessful: boolean) => void) | null = null;
+    let writeCount = 0;
+    const confirmation = confirmInteractiveConsoleChallengeUsingAdapter(
+      "確認対象",
+      "123456",
+      handles,
+      controller.signal,
+      Object.freeze({
+        writeText: () => {
+          writeCount += 1;
+          return writeCount === 1
+            ? Promise.resolve(true)
+            : new Promise<boolean>((resolve) => {
+                completeNewline = resolve;
+              });
+        },
+        readLine: async () => "123456",
+      }),
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    controller.abort();
+    resolveDeferredBoolean(completeNewline, true);
+    assert.equal(await confirmation, false);
+    assert.equal(writeCount, 2);
+  }
+});
+
+test("開始前に取消済みの要求は表示とGrant発行を0にする", async () => {
+  const current = fixture();
+  const controller = new AbortController();
+  controller.abort();
+  assert.equal(
+    await current.runtime.request(
+      current.managementCapability,
+      current.repositoryBindingCapability,
+      current.policyCapability,
+      SCOPE,
+      ["codex", "claude"],
+      controller.signal,
+    ),
+    null,
+  );
+  assert.deepEqual(current.notices, []);
+
+  let wasAccessorExecuted = false;
+  const forgedSignal = Object.defineProperty({}, "aborted", {
+    get: () => {
+      wasAccessorExecuted = true;
+      return false;
+    },
+  });
+  assert.equal(
+    await current.runtime.request(
+      current.managementCapability,
+      current.repositoryBindingCapability,
+      current.policyCapability,
+      SCOPE,
+      ["codex", "claude"],
+      forgedSignal as AbortSignal,
+    ),
+    null,
+  );
+  assert.equal(wasAccessorExecuted, false);
 });
 
 test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合する", async () => {
@@ -327,10 +479,10 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(
     contract.interactiveConfirmation,
-    "async_prompt_completion_input_final_output_and_console_cleanup",
+    "async_prompt_completion_cancellable_tty_input_final_output_and_console_cleanup",
   );
   assert.equal(contract.maximumUses, 4);
   assert.equal(contract.lifetimeMs, 1_500_000);

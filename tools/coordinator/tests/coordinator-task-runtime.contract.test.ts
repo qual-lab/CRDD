@@ -45,6 +45,7 @@ function fixture(
     candidatePersistenceAllowed?: boolean;
     candidateStoreUnavailable?: boolean;
     externalSendDenied?: boolean;
+    pauseExternalAuthorization?: boolean;
     pauseRole?: "executor" | "reviewer";
     discardFails?: boolean;
     discardThrows?: boolean;
@@ -81,6 +82,8 @@ function fixture(
   let workspaceMaterializeCount = 0;
   let processStartCount = 0;
   let releasePausedProcess: (() => void) | null = null;
+  let releaseExternalAuthorization: (() => void) | null = null;
+  let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
     inspectRepository:
@@ -185,14 +188,27 @@ function fixture(
         mountAuthorizationCapability: Object.freeze({}),
       }),
     revokeMountGrant: () => Object.freeze({ status: "revoked" }),
-    authorizeExternalSend: () => {
+    authorizeExternalSend: (
+      _management: object,
+      _repository: object,
+      _policy: object,
+      _scope: Record<string, unknown>,
+      _providers: readonly ("codex" | "claude")[],
+      cancellationSignal: AbortSignal,
+    ) => {
       externalAuthorizationCount += 1;
-      return options.externalSendDenied
+      externalCancellationSignal = cancellationSignal;
+      const authorization = options.externalSendDenied
         ? null
         : Object.freeze({
             status: "issued",
             capability: externalSendGrantCapability,
           });
+      return options.pauseExternalAuthorization
+        ? new Promise<typeof authorization>((resolve) => {
+            releaseExternalAuthorization = () => resolve(authorization);
+          })
+        : authorization;
     },
     issueTaskPacket: (
       _management: object,
@@ -412,6 +428,11 @@ function fixture(
     candidateStorePrepareCount: () => candidateStorePrepareCount,
     workspaceMaterializeCount: () => workspaceMaterializeCount,
     processStartCount: () => processStartCount,
+    externalCancellationSignal: () => externalCancellationSignal,
+    releaseExternalAuthorization: () => {
+      assert.ok(releaseExternalAuthorization);
+      releaseExternalAuthorization();
+    },
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
       releasePausedProcess();
@@ -957,6 +978,31 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
     "coordinator_task_cancelled_after_provider_cleanup",
   );
   assert.equal(result.candidateRevision, null);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止する", async () => {
+  const harness = fixture({ pauseExternalAuthorization: true });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(harness.externalCancellationSignal()?.aborted, false);
+  assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
+    status: "requested",
+  });
+  assert.equal(harness.externalCancellationSignal()?.aborted, true);
+  harness.releaseExternalAuthorization();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_cancelled_during_external_send_authorization",
+  );
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
   assert.equal(harness.cleanupCount(), 1);
 });
 
