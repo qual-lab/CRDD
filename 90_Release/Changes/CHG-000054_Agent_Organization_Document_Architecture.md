@@ -1,7 +1,7 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 - 変更ID: `CHG-000054`
-- 状態: `Implementation in Progress`
+- 状態: `Verified`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25
 - 対象: エージェント組織の基礎正本候補、エージェント／プロバイダー調整アーキテクチャ、Coordinator Runtime実装README、用語集、監査接続、配布ひな型およびv0.18候補入口
@@ -71,5 +71,7 @@
 規範追加後の固定前Repository全体CheckerはMarkdown 389件、local link 2240件、anchor 588件、Related block 27件、versioned document 27件、remediation row 74件を確認し、error 0／warning 0である。`tools/checker`の契約試験は151件中150件が合格し、今回変更していない`tools/coordinator/runtime/claude-managed-settings.json`を既存命名規則が認識しない1件だけが不合格だった。エージェント組織、AD-22、CHANGELOGまたは文書構造に関する試験失敗ではないが、試験全体を合格とは扱わず、本変更の固定改訂版と共通入力にこの既知の未関連結果を含める。命名規則またはRuntime配布物を本変更へ無断で追加せず、担当責任者、再評価契機および完了条件は実装残件台帳の[`FU-018-CHECKER-NAMING`](../../99_Roadmap/08_CRDD_v0_18_Implementation_Follow_Up_Registry.md#fu-018-checker-naming)で追跡する。
 
 固定改訂版`34d7496`のエージェント／アーキテクチャ独立レビューと準拠監査は`Pass`だった。文書監査と不足／影響監査は、現行v0.18英日CHANGELOGがCHG-000012／013／014／054の統合集合を名乗りながらAD-22だけへ移行内容を縮約し、集合最上位の`breaking`を`normative`と過小表示したMajor 1件、今回変更した日本語説明面のlocale-first不一致と、契約試験150／151の後続追跡不足というMinor 2件を返した。全監査結果を統合し、英日CHANGELOGを三つの規範差分と非規範アーキテクチャに分けて`breaking`／`migration_required: true`へ再構成し、CHG-000054単体の`normative`／`true`を維持し、変更した説明面を日本語主体へ整え、命名不整合を実装残件台帳へ接続する方針を各監査へ再提示した。各監査は条件付きで受け入れ、是正を適用・自己確認中である。新しい固定改訂版の必須再監査前に、これらを`Resolved`または`Pass`と扱わない。
+
+固定改訂版`51d81ec823ce08497a1d561db7c85110ffd1e36b`に対するエージェント／アーキテクチャ独立レビュー、文書監査、不足／影響監査および準拠監査は、Critical／Major／Minor 0件で全て`Pass`した。旧指摘事項は全て`Resolved`であり、Repository全体CheckerもMarkdown 389件、local link 2243件、anchor 590件、Related block 27件、versioned document 27件、remediation row 74件、error 0／warning 0だった。命名個別契約試験の1件不合格は全体Passへ丸めず、実装残件台帳の`FU-018-CHECKER-NAMING`へ`Unscheduled`で保持した。概念を所有しない一時索引`99_Roadmap/09_CRDD_v0_18_Agent_Organization.md`は、必須監査集合の統合Passと別の未完了作業がないことを確認したため削除する。削除後改訂版にはRepository全体Checkerと、文書構造・参照・未完了追跡・準拠境界のstatus-only確認を行い、削除前のPassだけを最終根拠へ流用しない。
 
 現在、人間による追加判断は必要ない。基礎正本候補の作成と責務分離は人間が承認済みだが、v0.18採用、統合またはReleaseは別判断である。
