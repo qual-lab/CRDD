@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   assertExactCheckerTestPopulation,
   discoverCheckerTestFiles,
+  requireCheckerTestFiles,
   type TestDiscoveryOperations,
 } from "./test-discovery.ts";
 import {
@@ -1721,6 +1722,10 @@ test("Checker試験の実行集合はnested配置を含む所有集合と完全�
       fs.realpathSync.native(nestedTest),
     ]);
     assertExactCheckerTestPopulation(discoveredTests, discoveredTests);
+    assert.strictEqual(
+      requireCheckerTestFiles(discoveredTests),
+      discoveredTests,
+    );
     assert.throws(
       () =>
         assertExactCheckerTestPopulation(discoveredTests, [
@@ -1745,7 +1750,9 @@ test("Checker試験の実行集合はnested配置を含む所有集合と完全�
 
     const emptyRoot = path.join(temporaryRoot, "empty-root");
     fs.mkdirSync(emptyRoot);
-    assert.deepEqual(discoverCheckerTestFiles(emptyRoot), []);
+    const emptyTests = discoverCheckerTestFiles(emptyRoot);
+    assert.deepEqual(emptyTests, []);
+    assert.throws(() => requireCheckerTestFiles(emptyTests), /not found/u);
 
     const junctionTarget = path.join(temporaryRoot, "junction-target");
     fs.mkdirSync(junctionTarget);

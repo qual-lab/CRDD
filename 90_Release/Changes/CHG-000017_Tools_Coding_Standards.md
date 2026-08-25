@@ -266,6 +266,14 @@ Checkerの全試験入口はshell globを廃止し、package所有の`*.test.ts`
 
 是正候補では、package-privateな`test-discovery.ts`がrootと全entryを検査し、nested testを正規化relative Pathのordinal順で列挙する。root外解決、重複／case衝突、symbolic link／junction、未対応entryをFail Closedにし、`node_modules`はexact名かつ実Directoryの場合だけ除外する。同じ列挙器をrunnerと命名contractから使用しつつ、TypeScript projectの所有試験集合との独立した完全一致を要求した。direct／nested／0件／欠落／余剰／case衝突／junction／未知entryを正負fixtureで固定した。
 
-Boolean規則は、補助動詞prefix 9件、主語先行suffix 32件、standalone state 9件を`tools/coding-standards.md`へ全数列挙し、実装を同じ三つのexact Setへ分解した。全許可値の正例と、prefix単独、未知suffix、大小文字差および一文字違いの負例を固定した。外部Schema／property key、CLI flag、reason、status、protocolおよび暗号domainは変更していない。
+Boolean規則は、補助動詞prefix 9件、主語先行suffix 31件、standalone state 9件を`tools/coding-standards.md`へ全数列挙し、実装を同じ三つのexact Setへ分解した。全許可値の正例と、prefix単独、未知suffix、大小文字差および一文字違いの負例を固定した。外部Schema／property key、CLI flag、reason、status、protocolおよび暗号domainは変更していない。
 
 是正後のSelf-checkはChecker 153／153、Coordinator 740／740、Checker packageの型検査／Lint／Formatter Pass、237 owned TypeScript sourceの未所属／余剰0、命名違反0である。この結果は`Applied`／`Self-checked`であり、新固定Commit／Treeの全体Checker、両package checkと同じ四監査が完了するまではFindingを`Resolved`、監査を`Pass`または本変更を`Verified`としない。
+
+### 固定版`85e0893`の再監査と0件Gate是正
+
+固定改訂版`85e0893af0541bd264cf70eb0ce3563855357ce4`に対する四監査では、前節の試験集合差とBoolean正本不足の実質部分は解消していた。一方、文書監査／不足・影響監査は、空Directoryから列挙結果`[]`を確認するだけでproduction runnerの0件拒否分岐を直接固定していないMajor 1件を返した。全監査は、主語先行suffixの実数31件に対して前節の記録を32件とした転記Minor 1件も返した。
+
+統合修正案を各確認者へ編集前に再提示し、追加の人間判断なしでAcceptされた。0件拒否をpackage-privateな`requireCheckerTestFiles()`へ移し、runnerは列挙結果を必ず同Gateへ通してからprocessを開始する。契約試験は空集合のthrowと、非空集合が同一参照・同一順序のまま返ることをproductionと同じGateで確認する。suffix件数は31件へ訂正し、正本、exact Set、predicateおよび全許可値試験は変更していない。
+
+是正後の機械確認はChecker 153／153、Coordinator 740／740、両packageの型検査／Lint／Formatter、Repository全体Checker 697 file／387 Markdown／2241 link／621 anchor、Error 0／Warning 0、および`git diff --check`がPassした。この結果も`Applied`／`Self-checked`であり、新固定Commit／Treeに対する同じ四監査の統合Passまでは、`85e0893`のFindingを`Resolved`または本変更を`Verified`としない。

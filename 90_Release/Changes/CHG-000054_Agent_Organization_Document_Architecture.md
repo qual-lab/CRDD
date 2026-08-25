@@ -128,3 +128,5 @@
 Product Roadmapでは、正式署名一般Task、命名／文書是正の再検証およびv0.18最終化の判断状態を`—（非適用）`とし、対応状態とCHG／保守契約の実行根拠を維持した。上流工程強化の`Adopted`、自律OperationとIssue #30の`Exploring`は変更していない。終了図は、詳細固有情報の正本移管、終了結果／参照反映、参照確認、主要表示除去、詳細削除の順へ揃えた。
 
 Checker 153／153、Coordinator 740／740およびChecker package checkはPassした。この結果は`Applied`／`Self-checked`であり、新固定Commit／Treeの全体Checker、両package check、`git diff --check`、エージェント／Architectureレビュー、Security／Conformanceレビュー、文書監査および不足／影響監査の統合Passまでは、Findingを`Resolved`、監査を`Pass`または本変更を`Verified`としない。Runtime動作、公開Schema／CLI、AD-22、v0.17公開基準、Issue #30、統合またはReleaseは変更していない。現在、人間による追加判断は必要ない。
+
+固定改訂版`85e0893af0541bd264cf70eb0ce3563855357ce4`の再監査では、本変更が所有する規範強度の伝播、意味別リンク、Roadmap判断軸および終了順Findingは全て解消済みと確認された。ただし必須監査集合は、[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)が所有するChecker 0件拒否の共有負試験不足とBoolean suffix件数転記を検出したため、全体として`Fail`である。発見元だけを理由に本変更へ命名規則を再移管せず、原因契約の同じ未リリース意図で是正し、新固定版の監査集合が統合Passするまで本変更も`Reopened`を維持する。

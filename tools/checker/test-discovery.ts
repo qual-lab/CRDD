@@ -125,6 +125,13 @@ export function discoverCheckerTestFiles(
     .map((entry) => entry.absolutePath);
 }
 
+export function requireCheckerTestFiles(
+  files: readonly string[],
+): readonly string[] {
+  if (files.length === 0) throw new Error("Checker test files were not found.");
+  return files;
+}
+
 function normalizePopulationPath(file: string): string {
   return normalizeRelativePath(path.normalize(file)).toLowerCase();
 }
