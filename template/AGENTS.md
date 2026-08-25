@@ -11,6 +11,7 @@
 00_CRDD/01_Principles.md
 00_CRDD/02_Terminology.md
 00_CRDD/03_Documentation.md
+00_CRDD/04_Agent_Organization.md
 00_CRDD/10_Agent.md
 00_CRDD/11_Skill.md
 ```

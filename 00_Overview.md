@@ -6,11 +6,12 @@ Version: v0.18.0
 Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-17
+Last Updated: 2026-08-25
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [03_Documentation.md](03_Documentation.md)
+- [04_Agent_Organization.md](04_Agent_Organization.md)
 - [15_Progress.md](15_Progress.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [17_Communication.md](17_Communication.md)
@@ -39,6 +40,7 @@ Related:
 - CRDDの定義、原則、人間とAIの決定権限: [`01_Principles.md`](01_Principles.md)
 - 正式用語: [`02_Terminology.md`](02_Terminology.md)
 - リポジトリ、成果物、根拠、判断、安定コンテキストID、追跡可能性: [`03_Documentation.md`](03_Documentation.md)
+- AIを専門性、責務、委譲、検証およびAuthorityの境界に基づいて編成する共通原則: [`04_Agent_Organization.md`](04_Agent_Organization.md)
 
 本書では、これらの規則を再定義しない。本書の要約と正本文書が競合する場合は、対象項目を所有する正本文書に従う。
 
@@ -105,7 +107,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 
 | 帯域 | 責務 |
 |---|---|
-| `00`–`09` | 基礎規範：概要、原則、用語、文書化 |
+| `00`–`09` | 基礎規範：概要、原則、用語、文書化、エージェント組織 |
 | `10`–`19` | 共通実行・提供・CRDD保守：エージェント、スキル、変更、リリース、作業手順、進捗、保守 |
 | `20`–`29` | プロダクト工程条項とUI／振る舞い仕様横断契約 |
 | `30`–`49` | 予約 |
@@ -121,6 +123,7 @@ UIと振る舞い仕様は直列工程ではない。両者は[`24_UI_Behavior_S
 | `01_Principles.md` | CRDDの定義、基本信条、準拠境界、人間／AIの決定権限、コンテキスト継続性、外部情報境界、工程遷移原則 |
 | `02_Terminology.md` | 中核コンテキスト種別、補助概念、責務・決定権限、状態遷移 / 状態用語、別名 |
 | `03_Documentation.md` | リポジトリ、成果物、文書記法、根拠、判断、安定コンテキストID、成果物参照、追跡可能性 |
+| `04_Agent_Organization.md` | エージェント組織の目的、Role／Specialty／Capability／Authorityの分離、委譲、独立レビュー、費用および結果統合の共通原則 |
 | `10_Agent.md` | エージェント共通入力 / 出力、決定権限、委譲、サブエージェント統合、レビュー |
 | `11_Skill.md` | スキル共通状態遷移、専門探索・収束、視覚制作・材質／空間表現、外部調査・接続ツール実行、経路、中断・再開、レビュー、引き渡し、Git / Markdownの実行プロファイル |
 | `12_Change.md` | `90_Release/Changes/CHG-*.md`による契機、変更意図、想定／実際の影響、実装、検証、終了のトレース |
@@ -218,9 +221,11 @@ AIまたはCRDD運用を設計する担当者は、対象範囲を決める前�
 02 用語
   ↓
 03 文書化
+  ↓
+04 エージェント組織
 ```
 
-その後、実行主体に応じて`10_Agent.md`と`11_Skill.md`を読み、対象作業に必要な`12`〜`19`および工程文書だけを追加する。AI入口ファイルはこれらの正本を複製せず、現在の対象範囲、対象改訂版、対象工程、正本コンテキスト、決定権限、停止条件へ接続する。
+その後、実行主体に応じて`10_Agent.md`と`11_Skill.md`を読み、対象作業に必要な`12`〜`19`および工程文書だけを追加する。単一Agentだけで完結し、編成、委譲または独立した責務分離を設計しない利用者は、`04_Agent_Organization.md`を作業開始のたびに通読する必要はない。AI入口ファイルはこれらの正本を複製せず、現在の対象範囲、対象改訂版、対象工程、正本コンテキスト、決定権限、停止条件へ接続する。
 
 ## 4.2. プロダクト・変更・ロードマップ・学びをつなぐ経路
 

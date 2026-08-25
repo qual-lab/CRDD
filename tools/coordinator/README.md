@@ -12,7 +12,7 @@ Agent Organization Concept
     → Coordinator Runtime Implementation
 ```
 
-- Concept: [Agent Organization](../../99_Roadmap/09_CRDD_v0_18_Agent_Organization.md)
+- Concept: [Agent Organization](../../04_Agent_Organization.md)
 - Architecture: [Agent & Provider Orchestration](../../99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
 - 現行規範: [原則](../../01_Principles.md)、[Agent契約](../../10_Agent.md)、[品質保証](../../16_Quality_Assurance.md)
 - Implementation: 本README、同Directoryのsource／test、[脅威モデル](threat-model.md)

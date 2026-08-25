@@ -145,7 +145,8 @@ For example, a Codex scheduled task may explicitly start a read-only weekly revi
 - [Operation health and Human interface](99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md)
 - [Forward compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
 - [Agent and provider orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
-- [Agent Organization](99_Roadmap/09_CRDD_v0_18_Agent_Organization.md)
+
+The cross-cutting concept used by this candidate is defined separately in the [Agent Organization foundation candidate](04_Agent_Organization.md). Its document status, not its inclusion in this list, governs whether it has been adopted.
 
 The product transformation is connected end to end, but it is not a fixed waterfall:
 
@@ -477,7 +478,7 @@ CRDDは、AIにコードを書かせるためだけの方法ではない。な�
 | 結果が本当に成立するか確認する | 義務、母集団、除外、合否判定方法、根拠、結果、残存リスク | [検証](29_Verification.md)と[品質保証](16_Quality_Assurance.md) |
 | 採用を探索し外部説明を準備・公開する | Discoveryが所有する市場・対象セグメント・採用仮説と、Communicationが所有する受け手・メッセージ・媒体・成果物・導線・公開・測定・学びの還流 | [外部コミュニケーション](17_Communication.md)と[課題探索・要求形成](21_Discovery.md) |
 | 共有コンテキストや成果物依存を管理する | 決定権限、採用版、利用側、更新、上書き、リスク、復旧 | [コンテキスト依存](18_Context_Dependency.md) |
-| AI、Tool、外部調査を統制する | 決定権限、スキル、委譲、情報分類、許可した処理境界、信頼していない入力 | [エージェント](10_Agent.md)、[スキル](11_Skill.md)、[原則](01_Principles.md#external-information-boundary) |
+| AI、Tool、外部調査を統制する | 決定権限、スキル、委譲、情報分類、許可した処理境界、信頼していない入力 | [エージェント組織](04_Agent_Organization.md)、[エージェント](10_Agent.md)、[スキル](11_Skill.md)、[原則](01_Principles.md#external-information-boundary) |
 | CRDD運用を変更・移行する | 変更理由、影響契約と利用側、根拠、監査、移行、リリース、復旧 | [変更](12_Change.md)と[保守](19_Maintenance.md) |
 
 扱う仕事に合う最短の入口を選ぶ。
@@ -538,7 +539,8 @@ Representable != Enabled != Accessible != Authorized != Promoted
 - [Operation HealthとHuman Interface](99_Roadmap/05_CRDD_v0_18_Operation_Health_and_Human_Interface.md)
 - [Forward Compatibility](99_Roadmap/06_CRDD_v0_18_Forward_Compatibility.md)
 - [Agent／Provider Orchestration](99_Roadmap/07_CRDD_v0_18_Agent_and_Provider_Orchestration.md)
-- [Agent Organization](99_Roadmap/09_CRDD_v0_18_Agent_Organization.md)
+
+この候補が使用する横断概念は、[Agent Organizationの基礎正本候補](04_Agent_Organization.md)へ分離している。この一覧への掲載ではなく、同文書の状態が採用状況を決める。
 
 プロダクト変換は一気通貫で接続するが、固定的なウォーターフォールではない。
 
@@ -768,6 +770,7 @@ node 00_CRDD/template/tools/crdd-check.ts --root . --json --summary
 | リポジトリと文書体系の全体像を確認する | [概要](00_Overview.md) |
 | 正式概念、状態、決定権限の用語を確認する | [用語](02_Terminology.md) |
 | リポジトリ、成果物、根拠、判断、ID、追跡関係を設計する | [文書化](03_Documentation.md) |
+| AIを専門性、責務、委譲、検証およびAuthorityの境界で編成する | [エージェント組織](04_Agent_Organization.md) |
 | AI作業を実行・委譲する | [エージェント](10_Agent.md)と[スキル](11_Skill.md) |
 | 変更、プロダクトリリース、反復作業を扱う | [変更](12_Change.md)、[リリース](13_Release.md)、[作業手順](14_Workflow.md) |
 | 開発方式を問わず進捗と健全性を把握する | [進捗管理](15_Progress.md) |
