@@ -1,7 +1,7 @@
 # 変更トレース: エージェント組織の文書アーキテクチャ
 
 - 変更ID: `CHG-000054`
-- 状態: `Ready for Verification`
+- 状態: `Ready for Release Handoff`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25
 - 対象: エージェント組織の基礎正本候補、エージェント／プロバイダー調整アーキテクチャ、Coordinator Runtime実装README、用語集、監査接続、配布ひな型、変更トレース／Roadmap責務およびv0.18候補文書の配置
@@ -150,3 +150,13 @@ Release前の文書構造再確認で、`05`～`09`は同じv0.18.0 Candidate、
 `04_Agent_Organization.md`への全統合案も再評価したが採用しない。`04`§1～§11は役割、専門性、委譲、独立レビュー、費用、Authorityおよび人間境界を所有する規範候補であり、`05`は再評価、Operation Contract、Effect、安全、健全性および将来互換を所有する非規範Architecture Candidateである。両者を一ファイルへ統合すると、規範強度、変更頻度、採用単位およびレビュー範囲が不必要に結合する。したがって、`04`を「AIチームをどう編成・統治するか」、`05`を「そのチームがどう安全にOperationするか」の二正本として維持する。
 
 この整理は新しい概念、規範、Runtime機能、準拠要件、決定権限またはRelease判断を追加しない。`06`～`09`は予約へ戻し、番号を埋めるための空文書、redirectまたは互換wrapperを残さない。現在状態を`Ready for Verification`へ戻し、統合後の同一固定改訂版に対する文書監査、不足／影響監査および必要な準拠影響確認がFinding 0で完了するまで、以前の`Ready for Release Handoff`を現在結果へ流用しない。
+
+## 自律Operation候補文書統合版の監査とRelease引き渡し
+
+統合後の固定改訂版はCommit `91d0709bf892646527a3f4396f2d7c5da444079d`、Tree `a4523bca91e39057708c2d7c277e38410c5dcd55`である。Repository全体Checkerは700 file／383 Markdown／2,215 local link／639 anchor／29 Related block／28 versioned documentを確認し、Error 0／Warning 0だった。旧`06`～`09`本文と統合後の`05`を見出し番号とリンク先の変更だけ正規化して比較した結果は、旧`06` 305行、旧`07` 240行、旧`08` 216行、旧`09` 151行の各母集団で実質欠落0行だった。
+
+同じ固定版に対するSecurity／Conformanceレビュー、文書監査および不足／影響・利用導線監査は、全て`Pass`／Critical 0／Major 0／Minor 0で完了した。各確認は、`04`と`05`の責務・規範強度・採用単位を分離する判断、README日英・概要・Roadmap・CHG・配布ひな型・Coordinator実装READMEからの導線、旧ファイル名への生参照0件、主要anchorの保持、公開tagに旧候補文書が含まれないこと、および空wrapperを残さない互換境界を確認した。旧`06`～`09`の統合による意味、Authority、Security、Runtime動作または準拠要件の変更はない。
+
+残存リスクは、単一の`05`が約1,600行となり文書全体レビューの範囲が広いことと、Repository外へ共有された未公開Candidate URLが存在する可能性である。前者は同じLifecycleと連続した責務を一つの正本で確認できる利点を上回る阻害ではなく、後者は公開tagに含まれずCHGとGit履歴から移管を追跡できるため、互換shimを残す理由にはしない。
+
+以上により、本変更を再び`Ready for Release Handoff`とする。これはv0.18.0への統合、規範候補の採用、Stable化、タグまたはReleaseを意味しない。現在、人間による追加判断は必要ない。
