@@ -20,6 +20,8 @@ OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM�
 
 本書は[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)の実装固有脅威モデルである。CRDDのHuman Authority、External Information Boundary、Independent Reviewまたは準拠条件を再定義しない。
 
+作成時RuntimeStateのIdentity Hash、Protection Hash、selected-user bindingおよびRuntimeState binding Hashは、baseからcleanup manifestとRoot cleanup anchorまで同じRecovery IDへ耐久結合する。beginの最初の記録、journal resume、cleanup renameおよびpayload削除は、lock取得後のfreshなRuntime-owned observationと作成時Evidenceを再照合した後だけ行う。cleanup-only状態でEvidenceが欠落または現在ユーザーと不一致なら、Host Effectが既に不存在でも残骸を削除しない。同期資源は一つの解放失敗後も残りを全試行し、どれかを確認できなければ同じRecovery IDを保持した`blocked`とする。contract-test用のcaller Root／observer seamをproduction wrapperやCLIの入力へ追加せず、正式実行AuthorityはKnown Folder由来Capabilityを消費するproduction wrapperだけが持つ。この境界は悪意ある同一ローカルOSユーザーを防ぐものではなく、v1のMinimum Trust Boundaryを拡張しない。
+
 ## 1. 保護対象
 
 - 対象Repositoryと元worktreeの内容、Git metadataおよびIdentity

@@ -45,10 +45,11 @@ import {
 import { validateDockerHostTransitionLineage } from "./docker-host-transition-state.ts";
 import { createDockerRecoveryRuntimeStateLockController } from "./docker-recovery-lock-controller.ts";
 import { isExactDockerRuntimeStateMutationBoundary } from "./docker-runtime-state-binding.ts";
+import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 5;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 6;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -128,11 +129,45 @@ type VerifiedProviderHome = Readonly<{
   stableLogicalHomeBindingHash: string;
 }>;
 
+type RuntimeStateBindingEvidence = Readonly<{
+  runtimeStateIdentityHash: string;
+  runtimeStateProtectionHash: string;
+  localUserBindingHash: string;
+  runtimeStateBindingHash: string;
+}>;
+
 const durableRecords = new WeakMap<object, DurableRecord>();
 const releasedLogicalHomeLeases = new WeakSet<object>();
 
 function canonical(value: unknown) {
   return `${JSON.stringify(value)}\n`;
+}
+
+function runtimeStateBindingEvidence(
+  root: VerifiedRuntimeStateRoot,
+): RuntimeStateBindingEvidence {
+  return Object.freeze({
+    runtimeStateIdentityHash: root.runtimeStateIdentityHash,
+    runtimeStateProtectionHash: root.runtimeStateProtectionHash,
+    localUserBindingHash: root.localUserBindingHash,
+    runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+  });
+}
+
+function validRuntimeStateBindingEvidence(
+  value: unknown,
+): value is RuntimeStateBindingEvidence {
+  return (
+    exactRecordKeys(value, [
+      "runtimeStateIdentityHash",
+      "runtimeStateProtectionHash",
+      "localUserBindingHash",
+      "runtimeStateBindingHash",
+    ]) &&
+    Object.values(value as Record<string, unknown>).every(
+      (item) => typeof item === "string" && HEX64.test(item),
+    )
+  );
 }
 
 function commitDirectoryMutationBoundary(directory: string) {
@@ -359,12 +394,32 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
       root.stableLogicalHomeBindingHash,
     );
   if (!runtimeStateLockController) {
-    void lock.release();
-    throw new Error("docker_recovery_runtime_state_lock_unavailable");
+    const releaseFailure = releaseRecoverySynchronizations([
+      {
+        release: () => lock.release(),
+        reason: "docker_task_recovery_home_lock_release_unconfirmed",
+      },
+    ]);
+    throw new Error(
+      releaseFailure ?? "docker_recovery_runtime_state_lock_unavailable",
+    );
   }
   let leaseTransferred = false;
   let recoverableId: string | null = null;
+  let issuedRecoveryCapability: object | null = null;
   try {
+    const reboundRoot = observeRuntimeStateRoot();
+    if (
+      !reboundRoot ||
+      reboundRoot.rootPath !== root.rootPath ||
+      reboundRoot.runtimeStateIdentityHash !== root.runtimeStateIdentityHash ||
+      reboundRoot.runtimeStateProtectionHash !==
+        root.runtimeStateProtectionHash ||
+      reboundRoot.localUserBindingHash !== root.localUserBindingHash ||
+      reboundRoot.stableLogicalHomeBindingHash !==
+        root.stableLogicalHomeBindingHash
+    )
+      throw new Error("docker_recovery_runtime_state_binding_changed");
     const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
     const recoveryInventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
     const rootAfter = fs.lstatSync(root.rootPath, { bigint: true });
@@ -416,6 +471,7 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
       providerHomeIdentityHash: plan.providerHomeIdentityHash,
       providerHomeProtectionHash: plan.providerHomeProtectionHash,
       localUserBindingHash: plan.localUserBindingHash,
+      runtimeStateBinding: runtimeStateBindingEvidence(root),
       ownershipLabel: plan.ownershipLabel,
       resources: Object.freeze({
         auth: plan.authContainerName,
@@ -518,6 +574,7 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
       }),
     );
     const recoveryCapability = Object.freeze({});
+    issuedRecoveryCapability = recoveryCapability;
     durableRecords.set(
       recoveryCapability,
       Object.freeze({
@@ -574,12 +631,44 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
           ),
         });
   } finally {
-    void runtimeStateLockController.close();
-    if (!leaseTransferred) void lock.release();
+    const runtimeReleaseFailure = releaseRecoverySynchronizations([
+      {
+        release: () => runtimeStateLockController.close(),
+        reason: "docker_task_runtime_state_lock_release_unconfirmed",
+      },
+    ]);
+    if (runtimeReleaseFailure && leaseTransferred) {
+      if (issuedRecoveryCapability)
+        durableRecords.delete(issuedRecoveryCapability);
+      leaseTransferred = false;
+    }
+    const homeReleaseFailure = leaseTransferred
+      ? null
+      : releaseRecoverySynchronizations([
+          {
+            release: () => lock.release(),
+            reason: "docker_task_recovery_home_lock_release_unconfirmed",
+          },
+        ]);
+    const releaseFailure = runtimeReleaseFailure ?? homeReleaseFailure;
+    if (releaseFailure)
+      // biome-ignore lint/correctness/noUnsafeFinally: release failure must override a provisional ready result.
+      return recoverableId
+        ? Object.freeze({
+            status: "blocked" as const,
+            recoveryId: recoverableId,
+            reason: releaseFailure,
+          })
+        : Object.freeze({
+            status: "blocked" as const,
+            recoveryId: null,
+            manualRecoveryRequired: true as const,
+            reason: releaseFailure,
+          });
   }
 }
 
-export function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
+function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
   plan: ProductionPlan,
   managementCapability: unknown,
   providerHome: VerifiedProviderHome,
@@ -602,6 +691,7 @@ export function beginRuntimeOwnedDockerRecoveryWithHostBeginObserver(
   providerHome: VerifiedProviderHome,
   root: VerifiedRuntimeStateRoot,
   beforeHostBeginEffect: (recoveryId: string) => void,
+  observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null = observeRuntimeStateRootFromWindows,
 ) {
   return beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
     plan,
@@ -609,7 +699,7 @@ export function beginRuntimeOwnedDockerRecoveryWithHostBeginObserver(
     providerHome,
     root,
     beforeHostBeginEffect,
-    observeRuntimeStateRootFromWindows,
+    observeRuntimeStateRoot,
   );
 }
 
@@ -665,10 +755,6 @@ function durableRecord(capability: unknown) {
   return capability && typeof capability === "object"
     ? (durableRecords.get(capability) ?? null)
     : null;
-}
-
-function requireRecoveryLockRelease(released: boolean, reason: string) {
-  if (!released) throw new Error(reason);
 }
 
 function withDurableRuntimeStateLock<T>(
@@ -1083,6 +1169,12 @@ export function finalizeRuntimeOwnedDockerRecovery(
         parsed.operationNonce,
         record.baseHash,
         record.stableLogicalHomeBindingHash,
+        Object.freeze({
+          runtimeStateIdentityHash: record.runtimeStateIdentityHash,
+          runtimeStateProtectionHash: record.runtimeStateProtectionHash,
+          localUserBindingHash: record.localUserBindingHash,
+          runtimeStateBindingHash: record.runtimeStateBindingHash,
+        }),
       );
       commitDirectoryMutationBoundary(record.rootPath);
     });
@@ -1323,6 +1415,7 @@ function validateDockerRecoveryBase(value: unknown, nonce: string) {
       "providerHomeIdentityHash",
       "providerHomeProtectionHash",
       "localUserBindingHash",
+      "runtimeStateBinding",
       "ownershipLabel",
       "resources",
       "images",
@@ -1338,6 +1431,7 @@ function validateDockerRecoveryBase(value: unknown, nonce: string) {
   const resources = base.resources;
   const images = base.images;
   const hostPaths = base.hostPaths;
+  const runtimeStateBinding = base.runtimeStateBinding;
   const initialToken = String(base.initialHostRecoveryId ?? "");
   try {
     parseHostRecoveryToken(initialToken);
@@ -1357,6 +1451,9 @@ function validateDockerRecoveryBase(value: unknown, nonce: string) {
       base.providerHomeProtectionHash,
       base.localUserBindingHash,
     ].every((item) => typeof item === "string" && HEX64.test(item)) &&
+    validRuntimeStateBindingEvidence(runtimeStateBinding) &&
+    (runtimeStateBinding as RuntimeStateBindingEvidence)
+      .localUserBindingHash === base.localUserBindingHash &&
     /^crdd\.coordinator\.runtime=[a-f0-9]{16}$/u.test(
       String(base.ownershipLabel ?? ""),
     ) &&
@@ -1700,6 +1797,7 @@ function removeRecoveryOperationDirectory(
   nonce: string,
   baseHash: string,
   stableLogicalHomeBindingHash: string,
+  runtimeStateBinding: RuntimeStateBindingEvidence,
 ) {
   inventoryOperationDirectory(operationDirectory, recoveryId, nonce, baseHash);
   const cleanupDirectory = path.join(
@@ -1755,6 +1853,7 @@ function removeRecoveryOperationDirectory(
     recoveryId,
     sourceDirectoryIdentity: `${operationMetadata.dev}:${operationMetadata.ino}:${operationMetadata.birthtimeNs}`,
     cleanupName: path.basename(cleanupDirectory),
+    runtimeStateBinding,
     originalEntries: Object.freeze(originalEntries),
   });
   verifyRecoveryCleanupManifest(operationDirectory, recoveryId);
@@ -1765,6 +1864,7 @@ function removeRecoveryOperationDirectory(
     path.dirname(cleanupDirectory),
     cleanupDirectory,
     recoveryId,
+    runtimeStateBinding,
   );
 }
 
@@ -1782,12 +1882,14 @@ function verifyRecoveryCleanupManifest(
       "recoveryId",
       "sourceDirectoryIdentity",
       "cleanupName",
+      "runtimeStateBinding",
       "originalEntries",
     ]) ||
     manifest.schema !== "crdd-coordinator-recovery-cleanup-manifest/v1" ||
     manifest.recoveryId !== recoveryId ||
     typeof manifest.sourceDirectoryIdentity !== "string" ||
     typeof manifest.cleanupName !== "string" ||
+    !validRuntimeStateBindingEvidence(manifest.runtimeStateBinding) ||
     !Array.isArray(manifest.originalEntries) ||
     manifest.originalEntries.length > 96
   )
@@ -1858,7 +1960,10 @@ function verifyRecoveryCleanupManifest(
         throw new Error("docker_task_recovery_cleanup_manifest_mismatch");
     }
   }
-  return true;
+  return Object.freeze({
+    runtimeStateBinding:
+      manifest.runtimeStateBinding as RuntimeStateBindingEvidence,
+  });
 }
 
 function inventoryRecoveryCleanupTombstone(
@@ -1872,11 +1977,12 @@ function removeRecoveryCleanupTombstone(
   cleanupDirectory: string,
   recoveryId: string,
 ) {
-  verifyRecoveryCleanupManifest(cleanupDirectory, recoveryId);
+  const manifest = verifyRecoveryCleanupManifest(cleanupDirectory, recoveryId);
   return removeDockerRecoveryCleanupDirectory(
     path.dirname(cleanupDirectory),
     cleanupDirectory,
     recoveryId,
+    manifest.runtimeStateBinding,
   );
 }
 
@@ -2340,6 +2446,65 @@ function discoverRecoveryHostBinding(
   });
 }
 
+function discoverRecoveryRuntimeStateBinding(
+  rootPath: string,
+  parsed: NonNullable<ReturnType<typeof parseDockerTaskRecoveryId>>,
+) {
+  const cleanupIntent = inspectDockerRecoveryJournalDirectory(rootPath).find(
+    (intent) =>
+      intent.schema === "crdd-coordinator-recovery-cleanup-delete/v1" &&
+      intent.recoveryId === parsed.token,
+  );
+  if (cleanupIntent?.runtimeStateBinding) {
+    if (!validRuntimeStateBindingEvidence(cleanupIntent.runtimeStateBinding))
+      throw new Error("docker_task_runtime_state_binding_evidence_invalid");
+    return cleanupIntent.runtimeStateBinding;
+  }
+  const cleanupDirectory = path.join(
+    rootPath,
+    `cleanup-docker-task-${parsed.stableLogicalHomeBindingHash}-${parsed.operationNonce}-${parsed.baseHash}`,
+  );
+  if (fs.existsSync(cleanupDirectory))
+    return verifyRecoveryCleanupManifest(cleanupDirectory, parsed.token)
+      .runtimeStateBinding;
+  const operationDirectory = path.join(
+    rootPath,
+    `docker-task-${parsed.operationNonce}`,
+  );
+  if (fs.existsSync(path.join(operationDirectory, "cleanup-manifest.json")))
+    return verifyRecoveryCleanupManifest(operationDirectory, parsed.token)
+      .runtimeStateBinding;
+  const operationBase = path.join(operationDirectory, "base.json");
+  const pendingBase = path.join(
+    rootPath,
+    `pending-docker-task-${parsed.operationNonce}.json`,
+  );
+  let record:
+    | ReturnType<typeof readCommittedDockerRecoveryJson>
+    | ReturnType<typeof discoverDockerRecoveryJournalJson>
+    | null = null;
+  for (const candidate of [operationBase, pendingBase]) {
+    if (!fs.existsSync(candidate)) continue;
+    try {
+      record = readCommittedDockerRecoveryJson(candidate, "base.json");
+      break;
+    } catch {
+      // A durable move intent remains the read-only authority until resume.
+    }
+  }
+  record ??= discoverDockerRecoveryJournalJson(rootPath, "base.json");
+  if (
+    !record ||
+    record.hash !== parsed.baseHash ||
+    !validateDockerRecoveryBase(record.value, parsed.operationNonce)
+  )
+    return null;
+  const base = record.value as Record<string, unknown>;
+  if (base.stableLogicalHomeBindingHash !== parsed.stableLogicalHomeBindingHash)
+    throw new Error("docker_task_recovery_base_mismatch");
+  return base.runtimeStateBinding as RuntimeStateBindingEvidence;
+}
+
 /**
  * @internal Package-private engine. The production wrapper supplies the native
  * observer; contract tests may supply an exact fixed observation.
@@ -2356,6 +2521,47 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       reason: "docker_task_recovery_id_invalid",
       recoveryId: null,
     });
+  let durableRuntimeStateBinding: RuntimeStateBindingEvidence | null;
+  try {
+    durableRuntimeStateBinding = discoverRecoveryRuntimeStateBinding(
+      root.rootPath,
+      parsed,
+    );
+    if (!durableRuntimeStateBinding) {
+      const snapshot = inspectDockerRecoveryRootSnapshot(root.rootPath);
+      if (
+        snapshot.status === "completed" &&
+        snapshot.dockerRecoveryIds.length === 0 &&
+        fs.readdirSync(root.rootPath).length === 0
+      )
+        return Object.freeze({
+          status: "recovered" as const,
+          reason: "docker_task_recovery_cleanup_tombstone_completed",
+          recoveryId: null,
+        });
+      throw new Error("docker_task_runtime_state_binding_evidence_missing");
+    }
+    if (
+      durableRuntimeStateBinding.runtimeStateIdentityHash !==
+        root.runtimeStateIdentityHash ||
+      durableRuntimeStateBinding.runtimeStateProtectionHash !==
+        root.runtimeStateProtectionHash ||
+      durableRuntimeStateBinding.localUserBindingHash !==
+        root.localUserBindingHash ||
+      durableRuntimeStateBinding.runtimeStateBindingHash !==
+        root.stableLogicalHomeBindingHash
+    )
+      throw new Error("docker_task_runtime_state_binding_changed");
+  } catch (error) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: safeRecoveryReason(
+        error,
+        "docker_task_runtime_state_binding_evidence_invalid",
+      ),
+      recoveryId: parsed.token,
+    });
+  }
   const cleanupDirectoryCandidate = path.join(
     root.rootPath,
     `cleanup-docker-task-${parsed.stableLogicalHomeBindingHash}-${parsed.operationNonce}-${parsed.baseHash}`,
@@ -2386,11 +2592,21 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     parsed.stableLogicalHomeBindingHash,
   );
   if (!processAbsenceLock) {
-    if (hostOperationGeneration)
-      void releaseHostOperationRecoveryGeneration(hostOperationGeneration);
+    const releaseFailure = releaseRecoverySynchronizations(
+      hostOperationGeneration
+        ? [
+            {
+              release: () =>
+                releaseHostOperationRecoveryGeneration(hostOperationGeneration),
+              reason: "docker_task_recovery_host_lock_release_unconfirmed",
+            },
+          ]
+        : [],
+    );
     return Object.freeze({
       status: "blocked" as const,
-      reason: "docker_task_process_generation_active_or_unknown",
+      reason:
+        releaseFailure ?? "docker_task_process_generation_active_or_unknown",
       recoveryId: parsed.token,
     });
   }
@@ -2399,25 +2615,50 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       root.stableLogicalHomeBindingHash,
     );
   if (!runtimeStateLockController) {
-    void processAbsenceLock.release();
-    if (hostOperationGeneration)
-      void releaseHostOperationRecoveryGeneration(hostOperationGeneration);
+    const releaseFailure = releaseRecoverySynchronizations([
+      {
+        release: () => processAbsenceLock.release(),
+        reason: "docker_task_recovery_home_lock_release_unconfirmed",
+      },
+      ...(hostOperationGeneration
+        ? [
+            {
+              release: () =>
+                releaseHostOperationRecoveryGeneration(hostOperationGeneration),
+              reason: "docker_task_recovery_host_lock_release_unconfirmed",
+            },
+          ]
+        : []),
+    ]);
     return Object.freeze({
       status: "blocked" as const,
-      reason: "docker_task_runtime_state_generation_active_or_unknown",
+      reason:
+        releaseFailure ??
+        "docker_task_runtime_state_generation_active_or_unknown",
       recoveryId: parsed.token,
     });
   }
   const runtimeStateBinding = Object.freeze({
     rootPath: root.rootPath,
-    runtimeStateIdentityHash: root.runtimeStateIdentityHash,
-    runtimeStateProtectionHash: root.runtimeStateProtectionHash,
-    localUserBindingHash: root.localUserBindingHash,
-    runtimeStateBindingHash: root.stableLogicalHomeBindingHash,
+    ...durableRuntimeStateBinding,
   });
-  let recoveryBaseLocalUserBindingHash: string | null = null;
+  let recoveryBaseLocalUserBindingHash: string | null =
+    durableRuntimeStateBinding.localUserBindingHash;
   const verifyRecoveryRuntimeStateBoundary = () => {
+    const reboundDurableBinding = discoverRecoveryRuntimeStateBinding(
+      root.rootPath,
+      parsed,
+    );
     if (
+      !reboundDurableBinding ||
+      reboundDurableBinding.runtimeStateIdentityHash !==
+        durableRuntimeStateBinding.runtimeStateIdentityHash ||
+      reboundDurableBinding.runtimeStateProtectionHash !==
+        durableRuntimeStateBinding.runtimeStateProtectionHash ||
+      reboundDurableBinding.localUserBindingHash !==
+        durableRuntimeStateBinding.localUserBindingHash ||
+      reboundDurableBinding.runtimeStateBindingHash !==
+        durableRuntimeStateBinding.runtimeStateBindingHash ||
       !recoveryBaseLocalUserBindingHash ||
       recoveryBaseLocalUserBindingHash !== root.localUserBindingHash
     )
@@ -2434,6 +2675,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     return effectResult;
   };
   try {
+    verifyRecoveryRuntimeStateBoundary();
     resumeDockerRecoveryJournalDirectory(root.rootPath);
     const inventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
     if (
@@ -2479,7 +2721,10 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       "cleanup-manifest.json",
     );
     if (fs.existsSync(operationCleanupManifest)) {
-      verifyRecoveryCleanupManifest(operationDirectory, parsed.token);
+      const cleanupManifest = verifyRecoveryCleanupManifest(
+        operationDirectory,
+        parsed.token,
+      );
       if (fs.existsSync(cleanupDirectory))
         throw new Error("docker_task_recovery_cleanup_tombstone_conflict");
       fs.renameSync(operationDirectory, cleanupDirectory);
@@ -2489,6 +2734,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         root.rootPath,
         cleanupDirectory,
         parsed.token,
+        cleanupManifest.runtimeStateBinding,
       );
       return Object.freeze({
         status: "recovered" as const,
@@ -2578,6 +2824,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         "providerHomeIdentityHash",
         "providerHomeProtectionHash",
         "localUserBindingHash",
+        "runtimeStateBinding",
         "ownershipLabel",
         "resources",
         "images",
@@ -2591,10 +2838,13 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       base.operationNonce !== parsed.operationNonce ||
       base.stableLogicalHomeBindingHash !==
         parsed.stableLogicalHomeBindingHash ||
-      base.ownershipLabel === undefined
+      base.ownershipLabel === undefined ||
+      !validRuntimeStateBindingEvidence(base.runtimeStateBinding)
     )
       throw new Error("docker_task_recovery_base_mismatch");
     recoveryBaseLocalUserBindingHash = String(base.localUserBindingHash ?? "");
+    const recoveryRuntimeStateBinding =
+      base.runtimeStateBinding as RuntimeStateBindingEvidence;
     verifyRecoveryRuntimeStateBoundary();
     const resources = base.resources as Record<string, string>;
     const images = base.images as Record<string, string>;
@@ -2809,6 +3059,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         parsed.operationNonce,
         parsed.baseHash,
         parsed.stableLogicalHomeBindingHash,
+        recoveryRuntimeStateBinding,
       );
       return Object.freeze({
         status: "recovered" as const,
@@ -2912,6 +3163,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         parsed.operationNonce,
         parsed.baseHash,
         parsed.stableLogicalHomeBindingHash,
+        recoveryRuntimeStateBinding,
       );
       return Object.freeze({
         status: "recovered" as const,
@@ -3065,6 +3317,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         parsed.operationNonce,
         parsed.baseHash,
         parsed.stableLogicalHomeBindingHash,
+        recoveryRuntimeStateBinding,
       );
       commitDirectoryMutationBoundary(root.rootPath);
       return Object.freeze({
@@ -3261,6 +3514,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       parsed.operationNonce,
       parsed.baseHash,
       parsed.stableLogicalHomeBindingHash,
+      recoveryRuntimeStateBinding,
     );
     commitDirectoryMutationBoundary(root.rootPath);
     return Object.freeze({
@@ -3275,21 +3529,37 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       recoveryId: parsed.token,
     });
   } finally {
-    runtimeStateLockController.close();
-    requireRecoveryLockRelease(
-      processAbsenceLock.release(),
-      "docker_task_recovery_home_lock_release_unconfirmed",
-    );
-    if (hostOperationGeneration)
-      requireRecoveryLockRelease(
-        releaseHostOperationRecoveryGeneration(hostOperationGeneration),
-        "docker_task_recovery_host_lock_release_unconfirmed",
-      );
+    const releaseFailure = releaseRecoverySynchronizations([
+      {
+        release: () => runtimeStateLockController.close(),
+        reason: "docker_task_runtime_state_lock_release_unconfirmed",
+      },
+      {
+        release: () => processAbsenceLock.release(),
+        reason: "docker_task_recovery_home_lock_release_unconfirmed",
+      },
+      ...(hostOperationGeneration
+        ? [
+            {
+              release: () =>
+                releaseHostOperationRecoveryGeneration(hostOperationGeneration),
+              reason: "docker_task_recovery_host_lock_release_unconfirmed",
+            },
+          ]
+        : []),
+    ]);
+    if (releaseFailure)
+      // biome-ignore lint/correctness/noUnsafeFinally: release failure must override a provisional success.
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: releaseFailure,
+        recoveryId: parsed.token,
+      });
   }
 }
 
 /** @internal Package-private engine; production supplies native observation. */
-export function recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
+function recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
   token: unknown,
   root: VerifiedRuntimeStateRoot,
 ) {
@@ -3897,6 +4167,8 @@ export function describeDockerRecoveryRuntimeContract() {
       "selected_user_runtime_owned_fixed_known_folder_protected_root",
     runtimeStateRevalidation:
       "root_identity_protection_selected_user_and_full_inventory_before_each_mutation_and_after_effect",
+    runtimeStateCreationBinding:
+      "base_cleanup_manifest_and_root_cleanup_anchor_bind_creation_identity_protection_selected_user_and_runtime_state_hash",
     logicalHomeLease:
       "stable_sid_provider_namespace_kernel_lock_and_durable_active_pointer",
     resourceJournal:

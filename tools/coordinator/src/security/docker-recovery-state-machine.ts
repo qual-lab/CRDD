@@ -1,6 +1,23 @@
 export const DOCKER_RECOVERY_STATE_MACHINE_CONTRACT =
   "crdd-coordinator/docker-recovery-state-machine";
-export const DOCKER_RECOVERY_STATE_MACHINE_CONTRACT_REVISION = 1;
+export const DOCKER_RECOVERY_STATE_MACHINE_CONTRACT_REVISION = 2;
+
+export function releaseRecoverySynchronizations(
+  attempts: readonly Readonly<{
+    release: () => boolean;
+    reason: string;
+  }>[],
+) {
+  let firstFailure: string | null = null;
+  for (const attempt of attempts) {
+    try {
+      if (!attempt.release()) firstFailure ??= attempt.reason;
+    } catch {
+      firstFailure ??= attempt.reason;
+    }
+  }
+  return firstFailure;
+}
 
 export function classifyCommittedPairDeleteState(
   contentPresent: boolean,
@@ -71,5 +88,6 @@ export function describeDockerRecoveryStateMachineContract() {
     moveKnownStates: Object.freeze(["move_content", "move_commit", "complete"]),
     cleanupSuccessResidue: 0,
     thirdStateTreatment: "preserve_evidence_and_fail_closed",
+    lockReleaseTreatment: "attempt_all_and_report_first_failure",
   });
 }

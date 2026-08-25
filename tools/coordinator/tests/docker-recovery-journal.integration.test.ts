@@ -151,6 +151,12 @@ function crashMutation(
         root,
         sourceDirectory,
         "docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}",
+        {
+          runtimeStateIdentityHash: "4".repeat(64),
+          runtimeStateProtectionHash: "5".repeat(64),
+          localUserBindingHash: "6".repeat(64),
+          runtimeStateBindingHash: "7".repeat(64),
+        },
       );
     }
   `;

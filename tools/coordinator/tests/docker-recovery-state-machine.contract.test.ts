@@ -6,6 +6,7 @@ import {
   classifyCommittedPairDeleteState,
   classifyCommittedPairMoveState,
   describeDockerRecoveryStateMachineContract,
+  releaseRecoverySynchronizations,
 } from "../src/security/docker-recovery-state-machine.ts";
 
 test("delete state machineは到達可能3状態だけを回復する", () => {
@@ -63,5 +64,38 @@ test("cleanup state machineは安全な完全削除とEvidence保持を分離す
     moveKnownStates: ["move_content", "move_commit", "complete"],
     cleanupSuccessResidue: 0,
     thirdStateTreatment: "preserve_evidence_and_fail_closed",
+    lockReleaseTreatment: "attempt_all_and_report_first_failure",
   });
+});
+
+test("lock release state machineは失敗後も全同期境界の解放を試す", () => {
+  const attempts: string[] = [];
+  assert.equal(
+    releaseRecoverySynchronizations([
+      {
+        release: () => {
+          attempts.push("runtime");
+          throw new Error("fixture");
+        },
+        reason: "runtime_release_failed",
+      },
+      {
+        release: () => {
+          attempts.push("home");
+          return false;
+        },
+        reason: "home_release_failed",
+      },
+      {
+        release: () => {
+          attempts.push("host");
+          return true;
+        },
+        reason: "host_release_failed",
+      },
+    ]),
+    "runtime_release_failed",
+  );
+  assert.deepEqual(attempts, ["runtime", "home", "host"]);
+  assert.equal(releaseRecoverySynchronizations([]), null);
 });

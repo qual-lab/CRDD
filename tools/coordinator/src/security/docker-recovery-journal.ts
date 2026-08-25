@@ -309,6 +309,20 @@ function recoveryIdFromIntent(value: Record<string, unknown>) {
   return null;
 }
 
+function validRuntimeStateBindingEvidence(value: unknown) {
+  return (
+    exactKeys(value, [
+      "runtimeStateIdentityHash",
+      "runtimeStateProtectionHash",
+      "localUserBindingHash",
+      "runtimeStateBindingHash",
+    ]) &&
+    Object.values(value as Record<string, unknown>).every(
+      (item) => typeof item === "string" && /^[a-f0-9]{64}$/u.test(item),
+    )
+  );
+}
+
 function resumeDeleteAnchor(anchor: string) {
   const intent = readIntentAnchor(anchor);
   if (
@@ -493,6 +507,7 @@ function validateIntentSnapshot(anchor: string) {
       "cleanupName",
       "cleanupIdentity",
       "recoveryId",
+      "runtimeStateBinding",
       "entries",
     ]) ||
     stableDirectoryIdentity(path.dirname(anchor)) !== value.rootIdentity ||
@@ -503,6 +518,7 @@ function validateIntentSnapshot(anchor: string) {
     !/^docker-task\.[a-f0-9]{64}\.[a-f0-9]{64}\.[a-f0-9]{64}$/u.test(
       value.recoveryId,
     ) ||
+    !validRuntimeStateBindingEvidence(value.runtimeStateBinding) ||
     !Array.isArray(value.entries) ||
     value.entries.length > 100 ||
     !value.entries.every(validCleanupEntry)
@@ -553,6 +569,7 @@ function resumeCleanupAnchor(anchor: string) {
       "cleanupName",
       "cleanupIdentity",
       "recoveryId",
+      "runtimeStateBinding",
       "entries",
     ]) ||
     intent.schema !== "crdd-coordinator-recovery-cleanup-delete/v1" ||
@@ -561,6 +578,7 @@ function resumeCleanupAnchor(anchor: string) {
     path.basename(intent.cleanupName) !== intent.cleanupName ||
     typeof intent.cleanupIdentity !== "string" ||
     typeof intent.recoveryId !== "string" ||
+    !validRuntimeStateBindingEvidence(intent.runtimeStateBinding) ||
     !Array.isArray(intent.entries) ||
     intent.entries.length > 100 ||
     !intent.entries.every(validCleanupEntry)
@@ -815,12 +833,19 @@ export function removeDockerRecoveryCleanupDirectory(
   rootDirectory: string,
   cleanupDirectory: string,
   recoveryId: string,
+  runtimeStateBinding: Readonly<{
+    runtimeStateIdentityHash: string;
+    runtimeStateProtectionHash: string;
+    localUserBindingHash: string;
+    runtimeStateBindingHash: string;
+  }>,
 ) {
   if (
     path.dirname(cleanupDirectory) !== rootDirectory ||
     path.basename(cleanupDirectory) === cleanupDirectory ||
     typeof recoveryId !== "string" ||
-    recoveryId.length > 240
+    recoveryId.length > 240 ||
+    !validRuntimeStateBindingEvidence(runtimeStateBinding)
   )
     throw new Error("docker_recovery_cleanup_intent_invalid");
   const cleanupIdentity = stableDirectoryIdentity(cleanupDirectory);
@@ -867,6 +892,7 @@ export function removeDockerRecoveryCleanupDirectory(
       cleanupName: path.basename(cleanupDirectory),
       cleanupIdentity,
       recoveryId,
+      runtimeStateBinding,
       entries: Object.freeze(evidence),
     }),
   );
@@ -915,7 +941,12 @@ export function resumeDockerRecoveryJournalDirectory(directory: string) {
 export function inspectDockerRecoveryJournalDirectory(directory: string) {
   stableDirectoryIdentity(directory);
   const values: Array<
-    Readonly<{ schema: string; recoveryId: string | null; name: string }>
+    Readonly<{
+      schema: string;
+      recoveryId: string | null;
+      name: string;
+      runtimeStateBinding: Readonly<Record<string, unknown>> | null;
+    }>
   > = [];
   for (const name of fs
     .readdirSync(directory)
@@ -942,6 +973,10 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
         schema,
         recoveryId: recoveryIdFromIntent(value),
         name,
+        runtimeStateBinding:
+          schema === "crdd-coordinator-recovery-cleanup-delete/v1"
+            ? (value.runtimeStateBinding as Readonly<Record<string, unknown>>)
+            : null,
       }),
     );
   }

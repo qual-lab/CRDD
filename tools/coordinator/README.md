@@ -34,6 +34,8 @@ Claude実行計画候補（Claude Execution Plan Candidate）は、最初の外�
 
 合成Fake観測候補は、callerが与えたtimeout、cancel、stdin／stdout／stderr量、終了状態、process tree／container不存在のclaimおよび結果exact 1件を構造的に評価するだけである。正常形も`candidate`、`observationAuthority:false`、`fakeProviderExecuted:false`、`processAbsenceVerified:false`に固定し、実測、実Codex／Claude Codeの認証、subscription残量、追加費用不要性、Egress、Telemetry、自動更新またはOperation Capabilityを証明しない。subscriptionのquota／creditが不足または判定不能な場合は追加購入やAPI fallbackを行わず`blocked`とする。
 
+第十次是正は`Applied`／`Self-checked`である。作成時RuntimeStateのIdentity、保護、selected-userおよびRuntimeState bindingをbase、cleanup manifest、Root cleanup anchorへ耐久結合し、beginの初回書込み、journal再開、renameおよびdeleteの前に同じEvidenceとfreshなRuntime-owned observationを照合する。cleanupだけが残る回復でも作成時selected-userを再構成できなければ削除しない。RuntimeState、logical HomeおよびHost generationの解放は、一つが失敗しても全対象を試し、失敗時は同じRecovery IDを保持した`blocked`へ閉じる。private packageは`main`／`exports`を持たず、正式起動はnative observationを消費するproduction wrapperへ限定する。production回復coverageには固定下限を設けた。現在のGateは新固定版の全機械確認と独立再レビュー／再監査であり、Pass前にFinding解消、Runtime完成またはPR最終候補へ先取りしない。正式署名一般Task実runはその後の人間操作で行う。
+
 ## 導入時のRepository単位
 
 Runtimeは、有効化を明示した対象Repositoryだけを一つのOperation単位として扱う。通常のRepository、linked worktree、および`.git` fileを使うが`core.worktree`を持たない限定worktreeをRuntime 1.0の対象候補とし、bare Repositoryと標準submodule自身は対象外とする。

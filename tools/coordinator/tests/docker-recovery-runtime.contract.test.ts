@@ -20,7 +20,6 @@ import {
   recordRuntimeOwnedDockerHostCleanupReceipt,
   recordRuntimeOwnedNormalMountCompletion,
   recoverExactDockerResourceWithRunner,
-  recoverRuntimeOwnedDockerTaskFromVerifiedRoot,
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
 } from "../src/security/docker-recovery-runtime.ts";
 import {
@@ -115,7 +114,12 @@ function createKilledProductionCleanupRoot() {
       process.kill(process.pid, "SIGKILL");
       return result;
     };
-    journal.removeDockerRecoveryCleanupDirectory(root, cleanup, recoveryId);
+    journal.removeDockerRecoveryCleanupDirectory(root, cleanup, recoveryId, {
+      runtimeStateIdentityHash: "4".repeat(64),
+      runtimeStateProtectionHash: "5".repeat(64),
+      localUserBindingHash: "6".repeat(64),
+      runtimeStateBindingHash: "7".repeat(64),
+    });
   `;
   const crashed = spawnSync(
     process.execPath,
@@ -223,13 +227,15 @@ function createKilledFullProductionRecoveryRoot(
             );
             process.kill(process.pid, "SIGKILL");
           },
+          () => runtimeRoot,
         );
       } else {
-        begun = recovery.beginRuntimeOwnedDockerRecoveryFromVerifiedCandidates(
+        begun = recovery.beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
           plan,
           management,
           providerHome,
           runtimeRoot,
+          () => runtimeRoot,
         );
       }
     } catch (error) {
@@ -574,9 +580,10 @@ test("production共有回復engineはcleanup途中のprocess killから残存0�
   const root = createKilledProductionCleanupRoot();
   try {
     assert.deepEqual(
-      recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         DOCKER_TASK_RECOVERY_ID,
         verifiedRoot(root),
+        () => verifiedRoot(root),
       ),
       {
         status: "recovered",
@@ -772,6 +779,80 @@ test("production共有回復engineはselected-user再bind不一致をEffect前�
   }
 });
 
+test("cleanup-only回復も作成時selected-user再bind不一致を削除前に停止する", () => {
+  const rootPath = createKilledProductionCleanupRoot();
+  const root = verifiedRoot(rootPath);
+  const changedUserRoot = Object.freeze({
+    ...root,
+    localUserBindingHash: "0".repeat(64),
+  });
+  const beforeEntries = fs.readdirSync(rootPath).sort();
+  try {
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        DOCKER_TASK_RECOVERY_ID,
+        root,
+        () => changedUserRoot,
+      ),
+      {
+        status: "blocked",
+        reason: "docker_task_runtime_state_audit_failed",
+        recoveryId: DOCKER_TASK_RECOVERY_ID,
+      },
+    );
+    assert.deepEqual(fs.readdirSync(rootPath).sort(), beforeEntries);
+  } finally {
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
+test("production beginはlock取得後のRuntimeState再bind不一致を初回記録前に停止する", () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-begin-rebind-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const root = verifiedRoot(runtimeRootPath);
+  const changedRoot = Object.freeze({
+    ...root,
+    runtimeStateProtectionHash: "0".repeat(64),
+  });
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const plan = productionPlan(operation.operationId, "e".repeat(64));
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  try {
+    assert.deepEqual(
+      beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+        plan,
+        management,
+        providerHomeForPlan(plan),
+        root,
+        () => changedRoot,
+      ),
+      {
+        status: "blocked",
+        recoveryId: null,
+        manualRecoveryRequired: true,
+        reason: "docker_recovery_initialization_failed_closed",
+      },
+    );
+    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assert.equal(
+      loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
+      "host_only",
+    );
+  } finally {
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
 test("production共有回復engineは同じHomeをexact-oneにし別Homeを妨げない", () => {
   const blockedRoot = createKilledProductionCleanupRoot();
   const sameHomeLock =
@@ -779,9 +860,10 @@ test("production共有回復engineは同じHomeをexact-oneにし別Homeを妨�
   assert.ok(sameHomeLock);
   try {
     assert.deepEqual(
-      recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         DOCKER_TASK_RECOVERY_ID,
         verifiedRoot(blockedRoot),
+        () => verifiedRoot(blockedRoot),
       ),
       {
         status: "blocked",
@@ -801,9 +883,10 @@ test("production共有回復engineは同じHomeをexact-oneにし別Homeを妨�
   assert.ok(otherHomeLock);
   try {
     assert.equal(
-      recoverRuntimeOwnedDockerTaskFromVerifiedRoot(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         DOCKER_TASK_RECOVERY_ID,
         verifiedRoot(completedRoot),
+        () => verifiedRoot(completedRoot),
       ).status,
       "recovered",
     );
@@ -859,7 +942,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 5,
+    contractRevision: 6,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
@@ -868,6 +951,8 @@ test("Docker Recovery contractはEffect前記録とcleanup後完了を固定す�
       "selected_user_runtime_owned_fixed_known_folder_protected_root",
     runtimeStateRevalidation:
       "root_identity_protection_selected_user_and_full_inventory_before_each_mutation_and_after_effect",
+    runtimeStateCreationBinding:
+      "base_cleanup_manifest_and_root_cleanup_anchor_bind_creation_identity_protection_selected_user_and_runtime_state_hash",
     logicalHomeLease:
       "stable_sid_provider_namespace_kernel_lock_and_durable_active_pointer",
     resourceJournal:

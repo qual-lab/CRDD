@@ -14,6 +14,8 @@ v0.18.0 Candidateの実装残件は、PoC計画の`Related`から本書を取得
 
 2026-08-25の現行Coordinator Runtime 1.0縦結合では、固定Docker image、最小環境、限定Egress、Subscription OAuth preflight、両Provider Adapter、Provider Home四Hash、Mount Grantおよび一般Task E2Eをproduction経路へ接続済みである。現在の残件は[`CHG-000015`第九次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とする。root intentからのRecovery ID再発見、Host deterministic successor、actionable IDの終了時再投影、anchor digest／commit照合、全RuntimeState mutation前と長時間Effect後のRoot Identity／保護／selected-user／全inventory再検証、および同期資源の解放確認は実装済みである。production共有engineを直接通し、Host Effect直前のprevious、receipt後のexpected、third state非上書き、selected-user再結合不一致、cleanup途中process kill、same Home exact-one／別Home非競合、exact Docker ID／全config一致時だけの削除、replacement非削除、通常完了とHost cleanup receipt後finalize、および成功時残存0を重点Gateへ接続した。複数IDの全件投影はTask Runtime／安全な人間向けreport、実CLIは`docker-task.*`のJSON／人間表示で確認する。残るGateは、新固定版の独立再レビュー／再監査と、Pass後の正式署名一般Task実runである。下表は`In Progress`を維持し、監査Pass前に`Completed`へ先取りしない。
 
+第九次是正の固定版は独立監査でFailとなり、現在の正本は[`CHG-000015`第十次是正](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)へ移った。作成時RuntimeState bindingのbase／cleanup manifest／Root anchorへの耐久結合、初回mutationとcleanup-only削除前のfresh再結合、同期資源の全解放試行、private packageの`main`／`exports`非公開維持、およびproduction回復coverage下限は実装済みである。残るGateは新固定版の全機械確認、同じ固定版への独立Agent／Architecture／Security再レビューとDocument／Gap／Impact＋Conformance再監査、およびPass後の正式署名一般Task実runである。下表はそれらの完了前に`Completed`へ昇格しない。
+
 | ID | 件名 | Work State | Scope / Target | Source | Next action / Re-evaluation trigger |
 | --- | --- | --- | --- | --- | --- |
 | `FU-018-028` | Claude実行計画基盤 | Completed | 非実行の固定Claude probe契約 | [CHG-000028 全体](../90_Release/Changes/CHG-000028_Claude_Execution_Plan_Foundation.md) | 固定版`01a92ba5d8597baebf52265c6c733747451e44ad`の検証完了。契約変更時に再評価する |
