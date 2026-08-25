@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 
 import {
   planClaudeIsolatedTask,
@@ -185,12 +186,12 @@ function verifyConfigDirectory(directory: string, identity: string) {
 }
 
 function dockerEnvironment() {
-  return Object.freeze({
-    SystemRoot: "C:\\Windows",
-    WINDIR: "C:\\Windows",
-    SystemDrive: "C:",
-    DOCKER_CLI_HINTS: "false",
+  const environment = createWindowsDockerCliEnvironment({
+    dockerConfig: null,
+    dockerHome: null,
   });
+  if (!environment) throw new Error("docker_effect_environment_unavailable");
+  return environment;
 }
 
 function buffersToExecution(

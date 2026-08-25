@@ -208,7 +208,10 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
   assert.equal(adapter.shellInvocation, false);
   assert.equal(adapter.pathLookup, false);
   assert.equal(adapter.callerSuppliedPathAccepted, false);
-  assert.equal(adapter.environment, "empty");
+  assert.equal(
+    adapter.environment,
+    "validated_windows_directory_and_fixed_neutral_ambient_names",
+  );
   assert.equal(
     adapter.processTreeTerminationConfirmation.includes("step_4"),
     true,

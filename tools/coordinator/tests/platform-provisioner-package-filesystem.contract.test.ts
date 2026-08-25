@@ -9,6 +9,8 @@ import {
   describePlatformProvisionerPackageFilesystemContract,
   inspectBundledCoordinatorPackageFilesystemCandidate,
   inspectPlatformProvisionerPackageFilesystemCandidate,
+  issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
+  consumeRuntimeOwnedVerifiedCoordinatorPackageCapability,
   verifyBundledCoordinatorPackageCandidate,
 } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
@@ -18,6 +20,23 @@ import {
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
 import { assertCanonicalCandidate } from "./test-support.ts";
+
+test("Task package capabilityは偽造・不正入力・再利用を受理しない", () => {
+  const issued = issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
+    evaluationTime: "not-a-time",
+    callerRoot: "C:\\caller-selected",
+  });
+  assert.equal(issued.capability, null);
+  const forged = Object.freeze({});
+  assert.equal(
+    consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(forged),
+    false,
+  );
+  assert.equal(
+    consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(forged),
+    false,
+  );
+});
 
 function frame(payload: Record<string, unknown>) {
   const canonical = canonicalizeProvisioningJsonValueCandidate(payload);
@@ -287,7 +306,7 @@ test("不正Root、Release Identity不一致およびpackage metadataをfail clo
 
 test("package Filesystem contractは観測をTrustおよびEffectから分離する", () => {
   const contract = describePlatformProvisionerPackageFilesystemContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(
     contract.runtimeOwnedPackageFilesystemRead,
     "implemented_candidate_without_permission_authority",

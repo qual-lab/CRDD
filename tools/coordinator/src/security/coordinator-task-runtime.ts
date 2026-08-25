@@ -32,6 +32,7 @@ import {
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
+import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "./platform-provisioner-package-filesystem.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
   snapshotPlainArray,
@@ -60,7 +61,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 8;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 9;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -76,6 +77,14 @@ const REQUEST_KEYS = new Set([
   "isLocalCandidateOnly",
   "hasUnresolvedDirection",
   "requiresCrossContextAlignment",
+]);
+const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
+  "external_send_confirmation_declined_invalid",
+  "external_send_confirmation_cancelled",
+  "external_send_confirmation_timeout",
+  "external_send_confirmation_unavailable",
+  "external_send_confirmation_reader_failed",
+  "external_send_confirmation_cleanup_unknown",
 ]);
 
 type Provider = "codex" | "claude";
@@ -862,7 +871,20 @@ async function runCoordinatorTask(
       externalSendGrant?.status !== "issued" ||
       !externalSendGrantCapability
     ) {
-      return blocked("coordinator_task_external_send_not_authorized");
+      const grantReason = stringValue(externalSendGrant?.reason);
+      const reason =
+        grantReason && EXTERNAL_SEND_CONFIRMATION_REASONS.has(grantReason)
+          ? `coordinator_task_${grantReason}`
+          : "coordinator_task_external_send_not_authorized";
+      const isCleanupUnknown =
+        reason ===
+        "coordinator_task_external_send_confirmation_cleanup_unknown";
+      if (isCleanupUnknown) shouldRetainOperationRoot = true;
+      return blocked(
+        reason,
+        isCleanupUnknown,
+        isCleanupUnknown ? operation.hostRecoveryId : null,
+      );
     }
     const workspace = state.dependencies.materializeWorkspace(
       repositoryBinding,
@@ -1513,7 +1535,15 @@ const productionRuntime = createRuntime(productionDependencies);
 export function startRuntimeOwnedCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
+  verifiedPackageCapability: unknown,
 ) {
+  if (
+    !consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
+      verifiedPackageCapability,
+    )
+  ) {
+    throw new Error("coordinator_task_release_verification_required");
+  }
   return productionRuntime.start(
     rawRequest,
     repositoryRoot,
@@ -1553,6 +1583,8 @@ export function describeCoordinatorTaskRuntimeContract() {
     executorWorkspace: "runtime_owned_exact_commit_read_write",
     reviewerWorkspace: "same_exact_candidate_read_only",
     taskTransport: "opaque_single_use_provider_stdin_only",
+    productionPackageGate:
+      "single_use_runtime_private_verified_distribution_capability_before_all_effects",
     approvedCandidateTransfer:
       "policy_bounded_staged_bundle_published_only_after_operation_cleanup",
     candidateStorePreflight:

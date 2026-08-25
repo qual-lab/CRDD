@@ -663,7 +663,7 @@ test("candidateはopaque IDの明示ExportまたはDiscardだけを受理する"
   );
 });
 
-test("実task CLIは曖昧JSON、偽RepositoryとSHA-256 RepositoryをProvider Effect前に拒否する", (t) => {
+test("実task CLIは曖昧JSONと未検証source checkoutを全Effect前に拒否する", (t) => {
   const ambiguous = spawnSync(
     process.execPath,
     [coordinatorExecutable, "task", "--request-stdin", "--json"],
@@ -706,9 +706,11 @@ test("実task CLIは曖昧JSON、偽RepositoryとSHA-256 RepositoryをProvider E
   );
   assert.equal(invalidRepository.status, 2);
   const report = JSON.parse(invalidRepository.stdout);
-  assert.equal(report.command, "task");
-  assert.equal(report.status, "blocked");
-  assert.equal(report.rawOutputReported, false);
+  assert.deepEqual(report, {
+    command: "task",
+    status: "blocked",
+    reason: "coordinator_task_release_verification_required",
+  });
   assert.equal(invalidRepository.stdout.includes(os.tmpdir()), false);
 
   const sha256Repository = fs.mkdtempSync(
@@ -755,27 +757,7 @@ test("実task CLIは曖昧JSON、偽RepositoryとSHA-256 RepositoryをProvider E
   assert.deepEqual(JSON.parse(unsupported.stdout), {
     command: "task",
     status: "blocked",
-    reason: "coordinator_task_git_object_format_unsupported",
-    cleanupConfirmed: true,
-    manualRecoveryRequired: false,
-    hostRecoveryId: null,
-    dockerRecoveryId: null,
-    dockerRecoveryIds: [],
-    candidateRecoveryId: null,
-    candidateStoreRecoveryId: null,
-    executorProvider: null,
-    reviewerProvider: null,
-    executorSelectionNotice: null,
-    reviewerSelectionNotice: null,
-    candidateRevision: null,
-    candidateId: null,
-    executorResult: null,
-    reviewerResult: null,
-    canonicalRepositoryChanged: false,
-    rawOutputReported: false,
-    hostPathReported: false,
-    untrustedProviderTextReported: false,
-    credentialAbsenceVerified: false,
+    reason: "coordinator_task_release_verification_required",
   });
   assert.equal(
     fs.existsSync(path.join(sha256Repository, ".crdd-runtime")),

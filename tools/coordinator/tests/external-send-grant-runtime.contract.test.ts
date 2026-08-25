@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   compileExternalSendScopeHash,
+  confirmInteractiveConsoleChallengeOutcomeUsingAdapter,
   confirmInteractiveConsoleChallengeUsingAdapter,
   createIsolatedExternalSendGrantRuntimeCandidate,
   describeExternalSendGrantRuntimeContract,
@@ -24,6 +25,39 @@ function resolveDeferredLine(resolver: unknown, line: string | null) {
   assert.equal(typeof resolver, "function");
   (resolver as (resolvedLine: string | null) => void)(line);
 }
+
+test("承認失敗は公開値を含まないbounded outcomeへ分類する", async () => {
+  for (const status of [
+    "cancelled",
+    "timeout",
+    "reader_failed",
+    "cleanup_unknown",
+  ] as const) {
+    const outcome = await confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
+      "safe notice",
+      "123456",
+      { input: 1, output: 2 },
+      new AbortController().signal,
+      Object.freeze({
+        writeText: async () => true,
+        readLine: async () => Object.freeze({ status, line: null }),
+      }),
+    );
+    assert.deepEqual(outcome, { status });
+  }
+  const declined = await confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
+    "safe notice",
+    "123456",
+    { input: 1, output: 2 },
+    new AbortController().signal,
+    Object.freeze({
+      writeText: async () => true,
+      readLine: async () =>
+        Object.freeze({ status: "completed" as const, line: "654321" }),
+    }),
+  );
+  assert.deepEqual(declined, { status: "declined_invalid" });
+});
 
 function fixture(shouldConfirm = true) {
   const managementCapability = Object.freeze({});
@@ -435,7 +469,7 @@ test("Local Userの対話確認をRevision・Scope・Provider・Roleへ結合す
 
 test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ昇格しない", async () => {
   const denied = fixture(false);
-  assert.equal(
+  assert.deepEqual(
     await denied.runtime.request(
       denied.managementCapability,
       denied.repositoryBindingCapability,
@@ -443,7 +477,14 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
       SCOPE,
       ["claude"],
     ),
-    null,
+    {
+      status: "blocked",
+      reason: "external_send_confirmation_declined_invalid",
+      manualRecoveryRequired: false,
+      externalSendAuthorized: false,
+      rawContentReported: false,
+      hostPathReported: false,
+    },
   );
 
   for (const scenario of ["expired", "revision", "scope"] as const) {
@@ -479,7 +520,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.equal(
     contract.interactiveConfirmation,
     "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",

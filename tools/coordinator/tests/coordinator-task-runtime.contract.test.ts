@@ -1006,18 +1006,21 @@ test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に�
   assert.equal(harness.cleanupCount(), 1);
 });
 
-test("Production入口は偽RepositoryとCapabilityをProvider Effect前に拒否する", async () => {
-  const result = await startRuntimeOwnedCoordinatorTask(
-    request(),
-    "not-an-absolute-repository",
-  ).completion;
-  assert.equal(result.status, "blocked");
-  assert.equal(result.rawOutputReported, false);
+test("Production入口はPackage Capability欠落を全Effect前に拒否する", () => {
+  assert.throws(
+    () =>
+      startRuntimeOwnedCoordinatorTask(
+        request(),
+        "not-an-absolute-repository",
+        Object.freeze({}),
+      ),
+    /coordinator_task_release_verification_required/u,
+  );
 });
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.equal(contract.routes.length, 4);
   assert.equal(contract.independentReview, "subject_provider_excluded");
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");

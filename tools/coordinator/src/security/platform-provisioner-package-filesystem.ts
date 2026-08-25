@@ -45,6 +45,19 @@ const EXPECTED_RELEASE_KEYS = new Set([
   "crddTree",
   "packageContentRootSha256",
 ]);
+const VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS = 5_000;
+const verifiedPackageCapabilities = new WeakMap<
+  object,
+  Readonly<{
+    issuedAtMs: number;
+    manifestHash: string;
+    releaseSequence: number;
+    crddCommit: string;
+    crddTree: string;
+    packageContentRootSha256: string;
+    interactiveConsoleReaderArtifactSha256: string;
+  }>
+>();
 
 type EntityIdentity = Readonly<{
   dev: bigint;
@@ -589,6 +602,12 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
         "platform_provisioner_manifest_changed_during_verification",
       );
     }
+    const interactiveConsoleReaderArtifact = observed.observation.files.find(
+      (file) => file.path === "src/core/interactive-console-reader.ts",
+    );
+    if (!interactiveConsoleReaderArtifact) {
+      return blocked("platform_provisioner_interactive_console_reader_missing");
+    }
     return Object.freeze({
       ...publicObservation(observed, true),
       reason: observed.permissionPolicyConfirmed
@@ -603,6 +622,8 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
       runtimeOwnedReleaseTrustConfirmed: true,
       releaseIdentityRuntimeOwned: true,
       crddDistributionConfirmed: true,
+      interactiveConsoleReaderArtifactSha256:
+        interactiveConsoleReaderArtifact.sha256,
       platformAccessArtifact: verification.platformAccessArtifact,
       nativeProvisionSupervisorArtifact:
         verification.nativeProvisionSupervisorArtifact,
@@ -610,6 +631,94 @@ export function verifyBundledCoordinatorPackageFromFixedManifestCandidate(
   } catch {
     return blocked("platform_provisioner_fixed_manifest_verification_failed");
   }
+}
+
+function verifiedFixedPackageRecord(
+  result: ReturnType<
+    typeof verifyBundledCoordinatorPackageFromFixedManifestCandidate
+  >,
+) {
+  if (
+    result.status !== "candidate" ||
+    typeof result.manifestHash !== "string" ||
+    !Number.isSafeInteger(result.releaseSequence) ||
+    typeof result.crddCommit !== "string" ||
+    typeof result.crddTree !== "string" ||
+    typeof result.packageContentRootSha256 !== "string" ||
+    typeof result.interactiveConsoleReaderArtifactSha256 !== "string" ||
+    result.crddDistributionConfirmed !== true ||
+    result.runtimeOwnedReleaseTrustConfirmed !== true
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    manifestHash: result.manifestHash,
+    releaseSequence: result.releaseSequence as number,
+    crddCommit: result.crddCommit,
+    crddTree: result.crddTree,
+    packageContentRootSha256: result.packageContentRootSha256,
+    interactiveConsoleReaderArtifactSha256:
+      result.interactiveConsoleReaderArtifactSha256,
+  });
+}
+
+export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
+  rawInput: unknown,
+) {
+  const input = snapshotPlainRecord(rawInput, VERIFY_FIXED_MANIFEST_KEYS);
+  if (!input) {
+    return Object.freeze({
+      verification: blocked(
+        "platform_provisioner_bundled_package_input_invalid",
+      ),
+      capability: null,
+    });
+  }
+  const verification =
+    verifyBundledCoordinatorPackageFromFixedManifestCandidate(input);
+  const record = verifiedFixedPackageRecord(verification);
+  if (!record) return Object.freeze({ verification, capability: null });
+  const capability = Object.freeze({});
+  verifiedPackageCapabilities.set(
+    capability,
+    Object.freeze({
+      ...record,
+      issuedAtMs: performance.now(),
+    }),
+  );
+  return Object.freeze({ verification, capability });
+}
+
+export function consumeRuntimeOwnedVerifiedCoordinatorPackageCapability(
+  capability: unknown,
+) {
+  if (!capability || typeof capability !== "object") return false;
+  const record = verifiedPackageCapabilities.get(capability);
+  verifiedPackageCapabilities.delete(capability);
+  if (
+    !record ||
+    !Number.isFinite(record.issuedAtMs) ||
+    performance.now() - record.issuedAtMs < 0 ||
+    performance.now() - record.issuedAtMs >=
+      VERIFIED_PACKAGE_CAPABILITY_LIFETIME_MS
+  ) {
+    return false;
+  }
+  const current = verifiedFixedPackageRecord(
+    verifyBundledCoordinatorPackageFromFixedManifestCandidate({
+      evaluationTime: new Date().toISOString(),
+    }),
+  );
+  return (
+    current !== null &&
+    current.manifestHash === record.manifestHash &&
+    current.releaseSequence === record.releaseSequence &&
+    current.crddCommit === record.crddCommit &&
+    current.crddTree === record.crddTree &&
+    current.packageContentRootSha256 === record.packageContentRootSha256 &&
+    current.interactiveConsoleReaderArtifactSha256 ===
+      record.interactiveConsoleReaderArtifactSha256
+  );
 }
 
 export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
@@ -701,7 +810,7 @@ export function verifyInstalledCoordinatorPackageCandidate(rawInput: unknown) {
 export function describePlatformProvisionerPackageFilesystemContract() {
   return Object.freeze({
     contract: "crdd-coordinator/platform-provisioner-package-filesystem",
-    contractRevision: 2,
+    contractRevision: 3,
     packageRootSelection: "implemented_fixed_module_relative_candidate",
     recursiveFileInventory: "implemented_candidate",
     stableSameHandleFileIdentityAndHash: "implemented_candidate",
@@ -726,6 +835,8 @@ export function describePlatformProvisionerPackageFilesystemContract() {
       "qual_lab_ed25519_single_active_key_pinned_in_verified_crdd_release",
     releaseIdentityBinding:
       "crdd_version_commit_tree_and_coordinator_package_content_root",
+    taskRuntimeCapability:
+      "single_use_process_private_exact_release_package_and_reader_identity",
     policyIdentityBinding:
       "owned_root_protection_and_key_storage_policy_hashes_required",
     signedManifestPath: "90_Release/coordinator-package-manifest.json",

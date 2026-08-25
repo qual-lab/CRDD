@@ -17,6 +17,7 @@ import {
   verifyPlatformAccessArtifactSigningObservation,
 } from "./platform-access-release.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
+import { createWindowsNativeHelperEnvironment } from "../core/windows-child-environment.ts";
 
 const HELPER_TIMEOUT_MS = 5_000;
 const bundledDistributionRoot = fileURLToPath(
@@ -157,10 +158,13 @@ function inspectRuntimeOwnedWindowsProtectedRoot(
   ) {
     return blocked("candidate_store_windows_adapter_artifact_not_verified");
   }
+  const environment = createWindowsNativeHelperEnvironment();
+  if (!environment)
+    return blocked("candidate_store_windows_adapter_environment_unavailable");
   const execution = spawnSync(executablePath, [], {
     input: request.request,
     encoding: "buffer",
-    env: Object.freeze({}),
+    env: environment,
     shell: false,
     windowsHide: true,
     timeout: HELPER_TIMEOUT_MS,
@@ -337,6 +341,7 @@ export function describeCandidateStoreWindowsAdapterContract() {
       "fixed_signed_manifest_release_identity_and_artifact_hash_before_and_after",
     callerSuppliedPathAccepted: false,
     inheritedEnvironmentTrustedDirectly: false,
+    environment: "validated_windows_directory_and_fixed_neutral_ambient_names",
     rawPathReported: false,
     rawPrincipalReported: false,
     rawAclReported: false,

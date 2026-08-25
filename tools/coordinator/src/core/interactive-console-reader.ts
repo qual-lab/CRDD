@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 export const INTERACTIVE_CONSOLE_READER_CONTRACT =
   "crdd-coordinator/interactive-console-reader";
-export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 1;
+export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 2;
 export const INTERACTIVE_CONSOLE_READER_MAXIMUM_BYTES = 64;
 
 type ReaderInput = Readonly<{
@@ -134,37 +134,92 @@ export function readInteractiveConsoleLineFromStream(
   });
 }
 
-function writeResult(line: string | null) {
+function writeResult(
+  line: string | null,
+  cancellationSignal: AbortSignal,
+): Promise<boolean> {
   const result = Object.freeze({
     contract: INTERACTIVE_CONSOLE_READER_CONTRACT,
     contractRevision: INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
     status: line === null ? "blocked" : "completed",
     line,
   });
-  process.stdout.write(`${JSON.stringify(result)}\n`, () => {
-    process.exitCode = line === null ? 2 : 0;
-    if (process.connected) process.disconnect();
+  if (!process.connected || cancellationSignal.aborted)
+    return Promise.resolve(false);
+  return new Promise((resolve) => {
+    let settled = false;
+    const timeout = setTimeout(() => settle(false), 1_000);
+    timeout.unref();
+    const cleanup = () => {
+      clearTimeout(timeout);
+      process.removeListener("disconnect", onDisconnect);
+      process.stdout.removeListener("error", onError);
+      cancellationSignal.removeEventListener("abort", onAbort);
+    };
+    const settle = (isSuccessful: boolean) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(isSuccessful);
+    };
+    const onDisconnect = () => settle(false);
+    const onError = () => settle(false);
+    const onAbort = () => settle(false);
+    process.once("disconnect", onDisconnect);
+    process.stdout.once("error", onError);
+    cancellationSignal.addEventListener("abort", onAbort, { once: true });
+    if (!process.connected || cancellationSignal.aborted) {
+      settle(false);
+      return;
+    }
+    try {
+      process.stdout.write(`${JSON.stringify(result)}\n`, (error) =>
+        settle(!error && process.connected && !cancellationSignal.aborted),
+      );
+    } catch {
+      settle(false);
+    }
   });
 }
 
 async function main() {
+  process.exitCode = 2;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
   timeout.unref();
-  process.once("message", (message) => {
+  const onMessage = (message: unknown) => {
     if (message === "cancel") controller.abort();
-  });
-  const line = await readInteractiveConsoleLineFromStream(
-    process.stdin,
-    controller.signal,
-  );
-  clearTimeout(timeout);
-  writeResult(line);
+  };
+  const onDisconnect = () => controller.abort();
+  process.on("message", onMessage);
+  process.once("disconnect", onDisconnect);
+  try {
+    if (!process.connected) return;
+    const line = await readInteractiveConsoleLineFromStream(
+      process.stdin,
+      controller.signal,
+    );
+    if (!process.connected || controller.signal.aborted) return;
+    const isWritten = await writeResult(line, controller.signal);
+    process.exitCode = isWritten && line !== null ? 0 : 2;
+    if (isWritten && process.connected) process.disconnect();
+  } finally {
+    clearTimeout(timeout);
+    process.removeListener("message", onMessage);
+    process.removeListener("disconnect", onDisconnect);
+    try {
+      process.stdin.pause();
+    } catch {
+      // Process termination is the remaining bounded cleanup boundary.
+    }
+  }
 }
 
 if (
   process.argv.length === 2 &&
   fileURLToPath(import.meta.url) === process.argv[1]
 ) {
-  void main().catch(() => writeResult(null));
+  void main().catch(() => {
+    process.exitCode = 2;
+  });
 }

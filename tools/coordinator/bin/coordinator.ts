@@ -29,6 +29,7 @@ import {
   cancelRuntimeOwnedCoordinatorTask,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
 import {
   inspectRuntimeOwnedDockerTaskRecoveryState,
@@ -175,9 +176,29 @@ async function runTaskCommand(args: readonly string[]) {
     process.exitCode = rawError instanceof UsageError ? 64 : 2;
     return;
   }
+  const packageVerification =
+    issueRuntimeOwnedVerifiedCoordinatorPackageCapability({
+      evaluationTime: new Date().toISOString(),
+    });
+  if (!packageVerification.capability) {
+    printCommandReport(
+      Object.freeze({
+        command: "task",
+        status: "blocked",
+        reason: "coordinator_task_release_verification_required",
+      }),
+      options.json,
+    );
+    process.exitCode = 2;
+    return;
+  }
   let started: ReturnType<typeof startRuntimeOwnedCoordinatorTask>;
   try {
-    started = startRuntimeOwnedCoordinatorTask(taskRequest, process.cwd());
+    started = startRuntimeOwnedCoordinatorTask(
+      taskRequest,
+      process.cwd(),
+      packageVerification.capability,
+    );
   } catch (rawError) {
     const reason =
       rawError instanceof UsageError

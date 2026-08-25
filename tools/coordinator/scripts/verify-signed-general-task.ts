@@ -16,7 +16,7 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
-import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "../src/security/platform-provisioner-package-filesystem.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import {
   isCanonicalCrddGitObjectId,
   isCanonicalCrddVersion,
@@ -56,8 +56,14 @@ type CancellationSignalSource = Readonly<{
   ) => unknown;
 }>;
 type VerificationDependencies = Readonly<{
-  verifyPackage: (input: Readonly<{ evaluationTime: string }>) => RuntimeRecord;
-  startTask: (request: RuntimeRecord, repositoryRoot: string) => StartedTask;
+  issuePackageCapability: (
+    input: Readonly<{ evaluationTime: string }>,
+  ) => Readonly<{ verification: unknown; capability: unknown }>;
+  startTask: (
+    request: RuntimeRecord,
+    repositoryRoot: string,
+    verifiedPackageCapability: unknown,
+  ) => StartedTask;
   cancelTask: (controlCapability: object) => unknown;
   readCandidate: (candidateId: string) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
@@ -102,7 +108,7 @@ export function bindSignedGeneralTaskCancellation(
 }
 
 const productionDependencies: VerificationDependencies = Object.freeze({
-  verifyPackage: verifyBundledCoordinatorPackageFromFixedManifestCandidate,
+  issuePackageCapability: issueRuntimeOwnedVerifiedCoordinatorPackageCapability,
   startTask: startRuntimeOwnedCoordinatorTask,
   cancelTask: cancelRuntimeOwnedCoordinatorTask,
   readCandidate: readRuntimeOwnedCandidateBundle,
@@ -441,14 +447,21 @@ export async function runSignedGeneralTaskVerification(
     );
   }
   let release: RuntimeRecord | null = null;
+  let verifiedPackageCapability: unknown = null;
   try {
-    release = plainRecord(
-      dependencies.verifyPackage({ evaluationTime: dependencies.now() }),
-    );
+    const issued = dependencies.issuePackageCapability({
+      evaluationTime: dependencies.now(),
+    });
+    release = plainRecord(issued.verification);
+    verifiedPackageCapability = issued.capability;
   } catch {
     // The package verifier result remains unavailable and cannot open the gate.
   }
-  if (!verifiedPackage(release)) {
+  if (
+    !verifiedPackage(release) ||
+    !verifiedPackageCapability ||
+    typeof verifiedPackageCapability !== "object"
+  ) {
     return blocked(
       "signed_general_task_release_verification_failed",
       release,
@@ -471,6 +484,7 @@ export async function runSignedGeneralTaskVerification(
     started = dependencies.startTask(
       createSignedGeneralTaskVerificationRequest(),
       repositoryRoot,
+      verifiedPackageCapability,
     );
   } catch {
     return blocked(

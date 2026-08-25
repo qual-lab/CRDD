@@ -141,9 +141,12 @@ function dependencies(
   return Object.freeze({
     calls,
     value: Object.freeze({
-      verifyPackage: () => {
+      issuePackageCapability: () => {
         calls.verifies += 1;
-        return options.release ?? release();
+        return Object.freeze({
+          verification: options.release ?? release(),
+          capability: Object.freeze({}),
+        });
       },
       startTask: () => {
         calls.starts += 1;

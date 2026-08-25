@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
@@ -28,6 +28,12 @@ import {
   describeCoordinatorNodeRuntimeVersionContract,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
+import {
+  createWindowsDockerCliEnvironment,
+  createWindowsNativeHelperEnvironment,
+  createWindowsNodeConsoleReaderEnvironment,
+} from "../src/core/windows-child-environment.ts";
+import { acquireRuntimeOwnedInteractiveConsoleKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
 
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 
@@ -47,18 +53,21 @@ function sourceFiles(root: string): string[] {
 test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", () => {
   assert.deepEqual(describeInteractiveConsoleContract(), {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 6,
+    contractRevision: 7,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsUnicodeOutput: "node_unicode_tty_output_required",
     validatedTtyInput: "exact_console_descriptor_child_tty_required",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",
-    readerArtifactIdentity: "signed_package_content_root_preflight",
-    readerArguments: "fixed_empty",
-    readerEnvironment: "empty_no_parent_environment_inheritance",
+    readerArtifactIdentity:
+      "single_use_verified_package_capability_and_fresh_content_root",
+    readerArguments: "fixed_entrypoint_only_no_dynamic_arguments",
+    readerEnvironment:
+      "validated_windows_directory_and_fixed_neutral_ambient_names",
     readerStandardIo:
       "exact_console_input_bounded_stdout_discarded_stderr_private_ipc",
-    readerCancellation: "ipc_then_exact_child_force_termination",
+    readerCancellation:
+      "ipc_cancel_parent_disconnect_then_exact_child_force_termination",
     readerCompletion:
       "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
     windowsRedirectedOutput: "fail_closed",
@@ -555,11 +564,65 @@ test("固定Console readerは厳密な一行protocolと非TTY拒否へ閉じる"
   });
   assert.equal(result.status, 2);
   assert.equal(result.stderr, "");
-  assert.deepEqual(JSON.parse(result.stdout), {
-    contract: INTERACTIVE_CONSOLE_READER_CONTRACT,
-    contractRevision: INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
-    status: "blocked",
-    line: null,
+  assert.equal(result.stdout, "");
+});
+
+test("Windows内部子Processの実Environmentは用途別固定集合へ閉じる", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  for (const environment of [
+    createWindowsNodeConsoleReaderEnvironment(),
+    createWindowsNativeHelperEnvironment(),
+  ]) {
+    assert.ok(environment);
+    const expectedKeys = Object.keys(environment).sort();
+    const result = spawnSync(
+      process.execPath,
+      [
+        "-e",
+        "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR'].includes(k.toUpperCase())).every(([,v])=>v==='')}))",
+      ],
+      {
+        shell: false,
+        env: environment,
+        encoding: "utf8",
+        timeout: 5_000,
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.deepEqual(JSON.parse(result.stdout), {
+      keys: expectedKeys,
+      neutral: true,
+    });
+  }
+  const dockerEnvironment = createWindowsDockerCliEnvironment({
+    dockerConfig: "C:\\runtime-owned\\docker-config",
+    dockerHome: "C:\\runtime-owned\\docker-home",
+  });
+  assert.ok(dockerEnvironment);
+  const dockerResult = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),pathNeutral:process.env.PATH==='',proxyNeutral:process.env.HTTPS_PROXY==='',homeOwned:process.env.HOME==='C:\\\\runtime-owned\\\\docker-home',configOwned:process.env.DOCKER_CONFIG==='C:\\\\runtime-owned\\\\docker-config'}))",
+    ],
+    {
+      shell: false,
+      env: dockerEnvironment,
+      encoding: "utf8",
+      timeout: 5_000,
+    },
+  );
+  assert.equal(dockerResult.status, 0, dockerResult.stderr);
+  assert.deepEqual(JSON.parse(dockerResult.stdout), {
+    keys: Object.keys(dockerEnvironment).sort(),
+    pathNeutral: true,
+    proxyNeutral: true,
+    homeOwned: true,
+    configOwned: true,
   });
 });
 
@@ -639,6 +702,82 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   }
 });
 
+test("Windows固定readerは親Process消失時に終了しLockを次回へ返す", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  let probeDescriptor: number | null = null;
+  try {
+    probeDescriptor = fs.openSync("\\\\.\\CONIN$", "r");
+    if (!tty.isatty(probeDescriptor)) {
+      context.skip("interactive console unavailable");
+      return;
+    }
+  } catch {
+    context.skip("interactive console unavailable");
+    return;
+  } finally {
+    if (probeDescriptor !== null) fs.closeSync(probeDescriptor);
+  }
+  const fixture = path.join(
+    coordinatorRoot,
+    "tests",
+    "fixtures",
+    "interactive-console-parent.ts",
+  );
+  const parent = spawn(process.execPath, [fixture], {
+    shell: false,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  assert.ok(parent.stdout);
+  const firstLine = await new Promise<string>((resolve, reject) => {
+    let buffered = "";
+    const timeout = setTimeout(
+      () => reject(new Error("reader_parent_fixture_timeout")),
+      5_000,
+    );
+    parent.once("error", reject);
+    parent.stdout?.on("data", (chunk: Buffer) => {
+      buffered += chunk.toString("utf8");
+      const lineEnd = buffered.indexOf("\n");
+      if (lineEnd >= 0) {
+        clearTimeout(timeout);
+        resolve(buffered.slice(0, lineEnd));
+      }
+    });
+  });
+  const readerPid = Number(JSON.parse(firstLine).readerPid);
+  assert.equal(Number.isSafeInteger(readerPid) && readerPid > 0, true);
+  assert.equal(parent.kill("SIGKILL"), true);
+  await new Promise<void>((resolve) => parent.once("close", () => resolve()));
+  const deadline = performance.now() + 5_000;
+  let readerExists = true;
+  while (performance.now() < deadline) {
+    try {
+      process.kill(readerPid, 0);
+    } catch {
+      readerExists = false;
+      break;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 25));
+  }
+  assert.equal(readerExists, false);
+  const lock = acquireRuntimeOwnedInteractiveConsoleKernelLock();
+  assert.ok(lock);
+  assert.equal(lock.release(), true);
+  const descriptor = fs.openSync("\\\\.\\CONIN$", "r");
+  try {
+    const controller = new AbortController();
+    const pending = readInteractiveConsoleLine(descriptor, controller.signal);
+    setTimeout(() => controller.abort(), 50);
+    assert.equal(await pending, null);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+});
+
 test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状態機械で閉じる", async () => {
   function readerProcessScenario(isKillSuccessful = true) {
     const child = new EventEmitter() as EventEmitter & {
@@ -705,14 +844,21 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
       String((argv as unknown[])[0]),
       /interactive-console-reader\.ts$/u,
     );
-    assert.deepEqual(options, {
+    const spawnOptions = options as Readonly<Record<string, unknown>>;
+    const { env, ...optionsWithoutEnvironment } = spawnOptions;
+    assert.deepEqual(optionsWithoutEnvironment, {
       shell: false,
       detached: false,
       windowsHide: true,
       cwd: path.dirname(String((argv as unknown[])[0])),
-      env: {},
       stdio: [17, "pipe", "ignore", "ipc"],
     });
+    assert.equal((env as Record<string, string>).PATH, "");
+    assert.equal((env as Record<string, string>).USERPROFILE, "");
+    assert.equal(
+      (env as Record<string, string>).SystemRoot,
+      process.env.SystemRoot,
+    );
 
     let isCompleted = false;
     void pending.then(() => {

@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 
 import {
   adoptOwnedHostRecoveryRecordTransition,
@@ -1067,15 +1068,11 @@ function dockerEnvironment(management: string): DockerEnvironment {
   const dockerHome = path.join(management, "docker-home");
   fs.mkdirSync(dockerConfig, { recursive: true });
   fs.mkdirSync(dockerHome, { recursive: true });
-  const environment: DockerEnvironment = {
-    DOCKER_CONFIG: dockerConfig,
-    HOME: dockerHome,
-    USERPROFILE: dockerHome,
-  };
-  for (const name of ["SYSTEMROOT", "WINDIR", "COMSPEC", "SYSTEMDRIVE"]) {
-    if (typeof process.env[name] === "string")
-      environment[name] = process.env[name];
-  }
+  const environment = createWindowsDockerCliEnvironment({
+    dockerConfig,
+    dockerHome,
+  });
+  if (!environment) throw new Error("docker_runtime_environment_unavailable");
   return environment;
 }
 
@@ -1495,11 +1492,20 @@ export async function verifyOwnedAttachTerminationForFixture(
     attachProcessTerminationObserved: boolean;
   }>
 > {
-  const environment: DockerEnvironment = {};
-  for (const name of ["SYSTEMROOT", "WINDIR", "SYSTEMDRIVE"]) {
-    if (typeof process.env[name] === "string")
-      environment[name] = process.env[name];
-  }
+  const environment = createWindowsDockerCliEnvironment({
+    dockerConfig: null,
+    dockerHome: null,
+  });
+  if (!environment)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: "docker_runtime_environment_unavailable",
+      scenario,
+      readyObserved: false,
+      outputExceeded: false,
+      terminationRequestCount: 0,
+      attachProcessTerminationObserved: false,
+    });
   const controller = startOwnedAttachedProcess(
     process.execPath,
     ["-e", OWNED_ATTACH_FIXTURE_SOURCES[scenario]],

@@ -2,7 +2,8 @@ import { createHash, randomInt } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
 import {
-  readInteractiveConsoleLine,
+  readInteractiveConsoleLineOutcome,
+  type InteractiveConsoleReadOutcome,
   withInteractiveConsoleAsync,
   writeInteractiveConsoleText,
 } from "../core/interactive-console.ts";
@@ -17,7 +18,7 @@ import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-oper
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 6;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 7;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -64,7 +65,7 @@ type RuntimeDependencies = Readonly<{
     notice: string,
     challenge: string,
     cancellationSignal: AbortSignal,
-  ) => Promise<boolean>;
+  ) => Promise<boolean | ConsoleConfirmationOutcome>;
   wallNow: () => number;
   monotonicNow: () => number;
   randomChallenge: () => string;
@@ -163,6 +164,25 @@ type ConsoleConfirmationAdapter = Readonly<{
   ) => Promise<string | null>;
 }>;
 
+type ConsoleConfirmationOutcome = Readonly<{
+  status:
+    | "confirmed"
+    | "declined_invalid"
+    | "cancelled"
+    | "timeout"
+    | "unavailable"
+    | "reader_failed"
+    | "cleanup_unknown";
+}>;
+
+type ConsoleConfirmationOutcomeAdapter = Readonly<{
+  writeText: (outputDescriptor: number, value: string) => Promise<boolean>;
+  readLine: (
+    inputDescriptor: number,
+    cancellationSignal: AbortSignal,
+  ) => Promise<InteractiveConsoleReadOutcome>;
+}>;
+
 function isCancellationSignal(value: unknown): value is AbortSignal {
   return value instanceof AbortSignal;
 }
@@ -194,32 +214,72 @@ export async function confirmInteractiveConsoleChallengeUsingAdapter(
   );
 }
 
+export async function confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
+  notice: string,
+  challenge: string,
+  handles: Readonly<{ input: number; output: number }>,
+  cancellationSignal: AbortSignal,
+  adapter: ConsoleConfirmationOutcomeAdapter,
+): Promise<ConsoleConfirmationOutcome> {
+  if (!isCancellationSignal(cancellationSignal) || cancellationSignal.aborted)
+    return Object.freeze({ status: "cancelled" });
+  if (
+    !(await adapter.writeText(
+      handles.output,
+      `${notice}\n外部送信を承認する場合は ${challenge} を入力してください: `,
+    ))
+  ) {
+    return Object.freeze({ status: "unavailable" });
+  }
+  if (cancellationSignal.aborted) return Object.freeze({ status: "cancelled" });
+  const read = await adapter.readLine(handles.input, cancellationSignal);
+  let status: ConsoleConfirmationOutcome["status"] =
+    read.status === "completed"
+      ? read.line === challenge
+        ? "confirmed"
+        : "declined_invalid"
+      : read.status;
+  try {
+    if (!(await adapter.writeText(handles.output, "\n")))
+      status = "cleanup_unknown";
+  } catch {
+    status = "cleanup_unknown";
+  }
+  if (cancellationSignal.aborted && status !== "cleanup_unknown")
+    status = "cancelled";
+  return Object.freeze({ status });
+}
+
 async function consoleConfirmation(
   notice: string,
   challenge: string,
   cancellationSignal: AbortSignal,
 ) {
   const consoleLock = acquireRuntimeOwnedInteractiveConsoleKernelLock();
-  if (!consoleLock) return false;
-  let confirmed = false;
+  if (!consoleLock) return Object.freeze({ status: "unavailable" as const });
+  let outcome: ConsoleConfirmationOutcome = Object.freeze({
+    status: "reader_failed",
+  });
   try {
-    confirmed =
+    outcome =
       (await withInteractiveConsoleAsync((handles) =>
-        confirmInteractiveConsoleChallengeUsingAdapter(
+        confirmInteractiveConsoleChallengeOutcomeUsingAdapter(
           notice,
           challenge,
           handles,
           cancellationSignal,
           Object.freeze({
             writeText: writeInteractiveConsoleText,
-            readLine: readInteractiveConsoleLine,
+            readLine: readInteractiveConsoleLineOutcome,
           }),
         ),
-      )) ?? false;
+      )) ?? Object.freeze({ status: "unavailable" as const });
   } catch {
-    confirmed = false;
+    outcome = Object.freeze({ status: "reader_failed" });
   }
-  return consoleLock.release() ? confirmed : false;
+  return consoleLock.release()
+    ? outcome
+    : Object.freeze({ status: "cleanup_unknown" as const });
 }
 
 function createState(dependencies: RuntimeDependencies): RuntimeState {
@@ -330,15 +390,29 @@ async function requestGrant(
       terminalSafeJson(displayedAuthorization),
       "対象内容はProviderへ送信され、Subscription枠を消費する可能性があります。API key fallbackと追加購入は行いません。",
     ].join("\n");
-    if (
-      !(await state.dependencies.confirm(
-        notice,
-        challenge,
-        cancellationSignal,
-      )) ||
-      cancellationSignal.aborted
-    )
-      return null;
+    const rawConfirmation = await state.dependencies.confirm(
+      notice,
+      challenge,
+      cancellationSignal,
+    );
+    const confirmation: ConsoleConfirmationOutcome =
+      typeof rawConfirmation === "boolean"
+        ? Object.freeze({
+            status: rawConfirmation ? "confirmed" : "declined_invalid",
+          })
+        : rawConfirmation;
+    if (confirmation.status !== "confirmed" || cancellationSignal.aborted) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: `external_send_confirmation_${
+          cancellationSignal.aborted ? "cancelled" : confirmation.status
+        }`,
+        manualRecoveryRequired: confirmation.status === "cleanup_unknown",
+        externalSendAuthorized: false,
+        rawContentReported: false,
+        hostPathReported: false,
+      });
+    }
     const capability = Object.freeze({});
     state.grants.set(capability, {
       managementCapability,

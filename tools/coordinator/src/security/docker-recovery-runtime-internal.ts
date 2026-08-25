@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { createWindowsDockerCliEnvironment } from "../core/windows-child-environment.ts";
 import {
   acquireRuntimeOwnedDockerRuntimeStateKernelLock,
   acquireRuntimeOwnedLogicalProviderHomeKernelLock,
@@ -2143,18 +2144,18 @@ function runRecoveryDocker(
   verifyRecoveryDockerCli();
   if (recoveryConfigIdentity(configDirectory) !== configIdentity)
     throw new Error("docker_task_recovery_config_untrusted");
+  const environment = createWindowsDockerCliEnvironment({
+    dockerConfig: null,
+    dockerHome: null,
+  });
+  if (!environment) throw new Error("docker_recovery_environment_unavailable");
   const result = spawnSync(
     DOCKER_EXECUTABLE,
     ["--host", DOCKER_ENGINE, "--config", configDirectory, ...argv],
     {
       windowsHide: true,
       shell: false,
-      env: {
-        SystemRoot: "C:\\Windows",
-        WINDIR: "C:\\Windows",
-        SystemDrive: "C:",
-        DOCKER_CLI_HINTS: "false",
-      },
+      env: environment,
       encoding: "utf8",
       timeout: 10_000,
       maxBuffer: 1_048_576,

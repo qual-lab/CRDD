@@ -266,12 +266,18 @@ test("固定planのcommandだけを固定CLI・Engine・最小環境へ渡す", 
     "--config",
     "C:\\operation\\management\\docker-cli-config",
   ]);
-  assert.deepEqual(invocation.environment, {
-    SystemRoot: "C:\\Windows",
-    WINDIR: "C:\\Windows",
-    SystemDrive: "C:",
-    DOCKER_CLI_HINTS: "false",
-  });
+  assert.equal(invocation.environment.SystemRoot, "C:\\Windows");
+  assert.equal(invocation.environment.WINDIR, "C:\\Windows");
+  assert.equal(invocation.environment.DOCKER_CLI_HINTS, "false");
+  for (const name of [
+    "PATH",
+    "USERPROFILE",
+    "HOME",
+    "HTTPS_PROXY",
+    "NODE_OPTIONS",
+  ]) {
+    assert.equal(invocation.environment[name], "");
+  }
   assert.equal(fixture.counts().configCreated, 1);
 });
 

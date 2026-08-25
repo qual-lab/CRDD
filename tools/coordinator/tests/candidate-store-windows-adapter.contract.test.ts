@@ -53,6 +53,10 @@ test("Candidate Store adapterは固定Known Folderとexact保護観測だけをA
   assert.match(contract.observation, /fixed_volume_non_reparse/u);
   assert.equal(contract.callerSuppliedPathAccepted, false);
   assert.equal(contract.inheritedEnvironmentTrustedDirectly, false);
+  assert.equal(
+    contract.environment,
+    "validated_windows_directory_and_fixed_neutral_ambient_names",
+  );
   assert.equal(contract.rawPathReported, false);
   assert.equal(contract.networkEffectIssued, false);
 });

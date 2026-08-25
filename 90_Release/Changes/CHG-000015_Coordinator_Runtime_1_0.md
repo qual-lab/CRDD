@@ -6,9 +6,9 @@
 最終更新日: 2026-08-25
 対象系列: Coordinator Runtime 1.x
 対象バージョン: 1.0 Candidate
-変更分類: `additive`（非規範Reference Implementation候補）
-リリースレベル: 未確定
-`migration_required`: `false`（Runtimeを未採用のCRDD利用側。将来の配布・採用判断は別途評価）
+変更分類: `normative`（Runtime実装に加え、標準保守と公式／配布AI入口の一般規則を強化）
+リリースレベル: `MINOR`（v0.18.0候補。統合Release全体の最大分類はCHANGELOGを正本とする）
+`migration_required`: `true`（標準保守、公式AI入口または配布`template/AGENTS.md`を利用する採用側は利用側処置を評価）
 
 正本規則: [変更](../../12_Change.md)
 
@@ -1583,3 +1583,19 @@ readerは検証済みOperation管理Capabilityの後、Provider／Network／work
 cleanupは例外を捕捉した事実だけで成功にせず、全remove／close試行を続行して終了後条件を集約する。出力listenerのremove例外、入力の各listener remove例外、Abort binding、pause、両console descriptorおよびkernel lockを確認し、一つでも不成立なら正しいchallengeを受けても成功へ昇格しない。事前確認が成立して実処理が不成立となる状態変化では、Provider／Network／workspace Effectを開始せず、既存Operation cleanup／Recoveryへ戻す。事前確認のopen／inspect／close自体は一時OS資源取得であり、Provider Effect 0と同一視しない。
 
 決定論的試験は、Task stdinを構造化搬送へ固定し親console moduleが`process.stdin`を読まないこと、readerの非TTY拒否、厳密line protocol、cleanup全試行、同時kernel lock、empty env、固定argv／stdioおよび公開export不変を確認する。親Processの状態機械は、子`close`先行、stdout `close`先行、遅延出力、重複通知、取消、timeout、IPC停止、強制終了失敗およびlistener残存0を再現し、子とstdoutの双方の`close`を確認できるまで通常結果を返さない。OSが固定子の終了を報告できない場合は、状態不明のまま成功またはGrantを返さずfail-stopを維持する。Windows実測では親が開いた`CONIN$`を子fd0へ複製すると子がTTYとして認識し、取消後約0.6秒で子`close`まで完了し、250 ms後の親active handleにChildProcessは残らなかった。さらに実子Processのfd0をTask JSON pipe、fd1を`CONOUT$`、対話readerを別`CONIN$`へ同時に結び、取消完了後もTask JSON byte列がfd0へ完全に残ることを確認した。Coordinator全786試験、Checker全153試験、package／対話／Grant／lock重点30試験、strict typecheck、Lint、FormatterおよびRepository全体Checker（702 files、384 Markdown、2237 links、652 anchors、Error 0、Warning 0）はPassした。固定Commit／TreeへのArchitecture／Security、Document／GapおよびTest／UX独立再レビュー前は旧Majorを`Resolved`、再署名、正式一般TaskまたはRuntime完成へ昇格しない。リリース順序`2026082502`は再利用しない。
+
+##### 親死活・Package Identity・実子Environmentを閉じるrevision 7是正
+
+固定版`38a72267ea58af15c5d181cf99ba34cd2ee40846`／Tree `6cb2e11202d95ae72917c3df8e54e68040a50aae`へのArchitecture／Security、Document／GapおよびTest／UX独立再レビューは、fd0分離と通常cleanupを解消済みとした一方、親Process消失時に固定readerが自身のtimeoutまで残り得ること、公開`coordinator task --request-stdin`が署名package検証済み状態をTask入口へ結合していないこと、Windowsの`env:{}`が実子へPATH／profile系のambient値を補うこと、argvとEvidenceの表現差および本CHGの変更分類差を検出した。三監査へ統合是正方針を戻し、競合なしの`Accept with Conditions`を得てから同一未リリースCHG内で一括是正した。
+
+固定readerは親IPCの`disconnect`を読取り開始前から監視し、監視登録後に接続状態を再確認する。親消失、取消またはtimeoutでは保留入力を終了し、子Process、stdout、IPC、listener、timer、console descriptorおよびkernel lockの終了後状態を確認する。親消失後は結果をstdoutへ書かず、書込み中のdisconnect／EPIPEもGrantへ昇格しない。Windows実Processで親だけを強制終了し、固定reader PID不存在、kernel lock再取得および次readerの単独成立を外部observerから確認する。
+
+固定manifestの署名、Release Identity、Commit／Tree、package content rootおよび固定reader artifactを再検証した同一Processだけが、短命・一回限り・非serializeのopaque verified-package capabilityを発行できる。公開Task入口と正式Runnerは同じ発行経路を使用し、Task本番facadeはconsume時にfresh検証とIdentity一致を再確認する。欠落、偽造、別配布Root、別Release、差替えまたは期限切れは、Operation、console、kernel lock、Candidate Store、workspace、ProviderおよびNetwork Effectより前に停止する。Task JSON schema、argv、環境、fileまたはcaller claimで検証済み状態を移送しない。
+
+WindowsではNodeへ空または非空の環境mapを渡した事実を親環境非継承の根拠にしない。内部Node reader、署名済みnative helperおよびDocker CLIは用途別の固定Profileを使い、検証したWindows directoryだけを実値として渡し、OSが補い得るPATH、HOME、profile、proxy、Credential helperおよびNode injection名は固定neutral値へ閉じる。実子が観測するkey集合とneutral状態を秘密値なしで確認する。Worker threadの`env:{}`はCreateProcess環境ではないため別契約として理由付き非該当とする。argv契約は固定絶対entrypoint exact 1件と追加引数0件を示す`fixed_entrypoint_only_no_dynamic_arguments`へ統一する。
+
+対話結果は内部の`confirmed`、`declined_invalid`、`cancelled`、`timeout`、`unavailable`、`reader_failed`および`cleanup_unknown`へ上限付き分類する。入力値、challenge、PID、Path、環境値または生OS errorは公開しない。Prompt後の改行は表示上のbest effortであり、cleanup成立の代替にしない。Grantは確認成功、取消なしおよび全cleanup成立時だけ発行し、`cleanup_unknown`は通常拒否へ弱めず手動回復を要求する。
+
+本CHGはRuntime実装だけでなく、`10_Agent.md`、`19_Maintenance.md`、公式`AGENTS.md`、配布`template/AGENTS.md`および`tools/coding-standards.md`の規範を同じ未リリース意図で変更しているため、最大強度を`normative`、v0.18.0候補のリリースレベルを`MINOR`、`migration_required`を`true`へ是正する。採用側は標準保守、公式／配布AI入口、resource-role分離、preflight同等性、cleanup結合および監査往復の汎化利用側を棚卸しし、移行、置換、据え置きまたは対象外を記録する。Node IPC、Windows console名、具体的環境key、timeoutおよびbyte上限はCoordinator実装へ残し、一般規範へ昇格しない。最終Release、統合および残存リスク受容は人間の決定権限に残す。
+
+本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で、親Process強制終了、実子Environment、Package Capability、外部送信承認、Task入口およびDocker cleanupを含む重点117試験、Coordinator全790試験、Checker全153試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、Repository全体Checkerおよび`git diff --check`をPassした。全体Checkerは704 files／384 Markdown／2237 links／652 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。新固定Commit／TreeへのArchitecture／Security、Document／Gap、Test／UXおよび規範変更に対するConformance確認を含む全再監査が`Pass`する前に`Resolved`、再署名、正式一般Task、Provider Effect、Runtime完成またはRelease可能へ昇格しない。リリース順序`2026082502`は再利用しない。
