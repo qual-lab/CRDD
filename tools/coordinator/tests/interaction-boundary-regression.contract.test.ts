@@ -25,8 +25,8 @@ function sourceFiles(root: string): string[] {
 test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", () => {
   assert.deepEqual(describeInteractiveConsoleContract(), {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 1,
-    windowsDevices: ["CONIN$", "CONOUT$"],
+    contractRevision: 2,
+    windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     posixDevice: "/dev/tty",
     standardInputFallbackAllowed: false,
     shellTransportAllowed: false,

@@ -1521,3 +1521,15 @@ Object Format preflightは、選択worktreeのGit DirectoryにあるHEADと、Co
 Object FormatとOID幅の是正後、初回から存在した中間junction境界を再レビューで検出した。厳しい独立監査が未知の反例を検出する役割は維持する一方、修正担当側の着手前整合が入力形式へ偏り、Path alias、lifecycle段階、Effect発生点および重複readerを同じ確認母集団へ含めなかったため、既知の隣接条件を固定版ごとに小出しで処置する往復が生じた。これはモデルをCodexからClaude Codeへ替えるだけでは解消せず、モデル差に依存しない母集団とEvidence対応が必要である。
 
 既存の着手前整合確認、複数箇所是正、初回レビュー網羅性および変更実行契約を正本としたまま、Trust／Security／Authority／Effect境界では入力／状態、alias・indirection・境界、lifecycle段階およびEffect発生点を適用可能な確認軸として先に固定する。preflightと後段Gate等が同じ対象を読む場合は、全observer／reader／parserと利用側を列挙し、共通bounded primitiveまたは同等性と意図した差の試験へ接続する。再レビューで既知母集団内の見落としを検出した場合は一箇所だけを再修正せず、未走査組合せと並行Gateを修正担当側で一括再照合して次の固定候補へまとめる。`10_Agent.md`、`19_Maintenance.md`および`tools/coding-standards.md`の既存条項をこの具体性まで強化し、新しい監査、承認段階、正本文書、恒久表または安定コンテキストIDは追加しない。Coordinator実装READMEは、上位Coordinatorが`acceptanceCriteria`へ確認母集団を具体化する接続と、Task Packet Runtime自身は自然言語上の完全性を生成・証明しない現在限界を明示する。
+
+##### Windows対話Console device path是正
+
+最終候補`f09694b6d3ea1d4d73d4c56e6e2dc86dce8d4c11`を署名した正式一般Taskの実行では、可視PowerShell、明示`conhost.exe`および可視`cmd.exe`のいずれから起動しても、Release検証またはTask Effectより前に`signed_general_task_interactive_console_required`で停止した。全停止でProvider、Docker、Network、Candidateまたはcanonical Repository Effectは0、Recovery IDはなく、手動回復は不要だった。
+
+原因は起動Shellではなく、共通対話Console primitiveがWindows deviceを相対名`CONIN$`／`CONOUT$`で開いていたことである。Node.js 24系のWindows filesystem APIはこれらを現在Directory配下の相対Pathとして扱い`ENOENT`にし、明示device namespace `\\.\CONIN$`／`\\.\CONOUT$`だけをConsole deviceとして開ける。これは外部送信Grantと正式Runnerが共有する同一primitiveの実装不具合であり、人間へ手動Command Prompt起動を要求しても解消しない。
+
+是正ではWindows device名だけを明示namespaceへ変更し、共通対話Console契約をrevision 2へ更新する。POSIX `/dev/tty`、標準入力fallback禁止、Shell搬送禁止、Console不在／open失敗時のFail Closed、challengeの一回限り入力および出力境界は変更しない。外部送信Grantと正式Runnerは共通primitive参照で追従し、個別fallbackまたは別Console所有者を追加しない。未リリースCHG-000015内の回帰として同じ変更、検証、切戻しおよびリリース境界で是正し、別CHGへ分割しない。
+
+発火例は実Win32 Consoleへ接続したWindows processで両明示deviceを開ける場合、非発火例はConsoleを必要としない通常の非対話処理、境界例はstdin／stdoutがpipeでもprocessがConsoleへ接続されている場合、判定情報不足例はdevice openの一方または両方が失敗する場合である。最後のケースは従来どおりEffect前に停止する。
+
+本処置は`Applied`／`Self-checked`である。Node.js 24.19.0で共通Console／正式Runner／外部送信Grant重点19試験、Coordinator全771試験、Checker全試験、Coordinatorのstrict typecheck、Biome Lint／Formatter、リポジトリ全体Checkerおよび`git diff --check`をPassした。全体Checkerは701 files／384 Markdown／2,235 links／650 anchors／29 Related／28 versioned documents／8 stable IDs／74 remediation rows／Error 0／Warning 0である。固定Commit／Tree、共通primitiveの利用側水平確認、独立Architecture／SecurityおよびTest／UX再レビュー、再署名、正式一般Task実runと残存0確認が完了する前に本指摘事項を`Resolved`、Runtime完成またはリリース可能へ昇格しない。

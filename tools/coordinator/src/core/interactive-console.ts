@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 1;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 2;
 
 type InteractiveConsoleHandles = Readonly<{
   input: number;
@@ -11,7 +11,7 @@ type InteractiveConsoleHandles = Readonly<{
 
 function consoleDeviceNames() {
   return process.platform === "win32"
-    ? Object.freeze({ input: "CONIN$", output: "CONOUT$" })
+    ? Object.freeze({ input: "\\\\.\\CONIN$", output: "\\\\.\\CONOUT$" })
     : Object.freeze({ input: "/dev/tty", output: "/dev/tty" });
 }
 
@@ -41,7 +41,7 @@ export function describeInteractiveConsoleContract() {
   return Object.freeze({
     contract: INTERACTIVE_CONSOLE_CONTRACT,
     contractRevision: INTERACTIVE_CONSOLE_CONTRACT_REVISION,
-    windowsDevices: Object.freeze(["CONIN$", "CONOUT$"]),
+    windowsDevices: Object.freeze(["\\\\.\\CONIN$", "\\\\.\\CONOUT$"]),
     posixDevice: "/dev/tty",
     standardInputFallbackAllowed: false,
     shellTransportAllowed: false,
