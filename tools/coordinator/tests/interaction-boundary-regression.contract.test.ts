@@ -762,16 +762,16 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     context.skip("Windows Local Personal contract");
     return;
   }
-  for (const environment of [
-    createWindowsNodeConsoleReaderEnvironment(),
-    createWindowsNativeHelperEnvironment(),
-  ]) {
+  for (const [kind, environment] of [
+    ["console", createWindowsNodeConsoleReaderEnvironment()],
+    ["native", createWindowsNativeHelperEnvironment()],
+  ] as const) {
     assert.ok(environment);
     const result = spawnSync(
       process.execPath,
       [
         "-e",
-        "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR'].includes(k.toUpperCase())).every(([,v])=>v===''),systemRoot:process.env.SystemRoot,windir:process.env.WINDIR}))",
+        "process.stdout.write(JSON.stringify({keys:Object.keys(process.env).sort(),neutral:Object.entries(process.env).filter(([k])=>!['SYSTEMROOT','WINDIR','USERPROFILE'].includes(k.toUpperCase())).every(([,v])=>v===''),systemRoot:process.env.SystemRoot,windir:process.env.WINDIR,userProfile:process.env.USERPROFILE}))",
       ],
       {
         shell: false,
@@ -787,6 +787,10 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     assert.equal(typeof observed.systemRoot, "string");
     assert.equal(observed.systemRoot.length > 0, true);
     assert.equal(observed.windir, observed.systemRoot);
+    assert.equal(
+      observed.userProfile,
+      kind === "native" ? path.win32.normalize(os.userInfo().homedir) : "",
+    );
     assert.equal(
       observed.keys.includes("SystemRoot") ||
         observed.keys.includes("SYSTEMROOT"),
@@ -835,18 +839,41 @@ test("Windows directoryの親環境差替えを子Environment Authorityにしな
   );
   const originalSystemRoot = process.env.SystemRoot;
   const originalWindir = process.env.WINDIR;
+  const originalUserProfile = process.env.USERPROFILE;
   try {
     process.env.SystemRoot = root;
     process.env.WINDIR = root;
-    const environment = createWindowsNodeConsoleReaderEnvironment();
-    assert.ok(environment);
-    const values = environment as Readonly<Record<string, string>>;
-    assert.equal(values.SystemRoot, originalSystemRoot);
-    assert.equal(values.WINDIR, originalSystemRoot);
+    process.env.USERPROFILE = root;
+    const consoleEnvironment = createWindowsNodeConsoleReaderEnvironment();
+    const nativeEnvironment = createWindowsNativeHelperEnvironment();
+    assert.ok(consoleEnvironment);
+    assert.ok(nativeEnvironment);
+    const consoleValues = consoleEnvironment as Readonly<
+      Record<string, string>
+    >;
+    const nativeValues = nativeEnvironment as Readonly<Record<string, string>>;
+    assert.equal(consoleValues.SystemRoot, originalSystemRoot);
+    assert.equal(consoleValues.WINDIR, originalSystemRoot);
+    assert.equal(consoleValues.USERPROFILE, "");
+    assert.equal(nativeValues.SystemRoot, originalSystemRoot);
+    assert.equal(nativeValues.WINDIR, originalSystemRoot);
+    assert.equal(
+      nativeValues.USERPROFILE,
+      path.win32.normalize(os.userInfo().homedir),
+    );
+    assert.notEqual(
+      nativeValues.USERPROFILE.toLocaleLowerCase("en-US"),
+      root.toLocaleLowerCase("en-US"),
+    );
     const result = spawnSync(
       process.execPath,
       ["-e", "process.stdout.write(String(process.env.SystemRoot))"],
-      { shell: false, env: environment, encoding: "utf8", timeout: 5_000 },
+      {
+        shell: false,
+        env: consoleEnvironment,
+        encoding: "utf8",
+        timeout: 5_000,
+      },
     );
     assert.equal(result.status, 0, result.stderr);
     assert.notEqual(
@@ -858,6 +885,8 @@ test("Windows directoryの親環境差替えを子Environment Authorityにしな
     else process.env.SystemRoot = originalSystemRoot;
     if (originalWindir === undefined) delete process.env.WINDIR;
     else process.env.WINDIR = originalWindir;
+    if (originalUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = originalUserProfile;
     fs.rmSync(path.join(system32, "kernel32.dll"));
     fs.rmdirSync(system32);
     fs.rmdirSync(root);

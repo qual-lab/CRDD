@@ -1,9 +1,10 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 1;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 2;
 
 // Windows may populate these names even when Node receives an empty env map.
 // Keep the names present with fixed neutral values so the child cannot observe
@@ -113,6 +114,31 @@ function observedWindowsDirectoryFromLoadedSystemModule() {
   }
 }
 
+function observedWindowsUserProfileFromOs() {
+  try {
+    const candidate = path.win32.normalize(os.userInfo().homedir);
+    if (
+      !path.win32.isAbsolute(candidate) ||
+      candidate.includes("\0") ||
+      path.win32.parse(candidate).root === candidate
+    ) {
+      return null;
+    }
+    const metadata = fs.lstatSync(candidate);
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      fs.realpathSync.native(candidate).toLocaleLowerCase("en-US") !==
+        candidate.toLocaleLowerCase("en-US")
+    ) {
+      return null;
+    }
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
 export function createInteractiveConsoleReaderEnvironment(
   platform: NodeJS.Platform = process.platform,
 ) {
@@ -125,7 +151,10 @@ export function createWindowsNodeConsoleReaderEnvironment() {
 }
 
 export function createWindowsNativeHelperEnvironment() {
-  return fixedWindowsEnvironment(Object.freeze({}));
+  if (process.platform !== "win32") return null;
+  const userProfile = observedWindowsUserProfileFromOs();
+  if (!userProfile) return null;
+  return fixedWindowsEnvironment(Object.freeze({ USERPROFILE: userProfile }));
 }
 
 export function createWindowsDockerCliEnvironment(
@@ -159,7 +188,7 @@ export function describeWindowsChildEnvironmentContract() {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
     contractRevision: WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION,
     provenance:
-      "loaded_kernel32_os_observation_plus_fixed_neutral_values_no_parent_environment_authority",
+      "loaded_kernel32_and_os_user_profile_observation_plus_fixed_neutral_values_no_parent_environment_authority",
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
     actualChildObservationRequired: true,
