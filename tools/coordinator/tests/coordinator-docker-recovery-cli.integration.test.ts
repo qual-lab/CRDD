@@ -80,21 +80,41 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
     reason: "docker_task_runtime_state_unavailable",
     recoveryId: recoveryId,
     manualRecoveryRequired: true,
-    evidencePreserved: true,
+    evidenceState: "unknown",
   });
   assert.equal(result.stderr, "");
 });
 
-test("実CLIの人間表示はmanual recoveryとEvidence保持を示し反復実行を誘導しない", () => {
+test("実CLIの人間表示はmanual recoveryとEvidence不明を示し反復実行を誘導しない", () => {
   const result = invokeCli(false);
   assert.equal(result.status, 2, result.stderr);
   assert.match(result.stdout, /Coordinator environment: blocked/u);
   assert.match(result.stdout, new RegExp(`recovery ID: ${recoveryId}`, "u"));
   assert.match(result.stdout, /automatic recovery stopped/u);
-  assert.match(result.stdout, /evidence preserved/u);
+  assert.match(result.stdout, /evidence: preservation unknown/u);
   assert.doesNotMatch(result.stdout, /next: coordinator doctor/u);
   assert.doesNotMatch(result.stdout, /C:\\/u);
   assert.equal(result.stderr, "");
+});
+
+test("CLI共通projectorはEvidenceの保持・非保持・不明を推測せず分離する", () => {
+  for (const [evidenceState, expected] of [
+    ["preserved", /recovery evidence: preserved/u],
+    ["not_preserved", /recovery evidence: not preserved/u],
+    ["unknown", /recovery evidence: preservation unknown/u],
+  ] as const) {
+    const human = renderDockerRecoveryDoctorReport(
+      {
+        status: "blocked",
+        reason: "docker_task_recovery_create_outcome_unknown",
+        recoveryId: evidenceState === "not_preserved" ? null : recoveryId,
+        manualRecoveryRequired: true,
+        evidenceState,
+      },
+      false,
+    );
+    assert.match(human.stdout, expected);
+  }
 });
 
 test("CLI共通projectorはHost release不明時もexact IDと再実行commandを保持する", () => {

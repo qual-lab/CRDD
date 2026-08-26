@@ -51,7 +51,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 16;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 17;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -946,10 +946,11 @@ export function recordRuntimeOwnedDockerResourceReceipt(
         record.operationDirectory,
         `receipt-${purpose}.json`,
         Object.freeze({
-          schema: "crdd-coordinator-docker-resource-receipt/v1",
+          schema: "crdd-coordinator-docker-resource-receipt/v2",
           purpose,
           dockerId,
           recoveryId: record.recoveryId,
+          source: "docker_create_result",
         }),
       );
     });
@@ -1543,17 +1544,30 @@ function validateOperationRecord(
       name ===
         `submission-${String((value as Record<string, unknown>).purpose)}.json`
     );
-  if (/^receipt-/u.test(name))
-    return (
+  if (/^receipt-/u.test(name)) {
+    const record = value as Record<string, unknown>;
+    const commonMatches =
+      record.recoveryId === recoveryId &&
+      CREATE_PURPOSES.has(String(record.purpose)) &&
+      name === `receipt-${String(record.purpose)}.json` &&
+      HEX64.test(String(record.dockerId));
+    const legacyMatches =
       exactRecordKeys(value, ["schema", "purpose", "dockerId", "recoveryId"]) &&
-      (value as Record<string, unknown>).schema ===
-        "crdd-coordinator-docker-resource-receipt/v1" &&
-      (value as Record<string, unknown>).recoveryId === recoveryId &&
-      CREATE_PURPOSES.has(String((value as Record<string, unknown>).purpose)) &&
-      name ===
-        `receipt-${String((value as Record<string, unknown>).purpose)}.json` &&
-      HEX64.test(String((value as Record<string, unknown>).dockerId))
-    );
+      record.schema === "crdd-coordinator-docker-resource-receipt/v1";
+    const currentMatches =
+      exactRecordKeys(value, [
+        "schema",
+        "purpose",
+        "dockerId",
+        "recoveryId",
+        "source",
+      ]) &&
+      record.schema === "crdd-coordinator-docker-resource-receipt/v2" &&
+      ["docker_create_result", "runtime_reconciliation"].includes(
+        String(record.source),
+      );
+    return commonMatches && (legacyMatches || currentMatches);
+  }
   const record = value as Record<string, unknown>;
   if (name === "docker-absence.json")
     return (
@@ -2191,6 +2205,10 @@ export function recoverExactDockerResourceWithRunner(
   expectedNetworks: readonly string[],
   operationMode: "boolean_probe" | "isolated_task",
   workspaceMountMode: "read_write" | "read_only" | null,
+  options: Readonly<{
+    allowAlreadyAbsent?: boolean;
+    removeAfterVerification?: boolean;
+  }> = Object.freeze({}),
 ) {
   const exactNameAbsent = () => {
     const named = runDocker(
@@ -2253,7 +2271,8 @@ export function recoverExactDockerResourceWithRunner(
   )
     return false;
   const ids = listed.stdout.trim() ? listed.stdout.trim().split(/\r?\n/u) : [];
-  if (ids.length === 0) return exactNameAbsent();
+  if (ids.length === 0)
+    return options.allowAlreadyAbsent !== false && exactNameAbsent();
   if (ids.length !== 1 || ids[0] !== dockerId) return false;
   const inspected = runDocker(
     kind === "container"
@@ -2390,6 +2409,7 @@ export function recoverExactDockerResourceWithRunner(
     !configurationMatches
   )
     return false;
+  if (options.removeAfterVerification === false) return true;
   const removed = runDocker(
     kind === "container"
       ? ["container", "rm", "--force", dockerId]
@@ -2471,14 +2491,14 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
   const labelFilter = `label=${ownershipLabel}`;
   const byName = ids(list(nameFilter));
   const byOwnership = ids(list(nameFilter, labelFilter));
-  if (!byName || !byOwnership) return false;
-  if (byName.length === 0 && byOwnership.length === 0) return false;
+  if (!byName || !byOwnership) return null;
+  if (byName.length === 0 && byOwnership.length === 0) return null;
   if (
     byName.length !== 1 ||
     byOwnership.length !== 1 ||
     byName[0] !== byOwnership[0]
   )
-    return false;
+    return null;
   return recoverExactDockerResourceWithRunner(
     runDocker,
     kind,
@@ -2491,7 +2511,13 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
     expectedNetworks,
     operationMode,
     workspaceMountMode,
-  );
+    Object.freeze({
+      allowAlreadyAbsent: false,
+      removeAfterVerification: false,
+    }),
+  )
+    ? (byName[0] as string)
+    : null;
 }
 
 function recoverExactDockerResource(
@@ -3572,7 +3598,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
               : kind === "container"
                 ? [String(resources.internal)]
                 : [];
-        const recovered = outsideRuntimeStateLock(() =>
+        const discoveredDockerId = outsideRuntimeStateLock(() =>
           recoveryDockerRunner
             ? recoverUnknownDockerCreateOutcomeWithRunner(
                 recoveryDockerRunner,
@@ -3600,9 +3626,19 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
                 workspaceMountMode,
               ),
         );
-        if (!recovered)
+        if (!discoveredDockerId)
           throw new Error("docker_task_recovery_create_outcome_unknown");
-        continue;
+        writeDurableJson(
+          operationDirectory,
+          `receipt-${purpose}.json`,
+          Object.freeze({
+            schema: "crdd-coordinator-docker-resource-receipt/v2",
+            purpose,
+            dockerId: discoveredDockerId,
+            recoveryId: parsed.token,
+            source: "runtime_reconciliation",
+          }),
+        );
       }
       const receipt = readExactJson(receiptPath).value as Record<
         string,
@@ -3846,12 +3882,23 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
   const parsed = parseDockerTaskRecoveryId(token);
   try {
     const result = recoverRuntimeOwnedDockerTaskInternal(token);
+    const inventory =
+      result.status === "blocked" && parsed
+        ? inspectRuntimeOwnedDockerTaskRecoveryState()
+        : null;
+    const evidenceState =
+      inventory?.status === "completed"
+        ? (inventory.dockerRecoveryIds as readonly string[]).includes(
+            parsed?.token ?? "",
+          )
+          ? "preserved"
+          : "not_preserved"
+        : "unknown";
     return Object.freeze({
       ...result,
-      manualRecoveryRequired:
-        result.status === "blocked" && typeof result.recoveryId === "string",
-      evidencePreserved:
-        result.status === "blocked" && typeof result.recoveryId === "string",
+      recoveryId: evidenceState === "not_preserved" ? null : result.recoveryId,
+      manualRecoveryRequired: result.status === "blocked" && Boolean(parsed),
+      evidenceState,
     });
   } catch (error) {
     return Object.freeze({
@@ -3859,7 +3906,7 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       reason: safeRecoveryReason(error, "docker_task_recovery_failed_closed"),
       recoveryId: parsed?.token ?? null,
       manualRecoveryRequired: Boolean(parsed),
-      evidencePreserved: Boolean(parsed),
+      evidenceState: "unknown" as const,
     });
   }
 }
@@ -4854,7 +4901,7 @@ export function describeDockerRecoveryRuntimeContract() {
     completionEvidence:
       "exact_durable_evidence_required_and_empty_root_is_not_a_receipt",
     offlineRecovery:
-      "receipt_missing_empty_observation_remains_manual_same_single_operation_owned_name_and_label_requires_full_configuration_before_removal",
+      "receipt_missing_empty_observation_remains_manual_discovered_exact_id_requires_full_configuration_and_durable_reconciled_receipt_before_removal",
     hostFinalization:
       "host_generation_owner_and_inventory_then_cleanup_intent_receipt_and_exact_removal",
     synchronizationRelease:
