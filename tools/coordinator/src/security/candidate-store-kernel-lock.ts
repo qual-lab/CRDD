@@ -13,6 +13,7 @@ type HostOperationSupervisorCleanup =
   | "cleanup_unknown";
 export type HostOperationLockSupervisor = Readonly<{
   assertLive: () => boolean;
+  onFailureDetected: (listener: () => void) => () => void;
   failureDetected: Promise<void>;
   loss: Promise<Exclude<HostOperationSupervisorCleanup, "released">>;
   confirmReady: () => Promise<
@@ -335,16 +336,20 @@ function exactSupervisorStatus(message: unknown) {
   )
     return null;
   const status = Reflect.get(message, "status");
-  return ["acquired", "ready", "released", "unavailable"].includes(
-    String(status),
-  )
+  return [
+    "acquired",
+    "ready",
+    "release-ready",
+    "released",
+    "unavailable",
+  ].includes(String(status))
     ? String(status)
     : null;
 }
 
 function waitForSupervisorStatus(
   child: SupervisorChild,
-  expected: "acquired" | "ready" | "released",
+  expected: "acquired" | "ready" | "release-ready" | "released",
   timeoutMs: number,
 ) {
   return new Promise<SupervisorObservation>((resolve) => {
@@ -409,6 +414,10 @@ function unresolvedSupervisorLock(child: SupervisorChild) {
   releaseSupervisorHandles(child);
   return Object.freeze({
     assertLive: () => false,
+    onFailureDetected: (listener: () => void) => {
+      listener();
+      return () => undefined;
+    },
     failureDetected: Promise.resolve(),
     loss: Promise.resolve("cleanup_unknown" as const),
     confirmReady: async () => "cleanup_unknown" as const,
@@ -512,12 +521,21 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   );
   let resolveFailureDetected!: () => void;
   let failureWasDetected = false;
+  const failureListeners = new Set<() => void>();
   const failureDetected = new Promise<void>((resolve) => {
     resolveFailureDetected = resolve;
   });
   const detectFailure = () => {
     if (failureWasDetected) return;
     failureWasDetected = true;
+    for (const listener of failureListeners) {
+      try {
+        listener();
+      } catch {
+        // Detection is monotonic; one observer cannot suppress another.
+      }
+    }
+    failureListeners.clear();
     resolveFailureDetected();
   };
   const finalizeFailure = () => {
@@ -568,6 +586,14 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   };
   const lock: HostOperationLockSupervisor = Object.freeze({
     assertLive,
+    onFailureDetected: (listener) => {
+      if (failureWasDetected) {
+        listener();
+        return () => undefined;
+      }
+      failureListeners.add(listener);
+      return () => failureListeners.delete(listener);
+    },
     failureDetected,
     loss,
     confirmReady: async () => {
@@ -600,6 +626,17 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
       child.removeListener("message", unexpectedMessage);
       expectedClosure = true;
       state = "closing";
+      const releaseReady = waitForSupervisorStatus(
+        child,
+        "release-ready",
+        timing.releaseTimeoutMs,
+      );
+      try {
+        child.send("release");
+      } catch {
+        return finalizeFailure();
+      }
+      if ((await releaseReady) !== "expected") return finalizeFailure();
       const releaseStatus = waitForSupervisorStatus(
         child,
         "released",
@@ -618,7 +655,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
         });
       });
       try {
-        child.send("release");
+        child.send("confirm-release");
       } catch {
         return finalizeFailure();
       }

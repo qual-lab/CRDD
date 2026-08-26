@@ -12,9 +12,15 @@ if (
   process.exit(64);
 
 const server = createServer();
-let state: "starting" | "acquired" | "ready" | "closing" = "starting";
+let state: "starting" | "acquired" | "ready" | "closing" | "release_pending" =
+  "starting";
+let closeStarted = false;
+let closeExitCode = 0;
+let shouldReportRelease = false;
 
-function send(status: "acquired" | "ready" | "released" | "unavailable") {
+function send(
+  status: "acquired" | "ready" | "release-ready" | "released" | "unavailable",
+) {
   if (!process.connected || typeof process.send !== "function") return false;
   try {
     process.send(Object.freeze({ status }));
@@ -30,14 +36,46 @@ function disconnectAndExit(exitCode: number) {
 }
 
 function closeAndExit(reportRelease: boolean, exitCode: number) {
-  if (state === "closing") return;
+  if (exitCode !== 0) {
+    closeExitCode = exitCode;
+    shouldReportRelease = false;
+  } else if (!closeStarted) {
+    closeExitCode = 0;
+    shouldReportRelease = reportRelease;
+  }
+  if (closeStarted) {
+    if (state === "release_pending" && closeExitCode !== 0)
+      disconnectAndExit(closeExitCode);
+    return;
+  }
+  closeStarted = true;
   state = "closing";
   const finish = () => {
-    if (reportRelease && !send("released")) return disconnectAndExit(70);
-    disconnectAndExit(exitCode);
+    setImmediate(() => {
+      if (shouldReportRelease && !send("released"))
+        return disconnectAndExit(70);
+      disconnectAndExit(closeExitCode);
+    });
   };
   if (server.listening) server.close(finish);
   else finish();
+}
+
+function beginRelease() {
+  if (closeStarted) return closeAndExit(false, 65);
+  closeStarted = true;
+  closeExitCode = 0;
+  shouldReportRelease = false;
+  state = "closing";
+  const prepared = () => {
+    setImmediate(() => {
+      if (closeExitCode !== 0) return disconnectAndExit(closeExitCode);
+      state = "release_pending";
+      if (!send("release-ready")) closeAndExit(false, 70);
+    });
+  };
+  if (server.listening) server.close(prepared);
+  else prepared();
 }
 
 process.on("message", (message: unknown) => {
@@ -49,7 +87,15 @@ process.on("message", (message: unknown) => {
     return;
   }
   if (message === "release" && (state === "acquired" || state === "ready")) {
-    closeAndExit(true, 0);
+    beginRelease();
+    return;
+  }
+  if (message === "confirm-release" && state === "release_pending") {
+    state = "closing";
+    setImmediate(() => {
+      if (!send("released")) return disconnectAndExit(70);
+      disconnectAndExit(0);
+    });
     return;
   }
   closeAndExit(false, 65);

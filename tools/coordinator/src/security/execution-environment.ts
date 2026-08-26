@@ -10,7 +10,11 @@ import {
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
 } from "./candidate-store-kernel-lock.ts";
-import { poisonRuntimeProcessAfterCleanupUnknown } from "../core/runtime-process-safety-state.ts";
+import {
+  beginRuntimeProcessEffectDrain,
+  endRuntimeProcessEffectDrain,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../core/runtime-process-safety-state.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -192,6 +196,15 @@ function revokeOwnedOperationContextCapabilities(owned: object): void {
       operationManagementCapabilities.delete(alias);
     }
     operationContextAliases.delete(owned);
+  }
+}
+
+function revokeOwnedOperationEffectCapabilities(owned: object): void {
+  const aliases = operationContextAliases.get(owned);
+  if (!aliases) return;
+  for (const alias of aliases) {
+    operationContextCapabilities.delete(alias);
+    mountCapabilities.delete(alias);
   }
 }
 
@@ -379,8 +392,7 @@ function ownedOperationGeneration(
     !state.generationLock.assertLive()
   ) {
     state.retired = true;
-    revokeOwnedOperationContextCapabilities(state.owned);
-    poisonRuntimeProcessAfterCleanupUnknown();
+    revokeOwnedOperationEffectCapabilities(state.owned);
     throw new Error("owned_operation_generation_liveness_lost");
   }
   return state;
@@ -1098,16 +1110,32 @@ export function observeOwnedHostOperationGenerationLoss(
   const generation = ownedOperationGeneration(binding.owned, identity);
   const lock = generation.generationLock;
   if (!lock) throw new Error("owned_operation_generation_lock_required");
+  let drainToken: object | null = null;
+  let resolveDetected!: () => void;
+  const detected = new Promise<void>((resolve) => {
+    resolveDetected = resolve;
+  });
+  lock.onFailureDetected(() => {
+    generation.retired = true;
+    revokeOwnedOperationEffectCapabilities(generation.owned);
+    drainToken ??= beginRuntimeProcessEffectDrain();
+    resolveDetected();
+  });
   return Object.freeze({
-    detected: lock.failureDetected.then(() => {
-      poisonRuntimeProcessAfterCleanupUnknown();
-    }),
+    detected,
     outcome: lock.loss.then((outcome) => {
       generation.retired = true;
-      revokeOwnedOperationContextCapabilities(generation.owned);
-      poisonRuntimeProcessAfterCleanupUnknown();
+      revokeOwnedOperationEffectCapabilities(generation.owned);
+      if (outcome === "cleanup_unknown")
+        poisonRuntimeProcessAfterCleanupUnknown();
       return outcome;
     }),
+    releaseDrain: () => {
+      if (!drainToken) return false;
+      const token = drainToken;
+      drainToken = null;
+      return endRuntimeProcessEffectDrain(token);
+    },
   });
 }
 

@@ -3,7 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { isRuntimeProcessPoisoned } from "../core/runtime-process-safety-state.ts";
+import {
+  isRuntimeProcessEffectBlocked,
+  isRuntimeProcessPoisoned,
+} from "../core/runtime-process-safety-state.ts";
 import { snapshotPlainRecord } from "./plain-data-snapshot.ts";
 import { loadPlatformProvisionerManifestEnvelopeForVerification } from "./platform-provisioner-manifest-loader.ts";
 import { getPlatformProvisionerPolicyIdentity } from "./platform-provisioner-policy-identity.ts";
@@ -721,9 +724,13 @@ function verifiedFixedPackageRecord(
 export function issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
   rawInput: unknown,
 ) {
-  if (isRuntimeProcessPoisoned()) {
+  if (isRuntimeProcessEffectBlocked()) {
     return Object.freeze({
-      verification: blocked("platform_provisioner_process_restart_required"),
+      verification: blocked(
+        isRuntimeProcessPoisoned()
+          ? "platform_provisioner_process_restart_required"
+          : "platform_provisioner_runtime_cleanup_in_progress",
+      ),
       capability: null,
     });
   }

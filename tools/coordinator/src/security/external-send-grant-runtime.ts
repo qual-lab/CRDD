@@ -9,6 +9,7 @@ import {
   type InteractiveConsoleTextWriteOutcome,
 } from "../core/interactive-console.ts";
 import {
+  isRuntimeProcessEffectBlocked,
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterInteractiveCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
@@ -303,7 +304,7 @@ export async function confirmRuntimeOwnedExternalSendUsingConsole(
   challenge: string,
   cancellationSignal: AbortSignal,
 ) {
-  if (isRuntimeProcessPoisoned())
+  if (isRuntimeProcessEffectBlocked())
     return Object.freeze({ status: "cleanup_unknown" as const });
   let lockOutcome: Awaited<
     ReturnType<typeof acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome>
@@ -654,13 +655,14 @@ export function requestRuntimeOwnedExternalSendGrant(
   rawProviders: unknown,
   cancellationSignal: AbortSignal,
 ) {
-  if (isRuntimeProcessPoisoned()) {
+  if (isRuntimeProcessEffectBlocked()) {
     return Promise.resolve(
       Object.freeze({
         status: "blocked" as const,
-        reason:
-          "external_send_confirmation_cleanup_unknown_process_restart_required" as const,
-        manualRecoveryRequired: true,
+        reason: isRuntimeProcessPoisoned()
+          ? ("external_send_confirmation_cleanup_unknown_process_restart_required" as const)
+          : ("external_send_confirmation_runtime_cleanup_in_progress" as const),
+        manualRecoveryRequired: isRuntimeProcessPoisoned(),
         externalSendAuthorized: false,
         rawContentReported: false,
         hostPathReported: false,

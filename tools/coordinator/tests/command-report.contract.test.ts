@@ -84,3 +84,15 @@ test("cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求�
   assert.match(rendered, /manual recovery required: no/u);
   assert.doesNotMatch(rendered, /host recovery ID|restart Coordinator/u);
 });
+
+test("cleanup不明でactionable IDがない場合も再起動とoperator移送を表示する", () => {
+  const rendered = renderSafeHumanCommandReport({
+    command: "task",
+    status: "blocked",
+    reason: "coordinator_task_operation_cleanup_unconfirmed",
+    manualRecoveryRequired: true,
+  });
+  assert.match(rendered, /restart Coordinator Runtime/u);
+  assert.match(rendered, /runtime operator/u);
+  assert.match(rendered, /manual recovery required: yes/u);
+});

@@ -107,6 +107,10 @@ function supervisorChildScenario(
           });
         else queueMicrotask(() => child.emit("message", { status: "ready" }));
       } else if (message === "release") {
+        queueMicrotask(() =>
+          child.emit("message", { status: "release-ready" }),
+        );
+      } else if (message === "confirm-release") {
         if (scenario === "released_without_exit")
           queueMicrotask(() => child.emit("message", { status: "released" }));
         else if (scenario === "exit_without_released")
@@ -404,6 +408,40 @@ test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenし�
     assert.equal(result.status, 64);
     assert.equal(result.stdout, "");
     assert.equal(result.stderr, "");
+  }
+});
+
+test("Host Operation Supervisor entrypointはclosing中の親command違反をnonzeroへ単調化する", async () => {
+  const entrypoint = fileURLToPath(
+    new URL(
+      "../src/security/host-operation-lock-supervisor.ts",
+      import.meta.url,
+    ),
+  );
+  for (const [index, secondCommand] of ["release", "confirm-ready"].entries()) {
+    const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${index.toString(16).padStart(32, "a")}`;
+    const child = spawn(process.execPath, [entrypoint, pipeName], {
+      env: {},
+      shell: false,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+    });
+    const messages: unknown[] = [];
+    child.on("message", (message) => {
+      messages.push(message);
+      if ((message as { status?: unknown })?.status === "acquired") {
+        child.send("release");
+        child.send(secondCommand);
+      }
+    });
+    const [exitCode] = (await once(child, "exit")) as [number | null];
+    assert.notEqual(exitCode, 0);
+    assert.equal(
+      messages.some(
+        (message) => (message as { status?: unknown })?.status === "released",
+      ),
+      false,
+    );
   }
 });
 

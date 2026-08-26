@@ -86,6 +86,15 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
       }
     }
   }
+  const hasActionableRecoveryId = lines.some((line) =>
+    line.includes(" recovery ID:"),
+  );
+  if (report.manualRecoveryRequired === true && !hasActionableRecoveryId) {
+    lines.push(
+      "- next: restart Coordinator Runtime before starting another task",
+      "- next: escalate to the runtime operator because no authenticated actionable recovery ID is available",
+    );
+  }
   lines.push(
     `- manual recovery required: ${report.manualRecoveryRequired === true ? "yes" : "no"}`,
   );

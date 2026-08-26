@@ -52,8 +52,11 @@ function fixture(
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
+    pauseOperationCleanup?: boolean;
     pauseRole?: "executor" | "reviewer";
     hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
+    cancellationTerminationObserved?: boolean;
+    cleanupOutcomeUnverified?: boolean;
     discardFails?: boolean;
     discardThrows?: boolean;
     publishFails?: boolean;
@@ -107,11 +110,14 @@ function fixture(
   let releasePausedProcess: (() => void) | null = null;
   let releaseExternalAuthorization: (() => void) | null = null;
   let releaseOperationCreation: (() => void) | null = null;
+  let releaseOperationCleanup: (() => void) | null = null;
   let resolveHostGenerationLoss:
     | ((outcome: "cleanup_confirmed_failure" | "cleanup_unknown") => void)
     | null = null;
   let resolveHostGenerationFailureDetected: (() => void) | null = null;
   let cancelProcessCount = 0;
+  let poisonProcessCount = 0;
+  let releaseDrainCount = 0;
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
@@ -147,26 +153,39 @@ function fixture(
               >((resolve) => {
                 resolveHostGenerationLoss = resolve;
               }),
+              releaseHostGenerationDrain: () => {
+                releaseDrainCount += 1;
+                return true;
+              },
             }
           : {}),
       });
     },
-    cleanupOperation: (candidate: object) => {
+    cleanupOperation: async (candidate: object) => {
       assert.equal(candidate, owned);
       if (options.hostCleanupWal) events.push("host-cleanup");
       cleanupCount += 1;
+      if (options.pauseOperationCleanup)
+        await new Promise<void>((resolve) => {
+          releaseOperationCleanup = resolve;
+        });
       if (options.cleanupThrows) throw new Error("cleanup_failed");
       return options.cleanupProtocolFailure
         ? cleanupProtocolFailure
         : cleanupCompleted;
     },
     classifyOperationCleanup: (outcome: unknown) =>
-      outcome === cleanupCompleted
-        ? ("completed" as const)
-        : outcome === cleanupProtocolFailure
-          ? ("protocol_failure_cleanup_confirmed" as const)
-          : null,
+      options.cleanupOutcomeUnverified
+        ? null
+        : outcome === cleanupCompleted
+          ? ("completed" as const)
+          : outcome === cleanupProtocolFailure
+            ? ("protocol_failure_cleanup_confirmed" as const)
+            : null,
     abandonOperation: async () => "released" as const,
+    poisonProcessAfterCleanupUnknown: () => {
+      poisonProcessCount += 1;
+    },
     bindRepository: () =>
       Object.freeze({
         repositoryBound: true,
@@ -432,7 +451,8 @@ function fixture(
         status: "requested",
         reason: "provider_cancellation_requested",
         cancellationRequested: true,
-        processTerminationObserved: true,
+        processTerminationObserved:
+          options.cancellationTerminationObserved !== false,
       });
     },
     captureCandidate: () => {
@@ -546,6 +566,8 @@ function fixture(
     workspaceMaterializeCount: () => workspaceMaterializeCount,
     processStartCount: () => processStartCount,
     cancelProcessCount: () => cancelProcessCount,
+    poisonProcessCount: () => poisonProcessCount,
+    releaseDrainCount: () => releaseDrainCount,
     externalCancellationSignal: () => externalCancellationSignal,
     releaseExternalAuthorization: () => {
       assert.ok(releaseExternalAuthorization);
@@ -554,6 +576,10 @@ function fixture(
     releaseOperationCreation: () => {
       assert.ok(releaseOperationCreation);
       releaseOperationCreation();
+    },
+    releaseOperationCleanup: () => {
+      assert.ok(releaseOperationCleanup);
+      releaseOperationCleanup();
     },
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
@@ -1426,6 +1452,8 @@ test("ready後のHost Supervisor喪失は実行中Providerを取消して成功�
   assert.equal(result.hostRecoveryId, null);
   assert.equal(harness.cancelProcessCount(), 1);
   assert.equal(harness.cleanupCount(), 1);
+  assert.equal(harness.poisonProcessCount(), 0);
+  assert.equal(harness.releaseDrainCount(), 1);
 });
 
 test("ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じる", async () => {
@@ -1455,6 +1483,91 @@ test("ready後喪失のcleanup不明は取消より優先してexact Host Recove
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.equal(harness.cancelProcessCount(), 1);
   assert.equal(harness.cleanupCount(), 0);
+  assert.ok(harness.poisonProcessCount() >= 1);
+  assert.equal(harness.releaseDrainCount(), 1);
+});
+
+test("Host confirmedとProvider cleanup unknownの合成は全actionable Recovery IDを保持する", async () => {
+  const harness = fixture({
+    pauseRole: "executor",
+    processCleanupFailureRole: "executor",
+    hostGenerationLoss: "cleanup_confirmed_failure",
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.processStartCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.triggerHostGenerationLoss();
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.deepEqual(result.dockerRecoveryIds, [
+    "docker.fixture.executor.active",
+  ]);
+  assert.ok(harness.poisonProcessCount() >= 1);
+});
+
+test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてcleanup confirmedへ閉じる", async () => {
+  const harness = fixture({
+    pauseOperationCleanup: true,
+    hostGenerationLoss: "cleanup_confirmed_failure",
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.cleanupCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.triggerHostGenerationLoss();
+  harness.releaseOperationCleanup();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.equal(harness.discardCount(), 1);
+  assert.equal(harness.poisonProcessCount(), 0);
+});
+
+test("Host confirmedでもProvider取消終了不明ならunknownへ昇格してpoisonする", async () => {
+  const harness = fixture({
+    pauseRole: "executor",
+    hostGenerationLoss: "cleanup_confirmed_failure",
+    cancellationTerminationObserved: false,
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.processStartCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.triggerHostGenerationLoss();
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.ok(harness.poisonProcessCount() >= 1);
+});
+
+test("分類不能なopaque cleanup outcomeはcleanup unknownへ閉じる", async () => {
+  const harness = fixture({ cleanupOutcomeUnverified: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
 });
 
 test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じる", async () => {
@@ -1526,7 +1639,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 17);
+  assert.equal(contract.contractRevision, 18);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,

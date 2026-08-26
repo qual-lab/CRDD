@@ -4,9 +4,14 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  beginRuntimeProcessEffectDrain,
   createIsolatedRuntimeProcessSafetyStateCandidate,
   describeRuntimeProcessSafetyStateContract,
+  endRuntimeProcessEffectDrain,
 } from "../src/core/runtime-process-safety-state.ts";
+import { startRuntimeOwnedCoordinatorTask } from "../src/security/coordinator-task-runtime.ts";
+import { requestRuntimeOwnedExternalSendGrant } from "../src/security/external-send-grant-runtime.ts";
+import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 
 test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () => {
   const firstProcess = createIsolatedRuntimeProcessSafetyStateCandidate();
@@ -17,6 +22,22 @@ test("対話cleanup不明は同一Process stateを不可逆にpoisonする", () 
   firstProcess.poisonInteractiveCleanup();
   assert.equal(firstProcess.isPoisoned(), true);
   assert.equal(restartedProcess.isPoisoned(), false);
+});
+
+test("Host failure drainは所有tokenだけで解除でき既存poisonを消さない", () => {
+  const state = createIsolatedRuntimeProcessSafetyStateCandidate();
+  const drain = state.beginDrain();
+  assert.equal(state.isDraining(), true);
+  assert.equal(state.isEffectBlocked(), true);
+  assert.equal(state.endDrain(Object.freeze({})), false);
+  assert.equal(state.isDraining(), true);
+  assert.equal(state.endDrain(drain), true);
+  assert.equal(state.isEffectBlocked(), false);
+  state.poisonCleanupUnknown();
+  const laterDrain = state.beginDrain();
+  assert.equal(state.endDrain(laterDrain), true);
+  assert.equal(state.isPoisoned(), true);
+  assert.equal(state.isEffectBlocked(), true);
 });
 
 test("Process poison契約は同期不可逆Gateとfresh Process境界を固定する", () => {
@@ -34,10 +55,56 @@ test("Process poison契約は同期不可逆Gateとfresh Process境界を固定�
       "coordinator_task_before_capability_consume_and_all_effects",
       "external_send_grant_before_authority_verification_or_console_effect",
     ],
+    transientDrainTransition:
+      "synchronous_on_host_supervisor_failure_detection_until_all_cleanup_outcomes_are_confirmed_or_unknown_is_promoted_to_irreversible_poison",
     sameProcessResetAllowed: false,
     alreadyActiveOperationRetroactiveCancellationGuaranteed: false,
     recoveryBoundary: "fresh_process_only",
   });
+});
+
+test("Host failure drain中はTask／Package／External SendをEffect前に一時拒否し解除後はrestart要求しない", async () => {
+  const drain = beginRuntimeProcessEffectDrain();
+  const packageOutcome = issueRuntimeOwnedVerifiedCoordinatorPackageCapability(
+    Object.freeze({}),
+  );
+  assert.equal(
+    packageOutcome.verification.reason,
+    "platform_provisioner_runtime_cleanup_in_progress",
+  );
+  assert.throws(
+    () =>
+      startRuntimeOwnedCoordinatorTask(
+        Object.freeze({}),
+        "C:\\repository",
+        Object.freeze({}),
+      ),
+    /coordinator_task_runtime_cleanup_in_progress/u,
+  );
+  const grant = await requestRuntimeOwnedExternalSendGrant(
+    Object.freeze({}),
+    Object.freeze({}),
+    Object.freeze({}),
+    Object.freeze({}),
+    Object.freeze([]),
+    new AbortController().signal,
+  );
+  assert.ok(grant && "reason" in grant && "manualRecoveryRequired" in grant);
+  assert.equal(
+    grant.reason,
+    "external_send_confirmation_runtime_cleanup_in_progress",
+  );
+  assert.equal(grant.manualRecoveryRequired, false);
+  assert.equal(endRuntimeProcessEffectDrain(drain), true);
+  assert.throws(
+    () =>
+      startRuntimeOwnedCoordinatorTask(
+        Object.freeze({}),
+        "C:\\repository",
+        Object.freeze({}),
+      ),
+    /coordinator_task_release_verification_required/u,
+  );
 });
 
 test("全cleanup起点のproduction process poisonは保留cleanup中から全入口を停止する", () => {
