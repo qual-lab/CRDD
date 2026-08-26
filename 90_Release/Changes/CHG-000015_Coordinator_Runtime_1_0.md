@@ -159,6 +159,8 @@ Coordinatorは利用可能な候補から、Taskの具体性、曖昧さ、影�
 
 正式Runnerの対話承認待ちを実際に取消した際、固定console readerへの取消IPCと子Processの`close`が競合し、遅延`EPIPE`がlistener回収後に親Processへ未処理再送出される欠陥を確認した。取消IPCは完了callbackを必須にして遅延channel errorをその場で回収し、成功／取消／timeoutの判定は従来どおり子Processとstdoutの両`close`およびforce-stop fallbackだけに結合した。同じ遅延順序を契約試験へ追加し、Provider、Authority、Task入力またはcleanup成功条件は緩和していない。
 
+正式署名4経路の実測では、署名Package確認後に行っていた可用性確認だけのWindows console open／closeが、同一Processで後続するRuntime State観測時にnative access violationを発生させることを、Package、console、Capability consume、Consent resolveの順を一段ずつ接続した固定Probeで特定した。初回同意の本処理はdevice検査、表示、入力、取消およびcleanupをすでに一つのRuntime所有lifecycleで行うため、独立したavailability-only preflightを正式Runnerから除去した。有効な同意の再利用時はconsoleを要求せず、初回同意時の本処理が不成立なら従来どおりGrant 0でFail Closedにする。これは対話確認を省略する変更ではなく、同じOS deviceへの重複Effectを除去して単一のAuthority境界へ戻す是正である。
+
 ## 9. Repository／Candidate契約
 
 - 対応BackendはローカルGitだけとし、`read_only`と`isolated_worktree`を扱う。

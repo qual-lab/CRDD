@@ -3,10 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
 import {
-  interactiveConsoleAvailabilityOutcome,
-  type InteractiveConsoleAvailabilityOutcome,
-} from "../src/core/interactive-console.ts";
-import {
   isSupportedCoordinatorNodeRuntime,
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
@@ -28,7 +24,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 6;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 7;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -84,9 +80,6 @@ type VerificationDependencies = Readonly<{
   discardCandidate: (candidateId: string) => RuntimeRecord;
   now: () => string;
   runtimeVersion: () => string;
-  inspectInteractiveConsole: () =>
-    | boolean
-    | InteractiveConsoleAvailabilityOutcome;
   bindCancellation: (
     controlCapability: object,
     cancel: (controlCapability: object) => unknown,
@@ -132,7 +125,6 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   discardCandidate: discardRuntimeOwnedCandidateBundle,
   now: () => new Date().toISOString(),
   runtimeVersion: () => process.versions.node,
-  inspectInteractiveConsole: interactiveConsoleAvailabilityOutcome,
   bindCancellation: (controlCapability, cancel) =>
     bindSignedGeneralTaskCancellation(process, controlCapability, cancel),
 });
@@ -554,37 +546,6 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
-  let consoleStatus: InteractiveConsoleAvailabilityOutcome["status"] =
-    "unavailable";
-  try {
-    const observed = dependencies.inspectInteractiveConsole();
-    consoleStatus =
-      typeof observed === "boolean"
-        ? observed
-          ? "available"
-          : "unavailable"
-        : observed.status;
-  } catch {
-    // The console prerequisite remains unconfirmed.
-  }
-  if (consoleStatus === "cleanup_unknown") {
-    return blocked(
-      "signed_general_task_process_restart_required",
-      release,
-      Object.freeze({
-        canonicalRepositoryChanged: false,
-        manualRecoveryRequired: true,
-      }),
-    );
-  }
-  if (consoleStatus !== "available") {
-    return blocked(
-      "signed_general_task_interactive_console_required",
-      release,
-      Object.freeze({ canonicalRepositoryChanged: false }),
-    );
-  }
-
   let started: StartedTask;
   try {
     started = dependencies.startTask(
@@ -750,12 +711,11 @@ export function describeSignedGeneralTaskVerificationContract() {
     invocation: "direct_repository_owned_node_entrypoint",
     minimumNodeVersion: MINIMUM_COORDINATOR_NODE_VERSION,
     nodeSelection: "absolute_preverified_executable_only",
-    interactiveConsolePreflight:
-      "required_after_release_and_repository_format_verification_before_task_effects",
-    interactiveConsoleCleanupUnknown:
-      "process_restart_required_manual_recovery_without_recovery_id",
-    unconsumedPackageCapability:
-      "runtime_local_nonserializable_nonexported_not_reusable_after_preflight_failure",
+    availabilityOnlyConsolePreflightAllowed: false,
+    interactiveConsoleGate:
+      "runtime_owned_initial_consent_confirmation_only_reused_consent_requires_no_console",
+    packageCapabilityUse:
+      "runtime_local_nonserializable_nonexported_passed_once_to_task_runtime_after_release_verification",
     requestConstruction: "fixed_public_request_constructed_in_process",
     requestShellTransportAllowed: false,
     powershellTextPipelineAllowed: false,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
@@ -126,11 +127,6 @@ function dependencies(
     candidate?: Readonly<Record<string, unknown>> | null;
     discard?: Readonly<Record<string, unknown>>;
     runtimeVersion?: string;
-    interactiveConsole?:
-      | boolean
-      | Readonly<{
-          status: "available" | "unavailable" | "cleanup_unknown";
-        }>;
     completionRejects?: boolean;
     readThrows?: boolean;
     discardThrows?: boolean;
@@ -140,7 +136,6 @@ function dependencies(
   const calls = {
     events: [] as string[],
     verifies: 0,
-    consoleInspections: 0,
     starts: 0,
     reads: 0,
     discards: 0,
@@ -193,11 +188,6 @@ function dependencies(
         calls.events.push("node");
         return options.runtimeVersion ?? "24.19.0";
       },
-      inspectInteractiveConsole: () => {
-        calls.events.push("console");
-        calls.consoleInspections += 1;
-        return options.interactiveConsole ?? true;
-      },
       bindCancellation: () => {
         calls.bound += 1;
         return Object.freeze({
@@ -234,7 +224,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);
@@ -251,14 +241,21 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(contract.defaultRouteProfile, "forward");
   assert.equal(contract.minimumNodeVersion, "24.12.0");
   assert.equal(contract.nodeSelection, "absolute_preverified_executable_only");
+  assert.equal(contract.availabilityOnlyConsolePreflightAllowed, false);
   assert.equal(
-    contract.interactiveConsolePreflight,
-    "required_after_release_and_repository_format_verification_before_task_effects",
+    contract.interactiveConsoleGate,
+    "runtime_owned_initial_consent_confirmation_only_reused_consent_requires_no_console",
   );
   assert.equal(
-    contract.interactiveConsoleCleanupUnknown,
-    "process_restart_required_manual_recovery_without_recovery_id",
+    contract.packageCapabilityUse,
+    "runtime_local_nonserializable_nonexported_passed_once_to_task_runtime_after_release_verification",
   );
+  const source = fs.readFileSync(
+    path.join(coordinatorRoot, "scripts/verify-signed-general-task.ts"),
+    "utf8",
+  );
+  assert.equal(source.includes("interactiveConsoleAvailabilityOutcome"), false);
+  assert.equal(source.includes("inspectInteractiveConsole"), false);
 });
 
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
@@ -315,7 +312,7 @@ test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可
   }
 });
 
-test("Node GateはPackage前、Package Gateは対話Console前に拒否する", async () => {
+test("Node GateとPackage GateはTask前に拒否しavailability-only Console Effectを持たない", async () => {
   for (const fixture of [
     dependencies({ runtimeVersion: "24.11.9" }),
     dependencies({ runtimeVersion: "22.18.0" }),
@@ -326,37 +323,30 @@ test("Node GateはPackage前、Package Gateは対話Console前に拒否する", 
     );
     assert.equal(result.status, "blocked");
     assert.equal(fixture.calls.verifies, 0);
-    assert.equal(fixture.calls.consoleInspections, 0);
     assert.equal(fixture.calls.starts, 0);
     assert.deepEqual(fixture.calls.events, ["node"]);
   }
-  const consoleBlocked = dependencies({ interactiveConsole: false });
-  const result = await runSignedGeneralTaskVerification(
-    path.resolve("."),
-    consoleBlocked.value,
-  );
-  assert.equal(result.status, "blocked");
-  assert.equal(consoleBlocked.calls.verifies, 1);
-  assert.equal(consoleBlocked.calls.consoleInspections, 1);
-  assert.equal(consoleBlocked.calls.starts, 0);
-  assert.deepEqual(consoleBlocked.calls.events, ["node", "package", "console"]);
 });
 
-test("Console cleanup不明はPackage後・Task前に再起動要求へ閉じる", async () => {
+test("初回同意のConsole不成立はTask所有Gateの結果としてFail Closedに伝播する", async () => {
   const fixture = dependencies({
-    interactiveConsole: Object.freeze({ status: "cleanup_unknown" }),
+    result: taskResult({
+      status: "blocked",
+      reason: "coordinator_task_external_send_confirmation_unavailable",
+      candidateId: null,
+    }),
   });
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
     fixture.value,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(result.reason, "signed_general_task_process_restart_required");
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.hostRecoveryId, null);
-  assert.deepEqual(result.hostRecoveryIds, []);
-  assert.equal(fixture.calls.starts, 0);
-  assert.deepEqual(fixture.calls.events, ["node", "package", "console"]);
+  assert.equal(
+    result.reason,
+    "coordinator_task_external_send_confirmation_unavailable",
+  );
+  assert.equal(fixture.calls.starts, 1);
+  assert.deepEqual(fixture.calls.events, ["node", "package", "task"]);
 });
 
 test("署名Release不成立時はTaskを開始しない", async () => {
@@ -375,7 +365,6 @@ test("署名Release不成立時はTaskを開始しない", async () => {
   assert.equal(fixture.calls.starts, 0);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
-  assert.equal(fixture.calls.consoleInspections, 0);
   assert.deepEqual(fixture.calls.events, ["node", "package"]);
 });
 
@@ -400,7 +389,6 @@ test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明�
   assert.equal(fixture.calls.bound, 0);
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
-  assert.equal(fixture.calls.consoleInspections, 0);
   assert.deepEqual(fixture.calls.events, ["node", "package"]);
 });
 
@@ -415,12 +403,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.exactCandidateContentVerified, true);
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.cleanupConfirmed, true);
-  assert.deepEqual(fixture.calls.events, [
-    "node",
-    "package",
-    "console",
-    "task",
-  ]);
+  assert.deepEqual(fixture.calls.events, ["node", "package", "task"]);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.canonicalRepositoryChanged, false);
   assert.deepEqual(result.changedPaths, [TARGET_PATH]);
