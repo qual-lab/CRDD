@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 type Finding = Readonly<{
   severity: string;
@@ -385,6 +386,1598 @@ function hasChangeTraceDefinitionSignature(file: string): boolean {
       header,
     );
   return Boolean(declaredChangeTraceId(file) && hasStandardHeading);
+}
+
+type ConsolidatedChangeTraceEntry = Readonly<{
+  oldId: string;
+  canonicalId: string;
+  originalPath: string;
+  anchor: string;
+  commit: string;
+  tree: string;
+  bytes: number;
+  sha256: string;
+  evidencePaths: readonly string[];
+}>;
+
+type ConsolidationLedgerCheckResult = Readonly<{
+  historicalReferenceCandidates: ReadonlySet<string>;
+  historicalReferencePairs: ReadonlySet<string>;
+  historicalReferencePhysicalTargets: ReadonlySet<string>;
+  historicalReferenceIndexedTargets: ReadonlySet<string>;
+  historicalReferenceSources: number;
+  historicalReferenceTargets: number;
+}>;
+
+const emptyConsolidationLedgerCheckResult: ConsolidationLedgerCheckResult = {
+  historicalReferenceCandidates: new Set<string>(),
+  historicalReferencePairs: new Set<string>(),
+  historicalReferencePhysicalTargets: new Set<string>(),
+  historicalReferenceIndexedTargets: new Set<string>(),
+  historicalReferenceSources: 0,
+  historicalReferenceTargets: 0,
+};
+
+function historicalReferenceKey(source: string, target: string): string {
+  return `${path.resolve(source)}\0${path.resolve(target)}`;
+}
+
+function checkConsolidatedChangeTraceLedger(
+  allFiles: readonly string[],
+): ConsolidationLedgerCheckResult {
+  if (repositoryMode !== "official") return emptyConsolidationLedgerCheckResult;
+  process.env.GIT_NO_REPLACE_OBJECTS = "1";
+  const initialErrorCount = findings.filter(
+    (finding) => finding.severity === "error",
+  ).length;
+  const ledger = path.join(root, "90_Release", "Changes", "README.md");
+  const ledgerStat = lstatIfPresent(ledger);
+  if (!ledgerStat && !allFiles.some((file) => samePath(file, ledger))) {
+    return emptyConsolidationLedgerCheckResult;
+  }
+  if (
+    !ledgerStat?.isFile() ||
+    ledgerStat.isSymbolicLink() ||
+    pathContainsSymbolicLink(ledger) ||
+    !allFiles.some((file) => samePath(file, ledger))
+  ) {
+    add(
+      "error",
+      "invalid-change-trace-consolidation-ledger-file",
+      relative(ledger),
+      "The official consolidation ledger must be one discovered regular file inside the repository root.",
+    );
+    return emptyConsolidationLedgerCheckResult;
+  }
+  const gitEnvironment = { ...process.env, GIT_NO_REPLACE_OBJECTS: "1" };
+  const gitText = (gitArguments: readonly string[]) =>
+    spawnSync("git", ["-C", root, ...gitArguments], {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 10_000,
+      maxBuffer: 16 * 1_048_576,
+      env: gitEnvironment,
+    });
+  const headStartResult = gitText(["rev-parse", "--verify", "HEAD^{commit}"]);
+  const tagsStartResult = gitText([
+    "for-each-ref",
+    "--sort=refname",
+    "--format=%(refname:short)|%(objectname)|%(objecttype)|%(*objectname)|%(*objecttype)",
+    "refs/tags",
+  ]);
+  const shallowResult = gitText(["rev-parse", "--is-shallow-repository"]);
+  const ledgerIndexResult = gitText([
+    "ls-files",
+    "--stage",
+    "--",
+    "90_Release/Changes/README.md",
+  ]);
+  const headStart = (headStartResult.stdout ?? "").trim();
+  const tagsStart = (tagsStartResult.stdout ?? "")
+    .replaceAll("\r\n", "\n")
+    .trim();
+  if (
+    headStartResult.error ||
+    headStartResult.status !== 0 ||
+    (headStartResult.stderr ?? "").trim() ||
+    !/^[0-9a-f]{40}$/u.test(headStart) ||
+    tagsStartResult.error ||
+    tagsStartResult.status !== 0 ||
+    (tagsStartResult.stderr ?? "").trim() ||
+    shallowResult.error ||
+    shallowResult.status !== 0 ||
+    (shallowResult.stderr ?? "").trim() ||
+    (shallowResult.stdout ?? "").trim() !== "false" ||
+    ledgerIndexResult.error ||
+    ledgerIndexResult.status !== 0 ||
+    (ledgerIndexResult.stderr ?? "").trim() ||
+    !/^(?:100644|100755) [0-9a-f]{40} 0\t90_Release\/Changes\/README\.md$/mu.test(
+      ledgerIndexResult.stdout ?? "",
+    )
+  ) {
+    add(
+      "error",
+      "change-trace-ledger-git-snapshot-unavailable",
+      relative(ledger),
+      "The ledger requires a tracked regular file, a complete non-shallow Git repository, and one readable HEAD/tag snapshot.",
+    );
+  }
+  const ledgerStartBytes = fs.readFileSync(ledger);
+
+  const liveIds = new Map<string, string>();
+  for (const file of allFiles) {
+    if (isEvidenceFile(file) || !/^CHG-[^.]+\.md$/u.test(path.basename(file))) {
+      continue;
+    }
+    if (!changeTraceRootFor(file)) continue;
+    const id = declaredChangeTraceId(file);
+    if (!id) continue;
+    const previous = liveIds.get(id);
+    if (previous) {
+      add(
+        "error",
+        "duplicate-change-trace-id",
+        relative(file),
+        `${id}: also declared by ${previous}.`,
+      );
+    } else {
+      liveIds.set(id, relative(file));
+    }
+  }
+
+  const text = read(ledger);
+  const machineSection = (heading: string): string => {
+    const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    const headingPattern = new RegExp(`^## ${escapedHeading}\\s*$`, "gmu");
+    const headingMatches = [...text.matchAll(headingPattern)];
+    if (headingMatches.length !== 1) return "";
+    const start = headingMatches[0].index ?? 0;
+    return text.slice(start).split(/\n(?=## )/u, 1)[0];
+  };
+  const validateMachineTable = (
+    heading: string,
+    header: string,
+    separator: string,
+    exactRowPattern: RegExp,
+    expectedRows: number,
+    code: string,
+  ): void => {
+    const section = machineSection(heading);
+    const lines = section.split(/\r?\n/u);
+    const tableLikeLines = lines.filter((line) => {
+      if (!line.trim()) return false;
+      if (/^[ \t]{0,3}\|/u.test(line)) return true;
+      const trimmed = line.trimStart();
+      return (
+        !trimmed.startsWith("-") &&
+        !trimmed.startsWith("#") &&
+        trimmed.includes(" | ")
+      );
+    });
+    const exactRows = tableLikeLines.filter((line) =>
+      exactRowPattern.test(line),
+    );
+    const isExact =
+      section.length > 0 &&
+      lines.filter((line) => line === header).length === 1 &&
+      lines.filter((line) => line === separator).length === 1 &&
+      exactRows.length === expectedRows &&
+      tableLikeLines.length === expectedRows + 2 &&
+      tableLikeLines[0] === header &&
+      tableLikeLines[1] === separator &&
+      tableLikeLines.slice(2).every((line) => exactRowPattern.test(line));
+    if (!isExact) {
+      add(
+        "error",
+        code,
+        relative(ledger),
+        `${heading}: the machine-owned table must use one exact unindented header, separator, and serialized row block.`,
+      );
+    }
+  };
+  if (
+    [...text.matchAll(/<!-- crdd-change-trace-ledger-schema:\s*1 -->/gu)]
+      .length !== 1
+  ) {
+    add(
+      "error",
+      "invalid-change-trace-ledger-schema-revision",
+      relative(ledger),
+      "The machine-owned consolidation ledger requires exactly one schema revision 1 marker.",
+    );
+  }
+  const integrationBaseCommitMatches = [
+    ...text.matchAll(/^- 統合直前Commit:\s*`([0-9a-f]{40})`\s*$/gmu),
+  ];
+  const integrationBaseTreeMatches = [
+    ...text.matchAll(/^- 統合直前Tree:\s*`([0-9a-f]{40})`\s*$/gmu),
+  ];
+  const integrationBaseCommit = integrationBaseCommitMatches[0]?.[1] ?? "";
+  const integrationBaseTree = integrationBaseTreeMatches[0]?.[1] ?? "";
+  const integrationCommitType = gitText([
+    "cat-file",
+    "-t",
+    integrationBaseCommit,
+  ]);
+  const integrationCommitTree = gitText([
+    "show",
+    "-s",
+    "--format=%T",
+    integrationBaseCommit,
+  ]);
+  const integrationCommitAncestor = gitText([
+    "merge-base",
+    "--is-ancestor",
+    integrationBaseCommit,
+    headStart,
+  ]);
+  if (
+    integrationBaseCommitMatches.length !== 1 ||
+    integrationBaseTreeMatches.length !== 1 ||
+    integrationCommitType.error ||
+    integrationCommitType.status !== 0 ||
+    (integrationCommitType.stderr ?? "").trim() ||
+    (integrationCommitType.stdout ?? "").trim() !== "commit" ||
+    integrationCommitTree.error ||
+    integrationCommitTree.status !== 0 ||
+    (integrationCommitTree.stderr ?? "").trim() ||
+    (integrationCommitTree.stdout ?? "").trim() !== integrationBaseTree ||
+    integrationCommitAncestor.error ||
+    integrationCommitAncestor.status !== 0 ||
+    (integrationCommitAncestor.stderr ?? "").trim() ||
+    (integrationCommitAncestor.stdout ?? "").trim()
+  ) {
+    add(
+      "error",
+      "invalid-change-trace-integration-base",
+      relative(ledger),
+      "The exact integration-base Commit/Tree must resolve to one ancestor commit and its matching tree.",
+    );
+  }
+  const marker =
+    /<a id="consolidated-(chg-[0-9]{6})"><\/a>\s*\n\s*###\s+(CHG-[0-9]{6})\s+→\s+(CHG-[0-9]{6})/giu;
+  const matches = [...text.matchAll(marker)];
+  if (matches.length === 0) {
+    add(
+      "error",
+      "empty-change-trace-consolidation-ledger",
+      relative(ledger),
+      "The consolidation ledger has no recognizable old-ID entries.",
+    );
+    return emptyConsolidationLedgerCheckResult;
+  }
+
+  const entries: ConsolidatedChangeTraceEntry[] = [];
+  const seen = new Set<string>();
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index];
+    const oldId = match[2];
+    const canonicalId = match[3];
+    const anchor = `consolidated-${match[1].toLocaleLowerCase("en-US")}`;
+    const start = match.index ?? 0;
+    const end = matches[index + 1]?.index ?? text.length;
+    const section = text.slice(start, end);
+    if (/^[ \t]+- [^:：\r\n]+[:：]/mu.test(section)) {
+      add(
+        "error",
+        "invalid-change-trace-ledger-entry-schema",
+        relative(ledger),
+        `${oldId}: indented machine-looking fields are not allowed in a machine-owned entry.`,
+      );
+    }
+    const machineFieldNames = [
+      ...section.matchAll(/^- ([^:：\r\n]+)[:：]/gmu),
+    ].map((field) => field[1].trim());
+    const expectedMachineFieldNames = [
+      "旧題名",
+      "旧Path",
+      "統合前判断",
+      "変更分類",
+      "移行／Release境界",
+      "Canonical CHG",
+      "統合理由",
+      "固定原文",
+      "関連Evidence",
+      ...(oldId === "CHG-000030" && machineFieldNames.includes("棄却境界")
+        ? ["棄却境界"]
+        : []),
+      "旧ID処置",
+    ];
+    if (
+      machineFieldNames.length !== expectedMachineFieldNames.length ||
+      machineFieldNames.some(
+        (field, fieldIndex) => field !== expectedMachineFieldNames[fieldIndex],
+      )
+    ) {
+      add(
+        "error",
+        "invalid-change-trace-ledger-entry-schema",
+        relative(ledger),
+        `${oldId}: machine-owned fields are missing, duplicated, unknown, or out of order.`,
+      );
+    }
+    const originalPath =
+      section.match(/^- 旧Path:\s*`([^`]+)`\s*$/mu)?.[1] ?? "";
+    const fixedIdentity = section.match(
+      /^- 固定原文:\s*Commit\s*`([0-9a-f]{40})`、Tree\s*`([0-9a-f]{40})`、([1-9][0-9]*) byte、SHA-256\s*`([0-9a-f]{64})`\s*$/mu,
+    );
+    const relatedEvidenceLine =
+      section.match(/^- 関連Evidence:\s*(.+)$/mu)?.[1] ?? "";
+    const evidencePaths = [
+      ...relatedEvidenceLine.matchAll(/\]\(Evidence\/([^)#?]+\.md)\)/gu),
+    ].map((evidence) => `90_Release/Changes/Evidence/${evidence[1]}`);
+
+    if (anchor !== `consolidated-${oldId.toLocaleLowerCase("en-US")}`) {
+      add(
+        "error",
+        "change-trace-ledger-anchor-mismatch",
+        relative(ledger),
+        `${oldId}: anchor ${anchor} does not match the old ID.`,
+      );
+    }
+    if (seen.has(oldId)) {
+      add(
+        "error",
+        "duplicate-consolidated-change-trace-id",
+        relative(ledger),
+        `${oldId}: the old ID occurs more than once in the consolidation ledger.`,
+      );
+    }
+    seen.add(oldId);
+    if (oldId === canonicalId) {
+      add(
+        "error",
+        "self-consolidated-change-trace-id",
+        relative(ledger),
+        `${oldId}: an old ID cannot consolidate into itself.`,
+      );
+    }
+    if (liveIds.has(oldId)) {
+      add(
+        "error",
+        "reused-consolidated-change-trace-id",
+        relative(ledger),
+        `${oldId}: a consolidated old ID is still declared by ${liveIds.get(oldId)}.`,
+      );
+    }
+    if (!liveIds.has(canonicalId)) {
+      add(
+        "error",
+        "missing-canonical-change-trace-id",
+        relative(ledger),
+        `${oldId}: canonical ${canonicalId} is not a live Change Trace.`,
+      );
+    }
+    if (
+      !originalPath ||
+      !new RegExp(`^90_Release/Changes/${oldId}_[A-Za-z0-9_]+\\.md$`, "u").test(
+        originalPath,
+      ) ||
+      originalPath.includes("..") ||
+      originalPath.includes("\\") ||
+      originalPath.includes(":") ||
+      originalPath.includes("\0")
+    ) {
+      add(
+        "error",
+        "invalid-consolidated-change-trace-path",
+        relative(ledger),
+        `${oldId}: the old Path must use the same old ID.`,
+      );
+    } else if (lstatIfPresent(path.join(root, ...originalPath.split("/")))) {
+      add(
+        "error",
+        "physical-consolidated-change-trace-path",
+        relative(ledger),
+        `${oldId}: consolidated old Path must not remain as a file, stub, redirect, or symlink.`,
+      );
+    }
+    if (
+      !new RegExp(
+        `^- Canonical CHG: \\[${canonicalId}\\]\\([^)]+\\)\\s*$`,
+        "mu",
+      ).test(section)
+    ) {
+      add(
+        "error",
+        "invalid-canonical-change-trace-link",
+        relative(ledger),
+        `${oldId}: the Canonical CHG link is missing or does not match ${canonicalId}.`,
+      );
+    }
+    if (!/^- 統合理由:\s*\S.+$/mu.test(section)) {
+      add(
+        "error",
+        "missing-change-trace-consolidation-reason",
+        relative(ledger),
+        `${oldId}: consolidation reason is missing.`,
+      );
+    }
+    if (!fixedIdentity) {
+      add(
+        "error",
+        "invalid-consolidated-change-trace-identity",
+        relative(ledger),
+        `${oldId}: fixed Commit, Tree, byte count, and SHA-256 are required.`,
+      );
+    }
+    if (!/^- 関連Evidence:\s*\S.+$/mu.test(section)) {
+      add(
+        "error",
+        "missing-consolidated-change-trace-evidence",
+        relative(ledger),
+        `${oldId}: exact Evidence links or an explicit no-Evidence statement is required.`,
+      );
+    }
+    if (!/^- 旧ID処置:\s*統合済み・永久欠番\s*$/mu.test(section)) {
+      add(
+        "error",
+        "invalid-consolidated-change-trace-reservation",
+        relative(ledger),
+        `${oldId}: the old ID must be reserved permanently.`,
+      );
+    }
+    entries.push({
+      oldId,
+      canonicalId,
+      originalPath,
+      anchor,
+      commit: fixedIdentity?.[1] ?? "",
+      tree: fixedIdentity?.[2] ?? "",
+      bytes: Number.parseInt(fixedIdentity?.[3] ?? "0", 10),
+      sha256: fixedIdentity?.[4] ?? "",
+      evidencePaths,
+    });
+  }
+
+  const oldPathFieldCount = [...text.matchAll(/^- 旧Path:/gmu)].length;
+  if (oldPathFieldCount !== entries.length) {
+    add(
+      "error",
+      "orphan-change-trace-ledger-old-path",
+      relative(ledger),
+      `Observed ${oldPathFieldCount} old-Path fields for ${entries.length} recognized entries.`,
+    );
+  }
+
+  const oldIds = new Set(entries.map((entry) => entry.oldId));
+  for (const entry of entries) {
+    if (
+      entry.commit !== integrationBaseCommit ||
+      entry.tree !== integrationBaseTree
+    ) {
+      add(
+        "error",
+        "change-trace-entry-base-mismatch",
+        relative(ledger),
+        `${entry.oldId}: fixed Commit/Tree must equal the immutable integration-base identity.`,
+      );
+    }
+  }
+  const reservedIdPattern = /^CHG-([0-9]{6})_.+\.md$/iu;
+  const reservedPhysicalEntriesStart = new Set<string>();
+  const inspectReservedEntries = (directory: string): void => {
+    const directoryStat = lstatIfPresent(directory);
+    if (!directoryStat?.isDirectory()) return;
+    for (const directoryEntry of fs.readdirSync(directory, {
+      withFileTypes: true,
+    })) {
+      const candidate = path.join(directory, directoryEntry.name);
+      const candidateRelative = relative(candidate);
+      const filenameMatch = directoryEntry.name.match(reservedIdPattern);
+      if (
+        filenameMatch &&
+        oldIds.has(`CHG-${filenameMatch[1]}`) &&
+        !isEvidenceFile(candidate)
+      ) {
+        reservedPhysicalEntriesStart.add(
+          candidateRelative.toLocaleLowerCase("en-US"),
+        );
+        add(
+          "error",
+          "physical-consolidated-change-trace-id",
+          candidateRelative,
+          `${filenameMatch[0]} reuses a permanently reserved consolidated Change Trace ID.`,
+        );
+      }
+      if (directoryEntry.isDirectory() && !directoryEntry.isSymbolicLink()) {
+        inspectReservedEntries(candidate);
+      }
+    }
+  };
+  for (const releaseRoot of releaseRoots) {
+    const changesDirectory = path.join(releaseRoot, "Changes");
+    inspectReservedEntries(changesDirectory);
+  }
+  const indexEntries = gitText(["ls-files", "--stage", "-z"]);
+  if (
+    indexEntries.error ||
+    indexEntries.status !== 0 ||
+    (indexEntries.stderr ?? "").trim()
+  ) {
+    add(
+      "error",
+      "change-trace-index-inspection-failed",
+      relative(ledger),
+      "Could not inspect the Git index for reserved Change Trace IDs.",
+    );
+  } else {
+    for (const indexEntry of (indexEntries.stdout ?? "").split("\0")) {
+      const match = indexEntry.match(/^[0-9]{6} [0-9a-f]{40} [0-3]\t(.+)$/u);
+      if (!match) continue;
+      const indexedPath = match[1];
+      const indexedAbsolute = path.join(root, ...indexedPath.split("/"));
+      const filenameMatch = path.basename(indexedPath).match(reservedIdPattern);
+      if (
+        filenameMatch &&
+        oldIds.has(`CHG-${filenameMatch[1]}`) &&
+        !isEvidenceFile(indexedAbsolute) &&
+        changeTraceRootFor(indexedAbsolute)
+      ) {
+        add(
+          "error",
+          "indexed-consolidated-change-trace-id",
+          indexedPath,
+          `${filenameMatch[0]} reuses a permanently reserved consolidated Change Trace ID in the Git index.`,
+        );
+      }
+    }
+  }
+  for (const entry of entries) {
+    if (oldIds.has(entry.canonicalId)) {
+      add(
+        "error",
+        "cyclic-change-trace-consolidation",
+        relative(ledger),
+        `${entry.oldId}: canonical ${entry.canonicalId} is also a consolidated old ID.`,
+      );
+    }
+  }
+
+  const verifiedAncestors = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.commit || !entry.tree || !entry.sha256 || entry.bytes < 1)
+      continue;
+    const commitType = spawnSync(
+      "git",
+      ["-C", root, "cat-file", "-t", entry.commit],
+      {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 1_048_576,
+      },
+    );
+    if (
+      commitType.error ||
+      commitType.status !== 0 ||
+      (commitType.stderr ?? "").trim() ||
+      (commitType.stdout ?? "").trim() !== "commit"
+    ) {
+      add(
+        "error",
+        "invalid-consolidated-change-trace-commit",
+        relative(ledger),
+        `${entry.oldId}: fixed Commit is unavailable or is not a commit object.`,
+      );
+      continue;
+    }
+    const tree = spawnSync(
+      "git",
+      ["-C", root, "show", "-s", "--format=%T", entry.commit],
+      {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 1_048_576,
+      },
+    );
+    if (
+      tree.error ||
+      tree.status !== 0 ||
+      (tree.stderr ?? "").trim() ||
+      (tree.stdout ?? "").trim() !== entry.tree
+    ) {
+      add(
+        "error",
+        "consolidated-change-trace-tree-mismatch",
+        relative(ledger),
+        `${entry.oldId}: fixed Tree does not match the Commit tree.`,
+      );
+      continue;
+    }
+    const objectSpec = `${entry.commit}:${entry.originalPath}`;
+    const blobType = spawnSync(
+      "git",
+      ["-C", root, "cat-file", "-t", objectSpec],
+      {
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 1_048_576,
+      },
+    );
+    if (
+      blobType.error ||
+      blobType.status !== 0 ||
+      (blobType.stderr ?? "").trim() ||
+      (blobType.stdout ?? "").trim() !== "blob"
+    ) {
+      add(
+        "error",
+        "invalid-consolidated-change-trace-blob",
+        relative(ledger),
+        `${entry.oldId}: fixed old Path is unavailable or is not a blob.`,
+      );
+      continue;
+    }
+    const blob = spawnSync("git", ["-C", root, "show", objectSpec], {
+      encoding: null,
+      windowsHide: true,
+      timeout: 5_000,
+      maxBuffer: 16 * 1_048_576,
+    });
+    const blobBytes = Buffer.isBuffer(blob.stdout)
+      ? blob.stdout
+      : Buffer.alloc(0);
+    const blobStderr = Buffer.isBuffer(blob.stderr)
+      ? blob.stderr.toString("utf8")
+      : (blob.stderr ?? "");
+    const blobSha256 = createHash("sha256").update(blobBytes).digest("hex");
+    if (
+      blob.error ||
+      blob.status !== 0 ||
+      blobStderr.trim() ||
+      blobBytes.length !== entry.bytes ||
+      blobSha256 !== entry.sha256
+    ) {
+      add(
+        "error",
+        "consolidated-change-trace-content-mismatch",
+        relative(ledger),
+        `${entry.oldId}: fixed old Path bytes do not match the declared identity.`,
+      );
+    }
+    if (!verifiedAncestors.has(entry.commit)) {
+      verifiedAncestors.add(entry.commit);
+      const ancestor = spawnSync(
+        "git",
+        ["-C", root, "merge-base", "--is-ancestor", entry.commit, headStart],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 5_000,
+          maxBuffer: 1_048_576,
+        },
+      );
+      if (
+        ancestor.error ||
+        ancestor.status !== 0 ||
+        (ancestor.stderr ?? "").trim() ||
+        (ancestor.stdout ?? "").trim()
+      ) {
+        add(
+          "error",
+          "consolidated-change-trace-base-not-ancestor",
+          relative(ledger),
+          `${entry.oldId}: fixed Commit must remain an ancestor of the current Release candidate HEAD.`,
+        );
+      }
+    }
+  }
+
+  const unreleasedRange = text.match(
+    /^- 統合前の未リリースCHG:\s*`CHG-([0-9]{6})`～`CHG-([0-9]{6})`の([0-9]+)件\s*$/mu,
+  );
+  const consolidatedSummary = text.match(
+    /^- 統合後:\s*Canonical CHG ([0-9]+)件、統合済み旧ID ([0-9]+)件\s*$/mu,
+  );
+  const canonicalSummary = text.match(/^- Canonical CHG:\s*(.+)$/mu);
+  if (!unreleasedRange || !consolidatedSummary || !canonicalSummary) {
+    add(
+      "error",
+      "incomplete-change-trace-consolidation-set-declaration",
+      relative(ledger),
+      "The unreleased range, canonical count, old-ID count, and canonical ID set must be declared.",
+    );
+  } else {
+    const first = Number.parseInt(unreleasedRange[1], 10);
+    const last = Number.parseInt(unreleasedRange[2], 10);
+    const declaredTotal = Number.parseInt(unreleasedRange[3], 10);
+    const declaredCanonicalCount = Number.parseInt(consolidatedSummary[1], 10);
+    const declaredOldCount = Number.parseInt(consolidatedSummary[2], 10);
+    const canonicalIds = new Set(
+      [...canonicalSummary[1].matchAll(/CHG-[0-9]{6}/gu)].map(
+        (match) => match[0],
+      ),
+    );
+    const calculatedTotal = last >= first ? last - first + 1 : 0;
+    if (
+      calculatedTotal !== declaredTotal ||
+      canonicalIds.size !== declaredCanonicalCount ||
+      oldIds.size !== declaredOldCount ||
+      declaredCanonicalCount + declaredOldCount !== declaredTotal
+    ) {
+      add(
+        "error",
+        "invalid-change-trace-consolidation-set-arithmetic",
+        relative(ledger),
+        `Declared ${declaredTotal} total / ${declaredCanonicalCount} canonical / ${declaredOldCount} old IDs, observed range ${calculatedTotal} / canonical ${canonicalIds.size} / old ${oldIds.size}.`,
+      );
+    }
+
+    for (let numericId = first; numericId <= last; numericId += 1) {
+      const id = `CHG-${numericId.toString().padStart(6, "0")}`;
+      const isOld = oldIds.has(id);
+      const isLive = liveIds.has(id);
+      if (isOld === isLive) {
+        add(
+          "error",
+          "non-exclusive-change-trace-consolidation-mapping",
+          relative(ledger),
+          `${id}: expected exactly one of a live canonical or a consolidated old-ID entry.`,
+        );
+      }
+      if (isLive && !canonicalIds.has(id)) {
+        add(
+          "error",
+          "undeclared-canonical-change-trace-id",
+          relative(ledger),
+          `${id}: live Change Trace is not declared in the canonical ID set.`,
+        );
+      }
+      if (isOld && canonicalIds.has(id)) {
+        add(
+          "error",
+          "consolidated-id-declared-canonical",
+          relative(ledger),
+          `${id}: consolidated old ID is also declared canonical.`,
+        );
+      }
+    }
+
+    for (const id of canonicalIds) {
+      const numericId = Number.parseInt(id.slice(4), 10);
+      if (numericId < first || numericId > last || !liveIds.has(id)) {
+        add(
+          "error",
+          "invalid-declared-canonical-change-trace-id",
+          relative(ledger),
+          `${id}: canonical ID must be a live Change Trace inside the declared unreleased range.`,
+        );
+      }
+    }
+  }
+
+  type TagSnapshotRow = Readonly<{
+    name: string;
+    refOid: string;
+    objectType: string;
+    peeledCommitOid: string;
+  }>;
+  const tagSnapshotRows = tagsStart
+    .split(/\n/u)
+    .filter(Boolean)
+    .map((line): TagSnapshotRow | null => {
+      const [name, refOid, objectType, peeledOid, peeledType] = line.split("|");
+      const peeledCommitOid =
+        objectType === "commit"
+          ? refOid
+          : objectType === "tag" && peeledType === "commit"
+            ? peeledOid
+            : "";
+      if (!name || !/^[0-9a-f]{40}$/u.test(refOid ?? "") || !objectType) {
+        return null;
+      }
+      return { name, refOid, objectType, peeledCommitOid };
+    });
+  const tagSnapshotByName = new Map(
+    tagSnapshotRows
+      .filter((row): row is TagSnapshotRow => row !== null)
+      .map((row) => [row.name, row]),
+  );
+  const fixedTagRows = new Map<
+    string,
+    Readonly<{
+      objectType: string;
+      refOid: string;
+      peeledCommitOid: string;
+      peeledTreeOid: string;
+    }>
+  >();
+  const fixedTagMatches = [
+    ...text.matchAll(
+      /^\| `(v[0-9]+\.[0-9]+\.[0-9]+(?:-p[0-9]+)?)` \| `(tag|commit)` \| `([0-9a-f]{40})` \| `([0-9a-f]{40})` \| `([0-9a-f]{40})` \|$/gmu,
+    ),
+  ];
+  for (const tagMatch of fixedTagMatches) {
+    if (fixedTagRows.has(tagMatch[1])) {
+      add(
+        "error",
+        "duplicate-published-tag-inventory-entry",
+        relative(ledger),
+        `${tagMatch[1]} occurs more than once in the fixed published-tag inventory.`,
+      );
+    }
+    fixedTagRows.set(tagMatch[1], {
+      objectType: tagMatch[2],
+      refOid: tagMatch[3],
+      peeledCommitOid: tagMatch[4],
+      peeledTreeOid: tagMatch[5],
+    });
+  }
+  validateMachineTable(
+    "公式公開tag固定集合",
+    "| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |",
+    "|---|---|---|---|---|",
+    /^\| `v[0-9]+\.[0-9]+\.[0-9]+(?:-p[0-9]+)?` \| `(tag|commit)` \| `[0-9a-f]{40}` \| `[0-9a-f]{40}` \| `[0-9a-f]{40}` \|$/u,
+    fixedTagMatches.length,
+    "invalid-published-tag-inventory-table-schema",
+  );
+  const fixedTagSummary = text.match(
+    /^- 公式公開tag固定集合:\s*([0-9]+)件\s*$/mu,
+  );
+  const expectedFixedTagCount = Number.parseInt(
+    fixedTagSummary?.[1] ?? "-1",
+    10,
+  );
+  if (
+    !fixedTagSummary ||
+    expectedFixedTagCount < 0 ||
+    fixedTagRows.size !== expectedFixedTagCount
+  ) {
+    add(
+      "error",
+      "incomplete-published-tag-inventory",
+      relative(ledger),
+      `Expected ${expectedFixedTagCount} fixed published tags, observed ${fixedTagRows.size}.`,
+    );
+  }
+  const officialTagNamePattern = /^v[0-9]+\.[0-9]+\.[0-9]+(?:-p[0-9]+)?$/u;
+  const observedOfficialTags = [...tagSnapshotByName].filter(([tagName]) =>
+    officialTagNamePattern.test(tagName),
+  );
+  for (const [
+    observedOfficialTagName,
+    observedOfficialTag,
+  ] of observedOfficialTags) {
+    if (!observedOfficialTag.peeledCommitOid) {
+      add(
+        "error",
+        "official-published-tag-not-commit",
+        relative(ledger),
+        `${observedOfficialTagName}: official Release tags must peel to a commit.`,
+      );
+    }
+  }
+  for (const [tagName, fixedTag] of fixedTagRows) {
+    const observedTag = tagSnapshotByName.get(tagName);
+    if (
+      !observedTag ||
+      observedTag.objectType !== fixedTag.objectType ||
+      observedTag.refOid !== fixedTag.refOid ||
+      observedTag.peeledCommitOid !== fixedTag.peeledCommitOid
+    ) {
+      add(
+        "error",
+        "published-tag-inventory-mismatch",
+        relative(ledger),
+        `${tagName}: ref object type/OID or peeled commit does not match the fixed inventory.`,
+      );
+      continue;
+    }
+    const tagTree = gitText([
+      "show",
+      "-s",
+      "--format=%T",
+      fixedTag.peeledCommitOid,
+    ]);
+    const tagAncestor = gitText([
+      "merge-base",
+      "--is-ancestor",
+      fixedTag.peeledCommitOid,
+      headStart,
+    ]);
+    if (
+      tagTree.error ||
+      tagTree.status !== 0 ||
+      (tagTree.stderr ?? "").trim() ||
+      (tagTree.stdout ?? "").trim() !== fixedTag.peeledTreeOid ||
+      tagAncestor.error ||
+      tagAncestor.status !== 0 ||
+      (tagAncestor.stderr ?? "").trim() ||
+      (tagAncestor.stdout ?? "").trim()
+    ) {
+      add(
+        "error",
+        "published-tag-identity-unavailable",
+        relative(ledger),
+        `${tagName}: fixed peeled commit/tree is unavailable, changed, or not an ancestor of the candidate HEAD.`,
+      );
+    }
+  }
+  const tagInspectionAvailable =
+    tagsStartResult.status === 0 &&
+    tagSnapshotRows.every((row) => row !== null) &&
+    tagSnapshotByName.size === tagSnapshotRows.length;
+  if (tagInspectionAvailable) {
+    const tags = [...fixedTagRows.keys()];
+    const tagPaths = new Map<string, string[]>();
+    for (const tag of tags) {
+      const tagSnapshot = tagSnapshotByName.get(tag);
+      if (!tagSnapshot) continue;
+      const treeResult = spawnSync(
+        "git",
+        [
+          "-C",
+          root,
+          "ls-tree",
+          "-r",
+          "--name-only",
+          tagSnapshot.peeledCommitOid,
+        ],
+        {
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 5_000,
+          maxBuffer: 16 * 1_048_576,
+        },
+      );
+      if (
+        treeResult.error ||
+        treeResult.status !== 0 ||
+        (treeResult.stderr ?? "").trim()
+      ) {
+        add(
+          "error",
+          "change-trace-tag-inspection-failed",
+          relative(ledger),
+          `Could not inspect published tag ${tag}.`,
+        );
+        continue;
+      }
+      for (const taggedPath of (treeResult.stdout ?? "").split(/\r?\n/u)) {
+        if (!taggedPath) continue;
+        const existingTags = tagPaths.get(taggedPath) ?? [];
+        existingTags.push(tag);
+        tagPaths.set(taggedPath, existingTags);
+      }
+    }
+
+    for (const entry of entries) {
+      const oldPathTagNames = tagPaths.get(entry.originalPath) ?? [];
+      if (oldPathTagNames.length > 0) {
+        add(
+          "error",
+          "released-change-trace-consolidated",
+          relative(ledger),
+          `${entry.oldId}: old Path is reachable from published tag(s) ${oldPathTagNames.join(", ")}.`,
+        );
+      }
+    }
+
+    const futureOfficialTagPaths = new Map<string, string[]>();
+    for (const [tagName, tagSnapshot] of observedOfficialTags) {
+      if (fixedTagRows.has(tagName) || !tagSnapshot.peeledCommitOid) continue;
+      const treeResult = gitText([
+        "ls-tree",
+        "-r",
+        "--name-only",
+        tagSnapshot.peeledCommitOid,
+      ]);
+      if (
+        treeResult.error ||
+        treeResult.status !== 0 ||
+        (treeResult.stderr ?? "").trim()
+      ) {
+        add(
+          "error",
+          "change-trace-tag-inspection-failed",
+          relative(ledger),
+          `Could not inspect future official tag ${tagName}.`,
+        );
+        continue;
+      }
+      for (const taggedPath of (treeResult.stdout ?? "").split(/\r?\n/u)) {
+        if (!taggedPath) continue;
+        const existingTags = futureOfficialTagPaths.get(taggedPath) ?? [];
+        existingTags.push(tagName);
+        futureOfficialTagPaths.set(taggedPath, existingTags);
+      }
+    }
+    for (const entry of entries) {
+      const futureTagNames =
+        futureOfficialTagPaths.get(entry.originalPath) ?? [];
+      if (futureTagNames.length > 0) {
+        add(
+          "error",
+          "released-change-trace-consolidated",
+          relative(ledger),
+          `${entry.oldId}: old Path is reachable from future official tag(s) ${futureTagNames.join(", ")}.`,
+        );
+      }
+    }
+
+    const releasedRange = text.match(
+      /^- 公開済み固定履歴:\s*`CHG-([0-9]{6})`～`CHG-([0-9]{6})`の([0-9]+)件[。\s]/mu,
+    );
+    if (releasedRange) {
+      if (fixedTagRows.size === 0) {
+        add(
+          "error",
+          "missing-published-tag-inventory",
+          relative(ledger),
+          "Released Change Traces require at least one fixed official published tag.",
+        );
+      }
+      const fixedReleasedRows = new Map<
+        string,
+        Readonly<{
+          path: string;
+          commit: string;
+          bytes: number;
+          sha256: string;
+        }>
+      >();
+      const fixedReleasedMatches = [
+        ...text.matchAll(
+          /^\| `(CHG-[0-9]{6})` \| `([^`]+)` \| `([0-9a-f]{40})` \| ([1-9][0-9]*) \| `([0-9a-f]{64})` \|$/gmu,
+        ),
+      ];
+      for (const match of fixedReleasedMatches) {
+        if (fixedReleasedRows.has(match[1])) {
+          add(
+            "error",
+            "duplicate-released-change-trace-fixed-row",
+            relative(ledger),
+            `${match[1]} occurs more than once in the fixed released-history table.`,
+          );
+        }
+        fixedReleasedRows.set(match[1], {
+          path: match[2],
+          commit: match[3],
+          bytes: Number.parseInt(match[4], 10),
+          sha256: match[5],
+        });
+      }
+      validateMachineTable(
+        "公開済み固定履歴",
+        "| CHG | Path | 固定Commit | byte | SHA-256 |",
+        "|---|---|---|---:|---|",
+        /^\| `CHG-[0-9]{6}` \| `[^`]+` \| `[0-9a-f]{40}` \| [1-9][0-9]* \| `[0-9a-f]{64}` \|$/u,
+        fixedReleasedMatches.length,
+        "invalid-released-change-trace-table-schema",
+      );
+      const firstReleased = Number.parseInt(releasedRange[1], 10);
+      const lastReleased = Number.parseInt(releasedRange[2], 10);
+      const declaredReleased = Number.parseInt(releasedRange[3], 10);
+      if (
+        lastReleased < firstReleased ||
+        lastReleased - firstReleased + 1 !== declaredReleased
+      ) {
+        add(
+          "error",
+          "invalid-released-change-trace-range",
+          relative(ledger),
+          "The declared released Change Trace range arithmetic is invalid.",
+        );
+      } else {
+        for (
+          let numericId = firstReleased;
+          numericId <= lastReleased;
+          numericId += 1
+        ) {
+          const id = `CHG-${numericId.toString().padStart(6, "0")}`;
+          const candidates = allFiles.filter((file) => {
+            if (isEvidenceFile(file) || !changeTraceRootFor(file)) return false;
+            return path.basename(file).startsWith(`${id}_`);
+          });
+          if (candidates.length !== 1) {
+            add(
+              "error",
+              "missing-released-change-trace-file",
+              relative(ledger),
+              `${id}: expected exactly one current Change Trace file, observed ${candidates.length}.`,
+            );
+            continue;
+          }
+          const currentFile = candidates[0];
+          const currentRelativePath = relative(currentFile);
+          const containingTags = tagPaths.get(currentRelativePath) ?? [];
+          if (containingTags.length === 0) {
+            add(
+              "error",
+              "released-change-trace-not-tagged",
+              currentRelativePath,
+              `${id}: declared released but not reachable from any repository tag.`,
+            );
+            continue;
+          }
+          const fixedRow = fixedReleasedRows.get(id);
+          if (!fixedRow || fixedRow.path !== currentRelativePath) {
+            add(
+              "error",
+              "missing-released-change-trace-fixed-identity",
+              relative(ledger),
+              `${id}: exact current Path, byte count, and SHA-256 must be fixed in the released-history table.`,
+            );
+            continue;
+          }
+          const fixedCommitType = gitText(["cat-file", "-t", fixedRow.commit]);
+          const fixedCommitAncestor = gitText([
+            "merge-base",
+            "--is-ancestor",
+            fixedRow.commit,
+            headStart,
+          ]);
+          if (
+            fixedCommitType.error ||
+            fixedCommitType.status !== 0 ||
+            (fixedCommitType.stderr ?? "").trim() ||
+            (fixedCommitType.stdout ?? "").trim() !== "commit" ||
+            fixedCommitAncestor.error ||
+            fixedCommitAncestor.status !== 0 ||
+            (fixedCommitAncestor.stderr ?? "").trim() ||
+            (fixedCommitAncestor.stdout ?? "").trim()
+          ) {
+            add(
+              "error",
+              "invalid-released-change-trace-fixed-commit",
+              relative(ledger),
+              `${id}: fixed Commit must be a readable commit object and an ancestor of the candidate HEAD.`,
+            );
+            continue;
+          }
+          const fixedObject = spawnSync(
+            "git",
+            ["-C", root, "show", `${fixedRow.commit}:${fixedRow.path}`],
+            {
+              encoding: null,
+              windowsHide: true,
+              timeout: 5_000,
+              maxBuffer: 16 * 1_048_576,
+            },
+          );
+          const fixedBytes = Buffer.isBuffer(fixedObject.stdout)
+            ? fixedObject.stdout
+            : Buffer.alloc(0);
+          const fixedStderr = Buffer.isBuffer(fixedObject.stderr)
+            ? fixedObject.stderr.toString("utf8")
+            : (fixedObject.stderr ?? "");
+          const fixedSha256 = createHash("sha256")
+            .update(fixedBytes)
+            .digest("hex");
+          if (
+            fixedObject.error ||
+            fixedObject.status !== 0 ||
+            fixedStderr.trim() ||
+            fixedBytes.length !== fixedRow.bytes ||
+            fixedSha256 !== fixedRow.sha256
+          ) {
+            add(
+              "error",
+              "released-change-trace-fixed-identity-mismatch",
+              relative(ledger),
+              `${id}: recorded Commit, Path, byte count, and SHA-256 do not resolve to one exact blob.`,
+            );
+          }
+          const currentObject = spawnSync(
+            "git",
+            ["-C", root, "show", `${headStart}:${currentRelativePath}`],
+            {
+              encoding: null,
+              windowsHide: true,
+              timeout: 5_000,
+              maxBuffer: 16 * 1_048_576,
+            },
+          );
+          const currentBytes = Buffer.isBuffer(currentObject.stdout)
+            ? currentObject.stdout
+            : Buffer.alloc(0);
+          const currentStderr = Buffer.isBuffer(currentObject.stderr)
+            ? currentObject.stderr.toString("utf8")
+            : (currentObject.stderr ?? "");
+          const currentSha256 = createHash("sha256")
+            .update(currentBytes)
+            .digest("hex");
+          const worktreeDifference = spawnSync(
+            "git",
+            [
+              "-C",
+              root,
+              "diff",
+              "--quiet",
+              headStart,
+              "--",
+              currentRelativePath,
+            ],
+            {
+              encoding: "utf8",
+              windowsHide: true,
+              timeout: 5_000,
+              maxBuffer: 1_048_576,
+            },
+          );
+          if (
+            currentObject.error ||
+            currentObject.status !== 0 ||
+            currentStderr.trim() ||
+            currentBytes.length !== fixedRow.bytes ||
+            currentSha256 !== fixedRow.sha256 ||
+            worktreeDifference.error ||
+            worktreeDifference.status !== 0
+          ) {
+            add(
+              "error",
+              "released-change-trace-content-changed",
+              currentRelativePath,
+              `${id}: current bytes do not match the fixed released-history identity.`,
+            );
+          }
+        }
+      }
+    }
+  } else {
+    add(
+      "error",
+      "change-trace-tag-inspection-failed",
+      relative(ledger),
+      "Could not enumerate repository tags for the official consolidation ledger.",
+    );
+  }
+
+  const historicalReferenceMatches = [
+    ...text.matchAll(
+      /^\| `(90_Release\/Changes\/Evidence\/[^`]+\.md)` \| `(90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md)` \|$/gmu,
+    ),
+  ];
+  const historicalReferenceRows = historicalReferenceMatches.map((match) => ({
+    source: match[1],
+    target: match[2],
+  }));
+  validateMachineTable(
+    "不変・非active歴史参照固定集合",
+    "| Source Evidence | Target Old Path |",
+    "|---|---|",
+    /^\| `90_Release\/Changes\/Evidence\/[^`]+\.md` \| `90_Release\/Changes\/CHG-[0-9]{6}_[A-Za-z0-9_]+\.md` \|$/u,
+    historicalReferenceMatches.length,
+    "invalid-historical-reference-table-schema",
+  );
+  const historicalRowKeys = new Set(
+    historicalReferenceRows.map((row) => `${row.source}\0${row.target}`),
+  );
+  const historicalSources = new Set(
+    historicalReferenceRows.map((row) => row.source),
+  );
+  const historicalTargets = new Set(
+    historicalReferenceRows.map((row) => row.target),
+  );
+  const historicalReferencePhysicalTargets = new Set(
+    [...historicalTargets]
+      .map((target) => path.join(root, ...target.split("/")))
+      .filter((target) => lstatIfPresent(target))
+      .map((target) => path.resolve(target)),
+  );
+  const indexedPaths = new Set(
+    (indexEntries.stdout ?? "")
+      .split("\0")
+      .map((entry) => entry.match(/^[0-9]{6} [0-9a-f]{40} [0-3]\t(.+)$/u)?.[1])
+      .filter((indexedPath): indexedPath is string => Boolean(indexedPath)),
+  );
+  const historicalReferenceIndexedTargets = new Set(
+    [...historicalTargets]
+      .filter((target) => indexedPaths.has(target))
+      .map((target) => path.resolve(path.join(root, ...target.split("/")))),
+  );
+  const historicalReferenceSummary = text.match(
+    /^- 不変・非active歴史参照固定集合:\s*([0-9]+) pair、([0-9]+) source、([0-9]+) target\s*$/mu,
+  );
+  const expectedHistoricalPairs = Number.parseInt(
+    historicalReferenceSummary?.[1] ?? "-1",
+    10,
+  );
+  const expectedHistoricalSources = Number.parseInt(
+    historicalReferenceSummary?.[2] ?? "-1",
+    10,
+  );
+  const expectedHistoricalTargets = Number.parseInt(
+    historicalReferenceSummary?.[3] ?? "-1",
+    10,
+  );
+  if (
+    !historicalReferenceSummary ||
+    historicalReferenceRows.length !== expectedHistoricalPairs ||
+    historicalRowKeys.size !== expectedHistoricalPairs ||
+    historicalSources.size !== expectedHistoricalSources ||
+    historicalTargets.size !== expectedHistoricalTargets
+  ) {
+    add(
+      "error",
+      "invalid-historical-reference-set",
+      relative(ledger),
+      `Expected ${expectedHistoricalPairs} exact pairs / ${expectedHistoricalSources} sources / ${expectedHistoricalTargets} targets, observed ${historicalRowKeys.size} / ${historicalSources.size} / ${historicalTargets.size}.`,
+    );
+  }
+  const historicalReferenceCandidates = new Set(
+    historicalReferenceRows.map((row) =>
+      historicalReferenceKey(
+        path.join(root, ...row.source.split("/")),
+        path.join(root, ...row.target.split("/")),
+      ),
+    ),
+  );
+  const verifiedHistoricalPairs = new Set<string>();
+  const historicalSourceStartStates = new Map<
+    string,
+    Readonly<{
+      bytes: Buffer;
+      dev: number;
+      ino: number;
+      mode: number;
+      size: number;
+    }>
+  >();
+  const countExactHistoricalLinks = (
+    sourceBytes: Buffer,
+    sourceAbsolute: string,
+    targetAbsolute: string,
+  ): number =>
+    [
+      ...withoutFencedCode(sourceBytes.toString("utf8")).matchAll(
+        /(?<!!)\[[^\]]+\]\(([^)]+)\)/g,
+      ),
+    ].filter((link) => {
+      const resolution = resolveLocalTarget(sourceAbsolute, link[1]);
+      return (
+        !resolution.external &&
+        !resolution.anchor &&
+        !resolution.decodeError &&
+        !resolution.outsideRoot &&
+        samePath(resolution.target, targetAbsolute)
+      );
+    }).length;
+  for (const row of historicalReferenceRows) {
+    const sourceAbsolute = path.join(root, ...row.source.split("/"));
+    const targetAbsolute = path.join(root, ...row.target.split("/"));
+    const targetEntry = entries.find(
+      (entry) => entry.originalPath === row.target,
+    );
+    const sourceStat = lstatIfPresent(sourceAbsolute);
+    const isPathSetCanonical = [row.source, row.target].every(
+      (candidate) =>
+        !candidate.includes("\\") &&
+        !candidate.includes("..") &&
+        !candidate.includes(":") &&
+        !candidate.includes("?") &&
+        !candidate.includes("#") &&
+        !path.isAbsolute(candidate) &&
+        relative(path.join(root, ...candidate.split("/"))) === candidate,
+    );
+    if (
+      !isPathSetCanonical ||
+      !targetEntry?.evidencePaths.includes(row.source) ||
+      !sourceStat?.isFile() ||
+      sourceStat.isSymbolicLink() ||
+      pathContainsSymbolicLink(sourceAbsolute) ||
+      !allFiles.some((file) => samePath(file, sourceAbsolute)) ||
+      lstatIfPresent(targetAbsolute)
+    ) {
+      add(
+        "error",
+        "invalid-historical-reference-pair",
+        relative(ledger),
+        `${row.source} -> ${row.target}: pair paths, related Evidence ownership, source identity, or missing target state are invalid.`,
+      );
+      continue;
+    }
+    const baseSource = spawnSync(
+      "git",
+      ["-C", root, "show", `${integrationBaseCommit}:${row.source}`],
+      {
+        encoding: null,
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 16 * 1_048_576,
+        env: gitEnvironment,
+      },
+    );
+    const headSource = spawnSync(
+      "git",
+      ["-C", root, "show", `${headStart}:${row.source}`],
+      {
+        encoding: null,
+        windowsHide: true,
+        timeout: 5_000,
+        maxBuffer: 16 * 1_048_576,
+        env: gitEnvironment,
+      },
+    );
+    let worktreeBytes = Buffer.alloc(0);
+    let worktreeReadFailed = false;
+    try {
+      worktreeBytes = fs.readFileSync(sourceAbsolute);
+    } catch {
+      worktreeReadFailed = true;
+    }
+    const baseBytes = Buffer.isBuffer(baseSource.stdout)
+      ? baseSource.stdout
+      : Buffer.alloc(0);
+    const headBytes = Buffer.isBuffer(headSource.stdout)
+      ? headSource.stdout
+      : Buffer.alloc(0);
+    const baseError = Buffer.isBuffer(baseSource.stderr)
+      ? baseSource.stderr.toString("utf8")
+      : (baseSource.stderr ?? "");
+    const headError = Buffer.isBuffer(headSource.stderr)
+      ? headSource.stderr.toString("utf8")
+      : (headSource.stderr ?? "");
+    const baseLinkCount = countExactHistoricalLinks(
+      baseBytes,
+      sourceAbsolute,
+      targetAbsolute,
+    );
+    const worktreeLinkCount = countExactHistoricalLinks(
+      worktreeBytes,
+      sourceAbsolute,
+      targetAbsolute,
+    );
+    if (
+      baseSource.error ||
+      baseSource.status !== 0 ||
+      baseError.trim() ||
+      headSource.error ||
+      headSource.status !== 0 ||
+      headError.trim() ||
+      !baseBytes.equals(headBytes) ||
+      worktreeReadFailed ||
+      !baseBytes.equals(worktreeBytes) ||
+      baseLinkCount !== 1 ||
+      worktreeLinkCount !== 1
+    ) {
+      add(
+        "error",
+        "historical-reference-identity-mismatch",
+        relative(ledger),
+        `${row.source} -> ${row.target}: base/HEAD/worktree identity or exact Markdown link occurrence does not match.`,
+      );
+      continue;
+    }
+    historicalSourceStartStates.set(row.source, {
+      bytes: worktreeBytes,
+      dev: sourceStat.dev,
+      ino: sourceStat.ino,
+      mode: sourceStat.mode,
+      size: sourceStat.size,
+    });
+    verifiedHistoricalPairs.add(
+      historicalReferenceKey(sourceAbsolute, targetAbsolute),
+    );
+  }
+
+  const headEndResult = gitText(["rev-parse", "--verify", "HEAD^{commit}"]);
+  const tagsEndResult = gitText([
+    "for-each-ref",
+    "--sort=refname",
+    "--format=%(refname:short)|%(objectname)|%(objecttype)|%(*objectname)|%(*objecttype)",
+    "refs/tags",
+  ]);
+  let ledgerEndBytes = Buffer.alloc(0);
+  let ledgerEndStat: fs.Stats | null = null;
+  let ledgerEndReadFailed = false;
+  try {
+    ledgerEndStat = fs.lstatSync(ledger);
+    ledgerEndBytes = fs.readFileSync(ledger);
+  } catch {
+    ledgerEndReadFailed = true;
+  }
+  const indexEndResult = gitText(["ls-files", "--stage", "-z"]);
+  const collectReservedPhysicalEntries = (directory: string): string[] => {
+    const observedPaths: string[] = [];
+    const visit = (currentDirectory: string): void => {
+      if (!lstatIfPresent(currentDirectory)?.isDirectory()) return;
+      for (const entry of fs.readdirSync(currentDirectory, {
+        withFileTypes: true,
+      })) {
+        const candidate = path.join(currentDirectory, entry.name);
+        const filenameMatch = entry.name.match(reservedIdPattern);
+        if (
+          filenameMatch &&
+          oldIds.has(`CHG-${filenameMatch[1]}`) &&
+          !isEvidenceFile(candidate)
+        ) {
+          observedPaths.push(relative(candidate).toLocaleLowerCase("en-US"));
+        }
+        if (entry.isDirectory() && !entry.isSymbolicLink()) visit(candidate);
+      }
+    };
+    visit(directory);
+    return observedPaths.sort();
+  };
+  const endingReservedPhysicalEntries = releaseRoots
+    .flatMap((releaseRoot) =>
+      collectReservedPhysicalEntries(path.join(releaseRoot, "Changes")),
+    )
+    .sort();
+  const didSourceChangeDuringCheck = [...historicalSourceStartStates].some(
+    ([source, startState]) => {
+      const sourceAbsolute = path.join(root, ...source.split("/"));
+      try {
+        const endStat = fs.lstatSync(sourceAbsolute);
+        const endBytes = fs.readFileSync(sourceAbsolute);
+        return (
+          !endStat.isFile() ||
+          endStat.isSymbolicLink() ||
+          pathContainsSymbolicLink(sourceAbsolute) ||
+          endStat.dev !== startState.dev ||
+          endStat.ino !== startState.ino ||
+          endStat.mode !== startState.mode ||
+          endStat.size !== startState.size ||
+          !endBytes.equals(startState.bytes)
+        );
+      } catch {
+        return true;
+      }
+    },
+  );
+  if (
+    headEndResult.error ||
+    headEndResult.status !== 0 ||
+    (headEndResult.stderr ?? "").trim() ||
+    (headEndResult.stdout ?? "").trim() !== headStart ||
+    tagsEndResult.error ||
+    tagsEndResult.status !== 0 ||
+    (tagsEndResult.stderr ?? "").trim() ||
+    (tagsEndResult.stdout ?? "").replaceAll("\r\n", "\n").trim() !==
+      tagsStart ||
+    ledgerEndReadFailed ||
+    !ledgerEndStat?.isFile() ||
+    ledgerEndStat.isSymbolicLink() ||
+    pathContainsSymbolicLink(ledger) ||
+    ledgerEndStat.dev !== ledgerStat.dev ||
+    ledgerEndStat.ino !== ledgerStat.ino ||
+    ledgerEndStat.mode !== ledgerStat.mode ||
+    ledgerEndStat.size !== ledgerStat.size ||
+    !ledgerEndBytes.equals(ledgerStartBytes) ||
+    indexEndResult.error ||
+    indexEndResult.status !== 0 ||
+    (indexEndResult.stderr ?? "").trim() ||
+    (indexEndResult.stdout ?? "") !== (indexEntries.stdout ?? "") ||
+    endingReservedPhysicalEntries.join("\0") !==
+      [...reservedPhysicalEntriesStart].sort().join("\0") ||
+    didSourceChangeDuringCheck
+  ) {
+    add(
+      "error",
+      "change-trace-ledger-snapshot-changed",
+      relative(ledger),
+      "HEAD, tag refs, Git index, ledger bytes, reserved old-Path entries, or fixed Evidence changed during the check; all historical-reference results are invalid.",
+    );
+  }
+
+  const finalErrorCount = findings.filter(
+    (finding) => finding.severity === "error",
+  ).length;
+  if (
+    finalErrorCount !== initialErrorCount ||
+    verifiedHistoricalPairs.size !== expectedHistoricalPairs
+  ) {
+    return {
+      historicalReferenceCandidates,
+      historicalReferencePairs: new Set<string>(),
+      historicalReferencePhysicalTargets,
+      historicalReferenceIndexedTargets,
+      historicalReferenceSources: historicalSources.size,
+      historicalReferenceTargets: historicalTargets.size,
+    };
+  }
+  return {
+    historicalReferenceCandidates,
+    historicalReferencePairs: verifiedHistoricalPairs,
+    historicalReferencePhysicalTargets,
+    historicalReferenceIndexedTargets,
+    historicalReferenceSources: historicalSources.size,
+    historicalReferenceTargets: historicalTargets.size,
+  };
 }
 
 function walk(
@@ -1375,8 +2968,13 @@ if (requestedScopes.length === 0) {
 
 const markdownFiles = allMarkdownFiles.filter((file) => checkedFiles.has(file));
 const anchorCache = new Map<string, Set<string>>();
+const consolidationLedgerCheck = checkConsolidatedChangeTraceLedger(allFiles);
 let checkedLocalLinks = 0;
 let checkedAnchors = 0;
+let historicalReferencesObserved = 0;
+let historicalReferencesVerified = 0;
+let historicalReferencesActive = 0;
+let historicalReferencesIndexed = 0;
 for (const record of linkRecords) {
   if (!checkedFiles.has(record.source) || record.external) continue;
   const { source, raw, target, anchor } = record;
@@ -1393,6 +2991,27 @@ for (const record of linkRecords) {
       `Outside-root local link from ${relative(source)}: ${raw}`,
     );
     continue;
+  }
+  const historicalKey = historicalReferenceKey(source, target);
+  const isHistoricalReferenceCandidate =
+    !anchor &&
+    consolidationLedgerCheck.historicalReferenceCandidates.has(historicalKey);
+  if (isHistoricalReferenceCandidate) {
+    historicalReferencesObserved += 1;
+    if (
+      consolidationLedgerCheck.historicalReferencePhysicalTargets.has(
+        path.resolve(target),
+      )
+    ) {
+      historicalReferencesActive += 1;
+    }
+    if (
+      consolidationLedgerCheck.historicalReferenceIndexedTargets.has(
+        path.resolve(target),
+      )
+    ) {
+      historicalReferencesIndexed += 1;
+    }
   }
   if (record.symbolicBoundary) {
     add("warning", "symbolic-link-target", relative(source), raw);
@@ -1428,11 +3047,19 @@ for (const record of linkRecords) {
     );
     continue;
   }
-  checkedLocalLinks += 1;
   if (!fs.existsSync(target)) {
+    if (
+      !anchor &&
+      consolidationLedgerCheck.historicalReferencePairs.has(historicalKey)
+    ) {
+      historicalReferencesVerified += 1;
+      continue;
+    }
+    checkedLocalLinks += 1;
     add("error", "broken-link", relative(source), raw);
     continue;
   }
+  checkedLocalLinks += 1;
   if (anchor && target.toLowerCase().endsWith(".md")) {
     checkedAnchors += 1;
     const knownAnchors = anchorCache.get(target) ?? anchorsFor(target);
@@ -2530,6 +4157,8 @@ const report = {
     "stable ID filename prohibition",
     "explicit stable ID definition uniqueness",
     "Change Trace inspection-path recognition (not canonical placement validation)",
+    "unreleased Change Trace consolidation ledger identity and reservation",
+    "immutable non-active historical reference identity and Git snapshot",
     "branch coverage arithmetic where numeric values are present",
     "remediation state and early-resolution fields in recognizable tables",
     "Gitlink submodule boundary recognition",
@@ -2548,6 +4177,14 @@ const report = {
     markdown_files_discovered: allMarkdownFiles.length,
     markdown_files_checked: markdownFiles.length,
     local_links_checked: checkedLocalLinks,
+    historical_references_observed: historicalReferencesObserved,
+    historical_references_identity_verified: historicalReferencesVerified,
+    historical_references_active: historicalReferencesActive,
+    historical_references_indexed: historicalReferencesIndexed,
+    historical_reference_sources:
+      consolidationLedgerCheck.historicalReferenceSources,
+    historical_reference_targets:
+      consolidationLedgerCheck.historicalReferenceTargets,
     anchors_checked: checkedAnchors,
     related_blocks_checked: relatedBlocks,
     versioned_documents_checked: versionedDocuments.length,
@@ -2576,7 +4213,7 @@ if (shouldOutputJson && shouldOutputSummary) {
   console.log(`CRDD check: ${errors} error(s), ${warnings} warning(s)`);
   if (shouldOutputSummary) {
     console.log(
-      `Mode=${report.check_mode}; Markdown=${report.metrics.markdown_files_checked}/${report.metrics.markdown_files_discovered}; local links=${checkedLocalLinks}; anchors=${checkedAnchors}; stable IDs=${report.metrics.stable_ids_observed}; ${report.duration_ms} ms`,
+      `Mode=${report.check_mode}; Markdown=${report.metrics.markdown_files_checked}/${report.metrics.markdown_files_discovered}; local links=${checkedLocalLinks}; immutable non-active historical references=${historicalReferencesVerified}/${historicalReferencesObserved} active=${historicalReferencesActive} indexed=${historicalReferencesIndexed}; anchors=${checkedAnchors}; stable IDs=${report.metrics.stable_ids_observed}; ${report.duration_ms} ms`,
     );
     console.log(`Executed=${report.executed_at}`);
     console.log(

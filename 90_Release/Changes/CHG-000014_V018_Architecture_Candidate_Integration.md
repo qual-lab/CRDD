@@ -1,6 +1,6 @@
 # 変更トレース: v0.18.0候補の統合とArchitecture Candidate再基準化
 
-変更トレースID: `CHG-000014`
+変更ID: `CHG-000014`
 状態: `Ready for Verification`
 担当責任者: Qual-Lab
 最終更新日: 2026-08-25

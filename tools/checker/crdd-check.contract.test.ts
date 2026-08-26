@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
+import { createHash } from "node:crypto";
 import test, { after } from "node:test";
 import { pathToFileURL } from "node:url";
 
@@ -661,7 +662,7 @@ test("Candidate文書ではReleased BaselineのCHANGELOGを検査する", () => 
       ].includes(item.code),
     ),
     false,
-    JSON.stringify(result.report.findings),
+    `${JSON.stringify(result.report.findings)}\n${result.stderr}`,
   );
 });
 
@@ -1445,6 +1446,1148 @@ test("階層化した変更領域の変更トレースと近接根拠を機械�
   assert.ok(
     result.report.global_checks.includes(
       "Change Trace inspection-path recognition (not canonical placement validation)",
+    ),
+  );
+});
+
+function officialConsolidationLedgerFixture(): string {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.11.4\n");
+  write(path.join(root, "README.md"), "Status: v0.11.4\n");
+  write(
+    path.join(root, "90_Release", "Changes", "CHG-000002_Canonical.md"),
+    "# 変更トレース: Canonical\n\n変更ID: CHG-000002\n",
+  );
+  const oldPath = path.join(root, "90_Release", "Changes", "CHG-000001_Old.md");
+  const oldContent = "# 変更トレース: Old\n\n変更ID: CHG-000001\n";
+  write(oldPath, oldContent);
+  initializeGit(root);
+  assert.equal(
+    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
+    0,
+  );
+  assert.equal(
+    spawnSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "consolidation base fixture",
+      ],
+      { encoding: "utf8" },
+    ).status,
+    0,
+  );
+  const commit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const tree = spawnSync(
+    "git",
+    ["-C", root, "show", "-s", "--format=%T", "HEAD"],
+    {
+      encoding: "utf8",
+    },
+  ).stdout.trim();
+  const oldBytes = Buffer.from(oldContent, "utf8");
+  const oldSha256 = createHash("sha256").update(oldBytes).digest("hex");
+  fs.rmSync(oldPath);
+  write(
+    path.join(root, "90_Release", "Changes", "README.md"),
+    [
+      "# 未リリース変更トレース統合台帳",
+      "",
+      "<!-- crdd-change-trace-ledger-schema: 1 -->",
+      "",
+      `- 統合直前Commit: \`${commit}\``,
+      `- 統合直前Tree: \`${tree}\``,
+      "- 公式公開tag固定集合: 0件",
+      "- 不変・非active歴史参照固定集合: 0 pair、0 source、0 target",
+      "- 統合前の未リリースCHG: `CHG-000001`～`CHG-000002`の2件",
+      "- 統合後: Canonical CHG 1件、統合済み旧ID 1件",
+      "- Canonical CHG: `CHG-000002`",
+      "",
+      "## 公式公開tag固定集合",
+      "",
+      "| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |",
+      "|---|---|---|---|---|",
+      "",
+      "## 不変・非active歴史参照固定集合",
+      "",
+      "| Source Evidence | Target Old Path |",
+      "|---|---|",
+      "",
+      "## 統合済み旧ID",
+      "",
+      '<a id="consolidated-chg-000001"></a>',
+      "",
+      "### CHG-000001 → CHG-000002",
+      "",
+      "- 旧題名: fixture old",
+      "- 旧Path: `90_Release/Changes/CHG-000001_Old.md`",
+      "- 統合前判断: fixture",
+      "- 変更分類: `non-breaking`",
+      "- 移行／Release境界: fixture",
+      "- Canonical CHG: [CHG-000002](CHG-000002_Canonical.md)",
+      "- 統合理由: 同じ変更意図の途中段階",
+      `- 固定原文: Commit \`${commit}\`、Tree \`${tree}\`、${oldBytes.length} byte、SHA-256 \`${oldSha256}\``,
+      "- 関連Evidence: 専用Evidenceなし",
+      "- 旧ID処置: 統合済み・永久欠番",
+      "",
+    ].join("\n"),
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "add", "-A"], { encoding: "utf8" }).status,
+    0,
+  );
+  return root;
+}
+
+function officialVirtualResolutionFixture(): string {
+  const root = fixture();
+  makeStructure(path.join(root, "template"));
+  write(path.join(root, "01_Principles.md"), "Version: v0.11.4\n");
+  write(path.join(root, "README.md"), "Status: v0.11.4\n");
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "Changes",
+      "CHG-000015_Coordinator_Runtime_1_0.md",
+    ),
+    "# 変更トレース: Canonical\n\n変更ID: CHG-000015\n",
+  );
+  const oldRecords: Array<
+    Readonly<{ id: string; path: string; content: string }>
+  > = [];
+  for (let numericId = 16; numericId <= 35; numericId += 1) {
+    const id = `CHG-${numericId.toString().padStart(6, "0")}`;
+    const relativePath =
+      id === "CHG-000035"
+        ? "90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md"
+        : `90_Release/Changes/${id}_Old.md`;
+    const content = `# 変更トレース: ${id}\n\n変更ID: ${id}\n`;
+    write(path.join(root, ...relativePath.split("/")), content);
+    oldRecords.push({ id, path: relativePath, content });
+  }
+  write(
+    path.join(root, "90_Release", "Changes", "Evidence", "fixed.md"),
+    "[fixed](../CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)\n",
+  );
+  initializeGit(root);
+  assert.equal(
+    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
+    0,
+  );
+  assert.equal(
+    spawnSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "locator base fixture",
+      ],
+      { encoding: "utf8" },
+    ).status,
+    0,
+  );
+  const commit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const tree = spawnSync(
+    "git",
+    ["-C", root, "show", "-s", "--format=%T", "HEAD"],
+    {
+      encoding: "utf8",
+    },
+  ).stdout.trim();
+  for (const record of oldRecords)
+    fs.rmSync(path.join(root, ...record.path.split("/")));
+  const ledgerLines = [
+    "# 未リリース変更トレース統合台帳",
+    "",
+    "<!-- crdd-change-trace-ledger-schema: 1 -->",
+    "",
+    `- 統合直前Commit: \`${commit}\``,
+    `- 統合直前Tree: \`${tree}\``,
+    "- 公式公開tag固定集合: 0件",
+    "- 不変・非active歴史参照固定集合: 1 pair、1 source、1 target",
+    "- 統合前の未リリースCHG: `CHG-000015`～`CHG-000035`の21件",
+    "- 統合後: Canonical CHG 1件、統合済み旧ID 20件",
+    "- Canonical CHG: `CHG-000015`",
+    "",
+    "## 公式公開tag固定集合",
+    "",
+    "| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |",
+    "|---|---|---|---|---|",
+    "",
+    "## 統合済み旧ID",
+    "",
+  ];
+  for (const record of oldRecords) {
+    const bytes = Buffer.from(record.content, "utf8");
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    ledgerLines.push(
+      `<a id="consolidated-${record.id.toLocaleLowerCase("en-US")}"></a>`,
+      "",
+      `### ${record.id} → CHG-000015`,
+      "",
+      `- 旧題名: fixture ${record.id}`,
+      `- 旧Path: \`${record.path}\``,
+      "- 統合前判断: fixture",
+      "- 変更分類: `non-breaking`",
+      "- 移行／Release境界: fixture",
+      "- Canonical CHG: [CHG-000015](CHG-000015_Coordinator_Runtime_1_0.md)",
+      "- 統合理由: locator fixture",
+      `- 固定原文: Commit \`${commit}\`、Tree \`${tree}\`、${bytes.length} byte、SHA-256 \`${sha256}\``,
+      record.id === "CHG-000035"
+        ? "- 関連Evidence: [fixed.md](Evidence/fixed.md)"
+        : "- 関連Evidence: 専用Evidenceなし",
+      "- 旧ID処置: 統合済み・永久欠番",
+      "",
+    );
+  }
+  ledgerLines.push(
+    "## 不変・非active歴史参照固定集合",
+    "",
+    "| Source Evidence | Target Old Path |",
+    "|---|---|",
+    "| `90_Release/Changes/Evidence/fixed.md` | `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md` |",
+    "",
+  );
+  write(
+    path.join(root, "90_Release", "Changes", "README.md"),
+    ledgerLines.join("\n"),
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
+    0,
+  );
+  assert.equal(
+    spawnSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "virtual resolution candidate fixture",
+      ],
+      { encoding: "utf8" },
+    ).status,
+    0,
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "tag", "fixture-v0.18.0"], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  return root;
+}
+
+test("公式統合台帳は旧IDをCanonicalと固定原文へ一意に予約する", () => {
+  const root = officialConsolidationLedgerFixture();
+  const result = runChecker(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.ok(
+    result.report.global_checks.includes(
+      "unreleased Change Trace consolidation ledger identity and reservation",
+    ),
+  );
+});
+
+test("公式統合台帳はGit object、内容Identity、祖先性とGit取得失敗をfail closedにする", () => {
+  const cases: ReadonlyArray<
+    readonly [string, (root: string, ledger: string) => string, string]
+  > = [
+    [
+      "missing commit",
+      (_root, ledger) =>
+        ledger.replace(/Commit `[^`]+`/u, `Commit \`${"0".repeat(40)}\``),
+      "invalid-consolidated-change-trace-commit",
+    ],
+    [
+      "non-commit object",
+      (root, ledger) => {
+        const blob = spawnSync(
+          "git",
+          [
+            "-C",
+            root,
+            "rev-parse",
+            "HEAD:90_Release/Changes/CHG-000001_Old.md",
+          ],
+          { encoding: "utf8" },
+        ).stdout.trim();
+        return ledger.replace(/Commit `[^`]+`/u, `Commit \`${blob}\``);
+      },
+      "invalid-consolidated-change-trace-commit",
+    ],
+    [
+      "wrong tree",
+      (_root, ledger) =>
+        ledger.replace(/Tree `[^`]+`/u, `Tree \`${"0".repeat(40)}\``),
+      "consolidated-change-trace-tree-mismatch",
+    ],
+    [
+      "missing blob",
+      (_root, ledger) =>
+        ledger.replace("CHG-000001_Old.md", "CHG-000001_Missing.md"),
+      "invalid-consolidated-change-trace-blob",
+    ],
+    [
+      "wrong byte count",
+      (_root, ledger) =>
+        ledger.replace(
+          /、([1-9][0-9]*) byte、/u,
+          (_match, bytes: string) =>
+            `、${Number.parseInt(bytes, 10) + 1} byte、`,
+        ),
+      "consolidated-change-trace-content-mismatch",
+    ],
+    [
+      "wrong sha256",
+      (_root, ledger) =>
+        ledger.replace(/SHA-256 `[^`]+`/u, `SHA-256 \`${"0".repeat(64)}\``),
+      "consolidated-change-trace-content-mismatch",
+    ],
+    [
+      "non-ancestor commit",
+      (root, ledger) => {
+        const tree = ledger.match(/Tree `([0-9a-f]{40})`/u)?.[1] ?? "";
+        const orphan = spawnSync(
+          "git",
+          ["-C", root, "commit-tree", tree, "-m", "orphan fixture"],
+          {
+            encoding: "utf8",
+            env: {
+              ...process.env,
+              GIT_AUTHOR_NAME: "CRDD Test",
+              GIT_AUTHOR_EMAIL: "crdd-test@example.invalid",
+              GIT_COMMITTER_NAME: "CRDD Test",
+              GIT_COMMITTER_EMAIL: "crdd-test@example.invalid",
+            },
+          },
+        ).stdout.trim();
+        return ledger.replace(/Commit `[^`]+`/u, `Commit \`${orphan}\``);
+      },
+      "consolidated-change-trace-base-not-ancestor",
+    ],
+  ];
+
+  for (const [label, mutate, expectedCode] of cases) {
+    const root = officialConsolidationLedgerFixture();
+    const ledgerPath = path.join(root, "90_Release", "Changes", "README.md");
+    fs.writeFileSync(
+      ledgerPath,
+      mutate(root, fs.readFileSync(ledgerPath, "utf8")),
+      "utf8",
+    );
+    const result = runChecker(root);
+    assert.ok(
+      result.report.findings.some((finding) => finding.code === expectedCode),
+      `${label}: ${JSON.stringify(result.report.findings)}`,
+    );
+  }
+
+  const gitUnavailableRoot = officialConsolidationLedgerFixture();
+  const emptyPath = path.join(gitUnavailableRoot, "empty-path");
+  fs.mkdirSync(emptyPath);
+  const gitUnavailable = runWithEnv(gitUnavailableRoot, { PATH: emptyPath });
+  assert.ok(
+    gitUnavailable.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-consolidated-change-trace-commit" ||
+        finding.code === "change-trace-tag-inspection-failed",
+    ),
+  );
+
+  const shallowRoot = officialConsolidationLedgerFixture();
+  const shallowHead = spawnSync(
+    "git",
+    ["-C", shallowRoot, "rev-parse", "HEAD"],
+    {
+      encoding: "utf8",
+    },
+  ).stdout.trim();
+  fs.writeFileSync(
+    path.join(shallowRoot, ".git", "shallow"),
+    `${shallowHead}\n`,
+  );
+  const shallowResult = runChecker(shallowRoot);
+  assert.ok(
+    shallowResult.report.findings.some(
+      (finding) =>
+        finding.code === "change-trace-ledger-git-snapshot-unavailable",
+    ),
+  );
+
+  const nonFileLedgerRoot = officialConsolidationLedgerFixture();
+  const nonFileLedger = path.join(
+    nonFileLedgerRoot,
+    "90_Release",
+    "Changes",
+    "README.md",
+  );
+  fs.rmSync(nonFileLedger);
+  fs.mkdirSync(nonFileLedger);
+  const nonFileLedgerResult = runChecker(nonFileLedgerRoot);
+  assert.ok(
+    nonFileLedgerResult.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-change-trace-consolidation-ledger-file",
+    ),
+  );
+});
+
+test("統合直前baseは一意なCommitと実Treeへ固定し全旧entryで共有する", () => {
+  const cases: ReadonlyArray<readonly [string, (ledger: string) => string]> = [
+    [
+      "duplicate base",
+      (ledger) =>
+        ledger.replace(
+          /^- 統合直前Commit: (`[0-9a-f]{40}`)$/mu,
+          "- 統合直前Commit: $1\n- 統合直前Commit: $1",
+        ),
+    ],
+    [
+      "wrong base tree",
+      (ledger) =>
+        ledger.replace(
+          /^- 統合直前Tree: `[0-9a-f]{40}`$/mu,
+          `- 統合直前Tree: \`${"0".repeat(40)}\``,
+        ),
+    ],
+    [
+      "entry base divergence",
+      (ledger) =>
+        ledger.replace(
+          /(- 固定原文: Commit )`[0-9a-f]{40}`/u,
+          `$1\`${"0".repeat(40)}\``,
+        ),
+    ],
+  ];
+  for (const [label, mutate] of cases) {
+    const root = officialConsolidationLedgerFixture();
+    const ledgerPath = path.join(root, "90_Release", "Changes", "README.md");
+    fs.writeFileSync(
+      ledgerPath,
+      mutate(fs.readFileSync(ledgerPath, "utf8")),
+      "utf8",
+    );
+    const result = runChecker(root);
+    assert.equal(result.status, 1, label);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "invalid-change-trace-integration-base" ||
+          finding.code === "change-trace-entry-base-mismatch",
+      ),
+      `${label}: ${JSON.stringify(result.report.findings)}`,
+    );
+  }
+});
+
+test("公式統合台帳は未リリースID集合の欠落と重複を拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  const ledger = path.join(root, "90_Release", "Changes", "README.md");
+  fs.writeFileSync(
+    ledger,
+    fs
+      .readFileSync(ledger, "utf8")
+      .replace(
+        "Canonical CHG 1件、統合済み旧ID 1件",
+        "Canonical CHG 2件、統合済み旧ID 0件",
+      )
+      .replace(
+        "Canonical CHG: `CHG-000002`",
+        "Canonical CHG: `CHG-000001`、`CHG-000002`",
+      ),
+    "utf8",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-change-trace-consolidation-set-arithmetic" ||
+        finding.code === "consolidated-id-declared-canonical",
+    ),
+  );
+});
+
+test("将来の公式公開tagも統合済み旧Pathへの到達を拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  write(
+    path.join(root, "90_Release", "Changes", "CHG-000001_Old.md"),
+    "# 変更トレース: Published old\n\n変更ID: CHG-000001\n",
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
+    0,
+  );
+  assert.equal(
+    spawnSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "published fixture",
+      ],
+      { encoding: "utf8" },
+    ).status,
+    0,
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "tag", "v0.1.0"], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  fs.rmSync(path.join(root, "90_Release", "Changes", "CHG-000001_Old.md"));
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "released-change-trace-consolidated",
+    ),
+    `${JSON.stringify(result.report.findings)}\n${result.stderr}`,
+  );
+});
+
+test("将来の公式公開tagは旧Pathへ到達しなければ自己参照なしで許容する", () => {
+  const root = officialVirtualResolutionFixture();
+  assert.equal(
+    spawnSync("git", ["-C", root, "tag", "v0.18.0"], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+});
+
+test("将来の公式公開tagはcommitへpeelできなければ拒否する", () => {
+  const root = officialVirtualResolutionFixture();
+  const blob = spawnSync(
+    "git",
+    ["-C", root, "rev-parse", "HEAD:90_Release/Changes/README.md"],
+    { encoding: "utf8" },
+  ).stdout.trim();
+  assert.equal(
+    spawnSync("git", ["-C", root, "update-ref", "refs/tags/v0.18.0", blob], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "official-published-tag-not-commit",
+    ),
+  );
+});
+
+test("固定Evidenceの欠落旧Pathは物理stubなしで統合台帳から解決する", () => {
+  const root = officialVirtualResolutionFixture();
+  const result = runChecker(root);
+  assert.equal(result.status, 0, JSON.stringify(result.report.findings));
+  assert.equal(result.report.metrics.historical_references_observed, 1);
+  assert.equal(
+    result.report.metrics.historical_references_identity_verified,
+    1,
+  );
+  assert.equal(result.report.metrics.historical_references_active, 0);
+});
+
+test("不変歴史参照は新規または改変Evidenceへ拡張しない", () => {
+  const newEvidenceRoot = officialVirtualResolutionFixture();
+  write(
+    path.join(newEvidenceRoot, "90_Release", "Changes", "Evidence", "new.md"),
+    "[new](../CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md)\n",
+  );
+  const newEvidenceResult = runChecker(newEvidenceRoot);
+  assert.equal(newEvidenceResult.status, 1);
+  assert.ok(
+    newEvidenceResult.report.findings.some(
+      (finding) =>
+        finding.code === "broken-link" && finding.path.endsWith("new.md"),
+    ),
+  );
+
+  const changedEvidenceRoot = officialVirtualResolutionFixture();
+  const fixedEvidence = path.join(
+    changedEvidenceRoot,
+    "90_Release",
+    "Changes",
+    "Evidence",
+    "fixed.md",
+  );
+  fs.appendFileSync(fixedEvidence, "changed\n", "utf8");
+  const changedEvidenceResult = runChecker(changedEvidenceRoot);
+  assert.equal(changedEvidenceResult.status, 1);
+  assert.ok(
+    changedEvidenceResult.report.findings.some(
+      (finding) => finding.code === "historical-reference-identity-mismatch",
+    ),
+  );
+  assert.equal(
+    changedEvidenceResult.report.metrics
+      .historical_references_identity_verified,
+    0,
+  );
+  assert.equal(
+    changedEvidenceResult.report.metrics.historical_references_observed,
+    1,
+  );
+});
+
+test("統合台帳の孤立fieldと重複fieldは歴史参照を許可しない", () => {
+  for (const mutate of [
+    (ledger: string) =>
+      ledger.replace(
+        "<!-- crdd-change-trace-ledger-schema: 1 -->",
+        "<!-- crdd-change-trace-ledger-schema: 1 -->\n- 旧Path: `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md`",
+      ),
+    (ledger: string) =>
+      ledger.replace(
+        "- 旧題名: fixture CHG-000016",
+        "- 旧題名: fixture CHG-000016\n- 旧題名: duplicate",
+      ),
+  ]) {
+    const root = officialVirtualResolutionFixture();
+    const ledger = path.join(root, "90_Release", "Changes", "README.md");
+    fs.writeFileSync(ledger, mutate(fs.readFileSync(ledger, "utf8")), "utf8");
+    const result = runChecker(root);
+    assert.equal(result.status, 1);
+    assert.equal(
+      result.report.metrics.historical_references_identity_verified,
+      0,
+    );
+    assert.equal(result.report.metrics.historical_references_observed, 1);
+    assert.ok(
+      result.report.findings.some(
+        (finding) =>
+          finding.code === "orphan-change-trace-ledger-old-path" ||
+          finding.code === "invalid-change-trace-ledger-entry-schema",
+      ),
+      JSON.stringify(result.report.findings),
+    );
+  }
+});
+
+test("統合済み旧Pathへの物理stub再導入を拒否する", () => {
+  const root = officialVirtualResolutionFixture();
+  write(
+    path.join(
+      root,
+      "90_Release",
+      "Changes",
+      "CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md",
+    ),
+    "# compatibility stub\n",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.report.metrics.historical_references_observed, 1);
+  assert.equal(result.report.metrics.historical_references_active, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "physical-consolidated-change-trace-path",
+    ),
+  );
+});
+
+test("統合済み旧Pathのdirectory・symlink・index再出現をmetricsから隠さない", () => {
+  const oldRelative =
+    "90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md";
+  for (const kind of ["directory", "junction"] as const) {
+    const root = officialVirtualResolutionFixture();
+    const oldPath = path.join(root, ...oldRelative.split("/"));
+    if (kind === "directory") {
+      fs.mkdirSync(oldPath);
+    } else {
+      const junctionTarget = path.join(root, "junction-target");
+      fs.mkdirSync(junctionTarget);
+      fs.symlinkSync(junctionTarget, oldPath, "junction");
+    }
+    const result = runChecker(root);
+    assert.equal(result.status, 1);
+    assert.equal(result.report.metrics.historical_references_observed, 1);
+    assert.equal(result.report.metrics.historical_references_active, 1);
+    assert.equal(
+      result.report.metrics.historical_references_identity_verified,
+      0,
+    );
+  }
+
+  const indexRoot = officialVirtualResolutionFixture();
+  const indexedOldPath = path.join(indexRoot, ...oldRelative.split("/"));
+  write(indexedOldPath, "# indexed old path\n");
+  assert.equal(
+    spawnSync("git", ["-C", indexRoot, "add", oldRelative], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  fs.rmSync(indexedOldPath);
+  const indexResult = runChecker(indexRoot);
+  assert.equal(indexResult.status, 1);
+  assert.equal(indexResult.report.metrics.historical_references_observed, 1);
+  assert.equal(indexResult.report.metrics.historical_references_active, 0);
+  assert.equal(indexResult.report.metrics.historical_references_indexed, 1);
+  assert.equal(
+    indexResult.report.metrics.historical_references_identity_verified,
+    0,
+  );
+  assert.ok(
+    indexResult.report.findings.some(
+      (finding) => finding.code === "indexed-consolidated-change-trace-id",
+    ),
+  );
+});
+
+test("非公式local tagは公開tag固定集合へ混入させない", () => {
+  const root = officialConsolidationLedgerFixture();
+  assert.equal(
+    spawnSync("git", ["-C", root, "tag", "scratch-local"], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  const commitResult = runChecker(root);
+  assert.equal(
+    commitResult.status,
+    0,
+    JSON.stringify(commitResult.report.findings),
+  );
+
+  const blob = spawnSync(
+    "git",
+    ["-C", root, "rev-parse", "HEAD:90_Release/Changes/CHG-000001_Old.md"],
+    { encoding: "utf8" },
+  ).stdout.trim();
+  assert.equal(
+    spawnSync(
+      "git",
+      ["-C", root, "update-ref", "refs/tags/scratch-blob", blob],
+      { encoding: "utf8" },
+    ).status,
+    0,
+  );
+  const blobResult = runChecker(root);
+  assert.equal(
+    blobResult.status,
+    0,
+    JSON.stringify(blobResult.report.findings),
+  );
+});
+
+test("統合台帳の機械所有tableは余分・重複rowを拒否する", () => {
+  for (const extra of [
+    "  | malformed |",
+    "malformed | value",
+    "| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |\n|---|---|---|---|---|",
+    "```text\n| malformed |\n```",
+  ]) {
+    const tagRoot = officialConsolidationLedgerFixture();
+    const tagLedger = path.join(tagRoot, "90_Release", "Changes", "README.md");
+    fs.writeFileSync(
+      tagLedger,
+      fs
+        .readFileSync(tagLedger, "utf8")
+        .replace("|---|---|---|---|---|", `|---|---|---|---|---|\n${extra}`),
+      "utf8",
+    );
+    const tagResult = runChecker(tagRoot);
+    assert.ok(
+      tagResult.report.findings.some(
+        (finding) =>
+          finding.code === "invalid-published-tag-inventory-table-schema",
+      ),
+      `${extra}: ${JSON.stringify(tagResult.report.findings)}`,
+    );
+  }
+
+  const historicalRoot = officialVirtualResolutionFixture();
+  const historicalLedger = path.join(
+    historicalRoot,
+    "90_Release",
+    "Changes",
+    "README.md",
+  );
+  const historicalRow =
+    "| `90_Release/Changes/Evidence/fixed.md` | `90_Release/Changes/CHG-000035_Native_Provision_Bootstrap_Dependency_Reduction.md` |";
+  fs.writeFileSync(
+    historicalLedger,
+    fs
+      .readFileSync(historicalLedger, "utf8")
+      .replace(historicalRow, `${historicalRow}\n${historicalRow}`),
+    "utf8",
+  );
+  const historicalResult = runChecker(historicalRoot);
+  assert.ok(
+    historicalResult.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-historical-reference-table-schema" ||
+        finding.code === "invalid-historical-reference-set",
+    ),
+  );
+
+  const releasedRoot = officialConsolidationLedgerFixture();
+  const releasedLedger = path.join(
+    releasedRoot,
+    "90_Release",
+    "Changes",
+    "README.md",
+  );
+  fs.writeFileSync(
+    releasedLedger,
+    fs
+      .readFileSync(releasedLedger, "utf8")
+      .replace(
+        "## 統合済み旧ID",
+        [
+          "- 公開済み固定履歴: `CHG-000003`～`CHG-000003`の1件。公開tag到達性を確認",
+          "",
+          "## 公開済み固定履歴",
+          "",
+          "| CHG | Path | 固定Commit | byte | SHA-256 |",
+          "|---|---|---|---:|---|",
+          "| malformed |",
+          "",
+          "## 統合済み旧ID",
+        ].join("\n"),
+      ),
+    "utf8",
+  );
+  const releasedResult = runChecker(releasedRoot);
+  assert.ok(
+    releasedResult.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-released-change-trace-table-schema",
+    ),
+  );
+
+  const entryRoot = officialConsolidationLedgerFixture();
+  const entryLedger = path.join(
+    entryRoot,
+    "90_Release",
+    "Changes",
+    "README.md",
+  );
+  fs.writeFileSync(
+    entryLedger,
+    fs.readFileSync(entryLedger, "utf8").replace("- 旧題名:", "  - 旧題名:"),
+    "utf8",
+  );
+  const entryResult = runChecker(entryRoot);
+  assert.ok(
+    entryResult.report.findings.some(
+      (finding) => finding.code === "invalid-change-trace-ledger-entry-schema",
+    ),
+  );
+});
+
+test("統合済み旧IDは別suffixかつID宣言なしでも再利用を拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  write(
+    path.join(root, "90_Release", "Changes", "CHG-000001_Alternate.md"),
+    "# no Change ID declaration\n",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "physical-consolidated-change-trace-id" &&
+        finding.path.endsWith("CHG-000001_Alternate.md"),
+    ),
+  );
+});
+
+test("固定公開tag inventoryの欠落または移動を拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  const ledger = path.join(root, "90_Release", "Changes", "README.md");
+  const head = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const tree = spawnSync(
+    "git",
+    ["-C", root, "show", "-s", "--format=%T", head],
+    {
+      encoding: "utf8",
+    },
+  ).stdout.trim();
+  fs.writeFileSync(
+    ledger,
+    fs
+      .readFileSync(ledger, "utf8")
+      .replace("- 公式公開tag固定集合: 0件", "- 公式公開tag固定集合: 1件")
+      .replace(
+        "- 不変・非active歴史参照固定集合:",
+        `| Tag | Ref Object Type | Ref Object OID | Peeled Commit OID | Peeled Tree OID |\n|---|---|---|---|---|\n| \`v9.9.9\` | \`commit\` | \`${head}\` | \`${head}\` | \`${tree}\` |\n\n- 不変・非active歴史参照固定集合:`,
+      ),
+    "utf8",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "published-tag-inventory-mismatch",
+    ),
+  );
+});
+
+test("公式統合台帳は公開済みCHGの固定Identity差を拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  const releasedPath = path.join(
+    root,
+    "90_Release",
+    "Changes",
+    "CHG-000003_Released.md",
+  );
+  const releasedContent = "# 変更トレース: Released\n\n変更ID: CHG-000003\n";
+  write(releasedPath, releasedContent);
+  const releasedBytes = Buffer.from(releasedContent, "utf8");
+  const releasedSha256 = createHash("sha256")
+    .update(releasedBytes)
+    .digest("hex");
+  const ledger = path.join(root, "90_Release", "Changes", "README.md");
+  fs.writeFileSync(
+    ledger,
+    fs
+      .readFileSync(ledger, "utf8")
+      .replace(
+        "- 統合前の未リリースCHG:",
+        [
+          "- 公開済み固定履歴: `CHG-000003`～`CHG-000003`の1件。公開tag到達性を確認",
+          "",
+          "## 公開済み固定履歴",
+          "",
+          "| CHG | Path | 固定Commit | byte | SHA-256 |",
+          "|---|---|---|---:|---|",
+          `| \`CHG-000003\` | \`90_Release/Changes/CHG-000003_Released.md\` | \`1111111111111111111111111111111111111111\` | ${releasedBytes.length} | \`${releasedSha256}\` |`,
+          "",
+          "- 統合前の未リリースCHG:",
+        ].join("\n"),
+      ),
+    "utf8",
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "add", "."], { encoding: "utf8" }).status,
+    0,
+  );
+  assert.equal(
+    spawnSync(
+      "git",
+      [
+        "-C",
+        root,
+        "-c",
+        "user.name=CRDD Test",
+        "-c",
+        "user.email=crdd-test@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "released identity fixture",
+      ],
+      { encoding: "utf8" },
+    ).status,
+    0,
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "tag", "v0.2.0"], {
+      encoding: "utf8",
+    }).status,
+    0,
+  );
+  const releasedCommit = spawnSync("git", ["-C", root, "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).stdout.trim();
+  const releasedTree = spawnSync(
+    "git",
+    ["-C", root, "show", "-s", "--format=%T", releasedCommit],
+    { encoding: "utf8" },
+  ).stdout.trim();
+  const replaceReleasedFixedCommit = (content: string, commit: string) =>
+    content.replace(
+      /^(\| `CHG-000003` \| `90_Release\/Changes\/CHG-000003_Released\.md` \| )`[0-9a-f]{40}`( \| [1-9][0-9]* \| `[0-9a-f]{64}` \|)$/mu,
+      `$1\`${commit}\`$2`,
+    );
+  const withFixedPublishedTag = fs
+    .readFileSync(ledger, "utf8")
+    .replace("- 公式公開tag固定集合: 0件", "- 公式公開tag固定集合: 1件")
+    .replace(
+      "|---|---|---|---|---|",
+      `|---|---|---|---|---|\n| \`v0.2.0\` | \`commit\` | \`${releasedCommit}\` | \`${releasedCommit}\` | \`${releasedTree}\` |`,
+    );
+  fs.writeFileSync(
+    ledger,
+    replaceReleasedFixedCommit(withFixedPublishedTag, releasedTree),
+    "utf8",
+  );
+  const treeObjectResult = runChecker(root);
+  assert.equal(treeObjectResult.status, 1);
+  assert.ok(
+    treeObjectResult.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-released-change-trace-fixed-commit",
+    ),
+    `${JSON.stringify(treeObjectResult.report.findings)}\n${treeObjectResult.stderr}`,
+  );
+  const orphanCommit = spawnSync(
+    "git",
+    ["-C", root, "commit-tree", releasedTree, "-m", "orphan published fixture"],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "CRDD Test",
+        GIT_AUTHOR_EMAIL: "crdd-test@example.invalid",
+        GIT_COMMITTER_NAME: "CRDD Test",
+        GIT_COMMITTER_EMAIL: "crdd-test@example.invalid",
+      },
+    },
+  ).stdout.trim();
+  fs.writeFileSync(
+    ledger,
+    replaceReleasedFixedCommit(fs.readFileSync(ledger, "utf8"), orphanCommit),
+    "utf8",
+  );
+  const orphanResult = runChecker(root);
+  assert.equal(orphanResult.status, 1);
+  assert.ok(
+    orphanResult.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-released-change-trace-fixed-commit",
+    ),
+  );
+  fs.writeFileSync(
+    ledger,
+    replaceReleasedFixedCommit(fs.readFileSync(ledger, "utf8"), releasedCommit),
+    "utf8",
+  );
+  assert.equal(
+    spawnSync("git", ["-C", root, "add", ledger], { encoding: "utf8" }).status,
+    0,
+  );
+  write(releasedPath, `${releasedContent}\nchanged\n`);
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "released-change-trace-content-changed",
+    ),
+  );
+});
+
+test("公式統合台帳に記録した旧IDの再利用を拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  write(
+    path.join(root, "90_Release", "Changes", "CHG-000001_Reused.md"),
+    "# 変更トレース: Reused\n\n変更ID: CHG-000001\n",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "reused-consolidated-change-trace-id",
+    ),
+  );
+});
+
+test("公式統合台帳は欠落Canonicalと不完全な固定Identityを拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  const ledger = path.join(root, "90_Release", "Changes", "README.md");
+  fs.writeFileSync(
+    ledger,
+    fs
+      .readFileSync(ledger, "utf8")
+      .replaceAll("CHG-000002", "CHG-000003")
+      .replace(/、[1-9][0-9]* byte、/u, "、0 byte、"),
+    "utf8",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "missing-canonical-change-trace-id",
+    ),
+  );
+  assert.ok(
+    result.report.findings.some(
+      (finding) =>
+        finding.code === "invalid-consolidated-change-trace-identity",
+    ),
+  );
+});
+
+test("公式統合台帳は重複旧IDと統合cycleを拒否する", () => {
+  const root = officialConsolidationLedgerFixture();
+  const ledger = path.join(root, "90_Release", "Changes", "README.md");
+  const entry = fs.readFileSync(ledger, "utf8").split("\n").slice(2).join("\n");
+  fs.appendFileSync(ledger, entry, "utf8");
+  fs.appendFileSync(
+    ledger,
+    [
+      '<a id="consolidated-chg-000004"></a>',
+      "",
+      "### CHG-000004 → CHG-000001",
+      "",
+      "- 旧Path: `90_Release/Changes/CHG-000004_Old.md`",
+      "- Canonical CHG: [CHG-000001](CHG-000001_Canonical.md)",
+      "- 統合理由: cycle fixture",
+      "- 固定原文: Commit `1111111111111111111111111111111111111111`、Tree `2222222222222222222222222222222222222222`、1 byte、SHA-256 `3333333333333333333333333333333333333333333333333333333333333333`",
+      "- 関連Evidence: 専用Evidenceなし",
+      "- 旧ID処置: 統合済み・永久欠番",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  write(
+    path.join(root, "90_Release", "Changes", "CHG-000001_Canonical.md"),
+    "# 変更トレース: Old canonical\n\n変更ID: CHG-000001\n",
+  );
+  const result = runChecker(root);
+  assert.equal(result.status, 1);
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "duplicate-consolidated-change-trace-id",
+    ),
+  );
+  assert.ok(
+    result.report.findings.some(
+      (finding) => finding.code === "cyclic-change-trace-consolidation",
     ),
   );
 });

@@ -6,7 +6,7 @@ Version: v0.18.0
 Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-25
+Last Updated: 2026-08-26
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
@@ -219,7 +219,7 @@ CHGの状態と、進捗管理におけるライフサイクル単位の対応�
 
 意図、想定影響、対象基準版、検証義務、リリース帰属が変わった場合はCHGの改訂版または履歴を更新する。未リリースCHGについて、新しい根拠、試験、レビューまたは監査が同じ変更意図の契約不足を示した場合は、状態が`Verified`でも同じCHGを`Reopened`として是正を続ける。
 
-CHGの分割単位は変更意図である。工程、担当、ファイル／フォルダ、コミット、プルリクエスト、確認者、監査種別、個別の指摘事項または是正反復が異なることだけを理由に分割しない。主な意図を独立に採否・延期できる、決定権限者が異なる、移行／ロールバックを独立に実行できる、またはリリース処置を独立に確定できる場合に新しいCHGへ分割し、相互参照する。指摘を発見したCHGと原因契約を所有するCHGが異なる場合、発見側は根拠と依存関係を記録し、是正は原因契約を所有する未リリースCHGで行う。
+CHGの分割単位は変更意図である。工程、担当、ファイル／フォルダ、コミット、プルリクエスト、確認者、監査種別、個別の指摘事項または是正反復が異なることだけを理由に分割しない。主な意図を利用者または決定権限者が独立に採否・延期できる、決定権限者が異なる、利用側の移行／ロールバックを独立に実行できる、またはリリース処置を独立に確定できる場合に新しいCHGへ分割し、相互参照する。内部componentを個別に試験、停止、無効化または技術的に切戻しできることだけでは、独立したMeaningful Changeまたは別CHGの根拠にならない。指摘を発見したCHGと原因契約を所有するCHGが異なる場合、発見側は根拠と依存関係を記録し、是正は原因契約を所有する未リリースCHGで行う。
 
 代表的な境界は次のとおりである。
 
@@ -227,6 +227,26 @@ CHGの分割単位は変更意図である。工程、担当、ファイル／�
 - 非発火例: 命名試験中に、独立して採否・移行・切戻しできるProvider認証の不具合を発見した場合、Provider変更を別CHGへ接続する。
 - 境界例: 一つの指摘が二つの独立してリリース可能な契約へ及ぶ場合、それぞれの所有CHGで是正し、共通の発見根拠を相互参照する。
 - 判定情報不足例: 意図、決定権限、移行、ロールバックまたはリリース境界を確認できない場合、新しいCHGを機械的に作らず、現在のCHGを閉じずに停止または再整理する。
+
+## 5.1 未リリース変更トレースの統合
+
+同じ対象リリースで未リリースの複数CHGが、同じ上位Goalと利用者向け変更意図を共有し、個別には同じ到達条件へ至る途中の内部実装、Provider Adapter、Gate、是正または検証である場合、情報を失わず一つのCanonical CHGへ統合してよい。統合可否は内部構成ではなく、Release後の独立利用者価値、実在するHuman採否、外部移行およびRelease処置で判定する。CHG数の削減、同じ対象バージョン、近い実装時期またはファイル重複だけを統合理由にしない。独立して採否、延期、利用側移行、切戻しまたはリリース処置を決定できる別Goalは統合しない。同じGoal、決定権限、移行／切戻しおよびRelease境界内で試した方式の失敗、棄却、撤去または再設計は、棄却理由、当時のRelease処置および復活禁止条件をCanonical CHGへ保持できる場合に限り、同じ実装発展として統合してよい。
+
+統合時は次を満たす。
+
+- Canonical CHGへ、契機、意図、確認した現在状態、判断、実装の発展、想定／実際影響、検証、監査是正、根拠、残存リスクおよび統合した全CHG IDを再構成する
+- [`90_Release/Changes/README.md`](90_Release/Changes/README.md)または対象Repositoryの同等な永続台帳へ、統合元ID、旧filename、統合前状態、Canonical CHG、統合理由、統合前全文を取得できるGit改訂版、原文Hashおよび関連Evidenceを記録する
+- 旧CHG IDを再利用せず、存在しなかったものとして扱わない
+- 現在状態を利用するRoadmap、登録簿、README、正本、監査およびRelease参照をCanonical CHGへ更新する一方、過去の固定EvidenceとReleased履歴は当時のIDのまま保持する
+- 統合元ファイルを削除する場合も、永続台帳の旧IDからCanonical CHG、EvidenceおよびGit履歴へ到達でき、Release snapshot内で旧IDの処置と永久欠番を判定できるようにする
+
+発火例は、同じProvider Home Lifecycleで方式Aを試し、安全上の欠陥により`Close without Release`として撤去した後、方式Bへ収束した場合である。方式Aの欠陥、撤去、Release処置および復活禁止条件を方式BのCanonical CHGへ保持して統合できる。非発火例は、Canonicalを採用しても固有の利用者価値、リスク、移行またはRelease終了判断が残る別Goalである。境界例として、同じcomponentでも別の公開契約または独立Migrationを持つ変更は別意図として扱う。Goal、決定権限、切戻しまたはRelease境界を確認できない場合は統合せず、人間の決定権限へ戻す。状態名が`Close without Release`であることだけから統合可否を決めない。
+
+固定Evidenceが統合元CHGの旧Pathを参照し、そのEvidenceのbyteまたはfilenameを変更できない場合、その表記は標準Markdown上で解決済みのlinkではなく、**不変・非active歴史参照（Immutable Non-active Historical Reference）**として扱う。発火条件は、参照元Evidence、anchorなしの参照先旧Path、統合直前Commitの同一link record、HEADとworktreeの不変性、対応する統合台帳entryの関連Evidenceおよび固定原文Identityがexact一致することである。新規または改変されたEvidence、anchor付き参照、別entryの旧Path、通常文書、情報不足および台帳全体が成立しない場合は発火しない。
+
+Checkerは通常linkの確認・解決件数と分けて、歴史参照の観測数、Identity検証数、旧Pathの物理再出現を示すactive数およびGit index再出現数を返す。正常時はactive数とGit index再出現数の両方が0であり、GitHub、IDEまたは一般Markdown readerで直接clickできるとは主張しない。台帳entry、Git object、Evidenceまたは参照pairのいずれかが不正、欠落、重複、旧ID再利用、固定原文Identity不一致、Git到達不能または検査中に変化した場合はFail Closedにする。現在状態の参照はCanonical CHGへ向け、旧Pathの物理file、stub、redirect、directory、symlinkまたはGit indexだけの表現を互換目的で残してはならない（MUST NOT）。これらの存在または不存在を判定できない場合もFail Closedにする。
+
+Released CHGは統合によって履歴を書き換えない。Released判定は現行headerの状態文字列だけに依存せず、公開tagまたは配布Releaseから当該CHG Pathへ到達できる場合は固定Release履歴として扱う。状態表示が古いことを理由に公開済みCHGを未リリース統合へ含めない。リリース後の不足または回帰は本節ではなく、新しいCHGを作る既存規則に従う。統合のために一般的な世代管理、互換aliasまたはMigration Engineを追加しない。
 
 ---
 

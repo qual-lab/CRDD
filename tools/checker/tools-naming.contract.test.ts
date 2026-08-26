@@ -236,24 +236,12 @@ const historicalReferenceCounts = new Map<string, number>([
     2,
   ],
   [
-    `90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md|${RETIRED_CHECKER_TS}`,
-    2,
-  ],
-  [
-    `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md|${RETIRED_CHECKER_TS}`,
+    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_CHECKER_TS}`,
     4,
   ],
   [
-    `90_Release/Changes/CHG-000016_Internal_TypeScript_Migration.md|${RETIRED_CHECKER_TEST_TS}`,
-    1,
-  ],
-  [
-    `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_CHECKER_TS}`,
-    5,
-  ],
-  [
     `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_CHECKER_TEST_TS}`,
-    2,
+    1,
   ],
   [
     `90_Release/Changes/CHG-000017_Tools_Coding_Standards.md|${RETIRED_THREAT_MODEL}`,

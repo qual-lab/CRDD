@@ -1,6 +1,6 @@
 # 変更トレース: CRDD長期発展方針
 
-- 変更ID: `CHG-000055`
+変更ID: `CHG-000055`
 - 状態: `Ready for Release Handoff`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25
