@@ -95,6 +95,22 @@ function importedModuleSpecifiers(source: string) {
   return specifiers;
 }
 
+function resolvesToForbiddenWindowsAsciiModule(
+  importerPath: string,
+  moduleSpecifier: string,
+  forbiddenModuleSpecifier: string,
+) {
+  if (!moduleSpecifier.startsWith(".")) return false;
+  const importerDirectory = path.dirname(importerPath);
+  const observed = path
+    .resolve(importerDirectory, moduleSpecifier)
+    .toLowerCase();
+  const forbidden = path
+    .resolve(importerDirectory, forbiddenModuleSpecifier)
+    .toLowerCase();
+  return observed === forbidden;
+}
+
 function release(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
     status: "candidate",
@@ -308,28 +324,59 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     contract.packageCapabilityUse,
     "runtime_local_nonserializable_nonexported_passed_once_to_task_runtime_after_release_verification",
   );
-  const source = fs.readFileSync(
-    path.join(coordinatorRoot, "scripts/verify-signed-general-task.ts"),
-    "utf8",
+  const runnerPath = path.join(
+    coordinatorRoot,
+    "scripts/verify-signed-general-task.ts",
   );
+  const source = fs.readFileSync(runnerPath, "utf8");
   const forbiddenConsoleModule = "../src/core/interactive-console.ts";
-  assert.deepEqual(
-    importedModuleSpecifiers(
-      `import { interactiveConsoleAvailable as renamed } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
-        `export { interactiveConsoleAvailabilityOutcome } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
-        `void import(${JSON.stringify(forbiddenConsoleModule)});\n` +
-        "void import(runtimeSelectedModule);\n",
-    ),
-    [
-      forbiddenConsoleModule,
-      forbiddenConsoleModule,
-      forbiddenConsoleModule,
-      NONLITERAL_DYNAMIC_IMPORT,
-    ],
+  const equivalentConsoleModule = "../src/core/./INTERACTIVE-console.ts";
+  const mutationImports = importedModuleSpecifiers(
+    `import { interactiveConsoleAvailable as renamed } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
+      `export { interactiveConsoleAvailabilityOutcome } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
+      `void import(${JSON.stringify(forbiddenConsoleModule)});\n` +
+      `import { interactiveConsoleAvailable as equivalent } from ${JSON.stringify(equivalentConsoleModule)};\n` +
+      "void import(runtimeSelectedModule);\n",
   );
+  assert.deepEqual(mutationImports, [
+    forbiddenConsoleModule,
+    forbiddenConsoleModule,
+    forbiddenConsoleModule,
+    equivalentConsoleModule,
+    NONLITERAL_DYNAMIC_IMPORT,
+  ]);
   const runnerImports = importedModuleSpecifiers(source);
-  assert.equal(runnerImports.includes(forbiddenConsoleModule), false);
   assert.equal(runnerImports.includes(NONLITERAL_DYNAMIC_IMPORT), false);
+  assert.equal(
+    mutationImports
+      .slice(0, -1)
+      .every((moduleSpecifier) =>
+        resolvesToForbiddenWindowsAsciiModule(
+          runnerPath,
+          moduleSpecifier,
+          forbiddenConsoleModule,
+        ),
+      ),
+    true,
+  );
+  assert.equal(
+    resolvesToForbiddenWindowsAsciiModule(
+      runnerPath,
+      "../src/core/interactive-console-reader.ts",
+      forbiddenConsoleModule,
+    ),
+    false,
+  );
+  assert.equal(
+    runnerImports.some((moduleSpecifier) =>
+      resolvesToForbiddenWindowsAsciiModule(
+        runnerPath,
+        moduleSpecifier,
+        forbiddenConsoleModule,
+      ),
+    ),
+    false,
+  );
 });
 
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
