@@ -899,6 +899,7 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
     context.skip("Windows interactive console unavailable");
     return;
   }
+  assert.equal(tty.isatty(outputDescriptor), true);
   const moduleUrl = pathToFileURL(
     path.join(coordinatorRoot, "src", "core", "interactive-console.ts"),
   ).href;
@@ -1304,7 +1305,7 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
   }
 });
 
-test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じる", () => {
+test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで閉じる", async () => {
   function scenario(
     options: { failOpenAt?: number; failClose?: ReadonlySet<number> } = {},
   ) {
@@ -1356,6 +1357,36 @@ test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで�
     ["/dev/tty", "w"],
   ]);
   assert.deepEqual(posix.closedDescriptors, [11, 12]);
+
+  const windowsAsync = scenario();
+  assert.deepEqual(
+    await withInteractiveConsoleAsyncOutcomeUsingAdapter(
+      "win32",
+      windowsAsync.adapter,
+      async () => "completed",
+    ),
+    { status: "completed", value: "completed" },
+  );
+  assert.deepEqual(windowsAsync.deviceOpenRecords, [
+    ["\\\\.\\CONIN$", "r"],
+    ["\\\\.\\CONOUT$", "r+"],
+  ]);
+  assert.deepEqual(windowsAsync.closedDescriptors, [11, 12]);
+
+  const posixAsync = scenario();
+  assert.deepEqual(
+    await withInteractiveConsoleAsyncOutcomeUsingAdapter(
+      "linux",
+      posixAsync.adapter,
+      async () => "completed",
+    ),
+    { status: "completed", value: "completed" },
+  );
+  assert.deepEqual(posixAsync.deviceOpenRecords, [
+    ["/dev/tty", "r"],
+    ["/dev/tty", "w"],
+  ]);
+  assert.deepEqual(posixAsync.closedDescriptors, [11, 12]);
 
   const inputOpenFailure = scenario({ failOpenAt: 1 });
   assert.equal(
