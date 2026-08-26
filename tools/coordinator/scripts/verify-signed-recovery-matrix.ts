@@ -1,6 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,12 +22,29 @@ export const SIGNED_RECOVERY_MATRIX_CONTRACT =
 export const SIGNED_RECOVERY_MATRIX_CONTRACT_REVISION = 1;
 
 const INTERNAL_CHILD_ARGUMENT = "--internal-parent-loss-child";
+const INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT =
+  "--internal-cleanup-unknown-child";
 const CHILD_READY_CONTRACT =
   "crdd-coordinator/signed-recovery-matrix-parent-loss-child";
 const CHILD_READY_TIMEOUT_MS = 60_000;
 const CHILD_EXIT_TIMEOUT_MS = 10_000;
 
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+
+class RecoveryMatrixFailure extends Error {
+  readonly recoveryId: string | null;
+  readonly manualRecoveryRequired: boolean;
+
+  constructor(
+    reason: string,
+    recoveryId: string | null = null,
+    manualRecoveryRequired = recoveryId !== null,
+  ) {
+    super(reason);
+    this.recoveryId = recoveryId;
+    this.manualRecoveryRequired = manualRecoveryRequired;
+  }
+}
 
 function blocked(reason: string, extra: RuntimeRecord = Object.freeze({})) {
   return Object.freeze({
@@ -91,32 +107,6 @@ function recoveryCompleted(result: RuntimeRecord | null) {
     result.hostCleanupCompleted === true &&
     result.recoveryId === null
   );
-}
-
-function verifyCleanupUnknownThenRecover() {
-  const owned = createOwnedOperationDirectories();
-  const residue = createDynamicFakeProviderRecoverableResidue(owned);
-  if (
-    residue.status !== "ready" ||
-    residue.manualRecoveryRequired !== true ||
-    residue.containerRunning !== true ||
-    typeof residue.recoveryId !== "string"
-  )
-    throw new Error(residue.reason);
-  const recovered = recoverDockerIsolationProbe(
-    residue.recoveryId,
-  ) as RuntimeRecord | null;
-  if (!recoveryCompleted(recovered) || fs.existsSync(owned.root))
-    throw new Error("signed_recovery_matrix_cleanup_unknown_recovery_failed");
-  return Object.freeze({
-    scenario: "cleanup_observation_unknown_then_recover",
-    initialStatus: "blocked",
-    initialReason: "cleanup_observation_intentionally_withheld",
-    initialManualRecoveryRequired: true,
-    exactRecoveryIdReturned: true,
-    freshRecoveryCompleted: true,
-    residualOperationDirectory: false,
-  });
 }
 
 function waitForChildReady(child: ChildProcess): Promise<RuntimeRecord> {
@@ -194,10 +184,15 @@ async function verifyParentLossThenRecover() {
       typeof ready.recoveryId !== "string" ||
       ready.manualRecoveryRequired !== true
     )
-      throw new Error("signed_recovery_matrix_parent_child_contract_invalid");
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_parent_child_contract_invalid",
+      );
     recoveryId = ready.recoveryId;
     if (!child.pid)
-      throw new Error("signed_recovery_matrix_parent_child_pid_missing");
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_parent_child_pid_missing",
+        recoveryId,
+      );
     const killed = spawnSync(
       path.join(
         process.env.SystemRoot ?? "C:\\Windows",
@@ -213,14 +208,23 @@ async function verifyParentLossThenRecover() {
       },
     );
     if (killed.error || (killed.status !== 0 && child.exitCode === null))
-      throw new Error("signed_recovery_matrix_parent_child_kill_failed");
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_parent_child_kill_failed",
+        recoveryId,
+      );
     if (!(await waitForChildExit(child)))
-      throw new Error("signed_recovery_matrix_parent_child_exit_unconfirmed");
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_parent_child_exit_unconfirmed",
+        recoveryId,
+      );
     const recovered = recoverDockerIsolationProbe(
       recoveryId,
     ) as RuntimeRecord | null;
     if (!recoveryCompleted(recovered))
-      throw new Error("signed_recovery_matrix_parent_loss_recovery_failed");
+      throw new RecoveryMatrixFailure(
+        "signed_recovery_matrix_parent_loss_recovery_failed",
+        recoveryId,
+      );
     recoveryId = null;
     return Object.freeze({
       scenario: "parent_process_loss_then_fresh_recovery",
@@ -231,11 +235,65 @@ async function verifyParentLossThenRecover() {
     });
   } finally {
     if (child.exitCode === null && child.signalCode === null) child.kill();
-    if (recoveryId) void recoverDockerIsolationProbe(recoveryId);
   }
 }
 
-async function runInternalParentLossChild() {
+async function verifyCleanupUnknownThenRecover() {
+  const observedEnvironment = createInteractiveConsoleReaderEnvironment();
+  if (!observedEnvironment)
+    throw new RecoveryMatrixFailure(
+      "signed_recovery_matrix_child_environment_unavailable",
+    );
+  const childEnvironment: NodeJS.ProcessEnv = { ...observedEnvironment };
+  const child: ChildProcess = spawn(
+    process.execPath,
+    [fileURLToPath(import.meta.url), INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT],
+    {
+      cwd: process.cwd(),
+      env: childEnvironment,
+      shell: false,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  let recoveryId: string | null = null;
+  const ready = await waitForChildReady(child);
+  if (
+    ready.contract !== CHILD_READY_CONTRACT ||
+    ready.status !== "ready" ||
+    typeof ready.recoveryId !== "string" ||
+    ready.manualRecoveryRequired !== true
+  )
+    throw new RecoveryMatrixFailure(
+      "signed_recovery_matrix_cleanup_child_contract_invalid",
+    );
+  recoveryId = ready.recoveryId;
+  if (!(await waitForChildExit(child)))
+    throw new RecoveryMatrixFailure(
+      "signed_recovery_matrix_cleanup_child_exit_unconfirmed",
+      recoveryId,
+    );
+  const recovered = recoverDockerIsolationProbe(
+    recoveryId,
+  ) as RuntimeRecord | null;
+  if (!recoveryCompleted(recovered))
+    throw new RecoveryMatrixFailure(
+      "signed_recovery_matrix_cleanup_unknown_recovery_failed",
+      recoveryId,
+    );
+  recoveryId = null;
+  return Object.freeze({
+    scenario: "cleanup_observation_unknown_then_recover",
+    initialStatus: "blocked",
+    initialReason: "cleanup_observation_intentionally_withheld",
+    initialManualRecoveryRequired: true,
+    exactRecoveryIdReturned: true,
+    freshRecoveryCompleted: true,
+    residualOperationDirectory: false,
+  });
+}
+
+async function runInternalResidueChild(waitForTermination: boolean) {
   const prerequisite = verifySignedPackagePrerequisite();
   if (prerequisite.status !== "verified") {
     process.stdout.write(
@@ -259,8 +317,10 @@ async function runInternalParentLossChild() {
     process.exitCode = 2;
     return;
   }
-  setInterval(() => undefined, 1_000);
-  await new Promise<never>(() => undefined);
+  if (waitForTermination) {
+    setInterval(() => undefined, 1_000);
+    await new Promise<never>(() => undefined);
+  }
 }
 
 export async function runSignedRecoveryMatrixVerification() {
@@ -276,7 +336,7 @@ export async function runSignedRecoveryMatrixVerification() {
       residualOperationDirectory: scenario.residualOperationDirectory,
     }));
     const cancellation = await verifyDynamicFakeProviderCancellation();
-    const cleanupUnknown = verifyCleanupUnknownThenRecover();
+    const cleanupUnknown = await verifyCleanupUnknownThenRecover();
     const parentLoss = await verifyParentLossThenRecover();
     return Object.freeze({
       contract: SIGNED_RECOVERY_MATRIX_CONTRACT,
@@ -309,6 +369,15 @@ export async function runSignedRecoveryMatrixVerification() {
       credentialReported: false,
     });
   } catch (error) {
+    if (error instanceof RecoveryMatrixFailure)
+      return blocked(
+        error.message,
+        Object.freeze({
+          cleanupConfirmed: false,
+          manualRecoveryRequired: error.manualRecoveryRequired,
+          recoveryId: error.recoveryId,
+        }),
+      );
     return blocked(
       error instanceof Error && /^[a-z0-9_]+$/u.test(error.message)
         ? error.message
@@ -344,7 +413,14 @@ export function describeSignedRecoveryMatrixContract() {
 async function main() {
   const args = process.argv.slice(2);
   if (args.length === 1 && args[0] === INTERNAL_CHILD_ARGUMENT) {
-    await runInternalParentLossChild();
+    await runInternalResidueChild(true);
+    return;
+  }
+  if (
+    args.length === 1 &&
+    args[0] === INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT
+  ) {
+    await runInternalResidueChild(false);
     return;
   }
   if (args.length !== 0)
