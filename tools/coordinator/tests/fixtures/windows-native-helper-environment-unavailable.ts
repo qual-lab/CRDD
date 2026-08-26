@@ -96,6 +96,7 @@ for (const outcome of outcomes) {
   assert.equal(outcome.aclReported, false);
 }
 assert.equal(providerOutcome.observationCapability, null);
+assert.equal(providerOutcome.helperSpawned, false);
 assert.equal(providerOutcome.runtimeOwnedObservationCapabilityIssued, false);
 assert.equal(providerOutcome.mountGrantIssued, false);
 assert.equal(providerOutcome.operationCapabilityIssued, false);
