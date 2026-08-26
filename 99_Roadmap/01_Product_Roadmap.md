@@ -19,7 +19,6 @@ Related:
 
 | 作業 | 判断状態 | 対応状態 | 情報源 | 次の処置／再評価契機 |
 |---|---|---|---|---|
-| Coordinator Runtime 1.0の正式署名Vertical Slice Evidence監査 | —（非適用） | In Progress | [CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md) | 固定1 Pathの`Codex Front → Claude Code Executor → Codex Independent Reviewer`成功経路、Candidate破棄、cleanupおよび残存0の実runは完了した。現在状態の正本伝播と固定Evidenceへの全必須監査を完了し、全て`Pass`なら本項目を主要表示から除去する |
 | Coordinator Runtime 1.0の完成固定 | —（非適用） | In Progress | [CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md) | 成功Vertical SliceをRuntime全体の完成へ読み替えず、未評価の正式署名E2E、現行正本、残存リスクおよび完了条件を再計算する。必要な是正と固定版確認後、人間のPR／統合判断へ渡す |
 | Front Claude Codeを含む逆方向経路の正式署名E2E | Adopted | Planned | [エージェント組織](../04_Agent_Organization.md)、[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)、[CHG-000042](../90_Release/Changes/CHG-000042_Provider_Neutral_Delegation_Selection_Grant.md) | Coordinator仲介Authority Treeを維持し、`Front Claude Code → Codex Executor → Claude Code Independent Reviewer`を固定・限定Taskで実測する。Provider同士の直接spawn、循環、API key、従量API、追加購入または有料fallbackは許可しない |
 | 上流工程エージェントと課題探索対話ループの強化 | Adopted | Planned | [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_CRDD_Product_Discovery.md) | Coordinator Runtimeの正式署名一般Task実行と完成固定版確認後、現行正本と影響を再確認して人間の着手判断を得る。その後、このRuntimeを使って一つの主変更意図からCHG、専門探索、実装および独立レビューを行う |
