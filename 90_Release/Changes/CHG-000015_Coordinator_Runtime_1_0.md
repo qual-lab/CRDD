@@ -1665,3 +1665,7 @@ production同期Outcomeを正本入口として追加し、同期／非同期con
 固定Commit `2aba15937d8be20ba6fea78e4a72e6d259af86c7`／Tree `d38d4449e11563dd1ab13dcb31a2077299e72b0c`へのArchitecture／SecurityとDocument／Gap／Impact／Conformance独立確認はFinding `0`で`Pass`した。Test／UX独立確認は実装を正しいと評価した一方、将来、非同期External Send経路だけが`w`へ退行しても同期のopen mode試験が通るMinor 1件を検出した。監査集合全体の解消判定へ部分Passを流用せず、固定候補を更新して全3確認を再実行する。
 
 是正では、同じ決定論的OS device試験で非同期Windowsの`r`／`r+`と非同期POSIXの`r`／`w`を直接記録して検査し、両descriptorの回収まで結合した。Windows実Console試験も`r+`で開いた出力descriptor自体がTTYであることを明示検査する。production実装、権限、公開入口、cleanup、Effect範囲または保証platformは変更しない。Coordinator全試験、Checker、Repository全体Checkerおよび新固定Commit／Treeへの3独立再確認が完了する前にMinorを`Resolved`としない。
+
+固定Commit `f7e7a524a101b368e39bd7322c4b3aab778388f7`／Tree `ecb6af3dac25bee68aff6ef0a4659e0558e08f63`への3独立再確認は、非同期mode回帰検出の旧Minorを`Resolved`とした一方、追加した実Windows TTY assertionが失敗する場合だけ、試験自身の`CONOUT$` descriptorを閉じる`finally`へ到達しない新規Minor 1件を同じ原因として検出した。productionの資源所有には影響しないが、反証時に試験Processへhandleを残す状態を受理しない。
+
+再是正では、実Windows `CONOUT$`のopen成功直後からTTY assertion、module URL／fixture構築、子Process起動および全結果assertionを単一`try`へ入れ、exact descriptorを対応する`finally`で閉じる。open失敗時のskip、`r+`選択、Task stdin分離、production実装、Authority、Effectおよび契約意味は変更しない。新固定Commit／Treeへの全検証と3独立再確認が完了する前に新規Minorを`Resolved`としない。

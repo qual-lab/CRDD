@@ -899,12 +899,13 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
     context.skip("Windows interactive console unavailable");
     return;
   }
-  assert.equal(tty.isatty(outputDescriptor), true);
-  const moduleUrl = pathToFileURL(
-    path.join(coordinatorRoot, "src", "core", "interactive-console.ts"),
-  ).href;
-  const taskBytes = Buffer.from('{"task":"transport-only"}\n', "utf8");
-  const inlineScript = `
+  try {
+    assert.equal(tty.isatty(outputDescriptor), true);
+    const moduleUrl = pathToFileURL(
+      path.join(coordinatorRoot, "src", "core", "interactive-console.ts"),
+    ).href;
+    const taskBytes = Buffer.from('{"task":"transport-only"}\n', "utf8");
+    const inlineScript = `
     import fs from "node:fs";
     const { readInteractiveConsoleLine } = await import(process.argv[1]);
     const descriptor = fs.openSync(${JSON.stringify("\\\\.\\CONIN$")}, "r");
@@ -918,7 +919,6 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
       fs.closeSync(descriptor);
     }
   `;
-  try {
     const result = spawnSync(
       process.execPath,
       ["--input-type=module", "--eval", inlineScript, moduleUrl],
