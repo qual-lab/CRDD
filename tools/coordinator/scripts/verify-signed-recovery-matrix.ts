@@ -1,5 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -109,6 +111,31 @@ function recoveryCompleted(result: RuntimeRecord | null) {
   );
 }
 
+function createRecoveryMatrixChildEnvironment(): NodeJS.ProcessEnv | null {
+  const observedEnvironment = createInteractiveConsoleReaderEnvironment();
+  if (!observedEnvironment || process.platform !== "win32") return null;
+  try {
+    const profile = fs.realpathSync.native(os.userInfo().homedir);
+    const temporary = fs.realpathSync.native(
+      path.join(profile, "AppData", "Local", "Temp"),
+    );
+    const metadata = fs.lstatSync(temporary);
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      path.win32.parse(temporary).root === temporary
+    )
+      return null;
+    return {
+      ...observedEnvironment,
+      TEMP: temporary,
+      TMP: temporary,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function waitForChildReady(child: ChildProcess): Promise<RuntimeRecord> {
   return new Promise((resolve, reject) => {
     let output = "";
@@ -160,10 +187,9 @@ function waitForChildExit(child: ChildProcess): Promise<boolean> {
 }
 
 async function verifyParentLossThenRecover() {
-  const observedEnvironment = createInteractiveConsoleReaderEnvironment();
-  if (!observedEnvironment)
+  const childEnvironment = createRecoveryMatrixChildEnvironment();
+  if (!childEnvironment)
     throw new Error("signed_recovery_matrix_child_environment_unavailable");
-  const childEnvironment: NodeJS.ProcessEnv = { ...observedEnvironment };
   const child: ChildProcess = spawn(
     process.execPath,
     [fileURLToPath(import.meta.url), INTERNAL_CHILD_ARGUMENT],
@@ -239,12 +265,11 @@ async function verifyParentLossThenRecover() {
 }
 
 async function verifyCleanupUnknownThenRecover() {
-  const observedEnvironment = createInteractiveConsoleReaderEnvironment();
-  if (!observedEnvironment)
+  const childEnvironment = createRecoveryMatrixChildEnvironment();
+  if (!childEnvironment)
     throw new RecoveryMatrixFailure(
       "signed_recovery_matrix_child_environment_unavailable",
     );
-  const childEnvironment: NodeJS.ProcessEnv = { ...observedEnvironment };
   const child: ChildProcess = spawn(
     process.execPath,
     [fileURLToPath(import.meta.url), INTERNAL_CLEANUP_UNKNOWN_CHILD_ARGUMENT],

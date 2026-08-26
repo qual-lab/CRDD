@@ -2645,6 +2645,24 @@ test("container inspectはIdentityと全Security属性の一致を要求する",
       validateContainerInspect(inspect, { id, probeId, mounts: directories }),
       true,
     );
+    if (process.platform === "win32") {
+      const caseVariant = structuredClone(inspect);
+      for (const mount of caseVariant.Mounts) {
+        mount.Source = mount.Source.replace(/temp/iu, (value) =>
+          value === value.toLocaleUpperCase("en-US")
+            ? value.toLocaleLowerCase("en-US")
+            : value.toLocaleUpperCase("en-US"),
+        );
+      }
+      assert.equal(
+        validateContainerInspect(caseVariant, {
+          id,
+          probeId,
+          mounts: directories,
+        }),
+        true,
+      );
+    }
     const mutations: Array<
       (value: ReturnType<typeof secureInspectFixture>) => void
     > = [

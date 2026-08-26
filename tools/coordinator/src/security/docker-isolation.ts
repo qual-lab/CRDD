@@ -1738,7 +1738,15 @@ export function validateContainerInspect(
     )
       return false;
     try {
-      if (fs.realpathSync(sourcePath) !== source) return false;
+      const observedSource = fs.realpathSync.native(sourcePath);
+      const expectedSource = fs.realpathSync.native(source);
+      if (
+        process.platform === "win32"
+          ? observedSource.toLocaleLowerCase("en-US") !==
+            expectedSource.toLocaleLowerCase("en-US")
+          : observedSource !== expectedSource
+      )
+        return false;
     } catch {
       return false;
     }
