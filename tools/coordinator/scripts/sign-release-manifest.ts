@@ -20,7 +20,11 @@ import {
   PLATFORM_PROVISIONER_MANIFEST_REVISION,
 } from "../src/security/platform-provisioner-trust-core.ts";
 import { canonicalizeProvisioningJsonValueCandidate } from "../src/security/provisioning-signature-primitives.ts";
-import { isSupportedCrddRuntimeGitObjectId } from "../src/security/release-identity-grammar.ts";
+import {
+  isCanonicalCrddUtcTimestamp,
+  isCanonicalCrddVersion,
+  isSupportedCrddRuntimeGitObjectId,
+} from "../src/security/release-identity-grammar.ts";
 import { resolveRepositoryGitLayout } from "../src/security/repository-git-layout-internal.ts";
 import { readHiddenLine } from "./generate-release-key.ts";
 import {
@@ -177,8 +181,44 @@ function assertSupportedReleaseGitObjectFormat(
   }
 }
 
+function assertReleaseManifestStaticOptions(
+  options: Omit<ManifestOptions, "passphrase">,
+) {
+  if (
+    !path.isAbsolute(options.distributionRoot) ||
+    options.distributionRoot.includes("\0")
+  ) {
+    throw new Error("release_manifest_distribution_root_invalid");
+  }
+  if (
+    !path.isAbsolute(options.privateKeyPath) ||
+    options.privateKeyPath.includes("\0")
+  ) {
+    throw new Error("release_manifest_private_key_path_invalid");
+  }
+  if (
+    !Number.isSafeInteger(options.releaseSequence) ||
+    options.releaseSequence < 1
+  ) {
+    throw new Error("release_manifest_release_sequence_invalid");
+  }
+  if (!isCanonicalCrddVersion(options.crddVersion)) {
+    throw new Error("release_manifest_crdd_version_invalid");
+  }
+  if (
+    !isCanonicalCrddUtcTimestamp(options.issuedAt) ||
+    !isCanonicalCrddUtcTimestamp(options.expiresAt)
+  ) {
+    throw new Error("release_manifest_time_invalid");
+  }
+  if (Date.parse(options.expiresAt) <= Date.parse(options.issuedAt)) {
+    throw new Error("release_manifest_validity_window_invalid");
+  }
+}
+
 export function signReleaseManifest(options: ManifestOptions) {
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
+  assertReleaseManifestStaticOptions(options);
   const distributionRoot = externalDistributionRoot(options.distributionRoot);
   const packageRoot = path.join(distributionRoot, "tools", "coordinator");
   const packageObservation =
@@ -354,6 +394,7 @@ async function main() {
   assertSupportedCoordinatorNodeRuntime(process.versions.node);
   const options = parseArguments(process.argv.slice(2));
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
+  assertReleaseManifestStaticOptions(options);
   const passphrase = await readHiddenLine("Release key passphrase: ");
   const result = signReleaseManifest({ ...options, passphrase });
   process.stdout.write(`${JSON.stringify(result)}\n`);

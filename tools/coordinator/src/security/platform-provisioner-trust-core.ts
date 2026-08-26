@@ -27,6 +27,7 @@ import {
 } from "./native-provision-supervisor-release.ts";
 import {
   isCanonicalCrddGitObjectId,
+  isCanonicalCrddUtcTimestamp,
   isCanonicalCrddVersion,
 } from "./release-identity-grammar.ts";
 
@@ -96,7 +97,6 @@ const COMPILE_KEYS = new Set(["manifestPayload"]);
 const HEX64 = /^[0-9a-f]{64}$/u;
 const PACKAGE_NAME = /^@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/u;
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]{1,64})?$/u;
-const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 const PACKAGE_PATH = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/u;
 const MAXIMUM_FILES = 2_048;
@@ -123,15 +123,6 @@ function response<
     filesystemEffectIssued: false,
     networkEffectIssued: false,
   });
-}
-
-function utc(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    UTC.test(value) &&
-    Number.isFinite(Date.parse(value)) &&
-    new Date(Date.parse(value)).toISOString() === value
-  );
 }
 
 function packageIdentity(name: string, version: string) {
@@ -276,8 +267,8 @@ function normalizeManifest(raw: unknown) {
       NATIVE_PROVISION_SUPERVISOR_EXECUTABLE_MAXIMUM_BYTES ||
     typeof nativeProvisionSupervisorArtifact.sha256 !== "string" ||
     !HEX64.test(nativeProvisionSupervisorArtifact.sha256) ||
-    !utc(value.issuedAt) ||
-    !utc(value.expiresAt) ||
+    !isCanonicalCrddUtcTimestamp(value.issuedAt) ||
+    !isCanonicalCrddUtcTimestamp(value.expiresAt) ||
     Date.parse(value.expiresAt) <= Date.parse(value.issuedAt)
   )
     return null;
@@ -449,7 +440,8 @@ export function calculatePlatformProvisionerPackageContentRootCandidate(
 export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
   try {
     const input = snapshotPlainRecord(rawInput, VERIFY_KEYS);
-    if (!input || !utc(input.evaluationTime)) {
+    const evaluationTime = input?.evaluationTime;
+    if (!input || !isCanonicalCrddUtcTimestamp(evaluationTime)) {
       return response(
         "blocked",
         "platform_provisioner_manifest_input_invalid",
@@ -486,9 +478,8 @@ export function verifyPlatformProvisionerManifestCandidate(rawInput: unknown) {
       );
     }
     if (
-      Date.parse(input.evaluationTime) <
-        Date.parse(envelope.payload.issuedAt) ||
-      Date.parse(input.evaluationTime) >= Date.parse(envelope.payload.expiresAt)
+      Date.parse(evaluationTime) < Date.parse(envelope.payload.issuedAt) ||
+      Date.parse(evaluationTime) >= Date.parse(envelope.payload.expiresAt)
     ) {
       return response(
         "blocked",

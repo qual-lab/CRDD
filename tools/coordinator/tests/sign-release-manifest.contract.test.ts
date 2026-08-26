@@ -152,6 +152,75 @@ test("SHA-256 CRDD Release Identityはpassphrase利用とFilesystem観測より�
   assert.equal(cli.stderr, "release_manifest_git_object_format_unsupported\n");
 });
 
+test("Release公開引数はpassphrase入力とFilesystem観測より前に完全検証する", () => {
+  const base = {
+    distributionRoot: path.resolve("fixture-distribution-root-not-read"),
+    privateKeyPath: path.resolve("fixture-private-key-not-read"),
+    passphrase: "fixture-passphrase-not-read",
+    crddVersion: "v0.18.0",
+    releaseSequence: 1,
+    crddCommit: "a".repeat(40),
+    crddTree: "b".repeat(40),
+    issuedAt: "2026-08-26T02:39:49.000Z",
+    expiresAt: "2026-08-27T02:39:49.000Z",
+  };
+  for (const [override, reason] of [
+    [
+      { distributionRoot: "fixture-distribution-root-not-read" },
+      "release_manifest_distribution_root_invalid",
+    ],
+    [
+      { privateKeyPath: "fixture-private-key-not-read" },
+      "release_manifest_private_key_path_invalid",
+    ],
+    [{ releaseSequence: 0 }, "release_manifest_release_sequence_invalid"],
+    [{ crddVersion: "0.18.0" }, "release_manifest_crdd_version_invalid"],
+    [{ issuedAt: "2026-08-26T02:39:49Z" }, "release_manifest_time_invalid"],
+    [
+      { expiresAt: "2026-08-26T02:39:49.000Z" },
+      "release_manifest_validity_window_invalid",
+    ],
+  ] as const) {
+    assert.throws(
+      () => signReleaseManifest({ ...base, ...override }),
+      (error: unknown) => error instanceof Error && error.message === reason,
+    );
+  }
+
+  const cli = spawnSync(
+    process.execPath,
+    [
+      path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+      "--distribution-root",
+      path.resolve("fixture-distribution-root-not-read"),
+      "--private-key",
+      path.resolve("fixture-private-key-not-read"),
+      "--crdd-version",
+      "v0.18.0",
+      "--release-sequence",
+      "1",
+      "--crdd-commit",
+      "a".repeat(40),
+      "--crdd-tree",
+      "b".repeat(40),
+      "--issued-at",
+      "2026-08-26T02:39:49Z",
+      "--expires-at",
+      "2026-08-27T02:39:49.000Z",
+    ],
+    {
+      encoding: "utf8",
+      input: "passphrase-must-not-be-read\n",
+      shell: false,
+      timeout: 2_000,
+      windowsHide: true,
+    },
+  );
+  assert.equal(cli.status, 1);
+  assert.equal(cli.stdout, "");
+  assert.equal(cli.stderr, "release_manifest_time_invalid\n");
+});
+
 function ephemeralEnvelopeBytes() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const payload = Buffer.from("CRDD test-only placement envelope", "utf8");
