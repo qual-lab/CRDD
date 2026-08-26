@@ -1,12 +1,15 @@
+import fs from "node:fs";
+import tty from "node:tty";
 import { fileURLToPath } from "node:url";
 
 export const INTERACTIVE_CONSOLE_READER_CONTRACT =
   "crdd-coordinator/interactive-console-reader";
-export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 2;
+export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 5;
 export const INTERACTIVE_CONSOLE_READER_MAXIMUM_BYTES = 64;
 export const INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS = 120_000;
+const INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS = 500;
 
-type ReaderInput = Readonly<{
+export type ReaderInput = Readonly<{
   isTTY?: boolean;
   destroyed: boolean;
   readable: boolean;
@@ -21,6 +24,32 @@ type ReaderInput = Readonly<{
   ) => unknown;
   pause: () => unknown;
   resume: () => unknown;
+}>;
+
+type OwnedReaderInput = ReaderInput &
+  Readonly<{
+    once: (
+      event: "close" | "error" | "end",
+      listener: (error?: Error) => void,
+    ) => unknown;
+    removeListener: (
+      event: "close" | "data" | "error" | "end",
+      listener: ((chunk: Buffer | string) => void) | ((error?: Error) => void),
+    ) => unknown;
+    destroy: () => unknown;
+  }>;
+
+type OwnedReaderAdapter = Readonly<{
+  open: (device: string, flags: "r") => number;
+  closeUnownedDescriptor: (descriptor: number) => void;
+  createOwnedStream: (descriptor: number) => OwnedReaderInput;
+  destroyAndConfirmClose: (stream: OwnedReaderInput) => Promise<boolean>;
+}>;
+
+export type OwnedInteractiveConsoleReadOutcome = Readonly<{
+  status: "completed" | "cancelled" | "reader_failed";
+  line: string | null;
+  streamCloseConfirmed: boolean;
 }>;
 
 export function parseInteractiveConsoleLine(bytes: Uint8Array) {
@@ -135,14 +164,117 @@ export function readInteractiveConsoleLineFromStream(
   });
 }
 
+export async function readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
+  platform: NodeJS.Platform,
+  cancellationSignal: AbortSignal,
+  adapter: OwnedReaderAdapter,
+): Promise<OwnedInteractiveConsoleReadOutcome> {
+  if (cancellationSignal.aborted) {
+    return Object.freeze({
+      status: "cancelled",
+      line: null,
+      streamCloseConfirmed: true,
+    });
+  }
+  const device = platform === "win32" ? "\\\\.\\CONIN$" : "/dev/tty";
+  let descriptor: number | null = null;
+  let stream: OwnedReaderInput | null = null;
+  try {
+    descriptor = adapter.open(device, "r");
+    stream = adapter.createOwnedStream(descriptor);
+    descriptor = null;
+  } catch {
+    if (descriptor !== null) {
+      try {
+        adapter.closeUnownedDescriptor(descriptor);
+      } catch {
+        return Object.freeze({
+          status: "reader_failed",
+          line: null,
+          streamCloseConfirmed: false,
+        });
+      }
+    }
+    return Object.freeze({
+      status: "reader_failed",
+      line: null,
+      streamCloseConfirmed: true,
+    });
+  }
+
+  const line = await readInteractiveConsoleLineFromStream(
+    stream,
+    cancellationSignal,
+  );
+  let isClosed = false;
+  try {
+    isClosed = await adapter.destroyAndConfirmClose(stream);
+  } catch {
+    isClosed = false;
+  }
+  if (cancellationSignal.aborted) {
+    return Object.freeze({
+      status: "cancelled",
+      line: null,
+      streamCloseConfirmed: isClosed,
+    });
+  }
+  return line === null
+    ? Object.freeze({
+        status: "reader_failed",
+        line: null,
+        streamCloseConfirmed: isClosed,
+      })
+    : Object.freeze({
+        status: "completed",
+        line,
+        streamCloseConfirmed: isClosed,
+      });
+}
+
+function destroyAndConfirmOwnedReaderStream(stream: OwnedReaderInput) {
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const timeout = setTimeout(
+      () => settle(false),
+      INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS,
+    );
+    const cleanup = () => {
+      clearTimeout(timeout);
+      stream.removeListener("close", onClose);
+      stream.removeListener("error", onError);
+    };
+    const settle = (isClosed: boolean) => {
+      if (settled) return;
+      settled = true;
+      try {
+        cleanup();
+      } catch {
+        isClosed = false;
+      }
+      resolve(isClosed);
+    };
+    const onClose = () => settle(true);
+    const onError = () => settle(false);
+    try {
+      stream.once("close", onClose);
+      stream.once("error", onError);
+      stream.destroy();
+    } catch {
+      settle(false);
+    }
+  });
+}
+
 function writeResult(
+  status: "completed" | "blocked",
   line: string | null,
   cancellationSignal: AbortSignal,
 ): Promise<boolean> {
   const result = Object.freeze({
     contract: INTERACTIVE_CONSOLE_READER_CONTRACT,
     contractRevision: INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
-    status: line === null ? "blocked" : "completed",
+    status,
     line,
   });
   if (!process.connected || cancellationSignal.aborted)
@@ -197,25 +329,36 @@ async function main() {
   const onDisconnect = () => controller.abort();
   process.on("message", onMessage);
   process.once("disconnect", onDisconnect);
+  let mustTerminateOwnedReaderProcess = false;
   try {
     if (!process.connected) return;
-    const line = await readInteractiveConsoleLineFromStream(
-      process.stdin,
+    mustTerminateOwnedReaderProcess = true;
+    const outcome = await readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
+      process.platform,
       controller.signal,
+      Object.freeze({
+        open: fs.openSync,
+        closeUnownedDescriptor: fs.closeSync,
+        createOwnedStream: (descriptor: number) =>
+          new tty.ReadStream(descriptor) as unknown as OwnedReaderInput,
+        destroyAndConfirmClose: destroyAndConfirmOwnedReaderStream,
+      }),
     );
     if (!process.connected || controller.signal.aborted) return;
-    const isWritten = await writeResult(line, controller.signal);
-    process.exitCode = isWritten && line !== null ? 0 : 2;
+    const readerStatus =
+      outcome.status === "completed" ? "completed" : "blocked";
+    const isWritten = await writeResult(
+      readerStatus,
+      outcome.line,
+      controller.signal,
+    );
+    process.exitCode = isWritten && outcome.status === "completed" ? 0 : 2;
     if (isWritten && process.connected) process.disconnect();
   } finally {
     clearTimeout(timeout);
     process.removeListener("message", onMessage);
     process.removeListener("disconnect", onDisconnect);
-    try {
-      process.stdin.pause();
-    } catch {
-      // Process termination is the remaining bounded cleanup boundary.
-    }
+    if (mustTerminateOwnedReaderProcess) process.exit(process.exitCode ?? 2);
   }
 }
 

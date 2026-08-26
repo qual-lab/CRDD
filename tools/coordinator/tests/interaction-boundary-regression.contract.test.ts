@@ -27,6 +27,7 @@ import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
   parseInteractiveConsoleLine,
+  readOwnedInteractiveConsoleLineOutcomeUsingAdapter,
 } from "../src/core/interactive-console-reader.ts";
 import {
   describeCoordinatorNodeRuntimeVersionContract,
@@ -63,7 +64,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 13,
+    contractRevision: 14,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsDeviceOpenModes: { input: "r", output: "r+" },
     windowsUnicodeOutput: "node_unicode_tty_output_required",
@@ -95,7 +96,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     genericUsingAdapterAuthority:
       "non_authority_pure_no_production_process_state",
     productionNoncompletedValue: "null",
-    validatedTtyInput: "exact_console_descriptor_child_tty_required",
+    validatedTtyInput:
+      "parent_and_fixed_reader_child_independently_open_conin_tty",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",
     readerArtifactIdentity:
@@ -110,11 +112,15 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     readerCleanupSchedulingMarginMs: 5_000,
     readerOrphanFailsafeMs: 120_000,
     readerStandardIo:
-      "exact_console_input_bounded_stdout_discarded_stderr_private_ipc",
+      "child_fixed_conin_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:
       "ipc_cancel_parent_disconnect_then_exact_child_force_termination",
     readerCompletion:
       "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
+    readerOwnedHandleCleanup:
+      "best_effort_stream_close_then_exact_child_process_exit_observed_by_parent",
+    readerSuccessRequiresStreamClose: false,
+    readerSuccessRequiresChildClose: true,
     windowsRedirectedOutput: "fail_closed",
     redirectedStandardInputAllowed: false,
     posixDevice: "/dev/tty",
@@ -132,7 +138,11 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
 
   const executableSources = ["bin", "scripts", "src"]
     .flatMap((directory) => sourceFiles(path.join(coordinatorRoot, directory)))
-    .filter((file) => !file.endsWith("interactive-console.ts"));
+    .filter(
+      (file) =>
+        !file.endsWith("interactive-console.ts") &&
+        !file.endsWith("interactive-console-reader.ts"),
+    );
   for (const file of executableSources) {
     const source = fs.readFileSync(file, "utf8");
     assert.equal(/CONIN\$|CONOUT\$|\/dev\/tty/u.test(source), false, file);
@@ -151,7 +161,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     "utf8",
   );
   assert.equal(parentConsoleSource.includes("process.stdin"), false);
-  assert.equal(readerSource.includes("process.stdin"), true);
+  assert.equal(readerSource.includes("process.stdin"), false);
+  assert.equal(readerSource.includes('"\\\\\\\\.\\\\CONIN$"'), true);
   assert.equal(cliSource.includes("fs.readSync(0"), true);
 });
 
@@ -721,6 +732,131 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
   assert.equal(cancelledInput.listenerCount("end"), 0);
 });
 
+test("固定reader子Processはstream closeとProcess終了cleanupを分離する", async () => {
+  function scenario(
+    options: { closeConfirmed?: boolean; openFails?: boolean } = {},
+  ) {
+    const stream = new PassThrough() as PassThrough & { isTTY: boolean };
+    stream.isTTY = true;
+    let unownedCloseCount = 0;
+    let destroyCount = 0;
+    const adapter = Object.freeze({
+      open: () => {
+        if (options.openFails) throw new Error("fixture_open_failed");
+        return 17;
+      },
+      closeUnownedDescriptor: () => {
+        unownedCloseCount += 1;
+      },
+      createOwnedStream: () => stream,
+      destroyAndConfirmClose: async () => {
+        destroyCount += 1;
+        stream.destroy();
+        return options.closeConfirmed ?? true;
+      },
+    });
+    return {
+      stream,
+      adapter: adapter as unknown as Parameters<
+        typeof readOwnedInteractiveConsoleLineOutcomeUsingAdapter
+      >[2],
+      unownedCloseCount: () => unownedCloseCount,
+      destroyCount: () => destroyCount,
+    };
+  }
+
+  {
+    const observed = scenario();
+    const pending = readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
+      "win32",
+      new AbortController().signal,
+      observed.adapter,
+    );
+    observed.stream.write(Buffer.from("123456\r\n", "utf8"));
+    assert.deepEqual(await pending, {
+      status: "completed",
+      line: "123456",
+      streamCloseConfirmed: true,
+    });
+    assert.equal(observed.destroyCount(), 1);
+    assert.equal(observed.unownedCloseCount(), 0);
+  }
+
+  {
+    const observed = scenario();
+    const controller = new AbortController();
+    const pending = readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
+      "win32",
+      controller.signal,
+      observed.adapter,
+    );
+    controller.abort();
+    assert.deepEqual(await pending, {
+      status: "cancelled",
+      line: null,
+      streamCloseConfirmed: true,
+    });
+    assert.equal(observed.destroyCount(), 1);
+  }
+
+  {
+    const observed = scenario({ closeConfirmed: false });
+    const pending = readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
+      "win32",
+      new AbortController().signal,
+      observed.adapter,
+    );
+    observed.stream.write(Buffer.from("123456\r\n", "utf8"));
+    assert.deepEqual(await pending, {
+      status: "completed",
+      line: "123456",
+      streamCloseConfirmed: false,
+    });
+  }
+
+  {
+    const observed = scenario({ openFails: true });
+    assert.deepEqual(
+      await readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
+        "win32",
+        new AbortController().signal,
+        observed.adapter,
+      ),
+      {
+        status: "reader_failed",
+        line: null,
+        streamCloseConfirmed: true,
+      },
+    );
+    assert.equal(observed.destroyCount(), 0);
+    assert.equal(observed.unownedCloseCount(), 0);
+  }
+});
+
+test("固定readerの実子Processはstream close未確認でもProcess終了へ収束する", () => {
+  const fixture = path.join(
+    coordinatorRoot,
+    "tests",
+    "fixtures",
+    "interactive-console-owned-reader-process.ts",
+  );
+  const result = spawnSync(process.execPath, [fixture], {
+    shell: false,
+    cwd: coordinatorRoot,
+    env: {},
+    encoding: "utf8",
+    timeout: 5_000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.signal, null);
+  assert.equal(result.stderr, "");
+  assert.deepEqual(JSON.parse(result.stdout), {
+    status: "completed",
+    line: "123456",
+    streamCloseConfirmed: false,
+  });
+});
+
 test("固定Console readerは厳密な一行protocolと非TTY拒否へ閉じる", () => {
   assert.equal(
     parseInteractiveConsoleLine(Buffer.from("123456\n", "utf8")),
@@ -1221,9 +1357,9 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
     assert.deepEqual(optionsWithoutEnvironment, {
       shell: false,
       detached: false,
-      windowsHide: true,
+      windowsHide: false,
       cwd: path.dirname(String((argv as unknown[])[0])),
-      stdio: [17, "pipe", "ignore", "ipc"],
+      stdio: ["ignore", "pipe", "ignore", "ipc"],
     });
     assert.equal((env as Record<string, string>).PATH, "");
     assert.equal((env as Record<string, string>).USERPROFILE, "");

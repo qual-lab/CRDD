@@ -20,10 +20,11 @@ import {
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
 import { verifyRuntimeOwnedRepositoryBindingCapability } from "./repository-operation-runtime.ts";
+import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 10;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 12;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -124,6 +125,16 @@ function normalizedScope(rawScope: unknown): Scope | null {
     !acceptanceCriteria ||
     !allowedPaths ||
     !readPaths
+  ) {
+    return null;
+  }
+  if (
+    containsRecognizedSecretScope(
+      value.objective,
+      acceptanceCriteria,
+      allowedPaths,
+      readPaths,
+    )
   ) {
     return null;
   }

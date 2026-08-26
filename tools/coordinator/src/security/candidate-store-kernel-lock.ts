@@ -200,7 +200,6 @@ export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
       `\\\\.\\pipe\\CRDD.Coordinator.InteractiveConsole.${lockIdentity}`,
       sharedState,
     );
-    worker.unref();
   } catch {
     return Object.freeze({ status: "cleanup_unknown", lock: null });
   }
@@ -301,6 +300,7 @@ export function describeCandidateStoreKernelLockContract() {
     releaseTimeoutMs: LOCK_RELEASE_TIMEOUT_MS,
     interactiveConsoleLock:
       "dedicated_async_acquire_and_release_with_state_and_worker_exit_confirmation",
+    interactiveConsoleWorkerKeepsProcessAliveUntilRelease: true,
     interactiveConsoleOutcomes: Object.freeze([
       "acquired",
       "unavailable",

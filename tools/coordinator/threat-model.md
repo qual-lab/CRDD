@@ -83,7 +83,8 @@ Runtime 1.0のExecution Environment backendはWindows上のDocker Desktop／Linu
 | AgentがAuthorityを自己拡張 | Runtimeが実効Packetを確定 | Schema、Event | Operation拒否 |
 | Providerが監査履歴を改変 | `events/`／`projection/`／`management/`をProvider書込み範囲外にする | Hash、事後検査 | Operation失敗 |
 | 未承認push／外部Repository更新 | Credential／SSH Agent／Provider連携を渡さず、許可外Egressを拒否 | Process command拒否、refs事後照合 | Operation拒否 |
-| Secretまたは内部情報の永続化 | 正規化、分類、Redaction後だけ永続化 | 保存量上限 | Result拒否 |
+| Password、Private Key、Session Token、API Keyその他のシークレット値のPrompt、読取投影、Candidateまたは永続化への混入 | 高確度なSecret形式と秘密用Pathを各Provider境界前に拒否し、Credential環境・Store・Helperを渡さない | 安全な固定reason、保存・表示量0、Project側のSecret非格納 | Provider EffectまたはResultを拒否 |
+| 許可された内部情報の過剰な送信・永続化 | 情報分類と外部情報境界に従い、必要最小量へ正規化して許可されたContextだけを投影・永続化 | 保存量上限、Retention、Provider Terms／Settings境界の表示 | 境界不明なら送信・Resultを拒否 |
 | dirty変更の暗黙混入 | 書込みOperationはHEADから隔離 | source dirty記録 | 依存時はBlocker |
 | 古いReviewの流用 | Candidate Revision Identity一致を要求 | Stale Event | 再Verification／Review |
 | Provider完了後のRuntime crash | Lease、Idempotency Key、Result Fingerprint、workspace照合 | Provider resume Capability | 自動再実行せず復旧 |

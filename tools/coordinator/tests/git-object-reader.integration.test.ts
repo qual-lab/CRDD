@@ -41,7 +41,7 @@ test("Repository-owned Git readerは外部Git CLIなしでCommitとTreeを照合
   assert.equal(exact?.repositoryPathReported, false);
 });
 
-test("現行CRDDのpacked objectをRuntime-owned隔離workspaceへ再構成する", (t) => {
+test("現行CRDDのpacked objectから明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
   const owned = createOwnedOperationDirectories();
   t.after(() => cleanupOwnedOperationDirectories(owned));
@@ -69,10 +69,11 @@ test("現行CRDDのpacked objectをRuntime-owned隔離workspaceへ再構成す�
     commonDirectory: source.commonDirectory,
     revision: source.revision,
     workspace: binding.mounts.workspace,
+    readPaths: ["README.md"],
   });
   assert.equal(materialized?.status, "materialized");
   assert.equal(materialized?.baseCommit, repository.revision);
-  assert.ok((materialized?.fileCount ?? 0) > 100);
+  assert.equal(materialized?.fileCount, 1);
   assert.equal(
     fs
       .readFileSync(path.join(binding.mounts.workspace, "README.md"), "utf8")
@@ -81,6 +82,10 @@ test("現行CRDDのpacked objectをRuntime-owned隔離workspaceへ再構成す�
   );
   assert.equal(
     fs.existsSync(path.join(binding.mounts.workspace, ".git")),
+    false,
+  );
+  assert.equal(
+    fs.existsSync(path.join(binding.mounts.workspace, "01_Principles.md")),
     false,
   );
 });

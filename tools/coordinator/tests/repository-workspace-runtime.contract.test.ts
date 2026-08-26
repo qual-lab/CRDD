@@ -172,7 +172,9 @@ test("許可外変更、重複allowed path、Revision変化とCandidate後差替
     first.managementCapability,
     first.mountCapability,
   );
-  assert.ok(firstWorkspace);
+  if (firstWorkspace?.status !== "materialized") {
+    assert.fail("first workspace must materialize");
+  }
   fs.writeFileSync(path.join(first.workspace, "README.md"), "changed\n");
   assert.equal(
     captureRuntimeOwnedCandidateRevision(
@@ -202,7 +204,9 @@ test("許可外変更、重複allowed path、Revision変化とCandidate後差替
     second.managementCapability,
     second.mountCapability,
   );
-  assert.ok(secondWorkspace);
+  if (secondWorkspace?.status !== "materialized") {
+    assert.fail("second workspace must materialize");
+  }
   fs.writeFileSync(path.join(second.workspace, "README.md"), "changed\n");
   fs.writeFileSync(
     path.join(secondSource.commonDirectory, "refs", "heads", "main"),
@@ -226,7 +230,9 @@ test("許可外変更、重複allowed path、Revision変化とCandidate後差替
     third.managementCapability,
     third.mountCapability,
   );
-  assert.ok(thirdWorkspace);
+  if (thirdWorkspace?.status !== "materialized") {
+    assert.fail("third workspace must materialize");
+  }
   fs.writeFileSync(path.join(third.workspace, "README.md"), "changed\n");
   const candidate = captureRuntimeOwnedCandidateRevision(
     thirdWorkspace.workspaceCapability,
@@ -235,7 +241,9 @@ test("許可外変更、重複allowed path、Revision変化とCandidate後差替
     third.mountCapability,
     ["README.md"],
   );
-  assert.ok(candidate);
+  if (candidate?.status !== "candidate") {
+    assert.fail("candidate must be captured");
+  }
   fs.writeFileSync(path.join(third.workspace, "README.md"), "replaced\n");
   assert.equal(
     verifyRuntimeOwnedCandidateRevision(
@@ -264,7 +272,9 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
     runtime.managementCapability,
     runtime.mountCapability,
   );
-  assert.ok(materialized);
+  if (materialized?.status !== "materialized") {
+    assert.fail("workspace must materialize");
+  }
   const dynamicAllowedPaths = new Proxy([], {
     getOwnPropertyDescriptor() {
       throw new Error("must not execute");
@@ -282,9 +292,58 @@ test("偽Capabilityと動的allowed pathをFilesystem Effectへ昇格しない",
   );
 });
 
+test("Executorが生成した認識済みSecretをCandidate Capabilityへ昇格しない", (t) => {
+  for (const scenario of ["path", "nested-path", "content"] as const) {
+    const source = repository(t);
+    const runtime = operation(t, source.root);
+    const materialized = materializeRuntimeOwnedRepositoryWorkspace(
+      runtime.bound.repositoryBindingCapability,
+      runtime.managementCapability,
+      runtime.mountCapability,
+    );
+    assert.equal(materialized?.status, "materialized");
+    if (scenario === "path") {
+      fs.writeFileSync(path.join(runtime.workspace, ".env"), "ordinary\n");
+    } else if (scenario === "nested-path") {
+      fs.writeFileSync(
+        path.join(
+          runtime.workspace,
+          "src",
+          "session_token=abcdefghijklmnopqrstuvwx",
+        ),
+        "ordinary\n",
+      );
+    } else {
+      fs.writeFileSync(
+        path.join(runtime.workspace, "src", "index.ts"),
+        `const token = "sk-${"A".repeat(24)}";\n`,
+      );
+    }
+    const captured = captureRuntimeOwnedCandidateRevision(
+      materialized?.workspaceCapability,
+      runtime.bound.repositoryBindingCapability,
+      runtime.managementCapability,
+      runtime.mountCapability,
+      [
+        scenario === "path"
+          ? ".env"
+          : scenario === "nested-path"
+            ? "src/session_token=abcdefghijklmnopqrstuvwx"
+            : "src/index.ts",
+      ],
+    );
+    assert.equal(captured?.status, "blocked");
+    assert.equal(
+      captured?.status === "blocked" ? captured.reason : null,
+      "candidate_recognized_secret_rejected",
+    );
+    assert.equal(Reflect.has(captured ?? {}, "candidateCapability"), false);
+  }
+});
+
 test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する", () => {
   const contract = describeRepositoryWorkspaceRuntimeContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(contract.providerGitMetadataVisible, false);
   assert.equal(contract.workspaceWrite, "isolated_runtime_owned_only");
   assert.deepEqual(contract.candidateRevision, [
@@ -295,4 +354,6 @@ test("公開契約は隔離workspaceと5要素Candidate Revisionを固定する"
     "allowed_paths_hash",
   ]);
   assert.equal(contract.canonicalRepositoryWriteAllowed, false);
+  assert.match(contract.recognizedSecretMaterial, /rejected/u);
+  assert.equal(contract.completeSecretAbsenceVerified, false);
 });

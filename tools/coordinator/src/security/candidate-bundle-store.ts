@@ -8,10 +8,11 @@ import {
   inspectRuntimeOwnedWindowsCandidateStore,
 } from "./candidate-store-windows-adapter.ts";
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
+import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
 
 export const CANDIDATE_BUNDLE_STORE_CONTRACT =
   "crdd-coordinator/candidate-bundle-store";
-export const CANDIDATE_BUNDLE_STORE_CONTRACT_REVISION = 4;
+export const CANDIDATE_BUNDLE_STORE_CONTRACT_REVISION = 5;
 
 const STORE_DIRECTORY_NAME = "crdd-coordinator-candidates-v2";
 const STORE_LOCK_NAME = "candidate-store.lock";
@@ -28,8 +29,6 @@ const MAXIMUM_INVENTORY_SCAN_ENTRIES = 512;
 const STORE_LOCK_ATTEMPTS = 25;
 const STORE_LOCK_RETRY_MILLISECONDS = 10;
 const STORE_LOCK_STALE_OBSERVATION_MILLISECONDS = 5 * 60 * 1_000;
-const SECRET_PATTERN =
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9]{32,}\b|\bsk-(?:ant-)?[A-Za-z0-9_-]{20,}\b/u;
 
 type CandidateBundle = Readonly<{
   schema: "crdd-coordinator-candidate-bundle/v1";
@@ -389,10 +388,11 @@ function normalizeStoredCandidate(raw: unknown): StoredCandidate | null {
 
 function containsRecognizedSecret(bundle: CandidateBundle) {
   return bundle.entries.some((entry) => {
-    if (entry.operation !== "upsert" || entry.contentBase64 === null)
-      return false;
-    return SECRET_PATTERN.test(
-      Buffer.from(entry.contentBase64, "base64").toString("utf8"),
+    return containsRecognizedSecretMaterial(
+      entry.relativePath,
+      entry.operation === "upsert" && entry.contentBase64 !== null
+        ? Buffer.from(entry.contentBase64, "base64")
+        : "",
     );
   });
 }

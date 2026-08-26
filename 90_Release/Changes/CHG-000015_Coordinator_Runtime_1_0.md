@@ -55,6 +55,7 @@ Qual-Labの人間の決定権限者は、次を一つのRelease価値として�
 - 悪意ある同一OS User、Administrator、Kernel、Firmware、TPMまたはVendor signing infrastructure compromiseへの完全耐性はv1完成条件にしない。
 - Runtime 1.0を構成する内部component、Provider別Adapter、個別Gateおよび検証Stepは独立Releaseせず、本CHG内の成立条件とEvidenceとして扱う。
 - Runtimeの独立監査往復から一般化した非同期処理規則の過剰適用是正を、同じ未リリースv0.18変更へ含める。AI入口、外部Runtime、Authority／Effect境界および取消後に残存し得る資源では完全なlifecycle契約を維持し、通常のプロダクト非同期処理は実在する状態とリスクに比例、外部Effect等を伴わない単純なローカル非同期処理は通常の実装・エラー処理・試験へ閉じる。`10_Agent.md`、公式保守入口`AGENTS.md`および配布入口`template/AGENTS.md`へ同時に伝播し、既存の高リスク境界を弱めない。
+- Providerへ渡すTask Promptは目的、受入基準およびPath参照へ限定し、Repository file bytesを埋め込まない。許可した機密ソースは開始Revisionからの明示Read Projectionとして渡せるが、Password、秘密鍵、Session Token、API Keyその他のSecret値は通常の送信許可へ含めない。認識済みSecretはProvider Effect前に拒否し、heuristic合格を未知Secret不存在の証明へ昇格しない。
 
 本判断はProvider login、外部送信、Repository変更、Candidate受入、統合、Releaseまたは費用執行を事前承認しない。それらは各OperationとRelease Gateで別に判定する。
 
@@ -106,6 +107,7 @@ Parent authority >= delegated child authority
 | Provider Home | Codex／Claudeをselected userの専用Homeへ分離し、Operation一時領域と永続認証Homeを分離 |
 | Docker | 固定image digest、read-only root、非root、capability全削除、no-new-privileges、限定mount、限定Egress |
 | Repository | Logical identity、instance identity、object format、base Commit／Tree、current revisionをEffect直前に再確認 |
+| Information／Secret | Task本文とRepository file bytesを分離し、明示Read Projectionだけを再構成する。認識済みSecret形式または秘密用PathはProvider可視workspace作成前に拒否し、完全検出は主張しない |
 | Process | shellを介さず、最小環境、timeout、cancel、process tree終了、Job／container不存在、cleanupを確認 |
 | Network | Local executionとExternal Sendを分け、承認Provider endpoint以外へ送らない。観測不能時は起動しない |
 
@@ -205,6 +207,8 @@ Coordinatorは利用可能な候補から、Taskの具体性、曖昧さ、影�
 4. 4経路表、Subscription-only、API fallback禁止、Authority／Effect分離、T1–T2および残件を機械契約で固定する。
 5. Repository全体Checker、Checker契約試験、Coordinator全試験、型検査、Lint、Formatterおよびdiff checkを通す。
 6. 同じ固定改訂版をArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceへ一括提示する。
+
+Secret境界の回帰確認では、Task scope内の固定形式Secretと名前付き秘密値、秘密用Path、Read Projection内容、初回／是正Candidate、Candidate保存およびReviewerから派生する是正Pathを同じ検出primitiveへ接続する。通常Sourceのidentifier／member／bracket／call参照、秘密を説明する文章、明示placeholderおよび`.env.example`は非発火例とし、検出不能な未知Secretについて`credentialAbsenceVerified`または完全不存在を主張しない。Reviewer由来のPathが認識済みSecret値または秘密用Pathなら、次のExternal Send Grant消費、是正Packet発行およびProvider Effectより前に安全な固定理由で停止する。
 
 ## 13. 移行とRollback
 

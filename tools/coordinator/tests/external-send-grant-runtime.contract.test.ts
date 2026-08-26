@@ -634,7 +634,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 10);
+  assert.equal(contract.contractRevision, 12);
   assert.equal(
     contract.interactiveConfirmation,
     "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
@@ -709,4 +709,34 @@ test("配列境界を含むScope Hashは一意で、承認表示に全送信fiel
   assert.match(notice, /exactProviderAccountOrTenantIdentity/u);
   assert.match(notice, /\\u202e/u);
   assert.doesNotMatch(notice, /\u202e/u);
+});
+
+test("認識済みSecretをTask scopeへ含むGrantは発行しない", async () => {
+  const current = fixture();
+  const secretScope = {
+    objective: `Use token sk-${"A".repeat(24)}.`,
+    acceptanceCriteria: ["Keep the change bounded."],
+    allowedPaths: ["fixture.txt"],
+    readPaths: ["fixture.txt"],
+  };
+  assert.equal(compileExternalSendScopeHash(secretScope), null);
+  assert.equal(
+    await current.runtime.request(
+      current.managementCapability,
+      current.repositoryBindingCapability,
+      current.policyCapability,
+      secretScope,
+      ["claude"],
+    ),
+    null,
+  );
+  assert.deepEqual(current.notices, []);
+  assert.equal(
+    compileExternalSendScopeHash({
+      ...secretScope,
+      objective: "Update fixture.",
+      allowedPaths: [".env"],
+    }),
+    null,
+  );
 });

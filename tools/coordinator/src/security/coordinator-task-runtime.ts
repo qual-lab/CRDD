@@ -60,10 +60,11 @@ import {
   persistRuntimeOwnedCandidateRevision,
   verifyRuntimeOwnedCandidateRevision,
 } from "./repository-workspace-runtime.ts";
+import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 12;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 14;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -400,7 +401,7 @@ function snapshotRequest(rawRequest: unknown) {
     ).values(),
   ];
   if (readPaths.length > 64) return null;
-  return Object.freeze({
+  const normalized = Object.freeze({
     ...request,
     frontProvider: request.frontProvider as Provider,
     objective: request.objective,
@@ -408,6 +409,17 @@ function snapshotRequest(rawRequest: unknown) {
     allowedPaths: paths.value,
     readPaths: Object.freeze(readPaths),
   });
+  return containsRecognizedSecretScope(
+    normalized.objective,
+    normalized.acceptanceCriteria,
+    normalized.allowedPaths,
+    normalized.readPaths,
+  )
+    ? Object.freeze({
+        status: "blocked" as const,
+        reason: "coordinator_task_scope_recognized_secret_rejected" as const,
+      })
+    : Object.freeze({ status: "accepted" as const, request: normalized });
 }
 
 function selectionRequest(
@@ -627,6 +639,13 @@ async function executeStage(
     );
     taskControl = objectCapability(packet?.controlCapability);
     const taskUse = objectCapability(packet?.useCapability);
+    if (
+      packet?.status === "blocked" &&
+      packet.reason === "provider_task_packet_recognized_secret_rejected"
+    ) {
+      revokeUnconsumed();
+      return blocked("coordinator_task_remediation_recognized_secret_rejected");
+    }
     if (packet?.status !== "issued" || !taskControl || !taskUse) {
       revokeUnconsumed();
       return blocked("coordinator_task_packet_issue_failed");
@@ -782,10 +801,18 @@ async function runCoordinatorTask(
   controlCapability: object,
   control: ControlRecord,
 ) {
-  const request = snapshotRequest(rawRequest);
-  if (!request || typeof repositoryRoot !== "string" || !repositoryRoot) {
+  const requestOutcome = snapshotRequest(rawRequest);
+  if (
+    !requestOutcome ||
+    typeof repositoryRoot !== "string" ||
+    !repositoryRoot
+  ) {
     return blocked("coordinator_task_request_invalid");
   }
+  if (requestOutcome.status === "blocked") {
+    return blocked(requestOutcome.reason);
+  }
+  const request = requestOutcome.request;
   const repositoryPreflight =
     state.dependencies.inspectRepository(repositoryRoot);
   if (repositoryPreflight?.status !== "candidate") {
@@ -939,7 +966,12 @@ async function runCoordinatorTask(
       workspace?.workspaceCapability,
     );
     if (workspace?.status !== "materialized" || !workspaceCapability) {
-      return blocked("coordinator_task_workspace_materialization_failed");
+      return blocked(
+        workspace?.reason ===
+          "repository_read_projection_recognized_secret_rejected"
+          ? "coordinator_task_read_projection_recognized_secret_rejected"
+          : "coordinator_task_workspace_materialization_failed",
+      );
     }
     const executor = await executeStage(
       state,
@@ -978,7 +1010,11 @@ async function runCoordinatorTask(
       executorResult?.status !== "completed" ||
       !samePaths(executorResult.changedPaths, candidate.changedPaths)
     ) {
-      return blocked("coordinator_task_candidate_revision_invalid");
+      return blocked(
+        candidate?.reason === "candidate_recognized_secret_rejected"
+          ? "coordinator_task_candidate_recognized_secret_rejected"
+          : "coordinator_task_candidate_revision_invalid",
+      );
     }
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_before_independent_review");
@@ -1045,7 +1081,11 @@ async function runCoordinatorTask(
         executorResult?.status !== "completed" ||
         !samePaths(executorResult.changedPaths, candidate.changedPaths)
       ) {
-        return blocked("coordinator_task_remediated_candidate_invalid");
+        return blocked(
+          candidate?.reason === "candidate_recognized_secret_rejected"
+            ? "coordinator_task_candidate_recognized_secret_rejected"
+            : "coordinator_task_remediated_candidate_invalid",
+        );
       }
       reviewer = await executeStage(
         state,
@@ -1638,6 +1678,9 @@ export function describeCoordinatorTaskRuntimeContract() {
     executorWorkspace: "runtime_owned_exact_commit_read_write",
     reviewerWorkspace: "same_exact_candidate_read_only",
     taskTransport: "opaque_single_use_provider_stdin_only",
+    recognizedSecretBoundary:
+      "task_scope_and_read_projection_before_executor_candidate_capture_before_each_reviewer_and_remediation_path_before_next_executor",
+    completeSecretAbsenceVerified: false,
     productionPackageGate:
       "single_use_runtime_private_verified_distribution_capability_before_all_effects",
     processPoisonGate:

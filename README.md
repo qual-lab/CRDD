@@ -43,6 +43,16 @@ It does not remove the need for technical judgment or verification, and it does 
 
 Quality assurance is therefore not an activity that begins by running tests at the end. Each activity develops its own verification obligations and specialist quality perspectives, and Humans review the current conclusion, gaps, serious problems, and remaining risk before acceptance.
 
+### Coordinator Runtime and provider boundary
+
+The Coordinator Runtime candidate delegates work through the official Codex and Claude Code CLIs using their own Subscription OAuth sessions. CRDD does not extract those sessions for another API, and the standard profile does not automatically fall back to API keys, metered APIs, credit purchases, or paid plan changes.
+
+Before a provider receives content, CRDD limits the provider, purpose, information classification, repository and revision, projected context, authority, network destination, and executable identity. Those controls reduce unintended disclosure, substitution, privilege expansion, and effect. They do not control or independently verify retention, secondary use, or subprocessors inside the provider; after an authorized send, the provider's terms and account settings govern that boundary.
+
+Repository source is not copied into the task prompt. A provider reads only the authorized files projected from the verified repository and revision into its isolated workspace. Source code, including confidential source, may therefore still be sent to the authorized provider when the project's information boundary permits it. Passwords, private keys, session tokens, API keys, and other secret values are different: they must not be placed in a prompt or readable projection. The Runtime rejects recognized high-confidence secret forms and secret-bearing paths before provider execution, but does not claim complete secret discovery; projects must still keep secrets out of repositories and task text.
+
+The intended Local Personal experience is a lightweight initial approval of this processing boundary. Normal delegation within the unchanged approved boundary should not require confirmation for every task. A new provider or account boundary, broader information class or purpose, billing-path enablement, publication, or another material expansion requires a new decision. This intended consent lifecycle is still being connected in the v0.18.0 candidate; the current implementation continues to ask for operation-scoped confirmation until that connection is verified.
+
 ### CRDD in plain language
 
 CRDD is not only a way to make AI write code. It keeps why something is being built, whose situation should change, what was decided, and why that decision was made in a repository so that people and AI can understand the same meaning later.
@@ -438,6 +448,16 @@ Human Coding-less DevelopmentはNo-codeではない。コードはAIが生成す
 これは、技術判断や検証を不要にすることでも、責任をAIへ移すことでもない。AIは決定権限の範囲内で探索、整理、比較、下書き、実装、検証を行える。人間は意味、価値、優先順位、承認、リスク受容、最終責任を保持する。
 
 したがって品質保証は、最後にテストを実行するだけの活動ではない。各工程が自身の品質条件について検証義務と専門的な検証観点を育て、人間は受け入れ前に、現在の結論、抜け、重大な問題および残存リスクを確認する。
+
+### Coordinator RuntimeとProvider境界
+
+Coordinator Runtime候補は、公式のCodex／Claude Code CLIと、それぞれ自身のSubscription OAuth Sessionを使って仕事を委譲する。CRDDがSessionを抽出して別APIへ転用することはなく、標準ProfileはAPI key、従量API、Credit購入または有料Plan変更へ自動fallbackしない。
+
+Providerへ内容を送る前に、CRDDはProvider、目的、情報分類、RepositoryとRevision、投影するContext、Authority、Network送信先および実行物Identityを限定する。これは意図しない漏えい、差替え、権限拡張およびEffectを抑える制御である。許可後のProvider内部における保存、二次利用または再委託をCRDDが制御・独立検証するものではなく、その境界にはProviderの利用条件とAccount設定が適用される。
+
+RepositoryのSourceをTask Promptへコピーしない。Providerは、検証済みRepositoryとRevisionから隔離Workspaceへ明示的に投影された許可Fileだけを読む。したがって機密なSource Codeも、Projectの情報境界が許可する場合は認可済みProviderへ送信され得る。一方、Password、Private Key、Session Token、API Keyその他のシークレット値は別であり、Promptや読取投影へ含めてはならない。Runtimeは認識できる高確度なSecret形式と秘密用PathをProvider実行前に拒否するが、すべてのSecretを発見できるとは主張しない。ProjectもSecretをRepositoryとTask本文へ入れない。
+
+Local Personalで目指す体験は、この処理境界を初期設定時に軽量に承認することである。承認済み境界が変わらない通常委譲ではTaskごとの確認を求めない。ProviderまたはAccount境界の追加、情報分類・目的の拡張、課金経路の有効化、公開その他の重要な拡張には新しい判断が必要である。この同意Lifecycleはv0.18.0候補で接続中であり、現在の実装は接続の検証が終わるまでOperation単位の確認を継続する。
 
 ### CRDDを簡単に言うと
 

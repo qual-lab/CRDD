@@ -9,10 +9,11 @@ import {
   borrowRuntimeOwnedRepositorySource,
   verifyRuntimeOwnedRepositoryBindingCapability,
 } from "./repository-operation-runtime.ts";
+import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
 
 export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT =
   "crdd-coordinator/repository-workspace-runtime";
-export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 4;
+export const REPOSITORY_WORKSPACE_RUNTIME_CONTRACT_REVISION = 5;
 
 const MAXIMUM_FILE_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_WORKSPACE_BYTES = 256 * 1024 * 1024;
@@ -365,6 +366,14 @@ export function materializeRuntimeOwnedRepositoryWorkspace(
       ...(readPaths ? { readPaths } : {}),
     });
     if (!materialized) return null;
+    if (materialized.status === "blocked") {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason:
+          "repository_read_projection_recognized_secret_rejected" as const,
+        pathReported: false,
+      });
+    }
     const verifiedRepository = verifyRuntimeOwnedRepositoryBindingCapability(
       repositoryBindingCapability,
       managementCapability,
@@ -475,6 +484,38 @@ export function captureRuntimeOwnedCandidateRevision(
       )
     ) {
       return null;
+    }
+    for (const relativePath of changes) {
+      const inventoryEntry = currentEntries.get(relativePath);
+      if (!inventoryEntry) {
+        if (containsRecognizedSecretMaterial(relativePath, "")) {
+          return Object.freeze({
+            status: "blocked" as const,
+            reason: "candidate_recognized_secret_rejected" as const,
+            pathReported: false,
+            canonicalRepositoryChanged: false,
+          });
+        }
+        continue;
+      }
+      const observed = stableFileContent(
+        path.join(current.workspace, ...relativePath.split("/")),
+        MAXIMUM_FILE_BYTES,
+      );
+      if (
+        observed.byteLength !== inventoryEntry.byteLength ||
+        observed.sha256 !== inventoryEntry.sha256
+      ) {
+        return null;
+      }
+      if (containsRecognizedSecretMaterial(relativePath, observed.content)) {
+        return Object.freeze({
+          status: "blocked" as const,
+          reason: "candidate_recognized_secret_rejected" as const,
+          pathReported: false,
+          canonicalRepositoryChanged: false,
+        });
+      }
     }
     const contentManifestHash = manifestHash(currentInventory);
     const allowedPathsHash = createHash("sha256")
@@ -677,6 +718,9 @@ export function describeRepositoryWorkspaceRuntimeContract() {
     source: "exact_head_commit_tree_without_external_git_cli",
     providerReadProjection:
       "explicit_file_or_directory_prefix_plus_write_scope",
+    recognizedSecretMaterial:
+      "rejected_before_provider_visible_workspace_materialization",
+    completeSecretAbsenceVerified: false,
     providerGitMetadataVisible: false,
     workspaceWrite: "isolated_runtime_owned_only",
     allowedPathGuard: "exact_file_or_directory_prefix_fail_closed",

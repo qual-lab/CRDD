@@ -218,6 +218,182 @@ test("明示Read Projectionだけを隔離workspaceへ再構成する", (t) => {
   );
 });
 
+test("認識済みSecretを含むPathまたは内容はworkspaceへ書く前に拒否する", (t) => {
+  for (const scenario of ["path", "content"] as const) {
+    const fixture = temporaryFixture(t);
+    const blobId = writeObject(
+      fixture.commonDirectory,
+      "blob",
+      Buffer.from(
+        scenario === "content"
+          ? `OPENAI_API_KEY=sk-${"A".repeat(24)}\n`
+          : "ordinary value\n",
+      ),
+    );
+    const fileName = scenario === "path" ? ".env" : "source.ts";
+    const treeId = writeObject(
+      fixture.commonDirectory,
+      "tree",
+      treeEntry("100644", fileName, blobId),
+    );
+    const commitId = writeObject(
+      fixture.commonDirectory,
+      "commit",
+      Buffer.from(`tree ${treeId}\n\nfixture\n`),
+    );
+    const materialized = materializeGitCommitTreeCandidate({
+      commonDirectory: fixture.commonDirectory,
+      revision: commitId,
+      workspace: fixture.workspace,
+      readPaths: [fileName],
+    });
+    assert.equal(materialized?.status, "blocked");
+    assert.equal(
+      materialized?.status === "blocked" ? materialized.reason : null,
+      "git_read_projection_recognized_secret_rejected",
+    );
+    assert.deepEqual(fs.readdirSync(fixture.workspace), []);
+    const localRead = readGitCommitFileCandidate({
+      commonDirectory: fixture.commonDirectory,
+      revision: commitId,
+      relativePath: fileName,
+    });
+    assert.equal(localRead?.status, "read");
+  }
+});
+
+test("Secret名を使う通常のSource参照はRead Projectionを誤停止しない", (t) => {
+  const fixture = temporaryFixture(t);
+  const source = [
+    "const password = options.password;",
+    'const apiKey = process.env["API_KEY"];',
+    'const sessionToken = os.environ["SESSION_TOKEN"];',
+    "this.password = request.password;",
+    "password=resolvedDatabasePassword;",
+    "apiKey=applicationConfigurationKey;",
+    "password = options!.password;",
+    'password = options!.config?.["password"]!;',
+    "const accessToken = oauth2Token;",
+    "accessToken=resolvedOAuth2Token;",
+    "password=resolvedPassword2;",
+  ].join("\n");
+  const blobId = writeObject(
+    fixture.commonDirectory,
+    "blob",
+    Buffer.from(`${source}\n`),
+  );
+  const commonJsSource =
+    "const accessToken = oauth2Token;\naccessToken=resolvedOAuth2Token;\n";
+  const commonJsBlobId = writeObject(
+    fixture.commonDirectory,
+    "blob",
+    Buffer.from(commonJsSource),
+  );
+  const treeId = writeObject(
+    fixture.commonDirectory,
+    "tree",
+    Buffer.concat([
+      treeEntry("100644", "oauth.cjs", commonJsBlobId),
+      treeEntry("100644", "source.ts", blobId),
+    ]),
+  );
+  const commitId = writeObject(
+    fixture.commonDirectory,
+    "commit",
+    Buffer.from(`tree ${treeId}\n\nfixture\n`),
+  );
+  const materialized = materializeGitCommitTreeCandidate({
+    commonDirectory: fixture.commonDirectory,
+    revision: commitId,
+    workspace: fixture.workspace,
+    readPaths: ["oauth.cjs", "source.ts"],
+  });
+  assert.equal(materialized?.status, "materialized");
+  assert.equal(
+    fs.readFileSync(path.join(fixture.workspace, "source.ts"), "utf8"),
+    `${source}\n`,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(fixture.workspace, "oauth.cjs"), "utf8"),
+    commonJsSource,
+  );
+});
+
+test("公開env例のplaceholderはRead Projectionを誤停止しない", (t) => {
+  const fixture = temporaryFixture(t);
+  const source = `SESSION_TOKEN=placeholder_long_value\nSESSION_TOKEN=${"x".repeat(20)}\n`;
+  const blobId = writeObject(
+    fixture.commonDirectory,
+    "blob",
+    Buffer.from(source),
+  );
+  const treeId = writeObject(
+    fixture.commonDirectory,
+    "tree",
+    treeEntry("100644", ".env.example", blobId),
+  );
+  const commitId = writeObject(
+    fixture.commonDirectory,
+    "commit",
+    Buffer.from(`tree ${treeId}\n\nfixture\n`),
+  );
+  const materialized = materializeGitCommitTreeCandidate({
+    commonDirectory: fixture.commonDirectory,
+    revision: commitId,
+    workspace: fixture.workspace,
+    readPaths: [".env.example"],
+  });
+  assert.equal(materialized?.status, "materialized");
+  assert.equal(
+    fs.readFileSync(path.join(fixture.workspace, ".env.example"), "utf8"),
+    source,
+  );
+});
+
+test("Source内CommentとStringの認識済みSecretはRead Projection前に拒否する", (t) => {
+  for (const source of [
+    "// password=Password123!\n",
+    "//password=Password123!\n",
+    "/* password=Password123! */\n",
+    "/*password=Password123!*/\n",
+    "/**password=Password123!*/\n",
+    "/*!password=Password123!*/\n",
+    "/*password=Password123!",
+    "/**\n * docs\n *password=Password123!\n */\n",
+    "/*docs\n*password=Password123!\n*/\n",
+    "/*docs\r\n!password=Password123!\r\n*/\n",
+    'const note = " password=Password123!";\n',
+    'const note = "password=Password123!";\n',
+    "const note = ` password=Password123!`;\n",
+    "const re = /password=Password123!/;\n",
+  ]) {
+    const fixture = temporaryFixture(t);
+    const blobId = writeObject(
+      fixture.commonDirectory,
+      "blob",
+      Buffer.from(source),
+    );
+    const treeId = writeObject(
+      fixture.commonDirectory,
+      "tree",
+      treeEntry("100644", "auth.ts", blobId),
+    );
+    const commitId = writeObject(
+      fixture.commonDirectory,
+      "commit",
+      Buffer.from(`tree ${treeId}\n\nfixture\n`),
+    );
+    const materialized = materializeGitCommitTreeCandidate({
+      commonDirectory: fixture.commonDirectory,
+      revision: commitId,
+      workspace: fixture.workspace,
+      readPaths: ["auth.ts"],
+    });
+    assert.equal(materialized?.status, "blocked");
+    assert.deepEqual(fs.readdirSync(fixture.workspace), []);
+  }
+});
+
 test("symlink、submodule、Windows case衝突と非empty workspaceを拒否する", (t) => {
   for (const scenario of [
     "symlink",
@@ -307,10 +483,12 @@ test("object改変、余分field、SHA-256 Repository IDと動的入力をfail c
 
 test("公開契約は限定Git object readerと非Authority境界を固定する", () => {
   const contract = describeGitObjectReaderContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.objectFormat, "sha1_only");
   assert.equal(contract.externalGitCliUsed, false);
   assert.deepEqual(contract.rejectedTreeModes, ["120000", "160000", "unknown"]);
   assert.equal(contract.windowsNameCollision, "fail_closed");
+  assert.match(contract.recognizedSecretMaterial, /rejected/u);
+  assert.equal(contract.completeSecretAbsenceVerified, false);
   assert.equal(contract.authorityEstablished, false);
 });

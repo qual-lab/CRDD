@@ -38,6 +38,30 @@ function bundle(content = Buffer.from("state=after\n", "utf8")) {
   });
 }
 
+function bundleAtPath(
+  relativePath: string,
+  operation: "upsert" | "delete" = "upsert",
+) {
+  const content = Buffer.from("ordinary value\n", "utf8");
+  return Object.freeze({
+    ...bundle(content),
+    changedPaths: Object.freeze([relativePath]),
+    entries: Object.freeze([
+      Object.freeze({
+        relativePath,
+        operation,
+        byteLength: operation === "upsert" ? content.byteLength : 0,
+        sha256:
+          operation === "upsert"
+            ? createHash("sha256").update(content).digest("hex")
+            : null,
+        contentBase64:
+          operation === "upsert" ? content.toString("base64") : null,
+      }),
+    ]),
+  });
+}
+
 function fixture() {
   const temporaryDirectory = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-candidate-store-test-"),
@@ -347,6 +371,31 @@ test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格�
       value.adapter.persist(bundle(secret), PERSISTENCE_POLICY),
       null,
     );
+    assert.equal(
+      value.adapter.persist(bundleAtPath(".env"), PERSISTENCE_POLICY),
+      null,
+    );
+    assert.equal(
+      value.adapter.persist(
+        bundleAtPath("keys/release.pfx", "delete"),
+        PERSISTENCE_POLICY,
+      ),
+      null,
+    );
+    assert.equal(
+      value.adapter.persist(
+        bundleAtPath("src/session_token=abcdefghijklmnopqrstuvwx"),
+        PERSISTENCE_POLICY,
+      ),
+      null,
+    );
+    assert.equal(
+      value.adapter.persist(
+        bundleAtPath("src/password=correct-horse-battery-staple", "delete"),
+        PERSISTENCE_POLICY,
+      ),
+      null,
+    );
     value.setClock(-1);
     assert.equal(value.adapter.persist(bundle(), PERSISTENCE_POLICY), null);
 
@@ -370,7 +419,7 @@ test("不正Schema、secret、clock異常とcapacity不足をCandidateへ昇格�
 
 test("公開契約は排他、bounded GC、Recoveryと非canonical Effectを固定する", () => {
   const contract = describeCandidateBundleStoreContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.match(contract.crossProcessSerialization, /kernel_named_pipe/u);
   assert.match(contract.rootProtection, /selected_user_owner/u);
   assert.match(contract.physicalDeletion, /without_strict_instant/u);

@@ -86,6 +86,7 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
       null,
       packet(),
     );
+    if (issued?.status !== "issued") assert.fail("packet must be issued");
     assert.equal(issued?.status, "issued");
     assert.match(issued?.taskPacketRef ?? "", /^TASKPKT-[A-F0-9]{32}$/u);
     assert.match(issued?.taskPacketHash ?? "", /^[a-f0-9]{64}$/u);
@@ -125,6 +126,7 @@ test("取消はuse aliasも失効し別Operationや動的入力を拒否する",
       null,
       packet(),
     );
+    if (issued?.status !== "issued") assert.fail("packet must be issued");
     assert.equal(
       isolated.runtime.revoke(
         issued?.controlCapability,
@@ -185,6 +187,19 @@ test("Path、上限、重複、余分fieldとRole差をfail closedにする", ()
       { ...packet(), readPaths: ["../secret"] },
       { ...packet(), acceptanceCriteria: [] },
       { ...packet(), objective: "" },
+      {
+        ...packet(),
+        objective: `Use OPENAI_API_KEY=sk-${"A".repeat(24)} for this task.`,
+      },
+      {
+        ...packet(),
+        acceptanceCriteria: [
+          "Keep behavior.",
+          "password=correct-horse-battery-staple",
+        ],
+      },
+      { ...packet(), allowedPaths: [".env"] },
+      { ...packet(), readPaths: ["keys/release.pfx"] },
       { ...packet(), extra: true },
     ]) {
       assert.equal(
@@ -251,6 +266,9 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       normalized.remediationCapability,
       packet(),
     );
+    if (issued?.status !== "issued") {
+      assert.fail("remediation packet must be issued");
+    }
     const consumed = isolated.runtime.consume(
       issued?.useCapability,
       current.managementCapability,
@@ -286,9 +304,75 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
   }
 });
 
+test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Packetから拒否する", () => {
+  for (const secretPath of [
+    ".env",
+    "session_token=abcdefghijklmnopqrstuvwx",
+    "src/session_token=abcdefghijklmnopqrstuvwx",
+    "src/password=correct-horse-battery-staple",
+    "src/session_token = abcdefghijklmnopqrstuvwx",
+    "src/password = correcthorsebatterystaple",
+    "src/session_token: abcdefghijklmnopqrstuvwx",
+    'src/"session_token" : "abcdefghijklmnopqrstuvwx"',
+  ]) {
+    const current = operation();
+    let externalGrantConsumptionCount = 0;
+    const repositoryBindingCapability = Object.freeze({});
+    const externalSendGrantCapability = Object.freeze({});
+    const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
+      externalGrantConsumptionCount += 1;
+      return null;
+    });
+    try {
+      const reviewed = normalizeProviderTaskStructuredResult(
+        "codex",
+        "reviewer",
+        "low",
+        JSON.stringify({
+          decision: "changes_requested",
+          summary: "A bounded fix is required.",
+          findings: [
+            {
+              severity: "high",
+              path: secretPath,
+              message: "Inspect the affected path.",
+            },
+          ],
+        }),
+      );
+      const normalized = reviewed.normalizedResult;
+      assert.ok(normalized && "remediationCapability" in normalized);
+      const issued = runtime.issue(
+        current.managementCapability,
+        repositoryBindingCapability,
+        "claude",
+        "executor",
+        1,
+        externalSendGrantCapability,
+        normalized.remediationCapability,
+        packet(),
+      );
+      assert.equal(issued?.status, "blocked");
+      assert.equal(
+        issued?.reason,
+        "provider_task_packet_recognized_secret_rejected",
+      );
+      assert.equal(issued?.pathReported, false);
+      assert.equal(issued?.secretMaterialReported, false);
+      assert.equal(externalGrantConsumptionCount, 0);
+      assert.equal("controlCapability" in (issued ?? {}), false);
+    } finally {
+      cleanupOwnedOperationDirectories(current.owned);
+    }
+  }
+});
+
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
+  assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
+  assert.equal(contract.completeSecretAbsenceVerified, false);
   assert.equal(contract.promptTransport, "provider_stdin_only");
   assert.equal(contract.promptInDockerArgvAllowed, false);
   assert.equal(contract.canonicalRepositoryEffectAllowed, false);
@@ -296,5 +380,9 @@ test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   assert.equal(
     contract.remediationProjection,
     "path_severity_and_domain_separated_message_hash_without_reviewer_text",
+  );
+  assert.equal(
+    contract.remediationSecretBoundary,
+    "finding_paths_rejected_before_external_send_grant_consumption_and_packet_issue",
   );
 });

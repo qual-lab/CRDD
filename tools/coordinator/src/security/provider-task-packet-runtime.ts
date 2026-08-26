@@ -10,10 +10,14 @@ import {
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
 import { consumeProviderTaskRemediation } from "./provider-task-structured-result.ts";
+import {
+  containsRecognizedSecretMaterial,
+  containsRecognizedSecretScope,
+} from "./secret-material-policy.ts";
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 5;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 7;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -241,6 +245,16 @@ function issue(
     }
     const objective = value.objective as string;
     if (
+      containsRecognizedSecretScope(
+        objective,
+        acceptanceCriteria,
+        allowedPaths,
+        readPaths,
+      )
+    ) {
+      return null;
+    }
+    if (
       (taskRole === "executor" &&
         taskAttempt === 1 &&
         (!remediationCapability ||
@@ -251,6 +265,27 @@ function issue(
       return null;
     }
     const externalSendScopeHash = compileExternalSendScopeHash(value);
+    const remediation =
+      taskRole === "executor" && taskAttempt === 1
+        ? consumeProviderTaskRemediation(remediationCapability)
+        : null;
+    if (taskRole === "executor" && taskAttempt === 1 && !remediation)
+      return null;
+    const remediationFindings = Object.freeze([
+      ...((remediation?.findings ?? []) as TaskPacket["remediationFindings"]),
+    ]);
+    if (
+      remediationFindings.some((finding) =>
+        containsRecognizedSecretMaterial(finding.path, ""),
+      )
+    ) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "provider_task_packet_recognized_secret_rejected" as const,
+        pathReported: false,
+        secretMaterialReported: false,
+      });
+    }
     const externalSendGrant = state.consumeExternalSendGrant(
       externalSendGrantCapability,
       managementCapability,
@@ -267,15 +302,6 @@ function issue(
     ) {
       return null;
     }
-    const remediation =
-      taskRole === "executor" && taskAttempt === 1
-        ? consumeProviderTaskRemediation(remediationCapability)
-        : null;
-    if (taskRole === "executor" && taskAttempt === 1 && !remediation)
-      return null;
-    const remediationFindings = Object.freeze([
-      ...((remediation?.findings ?? []) as TaskPacket["remediationFindings"]),
-    ]);
     const taskPacketHash = taskHash(
       operation.operationId,
       taskRole,
@@ -317,6 +343,7 @@ function issue(
       controlCapability,
       useCapability,
       rawPromptReported: false,
+      repositoryFileBytesEmbeddedInPrompt: false,
     });
   } catch {
     return null;
@@ -447,10 +474,15 @@ export function describeProviderTaskPacketRuntimeContract() {
     boundedRemediationRounds: 1,
     remediationProjection:
       "path_severity_and_domain_separated_message_hash_without_reviewer_text",
+    remediationSecretBoundary:
+      "finding_paths_rejected_before_external_send_grant_consumption_and_packet_issue",
     promptTransport: "provider_stdin_only",
     promptInDockerArgvAllowed: false,
     allowedPaths: "exact_file_or_directory_prefix",
     readablePaths: "explicit_projection_exact_file_or_directory_prefix",
+    repositoryFileBytesEmbeddedInPrompt: false,
+    recognizedPromptSecretMaterial: "rejected_before_packet_issue",
+    completeSecretAbsenceVerified: false,
     singleUse: true,
     canonicalRepositoryEffectAllowed: false,
     rawPromptReported: false,

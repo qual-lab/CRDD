@@ -3,8 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 
+import { containsRecognizedSecretMaterial } from "./secret-material-policy.ts";
+
 export const GIT_OBJECT_READER_CONTRACT = "crdd-coordinator/git-object-reader";
-export const GIT_OBJECT_READER_CONTRACT_REVISION = 2;
+export const GIT_OBJECT_READER_CONTRACT_REVISION = 3;
 
 const OBJECT_ID = /^[a-f0-9]{40}$/u;
 const PACK_INDEX_MAGIC = 0xff744f63;
@@ -749,6 +751,18 @@ export function materializeGitCommitTreeCandidate(candidate: unknown) {
     entries.sort((left, right) =>
       Buffer.from(left.relativePath).compare(Buffer.from(right.relativePath)),
     );
+    if (
+      entries.some((entry) =>
+        containsRecognizedSecretMaterial(entry.relativePath, entry.bytes),
+      )
+    ) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "git_read_projection_recognized_secret_rejected" as const,
+        repositoryPathReported: false,
+        workspacePathReported: false,
+      });
+    }
     for (const entry of entries) {
       const destination = path.join(
         workspace,
@@ -855,6 +869,9 @@ export function describeGitObjectReaderContract() {
     maximumWorkspaceBytes: MAXIMUM_WORKSPACE_BYTES,
     pathReported: false,
     readProjection: "explicit_file_or_directory_prefix_when_supplied",
+    recognizedSecretMaterial:
+      "high_confidence_path_or_content_rejected_before_workspace_write",
+    completeSecretAbsenceVerified: false,
     fixedRevisionFileRead:
       "single_explicit_non_git_path_bounded_to_65536_bytes",
     authorityEstablished: false,

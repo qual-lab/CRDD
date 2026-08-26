@@ -73,6 +73,32 @@ test("Windows対話Console lockは同時承認readerを一つへ限定する", a
   assert.equal(await next.lock.release(), "released");
 });
 
+test("Windows対話Console lockは独立Processをrelease完了まで存続させる", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const fixture = fileURLToPath(
+    new URL("./fixtures/interactive-console-lock-liveness.ts", import.meta.url),
+  );
+  const child = spawn(process.execPath, [fixture], {
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+  child.stdout.on("data", (chunk: Buffer) => stdout.push(Buffer.from(chunk)));
+  child.stderr.on("data", (chunk: Buffer) => stderr.push(Buffer.from(chunk)));
+  const [code, signal] = (await once(child, "exit")) as [
+    number | null,
+    NodeJS.Signals | null,
+  ];
+  assert.equal(signal, null);
+  assert.equal(code, 0, Buffer.concat(stderr).toString("utf8"));
+  assert.equal(Buffer.concat(stdout).toString("utf8"), "LOCK_RELEASED\n");
+});
+
 test("対話Console専用lockは終了確認済み非取得とcleanup不明を分離する", async () => {
   if (process.platform !== "win32") return;
   const unavailable =
@@ -111,6 +137,10 @@ test("対話Console専用lockの非同期cleanup契約は共通同期lockの意�
     "unavailable",
     "cleanup_unknown_process_restart_required",
   ]);
+  assert.equal(
+    contract.interactiveConsoleWorkerKeepsProcessAliveUntilRelease,
+    true,
+  );
   assert.equal(contract.commonSynchronousLockMeaningChanged, false);
 });
 

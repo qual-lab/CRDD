@@ -44,6 +44,9 @@ function fixture(
     candidatePersistenceNeedsStoreRecovery?: boolean;
     candidatePersistenceAllowed?: boolean;
     candidateStoreUnavailable?: boolean;
+    candidateSecretAtCapture?: 1 | 2;
+    remediationPacketSecretBlocked?: boolean;
+    workspaceSecretBlocked?: boolean;
     externalSendDenied?: boolean;
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
@@ -95,6 +98,7 @@ function fixture(
   let candidateStorePrepareCount = 0;
   let workspaceMaterializeCount = 0;
   let processStartCount = 0;
+  let candidateCaptureCount = 0;
   let releasePausedProcess: (() => void) | null = null;
   let releaseExternalAuthorization: (() => void) | null = null;
   let externalCancellationSignal: AbortSignal | null = null;
@@ -175,7 +179,12 @@ function fixture(
           }),
     materializeWorkspace: () => {
       workspaceMaterializeCount += 1;
-      return Object.freeze({ status: "materialized", workspaceCapability });
+      return options.workspaceSecretBlocked
+        ? Object.freeze({
+            status: "blocked",
+            reason: "repository_read_projection_recognized_secret_rejected",
+          })
+        : Object.freeze({ status: "materialized", workspaceCapability });
     },
     issueSelection: (
       _management: object,
@@ -250,11 +259,23 @@ function fixture(
       _repository: object,
       provider: "codex" | "claude",
       taskRole: "executor" | "reviewer",
-      _taskAttempt: 0 | 1,
+      taskAttempt: 0 | 1,
       externalSendGrant: object,
       _remediationCapability: object | null,
     ) => {
       assert.equal(externalSendGrant, externalSendGrantCapability);
+      if (
+        options.remediationPacketSecretBlocked &&
+        taskRole === "executor" &&
+        taskAttempt === 1
+      ) {
+        return Object.freeze({
+          status: "blocked",
+          reason: "provider_task_packet_recognized_secret_rejected",
+          pathReported: false,
+          secretMaterialReported: false,
+        });
+      }
       const useCapability = Object.freeze({});
       packetAssignments.set(
         useCapability,
@@ -365,12 +386,19 @@ function fixture(
       });
     },
     cancelProcess: async () => Object.freeze({ status: "requested" }),
-    captureCandidate: () =>
-      Object.freeze({
-        status: "candidate",
-        candidateCapability,
-        changedPaths: Object.freeze(["fixture.txt"]),
-      }),
+    captureCandidate: () => {
+      candidateCaptureCount += 1;
+      return options.candidateSecretAtCapture === candidateCaptureCount
+        ? Object.freeze({
+            status: "blocked",
+            reason: "candidate_recognized_secret_rejected",
+          })
+        : Object.freeze({
+            status: "candidate",
+            candidateCapability,
+            changedPaths: Object.freeze(["fixture.txt"]),
+          });
+    },
     verifyCandidate: () =>
       Object.freeze({
         status: options.candidateVerificationFails ? "blocked" : "verified",
@@ -594,6 +622,86 @@ test("loose refの中間junctionは全Effect前にpreflight failureへ閉じる"
   assert.equal(harness.cleanupCount(), 0);
 });
 
+test("認証秘密を示すTask PathはOperationと外部送信前に安全な理由で停止する", async () => {
+  const harness = fixture();
+  const result = await harness.runtime.start(
+    request({ allowedPaths: [".env"], readPaths: [".env"] }),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_scope_recognized_secret_rejected",
+  );
+  assert.equal(harness.operationCreateCount(), 0);
+  assert.equal(harness.externalAuthorizationCount(), 0);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 0);
+});
+
+test("読取投影の認証秘密はProvider Effect前に安全な理由で停止する", async () => {
+  const harness = fixture({ workspaceSecretBlocked: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_read_projection_recognized_secret_rejected",
+  );
+  assert.equal(harness.workspaceMaterializeCount(), 1);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+test("Executorが生成した認証秘密はReviewerへ渡さず安全な理由で停止する", async () => {
+  const harness = fixture({ candidateSecretAtCapture: 1 });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_candidate_recognized_secret_rejected",
+  );
+  assert.deepEqual(harness.events, ["notice:executor", "start:executor"]);
+  assert.equal(harness.processStartCount(), 1);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止する", async () => {
+  const harness = fixture({
+    reviewerDecision: "changes_requested",
+    candidateSecretAtCapture: 2,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_candidate_recognized_secret_rejected",
+  );
+  assert.deepEqual(harness.events, [
+    "notice:executor",
+    "start:executor",
+    "notice:reviewer",
+    "start:reviewer",
+    "notice:executor",
+    "start:executor",
+  ]);
+  assert.equal(harness.processStartCount(), 3);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
 test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
   const harness = fixture();
   const started = harness.runtime.start(
@@ -797,6 +905,32 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
     "codex",
   );
   assert.equal(harness.selectionNotices.length, 4);
+});
+
+test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止する", async () => {
+  const harness = fixture({
+    reviewerDecision: "changes_requested",
+    remediationPacketSecretBlocked: true,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_remediation_recognized_secret_rejected",
+  );
+  assert.deepEqual(harness.events, [
+    "notice:executor",
+    "start:executor",
+    "notice:reviewer",
+    "start:reviewer",
+    "notice:executor",
+  ]);
+  assert.equal(harness.processStartCount(), 2);
+  assert.equal(harness.cleanupCount(), 1);
 });
 
 test("選定理由は各Provider Effectより前に安全なCoordinator eventへ出す", async () => {
@@ -1218,7 +1352,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 12);
+  assert.equal(contract.contractRevision, 14);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,

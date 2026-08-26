@@ -17,7 +17,7 @@ export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 13;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 14;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -402,13 +402,17 @@ function parseReaderResult(source: Buffer) {
       ["contract", "contractRevision", "line", "status"].sort().join("\0") ||
     record.contract !== INTERACTIVE_CONSOLE_READER_CONTRACT ||
     record.contractRevision !== INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION ||
-    record.status !== "completed" ||
-    typeof record.line !== "string" ||
-    !/^[0-9]{6}$/u.test(record.line)
+    !["completed", "blocked"].includes(String(record.status)) ||
+    (record.status === "completed"
+      ? typeof record.line !== "string" || !/^[0-9]{6}$/u.test(record.line)
+      : record.line !== null)
   ) {
     return null;
   }
-  return record.line;
+  return Object.freeze({
+    status: record.status as "completed" | "blocked",
+    line: typeof record.line === "string" ? record.line : null,
+  });
 }
 
 export function readInteractiveConsoleLineOutcomeUsingAdapter(
@@ -440,10 +444,10 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
       child = adapter.spawn(process.execPath, [readerEntrypoint], {
         shell: false,
         detached: false,
-        windowsHide: true,
+        windowsHide: false,
         cwd: path.dirname(readerEntrypoint),
         env: environment,
-        stdio: [inputDescriptor, "pipe", "ignore", "ipc"],
+        stdio: ["ignore", "pipe", "ignore", "ipc"],
       });
     } catch {
       resolve(Object.freeze({ status: "reader_failed", line: null }));
@@ -513,20 +517,25 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
         outcomeStatus = "cleanup_unknown";
       }
       const parsed =
-        !isInvalid && childExitCode === 0 && !cancellationSignal.aborted
+        !isInvalid && !cancellationSignal.aborted
           ? parseReaderResult(Buffer.concat(outputBuffers, outputBytes))
           : null;
+      const isCompletedResult =
+        parsed?.status === "completed" && childExitCode === 0;
+      const isBlockedResult =
+        parsed?.status === "blocked" && childExitCode === 2;
       resolve(
         Object.freeze({
-          status:
-            parsed !== null
-              ? "completed"
-              : outcomeStatus === "cleanup_unknown"
-                ? "cleanup_unknown"
-                : cancellationSignal.aborted
-                  ? "cancelled"
+          status: isCompletedResult
+            ? "completed"
+            : outcomeStatus === "cleanup_unknown"
+              ? "cleanup_unknown"
+              : cancellationSignal.aborted
+                ? "cancelled"
+                : isBlockedResult
+                  ? "reader_failed"
                   : outcomeStatus,
-          line: parsed,
+          line: isCompletedResult ? parsed.line : null,
         }),
       );
     };
@@ -748,7 +757,8 @@ export function describeInteractiveConsoleContract() {
     genericUsingAdapterAuthority:
       "non_authority_pure_no_production_process_state",
     productionNoncompletedValue: "null",
-    validatedTtyInput: "exact_console_descriptor_child_tty_required",
+    validatedTtyInput:
+      "parent_and_fixed_reader_child_independently_open_conin_tty",
     taskStandardInputRole: "structured_transport_only",
     readerEntrypoint: "fixed_runtime_owned_non_exported_module",
     readerArtifactIdentity:
@@ -763,11 +773,15 @@ export function describeInteractiveConsoleContract() {
     readerCleanupSchedulingMarginMs: READER_CLEANUP_SCHEDULING_MARGIN_MS,
     readerOrphanFailsafeMs: INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
     readerStandardIo:
-      "exact_console_input_bounded_stdout_discarded_stderr_private_ipc",
+      "child_fixed_conin_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:
       "ipc_cancel_parent_disconnect_then_exact_child_force_termination",
     readerCompletion:
       "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
+    readerOwnedHandleCleanup:
+      "best_effort_stream_close_then_exact_child_process_exit_observed_by_parent",
+    readerSuccessRequiresStreamClose: false,
+    readerSuccessRequiresChildClose: true,
     windowsRedirectedOutput: "fail_closed",
     redirectedStandardInputAllowed: false,
     posixDevice: "/dev/tty",
