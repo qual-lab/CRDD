@@ -37,6 +37,7 @@ import { isRuntimeProcessPoisoned } from "../src/core/runtime-process-safety-sta
 import {
   createWindowsDockerCliEnvironment,
   createInteractiveConsoleReaderEnvironment,
+  createWindowsHostOperationSupervisorEnvironment,
   createWindowsNativeHelperEnvironment,
   createWindowsNodeConsoleReaderEnvironment,
   describeWindowsChildEnvironmentContract,
@@ -915,6 +916,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
   }
   for (const [kind, environment] of [
     ["console", createWindowsNodeConsoleReaderEnvironment()],
+    ["supervisor", createWindowsHostOperationSupervisorEnvironment()],
     ["native", createWindowsNativeHelperEnvironment()],
   ] as const) {
     assert.ok(environment);
@@ -935,6 +937,18 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     assert.equal(result.stderr, "");
     const observed = JSON.parse(result.stdout);
     assert.equal(observed.neutral, true);
+    assert.deepEqual(
+      [
+        ...new Set(observed.keys.map((key: string) => key.toUpperCase())),
+      ].sort(),
+      [
+        ...new Set(Object.keys(environment).map((key) => key.toUpperCase())),
+      ].sort(),
+    );
+    assert.equal(
+      observed.keys.length,
+      new Set(observed.keys.map((key: string) => key.toUpperCase())).size,
+    );
     assert.equal(typeof observed.systemRoot, "string");
     assert.equal(observed.systemRoot.length > 0, true);
     assert.equal(observed.windir, observed.systemRoot);
@@ -977,7 +991,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
 
   assert.deepEqual(describeWindowsChildEnvironmentContract(), {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 2,
+    contractRevision: 3,
     provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
@@ -989,6 +1003,10 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       "candidate_store_initialization",
       "runtime_state_observation",
       "runtime_state_initialization",
+    ],
+    nodeChildConsumers: [
+      "interactive_console_reader",
+      "host_operation_lock_supervisor",
     ],
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,

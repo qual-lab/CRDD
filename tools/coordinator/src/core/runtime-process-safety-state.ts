@@ -3,18 +3,24 @@ export const RUNTIME_PROCESS_SAFETY_STATE_CONTRACT =
 
 export function createIsolatedRuntimeProcessSafetyStateCandidate() {
   let isPoisoned = false;
+  const poisonCleanupUnknown = () => {
+    isPoisoned = true;
+  };
   return Object.freeze({
-    poisonInteractiveCleanup: () => {
-      isPoisoned = true;
-    },
+    poisonCleanupUnknown,
+    poisonInteractiveCleanup: poisonCleanupUnknown,
     isPoisoned: () => isPoisoned,
   });
 }
 
 const productionState = createIsolatedRuntimeProcessSafetyStateCandidate();
 
+export function poisonRuntimeProcessAfterCleanupUnknown() {
+  productionState.poisonCleanupUnknown();
+}
+
 export function poisonRuntimeProcessAfterInteractiveCleanupUnknown() {
-  productionState.poisonInteractiveCleanup();
+  poisonRuntimeProcessAfterCleanupUnknown();
 }
 
 export function isRuntimeProcessPoisoned() {
@@ -27,6 +33,10 @@ export function describeRuntimeProcessSafetyStateContract() {
     stateScope: "single_runtime_process_nonserialized",
     poisonTransition:
       "synchronous_irreversible_on_cleanup_unknown_observation_before_return_or_next_non_cleanup_await",
+    poisonOrigins: Object.freeze([
+      "interactive_console_cleanup_unknown",
+      "host_operation_supervisor_cleanup_unknown",
+    ]),
     guardedEntrypoints: Object.freeze([
       "verified_package_issue_before_manifest_or_filesystem_observation",
       "coordinator_task_before_capability_consume_and_all_effects",

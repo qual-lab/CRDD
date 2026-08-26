@@ -2782,11 +2782,11 @@ test("生存中TaskのHost owner世代はreadiness再確認後も別Recoveryに�
   const management = createOwnedOperationManagementCapability(context, mount);
   assert.equal(
     await activateOwnedHostOperationGenerationLock(management),
-    true,
+    "activated",
   );
   assert.equal(
     await confirmOwnedHostOperationGenerationLockReadiness(management),
-    true,
+    "ready",
   );
   const token = getOwnedHostRecoveryId(owned);
   assert.deepEqual(recoverOwnedOperationDirectories(token), {
@@ -2796,6 +2796,52 @@ test("生存中TaskのHost owner世代はreadiness再確認後も別Recoveryに�
   });
   assert.equal(fs.existsSync(owned.root), true);
   await cleanupOwnedOperationDirectoriesAsync(owned);
+});
+
+test("Host owner readinessは耐久Recovery markerの消失・置換・内容差を後続Effect前に拒否する", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  for (const mode of ["content", "replace", "missing"] as const) {
+    const owned = createOwnedOperationDirectories();
+    const contextCapability = createOwnedOperationContextCapability(owned);
+    const mount = createOwnedMountCapability(owned);
+    const management = createOwnedOperationManagementCapability(
+      contextCapability,
+      mount,
+    );
+    assert.equal(
+      await activateOwnedHostOperationGenerationLock(management),
+      "activated",
+    );
+    const token = getOwnedHostRecoveryId(owned);
+    const nonce = token.split(".")[2];
+    assert.ok(nonce);
+    const marker = path.join(
+      owned.parent,
+      "crdd-coordinator-recovery-v1",
+      `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
+    );
+    const original = fs.readFileSync(marker);
+    const backup = `${marker}.${mode}.backup`;
+    if (mode === "content") fs.appendFileSync(marker, " ");
+    else {
+      fs.renameSync(marker, backup);
+      if (mode === "replace") fs.writeFileSync(marker, original);
+    }
+    assert.equal(
+      await confirmOwnedHostOperationGenerationLockReadiness(management),
+      "cleanup_confirmed_failure",
+    );
+    if (mode === "content") fs.writeFileSync(marker, original);
+    else {
+      if (fs.existsSync(marker)) fs.rmSync(marker);
+      fs.renameSync(backup, marker);
+    }
+    await cleanupOwnedOperationDirectoriesAsync(owned);
+    assert.equal(fs.existsSync(owned.root), false);
+  }
 });
 
 test("Operation context CapabilityはRuntime生成IDをopaqueに結合する", () => {

@@ -822,7 +822,7 @@ function createKilledFullProductionRecoveryRoot(
       }),
       "utf8",
     );
-    if (!host.abandonOwnedHostOperationGenerationLock(management)) process.exit(72);
+    if (!(await host.abandonOwnedHostOperationGenerationLock(management))) process.exit(72);
     process.kill(process.pid, "SIGKILL");
   `;
   const crashed = spawnSync(

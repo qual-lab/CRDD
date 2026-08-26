@@ -10,6 +10,7 @@ import {
   acquireRuntimeOwnedHostOperationKernelLock,
   acquireRuntimeOwnedHostOperationSupervisorLock,
 } from "./candidate-store-kernel-lock.ts";
+import { poisonRuntimeProcessAfterCleanupUnknown } from "../core/runtime-process-safety-state.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -80,6 +81,7 @@ type HostRecoveryState = Readonly<{
   directory: string;
   directoryIdentity: FilesystemIdentity;
   record: string;
+  recordIdentity: FilesystemIdentity | null;
   nonce: string;
   state: RecoveryState;
   recordHash: string | null;
@@ -164,7 +166,9 @@ type OperationGenerationState = {
   currentRecordHash: string;
   retired: boolean;
   generationLock: NonNullable<
-    Awaited<ReturnType<typeof acquireRuntimeOwnedHostOperationSupervisorLock>>
+    Awaited<
+      ReturnType<typeof acquireRuntimeOwnedHostOperationSupervisorLock>
+    >["lock"]
   > | null;
 };
 const operationGenerationsByKey = new Map<string, OperationGenerationState>();
@@ -241,24 +245,30 @@ async function revokeOwnedOperationGenerationAsync(
 ) {
   const key = operationGenerationKey(root, nonce);
   const state = operationGenerationsByKey.get(key);
-  if (!state) return true;
+  if (!state) return "released" as const;
   revokeOwnedOperationContextCapabilities(state.owned);
-  let generationReleased = true;
+  let generationRelease:
+    | "released"
+    | "cleanup_confirmed_failure"
+    | "cleanup_unknown" = "released";
   if (state.generationLock) {
     try {
-      generationReleased = await state.generationLock.release();
+      generationRelease = await state.generationLock.release();
     } catch {
-      generationReleased = false;
+      generationRelease = "cleanup_unknown";
     }
-    state.generationLock = null;
+    if (generationRelease !== "cleanup_unknown") state.generationLock = null;
   }
-  ownedIdentities.delete(state.owned);
-  if (generationReleased) {
+  if (generationRelease !== "cleanup_unknown") {
+    ownedIdentities.delete(state.owned);
     operationGenerationsByKey.delete(key);
     if (operationGenerationByRoot.get(root) === state)
       operationGenerationByRoot.delete(root);
-  } else state.retired = true;
-  return generationReleased;
+  } else {
+    state.retired = true;
+    poisonRuntimeProcessAfterCleanupUnknown();
+  }
+  return generationRelease;
 }
 
 type HostOperationRecoveryGeneration = Readonly<{
@@ -530,6 +540,23 @@ function readFilesystemIdentity(root: string): FilesystemIdentity {
   });
 }
 
+function readFileIdentity(target: string): FilesystemIdentity {
+  const metadata = fs.lstatSync(target, { bigint: true });
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n
+  )
+    throw new Error("owned_operation_file_identity_unavailable");
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+  });
+}
+
 function sameFilesystemIdentity(
   left: FilesystemIdentity,
   right: FilesystemIdentity,
@@ -678,6 +705,7 @@ function writeHostRecoveryRecord(
       ...identity.hostRecovery,
       state,
       recordHash,
+      recordIdentity: readFileIdentity(target),
     }),
   });
   ownedIdentities.set(owned, updated);
@@ -744,6 +772,7 @@ export function createOwnedOperationDirectories(
           recovery.directory,
           `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
         ),
+        recordIdentity: null,
         nonce,
         state: "initializing",
         recordHash: null,
@@ -873,7 +902,11 @@ function activeOwnedTransitionInputsForOwned(
 function replaceHostRecoveryRecordState(
   loaded: ReturnType<typeof loadHostRecoveryRecord>,
   nextState: RecoveryState,
-): Readonly<{ recordHash: string; token: string }> {
+): Readonly<{
+  recordHash: string;
+  recordIdentity: FilesystemIdentity;
+  token: string;
+}> {
   const updatedRecord = { ...loaded.record, state: nextState };
   const serialized = `${JSON.stringify(updatedRecord)}\n`;
   const recordHash = createHash("sha256").update(serialized).digest("hex");
@@ -890,6 +923,7 @@ function replaceHostRecoveryRecordState(
     throw new Error("host_recovery_record_replaced");
   return Object.freeze({
     recordHash,
+    recordIdentity: readFileIdentity(loaded.marker),
     token: `host.${loaded.parsed.rootName}.${loaded.parsed.nonce}.${recordHash}`,
   });
 }
@@ -919,6 +953,7 @@ export function transitionOwnedDockerSubmissionState(
         ...identity.hostRecovery,
         state: nextState,
         recordHash: updated.recordHash,
+        recordIdentity: updated.recordIdentity,
       }),
     }),
   );
@@ -951,13 +986,22 @@ export async function activateOwnedHostOperationGenerationLock(
   const state = ownedOperationGeneration(binding.owned, identity);
   if (state.generationLock)
     throw new Error("owned_operation_generation_lock_already_active");
-  const generationLock = await acquireRuntimeOwnedHostOperationSupervisorLock(
+  const outcome = await acquireRuntimeOwnedHostOperationSupervisorLock(
     path.basename(identity.root),
     identity.hostRecovery.nonce,
   );
-  if (!generationLock) throw new Error("owned_operation_generation_conflict");
-  state.generationLock = generationLock;
-  return true;
+  if (outcome.status === "acquired" && outcome.lock) {
+    state.generationLock = outcome.lock;
+    return "activated" as const;
+  }
+  if (outcome.status === "cleanup_unknown") {
+    if (outcome.lock) state.generationLock = outcome.lock;
+    state.retired = true;
+    revokeOwnedOperationContextCapabilities(state.owned);
+    poisonRuntimeProcessAfterCleanupUnknown();
+    return "cleanup_unknown" as const;
+  }
+  return outcome.status;
 }
 
 export async function confirmOwnedHostOperationGenerationLockReadiness(
@@ -970,20 +1014,34 @@ export async function confirmOwnedHostOperationGenerationLockReadiness(
       before.identity,
     );
     const lock = generation.generationLock;
-    if (!lock || !(await lock.confirmReady())) return false;
+    if (!lock) return "cleanup_confirmed_failure" as const;
+    const readiness = await lock.confirmReady();
+    if (readiness !== "ready") {
+      if (readiness === "cleanup_unknown") {
+        generation.retired = true;
+        revokeOwnedOperationContextCapabilities(generation.owned);
+        poisonRuntimeProcessAfterCleanupUnknown();
+      } else generation.generationLock = null;
+      return readiness;
+    }
     const after = ownedOperationFromManagementCapability(managementCapability);
     const current = ownedOperationGeneration(
       after.binding.owned,
       after.identity,
     );
-    return (
+    const isCurrent =
       before.binding.owned === after.binding.owned &&
       current === generation &&
       current.generationLock === lock &&
-      current.retired === false
+      current.retired === false;
+    if (!isCurrent) return "cleanup_confirmed_failure" as const;
+    validatePrivateHostRecoveryRecord(
+      after.identity,
+      after.identity.hostRecovery.state,
     );
+    return "ready" as const;
   } catch {
-    return false;
+    return "cleanup_confirmed_failure" as const;
   }
 }
 
@@ -996,8 +1054,15 @@ export async function abandonOwnedHostOperationGenerationLock(
     const state = ownedOperationGeneration(binding.owned, identity, true);
     if (!state.generationLock) return true;
     const released = await state.generationLock.release();
-    if (released) state.generationLock = null;
-    return released;
+    if (released === "released") {
+      state.generationLock = null;
+      return true;
+    }
+    state.retired = true;
+    revokeOwnedOperationContextCapabilities(state.owned);
+    if (released === "cleanup_unknown")
+      poisonRuntimeProcessAfterCleanupUnknown();
+    return false;
   } catch {
     return false;
   }
@@ -1028,6 +1093,7 @@ function transitionOwnedDockerSubmissionByManagement(
         ...identity.hostRecovery,
         state: nextState,
         recordHash: updated.recordHash,
+        recordIdentity: updated.recordIdentity,
       }),
     }),
   );
@@ -1142,6 +1208,7 @@ export function adoptOwnedHostRecoveryRecordTransition(
         ...identity.hostRecovery,
         state: "docker_absent_confirmed",
         recordHash: loaded.parsed.recordHash,
+        recordIdentity: readFileIdentity(loaded.marker),
       }),
     }),
   );
@@ -1152,7 +1219,15 @@ function readCurrentOwnedHostRecord(
   identity: OwnedIdentity,
 ): Readonly<{ record: HostRecoveryRecord; serialized: string }> {
   const metadata = fs.lstatSync(identity.hostRecovery.record);
-  if (!metadata.isFile() || metadata.isSymbolicLink())
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    !identity.hostRecovery.recordIdentity ||
+    !sameFilesystemIdentity(
+      readFileIdentity(identity.hostRecovery.record),
+      identity.hostRecovery.recordIdentity,
+    )
+  )
     throw new Error("host_recovery_record_replaced");
   const serialized = fs.readFileSync(identity.hostRecovery.record, "utf8");
   const record: unknown = JSON.parse(serialized);
@@ -1581,14 +1656,15 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
 
 export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
   const identity = removeOwnedOperationRootForCleanup(owned);
-  if (
-    !(await revokeOwnedOperationGenerationAsync(
-      identity.root,
-      identity.hostRecovery.nonce,
-    ))
-  )
+  const release = await revokeOwnedOperationGenerationAsync(
+    identity.root,
+    identity.hostRecovery.nonce,
+  );
+  if (release === "cleanup_unknown")
     throw new Error("owned_operation_generation_release_unconfirmed");
   removeOwnedOperationRecoveryRecord(identity);
+  if (release === "cleanup_confirmed_failure")
+    throw new Error("owned_operation_generation_protocol_failure_cleaned");
 }
 
 function loadHostRecoveryRecord(token: unknown): Readonly<{

@@ -50,6 +50,7 @@ function fixture(
     externalSendDenied?: boolean;
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
+    pauseOperationCreation?: boolean;
     pauseRole?: "executor" | "reviewer";
     discardFails?: boolean;
     discardThrows?: boolean;
@@ -101,6 +102,7 @@ function fixture(
   let candidateCaptureCount = 0;
   let releasePausedProcess: (() => void) | null = null;
   let releaseExternalAuthorization: (() => void) | null = null;
+  let releaseOperationCreation: (() => void) | null = null;
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
@@ -114,8 +116,12 @@ function fixture(
           revisionReported: false,
           repositoryPathReported: false,
         })),
-    createOperation: () => {
+    createOperation: async () => {
       operationCreateCount += 1;
+      if (options.pauseOperationCreation)
+        await new Promise<void>((resolve) => {
+          releaseOperationCreation = resolve;
+        });
       return Object.freeze({
         owned,
         mountCapability,
@@ -504,6 +510,10 @@ function fixture(
     releaseExternalAuthorization: () => {
       assert.ok(releaseExternalAuthorization);
       releaseExternalAuthorization();
+    },
+    releaseOperationCreation: () => {
+      assert.ok(releaseOperationCreation);
+      releaseOperationCreation();
     },
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
@@ -1317,6 +1327,36 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
   assert.equal(harness.cleanupCount(), 1);
 });
 
+test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じる", async () => {
+  const harness = fixture({ pauseOperationCreation: true });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repo",
+    "2026-08-27T00:00:00Z",
+  );
+  assert.equal(started.status, "started");
+  while (harness.operationCreateCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
+    status: "requested",
+  });
+  harness.releaseOperationCreation();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_cancelled_during_operation_creation",
+  );
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(harness.cleanupCount(), 1);
+  assert.equal(harness.selectionRequests.length, 0);
+  assert.equal(harness.candidateStorePrepareCount(), 0);
+  assert.equal(harness.externalAuthorizationCount(), 0);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+});
+
 test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に停止する", async () => {
   const harness = fixture({ pauseExternalAuthorization: true });
   const started = harness.runtime.start(
@@ -1356,7 +1396,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 16);
+  assert.equal(contract.contractRevision, 17);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,
@@ -1377,7 +1417,15 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   );
   assert.equal(
     contract.hostOperationGenerationReadiness,
-    "dedicated_supervisor_process_round_trip_then_same_generation_and_recovery_record_reconfirmation_before_console_or_child_process",
+    "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
+  );
+  assert.equal(
+    contract.hostOperationSupervisorOutcomes,
+    "acquired_unavailable_cleanup_confirmed_failure_or_cleanup_unknown_with_exact_recovery_and_process_poison",
+  );
+  assert.equal(
+    contract.operationCreationCancellation,
+    "rechecked_after_async_creation_before_repository_policy_slate_store_console_or_provider_effect",
   );
   assert.equal(
     contract.interactiveCleanupRecovery,

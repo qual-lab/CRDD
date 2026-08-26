@@ -163,6 +163,21 @@ test("固定Coordinator packageをPath非公開で一覧化する", () => {
   assert.equal("path" in result, false);
 });
 
+test("Host Operation Supervisor sourceは再帰Package inventoryのexact non-link fileである", () => {
+  const entrypoint = path.resolve(
+    import.meta.dirname,
+    "../src/security/host-operation-lock-supervisor.ts",
+  );
+  const metadata = fs.lstatSync(entrypoint);
+  assert.equal(metadata.isFile(), true);
+  assert.equal(metadata.isSymbolicLink(), false);
+  assert.equal(fs.realpathSync.native(entrypoint), entrypoint);
+  const packageCandidate =
+    inspectBundledCoordinatorPackageFilesystemCandidate();
+  assert.equal(packageCandidate.status, "candidate");
+  assert.equal(typeof packageCandidate.packageContentRootSha256, "string");
+});
+
 test("caller選択Rootは非Authorityのまま内容変更をcontent rootへ反映する", () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-package-observation-"),

@@ -2,13 +2,28 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
+import { createWindowsHostOperationSupervisorEnvironment } from "../core/windows-child-environment.ts";
 
 const LOCK_ACQUIRE_TIMEOUT_MS = 1_000;
 const LOCK_RELEASE_TIMEOUT_MS = 1_000;
 
-type HostOperationLockSupervisor = Readonly<{
-  confirmReady: () => Promise<boolean>;
-  release: () => Promise<boolean>;
+type HostOperationSupervisorCleanup =
+  | "released"
+  | "cleanup_confirmed_failure"
+  | "cleanup_unknown";
+export type HostOperationLockSupervisor = Readonly<{
+  confirmReady: () => Promise<
+    "ready" | "cleanup_confirmed_failure" | "cleanup_unknown"
+  >;
+  release: () => Promise<HostOperationSupervisorCleanup>;
+}>;
+export type HostOperationSupervisorLockOutcome = Readonly<{
+  status:
+    | "acquired"
+    | "unavailable"
+    | "cleanup_confirmed_failure"
+    | "cleanup_unknown";
+  lock: HostOperationLockSupervisor | null;
 }>;
 
 type InteractiveConsoleLockWorker = Readonly<{
@@ -294,41 +309,83 @@ export function acquireRuntimeOwnedHostOperationKernelLock(
   return acquireNamedPipeKernelLock(pipeName);
 }
 
+type SupervisorChild = ReturnType<typeof spawn>;
+type SupervisorSpawnFactory = (
+  executable: string,
+  args: readonly string[],
+  options: Parameters<typeof spawn>[2],
+) => SupervisorChild;
+type SupervisorObservation =
+  | "expected"
+  | "unavailable"
+  | "protocol_failure"
+  | "error"
+  | "exit"
+  | "timeout";
+
+function exactSupervisorStatus(message: unknown) {
+  if (
+    typeof message !== "object" ||
+    message === null ||
+    Object.getPrototypeOf(message) !== Object.prototype ||
+    Reflect.ownKeys(message).length !== 1
+  )
+    return null;
+  const status = Reflect.get(message, "status");
+  return ["acquired", "ready", "released", "unavailable"].includes(
+    String(status),
+  )
+    ? String(status)
+    : null;
+}
+
 function waitForSupervisorStatus(
-  child: ReturnType<typeof spawn>,
+  child: SupervisorChild,
   expected: "acquired" | "ready" | "released",
+  timeoutMs: number,
 ) {
-  return new Promise<boolean>((resolve) => {
+  return new Promise<SupervisorObservation>((resolve) => {
     let settled = false;
-    const settle = (value: boolean) => {
+    const settle = (value: SupervisorObservation) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
       child.removeListener("message", onMessage);
-      child.removeListener("error", onFailure);
-      child.removeListener("exit", onFailure);
+      child.removeListener("error", onError);
+      child.removeListener("exit", onExit);
       resolve(value);
     };
-    const onMessage = (message: unknown) =>
-      settle(
-        typeof message === "object" &&
-          message !== null &&
-          Object.getPrototypeOf(message) === Object.prototype &&
-          Reflect.ownKeys(message).length === 1 &&
-          Reflect.get(message, "status") === expected,
-      );
-    const onFailure = () => settle(false);
-    const timeout = setTimeout(() => settle(false), LOCK_ACQUIRE_TIMEOUT_MS);
+    const onMessage = (message: unknown) => {
+      const status = exactSupervisorStatus(message);
+      if (status === expected) settle("expected");
+      else if (expected === "acquired" && status === "unavailable")
+        settle("unavailable");
+      else settle("protocol_failure");
+    };
+    const onError = () => settle("error");
+    const onExit = () => settle("exit");
+    const timeout = setTimeout(() => settle("timeout"), timeoutMs);
+    timeout.unref();
     child.once("message", onMessage);
-    child.once("error", onFailure);
-    child.once("exit", onFailure);
+    child.once("error", onError);
+    child.once("exit", onExit);
   });
 }
 
-async function terminateSupervisor(child: ReturnType<typeof spawn>) {
-  if (child.exitCode !== null) return true;
+function releaseSupervisorHandles(child: SupervisorChild) {
+  child.removeAllListeners();
+  child.unref();
+  child.channel?.unref();
+}
+
+async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    releaseSupervisorHandles(child);
+    return true;
+  }
   const exit = new Promise<boolean>((resolve) => {
-    const timeout = setTimeout(() => resolve(false), LOCK_RELEASE_TIMEOUT_MS);
+    const timeout = setTimeout(() => resolve(false), timeoutMs);
+    timeout.unref();
     child.once("exit", () => {
       clearTimeout(timeout);
       resolve(true);
@@ -337,88 +394,195 @@ async function terminateSupervisor(child: ReturnType<typeof spawn>) {
   try {
     child.kill();
   } catch {
+    releaseSupervisorHandles(child);
     return false;
   }
-  return exit;
+  const exited = await exit;
+  releaseSupervisorHandles(child);
+  return exited;
 }
 
-export async function acquireRuntimeOwnedHostOperationSupervisorLock(
+function unresolvedSupervisorLock(child: SupervisorChild) {
+  releaseSupervisorHandles(child);
+  return Object.freeze({
+    confirmReady: async () => "cleanup_unknown" as const,
+    release: async () => "cleanup_unknown" as const,
+  });
+}
+
+export async function acquireHostOperationSupervisorLockUsingFactory(
   rootName: unknown,
   nonce: unknown,
-): Promise<HostOperationLockSupervisor | null> {
-  if (process.platform !== "win32") return null;
-  const bindingHash = hostOperationGenerationBindingHash(rootName, nonce);
-  if (!bindingHash) return null;
-  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
-  const child = spawn(
-    process.execPath,
-    [
-      fileURLToPath(
-        new URL("./host-operation-lock-supervisor.ts", import.meta.url),
-      ),
-      pipeName,
-    ],
-    {
-      cwd: fileURLToPath(new URL(".", import.meta.url)),
-      env: {},
-      shell: false,
-      windowsHide: true,
-      stdio: ["ignore", "ignore", "ignore", "ipc"],
-    },
-  );
-  let released = false;
-  let failed = false;
-  child.once("error", () => {
-    failed = true;
-  });
-  child.once("exit", (code) => {
-    if (!released || code !== 0) failed = true;
-  });
+  spawnFactory: SupervisorSpawnFactory,
+  timing: Readonly<{
+    acquireTimeoutMs: number;
+    releaseTimeoutMs: number;
+  }> = Object.freeze({
+    acquireTimeoutMs: LOCK_ACQUIRE_TIMEOUT_MS,
+    releaseTimeoutMs: LOCK_RELEASE_TIMEOUT_MS,
+  }),
+): Promise<HostOperationSupervisorLockOutcome> {
+  if (process.platform !== "win32")
+    return Object.freeze({ status: "unavailable", lock: null });
   if (
-    !(await waitForSupervisorStatus(child, "acquired")) ||
-    failed ||
+    !Number.isSafeInteger(timing.acquireTimeoutMs) ||
+    timing.acquireTimeoutMs < 1 ||
+    timing.acquireTimeoutMs > LOCK_ACQUIRE_TIMEOUT_MS ||
+    !Number.isSafeInteger(timing.releaseTimeoutMs) ||
+    timing.releaseTimeoutMs < 1 ||
+    timing.releaseTimeoutMs > LOCK_RELEASE_TIMEOUT_MS
+  )
+    return Object.freeze({ status: "unavailable", lock: null });
+  const bindingHash = hostOperationGenerationBindingHash(rootName, nonce);
+  const environment = createWindowsHostOperationSupervisorEnvironment();
+  if (!bindingHash || !environment)
+    return Object.freeze({ status: "unavailable", lock: null });
+  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
+  let child: SupervisorChild;
+  try {
+    child = spawnFactory(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL("./host-operation-lock-supervisor.ts", import.meta.url),
+        ),
+        pipeName,
+      ],
+      {
+        cwd: fileURLToPath(new URL(".", import.meta.url)),
+        env: environment,
+        shell: false,
+        windowsHide: true,
+        stdio: ["ignore", "ignore", "ignore", "ipc"],
+      },
+    );
+  } catch {
+    return Object.freeze({
+      status: "cleanup_confirmed_failure",
+      lock: null,
+    });
+  }
+  const acquired = await waitForSupervisorStatus(
+    child,
+    "acquired",
+    timing.acquireTimeoutMs,
+  );
+  if (
+    acquired !== "expected" ||
     child.exitCode !== null ||
+    child.signalCode !== null ||
     !child.connected
   ) {
-    await terminateSupervisor(child);
-    return null;
+    const terminated = await terminateSupervisor(
+      child,
+      timing.releaseTimeoutMs,
+    );
+    if (!terminated)
+      return Object.freeze({
+        status: "cleanup_unknown",
+        lock: unresolvedSupervisorLock(child),
+      });
+    return Object.freeze({
+      status:
+        acquired === "unavailable"
+          ? "unavailable"
+          : "cleanup_confirmed_failure",
+      lock: null,
+    });
   }
-  return Object.freeze({
+  let state: "acquired" | "ready" | "closing" | "closed" = "acquired";
+  const lock: HostOperationLockSupervisor = Object.freeze({
     confirmReady: async () => {
-      if (released || failed || !child.connected) return false;
-      const ready = waitForSupervisorStatus(child, "ready");
+      if (state !== "acquired" || !child.connected)
+        return "cleanup_confirmed_failure" as const;
+      const ready = waitForSupervisorStatus(
+        child,
+        "ready",
+        timing.acquireTimeoutMs,
+      );
       try {
         child.send("confirm-ready");
       } catch {
-        return false;
+        const terminated = await terminateSupervisor(
+          child,
+          timing.releaseTimeoutMs,
+        );
+        state = terminated ? "closed" : "closing";
+        return terminated
+          ? ("cleanup_confirmed_failure" as const)
+          : ("cleanup_unknown" as const);
       }
-      return ready;
+      const observed = await ready;
+      if (observed === "expected") {
+        state = "ready";
+        return "ready" as const;
+      }
+      const terminated = await terminateSupervisor(
+        child,
+        timing.releaseTimeoutMs,
+      );
+      state = terminated ? "closed" : "closing";
+      return terminated
+        ? ("cleanup_confirmed_failure" as const)
+        : ("cleanup_unknown" as const);
     },
     release: async () => {
-      if (released || failed || !child.connected) return false;
-      released = true;
-      const releaseStatus = waitForSupervisorStatus(child, "released");
-      const exit = new Promise<boolean>((resolve) => {
+      if (state === "closed") return "cleanup_confirmed_failure" as const;
+      if (state === "closing") return "cleanup_unknown" as const;
+      state = "closing";
+      const releaseStatus = waitForSupervisorStatus(
+        child,
+        "released",
+        timing.releaseTimeoutMs,
+      );
+      const exit = new Promise<number | null>((resolve) => {
+        if (child.exitCode !== null) return resolve(child.exitCode);
         const timeout = setTimeout(
-          () => resolve(false),
-          LOCK_RELEASE_TIMEOUT_MS,
+          () => resolve(null),
+          timing.releaseTimeoutMs,
         );
+        timeout.unref();
         child.once("exit", (code) => {
           clearTimeout(timeout);
-          resolve(code === 0);
+          resolve(code);
         });
       });
       try {
         child.send("release");
       } catch {
-        await terminateSupervisor(child);
-        return false;
+        const terminated = await terminateSupervisor(
+          child,
+          timing.releaseTimeoutMs,
+        );
+        state = terminated ? "closed" : "closing";
+        return terminated
+          ? ("cleanup_confirmed_failure" as const)
+          : ("cleanup_unknown" as const);
       }
-      const [reported, exited] = await Promise.all([releaseStatus, exit]);
-      if (!reported || !exited) await terminateSupervisor(child);
-      return reported && exited;
+      const [reported, exitCode] = await Promise.all([releaseStatus, exit]);
+      if (reported === "expected" && exitCode === 0) {
+        state = "closed";
+        releaseSupervisorHandles(child);
+        return "released" as const;
+      }
+      const terminated = await terminateSupervisor(
+        child,
+        timing.releaseTimeoutMs,
+      );
+      state = terminated ? "closed" : "closing";
+      return terminated
+        ? ("cleanup_confirmed_failure" as const)
+        : ("cleanup_unknown" as const);
     },
   });
+  return Object.freeze({ status: "acquired", lock });
+}
+
+export function acquireRuntimeOwnedHostOperationSupervisorLock(
+  rootName: unknown,
+  nonce: unknown,
+) {
+  return acquireHostOperationSupervisorLockUsingFactory(rootName, nonce, spawn);
 }
 
 export function describeCandidateStoreKernelLockContract() {
@@ -443,5 +607,13 @@ export function describeCandidateStoreKernelLockContract() {
     commonSynchronousLockMeaningChanged: false,
     hostOperationCrossBoundaryReadiness:
       "dedicated_supervisor_process_round_trip_and_exit_confirmed_release_before_console_or_child_process",
+    hostOperationSupervisorEnvironment:
+      "runtime_owned_windows_node_child_profile_parent_environment_not_authority",
+    hostOperationSupervisorOutcomes: Object.freeze([
+      "acquired",
+      "unavailable",
+      "cleanup_confirmed_failure",
+      "cleanup_unknown_process_restart_required",
+    ]),
   });
 }

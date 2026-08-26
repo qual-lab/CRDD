@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 2;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 3;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -152,6 +152,10 @@ export function createWindowsNodeConsoleReaderEnvironment() {
   return createInteractiveConsoleReaderEnvironment("win32");
 }
 
+export function createWindowsHostOperationSupervisorEnvironment() {
+  return createInteractiveConsoleReaderEnvironment("win32");
+}
+
 export function createWindowsNativeHelperEnvironment() {
   if (process.platform !== "win32") return null;
   const userProfile = observedWindowsUserProfileFromOs();
@@ -200,6 +204,10 @@ export function describeWindowsChildEnvironmentContract() {
       "candidate_store_initialization",
       "runtime_state_observation",
       "runtime_state_initialization",
+    ]),
+    nodeChildConsumers: Object.freeze([
+      "interactive_console_reader",
+      "host_operation_lock_supervisor",
     ]),
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,

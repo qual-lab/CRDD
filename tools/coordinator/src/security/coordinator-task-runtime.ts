@@ -35,7 +35,10 @@ import {
 } from "./execution-environment.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
 import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "./platform-provisioner-package-filesystem.ts";
-import { isRuntimeProcessPoisoned } from "../core/runtime-process-safety-state.ts";
+import {
+  isRuntimeProcessPoisoned,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../core/runtime-process-safety-state.ts";
 import { resolveRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
   snapshotPlainArray,
@@ -65,7 +68,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 16;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 17;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -104,6 +107,30 @@ type Operation = Readonly<{
   operationId: string;
   hostRecoveryId: string;
 }>;
+type ProductionOperationFailure = Readonly<{
+  reason: string;
+  hostRecoveryId: string;
+  cleanupConfirmed: boolean;
+  manualRecoveryRequired: boolean;
+}>;
+const productionOperationFailures = new WeakMap<
+  object,
+  ProductionOperationFailure
+>();
+
+function productionOperationFailure(error: unknown) {
+  return error && typeof error === "object"
+    ? (productionOperationFailures.get(error) ?? null)
+    : null;
+}
+
+function throwProductionOperationFailure(
+  details: ProductionOperationFailure,
+): never {
+  const error = new Error("coordinator_task_operation_creation_failed");
+  productionOperationFailures.set(error, Object.freeze(details));
+  throw error;
+}
 type RuntimeDependencies = Readonly<{
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
   createOperation: () => Operation | Promise<Operation>;
@@ -841,6 +868,9 @@ async function runCoordinatorTask(
     control.ownedOperation = operation.owned;
     control.managementCapability = operation.managementCapability;
     control.hostRecoveryId = operation.hostRecoveryId;
+    if (control.cancellationRequested) {
+      return blocked("coordinator_task_cancelled_during_operation_creation");
+    }
     const repository = state.dependencies.bindRepository(
       operation.managementCapability,
       repositoryRoot,
@@ -1195,7 +1225,19 @@ async function runCoordinatorTask(
       untrustedProviderTextReported: false,
       credentialAbsenceVerified: false,
     });
-  } catch {
+  } catch (error) {
+    const creationFailure = productionOperationFailure(error);
+    if (creationFailure) {
+      shouldRetainOperationRoot = !creationFailure.cleanupConfirmed;
+      return blocked(
+        creationFailure.reason,
+        creationFailure.manualRecoveryRequired,
+        creationFailure.hostRecoveryId,
+        null,
+        null,
+        creationFailure.cleanupConfirmed,
+      );
+    }
     shouldRetainOperationRoot = true;
     return blocked(
       "coordinator_task_failed_closed",
@@ -1210,6 +1252,8 @@ async function runCoordinatorTask(
 
 async function createProductionOperation() {
   const owned = createOwnedOperationDirectories();
+  const hostRecoveryId = getOwnedHostRecoveryId(owned);
+  let failureReason = "coordinator_task_operation_creation_failed";
   try {
     const contextCapability = createOwnedOperationContextCapability(owned);
     const mountCapability = createOwnedMountCapability(owned);
@@ -1219,29 +1263,66 @@ async function createProductionOperation() {
     );
     const operation =
       verifyOwnedOperationManagementCapability(managementCapability);
-    if (!(await activateOwnedHostOperationGenerationLock(managementCapability)))
-      throw new Error("coordinator_task_host_generation_lock_unavailable");
-    if (
-      !(await confirmOwnedHostOperationGenerationLockReadiness(
+    const activation =
+      await activateOwnedHostOperationGenerationLock(managementCapability);
+    if (activation !== "activated") {
+      failureReason =
+        activation === "cleanup_unknown"
+          ? "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required"
+          : activation === "cleanup_confirmed_failure"
+            ? "coordinator_task_host_generation_lock_start_failed_cleanup_confirmed"
+            : "coordinator_task_host_generation_lock_unavailable";
+      throw new Error(
+        "coordinator_task_host_generation_lock_activation_failed",
+      );
+    }
+    const readiness =
+      await confirmOwnedHostOperationGenerationLockReadiness(
         managementCapability,
-      ))
-    )
+      );
+    if (readiness !== "ready") {
+      failureReason =
+        readiness === "cleanup_unknown"
+          ? "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required"
+          : "coordinator_task_host_generation_lock_not_ready_cleanup_confirmed";
       throw new Error("coordinator_task_host_generation_lock_not_ready");
+    }
     return Object.freeze({
       owned,
       mountCapability,
       managementCapability,
       operationId: operation.operationId,
-      hostRecoveryId: getOwnedHostRecoveryId(owned),
+      hostRecoveryId,
     });
-  } catch (error) {
+  } catch {
+    let cleanupConfirmed = false;
+    let manualRecoveryRequired = false;
     try {
       await cleanupOwnedOperationDirectoriesAsync(owned);
-    } catch {
-      // The original operation creation failure remains authoritative. A
-      // protected cleanup failure is rediscovered by the next preflight.
+      cleanupConfirmed = true;
+    } catch (cleanupError) {
+      if (
+        cleanupError instanceof Error &&
+        cleanupError.message ===
+          "owned_operation_generation_protocol_failure_cleaned"
+      ) {
+        failureReason =
+          "coordinator_task_host_generation_lock_protocol_failed_cleanup_confirmed";
+      } else {
+        manualRecoveryRequired = true;
+        poisonRuntimeProcessAfterCleanupUnknown();
+        failureReason =
+          "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required";
+      }
     }
-    throw error;
+    throwProductionOperationFailure(
+      Object.freeze({
+        reason: failureReason,
+        hostRecoveryId,
+        cleanupConfirmed,
+        manualRecoveryRequired,
+      }),
+    );
   }
 }
 
@@ -1698,7 +1779,11 @@ export function describeCoordinatorTaskRuntimeContract() {
     processPoisonGate:
       "before_package_consume_operation_console_store_workspace_provider_and_network",
     hostOperationGenerationReadiness:
-      "dedicated_supervisor_process_round_trip_then_same_generation_and_recovery_record_reconfirmation_before_console_or_child_process",
+      "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
+    hostOperationSupervisorOutcomes:
+      "acquired_unavailable_cleanup_confirmed_failure_or_cleanup_unknown_with_exact_recovery_and_process_poison",
+    operationCreationCancellation:
+      "rechecked_after_async_creation_before_repository_policy_slate_store_console_or_provider_effect",
     interactiveCleanupRecovery:
       "restart_only_without_operation_recovery_id_unless_operation_cleanup_also_fails",
     approvedCandidateTransfer:
