@@ -5,6 +5,7 @@ import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { createScanner, SyntaxKind } from "typescript/unstable/ast";
 
 import {
   bindSignedGeneralTaskCancellation,
@@ -36,6 +37,63 @@ const patchHash = createHash("sha256")
   .update("\0")
   .update(TARGET_PATH)
   .digest("hex");
+
+const NONLITERAL_DYNAMIC_IMPORT = "<nonliteral-dynamic-import>";
+
+function importedModuleSpecifiers(source: string) {
+  const scanner = createScanner(true, undefined, source);
+  const tokens: Array<Readonly<{ kind: SyntaxKind; value: string }>> = [];
+  for (;;) {
+    const kind = scanner.scan();
+    if (kind === SyntaxKind.EndOfFile) break;
+    tokens.push(Object.freeze({ kind, value: scanner.getTokenValue() }));
+  }
+  const specifiers: string[] = [];
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (!token) continue;
+    if (token.kind === SyntaxKind.ImportKeyword) {
+      const next = tokens[index + 1];
+      if (next?.kind === SyntaxKind.OpenParenToken) {
+        const argument = tokens[index + 2];
+        specifiers.push(
+          argument?.kind === SyntaxKind.StringLiteral
+            ? argument.value
+            : NONLITERAL_DYNAMIC_IMPORT,
+        );
+        continue;
+      }
+      if (next?.kind === SyntaxKind.StringLiteral) {
+        specifiers.push(next.value);
+        continue;
+      }
+    }
+    if (
+      token.kind !== SyntaxKind.ImportKeyword &&
+      token.kind !== SyntaxKind.ExportKeyword
+    ) {
+      continue;
+    }
+    for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
+      const candidate = tokens[cursor];
+      if (!candidate) break;
+      if (candidate.kind === SyntaxKind.SemicolonToken) break;
+      if (
+        cursor > index + 1 &&
+        (candidate.kind === SyntaxKind.ImportKeyword ||
+          candidate.kind === SyntaxKind.ExportKeyword)
+      ) {
+        break;
+      }
+      if (candidate.kind !== SyntaxKind.FromKeyword) continue;
+      const moduleSpecifier = tokens[cursor + 1];
+      if (moduleSpecifier?.kind === SyntaxKind.StringLiteral)
+        specifiers.push(moduleSpecifier.value);
+      break;
+    }
+  }
+  return specifiers;
+}
 
 function release(overrides: Record<string, unknown> = {}) {
   return Object.freeze({
@@ -254,8 +312,24 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     path.join(coordinatorRoot, "scripts/verify-signed-general-task.ts"),
     "utf8",
   );
-  assert.equal(source.includes("interactiveConsoleAvailabilityOutcome"), false);
-  assert.equal(source.includes("inspectInteractiveConsole"), false);
+  const forbiddenConsoleModule = "../src/core/interactive-console.ts";
+  assert.deepEqual(
+    importedModuleSpecifiers(
+      `import { interactiveConsoleAvailable as renamed } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
+        `export { interactiveConsoleAvailabilityOutcome } from ${JSON.stringify(forbiddenConsoleModule)};\n` +
+        `void import(${JSON.stringify(forbiddenConsoleModule)});\n` +
+        "void import(runtimeSelectedModule);\n",
+    ),
+    [
+      forbiddenConsoleModule,
+      forbiddenConsoleModule,
+      forbiddenConsoleModule,
+      NONLITERAL_DYNAMIC_IMPORT,
+    ],
+  );
+  const runnerImports = importedModuleSpecifiers(source);
+  assert.equal(runnerImports.includes(forbiddenConsoleModule), false);
+  assert.equal(runnerImports.includes(NONLITERAL_DYNAMIC_IMPORT), false);
 });
 
 test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => {
