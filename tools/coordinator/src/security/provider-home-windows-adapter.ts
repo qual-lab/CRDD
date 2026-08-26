@@ -16,12 +16,15 @@ import {
   type ProviderHomeObservationProvider,
 } from "./provider-home-observation.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-import { createWindowsNativeHelperEnvironment } from "../core/windows-child-environment.ts";
+import {
+  createWindowsNativeHelperEnvironment,
+  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+} from "../core/windows-child-environment.ts";
 import { isSupportedWindowsAbsolutePathCandidate } from "./authority-root-path-lexical.ts";
 
 export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT =
   "crdd-coordinator/provider-home-windows-adapter";
-export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 4;
+export const PROVIDER_HOME_WINDOWS_ADAPTER_CONTRACT_REVISION = 5;
 
 const bundledDistributionRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
@@ -355,8 +358,14 @@ export function describeProviderHomeWindowsAdapterContract() {
     inheritedEnvironmentPathTrustedDirectly: false,
     mountSourceBinding:
       "runtime_candidate_hash_exactly_matched_by_native_known_folder_derivation",
-    environment:
-      "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
+    environment: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+    environmentUnavailable: Object.freeze({
+      helperSpawnAttempts: 0,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+      observationCapabilityIssued: false,
+      runtimeAuthorityIssued: false,
+    }),
     timeoutMs: HELPER_TIMEOUT_MS,
     maximumStdoutBytes: PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES,
     maximumStderrBytes: 0,

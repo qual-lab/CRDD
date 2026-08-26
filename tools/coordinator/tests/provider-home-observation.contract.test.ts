@@ -17,6 +17,7 @@ import {
   describeProviderHomeWindowsAdapterContract,
   inspectRuntimeOwnedWindowsProviderHomeCandidate,
 } from "../src/security/provider-home-windows-adapter.ts";
+import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../src/core/windows-child-environment.ts";
 
 function response(provider: 1 | 2 | 3 | 4, nonce: Buffer) {
   const bytes = Buffer.alloc(PROVIDER_HOME_OBSERVATION_RESPONSE_BYTES);
@@ -205,13 +206,21 @@ test("Provider Home observation contractはcaller PathとCredential readを持�
   assert.equal(contract.runtimeAuthorityIssued, false);
   assert.equal(contract.mountGrantIssued, false);
   const adapter = describeProviderHomeWindowsAdapterContract();
+  assert.equal(adapter.contractRevision, 5);
   assert.equal(adapter.shellInvocation, false);
   assert.equal(adapter.pathLookup, false);
   assert.equal(adapter.callerSuppliedPathAccepted, false);
   assert.equal(
     adapter.environment,
-    "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
+    WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
   );
+  assert.deepEqual(adapter.environmentUnavailable, {
+    helperSpawnAttempts: 0,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    observationCapabilityIssued: false,
+    runtimeAuthorityIssued: false,
+  });
   assert.equal(
     adapter.processTreeTerminationConfirmation.includes("step_4"),
     true,

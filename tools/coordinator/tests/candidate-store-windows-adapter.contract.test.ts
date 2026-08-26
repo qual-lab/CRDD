@@ -6,6 +6,7 @@ import {
   describeCandidateStoreWindowsAdapterContract,
   inspectRuntimeOwnedWindowsCandidateStore,
 } from "../src/security/candidate-store-windows-adapter.ts";
+import { WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE } from "../src/core/windows-child-environment.ts";
 
 test("source checkoutは署名済みRelease確認前にCandidate Store Effectを開始しない", () => {
   const result = inspectRuntimeOwnedWindowsCandidateStore(
@@ -55,8 +56,15 @@ test("Candidate Store adapterは固定Known Folderとexact保護観測だけをA
   assert.equal(contract.inheritedEnvironmentTrustedDirectly, false);
   assert.equal(
     contract.environment,
-    "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
+    WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
   );
+  assert.deepEqual(contract.environmentUnavailable, {
+    helperSpawnAttempts: 0,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    rootCapabilityIssued: false,
+    runtimeAuthorityIssued: false,
+  });
   assert.equal(contract.rawPathReported, false);
   assert.equal(contract.networkEffectIssued, false);
 });

@@ -17,7 +17,10 @@ import {
   verifyPlatformAccessArtifactSigningObservation,
 } from "./platform-access-release.ts";
 import { verifyBundledCoordinatorPackageFromFixedManifestCandidate } from "./platform-provisioner-package-filesystem.ts";
-import { createWindowsNativeHelperEnvironment } from "../core/windows-child-environment.ts";
+import {
+  createWindowsNativeHelperEnvironment,
+  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+} from "../core/windows-child-environment.ts";
 
 const HELPER_TIMEOUT_MS = 5_000;
 const bundledDistributionRoot = fileURLToPath(
@@ -341,8 +344,14 @@ export function describeCandidateStoreWindowsAdapterContract() {
       "fixed_signed_manifest_release_identity_and_artifact_hash_before_and_after",
     callerSuppliedPathAccepted: false,
     inheritedEnvironmentTrustedDirectly: false,
-    environment:
-      "loaded_kernel32_os_observed_windows_directory_and_fixed_neutral_ambient_names",
+    environment: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+    environmentUnavailable: Object.freeze({
+      helperSpawnAttempts: 0,
+      filesystemEffectIssued: false,
+      networkEffectIssued: false,
+      rootCapabilityIssued: false,
+      runtimeAuthorityIssued: false,
+    }),
     rawPathReported: false,
     rawPrincipalReported: false,
     rawAclReported: false,

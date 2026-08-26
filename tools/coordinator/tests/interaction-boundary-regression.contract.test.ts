@@ -38,6 +38,9 @@ import {
   createInteractiveConsoleReaderEnvironment,
   createWindowsNativeHelperEnvironment,
   createWindowsNodeConsoleReaderEnvironment,
+  describeWindowsChildEnvironmentContract,
+  WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
+  WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
 } from "../src/core/windows-child-environment.ts";
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "../src/security/candidate-store-kernel-lock.ts";
 
@@ -823,6 +826,26 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
   assert.equal(observedDocker.configOwned, true);
   assert.equal(observedDocker.systemRoot, observedDocker.windir);
   assert.equal(typeof observedDocker.systemRoot, "string");
+
+  assert.deepEqual(describeWindowsChildEnvironmentContract(), {
+    contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
+    contractRevision: 2,
+    provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
+    ambientNames: "fixed_neutral_values",
+    callerEnvironmentAccepted: false,
+    parentEnvironmentAuthority: false,
+    nativeHelperUserProfile: "os_user_info_validated_profile_path",
+    nativeHelperConsumers: [
+      "provider_home_observation",
+      "candidate_store_observation",
+      "candidate_store_initialization",
+      "runtime_state_observation",
+      "runtime_state_initialization",
+    ],
+    userProfileEnvironmentAuthority: false,
+    userProfileInitializationAuthority: false,
+    actualChildObservationRequired: true,
+  });
 });
 
 test("Windows directoryの親環境差替えを子Environment Authorityにしない", (context) => {
@@ -891,6 +914,71 @@ test("Windows directoryの親環境差替えを子Environment Authorityにしな
     fs.rmdirSync(system32);
     fs.rmdirSync(root);
   }
+});
+
+test("Windows OS Profile判定不能は親Profileへfallbackしない", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const fixture = path.join(
+    coordinatorRoot,
+    "tests",
+    "fixtures",
+    "windows-native-helper-profile-fault.ts",
+  );
+  for (const mode of [
+    "user_info_error",
+    "missing",
+    "link",
+    "realpath_mismatch",
+  ]) {
+    const result = spawnSync(process.execPath, [fixture, mode], {
+      shell: false,
+      encoding: "utf8",
+      timeout: 5_000,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.deepEqual(JSON.parse(result.stdout), {
+      mode,
+      environmentIsNull: true,
+      parentEnvironmentFallbackUsed: false,
+      cleanupConfirmed: true,
+    });
+  }
+});
+
+test("Native Helper環境不成立は全利用側をspawn・Effect・Authority 0へ閉じる", (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const fixture = path.join(
+    coordinatorRoot,
+    "tests",
+    "fixtures",
+    "windows-native-helper-environment-unavailable.ts",
+  );
+  const result = spawnSync(
+    process.execPath,
+    ["--experimental-test-module-mocks", "--no-warnings", fixture],
+    {
+      shell: false,
+      encoding: "utf8",
+      timeout: 10_000,
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+  assert.deepEqual(JSON.parse(result.stdout), {
+    outcomes: 5,
+    spawnCalls: 0,
+    filesystemEffectIssued: false,
+    networkEffectIssued: false,
+    authorityIssued: false,
+    capabilityIssued: false,
+  });
 });
 
 test("Windows実Console descriptorの取消は固定reader終了後に戻る", async (context) => {

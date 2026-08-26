@@ -5,6 +5,8 @@ import path from "node:path";
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 2;
+export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
+  "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
 // Windows may populate these names even when Node receives an empty env map.
 // Keep the names present with fixed neutral values so the child cannot observe
@@ -187,10 +189,20 @@ export function describeWindowsChildEnvironmentContract() {
   return Object.freeze({
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
     contractRevision: WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION,
-    provenance:
-      "loaded_kernel32_and_os_user_profile_observation_plus_fixed_neutral_values_no_parent_environment_authority",
+    provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
+    parentEnvironmentAuthority: false,
+    nativeHelperUserProfile: "os_user_info_validated_profile_path",
+    nativeHelperConsumers: Object.freeze([
+      "provider_home_observation",
+      "candidate_store_observation",
+      "candidate_store_initialization",
+      "runtime_state_observation",
+      "runtime_state_initialization",
+    ]),
+    userProfileEnvironmentAuthority: false,
+    userProfileInitializationAuthority: false,
     actualChildObservationRequired: true,
   });
 }
