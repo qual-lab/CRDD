@@ -102,6 +102,9 @@ test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完�
   assert.equal(result.status, "completed");
   assert.deepEqual(seen, ["forward", "reverse", "same-codex", "same-claude"]);
   assert.equal(result.completedRouteCount, 4);
+  assert.equal(result.failedRouteProfile, null);
+  assert.equal(result.validationFailure, null);
+  assert.equal(result.effectStateUnknown, false);
   assert.equal(result.cleanupConfirmed, true);
 });
 
@@ -176,27 +179,42 @@ test("最初は対話、残りはreuseでなければ行列を閉じない", asy
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.completedRouteCount, 0);
+  assert.equal(result.validationFailure, "route_nonconforming");
 });
 
 test("4経路は同一Release Identityへ固定し別Releaseを集約しない", async () => {
-  let count = 0;
-  const result = await runSignedRouteMatrixVerification(
-    process.cwd(),
-    (async (_root, _dependencies, route) => {
-      count += 1;
-      const result = completed(
-        route ?? "forward",
-        count === 1 ? "interactive_initial_consent" : "reused_initial_consent",
-      );
-      return count === 2
-        ? Object.freeze({ ...result, crddTree: "e".repeat(40) })
-        : result;
-    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-    () => Object.freeze({ status: "revoked" as const }),
-  );
-  assert.equal(result.status, "blocked");
-  assert.equal(result.attemptedRouteCount, 2);
-  assert.equal(result.completedRouteCount, 1);
+  const mutations: Array<readonly [string, unknown]> = [
+    ["manifestHash", "f".repeat(64)],
+    ["packageContentRootSha256", "f".repeat(64)],
+    ["crddVersion", "v0.18.1"],
+    ["releaseSequence", 19],
+    ["crddCommit", "e".repeat(40)],
+    ["crddTree", "e".repeat(40)],
+  ];
+  for (const [field, value] of mutations) {
+    let count = 0;
+    const result = await runSignedRouteMatrixVerification(
+      process.cwd(),
+      (async (_root, _dependencies, route) => {
+        count += 1;
+        const result = completed(
+          route ?? "forward",
+          count === 1
+            ? "interactive_initial_consent"
+            : "reused_initial_consent",
+        );
+        return count === 2
+          ? Object.freeze({ ...result, [field]: value })
+          : result;
+      }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+      () => Object.freeze({ status: "revoked" as const }),
+    );
+    assert.equal(result.status, "blocked", field);
+    assert.equal(result.attemptedRouteCount, 2, field);
+    assert.equal(result.completedRouteCount, 1, field);
+    assert.equal(result.failedRouteProfile, "reverse", field);
+    assert.equal(result.validationFailure, "release_identity_mismatch", field);
+  }
 });
 
 test("route runner例外は既知結果を保持して未知状態を手動回復へ閉じる", async () => {
@@ -220,10 +238,13 @@ test("route runner例外は既知結果を保持して未知状態を手動回�
   );
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.canonicalRepositoryChanged, true);
-  assert.equal(result.rawProviderOutputReported, true);
-  assert.equal(result.hostPathReported, true);
-  assert.equal(result.credentialReported, true);
+  assert.equal(result.failedRouteProfile, "reverse");
+  assert.equal(result.validationFailure, "runner_exception");
+  assert.equal(result.effectStateUnknown, true);
+  assert.equal(result.canonicalRepositoryChanged, null);
+  assert.equal(result.rawProviderOutputReported, null);
+  assert.equal(result.hostPathReported, null);
+  assert.equal(result.credentialReported, null);
 });
 
 test("同意取消の観測不能時は一つのrouteも開始しない", async () => {
@@ -240,6 +261,8 @@ test("同意取消の観測不能時は一つのrouteも開始しない", async 
   assert.equal(result.status, "blocked");
   assert.equal(result.completedRouteCount, 0);
   assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.validationFailure, "consent_reset_failed");
+  assert.equal(result.effectStateUnknown, false);
 });
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {

@@ -162,9 +162,12 @@ export async function runSignedRouteMatrixVerification(
       requestedRoutes: ROUTES,
       attemptedRouteCount: 0,
       completedRouteCount: 0,
+      failedRouteProfile: null,
+      validationFailure: "consent_reset_failed" as const,
       results: Object.freeze([]),
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
+      effectStateUnknown: false,
       canonicalRepositoryChanged: false,
       rawProviderOutputReported: false,
       hostPathReported: false,
@@ -174,13 +177,21 @@ export async function runSignedRouteMatrixVerification(
   const results: Array<Readonly<Record<string, unknown>>> = [];
   let verifiedRouteCount = 0;
   let baselineReleaseIdentity: string | null = null;
+  let failedRouteProfile: SignedGeneralTaskRouteProfile | null = null;
+  let validationFailure:
+    | "route_nonconforming"
+    | "release_identity_mismatch"
+    | "runner_exception"
+    | null = null;
   for (const [index, route] of ROUTES.entries()) {
     let result: Readonly<Record<string, unknown>>;
+    let runnerFailed = false;
     try {
       const outcome = await run(repositoryRoot, undefined, route);
       result = Object.freeze({ ...outcome });
     } catch {
       result = failedRouteResult(route);
+      runnerFailed = true;
     }
     results.push(result);
     const exact = isExactSignedRouteResult(
@@ -188,14 +199,27 @@ export async function runSignedRouteMatrixVerification(
       result,
       index === 0 ? "interactive_initial_consent" : "reused_initial_consent",
     );
-    if (!exact) break;
+    if (!exact) {
+      failedRouteProfile = route;
+      validationFailure = runnerFailed
+        ? "runner_exception"
+        : "route_nonconforming";
+      break;
+    }
     const currentReleaseIdentity = releaseIdentity(result);
     if (baselineReleaseIdentity === null)
       baselineReleaseIdentity = currentReleaseIdentity;
-    else if (currentReleaseIdentity !== baselineReleaseIdentity) break;
+    else if (currentReleaseIdentity !== baselineReleaseIdentity) {
+      failedRouteProfile = route;
+      validationFailure = "release_identity_mismatch";
+      break;
+    }
     verifiedRouteCount += 1;
   }
   const completed = verifiedRouteCount === ROUTES.length;
+  const effectStateUnknown = results.some(
+    (result) => result.effectStateUnknown === true,
+  );
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
@@ -206,24 +230,27 @@ export async function runSignedRouteMatrixVerification(
     requestedRoutes: ROUTES,
     attemptedRouteCount: results.length,
     completedRouteCount: verifiedRouteCount,
+    failedRouteProfile,
+    validationFailure,
     results: Object.freeze(results),
     cleanupConfirmed:
       completed && results.every((result) => result.cleanupConfirmed === true),
     manualRecoveryRequired: results.some(
       (result) => result.manualRecoveryRequired !== false,
     ),
-    canonicalRepositoryChanged: results.some(
-      (result) => result.canonicalRepositoryChanged !== false,
-    ),
-    rawProviderOutputReported: results.some(
-      (result) => result.rawProviderOutputReported !== false,
-    ),
-    hostPathReported: results.some(
-      (result) => result.hostPathReported !== false,
-    ),
-    credentialReported: results.some(
-      (result) => result.credentialReported !== false,
-    ),
+    effectStateUnknown,
+    canonicalRepositoryChanged: effectStateUnknown
+      ? null
+      : results.some((result) => result.canonicalRepositoryChanged !== false),
+    rawProviderOutputReported: effectStateUnknown
+      ? null
+      : results.some((result) => result.rawProviderOutputReported !== false),
+    hostPathReported: effectStateUnknown
+      ? null
+      : results.some((result) => result.hostPathReported !== false),
+    credentialReported: effectStateUnknown
+      ? null
+      : results.some((result) => result.credentialReported !== false),
   });
 }
 
@@ -241,6 +268,14 @@ export function describeSignedRouteMatrixVerificationContract() {
     candidateDisposition: "each_route_exact_verify_then_discard",
     releaseIdentity:
       "all_routes_same_manifest_package_version_sequence_commit_and_tree",
+    failureClassification: Object.freeze([
+      "consent_reset_failed",
+      "route_nonconforming",
+      "release_identity_mismatch",
+      "runner_exception",
+    ]),
+    unknownEffectProjection:
+      "explicit_effect_state_unknown_without_claiming_observed_change_or_disclosure",
     canonicalRepositoryEffectAllowed: false,
     apiKeyFallbackAllowed: false,
     additionalPurchaseAllowed: false,
@@ -267,6 +302,8 @@ if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
           requestedRoutes: ROUTES,
           attemptedRouteCount: 0,
           completedRouteCount: 0,
+          failedRouteProfile: null,
+          validationFailure: "runner_exception",
           results: [],
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
