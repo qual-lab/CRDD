@@ -44,6 +44,12 @@ function completed(
     contractRevision: 6,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
+    manifestHash: "a".repeat(64),
+    packageContentRootSha256: "b".repeat(64),
+    crddVersion: "v0.18.0",
+    releaseSequence: 18,
+    crddCommit: "c".repeat(40),
+    crddTree: "d".repeat(40),
     requestedRouteProfile: profile,
     route,
     requestedFrontProvider: front,
@@ -54,6 +60,9 @@ function completed(
     reviewerIndependence: "provider_independent",
     externalSendAuthorizationMode: authorizationMode,
     remediationPerformed: false,
+    changedPaths: Object.freeze([
+      "tools/coordinator/runtime/general-task-verification.txt",
+    ]),
     exactCandidateContentVerified: true,
     candidateDiscarded: true,
     cleanupConfirmed: true,
@@ -124,6 +133,10 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
   const base = completed("forward", "interactive_initial_consent");
   const mutations: Array<readonly [string, unknown]> = [
     ["contractRevision", 4],
+    ["manifestHash", undefined],
+    ["crddCommit", "e".repeat(64)],
+    ["changedPaths", []],
+    ["changedPaths", ["other.txt"]],
     ["requestedRouteProfile", "reverse"],
     ["executorProvider", "codex"],
     ["reviewerProvider", "claude"],
@@ -162,7 +175,71 @@ test("最初は対話、残りはreuseでなければ行列を閉じない", asy
     () => Object.freeze({ status: "revoked" as const }),
   );
   assert.equal(result.status, "blocked");
+  assert.equal(result.completedRouteCount, 0);
+});
+
+test("4経路は同一Release Identityへ固定し別Releaseを集約しない", async () => {
+  let count = 0;
+  const result = await runSignedRouteMatrixVerification(
+    process.cwd(),
+    (async (_root, _dependencies, route) => {
+      count += 1;
+      const result = completed(
+        route ?? "forward",
+        count === 1 ? "interactive_initial_consent" : "reused_initial_consent",
+      );
+      return count === 2
+        ? Object.freeze({ ...result, crddTree: "e".repeat(40) })
+        : result;
+    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    () => Object.freeze({ status: "revoked" as const }),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.attemptedRouteCount, 2);
   assert.equal(result.completedRouteCount, 1);
+});
+
+test("route runner例外は既知結果を保持して未知状態を手動回復へ閉じる", async () => {
+  let count = 0;
+  const result = await runSignedRouteMatrixVerification(
+    process.cwd(),
+    (async (_root, _dependencies, route) => {
+      count += 1;
+      if (count === 2) throw new Error("provider output must not escape");
+      return completed(route ?? "forward", "interactive_initial_consent");
+    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    () => Object.freeze({ status: "revoked" as const }),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.attemptedRouteCount, 2);
+  assert.equal(result.completedRouteCount, 1);
+  assert.equal(result.results.length, 2);
+  assert.equal(
+    result.results[1]?.reason,
+    "signed_route_matrix_route_runner_failed_closed",
+  );
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.canonicalRepositoryChanged, true);
+  assert.equal(result.rawProviderOutputReported, true);
+  assert.equal(result.hostPathReported, true);
+  assert.equal(result.credentialReported, true);
+});
+
+test("同意取消の観測不能時は一つのrouteも開始しない", async () => {
+  let attempts = 0;
+  const result = await runSignedRouteMatrixVerification(
+    process.cwd(),
+    (async () => {
+      attempts += 1;
+      return completed("forward", "interactive_initial_consent");
+    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    () => Object.freeze({ status: "recovery_required" as const }),
+  );
+  assert.equal(attempts, 0);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.completedRouteCount, 0);
+  assert.equal(result.manualRecoveryRequired, true);
 });
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {

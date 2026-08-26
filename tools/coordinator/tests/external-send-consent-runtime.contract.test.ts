@@ -80,16 +80,18 @@ function isolated() {
   let now = 1_000_000;
   let releaseWorks = true;
   let lockAvailable = true;
+  let rootAvailable = true;
   let nonce = 0;
-  let currentRoot = Object.freeze({
+  const initialRoot = Object.freeze({
     rootPath,
     runtimeStateIdentityHash: "1".repeat(64),
     runtimeStateProtectionHash: "2".repeat(64),
     localUserBindingHash: "3".repeat(64),
     stableLogicalHomeBindingHash: "4".repeat(64),
   });
+  let currentRoot = initialRoot;
   const runtime = createIsolatedExternalSendConsentRuntimeCandidate({
-    observeRoot: () => currentRoot,
+    observeRoot: () => (rootAvailable ? currentRoot : null),
     acquireLock: () =>
       lockAvailable ? Object.freeze({ release: () => releaseWorks }) : null,
     now: () => now,
@@ -112,6 +114,15 @@ function isolated() {
             ? { runtimeStateProtectionHash: "6".repeat(64) }
             : { localUserBindingHash: "7".repeat(64) }),
       });
+    },
+    restoreRoot: () => {
+      currentRoot = initialRoot;
+    },
+    setNow: (value: number) => {
+      now = value;
+    },
+    makeRootUnavailable: () => {
+      rootAvailable = false;
     },
     blockLock: () => {
       lockAvailable = false;
@@ -144,10 +155,10 @@ test("単一Active境界はabsentから保存・再利用しA→B→Aで古い�
     const activeEntries = fs
       .readdirSync(fixture.rootPath)
       .filter((name) => name.startsWith(EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX));
-    assert.equal(activeEntries.length, 2);
+    assert.equal(activeEntries.length, 0);
     assert.equal(
       activeEntries.filter((name) => name.endsWith(".crdd-commit.json")).length,
-      1,
+      0,
     );
   } finally {
     fs.rmSync(fixture.rootPath, { recursive: true, force: true });
@@ -164,6 +175,8 @@ test("期限切れ・選択User・Runtime identity/protection変更は再承認�
         fixture.runtime.resolve(policy()).status,
         "needs_confirmation",
       );
+      fixture.restoreRoot();
+      assert.notEqual(fixture.runtime.resolve(policy()).status, "confirmed");
     } finally {
       fs.rmSync(fixture.rootPath, { recursive: true, force: true });
     }
@@ -180,7 +193,38 @@ test("期限切れ・選択User・Runtime identity/protection変更は再承認�
       fixture.runtime.resolve(policy()).status,
       "needs_confirmation",
     );
+    fixture.setNow(1_000_000);
+    assert.notEqual(fixture.runtime.resolve(policy()).status, "confirmed");
   } finally {
+    fs.rmSync(fixture.rootPath, { recursive: true, force: true });
+  }
+});
+
+test("観測不能Rootとdangling reparse residueを取消成功へ流用しない", () => {
+  const unavailable = isolated();
+  try {
+    unavailable.makeRootUnavailable();
+    assert.equal(unavailable.runtime.revoke().status, "recovery_required");
+  } finally {
+    fs.rmSync(unavailable.rootPath, { recursive: true, force: true });
+  }
+
+  const fixture = isolated();
+  const boundary = compileExternalSendConsentBoundaryHash(policy());
+  assert.ok(boundary);
+  const name = `${EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX}${boundary}-eeeeeeeeeeeeeeee.json`;
+  const link = path.join(fixture.rootPath, name);
+  const target = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-consent-link-target-"),
+  );
+  try {
+    fs.symlinkSync(target, link, "junction");
+    fs.rmSync(target, { recursive: true, force: true });
+    assert.equal(fixture.runtime.revoke().status, "recovery_required");
+    assert.equal(fs.lstatSync(link).isSymbolicLink(), true);
+  } finally {
+    fs.rmSync(link, { recursive: true, force: true });
+    fs.rmSync(target, { recursive: true, force: true });
     fs.rmSync(fixture.rootPath, { recursive: true, force: true });
   }
 });

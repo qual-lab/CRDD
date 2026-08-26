@@ -193,9 +193,31 @@ function consentPaths(root: VerifiedRoot, name: string) {
 }
 
 function exactRegularFileOrMissing(file: string) {
-  if (!fs.existsSync(file)) return true;
-  const stat = fs.lstatSync(file);
-  return stat.isFile() && !stat.isSymbolicLink();
+  try {
+    const stat = fs.lstatSync(file);
+    return stat.isFile() && !stat.isSymbolicLink();
+  } catch (error) {
+    return (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    );
+  }
+}
+
+function pathMissing(file: string) {
+  try {
+    fs.lstatSync(file);
+    return false;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
+    )
+      return true;
+    throw error;
+  }
 }
 
 // Removing this one fixed pair only reduces authority. Commit is removed
@@ -222,18 +244,18 @@ function revokePair(root: VerifiedRoot) {
     !exactRegularFileOrMissing(target.commit)
   )
     return false;
-  if (fs.existsSync(target.file) && fs.existsSync(target.commit)) {
+  if (!pathMissing(target.file) && !pathMissing(target.commit)) {
     try {
       removeCommittedDockerRecoveryJson(target.file, name);
-      return !fs.existsSync(target.file) && !fs.existsSync(target.commit);
+      return pathMissing(target.file) && pathMissing(target.commit);
     } catch {
       // Invalid fixed-pair data is not authority. Fall through to bounded
       // authority-reducing deletion after exact file-type checks above.
     }
   }
-  if (fs.existsSync(target.commit)) fs.rmSync(target.commit);
-  if (fs.existsSync(target.file)) fs.rmSync(target.file);
-  return !fs.existsSync(target.file) && !fs.existsSync(target.commit);
+  if (!pathMissing(target.commit)) fs.rmSync(target.commit);
+  if (!pathMissing(target.file)) fs.rmSync(target.file);
+  return pathMissing(target.file) && pathMissing(target.commit);
 }
 
 function withConsentLock<T>(
@@ -265,9 +287,20 @@ function createRuntime(dependencies: ConsentDependencies) {
   function resolve(policy: ExternalSendPolicy) {
     try {
       const boundaryHash = compileExternalSendConsentBoundaryHash(policy);
-      const root = dependencies.observeRoot(false);
-      if (!boundaryHash || !root)
-        return Object.freeze({ status: "absent" as const, boundaryHash });
+      if (!boundaryHash)
+        return Object.freeze({
+          status: "recovery_required" as const,
+          boundaryHash,
+        });
+      // A verified empty RuntimeState root is distinguishable from an
+      // unavailable root. Initializing the fixed protected root here avoids
+      // treating observation failure as consent absence.
+      const root = dependencies.observeRoot(true);
+      if (!root)
+        return Object.freeze({
+          status: "recovery_required" as const,
+          boundaryHash,
+        });
       return (
         withConsentLock(dependencies, root, () => {
           const names = activeNames(root);
@@ -280,8 +313,8 @@ function createRuntime(dependencies: ConsentDependencies) {
           if (!currentName)
             return Object.freeze({ status: "absent" as const, boundaryHash });
           const target = consentPaths(root, currentName);
-          const filePresent = fs.existsSync(target.file);
-          const commitPresent = fs.existsSync(target.commit);
+          const filePresent = !pathMissing(target.file);
+          const commitPresent = !pathMissing(target.commit);
           if (!filePresent || !commitPresent) {
             return revokePair(root)
               ? Object.freeze({ status: "absent" as const, boundaryHash })
@@ -309,20 +342,35 @@ function createRuntime(dependencies: ConsentDependencies) {
               currentName,
             );
           if (currentMatch?.[1] !== boundaryHash)
-            return Object.freeze({
-              status: "needs_confirmation" as const,
-              boundaryHash,
-            });
-          return currentMatch?.[2] ===
-            (record as Record<string, unknown>).generation &&
+            return revokePair(root)
+              ? Object.freeze({
+                  status: "needs_confirmation" as const,
+                  boundaryHash,
+                })
+              : Object.freeze({
+                  status: "recovery_required" as const,
+                  boundaryHash,
+                });
+          const isCurrent =
+            currentMatch?.[2] ===
+              (record as Record<string, unknown>).generation &&
             validRecord(
               record,
               expectedBoundary(policy, boundaryHash, root),
               dependencies.now(),
-            )
-            ? Object.freeze({ status: "confirmed" as const, boundaryHash })
-            : Object.freeze({
+            );
+          if (isCurrent)
+            return Object.freeze({
+              status: "confirmed" as const,
+              boundaryHash,
+            });
+          return revokePair(root)
+            ? Object.freeze({
                 status: "needs_confirmation" as const,
+                boundaryHash,
+              })
+            : Object.freeze({
+                status: "recovery_required" as const,
                 boundaryHash,
               });
         }) ??
@@ -380,8 +428,10 @@ function createRuntime(dependencies: ConsentDependencies) {
 
   function revoke() {
     try {
-      const root = dependencies.observeRoot(false);
-      if (!root) return Object.freeze({ status: "revoked" as const });
+      // Explicit revoke may create the fixed protected RuntimeState root, but
+      // it never treats an unobservable root as proof of residue zero.
+      const root = dependencies.observeRoot(true);
+      if (!root) return Object.freeze({ status: "recovery_required" as const });
       return (
         withConsentLock(dependencies, root, () =>
           revokePair(root)
@@ -429,7 +479,11 @@ export function describeExternalSendConsentRuntimeContract() {
     operationPreviewPersistent: false,
     lifetimeDays: 180,
     reapproval:
-      "active_policy_boundary_change_expiry_revocation_missing_record_or_different_selected_user",
+      "active_policy_boundary_change_expiry_revocation_missing_record_different_selected_user_or_runtime_state_binding_change",
+    invalidation:
+      "once_observed_invalid_active_generation_is_revoked_and_never_reused",
+    explicitRevokeRootObservation:
+      "verified_protected_root_initialization_allowed_unavailable_never_means_revoked",
     corruptionRecovery:
       "exact_fixed_pair_safe_revoke_else_manual_recovery_required",
     exactProviderAccountOrTenantIdentityVerified: false,

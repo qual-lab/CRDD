@@ -27,6 +27,8 @@ Architecture正本: [エージェント組織の実行アーキテクチャ](../
 
 後続の現在候補では、両Front×両Executorの4経路、同一Provider例外理由、独立Reviewer、単一Active初期同意、4経路の完全一致Runnerおよび失敗／取消Recovery Matrixをproduction経路と同じ契約へ接続し、全機械試験を通過した。初期同意は全Policy Provider境界を表示し、現在Task／Revision／Scopeを非永続Previewへ分離し、選択ユーザー・保護Runtime State・Policy byteへ結合する。A→B→Aで古いAを復活させず、180日失効、明示取消、部分／破損pairの安全なAuthority除去および判定不能時の手動回復停止を固定した。この段階は正式署名4経路実測またはRuntime完成監査の完了をまだ意味しない。
 
+固定候補`29c1a84`への独立Security、Test／UXおよびDocument／Gap監査は、失効・保護不一致後の旧同意復活、観測不能／dangling reparse残存時の取消成功誤報、4経路間のRelease Identity未固定、Runner例外時の未知状態投影、検証済み経路件数の過大表示、およびREADME後段の旧Operation単位同意説明を検出した。これらは採用済み方針を変えず、旧同意世代の不可逆失効、`lstat`による物理残存確認、同一manifest／package／version／sequence／Commit／Tree／対象Pathの固定、例外時の手動回復、検証済み件数だけの集計、および現行初期同意Lifecycleへの文書置換として一括是正した。新固定版の機械確認、独立再レビューおよび正式署名実測までは完了扱いにしない。
+
 ### 1.1 経路別の現在状態
 
 | Front | Executor | 独立Reviewer | 現在状態 | 根拠／残件 |

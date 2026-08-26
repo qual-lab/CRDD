@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { revokeRuntimeOwnedExternalSendConsent } from "../src/security/external-send-consent-runtime.ts";
 import {
+  isCanonicalCrddVersion,
+  isSupportedCrddRuntimeGitObjectId,
+} from "../src/security/release-identity-grammar.ts";
+import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
@@ -19,6 +23,8 @@ const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "same-codex",
   "same-claude",
 ]);
+const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
+const SHA256 = /^[a-f0-9]{64}$/u;
 
 const EXPECTED = Object.freeze({
   forward: Object.freeze({
@@ -51,6 +57,50 @@ function emptyArray(value: unknown) {
   return Array.isArray(value) && value.length === 0;
 }
 
+function exactChangedPath(value: unknown) {
+  return Array.isArray(value) && value.length === 1 && value[0] === TARGET_PATH;
+}
+
+function validReleaseIdentity(result: Readonly<Record<string, unknown>>) {
+  return (
+    typeof result.manifestHash === "string" &&
+    SHA256.test(result.manifestHash) &&
+    typeof result.packageContentRootSha256 === "string" &&
+    SHA256.test(result.packageContentRootSha256) &&
+    isCanonicalCrddVersion(result.crddVersion) &&
+    Number.isSafeInteger(result.releaseSequence) &&
+    Number(result.releaseSequence) >= 1 &&
+    isSupportedCrddRuntimeGitObjectId(result.crddCommit) &&
+    isSupportedCrddRuntimeGitObjectId(result.crddTree)
+  );
+}
+
+function releaseIdentity(result: Readonly<Record<string, unknown>>) {
+  return JSON.stringify([
+    result.manifestHash,
+    result.packageContentRootSha256,
+    result.crddVersion,
+    result.releaseSequence,
+    result.crddCommit,
+    result.crddTree,
+  ]);
+}
+
+function failedRouteResult(route: SignedGeneralTaskRouteProfile) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason: "signed_route_matrix_route_runner_failed_closed",
+    requestedRouteProfile: route,
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    effectStateUnknown: true,
+    canonicalRepositoryChanged: null,
+    rawProviderOutputReported: null,
+    hostPathReported: null,
+    credentialReported: null,
+  });
+}
+
 export function isExactSignedRouteResult(
   route: SignedGeneralTaskRouteProfile,
   result: Readonly<Record<string, unknown>>,
@@ -74,6 +124,8 @@ export function isExactSignedRouteResult(
     result.reviewerProvider === expected.reviewer &&
     result.reviewerIndependence === "provider_independent" &&
     result.externalSendAuthorizationMode === expectedAuthorizationMode &&
+    validReleaseIdentity(result) &&
+    exactChangedPath(result.changedPaths) &&
     result.remediationPerformed === false &&
     result.exactCandidateContentVerified === true &&
     result.candidateDiscarded === true &&
@@ -108,6 +160,7 @@ export async function runSignedRouteMatrixVerification(
       status: "blocked" as const,
       reason: "signed_route_matrix_consent_reset_failed",
       requestedRoutes: ROUTES,
+      attemptedRouteCount: 0,
       completedRouteCount: 0,
       results: Object.freeze([]),
       cleanupConfirmed: false,
@@ -119,19 +172,30 @@ export async function runSignedRouteMatrixVerification(
     });
   }
   const results: Array<Readonly<Record<string, unknown>>> = [];
+  let verifiedRouteCount = 0;
+  let baselineReleaseIdentity: string | null = null;
   for (const [index, route] of ROUTES.entries()) {
-    const result = await run(repositoryRoot, undefined, route);
-    results.push(Object.freeze({ ...result }));
-    if (
-      !isExactSignedRouteResult(
-        route,
-        result,
-        index === 0 ? "interactive_initial_consent" : "reused_initial_consent",
-      )
-    )
-      break;
+    let result: Readonly<Record<string, unknown>>;
+    try {
+      const outcome = await run(repositoryRoot, undefined, route);
+      result = Object.freeze({ ...outcome });
+    } catch {
+      result = failedRouteResult(route);
+    }
+    results.push(result);
+    const exact = isExactSignedRouteResult(
+      route,
+      result,
+      index === 0 ? "interactive_initial_consent" : "reused_initial_consent",
+    );
+    if (!exact) break;
+    const currentReleaseIdentity = releaseIdentity(result);
+    if (baselineReleaseIdentity === null)
+      baselineReleaseIdentity = currentReleaseIdentity;
+    else if (currentReleaseIdentity !== baselineReleaseIdentity) break;
+    verifiedRouteCount += 1;
   }
-  const completed = results.length === ROUTES.length;
+  const completed = verifiedRouteCount === ROUTES.length;
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
@@ -140,14 +204,13 @@ export async function runSignedRouteMatrixVerification(
       ? "signed_route_matrix_completed"
       : "signed_route_matrix_incomplete",
     requestedRoutes: ROUTES,
-    completedRouteCount: results.filter(
-      (result) => result.status === "completed",
-    ).length,
+    attemptedRouteCount: results.length,
+    completedRouteCount: verifiedRouteCount,
     results: Object.freeze(results),
     cleanupConfirmed:
       completed && results.every((result) => result.cleanupConfirmed === true),
     manualRecoveryRequired: results.some(
-      (result) => result.manualRecoveryRequired === true,
+      (result) => result.manualRecoveryRequired !== false,
     ),
     canonicalRepositoryChanged: results.some(
       (result) => result.canonicalRepositoryChanged !== false,
@@ -176,6 +239,8 @@ export function describeSignedRouteMatrixVerificationContract() {
     frontIdentityClaim:
       "requested_profile_only_observed_front_identity_not_attested",
     candidateDisposition: "each_route_exact_verify_then_discard",
+    releaseIdentity:
+      "all_routes_same_manifest_package_version_sequence_commit_and_tree",
     canonicalRepositoryEffectAllowed: false,
     apiKeyFallbackAllowed: false,
     additionalPurchaseAllowed: false,
@@ -199,12 +264,17 @@ if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
           contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
           status: "blocked",
           reason: "signed_route_matrix_failed_closed",
+          requestedRoutes: ROUTES,
+          attemptedRouteCount: 0,
+          completedRouteCount: 0,
+          results: [],
           cleanupConfirmed: false,
-          manualRecoveryRequired: false,
-          canonicalRepositoryChanged: false,
-          rawProviderOutputReported: false,
-          hostPathReported: false,
-          credentialReported: false,
+          manualRecoveryRequired: true,
+          effectStateUnknown: true,
+          canonicalRepositoryChanged: true,
+          rawProviderOutputReported: true,
+          hostPathReported: true,
+          credentialReported: true,
         },
         null,
         2,
