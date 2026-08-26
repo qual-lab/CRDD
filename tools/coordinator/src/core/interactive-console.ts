@@ -7,7 +7,6 @@ import { fileURLToPath } from "node:url";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
-  INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS,
   INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
   readInteractiveConsoleLineFromStream,
 } from "./interactive-console-reader.ts";
@@ -18,7 +17,7 @@ export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 15;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 16;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -462,6 +461,8 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
     let outputBytes = 0;
     const outputBuffers: Buffer[] = [];
     let killTimer: NodeJS.Timeout | null = null;
+    let isCompletionObserved = false;
+    let isCompletionForceStopIssued = false;
     let outcomeStatus: InteractiveConsoleReadOutcome["status"] =
       "reader_failed";
     const timeout = adapter.setTimeout(
@@ -522,7 +523,9 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
           ? parseReaderResult(Buffer.concat(outputBuffers, outputBytes))
           : null;
       const isCompletedResult =
-        parsed?.status === "completed" && childExitCode === 0;
+        parsed?.status === "completed" &&
+        (childExitCode === 0 ||
+          (isCompletionObserved && isCompletionForceStopIssued));
       const isBlockedResult =
         parsed?.status === "blocked" && childExitCode === 2;
       resolve(
@@ -542,6 +545,7 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
     };
     const forceStop = () => {
       let isTerminationUnknown = false;
+      if (isCompletionObserved) isCompletionForceStopIssued = true;
       try {
         if (!child.kill("SIGKILL")) isTerminationUnknown = true;
       } catch {
@@ -591,6 +595,15 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
         return;
       }
       outputBuffers.push(Buffer.from(chunk));
+      const parsed = parseReaderResult(
+        Buffer.concat(outputBuffers, outputBytes),
+      );
+      if (parsed?.status === "completed" && !isCompletionObserved) {
+        isCompletionObserved = true;
+        if (!killTimer) {
+          killTimer = adapter.setTimeout(forceStop, READER_CANCEL_GRACE_MS);
+        }
+      }
     };
     const onClose = (code: number | null) => {
       isChildClosed = true;
@@ -773,7 +786,6 @@ export function describeInteractiveConsoleContract() {
     readerCancelGraceMs: READER_CANCEL_GRACE_MS,
     readerCleanupSchedulingMarginMs: READER_CLEANUP_SCHEDULING_MARGIN_MS,
     readerOrphanFailsafeMs: INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
-    readerCloseTimeoutMs: INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS,
     readerStandardIo:
       "child_fixed_conin_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:
@@ -781,8 +793,8 @@ export function describeInteractiveConsoleContract() {
     readerCompletion:
       "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
     readerOwnedHandleCleanup:
-      "confirmed_stream_close_before_success_then_exact_child_process_exit_observed_by_parent",
-    readerSuccessRequiresStreamClose: true,
+      "single_async_os_read_then_synchronous_descriptor_close_and_exact_child_process_close",
+    readerSuccessRequiresDescriptorClose: true,
     readerSuccessRequiresChildClose: true,
     windowsRedirectedOutput: "fail_closed",
     redirectedStandardInputAllowed: false,

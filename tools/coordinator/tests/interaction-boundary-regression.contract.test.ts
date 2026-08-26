@@ -64,7 +64,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 15,
+    contractRevision: 16,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsDeviceOpenModes: { input: "r", output: "r+" },
     windowsUnicodeOutput: "node_unicode_tty_output_required",
@@ -111,7 +111,6 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     readerCancelGraceMs: 500,
     readerCleanupSchedulingMarginMs: 5_000,
     readerOrphanFailsafeMs: 120_000,
-    readerCloseTimeoutMs: 5_000,
     readerStandardIo:
       "child_fixed_conin_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:
@@ -119,8 +118,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     readerCompletion:
       "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
     readerOwnedHandleCleanup:
-      "confirmed_stream_close_before_success_then_exact_child_process_exit_observed_by_parent",
-    readerSuccessRequiresStreamClose: true,
+      "single_async_os_read_then_synchronous_descriptor_close_and_exact_child_process_close",
+    readerSuccessRequiresDescriptorClose: true,
     readerSuccessRequiresChildClose: true,
     windowsRedirectedOutput: "fail_closed",
     redirectedStandardInputAllowed: false,
@@ -733,36 +732,49 @@ test("検証済みTTY入力は完了・取消・errorをlistener残存なしへ�
   assert.equal(cancelledInput.listenerCount("end"), 0);
 });
 
-test("固定reader子Processはstream closeとProcess終了cleanupを分離する", async () => {
+test("固定reader子Processは単一OS readとdescriptor closeを分離する", async () => {
   function scenario(
     options: { closeConfirmed?: boolean; openFails?: boolean } = {},
   ) {
-    const stream = new PassThrough() as PassThrough & { isTTY: boolean };
-    stream.isTTY = true;
-    let unownedCloseCount = 0;
-    let destroyCount = 0;
+    let closeCount = 0;
+    let readBuffer: Buffer | null = null;
+    let readCallback:
+      | ((error: NodeJS.ErrnoException | null, count: number) => void)
+      | null = null;
     const adapter = Object.freeze({
       open: () => {
         if (options.openFails) throw new Error("fixture_open_failed");
         return 17;
       },
-      closeUnownedDescriptor: () => {
-        unownedCloseCount += 1;
+      close: () => {
+        closeCount += 1;
+        if (options.closeConfirmed === false)
+          throw new Error("fixture_close_failed");
       },
-      createOwnedStream: () => stream,
-      destroyAndConfirmClose: async () => {
-        destroyCount += 1;
-        stream.destroy();
-        return options.closeConfirmed ?? true;
+      read: (
+        _descriptor: number,
+        buffer: Buffer,
+        _offset: number,
+        _length: number,
+        _position: null,
+        callback: (error: NodeJS.ErrnoException | null, count: number) => void,
+      ) => {
+        readBuffer = buffer;
+        readCallback = callback;
       },
     });
     return {
-      stream,
       adapter: adapter as unknown as Parameters<
         typeof readOwnedInteractiveConsoleLineOutcomeUsingAdapter
       >[2],
-      unownedCloseCount: () => unownedCloseCount,
-      destroyCount: () => destroyCount,
+      complete: (value = "123456\r\n") => {
+        assert.ok(readBuffer);
+        const bytes = Buffer.from(value, "utf8");
+        bytes.copy(readBuffer);
+        assert.equal(typeof readCallback, "function");
+        readCallback?.(null, bytes.byteLength);
+      },
+      closeCount: () => closeCount,
     };
   }
 
@@ -773,14 +785,13 @@ test("固定reader子Processはstream closeとProcess終了cleanupを分離す�
       new AbortController().signal,
       observed.adapter,
     );
-    observed.stream.write(Buffer.from("123456\r\n", "utf8"));
+    observed.complete();
     assert.deepEqual(await pending, {
       status: "completed",
       line: "123456",
-      streamCloseConfirmed: true,
+      descriptorCloseConfirmed: true,
     });
-    assert.equal(observed.destroyCount(), 1);
-    assert.equal(observed.unownedCloseCount(), 0);
+    assert.equal(observed.closeCount(), 1);
   }
 
   {
@@ -792,12 +803,13 @@ test("固定reader子Processはstream closeとProcess終了cleanupを分離す�
       observed.adapter,
     );
     controller.abort();
+    observed.complete();
     assert.deepEqual(await pending, {
       status: "cancelled",
       line: null,
-      streamCloseConfirmed: true,
+      descriptorCloseConfirmed: true,
     });
-    assert.equal(observed.destroyCount(), 1);
+    assert.equal(observed.closeCount(), 1);
   }
 
   {
@@ -807,11 +819,11 @@ test("固定reader子Processはstream closeとProcess終了cleanupを分離す�
       new AbortController().signal,
       observed.adapter,
     );
-    observed.stream.write(Buffer.from("123456\r\n", "utf8"));
+    observed.complete();
     assert.deepEqual(await pending, {
       status: "reader_failed",
       line: null,
-      streamCloseConfirmed: false,
+      descriptorCloseConfirmed: false,
     });
   }
 
@@ -826,15 +838,14 @@ test("固定reader子Processはstream closeとProcess終了cleanupを分離す�
       {
         status: "reader_failed",
         line: null,
-        streamCloseConfirmed: true,
+        descriptorCloseConfirmed: true,
       },
     );
-    assert.equal(observed.destroyCount(), 0);
-    assert.equal(observed.unownedCloseCount(), 0);
+    assert.equal(observed.closeCount(), 0);
   }
 });
 
-test("固定readerの実子Processはstream close未確認を成功にせずProcess終了へ収束する", () => {
+test("固定reader fixtureはdescriptor close失敗を成功へ流用しない", () => {
   const fixture = path.join(
     coordinatorRoot,
     "tests",
@@ -854,7 +865,7 @@ test("固定readerの実子Processはstream close未確認を成功にせずProc
   assert.deepEqual(JSON.parse(result.stdout), {
     status: "reader_failed",
     line: null,
-    streamCloseConfirmed: false,
+    descriptorCloseConfirmed: false,
   });
 });
 
@@ -1405,6 +1416,35 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
       scenario.timers.every((timer) => timer.cleared),
       true,
     );
+  }
+
+  {
+    const scenario = readerProcessScenario();
+    const pending = readInteractiveConsoleLineOutcomeUsingAdapter(
+      17,
+      new AbortController().signal,
+      scenario.adapter as unknown as Parameters<
+        typeof readInteractiveConsoleLineOutcomeUsingAdapter
+      >[2],
+    );
+    scenario.child.stdout.emit(
+      "data",
+      Buffer.from(
+        `${JSON.stringify({
+          contract: INTERACTIVE_CONSOLE_READER_CONTRACT,
+          contractRevision: INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
+          status: "completed",
+          line: "123456",
+        })}\n`,
+        "utf8",
+      ),
+    );
+    assert.deepEqual(scenario.messages, []);
+    scenario.timers.find((timer) => timer.milliseconds === 500)?.callback();
+    assert.deepEqual(scenario.killSignals, ["SIGKILL"]);
+    scenario.child.stdout.emit("close");
+    scenario.child.emit("close", null);
+    assert.deepEqual(await pending, { status: "completed", line: "123456" });
   }
 
   for (const stopSource of ["cancel", "timeout"] as const) {
