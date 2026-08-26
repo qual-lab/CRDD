@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import test from "node:test";
 
 import {
+  createSignedRouteMatrixCliFailureResult,
   describeSignedRouteMatrixVerificationContract,
   isExactSignedRouteResult,
   runSignedRouteMatrixVerification,
@@ -245,6 +248,70 @@ test("route runner例外は既知結果を保持して未知状態を手動回�
   assert.equal(result.rawProviderOutputReported, null);
   assert.equal(result.hostPathReported, null);
   assert.equal(result.credentialReported, null);
+});
+
+test("非適合routeの観測field欠落またはnullは発生事実でなく未知へ集約する", async () => {
+  for (const field of [
+    "canonicalRepositoryChanged",
+    "rawProviderOutputReported",
+    "hostPathReported",
+    "credentialReported",
+  ]) {
+    for (const mode of ["missing", "null"] as const) {
+      const base: Record<string, unknown> = {
+        ...completed("forward", "interactive_initial_consent"),
+      };
+      if (mode === "missing") delete base[field];
+      else base[field] = null;
+      const result = await runSignedRouteMatrixVerification(
+        process.cwd(),
+        (async () =>
+          Object.freeze(
+            base,
+          )) as unknown as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+        () => Object.freeze({ status: "revoked" as const }),
+      );
+      assert.equal(result.status, "blocked", `${field}:${mode}`);
+      assert.equal(
+        result.validationFailure,
+        "route_nonconforming",
+        `${field}:${mode}`,
+      );
+      assert.equal(result.effectStateUnknown, true, `${field}:${mode}`);
+      assert.equal(result.manualRecoveryRequired, true, `${field}:${mode}`);
+      assert.equal(result.canonicalRepositoryChanged, null, `${field}:${mode}`);
+      assert.equal(result.rawProviderOutputReported, null, `${field}:${mode}`);
+      assert.equal(result.hostPathReported, null, `${field}:${mode}`);
+      assert.equal(result.credentialReported, null, `${field}:${mode}`);
+    }
+  }
+});
+
+test("CLI最外周は引数不正と実行中未知を別分類し観測事実を捏造しない", () => {
+  const unknown = createSignedRouteMatrixCliFailureResult("runner_exception");
+  assert.equal(unknown.effectStateUnknown, true);
+  assert.equal(unknown.manualRecoveryRequired, true);
+  assert.equal(unknown.canonicalRepositoryChanged, null);
+  assert.equal(unknown.rawProviderOutputReported, null);
+  assert.equal(unknown.hostPathReported, null);
+  assert.equal(unknown.credentialReported, null);
+
+  const cli = spawnSync(
+    process.execPath,
+    [path.resolve("scripts/verify-signed-route-matrix.ts"), "unexpected"],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(cli.status, 64);
+  assert.equal(cli.stderr, "");
+  assert.equal(cli.stdout.includes("unexpected"), false);
+  const result = JSON.parse(cli.stdout) as Record<string, unknown>;
+  assert.equal(result.validationFailure, "arguments_invalid");
+  assert.equal(result.effectStateUnknown, false);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.canonicalRepositoryChanged, false);
+  assert.equal(result.rawProviderOutputReported, false);
+  assert.equal(result.hostPathReported, false);
+  assert.equal(result.credentialReported, false);
 });
 
 test("同意取消の観測不能時は一つのrouteも開始しない", async () => {

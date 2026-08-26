@@ -218,7 +218,12 @@ export async function runSignedRouteMatrixVerification(
   }
   const completed = verifiedRouteCount === ROUTES.length;
   const effectStateUnknown = results.some(
-    (result) => result.effectStateUnknown === true,
+    (result) =>
+      result.effectStateUnknown === true ||
+      typeof result.canonicalRepositoryChanged !== "boolean" ||
+      typeof result.rawProviderOutputReported !== "boolean" ||
+      typeof result.hostPathReported !== "boolean" ||
+      typeof result.credentialReported !== "boolean",
   );
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
@@ -235,9 +240,9 @@ export async function runSignedRouteMatrixVerification(
     results: Object.freeze(results),
     cleanupConfirmed:
       completed && results.every((result) => result.cleanupConfirmed === true),
-    manualRecoveryRequired: results.some(
-      (result) => result.manualRecoveryRequired !== false,
-    ),
+    manualRecoveryRequired:
+      effectStateUnknown ||
+      results.some((result) => result.manualRecoveryRequired !== false),
     effectStateUnknown,
     canonicalRepositoryChanged: effectStateUnknown
       ? null
@@ -270,6 +275,7 @@ export function describeSignedRouteMatrixVerificationContract() {
       "all_routes_same_manifest_package_version_sequence_commit_and_tree",
     failureClassification: Object.freeze([
       "consent_reset_failed",
+      "arguments_invalid",
       "route_nonconforming",
       "release_identity_mismatch",
       "runner_exception",
@@ -282,9 +288,42 @@ export function describeSignedRouteMatrixVerificationContract() {
   });
 }
 
+export function createSignedRouteMatrixCliFailureResult(
+  validationFailure: "arguments_invalid" | "runner_exception",
+) {
+  const effectStateUnknown = validationFailure === "runner_exception";
+  return Object.freeze({
+    contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
+    contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
+    status: "blocked" as const,
+    reason:
+      validationFailure === "arguments_invalid"
+        ? "signed_route_matrix_arguments_invalid"
+        : "signed_route_matrix_failed_closed",
+    requestedRoutes: ROUTES,
+    attemptedRouteCount: 0,
+    completedRouteCount: 0,
+    failedRouteProfile: null,
+    validationFailure,
+    results: Object.freeze([]),
+    cleanupConfirmed: !effectStateUnknown,
+    manualRecoveryRequired: effectStateUnknown,
+    effectStateUnknown,
+    canonicalRepositoryChanged: effectStateUnknown ? null : false,
+    rawProviderOutputReported: effectStateUnknown ? null : false,
+    hostPathReported: effectStateUnknown ? null : false,
+    credentialReported: effectStateUnknown ? null : false,
+  });
+}
+
 async function main() {
-  if (process.argv.length !== 2)
-    throw new Error("signed_route_matrix_arguments_invalid");
+  if (process.argv.length !== 2) {
+    process.stdout.write(
+      `${JSON.stringify(createSignedRouteMatrixCliFailureResult("arguments_invalid"), null, 2)}\n`,
+    );
+    process.exitCode = 64;
+    return;
+  }
   const result = await runSignedRouteMatrixVerification(process.cwd());
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   process.exitCode = result.status === "completed" ? 0 : 2;
@@ -293,29 +332,7 @@ async function main() {
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   main().catch(() => {
     process.stdout.write(
-      `${JSON.stringify(
-        {
-          contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
-          contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
-          status: "blocked",
-          reason: "signed_route_matrix_failed_closed",
-          requestedRoutes: ROUTES,
-          attemptedRouteCount: 0,
-          completedRouteCount: 0,
-          failedRouteProfile: null,
-          validationFailure: "runner_exception",
-          results: [],
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-          effectStateUnknown: true,
-          canonicalRepositoryChanged: true,
-          rawProviderOutputReported: true,
-          hostPathReported: true,
-          credentialReported: true,
-        },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify(createSignedRouteMatrixCliFailureResult("runner_exception"), null, 2)}\n`,
     );
     process.exitCode = 2;
   });
