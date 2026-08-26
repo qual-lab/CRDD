@@ -4,10 +4,10 @@ import { fileURLToPath } from "node:url";
 
 export const INTERACTIVE_CONSOLE_READER_CONTRACT =
   "crdd-coordinator/interactive-console-reader";
-export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 5;
+export const INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION = 6;
 export const INTERACTIVE_CONSOLE_READER_MAXIMUM_BYTES = 64;
 export const INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS = 120_000;
-const INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS = 500;
+export const INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS = 5_000;
 
 export type ReaderInput = Readonly<{
   isTTY?: boolean;
@@ -219,7 +219,7 @@ export async function readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
       streamCloseConfirmed: isClosed,
     });
   }
-  return line === null
+  return line === null || !isClosed
     ? Object.freeze({
         status: "reader_failed",
         line: null,
@@ -329,10 +329,9 @@ async function main() {
   const onDisconnect = () => controller.abort();
   process.on("message", onMessage);
   process.once("disconnect", onDisconnect);
-  let mustTerminateOwnedReaderProcess = false;
+  let mustForceTerminateOwnedReaderProcess = false;
   try {
     if (!process.connected) return;
-    mustTerminateOwnedReaderProcess = true;
     const outcome = await readOwnedInteractiveConsoleLineOutcomeUsingAdapter(
       process.platform,
       controller.signal,
@@ -344,6 +343,11 @@ async function main() {
         destroyAndConfirmClose: destroyAndConfirmOwnedReaderStream,
       }),
     );
+    if (!outcome.streamCloseConfirmed) {
+      mustForceTerminateOwnedReaderProcess = true;
+      process.exitCode = 2;
+      return;
+    }
     if (!process.connected || controller.signal.aborted) return;
     const readerStatus =
       outcome.status === "completed" ? "completed" : "blocked";
@@ -358,7 +362,7 @@ async function main() {
     clearTimeout(timeout);
     process.removeListener("message", onMessage);
     process.removeListener("disconnect", onDisconnect);
-    if (mustTerminateOwnedReaderProcess) process.exit(process.exitCode ?? 2);
+    if (mustForceTerminateOwnedReaderProcess) process.exit(2);
   }
 }
 

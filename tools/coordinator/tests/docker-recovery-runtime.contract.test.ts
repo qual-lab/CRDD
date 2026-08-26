@@ -72,6 +72,35 @@ function consentRecord(boundary: string, generation: string) {
   });
 }
 
+test("RuntimeState inventoryは単一Active同意だけの正常状態をDocker recovery cleanと判定する", () => {
+  const rootPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-consent-only-runtime-state-"),
+  );
+  const boundary = "a".repeat(64);
+  const generation = "b".repeat(16);
+  const name = `external-send-consent-active-v2-${boundary}-${generation}.json`;
+  try {
+    writeCommittedDockerRecoveryJson(
+      rootPath,
+      name,
+      name,
+      consentRecord(boundary, generation),
+    );
+    const result = inspectDockerRecoveryRootSnapshotWithLock(
+      verifiedRoot(rootPath),
+      () => Object.freeze({ release: () => true }),
+    );
+    assert.equal(result.status, "completed", JSON.stringify(result));
+    assert.equal(result.reason, "docker_task_runtime_state_clean");
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(result.dockerRecoveryId, null);
+    assert.deepEqual(result.dockerRecoveryIds, []);
+    assert.deepEqual(result.activeStableLogicalHomeBindingHashes, []);
+  } finally {
+    fs.rmSync(rootPath, { recursive: true, force: true });
+  }
+});
+
 test("RuntimeState inventoryは単一Active同意とDocker状態を共存させ複数同意を拒否する", () => {
   const fixture = createKilledFullProductionRecoveryRoot("previous");
   const root = verifiedRoot(fixture.root);

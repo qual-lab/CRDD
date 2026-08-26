@@ -64,7 +64,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 14,
+    contractRevision: 15,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsDeviceOpenModes: { input: "r", output: "r+" },
     windowsUnicodeOutput: "node_unicode_tty_output_required",
@@ -111,6 +111,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     readerCancelGraceMs: 500,
     readerCleanupSchedulingMarginMs: 5_000,
     readerOrphanFailsafeMs: 120_000,
+    readerCloseTimeoutMs: 5_000,
     readerStandardIo:
       "child_fixed_conin_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:
@@ -118,8 +119,8 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
     readerCompletion:
       "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
     readerOwnedHandleCleanup:
-      "best_effort_stream_close_then_exact_child_process_exit_observed_by_parent",
-    readerSuccessRequiresStreamClose: false,
+      "confirmed_stream_close_before_success_then_exact_child_process_exit_observed_by_parent",
+    readerSuccessRequiresStreamClose: true,
     readerSuccessRequiresChildClose: true,
     windowsRedirectedOutput: "fail_closed",
     redirectedStandardInputAllowed: false,
@@ -808,8 +809,8 @@ test("固定reader子Processはstream closeとProcess終了cleanupを分離す�
     );
     observed.stream.write(Buffer.from("123456\r\n", "utf8"));
     assert.deepEqual(await pending, {
-      status: "completed",
-      line: "123456",
+      status: "reader_failed",
+      line: null,
       streamCloseConfirmed: false,
     });
   }
@@ -833,7 +834,7 @@ test("固定reader子Processはstream closeとProcess終了cleanupを分離す�
   }
 });
 
-test("固定readerの実子Processはstream close未確認でもProcess終了へ収束する", () => {
+test("固定readerの実子Processはstream close未確認を成功にせずProcess終了へ収束する", () => {
   const fixture = path.join(
     coordinatorRoot,
     "tests",
@@ -847,12 +848,12 @@ test("固定readerの実子Processはstream close未確認でもProcess終了へ
     encoding: "utf8",
     timeout: 5_000,
   });
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 2, result.stderr);
   assert.equal(result.signal, null);
   assert.equal(result.stderr, "");
   assert.deepEqual(JSON.parse(result.stdout), {
-    status: "completed",
-    line: "123456",
+    status: "reader_failed",
+    line: null,
     streamCloseConfirmed: false,
   });
 });

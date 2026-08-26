@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   INTERACTIVE_CONSOLE_READER_CONTRACT,
   INTERACTIVE_CONSOLE_READER_CONTRACT_REVISION,
+  INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS,
   INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
   readInteractiveConsoleLineFromStream,
 } from "./interactive-console-reader.ts";
@@ -17,7 +18,7 @@ export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 14;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 15;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -772,6 +773,7 @@ export function describeInteractiveConsoleContract() {
     readerCancelGraceMs: READER_CANCEL_GRACE_MS,
     readerCleanupSchedulingMarginMs: READER_CLEANUP_SCHEDULING_MARGIN_MS,
     readerOrphanFailsafeMs: INTERACTIVE_CONSOLE_READER_ORPHAN_FAILSAFE_MS,
+    readerCloseTimeoutMs: INTERACTIVE_CONSOLE_READER_CLOSE_TIMEOUT_MS,
     readerStandardIo:
       "child_fixed_conin_bounded_stdout_discarded_stderr_private_ipc",
     readerCancellation:
@@ -779,8 +781,8 @@ export function describeInteractiveConsoleContract() {
     readerCompletion:
       "exact_child_close_and_bounded_stdout_close_required_no_unknown_normal_return",
     readerOwnedHandleCleanup:
-      "best_effort_stream_close_then_exact_child_process_exit_observed_by_parent",
-    readerSuccessRequiresStreamClose: false,
+      "confirmed_stream_close_before_success_then_exact_child_process_exit_observed_by_parent",
+    readerSuccessRequiresStreamClose: true,
     readerSuccessRequiresChildClose: true,
     windowsRedirectedOutput: "fail_closed",
     redirectedStandardInputAllowed: false,

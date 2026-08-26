@@ -4418,8 +4418,16 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         return activeOrder || left.token.localeCompare(right.token);
       })
       .map((record) => record.token);
-    if (recoveryIds.length === 0)
-      throw new Error("docker_task_runtime_state_orphan_pointer");
+    if (recoveryIds.length === 0) {
+      return Object.freeze({
+        status: "completed" as const,
+        reason: "docker_task_runtime_state_clean",
+        manualRecoveryRequired: false,
+        dockerRecoveryId: null,
+        dockerRecoveryIds: Object.freeze([]),
+        activeStableLogicalHomeBindingHashes: Object.freeze([]),
+      });
+    }
     return Object.freeze({
       status: "completed" as const,
       reason:
