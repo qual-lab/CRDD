@@ -28,7 +28,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 4;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 5;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -37,7 +37,8 @@ type RuntimeRecord = Readonly<Record<string, unknown>>;
 export type SignedGeneralTaskRouteProfile =
   | "forward"
   | "reverse"
-  | "same-codex";
+  | "same-codex"
+  | "same-claude";
 type RouteExpectation = Readonly<{
   profile: SignedGeneralTaskRouteProfile;
   frontProvider: "codex" | "claude";
@@ -309,6 +310,13 @@ const ROUTE_EXPECTATIONS: Readonly<
     reviewerProvider: "claude",
     route: "front_codex__executor_codex__reviewer_claude",
   }),
+  "same-claude": Object.freeze({
+    profile: "same-claude",
+    frontProvider: "claude",
+    executorProvider: "claude",
+    reviewerProvider: "codex",
+    route: "front_claude__executor_claude__reviewer_codex",
+  }),
 });
 
 export function createSignedGeneralTaskVerificationRequest(
@@ -326,7 +334,7 @@ export function createSignedGeneralTaskVerificationRequest(
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze(["tools/coordinator/README.md", TARGET_PATH]),
     workClass:
-      routeProfile === "same-codex"
+      routeProfile === "same-codex" || routeProfile === "same-claude"
         ? "bounded_verification"
         : "bounded_implementation",
     planState: "complete",
@@ -470,7 +478,8 @@ export async function runSignedGeneralTaskVerification(
   if (
     routeProfile !== "forward" &&
     routeProfile !== "reverse" &&
-    routeProfile !== "same-codex"
+    routeProfile !== "same-codex" &&
+    routeProfile !== "same-claude"
   ) {
     return blocked(
       "signed_general_task_verification_arguments_invalid",
@@ -748,10 +757,11 @@ export function describeSignedGeneralTaskVerificationContract() {
       ROUTE_EXPECTATIONS.forward.route,
       ROUTE_EXPECTATIONS.reverse.route,
       ROUTE_EXPECTATIONS["same-codex"].route,
+      ROUTE_EXPECTATIONS["same-claude"].route,
     ]),
     defaultRouteProfile: "forward",
     routeArgumentGrammar:
-      "no_arguments_or_exact_--route_reverse_or_--route_same-codex",
+      "no_arguments_or_exact_--route_reverse_or_--route_same-codex_or_--route_same-claude",
     frontIdentityBinding:
       "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
     candidateDisposition: "exact_content_verify_then_discard",
@@ -768,7 +778,9 @@ async function main() {
       args.length === 0 ||
       (args.length === 2 &&
         args[0] === "--route" &&
-        (args[1] === "reverse" || args[1] === "same-codex"))
+        (args[1] === "reverse" ||
+          args[1] === "same-codex" ||
+          args[1] === "same-claude"))
     )
   ) {
     throw new Error("signed_general_task_verification_arguments_invalid");

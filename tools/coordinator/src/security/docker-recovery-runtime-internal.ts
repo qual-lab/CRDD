@@ -4211,6 +4211,52 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         );
         continue;
       }
+      if (/^external-send-consent-v1-[a-f0-9]{64}\.json$/u.test(entry.name)) {
+        if (
+          !entry.isFile() ||
+          entry.isSymbolicLink() ||
+          !entryNames.has(dockerRecoveryCommitName(entry.name))
+        )
+          throw new Error("docker_task_runtime_state_entry_replaced");
+        const consent = readExactJson(
+          path.join(rootPath, entry.name),
+          entry.name,
+        ).value as Record<string, unknown>;
+        const filenameHash =
+          /^external-send-consent-v1-([a-f0-9]{64})\.json$/u.exec(
+            entry.name,
+          )?.[1];
+        if (
+          !filenameHash ||
+          !exactRecordKeys(consent, [
+            "schema",
+            "consentBoundaryHash",
+            "policyId",
+            "sourceFileHash",
+            "informationClassification",
+            "providerBoundaries",
+            "localUserBindingHash",
+            "runtimeStateIdentityHash",
+            "runtimeStateProtectionHash",
+            "runtimeStateBindingHash",
+            "apiKeyFallbackAllowed",
+            "additionalPurchaseAllowed",
+          ]) ||
+          consent.schema !== "crdd-coordinator/external-send-consent/v1" ||
+          consent.consentBoundaryHash !== filenameHash ||
+          ![
+            consent.sourceFileHash,
+            consent.localUserBindingHash,
+            consent.runtimeStateIdentityHash,
+            consent.runtimeStateProtectionHash,
+            consent.runtimeStateBindingHash,
+          ].every((value) => typeof value === "string" && HEX64.test(value)) ||
+          consent.apiKeyFallbackAllowed !== false ||
+          consent.additionalPurchaseAllowed !== false
+        )
+          throw new Error("docker_task_runtime_state_entry_replaced");
+        continue;
+      }
       throw new Error("docker_task_runtime_state_unknown_entry");
     }
     for (const journalRecoveryId of journalIntentRecoveryIds) {

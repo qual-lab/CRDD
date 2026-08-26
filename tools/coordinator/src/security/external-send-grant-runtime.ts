@@ -14,6 +14,10 @@ import {
 } from "../core/runtime-process-safety-state.ts";
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "./candidate-store-kernel-lock.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
+import {
+  persistRuntimeOwnedExternalSendConsent,
+  resolveRuntimeOwnedExternalSendConsent,
+} from "./external-send-consent-runtime.ts";
 import { verifyRuntimeOwnedExternalSendPolicy } from "./external-send-policy-runtime.ts";
 import {
   snapshotPlainArray,
@@ -24,7 +28,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 12;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 13;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -75,6 +79,8 @@ type RuntimeDependencies = Readonly<{
   wallNow: () => number;
   monotonicNow: () => number;
   randomChallenge: () => string;
+  resolveConsent?: typeof resolveRuntimeOwnedExternalSendConsent;
+  persistConsent?: typeof persistRuntimeOwnedExternalSendConsent;
 }>;
 type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
@@ -374,6 +380,8 @@ const productionState = createState(
     wallNow: Date.now,
     monotonicNow: performance.now.bind(performance),
     randomChallenge: () => randomInt(0, 1_000_000).toString().padStart(6, "0"),
+    resolveConsent: resolveRuntimeOwnedExternalSendConsent,
+    persistConsent: persistRuntimeOwnedExternalSendConsent,
   }),
 );
 
@@ -440,6 +448,18 @@ async function requestGrant(
       providers.includes(destination.provider),
     );
     if (authorizedDestinations.length !== providers.length) return null;
+    const reusableConsent = state.dependencies.resolveConsent?.(policy);
+    if (reusableConsent?.status === "cleanup_unknown") {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason:
+          "external_send_consent_cleanup_unknown_process_restart_required",
+        manualRecoveryRequired: true,
+        externalSendAuthorized: false,
+        rawContentReported: false,
+        hostPathReported: false,
+      });
+    }
     const displayedAuthorization = Object.freeze({
       policyId: policy.policyId,
       policyHash: policy.policyHash,
@@ -465,35 +485,55 @@ async function requestGrant(
       }),
     });
     const notice = [
-      "Coordinator Runtime 外部送信承認（表示内容が送信Authorityの全範囲です）",
+      "Coordinator Runtime 初期外部送信設定（表示した処理境界が変更されるまで再確認しません）",
       terminalSafeJson(displayedAuthorization),
       "対象内容はProviderへ送信され、Subscription枠を消費する可能性があります。API key fallbackと追加購入は行いません。",
     ].join("\n");
-    const rawConfirmation = await state.dependencies.confirm(
-      notice,
-      challenge,
-      cancellationSignal,
-    );
-    const confirmation: ConsoleConfirmationOutcome =
-      typeof rawConfirmation === "boolean"
-        ? Object.freeze({
-            status: rawConfirmation ? "confirmed" : "declined_invalid",
-          })
-        : rawConfirmation;
-    if (confirmation.status !== "confirmed" || cancellationSignal.aborted) {
-      return Object.freeze({
-        status: "blocked" as const,
-        reason:
-          confirmation.status === "cleanup_unknown"
-            ? "external_send_confirmation_cleanup_unknown_process_restart_required"
-            : `external_send_confirmation_${
-                cancellationSignal.aborted ? "cancelled" : confirmation.status
-              }`,
-        manualRecoveryRequired: confirmation.status === "cleanup_unknown",
-        externalSendAuthorized: false,
-        rawContentReported: false,
-        hostPathReported: false,
-      });
+    let authorizationMode:
+      | "reused_initial_consent"
+      | "interactive_initial_consent" = "reused_initial_consent";
+    if (reusableConsent?.status !== "confirmed") {
+      authorizationMode = "interactive_initial_consent";
+      const rawConfirmation = await state.dependencies.confirm(
+        notice,
+        challenge,
+        cancellationSignal,
+      );
+      const confirmation: ConsoleConfirmationOutcome =
+        typeof rawConfirmation === "boolean"
+          ? Object.freeze({
+              status: rawConfirmation ? "confirmed" : "declined_invalid",
+            })
+          : rawConfirmation;
+      if (confirmation.status !== "confirmed" || cancellationSignal.aborted) {
+        return Object.freeze({
+          status: "blocked" as const,
+          reason:
+            confirmation.status === "cleanup_unknown"
+              ? "external_send_confirmation_cleanup_unknown_process_restart_required"
+              : `external_send_confirmation_${
+                  cancellationSignal.aborted ? "cancelled" : confirmation.status
+                }`,
+          manualRecoveryRequired: confirmation.status === "cleanup_unknown",
+          externalSendAuthorized: false,
+          rawContentReported: false,
+          hostPathReported: false,
+        });
+      }
+      if (state.dependencies.persistConsent) {
+        const persisted = state.dependencies.persistConsent(policy);
+        if (persisted.status !== "confirmed") {
+          return Object.freeze({
+            status: "blocked" as const,
+            reason:
+              "external_send_consent_cleanup_unknown_process_restart_required",
+            manualRecoveryRequired: true,
+            externalSendAuthorized: false,
+            rawContentReported: false,
+            hostPathReported: false,
+          });
+        }
+      }
     }
     const capability = Object.freeze({});
     state.grants.set(capability, {
@@ -517,6 +557,7 @@ async function requestGrant(
       revision: repository.revision,
       providerCandidates: Object.freeze(providers),
       externalSendAuthorized: true,
+      authorizationMode,
       derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
       apiKeyFallbackAllowed: false,
       additionalPurchaseAllowed: false,
@@ -702,9 +743,13 @@ export function describeExternalSendGrantRuntimeContract() {
     contract: EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT,
     contractRevision: EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION,
     authoritySource:
-      "authenticated_local_user_interactive_console_confirmation",
+      "authenticated_local_user_initial_console_confirmation_reused_for_exact_runtime_owned_boundary",
     interactiveConfirmation:
-      "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
+      "first_boundary_only_async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
+    normalOperationConfirmation:
+      "not_required_for_exact_unchanged_runtime_owned_consent_boundary",
+    reapproval:
+      "policy_boundary_change_missing_consent_different_selected_user_or_unresolved_state",
     taskStandardInputRole: "structured_transport_only",
     readerProcessEffect:
       "operation_authorized_single_use_before_workspace_provider_and_network",

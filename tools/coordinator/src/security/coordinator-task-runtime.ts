@@ -89,6 +89,7 @@ const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
   "external_send_confirmation_reader_failed",
   "external_send_confirmation_cleanup_unknown",
   "external_send_confirmation_cleanup_unknown_process_restart_required",
+  "external_send_consent_cleanup_unknown_process_restart_required",
 ]);
 
 type Provider = "codex" | "claude";

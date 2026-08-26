@@ -233,7 +233,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);
@@ -245,6 +245,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     "front_codex__executor_claude__reviewer_codex",
     "front_claude__executor_codex__reviewer_claude",
     "front_codex__executor_codex__reviewer_claude",
+    "front_claude__executor_claude__reviewer_codex",
   ]);
   assert.equal(contract.defaultRouteProfile, "forward");
   assert.equal(contract.minimumNodeVersion, "24.12.0");
@@ -282,7 +283,7 @@ test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => 
   assert.equal(parsed.canonicalRepositoryChanged, false);
 });
 
-test("CLIのRoute grammarは引数なしと二つのexact profileだけを許可する", () => {
+test("CLIのRoute grammarは引数なしと三つのexact profileだけを許可する", () => {
   const script = path.join(
     coordinatorRoot,
     "scripts/verify-signed-general-task.ts",
@@ -291,7 +292,7 @@ test("CLIのRoute grammarは引数なしと二つのexact profileだけを許可
     ["--route"],
     ["--route", "forward"],
     ["--route", "claude"],
-    ["--route", "same-claude"],
+    ["--route", "same-codex", "extra"],
     ["--route", "reverse", "extra"],
   ]) {
     const result = spawnSync(process.execPath, [script, ...args], {
@@ -493,6 +494,30 @@ test("Codex特性を選ぶ具体化済み検証はCodex Executorと独立Claude 
   assert.equal(result.route, "front_codex__executor_codex__reviewer_claude");
   assert.equal(result.executorProvider, "codex");
   assert.equal(result.reviewerProvider, "claude");
+  assert.equal(result.reviewerIndependence, "provider_independent");
+  assert.deepEqual(fixture.calls.passedRequest, request);
+});
+
+test("Claude特性を選ぶ具体化済み検証はClaude Executorと独立Codex Reviewへ固定する", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      executorProvider: "claude",
+      reviewerProvider: "codex",
+    }),
+  });
+  const request = createSignedGeneralTaskVerificationRequest("same-claude");
+  assert.equal(request.frontProvider, "claude");
+  assert.equal(request.workClass, "bounded_verification");
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+    "same-claude",
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.requestedRouteProfile, "same-claude");
+  assert.equal(result.route, "front_claude__executor_claude__reviewer_codex");
+  assert.equal(result.executorProvider, "claude");
+  assert.equal(result.reviewerProvider, "codex");
   assert.equal(result.reviewerIndependence, "provider_independent");
   assert.deepEqual(fixture.calls.passedRequest, request);
 });

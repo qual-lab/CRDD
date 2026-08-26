@@ -115,6 +115,7 @@ function fixture(
           | "reader_failed"
           | "cleanup_unknown";
       }> = true,
+  consentStatus?: "confirmed" | "absent" | "cleanup_unknown",
 ) {
   const managementCapability = Object.freeze({});
   const repositoryBindingCapability = Object.freeze({});
@@ -123,6 +124,7 @@ function fixture(
   let monotonic = 10_000;
   let revision = "1".repeat(40);
   const notices: string[] = [];
+  let persistedConsents = 0;
   const dependencies = {
     verifyOperation: (candidate: unknown) => {
       if (candidate !== managementCapability) throw new Error("bad operation");
@@ -200,6 +202,15 @@ function fixture(
     wallNow: () => wall,
     monotonicNow: () => monotonic,
     randomChallenge: () => "123456",
+    ...(consentStatus
+      ? {
+          resolveConsent: () => Object.freeze({ status: consentStatus }),
+          persistConsent: () => {
+            persistedConsents += 1;
+            return Object.freeze({ status: "confirmed" as const });
+          },
+        }
+      : {}),
   };
   const runtime = createIsolatedExternalSendGrantRuntimeCandidate(
     dependencies as unknown as Parameters<
@@ -212,6 +223,7 @@ function fixture(
     repositoryBindingCapability,
     policyCapability,
     notices,
+    persistedConsents: () => persistedConsents,
     advance: (milliseconds: number) => {
       wall += milliseconds;
       monotonic += milliseconds;
@@ -634,10 +646,14 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 12);
+  assert.equal(contract.contractRevision, 13);
   assert.equal(
     contract.interactiveConfirmation,
-    "async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
+    "first_boundary_only_async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
+  );
+  assert.equal(
+    contract.normalOperationConfirmation,
+    "not_required_for_exact_unchanged_runtime_owned_consent_boundary",
   );
   assert.equal(contract.taskStandardInputRole, "structured_transport_only");
   assert.equal(
@@ -668,6 +684,53 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.additionalPurchaseAllowed, false);
   assert.equal(contract.reviewerMessageTextForwarded, false);
+});
+
+test("同じRuntime-owned初期同意境界では対話を繰り返さず短命Operation Grantだけを発行する", async () => {
+  const reused = fixture(false, "confirmed");
+  const issued = await reused.runtime.request(
+    reused.managementCapability,
+    reused.repositoryBindingCapability,
+    reused.policyCapability,
+    SCOPE,
+    ["codex", "claude"],
+  );
+  assert.equal(issued?.status, "issued");
+  assert.equal(issued?.authorizationMode, "reused_initial_consent");
+  assert.equal(reused.notices.length, 0);
+  assert.equal(reused.persistedConsents(), 0);
+
+  const initial = fixture(true, "absent");
+  const initiallyIssued = await initial.runtime.request(
+    initial.managementCapability,
+    initial.repositoryBindingCapability,
+    initial.policyCapability,
+    SCOPE,
+    ["codex", "claude"],
+  );
+  assert.equal(initiallyIssued?.status, "issued");
+  assert.equal(
+    initiallyIssued?.authorizationMode,
+    "interactive_initial_consent",
+  );
+  assert.equal(initial.notices.length, 1);
+  assert.equal(initial.persistedConsents(), 1);
+
+  const unknown = fixture(true, "cleanup_unknown");
+  const blocked = await unknown.runtime.request(
+    unknown.managementCapability,
+    unknown.repositoryBindingCapability,
+    unknown.policyCapability,
+    SCOPE,
+    ["claude"],
+  );
+  assert.equal(blocked?.status, "blocked");
+  assert.equal(
+    blocked?.reason,
+    "external_send_consent_cleanup_unknown_process_restart_required",
+  );
+  assert.equal(blocked?.manualRecoveryRequired, true);
+  assert.equal(unknown.notices.length, 0);
 });
 
 test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", async () => {
