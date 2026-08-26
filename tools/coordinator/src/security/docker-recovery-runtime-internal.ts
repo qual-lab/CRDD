@@ -35,7 +35,9 @@ import {
   beginOwnedDockerSubmissionRecovery,
   completeOwnedDockerSubmissionRecovery,
   confirmOwnedDockerAbsenceForRecovery,
+  consumeOwnedHostRecoveryIdForCleanup,
   getOwnedHostRecoveryIdByManagementCapability,
+  issueOwnedHostCleanupCapability,
   recoverOwnedOperationDirectories,
   releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
@@ -139,6 +141,7 @@ type RuntimeStateBindingEvidence = Readonly<{
 }>;
 
 const durableRecords = new WeakMap<object, DurableRecord>();
+const dockerHostCleanupCapabilities = new WeakMap<object, object>();
 const releasedLogicalHomeLeases = new WeakSet<object>();
 
 function canonical(value: unknown) {
@@ -1159,6 +1162,14 @@ function completeProductionRecovery(
     if (!record.logicalHomeLease.release())
       return Object.freeze({ status: "blocked" as const });
     releasedLogicalHomeLeases.add(recoveryCapability as object);
+    const cleanupCapability = issueOwnedHostCleanupCapability(
+      managementCapability,
+      recoveryCapability,
+    );
+    dockerHostCleanupCapabilities.set(
+      recoveryCapability as object,
+      cleanupCapability,
+    );
     return Object.freeze({
       status: "completed" as const,
       recoveryFinalizationCapability: recoveryCapability as object,
@@ -1207,6 +1218,9 @@ export function finalizeRuntimeOwnedDockerRecovery(
       commitDirectoryMutationBoundary(record.rootPath);
     });
     durableRecords.delete(recoveryFinalizationCapability as object);
+    dockerHostCleanupCapabilities.delete(
+      recoveryFinalizationCapability as object,
+    );
     return Object.freeze({ status: "completed" as const });
   } catch {
     return Object.freeze({ status: "blocked" as const });
@@ -1225,8 +1239,16 @@ export function prepareRuntimeOwnedDockerHostCleanup(
       )
     )
       return null;
-    const currentHostRecoveryId = getOwnedHostRecoveryIdByManagementCapability(
-      record.managementCapability,
+    const cleanupCapability = dockerHostCleanupCapabilities.get(
+      recoveryFinalizationCapability as object,
+    );
+    if (!cleanupCapability) return null;
+    const currentHostRecoveryId = consumeOwnedHostRecoveryIdForCleanup(
+      cleanupCapability,
+      recoveryFinalizationCapability,
+    );
+    dockerHostCleanupCapabilities.delete(
+      recoveryFinalizationCapability as object,
     );
     const intentPath = path.join(
       record.operationDirectory,
@@ -1318,6 +1340,7 @@ export function recordRuntimeOwnedDockerHostCleanupReceipt(
 export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
   const record = durableRecord(recoveryCapability);
   if (!record) return false;
+  dockerHostCleanupCapabilities.delete(recoveryCapability as object);
   if (releasedLogicalHomeLeases.has(recoveryCapability as object)) return true;
   const released = record.logicalHomeLease.release();
   if (released) releasedLogicalHomeLeases.add(recoveryCapability as object);

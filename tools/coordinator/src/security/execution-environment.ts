@@ -169,6 +169,7 @@ type OperationGenerationState = {
   nonce: string;
   currentRecordHash: string;
   retired: boolean;
+  lossOutcome: "cleanup_confirmed_failure" | "cleanup_unknown" | null;
   generationLock: NonNullable<
     Awaited<
       ReturnType<typeof acquireRuntimeOwnedHostOperationSupervisorLock>
@@ -177,6 +178,19 @@ type OperationGenerationState = {
 };
 const operationGenerationsByKey = new Map<string, OperationGenerationState>();
 const operationGenerationByRoot = new Map<string, OperationGenerationState>();
+type HostCleanupCapabilityIdentity = Readonly<{
+  owned: object;
+  operationId: string;
+  createdAt: string;
+  root: string;
+  nonce: string;
+  recordHash: string;
+  subject: object;
+}>;
+const hostCleanupCapabilities = new WeakMap<
+  object,
+  HostCleanupCapabilityIdentity
+>();
 
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
@@ -233,6 +247,7 @@ function registerOwnedOperationGeneration(
     nonce: identity.hostRecovery.nonce,
     currentRecordHash: recordHash,
     retired: false,
+    lossOutcome: null,
     generationLock: null,
   };
   operationGenerationsByKey.set(key, state);
@@ -410,9 +425,10 @@ function operationIdentityReplacement(error: unknown): boolean {
 function validateOwnedOperationIdentity(
   owned: object,
   identity: OwnedIdentity,
+  shouldAllowRetired = false,
 ): ChildSnapshots {
   try {
-    ownedOperationGeneration(owned, identity);
+    ownedOperationGeneration(owned, identity, shouldAllowRetired);
     if (
       !identity.children ||
       ownString(owned, "root") !== identity.root ||
@@ -1125,6 +1141,7 @@ export function observeOwnedHostOperationGenerationLoss(
     detected,
     outcome: lock.loss.then((outcome) => {
       generation.retired = true;
+      generation.lossOutcome = outcome;
       revokeOwnedOperationEffectCapabilities(generation.owned);
       if (outcome === "cleanup_unknown")
         poisonRuntimeProcessAfterCleanupUnknown();
@@ -1215,6 +1232,66 @@ export function getOwnedHostRecoveryIdByManagementCapability(
 ) {
   const { identity } =
     ownedOperationFromManagementCapability(managementCapability);
+  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
+  return expectedHostRecoveryToken(identity);
+}
+
+/** @internal Runtime-only, per-Docker-finalization cleanup authority. */
+export function issueOwnedHostCleanupCapability(
+  managementCapability: unknown,
+  subject: unknown,
+) {
+  const { binding, identity } =
+    ownedOperationFromManagementCapability(managementCapability);
+  if (!isObject(subject))
+    throw new Error("owned_host_cleanup_subject_required");
+  const generation = ownedOperationGeneration(binding.owned, identity);
+  validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
+  const capability = Object.freeze({});
+  hostCleanupCapabilities.set(
+    capability,
+    Object.freeze({
+      owned: binding.owned,
+      operationId: binding.operationId,
+      createdAt: binding.createdAt,
+      root: identity.root,
+      nonce: identity.hostRecovery.nonce,
+      recordHash: generation.currentRecordHash,
+      subject,
+    }),
+  );
+  return capability;
+}
+
+/** @internal Consumed only by the Docker host-cleanup intent adapter. */
+export function consumeOwnedHostRecoveryIdForCleanup(
+  cleanupCapability: unknown,
+  subject: unknown,
+) {
+  const capability = isObject(cleanupCapability) ? cleanupCapability : null;
+  const binding = capability
+    ? (hostCleanupCapabilities.get(capability) ?? null)
+    : null;
+  if (!capability || !binding || binding.subject !== subject)
+    throw new Error("owned_host_cleanup_capability_required");
+  hostCleanupCapabilities.delete(capability);
+  const identity = ownedIdentities.get(binding.owned);
+  if (
+    !identity ||
+    identity.operationId !== binding.operationId ||
+    identity.createdAt !== binding.createdAt ||
+    identity.root !== binding.root ||
+    identity.hostRecovery.nonce !== binding.nonce
+  )
+    throw new Error("owned_host_cleanup_identity_changed");
+  const generation = ownedOperationGeneration(binding.owned, identity, true);
+  if (
+    generation.currentRecordHash !== binding.recordHash ||
+    (generation.retired &&
+      generation.lossOutcome !== "cleanup_confirmed_failure")
+  )
+    throw new Error("owned_host_cleanup_generation_unavailable");
+  validateOwnedOperationIdentity(binding.owned, identity, true);
   validatePrivateHostRecoveryRecord(identity, identity.hostRecovery.state);
   return expectedHostRecoveryToken(identity);
 }

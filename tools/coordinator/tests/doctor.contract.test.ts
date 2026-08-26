@@ -39,6 +39,7 @@ import {
   cleanupOwnedOperationDirectories,
   cleanupOwnedOperationDirectoriesAsync,
   confirmOwnedHostOperationGenerationLockReadiness,
+  consumeOwnedHostRecoveryIdForCleanup,
   createOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -48,6 +49,7 @@ import {
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
   getOwnedHostRecoveryId,
+  issueOwnedHostCleanupCapability,
   recoverOwnedOperationDirectories,
   transitionOwnedDockerSubmissionState,
   verifyOwnedMountCapability,
@@ -3402,6 +3404,33 @@ test("Host recoveryはroot削除済みでも外部markerを安全に完了する
     /capability_required/u,
   );
   assert.equal(recoverOwnedOperationDirectories(token).status, "blocked");
+});
+
+test("Host cleanup-only Capabilityはexact subjectへ一回だけ閉じる", async () => {
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const subject = Object.freeze({});
+  const capability = issueOwnedHostCleanupCapability(management, subject);
+  assert.throws(
+    () => consumeOwnedHostRecoveryIdForCleanup({ ...capability }, subject),
+    /capability_required/u,
+  );
+  assert.throws(
+    () => consumeOwnedHostRecoveryIdForCleanup(capability, Object.freeze({})),
+    /capability_required/u,
+  );
+  const replacement = issueOwnedHostCleanupCapability(management, subject);
+  assert.equal(
+    consumeOwnedHostRecoveryIdForCleanup(replacement, subject),
+    getOwnedHostRecoveryId(owned),
+  );
+  assert.throws(
+    () => consumeOwnedHostRecoveryIdForCleanup(replacement, subject),
+    /capability_required/u,
+  );
+  await cleanupOwnedOperationDirectoriesAsync(owned);
 });
 
 test("同期Host cleanupはSupervisor lockを未確認releaseせずEffect前に拒否する", async () => {

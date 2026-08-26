@@ -65,6 +65,7 @@ function fixture(
     processStartFailureRole?: "executor" | "reviewer";
     processCleanupFailureRole?: "executor" | "reviewer";
     hostCleanupWal?: boolean;
+    dockerReceiptFailsAt?: number;
     dockerFinalizeFailsAt?: number;
     slateExecutorProvider?: "codex" | "claude";
     slateReviewerProvider?: "codex" | "claude";
@@ -102,6 +103,8 @@ function fixture(
   let discardCount = 0;
   let externalAuthorizationCount = 0;
   let dockerFinalizeCount = 0;
+  let dockerReceiptCount = 0;
+  let abandonOperationCount = 0;
   let operationCreateCount = 0;
   let candidateStorePrepareCount = 0;
   let workspaceMaterializeCount = 0;
@@ -182,7 +185,10 @@ function fixture(
           : outcome === cleanupProtocolFailure
             ? ("protocol_failure_cleanup_confirmed" as const)
             : null,
-    abandonOperation: async () => "released" as const,
+    abandonOperation: async () => {
+      abandonOperationCount += 1;
+      return "released" as const;
+    },
     poisonProcessAfterCleanupUnknown: () => {
       poisonProcessCount += 1;
     },
@@ -532,7 +538,8 @@ function fixture(
           },
           recordDockerHostCleanupReceipt: () => {
             events.push("docker-host-cleanup-receipt");
-            return true;
+            dockerReceiptCount += 1;
+            return options.dockerReceiptFailsAt !== dockerReceiptCount;
           },
           finalizeDockerRecovery: () => {
             events.push("docker-finalize");
@@ -568,6 +575,7 @@ function fixture(
     cancelProcessCount: () => cancelProcessCount,
     poisonProcessCount: () => poisonProcessCount,
     releaseDrainCount: () => releaseDrainCount,
+    abandonOperationCount: () => abandonOperationCount,
     externalCancellationSignal: () => externalCancellationSignal,
     releaseExternalAuthorization: () => {
       assert.ok(releaseExternalAuthorization);
@@ -936,6 +944,28 @@ test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合�
     "docker.fixture.reviewer.active",
   ]);
   assert.equal(result.dockerRecoveryId, "docker.fixture.reviewer.active");
+  assert.equal(result.hostRecoveryId, null);
+  assert.equal(harness.abandonOperationCount(), 0);
+});
+
+test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開しない", async () => {
+  const harness = fixture({ hostCleanupWal: true, dockerReceiptFailsAt: 1 });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_host_cleanup_receipt_unconfirmed",
+  );
+  assert.equal(result.hostRecoveryId, null);
+  assert.deepEqual(result.dockerRecoveryIds, [
+    "docker.fixture.executor.active",
+    "docker.fixture.reviewer.active",
+  ]);
+  assert.equal(harness.abandonOperationCount(), 0);
 });
 
 test("全Docker handoff finalize後のCandidate永続化失敗はDocker IDを返さない", async () => {
@@ -1312,6 +1342,7 @@ test("全Docker finalize後のCandidate publish例外へ削除済みDocker IDを
   assert.equal(result.status, "blocked");
   assert.equal(result.dockerRecoveryId, null);
   assert.deepEqual(result.dockerRecoveryIds, []);
+  assert.equal(result.hostRecoveryId, null);
 });
 
 test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない", async () => {
@@ -1328,6 +1359,7 @@ test("先行finalize済みIDはCandidate discard例外後のcatchへ残さない
   assert.equal(result.status, "blocked");
   assert.equal(result.dockerRecoveryId, null);
   assert.deepEqual(result.dockerRecoveryIds, []);
+  assert.equal(result.hostRecoveryId, null);
 });
 
 test("Provider completion rejectは取消を試みOperation RootをRecovery用に保持する", async () => {

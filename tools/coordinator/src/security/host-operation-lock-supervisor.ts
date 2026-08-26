@@ -17,6 +17,8 @@ let state: "starting" | "acquired" | "ready" | "closing" | "release_pending" =
 let closeStarted = false;
 let closeExitCode = 0;
 let shouldReportRelease = false;
+let finishScheduled = false;
+let disconnectCommitted = false;
 
 function send(
   status: "acquired" | "ready" | "release-ready" | "released" | "unavailable",
@@ -32,7 +34,27 @@ function send(
 
 function disconnectAndExit(exitCode: number) {
   process.exitCode = exitCode;
-  if (process.connected) process.disconnect();
+  if (process.connected) {
+    disconnectCommitted = true;
+    process.disconnect();
+  }
+}
+
+function scheduleFinalExit() {
+  if (finishScheduled) return;
+  finishScheduled = true;
+  setImmediate(() => {
+    setImmediate(() => {
+      finishScheduled = false;
+      if (closeExitCode === 0 && shouldReportRelease && state === "closing") {
+        if (!send("released")) {
+          closeExitCode = 70;
+          shouldReportRelease = false;
+        }
+      }
+      disconnectAndExit(closeExitCode);
+    });
+  });
 }
 
 function closeAndExit(reportRelease: boolean, exitCode: number) {
@@ -50,13 +72,7 @@ function closeAndExit(reportRelease: boolean, exitCode: number) {
   }
   closeStarted = true;
   state = "closing";
-  const finish = () => {
-    setImmediate(() => {
-      if (shouldReportRelease && !send("released"))
-        return disconnectAndExit(70);
-      disconnectAndExit(closeExitCode);
-    });
-  };
+  const finish = scheduleFinalExit;
   if (server.listening) server.close(finish);
   else finish();
 }
@@ -92,15 +108,16 @@ process.on("message", (message: unknown) => {
   }
   if (message === "confirm-release" && state === "release_pending") {
     state = "closing";
-    setImmediate(() => {
-      if (!send("released")) return disconnectAndExit(70);
-      disconnectAndExit(0);
-    });
+    closeExitCode = 0;
+    shouldReportRelease = true;
+    scheduleFinalExit();
     return;
   }
   closeAndExit(false, 65);
 });
-process.once("disconnect", () => closeAndExit(false, 66));
+process.once("disconnect", () => {
+  if (!disconnectCommitted) closeAndExit(false, 66);
+});
 server.once("error", () => {
   send("unavailable");
   closeAndExit(false, 67);

@@ -274,6 +274,7 @@ type ControlRecord = {
   cancellationController: AbortController;
   ownedOperation: object | null;
   retainOperationRoot: boolean;
+  hostCleanupCompleted: boolean;
   hostRecoveryId: string | null;
   hostGenerationLossOutcome:
     | "cleanup_confirmed_failure"
@@ -1483,14 +1484,15 @@ async function retainRuntimeRecoveryState(
   state: RuntimeState,
   control: ControlRecord,
 ) {
-  control.retainOperationRoot = true;
+  control.retainOperationRoot = !control.hostCleanupCompleted;
   for (const handoff of control.dockerHandoffs) {
     if (handoff.state === "finalized" || handoff.state === "abandoned")
       continue;
     if (state.dependencies.abandonDockerRecovery?.(handoff.capability) === true)
       handoff.state = "abandoned";
   }
-  await state.dependencies.abandonOperation(control.managementCapability);
+  if (!control.hostCleanupCompleted)
+    await state.dependencies.abandonOperation(control.managementCapability);
 }
 
 function createRuntime(dependencies: RuntimeDependencies) {
@@ -1512,6 +1514,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         cancellationController: new AbortController(),
         ownedOperation: null,
         retainOperationRoot: false,
+        hostCleanupCompleted: false,
         hostRecoveryId: null,
         hostGenerationLossOutcome: null,
         hostGenerationLoss: null,
@@ -1658,6 +1661,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 );
               if (cleanup === "protocol_failure_cleanup_confirmed")
                 hostProtocolFailure = true;
+              control.hostCleanupCompleted = true;
+              control.hostRecoveryId = null;
+              control.ownedOperation = null;
+              result = Object.freeze({ ...result, hostRecoveryId: null });
             }
             const lateHostLoss = await settleObservedHostLoss();
             if (lateHostLoss === "cleanup_unknown") {

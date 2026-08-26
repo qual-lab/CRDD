@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { EventEmitter, once } from "node:events";
+import { createServer } from "node:net";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -443,6 +444,90 @@ test("Host Operation Supervisor entrypointはclosing中の親command違反をnon
       false,
     );
   }
+});
+
+test("Host Operation Supervisor entrypointはconfirm-release後の違反を成功へ戻さない", async () => {
+  const entrypoint = fileURLToPath(
+    new URL(
+      "../src/security/host-operation-lock-supervisor.ts",
+      import.meta.url,
+    ),
+  );
+  const violations = [
+    "confirm-release",
+    "release",
+    "confirm-ready",
+    Object.freeze({ command: "unknown" }),
+  ] as const;
+  for (const [index, violation] of violations.entries()) {
+    const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${(index + 16).toString(16).padStart(32, "b")}`;
+    const child = spawn(process.execPath, [entrypoint, pipeName], {
+      env: {},
+      shell: false,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
+    });
+    const messages: unknown[] = [];
+    child.on("message", (message) => {
+      messages.push(message);
+      const status = (message as { status?: unknown })?.status;
+      if (status === "acquired") child.send("release");
+      if (status === "release-ready") {
+        child.send("confirm-release");
+        child.send(violation);
+      }
+    });
+    const [exitCode] = (await once(child, "exit")) as [number | null];
+    assert.notEqual(exitCode, 0);
+    assert.equal(
+      messages.some(
+        (message) => (message as { status?: unknown })?.status === "released",
+      ),
+      false,
+    );
+    const server = createServer();
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(pipeName, resolve);
+    });
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("Host Operation Supervisor entrypointはconfirm-release直後の親disconnectを成功にしない", async () => {
+  const entrypoint = fileURLToPath(
+    new URL(
+      "../src/security/host-operation-lock-supervisor.ts",
+      import.meta.url,
+    ),
+  );
+  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${"c".repeat(32)}`;
+  const child = spawn(process.execPath, [entrypoint, pipeName], {
+    env: {},
+    shell: false,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe", "ipc"],
+  });
+  const messages: unknown[] = [];
+  child.on("message", (message) => {
+    messages.push(message);
+    const status = (message as { status?: unknown })?.status;
+    if (status === "acquired") child.send("release");
+    if (status === "release-ready") {
+      child.send("confirm-release");
+      child.disconnect();
+    }
+  });
+  const [exitCode] = (await once(child, "exit")) as [number | null];
+  assert.notEqual(exitCode, 0);
+  assert.equal(
+    messages.some(
+      (message) => (message as { status?: unknown })?.status === "released",
+    ),
+    false,
+  );
 });
 
 test("Windows対話Console lockは同時承認readerを一つへ限定する", async () => {
