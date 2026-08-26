@@ -148,6 +148,8 @@ Coordinatorは利用可能な候補から、Taskの具体性、曖昧さ、影�
 
 同名、prefix、Path文字列またはcaller claimだけで資源を削除しない。Process、container、mount、Registry／certificate等のHost Effect、Candidate Storeおよび一時領域は、Operation ID、private ownership token、実体Identity、pre-stateおよび現在状態を照合する。期待状態と観測状態が異なる場合は上書き復元せず、人間へ返す。
 
+正式Runnerの対話承認待ちを実際に取消した際、固定console readerへの取消IPCと子Processの`close`が競合し、遅延`EPIPE`がlistener回収後に親Processへ未処理再送出される欠陥を確認した。取消IPCは完了callbackを必須にして遅延channel errorをその場で回収し、成功／取消／timeoutの判定は従来どおり子Processとstdoutの両`close`およびforce-stop fallbackだけに結合した。同じ遅延順序を契約試験へ追加し、Provider、Authority、Task入力またはcleanup成功条件は緩和していない。
+
 ## 9. Repository／Candidate契約
 
 - 対応BackendはローカルGitだけとし、`read_only`と`isolated_worktree`を扱う。

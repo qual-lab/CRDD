@@ -130,6 +130,8 @@ Task processの標準入力は、上限付きJSONをEOFまで受け取る構造�
 {"frontProvider":"codex","objective":"Update the bounded fixture.","acceptanceCriteria":["The expected value is present."],"allowedPaths":["fixture.txt"],"readPaths":["fixture.txt","README.md"],"workClass":"bounded_implementation","planState":"complete","risk":"low","difficulty":"low","decisionImpact":"limited","isLocalCandidateOnly":true,"hasUnresolvedDirection":false,"requiresCrossContextAlignment":false}
 ```
 
+取消IPCの完了はcallbackで回収し、子の`close`後に遅延したchannel closureを未処理`EPIPE`として親Processへ再送出しない。成功、取消、timeoutまたはcleanup不明の判定は、子Processとstdoutの両`close`、force-stop fallbackおよび既存のlistener／lock回収条件からだけ行う。
+
 ### 正式署名一般Taskの固定検証
 
 正式署名配布物のRelease Gateでは、上記の汎用stdin入口へShellからJSONを組み立てて渡さない。対象Repositoryを現在Directoryにした対話端末から、署名済み配布物内の固定Runnerを直接起動する。

@@ -63,7 +63,7 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 12,
+    contractRevision: 13,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
     windowsDeviceOpenModes: { input: "r", output: "r+" },
     windowsUnicodeOutput: "node_unicode_tty_output_required",
@@ -1142,16 +1142,21 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
     const child = new EventEmitter() as EventEmitter & {
       stdout: EventEmitter;
       connected: boolean;
-      send: (message: unknown) => boolean;
+      send: (
+        message: unknown,
+        callback?: (error: Error | null) => void,
+      ) => boolean;
       kill: (signal: string) => boolean;
       disconnect: () => void;
     };
     child.stdout = new EventEmitter();
     child.connected = true;
     const messages: unknown[] = [];
+    const sendCallbacks: Array<(error: Error | null) => void> = [];
     const killSignals: string[] = [];
-    child.send = (message) => {
+    child.send = (message, callback) => {
       messages.push(message);
+      if (callback) sendCallbacks.push(callback);
       return true;
     };
     child.kill = (signal) => {
@@ -1182,7 +1187,15 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
         timer.cleared = true;
       },
     });
-    return { child, messages, killSignals, timers, spawnRecords, adapter };
+    return {
+      child,
+      messages,
+      sendCallbacks,
+      killSignals,
+      timers,
+      spawnRecords,
+      adapter,
+    };
   }
 
   {
@@ -1287,6 +1300,10 @@ test("固定reader親はProcess順序・取消・timeout・cleanupを同じ状�
       await pending,
       { status: "cleanup_unknown", line: null },
       stopSource,
+    );
+    assert.equal(scenario.sendCallbacks.length, 1, stopSource);
+    assert.doesNotThrow(() =>
+      scenario.sendCallbacks[0]?.(new Error("fixture_late_ipc_epipe")),
     );
     assert.equal(scenario.child.listenerCount("error"), 0, stopSource);
     assert.equal(scenario.child.listenerCount("close"), 0, stopSource);

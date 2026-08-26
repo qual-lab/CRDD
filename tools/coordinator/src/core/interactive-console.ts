@@ -17,7 +17,7 @@ export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 12;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 13;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -552,7 +552,15 @@ export function readInteractiveConsoleLineOutcomeUsingAdapter(
       if (outcomeStatus !== "timeout" && reason !== "reader_failed")
         outcomeStatus = reason;
       try {
-        if (child.connected) child.send("cancel");
+        if (child.connected) {
+          child.send("cancel", () => {
+            // IPC completion can race the child's close event. Supplying the
+            // callback consumes a late EPIPE instead of letting it become an
+            // unhandled ChildProcess error after finish removes listeners.
+            // Termination and cleanup are still decided only from the observed
+            // child/stdout close events and the force-stop fallback below.
+          });
+        }
       } catch {
         // The exact child is force-terminated below.
       }
