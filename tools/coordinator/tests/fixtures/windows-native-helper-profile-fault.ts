@@ -11,6 +11,18 @@ const MODES = new Set([
 const mode = process.argv[2];
 if (!mode || !MODES.has(mode) || process.argv.length !== 3) process.exit(64);
 
+const originalUserInfoDescriptor = Object.getOwnPropertyDescriptor(
+  os,
+  "userInfo",
+);
+const originalLstatSyncDescriptor = Object.getOwnPropertyDescriptor(
+  fs,
+  "lstatSync",
+);
+const originalRealpathNativeDescriptor = Object.getOwnPropertyDescriptor(
+  fs.realpathSync,
+  "native",
+);
 const originalUserInfo = os.userInfo;
 const originalLstatSync = fs.lstatSync;
 const originalRealpathNative = fs.realpathSync.native;
@@ -20,11 +32,13 @@ const temporaryRoot = fs.mkdtempSync(
 );
 const validParentProfile = path.join(temporaryRoot, "parent-profile");
 const observedProfile = path.join(temporaryRoot, "observed-profile");
-fs.mkdirSync(validParentProfile);
-if (mode !== "missing") fs.mkdirSync(observedProfile);
 
 let isEnvironmentNull = false;
+let operationFailure: unknown = null;
+const cleanupFailures: unknown[] = [];
 try {
+  fs.mkdirSync(validParentProfile);
+  if (mode !== "missing") fs.mkdirSync(observedProfile);
   process.env.USERPROFILE = validParentProfile;
   const baseline = originalUserInfo();
   Object.defineProperty(os, "userInfo", {
@@ -67,29 +81,55 @@ try {
   );
   isEnvironmentNull =
     environmentModule.createWindowsNativeHelperEnvironment() === null;
+} catch (error) {
+  operationFailure = error;
 } finally {
-  Object.defineProperty(os, "userInfo", {
-    configurable: true,
-    value: originalUserInfo,
-  });
-  Object.defineProperty(fs, "lstatSync", {
-    configurable: true,
-    value: originalLstatSync,
-  });
-  Object.defineProperty(fs.realpathSync, "native", {
-    configurable: true,
-    value: originalRealpathNative,
-  });
-  if (originalUserProfile === undefined) delete process.env.USERPROFILE;
-  else process.env.USERPROFILE = originalUserProfile;
-  fs.rmSync(temporaryRoot, { recursive: true });
+  for (const restore of [
+    () => {
+      if (originalUserInfoDescriptor === undefined)
+        delete (os as unknown as Record<string, unknown>).userInfo;
+      else Object.defineProperty(os, "userInfo", originalUserInfoDescriptor);
+    },
+    () => {
+      if (originalLstatSyncDescriptor === undefined)
+        delete (fs as unknown as Record<string, unknown>).lstatSync;
+      else Object.defineProperty(fs, "lstatSync", originalLstatSyncDescriptor);
+    },
+    () => {
+      if (originalRealpathNativeDescriptor === undefined)
+        delete (fs.realpathSync as unknown as Record<string, unknown>).native;
+      else
+        Object.defineProperty(
+          fs.realpathSync,
+          "native",
+          originalRealpathNativeDescriptor,
+        );
+    },
+    () => {
+      if (originalUserProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = originalUserProfile;
+    },
+    () => fs.rmSync(temporaryRoot, { recursive: true }),
+  ]) {
+    try {
+      restore();
+    } catch (error) {
+      cleanupFailures.push(error);
+    }
+  }
 }
+
+if (operationFailure !== null) throw operationFailure;
+if (cleanupFailures.length > 0)
+  throw new AggregateError(cleanupFailures, "profile_fault_cleanup_failed");
+const isCleanupConfirmed = !fs.existsSync(temporaryRoot);
+if (!isCleanupConfirmed) throw new Error("profile_fault_cleanup_unconfirmed");
 
 process.stdout.write(
   `${JSON.stringify({
     mode,
     environmentIsNull: isEnvironmentNull,
     parentEnvironmentFallbackUsed: false,
-    cleanupConfirmed: !fs.existsSync(temporaryRoot),
+    cleanupConfirmed: isCleanupConfirmed,
   })}\n`,
 );

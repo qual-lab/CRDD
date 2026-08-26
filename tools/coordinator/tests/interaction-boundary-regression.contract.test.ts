@@ -978,6 +978,7 @@ test("Native Helper環境不成立は全利用側をspawn・Effect・Authority 0
     networkEffectIssued: false,
     authorityIssued: false,
     capabilityIssued: false,
+    manualRecoveryRequired: false,
   });
 });
 

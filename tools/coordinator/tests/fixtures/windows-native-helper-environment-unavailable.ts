@@ -73,13 +73,15 @@ const candidateAdapter = await import(
   "../../src/security/candidate-store-windows-adapter.ts"
 );
 const now = new Date().toISOString();
-const outcomes = [
-  providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex", now),
+const providerOutcome =
+  providerAdapter.inspectRuntimeOwnedWindowsProviderHomeCandidate("codex", now);
+const candidateOutcomes = [
   candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(false, now),
   candidateAdapter.inspectRuntimeOwnedWindowsCandidateStore(true, now),
   candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(false, now),
   candidateAdapter.inspectRuntimeOwnedWindowsRuntimeState(true, now),
 ];
+const outcomes = [providerOutcome, ...candidateOutcomes];
 
 for (const outcome of outcomes) {
   assert.equal(outcome.status, "blocked");
@@ -93,15 +95,44 @@ for (const outcome of outcomes) {
   assert.equal(outcome.principalReported, false);
   assert.equal(outcome.aclReported, false);
 }
+assert.equal(providerOutcome.observationCapability, null);
+assert.equal(providerOutcome.runtimeOwnedObservationCapabilityIssued, false);
+assert.equal(providerOutcome.mountGrantIssued, false);
+assert.equal(providerOutcome.operationCapabilityIssued, false);
+assert.equal(providerOutcome.manualRecoveryRequired, false);
+for (const outcome of candidateOutcomes) {
+  assert.equal(outcome.rootCapability, null);
+  assert.equal(outcome.manualRecoveryRequired, false);
+}
 assert.equal(spawnCalls, 0);
+
+const isCapabilityIssued =
+  providerOutcome.observationCapability !== null ||
+  providerOutcome.runtimeOwnedObservationCapabilityIssued ||
+  providerOutcome.mountGrantIssued ||
+  providerOutcome.operationCapabilityIssued ||
+  candidateOutcomes.some((outcome) => outcome.rootCapability !== null);
+const isManualRecoveryRequired = outcomes.some(
+  (outcome) => outcome.manualRecoveryRequired,
+);
+const isFilesystemEffectIssued = outcomes.some(
+  (outcome) => outcome.filesystemEffectIssued,
+);
+const isNetworkEffectIssued = outcomes.some(
+  (outcome) => outcome.networkEffectIssued,
+);
+const isAuthorityIssued = outcomes.some(
+  (outcome) => outcome.runtimeAuthorityIssued,
+);
 
 process.stdout.write(
   `${JSON.stringify({
     outcomes: outcomes.length,
     spawnCalls,
-    filesystemEffectIssued: false,
-    networkEffectIssued: false,
-    authorityIssued: false,
-    capabilityIssued: false,
+    filesystemEffectIssued: isFilesystemEffectIssued,
+    networkEffectIssued: isNetworkEffectIssued,
+    authorityIssued: isAuthorityIssued,
+    capabilityIssued: isCapabilityIssued,
+    manualRecoveryRequired: isManualRecoveryRequired,
   })}\n`,
 );
