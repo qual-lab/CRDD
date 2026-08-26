@@ -43,9 +43,15 @@ export function renderDockerRecoveryDoctorReport(
     )
   ) {
     lines.push(`- recovery ID: ${reportValue.recoveryId}`);
-    lines.push(
-      `- next: coordinator doctor --recover-isolation ${reportValue.recoveryId}`,
-    );
+    if (reportValue.manualRecoveryRequired === true) {
+      lines.push("- recovery: automatic recovery stopped; evidence preserved");
+      lines.push(
+        "- next: stop new tasks and provide this recovery ID to the Runtime operator; do not remove a resource by name or label alone",
+      );
+    } else
+      lines.push(
+        `- next: coordinator doctor --recover-isolation ${reportValue.recoveryId}`,
+      );
   }
   const providers = plainRecord(reportValue.providers);
   for (const [name, providerValue] of Object.entries(providers ?? {})) {

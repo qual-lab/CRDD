@@ -51,7 +51,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 15;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 16;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -2411,9 +2411,9 @@ export function recoverExactDockerResourceWithRunner(
  * Resolve the crash window after an exact create submission was durably
  * recorded but before Docker's returned ID could be persisted. The
  * operation-owned name and operation-unique ownership label must identify the
- * same single resource. An empty result is accepted only when the exact-name
- * and exact-name-plus-label queries both succeed and are empty. A foreign,
- * ambiguous, or partially observed
+ * same single resource. Empty observations do not settle an already submitted
+ * create because the original Docker CLI or daemon request may still complete
+ * after the observation. A foreign, ambiguous, partially observed, or absent
  * resource is never adopted or removed.
  *
  * @internal Package-private verifier used by production recovery.
@@ -2472,7 +2472,7 @@ export function recoverUnknownDockerCreateOutcomeWithRunner(
   const byName = ids(list(nameFilter));
   const byOwnership = ids(list(nameFilter, labelFilter));
   if (!byName || !byOwnership) return false;
-  if (byName.length === 0 && byOwnership.length === 0) return true;
+  if (byName.length === 0 && byOwnership.length === 0) return false;
   if (
     byName.length !== 1 ||
     byOwnership.length !== 1 ||
@@ -3568,7 +3568,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           purpose === "create_subscription_auth_probe"
             ? []
             : purpose === "create_proxy"
-              ? [String(resources.internal), String(resources.egress)]
+              ? [String(resources.internal)]
               : kind === "container"
                 ? [String(resources.internal)]
                 : [];
@@ -3618,38 +3618,47 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
             purpose === "create_subscription_auth_probe"
               ? []
               : purpose === "create_proxy"
-                ? [String(resources.internal), String(resources.egress)]
+                ? [String(resources.internal)]
                 : kind === "container"
                   ? [String(resources.internal)]
                   : [];
-          return recoveryDockerRunner
-            ? recoverExactDockerResourceWithRunner(
-                recoveryDockerRunner,
-                kind,
-                dockerId,
-                name,
-                String(base.ownershipLabel),
-                image,
-                isInternal,
-                purpose,
-                expectedNetworks,
-                operationMode,
-                workspaceMountMode,
-              )
-            : recoverExactDockerResource(
-                configDirectory,
-                configIdentity,
-                kind,
-                dockerId,
-                name,
-                String(base.ownershipLabel),
-                image,
-                isInternal,
-                purpose,
-                expectedNetworks,
-                operationMode,
-                workspaceMountMode,
-              );
+          const recoverWithNetworks = (networks: readonly string[]) =>
+            recoveryDockerRunner
+              ? recoverExactDockerResourceWithRunner(
+                  recoveryDockerRunner,
+                  kind,
+                  dockerId,
+                  name,
+                  String(base.ownershipLabel),
+                  image,
+                  isInternal,
+                  purpose,
+                  networks,
+                  operationMode,
+                  workspaceMountMode,
+                )
+              : recoverExactDockerResource(
+                  configDirectory,
+                  configIdentity,
+                  kind,
+                  dockerId,
+                  name,
+                  String(base.ownershipLabel),
+                  image,
+                  isInternal,
+                  purpose,
+                  networks,
+                  operationMode,
+                  workspaceMountMode,
+                );
+          if (recoverWithNetworks(expectedNetworks)) return true;
+          return (
+            purpose === "create_proxy" &&
+            recoverWithNetworks([
+              String(resources.internal),
+              String(resources.egress),
+            ])
+          );
         })
       )
         throw new Error("docker_task_recovery_resource_mismatch");
@@ -3836,12 +3845,21 @@ function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
 export function recoverRuntimeOwnedDockerTask(token: unknown) {
   const parsed = parseDockerTaskRecoveryId(token);
   try {
-    return recoverRuntimeOwnedDockerTaskInternal(token);
+    const result = recoverRuntimeOwnedDockerTaskInternal(token);
+    return Object.freeze({
+      ...result,
+      manualRecoveryRequired:
+        result.status === "blocked" && typeof result.recoveryId === "string",
+      evidencePreserved:
+        result.status === "blocked" && typeof result.recoveryId === "string",
+    });
   } catch (error) {
     return Object.freeze({
       status: "blocked" as const,
       reason: safeRecoveryReason(error, "docker_task_recovery_failed_closed"),
       recoveryId: parsed?.token ?? null,
+      manualRecoveryRequired: Boolean(parsed),
+      evidencePreserved: Boolean(parsed),
     });
   }
 }
@@ -4836,7 +4854,7 @@ export function describeDockerRecoveryRuntimeContract() {
     completionEvidence:
       "exact_durable_evidence_required_and_empty_root_is_not_a_receipt",
     offlineRecovery:
-      "exact_id_or_same_single_operation_owned_name_and_label_with_full_configuration_unknown_create_outcome_never_blindly_adopted",
+      "receipt_missing_empty_observation_remains_manual_same_single_operation_owned_name_and_label_requires_full_configuration_before_removal",
     hostFinalization:
       "host_generation_owner_and_inventory_then_cleanup_intent_receipt_and_exact_removal",
     synchronizationRelease:

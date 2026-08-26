@@ -79,22 +79,20 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
     status: "blocked",
     reason: "docker_task_runtime_state_unavailable",
     recoveryId: recoveryId,
+    manualRecoveryRequired: true,
+    evidencePreserved: true,
   });
   assert.equal(result.stderr, "");
 });
 
-test("実CLIの人間表示はexact回復commandを保持しHost Pathを出さない", () => {
+test("実CLIの人間表示はmanual recoveryとEvidence保持を示し反復実行を誘導しない", () => {
   const result = invokeCli(false);
   assert.equal(result.status, 2, result.stderr);
   assert.match(result.stdout, /Coordinator environment: blocked/u);
   assert.match(result.stdout, new RegExp(`recovery ID: ${recoveryId}`, "u"));
-  assert.match(
-    result.stdout,
-    new RegExp(
-      `next: coordinator doctor --recover-isolation ${recoveryId}`,
-      "u",
-    ),
-  );
+  assert.match(result.stdout, /automatic recovery stopped/u);
+  assert.match(result.stdout, /evidence preserved/u);
+  assert.doesNotMatch(result.stdout, /next: coordinator doctor/u);
   assert.doesNotMatch(result.stdout, /C:\\/u);
   assert.equal(result.stderr, "");
 });

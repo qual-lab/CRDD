@@ -619,7 +619,8 @@ function createKilledFullProductionRecoveryRoot(
     | "previous"
     | "expected"
     | "submission"
-    | "receipt" = "expected",
+    | "receipt"
+    | "receipt_proxy" = "expected",
 ) {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-full-recovery-test-"),
@@ -774,6 +775,17 @@ function createKilledFullProductionRecoveryRoot(
         "a".repeat(64),
       )) process.exit(74);
     }
+    if (hostPhase === "receipt_proxy") {
+      if (!recovery.markRuntimeOwnedDockerResourceSubmission(
+        begun.recoveryCapability,
+        "create_proxy",
+      )) process.exit(73);
+      if (!recovery.recordRuntimeOwnedDockerResourceReceipt(
+        begun.recoveryCapability,
+        "create_proxy",
+        "a".repeat(64),
+      )) process.exit(74);
+    }
     fs.writeFileSync(
       handoff,
       JSON.stringify({
@@ -892,6 +904,38 @@ function exactContainerRunner(overrides: Record<string, unknown> = {}) {
         error: null,
       });
     },
+  });
+}
+
+function exactProxyRunner(networkNames: readonly string[]) {
+  return exactContainerRunner({
+    Name: "/crdd-proxy-0123456789abcdef",
+    Config: Object.freeze({
+      User: "65534:65534",
+      Image: `sha256:${"b".repeat(64)}`,
+      Labels: Object.freeze({
+        "crdd.coordinator.runtime": "0123456789abcdef",
+      }),
+    }),
+    HostConfig: Object.freeze({
+      ReadonlyRootfs: true,
+      Privileged: false,
+      CapDrop: Object.freeze(["ALL"]),
+      CapAdd: Object.freeze([]),
+      SecurityOpt: Object.freeze(["no-new-privileges:true"]),
+      PidsLimit: 64,
+      Tmpfs: Object.freeze({
+        "/tmp": "rw,noexec,nosuid,size=16777216",
+      }),
+    }),
+    NetworkSettings: Object.freeze({
+      Networks: Object.freeze(
+        Object.fromEntries(
+          networkNames.map((networkName) => [networkName, Object.freeze({})]),
+        ),
+      ),
+    }),
+    Mounts: Object.freeze([]),
   });
 }
 
@@ -2316,27 +2360,25 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
   }
 });
 
-test("closed production engineはcreate submission後receipt前のprocess killを二軸不存在から残存0へ収束する", () => {
+test("closed production engineはcreate submission後receipt前のprocess killを空照会だけで収束させない", () => {
   const fixture = createKilledFullProductionRecoveryRoot("submission");
   const root = verifiedRoot(fixture.root);
   const observedCommands: string[][] = [];
   try {
-    assert.deepEqual(
-      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
-        fixture.recoveryId,
-        root,
-        () => root,
-        (argv) => {
-          observedCommands.push([...argv]);
-          return dockerResult();
-        },
-      ),
-      {
-        status: "recovered",
-        reason: "docker_task_recovery_completed",
-        recoveryId: null,
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+      (argv) => {
+        observedCommands.push([...argv]);
+        return dockerResult();
       },
     );
+    assert.deepEqual(result, {
+      status: "blocked",
+      reason: "docker_task_recovery_create_outcome_unknown",
+      recoveryId: fixture.recoveryId,
+    });
     assert.equal(observedCommands.length, 2);
     assert.equal(
       observedCommands[0]?.includes("name=^/crdd-auth-0123456789abcdef$"),
@@ -2348,9 +2390,9 @@ test("closed production engineはcreate submission後receipt前のprocess kill�
       ),
       true,
     );
-    assert.deepEqual(fs.readdirSync(fixture.root), []);
-    assert.equal(fs.existsSync(fixture.hostRoot), false);
-    assert.equal(fs.existsSync(fixture.hostMarker), false);
+    assert.ok(fs.readdirSync(fixture.root).length > 0);
+    assert.equal(fs.existsSync(fixture.hostRoot), true);
+    assert.equal(fs.existsSync(fixture.hostMarker), true);
   } finally {
     fs.rmSync(fixture.parent, { recursive: true, force: true });
   }
@@ -2720,7 +2762,7 @@ test("production共有Docker回復はreplacement構成を削除せずEvidenceを
   assert.equal(fixture.removeCount(), 0);
 });
 
-test("production共有Docker回復はreceipt前crashの二軸不存在だけを回収済みとする", () => {
+test("production共有Docker回復はreceipt前crashの二軸不存在をsettlement証明にしない", () => {
   const observedCalls: string[][] = [];
   const result = recoverUnknownDockerCreateOutcomeWithRunner(
     (argv) => {
@@ -2737,7 +2779,7 @@ test("production共有Docker回復はreceipt前crashの二軸不存在だけを�
     "isolated_task",
     "read_write",
   );
-  assert.equal(result, true);
+  assert.equal(result, false);
   assert.equal(observedCalls.length, 2);
   assert.equal(observedCalls[0]?.includes("name=^/auth-probe$"), true);
   assert.equal(
@@ -2768,6 +2810,100 @@ test("production共有Docker回復はreceipt前crashの同一owned resourceだ�
   assert.equal(fixture.removeCount(), 1);
 });
 
+test("production共有Docker回復はreceipt前proxyのinternal-only構成だけを照合して削除する", () => {
+  const internal = "crdd-internal-0123456789abcdef";
+  const fixture = exactProxyRunner([internal]);
+  assert.equal(
+    recoverUnknownDockerCreateOutcomeWithRunner(
+      fixture.runDockerCommand,
+      "container",
+      "crdd-proxy-0123456789abcdef",
+      "crdd.coordinator.runtime=0123456789abcdef",
+      `sha256:${"b".repeat(64)}`,
+      null,
+      "create_proxy",
+      Object.freeze([internal]),
+      "isolated_task",
+      "read_write",
+    ),
+    true,
+  );
+  assert.equal(fixture.removeCount(), 1);
+});
+
+for (const networkState of ["pre-connect", "post-connect"] as const) {
+  test(`production共有Docker回復はreceipt済みproxyの${networkState}閉集合だけを回収する`, () => {
+    const fixture = createKilledFullProductionRecoveryRoot("receipt_proxy");
+    const root = verifiedRoot(fixture.root);
+    const internal = "crdd-internal-0123456789abcdef";
+    const egress = "crdd-egress-0123456789abcdef";
+    const docker = exactProxyRunner(
+      networkState === "pre-connect" ? [internal] : [internal, egress],
+    );
+    try {
+      assert.deepEqual(
+        recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+          fixture.recoveryId,
+          root,
+          () => root,
+          docker.runDockerCommand,
+        ),
+        {
+          status: "recovered",
+          reason: "docker_task_recovery_completed",
+          recoveryId: null,
+        },
+      );
+      assert.equal(docker.removeCount(), 1);
+      assert.deepEqual(fs.readdirSync(fixture.root), []);
+      assert.equal(fs.existsSync(fixture.hostRoot), false);
+      assert.equal(fs.existsSync(fixture.hostMarker), false);
+    } finally {
+      fs.rmSync(fixture.parent, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const [networkState, networks] of [
+  ["none", []],
+  ["egress-only", ["crdd-egress-0123456789abcdef"]],
+  [
+    "additional",
+    [
+      "crdd-internal-0123456789abcdef",
+      "crdd-egress-0123456789abcdef",
+      "foreign",
+    ],
+  ],
+] as const) {
+  test(`production共有Docker回復はreceipt済みproxyの${networkState}構成を削除しない`, () => {
+    const fixture = createKilledFullProductionRecoveryRoot("receipt_proxy");
+    const root = verifiedRoot(fixture.root);
+    const docker = exactProxyRunner(networks);
+    try {
+      assert.deepEqual(
+        recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+          fixture.recoveryId,
+          root,
+          () => root,
+          docker.runDockerCommand,
+        ),
+        {
+          status: "blocked",
+          reason: "docker_task_recovery_resource_mismatch",
+          recoveryId: fixture.recoveryId,
+        },
+      );
+      assert.equal(docker.removeCount(), 0);
+      assert.ok(fs.readdirSync(fixture.root).length > 0);
+      assert.equal(fs.existsSync(fixture.hostRoot), true);
+      assert.equal(fs.existsSync(fixture.hostMarker), true);
+    } finally {
+      fs.rmSync(fixture.parent, { recursive: true, force: true });
+    }
+  });
+}
+
 test("production共有Docker回復はreceipt前crashのforeign／ambiguous resourceを採用しない", () => {
   const dockerId = "a".repeat(64);
   for (const [named, owned] of [
@@ -2797,10 +2933,67 @@ test("production共有Docker回復はreceipt前crashのforeign／ambiguous resou
   }
 });
 
+test("production共有Docker回復はreceipt前照会の失敗・signal・stderr・不正IDを処置0へ閉じる", () => {
+  const cases = [
+    dockerResult("not-a-docker-id\n"),
+    dockerResult(`${"a".repeat(64)}\n${"b".repeat(64)}\n`),
+    Object.freeze({
+      status: 1,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      error: null,
+    }),
+    Object.freeze({
+      status: 0,
+      signal: "SIGTERM" as const,
+      stdout: "",
+      stderr: "",
+      error: null,
+    }),
+    Object.freeze({
+      status: 0,
+      signal: null,
+      stdout: "",
+      stderr: "docker unavailable",
+      error: null,
+    }),
+    Object.freeze({
+      status: null,
+      signal: null,
+      stdout: "",
+      stderr: "",
+      error: new Error("spawn failed"),
+    }),
+  ];
+  for (const result of cases) {
+    let callCount = 0;
+    assert.equal(
+      recoverUnknownDockerCreateOutcomeWithRunner(
+        () => {
+          callCount += 1;
+          return result;
+        },
+        "container",
+        "provider",
+        "crdd.coordinator.runtime=0123456789abcdef",
+        `sha256:${"b".repeat(64)}`,
+        null,
+        "create_provider",
+        Object.freeze(["internal"]),
+        "isolated_task",
+        "read_write",
+      ),
+      false,
+    );
+    assert.ok(callCount >= 1 && callCount <= 2);
+  }
+});
+
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 15,
+    contractRevision: 16,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
@@ -2820,7 +3013,7 @@ test("Docker Recovery contractはEffect前記録とcleanup後完了を固定す�
     completionEvidence:
       "exact_durable_evidence_required_and_empty_root_is_not_a_receipt",
     offlineRecovery:
-      "exact_id_or_same_single_operation_owned_name_and_label_with_full_configuration_unknown_create_outcome_never_blindly_adopted",
+      "receipt_missing_empty_observation_remains_manual_same_single_operation_owned_name_and_label_requires_full_configuration_before_removal",
     hostFinalization:
       "host_generation_owner_and_inventory_then_cleanup_intent_receipt_and_exact_removal",
     synchronizationRelease:
