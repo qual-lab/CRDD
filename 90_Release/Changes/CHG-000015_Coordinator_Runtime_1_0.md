@@ -1669,3 +1669,7 @@ production同期Outcomeを正本入口として追加し、同期／非同期con
 固定Commit `f7e7a524a101b368e39bd7322c4b3aab778388f7`／Tree `ecb6af3dac25bee68aff6ef0a4659e0558e08f63`への3独立再確認は、非同期mode回帰検出の旧Minorを`Resolved`とした一方、追加した実Windows TTY assertionが失敗する場合だけ、試験自身の`CONOUT$` descriptorを閉じる`finally`へ到達しない新規Minor 1件を同じ原因として検出した。productionの資源所有には影響しないが、反証時に試験Processへhandleを残す状態を受理しない。
 
 再是正では、実Windows `CONOUT$`のopen成功直後からTTY assertion、module URL／fixture構築、子Process起動および全結果assertionを単一`try`へ入れ、exact descriptorを対応する`finally`で閉じる。open失敗時のskip、`r+`選択、Task stdin分離、production実装、Authority、Effectおよび契約意味は変更しない。新固定Commit／Treeへの全検証と3独立再確認が完了する前に新規Minorを`Resolved`としない。
+
+固定Commit `17ebb1793df1eb855a3fff80420048350f0f6cff`／Tree `cd31a257191e1e637ae2baef9d14dddcff0f164a`へのArchitecture／Security、Document／Gap／Impact／ConformanceおよびTest／UX独立再確認は、3件とも`Pass`、Critical／Major／Minor Finding `0`を得た。非同期Windows／POSIX mode回帰検出の旧Minorと、実TTY assertion失敗時の試験descriptor回収Minorは同固定範囲で`Resolved`である。共通入力はCoordinator `806 / 806 Pass`、Checker `153 / 153 Pass`、strict typecheck、Biome Lint／Formatter、Repository全体Checker Error `0`／Warning `0`およびworktree cleanである。
+
+確認済み範囲はWindows同期／非同期／availabilityの`r`／`r+`、POSIX同期／非同期の`r`／`w`、open／validation／operation／両close、実Windows TTY、Task stdin分離、Unicode出力、External Send、正式Runner Gate、process poison、package exports、README、machine descriptor、利用側、移行、CHANGELOGおよび準拠表明である。新しい固定版の再署名、正式一般Task完走、実Provider／Network Effect、POSIX実TTY、将来Node版およびT1–T2外は未評価であり、後続Gateまたは保証範囲外として維持する。現在、この是正について追加の人間判断はない。
