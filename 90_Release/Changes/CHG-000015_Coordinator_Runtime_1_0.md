@@ -1715,3 +1715,13 @@ Windows内部子Process環境契約をrevision 2とし、Runtime所有・署名�
 追加反証後も重点22試験、Coordinator全809試験、Checker全153試験、strict typecheck、Biome Lint／Formatter、Repository全体Checkerおよび`git diff --check`をPassした。全体Checkerの件数とError／Warning 0は直前候補から不変である。新固定Commit／Treeへの3独立再確認前にMinorを`Resolved`としない。
 
 固定Commit `b6684540947eab887056aa03c41f304e1d6c0e90`／Tree `ceb5e7de64ccacfe27f76988e2464072f25014e6`へのArchitecture／Security、Document／Gap／Impact／ConformanceおよびTest／UX独立再確認は、3件とも`Pass`、Critical／Major／Minor Finding `0`を得た。Signer境界の2桁ミリ秒、offset、不存在日および逆転windowの直接反証不足は同固定範囲で`Resolved`である。確認済み範囲はRelease Identity grammar、Manifest Core、Signer API／CLI、Git Object Format、公開Path構文、Sequence、Version、canonical UTC、有効期間、passphrase／Filesystem前Gate、README、CHG、利用側、移行および準拠影響である。実秘密鍵による再署名、実manifest配置および正式一般Taskは後続Gateとして未評価である。現在、追加の人間判断はない。Release順序`2026082605`は再利用しない。
+
+##### 署名済み正式一般TaskのEnd-to-End成立
+
+監査解消記録を含む固定Commit `af76f555896d991edb88a6bc2f52b9865c6e9ac5`／Tree `8f4f23c9dfc4d8aff56a94b1769d7f61c69b49b6`を、Release順序`2026082606`、CRDD Version `v0.18.0`、manifest SHA-256 `9eeeb1652b93cfc282093b9c0c5c30e589f2905c217564066e2bd9f532c03261`として署名した。canonical UTCの有効期間は`2026-08-26T02:58:00.553Z`から`2026-08-27T02:58:00.560Z`であり、Release Manifest配置と署名検証は成功した。秘密鍵、passphrase、Provider CredentialまたはHost固有Pathは本Traceへ記録しない。
+
+認証済みLocal Userは、表示された公開情報、固定Repository Revision、送信先、目的、Subscription Offering、保持・二次利用・再移送の未検証境界、Task Payloadおよび派生する最大1回の限定是正を確認し、同一対話で外部送信を承認した。Codexは`chatgpt_subscription_oauth`、Claude Codeは`claude_max`を使用し、API key、従量API、追加購入およびquota不足からの有料fallbackは無効のまま維持した。
+
+正式Runnerは、Claude Code Executorによる固定1 PathのCandidate生成、Codex Independent ReviewerによるFinding `0`の承認、固定Base Commit／Tree、変更Path、Patch／Content／Allowed Paths HashおよびUTF-8 exact contentの照合、Candidate export後の明示破棄まで完了し、`RUNNER_EXIT=0`を返した。成功契約は`cleanupConfirmed: true`、`manualRecoveryRequired: false`、Host／Docker／Candidate／Candidate Store Recovery IDなし、正規Repository変更なし、生Provider出力、非信頼Provider text、Host PathおよびCredential報告なしを同時に要求する。
+
+Runner終了後の独立したHost側照合では、正規Repositoryは同じCommit／Treeでclean、Candidate StoreとRuntime Stateはfile・subdirectoryとも`0`、CRDD Runtime labelを持つDocker container・network・volumeは各`0`、Runner Processは不存在であった。したがって、署名Release Identity、Local PersonalのT1–T2境界、External Send Grant、Claude Executor、Codex Independent Review、Candidate検証・破棄およびcleanupを一つの実Provider Vertical Sliceとして成立確認した。これはRuntime 1.0全体のRelease、保護対象変更の統合またはT3–T4保証を意味しない。
