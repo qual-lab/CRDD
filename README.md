@@ -51,7 +51,7 @@ Before a provider receives content, CRDD limits the provider, purpose, informati
 
 Repository source is not copied into the task prompt. A provider reads only the authorized files projected from the verified repository and revision into its isolated workspace. Source code, including confidential source, may therefore still be sent to the authorized provider when the project's information boundary permits it. Passwords, private keys, session tokens, API keys, and other secret values are different: they must not be placed in a prompt or readable projection. The Runtime rejects recognized high-confidence secret forms and secret-bearing paths before provider execution, but does not claim complete secret discovery; projects must still keep secrets out of repositories and task text.
 
-The intended Local Personal experience is a lightweight initial approval of this processing boundary. Normal delegation within the unchanged approved boundary should not require confirmation for every task. A new provider or account boundary, broader information class or purpose, billing-path enablement, publication, or another material expansion requires a new decision. This intended consent lifecycle is still being connected in the v0.18.0 candidate; the current implementation continues to ask for operation-scoped confirmation until that connection is verified.
+The Local Personal candidate uses one lightweight initial approval for the complete provider-processing boundary. The Runtime keeps exactly one active consent boundary for the selected local user and protected Runtime State, expires it after 180 days, and supports explicit revocation. Normal delegation reuses it without per-task confirmation; changing the policy, provider or account boundary, information class, purpose, selected user, protected state, or expiry requires approval again. The current task, repository revision, and projected paths remain operation-scoped checks and are not silently added to the persistent consent. This lifecycle is implementation- and contract-tested in the v0.18.0 candidate, but does not make the candidate a released Runtime.
 
 ### CRDD in plain language
 
@@ -457,7 +457,7 @@ Providerへ内容を送る前に、CRDDはProvider、目的、情報分類、Rep
 
 RepositoryのSourceをTask Promptへコピーしない。Providerは、検証済みRepositoryとRevisionから隔離Workspaceへ明示的に投影された許可Fileだけを読む。したがって機密なSource Codeも、Projectの情報境界が許可する場合は認可済みProviderへ送信され得る。一方、Password、Private Key、Session Token、API Keyその他のシークレット値は別であり、Promptや読取投影へ含めてはならない。Runtimeは認識できる高確度なSecret形式と秘密用PathをProvider実行前に拒否するが、すべてのSecretを発見できるとは主張しない。ProjectもSecretをRepositoryとTask本文へ入れない。
 
-Local Personalで目指す体験は、この処理境界を初期設定時に軽量に承認することである。承認済み境界が変わらない通常委譲ではTaskごとの確認を求めない。ProviderまたはAccount境界の追加、情報分類・目的の拡張、課金経路の有効化、公開その他の重要な拡張には新しい判断が必要である。この同意Lifecycleはv0.18.0候補で接続中であり、現在の実装は接続の検証が終わるまでOperation単位の確認を継続する。
+Local Personal候補は、Provider処理境界の全体を初期設定時に一度だけ軽量に承認する。Runtimeは選択ローカルユーザーと保護済みRuntime Stateごとに有効な同意境界を常に一つだけ保持し、180日で失効させ、明示取消を可能にする。境界が変わらない通常委譲ではTaskごとの確認を求めず、Policy、Provider／Account境界、情報分類、目的、選択ユーザー、保護状態または期限が変われば再承認する。現在Task、Repository Revisionおよび投影PathはOperation単位で引き続き検査し、永続同意へ暗黙追加しない。このLifecycleはv0.18.0候補で実装・契約試験済みだが、候補をRelease済みRuntimeにはしない。
 
 ### CRDDを簡単に言うと
 

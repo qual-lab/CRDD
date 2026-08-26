@@ -25,23 +25,24 @@ Architecture正本: [エージェント組織の実行アーキテクチャ](../
 
 この成功はRuntime 1.0全体、4経路、失敗／取消Recovery、統合、ReleaseまたはT3–T4保証を意味しない。現在の本変更は、未リリースCHG統合による正本再構成と残る経路・Recovery・Release Gateのため`Reopened`である。
 
+後続の現在候補では、両Front×両Executorの4経路、同一Provider例外理由、独立Reviewer、単一Active初期同意、4経路の完全一致Runnerおよび失敗／取消Recovery Matrixをproduction経路と同じ契約へ接続し、全機械試験を通過した。初期同意は全Policy Provider境界を表示し、現在Task／Revision／Scopeを非永続Previewへ分離し、選択ユーザー・保護Runtime State・Policy byteへ結合する。A→B→Aで古いAを復活させず、180日失効、明示取消、部分／破損pairの安全なAuthority除去および判定不能時の手動回復停止を固定した。この段階は正式署名4経路実測またはRuntime完成監査の完了をまだ意味しない。
+
 ### 1.1 経路別の現在状態
 
 | Front | Executor | 独立Reviewer | 現在状態 | 根拠／残件 |
 |---|---|---|---|---|
 | Codex | Claude Code | Codex | 固定1経路で成立確認 | 署名済み一般Task、Candidate exact content、Finding 0、cleanup／残存0を実測 |
-| Codex | Codex | Claude Codeまたは独立Codex | 未成立 | 同一Provider採用理由、Reviewer独立性および正式署名E2Eが未固定 |
-| Claude Code | Codex | Claude Code | 未成立 | Front Claude Code入口、Codex Executor接続および正式署名E2Eが未固定 |
-| Claude Code | Claude Code | Codexまたは独立Claude Code | 未成立 | Front Claude Code入口、同一Provider例外理由および正式署名E2Eが未固定 |
+| Codex | Codex | Claude Code | 機械契約成立／正式署名実測待ち | Codex特性または反対Provider不適格の理由とProvider独立Reviewerを固定 |
+| Claude Code | Codex | Claude Code | 機械契約成立／正式署名実測待ち | Coordinator仲介の逆方向経路、Codex ExecutorとClaude Reviewerを固定 |
+| Claude Code | Claude Code | Codex | 機械契約成立／正式署名実測待ち | Claude特性または反対Provider不適格の理由とProvider独立Reviewerを固定 |
 
 cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不要、Provider固有の適性、反対Providerの利用不能または独立レビュー要件から説明できる場合だけ選ぶ。実装の存在、CLIの利用可能性または一経路の成功を、別経路の成立へ一般化しない。
 
 ### 1.2 Releaseまでの主要残件
 
-1. Front Claude Codeを含む逆方向経路と、必要な同一Provider例外を正式署名E2Eで固定する。
-2. 成功だけでなく、Provider失敗、timeout、cancel、親Process消失、cleanup不明およびRecoveryを本番同等入口から確認する。
-3. 最新改訂版で全機械確認、Architecture／Security、Test／UX、Document／Gap／Impact／Conformanceを再実行する。
-4. README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
+1. 4経路RunnerとRecovery Matrixを最新の正式署名配布物から実測する。
+2. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
+3. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
 
 ## 2. 人間による判断と変更意図
 
@@ -63,7 +64,7 @@ Qual-Labの人間の決定権限者は、次を一つのRelease価値として�
 
 | 主体 | 所有する責務 | 所有しない責務 |
 |---|---|---|
-| Human | 目的、価値、重要判断、外部送信承認、受入、統合、Release、責任 | Runtime内部の候補生成 |
+| Human | 目的、価値、重要判断、初期処理境界の外部送信承認、受入、統合、Release、責任 | Runtime内部の候補生成と承認済み境界内のTask単位確認 |
 | Coordinator Runtime | Operation状態、Identity、Authority、Provider選定、起動、検証、停止、cleanup、Recovery | 人間の決定権限、Risk Acceptance |
 | Front Agent | 依頼理解、候補計画、Humanとの対話 | 子Providerへの直接Authority、完了確定 |
 | Executor | 固定Packet内の実装・検証候補 | Scope拡張、自己承認、Promotion |
@@ -121,7 +122,7 @@ Parent authority >= delegated child authority
 | Credential所有 | 公式Codex CLIと専用Home | 公式Claude Code CLIと専用Home |
 | API key fallback | 原則禁止・自動有効化なし | 原則禁止・自動有効化なし |
 | 追加購入／従量課金 | Runtimeは実行しない | Runtimeは実行しない |
-| 同意 | Codex送信範囲へ個別のHuman承認 | Claude送信範囲へ個別のHuman承認 |
+| 同意 | 初回に全Policy Provider境界を一括表示し単一Active同意へ固定 | 同じPolicy境界内ではTaskごとの確認を繰り返さず、変更・失効・取消時だけ再承認 |
 | Terms／retention等 | Runtimeが内容を保証せず、対話時のProvider条件へ戻す | Runtimeが内容を保証せず、対話時のProvider条件へ戻す |
 | 無効化 | eligibilityをfalseにし、代替を推測しない | eligibilityをfalseにし、代替を推測しない |
 
@@ -234,7 +235,7 @@ Runtime 1.0をReleaseしない場合は、v0.17.xの方法論利用とRuntime非
 
 残存リスク:
 
-- 固定1経路以外の正式署名E2Eは未完了である。
+- 固定1経路以外の正式署名E2E実測は未完了だが、4経路のproduction契約と完全一致Runnerは機械試験済みである。
 - 正式署名入口での失敗、取消、親消失、cleanup ambiguityおよびmanual recoveryの全組合せは未完了である。
 - Providerの規約、保持、学習利用、onward transferおよび正確なaccount／tenant identityをRuntimeは保証しない。
 - Docker Desktop、Provider配布物、OSおよびSubscription offeringの更新時はIdentityとCapabilityを再評価する。

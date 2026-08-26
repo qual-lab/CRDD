@@ -19,6 +19,20 @@ Status: Implementation Candidate
 
 本READMEに費用、独立性または決定権限の条件を記す場合、それは上位概念／アーキテクチャ／規範を現在のRuntimeがどう投影・強制するかを示す。実装の変更から上位概念、人間の決定権限、独立レビューまたはCRDD準拠条件の変更を推定しない。
 
+## 現在できること
+
+現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。4経路の選定・Authority・Candidate・cleanup契約と、失敗／timeout／cancel／親Process消失／cleanup不明のRecovery Matrixは機械試験済みである。正式署名配布物ではCodex入口の1経路だけが実Provider実測済みであり、4経路行列とRecovery Matrixの正式署名実測、最新固定版監査およびRelease判断はまだ完了していない。
+
+| 層 | 現在の状態 |
+|---|---|
+| 利用者が準備するもの | Windowsの認証済みローカル対話ユーザー、Docker Desktop Linux Engine、公式Codex／Claude Code CLIの専用Provider HomeでのSubscription OAuth login、真正性を確認した署名済みCRDD配布物、Repository単位の外部送信Policy |
+| 通常実行 | 初回だけ全Provider処理境界を確認し、選択ユーザーと保護Runtime Stateに結合した単一Active同意を180日または明示取消まで再利用する。各TaskのRevision、Scope、Provider、AuthorityおよびCandidateは毎回検査する |
+| 対象外 | API key、従量API、追加購入、有料fallback、Provider間の直接spawn、commit／push／merge／Release／公開、T3／T4相当のHost tamper resistance |
+
+Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけに使う。Repository本文は許可された読取り投影からだけ渡し、Password、Private Key、Session Token、API Keyその他のSecret値をPromptまたは投影へ含めない。認識可能なSecretをRuntimeが拒否しても未知Secretの不存在までは証明しない。
+
+利用者向けの要約はRepository直下の[`README.md`](../../README.md)、概念と決定権限は[`04_Agent_Organization.md`](../../04_Agent_Organization.md)、Trust／Provisioning／Recoveryの詳細と残存リスクは本書の後続節および[`threat-model.md`](threat-model.md)を参照する。
+
 OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecure Enclave、LinuxのTPM 2.0をP-256優先Backendとして固定し、software fallbackは初回setupでの明示承認がある場合だけ候補化する。公開P-256 SPKIとBackend選択の形だけを検査し、秘密鍵、鍵handleまたはPathを入力・出力しない。実native Adapter、software鍵保護、署名済みPlatform Provisionerとの結合およびkey-handle所有証明は未実装であり、policy候補を実鍵保護、Trust、Authority、CapabilityまたはEffectへ昇格しない。
 
 準備認証局（Provisioning CA）のpure Core候補は、caller suppliedのoffline root集合、rootがEd25519署名したonline／offline issuing key証明書、およびroot署名済み失効一覧を検査する。issuing keyは最大365日、失効一覧は最大24時間、列挙された鍵は`revokedAt`の過去／現在／未来にかかわらず即時拒否する。正常なchainもRuntime同梱root Trust、rollback floor、Runtime時計または配布確認ではないため、Authority、CapabilityまたはGateを開かない。
@@ -48,6 +62,8 @@ Providerライフサイクル基盤（Provider Lifecycle Foundation）は、Code
 Claude実行計画候補（Claude Execution Plan Candidate）は、最初の外部ExecutorをClaude Codeへ限定する。公式release manifestのLinux x64 binary `2.1.220`、upstream commit、SHA-256、byte長および固定絶対path `/opt/crdd/providers/claude/2.1.220/claude`を一つのartifact Identity候補として結合する。2026-08-24にAnthropic release signing key fingerprint、detached manifest署名、binary byte長／SHA-256、固定Provider image digestおよびexact argv互換性を検証した。`--bare`はOAuth／Keychainを使わないため除外し、`--safe-mode`、空settings sources、空MCP、tool 0、boolean Structured Output、最大2 turns、API相当budget `$0.10`、session非永続およびplan permissionへ固定した。専用Provider Home、親環境を継承しない最小環境、internal Provider networkと限定Proxy、Claude Max Subscription OAuthおよびnormalized `{status:true}`の実requestをtransient vertical sliceで確認し、container／network残存0とした。Local Personalのユーザー指示による公式CLI利用だけを対象とし、再配布許可や一般的な自動利用許可を主張しない。Runtimeは固定image、selected-user Provider Home observer、Mount Grant、最小環境、限定Egress、外部送信Grant、Subscription OAuth preflight、Operation Authority、Revisionおよびcleanup／Recoveryを必須Gateとして接続する。標準Profileは既存Subscriptionだけを使い、API key、Console API account、第三者API Provider、追加credit購入、自動plan切替またはquota不足からの有料API fallbackを許可しない。有料APIは将来の別Profile／別Capabilityであり、ユーザー設定だけでrequest、購入またはAuthorityを発行しない。
 
 現在のFake境界は三層に分かれる。合成Fake観測候補（Synthetic Fake Observation Candidate）のpure Coreはprocessを実行せず、caller claimを非Authorityの`candidate`へ限定する。明示`doctor --isolation`の動的Fakeは診断用Docker／一時Filesystem Effectを伴い、固定Docker Desktop Linux Engine上の正常scenarioについて、Fake限定結果、container／process tree不存在およびHost cleanupを同じrunで確認済みである。専用verificationでは同じ固定経路のtimeout、出力上限超過、不正結果およびnonzero exitに加え、固定Fakeへの`SIGTERM`取消要求、Fakeの受領確認と終了、ホスト側Docker CLI attachプロセス（Host Docker CLI Attach Process）のclose、container不存在およびHost cleanupを実Dockerで確認済みである。通常の`doctor --isolation`は同期経路のままで実行中取消を受理せず、実Provider取消、任意signal、意図的なcleanup失敗または残存containerの実測は`Not Verified`のままである。通常の`doctor`は動的Fakeを発火しない。実Claude Codeと実Codexは、それぞれの専用Home、限定Proxyおよび既存Subscription OAuthによるboolean requestまで確認した。Codexは公式Sigstore bundle、release artifact、固定image、`gpt-5.6-sol`、低推論、通常速度、read-only sandboxおよびexact `{status:true}`を同じrunで確認し、残存Container／Networkを0とした。Runtime所有Provider Home read-only observer、Mount Grant issue／consume／revoke、prepared plan consume、Mount lease完了、Host Recovery遷移、固定Docker Effect executor、署名Release結合Local Personal Authority、Provider EligibilityおよびRepository／Revision bindingはproduction storeへ接続済みで、Codex／Claudeの両AdapterをRepository bindingからResult後のOperation root回収まで一つのCoordinator facadeへ縦結合した。Windows内部子Processは親環境を継承せず、Runtime所有・署名検証済みNative Helperだけが、読み込まれたOS moduleから確認したWindows Directoryと`os.userInfo()`から確認した選択ユーザーのProfile Pathを受ける。Provider Home要求は読み取り専用観測に限定し、Candidate Store／Runtime State要求は読み取り専用観測と`initializeIfMissing: true`による固定Rootの明示初期化Filesystem Effectを分ける。このProfile Pathは`SHGetKnownFolderPath`によるLocal App Data展開にだけ必要なOS Contextであり、Authority、初期化許可またはselected-user成立ではない。環境変数`USERPROFILE`のcaller値、`LOCALAPPDATA`、Credential、ProxyまたはPATHをAuthorityとして受理しない。Native Helperは展開後のKnown Folder、固定segment、selected-user token、Identity、non-reparse、fixed volume、ownerおよびprotected DACLを独立に再確認する。Effect executorは承認済みDocker CLIの絶対Path・byte長・SHA-256、固定Linux Engine、空のRuntime所有config、親環境を継承しない最小環境および認証preflightを含むexact 9 commandだけを受理し、所有label確認後の削除と不存在再確認へ閉じる。認証は無通信・読取専用Provider HomeのpreflightでSubscription OAuthを確認し、quotaは上限付きrequest内でだけ確認する。一般Task facadeは、Revisionと送信Scopeへ結合したLocal Userの対話的外部送信Grant、明示Read Projectionだけを含む開始Commitの隔離workspace、stdin専用の一回限りTask Packet、説明可能なExecutor選定、書込み可能なExecutor、Candidate Revision、対象Providerを除外した読取り専用の独立Reviewer、Candidate再照合および全cleanupを一つのOperationへ接続した。Provider HomeのDocker名はProvider Home Identityから決定し、同じHomeへの別process同時書込みまたはcrash residueを自動takeoverせずfail closedにする。Executorの自己申告Pathと実差分が一致しない場合、Reviewerが承認しない場合、Reviewer中にCandidateが変わった場合、取消後またはcleanup不明時はResultを公開しない。承認済みCandidateは内容Hash付きopaque IDで一時保存し、Operation cleanup後に明示export／discardできる。`coordinator task --request-stdin`はRepositoryを現在Directoryへ固定し、重複keyのない上限付きJSONだけを標準入力から受ける。Task本文、Host Path、Credential、生Provider出力、summaryおよびfinding本文をargv、環境または公開結果へ含めない。署名済み`Codex Front → Claude Code Executor → Codex Independent Reviewer`の固定1 Path成功経路では、exact Candidate検証・破棄、cleanupおよびHost残存0まで確認した。固定Evidenceは[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とし、逆方向／他経路、正式署名E2Eでの是正・取消・失敗Recovery、Runtime全体、統合およびReleaseは未完了または未評価のままである。
+
+現在の機械固定では、4経路Runnerが要求入口Profile、実Executor／Reviewer、独立性、初回同意と3回の再利用、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。入口Providerの実Process IdentityはRunner単独ではattestせず、要求Profileと実Executor／ReviewerのEvidenceを区別する。したがって、上記固定1経路以外を「未評価」とした記述は過去Evidenceの説明であり、現在の機械契約状態ではない。ただし4経路とRecovery Matrixの正式署名実測、Runtime全体の最新固定版監査、統合およびReleaseは未完了である。
 
 合成Fake観測候補は、callerが与えたtimeout、cancel、stdin／stdout／stderr量、終了状態、process tree／container不存在のclaimおよび結果exact 1件を構造的に評価するだけである。正常形も`candidate`、`observationAuthority:false`、`fakeProviderExecuted:false`、`processAbsenceVerified:false`に固定し、実測、実Codex／Claude Codeの認証、subscription残量、追加費用不要性、Egress、Telemetry、自動更新またはOperation Capabilityを証明しない。subscriptionのquota／creditが不足または判定不能な場合は追加購入やAPI fallbackを行わず`blocked`とする。
 
@@ -116,7 +132,7 @@ manifest revision 2では、上記worker成果物に加えて`90_Release/coordin
 
 実行Pathを表す各placeholderは同じ保守sessionで検証した絶対Pathへ置き換える。保護操作をsession変数、PATH上の裸の`node`、相対entrypoint、または内部で別Runtimeを再選択するpackage aliasへ置き換えない。`doctor`とRelease manifest署名は外部Git CLIを起動せず、Repository所有のbounded Git object readerでCommit／Treeを読む。
 
-`task`は次のようなexact JSONを標準入力から受ける。`readPaths`はProviderへ見せる開始Revisionの投影で、省略時は`allowedPaths`と同じになる。Runtimeは両集合の和に`allowedPaths`を必ず含め、Repository全体を暗黙に送らない。Provider候補、Revision、目的および読取り範囲を表示した対話確認が成立した場合だけ外部送信Grantを発行する。
+`task`は次のようなexact JSONを標準入力から受ける。`readPaths`はProviderへ見せる開始Revisionの投影で、省略時は`allowedPaths`と同じになる。Runtimeは両集合の和に`allowedPaths`を必ず含め、Repository全体を暗黙に送らない。初回だけRepository Policyの全Provider処理境界と、永続化しない現在Operation Previewを分けて表示する。同じ単一Active境界はTaskごとの再確認なしで使えるが、短命GrantはProvider候補、Revision、目的および読取り範囲へ毎回結合する。境界変更、180日失効、明示取消、別選択ユーザー、保護Runtime State変更または判定不能では再承認または手動回復前に停止する。
 
 WindowsのConsole検証では`\\.\CONIN$`を読取り専用、`\\.\CONOUT$`を読書き可能として開く。Node.js 24系では書込み専用の`CONOUT$` descriptorをTTYとして識別できないため、出力側handleの読書き可能modeはTTY同一性の検証とlifecycle管理だけに使い、文字列表示はUnicode対応の`process.stdout`へ固定する。descriptor、汎用Console能力または追加の読取りAuthorityをProviderや公開callerへ渡さない。
 
@@ -140,11 +156,16 @@ Task processの標準入力は、上限付きJSONをEOFまで受け取る構造�
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\tools\coordinator\scripts\verify-signed-general-task.ts"
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\tools\coordinator\scripts\verify-signed-general-task.ts" --route reverse
 & "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\tools\coordinator\scripts\verify-signed-general-task.ts" --route same-codex
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\tools\coordinator\scripts\verify-signed-general-task.ts" --route same-claude
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\tools\coordinator\scripts\verify-signed-route-matrix.ts"
+& "<absolute-preverified-node-24.12+-executable>" "<signed-distribution-root>\tools\coordinator\scripts\revoke-external-send-consent.ts"
 ```
 
 `<absolute-preverified-node-24.12+-executable>`は、絶対Path、version 24.12.0以上および実体を直前に確認したNode実行ファイルで置き換える。PATH上の裸の`node`、version判定不能または未対応Nodeを使用しない。Runner自身もNode versionと対話consoleをRelease検証およびTask開始より前に再確認し、不成立ならEffectなしで停止する。
 
 このRunnerは公開の合成Taskをprocess内で固定構成する。引数なしは`requested Codex Front → Claude Code Executor → Codex Independent Reviewer`、exact `--route reverse`は`requested Claude Code Front → Codex Executor → Claude Code Independent Reviewer`、exact `--route same-codex`は具体化済み検証というCodex特性により`requested Codex Front → Codex Executor → Claude Code Independent Reviewer`を選ぶ。`same-codex`はProvider独立Reviewerを維持し、同一Provider Reviewerを強制しない。それ以外の引数、任意Provider名、任意Taskまたは同一Provider強制を受理しない。Runnerの引数と結果は要求したFront軸を示すが、caller processが実Codex／Claude Code Frontだったことを観測・証明しない。Front実体を含むE2E成立は、該当する公式Frontからこの固定Runnerを起動したrun Evidenceと、Runnerが確認するProvider経路の両方で判定する。変更候補は`tools/coordinator/runtime/general-task-verification.txt`のexact 1件に限定し、期待byteとの完全一致をRuntime Candidate Storeから再確認した後にdiscardする。署名ReleaseのCommit／Treeと対象RepositoryのCandidate Revision、全Candidate Identity Hash、経路、独立Review、cleanup、Recovery ID不存在、canonical Repository非変更およびCandidate残存0がすべて成立した場合だけPassを返す。TaskがCandidate IDを返した後はPass可否にかかわらずRuntime Candidate Storeのdiscardを試行し、処置不明ならIDを保持して手動回復を要求する。通常の`coordinator task --request-stdin`契約は変更しない。
+
+`--route same-claude`はClaude特性により`requested Claude Code Front → Claude Code Executor → Codex Independent Reviewer`を選ぶ。同一Executor Provider経路でもProvider独立Reviewerを維持し、同一Provider Reviewerを強制しない。4経路Matrixは開始時に既存同意を明示取消し、最初の経路が対話初期同意、残る3経路が同じ境界の再利用であることを含め、各Runnerのcontract revision、要求経路、Executor／Reviewer、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。
 
 ### 正式署名Recovery Matrixの固定検証
 

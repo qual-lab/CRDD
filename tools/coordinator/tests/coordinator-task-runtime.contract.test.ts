@@ -241,12 +241,16 @@ function fixture(
         ? Object.freeze({
             status: "blocked",
             reason: options.externalSendReason,
+            manualRecoveryRequired:
+              options.externalSendReason.includes("cleanup_unknown") ||
+              options.externalSendReason.includes("manual_recovery_required"),
           })
         : options.externalSendDenied
           ? null
           : Object.freeze({
               status: "issued",
               capability: externalSendGrantCapability,
+              authorizationMode: "reused_initial_consent",
             });
       return options.pauseExternalAuthorization
         ? new Promise<typeof authorization>((resolve) => {
@@ -1352,7 +1356,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,

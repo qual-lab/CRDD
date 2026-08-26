@@ -3771,6 +3771,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     const pointers: Array<
       Readonly<{ name: string; value: Record<string, unknown> }>
     > = [];
+    let externalSendConsentRecordCount = 0;
     const journalIntents = inspectDockerRecoveryJournalDirectory(rootPath);
     const journalIntentRecoveryIds = new Set(
       journalIntents
@@ -4211,7 +4212,14 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         );
         continue;
       }
-      if (/^external-send-consent-v1-[a-f0-9]{64}\.json$/u.test(entry.name)) {
+      if (
+        /^external-send-consent-active-v2-[a-f0-9]{64}-[a-f0-9]{16}\.json$/u.test(
+          entry.name,
+        )
+      ) {
+        externalSendConsentRecordCount += 1;
+        if (externalSendConsentRecordCount > 1)
+          throw new Error("docker_task_runtime_state_unknown_entry");
         if (
           !entry.isFile() ||
           entry.isSymbolicLink() ||
@@ -4222,10 +4230,11 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           path.join(rootPath, entry.name),
           entry.name,
         ).value as Record<string, unknown>;
-        const filenameHash =
-          /^external-send-consent-v1-([a-f0-9]{64})\.json$/u.exec(
+        const filenameIdentity =
+          /^external-send-consent-active-v2-([a-f0-9]{64})-([a-f0-9]{16})\.json$/u.exec(
             entry.name,
-          )?.[1];
+          );
+        const filenameHash = filenameIdentity?.[1];
         if (
           !filenameHash ||
           !exactRecordKeys(consent, [
@@ -4241,9 +4250,14 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
             "runtimeStateBindingHash",
             "apiKeyFallbackAllowed",
             "additionalPurchaseAllowed",
+            "generation",
+            "confirmedAtEpochMs",
+            "expiresAtEpochMs",
           ]) ||
-          consent.schema !== "crdd-coordinator/external-send-consent/v1" ||
+          consent.schema !== "crdd-coordinator/external-send-consent/v2" ||
           consent.consentBoundaryHash !== filenameHash ||
+          typeof consent.generation !== "string" ||
+          consent.generation !== filenameIdentity?.[2] ||
           ![
             consent.sourceFileHash,
             consent.localUserBindingHash,
@@ -4252,7 +4266,12 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
             consent.runtimeStateBindingHash,
           ].every((value) => typeof value === "string" && HEX64.test(value)) ||
           consent.apiKeyFallbackAllowed !== false ||
-          consent.additionalPurchaseAllowed !== false
+          consent.additionalPurchaseAllowed !== false ||
+          typeof consent.confirmedAtEpochMs !== "number" ||
+          !Number.isSafeInteger(consent.confirmedAtEpochMs) ||
+          typeof consent.expiresAtEpochMs !== "number" ||
+          !Number.isSafeInteger(consent.expiresAtEpochMs) ||
+          consent.expiresAtEpochMs <= consent.confirmedAtEpochMs
         )
           throw new Error("docker_task_runtime_state_entry_replaced");
         continue;

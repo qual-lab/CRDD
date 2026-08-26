@@ -28,7 +28,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 5;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 6;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -385,6 +385,8 @@ function verifiedTaskResult(
     result.executorProvider === route.executorProvider &&
     result.reviewerProvider === route.reviewerProvider &&
     result.reviewerIndependence === "provider_independent" &&
+    (result.externalSendAuthorizationMode === "interactive_initial_consent" ||
+      result.externalSendAuthorizationMode === "reused_initial_consent") &&
     result.remediationPerformed === false &&
     candidateRevision?.baseCommit === release?.crddCommit &&
     candidateRevision.baseTree === release.crddTree &&
@@ -711,6 +713,11 @@ export async function runSignedGeneralTaskVerification(
       executorProvider: route.executorProvider,
       reviewerProvider: route.reviewerProvider,
       reviewerIndependence: "provider_independent" as const,
+      externalSendAuthorizationMode:
+        taskResult.externalSendAuthorizationMode ===
+        "interactive_initial_consent"
+          ? ("interactive_initial_consent" as const)
+          : ("reused_initial_consent" as const),
       remediationPerformed: false,
       changedPaths: Object.freeze([TARGET_PATH]),
       exactCandidateContentVerified: true,
@@ -718,10 +725,14 @@ export async function runSignedGeneralTaskVerification(
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
       hostRecoveryId: null,
+      hostRecoveryIds: Object.freeze([]),
       dockerRecoveryId: null,
       dockerRecoveryIds: Object.freeze([]),
       candidateRecoveryId: null,
+      candidateRecoveryIds: Object.freeze([]),
       candidateStoreRecoveryId: null,
+      candidateStoreRecoveryIds: Object.freeze([]),
+      recoveryIdentityAmbiguous: false,
       canonicalRepositoryChanged: false,
       rawProviderOutputReported: false,
       hostPathReported: false,

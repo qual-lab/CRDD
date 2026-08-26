@@ -52,6 +52,67 @@ const operationNonce = "2".repeat(64);
 const baseHash = "3".repeat(64);
 const dockerTaskRecoveryId = `docker-task.${stableHome}.${operationNonce}.${baseHash}`;
 
+function consentRecord(boundary: string, generation: string) {
+  return Object.freeze({
+    schema: "crdd-coordinator/external-send-consent/v2",
+    consentBoundaryHash: boundary,
+    policyId: "fixture/policy/v1",
+    sourceFileHash: "8".repeat(64),
+    informationClassification: "public",
+    providerBoundaries: Object.freeze([]),
+    localUserBindingHash: "6".repeat(64),
+    runtimeStateIdentityHash: "4".repeat(64),
+    runtimeStateProtectionHash: "5".repeat(64),
+    runtimeStateBindingHash: "7".repeat(64),
+    apiKeyFallbackAllowed: false,
+    additionalPurchaseAllowed: false,
+    generation,
+    confirmedAtEpochMs: 1_000_000,
+    expiresAtEpochMs: 2_000_000,
+  });
+}
+
+test("RuntimeState inventoryは単一Active同意とDocker状態を共存させ複数同意を拒否する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const root = verifiedRoot(fixture.root);
+  const firstBoundary = "a".repeat(64);
+  const firstGeneration = "b".repeat(16);
+  const firstName = `external-send-consent-active-v2-${firstBoundary}-${firstGeneration}.json`;
+  try {
+    writeCommittedDockerRecoveryJson(
+      fixture.root,
+      firstName,
+      firstName,
+      consentRecord(firstBoundary, firstGeneration),
+    );
+    const single = inspectDockerRecoveryRootSnapshotWithLock(root, () =>
+      Object.freeze({ release: () => true }),
+    );
+    assert.equal(single.status, "completed");
+    assert.deepEqual(single.dockerRecoveryIds, [fixture.recoveryId]);
+
+    const secondBoundary = "c".repeat(64);
+    const secondGeneration = "d".repeat(16);
+    const secondName = `external-send-consent-active-v2-${secondBoundary}-${secondGeneration}.json`;
+    writeCommittedDockerRecoveryJson(
+      fixture.root,
+      secondName,
+      secondName,
+      consentRecord(secondBoundary, secondGeneration),
+    );
+    assert.equal(
+      inspectDockerRecoveryRootSnapshotWithLock(root, () =>
+        Object.freeze({ release: () => true }),
+      ).status,
+      "blocked",
+    );
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
 function verifiedRoot(rootPath: string) {
   return Object.freeze({
     rootPath,

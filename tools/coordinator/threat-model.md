@@ -4,6 +4,16 @@ Local PersonalのSubscription OfferingはCodexの`chatgpt_subscription_oauth`と
 
 Status: Implementation Candidate
 
+### 初期外部送信同意
+
+Local Personalでは、Repositoryの外部送信Policyに含まれる全Provider境界、Subscription Offering、目的、情報分類、Terms IdentityおよびCandidate保存条件を初回に表示し、選択ローカルユーザーと保護Runtime Stateへ結合した単一Active同意として保持する。現在Task、Repository Revision、要求Providerおよび投影Scopeは同じ画面でOperation Previewとして区別して表示するが、永続同意へ含めない。Operationごとの短命Grantはこれらを毎回再結合する。
+
+Active同意は180日で失効し、明示取消、Policy byte変更、別Provider／Account境界、別選択ユーザー、Runtime State Identity／Protection変更、欠落または破損で再承認へ戻る。新境界を保存する前に旧境界を失効し、有効な境界は常に一つだけとするため、A→B→Aで過去Aの同意を復活させない。固定名規則と件数上限に合うrecord／commitだけをRuntimeState inventoryへ含め、部分pairまたは破損pairはAuthorityを減らす固定対象の削除だけを試みる。対象Identity、file type、lockまたは復元を確認できなければProvider、Workspace、NetworkおよびGrant Effect前に`manualRecoveryRequired`で停止する。
+
+この同意は公式CLIへ許可範囲の情報を送るAuthorityであり、Provider内部の保持、二次利用、再委託、exact Account／TenantまたはTerms本文をRuntimeが検証したという主張ではない。API key、従量API、追加購入、有料fallbackまたは公開Authorityも含まない。
+
+同意Schemaを理解しない旧候補へ戻す場合、現在候補のRuntime所有取消を先に完了し、Active同意pair残存0を確認してから切り替える。旧候補へ同意を移行、読み替えまたはfallbackせず、未知entryを削除して進めない。取消または残存0を確認できなければRollbackを停止する。
+
 固定Commit `d4cbdff079e5e2270b71263d6edbfe32e5332dd1`／Tree `d9cdf6265ab09cdac6dacde0bded41b6bd107a81`の第十八次Agent／Architecture／Security再レビュー、Document Audit、Gap／Impact AuditおよびConformance Auditは、Critical／Major／Minor 0件で全て`Pass`し、`AG-DRR-016-01`を`Resolved`とした。Docker Recovery Runtime contract revision 14はactive pointerを両bootstrap pair完了、Root source／move intent不存在、通常Operation inventory、exact `host-begin-intent`およびbase initial Host lineage一致へ結合したうえで、lease解放receipt、通常完了およびHost cleanup開始・完了Evidenceの不存在も要求する。partial、pre-host-intent、move anchor残存またはpointer解放後状態のpointerはRecovery ID空で停止し、pointer journalもAuthority Evidenceへ採用しない。このPassは同固定版の履歴であり、後続の正式署名一般Task Runner是正へ自動伝播しない。現在版はRunner是正後の機械確認と独立再レビュー／再監査を経て、署名済み`Codex Front → Claude Code Executor → Codex Independent Reviewer`の固定1 Path成功経路、exact Candidate破棄、cleanupおよびHost残存0まで確認した。固定Evidenceは[`CHG-000015`](../../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md)を正本とし、今回の正本伝播の独立監査、逆方向／他経路、正式署名E2Eでの是正・取消・失敗Recovery、Runtime完成、PR最終候補、StableおよびReleaseは別のGateとして残る。
 
 ### 現行revisionのProvider Home／Docker Task回復補正

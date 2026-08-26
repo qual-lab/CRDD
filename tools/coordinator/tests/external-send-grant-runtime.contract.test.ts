@@ -115,7 +115,11 @@ function fixture(
           | "reader_failed"
           | "cleanup_unknown";
       }> = true,
-  consentStatus?: "confirmed" | "absent" | "cleanup_unknown",
+  consentStatus?:
+    | "confirmed"
+    | "absent"
+    | "needs_confirmation"
+    | "recovery_required",
 ) {
   const managementCapability = Object.freeze({});
   const repositoryBindingCapability = Object.freeze({});
@@ -143,6 +147,7 @@ function fixture(
         ? Object.freeze({
             policyId: "fixture/policy/v1",
             policyHash: "a".repeat(64),
+            sourceFileHash: "b".repeat(64),
             informationClassification: "public",
             decisionAuthority: "authenticated_local_user",
             candidatePersistenceAllowed: true,
@@ -283,7 +288,7 @@ test("cleanup不明はProcess再起動要求だけをbounded結果へ返す", as
     current.repositoryBindingCapability,
     current.policyCapability,
     SCOPE,
-    ["codex", "claude"],
+    ["claude"],
   );
   assert.deepEqual(result, {
     status: "blocked",
@@ -646,7 +651,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 13);
+  assert.equal(contract.contractRevision, 14);
   assert.equal(
     contract.interactiveConfirmation,
     "first_boundary_only_async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
@@ -716,7 +721,7 @@ test("同じRuntime-owned初期同意境界では対話を繰り返さず短命O
   assert.equal(initial.notices.length, 1);
   assert.equal(initial.persistedConsents(), 1);
 
-  const unknown = fixture(true, "cleanup_unknown");
+  const unknown = fixture(true, "recovery_required");
   const blocked = await unknown.runtime.request(
     unknown.managementCapability,
     unknown.repositoryBindingCapability,
@@ -727,10 +732,39 @@ test("同じRuntime-owned初期同意境界では対話を繰り返さず短命O
   assert.equal(blocked?.status, "blocked");
   assert.equal(
     blocked?.reason,
-    "external_send_consent_cleanup_unknown_process_restart_required",
+    "external_send_consent_manual_recovery_required",
   );
   assert.equal(blocked?.manualRecoveryRequired, true);
   assert.equal(unknown.notices.length, 0);
+});
+
+test("Repository revisionとTask scope変更は永続同意を拡張せず各Operation Grantへ再結合する", async () => {
+  const current = fixture(false, "confirmed");
+  const first = await current.runtime.request(
+    current.managementCapability,
+    current.repositoryBindingCapability,
+    current.policyCapability,
+    SCOPE,
+    ["claude"],
+  );
+  assert.equal(first?.status, "issued");
+  current.replaceRevision();
+  const changedScope = Object.freeze({
+    ...SCOPE,
+    objective: "Use another bounded public objective.",
+  });
+  const second = await current.runtime.request(
+    current.managementCapability,
+    current.repositoryBindingCapability,
+    current.policyCapability,
+    changedScope,
+    ["claude"],
+  );
+  assert.equal(second?.status, "issued");
+  assert.equal(second?.authorizationMode, "reused_initial_consent");
+  assert.notEqual(first?.revision, second?.revision);
+  assert.notEqual(first?.scopeHash, second?.scopeHash);
+  assert.equal(current.notices.length, 0);
 });
 
 test("配列境界を含むScope Hashは一意で、承認表示に全送信fieldを安全に含める", async () => {
@@ -763,7 +797,7 @@ test("配列境界を含むScope Hashは一意で、承認表示に全送信fiel
   assert.match(notice, /acceptanceCriteria/u);
   assert.match(notice, /allowedPaths/u);
   assert.match(notice, /readPaths/u);
-  assert.match(notice, /policyHash/u);
+  assert.match(notice, /policySourceFileHash/u);
   assert.match(notice, /localCandidatePersistence/u);
   assert.match(notice, /chatgpt_subscription_oauth/u);
   assert.match(notice, /claude_max/u);

@@ -64,6 +64,7 @@ function taskResult(overrides: Record<string, unknown> = {}) {
     executorProvider: "claude",
     reviewerProvider: "codex",
     reviewerIndependence: "provider_independent",
+    externalSendAuthorizationMode: "interactive_initial_consent",
     remediationPerformed: false,
     candidateRevision: Object.freeze({
       baseCommit,
@@ -233,7 +234,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);

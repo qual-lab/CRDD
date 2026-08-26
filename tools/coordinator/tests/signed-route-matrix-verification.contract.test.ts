@@ -3,30 +3,93 @@ import test from "node:test";
 
 import {
   describeSignedRouteMatrixVerificationContract,
+  isExactSignedRouteResult,
   runSignedRouteMatrixVerification,
 } from "../scripts/verify-signed-route-matrix.ts";
 
-function completed(route: string) {
+const expectations = {
+  forward: [
+    "front_codex__executor_claude__reviewer_codex",
+    "codex",
+    "claude",
+    "codex",
+  ],
+  reverse: [
+    "front_claude__executor_codex__reviewer_claude",
+    "claude",
+    "codex",
+    "claude",
+  ],
+  "same-codex": [
+    "front_codex__executor_codex__reviewer_claude",
+    "codex",
+    "codex",
+    "claude",
+  ],
+  "same-claude": [
+    "front_claude__executor_claude__reviewer_codex",
+    "claude",
+    "claude",
+    "codex",
+  ],
+} as const;
+
+function completed(
+  profile: keyof typeof expectations,
+  authorizationMode = "reused_initial_consent",
+) {
+  const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
+    contract: "crdd-coordinator/signed-general-task-verification",
+    contractRevision: 6,
     status: "completed" as const,
+    reason: "signed_general_task_verification_completed",
+    requestedRouteProfile: profile,
     route,
+    requestedFrontProvider: front,
+    observedFrontProvider: null,
+    frontIdentityVerified: false,
+    executorProvider: executor,
+    reviewerProvider: reviewer,
+    reviewerIndependence: "provider_independent",
+    externalSendAuthorizationMode: authorizationMode,
+    remediationPerformed: false,
+    exactCandidateContentVerified: true,
+    candidateDiscarded: true,
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
+    hostRecoveryId: null,
+    hostRecoveryIds: Object.freeze([]),
+    dockerRecoveryId: null,
+    dockerRecoveryIds: Object.freeze([]),
+    candidateRecoveryId: null,
+    candidateRecoveryIds: Object.freeze([]),
+    candidateStoreRecoveryId: null,
+    candidateStoreRecoveryIds: Object.freeze([]),
+    recoveryIdentityAmbiguous: false,
     canonicalRepositoryChanged: false,
+    rawProviderOutputReported: false,
+    hostPathReported: false,
+    credentialReported: false,
   });
 }
 
 test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完了する", async () => {
   const seen: string[] = [];
-  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
-    _root,
-    _dependencies,
-    route,
-  ) => {
-    assert.ok(route);
-    seen.push(route);
-    return completed(route);
-  }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  const result = await runSignedRouteMatrixVerification(
+    process.cwd(),
+    (async (_root, _dependencies, route) => {
+      assert.ok(route);
+      seen.push(route);
+      return completed(
+        route,
+        seen.length === 1
+          ? "interactive_initial_consent"
+          : "reused_initial_consent",
+      );
+    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    () => Object.freeze({ status: "revoked" as const }),
+  );
   assert.equal(result.status, "completed");
   assert.deepEqual(seen, ["forward", "reverse", "same-codex", "same-claude"]);
   assert.equal(result.completedRouteCount, 4);
@@ -35,26 +98,71 @@ test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完�
 
 test("最初の未完了経路で停止し既知cleanup状態を失わない", async () => {
   const seen: string[] = [];
-  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
-    _root,
-    _dependencies,
-    route,
-  ) => {
-    assert.ok(route);
-    seen.push(route);
-    return route === "reverse"
-      ? Object.freeze({
-          status: "blocked" as const,
-          cleanupConfirmed: false,
-          manualRecoveryRequired: true,
-          canonicalRepositoryChanged: false,
-        })
-      : completed(route);
-  }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  const result = await runSignedRouteMatrixVerification(
+    process.cwd(),
+    (async (_root, _dependencies, route) => {
+      assert.ok(route);
+      seen.push(route);
+      return route === "reverse"
+        ? Object.freeze({
+            status: "blocked" as const,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            canonicalRepositoryChanged: false,
+          })
+        : completed(route, "interactive_initial_consent");
+    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    () => Object.freeze({ status: "revoked" as const }),
+  );
   assert.equal(result.status, "blocked");
   assert.deepEqual(seen, ["forward", "reverse"]);
   assert.equal(result.completedRouteCount, 1);
   assert.equal(result.manualRecoveryRequired, true);
+});
+
+test("全成功fieldの一つでも危険側・経路不一致なら完了判定しない", () => {
+  const base = completed("forward", "interactive_initial_consent");
+  const mutations: Array<readonly [string, unknown]> = [
+    ["contractRevision", 4],
+    ["requestedRouteProfile", "reverse"],
+    ["executorProvider", "codex"],
+    ["reviewerProvider", "claude"],
+    ["candidateDiscarded", false],
+    ["hostRecoveryIds", ["unexpected"]],
+    ["recoveryIdentityAmbiguous", true],
+    ["rawProviderOutputReported", true],
+    ["hostPathReported", true],
+    ["credentialReported", true],
+  ];
+  assert.equal(
+    isExactSignedRouteResult("forward", base, "interactive_initial_consent"),
+    true,
+  );
+  for (const [field, value] of mutations) {
+    assert.equal(
+      isExactSignedRouteResult(
+        "forward",
+        Object.freeze({ ...base, [field]: value }),
+        "interactive_initial_consent",
+      ),
+      false,
+      field,
+    );
+  }
+});
+
+test("最初は対話、残りはreuseでなければ行列を閉じない", async () => {
+  const result = await runSignedRouteMatrixVerification(
+    process.cwd(),
+    (async (_root, _dependencies, route) =>
+      completed(
+        route ?? "forward",
+        "reused_initial_consent",
+      )) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    () => Object.freeze({ status: "revoked" as const }),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.completedRouteCount, 1);
 });
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {

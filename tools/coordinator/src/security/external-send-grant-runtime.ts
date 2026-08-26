@@ -28,7 +28,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 13;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 14;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -449,33 +449,38 @@ async function requestGrant(
     );
     if (authorizedDestinations.length !== providers.length) return null;
     const reusableConsent = state.dependencies.resolveConsent?.(policy);
-    if (reusableConsent?.status === "cleanup_unknown") {
+    if (reusableConsent?.status === "recovery_required") {
       return Object.freeze({
         status: "blocked" as const,
-        reason:
-          "external_send_consent_cleanup_unknown_process_restart_required",
+        reason: "external_send_consent_manual_recovery_required",
         manualRecoveryRequired: true,
         externalSendAuthorized: false,
         rawContentReported: false,
         hostPathReported: false,
       });
     }
-    const displayedAuthorization = Object.freeze({
+    const persistentConsentBoundary = Object.freeze({
       policyId: policy.policyId,
-      policyHash: policy.policyHash,
+      policySourceFileHash: policy.sourceFileHash,
       informationClassification: policy.informationClassification,
       decisionAuthority: policy.decisionAuthority,
-      repositoryRevision: repository.revision,
-      providerDestinations: authorizedDestinations,
-      taskPayload: scope,
-      scopeHash,
-      derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
+      providerDestinations: policy.destinations,
       localCandidatePersistence: Object.freeze({
         allowed: policy.candidatePersistenceAllowed,
         informationClassification: policy.informationClassification,
         exportLifetimeHours: policy.candidateRetentionHours,
         physicalDeletion: policy.candidatePhysicalDeletion,
       }),
+      consentLifetimeDays: 180,
+      apiKeyFallbackAllowed: false,
+      additionalPurchaseAllowed: false,
+    });
+    const currentOperationPreview = Object.freeze({
+      repositoryRevision: repository.revision,
+      requestedProviderDestinations: authorizedDestinations,
+      taskPayload: scope,
+      scopeHash,
+      derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
       runtimeVerificationBoundary: Object.freeze({
         selectedUserDedicatedProviderHomeSession: true,
         subscriptionOfferingPreflight: true,
@@ -485,8 +490,10 @@ async function requestGrant(
       }),
     });
     const notice = [
-      "Coordinator Runtime 初期外部送信設定（表示した処理境界が変更されるまで再確認しません）",
-      terminalSafeJson(displayedAuthorization),
+      "Coordinator Runtime 初期外部送信設定（次の永続境界が変更・失効・取消されるまで再確認しません）",
+      terminalSafeJson(persistentConsentBoundary),
+      "今回の操作プレビュー（永続同意には保存しません）",
+      terminalSafeJson(currentOperationPreview),
       "対象内容はProviderへ送信され、Subscription枠を消費する可能性があります。API key fallbackと追加購入は行いません。",
     ].join("\n");
     let authorizationMode:
@@ -525,8 +532,7 @@ async function requestGrant(
         if (persisted.status !== "confirmed") {
           return Object.freeze({
             status: "blocked" as const,
-            reason:
-              "external_send_consent_cleanup_unknown_process_restart_required",
+            reason: "external_send_consent_manual_recovery_required",
             manualRecoveryRequired: true,
             externalSendAuthorized: false,
             rawContentReported: false,
@@ -756,6 +762,8 @@ export function describeExternalSendGrantRuntimeContract() {
     concurrentReaderExclusion: "windows_kernel_lock",
     cleanupUnknownHandling:
       "process_local_poison_restart_required_no_operation_recovery_id",
+    consentRecoveryRequiredHandling:
+      "manual_recovery_required_before_authority_workspace_provider_and_network",
     cleanupUnknownPoisonTiming:
       "before_console_lock_release_await_when_operation_cleanup_is_unknown",
     processPoisonGate:

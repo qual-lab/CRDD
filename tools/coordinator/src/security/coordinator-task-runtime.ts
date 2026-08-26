@@ -64,7 +64,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 14;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 15;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -90,6 +90,7 @@ const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
   "external_send_confirmation_cleanup_unknown",
   "external_send_confirmation_cleanup_unknown_process_restart_required",
   "external_send_consent_cleanup_unknown_process_restart_required",
+  "external_send_consent_manual_recovery_required",
 ]);
 
 type Provider = "codex" | "claude";
@@ -952,10 +953,9 @@ async function runCoordinatorTask(
         grantReason && EXTERNAL_SEND_CONFIRMATION_REASONS.has(grantReason)
           ? `coordinator_task_${grantReason}`
           : "coordinator_task_external_send_not_authorized";
-      const isCleanupUnknown = reason.includes(
-        "external_send_confirmation_cleanup_unknown",
-      );
-      return blocked(reason, isCleanupUnknown, null);
+      const manualRecoveryRequired =
+        externalSendGrant?.manualRecoveryRequired === true;
+      return blocked(reason, manualRecoveryRequired, null);
     }
     const workspace = state.dependencies.materializeWorkspace(
       repositoryBinding,
@@ -1153,6 +1153,10 @@ async function runCoordinatorTask(
       executorProvider: executor.provider,
       reviewerProvider: reviewer.provider,
       reviewerIndependence,
+      externalSendAuthorizationMode:
+        externalSendGrant.authorizationMode === "interactive_initial_consent"
+          ? "interactive_initial_consent"
+          : "reused_initial_consent",
       executorSelectionNotice: finalExecutor.selectionNotice,
       reviewerSelectionNotice: reviewer.selectionNotice,
       remediationPerformed,
