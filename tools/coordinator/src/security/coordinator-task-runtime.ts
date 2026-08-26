@@ -24,7 +24,8 @@ import {
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
-  cleanupOwnedOperationDirectories,
+  cleanupOwnedOperationDirectoriesAsync,
+  confirmOwnedHostOperationGenerationLockReadiness,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
@@ -64,7 +65,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 15;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 16;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -105,8 +106,8 @@ type Operation = Readonly<{
 }>;
 type RuntimeDependencies = Readonly<{
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
-  createOperation: () => Operation;
-  cleanupOperation: (owned: object) => void;
+  createOperation: () => Operation | Promise<Operation>;
+  cleanupOperation: (owned: object) => void | Promise<void>;
   bindRepository: (
     managementCapability: object,
     repositoryRoot: string,
@@ -836,7 +837,7 @@ async function runCoordinatorTask(
   let operation: Operation | null = null;
   let shouldRetainOperationRoot = false;
   try {
-    operation = state.dependencies.createOperation();
+    operation = await state.dependencies.createOperation();
     control.ownedOperation = operation.owned;
     control.managementCapability = operation.managementCapability;
     control.hostRecoveryId = operation.hostRecoveryId;
@@ -1207,7 +1208,7 @@ async function runCoordinatorTask(
   }
 }
 
-function createProductionOperation() {
+async function createProductionOperation() {
   const owned = createOwnedOperationDirectories();
   try {
     const contextCapability = createOwnedOperationContextCapability(owned);
@@ -1218,8 +1219,14 @@ function createProductionOperation() {
     );
     const operation =
       verifyOwnedOperationManagementCapability(managementCapability);
-    if (!activateOwnedHostOperationGenerationLock(managementCapability))
+    if (!(await activateOwnedHostOperationGenerationLock(managementCapability)))
       throw new Error("coordinator_task_host_generation_lock_unavailable");
+    if (
+      !(await confirmOwnedHostOperationGenerationLockReadiness(
+        managementCapability,
+      ))
+    )
+      throw new Error("coordinator_task_host_generation_lock_not_ready");
     return Object.freeze({
       owned,
       mountCapability,
@@ -1229,7 +1236,7 @@ function createProductionOperation() {
     });
   } catch (error) {
     try {
-      cleanupOwnedOperationDirectories(owned);
+      await cleanupOwnedOperationDirectoriesAsync(owned);
     } catch {
       // The original operation creation failure remains authoritative. A
       // protected cleanup failure is rediscovered by the next preflight.
@@ -1241,7 +1248,7 @@ function createProductionOperation() {
 const productionDependencies: RuntimeDependencies = Object.freeze({
   inspectRepository: inspectRepositoryObjectFormatCandidate,
   createOperation: createProductionOperation,
-  cleanupOperation: cleanupOwnedOperationDirectories,
+  cleanupOperation: cleanupOwnedOperationDirectoriesAsync,
   bindRepository: bindRuntimeOwnedRepositoryOperation,
   materializeWorkspace: materializeRuntimeOwnedRepositoryWorkspace,
   issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
@@ -1303,7 +1310,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   abandonDockerRecovery: abandonRuntimeOwnedDockerRecovery,
 });
 
-function retainRuntimeRecoveryState(
+async function retainRuntimeRecoveryState(
   state: RuntimeState,
   control: ControlRecord,
 ) {
@@ -1314,7 +1321,7 @@ function retainRuntimeRecoveryState(
     if (state.dependencies.abandonDockerRecovery?.(handoff.capability) === true)
       handoff.state = "abandoned";
   }
-  void abandonOwnedHostOperationGenerationLock(control.managementCapability);
+  await abandonOwnedHostOperationGenerationLock(control.managementCapability);
 }
 
 function createRuntime(dependencies: RuntimeDependencies) {
@@ -1349,7 +1356,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         controlCapability,
         control,
       )
-        .then((rawResult) => {
+        .then(async (rawResult) => {
           const rawResultRecord = rawResult as RuntimeRecord;
           const allDockerRecoveryIds = [
             ...(Array.isArray(rawResultRecord.dockerRecoveryIds)
@@ -1393,7 +1400,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
             )
               control.retainOperationRoot = true;
             if (control.retainOperationRoot)
-              retainRuntimeRecoveryState(state, control);
+              await retainRuntimeRecoveryState(state, control);
             for (const finalization of state.dependencies
               .prepareDockerHostCleanup && !control.retainOperationRoot
               ? control.dockerFinalizations
@@ -1403,7 +1410,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   finalization.capability,
                 );
               if (!hostRecoveryId) {
-                retainRuntimeRecoveryState(state, control);
+                await retainRuntimeRecoveryState(state, control);
                 return blocked(
                   "coordinator_task_host_cleanup_intent_unconfirmed",
                   true,
@@ -1420,7 +1427,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               control.hostRecoveryId = hostRecoveryId;
             }
             if (control.ownedOperation && !control.retainOperationRoot) {
-              state.dependencies.cleanupOperation(control.ownedOperation);
+              await state.dependencies.cleanupOperation(control.ownedOperation);
             }
             for (const finalization of state.dependencies
               .recordDockerHostCleanupReceipt && !control.retainOperationRoot
@@ -1431,7 +1438,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   finalization.capability,
                 )
               ) {
-                retainRuntimeRecoveryState(state, control);
+                await retainRuntimeRecoveryState(state, control);
                 return blocked(
                   "coordinator_task_host_cleanup_receipt_unconfirmed",
                   true,
@@ -1455,7 +1462,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 finalization.capability,
               );
               if (finalized?.status !== "completed") {
-                retainRuntimeRecoveryState(state, control);
+                await retainRuntimeRecoveryState(state, control);
                 return blocked(
                   "coordinator_task_docker_recovery_finalization_unconfirmed",
                   true,
@@ -1475,7 +1482,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                   candidate.recoveryId === finalization.recoveryId,
               );
               if (handoff?.state !== "finalizable") {
-                retainRuntimeRecoveryState(state, control);
+                await retainRuntimeRecoveryState(state, control);
                 return blocked(
                   "coordinator_task_docker_recovery_handoff_state_invalid",
                   true,
@@ -1562,7 +1569,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               control,
             );
           } catch {
-            retainRuntimeRecoveryState(state, control);
+            await retainRuntimeRecoveryState(state, control);
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
             const discarded = candidateRecoveryId
               ? state.dependencies.discardCandidate(candidateRecoveryId)
@@ -1582,8 +1589,8 @@ function createRuntime(dependencies: RuntimeDependencies) {
             );
           }
         })
-        .catch(() => {
-          retainRuntimeRecoveryState(state, control);
+        .catch(async () => {
+          await retainRuntimeRecoveryState(state, control);
           return blocked(
             "coordinator_task_operation_cleanup_unconfirmed",
             true,
@@ -1690,6 +1697,8 @@ export function describeCoordinatorTaskRuntimeContract() {
       "single_use_runtime_private_verified_distribution_capability_before_all_effects",
     processPoisonGate:
       "before_package_consume_operation_console_store_workspace_provider_and_network",
+    hostOperationGenerationReadiness:
+      "dedicated_supervisor_process_round_trip_then_same_generation_and_recovery_record_reconfirmation_before_console_or_child_process",
     interactiveCleanupRecovery:
       "restart_only_without_operation_recovery_id_unless_operation_cleanup_also_fails",
     approvedCandidateTransfer:

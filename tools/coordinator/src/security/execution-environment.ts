@@ -6,7 +6,10 @@ import {
   loadHostRecoveryRecordByToken,
   parseHostRecoveryToken,
 } from "./host-recovery-record.ts";
-import { acquireRuntimeOwnedHostOperationKernelLock } from "./candidate-store-kernel-lock.ts";
+import {
+  acquireRuntimeOwnedHostOperationKernelLock,
+  acquireRuntimeOwnedHostOperationSupervisorLock,
+} from "./candidate-store-kernel-lock.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -161,7 +164,7 @@ type OperationGenerationState = {
   currentRecordHash: string;
   retired: boolean;
   generationLock: NonNullable<
-    ReturnType<typeof acquireRuntimeOwnedHostOperationKernelLock>
+    Awaited<ReturnType<typeof acquireRuntimeOwnedHostOperationSupervisorLock>>
   > | null;
 };
 const operationGenerationsByKey = new Map<string, OperationGenerationState>();
@@ -223,11 +226,27 @@ function revokeOwnedOperationGeneration(root: string, nonce: string) {
   const key = operationGenerationKey(root, nonce);
   const state = operationGenerationsByKey.get(key);
   if (!state) return true;
+  if (state.generationLock) return false;
+  revokeOwnedOperationContextCapabilities(state.owned);
+  ownedIdentities.delete(state.owned);
+  operationGenerationsByKey.delete(key);
+  if (operationGenerationByRoot.get(root) === state)
+    operationGenerationByRoot.delete(root);
+  return true;
+}
+
+async function revokeOwnedOperationGenerationAsync(
+  root: string,
+  nonce: string,
+) {
+  const key = operationGenerationKey(root, nonce);
+  const state = operationGenerationsByKey.get(key);
+  if (!state) return true;
   revokeOwnedOperationContextCapabilities(state.owned);
   let generationReleased = true;
   if (state.generationLock) {
     try {
-      generationReleased = state.generationLock.release();
+      generationReleased = await state.generationLock.release();
     } catch {
       generationReleased = false;
     }
@@ -924,7 +943,7 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
   return Object.freeze({ binding, identity });
 }
 
-export function activateOwnedHostOperationGenerationLock(
+export async function activateOwnedHostOperationGenerationLock(
   managementCapability: unknown,
 ) {
   const { binding, identity } =
@@ -932,7 +951,7 @@ export function activateOwnedHostOperationGenerationLock(
   const state = ownedOperationGeneration(binding.owned, identity);
   if (state.generationLock)
     throw new Error("owned_operation_generation_lock_already_active");
-  const generationLock = acquireRuntimeOwnedHostOperationKernelLock(
+  const generationLock = await acquireRuntimeOwnedHostOperationSupervisorLock(
     path.basename(identity.root),
     identity.hostRecovery.nonce,
   );
@@ -941,7 +960,34 @@ export function activateOwnedHostOperationGenerationLock(
   return true;
 }
 
-export function abandonOwnedHostOperationGenerationLock(
+export async function confirmOwnedHostOperationGenerationLockReadiness(
+  managementCapability: unknown,
+) {
+  try {
+    const before = ownedOperationFromManagementCapability(managementCapability);
+    const generation = ownedOperationGeneration(
+      before.binding.owned,
+      before.identity,
+    );
+    const lock = generation.generationLock;
+    if (!lock || !(await lock.confirmReady())) return false;
+    const after = ownedOperationFromManagementCapability(managementCapability);
+    const current = ownedOperationGeneration(
+      after.binding.owned,
+      after.identity,
+    );
+    return (
+      before.binding.owned === after.binding.owned &&
+      current === generation &&
+      current.generationLock === lock &&
+      current.retired === false
+    );
+  } catch {
+    return false;
+  }
+}
+
+export async function abandonOwnedHostOperationGenerationLock(
   managementCapability: unknown,
 ) {
   try {
@@ -949,7 +995,7 @@ export function abandonOwnedHostOperationGenerationLock(
       ownedOperationFromManagementCapability(managementCapability);
     const state = ownedOperationGeneration(binding.owned, identity, true);
     if (!state.generationLock) return true;
-    const released = state.generationLock.release();
+    const released = await state.generationLock.release();
     if (released) state.generationLock = null;
     return released;
   } catch {
@@ -1436,7 +1482,7 @@ function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
   }
 }
 
-export function cleanupOwnedOperationDirectories(owned: unknown): void {
+function removeOwnedOperationRootForCleanup(owned: unknown) {
   const identity = ownedIdentity(owned);
   if (!identity) {
     throw new Error("owned_operation_directory_identity_required");
@@ -1494,10 +1540,10 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   fs.rmSync(identity.root, { recursive: true, force: false });
   if (fs.existsSync(identity.root))
     throw new Error("owned_operation_directory_cleanup_incomplete");
-  if (
-    !revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce)
-  )
-    throw new Error("owned_operation_generation_release_unconfirmed");
+  return identity;
+}
+
+function removeOwnedOperationRecoveryRecord(identity: OwnedIdentity) {
   try {
     const recoveryDirectory = fs.realpathSync(identity.hostRecovery.directory);
     if (
@@ -1514,6 +1560,35 @@ export function cleanupOwnedOperationDirectories(owned: unknown): void {
   } catch (error) {
     if (errorCode(error) !== "ENOENT") throw error;
   }
+}
+
+export function cleanupOwnedOperationDirectories(owned: unknown): void {
+  const currentIdentity = ownedIdentity(owned);
+  if (!isObject(owned) || !currentIdentity)
+    throw new Error("owned_operation_directory_identity_required");
+  if (
+    ownedOperationGeneration(owned, currentIdentity, true).generationLock !==
+    null
+  )
+    throw new Error("owned_operation_async_cleanup_required");
+  const identity = removeOwnedOperationRootForCleanup(owned);
+  if (
+    !revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce)
+  )
+    throw new Error("owned_operation_generation_release_unconfirmed");
+  removeOwnedOperationRecoveryRecord(identity);
+}
+
+export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
+  const identity = removeOwnedOperationRootForCleanup(owned);
+  if (
+    !(await revokeOwnedOperationGenerationAsync(
+      identity.root,
+      identity.hostRecovery.nonce,
+    ))
+  )
+    throw new Error("owned_operation_generation_release_unconfirmed");
+  removeOwnedOperationRecoveryRecord(identity);
 }
 
 function loadHostRecoveryRecord(token: unknown): Readonly<{

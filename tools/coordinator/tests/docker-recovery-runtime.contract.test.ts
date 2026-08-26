@@ -2586,7 +2586,7 @@ test("production共有回復engineはpending base完成直後の実process kill�
   }
 });
 
-test("production正常完了経路はHost cleanup receipt後だけfinalizeして残存0へ収束する", () => {
+test("production正常完了経路はHost cleanup receipt後だけfinalizeして残存0へ収束する", async () => {
   const runtimeParent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-normal-recovery-test-"),
   );
@@ -2628,7 +2628,10 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     const hostCleanupToken =
       prepareRuntimeOwnedDockerHostCleanup(recoveryCapability);
     assert.equal(typeof hostCleanupToken, "string");
-    assert.equal(abandonOwnedHostOperationGenerationLock(management), true);
+    assert.equal(
+      await abandonOwnedHostOperationGenerationLock(management),
+      true,
+    );
     assert.deepEqual(recoverOwnedOperationDirectories(hostCleanupToken), {
       status: "recovered",
       reason: "host_cleanup_recovered",

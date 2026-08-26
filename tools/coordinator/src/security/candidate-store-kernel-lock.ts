@@ -1,8 +1,15 @@
 import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 
 const LOCK_ACQUIRE_TIMEOUT_MS = 1_000;
 const LOCK_RELEASE_TIMEOUT_MS = 1_000;
+
+type HostOperationLockSupervisor = Readonly<{
+  confirmReady: () => Promise<boolean>;
+  release: () => Promise<boolean>;
+}>;
 
 type InteractiveConsoleLockWorker = Readonly<{
   unref: () => void;
@@ -287,6 +294,133 @@ export function acquireRuntimeOwnedHostOperationKernelLock(
   return acquireNamedPipeKernelLock(pipeName);
 }
 
+function waitForSupervisorStatus(
+  child: ReturnType<typeof spawn>,
+  expected: "acquired" | "ready" | "released",
+) {
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const settle = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      child.removeListener("message", onMessage);
+      child.removeListener("error", onFailure);
+      child.removeListener("exit", onFailure);
+      resolve(value);
+    };
+    const onMessage = (message: unknown) =>
+      settle(
+        typeof message === "object" &&
+          message !== null &&
+          Object.getPrototypeOf(message) === Object.prototype &&
+          Reflect.ownKeys(message).length === 1 &&
+          Reflect.get(message, "status") === expected,
+      );
+    const onFailure = () => settle(false);
+    const timeout = setTimeout(() => settle(false), LOCK_ACQUIRE_TIMEOUT_MS);
+    child.once("message", onMessage);
+    child.once("error", onFailure);
+    child.once("exit", onFailure);
+  });
+}
+
+async function terminateSupervisor(child: ReturnType<typeof spawn>) {
+  if (child.exitCode !== null) return true;
+  const exit = new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => resolve(false), LOCK_RELEASE_TIMEOUT_MS);
+    child.once("exit", () => {
+      clearTimeout(timeout);
+      resolve(true);
+    });
+  });
+  try {
+    child.kill();
+  } catch {
+    return false;
+  }
+  return exit;
+}
+
+export async function acquireRuntimeOwnedHostOperationSupervisorLock(
+  rootName: unknown,
+  nonce: unknown,
+): Promise<HostOperationLockSupervisor | null> {
+  if (process.platform !== "win32") return null;
+  const bindingHash = hostOperationGenerationBindingHash(rootName, nonce);
+  if (!bindingHash) return null;
+  const pipeName = `\\\\.\\pipe\\CRDD.Coordinator.HostOperation.${bindingHash.slice(0, 32)}`;
+  const child = spawn(
+    process.execPath,
+    [
+      fileURLToPath(
+        new URL("./host-operation-lock-supervisor.ts", import.meta.url),
+      ),
+      pipeName,
+    ],
+    {
+      cwd: fileURLToPath(new URL(".", import.meta.url)),
+      env: {},
+      shell: false,
+      windowsHide: true,
+      stdio: ["ignore", "ignore", "ignore", "ipc"],
+    },
+  );
+  let released = false;
+  let failed = false;
+  child.once("error", () => {
+    failed = true;
+  });
+  child.once("exit", (code) => {
+    if (!released || code !== 0) failed = true;
+  });
+  if (
+    !(await waitForSupervisorStatus(child, "acquired")) ||
+    failed ||
+    child.exitCode !== null ||
+    !child.connected
+  ) {
+    await terminateSupervisor(child);
+    return null;
+  }
+  return Object.freeze({
+    confirmReady: async () => {
+      if (released || failed || !child.connected) return false;
+      const ready = waitForSupervisorStatus(child, "ready");
+      try {
+        child.send("confirm-ready");
+      } catch {
+        return false;
+      }
+      return ready;
+    },
+    release: async () => {
+      if (released || failed || !child.connected) return false;
+      released = true;
+      const releaseStatus = waitForSupervisorStatus(child, "released");
+      const exit = new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(
+          () => resolve(false),
+          LOCK_RELEASE_TIMEOUT_MS,
+        );
+        child.once("exit", (code) => {
+          clearTimeout(timeout);
+          resolve(code === 0);
+        });
+      });
+      try {
+        child.send("release");
+      } catch {
+        await terminateSupervisor(child);
+        return false;
+      }
+      const [reported, exited] = await Promise.all([releaseStatus, exit]);
+      if (!reported || !exited) await terminateSupervisor(child);
+      return reported && exited;
+    },
+  });
+}
+
 export function describeCandidateStoreKernelLockContract() {
   return Object.freeze({
     implementation: "windows_named_pipe_kernel_object",
@@ -307,5 +441,7 @@ export function describeCandidateStoreKernelLockContract() {
       "cleanup_unknown_process_restart_required",
     ]),
     commonSynchronousLockMeaningChanged: false,
+    hostOperationCrossBoundaryReadiness:
+      "dedicated_supervisor_process_round_trip_and_exit_confirmed_release_before_console_or_child_process",
   });
 }

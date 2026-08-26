@@ -1917,6 +1917,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     .sort();
   assert.deepEqual(productionChildProcessOwners, [
     "src/core/interactive-console.ts",
+    "src/security/candidate-store-kernel-lock.ts",
     "src/security/candidate-store-windows-adapter.ts",
     "src/security/docker-effect-runtime.ts",
     "src/security/docker-isolation.ts",

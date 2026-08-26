@@ -161,6 +161,8 @@ Coordinatorは利用可能な候補から、Taskの具体性、曖昧さ、影�
 
 正式署名4経路の実測では、署名Package確認後に行っていた可用性確認だけのWindows console open／closeが、同一Processで後続するRuntime State観測時にnative access violationを発生させることを、Package、console、Capability consume、Consent resolveの順を一段ずつ接続した固定Probeで特定した。初回同意の本処理はdevice検査、表示、入力、取消およびcleanupをすでに一つのRuntime所有lifecycleで行うため、独立したavailability-only preflightを正式Runnerから除去した。有効な同意の再利用時はconsoleを要求せず、初回同意時の本処理が不成立なら従来どおりGrant 0でFail Closedにする。これは対話確認を省略する変更ではなく、同じOS deviceへの重複Effectを除去して単一のAuthority境界へ戻す是正である。
 
+その後の正式署名4経路では、初回同意のchallenge表示直後かつ人間入力前にWindows fast-failが再現した。入力、Node 24.12／24.19、短文／12KB ASCII／11KB日本語、Package再検証、Docker Recovery、Candidate Store、同期lock解放直後および別lock保持を自動Probeで分離し、Host Operation directory生成だけは正常、世代lock Workerを有効化した同一Node ProcessからConsole reader childへ進む場合だけ失敗することを特定した。固定1秒、event-loop yield、listen後のWorker round-tripおよび`Atomics.wait`を除いた完全非同期Workerでもそれぞれ反復9、2、6回目までにnative crashが再発したため、時間またはJS-level readinessをnative quiescenceの根拠にする案を棄却した。ProductionはHost Operation named-pipe lockを固定の独立Supervisor Processへ分離し、`acquired`、`confirm-ready`／`ready`、`released`およびexit 0を確認する。Operation generation、lock identityおよびRecovery recordを再確認してからRepository binding、同意または子Processへ進むTask Runtime contract revision 16とし、独立Supervisor版は同じ物理Consoleの反復1000回でnative crash、孤児、stale lockおよびcleanup残存を0とした。readinessまたはcleanup不明時はConsole、Grant、workspace、ProviderおよびNetwork Effect前に停止する。
+
 ## 9. Repository／Candidate契約
 
 - 対応BackendはローカルGitだけとし、`read_only`と`isolated_worktree`を扱う。

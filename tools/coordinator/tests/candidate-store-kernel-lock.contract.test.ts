@@ -9,6 +9,7 @@ import {
   acquireInteractiveConsoleKernelLockOutcomeUsingFactory,
   acquireRuntimeOwnedCandidateStoreKernelLock,
   acquireRuntimeOwnedHostOperationKernelLock,
+  acquireRuntimeOwnedHostOperationSupervisorLock,
   acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome,
   describeCandidateStoreKernelLockContract,
 } from "../src/security/candidate-store-kernel-lock.ts";
@@ -56,6 +57,33 @@ test("Windows kernel lockは不正Identity、同時取得と二重releaseを拒�
   const next = acquireRuntimeOwnedCandidateStoreKernelLock(protectionHash);
   assert.ok(next);
   assert.equal(next.release(), true);
+});
+
+test("Host Operation lock Supervisorは往復、競合とexit確認済みreleaseを固定する", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const rootName = `crdd-coordinator-doctor-${randomBytes(6).toString("hex")}`;
+  const nonce = randomBytes(16).toString("hex");
+  const lock = await acquireRuntimeOwnedHostOperationSupervisorLock(
+    rootName,
+    nonce,
+  );
+  assert.ok(lock);
+  assert.equal(await lock.confirmReady(), true);
+  assert.equal(
+    await acquireRuntimeOwnedHostOperationSupervisorLock(rootName, nonce),
+    null,
+  );
+  assert.equal(await lock.release(), true);
+  assert.equal(await lock.confirmReady(), false);
+  const next = await acquireRuntimeOwnedHostOperationSupervisorLock(
+    rootName,
+    nonce,
+  );
+  assert.ok(next);
+  assert.equal(await next.release(), true);
 });
 
 test("Windows対話Console lockは同時承認readerを一つへ限定する", async () => {
@@ -142,6 +170,10 @@ test("対話Console専用lockの非同期cleanup契約は共通同期lockの意�
     true,
   );
   assert.equal(contract.commonSynchronousLockMeaningChanged, false);
+  assert.equal(
+    contract.hostOperationCrossBoundaryReadiness,
+    "dedicated_supervisor_process_round_trip_and_exit_confirmed_release_before_console_or_child_process",
+  );
 });
 
 test("Host Operation owner lockはprocess世代をまたぐ同時取得を拒否し強制終了後に回復する", async (context) => {
@@ -177,6 +209,44 @@ test("Host Operation owner lockはprocess世代をまたぐ同時取得を拒否
   const recovered = acquireRuntimeOwnedHostOperationKernelLock(rootName, nonce);
   assert.ok(recovered);
   assert.equal(recovered.release(), true);
+});
+
+test("Host Operation Supervisorは親process強制終了後にlockをkernelに残さない", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const rootName = "crdd-coordinator-doctor-SUP123";
+  const nonce = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const child = spawn(
+    process.execPath,
+    [fileURLToPath(ownerFixture), "host-supervisor", rootName, nonce],
+    {
+      env: {},
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    },
+  );
+  context.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  let stdout = "";
+  while (!stdout.includes("READY\n")) {
+    const [chunk] = (await once(child.stdout, "data")) as [Buffer];
+    stdout += chunk.toString("utf8");
+  }
+  assert.equal(
+    await acquireRuntimeOwnedHostOperationSupervisorLock(rootName, nonce),
+    null,
+  );
+  assert.equal(child.kill(), true);
+  await once(child, "exit");
+  const recovered = await acquireRuntimeOwnedHostOperationSupervisorLock(
+    rootName,
+    nonce,
+  );
+  assert.ok(recovered);
+  assert.equal(await recovered.release(), true);
 });
 
 const ownerFixture = new URL(

@@ -37,6 +37,8 @@ import {
   activateOwnedHostOperationGenerationLock,
   adoptOwnedHostRecoveryRecordTransition,
   cleanupOwnedOperationDirectories,
+  cleanupOwnedOperationDirectoriesAsync,
+  confirmOwnedHostOperationGenerationLockReadiness,
   createOperationDirectories,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -2773,12 +2775,19 @@ test("Docker不存在を自己申告する公開APIを持たない", () => {
   assert.equal(fs.existsSync(owned.root), false);
 });
 
-test("生存中TaskのHost owner世代は別Recoveryによるroot回収を拒否する", () => {
+test("生存中TaskのHost owner世代はreadiness再確認後も別Recoveryによるroot回収を拒否する", async () => {
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
   const mount = createOwnedMountCapability(owned);
   const management = createOwnedOperationManagementCapability(context, mount);
-  assert.equal(activateOwnedHostOperationGenerationLock(management), true);
+  assert.equal(
+    await activateOwnedHostOperationGenerationLock(management),
+    true,
+  );
+  assert.equal(
+    await confirmOwnedHostOperationGenerationLockReadiness(management),
+    true,
+  );
   const token = getOwnedHostRecoveryId(owned);
   assert.deepEqual(recoverOwnedOperationDirectories(token), {
     status: "blocked",
@@ -2786,7 +2795,7 @@ test("生存中TaskのHost owner世代は別Recoveryによるroot回収を拒否
     recoveryId: token,
   });
   assert.equal(fs.existsSync(owned.root), true);
-  cleanupOwnedOperationDirectories(owned);
+  await cleanupOwnedOperationDirectoriesAsync(owned);
 });
 
 test("Operation context CapabilityはRuntime生成IDをopaqueに結合する", () => {
@@ -3340,28 +3349,21 @@ test("Host recoveryはroot削除済みでも外部markerを安全に完了する
   assert.equal(recoverOwnedOperationDirectories(token).status, "blocked");
 });
 
-test("通常Host cleanupはgeneration release不明時にmarkerを保持して同じtokenで再開する", () => {
+test("同期Host cleanupはSupervisor lockを未確認releaseせずEffect前に拒否する", async () => {
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
   const mounts = createOwnedMountCapability(owned);
   const management = createOwnedOperationManagementCapability(context, mounts);
   const recoveryId = getOwnedHostRecoveryId(owned);
   const marker = hostRecoveryMarker(recoveryId);
-  activateOwnedHostOperationGenerationLock(management);
+  await activateOwnedHostOperationGenerationLock(management);
   assert.throws(
-    () =>
-      suppressKernelLockReleaseAcknowledgement(() =>
-        cleanupOwnedOperationDirectories(owned),
-      ),
-    /owned_operation_generation_release_unconfirmed/u,
+    () => cleanupOwnedOperationDirectories(owned),
+    /owned_operation_async_cleanup_required/u,
   );
-  assert.equal(fs.existsSync(owned.root), false);
+  assert.equal(fs.existsSync(owned.root), true);
   assert.equal(fs.existsSync(marker), true);
-  assert.deepEqual(recoverOwnedOperationDirectories(recoveryId), {
-    status: "recovered",
-    reason: "host_root_already_absent",
-    recoveryId: null,
-  });
+  await cleanupOwnedOperationDirectoriesAsync(owned);
   assert.equal(fs.existsSync(marker), false);
 });
 

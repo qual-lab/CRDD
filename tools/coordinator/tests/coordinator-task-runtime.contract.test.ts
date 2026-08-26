@@ -1356,7 +1356,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 15);
+  assert.equal(contract.contractRevision, 16);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,
@@ -1374,6 +1374,10 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   assert.equal(
     contract.processPoisonGate,
     "before_package_consume_operation_console_store_workspace_provider_and_network",
+  );
+  assert.equal(
+    contract.hostOperationGenerationReadiness,
+    "dedicated_supervisor_process_round_trip_then_same_generation_and_recovery_record_reconfirmation_before_console_or_child_process",
   );
   assert.equal(
     contract.interactiveCleanupRecovery,
