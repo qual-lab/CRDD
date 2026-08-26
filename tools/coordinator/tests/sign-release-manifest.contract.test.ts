@@ -176,8 +176,18 @@ test("Release公開引数はpassphrase入力とFilesystem観測より前に完�
     [{ releaseSequence: 0 }, "release_manifest_release_sequence_invalid"],
     [{ crddVersion: "0.18.0" }, "release_manifest_crdd_version_invalid"],
     [{ issuedAt: "2026-08-26T02:39:49Z" }, "release_manifest_time_invalid"],
+    [{ issuedAt: "2026-08-26T02:39:49.00Z" }, "release_manifest_time_invalid"],
+    [
+      { issuedAt: "2026-08-26T02:39:49.000+00:00" },
+      "release_manifest_time_invalid",
+    ],
+    [{ issuedAt: "2026-02-30T00:00:00.000Z" }, "release_manifest_time_invalid"],
     [
       { expiresAt: "2026-08-26T02:39:49.000Z" },
+      "release_manifest_validity_window_invalid",
+    ],
+    [
+      { expiresAt: "2026-08-26T02:39:48.999Z" },
       "release_manifest_validity_window_invalid",
     ],
   ] as const) {
