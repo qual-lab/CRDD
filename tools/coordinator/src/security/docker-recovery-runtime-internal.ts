@@ -3878,6 +3878,20 @@ function recoverRuntimeOwnedDockerTaskInternal(token: unknown) {
   return recoverRuntimeOwnedDockerTaskFromVerifiedRoot(parsed.token, root);
 }
 
+export function classifyRuntimeOwnedDockerRecoveryEvidence(
+  inventory: unknown,
+  recoveryId: string,
+) {
+  if (!inventory || typeof inventory !== "object" || Array.isArray(inventory))
+    return "unknown" as const;
+  const record = inventory as Readonly<Record<string, unknown>>;
+  if (record.status !== "completed" || !Array.isArray(record.dockerRecoveryIds))
+    return "unknown" as const;
+  return (record.dockerRecoveryIds as readonly unknown[]).includes(recoveryId)
+    ? ("preserved" as const)
+    : ("not_preserved" as const);
+}
+
 export function recoverRuntimeOwnedDockerTask(token: unknown) {
   const parsed = parseDockerTaskRecoveryId(token);
   try {
@@ -3886,14 +3900,10 @@ export function recoverRuntimeOwnedDockerTask(token: unknown) {
       result.status === "blocked" && parsed
         ? inspectRuntimeOwnedDockerTaskRecoveryState()
         : null;
-    const evidenceState =
-      inventory?.status === "completed"
-        ? (inventory.dockerRecoveryIds as readonly string[]).includes(
-            parsed?.token ?? "",
-          )
-          ? "preserved"
-          : "not_preserved"
-        : "unknown";
+    const evidenceState = classifyRuntimeOwnedDockerRecoveryEvidence(
+      inventory,
+      parsed?.token ?? "",
+    );
     return Object.freeze({
       ...result,
       recoveryId: evidenceState === "not_preserved" ? null : result.recoveryId,

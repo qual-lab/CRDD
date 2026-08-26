@@ -61,6 +61,10 @@ export function renderDockerRecoveryDoctorReport(
           ? "- recovery evidence: not preserved"
           : "- recovery evidence: preservation unknown",
     );
+    if (typeof reportValue.recoveryId !== "string")
+      lines.push(
+        "- next: stop new tasks and provide the reason and recovery evidence state to the Runtime operator; no reusable recovery ID is available, and a resource must not be removed by name or label alone",
+      );
   }
   const providers = plainRecord(reportValue.providers);
   for (const [name, providerValue] of Object.entries(providers ?? {})) {

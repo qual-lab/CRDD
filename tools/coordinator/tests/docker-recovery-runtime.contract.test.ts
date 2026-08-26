@@ -20,6 +20,7 @@ import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver,
+  classifyRuntimeOwnedDockerRecoveryEvidence,
   completeRuntimeOwnedDockerRecovery,
   createIsolatedDockerRecoveryRuntimeCandidate,
   describeDockerRecoveryRuntimeContract,
@@ -52,6 +53,30 @@ const stableHome = "1".repeat(64);
 const operationNonce = "2".repeat(64);
 const baseHash = "3".repeat(64);
 const dockerTaskRecoveryId = `docker-task.${stableHome}.${operationNonce}.${baseHash}`;
+
+test("公開Recovery Evidence分類はfresh inventoryの存在・不存在・不明を三状態へ固定する", () => {
+  assert.equal(
+    classifyRuntimeOwnedDockerRecoveryEvidence(
+      { status: "completed", dockerRecoveryIds: [dockerTaskRecoveryId] },
+      dockerTaskRecoveryId,
+    ),
+    "preserved",
+  );
+  assert.equal(
+    classifyRuntimeOwnedDockerRecoveryEvidence(
+      { status: "completed", dockerRecoveryIds: [] },
+      dockerTaskRecoveryId,
+    ),
+    "not_preserved",
+  );
+  assert.equal(
+    classifyRuntimeOwnedDockerRecoveryEvidence(
+      { status: "blocked", dockerRecoveryIds: [dockerTaskRecoveryId] },
+      dockerTaskRecoveryId,
+    ),
+    "unknown",
+  );
+});
 
 function consentRecord(boundary: string, generation: string) {
   return Object.freeze({

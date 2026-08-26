@@ -114,6 +114,15 @@ test("CLI共通projectorはEvidenceの保持・非保持・不明を推測せず
       false,
     );
     assert.match(human.stdout, expected);
+    if (evidenceState === "not_preserved") {
+      assert.match(human.stdout, /no reusable recovery ID is available/u);
+      assert.match(
+        human.stdout,
+        /provide the reason and recovery evidence state/u,
+      );
+      assert.match(human.stdout, /must not be removed by name or label alone/u);
+      assert.doesNotMatch(human.stdout, /next: coordinator doctor/u);
+    }
   }
 });
 
