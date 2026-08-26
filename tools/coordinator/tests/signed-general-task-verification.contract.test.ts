@@ -63,6 +63,8 @@ function taskResult(overrides: Record<string, unknown> = {}) {
     manualRecoveryRequired: false,
     executorProvider: "claude",
     reviewerProvider: "codex",
+    reviewerIndependence: "provider_independent",
+    remediationPerformed: false,
     candidateRevision: Object.freeze({
       baseCommit,
       baseTree,
@@ -145,6 +147,7 @@ function dependencies(
     unbound: 0,
     issuedCapability: null as object | null,
     passedCapability: null as unknown,
+    passedRequest: null as unknown,
   };
   return Object.freeze({
     calls,
@@ -159,9 +162,10 @@ function dependencies(
           capability,
         });
       },
-      startTask: (_request: unknown, _root: string, capability: unknown) => {
+      startTask: (request: unknown, _root: string, capability: unknown) => {
         calls.events.push("task");
         calls.starts += 1;
+        calls.passedRequest = request;
         calls.passedCapability = capability;
         return Object.freeze({
           controlCapability: Object.freeze({}),
@@ -229,7 +233,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);
@@ -237,6 +241,12 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(contract.normalTaskStdinContractChanged, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.paidApiFallbackAllowed, false);
+  assert.deepEqual(contract.providerRoutes, [
+    "front_codex__executor_claude__reviewer_codex",
+    "front_claude__executor_codex__reviewer_claude",
+    "front_codex__executor_codex__reviewer_claude",
+  ]);
+  assert.equal(contract.defaultRouteProfile, "forward");
   assert.equal(contract.minimumNodeVersion, "24.12.0");
   assert.equal(contract.nodeSelection, "absolute_preverified_executable_only");
   assert.equal(
@@ -270,6 +280,37 @@ test("CLIは余分argvを単一JSONとexit 2でEffect前に拒否する", () => 
     "signed_general_task_verification_arguments_invalid",
   );
   assert.equal(parsed.canonicalRepositoryChanged, false);
+});
+
+test("CLIのRoute grammarは引数なしと二つのexact profileだけを許可する", () => {
+  const script = path.join(
+    coordinatorRoot,
+    "scripts/verify-signed-general-task.ts",
+  );
+  for (const args of [
+    ["--route"],
+    ["--route", "forward"],
+    ["--route", "claude"],
+    ["--route", "same-claude"],
+    ["--route", "reverse", "extra"],
+  ]) {
+    const result = spawnSync(process.execPath, [script, ...args], {
+      cwd: coordinatorRoot,
+      encoding: "utf8",
+      windowsHide: true,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    assert.equal(result.status, 2);
+    assert.equal(result.stderr, "");
+    const parsed = JSON.parse(result.stdout) as Readonly<
+      Record<string, unknown>
+    >;
+    assert.equal(
+      parsed.reason,
+      "signed_general_task_verification_arguments_invalid",
+    );
+  }
 });
 
 test("Node GateはPackage前、Package Gateは対話Console前に拒否する", async () => {
@@ -389,6 +430,87 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);
   assert.equal(fixture.calls.unbound, 1);
+});
+
+test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合する", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      executorProvider: "codex",
+      reviewerProvider: "claude",
+    }),
+  });
+  const request = createSignedGeneralTaskVerificationRequest("reverse");
+  assert.equal(request.frontProvider, "claude");
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+    "reverse",
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.requestedRouteProfile, "reverse");
+  assert.equal(result.route, "front_claude__executor_codex__reviewer_claude");
+  assert.equal(result.requestedFrontProvider, "claude");
+  assert.equal(result.observedFrontProvider, null);
+  assert.equal(result.frontIdentityVerified, false);
+  assert.equal(result.executorProvider, "codex");
+  assert.equal(result.reviewerProvider, "claude");
+  assert.deepEqual(fixture.calls.passedRequest, request);
+  assert.equal(fixture.calls.reads, 1);
+  assert.equal(fixture.calls.discards, 1);
+
+  for (const mismatch of [
+    taskResult({ executorProvider: "claude", reviewerProvider: "claude" }),
+    taskResult({ executorProvider: "codex", reviewerProvider: "codex" }),
+  ]) {
+    const mismatchFixture = dependencies({ result: mismatch });
+    const mismatchResult = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      mismatchFixture.value,
+      "reverse",
+    );
+    assert.equal(mismatchResult.status, "blocked");
+    assert.equal(mismatchFixture.calls.discards, 1);
+  }
+});
+
+test("Codex特性を選ぶ具体化済み検証はCodex Executorと独立Claude Reviewへ固定する", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      executorProvider: "codex",
+      reviewerProvider: "claude",
+    }),
+  });
+  const request = createSignedGeneralTaskVerificationRequest("same-codex");
+  assert.equal(request.frontProvider, "codex");
+  assert.equal(request.workClass, "bounded_verification");
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+    "same-codex",
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.requestedRouteProfile, "same-codex");
+  assert.equal(result.route, "front_codex__executor_codex__reviewer_claude");
+  assert.equal(result.executorProvider, "codex");
+  assert.equal(result.reviewerProvider, "claude");
+  assert.equal(result.reviewerIndependence, "provider_independent");
+  assert.deepEqual(fixture.calls.passedRequest, request);
+});
+
+test("関数境界も未知Route ProfileをEffect前に拒否する", async () => {
+  const fixture = dependencies();
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+    "unknown" as "forward",
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "signed_general_task_verification_arguments_invalid",
+  );
+  assert.equal(fixture.calls.verifies, 0);
+  assert.equal(fixture.calls.starts, 0);
 });
 
 test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにする", async () => {

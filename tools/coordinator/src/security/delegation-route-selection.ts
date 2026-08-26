@@ -114,6 +114,21 @@ function createBlockedResult(reason: string) {
   });
 }
 
+function createBlockedSlate(reason: string) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason,
+    executorProvider: null,
+    reviewerProvider: null,
+    reviewerIndependence: null,
+    executorRoute: null,
+    reviewerRoute: null,
+    executorSelectionReasonCodes: Object.freeze([] as string[]),
+    reviewerSelectionReasonCodes: Object.freeze([] as string[]),
+    providerEffectAllowed: false,
+  });
+}
+
 function isProvider(value: unknown): value is Provider {
   return typeof value === "string" && PROVIDERS.has(value);
 }
@@ -158,6 +173,16 @@ function selectPreferredProvider(
     return Object.freeze({
       provider: subjectProvider === "codex" ? "claude" : "codex",
       reason: "independent_provider_required",
+    });
+  }
+  if (
+    role === "independent_reviewer" &&
+    !shouldUseIndependentProvider &&
+    subjectProvider
+  ) {
+    return Object.freeze({
+      provider: subjectProvider,
+      reason: "independent_execution_context_same_provider_required",
     });
   }
   if (
@@ -370,7 +395,9 @@ export function selectDelegationRouteCandidate(
     (request.requiresIndependentProvider === true &&
       request.subjectProvider === null) ||
     (request.role === "independent_reviewer" &&
-      request.requiresIndependentProvider !== true)
+      (request.subjectProvider === null ||
+        (request.requiresIndependentProvider === false &&
+          request.requestedExecutorProvider !== request.subjectProvider)))
   ) {
     return createBlockedResult("delegation_route_independence_invalid");
   }
@@ -459,13 +486,15 @@ export function selectDelegationRouteCandidate(
     selected.reason,
     request.requiresIndependentProvider
       ? "independent_provider_required"
-      : executorProvider !== frontProvider
-        ? "cross_provider_route_selected"
-        : request.requestedExecutorProvider !== "auto"
-          ? "same_provider_user_constraint"
-          : selected.reason === "task_characteristic_codex_preference"
-            ? "same_provider_due_task_characteristic"
-            : "same_provider_due_cross_provider_ineligibility",
+      : request.role === "independent_reviewer"
+        ? "independent_execution_context_required"
+        : executorProvider !== frontProvider
+          ? "cross_provider_route_selected"
+          : request.requestedExecutorProvider !== "auto"
+            ? "same_provider_user_constraint"
+            : selected.reason === "task_characteristic_codex_preference"
+              ? "same_provider_due_task_characteristic"
+              : "same_provider_due_cross_provider_ineligibility",
     `work_class_${request.workClass}`,
   ]);
   return Object.freeze({
@@ -495,6 +524,102 @@ export function selectDelegationRouteCandidate(
   });
 }
 
+function sameProviderReviewerAllowed(
+  request: Readonly<Record<string, unknown>>,
+) {
+  return (
+    request.role === "executor" &&
+    (request.workClass === "bounded_implementation" ||
+      request.workClass === "bounded_verification") &&
+    request.planState === "complete" &&
+    request.risk === "low" &&
+    request.decisionImpact === "limited" &&
+    request.isLocalCandidateOnly === true &&
+    request.hasUnresolvedDirection === false &&
+    request.requiresCrossContextAlignment === false
+  );
+}
+
+export function selectDelegationExecutionSlateCandidate(
+  rawExecutorRequest: unknown,
+  rawRuntimeObservation: unknown,
+) {
+  const request = snapshotPlainRecord(rawExecutorRequest, REQUEST_KEYS);
+  const observation = snapshotPlainRecord(
+    rawRuntimeObservation,
+    OBSERVATION_KEYS,
+  );
+  if (!request || !observation) {
+    return createBlockedSlate("delegation_slate_shape_invalid");
+  }
+  const eligibility = snapshotProviderEligibility(
+    observation.providerEligibility,
+  );
+  if (!eligibility) {
+    return createBlockedSlate("delegation_slate_provider_eligibility_invalid");
+  }
+  const stableObservation = Object.freeze({
+    providerEligibility: Object.freeze(
+      [...eligibility.values()].map((entry) => Object.freeze({ ...entry })),
+    ),
+  });
+  const executor = selectDelegationRouteCandidate(request, stableObservation);
+  if (executor.status !== "candidate") {
+    return createBlockedSlate("delegation_slate_executor_unavailable");
+  }
+  const reviewerBase = Object.freeze({
+    ...request,
+    delegationNeed: "required",
+    delegationReason: "independent_review_required",
+    requestedExecutorProvider: "auto",
+    subjectProvider: executor.executorProvider,
+    requiresIndependentProvider: true,
+    role: "independent_reviewer",
+    workClass: "bounded_verification",
+    planState: "complete",
+    isLocalCandidateOnly: true,
+    hasUnresolvedDirection: false,
+    requiresCrossContextAlignment: false,
+  });
+  let reviewer = selectDelegationRouteCandidate(
+    reviewerBase,
+    stableObservation,
+  );
+  let reviewerIndependence:
+    | "provider_independent"
+    | "execution_context_independent" = "provider_independent";
+  if (
+    reviewer.status !== "candidate" &&
+    reviewer.reason === "delegation_route_executor_unavailable" &&
+    sameProviderReviewerAllowed(request)
+  ) {
+    reviewer = selectDelegationRouteCandidate(
+      Object.freeze({
+        ...reviewerBase,
+        requestedExecutorProvider: executor.executorProvider,
+        requiresIndependentProvider: false,
+      }),
+      stableObservation,
+    );
+    reviewerIndependence = "execution_context_independent";
+  }
+  if (reviewer.status !== "candidate") {
+    return createBlockedSlate("delegation_slate_reviewer_unavailable");
+  }
+  return Object.freeze({
+    status: "candidate" as const,
+    reason: "delegation_execution_slate_candidate",
+    executorProvider: executor.executorProvider,
+    reviewerProvider: reviewer.executorProvider,
+    reviewerIndependence,
+    executorRoute: executor.route,
+    reviewerRoute: reviewer.route,
+    executorSelectionReasonCodes: executor.selectionReasonCodes,
+    reviewerSelectionReasonCodes: reviewer.selectionReasonCodes,
+    providerEffectAllowed: false,
+  });
+}
+
 export function describeDelegationRouteSelectionContract() {
   return Object.freeze({
     contract: DELEGATION_ROUTE_SELECTION_CONTRACT,
@@ -516,9 +641,13 @@ export function describeDelegationRouteSelectionContract() {
     taskRoleAffectsModelAndEffort: true,
     frontOnlyDisposition:
       "implemented_as_retained_result_without_selection_grant_or_provider_effect",
-    independentReview: "subject_provider_excluded",
+    independentReview: Object.freeze({
+      providerIndependent: "subject_provider_excluded",
+      executionContextIndependent:
+        "same_provider_only_when_explicitly_requested_by_preflighted_slate_policy",
+    }),
     sameProviderRoute:
-      "only_explicit_user_constraint_or_runtime_observed_cross_provider_ineligibility",
+      "only_explainable_provider_specific_characteristic_explicit_user_constraint_or_runtime_observed_cross_provider_ineligibility",
     providerEligibilityReasons: Object.freeze([
       "required_capability_unavailable",
       "subscription_auth_unavailable",
@@ -536,5 +665,12 @@ export function describeDelegationRouteSelectionContract() {
     selectionCapabilityIssued: false,
     providerAuthorityIssued: false,
     providerEffectAllowed: false,
+    executionSlate: Object.freeze({
+      selectedBeforeProviderEffect: true,
+      providerIndependentReviewerPreferred: true,
+      sameProviderReviewerPolicy:
+        "only_low_risk_local_bounded_work_with_separate_execution_context_when_other_provider_unavailable",
+      highRiskSameProviderReviewerAllowed: false,
+    }),
   });
 }

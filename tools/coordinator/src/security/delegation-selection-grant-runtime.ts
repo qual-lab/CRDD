@@ -3,6 +3,7 @@ import { performance } from "node:perf_hooks";
 
 import {
   DELEGATION_ROUTE_SELECTION_CONTRACT,
+  selectDelegationExecutionSlateCandidate,
   selectDelegationRouteCandidate,
 } from "./delegation-route-selection.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
@@ -12,7 +13,7 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
-export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 2;
+export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 3;
 
 const SELECTION_LIFETIME_MS = 30_000;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
@@ -377,6 +378,42 @@ export function issueRuntimeOwnedDelegationSelectionGrant(
   );
 }
 
+export function preflightRuntimeOwnedDelegationExecutionSlate(
+  managementCapability: unknown,
+  rawExecutorRequest: unknown,
+) {
+  return performSafely("delegation_slate_preflight_failed", () => {
+    if (!managementCapability || typeof managementCapability !== "object") {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "delegation_slate_management_capability_invalid",
+        providerEffectAllowed: false,
+      });
+    }
+    const operation = productionState.verifyOperation(managementCapability);
+    const providerEligibility = productionState.observeProviderEligibility();
+    if (!providerEligibility) {
+      return Object.freeze({
+        status: "blocked" as const,
+        reason: "delegation_slate_provider_observation_unavailable",
+        providerEffectAllowed: false,
+      });
+    }
+    const slate = selectDelegationExecutionSlateCandidate(rawExecutorRequest, {
+      providerEligibility,
+    });
+    return slate.status === "candidate"
+      ? Object.freeze({
+          ...slate,
+          operationId: operation.operationId,
+          selectionCapabilityIssued: false,
+          providerAuthorityIssued: false,
+          providerEffectAllowed: false,
+        })
+      : slate;
+  });
+}
+
 export function consumeRuntimeOwnedDelegationSelectionGrant(
   useCapability: unknown,
   managementCapability: unknown,
@@ -480,6 +517,9 @@ export function describeDelegationSelectionGrantRuntimeContract() {
     billingMode: "subscription_oauth_only",
     speedMode: "normal_only",
     selectionNotice: "issued_before_provider_effect",
+    executionSlatePreflight:
+      "executor_and_reviewer_candidates_from_one_runtime_owned_eligibility_observation_before_selection_grants",
+    executionSlateCapabilityIssued: false,
     providerFallback:
       "forbidden_after_provider_request_or_when_effect_state_is_uncertain",
     reselection:

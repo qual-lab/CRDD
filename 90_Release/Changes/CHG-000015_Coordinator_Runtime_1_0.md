@@ -54,6 +54,7 @@ Qual-Labの人間の決定権限者は、次を一つのRelease価値として�
 - 正常なOS、認証済みLocal User、公式CRDD Release Trust Rootおよび公式Provider配布物をTrusted Computing Baseとし、v1はT1–T2相当を実用Baselineとする。ここでT1はRuntimeによるAuthority／Context／Egress制御、T2は署名Release／Artifact／Provider Identity検証を表す概念上の表示であり、独立したCore Schema、認証Levelまたは成熟度Gateではない。
 - 悪意ある同一OS User、Administrator、Kernel、Firmware、TPMまたはVendor signing infrastructure compromiseへの完全耐性はv1完成条件にしない。
 - Runtime 1.0を構成する内部component、Provider別Adapter、個別Gateおよび検証Stepは独立Releaseせず、本CHG内の成立条件とEvidenceとして扱う。
+- Runtimeの独立監査往復から一般化した非同期処理規則の過剰適用是正を、同じ未リリースv0.18変更へ含める。AI入口、外部Runtime、Authority／Effect境界および取消後に残存し得る資源では完全なlifecycle契約を維持し、通常のプロダクト非同期処理は実在する状態とリスクに比例、外部Effect等を伴わない単純なローカル非同期処理は通常の実装・エラー処理・試験へ閉じる。`10_Agent.md`、公式保守入口`AGENTS.md`および配布入口`template/AGENTS.md`へ同時に伝播し、既存の高リスク境界を弱めない。
 
 本判断はProvider login、外部送信、Repository変更、Candidate受入、統合、Releaseまたは費用執行を事前承認しない。それらは各OperationとRelease Gateで別に判定する。
 

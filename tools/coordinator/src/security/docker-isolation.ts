@@ -231,6 +231,20 @@ export type DynamicFakeProviderCancellationResult = Readonly<{
   realProviderReadiness: false;
 }>;
 
+export type DynamicFakeProviderRecoverableResidueResult = Readonly<{
+  status: "ready" | "blocked";
+  reason: string;
+  recoveryId: string | null;
+  manualRecoveryRequired: boolean;
+  containerRunning: boolean;
+  diagnosticDockerContainerEffectIssued: boolean;
+  diagnosticFilesystemEffectIssued: boolean;
+  providerNetworkEffectIssued: false;
+  runtimeAuthorityIssued: false;
+  operationCapabilityIssued: false;
+  realProviderReadiness: false;
+}>;
+
 export const OWNED_ATTACH_TERMINATION_FIXTURE_SCENARIOS = Object.freeze([
   "never_ready",
   "ready_then_never_complete",
@@ -2537,6 +2551,126 @@ export async function runDynamicFakeProviderCancellationVerification(
     diagnosticDockerContainerEffectIssued: hasContainerCreateAttempted,
     diagnosticFilesystemEffectIssued: true,
   });
+}
+
+/**
+ * Creates one exact, recoverable verification residue for crash/recovery E2E.
+ *
+ * This is deliberately not parameterized and is not part of the normal task
+ * request surface. The caller must either terminate before cleanup to prove
+ * parent-loss recovery, or immediately pass the returned opaque recovery ID to
+ * recoverDockerIsolationProbe. It never receives Provider credentials and the
+ * fixed container has network=none.
+ */
+export function createDynamicFakeProviderRecoverableResidue(
+  owned: unknown,
+): DynamicFakeProviderRecoverableResidueResult {
+  const probeId = randomUUID();
+  const recoveryNonce = randomUUID();
+  let recoveryId: string | null = null;
+  let hostRecoveryId = getOwnedHostRecoveryId(owned);
+  let mountCapability: Readonly<{ kind: "owned_operation_mounts" }> | null =
+    null;
+  let hasSubmissionStarted = false;
+  let hasContainerCreateAttempted = false;
+  try {
+    const cli = createTrustedDockerCliCapability();
+    mountCapability = createOwnedMountCapability(owned);
+    let mounts = verifyOwnedMountCapability(mountCapability);
+    const environment = dockerEnvironment(mounts.management);
+    if (!verifyLocalLinuxEngine(cli, environment))
+      throw new Error("docker_backend_platform_unsupported");
+    mounts = verifyOwnedMountCapability(mountCapability);
+    hostRecoveryId = beginDockerSubmission(hostRecoveryId, mountCapability);
+    hasSubmissionStarted = true;
+    recoveryId = writeRecoveryRecord(
+      mounts,
+      probeId,
+      recoveryNonce,
+      hostRecoveryId,
+      null,
+    );
+    hasContainerCreateAttempted = true;
+    const creation = dockerCommand(
+      cli,
+      environment,
+      dockerCreateArguments(mounts, probeId, CANCELLATION_SOURCE).slice(2),
+      30_000,
+    );
+    const normalizedCreation = normalizeContainerCreation(creation);
+    if (normalizedCreation.status !== "confirmed")
+      throw new Error("docker_container_identity_unknown");
+    const identity = Object.freeze({
+      id: normalizedCreation.id,
+      probeId,
+      source: CANCELLATION_SOURCE,
+    });
+    const containerCapability = Object.freeze({ kind: "owned_docker_probe" });
+    containerIdentities.set(containerCapability, identity);
+    recoveryId = writeRecoveryRecord(
+      mounts,
+      probeId,
+      recoveryNonce,
+      hostRecoveryId,
+      identity.id,
+    );
+    mounts = verifyOwnedMountCapability(mountCapability);
+    if (!inspectOwnedContainer(cli, environment, containerCapability, mounts))
+      throw new Error("docker_container_security_profile_mismatch");
+    const started = dockerCommand(
+      cli,
+      environment,
+      ["start", identity.id],
+      10_000,
+    );
+    if (started.error || started.status !== 0)
+      throw new Error("dynamic_fake_provider_recoverable_start_failed");
+    const running = inspectOwnedContainer(
+      cli,
+      environment,
+      containerCapability,
+      verifyOwnedMountCapability(mountCapability),
+    );
+    if (!inspectedContainerIsRunning(running))
+      throw new Error("dynamic_fake_provider_recoverable_not_running");
+    return Object.freeze({
+      status: "ready" as const,
+      reason: "dynamic_fake_provider_recoverable_residue_ready",
+      recoveryId,
+      manualRecoveryRequired: true,
+      containerRunning: true,
+      diagnosticDockerContainerEffectIssued: true,
+      diagnosticFilesystemEffectIssued: true,
+      providerNetworkEffectIssued: false as const,
+      runtimeAuthorityIssued: false as const,
+      operationCapabilityIssued: false as const,
+      realProviderReadiness: false as const,
+    });
+  } catch (error) {
+    if (!hasSubmissionStarted) {
+      try {
+        cleanupOwnedOperationDirectories(owned);
+      } catch {
+        // The blocked result remains recovery-authoritative.
+      }
+    }
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: normalizeFailure(
+        error,
+        "dynamic_fake_provider_recoverable_residue_failed",
+      ),
+      recoveryId,
+      manualRecoveryRequired: recoveryId !== null || hasSubmissionStarted,
+      containerRunning: false,
+      diagnosticDockerContainerEffectIssued: hasContainerCreateAttempted,
+      diagnosticFilesystemEffectIssued: true,
+      providerNetworkEffectIssued: false as const,
+      runtimeAuthorityIssued: false as const,
+      operationCapabilityIssued: false as const,
+      realProviderReadiness: false as const,
+    });
+  }
 }
 
 export function expectedDynamicFakeProviderFailureReason(

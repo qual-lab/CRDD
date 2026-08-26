@@ -7,6 +7,7 @@ import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "./claude-docker-ru
 import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
   issueRuntimeOwnedDelegationSelectionGrant,
+  preflightRuntimeOwnedDelegationExecutionSlate,
   revokeRuntimeOwnedDelegationSelectionGrant,
 } from "./delegation-selection-grant-runtime.ts";
 import {
@@ -62,7 +63,7 @@ import {
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 11;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 12;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -114,6 +115,10 @@ type RuntimeDependencies = Readonly<{
     readPaths: readonly string[],
   ) => RuntimeRecord | null;
   issueSelection: (
+    managementCapability: object,
+    request: RuntimeRecord,
+  ) => RuntimeRecord;
+  preflightSlate: (
     managementCapability: object,
     request: RuntimeRecord,
   ) => RuntimeRecord;
@@ -411,6 +416,7 @@ function selectionRequest(
   role: "executor" | "independent_reviewer",
   subjectProvider: Provider | null,
   requestedProvider: Provider | null,
+  requiresIndependentProvider: boolean,
 ) {
   const isIndependentReview = role === "independent_reviewer";
   return Object.freeze({
@@ -421,7 +427,8 @@ function selectionRequest(
       : "specialized_executor_benefit",
     requestedExecutorProvider: requestedProvider ?? "auto",
     subjectProvider,
-    requiresIndependentProvider: isIndependentReview,
+    requiresIndependentProvider:
+      isIndependentReview && requiresIndependentProvider,
     role,
     workClass: isIndependentReview ? "bounded_verification" : request.workClass,
     planState: isIndependentReview ? "complete" : request.planState,
@@ -496,6 +503,7 @@ async function executeStage(
       role === "executor" ? "executor" : "independent_reviewer",
       subjectProvider,
       requestedProvider,
+      role === "reviewer" ? requestedProvider !== subjectProvider : false,
     ),
   );
   const provider =
@@ -841,6 +849,44 @@ async function runCoordinatorTask(
       informationClassification: externalSendPolicy.informationClassification,
       candidatePhysicalDeletion: externalSendPolicy.candidatePhysicalDeletion,
     });
+    const slate = state.dependencies.preflightSlate(
+      operation.managementCapability,
+      selectionRequest(
+        request,
+        operation.operationId,
+        "executor",
+        null,
+        null,
+        false,
+      ),
+    );
+    const slateExecutorProvider =
+      slate.executorProvider === "codex" || slate.executorProvider === "claude"
+        ? slate.executorProvider
+        : null;
+    const slateReviewerProvider =
+      slate.reviewerProvider === "codex" || slate.reviewerProvider === "claude"
+        ? slate.reviewerProvider
+        : null;
+    const reviewerIndependence =
+      slate.reviewerIndependence === "provider_independent" ||
+      slate.reviewerIndependence === "execution_context_independent"
+        ? slate.reviewerIndependence
+        : null;
+    if (
+      slate.status !== "candidate" ||
+      !slateExecutorProvider ||
+      !slateReviewerProvider ||
+      !reviewerIndependence ||
+      slate.providerEffectAllowed !== false
+    ) {
+      return blocked("coordinator_task_execution_slate_unavailable");
+    }
+    const slateProviders: readonly Provider[] = Object.freeze(
+      slateExecutorProvider === slateReviewerProvider
+        ? [slateExecutorProvider]
+        : [slateExecutorProvider, slateReviewerProvider],
+    );
     const candidateStore = state.dependencies.prepareCandidateStore();
     if (candidateStore.status !== "completed") {
       return blocked(
@@ -858,7 +904,7 @@ async function runCoordinatorTask(
       repositoryBinding,
       externalSendPolicyCapability,
       packetRequest(request),
-      Object.freeze(["codex", "claude"]),
+      slateProviders,
       control.cancellationController.signal,
     );
     if (control.cancellationRequested) {
@@ -905,7 +951,7 @@ async function runCoordinatorTask(
       "executor",
       0,
       null,
-      null,
+      slateExecutorProvider,
       null,
       control,
     );
@@ -947,7 +993,7 @@ async function runCoordinatorTask(
       "reviewer",
       0,
       executor.provider as Provider,
-      null,
+      slateReviewerProvider,
       null,
       control,
     );
@@ -1065,6 +1111,7 @@ async function runCoordinatorTask(
       manualRecoveryRequired: false,
       executorProvider: executor.provider,
       reviewerProvider: reviewer.provider,
+      reviewerIndependence,
       executorSelectionNotice: finalExecutor.selectionNotice,
       reviewerSelectionNotice: reviewer.selectionNotice,
       remediationPerformed,
@@ -1153,6 +1200,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   bindRepository: bindRuntimeOwnedRepositoryOperation,
   materializeWorkspace: materializeRuntimeOwnedRepositoryWorkspace,
   issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
+  preflightSlate: preflightRuntimeOwnedDelegationExecutionSlate,
   revokeSelection: revokeRuntimeOwnedDelegationSelectionGrant,
   observeProviderHome: inspectRuntimeOwnedWindowsProviderHomeCandidate,
   issueMountGrant: issueRuntimeOwnedProviderHomeMountGrant,
@@ -1602,7 +1650,14 @@ export function describeCoordinatorTaskRuntimeContract() {
       "runtime_owned_protected_store_and_bounded_gc_before_external_send_authority",
     dockerRecoveryPreflight:
       "runtime_owned_bounded_state_audit_before_task_operation",
-    independentReview: "subject_provider_excluded",
+    executionSlate:
+      "executor_and_reviewer_preflighted_together_before_external_send_or_provider_effect",
+    independentReview: Object.freeze({
+      providerIndependent: "preferred_subject_provider_excluded",
+      executionContextIndependent:
+        "low_risk_local_bounded_only_with_separate_grant_packet_process_and_read_only_candidate",
+      highRiskSameProviderAllowed: false,
+    }),
     boundedRemediation:
       "maximum_one_same_executor_then_same_independent_reviewer",
     externalSendPolicy:

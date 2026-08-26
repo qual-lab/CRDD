@@ -57,6 +57,12 @@ function fixture(
     processCleanupFailureRole?: "executor" | "reviewer";
     hostCleanupWal?: boolean;
     dockerFinalizeFailsAt?: number;
+    slateExecutorProvider?: "codex" | "claude";
+    slateReviewerProvider?: "codex" | "claude";
+    reviewerIndependence?:
+      | "provider_independent"
+      | "execution_context_independent";
+    slateUnavailable?: boolean;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
   } = {},
 ) {
@@ -68,10 +74,17 @@ function fixture(
   const candidateCapability = Object.freeze({});
   const externalSendGrantCapability = Object.freeze({});
   const externalSendPolicyCapability = Object.freeze({});
-  const packetRoles = new WeakMap<object, "executor" | "reviewer">();
+  const packetAssignments = new WeakMap<
+    object,
+    Readonly<{
+      role: "executor" | "reviewer";
+      provider: "codex" | "claude";
+    }>
+  >();
   const preparedRoles = new WeakMap<object, "executor" | "reviewer">();
   const selectionRequests: Array<Record<string, unknown>> = [];
   const selectionNotices: Array<Record<string, unknown>> = [];
+  const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
   let cleanupCount = 0;
   let selectionCount = 0;
@@ -145,6 +158,21 @@ function fixture(
       events.push(`notice:${String(notice.taskRole)}`);
       return true;
     },
+    preflightSlate: () =>
+      options.slateUnavailable
+        ? Object.freeze({
+            status: "blocked",
+            reason: "delegation_slate_reviewer_unavailable",
+            providerEffectAllowed: false,
+          })
+        : Object.freeze({
+            status: "candidate",
+            executorProvider: options.slateExecutorProvider ?? "claude",
+            reviewerProvider: options.slateReviewerProvider ?? "codex",
+            reviewerIndependence:
+              options.reviewerIndependence ?? "provider_independent",
+            providerEffectAllowed: false,
+          }),
     materializeWorkspace: () => {
       workspaceMaterializeCount += 1;
       return Object.freeze({ status: "materialized", workspaceCapability });
@@ -194,10 +222,11 @@ function fixture(
       _repository: object,
       _policy: object,
       _scope: Record<string, unknown>,
-      _providers: readonly ("codex" | "claude")[],
+      providers: readonly ("codex" | "claude")[],
       cancellationSignal: AbortSignal,
     ) => {
       externalAuthorizationCount += 1;
+      authorizedProviderSets.push(Object.freeze([...providers]));
       externalCancellationSignal = cancellationSignal;
       const authorization = options.externalSendReason
         ? Object.freeze({
@@ -219,7 +248,7 @@ function fixture(
     issueTaskPacket: (
       _management: object,
       _repository: object,
-      _provider: "codex" | "claude",
+      provider: "codex" | "claude",
       taskRole: "executor" | "reviewer",
       _taskAttempt: 0 | 1,
       externalSendGrant: object,
@@ -227,7 +256,10 @@ function fixture(
     ) => {
       assert.equal(externalSendGrant, externalSendGrantCapability);
       const useCapability = Object.freeze({});
-      packetRoles.set(useCapability, taskRole);
+      packetAssignments.set(
+        useCapability,
+        Object.freeze({ role: taskRole, provider }),
+      );
       return Object.freeze({
         status: "issued",
         controlCapability: Object.freeze({}),
@@ -243,9 +275,10 @@ function fixture(
       _selection: object,
       taskUse: object,
     ) => {
-      const role = packetRoles.get(taskUse);
-      assert.ok(role);
-      assert.equal(provider, role === "executor" ? "claude" : "codex");
+      const assignment = packetAssignments.get(taskUse);
+      assert.ok(assignment);
+      const role = assignment.role;
+      assert.equal(provider, assignment.provider);
       const preparedCapability = Object.freeze({});
       preparedRoles.set(preparedCapability, role);
       return Object.freeze({
@@ -426,6 +459,7 @@ function fixture(
     runtime,
     selectionRequests,
     selectionNotices,
+    authorizedProviderSets,
     events,
     cleanupCount: () => cleanupCount,
     discardCount: () => discardCount,
@@ -584,6 +618,92 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
   assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
   assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
+});
+
+test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続する", async () => {
+  const cases = [
+    ["codex", "claude", "codex"],
+    ["codex", "codex", "claude"],
+    ["claude", "codex", "claude"],
+    ["claude", "claude", "codex"],
+  ] as const;
+  for (const [frontProvider, executorProvider, reviewerProvider] of cases) {
+    const harness = fixture({
+      slateExecutorProvider: executorProvider,
+      slateReviewerProvider: reviewerProvider,
+    });
+    const started = harness.runtime.start(
+      request({ frontProvider }),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    );
+    const result = await started.completion;
+    assert.equal(result.status, "completed");
+    assert.equal(result.executorProvider, executorProvider);
+    assert.equal(result.reviewerProvider, reviewerProvider);
+    assert.equal(result.reviewerIndependence, "provider_independent");
+    assert.equal(harness.processStartCount(), 2);
+    assert.equal(
+      harness.selectionRequests[0]?.requestedExecutorProvider,
+      executorProvider,
+    );
+    assert.equal(
+      harness.selectionRequests[1]?.requestedExecutorProvider,
+      reviewerProvider,
+    );
+    assert.equal(
+      harness.selectionRequests[1]?.requiresIndependentProvider,
+      true,
+    );
+  }
+});
+
+test("同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使う", async () => {
+  for (const provider of ["codex", "claude"] as const) {
+    const harness = fixture({
+      slateExecutorProvider: provider,
+      slateReviewerProvider: provider,
+      reviewerIndependence: "execution_context_independent",
+    });
+    const started = harness.runtime.start(
+      request({ frontProvider: provider }),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    );
+    const result = await started.completion;
+    assert.equal(result.status, "completed");
+    assert.equal(result.executorProvider, provider);
+    assert.equal(result.reviewerProvider, provider);
+    assert.equal(result.reviewerIndependence, "execution_context_independent");
+    assert.notEqual(harness.selectionRequests[0], harness.selectionRequests[1]);
+    assert.equal(
+      harness.selectionRequests[1]?.requestedExecutorProvider,
+      provider,
+    );
+    assert.equal(
+      harness.selectionRequests[1]?.requiresIndependentProvider,
+      false,
+    );
+    assert.equal(harness.processStartCount(), 2);
+    assert.deepEqual(harness.authorizedProviderSets, [[provider]]);
+  }
+});
+
+test("完遂可能なExecution SlateがなければExternal SendとExecutor Effect前に停止する", async () => {
+  const harness = fixture({ slateUnavailable: true });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_execution_slate_unavailable");
+  assert.equal(harness.externalAuthorizationCount(), 0);
+  assert.equal(harness.candidateStorePrepareCount(), 0);
+  assert.equal(harness.workspaceMaterializeCount(), 0);
+  assert.equal(harness.processStartCount(), 0);
+  assert.equal(harness.cleanupCount(), 1);
 });
 
 test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfinalizeする", async () => {
@@ -1098,9 +1218,17 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 11);
+  assert.equal(contract.contractRevision, 12);
   assert.equal(contract.routes.length, 4);
-  assert.equal(contract.independentReview, "subject_provider_excluded");
+  assert.equal(
+    contract.executionSlate,
+    "executor_and_reviewer_preflighted_together_before_external_send_or_provider_effect",
+  );
+  assert.equal(
+    contract.independentReview.providerIndependent,
+    "preferred_subject_provider_excluded",
+  );
+  assert.equal(contract.independentReview.highRiskSameProviderAllowed, false);
   assert.equal(contract.taskTransport, "opaque_single_use_provider_stdin_only");
   assert.equal(contract.canonicalRepositoryEffectAllowed, false);
   assert.equal(contract.directProviderToProviderSpawnAllowed, false);

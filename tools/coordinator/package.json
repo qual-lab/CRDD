@@ -40,6 +40,7 @@
     "provider-home-mount-grant-runtime:coverage": "node --experimental-test-coverage --test ./tests/provider-home-mount-grant-runtime.contract.test.ts",
     "provider-lifecycle:coverage": "node --experimental-test-coverage --test ./tests/authority-root-path-lexical.contract.test.ts ./tests/plain-data-snapshot.contract.test.ts ./tests/provider-home.contract.test.ts ./tests/provider-lifecycle.contract.test.ts",
     "provider-model-selection-runtime:coverage": "node --experimental-test-coverage --test ./tests/provider-model-selection-runtime.contract.test.ts",
+    "signed-recovery-matrix:verify": "node ./scripts/verify-signed-recovery-matrix.ts",
     "repository-operation-runtime:coverage": "node --experimental-test-coverage --test ./tests/repository-operation-runtime.contract.test.ts ./tests/docker-process-controller.contract.test.ts",
     "test": "node --test ./tests/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"

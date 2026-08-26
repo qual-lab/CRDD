@@ -349,7 +349,7 @@ test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒�
 
 test("公開契約は短命Grant、Subscription、通常速度と再選定境界を固定する", () => {
   const contract = describeDelegationSelectionGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.selectionLifetimeMs, 30_000);
   assert.deepEqual(contract.aliases, ["control", "use"]);
   assert.equal(contract.maximumUses, 1);

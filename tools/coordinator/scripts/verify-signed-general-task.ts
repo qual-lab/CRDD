@@ -28,12 +28,23 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 2;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 4;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+export type SignedGeneralTaskRouteProfile =
+  | "forward"
+  | "reverse"
+  | "same-codex";
+type RouteExpectation = Readonly<{
+  profile: SignedGeneralTaskRouteProfile;
+  frontProvider: "codex" | "claude";
+  executorProvider: "codex" | "claude";
+  reviewerProvider: "codex" | "claude";
+  route: string;
+}>;
 type ReleaseIdentity = RuntimeRecord &
   Readonly<{
     manifestHash: string;
@@ -274,9 +285,38 @@ function blocked(
   });
 }
 
-export function createSignedGeneralTaskVerificationRequest() {
-  return Object.freeze({
+const ROUTE_EXPECTATIONS: Readonly<
+  Record<SignedGeneralTaskRouteProfile, RouteExpectation>
+> = Object.freeze({
+  forward: Object.freeze({
+    profile: "forward",
     frontProvider: "codex",
+    executorProvider: "claude",
+    reviewerProvider: "codex",
+    route: "front_codex__executor_claude__reviewer_codex",
+  }),
+  reverse: Object.freeze({
+    profile: "reverse",
+    frontProvider: "claude",
+    executorProvider: "codex",
+    reviewerProvider: "claude",
+    route: "front_claude__executor_codex__reviewer_claude",
+  }),
+  "same-codex": Object.freeze({
+    profile: "same-codex",
+    frontProvider: "codex",
+    executorProvider: "codex",
+    reviewerProvider: "claude",
+    route: "front_codex__executor_codex__reviewer_claude",
+  }),
+});
+
+export function createSignedGeneralTaskVerificationRequest(
+  routeProfile: SignedGeneralTaskRouteProfile = "forward",
+) {
+  const route = ROUTE_EXPECTATIONS[routeProfile];
+  return Object.freeze({
+    frontProvider: route.frontProvider,
     objective:
       "Create the one bounded verification file with the exact required content.",
     acceptanceCriteria: Object.freeze([
@@ -285,7 +325,10 @@ export function createSignedGeneralTaskVerificationRequest() {
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze(["tools/coordinator/README.md", TARGET_PATH]),
-    workClass: "bounded_implementation",
+    workClass:
+      routeProfile === "same-codex"
+        ? "bounded_verification"
+        : "bounded_implementation",
     planState: "complete",
     risk: "low",
     difficulty: "low",
@@ -320,6 +363,7 @@ function verifiedPackage(
 function verifiedTaskResult(
   result: RuntimeRecord | null,
   release: ReleaseIdentity,
+  route: RouteExpectation,
 ) {
   const candidateRevision = plainRecord(result?.candidateRevision);
   const executorResult = plainRecord(result?.executorResult);
@@ -330,8 +374,10 @@ function verifiedTaskResult(
     result.reason === "coordinator_task_candidate_approved" &&
     result.cleanupConfirmed === true &&
     result.manualRecoveryRequired === false &&
-    result.executorProvider === "claude" &&
-    result.reviewerProvider === "codex" &&
+    result.executorProvider === route.executorProvider &&
+    result.reviewerProvider === route.reviewerProvider &&
+    result.reviewerIndependence === "provider_independent" &&
+    result.remediationPerformed === false &&
     candidateRevision?.baseCommit === release?.crddCommit &&
     candidateRevision.baseTree === release.crddTree &&
     sha256(candidateRevision.patchHash) &&
@@ -419,7 +465,20 @@ function verifiedCandidate(
 export async function runSignedGeneralTaskVerification(
   repositoryRoot: string,
   dependencies: VerificationDependencies = productionDependencies,
+  routeProfile: SignedGeneralTaskRouteProfile = "forward",
 ) {
+  if (
+    routeProfile !== "forward" &&
+    routeProfile !== "reverse" &&
+    routeProfile !== "same-codex"
+  ) {
+    return blocked(
+      "signed_general_task_verification_arguments_invalid",
+      null,
+      Object.freeze({ canonicalRepositoryChanged: false }),
+    );
+  }
+  const route = ROUTE_EXPECTATIONS[routeProfile];
   if (!path.isAbsolute(repositoryRoot)) {
     return blocked(
       "signed_general_task_repository_root_invalid",
@@ -518,7 +577,7 @@ export async function runSignedGeneralTaskVerification(
   let started: StartedTask;
   try {
     started = dependencies.startTask(
-      createSignedGeneralTaskVerificationRequest(),
+      createSignedGeneralTaskVerificationRequest(routeProfile),
       repositoryRoot,
       verifiedPackageCapability,
     );
@@ -592,7 +651,7 @@ export async function runSignedGeneralTaskVerification(
       }
     }
 
-    if (!verifiedTaskResult(taskResult, release)) {
+    if (!verifiedTaskResult(taskResult, release, route)) {
       return blocked(
         taskResult?.status === "blocked"
           ? safeReason(
@@ -635,8 +694,15 @@ export async function runSignedGeneralTaskVerification(
       releaseSequence: release.releaseSequence,
       crddCommit: release.crddCommit,
       crddTree: release.crddTree,
-      executorProvider: "claude" as const,
-      reviewerProvider: "codex" as const,
+      requestedRouteProfile: routeProfile,
+      route: route.route,
+      requestedFrontProvider: route.frontProvider,
+      observedFrontProvider: null,
+      frontIdentityVerified: false,
+      executorProvider: route.executorProvider,
+      reviewerProvider: route.reviewerProvider,
+      reviewerIndependence: "provider_independent" as const,
+      remediationPerformed: false,
       changedPaths: Object.freeze([TARGET_PATH]),
       exactCandidateContentVerified: true,
       candidateDiscarded: true,
@@ -678,7 +744,16 @@ export function describeSignedGeneralTaskVerificationContract() {
     normalTaskStdinContractChanged: false,
     interactiveBoundary:
       "runtime_owned_console_challenge_for_external_send_only",
-    providerRoute: "front_codex_to_claude_executor_to_codex_reviewer",
+    providerRoutes: Object.freeze([
+      ROUTE_EXPECTATIONS.forward.route,
+      ROUTE_EXPECTATIONS.reverse.route,
+      ROUTE_EXPECTATIONS["same-codex"].route,
+    ]),
+    defaultRouteProfile: "forward",
+    routeArgumentGrammar:
+      "no_arguments_or_exact_--route_reverse_or_--route_same-codex",
+    frontIdentityBinding:
+      "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
     candidateDisposition: "exact_content_verify_then_discard",
     canonicalRepositoryEffectAllowed: false,
     apiKeyFallbackAllowed: false,
@@ -687,10 +762,24 @@ export function describeSignedGeneralTaskVerificationContract() {
 }
 
 async function main() {
-  if (process.argv.length !== 2) {
+  const args = process.argv.slice(2);
+  if (
+    !(
+      args.length === 0 ||
+      (args.length === 2 &&
+        args[0] === "--route" &&
+        (args[1] === "reverse" || args[1] === "same-codex"))
+    )
+  ) {
     throw new Error("signed_general_task_verification_arguments_invalid");
   }
-  const result = await runSignedGeneralTaskVerification(process.cwd());
+  const routeProfile: SignedGeneralTaskRouteProfile =
+    args.length === 0 ? "forward" : (args[1] as SignedGeneralTaskRouteProfile);
+  const result = await runSignedGeneralTaskVerification(
+    process.cwd(),
+    productionDependencies,
+    routeProfile,
+  );
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   process.exitCode = result.status === "completed" ? 0 : 2;
 }

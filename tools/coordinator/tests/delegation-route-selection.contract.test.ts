@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   describeDelegationRouteSelectionContract,
+  selectDelegationExecutionSlateCandidate,
   selectDelegationRouteCandidate,
 } from "../src/security/delegation-route-selection.ts";
 
@@ -310,6 +311,37 @@ test("独立Reviewerはsubject Providerと独立性要求を必須にする", ()
     ).reason,
     "delegation_route_independence_invalid",
   );
+  const sameProviderContext = selectDelegationRouteCandidate(
+    createRequest("claude", {
+      role: "independent_reviewer",
+      workClass: "bounded_verification",
+      subjectProvider: "claude",
+      requestedExecutorProvider: "claude",
+      requiresIndependentProvider: false,
+    }),
+    BOTH_ELIGIBLE,
+  );
+  assert.equal(sameProviderContext.status, "candidate");
+  assert.equal(sameProviderContext.executorProvider, "claude");
+  assert.equal(
+    sameProviderContext.selectionReasonCodes.includes(
+      "independent_execution_context_required",
+    ),
+    true,
+  );
+  assert.equal(
+    selectDelegationRouteCandidate(
+      createRequest("claude", {
+        role: "independent_reviewer",
+        workClass: "bounded_verification",
+        subjectProvider: "claude",
+        requestedExecutorProvider: "auto",
+        requiresIndependentProvider: false,
+      }),
+      BOTH_ELIGIBLE,
+    ).reason,
+    "delegation_route_independence_invalid",
+  );
 });
 
 test("公開契約は4経路とCoordinator Gateを固定する", () => {
@@ -330,6 +362,10 @@ test("公開契約は4経路とCoordinator Gateを固定する", () => {
     "only_explainable_provider_specific_characteristics",
   );
   assert.equal(
+    contract.sameProviderRoute,
+    "only_explainable_provider_specific_characteristic_explicit_user_constraint_or_runtime_observed_cross_provider_ineligibility",
+  );
+  assert.equal(
     contract.frontOnlyDisposition,
     "implemented_as_retained_result_without_selection_grant_or_provider_effect",
   );
@@ -343,4 +379,54 @@ test("公開契約は4経路とCoordinator Gateを固定する", () => {
   assert.equal(contract.callerAvailabilityClaimTrusted, false);
   assert.equal(contract.selectionCapabilityIssued, false);
   assert.equal(contract.providerEffectAllowed, false);
+});
+
+test("Execution SlateはExecutor Effect前に別Provider Reviewerまで固定する", () => {
+  const slate = selectDelegationExecutionSlateCandidate(
+    createRequest("codex"),
+    BOTH_ELIGIBLE,
+  );
+  assert.equal(slate.status, "candidate");
+  assert.equal(slate.executorProvider, "claude");
+  assert.equal(slate.reviewerProvider, "codex");
+  assert.equal(slate.reviewerIndependence, "provider_independent");
+  assert.equal(slate.providerEffectAllowed, false);
+});
+
+test("低リスクLocal Taskだけ反対Provider不能時に別実行Contextの同一Provider Reviewerへ閉じる", () => {
+  const observation = {
+    providerEligibility: [
+      {
+        provider: "codex",
+        status: "ineligible",
+        reason: "subscription_quota_unavailable",
+      },
+      { provider: "claude", status: "eligible", reason: "ready" },
+    ],
+  };
+  const allowed = selectDelegationExecutionSlateCandidate(
+    createRequest("codex"),
+    observation,
+  );
+  assert.equal(allowed.status, "candidate");
+  assert.equal(allowed.executorProvider, "claude");
+  assert.equal(allowed.reviewerProvider, "claude");
+  assert.equal(allowed.reviewerIndependence, "execution_context_independent");
+
+  for (const overrides of [
+    { risk: "material" },
+    { decisionImpact: "material" },
+    { isLocalCandidateOnly: false },
+    { hasUnresolvedDirection: true },
+    { requiresCrossContextAlignment: true },
+    { workClass: "security_review" },
+  ]) {
+    const blocked = selectDelegationExecutionSlateCandidate(
+      createRequest("codex", overrides),
+      observation,
+    );
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.reason, "delegation_slate_reviewer_unavailable");
+    assert.equal(blocked.providerEffectAllowed, false);
+  }
 });
