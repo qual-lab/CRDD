@@ -12,6 +12,9 @@ type HostOperationSupervisorCleanup =
   | "cleanup_confirmed_failure"
   | "cleanup_unknown";
 export type HostOperationLockSupervisor = Readonly<{
+  assertLive: () => boolean;
+  failureDetected: Promise<void>;
+  loss: Promise<Exclude<HostOperationSupervisorCleanup, "released">>;
   confirmReady: () => Promise<
     "ready" | "cleanup_confirmed_failure" | "cleanup_unknown"
   >;
@@ -405,6 +408,9 @@ async function terminateSupervisor(child: SupervisorChild, timeoutMs: number) {
 function unresolvedSupervisorLock(child: SupervisorChild) {
   releaseSupervisorHandles(child);
   return Object.freeze({
+    assertLive: () => false,
+    failureDetected: Promise.resolve(),
+    loss: Promise.resolve("cleanup_unknown" as const),
     confirmReady: async () => "cleanup_unknown" as const,
     release: async () => "cleanup_unknown" as const,
   });
@@ -491,10 +497,82 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
     });
   }
   let state: "acquired" | "ready" | "closing" | "closed" = "acquired";
+  let terminal: HostOperationSupervisorCleanup | null = null;
+  let finalizer: Promise<
+    Exclude<HostOperationSupervisorCleanup, "released">
+  > | null = null;
+  let expectedClosure = false;
+  let resolveLoss!: (
+    outcome: Exclude<HostOperationSupervisorCleanup, "released">,
+  ) => void;
+  const loss = new Promise<Exclude<HostOperationSupervisorCleanup, "released">>(
+    (resolve) => {
+      resolveLoss = resolve;
+    },
+  );
+  let resolveFailureDetected!: () => void;
+  let failureWasDetected = false;
+  const failureDetected = new Promise<void>((resolve) => {
+    resolveFailureDetected = resolve;
+  });
+  const detectFailure = () => {
+    if (failureWasDetected) return;
+    failureWasDetected = true;
+    resolveFailureDetected();
+  };
+  const finalizeFailure = () => {
+    if (terminal === "cleanup_unknown")
+      return Promise.resolve("cleanup_unknown" as const);
+    if (terminal === "cleanup_confirmed_failure")
+      return Promise.resolve("cleanup_confirmed_failure" as const);
+    if (finalizer) return finalizer;
+    detectFailure();
+    expectedClosure = true;
+    state = "closing";
+    finalizer = (async () => {
+      const terminated = await terminateSupervisor(
+        child,
+        timing.releaseTimeoutMs,
+      );
+      const outcome = terminated
+        ? ("cleanup_confirmed_failure" as const)
+        : ("cleanup_unknown" as const);
+      terminal = outcome;
+      state = terminated ? "closed" : "closing";
+      resolveLoss(outcome);
+      return outcome;
+    })();
+    return finalizer;
+  };
+  const unexpectedLoss = () => {
+    if (!expectedClosure && terminal === null) {
+      detectFailure();
+      void finalizeFailure();
+    }
+  };
+  const unexpectedMessage = () => unexpectedLoss();
+  child.on("error", unexpectedLoss);
+  child.on("exit", unexpectedLoss);
+  child.on("disconnect", unexpectedLoss);
+  child.on("message", unexpectedMessage);
+  const assertLive = () => {
+    const live =
+      terminal === null &&
+      finalizer === null &&
+      (state === "acquired" || state === "ready") &&
+      child.exitCode === null &&
+      child.signalCode === null &&
+      child.connected;
+    if (!live) unexpectedLoss();
+    return live;
+  };
   const lock: HostOperationLockSupervisor = Object.freeze({
+    assertLive,
+    failureDetected,
+    loss,
     confirmReady: async () => {
-      if (state !== "acquired" || !child.connected)
-        return "cleanup_confirmed_failure" as const;
+      if (state !== "acquired" || !assertLive()) return finalizeFailure();
+      child.removeListener("message", unexpectedMessage);
       const ready = waitForSupervisorStatus(
         child,
         "ready",
@@ -503,32 +581,24 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
       try {
         child.send("confirm-ready");
       } catch {
-        const terminated = await terminateSupervisor(
-          child,
-          timing.releaseTimeoutMs,
-        );
-        state = terminated ? "closed" : "closing";
-        return terminated
-          ? ("cleanup_confirmed_failure" as const)
-          : ("cleanup_unknown" as const);
+        return finalizeFailure();
       }
       const observed = await ready;
       if (observed === "expected") {
         state = "ready";
+        child.on("message", unexpectedMessage);
+        if (!assertLive()) return finalizeFailure();
         return "ready" as const;
       }
-      const terminated = await terminateSupervisor(
-        child,
-        timing.releaseTimeoutMs,
-      );
-      state = terminated ? "closed" : "closing";
-      return terminated
-        ? ("cleanup_confirmed_failure" as const)
-        : ("cleanup_unknown" as const);
+      return finalizeFailure();
     },
     release: async () => {
+      if (terminal) return terminal;
+      if (finalizer) return finalizer;
       if (state === "closed") return "cleanup_confirmed_failure" as const;
-      if (state === "closing") return "cleanup_unknown" as const;
+      if (state === "closing") return finalizeFailure();
+      child.removeListener("message", unexpectedMessage);
+      expectedClosure = true;
       state = "closing";
       const releaseStatus = waitForSupervisorStatus(
         child,
@@ -550,29 +620,16 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
       try {
         child.send("release");
       } catch {
-        const terminated = await terminateSupervisor(
-          child,
-          timing.releaseTimeoutMs,
-        );
-        state = terminated ? "closed" : "closing";
-        return terminated
-          ? ("cleanup_confirmed_failure" as const)
-          : ("cleanup_unknown" as const);
+        return finalizeFailure();
       }
       const [reported, exitCode] = await Promise.all([releaseStatus, exit]);
       if (reported === "expected" && exitCode === 0) {
+        terminal = "released";
         state = "closed";
         releaseSupervisorHandles(child);
         return "released" as const;
       }
-      const terminated = await terminateSupervisor(
-        child,
-        timing.releaseTimeoutMs,
-      );
-      state = terminated ? "closed" : "closing";
-      return terminated
-        ? ("cleanup_confirmed_failure" as const)
-        : ("cleanup_unknown" as const);
+      return finalizeFailure();
     },
   });
   return Object.freeze({ status: "acquired", lock });

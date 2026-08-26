@@ -31,6 +31,8 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
+  observeOwnedHostOperationGenerationLoss,
+  verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
@@ -96,6 +98,12 @@ const EXTERNAL_SEND_CONFIRMATION_REASONS = new Set([
   "external_send_consent_cleanup_unknown_process_restart_required",
   "external_send_consent_manual_recovery_required",
 ]);
+const PROCESS_CANCELLATION_RESULT_KEYS = new Set([
+  "status",
+  "reason",
+  "cancellationRequested",
+  "processTerminationObserved",
+]);
 
 type Provider = "codex" | "claude";
 type TaskRole = "executor" | "reviewer";
@@ -106,7 +114,10 @@ type Operation = Readonly<{
   managementCapability: object;
   operationId: string;
   hostRecoveryId: string;
+  hostGenerationFailureDetected?: Promise<void>;
+  hostGenerationLoss?: Promise<"cleanup_confirmed_failure" | "cleanup_unknown">;
 }>;
+type HostCleanupStatus = "completed" | "protocol_failure_cleanup_confirmed";
 type ProductionOperationFailure = Readonly<{
   reason: string;
   hostRecoveryId: string;
@@ -134,7 +145,9 @@ function throwProductionOperationFailure(
 type RuntimeDependencies = Readonly<{
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
   createOperation: () => Operation | Promise<Operation>;
-  cleanupOperation: (owned: object) => void | Promise<void>;
+  cleanupOperation: (owned: object) => unknown | Promise<unknown>;
+  classifyOperationCleanup: (outcome: unknown) => HostCleanupStatus | null;
+  abandonOperation: (managementCapability: object) => Promise<unknown>;
   bindRepository: (
     managementCapability: object,
     repositoryRoot: string,
@@ -259,6 +272,15 @@ type ControlRecord = {
   ownedOperation: object | null;
   retainOperationRoot: boolean;
   hostRecoveryId: string | null;
+  hostGenerationLossOutcome:
+    | "cleanup_confirmed_failure"
+    | "cleanup_unknown"
+    | null;
+  hostGenerationLoss: Promise<
+    "cleanup_confirmed_failure" | "cleanup_unknown"
+  > | null;
+  hostGenerationLossHandling: Promise<void> | null;
+  hostGenerationFailureHandling: Promise<void> | null;
   dockerFinalizations: Array<
     Readonly<{ capability: object; recoveryId: string }>
   >;
@@ -868,6 +890,46 @@ async function runCoordinatorTask(
     control.ownedOperation = operation.owned;
     control.managementCapability = operation.managementCapability;
     control.hostRecoveryId = operation.hostRecoveryId;
+    if (
+      operation.hostGenerationFailureDetected &&
+      operation.hostGenerationLoss
+    ) {
+      control.hostGenerationLoss = operation.hostGenerationLoss;
+      control.hostGenerationFailureHandling =
+        operation.hostGenerationFailureDetected.then(async () => {
+          control.cancellationRequested = true;
+          control.cancellationController.abort();
+          const processControl = control.currentProcessControl;
+          if (processControl) {
+            try {
+              const cancellation = await state.dependencies.cancelProcess(
+                processControl,
+                control.managementCapability,
+              );
+              const cancellationResult = snapshotPlainRecord(
+                cancellation,
+                PROCESS_CANCELLATION_RESULT_KEYS,
+              );
+              if (
+                cancellationResult?.status !== "requested" ||
+                ("processTerminationObserved" in (cancellationResult ?? {}) &&
+                  cancellationResult?.processTerminationObserved !== true)
+              )
+                control.hostGenerationLossOutcome = "cleanup_unknown";
+            } catch {
+              control.hostGenerationLossOutcome = "cleanup_unknown";
+            }
+          }
+        });
+      control.hostGenerationLossHandling = operation.hostGenerationLoss.then(
+        async (outcome) => {
+          if (control.hostGenerationLossOutcome !== "cleanup_unknown")
+            control.hostGenerationLossOutcome = outcome;
+          if (control.hostGenerationFailureHandling)
+            await control.hostGenerationFailureHandling;
+        },
+      );
+    }
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_during_operation_creation");
     }
@@ -1287,33 +1349,33 @@ async function createProductionOperation() {
           : "coordinator_task_host_generation_lock_not_ready_cleanup_confirmed";
       throw new Error("coordinator_task_host_generation_lock_not_ready");
     }
+    const hostGenerationLoss =
+      observeOwnedHostOperationGenerationLoss(managementCapability);
     return Object.freeze({
       owned,
       mountCapability,
       managementCapability,
       operationId: operation.operationId,
       hostRecoveryId,
+      hostGenerationFailureDetected: hostGenerationLoss.detected,
+      hostGenerationLoss: hostGenerationLoss.outcome,
     });
   } catch {
     let cleanupConfirmed = false;
     let manualRecoveryRequired = false;
     try {
-      await cleanupOwnedOperationDirectoriesAsync(owned);
+      const cleanup = verifyOwnedOperationCleanupOutcome(
+        await cleanupOwnedOperationDirectoriesAsync(owned),
+      );
       cleanupConfirmed = true;
-    } catch (cleanupError) {
-      if (
-        cleanupError instanceof Error &&
-        cleanupError.message ===
-          "owned_operation_generation_protocol_failure_cleaned"
-      ) {
+      if (cleanup === "protocol_failure_cleanup_confirmed")
         failureReason =
           "coordinator_task_host_generation_lock_protocol_failed_cleanup_confirmed";
-      } else {
-        manualRecoveryRequired = true;
-        poisonRuntimeProcessAfterCleanupUnknown();
-        failureReason =
-          "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required";
-      }
+    } catch {
+      manualRecoveryRequired = true;
+      poisonRuntimeProcessAfterCleanupUnknown();
+      failureReason =
+        "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required";
     }
     throwProductionOperationFailure(
       Object.freeze({
@@ -1330,6 +1392,8 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   inspectRepository: inspectRepositoryObjectFormatCandidate,
   createOperation: createProductionOperation,
   cleanupOperation: cleanupOwnedOperationDirectoriesAsync,
+  classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
+  abandonOperation: abandonOwnedHostOperationGenerationLock,
   bindRepository: bindRuntimeOwnedRepositoryOperation,
   materializeWorkspace: materializeRuntimeOwnedRepositoryWorkspace,
   issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
@@ -1402,7 +1466,7 @@ async function retainRuntimeRecoveryState(
     if (state.dependencies.abandonDockerRecovery?.(handoff.capability) === true)
       handoff.state = "abandoned";
   }
-  await abandonOwnedHostOperationGenerationLock(control.managementCapability);
+  await state.dependencies.abandonOperation(control.managementCapability);
 }
 
 function createRuntime(dependencies: RuntimeDependencies) {
@@ -1425,6 +1489,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
         ownedOperation: null,
         retainOperationRoot: false,
         hostRecoveryId: null,
+        hostGenerationLossOutcome: null,
+        hostGenerationLoss: null,
+        hostGenerationLossHandling: null,
+        hostGenerationFailureHandling: null,
         dockerFinalizations: [],
         dockerHandoffs: [],
       };
@@ -1458,7 +1526,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
             rawResult.manualRecoveryRequired === true
               ? uniqueDockerRecoveryIds
               : Object.freeze([] as string[]);
-          const result = Object.freeze({
+          let result = Object.freeze({
             ...rawResult,
             dockerRecoveryId:
               projectedDockerRecoveryIds.length === 1
@@ -1466,7 +1534,40 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 : null,
             dockerRecoveryIds: projectedDockerRecoveryIds,
           });
+          if (control.hostGenerationLoss) {
+            if (
+              control.hostGenerationLossOutcome &&
+              control.hostGenerationLossHandling
+            )
+              await control.hostGenerationLossHandling;
+            if (control.hostGenerationLossOutcome === "cleanup_unknown") {
+              result = blocked(
+                "coordinator_task_host_generation_lost_cleanup_unknown_process_restart_required",
+                true,
+                control.hostRecoveryId,
+                stringValue(result.dockerRecoveryId),
+                stringValue(result.candidateRecoveryId),
+                false,
+                stringValue(result.candidateStoreRecoveryId),
+                projectedDockerRecoveryIds,
+              );
+            } else if (
+              control.hostGenerationLossOutcome === "cleanup_confirmed_failure"
+            ) {
+              result = blocked(
+                "coordinator_task_host_generation_lost_cleanup_confirmed",
+                false,
+                null,
+                null,
+                stringValue(result.candidateRecoveryId),
+                false,
+                stringValue(result.candidateStoreRecoveryId),
+              );
+            }
+          }
           try {
+            let hostProtocolFailure =
+              control.hostGenerationLossOutcome === "cleanup_confirmed_failure";
             const isProcessRestartOnly =
               result.reason ===
               "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required";
@@ -1508,7 +1609,17 @@ function createRuntime(dependencies: RuntimeDependencies) {
               control.hostRecoveryId = hostRecoveryId;
             }
             if (control.ownedOperation && !control.retainOperationRoot) {
-              await state.dependencies.cleanupOperation(control.ownedOperation);
+              const cleanup = state.dependencies.classifyOperationCleanup(
+                await state.dependencies.cleanupOperation(
+                  control.ownedOperation,
+                ),
+              );
+              if (!cleanup)
+                throw new Error(
+                  "coordinator_task_operation_cleanup_outcome_invalid",
+                );
+              if (cleanup === "protocol_failure_cleanup_confirmed")
+                hostProtocolFailure = true;
             }
             for (const finalization of state.dependencies
               .recordDockerHostCleanupReceipt && !control.retainOperationRoot
@@ -1578,6 +1689,26 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 );
               }
               handoff.state = "finalized";
+            }
+            if (hostProtocolFailure) {
+              const candidateRecoveryId = stringValue(
+                result.candidateRecoveryId,
+              );
+              const discarded = candidateRecoveryId
+                ? state.dependencies.discardCandidate(candidateRecoveryId)
+                : null;
+              const candidateStillRequiresRecovery = Boolean(
+                candidateRecoveryId && discarded?.status !== "discarded",
+              );
+              return blocked(
+                "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
+                candidateStillRequiresRecovery,
+                null,
+                null,
+                candidateStillRequiresRecovery ? candidateRecoveryId : null,
+                !candidateStillRequiresRecovery,
+                stringValue(discarded?.candidateStoreRecoveryId),
+              );
             }
             const candidateRecoveryId = stringValue(result.candidateRecoveryId);
             if (!candidateRecoveryId)

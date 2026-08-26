@@ -78,6 +78,12 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
       if (label === "Docker recovery ID" && dockerRecoveryIds.includes(value))
         continue;
       lines.push(`- ${label}: ${value}`);
+      if (label === "host recovery ID") {
+        lines.push(
+          "- next: restart Coordinator Runtime before starting another task",
+          "- next: retain this exact host recovery ID for the signed recovery entry or runtime operator; recovery is not promised when identity evidence is inconsistent",
+        );
+      }
     }
   }
   lines.push(

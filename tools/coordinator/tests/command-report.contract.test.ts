@@ -33,6 +33,8 @@ test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回�
   );
   assert.match(rendered, /candidate export expires at:/u);
   assert.match(rendered, /host recovery ID: host\./u);
+  assert.match(rendered, /restart Coordinator Runtime/u);
+  assert.match(rendered, /recovery is not promised/u);
   assert.match(rendered, /Docker recovery ID: docker-task\./u);
   assert.equal(
     rendered.match(/coordinator doctor --recover-isolation docker-task\./gu)
@@ -68,4 +70,17 @@ test("人間向け投影は未知値、Path、Credentialらしい値と不正ID�
     describeCommandReportContract().rawProviderOutputReported,
     false,
   );
+});
+
+test("cleanup確認済みprotocol失敗の人間表示はHost Recoveryを要求しない", () => {
+  const rendered = renderSafeHumanCommandReport({
+    command: "task",
+    status: "blocked",
+    reason:
+      "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
+    manualRecoveryRequired: false,
+    hostRecoveryId: null,
+  });
+  assert.match(rendered, /manual recovery required: no/u);
+  assert.doesNotMatch(rendered, /host recovery ID|restart Coordinator/u);
 });

@@ -373,6 +373,16 @@ function ownedOperationGeneration(
     (!shouldAllowRetired && state.retired)
   )
     throw new Error("owned_operation_identity_replaced");
+  if (
+    !shouldAllowRetired &&
+    state.generationLock &&
+    !state.generationLock.assertLive()
+  ) {
+    state.retired = true;
+    revokeOwnedOperationContextCapabilities(state.owned);
+    poisonRuntimeProcessAfterCleanupUnknown();
+    throw new Error("owned_operation_generation_liveness_lost");
+  }
   return state;
 }
 
@@ -1034,15 +1044,71 @@ export async function confirmOwnedHostOperationGenerationLockReadiness(
       current === generation &&
       current.generationLock === lock &&
       current.retired === false;
-    if (!isCurrent) return "cleanup_confirmed_failure" as const;
+    if (!isCurrent)
+      throw new Error("owned_operation_generation_readiness_replaced");
     validatePrivateHostRecoveryRecord(
       after.identity,
       after.identity.hostRecovery.state,
     );
     return "ready" as const;
   } catch {
-    return "cleanup_confirmed_failure" as const;
+    try {
+      const { binding, identity } =
+        ownedOperationFromManagementCapabilityForCleanup(managementCapability);
+      const generation = ownedOperationGeneration(
+        binding.owned,
+        identity,
+        true,
+      );
+      generation.retired = true;
+      revokeOwnedOperationContextCapabilities(generation.owned);
+      const lock = generation.generationLock;
+      if (!lock) return "cleanup_confirmed_failure" as const;
+      const released = await lock.release();
+      if (released === "cleanup_unknown") {
+        poisonRuntimeProcessAfterCleanupUnknown();
+        return "cleanup_unknown" as const;
+      }
+      generation.generationLock = null;
+      return "cleanup_confirmed_failure" as const;
+    } catch {
+      poisonRuntimeProcessAfterCleanupUnknown();
+      return "cleanup_unknown" as const;
+    }
   }
+}
+
+function ownedOperationFromManagementCapabilityForCleanup(
+  managementCapability: unknown,
+) {
+  const binding = isObject(managementCapability)
+    ? (operationManagementCapabilities.get(managementCapability) ?? null)
+    : null;
+  if (!binding) throw new Error("owned_operation_management_binding_required");
+  const identity = ownedIdentities.get(binding.owned);
+  if (!identity) throw new Error("owned_operation_management_binding_required");
+  return Object.freeze({ binding, identity });
+}
+
+export function observeOwnedHostOperationGenerationLoss(
+  managementCapability: unknown,
+) {
+  const { binding, identity } =
+    ownedOperationFromManagementCapability(managementCapability);
+  const generation = ownedOperationGeneration(binding.owned, identity);
+  const lock = generation.generationLock;
+  if (!lock) throw new Error("owned_operation_generation_lock_required");
+  return Object.freeze({
+    detected: lock.failureDetected.then(() => {
+      poisonRuntimeProcessAfterCleanupUnknown();
+    }),
+    outcome: lock.loss.then((outcome) => {
+      generation.retired = true;
+      revokeOwnedOperationContextCapabilities(generation.owned);
+      poisonRuntimeProcessAfterCleanupUnknown();
+      return outcome;
+    }),
+  });
 }
 
 export async function abandonOwnedHostOperationGenerationLock(
@@ -1664,7 +1730,34 @@ export async function cleanupOwnedOperationDirectoriesAsync(owned: unknown) {
     throw new Error("owned_operation_generation_release_unconfirmed");
   removeOwnedOperationRecoveryRecord(identity);
   if (release === "cleanup_confirmed_failure")
-    throw new Error("owned_operation_generation_protocol_failure_cleaned");
+    return createOwnedOperationCleanupOutcome(
+      "protocol_failure_cleanup_confirmed",
+    );
+  return createOwnedOperationCleanupOutcome("completed");
+}
+
+type OwnedOperationCleanupStatus =
+  | "completed"
+  | "protocol_failure_cleanup_confirmed";
+const ownedOperationCleanupOutcomes = new WeakMap<
+  object,
+  OwnedOperationCleanupStatus
+>();
+
+function createOwnedOperationCleanupOutcome(
+  status: OwnedOperationCleanupStatus,
+) {
+  const outcome = Object.freeze({ kind: "owned_operation_cleanup_outcome" });
+  ownedOperationCleanupOutcomes.set(outcome, status);
+  return outcome;
+}
+
+export function verifyOwnedOperationCleanupOutcome(
+  outcome: unknown,
+): OwnedOperationCleanupStatus | null {
+  return isObject(outcome)
+    ? (ownedOperationCleanupOutcomes.get(outcome) ?? null)
+    : null;
 }
 
 function loadHostRecoveryRecord(token: unknown): Readonly<{

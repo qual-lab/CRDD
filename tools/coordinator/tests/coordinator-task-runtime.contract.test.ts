@@ -37,6 +37,7 @@ function fixture(
     finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
     cleanupThrows?: boolean;
+    cleanupProtocolFailure?: boolean;
     completionRejectRole?: "executor" | "reviewer";
     candidateVerificationFails?: boolean;
     candidatePersistenceFails?: boolean;
@@ -52,6 +53,7 @@ function fixture(
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
     pauseRole?: "executor" | "reviewer";
+    hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
     discardFails?: boolean;
     discardThrows?: boolean;
     publishFails?: boolean;
@@ -78,6 +80,8 @@ function fixture(
   const candidateCapability = Object.freeze({});
   const externalSendGrantCapability = Object.freeze({});
   const externalSendPolicyCapability = Object.freeze({});
+  const cleanupCompleted = Object.freeze({});
+  const cleanupProtocolFailure = Object.freeze({});
   const packetAssignments = new WeakMap<
     object,
     Readonly<{
@@ -103,6 +107,11 @@ function fixture(
   let releasePausedProcess: (() => void) | null = null;
   let releaseExternalAuthorization: (() => void) | null = null;
   let releaseOperationCreation: (() => void) | null = null;
+  let resolveHostGenerationLoss:
+    | ((outcome: "cleanup_confirmed_failure" | "cleanup_unknown") => void)
+    | null = null;
+  let resolveHostGenerationFailureDetected: (() => void) | null = null;
+  let cancelProcessCount = 0;
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
@@ -128,6 +137,18 @@ function fixture(
         managementCapability,
         operationId: "OP-123456",
         hostRecoveryId: "host.fixture.recovery.record",
+        ...(options.hostGenerationLoss
+          ? {
+              hostGenerationFailureDetected: new Promise<void>((resolve) => {
+                resolveHostGenerationFailureDetected = resolve;
+              }),
+              hostGenerationLoss: new Promise<
+                "cleanup_confirmed_failure" | "cleanup_unknown"
+              >((resolve) => {
+                resolveHostGenerationLoss = resolve;
+              }),
+            }
+          : {}),
       });
     },
     cleanupOperation: (candidate: object) => {
@@ -135,7 +156,17 @@ function fixture(
       if (options.hostCleanupWal) events.push("host-cleanup");
       cleanupCount += 1;
       if (options.cleanupThrows) throw new Error("cleanup_failed");
+      return options.cleanupProtocolFailure
+        ? cleanupProtocolFailure
+        : cleanupCompleted;
     },
+    classifyOperationCleanup: (outcome: unknown) =>
+      outcome === cleanupCompleted
+        ? ("completed" as const)
+        : outcome === cleanupProtocolFailure
+          ? ("protocol_failure_cleanup_confirmed" as const)
+          : null,
+    abandonOperation: async () => "released" as const,
     bindRepository: () =>
       Object.freeze({
         repositoryBound: true,
@@ -395,7 +426,15 @@ function fixture(
         completion,
       });
     },
-    cancelProcess: async () => Object.freeze({ status: "requested" }),
+    cancelProcess: async () => {
+      cancelProcessCount += 1;
+      return Object.freeze({
+        status: "requested",
+        reason: "provider_cancellation_requested",
+        cancellationRequested: true,
+        processTerminationObserved: true,
+      });
+    },
     captureCandidate: () => {
       candidateCaptureCount += 1;
       return options.candidateSecretAtCapture === candidateCaptureCount
@@ -506,6 +545,7 @@ function fixture(
     candidateStorePrepareCount: () => candidateStorePrepareCount,
     workspaceMaterializeCount: () => workspaceMaterializeCount,
     processStartCount: () => processStartCount,
+    cancelProcessCount: () => cancelProcessCount,
     externalCancellationSignal: () => externalCancellationSignal,
     releaseExternalAuthorization: () => {
       assert.ok(releaseExternalAuthorization);
@@ -518,6 +558,13 @@ function fixture(
     releasePausedProcess: () => {
       assert.ok(releasePausedProcess);
       releasePausedProcess();
+    },
+    triggerHostGenerationLoss: () => {
+      assert.ok(resolveHostGenerationFailureDetected);
+      assert.ok(resolveHostGenerationLoss);
+      assert.ok(options.hostGenerationLoss);
+      resolveHostGenerationFailureDetected();
+      resolveHostGenerationLoss(options.hostGenerationLoss);
     },
   };
 }
@@ -1114,6 +1161,26 @@ test("Executor自己申告と実Candidate差またはOperation cleanup不明を�
   assert.equal(cleanupFailure.discardCount(), 1);
 });
 
+test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も手動Recoveryも行わない", async () => {
+  const harness = fixture({ cleanupProtocolFailure: true });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
+  );
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.hostRecoveryId, null);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.equal(harness.cleanupCount(), 1);
+  assert.equal(harness.discardCount(), 1);
+});
+
 test("Operation cleanupとCandidate discardが共に失敗してもdiscard専用Recovery IDを失わない", async () => {
   const harness = fixture({ cleanupThrows: true, discardFails: true });
   const result = await harness.runtime.start(
@@ -1313,7 +1380,12 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
   );
   await new Promise((resolve) => setImmediate(resolve));
   const cancelled = await harness.runtime.cancel(started.controlCapability);
-  assert.deepEqual(cancelled, { status: "requested" });
+  assert.deepEqual(cancelled, {
+    status: "requested",
+    reason: "provider_cancellation_requested",
+    cancellationRequested: true,
+    processTerminationObserved: true,
+  });
   const duplicate = await harness.runtime.cancel(started.controlCapability);
   assert.deepEqual(duplicate, { status: "blocked" });
   harness.releasePausedProcess();
@@ -1325,6 +1397,64 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
   );
   assert.equal(result.candidateRevision, null);
   assert.equal(harness.cleanupCount(), 1);
+});
+
+test("ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否する", async () => {
+  const harness = fixture({
+    pauseRole: "executor",
+    hostGenerationLoss: "cleanup_confirmed_failure",
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.processStartCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.triggerHostGenerationLoss();
+  while (harness.cancelProcessCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_host_generation_protocol_failed_cleanup_confirmed",
+  );
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.hostRecoveryId, null);
+  assert.equal(harness.cancelProcessCount(), 1);
+  assert.equal(harness.cleanupCount(), 1);
+});
+
+test("ready後喪失のcleanup不明は取消より優先してexact Host Recoveryへ閉じる", async () => {
+  const harness = fixture({
+    pauseRole: "executor",
+    hostGenerationLoss: "cleanup_unknown",
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.processStartCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.triggerHostGenerationLoss();
+  while (harness.cancelProcessCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_host_generation_lost_cleanup_unknown_process_restart_required",
+  );
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.equal(harness.cancelProcessCount(), 1);
+  assert.equal(harness.cleanupCount(), 0);
 });
 
 test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ閉じる", async () => {

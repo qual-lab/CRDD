@@ -38,6 +38,10 @@ function supervisorChildScenario(
     | "acquire_timeout_unconfirmed"
     | "ready_malformed"
     | "ready_exit"
+    | "acquired_disconnect_alive"
+    | "ready_then_exit"
+    | "ready_duplicate"
+    | "ready_duplicate_unconfirmed"
     | "released_without_exit"
     | "exit_without_released"
     | "release_nonzero_exit",
@@ -47,6 +51,7 @@ function supervisorChildScenario(
     args: readonly string[];
     options: unknown;
   }> | null = null;
+  let killCount = 0;
   const factory = (
     executable: string,
     args: readonly string[],
@@ -74,7 +79,11 @@ function supervisorChildScenario(
       child.emit("exit", code, null);
     };
     child.kill = () => {
-      if (scenario !== "acquire_timeout_unconfirmed")
+      killCount += 1;
+      if (
+        scenario !== "acquire_timeout_unconfirmed" &&
+        scenario !== "ready_duplicate_unconfirmed"
+      )
         queueMicrotask(() => exit(1));
       return true;
     };
@@ -83,6 +92,19 @@ function supervisorChildScenario(
         if (scenario === "ready_malformed")
           queueMicrotask(() => child.emit("message", { status: "wrong" }));
         else if (scenario === "ready_exit") queueMicrotask(() => exit(1));
+        else if (scenario === "ready_then_exit")
+          queueMicrotask(() => {
+            child.emit("message", { status: "ready" });
+            queueMicrotask(() => exit(1));
+          });
+        else if (
+          scenario === "ready_duplicate" ||
+          scenario === "ready_duplicate_unconfirmed"
+        )
+          queueMicrotask(() => {
+            child.emit("message", { status: "ready" });
+            queueMicrotask(() => child.emit("message", { status: "ready" }));
+          });
         else queueMicrotask(() => child.emit("message", { status: "ready" }));
       } else if (message === "release") {
         if (scenario === "released_without_exit")
@@ -103,10 +125,21 @@ function supervisorChildScenario(
       return true;
     };
     if (!scenario.startsWith("acquire_timeout"))
-      queueMicrotask(() => child.emit("message", { status: "acquired" }));
+      queueMicrotask(() => {
+        child.emit("message", { status: "acquired" });
+        if (scenario === "acquired_disconnect_alive")
+          queueMicrotask(() => {
+            child.connected = false;
+            child.emit("disconnect");
+          });
+      });
     return child as unknown as ReturnType<typeof spawn>;
   };
-  return Object.freeze({ factory, captured: () => captured });
+  return Object.freeze({
+    factory,
+    captured: () => captured,
+    killCount: () => killCount,
+  });
 }
 
 function interactiveLockWorkerScenario(initialState: 1 | -1) {
@@ -292,6 +325,61 @@ test("Host Operation Supervisorはterminate未確認だけをcleanup不明にす
   assert.equal(unknown.status, "cleanup_unknown");
   assert.ok(unknown.lock);
   assert.equal(await unknown.lock.release(), "cleanup_unknown");
+});
+
+test("Host Operation Supervisorの非同期喪失と複合通知は単一finalizerへ収束する", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const rootName = "crdd-coordinator-doctor-LIVENESS";
+  const nonce = "cccccccc-dddd-4eee-8fff-ffffffffffff";
+  const scenarios = [
+    "acquired_disconnect_alive",
+    "ready_then_exit",
+    "ready_duplicate",
+  ] as const;
+  for (const [index, scenario] of scenarios.entries()) {
+    const candidate = supervisorChildScenario(scenario);
+    const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+      rootName,
+      `${nonce.slice(0, -1)}${index}`,
+      candidate.factory,
+      FAST_SUPERVISOR_TIMING,
+    );
+    assert.equal(outcome.status, "acquired");
+    assert.ok(outcome.lock);
+    const readiness = await outcome.lock.confirmReady();
+    if (scenario === "acquired_disconnect_alive")
+      assert.equal(readiness, "cleanup_confirmed_failure");
+    else assert.equal(readiness, "ready");
+    assert.equal(await outcome.lock.loss, "cleanup_confirmed_failure");
+    assert.equal(outcome.lock.assertLive(), false);
+    assert.equal(await outcome.lock.release(), "cleanup_confirmed_failure");
+    if (scenario === "ready_then_exit") assert.equal(candidate.killCount(), 0);
+    else assert.equal(candidate.killCount(), 1);
+  }
+});
+
+test("Host Operation Supervisorのcleanup不明は遅延通知で降格せずexactly onceを保つ", async (context) => {
+  if (process.platform !== "win32") {
+    context.skip("Windows Local Personal contract");
+    return;
+  }
+  const candidate = supervisorChildScenario("ready_duplicate_unconfirmed");
+  const outcome = await acquireHostOperationSupervisorLockUsingFactory(
+    "crdd-coordinator-doctor-UNKNOWN",
+    "dddddddd-eeee-4fff-8aaa-ffffffffffff",
+    candidate.factory,
+    FAST_SUPERVISOR_TIMING,
+  );
+  assert.equal(outcome.status, "acquired");
+  assert.ok(outcome.lock);
+  assert.equal(await outcome.lock.confirmReady(), "ready");
+  assert.equal(await outcome.lock.loss, "cleanup_unknown");
+  assert.equal(await outcome.lock.release(), "cleanup_unknown");
+  assert.equal(await outcome.lock.release(), "cleanup_unknown");
+  assert.equal(candidate.killCount(), 1);
 });
 
 test("Host Operation Supervisor entrypointはexact argvとIPCなしでlistenしない", () => {

@@ -52,6 +52,7 @@ import {
   transitionOwnedDockerSubmissionState,
   verifyOwnedMountCapability,
   verifyOwnedOperationContextCapability,
+  verifyOwnedOperationCleanupOutcome,
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
 import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
@@ -2795,7 +2796,9 @@ test("生存中TaskのHost owner世代はreadiness再確認後も別Recoveryに�
     recoveryId: token,
   });
   assert.equal(fs.existsSync(owned.root), true);
-  await cleanupOwnedOperationDirectoriesAsync(owned);
+  const cleanup = await cleanupOwnedOperationDirectoriesAsync(owned);
+  assert.equal(verifyOwnedOperationCleanupOutcome(cleanup), "completed");
+  assert.equal(verifyOwnedOperationCleanupOutcome({ ...cleanup }), null);
 });
 
 test("Host owner readinessは耐久Recovery markerの消失・置換・内容差を後続Effect前に拒否する", async (context) => {
@@ -2834,6 +2837,12 @@ test("Host owner readinessは耐久Recovery markerの消失・置換・内容差
       await confirmOwnedHostOperationGenerationLockReadiness(management),
       "cleanup_confirmed_failure",
     );
+    await assert.rejects(
+      () => cleanupOwnedOperationDirectoriesAsync(owned),
+      /owned_operation_directory_replaced|host_recovery_record_(?:replaced|mismatch)|ENOENT/u,
+    );
+    assert.equal(fs.existsSync(owned.root), true);
+    assert.equal(fs.existsSync(marker), mode !== "missing");
     if (mode === "content") fs.writeFileSync(marker, original);
     else {
       if (fs.existsSync(marker)) fs.rmSync(marker);
