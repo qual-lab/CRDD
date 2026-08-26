@@ -51,7 +51,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 14;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 15;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -2407,6 +2407,93 @@ export function recoverExactDockerResourceWithRunner(
   );
 }
 
+/**
+ * Resolve the crash window after an exact create submission was durably
+ * recorded but before Docker's returned ID could be persisted. The
+ * operation-owned name and operation-unique ownership label must identify the
+ * same single resource. An empty result is accepted only when the exact-name
+ * and exact-name-plus-label queries both succeed and are empty. A foreign,
+ * ambiguous, or partially observed
+ * resource is never adopted or removed.
+ *
+ * @internal Package-private verifier used by production recovery.
+ */
+export function recoverUnknownDockerCreateOutcomeWithRunner(
+  runDocker: (argv: readonly string[]) => RecoveryDockerResult,
+  kind: "container" | "network",
+  expectedName: string,
+  ownershipLabel: string,
+  expectedImage: string | null,
+  shouldBeInternal: boolean | null,
+  purpose: string,
+  expectedNetworks: readonly string[],
+  operationMode: "boolean_probe" | "isolated_task",
+  workspaceMountMode: "read_write" | "read_only" | null,
+) {
+  const list = (...filters: readonly string[]) =>
+    runDocker(
+      kind === "container"
+        ? [
+            "container",
+            "ls",
+            "--all",
+            "--no-trunc",
+            ...filters.flatMap((filter) => ["--filter", filter]),
+            "--format",
+            "{{.ID}}",
+          ]
+        : [
+            "network",
+            "ls",
+            "--no-trunc",
+            ...filters.flatMap((filter) => ["--filter", filter]),
+            "--format",
+            "{{.ID}}",
+          ],
+    );
+  const ids = (result: RecoveryDockerResult) => {
+    if (
+      result.status !== 0 ||
+      result.signal ||
+      result.error ||
+      result.stderr.length !== 0
+    )
+      return null;
+    const values = result.stdout.trim()
+      ? result.stdout.trim().split(/\r?\n/u)
+      : [];
+    return values.length <= 1 && values.every((value) => HEX64.test(value))
+      ? values
+      : null;
+  };
+  const nameFilter =
+    kind === "container" ? `name=^/${expectedName}$` : `name=^${expectedName}$`;
+  const labelFilter = `label=${ownershipLabel}`;
+  const byName = ids(list(nameFilter));
+  const byOwnership = ids(list(nameFilter, labelFilter));
+  if (!byName || !byOwnership) return false;
+  if (byName.length === 0 && byOwnership.length === 0) return true;
+  if (
+    byName.length !== 1 ||
+    byOwnership.length !== 1 ||
+    byName[0] !== byOwnership[0]
+  )
+    return false;
+  return recoverExactDockerResourceWithRunner(
+    runDocker,
+    kind,
+    byName[0] as string,
+    expectedName,
+    ownershipLabel,
+    expectedImage,
+    shouldBeInternal,
+    purpose,
+    expectedNetworks,
+    operationMode,
+    workspaceMountMode,
+  );
+}
+
 function recoverExactDockerResource(
   configDirectory: string,
   configIdentity: string,
@@ -3476,8 +3563,47 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           throw new Error("docker_task_recovery_receipt_without_submission");
         continue;
       }
-      if (!fs.existsSync(receiptPath))
-        throw new Error("docker_task_recovery_create_outcome_unknown");
+      if (!fs.existsSync(receiptPath)) {
+        const expectedNetworks =
+          purpose === "create_subscription_auth_probe"
+            ? []
+            : purpose === "create_proxy"
+              ? [String(resources.internal), String(resources.egress)]
+              : kind === "container"
+                ? [String(resources.internal)]
+                : [];
+        const recovered = outsideRuntimeStateLock(() =>
+          recoveryDockerRunner
+            ? recoverUnknownDockerCreateOutcomeWithRunner(
+                recoveryDockerRunner,
+                kind,
+                name,
+                String(base.ownershipLabel),
+                image,
+                isInternal,
+                purpose,
+                expectedNetworks,
+                operationMode,
+                workspaceMountMode,
+              )
+            : recoverUnknownDockerCreateOutcomeWithRunner(
+                (argv) =>
+                  runRecoveryDocker(configDirectory, configIdentity, argv),
+                kind,
+                name,
+                String(base.ownershipLabel),
+                image,
+                isInternal,
+                purpose,
+                expectedNetworks,
+                operationMode,
+                workspaceMountMode,
+              ),
+        );
+        if (!recovered)
+          throw new Error("docker_task_recovery_create_outcome_unknown");
+        continue;
+      }
       const receipt = readExactJson(receiptPath).value as Record<
         string,
         string
@@ -4710,7 +4836,7 @@ export function describeDockerRecoveryRuntimeContract() {
     completionEvidence:
       "exact_durable_evidence_required_and_empty_root_is_not_a_receipt",
     offlineRecovery:
-      "exact_id_and_configuration_only_unknown_create_outcome_never_adopted",
+      "exact_id_or_same_single_operation_owned_name_and_label_with_full_configuration_unknown_create_outcome_never_blindly_adopted",
     hostFinalization:
       "host_generation_owner_and_inventory_then_cleanup_intent_receipt_and_exact_removal",
     synchronizationRelease:
