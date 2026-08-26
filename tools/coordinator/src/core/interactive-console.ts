@@ -17,7 +17,7 @@ export { readInteractiveConsoleLineFromStream as readTerminalLineUsingStream };
 
 export const INTERACTIVE_CONSOLE_CONTRACT =
   "crdd-coordinator/interactive-console";
-export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 11;
+export const INTERACTIVE_CONSOLE_CONTRACT_REVISION = 12;
 
 const readerEntrypoint = fileURLToPath(
   new URL("./interactive-console-reader.ts", import.meta.url),
@@ -34,7 +34,7 @@ type InteractiveConsoleHandles = Readonly<{
 }>;
 
 type InteractiveConsoleAdapter = Readonly<{
-  open: (path: string, flags: "r" | "w") => number;
+  open: (path: string, flags: "r" | "r+" | "w") => number;
   close: (descriptor: number) => void;
   validate?: (handles: InteractiveConsoleHandles) => boolean;
 }>;
@@ -76,6 +76,21 @@ type InteractiveConsoleReaderProcessAdapter = Readonly<{
   clearTimeout: typeof clearTimeout;
 }>;
 
+const WINDOWS_INTERACTIVE_CONSOLE_DEVICES = Object.freeze({
+  input: Object.freeze({ path: "\\\\.\\CONIN$", flags: "r" as const }),
+  output: Object.freeze({ path: "\\\\.\\CONOUT$", flags: "r+" as const }),
+});
+const POSIX_INTERACTIVE_CONSOLE_DEVICES = Object.freeze({
+  input: Object.freeze({ path: "/dev/tty", flags: "r" as const }),
+  output: Object.freeze({ path: "/dev/tty", flags: "w" as const }),
+});
+
+function interactiveConsoleDevices(platform: NodeJS.Platform) {
+  return platform === "win32"
+    ? WINDOWS_INTERACTIVE_CONSOLE_DEVICES
+    : POSIX_INTERACTIVE_CONSOLE_DEVICES;
+}
+
 export type InteractiveConsoleReadOutcome = Readonly<{
   status:
     | "completed"
@@ -104,18 +119,15 @@ export function withInteractiveConsoleOutcomeUsingAdapter<T>(
   adapter: InteractiveConsoleAdapter,
   operation: (handles: InteractiveConsoleHandles) => T,
 ): InteractiveConsoleOperationOutcome<T> {
-  const names =
-    platform === "win32"
-      ? Object.freeze({ input: "\\\\.\\CONIN$", output: "\\\\.\\CONOUT$" })
-      : Object.freeze({ input: "/dev/tty", output: "/dev/tty" });
+  const devices = interactiveConsoleDevices(platform);
   let input: number | null = null;
   let output: number | null = null;
   let status: InteractiveConsoleOperationOutcome<T>["status"] = "unavailable";
   let value: T | null = null;
   let isOperationStarted = false;
   try {
-    input = adapter.open(names.input, "r");
-    output = adapter.open(names.output, "w");
+    input = adapter.open(devices.input.path, devices.input.flags);
+    output = adapter.open(devices.output.path, devices.output.flags);
     if (adapter.validate && !adapter.validate({ input, output })) {
       throw new Error("interactive_console_validation_failed");
     }
@@ -189,18 +201,15 @@ export async function withInteractiveConsoleAsyncOutcomeUsingAdapter<T>(
   adapter: InteractiveConsoleAdapter,
   operation: (handles: InteractiveConsoleHandles) => Promise<T>,
 ): Promise<InteractiveConsoleOperationOutcome<T>> {
-  const names =
-    platform === "win32"
-      ? Object.freeze({ input: "\\\\.\\CONIN$", output: "\\\\.\\CONOUT$" })
-      : Object.freeze({ input: "/dev/tty", output: "/dev/tty" });
+  const devices = interactiveConsoleDevices(platform);
   let input: number | null = null;
   let output: number | null = null;
   let status: InteractiveConsoleOperationOutcome<T>["status"] = "unavailable";
   let value: T | null = null;
   let isOperationStarted = false;
   try {
-    input = adapter.open(names.input, "r");
-    output = adapter.open(names.output, "w");
+    input = adapter.open(devices.input.path, devices.input.flags);
+    output = adapter.open(devices.output.path, devices.output.flags);
     if (adapter.validate && !adapter.validate({ input, output })) {
       throw new Error("interactive_console_validation_failed");
     }
@@ -701,6 +710,7 @@ export function describeInteractiveConsoleContract() {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
     contractRevision: INTERACTIVE_CONSOLE_CONTRACT_REVISION,
     windowsDevices: Object.freeze(["\\\\.\\CONIN$", "\\\\.\\CONOUT$"]),
+    windowsDeviceOpenModes: Object.freeze({ input: "r", output: "r+" }),
     windowsUnicodeOutput: "node_unicode_tty_output_required",
     windowsTerminalWriteTimeoutMs: TERMINAL_WRITE_TIMEOUT_MS,
     windowsTerminalWriteOutcomes: Object.freeze([

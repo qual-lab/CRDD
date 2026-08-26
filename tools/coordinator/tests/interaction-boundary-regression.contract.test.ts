@@ -60,8 +60,9 @@ test("対話Consoleは一つのRuntime契約だけがOS deviceを所有する", 
   const contract = describeInteractiveConsoleContract();
   assert.deepEqual(contract, {
     contract: INTERACTIVE_CONSOLE_CONTRACT,
-    contractRevision: 11,
+    contractRevision: 12,
     windowsDevices: ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"],
+    windowsDeviceOpenModes: { input: "r", output: "r+" },
     windowsUnicodeOutput: "node_unicode_tty_output_required",
     windowsTerminalWriteTimeoutMs: 1_000,
     windowsTerminalWriteOutcomes: [
@@ -189,7 +190,7 @@ test("Console非同期所有はoperationと全close失敗を構造化する", as
   const cleanupUnknown = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
     "win32",
     Object.freeze({
-      open: (_name: string, flags: "r" | "w") => (flags === "r" ? 1 : 2),
+      open: (_name: string, flags: "r" | "r+" | "w") => (flags === "r" ? 1 : 2),
       close: (descriptor: number) => {
         closedDescriptors.push(descriptor);
         if (descriptor === 1) throw new Error("fixture_close_failed");
@@ -207,7 +208,7 @@ test("Console非同期所有はoperationと全close失敗を構造化する", as
   const operationFailed = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
     "win32",
     Object.freeze({
-      open: (_name: string, flags: "r" | "w") => (flags === "r" ? 1 : 2),
+      open: (_name: string, flags: "r" | "r+" | "w") => (flags === "r" ? 1 : 2),
       close: () => undefined,
       validate: () => true,
     }),
@@ -231,7 +232,8 @@ test("Console非同期所有はoperationと全close失敗を構造化する", as
     const unavailable = await withInteractiveConsoleAsyncOutcomeUsingAdapter(
       "win32",
       Object.freeze({
-        open: (_name: string, flags: "r" | "w") => (flags === "r" ? 1 : 2),
+        open: (_name: string, flags: "r" | "r+" | "w") =>
+          flags === "r" ? 1 : 2,
         close: (descriptor: number) => {
           validationClosedDescriptors.push(descriptor);
         },
@@ -892,7 +894,7 @@ test("Windows実ProcessでTask stdin pipeと固定Console readerを分離する"
   }
   let outputDescriptor: number | null = null;
   try {
-    outputDescriptor = fs.openSync("\\\\.\\CONOUT$", "w");
+    outputDescriptor = fs.openSync("\\\\.\\CONOUT$", "r+");
   } catch {
     context.skip("Windows interactive console unavailable");
     return;
@@ -1306,13 +1308,13 @@ test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで�
   function scenario(
     options: { failOpenAt?: number; failClose?: ReadonlySet<number> } = {},
   ) {
-    const deviceOpenRecords: Array<Readonly<[string, "r" | "w"]>> = [];
+    const deviceOpenRecords: Array<Readonly<[string, "r" | "r+" | "w"]>> = [];
     const closedDescriptors: number[] = [];
     return {
       deviceOpenRecords,
       closedDescriptors,
       adapter: Object.freeze({
-        open: (device: string, flags: "r" | "w") => {
+        open: (device: string, flags: "r" | "r+" | "w") => {
           deviceOpenRecords.push(Object.freeze([device, flags]));
           if (deviceOpenRecords.length === options.failOpenAt) {
             throw new Error("open failed");
@@ -1340,7 +1342,7 @@ test("対話ConsoleのOS device openと全失敗位置を一つのprimitiveで�
   );
   assert.deepEqual(windows.deviceOpenRecords, [
     ["\\\\.\\CONIN$", "r"],
-    ["\\\\.\\CONOUT$", "w"],
+    ["\\\\.\\CONOUT$", "r+"],
   ]);
   assert.deepEqual(windows.closedDescriptors, [11, 12]);
 
