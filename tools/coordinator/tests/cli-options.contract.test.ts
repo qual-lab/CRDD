@@ -128,6 +128,66 @@ test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受
   assert.equal(duplicate.reason, "doctor_arguments_invalid");
 });
 
+test("Docker Desktop最終復旧のcloseは正規化済みIDを単独でdispatchする", () => {
+  const repairId = `docker-desktop-repair.${"a".repeat(32)}`;
+  const parsed = parseDoctorArguments(
+    ["--close-docker-desktop-runtime-repair", repairId, "--json"],
+    undefined,
+  );
+  assert.equal(parsed.status, "ok");
+  assertPresent(parsed.value);
+  assert.equal(parsed.value.closeDockerDesktopRepairId, repairId);
+  assert.equal(parsed.value.repairDockerDesktopRuntime, false);
+  for (const incompatible of [
+    "--isolation",
+    "--enable-runtime",
+    "--repair-docker-desktop-runtime",
+  ]) {
+    assert.equal(
+      parseDoctorArguments(
+        ["--close-docker-desktop-runtime-repair", repairId, incompatible],
+        undefined,
+      ).reason,
+      "doctor_arguments_incompatible",
+    );
+  }
+  assert.equal(
+    parseDoctorArguments(
+      [
+        "--close-docker-desktop-runtime-repair",
+        "docker-desktop-repair.invalid",
+      ],
+      undefined,
+    ).reason,
+    "doctor_arguments_invalid",
+  );
+});
+
+test("実CLIはDocker Desktop repair closeを専用reporterへ一意にdispatchする", () => {
+  const repairId = `docker-desktop-repair.${"a".repeat(32)}`;
+  const result = spawnSync(
+    process.execPath,
+    [
+      coordinatorExecutable,
+      "doctor",
+      "--close-docker-desktop-runtime-repair",
+      repairId,
+      "--json",
+    ],
+    { encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(result.status, 2, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(
+    report.contract,
+    "crdd-coordinator/docker-desktop-runtime-repair",
+  );
+  assert.equal(report.contractRevision, 2);
+  assert.equal(report.status, "blocked");
+  assert.equal(report.deletionPerformed, false);
+  assert.equal(report.pathReported, false);
+});
+
 test("実CLIはenable要求を候補診断へ接続しPathを表示しない", (t) => {
   const repositoryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-cli-root-"),

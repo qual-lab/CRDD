@@ -1,0 +1,630 @@
+use std::ffi::{OsStr, OsString, c_void};
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::mem::size_of;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
+use std::os::windows::fs::OpenOptionsExt;
+use std::os::windows::io::AsRawHandle;
+use std::path::PathBuf;
+use std::ptr::{null, null_mut};
+
+use windows_sys::Win32::Foundation::{
+    CloseHandle, ERROR_ALREADY_EXISTS, ERROR_NO_MORE_FILES, FILETIME, GetLastError, HANDLE,
+    INVALID_HANDLE_VALUE, STILL_ACTIVE, WAIT_OBJECT_0,
+};
+use windows_sys::Win32::Security::Cryptography::{
+    BCRYPT_ALG_HANDLE, BCRYPT_HASH_HANDLE, BCRYPT_SHA256_ALGORITHM, BCryptCloseAlgorithmProvider,
+    BCryptCreateHash, BCryptDestroyHash, BCryptFinishHash, BCryptHashData,
+    BCryptOpenAlgorithmProvider,
+};
+use windows_sys::Win32::Storage::FileSystem::{
+    BY_HANDLE_FILE_INFORMATION, FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+    FILE_SHARE_READ, GetFileInformationByHandle, GetFinalPathNameByHandleW,
+};
+use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
+};
+use windows_sys::Win32::System::Threading::{
+    CreateMutexW, GetExitCodeProcess, GetProcessTimes, OpenProcess,
+    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, QueryFullProcessImageNameW,
+    TerminateProcess, WaitForSingleObject,
+};
+
+const POLICY_BYTES: &[u8] =
+    include_bytes!("../../coordinator/policies/windows-docker-desktop-4.41.2.policy");
+const POLICY_MAGIC: &str = "CRDD_WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_V1";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR02";
+const RESPONSE_BYTES: usize = 41;
+const MAXIMUM_POLICY_BYTES: usize = 16_384;
+const MAXIMUM_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
+const MAXIMUM_PROCESS_ENTRIES: usize = 4_096;
+const PROCESS_WAIT_MS: u32 = 10_000;
+const SYNCHRONIZE_ACCESS: u32 = 0x0010_0000;
+
+struct OwnedHandle(HANDLE);
+
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        if !self.0.is_null() && self.0 != INVALID_HANDLE_VALUE {
+            // SAFETY: this type exclusively owns the valid Windows handle.
+            unsafe { CloseHandle(self.0) };
+        }
+    }
+}
+
+struct OwnedAlgorithm(BCRYPT_ALG_HANDLE);
+
+impl Drop for OwnedAlgorithm {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            // SAFETY: this type exclusively owns the algorithm provider handle.
+            unsafe { BCryptCloseAlgorithmProvider(self.0, 0) };
+        }
+    }
+}
+
+struct OwnedHash(BCRYPT_HASH_HANDLE);
+
+impl Drop for OwnedHash {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            // SAFETY: this type exclusively owns the hash handle.
+            unsafe { BCryptDestroyHash(self.0) };
+        }
+    }
+}
+
+#[derive(Clone)]
+struct PolicyArtifact {
+    role: String,
+    path: PathBuf,
+    bytes: u64,
+    sha256: [u8; 32],
+}
+
+struct LockedArtifact {
+    policy: PolicyArtifact,
+    file: File,
+    information: BY_HANDLE_FILE_INFORMATION,
+}
+
+struct VerifiedProcess {
+    handle: OwnedHandle,
+    process_id: u32,
+    creation: u64,
+}
+
+enum ProcessInventory {
+    Absent,
+    Verified(Vec<VerifiedProcess>),
+    Unknown,
+}
+
+fn hex_nibble(value: u8) -> Option<u8> {
+    match value {
+        b'0'..=b'9' => Some(value - b'0'),
+        b'A'..=b'F' => Some(value - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn parse_sha256(value: &str) -> Option<[u8; 32]> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 64 {
+        return None;
+    }
+    let mut output = [0_u8; 32];
+    for index in 0..32 {
+        output[index] = (hex_nibble(bytes[index * 2])? << 4) | hex_nibble(bytes[index * 2 + 1])?;
+    }
+    Some(output)
+}
+
+fn parse_policy() -> Option<Vec<PolicyArtifact>> {
+    if POLICY_BYTES.is_empty()
+        || POLICY_BYTES.len() > MAXIMUM_POLICY_BYTES
+        || !POLICY_BYTES.ends_with(b"\n")
+        || POLICY_BYTES.contains(&b'\r')
+        || POLICY_BYTES.contains(&0)
+    {
+        return None;
+    }
+    let source = std::str::from_utf8(POLICY_BYTES).ok()?;
+    let mut lines = source.trim_end_matches('\n').split('\n');
+    if lines.next()? != POLICY_MAGIC
+        || lines.next()? != "version|4.41.2"
+        || lines.next()? != "engine|28.1.1"
+    {
+        return None;
+    }
+    let expected_roles = [
+        "docker_cli",
+        "desktop_cli",
+        "launcher",
+        "frontend",
+        "backend",
+        "build",
+        "dev_envs",
+    ];
+    let mut artifacts = Vec::with_capacity(expected_roles.len());
+    for expected_role in expected_roles {
+        let mut fields = lines.next()?.split('|');
+        let role = fields.next()?;
+        let path = fields.next()?;
+        let bytes = fields.next()?.parse::<u64>().ok()?;
+        let sha256 = parse_sha256(fields.next()?)?;
+        if fields.next().is_some()
+            || role != expected_role
+            || !path.starts_with("C:\\")
+            || path.contains('\0')
+            || !(1..=MAXIMUM_ARTIFACT_BYTES).contains(&bytes)
+        {
+            return None;
+        }
+        artifacts.push(PolicyArtifact {
+            role: role.to_owned(),
+            path: PathBuf::from(path),
+            bytes,
+            sha256,
+        });
+    }
+    if lines.next().is_some() {
+        return None;
+    }
+    Some(artifacts)
+}
+
+fn begin_sha256() -> Option<(OwnedAlgorithm, OwnedHash)> {
+    let mut algorithm = null_mut();
+    // SAFETY: algorithm is writable and SHA-256 requires no provider-specific input.
+    if unsafe { BCryptOpenAlgorithmProvider(&mut algorithm, BCRYPT_SHA256_ALGORITHM, null(), 0) }
+        < 0
+    {
+        return None;
+    }
+    let algorithm = OwnedAlgorithm(algorithm);
+    let mut hash = null_mut();
+    // SAFETY: the algorithm handle is valid; object storage and secret are unused.
+    if unsafe { BCryptCreateHash(algorithm.0, &mut hash, null_mut(), 0, null(), 0, 0) } < 0 {
+        return None;
+    }
+    Some((algorithm, OwnedHash(hash)))
+}
+
+fn sha256_bytes(bytes: &[u8]) -> Option<[u8; 32]> {
+    let (_algorithm, hash) = begin_sha256()?;
+    let length = u32::try_from(bytes.len()).ok()?;
+    // SAFETY: bytes remains readable for the duration of the synchronous call.
+    if unsafe { BCryptHashData(hash.0, bytes.as_ptr(), length, 0) } < 0 {
+        return None;
+    }
+    let mut output = [0_u8; 32];
+    // SAFETY: output is a writable SHA-256-sized buffer.
+    if unsafe { BCryptFinishHash(hash.0, output.as_mut_ptr(), 32, 0) } < 0 {
+        return None;
+    }
+    Some(output)
+}
+
+fn sha256_file(file: &mut File, expected_bytes: u64) -> Option<[u8; 32]> {
+    file.seek(SeekFrom::Start(0)).ok()?;
+    let (_algorithm, hash) = begin_sha256()?;
+    let mut total = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let count = file.read(&mut buffer).ok()?;
+        if count == 0 {
+            break;
+        }
+        total = total.checked_add(u64::try_from(count).ok()?)?;
+        if total > expected_bytes {
+            return None;
+        }
+        let length = u32::try_from(count).ok()?;
+        // SAFETY: the initialized prefix remains readable for the duration of the call.
+        if unsafe { BCryptHashData(hash.0, buffer.as_ptr(), length, 0) } < 0 {
+            return None;
+        }
+    }
+    if total != expected_bytes {
+        return None;
+    }
+    let mut output = [0_u8; 32];
+    // SAFETY: output is a writable SHA-256-sized buffer.
+    if unsafe { BCryptFinishHash(hash.0, output.as_mut_ptr(), 32, 0) } < 0 {
+        return None;
+    }
+    Some(output)
+}
+
+fn handle_information(handle: HANDLE) -> Option<BY_HANDLE_FILE_INFORMATION> {
+    let mut information = BY_HANDLE_FILE_INFORMATION {
+        dwFileAttributes: 0,
+        ftCreationTime: FILETIME::default(),
+        ftLastAccessTime: FILETIME::default(),
+        ftLastWriteTime: FILETIME::default(),
+        dwVolumeSerialNumber: 0,
+        nFileSizeHigh: 0,
+        nFileSizeLow: 0,
+        nNumberOfLinks: 0,
+        nFileIndexHigh: 0,
+        nFileIndexLow: 0,
+    };
+    // SAFETY: handle remains valid and information is writable.
+    (unsafe { GetFileInformationByHandle(handle, &mut information) } != 0).then_some(information)
+}
+
+fn same_file(left: &BY_HANDLE_FILE_INFORMATION, right: &BY_HANDLE_FILE_INFORMATION) -> bool {
+    left.dwVolumeSerialNumber == right.dwVolumeSerialNumber
+        && left.nFileIndexHigh == right.nFileIndexHigh
+        && left.nFileIndexLow == right.nFileIndexLow
+        && left.ftCreationTime.dwLowDateTime == right.ftCreationTime.dwLowDateTime
+        && left.ftCreationTime.dwHighDateTime == right.ftCreationTime.dwHighDateTime
+        && left.nFileSizeHigh == right.nFileSizeHigh
+        && left.nFileSizeLow == right.nFileSizeLow
+        && left.dwFileAttributes == right.dwFileAttributes
+}
+
+fn final_dos_path(handle: HANDLE) -> Option<PathBuf> {
+    let mut units = vec![0_u16; 32_768];
+    // SAFETY: units is writable and handle is valid for the duration of the call.
+    let length = usize::try_from(unsafe {
+        GetFinalPathNameByHandleW(handle, units.as_mut_ptr(), 32_768, 0)
+    })
+    .ok()?;
+    if length < 7 || length >= units.len() {
+        return None;
+    }
+    units.truncate(length);
+    let value = OsString::from_wide(&units);
+    let source = value.to_str()?;
+    let stripped = source.strip_prefix(r"\\?\")?;
+    Some(PathBuf::from(stripped))
+}
+
+fn filetime_value(value: FILETIME) -> u64 {
+    (u64::from(value.dwHighDateTime) << 32) | u64::from(value.dwLowDateTime)
+}
+
+fn lock_artifacts(policy: &[PolicyArtifact]) -> Option<Vec<LockedArtifact>> {
+    let mut result = Vec::with_capacity(policy.len());
+    for entry in policy {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(&entry.path)
+            .ok()?;
+        let handle = file.as_raw_handle().cast::<c_void>();
+        let information = handle_information(handle)?;
+        let length =
+            (u64::from(information.nFileSizeHigh) << 32) | u64::from(information.nFileSizeLow);
+        if information.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0
+            || length != entry.bytes
+            || !final_dos_path(handle)?
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&entry.path.to_string_lossy())
+            || sha256_file(&mut file, entry.bytes)? != entry.sha256
+        {
+            return None;
+        }
+        let after = handle_information(handle)?;
+        if !same_file(&information, &after) {
+            return None;
+        }
+        result.push(LockedArtifact {
+            policy: entry.clone(),
+            file,
+            information,
+        });
+    }
+    Some(result)
+}
+
+fn verify_locked_artifacts(artifacts: &mut [LockedArtifact]) -> bool {
+    artifacts.iter_mut().all(|artifact| {
+        let handle = artifact.file.as_raw_handle().cast::<c_void>();
+        let Some(current) = handle_information(handle) else {
+            return false;
+        };
+        same_file(&artifact.information, &current)
+            && final_dos_path(handle)
+                .map(|value| {
+                    value
+                        .to_string_lossy()
+                        .eq_ignore_ascii_case(&artifact.policy.path.to_string_lossy())
+                })
+                .unwrap_or(false)
+            && sha256_file(&mut artifact.file, artifact.policy.bytes)
+                .map(|value| value == artifact.policy.sha256)
+                .unwrap_or(false)
+            && handle_information(handle)
+                .map(|value| same_file(&artifact.information, &value))
+                .unwrap_or(false)
+    })
+}
+
+fn mutex_name() -> Option<Vec<u16>> {
+    let identity = crate::windows::current_selected_user_identity_hash()?;
+    let mut text = String::from(r"Global\CRDD.Coordinator.DockerDesktopRepair.");
+    for byte in &identity[..16] {
+        text.push_str(&format!("{byte:02x}"));
+    }
+    let mut wide: Vec<u16> = OsStr::new(&text).encode_wide().collect();
+    wide.push(0);
+    Some(wide)
+}
+
+fn acquire_mutex() -> Option<OwnedHandle> {
+    let name = mutex_name()?;
+    // SAFETY: name is NUL-terminated and the returned handle is transferred to OwnedHandle.
+    let handle = unsafe { CreateMutexW(null(), 1, name.as_ptr()) };
+    if handle.is_null() {
+        return None;
+    }
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        unsafe { CloseHandle(handle) };
+        return None;
+    }
+    Some(OwnedHandle(handle))
+}
+
+fn process_basename(entry: &PROCESSENTRY32W) -> Option<String> {
+    let length = entry
+        .szExeFile
+        .iter()
+        .position(|value| *value == 0)
+        .unwrap_or(entry.szExeFile.len());
+    (length > 0).then(|| {
+        OsString::from_wide(&entry.szExeFile[..length])
+            .to_string_lossy()
+            .into()
+    })
+}
+
+fn managed_process_artifacts<'a>(
+    name: &str,
+    artifacts: &'a [LockedArtifact],
+) -> Vec<&'a LockedArtifact> {
+    artifacts
+        .iter()
+        .filter(|artifact| {
+            !matches!(artifact.policy.role.as_str(), "docker_cli" | "desktop_cli")
+                && artifact
+                    .policy
+                    .path
+                    .file_name()
+                    .map(|value| value.to_string_lossy().eq_ignore_ascii_case(name))
+                    .unwrap_or(false)
+        })
+        .collect()
+}
+
+fn process_path(handle: HANDLE) -> Option<PathBuf> {
+    let mut units = vec![0_u16; 32_768];
+    let mut length = u32::try_from(units.len()).ok()?;
+    // SAFETY: units and length are writable; handle remains valid during the call.
+    if unsafe { QueryFullProcessImageNameW(handle, 0, units.as_mut_ptr(), &mut length) } == 0 {
+        return None;
+    }
+    let length = usize::try_from(length).ok()?;
+    if length == 0 || length >= units.len() {
+        return None;
+    }
+    units.truncate(length);
+    Some(PathBuf::from(OsString::from_wide(&units)))
+}
+
+fn process_creation(handle: HANDLE) -> Option<u64> {
+    let mut creation = FILETIME::default();
+    let mut exit = FILETIME::default();
+    let mut kernel = FILETIME::default();
+    let mut user = FILETIME::default();
+    // SAFETY: all FILETIME outputs are writable and handle remains valid.
+    if unsafe { GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user) } == 0 {
+        return None;
+    }
+    Some(filetime_value(creation))
+}
+
+fn inventory_processes(artifacts: &[LockedArtifact]) -> ProcessInventory {
+    // SAFETY: no process ID filter is used and the returned snapshot is owned below.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return ProcessInventory::Unknown;
+    }
+    let snapshot = OwnedHandle(snapshot);
+    let mut entry = PROCESSENTRY32W {
+        dwSize: u32::try_from(size_of::<PROCESSENTRY32W>()).unwrap_or(0),
+        ..unsafe { std::mem::zeroed() }
+    };
+    let mut observed = 0_usize;
+    let mut processes = Vec::new();
+    // SAFETY: entry is initialized with the required size and snapshot is valid.
+    let mut has_entry = unsafe { Process32FirstW(snapshot.0, &mut entry) } != 0;
+    while has_entry {
+        observed += 1;
+        if observed > MAXIMUM_PROCESS_ENTRIES {
+            return ProcessInventory::Unknown;
+        }
+        let Some(name) = process_basename(&entry) else {
+            return ProcessInventory::Unknown;
+        };
+        let candidates = managed_process_artifacts(&name, artifacts);
+        if !candidates.is_empty() {
+            // SAFETY: requested rights are bounded to identity observation, wait, and exact process termination.
+            let handle = unsafe {
+                OpenProcess(
+                    PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE_ACCESS,
+                    0,
+                    entry.th32ProcessID,
+                )
+            };
+            if handle.is_null() {
+                return ProcessInventory::Unknown;
+            }
+            let handle = OwnedHandle(handle);
+            let Some(path) = process_path(handle.0) else {
+                return ProcessInventory::Unknown;
+            };
+            let Some(artifact) = candidates.into_iter().find(|candidate| {
+                path.to_string_lossy()
+                    .eq_ignore_ascii_case(&candidate.policy.path.to_string_lossy())
+            }) else {
+                return ProcessInventory::Unknown;
+            };
+            let Some(creation) = process_creation(handle.0) else {
+                return ProcessInventory::Unknown;
+            };
+            let file_write = filetime_value(artifact.information.ftLastWriteTime);
+            let mut exit_code = 0_u32;
+            // SAFETY: exit_code is writable and handle has query access.
+            if creation < file_write
+                || unsafe { GetExitCodeProcess(handle.0, &mut exit_code) } == 0
+                || exit_code != u32::try_from(STILL_ACTIVE).unwrap_or(u32::MAX)
+            {
+                return ProcessInventory::Unknown;
+            }
+            processes.push(VerifiedProcess {
+                handle,
+                process_id: entry.th32ProcessID,
+                creation,
+            });
+        }
+        // SAFETY: entry remains writable and snapshot remains valid.
+        has_entry = unsafe { Process32NextW(snapshot.0, &mut entry) } != 0;
+    }
+    // SAFETY: Process32NextW failed and GetLastError immediately observes why.
+    if unsafe { GetLastError() } != ERROR_NO_MORE_FILES {
+        return ProcessInventory::Unknown;
+    }
+    if processes.is_empty() {
+        ProcessInventory::Absent
+    } else {
+        ProcessInventory::Verified(processes)
+    }
+}
+
+fn terminate_processes(artifacts: &[LockedArtifact]) -> u8 {
+    let processes = match inventory_processes(artifacts) {
+        ProcessInventory::Absent => return b'A',
+        ProcessInventory::Verified(value) => value,
+        ProcessInventory::Unknown => return b'U',
+    };
+    let mut effect_issued = false;
+    for process in &processes {
+        if process_creation(process.handle.0) != Some(process.creation) {
+            return if effect_issued { b'P' } else { b'U' };
+        }
+        let mut exit_code = 0_u32;
+        // SAFETY: handle is the same verified kernel process object and has query access.
+        if unsafe { GetExitCodeProcess(process.handle.0, &mut exit_code) } == 0
+            || exit_code != u32::try_from(STILL_ACTIVE).unwrap_or(u32::MAX)
+        {
+            return if effect_issued { b'P' } else { b'U' };
+        }
+        // SAFETY: handle is the same verified kernel process object and has terminate access.
+        if unsafe { TerminateProcess(process.handle.0, 1) } == 0 {
+            return if effect_issued { b'P' } else { b'U' };
+        }
+        effect_issued = true;
+        // SAFETY: handle has synchronize access and remains valid.
+        if unsafe { WaitForSingleObject(process.handle.0, PROCESS_WAIT_MS) } != WAIT_OBJECT_0 {
+            return b'P';
+        }
+        // Process ID is retained only as identity evidence; it is never reused as kill authority.
+        let _ = process.process_id;
+    }
+    match inventory_processes(artifacts) {
+        ProcessInventory::Absent => b'T',
+        _ => b'P',
+    }
+}
+
+fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -> bool {
+    let mut response = [0_u8; RESPONSE_BYTES];
+    response[..8].copy_from_slice(RESPONSE_MAGIC);
+    response[8] = status;
+    response[9..].copy_from_slice(policy_hash);
+    writer.write_all(&response).is_ok() && writer.flush().is_ok()
+}
+
+pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
+    let Some(policy_hash) = sha256_bytes(POLICY_BYTES) else {
+        return 2;
+    };
+    let Some(_mutex) = acquire_mutex() else {
+        let _ = write_response(writer, b'L', &policy_hash);
+        return 2;
+    };
+    let Some(policy) = parse_policy() else {
+        let _ = write_response(writer, b'U', &policy_hash);
+        return 2;
+    };
+    let Some(mut artifacts) = lock_artifacts(&policy) else {
+        let _ = write_response(writer, b'U', &policy_hash);
+        return 2;
+    };
+    if !write_response(writer, b'R', &policy_hash) {
+        return 3;
+    }
+    loop {
+        let mut command = [0_u8; 1];
+        match reader.read_exact(&mut command) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return 0,
+            Err(_) => return 3,
+        }
+        let status = match command[0] {
+            b'V' => {
+                if verify_locked_artifacts(&mut artifacts) {
+                    b'V'
+                } else {
+                    b'U'
+                }
+            }
+            b'I' => match inventory_processes(&artifacts) {
+                ProcessInventory::Absent => b'A',
+                ProcessInventory::Verified(_) => b'V',
+                ProcessInventory::Unknown => b'U',
+            },
+            b'K' => terminate_processes(&artifacts),
+            b'Q' => {
+                return if write_response(writer, b'C', &policy_hash) {
+                    0
+                } else {
+                    3
+                };
+            }
+            _ => return 2,
+        };
+        if !write_response(writer, status, &policy_hash) {
+            return 3;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_policy_is_strict_and_complete() {
+        let policy = parse_policy().unwrap();
+        assert_eq!(policy.len(), 7);
+        assert_eq!(policy[0].role, "docker_cli");
+        assert_eq!(policy[6].role, "dev_envs");
+        assert!(POLICY_BYTES.len() < MAXIMUM_POLICY_BYTES);
+    }
+
+    #[test]
+    fn fixed_response_does_not_report_path_or_process_id() {
+        let mut bytes = Vec::new();
+        let hash = [7_u8; 32];
+        assert!(write_response(&mut bytes, b'R', &hash));
+        assert_eq!(bytes.len(), RESPONSE_BYTES);
+        assert_eq!(&bytes[..8], RESPONSE_MAGIC);
+        assert_eq!(&bytes[9..], &hash);
+        assert!(!bytes.windows(3).any(|window| window == b"C:\\"));
+    }
+}

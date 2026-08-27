@@ -35,7 +35,10 @@ import {
 } from "../src/security/coordinator-task-runtime.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
-import { repairRuntimeOwnedWindowsDockerDesktopRuntime } from "../src/security/docker-desktop-runtime-repair.ts";
+import {
+  closeRuntimeOwnedWindowsDockerDesktopRepair,
+  repairRuntimeOwnedWindowsDockerDesktopRuntime,
+} from "../src/security/docker-desktop-runtime-repair.ts";
 import {
   inspectRuntimeOwnedDockerTaskRecoveryState,
   recoverRuntimeOwnedDockerTask,
@@ -91,6 +94,9 @@ function printHelp() {
   );
   process.stdout.write(
     `  coordinator doctor --repair-docker-desktop-runtime [--json]\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --close-docker-desktop-runtime-repair <repair-id> [--json]\n`,
   );
   process.stdout.write(
     `  coordinator activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]\n`,
@@ -518,7 +524,9 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
       !options ||
       typeof options.json !== "boolean" ||
       typeof options.activeIsolation !== "boolean" ||
-      typeof options.repairDockerDesktopRuntime !== "boolean"
+      typeof options.repairDockerDesktopRuntime !== "boolean" ||
+      (options.closeDockerDesktopRepairId !== null &&
+        typeof options.closeDockerDesktopRepairId !== "string")
     ) {
       throw new UsageError("doctor_arguments_invalid");
     }
@@ -528,20 +536,24 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
     else throw new UsageError("doctor_arguments_invalid");
     const report: unknown = options.repairDockerDesktopRuntime
       ? await repairRuntimeOwnedWindowsDockerDesktopRuntime()
-      : recoveryId !== null
-        ? recoveryId.startsWith("host.")
-          ? recoverOwnedOperationDirectories(recoveryId)
-          : recoveryId.startsWith("docker-task.")
-            ? recoverRuntimeOwnedDockerTask(recoveryId)
-            : recoverDockerIsolationProbe(recoveryId)
-        : Object.freeze({
-            ...runDoctor({
-              activeIsolation: options.activeIsolation,
-              cwd: process.cwd(),
-              runtimeRootRequest: options.runtimeRootRequest,
-            }),
-            dockerTaskRecovery: inspectRuntimeOwnedDockerTaskRecoveryState(),
-          });
+      : typeof options.closeDockerDesktopRepairId === "string"
+        ? await closeRuntimeOwnedWindowsDockerDesktopRepair(
+            options.closeDockerDesktopRepairId,
+          )
+        : recoveryId !== null
+          ? recoveryId.startsWith("host.")
+            ? recoverOwnedOperationDirectories(recoveryId)
+            : recoveryId.startsWith("docker-task.")
+              ? recoverRuntimeOwnedDockerTask(recoveryId)
+              : recoverDockerIsolationProbe(recoveryId)
+          : Object.freeze({
+              ...runDoctor({
+                activeIsolation: options.activeIsolation,
+                cwd: process.cwd(),
+                runtimeRootRequest: options.runtimeRootRequest,
+              }),
+              dockerTaskRecovery: inspectRuntimeOwnedDockerTaskRecoveryState(),
+            });
     const rendered = renderDockerRecoveryDoctorReport(report, options.json);
     process.stdout.write(rendered.stdout);
     process.exitCode = rendered.exitCode;

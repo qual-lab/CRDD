@@ -576,6 +576,17 @@ fn process_tokens() -> Option<(OwnedHandle, OwnedHandle)> {
     Some((primary, OwnedHandle(impersonation)))
 }
 
+pub(crate) fn current_selected_user_identity_hash() -> Option<[u8; 32]> {
+    let (primary, impersonation) = process_tokens()?;
+    let flags = principal_observation_flags(primary.0, impersonation.0)?;
+    if flags & REQUIRED_SELECTED_USER_PRINCIPAL_FLAGS != REQUIRED_SELECTED_USER_PRINCIPAL_FLAGS
+        || flags & FORBIDDEN_SELECTED_USER_PRINCIPAL_FLAGS != 0
+    {
+        return None;
+    }
+    runtime_principal_identity_hash(primary.0)
+}
+
 fn sha256(parts: &[&[u8]]) -> Option<[u8; 32]> {
     let mut algorithm = null_mut();
     // SAFETY: algorithm is writable and SHA-256 requires no provider-specific input.

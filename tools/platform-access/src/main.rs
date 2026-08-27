@@ -6,6 +6,9 @@ mod native_bootstrap_core;
 #[cfg(windows)]
 mod windows;
 
+#[cfg(windows)]
+mod docker_repair;
+
 use std::ffi::OsStr;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -122,11 +125,24 @@ fn valid_appcontainer_pipe_name(value: &str) -> bool {
         && !suffix.starts_with('0')
 }
 
-fn appcontainer_pipe_argument() -> Result<Option<String>, ()> {
+enum InvocationMode {
+    Standard,
+    AppContainer(String),
+    DockerDesktopRepair,
+}
+
+fn invocation_mode() -> Result<InvocationMode, ()> {
     let mut arguments = std::env::args_os().skip(1);
     let Some(mode) = arguments.next() else {
-        return Ok(None);
+        return Ok(InvocationMode::Standard);
     };
+    if mode == OsStr::new("--docker-desktop-repair-helper") {
+        return if arguments.next().is_none() {
+            Ok(InvocationMode::DockerDesktopRepair)
+        } else {
+            Err(())
+        };
+    }
     if mode != OsStr::new("--appcontainer-pipe") {
         return Err(());
     }
@@ -136,19 +152,33 @@ fn appcontainer_pipe_argument() -> Result<Option<String>, ()> {
     if arguments.next().is_some() || !valid_appcontainer_pipe_name(&pipe) {
         return Err(());
     }
-    Ok(Some(pipe))
+    Ok(InvocationMode::AppContainer(pipe))
 }
 
 fn main() {
-    let exit_code = match appcontainer_pipe_argument() {
-        Ok(None) => execute(&mut std::io::stdin(), &mut std::io::stdout(), false),
-        Ok(Some(pipe_name)) => match OpenOptions::new().read(true).write(true).open(pipe_name) {
-            Ok(mut pipe) => match pipe.try_clone() {
-                Ok(mut reader) => execute(&mut reader, &mut pipe, true),
+    let exit_code = match invocation_mode() {
+        Ok(InvocationMode::Standard) => {
+            execute(&mut std::io::stdin(), &mut std::io::stdout(), false)
+        }
+        Ok(InvocationMode::AppContainer(pipe_name)) => {
+            match OpenOptions::new().read(true).write(true).open(pipe_name) {
+                Ok(mut pipe) => match pipe.try_clone() {
+                    Ok(mut reader) => execute(&mut reader, &mut pipe, true),
+                    Err(_) => 3,
+                },
                 Err(_) => 3,
-            },
-            Err(_) => 3,
-        },
+            }
+        }
+        Ok(InvocationMode::DockerDesktopRepair) => {
+            #[cfg(windows)]
+            {
+                docker_repair::run(&mut std::io::stdin(), &mut std::io::stdout())
+            }
+            #[cfg(not(windows))]
+            {
+                2
+            }
+        }
         Err(()) => {
             let _ = write_response_to(&mut std::io::stdout(), invalid_response());
             2

@@ -25,11 +25,89 @@ export function renderDockerRecoveryDoctorReport(
   const reportValue = plainRecord(report);
   if (!reportValue || typeof reportValue.status !== "string")
     throw new Error("diagnostic_failed");
-  if (shouldOutputJson)
+  if (shouldOutputJson) {
+    const isRepairReport =
+      reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair";
     return Object.freeze({
       stdout: `${JSON.stringify(report, null, 2)}\n`,
-      exitCode: ["ready", "recovered"].includes(reportValue.status) ? 0 : 2,
+      exitCode: (isRepairReport
+        ? ["closed_retained", "closed_no_stale"]
+        : ["ready", "recovered"]
+      ).includes(reportValue.status)
+        ? 0
+        : 2,
     });
+  }
+  if (
+    reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair"
+  ) {
+    const tri = (value: unknown) =>
+      value === true ? "yes" : value === false ? "no" : "unknown";
+    const lines = [`Coordinator Docker Desktop repair: ${reportValue.status}`];
+    if (
+      typeof reportValue.reason === "string" &&
+      /^[a-z0-9_]{1,128}$/u.test(reportValue.reason)
+    )
+      lines.push(`- reason: ${reportValue.reason}`);
+    if (
+      typeof reportValue.repairId === "string" &&
+      /^docker-desktop-repair\.[a-f0-9]{32}$/u.test(reportValue.repairId)
+    )
+      lines.push(`- repair ID: ${reportValue.repairId}`);
+    lines.push(`- Docker Engine ready: ${tri(reportValue.engineReady)}`);
+    lines.push(
+      `- Process Effect issued: ${tri(reportValue.processEffectIssued)}`,
+    );
+    lines.push(
+      `- Filesystem Effect issued: ${tri(reportValue.filesystemEffectIssued)}`,
+    );
+    lines.push(
+      `- stale runtime evidence: ${
+        ["absent", "retained", "unknown"].includes(
+          String(reportValue.staleRuntimeDirectory),
+        )
+          ? String(reportValue.staleRuntimeDirectory)
+          : "unknown"
+      }`,
+    );
+    lines.push(`- deletion performed: no`);
+    lines.push(
+      `- native helper cleanup confirmed: ${tri(
+        reportValue.nativeHelperCleanupConfirmed,
+      )}`,
+    );
+    if (
+      reportValue.status === "recovered_pending_close" &&
+      typeof reportValue.repairId === "string" &&
+      /^docker-desktop-repair\.[a-f0-9]{32}$/u.test(reportValue.repairId)
+    ) {
+      lines.push(
+        "- next: no directory was deleted; explicitly accept retained evidence to close this repair record",
+      );
+      lines.push(
+        `- command: coordinator doctor --close-docker-desktop-runtime-repair ${reportValue.repairId}`,
+      );
+    } else if (reportValue.manualRecoveryRequired === true) {
+      lines.push(
+        "- next: stop new repair attempts and contact the Runtime operator",
+      );
+      lines.push(
+        "- retained evidence and stage records must not be deleted or renamed manually",
+      );
+    } else if (reportValue.status === "closed_retained") {
+      lines.push(
+        "- result: repair record closed; stale runtime evidence remains intentionally retained",
+      );
+    }
+    return Object.freeze({
+      stdout: `${lines.join("\n")}\n`,
+      exitCode: ["closed_retained", "closed_no_stale"].includes(
+        reportValue.status,
+      )
+        ? 0
+        : 2,
+    });
+  }
   const lines = [`Coordinator environment: ${reportValue.status}`];
   if (
     typeof reportValue.reason === "string" &&
@@ -65,21 +143,6 @@ export function renderDockerRecoveryDoctorReport(
       lines.push(
         "- next: stop new tasks and provide the reason and recovery evidence state to the Runtime operator; no reusable recovery ID is available, and a resource must not be removed by name or label alone",
       );
-  }
-  if (
-    reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair"
-  ) {
-    lines.push(
-      `- Docker Engine ready: ${reportValue.engineReady === true ? "yes" : "no"}`,
-    );
-    lines.push(
-      `- stale Docker runtime directory retained: ${
-        reportValue.staleRuntimeDirectoryRetained === true ? "yes" : "no"
-      }`,
-    );
-    lines.push(
-      `- effect state unknown: ${reportValue.effectStateUnknown === true ? "yes" : "no"}`,
-    );
   }
   const providers = plainRecord(reportValue.providers);
   for (const [name, providerValue] of Object.entries(providers ?? {})) {

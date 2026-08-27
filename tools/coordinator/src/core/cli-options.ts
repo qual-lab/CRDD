@@ -396,6 +396,7 @@ export function parseDoctorArguments(
   let isActiveIsolation = false;
   let recoveryId: string | null = null;
   let shouldRepairDockerDesktopRuntime = false;
+  let closeDockerDesktopRepairId: string | null = null;
   let shouldEnableRuntime = false;
   let cliOverride: string | null = null;
 
@@ -408,6 +409,7 @@ export function parseDoctorArguments(
         "--isolation",
         "--recover-isolation",
         "--repair-docker-desktop-runtime",
+        "--close-docker-desktop-runtime-repair",
         "--enable-runtime",
         "--runtime-root",
       ].includes(token) ||
@@ -438,7 +440,17 @@ export function parseDoctorArguments(
       }
       index += 1;
       if (token === "--recover-isolation") recoveryId = value;
-      else cliOverride = value;
+      else if (token === "--close-docker-desktop-runtime-repair") {
+        if (!/^docker-desktop-repair\.[a-f0-9]{32}$/u.test(value)) {
+          return response(
+            "blocked",
+            "doctor_arguments_invalid",
+            null,
+            isJsonRequested,
+          );
+        }
+        closeDockerDesktopRepairId = value;
+      } else cliOverride = value;
     }
   }
 
@@ -454,6 +466,7 @@ export function parseDoctorArguments(
     recoveryId !== null &&
     (isActiveIsolation ||
       shouldRepairDockerDesktopRuntime ||
+      closeDockerDesktopRepairId !== null ||
       shouldEnableRuntime ||
       cliOverride !== null)
   ) {
@@ -466,6 +479,20 @@ export function parseDoctorArguments(
   }
   if (
     shouldRepairDockerDesktopRuntime &&
+    (isActiveIsolation ||
+      closeDockerDesktopRepairId !== null ||
+      shouldEnableRuntime ||
+      cliOverride !== null)
+  ) {
+    return response(
+      "blocked",
+      "doctor_arguments_incompatible",
+      null,
+      isJsonRequested,
+    );
+  }
+  if (
+    closeDockerDesktopRepairId !== null &&
     (isActiveIsolation || shouldEnableRuntime || cliOverride !== null)
   ) {
     return response(
@@ -491,6 +518,7 @@ export function parseDoctorArguments(
       activeIsolation: isActiveIsolation,
       recoveryId,
       repairDockerDesktopRuntime: shouldRepairDockerDesktopRuntime,
+      closeDockerDesktopRepairId,
       runtimeRootRequest,
     }),
     isJsonRequested,

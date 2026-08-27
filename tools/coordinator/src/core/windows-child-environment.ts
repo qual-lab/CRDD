@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 3;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 4;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -163,6 +163,48 @@ export function createWindowsNativeHelperEnvironment() {
   return fixedWindowsEnvironment(Object.freeze({ USERPROFILE: userProfile }));
 }
 
+export function createWindowsDockerDesktopRepairHelperEnvironment() {
+  return createWindowsNativeHelperEnvironment();
+}
+
+export function createWindowsDockerDesktopLauncherEnvironment(
+  localAppData: unknown,
+) {
+  if (
+    typeof localAppData !== "string" ||
+    !path.win32.isAbsolute(localAppData) ||
+    path.win32.normalize(localAppData) !== localAppData ||
+    localAppData.includes("\0") ||
+    path.win32.parse(localAppData).root === localAppData
+  )
+    return null;
+  const temporary = path.win32.join(localAppData, "Temp");
+  try {
+    const local = fs.lstatSync(localAppData);
+    const temp = fs.lstatSync(temporary);
+    if (
+      !local.isDirectory() ||
+      local.isSymbolicLink() ||
+      !temp.isDirectory() ||
+      temp.isSymbolicLink() ||
+      fs.realpathSync.native(localAppData).toLocaleLowerCase("en-US") !==
+        localAppData.toLocaleLowerCase("en-US") ||
+      fs.realpathSync.native(temporary).toLocaleLowerCase("en-US") !==
+        temporary.toLocaleLowerCase("en-US")
+    )
+      return null;
+  } catch {
+    return null;
+  }
+  return fixedWindowsEnvironment(
+    Object.freeze({
+      LOCALAPPDATA: localAppData,
+      TEMP: temporary,
+      TMP: temporary,
+    }),
+  );
+}
+
 export function createWindowsDockerCliEnvironment(
   options: Readonly<{
     dockerConfig: string | null;
@@ -204,7 +246,7 @@ export function describeWindowsChildEnvironmentContract() {
       "candidate_store_initialization",
       "runtime_state_observation",
       "runtime_state_initialization",
-      "docker_desktop_runtime_repair",
+      "docker_desktop_runtime_repair_native_helper",
     ]),
     nodeChildConsumers: Object.freeze([
       "interactive_console_reader",
@@ -214,6 +256,9 @@ export function describeWindowsChildEnvironmentContract() {
       "docker_effect_runtime",
       "docker_recovery_runtime",
       "docker_desktop_runtime_repair",
+    ]),
+    dockerDesktopLauncherConsumers: Object.freeze([
+      "docker_desktop_runtime_repair_launcher",
     ]),
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,

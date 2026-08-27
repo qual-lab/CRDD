@@ -35,6 +35,8 @@ import {
 } from "../src/core/node-runtime-version.ts";
 import { isRuntimeProcessPoisoned } from "../src/core/runtime-process-safety-state.ts";
 import {
+  createWindowsDockerDesktopLauncherEnvironment,
+  createWindowsDockerDesktopRepairHelperEnvironment,
   createWindowsDockerCliEnvironment,
   createInteractiveConsoleReaderEnvironment,
   createWindowsHostOperationSupervisorEnvironment,
@@ -991,7 +993,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
 
   assert.deepEqual(describeWindowsChildEnvironmentContract(), {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 3,
+    contractRevision: 4,
     provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
@@ -1003,7 +1005,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       "candidate_store_initialization",
       "runtime_state_observation",
       "runtime_state_initialization",
-      "docker_desktop_runtime_repair",
+      "docker_desktop_runtime_repair_native_helper",
     ],
     nodeChildConsumers: [
       "interactive_console_reader",
@@ -1014,10 +1016,16 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       "docker_recovery_runtime",
       "docker_desktop_runtime_repair",
     ],
+    dockerDesktopLauncherConsumers: ["docker_desktop_runtime_repair_launcher"],
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,
     actualChildObservationRequired: true,
   });
+  assert.deepEqual(
+    createWindowsDockerDesktopRepairHelperEnvironment(),
+    createWindowsNativeHelperEnvironment(),
+  );
+  assert.equal(createWindowsDockerDesktopLauncherEnvironment("relative"), null);
 });
 
 test("Windows directoryの親環境差替えを子Environment Authorityにしない", (context) => {
@@ -1943,6 +1951,7 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
     "src/core/interactive-console.ts",
     "src/security/candidate-store-kernel-lock.ts",
     "src/security/candidate-store-windows-adapter.ts",
+    "src/security/docker-desktop-repair-native-helper.ts",
     "src/security/docker-desktop-runtime-repair.ts",
     "src/security/docker-effect-runtime.ts",
     "src/security/docker-isolation.ts",
