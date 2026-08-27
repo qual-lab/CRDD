@@ -31,11 +31,7 @@ export function renderDockerRecoveryDoctorReport(
     return Object.freeze({
       stdout: `${JSON.stringify(report, null, 2)}\n`,
       exitCode: (isRepairReport
-        ? [
-            "closed_retained",
-            "closed_historical_effect_unknown_retained",
-            "closed_no_stale",
-          ]
+        ? ["closed_retained", "closed_historical_effect_unknown_retained"]
         : ["ready", "recovered"]
       ).includes(reportValue.status)
         ? 0
@@ -128,12 +124,15 @@ export function renderDockerRecoveryDoctorReport(
       lines.push(
         "- retained evidence and stage records must not be deleted or renamed manually",
       );
+    } else if (reportValue.status === "closed_retained") {
+      lines.push(
+        "- result: repair record closed; stale runtime evidence remains intentionally retained",
+      );
     } else if (
-      reportValue.status === "closed_retained" ||
       reportValue.status === "closed_historical_effect_unknown_retained"
     ) {
       lines.push(
-        "- result: repair record closed; stale runtime evidence remains intentionally retained",
+        "- result: repair record closed; no stale runtime directory was observed; historical Process Effect uncertainty and repair records remain intentionally retained",
       );
     }
     return Object.freeze({
@@ -141,7 +140,6 @@ export function renderDockerRecoveryDoctorReport(
       exitCode: [
         "closed_retained",
         "closed_historical_effect_unknown_retained",
-        "closed_no_stale",
       ].includes(reportValue.status)
         ? 0
         : 2,

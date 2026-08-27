@@ -17,7 +17,6 @@ export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
   "no_stale_historical_effect_unknown_pending",
   "closed_retained",
   "closed_historical_effect_unknown_retained",
-  "closed_reconciled_no_stale",
 ] as const);
 export type DockerDesktopRepairStage =
   (typeof DOCKER_DESKTOP_REPAIR_STAGES)[number];
@@ -41,6 +40,12 @@ export type DockerDesktopRepairEffectConfirmation =
   | "not_issued"
   | "confirmed"
   | "unknown";
+export type DockerDesktopRepairEffectEntry = Readonly<{
+  sequence: number;
+  action: string;
+  issued: DockerDesktopRepairTriState;
+  confirmation: DockerDesktopRepairEffectConfirmation;
+}>;
 
 export type DockerDesktopRepairDirectoryIdentity = Readonly<{
   dev: string;
@@ -49,8 +54,10 @@ export type DockerDesktopRepairDirectoryIdentity = Readonly<{
 }>;
 
 export type DockerDesktopRepairLedgerSnapshot = Readonly<{
+  processEffects: readonly DockerDesktopRepairEffectEntry[];
   processEffectIssued: DockerDesktopRepairTriState;
   processEffectConfirmation: DockerDesktopRepairEffectConfirmation;
+  filesystemEffects: readonly DockerDesktopRepairEffectEntry[];
   filesystemEffectIssued: DockerDesktopRepairTriState;
   filesystemEffectConfirmation: DockerDesktopRepairEffectConfirmation;
   engineReady: DockerDesktopRepairTriState;
@@ -159,8 +166,10 @@ function validLedger(
     Array.isArray(value) ||
     Object.getPrototypeOf(value) !== Object.prototype ||
     !exactKeys(value, [
+      "processEffects",
       "processEffectIssued",
       "processEffectConfirmation",
+      "filesystemEffects",
       "filesystemEffectIssued",
       "filesystemEffectConfirmation",
       "engineReady",
@@ -171,7 +180,11 @@ function validLedger(
     ])
   )
     return false;
+  const processEffects = Reflect.get(value, "processEffects");
+  const filesystemEffects = Reflect.get(value, "filesystemEffects");
   return (
+    validEffectEntries(processEffects) &&
+    validEffectEntries(filesystemEffects) &&
     validTriState(Reflect.get(value, "processEffectIssued")) &&
     ["not_issued", "confirmed", "unknown"].includes(
       String(Reflect.get(value, "processEffectConfirmation")),
@@ -196,8 +209,78 @@ function validLedger(
       "historical_effect_unknown_pending_human_decision",
       "retained_by_human_decision",
       "historical_effect_unknown_retained_by_human_decision",
-    ].includes(String(Reflect.get(value, "disposition")))
+    ].includes(String(Reflect.get(value, "disposition"))) &&
+    aggregateMatches(
+      processEffects,
+      Reflect.get(value, "processEffectIssued"),
+      Reflect.get(value, "processEffectConfirmation"),
+    ) &&
+    aggregateMatches(
+      filesystemEffects,
+      Reflect.get(value, "filesystemEffectIssued"),
+      Reflect.get(value, "filesystemEffectConfirmation"),
+    )
   );
+}
+
+function validEffectEntries(
+  value: unknown,
+): value is readonly DockerDesktopRepairEffectEntry[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAXIMUM_RECORDS * 2 &&
+    value.every(
+      (entry, index) =>
+        !!entry &&
+        typeof entry === "object" &&
+        !Array.isArray(entry) &&
+        Object.getPrototypeOf(entry) === Object.prototype &&
+        exactKeys(entry, ["sequence", "action", "issued", "confirmation"]) &&
+        Reflect.get(entry, "sequence") === index &&
+        typeof Reflect.get(entry, "action") === "string" &&
+        /^[a-z][a-z0-9_]{0,63}$/u.test(String(Reflect.get(entry, "action"))) &&
+        validTriState(Reflect.get(entry, "issued")) &&
+        ["not_issued", "confirmed", "unknown"].includes(
+          String(Reflect.get(entry, "confirmation")),
+        ) &&
+        confirmationCompatible(
+          Reflect.get(entry, "issued") as DockerDesktopRepairTriState,
+          Reflect.get(
+            entry,
+            "confirmation",
+          ) as DockerDesktopRepairEffectConfirmation,
+        ),
+    )
+  );
+}
+
+function aggregateEffectEntries(
+  entries: readonly DockerDesktopRepairEffectEntry[],
+) {
+  const issued = entries.some((entry) => entry.issued === true)
+    ? true
+    : entries.some((entry) => entry.issued === null)
+      ? null
+      : false;
+  const confirmation =
+    entries.length === 0 || entries.every((entry) => entry.issued === false)
+      ? "not_issued"
+      : entries.some(
+            (entry) =>
+              entry.issued === null || entry.confirmation === "unknown",
+          )
+        ? "unknown"
+        : "confirmed";
+  return { issued, confirmation } as const;
+}
+
+function aggregateMatches(
+  entries: readonly DockerDesktopRepairEffectEntry[],
+  issued: unknown,
+  confirmation: unknown,
+) {
+  const aggregate = aggregateEffectEntries(entries);
+  return aggregate.issued === issued && aggregate.confirmation === confirmation;
 }
 
 function validStoredRecord(
@@ -283,11 +366,32 @@ function legalEffectTransition(
     !confirmationCompatible(previousIssued, previousConfirmation) ||
     !confirmationCompatible(nextIssued, nextConfirmation) ||
     (previousIssued === true && nextIssued !== true) ||
-    (previousIssued === null && nextIssued === false) ||
-    (previousConfirmation === "confirmed" && nextConfirmation !== "confirmed")
+    (previousIssued === null && nextIssued === false)
   )
     return false;
   return true;
+}
+
+function legalEffectEntriesTransition(
+  previous: readonly DockerDesktopRepairEffectEntry[],
+  next: readonly DockerDesktopRepairEffectEntry[],
+) {
+  if (next.length < previous.length) return false;
+  return previous.every((entry, index) => {
+    const candidate = next[index];
+    if (
+      !candidate ||
+      candidate.sequence !== entry.sequence ||
+      candidate.action !== entry.action
+    )
+      return false;
+    if (candidate.issued !== entry.issued) return false;
+    return (
+      candidate.confirmation === entry.confirmation ||
+      (entry.confirmation === "unknown" &&
+        candidate.confirmation === "confirmed")
+    );
+  });
 }
 
 function legalLedgerTransition(
@@ -307,12 +411,20 @@ function legalLedgerTransition(
     return false;
   if (
     previous &&
-    (!legalEffectTransition(
-      previous.processEffectIssued,
-      previous.processEffectConfirmation,
-      next.processEffectIssued,
-      next.processEffectConfirmation,
+    (!legalEffectEntriesTransition(
+      previous.processEffects,
+      next.processEffects,
     ) ||
+      !legalEffectEntriesTransition(
+        previous.filesystemEffects,
+        next.filesystemEffects,
+      ) ||
+      !legalEffectTransition(
+        previous.processEffectIssued,
+        previous.processEffectConfirmation,
+        next.processEffectIssued,
+        next.processEffectConfirmation,
+      ) ||
       !legalEffectTransition(
         previous.filesystemEffectIssued,
         previous.filesystemEffectConfirmation,
@@ -345,7 +457,7 @@ function stageLedgerCompatible(
   if (stage === "no_stale_historical_effect_unknown_pending")
     return (
       ledger.engineReady === true &&
-      ledger.processEffectIssued === null &&
+      ledger.processEffectIssued !== false &&
       ledger.processEffectConfirmation === "unknown" &&
       ledger.staleState === "absent" &&
       ledger.disposition === "historical_effect_unknown_pending_human_decision"
@@ -353,18 +465,12 @@ function stageLedgerCompatible(
   if (stage === "closed_historical_effect_unknown_retained")
     return (
       ledger.engineReady === true &&
-      ledger.processEffectIssued === null &&
+      ledger.processEffectIssued !== false &&
       ledger.processEffectConfirmation === "unknown" &&
       ledger.staleState === "absent" &&
       ledger.evidenceState === "preserved" &&
       ledger.disposition ===
         "historical_effect_unknown_retained_by_human_decision"
-    );
-  if (stage === "closed_reconciled_no_stale")
-    return (
-      ledger.engineReady === true &&
-      ledger.staleState === "absent" &&
-      ledger.disposition === "not_applicable"
     );
   return true;
 }
@@ -435,7 +541,6 @@ function legalTransition(
     ],
     closed_retained: [],
     closed_historical_effect_unknown_retained: [],
-    closed_reconciled_no_stale: [],
   } as const satisfies Readonly<
     Record<DockerDesktopRepairStage, readonly DockerDesktopRepairStage[]>
   >;

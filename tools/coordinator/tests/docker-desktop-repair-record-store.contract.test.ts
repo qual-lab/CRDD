@@ -35,8 +35,17 @@ function fixture(t: TestContext) {
     localAppData,
   });
   const ledger = Object.freeze({
+    processEffects: Object.freeze([]),
     processEffectIssued: false,
     processEffectConfirmation: "not_issued" as const,
+    filesystemEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "record_write",
+        issued: true,
+        confirmation: "confirmed" as const,
+      }),
+    ]),
     filesystemEffectIssued: true,
     filesystemEffectConfirmation: "confirmed" as const,
     engineReady: false,
@@ -65,6 +74,17 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
   ] as const) {
     const nextLedger = Object.freeze({
       ...ledger,
+      processEffects:
+        stage === "prepared"
+          ? Object.freeze([])
+          : Object.freeze([
+              Object.freeze({
+                sequence: 0,
+                action: "test_process_effect",
+                issued: true,
+                confirmation: "confirmed" as const,
+              }),
+            ]),
       processEffectIssued: stage !== "prepared",
       processEffectConfirmation:
         stage === "prepared" ? ("not_issued" as const) : ("confirmed" as const),
@@ -153,6 +173,14 @@ test("Effect ledgerは既知のissued事実を後退させず旧rev2を暗黙移
   assert.ok(prepared);
   const issued = Object.freeze({
     ...ledger,
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "test_process_effect",
+        issued: true,
+        confirmation: "confirmed" as const,
+      }),
+    ]),
     processEffectIssued: true,
     processEffectConfirmation: "confirmed" as const,
   });
@@ -187,5 +215,70 @@ test("Effect ledgerは既知のissued事実を後退させず旧rev2を暗黙移
   assert.equal(
     inventoryDockerDesktopRepairOperations(boundary).status,
     "unknown",
+  );
+});
+
+test("後続Effect不明は既知issuedを保持した追記としてno-stale stageへ接続する", (t) => {
+  const { boundary, ledger } = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    boundary,
+    Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+    ledger,
+  );
+  const prepared = persistDockerDesktopRepairStage(
+    boundary,
+    created,
+    "prepared",
+    ledger,
+  );
+  assert.ok(prepared);
+  const stoppedLedger = Object.freeze({
+    ...ledger,
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "native_termination",
+        issued: true,
+        confirmation: "confirmed" as const,
+      }),
+    ]),
+    processEffectIssued: true,
+    processEffectConfirmation: "confirmed" as const,
+  });
+  const stopped = persistDockerDesktopRepairStage(
+    boundary,
+    prepared,
+    "processes_stopped",
+    stoppedLedger,
+  );
+  assert.ok(stopped);
+  const pendingLedger = Object.freeze({
+    ...stoppedLedger,
+    processEffects: Object.freeze([
+      ...stoppedLedger.processEffects,
+      Object.freeze({
+        sequence: 1,
+        action: "historical_process_reconciliation",
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+    processEffectConfirmation: "unknown" as const,
+    engineReady: true,
+    staleState: "absent" as const,
+    disposition: "historical_effect_unknown_pending_human_decision" as const,
+  });
+  const pending = persistDockerDesktopRepairStage(
+    boundary,
+    stopped,
+    "no_stale_historical_effect_unknown_pending",
+    pendingLedger,
+  );
+  assert.ok(pending);
+  assert.equal(pending.ledger.processEffectIssued, true);
+  assert.equal(pending.ledger.processEffectConfirmation, "unknown");
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(boundary).status,
+    "verified",
   );
 });

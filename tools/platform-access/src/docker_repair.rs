@@ -630,22 +630,16 @@ fn launcher_environment() -> Option<Vec<u16>> {
     (environment.len() <= 32_767).then_some(environment)
 }
 
-fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
-    if !verify_locked_artifacts(artifacts) {
-        return b'U';
-    }
-    let Some(launcher) = exact_artifact("launcher", artifacts) else {
-        return b'U';
-    };
-    let mut application: Vec<u16> = launcher.policy.path.as_os_str().encode_wide().collect();
+fn create_exact_process(
+    executable: &std::path::Path,
+    arguments: &OsStr,
+    minimum_creation_time: u64,
+    environment: &mut [u16],
+) -> u8 {
+    let mut application: Vec<u16> = executable.as_os_str().encode_wide().collect();
     application.push(0);
-    let quoted = format!("\"{}\" --minimized", launcher.policy.path.display());
-    let mut command: Vec<u16> = OsStr::new(&quoted).encode_wide().collect();
+    let mut command: Vec<u16> = arguments.encode_wide().collect();
     command.push(0);
-    let mut environment = match launcher_environment() {
-        Some(value) => value,
-        None => return b'U',
-    };
     let startup = STARTUPINFOW {
         cb: u32::try_from(size_of::<STARTUPINFOW>()).unwrap_or(0),
         ..unsafe { std::mem::zeroed() }
@@ -675,18 +669,40 @@ fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
         .map(|value| {
             value
                 .to_string_lossy()
-                .eq_ignore_ascii_case(&launcher.policy.path.to_string_lossy())
+                .eq_ignore_ascii_case(&executable.to_string_lossy())
         })
         .unwrap_or(false);
     let creation_valid = process_creation(process_handle.0)
-        .map(|value| value >= filetime_value(launcher.information.ftLastWriteTime))
+        .map(|value| value >= minimum_creation_time)
         .unwrap_or(false);
     drop(thread);
     if path_matches && creation_valid {
         b'S'
     } else {
-        b'U'
+        // CreateProcessW already issued the Process Effect. A later identity
+        // observation failure must not erase that fact.
+        b'P'
     }
+}
+
+fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
+    if !verify_locked_artifacts(artifacts) {
+        return b'U';
+    }
+    let Some(launcher) = exact_artifact("launcher", artifacts) else {
+        return b'U';
+    };
+    let quoted = format!("\"{}\" --minimized", launcher.policy.path.display());
+    let mut environment = match launcher_environment() {
+        Some(value) => value,
+        None => return b'U',
+    };
+    create_exact_process(
+        &launcher.policy.path,
+        OsStr::new(&quoted),
+        filetime_value(launcher.information.ftLastWriteTime),
+        &mut environment,
+    )
 }
 
 fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -> bool {
@@ -791,5 +807,16 @@ mod tests {
         assert!(text.contains("HTTPS_PROXY=\0"));
         assert!(text.contains("PATH=\0"));
         assert!(text.ends_with("\0\0"));
+    }
+
+    #[test]
+    fn exact_launcher_primitive_observes_the_created_child_handle() {
+        let executable = std::env::current_exe().unwrap();
+        let arguments = OsString::from(format!("\"{}\" --list", executable.display()));
+        let mut environment = launcher_environment().unwrap();
+        assert_eq!(
+            create_exact_process(&executable, &arguments, 0, &mut environment),
+            b'S'
+        );
     }
 }
