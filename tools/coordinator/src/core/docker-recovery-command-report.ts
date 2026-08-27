@@ -147,7 +147,9 @@ export function renderDockerRecoveryDoctorReport(
         );
     } else if (reportValue.status === "closed_retained") {
       lines.push(
-        "- result: repair record closed; stale runtime evidence remains intentionally retained",
+        reportValue.staleRuntimeDirectory === "absent"
+          ? "- result: repair record closed; no stale runtime directory remains; repair records and known Host Effect history remain intentionally retained"
+          : "- result: repair record closed; stale runtime evidence remains intentionally retained",
       );
     } else if (
       reportValue.status === "closed_historical_effect_unknown_retained"

@@ -220,6 +220,21 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     );
     assert.equal(failed?.exitCode, 2);
     assert.doesNotMatch(failed?.stdout ?? "", /secret|token|C:\\/u);
+    const closeFailed = await dispatchDockerDesktopRepairDoctorCommand(
+      {
+        json,
+        repairDockerDesktopRuntime: false,
+        closeDockerDesktopRepairId: repairId,
+      },
+      {
+        repair: async () => terminal,
+        close: async () => {
+          throw new Error("C:\\secret\\close-token");
+        },
+      },
+    );
+    assert.equal(closeFailed?.exitCode, 2);
+    assert.doesNotMatch(closeFailed?.stdout ?? "", /secret|token|C:\\/u);
     if (json) {
       const fallback = JSON.parse(failed?.stdout ?? "{}") as Record<
         string,
@@ -232,6 +247,11 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
       assert.equal(fallback.processEffectIssued, null);
       assert.equal(fallback.filesystemEffectIssued, null);
       assert.equal(fallback.disposition, "unknown");
+      const closeFallback = JSON.parse(closeFailed?.stdout ?? "{}") as Record<
+        string,
+        unknown
+      >;
+      assert.equal(closeFallback.repairId, null);
     }
   }
 });

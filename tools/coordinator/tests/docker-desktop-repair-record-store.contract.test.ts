@@ -232,7 +232,7 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
     boundary,
     operation,
     "renamed",
-    operation.ledger,
+    Object.freeze({ ...operation.ledger, staleState: "retained" as const }),
   );
   assert.ok(renamed);
   operation = persistHostEffect(
@@ -319,7 +319,7 @@ test("renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保�
     boundary,
     operation,
     "renamed",
-    operation.ledger,
+    Object.freeze({ ...operation.ledger, staleState: "retained" as const }),
   );
   assert.ok(renamed);
   const recoveredLedger = Object.freeze({
@@ -415,7 +415,37 @@ test("record／operation容量はEffectや65件目directoryの前に判定でき
     ),
     false,
   );
+  assert.equal(
+    hasDockerDesktopRepairRecordCapacity(
+      Object.freeze({ ...operation, sequence: 22 }),
+      1,
+    ),
+    true,
+  );
+  assert.equal(
+    hasDockerDesktopRepairRecordCapacity(
+      Object.freeze({ ...operation, sequence: 23 }),
+      1,
+    ),
+    false,
+  );
   assert.equal(canCreateDockerDesktopRepairOperation(boundary), true);
+  for (let index = 0; index < 64; index += 1) {
+    const retained = createDockerDesktopRepairOperation(
+      boundary,
+      Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+      ledger,
+    );
+    assert.ok(persistRecord(boundary, retained, "prepared", ledger));
+  }
+  assert.equal(canCreateDockerDesktopRepairOperation(boundary), false);
+  const sixtyFifth = createDockerDesktopRepairOperation(
+    boundary,
+    Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+    ledger,
+  );
+  assert.equal(persistRecord(boundary, sixtyFifth, "prepared", ledger), null);
+  assert.equal(fs.existsSync(sixtyFifth.operationDirectory), false);
 });
 
 test("Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を暗黙移行しない", (t) => {
@@ -560,6 +590,29 @@ test("validatorはHost Effect初出settled・不足stage・rename二系列を拒
     Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
     ledger,
   );
+  const invalidInitialWrite = Object.freeze({
+    ...ledger,
+    filesystemEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "record_write" as const,
+        phase: "settled" as const,
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+    filesystemEffectIssued: null,
+    filesystemEffectConfirmation: "unknown" as const,
+  });
+  assert.equal(
+    persistDockerDesktopRepairStage(
+      boundary,
+      created,
+      "prepared",
+      invalidInitialWrite,
+    ),
+    null,
+  );
   const directSettled = Object.freeze({
     ...ledger,
     processEffects: Object.freeze([
@@ -621,6 +674,34 @@ test("validatorはHost Effect初出settled・不足stage・rename二系列を拒
     processEffectIssued: null,
     processEffectConfirmation: "unknown" as const,
   });
+  for (const mutation of [
+    { engineReady: true as const },
+    { staleState: "unknown" as const },
+    { hostSafety: "manual_recovery_required" as const },
+    { disposition: "pending_human_decision" as const },
+    {
+      liveRunIdentity: Object.freeze({ dev: "4", ino: "5", birthtimeNs: "6" }),
+    },
+  ])
+    assert.equal(
+      persistRecord(
+        boundary,
+        prepared,
+        "prepared",
+        Object.freeze({ ...shutdownIntentLedger, ...mutation }),
+      ),
+      null,
+    );
+  const invalidEvidence = ledgerForRecord(shutdownIntentLedger);
+  assert.equal(
+    persistDockerDesktopRepairStage(
+      boundary,
+      prepared,
+      "prepared",
+      Object.freeze({ ...invalidEvidence, evidenceState: "unknown" }),
+    ),
+    null,
+  );
   const shutdownIntent = persistRecord(
     boundary,
     prepared,
@@ -683,7 +764,10 @@ test("validatorはHost Effect初出settled・不足stage・rename二系列を拒
     boundary,
     renamedEffect,
     "renamed",
-    renamedEffect.ledger,
+    Object.freeze({
+      ...renamedEffect.ledger,
+      staleState: "retained" as const,
+    }),
   );
   assert.ok(renamed);
   const bothRenameSeries = Object.freeze({
@@ -760,14 +844,75 @@ test("K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定
     processEffectIssued: true,
     processEffectConfirmation: "confirmed" as const,
   });
-  assert.equal(
-    persistRecord(boundary, nativeIntent, "prepared", settlementOnly),
-    null,
+  const knownAbsent = persistRecord(
+    boundary,
+    nativeIntent,
+    "prepared",
+    settlementOnly,
   );
-  const atomic = Object.freeze({
-    ...settlementOnly,
+  assert.ok(knownAbsent);
+  const createdUnknown = createDockerDesktopRepairOperation(
+    boundary,
+    Object.freeze({ dev: "4", ino: "5", birthtimeNs: "6" }),
+    ledger,
+  );
+  const preparedUnknown = persistRecord(
+    boundary,
+    createdUnknown,
+    "prepared",
+    ledger,
+  );
+  assert.ok(preparedUnknown);
+  const shutdownUnknown = persistHostEffect(
+    boundary,
+    preparedUnknown,
+    "process",
+    "official_shutdown",
+    { issued: true, confirmation: "confirmed" },
+  );
+  const nativeIntentUnknownLedger = Object.freeze({
+    ...shutdownUnknown.ledger,
     processEffects: Object.freeze([
-      ...settlementOnly.processEffects,
+      ...shutdownUnknown.ledger.processEffects,
+      Object.freeze({
+        sequence: shutdownUnknown.ledger.processEffects.length,
+        action: "native_termination" as const,
+        phase: "intent_recorded" as const,
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+    processEffectIssued: true,
+    processEffectConfirmation: "unknown" as const,
+  });
+  const nativeIntentUnknown = persistRecord(
+    boundary,
+    shutdownUnknown,
+    "prepared",
+    nativeIntentUnknownLedger,
+  );
+  assert.ok(nativeIntentUnknown);
+  const settlementUnknown = Object.freeze({
+    ...nativeIntentUnknown.ledger,
+    processEffects: Object.freeze(
+      nativeIntentUnknown.ledger.processEffects.map((entry) =>
+        entry.action === "native_termination"
+          ? Object.freeze({
+              ...entry,
+              phase: "settled" as const,
+              issued: false,
+              confirmation: "not_issued" as const,
+            })
+          : entry,
+      ),
+    ),
+    processEffectIssued: true,
+    processEffectConfirmation: "confirmed" as const,
+  });
+  const atomic = Object.freeze({
+    ...settlementUnknown,
+    processEffects: Object.freeze([
+      ...settlementUnknown.processEffects,
       Object.freeze({
         sequence: settlementOnly.processEffects.length,
         action: "process_quiescence_reconciliation" as const,
@@ -778,9 +923,13 @@ test("K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定
     ]),
     processEffectIssued: true,
     processEffectConfirmation: "unknown" as const,
-    hostSafety: "unknown" as const,
   });
-  const persisted = persistRecord(boundary, nativeIntent, "prepared", atomic);
+  const persisted = persistRecord(
+    boundary,
+    nativeIntentUnknown,
+    "prepared",
+    atomic,
+  );
   assert.ok(persisted);
   assert.equal(
     inventoryDockerDesktopRepairOperations(boundary).status,

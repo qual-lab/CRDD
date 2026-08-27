@@ -319,3 +319,70 @@ test("release中の不正frameは資源回収完了まで待ちprotocol成功と
   });
   assert.ok(Date.now() - started >= 50);
 });
+
+test("Q確認後のstdin.end throw／errorはprotocol成功とcleanupを直交させる", async () => {
+  for (const mode of ["throw", "error"] as const) {
+    const hash = mode === "throw" ? "3".repeat(64) : "4".repeat(64);
+    const byte = mode === "throw" ? "0x33" : "0x44";
+    const source = [
+      `const hash=Buffer.alloc(32,${byte});`,
+      'const frame=(status)=>Buffer.concat([Buffer.from("CRDDDR04"),Buffer.from(status),hash]);',
+      'process.stdout.write(frame("R"));',
+      'process.stdin.on("data",()=>process.stdout.write(frame("C")));',
+      'process.stdin.on("end",()=>process.exit(0));',
+    ].join("");
+    const child = spawn(process.execPath, ["-e", source], {
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
+      child,
+      hash,
+    );
+    assert.equal(await created.waitForInitial(), "R");
+    Object.defineProperty(child.stdin, "end", {
+      configurable: true,
+      value: (mode === "throw"
+        ? () => {
+            throw new Error("synthetic end failure");
+          }
+        : () => {
+            process.nextTick(() =>
+              child.stdin.emit("error", new Error("synthetic EPIPE")),
+            );
+            return child.stdin;
+          }) as typeof child.stdin.end,
+    });
+    const outcome = await created.session.release();
+    assert.equal(outcome.protocol, "completed");
+    assert.equal(["confirmed", "unknown"].includes(outcome.cleanup), true);
+  }
+});
+
+test("active protocol中の全stdio errorは恒久listenerからfailure cleanupへ収束する", async () => {
+  for (const streamName of ["stdin", "stdout", "stderr"] as const) {
+    const hash = "5".repeat(64);
+    const source = [
+      "const hash=Buffer.alloc(32,0x55);",
+      'const frame=(status)=>Buffer.concat([Buffer.from("CRDDDR04"),Buffer.from(status),hash]);',
+      'process.stdout.write(frame("R"));',
+      "process.stdin.resume();",
+    ].join("");
+    const child = spawn(process.execPath, ["-e", source], {
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
+      child,
+      hash,
+    );
+    assert.equal(await created.waitForInitial(), "R");
+    child[streamName].emit("error", new Error("synthetic stdio failure"));
+    await created.session.failureDetected;
+    const outcome = await created.session.abort();
+    assert.equal(outcome.protocol, "failed");
+    assert.equal(["confirmed", "unknown"].includes(outcome.cleanup), true);
+  }
+});

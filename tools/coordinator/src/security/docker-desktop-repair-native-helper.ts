@@ -109,6 +109,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   let failed = false;
   let released = false;
   let releaseInProgress = false;
+  let releaseFrameCompleted = false;
   let releaseLifecycle: Promise<DockerDesktopRepairHelperReleaseOutcome> | null =
     null;
   let childExitObserved = child.exitCode !== null;
@@ -220,6 +221,10 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     resolveFailure();
     void beginFailureCleanup();
   };
+  const onOwnedStdioError = () => {
+    if (!released && !releaseFrameCompleted) fail();
+    else void beginFailureCleanup();
+  };
   const deliver = (frame: Buffer) => {
     if (pending) {
       const current = pending;
@@ -239,6 +244,9 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     }
   });
   child.stderr.on("data", () => fail());
+  child.stdin.on("error", onOwnedStdioError);
+  child.stdout.on("error", onOwnedStdioError);
+  child.stderr.on("error", onOwnedStdioError);
   child.once("error", fail);
   child.once("exit", () => {
     childExitObserved = true;
@@ -262,9 +270,13 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     if (failed || released || !child.stdin.writable) return null;
     const response = receive(COMMAND_TIMEOUT_MS);
     const written = new Promise<boolean>((resolve) => {
-      child.stdin.write(Buffer.from(value, "ascii"), (error) =>
-        resolve(error === null || error === undefined),
-      );
+      try {
+        child.stdin.write(Buffer.from(value, "ascii"), (error) =>
+          resolve(error === null || error === undefined),
+        );
+      } catch {
+        resolve(false);
+      }
     });
     const writeCompleted = await new Promise<boolean>((resolve) => {
       let settled = false;
@@ -357,6 +369,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
           fail();
           return joinFailedCleanup("failed");
         }
+        releaseFrameCompleted = true;
         released = true;
         const endCompleted = await endStdinBounded();
         const settled = endCompleted
@@ -368,8 +381,9 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
         child.unref();
         return Object.freeze({
           cleanup: settled ? ("confirmed" as const) : ("unknown" as const),
-          protocol:
-            child.exitCode === 0 ? ("completed" as const) : ("failed" as const),
+          protocol: releaseFrameCompleted
+            ? ("completed" as const)
+            : ("failed" as const),
         });
       })();
       return releaseLifecycle;
