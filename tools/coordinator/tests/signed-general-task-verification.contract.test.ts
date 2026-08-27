@@ -136,6 +136,7 @@ function taskResult(overrides: Record<string, unknown> = {}) {
     reason: "coordinator_task_candidate_approved",
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
+    processRestartRequired: false,
     executorProvider: "claude",
     reviewerProvider: "codex",
     reviewerIndependence: "provider_independent",
@@ -298,7 +299,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);
@@ -763,6 +764,7 @@ test("Candidate discard不成立は残存0とせず手動処置対象を返す",
       status: "blocked",
       reason: "candidate_bundle_discard_recovery_required",
       manualRecoveryRequired: true,
+      processRestartRequired: true,
       candidateRecoveryId: `candidate-recovery.${"1".repeat(64)}.${"2".repeat(64)}`,
       candidateStoreRecoveryId: null,
     }),
@@ -774,6 +776,7 @@ test("Candidate discard不成立は残存0とせず手動処置対象を返す",
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "signed_general_task_candidate_discard_failed");
   assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(
     (result as Readonly<Record<string, unknown>>).candidateIdForManualDiscard,

@@ -24,7 +24,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 7;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 8;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -227,6 +227,9 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
       sources.every((result) => result?.cleanupConfirmed === true),
     manualRecoveryRequired: sources.some(
       (result) => result?.manualRecoveryRequired === true,
+    ),
+    processRestartRequired: sources.some(
+      (result) => result?.processRestartRequired === true,
     ),
     hostRecoveryId: hostRecoveryIds.length === 1 ? hostRecoveryIds[0] : null,
     hostRecoveryIds,
@@ -685,6 +688,7 @@ export async function runSignedGeneralTaskVerification(
       candidateDiscarded: true,
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
+      processRestartRequired: false,
       hostRecoveryId: null,
       hostRecoveryIds: Object.freeze([]),
       dockerRecoveryId: null,

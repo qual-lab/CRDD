@@ -6,6 +6,7 @@ export type SafeCommandReport = Readonly<{
   candidateId?: string | null;
   expiresAtMs?: number | null;
   manualRecoveryRequired?: boolean;
+  processRestartRequired?: boolean;
   hostRecoveryId?: string | null;
   dockerRecoveryId?: string | null | undefined;
   dockerRecoveryIds?: readonly string[] | undefined;
@@ -80,7 +81,6 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
       lines.push(`- ${label}: ${value}`);
       if (label === "host recovery ID") {
         lines.push(
-          "- next: restart Coordinator Runtime before starting another task",
           "- next: retain this exact host recovery ID for the signed recovery entry or runtime operator; recovery is not promised when identity evidence is inconsistent",
         );
       }
@@ -89,9 +89,13 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
   const hasActionableRecoveryId = lines.some((line) =>
     line.includes(" recovery ID:"),
   );
-  if (report.manualRecoveryRequired === true && !hasActionableRecoveryId) {
+  if (report.processRestartRequired === true) {
     lines.push(
       "- next: restart Coordinator Runtime before starting another task",
+    );
+  }
+  if (report.manualRecoveryRequired === true && !hasActionableRecoveryId) {
+    lines.push(
       "- next: escalate to the runtime operator because no authenticated actionable recovery ID is available",
     );
   }
@@ -104,7 +108,7 @@ export function renderSafeHumanCommandReport(report: SafeCommandReport) {
 export function describeCommandReportContract() {
   return Object.freeze({
     humanProjection:
-      "status_reason_effect_candidate_expiry_recovery_identifiers_and_manual_recovery_only",
+      "status_reason_effect_candidate_expiry_recovery_identifiers_manual_recovery_and_runtime_owned_process_restart_only",
     rawProviderOutputReported: false,
     hostPathReported: false,
     credentialReported: false,

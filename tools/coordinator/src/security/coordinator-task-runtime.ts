@@ -71,7 +71,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 18;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 19;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -151,6 +151,7 @@ type RuntimeDependencies = Readonly<{
   classifyOperationCleanup: (outcome: unknown) => HostCleanupStatus | null;
   abandonOperation: (managementCapability: object) => Promise<unknown>;
   poisonProcessAfterCleanupUnknown?: () => void;
+  isProcessPoisoned?: () => boolean;
   bindRepository: (
     managementCapability: object,
     repositoryRoot: string,
@@ -274,6 +275,7 @@ type ControlRecord = {
   cancellationController: AbortController;
   ownedOperation: object | null;
   retainOperationRoot: boolean;
+  processPoisoned: boolean;
   hostCleanupCompleted: boolean;
   hostRecoveryId: string | null;
   hostGenerationLossOutcome:
@@ -371,6 +373,64 @@ function actionableDockerRecoveryIds(
   return Object.freeze([
     ...new Set([...preferredRecoveryIds, ...controlDockerRecoveryIds(control)]),
   ]);
+}
+
+function canRunManagedDockerCleanup(
+  result: RuntimeRecord,
+  control: ControlRecord,
+) {
+  const pluralIds = Array.isArray(result.dockerRecoveryIds)
+    ? result.dockerRecoveryIds.filter(
+        (value: unknown): value is string => typeof value === "string",
+      )
+    : [];
+  if (new Set(pluralIds).size !== pluralIds.length) return false;
+  const rawIds = new Set([
+    ...pluralIds,
+    ...(stringValue(result.dockerRecoveryId)
+      ? [String(result.dockerRecoveryId)]
+      : []),
+  ]);
+  const pendingHandoffs = control.dockerHandoffs.filter(
+    (handoff) => handoff.state !== "finalized",
+  );
+  const pendingIds = new Set<string>();
+  const pendingCapabilities = new Set<object>();
+  for (const handoff of pendingHandoffs) {
+    if (
+      handoff.state !== "finalizable" ||
+      pendingIds.has(handoff.recoveryId) ||
+      pendingCapabilities.has(handoff.capability)
+    )
+      return false;
+    const exactFinalizations = control.dockerFinalizations.filter(
+      (candidate) =>
+        candidate.recoveryId === handoff.recoveryId &&
+        candidate.capability === handoff.capability,
+    );
+    const conflictingFinalization = control.dockerFinalizations.some(
+      (candidate) =>
+        (candidate.recoveryId === handoff.recoveryId ||
+          candidate.capability === handoff.capability) &&
+        (candidate.recoveryId !== handoff.recoveryId ||
+          candidate.capability !== handoff.capability),
+    );
+    if (exactFinalizations.length !== 1 || conflictingFinalization)
+      return false;
+    pendingIds.add(handoff.recoveryId);
+    pendingCapabilities.add(handoff.capability);
+  }
+  if (
+    control.dockerFinalizations.length !== pendingHandoffs.length ||
+    [...rawIds].some((id) => !pendingIds.has(id))
+  )
+    return false;
+  return true;
+}
+
+function poisonRuntimeProcess(state: RuntimeState, control: ControlRecord) {
+  control.processPoisoned = true;
+  state.dependencies.poisonProcessAfterCleanupUnknown?.();
 }
 
 function projectCurrentDockerRecovery<T extends RuntimeRecord>(
@@ -932,11 +992,11 @@ async function runCoordinatorTask(
                   cancellationResult?.processTerminationObserved !== true)
               ) {
                 control.hostGenerationLossOutcome = "cleanup_unknown";
-                state.dependencies.poisonProcessAfterCleanupUnknown?.();
+                poisonRuntimeProcess(state, control);
               }
             } catch {
               control.hostGenerationLossOutcome = "cleanup_unknown";
-              state.dependencies.poisonProcessAfterCleanupUnknown?.();
+              poisonRuntimeProcess(state, control);
             }
           }
         });
@@ -1419,6 +1479,7 @@ const productionDependencies: RuntimeDependencies = Object.freeze({
   classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
   abandonOperation: abandonOwnedHostOperationGenerationLock,
   poisonProcessAfterCleanupUnknown: poisonRuntimeProcessAfterCleanupUnknown,
+  isProcessPoisoned: isRuntimeProcessPoisoned,
   bindRepository: bindRuntimeOwnedRepositoryOperation,
   materializeWorkspace: materializeRuntimeOwnedRepositoryWorkspace,
   issueSelection: issueRuntimeOwnedDelegationSelectionGrant,
@@ -1514,6 +1575,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         cancellationController: new AbortController(),
         ownedOperation: null,
         retainOperationRoot: false,
+        processPoisoned: false,
         hostCleanupCompleted: false,
         hostRecoveryId: null,
         hostGenerationLossOutcome: null,
@@ -1609,19 +1671,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
           try {
             let hostProtocolFailure =
               control.hostGenerationLossOutcome === "cleanup_confirmed_failure";
-            const isProcessRestartOnly =
-              result.reason ===
-              "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required";
-            if (
-              (result.manualRecoveryRequired === true &&
-                !stringValue(result.candidateRecoveryId) &&
-                !isProcessRestartOnly) ||
-              ("hostRecoveryId" in result &&
-                stringValue(result.hostRecoveryId)) ||
-              ("dockerRecoveryId" in result &&
-                stringValue(result.dockerRecoveryId))
-            )
-              control.retainOperationRoot = true;
+            control.retainOperationRoot ||=
+              control.hostGenerationLossOutcome === "cleanup_unknown" ||
+              !canRunManagedDockerCleanup(rawResultRecord, control);
             if (control.retainOperationRoot)
               await retainRuntimeRecoveryState(state, control);
             for (const finalization of state.dependencies
@@ -1927,11 +1979,16 @@ function createRuntime(dependencies: RuntimeDependencies) {
         .then((result) => {
           if (control.hostGenerationFailureObserved) {
             if (result.manualRecoveryRequired === true)
-              state.dependencies.poisonProcessAfterCleanupUnknown?.();
+              poisonRuntimeProcess(state, control);
             control.releaseHostGenerationDrain?.();
             control.releaseHostGenerationDrain = null;
           }
-          return result;
+          control.processPoisoned ||=
+            state.dependencies.isProcessPoisoned?.() === true;
+          return Object.freeze({
+            ...result,
+            processRestartRequired: control.processPoisoned,
+          });
         })
         .finally(() => state.controls.delete(controlCapability));
       return Object.freeze({
@@ -2032,6 +2089,8 @@ export function describeCoordinatorTaskRuntimeContract() {
       "single_use_runtime_private_verified_distribution_capability_before_all_effects",
     processPoisonGate:
       "before_package_consume_operation_console_store_workspace_provider_and_network",
+    processRestartProjection:
+      "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_manual_recovery_reason_and_temporary_drain",
     hostOperationGenerationReadiness:
       "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
     hostOperationSupervisorOutcomes:

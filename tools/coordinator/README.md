@@ -142,6 +142,8 @@ Task processの標準入力は、上限付きJSONをEOFまで受け取る構造�
 
 一般Taskを組み立てる上位Coordinatorは、`acceptanceCriteria`を単なる完成条件の文章として転送せず、作業に適用する確認母集団へ具体化してからTask Packetを要求する。条件分岐では発火、非発火、境界、判定情報不足を含め、Trust／Security／Authority／Effect境界では入力・状態、alias／indirection／境界、lifecycle段階およびEffect発生点を含める。各項目はExecutorの実装・検証と独立Reviewerの確認対象になり、上位Coordinatorは未評価項目を成功へ統合しない。対象に該当しない軸は理由付き非該当とし、不要な組合せやAgentを機械的に増やさない。現在のTask Packet Runtimeは、callerが与えた`acceptanceCriteria`のshape、件数、byte上限と外部送信Scopeへの結合を検査するが、自然言語上の母集団の完全性を生成または証明しない。この確認母集団の意味と作り方は[エージェントの着手前整合確認](../../10_Agent.md#pre-execution-alignment-check)を正本とし、本READMEはTask Packetへの実装接続と現在の限界だけを所有する。
 
+Task Runtime contract revision 19は、資源回復の要否と同一Process再利用禁止を分離し、最終的な不可逆poisonだけからRuntime所有の`processRestartRequired`を公開結果へ投影する。Host／Docker／Candidate／Candidate StoreのRecovery IDは各資源の回復案内だけを表し、IDの有無、`manualRecoveryRequired`、理由文字列または一時drainからProcess再起動を推定しない。人間向け表示と正式Runnerはこのbooleanを欠落させず、`true`の場合はRecovery IDの有無と独立して再起動を案内する。
+
 ```json
 {"frontProvider":"codex","objective":"Update the bounded fixture.","acceptanceCriteria":["The expected value is present."],"allowedPaths":["fixture.txt"],"readPaths":["fixture.txt","README.md"],"workClass":"bounded_implementation","planState":"complete","risk":"low","difficulty":"low","decisionImpact":"limited","isLocalCandidateOnly":true,"hasUnresolvedDirection":false,"requiresCrossContextAlignment":false}
 ```

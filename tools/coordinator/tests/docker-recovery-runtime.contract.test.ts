@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
@@ -36,10 +36,13 @@ import {
 } from "../src/security/docker-recovery-runtime-internal.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
+  cleanupOwnedOperationDirectoriesAsync,
+  createIsolatedOwnedHostOperationGenerationActivatorCandidate,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  observeOwnedHostOperationGenerationLoss,
   recoverOwnedOperationDirectories,
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
@@ -2654,6 +2657,180 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     void abandonOwnedHostOperationGenerationLock(management);
     fs.rmSync(owned.root, { recursive: true, force: true });
     fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("retired confirmed世代のcleanup-only Capabilityはproduction intentから残存0へ収束する", async () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-retired-recovery-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const root = verifiedRoot(runtimeRootPath);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const plan = productionPlan(operation.operationId, "f".repeat(64));
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  let detectFailure!: () => void;
+  let resolveLoss!: (outcome: "cleanup_confirmed_failure") => void;
+  const failureDetected = new Promise<void>((resolve) => {
+    detectFailure = resolve;
+  });
+  const loss = new Promise<"cleanup_confirmed_failure">((resolve) => {
+    resolveLoss = resolve;
+  });
+  const listeners = new Set<() => void>();
+  void failureDetected.then(() => {
+    for (const listener of listeners) listener();
+  });
+  const activator =
+    createIsolatedOwnedHostOperationGenerationActivatorCandidate(async () =>
+      Object.freeze({
+        status: "acquired" as const,
+        lock: Object.freeze({
+          assertLive: () => true,
+          onFailureDetected: (listener: () => void) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+          failureDetected,
+          loss,
+          confirmReady: async () => "ready" as const,
+          release: async () => "released" as const,
+        }),
+      }),
+    );
+  let recoveryCapability: object | null = null;
+  try {
+    assert.equal(await activator.activate(management), "activated");
+    const generationLoss = observeOwnedHostOperationGenerationLoss(management);
+    const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+      plan,
+      management,
+      providerHomeForPlan(plan),
+      root,
+      () => root,
+    );
+    assert.ok(begun && begun.status === "ready");
+    recoveryCapability = begun.recoveryCapability;
+    assert.equal(recordRuntimeOwnedDockerAbsence(recoveryCapability), true);
+    assert.equal(
+      recordRuntimeOwnedNormalMountCompletion(recoveryCapability),
+      true,
+    );
+    assert.equal(
+      completeRuntimeOwnedDockerRecovery(recoveryCapability, management).status,
+      "completed",
+    );
+    detectFailure();
+    resolveLoss("cleanup_confirmed_failure");
+    assert.equal(await generationLoss.outcome, "cleanup_confirmed_failure");
+    const hostCleanupToken =
+      prepareRuntimeOwnedDockerHostCleanup(recoveryCapability);
+    assert.equal(typeof hostCleanupToken, "string");
+    await cleanupOwnedOperationDirectoriesAsync(owned);
+    assert.equal(
+      recordRuntimeOwnedDockerHostCleanupReceipt(recoveryCapability),
+      true,
+    );
+    assert.equal(
+      finalizeRuntimeOwnedDockerRecovery(recoveryCapability).status,
+      "completed",
+    );
+    recoveryCapability = null;
+    generationLoss.releaseDrain();
+    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assert.equal(fs.existsSync(owned.root), false);
+    assert.equal(fs.existsSync(initialHost.marker), false);
+  } finally {
+    if (recoveryCapability)
+      void abandonRuntimeOwnedDockerRecovery(recoveryCapability);
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("retired unknown世代はproduction cleanup intentを消費せずEffect 0へ閉じる", () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-retired-unknown-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  try {
+    const child = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        fileURLToPath(
+          new URL("./fixtures/retired-cleanup-only-probe.ts", import.meta.url),
+        ),
+        "unknown",
+        runtimeRootPath,
+      ],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+    );
+    assert.equal(child.status, 0, `${child.stdout}\n${child.stderr}`);
+    assert.deepEqual(JSON.parse(child.stdout), { status: "verified" });
+  } finally {
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回復する", () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-fresh-recovery-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const probe = fileURLToPath(
+    new URL("./fixtures/retired-cleanup-only-probe.ts", import.meta.url),
+  );
+  try {
+    const setup = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        probe,
+        "receipt-failure-setup",
+        runtimeRootPath,
+      ],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+    );
+    assert.equal(setup.status, 0, `${setup.stdout}\n${setup.stderr}`);
+    const handoff = JSON.parse(setup.stdout) as {
+      recoveryId: string;
+      root: Readonly<Record<string, string>>;
+    };
+    assert.deepEqual(fs.readdirSync(runtimeRootPath).length > 0, true);
+    const recovered = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        probe,
+        "fresh-recovery",
+        handoff.recoveryId,
+        Buffer.from(JSON.stringify(handoff.root), "utf8").toString("base64url"),
+      ],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+    );
+    assert.equal(
+      recovered.status,
+      0,
+      `${recovered.stdout}\n${recovered.stderr}`,
+    );
+    assert.deepEqual(JSON.parse(recovered.stdout), {
+      status: "recovered",
+      reason: "docker_task_recovery_finalization_completed",
+      recoveryId: null,
+    });
+    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+  } finally {
     fs.rmSync(runtimeParent, { recursive: true, force: true });
   }
 });

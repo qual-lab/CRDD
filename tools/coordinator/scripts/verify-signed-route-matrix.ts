@@ -15,7 +15,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 2;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 3;
 
 const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "forward",
@@ -93,6 +93,7 @@ function failedRouteResult(route: SignedGeneralTaskRouteProfile) {
     requestedRouteProfile: route,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
+    processRestartRequired: true,
     effectStateUnknown: true,
     canonicalRepositoryChanged: null,
     rawProviderOutputReported: null,
@@ -131,6 +132,7 @@ export function isExactSignedRouteResult(
     result.candidateDiscarded === true &&
     result.cleanupConfirmed === true &&
     result.manualRecoveryRequired === false &&
+    result.processRestartRequired === false &&
     result.hostRecoveryId === null &&
     emptyArray(result.hostRecoveryIds) &&
     result.dockerRecoveryId === null &&
@@ -167,6 +169,7 @@ export async function runSignedRouteMatrixVerification(
       results: Object.freeze([]),
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
+      processRestartRequired: false,
       effectStateUnknown: false,
       canonicalRepositoryChanged: false,
       rawProviderOutputReported: false,
@@ -220,6 +223,7 @@ export async function runSignedRouteMatrixVerification(
   const effectStateUnknown = results.some(
     (result) =>
       result.effectStateUnknown === true ||
+      typeof result.processRestartRequired !== "boolean" ||
       typeof result.canonicalRepositoryChanged !== "boolean" ||
       typeof result.rawProviderOutputReported !== "boolean" ||
       typeof result.hostPathReported !== "boolean" ||
@@ -243,6 +247,9 @@ export async function runSignedRouteMatrixVerification(
     manualRecoveryRequired:
       effectStateUnknown ||
       results.some((result) => result.manualRecoveryRequired !== false),
+    processRestartRequired:
+      effectStateUnknown ||
+      results.some((result) => result.processRestartRequired === true),
     effectStateUnknown,
     canonicalRepositoryChanged: effectStateUnknown
       ? null
@@ -308,6 +315,7 @@ export function createSignedRouteMatrixCliFailureResult(
     results: Object.freeze([]),
     cleanupConfirmed: !effectStateUnknown,
     manualRecoveryRequired: effectStateUnknown,
+    processRestartRequired: effectStateUnknown,
     effectStateUnknown,
     canonicalRepositoryChanged: effectStateUnknown ? null : false,
     rawProviderOutputReported: effectStateUnknown ? null : false,

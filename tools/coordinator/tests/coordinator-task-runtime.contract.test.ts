@@ -65,6 +65,7 @@ function fixture(
     processStartFailureRole?: "executor" | "reviewer";
     processCleanupFailureRole?: "executor" | "reviewer";
     hostCleanupWal?: boolean;
+    dockerIntentFailsAt?: number;
     dockerReceiptFailsAt?: number;
     dockerFinalizeFailsAt?: number;
     slateExecutorProvider?: "codex" | "claude";
@@ -104,6 +105,7 @@ function fixture(
   let externalAuthorizationCount = 0;
   let dockerFinalizeCount = 0;
   let dockerReceiptCount = 0;
+  let dockerIntentCount = 0;
   let abandonOperationCount = 0;
   let operationCreateCount = 0;
   let candidateStorePrepareCount = 0;
@@ -192,6 +194,7 @@ function fixture(
     poisonProcessAfterCleanupUnknown: () => {
       poisonProcessCount += 1;
     },
+    isProcessPoisoned: () => poisonProcessCount > 0,
     bindRepository: () =>
       Object.freeze({
         repositoryBound: true,
@@ -299,6 +302,8 @@ function fixture(
       externalAuthorizationCount += 1;
       authorizedProviderSets.push(Object.freeze([...providers]));
       externalCancellationSignal = cancellationSignal;
+      if (options.externalSendReason?.includes("cleanup_unknown"))
+        poisonProcessCount += 1;
       const authorization = options.externalSendReason
         ? Object.freeze({
             status: "blocked",
@@ -534,6 +539,8 @@ function fixture(
       ? {
           prepareDockerHostCleanup: () => {
             events.push("docker-host-cleanup-intent");
+            dockerIntentCount += 1;
+            if (options.dockerIntentFailsAt === dockerIntentCount) return null;
             return "host.fixture.cleanup.intent";
           },
           recordDockerHostCleanupReceipt: () => {
@@ -928,6 +935,92 @@ test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfin
   ]);
 });
 
+test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", async () => {
+  const zero = fixture({ externalSendDenied: true, hostCleanupWal: true });
+  const zeroResult = await zero.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(zeroResult.processRestartRequired, false);
+  assert.equal(zero.cleanupCount(), 1);
+
+  const one = fixture({ hostCleanupWal: true, candidateSecretAtCapture: 1 });
+  const oneResult = await one.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(oneResult.status, "blocked");
+  assert.equal(oneResult.manualRecoveryRequired, false);
+  assert.deepEqual(oneResult.dockerRecoveryIds, []);
+  assert.equal(one.cleanupCount(), 1);
+  assert.deepEqual(one.events.slice(-4), [
+    "docker-host-cleanup-intent",
+    "host-cleanup",
+    "docker-host-cleanup-receipt",
+    "docker-finalize",
+  ]);
+
+  const two = fixture({ hostCleanupWal: true });
+  const twoResult = await two.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(twoResult.status, "completed");
+  assert.deepEqual(twoResult.dockerRecoveryIds, []);
+  assert.equal(two.cleanupCount(), 1);
+  assert.equal(
+    two.events.filter((event) => event === "docker-finalize").length,
+    2,
+  );
+});
+
+test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持する", async () => {
+  const harness = fixture({
+    hostCleanupWal: true,
+    processStartFailureRole: "reviewer",
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.deepEqual(result.dockerRecoveryIds, [
+    "docker.fixture.reviewer.start",
+    "docker.fixture.executor.active",
+  ]);
+  assert.equal(harness.cleanupCount(), 0);
+  assert.equal(harness.events.includes("docker-host-cleanup-intent"), false);
+});
+
+test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持する", async () => {
+  const harness = fixture({ hostCleanupWal: true, dockerIntentFailsAt: 2 });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(
+    result.reason,
+    "coordinator_task_host_cleanup_intent_unconfirmed",
+  );
+  assert.equal(result.hostRecoveryId, "host.fixture.cleanup.intent");
+  assert.deepEqual([...result.dockerRecoveryIds].sort(), [
+    "docker.fixture.executor.active",
+    "docker.fixture.reviewer.active",
+  ]);
+  assert.equal(harness.cleanupCount(), 0);
+  assert.equal(
+    harness.events.filter((event) => event === "docker-host-cleanup-intent")
+      .length,
+    2,
+  );
+});
+
 test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合へ再混入しない", async () => {
   const harness = fixture({ hostCleanupWal: true, dockerFinalizeFailsAt: 2 });
   const result = await harness.runtime.start(
@@ -1130,6 +1223,7 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
     "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_required",
   );
   assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
   assert.equal(result.hostRecoveryId, null);
   assert.equal(harness.cleanupCount(), 1);
   assert.equal(harness.workspaceMaterializeCount(), 0);
@@ -1151,6 +1245,7 @@ test("対話cleanup不明はProcess再起動を要求しOperation cleanupを独�
     "coordinator_task_external_send_confirmation_cleanup_unknown_process_restart_and_operation_recovery_required",
   );
   assert.equal(combined.manualRecoveryRequired, true);
+  assert.equal(combined.processRestartRequired, true);
   assert.equal(combined.hostRecoveryId, "host.fixture.recovery.record");
   assert.equal(cleanupFailure.cleanupCount(), 1);
   assert.equal(cleanupFailure.workspaceMaterializeCount(), 0);
@@ -1231,6 +1326,7 @@ test("Host Supervisor protocol失敗後の確認済みcleanupは成功公開も�
   );
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.processRestartRequired, false);
   assert.equal(result.hostRecoveryId, null);
   assert.equal(result.candidateRecoveryId, null);
   assert.equal(harness.cleanupCount(), 1);
@@ -1278,6 +1374,7 @@ test("Candidate publishとStore障害を同時に観測しても二つのRecover
   ).completion;
   assert.equal(result.status, "blocked");
   assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, false);
   assert.match(
     result.candidateRecoveryId ?? "",
     /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
@@ -1314,6 +1411,31 @@ test("Candidate Store障害はCandidate IDと分離したStore Recovery IDを返
   assert.match(
     result.candidateStoreRecoveryId ?? "",
     /^candidate-store-recovery\.[0-9a-f]{64}$/u,
+  );
+});
+
+test("Candidate Storeだけのmanual recoveryはHostとDocker cleanupを保留しない", async () => {
+  const harness = fixture({
+    hostCleanupWal: true,
+    candidatePersistenceNeedsStoreRecovery: true,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, false);
+  assert.equal(result.hostRecoveryId, null);
+  assert.deepEqual(result.dockerRecoveryIds, []);
+  assert.match(
+    result.candidateStoreRecoveryId ?? "",
+    /^candidate-store-recovery\.[0-9a-f]{64}$/u,
+  );
+  assert.equal(harness.cleanupCount(), 1);
+  assert.equal(
+    harness.events.filter((event) => event === "docker-finalize").length,
+    2,
   );
 });
 
@@ -1542,6 +1664,7 @@ test("Host confirmedとProvider cleanup unknownの合成は全actionable Recover
   assert.deepEqual(result.dockerRecoveryIds, [
     "docker.fixture.executor.active",
   ]);
+  assert.equal(result.processRestartRequired, true);
   assert.ok(harness.poisonProcessCount() >= 1);
 });
 
@@ -1563,6 +1686,7 @@ test("Candidate staged後のHost confirmed lossはpublishせずdiscardしてclea
   assert.equal(result.status, "blocked");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.processRestartRequired, false);
   assert.equal(result.candidateRecoveryId, null);
   assert.equal(harness.discardCount(), 1);
   assert.equal(harness.poisonProcessCount(), 0);
@@ -1586,6 +1710,7 @@ test("Host confirmedでもProvider取消終了不明ならunknownへ昇格して
   const result = await started.completion;
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.processRestartRequired, true);
   assert.ok(harness.poisonProcessCount() >= 1);
 });
 
@@ -1671,7 +1796,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 18);
+  assert.equal(contract.contractRevision, 19);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,
@@ -1689,6 +1814,10 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
   assert.equal(
     contract.processPoisonGate,
     "before_package_consume_operation_console_store_workspace_provider_and_network",
+  );
+  assert.equal(
+    contract.processRestartProjection,
+    "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_manual_recovery_reason_and_temporary_drain",
   );
   assert.equal(
     contract.hostOperationGenerationReadiness,

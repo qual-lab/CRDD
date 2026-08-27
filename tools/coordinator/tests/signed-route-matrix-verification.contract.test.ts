@@ -44,7 +44,7 @@ function completed(
   const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 7,
+    contractRevision: 8,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -70,6 +70,7 @@ function completed(
     candidateDiscarded: true,
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
+    processRestartRequired: false,
     hostRecoveryId: null,
     hostRecoveryIds: Object.freeze([]),
     dockerRecoveryId: null,
@@ -252,6 +253,7 @@ test("route runner例外は既知結果を保持して未知状態を手動回�
 
 test("非適合routeの観測field欠落またはnullは発生事実でなく未知へ集約する", async () => {
   for (const field of [
+    "processRestartRequired",
     "canonicalRepositoryChanged",
     "rawProviderOutputReported",
     "hostPathReported",
@@ -334,6 +336,7 @@ test("同意取消の観測不能時は一つのrouteも開始しない", async 
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
+  assert.equal(contract.contractRevision, 3);
   assert.deepEqual(contract.routes, [
     "forward",
     "reverse",

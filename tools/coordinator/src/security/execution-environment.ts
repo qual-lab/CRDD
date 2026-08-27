@@ -1016,15 +1016,21 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
   return Object.freeze({ binding, identity });
 }
 
-export async function activateOwnedHostOperationGenerationLock(
+type HostOperationSupervisorAcquirer = (
+  rootName: string,
+  nonce: string,
+) => ReturnType<typeof acquireRuntimeOwnedHostOperationSupervisorLock>;
+
+async function activateOwnedHostOperationGenerationLockUsingAcquirer(
   managementCapability: unknown,
+  acquire: HostOperationSupervisorAcquirer,
 ) {
   const { binding, identity } =
     ownedOperationFromManagementCapability(managementCapability);
   const state = ownedOperationGeneration(binding.owned, identity);
   if (state.generationLock)
     throw new Error("owned_operation_generation_lock_already_active");
-  const outcome = await acquireRuntimeOwnedHostOperationSupervisorLock(
+  const outcome = await acquire(
     path.basename(identity.root),
     identity.hostRecovery.nonce,
   );
@@ -1040,6 +1046,29 @@ export async function activateOwnedHostOperationGenerationLock(
     return "cleanup_unknown" as const;
   }
   return outcome.status;
+}
+
+export function activateOwnedHostOperationGenerationLock(
+  managementCapability: unknown,
+) {
+  return activateOwnedHostOperationGenerationLockUsingAcquirer(
+    managementCapability,
+    acquireRuntimeOwnedHostOperationSupervisorLock,
+  );
+}
+
+/** @internal Isolated contract fixture; never used by the production adapter. */
+export function createIsolatedOwnedHostOperationGenerationActivatorCandidate(
+  acquire: HostOperationSupervisorAcquirer,
+) {
+  return Object.freeze({
+    productionAuthority: false as const,
+    activate: (managementCapability: unknown) =>
+      activateOwnedHostOperationGenerationLockUsingAcquirer(
+        managementCapability,
+        acquire,
+      ),
+  });
 }
 
 export async function confirmOwnedHostOperationGenerationLockReadiness(

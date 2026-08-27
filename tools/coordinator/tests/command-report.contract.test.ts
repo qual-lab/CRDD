@@ -18,6 +18,7 @@ test("人間向けTask結果はCandidate、期限、全Recovery IDと手動回�
     candidateId: `candidate.${digestA}.${digestB}`,
     expiresAtMs: 2_000_000_000_000,
     manualRecoveryRequired: true,
+    processRestartRequired: true,
     hostRecoveryId: `host.root.${digestA}.${digestB}`,
     dockerRecoveryId: null,
     dockerRecoveryIds: Object.freeze([
@@ -91,8 +92,33 @@ test("cleanup不明でactionable IDがない場合も再起動とoperator移送�
     status: "blocked",
     reason: "coordinator_task_operation_cleanup_unconfirmed",
     manualRecoveryRequired: true,
+    processRestartRequired: true,
   });
   assert.match(rendered, /restart Coordinator Runtime/u);
   assert.match(rendered, /runtime operator/u);
   assert.match(rendered, /manual recovery required: yes/u);
+});
+
+test("Process再起動案内はRecovery IDと直交しruntime-owned booleanだけに従う", () => {
+  const dockerRecoveryId = `docker-task.${digestA}.${digestB}.${digestA}`;
+  const poisoned = renderSafeHumanCommandReport({
+    command: "task",
+    status: "blocked",
+    reason: "cleanup_unknown",
+    manualRecoveryRequired: true,
+    processRestartRequired: true,
+    dockerRecoveryId,
+  });
+  assert.match(poisoned, /recover-isolation/u);
+  assert.equal(poisoned.match(/restart Coordinator Runtime/gu)?.length, 1);
+  const recoverable = renderSafeHumanCommandReport({
+    command: "task",
+    status: "blocked",
+    reason: "recovery_required",
+    manualRecoveryRequired: true,
+    processRestartRequired: false,
+    hostRecoveryId: `host.root.${digestA}.${digestB}`,
+  });
+  assert.match(recoverable, /host recovery ID/u);
+  assert.doesNotMatch(recoverable, /restart Coordinator Runtime/u);
 });
