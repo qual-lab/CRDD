@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import { createIsolatedClaudeDockerRuntimeAdapterCandidate } from "../src/security/claude-docker-runtime-adapter.ts";
@@ -141,6 +142,7 @@ function createEffectFixture(
       outputExceeded: boolean;
     }>;
     internalNetworkReceiptId?: string;
+    authReceiptId?: string;
   }> = {},
 ) {
   const { plan, managementCapability } = createPlanFixture(
@@ -205,16 +207,16 @@ function createEffectFixture(
         closed: () => closed,
       });
     },
-    ...(options.internalNetworkReceiptId
+    ...(options.internalNetworkReceiptId || options.authReceiptId
       ? {
           inspectReceipts: () =>
             Object.freeze({
               create_subscription_auth_probe: Object.freeze({
-                submitted: false,
-                dockerId: null,
+                submitted: options.authReceiptId !== undefined,
+                dockerId: options.authReceiptId ?? null,
               }),
               create_internal_network: Object.freeze({
-                submitted: true,
+                submitted: options.internalNetworkReceiptId !== undefined,
                 dockerId: options.internalNetworkReceiptId ?? null,
               }),
               create_egress_network: Object.freeze({
@@ -241,6 +243,45 @@ function createEffectFixture(
     invocations,
     counts: () => ({ configCreated, configRemoved }),
   };
+}
+
+type SanitizedAuthProbeInspectFixture = Readonly<{
+  source: string;
+  engineVersion: string;
+  createArgv: readonly string[];
+  inspect: Readonly<Record<string, unknown>>;
+}>;
+
+function loadSanitizedAuthProbeInspectFixture() {
+  return JSON.parse(
+    fs.readFileSync(
+      new URL("fixtures/docker-auth-probe-inspect-none.json", import.meta.url),
+      "utf8",
+    ),
+  ) as SanitizedAuthProbeInspectFixture;
+}
+
+function authProbeInspectOutput(
+  fixture: ReturnType<typeof createEffectFixture>,
+  dockerId: string,
+  networks: Readonly<Record<string, unknown>>,
+) {
+  const observed = loadSanitizedAuthProbeInspectFixture();
+  assert.equal(observed.source, "sanitized_real_docker_inspect_subset");
+  assert.equal(observed.engineVersion, "28.1.1");
+  assert.equal(observed.createArgv.includes("--network=none"), true);
+  const inspect = structuredClone(observed.inspect) as Record<string, unknown>;
+  inspect.Id = dockerId;
+  inspect.Name = `/${fixture.plan.authContainerName}`;
+  const config = inspect.Config as Record<string, unknown>;
+  config.Image = fixture.plan.providerImageDigest;
+  config.Labels = {
+    "crdd.coordinator.runtime": fixture.plan.ownershipLabel.slice(
+      fixture.plan.ownershipLabel.indexOf("=") + 1,
+    ),
+  };
+  (inspect.NetworkSettings as Record<string, unknown>).Networks = networks;
+  return JSON.stringify([inspect]);
 }
 
 test("固定planのcommandだけを固定CLI・Engine・最小環境へ渡す", async () => {
@@ -450,6 +491,84 @@ test("exact ID削除後に同名replacementが残ればcleanupを完了しない
   assert.equal(cleanup.confirmed, false);
   assert.equal(cleanup.networksAbsent, false);
   assert.equal(fixture.counts().configRemoved, 0);
+});
+
+test("通常Effect cleanupは実測同形の認証Probe none Networkだけを回収する", async () => {
+  const dockerId = "c".repeat(64);
+  let fixture: ReturnType<typeof createEffectFixture>;
+  fixture = createEffectFixture({
+    authReceiptId: dockerId,
+    outputForInvocation: (argv) =>
+      Object.freeze({
+        status: 0,
+        signal: null,
+        stdout: argv.includes("inspect")
+          ? authProbeInspectOutput(fixture, dockerId, { none: {} })
+          : "",
+        stderr: "",
+        outputExceeded: false,
+      }),
+  });
+  const cleanup = await fixture.runtime.cleanupOwnedResources(
+    fixture.plan,
+    fixture.recoveryCapability,
+    fixture.managementCapability,
+  );
+  assert.deepEqual(cleanup, {
+    confirmed: true,
+    processTreeTerminated: true,
+    containersAbsent: true,
+    networksAbsent: true,
+  });
+  assert.equal(
+    fixture.invocations.some(
+      ({ argv }) =>
+        argv.includes("rm") &&
+        argv.includes("--force") &&
+        argv.includes(dockerId),
+    ),
+    true,
+  );
+  assert.equal(fixture.counts().configRemoved, 1);
+});
+
+test("通常Effect cleanupは認証Probeの空・別・追加Networkを削除しない", async () => {
+  const cases = [
+    Object.freeze({}),
+    Object.freeze({ foreign: Object.freeze({}) }),
+    Object.freeze({ none: Object.freeze({}), foreign: Object.freeze({}) }),
+  ];
+  for (const [index, networks] of cases.entries()) {
+    const dockerId = String(index + 1).repeat(64);
+    let fixture: ReturnType<typeof createEffectFixture>;
+    fixture = createEffectFixture({
+      authReceiptId: dockerId,
+      outputForInvocation: (argv) =>
+        Object.freeze({
+          status: 0,
+          signal: null,
+          stdout: argv.includes("inspect")
+            ? authProbeInspectOutput(fixture, dockerId, networks)
+            : "",
+          stderr: "",
+          outputExceeded: false,
+        }),
+    });
+    const cleanup = await fixture.runtime.cleanupOwnedResources(
+      fixture.plan,
+      fixture.recoveryCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(cleanup.confirmed, false);
+    assert.equal(cleanup.containersAbsent, false);
+    assert.equal(
+      fixture.invocations.some(
+        ({ argv }) => argv.includes("rm") && argv.includes("--force"),
+      ),
+      false,
+    );
+    assert.equal(fixture.counts().configRemoved, 0);
+  }
 });
 
 test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {

@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
@@ -2399,19 +2400,25 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
     }),
   });
   try {
-    assert.deepEqual(
-      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
-        fixture.recoveryId,
-        root,
-        () => root,
-        docker.runDockerCommand,
-      ),
-      {
-        status: "recovered",
-        reason: "docker_task_recovery_completed",
-        recoveryId: null,
-      },
+    const recovered = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+      docker.runDockerCommand,
     );
+    assert.deepEqual(recovered, {
+      status: "recovered",
+      reason: "docker_task_recovery_completed",
+      recoveryId: null,
+    });
+    const jsonReport = renderDockerRecoveryDoctorReport(recovered, true);
+    assert.equal(jsonReport.exitCode, 0);
+    assert.deepEqual(JSON.parse(jsonReport.stdout), recovered);
+    const humanReport = renderDockerRecoveryDoctorReport(recovered, false);
+    assert.equal(humanReport.exitCode, 0);
+    assert.match(humanReport.stdout, /Coordinator environment: recovered/u);
+    assert.match(humanReport.stdout, /docker_task_recovery_completed/u);
+    assert.doesNotMatch(humanReport.stdout, /C:\\/u);
     assert.equal(docker.removeCount(), 1);
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
