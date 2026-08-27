@@ -17,7 +17,10 @@ import {
 import { runDoctor } from "../src/core/doctor.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
-import { bindTaskCliCancellationSignals } from "../src/core/task-cli-cancellation.ts";
+import {
+  bindTaskCliCancellationSignals,
+  projectTaskCliCancellationFailure,
+} from "../src/core/task-cli-cancellation.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
@@ -231,17 +234,13 @@ async function runTaskCommand(args: readonly string[]) {
     cancellationBinding.status !== "bound" ||
     releaseStatus?.status !== "released"
   ) {
-    printCommandReport(
-      Object.freeze({
-        command: "task",
-        status: "blocked",
-        reason:
-          cancellationBinding.status !== "bound"
-            ? "task_cli_cancellation_signal_binding_failed"
-            : "task_cli_cancellation_signal_release_failed",
-      }),
-      options.json,
+    const failureReport = projectTaskCliCancellationFailure(
+      result,
+      cancellationBinding.status !== "bound"
+        ? "task_cli_cancellation_signal_binding_failed"
+        : "task_cli_cancellation_signal_release_failed",
     );
+    printCommandReport(failureReport, options.json);
     process.exitCode = 2;
     return;
   }

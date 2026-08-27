@@ -5,6 +5,9 @@ const TASK_CLI_SIGNALS = ["SIGINT", "SIGTERM"] as const;
 
 type TaskCliSignal = (typeof TASK_CLI_SIGNALS)[number];
 type TaskCliSignalListener = () => void;
+export type TaskCliCancellationFailureReason =
+  | "task_cli_cancellation_signal_binding_failed"
+  | "task_cli_cancellation_signal_release_failed";
 type TaskCliSignalPort = Readonly<{
   on: (signal: TaskCliSignal, listener: TaskCliSignalListener) => void;
   removeListener: (
@@ -155,4 +158,33 @@ export function bindTaskCliCancellationSignalsForTesting(
   requestCancellation: () => Promise<unknown>,
 ) {
   return bindTaskCliCancellationSignalsToPort(port, requestCancellation);
+}
+
+export function projectTaskCliCancellationFailure<
+  const Result extends Readonly<Record<string, unknown>> &
+    Readonly<{ status: string; reason: string }>,
+>(
+  result: Result,
+  reason: TaskCliCancellationFailureReason,
+): Readonly<
+  Omit<Result, "command" | "status" | "reason"> &
+    Readonly<{
+      command: "task";
+      status: "blocked";
+      reason: TaskCliCancellationFailureReason;
+    }>
+> {
+  return Object.freeze({
+    ...result,
+    command: "task" as const,
+    status: "blocked" as const,
+    reason,
+  }) as Readonly<
+    Omit<Result, "command" | "status" | "reason"> &
+      Readonly<{
+        command: "task";
+        status: "blocked";
+        reason: TaskCliCancellationFailureReason;
+      }>
+  >;
 }
