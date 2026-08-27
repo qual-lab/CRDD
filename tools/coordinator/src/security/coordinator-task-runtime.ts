@@ -68,6 +68,7 @@ import {
   verifyRuntimeOwnedCandidateRevision,
 } from "./repository-workspace-runtime.ts";
 import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
+import { evaluateManagedDockerCleanupEligibility } from "../core/docker-cleanup-eligibility.ts";
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
@@ -379,53 +380,33 @@ function canRunManagedDockerCleanup(
   result: RuntimeRecord,
   control: ControlRecord,
 ) {
-  const pluralIds = Array.isArray(result.dockerRecoveryIds)
-    ? result.dockerRecoveryIds.filter(
-        (value: unknown): value is string => typeof value === "string",
-      )
-    : [];
-  if (new Set(pluralIds).size !== pluralIds.length) return false;
-  const rawIds = new Set([
-    ...pluralIds,
-    ...(stringValue(result.dockerRecoveryId)
-      ? [String(result.dockerRecoveryId)]
-      : []),
-  ]);
-  const pendingHandoffs = control.dockerHandoffs.filter(
-    (handoff) => handoff.state !== "finalized",
-  );
-  const pendingIds = new Set<string>();
-  const pendingCapabilities = new Set<object>();
-  for (const handoff of pendingHandoffs) {
+  try {
+    const singularDescriptor = Object.getOwnPropertyDescriptor(
+      result,
+      "dockerRecoveryId",
+    );
+    const pluralDescriptor = Object.getOwnPropertyDescriptor(
+      result,
+      "dockerRecoveryIds",
+    );
     if (
-      handoff.state !== "finalizable" ||
-      pendingIds.has(handoff.recoveryId) ||
-      pendingCapabilities.has(handoff.capability)
+      (singularDescriptor && !("value" in singularDescriptor)) ||
+      (pluralDescriptor && !("value" in pluralDescriptor))
     )
       return false;
-    const exactFinalizations = control.dockerFinalizations.filter(
-      (candidate) =>
-        candidate.recoveryId === handoff.recoveryId &&
-        candidate.capability === handoff.capability,
-    );
-    const conflictingFinalization = control.dockerFinalizations.some(
-      (candidate) =>
-        (candidate.recoveryId === handoff.recoveryId ||
-          candidate.capability === handoff.capability) &&
-        (candidate.recoveryId !== handoff.recoveryId ||
-          candidate.capability !== handoff.capability),
-    );
-    if (exactFinalizations.length !== 1 || conflictingFinalization)
-      return false;
-    pendingIds.add(handoff.recoveryId);
-    pendingCapabilities.add(handoff.capability);
-  }
-  if (
-    control.dockerFinalizations.length !== pendingHandoffs.length ||
-    [...rawIds].some((id) => !pendingIds.has(id))
-  )
+    return evaluateManagedDockerCleanupEligibility({
+      raw: Object.freeze({
+        singularPresent: singularDescriptor !== undefined,
+        singular: singularDescriptor?.value,
+        pluralPresent: pluralDescriptor !== undefined,
+        plural: pluralDescriptor?.value,
+      }),
+      handoffs: control.dockerHandoffs,
+      finalizations: control.dockerFinalizations,
+    }).eligible;
+  } catch {
     return false;
-  return true;
+  }
 }
 
 function poisonRuntimeProcess(state: RuntimeState, control: ControlRecord) {

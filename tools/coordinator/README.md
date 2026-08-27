@@ -144,6 +144,8 @@ Task processの標準入力は、上限付きJSONをEOFまで受け取る構造�
 
 Task Runtime contract revision 19は、資源回復の要否と同一Process再利用禁止を分離し、最終的な不可逆poisonだけからRuntime所有の`processRestartRequired`を公開結果へ投影する。Host／Docker／Candidate／Candidate StoreのRecovery IDは各資源の回復案内だけを表し、IDの有無、`manualRecoveryRequired`、理由文字列または一時drainからProcess再起動を推定しない。人間向け表示と正式Runnerはこのbooleanを欠落させず、`true`の場合はRecovery IDの有無と独立して再起動を案内する。
 
+正式General TaskおよびRoute Matrixは、実行開始後に完了結果、Effect観測または再起動状態を安全に確定できない場合、表示上の推定だけを返さない。共通のProcess安全状態を不可逆poisonへ単調化し、同一ProcessのPackage、TaskおよびExternal Sendを次の非cleanup Effect前に停止してから`processRestartRequired: true`を返す。引数不正や実行開始前の確認済み拒否は新しいpoisonを作らないが、既存poisonを`false`へ降格しない。
+
 ```json
 {"frontProvider":"codex","objective":"Update the bounded fixture.","acceptanceCriteria":["The expected value is present."],"allowedPaths":["fixture.txt"],"readPaths":["fixture.txt","README.md"],"workClass":"bounded_implementation","planState":"complete","risk":"low","difficulty":"low","decisionImpact":"limited","isLocalCandidateOnly":true,"hasUnresolvedDirection":false,"requiresCrossContextAlignment":false}
 ```

@@ -70,6 +70,8 @@ export function describeRuntimeProcessSafetyStateContract() {
     poisonOrigins: Object.freeze([
       "interactive_console_cleanup_unknown",
       "host_operation_supervisor_cleanup_unknown",
+      "signed_general_task_started_result_or_completion_unknown",
+      "signed_route_matrix_started_or_outer_execution_unknown",
     ]),
     guardedEntrypoints: Object.freeze([
       "verified_package_issue_before_manifest_or_filesystem_observation",

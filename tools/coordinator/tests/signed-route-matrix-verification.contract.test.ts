@@ -44,7 +44,7 @@ function completed(
   const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 8,
+    contractRevision: 9,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -124,7 +124,12 @@ test("最初の未完了経路で停止し既知cleanup状態を失わない", a
             status: "blocked" as const,
             cleanupConfirmed: false,
             manualRecoveryRequired: true,
+            processRestartRequired: false,
+            effectStateUnknown: false,
             canonicalRepositoryChanged: false,
+            rawProviderOutputReported: false,
+            hostPathReported: false,
+            credentialReported: false,
           })
         : completed(route, "interactive_initial_consent");
     }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
@@ -221,37 +226,47 @@ test("4経路は同一Release Identityへ固定し別Releaseを集約しない",
   }
 });
 
-test("route runner例外は既知結果を保持して未知状態を手動回復へ閉じる", async () => {
-  let count = 0;
-  const result = await runSignedRouteMatrixVerification(
-    process.cwd(),
-    (async (_root, _dependencies, route) => {
-      count += 1;
-      if (count === 2) throw new Error("provider output must not escape");
-      return completed(route ?? "forward", "interactive_initial_consent");
-    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-    () => Object.freeze({ status: "revoked" as const }),
+test("route runner例外は実Processをpoisonし全guarded入口をEffect前に閉じる", () => {
+  const probe = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
+      "runner_exception",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
   );
+  assert.equal(probe.status, 0, probe.stderr);
+  const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
+  const result = observed.result as Record<string, unknown>;
   assert.equal(result.status, "blocked");
-  assert.equal(result.attemptedRouteCount, 2);
+  assert.equal(observed.attempts, 2);
   assert.equal(result.completedRouteCount, 1);
-  assert.equal(result.results.length, 2);
-  assert.equal(
-    result.results[1]?.reason,
-    "signed_route_matrix_route_runner_failed_closed",
-  );
   assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.cleanupConfirmed, false);
-  assert.equal(result.failedRouteProfile, "reverse");
   assert.equal(result.validationFailure, "runner_exception");
   assert.equal(result.effectStateUnknown, true);
-  assert.equal(result.canonicalRepositoryChanged, null);
-  assert.equal(result.rawProviderOutputReported, null);
-  assert.equal(result.hostPathReported, null);
-  assert.equal(result.credentialReported, null);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(observed.poisoned, true);
+  assert.equal(
+    (observed.secondMatrix as Record<string, unknown>).validationFailure,
+    "process_restart_required",
+  );
+  assert.equal(observed.packageReads, 0);
+  assert.equal(observed.grantReads, 0);
+  assert.equal(
+    observed.packageReason,
+    "platform_provisioner_process_restart_required",
+  );
+  assert.equal(
+    observed.taskReason,
+    "coordinator_task_process_restart_required",
+  );
+  assert.equal(
+    observed.grantReason,
+    "external_send_confirmation_cleanup_unknown_process_restart_required",
+  );
 });
 
-test("非適合routeの観測field欠落またはnullは発生事実でなく未知へ集約する", async () => {
+test("非適合routeの観測field欠落またはnullは独立Processでpoisonへ収束する", () => {
   for (const field of [
     "processRestartRequired",
     "canonicalRepositoryChanged",
@@ -260,19 +275,17 @@ test("非適合routeの観測field欠落またはnullは発生事実でなく未
     "credentialReported",
   ]) {
     for (const mode of ["missing", "null"] as const) {
-      const base: Record<string, unknown> = {
-        ...completed("forward", "interactive_initial_consent"),
-      };
-      if (mode === "missing") delete base[field];
-      else base[field] = null;
-      const result = await runSignedRouteMatrixVerification(
-        process.cwd(),
-        (async () =>
-          Object.freeze(
-            base,
-          )) as unknown as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-        () => Object.freeze({ status: "revoked" as const }),
+      const probe = spawnSync(
+        process.execPath,
+        [
+          path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
+          `${mode}:${field}`,
+        ],
+        { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
       );
+      assert.equal(probe.status, 0, probe.stderr);
+      const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
+      const result = observed.result as Record<string, unknown>;
       assert.equal(result.status, "blocked", `${field}:${mode}`);
       assert.equal(
         result.validationFailure,
@@ -281,11 +294,31 @@ test("非適合routeの観測field欠落またはnullは発生事実でなく未
       );
       assert.equal(result.effectStateUnknown, true, `${field}:${mode}`);
       assert.equal(result.manualRecoveryRequired, true, `${field}:${mode}`);
+      assert.equal(result.processRestartRequired, true, `${field}:${mode}`);
+      assert.equal(observed.poisoned, true, `${field}:${mode}`);
       assert.equal(result.canonicalRepositoryChanged, null, `${field}:${mode}`);
       assert.equal(result.rawProviderOutputReported, null, `${field}:${mode}`);
       assert.equal(result.hostPathReported, null, `${field}:${mode}`);
       assert.equal(result.credentialReported, null, `${field}:${mode}`);
     }
+  }
+});
+
+test("同意resetのthrowまたはmalformedはroute開始前でも独立Process poisonへ閉じる", () => {
+  for (const scenario of ["revoke_throw", "revoke_malformed"]) {
+    const probe = spawnSync(
+      process.execPath,
+      [path.resolve("tests/fixtures/signed-route-poison-probe.ts"), scenario],
+      { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(probe.status, 0, `${scenario}: ${probe.stderr}`);
+    const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
+    const result = observed.result as Record<string, unknown>;
+    assert.equal(observed.attempts, 0, scenario);
+    assert.equal(result.validationFailure, "runner_exception", scenario);
+    assert.equal(result.effectStateUnknown, true, scenario);
+    assert.equal(result.processRestartRequired, true, scenario);
+    assert.equal(observed.poisoned, true, scenario);
   }
 });
 
@@ -336,7 +369,7 @@ test("同意取消の観測不能時は一つのrouteも開始しない", async 
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.deepEqual(contract.routes, [
     "forward",
     "reverse",

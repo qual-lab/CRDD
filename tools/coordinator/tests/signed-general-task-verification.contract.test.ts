@@ -299,7 +299,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);
@@ -725,16 +725,42 @@ test("ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidate�
   }
 });
 
-test("completion reject、取消、Candidate Store例外をPassへ流さない", async () => {
-  const rejected = dependencies({ completionRejects: true });
-  const rejectedResult = await runSignedGeneralTaskVerification(
-    path.resolve("."),
-    rejected.value,
-  );
-  assert.equal(rejectedResult.status, "blocked");
-  assert.equal(rejectedResult.manualRecoveryRequired, true);
-  assert.equal(rejected.calls.unbound, 1);
+test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし全入口を閉じる", () => {
+  for (const scenario of [
+    "completed_true",
+    "completed_missing",
+    "completed_null",
+    "completion_reject",
+    "start_throw",
+    "discard_true",
+  ]) {
+    const probe = spawnSync(
+      process.execPath,
+      [path.resolve("tests/fixtures/signed-general-poison-probe.ts"), scenario],
+      { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(probe.status, 0, `${scenario}: ${probe.stderr}`);
+    const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
+    const result = observed.runnerResult as Record<string, unknown>;
+    assert.equal(result.status, "blocked", scenario);
+    assert.equal(result.processRestartRequired, true, scenario);
+    assert.equal(observed.poisoned, true, scenario);
+    assert.equal(observed.packageReads, 0, scenario);
+    assert.equal(observed.grantReads, 0, scenario);
+    assert.equal(
+      observed.packageReason,
+      "platform_provisioner_process_restart_required",
+      scenario,
+    );
+    assert.equal(
+      observed.taskReason,
+      "coordinator_task_process_restart_required",
+      scenario,
+    );
+  }
+});
 
+test("取消、Candidate Store例外をPassへ流さない", async () => {
   const cancelled = dependencies({ cancellationRequested: true });
   const cancelledResult = await runSignedGeneralTaskVerification(
     path.resolve("."),
@@ -764,7 +790,7 @@ test("Candidate discard不成立は残存0とせず手動処置対象を返す",
       status: "blocked",
       reason: "candidate_bundle_discard_recovery_required",
       manualRecoveryRequired: true,
-      processRestartRequired: true,
+      processRestartRequired: false,
       candidateRecoveryId: `candidate-recovery.${"1".repeat(64)}.${"2".repeat(64)}`,
       candidateStoreRecoveryId: null,
     }),
@@ -776,7 +802,7 @@ test("Candidate discard不成立は残存0とせず手動処置対象を返す",
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "signed_general_task_candidate_discard_failed");
   assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.processRestartRequired, true);
+  assert.equal(result.processRestartRequired, false);
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(
     (result as Readonly<Record<string, unknown>>).candidateIdForManualDiscard,

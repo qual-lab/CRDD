@@ -1,6 +1,10 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  isRuntimeProcessPoisoned,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../src/core/runtime-process-safety-state.ts";
 import { revokeRuntimeOwnedExternalSendConsent } from "../src/security/external-send-consent-runtime.ts";
 import {
   isCanonicalCrddVersion,
@@ -15,7 +19,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 3;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 4;
 
 const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "forward",
@@ -86,6 +90,12 @@ function releaseIdentity(result: Readonly<Record<string, unknown>>) {
   ]);
 }
 
+function ensureRuntimeProcessPoisoned() {
+  poisonRuntimeProcessAfterCleanupUnknown();
+  if (!isRuntimeProcessPoisoned())
+    throw new Error("runtime_process_poison_transition_failed");
+}
+
 function failedRouteResult(route: SignedGeneralTaskRouteProfile) {
   return Object.freeze({
     status: "blocked" as const,
@@ -93,12 +103,35 @@ function failedRouteResult(route: SignedGeneralTaskRouteProfile) {
     requestedRouteProfile: route,
     cleanupConfirmed: false,
     manualRecoveryRequired: true,
-    processRestartRequired: true,
+    processRestartRequired: isRuntimeProcessPoisoned(),
     effectStateUnknown: true,
     canonicalRepositoryChanged: null,
     rawProviderOutputReported: null,
     hostPathReported: null,
     credentialReported: null,
+  });
+}
+
+function processRestartRequiredResult() {
+  return Object.freeze({
+    contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
+    contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
+    status: "blocked" as const,
+    reason: "signed_route_matrix_process_restart_required",
+    requestedRoutes: ROUTES,
+    attemptedRouteCount: 0,
+    completedRouteCount: 0,
+    failedRouteProfile: null,
+    validationFailure: "process_restart_required" as const,
+    results: Object.freeze([]),
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: true,
+    effectStateUnknown: false,
+    canonicalRepositoryChanged: false,
+    rawProviderOutputReported: false,
+    hostPathReported: false,
+    credentialReported: false,
   });
 }
 
@@ -154,8 +187,24 @@ export async function runSignedRouteMatrixVerification(
   run: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
   revoke: typeof revokeRuntimeOwnedExternalSendConsent = revokeRuntimeOwnedExternalSendConsent,
 ) {
-  const revoked = revoke();
-  if (revoked.status !== "revoked") {
+  if (isRuntimeProcessPoisoned()) return processRestartRequiredResult();
+  let revokeStatus: "revoked" | "recovery_required";
+  try {
+    const revoked = revoke();
+    const descriptor = Object.getOwnPropertyDescriptor(revoked, "status");
+    if (
+      !descriptor ||
+      !("value" in descriptor) ||
+      (descriptor.value !== "revoked" &&
+        descriptor.value !== "recovery_required")
+    )
+      throw new Error("consent_reset_result_invalid");
+    revokeStatus = descriptor.value;
+  } catch {
+    ensureRuntimeProcessPoisoned();
+    return createSignedRouteMatrixCliFailureResult("runner_exception");
+  }
+  if (revokeStatus !== "revoked") {
     return Object.freeze({
       contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
       contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
@@ -169,7 +218,7 @@ export async function runSignedRouteMatrixVerification(
       results: Object.freeze([]),
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
-      processRestartRequired: false,
+      processRestartRequired: isRuntimeProcessPoisoned(),
       effectStateUnknown: false,
       canonicalRepositoryChanged: false,
       rawProviderOutputReported: false,
@@ -193,9 +242,21 @@ export async function runSignedRouteMatrixVerification(
       const outcome = await run(repositoryRoot, undefined, route);
       result = Object.freeze({ ...outcome });
     } catch {
+      ensureRuntimeProcessPoisoned();
       result = failedRouteResult(route);
       runnerFailed = true;
     }
+    if (result.processRestartRequired === true && !isRuntimeProcessPoisoned())
+      ensureRuntimeProcessPoisoned();
+    const observationUnknown =
+      result.effectStateUnknown === true ||
+      typeof result.processRestartRequired !== "boolean" ||
+      typeof result.canonicalRepositoryChanged !== "boolean" ||
+      typeof result.rawProviderOutputReported !== "boolean" ||
+      typeof result.hostPathReported !== "boolean" ||
+      typeof result.credentialReported !== "boolean";
+    if (observationUnknown && !isRuntimeProcessPoisoned())
+      ensureRuntimeProcessPoisoned();
     results.push(result);
     const exact = isExactSignedRouteResult(
       route,
@@ -247,9 +308,7 @@ export async function runSignedRouteMatrixVerification(
     manualRecoveryRequired:
       effectStateUnknown ||
       results.some((result) => result.manualRecoveryRequired !== false),
-    processRestartRequired:
-      effectStateUnknown ||
-      results.some((result) => result.processRestartRequired === true),
+    processRestartRequired: isRuntimeProcessPoisoned(),
     effectStateUnknown,
     canonicalRepositoryChanged: effectStateUnknown
       ? null
@@ -286,9 +345,10 @@ export function describeSignedRouteMatrixVerificationContract() {
       "route_nonconforming",
       "release_identity_mismatch",
       "runner_exception",
+      "process_restart_required",
     ]),
     unknownEffectProjection:
-      "explicit_effect_state_unknown_without_claiming_observed_change_or_disclosure",
+      "route_started_effect_or_restart_observation_unknown_irreversibly_poisons_shared_process_before_true_projection_without_claiming_observed_change_or_disclosure",
     canonicalRepositoryEffectAllowed: false,
     apiKeyFallbackAllowed: false,
     additionalPurchaseAllowed: false,
@@ -315,7 +375,7 @@ export function createSignedRouteMatrixCliFailureResult(
     results: Object.freeze([]),
     cleanupConfirmed: !effectStateUnknown,
     manualRecoveryRequired: effectStateUnknown,
-    processRestartRequired: effectStateUnknown,
+    processRestartRequired: isRuntimeProcessPoisoned(),
     effectStateUnknown,
     canonicalRepositoryChanged: effectStateUnknown ? null : false,
     rawProviderOutputReported: effectStateUnknown ? null : false,
@@ -339,6 +399,7 @@ async function main() {
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   main().catch(() => {
+    ensureRuntimeProcessPoisoned();
     process.stdout.write(
       `${JSON.stringify(createSignedRouteMatrixCliFailureResult("runner_exception"), null, 2)}\n`,
     );

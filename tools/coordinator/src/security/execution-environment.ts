@@ -15,6 +15,7 @@ import {
   endRuntimeProcessEffectDrain,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../core/runtime-process-safety-state.ts";
+import { reduceHostGenerationLossTransition } from "../core/host-generation-loss-transition.ts";
 
 export const CREDENTIAL_ENV_NAMES = Object.freeze([
   "ANTHROPIC_API_KEY",
@@ -1016,21 +1017,15 @@ function ownedOperationFromManagementCapability(managementCapability: unknown) {
   return Object.freeze({ binding, identity });
 }
 
-type HostOperationSupervisorAcquirer = (
-  rootName: string,
-  nonce: string,
-) => ReturnType<typeof acquireRuntimeOwnedHostOperationSupervisorLock>;
-
-async function activateOwnedHostOperationGenerationLockUsingAcquirer(
+export async function activateOwnedHostOperationGenerationLock(
   managementCapability: unknown,
-  acquire: HostOperationSupervisorAcquirer,
 ) {
   const { binding, identity } =
     ownedOperationFromManagementCapability(managementCapability);
   const state = ownedOperationGeneration(binding.owned, identity);
   if (state.generationLock)
     throw new Error("owned_operation_generation_lock_already_active");
-  const outcome = await acquire(
+  const outcome = await acquireRuntimeOwnedHostOperationSupervisorLock(
     path.basename(identity.root),
     identity.hostRecovery.nonce,
   );
@@ -1046,29 +1041,6 @@ async function activateOwnedHostOperationGenerationLockUsingAcquirer(
     return "cleanup_unknown" as const;
   }
   return outcome.status;
-}
-
-export function activateOwnedHostOperationGenerationLock(
-  managementCapability: unknown,
-) {
-  return activateOwnedHostOperationGenerationLockUsingAcquirer(
-    managementCapability,
-    acquireRuntimeOwnedHostOperationSupervisorLock,
-  );
-}
-
-/** @internal Isolated contract fixture; never used by the production adapter. */
-export function createIsolatedOwnedHostOperationGenerationActivatorCandidate(
-  acquire: HostOperationSupervisorAcquirer,
-) {
-  return Object.freeze({
-    productionAuthority: false as const,
-    activate: (managementCapability: unknown) =>
-      activateOwnedHostOperationGenerationLockUsingAcquirer(
-        managementCapability,
-        acquire,
-      ),
-  });
 }
 
 export async function confirmOwnedHostOperationGenerationLockReadiness(
@@ -1161,19 +1133,23 @@ export function observeOwnedHostOperationGenerationLoss(
     resolveDetected = resolve;
   });
   lock.onFailureDetected(() => {
-    generation.retired = true;
-    revokeOwnedOperationEffectCapabilities(generation.owned);
-    drainToken ??= beginRuntimeProcessEffectDrain();
+    const transition = reduceHostGenerationLossTransition("failure_detected");
+    generation.retired = transition.retired;
+    if (transition.revokeEffectCapabilities)
+      revokeOwnedOperationEffectCapabilities(generation.owned);
+    if (transition.beginEffectDrain)
+      drainToken ??= beginRuntimeProcessEffectDrain();
     resolveDetected();
   });
   return Object.freeze({
     detected,
     outcome: lock.loss.then((outcome) => {
-      generation.retired = true;
+      const transition = reduceHostGenerationLossTransition(outcome);
+      generation.retired = transition.retired;
       generation.lossOutcome = outcome;
-      revokeOwnedOperationEffectCapabilities(generation.owned);
-      if (outcome === "cleanup_unknown")
-        poisonRuntimeProcessAfterCleanupUnknown();
+      if (transition.revokeEffectCapabilities)
+        revokeOwnedOperationEffectCapabilities(generation.owned);
+      if (transition.poisonProcess) poisonRuntimeProcessAfterCleanupUnknown();
       return outcome;
     }),
     releaseDrain: () => {

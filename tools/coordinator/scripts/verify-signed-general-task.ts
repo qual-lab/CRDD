@@ -7,6 +7,10 @@ import {
   MINIMUM_COORDINATOR_NODE_VERSION,
 } from "../src/core/node-runtime-version.ts";
 import {
+  isRuntimeProcessPoisoned,
+  poisonRuntimeProcessAfterCleanupUnknown,
+} from "../src/core/runtime-process-safety-state.ts";
+import {
   discardRuntimeOwnedCandidateBundle,
   readRuntimeOwnedCandidateBundle,
 } from "../src/security/candidate-bundle-store.ts";
@@ -24,7 +28,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 8;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 9;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -205,6 +209,11 @@ function boundedRecoveryIds(
 
 function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
   const sources = results.filter((result) => result !== null);
+  if (
+    sources.some((result) => result?.processRestartRequired === true) &&
+    !isRuntimeProcessPoisoned()
+  )
+    ensureRuntimeProcessPoisoned();
   const hostRecoveryIds = boundedRecoveryIds(sources, "hostRecoveryId");
   const dockerRecoveryIds = boundedRecoveryIds(
     sources,
@@ -228,9 +237,9 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
     manualRecoveryRequired: sources.some(
       (result) => result?.manualRecoveryRequired === true,
     ),
-    processRestartRequired: sources.some(
-      (result) => result?.processRestartRequired === true,
-    ),
+    processRestartRequired:
+      isRuntimeProcessPoisoned() ||
+      sources.some((result) => result?.processRestartRequired === true),
     hostRecoveryId: hostRecoveryIds.length === 1 ? hostRecoveryIds[0] : null,
     hostRecoveryIds,
     dockerRecoveryId:
@@ -279,6 +288,12 @@ function blocked(
     hostPathReported: false,
     credentialReported: false,
   });
+}
+
+function ensureRuntimeProcessPoisoned() {
+  poisonRuntimeProcessAfterCleanupUnknown();
+  if (!isRuntimeProcessPoisoned())
+    throw new Error("runtime_process_poison_transition_failed");
 }
 
 const ROUTE_EXPECTATIONS: Readonly<
@@ -377,6 +392,7 @@ function verifiedTaskResult(
     result.reason === "coordinator_task_candidate_approved" &&
     result.cleanupConfirmed === true &&
     result.manualRecoveryRequired === false &&
+    result.processRestartRequired === false &&
     result.executorProvider === route.executorProvider &&
     result.reviewerProvider === route.reviewerProvider &&
     result.reviewerIndependence === "provider_independent" &&
@@ -518,13 +534,14 @@ export async function runSignedGeneralTaskVerification(
   } catch {
     // The package verifier result remains unavailable and cannot open the gate.
   }
-  if (release?.reason === "platform_provisioner_process_restart_required") {
+  if (isRuntimeProcessPoisoned()) {
     return blocked(
       "signed_general_task_process_restart_required",
       release,
       Object.freeze({
         canonicalRepositoryChanged: false,
         manualRecoveryRequired: true,
+        processRestartRequired: isRuntimeProcessPoisoned(),
       }),
     );
   }
@@ -557,6 +574,7 @@ export async function runSignedGeneralTaskVerification(
       verifiedPackageCapability,
     );
   } catch {
+    ensureRuntimeProcessPoisoned();
     return blocked(
       "signed_general_task_start_failed_closed",
       null,
@@ -572,6 +590,7 @@ export async function runSignedGeneralTaskVerification(
     try {
       taskResult = plainRecord(await started.completion);
     } catch {
+      ensureRuntimeProcessPoisoned();
       return blocked(
         "signed_general_task_completion_failed_closed",
         null,
@@ -580,11 +599,21 @@ export async function runSignedGeneralTaskVerification(
     }
 
     if (!taskResult) {
+      ensureRuntimeProcessPoisoned();
       return blocked(
         "signed_general_task_result_contract_mismatch",
         null,
         Object.freeze({ manualRecoveryRequired: true }),
       );
+    }
+
+    if (typeof taskResult.processRestartRequired !== "boolean") {
+      ensureRuntimeProcessPoisoned();
+    } else if (
+      taskResult.processRestartRequired === true &&
+      !isRuntimeProcessPoisoned()
+    ) {
+      ensureRuntimeProcessPoisoned();
     }
 
     const candidateId = taskResult.candidateId;
@@ -653,6 +682,13 @@ export async function runSignedGeneralTaskVerification(
     if (unbindCancellation.requested()) {
       return blocked(
         "signed_general_task_cancelled",
+        taskResult,
+        Object.freeze({ candidateDiscarded: true }),
+      );
+    }
+    if (isRuntimeProcessPoisoned()) {
+      return blocked(
+        "signed_general_task_process_restart_required",
         taskResult,
         Object.freeze({ candidateDiscarded: true }),
       );
@@ -740,6 +776,8 @@ export function describeSignedGeneralTaskVerificationContract() {
     frontIdentityBinding:
       "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
     candidateDisposition: "exact_content_verify_then_discard",
+    processRestartProjection:
+      "task_started_completion_or_restart_observation_unknown_irreversibly_poisons_shared_process_before_return_and_exact_false_plus_unpoisoned_state_required_for_success",
     canonicalRepositoryEffectAllowed: false,
     apiKeyFallbackAllowed: false,
     paidApiFallbackAllowed: false,
