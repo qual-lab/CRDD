@@ -53,7 +53,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 19;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 20;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -2767,9 +2767,17 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     root.rootPath,
   ).some((intent) => intent.recoveryId === parsed.token);
   let hostOperationGeneration: object | null = null;
+  let hostOperationGenerationIdentity: Readonly<{
+    hostRoot: string;
+    hostNonce: string;
+  }> | null = null;
   if (!fs.existsSync(cleanupDirectoryCandidate) && !cleanupIntentPresent) {
     try {
       const discovered = discoverRecoveryHostBinding(root.rootPath, parsed);
+      hostOperationGenerationIdentity = Object.freeze({
+        hostRoot: discovered.hostRoot,
+        hostNonce: discovered.hostNonce,
+      });
       hostOperationGeneration =
         acquireHostOperationRecoveryGenerationByIdentity(
           discovered.hostRoot,
@@ -2861,9 +2869,55 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     )
       throw new Error("docker_task_runtime_state_user_binding_changed");
     const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
-    const observedRoot = runtimeStateLockController.outsideLock(
-      observeRuntimeStateRoot,
-    );
+    const observedRoot = runtimeStateLockController.outsideLock(() => {
+      if (!hostOperationGeneration || !hostOperationGenerationIdentity)
+        return observeRuntimeStateRoot();
+      const hostRootBefore = fs.existsSync(
+        hostOperationGenerationIdentity.hostRoot,
+      )
+        ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
+            bigint: true,
+          })
+        : null;
+      const generationToRelease = hostOperationGeneration;
+      hostOperationGeneration = null;
+      if (!releaseHostOperationRecoveryGeneration(generationToRelease))
+        throw new Error("docker_task_recovery_host_lock_release_unconfirmed");
+      let observation: VerifiedRuntimeStateRoot | null = null;
+      let observationError: unknown = null;
+      try {
+        observation = observeRuntimeStateRoot();
+      } catch (error) {
+        observationError = error;
+      }
+      hostOperationGeneration =
+        acquireHostOperationRecoveryGenerationByIdentity(
+          hostOperationGenerationIdentity.hostRoot,
+          hostOperationGenerationIdentity.hostNonce,
+        );
+      if (!hostOperationGeneration)
+        throw new Error(
+          "docker_task_host_operation_generation_active_or_unknown",
+        );
+      const hostRootAfter = fs.existsSync(
+        hostOperationGenerationIdentity.hostRoot,
+      )
+        ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
+            bigint: true,
+          })
+        : null;
+      if (
+        Boolean(hostRootBefore) !== Boolean(hostRootAfter) ||
+        (hostRootBefore &&
+          hostRootAfter &&
+          (hostRootBefore.dev !== hostRootAfter.dev ||
+            hostRootBefore.ino !== hostRootAfter.ino ||
+            hostRootBefore.birthtimeNs !== hostRootAfter.birthtimeNs))
+      )
+        throw new Error("docker_task_recovery_host_binding_changed");
+      if (observationError) throw observationError;
+      return observation;
+    });
     const rootAfter = fs.lstatSync(root.rootPath, { bigint: true });
     if (
       rootBefore.dev !== rootAfter.dev ||

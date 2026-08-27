@@ -37,15 +37,20 @@ import {
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
 } from "../src/security/docker-recovery-runtime-internal.ts";
 import {
+  acquireHostOperationRecoveryGenerationByIdentity,
   abandonOwnedHostOperationGenerationLock,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   recoverOwnedOperationDirectories,
+  releaseHostOperationRecoveryGeneration,
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
-import { loadHostRecoveryRecordByToken } from "../src/security/host-recovery-record.ts";
+import {
+  loadHostRecoveryRecordByToken,
+  parseHostRecoveryToken,
+} from "../src/security/host-recovery-record.ts";
 
 const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -2800,6 +2805,56 @@ test("production共有回復engineはselected-user再bind不一致をEffect前�
   }
 });
 
+test("production共有回復engineはnative観測中にHost世代とRuntimeState世代を解放して同一世代へ再取得する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("expected");
+  const root = verifiedRoot(fixture.root);
+  const operationDirectory = fs
+    .readdirSync(fixture.root)
+    .find((name) => name.startsWith("docker-task-"));
+  assert.ok(operationDirectory);
+  const base = readCommittedDockerRecoveryJson(
+    path.join(fixture.root, operationDirectory, "base.json"),
+    "base.json",
+  ).value as Record<string, unknown>;
+  const hostNonce = parseHostRecoveryToken(base.initialHostRecoveryId).nonce;
+  let hostGenerationWasReleasedForObservation = false;
+  let runtimeStateGenerationWasReleasedForObservation = false;
+  try {
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => {
+        const hostGeneration = acquireHostOperationRecoveryGenerationByIdentity(
+          fixture.hostRoot,
+          hostNonce,
+        );
+        hostGenerationWasReleasedForObservation = Boolean(hostGeneration);
+        const runtimeStateGeneration =
+          acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+            root.stableLogicalHomeBindingHash,
+          );
+        runtimeStateGenerationWasReleasedForObservation = Boolean(
+          runtimeStateGeneration,
+        );
+        assert.equal(runtimeStateGeneration?.release(), true);
+        assert.equal(
+          releaseHostOperationRecoveryGeneration(hostGeneration),
+          true,
+        );
+        return null;
+      },
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "docker_task_runtime_state_binding_changed");
+    assert.equal(hostGenerationWasReleasedForObservation, true);
+    assert.equal(runtimeStateGenerationWasReleasedForObservation, true);
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
 test("cleanup-only回復も作成時selected-user再bind不一致を削除前に停止する", () => {
   const rootPath = createKilledProductionCleanupRoot();
   const root = verifiedRoot(rootPath);
@@ -3270,7 +3325,7 @@ test("production共有Docker回復はreceipt前照会の失敗・signal・stderr
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 19,
+    contractRevision: 20,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
