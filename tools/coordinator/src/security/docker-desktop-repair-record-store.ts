@@ -744,6 +744,14 @@ function hasUnknownReconciliation(ledger: DockerDesktopRepairLedgerSnapshot) {
   );
 }
 
+function hasUnknownHostEffect(ledger: DockerDesktopRepairLedgerSnapshot) {
+  return [...ledger.processEffects, ...ledger.filesystemEffects].some(
+    (entry) =>
+      HOST_EFFECT_ACTIONS.has(entry.action) &&
+      (entry.phase !== "settled" || entry.confirmation === "unknown"),
+  );
+}
+
 function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   const shutdown = effectEntry(ledger, "official_shutdown");
   const native = effectEntry(ledger, "native_termination");
@@ -914,6 +922,7 @@ function stageLedgerCompatible(
       isSettledNotIssued(ledger, "observed_desktop_recovery") &&
       !effect("desktop_launch") &&
       isSettled(ledger, "official_shutdown") &&
+      !hasUnknownHostEffect(ledger) &&
       !hasUnknownReconciliation(ledger) &&
       ledger.engineReady === true &&
       ledger.liveRunIdentity !== null &&
@@ -927,6 +936,7 @@ function stageLedgerCompatible(
       isSettledNotIssued(ledger, "observed_desktop_recovery") &&
       !effect("desktop_launch") &&
       isSettled(ledger, "official_shutdown") &&
+      !hasUnknownHostEffect(ledger) &&
       !hasUnknownReconciliation(ledger) &&
       ledger.engineReady === true &&
       ledger.liveRunIdentity !== null &&
@@ -1313,6 +1323,13 @@ export function classifyDockerDesktopRepairResume(
     nextStage: DockerDesktopRepairStage | null = null,
   ) => Object.freeze({ state, action, nextStage });
   if (
+    (operation.stage === "no_stale_known_effect_recovery_pending" ||
+      operation.stage === "closed_no_stale_known_effect_retained") &&
+    (hasUnknownHostEffect(operation.ledger) ||
+      hasUnknownReconciliation(operation.ledger))
+  )
+    return result("manual_block");
+  if (
     [
       "closed_retained",
       "closed_no_stale_known_effect_retained",
@@ -1542,6 +1559,8 @@ export function describeDockerDesktopRepairRecordStoreContract() {
       "self_non_recursive_issued_unknown_then_fresh_read_confirmed",
     normalPathRecordCount: 15,
     recoveryMarginRecordCount: 9,
+    recordLimitKind: "defensive_hard_cap",
+    recoveryMarginIsSemanticReachabilityClaim: false,
     legacyRevisionsAutomaticallyMigrated: false,
     unfinishedOperationBlocksNewRepair: true,
     staleDirectoryDeletion: false,

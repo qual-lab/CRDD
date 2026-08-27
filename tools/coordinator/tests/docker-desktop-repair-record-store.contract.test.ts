@@ -109,8 +109,8 @@ function persistHostEffect(
     | "runtime_directory_rename"
     | "desktop_launch",
   observed: Readonly<{
-    issued: boolean;
-    confirmation: "confirmed" | "not_issued";
+    issued: boolean | null;
+    confirmation: "confirmed" | "not_issued" | "unknown";
   }>,
 ) {
   const key = kind === "process" ? "processEffects" : "filesystemEffects";
@@ -431,6 +431,11 @@ test("record／operation容量はEffectや65件目directoryの前に判定でき
     Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
     ledger,
   );
+  const contract = describeDockerDesktopRepairRecordStoreContract();
+  assert.equal(contract.normalPathRecordCount, 15);
+  assert.equal(contract.recordLimit, 24);
+  assert.equal(contract.recordLimitKind, "defensive_hard_cap");
+  assert.equal(contract.recoveryMarginIsSemanticReachabilityClaim, false);
   assert.equal(
     hasDockerDesktopRepairRecordCapacity(
       Object.freeze({ ...operation, sequence: 21 }),
@@ -984,4 +989,91 @@ test("K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定
     persistRecord(boundary, persisted, "prepared", illegalWsl),
     null,
   );
+});
+
+test("unknown Host Effectはknown recovery stageへ昇格せずhistorical stageだけへ閉じる", async (t) => {
+  for (const unknownAction of [
+    "official_shutdown",
+    "native_termination",
+    "wsl_termination",
+  ] as const) {
+    await t.test(unknownAction, (caseContext) => {
+      const { boundary, ledger } = fixture(caseContext);
+      const created = createDockerDesktopRepairOperation(
+        boundary,
+        Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+        ledger,
+      );
+      let current = persistRecord(boundary, created, "prepared", ledger);
+      assert.ok(current);
+      const ordered = [
+        "official_shutdown",
+        "native_termination",
+        "wsl_termination",
+      ] as const;
+      for (const action of ordered) {
+        current = persistHostEffect(
+          boundary,
+          current,
+          "process",
+          action,
+          action === unknownAction
+            ? { issued: true, confirmation: "unknown" }
+            : { issued: true, confirmation: "confirmed" },
+        );
+        if (action === unknownAction) break;
+      }
+      const observationLedger = Object.freeze({
+        ...current.ledger,
+        processEffects: Object.freeze([
+          ...current.ledger.processEffects,
+          Object.freeze({
+            sequence: current.ledger.processEffects.length,
+            action: "observed_desktop_recovery" as const,
+            phase: "settled" as const,
+            issued: false,
+            confirmation: "not_issued" as const,
+          }),
+        ]),
+      });
+      const observed = persistRecord(
+        boundary,
+        current,
+        "prepared",
+        observationLedger,
+      );
+      assert.ok(observed);
+      const knownLedger = Object.freeze({
+        ...observed.ledger,
+        engineReady: true,
+        staleState: "absent" as const,
+        hostSafety: "safe" as const,
+        evidenceState: "preserved" as const,
+        disposition: "known_effect_recovery_pending_human_decision" as const,
+        liveRunIdentity: observed.runIdentity,
+      });
+      assert.equal(
+        persistRecord(
+          boundary,
+          observed,
+          "no_stale_known_effect_recovery_pending",
+          knownLedger,
+        ),
+        null,
+      );
+      const historicalLedger = Object.freeze({
+        ...knownLedger,
+        disposition:
+          "historical_effect_unknown_pending_human_decision" as const,
+      });
+      assert.ok(
+        persistRecord(
+          boundary,
+          observed,
+          "no_stale_historical_effect_unknown_pending",
+          historicalLedger,
+        ),
+      );
+    });
+  }
 });

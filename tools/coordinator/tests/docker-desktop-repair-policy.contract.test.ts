@@ -380,7 +380,7 @@ test("Q確認後のstdin.end throw／errorはprotocol成功とcleanupを直交�
     });
     const outcome = await created.session.release();
     assert.equal(outcome.protocol, "completed");
-    assert.equal(["confirmed", "unknown"].includes(outcome.cleanup), true);
+    assert.equal(outcome.cleanup, "confirmed");
   }
 });
 
@@ -407,6 +407,39 @@ test("active protocol中の全stdio errorは恒久listenerからfailure cleanup�
     await created.session.failureDetected;
     const outcome = await created.session.abort();
     assert.equal(outcome.protocol, "failed");
-    assert.equal(["confirmed", "unknown"].includes(outcome.cleanup), true);
+    assert.equal(outcome.cleanup, "confirmed");
+  }
+});
+
+test("C確認後のstdout／stderr errorもprotocol Evidence不明として失敗する", async () => {
+  for (const streamName of ["stdout", "stderr"] as const) {
+    const hash = "7".repeat(64);
+    const source = [
+      "const hash=Buffer.alloc(32,0x77);",
+      'const frame=(status)=>Buffer.concat([Buffer.from("CRDDDR04"),Buffer.from(status),hash]);',
+      'process.stdout.write(frame("R"));',
+      'process.stdin.once("data",()=>{process.stdout.write(frame("C"));setTimeout(()=>process.exit(0),75);});',
+    ].join("");
+    const child = spawn(process.execPath, ["-e", source], {
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
+      child,
+      hash,
+    );
+    assert.equal(await created.waitForInitial(), "R");
+    child.stdout.once("data", (chunk: Buffer) => {
+      if (chunk.subarray(8, 9).toString("ascii") === "C")
+        child[streamName].emit(
+          "error",
+          new Error("synthetic post-C stdio failure"),
+        );
+    });
+    assert.deepEqual(await created.session.release(), {
+      cleanup: "confirmed",
+      protocol: "failed",
+    });
   }
 });

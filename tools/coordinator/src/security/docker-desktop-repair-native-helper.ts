@@ -221,7 +221,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     resolveFailure();
     void beginFailureCleanup();
   };
-  const onOwnedStdioError = () => {
+  const onOwnedStdinError = () => {
     if (!released && !releaseFrameCompleted) fail();
     else void beginFailureCleanup();
   };
@@ -244,9 +244,12 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     }
   });
   child.stderr.on("data", () => fail());
-  child.stdin.on("error", onOwnedStdioError);
-  child.stdout.on("error", onOwnedStdioError);
-  child.stderr.on("error", onOwnedStdioError);
+  // Once the exact C frame has been received, failure to close stdin affects
+  // cleanup only.  stdout/stderr are the protocol evidence channels: an error
+  // on either channel makes the transcript unknowable at every phase.
+  child.stdin.on("error", onOwnedStdinError);
+  child.stdout.on("error", fail);
+  child.stderr.on("error", fail);
   child.once("error", fail);
   child.once("exit", () => {
     childExitObserved = true;

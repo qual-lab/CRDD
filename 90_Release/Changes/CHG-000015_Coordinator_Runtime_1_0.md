@@ -272,6 +272,12 @@ Secret境界の回帰確認では、Task scope内の固定形式Secretと名前�
 
 Runtime 1.0をReleaseしない場合は、v0.17.xの方法論利用とRuntime非有効状態を維持する。Release後のRollbackはCRDD Release Identity、sequence floor、Provider Home、Host EffectおよびRecovery recordを確認し、単一componentだけを未知状態へ戻さない。
 
+### 13.1 Windows最終復旧候補の最新監査是正
+
+固定版`e0cdf8a`、続く固定版`d861f02`、および固定版`a3ddc1d`の順に行った再監査と是正を、同じ未リリースrev4候補の発展として扱う。過去段落にある「再開余裕9件」は到達可能な意味系列を表さず、意味的に到達可能な通常最大系列15 Recordとは別の、防御的hard cap 24 Recordを指す。23／24境界試験も純粋な容量停止だけを確認する。
+
+最新是正では、`unknown`のHost Effectまたはreconciliationを含む履歴を既知pending／closedへ昇格させず、専用historical状態だけへ保持する。再開、既存pending、明示closeおよびterminal再表示は、非同期artifact／Process観測後にpackage／Policy、Engine、`run`、staleおよび取消を同期再観測する共通fresh snapshotへ結合した。境界不一致、helper喪失、artifact不明、取消、容量不足および耐久化応答不明を別の理由として保持する。native helperはexact `C`後のstdout／stderr errorもprotocol Evidence不明として失敗させ、stdin終了側だけをcleanup専用とする。実rev4 Store試験はwriter ack不明とdurable intent後crashを分離し、全5 Host Effectの再発行0、公式shutdown不明後の全後続Host call 0および未知履歴のknown stage拒否を確認する。これはWindows向け・人間明示の最終復旧境界を変えず、自動fallback、Host実復旧成功、Docker Task Recovery、Dogfooding、Runtime完成またはReleaseを主張しない。
+
 ## 14. 対象外と残存リスク
 
 対象外:
