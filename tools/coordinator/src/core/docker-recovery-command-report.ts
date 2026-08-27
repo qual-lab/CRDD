@@ -31,7 +31,11 @@ export function renderDockerRecoveryDoctorReport(
     return Object.freeze({
       stdout: `${JSON.stringify(report, null, 2)}\n`,
       exitCode: (isRepairReport
-        ? ["closed_retained", "closed_no_stale"]
+        ? [
+            "closed_retained",
+            "closed_historical_effect_unknown_retained",
+            "closed_no_stale",
+          ]
         : ["ready", "recovered"]
       ).includes(reportValue.status)
         ? 0
@@ -59,7 +63,25 @@ export function renderDockerRecoveryDoctorReport(
       `- Process Effect issued: ${tri(reportValue.processEffectIssued)}`,
     );
     lines.push(
+      `- Process Effect confirmation: ${
+        ["not_issued", "confirmed", "unknown"].includes(
+          String(reportValue.processEffectConfirmation),
+        )
+          ? String(reportValue.processEffectConfirmation)
+          : "unknown"
+      }`,
+    );
+    lines.push(
       `- Filesystem Effect issued: ${tri(reportValue.filesystemEffectIssued)}`,
+    );
+    lines.push(
+      `- Filesystem Effect confirmation: ${
+        ["not_issued", "confirmed", "unknown"].includes(
+          String(reportValue.filesystemEffectConfirmation),
+        )
+          ? String(reportValue.filesystemEffectConfirmation)
+          : "unknown"
+      }`,
     );
     lines.push(
       `- stale runtime evidence: ${
@@ -72,9 +94,21 @@ export function renderDockerRecoveryDoctorReport(
     );
     lines.push(`- deletion performed: no`);
     lines.push(
+      `- evidence state: ${
+        ["preserved", "not_preserved", "unknown"].includes(
+          String(reportValue.evidenceState),
+        )
+          ? String(reportValue.evidenceState)
+          : "unknown"
+      }`,
+    );
+    lines.push(
       `- native helper cleanup confirmed: ${tri(
         reportValue.nativeHelperCleanupConfirmed,
       )}`,
+    );
+    lines.push(
+      `- new repair permitted: ${tri(reportValue.newRepairPermitted)}`,
     );
     if (
       reportValue.status === "recovered_pending_close" &&
@@ -94,16 +128,21 @@ export function renderDockerRecoveryDoctorReport(
       lines.push(
         "- retained evidence and stage records must not be deleted or renamed manually",
       );
-    } else if (reportValue.status === "closed_retained") {
+    } else if (
+      reportValue.status === "closed_retained" ||
+      reportValue.status === "closed_historical_effect_unknown_retained"
+    ) {
       lines.push(
         "- result: repair record closed; stale runtime evidence remains intentionally retained",
       );
     }
     return Object.freeze({
       stdout: `${lines.join("\n")}\n`,
-      exitCode: ["closed_retained", "closed_no_stale"].includes(
-        reportValue.status,
-      )
+      exitCode: [
+        "closed_retained",
+        "closed_historical_effect_unknown_retained",
+        "closed_no_stale",
+      ].includes(reportValue.status)
         ? 0
         : 2,
     });

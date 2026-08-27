@@ -99,6 +99,9 @@ function printHelp() {
     `  coordinator doctor --close-docker-desktop-runtime-repair <repair-id> [--json]\n`,
   );
   process.stdout.write(
+    `    Windows only; explicit last-resort repair for the fixed known Docker Desktop failure. Never an automatic fallback and never deletes the retained run directory.\n`,
+  );
+  process.stdout.write(
     `  coordinator activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]\n`,
   );
   process.stdout.write(

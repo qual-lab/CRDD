@@ -182,10 +182,33 @@ test("実CLIはDocker Desktop repair closeを専用reporterへ一意にdispatch�
     report.contract,
     "crdd-coordinator/docker-desktop-runtime-repair",
   );
-  assert.equal(report.contractRevision, 2);
+  assert.equal(report.contractRevision, 3);
   assert.equal(report.status, "blocked");
   assert.equal(report.deletionPerformed, false);
   assert.equal(report.pathReported, false);
+});
+
+test("実CLIはDocker Desktop repairを自動fallbackなしの専用reporterへdispatchする", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      coordinatorExecutable,
+      "doctor",
+      "--repair-docker-desktop-runtime",
+      "--json",
+    ],
+    { encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(result.status, 2, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(
+    report.contract,
+    "crdd-coordinator/docker-desktop-runtime-repair",
+  );
+  assert.equal(report.contractRevision, 3);
+  assert.equal(report.status, "blocked");
+  assert.equal(report.deletionPerformed, false);
+  assert.equal(report.providerEffectIssued, false);
 });
 
 test("実CLIはenable要求を候補診断へ接続しPathを表示しない", (t) => {

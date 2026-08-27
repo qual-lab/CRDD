@@ -12,7 +12,7 @@ import {
 } from "./platform-access-release.ts";
 
 const RESPONSE_BYTES = 41;
-const RESPONSE_MAGIC = Buffer.from("CRDDDR02", "ascii");
+const RESPONSE_MAGIC = Buffer.from("CRDDDR03", "ascii");
 const COMMAND_TIMEOUT_MS = 60_000;
 const START_TIMEOUT_MS = 30_000;
 const RELEASE_TIMEOUT_MS = 5_000;
@@ -42,6 +42,7 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
   terminateProcesses: () => Promise<
     "absent" | "terminated" | "partial_or_unknown" | "unknown"
   >;
+  launchDesktop: () => Promise<"started" | "unknown">;
   release: () => Promise<"released" | "cleanup_unknown">;
 }>;
 
@@ -125,6 +126,11 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
   const fail = () => {
     if (failed) return;
     failed = true;
+    try {
+      child.stdin.destroy();
+    } catch {
+      // The bounded exit observer below owns the remaining cleanup evidence.
+    }
     if (pending) {
       clearTimeout(pending.timer);
       pending.resolve(null);
@@ -139,6 +145,12 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     }
     failureListeners.clear();
     resolveFailure();
+    void waitForExit(child, RELEASE_TIMEOUT_MS).then(() => {
+      child.stdout.destroy();
+      child.stderr.destroy();
+      child.removeAllListeners();
+      child.unref();
+    });
   };
   const deliver = (frame: Buffer) => {
     if (pending) {
@@ -177,7 +189,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       pending = Object.freeze({ resolve, timer });
     });
   };
-  const command = async (value: "I" | "K" | "V") => {
+  const command = async (value: "I" | "K" | "L" | "V") => {
     if (failed || released || !child.stdin.writable) return null;
     const response = receive(COMMAND_TIMEOUT_MS);
     const written = new Promise<boolean>((resolve) => {
@@ -185,7 +197,19 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
         resolve(error === null || error === undefined),
       );
     });
-    if (!(await written)) {
+    const writeCompleted = await new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (value: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      };
+      const timer = setTimeout(() => finish(false), COMMAND_TIMEOUT_MS);
+      void written.then(finish);
+      void failureDetected.then(() => finish(false));
+    });
+    if (!writeCompleted) {
       fail();
       return null;
     }
@@ -223,6 +247,8 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       if (status === "P") return "partial_or_unknown";
       return "unknown";
     },
+    launchDesktop: async () =>
+      (await command("L")) === "S" ? "started" : "unknown",
     release: async () => {
       if (released || releaseInProgress || failed || !child.stdin.writable)
         return "cleanup_unknown";
@@ -245,11 +271,17 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       released = true;
       child.stdin.end();
       const exit = await waitForExit(child, RELEASE_TIMEOUT_MS);
+      const stdioSettled =
+        (child.stdout.readableEnded || child.stdout.destroyed) &&
+        (child.stderr.readableEnded || child.stderr.destroyed) &&
+        (child.stdin.writableEnded || child.stdin.destroyed);
       child.stdout.removeAllListeners();
       child.stderr.removeAllListeners();
       child.removeAllListeners();
       child.unref();
-      return exit.confirmed && exit.code === 0 ? "released" : "cleanup_unknown";
+      return exit.confirmed && exit.code === 0 && stdioSettled
+        ? "released"
+        : "cleanup_unknown";
     },
   });
   return Object.freeze({
@@ -348,11 +380,16 @@ export function acquireRuntimeOwnedDockerDesktopRepairNativeHelper(
 export function describeDockerDesktopRepairNativeHelperContract() {
   return Object.freeze({
     implementation: "signed_platform_access_native_helper",
+    protocolRevision: 3,
     lockIdentity: "global_selected_user_docker_desktop_repair_domain",
     policy: "single_signed_policy_embedded_in_native_and_read_by_runtime",
     packageUpdateExclusion: "read_handles_deny_write_and_delete_until_release",
     processTermination:
       "same_verified_kernel_process_handle_query_terminate_wait_close",
+    desktopLaunch:
+      "create_process_w_exact_locked_launcher_handle_identity_then_close",
+    desktopLaunchEnvironment:
+      "os_known_folder_and_windows_directory_minimal_unicode_block",
     pidAsTerminationAuthority: false,
     processTreeTermination: false,
     parentLoss: "stdin_eof_releases_mutex_artifact_and_process_handles",

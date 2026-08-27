@@ -24,16 +24,17 @@ use windows_sys::Win32::Storage::FileSystem::{
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
+use windows_sys::Win32::System::SystemInformation::GetWindowsDirectoryW;
 use windows_sys::Win32::System::Threading::{
-    CreateMutexW, GetExitCodeProcess, GetProcessTimes, OpenProcess,
-    PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE, QueryFullProcessImageNameW,
-    TerminateProcess, WaitForSingleObject,
+    CREATE_UNICODE_ENVIRONMENT, CreateMutexW, CreateProcessW, GetExitCodeProcess, GetProcessTimes,
+    OpenProcess, PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
+    QueryFullProcessImageNameW, STARTUPINFOW, TerminateProcess, WaitForSingleObject,
 };
 
 const POLICY_BYTES: &[u8] =
     include_bytes!("../../coordinator/policies/windows-docker-desktop-4.41.2.policy");
 const POLICY_MAGIC: &str = "CRDD_WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_V1";
-const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR02";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR03";
 const RESPONSE_BYTES: usize = 41;
 const MAXIMUM_POLICY_BYTES: usize = 16_384;
 const MAXIMUM_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
@@ -541,6 +542,153 @@ fn terminate_processes(artifacts: &[LockedArtifact]) -> u8 {
     }
 }
 
+fn exact_artifact<'a>(role: &str, artifacts: &'a [LockedArtifact]) -> Option<&'a LockedArtifact> {
+    let mut matches = artifacts.iter().filter(|value| value.policy.role == role);
+    let result = matches.next()?;
+    matches.next().is_none().then_some(result)
+}
+
+fn append_environment_entry(environment: &mut Vec<u16>, name: &str, value: &OsStr) -> Option<()> {
+    environment.extend(name.encode_utf16());
+    environment.push(u16::from(b'='));
+    environment.extend(value.encode_wide());
+    environment.push(0);
+    Some(())
+}
+
+fn launcher_environment() -> Option<Vec<u16>> {
+    let local_app_data = crate::windows::local_app_data_path()?;
+    let temporary = local_app_data.join("Temp");
+    for target in [&local_app_data, &temporary] {
+        let metadata = std::fs::symlink_metadata(target).ok()?;
+        let canonical = std::fs::canonicalize(target).ok()?;
+        let canonical_text = canonical.to_string_lossy();
+        let canonical_text = canonical_text
+            .strip_prefix(r"\\?\")
+            .unwrap_or(&canonical_text);
+        if !metadata.is_dir()
+            || metadata.file_type().is_symlink()
+            || !canonical_text.eq_ignore_ascii_case(&target.to_string_lossy())
+        {
+            return None;
+        }
+    }
+    let mut windows = vec![0_u16; 32_768];
+    // SAFETY: windows is a writable bounded UTF-16 buffer.
+    let length =
+        usize::try_from(unsafe { GetWindowsDirectoryW(windows.as_mut_ptr(), 32_768) }).ok()?;
+    if length == 0 || length >= windows.len() {
+        return None;
+    }
+    windows.truncate(length);
+    let windows_directory = OsString::from_wide(&windows);
+    let neutral = [
+        "ALL_PROXY",
+        "APPDATA",
+        "COMSPEC",
+        "GIT_ASKPASS",
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_SSH",
+        "GIT_SSH_COMMAND",
+        "HOME",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "LOGONSERVER",
+        "NODE_EXTRA_CA_CERTS",
+        "NODE_OPTIONS",
+        "NODE_PATH",
+        "NO_PROXY",
+        "PATH",
+        "PATHEXT",
+        "SSH_AGENT_PID",
+        "SSH_AUTH_SOCK",
+        "SYSTEMDRIVE",
+        "USERDOMAIN",
+        "USERNAME",
+        "USERPROFILE",
+    ];
+    let mut entries: Vec<(String, OsString)> = neutral
+        .into_iter()
+        .map(|name| (name.to_owned(), OsString::new()))
+        .collect();
+    entries.extend([
+        ("LOCALAPPDATA".to_owned(), local_app_data.into_os_string()),
+        ("SystemRoot".to_owned(), windows_directory.clone()),
+        ("TEMP".to_owned(), temporary.clone().into_os_string()),
+        ("TMP".to_owned(), temporary.into_os_string()),
+        ("WINDIR".to_owned(), windows_directory),
+    ]);
+    entries.sort_by_key(|(name, _)| name.to_ascii_lowercase());
+    let mut environment = Vec::with_capacity(4096);
+    for (name, value) in entries {
+        append_environment_entry(&mut environment, &name, &value)?;
+    }
+    environment.push(0);
+    (environment.len() <= 32_767).then_some(environment)
+}
+
+fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
+    if !verify_locked_artifacts(artifacts) {
+        return b'U';
+    }
+    let Some(launcher) = exact_artifact("launcher", artifacts) else {
+        return b'U';
+    };
+    let mut application: Vec<u16> = launcher.policy.path.as_os_str().encode_wide().collect();
+    application.push(0);
+    let quoted = format!("\"{}\" --minimized", launcher.policy.path.display());
+    let mut command: Vec<u16> = OsStr::new(&quoted).encode_wide().collect();
+    command.push(0);
+    let mut environment = match launcher_environment() {
+        Some(value) => value,
+        None => return b'U',
+    };
+    let startup = STARTUPINFOW {
+        cb: u32::try_from(size_of::<STARTUPINFOW>()).unwrap_or(0),
+        ..unsafe { std::mem::zeroed() }
+    };
+    let mut process: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+    // SAFETY: all pointers refer to live writable/readable buffers; no handles are inherited.
+    if unsafe {
+        CreateProcessW(
+            application.as_ptr(),
+            command.as_mut_ptr(),
+            null(),
+            null(),
+            0,
+            CREATE_UNICODE_ENVIRONMENT,
+            environment.as_mut_ptr().cast(),
+            null(),
+            &startup,
+            &mut process,
+        )
+    } == 0
+    {
+        return b'U';
+    }
+    let thread = OwnedHandle(process.hThread);
+    let process_handle = OwnedHandle(process.hProcess);
+    let path_matches = process_path(process_handle.0)
+        .map(|value| {
+            value
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&launcher.policy.path.to_string_lossy())
+        })
+        .unwrap_or(false);
+    let creation_valid = process_creation(process_handle.0)
+        .map(|value| value >= filetime_value(launcher.information.ftLastWriteTime))
+        .unwrap_or(false);
+    drop(thread);
+    if path_matches && creation_valid {
+        b'S'
+    } else {
+        b'U'
+    }
+}
+
 fn write_response(writer: &mut impl Write, status: u8, policy_hash: &[u8; 32]) -> bool {
     let mut response = [0_u8; RESPONSE_BYTES];
     response[..8].copy_from_slice(RESPONSE_MAGIC);
@@ -589,6 +737,7 @@ pub(crate) fn run(reader: &mut impl Read, writer: &mut impl Write) -> i32 {
                 ProcessInventory::Unknown => b'U',
             },
             b'K' => terminate_processes(&artifacts),
+            b'L' => launch_desktop(&mut artifacts),
             b'Q' => {
                 return if write_response(writer, b'C', &policy_hash) {
                     0
@@ -626,5 +775,21 @@ mod tests {
         assert_eq!(&bytes[..8], RESPONSE_MAGIC);
         assert_eq!(&bytes[9..], &hash);
         assert!(!bytes.windows(3).any(|window| window == b"C:\\"));
+    }
+
+    #[test]
+    fn launcher_environment_is_known_folder_derived_and_proxy_neutral() {
+        let environment = launcher_environment().unwrap();
+        assert_eq!(environment.last(), Some(&0));
+        let text = String::from_utf16_lossy(&environment);
+        assert!(text.contains("LOCALAPPDATA="));
+        assert!(text.contains("SystemRoot="));
+        assert!(text.contains("TEMP="));
+        assert!(text.contains("TMP="));
+        assert!(text.contains("WINDIR="));
+        assert!(text.contains("HTTP_PROXY=\0"));
+        assert!(text.contains("HTTPS_PROXY=\0"));
+        assert!(text.contains("PATH=\0"));
+        assert!(text.ends_with("\0\0"));
     }
 }

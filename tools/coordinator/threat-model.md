@@ -50,7 +50,7 @@ OS鍵保管ポリシーCore候補はP-256公開鍵と、Windows CNG／KSP＋TPM�
 
 | 境界 | 信頼するもの | 信頼しないもの |
 |---|---|---|
-| Coordinator Runtime 1.0の信頼計算基盤（Trusted Computing Base、TCB） | 正常に動作するOSの認証・Filesystem・process・AppContainer・署名検証機能、OSが認証した選択ローカル対話ユーザー、人間が真正性を確認して明示起動する公式署名済みCRDD Release | 悪意ある別ユーザー、Repository／Provider／Network入力、未検証artifact・Authority・Revision・caller supplied Path |
+| Coordinator Runtime 1.0の信頼計算基盤（Trusted Computing Base、TCB） | 正常に動作するOSの認証・Filesystem・process・AppContainer・署名検証機能、OSが認証した選択ローカル対話ユーザー、人間が真正性を確認して明示起動する公式署名済みCRDD Release、公式Provider配布物、Windows最終復旧で人間が確認した公式Docker配布物と正常なupdater | 悪意ある別ユーザー、Repository／Provider／Network入力、未検証artifact・Authority・Revision・caller supplied Path |
 | Runtime Core | 検証済みSchema、Profile、Policy、Event追記処理 | Agentの自己申告、Providerの`Pass`、自然言語だけのAuthority |
 | Repository Adapter | 固定したGit入力とRuntimeからの許可 | dirty変更の暗黙取込み、ProviderによるGit metadata操作 |
 | Provider Adapter | 正規化処理と明示Capability | 生出力、Provider固有Session、利用可能というだけのAuthority |
@@ -107,11 +107,15 @@ Runtime 1.0のExecution Environment backendはWindows上のDocker Desktop／Linu
 
 引数なしの`doctor`と明示的な診断optionは受動事前診断であり、Providerプロセス、認証、NetworkまたはRepository変更を実行しない。`where`／`which`等の外部locatorも起動せず、Runtime自身がPATHとPATHEXTをFilesystem APIで確認する。絶対Path、locatorの生出力またはProvider Versionは診断結果へ保持しない。明示`doctor --recover-isolation`とWindows専用`doctor --repair-docker-desktop-runtime`はこの受動診断に含めず、それぞれの限定Recovery契約に従う。
 
-`doctor --repair-docker-desktop-runtime`は、Docker Engineの既知停止を二度観測し、固定`dockerInference` socketの既知アクセス不能を確認したWindows Hostだけで人間が明示実行する最終復旧処置である。通常Task、起動時diagnostic、Provider失敗、timeoutまたは別Runtimeから自動fallbackしない。署名済みCRDD配布物、native selected-user／Known Folder照合済みLocal App Data、保護Runtime State、単一の署名対象Policyに固定したDocker Desktop 4.41.2／Engine 28.1.1成果物のPath／size／SHA-256、および選択User単位のWindows global mutexを要求する。native helperは固定成果物をread-onlyかつwrite／delete非共有handleで保持し、公式shutdown後に残るProcessは同じkernel process handleで実行Path、作成時刻および生存を照合したうえで、そのhandleだけを停止・待機・解放する。PIDやProcess名を停止Authorityにしない。WSL処置は`docker-desktop` distributionのterminateだけとし、`wsl --shutdown`、通常distributionまたは任意VMを対象にしない。
+`doctor --repair-docker-desktop-runtime`は、Docker Engineの既知停止を二度観測し、固定`dockerInference` socketの既知アクセス不能を確認したWindows Hostだけで人間が明示実行する最終復旧処置である。通常Task、起動時diagnostic、Provider失敗、timeoutまたは別Runtimeから自動fallbackしない。署名済みCRDD配布物、native selected-user／Known Folder照合済みLocal App Data、保護Runtime State、単一の署名対象Policyに固定したDocker Desktop 4.41.2由来の直接Effect用成果物／Engine 28.1.1、および選択User単位のWindows global mutexを要求する。保証対象はCRDDが直接起動・停止・観測する固定executable集合のexact Path／size／SHA-256／handle IdentityとEngine応答版に限定する。未列挙DLL、resource、loader依存、installation全体のmixed-version、updaterまたは供給経路をAttestationせず、人間が確認した公式Docker配布物と正常なupdaterをT1–T2のTCBに含める。native helperは固定成果物をread-onlyかつwrite／delete非共有handleで保持し、公式shutdown後に残るProcessは同じkernel process handleで実行Path、作成時刻および生存を照合したうえで、そのhandleだけを停止・待機・解放する。PIDやProcess名を停止Authorityにしない。WSL処置は`docker-desktop` distributionのterminateだけとし、`wsl --shutdown`、通常distributionまたは任意VMを対象にしない。
 
 Filesystem Effectは、保護Runtime State内の追記型段階記録と、Local App Data直下の固定`Docker\run`を同じ親Directoryの一意な`run.crdd-stale-*`へrenameする処置に限定する。socket、旧Directory、段階記録、CRDD RuntimeStateの他内容、Provider Home、container、imageまたはvolumeを削除しない。記録は境界Identity、Policy Hash、Directory Identity、単調なEffect ledgerおよび前Record Hashを固定し、未完了、欠落、改ざん、余剰entryまたは上限超過では新しい処置を開始しない。rename前後に同じDirectory Identityと対象不存在を再確認し、Docker Desktopを固定成果物から再起動してEngine 28.1.1の応答、固定成果物およびProcess集合を再確認する。
 
+記録rev3はProcess／Filesystem Effectの発行事実と確認状態を別fieldで単調化し、CRDD manifest Hash、Release Sequence、Treeおよびpackage content rootへ未完了操作を結合する。旧rev2は暗黙移行せず、過去Effect不明かつ退避物なしの状態もEffect 0へ昇格せず専用pending／terminalで保持する。Docker Desktop再起動はNodeの非同期spawnではなく、native helperがKnown Folder由来Local App Data、検証済みTempおよびOS由来Windows Directoryだけの最小Unicode環境を構成し、固定launcherを`CreateProcessW`した同じprocess handleでimage／作成Identityを確認する。launcher handleは確認後に閉じ、Engineと固定Docker Process集合を別途再観測する。
+
 回復直後は`recovered_pending_close`であり、成功終端ではない。退避Directoryと段階記録を保持し、人間が表示されたopaque IDで`doctor --close-docker-desktop-runtime-repair <repair-id>`を明示実行した場合だけ、同じmutexを再取得してEngine、固定成果物、Process、元Directory、退避Identityおよび記録chainを再確認し、削除せず`closed_retained`を追記する。親Process消失ではhelperのstdin EOFがmutex、成果物handleおよびProcess handleを解放し、次回の明示doctorが記録から再開する。Process、Path、Identity、mutex、WSL停止、記録更新、rename、再起動、Engine応答またはhelper解放を確認できなければ成功へ昇格せず、Effect後は`manualRecoveryRequired`、Effect状態自体が不明なら`effectStateUnknown`で停止する。この処置は別のNode native crash、Docker Task Recovery、Provider EffectまたはRuntime完成を解決した根拠にならない。
+
+durable terminalはrepair／Evidenceに対する人間のDispositionだけを表し、helper cleanupを永続事実として保存しない。現在runはterminal追記後もhelperの`Q`応答、exit 0、stdin／stdout／stderrおよびprocess handle回収を確認できなければ`blocked`かつ`newRepairPermitted=false`とする。親がterminal追記後に消失した場合は成功を返さず、EOF／RAII解放へ委ねる。次回は同じselected-user repair-domain mutex、全固定成果物のwrite／delete非共有handle、CRDD package tupleおよびPolicyを一体で再取得できた場合だけ前helperが現在のAuthorityを保持していないと扱い、別未完了操作があれば古いterminalのcloseで迂回しない。
 
 初回Gateは次を個別に返す。
 

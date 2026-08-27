@@ -271,7 +271,7 @@ fn open_directory(path: &Path) -> Option<OwnedHandle> {
     (handle != INVALID_HANDLE_VALUE).then_some(OwnedHandle(handle))
 }
 
-fn local_app_data_path() -> Option<PathBuf> {
+pub(crate) fn local_app_data_path() -> Option<PathBuf> {
     const FOLDER_ID_LOCAL_APP_DATA: GUID = GUID {
         data1: 0xf1b32785,
         data2: 0x6fba,

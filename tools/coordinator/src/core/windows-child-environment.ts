@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 4;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 5;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -167,44 +167,6 @@ export function createWindowsDockerDesktopRepairHelperEnvironment() {
   return createWindowsNativeHelperEnvironment();
 }
 
-export function createWindowsDockerDesktopLauncherEnvironment(
-  localAppData: unknown,
-) {
-  if (
-    typeof localAppData !== "string" ||
-    !path.win32.isAbsolute(localAppData) ||
-    path.win32.normalize(localAppData) !== localAppData ||
-    localAppData.includes("\0") ||
-    path.win32.parse(localAppData).root === localAppData
-  )
-    return null;
-  const temporary = path.win32.join(localAppData, "Temp");
-  try {
-    const local = fs.lstatSync(localAppData);
-    const temp = fs.lstatSync(temporary);
-    if (
-      !local.isDirectory() ||
-      local.isSymbolicLink() ||
-      !temp.isDirectory() ||
-      temp.isSymbolicLink() ||
-      fs.realpathSync.native(localAppData).toLocaleLowerCase("en-US") !==
-        localAppData.toLocaleLowerCase("en-US") ||
-      fs.realpathSync.native(temporary).toLocaleLowerCase("en-US") !==
-        temporary.toLocaleLowerCase("en-US")
-    )
-      return null;
-  } catch {
-    return null;
-  }
-  return fixedWindowsEnvironment(
-    Object.freeze({
-      LOCALAPPDATA: localAppData,
-      TEMP: temporary,
-      TMP: temporary,
-    }),
-  );
-}
-
 export function createWindowsDockerCliEnvironment(
   options: Readonly<{
     dockerConfig: string | null;
@@ -257,9 +219,9 @@ export function describeWindowsChildEnvironmentContract() {
       "docker_recovery_runtime",
       "docker_desktop_runtime_repair",
     ]),
-    dockerDesktopLauncherConsumers: Object.freeze([
-      "docker_desktop_runtime_repair_launcher",
-    ]),
+    dockerDesktopLauncherConsumers: Object.freeze([]),
+    dockerDesktopLauncherEnvironment:
+      "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,
     actualChildObservationRequired: true,

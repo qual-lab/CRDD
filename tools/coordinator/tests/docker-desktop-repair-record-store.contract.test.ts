@@ -28,17 +28,22 @@ function fixture(t: TestContext) {
     localUserBindingHash: "3".repeat(64),
     runtimeStateBindingHash: "4".repeat(64),
     dockerPolicySha256: "5".repeat(64),
+    crddManifestHash: "6".repeat(64),
+    crddReleaseSequence: 1,
+    crddTree: "7".repeat(40),
+    packageContentRootSha256: "8".repeat(64),
     localAppData,
   });
   const ledger = Object.freeze({
     processEffectIssued: false,
+    processEffectConfirmation: "not_issued" as const,
     filesystemEffectIssued: true,
+    filesystemEffectConfirmation: "confirmed" as const,
     engineReady: false,
     staleState: "absent" as const,
     hostSafety: "safe" as const,
     evidenceState: "preserved" as const,
     disposition: "not_applicable" as const,
-    nativeHelperCleanupConfirmed: true,
   });
   return Object.freeze({ boundary, ledger, runtimeStateRoot });
 }
@@ -58,11 +63,30 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
     "recovered_pending_disposition",
     "closed_retained",
   ] as const) {
+    const nextLedger = Object.freeze({
+      ...ledger,
+      processEffectIssued: stage !== "prepared",
+      processEffectConfirmation:
+        stage === "prepared" ? ("not_issued" as const) : ("confirmed" as const),
+      engineReady:
+        stage === "recovered_pending_disposition" ||
+        stage === "closed_retained",
+      staleState:
+        stage === "recovered_pending_disposition" || stage === "closed_retained"
+          ? ("retained" as const)
+          : ("absent" as const),
+      disposition:
+        stage === "recovered_pending_disposition"
+          ? ("pending_human_decision" as const)
+          : stage === "closed_retained"
+            ? ("retained_by_human_decision" as const)
+            : ("not_applicable" as const),
+    });
     const next = persistDockerDesktopRepairStage(
       boundary,
       operation,
       stage,
-      ledger,
+      nextLedger,
     );
     assert.ok(next);
     operation = next;
@@ -111,4 +135,57 @@ test("record storeは削除せず明示close後もEvidenceを保持する", () =
   assert.equal(contract.staleDirectoryDeletion, false);
   assert.equal(contract.closedRetainedRequiresExplicitHumanCommand, true);
   assert.equal(contract.unfinishedOperationBlocksNewRepair, true);
+});
+
+test("Effect ledgerは既知のissued事実を後退させず旧rev2を暗黙移行しない", (t) => {
+  const { boundary, ledger } = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    boundary,
+    Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+    ledger,
+  );
+  const prepared = persistDockerDesktopRepairStage(
+    boundary,
+    created,
+    "prepared",
+    ledger,
+  );
+  assert.ok(prepared);
+  const issued = Object.freeze({
+    ...ledger,
+    processEffectIssued: true,
+    processEffectConfirmation: "confirmed" as const,
+  });
+  const stopped = persistDockerDesktopRepairStage(
+    boundary,
+    prepared,
+    "processes_stopped",
+    issued,
+  );
+  assert.ok(stopped);
+  assert.equal(
+    persistDockerDesktopRepairStage(
+      boundary,
+      stopped,
+      "processes_stopped",
+      ledger,
+    ),
+    null,
+  );
+
+  const record = path.join(
+    prepared.operationDirectory,
+    "repair-00-prepared.json",
+  );
+  const old = JSON.parse(fs.readFileSync(record, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  old.schema = "crdd-coordinator/docker-desktop-repair-record/v2";
+  old.contractRevision = 2;
+  fs.writeFileSync(record, `${JSON.stringify(old)}\n`, "utf8");
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(boundary).status,
+    "unknown",
+  );
 });

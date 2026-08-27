@@ -191,6 +191,8 @@ Docker Desktop 4.41.2は、旧runtime socketを単体削除できずEngineを起
 
 Filesystem Effectは保護Runtime State内のHash chain段階記録と、固定`Docker\run`を同一親の一意な退避名へrenameする処置に限定する。Directory、socketまたは記録を削除せず、Identityを前後照合する。Engine再応答、固定成果物、Process集合およびhelper解放まで確認できた場合は`recovered_pending_close`とし、人間がopaque IDを`doctor --close-docker-desktop-runtime-repair`へ明示した場合だけ、全境界を再確認して削除せず`closed_retained`を追記する。未完了記録は次回の明示doctorで再開し、改ざん、第三状態、Identity差またはcleanup不明では新規repairを止める。通常Taskからの自動fallback、`wsl --shutdown`、CRDD RuntimeStateの他内容、Provider Home、container、image、volumeまたは別WSL distributionの削除を許可しない。契約試験は正常・非発火・三値観測・境界・各段階失敗・helper cleanup不明・再開・明示close・記録改ざんを対象とするが、再度Hostを破損させる実測は行っていない。この候補は別の`0xC0000409`、Docker Task Recovery、残存0、DogfoodingまたはRuntime完成を成立させない。
 
+後続監査是正では記録をrev3とし、Effect発行事実と確認状態の単調遷移、CRDD manifest Hash／Release Sequence／Tree／package content rootへの再開結合、旧rev2の非移行停止、段階ごとのEngine／Process／live run／stale再観測、および過去Effect不明・staleなしの専用pending／terminalを追加した。Nodeの非同期launcher起動は廃止し、native helperがKnown Folder由来の最小Unicode環境で固定launcherを`CreateProcessW`し、返された同じprocess handleでimageと作成Identityを確認する。durable terminalはEvidence dispositionだけを表し、helper cleanupは現在runで`Q`、exit 0、stdio／process handle回収後にだけ公開成功へ投影する。保証対象は直接Effectに使う固定executable集合とEngine応答版であり、未列挙DLL、resource、loader依存、installation全体または供給経路のAttestationは主張せず、人間が確認した公式Docker配布物と正常なupdaterをT1–T2のTCBに含める。
+
 ## 9. Repository／Candidate契約
 
 - 対応BackendはローカルGitだけとし、`read_only`と`isolated_worktree`を扱う。

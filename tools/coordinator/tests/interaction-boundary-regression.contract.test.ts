@@ -35,7 +35,6 @@ import {
 } from "../src/core/node-runtime-version.ts";
 import { isRuntimeProcessPoisoned } from "../src/core/runtime-process-safety-state.ts";
 import {
-  createWindowsDockerDesktopLauncherEnvironment,
   createWindowsDockerDesktopRepairHelperEnvironment,
   createWindowsDockerCliEnvironment,
   createInteractiveConsoleReaderEnvironment,
@@ -993,7 +992,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
 
   assert.deepEqual(describeWindowsChildEnvironmentContract(), {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 4,
+    contractRevision: 5,
     provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
@@ -1016,7 +1015,9 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
       "docker_recovery_runtime",
       "docker_desktop_runtime_repair",
     ],
-    dockerDesktopLauncherConsumers: ["docker_desktop_runtime_repair_launcher"],
+    dockerDesktopLauncherConsumers: [],
+    dockerDesktopLauncherEnvironment:
+      "native_helper_known_folder_and_loaded_os_directory_minimal_unicode_block",
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,
     actualChildObservationRequired: true,
@@ -1025,7 +1026,6 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
     createWindowsDockerDesktopRepairHelperEnvironment(),
     createWindowsNativeHelperEnvironment(),
   );
-  assert.equal(createWindowsDockerDesktopLauncherEnvironment("relative"), null);
 });
 
 test("Windows directoryの親環境差替えを子Environment Authorityにしない", (context) => {

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA =
-  "crdd-coordinator/docker-desktop-repair-record/v2";
+  "crdd-coordinator/docker-desktop-repair-record/v3";
 const OPERATION_PREFIX = "docker-desktop-repair-";
 const MAXIMUM_OPERATIONS = 64;
 const MAXIMUM_RECORDS = 16;
@@ -14,7 +14,9 @@ export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
   "processes_stopped",
   "renamed",
   "recovered_pending_disposition",
+  "no_stale_historical_effect_unknown_pending",
   "closed_retained",
+  "closed_historical_effect_unknown_retained",
   "closed_reconciled_no_stale",
 ] as const);
 export type DockerDesktopRepairStage =
@@ -32,7 +34,13 @@ export type DockerDesktopRepairEvidenceState =
 export type DockerDesktopRepairDisposition =
   | "not_applicable"
   | "pending_human_decision"
-  | "retained_by_human_decision";
+  | "historical_effect_unknown_pending_human_decision"
+  | "retained_by_human_decision"
+  | "historical_effect_unknown_retained_by_human_decision";
+export type DockerDesktopRepairEffectConfirmation =
+  | "not_issued"
+  | "confirmed"
+  | "unknown";
 
 export type DockerDesktopRepairDirectoryIdentity = Readonly<{
   dev: string;
@@ -42,13 +50,14 @@ export type DockerDesktopRepairDirectoryIdentity = Readonly<{
 
 export type DockerDesktopRepairLedgerSnapshot = Readonly<{
   processEffectIssued: DockerDesktopRepairTriState;
+  processEffectConfirmation: DockerDesktopRepairEffectConfirmation;
   filesystemEffectIssued: DockerDesktopRepairTriState;
+  filesystemEffectConfirmation: DockerDesktopRepairEffectConfirmation;
   engineReady: DockerDesktopRepairTriState;
   staleState: DockerDesktopRepairStaleState;
   hostSafety: DockerDesktopRepairHostSafety;
   evidenceState: DockerDesktopRepairEvidenceState;
   disposition: DockerDesktopRepairDisposition;
-  nativeHelperCleanupConfirmed: DockerDesktopRepairTriState;
 }>;
 
 export type DockerDesktopRepairOperation = Readonly<{
@@ -71,12 +80,16 @@ export type DockerDesktopRepairRecordBoundary = Readonly<{
   localUserBindingHash: string;
   runtimeStateBindingHash: string;
   dockerPolicySha256: string;
+  crddManifestHash: string;
+  crddReleaseSequence: number;
+  crddTree: string;
+  packageContentRootSha256: string;
   localAppData: string;
 }>;
 
 type StoredRecord = Readonly<{
   schema: typeof DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA;
-  contractRevision: 2;
+  contractRevision: 3;
   operationId: string;
   sequence: number;
   stage: DockerDesktopRepairStage;
@@ -88,6 +101,10 @@ type StoredRecord = Readonly<{
   localUserBindingHash: string;
   runtimeStateBindingHash: string;
   dockerPolicySha256: string;
+  crddManifestHash: string;
+  crddReleaseSequence: number;
+  crddTree: string;
+  packageContentRootSha256: string;
   ledger: DockerDesktopRepairLedgerSnapshot;
 }>;
 
@@ -143,19 +160,26 @@ function validLedger(
     Object.getPrototypeOf(value) !== Object.prototype ||
     !exactKeys(value, [
       "processEffectIssued",
+      "processEffectConfirmation",
       "filesystemEffectIssued",
+      "filesystemEffectConfirmation",
       "engineReady",
       "staleState",
       "hostSafety",
       "evidenceState",
       "disposition",
-      "nativeHelperCleanupConfirmed",
     ])
   )
     return false;
   return (
     validTriState(Reflect.get(value, "processEffectIssued")) &&
+    ["not_issued", "confirmed", "unknown"].includes(
+      String(Reflect.get(value, "processEffectConfirmation")),
+    ) &&
     validTriState(Reflect.get(value, "filesystemEffectIssued")) &&
+    ["not_issued", "confirmed", "unknown"].includes(
+      String(Reflect.get(value, "filesystemEffectConfirmation")),
+    ) &&
     validTriState(Reflect.get(value, "engineReady")) &&
     ["absent", "retained", "unknown"].includes(
       String(Reflect.get(value, "staleState")),
@@ -169,9 +193,10 @@ function validLedger(
     [
       "not_applicable",
       "pending_human_decision",
+      "historical_effect_unknown_pending_human_decision",
       "retained_by_human_decision",
-    ].includes(String(Reflect.get(value, "disposition"))) &&
-    validTriState(Reflect.get(value, "nativeHelperCleanupConfirmed"))
+      "historical_effect_unknown_retained_by_human_decision",
+    ].includes(String(Reflect.get(value, "disposition")))
   );
 }
 
@@ -198,6 +223,10 @@ function validStoredRecord(
       "localUserBindingHash",
       "runtimeStateBindingHash",
       "dockerPolicySha256",
+      "crddManifestHash",
+      "crddReleaseSequence",
+      "crddTree",
+      "packageContentRootSha256",
       "ledger",
     ])
   )
@@ -207,7 +236,7 @@ function validStoredRecord(
   const stage = Reflect.get(value, "stage");
   return (
     Reflect.get(value, "schema") === DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA &&
-    Reflect.get(value, "contractRevision") === 2 &&
+    Reflect.get(value, "contractRevision") === 3 &&
     operationId(id) &&
     Number.isSafeInteger(sequence) &&
     Number(sequence) >= 0 &&
@@ -225,8 +254,119 @@ function validStoredRecord(
     Reflect.get(value, "runtimeStateBindingHash") ===
       boundary.runtimeStateBindingHash &&
     Reflect.get(value, "dockerPolicySha256") === boundary.dockerPolicySha256 &&
+    Reflect.get(value, "crddManifestHash") === boundary.crddManifestHash &&
+    Reflect.get(value, "crddReleaseSequence") ===
+      boundary.crddReleaseSequence &&
+    Reflect.get(value, "crddTree") === boundary.crddTree &&
+    Reflect.get(value, "packageContentRootSha256") ===
+      boundary.packageContentRootSha256 &&
     validLedger(Reflect.get(value, "ledger"))
   );
+}
+
+function confirmationCompatible(
+  issued: DockerDesktopRepairTriState,
+  confirmation: DockerDesktopRepairEffectConfirmation,
+) {
+  if (issued === false) return confirmation === "not_issued";
+  if (issued === true) return confirmation !== "not_issued";
+  return confirmation === "unknown";
+}
+
+function legalEffectTransition(
+  previousIssued: DockerDesktopRepairTriState,
+  previousConfirmation: DockerDesktopRepairEffectConfirmation,
+  nextIssued: DockerDesktopRepairTriState,
+  nextConfirmation: DockerDesktopRepairEffectConfirmation,
+) {
+  if (
+    !confirmationCompatible(previousIssued, previousConfirmation) ||
+    !confirmationCompatible(nextIssued, nextConfirmation) ||
+    (previousIssued === true && nextIssued !== true) ||
+    (previousIssued === null && nextIssued === false) ||
+    (previousConfirmation === "confirmed" && nextConfirmation !== "confirmed")
+  )
+    return false;
+  return true;
+}
+
+function legalLedgerTransition(
+  previous: DockerDesktopRepairLedgerSnapshot | null,
+  next: DockerDesktopRepairLedgerSnapshot,
+) {
+  if (
+    !confirmationCompatible(
+      next.processEffectIssued,
+      next.processEffectConfirmation,
+    ) ||
+    !confirmationCompatible(
+      next.filesystemEffectIssued,
+      next.filesystemEffectConfirmation,
+    )
+  )
+    return false;
+  if (
+    previous &&
+    (!legalEffectTransition(
+      previous.processEffectIssued,
+      previous.processEffectConfirmation,
+      next.processEffectIssued,
+      next.processEffectConfirmation,
+    ) ||
+      !legalEffectTransition(
+        previous.filesystemEffectIssued,
+        previous.filesystemEffectConfirmation,
+        next.filesystemEffectIssued,
+        next.filesystemEffectConfirmation,
+      ))
+  )
+    return false;
+  return true;
+}
+
+function stageLedgerCompatible(
+  stage: DockerDesktopRepairStage,
+  ledger: DockerDesktopRepairLedgerSnapshot,
+) {
+  if (stage === "recovered_pending_disposition")
+    return (
+      ledger.engineReady === true &&
+      ledger.staleState === "retained" &&
+      ledger.evidenceState === "preserved" &&
+      ledger.disposition === "pending_human_decision"
+    );
+  if (stage === "closed_retained")
+    return (
+      ledger.engineReady === true &&
+      ledger.staleState === "retained" &&
+      ledger.evidenceState === "preserved" &&
+      ledger.disposition === "retained_by_human_decision"
+    );
+  if (stage === "no_stale_historical_effect_unknown_pending")
+    return (
+      ledger.engineReady === true &&
+      ledger.processEffectIssued === null &&
+      ledger.processEffectConfirmation === "unknown" &&
+      ledger.staleState === "absent" &&
+      ledger.disposition === "historical_effect_unknown_pending_human_decision"
+    );
+  if (stage === "closed_historical_effect_unknown_retained")
+    return (
+      ledger.engineReady === true &&
+      ledger.processEffectIssued === null &&
+      ledger.processEffectConfirmation === "unknown" &&
+      ledger.staleState === "absent" &&
+      ledger.evidenceState === "preserved" &&
+      ledger.disposition ===
+        "historical_effect_unknown_retained_by_human_decision"
+    );
+  if (stage === "closed_reconciled_no_stale")
+    return (
+      ledger.engineReady === true &&
+      ledger.staleState === "absent" &&
+      ledger.disposition === "not_applicable"
+    );
+  return true;
 }
 
 function stableBytes(target: string) {
@@ -277,11 +417,24 @@ function legalTransition(
 ) {
   if (previous === null) return next === "prepared";
   const allowed = {
-    prepared: ["processes_stopped", "renamed", "closed_reconciled_no_stale"],
-    processes_stopped: ["renamed", "closed_reconciled_no_stale"],
-    renamed: ["recovered_pending_disposition"],
+    prepared: [
+      "prepared",
+      "processes_stopped",
+      "renamed",
+      "no_stale_historical_effect_unknown_pending",
+    ],
+    processes_stopped: [
+      "processes_stopped",
+      "renamed",
+      "no_stale_historical_effect_unknown_pending",
+    ],
+    renamed: ["renamed", "recovered_pending_disposition"],
     recovered_pending_disposition: ["closed_retained"],
+    no_stale_historical_effect_unknown_pending: [
+      "closed_historical_effect_unknown_retained",
+    ],
     closed_retained: [],
+    closed_historical_effect_unknown_retained: [],
     closed_reconciled_no_stale: [],
   } as const satisfies Readonly<
     Record<DockerDesktopRepairStage, readonly DockerDesktopRepairStage[]>
@@ -347,6 +500,7 @@ function readOperation(
       return null;
     let previousHash = "0".repeat(64);
     let previousStage: DockerDesktopRepairStage | null = null;
+    let previousLedger: DockerDesktopRepairLedgerSnapshot | null = null;
     let last: StoredRecord | null = null;
     for (let index = 0; index < records.length; index += 1) {
       const name = records[index];
@@ -366,11 +520,14 @@ function readOperation(
         value.sequence !== index ||
         value.stage !== match[2] ||
         value.previousRecordSha256 !== previousHash ||
-        !legalTransition(previousStage, value.stage)
+        !legalTransition(previousStage, value.stage) ||
+        !legalLedgerTransition(previousLedger, value.ledger) ||
+        !stageLedgerCompatible(value.stage, value.ledger)
       )
         return null;
       previousHash = createHash("sha256").update(bytes).digest("hex");
       previousStage = value.stage;
+      previousLedger = value.ledger;
       last = value;
     }
     return last ? toOperation(boundary, last, previousHash) : null;
@@ -444,7 +601,15 @@ export function persistDockerDesktopRepairStage(
     if (
       sequence < 0 ||
       sequence >= MAXIMUM_RECORDS ||
-      !legalTransition(operation.sequence < 0 ? null : operation.stage, stage)
+      !legalTransition(
+        operation.sequence < 0 ? null : operation.stage,
+        stage,
+      ) ||
+      !legalLedgerTransition(
+        operation.sequence < 0 ? null : operation.ledger,
+        ledger,
+      ) ||
+      !stageLedgerCompatible(stage, ledger)
     )
       return null;
     if (sequence === 0) {
@@ -458,7 +623,7 @@ export function persistDockerDesktopRepairStage(
     }
     const record: StoredRecord = Object.freeze({
       schema: DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA,
-      contractRevision: 2,
+      contractRevision: 3,
       operationId: operation.operationId,
       sequence,
       stage,
@@ -470,6 +635,10 @@ export function persistDockerDesktopRepairStage(
       localUserBindingHash: boundary.localUserBindingHash,
       runtimeStateBindingHash: boundary.runtimeStateBindingHash,
       dockerPolicySha256: boundary.dockerPolicySha256,
+      crddManifestHash: boundary.crddManifestHash,
+      crddReleaseSequence: boundary.crddReleaseSequence,
+      crddTree: boundary.crddTree,
+      packageContentRootSha256: boundary.packageContentRootSha256,
       ledger,
     });
     const serialized = Buffer.from(`${JSON.stringify(record)}\n`, "utf8");
