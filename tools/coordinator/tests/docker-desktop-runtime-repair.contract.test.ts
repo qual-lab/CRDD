@@ -223,6 +223,8 @@ function fixture(overrides: Partial<RepairDependencies> = {}) {
         value.stage,
       );
       if (
+        value.stage === "no_stale_known_effect_recovery_pending" ||
+        value.stage === "closed_no_stale_known_effect_retained" ||
         value.stage === "no_stale_historical_effect_unknown_pending" ||
         value.stage === "closed_historical_effect_unknown_retained"
       )
@@ -367,6 +369,36 @@ test("Engine ready・unknown・socket根拠なしではDocker Host Effectを発�
   }
 });
 
+test("intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlementへ閉じる", async () => {
+  for (const afterIntent of ["ready", "unknown"] as const) {
+    let observations = 0;
+    const state = fixture({
+      observeEngine: () => {
+        observations += 1;
+        return observations <= 2 ? "known_unavailable" : afterIntent;
+      },
+    });
+    const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+      state.dependencies,
+    );
+    assert.equal(state.calls.includes("shutdown"), false);
+    assert.equal(result.processEffectIssued, false);
+    if (afterIntent === "ready") {
+      assert.equal(result.status, "recovered_pending_close");
+      assert.equal(
+        result.operationState,
+        "no_stale_known_effect_recovery_pending",
+      );
+    } else {
+      assert.equal(result.status, "blocked");
+      assert.equal(
+        result.reason,
+        "docker_desktop_repair_pre_effect_state_unknown",
+      );
+    }
+  }
+});
+
 test("64 retained operationでは新規operation directory／recordを作らない", async () => {
   const retained = operationFixture("closed_retained", {
     engineReady: true,
@@ -398,6 +430,10 @@ test("64 retained operationでは新規operation directory／recordを作らな�
   );
   assert.equal(persisted, 0);
   assert.equal(state.calls.includes("shutdown"), false);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.operatorActionRequired, true);
+  const rendered = renderDockerRecoveryDoctorReport(result, false);
+  assert.match(rendered.stdout, /do not retry, delete, or compact/u);
 });
 
 test("残容量不足では次のHost Effectを発行しない", async () => {
@@ -493,7 +529,7 @@ test("記録・process inventory・rename・restartの不明を成功へ昇格�
             session: session({ processes: "unknown" }),
           }),
       },
-      "docker_desktop_process_inventory_unknown",
+      "docker_desktop_repair_pre_effect_state_unknown",
     ],
     [
       {
@@ -599,18 +635,19 @@ test("helper解放不明は回復後も成功へ昇格しない", async () => {
 test("repairはhelper解放後のpackage世代変更をpending成功へ投影しない", async () => {
   let released = false;
   let launched = false;
-  let inspections = 0;
+  let terminated = false;
+  let renamed = false;
   const changedBoundary = Object.freeze({
     ...boundary,
     packageContentRootSha256: "b".repeat(64),
   });
   const helper = Object.freeze({
     ...session(),
-    inspectProcesses: async () => {
-      inspections += 1;
-      return inspections === 1 || inspections >= 4
-        ? ("verified" as const)
-        : ("absent" as const);
+    inspectProcesses: async () =>
+      launched || !terminated ? ("verified" as const) : ("absent" as const),
+    terminateProcesses: async () => {
+      terminated = true;
+      return "terminated" as const;
     },
     release: async () => {
       released = true;
@@ -630,12 +667,31 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
       status: "acquired" as const,
       session: helper,
     }),
-    identityAt: (target) =>
-      target.includes("run.crdd-stale-")
-        ? runIdentity
-        : target === boundary.runDirectory && launched
-          ? runIdentity
-          : null,
+    renameRunDirectory: () => {
+      renamed = true;
+      return Object.freeze({
+        issued: true,
+        confirmation: "confirmed" as const,
+        staleState: "retained" as const,
+      });
+    },
+    observePath: (target) => {
+      if (target === boundary.runDirectory)
+        return renamed && !launched
+          ? Object.freeze({
+              state: "confirmed_absent" as const,
+              identity: null,
+            })
+          : Object.freeze({ state: "present" as const, identity: runIdentity });
+      if (target.includes("run.crdd-stale-"))
+        return renamed
+          ? Object.freeze({ state: "present" as const, identity: runIdentity })
+          : Object.freeze({
+              state: "confirmed_absent" as const,
+              identity: null,
+            });
+      return Object.freeze({ state: "unknown" as const, identity: null });
+    },
   });
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
     state.dependencies,
@@ -645,6 +701,80 @@ test("repairはhelper解放後のpackage世代変更をpending成功へ投影し
     result.reason,
     "docker_desktop_repair_terminal_boundary_changed",
   );
+});
+
+test("helper解放後のboundary例外は取得済みrepair Evidenceを保持して正規化する", async () => {
+  let released = false;
+  let helperLaunched = false;
+  let helperRenamed = false;
+  const state = fixture({
+    prepareBoundary: () => {
+      if (released) throw new Error("C:\\secret\\boundary");
+      return boundary;
+    },
+    acquireHelper: async () => ({
+      status: "acquired" as const,
+      session: Object.freeze({
+        ...session({ processes: "absent", terminate: "absent" }),
+        inspectProcesses: async () =>
+          helperLaunched ? ("verified" as const) : ("absent" as const),
+        launchDesktop: async () => {
+          helperLaunched = true;
+          return "started" as const;
+        },
+        release: async () => {
+          released = true;
+          return Object.freeze({
+            cleanup: "confirmed" as const,
+            protocol: "completed" as const,
+          });
+        },
+      }),
+    }),
+    renameRunDirectory: () => {
+      helperRenamed = true;
+      return Object.freeze({
+        issued: true,
+        confirmation: "confirmed" as const,
+        staleState: "retained" as const,
+      });
+    },
+    observePath: (target) =>
+      target === boundary.runDirectory
+        ? helperLaunched
+          ? Object.freeze({ state: "present" as const, identity: runIdentity })
+          : helperRenamed
+            ? Object.freeze({
+                state: "confirmed_absent" as const,
+                identity: null,
+              })
+            : Object.freeze({
+                state: "present" as const,
+                identity: runIdentity,
+              })
+        : target.includes("run.crdd-stale-")
+          ? helperRenamed
+            ? Object.freeze({
+                state: "present" as const,
+                identity: runIdentity,
+              })
+            : Object.freeze({
+                state: "confirmed_absent" as const,
+                identity: null,
+              })
+          : Object.freeze({ state: "unknown" as const, identity: null }),
+  });
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    state.dependencies,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_terminal_boundary_changed",
+  );
+  assert.match(result.repairId ?? "", /^docker-desktop-repair\.[a-f0-9]{32}$/u);
+  assert.equal(result.nativeHelperCleanupConfirmed, true);
+  assert.equal(result.newRepairPermitted, false);
 });
 
 test("prepared再開は過去Process EffectをEffect 0へ誤投影しない", async () => {
@@ -752,6 +882,11 @@ test("preparedはsettlement済みshutdown／K／WSLを再発行せず次の状�
 });
 
 test("renamed再開でEngineが既に回復済みならlauncherを二重起動しない", async () => {
+  const recoveredRunIdentity = Object.freeze({
+    dev: "7",
+    ino: "8",
+    birthtimeNs: "9",
+  });
   const ledger: DockerDesktopRepairLedgerSnapshot = Object.freeze({
     processEffects: Object.freeze([
       Object.freeze({
@@ -797,9 +932,11 @@ test("renamed再開でEngineが既に回復済みならlauncherを二重起動�
   const state = fixture({
     observeEngine: () => "ready" as const,
     identityAt: (target) =>
-      target === boundary.runDirectory || target.includes("run.crdd-stale-")
-        ? runIdentity
-        : null,
+      target === boundary.runDirectory
+        ? recoveredRunIdentity
+        : target.includes("run.crdd-stale-")
+          ? runIdentity
+          : null,
   });
   state.setOperation(operation);
   const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
@@ -871,8 +1008,8 @@ test("processes_stopped再開は既知issuedを保持してno-stale pendingへ�
     JSON.stringify(result),
   );
   assert.equal(result.processEffectIssued, true);
-  assert.equal(result.processEffectConfirmation, "unknown");
-  assert.equal(result.effectStateUnknown, true);
+  assert.equal(result.processEffectConfirmation, "confirmed");
+  assert.equal(result.effectStateUnknown, false);
 });
 
 test("processes_stopped再開はProcess不明または置換runをpendingへ昇格しない", async () => {
@@ -1024,7 +1161,7 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
     engineReady: false,
     staleState: "absent",
     hostSafety: "safe",
-    evidenceState: "preserved",
+    evidenceState: "not_preserved",
     disposition: "not_applicable",
     liveRunIdentity: null,
   });
@@ -1062,6 +1199,8 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
       stage,
       Object.freeze({
         ...nextLedger,
+        evidenceState:
+          lastWrite >= 0 ? ("preserved" as const) : nextLedger.evidenceState,
         filesystemEffects: Object.freeze(filesystemEffects),
         filesystemEffectIssued: true,
         filesystemEffectConfirmation: "unknown",
@@ -1152,19 +1291,32 @@ test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", a
     JSON.stringify(result),
   );
   assert.equal(result.processEffectIssued, true);
-  assert.equal(result.processEffectConfirmation, "unknown");
+  assert.equal(result.processEffectConfirmation, "confirmed");
   const inventory = inventoryDockerDesktopRepairOperations(actualBoundary);
   assert.equal(inventory.status, "verified");
   assert.equal(
     inventory.operations[0]?.stage,
-    "no_stale_historical_effect_unknown_pending",
+    "no_stale_known_effect_recovery_pending",
   );
   const replay = await repairWindowsDockerDesktopRuntimeUsingDependencies(
     state.dependencies,
   );
   assert.equal(replay.status, "recovered_pending_close");
   assert.equal(replay.filesystemEffectConfirmation, "confirmed");
-  assert.equal(replay.effectStateUnknown, true);
+  assert.equal(replay.effectStateUnknown, false);
+  const closed = await closeWindowsDockerDesktopRepairUsingDependencies(
+    replay.repairId,
+    state.dependencies,
+  );
+  assert.equal(closed.status, "closed_retained");
+  assert.equal(closed.newRepairPermitted, true);
+  const closedInventory =
+    inventoryDockerDesktopRepairOperations(actualBoundary);
+  assert.equal(closedInventory.status, "verified");
+  assert.equal(
+    closedInventory.operations[0]?.stage,
+    "closed_no_stale_known_effect_retained",
+  );
 });
 
 test("過去Effect不明かつstaleなしは専用close後も履歴不明を保持する", async () => {
@@ -1299,10 +1451,7 @@ test("helper喪失をawait中に検出した後はprocess terminationへ進ま�
     state.dependencies,
   );
   assert.equal(result.status, "blocked");
-  assert.equal(
-    result.reason,
-    "docker_desktop_repair_cancelled_after_process_effect",
-  );
+  assert.equal(result.reason, "docker_desktop_repair_native_helper_lost");
   assert.equal(terminationCalls, 0);
   assert.equal(state.calls.includes("wsl"), false);
 });
@@ -1531,9 +1680,13 @@ test("人間表示はtri-stateと明示closeを示しPathを報告しない", ()
       manualRecoveryRequired: false,
       engineReady: true,
       processEffectIssued: true,
+      processEffectConfirmation: "unknown",
       filesystemEffectIssued: true,
+      filesystemEffectConfirmation: "confirmed",
       staleRuntimeDirectory: "absent",
       nativeHelperCleanupConfirmed: true,
+      effectStateUnknown: true,
+      newRepairPermitted: true,
     }),
     false,
   );

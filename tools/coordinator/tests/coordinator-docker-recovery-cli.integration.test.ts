@@ -159,7 +159,19 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     status: "closed_retained",
     reason: "docker_desktop_repair_evidence_retention_closed",
     repairId,
+    operationState: "closed_retained",
+    manualRecoveryRequired: false,
+    processEffectIssued: true,
+    processEffectConfirmation: "confirmed",
+    filesystemEffectIssued: true,
+    filesystemEffectConfirmation: "confirmed",
+    engineReady: true,
+    staleRuntimeDirectory: "retained",
+    evidenceState: "preserved",
+    disposition: "retained_by_human_decision",
     nativeHelperCleanupConfirmed: true,
+    effectStateUnknown: false,
+    operatorActionRequired: false,
     newRepairPermitted: true,
     deletionPerformed: false,
     pathReported: false,
@@ -208,6 +220,19 @@ test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じre
     );
     assert.equal(failed?.exitCode, 2);
     assert.doesNotMatch(failed?.stdout ?? "", /secret|token|C:\\/u);
+    if (json) {
+      const fallback = JSON.parse(failed?.stdout ?? "{}") as Record<
+        string,
+        unknown
+      >;
+      assert.equal(fallback.manualRecoveryRequired, true);
+      assert.equal(fallback.effectStateUnknown, true);
+      assert.equal(fallback.operatorActionRequired, true);
+      assert.equal(fallback.newRepairPermitted, false);
+      assert.equal(fallback.processEffectIssued, null);
+      assert.equal(fallback.filesystemEffectIssued, null);
+      assert.equal(fallback.disposition, "unknown");
+    }
   }
 });
 

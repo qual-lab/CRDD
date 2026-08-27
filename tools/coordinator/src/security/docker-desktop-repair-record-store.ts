@@ -17,8 +17,10 @@ export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
   "processes_stopped",
   "renamed",
   "recovered_pending_disposition",
+  "no_stale_known_effect_recovery_pending",
   "no_stale_historical_effect_unknown_pending",
   "closed_retained",
+  "closed_no_stale_known_effect_retained",
   "closed_historical_effect_unknown_retained",
 ] as const);
 export type DockerDesktopRepairStage =
@@ -36,8 +38,10 @@ export type DockerDesktopRepairEvidenceState =
 export type DockerDesktopRepairDisposition =
   | "not_applicable"
   | "pending_human_decision"
+  | "known_effect_recovery_pending_human_decision"
   | "historical_effect_unknown_pending_human_decision"
   | "retained_by_human_decision"
+  | "known_effect_recovery_retained_by_human_decision"
   | "historical_effect_unknown_retained_by_human_decision";
 export type DockerDesktopRepairEffectConfirmation =
   | "not_issued"
@@ -51,6 +55,7 @@ export const DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS = Object.freeze([
   "desktop_launch",
   "historical_process_reconciliation",
   "process_quiescence_reconciliation",
+  "observed_desktop_recovery",
   "observed_runtime_directory_rename",
   "record_write",
 ] as const);
@@ -226,8 +231,10 @@ function validLedger(
     [
       "not_applicable",
       "pending_human_decision",
+      "known_effect_recovery_pending_human_decision",
       "historical_effect_unknown_pending_human_decision",
       "retained_by_human_decision",
+      "known_effect_recovery_retained_by_human_decision",
       "historical_effect_unknown_retained_by_human_decision",
     ].includes(String(Reflect.get(value, "disposition"))) &&
     (Reflect.get(value, "liveRunIdentity") === null ||
@@ -301,6 +308,7 @@ function validEffectEntries(
     "desktop_launch",
     "historical_process_reconciliation",
     "process_quiescence_reconciliation",
+    "observed_desktop_recovery",
   ] as const;
   const filesystemActions = [
     "runtime_directory_rename",
@@ -333,6 +341,7 @@ function validEffectEntries(
     ["wsl_termination", 2],
     ["historical_process_reconciliation", 3],
     ["process_quiescence_reconciliation", 3],
+    ["observed_desktop_recovery", 4],
     ["desktop_launch", 4],
   ]);
   let previousOrder = -1;
@@ -490,6 +499,7 @@ const HOST_EFFECT_ACTIONS = new Set<DockerDesktopRepairEffectAction>([
 const OBSERVATION_ACTIONS = new Set<DockerDesktopRepairEffectAction>([
   "historical_process_reconciliation",
   "process_quiescence_reconciliation",
+  "observed_desktop_recovery",
   "observed_runtime_directory_rename",
 ]);
 
@@ -584,11 +594,43 @@ function legalLedgerTransition(
   const nextFilesystem = next.filesystemEffects.filter(
     (entry) => entry.action !== "record_write",
   );
+  const processChanges = changedEffectCount(
+    previous.processEffects,
+    next.processEffects,
+  );
+  const filesystemChanges = changedEffectCount(
+    previousFilesystem,
+    nextFilesystem,
+  );
+  const previousNative = previous.processEffects.find(
+    (entry) => entry.action === "native_termination",
+  );
+  const nextNative = next.processEffects.find(
+    (entry) => entry.action === "native_termination",
+  );
+  const appendedReconciliation = next.processEffects
+    .slice(previous.processEffects.length)
+    .find((entry) => entry.action === "process_quiescence_reconciliation");
+  const atomicNotIssuedUnknown =
+    processChanges === 2 &&
+    filesystemChanges === 0 &&
+    previousNative?.phase === "intent_recorded" &&
+    nextNative?.phase === "settled" &&
+    nextNative.issued === false &&
+    nextNative.confirmation === "not_issued" &&
+    appendedReconciliation?.phase === "settled" &&
+    ((appendedReconciliation.issued === null &&
+      appendedReconciliation.confirmation === "unknown") ||
+      (appendedReconciliation.issued === false &&
+        appendedReconciliation.confirmation === "not_issued"));
   if (
-    changedEffectCount(previous.processEffects, next.processEffects) +
-      changedEffectCount(previousFilesystem, nextFilesystem) >
-    1
+    previousNative?.phase === "intent_recorded" &&
+    nextNative?.phase === "settled" &&
+    nextNative.issued === false &&
+    !atomicNotIssuedUnknown
   )
+    return false;
+  if (processChanges + filesystemChanges > 1 && !atomicNotIssuedUnknown)
     return false;
   const appended = [
     ...next.processEffects.slice(previous.processEffects.length),
@@ -607,7 +649,94 @@ function legalLedgerTransition(
     (entry) => entry.phase === "intent_recorded",
   );
   if (unsettled.length > 1) return false;
+  const previousUnsettled = [
+    ...previous.processEffects,
+    ...previousFilesystem,
+  ].find((entry) => entry.phase === "intent_recorded");
+  if (previousUnsettled) {
+    const settled = [...next.processEffects, ...nextFilesystem].find(
+      (entry) => entry.action === previousUnsettled.action,
+    );
+    if (settled?.phase !== "settled") return false;
+  }
+  const nextUnsettled = unsettled[0];
+  if (nextUnsettled) {
+    const owningEntries = next.processEffects.includes(nextUnsettled)
+      ? next.processEffects
+      : nextFilesystem;
+    if (owningEntries.at(-1) !== nextUnsettled) return false;
+  }
   return true;
+}
+
+function effectEntry(
+  ledger: DockerDesktopRepairLedgerSnapshot,
+  action: DockerDesktopRepairEffectAction,
+) {
+  return [...ledger.processEffects, ...ledger.filesystemEffects].find(
+    (entry) => entry.action === action,
+  );
+}
+
+function isSettled(
+  ledger: DockerDesktopRepairLedgerSnapshot,
+  action: DockerDesktopRepairEffectAction,
+) {
+  return effectEntry(ledger, action)?.phase === "settled";
+}
+
+function isSettledConfirmed(
+  ledger: DockerDesktopRepairLedgerSnapshot,
+  action: DockerDesktopRepairEffectAction,
+) {
+  const entry = effectEntry(ledger, action);
+  return entry?.phase === "settled" && entry.confirmation === "confirmed";
+}
+
+function isSettledNotIssued(
+  ledger: DockerDesktopRepairLedgerSnapshot,
+  action: DockerDesktopRepairEffectAction,
+) {
+  const entry = effectEntry(ledger, action);
+  return (
+    entry?.phase === "settled" &&
+    entry.issued === false &&
+    entry.confirmation === "not_issued"
+  );
+}
+
+function hasUnknownReconciliation(ledger: DockerDesktopRepairLedgerSnapshot) {
+  return ledger.processEffects.some(
+    (entry) =>
+      [
+        "historical_process_reconciliation",
+        "process_quiescence_reconciliation",
+      ].includes(entry.action) &&
+      (entry.issued === null || entry.confirmation === "unknown"),
+  );
+}
+
+function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
+  const shutdown = effectEntry(ledger, "official_shutdown");
+  const native = effectEntry(ledger, "native_termination");
+  const wsl = effectEntry(ledger, "wsl_termination");
+  if (!shutdown) return !native && !wsl;
+  if (native && shutdown.phase !== "settled") return false;
+  if (
+    wsl &&
+    (shutdown.phase !== "settled" || native?.phase === "intent_recorded")
+  )
+    return false;
+  return true;
+}
+
+function settledStoppedPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
+  return (
+    validKnownProcessPrefix(ledger) &&
+    isSettled(ledger, "official_shutdown") &&
+    isSettledConfirmed(ledger, "wsl_termination") &&
+    !hasUnknownReconciliation(ledger)
+  );
 }
 
 function stageLedgerCompatible(
@@ -619,16 +748,27 @@ function stageLedgerCompatible(
     ...ledger.filesystemEffects,
   ].some((entry) => entry.phase === "intent_recorded");
   const effect = (action: DockerDesktopRepairEffectAction) =>
-    [...ledger.processEffects, ...ledger.filesystemEffects].find(
-      (entry) => entry.action === action,
-    );
-  const settledConfirmed = (action: DockerDesktopRepairEffectAction) => {
-    const entry = effect(action);
-    return entry?.phase === "settled" && entry.confirmation === "confirmed";
-  };
+    effectEntry(ledger, action);
+  const settledConfirmed = (action: DockerDesktopRepairEffectAction) =>
+    isSettledConfirmed(ledger, action);
   if (
     effect("runtime_directory_rename") &&
     effect("observed_runtime_directory_rename")
+  )
+    return false;
+  if (!validKnownProcessPrefix(ledger)) return false;
+  const reconciliationIndex = ledger.processEffects.findIndex((entry) =>
+    [
+      "historical_process_reconciliation",
+      "process_quiescence_reconciliation",
+    ].includes(entry.action),
+  );
+  if (
+    reconciliationIndex >= 0 &&
+    (ledger.processEffects
+      .slice(reconciliationIndex + 1)
+      .some((entry) => HOST_EFFECT_ACTIONS.has(entry.action)) ||
+      effect("runtime_directory_rename"))
   )
     return false;
   if (
@@ -644,45 +784,102 @@ function stageLedgerCompatible(
       ))
   )
     return false;
+  const semanticFilesystem = ledger.filesystemEffects.filter(
+    (entry) => entry.action !== "record_write",
+  );
+  const recordWriteCount =
+    ledger.filesystemEffects.length - semanticFilesystem.length;
+  if (
+    stage === "prepared" &&
+    recordWriteCount === 1 &&
+    ledger.processEffects.length === 0 &&
+    semanticFilesystem.length === 0 &&
+    (ledger.engineReady !== false ||
+      ledger.staleState !== "absent" ||
+      ledger.hostSafety !== "safe" ||
+      ledger.evidenceState !== "not_preserved" ||
+      ledger.disposition !== "not_applicable" ||
+      ledger.liveRunIdentity !== null)
+  )
+    return false;
+  if (
+    stage === "prepared" &&
+    (effect("observed_runtime_directory_rename") ||
+      effect("observed_desktop_recovery"))
+  )
+    return false;
   if (
     stage === "processes_stopped" &&
     ledger.processEffects.some((entry) => entry.action === "desktop_launch")
   )
     return false;
-  if (
-    stage === "processes_stopped" &&
-    (!settledConfirmed("wsl_termination") ||
-      (effect("runtime_directory_rename")?.phase === "settled" &&
-        !settledConfirmed("runtime_directory_rename")))
-  )
+  if (stage === "processes_stopped" && !settledStoppedPrefix(ledger))
     return false;
-  if (
-    stage === "renamed" &&
-    !settledConfirmed("runtime_directory_rename") &&
-    !settledConfirmed("observed_runtime_directory_rename")
-  )
-    return false;
+  if (stage === "renamed") {
+    const hostRename = settledConfirmed("runtime_directory_rename");
+    const observedRename = settledConfirmed(
+      "observed_runtime_directory_rename",
+    );
+    if (hostRename === observedRename) return false;
+    if (hostRename && !settledStoppedPrefix(ledger)) return false;
+    if (
+      observedRename &&
+      !effect("historical_process_reconciliation") &&
+      !settledStoppedPrefix(ledger)
+    )
+      return false;
+  }
   if (stage === "recovered_pending_disposition")
     return (
-      settledConfirmed("desktop_launch") &&
+      settledConfirmed("desktop_launch") !==
+        isSettledNotIssued(ledger, "observed_desktop_recovery") &&
       (settledConfirmed("runtime_directory_rename") ||
         settledConfirmed("observed_runtime_directory_rename")) &&
       ledger.engineReady === true &&
       ledger.liveRunIdentity !== null &&
       ledger.staleState === "retained" &&
+      ledger.hostSafety === "safe" &&
       ledger.evidenceState === "preserved" &&
       ledger.disposition === "pending_human_decision"
     );
   if (stage === "closed_retained")
     return (
-      settledConfirmed("desktop_launch") &&
+      settledConfirmed("desktop_launch") !==
+        isSettledNotIssued(ledger, "observed_desktop_recovery") &&
       (settledConfirmed("runtime_directory_rename") ||
         settledConfirmed("observed_runtime_directory_rename")) &&
       ledger.engineReady === true &&
       ledger.liveRunIdentity !== null &&
       ledger.staleState === "retained" &&
+      ledger.hostSafety === "safe" &&
       ledger.evidenceState === "preserved" &&
       ledger.disposition === "retained_by_human_decision"
+    );
+  if (stage === "no_stale_known_effect_recovery_pending")
+    return (
+      isSettledNotIssued(ledger, "observed_desktop_recovery") &&
+      !effect("desktop_launch") &&
+      isSettled(ledger, "official_shutdown") &&
+      !hasUnknownReconciliation(ledger) &&
+      ledger.engineReady === true &&
+      ledger.liveRunIdentity !== null &&
+      ledger.staleState === "absent" &&
+      ledger.hostSafety === "safe" &&
+      ledger.evidenceState === "preserved" &&
+      ledger.disposition === "known_effect_recovery_pending_human_decision"
+    );
+  if (stage === "closed_no_stale_known_effect_retained")
+    return (
+      isSettledNotIssued(ledger, "observed_desktop_recovery") &&
+      !effect("desktop_launch") &&
+      isSettled(ledger, "official_shutdown") &&
+      !hasUnknownReconciliation(ledger) &&
+      ledger.engineReady === true &&
+      ledger.liveRunIdentity !== null &&
+      ledger.staleState === "absent" &&
+      ledger.hostSafety === "safe" &&
+      ledger.evidenceState === "preserved" &&
+      ledger.disposition === "known_effect_recovery_retained_by_human_decision"
     );
   if (stage === "no_stale_historical_effect_unknown_pending")
     return (
@@ -691,6 +888,7 @@ function stageLedgerCompatible(
       ledger.processEffectIssued !== false &&
       ledger.processEffectConfirmation === "unknown" &&
       ledger.staleState === "absent" &&
+      ledger.hostSafety === "safe" &&
       ledger.disposition === "historical_effect_unknown_pending_human_decision"
     );
   if (stage === "closed_historical_effect_unknown_retained")
@@ -700,6 +898,7 @@ function stageLedgerCompatible(
       ledger.processEffectIssued !== false &&
       ledger.processEffectConfirmation === "unknown" &&
       ledger.staleState === "absent" &&
+      ledger.hostSafety === "safe" &&
       ledger.evidenceState === "preserved" &&
       ledger.disposition ===
         "historical_effect_unknown_retained_by_human_decision"
@@ -759,19 +958,25 @@ function legalTransition(
       "prepared",
       "processes_stopped",
       "renamed",
+      "no_stale_known_effect_recovery_pending",
       "no_stale_historical_effect_unknown_pending",
     ],
     processes_stopped: [
       "processes_stopped",
       "renamed",
+      "no_stale_known_effect_recovery_pending",
       "no_stale_historical_effect_unknown_pending",
     ],
     renamed: ["renamed", "recovered_pending_disposition"],
     recovered_pending_disposition: ["closed_retained"],
+    no_stale_known_effect_recovery_pending: [
+      "closed_no_stale_known_effect_retained",
+    ],
     no_stale_historical_effect_unknown_pending: [
       "closed_historical_effect_unknown_retained",
     ],
     closed_retained: [],
+    closed_no_stale_known_effect_retained: [],
     closed_historical_effect_unknown_retained: [],
   } as const satisfies Readonly<
     Record<DockerDesktopRepairStage, readonly DockerDesktopRepairStage[]>
@@ -779,6 +984,97 @@ function legalTransition(
   return (allowed[previous] as readonly DockerDesktopRepairStage[]).includes(
     next,
   );
+}
+
+function changedSemanticActions(
+  previous: DockerDesktopRepairLedgerSnapshot | null,
+  next: DockerDesktopRepairLedgerSnapshot,
+) {
+  if (!previous) return [] as DockerDesktopRepairEffectAction[];
+  const changed: DockerDesktopRepairEffectAction[] = [];
+  const compare = (
+    before: readonly DockerDesktopRepairEffectEntry[],
+    after: readonly DockerDesktopRepairEffectEntry[],
+  ) => {
+    for (let index = 0; index < after.length; index += 1) {
+      const candidate = after[index];
+      if (!candidate || candidate.action === "record_write") continue;
+      const prior = before[index];
+      if (
+        !prior ||
+        prior.phase !== candidate.phase ||
+        prior.issued !== candidate.issued ||
+        prior.confirmation !== candidate.confirmation
+      )
+        changed.push(candidate.action);
+    }
+  };
+  compare(previous.processEffects, next.processEffects);
+  compare(
+    previous.filesystemEffects.filter(
+      (entry) => entry.action !== "record_write",
+    ),
+    next.filesystemEffects.filter((entry) => entry.action !== "record_write"),
+  );
+  return changed;
+}
+
+function legalRepairRecordTransition(
+  previousStage: DockerDesktopRepairStage | null,
+  previousLedger: DockerDesktopRepairLedgerSnapshot | null,
+  nextStage: DockerDesktopRepairStage,
+  nextLedger: DockerDesktopRepairLedgerSnapshot,
+) {
+  if (
+    !legalTransition(previousStage, nextStage) ||
+    !legalLedgerTransition(previousLedger, nextLedger) ||
+    !stageLedgerCompatible(nextStage, nextLedger)
+  )
+    return false;
+  if (!previousLedger)
+    return previousStage === null && nextStage === "prepared";
+  const changed = changedSemanticActions(previousLedger, nextLedger);
+  const primary = changed[0];
+  const sameStage = previousStage === nextStage;
+  if (changed.length === 0) return !sameStage;
+  if (
+    changed.length === 2 &&
+    changed[0] === "native_termination" &&
+    changed[1] === "process_quiescence_reconciliation"
+  )
+    return sameStage && nextStage === "prepared";
+  if (changed.length !== 1 || !primary) return false;
+  const phase = effectEntry(nextLedger, primary)?.phase;
+  if (HOST_EFFECT_ACTIONS.has(primary)) {
+    const owner: Partial<
+      Record<DockerDesktopRepairEffectAction, DockerDesktopRepairStage>
+    > = {
+      official_shutdown: "prepared",
+      native_termination: "prepared",
+      wsl_termination: "prepared",
+      runtime_directory_rename: "processes_stopped",
+      desktop_launch: "renamed",
+    };
+    return sameStage && owner[primary] === nextStage && phase !== undefined;
+  }
+  if (primary === "historical_process_reconciliation")
+    return sameStage && nextStage === "prepared";
+  if (primary === "process_quiescence_reconciliation")
+    return sameStage && nextStage === "prepared";
+  if (primary === "observed_runtime_directory_rename")
+    return (
+      (previousStage === "prepared" || previousStage === "processes_stopped") &&
+      nextStage === "renamed"
+    );
+  if (primary === "observed_desktop_recovery")
+    return (
+      ((previousStage === "prepared" ||
+        previousStage === "processes_stopped") &&
+        nextStage === "no_stale_known_effect_recovery_pending") ||
+      (previousStage === "renamed" &&
+        nextStage === "recovered_pending_disposition")
+    );
+  return false;
 }
 
 function toOperation(
@@ -857,9 +1153,12 @@ function readOperation(
         value.sequence !== index ||
         value.stage !== match[2] ||
         value.previousRecordSha256 !== previousHash ||
-        !legalTransition(previousStage, value.stage) ||
-        !legalLedgerTransition(previousLedger, value.ledger) ||
-        !stageLedgerCompatible(value.stage, value.ledger)
+        !legalRepairRecordTransition(
+          previousStage,
+          previousLedger,
+          value.stage,
+          value.ledger,
+        )
       )
         return null;
       previousHash = createHash("sha256").update(bytes).digest("hex");
@@ -921,6 +1220,34 @@ export function hasDockerDesktopRepairRecordCapacity(
   );
 }
 
+export function requiredDockerDesktopRepairRecordsThroughSafeStage(
+  action: Extract<
+    DockerDesktopRepairEffectAction,
+    | "official_shutdown"
+    | "native_termination"
+    | "wsl_termination"
+    | "runtime_directory_rename"
+    | "desktop_launch"
+  >,
+) {
+  const orderedEffects = [
+    "official_shutdown",
+    "native_termination",
+    "wsl_termination",
+    "runtime_directory_rename",
+    "desktop_launch",
+  ] as const;
+  const index = orderedEffects.indexOf(action);
+  const remainingEffectRecords = (orderedEffects.length - index) * 2;
+  const remainingStageRecords =
+    action === "desktop_launch"
+      ? 1
+      : action === "runtime_directory_rename"
+        ? 2
+        : 3;
+  return remainingEffectRecords + remainingStageRecords;
+}
+
 export function createDockerDesktopRepairOperation(
   boundary: DockerDesktopRepairRecordBoundary,
   runIdentity: DockerDesktopRepairDirectoryIdentity,
@@ -960,15 +1287,12 @@ export function persistDockerDesktopRepairStage(
       sequence < 0 ||
       sequence >= MAXIMUM_RECORDS ||
       !validLedger(ledger) ||
-      !legalTransition(
+      !legalRepairRecordTransition(
         operation.sequence < 0 ? null : operation.stage,
-        stage,
-      ) ||
-      !legalLedgerTransition(
         operation.sequence < 0 ? null : operation.ledger,
+        stage,
         ledger,
-      ) ||
-      !stageLedgerCompatible(stage, ledger)
+      )
     )
       return null;
     if (sequence === 0) {

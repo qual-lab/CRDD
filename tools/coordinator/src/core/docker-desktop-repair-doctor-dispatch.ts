@@ -1,4 +1,9 @@
 import { renderDockerRecoveryDoctorReport } from "./docker-recovery-command-report.ts";
+import {
+  DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT,
+  DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION,
+  type DockerDesktopRuntimeRepairReport,
+} from "../security/docker-desktop-runtime-repair.ts";
 
 export type DockerDesktopRepairDoctorCommand = Readonly<{
   json: boolean;
@@ -7,15 +12,43 @@ export type DockerDesktopRepairDoctorCommand = Readonly<{
 }>;
 
 type DockerDesktopRepairDoctorHandlers = Readonly<{
-  repair: () => Promise<unknown>;
-  close: (repairId: string) => Promise<unknown>;
+  repair: () => Promise<DockerDesktopRuntimeRepairReport>;
+  close: (repairId: string) => Promise<DockerDesktopRuntimeRepairReport>;
 }>;
+
+function failedClosedReport(): DockerDesktopRuntimeRepairReport {
+  return Object.freeze({
+    contract: DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT,
+    contractRevision: DOCKER_DESKTOP_RUNTIME_REPAIR_CONTRACT_REVISION,
+    status: "blocked",
+    reason: "docker_desktop_repair_dispatch_failed_closed",
+    repairId: null,
+    operationState: null,
+    manualRecoveryRequired: true,
+    processEffectIssued: null,
+    processEffectConfirmation: "unknown",
+    filesystemEffectIssued: null,
+    filesystemEffectConfirmation: "unknown",
+    engineReady: null,
+    staleRuntimeDirectory: "unknown",
+    evidenceState: "unknown",
+    disposition: "unknown",
+    nativeHelperCleanupConfirmed: null,
+    effectStateUnknown: true,
+    operatorActionRequired: true,
+    newRepairPermitted: false,
+    deletionPerformed: false,
+    pathReported: false,
+    credentialReported: false,
+    providerEffectIssued: false,
+  });
+}
 
 export async function dispatchDockerDesktopRepairDoctorCommand(
   command: DockerDesktopRepairDoctorCommand,
   handlers: DockerDesktopRepairDoctorHandlers,
 ) {
-  let report: unknown;
+  let report: DockerDesktopRuntimeRepairReport | null;
   try {
     report = command.repairDockerDesktopRuntime
       ? await handlers.repair()
@@ -23,16 +56,7 @@ export async function dispatchDockerDesktopRepairDoctorCommand(
         ? await handlers.close(command.closeDockerDesktopRepairId)
         : null;
   } catch {
-    report = Object.freeze({
-      contract: "crdd-coordinator/docker-desktop-runtime-repair",
-      contractRevision: 4,
-      status: "blocked",
-      reason: "docker_desktop_repair_dispatch_failed_closed",
-      deletionPerformed: false,
-      pathReported: false,
-      credentialReported: false,
-      providerEffectIssued: false,
-    });
+    report = failedClosedReport();
   }
   return report === null
     ? null

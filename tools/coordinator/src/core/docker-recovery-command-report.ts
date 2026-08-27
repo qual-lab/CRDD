@@ -28,10 +28,19 @@ export function renderDockerRecoveryDoctorReport(
   if (shouldOutputJson) {
     const isRepairReport =
       reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair";
+    const repairSucceeded =
+      isRepairReport &&
+      ["closed_retained", "closed_historical_effect_unknown_retained"].includes(
+        reportValue.status,
+      ) &&
+      reportValue.nativeHelperCleanupConfirmed === true &&
+      reportValue.newRepairPermitted === true;
     return Object.freeze({
       stdout: `${JSON.stringify(report, null, 2)}\n`,
       exitCode: (isRepairReport
-        ? ["closed_retained", "closed_historical_effect_unknown_retained"]
+        ? repairSucceeded
+          ? [reportValue.status]
+          : []
         : ["ready", "recovered"]
       ).includes(reportValue.status)
         ? 0
@@ -117,13 +126,25 @@ export function renderDockerRecoveryDoctorReport(
       lines.push(
         `- command: coordinator doctor --close-docker-desktop-runtime-repair ${reportValue.repairId}`,
       );
-    } else if (reportValue.manualRecoveryRequired === true) {
+    } else if (
+      reportValue.manualRecoveryRequired === true ||
+      reportValue.operatorActionRequired === true
+    ) {
       lines.push(
         "- next: stop new repair attempts and contact the Runtime operator",
       );
       lines.push(
         "- retained evidence and stage records must not be deleted or renamed manually",
       );
+      if (
+        [
+          "docker_desktop_repair_record_capacity_unavailable",
+          "docker_desktop_repair_operation_capacity_unavailable",
+        ].includes(String(reportValue.reason))
+      )
+        lines.push(
+          "- capacity: do not retry, delete, or compact repair records",
+        );
     } else if (reportValue.status === "closed_retained") {
       lines.push(
         "- result: repair record closed; stale runtime evidence remains intentionally retained",
@@ -137,12 +158,15 @@ export function renderDockerRecoveryDoctorReport(
     }
     return Object.freeze({
       stdout: `${lines.join("\n")}\n`,
-      exitCode: [
-        "closed_retained",
-        "closed_historical_effect_unknown_retained",
-      ].includes(reportValue.status)
-        ? 0
-        : 2,
+      exitCode:
+        [
+          "closed_retained",
+          "closed_historical_effect_unknown_retained",
+        ].includes(reportValue.status) &&
+        reportValue.nativeHelperCleanupConfirmed === true &&
+        reportValue.newRepairPermitted === true
+          ? 0
+          : 2,
     });
   }
   const lines = [`Coordinator environment: ${reportValue.status}`];

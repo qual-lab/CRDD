@@ -11,6 +11,7 @@ import {
   hasDockerDesktopRepairRecordCapacity,
   inventoryDockerDesktopRepairOperations,
   persistDockerDesktopRepairStage,
+  type DockerDesktopRepairLedgerSnapshot,
   type DockerDesktopRepairOperation,
 } from "../src/security/docker-desktop-repair-record-store.ts";
 
@@ -46,7 +47,7 @@ function fixture(t: TestContext) {
     engineReady: false,
     staleState: "absent" as const,
     hostSafety: "safe" as const,
-    evidenceState: "preserved" as const,
+    evidenceState: "not_preserved" as const,
     disposition: "not_applicable" as const,
     liveRunIdentity: null,
   });
@@ -75,6 +76,8 @@ function ledgerForRecord(ledger: DockerDesktopRepairOperation["ledger"]) {
   );
   return Object.freeze({
     ...ledger,
+    evidenceState:
+      lastRecordWriteIndex >= 0 ? ("preserved" as const) : ledger.evidenceState,
     filesystemEffects: Object.freeze(filesystemEffects),
     filesystemEffectIssued: true as const,
     filesystemEffectConfirmation: "unknown" as const,
@@ -275,6 +278,88 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
   assert.equal(inventory.operations[0]?.operationId, operation.operationId);
 });
 
+test("renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保存する", (t) => {
+  const { boundary, ledger } = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    boundary,
+    Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+    ledger,
+  );
+  const prepared = persistRecord(boundary, created, "prepared", ledger);
+  assert.ok(prepared);
+  let operation = persistHostEffect(
+    boundary,
+    prepared,
+    "process",
+    "official_shutdown",
+    { issued: true, confirmation: "confirmed" },
+  );
+  operation = persistHostEffect(
+    boundary,
+    operation,
+    "process",
+    "wsl_termination",
+    { issued: true, confirmation: "confirmed" },
+  );
+  const stopped = persistRecord(
+    boundary,
+    operation,
+    "processes_stopped",
+    operation.ledger,
+  );
+  assert.ok(stopped);
+  operation = persistHostEffect(
+    boundary,
+    stopped,
+    "filesystem",
+    "runtime_directory_rename",
+    { issued: true, confirmation: "confirmed" },
+  );
+  const renamed = persistRecord(
+    boundary,
+    operation,
+    "renamed",
+    operation.ledger,
+  );
+  assert.ok(renamed);
+  const recoveredLedger = Object.freeze({
+    ...renamed.ledger,
+    processEffects: Object.freeze([
+      ...renamed.ledger.processEffects,
+      Object.freeze({
+        sequence: renamed.ledger.processEffects.length,
+        action: "observed_desktop_recovery" as const,
+        phase: "settled" as const,
+        issued: false,
+        confirmation: "not_issued" as const,
+      }),
+    ]),
+    engineReady: true,
+    staleState: "retained" as const,
+    hostSafety: "safe" as const,
+    evidenceState: "preserved" as const,
+    disposition: "pending_human_decision" as const,
+    liveRunIdentity: Object.freeze({ dev: "9", ino: "8", birthtimeNs: "7" }),
+  });
+  const pending = persistRecord(
+    boundary,
+    renamed,
+    "recovered_pending_disposition",
+    recoveredLedger,
+  );
+  assert.ok(pending);
+  assert.equal(
+    pending.ledger.processEffects.some(
+      (entry) => entry.action === "desktop_launch",
+    ),
+    false,
+  );
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(boundary).status,
+    "verified",
+  );
+});
+
 test("改ざん・欠落・foreign entryはinventory unknownとしてFail Closedにする", (t) => {
   const { boundary, ledger, runtimeStateRoot } = fixture(t);
   const operation = createDockerDesktopRepairOperation(
@@ -377,7 +462,7 @@ test("Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を�
   }
 });
 
-test("後続Effect不明は既知issuedを保持した追記としてno-stale stageへ接続する", (t) => {
+test("既知Effect後の自然回復は発行済み事実を保持したno-stale stageへ接続する", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
     boundary,
@@ -413,27 +498,27 @@ test("後続Effect不明は既知issuedを保持した追記としてno-stale st
       ...stopped.ledger.processEffects,
       Object.freeze({
         sequence: stopped.ledger.processEffects.length,
-        action: "historical_process_reconciliation",
+        action: "observed_desktop_recovery",
         phase: "settled",
-        issued: null,
-        confirmation: "unknown" as const,
+        issued: false,
+        confirmation: "not_issued" as const,
       }),
     ]),
-    processEffectConfirmation: "unknown" as const,
+    processEffectConfirmation: "confirmed" as const,
     engineReady: true,
     staleState: "absent" as const,
-    disposition: "historical_effect_unknown_pending_human_decision" as const,
+    disposition: "known_effect_recovery_pending_human_decision" as const,
     liveRunIdentity: Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
   });
   const pending = persistRecord(
     boundary,
     stopped,
-    "no_stale_historical_effect_unknown_pending",
+    "no_stale_known_effect_recovery_pending",
     pendingLedger,
   );
   assert.ok(pending);
   assert.equal(pending.ledger.processEffectIssued, true);
-  assert.equal(pending.ledger.processEffectConfirmation, "unknown");
+  assert.equal(pending.ledger.processEffectConfirmation, "confirmed");
   assert.equal(
     inventoryDockerDesktopRepairOperations(boundary).status,
     "verified",
@@ -498,6 +583,224 @@ test("validatorはHost Effect初出settled・不足stage・rename二系列を拒
   assert.ok(prepared);
   assert.equal(
     persistRecord(boundary, prepared, "processes_stopped", prepared.ledger),
+    null,
+  );
+
+  for (const action of ["native_termination", "wsl_termination"] as const) {
+    const invalidPrefix: DockerDesktopRepairLedgerSnapshot = Object.freeze({
+      ...prepared.ledger,
+      processEffects: Object.freeze([
+        Object.freeze({
+          sequence: 0,
+          action,
+          phase: "intent_recorded" as const,
+          issued: null,
+          confirmation: "unknown" as const,
+        }),
+      ]),
+      processEffectIssued: null,
+      processEffectConfirmation: "unknown" as const,
+    });
+    assert.equal(
+      persistRecord(boundary, prepared, "prepared", invalidPrefix),
+      null,
+    );
+  }
+
+  const shutdownIntentLedger = Object.freeze({
+    ...prepared.ledger,
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "official_shutdown" as const,
+        phase: "intent_recorded" as const,
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+    processEffectIssued: null,
+    processEffectConfirmation: "unknown" as const,
+  });
+  const shutdownIntent = persistRecord(
+    boundary,
+    prepared,
+    "prepared",
+    shutdownIntentLedger,
+  );
+  assert.ok(shutdownIntent);
+  const observationAfterUnsettled = Object.freeze({
+    ...shutdownIntent.ledger,
+    processEffects: Object.freeze([
+      ...shutdownIntent.ledger.processEffects,
+      Object.freeze({
+        sequence: 1,
+        action: "historical_process_reconciliation" as const,
+        phase: "settled" as const,
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+  });
+  assert.equal(
+    persistRecord(
+      boundary,
+      shutdownIntent,
+      "prepared",
+      observationAfterUnsettled,
+    ),
+    null,
+  );
+
+  let stoppedPrefix = persistHostEffect(
+    boundary,
+    prepared,
+    "process",
+    "official_shutdown",
+    { issued: true, confirmation: "confirmed" },
+  );
+  stoppedPrefix = persistHostEffect(
+    boundary,
+    stoppedPrefix,
+    "process",
+    "wsl_termination",
+    { issued: true, confirmation: "confirmed" },
+  );
+  const stopped = persistRecord(
+    boundary,
+    stoppedPrefix,
+    "processes_stopped",
+    stoppedPrefix.ledger,
+  );
+  assert.ok(stopped);
+  const renamedEffect = persistHostEffect(
+    boundary,
+    stopped,
+    "filesystem",
+    "runtime_directory_rename",
+    { issued: true, confirmation: "confirmed" },
+  );
+  const renamed = persistRecord(
+    boundary,
+    renamedEffect,
+    "renamed",
+    renamedEffect.ledger,
+  );
+  assert.ok(renamed);
+  const bothRenameSeries = Object.freeze({
+    ...renamed.ledger,
+    filesystemEffects: Object.freeze([
+      ...renamed.ledger.filesystemEffects,
+      Object.freeze({
+        sequence: renamed.ledger.filesystemEffects.length,
+        action: "observed_runtime_directory_rename" as const,
+        phase: "settled" as const,
+        issued: true,
+        confirmation: "confirmed" as const,
+      }),
+    ]),
+  });
+  assert.equal(
+    persistRecord(boundary, renamed, "renamed", bothRenameSeries),
+    null,
+  );
+});
+
+test("K/Nは非発行settlementとunknown reconciliationを単一Recordへ固定する", (t) => {
+  const { boundary, ledger } = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    boundary,
+    Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+    ledger,
+  );
+  const prepared = persistRecord(boundary, created, "prepared", ledger);
+  assert.ok(prepared);
+  const shutdown = persistHostEffect(
+    boundary,
+    prepared,
+    "process",
+    "official_shutdown",
+    { issued: true, confirmation: "confirmed" },
+  );
+  const nativeIntentLedger = Object.freeze({
+    ...shutdown.ledger,
+    processEffects: Object.freeze([
+      ...shutdown.ledger.processEffects,
+      Object.freeze({
+        sequence: shutdown.ledger.processEffects.length,
+        action: "native_termination" as const,
+        phase: "intent_recorded" as const,
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+    processEffectIssued: true,
+    processEffectConfirmation: "unknown" as const,
+  });
+  const nativeIntent = persistRecord(
+    boundary,
+    shutdown,
+    "prepared",
+    nativeIntentLedger,
+  );
+  assert.ok(nativeIntent);
+  const settlementOnly = Object.freeze({
+    ...nativeIntent.ledger,
+    processEffects: Object.freeze(
+      nativeIntent.ledger.processEffects.map((entry) =>
+        entry.action === "native_termination"
+          ? Object.freeze({
+              ...entry,
+              phase: "settled" as const,
+              issued: false,
+              confirmation: "not_issued" as const,
+            })
+          : entry,
+      ),
+    ),
+    processEffectIssued: true,
+    processEffectConfirmation: "confirmed" as const,
+  });
+  assert.equal(
+    persistRecord(boundary, nativeIntent, "prepared", settlementOnly),
+    null,
+  );
+  const atomic = Object.freeze({
+    ...settlementOnly,
+    processEffects: Object.freeze([
+      ...settlementOnly.processEffects,
+      Object.freeze({
+        sequence: settlementOnly.processEffects.length,
+        action: "process_quiescence_reconciliation" as const,
+        phase: "settled" as const,
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+    processEffectIssued: true,
+    processEffectConfirmation: "unknown" as const,
+    hostSafety: "unknown" as const,
+  });
+  const persisted = persistRecord(boundary, nativeIntent, "prepared", atomic);
+  assert.ok(persisted);
+  assert.equal(
+    inventoryDockerDesktopRepairOperations(boundary).status,
+    "verified",
+  );
+  const illegalWsl = Object.freeze({
+    ...persisted.ledger,
+    processEffects: Object.freeze([
+      ...persisted.ledger.processEffects,
+      Object.freeze({
+        sequence: persisted.ledger.processEffects.length,
+        action: "wsl_termination" as const,
+        phase: "intent_recorded" as const,
+        issued: null,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+  });
+  assert.equal(
+    persistRecord(boundary, persisted, "prepared", illegalWsl),
     null,
   );
 });

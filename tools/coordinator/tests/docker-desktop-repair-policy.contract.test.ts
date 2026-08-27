@@ -177,6 +177,56 @@ test("正常な取消cleanupはprotocol failureへ変換しない", async () => 
   });
 });
 
+test("helper failure後のabortはprotocol failureを保持する", async () => {
+  const hash = "1".repeat(64);
+  const source = [
+    "const hash=Buffer.alloc(32,0x11);",
+    'const frame=(status)=>Buffer.concat([Buffer.from("CRDDDR04"),Buffer.from(status),hash]);',
+    'process.stdout.write(frame("R"));',
+    'process.stdin.once("data",()=>{process.stderr.write("failure");setTimeout(()=>process.exit(7),50);});',
+  ].join("");
+  const child = spawn(process.execPath, ["-e", source], {
+    shell: false,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
+    child,
+    hash,
+  );
+  assert.equal(await created.waitForInitial(), "R");
+  assert.equal(await created.session.verifyArtifacts(), "unknown");
+  assert.deepEqual(await created.session.abort(), {
+    cleanup: "confirmed",
+    protocol: "failed",
+  });
+});
+
+test("不正initial frameはprotocol failureとしてbounded cleanupへ閉じる", async () => {
+  const hash = "2".repeat(64);
+  const source = [
+    "const hash=Buffer.alloc(32,0x22);",
+    'const frame=(status)=>Buffer.concat([Buffer.from("CRDDDR04"),Buffer.from(status),hash]);',
+    'process.stdout.write(frame("X"));',
+    'process.stdin.on("end",()=>setTimeout(()=>process.exit(9),50));',
+    "process.stdin.resume();",
+  ].join("");
+  const child = spawn(process.execPath, ["-e", source], {
+    shell: false,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
+    child,
+    hash,
+  );
+  assert.equal(await created.waitForInitial(), "X");
+  assert.deepEqual(await created.failProtocol(), {
+    cleanup: "confirmed",
+    protocol: "failed",
+  });
+});
+
 test("native launcherはCreateProcess後のidentity不明をissued済みとして保持する", async () => {
   const hash = "c".repeat(64);
   const source = [

@@ -97,6 +97,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
 ): Readonly<{
   waitForInitial: () => Promise<string | null>;
   waitForUnavailableExit: () => Promise<boolean>;
+  failProtocol: () => Promise<DockerDesktopRepairHelperReleaseOutcome>;
   session: DockerDesktopRepairNativeHelperSession;
 }> {
   let buffer = Buffer.alloc(0);
@@ -173,6 +174,25 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
         finish(false);
       }
       void failureDetected.then(() => finish(false));
+    });
+  const endStdinBounded = () =>
+    new Promise<boolean>((resolve) => {
+      let settled = false;
+      const finish = (result: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        child.stdin.removeListener("error", onError);
+        resolve(result);
+      };
+      const onError = () => finish(false);
+      const timer = setTimeout(() => finish(false), RELEASE_TIMEOUT_MS);
+      child.stdin.once("error", onError);
+      try {
+        child.stdin.end(() => finish(true));
+      } catch {
+        finish(false);
+      }
     });
   const joinFailedCleanup = async (
     protocol: "failed" | "not_applicable",
@@ -315,12 +335,9 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
           pending = null;
         }
         frames.length = 0;
-        try {
-          child.stdin.end();
-        } catch {
-          fail();
-        }
-        return joinFailedCleanup("not_applicable");
+        const protocol = failed ? "failed" : "not_applicable";
+        if (!failed && !(await endStdinBounded())) void beginFailureCleanup();
+        return joinFailedCleanup(protocol);
       })();
       return releaseLifecycle;
     },
@@ -341,8 +358,10 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
           return joinFailedCleanup("failed");
         }
         released = true;
-        child.stdin.end();
-        const settled = await waitForExitAndStdioSettlement(RELEASE_TIMEOUT_MS);
+        const endCompleted = await endStdinBounded();
+        const settled = endCompleted
+          ? await waitForExitAndStdioSettlement(RELEASE_TIMEOUT_MS)
+          : await beginFailureCleanup();
         child.stdout.removeAllListeners();
         child.stderr.removeAllListeners();
         child.removeAllListeners();
@@ -350,9 +369,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
         return Object.freeze({
           cleanup: settled ? ("confirmed" as const) : ("unknown" as const),
           protocol:
-            child.exitCode === 0 && settled
-              ? ("completed" as const)
-              : ("failed" as const),
+            child.exitCode === 0 ? ("completed" as const) : ("failed" as const),
         });
       })();
       return releaseLifecycle;
@@ -367,6 +384,10 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       if (!failed) fail();
       const settled = await beginFailureCleanup();
       return settled && child.exitCode === 2;
+    },
+    failProtocol: async () => {
+      fail();
+      return joinFailedCleanup("failed");
     },
     session,
   });
@@ -430,7 +451,10 @@ export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelperUsingFac
         session: null,
       });
     }
-    const released = await created.session.release();
+    const released =
+      initial === "R"
+        ? await created.session.release()
+        : await created.failProtocol();
     return Object.freeze({
       status:
         released.cleanup === "unknown"
