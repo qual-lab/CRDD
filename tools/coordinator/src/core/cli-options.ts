@@ -395,6 +395,7 @@ export function parseDoctorArguments(
   let shouldOutputJson = false;
   let isActiveIsolation = false;
   let recoveryId: string | null = null;
+  let shouldRepairDockerDesktopRuntime = false;
   let shouldEnableRuntime = false;
   let cliOverride: string | null = null;
 
@@ -406,6 +407,7 @@ export function parseDoctorArguments(
         "--json",
         "--isolation",
         "--recover-isolation",
+        "--repair-docker-desktop-runtime",
         "--enable-runtime",
         "--runtime-root",
       ].includes(token) ||
@@ -421,6 +423,8 @@ export function parseDoctorArguments(
     seen.add(token);
     if (token === "--json") shouldOutputJson = true;
     else if (token === "--isolation") isActiveIsolation = true;
+    else if (token === "--repair-docker-desktop-runtime")
+      shouldRepairDockerDesktopRuntime = true;
     else if (token === "--enable-runtime") shouldEnableRuntime = true;
     else {
       const value = argumentValues[index + 1];
@@ -448,6 +452,20 @@ export function parseDoctorArguments(
   }
   if (
     recoveryId !== null &&
+    (isActiveIsolation ||
+      shouldRepairDockerDesktopRuntime ||
+      shouldEnableRuntime ||
+      cliOverride !== null)
+  ) {
+    return response(
+      "blocked",
+      "doctor_arguments_incompatible",
+      null,
+      isJsonRequested,
+    );
+  }
+  if (
+    shouldRepairDockerDesktopRuntime &&
     (isActiveIsolation || shouldEnableRuntime || cliOverride !== null)
   ) {
     return response(
@@ -472,6 +490,7 @@ export function parseDoctorArguments(
       json: shouldOutputJson,
       activeIsolation: isActiveIsolation,
       recoveryId,
+      repairDockerDesktopRuntime: shouldRepairDockerDesktopRuntime,
       runtimeRootRequest,
     }),
     isJsonRequested,

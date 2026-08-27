@@ -105,7 +105,11 @@ Runtime 1.0のExecution Environment backendはWindows上のDocker Desktop／Linu
 
 ## 5. 成立性Gate
 
-現在の`doctor`は受動事前診断であり、Providerプロセス、認証、NetworkまたはRepository変更を実行しない。`where`／`which`等の外部locatorも起動せず、Runtime自身がPATHとPATHEXTをFilesystem APIで確認する。絶対Path、locatorの生出力またはProvider Versionは診断結果へ保持しない。
+引数なしの`doctor`と明示的な診断optionは受動事前診断であり、Providerプロセス、認証、NetworkまたはRepository変更を実行しない。`where`／`which`等の外部locatorも起動せず、Runtime自身がPATHとPATHEXTをFilesystem APIで確認する。絶対Path、locatorの生出力またはProvider Versionは診断結果へ保持しない。明示`doctor --recover-isolation`とWindows専用`doctor --repair-docker-desktop-runtime`はこの受動診断に含めず、それぞれの限定Recovery契約に従う。
+
+`doctor --repair-docker-desktop-runtime`は、Docker Engineが停止し、固定`dockerInference` socketの既知アクセス不能を確認したWindows Hostだけで人間が明示実行する最終復旧処置である。通常Task、起動時diagnostic、Provider失敗、timeoutまたは別Runtimeから自動fallbackしない。署名済みCRDD配布物、native selected-user／Known Folder照合済みLocal App Data、保護Runtime State、固定Docker Desktop 4.41.2成果物のPath／size／SHA-256、専用Host Operation lockおよびEffect前の耐久記録を要求する。公式shutdown後に残るProcessは、実行Path／size／SHA-256が固定allowlistと一致するPIDだけをbounded force stopできる。WSL処置は`docker-desktop` distributionのterminateだけとし、`wsl --shutdown`、通常distributionまたは任意VMを対象にしない。
+
+Filesystem EffectはLocal App Data直下の固定`Docker\run`を同じ親Directoryの一意な`run.crdd-stale-*`へrenameする処置だけであり、socket、旧Directory、CRDD RuntimeState、Provider Home、container、imageまたはvolumeを削除しない。rename前後に同じDirectory Identityと対象不存在を再確認し、Docker Desktopを固定成果物から再起動してEngine応答を確認する。退避Directoryと段階記録は明示的な後続処置まで保持する。Process、Path、Identity、lock、WSL停止、記録更新、rename、再起動、Engine応答またはlock解放を確認できなければ成功へ昇格せず、Effect後は`manualRecoveryRequired`、Effect状態自体が不明なら`effectStateUnknown`で停止する。この処置は別のNode native crash、Docker Task Recovery、Provider EffectまたはRuntime完成を解決した根拠にならない。
 
 初回Gateは次を個別に返す。
 

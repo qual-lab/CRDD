@@ -204,10 +204,16 @@ export function describeWindowsChildEnvironmentContract() {
       "candidate_store_initialization",
       "runtime_state_observation",
       "runtime_state_initialization",
+      "docker_desktop_runtime_repair",
     ]),
     nodeChildConsumers: Object.freeze([
       "interactive_console_reader",
       "host_operation_lock_supervisor",
+    ]),
+    dockerCliConsumers: Object.freeze([
+      "docker_effect_runtime",
+      "docker_recovery_runtime",
+      "docker_desktop_runtime_repair",
     ]),
     userProfileEnvironmentAuthority: false,
     userProfileInitializationAuthority: false,

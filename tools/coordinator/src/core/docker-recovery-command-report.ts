@@ -66,6 +66,21 @@ export function renderDockerRecoveryDoctorReport(
         "- next: stop new tasks and provide the reason and recovery evidence state to the Runtime operator; no reusable recovery ID is available, and a resource must not be removed by name or label alone",
       );
   }
+  if (
+    reportValue.contract === "crdd-coordinator/docker-desktop-runtime-repair"
+  ) {
+    lines.push(
+      `- Docker Engine ready: ${reportValue.engineReady === true ? "yes" : "no"}`,
+    );
+    lines.push(
+      `- stale Docker runtime directory retained: ${
+        reportValue.staleRuntimeDirectoryRetained === true ? "yes" : "no"
+      }`,
+    );
+    lines.push(
+      `- effect state unknown: ${reportValue.effectStateUnknown === true ? "yes" : "no"}`,
+    );
+  }
   const providers = plainRecord(reportValue.providers);
   for (const [name, providerValue] of Object.entries(providers ?? {})) {
     const provider = plainRecord(providerValue);

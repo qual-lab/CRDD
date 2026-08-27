@@ -102,6 +102,32 @@ test("recoveryはjson以外のisolationまたはRuntime処置と混在させな�
     );
 });
 
+test("Docker Desktop最終復旧は単独の明示doctor処置としてだけ受理する", () => {
+  const parsed = parseDoctorArguments(
+    ["--repair-docker-desktop-runtime", "--json"],
+    undefined,
+  );
+  assert.equal(parsed.status, "ok");
+  assertPresent(parsed.value);
+  assert.equal(parsed.value.repairDockerDesktopRuntime, true);
+  assert.equal(parsed.value.recoveryId, null);
+  for (const argumentValues of [
+    ["--repair-docker-desktop-runtime", "--isolation"],
+    ["--repair-docker-desktop-runtime", "--enable-runtime"],
+    ["--repair-docker-desktop-runtime", "--recover-isolation", "host.safe"],
+  ]) {
+    const rejected = parseDoctorArguments(argumentValues, undefined);
+    assert.equal(rejected.status, "blocked");
+    assert.equal(rejected.reason, "doctor_arguments_incompatible");
+  }
+  const duplicate = parseDoctorArguments(
+    ["--repair-docker-desktop-runtime", "--repair-docker-desktop-runtime"],
+    undefined,
+  );
+  assert.equal(duplicate.status, "blocked");
+  assert.equal(duplicate.reason, "doctor_arguments_invalid");
+});
+
 test("実CLIはenable要求を候補診断へ接続しPathを表示しない", (t) => {
   const repositoryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-cli-root-"),

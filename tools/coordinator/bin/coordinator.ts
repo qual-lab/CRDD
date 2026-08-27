@@ -35,6 +35,7 @@ import {
 } from "../src/security/coordinator-task-runtime.ts";
 import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../src/security/platform-provisioner-package-filesystem.ts";
 import { recoverDockerIsolationProbe } from "../src/security/docker-isolation.ts";
+import { repairRuntimeOwnedWindowsDockerDesktopRuntime } from "../src/security/docker-desktop-runtime-repair.ts";
 import {
   inspectRuntimeOwnedDockerTaskRecoveryState,
   recoverRuntimeOwnedDockerTask,
@@ -87,6 +88,9 @@ function printHelp() {
   );
   process.stdout.write(
     `  coordinator doctor --recover-isolation <recovery-id> [--json]\n`,
+  );
+  process.stdout.write(
+    `  coordinator doctor --repair-docker-desktop-runtime [--json]\n`,
   );
   process.stdout.write(
     `  coordinator activate [--runtime-root <absolute-path>] [--authority-root <absolute-path>] [--json]\n`,
@@ -513,7 +517,8 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
     if (
       !options ||
       typeof options.json !== "boolean" ||
-      typeof options.activeIsolation !== "boolean"
+      typeof options.activeIsolation !== "boolean" ||
+      typeof options.repairDockerDesktopRuntime !== "boolean"
     ) {
       throw new UsageError("doctor_arguments_invalid");
     }
@@ -521,8 +526,9 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
     if (recoveryIdValue === null) recoveryId = null;
     else if (typeof recoveryIdValue === "string") recoveryId = recoveryIdValue;
     else throw new UsageError("doctor_arguments_invalid");
-    const report: unknown =
-      recoveryId !== null
+    const report: unknown = options.repairDockerDesktopRuntime
+      ? await repairRuntimeOwnedWindowsDockerDesktopRuntime()
+      : recoveryId !== null
         ? recoveryId.startsWith("host.")
           ? recoverOwnedOperationDirectories(recoveryId)
           : recoveryId.startsWith("docker-task.")
