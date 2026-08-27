@@ -53,7 +53,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 17;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 18;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -3615,7 +3615,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       if (!fs.existsSync(receiptPath)) {
         const expectedNetworks =
           purpose === "create_subscription_auth_probe"
-            ? []
+            ? ["none"]
             : purpose === "create_proxy"
               ? [String(resources.internal)]
               : kind === "container"
@@ -3675,7 +3675,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         !outsideRuntimeStateLock(() => {
           const expectedNetworks =
             purpose === "create_subscription_auth_probe"
-              ? []
+              ? ["none"]
               : purpose === "create_proxy"
                 ? [String(resources.internal)]
                 : kind === "container"

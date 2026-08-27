@@ -454,7 +454,7 @@ test("exact ID削除後に同名replacementが残ればcleanupを完了しない
 
 test("Docker Effect contractは固定CLIと任意command禁止を公開する", () => {
   const contract = describeDockerEffectRuntimeContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(contract.dockerCli.bytes, 41_631_088);
   assert.equal(contract.dockerCli.pathLookupAllowed, false);
   assert.equal(contract.dockerCli.shellAllowed, false);

@@ -18,7 +18,7 @@ import { inspectRuntimeOwnedDockerResourceReceipts } from "./docker-recovery-run
 
 export const DOCKER_EFFECT_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-effect-runtime";
-export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 7;
+export const DOCKER_EFFECT_RUNTIME_CONTRACT_REVISION = 8;
 
 const DOCKER_ROOT = "C:\\Program Files\\Docker\\Docker\\resources\\bin";
 const DOCKER_EXECUTABLE = `${DOCKER_ROOT}\\docker.exe`;
@@ -764,7 +764,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
           : [];
       const expectedNetworks =
         purpose === "create_subscription_auth_probe"
-          ? []
+          ? ["none"]
           : purpose === "create_proxy"
             ? [plan.egressNetworkName, plan.internalNetworkName].sort()
             : [plan.internalNetworkName];

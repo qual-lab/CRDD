@@ -964,7 +964,7 @@ function exactProxyRunner(networkNames: readonly string[]) {
   });
 }
 
-function exactAuthRunner() {
+function exactAuthRunner(networkNames: readonly string[] = ["none"]) {
   return exactContainerRunner({
     Name: "/crdd-auth-0123456789abcdef",
     Config: Object.freeze({
@@ -982,7 +982,13 @@ function exactAuthRunner() {
       SecurityOpt: Object.freeze(["no-new-privileges:true"]),
       PidsLimit: 32,
     }),
-    NetworkSettings: Object.freeze({ Networks: Object.freeze({}) }),
+    NetworkSettings: Object.freeze({
+      Networks: Object.freeze(
+        Object.fromEntries(
+          networkNames.map((networkName) => [networkName, Object.freeze({})]),
+        ),
+      ),
+    }),
     Mounts: Object.freeze([
       Object.freeze({
         Type: "bind",
@@ -2990,6 +2996,46 @@ test("production共有Docker回復はreceipt前crashの同一owned resourceを�
   assert.equal(fixture.removeCount(), 0);
 });
 
+test("production共有Docker回復はauth probeのDocker none network表現だけを受理する", () => {
+  const accepted = exactAuthRunner();
+  assert.equal(
+    recoverUnknownDockerCreateOutcomeWithRunner(
+      accepted.runDockerCommand,
+      "container",
+      "crdd-auth-0123456789abcdef",
+      "crdd.coordinator.runtime=0123456789abcdef",
+      `sha256:${"a".repeat(64)}`,
+      null,
+      "create_subscription_auth_probe",
+      Object.freeze(["none"]),
+      "isolated_task",
+      "read_write",
+    ),
+    accepted.dockerId,
+  );
+  assert.equal(accepted.removeCount(), 0);
+
+  for (const networks of [[], ["foreign"], ["none", "foreign"]] as const) {
+    const rejected = exactAuthRunner(networks);
+    assert.equal(
+      recoverUnknownDockerCreateOutcomeWithRunner(
+        rejected.runDockerCommand,
+        "container",
+        "crdd-auth-0123456789abcdef",
+        "crdd.coordinator.runtime=0123456789abcdef",
+        `sha256:${"a".repeat(64)}`,
+        null,
+        "create_subscription_auth_probe",
+        Object.freeze(["none"]),
+        "isolated_task",
+        "read_write",
+      ),
+      null,
+    );
+    assert.equal(rejected.removeCount(), 0);
+  }
+});
+
 test("production共有Docker回復はreceipt前proxyのinternal-only構成を削除前にexact IDへ固定する", () => {
   const internal = "crdd-internal-0123456789abcdef";
   const fixture = exactProxyRunner([internal]);
@@ -3197,7 +3243,7 @@ test("production共有Docker回復はreceipt前照会の失敗・signal・stderr
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 17,
+    contractRevision: 18,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
