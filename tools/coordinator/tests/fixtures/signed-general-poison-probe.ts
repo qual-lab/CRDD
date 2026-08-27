@@ -172,7 +172,10 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       completion,
     });
     if (scenario === "started_proxy") return new Proxy(started, {});
-    if (scenario === "completion_subclass") {
+    if (
+      scenario === "completion_subclass" ||
+      scenario === "completion_subclass_reject"
+    ) {
       class ThrowingThenPromise<T> extends Promise<T> {
         // biome-ignore lint/suspicious/noThenProperty: the hostile then override is the contract-test input.
         override then(): never {
@@ -182,7 +185,10 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       return Object.freeze({
         controlCapability: started.controlCapability,
         completion: new ThrowingThenPromise<Record<string, unknown>>(
-          (resolve) => resolve(Object.freeze(result)),
+          (resolve, reject) =>
+            scenario === "completion_subclass_reject"
+              ? reject(new Error("fixed_subclass_rejection"))
+              : resolve(Object.freeze(result)),
         ),
       });
     }
@@ -319,6 +325,8 @@ const grant = await requestRuntimeOwnedExternalSendGrant(
   grantProbe,
   grantProbe as AbortSignal,
 );
+
+await new Promise<void>((resolve) => setImmediate(resolve));
 
 process.stdout.write(
   `${JSON.stringify({

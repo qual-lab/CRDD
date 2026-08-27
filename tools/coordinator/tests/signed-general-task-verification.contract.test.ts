@@ -793,6 +793,7 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     "completion_getter",
     "completion_proxy",
     "completion_subclass",
+    "completion_subclass_reject",
     "control_missing_completion_recovery",
     "control_missing_completion_reject",
     "control_missing_completion_never",
@@ -819,7 +820,11 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
   for (const scenario of scenarios) {
     const probe = spawnSync(
       process.execPath,
-      [path.resolve("tests/fixtures/signed-general-poison-probe.ts"), scenario],
+      [
+        "--unhandled-rejections=strict",
+        path.resolve("tests/fixtures/signed-general-poison-probe.ts"),
+        scenario,
+      ],
       { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
     );
     assert.equal(probe.status, 0, `${scenario}: ${probe.stderr}`);

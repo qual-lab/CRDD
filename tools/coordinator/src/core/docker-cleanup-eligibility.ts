@@ -29,6 +29,9 @@ function recoveryId(value: unknown): value is string {
 
 function exactDenseStringArray(value: unknown) {
   if (
+    !value ||
+    typeof value !== "object" ||
+    utilTypes.isProxy(value) ||
     !Array.isArray(value) ||
     Object.getPrototypeOf(value) !== Array.prototype ||
     value.length > MAX_RECOVERY_IDS
@@ -60,6 +63,99 @@ function exactDenseStringArray(value: unknown) {
   return Object.freeze(result);
 }
 
+function exactPlainRecord(
+  value: unknown,
+  expectedKeys: readonly string[],
+): Readonly<Record<string, unknown>> | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    utilTypes.isProxy(value) ||
+    Array.isArray(value)
+  )
+    return null;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const keys = Reflect.ownKeys(descriptors);
+  if (
+    keys.length !== expectedKeys.length ||
+    keys.some((key) => typeof key !== "string" || !expectedKeys.includes(key))
+  )
+    return null;
+  const snapshot: Record<string, unknown> = Object.create(null);
+  for (const key of expectedKeys) {
+    const descriptor = descriptors[key];
+    if (
+      !descriptor ||
+      !("value" in descriptor) ||
+      descriptor.get !== undefined ||
+      descriptor.set !== undefined ||
+      descriptor.enumerable !== true
+    )
+      return null;
+    snapshot[key] = descriptor.value;
+  }
+  return Object.freeze(snapshot);
+}
+
+function exactPlainRecordArray(
+  value: unknown,
+  expectedRecordKeys: readonly string[],
+) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    utilTypes.isProxy(value) ||
+    !Array.isArray(value) ||
+    Object.getPrototypeOf(value) !== Array.prototype ||
+    value.length > MAX_RECOVERY_IDS
+  )
+    return null;
+  const keys = Reflect.ownKeys(value);
+  const expectedKeys = new Set<PropertyKey>([
+    "length",
+    ...Array.from({ length: value.length }, (_, index) => String(index)),
+  ]);
+  if (
+    keys.length !== expectedKeys.size ||
+    keys.some((key) => !expectedKeys.has(key))
+  )
+    return null;
+  const snapshot: Readonly<Record<string, unknown>>[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!descriptor || !("value" in descriptor)) return null;
+    const record = exactPlainRecord(descriptor.value, expectedRecordKeys);
+    if (!record) return null;
+    snapshot.push(record);
+  }
+  return Object.freeze(snapshot);
+}
+
+function snapshotInput(value: unknown) {
+  const input = exactPlainRecord(value, ["raw", "handoffs", "finalizations"]);
+  if (!input) return null;
+  const raw = exactPlainRecord(input.raw, [
+    "singularPresent",
+    "singular",
+    "pluralPresent",
+    "plural",
+  ]);
+  const handoffs = exactPlainRecordArray(input.handoffs, [
+    "state",
+    "recoveryId",
+    "capability",
+  ]);
+  const finalizations = exactPlainRecordArray(input.finalizations, [
+    "recoveryId",
+    "capability",
+  ]);
+  return raw && handoffs && finalizations
+    ? Object.freeze({ raw, handoffs, finalizations })
+    : null;
+}
+
 function canonicalRawIds(raw: RawDockerRecoveryProjection) {
   if (!raw.singularPresent || !raw.pluralPresent) return null;
   const singular =
@@ -77,14 +173,10 @@ function canonicalRawIds(raw: RawDockerRecoveryProjection) {
   return Object.freeze(plural);
 }
 
-function evaluate(
-  input: Readonly<{
-    raw: RawDockerRecoveryProjection;
-    handoffs: readonly DockerCleanupHandoffCandidate[];
-    finalizations: readonly DockerCleanupFinalizationCandidate[];
-  }>,
-) {
-  const rawIds = canonicalRawIds(input.raw);
+function evaluate(inputValue: unknown) {
+  const input = snapshotInput(inputValue);
+  if (!input) return Object.freeze({ eligible: false, reason: "raw_invalid" });
+  const rawIds = canonicalRawIds(input.raw as RawDockerRecoveryProjection);
   if (!rawIds) return Object.freeze({ eligible: false, reason: "raw_invalid" });
   const pending = input.handoffs.filter(
     (handoff) => handoff.state !== "finalized",
@@ -130,12 +222,11 @@ function evaluate(
   return Object.freeze({ eligible: true, reason: "exact_match" });
 }
 
-export function evaluateManagedDockerCleanupEligibility(
-  input: Parameters<typeof evaluate>[0],
-) {
+export function evaluateManagedDockerCleanupEligibility(input: unknown) {
   try {
     return evaluate(input);
   } catch {
     return Object.freeze({ eligible: false, reason: "raw_invalid" });
   }
 }
+import { types as utilTypes } from "node:util";

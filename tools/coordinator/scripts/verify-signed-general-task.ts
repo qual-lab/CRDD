@@ -295,7 +295,9 @@ function plainRecord(value: unknown): RuntimeRecord | null {
 
 function snapshotStartedTask(value: unknown) {
   let controlCapability: object | null = null;
-  let completion: Promise<RuntimeRecord> | null = null;
+  let completionObservation: ReturnType<typeof observeNativeCompletion> | null =
+    null;
+  let completionObserverUnknown = false;
   try {
     if (
       !value ||
@@ -303,10 +305,18 @@ function snapshotStartedTask(value: unknown) {
       Array.isArray(value) ||
       utilTypes.isProxy(value)
     )
-      return Object.freeze({ controlCapability, completion });
+      return Object.freeze({
+        controlCapability,
+        completionObservation,
+        completionObserverUnknown,
+      });
     const prototype = Object.getPrototypeOf(value);
     if (prototype !== Object.prototype && prototype !== null)
-      return Object.freeze({ controlCapability, completion });
+      return Object.freeze({
+        controlCapability,
+        completionObservation,
+        completionObserverUnknown,
+      });
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const control = descriptors.controlCapability;
     if (
@@ -330,16 +340,32 @@ function snapshotStartedTask(value: unknown) {
       observedCompletion.value &&
       typeof observedCompletion.value === "object" &&
       !utilTypes.isProxy(observedCompletion.value) &&
-      utilTypes.isPromise(observedCompletion.value) &&
-      Object.getPrototypeOf(observedCompletion.value) === Promise.prototype &&
-      Object.getOwnPropertyDescriptor(observedCompletion.value, "then") ===
-        undefined
-    )
-      completion = observedCompletion.value as Promise<RuntimeRecord>;
+      utilTypes.isPromise(observedCompletion.value)
+    ) {
+      try {
+        const observation = observeNativeCompletion(
+          observedCompletion.value as Promise<RuntimeRecord>,
+        );
+        if (
+          Object.getPrototypeOf(observedCompletion.value) ===
+            Promise.prototype &&
+          Object.getOwnPropertyDescriptor(observedCompletion.value, "then") ===
+            undefined
+        )
+          completionObservation = observation;
+      } catch {
+        completionObserverUnknown = true;
+      }
+    }
   } catch {
     // Partially observed control remains available only for bounded cancel.
+    completionObserverUnknown = true;
   }
-  return Object.freeze({ controlCapability, completion });
+  return Object.freeze({
+    controlCapability,
+    completionObservation,
+    completionObserverUnknown,
+  });
 }
 
 function observeNativeCompletion(completion: Promise<RuntimeRecord>) {
@@ -872,18 +898,9 @@ export async function runSignedGeneralTaskVerification(
   }
   const started = snapshotStartedTask(rawStarted);
   const controlCapability = started.controlCapability;
-  const completion = started.completion;
+  const completionObservation = started.completionObservation;
+  const completionObserverUnknown = started.completionObserverUnknown;
   const timing = settlementTiming(dependencies);
-  let completionObservation: ReturnType<typeof observeNativeCompletion> | null =
-    null;
-  let completionObserverUnknown = false;
-  if (completion) {
-    try {
-      completionObservation = observeNativeCompletion(completion);
-    } catch {
-      completionObserverUnknown = true;
-    }
-  }
   let cancelAttempted = false;
   let cancelCompletion: Promise<unknown> | null = null;
   const requestCancellation = () => {

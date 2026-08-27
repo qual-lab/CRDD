@@ -42,11 +42,24 @@ function raw(ids: readonly string[]) {
   });
 }
 
+function cleanupState(value: ReturnType<typeof candidate>): Readonly<{
+  handoffs: ReturnType<typeof candidate>["handoffs"];
+  finalizations: ReturnType<typeof candidate>["finalizations"];
+}> {
+  return Object.freeze({
+    handoffs: value.handoffs,
+    finalizations: value.finalizations,
+  });
+}
+
 test("Docker cleanup eligibilityは0/1/N exact finalizable集合だけを受理する", () => {
   for (const ids of [[], ["r1"], ["r1", "r2"]] as const) {
     const state = candidate(ids);
     assert.deepEqual(
-      evaluateManagedDockerCleanupEligibility({ raw: raw(ids), ...state }),
+      evaluateManagedDockerCleanupEligibility({
+        raw: raw(ids),
+        ...cleanupState(state),
+      }),
       { eligible: true, reason: "exact_match" },
     );
   }
@@ -156,7 +169,7 @@ test("raw recovery projectionの不正shapeは認証済みhandoffがあっても
     assert.equal(
       evaluateManagedDockerCleanupEligibility({
         raw: projection,
-        ...state,
+        ...cleanupState(state),
       }).eligible,
       false,
     );
@@ -171,7 +184,7 @@ test("raw field欠落はpending件数にかかわらず拒否する", () => {
         pluralPresent: false,
         plural: undefined,
       },
-      ...candidate([]),
+      ...cleanupState(candidate([])),
     }).eligible,
     false,
   );
@@ -183,7 +196,7 @@ test("raw field欠落はpending件数にかかわらず拒否する", () => {
         pluralPresent: false,
         plural: undefined,
       },
-      ...candidate(["r1"]),
+      ...cleanupState(candidate(["r1"])),
     }).eligible,
     false,
   );
@@ -198,7 +211,7 @@ test("raw集合がpending集合の空または部分集合なら拒否する", (
     assert.equal(
       evaluateManagedDockerCleanupEligibility({
         raw: raw(rawIds),
-        ...candidate(pendingIds),
+        ...cleanupState(candidate(pendingIds)),
       }).eligible,
       false,
     );
@@ -207,30 +220,31 @@ test("raw集合がpending集合の空または部分集合なら拒否する", (
 
 test("handoff/finalizationのstate・重複・交差不一致・余剰を拒否する", () => {
   const base = candidate(["r1", "r2"]);
+  const baseState = cleanupState(base);
   const cases = [
-    { ...base, handoffs: candidate(["r1"], "active").handoffs },
-    { ...base, handoffs: candidate(["r1"], "abandoned").handoffs },
+    { ...baseState, handoffs: candidate(["r1"], "active").handoffs },
+    { ...baseState, handoffs: candidate(["r1"], "abandoned").handoffs },
     {
-      ...base,
+      ...baseState,
       handoffs: [exactAt(base.handoffs, 0), exactAt(base.handoffs, 0)],
     },
     {
-      ...base,
+      ...baseState,
       finalizations: [
         exactAt(base.finalizations, 0),
         exactAt(base.finalizations, 0),
       ],
     },
     {
-      ...base,
+      ...baseState,
       finalizations: [
         { recoveryId: "r1", capability: exactAt(base.capabilities, 1) },
         { recoveryId: "r2", capability: exactAt(base.capabilities, 0) },
       ],
     },
-    { ...base, finalizations: [exactAt(base.finalizations, 0)] },
+    { ...baseState, finalizations: [exactAt(base.finalizations, 0)] },
     {
-      ...base,
+      ...baseState,
       finalizations: [
         ...base.finalizations,
         { recoveryId: "r3", capability: {} },
@@ -250,15 +264,80 @@ test("handoff/finalizationのstate・重複・交差不一致・余剰を拒否�
 test("unmanaged raw IDとmanaged/raw混在を拒否する", () => {
   const state = candidate(["r1"]);
   assert.equal(
-    evaluateManagedDockerCleanupEligibility({ raw: raw(["other"]), ...state })
-      .eligible,
+    evaluateManagedDockerCleanupEligibility({
+      raw: raw(["other"]),
+      ...cleanupState(state),
+    }).eligible,
     false,
   );
   assert.equal(
     evaluateManagedDockerCleanupEligibility({
       raw: raw(["r1", "other"]),
-      ...state,
+      ...cleanupState(state),
     }).eligible,
     false,
   );
+});
+
+test("pure Coreは全入力構造のtransparent Proxyをtrap前に拒否する", () => {
+  const base = candidate(["r1"]);
+  const baseRaw = raw(["r1"]);
+  let trapCount = 0;
+  const handler: ProxyHandler<object> = {
+    get: (target, key, receiver) => {
+      trapCount += 1;
+      return Reflect.get(target, key, receiver);
+    },
+    getPrototypeOf: (target) => {
+      trapCount += 1;
+      return Reflect.getPrototypeOf(target);
+    },
+    has: (target, key) => {
+      trapCount += 1;
+      return Reflect.has(target, key);
+    },
+    ownKeys: (target) => {
+      trapCount += 1;
+      return Reflect.ownKeys(target);
+    },
+    getOwnPropertyDescriptor: (target, key) => {
+      trapCount += 1;
+      return Reflect.getOwnPropertyDescriptor(target, key);
+    },
+  };
+  const proxy = <T extends object>(value: T) => new Proxy(value, handler);
+  const exactInput = Object.freeze({
+    raw: baseRaw,
+    handoffs: base.handoffs,
+    finalizations: base.finalizations,
+  });
+  const cases = [
+    proxy(exactInput),
+    Object.freeze({ ...exactInput, raw: proxy(baseRaw) }),
+    Object.freeze({
+      ...exactInput,
+      raw: Object.freeze({ ...baseRaw, plural: proxy(["r1"]) }),
+    }),
+    Object.freeze({ ...exactInput, handoffs: proxy([...base.handoffs]) }),
+    Object.freeze({
+      ...exactInput,
+      finalizations: proxy([...base.finalizations]),
+    }),
+    Object.freeze({
+      ...exactInput,
+      handoffs: Object.freeze([proxy(exactAt(base.handoffs, 0))]),
+    }),
+    Object.freeze({
+      ...exactInput,
+      finalizations: Object.freeze([proxy(exactAt(base.finalizations, 0))]),
+    }),
+  ];
+  for (const value of cases) {
+    trapCount = 0;
+    assert.equal(
+      evaluateManagedDockerCleanupEligibility(value).eligible,
+      false,
+    );
+    assert.equal(trapCount, 0);
+  }
 });

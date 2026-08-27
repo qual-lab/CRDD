@@ -74,7 +74,7 @@ import { evaluateManagedDockerCleanupEligibility } from "../core/docker-cleanup-
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 19;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 20;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -108,6 +108,10 @@ const PROCESS_CANCELLATION_RESULT_KEYS = new Set([
   "cancellationRequested",
   "processTerminationObserved",
 ]);
+const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
+  status: "blocked" as const,
+  reason: "coordinator_task_control_invalid" as const,
+});
 
 type Provider = "codex" | "claude";
 type TaskRole = "executor" | "reviewer";
@@ -1108,11 +1112,7 @@ async function runCoordinatorTaskCore(
               control,
             );
             if (processControl) {
-              if (
-                cancellationResult?.status !== "requested" ||
-                ("processTerminationObserved" in (cancellationResult ?? {}) &&
-                  cancellationResult?.processTerminationObserved !== true)
-              ) {
+              if (cancellationResult.processTerminationObserved !== true) {
                 control.hostGenerationLossOutcome = "cleanup_unknown";
                 poisonRuntimeProcess(state, control);
               }
@@ -2258,13 +2258,13 @@ function createRuntime(dependencies: RuntimeDependencies) {
         credentialAbsenceVerified: false,
       });
     },
-    cancel: async (controlCapability: unknown) => {
+    cancel: (controlCapability: unknown) => {
       if (!controlCapability || typeof controlCapability !== "object") {
-        return Object.freeze({ status: "blocked" as const });
+        return Promise.resolve(INVALID_CONTROL_CANCELLATION_RESULT);
       }
       const control = state.controls.get(controlCapability);
       if (!control) {
-        return Object.freeze({ status: "blocked" as const });
+        return Promise.resolve(INVALID_CONTROL_CANCELLATION_RESULT);
       }
       return requestControlCancellation(state, control);
     },
@@ -2340,6 +2340,17 @@ export function describeCoordinatorTaskRuntimeContract() {
       "before_package_consume_operation_console_store_workspace_provider_and_network",
     processRestartProjection:
       "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_manual_recovery_reason_and_temporary_drain",
+    cancellation: Object.freeze({
+      liveControlReceipt:
+        "exact_status_reason_cancellation_requested_process_termination_observed",
+      reasonCorrelation:
+        "termination_true_requested_or_termination_false_grace_exceeded",
+      duplicateLiveOperation:
+        "same_cancellation_effect_same_promise_same_frozen_receipt",
+      invalidForeignOrExpiredControl:
+        "exact_blocked_control_invalid_with_zero_effect",
+      legacyReceiptFallbackAllowed: false,
+    }),
     hostOperationGenerationReadiness:
       "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
     hostOperationSupervisorOutcomes:

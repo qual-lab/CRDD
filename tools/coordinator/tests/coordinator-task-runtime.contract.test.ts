@@ -56,6 +56,7 @@ function fixture(
     pauseRole?: "executor" | "reviewer";
     hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
     cancellationTerminationObserved?: boolean;
+    cancellationReceiptInvalid?: boolean;
     cleanupOutcomeUnverified?: boolean;
     discardFails?: boolean;
     discardThrows?: boolean;
@@ -472,6 +473,8 @@ function fixture(
     },
     cancelProcess: async () => {
       cancelProcessCount += 1;
+      if (options.cancellationReceiptInvalid)
+        return Object.freeze({ status: "requested" });
       const processTerminationObserved =
         options.cancellationTerminationObserved !== false;
       return Object.freeze({
@@ -1634,15 +1637,20 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
     "2026-08-25T00:00:00.000Z",
   );
   await new Promise((resolve) => setImmediate(resolve));
-  const cancelled = await harness.runtime.cancel(started.controlCapability);
+  const firstCancellation = harness.runtime.cancel(started.controlCapability);
+  const duplicateCancellation = harness.runtime.cancel(
+    started.controlCapability,
+  );
+  assert.strictEqual(duplicateCancellation, firstCancellation);
+  const cancelled = await firstCancellation;
   assert.deepEqual(cancelled, {
     status: "requested",
     reason: "provider_cancellation_requested",
     cancellationRequested: true,
     processTerminationObserved: true,
   });
-  const duplicate = await harness.runtime.cancel(started.controlCapability);
-  assert.deepEqual(duplicate, cancelled);
+  const duplicate = await duplicateCancellation;
+  assert.strictEqual(duplicate, cancelled);
   harness.releasePausedProcess();
   const result = await started.completion;
   assert.equal(result.status, "blocked");
@@ -1652,6 +1660,36 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
   );
   assert.equal(result.candidateRevision, null);
   assert.equal(harness.cleanupCount(), 1);
+});
+
+test("不正なlower取消receiptも同じlive Operationでは同じcached rejectionへ閉じる", async () => {
+  const harness = fixture({
+    pauseRole: "executor",
+    cancellationReceiptInvalid: true,
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  const firstCancellation = harness.runtime.cancel(started.controlCapability);
+  const duplicateCancellation = harness.runtime.cancel(
+    started.controlCapability,
+  );
+  assert.strictEqual(duplicateCancellation, firstCancellation);
+  await assert.rejects(
+    firstCancellation,
+    /coordinator_task_cancellation_receipt_invalid/u,
+  );
+  await assert.rejects(
+    duplicateCancellation,
+    /coordinator_task_cancellation_receipt_invalid/u,
+  );
+  assert.equal(harness.cancelProcessCount(), 1);
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
 });
 
 test("ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否する", async () => {
@@ -1875,9 +1913,19 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
   );
 });
 
+test("不正・foreign・失効controlの取消はexact blockedかつEffect 0へ閉じる", async () => {
+  const harness = fixture();
+  for (const control of [null, Object.freeze({})])
+    assert.deepEqual(await harness.runtime.cancel(control), {
+      status: "blocked",
+      reason: "coordinator_task_control_invalid",
+    });
+  assert.equal(harness.cancelProcessCount(), 0);
+});
+
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 19);
+  assert.equal(contract.contractRevision, 20);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,
@@ -1900,6 +1948,17 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
     contract.processRestartProjection,
     "runtime_owned_final_irreversible_process_poison_boolean_independent_from_recovery_identifiers_manual_recovery_reason_and_temporary_drain",
   );
+  assert.deepEqual(contract.cancellation, {
+    liveControlReceipt:
+      "exact_status_reason_cancellation_requested_process_termination_observed",
+    reasonCorrelation:
+      "termination_true_requested_or_termination_false_grace_exceeded",
+    duplicateLiveOperation:
+      "same_cancellation_effect_same_promise_same_frozen_receipt",
+    invalidForeignOrExpiredControl:
+      "exact_blocked_control_invalid_with_zero_effect",
+    legacyReceiptFallbackAllowed: false,
+  });
   assert.equal(
     contract.hostOperationGenerationReadiness,
     "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
