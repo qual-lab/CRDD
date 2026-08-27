@@ -53,7 +53,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 18;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 19;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -414,7 +414,11 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
   let recoverableId: string | null = null;
   let issuedRecoveryCapability: object | null = null;
   try {
-    const reboundRoot = observeRuntimeStateRoot();
+    const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
+    const reboundRoot = runtimeStateLockController.outsideLock(
+      observeRuntimeStateRoot,
+    );
+    const rootAfter = fs.lstatSync(root.rootPath, { bigint: true });
     if (
       !reboundRoot ||
       reboundRoot.rootPath !== root.rootPath ||
@@ -423,17 +427,19 @@ function beginRuntimeOwnedDockerRecoveryFromVerifiedCandidatesInternal(
         root.runtimeStateProtectionHash ||
       reboundRoot.localUserBindingHash !== root.localUserBindingHash ||
       reboundRoot.stableLogicalHomeBindingHash !==
-        root.stableLogicalHomeBindingHash
-    )
-      throw new Error("docker_recovery_runtime_state_binding_changed");
-    const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
-    const recoveryInventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
-    const rootAfter = fs.lstatSync(root.rootPath, { bigint: true });
-    if (
-      recoveryInventory.status !== "completed" ||
+        root.stableLogicalHomeBindingHash ||
       rootBefore.dev !== rootAfter.dev ||
       rootBefore.ino !== rootAfter.ino ||
-      rootBefore.birthtimeNs !== rootAfter.birthtimeNs ||
+      rootBefore.birthtimeNs !== rootAfter.birthtimeNs
+    )
+      throw new Error("docker_recovery_runtime_state_binding_changed");
+    const recoveryInventory = inspectDockerRecoveryRootSnapshot(root.rootPath);
+    const rootAfterInventory = fs.lstatSync(root.rootPath, { bigint: true });
+    if (
+      recoveryInventory.status !== "completed" ||
+      rootAfter.dev !== rootAfterInventory.dev ||
+      rootAfter.ino !== rootAfterInventory.ino ||
+      rootAfter.birthtimeNs !== rootAfterInventory.birthtimeNs ||
       recoveryInventory.activeStableLogicalHomeBindingHashes.some(
         (value: unknown) => value === plan.stableLogicalHomeBindingHash,
       )
@@ -791,6 +797,8 @@ function withDurableRuntimeStateLock<T>(
   record: DurableRecord,
   operation: () => T,
 ) {
+  const rootBefore = fs.lstatSync(record.rootPath, { bigint: true });
+  const observedRoot = record.observeRuntimeStateRoot();
   const lock = acquireRuntimeOwnedDockerRuntimeStateKernelLock(
     record.runtimeStateBindingHash,
   );
@@ -800,10 +808,17 @@ function withDurableRuntimeStateLock<T>(
   let operationError: unknown;
   let didOperationThrow = false;
   try {
-    verifyRuntimeStateMutationBoundary(
+    const rootAfter = fs.lstatSync(record.rootPath, { bigint: true });
+    if (
+      rootBefore.dev !== rootAfter.dev ||
+      rootBefore.ino !== rootAfter.ino ||
+      rootBefore.birthtimeNs !== rootAfter.birthtimeNs
+    )
+      throw new Error("docker_task_runtime_state_binding_changed");
+    verifyObservedRuntimeStateMutationBoundary(
       record,
       record.recoveryId,
-      record.observeRuntimeStateRoot,
+      observedRoot,
     );
     operationResult = operation();
   } catch (error) {
@@ -827,7 +842,7 @@ function observeRuntimeStateRootFromWindows() {
   return observation.status === "candidate" && current ? current : null;
 }
 
-function verifyRuntimeStateMutationBoundary(
+function verifyObservedRuntimeStateMutationBoundary(
   expected: Readonly<{
     rootPath: string;
     runtimeStateIdentityHash: string;
@@ -836,9 +851,8 @@ function verifyRuntimeStateMutationBoundary(
     runtimeStateBindingHash: string;
   }>,
   recoveryId: string,
-  observeRuntimeStateRoot: () => VerifiedRuntimeStateRoot | null = observeRuntimeStateRootFromWindows,
+  current: VerifiedRuntimeStateRoot | null,
 ) {
-  const current = observeRuntimeStateRoot();
   if (!current) throw new Error("docker_task_runtime_state_binding_changed");
   const inventory = inspectDockerRecoveryRootSnapshot(current.rootPath);
   if (
@@ -2846,10 +2860,21 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       recoveryBaseLocalUserBindingHash !== root.localUserBindingHash
     )
       throw new Error("docker_task_runtime_state_user_binding_changed");
-    verifyRuntimeStateMutationBoundary(
+    const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
+    const observedRoot = runtimeStateLockController.outsideLock(
+      observeRuntimeStateRoot,
+    );
+    const rootAfter = fs.lstatSync(root.rootPath, { bigint: true });
+    if (
+      rootBefore.dev !== rootAfter.dev ||
+      rootBefore.ino !== rootAfter.ino ||
+      rootBefore.birthtimeNs !== rootAfter.birthtimeNs
+    )
+      throw new Error("docker_task_runtime_state_binding_changed");
+    verifyObservedRuntimeStateMutationBoundary(
       runtimeStateBinding,
       parsed.token,
-      observeRuntimeStateRoot,
+      observedRoot,
     );
   };
   const outsideRuntimeStateLock = <T>(effect: () => T) => {
@@ -4922,7 +4947,7 @@ export function describeDockerRecoveryRuntimeContract() {
     runtimeStateRoot:
       "selected_user_runtime_owned_fixed_known_folder_protected_root",
     runtimeStateRevalidation:
-      "root_identity_protection_selected_user_and_full_inventory_before_each_mutation_and_after_effect",
+      "native_root_identity_protection_and_selected_user_observed_outside_the_runtime_state_lock_then_same_root_filesystem_identity_and_full_inventory_verified_after_reacquisition_before_each_mutation_and_after_effect",
     runtimeStateCreationBinding:
       "base_cleanup_manifest_and_root_cleanup_anchor_bind_creation_identity_protection_selected_user_and_runtime_state_hash",
     logicalHomeLease:

@@ -17,6 +17,7 @@ import {
   resumeDockerRecoveryJournalDirectoryForRecovery,
   writeCommittedDockerRecoveryJson,
 } from "../src/security/docker-recovery-journal.ts";
+import { acquireRuntimeOwnedDockerRuntimeStateKernelLock } from "../src/security/candidate-store-kernel-lock.ts";
 import {
   abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecovery,
@@ -2844,6 +2845,7 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
   const operation = verifyOwnedOperationManagementCapability(management);
   const plan = productionPlan(operation.operationId, "e".repeat(64));
   const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  let runtimeStateLockWasReleasedForObservation = false;
   try {
     assert.deepEqual(
       beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
@@ -2851,7 +2853,15 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
         management,
         providerHomeForPlan(plan),
         root,
-        () => changedRoot,
+        () => {
+          const observationLock =
+            acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+              root.stableLogicalHomeBindingHash,
+            );
+          runtimeStateLockWasReleasedForObservation = Boolean(observationLock);
+          assert.equal(observationLock?.release(), true);
+          return changedRoot;
+        },
       ),
       {
         status: "blocked",
@@ -2860,6 +2870,7 @@ test("production beginはlock取得後のRuntimeState再bind不一致を初回�
         reason: "docker_recovery_initialization_failed_closed",
       },
     );
+    assert.equal(runtimeStateLockWasReleasedForObservation, true);
     assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
     assert.equal(
       loadHostRecoveryRecordByToken(owned.hostRecoveryId).record.state,
@@ -3259,7 +3270,7 @@ test("production共有Docker回復はreceipt前照会の失敗・signal・stderr
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 18,
+    contractRevision: 19,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
@@ -3267,7 +3278,7 @@ test("Docker Recovery contractはEffect前記録とcleanup後完了を固定す�
     runtimeStateRoot:
       "selected_user_runtime_owned_fixed_known_folder_protected_root",
     runtimeStateRevalidation:
-      "root_identity_protection_selected_user_and_full_inventory_before_each_mutation_and_after_effect",
+      "native_root_identity_protection_and_selected_user_observed_outside_the_runtime_state_lock_then_same_root_filesystem_identity_and_full_inventory_verified_after_reacquisition_before_each_mutation_and_after_effect",
     runtimeStateCreationBinding:
       "base_cleanup_manifest_and_root_cleanup_anchor_bind_creation_identity_protection_selected_user_and_runtime_state_hash",
     logicalHomeLease:
