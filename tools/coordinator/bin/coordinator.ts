@@ -17,6 +17,7 @@ import {
 import { runDoctor } from "../src/core/doctor.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
+import { createTaskCliCancellationLatch } from "../src/core/task-cli-cancellation.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
@@ -211,9 +212,10 @@ async function runTaskCommand(args: readonly string[]) {
     process.exitCode = rawError instanceof UsageError ? 64 : 2;
     return;
   }
-  const cancel = () => {
-    void cancelRuntimeOwnedCoordinatorTask(started.controlCapability);
-  };
+  const cancellation = createTaskCliCancellationLatch(() =>
+    cancelRuntimeOwnedCoordinatorTask(started.controlCapability),
+  );
+  const cancel = () => void cancellation.request();
   process.on("SIGINT", cancel);
   process.on("SIGTERM", cancel);
   try {

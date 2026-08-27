@@ -794,6 +794,7 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     "completion_proxy",
     "completion_subclass",
     "completion_subclass_reject",
+    "completion_subclass_hostile_species",
     "control_missing_completion_recovery",
     "control_missing_completion_reject",
     "control_missing_completion_never",
@@ -835,6 +836,8 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     assert.equal(observed.poisoned, true, scenario);
     assert.equal(observed.packageReads, 0, scenario);
     assert.equal(observed.grantReads, 0, scenario);
+    if (scenario === "completion_subclass_hostile_species")
+      assert.equal(observed.hostilePromiseAccesses, 0, scenario);
     assert.ok(Number(observed.cancelAttempts) <= 1, scenario);
     if (
       scenario !== "completed_true" &&

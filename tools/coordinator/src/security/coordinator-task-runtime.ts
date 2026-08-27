@@ -74,7 +74,8 @@ import { evaluateManagedDockerCleanupEligibility } from "../core/docker-cleanup-
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 20;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 21;
+const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -301,12 +302,15 @@ type RuntimeDependencies = Readonly<{
   prepareDockerHostCleanup?: (capability: object) => string | null;
   recordDockerHostCleanupReceipt?: (capability: object) => boolean;
   abandonDockerRecovery?: (capability: object) => boolean;
+  isolatedCancellationAckTimeoutMs?: number;
 }>;
 type ControlRecord = {
   managementCapability: object;
   currentProcessControl: object | null;
   cancellationRequested: boolean;
   cancellationReceipt: Promise<RuntimeRecord> | null;
+  cancellationSettlement: Promise<"confirmed" | "unknown"> | null;
+  cancellationProtocolFailure: boolean;
   cancellationController: AbortController;
   ownedOperation: object | null;
   retainOperationRoot: boolean;
@@ -453,7 +457,7 @@ function requestControlCancellation(
   control.cancellationRequested = true;
   control.cancellationController.abort();
   const processControl = control.currentProcessControl;
-  control.cancellationReceipt = (async () => {
+  const receipt = (async () => {
     if (!processControl)
       return Object.freeze({
         status: "requested" as const,
@@ -470,7 +474,43 @@ function requestControlCancellation(
       throw new Error("coordinator_task_cancellation_receipt_invalid");
     return receipt;
   })();
-  return control.cancellationReceipt;
+  control.cancellationReceipt = receipt;
+  const isolatedTimeout = state.dependencies.isolatedCancellationAckTimeoutMs;
+  const timeoutMs =
+    Number.isSafeInteger(isolatedTimeout) && Number(isolatedTimeout) > 0
+      ? Number(isolatedTimeout)
+      : PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS;
+  control.cancellationSettlement = new Promise<"confirmed" | "unknown">(
+    (resolve) => {
+      let settled = false;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
+      const settle = (outcome: "confirmed" | "unknown") => {
+        if (settled) return;
+        settled = true;
+        if (timeout) clearTimeout(timeout);
+        if (outcome === "unknown") {
+          control.cancellationProtocolFailure = true;
+          try {
+            poisonRuntimeProcess(state, control);
+          } catch {
+            control.processPoisoned = true;
+          }
+        }
+        resolve(outcome);
+      };
+      timeout = setTimeout(() => settle("unknown"), timeoutMs);
+      try {
+        Promise.prototype.then.call(
+          receipt,
+          () => settle("confirmed"),
+          () => settle("unknown"),
+        );
+      } catch {
+        settle("unknown");
+      }
+    },
+  );
+  return receipt;
 }
 
 function controlDockerRecoveryIds(control: ControlRecord) {
@@ -1041,7 +1081,6 @@ async function runCoordinatorTaskCore(
   rawRequest: unknown,
   repositoryRoot: unknown,
   evaluationTime: unknown,
-  controlCapability: object,
   control: ControlRecord,
 ) {
   const blocked = (...args: Parameters<typeof createBlocked>) => {
@@ -1515,7 +1554,6 @@ async function runCoordinatorTaskCore(
       operation?.hostRecoveryId ?? null,
     );
   } finally {
-    state.controls.delete(controlCapability);
     control.retainOperationRoot = shouldRetainOperationRoot;
   }
 }
@@ -1525,7 +1563,6 @@ async function runCoordinatorTask(
   rawRequest: unknown,
   repositoryRoot: unknown,
   evaluationTime: unknown,
-  controlCapability: object,
   control: ControlRecord,
 ): Promise<InternalTaskOutcome> {
   const rawResult = await runCoordinatorTaskCore(
@@ -1533,7 +1570,6 @@ async function runCoordinatorTask(
     rawRequest,
     repositoryRoot,
     evaluationTime,
-    controlCapability,
     control,
   );
   const snapshot = snapshotRuntimeRecord(rawResult);
@@ -1795,6 +1831,8 @@ function createRuntime(dependencies: RuntimeDependencies) {
         currentProcessControl: null,
         cancellationRequested: false,
         cancellationReceipt: null,
+        cancellationSettlement: null,
+        cancellationProtocolFailure: false,
         cancellationController: new AbortController(),
         ownedOperation: null,
         retainOperationRoot: false,
@@ -1816,7 +1854,6 @@ function createRuntime(dependencies: RuntimeDependencies) {
         rawRequest,
         repositoryRoot,
         evaluationTime,
-        controlCapability,
         control,
       )
         .then(async (outcome) => {
@@ -2232,7 +2269,9 @@ function createRuntime(dependencies: RuntimeDependencies) {
             controlDockerRecoveryIds(control),
           );
         })
-        .then((result): TaskCompletionRecord => {
+        .then(async (result): Promise<TaskCompletionRecord> => {
+          if (control.cancellationRequested && control.cancellationSettlement)
+            await control.cancellationSettlement;
           if (control.hostGenerationFailureObserved) {
             if (result.manualRecoveryRequired === true)
               poisonRuntimeProcess(state, control);
@@ -2241,6 +2280,21 @@ function createRuntime(dependencies: RuntimeDependencies) {
           }
           control.processPoisoned ||=
             state.dependencies.isProcessPoisoned?.() === true;
+          if (control.cancellationProtocolFailure) {
+            const manualRecoveryRequired =
+              result.manualRecoveryRequired === true;
+            return Object.freeze({
+              ...result,
+              status: "blocked" as const,
+              reason: manualRecoveryRequired
+                ? "coordinator_task_cancellation_protocol_failed_cleanup_unknown"
+                : "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
+              cleanupConfirmed:
+                !manualRecoveryRequired && result.cleanupConfirmed === true,
+              manualRecoveryRequired,
+              processRestartRequired: true,
+            }) as TaskCompletionRecord;
+          }
           return Object.freeze({
             ...result,
             processRestartRequired: control.processPoisoned,
@@ -2350,7 +2404,14 @@ export function describeCoordinatorTaskRuntimeContract() {
       invalidForeignOrExpiredControl:
         "exact_blocked_control_invalid_with_zero_effect",
       legacyReceiptFallbackAllowed: false,
+      acknowledgmentTimeoutMs: PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS,
+      protocolFailure:
+        "irreversible_process_poison_joined_before_completion_projection_while_resource_cleanup_continues",
+      liveControlLifetime:
+        "from_started_return_until_outer_completion_final_settlement_including_cleanup",
     }),
+    completionOwnership:
+      "production_producer_returns_exact_native_promise_and_owns_settlement_non_native_completion_is_not_runner_authority",
     hostOperationGenerationReadiness:
       "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",
     hostOperationSupervisorOutcomes:

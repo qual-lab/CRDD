@@ -340,19 +340,15 @@ function snapshotStartedTask(value: unknown) {
       observedCompletion.value &&
       typeof observedCompletion.value === "object" &&
       !utilTypes.isProxy(observedCompletion.value) &&
-      utilTypes.isPromise(observedCompletion.value)
+      utilTypes.isPromise(observedCompletion.value) &&
+      Object.getPrototypeOf(observedCompletion.value) === Promise.prototype &&
+      Object.getOwnPropertyDescriptor(observedCompletion.value, "then") ===
+        undefined
     ) {
       try {
-        const observation = observeNativeCompletion(
+        completionObservation = observeNativeCompletion(
           observedCompletion.value as Promise<RuntimeRecord>,
         );
-        if (
-          Object.getPrototypeOf(observedCompletion.value) ===
-            Promise.prototype &&
-          Object.getOwnPropertyDescriptor(observedCompletion.value, "then") ===
-            undefined
-        )
-          completionObservation = observation;
       } catch {
         completionObserverUnknown = true;
       }

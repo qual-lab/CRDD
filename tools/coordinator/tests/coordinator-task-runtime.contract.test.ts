@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import test from "node:test";
+import { types as utilTypes } from "node:util";
 
 import {
   createIsolatedCoordinatorTaskRuntimeCandidate,
@@ -57,6 +58,7 @@ function fixture(
     hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
     cancellationTerminationObserved?: boolean;
     cancellationReceiptInvalid?: boolean;
+    cancellationReceiptNever?: boolean;
     cleanupOutcomeUnverified?: boolean;
     discardFails?: boolean;
     discardThrows?: boolean;
@@ -129,6 +131,7 @@ function fixture(
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
+    isolatedCancellationAckTimeoutMs: 50,
     inspectRepository:
       options.inspectRepository ??
       (() =>
@@ -473,6 +476,8 @@ function fixture(
     },
     cancelProcess: async () => {
       cancelProcessCount += 1;
+      if (options.cancellationReceiptNever)
+        return new Promise<never>(() => undefined);
       if (options.cancellationReceiptInvalid)
         return Object.freeze({ status: "requested" });
       const processTerminationObserved =
@@ -1690,6 +1695,33 @@ test("不正なlower取消receiptも同じlive Operationでは同じcached rejec
   harness.releasePausedProcess();
   const result = await started.completion;
   assert.equal(result.status, "blocked");
+  assert.equal(result.processRestartRequired, true);
+});
+
+test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ閉じる", async () => {
+  const harness = fixture({
+    pauseRole: "executor",
+    cancellationReceiptNever: true,
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  void harness.runtime.cancel(started.controlCapability);
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
+  );
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(harness.cancelProcessCount(), 1);
+  assert.ok(harness.poisonProcessCount() >= 1);
 });
 
 test("ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否する", async () => {
@@ -1913,7 +1945,7 @@ test("Production入口はPackage Capability欠落を全Effect前に拒否する"
   );
 });
 
-test("不正・foreign・失効controlの取消はexact blockedかつEffect 0へ閉じる", async () => {
+test("不正controlの取消はexact blockedかつEffect 0へ閉じる", async () => {
   const harness = fixture();
   for (const control of [null, Object.freeze({})])
     assert.deepEqual(await harness.runtime.cancel(control), {
@@ -1923,9 +1955,125 @@ test("不正・foreign・失効controlの取消はexact blockedかつEffect 0へ
   assert.equal(harness.cancelProcessCount(), 0);
 });
 
+test("Task producerはRunnerが安全に観測できるexact native completionを返す", async () => {
+  const harness = fixture();
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  assert.equal(utilTypes.isProxy(started.completion), false);
+  assert.equal(utilTypes.isPromise(started.completion), true);
+  assert.strictEqual(
+    Object.getPrototypeOf(started.completion),
+    Promise.prototype,
+  );
+  assert.equal(
+    Object.getOwnPropertyDescriptor(started.completion, "then"),
+    undefined,
+  );
+  await started.completion;
+});
+
+test("別Runtimeのlive controlは両RuntimeのEffect 0でforeignへ閉じる", async () => {
+  const source = fixture({ pauseRole: "executor" });
+  const target = fixture();
+  const started = source.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  const sourceBefore = Object.freeze({
+    cancels: source.cancelProcessCount(),
+    cleanups: source.cleanupCount(),
+    poison: source.poisonProcessCount(),
+  });
+  const targetBefore = Object.freeze({
+    cancels: target.cancelProcessCount(),
+    cleanups: target.cleanupCount(),
+    poison: target.poisonProcessCount(),
+  });
+  const blocked = await target.runtime.cancel(started.controlCapability);
+  assert.deepEqual(blocked, {
+    status: "blocked",
+    reason: "coordinator_task_control_invalid",
+  });
+  assert.equal(Object.isFrozen(blocked), true);
+  assert.deepEqual(
+    {
+      cancels: source.cancelProcessCount(),
+      cleanups: source.cleanupCount(),
+      poison: source.poisonProcessCount(),
+    },
+    sourceBefore,
+  );
+  assert.deepEqual(
+    {
+      cancels: target.cancelProcessCount(),
+      cleanups: target.cleanupCount(),
+      poison: target.poisonProcessCount(),
+    },
+    targetBefore,
+  );
+  source.releasePausedProcess();
+  await started.completion;
+});
+
+test("正常completion後の失効controlは追加Effect 0へ閉じる", async () => {
+  const harness = fixture();
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  await started.completion;
+  const before = Object.freeze({
+    cancels: harness.cancelProcessCount(),
+    cleanups: harness.cleanupCount(),
+    poison: harness.poisonProcessCount(),
+    abandons: harness.abandonOperationCount(),
+  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const blocked = await harness.runtime.cancel(started.controlCapability);
+    assert.deepEqual(blocked, {
+      status: "blocked",
+      reason: "coordinator_task_control_invalid",
+    });
+    assert.equal(Object.isFrozen(blocked), true);
+  }
+  assert.deepEqual(
+    {
+      cancels: harness.cancelProcessCount(),
+      cleanups: harness.cleanupCount(),
+      poison: harness.poisonProcessCount(),
+      abandons: harness.abandonOperationCount(),
+    },
+    before,
+  );
+});
+
+test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げない", async () => {
+  const harness = fixture({ pauseOperationCleanup: true });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.cleanupCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  const first = harness.runtime.cancel(started.controlCapability);
+  const duplicate = harness.runtime.cancel(started.controlCapability);
+  assert.strictEqual(duplicate, first);
+  assert.strictEqual(await duplicate, await first);
+  harness.releaseOperationCleanup();
+  await started.completion;
+  assert.equal(harness.cleanupCount(), 1);
+});
+
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 20);
+  assert.equal(contract.contractRevision, 21);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,
@@ -1958,7 +2106,16 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
     invalidForeignOrExpiredControl:
       "exact_blocked_control_invalid_with_zero_effect",
     legacyReceiptFallbackAllowed: false,
+    acknowledgmentTimeoutMs: 10_000,
+    protocolFailure:
+      "irreversible_process_poison_joined_before_completion_projection_while_resource_cleanup_continues",
+    liveControlLifetime:
+      "from_started_return_until_outer_completion_final_settlement_including_cleanup",
   });
+  assert.equal(
+    contract.completionOwnership,
+    "production_producer_returns_exact_native_promise_and_owns_settlement_non_native_completion_is_not_runner_authority",
+  );
   assert.equal(
     contract.hostOperationGenerationReadiness,
     "dedicated_supervisor_process_round_trip_then_same_generation_and_durable_record_file_hash_state_root_children_reconfirmation_before_any_following_effect",

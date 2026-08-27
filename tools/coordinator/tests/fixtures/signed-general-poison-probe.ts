@@ -142,6 +142,7 @@ const candidate = Object.freeze({
 
 let cancelAttempts = 0;
 let lateRequested = false;
+let hostilePromiseAccesses = 0;
 const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
   issuePackageCapability: () =>
     Object.freeze({ verification: release, capability: Object.freeze({}) }),
@@ -184,12 +185,62 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       }
       return Object.freeze({
         controlCapability: started.controlCapability,
-        completion: new ThrowingThenPromise<Record<string, unknown>>(
-          (resolve, reject) =>
-            scenario === "completion_subclass_reject"
-              ? reject(new Error("fixed_subclass_rejection"))
-              : resolve(Object.freeze(result)),
-        ),
+        completion: (() => {
+          const subclass = new ThrowingThenPromise<Record<string, unknown>>(
+            (resolve, reject) =>
+              scenario === "completion_subclass_reject"
+                ? reject(new Error("fixed_subclass_rejection"))
+                : resolve(Object.freeze(result)),
+          );
+          void Promise.prototype.then.call(
+            subclass,
+            () => undefined,
+            () => undefined,
+          );
+          return subclass;
+        })(),
+      });
+    }
+    if (scenario === "completion_subclass_hostile_species") {
+      let hostile = false;
+      let rejectSubclass: (reason: Error) => void = () => undefined;
+      class HostileSpeciesPromise<T> extends Promise<T> {
+        static override get [Symbol.species]() {
+          hostilePromiseAccesses += 1;
+          if (hostile) throw new Error("fixed_hostile_species");
+          return Promise;
+        }
+
+        // biome-ignore lint/suspicious/noThenProperty: the hostile then override is the contract-test input.
+        override then(): never {
+          hostilePromiseAccesses += 1;
+          throw new Error("fixed_hostile_then");
+        }
+      }
+      const subclass = new HostileSpeciesPromise<Record<string, unknown>>(
+        (_resolve, reject) => {
+          rejectSubclass = reject;
+        },
+      );
+      Object.defineProperty(subclass, "constructor", {
+        configurable: true,
+        get: () => {
+          hostilePromiseAccesses += 1;
+          if (hostile) throw new Error("fixed_hostile_constructor");
+          return HostileSpeciesPromise;
+        },
+      });
+      void Promise.prototype.then.call(
+        subclass,
+        () => undefined,
+        () => undefined,
+      );
+      hostilePromiseAccesses = 0;
+      hostile = true;
+      rejectSubclass(new Error("fixed_hostile_subclass_rejection"));
+      return Object.freeze({
+        controlCapability: started.controlCapability,
+        completion: subclass,
       });
     }
     if (scenario.startsWith("control_missing_completion_"))
@@ -341,5 +392,6 @@ process.stdout.write(
         : null,
     grantReads,
     cancelAttempts,
+    hostilePromiseAccesses,
   })}\n`,
 );
