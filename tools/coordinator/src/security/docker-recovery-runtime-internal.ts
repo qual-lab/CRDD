@@ -53,7 +53,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 20;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 21;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -2849,7 +2849,55 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
   });
   let recoveryBaseLocalUserBindingHash: string | null =
     durableRuntimeStateBinding.localUserBindingHash;
-  const verifyRecoveryRuntimeStateBoundary = () => {
+  const outsideHostOperationGenerationLock = <T>(effect: () => T) => {
+    if (!hostOperationGeneration || !hostOperationGenerationIdentity)
+      return effect();
+    const hostRootBefore = fs.existsSync(
+      hostOperationGenerationIdentity.hostRoot,
+    )
+      ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
+          bigint: true,
+        })
+      : null;
+    const generationToRelease = hostOperationGeneration;
+    hostOperationGeneration = null;
+    if (!releaseHostOperationRecoveryGeneration(generationToRelease))
+      throw new Error("docker_task_recovery_host_lock_release_unconfirmed");
+    let effectResult: T | null = null;
+    let effectError: unknown = null;
+    try {
+      effectResult = effect();
+    } catch (error) {
+      effectError = error;
+    }
+    hostOperationGeneration = acquireHostOperationRecoveryGenerationByIdentity(
+      hostOperationGenerationIdentity.hostRoot,
+      hostOperationGenerationIdentity.hostNonce,
+    );
+    if (!hostOperationGeneration)
+      throw new Error(
+        "docker_task_host_operation_generation_active_or_unknown",
+      );
+    const hostRootAfter = fs.existsSync(
+      hostOperationGenerationIdentity.hostRoot,
+    )
+      ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
+          bigint: true,
+        })
+      : null;
+    if (
+      Boolean(hostRootBefore) !== Boolean(hostRootAfter) ||
+      (hostRootBefore &&
+        hostRootAfter &&
+        (hostRootBefore.dev !== hostRootAfter.dev ||
+          hostRootBefore.ino !== hostRootAfter.ino ||
+          hostRootBefore.birthtimeNs !== hostRootAfter.birthtimeNs))
+    )
+      throw new Error("docker_task_recovery_host_binding_changed");
+    if (effectError) throw effectError;
+    return effectResult as T;
+  };
+  const outsideRecoveryGenerationLocks = <T>(effect: () => T) => {
     const reboundDurableBinding = discoverRecoveryRuntimeStateBinding(
       root.rootPath,
       parsed,
@@ -2869,55 +2917,14 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     )
       throw new Error("docker_task_runtime_state_user_binding_changed");
     const rootBefore = fs.lstatSync(root.rootPath, { bigint: true });
-    const observedRoot = runtimeStateLockController.outsideLock(() => {
-      if (!hostOperationGeneration || !hostOperationGenerationIdentity)
-        return observeRuntimeStateRoot();
-      const hostRootBefore = fs.existsSync(
-        hostOperationGenerationIdentity.hostRoot,
-      )
-        ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
-            bigint: true,
-          })
-        : null;
-      const generationToRelease = hostOperationGeneration;
-      hostOperationGeneration = null;
-      if (!releaseHostOperationRecoveryGeneration(generationToRelease))
-        throw new Error("docker_task_recovery_host_lock_release_unconfirmed");
-      let observation: VerifiedRuntimeStateRoot | null = null;
-      let observationError: unknown = null;
-      try {
-        observation = observeRuntimeStateRoot();
-      } catch (error) {
-        observationError = error;
-      }
-      hostOperationGeneration =
-        acquireHostOperationRecoveryGenerationByIdentity(
-          hostOperationGenerationIdentity.hostRoot,
-          hostOperationGenerationIdentity.hostNonce,
-        );
-      if (!hostOperationGeneration)
-        throw new Error(
-          "docker_task_host_operation_generation_active_or_unknown",
-        );
-      const hostRootAfter = fs.existsSync(
-        hostOperationGenerationIdentity.hostRoot,
-      )
-        ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
-            bigint: true,
-          })
-        : null;
-      if (
-        Boolean(hostRootBefore) !== Boolean(hostRootAfter) ||
-        (hostRootBefore &&
-          hostRootAfter &&
-          (hostRootBefore.dev !== hostRootAfter.dev ||
-            hostRootBefore.ino !== hostRootAfter.ino ||
-            hostRootBefore.birthtimeNs !== hostRootAfter.birthtimeNs))
-      )
-        throw new Error("docker_task_recovery_host_binding_changed");
-      if (observationError) throw observationError;
-      return observation;
-    });
+    let observedRoot: VerifiedRuntimeStateRoot | null = null;
+    const effectResult = runtimeStateLockController.outsideLock(() =>
+      outsideHostOperationGenerationLock(() => {
+        const result = effect();
+        observedRoot = observeRuntimeStateRoot();
+        return result;
+      }),
+    );
     const rootAfter = fs.lstatSync(root.rootPath, { bigint: true });
     if (
       rootBefore.dev !== rootAfter.dev ||
@@ -2930,7 +2937,12 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       parsed.token,
       observedRoot,
     );
+    return effectResult;
   };
+  const verifyRecoveryRuntimeStateBoundary = () =>
+    outsideRecoveryGenerationLocks(() => undefined);
+  const outsideRuntimeStateAndHostOperationLocks = <T>(effect: () => T) =>
+    outsideRecoveryGenerationLocks(effect);
   const outsideRuntimeStateLock = <T>(effect: () => T) => {
     const effectResult = runtimeStateLockController.outsideLock(effect);
     verifyRecoveryRuntimeStateBoundary();
@@ -3700,33 +3712,34 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
               : kind === "container"
                 ? [String(resources.internal)]
                 : [];
-        const discoveredDockerId = outsideRuntimeStateLock(() =>
-          recoveryDockerRunner
-            ? recoverUnknownDockerCreateOutcomeWithRunner(
-                recoveryDockerRunner,
-                kind,
-                name,
-                String(base.ownershipLabel),
-                image,
-                isInternal,
-                purpose,
-                expectedNetworks,
-                operationMode,
-                workspaceMountMode,
-              )
-            : recoverUnknownDockerCreateOutcomeWithRunner(
-                (argv) =>
-                  runRecoveryDocker(configDirectory, configIdentity, argv),
-                kind,
-                name,
-                String(base.ownershipLabel),
-                image,
-                isInternal,
-                purpose,
-                expectedNetworks,
-                operationMode,
-                workspaceMountMode,
-              ),
+        const discoveredDockerId = outsideRuntimeStateAndHostOperationLocks(
+          () =>
+            recoveryDockerRunner
+              ? recoverUnknownDockerCreateOutcomeWithRunner(
+                  recoveryDockerRunner,
+                  kind,
+                  name,
+                  String(base.ownershipLabel),
+                  image,
+                  isInternal,
+                  purpose,
+                  expectedNetworks,
+                  operationMode,
+                  workspaceMountMode,
+                )
+              : recoverUnknownDockerCreateOutcomeWithRunner(
+                  (argv) =>
+                    runRecoveryDocker(configDirectory, configIdentity, argv),
+                  kind,
+                  name,
+                  String(base.ownershipLabel),
+                  image,
+                  isInternal,
+                  purpose,
+                  expectedNetworks,
+                  operationMode,
+                  workspaceMountMode,
+                ),
         );
         if (!discoveredDockerId)
           throw new Error("docker_task_recovery_create_outcome_unknown");
@@ -3751,7 +3764,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         receipt.purpose !== purpose ||
         receipt.recoveryId !== parsed.token ||
         !HEX64.test(dockerId) ||
-        !outsideRuntimeStateLock(() => {
+        !outsideRuntimeStateAndHostOperationLocks(() => {
           const expectedNetworks =
             purpose === "create_subscription_auth_probe"
               ? ["none"]

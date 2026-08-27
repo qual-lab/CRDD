@@ -2855,6 +2855,62 @@ test("production共有回復engineはnative観測中にHost世代とRuntimeState
   }
 });
 
+test("production共有回復engineはDocker照会中もHost世代とRuntimeState世代を解放して同一世代へ再取得する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("submission");
+  const root = verifiedRoot(fixture.root);
+  const operationDirectory = fs
+    .readdirSync(fixture.root)
+    .find((name) => name.startsWith("docker-task-"));
+  assert.ok(operationDirectory);
+  const base = readCommittedDockerRecoveryJson(
+    path.join(fixture.root, operationDirectory, "base.json"),
+    "base.json",
+  ).value as Record<string, unknown>;
+  const hostNonce = parseHostRecoveryToken(base.initialHostRecoveryId).nonce;
+  let dockerRunnerObservedReleasedHostGeneration = false;
+  let dockerRunnerObservedReleasedRuntimeStateGeneration = false;
+  let lockObservationCompleted = false;
+  try {
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+      () => {
+        if (!lockObservationCompleted) {
+          const hostGeneration =
+            acquireHostOperationRecoveryGenerationByIdentity(
+              fixture.hostRoot,
+              hostNonce,
+            );
+          dockerRunnerObservedReleasedHostGeneration = Boolean(hostGeneration);
+          const runtimeStateGeneration =
+            acquireRuntimeOwnedDockerRuntimeStateKernelLock(
+              root.stableLogicalHomeBindingHash,
+            );
+          dockerRunnerObservedReleasedRuntimeStateGeneration = Boolean(
+            runtimeStateGeneration,
+          );
+          assert.equal(runtimeStateGeneration?.release(), true);
+          assert.equal(
+            releaseHostOperationRecoveryGeneration(hostGeneration),
+            true,
+          );
+          lockObservationCompleted = true;
+        }
+        return dockerResult("");
+      },
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "docker_task_recovery_create_outcome_unknown");
+    assert.equal(dockerRunnerObservedReleasedHostGeneration, true);
+    assert.equal(dockerRunnerObservedReleasedRuntimeStateGeneration, true);
+  } finally {
+    fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+    fs.rmSync(fixture.hostMarker, { force: true });
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
 test("cleanup-only回復も作成時selected-user再bind不一致を削除前に停止する", () => {
   const rootPath = createKilledProductionCleanupRoot();
   const root = verifiedRoot(rootPath);
@@ -3325,7 +3381,7 @@ test("production共有Docker回復はreceipt前照会の失敗・signal・stderr
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 20,
+    contractRevision: 21,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",
