@@ -17,7 +17,7 @@ import {
 import { runDoctor } from "../src/core/doctor.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
-import { createTaskCliCancellationLatch } from "../src/core/task-cli-cancellation.ts";
+import { bindTaskCliCancellationSignals } from "../src/core/task-cli-cancellation.ts";
 import { selectAuthorityRootCandidate } from "../src/security/authority-root-profile.ts";
 import {
   discardRuntimeOwnedCandidateBundle,
@@ -212,32 +212,51 @@ async function runTaskCommand(args: readonly string[]) {
     process.exitCode = rawError instanceof UsageError ? 64 : 2;
     return;
   }
-  const cancellation = createTaskCliCancellationLatch(() =>
+  let result: Awaited<typeof started.completion>;
+  let releaseStatus:
+    | Readonly<{
+        status: "released" | "failed";
+        failedSignals: readonly ("SIGINT" | "SIGTERM")[];
+      }>
+    | undefined;
+  const cancellationBinding = bindTaskCliCancellationSignals(() =>
     cancelRuntimeOwnedCoordinatorTask(started.controlCapability),
   );
-  const cancel = () => void cancellation.request();
-  process.on("SIGINT", cancel);
-  process.on("SIGTERM", cancel);
   try {
-    const result = await started.completion;
-    if (options.json) {
-      process.stdout.write(
-        `${JSON.stringify({ command: "task", ...result })}\n`,
-      );
-    } else {
-      printCommandReport(
-        Object.freeze({
-          command: "task",
-          ...result,
-        }),
-        false,
-      );
-    }
-    process.exitCode = result.status === "completed" ? 0 : 2;
+    result = await started.completion;
   } finally {
-    process.removeListener("SIGINT", cancel);
-    process.removeListener("SIGTERM", cancel);
+    releaseStatus = cancellationBinding.unbind();
   }
+  if (
+    cancellationBinding.status !== "bound" ||
+    releaseStatus?.status !== "released"
+  ) {
+    printCommandReport(
+      Object.freeze({
+        command: "task",
+        status: "blocked",
+        reason:
+          cancellationBinding.status !== "bound"
+            ? "task_cli_cancellation_signal_binding_failed"
+            : "task_cli_cancellation_signal_release_failed",
+      }),
+      options.json,
+    );
+    process.exitCode = 2;
+    return;
+  }
+  if (options.json) {
+    process.stdout.write(`${JSON.stringify({ command: "task", ...result })}\n`);
+  } else {
+    printCommandReport(
+      Object.freeze({
+        command: "task",
+        ...result,
+      }),
+      false,
+    );
+  }
+  process.exitCode = result.status === "completed" ? 0 : 2;
 }
 
 function runCandidateCommand(args: readonly string[]) {
