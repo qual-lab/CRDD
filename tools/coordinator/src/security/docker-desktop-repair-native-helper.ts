@@ -375,13 +375,22 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
         const settled = endCompleted
           ? await waitForExitAndStdioSettlement(RELEASE_TIMEOUT_MS)
           : await beginFailureCleanup();
+        const protocolCompleted =
+          releaseFrameCompleted &&
+          !failed &&
+          settled &&
+          child.exitCode === 0 &&
+          child.signalCode === null &&
+          frames.length === 0 &&
+          buffer.length === 0 &&
+          pending === null;
         child.stdout.removeAllListeners();
         child.stderr.removeAllListeners();
         child.removeAllListeners();
         child.unref();
         return Object.freeze({
           cleanup: settled ? ("confirmed" as const) : ("unknown" as const),
-          protocol: releaseFrameCompleted
+          protocol: protocolCompleted
             ? ("completed" as const)
             : ("failed" as const),
         });

@@ -630,6 +630,23 @@ function legalLedgerTransition(
     nextNative?.phase === "settled" &&
     nextNative.issued === false &&
     nextNative.confirmation === "not_issued";
+  const previousShutdown = previous.processEffects.find(
+    (entry) => entry.action === "official_shutdown",
+  );
+  const previousWsl = previous.processEffects.find(
+    (entry) => entry.action === "wsl_termination",
+  );
+  const directNativeKnownAbsent =
+    processChanges === 1 &&
+    filesystemChanges === 0 &&
+    !previousNative &&
+    !previousWsl &&
+    previousShutdown?.phase === "settled" &&
+    previousShutdown.issued === true &&
+    previousShutdown.confirmation === "confirmed" &&
+    nextNative?.phase === "settled" &&
+    nextNative.issued === false &&
+    nextNative.confirmation === "not_issued";
   if (
     previousNative?.phase === "intent_recorded" &&
     nextNative?.phase === "settled" &&
@@ -648,7 +665,10 @@ function legalLedgerTransition(
     appended.some(
       (entry) =>
         (HOST_EFFECT_ACTIONS.has(entry.action) &&
-          entry.phase !== "intent_recorded") ||
+          entry.phase !== "intent_recorded" &&
+          !(
+            directNativeKnownAbsent && entry.action === "native_termination"
+          )) ||
         (OBSERVATION_ACTIONS.has(entry.action) && entry.phase !== "settled"),
     )
   )
@@ -729,10 +749,21 @@ function validKnownProcessPrefix(ledger: DockerDesktopRepairLedgerSnapshot) {
   const native = effectEntry(ledger, "native_termination");
   const wsl = effectEntry(ledger, "wsl_termination");
   if (!shutdown) return !native && !wsl;
-  if (native && shutdown.phase !== "settled") return false;
+  if (
+    native &&
+    (shutdown.phase !== "settled" ||
+      shutdown.issued !== true ||
+      shutdown.confirmation !== "confirmed")
+  )
+    return false;
   if (
     wsl &&
-    (shutdown.phase !== "settled" || native?.phase === "intent_recorded")
+    (shutdown.phase !== "settled" ||
+      shutdown.issued !== true ||
+      shutdown.confirmation !== "confirmed" ||
+      !native ||
+      native.phase === "intent_recorded" ||
+      native.confirmation === "unknown")
   )
     return false;
   return true;
@@ -810,11 +841,7 @@ function stageLedgerCompatible(
       ledger.liveRunIdentity !== null)
   )
     return false;
-  if (
-    stage === "prepared" &&
-    (effect("observed_runtime_directory_rename") ||
-      effect("observed_desktop_recovery"))
-  )
+  if (stage === "prepared" && effect("observed_runtime_directory_rename"))
     return false;
   if (
     stage === "processes_stopped" &&
@@ -1107,8 +1134,8 @@ function legalRepairRecordTransition(
     );
   if (primary === "observed_desktop_recovery")
     return (
-      ((previousStage === "prepared" ||
-        previousStage === "processes_stopped") &&
+      (previousStage === "prepared" && nextStage === "prepared") ||
+      (previousStage === "processes_stopped" &&
         nextStage === "no_stale_known_effect_recovery_pending") ||
       (previousStage === "renamed" &&
         nextStage === "recovered_pending_disposition")
@@ -1318,9 +1345,14 @@ export function classifyDockerDesktopRepairResume(
     const native = effectEntry(ledger, "native_termination");
     const wsl = effectEntry(ledger, "wsl_termination");
     if (!shutdown) return result("next_host_action", "official_shutdown");
-    if (!isSettled(ledger, "official_shutdown")) return result("manual_block");
+    if (!isSettledConfirmed(ledger, "official_shutdown"))
+      return result("manual_block");
     if (!native) return result("next_host_action", "native_termination");
-    if (!isSettled(ledger, "native_termination")) return result("manual_block");
+    if (
+      !isSettledConfirmed(ledger, "native_termination") &&
+      !isSettledNotIssued(ledger, "native_termination")
+    )
+      return result("manual_block");
     if (!wsl) return result("next_host_action", "wsl_termination");
     if (!isSettledConfirmed(ledger, "wsl_termination"))
       return result("manual_block");

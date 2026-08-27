@@ -399,6 +399,43 @@ test("intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlem
   }
 });
 
+test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にする", async () => {
+  let verifyCalls = 0;
+  let engineReady = false;
+  let shutdownCalls = 0;
+  const state = fixture({
+    acquireHelper: async () => ({
+      status: "acquired" as const,
+      session: Object.freeze({
+        ...session({ processes: "verified" }),
+        verifyArtifacts: async () => {
+          verifyCalls += 1;
+          if (verifyCalls === 5) engineReady = true;
+          return "verified" as const;
+        },
+      }),
+    }),
+    observeEngine: () => (engineReady ? "ready" : "known_unavailable"),
+    officialShutdown: () => {
+      shutdownCalls += 1;
+      return Object.freeze({
+        issued: true,
+        confirmation: "confirmed" as const,
+      });
+    },
+  });
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    state.dependencies,
+  );
+  assert.equal(verifyCalls >= 5, true);
+  assert.equal(shutdownCalls, 0);
+  assert.equal(
+    result.status,
+    "recovered_pending_close",
+    JSON.stringify(result),
+  );
+});
+
 test("Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ閉じる", async () => {
   let inspections = 0;
   let wslCalls = 0;
@@ -438,6 +475,13 @@ test("Effect別fresh行列はWSL／rename直前のProcess再出現をEffect 0へ
       }),
       Object.freeze({
         sequence: 1,
+        action: "native_termination",
+        phase: "settled",
+        issued: false,
+        confirmation: "not_issued",
+      }),
+      Object.freeze({
+        sequence: 2,
         action: "wsl_termination",
         phase: "settled",
         issued: true,
@@ -661,7 +705,8 @@ test("記録・process inventory・rename・restartの不明を成功へ昇格�
     );
     assert.equal(result.status, "blocked", reason);
     assert.equal(result.reason, reason);
-    assert.equal(result.manualRecoveryRequired, true);
+    if (result.processEffectIssued !== false)
+      assert.equal(result.manualRecoveryRequired, true);
   }
 });
 
@@ -909,13 +954,61 @@ test("prepared再開は過去Process EffectをEffect 0へ誤投影しない", as
   );
   assert.equal(result.processEffectIssued, null);
   assert.equal(result.newRepairPermitted, false);
+  assert.deepEqual(
+    state.calls.filter((entry) => entry.startsWith("persist:")),
+    ["persist:prepared", "persist:no_stale_historical_effect_unknown_pending"],
+  );
+});
+
+test("preparedの既知Effect自然回復も観測Recordとpending stageを分離する", async () => {
+  const operation = operationFixture("prepared", {
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "official_shutdown",
+        phase: "settled",
+        issued: true,
+        confirmation: "confirmed",
+      }),
+    ]),
+    processEffectIssued: true,
+    processEffectConfirmation: "confirmed",
+    filesystemEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "record_write",
+        phase: "settled",
+        issued: true,
+        confirmation: "confirmed",
+      }),
+    ]),
+    filesystemEffectIssued: true,
+    filesystemEffectConfirmation: "confirmed",
+    engineReady: false,
+    staleState: "absent",
+    evidenceState: "preserved",
+  });
+  const state = fixture({ observeEngine: () => "ready" as const });
+  state.setOperation(operation);
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    state.dependencies,
+  );
+  assert.equal(
+    result.status,
+    "recovered_pending_close",
+    JSON.stringify(result),
+  );
+  assert.deepEqual(
+    state.calls.filter((entry) => entry.startsWith("persist:")),
+    ["persist:prepared", "persist:no_stale_known_effect_recovery_pending"],
+  );
 });
 
 test("preparedはsettlement済みshutdown／K／WSLを再発行せず次の状態へ進む", async () => {
   for (const actions of [
     ["official_shutdown"],
     ["official_shutdown", "native_termination"],
-    ["official_shutdown", "wsl_termination"],
+    ["official_shutdown", "native_termination", "wsl_termination"],
   ] as const) {
     const processEffects = Object.freeze(
       actions.map((action, sequence) =>
@@ -1566,21 +1659,26 @@ test("全5 Host Effectのintent／settlement crashを実rev4 Storeからat-most-
       const first =
         await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
       assert.equal(injected, true, `${action}/${crashPhase}`);
-      assert.equal(first.status, "blocked", `${action}/${crashPhase}`);
       const second =
         await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
       const inventory = inventoryDockerDesktopRepairOperations(actualBoundary);
       assert.equal(inventory.status, "verified", `${action}/${crashPhase}`);
-      if (crashPhase === "intent_recorded") {
-        assert.equal(calls.get(action) ?? 0, 0, action);
-        assert.equal(second.status, "blocked", action);
-      } else if (
+      if (
         crashPhase === "host_before_settlement" &&
         action !== "runtime_directory_rename"
       ) {
+        assert.equal(first.status, "blocked", `${action}/${crashPhase}`);
         assert.equal(calls.get(action), 1, action);
         assert.equal(second.status, "blocked", action);
       } else {
+        if (crashPhase === "host_before_settlement")
+          assert.equal(first.status, "blocked", `${action}/${crashPhase}`);
+        else
+          assert.equal(
+            first.status,
+            "recovered_pending_close",
+            `${action}/${crashPhase}`,
+          );
         assert.equal(calls.get(action), 1, action);
         assert.equal(
           second.status,
@@ -1592,6 +1690,116 @@ test("全5 Host Effectのintent／settlement crashを実rev4 Storeからat-most-
       for (const countValue of calls.values()) assert.ok(countValue <= 1);
     }
   }
+});
+
+test("実rev4 StoreのK/Aはnative Host call 0で限定観測を保存しWSLへ進む", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-ka-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const runtimeStateRoot = path.join(root, "RuntimeState");
+  const localAppData = path.join(root, "LocalAppData");
+  const runDirectory = path.join(localAppData, "Docker", "run");
+  fs.mkdirSync(runtimeStateRoot);
+  fs.mkdirSync(runDirectory, { recursive: true });
+  const identityAt = (target: string) => {
+    try {
+      const value = fs.lstatSync(target, { bigint: true });
+      return Object.freeze({
+        dev: String(value.dev),
+        ino: String(value.ino),
+        birthtimeNs: String(value.birthtimeNs),
+      });
+    } catch {
+      return null;
+    }
+  };
+  const initialIdentity = identityAt(runDirectory);
+  assert.ok(initialIdentity);
+  const actualBoundary: PreparedBoundary = Object.freeze({
+    ...boundary,
+    runtimeStateRoot,
+    localAppData,
+    runDirectory,
+    socketPath: path.join(runDirectory, "dockerInference"),
+  });
+  let engineReady = false;
+  let launched = false;
+  let nativeCalls = 0;
+  let wslCalls = 0;
+  const dependencies: RepairDependencies = {
+    ...fixture().dependencies,
+    prepareBoundary: () => actualBoundary,
+    inventory: inventoryDockerDesktopRepairOperations,
+    persistStage: persistDockerDesktopRepairStage,
+    observeEngine: () => (engineReady ? "ready" : "known_unavailable"),
+    observeKnownSocketFailure: () => initialIdentity,
+    identityAt,
+    observePath: (target) => {
+      const value = identityAt(target);
+      return value
+        ? Object.freeze({ state: "present" as const, identity: value })
+        : Object.freeze({
+            state: "confirmed_absent" as const,
+            identity: null,
+          });
+    },
+    acquireHelper: async () => ({
+      status: "acquired" as const,
+      session: Object.freeze({
+        ...session({ processes: "absent" }),
+        inspectProcesses: async () =>
+          launched ? ("verified" as const) : ("absent" as const),
+        terminateProcesses: async () => {
+          nativeCalls += 1;
+          return "absent" as const;
+        },
+        launchDesktop: async () => {
+          fs.mkdirSync(runDirectory);
+          launched = true;
+          engineReady = true;
+          return "started" as const;
+        },
+      }),
+    }),
+    officialShutdown: () =>
+      Object.freeze({ issued: true, confirmation: "confirmed" as const }),
+    terminateDockerWsl: () => {
+      wslCalls += 1;
+      return Object.freeze({
+        issued: true,
+        confirmation: "confirmed" as const,
+      });
+    },
+    renameRunDirectory: (_currentBoundary, operation) => {
+      fs.renameSync(runDirectory, operation.staleDirectory);
+      return Object.freeze({
+        issued: true,
+        confirmation: "confirmed" as const,
+        staleState: "retained" as const,
+      });
+    },
+    awaitEngine: async () => (engineReady ? "ready" : "known_unavailable"),
+  };
+  const result =
+    await repairWindowsDockerDesktopRuntimeUsingDependencies(dependencies);
+  assert.equal(
+    result.status,
+    "recovered_pending_close",
+    JSON.stringify(result),
+  );
+  assert.equal(nativeCalls, 0);
+  assert.equal(wslCalls, 1);
+  const inventory = inventoryDockerDesktopRepairOperations(actualBoundary);
+  assert.equal(inventory.status, "verified");
+  const native = inventory.operations[0]?.ledger.processEffects.find(
+    (entry) => entry.action === "native_termination",
+  );
+  assert.deepEqual(native, {
+    sequence: 1,
+    action: "native_termination",
+    phase: "settled",
+    issued: false,
+    confirmation: "not_issued",
+  });
 });
 
 test("preparedからの自然復旧は実rev4 Storeへ観測Recordとstage Recordを分離する", async (t) => {
@@ -1867,11 +2075,8 @@ test("後続Process Effect不明を以前のconfirmedで隠さない", async () 
         Object.freeze({ issued: true, confirmation: "unknown" as const }),
     }).dependencies,
   );
-  assert.equal(
-    result.status,
-    "recovered_pending_close",
-    JSON.stringify(result),
-  );
+  assert.equal(result.status, "blocked", JSON.stringify(result));
+  assert.equal(result.reason, "docker_desktop_official_shutdown_unconfirmed");
   assert.equal(result.processEffectIssued, true);
   assert.equal(result.processEffectConfirmation, "unknown");
   assert.equal(result.effectStateUnknown, true);

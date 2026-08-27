@@ -184,6 +184,34 @@ function persistHostEffect(
   return settled;
 }
 
+function persistNativeKnownAbsent(
+  boundary: Parameters<typeof persistDockerDesktopRepairStage>[0],
+  operation: DockerDesktopRepairOperation,
+) {
+  const observed = persistRecord(
+    boundary,
+    operation,
+    "prepared",
+    Object.freeze({
+      ...operation.ledger,
+      processEffects: Object.freeze([
+        ...operation.ledger.processEffects,
+        Object.freeze({
+          sequence: operation.ledger.processEffects.length,
+          action: "native_termination" as const,
+          phase: "settled" as const,
+          issued: false,
+          confirmation: "not_issued" as const,
+        }),
+      ]),
+      processEffectIssued: true,
+      processEffectConfirmation: "confirmed" as const,
+    }),
+  );
+  assert.ok(observed);
+  return observed;
+}
+
 test("repair recordは順序・hash chain・境界identityを保持して再構成できる", (t) => {
   const { boundary, ledger } = fixture(t);
   let operation: DockerDesktopRepairOperation =
@@ -204,6 +232,7 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
       confirmation: "confirmed",
     },
   );
+  operation = persistNativeKnownAbsent(boundary, operation);
   operation = persistHostEffect(
     boundary,
     operation,
@@ -294,6 +323,7 @@ test("renamed後の自然回復はlaunch発行を捏造せずactual Storeへ保�
     "official_shutdown",
     { issued: true, confirmation: "confirmed" },
   );
+  operation = persistNativeKnownAbsent(boundary, operation);
   operation = persistHostEffect(
     boundary,
     operation,
@@ -508,6 +538,7 @@ test("既知Effect後の自然回復は発行済み事実を保持したno-stale
     "official_shutdown",
     { issued: true, confirmation: "confirmed" },
   );
+  effected = persistNativeKnownAbsent(boundary, effected);
   effected = persistHostEffect(
     boundary,
     effected,
@@ -739,6 +770,7 @@ test("validatorはHost Effect初出settled・不足stage・rename二系列を拒
     "official_shutdown",
     { issued: true, confirmation: "confirmed" },
   );
+  stoppedPrefix = persistNativeKnownAbsent(boundary, stoppedPrefix);
   stoppedPrefix = persistHostEffect(
     boundary,
     stoppedPrefix,
