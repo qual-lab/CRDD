@@ -3,10 +3,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA =
-  "crdd-coordinator/docker-desktop-repair-record/v3";
+  "crdd-coordinator/docker-desktop-repair-record/v4";
 const OPERATION_PREFIX = "docker-desktop-repair-";
 const MAXIMUM_OPERATIONS = 64;
-const MAXIMUM_RECORDS = 16;
+// 1 initial record + two records for each of the five Host Effects + stage
+// transitions, recovery refinement and explicit close. Four records remain as
+// safety margin; compaction and deletion are intentionally not recovery tools.
+const MAXIMUM_RECORDS = 24;
 const MAXIMUM_RECORD_BYTES = 65_536;
 
 export const DOCKER_DESKTOP_REPAIR_STAGES = Object.freeze([
@@ -40,9 +43,24 @@ export type DockerDesktopRepairEffectConfirmation =
   | "not_issued"
   | "confirmed"
   | "unknown";
+export const DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS = Object.freeze([
+  "official_shutdown",
+  "native_termination",
+  "wsl_termination",
+  "runtime_directory_rename",
+  "desktop_launch",
+  "historical_process_reconciliation",
+  "process_quiescence_reconciliation",
+  "observed_runtime_directory_rename",
+  "record_write",
+] as const);
+export type DockerDesktopRepairEffectAction =
+  (typeof DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS)[number];
+export type DockerDesktopRepairEffectPhase = "intent_recorded" | "settled";
 export type DockerDesktopRepairEffectEntry = Readonly<{
   sequence: number;
-  action: string;
+  action: DockerDesktopRepairEffectAction;
+  phase: DockerDesktopRepairEffectPhase;
   issued: DockerDesktopRepairTriState;
   confirmation: DockerDesktopRepairEffectConfirmation;
 }>;
@@ -65,6 +83,7 @@ export type DockerDesktopRepairLedgerSnapshot = Readonly<{
   hostSafety: DockerDesktopRepairHostSafety;
   evidenceState: DockerDesktopRepairEvidenceState;
   disposition: DockerDesktopRepairDisposition;
+  liveRunIdentity: DockerDesktopRepairDirectoryIdentity | null;
 }>;
 
 export type DockerDesktopRepairOperation = Readonly<{
@@ -96,7 +115,7 @@ export type DockerDesktopRepairRecordBoundary = Readonly<{
 
 type StoredRecord = Readonly<{
   schema: typeof DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA;
-  contractRevision: 3;
+  contractRevision: 4;
   operationId: string;
   sequence: number;
   stage: DockerDesktopRepairStage;
@@ -177,14 +196,15 @@ function validLedger(
       "hostSafety",
       "evidenceState",
       "disposition",
+      "liveRunIdentity",
     ])
   )
     return false;
   const processEffects = Reflect.get(value, "processEffects");
   const filesystemEffects = Reflect.get(value, "filesystemEffects");
   return (
-    validEffectEntries(processEffects) &&
-    validEffectEntries(filesystemEffects) &&
+    validEffectEntries(processEffects, "process") &&
+    validEffectEntries(filesystemEffects, "filesystem") &&
     validTriState(Reflect.get(value, "processEffectIssued")) &&
     ["not_issued", "confirmed", "unknown"].includes(
       String(Reflect.get(value, "processEffectConfirmation")),
@@ -210,6 +230,8 @@ function validLedger(
       "retained_by_human_decision",
       "historical_effect_unknown_retained_by_human_decision",
     ].includes(String(Reflect.get(value, "disposition"))) &&
+    (Reflect.get(value, "liveRunIdentity") === null ||
+      validIdentity(Reflect.get(value, "liveRunIdentity"))) &&
     aggregateMatches(
       processEffects,
       Reflect.get(value, "processEffectIssued"),
@@ -225,32 +247,103 @@ function validLedger(
 
 function validEffectEntries(
   value: unknown,
+  kind: "process" | "filesystem",
 ): value is readonly DockerDesktopRepairEffectEntry[] {
-  return (
-    Array.isArray(value) &&
-    value.length <= MAXIMUM_RECORDS * 2 &&
-    value.every(
-      (entry, index) =>
-        !!entry &&
-        typeof entry === "object" &&
-        !Array.isArray(entry) &&
-        Object.getPrototypeOf(entry) === Object.prototype &&
-        exactKeys(entry, ["sequence", "action", "issued", "confirmation"]) &&
-        Reflect.get(entry, "sequence") === index &&
-        typeof Reflect.get(entry, "action") === "string" &&
-        /^[a-z][a-z0-9_]{0,63}$/u.test(String(Reflect.get(entry, "action"))) &&
-        validTriState(Reflect.get(entry, "issued")) &&
-        ["not_issued", "confirmed", "unknown"].includes(
-          String(Reflect.get(entry, "confirmation")),
-        ) &&
-        confirmationCompatible(
-          Reflect.get(entry, "issued") as DockerDesktopRepairTriState,
-          Reflect.get(
-            entry,
+  if (
+    !(
+      Array.isArray(value) &&
+      value.length <= MAXIMUM_RECORDS * 2 &&
+      value.every(
+        (entry, index) =>
+          !!entry &&
+          typeof entry === "object" &&
+          !Array.isArray(entry) &&
+          Object.getPrototypeOf(entry) === Object.prototype &&
+          exactKeys(entry, [
+            "sequence",
+            "action",
+            "phase",
+            "issued",
             "confirmation",
-          ) as DockerDesktopRepairEffectConfirmation,
-        ),
+          ]) &&
+          Reflect.get(entry, "sequence") === index &&
+          DOCKER_DESKTOP_REPAIR_EFFECT_ACTIONS.includes(
+            Reflect.get(entry, "action") as DockerDesktopRepairEffectAction,
+          ) &&
+          ["intent_recorded", "settled"].includes(
+            String(Reflect.get(entry, "phase")),
+          ) &&
+          (Reflect.get(entry, "phase") === "settled" ||
+            (Reflect.get(entry, "issued") === null &&
+              Reflect.get(entry, "confirmation") === "unknown")) &&
+          (Reflect.get(entry, "action") !== "record_write" ||
+            Reflect.get(entry, "phase") === "settled") &&
+          validTriState(Reflect.get(entry, "issued")) &&
+          ["not_issued", "confirmed", "unknown"].includes(
+            String(Reflect.get(entry, "confirmation")),
+          ) &&
+          confirmationCompatible(
+            Reflect.get(entry, "issued") as DockerDesktopRepairTriState,
+            Reflect.get(
+              entry,
+              "confirmation",
+            ) as DockerDesktopRepairEffectConfirmation,
+          ),
+      )
     )
+  )
+    return false;
+  const entries = value as readonly DockerDesktopRepairEffectEntry[];
+  const processActions = [
+    "official_shutdown",
+    "native_termination",
+    "wsl_termination",
+    "desktop_launch",
+    "historical_process_reconciliation",
+    "process_quiescence_reconciliation",
+  ] as const;
+  const filesystemActions = [
+    "runtime_directory_rename",
+    "observed_runtime_directory_rename",
+    "record_write",
+  ] as const;
+  if (
+    entries.some((entry) =>
+      kind === "process"
+        ? !processActions.includes(
+            entry.action as (typeof processActions)[number],
+          )
+        : !filesystemActions.includes(
+            entry.action as (typeof filesystemActions)[number],
+          ),
+    )
+  )
+    return false;
+  const hostActions = entries.filter(
+    (entry) => entry.action !== "record_write",
+  );
+  if (
+    new Set(hostActions.map((entry) => entry.action)).size !==
+    hostActions.length
+  )
+    return false;
+  const processOrder = new Map<string, number>([
+    ["official_shutdown", 0],
+    ["native_termination", 1],
+    ["wsl_termination", 2],
+    ["historical_process_reconciliation", 3],
+    ["process_quiescence_reconciliation", 3],
+    ["desktop_launch", 4],
+  ]);
+  let previousOrder = -1;
+  for (const entry of hostActions) {
+    const order =
+      kind === "process" ? (processOrder.get(entry.action) ?? -1) : 0;
+    if (order < previousOrder) return false;
+    previousOrder = order;
+  }
+  return (
+    hostActions.filter((entry) => entry.phase === "intent_recorded").length <= 1
   );
 }
 
@@ -319,7 +412,7 @@ function validStoredRecord(
   const stage = Reflect.get(value, "stage");
   return (
     Reflect.get(value, "schema") === DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA &&
-    Reflect.get(value, "contractRevision") === 3 &&
+    Reflect.get(value, "contractRevision") === 4 &&
     operationId(id) &&
     Number.isSafeInteger(sequence) &&
     Number(sequence) >= 0 &&
@@ -356,22 +449,6 @@ function confirmationCompatible(
   return confirmation === "unknown";
 }
 
-function legalEffectTransition(
-  previousIssued: DockerDesktopRepairTriState,
-  previousConfirmation: DockerDesktopRepairEffectConfirmation,
-  nextIssued: DockerDesktopRepairTriState,
-  nextConfirmation: DockerDesktopRepairEffectConfirmation,
-) {
-  if (
-    !confirmationCompatible(previousIssued, previousConfirmation) ||
-    !confirmationCompatible(nextIssued, nextConfirmation) ||
-    (previousIssued === true && nextIssued !== true) ||
-    (previousIssued === null && nextIssued === false)
-  )
-    return false;
-  return true;
-}
-
 function legalEffectEntriesTransition(
   previous: readonly DockerDesktopRepairEffectEntry[],
   next: readonly DockerDesktopRepairEffectEntry[],
@@ -385,11 +462,19 @@ function legalEffectEntriesTransition(
       candidate.action !== entry.action
     )
       return false;
-    if (candidate.issued !== entry.issued) return false;
+    if (candidate.phase === entry.phase) {
+      if (candidate.issued !== entry.issued) return false;
+      return (
+        candidate.confirmation === entry.confirmation ||
+        (entry.action === "record_write" &&
+          entry.confirmation === "unknown" &&
+          candidate.confirmation === "confirmed")
+      );
+    }
     return (
-      candidate.confirmation === entry.confirmation ||
-      (entry.confirmation === "unknown" &&
-        candidate.confirmation === "confirmed")
+      entry.phase === "intent_recorded" &&
+      candidate.phase === "settled" &&
+      confirmationCompatible(candidate.issued, candidate.confirmation)
     );
   });
 }
@@ -399,6 +484,7 @@ function legalLedgerTransition(
   next: DockerDesktopRepairLedgerSnapshot,
 ) {
   if (
+    !validLedger(next) ||
     !confirmationCompatible(
       next.processEffectIssued,
       next.processEffectConfirmation,
@@ -418,18 +504,6 @@ function legalLedgerTransition(
       !legalEffectEntriesTransition(
         previous.filesystemEffects,
         next.filesystemEffects,
-      ) ||
-      !legalEffectTransition(
-        previous.processEffectIssued,
-        previous.processEffectConfirmation,
-        next.processEffectIssued,
-        next.processEffectConfirmation,
-      ) ||
-      !legalEffectTransition(
-        previous.filesystemEffectIssued,
-        previous.filesystemEffectConfirmation,
-        next.filesystemEffectIssued,
-        next.filesystemEffectConfirmation,
       ))
   )
     return false;
@@ -440,9 +514,32 @@ function stageLedgerCompatible(
   stage: DockerDesktopRepairStage,
   ledger: DockerDesktopRepairLedgerSnapshot,
 ) {
+  const unsettled = [
+    ...ledger.processEffects,
+    ...ledger.filesystemEffects,
+  ].some((entry) => entry.phase === "intent_recorded");
+  if (
+    unsettled &&
+    !["prepared", "processes_stopped", "renamed"].includes(stage)
+  )
+    return false;
+  if (
+    stage === "prepared" &&
+    (ledger.processEffects.some((entry) => entry.action === "desktop_launch") ||
+      ledger.filesystemEffects.some(
+        (entry) => entry.action === "runtime_directory_rename",
+      ))
+  )
+    return false;
+  if (
+    stage === "processes_stopped" &&
+    ledger.processEffects.some((entry) => entry.action === "desktop_launch")
+  )
+    return false;
   if (stage === "recovered_pending_disposition")
     return (
       ledger.engineReady === true &&
+      ledger.liveRunIdentity !== null &&
       ledger.staleState === "retained" &&
       ledger.evidenceState === "preserved" &&
       ledger.disposition === "pending_human_decision"
@@ -450,6 +547,7 @@ function stageLedgerCompatible(
   if (stage === "closed_retained")
     return (
       ledger.engineReady === true &&
+      ledger.liveRunIdentity !== null &&
       ledger.staleState === "retained" &&
       ledger.evidenceState === "preserved" &&
       ledger.disposition === "retained_by_human_decision"
@@ -457,6 +555,7 @@ function stageLedgerCompatible(
   if (stage === "no_stale_historical_effect_unknown_pending")
     return (
       ledger.engineReady === true &&
+      ledger.liveRunIdentity !== null &&
       ledger.processEffectIssued !== false &&
       ledger.processEffectConfirmation === "unknown" &&
       ledger.staleState === "absent" &&
@@ -465,6 +564,7 @@ function stageLedgerCompatible(
   if (stage === "closed_historical_effect_unknown_retained")
     return (
       ledger.engineReady === true &&
+      ledger.liveRunIdentity !== null &&
       ledger.processEffectIssued !== false &&
       ledger.processEffectConfirmation === "unknown" &&
       ledger.staleState === "absent" &&
@@ -706,6 +806,7 @@ export function persistDockerDesktopRepairStage(
     if (
       sequence < 0 ||
       sequence >= MAXIMUM_RECORDS ||
+      !validLedger(ledger) ||
       !legalTransition(
         operation.sequence < 0 ? null : operation.stage,
         stage,
@@ -728,7 +829,7 @@ export function persistDockerDesktopRepairStage(
     }
     const record: StoredRecord = Object.freeze({
       schema: DOCKER_DESKTOP_REPAIR_RECORD_SCHEMA,
-      contractRevision: 3,
+      contractRevision: 4,
       operationId: operation.operationId,
       sequence,
       stage,
@@ -767,6 +868,13 @@ export function persistDockerDesktopRepairStage(
     fs.renameSync(temporary, target);
     const committed = stableBytes(target);
     if (!committed?.equals(serialized)) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(committed.toString("utf8"));
+    } catch {
+      return null;
+    }
+    if (!validStoredRecord(parsed, boundary)) return null;
     const recordSha256 = createHash("sha256").update(committed).digest("hex");
     return Object.freeze({
       ...operation,
@@ -795,6 +903,12 @@ export function describeDockerDesktopRepairRecordStoreContract() {
     recordLimit: MAXIMUM_RECORDS,
     recordBytesLimit: MAXIMUM_RECORD_BYTES,
     exactHashChain: true,
+    hostEffectLifecycle: "durable_intent_then_exact_once_settlement",
+    recordWriteLifecycle:
+      "self_non_recursive_issued_unknown_then_fresh_read_confirmed",
+    normalPathRecordCount: 15,
+    recoveryMarginRecordCount: 9,
+    legacyRevisionsAutomaticallyMigrated: false,
     unfinishedOperationBlocksNewRepair: true,
     staleDirectoryDeletion: false,
     closedRetainedRequiresExplicitHumanCommand: true,

@@ -34,7 +34,7 @@ use windows_sys::Win32::System::Threading::{
 const POLICY_BYTES: &[u8] =
     include_bytes!("../../coordinator/policies/windows-docker-desktop-4.41.2.policy");
 const POLICY_MAGIC: &str = "CRDD_WINDOWS_DOCKER_DESKTOP_REPAIR_POLICY_V1";
-const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR03";
+const RESPONSE_MAGIC: &[u8; 8] = b"CRDDDR04";
 const RESPONSE_BYTES: usize = 41;
 const MAXIMUM_POLICY_BYTES: usize = 16_384;
 const MAXIMUM_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
@@ -510,23 +510,23 @@ fn terminate_processes(artifacts: &[LockedArtifact]) -> u8 {
     let processes = match inventory_processes(artifacts) {
         ProcessInventory::Absent => return b'A',
         ProcessInventory::Verified(value) => value,
-        ProcessInventory::Unknown => return b'U',
+        ProcessInventory::Unknown => return b'N',
     };
     let mut effect_issued = false;
     for process in &processes {
         if process_creation(process.handle.0) != Some(process.creation) {
-            return if effect_issued { b'P' } else { b'U' };
+            return if effect_issued { b'P' } else { b'N' };
         }
         let mut exit_code = 0_u32;
         // SAFETY: handle is the same verified kernel process object and has query access.
         if unsafe { GetExitCodeProcess(process.handle.0, &mut exit_code) } == 0
             || exit_code != u32::try_from(STILL_ACTIVE).unwrap_or(u32::MAX)
         {
-            return if effect_issued { b'P' } else { b'U' };
+            return if effect_issued { b'P' } else { b'N' };
         }
         // SAFETY: handle is the same verified kernel process object and has terminate access.
         if unsafe { TerminateProcess(process.handle.0, 1) } == 0 {
-            return if effect_issued { b'P' } else { b'U' };
+            return if effect_issued { b'P' } else { b'N' };
         }
         effect_issued = true;
         // SAFETY: handle has synchronize access and remains valid.
@@ -661,7 +661,7 @@ fn create_exact_process(
         )
     } == 0
     {
-        return b'U';
+        return b'N';
     }
     let thread = OwnedHandle(process.hThread);
     let process_handle = OwnedHandle(process.hProcess);
@@ -687,15 +687,15 @@ fn create_exact_process(
 
 fn launch_desktop(artifacts: &mut [LockedArtifact]) -> u8 {
     if !verify_locked_artifacts(artifacts) {
-        return b'U';
+        return b'N';
     }
     let Some(launcher) = exact_artifact("launcher", artifacts) else {
-        return b'U';
+        return b'N';
     };
     let quoted = format!("\"{}\" --minimized", launcher.policy.path.display());
     let mut environment = match launcher_environment() {
         Some(value) => value,
-        None => return b'U',
+        None => return b'N',
     };
     create_exact_process(
         &launcher.policy.path,

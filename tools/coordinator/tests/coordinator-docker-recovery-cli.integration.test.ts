@@ -85,6 +85,43 @@ test("実CLIのdocker-task dispatchはJSONでexact IDと安全なblocked理由�
   assert.equal(result.stderr, "");
 });
 
+test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界をblocked 2へ投影する", () => {
+  const executable = path.resolve("bin/coordinator.ts");
+  const invalid = spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      executable,
+      "doctor",
+      "--close-docker-desktop-runtime-repair",
+      "invalid",
+      "--json",
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+  assert.equal(invalid.status, 64, invalid.stderr);
+  assert.equal(JSON.parse(invalid.stdout).status, "blocked");
+
+  const syntacticallyValid = `docker-desktop-repair.${"a".repeat(32)}`;
+  const blocked = spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      executable,
+      "doctor",
+      "--close-docker-desktop-runtime-repair",
+      syntacticallyValid,
+      "--json",
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+  assert.equal(blocked.status, 2, blocked.stderr);
+  const report = JSON.parse(blocked.stdout);
+  assert.equal(report.status, "blocked");
+  assert.equal(report.pathReported, false);
+  assert.equal(report.credentialReported, false);
+});
+
 test("実CLIの人間表示はmanual recoveryとEvidence不明を示し反復実行を誘導しない", () => {
   const result = invokeCli(false);
   assert.equal(result.status, 2, result.stderr);

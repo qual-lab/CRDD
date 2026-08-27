@@ -182,7 +182,7 @@ test("実CLIはDocker Desktop repair closeを専用reporterへ一意にdispatch�
     report.contract,
     "crdd-coordinator/docker-desktop-runtime-repair",
   );
-  assert.equal(report.contractRevision, 3);
+  assert.equal(report.contractRevision, 4);
   assert.equal(report.status, "blocked");
   assert.equal(report.deletionPerformed, false);
   assert.equal(report.pathReported, false);
@@ -205,7 +205,7 @@ test("実CLIはDocker Desktop repairを自動fallbackなしの専用reporterへd
     report.contract,
     "crdd-coordinator/docker-desktop-runtime-repair",
   );
-  assert.equal(report.contractRevision, 3);
+  assert.equal(report.contractRevision, 4);
   assert.equal(report.status, "blocked");
   assert.equal(report.deletionPerformed, false);
   assert.equal(report.providerEffectIssued, false);

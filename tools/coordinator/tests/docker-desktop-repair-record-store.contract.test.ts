@@ -42,6 +42,7 @@ function fixture(t: TestContext) {
       Object.freeze({
         sequence: 0,
         action: "record_write",
+        phase: "settled",
         issued: true,
         confirmation: "confirmed" as const,
       }),
@@ -53,6 +54,7 @@ function fixture(t: TestContext) {
     hostSafety: "safe" as const,
     evidenceState: "preserved" as const,
     disposition: "not_applicable" as const,
+    liveRunIdentity: null,
   });
   return Object.freeze({ boundary, ledger, runtimeStateRoot });
 }
@@ -80,7 +82,8 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
           : Object.freeze([
               Object.freeze({
                 sequence: 0,
-                action: "test_process_effect",
+                action: "native_termination",
+                phase: "settled",
                 issued: true,
                 confirmation: "confirmed" as const,
               }),
@@ -101,6 +104,10 @@ test("repair recordは順序・hash chain・境界identityを保持して再構�
           : stage === "closed_retained"
             ? ("retained_by_human_decision" as const)
             : ("not_applicable" as const),
+      liveRunIdentity:
+        stage === "recovered_pending_disposition" || stage === "closed_retained"
+          ? Object.freeze({ dev: "9", ino: "8", birthtimeNs: "7" })
+          : null,
     });
     const next = persistDockerDesktopRepairStage(
       boundary,
@@ -157,7 +164,7 @@ test("record storeは削除せず明示close後もEvidenceを保持する", () =
   assert.equal(contract.unfinishedOperationBlocksNewRepair, true);
 });
 
-test("Effect ledgerは既知のissued事実を後退させず旧rev2を暗黙移行しない", (t) => {
+test("Effect ledgerは既知のissued事実を後退させず旧rev2／rev3を暗黙移行しない", (t) => {
   const { boundary, ledger } = fixture(t);
   const created = createDockerDesktopRepairOperation(
     boundary,
@@ -176,7 +183,8 @@ test("Effect ledgerは既知のissued事実を後退させず旧rev2を暗黙移
     processEffects: Object.freeze([
       Object.freeze({
         sequence: 0,
-        action: "test_process_effect",
+        action: "native_termination",
+        phase: "settled",
         issued: true,
         confirmation: "confirmed" as const,
       }),
@@ -209,13 +217,15 @@ test("Effect ledgerは既知のissued事実を後退させず旧rev2を暗黙移
     string,
     unknown
   >;
-  old.schema = "crdd-coordinator/docker-desktop-repair-record/v2";
-  old.contractRevision = 2;
-  fs.writeFileSync(record, `${JSON.stringify(old)}\n`, "utf8");
-  assert.equal(
-    inventoryDockerDesktopRepairOperations(boundary).status,
-    "unknown",
-  );
+  for (const revision of [2, 3]) {
+    old.schema = `crdd-coordinator/docker-desktop-repair-record/v${revision}`;
+    old.contractRevision = revision;
+    fs.writeFileSync(record, `${JSON.stringify(old)}\n`, "utf8");
+    assert.equal(
+      inventoryDockerDesktopRepairOperations(boundary).status,
+      "unknown",
+    );
+  }
 });
 
 test("後続Effect不明は既知issuedを保持した追記としてno-stale stageへ接続する", (t) => {
@@ -238,6 +248,7 @@ test("後続Effect不明は既知issuedを保持した追記としてno-stale st
       Object.freeze({
         sequence: 0,
         action: "native_termination",
+        phase: "settled",
         issued: true,
         confirmation: "confirmed" as const,
       }),
@@ -259,6 +270,7 @@ test("後続Effect不明は既知issuedを保持した追記としてno-stale st
       Object.freeze({
         sequence: 1,
         action: "historical_process_reconciliation",
+        phase: "settled",
         issued: null,
         confirmation: "unknown" as const,
       }),
@@ -267,6 +279,7 @@ test("後続Effect不明は既知issuedを保持した追記としてno-stale st
     engineReady: true,
     staleState: "absent" as const,
     disposition: "historical_effect_unknown_pending_human_decision" as const,
+    liveRunIdentity: Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
   });
   const pending = persistDockerDesktopRepairStage(
     boundary,
@@ -281,4 +294,37 @@ test("後続Effect不明は既知issuedを保持した追記としてno-stale st
     inventoryDockerDesktopRepairOperations(boundary).status,
     "verified",
   );
+});
+
+test("writerはreader非互換Effectを永続化しない", (t) => {
+  const { boundary, ledger } = fixture(t);
+  const created = createDockerDesktopRepairOperation(
+    boundary,
+    Object.freeze({ dev: "1", ino: "2", birthtimeNs: "3" }),
+    ledger,
+  );
+  const incompatible = Object.freeze({
+    ...ledger,
+    processEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "official_shutdown" as const,
+        phase: "settled" as const,
+        issued: false,
+        confirmation: "unknown" as const,
+      }),
+    ]),
+    processEffectIssued: false,
+    processEffectConfirmation: "not_issued" as const,
+  });
+  assert.equal(
+    persistDockerDesktopRepairStage(
+      boundary,
+      created,
+      "prepared",
+      incompatible,
+    ),
+    null,
+  );
+  assert.equal(fs.existsSync(created.operationDirectory), false);
 });
