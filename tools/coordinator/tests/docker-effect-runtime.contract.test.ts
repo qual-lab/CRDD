@@ -269,7 +269,18 @@ function authProbeInspectOutput(
   const observed = loadSanitizedAuthProbeInspectFixture();
   assert.equal(observed.source, "sanitized_real_docker_inspect_subset");
   assert.equal(observed.engineVersion, "28.1.1");
-  assert.equal(observed.createArgv.includes("--network=none"), true);
+  const observedNetworkArguments = observed.createArgv.filter((value) =>
+    value.startsWith("--network"),
+  );
+  const authCommand = fixture.plan.commands.find(
+    (command) => command.purpose === "create_subscription_auth_probe",
+  );
+  assert.ok(authCommand);
+  const plannedNetworkArguments = authCommand.argv.filter((value) =>
+    value.startsWith("--network"),
+  );
+  assert.deepEqual(observedNetworkArguments, ["--network=none"]);
+  assert.deepEqual(plannedNetworkArguments, observedNetworkArguments);
   const inspect = structuredClone(observed.inspect) as Record<string, unknown>;
   inspect.Id = dockerId;
   inspect.Name = `/${fixture.plan.authContainerName}`;

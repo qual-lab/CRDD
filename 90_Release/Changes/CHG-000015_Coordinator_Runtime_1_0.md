@@ -185,6 +185,8 @@ Coordinatorは利用可能な候補から、Taskの具体性、曖昧さ、影�
 
 正式署名経路の認証Probe作成後にProcessが終了した実測では、Dockerが`--network=none`をinspect上の`NetworkSettings.Networks.none`として保持する一方、Effect後検査とRecoveryが空Network集合を期待していたproducer／consumer不一致を確認した。Docker Effect Runtime contract revision 8とDocker Recovery Runtime contract revision 18は、認証Probeの唯一の許容Network表現をexact `none`へ固定し、空集合、別Networkおよび追加Networkを拒否する。receipt前crashの再照合、receipt後のexact ID回収、通常Effect後検査およびfixtureを同じ規則へ伝播し、実停止コンテナと同形の陽性・陰性対照を契約試験へ追加した。この是正はProvider request、外部送信、Network接続またはcleanup Authorityを拡張せず、実Provider要求前に作成された停止中認証Probeを新しい署名Recoveryで回収するための既存契約整合である。
 
+Docker Desktop 4.41.2は、旧runtime socketを単体削除できずEngineを起動できないHost状態となった。Docker関連ProcessとWSLを停止したうえで、Dockerの一時`run` Directoryを同じLocal App Data配下へ退避して新規生成させる可逆処置により、Docker Engine 28.1.1のServer応答を回復した。CRDDのRuntimeState、Provider Home、Container、ImageまたはVolumeはこのHost処置で削除していない。Engine回復後、固定署名配布物Commit `153109228b9ca8f4a65cf2e27af2c71dcbdfa66f`のrevision 18からexact Recovery IDを正式`doctor --recover-isolation`入口へ二回渡したが、いずれもWindows fast-fail `0xC0000409`で終了した。新しいreconciled receiptは作成されず、認証Probe Containerと耐久Recovery Evidenceは保持された。Provider request、Task executionおよび追加Network Effectは開始していない。同じHost／Home／RuntimeState lock、Docker hash、lock外inspectおよびexact `Networks.none`再照合だけのread-only Probeはexit 0で全lockを解放したため、未解決範囲はその後のRuntimeState再検証からreceipt耐久化へ進むproduction Recovery境界に縮約した。この観測は原因主体、Recovery成功、cleanup、残存0またはRuntime完成を証明せず、是正後の新固定署名版でexact Recoveryと残存0を得るまで実Provider Dogfoodingを開かない。
+
 ## 9. Repository／Candidate契約
 
 - 対応BackendはローカルGitだけとし、`read_only`と`isolated_worktree`を扱う。

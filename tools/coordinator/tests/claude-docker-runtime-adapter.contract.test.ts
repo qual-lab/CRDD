@@ -197,6 +197,12 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
     "start_proxy",
     "start_provider_attached",
   ]);
+  const authProbe = plan.commands[0];
+  assert.equal(authProbe?.purpose, "create_subscription_auth_probe");
+  assert.deepEqual(
+    authProbe?.argv.filter((value) => value.startsWith("--network")),
+    ["--network=none"],
+  );
   const internalNetworkArguments = plan.commands[2]?.argv ?? [];
   assert.equal(internalNetworkArguments.includes("--internal"), true);
   const provider = plan.commands.find(

@@ -2411,14 +2411,23 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
       reason: "docker_task_recovery_completed",
       recoveryId: null,
     });
-    const jsonReport = renderDockerRecoveryDoctorReport(recovered, true);
+    const publicSuccess = Object.freeze({
+      ...recovered,
+      manualRecoveryRequired: false,
+      evidenceState: "unknown" as const,
+    });
+    const jsonReport = renderDockerRecoveryDoctorReport(publicSuccess, true);
     assert.equal(jsonReport.exitCode, 0);
-    assert.deepEqual(JSON.parse(jsonReport.stdout), recovered);
-    const humanReport = renderDockerRecoveryDoctorReport(recovered, false);
+    assert.deepEqual(JSON.parse(jsonReport.stdout), publicSuccess);
+    const humanReport = renderDockerRecoveryDoctorReport(publicSuccess, false);
     assert.equal(humanReport.exitCode, 0);
     assert.match(humanReport.stdout, /Coordinator environment: recovered/u);
     assert.match(humanReport.stdout, /docker_task_recovery_completed/u);
     assert.doesNotMatch(humanReport.stdout, /C:\\/u);
+    assert.doesNotMatch(
+      humanReport.stdout,
+      /recovery ID|next: coordinator doctor|Runtime operator|automatic recovery stopped/iu,
+    );
     assert.equal(docker.removeCount(), 1);
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
