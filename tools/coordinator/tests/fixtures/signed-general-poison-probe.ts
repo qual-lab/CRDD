@@ -15,6 +15,9 @@ const baseTree = "b".repeat(40);
 const baseManifestHash = "c".repeat(64);
 const contentManifestHash = "d".repeat(64);
 const allowedPathsHash = "e".repeat(64);
+const hostRecoveryA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+const dockerRecoveryA = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+const dockerRecoveryB = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
 const patchHash = createHash("sha256")
   .update("crdd-candidate-revision-v1\0")
   .update(baseCommit)
@@ -86,7 +89,7 @@ if (scenario === "bind_throw_recovery") {
   result.reason = "coordinator_task_cleanup_unconfirmed";
   result.cleanupConfirmed = false;
   result.manualRecoveryRequired = true;
-  result.hostRecoveryId = "host.fixed.recovery";
+  result.hostRecoveryId = hostRecoveryA;
 }
 if (scenario.startsWith("missing:")) delete result[scenario.slice(8)];
 if (scenario.startsWith("null:")) result[scenario.slice(5)] = null;
@@ -94,8 +97,22 @@ if (scenario.startsWith("string:")) result[scenario.slice(7)] = "invalid";
 if (scenario === "docker_pair_mismatch") {
   result.cleanupConfirmed = false;
   result.manualRecoveryRequired = true;
-  result.dockerRecoveryId = "docker.general.a";
-  result.dockerRecoveryIds = Object.freeze(["docker.general.b"]);
+  result.dockerRecoveryId = dockerRecoveryA;
+  result.dockerRecoveryIds = Object.freeze([dockerRecoveryB]);
+}
+if (scenario === "control_missing_completion_recovery") {
+  result.status = "blocked";
+  result.reason = "coordinator_task_cleanup_unconfirmed";
+  result.cleanupConfirmed = false;
+  result.manualRecoveryRequired = true;
+  result.hostRecoveryId = hostRecoveryA;
+}
+if (scenario === "signal_cleanup_unknown_cancel_unobserved") {
+  result.status = "blocked";
+  result.reason = "coordinator_task_cleanup_unconfirmed";
+  result.cleanupConfirmed = false;
+  result.manualRecoveryRequired = true;
+  result.hostRecoveryId = hostRecoveryA;
 }
 
 const bytes = Buffer.from(expectedContent, "utf8");
@@ -139,9 +156,11 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
     });
     const completion =
       scenario === "bind_throw_completion_never" ||
-      scenario.startsWith("signal_completion_never")
+      scenario.startsWith("signal_completion_never") ||
+      scenario === "control_missing_completion_never"
         ? new Promise<Record<string, unknown>>(() => undefined)
-        : scenario === "completion_reject"
+        : scenario === "completion_reject" ||
+            scenario === "control_missing_completion_reject"
           ? Promise.reject(new Error("fixed_completion_reject"))
           : Promise.resolve(
               scenario === "result_getter"
@@ -153,6 +172,22 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       completion,
     });
     if (scenario === "started_proxy") return new Proxy(started, {});
+    if (scenario === "completion_subclass") {
+      class ThrowingThenPromise<T> extends Promise<T> {
+        // biome-ignore lint/suspicious/noThenProperty: the hostile then override is the contract-test input.
+        override then(): never {
+          throw new Error("fixed_inherited_then_throw");
+        }
+      }
+      return Object.freeze({
+        controlCapability: started.controlCapability,
+        completion: new ThrowingThenPromise<Record<string, unknown>>(
+          (resolve) => resolve(Object.freeze(result)),
+        ),
+      });
+    }
+    if (scenario.startsWith("control_missing_completion_"))
+      return Object.freeze({ completion });
     if (scenario === "completion_proxy")
       return Object.freeze({
         controlCapability: started.controlCapability,
@@ -186,7 +221,19 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       return new Promise<Record<string, unknown>>(() => undefined);
     if (scenario === "signal_completion_never_cancel_malformed")
       return Object.freeze({ status: "blocked" });
-    return Object.freeze({ status: "requested" });
+    if (scenario === "signal_cleanup_unknown_cancel_unobserved")
+      return Object.freeze({
+        status: "requested",
+        reason: "provider_cancellation_grace_exceeded",
+        cancellationRequested: true,
+        processTerminationObserved: false,
+      });
+    return Object.freeze({
+      status: "requested",
+      reason: "provider_cancellation_requested",
+      cancellationRequested: true,
+      processTerminationObserved: true,
+    });
   },
   readCandidate: () => candidate,
   discardCandidate: () =>
@@ -220,13 +267,18 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       requested: () => {
         if (scenario === "requested_throw")
           throw new Error("fixed_requested_throw");
-        return scenario.startsWith("signal_completion_never") || lateRequested;
+        return scenario.startsWith("signal_") || lateRequested;
       },
-      requestedPromise: scenario.startsWith("signal_completion_never")
+      requestedPromise: scenario.startsWith("signal_")
         ? Promise.resolve()
         : new Promise<void>(() => undefined),
     });
   },
+  isolatedSettlementTiming: Object.freeze({
+    cancelAckTimeoutMs: 50,
+    cancelCompletionTimeoutMs: 50,
+    orphanedStartObservationTimeoutMs: 50,
+  }),
 });
 
 let packageReads = 0;

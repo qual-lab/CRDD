@@ -23,6 +23,14 @@ const baseTree = "b".repeat(40);
 const baseManifestHash = "c".repeat(64);
 const contentManifestHash = "d".repeat(64);
 const allowedPathsHash = "e".repeat(64);
+const hostRecoveryA = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+const hostRecoveryB = `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`;
+const dockerRecoveryA = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+const dockerRecoveryB = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
+const dockerRecoveryC = `docker-task.${"7".repeat(64)}.${"8".repeat(64)}.${"9".repeat(64)}`;
+const candidateRecoveryA = `candidate-recovery.${"a".repeat(64)}.${"b".repeat(64)}`;
+const candidateRecoveryB = `candidate-recovery.${"c".repeat(64)}.${"d".repeat(64)}`;
+const candidateStoreRecoveryA = `candidate-store-recovery.${"e".repeat(64)}`;
 const patchHash = createHash("sha256")
   .update("crdd-candidate-revision-v1\0")
   .update(baseCommit)
@@ -206,6 +214,13 @@ function dependencies(
     readThrows?: boolean;
     discardThrows?: boolean;
     cancellationRequested?: boolean;
+    cancelDelayMs?: number;
+    cancelReceipt?: Readonly<Record<string, unknown>>;
+    isolatedSettlementTiming?: Readonly<{
+      cancelAckTimeoutMs: number;
+      cancelCompletionTimeoutMs: number;
+      orphanedStartObservationTimeoutMs: number;
+    }>;
   } = {},
 ) {
   const calls = {
@@ -246,9 +261,21 @@ function dependencies(
             : Promise.resolve(options.result ?? taskResult()),
         });
       },
-      cancelTask: () => {
+      cancelTask: async () => {
         calls.cancels += 1;
-        return Object.freeze({ status: "requested" });
+        if (options.cancelDelayMs)
+          await new Promise((resolve) =>
+            setTimeout(resolve, options.cancelDelayMs),
+          );
+        return (
+          options.cancelReceipt ??
+          Object.freeze({
+            status: "requested",
+            reason: "provider_cancellation_requested",
+            cancellationRequested: true,
+            processTerminationObserved: true,
+          })
+        );
       },
       readCandidate: () => {
         calls.reads += 1;
@@ -279,6 +306,13 @@ function dependencies(
             : new Promise<void>(() => undefined),
         });
       },
+      isolatedSettlementTiming:
+        options.isolatedSettlementTiming ??
+        Object.freeze({
+          cancelAckTimeoutMs: 100,
+          cancelCompletionTimeoutMs: 100,
+          orphanedStartObservationTimeoutMs: 100,
+        }),
     }),
   });
 }
@@ -324,6 +358,13 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(contract.minimumNodeVersion, "24.12.0");
   assert.equal(contract.nodeSelection, "absolute_preverified_executable_only");
   assert.equal(contract.availabilityOnlyConsolePreflightAllowed, false);
+  assert.deepEqual(contract.cancellationSettlement, {
+    acknowledgmentTimeoutMs: 10_000,
+    completionTimeoutMs: 240_000,
+    orphanedStartObservationTimeoutMs: 240_000,
+    ordering: "acknowledgment_then_completion",
+    productionOverrideAllowed: false,
+  });
   assert.equal(
     contract.interactiveConsoleGate,
     "runtime_owned_initial_consent_confirmation_only_reused_consent_requires_no_console",
@@ -658,7 +699,7 @@ test("Route、cleanup、RecoveryまたはCandidate byte差をFail Closedにす�
       result: taskResult({
         cleanupConfirmed: false,
         manualRecoveryRequired: true,
-        hostRecoveryId: "host.test",
+        hostRecoveryId: hostRecoveryA,
       }),
     }),
     dependencies({ candidate: candidate("different\n") }),
@@ -751,10 +792,15 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     "started_proxy",
     "completion_getter",
     "completion_proxy",
+    "completion_subclass",
+    "control_missing_completion_recovery",
+    "control_missing_completion_reject",
+    "control_missing_completion_never",
     "signal_completion_never",
     "signal_completion_never_cancel_reject",
     "signal_completion_never_cancel_never",
     "signal_completion_never_cancel_malformed",
+    "signal_cleanup_unknown_cancel_unobserved",
     "docker_pair_mismatch",
     ...[
       "cleanupConfirmed",
@@ -789,21 +835,30 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
       scenario !== "completed_true" &&
       scenario !== "start_throw" &&
       scenario !== "discard_true" &&
-      scenario !== "started_proxy"
+      scenario !== "started_proxy" &&
+      !scenario.startsWith("control_missing_completion_")
     )
       assert.equal(observed.cancelAttempts, 1, scenario);
     if (scenario === "completed_true")
       assert.equal(result.manualRecoveryRequired, false, scenario);
     if (scenario === "bind_throw_recovery") {
       assert.equal(result.manualRecoveryRequired, true, scenario);
-      assert.equal(result.hostRecoveryId, "host.fixed.recovery", scenario);
+      assert.equal(
+        result.hostRecoveryId,
+        `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`,
+        scenario,
+      );
     }
     if (scenario === "docker_pair_mismatch") {
       assert.deepEqual(result.dockerRecoveryIds, [
-        "docker.general.a",
-        "docker.general.b",
+        dockerRecoveryA,
+        dockerRecoveryB,
       ]);
       assert.equal(result.recoveryIdentityAmbiguous, true, scenario);
+    }
+    if (scenario === "control_missing_completion_recovery") {
+      assert.equal(result.hostRecoveryId, hostRecoveryA, scenario);
+      assert.equal(result.manualRecoveryRequired, true, scenario);
     }
     assert.equal(
       observed.packageReason,
@@ -855,6 +910,62 @@ test("取消、Candidate Store例外をPassへ流さない", async () => {
   }
 });
 
+test("production grace内の遅延取消receiptを短い旧上限で誤poisonしない", async () => {
+  for (const cancelDelayMs of [1_500, 4_900]) {
+    const fixture = dependencies({
+      cancellationRequested: true,
+      cancelDelayMs,
+      isolatedSettlementTiming: Object.freeze({
+        cancelAckTimeoutMs: 6_000,
+        cancelCompletionTimeoutMs: 500,
+        orphanedStartObservationTimeoutMs: 500,
+      }),
+    });
+    const result = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(result.reason, "signed_general_task_cancelled");
+    assert.equal(result.processRestartRequired, false);
+    assert.equal(fixture.calls.cancels, 1);
+  }
+});
+
+test("終了未観測receiptはexact cleanupだけで既知取消へ収束する", async () => {
+  const receipt = Object.freeze({
+    status: "requested",
+    reason: "provider_cancellation_grace_exceeded",
+    cancellationRequested: true,
+    processTerminationObserved: false,
+  });
+  const known = dependencies({
+    cancellationRequested: true,
+    cancelReceipt: receipt,
+  });
+  const knownResult = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    known.value,
+  );
+  assert.equal(knownResult.reason, "signed_general_task_cancelled");
+  assert.equal(knownResult.processRestartRequired, false);
+
+  const unknownProbe = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/signed-general-poison-probe.ts"),
+      "signal_cleanup_unknown_cancel_unobserved",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(unknownProbe.status, 0, unknownProbe.stderr);
+  const unknown = JSON.parse(unknownProbe.stdout) as {
+    runnerResult: Record<string, unknown>;
+    poisoned: boolean;
+  };
+  assert.equal(unknown.runnerResult.processRestartRequired, true);
+  assert.equal(unknown.poisoned, true);
+});
+
 test("Candidate discard不成立は残存0とせず手動処置対象を返す", async () => {
   const fixture = dependencies({
     discard: Object.freeze({
@@ -888,23 +999,20 @@ test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する",
       reason: "coordinator_task_cleanup_unconfirmed",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
-      hostRecoveryId: "host-recovery-task",
-      dockerRecoveryId: "docker-recovery-task-a",
-      dockerRecoveryIds: Object.freeze([
-        "docker-recovery-task-a",
-        "docker-recovery-task-b",
-      ]),
-      candidateRecoveryId: "candidate-recovery-task",
+      hostRecoveryId: hostRecoveryA,
+      dockerRecoveryId: dockerRecoveryA,
+      dockerRecoveryIds: Object.freeze([dockerRecoveryA, dockerRecoveryB]),
+      candidateRecoveryId: candidateRecoveryA,
     }),
     discard: Object.freeze({
       status: "blocked",
       reason: "candidate_bundle_discard_recovery_required",
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
-      hostRecoveryId: "host-recovery-discard",
-      dockerRecoveryId: "docker-recovery-discard",
-      candidateRecoveryId: "candidate-recovery-discard",
-      candidateStoreRecoveryId: "candidate-store-recovery-discard",
+      hostRecoveryId: hostRecoveryB,
+      dockerRecoveryId: dockerRecoveryC,
+      candidateRecoveryId: candidateRecoveryB,
+      candidateStoreRecoveryId: candidateStoreRecoveryA,
     }),
   });
   const result = await runSignedGeneralTaskVerification(
@@ -915,23 +1023,18 @@ test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する",
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, null);
-  assert.deepEqual(result.hostRecoveryIds, [
-    "host-recovery-task",
-    "host-recovery-discard",
-  ]);
+  assert.deepEqual(result.hostRecoveryIds, [hostRecoveryA, hostRecoveryB]);
   assert.deepEqual(result.dockerRecoveryIds, [
-    "docker-recovery-task-a",
-    "docker-recovery-task-b",
-    "docker-recovery-discard",
+    dockerRecoveryA,
+    dockerRecoveryB,
+    dockerRecoveryC,
   ]);
   assert.equal(result.candidateRecoveryId, null);
   assert.deepEqual(result.candidateRecoveryIds, [
-    "candidate-recovery-task",
-    "candidate-recovery-discard",
+    candidateRecoveryA,
+    candidateRecoveryB,
   ]);
-  assert.deepEqual(result.candidateStoreRecoveryIds, [
-    "candidate-store-recovery-discard",
-  ]);
+  assert.deepEqual(result.candidateStoreRecoveryIds, [candidateStoreRecoveryA]);
   assert.equal(result.recoveryIdentityAmbiguous, true);
   assert.equal(fixture.calls.discards, 1);
 });

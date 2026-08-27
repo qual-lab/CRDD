@@ -64,6 +64,8 @@ function fixture(
     publishNeedsStoreRecovery?: boolean;
     processStartFailureRole?: "executor" | "reviewer";
     processCleanupFailureRole?: "executor" | "reviewer";
+    processCleanupFailureOccurrence?: number;
+    processFailureRecoveryMode?: "canonical" | "missing" | "empty" | "foreign";
     hostCleanupWal?: boolean;
     dockerIntentFailsAt?: number;
     dockerReceiptFailsAt?: number;
@@ -413,12 +415,21 @@ function fixture(
         role === "reviewer" && reviewerAttempt === 1
           ? (options.finalReviewerDecision ?? reviewerDecision)
           : reviewerDecision;
-      const cleanupFails = options.processCleanupFailureRole === role;
-      const completedResult = Object.freeze({
+      const cleanupFails =
+        options.processCleanupFailureRole === role &&
+        (options.processCleanupFailureOccurrence ?? 1) === processCount;
+      const completedResultFields: Record<string, unknown> = {
         status: cleanupFails ? "blocked" : "completed",
         reason: cleanupFails ? "fixture_cleanup_failed" : "completed",
         cleanupConfirmed: !cleanupFails,
-        recoveryId: cleanupFails ? activeRecoveryId : null,
+        recoveryId:
+          cleanupFails && options.processFailureRecoveryMode === "empty"
+            ? ""
+            : cleanupFails && options.processFailureRecoveryMode === "foreign"
+              ? "docker.fixture.foreign"
+              : cleanupFails
+                ? activeRecoveryId
+                : null,
         ...(options.hostCleanupWal
           ? { recoveryFinalizationCapability: recoveryCapability }
           : {}),
@@ -439,7 +450,10 @@ function fixture(
                     ? Object.freeze({})
                     : null,
               }),
-      });
+      };
+      if (cleanupFails && options.processFailureRecoveryMode === "missing")
+        delete completedResultFields.recoveryId;
+      const completedResult = Object.freeze(completedResultFields);
       const completion =
         options.completionRejectRole === role
           ? Promise.reject(new Error("unexpected_completion_rejection"))
@@ -458,12 +472,15 @@ function fixture(
     },
     cancelProcess: async () => {
       cancelProcessCount += 1;
+      const processTerminationObserved =
+        options.cancellationTerminationObserved !== false;
       return Object.freeze({
         status: "requested",
-        reason: "provider_cancellation_requested",
+        reason: processTerminationObserved
+          ? "provider_cancellation_requested"
+          : "provider_cancellation_grace_exceeded",
         cancellationRequested: true,
-        processTerminationObserved:
-          options.cancellationTerminationObserved !== false,
+        processTerminationObserved,
       });
     },
     captureCandidate: () => {
@@ -583,6 +600,9 @@ function fixture(
     poisonProcessCount: () => poisonProcessCount,
     releaseDrainCount: () => releaseDrainCount,
     abandonOperationCount: () => abandonOperationCount,
+    dockerIntentCount: () => dockerIntentCount,
+    dockerReceiptCount: () => dockerReceiptCount,
+    dockerFinalizeCount: () => dockerFinalizeCount,
     externalCancellationSignal: () => externalCancellationSignal,
     releaseExternalAuthorization: () => {
       assert.ok(releaseExternalAuthorization);
@@ -995,6 +1015,61 @@ test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持�
   ]);
   assert.equal(harness.cleanupCount(), 0);
   assert.equal(harness.events.includes("docker-host-cleanup-intent"), false);
+});
+
+test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup Authorityを閉じる", async () => {
+  const cases = [
+    {
+      harness: fixture({
+        hostCleanupWal: true,
+        processCleanupFailureRole: "executor",
+        processFailureRecoveryMode: "missing",
+      }),
+      expected: ["docker.fixture.executor.active"],
+    },
+    {
+      harness: fixture({
+        hostCleanupWal: true,
+        processCleanupFailureRole: "reviewer",
+        processFailureRecoveryMode: "empty",
+      }),
+      expected: [
+        "docker.fixture.executor.active",
+        "docker.fixture.reviewer.active",
+      ],
+    },
+    {
+      harness: fixture({
+        hostCleanupWal: true,
+        reviewerDecision: "changes_requested",
+        finalReviewerDecision: "approved",
+        processCleanupFailureRole: "executor",
+        processCleanupFailureOccurrence: 2,
+        processFailureRecoveryMode: "foreign",
+      }),
+      expected: [
+        "docker.fixture.foreign",
+        "docker.fixture.executor.active",
+        "docker.fixture.reviewer.active",
+        "docker.fixture.executor.active-2",
+      ],
+    },
+  ];
+  for (const { harness, expected } of cases) {
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.deepEqual(result.dockerRecoveryIds, expected);
+    assert.equal(harness.dockerIntentCount(), 0);
+    assert.equal(harness.dockerReceiptCount(), 0);
+    assert.equal(harness.dockerFinalizeCount(), 0);
+    assert.equal(harness.cleanupCount(), 0);
+    assert.equal(harness.abandonOperationCount(), 1);
+  }
 });
 
 test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集合を保持する", async () => {
@@ -1567,7 +1642,7 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
     processTerminationObserved: true,
   });
   const duplicate = await harness.runtime.cancel(started.controlCapability);
-  assert.deepEqual(duplicate, { status: "blocked" });
+  assert.deepEqual(duplicate, cancelled);
   harness.releasePausedProcess();
   const result = await started.completion;
   assert.equal(result.status, "blocked");
@@ -1739,6 +1814,9 @@ test("Operation作成待機中の取消は最初の後続Effect前にcleanupへ�
     await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
     status: "requested",
+    reason: "provider_cancellation_requested",
+    cancellationRequested: true,
+    processTerminationObserved: true,
   });
   harness.releaseOperationCreation();
   const result = await started.completion;
@@ -1768,6 +1846,9 @@ test("外部送信承認中の取消は同じSignalへ伝播しWorkspace前に�
   assert.equal(harness.externalCancellationSignal()?.aborted, false);
   assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
     status: "requested",
+    reason: "provider_cancellation_requested",
+    cancellationRequested: true,
+    processTerminationObserved: true,
   });
   assert.equal(harness.externalCancellationSignal()?.aborted, true);
   harness.releaseExternalAuthorization();

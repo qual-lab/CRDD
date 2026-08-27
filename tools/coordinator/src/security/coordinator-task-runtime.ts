@@ -302,6 +302,7 @@ type ControlRecord = {
   managementCapability: object;
   currentProcessControl: object | null;
   cancellationRequested: boolean;
+  cancellationReceipt: Promise<RuntimeRecord> | null;
   cancellationController: AbortController;
   ownedOperation: object | null;
   retainOperationRoot: boolean;
@@ -425,6 +426,49 @@ function snapshotRuntimeRecord(value: unknown): RuntimeRecord | null {
   }
 }
 
+function exactProcessCancellationReceipt(value: unknown) {
+  const receipt = snapshotPlainRecord(value, PROCESS_CANCELLATION_RESULT_KEYS);
+  if (
+    receipt?.status !== "requested" ||
+    receipt.cancellationRequested !== true ||
+    typeof receipt.processTerminationObserved !== "boolean" ||
+    (receipt.processTerminationObserved === true &&
+      receipt.reason !== "provider_cancellation_requested") ||
+    (receipt.processTerminationObserved === false &&
+      receipt.reason !== "provider_cancellation_grace_exceeded")
+  )
+    return null;
+  return Object.freeze({ ...receipt });
+}
+
+function requestControlCancellation(
+  state: RuntimeState,
+  control: ControlRecord,
+) {
+  if (control.cancellationReceipt) return control.cancellationReceipt;
+  control.cancellationRequested = true;
+  control.cancellationController.abort();
+  const processControl = control.currentProcessControl;
+  control.cancellationReceipt = (async () => {
+    if (!processControl)
+      return Object.freeze({
+        status: "requested" as const,
+        reason: "provider_cancellation_requested",
+        cancellationRequested: true,
+        processTerminationObserved: true,
+      });
+    const observed = await state.dependencies.cancelProcess(
+      processControl,
+      control.managementCapability,
+    );
+    const receipt = exactProcessCancellationReceipt(observed);
+    if (!receipt)
+      throw new Error("coordinator_task_cancellation_receipt_invalid");
+    return receipt;
+  })();
+  return control.cancellationReceipt;
+}
+
 function controlDockerRecoveryIds(control: ControlRecord) {
   return Object.freeze([
     ...new Set(
@@ -464,6 +508,23 @@ function canRunManagedDockerCleanup(
       !("value" in pluralDescriptor)
     )
       return false;
+    const handoffs = Object.freeze(
+      control.dockerHandoffs.map((handoff) =>
+        Object.freeze({
+          state: handoff.state,
+          recoveryId: handoff.recoveryId,
+          capability: handoff.capability,
+        }),
+      ),
+    );
+    const finalizations = Object.freeze(
+      control.dockerFinalizations.map((finalization) =>
+        Object.freeze({
+          recoveryId: finalization.recoveryId,
+          capability: finalization.capability,
+        }),
+      ),
+    );
     return evaluateManagedDockerCleanupEligibility({
       raw: Object.freeze({
         singularPresent: singularDescriptor !== undefined,
@@ -471,8 +532,8 @@ function canRunManagedDockerCleanup(
         pluralPresent: pluralDescriptor !== undefined,
         plural: pluralDescriptor?.value,
       }),
-      handoffs: control.dockerHandoffs,
-      finalizations: control.dockerFinalizations,
+      handoffs,
+      finalizations,
     }).eligible;
   } catch {
     return false;
@@ -979,8 +1040,22 @@ async function runCoordinatorTaskCore(
   controlCapability: object,
   control: ControlRecord,
 ) {
-  const blocked = (...args: Parameters<typeof createBlocked>) =>
-    projectCurrentDockerRecovery(createBlocked(...args), control);
+  const blocked = (...args: Parameters<typeof createBlocked>) => {
+    const source = createBlocked(...args);
+    const dockerRecoveryIds = controlDockerRecoveryIds(control);
+    const manualRecoveryRequired =
+      source.manualRecoveryRequired === true || dockerRecoveryIds.length > 0;
+    return createBlocked(
+      String(source.reason),
+      manualRecoveryRequired,
+      stringValue(source.hostRecoveryId),
+      dockerRecoveryIds.length === 1 ? (dockerRecoveryIds[0] ?? null) : null,
+      stringValue(source.candidateRecoveryId),
+      dockerRecoveryIds.length > 0 ? false : source.cleanupConfirmed === true,
+      stringValue(source.candidateStoreRecoveryId),
+      dockerRecoveryIds,
+    );
+  };
   const requestOutcome = snapshotRequest(rawRequest);
   if (
     !requestOutcome ||
@@ -1026,19 +1101,13 @@ async function runCoordinatorTaskCore(
       control.hostGenerationFailureHandling =
         operation.hostGenerationFailureDetected.then(async () => {
           control.hostGenerationFailureObserved = true;
-          control.cancellationRequested = true;
-          control.cancellationController.abort();
           const processControl = control.currentProcessControl;
-          if (processControl) {
-            try {
-              const cancellation = await state.dependencies.cancelProcess(
-                processControl,
-                control.managementCapability,
-              );
-              const cancellationResult = snapshotPlainRecord(
-                cancellation,
-                PROCESS_CANCELLATION_RESULT_KEYS,
-              );
+          try {
+            const cancellationResult = await requestControlCancellation(
+              state,
+              control,
+            );
+            if (processControl) {
               if (
                 cancellationResult?.status !== "requested" ||
                 ("processTerminationObserved" in (cancellationResult ?? {}) &&
@@ -1047,10 +1116,10 @@ async function runCoordinatorTaskCore(
                 control.hostGenerationLossOutcome = "cleanup_unknown";
                 poisonRuntimeProcess(state, control);
               }
-            } catch {
-              control.hostGenerationLossOutcome = "cleanup_unknown";
-              poisonRuntimeProcess(state, control);
             }
+          } catch {
+            control.hostGenerationLossOutcome = "cleanup_unknown";
+            poisonRuntimeProcess(state, control);
           }
         });
       control.releaseHostGenerationDrain =
@@ -1217,7 +1286,7 @@ async function runCoordinatorTaskCore(
     );
     if (executor.status !== "completed") {
       shouldRetainOperationRoot = executor.manualRecoveryRequired === true;
-      return projectCurrentDockerRecovery(executor, control);
+      return executor;
     }
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_before_candidate_capture");
@@ -1263,7 +1332,7 @@ async function runCoordinatorTaskCore(
     );
     if (reviewer.status !== "completed") {
       shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
-      return projectCurrentDockerRecovery(reviewer, control);
+      return reviewer;
     }
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     let remediationPerformed = false;
@@ -1290,7 +1359,7 @@ async function runCoordinatorTaskCore(
       );
       if (remediation.status !== "completed") {
         shouldRetainOperationRoot = remediation.manualRecoveryRequired === true;
-        return projectCurrentDockerRecovery(remediation, control);
+        return remediation;
       }
       remediationPerformed = true;
       finalExecutor = remediation;
@@ -1331,7 +1400,7 @@ async function runCoordinatorTaskCore(
       );
       if (reviewer.status !== "completed") {
         shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
-        return projectCurrentDockerRecovery(reviewer, control);
+        return reviewer;
       }
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     }
@@ -1725,6 +1794,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         managementCapability: Object.freeze({}),
         currentProcessControl: null,
         cancellationRequested: false,
+        cancellationReceipt: null,
         cancellationController: new AbortController(),
         ownedOperation: null,
         retainOperationRoot: false,
@@ -2193,17 +2263,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
         return Object.freeze({ status: "blocked" as const });
       }
       const control = state.controls.get(controlCapability);
-      if (!control || control.cancellationRequested) {
+      if (!control) {
         return Object.freeze({ status: "blocked" as const });
       }
-      control.cancellationRequested = true;
-      control.cancellationController.abort();
-      return control.currentProcessControl
-        ? state.dependencies.cancelProcess(
-            control.currentProcessControl,
-            control.managementCapability,
-          )
-        : Object.freeze({ status: "requested" as const });
+      return requestControlCancellation(state, control);
     },
   });
 }

@@ -4,13 +4,23 @@ import { snapshotPlainArray } from "./plain-data-snapshot.ts";
 
 export type SignedRunnerSafetySchema = Readonly<{
   booleanFields: readonly string[];
-  nullableRecoveryFields: readonly string[];
+  nullableRecoveryFields: readonly Readonly<{
+    field: string;
+    kind: SignedRunnerRecoveryKind;
+  }>[];
   recoveryPairs: readonly Readonly<{
     singularField: string;
     pluralField: string;
+    kind: SignedRunnerRecoveryKind;
   }>[];
   effectUnknownField?: string;
 }>;
+
+export type SignedRunnerRecoveryKind =
+  | "host"
+  | "docker"
+  | "candidate"
+  | "candidate_store";
 
 export type SignedRunnerSafetyObservation = Readonly<{
   status: "exact" | "unknown";
@@ -20,12 +30,23 @@ export type SignedRunnerSafetyObservation = Readonly<{
 
 const MAXIMUM_RECOVERY_IDS = 128;
 const MAXIMUM_RECOVERY_ID_LENGTH = 1024;
+const RECOVERY_ID_PATTERNS: Readonly<Record<SignedRunnerRecoveryKind, RegExp>> =
+  Object.freeze({
+    host: /^host\.[A-Za-z0-9_-]{1,128}\.[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.[0-9a-f]{64}$/u,
+    docker: /^docker-task\.[0-9a-f]{64}\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
+    candidate: /^candidate-recovery\.[0-9a-f]{64}\.[0-9a-f]{64}$/u,
+    candidate_store: /^candidate-store-recovery\.[0-9a-f]{64}$/u,
+  });
 
-function recoveryId(value: unknown): value is string {
+export function isCanonicalSignedRunnerRecoveryId(
+  value: unknown,
+  kind: SignedRunnerRecoveryKind,
+): value is string {
   return (
     typeof value === "string" &&
     value.length > 0 &&
-    value.length <= MAXIMUM_RECOVERY_ID_LENGTH
+    value.length <= MAXIMUM_RECOVERY_ID_LENGTH &&
+    RECOVERY_ID_PATTERNS[kind].test(value)
   );
 }
 
@@ -38,6 +59,105 @@ function ownDataValue(record: object, field: string) {
     descriptor.enumerable === true
     ? Object.freeze({ status: "exact" as const, value: descriptor.value })
     : Object.freeze({ status: "unknown" as const, value: null });
+}
+
+export function salvageSignedRunnerNullableRecovery(
+  value: unknown,
+  field: string,
+  kind: SignedRunnerRecoveryKind,
+) {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      utilTypes.isProxy(value)
+    )
+      throw new Error("recovery_record_invalid");
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null)
+      throw new Error("recovery_record_invalid");
+    const observed = ownDataValue(value, field);
+    if (observed.status !== "exact")
+      return Object.freeze({ id: null, ambiguous: true });
+    if (observed.value === null)
+      return Object.freeze({ id: null, ambiguous: false });
+    if (isCanonicalSignedRunnerRecoveryId(observed.value, kind))
+      return Object.freeze({ id: observed.value, ambiguous: false });
+    return Object.freeze({ id: null, ambiguous: true });
+  } catch {
+    return Object.freeze({ id: null, ambiguous: true });
+  }
+}
+
+export function salvageSignedRunnerRecoveryPair(
+  value: unknown,
+  pair: Readonly<{
+    singularField: string;
+    pluralField: string;
+    kind: SignedRunnerRecoveryKind;
+  }>,
+) {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      utilTypes.isProxy(value)
+    )
+      throw new Error("recovery_record_invalid");
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null)
+      throw new Error("recovery_record_invalid");
+    const singular = ownDataValue(value, pair.singularField);
+    const pluralObserved = ownDataValue(value, pair.pluralField);
+    let ambiguous =
+      singular.status !== "exact" || pluralObserved.status !== "exact";
+    const ids: string[] = [];
+    if (singular.status === "exact") {
+      if (isCanonicalSignedRunnerRecoveryId(singular.value, pair.kind))
+        ids.push(singular.value);
+      else if (singular.value !== null) ambiguous = true;
+    }
+    if (pluralObserved.status === "exact") {
+      const plural = snapshotPlainArray<unknown>(
+        pluralObserved.value,
+        MAXIMUM_RECOVERY_IDS,
+      );
+      if (plural.status !== "ok") ambiguous = true;
+      else {
+        for (const item of plural.value) {
+          if (isCanonicalSignedRunnerRecoveryId(item, pair.kind))
+            ids.push(item);
+          else ambiguous = true;
+        }
+        if (new Set(plural.value).size !== plural.value.length)
+          ambiguous = true;
+      }
+    }
+    const unique = [...new Set(ids)];
+    if (unique.length > MAXIMUM_RECOVERY_IDS) ambiguous = true;
+    const bounded = Object.freeze(unique.slice(0, MAXIMUM_RECOVERY_IDS));
+    if (
+      singular.status === "exact" &&
+      pluralObserved.status === "exact" &&
+      ((bounded.length === 0 && singular.value !== null) ||
+        (bounded.length === 1 && singular.value !== bounded[0]) ||
+        (bounded.length > 1 && singular.value !== null))
+    )
+      ambiguous = true;
+    return Object.freeze({
+      singular: bounded.length === 1 ? (bounded[0] ?? null) : null,
+      plural: bounded,
+      ambiguous,
+    });
+  } catch {
+    return Object.freeze({
+      singular: null,
+      plural: Object.freeze([]) as readonly string[],
+      ambiguous: true,
+    });
+  }
 }
 
 export function evaluateSignedRunnerSafetyObservation(
@@ -66,10 +186,11 @@ export function evaluateSignedRunnerSafetyObservation(
 
     const ids: string[] = [];
     for (const field of schema.nullableRecoveryFields) {
-      const observed = ownDataValue(value, field);
+      const observed = ownDataValue(value, field.field);
       if (
         observed.status !== "exact" ||
-        (observed.value !== null && !recoveryId(observed.value))
+        (observed.value !== null &&
+          !isCanonicalSignedRunnerRecoveryId(observed.value, field.kind))
       )
         throw new Error("safety_observation_recovery_unknown");
       if (typeof observed.value === "string") ids.push(observed.value);
@@ -79,7 +200,8 @@ export function evaluateSignedRunnerSafetyObservation(
       const pluralObserved = ownDataValue(value, pair.pluralField);
       if (
         singular.status !== "exact" ||
-        (singular.value !== null && !recoveryId(singular.value)) ||
+        (singular.value !== null &&
+          !isCanonicalSignedRunnerRecoveryId(singular.value, pair.kind)) ||
         pluralObserved.status !== "exact"
       )
         throw new Error("safety_observation_recovery_unknown");
@@ -89,7 +211,9 @@ export function evaluateSignedRunnerSafetyObservation(
       );
       if (
         plural.status !== "ok" ||
-        plural.value.some((item) => !recoveryId(item)) ||
+        plural.value.some(
+          (item) => !isCanonicalSignedRunnerRecoveryId(item, pair.kind),
+        ) ||
         new Set(plural.value).size !== plural.value.length
       )
         throw new Error("safety_observation_recovery_unknown");

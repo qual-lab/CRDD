@@ -350,12 +350,35 @@ test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保�
   const nested = (result.results as Array<Record<string, unknown>>)[0];
   assert.equal(observed.attempts, 1);
   assert.equal(result.validationFailure, "runner_exception");
-  assert.deepEqual(nested?.hostRecoveryIds, ["host.route.a", "host.route.b"]);
-  assert.deepEqual(result.hostRecoveryIds, ["host.route.a", "host.route.b"]);
+  const expected = [
+    `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`,
+    `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`,
+  ];
+  assert.deepEqual(nested?.hostRecoveryIds, expected);
+  assert.deepEqual(result.hostRecoveryIds, expected);
   assert.equal(result.hostRecoveryId, null);
   assert.equal(result.recoveryIdentityAmbiguous, true);
   assert.equal(result.processRestartRequired, true);
   assert.equal(observed.poisoned, true);
+});
+
+test("route salvageは過長IDを公開せず同じfieldのvalid IDだけを保持する", () => {
+  const probe = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
+      "recovery_overlong_mixed",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(probe.status, 0, probe.stderr);
+  const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
+  const result = observed.result as Record<string, unknown>;
+  const valid = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+  assert.deepEqual(result.hostRecoveryIds, [valid]);
+  assert.equal(result.hostRecoveryId, valid);
+  assert.equal(result.recoveryIdentityAmbiguous, true);
+  assert.equal(JSON.stringify(result).includes("x".repeat(1_025)), false);
 });
 
 test("同意resetのthrowまたはmalformedはroute開始前でも独立Process poisonへ閉じる", () => {
@@ -384,6 +407,16 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
   assert.equal(unknown.rawProviderOutputReported, null);
   assert.equal(unknown.hostPathReported, null);
   assert.equal(unknown.credentialReported, null);
+  for (const pair of [
+    ["hostRecoveryId", "hostRecoveryIds"],
+    ["dockerRecoveryId", "dockerRecoveryIds"],
+    ["candidateRecoveryId", "candidateRecoveryIds"],
+    ["candidateStoreRecoveryId", "candidateStoreRecoveryIds"],
+  ] as const) {
+    assert.equal(unknown[pair[0]], null);
+    assert.deepEqual(unknown[pair[1]], []);
+  }
+  assert.equal(unknown.recoveryIdentityAmbiguous, true);
 
   const cli = spawnSync(
     process.execPath,
@@ -401,6 +434,8 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
   assert.equal(result.rawProviderOutputReported, false);
   assert.equal(result.hostPathReported, false);
   assert.equal(result.credentialReported, false);
+  assert.equal(result.recoveryIdentityAmbiguous, false);
+  assert.deepEqual(result.hostRecoveryIds, []);
 });
 
 test("同意取消の観測不能時は一つのrouteも開始しない", async () => {
@@ -419,6 +454,8 @@ test("同意取消の観測不能時は一つのrouteも開始しない", async 
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.validationFailure, "consent_reset_failed");
   assert.equal(result.effectStateUnknown, false);
+  assert.equal(result.recoveryIdentityAmbiguous, false);
+  assert.deepEqual(result.dockerRecoveryIds, []);
 });
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {

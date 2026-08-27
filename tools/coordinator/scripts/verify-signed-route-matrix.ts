@@ -12,7 +12,10 @@ import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
-import { evaluateSignedRunnerSafetyObservation } from "../src/security/signed-runner-safety-observation.ts";
+import {
+  evaluateSignedRunnerSafetyObservation,
+  salvageSignedRunnerRecoveryPair,
+} from "../src/security/signed-runner-safety-observation.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -48,18 +51,22 @@ const ROUTE_SAFETY_SCHEMA = Object.freeze({
     Object.freeze({
       singularField: "hostRecoveryId",
       pluralField: "hostRecoveryIds",
+      kind: "host" as const,
     }),
     Object.freeze({
       singularField: "dockerRecoveryId",
       pluralField: "dockerRecoveryIds",
+      kind: "docker" as const,
     }),
     Object.freeze({
       singularField: "candidateRecoveryId",
       pluralField: "candidateRecoveryIds",
+      kind: "candidate" as const,
     }),
     Object.freeze({
       singularField: "candidateStoreRecoveryId",
       pluralField: "candidateStoreRecoveryIds",
+      kind: "candidate_store" as const,
     }),
   ]),
   effectUnknownField: "effectStateUnknown",
@@ -170,15 +177,25 @@ function ensureRuntimeProcessPoisoned() {
 }
 
 const RECOVERY_PAIRS = Object.freeze([
-  Object.freeze({ singular: "hostRecoveryId", plural: "hostRecoveryIds" }),
-  Object.freeze({ singular: "dockerRecoveryId", plural: "dockerRecoveryIds" }),
+  Object.freeze({
+    singular: "hostRecoveryId",
+    plural: "hostRecoveryIds",
+    kind: "host" as const,
+  }),
+  Object.freeze({
+    singular: "dockerRecoveryId",
+    plural: "dockerRecoveryIds",
+    kind: "docker" as const,
+  }),
   Object.freeze({
     singular: "candidateRecoveryId",
     plural: "candidateRecoveryIds",
+    kind: "candidate" as const,
   }),
   Object.freeze({
     singular: "candidateStoreRecoveryId",
     plural: "candidateStoreRecoveryIds",
+    kind: "candidate_store" as const,
   }),
 ]);
 
@@ -188,31 +205,31 @@ function sanitizedRouteRecovery(
   const projection: Record<string, unknown> = Object.create(null);
   let ambiguous = false;
   for (const pair of RECOVERY_PAIRS) {
-    const ids: string[] = [];
-    const singular = result[pair.singular];
-    if (typeof singular === "string" && singular.length > 0) ids.push(singular);
-    else if (singular !== null) ambiguous = true;
-    const plural = snapshotPlainArray<unknown>(result[pair.plural], 128);
-    if (plural.status === "ok") {
-      for (const value of plural.value) {
-        if (typeof value === "string" && value.length > 0) ids.push(value);
-        else ambiguous = true;
-      }
-    } else {
-      ambiguous = true;
-    }
-    const unique = Object.freeze([...new Set(ids)]);
-    projection[pair.singular] = unique.length === 1 ? unique[0] : null;
-    projection[pair.plural] = unique;
-    if (
-      (unique.length === 0 && singular !== null) ||
-      (unique.length === 1 && singular !== unique[0]) ||
-      (unique.length > 1 && singular !== null)
-    )
-      ambiguous = true;
+    const recovered = salvageSignedRunnerRecoveryPair(result, {
+      singularField: pair.singular,
+      pluralField: pair.plural,
+      kind: pair.kind,
+    });
+    projection[pair.singular] = recovered.singular;
+    projection[pair.plural] = recovered.plural;
+    if (recovered.ambiguous) ambiguous = true;
   }
   return Object.freeze({
     ...projection,
+    recoveryIdentityAmbiguous: ambiguous,
+  });
+}
+
+function emptyRouteRecovery(ambiguous = false) {
+  return Object.freeze({
+    hostRecoveryId: null,
+    hostRecoveryIds: Object.freeze([]),
+    dockerRecoveryId: null,
+    dockerRecoveryIds: Object.freeze([]),
+    candidateRecoveryId: null,
+    candidateRecoveryIds: Object.freeze([]),
+    candidateStoreRecoveryId: null,
+    candidateStoreRecoveryIds: Object.freeze([]),
     recoveryIdentityAmbiguous: ambiguous,
   });
 }
@@ -223,18 +240,7 @@ function failedRouteResult(
 ) {
   const recovery = observed
     ? sanitizedRouteRecovery(observed)
-    : sanitizedRouteRecovery(
-        Object.freeze({
-          hostRecoveryId: null,
-          hostRecoveryIds: Object.freeze([]),
-          dockerRecoveryId: null,
-          dockerRecoveryIds: Object.freeze([]),
-          candidateRecoveryId: null,
-          candidateRecoveryIds: Object.freeze([]),
-          candidateStoreRecoveryId: null,
-          candidateStoreRecoveryIds: Object.freeze([]),
-        }),
-      );
+    : emptyRouteRecovery(true);
   return Object.freeze({
     status: "blocked" as const,
     reason: "signed_route_matrix_route_runner_failed_closed",
@@ -266,7 +272,9 @@ function aggregateRouteRecovery(
       if (Array.isArray(values)) ids.push(...(values as readonly string[]));
       if (recovery.recoveryIdentityAmbiguous === true) ambiguous = true;
     }
-    const unique = Object.freeze([...new Set(ids)]);
+    const allUnique = [...new Set(ids)];
+    if (allUnique.length > 128) ambiguous = true;
+    const unique = Object.freeze(allUnique.slice(0, 128));
     aggregate[pair.singular] = unique.length === 1 ? unique[0] : null;
     aggregate[pair.plural] = unique;
   }
@@ -296,6 +304,7 @@ function processRestartRequiredResult() {
     rawProviderOutputReported: false,
     hostPathReported: false,
     credentialReported: false,
+    ...emptyRouteRecovery(false),
   });
 }
 
@@ -388,6 +397,7 @@ export async function runSignedRouteMatrixVerification(
       rawProviderOutputReported: false,
       hostPathReported: false,
       credentialReported: false,
+      ...emptyRouteRecovery(false),
     });
   }
   const results: Array<Readonly<Record<string, unknown>>> = [];
@@ -539,6 +549,7 @@ export function createSignedRouteMatrixCliFailureResult(
     rawProviderOutputReported: effectStateUnknown ? null : false,
     hostPathReported: effectStateUnknown ? null : false,
     credentialReported: effectStateUnknown ? null : false,
+    ...emptyRouteRecovery(effectStateUnknown),
   });
 }
 

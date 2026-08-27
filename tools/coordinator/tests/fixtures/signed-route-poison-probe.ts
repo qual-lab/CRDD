@@ -106,8 +106,17 @@ const result = await runSignedRouteMatrixVerification(
     if (scenario === "recovery_pair_mismatch") {
       value.cleanupConfirmed = false;
       value.manualRecoveryRequired = true;
-      value.hostRecoveryId = "host.route.a";
-      value.hostRecoveryIds = Object.freeze(["host.route.b"]);
+      value.hostRecoveryId = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+      value.hostRecoveryIds = Object.freeze([
+        `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`,
+      ]);
+    }
+    if (scenario === "recovery_overlong_mixed") {
+      const valid = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+      value.cleanupConfirmed = false;
+      value.manualRecoveryRequired = true;
+      value.hostRecoveryId = valid;
+      value.hostRecoveryIds = Object.freeze([valid, "x".repeat(1_025)]);
     }
     if (scenario === "result_getter") {
       const getterResult = Object.create(null);
