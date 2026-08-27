@@ -28,9 +28,11 @@ import type {
 } from "typescript/unstable/ast";
 import type { Project } from "typescript/unstable/sync";
 
+import { renderSafeHumanCommandReport } from "../src/core/command-report.ts";
 import {
   bindTaskCliCancellationSignalsForTesting,
   createTaskCliCancellationLatch,
+  projectTaskCliCancellationFailure,
 } from "../src/core/task-cli-cancellation.ts";
 
 test("CLI取消latchは重複signalを同じPromiseと一つのobserverへ収束する", async () => {
@@ -213,6 +215,91 @@ test("CLI signal bindingはrollback・解除の片側失敗でも全signalを試
   assert.deepEqual(releaseAttempts, ["SIGINT", "SIGTERM"]);
 });
 
+test("CLI signal failure投影はRuntimeの全安全観測とRecovery Evidenceを単調保持する", () => {
+  const digestA = "a".repeat(64);
+  const digestB = "b".repeat(64);
+  const runtimeResult = Object.freeze({
+    status: "blocked",
+    reason: "coordinator_task_operation_cleanup_unconfirmed",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: true,
+    candidateId: `candidate.${digestA}.${digestB}`,
+    expiresAtMs: 2_000_000_000_000,
+    hostRecoveryId: `host.root.${digestA}.${digestB}`,
+    hostRecoveryIds: Object.freeze([
+      `host.root.${digestA}.${digestB}`,
+      `host.root.${digestB}.${digestA}`,
+    ]),
+    dockerRecoveryId: `docker-task.${digestA}.${digestB}.${digestA}`,
+    dockerRecoveryIds: Object.freeze([
+      `docker-task.${digestA}.${digestB}.${digestA}`,
+      `docker-task.${digestB}.${digestA}.${digestB}`,
+    ]),
+    candidateRecoveryId: `candidate-recovery.${digestA}.${digestB}`,
+    candidateRecoveryIds: Object.freeze([
+      `candidate-recovery.${digestA}.${digestB}`,
+    ]),
+    candidateStoreRecoveryId: `candidate-store-recovery.${digestA}`,
+    candidateStoreRecoveryIds: Object.freeze([
+      `candidate-store-recovery.${digestA}`,
+    ]),
+    canonicalRepositoryChanged: false,
+  });
+  for (const reason of [
+    "task_cli_cancellation_signal_binding_failed",
+    "task_cli_cancellation_signal_release_failed",
+  ] as const) {
+    const projected = projectTaskCliCancellationFailure(runtimeResult, reason);
+    assert.equal(projected.command, "task");
+    assert.equal(projected.status, "blocked");
+    assert.equal(projected.reason, reason);
+    const projectedRecord = projected as Readonly<Record<string, unknown>>;
+    const runtimeRecord = runtimeResult as Readonly<Record<string, unknown>>;
+    for (const key of Object.keys(runtimeResult)) {
+      if (key === "status" || key === "reason") continue;
+      assert.strictEqual(projectedRecord[key], runtimeRecord[key]);
+    }
+    assert.equal(Object.isFrozen(projected), true);
+    const human = renderSafeHumanCommandReport(projected);
+    assert.match(human, /candidate export/u);
+    assert.match(human, /host recovery ID/u);
+    assert.equal(human.match(/recover-isolation/gu)?.length, 2);
+    assert.match(human, /Candidate recovery ID/u);
+    assert.match(human, /Candidate Store recovery ID/u);
+    assert.match(human, /restart Coordinator Runtime/u);
+    assert.match(human, /manual recovery required: yes/u);
+  }
+});
+
+test("CLI signal failure投影はcleanup確認済み対照へRecoveryを捏造しない", () => {
+  const projected = projectTaskCliCancellationFailure(
+    Object.freeze({
+      status: "completed",
+      reason: "coordinator_task_completed",
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      processRestartRequired: false,
+      candidateId: null,
+      hostRecoveryId: null,
+      dockerRecoveryId: null,
+      dockerRecoveryIds: Object.freeze([]),
+      candidateRecoveryId: null,
+      candidateStoreRecoveryId: null,
+    }),
+    "task_cli_cancellation_signal_release_failed",
+  );
+  assert.equal(projected.status, "blocked");
+  assert.equal(projected.cleanupConfirmed, true);
+  assert.equal(projected.manualRecoveryRequired, false);
+  assert.equal(projected.processRestartRequired, false);
+  assert.equal(projected.candidateId, null);
+  assert.deepEqual(projected.dockerRecoveryIds, []);
+  const human = renderSafeHumanCommandReport(projected);
+  assert.doesNotMatch(human, /recovery ID|runtime operator/u);
+  assert.match(human, /manual recovery required: no/u);
+});
+
 test("CLI相当のvoid取消はstrict独立Processで未処理rejectionを作らない", () => {
   const fixture = path.join(
     import.meta.dirname,
@@ -300,16 +387,27 @@ function inspectTaskCliCancellationWiring(
     "cancelRuntimeOwnedCoordinatorTask",
     "../src/security/coordinator-task-runtime.ts",
   );
+  const projectorImports = namedImportIdentifier(
+    sourceFile,
+    "projectTaskCliCancellationFailure",
+    "../src/core/task-cli-cancellation.ts",
+  );
   if (helperImports.length !== 1) failures.push("helper_import_not_exact");
   if (cancelImports.length !== 1) failures.push("cancel_import_not_exact");
+  if (projectorImports.length !== 1)
+    failures.push("projector_import_not_exact");
   const helperSymbol = helperImports[0]
     ? checker.getResolvedSymbol(helperImports[0])
     : undefined;
   const cancelSymbol = cancelImports[0]
     ? checker.getResolvedSymbol(cancelImports[0])
     : undefined;
+  const projectorSymbol = projectorImports[0]
+    ? checker.getResolvedSymbol(projectorImports[0])
+    : undefined;
   if (!helperSymbol) failures.push("helper_import_symbol_missing");
   if (!cancelSymbol) failures.push("cancel_import_symbol_missing");
+  if (!projectorSymbol) failures.push("projector_import_symbol_missing");
 
   const taskFunctions = sourceFile.statements.filter(
     (statement): statement is FunctionDeclaration =>
@@ -415,6 +513,30 @@ function inspectTaskCliCancellationWiring(
     (cancelCalls[0].pos < helperCall.pos || cancelCalls[0].end > helperCall.end)
   )
     failures.push("cancel_call_outside_helper_callback");
+  const projectorCalls = calls.filter(
+    (call) =>
+      isIdentifier(call.expression) &&
+      checker.getResolvedSymbol(call.expression)?.id === projectorSymbol?.id,
+  );
+  if (projectorCalls.length !== 1) failures.push("projector_call_not_exact");
+  const resultDeclarations = declarations.filter(
+    (declaration) =>
+      isIdentifier(declaration.name) && declaration.name.text === "result",
+  );
+  const resultSymbol =
+    resultDeclarations.length === 1 &&
+    resultDeclarations[0] &&
+    isIdentifier(resultDeclarations[0].name)
+      ? checker.getResolvedSymbol(resultDeclarations[0].name)
+      : undefined;
+  const projectorResultArgument = projectorCalls[0]?.arguments[0];
+  if (
+    !resultSymbol ||
+    !projectorResultArgument ||
+    !isIdentifier(projectorResultArgument) ||
+    checker.getResolvedSymbol(projectorResultArgument)?.id !== resultSymbol.id
+  )
+    failures.push("projector_result_binding_mismatch");
 
   const bodyStatements = taskBody.statements;
   const bindingStatementIndex = bodyStatements.findIndex(
@@ -492,6 +614,10 @@ test("CLI AST契約はshadow・二重binding・直接signal・finally外解除�
     original.replace(
       "  try {\n    result = await started.completion;",
       "  if (false) return;\n  try {\n    result = await started.completion;",
+    ),
+    original.replace(
+      "projectTaskCliCancellationFailure(\n      result,",
+      "projectTaskCliCancellationFailure(\n      { status: 'blocked', reason: 'discarded_runtime_result' },",
     ),
   ];
   const temporaryRoot = fs.mkdtempSync(
