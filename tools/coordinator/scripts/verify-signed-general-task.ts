@@ -25,6 +25,7 @@ import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
+import { evaluateSignedRunnerSafetyObservation } from "../src/security/signed-runner-safety-observation.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
@@ -32,8 +33,61 @@ export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 9;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
+const POST_START_SETTLEMENT_TIMEOUT_MS = 1_000;
+const TASK_SAFETY_SCHEMA = Object.freeze({
+  booleanFields: Object.freeze([
+    "cleanupConfirmed",
+    "manualRecoveryRequired",
+    "processRestartRequired",
+    "canonicalRepositoryChanged",
+    "rawOutputReported",
+    "hostPathReported",
+    "untrustedProviderTextReported",
+  ]),
+  nullableRecoveryFields: Object.freeze([
+    "hostRecoveryId",
+    "dockerRecoveryId",
+    "candidateRecoveryId",
+    "candidateStoreRecoveryId",
+  ]),
+  pluralRecoveryFields: Object.freeze(["dockerRecoveryIds"]),
+});
 
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+export type SignedGeneralTaskVerificationResult = RuntimeRecord &
+  Readonly<{
+    status: "completed" | "blocked";
+    reason: string;
+    cleanupConfirmed: boolean;
+    manualRecoveryRequired: boolean;
+    processRestartRequired: boolean;
+    effectStateUnknown?: boolean;
+    hostRecoveryId: string | null;
+    hostRecoveryIds: readonly string[];
+    dockerRecoveryId: string | null;
+    dockerRecoveryIds: readonly string[];
+    candidateRecoveryId: string | null;
+    candidateRecoveryIds: readonly string[];
+    candidateStoreRecoveryId: string | null;
+    candidateStoreRecoveryIds: readonly string[];
+    canonicalRepositoryChanged: boolean | null;
+    rawProviderOutputReported: boolean;
+    hostPathReported: boolean;
+    credentialReported: boolean;
+    exactCandidateContentVerified?: boolean;
+    candidateDiscarded?: boolean;
+    changedPaths?: readonly string[];
+    crddCommit?: string;
+    crddTree?: string;
+    requestedRouteProfile?: SignedGeneralTaskRouteProfile;
+    route?: string;
+    requestedFrontProvider?: "codex" | "claude";
+    observedFrontProvider?: null;
+    frontIdentityVerified?: boolean;
+    executorProvider?: "codex" | "claude" | null;
+    reviewerProvider?: "codex" | "claude" | null;
+    reviewerIndependence?: string;
+  }>;
 export type SignedGeneralTaskRouteProfile =
   | "forward"
   | "reverse"
@@ -102,20 +156,46 @@ export function bindSignedGeneralTaskCancellation(
     if (hasCancellationStarted) return;
     hasCancellationStarted = true;
     try {
-      void cancel(controlCapability);
+      void Promise.resolve(cancel(controlCapability)).catch(() => undefined);
     } catch {
       // The final task and cleanup result remains the recovery authority.
     }
   };
-  signalSource.on("SIGINT", requestCancellation);
-  signalSource.on("SIGTERM", requestCancellation);
+  try {
+    signalSource.on("SIGINT", requestCancellation);
+    signalSource.on("SIGTERM", requestCancellation);
+  } catch {
+    let rollbackFailed = false;
+    for (const signal of ["SIGINT", "SIGTERM"] as const) {
+      try {
+        signalSource.removeListener(signal, requestCancellation);
+      } catch {
+        rollbackFailed = true;
+      }
+    }
+    throw new Error(
+      rollbackFailed
+        ? "signed_general_task_cancellation_binding_cleanup_unknown"
+        : "signed_general_task_cancellation_binding_failed",
+    );
+  }
   let isBound = true;
   return Object.freeze({
     unbind: () => {
       if (!isBound) return;
       isBound = false;
-      signalSource.removeListener("SIGINT", requestCancellation);
-      signalSource.removeListener("SIGTERM", requestCancellation);
+      let unbindFailed = false;
+      for (const signal of ["SIGINT", "SIGTERM"] as const) {
+        try {
+          signalSource.removeListener(signal, requestCancellation);
+        } catch {
+          unbindFailed = true;
+        }
+      }
+      if (unbindFailed)
+        throw new Error(
+          "signed_general_task_cancellation_unbind_cleanup_unknown",
+        );
     },
     requested: () => isRequested,
   });
@@ -240,17 +320,20 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
     processRestartRequired:
       isRuntimeProcessPoisoned() ||
       sources.some((result) => result?.processRestartRequired === true),
-    hostRecoveryId: hostRecoveryIds.length === 1 ? hostRecoveryIds[0] : null,
+    hostRecoveryId:
+      hostRecoveryIds.length === 1 ? (hostRecoveryIds[0] ?? null) : null,
     hostRecoveryIds,
     dockerRecoveryId:
-      dockerRecoveryIds.length === 1 ? dockerRecoveryIds[0] : null,
+      dockerRecoveryIds.length === 1 ? (dockerRecoveryIds[0] ?? null) : null,
     dockerRecoveryIds,
     candidateRecoveryId:
-      candidateRecoveryIds.length === 1 ? candidateRecoveryIds[0] : null,
+      candidateRecoveryIds.length === 1
+        ? (candidateRecoveryIds[0] ?? null)
+        : null,
     candidateRecoveryIds,
     candidateStoreRecoveryId:
       candidateStoreRecoveryIds.length === 1
-        ? candidateStoreRecoveryIds[0]
+        ? (candidateStoreRecoveryIds[0] ?? null)
         : null,
     candidateStoreRecoveryIds,
     recoveryIdentityAmbiguous:
@@ -284,6 +367,10 @@ function blocked(
     ...recoveryProjection(source, ...additionalRecoverySources),
     ...extra,
     canonicalRepositoryChanged: wasCanonicalRepositoryChanged,
+    effectStateUnknown:
+      typeof extra.effectStateUnknown === "boolean"
+        ? extra.effectStateUnknown
+        : wasCanonicalRepositoryChanged === null,
     rawProviderOutputReported: false,
     hostPathReported: false,
     credentialReported: false,
@@ -294,6 +381,48 @@ function ensureRuntimeProcessPoisoned() {
   poisonRuntimeProcessAfterCleanupUnknown();
   if (!isRuntimeProcessPoisoned())
     throw new Error("runtime_process_poison_transition_failed");
+}
+
+async function boundedSettlement<T>(promise: Promise<T>) {
+  let timeout: NodeJS.Timeout | null = null;
+  try {
+    return await Promise.race([
+      promise.then(
+        (value) => Object.freeze({ status: "fulfilled" as const, value }),
+        () => Object.freeze({ status: "rejected" as const, value: null }),
+      ),
+      new Promise<Readonly<{ status: "timeout"; value: null }>>((resolve) => {
+        timeout = setTimeout(
+          () => resolve(Object.freeze({ status: "timeout", value: null })),
+          POST_START_SETTLEMENT_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function postStartUnknownBlocked(
+  reason: string,
+  taskResult: RuntimeRecord | null,
+  discarded: RuntimeRecord | null,
+  candidateDiscarded: boolean,
+) {
+  ensureRuntimeProcessPoisoned();
+  const projected = blocked(
+    reason,
+    taskResult,
+    Object.freeze({ candidateDiscarded }),
+    Object.freeze([discarded]),
+  );
+  return Object.freeze({
+    ...projected,
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: true,
+    effectStateUnknown: true,
+  });
 }
 
 const ROUTE_EXPECTATIONS: Readonly<
@@ -487,7 +616,7 @@ export async function runSignedGeneralTaskVerification(
   repositoryRoot: string,
   dependencies: VerificationDependencies = productionDependencies,
   routeProfile: SignedGeneralTaskRouteProfile = "forward",
-) {
+): Promise<SignedGeneralTaskVerificationResult> {
   if (
     routeProfile !== "forward" &&
     routeProfile !== "reverse" &&
@@ -581,44 +710,60 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
-  const unbindCancellation = dependencies.bindCancellation(
-    started.controlCapability,
-    dependencies.cancelTask,
-  );
-  let taskResult: RuntimeRecord | null = null;
-  try {
+  let cancelAttempted = false;
+  let cancelCompletion: Promise<boolean> | null = null;
+  const requestCancellation = () => {
+    if (cancelAttempted) return cancelCompletion;
+    cancelAttempted = true;
     try {
-      taskResult = plainRecord(await started.completion);
-    } catch {
-      ensureRuntimeProcessPoisoned();
-      return blocked(
-        "signed_general_task_completion_failed_closed",
-        null,
-        Object.freeze({ manualRecoveryRequired: true }),
+      cancelCompletion = Promise.resolve(
+        dependencies.cancelTask(started.controlCapability),
+      ).then(
+        () => true,
+        () => false,
       );
+    } catch {
+      cancelCompletion = Promise.resolve(false);
     }
+    return cancelCompletion;
+  };
+  let cancellationBinding: CancellationBinding | null = null;
+  let taskResult: RuntimeRecord | null = null;
+  let discarded: RuntimeRecord | null = null;
+  let candidateDiscarded = false;
+  let cancellationRequested = false;
+  let postStartUnknown = false;
+  let postStartUnknownReason =
+    "signed_general_task_post_start_observation_unknown";
+  let knownOutcome: SignedGeneralTaskVerificationResult | null = null;
+  try {
+    cancellationBinding = dependencies.bindCancellation(
+      started.controlCapability,
+      () => requestCancellation(),
+    );
+    taskResult = plainRecord(await started.completion);
 
     if (!taskResult) {
-      ensureRuntimeProcessPoisoned();
-      return blocked(
-        "signed_general_task_result_contract_mismatch",
-        null,
-        Object.freeze({ manualRecoveryRequired: true }),
-      );
+      postStartUnknownReason = "signed_general_task_result_contract_mismatch";
+      throw new Error(postStartUnknownReason);
     }
 
-    if (typeof taskResult.processRestartRequired !== "boolean") {
-      ensureRuntimeProcessPoisoned();
-    } else if (
+    const safety = evaluateSignedRunnerSafetyObservation(
+      taskResult,
+      TASK_SAFETY_SCHEMA,
+    );
+    if (safety.status !== "exact") {
+      postStartUnknownReason = "signed_general_task_safety_observation_unknown";
+      throw new Error(postStartUnknownReason);
+    }
+    if (
       taskResult.processRestartRequired === true &&
       !isRuntimeProcessPoisoned()
-    ) {
+    )
       ensureRuntimeProcessPoisoned();
-    }
 
     const candidateId = taskResult.candidateId;
     let isCandidateVerified = false;
-    let discarded: RuntimeRecord | null = null;
     if (typeof candidateId === "string") {
       try {
         const candidate = plainRecord(dependencies.readCandidate(candidateId));
@@ -635,8 +780,9 @@ export async function runSignedGeneralTaskVerification(
       } catch {
         discarded = null;
       }
+      candidateDiscarded = discarded?.status === "discarded";
       if (discarded?.status !== "discarded") {
-        return blocked(
+        knownOutcome = blocked(
           "signed_general_task_candidate_discard_failed",
           taskResult,
           Object.freeze({
@@ -655,8 +801,10 @@ export async function runSignedGeneralTaskVerification(
       }
     }
 
-    if (!verifiedTaskResult(taskResult, release, route)) {
-      return blocked(
+    if (knownOutcome) {
+      // Candidate cleanup result is already the authoritative outcome.
+    } else if (!verifiedTaskResult(taskResult, release, route)) {
+      knownOutcome = blocked(
         taskResult?.status === "blocked"
           ? safeReason(
               taskResult.reason,
@@ -668,80 +816,144 @@ export async function runSignedGeneralTaskVerification(
           candidateDiscarded: discarded?.status === "discarded",
         }),
       );
-    }
-    if (typeof candidateId !== "string") {
-      return blocked("signed_general_task_candidate_id_missing", taskResult);
-    }
-    if (!isCandidateVerified) {
-      return blocked(
+    } else if (typeof candidateId !== "string") {
+      knownOutcome = blocked(
+        "signed_general_task_candidate_id_missing",
+        taskResult,
+      );
+    } else if (!isCandidateVerified) {
+      knownOutcome = blocked(
         "signed_general_task_candidate_content_mismatch",
         taskResult,
         Object.freeze({ candidateDiscarded: true }),
       );
+    } else {
+      knownOutcome = Object.freeze({
+        contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
+        contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
+        status: "completed" as const,
+        reason: "signed_general_task_verification_completed",
+        manifestHash: release.manifestHash,
+        packageContentRootSha256: release.packageContentRootSha256,
+        crddVersion: release.crddVersion,
+        releaseSequence: release.releaseSequence,
+        crddCommit: release.crddCommit,
+        crddTree: release.crddTree,
+        requestedRouteProfile: routeProfile,
+        route: route.route,
+        requestedFrontProvider: route.frontProvider,
+        observedFrontProvider: null,
+        frontIdentityVerified: false,
+        executorProvider: route.executorProvider,
+        reviewerProvider: route.reviewerProvider,
+        reviewerIndependence: "provider_independent" as const,
+        externalSendAuthorizationMode:
+          taskResult.externalSendAuthorizationMode ===
+          "interactive_initial_consent"
+            ? ("interactive_initial_consent" as const)
+            : ("reused_initial_consent" as const),
+        remediationPerformed: false,
+        changedPaths: Object.freeze([TARGET_PATH]),
+        exactCandidateContentVerified: true,
+        candidateDiscarded: true,
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        processRestartRequired: false,
+        effectStateUnknown: false,
+        hostRecoveryId: null,
+        hostRecoveryIds: Object.freeze([]),
+        dockerRecoveryId: null,
+        dockerRecoveryIds: Object.freeze([]),
+        candidateRecoveryId: null,
+        candidateRecoveryIds: Object.freeze([]),
+        candidateStoreRecoveryId: null,
+        candidateStoreRecoveryIds: Object.freeze([]),
+        recoveryIdentityAmbiguous: false,
+        canonicalRepositoryChanged: false,
+        rawProviderOutputReported: false,
+        hostPathReported: false,
+        credentialReported: false,
+      });
     }
-    if (unbindCancellation.requested()) {
-      return blocked(
-        "signed_general_task_cancelled",
-        taskResult,
-        Object.freeze({ candidateDiscarded: true }),
-      );
-    }
-    if (isRuntimeProcessPoisoned()) {
-      return blocked(
-        "signed_general_task_process_restart_required",
-        taskResult,
-        Object.freeze({ candidateDiscarded: true }),
-      );
-    }
-
-    return Object.freeze({
-      contract: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
-      contractRevision: SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION,
-      status: "completed" as const,
-      reason: "signed_general_task_verification_completed",
-      manifestHash: release.manifestHash,
-      packageContentRootSha256: release.packageContentRootSha256,
-      crddVersion: release.crddVersion,
-      releaseSequence: release.releaseSequence,
-      crddCommit: release.crddCommit,
-      crddTree: release.crddTree,
-      requestedRouteProfile: routeProfile,
-      route: route.route,
-      requestedFrontProvider: route.frontProvider,
-      observedFrontProvider: null,
-      frontIdentityVerified: false,
-      executorProvider: route.executorProvider,
-      reviewerProvider: route.reviewerProvider,
-      reviewerIndependence: "provider_independent" as const,
-      externalSendAuthorizationMode:
-        taskResult.externalSendAuthorizationMode ===
-        "interactive_initial_consent"
-          ? ("interactive_initial_consent" as const)
-          : ("reused_initial_consent" as const),
-      remediationPerformed: false,
-      changedPaths: Object.freeze([TARGET_PATH]),
-      exactCandidateContentVerified: true,
-      candidateDiscarded: true,
-      cleanupConfirmed: true,
-      manualRecoveryRequired: false,
-      processRestartRequired: false,
-      hostRecoveryId: null,
-      hostRecoveryIds: Object.freeze([]),
-      dockerRecoveryId: null,
-      dockerRecoveryIds: Object.freeze([]),
-      candidateRecoveryId: null,
-      candidateRecoveryIds: Object.freeze([]),
-      candidateStoreRecoveryId: null,
-      candidateStoreRecoveryIds: Object.freeze([]),
-      recoveryIdentityAmbiguous: false,
-      canonicalRepositoryChanged: false,
-      rawProviderOutputReported: false,
-      hostPathReported: false,
-      credentialReported: false,
-    });
+  } catch {
+    postStartUnknown = true;
+    requestCancellation();
   } finally {
-    unbindCancellation.unbind();
+    if (cancellationBinding) {
+      try {
+        cancellationBinding.unbind();
+      } catch {
+        postStartUnknown = true;
+        postStartUnknownReason =
+          "signed_general_task_cancellation_unbind_unknown";
+      }
+      try {
+        cancellationRequested = cancellationBinding.requested();
+      } catch {
+        postStartUnknown = true;
+        postStartUnknownReason =
+          "signed_general_task_cancellation_observation_unknown";
+      }
+    }
+    if (cancellationRequested) requestCancellation();
+    if (postStartUnknown) requestCancellation();
+    if (cancelCompletion) {
+      const cancelSettlement = await boundedSettlement(cancelCompletion);
+      if (
+        cancelSettlement.status !== "fulfilled" ||
+        cancelSettlement.value !== true
+      ) {
+        postStartUnknown = true;
+        postStartUnknownReason =
+          "signed_general_task_cancellation_completion_unknown";
+      }
+    }
+    if (postStartUnknown && taskResult === null) {
+      const completionSettlement = await boundedSettlement(started.completion);
+      if (completionSettlement.status === "fulfilled")
+        taskResult = plainRecord(completionSettlement.value);
+    }
+    if (postStartUnknown && taskResult) {
+      const candidateId = taskResult.candidateId;
+      if (typeof candidateId === "string" && !candidateDiscarded) {
+        try {
+          discarded = plainRecord(dependencies.discardCandidate(candidateId));
+          candidateDiscarded = discarded?.status === "discarded";
+        } catch {
+          discarded = null;
+        }
+      }
+    }
   }
+  if (postStartUnknown)
+    return postStartUnknownBlocked(
+      postStartUnknownReason,
+      taskResult,
+      discarded,
+      candidateDiscarded,
+    );
+  if (cancellationRequested)
+    return blocked(
+      "signed_general_task_cancelled",
+      taskResult,
+      Object.freeze({ candidateDiscarded }),
+      Object.freeze([discarded]),
+    );
+  if (isRuntimeProcessPoisoned())
+    return blocked(
+      "signed_general_task_process_restart_required",
+      taskResult,
+      Object.freeze({ candidateDiscarded }),
+      Object.freeze([discarded]),
+    );
+  if (!knownOutcome)
+    return postStartUnknownBlocked(
+      "signed_general_task_final_outcome_unknown",
+      taskResult,
+      discarded,
+      candidateDiscarded,
+    );
+  return knownOutcome;
 }
 
 export function describeSignedGeneralTaskVerificationContract() {

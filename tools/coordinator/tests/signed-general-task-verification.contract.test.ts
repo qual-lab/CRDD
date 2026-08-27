@@ -726,14 +726,36 @@ test("ReleaseとCandidate RevisionのIdentity欠落・差を拒否しCandidate�
 });
 
 test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし全入口を閉じる", () => {
-  for (const scenario of [
+  const scenarios = [
     "completed_true",
     "completed_missing",
     "completed_null",
     "completion_reject",
     "start_throw",
     "discard_true",
-  ]) {
+    "bind_throw",
+    "bind_throw_recovery",
+    "bind_throw_completion_never",
+    "cancel_reject",
+    "cancel_never",
+    "requested_throw",
+    "unbind_throw",
+    "result_getter",
+    ...[
+      "cleanupConfirmed",
+      "manualRecoveryRequired",
+      "processRestartRequired",
+      "canonicalRepositoryChanged",
+      "rawOutputReported",
+      "hostPathReported",
+      "untrustedProviderTextReported",
+    ].flatMap((field) => [
+      `missing:${field}`,
+      `null:${field}`,
+      `string:${field}`,
+    ]),
+  ];
+  for (const scenario of scenarios) {
     const probe = spawnSync(
       process.execPath,
       [path.resolve("tests/fixtures/signed-general-poison-probe.ts"), scenario],
@@ -747,6 +769,19 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     assert.equal(observed.poisoned, true, scenario);
     assert.equal(observed.packageReads, 0, scenario);
     assert.equal(observed.grantReads, 0, scenario);
+    assert.ok(Number(observed.cancelAttempts) <= 1, scenario);
+    if (
+      scenario !== "completed_true" &&
+      scenario !== "start_throw" &&
+      scenario !== "discard_true"
+    )
+      assert.equal(observed.cancelAttempts, 1, scenario);
+    if (scenario === "completed_true")
+      assert.equal(result.manualRecoveryRequired, false, scenario);
+    if (scenario === "bind_throw_recovery") {
+      assert.equal(result.manualRecoveryRequired, true, scenario);
+      assert.equal(result.hostRecoveryId, "host.fixed.recovery", scenario);
+    }
     assert.equal(
       observed.packageReason,
       "platform_provisioner_process_restart_required",
@@ -758,6 +793,19 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
       scenario,
     );
   }
+});
+
+test("安全観測がexactな業務不適合は共有Processをpoisonしない", async () => {
+  const fixture = dependencies({
+    result: taskResult({ executorProvider: "codex" }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.processRestartRequired, false);
+  assert.equal(result.manualRecoveryRequired, false);
 });
 
 test("取消、Candidate Store例外をPassへ流さない", async () => {
@@ -886,4 +934,24 @@ test("SIGINT／SIGTERMは取消をexact onceにしunbind後は不発火にする
   binding.unbind();
   signals.emit("SIGTERM");
   assert.equal(cancellations, 1);
+});
+
+test("二本目Signal登録失敗は一本目をrollbackしlistenerを残さない", () => {
+  const signals = new EventEmitter();
+  const originalOn = signals.on.bind(signals);
+  let registrations = 0;
+  const source = Object.freeze({
+    on: (signal: "SIGINT" | "SIGTERM", listener: () => void) => {
+      registrations += 1;
+      if (registrations === 2) throw new Error("fixed_second_bind_failure");
+      return originalOn(signal, listener);
+    },
+    removeListener: (signal: "SIGINT" | "SIGTERM", listener: () => void) =>
+      signals.removeListener(signal, listener),
+  });
+  assert.throws(() =>
+    bindSignedGeneralTaskCancellation(source, Object.freeze({}), () => null),
+  );
+  assert.equal(signals.listenerCount("SIGINT"), 0);
+  assert.equal(signals.listenerCount("SIGTERM"), 0);
 });

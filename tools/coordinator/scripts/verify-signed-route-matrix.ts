@@ -1,15 +1,18 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { types as utilTypes } from "node:util";
 
 import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../src/core/runtime-process-safety-state.ts";
 import { revokeRuntimeOwnedExternalSendConsent } from "../src/security/external-send-consent-runtime.ts";
+import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import {
   isCanonicalCrddVersion,
   isSupportedCrddRuntimeGitObjectId,
 } from "../src/security/release-identity-grammar.ts";
+import { evaluateSignedRunnerSafetyObservation } from "../src/security/signed-runner-safety-observation.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -29,6 +32,31 @@ const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
 ]);
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const SHA256 = /^[a-f0-9]{64}$/u;
+const ROUTE_SAFETY_SCHEMA = Object.freeze({
+  booleanFields: Object.freeze([
+    "cleanupConfirmed",
+    "manualRecoveryRequired",
+    "processRestartRequired",
+    "effectStateUnknown",
+    "canonicalRepositoryChanged",
+    "rawProviderOutputReported",
+    "hostPathReported",
+    "credentialReported",
+  ]),
+  nullableRecoveryFields: Object.freeze([
+    "hostRecoveryId",
+    "dockerRecoveryId",
+    "candidateRecoveryId",
+    "candidateStoreRecoveryId",
+  ]),
+  pluralRecoveryFields: Object.freeze([
+    "hostRecoveryIds",
+    "dockerRecoveryIds",
+    "candidateRecoveryIds",
+    "candidateStoreRecoveryIds",
+  ]),
+  effectUnknownField: "effectStateUnknown",
+});
 
 const EXPECTED = Object.freeze({
   forward: Object.freeze({
@@ -58,11 +86,49 @@ const EXPECTED = Object.freeze({
 });
 
 function emptyArray(value: unknown) {
-  return Array.isArray(value) && value.length === 0;
+  const snapshot = snapshotPlainArray(value, 0);
+  return snapshot.status === "ok" && snapshot.value.length === 0;
 }
 
 function exactChangedPath(value: unknown) {
-  return Array.isArray(value) && value.length === 1 && value[0] === TARGET_PATH;
+  const snapshot = snapshotPlainArray<unknown>(value, 1);
+  return (
+    snapshot.status === "ok" &&
+    snapshot.value.length === 1 &&
+    snapshot.value[0] === TARGET_PATH
+  );
+}
+
+function snapshotRouteRecord(value: unknown) {
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      utilTypes.isProxy(value)
+    )
+      return null;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const snapshot: Record<string, unknown> = Object.create(null);
+    for (const key of Reflect.ownKeys(descriptors)) {
+      if (typeof key !== "string") return null;
+      const descriptor = descriptors[key];
+      if (
+        !descriptor ||
+        !Object.hasOwn(descriptor, "value") ||
+        descriptor.get !== undefined ||
+        descriptor.set !== undefined ||
+        descriptor.enumerable !== true
+      )
+        return null;
+      snapshot[key] = descriptor.value;
+    }
+    return Object.freeze(snapshot);
+  } catch {
+    return null;
+  }
 }
 
 function validReleaseIdentity(result: Readonly<Record<string, unknown>>) {
@@ -236,59 +302,49 @@ export async function runSignedRouteMatrixVerification(
     | "runner_exception"
     | null = null;
   for (const [index, route] of ROUTES.entries()) {
-    let result: Readonly<Record<string, unknown>>;
-    let runnerFailed = false;
     try {
       const outcome = await run(repositoryRoot, undefined, route);
-      result = Object.freeze({ ...outcome });
+      const result = snapshotRouteRecord(outcome);
+      if (!result) throw new Error("route_result_snapshot_unknown");
+      const safety = evaluateSignedRunnerSafetyObservation(
+        result,
+        ROUTE_SAFETY_SCHEMA,
+      );
+      if (safety.status !== "exact")
+        throw new Error("route_safety_observation_unknown");
+      if (result.processRestartRequired === true && !isRuntimeProcessPoisoned())
+        ensureRuntimeProcessPoisoned();
+      results.push(result);
+      const exact = isExactSignedRouteResult(
+        route,
+        result,
+        index === 0 ? "interactive_initial_consent" : "reused_initial_consent",
+      );
+      if (!exact) {
+        failedRouteProfile = route;
+        validationFailure = "route_nonconforming";
+        break;
+      }
+      const currentReleaseIdentity = releaseIdentity(result);
+      if (baselineReleaseIdentity === null)
+        baselineReleaseIdentity = currentReleaseIdentity;
+      else if (currentReleaseIdentity !== baselineReleaseIdentity) {
+        failedRouteProfile = route;
+        validationFailure = "release_identity_mismatch";
+        break;
+      }
+      verifiedRouteCount += 1;
     } catch {
       ensureRuntimeProcessPoisoned();
-      result = failedRouteResult(route);
-      runnerFailed = true;
-    }
-    if (result.processRestartRequired === true && !isRuntimeProcessPoisoned())
-      ensureRuntimeProcessPoisoned();
-    const observationUnknown =
-      result.effectStateUnknown === true ||
-      typeof result.processRestartRequired !== "boolean" ||
-      typeof result.canonicalRepositoryChanged !== "boolean" ||
-      typeof result.rawProviderOutputReported !== "boolean" ||
-      typeof result.hostPathReported !== "boolean" ||
-      typeof result.credentialReported !== "boolean";
-    if (observationUnknown && !isRuntimeProcessPoisoned())
-      ensureRuntimeProcessPoisoned();
-    results.push(result);
-    const exact = isExactSignedRouteResult(
-      route,
-      result,
-      index === 0 ? "interactive_initial_consent" : "reused_initial_consent",
-    );
-    if (!exact) {
+      results.push(failedRouteResult(route));
       failedRouteProfile = route;
-      validationFailure = runnerFailed
-        ? "runner_exception"
-        : "route_nonconforming";
+      validationFailure = "runner_exception";
       break;
     }
-    const currentReleaseIdentity = releaseIdentity(result);
-    if (baselineReleaseIdentity === null)
-      baselineReleaseIdentity = currentReleaseIdentity;
-    else if (currentReleaseIdentity !== baselineReleaseIdentity) {
-      failedRouteProfile = route;
-      validationFailure = "release_identity_mismatch";
-      break;
-    }
-    verifiedRouteCount += 1;
   }
   const completed = verifiedRouteCount === ROUTES.length;
   const effectStateUnknown = results.some(
-    (result) =>
-      result.effectStateUnknown === true ||
-      typeof result.processRestartRequired !== "boolean" ||
-      typeof result.canonicalRepositoryChanged !== "boolean" ||
-      typeof result.rawProviderOutputReported !== "boolean" ||
-      typeof result.hostPathReported !== "boolean" ||
-      typeof result.credentialReported !== "boolean",
+    (result) => result.effectStateUnknown === true,
   );
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,

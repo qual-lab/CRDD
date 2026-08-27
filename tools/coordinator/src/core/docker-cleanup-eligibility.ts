@@ -61,15 +61,15 @@ function exactDenseStringArray(value: unknown) {
 }
 
 function canonicalRawIds(raw: RawDockerRecoveryProjection) {
-  const singular = raw.singularPresent
-    ? raw.singular === null
+  if (!raw.singularPresent || !raw.pluralPresent) return null;
+  const singular =
+    raw.singular === null
       ? null
       : recoveryId(raw.singular)
         ? raw.singular
-        : undefined
-    : null;
+        : undefined;
   if (singular === undefined) return null;
-  const plural = raw.pluralPresent ? exactDenseStringArray(raw.plural) : [];
+  const plural = exactDenseStringArray(raw.plural);
   if (!plural) return null;
   if (plural.length === 0 && singular !== null) return null;
   if (plural.length === 1 && singular !== plural[0]) return null;
@@ -123,6 +123,7 @@ function evaluate(
   }
   if (
     input.finalizations.length !== pending.length ||
+    rawIds.length !== pendingIds.size ||
     rawIds.some((id) => !pendingIds.has(id))
   )
     return Object.freeze({ eligible: false, reason: "set_mismatch" });

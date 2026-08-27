@@ -67,6 +67,7 @@ function completed(
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     processRestartRequired: false,
+    effectStateUnknown: false,
     hostRecoveryId: null,
     hostRecoveryIds: Object.freeze([]),
     dockerRecoveryId: null,
@@ -100,7 +101,24 @@ const result = await runSignedRouteMatrixVerification(
     };
     if (scenario.startsWith("missing:")) delete value[scenario.slice(8)];
     if (scenario.startsWith("null:")) value[scenario.slice(5)] = null;
+    if (scenario.startsWith("string:")) value[scenario.slice(7)] = "invalid";
     if (scenario === "child_true") value.processRestartRequired = true;
+    if (scenario === "result_getter") {
+      const getterResult = Object.create(null);
+      Object.defineProperty(getterResult, "status", {
+        enumerable: true,
+        get: () => {
+          throw new Error("fixed_route_result_getter");
+        },
+      });
+      return getterResult;
+    }
+    if (scenario === "result_proxy")
+      return new Proxy(value, {
+        ownKeys: () => {
+          throw new Error("fixed_route_result_proxy");
+        },
+      });
     return Object.freeze(value);
   }) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
   (() => {

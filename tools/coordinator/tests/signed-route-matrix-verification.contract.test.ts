@@ -71,6 +71,7 @@ function completed(
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     processRestartRequired: false,
+    effectStateUnknown: false,
     hostRecoveryId: null,
     hostRecoveryIds: Object.freeze([]),
     dockerRecoveryId: null,
@@ -126,6 +127,14 @@ test("最初の未完了経路で停止し既知cleanup状態を失わない", a
             manualRecoveryRequired: true,
             processRestartRequired: false,
             effectStateUnknown: false,
+            hostRecoveryId: null,
+            hostRecoveryIds: Object.freeze([]),
+            dockerRecoveryId: null,
+            dockerRecoveryIds: Object.freeze([]),
+            candidateRecoveryId: null,
+            candidateRecoveryIds: Object.freeze([]),
+            candidateStoreRecoveryId: null,
+            candidateStoreRecoveryIds: Object.freeze([]),
             canonicalRepositoryChanged: false,
             rawProviderOutputReported: false,
             hostPathReported: false,
@@ -268,13 +277,16 @@ test("route runner例外は実Processをpoisonし全guarded入口をEffect前に
 
 test("非適合routeの観測field欠落またはnullは独立Processでpoisonへ収束する", () => {
   for (const field of [
+    "cleanupConfirmed",
+    "manualRecoveryRequired",
     "processRestartRequired",
+    "effectStateUnknown",
     "canonicalRepositoryChanged",
     "rawProviderOutputReported",
     "hostPathReported",
     "credentialReported",
   ]) {
-    for (const mode of ["missing", "null"] as const) {
+    for (const mode of ["missing", "null", "string"] as const) {
       const probe = spawnSync(
         process.execPath,
         [
@@ -289,7 +301,7 @@ test("非適合routeの観測field欠落またはnullは独立Processでpoison�
       assert.equal(result.status, "blocked", `${field}:${mode}`);
       assert.equal(
         result.validationFailure,
-        "route_nonconforming",
+        "runner_exception",
         `${field}:${mode}`,
       );
       assert.equal(result.effectStateUnknown, true, `${field}:${mode}`);
@@ -301,6 +313,25 @@ test("非適合routeの観測field欠落またはnullは独立Processでpoison�
       assert.equal(result.hostPathReported, null, `${field}:${mode}`);
       assert.equal(result.credentialReported, null, `${field}:${mode}`);
     }
+  }
+});
+
+test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる", () => {
+  for (const scenario of ["result_getter", "result_proxy"]) {
+    const probe = spawnSync(
+      process.execPath,
+      [path.resolve("tests/fixtures/signed-route-poison-probe.ts"), scenario],
+      { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(probe.status, 0, probe.stderr);
+    const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
+    const result = observed.result as Record<string, unknown>;
+    assert.equal(result.validationFailure, "runner_exception", scenario);
+    assert.equal(result.processRestartRequired, true, scenario);
+    assert.equal(result.manualRecoveryRequired, true, scenario);
+    assert.equal(observed.poisoned, true, scenario);
+    assert.equal(observed.packageReads, 0, scenario);
+    assert.equal(observed.grantReads, 0, scenario);
   }
 });
 

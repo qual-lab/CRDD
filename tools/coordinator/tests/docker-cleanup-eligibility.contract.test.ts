@@ -162,7 +162,7 @@ test("raw recovery projectionの不正shapeは認証済みhandoffがあっても
     );
 });
 
-test("raw field欠落は正式0件表現としてだけ受理する", () => {
+test("raw field欠落はpending件数にかかわらず拒否する", () => {
   assert.equal(
     evaluateManagedDockerCleanupEligibility({
       raw: {
@@ -173,7 +173,7 @@ test("raw field欠落は正式0件表現としてだけ受理する", () => {
       },
       ...candidate([]),
     }).eligible,
-    true,
+    false,
   );
   assert.equal(
     evaluateManagedDockerCleanupEligibility({
@@ -185,8 +185,24 @@ test("raw field欠落は正式0件表現としてだけ受理する", () => {
       },
       ...candidate(["r1"]),
     }).eligible,
-    true,
+    false,
   );
+});
+
+test("raw集合がpending集合の空または部分集合なら拒否する", () => {
+  for (const [rawIds, pendingIds] of [
+    [[], ["r1"]],
+    [[], ["r1", "r2"]],
+    [["r1"], ["r1", "r2"]],
+  ] as const) {
+    assert.equal(
+      evaluateManagedDockerCleanupEligibility({
+        raw: raw(rawIds),
+        ...candidate(pendingIds),
+      }).eligible,
+      false,
+    );
+  }
 });
 
 test("handoff/finalizationのstate・重複・交差不一致・余剰を拒否する", () => {

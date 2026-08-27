@@ -81,6 +81,16 @@ const result: Record<string, unknown> = {
 if (scenario === "completed_true") result.processRestartRequired = true;
 if (scenario === "completed_missing") delete result.processRestartRequired;
 if (scenario === "completed_null") result.processRestartRequired = null;
+if (scenario === "bind_throw_recovery") {
+  result.status = "blocked";
+  result.reason = "coordinator_task_cleanup_unconfirmed";
+  result.cleanupConfirmed = false;
+  result.manualRecoveryRequired = true;
+  result.hostRecoveryId = "host.fixed.recovery";
+}
+if (scenario.startsWith("missing:")) delete result[scenario.slice(8)];
+if (scenario.startsWith("null:")) result[scenario.slice(5)] = null;
+if (scenario.startsWith("string:")) result[scenario.slice(7)] = "invalid";
 
 const bytes = Buffer.from(expectedContent, "utf8");
 const candidate = Object.freeze({
@@ -107,20 +117,41 @@ const candidate = Object.freeze({
   }),
 });
 
+let cancelAttempts = 0;
 const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
   issuePackageCapability: () =>
     Object.freeze({ verification: release, capability: Object.freeze({}) }),
   startTask: () => {
     if (scenario === "start_throw") throw new Error("fixed_start_throw");
+    const getterResult = Object.create(null);
+    Object.defineProperty(getterResult, "status", {
+      enumerable: true,
+      get: () => {
+        throw new Error("fixed_result_getter");
+      },
+    });
     return Object.freeze({
       controlCapability: Object.freeze({}),
       completion:
-        scenario === "completion_reject"
-          ? Promise.reject(new Error("fixed_completion_reject"))
-          : Promise.resolve(Object.freeze(result)),
+        scenario === "bind_throw_completion_never"
+          ? new Promise<Record<string, unknown>>(() => undefined)
+          : scenario === "completion_reject"
+            ? Promise.reject(new Error("fixed_completion_reject"))
+            : Promise.resolve(
+                scenario === "result_getter"
+                  ? getterResult
+                  : Object.freeze(result),
+              ),
     });
   },
-  cancelTask: () => Object.freeze({ status: "requested" }),
+  cancelTask: () => {
+    cancelAttempts += 1;
+    if (scenario === "cancel_reject")
+      return Promise.reject(new Error("fixed_cancel_reject"));
+    if (scenario === "cancel_never")
+      return new Promise<Record<string, unknown>>(() => undefined);
+    return Object.freeze({ status: "requested" });
+  },
   readCandidate: () => candidate,
   discardCandidate: () =>
     scenario === "discard_true"
@@ -136,8 +167,26 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
       : Object.freeze({ status: "discarded" }),
   now: () => "2026-08-27T00:00:00.000Z",
   runtimeVersion: () => "24.19.0",
-  bindCancellation: () =>
-    Object.freeze({ unbind: () => undefined, requested: () => false }),
+  bindCancellation: () => {
+    if (
+      scenario === "bind_throw" ||
+      scenario === "bind_throw_recovery" ||
+      scenario === "bind_throw_completion_never" ||
+      scenario === "cancel_reject" ||
+      scenario === "cancel_never"
+    )
+      throw new Error("fixed_bind_throw");
+    return Object.freeze({
+      unbind: () => {
+        if (scenario === "unbind_throw") throw new Error("fixed_unbind_throw");
+      },
+      requested: () => {
+        if (scenario === "requested_throw")
+          throw new Error("fixed_requested_throw");
+        return false;
+      },
+    });
+  },
 });
 
 let packageReads = 0;
@@ -191,5 +240,6 @@ process.stdout.write(
         ? grant.reason
         : null,
     grantReads,
+    cancelAttempts,
   })}\n`,
 );
