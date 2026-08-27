@@ -604,6 +604,7 @@ function fixture(
     candidateStorePrepareCount: () => candidateStorePrepareCount,
     workspaceMaterializeCount: () => workspaceMaterializeCount,
     processStartCount: () => processStartCount,
+    candidateCaptureCount: () => candidateCaptureCount,
     cancelProcessCount: () => cancelProcessCount,
     poisonProcessCount: () => poisonProcessCount,
     releaseDrainCount: () => releaseDrainCount,
@@ -1722,6 +1723,54 @@ test("never取消receiptはack上限後にcleanupを続けて不可逆poisonへ�
   assert.equal(result.processRestartRequired, true);
   assert.equal(harness.cancelProcessCount(), 1);
   assert.ok(harness.poisonProcessCount() >= 1);
+});
+
+test("取消protocol failureと資源cleanup unknownは依存順を守り全actionable Recoveryを保持する", async () => {
+  const harness = fixture({
+    pauseRole: "reviewer",
+    cancellationReceiptInvalid: true,
+    processCleanupFailureRole: "reviewer",
+    cleanupThrows: true,
+    hostCleanupWal: true,
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.processStartCount() < 2)
+    await new Promise((resolve) => setImmediate(resolve));
+  void harness.runtime.cancel(started.controlCapability);
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_cancellation_protocol_failed_cleanup_unknown",
+  );
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.deepEqual(result.dockerRecoveryIds, [
+    "docker.fixture.executor.active",
+    "docker.fixture.reviewer.active",
+  ]);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.equal(result.candidateStoreRecoveryId, null);
+  assert.equal(harness.cancelProcessCount(), 1);
+  assert.equal(harness.cleanupCount(), 0);
+  assert.equal(harness.discardCount(), 0);
+  assert.equal(harness.dockerReceiptCount(), 0);
+  assert.equal(harness.dockerFinalizeCount(), 0);
+  assert.equal(harness.candidateCaptureCount(), 1);
+  assert.ok(harness.poisonProcessCount() >= 1);
+  assert.deepEqual(harness.events, [
+    "notice:executor",
+    "start:executor",
+    "notice:reviewer",
+    "start:reviewer",
+  ]);
 });
 
 test("ready後のHost Supervisor喪失は実行中Providerを取消して成功公開を拒否する", async () => {
