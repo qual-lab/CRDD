@@ -278,6 +278,8 @@ Runtime 1.0をReleaseしない場合は、v0.17.xの方法論利用とRuntime非
 
 最新是正では、`unknown`のHost Effectまたはreconciliationを含む履歴を既知pending／closedへ昇格させず、専用historical状態だけへ保持する。再開、既存pending、明示closeおよびterminal再表示は、非同期artifact／Process観測後にpackage／Policy、Engine、`run`、staleおよび取消を同期再観測する共通fresh snapshotへ結合した。境界不一致、helper喪失、artifact不明、取消、容量不足および耐久化応答不明を別の理由として保持する。native helperはexact `C`後のstdout／stderr errorもprotocol Evidence不明として失敗させ、stdin終了側だけをcleanup専用とする。実rev4 Store試験はwriter ack不明とdurable intent後crashを分離し、全5 Host Effectの再発行0、公式shutdown不明後の全後続Host call 0および未知履歴のknown stage拒否を確認する。これはWindows向け・人間明示の最終復旧境界を変えず、自動fallback、Host実復旧成功、Docker Task Recovery、Dogfooding、Runtime完成またはReleaseを主張しない。
 
+続く固定版監査では、cleanup settlementのpackage／Policy再計算後にhelper livenessを再確認していない箇所と、自然回復settlement、rename adoption、Process quiescenceおよびrename後stageの永続化が非同期境界前の状態を再利用する伝播漏れを検出した。同じ候補内で、cleanup settlementはhelper喪失時にRecord Effect 0へ閉じ、現在状態を意味へ変換するstage記録はEngine、Process、`run`、staleおよびAuthorityの共通fresh predicateをpersist直前に必須化した。回帰試験は自然回復settlement後のEngine再停止、rename adoption中のstale Identity消失およびpackage再計算中のhelper喪失を既知pending／安全stageへ昇格させず、後続Host Effect 0へ固定する。
+
 ## 14. 対象外と残存リスク
 
 対象外:

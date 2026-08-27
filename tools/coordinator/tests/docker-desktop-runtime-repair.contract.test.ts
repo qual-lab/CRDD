@@ -499,6 +499,31 @@ test("intent耐久化後のEngine回復・不明はHost関数を呼ばずsettlem
   }
 });
 
+test("自然回復settlement後のEngine再停止をpendingへ永続化しない", async () => {
+  let observations = 0;
+  const state = fixture({
+    observeEngine: () => {
+      observations += 1;
+      if (observations <= 2) return "known_unavailable" as const;
+      if (observations === 3) return "ready" as const;
+      return "known_unavailable" as const;
+    },
+  });
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    state.dependencies,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_current_state_changed_before_record",
+  );
+  assert.equal(state.calls.includes("shutdown"), false);
+  assert.equal(
+    state.calls.includes("persist:no_stale_known_effect_recovery_pending"),
+    false,
+  );
+});
+
 test("最終artifact await中のEngine回復はfresh行列で公式shutdown Effect 0にする", async () => {
   let verifyCalls = 0;
   let engineReady = false;
@@ -1415,6 +1440,49 @@ test("rename Effect後settlement前の再開はexact staleをadoptし再rename�
   assert.equal(state.calls.includes("persist:renamed"), true);
 });
 
+test("rename adoptionのfresh snapshot変化をsettlement stageへ永続化しない", async () => {
+  const operation = operationFixture("processes_stopped", {
+    filesystemEffects: Object.freeze([
+      Object.freeze({
+        sequence: 0,
+        action: "runtime_directory_rename",
+        phase: "intent_recorded",
+        issued: null,
+        confirmation: "unknown",
+      }),
+    ]),
+    filesystemEffectIssued: null,
+    filesystemEffectConfirmation: "unknown",
+    staleState: "unknown",
+    hostSafety: "unknown",
+  });
+  let staleObservations = 0;
+  const state = fixture({
+    observeEngine: () => "known_unavailable" as const,
+    acquireHelper: async () => ({
+      status: "acquired" as const,
+      session: session({ processes: "absent" }),
+    }),
+    identityAt: (target) => {
+      if (!target.includes("run.crdd-stale-")) return null;
+      staleObservations += 1;
+      return staleObservations === 1 ? runIdentity : null;
+    },
+  });
+  state.setOperation(operation);
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    state.dependencies,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "docker_desktop_repair_current_state_changed_before_record",
+  );
+  assert.equal(state.calls.includes("rename"), false);
+  assert.equal(state.calls.includes("persist:processes_stopped"), false);
+  assert.equal(state.calls.includes("persist:renamed"), false);
+});
+
 test("processes_stopped再開は実rev4 Storeでも単調にpersistできる", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "crdd-repair-resume-"));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -2287,6 +2355,43 @@ test("helper喪失をawait中に検出した後はprocess terminationへ進ま�
   assert.equal(result.reason, "docker_desktop_repair_native_helper_lost");
   assert.equal(terminationCalls, 0);
   assert.equal(state.calls.includes("wsl"), false);
+});
+
+test("cleanup settlementはpackage再計算後のhelper喪失をRecord Effect 0へ閉じる", async () => {
+  let live = true;
+  let hostEffectIssued = false;
+  const state = fixture({
+    prepareBoundary: () => {
+      if (hostEffectIssued) live = false;
+      return boundary;
+    },
+    acquireHelper: async () => ({
+      status: "acquired" as const,
+      session: Object.freeze({
+        ...session(),
+        assertLive: () => live,
+      }),
+    }),
+    officialShutdown: () => {
+      hostEffectIssued = true;
+      return Object.freeze({
+        issued: true,
+        confirmation: "confirmed" as const,
+      });
+    },
+  });
+  const result = await repairWindowsDockerDesktopRuntimeUsingDependencies(
+    state.dependencies,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "docker_desktop_repair_native_helper_lost");
+  assert.deepEqual(
+    state.calls.filter((entry) => entry.startsWith("persist:")),
+    ["persist:prepared", "persist:prepared"],
+  );
+  assert.equal(state.calls.includes("wsl"), false);
+  assert.equal(state.calls.includes("rename"), false);
+  assert.equal(state.calls.includes("start"), false);
 });
 
 test("package tupleがawait中に変化した場合は直後Effectを発行しない", async () => {

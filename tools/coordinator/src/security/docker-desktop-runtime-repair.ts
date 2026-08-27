@@ -1026,6 +1026,7 @@ async function verifyCleanupRecordBoundaryState(
   if (!session.assertLive()) return "helper_lost";
   if (artifacts !== "verified") return "artifact_unknown";
   const current = dependencies.prepareBoundary();
+  if (!session.assertLive()) return "helper_lost";
   return current !== null && samePreparedAuthority(boundary, current)
     ? "verified"
     : "authority_changed";
@@ -1164,6 +1165,21 @@ function freshStoppedStateMatches(
     state.stale.state === "present" &&
     state.stale.identity !== null &&
     sameIdentity(state.stale.identity, operation.runIdentity)
+  );
+}
+
+function freshQuiescentRunStateMatches(
+  state: FreshRuntimeState,
+  operation: DockerDesktopRepairOperation,
+) {
+  return (
+    state.boundaryState === "verified" &&
+    state.engine === "known_unavailable" &&
+    state.processes === "absent" &&
+    state.run.state === "present" &&
+    state.run.identity !== null &&
+    sameIdentity(state.run.identity, operation.runIdentity) &&
+    state.stale.state === "confirmed_absent"
   );
 }
 
@@ -1538,6 +1554,28 @@ async function settleUnissuedIntentAfterFreshObservation(
     ledger,
   );
   if (!settled || observation.state !== "recovered") return settled;
+  const renamed = operation.stage === "renamed";
+  if (!observation.liveRunIdentity)
+    throw new DockerDesktopRepairPersistenceError(
+      "docker_desktop_repair_current_state_changed_before_record",
+    );
+  const expectedRunIdentity = renamed
+    ? observation.liveRunIdentity
+    : operation.runIdentity;
+  const expectedStaleIdentity = renamed ? operation.runIdentity : null;
+  const fresh = await observeFreshRuntimeState(
+    dependencies,
+    boundary,
+    session,
+    cancellation,
+    settled,
+  );
+  if (
+    !freshReadyStateMatches(fresh, expectedRunIdentity, expectedStaleIdentity)
+  )
+    throw new DockerDesktopRepairPersistenceError(
+      "docker_desktop_repair_current_state_changed_before_record",
+    );
   mergeProcessEffect(ledger, "observed_desktop_recovery", {
     issued: false,
     confirmation: "not_issued",
@@ -1545,8 +1583,7 @@ async function settleUnissuedIntentAfterFreshObservation(
   ledger.engineReady = true;
   ledger.hostSafety = "safe";
   ledger.evidenceState = "preserved";
-  ledger.liveRunIdentity = observation.liveRunIdentity;
-  const renamed = operation.stage === "renamed";
+  ledger.liveRunIdentity = fresh.run.identity;
   ledger.staleState = renamed ? "retained" : "absent";
   ledger.disposition = renamed
     ? "pending_human_decision"
@@ -1561,6 +1598,8 @@ async function settleUnissuedIntentAfterFreshObservation(
       ? "recovered_pending_disposition"
       : "no_stale_known_effect_recovery_pending",
     ledger,
+    (state) =>
+      freshReadyStateMatches(state, expectedRunIdentity, expectedStaleIdentity),
   );
 }
 
@@ -1665,20 +1704,16 @@ async function executeRepair(
         unsettledFilesystem?.action === "runtime_directory_rename" &&
         !unsettledProcess
       ) {
-        const engine = dependencies.observeEngine(boundary);
-        const processes = await inspectProcessesWithinCancellation(
+        const adoptionOperation = operation;
+        const fresh = await observeFreshRuntimeState(
+          dependencies,
+          boundary,
           session,
           cancellation,
+          adoptionOperation,
         );
-        const run = observePathUsing(dependencies, boundary.runDirectory);
-        const stale = observePathUsing(dependencies, operation.staleDirectory);
         if (
-          engine === "known_unavailable" &&
-          processes === "absent" &&
-          run.state === "confirmed_absent" &&
-          stale.state === "present" &&
-          stale.identity !== null &&
-          sameIdentity(stale.identity, operation.runIdentity) &&
+          freshStoppedStateMatches(fresh, adoptionOperation) &&
           settleHostEffect(ledger, "filesystem", "runtime_directory_rename", {
             issued: true,
             confirmation: "confirmed",
@@ -1692,6 +1727,7 @@ async function executeRepair(
             operation,
             "processes_stopped",
             ledger,
+            (state) => freshStoppedStateMatches(state, adoptionOperation),
           );
           if (!settledAdoption) {
             markUnknown(ledger);
@@ -1704,6 +1740,7 @@ async function executeRepair(
             return { status, reason, ledger, operation };
           }
           ledger.staleState = "retained";
+          const settledAdoptionOperation = operation;
           const adoptedStage = await persistAfterLiveBoundary(
             dependencies,
             boundary,
@@ -1712,6 +1749,8 @@ async function executeRepair(
             operation,
             "renamed",
             ledger,
+            (state) =>
+              freshStoppedStateMatches(state, settledAdoptionOperation),
           );
           if (!adoptedStage) {
             reason = "docker_desktop_repair_rename_adoption_stage_unknown";
@@ -2354,6 +2393,7 @@ async function executeRepair(
           issued: false,
           confirmation: "not_issued",
         });
+        const absentOperation = operation;
         const observedAbsent = await persistAfterLiveBoundary(
           dependencies,
           boundary,
@@ -2362,6 +2402,7 @@ async function executeRepair(
           operation,
           "prepared",
           ledger,
+          (state) => freshQuiescentRunStateMatches(state, absentOperation),
         );
         if (!observedAbsent) {
           markUnknown(ledger);
@@ -2564,6 +2605,7 @@ async function executeRepair(
         reason = effectBoundaryFailureReason(stoppedBoundary);
         return { status, reason, ledger, operation };
       }
+      const quiescentOperation = operation;
       const stopped = await persistAfterLiveBoundary(
         dependencies,
         boundary,
@@ -2572,6 +2614,7 @@ async function executeRepair(
         operation,
         "processes_stopped",
         ledger,
+        (state) => freshQuiescentRunStateMatches(state, quiescentOperation),
       );
       if (!stopped) {
         reason = "docker_desktop_repair_record_update_failed";
@@ -2851,6 +2894,7 @@ async function executeRepair(
         reason = effectBoundaryFailureReason(renamedBoundary);
         return { status, reason, ledger, operation };
       }
+      const renamedOperation = operation;
       const renamed = await persistAfterLiveBoundary(
         dependencies,
         boundary,
@@ -2859,6 +2903,7 @@ async function executeRepair(
         operation,
         "renamed",
         ledger,
+        (state) => freshStoppedStateMatches(state, renamedOperation),
       );
       if (!renamed) {
         reason = "docker_desktop_repair_record_update_failed";
