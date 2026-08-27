@@ -16,10 +16,10 @@ const RESPONSE_MAGIC = Buffer.from("CRDDDR04", "ascii");
 const COMMAND_TIMEOUT_MS = 60_000;
 const START_TIMEOUT_MS = 30_000;
 const RELEASE_TIMEOUT_MS = 5_000;
-export type DockerDesktopRepairHelperReleaseOutcome =
-  | "released"
-  | "protocol_failed_cleanup_confirmed"
-  | "cleanup_unknown";
+export type DockerDesktopRepairHelperReleaseOutcome = Readonly<{
+  cleanup: "confirmed" | "unknown";
+  protocol: "completed" | "failed" | "not_applicable";
+}>;
 const bundledDistributionRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
 );
@@ -44,7 +44,11 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
   verifyArtifacts: () => Promise<"verified" | "unknown">;
   inspectProcesses: () => Promise<"absent" | "verified" | "unknown">;
   terminateProcesses: () => Promise<
-    "absent" | "terminated" | "partial_or_unknown" | "unknown"
+    | "absent"
+    | "not_issued_unknown"
+    | "terminated"
+    | "partial_or_unknown"
+    | "unknown"
   >;
   launchDesktop: () => Promise<
     "not_started" | "started" | "partial_or_unknown" | "unknown"
@@ -54,7 +58,7 @@ export type DockerDesktopRepairNativeHelperSession = Readonly<{
 }>;
 
 export type DockerDesktopRepairNativeHelperOutcome = Readonly<{
-  status: "acquired" | "unavailable" | "cleanup_unknown";
+  status: "acquired" | "unavailable" | "protocol_failed" | "cleanup_unknown";
   session: DockerDesktopRepairNativeHelperSession | null;
 }>;
 
@@ -170,11 +174,13 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       }
       void failureDetected.then(() => finish(false));
     });
-  const joinFailedCleanup =
-    async (): Promise<DockerDesktopRepairHelperReleaseOutcome> =>
-      (await beginFailureCleanup())
-        ? "protocol_failed_cleanup_confirmed"
-        : "cleanup_unknown";
+  const joinFailedCleanup = async (
+    protocol: "failed" | "not_applicable",
+  ): Promise<DockerDesktopRepairHelperReleaseOutcome> =>
+    Object.freeze({
+      cleanup: (await beginFailureCleanup()) ? "confirmed" : "unknown",
+      protocol,
+    });
   const fail = () => {
     if (failed) return;
     failed = true;
@@ -285,7 +291,8 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
     },
     terminateProcesses: async () => {
       const status = await command("K");
-      if (status === "A" || status === "N") return "absent";
+      if (status === "A") return "absent";
+      if (status === "N") return "not_issued_unknown";
       if (status === "T") return "terminated";
       if (status === "P") return "partial_or_unknown";
       return "unknown";
@@ -313,7 +320,7 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
         } catch {
           fail();
         }
-        return joinFailedCleanup();
+        return joinFailedCleanup("not_applicable");
       })();
       return releaseLifecycle;
     },
@@ -321,17 +328,17 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
       if (releaseLifecycle) return releaseLifecycle;
       releaseLifecycle = (async () => {
         if (failed || released || releaseInProgress || !child.stdin.writable)
-          return joinFailedCleanup();
+          return joinFailedCleanup("failed");
         releaseInProgress = true;
         const response = receive(RELEASE_TIMEOUT_MS);
         if (!(await boundedWrite("Q"))) {
           fail();
-          return joinFailedCleanup();
+          return joinFailedCleanup("failed");
         }
         const frame = await response;
         if (!frame || validatedStatus(frame, expectedPolicyHash) !== "C") {
           fail();
-          return joinFailedCleanup();
+          return joinFailedCleanup("failed");
         }
         released = true;
         child.stdin.end();
@@ -340,7 +347,13 @@ export function createDockerDesktopRepairNativeHelperSessionUsingChild(
         child.stderr.removeAllListeners();
         child.removeAllListeners();
         child.unref();
-        return child.exitCode === 0 && settled ? "released" : "cleanup_unknown";
+        return Object.freeze({
+          cleanup: settled ? ("confirmed" as const) : ("unknown" as const),
+          protocol:
+            child.exitCode === 0 && settled
+              ? ("completed" as const)
+              : ("failed" as const),
+        });
       })();
       return releaseLifecycle;
     },
@@ -420,9 +433,11 @@ export async function acquireRuntimeOwnedDockerDesktopRepairNativeHelperUsingFac
     const released = await created.session.release();
     return Object.freeze({
       status:
-        released !== "cleanup_unknown"
-          ? ("unavailable" as const)
-          : ("cleanup_unknown" as const),
+        released.cleanup === "unknown"
+          ? ("cleanup_unknown" as const)
+          : released.protocol === "failed"
+            ? ("protocol_failed" as const)
+            : ("unavailable" as const),
       session: null,
     });
   }

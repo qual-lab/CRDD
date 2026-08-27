@@ -118,7 +118,10 @@ test("native helper adapterは固定frameを順序処理しQ応答とexit 0ま�
   assert.equal(await created.session.verifyArtifacts(), "verified");
   assert.equal(await created.session.launchDesktop(), "started");
   const releaseStarted = Date.now();
-  assert.equal(await created.session.release(), "released");
+  assert.deepEqual(await created.session.release(), {
+    cleanup: "confirmed",
+    protocol: "completed",
+  });
   assert.ok(Date.now() - releaseStarted >= 50);
 });
 
@@ -142,11 +145,36 @@ test("native helper喪失はcommand失敗とbounded cleanup確認を分離する
   assert.equal(await created.waitForInitial(), "R");
   assert.equal(await created.session.verifyArtifacts(), "unknown");
   const cleanupStarted = Date.now();
-  assert.equal(
-    await created.session.release(),
-    "protocol_failed_cleanup_confirmed",
-  );
+  assert.deepEqual(await created.session.release(), {
+    cleanup: "confirmed",
+    protocol: "failed",
+  });
   assert.ok(Date.now() - cleanupStarted >= 50);
+});
+
+test("正常な取消cleanupはprotocol failureへ変換しない", async () => {
+  const hash = "f".repeat(64);
+  const source = [
+    "const hash=Buffer.alloc(32,0xff);",
+    'const frame=(status)=>Buffer.concat([Buffer.from("CRDDDR04"),Buffer.from(status),hash]);',
+    'process.stdout.write(frame("R"));',
+    'process.stdin.on("end",()=>setTimeout(()=>process.exit(0),50));',
+    "process.stdin.resume();",
+  ].join("");
+  const child = spawn(process.execPath, ["-e", source], {
+    shell: false,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
+    child,
+    hash,
+  );
+  assert.equal(await created.waitForInitial(), "R");
+  assert.deepEqual(await created.session.abort(), {
+    cleanup: "confirmed",
+    protocol: "not_applicable",
+  });
 });
 
 test("native launcherはCreateProcess後のidentity不明をissued済みとして保持する", async () => {
@@ -172,7 +200,42 @@ test("native launcherはCreateProcess後のidentity不明をissued済みとし�
   );
   assert.equal(await created.waitForInitial(), "R");
   assert.equal(await created.session.launchDesktop(), "partial_or_unknown");
-  assert.equal(await created.session.release(), "released");
+  assert.deepEqual(await created.session.release(), {
+    cleanup: "confirmed",
+    protocol: "completed",
+  });
+});
+
+test("native K/NはEffect非発行とProcess不存在を混同しない", async () => {
+  const hash = "e".repeat(64);
+  const source = [
+    "const hash=Buffer.alloc(32,0xee);",
+    'const frame=(status)=>Buffer.concat([Buffer.from("CRDDDR04"),Buffer.from(status),hash]);',
+    'process.stdout.write(frame("R"));',
+    'process.stdin.on("data",(chunk)=>{for(const value of chunk){',
+    "const command=String.fromCharCode(value);",
+    'process.stdout.write(frame(command==="K"?"N":command==="Q"?"C":"V"));',
+    'if(command==="Q")process.exitCode=0;',
+    "}});",
+  ].join("");
+  const child = spawn(process.execPath, ["-e", source], {
+    shell: false,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const created = createDockerDesktopRepairNativeHelperSessionUsingChild(
+    child,
+    hash,
+  );
+  assert.equal(await created.waitForInitial(), "R");
+  assert.equal(
+    await created.session.terminateProcesses(),
+    "not_issued_unknown",
+  );
+  assert.deepEqual(await created.session.release(), {
+    cleanup: "confirmed",
+    protocol: "completed",
+  });
 });
 
 test("release中の不正frameは資源回収完了まで待ちprotocol成功と分離する", async () => {
@@ -196,7 +259,13 @@ test("release中の不正frameは資源回収完了まで待ちprotocol成功と
   const started = Date.now();
   const first = created.session.release();
   const second = created.session.release();
-  assert.equal(await first, "protocol_failed_cleanup_confirmed");
-  assert.equal(await second, "protocol_failed_cleanup_confirmed");
+  assert.deepEqual(await first, {
+    cleanup: "confirmed",
+    protocol: "failed",
+  });
+  assert.deepEqual(await second, {
+    cleanup: "confirmed",
+    protocol: "failed",
+  });
   assert.ok(Date.now() - started >= 50);
 });

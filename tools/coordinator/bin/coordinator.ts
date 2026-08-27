@@ -15,6 +15,7 @@ import {
   type SafeCommandReport,
 } from "../src/core/command-report.ts";
 import { runDoctor } from "../src/core/doctor.ts";
+import { dispatchDockerDesktopRepairDoctorCommand } from "../src/core/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
 import {
@@ -537,13 +538,23 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
     if (recoveryIdValue === null) recoveryId = null;
     else if (typeof recoveryIdValue === "string") recoveryId = recoveryIdValue;
     else throw new UsageError("doctor_arguments_invalid");
-    const report: unknown = options.repairDockerDesktopRuntime
-      ? await repairRuntimeOwnedWindowsDockerDesktopRuntime()
-      : typeof options.closeDockerDesktopRepairId === "string"
-        ? await closeRuntimeOwnedWindowsDockerDesktopRepair(
-            options.closeDockerDesktopRepairId,
-          )
-        : recoveryId !== null
+    const dockerRepair = await dispatchDockerDesktopRepairDoctorCommand(
+      {
+        json: options.json,
+        repairDockerDesktopRuntime: options.repairDockerDesktopRuntime,
+        closeDockerDesktopRepairId: options.closeDockerDesktopRepairId,
+      },
+      {
+        repair: repairRuntimeOwnedWindowsDockerDesktopRuntime,
+        close: closeRuntimeOwnedWindowsDockerDesktopRepair,
+      },
+    );
+    if (dockerRepair) {
+      process.stdout.write(dockerRepair.stdout);
+      process.exitCode = dockerRepair.exitCode;
+    } else {
+      const report: unknown =
+        recoveryId !== null
           ? recoveryId.startsWith("host.")
             ? recoverOwnedOperationDirectories(recoveryId)
             : recoveryId.startsWith("docker-task.")
@@ -557,9 +568,10 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
               }),
               dockerTaskRecovery: inspectRuntimeOwnedDockerTaskRecoveryState(),
             });
-    const rendered = renderDockerRecoveryDoctorReport(report, options.json);
-    process.stdout.write(rendered.stdout);
-    process.exitCode = rendered.exitCode;
+      const rendered = renderDockerRecoveryDoctorReport(report, options.json);
+      process.stdout.write(rendered.stdout);
+      process.exitCode = rendered.exitCode;
+    }
   } catch (rawError) {
     const message = rawError instanceof Error ? rawError.message : undefined;
     const reason =

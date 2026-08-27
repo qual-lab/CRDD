@@ -22,6 +22,7 @@ import {
 } from "./docker-desktop-repair-policy.ts";
 import {
   createDockerDesktopRepairOperation,
+  hasDockerDesktopRepairRecordCapacity,
   type DockerDesktopRepairDirectoryIdentity,
   type DockerDesktopRepairEvidenceState,
   type DockerDesktopRepairEffectEntry,
@@ -429,7 +430,7 @@ function observePathUsing(
   const observed = dependencies.identityAt(target);
   return observed
     ? Object.freeze({ state: "present" as const, identity: observed })
-    : Object.freeze({ state: "confirmed_absent" as const, identity: null });
+    : Object.freeze({ state: "unknown" as const, identity: null });
 }
 
 function sameIdentity(
@@ -681,8 +682,13 @@ function renameRunDirectory(
   operation: DockerDesktopRepairOperation,
 ): RenameOutcome {
   try {
-    const before = identityAt(boundary.runDirectory);
-    if (!before || !sameIdentity(before, operation.runIdentity))
+    const beforeObservation = observePath(boundary.runDirectory);
+    const before = beforeObservation.identity;
+    if (
+      beforeObservation.state !== "present" ||
+      !before ||
+      !sameIdentity(before, operation.runIdentity)
+    )
       return Object.freeze({
         issued: null,
         confirmation: "unknown",
@@ -702,11 +708,14 @@ function renameRunDirectory(
       });
     }
     fs.renameSync(boundary.runDirectory, operation.staleDirectory);
-    const after = identityAt(operation.staleDirectory);
+    const afterObservation = observePath(operation.staleDirectory);
+    const runObservation = observePath(boundary.runDirectory);
+    const after = afterObservation.identity;
     const confirmed =
+      afterObservation.state === "present" &&
       after !== null &&
       sameIdentity(after, operation.runIdentity) &&
-      !fs.existsSync(boundary.runDirectory);
+      runObservation.state === "confirmed_absent";
     return Object.freeze({
       issued: true,
       confirmation: confirmed ? "confirmed" : "unknown",
@@ -952,6 +961,22 @@ async function persistHostEffectIntent(
   action: DockerDesktopRepairEffectAction,
   ledger: MutableLedger,
 ) {
+  const requiredThroughSafeStage: Readonly<
+    Partial<Record<DockerDesktopRepairEffectAction, number>>
+  > = Object.freeze({
+    official_shutdown: 13,
+    native_termination: 11,
+    wsl_termination: 9,
+    runtime_directory_rename: 6,
+    desktop_launch: 3,
+  });
+  if (
+    !hasDockerDesktopRepairRecordCapacity(
+      operation,
+      requiredThroughSafeStage[action] ?? 2,
+    )
+  )
+    return null;
   if (!recordHostEffectIntent(ledger, kind, action)) return null;
   return persistAfterLiveBoundary(
     dependencies,
@@ -1189,7 +1214,15 @@ async function executeRepair(
       return { status, reason, ledger, operation };
     }
 
-    if (existing?.stage === "prepared" && operation.stage === "prepared") {
+    if (
+      existing?.stage === "prepared" &&
+      operation.stage === "prepared" &&
+      !ledger.processEffects.some((entry) =>
+        ["official_shutdown", "native_termination", "wsl_termination"].includes(
+          entry.action,
+        ),
+      )
+    ) {
       const currentEngine = dependencies.observeEngine(boundary);
       ledger.engineReady =
         currentEngine === "ready"
@@ -1289,6 +1322,28 @@ async function executeRepair(
     }
 
     if (operation.stage === "prepared") {
+      const settledShutdown = ledger.processEffects.find(
+        (entry) => entry.action === "official_shutdown",
+      );
+      const settledTermination = ledger.processEffects.find(
+        (entry) => entry.action === "native_termination",
+      );
+      const settledWsl = ledger.processEffects.find(
+        (entry) => entry.action === "wsl_termination",
+      );
+      if (
+        [settledShutdown, settledTermination, settledWsl].some(
+          (entry) =>
+            entry &&
+            (entry.phase !== "settled" || entry.confirmation === "unknown"),
+        ) ||
+        (settledTermination && !settledShutdown) ||
+        (settledWsl && !settledShutdown)
+      ) {
+        markUnknown(ledger);
+        reason = "docker_desktop_repair_settled_prefix_invalid";
+        return { status, reason, ledger, operation };
+      }
       if (cancellation.shouldStop()) {
         markUnknown(ledger);
         reason = "docker_desktop_repair_cancelled";
@@ -1307,53 +1362,55 @@ async function executeRepair(
         reason = "docker_desktop_repair_authority_changed";
         return { status, reason, ledger, operation };
       }
-      const shutdownIntent = await persistHostEffectIntent(
-        dependencies,
-        boundary,
-        session,
-        cancellation,
-        operation,
-        "process",
-        "official_shutdown",
-        ledger,
-      );
-      if (
-        !shutdownIntent ||
-        !(await verifyEffectBoundary(
+      if (!settledShutdown) {
+        const shutdownIntent = await persistHostEffectIntent(
           dependencies,
           boundary,
           session,
           cancellation,
-        ))
-      ) {
-        markUnknown(ledger);
-        reason = "docker_desktop_repair_authority_changed_after_intent";
-        return {
-          status,
-          reason,
+          operation,
+          "process",
+          "official_shutdown",
           ledger,
-          operation: shutdownIntent ?? operation,
-        };
+        );
+        if (
+          !shutdownIntent ||
+          !(await verifyEffectBoundary(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+          ))
+        ) {
+          markUnknown(ledger);
+          reason = "docker_desktop_repair_authority_changed_after_intent";
+          return {
+            status,
+            reason,
+            ledger,
+            operation: shutdownIntent ?? operation,
+          };
+        }
+        operation = shutdownIntent;
+        const shutdown = dependencies.officialShutdown(boundary, operation);
+        const shutdownSettlement = await persistHostEffectSettlement(
+          dependencies,
+          boundary,
+          session,
+          cancellation,
+          operation,
+          "process",
+          "official_shutdown",
+          shutdown,
+          ledger,
+        );
+        if (!shutdownSettlement) {
+          markUnknown(ledger);
+          reason = "docker_desktop_repair_effect_settlement_unknown";
+          return { status, reason, ledger, operation };
+        }
+        operation = shutdownSettlement;
       }
-      operation = shutdownIntent;
-      const shutdown = dependencies.officialShutdown(boundary, operation);
-      const shutdownSettled = await persistHostEffectSettlement(
-        dependencies,
-        boundary,
-        session,
-        cancellation,
-        operation,
-        "process",
-        "official_shutdown",
-        shutdown,
-        ledger,
-      );
-      if (!shutdownSettled) {
-        markUnknown(ledger);
-        reason = "docker_desktop_repair_effect_settlement_unknown";
-        return { status, reason, ledger, operation };
-      }
-      operation = shutdownSettled;
       if (!cancellation.helperAvailable()) {
         markUnknown(ledger);
         reason = "docker_desktop_repair_native_helper_lost";
@@ -1369,6 +1426,11 @@ async function executeRepair(
         return { status, reason, ledger, operation };
       }
       if (processes === "verified") {
+        if (settledTermination) {
+          markUnknown(ledger);
+          reason = "docker_desktop_processes_reappeared_after_settlement";
+          return { status, reason, ledger, operation };
+        }
         if (
           !(await verifyEffectBoundary(
             dependencies,
@@ -1416,10 +1478,12 @@ async function executeRepair(
             ? { issued: true, confirmation: "confirmed" }
             : termination === "absent"
               ? { issued: false, confirmation: "not_issued" }
-              : {
-                  issued: termination === "partial_or_unknown" ? true : null,
-                  confirmation: "unknown",
-                };
+              : termination === "not_issued_unknown"
+                ? { issued: false, confirmation: "not_issued" }
+                : {
+                    issued: termination === "partial_or_unknown" ? true : null,
+                    confirmation: "unknown",
+                  };
         const terminationSettled = await persistHostEffectSettlement(
           dependencies,
           boundary,
@@ -1437,6 +1501,25 @@ async function executeRepair(
           return { status, reason, ledger, operation };
         }
         operation = terminationSettled;
+        if (termination === "not_issued_unknown") {
+          mergeProcessEffect(ledger, "process_quiescence_reconciliation", {
+            issued: null,
+            confirmation: "unknown",
+          });
+          const observed = await persistAfterLiveBoundary(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+            operation,
+            "prepared",
+            ledger,
+          );
+          operation = observed ?? operation;
+          markUnknown(ledger);
+          reason = "docker_desktop_process_state_unknown_without_effect";
+          return { status, reason, ledger, operation };
+        }
         if (termination !== "terminated" && termination !== "absent") {
           markUnknown(ledger);
           reason = "docker_desktop_process_termination_unknown";
@@ -1491,62 +1574,71 @@ async function executeRepair(
         reason = "docker_desktop_repair_cancelled_after_process_effect";
         return { status, reason, ledger, operation };
       }
-      if (
-        !cancellation.effectAllowed() ||
-        !(await verifyEffectBoundary(
+      let observedWsl = settledWsl;
+      if (!observedWsl) {
+        if (
+          !cancellation.effectAllowed() ||
+          !(await verifyEffectBoundary(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+          ))
+        ) {
+          markUnknown(ledger);
+          reason = "docker_desktop_repair_authority_changed";
+          return { status, reason, ledger, operation };
+        }
+        const wslIntent = await persistHostEffectIntent(
           dependencies,
           boundary,
           session,
           cancellation,
-        ))
-      ) {
-        markUnknown(ledger);
-        reason = "docker_desktop_repair_authority_changed";
-        return { status, reason, ledger, operation };
-      }
-      const wslIntent = await persistHostEffectIntent(
-        dependencies,
-        boundary,
-        session,
-        cancellation,
-        operation,
-        "process",
-        "wsl_termination",
-        ledger,
-      );
-      if (
-        !wslIntent ||
-        !(await verifyEffectBoundary(
+          operation,
+          "process",
+          "wsl_termination",
+          ledger,
+        );
+        if (
+          !wslIntent ||
+          !(await verifyEffectBoundary(
+            dependencies,
+            boundary,
+            session,
+            cancellation,
+          ))
+        ) {
+          markUnknown(ledger);
+          reason = "docker_desktop_repair_authority_changed_after_intent";
+          return { status, reason, ledger, operation: wslIntent ?? operation };
+        }
+        operation = wslIntent;
+        const wsl = dependencies.terminateDockerWsl();
+        const wslSettlement = await persistHostEffectSettlement(
           dependencies,
           boundary,
           session,
           cancellation,
-        ))
+          operation,
+          "process",
+          "wsl_termination",
+          wsl,
+          ledger,
+        );
+        if (!wslSettlement) {
+          markUnknown(ledger);
+          reason = "docker_desktop_repair_effect_settlement_unknown";
+          return { status, reason, ledger, operation };
+        }
+        operation = wslSettlement;
+        observedWsl = ledger.processEffects.find(
+          (entry) => entry.action === "wsl_termination",
+        );
+      }
+      if (
+        observedWsl?.confirmation !== "confirmed" ||
+        !cancellation.helperAvailable()
       ) {
-        markUnknown(ledger);
-        reason = "docker_desktop_repair_authority_changed_after_intent";
-        return { status, reason, ledger, operation: wslIntent ?? operation };
-      }
-      operation = wslIntent;
-      const wsl = dependencies.terminateDockerWsl();
-      const wslSettled = await persistHostEffectSettlement(
-        dependencies,
-        boundary,
-        session,
-        cancellation,
-        operation,
-        "process",
-        "wsl_termination",
-        wsl,
-        ledger,
-      );
-      if (!wslSettled) {
-        markUnknown(ledger);
-        reason = "docker_desktop_repair_effect_settlement_unknown";
-        return { status, reason, ledger, operation };
-      }
-      operation = wslSettled;
-      if (wsl.confirmation !== "confirmed" || !cancellation.helperAvailable()) {
         markUnknown(ledger);
         reason = "docker_desktop_wsl_termination_unconfirmed";
         return { status, reason, ledger, operation };
@@ -1663,11 +1755,24 @@ async function executeRepair(
         sameIdentity(resumedStale, operation.runIdentity) &&
         resumedProcesses === "absent"
       ) {
-        ledger.engineReady = true;
-        mergeFilesystemEffect(ledger, "observed_runtime_directory_rename", {
-          issued: true,
-          confirmation: "confirmed",
-        });
+        ledger.engineReady = false;
+        const settledRename = ledger.filesystemEffects.find(
+          (entry) => entry.action === "runtime_directory_rename",
+        );
+        if (
+          settledRename &&
+          (settledRename.phase !== "settled" ||
+            settledRename.confirmation !== "confirmed")
+        ) {
+          markUnknown(ledger);
+          reason = "docker_desktop_runtime_rename_history_unknown";
+          return { status, reason, ledger, operation };
+        }
+        if (!settledRename)
+          mergeFilesystemEffect(ledger, "observed_runtime_directory_rename", {
+            issued: true,
+            confirmation: "confirmed",
+          });
         ledger.staleState = "retained";
         const renamed = await persistAfterLiveBoundary(
           dependencies,
@@ -1758,8 +1863,23 @@ async function executeRepair(
       }
       operation = renameSettled;
       ledger.staleState = rename.staleState;
+      const renamedRunObservation = observePathUsing(
+        dependencies,
+        boundary.runDirectory,
+      );
+      const renamedStaleObservation = observePathUsing(
+        dependencies,
+        operation.staleDirectory,
+      );
       if (
         rename.confirmation !== "confirmed" ||
+        renamedRunObservation.state !== "confirmed_absent" ||
+        renamedStaleObservation.state !== "present" ||
+        !renamedStaleObservation.identity ||
+        !sameIdentity(
+          renamedStaleObservation.identity,
+          operation.runIdentity,
+        ) ||
         !cancellation.helperAvailable()
       ) {
         markUnknown(ledger);
@@ -1795,8 +1915,16 @@ async function executeRepair(
     }
 
     if (operation.stage === "renamed") {
-      const stale = dependencies.identityAt(operation.staleDirectory);
-      if (!stale || !sameIdentity(stale, operation.runIdentity)) {
+      const staleObservation = observePathUsing(
+        dependencies,
+        operation.staleDirectory,
+      );
+      const stale = staleObservation.identity;
+      if (
+        staleObservation.state !== "present" ||
+        !stale ||
+        !sameIdentity(stale, operation.runIdentity)
+      ) {
         ledger.staleState = "unknown";
         markUnknown(ledger);
         reason = "docker_desktop_stale_runtime_identity_unknown";
@@ -1814,17 +1942,38 @@ async function executeRepair(
         return { status, reason, ledger, operation };
       }
       let engine = dependencies.observeEngine(boundary);
-      const liveRun = dependencies.identityAt(boundary.runDirectory);
+      const liveRunObservation = observePathUsing(
+        dependencies,
+        boundary.runDirectory,
+      );
+      const liveRun = liveRunObservation.identity;
       const liveProcesses = await inspectProcessesWithinCancellation(
         session,
         cancellation,
       );
       const alreadyRecovered =
-        engine === "ready" && liveRun !== null && liveProcesses === "verified";
+        engine === "ready" &&
+        liveRunObservation.state === "present" &&
+        liveRun !== null &&
+        liveProcesses === "verified";
+      const settledLaunch = ledger.processEffects.find(
+        (entry) => entry.action === "desktop_launch",
+      );
+      if (
+        settledLaunch &&
+        (settledLaunch.phase !== "settled" ||
+          settledLaunch.issued !== true ||
+          settledLaunch.confirmation !== "confirmed")
+      ) {
+        markUnknown(ledger);
+        reason = "docker_desktop_launch_history_unknown";
+        return { status, reason, ledger, operation };
+      }
       if (
         !alreadyRecovered &&
+        !settledLaunch &&
         (engine !== "known_unavailable" ||
-          liveRun !== null ||
+          liveRunObservation.state !== "confirmed_absent" ||
           liveProcesses !== "absent")
       ) {
         if (engine === "unknown" || liveProcesses === "unknown")
@@ -1832,12 +1981,12 @@ async function executeRepair(
         reason = "docker_desktop_renamed_resume_state_unknown";
         return { status, reason, ledger, operation };
       }
-      if (cancellation.shouldStop() && !alreadyRecovered) {
+      if (cancellation.shouldStop() && !alreadyRecovered && !settledLaunch) {
         markUnknown(ledger);
         reason = "docker_desktop_repair_cancelled";
         return { status, reason, ledger, operation };
       }
-      if (!alreadyRecovered) {
+      if (!alreadyRecovered && !settledLaunch) {
         if (
           !cancellation.effectAllowed() ||
           !(await verifyEffectBoundary(
@@ -1922,6 +2071,12 @@ async function executeRepair(
           cancellation.shouldStop,
           cancellation.stopDetected,
         );
+      } else if (!alreadyRecovered && settledLaunch) {
+        engine = await dependencies.awaitEngine(
+          boundary,
+          cancellation.shouldStop,
+          cancellation.stopDetected,
+        );
       }
       ledger.engineReady =
         engine === "ready"
@@ -1954,8 +2109,12 @@ async function executeRepair(
       ledger.hostSafety = "safe";
       ledger.evidenceState = "preserved";
       ledger.disposition = "pending_human_decision";
-      const recoveredRun = dependencies.identityAt(boundary.runDirectory);
-      if (!recoveredRun) {
+      const recoveredRunObservation = observePathUsing(
+        dependencies,
+        boundary.runDirectory,
+      );
+      const recoveredRun = recoveredRunObservation.identity;
+      if (recoveredRunObservation.state !== "present" || !recoveredRun) {
         markUnknown(ledger);
         reason = "docker_desktop_recovered_run_identity_unknown";
         return { status, reason, ledger, operation };
@@ -2023,13 +2182,15 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
     }
     const helper = await dependencies.acquireHelper(boundary);
     if (helper.status !== "acquired" || !helper.session) {
-      helperCleanupConfirmed = helper.status === "unavailable";
+      helperCleanupConfirmed = helper.status !== "cleanup_unknown";
       if (helper.status === "cleanup_unknown") markUnknown(ledger);
       return report(
         status,
         helper.status === "unavailable"
           ? "docker_desktop_repair_lock_unavailable"
-          : "docker_desktop_repair_lock_cleanup_unknown",
+          : helper.status === "protocol_failed"
+            ? "docker_desktop_repair_helper_protocol_failed"
+            : "docker_desktop_repair_lock_cleanup_unknown",
         ledger,
         null,
         helperCleanupConfirmed,
@@ -2040,6 +2201,11 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
     if (!inventory) {
       markUnknown(ledger);
       reason = "docker_desktop_repair_inventory_unknown";
+    } else if (
+      inventory.unfinished === null &&
+      inventory.inventory.operations.length >= 64
+    ) {
+      reason = "docker_desktop_repair_operation_capacity_unavailable";
     } else {
       const executed = await executeRepair(
         dependencies,
@@ -2062,10 +2228,10 @@ export async function repairWindowsDockerDesktopRuntimeUsingDependencies(
     if (session) {
       try {
         const released = await session.release();
-        helperCleanupConfirmed = released !== "cleanup_unknown";
-        if (released !== "released") {
+        helperCleanupConfirmed = released.cleanup === "confirmed";
+        if (released.cleanup === "unknown" || released.protocol === "failed") {
           status = "blocked";
-          if (released === "cleanup_unknown") {
+          if (released.cleanup === "unknown") {
             markUnknown(ledger);
             reason = "docker_desktop_repair_lock_cleanup_unknown";
           } else {
@@ -2132,13 +2298,15 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
     }
     const helper = await dependencies.acquireHelper(boundary);
     if (helper.status !== "acquired" || !helper.session) {
-      helperCleanupConfirmed = helper.status === "unavailable";
+      helperCleanupConfirmed = helper.status !== "cleanup_unknown";
       if (helper.status === "cleanup_unknown") markUnknown(ledger);
       return report(
         status,
         helper.status === "unavailable"
           ? "docker_desktop_repair_lock_unavailable"
-          : "docker_desktop_repair_lock_cleanup_unknown",
+          : helper.status === "protocol_failed"
+            ? "docker_desktop_repair_helper_protocol_failed"
+            : "docker_desktop_repair_lock_cleanup_unknown",
         ledger,
         null,
         helperCleanupConfirmed,
@@ -2275,7 +2443,9 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
         ledger.disposition = historicalNoStale
           ? "historical_effect_unknown_retained_by_human_decision"
           : "retained_by_human_decision";
-        if (
+        if (!hasDockerDesktopRepairRecordCapacity(operation, 1)) {
+          reason = "docker_desktop_repair_record_capacity_unavailable";
+        } else if (
           !cancellation.effectAllowed() ||
           !(await verifyEffectBoundary(
             dependencies,
@@ -2318,10 +2488,10 @@ export async function closeWindowsDockerDesktopRepairUsingDependencies(
     if (session) {
       try {
         const released = await session.release();
-        helperCleanupConfirmed = released !== "cleanup_unknown";
-        if (released !== "released") {
+        helperCleanupConfirmed = released.cleanup === "confirmed";
+        if (released.cleanup === "unknown" || released.protocol === "failed") {
           status = "blocked";
-          if (released === "cleanup_unknown") {
+          if (released.cleanup === "unknown") {
             markUnknown(ledger);
             reason = "docker_desktop_repair_lock_cleanup_unknown";
           } else {

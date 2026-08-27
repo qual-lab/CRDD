@@ -479,6 +479,70 @@ function legalEffectEntriesTransition(
   });
 }
 
+const HOST_EFFECT_ACTIONS = new Set<DockerDesktopRepairEffectAction>([
+  "official_shutdown",
+  "native_termination",
+  "wsl_termination",
+  "runtime_directory_rename",
+  "desktop_launch",
+]);
+
+const OBSERVATION_ACTIONS = new Set<DockerDesktopRepairEffectAction>([
+  "historical_process_reconciliation",
+  "process_quiescence_reconciliation",
+  "observed_runtime_directory_rename",
+]);
+
+function changedEffectCount(
+  previous: readonly DockerDesktopRepairEffectEntry[],
+  next: readonly DockerDesktopRepairEffectEntry[],
+) {
+  let changed = next.length - previous.length;
+  for (let index = 0; index < previous.length; index += 1) {
+    const before = previous[index];
+    const after = next[index];
+    if (
+      before &&
+      after &&
+      (before.phase !== after.phase ||
+        before.issued !== after.issued ||
+        before.confirmation !== after.confirmation)
+    )
+      changed += 1;
+  }
+  return changed;
+}
+
+function validRecordWriteDelta(
+  previous: readonly DockerDesktopRepairEffectEntry[],
+  next: readonly DockerDesktopRepairEffectEntry[],
+) {
+  const before = previous.filter((entry) => entry.action === "record_write");
+  const after = next.filter((entry) => entry.action === "record_write");
+  if (after.length !== before.length + 1) return false;
+  for (let index = 0; index < before.length; index += 1) {
+    const prior = before[index];
+    const current = after[index];
+    if (!prior || !current || prior.sequence !== current.sequence) return false;
+    const lastPrior = index === before.length - 1;
+    if (
+      current.issued !== true ||
+      current.phase !== "settled" ||
+      current.confirmation !==
+        (lastPrior && prior.confirmation === "unknown"
+          ? "confirmed"
+          : prior.confirmation)
+    )
+      return false;
+  }
+  const appended = after.at(-1);
+  return (
+    appended?.phase === "settled" &&
+    appended.issued === true &&
+    appended.confirmation === "unknown"
+  );
+}
+
 function legalLedgerTransition(
   previous: DockerDesktopRepairLedgerSnapshot | null,
   next: DockerDesktopRepairLedgerSnapshot,
@@ -495,18 +559,54 @@ function legalLedgerTransition(
     )
   )
     return false;
+  if (!previous)
+    return (
+      next.processEffects.length === 0 &&
+      next.filesystemEffects.length === 1 &&
+      next.filesystemEffects[0]?.action === "record_write" &&
+      next.filesystemEffects[0]?.confirmation === "unknown"
+    );
   if (
-    previous &&
-    (!legalEffectEntriesTransition(
+    !legalEffectEntriesTransition(
       previous.processEffects,
       next.processEffects,
     ) ||
-      !legalEffectEntriesTransition(
-        previous.filesystemEffects,
-        next.filesystemEffects,
-      ))
+    !legalEffectEntriesTransition(
+      previous.filesystemEffects,
+      next.filesystemEffects,
+    ) ||
+    !validRecordWriteDelta(previous.filesystemEffects, next.filesystemEffects)
   )
     return false;
+  const previousFilesystem = previous.filesystemEffects.filter(
+    (entry) => entry.action !== "record_write",
+  );
+  const nextFilesystem = next.filesystemEffects.filter(
+    (entry) => entry.action !== "record_write",
+  );
+  if (
+    changedEffectCount(previous.processEffects, next.processEffects) +
+      changedEffectCount(previousFilesystem, nextFilesystem) >
+    1
+  )
+    return false;
+  const appended = [
+    ...next.processEffects.slice(previous.processEffects.length),
+    ...nextFilesystem.slice(previousFilesystem.length),
+  ];
+  if (
+    appended.some(
+      (entry) =>
+        (HOST_EFFECT_ACTIONS.has(entry.action) &&
+          entry.phase !== "intent_recorded") ||
+        (OBSERVATION_ACTIONS.has(entry.action) && entry.phase !== "settled"),
+    )
+  )
+    return false;
+  const unsettled = [...next.processEffects, ...nextFilesystem].filter(
+    (entry) => entry.phase === "intent_recorded",
+  );
+  if (unsettled.length > 1) return false;
   return true;
 }
 
@@ -518,6 +618,19 @@ function stageLedgerCompatible(
     ...ledger.processEffects,
     ...ledger.filesystemEffects,
   ].some((entry) => entry.phase === "intent_recorded");
+  const effect = (action: DockerDesktopRepairEffectAction) =>
+    [...ledger.processEffects, ...ledger.filesystemEffects].find(
+      (entry) => entry.action === action,
+    );
+  const settledConfirmed = (action: DockerDesktopRepairEffectAction) => {
+    const entry = effect(action);
+    return entry?.phase === "settled" && entry.confirmation === "confirmed";
+  };
+  if (
+    effect("runtime_directory_rename") &&
+    effect("observed_runtime_directory_rename")
+  )
+    return false;
   if (
     unsettled &&
     !["prepared", "processes_stopped", "renamed"].includes(stage)
@@ -536,8 +649,24 @@ function stageLedgerCompatible(
     ledger.processEffects.some((entry) => entry.action === "desktop_launch")
   )
     return false;
+  if (
+    stage === "processes_stopped" &&
+    (!settledConfirmed("wsl_termination") ||
+      (effect("runtime_directory_rename")?.phase === "settled" &&
+        !settledConfirmed("runtime_directory_rename")))
+  )
+    return false;
+  if (
+    stage === "renamed" &&
+    !settledConfirmed("runtime_directory_rename") &&
+    !settledConfirmed("observed_runtime_directory_rename")
+  )
+    return false;
   if (stage === "recovered_pending_disposition")
     return (
+      settledConfirmed("desktop_launch") &&
+      (settledConfirmed("runtime_directory_rename") ||
+        settledConfirmed("observed_runtime_directory_rename")) &&
       ledger.engineReady === true &&
       ledger.liveRunIdentity !== null &&
       ledger.staleState === "retained" &&
@@ -546,6 +675,9 @@ function stageLedgerCompatible(
     );
   if (stage === "closed_retained")
     return (
+      settledConfirmed("desktop_launch") &&
+      (settledConfirmed("runtime_directory_rename") ||
+        settledConfirmed("observed_runtime_directory_rename")) &&
       ledger.engineReady === true &&
       ledger.liveRunIdentity !== null &&
       ledger.staleState === "retained" &&
@@ -766,6 +898,27 @@ export function inventoryDockerDesktopRepairOperations(
   } catch {
     return Object.freeze({ status: "unknown" as const, operations: [] });
   }
+}
+
+export function canCreateDockerDesktopRepairOperation(
+  boundary: DockerDesktopRepairRecordBoundary,
+) {
+  const inventory = inventoryDockerDesktopRepairOperations(boundary);
+  return (
+    inventory.status === "verified" &&
+    inventory.operations.length < MAXIMUM_OPERATIONS
+  );
+}
+
+export function hasDockerDesktopRepairRecordCapacity(
+  operation: DockerDesktopRepairOperation,
+  requiredRecords: number,
+) {
+  return (
+    Number.isSafeInteger(requiredRecords) &&
+    requiredRecords >= 0 &&
+    MAXIMUM_RECORDS - (operation.sequence + 1) >= requiredRecords
+  );
 }
 
 export function createDockerDesktopRepairOperation(

@@ -7,6 +7,7 @@ import test from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
+import { dispatchDockerDesktopRepairDoctorCommand } from "../src/core/docker-desktop-repair-doctor-dispatch.ts";
 import { inspectDockerRecoveryRootSnapshotWithLock } from "../src/security/docker-recovery-runtime-internal.ts";
 
 const recoveryId = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
@@ -120,6 +121,94 @@ test("実CLIのDocker Desktop最終砦はinvalid IDをusage 64、未成立境界
   assert.equal(report.status, "blocked");
   assert.equal(report.pathReported, false);
   assert.equal(report.credentialReported, false);
+
+  const repair = spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      executable,
+      "doctor",
+      "--repair-docker-desktop-runtime",
+      "--json",
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+  assert.equal(repair.status, 2, repair.stderr);
+  assert.equal(JSON.parse(repair.stdout).status, "blocked");
+
+  const human = spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      executable,
+      "doctor",
+      "--close-docker-desktop-runtime-repair",
+      syntacticallyValid,
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+  assert.equal(human.status, 2, human.stderr);
+  assert.doesNotMatch(human.stdout, /C:\\|credential|password|token/iu);
+});
+
+test("Docker Desktop専用dispatcherはrepair／closeの2・0・throwを同じrendererへ投影する", async () => {
+  const repairId = `docker-desktop-repair.${"b".repeat(32)}`;
+  const terminal = Object.freeze({
+    contract: "crdd-coordinator/docker-desktop-runtime-repair",
+    contractRevision: 4,
+    status: "closed_retained",
+    reason: "docker_desktop_repair_evidence_retention_closed",
+    repairId,
+    nativeHelperCleanupConfirmed: true,
+    newRepairPermitted: true,
+    deletionPerformed: false,
+    pathReported: false,
+    credentialReported: false,
+    providerEffectIssued: false,
+  });
+  for (const json of [true, false]) {
+    const repair = await dispatchDockerDesktopRepairDoctorCommand(
+      {
+        json,
+        repairDockerDesktopRuntime: true,
+        closeDockerDesktopRepairId: null,
+      },
+      {
+        repair: async () => ({
+          ...terminal,
+          status: "recovered_pending_close",
+          newRepairPermitted: false,
+        }),
+        close: async () => terminal,
+      },
+    );
+    assert.equal(repair?.exitCode, 2);
+    const close = await dispatchDockerDesktopRepairDoctorCommand(
+      {
+        json,
+        repairDockerDesktopRuntime: false,
+        closeDockerDesktopRepairId: repairId,
+      },
+      { repair: async () => terminal, close: async () => terminal },
+    );
+    assert.equal(close?.exitCode, 0);
+    assert.doesNotMatch(close?.stdout ?? "", /C:\\/u);
+    const failed = await dispatchDockerDesktopRepairDoctorCommand(
+      {
+        json,
+        repairDockerDesktopRuntime: true,
+        closeDockerDesktopRepairId: null,
+      },
+      {
+        repair: async () => {
+          throw new Error("C:\\secret\\token");
+        },
+        close: async () => terminal,
+      },
+    );
+    assert.equal(failed?.exitCode, 2);
+    assert.doesNotMatch(failed?.stdout ?? "", /secret|token|C:\\/u);
+  }
 });
 
 test("実CLIの人間表示はmanual recoveryとEvidence不明を示し反復実行を誘導しない", () => {
