@@ -10,8 +10,17 @@ const schema = Object.freeze({
     "processRestartRequired",
     "effectStateUnknown",
   ]),
-  nullableRecoveryFields: Object.freeze(["hostRecoveryId", "dockerRecoveryId"]),
-  pluralRecoveryFields: Object.freeze(["hostRecoveryIds", "dockerRecoveryIds"]),
+  nullableRecoveryFields: Object.freeze([]),
+  recoveryPairs: Object.freeze([
+    Object.freeze({
+      singularField: "hostRecoveryId",
+      pluralField: "hostRecoveryIds",
+    }),
+    Object.freeze({
+      singularField: "dockerRecoveryId",
+      pluralField: "dockerRecoveryIds",
+    }),
+  ]),
   effectUnknownField: "effectStateUnknown",
 });
 
@@ -38,19 +47,18 @@ test("安全観測はexact booleanとRecovery集合だけを確定する", () =>
     exact({
       cleanupConfirmed: false,
       manualRecoveryRequired: true,
-      hostRecoveryId: "host.one",
+      hostRecoveryId: null,
       hostRecoveryIds: Object.freeze(["host.one", "host.two"]),
       dockerRecoveryId: "docker.one",
-      dockerRecoveryIds: Object.freeze(["docker.one", "docker.two"]),
+      dockerRecoveryIds: Object.freeze(["docker.one"]),
     }),
     schema,
   );
   assert.equal(recovery.status, "exact");
   assert.deepEqual(recovery.recoveryIds, [
     "host.one",
-    "docker.one",
     "host.two",
-    "docker.two",
+    "docker.one",
   ]);
 });
 
@@ -116,6 +124,36 @@ test("Recovery配列の疎・accessor・Proxy・重複・非文字列を拒否�
           cleanupConfirmed: false,
           manualRecoveryRequired: true,
           dockerRecoveryIds: value,
+        }),
+        schema,
+      ).status,
+      "unknown",
+    );
+  }
+});
+
+test("Recovery pairは0件・1件・N件のcanonical関係だけを受理する", () => {
+  for (const candidate of [
+    exact({ hostRecoveryId: "host.one", hostRecoveryIds: Object.freeze([]) }),
+    exact({
+      hostRecoveryId: "host.one",
+      hostRecoveryIds: Object.freeze(["host.two"]),
+    }),
+    exact({
+      hostRecoveryId: "host.one",
+      hostRecoveryIds: Object.freeze(["host.one", "host.two"]),
+    }),
+    exact({
+      hostRecoveryId: null,
+      hostRecoveryIds: Object.freeze(["host.one"]),
+    }),
+  ]) {
+    assert.equal(
+      evaluateSignedRunnerSafetyObservation(
+        Object.freeze({
+          ...candidate,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
         }),
         schema,
       ).status,

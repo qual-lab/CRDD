@@ -216,6 +216,7 @@ function dependencies(
     discards: 0,
     bound: 0,
     unbound: 0,
+    cancels: 0,
     issuedCapability: null as object | null,
     passedCapability: null as unknown,
     passedRequest: null as unknown,
@@ -245,7 +246,10 @@ function dependencies(
             : Promise.resolve(options.result ?? taskResult()),
         });
       },
-      cancelTask: () => Object.freeze({ status: "requested" }),
+      cancelTask: () => {
+        calls.cancels += 1;
+        return Object.freeze({ status: "requested" });
+      },
       readCandidate: () => {
         calls.reads += 1;
         if (options.readThrows) throw new Error("fixture_read_failed");
@@ -270,6 +274,9 @@ function dependencies(
             calls.unbound += 1;
           },
           requested: () => options.cancellationRequested ?? false,
+          requestedPromise: options.cancellationRequested
+            ? Promise.resolve()
+            : new Promise<void>(() => undefined),
         });
       },
     }),
@@ -741,6 +748,14 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     "requested_throw",
     "unbind_throw",
     "result_getter",
+    "started_proxy",
+    "completion_getter",
+    "completion_proxy",
+    "signal_completion_never",
+    "signal_completion_never_cancel_reject",
+    "signal_completion_never_cancel_never",
+    "signal_completion_never_cancel_malformed",
+    "docker_pair_mismatch",
     ...[
       "cleanupConfirmed",
       "manualRecoveryRequired",
@@ -773,7 +788,8 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     if (
       scenario !== "completed_true" &&
       scenario !== "start_throw" &&
-      scenario !== "discard_true"
+      scenario !== "discard_true" &&
+      scenario !== "started_proxy"
     )
       assert.equal(observed.cancelAttempts, 1, scenario);
     if (scenario === "completed_true")
@@ -781,6 +797,13 @@ test("Task開始後のrestart矛盾・結果不明は独立Processでpoisonし�
     if (scenario === "bind_throw_recovery") {
       assert.equal(result.manualRecoveryRequired, true, scenario);
       assert.equal(result.hostRecoveryId, "host.fixed.recovery", scenario);
+    }
+    if (scenario === "docker_pair_mismatch") {
+      assert.deepEqual(result.dockerRecoveryIds, [
+        "docker.general.a",
+        "docker.general.b",
+      ]);
+      assert.equal(result.recoveryIdentityAmbiguous, true, scenario);
     }
     assert.equal(
       observed.packageReason,
@@ -913,7 +936,7 @@ test("Taskとdiscardの複合Recoveryは全IDを保持し競合を明示する",
   assert.equal(fixture.calls.discards, 1);
 });
 
-test("SIGINT／SIGTERMは取消をexact onceにしunbind後は不発火にする", () => {
+test("SIGINT／SIGTERMはrequested latchだけをexact onceにしunbind後は不発火にする", async () => {
   const signals = new EventEmitter();
   const controlCapability = Object.freeze({});
   let cancellations = 0;
@@ -928,12 +951,13 @@ test("SIGINT／SIGTERMは取消をexact onceにしunbind後は不発火にする
   signals.emit("SIGINT");
   signals.emit("SIGINT");
   signals.emit("SIGTERM");
+  await binding.requestedPromise;
   assert.equal(binding.requested(), true);
-  assert.equal(cancellations, 1);
+  assert.equal(cancellations, 0);
   binding.unbind();
   binding.unbind();
   signals.emit("SIGTERM");
-  assert.equal(cancellations, 1);
+  assert.equal(cancellations, 0);
 });
 
 test("二本目Signal登録失敗は一本目をrollbackしlistenerを残さない", () => {
@@ -954,4 +978,28 @@ test("二本目Signal登録失敗は一本目をrollbackしlistenerを残さな�
   );
   assert.equal(signals.listenerCount("SIGINT"), 0);
   assert.equal(signals.listenerCount("SIGTERM"), 0);
+});
+
+test("completion確定とunbindの間のsignal latchを成功へ取り逃がさない", () => {
+  const probe = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/signed-general-poison-probe.ts"),
+      "unbind_requests",
+    ],
+    {
+      cwd: path.resolve("."),
+      encoding: "utf8",
+    },
+  );
+  assert.equal(probe.status, 0, probe.stderr);
+  const observed = JSON.parse(probe.stdout) as {
+    runnerResult: Record<string, unknown>;
+    poisoned: boolean;
+    cancelAttempts: number;
+  };
+  assert.equal(observed.runnerResult.status, "blocked");
+  assert.equal(observed.runnerResult.reason, "signed_general_task_cancelled");
+  assert.equal(observed.cancelAttempts, 1);
+  assert.equal(observed.poisoned, false);
 });

@@ -112,6 +112,12 @@ const PROCESS_CANCELLATION_RESULT_KEYS = new Set([
 type Provider = "codex" | "claude";
 type TaskRole = "executor" | "reviewer";
 type RuntimeRecord = Readonly<Record<string, unknown>>;
+const INTERNAL_TASK_OUTCOME = Symbol("internalTaskOutcome");
+type InternalTaskOutcome = Readonly<{
+  [INTERNAL_TASK_OUTCOME]: true;
+  publicResult: RuntimeRecord;
+  dockerCleanupEligible: boolean;
+}>;
 type TaskCompletionRecord = RuntimeRecord &
   Readonly<{
     status: string;
@@ -327,7 +333,7 @@ type RuntimeState = Readonly<{
   controls: WeakMap<object, ControlRecord>;
 }>;
 
-function blocked(
+function createBlocked(
   reason: string,
   manualRecoveryRequired = false,
   hostRecoveryId: string | null = null,
@@ -371,6 +377,8 @@ function blocked(
     credentialAbsenceVerified: false,
   });
 }
+
+const blocked = createBlocked;
 
 function objectCapability(value: unknown) {
   return value && typeof value === "object" ? (value as object) : null;
@@ -971,6 +979,8 @@ async function runCoordinatorTaskCore(
   controlCapability: object,
   control: ControlRecord,
 ) {
+  const blocked = (...args: Parameters<typeof createBlocked>) =>
+    projectCurrentDockerRecovery(createBlocked(...args), control);
   const requestOutcome = snapshotRequest(rawRequest);
   if (
     !requestOutcome ||
@@ -1207,7 +1217,7 @@ async function runCoordinatorTaskCore(
     );
     if (executor.status !== "completed") {
       shouldRetainOperationRoot = executor.manualRecoveryRequired === true;
-      return executor;
+      return projectCurrentDockerRecovery(executor, control);
     }
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_before_candidate_capture");
@@ -1253,7 +1263,7 @@ async function runCoordinatorTaskCore(
     );
     if (reviewer.status !== "completed") {
       shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
-      return reviewer;
+      return projectCurrentDockerRecovery(reviewer, control);
     }
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     let remediationPerformed = false;
@@ -1280,7 +1290,7 @@ async function runCoordinatorTaskCore(
       );
       if (remediation.status !== "completed") {
         shouldRetainOperationRoot = remediation.manualRecoveryRequired === true;
-        return remediation;
+        return projectCurrentDockerRecovery(remediation, control);
       }
       remediationPerformed = true;
       finalExecutor = remediation;
@@ -1321,7 +1331,7 @@ async function runCoordinatorTaskCore(
       );
       if (reviewer.status !== "completed") {
         shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
-        return reviewer;
+        return projectCurrentDockerRecovery(reviewer, control);
       }
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     }
@@ -1448,7 +1458,7 @@ async function runCoordinatorTask(
   evaluationTime: unknown,
   controlCapability: object,
   control: ControlRecord,
-) {
+): Promise<InternalTaskOutcome> {
   const rawResult = await runCoordinatorTaskCore(
     state,
     rawRequest,
@@ -1459,16 +1469,21 @@ async function runCoordinatorTask(
   );
   const snapshot = snapshotRuntimeRecord(rawResult);
   if (!snapshot)
-    return blocked(
-      "coordinator_task_result_observation_invalid",
-      true,
-      control.hostRecoveryId,
-      null,
-      null,
-      false,
-      null,
-      controlDockerRecoveryIds(control),
-    );
+    return Object.freeze({
+      [INTERNAL_TASK_OUTCOME]: true as const,
+      publicResult: blocked(
+        "coordinator_task_result_observation_invalid",
+        true,
+        control.hostRecoveryId,
+        null,
+        null,
+        false,
+        null,
+        controlDockerRecoveryIds(control),
+      ),
+      dockerCleanupEligible: false,
+    });
+  const dockerCleanupEligible = canRunManagedDockerCleanup(snapshot, control);
   const singularDescriptor = Object.getOwnPropertyDescriptor(
     snapshot,
     "dockerRecoveryId",
@@ -1480,7 +1495,7 @@ async function runCoordinatorTask(
   const plural = pluralDescriptor
     ? snapshotPlainArray<unknown>(pluralDescriptor.value, 128)
     : null;
-  if (
+  const projectionInvalid =
     !singularDescriptor ||
     !("value" in singularDescriptor) ||
     (singularDescriptor.value !== null &&
@@ -1489,31 +1504,45 @@ async function runCoordinatorTask(
     !("value" in pluralDescriptor) ||
     plural?.status !== "ok" ||
     plural.value.some((value) => !stringValue(value)) ||
-    new Set(plural.value).size !== plural.value.length
-  )
-    return blocked(
-      "coordinator_task_docker_recovery_projection_invalid",
-      true,
-      control.hostRecoveryId,
-      null,
-      stringValue(snapshot.candidateRecoveryId),
-      false,
-      stringValue(snapshot.candidateStoreRecoveryId),
-      controlDockerRecoveryIds(control),
-    );
-  const ids = Object.freeze([
+    new Set(plural.value).size !== plural.value.length;
+  const observedIds = Object.freeze([
     ...new Set([
-      ...(plural.value as readonly string[]),
-      ...(stringValue(singularDescriptor.value)
+      ...(plural?.status === "ok"
+        ? plural.value.filter(
+            (value): value is string => stringValue(value) !== null,
+          )
+        : []),
+      ...(singularDescriptor &&
+      "value" in singularDescriptor &&
+      stringValue(singularDescriptor.value)
         ? [String(singularDescriptor.value)]
         : []),
-      ...controlDockerRecoveryIds(control),
     ]),
   ]);
+  const ids = Object.freeze([
+    ...new Set([...observedIds, ...controlDockerRecoveryIds(control)]),
+  ]);
+  const publicResult = projectionInvalid
+    ? blocked(
+        "coordinator_task_docker_recovery_projection_invalid",
+        true,
+        control.hostRecoveryId,
+        null,
+        stringValue(snapshot.candidateRecoveryId),
+        false,
+        stringValue(snapshot.candidateStoreRecoveryId),
+        ids,
+      )
+    : Object.freeze({
+        ...snapshot,
+        dockerRecoveryId: ids.length === 1 ? (ids[0] ?? null) : null,
+        dockerRecoveryIds: ids,
+      });
   return Object.freeze({
-    ...snapshot,
-    dockerRecoveryId: ids.length === 1 ? (ids[0] ?? null) : null,
-    dockerRecoveryIds: ids,
+    [INTERNAL_TASK_OUTCOME]: true as const,
+    publicResult,
+    dockerCleanupEligible:
+      dockerCleanupEligible === true && projectionInvalid === false,
   });
 }
 
@@ -1720,8 +1749,10 @@ function createRuntime(dependencies: RuntimeDependencies) {
         controlCapability,
         control,
       )
-        .then(async (rawResult) => {
-          const rawResultRecord = snapshotRuntimeRecord(rawResult);
+        .then(async (outcome) => {
+          if (outcome[INTERNAL_TASK_OUTCOME] !== true)
+            throw new Error("coordinator_task_internal_outcome_invalid");
+          const rawResultRecord = snapshotRuntimeRecord(outcome.publicResult);
           if (!rawResultRecord) {
             await retainRuntimeRecoveryState(state, control);
             return blocked(
@@ -1735,10 +1766,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
               controlDockerRecoveryIds(control),
             );
           }
-          const cleanupProjectionEligible = canRunManagedDockerCleanup(
-            rawResultRecord,
-            control,
-          );
+          const cleanupProjectionEligible = outcome.dockerCleanupEligible;
           const observedDockerRecoveryIds = snapshotPlainArray<string>(
             rawResultRecord.dockerRecoveryIds,
             128,

@@ -335,6 +335,29 @@ test("route結果のgetter／Proxy観測不能は実Process poisonへ閉じる",
   }
 });
 
+test("route安全観測不明でも有効Recovery IDをnested／top-levelへ保持する", () => {
+  const probe = spawnSync(
+    process.execPath,
+    [
+      path.resolve("tests/fixtures/signed-route-poison-probe.ts"),
+      "recovery_pair_mismatch",
+    ],
+    { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
+  );
+  assert.equal(probe.status, 0, probe.stderr);
+  const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
+  const result = observed.result as Record<string, unknown>;
+  const nested = (result.results as Array<Record<string, unknown>>)[0];
+  assert.equal(observed.attempts, 1);
+  assert.equal(result.validationFailure, "runner_exception");
+  assert.deepEqual(nested?.hostRecoveryIds, ["host.route.a", "host.route.b"]);
+  assert.deepEqual(result.hostRecoveryIds, ["host.route.a", "host.route.b"]);
+  assert.equal(result.hostRecoveryId, null);
+  assert.equal(result.recoveryIdentityAmbiguous, true);
+  assert.equal(result.processRestartRequired, true);
+  assert.equal(observed.poisoned, true);
+});
+
 test("同意resetのthrowまたはmalformedはroute開始前でも独立Process poisonへ閉じる", () => {
   for (const scenario of ["revoke_throw", "revoke_malformed"]) {
     const probe = spawnSync(

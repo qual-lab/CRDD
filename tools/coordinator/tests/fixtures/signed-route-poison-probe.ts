@@ -103,6 +103,12 @@ const result = await runSignedRouteMatrixVerification(
     if (scenario.startsWith("null:")) value[scenario.slice(5)] = null;
     if (scenario.startsWith("string:")) value[scenario.slice(7)] = "invalid";
     if (scenario === "child_true") value.processRestartRequired = true;
+    if (scenario === "recovery_pair_mismatch") {
+      value.cleanupConfirmed = false;
+      value.manualRecoveryRequired = true;
+      value.hostRecoveryId = "host.route.a";
+      value.hostRecoveryIds = Object.freeze(["host.route.b"]);
+    }
     if (scenario === "result_getter") {
       const getterResult = Object.create(null);
       Object.defineProperty(getterResult, "status", {

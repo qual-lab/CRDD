@@ -46,11 +46,15 @@ const TASK_SAFETY_SCHEMA = Object.freeze({
   ]),
   nullableRecoveryFields: Object.freeze([
     "hostRecoveryId",
-    "dockerRecoveryId",
     "candidateRecoveryId",
     "candidateStoreRecoveryId",
   ]),
-  pluralRecoveryFields: Object.freeze(["dockerRecoveryIds"]),
+  recoveryPairs: Object.freeze([
+    Object.freeze({
+      singularField: "dockerRecoveryId",
+      pluralField: "dockerRecoveryIds",
+    }),
+  ]),
 });
 
 type RuntimeRecord = Readonly<Record<string, unknown>>;
@@ -109,13 +113,10 @@ type ReleaseIdentity = RuntimeRecord &
     crddCommit: string;
     crddTree: string;
   }>;
-type StartedTask = Readonly<{
-  controlCapability: object;
-  completion: Promise<RuntimeRecord>;
-}>;
 type CancellationBinding = Readonly<{
   unbind: () => void;
   requested: () => boolean;
+  requestedPromise: Promise<void>;
 }>;
 type CancellationSignalSource = Readonly<{
   on: (signal: "SIGINT" | "SIGTERM", listener: () => void) => unknown;
@@ -132,7 +133,7 @@ type VerificationDependencies = Readonly<{
     request: RuntimeRecord,
     repositoryRoot: string,
     verifiedPackageCapability: unknown,
-  ) => StartedTask;
+  ) => unknown;
   cancelTask: (controlCapability: object) => unknown;
   readCandidate: (candidateId: string) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
@@ -146,20 +147,19 @@ type VerificationDependencies = Readonly<{
 
 export function bindSignedGeneralTaskCancellation(
   signalSource: CancellationSignalSource,
-  controlCapability: object,
-  cancel: (controlCapability: object) => unknown,
+  _controlCapability: object,
+  _cancel: (controlCapability: object) => unknown,
 ): CancellationBinding {
   let isRequested = false;
-  let hasCancellationStarted = false;
+  let resolveRequested: (() => void) | null = null;
+  const requestedPromise = new Promise<void>((resolve) => {
+    resolveRequested = resolve;
+  });
   const requestCancellation = () => {
+    if (isRequested) return;
     isRequested = true;
-    if (hasCancellationStarted) return;
-    hasCancellationStarted = true;
-    try {
-      void Promise.resolve(cancel(controlCapability)).catch(() => undefined);
-    } catch {
-      // The final task and cleanup result remains the recovery authority.
-    }
+    resolveRequested?.();
+    resolveRequested = null;
   };
   try {
     signalSource.on("SIGINT", requestCancellation);
@@ -198,6 +198,7 @@ export function bindSignedGeneralTaskCancellation(
         );
     },
     requested: () => isRequested,
+    requestedPromise,
   });
 }
 
@@ -245,6 +246,54 @@ function plainRecord(value: unknown): RuntimeRecord | null {
   } catch {
     return null;
   }
+}
+
+function snapshotStartedTask(value: unknown) {
+  let controlCapability: object | null = null;
+  let completion: Promise<RuntimeRecord> | null = null;
+  try {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      utilTypes.isProxy(value)
+    )
+      return Object.freeze({ controlCapability, completion });
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null)
+      return Object.freeze({ controlCapability, completion });
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const control = descriptors.controlCapability;
+    if (
+      control &&
+      Object.hasOwn(control, "value") &&
+      control.get === undefined &&
+      control.set === undefined &&
+      control.enumerable === true &&
+      control.value &&
+      typeof control.value === "object" &&
+      !utilTypes.isProxy(control.value)
+    )
+      controlCapability = control.value;
+    const observedCompletion = descriptors.completion;
+    if (
+      observedCompletion &&
+      Object.hasOwn(observedCompletion, "value") &&
+      observedCompletion.get === undefined &&
+      observedCompletion.set === undefined &&
+      observedCompletion.enumerable === true &&
+      observedCompletion.value &&
+      typeof observedCompletion.value === "object" &&
+      !utilTypes.isProxy(observedCompletion.value) &&
+      utilTypes.isPromise(observedCompletion.value) &&
+      Object.getOwnPropertyDescriptor(observedCompletion.value, "then") ===
+        undefined
+    )
+      completion = observedCompletion.value as Promise<RuntimeRecord>;
+  } catch {
+    // Partially observed control remains available only for bounded cancel.
+  }
+  return Object.freeze({ controlCapability, completion });
 }
 
 function exactStringArray(value: unknown, expectedValues: readonly string[]) {
@@ -422,6 +471,7 @@ function postStartUnknownBlocked(
     manualRecoveryRequired: true,
     processRestartRequired: true,
     effectStateUnknown: true,
+    recoveryIdentityAmbiguous: true,
   });
 }
 
@@ -695,9 +745,9 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
-  let started: StartedTask;
+  let rawStarted: unknown;
   try {
-    started = dependencies.startTask(
+    rawStarted = dependencies.startTask(
       createSignedGeneralTaskVerificationRequest(routeProfile),
       repositoryRoot,
       verifiedPackageCapability,
@@ -710,23 +760,52 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
+  const started = snapshotStartedTask(rawStarted);
+  const controlCapability = started.controlCapability;
+  const completion = started.completion;
+  if (!controlCapability) {
+    ensureRuntimeProcessPoisoned();
+    return postStartUnknownBlocked(
+      "signed_general_task_started_task_observation_unknown",
+      null,
+      null,
+      false,
+    );
+  }
+  const completionObservation = completion
+    ? completion.then(
+        (value) => Object.freeze({ status: "fulfilled" as const, value }),
+        () => Object.freeze({ status: "rejected" as const, value: null }),
+      )
+    : null;
   let cancelAttempted = false;
-  let cancelCompletion: Promise<boolean> | null = null;
+  let cancelCompletion: Promise<RuntimeRecord | null> | null = null;
   const requestCancellation = () => {
     if (cancelAttempted) return cancelCompletion;
     cancelAttempted = true;
     try {
       cancelCompletion = Promise.resolve(
-        dependencies.cancelTask(started.controlCapability),
+        dependencies.cancelTask(controlCapability),
       ).then(
-        () => true,
-        () => false,
+        (value) => plainRecord(value),
+        () => null,
       );
     } catch {
-      cancelCompletion = Promise.resolve(false);
+      cancelCompletion = Promise.resolve(null);
     }
     return cancelCompletion;
   };
+  if (!completionObservation) {
+    requestCancellation();
+    if (cancelCompletion) await boundedSettlement(cancelCompletion);
+    ensureRuntimeProcessPoisoned();
+    return postStartUnknownBlocked(
+      "signed_general_task_started_task_completion_unknown",
+      null,
+      null,
+      false,
+    );
+  }
   let cancellationBinding: CancellationBinding | null = null;
   let taskResult: RuntimeRecord | null = null;
   let discarded: RuntimeRecord | null = null;
@@ -736,12 +815,30 @@ export async function runSignedGeneralTaskVerification(
   let postStartUnknownReason =
     "signed_general_task_post_start_observation_unknown";
   let knownOutcome: SignedGeneralTaskVerificationResult | null = null;
+  const SIGNAL_CANCELLATION = Symbol("signedGeneralTaskSignalCancellation");
   try {
     cancellationBinding = dependencies.bindCancellation(
-      started.controlCapability,
-      () => requestCancellation(),
+      controlCapability,
+      () => undefined,
     );
-    taskResult = plainRecord(await started.completion);
+    const first = await Promise.race([
+      completionObservation.then((outcome) =>
+        Object.freeze({ kind: "completion" as const, outcome }),
+      ),
+      cancellationBinding.requestedPromise.then(() =>
+        Object.freeze({ kind: "cancellation" as const, outcome: null }),
+      ),
+    ]);
+    if (first.kind === "cancellation") {
+      cancellationRequested = true;
+      requestCancellation();
+      throw SIGNAL_CANCELLATION;
+    }
+    if (first.outcome.status !== "fulfilled") {
+      postStartUnknownReason = "signed_general_task_completion_rejected";
+      throw new Error(postStartUnknownReason);
+    }
+    taskResult = plainRecord(first.outcome.value);
 
     if (!taskResult) {
       postStartUnknownReason = "signed_general_task_result_contract_mismatch";
@@ -875,9 +972,11 @@ export async function runSignedGeneralTaskVerification(
         credentialReported: false,
       });
     }
-  } catch {
-    postStartUnknown = true;
-    requestCancellation();
+  } catch (error) {
+    if (error !== SIGNAL_CANCELLATION) {
+      postStartUnknown = true;
+      requestCancellation();
+    }
   } finally {
     if (cancellationBinding) {
       try {
@@ -901,19 +1000,45 @@ export async function runSignedGeneralTaskVerification(
       const cancelSettlement = await boundedSettlement(cancelCompletion);
       if (
         cancelSettlement.status !== "fulfilled" ||
-        cancelSettlement.value !== true
+        plainRecord(cancelSettlement.value)?.status !== "requested"
       ) {
         postStartUnknown = true;
         postStartUnknownReason =
           "signed_general_task_cancellation_completion_unknown";
       }
     }
-    if (postStartUnknown && taskResult === null) {
-      const completionSettlement = await boundedSettlement(started.completion);
-      if (completionSettlement.status === "fulfilled")
-        taskResult = plainRecord(completionSettlement.value);
+    if ((postStartUnknown || cancellationRequested) && taskResult === null) {
+      const completionSettlement = await boundedSettlement(
+        completionObservation,
+      );
+      if (
+        completionSettlement.status === "fulfilled" &&
+        completionSettlement.value.status === "fulfilled"
+      )
+        taskResult = plainRecord(completionSettlement.value.value);
+      else {
+        postStartUnknown = true;
+        postStartUnknownReason =
+          "signed_general_task_completion_settlement_unknown";
+      }
     }
-    if (postStartUnknown && taskResult) {
+    if (taskResult && (postStartUnknown || cancellationRequested)) {
+      const safety = evaluateSignedRunnerSafetyObservation(
+        taskResult,
+        TASK_SAFETY_SCHEMA,
+      );
+      if (safety.status !== "exact") {
+        postStartUnknown = true;
+        postStartUnknownReason =
+          "signed_general_task_safety_observation_unknown";
+      } else if (
+        taskResult.processRestartRequired === true &&
+        !isRuntimeProcessPoisoned()
+      ) {
+        ensureRuntimeProcessPoisoned();
+      }
+    }
+    if ((postStartUnknown || cancellationRequested) && taskResult) {
       const candidateId = taskResult.candidateId;
       if (typeof candidateId === "string" && !candidateDiscarded) {
         try {

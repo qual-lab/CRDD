@@ -5,7 +5,10 @@ import { snapshotPlainArray } from "./plain-data-snapshot.ts";
 export type SignedRunnerSafetySchema = Readonly<{
   booleanFields: readonly string[];
   nullableRecoveryFields: readonly string[];
-  pluralRecoveryFields: readonly string[];
+  recoveryPairs: readonly Readonly<{
+    singularField: string;
+    pluralField: string;
+  }>[];
   effectUnknownField?: string;
 }>;
 
@@ -71,12 +74,17 @@ export function evaluateSignedRunnerSafetyObservation(
         throw new Error("safety_observation_recovery_unknown");
       if (typeof observed.value === "string") ids.push(observed.value);
     }
-    for (const field of schema.pluralRecoveryFields) {
-      const observed = ownDataValue(value, field);
-      if (observed.status !== "exact")
+    for (const pair of schema.recoveryPairs) {
+      const singular = ownDataValue(value, pair.singularField);
+      const pluralObserved = ownDataValue(value, pair.pluralField);
+      if (
+        singular.status !== "exact" ||
+        (singular.value !== null && !recoveryId(singular.value)) ||
+        pluralObserved.status !== "exact"
+      )
         throw new Error("safety_observation_recovery_unknown");
       const plural = snapshotPlainArray<unknown>(
-        observed.value,
+        pluralObserved.value,
         MAXIMUM_RECOVERY_IDS,
       );
       if (
@@ -85,6 +93,13 @@ export function evaluateSignedRunnerSafetyObservation(
         new Set(plural.value).size !== plural.value.length
       )
         throw new Error("safety_observation_recovery_unknown");
+      if (
+        (plural.value.length === 0 && singular.value !== null) ||
+        (plural.value.length === 1 && singular.value !== plural.value[0]) ||
+        (plural.value.length > 1 && singular.value !== null)
+      )
+        throw new Error("safety_observation_recovery_pair_noncanonical");
+      if (typeof singular.value === "string") ids.push(singular.value);
       ids.push(...(plural.value as readonly string[]));
     }
     const uniqueIds = Object.freeze([...new Set(ids)]);

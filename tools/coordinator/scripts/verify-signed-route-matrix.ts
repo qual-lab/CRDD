@@ -43,17 +43,24 @@ const ROUTE_SAFETY_SCHEMA = Object.freeze({
     "hostPathReported",
     "credentialReported",
   ]),
-  nullableRecoveryFields: Object.freeze([
-    "hostRecoveryId",
-    "dockerRecoveryId",
-    "candidateRecoveryId",
-    "candidateStoreRecoveryId",
-  ]),
-  pluralRecoveryFields: Object.freeze([
-    "hostRecoveryIds",
-    "dockerRecoveryIds",
-    "candidateRecoveryIds",
-    "candidateStoreRecoveryIds",
+  nullableRecoveryFields: Object.freeze([]),
+  recoveryPairs: Object.freeze([
+    Object.freeze({
+      singularField: "hostRecoveryId",
+      pluralField: "hostRecoveryIds",
+    }),
+    Object.freeze({
+      singularField: "dockerRecoveryId",
+      pluralField: "dockerRecoveryIds",
+    }),
+    Object.freeze({
+      singularField: "candidateRecoveryId",
+      pluralField: "candidateRecoveryIds",
+    }),
+    Object.freeze({
+      singularField: "candidateStoreRecoveryId",
+      pluralField: "candidateStoreRecoveryIds",
+    }),
   ]),
   effectUnknownField: "effectStateUnknown",
 });
@@ -162,7 +169,72 @@ function ensureRuntimeProcessPoisoned() {
     throw new Error("runtime_process_poison_transition_failed");
 }
 
-function failedRouteResult(route: SignedGeneralTaskRouteProfile) {
+const RECOVERY_PAIRS = Object.freeze([
+  Object.freeze({ singular: "hostRecoveryId", plural: "hostRecoveryIds" }),
+  Object.freeze({ singular: "dockerRecoveryId", plural: "dockerRecoveryIds" }),
+  Object.freeze({
+    singular: "candidateRecoveryId",
+    plural: "candidateRecoveryIds",
+  }),
+  Object.freeze({
+    singular: "candidateStoreRecoveryId",
+    plural: "candidateStoreRecoveryIds",
+  }),
+]);
+
+function sanitizedRouteRecovery(
+  result: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const projection: Record<string, unknown> = Object.create(null);
+  let ambiguous = false;
+  for (const pair of RECOVERY_PAIRS) {
+    const ids: string[] = [];
+    const singular = result[pair.singular];
+    if (typeof singular === "string" && singular.length > 0) ids.push(singular);
+    else if (singular !== null) ambiguous = true;
+    const plural = snapshotPlainArray<unknown>(result[pair.plural], 128);
+    if (plural.status === "ok") {
+      for (const value of plural.value) {
+        if (typeof value === "string" && value.length > 0) ids.push(value);
+        else ambiguous = true;
+      }
+    } else {
+      ambiguous = true;
+    }
+    const unique = Object.freeze([...new Set(ids)]);
+    projection[pair.singular] = unique.length === 1 ? unique[0] : null;
+    projection[pair.plural] = unique;
+    if (
+      (unique.length === 0 && singular !== null) ||
+      (unique.length === 1 && singular !== unique[0]) ||
+      (unique.length > 1 && singular !== null)
+    )
+      ambiguous = true;
+  }
+  return Object.freeze({
+    ...projection,
+    recoveryIdentityAmbiguous: ambiguous,
+  });
+}
+
+function failedRouteResult(
+  route: SignedGeneralTaskRouteProfile,
+  observed: Readonly<Record<string, unknown>> | null = null,
+) {
+  const recovery = observed
+    ? sanitizedRouteRecovery(observed)
+    : sanitizedRouteRecovery(
+        Object.freeze({
+          hostRecoveryId: null,
+          hostRecoveryIds: Object.freeze([]),
+          dockerRecoveryId: null,
+          dockerRecoveryIds: Object.freeze([]),
+          candidateRecoveryId: null,
+          candidateRecoveryIds: Object.freeze([]),
+          candidateStoreRecoveryId: null,
+          candidateStoreRecoveryIds: Object.freeze([]),
+        }),
+      );
   return Object.freeze({
     status: "blocked" as const,
     reason: "signed_route_matrix_route_runner_failed_closed",
@@ -175,6 +247,32 @@ function failedRouteResult(route: SignedGeneralTaskRouteProfile) {
     rawProviderOutputReported: null,
     hostPathReported: null,
     credentialReported: null,
+    ...recovery,
+  });
+}
+
+function aggregateRouteRecovery(
+  results: readonly Readonly<Record<string, unknown>>[],
+) {
+  const aggregate: Record<string, unknown> = Object.create(null);
+  let ambiguous = results.some(
+    (result) => result.recoveryIdentityAmbiguous === true,
+  );
+  for (const pair of RECOVERY_PAIRS) {
+    const ids: string[] = [];
+    for (const result of results) {
+      const recovery = sanitizedRouteRecovery(result);
+      const values = recovery[pair.plural];
+      if (Array.isArray(values)) ids.push(...(values as readonly string[]));
+      if (recovery.recoveryIdentityAmbiguous === true) ambiguous = true;
+    }
+    const unique = Object.freeze([...new Set(ids)]);
+    aggregate[pair.singular] = unique.length === 1 ? unique[0] : null;
+    aggregate[pair.plural] = unique;
+  }
+  return Object.freeze({
+    ...aggregate,
+    recoveryIdentityAmbiguous: ambiguous,
   });
 }
 
@@ -302,10 +400,12 @@ export async function runSignedRouteMatrixVerification(
     | "runner_exception"
     | null = null;
   for (const [index, route] of ROUTES.entries()) {
+    let routeSnapshot: Readonly<Record<string, unknown>> | null = null;
     try {
       const outcome = await run(repositoryRoot, undefined, route);
       const result = snapshotRouteRecord(outcome);
       if (!result) throw new Error("route_result_snapshot_unknown");
+      routeSnapshot = result;
       const safety = evaluateSignedRunnerSafetyObservation(
         result,
         ROUTE_SAFETY_SCHEMA,
@@ -336,7 +436,7 @@ export async function runSignedRouteMatrixVerification(
       verifiedRouteCount += 1;
     } catch {
       ensureRuntimeProcessPoisoned();
-      results.push(failedRouteResult(route));
+      results.push(failedRouteResult(route, routeSnapshot));
       failedRouteProfile = route;
       validationFailure = "runner_exception";
       break;
@@ -346,6 +446,7 @@ export async function runSignedRouteMatrixVerification(
   const effectStateUnknown = results.some(
     (result) => result.effectStateUnknown === true,
   );
+  const recovery = aggregateRouteRecovery(results);
   return Object.freeze({
     contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
@@ -378,6 +479,7 @@ export async function runSignedRouteMatrixVerification(
     credentialReported: effectStateUnknown
       ? null
       : results.some((result) => result.credentialReported !== false),
+    ...recovery,
   });
 }
 

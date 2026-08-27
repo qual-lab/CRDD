@@ -91,6 +91,12 @@ if (scenario === "bind_throw_recovery") {
 if (scenario.startsWith("missing:")) delete result[scenario.slice(8)];
 if (scenario.startsWith("null:")) result[scenario.slice(5)] = null;
 if (scenario.startsWith("string:")) result[scenario.slice(7)] = "invalid";
+if (scenario === "docker_pair_mismatch") {
+  result.cleanupConfirmed = false;
+  result.manualRecoveryRequired = true;
+  result.dockerRecoveryId = "docker.general.a";
+  result.dockerRecoveryIds = Object.freeze(["docker.general.b"]);
+}
 
 const bytes = Buffer.from(expectedContent, "utf8");
 const candidate = Object.freeze({
@@ -118,6 +124,7 @@ const candidate = Object.freeze({
 });
 
 let cancelAttempts = 0;
+let lateRequested = false;
 const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
   issuePackageCapability: () =>
     Object.freeze({ verification: release, capability: Object.freeze({}) }),
@@ -130,26 +137,55 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
         throw new Error("fixed_result_getter");
       },
     });
-    return Object.freeze({
+    const completion =
+      scenario === "bind_throw_completion_never" ||
+      scenario.startsWith("signal_completion_never")
+        ? new Promise<Record<string, unknown>>(() => undefined)
+        : scenario === "completion_reject"
+          ? Promise.reject(new Error("fixed_completion_reject"))
+          : Promise.resolve(
+              scenario === "result_getter"
+                ? getterResult
+                : Object.freeze(result),
+            );
+    const started = Object.freeze({
       controlCapability: Object.freeze({}),
-      completion:
-        scenario === "bind_throw_completion_never"
-          ? new Promise<Record<string, unknown>>(() => undefined)
-          : scenario === "completion_reject"
-            ? Promise.reject(new Error("fixed_completion_reject"))
-            : Promise.resolve(
-                scenario === "result_getter"
-                  ? getterResult
-                  : Object.freeze(result),
-              ),
+      completion,
     });
+    if (scenario === "started_proxy") return new Proxy(started, {});
+    if (scenario === "completion_proxy")
+      return Object.freeze({
+        controlCapability: started.controlCapability,
+        completion: new Proxy(completion, {}),
+      });
+    if (scenario === "completion_getter") {
+      const withGetter = Object.create(null);
+      Object.defineProperty(withGetter, "controlCapability", {
+        enumerable: true,
+        value: started.controlCapability,
+      });
+      Object.defineProperty(withGetter, "completion", {
+        enumerable: true,
+        get: () => completion,
+      });
+      return withGetter;
+    }
+    return started;
   },
   cancelTask: () => {
     cancelAttempts += 1;
-    if (scenario === "cancel_reject")
+    if (
+      scenario === "cancel_reject" ||
+      scenario === "signal_completion_never_cancel_reject"
+    )
       return Promise.reject(new Error("fixed_cancel_reject"));
-    if (scenario === "cancel_never")
+    if (
+      scenario === "cancel_never" ||
+      scenario === "signal_completion_never_cancel_never"
+    )
       return new Promise<Record<string, unknown>>(() => undefined);
+    if (scenario === "signal_completion_never_cancel_malformed")
+      return Object.freeze({ status: "blocked" });
     return Object.freeze({ status: "requested" });
   },
   readCandidate: () => candidate,
@@ -179,12 +215,16 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
     return Object.freeze({
       unbind: () => {
         if (scenario === "unbind_throw") throw new Error("fixed_unbind_throw");
+        if (scenario === "unbind_requests") lateRequested = true;
       },
       requested: () => {
         if (scenario === "requested_throw")
           throw new Error("fixed_requested_throw");
-        return false;
+        return scenario.startsWith("signal_completion_never") || lateRequested;
       },
+      requestedPromise: scenario.startsWith("signal_completion_never")
+        ? Promise.resolve()
+        : new Promise<void>(() => undefined),
     });
   },
 });
