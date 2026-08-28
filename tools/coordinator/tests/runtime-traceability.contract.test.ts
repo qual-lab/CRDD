@@ -39,10 +39,10 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     {
       status: "accepted",
       resources: 9,
-      states: 19,
-      transitions: 19,
+      states: 20,
+      transitions: 20,
       invariants: 9,
-      verificationBindings: 7,
+      verificationBindings: 8,
     },
   );
 });
@@ -157,7 +157,7 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
   resources[0] = { ...resources[0], accidental: true };
   transitions[0] = {
     ...transitions[0],
-    from: ["STATE-RESULT-PUBLISHED"],
+    from: ["STATE-PROCESS-RESTART-REQUIRED"],
     risk: "hgh",
   };
   trace.resources = resources;
@@ -180,7 +180,7 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
     );
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:same_invocation_from_terminal:STATE-RESULT-PUBLISHED",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:same_invocation_from_terminal:STATE-PROCESS-RESTART-REQUIRED",
       ),
     );
     assert.ok(
@@ -312,7 +312,7 @@ test("operation terminalからの遷移と非terminalからのRecovery invocatio
   >[];
   transitions[0] = {
     ...transitions[0],
-    from: ["STATE-RESULT-PUBLISHED"],
+    from: ["STATE-PROCESS-RESTART-REQUIRED"],
   };
   transitions[1] = {
     ...transitions[1],
@@ -324,7 +324,7 @@ test("operation terminalからの遷移と非terminalからのRecovery invocatio
   if (result.status === "blocked") {
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:from_operation_terminal:STATE-RESULT-PUBLISHED",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:from_operation_terminal:STATE-PROCESS-RESTART-REQUIRED",
       ),
     );
     assert.ok(

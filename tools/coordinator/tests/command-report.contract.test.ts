@@ -122,3 +122,20 @@ test("Process再起動案内はRecovery IDと直交しruntime-owned booleanだ�
   assert.match(recoverable, /host recovery ID/u);
   assert.doesNotMatch(recoverable, /restart Coordinator Runtime/u);
 });
+
+test("cleanup確認済みの再起動だけの表示はoperator移送やRecoveryを要求しない", () => {
+  const rendered = renderSafeHumanCommandReport({
+    command: "task",
+    status: "blocked",
+    reason: "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
+    manualRecoveryRequired: false,
+    processRestartRequired: true,
+    hostRecoveryId: null,
+    dockerRecoveryIds: [],
+    candidateRecoveryId: null,
+    candidateStoreRecoveryId: null,
+  });
+  assert.match(rendered, /restart Coordinator Runtime/u);
+  assert.match(rendered, /manual recovery required: no/u);
+  assert.doesNotMatch(rendered, /runtime operator|recovery ID/u);
+});

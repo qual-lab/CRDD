@@ -51,11 +51,12 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 | Host回収 | `STATE-HOST-CLEAN` | 全Docker Host-cleanup intent、Operation cleanup、receipt、finalize | Host／Docker未解決0 |
 | 結果公開 | `STATE-RESULT-PUBLISHED` | Candidateをpublishし安全な構造化結果を返す | cleanupとCandidate再検証済み |
 | 安全な停止 | `STATE-BLOCKED-CLEAN` | Resultを公開せず、所有資源不存在とRecovery不要を確認 | Operation終了 |
+| Process再起動待ち | `STATE-PROCESS-RESTART-REQUIRED` | Operation資源のcleanupは確認済みだが、取消protocol違反等で現在Processだけが不可逆poison | 当該Operationは終了。新しいProcessから別Taskを開始 |
 | 回復待ち | `STATE-RECOVERY-REQUIRED` | exact Recovery IDとEvidenceを保持して停止 | 明示Recoveryの成立 |
 | Operator移送待ち | `STATE-OPERATOR-TRANSFER-REQUIRED` | cleanup不明だが認証済みのactionable Recovery IDを取得できず停止 | 自動再試行せず、Evidenceを保持して運用者へ移送 |
 | 回復完了 | `STATE-RECOVERED` | 所有資源不存在と耐久Evidence残存0を確認 | 新しいOperationから再評価 |
 
-`invocationTerminal`は現在のCLI／Task呼出しが終了すること、`operationTerminal`は当該Operationに後続処置が残らないことを表す。`STATE-RECOVERY-REQUIRED`は現在の呼出しではterminalだがOperationとしては未完了であり、別の明示Recovery invocationだけが`STATE-RECOVERED`へ進める。`STATE-OPERATOR-TRANSFER-REQUIRED`も呼出しではterminalかつOperationは未完了だが、exact Recovery Authorityを持たないためRecovery遷移へ推測接続せず、運用者へのEvidence移送だけを表す。
+`invocationTerminal`は現在のCLI／Task呼出しが終了すること、`operationTerminal`は当該Operationに後続処置が残らないことを表す。`STATE-PROCESS-RESTART-REQUIRED`は両方がterminalであり、Operation Recoveryへ接続せず現在Processだけを廃棄する。`STATE-RECOVERY-REQUIRED`は現在の呼出しではterminalだがOperationとしては未完了であり、別の明示Recovery invocationだけが`STATE-RECOVERED`へ進める。`STATE-OPERATOR-TRANSFER-REQUIRED`も呼出しではterminalかつOperationは未完了だが、exact Recovery Authorityを持たないためRecovery遷移へ推測接続せず、運用者へのEvidence移送だけを表す。
 
 ## 4. 資源所有
 
@@ -160,7 +161,7 @@ Provider child／Docker resource absence
 
 遷移の`resourcesAcquired`／`resourcesReleased`／`resourcesTransferred`は、その遷移が所有状態を変更する資源を示す。検証caseの`resourcePostconditions`は呼出し終了後の閉包を確認するため、当該遷移で変化せず不在のままだった資源も含められる。Checkerは全資源ID、観測bindingおよび少なくとも一つのcaseでの実使用を照合するが、終了後不在の観測を「その遷移が解放した」という虚偽のdeltaへ変換しない。
 
-Effect観測数はOperation全体の累積値ではなく、各遷移の開始snapshotから終了snapshotまでの差分（transition delta）である。Task Runtimeは内部状態を単調に進め、Task controlを失効した後に`STATE-RESULT-PUBLISHED`、`STATE-BLOCKED-CLEAN`、`STATE-RECOVERY-REQUIRED`または`STATE-OPERATOR-TRANSFER-REQUIRED`を観測へ渡す。試験専用observerはAuthorityや制御を持たず、例外を投げてもRuntime状態、Effectまたは結果を変えない。検証はcase ID文字列の存在ではなく、Canonical caseの全fieldと実観測objectの完全一致を要求する。Recovery Matrixのように固定workerの契約投影だけを検査する入口を、実Filesystem／Process観測へ昇格させない。
+Effect観測数はOperation全体の累積値ではなく、各遷移の開始snapshotから終了snapshotまでの差分（transition delta）である。Task Runtimeは内部状態を単調に進め、Task controlを失効した後に`STATE-RESULT-PUBLISHED`、`STATE-BLOCKED-CLEAN`、`STATE-PROCESS-RESTART-REQUIRED`、`STATE-RECOVERY-REQUIRED`または`STATE-OPERATOR-TRANSFER-REQUIRED`を観測へ渡す。試験専用observerはAuthorityや制御を持たず、例外を投げてもRuntime状態、Effectまたは結果を変えない。検証はcase ID文字列の存在ではなく、Canonical caseの全fieldと実観測objectの完全一致を要求する。Recovery Matrixのように固定workerの契約投影だけを検査する入口を、実Filesystem／Process観測へ昇格させない。
 
 ## 10. 遷移一覧
 
@@ -182,7 +183,8 @@ Effect観測数はOperation全体の累積値ではなく、各遷移の開始sn
 | `TRANS-HOST-CLEAN-TO-RESULT` | `STATE-HOST-CLEAN` | `STATE-RESULT-PUBLISHED` | Candidate publishと結果公開 |
 | `TRANS-ACTIVE-TO-BLOCKED-CLEAN` | active state | `STATE-BLOCKED-CLEAN` | cleanup確認済みでRecovery不要の安全な停止 |
 | `TRANS-ACTIVE-TO-RECOVERY` | active state | `STATE-RECOVERY-REQUIRED` | 取消、失敗、Process lossまたはunknownの保持 |
-| `TRANS-ACTIVE-TO-OPERATOR-TRANSFER` | Operation取得中／準備 | `STATE-OPERATOR-TRANSFER-REQUIRED` | cleanup不明かつactionable IDなしのEvidenceを自動再試行せず移送 |
+| `TRANS-ACTIVE-TO-OPERATOR-TRANSFER` | active state | `STATE-OPERATOR-TRANSFER-REQUIRED` | cleanup不明かつactionable IDなしのEvidenceを自動再試行せず移送 |
+| `TRANS-ACTIVE-TO-PROCESS-RESTART` | ProviderがactiveなTask／是正状態 | `STATE-PROCESS-RESTART-REQUIRED` | cleanup確認済みの取消protocol違反をOperation Recoveryへ誤昇格せず、現在Processだけを廃棄 |
 | `TRANS-PARTIAL-PAIR-TO-RECOVERY` | `STATE-DURABLE-PAIR-PARTIAL-PRE-EFFECT` | `STATE-RECOVERY-REQUIRED` | 未設計のEffect前partialを保持して停止 |
 | `TRANS-RECOVERY-TO-RECOVERED` | `STATE-RECOVERY-REQUIRED` | `STATE-RECOVERED` | exact資源回収とEvidence残存0 |
 

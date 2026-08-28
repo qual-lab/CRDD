@@ -137,6 +137,7 @@ type RuntimeLifecycleState =
   | "STATE-HOST-CLEAN"
   | "STATE-RESULT-PUBLISHED"
   | "STATE-BLOCKED-CLEAN"
+  | "STATE-PROCESS-RESTART-REQUIRED"
   | "STATE-RECOVERY-REQUIRED"
   | "STATE-OPERATOR-TRANSFER-REQUIRED";
 type RuntimeRecord = Readonly<Record<string, unknown>>;
@@ -384,21 +385,25 @@ function advanceLifecycleState(
   }
 }
 
-function terminalLifecycleState(result: TaskCompletionRecord) {
+export function classifyCoordinatorTaskTerminalLifecycleState(
+  result: TaskCompletionRecord,
+): RuntimeLifecycleState {
   if (result.status === "completed") return "STATE-RESULT-PUBLISHED" as const;
+  const exactRecoveryAvailable =
+    result.hostRecoveryId !== null ||
+    result.dockerRecoveryIds.length > 0 ||
+    result.candidateRecoveryId !== null ||
+    result.candidateStoreRecoveryId !== null;
   if (
     result.manualRecoveryRequired === true ||
-    result.processRestartRequired === true
-  ) {
-    const exactRecoveryAvailable =
-      result.hostRecoveryId !== null ||
-      result.dockerRecoveryIds.length > 0 ||
-      result.candidateRecoveryId !== null ||
-      result.candidateStoreRecoveryId !== null;
-    if (!exactRecoveryAvailable)
-      return "STATE-OPERATOR-TRANSFER-REQUIRED" as const;
-    return "STATE-RECOVERY-REQUIRED" as const;
-  }
+    result.cleanupConfirmed !== true ||
+    exactRecoveryAvailable
+  )
+    return exactRecoveryAvailable
+      ? ("STATE-RECOVERY-REQUIRED" as const)
+      : ("STATE-OPERATOR-TRANSFER-REQUIRED" as const);
+  if (result.processRestartRequired === true)
+    return "STATE-PROCESS-RESTART-REQUIRED" as const;
   return "STATE-BLOCKED-CLEAN" as const;
 }
 
@@ -2454,7 +2459,11 @@ function createRuntime(dependencies: RuntimeDependencies) {
           } finally {
             state.controls.delete(controlCapability);
           }
-          advanceLifecycleState(state, control, terminalLifecycleState(result));
+          advanceLifecycleState(
+            state,
+            control,
+            classifyCoordinatorTaskTerminalLifecycleState(result),
+          );
           return result;
         });
       return Object.freeze({
