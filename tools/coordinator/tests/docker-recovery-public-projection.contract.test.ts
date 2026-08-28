@@ -62,6 +62,28 @@ test("production Recovery inventory形状はcleanだけをTask Admissionへ通�
     ).dockerRecoveryIds,
     ids,
   );
+  assert.deepEqual(
+    projectDockerRecoveryAdmission(
+      observation({
+        reason: "docker_task_multiple_recovery_inventory_available",
+        manualRecoveryRequired: true,
+        dockerRecoveryIds: Object.freeze(ids),
+        activeStableLogicalHomeBindingHashes: Object.freeze(["1".repeat(64)]),
+      }),
+    ).dockerRecoveryIds,
+    ids,
+  );
+  assert.deepEqual(
+    projectDockerRecoveryAdmission(
+      observation({
+        reason: "docker_task_multiple_recovery_inventory_available",
+        manualRecoveryRequired: true,
+        dockerRecoveryIds: Object.freeze(ids),
+        activeStableLogicalHomeBindingHashes: Object.freeze([]),
+      }),
+    ).dockerRecoveryIds,
+    ids,
+  );
 });
 
 test("clean、inventory、hashの相関差は値非公開で拒否する", () => {

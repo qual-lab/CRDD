@@ -14,6 +14,7 @@ import {
   recordRuntimeOwnedDockerAbsence,
   recordRuntimeOwnedDockerResourceReceipt,
   recordRuntimeOwnedNormalMountCompletion,
+  verifyRuntimeOwnedDockerRecoveryBinding,
 } from "./docker-recovery-runtime.ts";
 import {
   cleanupRuntimeOwnedDockerResources,
@@ -30,7 +31,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 13;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 14;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -105,7 +106,7 @@ type CommandHandle = Readonly<{
   terminateAndWait: (graceMs: number) => Promise<boolean>;
 }>;
 type Recovery = Readonly<{
-  status?: "ready";
+  status: "ready";
   recoveryId: string;
   recoveryCapability: object;
 }>;
@@ -133,6 +134,12 @@ type RuntimeDependencies = Readonly<{
     managementCapability: unknown,
   ) => Recovery | BlockedRecovery | null;
   abandonRecovery?: (recoveryCapability: object) => boolean;
+  verifyRecoveryBinding: (
+    recoveryCapability: unknown,
+    recoveryId: unknown,
+    managementCapability: unknown,
+    stableLogicalHomeBindingHash: unknown,
+  ) => boolean;
   startCommand: (
     command: Command,
     plan: PreparedPlan,
@@ -191,6 +198,39 @@ type RuntimeState = Readonly<{
 }>;
 type ExecutionResult = ReturnType<typeof createFinalResult>;
 
+function ownDataValue(value: unknown, key: string): unknown {
+  if (!value || typeof value !== "object") return undefined;
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor && "value" in descriptor ? descriptor.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function snapshotReadyRecovery(value: unknown): Recovery | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  try {
+    if (
+      Object.getPrototypeOf(value) !== Object.prototype ||
+      Object.keys(value).sort().join("\0") !==
+        ["recoveryCapability", "recoveryId", "status"].sort().join("\0")
+    )
+      return null;
+  } catch {
+    return null;
+  }
+  const status = ownDataValue(value, "status");
+  const recoveryId = ownDataValue(value, "recoveryId");
+  const recoveryCapability = ownDataValue(value, "recoveryCapability");
+  return status === "ready" &&
+    typeof recoveryId === "string" &&
+    recoveryCapability !== null &&
+    typeof recoveryCapability === "object"
+    ? Object.freeze({ status, recoveryId, recoveryCapability })
+    : null;
+}
+
 function createBlockedStart(
   reason: string,
   preEffectCleanupConfirmed = false,
@@ -218,6 +258,42 @@ function createBlockedStart(
     hostPathReported: false,
     proxyCredentialReported: false,
   });
+}
+
+function settleInvalidRecoveryStart(
+  state: RuntimeState,
+  plan: PreparedPlan,
+  managementCapability: object,
+  recoveryCapability: unknown,
+  recoveryId: string | null,
+  reason: string,
+) {
+  let recoveryAbandoned = false;
+  if (recoveryCapability && typeof recoveryCapability === "object") {
+    try {
+      recoveryAbandoned =
+        state.dependencies.abandonRecovery?.(recoveryCapability) === true;
+    } catch {
+      recoveryAbandoned = false;
+    }
+  }
+  let mountCompleted = false;
+  try {
+    mountCompleted =
+      state.dependencies.completeMount(
+        plan.activeMountCapability,
+        managementCapability,
+      ).status === "completed";
+  } catch {
+    mountCompleted = false;
+  }
+  const cleanupConfirmed = recoveryAbandoned && mountCompleted;
+  return createBlockedStart(
+    reason,
+    cleanupConfirmed,
+    cleanupConfirmed ? null : recoveryId,
+    !cleanupConfirmed,
+  );
 }
 
 function createFinalResult(
@@ -675,52 +751,67 @@ function start(
     );
   }
   const recovery = state.dependencies.beginRecovery(plan, managementCapability);
-  if (!recovery || !("recoveryCapability" in recovery)) {
+  const readyRecovery = snapshotReadyRecovery(recovery);
+  if (!readyRecovery) {
+    const malformedCapability = ownDataValue(recovery, "recoveryCapability");
+    const malformedRecoveryId = publicVerifiedDockerRecoveryId(
+      ownDataValue(recovery, "recoveryId"),
+    );
+    if (malformedCapability || malformedRecoveryId)
+      return settleInvalidRecoveryStart(
+        state,
+        plan,
+        managementCapability,
+        malformedCapability,
+        malformedRecoveryId,
+        "docker_process_controller_recovery_identity_invalid",
+      );
     const completed = state.dependencies.completeMount(
       plan.activeMountCapability,
       managementCapability,
     );
     return createBlockedStart(
-      publicDockerRecoveryStartReason(recovery?.reason),
+      publicDockerRecoveryStartReason(ownDataValue(recovery, "reason")),
       completed.status === "completed",
-      publicVerifiedDockerRecoveryId(recovery?.recoveryId),
-      recovery?.manualRecoveryRequired === true,
+      malformedRecoveryId,
+      ownDataValue(recovery, "manualRecoveryRequired") === true,
     );
   }
-  const parsedRecoveryId = parseDockerTaskRecoveryId(recovery.recoveryId);
+  const parsedRecoveryId = parseDockerTaskRecoveryId(readyRecovery.recoveryId);
   if (
     !parsedRecoveryId ||
     parsedRecoveryId.stableLogicalHomeBindingHash !==
       plan.stableLogicalHomeBindingHash ||
-    !recovery.recoveryCapability ||
-    typeof recovery.recoveryCapability !== "object"
-  ) {
-    if (
-      recovery.recoveryCapability &&
-      typeof recovery.recoveryCapability === "object"
-    )
-      void state.dependencies.abandonRecovery?.(recovery.recoveryCapability);
-    const completed = state.dependencies.completeMount(
-      plan.activeMountCapability,
+    state.dependencies.verifyRecoveryBinding(
+      readyRecovery.recoveryCapability,
+      parsedRecoveryId?.token ?? readyRecovery.recoveryId,
       managementCapability,
-    );
-    return createBlockedStart(
+      plan.stableLogicalHomeBindingHash,
+    ) !== true
+  ) {
+    return settleInvalidRecoveryStart(
+      state,
+      plan,
+      managementCapability,
+      readyRecovery.recoveryCapability,
+      parsedRecoveryId?.token ?? null,
       "docker_process_controller_recovery_identity_invalid",
-      completed.status === "completed",
     );
   }
   if (
     typeof registerRecoveryHandoff !== "function" ||
     registerRecoveryHandoff(
-      recovery.recoveryCapability,
+      readyRecovery.recoveryCapability,
       parsedRecoveryId.token,
     ) !== true
   ) {
-    void state.dependencies.abandonRecovery?.(recovery.recoveryCapability);
-    return createBlockedStart(
-      "docker_process_controller_recovery_handoff_unavailable",
-      false,
+    return settleInvalidRecoveryStart(
+      state,
+      plan,
+      managementCapability,
+      readyRecovery.recoveryCapability,
       parsedRecoveryId.token,
+      "docker_process_controller_recovery_handoff_unavailable",
     );
   }
   const controlCapability = Object.freeze({});
@@ -731,9 +822,11 @@ function start(
     completion: null,
   };
   state.controls.set(controlCapability, record);
-  const completion = executePlan(state, record, plan, recovery).finally(() => {
-    state.controls.delete(controlCapability);
-  });
+  const completion = executePlan(state, record, plan, readyRecovery).finally(
+    () => {
+      state.controls.delete(controlCapability);
+    },
+  );
   record.completion = completion;
   return Object.freeze({
     status: "started" as const,
@@ -798,6 +891,7 @@ const productionState: RuntimeState = Object.freeze({
       ),
     beginRecovery: beginRuntimeOwnedDockerRecovery,
     abandonRecovery: abandonRuntimeOwnedDockerRecovery,
+    verifyRecoveryBinding: verifyRuntimeOwnedDockerRecoveryBinding,
     startCommand: startRuntimeOwnedDockerCommand,
     cleanupOwnedResources: cleanupRuntimeOwnedDockerResources,
     completeMount: completeRuntimeOwnedProviderHomeMount,

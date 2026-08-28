@@ -156,7 +156,6 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
     hashValues !== null &&
     idsUnique &&
     hashesUnique &&
-    hashValues.length === stableHashes.size &&
     hashValues.every((value) => stableHashes.has(value)) &&
     (observation.status === "completed" || observation.status === "blocked") &&
     typeof observation.reason === "string" &&

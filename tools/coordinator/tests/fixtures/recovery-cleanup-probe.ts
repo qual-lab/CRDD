@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -132,14 +133,68 @@ async function setupBegunRecovery(rootPath: string) {
 
 async function setupRecovery(rootPath: string) {
   const setup = await setupBegunRecovery(rootPath);
-  assert.equal(
-    completeRuntimeOwnedDockerRecovery(
-      setup.recoveryCapability,
-      setup.management,
-    ).status,
-    "completed",
+  try {
+    assert.equal(
+      completeRuntimeOwnedDockerRecovery(
+        setup.recoveryCapability,
+        setup.management,
+      ).status,
+      "completed",
+    );
+    return setup;
+  } catch (error) {
+    try {
+      abandonRuntimeOwnedDockerRecovery(setup.recoveryCapability);
+    } catch {
+      // Continue exact fixture cleanup below.
+    }
+    try {
+      await abandonOwnedHostOperationGenerationLock(setup.management);
+    } catch {
+      // Continue exact fixture cleanup below.
+    }
+    try {
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        setup.recoveryId,
+        setup.root,
+        () => setup.root,
+      );
+    } catch {
+      // The parent test treats any remaining fixture state as a failure.
+    }
+    throw error;
+  }
+}
+
+async function recoverFailedHandoff(
+  setup: Awaited<ReturnType<typeof setupBegunRecovery>>,
+) {
+  try {
+    abandonRuntimeOwnedDockerRecovery(setup.recoveryCapability);
+  } catch {
+    // Recovery below is the authoritative closure check.
+  }
+  try {
+    await abandonOwnedHostOperationGenerationLock(setup.management);
+  } catch {
+    // Recovery below is the authoritative closure check.
+  }
+  const recoveredProcess = spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      import.meta.filename,
+      "fresh-recovery",
+      setup.recoveryId,
+      Buffer.from(JSON.stringify(setup.root), "utf8").toString("base64url"),
+    ],
+    { encoding: "utf8", timeout: 15_000, windowsHide: true },
   );
-  return setup;
+  if (recoveredProcess.status !== 0)
+    throw new Error("recovery_cleanup_probe_recovery_failed");
+  const recovered = JSON.parse(recoveredProcess.stdout) as { status?: unknown };
+  if (recovered.status !== "recovered")
+    throw new Error("recovery_cleanup_probe_recovery_failed");
 }
 
 const [mode, rootPath, encodedRoot] = process.argv.slice(2);
@@ -160,25 +215,12 @@ if (mode === "receipt-failure-setup") {
     assert.equal(fs.writeSync(1, handoff), handoff.byteLength);
     handedOff = true;
   } finally {
-    if (!handedOff) {
-      try {
-        abandonRuntimeOwnedDockerRecovery(setup.recoveryCapability);
-      } catch {
-        // The child is already failing; continue the remaining exact cleanup attempts.
-      }
-      try {
-        await abandonOwnedHostOperationGenerationLock(setup.management);
-      } catch {
-        // The child is already failing; continue the remaining exact cleanup attempts.
-      }
-      try {
-        await cleanupOwnedOperationDirectoriesAsync(setup.owned);
-      } catch {
-        // The parent test verifies any residue from this failed setup.
-      }
-    }
+    if (!handedOff) await recoverFailedHandoff(setup);
   }
-} else if (mode === "active-deleted-pointer-setup") {
+} else if (
+  mode === "active-deleted-pointer-setup" ||
+  mode === "active-deleted-pointer-handoff-failure"
+) {
   const setup = await setupBegunRecovery(rootPath);
   let handedOff = false;
   try {
@@ -196,6 +238,8 @@ if (mode === "receipt-failure-setup") {
       fs.readdirSync(rootPath).some((name) => name.startsWith("active-lease-")),
       true,
     );
+    if (mode === "active-deleted-pointer-handoff-failure")
+      throw new Error("fixture_handoff_write_failed");
     const handoff = Buffer.from(
       `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, hostRecoveryId: setup.hostRecoveryId, setupPid: process.pid })}\n`,
       "utf8",
@@ -203,23 +247,7 @@ if (mode === "receipt-failure-setup") {
     assert.equal(fs.writeSync(1, handoff), handoff.byteLength);
     handedOff = true;
   } finally {
-    if (!handedOff) {
-      try {
-        abandonRuntimeOwnedDockerRecovery(setup.recoveryCapability);
-      } catch {
-        // The child is already failing; continue the remaining exact cleanup attempts.
-      }
-      try {
-        await abandonOwnedHostOperationGenerationLock(setup.management);
-      } catch {
-        // The child is already failing; continue the remaining exact cleanup attempts.
-      }
-      try {
-        await cleanupOwnedOperationDirectoriesAsync(setup.owned);
-      } catch {
-        // The parent test verifies any residue from this failed setup.
-      }
-    }
+    if (!handedOff) await recoverFailedHandoff(setup);
   }
 } else if (mode === "fresh-recovery") {
   if (!encodedRoot) throw new Error("recovery_cleanup_probe_root_missing");

@@ -224,9 +224,21 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
       adapter.consumeForProcessController(candidate, management),
     beginRecovery: () =>
       Object.freeze({
+        status: "ready" as const,
         recoveryId: `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`,
         recoveryCapability,
       }),
+    verifyRecoveryBinding: (
+      capability: unknown,
+      recoveryId: unknown,
+      management: unknown,
+      stableHomeHash: unknown,
+    ) =>
+      capability === recoveryCapability &&
+      recoveryId ===
+        `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}` &&
+      management === managementCapability &&
+      stableHomeHash === "1".repeat(64),
     startCommand: (command) => {
       purposes.push(command.purpose);
       return Object.freeze({

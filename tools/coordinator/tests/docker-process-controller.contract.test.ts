@@ -116,9 +116,22 @@ function createFixture(
     },
     beginRecovery: () =>
       Object.freeze({
+        status: "ready" as const,
         recoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
         recoveryCapability,
       }),
+    verifyRecoveryBinding: (
+      capability: unknown,
+      recoveryId: unknown,
+      management: unknown,
+      stableHomeHash: unknown,
+    ) =>
+      capability === recoveryCapability &&
+      recoveryId ===
+        `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}` &&
+      management === managementCapability &&
+      stableHomeHash === plan.stableLogicalHomeBindingHash,
+    abandonRecovery: (capability: unknown) => capability === recoveryCapability,
     startCommand: (command: { purpose: string }) => {
       commandCount += 1;
       const isProvider = command.purpose === "start_provider_attached";
@@ -601,19 +614,28 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
 test("Recovery開始成功形でもexact ID・Home binding・Capability不一致はEffect 0へ閉じる", () => {
   const cases = [
     Object.freeze({
+      status: "ready" as const,
       recoveryId: "docker-task.invalid",
       recoveryCapability: Object.freeze({}),
       abandonExpected: 1,
+      expectedRecoveryId: null,
+      expectedCleanupConfirmed: true,
     }),
     Object.freeze({
+      status: "ready" as const,
       recoveryId: `docker-task.${"a".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
       recoveryCapability: Object.freeze({}),
       abandonExpected: 1,
+      expectedRecoveryId: null,
+      expectedCleanupConfirmed: true,
     }),
     Object.freeze({
+      status: "ready" as const,
       recoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
       recoveryCapability: null,
       abandonExpected: 0,
+      expectedRecoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+      expectedCleanupConfirmed: false,
     }),
   ] as const;
 
@@ -636,10 +658,84 @@ test("Recovery開始成功形でもexact ID・Home binding・Capability不一致
       "docker_process_controller_recovery_identity_invalid",
     );
     assert.equal(blocked.dockerEffectStarted, false);
-    assert.equal(blocked.recoveryId, null);
+    assert.equal(blocked.recoveryId, recovery.expectedRecoveryId);
+    assert.equal(blocked.cleanupConfirmed, recovery.expectedCleanupConfirmed);
+    assert.equal(
+      blocked.manualRecoveryRequired,
+      !recovery.expectedCleanupConfirmed,
+    );
     assert.equal(fixture.getCommandCount(), 0);
     assert.equal(fixture.getMountCompletionCount(), 1);
     assert.equal(abandonCount, recovery.abandonExpected);
+  }
+});
+
+test("Recovery成功unionはready exact形とopaque bindingを必須にする", () => {
+  const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+  for (const malformed of [
+    Object.freeze({
+      recoveryId: exactId,
+      recoveryCapability: Object.freeze({}),
+    }),
+    Object.freeze({
+      status: "blocked",
+      recoveryId: exactId,
+      recoveryCapability: Object.freeze({}),
+    }),
+    Object.freeze({
+      status: "ready",
+      recoveryId: exactId,
+      recoveryCapability: Object.freeze({}),
+      extra: true,
+    }),
+  ]) {
+    let abandonCount = 0;
+    const fixture = createFixture({
+      beginRecovery: () => malformed,
+      verifyRecoveryBinding: () => true,
+      abandonRecovery: () => {
+        abandonCount += 1;
+        return true;
+      },
+    });
+    const blocked = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(blocked.status, "blocked");
+    assert.equal(
+      blocked.reason,
+      "docker_process_controller_recovery_identity_invalid",
+    );
+    assert.equal(blocked.cleanupConfirmed, true);
+    assert.equal(blocked.manualRecoveryRequired, false);
+    assert.equal(blocked.recoveryId, null);
+    assert.equal(fixture.getCommandCount(), 0);
+    assert.equal(abandonCount, 1);
+  }
+});
+
+test("Recovery bindingまたはabort不明はexact IDを保持してEffect 0へ閉じる", () => {
+  const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+  for (const abandonRecovery of [
+    () => false,
+    () => {
+      throw new Error("fixture_abandon_unknown");
+    },
+  ]) {
+    const fixture = createFixture({
+      verifyRecoveryBinding: () => false,
+      abandonRecovery,
+    });
+    const blocked = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.cleanupConfirmed, false);
+    assert.equal(blocked.manualRecoveryRequired, true);
+    assert.equal(blocked.recoveryId, exactId);
+    assert.equal(fixture.getCommandCount(), 0);
   }
 });
 
@@ -757,7 +853,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 13);
+  assert.equal(contract.contractRevision, 14);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);

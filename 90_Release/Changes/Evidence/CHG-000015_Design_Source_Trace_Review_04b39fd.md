@@ -386,3 +386,13 @@ FilesystemのAuthority判定は`ENOENT`だけを不存在とし、権限拒否�
 同じ原因をCRDD利用側で減らすため、既存のAgent、ImplementationおよびQuality Assurance条項を強化した。cleanup成立は関連資源の閉包、Canonical／登録／実行集合の独立比較、実観測による不存在、共有Directory／Lock／port／named pipe／OS store／Recovery inventoryを使う結合試験のnamespaceまたは直列化までを含む。新しい工程や一律の専用成果物は追加しない。
 
 本節の処置は`Applied — independent re-audit pending`である。現在Sourceの機械確認と全試験を再実行し、新しい固定Commitを同じ監査集合へ提示するまで`Resolved`、Runtime完成またはReleaseへ昇格しない。
+
+## 19. 第七固定候補の独立監査と再是正
+
+第七固定候補Commit `815b0224a24f5b4c0e45d589e4ec2650c853916d`／Tree `1d3108961b8c9f44a8a85d6f75fdcc16977af9c2`に対するArchitecture／Security、Test／UXおよびDocument／Gap／Impact確認は、Critical 0で`Fail`とした。Conformanceは`Pass / No Impact`である。重複を除いた共通原因は、初期化writerのcleanup不明を外側のRoot／marker処置成功で`true`へ戻せたこと、active pointerのHome集合と全Recovery recordのHome集合を同一視したこと、Recovery開始成功unionのdiscriminant／opaque bindingとabort settlementを一つの閉包にしていなかったこと、およびRecovery Trace 2件の実行済み記録がassertion完了前だったことである。
+
+再是正では、initial markerとhost-only temporaryをexclusive openした直後にhandle由来Filesystem Identityを取得し、handle、entry、Identity、cleanup状態およびexact tokenをopaque failure分類へ保持する。Recovery directory、Root、marker、一時fileおよびgenerationのcleanupは資源別結果の論理積として単調に集約し、一件でも不明なら後段成功でcleanへ戻さず、markerとRecovery根拠を保持する。Root／marker削除は捕捉済みIdentityとの一致後だけ行う。同期I/O故障試験はinitial marker、Rootおよびhost-only temporaryのIdentity観測失敗を個別に注入する。
+
+Docker Recovery admissionではactive Home hashを全ID由来hashの重複なし部分集合として扱い、inactive／cleanup中のexact IDを保持する。Process Controller revision 14は成功形をexact `status=ready`、ID、Capabilityだけへ固定し、Runtime-owned durable recordのID、management bindingおよびstable Home bindingをEffect前に再検証する。不正成功形はabortとMount settlementの両方が確認できた場合だけcleanとし、それ以外はexact IDを保持する。Recovery Traceの実行集合はCanonical assertion成功後だけ更新する。fresh Process fixtureはhandoff前失敗をproduction Recoveryへ接続し、親fallbackもHost recordのRoot Identityとmarker Identityを照合してから処置する。
+
+本節の処置は`Applied — independent re-audit pending`である。更新SourceはCoordinator全1106試験、TypeScript strict typecheck、Lint、Formatter、Trace Checker、Repository全体Checker（error 0、warning 0）およびdiff checkを通過した。新しい固定Commitおよび同じ監査集合のPassまで`Resolved`、Runtime完成またはReleaseへ昇格しない。

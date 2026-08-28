@@ -75,6 +75,8 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 
 Host Operation Rootの初期化は、Root生成前に`state=initializing`、選定済みnonceおよびroot名を耐久Host Recovery recordへ確定してから行う。Root生成前にProcessが失われた場合は、同じrecordからRoot不存在を確認してmarkerを回収できる。Root生成後かつFilesystem Identity確定前にProcessが失われた場合は、所有Identityを推測して削除せず、exact recordとRootを保持して手動Recoveryへ移送する。Root、marker、一時領域およびRecovery recordの全てについてIdentityと終了後条件を確認できた場合だけ`host_only`以降へ進み、Task成功またはclean blockedへ昇格する。
 
+Docker Recovery開始成功形は、exact `status=ready`、Recovery ID、stable logical Home binding、management bindingおよびRuntime発行のopaque Capabilityを一つのbindingとしてEffect前に再検証する。不正成功形を破棄するときはRecovery abortとMount settlementを独立して確認し、いずれか不明ならexact IDとEvidenceを保持する。Recovery inventoryのactive Home hashは全Recovery IDの集合ではなくactive pointerを持つHomeの部分集合であり、inactive／cleanup中の正当なIDを欠落させる根拠にしない。
+
 ## 5. Lock順序と解放窓
 
 通常TaskとHost状態を扱う明示Recoveryは、次の順序を守る。

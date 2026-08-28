@@ -100,6 +100,20 @@ test.after(() => {
   assert.equal(currentIdentity.isDirectory(), true);
   assert.equal(currentIdentity.isSymbolicLink(), false);
   assert.equal(path.dirname(isolatedTemporaryRoot), inheritedTemporaryRoot);
+  const remaining = fs.readdirSync(isolatedTemporaryRoot, {
+    withFileTypes: true,
+  });
+  for (const entry of remaining) {
+    assert.equal(entry.name, "crdd-coordinator-recovery-v1");
+    assert.equal(entry.isDirectory(), true);
+    assert.equal(entry.isSymbolicLink(), false);
+    assert.deepEqual(
+      fs.readdirSync(path.join(isolatedTemporaryRoot, entry.name)),
+      [],
+    );
+    fs.rmdirSync(path.join(isolatedTemporaryRoot, entry.name));
+  }
+  assert.deepEqual(fs.readdirSync(isolatedTemporaryRoot), []);
   fs.rmSync(isolatedTemporaryRoot, { recursive: true, force: false });
   assertPathConfirmedAbsent(isolatedTemporaryRoot);
 });
@@ -296,6 +310,121 @@ test("Operation初期化中のProcess消失は耐久Intentから自動回復ま�
   fs.rmSync(afterRoot.marker);
   assertPathConfirmedAbsent(root);
   assertPathConfirmedAbsent(afterRoot.marker);
+});
+
+test("Operation初期化の同期I/O不明は全資源閉包をcleanへ戻さない", () => {
+  const runFault = (
+    fault:
+      | "initial_marker_identity"
+      | "root_identity"
+      | "host_only_temporary_identity",
+  ) => {
+    const parent = fs.mkdtempSync(
+      path.join(os.tmpdir(), `crdd-operation-${fault}-`),
+    );
+    const originalOpenSync = fs.openSync;
+    const originalFstatSync = fs.fstatSync;
+    const originalMkdirSync = fs.mkdirSync;
+    const originalLstatSync = fs.lstatSync;
+    const mutableFs = fs as unknown as {
+      openSync: typeof fs.openSync;
+      fstatSync: typeof fs.fstatSync;
+      mkdirSync: typeof fs.mkdirSync;
+      lstatSync: typeof fs.lstatSync;
+    };
+    const temporaryHandles = new Set<number>();
+    let rootCreated = false;
+    let initialMarkerHandle: number | null = null;
+    try {
+      mutableFs.openSync = ((target: fs.PathLike, ...args: unknown[]) => {
+        const handle = originalOpenSync(
+          target,
+          ...(args as Parameters<typeof fs.openSync> extends [
+            unknown,
+            ...infer R,
+          ]
+            ? R
+            : never),
+        );
+        const text = String(target);
+        if (/host-[a-f0-9]{64}\.json$/u.test(text))
+          initialMarkerHandle = handle;
+        if (text.endsWith(".tmp")) temporaryHandles.add(handle);
+        return handle;
+      }) as typeof fs.openSync;
+      mutableFs.fstatSync = ((handle: number, options?: unknown) => {
+        if (
+          (fault === "initial_marker_identity" &&
+            handle === initialMarkerHandle) ||
+          (fault === "host_only_temporary_identity" &&
+            temporaryHandles.has(handle))
+        )
+          throw Object.assign(
+            new Error("fixture_identity_observation_unknown"),
+            {
+              code: "EACCES",
+            },
+          );
+        return originalFstatSync(handle, options as never);
+      }) as typeof fs.fstatSync;
+      mutableFs.mkdirSync = ((target: fs.PathLike, options?: unknown) => {
+        const result = originalMkdirSync(target, options as never);
+        if (
+          path.basename(String(target)).startsWith("crdd-coordinator-doctor-")
+        )
+          rootCreated = true;
+        return result;
+      }) as typeof fs.mkdirSync;
+      mutableFs.lstatSync = ((target: fs.PathLike, options?: unknown) => {
+        if (
+          fault === "root_identity" &&
+          rootCreated &&
+          path.basename(String(target)).startsWith("crdd-coordinator-doctor-")
+        )
+          throw Object.assign(new Error("fixture_root_observation_unknown"), {
+            code: "EACCES",
+          });
+        return originalLstatSync(target, options as never);
+      }) as typeof fs.lstatSync;
+      assert.throws(
+        () => createOwnedOperationDirectories(parent),
+        (error) => {
+          const classified =
+            classifyOwnedOperationDirectoryCreationFailure(error);
+          assert.ok(classified);
+          assert.equal(classified.cleanupConfirmed, false);
+          assert.equal(classified.manualRecoveryRequired, true);
+          assert.match(classified.hostRecoveryId ?? "", /^host\./u);
+          return true;
+        },
+      );
+    } finally {
+      mutableFs.openSync = originalOpenSync;
+      mutableFs.fstatSync = originalFstatSync;
+      mutableFs.mkdirSync = originalMkdirSync;
+      mutableFs.lstatSync = originalLstatSync;
+    }
+    const recoveryDirectory = path.join(parent, "crdd-coordinator-recovery-v1");
+    assert.equal(fs.readdirSync(recoveryDirectory).length > 0, true);
+    if (fault !== "initial_marker_identity")
+      assert.equal(
+        fs
+          .readdirSync(parent)
+          .some((name) => name.startsWith("crdd-coordinator-doctor-")),
+        true,
+      );
+    if (fault === "host_only_temporary_identity")
+      assert.equal(
+        fs.readdirSync(recoveryDirectory).some((name) => name.endsWith(".tmp")),
+        true,
+      );
+    fs.rmSync(parent, { recursive: true, force: false });
+    assertPathConfirmedAbsent(parent);
+  };
+
+  runFault("initial_marker_identity");
+  runFault("root_identity");
+  runFault("host_only_temporary_identity");
 });
 
 test("公開Recovery Evidence分類はfresh inventoryの存在・不存在・不明を三状態へ固定する", () => {
@@ -2755,7 +2884,6 @@ test("production共有回復engineはHost expected世代のprocess killを残存
     const recoveryTraceAssertion =
       RECOVERY_TRACE_ASSERTIONS["CASE-RECOVERY-TO-RECOVERED"];
     assert.ok(recoveryTraceAssertion);
-    EXECUTED_RECOVERY_TRACE_CASES.add("CASE-RECOVERY-TO-RECOVERED");
     recoveryTraceAssertion("CASE-RECOVERY-TO-RECOVERED", {
       id: "CASE-RECOVERY-TO-RECOVERED",
       transitionId: "TRANS-RECOVERY-TO-RECOVERED",
@@ -2774,6 +2902,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
         "RES-OPERATION-WORKSPACE": "absent",
       },
     });
+    EXECUTED_RECOVERY_TRACE_CASES.add("CASE-RECOVERY-TO-RECOVERED");
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3054,7 +3183,6 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
     const partialTraceAssertion =
       RECOVERY_TRACE_ASSERTIONS["CASE-PARTIAL-PAIR-TO-RECOVERY"];
     assert.ok(partialTraceAssertion);
-    EXECUTED_RECOVERY_TRACE_CASES.add("CASE-PARTIAL-PAIR-TO-RECOVERY");
     partialTraceAssertion("CASE-PARTIAL-PAIR-TO-RECOVERY", {
       id: "CASE-PARTIAL-PAIR-TO-RECOVERY",
       transitionId: "TRANS-PARTIAL-PAIR-TO-RECOVERY",
@@ -3072,6 +3200,7 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
         "RES-OPERATION-WORKSPACE": "preserved",
       },
     });
+    EXECUTED_RECOVERY_TRACE_CASES.add("CASE-PARTIAL-PAIR-TO-RECOVERY");
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -3553,33 +3682,60 @@ type FreshRecoveryHandoff = {
 
 function cleanupFreshRecoveryHandoff(handoff: FreshRecoveryHandoff | null) {
   if (!handoff) return;
-  const temporaryRoot = fs.realpathSync(os.tmpdir());
-  const parsed = parseHostRecoveryToken(handoff.hostRecoveryId);
-  assert.ok(parsed);
-  const hostRoot = path.resolve(handoff.hostRoot);
-  const rootMetadata = fs.existsSync(hostRoot) ? fs.lstatSync(hostRoot) : null;
-  if (
-    path.dirname(hostRoot) === temporaryRoot &&
-    path.basename(hostRoot) === parsed.rootName &&
-    (!rootMetadata ||
-      (rootMetadata.isDirectory() &&
-        !rootMetadata.isSymbolicLink() &&
-        fs.realpathSync(hostRoot) === hostRoot))
-  )
-    fs.rmSync(hostRoot, { recursive: true, force: true });
-  const hostMarker = path.resolve(handoff.hostMarker);
-  const expectedMarkerName = `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`;
-  const markerMetadata = fs.existsSync(hostMarker)
-    ? fs.lstatSync(hostMarker)
-    : null;
-  if (
-    path.dirname(hostMarker) ===
-      path.join(temporaryRoot, "crdd-coordinator-recovery-v1") &&
-    path.basename(hostMarker) === expectedMarkerName &&
-    (!markerMetadata ||
-      (markerMetadata.isFile() && !markerMetadata.isSymbolicLink()))
-  )
-    fs.rmSync(hostMarker, { force: true });
+  const rootObservation = (() => {
+    try {
+      return fs.lstatSync(handoff.hostRoot, { bigint: true });
+    } catch (error) {
+      assert.equal(
+        error && typeof error === "object" && "code" in error
+          ? error.code
+          : null,
+        "ENOENT",
+      );
+      return null;
+    }
+  })();
+  const markerObservation = (() => {
+    try {
+      return fs.lstatSync(handoff.hostMarker, { bigint: true });
+    } catch (error) {
+      assert.equal(
+        error && typeof error === "object" && "code" in error
+          ? error.code
+          : null,
+        "ENOENT",
+      );
+      return null;
+    }
+  })();
+  if (!rootObservation && !markerObservation) return;
+  const loaded = loadHostRecoveryRecordByToken(handoff.hostRecoveryId);
+  assert.equal(loaded.marker, path.resolve(handoff.hostMarker));
+  assert.equal(
+    path.join(loaded.parent, loaded.parsed.rootName),
+    path.resolve(handoff.hostRoot),
+  );
+  assert.ok(rootObservation);
+  assert.equal(rootObservation.isDirectory(), true);
+  assert.equal(rootObservation.isSymbolicLink(), false);
+  const rootIdentity = loaded.record.rootIdentity as {
+    dev: string;
+    ino: string;
+    birthtimeNs: string;
+  } | null;
+  assert.ok(rootIdentity);
+  assert.equal(rootObservation.dev, BigInt(rootIdentity.dev));
+  assert.equal(rootObservation.ino, BigInt(rootIdentity.ino));
+  assert.equal(rootObservation.birthtimeNs, BigInt(rootIdentity.birthtimeNs));
+  assert.ok(markerObservation);
+  const markerCurrent = fs.lstatSync(handoff.hostMarker, { bigint: true });
+  assert.equal(markerCurrent.dev, markerObservation.dev);
+  assert.equal(markerCurrent.ino, markerObservation.ino);
+  assert.equal(markerCurrent.birthtimeNs, markerObservation.birthtimeNs);
+  fs.rmSync(handoff.hostRoot, { recursive: true, force: false });
+  assertPathConfirmedAbsent(handoff.hostRoot);
+  fs.rmSync(handoff.hostMarker);
+  assertPathConfirmedAbsent(handoff.hostMarker);
 }
 
 test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回復する", () => {
@@ -3698,6 +3854,45 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
   } finally {
     cleanupFreshRecoveryHandoff(handoff);
     fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("fresh fixtureはhandoff前失敗もproduction Recoveryで残存0へ閉じる", () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-handoff-failure-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const probe = fileURLToPath(
+    new URL("./fixtures/recovery-cleanup-probe.ts", import.meta.url),
+  );
+  try {
+    const setup = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        probe,
+        "active-deleted-pointer-handoff-failure",
+        runtimeRootPath,
+      ],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+    );
+    assert.notEqual(setup.status, 0, `${setup.stdout}\n${setup.stderr}`);
+    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assert.deepEqual(
+      fs
+        .readdirSync(os.tmpdir())
+        .filter((name) => name.startsWith("crdd-coordinator-doctor-")),
+      [],
+    );
+    const recoveryDirectory = path.join(
+      os.tmpdir(),
+      "crdd-coordinator-recovery-v1",
+    );
+    assert.deepEqual(fs.readdirSync(recoveryDirectory), []);
+  } finally {
+    fs.rmSync(runtimeParent, { recursive: true, force: false });
+    assertPathConfirmedAbsent(runtimeParent);
   }
 });
 

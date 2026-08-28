@@ -795,6 +795,23 @@ function durableRecord(capability: unknown) {
     : null;
 }
 
+export function verifyRuntimeOwnedDockerRecoveryBinding(
+  recoveryCapability: unknown,
+  recoveryId: unknown,
+  managementCapability: unknown,
+  stableLogicalHomeBindingHash: unknown,
+) {
+  const record = durableRecord(recoveryCapability);
+  return (
+    record !== null &&
+    typeof recoveryId === "string" &&
+    record.recoveryId === recoveryId &&
+    record.managementCapability === managementCapability &&
+    typeof stableLogicalHomeBindingHash === "string" &&
+    record.stableLogicalHomeBindingHash === stableLogicalHomeBindingHash
+  );
+}
+
 function withDurableRuntimeStateLock<T>(
   record: DurableRecord,
   operation: () => T,

@@ -140,6 +140,29 @@ const ownedOperationDirectoryCreationFailures = new WeakMap<
   object,
   OwnedOperationDirectoryCreationFailure
 >();
+type HostRecoveryInitializationFailure = Readonly<{
+  cleanupConfirmed: boolean;
+  hostRecoveryId: string | null;
+}>;
+const hostRecoveryInitializationFailures = new WeakMap<
+  object,
+  HostRecoveryInitializationFailure
+>();
+
+function throwHostRecoveryInitializationFailure(
+  cause: unknown,
+  details: HostRecoveryInitializationFailure,
+): never {
+  const error = new Error("host_recovery_initialization_failed", { cause });
+  hostRecoveryInitializationFailures.set(error, Object.freeze(details));
+  throw error;
+}
+
+function hostRecoveryInitializationFailure(error: unknown) {
+  return error && typeof error === "object"
+    ? (hostRecoveryInitializationFailures.get(error) ?? null)
+    : null;
+}
 
 function throwOwnedOperationDirectoryCreationFailure(
   cause: unknown,
@@ -648,6 +671,22 @@ function readFileIdentity(target: string): FilesystemIdentity {
   });
 }
 
+function readOpenFileIdentity(handle: number): FilesystemIdentity {
+  const metadata = fs.fstatSync(handle, { bigint: true });
+  if (
+    !metadata.isFile() ||
+    metadata.dev <= 0n ||
+    metadata.ino <= 0n ||
+    metadata.birthtimeNs <= 0n
+  )
+    throw new Error("owned_operation_file_identity_unavailable");
+  return Object.freeze({
+    dev: metadata.dev,
+    ino: metadata.ino,
+    birthtimeNs: metadata.birthtimeNs,
+  });
+}
+
 function sameFilesystemIdentity(
   left: FilesystemIdentity,
   right: FilesystemIdentity,
@@ -734,18 +773,62 @@ function ensureHostRecoveryDirectory(
   parent: string,
 ): Readonly<{ directory: string; identity: FilesystemIdentity }> {
   const directory = path.join(parent, HOST_RECOVERY_DIRECTORY);
-  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const real = fs.realpathSync(directory);
-  const metadata = fs.lstatSync(real);
-  if (
-    real !== directory ||
-    path.dirname(real) !== parent ||
-    !metadata.isDirectory() ||
-    metadata.isSymbolicLink()
-  ) {
-    throw new Error("host_recovery_directory_untrusted");
+  const before = observeFilesystemEntry(directory);
+  if (before === "unknown")
+    throwHostRecoveryInitializationFailure(
+      new Error("host_recovery_directory_observation_unknown"),
+      { cleanupConfirmed: false, hostRecoveryId: null },
+    );
+  let creationAttempted = false;
+  let created = false;
+  let identity: FilesystemIdentity | null = null;
+  try {
+    if (before === "confirmed_absent") {
+      creationAttempted = true;
+      fs.mkdirSync(directory, { mode: 0o700 });
+      created = true;
+    }
+    const real = fs.realpathSync(directory);
+    const metadata = fs.lstatSync(real);
+    identity = readFilesystemIdentity(real);
+    if (
+      real !== directory ||
+      path.dirname(real) !== parent ||
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink()
+    ) {
+      throw new Error("host_recovery_directory_untrusted");
+    }
+    return { directory: real, identity };
+  } catch (error) {
+    let cleanupConfirmed = !creationAttempted;
+    if (created && identity) {
+      try {
+        if (
+          !sameFilesystemIdentity(
+            readFilesystemIdentity(directory),
+            identity,
+          ) ||
+          fs.readdirSync(directory).length !== 0
+        )
+          throw new Error("host_recovery_directory_replaced");
+        fs.rmdirSync(directory);
+        requireConfirmedAbsent(
+          directory,
+          "host_recovery_directory_cleanup_unconfirmed",
+        );
+        cleanupConfirmed = true;
+      } catch {
+        cleanupConfirmed = false;
+      }
+    }
+    if (!cleanupConfirmed)
+      throwHostRecoveryInitializationFailure(error, {
+        cleanupConfirmed: false,
+        hostRecoveryId: null,
+      });
+    throw error;
   }
-  return { directory: real, identity: readFilesystemIdentity(real) };
 }
 
 function hostRecordContent(
@@ -790,11 +873,14 @@ function writeInitializingHostRecoveryRecord(
   });
   const serialized = `${JSON.stringify(record)}\n`;
   const recordHash = createHash("sha256").update(serialized).digest("hex");
+  const token = `host.${rootName}.${nonce}.${recordHash}`;
   let handle: number | null = null;
   let recordIdentity: FilesystemIdentity | null = null;
+  let entryCreated = false;
   try {
     handle = fs.openSync(target, "wx", 0o600);
-    recordIdentity = readFileIdentity(target);
+    entryCreated = true;
+    recordIdentity = readOpenFileIdentity(handle);
     fs.writeFileSync(handle, serialized, "utf8");
     fs.fsyncSync(handle);
     fs.closeSync(handle);
@@ -805,15 +891,18 @@ function writeInitializingHostRecoveryRecord(
     )
       throw new Error("host_recovery_record_replaced");
   } catch (error) {
-    let cleanupConfirmed = recordIdentity !== null;
+    let cleanupConfirmed = !entryCreated;
+    let handleSettled = handle === null;
     if (handle !== null) {
       try {
         fs.closeSync(handle);
+        handle = null;
+        handleSettled = true;
       } catch {
-        cleanupConfirmed = false;
+        handleSettled = false;
       }
     }
-    if (recordIdentity) {
+    if (recordIdentity && handleSettled) {
       try {
         const observation = observeFilesystemEntry(target);
         if (observation === "present") {
@@ -827,13 +916,15 @@ function writeInitializingHostRecoveryRecord(
           target,
           "host_recovery_record_cleanup_unconfirmed",
         );
+        cleanupConfirmed = true;
       } catch {
         cleanupConfirmed = false;
       }
     }
-    if (!cleanupConfirmed)
-      throw new Error("host_recovery_record_initialization_cleanup_unknown", {
-        cause: error,
+    if (!cleanupConfirmed || !handleSettled)
+      throwHostRecoveryInitializationFailure(error, {
+        cleanupConfirmed: false,
+        hostRecoveryId: token,
       });
     throw error;
   }
@@ -842,7 +933,7 @@ function writeInitializingHostRecoveryRecord(
   return Object.freeze({
     recordHash,
     recordIdentity,
-    token: `host.${rootName}.${nonce}.${recordHash}`,
+    token,
   });
 }
 
@@ -858,10 +949,12 @@ function writeHostRecoveryRecord(
   const temporary = `${target}.${randomUUID()}.tmp`;
   let temporaryHandle: number | null = null;
   let temporaryIdentity: FilesystemIdentity | null = null;
+  let temporaryCreated = false;
   let renamed = false;
   try {
     temporaryHandle = fs.openSync(temporary, "wx", 0o600);
-    temporaryIdentity = readFileIdentity(temporary);
+    temporaryCreated = true;
+    temporaryIdentity = readOpenFileIdentity(temporaryHandle);
     fs.writeFileSync(temporaryHandle, serialized, "utf8");
     fs.fsyncSync(temporaryHandle);
     fs.closeSync(temporaryHandle);
@@ -876,16 +969,19 @@ function writeHostRecoveryRecord(
     if (fs.readFileSync(target, "utf8") !== serialized)
       throw new Error("host_recovery_record_replaced");
   } catch (error) {
-    let cleanupConfirmed = temporaryIdentity !== null;
+    let cleanupConfirmed = !temporaryCreated;
+    let handleSettled = temporaryHandle === null;
     if (temporaryHandle !== null) {
       try {
         fs.closeSync(temporaryHandle);
+        temporaryHandle = null;
+        handleSettled = true;
       } catch {
-        cleanupConfirmed = false;
+        handleSettled = false;
       }
     }
     const cleanupTarget = renamed ? target : temporary;
-    if (temporaryIdentity) {
+    if (temporaryIdentity && handleSettled) {
       try {
         const observation = observeFilesystemEntry(cleanupTarget);
         if (observation === "present") {
@@ -904,13 +1000,15 @@ function writeHostRecoveryRecord(
           cleanupTarget,
           "host_recovery_record_cleanup_unconfirmed",
         );
+        cleanupConfirmed = true;
       } catch {
         cleanupConfirmed = false;
       }
     }
-    if (!cleanupConfirmed)
-      throw new Error("host_recovery_record_initialization_cleanup_unknown", {
-        cause: error,
+    if (!cleanupConfirmed || !handleSettled)
+      throwHostRecoveryInitializationFailure(error, {
+        cleanupConfirmed: false,
+        hostRecoveryId: expectedHostRecoveryToken(identity),
       });
     throw error;
   }
@@ -1070,68 +1168,81 @@ export function createOwnedOperationDirectories(
     registerOwnedOperationGeneration(owned, requireOwnedIdentity(owned));
     return owned;
   } catch (error) {
-    let cleanupConfirmed = createdRoot === null;
-    try {
-      if (realRoot !== null && owned && ownedIdentity(owned)) {
-        rollbackInitializingOperationDirectories(owned);
-        cleanupConfirmed = true;
-      } else if (
-        createdRoot !== null &&
-        createdRootIdentity !== null &&
-        parent !== null
-      ) {
-        const metadata = fs.lstatSync(createdRoot);
-        if (
-          metadata.isSymbolicLink() ||
-          !metadata.isDirectory() ||
-          fs.realpathSync(createdRoot) !== createdRoot ||
-          path.dirname(createdRoot) !== parent ||
-          !path.basename(createdRoot).startsWith(OWNED_PREFIX) ||
-          !sameFilesystemIdentity(
-            readFilesystemIdentity(createdRoot),
-            createdRootIdentity,
-          )
-        )
-          throw new Error("owned_operation_directory_boundary_failed");
-        fs.rmSync(createdRoot, { recursive: true, force: false });
-        requireConfirmedAbsent(
-          createdRoot,
-          "owned_operation_directory_cleanup_incomplete",
-        );
-        cleanupConfirmed = true;
-      }
-      if (!owned && initializingRecord) {
-        const observation = observeFilesystemEntry(initializingRecord.path);
-        if (observation === "present") {
+    const nestedFailure = hostRecoveryInitializationFailure(error);
+    let cleanupConfirmed = nestedFailure?.cleanupConfirmed ?? true;
+    let rootCleanupConfirmed = createdRoot === null;
+    let markerCleanupConfirmed = initializingRecord === null;
+    if (cleanupConfirmed) {
+      try {
+        if (realRoot !== null && owned && ownedIdentity(owned)) {
+          rollbackInitializingOperationDirectories(owned);
+          rootCleanupConfirmed = true;
+          markerCleanupConfirmed = true;
+        } else if (
+          createdRoot !== null &&
+          createdRootIdentity !== null &&
+          parent !== null
+        ) {
+          const metadata = fs.lstatSync(createdRoot);
           if (
+            metadata.isSymbolicLink() ||
+            !metadata.isDirectory() ||
+            fs.realpathSync(createdRoot) !== createdRoot ||
+            path.dirname(createdRoot) !== parent ||
+            !path.basename(createdRoot).startsWith(OWNED_PREFIX) ||
             !sameFilesystemIdentity(
-              readFileIdentity(initializingRecord.path),
-              initializingRecord.identity,
+              readFilesystemIdentity(createdRoot),
+              createdRootIdentity,
             )
           )
-            throw new Error("host_recovery_record_replaced");
-          fs.rmSync(initializingRecord.path);
-        } else if (observation === "unknown") {
-          throw new Error("host_recovery_record_observation_unknown");
+            throw new Error("owned_operation_directory_boundary_failed");
+          fs.rmSync(createdRoot, { recursive: true, force: false });
+          requireConfirmedAbsent(
+            createdRoot,
+            "owned_operation_directory_cleanup_incomplete",
+          );
+          rootCleanupConfirmed = true;
         }
-        requireConfirmedAbsent(
-          initializingRecord.path,
-          "host_recovery_record_cleanup_unconfirmed",
-        );
-        cleanupConfirmed = true;
+      } catch {
+        rootCleanupConfirmed = false;
       }
-    } catch {
-      cleanupConfirmed = false;
+      if (rootCleanupConfirmed && !owned && initializingRecord) {
+        try {
+          const observation = observeFilesystemEntry(initializingRecord.path);
+          if (observation === "present") {
+            if (
+              !sameFilesystemIdentity(
+                readFileIdentity(initializingRecord.path),
+                initializingRecord.identity,
+              )
+            )
+              throw new Error("host_recovery_record_replaced");
+            fs.rmSync(initializingRecord.path);
+          } else if (observation === "unknown") {
+            throw new Error("host_recovery_record_observation_unknown");
+          }
+          requireConfirmedAbsent(
+            initializingRecord.path,
+            "host_recovery_record_cleanup_unconfirmed",
+          );
+          markerCleanupConfirmed = true;
+        } catch {
+          markerCleanupConfirmed = false;
+        }
+      }
     }
+    cleanupConfirmed =
+      cleanupConfirmed && rootCleanupConfirmed && markerCleanupConfirmed;
+    const retainedRecoveryId =
+      nestedFailure?.hostRecoveryId ??
+      initializingRecord?.token ??
+      (owned && ownedIdentity(owned)
+        ? expectedHostRecoveryToken(requireOwnedIdentity(owned))
+        : null);
     throwOwnedOperationDirectoryCreationFailure(error, {
       cleanupConfirmed,
       manualRecoveryRequired: !cleanupConfirmed,
-      hostRecoveryId:
-        !cleanupConfirmed && owned
-          ? owned.hostRecoveryId
-          : !cleanupConfirmed
-            ? (initializingRecord?.token ?? null)
-            : null,
+      hostRecoveryId: !cleanupConfirmed ? retainedRecoveryId : null,
     });
   }
 }
@@ -2071,7 +2182,15 @@ function removeOwnedOperationRecoveryRecord(identity: OwnedIdentity) {
     )
       throw new Error("host_recovery_directory_replaced");
     const marker = fs.lstatSync(identity.hostRecovery.record);
-    if (!marker.isFile() || marker.isSymbolicLink())
+    if (
+      !marker.isFile() ||
+      marker.isSymbolicLink() ||
+      !identity.hostRecovery.recordIdentity ||
+      !sameFilesystemIdentity(
+        readFileIdentity(identity.hostRecovery.record),
+        identity.hostRecovery.recordIdentity,
+      )
+    )
       throw new Error("host_recovery_record_replaced");
     fs.rmSync(identity.hostRecovery.record);
     requireConfirmedAbsent(
