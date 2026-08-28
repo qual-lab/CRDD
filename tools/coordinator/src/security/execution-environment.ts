@@ -180,6 +180,17 @@ export function classifyOwnedOperationDirectoryCreationFailure(error: unknown) {
     ? (ownedOperationDirectoryCreationFailures.get(error) ?? null)
     : null;
 }
+
+export function createIsolatedOwnedOperationDirectoryCreationFailureCandidate() {
+  return Object.freeze({
+    productionAuthority: false as const,
+    fail: (details: OwnedOperationDirectoryCreationFailure): never =>
+      throwOwnedOperationDirectoryCreationFailure(
+        new Error("isolated_owned_operation_directory_creation_failed"),
+        Object.freeze(details),
+      ),
+  });
+}
 type MountCapabilityIdentity = Readonly<{
   owned: object;
   children: ChildSnapshots;

@@ -5,6 +5,7 @@ import {
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
   getOwnedHostRecoveryId,
+  classifyOwnedOperationDirectoryCreationFailure,
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 
@@ -35,9 +36,12 @@ function fail(
 export function classifyOwnedCoordinatorOperationCreationFailure(
   error: unknown,
 ) {
-  return error && typeof error === "object"
-    ? (failures.get(error) ?? null)
-    : null;
+  if (!error || typeof error !== "object") return null;
+  return (
+    failures.get(error) ??
+    classifyOwnedOperationDirectoryCreationFailure(error) ??
+    null
+  );
 }
 
 type Dependencies = Readonly<{

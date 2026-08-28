@@ -192,19 +192,28 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
       resultSha256: "a".repeat(64),
       resultBytes: 1,
     },
+    {
+      normalizedResult: null,
+      resultSha256: null,
+      resultBytes: 0,
+    },
+    { cancellationRequested: true },
+    { subscriptionAuthConfirmed: false },
     { operationId: "OP-999999" },
   ]) {
-    assert.equal(
-      projectDockerProcessControllerCompletionResult(
-        Object.freeze({
-          ...(completion as Readonly<Record<string, unknown>>),
-          ...impossible,
-        }),
-        handedOffRecoveryId,
-        "OP-123456",
-      ),
-      null,
-    );
+    const malformed = Object.freeze({
+      ...(completion as Readonly<Record<string, unknown>>),
+      ...impossible,
+    });
+    for (const projectCompletion of [
+      projectDockerProcessControllerCompletionResult,
+      projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+      projectRuntimeOwnedDockerProcessCompletionForTask,
+    ])
+      assert.equal(
+        projectCompletion(malformed, handedOffRecoveryId, "OP-123456"),
+        null,
+      );
   }
 
   const missingStart = { ...started } as Record<string, unknown>;
@@ -478,6 +487,11 @@ test("固定command planを完了後に全resource不存在とlease解放へ閉�
   assert.equal(result.rawOutputReported, false);
   assert.equal(fixture.getCommandCount(), 9);
   assert.equal(result.subscriptionAuthConfirmed, true);
+  for (const projectCompletion of [
+    projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+    projectRuntimeOwnedDockerProcessCompletionForTask,
+  ])
+    assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
   assert.equal(fixture.getCleanupCount(), 1);
   assert.equal(fixture.getMountCompletionCount(), 1);
   assert.equal(fixture.getRecoveryCompletionCount(), 1);
@@ -693,6 +707,24 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
       "OP-123456",
     ),
   );
+  for (const projectCompletion of [
+    projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+    projectRuntimeOwnedDockerProcessCompletionForTask,
+  ])
+    assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
+  for (const projectCompletion of [
+    projectDockerProcessControllerCompletionResult,
+    projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+    projectRuntimeOwnedDockerProcessCompletionForTask,
+  ])
+    assert.equal(
+      projectCompletion(
+        Object.freeze({ ...result, cancellationRequested: false }),
+        started.recoveryId,
+        "OP-123456",
+      ),
+      null,
+    );
   assert.equal(
     (
       await fixture.controller.cancel(
@@ -737,6 +769,11 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
       "OP-123456",
     ),
   );
+  for (const projectCompletion of [
+    projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+    projectRuntimeOwnedDockerProcessCompletionForTask,
+  ])
+    assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
   assert.equal(fixture.getMountCompletionCount(), 0);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
 });
@@ -778,6 +815,11 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
       "OP-123456",
     ),
   );
+  for (const projectCompletion of [
+    projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+    projectRuntimeOwnedDockerProcessCompletionForTask,
+  ])
+    assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
 });
 
 test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () => {
@@ -1193,7 +1235,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 18);
+  assert.equal(contract.contractRevision, 19);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);

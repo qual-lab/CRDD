@@ -11,7 +11,9 @@ import {
   discoverCommand,
   evaluateReadiness,
   isSupportedNodeVersion,
+  projectDoctorOperationCreationFailure,
   REQUIRED_CHECK_IDS,
+  renderDoctorCommandFailure,
   runDoctor,
 } from "../src/core/doctor.ts";
 import * as dockerIsolation from "../src/security/docker-isolation.ts";
@@ -45,6 +47,7 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
@@ -78,6 +81,69 @@ function hostRecoveryMarker(token: string): string {
     `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
   );
 }
+
+test("Doctor公開投影は内包Directory failureをJSON・人間表示・exitへ閉じる", () => {
+  const lower = createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+  for (const hostRecoveryId of [
+    null,
+    "host.fixture.directory.recovery",
+  ] as const) {
+    let projected: unknown;
+    try {
+      lower.fail({
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        hostRecoveryId,
+      });
+    } catch (lowerError) {
+      try {
+        projectDoctorOperationCreationFailure(lowerError);
+      } catch (error) {
+        projected = error;
+      }
+    }
+    const rendered = renderDoctorCommandFailure(projected);
+    assert.equal(rendered.exitCode, 2);
+    assert.deepEqual(JSON.parse(rendered.json), {
+      status: "blocked",
+      reason: "doctor_operation_initialization_cleanup_unknown",
+      manualRecoveryRequired: true,
+      hostRecoveryId,
+    });
+    assert.equal(rendered.human.includes("manual recovery required"), true);
+    assert.equal(
+      rendered.human.includes(hostRecoveryId ?? "unavailable"),
+      true,
+    );
+    assert.equal(rendered.json.includes(process.cwd()), false);
+    assert.equal(rendered.human.includes(process.cwd()), false);
+  }
+});
+
+test("Doctor公開投影はcleanup確認済みfailureを偽manualへ昇格しない", () => {
+  const lower = createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+  let projected: unknown;
+  try {
+    lower.fail({
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      hostRecoveryId: null,
+    });
+  } catch (lowerError) {
+    try {
+      projectDoctorOperationCreationFailure(lowerError);
+    } catch (error) {
+      projected = error;
+    }
+  }
+  const rendered = renderDoctorCommandFailure(projected);
+  assert.equal(rendered.exitCode, 2);
+  assert.deepEqual(JSON.parse(rendered.json), {
+    status: "blocked",
+    reason: "owned_operation_directory_creation_failed",
+  });
+  assert.equal(rendered.human.includes("manual recovery required"), false);
+});
 
 function suppressKernelLockReleaseAcknowledgement<T>(effect: () => T) {
   const original = Worker.prototype.postMessage;

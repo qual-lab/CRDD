@@ -166,7 +166,7 @@ agent_contract:
 
 ### 2.2.1. 着手前整合確認
 
-durable／外部資源の取得transactionは、最初の永続・共有・外部Effectから、所有Capability、exact Recovery Authorityおよび利用側へ返す公開結果が安全に確定する点までを含める。その間に実行するobserver、Identity取得、再検証、parser、Capability初期化その他のthrow可能点を列挙し、すべてをcleanupまたはretention分類内へ置く。読み取り処理であることを、transaction外へ出す理由にしない。exact Recovery Identityを取得する前にcleanup不明となった場合はIDを推測・再構成せず、IDなしのmanual／operator transferへ閉じる。
+失敗時に対象所有のdurable／shared／externalな残存資源、またはRecovery／Authority義務を残し得る取得・初期化では、[アーキテクチャ](27_Architecture.md#24-状態処理順序副作用)が定める排他的なtransaction settlementを着手前に照合する。対象範囲で到達し得るthrow可能なobserver、Identity取得、再検証、parserおよびCapability初期化をcleanupまたはretention分類へ含める。Recovery Identity取得前のcleanup不明ではIDを推測・再構成せず、IDなしでoperatorへ移送する。read-only観測、取得Effect前に閉じる処理、残存所有を生じず終了を決定論的に観測できる局所資源へ、この契約や存在しないRecovery Authorityを作らない。
 
 非自明な変更は、担当者またはAIの自己申告、変更行数、使用モデルだけで決めない。正本の意味または規範強度、決定権限、適用／非適用条件、正式な判定結果、複数の正本または利用側、基準版／準拠／移行、公開主張、セキュリティ／プライバシー／法務／不可逆操作のいずれかを変えるか、変える可能性を安全に否定できない変更を含む。これらを変えず、可逆で局所的であり、直接参照や別正本へ影響しないことを対象差分と正本から確認できる場合だけ、軽微な変更として扱える。申告した変更分類と実際に観測した差分が一致しない場合は、影響が大きい方の経路へ戻す。
 

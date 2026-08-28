@@ -246,7 +246,7 @@ AIまたは実装担当は実装案、規則案、テスト、逸脱、影響を
 
 ## 2.4. 振る舞い・状態・失敗・リソース制御
 
-durable／外部資源の取得実装では、最初のEffectから所有Capability・exact Recovery Authority・公開結果の確定までを一つのtransactionとして扱う。その間のobserver、Identity取得、再検証、parserまたは初期化を`try`／cleanup分類の外へ置かず、ID取得前のcleanup不明ではPathや未検証値からRecovery IDを作らない。同じ取得primitiveを使う公開入口または診断入口を水平探索し、入口ごとの偽clean、未分類例外またはRecovery案内欠落を残さない。
+[アーキテクチャ](27_Architecture.md#24-状態処理順序副作用)の資源取得transactionに該当する実装では、対象範囲で到達し得るobserver、Identity取得、再検証、parserまたは初期化をcleanup／retention分類の外へ置かない。ID取得前のcleanup不明ではPathや未検証値からRecovery IDを作らない。複合transactionは内包producerのtyped failure集合を外側consumerまで保持し、同じ取得primitiveを使う公開入口または診断入口を水平探索して、入口ごとの偽clean、未分類例外またはRecovery案内欠落を残さない。非該当処理へRecovery Authorityを追加しない。
 
 正常パスだけでなく、境界、空、不明、失敗、権限、競合、古い、再試行、取消、並行実行、依存関係停止を適用範囲で実装する。
 

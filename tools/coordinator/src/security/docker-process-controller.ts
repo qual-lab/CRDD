@@ -32,7 +32,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 18;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 19;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -407,11 +407,25 @@ export function projectDockerProcessControllerCompletionResult(
     networksAbsent === true &&
     mountLeaseReleased === true &&
     recoveryCompleted === true;
+  const providerRequestStarted = ownDataValue(record, "providerRequestStarted");
+  const cancellationRequested = ownDataValue(record, "cancellationRequested");
+  const normalizedResult = ownDataValue(record, "normalizedResult");
+  const resultSha256 = ownDataValue(record, "resultSha256");
+  const resultBytes = ownDataValue(record, "resultBytes");
+  const subscriptionAuthConfirmed = ownDataValue(
+    record,
+    "subscriptionAuthConfirmed",
+  );
+  const recoveryFinalizationCapability = ownDataValue(
+    record,
+    "recoveryFinalizationCapability",
+  );
+  const reason = ownDataValue(record, "reason");
   if (
     (status !== "completed" &&
       status !== "blocked" &&
       status !== "cancelled") ||
-    typeof ownDataValue(record, "reason") !== "string" ||
+    typeof reason !== "string" ||
     typeof cleanupConfirmed !== "boolean" ||
     typeof manualRecoveryRequired !== "boolean" ||
     typeof ownDataValue(record, "operationId") !== "string" ||
@@ -419,25 +433,22 @@ export function projectDockerProcessControllerCompletionResult(
       ownDataValue(record, "operationId") !== expectedOperationId) ||
     typeof ownDataValue(record, "selectionRecordId") !== "string" ||
     ownDataValue(record, "dockerEffectStarted") !== true ||
-    typeof ownDataValue(record, "providerRequestStarted") !== "boolean" ||
-    typeof ownDataValue(record, "cancellationRequested") !== "boolean" ||
+    typeof providerRequestStarted !== "boolean" ||
+    typeof cancellationRequested !== "boolean" ||
     typeof processTreeTerminated !== "boolean" ||
     typeof containersAbsent !== "boolean" ||
     typeof networksAbsent !== "boolean" ||
     typeof mountLeaseReleased !== "boolean" ||
     typeof recoveryCompleted !== "boolean" ||
     cleanupConfirmed !== cleanupFromResources ||
-    !Number.isSafeInteger(ownDataValue(record, "resultBytes")) ||
-    (ownDataValue(record, "resultBytes") as number) < 0 ||
-    (ownDataValue(record, "resultSha256") !== null &&
-      (typeof ownDataValue(record, "resultSha256") !== "string" ||
-        !/^[a-f0-9]{64}$/u.test(
-          ownDataValue(record, "resultSha256") as string,
-        ))) ||
-    (ownDataValue(record, "recoveryFinalizationCapability") !== null &&
-      typeof ownDataValue(record, "recoveryFinalizationCapability") !==
-        "object") ||
-    typeof ownDataValue(record, "subscriptionAuthConfirmed") !== "boolean" ||
+    !Number.isSafeInteger(resultBytes) ||
+    (resultBytes as number) < 0 ||
+    (resultSha256 !== null &&
+      (typeof resultSha256 !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(resultSha256))) ||
+    (recoveryFinalizationCapability !== null &&
+      typeof recoveryFinalizationCapability !== "object") ||
+    typeof subscriptionAuthConfirmed !== "boolean" ||
     ownDataValue(record, "rawOutputReported") !== false ||
     ownDataValue(record, "untrustedProviderTextReported") !== false ||
     ownDataValue(record, "credentialAbsenceVerified") !== false ||
@@ -449,16 +460,32 @@ export function projectDockerProcessControllerCompletionResult(
       : recoveryId !== expected ||
         manualRecoveryRequired !== true ||
         status !== "blocked" ||
-        ownDataValue(record, "reason") !==
-          "docker_process_controller_cleanup_unconfirmed" ||
-        ownDataValue(record, "normalizedResult") !== null ||
-        ownDataValue(record, "resultSha256") !== null ||
-        ownDataValue(record, "resultBytes") !== 0 ||
-        ownDataValue(record, "recoveryFinalizationCapability") !== null) ||
-    (status !== "completed" &&
-      (ownDataValue(record, "normalizedResult") !== null ||
-        ownDataValue(record, "resultSha256") !== null ||
-        ownDataValue(record, "resultBytes") !== 0))
+        reason !== "docker_process_controller_cleanup_unconfirmed" ||
+        normalizedResult !== null ||
+        resultSha256 !== null ||
+        resultBytes !== 0 ||
+        recoveryFinalizationCapability !== null) ||
+    (cleanupConfirmed === true &&
+      (recoveryFinalizationCapability === null ||
+        typeof recoveryFinalizationCapability !== "object")) ||
+    (status === "completed"
+      ? reason !== "provider_operation_completed" ||
+        providerRequestStarted !== true ||
+        cancellationRequested !== false ||
+        subscriptionAuthConfirmed !== true ||
+        normalizedResult === null ||
+        typeof normalizedResult !== "object" ||
+        typeof resultSha256 !== "string" ||
+        resultBytes === 0
+      : normalizedResult !== null ||
+        resultSha256 !== null ||
+        resultBytes !== 0) ||
+    (status === "cancelled" &&
+      (reason !== "provider_operation_cancelled" ||
+        cancellationRequested !== true)) ||
+    (status === "blocked" &&
+      cleanupConfirmed === true &&
+      cancellationRequested !== false)
   )
     return null;
   return Object.freeze({ ...record, recoveryId });
@@ -926,11 +953,13 @@ async function executePlan(
           recovery.recoveryCapability,
           record.managementCapability,
         );
-        recoveryCompleted = completion.status === "completed";
         recoveryFinalizationCapability =
-          recoveryCompleted && completion.recoveryFinalizationCapability
+          completion.status === "completed" &&
+          completion.recoveryFinalizationCapability &&
+          typeof completion.recoveryFinalizationCapability === "object"
             ? completion.recoveryFinalizationCapability
             : null;
+        recoveryCompleted = recoveryFinalizationCapability !== null;
       }
     } catch {
       mountLeaseReleased = false;

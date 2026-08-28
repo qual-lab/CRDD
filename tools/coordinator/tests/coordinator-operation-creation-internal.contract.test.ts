@@ -8,6 +8,7 @@ import {
 } from "../src/security/coordinator-operation-creation-internal.ts";
 import {
   cleanupOwnedOperationDirectories,
+  createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
   getOwnedHostRecoveryId,
 } from "../src/security/execution-environment.ts";
 
@@ -137,5 +138,37 @@ test("production Operationは実Directory producerのexact Host Recovery IDを�
     );
   } finally {
     cleanupOwnedOperationDirectories(created.owned);
+  }
+});
+
+test("共有classifierは内包Directory producerの全failureを保持する", () => {
+  const lower = createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+  for (const expected of [
+    Object.freeze({
+      cleanupConfirmed: true,
+      manualRecoveryRequired: false,
+      hostRecoveryId: null,
+    }),
+    Object.freeze({
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      hostRecoveryId: null,
+    }),
+    Object.freeze({
+      cleanupConfirmed: false,
+      manualRecoveryRequired: true,
+      hostRecoveryId: "host.fixture.directory.recovery",
+    }),
+  ]) {
+    assert.throws(
+      () => lower.fail(expected),
+      (error) => {
+        assert.deepEqual(
+          classifyOwnedCoordinatorOperationCreationFailure(error),
+          expected,
+        );
+        return true;
+      },
+    );
   }
 });

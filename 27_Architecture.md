@@ -267,7 +267,15 @@ UIに表示する更新通知、差し替え、鮮度表現はUI / SPECが正本
 
 ## 2.4. 状態・処理順序・副作用
 
-durable／外部資源を取得する処理では、transactionの開始を最初のEffect、終了を所有Capability・exact Recovery Authority・公開結果の確定点として示す。両者の間にあるthrow可能なobserver、Identity取得、再検証および初期化を含め、各失敗点のcleanup、retention、公開投影と、Recovery Identity未取得時のmanual／operator transferを設計する。
+失敗時に対象が所有するdurable／shared／externalな残存資源、またはRecovery／Authority義務を残し得る取得・初期化では、取得Effectから次のいずれか一つへ至る排他的なtransaction settlementを設計する。
+
+- live owner capabilityを利用側へ安全に移送する
+- cleanup完了を実観測する
+- 対象に存在するexact Recovery Authorityを移送する
+- Recovery Identityを安全に取得できないcleanup不明を、IDなしでoperatorへ移送する
+- 取得Effect前に確認済み拒否へ閉じる
+
+このtransactionには、対象範囲で到達し得るobserver、Identity取得、再検証、parserおよび初期化のthrow可能な境界を含め、各境界のcleanup、retentionおよび利用側への投影を同値分割して示す。所有Capability、Recovery Authorityまたは公開結果は対象に存在するものだけを確定対象とし、Recovery非該当の処理へIDを新設しない。read-only観測、取得Effect前に閉じる処理、または失敗時にも残存所有を生じず終了を決定論的に観測できる局所資源は、このtransaction契約の非該当とする。
 
 主要フローは、開始条件、アクター／契機、内部状態、実行時部品間の処理順序、永続化点、外部への副作用、成功・失敗・取消・回復を対応づける。SPECの状態とアーキテクチャ内部状態を区別し、内部都合の状態を利用者向けの意味として無断公開しない。
 

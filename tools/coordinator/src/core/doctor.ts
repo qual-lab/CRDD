@@ -66,6 +66,26 @@ export function classifyDoctorOperationInitializationFailure(error: unknown) {
     : null;
 }
 
+export function renderDoctorCommandFailure(error: unknown) {
+  const doctorCreation = classifyDoctorOperationInitializationFailure(error);
+  const message = errorMessage(error);
+  const reason =
+    typeof message === "string" && /^[a-z0-9_]+$/u.test(message)
+      ? message
+      : "diagnostic_failed";
+  return Object.freeze({
+    exitCode: 2,
+    json: `${JSON.stringify(
+      doctorCreation
+        ? { status: "blocked", ...doctorCreation }
+        : { status: "blocked", reason },
+    )}\n`,
+    human: doctorCreation
+      ? `Coordinator diagnostic blocked: ${doctorCreation.reason}; manual recovery required; host recovery id: ${doctorCreation.hostRecoveryId ?? "unavailable"}\n`
+      : `Coordinator diagnostic failed: ${reason}\n`,
+  });
+}
+
 function throwDoctorOperationInitializationFailure(
   cause: unknown,
   hostRecoveryId: string | null,
@@ -81,6 +101,13 @@ function throwDoctorOperationInitializationFailure(
       hostRecoveryId,
     }),
   );
+  throw error;
+}
+
+export function projectDoctorOperationCreationFailure(error: unknown): never {
+  const creation = classifyOwnedCoordinatorOperationCreationFailure(error);
+  if (creation && !creation.cleanupConfirmed)
+    throwDoctorOperationInitializationFailure(error, creation.hostRecoveryId);
   throw error;
 }
 
@@ -492,10 +519,7 @@ export function runDoctor(options: unknown = {}) {
   try {
     operation = createRuntimeOwnedCoordinatorOperation();
   } catch (error) {
-    const creation = classifyOwnedCoordinatorOperationCreationFailure(error);
-    if (creation && !creation.cleanupConfirmed)
-      throwDoctorOperationInitializationFailure(error, creation.hostRecoveryId);
-    throw error;
+    projectDoctorOperationCreationFailure(error);
   }
   const { owned, hostRecoveryId: initialHostRecoveryId } = operation;
   if (!owned.directories)

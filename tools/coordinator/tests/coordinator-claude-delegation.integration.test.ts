@@ -283,7 +283,10 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
       assert.equal(capability, recoveryCapability);
       assert.equal(management, managementCapability);
       recoveryCompletionCount += 1;
-      return Object.freeze({ status: "completed" });
+      return Object.freeze({
+        status: "completed",
+        recoveryFinalizationCapability: Object.freeze({}),
+      });
     },
     consumeProviderAuthority: (
       use: unknown,
