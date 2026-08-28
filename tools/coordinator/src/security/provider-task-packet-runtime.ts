@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 7;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 8;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -175,7 +175,11 @@ function promptFor(packet: TaskPacket) {
   const roleInstruction =
     packet.taskRole === "executor"
       ? "Work only inside /work. Modify only the allowed paths. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems."
-      : "Review the candidate in /work without modifying any file. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.";
+      : [
+          "Review the candidate in /work without modifying any file. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
+          "Before this review, the runtime compared the candidate inventory with the exact base revision and rejected any changed path outside Allowed paths.",
+          "Git metadata is intentionally absent. Independently inspect candidate semantics and content through Readable paths; do not report missing Git metadata or inability to re-enumerate out-of-scope paths as a finding.",
+        ].join(" ");
   return [
     "You are a CRDD isolated provider task.",
     roleInstruction,
@@ -476,6 +480,8 @@ export function describeProviderTaskPacketRuntimeContract() {
       "path_severity_and_domain_separated_message_hash_without_reviewer_text",
     remediationSecretBoundary:
       "finding_paths_rejected_before_external_send_grant_consumption_and_packet_issue",
+    reviewerScopeBoundary:
+      "runtime_verified_changed_path_scope_plus_independent_readable_candidate_semantics_without_git_metadata",
     promptTransport: "provider_stdin_only",
     promptInDockerArgvAllowed: false,
     allowedPaths: "exact_file_or_directory_prefix",

@@ -151,7 +151,7 @@ Provider child／Docker resource absence
 | `INV-LOCK-ORDER-AND-REVALIDATION` | Lock順序を守り、解放窓後は同一identityと全inventoryを後続Effect前に再確認する |
 | `INV-DURABLE-BEFORE-EFFECT` | 外部またはHost Effectの前に、再構成に必要なintent／submissionをcommit済みにする |
 | `INV-STAGE-CLEAN-BEFORE-HANDOFF` | Executor／Reviewerの結果を次Stageへ渡す前に、そのStageのchildとDocker cleanupを確認する |
-| `INV-CANDIDATE-EXACT-AND-NONCANONICAL` | Candidateは開始Revisionと許可Pathへ固定し、Canonical Repositoryへ直接適用しない |
+| `INV-CANDIDATE-EXACT-AND-NONCANONICAL` | Candidateは開始Revisionと許可Pathへ固定し、Canonical Repositoryへ直接適用しない。Runtimeが変更Path範囲を機械検証し、Git metadataを持たないReviewerはRead Projection上の内容・意味を独立検証する |
 | `INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE` | Host cleanupはactive Docker binding Evidenceがある間は停止し、旧版のHost先行回収状態もexact Docker照合とbinding閉包の後だけ完了する |
 | `INV-BOUNDED-REMEDIATION` | Reviewer findingは一回だけ同じExecutorへ返し、同じReviewerが再評価する |
 | `INV-RESULT-AFTER-CLEANUP` | Host、Docker、Mount、Candidateおよびsignal cleanup確認後だけ成功結果を公開する |

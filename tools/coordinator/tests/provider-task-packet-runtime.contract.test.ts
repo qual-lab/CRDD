@@ -111,6 +111,46 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
   }
 });
 
+test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境界を明示する", () => {
+  const current = operation();
+  const isolated = packetRuntime();
+  try {
+    const issued = isolated.runtime.issue(
+      current.managementCapability,
+      isolated.repositoryBindingCapability,
+      "codex",
+      "reviewer",
+      0,
+      isolated.externalSendGrantCapability,
+      null,
+      packet(),
+    );
+    if (issued?.status !== "issued") assert.fail("packet must be issued");
+    const consumed = isolated.runtime.consume(
+      issued.useCapability,
+      current.managementCapability,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /runtime compared the candidate inventory with the exact base revision/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /Git metadata is intentionally absent/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /Independently inspect candidate semantics and content through Readable paths/u,
+    );
+    assert.doesNotMatch(
+      consumed?.prompt ?? "",
+      /Modify only the allowed paths/u,
+    );
+  } finally {
+    cleanupOwnedOperationDirectories(current.owned);
+  }
+});
+
 test("取消はuse aliasも失効し別Operationや動的入力を拒否する", () => {
   const current = operation();
   const other = operation();
@@ -369,7 +409,7 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);
@@ -384,5 +424,9 @@ test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   assert.equal(
     contract.remediationSecretBoundary,
     "finding_paths_rejected_before_external_send_grant_consumption_and_packet_issue",
+  );
+  assert.equal(
+    contract.reviewerScopeBoundary,
+    "runtime_verified_changed_path_scope_plus_independent_readable_candidate_semantics_without_git_metadata",
   );
 });

@@ -24,6 +24,8 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 2026-08-26時点で、署名済みCRDD Release Identity、Local PersonalのT1–T2境界、外部送信の対話承認、Claude Code Executor、Codex Independent Reviewer、Candidate検証・破棄およびHost／Docker cleanupを通る固定1経路を実測した。対象Commit `af76f555896d991edb88a6bc2f52b9865c6e9ac5`の正式Runnerは`RUNNER_EXIT=0`を返し、正規Repository、Candidate Store、Runtime State、Docker資源およびRunner Processの残存0を独立照合した。
 
+後続の正式4経路実測では、RuntimeがCandidateの変更Pathを機械検証済みである一方、Git metadataを持たない独立Reviewerへ「唯一の変更Path」を重複証明させる責務衝突により、正しい固定Candidateにも是正要求が反復するGapを確認した。Reviewer Task Packetへ、開始RevisionとinventoryによるPath範囲はRuntimeが検証し、ReviewerはRead Projection上の候補内容・意味を独立確認する境界を明示した。Git metadata不在だけをFindingにせず、許可Path検証、Candidate内容確認および独立レビューのいずれも弱めない契約試験を追加した。正式署名4経路の再実測は未完了である。
+
 この成功はRuntime 1.0全体、4経路、失敗／取消Recovery、統合、ReleaseまたはT3–T4保証を意味しない。現在の本変更は、未リリースCHG統合による正本再構成と残る経路・Recovery・Release Gateのため`Reopened`である。
 
 後続の現在候補では、両Front×両Executorの4経路、同一Provider例外理由、独立Reviewer、単一Active初期同意、4経路の完全一致Runnerおよび失敗／取消Recovery Matrixをproduction経路と同じ契約へ接続し、全機械試験を通過した。初期同意は全Policy Provider境界を表示し、現在Task／Revision／Scopeを非永続Previewへ分離し、選択ユーザー・保護Runtime State・Policy byteへ結合する。A→B→Aで古いAを復活させず、180日失効、明示取消、部分／破損pairの安全なAuthority除去および判定不能時の手動回復停止を固定した。この段階は正式署名4経路実測またはRuntime完成監査の完了をまだ意味しない。
