@@ -33,7 +33,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 9;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 10;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -689,7 +689,7 @@ function verifiedPackage(
   );
 }
 
-function verifiedTaskResult(
+function taskResultContractMismatch(
   result: RuntimeRecord | null,
   release: ReleaseIdentity,
   route: RouteExpectation,
@@ -697,39 +697,56 @@ function verifiedTaskResult(
   const candidateRevision = plainRecord(result?.candidateRevision);
   const executorResult = plainRecord(result?.executorResult);
   const reviewerResult = plainRecord(result?.reviewerResult);
-  if (!candidateRevision) return false;
-  return (
-    result?.status === "completed" &&
-    result.reason === "coordinator_task_candidate_approved" &&
-    result.cleanupConfirmed === true &&
-    result.manualRecoveryRequired === false &&
-    result.processRestartRequired === false &&
-    result.executorProvider === route.executorProvider &&
-    result.reviewerProvider === route.reviewerProvider &&
-    result.reviewerIndependence === "provider_independent" &&
-    (result.externalSendAuthorizationMode === "interactive_initial_consent" ||
-      result.externalSendAuthorizationMode === "reused_initial_consent") &&
-    result.remediationPerformed === false &&
-    candidateRevision?.baseCommit === release?.crddCommit &&
-    candidateRevision.baseTree === release.crddTree &&
-    sha256(candidateRevision.patchHash) &&
-    sha256(candidateRevision.contentManifestHash) &&
-    sha256(candidateRevision.allowedPathsHash) &&
-    exactStringArray(candidateRevision?.changedPaths, [TARGET_PATH]) &&
-    exactStringArray(executorResult?.changedPaths, [TARGET_PATH]) &&
-    reviewerResult?.decision === "approved" &&
-    reviewerResult.findingCount === 0 &&
-    result.canonicalRepositoryChanged === false &&
-    result.rawOutputReported === false &&
-    result.hostPathReported === false &&
-    result.untrustedProviderTextReported === false &&
-    result.hostRecoveryId === null &&
-    result.dockerRecoveryId === null &&
-    exactStringArray(result.dockerRecoveryIds, []) &&
-    result.candidateRecoveryId === null &&
-    result.candidateStoreRecoveryId === null &&
-    typeof result.candidateId === "string"
-  );
+  if (result?.status !== "completed") return "status";
+  if (result.reason !== "coordinator_task_candidate_approved") return "reason";
+  if (result.cleanupConfirmed !== true) return "cleanup_confirmed";
+  if (result.manualRecoveryRequired !== false)
+    return "manual_recovery_required";
+  if (result.processRestartRequired !== false)
+    return "process_restart_required";
+  if (result.executorProvider !== route.executorProvider)
+    return "executor_provider";
+  if (result.reviewerProvider !== route.reviewerProvider)
+    return "reviewer_provider";
+  if (result.reviewerIndependence !== "provider_independent")
+    return "reviewer_independence";
+  if (
+    result.externalSendAuthorizationMode !== "interactive_initial_consent" &&
+    result.externalSendAuthorizationMode !== "reused_initial_consent"
+  )
+    return "external_send_authorization_mode";
+  if (result.remediationPerformed !== false) return "remediation_performed";
+  if (!candidateRevision) return "candidate_revision";
+  if (candidateRevision.baseCommit !== release.crddCommit)
+    return "candidate_base_commit";
+  if (candidateRevision.baseTree !== release.crddTree)
+    return "candidate_base_tree";
+  if (!sha256(candidateRevision.patchHash)) return "candidate_patch_hash";
+  if (!sha256(candidateRevision.contentManifestHash))
+    return "candidate_content_manifest_hash";
+  if (!sha256(candidateRevision.allowedPathsHash))
+    return "candidate_allowed_paths_hash";
+  if (!exactStringArray(candidateRevision.changedPaths, [TARGET_PATH]))
+    return "candidate_changed_paths";
+  if (!exactStringArray(executorResult?.changedPaths, [TARGET_PATH]))
+    return "executor_changed_paths";
+  if (reviewerResult?.decision !== "approved") return "reviewer_decision";
+  if (reviewerResult.findingCount !== 0) return "reviewer_finding_count";
+  if (result.canonicalRepositoryChanged !== false)
+    return "canonical_repository_changed";
+  if (result.rawOutputReported !== false) return "raw_output_reported";
+  if (result.hostPathReported !== false) return "host_path_reported";
+  if (result.untrustedProviderTextReported !== false)
+    return "untrusted_provider_text_reported";
+  if (result.hostRecoveryId !== null) return "host_recovery_id";
+  if (result.dockerRecoveryId !== null) return "docker_recovery_id";
+  if (!exactStringArray(result.dockerRecoveryIds, []))
+    return "docker_recovery_ids";
+  if (result.candidateRecoveryId !== null) return "candidate_recovery_id";
+  if (result.candidateStoreRecoveryId !== null)
+    return "candidate_store_recovery_id";
+  if (typeof result.candidateId !== "string") return "candidate_id";
+  return null;
 }
 
 function verifiedCandidate(
@@ -1024,7 +1041,14 @@ export async function runSignedGeneralTaskVerification(
 
       if (knownOutcome) {
         // Candidate cleanup result is already the authoritative outcome.
-      } else if (!verifiedTaskResult(taskResult, release, route)) {
+      } else if (
+        taskResultContractMismatch(taskResult, release, route) !== null
+      ) {
+        const resultContractMismatch = taskResultContractMismatch(
+          taskResult,
+          release,
+          route,
+        );
         knownOutcome = blocked(
           taskResult?.status === "blocked"
             ? safeReason(
@@ -1035,6 +1059,7 @@ export async function runSignedGeneralTaskVerification(
           taskResult,
           Object.freeze({
             candidateDiscarded: discarded?.status === "discarded",
+            resultContractMismatch,
           }),
         );
       } else if (typeof candidateId !== "string") {
@@ -1257,6 +1282,8 @@ export function describeSignedGeneralTaskVerificationContract() {
     frontIdentityBinding:
       "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
     candidateDisposition: "exact_content_verify_then_discard",
+    resultMismatchDiagnostic:
+      "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
     processRestartProjection:
       "task_started_completion_or_restart_observation_unknown_irreversibly_poisons_shared_process_before_return_and_exact_false_plus_unpoisoned_state_required_for_success",
     cancellationSettlement: Object.freeze({

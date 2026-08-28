@@ -340,7 +340,11 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
+  assert.equal(
+    contract.resultMismatchDiagnostic,
+    "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
+  );
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
   assert.equal(contract.temporaryRequestFileAllowed, false);
@@ -585,6 +589,32 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);
   assert.equal(fixture.calls.unbound, 1);
+});
+
+test("正常候補の契約差はProvider本文を出さず固定field名だけで診断する", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      candidateRevision: Object.freeze({
+        baseCommit,
+        baseTree: "9".repeat(40),
+        patchHash,
+        contentManifestHash,
+        allowedPathsHash,
+        changedPaths: Object.freeze([TARGET_PATH]),
+      }),
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "signed_general_task_result_contract_mismatch");
+  assert.equal(result.resultContractMismatch, "candidate_base_tree");
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.rawProviderOutputReported, false);
+  assert.equal(result.hostPathReported, false);
+  assert.equal(result.credentialReported, false);
 });
 
 test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合する", async () => {

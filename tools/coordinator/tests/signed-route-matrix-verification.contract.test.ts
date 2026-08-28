@@ -44,7 +44,7 @@ function completed(
   const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 9,
+    contractRevision: 10,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -90,20 +90,20 @@ function completed(
 
 test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完了する", async () => {
   const seen: string[] = [];
-  const result = await runSignedRouteMatrixVerification(
-    process.cwd(),
-    (async (_root, _dependencies, route) => {
-      assert.ok(route);
-      seen.push(route);
-      return completed(
-        route,
-        seen.length === 1
-          ? "interactive_initial_consent"
-          : "reused_initial_consent",
-      );
-    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-    () => Object.freeze({ status: "revoked" as const }),
-  );
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    route,
+  ) => {
+    assert.ok(route);
+    seen.push(route);
+    return completed(
+      route,
+      seen.length === 1
+        ? "interactive_initial_consent"
+        : "reused_initial_consent",
+    );
+  }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "completed");
   assert.deepEqual(seen, ["forward", "reverse", "same-codex", "same-claude"]);
   assert.equal(result.completedRouteCount, 4);
@@ -115,35 +115,35 @@ test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完�
 
 test("最初の未完了経路で停止し既知cleanup状態を失わない", async () => {
   const seen: string[] = [];
-  const result = await runSignedRouteMatrixVerification(
-    process.cwd(),
-    (async (_root, _dependencies, route) => {
-      assert.ok(route);
-      seen.push(route);
-      return route === "reverse"
-        ? Object.freeze({
-            status: "blocked" as const,
-            cleanupConfirmed: false,
-            manualRecoveryRequired: true,
-            processRestartRequired: false,
-            effectStateUnknown: false,
-            hostRecoveryId: null,
-            hostRecoveryIds: Object.freeze([]),
-            dockerRecoveryId: null,
-            dockerRecoveryIds: Object.freeze([]),
-            candidateRecoveryId: null,
-            candidateRecoveryIds: Object.freeze([]),
-            candidateStoreRecoveryId: null,
-            candidateStoreRecoveryIds: Object.freeze([]),
-            canonicalRepositoryChanged: false,
-            rawProviderOutputReported: false,
-            hostPathReported: false,
-            credentialReported: false,
-          })
-        : completed(route, "interactive_initial_consent");
-    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-    () => Object.freeze({ status: "revoked" as const }),
-  );
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    route,
+  ) => {
+    assert.ok(route);
+    seen.push(route);
+    return route === "reverse"
+      ? Object.freeze({
+          status: "blocked" as const,
+          cleanupConfirmed: false,
+          manualRecoveryRequired: true,
+          processRestartRequired: false,
+          effectStateUnknown: false,
+          hostRecoveryId: null,
+          hostRecoveryIds: Object.freeze([]),
+          dockerRecoveryId: null,
+          dockerRecoveryIds: Object.freeze([]),
+          candidateRecoveryId: null,
+          candidateRecoveryIds: Object.freeze([]),
+          candidateStoreRecoveryId: null,
+          candidateStoreRecoveryIds: Object.freeze([]),
+          canonicalRepositoryChanged: false,
+          rawProviderOutputReported: false,
+          hostPathReported: false,
+          credentialReported: false,
+        })
+      : completed(route, "interactive_initial_consent");
+  }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.deepEqual(seen, ["forward", "reverse"]);
   assert.equal(result.completedRouteCount, 1);
@@ -185,19 +185,22 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
   }
 });
 
-test("最初は対話、残りはreuseでなければ行列を閉じない", async () => {
-  const result = await runSignedRouteMatrixVerification(
-    process.cwd(),
-    (async (_root, _dependencies, route) =>
-      completed(
-        route ?? "forward",
-        "reused_initial_consent",
-      )) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-    () => Object.freeze({ status: "revoked" as const }),
+test("保存済み同意は初回からreuseし残りもreuseで閉じる", async () => {
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    route,
+  ) =>
+    completed(
+      route ?? "forward",
+      "reused_initial_consent",
+    )) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  assert.equal(result.status, "completed");
+  assert.equal(result.completedRouteCount, 4);
+  assert.equal(
+    result.initialConsentAuthorizationMode,
+    "reused_initial_consent",
   );
-  assert.equal(result.status, "blocked");
-  assert.equal(result.completedRouteCount, 0);
-  assert.equal(result.validationFailure, "route_nonconforming");
 });
 
 test("4経路は同一Release Identityへ固定し別Releaseを集約しない", async () => {
@@ -225,7 +228,6 @@ test("4経路は同一Release Identityへ固定し別Releaseを集約しない",
           ? Object.freeze({ ...result, [field]: value })
           : result;
       }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-      () => Object.freeze({ status: "revoked" as const }),
     );
     assert.equal(result.status, "blocked", field);
     assert.equal(result.attemptedRouteCount, 2, field);
@@ -381,24 +383,6 @@ test("route salvageは過長IDを公開せず同じfieldのvalid IDだけを保�
   assert.equal(JSON.stringify(result).includes("x".repeat(1_025)), false);
 });
 
-test("同意resetのthrowまたはmalformedはroute開始前でも独立Process poisonへ閉じる", () => {
-  for (const scenario of ["revoke_throw", "revoke_malformed"]) {
-    const probe = spawnSync(
-      process.execPath,
-      [path.resolve("tests/fixtures/signed-route-poison-probe.ts"), scenario],
-      { cwd: path.resolve("."), encoding: "utf8", windowsHide: true },
-    );
-    assert.equal(probe.status, 0, `${scenario}: ${probe.stderr}`);
-    const observed = JSON.parse(probe.stdout) as Record<string, unknown>;
-    const result = observed.result as Record<string, unknown>;
-    assert.equal(observed.attempts, 0, scenario);
-    assert.equal(result.validationFailure, "runner_exception", scenario);
-    assert.equal(result.effectStateUnknown, true, scenario);
-    assert.equal(result.processRestartRequired, true, scenario);
-    assert.equal(observed.poisoned, true, scenario);
-  }
-});
-
 test("CLI最外周は引数不正と実行中未知を別分類し観測事実を捏造しない", () => {
   const unknown = createSignedRouteMatrixCliFailureResult("runner_exception");
   assert.equal(unknown.effectStateUnknown, true);
@@ -438,29 +422,9 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
   assert.deepEqual(result.hostRecoveryIds, []);
 });
 
-test("同意取消の観測不能時は一つのrouteも開始しない", async () => {
-  let attempts = 0;
-  const result = await runSignedRouteMatrixVerification(
-    process.cwd(),
-    (async () => {
-      attempts += 1;
-      return completed("forward", "interactive_initial_consent");
-    }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-    () => Object.freeze({ status: "recovery_required" as const }),
-  );
-  assert.equal(attempts, 0);
-  assert.equal(result.status, "blocked");
-  assert.equal(result.completedRouteCount, 0);
-  assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.validationFailure, "consent_reset_failed");
-  assert.equal(result.effectStateUnknown, false);
-  assert.equal(result.recoveryIdentityAmbiguous, false);
-  assert.deepEqual(result.dockerRecoveryIds, []);
-});
-
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.deepEqual(contract.routes, [
     "forward",
     "reverse",

@@ -6,7 +6,6 @@ import {
   isRuntimeProcessPoisoned,
   poisonRuntimeProcessAfterCleanupUnknown,
 } from "../src/core/runtime-process-safety-state.ts";
-import { revokeRuntimeOwnedExternalSendConsent } from "../src/security/external-send-consent-runtime.ts";
 import { snapshotPlainArray } from "../src/security/plain-data-snapshot.ts";
 import {
   isCanonicalCrddVersion,
@@ -25,7 +24,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 4;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 5;
 
 const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "forward",
@@ -358,51 +357,15 @@ export function isExactSignedRouteResult(
 export async function runSignedRouteMatrixVerification(
   repositoryRoot: string,
   run: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
-  revoke: typeof revokeRuntimeOwnedExternalSendConsent = revokeRuntimeOwnedExternalSendConsent,
 ) {
   if (isRuntimeProcessPoisoned()) return processRestartRequiredResult();
-  let revokeStatus: "revoked" | "recovery_required";
-  try {
-    const revoked = revoke();
-    const descriptor = Object.getOwnPropertyDescriptor(revoked, "status");
-    if (
-      !descriptor ||
-      !("value" in descriptor) ||
-      (descriptor.value !== "revoked" &&
-        descriptor.value !== "recovery_required")
-    )
-      throw new Error("consent_reset_result_invalid");
-    revokeStatus = descriptor.value;
-  } catch {
-    ensureRuntimeProcessPoisoned();
-    return createSignedRouteMatrixCliFailureResult("runner_exception");
-  }
-  if (revokeStatus !== "revoked") {
-    return Object.freeze({
-      contract: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT,
-      contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
-      status: "blocked" as const,
-      reason: "signed_route_matrix_consent_reset_failed",
-      requestedRoutes: ROUTES,
-      attemptedRouteCount: 0,
-      completedRouteCount: 0,
-      failedRouteProfile: null,
-      validationFailure: "consent_reset_failed" as const,
-      results: Object.freeze([]),
-      cleanupConfirmed: false,
-      manualRecoveryRequired: true,
-      processRestartRequired: isRuntimeProcessPoisoned(),
-      effectStateUnknown: false,
-      canonicalRepositoryChanged: false,
-      rawProviderOutputReported: false,
-      hostPathReported: false,
-      credentialReported: false,
-      ...emptyRouteRecovery(false),
-    });
-  }
   const results: Array<Readonly<Record<string, unknown>>> = [];
   let verifiedRouteCount = 0;
   let baselineReleaseIdentity: string | null = null;
+  let initialConsentAuthorizationMode:
+    | "interactive_initial_consent"
+    | "reused_initial_consent"
+    | null = null;
   let failedRouteProfile: SignedGeneralTaskRouteProfile | null = null;
   let validationFailure:
     | "route_nonconforming"
@@ -425,10 +388,19 @@ export async function runSignedRouteMatrixVerification(
       if (result.processRestartRequired === true && !isRuntimeProcessPoisoned())
         ensureRuntimeProcessPoisoned();
       results.push(result);
+      const observedAuthorizationMode = result.externalSendAuthorizationMode;
+      if (
+        index === 0 &&
+        (observedAuthorizationMode === "interactive_initial_consent" ||
+          observedAuthorizationMode === "reused_initial_consent")
+      )
+        initialConsentAuthorizationMode = observedAuthorizationMode;
       const exact = isExactSignedRouteResult(
         route,
         result,
-        index === 0 ? "interactive_initial_consent" : "reused_initial_consent",
+        index === 0 && initialConsentAuthorizationMode
+          ? initialConsentAuthorizationMode
+          : "reused_initial_consent",
       );
       if (!exact) {
         failedRouteProfile = route;
@@ -467,6 +439,7 @@ export async function runSignedRouteMatrixVerification(
     requestedRoutes: ROUTES,
     attemptedRouteCount: results.length,
     completedRouteCount: verifiedRouteCount,
+    initialConsentAuthorizationMode,
     failedRouteProfile,
     validationFailure,
     results: Object.freeze(results),
@@ -501,14 +474,13 @@ export function describeSignedRouteMatrixVerificationContract() {
     order: "cross_provider_first_then_same_provider_exceptions",
     stop: "first_nonconforming_or_noncompleted_route",
     initialConsent:
-      "explicit_revoke_then_first_interactive_confirmation_and_three_exact_reuses",
+      "preserve_valid_consent_prompt_only_when_absent_then_require_exact_reuse",
     frontIdentityClaim:
       "requested_profile_only_observed_front_identity_not_attested",
     candidateDisposition: "each_route_exact_verify_then_discard",
     releaseIdentity:
       "all_routes_same_manifest_package_version_sequence_commit_and_tree",
     failureClassification: Object.freeze([
-      "consent_reset_failed",
       "arguments_invalid",
       "route_nonconforming",
       "release_identity_mismatch",

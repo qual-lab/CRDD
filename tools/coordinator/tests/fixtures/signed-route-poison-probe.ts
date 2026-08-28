@@ -40,7 +40,7 @@ function completed(
   const expected = routes[route];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 9,
+    contractRevision: 10,
     status: "completed",
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -85,64 +85,57 @@ function completed(
 }
 
 let attempts = 0;
-const result = await runSignedRouteMatrixVerification(
-  process.cwd(),
-  (async (_root, _dependencies, route) => {
-    attempts += 1;
-    if (scenario === "runner_exception" && attempts === 2)
-      throw new Error("fixed_runner_exception");
-    const value: Record<string, unknown> = {
-      ...completed(
-        route ?? "forward",
-        attempts === 1
-          ? "interactive_initial_consent"
-          : "reused_initial_consent",
-      ),
-    };
-    if (scenario.startsWith("missing:")) delete value[scenario.slice(8)];
-    if (scenario.startsWith("null:")) value[scenario.slice(5)] = null;
-    if (scenario.startsWith("string:")) value[scenario.slice(7)] = "invalid";
-    if (scenario === "child_true") value.processRestartRequired = true;
-    if (scenario === "recovery_pair_mismatch") {
-      value.cleanupConfirmed = false;
-      value.manualRecoveryRequired = true;
-      value.hostRecoveryId = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
-      value.hostRecoveryIds = Object.freeze([
-        `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`,
-      ]);
-    }
-    if (scenario === "recovery_overlong_mixed") {
-      const valid = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
-      value.cleanupConfirmed = false;
-      value.manualRecoveryRequired = true;
-      value.hostRecoveryId = valid;
-      value.hostRecoveryIds = Object.freeze([valid, "x".repeat(1_025)]);
-    }
-    if (scenario === "result_getter") {
-      const getterResult = Object.create(null);
-      Object.defineProperty(getterResult, "status", {
-        enumerable: true,
-        get: () => {
-          throw new Error("fixed_route_result_getter");
-        },
-      });
-      return getterResult;
-    }
-    if (scenario === "result_proxy")
-      return new Proxy(value, {
-        ownKeys: () => {
-          throw new Error("fixed_route_result_proxy");
-        },
-      });
-    return Object.freeze(value);
-  }) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
-  (() => {
-    if (scenario === "revoke_throw") throw new Error("fixed_revoke_exception");
-    if (scenario === "revoke_malformed")
-      return Object.freeze({ status: "unexpected" });
-    return Object.freeze({ status: "revoked" as const });
-  }) as unknown as typeof import("../../src/security/external-send-consent-runtime.ts").revokeRuntimeOwnedExternalSendConsent,
-);
+const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+  _root,
+  _dependencies,
+  route,
+) => {
+  attempts += 1;
+  if (scenario === "runner_exception" && attempts === 2)
+    throw new Error("fixed_runner_exception");
+  const value: Record<string, unknown> = {
+    ...completed(
+      route ?? "forward",
+      attempts === 1 ? "interactive_initial_consent" : "reused_initial_consent",
+    ),
+  };
+  if (scenario.startsWith("missing:")) delete value[scenario.slice(8)];
+  if (scenario.startsWith("null:")) value[scenario.slice(5)] = null;
+  if (scenario.startsWith("string:")) value[scenario.slice(7)] = "invalid";
+  if (scenario === "child_true") value.processRestartRequired = true;
+  if (scenario === "recovery_pair_mismatch") {
+    value.cleanupConfirmed = false;
+    value.manualRecoveryRequired = true;
+    value.hostRecoveryId = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+    value.hostRecoveryIds = Object.freeze([
+      `host.crdd-coordinator-doctor-b.12345678-1234-4234-8234-123456789abc.${"b".repeat(64)}`,
+    ]);
+  }
+  if (scenario === "recovery_overlong_mixed") {
+    const valid = `host.crdd-coordinator-doctor-a.12345678-1234-4234-8234-123456789abc.${"a".repeat(64)}`;
+    value.cleanupConfirmed = false;
+    value.manualRecoveryRequired = true;
+    value.hostRecoveryId = valid;
+    value.hostRecoveryIds = Object.freeze([valid, "x".repeat(1_025)]);
+  }
+  if (scenario === "result_getter") {
+    const getterResult = Object.create(null);
+    Object.defineProperty(getterResult, "status", {
+      enumerable: true,
+      get: () => {
+        throw new Error("fixed_route_result_getter");
+      },
+    });
+    return getterResult;
+  }
+  if (scenario === "result_proxy")
+    return new Proxy(value, {
+      ownKeys: () => {
+        throw new Error("fixed_route_result_proxy");
+      },
+    });
+  return Object.freeze(value);
+}) as typeof import("../../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
 const secondMatrix = await runSignedRouteMatrixVerification(process.cwd());
 
 let packageReads = 0;
