@@ -946,8 +946,18 @@ export function removeExactUncommittedDockerRecoveryJson(
   expectedValue: unknown,
 ) {
   const commit = `${file}${COMMIT_SUFFIX}`;
-  if (!fs.existsSync(file) || fs.existsSync(commit))
+  const observe = (target: string) => {
+    try {
+      return fs.lstatSync(target, { bigint: true });
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT")
+        return null;
+      throw new Error("docker_recovery_uncommitted_record_observation_unknown");
+    }
+  };
+  if (observe(file) === null || observe(commit) !== null)
     throw new Error("docker_recovery_uncommitted_record_state_invalid");
+  const parentIdentity = stableDirectoryIdentity(path.dirname(file));
   const expectedSerialized = canonical(expectedValue);
   const before = readStableFile(file);
   if (before.serialized !== expectedSerialized)
@@ -957,11 +967,16 @@ export function removeExactUncommittedDockerRecoveryJson(
   if (
     immediatelyBeforeRemoval.serialized !== expectedSerialized ||
     identityText(immediatelyBeforeRemoval.identity) !== beforeIdentity ||
-    fs.existsSync(commit)
+    observe(commit) !== null ||
+    stableDirectoryIdentity(path.dirname(file)) !== parentIdentity
   )
     throw new Error("docker_recovery_uncommitted_record_changed");
   fs.unlinkSync(file);
-  if (fs.existsSync(file) || fs.existsSync(commit))
+  if (
+    observe(file) !== null ||
+    observe(commit) !== null ||
+    stableDirectoryIdentity(path.dirname(file)) !== parentIdentity
+  )
     throw new Error("docker_recovery_uncommitted_record_removal_unknown");
   return true;
 }

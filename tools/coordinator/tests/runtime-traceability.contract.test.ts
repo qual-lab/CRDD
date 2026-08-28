@@ -39,10 +39,10 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     {
       status: "accepted",
       resources: 10,
-      states: 12,
-      transitions: 11,
-      invariants: 7,
-      verificationBindings: 17,
+      states: 14,
+      transitions: 13,
+      invariants: 9,
+      verificationBindings: 18,
     },
   );
 });
@@ -108,5 +108,50 @@ test("Architectureまたは実在する試験名に接続できないTraceを拒
   if (result.status === "blocked") {
     assert.ok(result.issues.includes("architecture_document_unavailable"));
     assert.ok(result.issues.includes("VER-TASK-NORMAL:test_name_not_found"));
+  }
+});
+
+test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否する", () => {
+  const trace = currentTrace() as Record<string, unknown>;
+  const resources = structuredClone(trace.resources) as Record<
+    string,
+    unknown
+  >[];
+  const transitions = structuredClone(trace.transitions) as Record<
+    string,
+    unknown
+  >[];
+  resources[0] = { ...resources[0], accidental: true };
+  transitions[0] = {
+    ...transitions[0],
+    from: ["STATE-RESULT-PUBLISHED"],
+    risk: "hgh",
+  };
+  trace.resources = resources;
+  trace.transitions = transitions;
+  const boundaries = structuredClone(
+    trace.verificationBoundaryByBinding,
+  ) as Record<string, unknown>;
+  boundaries["VER-TASK-NORMAL"] = "self_claimed";
+  trace.verificationBoundaryByBinding = boundaries;
+  const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
+  assert.equal(result.status, "blocked");
+  if (result.status === "blocked") {
+    assert.ok(
+      result.issues.includes("RES-HOST-GENERATION:resource_shape_invalid"),
+    );
+    assert.ok(
+      result.issues.includes(
+        "TRANS-ADMISSION-TO-OPERATION:transition_shape_invalid",
+      ),
+    );
+    assert.ok(
+      result.issues.includes(
+        "TRANS-ADMISSION-TO-OPERATION:same_invocation_from_terminal:STATE-RESULT-PUBLISHED",
+      ),
+    );
+    assert.ok(
+      result.issues.includes("VER-TASK-NORMAL:verification_boundary_invalid"),
+    );
   }
 });

@@ -1,5 +1,5 @@
 const TRACE_SCHEMA = "crdd-coordinator/runtime-traceability";
-const TRACE_SCHEMA_REVISION = 1;
+const TRACE_SCHEMA_REVISION = 2;
 const VERIFICATION_KINDS = Object.freeze([
   "normal",
   "quasi_normal",
@@ -30,8 +30,68 @@ export type RuntimeTraceabilityInspection =
 
 type JsonRecord = Record<string, unknown>;
 
+const ROOT_KEYS = Object.freeze([
+  "schema",
+  "schemaRevision",
+  "architectureDocument",
+  "resources",
+  "states",
+  "transitions",
+  "invariants",
+  "verificationBoundaryByBinding",
+  "verificationBindings",
+]);
+const RESOURCE_KEYS = Object.freeze(["id", "owner", "kind", "lifecycle"]);
+const STATE_KEYS = Object.freeze([
+  "id",
+  "scope",
+  "invocationTerminal",
+  "operationTerminal",
+  "description",
+]);
+const TRANSITION_KEYS = Object.freeze([
+  "id",
+  "from",
+  "to",
+  "invocation",
+  "risk",
+  "requiredVerificationKinds",
+  "resourcesAcquired",
+  "resourcesReleased",
+  "resourcesTransferred",
+  "invariants",
+]);
+const INVARIANT_KEYS = Object.freeze(["id", "statement"]);
+const BINDING_KEYS = Object.freeze([
+  "id",
+  "transitionIds",
+  "kind",
+  "testPath",
+  "testName",
+  "observedResources",
+]);
+const EVIDENCE_BOUNDARIES = new Set([
+  "contract_projection",
+  "actual_filesystem_process",
+  "public_cli",
+  "signed_e2e",
+]);
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: JsonRecord, expected: readonly string[]): boolean {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  return (
+    actual.length === wanted.length &&
+    actual.every((key, index) => key === wanted[index])
+  );
+}
+
+function nonEmptyText(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -117,6 +177,7 @@ export function inspectCoordinatorRuntimeTraceability(
       issues: ["trace_root_invalid"],
     };
   }
+  if (!hasExactKeys(input, ROOT_KEYS)) issues.push("trace_root_shape_invalid");
   if (input.schema !== TRACE_SCHEMA) issues.push("trace_schema_invalid");
   if (input.schemaRevision !== TRACE_SCHEMA_REVISION)
     issues.push("trace_schema_revision_invalid");
@@ -142,6 +203,57 @@ export function inspectCoordinatorRuntimeTraceability(
     issues,
   );
 
+  for (const resource of resources.entries) {
+    const id = typeof resource.id === "string" ? resource.id : "unknown";
+    if (
+      !hasExactKeys(resource, RESOURCE_KEYS) ||
+      !nonEmptyText(resource.owner) ||
+      !nonEmptyText(resource.kind) ||
+      !nonEmptyText(resource.lifecycle)
+    )
+      issues.push(`${id}:resource_shape_invalid`);
+  }
+  const statesById = new Map<string, JsonRecord>();
+  for (const state of states.entries) {
+    const id = typeof state.id === "string" ? state.id : "unknown";
+    if (
+      !hasExactKeys(state, STATE_KEYS) ||
+      (state.scope !== "task" &&
+        state.scope !== "stage" &&
+        state.scope !== "recovery") ||
+      typeof state.invocationTerminal !== "boolean" ||
+      typeof state.operationTerminal !== "boolean" ||
+      !nonEmptyText(state.description)
+    )
+      issues.push(`${id}:state_shape_invalid`);
+    if (typeof state.id === "string") statesById.set(state.id, state);
+  }
+  for (const invariant of invariants.entries) {
+    const id = typeof invariant.id === "string" ? invariant.id : "unknown";
+    if (
+      !hasExactKeys(invariant, INVARIANT_KEYS) ||
+      !nonEmptyText(invariant.statement)
+    )
+      issues.push(`${id}:invariant_shape_invalid`);
+  }
+  if (!isRecord(input.verificationBoundaryByBinding)) {
+    issues.push("verification_boundary_population_invalid");
+  } else {
+    const boundaryIds = Object.keys(input.verificationBoundaryByBinding).sort();
+    const bindingIds = [...bindings.ids].sort();
+    if (
+      boundaryIds.length !== bindingIds.length ||
+      boundaryIds.some((id, index) => id !== bindingIds[index])
+    )
+      issues.push("verification_boundary_population_mismatch");
+    for (const [id, boundary] of Object.entries(
+      input.verificationBoundaryByBinding,
+    )) {
+      if (!EVIDENCE_BOUNDARIES.has(String(boundary)))
+        issues.push(`${id}:verification_boundary_invalid`);
+    }
+  }
+
   const usedResources = new Set<string>();
   const usedStates = new Set<string>();
   const usedInvariants = new Set<string>();
@@ -149,6 +261,13 @@ export function inspectCoordinatorRuntimeTraceability(
   for (const transition of transitions.entries) {
     const transitionId =
       typeof transition.id === "string" ? transition.id : "unknown";
+    if (
+      !hasExactKeys(transition, TRANSITION_KEYS) ||
+      (transition.invocation !== "same" &&
+        transition.invocation !== "recovery") ||
+      transition.risk !== "high"
+    )
+      issues.push(`${transitionId}:transition_shape_invalid`);
     for (const state of checkReferences(
       transition.from,
       states.ids,
@@ -156,6 +275,12 @@ export function inspectCoordinatorRuntimeTraceability(
       issues,
     )) {
       usedStates.add(state);
+      const stateDefinition = statesById.get(state);
+      if (
+        stateDefinition?.invocationTerminal === true &&
+        transition.invocation === "same"
+      )
+        issues.push(`${transitionId}:same_invocation_from_terminal:${state}`);
     }
     if (typeof transition.to !== "string" || !states.ids.has(transition.to)) {
       issues.push(`${transitionId}:to_unknown`);
@@ -176,6 +301,16 @@ export function inspectCoordinatorRuntimeTraceability(
         usedResources.add(resource);
       }
     }
+    const released = new Set(
+      isStringArray(transition.resourcesReleased)
+        ? transition.resourcesReleased
+        : [],
+    );
+    if (
+      isStringArray(transition.resourcesTransferred) &&
+      transition.resourcesTransferred.some((resource) => released.has(resource))
+    )
+      issues.push(`${transitionId}:resource_release_transfer_overlap`);
     for (const invariant of checkReferences(
       transition.invariants,
       invariants.ids,
@@ -203,6 +338,8 @@ export function inspectCoordinatorRuntimeTraceability(
   const observedKindsByTransition = new Map<string, Set<VerificationKind>>();
   for (const binding of bindings.entries) {
     const bindingId = typeof binding.id === "string" ? binding.id : "unknown";
+    if (!hasExactKeys(binding, BINDING_KEYS))
+      issues.push(`${bindingId}:verification_shape_invalid`);
     const kind = binding.kind;
     if (!VERIFICATION_KINDS.includes(kind as VerificationKind)) {
       issues.push(`${bindingId}:kind_invalid`);

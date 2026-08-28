@@ -1130,13 +1130,14 @@ function completeProductionRecovery(
       );
       const activeHostBinding = readExactJson(record.hostActiveBindingPath)
         .value as Record<string, unknown>;
-      if (
-        activeHostBinding.schema !==
-          "crdd-coordinator-host-active-docker-task/v1" ||
-        activeHostBinding.recoveryId !== record.recoveryId ||
-        activeHostBinding.baseHash !== record.baseHash
-      )
-        throw new Error("docker_task_recovery_active_run_mismatch");
+      validateHostActiveBinding(
+        activeHostBinding,
+        expectedHostActiveBinding(
+          record.recoveryId,
+          record.baseHash,
+          record.operationNonce,
+        ),
+      );
       if (!removeCommittedDockerRecoveryJson(record.hostActiveBindingPath))
         throw new Error("docker_task_recovery_active_run_mismatch");
       if (fs.existsSync(record.hostActiveBindingPath))
@@ -1145,13 +1146,15 @@ function completeProductionRecovery(
       const pointerValue = pointer.value as Record<string, unknown>;
       if (
         pointer.hash !== record.pointerHash ||
-        pointer.identity !== record.pointerIdentity ||
-        pointerValue.schema !==
-          "crdd-coordinator-provider-home-active-lease/v1" ||
-        pointerValue.recoveryId !== record.recoveryId ||
-        pointerValue.baseHash !== record.baseHash
+        pointer.identity !== record.pointerIdentity
       )
         throw new Error("docker_task_recovery_pointer_invalid");
+      validateActiveLeasePointer(pointerValue, {
+        stableLogicalHomeBindingHash: record.stableLogicalHomeBindingHash,
+        operationNonce: record.operationNonce,
+        recoveryId: record.recoveryId,
+        baseHash: record.baseHash,
+      });
       if (!removeCommittedDockerRecoveryJson(record.pointerPath))
         throw new Error("docker_task_recovery_pointer_invalid");
       commitDirectoryMutationBoundary(record.rootPath);
@@ -1875,6 +1878,68 @@ function managementDirectoryNameFromBase(base: Record<string, unknown>) {
   )
     throw new Error("docker_task_recovery_base_mismatch");
   return name;
+}
+
+function expectedHostActiveBinding(
+  recoveryId: string,
+  baseHash: string,
+  operationNonce: string,
+) {
+  return Object.freeze({
+    schema: "crdd-coordinator-host-active-docker-task/v1",
+    recoveryId,
+    baseHash,
+    operationNonce,
+  });
+}
+
+function validateHostActiveBinding(
+  value: unknown,
+  expected: ReturnType<typeof expectedHostActiveBinding>,
+) {
+  if (
+    !exactRecordKeys(value, [
+      "schema",
+      "recoveryId",
+      "baseHash",
+      "operationNonce",
+    ]) ||
+    (value as Record<string, unknown>).schema !== expected.schema ||
+    (value as Record<string, unknown>).recoveryId !== expected.recoveryId ||
+    (value as Record<string, unknown>).baseHash !== expected.baseHash ||
+    (value as Record<string, unknown>).operationNonce !==
+      expected.operationNonce
+  )
+    throw new Error("docker_task_recovery_active_run_mismatch");
+}
+
+function validateActiveLeasePointer(
+  value: unknown,
+  expected: Readonly<{
+    stableLogicalHomeBindingHash: string;
+    operationNonce: string;
+    recoveryId: string;
+    baseHash: string;
+  }>,
+) {
+  if (
+    !exactRecordKeys(value, [
+      "schema",
+      "stableLogicalHomeBindingHash",
+      "operationName",
+      "recoveryId",
+      "baseHash",
+    ]) ||
+    (value as Record<string, unknown>).schema !==
+      "crdd-coordinator-provider-home-active-lease/v1" ||
+    (value as Record<string, unknown>).stableLogicalHomeBindingHash !==
+      expected.stableLogicalHomeBindingHash ||
+    (value as Record<string, unknown>).operationName !==
+      `docker-task-${expected.operationNonce}` ||
+    (value as Record<string, unknown>).recoveryId !== expected.recoveryId ||
+    (value as Record<string, unknown>).baseHash !== expected.baseHash
+  )
+    throw new Error("docker_task_recovery_pointer_mismatch");
 }
 
 function removeRecoveryOperationDirectory(
@@ -3284,8 +3349,14 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           string,
           unknown
         >;
-        if (active.recoveryId !== parsed.token)
-          throw new Error("docker_task_recovery_active_run_mismatch");
+        validateHostActiveBinding(
+          active,
+          expectedHostActiveBinding(
+            parsed.token,
+            parsed.baseHash,
+            parsed.operationNonce,
+          ),
+        );
         if (!removeCommittedDockerRecoveryJson(activeHostBindingPath))
           throw new Error("docker_task_recovery_active_run_mismatch");
       }
@@ -3298,8 +3369,12 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           string,
           unknown
         >;
-        if (pointer.recoveryId !== parsed.token)
-          throw new Error("docker_task_recovery_pointer_mismatch");
+        validateActiveLeasePointer(pointer, {
+          stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+          operationNonce: parsed.operationNonce,
+          recoveryId: parsed.token,
+          baseHash: parsed.baseHash,
+        });
         if (!removeCommittedDockerRecoveryJson(pointerPath))
           throw new Error("docker_task_recovery_pointer_mismatch");
       }
@@ -3419,8 +3494,14 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           string,
           unknown
         >;
-        if (active.recoveryId !== parsed.token)
-          throw new Error("docker_task_recovery_active_run_mismatch");
+        validateHostActiveBinding(
+          active,
+          expectedHostActiveBinding(
+            parsed.token,
+            parsed.baseHash,
+            parsed.operationNonce,
+          ),
+        );
         if (!removeCommittedDockerRecoveryJson(activeHostBindingPath))
           throw new Error("docker_task_recovery_active_run_mismatch");
       }
@@ -3443,8 +3524,12 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           string,
           unknown
         >;
-        if (pointer.recoveryId !== parsed.token)
-          throw new Error("docker_task_recovery_pointer_mismatch");
+        validateActiveLeasePointer(pointer, {
+          stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+          operationNonce: parsed.operationNonce,
+          recoveryId: parsed.token,
+          baseHash: parsed.baseHash,
+        });
         if (!removeCommittedDockerRecoveryJson(pointerPath))
           throw new Error("docker_task_recovery_pointer_mismatch");
       }
@@ -3577,6 +3662,28 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       managementName,
       "active-docker-task-v1.json",
     );
+    const pointerPath = path.join(
+      root.rootPath,
+      `active-lease-${parsed.stableLogicalHomeBindingHash}.json`,
+    );
+    const expectedPointer = Object.freeze({
+      stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+      operationNonce: parsed.operationNonce,
+      recoveryId: parsed.token,
+      baseHash: parsed.baseHash,
+    });
+    if (!hostSubmissionStarted && fs.existsSync(hostActiveBindingPath)) {
+      const pointerCommitPath = path.join(
+        path.dirname(pointerPath),
+        dockerRecoveryCommitName(path.basename(pointerPath)),
+      );
+      if (!fs.existsSync(pointerPath) || !fs.existsSync(pointerCommitPath))
+        throw new Error("docker_task_recovery_pointer_mismatch");
+      validateActiveLeasePointer(
+        readExactJson(pointerPath).value,
+        expectedPointer,
+      );
+    }
     if (
       fs.existsSync(hostActiveBindingPath) &&
       !fs.existsSync(
@@ -3589,25 +3696,25 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     ) {
       removeExactUncommittedDockerRecoveryJson(
         hostActiveBindingPath,
-        Object.freeze({
-          schema: "crdd-coordinator-host-active-docker-task/v1",
-          recoveryId: parsed.token,
-          baseHash: parsed.baseHash,
-          operationNonce: parsed.operationNonce,
-        }),
+        expectedHostActiveBinding(
+          parsed.token,
+          parsed.baseHash,
+          parsed.operationNonce,
+        ),
       );
       commitDirectoryMutationBoundary(path.dirname(hostActiveBindingPath));
     }
     if (fs.existsSync(hostActiveBindingPath)) {
       const activeBinding = readExactJson(hostActiveBindingPath)
         .value as Record<string, unknown>;
-      if (
-        activeBinding.schema !==
-          "crdd-coordinator-host-active-docker-task/v1" ||
-        activeBinding.recoveryId !== parsed.token ||
-        activeBinding.baseHash !== parsed.baseHash
-      )
-        throw new Error("docker_task_recovery_active_run_mismatch");
+      validateHostActiveBinding(
+        activeBinding,
+        expectedHostActiveBinding(
+          parsed.token,
+          parsed.baseHash,
+          parsed.operationNonce,
+        ),
+      );
     } else if (hostSubmissionStarted) {
       throw new Error("docker_task_recovery_active_run_missing");
     }
@@ -3615,21 +3722,13 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "recovery-docker-cli-config",
     );
-    const pointerPath = path.join(
-      root.rootPath,
-      `active-lease-${parsed.stableLogicalHomeBindingHash}.json`,
-    );
     const releasePointer = () => {
       if (!fs.existsSync(pointerPath)) return;
       const pointer = readExactJson(pointerPath).value as Record<
         string,
         unknown
       >;
-      if (
-        pointer.recoveryId !== parsed.token ||
-        pointer.baseHash !== parsed.baseHash
-      )
-        throw new Error("docker_task_recovery_pointer_mismatch");
+      validateActiveLeasePointer(pointer, expectedPointer);
       if (!removeCommittedDockerRecoveryJson(pointerPath))
         throw new Error("docker_task_recovery_pointer_mismatch");
       commitDirectoryMutationBoundary(root.rootPath);
@@ -3888,8 +3987,14 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     if (fs.existsSync(hostActiveBindingPath)) {
       const activeBinding = readExactJson(hostActiveBindingPath)
         .value as Record<string, unknown>;
-      if (activeBinding.recoveryId !== parsed.token)
-        throw new Error("docker_task_recovery_active_run_mismatch");
+      validateHostActiveBinding(
+        activeBinding,
+        expectedHostActiveBinding(
+          parsed.token,
+          parsed.baseHash,
+          parsed.operationNonce,
+        ),
+      );
       if (!removeCommittedDockerRecoveryJson(hostActiveBindingPath))
         throw new Error("docker_task_recovery_active_run_mismatch");
     }

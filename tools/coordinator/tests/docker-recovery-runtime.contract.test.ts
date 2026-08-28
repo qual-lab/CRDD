@@ -880,6 +880,43 @@ function createKilledFullProductionRecoveryRoot(
   return Object.freeze({ parent, root, ...result });
 }
 
+function disposeKilledFullProductionRecoveryFixture(
+  fixture: Readonly<{
+    hostRoot: string;
+    hostMarker: string;
+    parent: string;
+  }>,
+) {
+  fs.rmSync(fixture.hostRoot, { recursive: true, force: true });
+  fs.rmSync(fixture.hostMarker, { force: true });
+  fs.rmSync(fixture.parent, { recursive: true, force: true });
+}
+
+function rewriteCommittedRecoveryRecordForTest(
+  target: string,
+  logicalKey: string,
+  value: unknown,
+) {
+  const serialized = `${JSON.stringify(value)}\n`;
+  fs.writeFileSync(target, serialized, "utf8");
+  const identity = fs.lstatSync(target, { bigint: true });
+  const commit = {
+    schema: "crdd-coordinator-durable-json-commit/v1",
+    logicalKey,
+    contentHash: createHash("sha256").update(serialized).digest("hex"),
+    contentIdentity: `${identity.dev}:${identity.ino}:${identity.birthtimeNs}`,
+    contentBytes: Buffer.byteLength(serialized, "utf8"),
+  };
+  fs.writeFileSync(
+    path.join(
+      path.dirname(target),
+      dockerRecoveryCommitName(path.basename(target)),
+    ),
+    `${JSON.stringify(commit)}\n`,
+    "utf8",
+  );
+}
+
 function dockerResult(stdout = "") {
   return Object.freeze({
     status: 0,
@@ -2409,7 +2446,7 @@ test("production共有回復engineはHost expected世代のprocess killを残存
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -2465,7 +2502,7 @@ test("closed production engineはreceiptからexact Docker削除・Host回復・
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -2503,7 +2540,7 @@ test("closed production engineはcreate submission後receipt前のprocess kill�
     assert.equal(fs.existsSync(fixture.hostRoot), true);
     assert.equal(fs.existsSync(fixture.hostMarker), true);
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -2572,7 +2609,7 @@ test("closed production engineは発見IDをreconciled receiptへ耐久化して
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -2601,7 +2638,7 @@ test("production共有回復engineはHost previous世代のprocess killをEffect
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -2627,7 +2664,7 @@ test("Host active bindingのexact content-onlyをEffect前状態として残存0
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -2673,7 +2710,102 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
     assert.equal(fs.existsSync(activePath), true);
     assert.ok(fs.readdirSync(fixture.root).length > 0);
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
+test("Effect前active bindingはcommitted pointerの完全一致前に削除しない", () => {
+  for (const pointerState of ["missing", "partial", "replacement"] as const) {
+    const fixture = createKilledFullProductionRecoveryRoot(
+      "active_binding_content",
+    );
+    const root = verifiedRoot(fixture.root);
+    const pointerName = fs
+      .readdirSync(fixture.root)
+      .find((name) => name.startsWith("active-lease-"));
+    assert.ok(pointerName);
+    const pointerPath = path.join(fixture.root, pointerName);
+    const pointerCommitPath = path.join(
+      fixture.root,
+      dockerRecoveryCommitName(pointerName),
+    );
+    const activePath = fs
+      .readdirSync(fixture.hostRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) =>
+        path.join(fixture.hostRoot, entry.name, "active-docker-task-v1.json"),
+      )
+      .find((candidate) => fs.existsSync(candidate));
+    assert.ok(activePath);
+    try {
+      if (pointerState === "missing") {
+        assert.equal(removeCommittedDockerRecoveryJson(pointerPath), true);
+      } else if (pointerState === "partial") {
+        fs.rmSync(pointerCommitPath);
+      } else {
+        const [stableLogicalHomeBindingHash, operationNonce, baseHash] =
+          fixture.recoveryId.split(".").slice(1);
+        rewriteCommittedRecoveryRecordForTest(pointerPath, pointerName, {
+          schema: "crdd-coordinator-provider-home-active-lease/v1",
+          stableLogicalHomeBindingHash,
+          operationName: `docker-task-${operationNonce}-replacement`,
+          recoveryId: fixture.recoveryId,
+          baseHash,
+        });
+      }
+      const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.recoveryId, fixture.recoveryId);
+      assert.equal(fs.existsSync(activePath), true);
+      assert.equal(fs.existsSync(fixture.hostRoot), true);
+      assert.equal(fs.existsSync(fixture.hostMarker), true);
+    } finally {
+      disposeKilledFullProductionRecoveryFixture(fixture);
+    }
+  }
+});
+
+test("committed Host active bindingのoperation nonce差と余分fieldを削除しない", () => {
+  for (const mutation of ["nonce", "extra"] as const) {
+    const fixture = createKilledFullProductionRecoveryRoot("previous");
+    const root = verifiedRoot(fixture.root);
+    const activePath = fs
+      .readdirSync(fixture.hostRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) =>
+        path.join(fixture.hostRoot, entry.name, "active-docker-task-v1.json"),
+      )
+      .find((candidate) => fs.existsSync(candidate));
+    assert.ok(activePath);
+    const original = JSON.parse(fs.readFileSync(activePath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    try {
+      rewriteCommittedRecoveryRecordForTest(
+        activePath,
+        path.basename(activePath),
+        mutation === "nonce"
+          ? { ...original, operationNonce: "0".repeat(64) }
+          : { ...original, unexpected: true },
+      );
+      const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.recoveryId, fixture.recoveryId);
+      assert.equal(fs.existsSync(activePath), true);
+      assert.equal(fs.existsSync(fixture.hostRoot), true);
+      assert.equal(fs.existsSync(fixture.hostMarker), true);
+    } finally {
+      disposeKilledFullProductionRecoveryFixture(fixture);
+    }
   }
 });
 
@@ -2708,7 +2840,7 @@ test("production共有回復engineはpending base完成直後の実process kill�
       [],
     );
   } finally {
-    fs.rmSync(fixture.parent, { recursive: true, force: true });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 
@@ -3321,7 +3453,7 @@ for (const networkState of ["pre-connect", "post-connect"] as const) {
       assert.equal(fs.existsSync(fixture.hostRoot), false);
       assert.equal(fs.existsSync(fixture.hostMarker), false);
     } finally {
-      fs.rmSync(fixture.parent, { recursive: true, force: true });
+      disposeKilledFullProductionRecoveryFixture(fixture);
     }
   });
 }
@@ -3361,7 +3493,7 @@ for (const [networkState, networks] of [
       assert.equal(fs.existsSync(fixture.hostRoot), true);
       assert.equal(fs.existsSync(fixture.hostMarker), true);
     } finally {
-      fs.rmSync(fixture.parent, { recursive: true, force: true });
+      disposeKilledFullProductionRecoveryFixture(fixture);
     }
   });
 }
