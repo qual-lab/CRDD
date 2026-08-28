@@ -306,11 +306,11 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 ## 11. 是正実装結果（2026-08-28）
 
 - `tools/coordinator/architecture/README.md`へ主実行シーケンス、10資源、17状態、Lock順序、耐久pair、cleanup依存順、9不変条件および17遷移を固定した。clean blocked、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
-- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、18件の実在試験へ接続した。契約投影と実Filesystem／Process観測を区別した。
+- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、6検証接続・37の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
 - Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、operation／invocation terminal遷移、検証境界、遷移×開始状態×区分、期待終了状態、Effect件数、結果状態、資源後条件、Architecture記載およびtest source上のexact test名を検査する。試験実行結果、品質状態または監査Passは主張しない。
 - Host active bindingのcontent rename直後へ実process killを注入し、同一Lock内でHost previous世代、全submission不存在、exact base、完全commit済みpointer、active binding完全一致およびactive commit不存在の場合だけ明示Recoveryでrollbackして残存0へ収束することを確認した。
 - 同じpartial contentを変更した異常例、期待値の異なるjournal content、完全commit pairでは処置せずEvidenceを保持することを確認した。
-- 対象確認はDocker Recovery／Journal／Traceabilityの84試験、TypeScript strict typecheck、対象LintおよびTrace Checkerで合格した。
+- 最新対象確認はTask／Docker Recovery／Journal／Traceabilityの175試験、Coordinator全1072試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）で合格した。
 
 現在の実Host残存は、新しいsource候補から保護Runtime Stateをproduction Authorityとして直接開けないため、更新した正式署名配布物を固定するまで保持する。これをsource checkout、caller supplied Pathまたは手動削除で回避しない。
 
@@ -324,7 +324,7 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 | DSR-02 | Partially resolved | cleanup依存順、clean blocked、Host clean後Recoveryを明示。全実装symbolとの自動照合は将来候補 |
 | DSR-03 | Partially resolved | Lock順、Stageごとのlogical Home lock解放、解放窓後再照合をTraceへ固定。汎用静的解析は追加しない |
 | DSR-04 | Applied — independent re-audit pending | partial／committed active bindingを削除する全5経路へcommitted pointerとの共通closureを適用し、missing／partial／replacementの非削除試験を追加。独立再監査と実Hostの署名Recovery待ち |
-| DSR-05 | Applied — independent re-audit pending | 設計遷移から開始状態、終了状態、Effect件数、結果状態、資源後条件、検証区分、試験名および観測境界へ接続。Checkerは宣言と試験合格そのものを同一視しない |
+| DSR-05 | Applied — independent re-audit pending | 各caseを単一開始状態、taken遷移、実終了状態、Provider／Host／cleanup別Effect観測、観測資源後条件および試験source上のcase IDへ接続。Checkerは宣言と試験合格そのものを同一視しない |
 | DSR-06 | Open | 公開Task入口で実OS lock、Filesystem、child Process、Executor→Reviewerを自動実測する縦結合Harnessが必要 |
 | DSR-07 | Open | 旧Coordinator facadeの撤去または明確な非production化をRelease前に判断する |
 | DSR-08 | Open | 秘密を出さず競合、partial、identity差、unknownを区別する公開reason分類をRelease前に固定する |
@@ -335,4 +335,8 @@ fixture cleanup不備で作られた可能性がある過去Temp領域は、実R
 
 第一固定候補Commit `7f0fd5c70ec2e0a586d39e566e65169bf6dcc988`／Tree `72f935422a88df28375a8d4c305ec1962f7d6450`に対する独立Architecture／Security、Test／UXおよびDocument／Gap確認は、Critical 0、Major 3、Minor 3で`Fail`とした。共通原因は、設計上のclosureを一部経路だけへ適用したこと、是正loopを単一Reviewer状態へ戻して循環を許したこと、および検証接続がtest名の存在に留まり遷移の開始状態と資源後条件を拘束していなかったことである。
 
-再是正では、active binding／pointerの直接相互結合を通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの削除前共通関数へ集約した。一回是正を初回経路と別のExecutor／Candidate／Reviewer状態へ分離し、再是正への遷移を持たせなかった。Trace Schema revision 3は検証caseを追加し、operation terminalからの全遷移、Recovery invocationの非terminal開始、遷移に属さない資源観測および遷移×開始状態×区分の欠落を拒否する。これらは現在`Applied`であり、新しい固定改訂版の独立再監査がPassするまで`Resolved`へ昇格しない。
+再是正では、active binding／pointerの直接相互結合を通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの削除前共通関数へ集約した。一回是正を初回経路と別のExecutor／Candidate／Reviewer状態へ分離し、再是正への遷移を持たせなかった。Trace Schema revision 3は検証caseを追加し、operation terminalからの全遷移、Recovery invocationの非terminal開始、遷移に属さない資源観測および遷移×開始状態×区分の欠落を拒否した。
+
+第二固定候補Commit `f6ae23195b1cccdab00dc70fd657faaa6814c192`／Tree `65d18f821a71efc5b333e9a1659346ef82d2e26c`の再監査もCritical 0、Major 3、Minor 2で`Fail`とした。共通原因は、一ケースへ複数開始状態を束ねたため各状態の実scenarioを証明できなかったこと、失敗例を成功遷移の検証として数えたこと、Effect種類と試験assertionの接続が曖昧だったこと、および削除後観測に`existsSync`が残って権限拒否等を不存在へ縮退し得たことである。
+
+Trace Schema revision 4は、case ID、単一`fromState`、`outcome`、実`expectedEndState`、Provider／Host／cleanup別`effectObservations`および観測資源の後条件を必須にした。同じ遷移・開始状態・区分の重複を拒否し、Task terminalの19状態別scenario、正常8遷移、一回是正8遷移、partial pairおよび実Recoveryを37 caseへ接続した。耐久delete primitive、active binding／pointer完了GateおよびHost inventoryは`ENOENT`だけを不存在とし、削除後の観測不能を注入してanchorとRecovery Evidenceが保持されることを確認する。これらは現在`Applied`であり、新しい固定改訂版の独立再監査がPassするまで`Resolved`へ昇格しない。

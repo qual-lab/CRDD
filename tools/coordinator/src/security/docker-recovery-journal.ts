@@ -101,8 +101,26 @@ function hashText(serialized: string) {
   return createHash("sha256").update(serialized).digest("hex");
 }
 
+function observePath(target: string) {
+  try {
+    return fs.lstatSync(target, { bigint: true });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return null;
+    throw new Error("docker_recovery_path_observation_unknown");
+  }
+}
+
+function regularFilePresent(target: string) {
+  const metadata = observePath(target);
+  if (metadata === null) return false;
+  if (!metadata.isFile() || metadata.isSymbolicLink())
+    throw new Error("docker_recovery_path_observation_unknown");
+  return true;
+}
+
 function exactFile(file: string, serialized: string, identity: string) {
-  if (!fs.existsSync(file)) return false;
+  if (!regularFilePresent(file)) return false;
   const observed = readStableFile(file);
   if (
     observed.serialized !== serialized ||
@@ -467,13 +485,15 @@ function resumeDeleteAnchor(anchor: string) {
     throw new Error("docker_recovery_delete_intent_third_state");
   if (state === "remove_content") fs.rmSync(target);
   if (state !== "complete") {
-    if (fs.existsSync(target))
+    if (regularFilePresent(target))
       throw new Error("docker_recovery_delete_incomplete");
-    if (fs.existsSync(commit)) fs.rmSync(commit);
+    if (regularFilePresent(commit)) fs.rmSync(commit);
   }
-  if (fs.existsSync(target) || fs.existsSync(commit))
+  if (regularFilePresent(target) || regularFilePresent(commit))
     throw new Error("docker_recovery_delete_incomplete");
   fs.rmSync(anchor);
+  if (regularFilePresent(anchor))
+    throw new Error("docker_recovery_delete_incomplete");
   return true;
 }
 

@@ -185,6 +185,64 @@ function crashMutation(
   );
 }
 
+function deletionObservationFailure(directory: string) {
+  const moduleUrl = pathToFileURL(
+    path.resolve("src/security/docker-recovery-journal.ts"),
+  ).href;
+  const source = `
+    import fs from "node:fs";
+    import path from "node:path";
+    const directory = process.argv[1];
+    const journal = await import(${JSON.stringify(moduleUrl)});
+    const written = journal.writeCommittedDockerRecoveryJson(
+      directory,
+      "record.json",
+      "record.json",
+      { schema: "fixture/v1", value: true },
+    );
+    const originalRm = fs.rmSync;
+    const originalLstat = fs.lstatSync;
+    let targetDeleted = false;
+    fs.rmSync = (target, ...rest) => {
+      const result = originalRm(target, ...rest);
+      if (path.resolve(String(target)) === path.resolve(written.target))
+        targetDeleted = true;
+      return result;
+    };
+    fs.lstatSync = (target, ...rest) => {
+      if (
+        targetDeleted &&
+        path.resolve(String(target)) === path.resolve(written.target)
+      ) {
+        const error = new Error("injected observation failure");
+        error.code = "EACCES";
+        throw error;
+      }
+      return originalLstat(target, ...rest);
+    };
+    try {
+      journal.removeCommittedDockerRecoveryJson(written.target);
+      process.stdout.write(JSON.stringify({ status: "unexpected_success" }));
+    } catch (error) {
+      process.stdout.write(JSON.stringify({
+        status: "blocked",
+        message: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  `;
+  return spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      "--input-type=module",
+      "-e",
+      source,
+      directory,
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 10_000 },
+  );
+}
+
 function crashScopedCleanup(root: string, discriminator: "a" | "b") {
   const moduleUrl = pathToFileURL(
     path.resolve("src/security/docker-recovery-journal.ts"),
@@ -347,6 +405,26 @@ test("fsync済みtargetとcommit sidecarの完全な組だけをAuthorityとし�
       true,
     );
     assert.equal(removeCommittedDockerRecoveryJson(written.target), true);
+    assert.deepEqual(fs.readdirSync(directory), []);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("delete後の存在観測不能は不存在へ縮退せずanchorを保持して再開可能にする", () => {
+  const directory = temporaryDirectory();
+  try {
+    const child = deletionObservationFailure(directory);
+    assert.equal(child.status, 0);
+    assert.deepEqual(JSON.parse(child.stdout), {
+      status: "blocked",
+      message: "docker_recovery_path_observation_unknown",
+    });
+    assert.equal(
+      fs.readdirSync(directory).some((entry) => entry.includes("delete")),
+      true,
+    );
+    resumeDockerRecoveryJournalDirectory(directory);
     assert.deepEqual(fs.readdirSync(directory), []);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });

@@ -1,5 +1,5 @@
 const TRACE_SCHEMA = "crdd-coordinator/runtime-traceability";
-const TRACE_SCHEMA_REVISION = 3;
+const TRACE_SCHEMA_REVISION = 4;
 const VERIFICATION_KINDS = Object.freeze([
   "normal",
   "quasi_normal",
@@ -72,13 +72,16 @@ const BINDING_KEYS = Object.freeze([
   "cases",
 ]);
 const CASE_KEYS = Object.freeze([
+  "id",
   "transitionId",
-  "fromStates",
-  "expectedToState",
-  "expectedEffectCount",
+  "fromState",
+  "outcome",
+  "expectedEndState",
+  "effectObservations",
   "expectedStatus",
   "resourcePostconditions",
 ]);
+const EFFECT_OBSERVATION_KEYS = Object.freeze(["provider", "host", "cleanup"]);
 const EXPECTED_STATUSES = new Set([
   "authorized",
   "blocked",
@@ -373,6 +376,8 @@ export function inspectCoordinatorRuntimeTraceability(
     string,
     Set<VerificationKind>
   >();
+  const observedCaseTuples = new Set<string>();
+  const caseIds = new Set<string>();
   for (const binding of bindings.entries) {
     const bindingId = typeof binding.id === "string" ? binding.id : "unknown";
     if (!hasExactKeys(binding, BINDING_KEYS))
@@ -406,6 +411,13 @@ export function inspectCoordinatorRuntimeTraceability(
           issues.push(`${bindingId}:case_shape_invalid`);
           continue;
         }
+        if (
+          typeof candidate.id !== "string" ||
+          !candidate.id.startsWith("CASE-") ||
+          caseIds.has(candidate.id)
+        )
+          issues.push(`${bindingId}:case_id_invalid_or_duplicate`);
+        else caseIds.add(candidate.id);
         const transitionId = candidate.transitionId;
         if (
           typeof transitionId !== "string" ||
@@ -419,24 +431,39 @@ export function inspectCoordinatorRuntimeTraceability(
         const declaredFrom = new Set(
           isStringArray(transition?.from) ? transition.from : [],
         );
-        const fromStates = checkReferences(
-          candidate.fromStates,
-          states.ids,
-          `${bindingId}:case_fromStates`,
-          issues,
-        );
-        if (
-          fromStates.length === 0 ||
-          fromStates.some((state) => !declaredFrom.has(state))
-        )
+        const fromState = candidate.fromState;
+        if (typeof fromState !== "string" || !states.ids.has(fromState))
+          issues.push(`${bindingId}:case_from_state_invalid`);
+        if (typeof fromState !== "string" || !declaredFrom.has(fromState))
           issues.push(`${bindingId}:case_from_state_mismatch:${transitionId}`);
-        if (candidate.expectedToState !== transition?.to)
-          issues.push(`${bindingId}:case_to_state_mismatch:${transitionId}`);
+        if (candidate.outcome !== "taken" && candidate.outcome !== "rejected")
+          issues.push(`${bindingId}:case_outcome_invalid:${transitionId}`);
+        const endState = candidate.expectedEndState;
+        if (typeof endState !== "string" || !states.ids.has(endState))
+          issues.push(`${bindingId}:case_end_state_invalid:${transitionId}`);
+        if (candidate.outcome === "taken" && endState !== transition?.to)
+          issues.push(
+            `${bindingId}:case_taken_end_state_mismatch:${transitionId}`,
+          );
+        if (candidate.outcome === "rejected" && endState === transition?.to)
+          issues.push(`${bindingId}:case_rejected_reaches_to:${transitionId}`);
         if (
-          candidate.expectedEffectCount !== 0 &&
-          candidate.expectedEffectCount !== 1
+          !isRecord(candidate.effectObservations) ||
+          !hasExactKeys(
+            candidate.effectObservations,
+            EFFECT_OBSERVATION_KEYS,
+          ) ||
+          Object.values(candidate.effectObservations).some(
+            (count) =>
+              typeof count !== "number" ||
+              !Number.isSafeInteger(count) ||
+              count < 0 ||
+              count > 4,
+          )
         )
-          issues.push(`${bindingId}:case_effect_count_invalid:${transitionId}`);
+          issues.push(
+            `${bindingId}:case_effect_observation_invalid:${transitionId}`,
+          );
         if (!EXPECTED_STATUSES.has(String(candidate.expectedStatus)))
           issues.push(`${bindingId}:case_status_invalid:${transitionId}`);
         if (!isRecord(candidate.resourcePostconditions)) {
@@ -464,10 +491,23 @@ export function inspectCoordinatorRuntimeTraceability(
               issues.push(
                 `${bindingId}:case_resource_postcondition_invalid:${resource}`,
               );
+            if (
+              !isStringArray(binding.observedResources) ||
+              !binding.observedResources.includes(resource)
+            )
+              issues.push(
+                `${bindingId}:case_resource_not_observed:${resource}`,
+              );
           }
         }
-        for (const fromState of fromStates) {
+        if (typeof fromState === "string") {
           const key = `${transitionId}\u0000${fromState}`;
+          const tuple = `${key}\u0000${kind}`;
+          if (observedCaseTuples.has(tuple))
+            issues.push(
+              `${bindingId}:case_tuple_duplicate:${transitionId}:${fromState}:${kind}`,
+            );
+          else observedCaseTuples.add(tuple);
           const observed =
             observedKindsByTransitionAndState.get(key) ??
             new Set<VerificationKind>();
@@ -524,6 +564,16 @@ export function inspectCoordinatorRuntimeTraceability(
       issues.push(`${bindingId}:test_source_unavailable`);
     else if (!quotedTestNameExists(testSource, binding.testName)) {
       issues.push(`${bindingId}:test_name_not_found`);
+    } else if (
+      Array.isArray(binding.cases) &&
+      binding.cases.some(
+        (candidate) =>
+          isRecord(candidate) &&
+          typeof candidate.id === "string" &&
+          !testSource.includes(JSON.stringify(candidate.id)),
+      )
+    ) {
+      issues.push(`${bindingId}:test_case_id_not_found`);
     }
   }
 

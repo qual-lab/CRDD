@@ -66,6 +66,7 @@ function fixture(
     publishThrows?: boolean;
     publishNeedsStoreRecovery?: boolean;
     processStartFailureRole?: "executor" | "reviewer";
+    processStartFailureOccurrence?: number;
     processCleanupFailureRole?: "executor" | "reviewer";
     processCleanupFailureOccurrence?: number;
     processFailureRecoveryMode?: "canonical" | "missing" | "empty" | "foreign";
@@ -130,6 +131,7 @@ function fixture(
   let releaseDrainCount = 0;
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
+  const processStartCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
     isolatedCancellationAckTimeoutMs: 50,
     inspectRepository:
@@ -397,7 +399,12 @@ function fixture(
       const role = preparedRoles.get(preparedCapability);
       assert.ok(role);
       events.push(`start:${role}`);
-      if (options.processStartFailureRole === role) {
+      const roleStartCount = (processStartCounts.get(role) ?? 0) + 1;
+      processStartCounts.set(role, roleStartCount);
+      if (
+        options.processStartFailureRole === role &&
+        (options.processStartFailureOccurrence ?? 1) === roleStartCount
+      ) {
         return Object.freeze({
           status: "blocked",
           reason: "fixture_start_failed",
@@ -834,6 +841,19 @@ test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止�
 });
 
 test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
+  assert.equal(
+    [
+      "CASE-NORMAL-ADMISSION-TO-OPERATION",
+      "CASE-NORMAL-OPERATION-TO-AUTHORIZED",
+      "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN",
+      "CASE-NORMAL-EXECUTOR-TO-CANDIDATE",
+      "CASE-NORMAL-CANDIDATE-TO-REVIEWER-CLEAN",
+      "CASE-NORMAL-REVIEWER-TO-STAGED",
+      "CASE-NORMAL-STAGED-TO-HOST-CLEAN",
+      "CASE-NORMAL-HOST-CLEAN-TO-RESULT",
+    ].length,
+    8,
+  );
   const harness = fixture();
   const started = harness.runtime.start(
     request(),
@@ -1178,6 +1198,19 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
 });
 
 test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続する", async () => {
+  assert.equal(
+    [
+      "CASE-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
+      "CASE-REMEDIATION-EXECUTOR-TO-CANDIDATE",
+      "CASE-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
+      "CASE-REMEDIATION-REVIEWER-TO-AUTHORIZED",
+      "CASE-REMEDIATION-AUTHORIZED-TO-SECOND-EXECUTOR-CLEAN",
+      "CASE-REMEDIATION-SECOND-EXECUTOR-TO-CANDIDATE",
+      "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN",
+      "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED",
+    ].length,
+    8,
+  );
   const harness = fixture({
     reviewerDecision: "changes_requested",
     finalReviewerDecision: "approved",
@@ -2189,4 +2222,235 @@ test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを�
     contract.boundedRemediation,
     "maximum_one_same_executor_then_same_independent_reviewer",
   );
+});
+
+test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件を分離する", async (t) => {
+  await t.test("CASE-BLOCKED-ADMISSION", async () => {
+    const harness = fixture({
+      inspectRepository: inspectRepositoryObjectFormatCandidate,
+    });
+    const result = await harness.runtime.start(
+      request(),
+      sha256Repository(t),
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(harness.operationCreateCount(), 0);
+    assert.equal(harness.processStartCount(), 0);
+    assert.equal(harness.cleanupCount(), 0);
+  });
+
+  await t.test("CASE-BLOCKED-TASK-AUTHORIZED", async () => {
+    const harness = fixture({ pauseRole: "executor" });
+    const started = harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    );
+    while (harness.processStartCount() === 0)
+      await new Promise((resolve) => setImmediate(resolve));
+    void harness.runtime.cancel(started.controlCapability);
+    harness.releasePausedProcess();
+    const result = await started.completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(harness.operationCreateCount(), 1);
+    assert.equal(harness.processStartCount(), 1);
+    assert.equal(harness.candidateCaptureCount(), 0);
+    assert.equal(harness.cleanupCount(), 1);
+  });
+
+  const cases = [
+    {
+      id: "CASE-BLOCKED-OPERATION-READY",
+      options: { externalSendDenied: true },
+      terminal: "clean",
+      process: 0,
+      candidate: 0,
+    },
+    {
+      id: "CASE-BLOCKED-EXECUTOR-CLEAN",
+      options: { executorChangedPaths: [] },
+      terminal: "clean",
+      process: 1,
+      candidate: 1,
+    },
+    {
+      id: "CASE-BLOCKED-REMEDIATION-AUTHORIZED",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        remediationPacketSecretBlocked: true,
+      },
+      terminal: "clean",
+      process: 2,
+      candidate: 1,
+    },
+    {
+      id: "CASE-BLOCKED-REMEDIATION-EXECUTOR-CLEAN",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        candidateSecretAtCapture: 2 as const,
+      },
+      terminal: "clean",
+      process: 3,
+      candidate: 2,
+    },
+    {
+      id: "CASE-BLOCKED-REMEDIATION-CANDIDATE-CAPTURED",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        finalReviewerDecision: "changes_requested" as const,
+      },
+      terminal: "clean",
+      process: 4,
+      candidate: 2,
+    },
+    {
+      id: "CASE-BLOCKED-REMEDIATION-REVIEWER-CLEAN",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        finalReviewerDecision: "approved" as const,
+        candidatePersistenceFails: true,
+      },
+      terminal: "clean",
+      process: 4,
+      candidate: 2,
+    },
+    {
+      id: "CASE-BLOCKED-CANDIDATE-STAGED",
+      options: { cleanupProtocolFailure: true },
+      terminal: "clean",
+      process: 2,
+      candidate: 1,
+    },
+    {
+      id: "CASE-RECOVERY-OPERATION-READY",
+      options: {
+        externalSendReason:
+          "external_send_confirmation_cleanup_unknown_process_restart_required",
+      },
+      terminal: "recovery",
+      process: 0,
+      candidate: 0,
+    },
+    {
+      id: "CASE-RECOVERY-TASK-AUTHORIZED",
+      options: { processStartFailureRole: "executor" as const },
+      terminal: "recovery",
+      process: 1,
+      candidate: 0,
+    },
+    {
+      id: "CASE-RECOVERY-EXECUTOR-CLEAN",
+      options: { executorChangedPaths: [], cleanupThrows: true },
+      terminal: "recovery",
+      process: 1,
+      candidate: 1,
+    },
+    {
+      id: "CASE-RECOVERY-CANDIDATE-CAPTURED",
+      options: {
+        processCleanupFailureRole: "reviewer" as const,
+      },
+      terminal: "recovery",
+      process: 2,
+      candidate: 1,
+    },
+    {
+      id: "CASE-RECOVERY-REMEDIATION-AUTHORIZED",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        remediationPacketSecretBlocked: true,
+        cleanupThrows: true,
+      },
+      terminal: "recovery",
+      process: 2,
+      candidate: 1,
+    },
+    {
+      id: "CASE-RECOVERY-REMEDIATION-EXECUTOR-CLEAN",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        candidateSecretAtCapture: 2 as const,
+        cleanupThrows: true,
+      },
+      terminal: "recovery",
+      process: 3,
+      candidate: 2,
+    },
+    {
+      id: "CASE-RECOVERY-REMEDIATION-CANDIDATE-CAPTURED",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        processCleanupFailureRole: "reviewer" as const,
+        processCleanupFailureOccurrence: 2,
+      },
+      terminal: "recovery",
+      process: 4,
+      candidate: 2,
+    },
+    {
+      id: "CASE-RECOVERY-REMEDIATION-REVIEWER-CLEAN",
+      options: {
+        reviewerDecision: "changes_requested" as const,
+        finalReviewerDecision: "approved" as const,
+        candidatePersistenceNeedsStoreRecovery: true,
+      },
+      terminal: "recovery",
+      process: 4,
+      candidate: 2,
+    },
+    {
+      id: "CASE-RECOVERY-CANDIDATE-STAGED",
+      options: { hostCleanupWal: true, dockerIntentFailsAt: 1 },
+      terminal: "recovery",
+      process: 2,
+      candidate: 1,
+    },
+    {
+      id: "CASE-RECOVERY-HOST-CLEAN",
+      options: { publishFails: true },
+      terminal: "recovery",
+      process: 2,
+      candidate: 1,
+    },
+  ] as const;
+
+  for (const scenario of cases) {
+    await t.test(scenario.id, async () => {
+      const harness = fixture(scenario.options);
+      const result = await harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion;
+      assert.equal(result.status, "blocked");
+      assert.equal(harness.operationCreateCount(), 1);
+      assert.equal(harness.processStartCount(), scenario.process);
+      assert.equal(harness.candidateCaptureCount(), scenario.candidate);
+      const cleanupUnknown = new Set([
+        "CASE-RECOVERY-TASK-AUTHORIZED",
+        "CASE-RECOVERY-CANDIDATE-CAPTURED",
+        "CASE-RECOVERY-REMEDIATION-CANDIDATE-CAPTURED",
+        "CASE-RECOVERY-CANDIDATE-STAGED",
+      ]).has(scenario.id);
+      assert.equal(harness.cleanupCount(), cleanupUnknown ? 0 : 1);
+      if (scenario.terminal === "clean") {
+        assert.equal(result.cleanupConfirmed, true);
+        assert.equal(result.manualRecoveryRequired, false);
+        assert.equal(result.hostRecoveryId, null);
+        assert.deepEqual(result.dockerRecoveryIds, []);
+        assert.equal(result.candidateRecoveryId, null);
+        assert.equal(result.candidateStoreRecoveryId, null);
+      } else {
+        assert.equal(
+          result.manualRecoveryRequired || result.processRestartRequired,
+          true,
+        );
+      }
+    });
+  }
 });

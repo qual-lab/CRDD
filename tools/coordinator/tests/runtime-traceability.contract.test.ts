@@ -42,7 +42,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
       states: 17,
       transitions: 17,
       invariants: 9,
-      verificationBindings: 18,
+      verificationBindings: 6,
     },
   );
 });
@@ -169,8 +169,8 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
   const cases = structuredClone(taskNormal.cases) as Record<string, unknown>[];
   cases[0] = {
     ...cases[0],
-    fromStates: ["STATE-TASK-AUTHORIZED"],
-    expectedToState: "STATE-RESULT-PUBLISHED",
+    fromState: "STATE-TASK-AUTHORIZED",
+    expectedEndState: "STATE-RESULT-PUBLISHED",
     resourcePostconditions: { "RES-CANDIDATE-ENTRY": "present" },
   };
   taskNormal.cases = cases;
@@ -185,7 +185,7 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
     );
     assert.ok(
       result.issues.includes(
-        "VER-TASK-NORMAL:case_to_state_mismatch:TRANS-ADMISSION-TO-OPERATION",
+        "VER-TASK-NORMAL:case_taken_end_state_mismatch:TRANS-ADMISSION-TO-OPERATION",
       ),
     );
     assert.ok(
@@ -196,6 +196,50 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
     assert.ok(
       result.issues.includes(
         "TRANS-ADMISSION-TO-OPERATION:verification_case_missing:STATE-ADMISSION:normal",
+      ),
+    );
+  }
+});
+
+test("検証caseの重複tuple・source未接続・未観測資源・拒否結果の誤到達を拒否する", () => {
+  const trace = currentTrace() as Record<string, unknown>;
+  const bindings = structuredClone(trace.verificationBindings) as Record<
+    string,
+    unknown
+  >[];
+  const taskNormal = bindings.find(
+    (binding) => binding.id === "VER-TASK-NORMAL",
+  );
+  assert.ok(taskNormal);
+  const cases = structuredClone(taskNormal.cases) as Record<string, unknown>[];
+  const duplicate = {
+    ...cases[0],
+    id: "CASE-NOT-CONNECTED-TO-SOURCE",
+  };
+  cases.push(duplicate);
+  cases[0] = { ...cases[0], outcome: "rejected" };
+  taskNormal.cases = cases;
+  taskNormal.observedResources = (
+    taskNormal.observedResources as string[]
+  ).filter((resource) => resource !== "RES-CANDIDATE-ENTRY");
+  trace.verificationBindings = bindings;
+  const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
+  assert.equal(result.status, "blocked");
+  if (result.status === "blocked") {
+    assert.ok(
+      result.issues.includes(
+        "VER-TASK-NORMAL:case_rejected_reaches_to:TRANS-ADMISSION-TO-OPERATION",
+      ),
+    );
+    assert.ok(
+      result.issues.includes(
+        "VER-TASK-NORMAL:case_tuple_duplicate:TRANS-ADMISSION-TO-OPERATION:STATE-ADMISSION:normal",
+      ),
+    );
+    assert.ok(result.issues.includes("VER-TASK-NORMAL:test_case_id_not_found"));
+    assert.ok(
+      result.issues.includes(
+        "VER-TASK-NORMAL:case_resource_not_observed:RES-CANDIDATE-ENTRY",
       ),
     );
   }

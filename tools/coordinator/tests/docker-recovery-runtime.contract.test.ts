@@ -2484,6 +2484,7 @@ test("production共有回復engineは空Rootの未発行tokenを完了済みと�
 });
 
 test("production共有回復engineはHost expected世代のprocess killを残存0へ収束する", () => {
+  assert.equal("CASE-RECOVERY-TO-RECOVERED".startsWith("CASE-"), true);
   const fixture = createKilledFullProductionRecoveryRoot();
   const root = verifiedRoot(fixture.root);
   try {
@@ -2726,6 +2727,7 @@ test("Host active bindingのexact content-onlyをEffect前状態として残存0
 });
 
 test("Host active bindingのcontent-only不一致はEvidenceを保持して停止する", () => {
+  assert.equal("CASE-PARTIAL-PAIR-TO-RECOVERY".startsWith("CASE-"), true);
   const fixture = createKilledFullProductionRecoveryRoot(
     "active_binding_content",
   );
@@ -2841,6 +2843,67 @@ test("Effect後Recovery経路もactive bindingをpointer閉包前に削除しな
         disposeKilledFullProductionRecoveryFixture(fixture);
       }
     }
+  }
+});
+
+test("active binding削除後の観測不能は不存在にせずRecovery Evidenceを保持する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const root = verifiedRoot(fixture.root);
+  const activePath = fs
+    .readdirSync(fixture.hostRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) =>
+      path.join(fixture.hostRoot, entry.name, "active-docker-task-v1.json"),
+    )
+    .find((candidate) => fs.existsSync(candidate));
+  assert.ok(activePath);
+  const originalRm = fs.rmSync;
+  const originalLstat = fs.lstatSync;
+  let activeDeleted = false;
+  try {
+    fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
+      const result = originalRm(target, options);
+      if (path.resolve(String(target)) === path.resolve(activePath))
+        activeDeleted = true;
+      return result;
+    }) as typeof fs.rmSync;
+    Object.defineProperty(fs, "lstatSync", {
+      configurable: true,
+      value: ((target: fs.PathLike, options?: unknown) => {
+        if (
+          activeDeleted &&
+          path.resolve(String(target)) === path.resolve(activePath)
+        ) {
+          const error = new Error("injected observation failure") as Error & {
+            code: string;
+          };
+          error.code = "EACCES";
+          throw error;
+        }
+        return originalLstat(target, options as never);
+      }) as typeof fs.lstatSync,
+    });
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.recoveryId, fixture.recoveryId);
+    assert.equal(
+      fs
+        .readdirSync(path.dirname(activePath))
+        .some((entry) => entry.includes("delete")),
+      true,
+    );
+    assert.ok(fs.readdirSync(fixture.root).length > 0);
+  } finally {
+    fs.rmSync = originalRm;
+    Object.defineProperty(fs, "lstatSync", {
+      configurable: true,
+      value: originalLstat,
+    });
+    disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
 

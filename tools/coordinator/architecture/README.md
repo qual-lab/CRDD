@@ -105,7 +105,7 @@ Runtime State lockを保持したまま、native observation、Docker CLIまた�
 | content／commit不一致 | 異常 | Evidence保持、処置0 |
 | replacement／link／unknown entry | 異常 | Evidence保持、処置0 |
 
-Host側`active-docker-task-v1.json`のcontent-only状態は、同期的なcommit sidecar確定より前、かつHost generation Effectより前の到達可能中間状態である。明示Recoveryは、同一Lock内でHostがprevious世代、全submission不存在、baseが完全一致し、committed pointerのschema／stable Home／operation name／Recovery ID／base hashが完全一致し、active bindingのschema／Recovery ID／base hash／operation nonceが完全一致し、active commit sidecarが不存在の場合だけ当該contentをrollbackする。通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの全削除経路は、同じactive binding／pointer閉包を削除前に検証する。active bindingが存在するのにpointerが欠落・partial・置換、不一致または観測不能なら、どちらも削除せず`STATE-RECOVERY-REQUIRED`を維持する。active bindingが既に不存在でexact committed pointerだけが残る非対称状態は、pointerの完全一致を確認して再開できる。
+Host側`active-docker-task-v1.json`のcontent-only状態は、同期的なcommit sidecar確定より前、かつHost generation Effectより前の到達可能中間状態である。明示Recoveryは、同一Lock内でHostがprevious世代、全submission不存在、baseが完全一致し、committed pointerのschema／stable Home／operation name／Recovery ID／base hashが完全一致し、active bindingのschema／Recovery ID／base hash／operation nonceが完全一致し、active commit sidecarが不存在の場合だけ当該contentをrollbackする。通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの全削除経路は、同じactive binding／pointer閉包を削除前に検証する。存在観測は`ENOENT`だけを不存在へ写像し、権限拒否、共有競合、I/O失敗、非fileまたはsymlinkを観測不能として扱う。削除後のactive binding、pointer、commit sidecar、complete receiptおよびHost inventoryも同じ規則で再観測し、観測不能ならanchorとEvidenceを保持したまま`STATE-RECOVERY-REQUIRED`を維持する。active bindingが存在するのにpointerが欠落・partial・置換、不一致または観測不能なら、どちらも削除しない。active bindingが既に不存在でexact committed pointerだけが残る非対称状態は、pointerの完全一致を確認して再開できる。
 
 ## 7. cleanup依存順
 
@@ -146,7 +146,7 @@ Provider child／Docker resource absence
 | 準正常 | 明示拒否、Provider timeout／nonzero／結果不正、duplicate cancel、Lock競合、Effect前の一意なpartial pair | 安全なblockedまたは決定論的回復。未知状態へ誤昇格しない |
 | 異常 | lock解放不明、generation置換、pair不一致、create結果曖昧、親Process消失、cleanup不明、複数Recovery競合 | Result非公開、Evidence保持、exact Recoveryまたはoperator移送 |
 
-各高リスク遷移は、その遷移に適用可能と宣言した正常・準正常・異常区分の検証接続を機械可読Traceで持つ。検証ケースは遷移ID、開始状態、期待終了状態、Effect件数、結果状態および資源後条件を宣言し、遷移×開始状態×区分をCheckerが照合する。テスト名の存在だけ、非該当区分の形式的な水増し、試験件数またはcoverage率だけを状態母集団の網羅根拠にしない。
+各高リスク遷移は、その遷移に実際に適用可能な正常・準正常・異常区分だけを機械可読Traceへ宣言する。各検証ケースは一意なcase ID、単一開始状態、遷移を実際に通ったか、実終了状態、Provider／Host／cleanup別のEffect観測数、結果状態および観測した資源の後条件を持つ。Checkerは遷移×単一開始状態×区分の一意性、実遷移時の終了状態、case IDの試験source接続および資源後条件がその試験の観測資源に含まれることを照合する。複数開始状態を一ケースへ束ねること、成功遷移を失敗例で通過済みとみなすこと、総Effect件数だけで種類を曖昧にすること、test名の存在だけ、非該当区分の形式的な水増し、試験件数またはcoverage率だけを状態母集団の網羅根拠にしない。
 
 ## 10. 遷移一覧
 

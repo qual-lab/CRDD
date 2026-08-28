@@ -1091,10 +1091,10 @@ function completeProductionRecovery(
   if (operation.operationId !== record.operationId)
     return Object.freeze({ status: "blocked" as const });
   if (
-    !fs.existsSync(
+    !observeRecoveryFile(
       path.join(record.operationDirectory, "docker-absence.json"),
     ) ||
-    !fs.existsSync(
+    !observeRecoveryFile(
       path.join(record.operationDirectory, "mount-completion.json"),
     )
   )
@@ -1152,7 +1152,7 @@ function completeProductionRecovery(
         throw new Error("docker_task_recovery_active_run_mismatch");
       if (!removeCommittedDockerRecoveryJson(record.hostActiveBindingPath))
         throw new Error("docker_task_recovery_active_run_mismatch");
-      if (fs.existsSync(record.hostActiveBindingPath))
+      if (observeRecoveryFile(record.hostActiveBindingPath))
         throw new Error("docker_task_recovery_active_run_mismatch");
       if (!removeCommittedDockerRecoveryJson(record.pointerPath))
         throw new Error("docker_task_recovery_pointer_invalid");
@@ -1163,7 +1163,7 @@ function completeProductionRecovery(
         Object.freeze({
           schema: "crdd-coordinator-provider-home-lease-release/v1",
           recoveryId: record.recoveryId,
-          pointerAbsent: !fs.existsSync(record.pointerPath),
+          pointerAbsent: !observeRecoveryFile(record.pointerPath),
         }),
       );
       writeDurableJson(
@@ -1203,8 +1203,8 @@ export function finalizeRuntimeOwnedDockerRecovery(
     const record = durableRecord(recoveryFinalizationCapability);
     if (
       !record ||
-      fs.existsSync(record.pointerPath) ||
-      !fs.existsSync(
+      observeRecoveryFile(record.pointerPath) ||
+      !observeRecoveryFile(
         path.join(record.operationDirectory, "host-cleanup-receipt.json"),
       )
     )
@@ -1213,8 +1213,8 @@ export function finalizeRuntimeOwnedDockerRecovery(
     if (!parsed) return Object.freeze({ status: "blocked" as const });
     withFreshHomeAndRuntimeStateLock(record, () => {
       if (
-        fs.existsSync(record.pointerPath) ||
-        !fs.existsSync(
+        observeRecoveryFile(record.pointerPath) ||
+        !observeRecoveryFile(
           path.join(record.operationDirectory, "host-cleanup-receipt.json"),
         )
       )
@@ -2233,22 +2233,24 @@ function hostRecoveryInventoryReady(
       continue;
     const directory = path.join(runtimeStateRoot, entry.name);
     const basePath = path.join(directory, "base.json");
-    if (!fs.existsSync(basePath)) return false;
+    if (!observeRecoveryFile(basePath)) return false;
     const base = readExactJson(basePath).value as Record<string, unknown>;
     if (hostPathsFromBase(base).root !== hostRoot) continue;
-    const normalComplete = fs.existsSync(
+    const normalComplete = observeRecoveryFile(
       path.join(directory, "normal-run-complete.json"),
     );
     const crashComplete =
       directory === targetOperationDirectory &&
-      fs.existsSync(path.join(directory, "docker-absence-crash.json")) &&
-      fs.existsSync(path.join(directory, "mount-crash-absence.json"));
+      observeRecoveryFile(path.join(directory, "docker-absence-crash.json")) &&
+      observeRecoveryFile(path.join(directory, "mount-crash-absence.json"));
     if (!normalComplete && !crashComplete) return false;
     const stable = base.stableLogicalHomeBindingHash;
     if (
       typeof stable !== "string" ||
       !HEX64.test(stable) ||
-      fs.existsSync(path.join(runtimeStateRoot, `active-lease-${stable}.json`))
+      observeRecoveryFile(
+        path.join(runtimeStateRoot, `active-lease-${stable}.json`),
+      )
     )
       return false;
   }
@@ -3377,8 +3379,8 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       "host-complete-receipt.json",
     );
     if (
-      !fs.existsSync(hostCompleteReceiptPath) &&
-      fs.existsSync(hostCompleteIntentPath)
+      !observeRecoveryFile(hostCompleteReceiptPath) &&
+      observeRecoveryFile(hostCompleteIntentPath)
     ) {
       const intent = readExactJson(hostCompleteIntentPath).value as Record<
         string,
@@ -3396,12 +3398,16 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         });
     }
     if (
-      !fs.existsSync(normalRunCompletePath) &&
-      fs.existsSync(hostCompleteReceiptPath)
+      !observeRecoveryFile(normalRunCompletePath) &&
+      observeRecoveryFile(hostCompleteReceiptPath)
     ) {
       if (
-        !fs.existsSync(path.join(operationDirectory, "docker-absence.json")) ||
-        !fs.existsSync(path.join(operationDirectory, "mount-completion.json"))
+        !observeRecoveryFile(
+          path.join(operationDirectory, "docker-absence.json"),
+        ) ||
+        !observeRecoveryFile(
+          path.join(operationDirectory, "mount-completion.json"),
+        )
       )
         throw new Error("docker_task_recovery_normal_evidence_missing");
       const receipt = readExactJson(hostCompleteReceiptPath).value as Record<
@@ -3445,7 +3451,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           throw new Error("docker_task_recovery_pointer_mismatch");
       }
       if (
-        !fs.existsSync(
+        !observeRecoveryFile(
           path.join(operationDirectory, "lease-release-receipt.json"),
         )
       )
@@ -3460,7 +3466,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         hostSuccessor: observedHostSuccessor,
       });
     }
-    if (fs.existsSync(normalRunCompletePath)) {
+    if (observeRecoveryFile(normalRunCompletePath)) {
       const normalRun = readExactJson(normalRunCompletePath).value as Record<
         string,
         unknown
@@ -3483,8 +3489,8 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         "active-docker-task-v1.json",
       );
       if (
-        fs.existsSync(pointerPath) ||
-        fs.existsSync(activeHostBindingPath) ||
+        observeRecoveryFile(pointerPath) ||
+        observeRecoveryFile(activeHostBindingPath) ||
         !hostRecoveryInventoryReady(
           root.rootPath,
           hostPaths.root,
