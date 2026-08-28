@@ -14,7 +14,10 @@ import {
   renderSafeHumanCommandReport,
   type SafeCommandReport,
 } from "../src/core/command-report.ts";
-import { runDoctor } from "../src/core/doctor.ts";
+import {
+  classifyDoctorOperationInitializationFailure,
+  runDoctor,
+} from "../src/core/doctor.ts";
 import { dispatchDockerDesktopRepairDoctorCommand } from "../src/core/docker-desktop-repair-doctor-dispatch.ts";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
 import { isSupportedCoordinatorNodeRuntime } from "../src/core/node-runtime-version.ts";
@@ -573,6 +576,8 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
       process.exitCode = rendered.exitCode;
     }
   } catch (rawError) {
+    const doctorCreation =
+      classifyDoctorOperationInitializationFailure(rawError);
     const message = rawError instanceof Error ? rawError.message : undefined;
     const reason =
       typeof message === "string" && /^[a-z0-9_]+$/u.test(message)
@@ -580,10 +585,18 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
         : "diagnostic_failed";
     if (args.includes("--json")) {
       process.stdout.write(
-        `${JSON.stringify({ status: "blocked", reason })}\n`,
+        `${JSON.stringify(
+          doctorCreation
+            ? { status: "blocked", ...doctorCreation }
+            : { status: "blocked", reason },
+        )}\n`,
       );
     } else {
-      process.stderr.write(`Coordinator diagnostic failed: ${reason}\n`);
+      process.stderr.write(
+        doctorCreation
+          ? `Coordinator diagnostic blocked: ${doctorCreation.reason}; manual recovery required; host recovery id: ${doctorCreation.hostRecoveryId ?? "unavailable"}\n`
+          : `Coordinator diagnostic failed: ${reason}\n`,
+      );
     }
     process.exitCode = rawError instanceof UsageError ? 64 : 2;
   }

@@ -13,12 +13,14 @@ import {
 import { describeEgressProxyTopology } from "../security/egress-proxy-policy.ts";
 import {
   cleanupOwnedOperationDirectories,
-  createOwnedOperationDirectories,
   createProviderEnvironment,
   credentialEnvironmentNamesPresent,
   describeFilesystemPolicy,
-  getOwnedHostRecoveryId,
 } from "../security/execution-environment.ts";
+import {
+  classifyOwnedCoordinatorOperationCreationFailure,
+  createRuntimeOwnedCoordinatorOperation,
+} from "../security/coordinator-operation-creation-internal.ts";
 import { describeGitLocalExcludeContract } from "../security/git-local-exclude.ts";
 import {
   snapshotPlainArray,
@@ -47,6 +49,40 @@ export const CHECK_STATUS = Object.freeze([
   "not_implemented",
   "unknown",
 ] as const);
+
+type DoctorOperationInitializationFailure = Readonly<{
+  reason: "doctor_operation_initialization_cleanup_unknown";
+  manualRecoveryRequired: true;
+  hostRecoveryId: string | null;
+}>;
+const doctorOperationInitializationFailures = new WeakMap<
+  object,
+  DoctorOperationInitializationFailure
+>();
+
+export function classifyDoctorOperationInitializationFailure(error: unknown) {
+  return error && typeof error === "object"
+    ? (doctorOperationInitializationFailures.get(error) ?? null)
+    : null;
+}
+
+function throwDoctorOperationInitializationFailure(
+  cause: unknown,
+  hostRecoveryId: string | null,
+): never {
+  const error = new Error("doctor_operation_initialization_cleanup_unknown", {
+    cause,
+  });
+  doctorOperationInitializationFailures.set(
+    error,
+    Object.freeze({
+      reason: "doctor_operation_initialization_cleanup_unknown",
+      manualRecoveryRequired: true,
+      hostRecoveryId,
+    }),
+  );
+  throw error;
+}
 
 type CheckStatus = "confirmed" | "blocked" | "not_implemented" | "unknown";
 export type DiagnosticCheck = {
@@ -452,11 +488,19 @@ export function runDoctor(options: unknown = {}) {
   const normalizedOptions = normalizeDoctorOptions(options);
   const isIsolationActive = normalizedOptions.activeIsolation;
   const cwd = normalizedOptions.cwd;
-  const owned = createOwnedOperationDirectories();
+  let operation: ReturnType<typeof createRuntimeOwnedCoordinatorOperation>;
+  try {
+    operation = createRuntimeOwnedCoordinatorOperation();
+  } catch (error) {
+    const creation = classifyOwnedCoordinatorOperationCreationFailure(error);
+    if (creation && !creation.cleanupConfirmed)
+      throwDoctorOperationInitializationFailure(error, creation.hostRecoveryId);
+    throw error;
+  }
+  const { owned, hostRecoveryId: initialHostRecoveryId } = operation;
   if (!owned.directories)
     throw new Error("owned_operation_directory_identity_required");
   const ownedDirectories = owned.directories;
-  const initialHostRecoveryId = getOwnedHostRecoveryId(owned);
   let shouldRetainOperationDirectories = false;
   try {
     const providerEnvironment = createProviderEnvironment(
@@ -691,7 +735,7 @@ export function runDoctor(options: unknown = {}) {
       try {
         cleanupOwnedOperationDirectories(owned);
       } catch {
-        /* recovery marker remains external */
+        throwDoctorOperationInitializationFailure(error, initialHostRecoveryId);
       }
     }
     throw error;

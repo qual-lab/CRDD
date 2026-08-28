@@ -28,6 +28,7 @@
 - 環境／役割／状態／失敗条件の範囲:
 - 層間搬送のproducer／transport／consumerとfixture由来（該当する場合）:
 - 耐久状態のAuthority分類（別invocation／processの保護Effectに十分／不可欠、fresh Authority再結合が必要な通常記録、または分類不能でEffect 0。該当する場合）:
+- durable／外部資源の取得transaction（最初のEffect、所有Capability／exact Recovery Authority／公開結果の確定点、間のthrow可能点、各点のcleanup確認済み／不明と公開投影。該当する場合）:
 - 根拠の主張軸（入口形態／観測基盤／成果物Identity／lifecycle。該当する軸だけ）:
 - 検証項目へ未対応の検証義務:
 

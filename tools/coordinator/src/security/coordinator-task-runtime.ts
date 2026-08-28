@@ -8,6 +8,10 @@ import {
 import { prepareRuntimeOwnedClaudeDockerTaskCandidate } from "./claude-docker-runtime-adapter.ts";
 import { prepareRuntimeOwnedCodexDockerTaskCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
+  classifyOwnedCoordinatorOperationCreationFailure,
+  createRuntimeOwnedCoordinatorOperation,
+} from "./coordinator-operation-creation-internal.ts";
+import {
   issueRuntimeOwnedDelegationSelectionGrant,
   preflightRuntimeOwnedDelegationExecutionSlate,
   revokeRuntimeOwnedDelegationSelectionGrant,
@@ -18,6 +22,7 @@ import {
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
 } from "./docker-process-controller.ts";
+
 import {
   abandonRuntimeOwnedDockerRecovery,
   finalizeRuntimeOwnedDockerRecovery,
@@ -35,14 +40,8 @@ import {
   cleanupOwnedOperationDirectoriesAsync,
   classifyOwnedOperationDirectoryCreationFailure,
   confirmOwnedHostOperationGenerationLockReadiness,
-  createOwnedMountCapability,
-  createOwnedOperationContextCapability,
-  createOwnedOperationDirectories,
-  createOwnedOperationManagementCapability,
-  getOwnedHostRecoveryId,
   observeOwnedHostOperationGenerationLoss,
   verifyOwnedOperationCleanupOutcome,
-  verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 import { requestRuntimeOwnedExternalSendGrant } from "./external-send-grant-runtime.ts";
 import { consumeRuntimeOwnedVerifiedCoordinatorPackageCapability } from "./platform-provisioner-package-filesystem.ts";
@@ -79,9 +78,33 @@ import {
 import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 import { evaluateManagedDockerCleanupEligibility } from "../core/docker-cleanup-eligibility.ts";
 
+export function projectRuntimeOwnedDockerProcessStartForTask(
+  value: unknown,
+  recoveryId: unknown,
+  operationId: unknown,
+) {
+  return projectDockerProcessControllerStartResult(
+    value,
+    recoveryId,
+    operationId,
+  );
+}
+
+export function projectRuntimeOwnedDockerProcessCompletionForTask(
+  value: unknown,
+  recoveryId: unknown,
+  operationId: unknown,
+) {
+  return projectDockerProcessControllerCompletionResult(
+    value,
+    recoveryId,
+    operationId,
+  );
+}
+
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 23;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 24;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const REQUEST_KEYS = new Set([
@@ -1057,9 +1080,10 @@ async function executeStage(
       startRuntimeOwnedDockerProcessController;
     const process = (
       productionProcessContract
-        ? projectDockerProcessControllerStartResult(
+        ? projectRuntimeOwnedDockerProcessStartForTask(
             rawProcess,
             control.dockerHandoffs.at(-1)?.recoveryId ?? null,
+            operation.operationId,
           )
         : rawProcess
     ) as RuntimeRecord | null;
@@ -1107,9 +1131,10 @@ async function executeStage(
     }
     const rawResult = await completion;
     const result = productionProcessContract
-      ? projectDockerProcessControllerCompletionResult(
+      ? projectRuntimeOwnedDockerProcessCompletionForTask(
           rawResult,
           startedDockerRecoveryId,
+          operation.operationId,
         )
       : (rawResult as RuntimeRecord);
     control.currentProcessControl = null;
@@ -1823,11 +1848,13 @@ async function runCoordinatorTask(
 }
 
 async function createProductionOperation() {
-  let owned: ReturnType<typeof createOwnedOperationDirectories>;
+  let operation: ReturnType<typeof createRuntimeOwnedCoordinatorOperation>;
   try {
-    owned = createOwnedOperationDirectories();
+    operation = createRuntimeOwnedCoordinatorOperation();
   } catch (error) {
-    const creation = classifyOwnedOperationDirectoryCreationFailure(error);
+    const creation =
+      classifyOwnedOperationDirectoryCreationFailure(error) ??
+      classifyOwnedCoordinatorOperationCreationFailure(error);
     if (!creation) throw error;
     if (!creation.cleanupConfirmed) poisonRuntimeProcessAfterCleanupUnknown();
     throwProductionOperationFailure(
@@ -1841,17 +1868,15 @@ async function createProductionOperation() {
       }),
     );
   }
-  const hostRecoveryId = getOwnedHostRecoveryId(owned);
+  const {
+    owned,
+    mountCapability,
+    managementCapability,
+    operationId,
+    hostRecoveryId,
+  } = operation;
   let failureReason = "coordinator_task_operation_creation_failed";
   try {
-    const contextCapability = createOwnedOperationContextCapability(owned);
-    const mountCapability = createOwnedMountCapability(owned);
-    const managementCapability = createOwnedOperationManagementCapability(
-      contextCapability,
-      mountCapability,
-    );
-    const operation =
-      verifyOwnedOperationManagementCapability(managementCapability);
     const activation =
       await activateOwnedHostOperationGenerationLock(managementCapability);
     if (activation !== "activated") {
@@ -1882,7 +1907,7 @@ async function createProductionOperation() {
       owned,
       mountCapability,
       managementCapability,
-      operationId: operation.operationId,
+      operationId,
       hostRecoveryId,
       hostGenerationFailureDetected: hostGenerationLoss.detected,
       hostGenerationLoss: hostGenerationLoss.outcome,

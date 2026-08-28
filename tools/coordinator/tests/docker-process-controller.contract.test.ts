@@ -9,6 +9,14 @@ import {
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
 } from "../src/security/docker-process-controller.ts";
+import {
+  projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+  projectRuntimeOwnedDockerProcessStartForCoordinator,
+} from "../src/security/coordinator-runtime.ts";
+import {
+  projectRuntimeOwnedDockerProcessCompletionForTask,
+  projectRuntimeOwnedDockerProcessStartForTask,
+} from "../src/security/coordinator-task-runtime.ts";
 
 function createPlan(
   activeMountCapability: object,
@@ -82,14 +90,28 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
   const projectedStart = projectDockerProcessControllerStartResult(
     started,
     handedOffRecoveryId,
+    "OP-123456",
   );
   assert.ok(projectedStart);
   assert.equal(projectedStart.status, "started");
   const completion = await (projectedStart.completion as Promise<unknown>);
+  for (const projectStart of [
+    projectRuntimeOwnedDockerProcessStartForCoordinator,
+    projectRuntimeOwnedDockerProcessStartForTask,
+  ]) {
+    assert.ok(projectStart(started, handedOffRecoveryId, "OP-123456"));
+  }
+  for (const projectCompletion of [
+    projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+    projectRuntimeOwnedDockerProcessCompletionForTask,
+  ]) {
+    assert.ok(projectCompletion(completion, handedOffRecoveryId, "OP-123456"));
+  }
   assert.ok(
     projectDockerProcessControllerCompletionResult(
       completion,
       handedOffRecoveryId,
+      "OP-123456",
     ),
   );
   assert.equal(
@@ -99,6 +121,7 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
         recoveryId: `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`,
       }),
       handedOffRecoveryId,
+      "OP-123456",
     ),
     null,
   );
@@ -109,9 +132,164 @@ test("実Controller出力のstart・handoff・completion相関をproducer所有p
         recoveryId: handedOffRecoveryId,
       }),
       handedOffRecoveryId,
+      "OP-123456",
     ),
     null,
   );
+
+  const missing = { ...(completion as Readonly<Record<string, unknown>>) };
+  delete missing.selectionRecordId;
+  const extra = {
+    ...(completion as Readonly<Record<string, unknown>>),
+    extra: true,
+  };
+  const renamed = { ...(completion as Readonly<Record<string, unknown>>) };
+  delete renamed.selectionRecordId;
+  renamed.selectionId = "MODELSEL-12345678";
+  const accessor = { ...(completion as Readonly<Record<string, unknown>>) };
+  Object.defineProperty(accessor, "normalizedResult", {
+    enumerable: true,
+    get: () => {
+      throw new Error("accessor_must_not_run");
+    },
+  });
+  let proxyTrapCount = 0;
+  const hostileCompletionProxy = new Proxy(completion as object, {
+    getOwnPropertyDescriptor: () => {
+      proxyTrapCount += 1;
+      throw new Error("proxy_trap_must_not_run");
+    },
+  });
+  for (const malformed of [
+    missing,
+    extra,
+    renamed,
+    accessor,
+    hostileCompletionProxy,
+  ]) {
+    assert.equal(
+      projectDockerProcessControllerCompletionResult(
+        malformed,
+        handedOffRecoveryId,
+        "OP-123456",
+      ),
+      null,
+    );
+  }
+  assert.equal(proxyTrapCount, 0);
+
+  for (const impossible of [
+    {
+      cleanupConfirmed: false,
+      processTreeTerminationConfirmed: false,
+      status: "completed",
+      recoveryId: handedOffRecoveryId,
+      manualRecoveryRequired: true,
+    },
+    {
+      status: "blocked",
+      normalizedResult: Object.freeze({ status: true }),
+      resultSha256: "a".repeat(64),
+      resultBytes: 1,
+    },
+    { operationId: "OP-999999" },
+  ]) {
+    assert.equal(
+      projectDockerProcessControllerCompletionResult(
+        Object.freeze({
+          ...(completion as Readonly<Record<string, unknown>>),
+          ...impossible,
+        }),
+        handedOffRecoveryId,
+        "OP-123456",
+      ),
+      null,
+    );
+  }
+
+  const missingStart = { ...started } as Record<string, unknown>;
+  delete missingStart.reason;
+  const extraStart = { ...started, extra: true };
+  const accessorStart = { ...started } as Record<string, unknown>;
+  Object.defineProperty(accessorStart, "completion", {
+    enumerable: true,
+    get: () => {
+      throw new Error("accessor_must_not_run");
+    },
+  });
+  const hostileStartProxy = new Proxy(started as object, {
+    getOwnPropertyDescriptor: () => {
+      proxyTrapCount += 1;
+      throw new Error("proxy_trap_must_not_run");
+    },
+  });
+  for (const malformed of [
+    missingStart,
+    extraStart,
+    accessorStart,
+    hostileStartProxy,
+  ]) {
+    assert.equal(
+      projectDockerProcessControllerStartResult(
+        malformed,
+        handedOffRecoveryId,
+        "OP-123456",
+      ),
+      null,
+    );
+  }
+  assert.equal(proxyTrapCount, 0);
+
+  const blockedFixture = createFixture({ verifyRevision: () => false });
+  const blockedStart = blockedFixture.controller.start(
+    blockedFixture.preparedCapability,
+    blockedFixture.managementCapability,
+  );
+  for (const impossible of [
+    { cleanupConfirmed: false, manualRecoveryRequired: false },
+    {
+      recoveryId: handedOffRecoveryId,
+      manualRecoveryRequired: false,
+    },
+  ]) {
+    assert.equal(
+      projectDockerProcessControllerStartResult(
+        Object.freeze({
+          ...blockedStart,
+          ...impossible,
+        }),
+        handedOffRecoveryId,
+      ),
+      null,
+    );
+  }
+});
+
+test("実Controllerのclean blockedとmanual blockedをexact projectionする", () => {
+  const cleanFixture = createFixture({ verifyRevision: () => false });
+  const cleanBlocked = cleanFixture.controller.start(
+    cleanFixture.preparedCapability,
+    cleanFixture.managementCapability,
+  );
+  assert.equal(cleanBlocked.status, "blocked");
+  assert.equal(cleanBlocked.cleanupConfirmed, true);
+  assert.ok(projectDockerProcessControllerStartResult(cleanBlocked, null));
+
+  const manualFixture = createFixture({
+    beginRecovery: () =>
+      Object.freeze({
+        status: "blocked",
+        reason: "docker_recovery_pending",
+        recoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+      }),
+  });
+  const manualBlocked = manualFixture.controller.start(
+    manualFixture.preparedCapability,
+    manualFixture.managementCapability,
+  );
+  assert.equal(manualBlocked.status, "blocked");
+  assert.equal(manualBlocked.manualRecoveryRequired, true);
+  assert.ok(projectDockerProcessControllerStartResult(manualBlocked, null));
 });
 
 function createProviderOutput(overrides: Record<string, unknown> = {}) {
@@ -508,6 +686,13 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
   const result = await started.completion;
   assert.equal(result.status, "cancelled");
   assert.equal(result.cleanupConfirmed, true);
+  assert.ok(
+    projectDockerProcessControllerCompletionResult(
+      result,
+      started.recoveryId,
+      "OP-123456",
+    ),
+  );
   assert.equal(
     (
       await fixture.controller.cancel(
@@ -544,6 +729,14 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
   assert.equal(result.resultSha256, null);
   assert.equal(result.resultBytes, 0);
   assert.equal(result.normalizedResult, null);
+  assert.equal(result.recoveryFinalizationCapability, null);
+  assert.ok(
+    projectDockerProcessControllerCompletionResult(
+      result,
+      started.recoveryId,
+      "OP-123456",
+    ),
+  );
   assert.equal(fixture.getMountCompletionCount(), 0);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
 });
@@ -578,6 +771,13 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
   assert.equal(result.normalizedResult, null);
   assert.equal(result.resultSha256, null);
   assert.equal(result.resultBytes, 0);
+  assert.ok(
+    projectDockerProcessControllerCompletionResult(
+      result,
+      started.recoveryId,
+      "OP-123456",
+    ),
+  );
 });
 
 test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () => {
@@ -993,7 +1193,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 17);
+  assert.equal(contract.contractRevision, 18);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);

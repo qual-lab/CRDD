@@ -2969,7 +2969,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 23);
+  assert.equal(contract.contractRevision, 24);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { types as utilTypes } from "node:util";
 
 import { consumeRuntimeOwnedClaudeDockerPlanForProcessController } from "./claude-docker-runtime-adapter.ts";
 import { normalizeClaudeStructuredResult } from "./claude-structured-result.ts";
@@ -31,7 +32,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 17;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 18;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -272,15 +273,35 @@ function ownDataValue(value: unknown, key: string): unknown {
 }
 
 function exactPlainRecord(value: unknown, expectedKeys: readonly string[]) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    utilTypes.isProxy(value)
+  )
+    return null;
   try {
+    if (Object.getPrototypeOf(value) !== Object.prototype) return null;
+    const keys = Reflect.ownKeys(value);
     if (
-      Object.getPrototypeOf(value) !== Object.prototype ||
-      Object.keys(value).sort().join("\0") !==
+      keys.some((key) => typeof key !== "string") ||
+      (keys as string[]).sort().join("\0") !==
         [...expectedKeys].sort().join("\0")
     )
       return null;
-    return value as Readonly<Record<string, unknown>>;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const entries: [string, unknown][] = [];
+    for (const key of expectedKeys) {
+      const descriptor = descriptors[key];
+      if (
+        !descriptor ||
+        !("value" in descriptor) ||
+        descriptor.enumerable !== true
+      )
+        return null;
+      entries.push([key, descriptor.value]);
+    }
+    return Object.freeze(Object.fromEntries(entries));
   } catch {
     return null;
   }
@@ -290,22 +311,30 @@ function exactPlainRecord(value: unknown, expectedKeys: readonly string[]) {
 export function projectDockerProcessControllerStartResult(
   value: unknown,
   handedOffRecoveryId: unknown,
+  expectedOperationId?: unknown,
 ): Readonly<Record<string, unknown>> | null {
-  const status = ownDataValue(value, "status");
-  if (status === "blocked") {
-    const record = exactPlainRecord(value, BLOCKED_START_KEYS);
+  const blockedRecord = exactPlainRecord(value, BLOCKED_START_KEYS);
+  if (blockedRecord && ownDataValue(blockedRecord, "status") === "blocked") {
+    const record = blockedRecord;
     const rawRecoveryId = ownDataValue(record, "recoveryId");
     const recoveryId =
       rawRecoveryId === null
         ? null
         : publicVerifiedDockerRecoveryId(rawRecoveryId);
+    const cleanupConfirmed = ownDataValue(record, "cleanupConfirmed");
+    const manualRecoveryRequired = ownDataValue(
+      record,
+      "manualRecoveryRequired",
+    );
     return record &&
       typeof ownDataValue(record, "reason") === "string" &&
       ownDataValue(record, "controlCapability") === null &&
       ownDataValue(record, "completion") === null &&
       ownDataValue(record, "operationId") === null &&
-      typeof ownDataValue(record, "cleanupConfirmed") === "boolean" &&
-      typeof ownDataValue(record, "manualRecoveryRequired") === "boolean" &&
+      typeof cleanupConfirmed === "boolean" &&
+      typeof manualRecoveryRequired === "boolean" &&
+      (cleanupConfirmed === true || manualRecoveryRequired === true) &&
+      (recoveryId === null || manualRecoveryRequired === true) &&
       ownDataValue(record, "dockerEffectStarted") === false &&
       ownDataValue(record, "providerRequestStarted") === false &&
       ownDataValue(record, "normalizedResult") === null &&
@@ -319,6 +348,7 @@ export function projectDockerProcessControllerStartResult(
       : null;
   }
   const record = exactPlainRecord(value, STARTED_KEYS);
+  const status = ownDataValue(record, "status");
   const recoveryId = publicVerifiedDockerRecoveryId(
     ownDataValue(record, "recoveryId"),
   );
@@ -326,6 +356,8 @@ export function projectDockerProcessControllerStartResult(
     status === "started" &&
     typeof ownDataValue(record, "reason") === "string" &&
     typeof ownDataValue(record, "operationId") === "string" &&
+    (expectedOperationId === undefined ||
+      ownDataValue(record, "operationId") === expectedOperationId) &&
     ownDataValue(record, "controlCapability") !== null &&
     typeof ownDataValue(record, "controlCapability") === "object" &&
     ownDataValue(record, "completion") instanceof Promise &&
@@ -348,6 +380,7 @@ export function projectDockerProcessControllerStartResult(
 export function projectDockerProcessControllerCompletionResult(
   value: unknown,
   expectedRecoveryId: unknown,
+  expectedOperationId?: unknown,
 ): Readonly<Record<string, unknown>> | null {
   const record = exactPlainRecord(value, COMPLETION_KEYS);
   if (!record) return null;
@@ -382,6 +415,8 @@ export function projectDockerProcessControllerCompletionResult(
     typeof cleanupConfirmed !== "boolean" ||
     typeof manualRecoveryRequired !== "boolean" ||
     typeof ownDataValue(record, "operationId") !== "string" ||
+    (expectedOperationId !== undefined &&
+      ownDataValue(record, "operationId") !== expectedOperationId) ||
     typeof ownDataValue(record, "selectionRecordId") !== "string" ||
     ownDataValue(record, "dockerEffectStarted") !== true ||
     typeof ownDataValue(record, "providerRequestStarted") !== "boolean" ||
@@ -392,9 +427,13 @@ export function projectDockerProcessControllerCompletionResult(
     typeof mountLeaseReleased !== "boolean" ||
     typeof recoveryCompleted !== "boolean" ||
     cleanupConfirmed !== cleanupFromResources ||
-    typeof ownDataValue(record, "resultBytes") !== "number" ||
+    !Number.isSafeInteger(ownDataValue(record, "resultBytes")) ||
+    (ownDataValue(record, "resultBytes") as number) < 0 ||
     (ownDataValue(record, "resultSha256") !== null &&
-      typeof ownDataValue(record, "resultSha256") !== "string") ||
+      (typeof ownDataValue(record, "resultSha256") !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(
+          ownDataValue(record, "resultSha256") as string,
+        ))) ||
     (ownDataValue(record, "recoveryFinalizationCapability") !== null &&
       typeof ownDataValue(record, "recoveryFinalizationCapability") !==
         "object") ||
@@ -407,7 +446,19 @@ export function projectDockerProcessControllerCompletionResult(
     !expected ||
     (cleanupConfirmed === true
       ? recoveryId !== null || manualRecoveryRequired !== false
-      : recoveryId !== expected || manualRecoveryRequired !== true)
+      : recoveryId !== expected ||
+        manualRecoveryRequired !== true ||
+        status !== "blocked" ||
+        ownDataValue(record, "reason") !==
+          "docker_process_controller_cleanup_unconfirmed" ||
+        ownDataValue(record, "normalizedResult") !== null ||
+        ownDataValue(record, "resultSha256") !== null ||
+        ownDataValue(record, "resultBytes") !== 0 ||
+        ownDataValue(record, "recoveryFinalizationCapability") !== null) ||
+    (status !== "completed" &&
+      (ownDataValue(record, "normalizedResult") !== null ||
+        ownDataValue(record, "resultSha256") !== null ||
+        ownDataValue(record, "resultBytes") !== 0))
   )
     return null;
   return Object.freeze({ ...record, recoveryId });

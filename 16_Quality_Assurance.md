@@ -669,6 +669,8 @@ CRDDの品質保証記録は、リポジトリ内だけで現在状態、判断�
 
 ## 5.2. 検証設計
 
+durable／外部資源の取得transactionを検証する場合は、最初のEffect、所有Capability・exact Recovery Authority・公開結果の確定点、両者の間にある各throw可能点、および各点でcleanup確認済み／不明となる経路を対応づける。Recovery Identity取得前の失敗ではID非捏造とmanual／operator transferを、取得後では同じexact IDの保持を確認する。
+
 検証設計は、一つ以上の検証義務に対して、なぜ、何を、どの条件と方法で確認し、どの根拠からどう評価するかを定める。
 
 検証設計は、少なくとも次の論理要素を対象に必要な深さで持つ。

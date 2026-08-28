@@ -16,6 +16,7 @@ import {
   projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
 } from "./docker-process-controller.ts";
+
 import {
   abandonRuntimeOwnedDockerRecovery,
   finalizeRuntimeOwnedDockerRecovery,
@@ -38,8 +39,32 @@ import {
   inspectRepositoryObjectFormatCandidate,
 } from "./repository-operation-runtime.ts";
 
+export function projectRuntimeOwnedDockerProcessStartForCoordinator(
+  value: unknown,
+  recoveryId: unknown,
+  operationId: unknown,
+) {
+  return projectDockerProcessControllerStartResult(
+    value,
+    recoveryId,
+    operationId,
+  );
+}
+
+export function projectRuntimeOwnedDockerProcessCompletionForCoordinator(
+  value: unknown,
+  recoveryId: unknown,
+  operationId: unknown,
+) {
+  return projectDockerProcessControllerCompletionResult(
+    value,
+    recoveryId,
+    operationId,
+  );
+}
+
 export const COORDINATOR_RUNTIME_CONTRACT = "crdd-coordinator/runtime";
-export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 7;
+export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 8;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -516,9 +541,10 @@ function start(
       startRuntimeOwnedDockerProcessController;
     const process = (
       productionProcessContract
-        ? projectDockerProcessControllerStartResult(
+        ? projectRuntimeOwnedDockerProcessStartForCoordinator(
             rawProcess,
             recoveryHandoffId,
+            operationId,
           )
         : rawProcess
     ) as ReturnType<RuntimeDependencies["startProcess"]> | null;
@@ -585,9 +611,10 @@ function start(
       .then((rawResult) => {
         const result = (
           productionProcessContract
-            ? projectDockerProcessControllerCompletionResult(
+            ? projectRuntimeOwnedDockerProcessCompletionForCoordinator(
                 rawResult,
                 recoveryHandoffId,
+                operationId,
               )
             : rawResult
         ) as ProcessCompletionResult | null;

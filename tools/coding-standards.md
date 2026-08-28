@@ -131,6 +131,8 @@ cleanupの試験は、例外を捕捉したことまたは終了値を返した�
 
 ## 5. 曖昧な名前
 
+durable／外部資源の取得transactionでは、最初のEffectから所有Capability・exact Recovery Authority・公開結果が確定するまでのobserver、Identity取得、再検証、parserおよび初期化を個別のthrow点として試験する。各throw点でcleanup成功とcleanup不明を区別し、Identity取得前はIDを捏造しないmanual／operator transfer、取得後は同じexact IDの保持、全公開入口で偽cleanまたは未分類例外がないことを確認する。
+
 次の単独名を新設または維持しない。
 
 - `helper`

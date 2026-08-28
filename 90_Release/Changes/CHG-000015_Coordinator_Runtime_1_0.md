@@ -277,6 +277,7 @@ Secret境界の回帰確認では、Task scope内の固定形式Secretと名前�
 |---|---|
 | CRDD v0.18方法論を採用するRepository | 基準版の採用時に、状態・遷移・資源・Lock・AuthorityまたはEffectを持つ進行中／未是正の非自明な変更と入口差分を棚卸しし、設計要素から実装、正常・準正常・異常の検証、実観測および終了後条件までを接続する。完了済みの過去作業を機械的に再開しない |
 | v0.18採用時に進行中／未是正の高リスク層間契約を持つRepository | 実producer、搬送、対象範囲で把握できるproduction consumer、外部公開契約、耐久状態のAuthority分類および現在のEvidence軸を棚卸しする。単純な局所処理や非該当契約は理由を残して除外でき、完了済み過去作業は再開しない |
+| v0.18採用時に進行中／未是正のdurable／外部資源取得transactionを持つRepository | 最初のEffect、所有Capability／exact Recovery Authority／公開結果の確定点、間のthrow可能なobserver／Identity取得／再検証／初期化、および各失敗点のcleanup確認済み／不明投影を棚卸しする。単純な局所処理または完了済み過去作業を機械的に再開しない |
 | Coordinator Runtimeを使用しないRepository | Runtime固有のProvisioning、Provider Home、DockerおよびRecovery移行は非該当。方法論のv0.18移行要否とは分けて判定する |
 | Coordinator Runtime利用者 | 公式v0.18配布物、対応OS／Docker、公式Provider CLI、専用Provider Home、対話認証・送信承認を用意する |
 | CRDD公式保守 | Release鍵、署名Manifest、sequence、配布Root、Windows provisioning、Recovery手順をRelease Gateで確認する |
@@ -311,6 +312,10 @@ Coordinator Reference Architectureと機械可読Traceの初回・第二固定�
 この往復の一般原因は、設計要素、実装symbol、検証項目、実観測および終了後条件の閉包を固定候補前Gateが明示的に要求していなかったことにある。特定Runtimeだけの対策へ閉じず、`27_Architecture.md`、`28_Implementation.md`、`16_Quality_Assurance.md`および`10_Agent.md`の既存責務を強化し、状態・遷移・資源・Lock・Authority・Effectについて正常・準正常・異常の接続を全数照合する。状態名、成功結果、試験件数またはcoverage率から資源不存在、Authority失効、Effect 0またはcleanup成立を推定せず、実receipt、ledger、observer、公開結果または独立した終了後観測へ接続する。専用成果物は一律に要求せず、複雑な境界で人の記憶に依存するときだけ機械可読契約等へ具体化する。
 
 ## 14. 対象外と残存リスク
+
+固定候補`8865ef94ec975f0a307a37c97832fa516fc7c07d`／Tree `747fd758b3e25d04b263e087d37e242948095b2e`への同一監査集合は、前段の耐久Authority一般化、precleanup intent、known consumer配線およびEvidence軸を解消候補とした一方、Operation Root生成後のRecovery ID取得がtransaction外に残ること、producer所有Projectorがaccessor／Proxyと実variant相関を完全には拒否しないこと、および現行READMEのrevision表示差を検出した。追加是正では、旧facade、Task RuntimeおよびDoctorを同じOperation生成transactionへ接続し、最初のdurable EffectからRecovery ID取得、Capability初期化および公開結果確定までの全throw可能点をcleanup／retention分類内へ置く。ID取得前のcleanup不明はIDを捏造せずmanual／operator transfer、取得後は同じexact ID保持へ閉じる。Docker Process Controller contract revision 18のProjectorはProxy、accessor、欠落、余分、rename、Operation ID差、start／completionのcleanup・manual・Recovery・Result相関差を拒否し、旧facade revision 8とTask Runtime revision 24のconsumer ingestionへ同じ実Controller出力を通す。
+
+同じ原因をCRDD利用側で減らすため、既存のAgent、Architecture、Implementation、Quality Assuranceおよびcoding standardsへ、durable／外部資源取得transactionの開始Effect、公開確定点、間のthrow可能なobserver／Identity取得／再検証／初期化、cleanup不明時の投影を追加した。Verification DesignとCHGひな型にも該当時の記録欄を追加する。汎用Checkerで`try`配置を構文検査すると誤検知が大きいため新設せず、高リスク資源取得の工程Gateと契約試験で確認する。
 
 対象外:
 

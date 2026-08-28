@@ -55,8 +55,9 @@ type Dependencies = Readonly<{
 
 function createTransactional(dependencies: Dependencies) {
   const owned = dependencies.createDirectories();
-  const hostRecoveryId = dependencies.getHostRecoveryId(owned);
+  let hostRecoveryId: string | null = null;
   try {
+    hostRecoveryId = dependencies.getHostRecoveryId(owned);
     return Object.freeze({
       owned,
       ...dependencies.initializeCapabilities(owned),
