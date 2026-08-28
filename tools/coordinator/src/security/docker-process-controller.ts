@@ -32,7 +32,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 20;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 21;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -739,12 +739,31 @@ function subscriptionAuthConfirmed(
   provider: "codex" | "claude",
   expectedOffering: "chatgpt_subscription_oauth" | "claude_max",
   stdout: string,
+  stderr: string,
 ) {
-  if (provider === "codex")
+  if (provider === "codex") {
+    if (expectedOffering !== "chatgpt_subscription_oauth") return false;
+    const normalize = (value: string) => {
+      if (value.includes("\0")) return null;
+      const normalized = value.replaceAll("\r\n", "\n");
+      if (normalized.includes("\r")) return null;
+      return normalized.endsWith("\n") ? normalized.slice(0, -1) : normalized;
+    };
+    const normalizedStdout = normalize(stdout);
+    const normalizedStderr = normalize(stderr);
+    if (normalizedStdout === null || normalizedStderr === null) return false;
+    const status = "Logged in using ChatGPT";
+    const readOnlyAliasWarning =
+      "WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)";
     return (
-      expectedOffering === "chatgpt_subscription_oauth" &&
-      stdout.trim() === "Logged in using ChatGPT"
+      (normalizedStdout === status && normalizedStderr === "") ||
+      (normalizedStdout === "" && normalizedStderr === status) ||
+      (normalizedStdout === status &&
+        normalizedStderr === readOnlyAliasWarning) ||
+      (normalizedStdout === "" &&
+        normalizedStderr === `${readOnlyAliasWarning}\n${status}`)
     );
+  }
   if (expectedOffering !== "claude_max") return false;
   const parsed = parseUnambiguousJsonDocument(stdout);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
@@ -880,6 +899,7 @@ async function executePlan(
             plan.provider,
             plan.subscriptionOffering,
             execution.stdout,
+            execution.stderr,
           )
         ) {
           requestedStatus = "blocked";
@@ -1327,7 +1347,7 @@ export function describeDockerProcessControllerContract() {
     providerAuthority:
       "opaque_single_use_reverified_and_consumed_before_recovery_or_docker_effect",
     subscriptionAuthentication:
-      "network_none_read_only_provider_home_probe_required_before_provider_request",
+      "network_none_read_only_provider_home_probe_with_exact_provider_stdout_stderr_shape_required_before_provider_request",
     subscriptionOffering:
       "chatgpt_subscription_oauth_or_claude_max_exact_match_required",
     cancellation: "opaque_control_capability_exactly_once",

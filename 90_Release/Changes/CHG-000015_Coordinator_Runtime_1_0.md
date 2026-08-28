@@ -144,6 +144,8 @@ Parent authority >= delegated child authority
 
 一方のlogin、Terms確認、quota、External Send Grantまたは成功を他方へ流用しない。Runtime 1.0は両Providerを含む一体Releaseであっても、Operationは必要なProviderだけを明示選定し、未認証・利用不能Providerを起動しない。
 
+正式署名4経路のForward実測では、Claude Executor完了後のCodex Reviewer認証Probeが`provider_subscription_auth_not_confirmed`へ誤停止した。専用Homeの同じ固定imageをnetwork none、read-only、non-rootで再実測すると、公式CLIは認証済みを示したが、`docker start --attach`は既知のread-only PATH alias警告と`Logged in using ChatGPT`をともにstderrへ搬送していた。Controllerがstdoutだけを判定していた搬送契約漏れを是正し、stdout／stderrのexact四形だけを許可した。未知行、重複成功、余分行、NULまたは孤立CRは引き続きProvider Effect前に拒否する。この修正は認証条件、Subscription-only、Provider Home保護、EgressまたはAPI fallback禁止を緩和しない。
+
 ## 7. Model／effort選定
 
 Coordinatorは利用可能な候補から、Taskの具体性、曖昧さ、影響、独立性、検証要求および費用を根拠にProvider、Model、effortを選び、動作コンテキストへ選定値と理由を残す。

@@ -158,6 +158,8 @@ Provider child／Docker resource absence
 | `INV-CLEAN-BLOCK-HAS-NO-RECOVERY` | 安全なblockedは所有資源不存在かつactionable Recovery ID 0の場合だけ成立する |
 | `INV-UNKNOWN-PRESERVES-RECOVERY` | 状態またはcleanupが不明ならEvidenceと全actionable Recovery IDを保持して停止する |
 
+Subscription認証の観測はProvider CLIの意味出力だけでなく、Docker CLIがattach時に使用する実streamまで含む。Codexでは成功文がContainerのstderrへ出る実装を許容するが、受理するのは成功文単独、またはread-only Homeに由来する既知のPATH alias警告とのexact組合せだけとし、stdoutだけの仮定、部分一致、未知行の無視へ縮退させない。
+
 ## 9. 正常・準正常・異常
 
 | 区分 | 代表条件 | 期待結果 |

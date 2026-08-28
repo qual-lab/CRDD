@@ -590,6 +590,129 @@ test("Subscription OAuthを確認できなければProvider request前に停止�
   assert.equal(fixture.getCleanupCount(), 1);
 });
 
+test("Codex認証ProbeはDocker attachのexact stderr形だけを認証済みとして受け入れる", async () => {
+  const status = "Logged in using ChatGPT";
+  const warning =
+    "WARNING: proceeding, even though we could not create PATH aliases: Read-only file system (os error 30)";
+  const accepted = [
+    { stdout: `${status}\n`, stderr: "" },
+    { stdout: "", stderr: `${status}\r\n` },
+    { stdout: `${status}\n`, stderr: `${warning}\n` },
+    { stdout: "", stderr: `${warning}\r\n${status}\r\n` },
+  ];
+  for (const auth of accepted) {
+    let providerStarted = false;
+    const fixture = createFixture(
+      {
+        consumeProviderAuthority: () =>
+          Object.freeze({
+            operationId: "OP-123456",
+            provider: "codex",
+            profileId: "PROFILE-123456",
+            providerHomeMountGrantRef: "PHMGRANT-123456",
+            runtimeAuthorityIssued: true as const,
+            providerEffectAllowed: true as const,
+          }),
+        startCommand: (command: { purpose: string }) => {
+          if (command.purpose === "start_provider_attached")
+            providerStarted = true;
+          return Object.freeze({
+            wait: async () =>
+              Object.freeze({
+                status: 0,
+                signal: null,
+                stdout:
+                  command.purpose === "start_subscription_auth_probe_attached"
+                    ? auth.stdout
+                    : command.purpose === "start_provider_attached"
+                      ? '{"status":true}\n'
+                      : "",
+                stderr:
+                  command.purpose === "start_subscription_auth_probe_attached"
+                    ? auth.stderr
+                    : "",
+                outputExceeded: false,
+              }),
+            terminateAndWait: async () => true,
+          });
+        },
+      },
+      {
+        provider: "codex",
+        subscriptionOffering: "chatgpt_subscription_oauth",
+        providerContainerName: "crdd-codex-0101010101010101",
+      },
+    );
+    const result = await fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    ).completion;
+    assert.ok(result);
+    assert.equal(providerStarted, true);
+    assert.equal(result.status, "completed");
+    assert.equal(result.subscriptionAuthConfirmed, true);
+  }
+});
+
+test("Codex認証Probeは未知行・重複成功・制御文字をfail closedする", async () => {
+  const status = "Logged in using ChatGPT";
+  for (const auth of [
+    { stdout: "", stderr: `unknown warning\n${status}\n` },
+    { stdout: "", stderr: `${status}\n${status}\n` },
+    { stdout: `${status}\nextra\n`, stderr: "" },
+    { stdout: "", stderr: `${status}\0` },
+  ]) {
+    let providerStarted = false;
+    const fixture = createFixture(
+      {
+        consumeProviderAuthority: () =>
+          Object.freeze({
+            operationId: "OP-123456",
+            provider: "codex",
+            profileId: "PROFILE-123456",
+            providerHomeMountGrantRef: "PHMGRANT-123456",
+            runtimeAuthorityIssued: true as const,
+            providerEffectAllowed: true as const,
+          }),
+        startCommand: (command: { purpose: string }) => {
+          if (command.purpose === "start_provider_attached")
+            providerStarted = true;
+          return Object.freeze({
+            wait: async () =>
+              Object.freeze({
+                status: 0,
+                signal: null,
+                stdout:
+                  command.purpose === "start_subscription_auth_probe_attached"
+                    ? auth.stdout
+                    : "",
+                stderr:
+                  command.purpose === "start_subscription_auth_probe_attached"
+                    ? auth.stderr
+                    : "",
+                outputExceeded: false,
+              }),
+            terminateAndWait: async () => true,
+          });
+        },
+      },
+      {
+        provider: "codex",
+        subscriptionOffering: "chatgpt_subscription_oauth",
+        providerContainerName: "crdd-codex-0101010101010101",
+      },
+    );
+    const result = await fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    ).completion;
+    assert.ok(result);
+    assert.equal(providerStarted, false);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "provider_subscription_auth_not_confirmed");
+  }
+});
+
 test("Claude Max以外のSubscription OfferingではProvider request前に停止する", async () => {
   let providerStarted = false;
   const fixture = createFixture({
@@ -1359,8 +1482,9 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 20);
+  assert.equal(contract.contractRevision, 21);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
+  assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);
   assert.equal(
