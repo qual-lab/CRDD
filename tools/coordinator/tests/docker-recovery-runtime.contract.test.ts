@@ -3819,25 +3819,6 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
   }
 });
 
-test("Canonical Recovery Trace全caseは正本・registry・実行集合が一致する", () => {
-  const testPath =
-    "tools/coordinator/tests/docker-recovery-runtime.contract.test.ts";
-  assertRuntimeTraceExecutionCoverage(
-    testPath,
-    Object.keys(RECOVERY_TRACE_ASSERTIONS),
-    EXECUTED_RECOVERY_TRACE_CASES,
-  );
-  const missing = new Set(EXECUTED_RECOVERY_TRACE_CASES);
-  missing.delete("CASE-RECOVERY-TO-RECOVERED");
-  assert.throws(() =>
-    assertRuntimeTraceExecutionCoverage(
-      testPath,
-      Object.keys(RECOVERY_TRACE_ASSERTIONS),
-      missing,
-    ),
-  );
-});
-
 test("Effect前active bindingはcommitted pointerの完全一致前に削除しない", () => {
   for (const pointerState of ["missing", "partial", "replacement"] as const) {
     const fixture = createKilledFullProductionRecoveryRoot(
@@ -4305,6 +4286,103 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     fs.rmSync(initialHost.marker, { force: true });
     fs.rmSync(runtimeParent, { recursive: true, force: true });
   }
+});
+
+test("production正常完了後は同じHost Operation内で同一logical Homeを直列再利用できる", async () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-sequential-reentry-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const root = verifiedRoot(runtimeRootPath);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const plan = productionPlan(operation.operationId, "d".repeat(64));
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  const begunCapabilities: object[] = [];
+  try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+        plan,
+        management,
+        providerHomeForPlan(plan),
+        root,
+        () => root,
+      );
+      assert.ok(begun && begun.status === "ready");
+      begunCapabilities.push(begun.recoveryCapability);
+      assert.equal(
+        recordRuntimeOwnedDockerAbsence(begun.recoveryCapability),
+        true,
+      );
+      assert.equal(
+        recordRuntimeOwnedNormalMountCompletion(begun.recoveryCapability),
+        true,
+      );
+      assert.equal(
+        completeRuntimeOwnedDockerRecovery(begun.recoveryCapability, management)
+          .status,
+        "completed",
+      );
+    }
+    const hostCleanupTokens = begunCapabilities.map((capability) =>
+      prepareRuntimeOwnedDockerHostCleanup(capability),
+    );
+    assert.equal(
+      hostCleanupTokens.every((value) => typeof value === "string"),
+      true,
+    );
+    assert.equal(new Set(hostCleanupTokens).size, 1);
+    assert.equal(
+      await abandonOwnedHostOperationGenerationLock(management),
+      true,
+    );
+    assert.deepEqual(recoverOwnedOperationDirectories(hostCleanupTokens[0]), {
+      status: "recovered",
+      reason: "host_cleanup_recovered",
+      recoveryId: null,
+    });
+    for (const capability of begunCapabilities) {
+      assert.equal(
+        recordRuntimeOwnedDockerHostCleanupReceipt(capability),
+        true,
+      );
+      assert.deepEqual(finalizeRuntimeOwnedDockerRecovery(capability), {
+        status: "completed",
+      });
+    }
+    begunCapabilities.length = 0;
+    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+  } finally {
+    for (const capability of begunCapabilities)
+      void abandonRuntimeOwnedDockerRecovery(capability);
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("Canonical Recovery Trace全caseは正本・registry・実行集合が一致する", () => {
+  const testPath =
+    "tools/coordinator/tests/docker-recovery-runtime.contract.test.ts";
+  assertRuntimeTraceExecutionCoverage(
+    testPath,
+    Object.keys(RECOVERY_TRACE_ASSERTIONS),
+    EXECUTED_RECOVERY_TRACE_CASES,
+  );
+  const missing = new Set(EXECUTED_RECOVERY_TRACE_CASES);
+  missing.delete("CASE-RECOVERY-TO-RECOVERED");
+  assert.throws(() =>
+    assertRuntimeTraceExecutionCoverage(
+      testPath,
+      Object.keys(RECOVERY_TRACE_ASSERTIONS),
+      missing,
+    ),
+  );
 });
 
 test("production abandonはAuthorityを解放してもdurable Recovery inventoryをcleanにしない", () => {
