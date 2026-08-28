@@ -104,7 +104,7 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 24;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 25;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const REQUEST_KEYS = new Set([
@@ -1720,6 +1720,7 @@ async function runCoordinatorTaskCore(
       reason: "coordinator_task_candidate_approved",
       cleanupConfirmed: true,
       manualRecoveryRequired: false,
+      hostRecoveryId: null,
       dockerRecoveryId:
         controlDockerRecoveryIds(control).length === 1
           ? (controlDockerRecoveryIds(control)[0] ?? null)
@@ -2708,6 +2709,7 @@ export function describeCoordinatorTaskRuntimeContract() {
       "candidate",
       "candidate_store",
     ]),
+    successfulHostRecoveryProjection: "explicit_null_never_omitted",
     resultPublication: "cleanup_and_candidate_reverification_required",
     candidateExpiryPublication: "validated_published_expires_at_ms",
     canonicalRepositoryEffectAllowed: false,

@@ -1565,6 +1565,8 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(result.status, "completed");
   assert.equal(result.executorProvider, "claude");
   assert.equal(result.reviewerProvider, "codex");
+  assert.equal(Object.hasOwn(result, "hostRecoveryId"), true);
+  assert.equal(result.hostRecoveryId, null);
   assert.equal(result.canonicalRepositoryChanged, false);
   assert.deepEqual(result.candidateRevision?.changedPaths, ["fixture.txt"]);
   assert.equal(
@@ -2980,7 +2982,11 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 24);
+  assert.equal(contract.contractRevision, 25);
+  assert.equal(
+    contract.successfulHostRecoveryProjection,
+    "explicit_null_never_omitted",
+  );
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,
