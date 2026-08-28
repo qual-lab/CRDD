@@ -196,7 +196,7 @@ Coordinator Runtime 1.0は未知のFailure Modeと回復要件を自己適用し
 内部責務の候補は、一つのOperationを安全に終了させるオペレーション・ライフサイクル（Operation Lifecycle）と、資源の取得・所有・移譲・解放・回復を扱う資源ライフサイクル／台帳（Resource Lifecycle／Ledger）である。外周では、次の境界候補を評価する。
 
 - 外部接続境界（External Interface Adapter）: CLI、MCP stdio、MCP Streamable HTTPまたは将来API等のTransport固有処理を、Runtimeの意味Interfaceから分離する。
-- リポジトリ選択・接続境界（Repository Router／Binding）: 外部要求を明示登録済みRepositoryのcanonical Identityへ結合し、Project Runtime候補からCoordinatorへ渡す。Repositoryを自動探索せず、利用者ローカルの明示Registryは探索と端末固有Bindingだけを担い、Identity、Policy、CapabilityおよびCoordinator設定はRepository-localを基本候補とする。
+- リポジトリ選択・接続境界（Repository Router／Binding）: 外部要求を明示登録済みRepositoryのcanonical Identityへ結合し、Project Runtime候補からCoordinatorへ渡す。Repositoryを自動探索せず、利用者ローカルの明示Registryは探索と端末固有Bindingだけを担う。Repository-localに置ける候補は、検証済みProject／Repository Identityへの参照、宣言的Policy、非秘密の設定および参照に限り、いずれもAuthorityではなく検証対象の宣言入力とする。Repository内容の書換えだけでIdentity、Capability、実行許可またはRecovery権限を得られない。
 - プラットフォーム境界（Platform Adapter）: Process、隔離、Lock、Filesystem、Console／stdio、Owner Loss、cleanup、RecoveryおよびDocker Host接続をCoordinator Coreから分ける。OS間で同じ機構ではなく、Effect前Authority、分離、回復、Fail ClosedおよびEvidenceという同じ保証を要求する。
 - プロバイダー境界（Provider Adapter）: Codex、Claude Code、将来ProviderまたはSelf-hosted ProviderのInvocation、Capability、認証状態の観測、Output、Cancellation、Failure分類および固有制約を吸収する。CRDDはCredentialを所有・複製せず、各Providerの正式な認証とAuthorityを要求する。
 
@@ -206,15 +206,18 @@ CLI → 単一Repository Binding → Coordinator Core
                                ├ Windows実装
                                └ Codex／Claude Code
 
-将来利用側の研究候補（Held）
-MCP／HTTP → Repository Router → Project Runtime → Coordinator Core
-                                              ├ Linux／macOS Adapter
-                                              └ Self-hosted Provider Adapter
-                                                       ↓
-                                              Organization Runtime候補
+第4～第5段階の研究候補（Held）
+Client → External Interface → Repository Router／Binding → Project Runtime → Coordinator Core
+                                                                                ├ Platform Adapter
+                                                                                └ Provider Adapter
+
+第6段階の研究候補（Held）
+Client → External Interface → Organization Runtime → Repository Router → Project Runtime → Coordinator Core
+                                                                                                ├ Platform Adapter
+                                                                                                └ Provider Adapter
 ```
 
-この図は接続関係の研究範囲であり、将来機能の採用、実装許可、API互換性、Remote接続、待受port、Credential入力、データ送信または課金を許可しない。Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`tools/coordinator/architecture/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。
+この図はHeld候補を理解するための説明投影であり、採用済みTopology、固定API、実装順または互換性契約ではない。将来機能の採用、実装許可、Remote接続、待受port、Credential入力、データ送信または課金を許可しない。Organization Runtimeを経由してもProject Authority、Credential、CapabilityおよびRecovery権限は暗黙継承せず、Repository Router／Project Runtimeで対象Projectと操作を再認証する。CredentialはProvider／OSのselected-user認証Storeが所有し、CRDDは所有・複製しない。保護Runtime Stateが保持できるのはopaque参照、認証状態の観測、selected-user／Provider／Project binding、発行済Capability、activation／operation stateおよび実行時Recovery recordであり、Repositoryへ保存しない。この制限は、CHG／QAとしてRepositoryへ公開する非秘密のRecovery Evidenceを除外しない。Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`tools/coordinator/architecture/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。
 
 採用したのは、Runtime 1.0完成後に反復Finding、責務集中、変更頻度、Failure Patternおよび運用Evidenceから安定境界を抽出する作業意図である。上記の境界名、分割方式および将来利用側は候補であり、実測されていない抽象化を先に固定しない。
 
