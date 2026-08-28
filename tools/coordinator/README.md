@@ -32,6 +32,8 @@ Status: Implementation Candidate
 
 Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけに使う。Repository本文は許可された読取り投影からだけ渡し、Password、Private Key、Session Token、API Keyその他のSecret値をPromptまたは投影へ含めない。認識可能なSecretをRuntimeが拒否しても未知Secretの不存在までは証明しない。
 
+RecoveryのFilesystem不存在は`ENOENT`だけから判定する。権限拒否、共有競合、I/O失敗、非file、linkまたは削除後の再観測不能を「消えた」と扱わず、Evidenceと処置可能なRecovery IDを保持して停止する。Host active bindingが既に不存在でも、exactかつ完全commit済みのpointerと全identity条件が一致する場合だけfresh Processで回復を継続する。公開理由は競合、partial、identity不一致、観測不能および一般利用不能の固定分類に限り、内部Pathやcaller文字列を返さない。
+
 利用者向けの要約はRepository直下の[`README.md`](../../README.md)、概念と決定権限は[`04_Agent_Organization.md`](../../04_Agent_Organization.md)、Trust／Provisioning／Recoveryの詳細と残存リスクは本書の後続節および[`threat-model.md`](threat-model.md)を参照する。
 
 OS鍵保管ポリシーCore候補は、WindowsのCNG／KSP＋TPM、macOSのSecure Enclave、LinuxのTPM 2.0をP-256優先Backendとして固定し、software fallbackは初回setupでの明示承認がある場合だけ候補化する。公開P-256 SPKIとBackend選択の形だけを検査し、秘密鍵、鍵handleまたはPathを入力・出力しない。実native Adapter、software鍵保護、署名済みPlatform Provisionerとの結合およびkey-handle所有証明は未実装であり、policy候補を実鍵保護、Trust、Authority、CapabilityまたはEffectへ昇格しない。

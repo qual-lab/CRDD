@@ -599,21 +599,29 @@ test("Recovery開始失敗は秘密を含まない固定分類で公開する", 
   const cases = [
     [
       "docker_task_runtime_state_generation_active_or_unknown",
-      "docker_process_controller_recovery_conflict",
+      "docker_process_controller_recovery_observation_unknown",
     ],
     [
-      "docker_task_recovery_partial_pair_incomplete",
+      "docker_task_runtime_state_pending_incomplete",
       "docker_process_controller_recovery_partial_state",
     ],
     [
-      "docker_task_recovery_binding_mismatch",
+      "docker_task_runtime_state_binding_changed",
       "docker_process_controller_recovery_identity_mismatch",
     ],
     [
-      "docker_task_recovery_path_observation_unknown",
+      "docker_task_multiple_recovery_inventory_available",
+      "docker_process_controller_recovery_conflict",
+    ],
+    [
+      "docker_task_runtime_state_lock_release_unconfirmed",
       "docker_process_controller_recovery_observation_unknown",
     ],
     ["caller-secret-value", "docker_process_controller_recovery_unavailable"],
+    [
+      "caller-lock-secret-value",
+      "docker_process_controller_recovery_unavailable",
+    ],
   ] as const;
   for (const [lowerReason, expectedReason] of cases) {
     const fixture = createFixture({
@@ -631,6 +639,8 @@ test("Recovery開始失敗は秘密を含まない固定分類で公開する", 
     );
     assert.equal(blocked.status, "blocked");
     assert.equal(blocked.reason, expectedReason);
+    assert.equal(blocked.cleanupConfirmed, true);
+    assert.equal(blocked.manualRecoveryRequired, true);
     assert.equal(blocked.dockerEffectStarted, false);
     assert.equal(fixture.getCommandCount(), 0);
   }

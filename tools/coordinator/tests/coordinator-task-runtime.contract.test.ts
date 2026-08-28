@@ -14,57 +14,263 @@ import {
 import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
   assertRuntimeTraceCase,
-  getRuntimeTraceCase,
   type RuntimeTraceCase,
 } from "./runtime-trace-case.ts";
+
+type TraceSnapshot = Readonly<{
+  state: string;
+  provider: number;
+  host: number;
+  cleanup: number;
+  resources: Readonly<Record<string, string>>;
+}>;
+
+const TRANSITION_BY_EDGE = new Map<string, string>([
+  ["STATE-ADMISSION>STATE-OPERATION-READY", "TRANS-ADMISSION-TO-OPERATION"],
+  [
+    "STATE-OPERATION-READY>STATE-TASK-AUTHORIZED",
+    "TRANS-OPERATION-TO-AUTHORIZED",
+  ],
+  [
+    "STATE-TASK-AUTHORIZED>STATE-EXECUTOR-CLEAN",
+    "TRANS-AUTHORIZED-TO-EXECUTOR-CLEAN",
+  ],
+  [
+    "STATE-EXECUTOR-CLEAN>STATE-CANDIDATE-CAPTURED",
+    "TRANS-EXECUTOR-TO-CANDIDATE",
+  ],
+  [
+    "STATE-CANDIDATE-CAPTURED>STATE-REVIEWER-CLEAN",
+    "TRANS-CANDIDATE-TO-REVIEWER-CLEAN",
+  ],
+  [
+    "STATE-REVIEWER-CLEAN>STATE-REMEDIATION-AUTHORIZED",
+    "TRANS-REVIEWER-TO-REMEDIATION",
+  ],
+  [
+    "STATE-REMEDIATION-AUTHORIZED>STATE-REMEDIATION-EXECUTOR-CLEAN",
+    "TRANS-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
+  ],
+  [
+    "STATE-REMEDIATION-EXECUTOR-CLEAN>STATE-REMEDIATION-CANDIDATE-CAPTURED",
+    "TRANS-REMEDIATION-EXECUTOR-TO-CANDIDATE",
+  ],
+  [
+    "STATE-REMEDIATION-CANDIDATE-CAPTURED>STATE-REMEDIATION-REVIEWER-CLEAN",
+    "TRANS-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
+  ],
+  ["STATE-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED", "TRANS-REVIEWER-TO-STAGED"],
+  [
+    "STATE-REMEDIATION-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED",
+    "TRANS-REMEDIATION-REVIEWER-TO-STAGED",
+  ],
+  ["STATE-CANDIDATE-STAGED>STATE-HOST-CLEAN", "TRANS-STAGED-TO-HOST-CLEAN"],
+  ["STATE-HOST-CLEAN>STATE-RESULT-PUBLISHED", "TRANS-HOST-CLEAN-TO-RESULT"],
+]);
+
+const EDGE_BY_LIFECYCLE_CASE = new Map<string, string>([
+  [
+    "CASE-NORMAL-ADMISSION-TO-OPERATION",
+    "STATE-ADMISSION>STATE-OPERATION-READY",
+  ],
+  [
+    "CASE-NORMAL-OPERATION-TO-AUTHORIZED",
+    "STATE-OPERATION-READY>STATE-TASK-AUTHORIZED",
+  ],
+  [
+    "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN",
+    "STATE-TASK-AUTHORIZED>STATE-EXECUTOR-CLEAN",
+  ],
+  [
+    "CASE-NORMAL-EXECUTOR-TO-CANDIDATE",
+    "STATE-EXECUTOR-CLEAN>STATE-CANDIDATE-CAPTURED",
+  ],
+  [
+    "CASE-NORMAL-CANDIDATE-TO-REVIEWER-CLEAN",
+    "STATE-CANDIDATE-CAPTURED>STATE-REVIEWER-CLEAN",
+  ],
+  [
+    "CASE-NORMAL-REVIEWER-TO-STAGED",
+    "STATE-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED",
+  ],
+  [
+    "CASE-NORMAL-STAGED-TO-HOST-CLEAN",
+    "STATE-CANDIDATE-STAGED>STATE-HOST-CLEAN",
+  ],
+  [
+    "CASE-NORMAL-HOST-CLEAN-TO-RESULT",
+    "STATE-HOST-CLEAN>STATE-RESULT-PUBLISHED",
+  ],
+  [
+    "CASE-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
+    "STATE-TASK-AUTHORIZED>STATE-EXECUTOR-CLEAN",
+  ],
+  [
+    "CASE-REMEDIATION-EXECUTOR-TO-CANDIDATE",
+    "STATE-EXECUTOR-CLEAN>STATE-CANDIDATE-CAPTURED",
+  ],
+  [
+    "CASE-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
+    "STATE-CANDIDATE-CAPTURED>STATE-REVIEWER-CLEAN",
+  ],
+  [
+    "CASE-REMEDIATION-REVIEWER-TO-AUTHORIZED",
+    "STATE-REVIEWER-CLEAN>STATE-REMEDIATION-AUTHORIZED",
+  ],
+  [
+    "CASE-REMEDIATION-AUTHORIZED-TO-SECOND-EXECUTOR-CLEAN",
+    "STATE-REMEDIATION-AUTHORIZED>STATE-REMEDIATION-EXECUTOR-CLEAN",
+  ],
+  [
+    "CASE-REMEDIATION-SECOND-EXECUTOR-TO-CANDIDATE",
+    "STATE-REMEDIATION-EXECUTOR-CLEAN>STATE-REMEDIATION-CANDIDATE-CAPTURED",
+  ],
+  [
+    "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN",
+    "STATE-REMEDIATION-CANDIDATE-CAPTURED>STATE-REMEDIATION-REVIEWER-CLEAN",
+  ],
+  [
+    "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED",
+    "STATE-REMEDIATION-REVIEWER-CLEAN>STATE-CANDIDATE-STAGED",
+  ],
+]);
+
+const RESOURCES_BY_TRANSITION = new Map<string, readonly string[]>([
+  ["TRANS-ADMISSION-TO-OPERATION", ["RES-HOST-GENERATION", "RES-TASK-CONTROL"]],
+  [
+    "TRANS-OPERATION-TO-AUTHORIZED",
+    ["RES-INTERACTIVE-CONSOLE", "RES-OPERATION-WORKSPACE"],
+  ],
+  [
+    "TRANS-AUTHORIZED-TO-EXECUTOR-CLEAN",
+    [
+      "RES-LOGICAL-HOME-LOCK",
+      "RES-RUNTIME-STATE-LOCK",
+      "RES-MOUNT-GRANT",
+      "RES-DOCKER-OWNED",
+    ],
+  ],
+  ["TRANS-EXECUTOR-TO-CANDIDATE", []],
+  [
+    "TRANS-CANDIDATE-TO-REVIEWER-CLEAN",
+    [
+      "RES-LOGICAL-HOME-LOCK",
+      "RES-RUNTIME-STATE-LOCK",
+      "RES-MOUNT-GRANT",
+      "RES-DOCKER-OWNED",
+    ],
+  ],
+  ["TRANS-REVIEWER-TO-REMEDIATION", []],
+  [
+    "TRANS-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
+    [
+      "RES-LOGICAL-HOME-LOCK",
+      "RES-RUNTIME-STATE-LOCK",
+      "RES-MOUNT-GRANT",
+      "RES-DOCKER-OWNED",
+    ],
+  ],
+  ["TRANS-REMEDIATION-EXECUTOR-TO-CANDIDATE", []],
+  [
+    "TRANS-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
+    [
+      "RES-LOGICAL-HOME-LOCK",
+      "RES-RUNTIME-STATE-LOCK",
+      "RES-MOUNT-GRANT",
+      "RES-DOCKER-OWNED",
+    ],
+  ],
+  ["TRANS-REVIEWER-TO-STAGED", ["RES-CANDIDATE-ENTRY"]],
+  ["TRANS-REMEDIATION-REVIEWER-TO-STAGED", ["RES-CANDIDATE-ENTRY"]],
+  [
+    "TRANS-STAGED-TO-HOST-CLEAN",
+    ["RES-HOST-GENERATION", "RES-OPERATION-WORKSPACE"],
+  ],
+  ["TRANS-HOST-CLEAN-TO-RESULT", ["RES-CANDIDATE-ENTRY", "RES-TASK-CONTROL"]],
+]);
+
+const TERMINAL_RESOURCES = Object.freeze([
+  "RES-HOST-GENERATION",
+  "RES-INTERACTIVE-CONSOLE",
+  "RES-LOGICAL-HOME-LOCK",
+  "RES-RUNTIME-STATE-LOCK",
+  "RES-MOUNT-GRANT",
+  "RES-DOCKER-OWNED",
+  "RES-OPERATION-WORKSPACE",
+  "RES-CANDIDATE-ENTRY",
+  "RES-TASK-CONTROL",
+]);
+
+const TASK_TRACE_ASSERTIONS: Readonly<
+  Record<string, typeof assertRuntimeTraceCase>
+> = Object.freeze({
+  "CASE-NORMAL-ADMISSION-TO-OPERATION": assertRuntimeTraceCase,
+  "CASE-NORMAL-OPERATION-TO-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN": assertRuntimeTraceCase,
+  "CASE-NORMAL-EXECUTOR-TO-CANDIDATE": assertRuntimeTraceCase,
+  "CASE-NORMAL-CANDIDATE-TO-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-NORMAL-REVIEWER-TO-STAGED": assertRuntimeTraceCase,
+  "CASE-NORMAL-STAGED-TO-HOST-CLEAN": assertRuntimeTraceCase,
+  "CASE-NORMAL-HOST-CLEAN-TO-RESULT": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-EXECUTOR-TO-CANDIDATE": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-REVIEWER-TO-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-AUTHORIZED-TO-SECOND-EXECUTOR-CLEAN":
+    assertRuntimeTraceCase,
+  "CASE-REMEDIATION-SECOND-EXECUTOR-TO-CANDIDATE": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED": assertRuntimeTraceCase,
+  "CASE-BLOCKED-ADMISSION": assertRuntimeTraceCase,
+  "CASE-BLOCKED-OPERATION-READY": assertRuntimeTraceCase,
+  "CASE-BLOCKED-TASK-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-BLOCKED-EXECUTOR-CLEAN": assertRuntimeTraceCase,
+  "CASE-BLOCKED-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
+  "CASE-BLOCKED-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-BLOCKED-REMEDIATION-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-BLOCKED-REMEDIATION-EXECUTOR-CLEAN": assertRuntimeTraceCase,
+  "CASE-BLOCKED-REMEDIATION-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
+  "CASE-BLOCKED-REMEDIATION-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-BLOCKED-HOST-CLEAN": assertRuntimeTraceCase,
+  "CASE-RECOVERY-ADMISSION": assertRuntimeTraceCase,
+  "CASE-RECOVERY-OPERATION-READY": assertRuntimeTraceCase,
+  "CASE-RECOVERY-TASK-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-RECOVERY-EXECUTOR-CLEAN": assertRuntimeTraceCase,
+  "CASE-RECOVERY-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
+  "CASE-RECOVERY-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-RECOVERY-REMEDIATION-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-RECOVERY-REMEDIATION-EXECUTOR-CLEAN": assertRuntimeTraceCase,
+  "CASE-RECOVERY-REMEDIATION-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
+  "CASE-RECOVERY-REMEDIATION-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-RECOVERY-CANDIDATE-STAGED": assertRuntimeTraceCase,
+  "CASE-RECOVERY-HOST-CLEAN": assertRuntimeTraceCase,
+});
+
+function selectResourcePostconditions(
+  snapshot: TraceSnapshot,
+  resources: readonly string[],
+) {
+  return Object.fromEntries(
+    resources.map((resource) => {
+      assert.ok(
+        Object.hasOwn(snapshot.resources, resource),
+        `missing observed resource ${resource}`,
+      );
+      return [resource, snapshot.resources[resource] as string];
+    }),
+  );
+}
 
 function assertTerminalRuntimeTraceCase(
   caseId: string,
   harness: ReturnType<typeof fixture>,
-  result: Readonly<Record<string, unknown>>,
+  _result: Readonly<Record<string, unknown>>,
 ) {
-  const expected = getRuntimeTraceCase(caseId);
-  const source = harness.lifecycleSnapshots.at(-1);
-  assert.ok(source);
-  const final = harness.effectCounts();
-  const recovering =
-    result.manualRecoveryRequired === true ||
-    result.processRestartRequired === true;
-  const dockerIds = Array.isArray(result.dockerRecoveryIds)
-    ? result.dockerRecoveryIds
-    : [];
-  const postconditions: Record<string, string> = {};
-  for (const resource of Object.keys(expected.resourcePostconditions)) {
-    if (!recovering) {
-      postconditions[resource] = "absent";
-      continue;
-    }
-    if (resource === "RES-HOST-GENERATION")
-      postconditions[resource] = result.hostRecoveryId ? "preserved" : "absent";
-    else if (resource === "RES-DOCKER-OWNED")
-      postconditions[resource] =
-        dockerIds.length > 0
-          ? "preserved"
-          : harness.processStartCount() === 0
-            ? "unacquired"
-            : "absent";
-    else if (resource === "RES-OPERATION-WORKSPACE")
-      postconditions[resource] =
-        harness.operationCreateCount() === 0
-          ? "unacquired"
-          : final.host - source.host > 0 || source.state === "STATE-HOST-CLEAN"
-            ? "absent"
-            : "preserved";
-    else if (resource === "RES-CANDIDATE-ENTRY")
-      postconditions[resource] =
-        result.candidateRecoveryId || result.candidateStoreRecoveryId
-          ? "preserved"
-          : source.state === "STATE-CANDIDATE-STAGED" ||
-              source.state === "STATE-HOST-CLEAN"
-            ? "absent"
-            : "unacquired";
-    else postconditions[resource] = "absent";
-  }
+  const terminal = harness.lifecycleSnapshots.at(-1);
+  const source = harness.lifecycleSnapshots.at(-2);
+  assert.ok(source && terminal);
+  assert.match(terminal.state, /^STATE-(?:BLOCKED-CLEAN|RECOVERY-REQUIRED)$/u);
+  const recovering = terminal.state === "STATE-RECOVERY-REQUIRED";
   const observed: RuntimeTraceCase = {
     id: caseId,
     transitionId: recovering
@@ -72,18 +278,21 @@ function assertTerminalRuntimeTraceCase(
       : "TRANS-ACTIVE-TO-BLOCKED-CLEAN",
     fromState: source.state,
     outcome: "taken",
-    expectedEndState: recovering
-      ? "STATE-RECOVERY-REQUIRED"
-      : "STATE-BLOCKED-CLEAN",
+    expectedEndState: terminal.state,
     effectObservations: {
-      provider: final.provider - source.provider,
-      host: final.host - source.host,
-      cleanup: final.cleanup - source.cleanup,
+      provider: terminal.provider - source.provider,
+      host: terminal.host - source.host,
+      cleanup: terminal.cleanup - source.cleanup,
     },
     expectedStatus: recovering ? "recovery_required" : "blocked",
-    resourcePostconditions: postconditions,
+    resourcePostconditions: selectResourcePostconditions(
+      terminal,
+      TERMINAL_RESOURCES,
+    ),
   };
-  assertRuntimeTraceCase(caseId, observed);
+  const assertion = TASK_TRACE_ASSERTIONS[caseId];
+  assert.ok(assertion, `unregistered trace assertion: ${caseId}`);
+  assertion(caseId, observed);
 }
 
 function assertLifecycleRuntimeTraceCases(
@@ -91,43 +300,20 @@ function assertLifecycleRuntimeTraceCases(
   harness: ReturnType<typeof fixture>,
 ) {
   for (const caseId of caseIds) {
-    const expected = getRuntimeTraceCase(caseId);
+    const edge = EDGE_BY_LIFECYCLE_CASE.get(caseId);
+    assert.ok(edge, `unregistered lifecycle case: ${caseId}`);
     const fromIndex = harness.lifecycleSnapshots.findIndex(
       (snapshot, index) =>
-        snapshot.state === expected.fromState &&
-        harness.lifecycleSnapshots[index + 1]?.state ===
-          expected.expectedEndState,
+        `${snapshot.state}>${harness.lifecycleSnapshots[index + 1]?.state}` ===
+        edge,
     );
     assert.notEqual(fromIndex, -1, `unobserved lifecycle edge: ${caseId}`);
     const from = harness.lifecycleSnapshots[fromIndex] as NonNullable<
       (typeof harness.lifecycleSnapshots)[number]
     >;
     const to = harness.lifecycleSnapshots[fromIndex + 1] as typeof from;
-    const postconditions: Record<string, string> = {};
-    for (const resource of Object.keys(expected.resourcePostconditions)) {
-      if (resource === "RES-HOST-GENERATION")
-        postconditions[resource] =
-          to.state === "STATE-OPERATION-READY" ? "present" : "absent";
-      else if (resource === "RES-TASK-CONTROL")
-        postconditions[resource] =
-          to.state === "STATE-RESULT-PUBLISHED" ? "absent" : "present";
-      else if (resource === "RES-INTERACTIVE-CONSOLE")
-        postconditions[resource] = "absent";
-      else if (resource === "RES-OPERATION-WORKSPACE")
-        postconditions[resource] =
-          to.state === "STATE-HOST-CLEAN" ? "absent" : "present";
-      else if (
-        resource === "RES-LOGICAL-HOME-LOCK" ||
-        resource === "RES-RUNTIME-STATE-LOCK" ||
-        resource === "RES-MOUNT-GRANT" ||
-        resource === "RES-DOCKER-OWNED"
-      )
-        postconditions[resource] = "absent";
-      else if (resource === "RES-CANDIDATE-ENTRY")
-        postconditions[resource] =
-          to.state === "STATE-RESULT-PUBLISHED" ? "transferred" : "present";
-      else postconditions[resource] = "absent";
-    }
+    const transitionId = TRANSITION_BY_EDGE.get(`${from.state}>${to.state}`);
+    assert.ok(transitionId, `unknown observed lifecycle edge: ${caseId}`);
     const expectedStatus =
       to.state === "STATE-OPERATION-READY" ||
       to.state === "STATE-TASK-AUTHORIZED" ||
@@ -136,9 +322,11 @@ function assertLifecycleRuntimeTraceCases(
         : to.state === "STATE-CANDIDATE-STAGED"
           ? "staged"
           : "completed";
-    assertRuntimeTraceCase(caseId, {
+    const assertion = TASK_TRACE_ASSERTIONS[caseId];
+    assert.ok(assertion, `unregistered trace assertion: ${caseId}`);
+    assertion(caseId, {
       id: caseId,
-      transitionId: expected.transitionId,
+      transitionId,
       fromState: from.state,
       outcome: "taken",
       expectedEndState: to.state,
@@ -148,7 +336,10 @@ function assertLifecycleRuntimeTraceCases(
         cleanup: to.cleanup - from.cleanup,
       },
       expectedStatus,
-      resourcePostconditions: postconditions,
+      resourcePostconditions: selectResourcePostconditions(
+        to,
+        RESOURCES_BY_TRANSITION.get(transitionId) ?? [],
+      ),
     });
   }
 }
@@ -222,6 +413,9 @@ function fixture(
       | "provider_independent"
       | "execution_context_independent";
     slateUnavailable?: boolean;
+    admissionRecovery?: boolean;
+    admissionRecoveryReason?: string;
+    lifecycleObserverThrows?: boolean;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
   } = {},
 ) {
@@ -248,12 +442,7 @@ function fixture(
   const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
   const lifecycleStates: string[] = [];
-  const lifecycleSnapshots: Array<{
-    state: string;
-    provider: number;
-    host: number;
-    cleanup: number;
-  }> = [];
+  const lifecycleSnapshots: TraceSnapshot[] = [];
   let cleanupCount = 0;
   let hostCleanupConfirmedCount = 0;
   let providerCleanupConfirmedCount = 0;
@@ -269,6 +458,12 @@ function fixture(
   let workspaceMaterializeCount = 0;
   let processStartCount = 0;
   let candidateCaptureCount = 0;
+  let candidateEntryState:
+    | "unacquired"
+    | "present"
+    | "preserved"
+    | "transferred"
+    | "absent" = "unacquired";
   let releasePausedProcess: (() => void) | null = null;
   let releaseExternalAuthorization: (() => void) | null = null;
   let releaseOperationCreation: (() => void) | null = null;
@@ -283,6 +478,56 @@ function fixture(
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
+  const currentResourceSnapshot = (state: string) => {
+    const terminal =
+      state === "STATE-RESULT-PUBLISHED" ||
+      state === "STATE-BLOCKED-CLEAN" ||
+      state === "STATE-RECOVERY-REQUIRED";
+    const recoveryTerminal = state === "STATE-RECOVERY-REQUIRED";
+    const outstandingProvider =
+      processStartCount > providerCleanupConfirmedCount;
+    const operationAcquired = operationCreateCount > 0;
+    const hostPresent = operationCreateCount > hostCleanupConfirmedCount;
+    const workspaceAcquired = workspaceMaterializeCount > 0;
+    const workspacePresent =
+      workspaceAcquired && hostCleanupConfirmedCount === 0;
+    return Object.freeze({
+      "RES-HOST-GENERATION": hostPresent
+        ? state === "STATE-RECOVERY-REQUIRED"
+          ? "preserved"
+          : "present"
+        : "absent",
+      "RES-INTERACTIVE-CONSOLE": "absent",
+      "RES-LOGICAL-HOME-LOCK": outstandingProvider ? "preserved" : "absent",
+      "RES-RUNTIME-STATE-LOCK": outstandingProvider ? "preserved" : "absent",
+      "RES-MOUNT-GRANT": outstandingProvider ? "preserved" : "absent",
+      "RES-DOCKER-OWNED": outstandingProvider
+        ? "preserved"
+        : processStartCount === 0
+          ? options.admissionRecovery
+            ? "preserved"
+            : recoveryTerminal
+              ? "unacquired"
+              : "absent"
+          : "absent",
+      "RES-OPERATION-WORKSPACE": workspacePresent
+        ? state === "STATE-RECOVERY-REQUIRED"
+          ? "preserved"
+          : "present"
+        : workspaceAcquired || operationAcquired
+          ? "absent"
+          : recoveryTerminal
+            ? "unacquired"
+            : "absent",
+      "RES-CANDIDATE-ENTRY":
+        recoveryTerminal && candidateEntryState === "present"
+          ? "preserved"
+          : candidateEntryState === "unacquired" && !recoveryTerminal
+            ? "absent"
+            : candidateEntryState,
+      "RES-TASK-CONTROL": terminal ? "absent" : "present",
+    });
+  };
   const dependencies = {
     observeLifecycleState: (state: string) => {
       lifecycleStates.push(state);
@@ -291,8 +536,24 @@ function fixture(
         provider: processStartCount,
         host: operationCreateCount + hostCleanupConfirmedCount,
         cleanup: providerCleanupConfirmedCount + hostCleanupConfirmedCount,
+        resources: currentResourceSnapshot(state),
       });
+      if (options.lifecycleObserverThrows)
+        throw new Error("fixture_lifecycle_observer_failure");
     },
+    ...(options.admissionRecovery
+      ? {
+          prepareDockerRecoveryState: () =>
+            Object.freeze({
+              status: "blocked",
+              reason:
+                options.admissionRecoveryReason ??
+                "docker_process_controller_recovery_conflict",
+              dockerRecoveryId: "docker.fixture.admission.recovery",
+              manualRecoveryRequired: true,
+            }),
+        }
+      : {}),
     isolatedCancellationAckTimeoutMs: 50,
     inspectRepository:
       options.inspectRepository ??
@@ -693,8 +954,8 @@ function fixture(
         allowedPathsHash: "5".repeat(64),
         changedPaths: Object.freeze(["fixture.txt"]),
       }),
-    persistCandidate: () =>
-      options.candidatePersistenceFails
+    persistCandidate: () => {
+      const outcome = options.candidatePersistenceFails
         ? null
         : options.candidatePersistenceNeedsStoreRecovery
           ? Object.freeze({
@@ -714,17 +975,24 @@ function fixture(
             : Object.freeze({
                 status: "staged",
                 candidateRecoveryId: `candidate-recovery.${"6".repeat(64)}.${"7".repeat(64)}`,
-              }),
+              });
+      if (outcome?.status === "staged") candidateEntryState = "present";
+      else if (outcome?.manualRecoveryRequired === true)
+        candidateEntryState = "preserved";
+      return outcome;
+    },
     discardCandidate: () => {
       discardCount += 1;
       if (options.discardThrows) throw new Error("fixture_discard_failure");
-      return Object.freeze({
+      const outcome = Object.freeze({
         status: options.discardFails ? "blocked" : "discarded",
       });
+      if (outcome.status === "discarded") candidateEntryState = "absent";
+      return outcome;
     },
     publishCandidate: () => {
       if (options.publishThrows) throw new Error("fixture_publish_failure");
-      return options.publishFails
+      const outcome = options.publishFails
         ? null
         : options.publishNeedsStoreRecovery
           ? Object.freeze({
@@ -738,6 +1006,10 @@ function fixture(
               candidateId: `candidate.${"6".repeat(64)}.${"7".repeat(64)}`,
               expiresAtMs: 1_800_000_000_000,
             });
+      if (outcome?.status === "published") candidateEntryState = "transferred";
+      else if (outcome?.manualRecoveryRequired === true)
+        candidateEntryState = "preserved";
+      return outcome;
     },
     ...(options.hostCleanupWal
       ? {
@@ -1054,6 +1326,26 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
   assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
   assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
+});
+
+test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しない", async () => {
+  const baseline = fixture();
+  const throwing = fixture({ lifecycleObserverThrows: true });
+  const [baselineResult, throwingResult] = await Promise.all([
+    baseline.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion,
+    throwing.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion,
+  ]);
+  assert.deepEqual(throwingResult, baselineResult);
+  assert.deepEqual(throwing.effectCounts(), baseline.effectCounts());
+  assert.deepEqual(throwing.lifecycleStates, baseline.lifecycleStates);
 });
 
 test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続する", async () => {
@@ -2415,8 +2707,26 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
     assert.equal(harness.cleanupCount(), 0);
-    assert.equal(harness.lifecycleStates.at(-1), "STATE-ADMISSION");
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
+    assert.equal(harness.lifecycleStates.at(-1), "STATE-BLOCKED-CLEAN");
     assertTerminalRuntimeTraceCase("CASE-BLOCKED-ADMISSION", harness, result);
+  });
+
+  await t.test("CASE-RECOVERY-ADMISSION", async () => {
+    const harness = fixture({ admissionRecovery: true });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.dockerRecoveryId, "docker.fixture.admission.recovery");
+    assert.equal(harness.operationCreateCount(), 0);
+    assert.equal(harness.processStartCount(), 0);
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
+    assert.equal(harness.lifecycleStates.at(-1), "STATE-RECOVERY-REQUIRED");
+    assertTerminalRuntimeTraceCase("CASE-RECOVERY-ADMISSION", harness, result);
   });
 
   await t.test("CASE-BLOCKED-TASK-AUTHORIZED", async () => {
@@ -2438,7 +2748,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.processStartCount(), 1);
     assert.equal(harness.candidateCaptureCount(), 0);
     assert.equal(harness.cleanupCount(), 1);
-    assert.equal(harness.lifecycleStates.at(-1), "STATE-TASK-AUTHORIZED");
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-TASK-AUTHORIZED");
+    assert.equal(harness.lifecycleStates.at(-1), "STATE-BLOCKED-CLEAN");
     assertTerminalRuntimeTraceCase(
       "CASE-BLOCKED-TASK-AUTHORIZED",
       harness,
@@ -2656,7 +2967,13 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       assert.equal(harness.operationCreateCount(), 1);
       assert.equal(harness.processStartCount(), scenario.process);
       assert.equal(harness.candidateCaptureCount(), scenario.candidate);
-      assert.equal(harness.lifecycleStates.at(-1), scenario.source);
+      assert.equal(harness.lifecycleStates.at(-2), scenario.source);
+      assert.equal(
+        harness.lifecycleStates.at(-1),
+        scenario.terminal === "clean"
+          ? "STATE-BLOCKED-CLEAN"
+          : "STATE-RECOVERY-REQUIRED",
+      );
       const cleanupUnknown = new Set([
         "CASE-RECOVERY-TASK-AUTHORIZED",
         "CASE-RECOVERY-CANDIDATE-CAPTURED",
@@ -2679,5 +2996,31 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       }
       assertTerminalRuntimeTraceCase(scenario.id, harness, result);
     });
+  }
+});
+
+test("Docker Recoveryの公開理由分類をTask結果へ変更せず投影する", async () => {
+  for (const reason of [
+    "docker_process_controller_recovery_conflict",
+    "docker_process_controller_recovery_partial_state",
+    "docker_process_controller_recovery_identity_mismatch",
+    "docker_process_controller_recovery_observation_unknown",
+    "docker_process_controller_recovery_unavailable",
+  ]) {
+    const harness = fixture({
+      admissionRecovery: true,
+      admissionRecoveryReason: reason,
+    });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, reason);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.dockerRecoveryId, "docker.fixture.admission.recovery");
+    assert.equal(harness.operationCreateCount(), 0);
+    assert.equal(harness.processStartCount(), 0);
   }
 });

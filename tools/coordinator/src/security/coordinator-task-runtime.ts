@@ -129,7 +129,9 @@ type RuntimeLifecycleState =
   | "STATE-REMEDIATION-REVIEWER-CLEAN"
   | "STATE-CANDIDATE-STAGED"
   | "STATE-HOST-CLEAN"
-  | "STATE-RESULT-PUBLISHED";
+  | "STATE-RESULT-PUBLISHED"
+  | "STATE-BLOCKED-CLEAN"
+  | "STATE-RECOVERY-REQUIRED";
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 const INTERNAL_TASK_OUTCOME = Symbol("internalTaskOutcome");
 type InternalTaskOutcome = Readonly<{
@@ -365,7 +367,21 @@ function advanceLifecycleState(
 ) {
   if (control.lifecycleState === next) return;
   control.lifecycleState = next;
-  state.dependencies.observeLifecycleState?.(next);
+  try {
+    state.dependencies.observeLifecycleState?.(next);
+  } catch {
+    // Test-only observation must not gain control over Runtime state or Effect.
+  }
+}
+
+function terminalLifecycleState(result: TaskCompletionRecord) {
+  if (result.status === "completed") return "STATE-RESULT-PUBLISHED" as const;
+  if (
+    result.manualRecoveryRequired === true ||
+    result.processRestartRequired === true
+  )
+    return "STATE-RECOVERY-REQUIRED" as const;
+  return "STATE-BLOCKED-CLEAN" as const;
 }
 
 function createBlocked(
@@ -1111,7 +1127,12 @@ async function runCoordinatorTaskCore(
 ) {
   const blocked = (...args: Parameters<typeof createBlocked>) => {
     const source = createBlocked(...args);
-    const dockerRecoveryIds = controlDockerRecoveryIds(control);
+    const dockerRecoveryIds = [
+      ...new Set([
+        ...source.dockerRecoveryIds,
+        ...controlDockerRecoveryIds(control),
+      ]),
+    ];
     const manualRecoveryRequired =
       source.manualRecoveryRequired === true || dockerRecoveryIds.length > 0;
     return createBlocked(
@@ -1889,7 +1910,11 @@ function createRuntime(dependencies: RuntimeDependencies) {
         dockerFinalizations: [],
         dockerHandoffs: [],
       };
-      state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
+      try {
+        state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
+      } catch {
+        // Test-only observation must not gain control over Runtime admission.
+      }
       state.controls.set(controlCapability, control);
       const completion: Promise<TaskCompletionRecord> = runCoordinatorTask(
         state,
@@ -2265,7 +2290,6 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 candidateStoreRecoveryId,
               );
             }
-            advanceLifecycleState(state, control, "STATE-RESULT-PUBLISHED");
             return projectCurrentDockerRecovery(
               Object.freeze({
                 ...result,
@@ -2345,7 +2369,11 @@ function createRuntime(dependencies: RuntimeDependencies) {
             processRestartRequired: control.processPoisoned,
           }) as TaskCompletionRecord;
         })
-        .finally(() => state.controls.delete(controlCapability));
+        .then((result) => {
+          state.controls.delete(controlCapability);
+          advanceLifecycleState(state, control, terminalLifecycleState(result));
+          return result;
+        });
       return Object.freeze({
         status: "started" as const,
         reason: "coordinator_task_started",

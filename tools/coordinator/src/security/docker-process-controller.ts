@@ -174,17 +174,82 @@ type RuntimeDependencies = Readonly<{
   }> | null;
 }>;
 
+const RECOVERY_START_REASON_CLASS = new Map<string, string>([
+  [
+    "docker_task_multiple_recovery_inventory_available",
+    "docker_process_controller_recovery_conflict",
+  ],
+  [
+    "docker_task_recovery_inventory_available",
+    "docker_process_controller_recovery_conflict",
+  ],
+  [
+    "docker_task_recovery_cleanup_tombstone_conflict",
+    "docker_process_controller_recovery_conflict",
+  ],
+  ...(
+    [
+      "docker_task_runtime_state_pending_incomplete",
+      "docker_task_runtime_state_orphan_commit",
+      "docker_task_runtime_state_orphan_pointer",
+      "docker_task_runtime_state_orphan_temporary",
+      "docker_task_recovery_orphan_commit",
+      "docker_task_recovery_orphan_temporary",
+      "docker_task_recovery_duplicate_base",
+      "docker_task_recovery_duplicate_base_commit",
+      "docker_task_recovery_base_commit_missing",
+    ] as const
+  ).map(
+    (reason) =>
+      [reason, "docker_process_controller_recovery_partial_state"] as const,
+  ),
+  ...(
+    [
+      "docker_task_runtime_state_binding_changed",
+      "docker_task_runtime_state_user_binding_changed",
+      "docker_task_runtime_state_root_replaced",
+      "docker_task_runtime_state_entry_replaced",
+      "docker_task_runtime_state_cleanup_replaced",
+      "docker_task_recovery_active_run_mismatch",
+      "docker_task_recovery_base_commit_mismatch",
+      "docker_task_recovery_base_mismatch",
+      "docker_task_recovery_host_binding_changed",
+      "docker_task_recovery_host_mismatch",
+      "docker_task_recovery_pointer_mismatch",
+    ] as const
+  ).map(
+    (reason) =>
+      [reason, "docker_process_controller_recovery_identity_mismatch"] as const,
+  ),
+  ...(
+    [
+      "docker_task_host_operation_generation_active_or_unknown",
+      "docker_task_process_generation_active_or_unknown",
+      "docker_task_recovery_home_generation_active_or_unknown",
+      "docker_task_recovery_home_lock_release_unconfirmed",
+      "docker_task_recovery_host_lock_release_unconfirmed",
+      "docker_task_runtime_state_generation_active_or_unknown",
+      "docker_task_runtime_state_lock_release_unconfirmed",
+      "docker_task_runtime_state_audit_failed",
+      "docker_task_recovery_record_observation_unknown",
+      "docker_task_runtime_state_unavailable",
+      "docker_task_recovery_begin_failed_closed",
+      "docker_task_recovery_failed_closed",
+    ] as const
+  ).map(
+    (reason) =>
+      [
+        reason,
+        "docker_process_controller_recovery_observation_unknown",
+      ] as const,
+  ),
+]);
+
 function publicRecoveryStartReason(reason: unknown) {
-  if (typeof reason !== "string")
-    return "docker_process_controller_recovery_unavailable";
-  if (/(?:generation_active|lock|lease|concurrent)/u.test(reason))
-    return "docker_process_controller_recovery_conflict";
-  if (/(?:partial|orphan|duplicate|incomplete)/u.test(reason))
-    return "docker_process_controller_recovery_partial_state";
-  if (/(?:mismatch|replacement|identity|binding)/u.test(reason))
-    return "docker_process_controller_recovery_identity_mismatch";
-  if (/(?:observation|audit|unknown|unavailable|failed_closed)/u.test(reason))
-    return "docker_process_controller_recovery_observation_unknown";
+  if (typeof reason === "string") {
+    const classified = RECOVERY_START_REASON_CLASS.get(reason);
+    if (classified) return classified;
+  }
   return "docker_process_controller_recovery_unavailable";
 }
 type ExecutionRecord = {
@@ -203,6 +268,7 @@ function createBlockedStart(
   reason: string,
   preEffectCleanupConfirmed = false,
   recoveryId: string | null = null,
+  lowerManualRecoveryRequired = false,
 ) {
   return Object.freeze({
     status: "blocked" as const,
@@ -212,7 +278,10 @@ function createBlockedStart(
     operationId: null,
     recoveryId,
     cleanupConfirmed: preEffectCleanupConfirmed,
-    manualRecoveryRequired: !preEffectCleanupConfirmed || recoveryId !== null,
+    manualRecoveryRequired:
+      lowerManualRecoveryRequired ||
+      !preEffectCleanupConfirmed ||
+      recoveryId !== null,
     dockerEffectStarted: false,
     providerRequestStarted: false,
     normalizedResult: null,
@@ -688,6 +757,7 @@ function start(
       publicRecoveryStartReason(recovery?.reason),
       completed.status === "completed",
       recovery?.recoveryId ?? null,
+      recovery?.manualRecoveryRequired === true,
     );
   }
   if (

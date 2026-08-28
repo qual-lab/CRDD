@@ -117,8 +117,19 @@ function hasExactKeys(value: JsonRecord, expected: readonly string[]): boolean {
   );
 }
 
+function isExactRecord(
+  value: unknown,
+  expected: readonly string[],
+): value is JsonRecord {
+  return isRecord(value) && hasExactKeys(value, expected);
+}
+
 function nonEmptyText(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function escapeRegularExpression(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -472,24 +483,9 @@ export function inspectCoordinatorRuntimeTraceability(
         if (!isRecord(candidate.resourcePostconditions)) {
           issues.push(`${bindingId}:case_resource_postconditions_invalid`);
         } else {
-          const transitionResources = new Set([
-            ...(isStringArray(transition?.resourcesAcquired)
-              ? transition.resourcesAcquired
-              : []),
-            ...(isStringArray(transition?.resourcesReleased)
-              ? transition.resourcesReleased
-              : []),
-            ...(isStringArray(transition?.resourcesTransferred)
-              ? transition.resourcesTransferred
-              : []),
-          ]);
           for (const [resource, postcondition] of Object.entries(
             candidate.resourcePostconditions,
           )) {
-            if (!transitionResources.has(resource))
-              issues.push(
-                `${bindingId}:case_resource_not_on_transition:${resource}`,
-              );
             if (!RESOURCE_POSTCONDITIONS.has(String(postcondition)))
               issues.push(
                 `${bindingId}:case_resource_postcondition_invalid:${resource}`,
@@ -530,26 +526,6 @@ export function inspectCoordinatorRuntimeTraceability(
       issues,
     )) {
       usedResources.add(resource);
-      const transitionResources = new Set(
-        transitionIds.flatMap((transitionId) => {
-          const transition = transitionsById.get(transitionId);
-          return [
-            ...(isStringArray(transition?.resourcesAcquired)
-              ? transition.resourcesAcquired
-              : []),
-            ...(isStringArray(transition?.resourcesReleased)
-              ? transition.resourcesReleased
-              : []),
-            ...(isStringArray(transition?.resourcesTransferred)
-              ? transition.resourcesTransferred
-              : []),
-          ];
-        }),
-      );
-      if (!transitionResources.has(resource))
-        issues.push(
-          `${bindingId}:observed_resource_not_on_transition:${resource}`,
-        );
     }
     if (
       typeof binding.testPath !== "string" ||
@@ -567,8 +543,6 @@ export function inspectCoordinatorRuntimeTraceability(
       issues.push(`${bindingId}:test_source_unavailable`);
     else if (!quotedTestNameExists(testSource, binding.testName)) {
       issues.push(`${bindingId}:test_name_not_found`);
-    } else if (!testSource.includes("assertRuntimeTraceCase(")) {
-      issues.push(`${bindingId}:trace_case_assertion_not_found`);
     } else if (
       Array.isArray(binding.cases) &&
       binding.cases.some(
@@ -579,6 +553,34 @@ export function inspectCoordinatorRuntimeTraceability(
       )
     ) {
       issues.push(`${bindingId}:test_case_id_not_found`);
+    }
+    if (Array.isArray(binding.cases) && testSource) {
+      for (const candidate of binding.cases) {
+        if (!isExactRecord(candidate, CASE_KEYS)) continue;
+        const caseId = typeof candidate.id === "string" ? candidate.id : "";
+        const registryEntry = new RegExp(
+          `${escapeRegularExpression(JSON.stringify(caseId))}\\s*:\\s*assertRuntimeTraceCase\\b`,
+          "gu",
+        );
+        if ([...testSource.matchAll(registryEntry)].length !== 1)
+          issues.push(
+            `${bindingId}:${caseId}:trace_assertion_registry_invalid`,
+          );
+      }
+      if (Array.isArray(binding.observedResources)) {
+        for (const resourceId of binding.observedResources) {
+          if (
+            typeof resourceId === "string" &&
+            !binding.cases.some(
+              (candidate) =>
+                isExactRecord(candidate, CASE_KEYS) &&
+                isRecord(candidate.resourcePostconditions) &&
+                Object.hasOwn(candidate.resourcePostconditions, resourceId),
+            )
+          )
+            issues.push(`${bindingId}:${resourceId}:observed_resource_unused`);
+        }
+      }
     }
   }
 

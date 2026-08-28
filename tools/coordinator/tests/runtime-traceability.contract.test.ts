@@ -38,7 +38,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     inspectCoordinatorRuntimeTraceability(currentTrace(), repositoryReader),
     {
       status: "accepted",
-      resources: 10,
+      resources: 9,
       states: 17,
       transitions: 17,
       invariants: 9,
@@ -111,7 +111,7 @@ test("Architectureまたは実在する試験名に接続できないTraceを拒
   }
 });
 
-test("transition delta宣言とCanonical case完全一致assertionの無いTraceを拒否する", () => {
+test("effect観測scopeとCanonical case完全一致assertionの無いTraceを拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   trace.effectObservationScope = "cumulative";
   const result = inspectCoordinatorRuntimeTraceability(
@@ -119,7 +119,7 @@ test("transition delta宣言とCanonical case完全一致assertionの無いTrace
     (relativePath) => {
       const source = repositoryReader(relativePath);
       return (
-        source?.replaceAll("assertRuntimeTraceCase(", "unusedTraceCase(") ??
+        source?.replaceAll(": assertRuntimeTraceCase", ": unusedTraceCase") ??
         null
       );
     },
@@ -128,11 +128,17 @@ test("transition delta宣言とCanonical case完全一致assertionの無いTrace
   if (result.status === "blocked") {
     assert.ok(result.issues.includes("trace_effect_observation_scope_invalid"));
     assert.ok(
-      result.issues.includes("VER-TASK-NORMAL:trace_case_assertion_not_found"),
+      result.issues.some(
+        (issue) =>
+          issue.startsWith("VER-TASK-NORMAL:") &&
+          issue.endsWith(":trace_assertion_registry_invalid"),
+      ),
     );
     assert.ok(
-      result.issues.includes(
-        "VER-RECOVERY-NORMAL:trace_case_assertion_not_found",
+      result.issues.some(
+        (issue) =>
+          issue.startsWith("VER-RECOVERY-NORMAL:") &&
+          issue.endsWith(":trace_assertion_registry_invalid"),
       ),
     );
   }
@@ -198,7 +204,7 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
     ...cases[0],
     fromState: "STATE-TASK-AUTHORIZED",
     expectedEndState: "STATE-RESULT-PUBLISHED",
-    resourcePostconditions: { "RES-CANDIDATE-ENTRY": "present" },
+    resourcePostconditions: { "RES-CANDIDATE-ENTRY": "unknown" },
   };
   taskNormal.cases = cases;
   trace.verificationBindings = bindings;
@@ -217,7 +223,7 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
     );
     assert.ok(
       result.issues.includes(
-        "VER-TASK-NORMAL:case_resource_not_on_transition:RES-CANDIDATE-ENTRY",
+        "VER-TASK-NORMAL:case_resource_postcondition_invalid:RES-CANDIDATE-ENTRY",
       ),
     );
     assert.ok(
@@ -267,6 +273,32 @@ test("検証caseの重複tuple・source未接続・未観測資源・拒否結�
     assert.ok(
       result.issues.includes(
         "VER-TASK-NORMAL:case_resource_not_observed:RES-CANDIDATE-ENTRY",
+      ),
+    );
+  }
+});
+
+test("bindingが宣言するだけでcaseが観測しない資源を拒否する", () => {
+  const trace = currentTrace() as Record<string, unknown>;
+  const bindings = structuredClone(trace.verificationBindings) as Record<
+    string,
+    unknown
+  >[];
+  const partial = bindings.find(
+    (binding) => binding.id === "VER-PARTIAL-PAIR-ABNORMAL",
+  );
+  assert.ok(partial);
+  partial.observedResources = [
+    ...(partial.observedResources as string[]),
+    "RES-CANDIDATE-ENTRY",
+  ];
+  trace.verificationBindings = bindings;
+  const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
+  assert.equal(result.status, "blocked");
+  if (result.status === "blocked") {
+    assert.ok(
+      result.issues.includes(
+        "VER-PARTIAL-PAIR-ABNORMAL:RES-CANDIDATE-ENTRY:observed_resource_unused",
       ),
     );
   }

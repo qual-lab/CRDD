@@ -18,8 +18,10 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  getOwnedHostRecoveryIdByManagementCapability,
   verifyOwnedOperationManagementCapability,
 } from "../../src/security/execution-environment.ts";
+import { loadHostRecoveryRecordByToken } from "../../src/security/host-recovery-record.ts";
 
 function verifiedRoot(rootPath: string) {
   return Object.freeze({
@@ -27,7 +29,7 @@ function verifiedRoot(rootPath: string) {
     runtimeStateIdentityHash: "4".repeat(64),
     runtimeStateProtectionHash: "5".repeat(64),
     localUserBindingHash: "6".repeat(64),
-    stableLogicalHomeBindingHash: "7".repeat(64),
+    stableLogicalHomeBindingHash: "f".repeat(64),
   });
 }
 
@@ -40,7 +42,7 @@ function plan(operationId: string) {
     providerHomeIdentityHash: "8".repeat(64),
     providerHomeProtectionHash: "9".repeat(64),
     localUserBindingHash: "6".repeat(64),
-    stableLogicalHomeBindingHash: "f".repeat(64),
+    stableLogicalHomeBindingHash: "7".repeat(64),
     authContainerName: "crdd-auth-0123456789abcdef",
     providerContainerName: "crdd-claude-0123456789abcdef",
     proxyContainerName: "crdd-proxy-0123456789abcdef",
@@ -70,6 +72,9 @@ function setupBegunRecovery(rootPath: string) {
   const mounts = createOwnedMountCapability(owned);
   const management = createOwnedOperationManagementCapability(context, mounts);
   const operation = verifyOwnedOperationManagementCapability(management);
+  const hostRecoveryId =
+    getOwnedHostRecoveryIdByManagementCapability(management);
+  const hostMarker = loadHostRecoveryRecordByToken(hostRecoveryId).marker;
   const candidate = plan(operation.operationId);
   const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
     candidate,
@@ -88,6 +93,7 @@ function setupBegunRecovery(rootPath: string) {
     root,
     owned,
     management,
+    hostMarker,
     recoveryId: begun.recoveryId,
     recoveryCapability: begun.recoveryCapability,
   });
@@ -115,7 +121,7 @@ if (mode === "receipt-failure-setup") {
   );
   await cleanupOwnedOperationDirectoriesAsync(setup.owned);
   process.stdout.write(
-    `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root })}\n`,
+    `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, setupPid: process.pid })}\n`,
   );
 } else if (mode === "active-deleted-pointer-setup") {
   const setup = setupBegunRecovery(rootPath);
@@ -134,7 +140,7 @@ if (mode === "receipt-failure-setup") {
     true,
   );
   process.stdout.write(
-    `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root })}\n`,
+    `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, setupPid: process.pid })}\n`,
   );
 } else if (mode === "fresh-recovery") {
   if (!encodedRoot) throw new Error("recovery_cleanup_probe_root_missing");
@@ -146,7 +152,9 @@ if (mode === "receipt-failure-setup") {
     root,
     () => root,
   );
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ ...result, probePid: process.pid })}\n`,
+  );
 } else {
   throw new Error("recovery_cleanup_probe_mode_invalid");
 }

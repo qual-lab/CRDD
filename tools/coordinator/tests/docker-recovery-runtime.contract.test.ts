@@ -53,6 +53,13 @@ import {
   parseHostRecoveryToken,
 } from "../src/security/host-recovery-record.ts";
 
+const RECOVERY_TRACE_ASSERTIONS: Readonly<
+  Record<string, typeof assertRuntimeTraceCase>
+> = Object.freeze({
+  "CASE-PARTIAL-PAIR-TO-RECOVERY": assertRuntimeTraceCase,
+  "CASE-RECOVERY-TO-RECOVERED": assertRuntimeTraceCase,
+});
+
 const FIRST_RECOVERY =
   "host.crdd-coordinator-doctor-abcdef.00000000-0000-0000-0000-000000000001.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SECOND_RECOVERY =
@@ -2488,6 +2495,9 @@ test("production共有回復engineはHost expected世代のprocess killを残存
   const fixture = createKilledFullProductionRecoveryRoot();
   const root = verifiedRoot(fixture.root);
   try {
+    const beforeHostPresent =
+      fs.existsSync(fixture.hostRoot) && fs.existsSync(fixture.hostMarker);
+    const beforeRecoveryEntries = fs.readdirSync(fixture.root).length;
     assert.deepEqual(
       recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         fixture.recoveryId,
@@ -2503,13 +2513,30 @@ test("production共有回復engineはHost expected世代のprocess killを残存
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
-    assertRuntimeTraceCase("CASE-RECOVERY-TO-RECOVERED", {
+    const hostEffectCount =
+      beforeHostPresent &&
+      !fs.existsSync(fixture.hostRoot) &&
+      !fs.existsSync(fixture.hostMarker)
+        ? 1
+        : 0;
+    const cleanupEffectCount =
+      beforeRecoveryEntries > 0 && fs.readdirSync(fixture.root).length === 0
+        ? 1
+        : 0;
+    const recoveryTraceAssertion =
+      RECOVERY_TRACE_ASSERTIONS["CASE-RECOVERY-TO-RECOVERED"];
+    assert.ok(recoveryTraceAssertion);
+    recoveryTraceAssertion("CASE-RECOVERY-TO-RECOVERED", {
       id: "CASE-RECOVERY-TO-RECOVERED",
       transitionId: "TRANS-RECOVERY-TO-RECOVERED",
       fromState: "STATE-RECOVERY-REQUIRED",
       outcome: "taken",
       expectedEndState: "STATE-RECOVERED",
-      effectObservations: { provider: 0, host: 1, cleanup: 1 },
+      effectObservations: {
+        provider: 0,
+        host: hostEffectCount,
+        cleanup: cleanupEffectCount,
+      },
       expectedStatus: "completed",
       resourcePostconditions: {
         "RES-HOST-GENERATION": "absent",
@@ -2771,6 +2798,9 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
       }),
       "utf8",
     );
+    const beforeActive = fs.readFileSync(activePath);
+    const beforeHostEntries = fs.readdirSync(fixture.hostRoot).sort();
+    const beforeRecoveryEntries = fs.readdirSync(fixture.root).sort();
     const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       fixture.recoveryId,
       root,
@@ -2781,13 +2811,30 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
     assert.equal(result.recoveryId, fixture.recoveryId);
     assert.equal(fs.existsSync(activePath), true);
     assert.ok(fs.readdirSync(fixture.root).length > 0);
-    assertRuntimeTraceCase("CASE-PARTIAL-PAIR-TO-RECOVERY", {
+    const hostEffectCount = fs.readFileSync(activePath).equals(beforeActive)
+      ? 0
+      : 1;
+    const cleanupEffectCount =
+      JSON.stringify(fs.readdirSync(fixture.hostRoot).sort()) ===
+        JSON.stringify(beforeHostEntries) &&
+      JSON.stringify(fs.readdirSync(fixture.root).sort()) ===
+        JSON.stringify(beforeRecoveryEntries)
+        ? 0
+        : 1;
+    const partialTraceAssertion =
+      RECOVERY_TRACE_ASSERTIONS["CASE-PARTIAL-PAIR-TO-RECOVERY"];
+    assert.ok(partialTraceAssertion);
+    partialTraceAssertion("CASE-PARTIAL-PAIR-TO-RECOVERY", {
       id: "CASE-PARTIAL-PAIR-TO-RECOVERY",
       transitionId: "TRANS-PARTIAL-PAIR-TO-RECOVERY",
       fromState: "STATE-DURABLE-PAIR-PARTIAL-PRE-EFFECT",
       outcome: "taken",
       expectedEndState: "STATE-RECOVERY-REQUIRED",
-      effectObservations: { provider: 0, host: 0, cleanup: 0 },
+      effectObservations: {
+        provider: 0,
+        host: hostEffectCount,
+        cleanup: cleanupEffectCount,
+      },
       expectedStatus: "recovery_required",
       resourcePostconditions: {
         "RES-HOST-GENERATION": "preserved",
@@ -2920,6 +2967,58 @@ test("active binding削除後の観測不能は不存在にせずRecovery Eviden
       fs
         .readdirSync(path.dirname(activePath))
         .some((entry) => entry.includes("delete")),
+      true,
+    );
+    assert.ok(fs.readdirSync(fixture.root).length > 0);
+  } finally {
+    fs.rmSync = originalRm;
+    Object.defineProperty(fs, "lstatSync", {
+      configurable: true,
+      value: originalLstat,
+    });
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
+test("pointer削除後の観測不能も不存在にせずRecovery Evidenceを保持する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const root = verifiedRoot(fixture.root);
+  const { pointerPath } = productionRecoveryBindingPaths(fixture);
+  const originalRm = fs.rmSync;
+  const originalLstat = fs.lstatSync;
+  let pointerDeleted = false;
+  try {
+    fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
+      const result = originalRm(target, options);
+      if (path.resolve(String(target)) === path.resolve(pointerPath))
+        pointerDeleted = true;
+      return result;
+    }) as typeof fs.rmSync;
+    Object.defineProperty(fs, "lstatSync", {
+      configurable: true,
+      value: ((target: fs.PathLike, options?: unknown) => {
+        if (
+          pointerDeleted &&
+          path.resolve(String(target)) === path.resolve(pointerPath)
+        ) {
+          const error = new Error("injected observation failure") as Error & {
+            code: string;
+          };
+          error.code = "EACCES";
+          throw error;
+        }
+        return originalLstat(target, options as never);
+      }) as typeof fs.lstatSync,
+    });
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.recoveryId, fixture.recoveryId);
+    assert.equal(
+      fs.readdirSync(fixture.root).some((entry) => entry.includes("delete")),
       true,
     );
     assert.ok(fs.readdirSync(fixture.root).length > 0);
@@ -3217,6 +3316,9 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
     const handoff = JSON.parse(setup.stdout) as {
       recoveryId: string;
       root: Readonly<Record<string, string>>;
+      hostRoot: string;
+      hostMarker: string;
+      setupPid: number;
     };
     assert.deepEqual(fs.readdirSync(runtimeRootPath).length > 0, true);
     const recovered = spawnSync(
@@ -3235,12 +3337,20 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
       0,
       `${recovered.stdout}\n${recovered.stderr}`,
     );
-    assert.deepEqual(JSON.parse(recovered.stdout), {
+    const recoveredResult = JSON.parse(recovered.stdout) as Record<
+      string,
+      unknown
+    >;
+    assert.notEqual(recoveredResult.probePid, handoff.setupPid);
+    delete recoveredResult.probePid;
+    assert.deepEqual(recoveredResult, {
       status: "recovered",
       reason: "docker_task_recovery_finalization_completed",
       recoveryId: null,
     });
     assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assert.equal(fs.existsSync(handoff.hostRoot), false);
+    assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
     fs.rmSync(runtimeParent, { recursive: true, force: true });
   }
@@ -3270,6 +3380,9 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
     const handoff = JSON.parse(setup.stdout) as {
       recoveryId: string;
       root: Readonly<Record<string, string>>;
+      hostRoot: string;
+      hostMarker: string;
+      setupPid: number;
     };
     const recovered = spawnSync(
       process.execPath,
@@ -3287,12 +3400,20 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
       0,
       `${recovered.stdout}\n${recovered.stderr}`,
     );
-    assert.deepEqual(JSON.parse(recovered.stdout), {
+    const recoveredResult = JSON.parse(recovered.stdout) as Record<
+      string,
+      unknown
+    >;
+    assert.notEqual(recoveredResult.probePid, handoff.setupPid);
+    delete recoveredResult.probePid;
+    assert.deepEqual(recoveredResult, {
       status: "recovered",
       reason: "docker_task_recovery_completed",
       recoveryId: null,
     });
     assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+    assert.equal(fs.existsSync(handoff.hostRoot), false);
+    assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
     fs.rmSync(runtimeParent, { recursive: true, force: true });
   }
