@@ -42,7 +42,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
       states: 20,
       transitions: 21,
       invariants: 10,
-      verificationBindings: 8,
+      verificationBindings: 10,
     },
   );
 });

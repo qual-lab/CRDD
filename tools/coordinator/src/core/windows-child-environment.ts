@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT =
   "crdd-coordinator/windows-child-environment";
-export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 5;
+export const WINDOWS_CHILD_ENVIRONMENT_CONTRACT_REVISION = 6;
 export const WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE =
   "loaded_kernel32_os_observed_windows_directory_and_os_user_info_validated_profile_path_with_other_ambient_names_fixed_neutral_parent_environment_not_authority";
 
@@ -30,6 +30,7 @@ const NEUTRAL_NAMES = Object.freeze([
   "NODE_EXTRA_CA_CERTS",
   "NODE_OPTIONS",
   "NODE_PATH",
+  "NODE_V8_COVERAGE",
   "NO_PROXY",
   "PATH",
   "PATHEXT",

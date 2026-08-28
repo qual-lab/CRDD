@@ -79,7 +79,7 @@ import { evaluateManagedDockerCleanupEligibility } from "../core/docker-cleanup-
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 21;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 22;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const REQUEST_KEYS = new Set([
@@ -1057,13 +1057,20 @@ async function executeStage(
       !processControl ||
       !(completion instanceof Promise)
     ) {
+      const dockerRecoveryId = publicVerifiedDockerRecoveryId(
+        process.recoveryId,
+      );
+      const manualRecoveryRequired =
+        process.cleanupConfirmed !== true ||
+        process.manualRecoveryRequired === true ||
+        dockerRecoveryId !== null;
       return blocked(
         stringValue(process.reason) ?? "coordinator_task_process_start_failed",
-        process.cleanupConfirmed !== true,
-        process.cleanupConfirmed !== true ? operation.hostRecoveryId : null,
-        process.cleanupConfirmed !== true
-          ? publicVerifiedDockerRecoveryId(process.recoveryId)
-          : null,
+        manualRecoveryRequired,
+        manualRecoveryRequired ? operation.hostRecoveryId : null,
+        dockerRecoveryId,
+        null,
+        process.cleanupConfirmed === true,
       );
     }
     control.currentProcessControl = processControl;
@@ -1093,14 +1100,21 @@ async function executeStage(
       return blocked("coordinator_task_cancelled_after_provider_cleanup");
     }
     if (result.status !== "completed" || result.cleanupConfirmed !== true) {
+      const dockerRecoveryId = publicVerifiedDockerRecoveryId(
+        result.recoveryId,
+      );
+      const manualRecoveryRequired =
+        result.cleanupConfirmed !== true ||
+        result.manualRecoveryRequired === true ||
+        dockerRecoveryId !== null;
       return Object.freeze({
         ...blocked(
           stringValue(result.reason) ?? "coordinator_task_provider_failed",
-          result.cleanupConfirmed !== true,
-          result.cleanupConfirmed !== true ? operation.hostRecoveryId : null,
-          result.cleanupConfirmed !== true
-            ? publicVerifiedDockerRecoveryId(result.recoveryId)
-            : null,
+          manualRecoveryRequired,
+          manualRecoveryRequired ? operation.hostRecoveryId : null,
+          dockerRecoveryId,
+          null,
+          result.cleanupConfirmed === true,
         ),
       });
     }

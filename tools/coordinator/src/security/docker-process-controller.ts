@@ -31,7 +31,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 15;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 16;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -231,7 +231,10 @@ function snapshotReadyRecovery(value: unknown): Recovery | null {
     : null;
 }
 
-function snapshotBlockedRecoveryWithExactId(value: unknown) {
+function snapshotBlockedRecoveryWithExactId(
+  value: unknown,
+  expectedStableLogicalHomeBindingHash: string,
+) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   try {
     if (
@@ -248,7 +251,12 @@ function snapshotBlockedRecoveryWithExactId(value: unknown) {
   const recoveryId = publicVerifiedDockerRecoveryId(
     ownDataValue(value, "recoveryId"),
   );
-  return status === "blocked" && typeof reason === "string" && recoveryId
+  const parsed = parseDockerTaskRecoveryId(recoveryId);
+  return status === "blocked" &&
+    typeof reason === "string" &&
+    recoveryId &&
+    parsed?.stableLogicalHomeBindingHash ===
+      expectedStableLogicalHomeBindingHash
     ? Object.freeze({ status, reason, recoveryId })
     : null;
 }
@@ -765,7 +773,10 @@ function start(
     const malformedRecoveryId = publicVerifiedDockerRecoveryId(
       ownDataValue(recovery, "recoveryId"),
     );
-    const exactBlocked = snapshotBlockedRecoveryWithExactId(recovery);
+    const exactBlocked = snapshotBlockedRecoveryWithExactId(
+      recovery,
+      plan.stableLogicalHomeBindingHash,
+    );
     if (!malformedCapability && exactBlocked) {
       const completed = state.dependencies.completeMount(
         plan.activeMountCapability,

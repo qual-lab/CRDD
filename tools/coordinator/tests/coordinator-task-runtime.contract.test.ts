@@ -518,6 +518,8 @@ function fixture(
     publishNeedsStoreRecovery?: boolean;
     processStartFailureRole?: "executor" | "reviewer";
     processStartFailureOccurrence?: number;
+    processStartFailureCleanupConfirmed?: boolean;
+    processStartFailureManualRecoveryRequired?: boolean;
     processCleanFailureRole?: "executor" | "reviewer";
     processCleanFailureOccurrence?: number;
     processCleanupFailureRole?: "executor" | "reviewer";
@@ -1020,7 +1022,10 @@ function fixture(
         return Object.freeze({
           status: "blocked",
           reason: "fixture_start_failed",
-          cleanupConfirmed: false,
+          cleanupConfirmed:
+            options.processStartFailureCleanupConfirmed === true,
+          manualRecoveryRequired:
+            options.processStartFailureManualRecoveryRequired === true,
           recoveryId: fixtureDockerRecoveryId(`${role}.start`),
         });
       }
@@ -2337,6 +2342,33 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
   }
 });
 
+test("Provider startがlower cleanup済みでも手動Recoveryとexact Docker IDを返す場合はHost rootを保持する", async () => {
+  const harness = fixture({
+    processStartFailureRole: "executor",
+    processStartFailureCleanupConfirmed: true,
+    processStartFailureManualRecoveryRequired: true,
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "fixture_start_failed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
+  assert.equal(
+    result.dockerRecoveryId,
+    fixtureDockerRecoveryId("executor.start"),
+  );
+  assert.deepEqual(result.dockerRecoveryIds, [
+    fixtureDockerRecoveryId("executor.start"),
+  ]);
+  assert.equal(harness.cleanupCount(), 0);
+  assert.equal(harness.events.includes("host-cleanup"), false);
+});
+
 test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格しない", async () => {
   const harness = fixture({ candidateVerificationFails: true });
   const result = await harness.runtime.start(
@@ -2910,7 +2942,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 21);
+  assert.equal(contract.contractRevision, 22);
   assert.equal(contract.routes.length, 4);
   assert.equal(
     contract.executionSlate,

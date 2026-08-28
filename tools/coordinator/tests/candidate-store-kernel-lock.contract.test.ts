@@ -262,6 +262,7 @@ test("Host Operation Supervisorは固定spawn Profileと異常状態を構造化
     "GIT_ASKPASS",
     "NODE_OPTIONS",
     "NODE_PATH",
+    "NODE_V8_COVERAGE",
   ])
     assert.equal(environment[name], "");
   assert.equal(typeof environment.SystemRoot, "string");
@@ -602,6 +603,8 @@ test("対話Console専用lockの非同期cleanup契約は共通同期lockの意�
   const contract = describeCandidateStoreKernelLockContract();
   assert.equal(contract.acquireTimeoutMs, 1_000);
   assert.equal(contract.releaseTimeoutMs, 5_000);
+  assert.equal(contract.interactiveConsoleCleanupTimeoutMs, 1_000);
+  assert.equal(contract.hostSupervisorReleaseTimeoutMs, 1_000);
   assert.equal(
     contract.interactiveConsoleLock,
     "dedicated_async_acquire_and_release_with_state_and_worker_exit_confirmation",

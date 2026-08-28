@@ -123,6 +123,7 @@ const RECOVERY_TRACE_ASSERTIONS: Readonly<
 > = Object.freeze({
   "CASE-PARTIAL-PAIR-TO-RECOVERY": assertRuntimeTraceCase,
   "CASE-RECOVERY-TO-RECOVERED": assertRuntimeTraceCase,
+  "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED": assertRuntimeTraceCase,
 });
 const EXECUTED_RECOVERY_TRACE_CASES = new Set<string>();
 
@@ -3319,6 +3320,53 @@ test("Hostを先に明示回復してもEffect前Docker Recoveryはexact absence
   }
 });
 
+test("Host begin前のactive binding content-only crashを旧Host先行削除後もexact closureから残存0へ収束する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot(
+    "active_binding_content",
+  );
+  const root = verifiedRoot(fixture.root);
+  try {
+    simulateLegacyHostPrecleanupForDocker(fixture);
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed_after_host_precleanup",
+        recoveryId: null,
+      },
+    );
+    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assert.equal(fs.existsSync(fixture.hostRoot), false);
+    assert.equal(fs.existsSync(fixture.hostMarker), false);
+    RECOVERY_TRACE_ASSERTIONS["CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED"]?.(
+      "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED",
+      {
+        id: "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED",
+        transitionId: "TRANS-RECOVERY-TO-RECOVERED",
+        fromState: "STATE-RECOVERY-REQUIRED",
+        outcome: "taken",
+        expectedEndState: "STATE-RECOVERED",
+        effectObservations: { provider: 0, host: 0, cleanup: 1 },
+        expectedStatus: "completed",
+        resourcePostconditions: {
+          "RES-HOST-GENERATION": "absent",
+          "RES-DOCKER-OWNED": "absent",
+          "RES-OPERATION-WORKSPACE": "absent",
+        },
+      },
+    );
+    EXECUTED_RECOVERY_TRACE_CASES.add(
+      "CASE-RECOVERY-HOST-PRECLEAN-TO-RECOVERED",
+    );
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
 test("Hostを先に明示回復してもreceipt済みDockerをexact照合・削除して残存0へ収束する", () => {
   const fixture = createKilledFullProductionRecoveryRoot("receipt");
   const root = verifiedRoot(fixture.root);
@@ -3672,6 +3720,60 @@ test("Effect前active bindingはcommitted pointerの完全一致前に削除し�
       assert.equal(fs.existsSync(activePath), true);
       assert.equal(fs.existsSync(fixture.hostRoot), true);
       assert.equal(fs.existsSync(fixture.hostMarker), true);
+    } finally {
+      disposeKilledFullProductionRecoveryFixture(fixture);
+    }
+  }
+});
+
+test("旧Host先行削除後もpointer欠落・partial・replacementをEffect前Recovery完了へ縮退しない", () => {
+  for (const pointerState of ["missing", "partial", "replacement"] as const) {
+    const fixture = createKilledFullProductionRecoveryRoot(
+      "active_binding_content",
+    );
+    const root = verifiedRoot(fixture.root);
+    breakProductionRecoveryPointer(fixture, pointerState);
+    simulateLegacyHostPrecleanupForDocker(fixture);
+    const beforeRuntimeEntries = fs.readdirSync(fixture.root).sort();
+    try {
+      const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.recoveryId, fixture.recoveryId);
+      assert.deepEqual(
+        fs.readdirSync(fixture.root).sort(),
+        beforeRuntimeEntries,
+      );
+      assert.equal(fs.existsSync(fixture.hostRoot), false);
+      assert.equal(fs.existsSync(fixture.hostMarker), false);
+    } finally {
+      disposeKilledFullProductionRecoveryFixture(fixture);
+    }
+  }
+});
+
+test("旧Host先行削除のRootまたはmarker片側だけの欠落は完全不在へ縮退しない", () => {
+  for (const missing of ["root", "marker"] as const) {
+    const fixture = createKilledFullProductionRecoveryRoot(
+      "active_binding_content",
+    );
+    const root = verifiedRoot(fixture.root);
+    if (missing === "root")
+      fs.rmSync(fixture.hostRoot, { recursive: true, force: false });
+    else fs.rmSync(fixture.hostMarker, { force: false });
+    try {
+      const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.recoveryId, fixture.recoveryId);
+      assert.equal(fs.existsSync(fixture.hostRoot), missing !== "root");
+      assert.equal(fs.existsSync(fixture.hostMarker), missing !== "marker");
     } finally {
       disposeKilledFullProductionRecoveryFixture(fixture);
     }
@@ -5005,7 +5107,7 @@ test("production共有Docker回復はreceipt前照会の失敗・signal・stderr
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 22,
+    contractRevision: 23,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

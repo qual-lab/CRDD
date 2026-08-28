@@ -698,6 +698,8 @@ export function describeCandidateStoreKernelLockContract() {
     arbitraryPathAccepted: false,
     acquireTimeoutMs: LOCK_ACQUIRE_TIMEOUT_MS,
     releaseTimeoutMs: LOCK_RELEASE_TIMEOUT_MS,
+    interactiveConsoleCleanupTimeoutMs: INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS,
+    hostSupervisorReleaseTimeoutMs: HOST_SUPERVISOR_RELEASE_TIMEOUT_MS,
     interactiveConsoleLock:
       "dedicated_async_acquire_and_release_with_state_and_worker_exit_confirmation",
     interactiveConsoleWorkerKeepsProcessAliveUntilRelease: true,

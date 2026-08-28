@@ -55,7 +55,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 22;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 23;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -3368,9 +3368,11 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     )
       throw new Error("docker_task_recovery_base_mismatch");
     const hostPaths = hostPathsFromBase(base);
-    const hostStateAlreadyClean =
-      !recoveryPathPresent(hostPaths.root) &&
-      !recoveryPathPresent(hostPaths.marker);
+    const hostRootPresent = recoveryPathPresent(hostPaths.root);
+    const hostMarkerPresent = recoveryPathPresent(hostPaths.marker);
+    if (hostRootPresent !== hostMarkerPresent)
+      throw new Error("docker_task_recovery_host_cleanup_unconfirmed");
+    const hostStateAlreadyClean = !hostRootPresent && !hostMarkerPresent;
     const managementDirectoryName = managementDirectoryNameFromBase(base);
     const initialHostRecoveryId = String(base.initialHostRecoveryId ?? "");
     const initialHostIdentity = parseHostRecoveryToken(initialHostRecoveryId);
@@ -3683,7 +3685,10 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "host-begin-intent.json",
     );
-    if (!recoveryPathPresent(hostBeginIntentPath))
+    const hostBeginIntentPresent = recoveryPathPresent(hostBeginIntentPath);
+    if (!hostBeginIntentPresent && hostStateAlreadyClean)
+      throw new Error("docker_task_recovery_evidence_missing");
+    if (!hostBeginIntentPresent)
       writeDurableJson(
         operationDirectory,
         "host-begin-intent.json",
@@ -3704,6 +3709,11 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "host-begin-receipt.json",
     );
+    const hasSubmission = [...CREATE_PURPOSES].some((purpose) =>
+      recoveryPathPresent(
+        path.join(operationDirectory, `submission-${purpose}.json`),
+      ),
+    );
     let hostSubmissionStarted = true;
     let hostReceipt: Record<string, string>;
     if (recoveryPathPresent(hostBeginReceiptPath)) {
@@ -3711,6 +3721,14 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         string,
         string
       >;
+    } else if (hostStateAlreadyClean) {
+      if (hasSubmission)
+        throw new Error("docker_task_recovery_host_begin_mismatch");
+      hostSubmissionStarted = false;
+      hostReceipt = {
+        previous: hostBeginCurrentToken,
+        observed: hostBeginCurrentToken,
+      };
     } else {
       const transition = classifyHostMarkerTransition(
         hostBeginIntent,
@@ -3728,11 +3746,6 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           hostReceipt,
         );
       } else {
-        const hasSubmission = [...CREATE_PURPOSES].some((purpose) =>
-          recoveryPathPresent(
-            path.join(operationDirectory, `submission-${purpose}.json`),
-          ),
-        );
         if (hasSubmission)
           throw new Error("docker_task_recovery_host_begin_mismatch");
         hostSubmissionStarted = false;
@@ -3785,6 +3798,12 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       ),
       expectedPointer,
     );
+    if (
+      hostStateAlreadyClean &&
+      !hostSubmissionStarted &&
+      activePointerClosure.pointerState !== "committed"
+    )
+      throw new Error("docker_task_recovery_pointer_mismatch");
     if (activePointerClosure.activeState === "uncommitted") {
       if (hostSubmissionStarted)
         throw new Error("docker_task_recovery_active_run_mismatch");
@@ -3833,6 +3852,34 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         if (!removeCommittedDockerRecoveryJson(hostActiveBindingPath))
           throw new Error("docker_task_recovery_active_run_mismatch");
       releasePointer();
+      if (hostStateAlreadyClean) {
+        writeDurableJson(operationDirectory, "docker-absence-crash.json", {
+          schema: "crdd-coordinator-docker-absence/v1",
+          recoveryId: parsed.token,
+          allExactResourcesAbsent: true,
+          evidence: "crash_recovery_exact_id_and_configuration",
+        });
+        writeDurableJson(operationDirectory, "mount-crash-absence.json", {
+          schema: "crdd-coordinator-provider-home-mount-completion/v1",
+          recoveryId: parsed.token,
+          evidence: "process_generation_absent_plus_exact_docker_absent",
+        });
+        ensureHostCleanupReceipt(operationDirectory, parsed.token, hostPaths);
+        removeRecoveryOperationDirectory(
+          operationDirectory,
+          parsed.token,
+          parsed.operationNonce,
+          parsed.baseHash,
+          parsed.stableLogicalHomeBindingHash,
+          recoveryRuntimeStateBinding,
+        );
+        commitDirectoryMutationBoundary(root.rootPath);
+        return Object.freeze({
+          status: "recovered" as const,
+          reason: "docker_task_recovery_completed_after_host_precleanup",
+          recoveryId: null,
+        });
+      }
       writeDurableJson(operationDirectory, "host-cleanup-intent.json", {
         schema: "crdd-coordinator-host-cleanup-intent/v1",
         recoveryId: parsed.token,

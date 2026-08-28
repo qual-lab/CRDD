@@ -59,6 +59,13 @@ import {
 } from "../src/security/execution-environment.ts";
 import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
 import { assertPresent, errorCode } from "./test-support.ts";
+import { assertRuntimeTraceCase } from "./runtime-trace-case.ts";
+
+const DOCTOR_TRACE_ASSERTIONS: Readonly<
+  Record<string, typeof assertRuntimeTraceCase>
+> = Object.freeze({
+  "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED": assertRuntimeTraceCase,
+});
 
 function recordedIdentity(target: string) {
   const metadata = fs.lstatSync(target, { bigint: true });
@@ -3508,6 +3515,47 @@ test("Host cleanupはroot直下の未知entryを推測削除しない", () => {
   } finally {
     fs.rmSync(parent, { recursive: true, force: true });
   }
+});
+
+test("通常Host cleanupはDocker active bindingのcontentまたはcommit sidecarが残る間はrootを削除しない", () => {
+  for (const residual of ["content", "commit_sidecar"] as const) {
+    const owned = createOwnedOperationDirectories();
+    const activeBinding = path.join(
+      owned.directories.management,
+      "active-docker-task-v1.json",
+    );
+    const residualPath =
+      residual === "content"
+        ? activeBinding
+        : `${activeBinding}.crdd-commit.json`;
+    fs.writeFileSync(residualPath, "fixture", "utf8");
+    assert.throws(
+      () => cleanupOwnedOperationDirectories(owned),
+      /host_recovery_requires_docker_absence/u,
+    );
+    assert.equal(fs.existsSync(owned.root), true);
+    assert.equal(fs.existsSync(residualPath), true);
+    fs.rmSync(residualPath);
+    cleanupOwnedOperationDirectories(owned);
+    assert.equal(fs.existsSync(owned.root), false);
+  }
+  DOCTOR_TRACE_ASSERTIONS["CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED"]?.(
+    "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
+    {
+      id: "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
+      transitionId: "TRANS-STAGED-TO-HOST-CLEAN",
+      fromState: "STATE-CANDIDATE-STAGED",
+      outcome: "rejected",
+      expectedEndState: "STATE-RECOVERY-REQUIRED",
+      effectObservations: { provider: 0, host: 0, cleanup: 0 },
+      expectedStatus: "recovery_required",
+      resourcePostconditions: {
+        "RES-HOST-GENERATION": "preserved",
+        "RES-DOCKER-OWNED": "preserved",
+        "RES-OPERATION-WORKSPACE": "preserved",
+      },
+    },
+  );
 });
 
 test("Host cleanupはprojectionのlink置換を拒否する", (t) => {

@@ -2203,6 +2203,28 @@ function validateOwnedChildSet(root: string, children: ChildSnapshots): void {
   }
 }
 
+function requireNoActiveDockerBinding(
+  root: string,
+  managementName: string | undefined,
+): void {
+  if (!managementName) return;
+  const activeDockerBinding = path.join(
+    root,
+    managementName,
+    "active-docker-task-v1.json",
+  );
+  for (const candidate of [
+    activeDockerBinding,
+    `${activeDockerBinding}.crdd-commit.json`,
+  ]) {
+    const observation = observeFilesystemEntry(candidate);
+    if (observation === "unknown")
+      throw new Error("host_recovery_root_observation_unknown");
+    if (observation === "present")
+      throw new Error("host_recovery_requires_docker_absence");
+  }
+}
+
 function removeOwnedOperationRootForCleanup(owned: unknown) {
   const identity = ownedIdentity(owned);
   if (!identity) {
@@ -2231,6 +2253,10 @@ function removeOwnedOperationRootForCleanup(owned: unknown) {
     }
     if (identity.children)
       validateOwnedChildSet(identity.root, identity.children);
+    requireNoActiveDockerBinding(
+      identity.root,
+      identity.children?.management.name,
+    );
   } catch (error) {
     const message = errorMessage(error);
     if (
@@ -2252,6 +2278,8 @@ function removeOwnedOperationRootForCleanup(owned: unknown) {
         "owned_operation_directory_replaced",
         "owned_operation_child_replaced",
         "owned_operation_unknown_child",
+        "host_recovery_requires_docker_absence",
+        "host_recovery_root_observation_unknown",
       ].includes(message)
     )
       throw error;
@@ -2452,24 +2480,10 @@ export function recoverOwnedOperationDirectories(
             throw error;
           }
         }
-        const managementName = record.childIdentities.management?.pathName;
-        if (managementName) {
-          const activeDockerBinding = path.join(
-            root,
-            managementName,
-            "active-docker-task-v1.json",
-          );
-          for (const candidate of [
-            activeDockerBinding,
-            `${activeDockerBinding}.crdd-commit.json`,
-          ]) {
-            const observation = observeFilesystemEntry(candidate);
-            if (observation === "unknown")
-              throw new Error("host_recovery_root_observation_unknown");
-            if (observation === "present")
-              throw new Error("host_recovery_requires_docker_absence");
-          }
-        }
+        requireNoActiveDockerBinding(
+          root,
+          record.childIdentities.management?.pathName,
+        );
         fs.rmSync(root, { recursive: true, force: false });
         requireConfirmedAbsent(root, "host_recovery_cleanup_incomplete");
         reason = "host_cleanup_recovered";

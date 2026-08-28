@@ -992,7 +992,7 @@ test("Windows内部子Processの実Environmentは用途別固定集合へ閉じ�
 
   assert.deepEqual(describeWindowsChildEnvironmentContract(), {
     contract: WINDOWS_CHILD_ENVIRONMENT_CONTRACT,
-    contractRevision: 5,
+    contractRevision: 6,
     provenance: WINDOWS_NATIVE_HELPER_ENVIRONMENT_PROVENANCE,
     ambientNames: "fixed_neutral_values",
     callerEnvironmentAccepted: false,
