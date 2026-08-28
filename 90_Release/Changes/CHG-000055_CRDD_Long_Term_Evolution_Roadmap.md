@@ -3,8 +3,8 @@
 変更ID: `CHG-000055`
 - 状態: `Reopened`
 - 決定権限者: Qual-Lab
-- 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加）
-- 対象: CRDD標準自身の課題探索・要求形成における長期方向と能力到達点、エージェント組織における専門性と共有境界の明確化、単一プロダクトRoadmapへの状態投影、および課題探索・要求形成／Roadmap／変更トレースの既存責務境界
+- 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加、§9収載判断）
+- 対象: CRDD標準自身の課題探索・要求形成における長期方向と能力到達点、エージェント組織における専門性と共有境界の明確化、単一プロダクトRoadmapへの状態投影、課題探索・要求形成／Roadmap／変更トレースの既存責務境界、および三つの改善意図のv0.18.0 Candidate収載判断
 - 対象リリース: `v0.18.0 Candidate`
 - 変更分類: `additive`
 - `migration_required`: `false`
@@ -110,11 +110,19 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordina
 
 1. [`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)が所有するCoordinator Runtime 1.0の完成条件、正式署名一般Task、4経路E2E、失敗・取消・回復および完成監査を固定する。
 2. 完成固定版を基準に、三つの改善意図について現行正本、利用側、影響、保持する意図および対象外を再確認し、人間の着手判断を得る。
-3. RuntimeをDogfoodingして変更単位ごとに実装、正常・準正常・異常の検証、独立レビューおよび必要監査を完了する。
-4. v0.18.0 Candidate全体のRelease Readiness、CHANGELOG、移行および残存リスクを更新し、人間の統合・Release判断へ渡す。
+3. RuntimeをDogfoodingして変更単位ごとに実装、正常・準正常・異常の検証、独立レビューおよび必要監査を完了する。いずれかの改善がCHG-000015の対象ファイル、Runtime Architecture、Trust／Authority、Recovery、公開保証、試験閉包または配布Identityへ影響する場合はCHG-000015を再開または未完了へ戻し、改善後の固定版で完成条件、正式署名4経路E2E、失敗・取消・Recoveryおよび完成監査を再確認する。Runtime非影響の場合だけ、最終差分に対する依存閉包確認と理由付き非該当を記録して既存結果を維持する。
+4. 戻り辺が収束した最終Runtime Commit／Treeと完成監査・正式署名EvidenceのIdentityを一致させたうえで、v0.18.0 Candidate全体のRelease Readiness、CHANGELOG、移行および残存リスクを更新し、人間の統合・Release判断へ渡す。
 
 本判断は対象版への収載であって、実装着手、実装完了、規範採用、Stable化、main統合、タグ、公開またはReleaseではない。本CHGは収載判断と責務伝播を追跡し、各改善の具体的変更は、着手時に再確認した現在状態と影響を所有する一つ以上のCHGへ接続する。
 
-§8の監査結果は「版未割当」を含む旧固定改訂版の履歴であり、現在の収載判断の確認結果へ流用しない。本変更を`Ready for Release Handoff`へ戻す前に、新しい固定改訂版へリポジトリ全体Checker、Security／Architecture、Test／UX、文書、不足／影響および準拠の同じ必須監査集合を再実行する。
+§8の監査結果は「版未割当」を含む旧固定改訂版の履歴であり、現在の収載判断の確認結果へ流用しない。現在の統合境界は[`CHG-000014` §6](CHG-000014_V018_Architecture_Candidate_Integration.md#6-追加されたv0180収載境界)へ伝播した。本変更を`Ready for Release Handoff`へ戻す前に、新しい固定改訂版へリポジトリ全体Checker、Security／Architecture、Test／UX、文書、不足／影響および準拠の同じ必須監査集合を再実行する。
 
 README、CHANGELOG、[`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)およびEvidenceは、現時点では完成Capabilityまたは品質状態が変化していないため変更しない。各改善の完成固定時とv0.18.0 Release準備時に再評価し、利用者向け主張、品質状態および根拠を同期する。
+
+## 10. 収載判断の初回監査と統合是正
+
+固定改訂版`80a496b`へのSecurity／Architecture、Test／UX、文書、不足／影響および準拠の必須監査集合は、Critical 0、Major 2件相当、Minor 1件相当を検出して総合`Fail`となった。共通原因は、Runtime完成後のリファクタリングからCHG-000015の完成根拠へ戻る経路がなく、Roadmap単独では三改善の共通開始Gateと現行Release Scopeを再構成できなかったことである。あわせてDiscoveryから判断Traceへの直接接続、CHG-000014／CHG-000055の現在metadataが不足していた。
+
+統合修正では、§9へRuntime影響時のCHG-000015再開・最終Identity再固定と、非影響時の依存閉包確認を追加した。Roadmapの三項目へ共通のRuntime完成、正本／影響再確認、人間着手判断、Dogfoodingおよび変更単位の検証・監査を明示し、最終Release GateをCHG-000014 §6と本CHG §9へ直接接続した。Discoveryも現在の判断Traceへ直接接続し、両CHGのheader metadataを現在化した。
+
+この処置は`Applied`／`Self-checked`であり、指摘事項を`Resolved`または監査を`Pass`とする根拠には使用しない。修正後の新しいCommit／Treeと全体Checkerを固定し、同じ必須監査集合へ再提示して解消と新規Findingの有無を確認する。

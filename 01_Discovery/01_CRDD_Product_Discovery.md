@@ -17,7 +17,7 @@ Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0の正式署名�
 1. 課題探索・要求形成（Discovery）で、人間の暗黙Contextを発見し、反証し、再確認して収束させる対話Loopを強化する。
 2. UX、IA、UI、Graphic、SPEC、Architectureの各Agentを、同じ「賢いAI」ではなく工程固有の専門家として振る舞わせる。
 
-この時点の採用だけでは、実装着手、規範変更、特定版への収載、工程移行またはReleaseを意味しなかった。その後2026-08-28に、Qual-Labの人間の決定権限者は§7.3.1～§7.3.3を含む本強化をv0.18.0 Candidateへ収載すると判断した。収載判断は実装完了、規範採用、Stable化またはReleaseを意味せず、Coordinator Runtime 1.0の完成固定後に現行正本と影響を再確認して着手する順序を維持する。
+この時点の採用だけでは、実装着手、規範変更、特定版への収載、工程移行またはReleaseを意味しなかった。その後2026-08-28に、Qual-Labの人間の決定権限者は§7.3.1～§7.3.3を含む本強化をv0.18.0 Candidateへ収載すると判断した。判断経緯と実行順序は[`CHG-000055` §9](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)が所有する。収載判断は実装完了、規範採用、Stable化またはReleaseを意味せず、Coordinator Runtime 1.0の完成固定後に現行正本と影響を再確認して着手する順序を維持する。
 
 ## 2. 保持する意図
 
@@ -328,7 +328,7 @@ PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠か
 | 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
 |---|---|---|---|---|
 | CRDD v0.18.0 Candidate — 現Candidate差分 | 現在のCandidate差分として統合・固定確認中のCRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 項目別。RuntimeとRelease準備は`In Progress` | CHG-000015の完成固定、未終了CHGおよびRelease Readinessの確認 | 完了、Stable化またはRelease |
-| CRDD v0.18.0 Candidate — 収載決定済み未完了改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性を、Runtime完成後の自己適用から成熟させる | `Adopted / Planned` | CHG-000015の完成固定後、現行正本と影響を再確認して着手し、変更単位ごとの実装・検証・監査を完了 | 実装着手済み、実装完了、規範採用、Stable化、Releaseまたはv0.19.0以降の研究候補の収載 |
+| CRDD v0.18.0 Candidate — 収載決定済み未完了改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性を、Runtime完成後の自己適用から成熟させる | `Adopted / Planned`（判断経緯は[`CHG-000055` §9](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)） | CHG-000015の完成固定後、現行正本と影響を再確認して着手し、変更単位ごとの実装・検証・監査を完了 | 実装着手済み、実装完了、規範採用、Stable化、Releaseまたはv0.19.0以降の研究候補の収載 |
 | CRDD v0.19.0（将来能力像） | MCP等の協働接続面、Repository Binding／Router、Runtime境界およびCRDDの機械利用性をエコシステム自己適用（Ecosystem Dogfooding）し、v1能力到達性を評価する | `Held / Unscheduled` | v0.18.0の結果と、第2段階で得た最初の自己適用Evidenceを人間が再評価 | v0.19.0への収載予約、Release Candidate、専用PM Systemまたは実装許可 |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
 | CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |
