@@ -388,7 +388,6 @@ function advanceLifecycleState(
 export function classifyCoordinatorTaskTerminalLifecycleState(
   result: TaskCompletionRecord,
 ): RuntimeLifecycleState {
-  if (result.status === "completed") return "STATE-RESULT-PUBLISHED" as const;
   const exactRecoveryAvailable =
     result.hostRecoveryId !== null ||
     result.dockerRecoveryIds.length > 0 ||
@@ -404,6 +403,7 @@ export function classifyCoordinatorTaskTerminalLifecycleState(
       : ("STATE-OPERATOR-TRANSFER-REQUIRED" as const);
   if (result.processRestartRequired === true)
     return "STATE-PROCESS-RESTART-REQUIRED" as const;
+  if (result.status === "completed") return "STATE-RESULT-PUBLISHED" as const;
   return "STATE-BLOCKED-CLEAN" as const;
 }
 

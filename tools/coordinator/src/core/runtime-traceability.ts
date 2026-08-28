@@ -262,6 +262,7 @@ export function inspectCoordinatorRuntimeTraceability(
       !hasExactKeys(state, STATE_KEYS) ||
       (state.scope !== "task" &&
         state.scope !== "stage" &&
+        state.scope !== "process" &&
         state.scope !== "recovery") ||
       typeof state.invocationTerminal !== "boolean" ||
       typeof state.operationTerminal !== "boolean" ||

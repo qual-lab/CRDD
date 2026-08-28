@@ -40,7 +40,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
       status: "accepted",
       resources: 9,
       states: 20,
-      transitions: 20,
+      transitions: 21,
       invariants: 9,
       verificationBindings: 8,
     },
@@ -146,6 +146,7 @@ test("effect観測scopeとCanonical case完全一致assertionの無いTraceを�
 
 test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
+  const states = structuredClone(trace.states) as Record<string, unknown>[];
   const resources = structuredClone(trace.resources) as Record<
     string,
     unknown
@@ -155,12 +156,14 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
     unknown
   >[];
   resources[0] = { ...resources[0], accidental: true };
+  states[0] = { ...states[0], scope: "unknown_scope" };
   transitions[0] = {
     ...transitions[0],
     from: ["STATE-PROCESS-RESTART-REQUIRED"],
     risk: "hgh",
   };
   trace.resources = resources;
+  trace.states = states;
   trace.transitions = transitions;
   const boundaries = structuredClone(
     trace.verificationBoundaryByBinding,
@@ -173,6 +176,7 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
     assert.ok(
       result.issues.includes("RES-HOST-GENERATION:resource_shape_invalid"),
     );
+    assert.ok(result.issues.includes("STATE-ADMISSION:state_shape_invalid"));
     assert.ok(
       result.issues.includes(
         "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:transition_shape_invalid",

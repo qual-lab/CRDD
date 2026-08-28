@@ -13,6 +13,7 @@ import {
   describeCoordinatorTaskRuntimeContract,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
+import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../src/core/runtime-process-safety-state.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
   assertRuntimeTraceExecutionCoverage,
@@ -264,10 +265,18 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   "CASE-OPERATOR-TRANSFER-OPERATION-ACQUIRING": assertRuntimeTraceCase,
   "CASE-RECOVERY-OPERATION-READY": assertRuntimeTraceCase,
   "CASE-OPERATOR-TRANSFER-OPERATION-READY": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-ADMISSION": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-OPERATION-ACQUIRING": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-OPERATION-READY": assertRuntimeTraceCase,
   "CASE-PROCESS-RESTART-TASK-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-PROCESS-RESTART-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-REVIEWER-CLEAN": assertRuntimeTraceCase,
   "CASE-PROCESS-RESTART-REMEDIATION-AUTHORIZED": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-REMEDIATION-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-PROCESS-RESTART-REMEDIATION-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-REMEDIATION-REVIEWER-CLEAN": assertRuntimeTraceCase,
+  "CASE-PROCESS-RESTART-HOST-CLEAN-COMPLETED": assertRuntimeTraceCase,
   "CASE-OPERATOR-TRANSFER-TASK-AUTHORIZED": assertRuntimeTraceCase,
   "CASE-OPERATOR-TRANSFER-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-OPERATOR-TRANSFER-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
@@ -358,9 +367,14 @@ async function assertTerminalRuntimeTraceCase(
       terminal.state as keyof typeof terminalProjectionByState
     ];
   assert.ok(terminalProjection);
+  const transitionId =
+    terminal.state === "STATE-PROCESS-RESTART-REQUIRED" &&
+    source.state === "STATE-HOST-CLEAN"
+      ? "TRANS-HOST-CLEAN-TO-PROCESS-RESTART"
+      : terminalProjection.transitionId;
   const observed: RuntimeTraceCase = {
     id: caseId,
-    transitionId: terminalProjection.transitionId,
+    transitionId,
     fromState: source.state,
     outcome: "taken",
     expectedEndState: terminal.state,
@@ -492,6 +506,7 @@ function fixture(
     hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
     releaseDrainThrows?: boolean;
     isProcessPoisonedThrows?: boolean;
+    isProcessPoisoned?: () => boolean;
     cancellationTerminationObserved?: boolean;
     cancellationReceiptInvalid?: boolean;
     cancellationReceiptNever?: boolean;
@@ -792,7 +807,7 @@ function fixture(
     isProcessPoisoned: () => {
       if (options.isProcessPoisonedThrows)
         throw new Error("fixture_process_poison_observation_failed");
-      return poisonProcessCount > 0;
+      return options.isProcessPoisoned?.() ?? poisonProcessCount > 0;
     },
     bindRepository: () =>
       Object.freeze({
@@ -2988,29 +3003,67 @@ test("Task terminal分類はcleanup・手動Recovery・再起動・actionable ID
       ...overrides,
     });
   const exactHostRecoveryId = `host.root.${"a".repeat(64)}.${"b".repeat(64)}`;
-  for (const [overrides, expected] of [
-    [{ status: "completed" }, "STATE-RESULT-PUBLISHED"],
-    [{}, "STATE-BLOCKED-CLEAN"],
-    [{ processRestartRequired: true }, "STATE-PROCESS-RESTART-REQUIRED"],
-    [
-      { manualRecoveryRequired: true, hostRecoveryId: exactHostRecoveryId },
-      "STATE-RECOVERY-REQUIRED",
-    ],
-    [{ manualRecoveryRequired: true }, "STATE-OPERATOR-TRANSFER-REQUIRED"],
-    [
-      { cleanupConfirmed: false, hostRecoveryId: exactHostRecoveryId },
-      "STATE-RECOVERY-REQUIRED",
-    ],
-    [{ cleanupConfirmed: false }, "STATE-OPERATOR-TRANSFER-REQUIRED"],
-    [
-      { cleanupConfirmed: true, hostRecoveryId: exactHostRecoveryId },
-      "STATE-RECOVERY-REQUIRED",
-    ],
-  ] as const) {
-    assert.equal(
-      classifyCoordinatorTaskTerminalLifecycleState(record(overrides)),
-      expected,
-    );
+  const exactDockerRecoveryId = fixtureDockerRecoveryId("terminal-matrix");
+  const exactCandidateRecoveryId = `candidate-recovery.${"c".repeat(64)}.${"d".repeat(64)}`;
+  const exactCandidateStoreRecoveryId = `candidate-store-recovery.${"e".repeat(64)}`;
+  for (const status of ["blocked", "completed"] as const) {
+    for (const manualRecoveryRequired of [false, true]) {
+      for (const processRestartRequired of [false, true]) {
+        for (const cleanupConfirmed of [false, true]) {
+          for (let recoveryMask = 0; recoveryMask < 16; recoveryMask += 1) {
+            const hostRecoveryId =
+              (recoveryMask & 1) !== 0 ? exactHostRecoveryId : null;
+            const dockerRecoveryIds =
+              (recoveryMask & 2) !== 0
+                ? Object.freeze([exactDockerRecoveryId])
+                : Object.freeze([]);
+            const candidateRecoveryId =
+              (recoveryMask & 4) !== 0 ? exactCandidateRecoveryId : null;
+            const candidateStoreRecoveryId =
+              (recoveryMask & 8) !== 0 ? exactCandidateStoreRecoveryId : null;
+            const exactRecoveryAvailable = recoveryMask !== 0;
+            const expected =
+              manualRecoveryRequired ||
+              !cleanupConfirmed ||
+              exactRecoveryAvailable
+                ? exactRecoveryAvailable
+                  ? "STATE-RECOVERY-REQUIRED"
+                  : "STATE-OPERATOR-TRANSFER-REQUIRED"
+                : processRestartRequired
+                  ? "STATE-PROCESS-RESTART-REQUIRED"
+                  : status === "completed"
+                    ? "STATE-RESULT-PUBLISHED"
+                    : "STATE-BLOCKED-CLEAN";
+            assert.equal(
+              classifyCoordinatorTaskTerminalLifecycleState(
+                record({
+                  status,
+                  cleanupConfirmed,
+                  manualRecoveryRequired,
+                  processRestartRequired,
+                  hostRecoveryId,
+                  dockerRecoveryId:
+                    dockerRecoveryIds.length === 1
+                      ? (dockerRecoveryIds[0] ?? null)
+                      : null,
+                  dockerRecoveryIds,
+                  candidateRecoveryId,
+                  candidateStoreRecoveryId,
+                }),
+              ),
+              expected,
+              JSON.stringify({
+                status,
+                cleanupConfirmed,
+                manualRecoveryRequired,
+                processRestartRequired,
+                recoveryMask,
+              }),
+            );
+          }
+        }
+      }
+    }
   }
 });
 
@@ -3034,6 +3087,32 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.lifecycleStates.at(-1), "STATE-BLOCKED-CLEAN");
     await assertTerminalRuntimeTraceCase(
       "CASE-BLOCKED-ADMISSION",
+      harness,
+      result,
+    );
+  });
+
+  await t.test("CASE-PROCESS-RESTART-ADMISSION", async () => {
+    const harness = fixture({
+      inspectRepository: inspectRepositoryObjectFormatCandidate,
+      isProcessPoisoned: () => true,
+    });
+    const result = await harness.runtime.start(
+      request(),
+      sha256Repository(t),
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(result.processRestartRequired, true);
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
+    assert.equal(
+      harness.lifecycleStates.at(-1),
+      "STATE-PROCESS-RESTART-REQUIRED",
+    );
+    await assertTerminalRuntimeTraceCase(
+      "CASE-PROCESS-RESTART-ADMISSION",
       harness,
       result,
     );
@@ -3196,6 +3275,32 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.lifecycleStates.at(-2), "STATE-OPERATION-ACQUIRING");
     await assertTerminalRuntimeTraceCase(
       "CASE-BLOCKED-OPERATION-ACQUIRING",
+      harness,
+      result,
+    );
+  });
+
+  await t.test("CASE-PROCESS-RESTART-OPERATION-ACQUIRING", async () => {
+    const harness = fixture({
+      operationCreationFailure: "cleanup_confirmed",
+      isProcessPoisoned: () => true,
+    });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(result.processRestartRequired, true);
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-OPERATION-ACQUIRING");
+    assert.equal(
+      harness.lifecycleStates.at(-1),
+      "STATE-PROCESS-RESTART-REQUIRED",
+    );
+    await assertTerminalRuntimeTraceCase(
+      "CASE-PROCESS-RESTART-OPERATION-ACQUIRING",
       harness,
       result,
     );
@@ -3527,6 +3632,22 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       terminal: "operator" as const,
     }));
 
+  const processRestartProjectionCases = cases
+    .filter((scenario) =>
+      new Set([
+        "CASE-BLOCKED-OPERATION-READY",
+        "CASE-BLOCKED-EXECUTOR-CLEAN",
+        "CASE-BLOCKED-REVIEWER-CLEAN",
+        "CASE-BLOCKED-REMEDIATION-EXECUTOR-CLEAN",
+        "CASE-BLOCKED-REMEDIATION-REVIEWER-CLEAN",
+      ]).has(scenario.id),
+    )
+    .map((scenario) => ({
+      ...scenario,
+      id: scenario.id.replace("CASE-BLOCKED-", "CASE-PROCESS-RESTART-"),
+      options: { ...scenario.options, isProcessPoisoned: () => true },
+    }));
+
   for (const scenario of [...cases, ...operatorProjectionCases]) {
     await t.test(scenario.id, async () => {
       const harness = fixture(scenario.options);
@@ -3568,6 +3689,31 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
           true,
         );
       }
+      await assertTerminalRuntimeTraceCase(scenario.id, harness, result);
+    });
+  }
+
+  for (const scenario of processRestartProjectionCases) {
+    await t.test(scenario.id, async () => {
+      const harness = fixture(scenario.options);
+      const result = await harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion;
+      assert.equal(result.status, "blocked");
+      assert.equal(result.cleanupConfirmed, true);
+      assert.equal(result.manualRecoveryRequired, false);
+      assert.equal(result.processRestartRequired, true);
+      assert.equal(result.hostRecoveryId, null);
+      assert.deepEqual(result.dockerRecoveryIds, []);
+      assert.equal(result.candidateRecoveryId, null);
+      assert.equal(result.candidateStoreRecoveryId, null);
+      assert.equal(harness.lifecycleStates.at(-2), scenario.source);
+      assert.equal(
+        harness.lifecycleStates.at(-1),
+        "STATE-PROCESS-RESTART-REQUIRED",
+      );
       await assertTerminalRuntimeTraceCase(scenario.id, harness, result);
     });
   }
@@ -3643,6 +3789,50 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       await assertTerminalRuntimeTraceCase(scenario.id, harness, result);
     });
   }
+
+  await t.test("CASE-PROCESS-RESTART-HOST-CLEAN-COMPLETED", async () => {
+    const processSafetyState =
+      createIsolatedRuntimeProcessSafetyStateCandidate();
+    const harness = fixture({
+      pauseRole: "reviewer",
+      pauseRoleOccurrence: 1,
+      isProcessPoisoned: processSafetyState.isPoisoned,
+    });
+    const started = harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    );
+    while (harness.processStartCount() < 2)
+      await new Promise((resolve) => setImmediate(resolve));
+    processSafetyState.poisonCleanupUnknown();
+    harness.releasePausedProcess();
+    const result = await started.completion;
+    assert.equal(result.status, "completed");
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(result.processRestartRequired, true);
+    assert.ok(result.candidateId);
+    assert.equal(result.hostRecoveryId, null);
+    assert.deepEqual(result.dockerRecoveryIds, []);
+    assert.equal(result.candidateRecoveryId, null);
+    assert.equal(result.candidateStoreRecoveryId, null);
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-HOST-CLEAN");
+    assert.equal(
+      harness.lifecycleStates.at(-1),
+      "STATE-PROCESS-RESTART-REQUIRED",
+    );
+    assert.equal(processSafetyState.isEffectBlocked(), true);
+    assert.equal(
+      createIsolatedRuntimeProcessSafetyStateCandidate().isEffectBlocked(),
+      false,
+    );
+    await assertTerminalRuntimeTraceCase(
+      "CASE-PROCESS-RESTART-HOST-CLEAN-COMPLETED",
+      harness,
+      result,
+    );
+  });
 });
 
 test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {

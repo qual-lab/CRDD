@@ -138,4 +138,21 @@ test("cleanup確認済みの再起動だけの表示はoperator移送やRecovery
   assert.match(rendered, /restart Coordinator Runtime/u);
   assert.match(rendered, /manual recovery required: no/u);
   assert.doesNotMatch(rendered, /runtime operator|recovery ID/u);
+
+  const completed = renderSafeHumanCommandReport({
+    command: "task",
+    status: "completed",
+    reason: "coordinator_task_completed",
+    candidateId: `candidate.${digestA}.${digestB}`,
+    manualRecoveryRequired: false,
+    processRestartRequired: true,
+    hostRecoveryId: null,
+    dockerRecoveryIds: [],
+    candidateRecoveryId: null,
+    candidateStoreRecoveryId: null,
+  });
+  assert.match(completed, /candidate/u);
+  assert.match(completed, /restart Coordinator Runtime/u);
+  assert.match(completed, /manual recovery required: no/u);
+  assert.doesNotMatch(completed, /runtime operator|recovery ID/u);
 });
