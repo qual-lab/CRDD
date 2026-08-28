@@ -115,14 +115,16 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordina
 
 本判断は対象版への収載であって、実装着手、実装完了、規範採用、Stable化、main統合、タグ、公開またはReleaseではない。本CHGは収載判断と責務伝播を追跡し、各改善の具体的変更は、着手時に再確認した現在状態と影響を所有する一つ以上のCHGへ接続する。
 
-§8の監査結果は「版未割当」を含む旧固定改訂版の履歴であり、現在の収載判断の確認結果へ流用しない。現在の統合境界は[`CHG-000014` §6](CHG-000014_V018_Architecture_Candidate_Integration.md#6-追加されたv0180収載境界)へ伝播した。本変更を`Ready for Release Handoff`へ戻す前に、新しい固定改訂版へリポジトリ全体Checker、Security／Architecture、Test／UX、文書、不足／影響および準拠の同じ必須監査集合を再実行する。
+§8の監査結果は「版未割当」を含む旧固定改訂版の履歴であり、現在の収載判断の確認結果へ流用しない。現在の統合境界は[`CHG-000014` §9](CHG-000014_V018_Architecture_Candidate_Integration.md#9-追加されたv0180収載境界)へ伝播した。本変更を`Ready for Release Handoff`へ戻す前に、新しい固定改訂版へリポジトリ全体Checker、Security／Architecture、Test／UX、文書、不足／影響および準拠の同じ必須監査集合を再実行する。
 
 README、CHANGELOG、[`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)およびEvidenceは、現時点では完成Capabilityまたは品質状態が変化していないため変更しない。各改善の完成固定時とv0.18.0 Release準備時に再評価し、利用者向け主張、品質状態および根拠を同期する。
 
 ## 10. 収載判断の初回監査と統合是正
 
-固定改訂版`80a496b`へのSecurity／Architecture、Test／UX、文書、不足／影響および準拠の必須監査集合は、Critical 0、Major 2件相当、Minor 1件相当を検出して総合`Fail`となった。共通原因は、Runtime完成後のリファクタリングからCHG-000015の完成根拠へ戻る経路がなく、Roadmap単独では三改善の共通開始Gateと現行Release Scopeを再構成できなかったことである。あわせてDiscoveryから判断Traceへの直接接続、CHG-000014／CHG-000055の現在metadataが不足していた。
+固定改訂版`80a496b2f43218ad349830e3ccc2202487ecde70`（Tree `7aa8d18c6739cb588163cc395a1ad069752e09b8`）へのSecurity／Architecture、Test／UX、文書、不足／影響および準拠の必須監査集合は、Critical 0、Major 2件相当、Minor 1件相当を検出して総合`Fail`となった。共通原因は、Runtime完成後のリファクタリングからCHG-000015の完成根拠へ戻る経路がなく、Roadmap単独では三改善の共通開始Gateと現行Release Scopeを再構成できなかったことである。あわせてDiscoveryから判断Traceへの直接接続、CHG-000014／CHG-000055の現在metadataが不足していた。
 
-統合修正では、§9へRuntime影響時のCHG-000015再開・最終Identity再固定と、非影響時の依存閉包確認を追加した。Roadmapの三項目へ共通のRuntime完成、正本／影響再確認、人間着手判断、Dogfoodingおよび変更単位の検証・監査を明示し、最終Release GateをCHG-000014 §6と本CHG §9へ直接接続した。Discoveryも現在の判断Traceへ直接接続し、両CHGのheader metadataを現在化した。
+統合修正では、§9へRuntime影響時のCHG-000015再開・最終Identity再固定と、非影響時の依存閉包確認を追加した。Roadmapの三項目へ共通のRuntime完成、正本／影響再確認、人間着手判断、Dogfoodingおよび変更単位の検証・監査を明示し、最終Release GateをCHG-000014の現行収載境界と本CHG §9へ直接接続した。Discoveryも現在の判断Traceへ直接接続し、両CHGのheader metadataを現在化した。
 
 この処置は`Applied`／`Self-checked`であり、指摘事項を`Resolved`または監査を`Pass`とする根拠には使用しない。修正後の新しいCommit／Treeと全体Checkerを固定し、同じ必須監査集合へ再提示して解消と新規Findingの有無を確認する。
+
+再固定版`ef955b930c67ed72673f52e04aef23fadb167c70`（Tree `b8ab41b0bbf125a553356b568002f07f30f3f390`）への再監査では、前回Findingを全数`Resolved`とした一方、文書監査がCHG-000014の節番号重複と旧Fail固定版のTree欠落をMinor 2件として検出した。収載境界を既存§1～§8の履歴番号を変えず§9へ改番して全参照を追従し、旧Fail監査対象を完全Commit／Treeへ固定した。この処置も`Applied`／`Self-checked`であり、新固定改訂版の同じ必須監査集合が完了するまで総合`Pass`へ昇格しない。
