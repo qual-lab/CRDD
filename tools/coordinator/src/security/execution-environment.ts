@@ -2452,6 +2452,24 @@ export function recoverOwnedOperationDirectories(
             throw error;
           }
         }
+        const managementName = record.childIdentities.management?.pathName;
+        if (managementName) {
+          const activeDockerBinding = path.join(
+            root,
+            managementName,
+            "active-docker-task-v1.json",
+          );
+          for (const candidate of [
+            activeDockerBinding,
+            `${activeDockerBinding}.crdd-commit.json`,
+          ]) {
+            const observation = observeFilesystemEntry(candidate);
+            if (observation === "unknown")
+              throw new Error("host_recovery_root_observation_unknown");
+            if (observation === "present")
+              throw new Error("host_recovery_requires_docker_absence");
+          }
+        }
         fs.rmSync(root, { recursive: true, force: false });
         requireConfirmedAbsent(root, "host_recovery_cleanup_incomplete");
         reason = "host_cleanup_recovered";

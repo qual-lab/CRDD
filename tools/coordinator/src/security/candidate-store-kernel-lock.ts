@@ -5,7 +5,9 @@ import { Worker } from "node:worker_threads";
 import { createWindowsHostOperationSupervisorEnvironment } from "../core/windows-child-environment.ts";
 
 const LOCK_ACQUIRE_TIMEOUT_MS = 1_000;
-const LOCK_RELEASE_TIMEOUT_MS = 1_000;
+const LOCK_RELEASE_TIMEOUT_MS = 5_000;
+const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
+const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
 
 type HostOperationSupervisorCleanup =
   | "released"
@@ -199,9 +201,12 @@ async function terminateAndConfirmInteractiveConsoleLockWorker(
 ) {
   const termination = await withinTimeout(
     worker.terminate(),
-    LOCK_RELEASE_TIMEOUT_MS,
+    INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS,
   );
-  const exitResult = await withinTimeout(exit, LOCK_RELEASE_TIMEOUT_MS);
+  const exitResult = await withinTimeout(
+    exit,
+    INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS,
+  );
   return (
     termination.completed &&
     exitResult.completed &&
@@ -258,13 +263,16 @@ export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
           return "cleanup_unknown" as const;
         }
         if (
-          !waitForState(state, 1, LOCK_RELEASE_TIMEOUT_MS) ||
+          !waitForState(state, 1, INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS) ||
           Atomics.load(state, 0) !== 2
         ) {
           await terminateAndConfirmInteractiveConsoleLockWorker(worker, exit);
           return "cleanup_unknown" as const;
         }
-        const exitResult = await withinTimeout(exit, LOCK_RELEASE_TIMEOUT_MS);
+        const exitResult = await withinTimeout(
+          exit,
+          INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS,
+        );
         return exitResult.completed && exitResult.value === "exited"
           ? ("released" as const)
           : ("cleanup_unknown" as const);
@@ -434,7 +442,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
     releaseTimeoutMs: number;
   }> = Object.freeze({
     acquireTimeoutMs: LOCK_ACQUIRE_TIMEOUT_MS,
-    releaseTimeoutMs: LOCK_RELEASE_TIMEOUT_MS,
+    releaseTimeoutMs: HOST_SUPERVISOR_RELEASE_TIMEOUT_MS,
   }),
 ): Promise<HostOperationSupervisorLockOutcome> {
   if (process.platform !== "win32")

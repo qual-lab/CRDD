@@ -77,7 +77,7 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 
 Host Operation Rootの初期化は、Root生成前に`state=initializing`、選定済みnonceおよびroot名を耐久Host Recovery recordへ確定してから行う。Root生成前にProcessが失われた場合は、同じrecordからRoot不存在を確認してmarkerを回収できる。Root生成後かつFilesystem Identity確定前にProcessが失われた場合は、所有Identityを推測して削除せず、exact recordとRootを保持して手動Recoveryへ移送する。Recovery IDは、当該呼出しが捕捉した旧markerのFilesystem Identity＋bytes、または当該writeのtemporary handleから確定したsuccessor Identity＋bytesのいずれかと現在markerが一致し、exact schema、Root名および実bytesのHashを安定再読取りできた場合だけ返す。内容が同じでも無関係なIdentityへ置換されたrecordを再信頼しない。耐久recordがまだ成立していない、部分的である、捕捉済みlineageに属さない、または観測が一意でない場合は、推測したIDを返さずIDなしのoperator transferへ閉じる。Root、marker、一時領域およびRecovery recordの全てについてIdentityと終了後条件を確認できた場合だけ`host_only`以降へ進み、Task成功またはclean blockedへ昇格する。
 
-Docker Recovery開始成功形は、exact `status=ready`、Recovery ID、stable logical Home binding、management bindingおよびRuntime発行のopaque Capabilityを一つのbindingとしてEffect前に再検証する。不正成功形を破棄するときのRecovery abandonとMount settlementは、後続Docker／Provider Effectを止めAuthority／Leaseを返すbest-effort処置であり、既に作成したdurable Recovery record、pointerまたはactive bindingのcleanupを証明しない。したがって後続Docker／Provider Effect 0を維持しつつdurable recordを保持し、構文上正しいexact IDは手動Recoveryへ移す。ID自体が不正または観測不能ならIDなしのoperator transferへ閉じる。Recovery inventoryのactive Home hashは全Recovery IDの集合ではなくactive pointerを持つHomeの部分集合であり、inactive／cleanup中の正当なIDを欠落させる根拠にしない。
+Docker Recovery開始成功形は、exact `status=ready`、Recovery ID、stable logical Home binding、management bindingおよびRuntime発行のopaque Capabilityを一つのbindingとしてEffect前に再検証する。不正成功形を破棄するときのRecovery abandonとMount settlementは、後続Docker／Provider Effectを止めAuthority／Leaseを返すbest-effort処置であり、既に作成したdurable Recovery record、pointerまたはactive bindingのcleanupを証明しない。したがって後続Docker／Provider Effect 0を維持しつつdurable recordを保持し、構文上正しいexact IDは手動Recoveryへ移す。ID自体が不正または観測不能ならIDなしのoperator transferへ閉じる。開始処理がexact Recovery IDを伴うclean blocked結果を返した場合は、その下位理由を保った回復待ちとして公開し、成功形のidentity不一致へ読み替えない。Recovery inventoryのactive Home hashは全Recovery IDの集合ではなくactive pointerを持つHomeの部分集合であり、inactive／cleanup中の正当なIDを欠落させる根拠にしない。
 
 ## 5. Lock順序と解放窓
 
@@ -91,7 +91,7 @@ RES-HOST-GENERATION
 
 Host Effect不存在をfresh Evidenceから確認済みのcleanup-only Recoveryだけは、`RES-LOGICAL-HOME-LOCK → RES-RUNTIME-STATE-LOCK`で残骸を処置できる。
 
-Runtime State lockを保持したまま、native observation、Docker CLIまたは長時間Host Effectを実行しない。Windows native resource境界で必要な場合はHost generationも一時解放する。解放窓では新しいAuthorityを発行せず、再取得後かつ最初の後続Effect前に次を全て再確認する。
+Runtime State lockを保持したまま、native observation、Docker CLIまたは長時間Host Effectを実行しない。Windows native resource境界で必要な場合はHost generationも一時解放する。Candidate Store、logical Provider HomeおよびRuntime Stateの同期named pipe lockは、release stateを最大5秒まで観測してから解放完了とし、時間内に観測できなければ解放済みと推定せず観測不能へ閉じる。これは固定sleepではなく、資源状態の待機上限である。Interactive Console lockとHost Operation Supervisorの別Process cleanup上限はこの変更で拡張しない。解放窓では新しいAuthorityを発行せず、再取得後かつ最初の後続Effect前に次を全て再確認する。
 
 - Host Rootとnonce
 - Runtime State Root IdentityとProtection
@@ -116,7 +116,9 @@ Runtime State lockを保持したまま、native observation、Docker CLIまた�
 
 Host Recoveryの`initializing` recordは、Root生成より前に耐久化する初期化intentである。Rootが不存在なら未発行Effectとしてmarkerを回収できる。Rootが存在してもrecordにIdentityがまだ確定していない場合は、名前やnonceの一致だけを所有証明にせず、Rootとrecordを保持して`STATE-RECOVERY-REQUIRED`へ進む。
 
-Host側`active-docker-task-v1.json`のcontent-only状態は、同期的なcommit sidecar確定より前、かつHost generation Effectより前の到達可能中間状態である。明示Recoveryは、同一Lock内でHostがprevious世代、全submission不存在、baseが完全一致し、committed pointerのschema／stable Home／operation name／Recovery ID／base hashが完全一致し、active bindingのschema／Recovery ID／base hash／operation nonceが完全一致し、active commit sidecarが不存在の場合だけ当該contentをrollbackする。通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの全削除経路は、同じactive binding／pointer閉包を削除前に検証する。存在観測は`ENOENT`だけを不存在へ写像し、権限拒否、共有競合、I/O失敗、非fileまたはsymlinkを観測不能として扱う。削除後のactive binding、pointer、commit sidecar、complete receiptおよびHost inventoryも同じ規則で再観測し、観測不能ならanchorとEvidenceを保持したまま`STATE-RECOVERY-REQUIRED`を維持する。active bindingが存在するのにpointerが欠落・partial・置換、不一致または観測不能なら、どちらも削除しない。active bindingが既に不存在でexact committed pointerだけが残る非対称状態は、pointerの完全一致を確認して再開できる。
+Host側`active-docker-task-v1.json`のcontent-only状態は、同期的なcommit sidecar確定より前、かつHost generation Effectより前の到達可能中間状態である。Host明示Recoveryは、Host recordの状態が`host_only`でもactive bindingのcontentまたはcommit sidecarが存在する限りHost Rootを先に回収せず、Docker Recoveryを要求する。Docker明示Recoveryは、同一Lock内でHostがprevious世代、全submission不存在、baseが完全一致し、committed pointerのschema／stable Home／operation name／Recovery ID／base hashが完全一致し、active bindingのschema／Recovery ID／base hash／operation nonceが完全一致し、active commit sidecarが不存在の場合だけ当該contentをrollbackする。通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの全削除経路は、同じactive binding／pointer閉包を削除前に検証する。存在観測は`ENOENT`だけを不存在へ写像し、権限拒否、共有競合、I/O失敗、非fileまたはsymlinkを観測不能として扱う。削除後のactive binding、pointer、commit sidecar、complete receiptおよびHost inventoryも同じ規則で再観測し、観測不能ならanchorとEvidenceを保持したまま`STATE-RECOVERY-REQUIRED`を維持する。active bindingが存在するのにpointerが欠落・partial・置換、不一致または観測不能なら、どちらも削除しない。active bindingが既に不存在でexact committed pointerだけが残る非対称状態は、pointerの完全一致を確認して再開できる。
+
+旧版の不具合によってHost Rootとmarkerだけが先に回収済みで、exact Docker Recovery recordが残った状態は、新しい通常順序の成立証明には使わない。明示Docker Recoveryは、対象Host Rootとmarkerの双方が不存在であること、exact Docker identityと全Docker資源の不存在または回収、Mount settlement、Host active binding不存在およびpointerのexact releaseを順に確認し、Host absence receiptを記録してから当該Recovery recordだけを回収できる。一つでも観測不能または不一致ならEvidenceを保持し、Provider Effectや結果公開へ進まない。
 
 ## 7. cleanup依存順
 
@@ -144,6 +146,7 @@ Provider child／Docker resource absence
 | `INV-DURABLE-BEFORE-EFFECT` | 外部またはHost Effectの前に、再構成に必要なintent／submissionをcommit済みにする |
 | `INV-STAGE-CLEAN-BEFORE-HANDOFF` | Executor／Reviewerの結果を次Stageへ渡す前に、そのStageのchildとDocker cleanupを確認する |
 | `INV-CANDIDATE-EXACT-AND-NONCANONICAL` | Candidateは開始Revisionと許可Pathへ固定し、Canonical Repositoryへ直接適用しない |
+| `INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE` | Host cleanupはactive Docker binding Evidenceがある間は停止し、旧版のHost先行回収状態もexact Docker照合とbinding閉包の後だけ完了する |
 | `INV-BOUNDED-REMEDIATION` | Reviewer findingは一回だけ同じExecutorへ返し、同じReviewerが再評価する |
 | `INV-RESULT-AFTER-CLEANUP` | Host、Docker、Mount、Candidateおよびsignal cleanup確認後だけ成功結果を公開する |
 | `INV-CLEAN-BLOCK-HAS-NO-RECOVERY` | 安全なblockedは所有資源不存在かつactionable Recovery ID 0の場合だけ成立する |

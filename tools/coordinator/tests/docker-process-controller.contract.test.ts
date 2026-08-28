@@ -715,6 +715,73 @@ test("Recovery成功unionはready exact形とopaque bindingを必須にしdurabl
   }
 });
 
+test("Recovery初期化がexact ID付きで安全停止した場合は下位理由を公開分類してEffect 0を保つ", () => {
+  const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+  const fixture = createFixture({
+    beginRecovery: () =>
+      Object.freeze({
+        status: "blocked" as const,
+        reason: "docker_task_runtime_state_lock_release_unconfirmed",
+        recoveryId: exactId,
+      }),
+  });
+  const blocked = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(blocked.status, "blocked");
+  assert.equal(
+    blocked.reason,
+    "docker_process_controller_recovery_observation_unknown",
+  );
+  assert.equal(blocked.recoveryId, exactId);
+  assert.equal(blocked.cleanupConfirmed, true);
+  assert.equal(blocked.manualRecoveryRequired, true);
+  assert.equal(blocked.dockerEffectStarted, false);
+  assert.equal(fixture.getCommandCount(), 0);
+  assert.equal(fixture.getMountCompletionCount(), 1);
+});
+
+test("exact ID付き安全停止も余分field・accessor・Proxyから公開理由を採用しない", () => {
+  const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+  const accessor = Object.create(Object.prototype);
+  Object.defineProperties(accessor, {
+    status: { enumerable: true, value: "blocked" },
+    reason: {
+      enumerable: true,
+      get: () => "docker_task_runtime_state_lock_release_unconfirmed",
+    },
+    recoveryId: { enumerable: true, value: exactId },
+  });
+  for (const malformed of [
+    Object.freeze({
+      status: "blocked",
+      reason: "docker_task_runtime_state_lock_release_unconfirmed",
+      recoveryId: exactId,
+      extra: true,
+    }),
+    accessor,
+    new Proxy(Object.freeze({ status: "blocked" }), {
+      ownKeys: () => {
+        throw new Error("fixture_proxy_must_not_escape");
+      },
+    }),
+  ]) {
+    const fixture = createFixture({ beginRecovery: () => malformed });
+    const blocked = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(blocked.status, "blocked");
+    assert.notEqual(
+      blocked.reason,
+      "docker_process_controller_recovery_observation_unknown",
+    );
+    assert.equal(blocked.dockerEffectStarted, false);
+    assert.equal(fixture.getCommandCount(), 0);
+  }
+});
+
 test("Recovery bindingまたはabort不明はexact IDを保持してEffect 0へ閉じる", () => {
   const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
   for (const abandonRecovery of [
@@ -853,7 +920,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);

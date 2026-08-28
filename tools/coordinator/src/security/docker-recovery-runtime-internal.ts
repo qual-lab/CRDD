@@ -55,7 +55,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 21;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 22;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -3368,6 +3368,9 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     )
       throw new Error("docker_task_recovery_base_mismatch");
     const hostPaths = hostPathsFromBase(base);
+    const hostStateAlreadyClean =
+      !recoveryPathPresent(hostPaths.root) &&
+      !recoveryPathPresent(hostPaths.marker);
     const managementDirectoryName = managementDirectoryNameFromBase(base);
     const initialHostRecoveryId = String(base.initialHostRecoveryId ?? "");
     const initialHostIdentity = parseHostRecoveryToken(initialHostRecoveryId);
@@ -3746,12 +3749,17 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       throw new Error("docker_task_recovery_host_begin_mismatch");
     const submissionHostToken = hostReceipt.observed ?? "";
     parseHostRecoveryToken(submissionHostToken);
-    const host = loadHostRecoveryRecordByToken(submissionHostToken);
-    const managementName = (
-      host.record.childIdentities as Record<string, { pathName: string }>
-    ).management?.pathName;
+    const host = hostStateAlreadyClean
+      ? null
+      : loadHostRecoveryRecordByToken(submissionHostToken);
+    const managementName = host
+      ? (host.record.childIdentities as Record<string, { pathName: string }>)
+          .management?.pathName
+      : managementDirectoryName;
     if (!managementName) throw new Error("docker_task_recovery_host_mismatch");
-    const hostRoot = path.join(host.parent, host.parsed.rootName);
+    const hostRoot = host
+      ? path.join(host.parent, host.parsed.rootName)
+      : hostPaths.root;
     const hostActiveBindingPath = path.join(
       hostRoot,
       managementName,
@@ -4035,6 +4043,46 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         recoveryId: parsed.token,
         allExactResourcesAbsent: true,
         evidence: "crash_recovery_exact_id_and_configuration",
+      });
+    }
+    if (hostStateAlreadyClean) {
+      const finalClosure = verifyActiveBindingAndPointerClosure(
+        hostActiveBindingPath,
+        pointerPath,
+        expectedHostActiveBinding(
+          parsed.token,
+          parsed.baseHash,
+          parsed.operationNonce,
+        ),
+        expectedPointer,
+      );
+      if (finalClosure.activeState !== "absent")
+        throw new Error("docker_task_recovery_active_run_mismatch");
+      const mountCrashPath = path.join(
+        operationDirectory,
+        "mount-crash-absence.json",
+      );
+      if (!recoveryPathPresent(mountCrashPath))
+        writeDurableJson(operationDirectory, "mount-crash-absence.json", {
+          schema: "crdd-coordinator-provider-home-mount-completion/v1",
+          recoveryId: parsed.token,
+          evidence: "process_generation_absent_plus_exact_docker_absent",
+        });
+      releasePointer();
+      ensureHostCleanupReceipt(operationDirectory, parsed.token, hostPaths);
+      removeRecoveryOperationDirectory(
+        operationDirectory,
+        parsed.token,
+        parsed.operationNonce,
+        parsed.baseHash,
+        parsed.stableLogicalHomeBindingHash,
+        recoveryRuntimeStateBinding,
+      );
+      commitDirectoryMutationBoundary(root.rootPath);
+      return Object.freeze({
+        status: "recovered" as const,
+        reason: "docker_task_recovery_completed_after_host_precleanup",
+        recoveryId: null,
       });
     }
     const crashIntentPath = path.join(

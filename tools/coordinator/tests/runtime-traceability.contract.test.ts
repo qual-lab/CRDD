@@ -41,7 +41,7 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
       resources: 9,
       states: 20,
       transitions: 21,
-      invariants: 9,
+      invariants: 10,
       verificationBindings: 8,
     },
   );

@@ -31,7 +31,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 14;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 15;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -228,6 +228,28 @@ function snapshotReadyRecovery(value: unknown): Recovery | null {
     recoveryCapability !== null &&
     typeof recoveryCapability === "object"
     ? Object.freeze({ status, recoveryId, recoveryCapability })
+    : null;
+}
+
+function snapshotBlockedRecoveryWithExactId(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  try {
+    if (
+      Object.getPrototypeOf(value) !== Object.prototype ||
+      Object.keys(value).sort().join("\0") !==
+        ["reason", "recoveryId", "status"].sort().join("\0")
+    )
+      return null;
+  } catch {
+    return null;
+  }
+  const status = ownDataValue(value, "status");
+  const reason = ownDataValue(value, "reason");
+  const recoveryId = publicVerifiedDockerRecoveryId(
+    ownDataValue(value, "recoveryId"),
+  );
+  return status === "blocked" && typeof reason === "string" && recoveryId
+    ? Object.freeze({ status, reason, recoveryId })
     : null;
 }
 
@@ -743,6 +765,19 @@ function start(
     const malformedRecoveryId = publicVerifiedDockerRecoveryId(
       ownDataValue(recovery, "recoveryId"),
     );
+    const exactBlocked = snapshotBlockedRecoveryWithExactId(recovery);
+    if (!malformedCapability && exactBlocked) {
+      const completed = state.dependencies.completeMount(
+        plan.activeMountCapability,
+        managementCapability,
+      );
+      return createBlockedStart(
+        publicDockerRecoveryStartReason(exactBlocked.reason),
+        completed.status === "completed",
+        exactBlocked.recoveryId,
+        true,
+      );
+    }
     if (malformedCapability || malformedRecoveryId)
       return settleInvalidRecoveryStart(
         state,
