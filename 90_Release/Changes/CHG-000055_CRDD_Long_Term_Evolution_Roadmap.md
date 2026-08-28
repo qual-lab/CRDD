@@ -74,9 +74,9 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordina
 
 単一Roadmapには三項目の判断状態、対応状態、情報源および次の処置だけを追加した。既存のMCP／協働接続面、Project Runtimeおよび複数プロジェクト／組織実行環境は既に第4～第6段階の研究候補として記録済みであるため、重複項目を追加していない。本追記は`additive`かつ`migration_required=false`を維持する。更新固定版の文書監査、不足／影響監査およびリポジトリ全体Checkerが完了するまで、本節の追加分を確認済みへ昇格しない。
 
-## 7. Version Evolutionと専門性の責務分離
+## 7. CRDD版の発展（Version Evolution）と専門性の責務分離
 
-2026-08-28、Qual-Labの人間の決定権限者は、長期方向をCRDD v0.18.0 Candidate、版未割当の採用済み改善、ならびに将来のCRDD v0.19.0、v1.0.0、v1.x、v2.xおよび将来（Future）という人間可読な能力到達点へ投影する表示枠組みを採用した。あわせて、専門機能をCRDDの共有責務境界へ増やし続けず、まずProject ContextとRole／Skillによる自己適用で成立性を確認する方向を採用した。
+2026-08-28、Qual-Labの人間の決定権限者は、長期方向をCRDD v0.18.0 Candidate、版未割当の採用済み改善、ならびに将来のCRDD v0.19.0、v1.0.0、v1.x、v2.xおよび将来（Future）という人間可読な能力到達点へ投影する表示枠組みを採用した。あわせて、専門機能をCRDDの共有責務境界へ増やし続けず、まず個別ProjectのContextとRole／Skillによる自己適用で成立性を確認する方向を採用した。
 
 採用したのは、能力到達点の表示枠組みと、実測から責務境界を抽出する根拠駆動ループである。版未割当の改善意図はv0.18.0または将来版への収載予約ではなく、v0.19.0、v1.0.0、v1.x、v2.xおよび将来（Future）の個別能力像は`Held / Unscheduled`として登録した。将来Versionの予約、Release Candidate、収載、期限、互換性、PM／QA／Planner等の具体機能、UI、MCP、Remote Runtime、Linux、Self-hosted Provider、Organization Runtime、共有責務境界の分割方式またはReleaseを採用していない。Versionは公開差分と互換性を所有する[`19_Maintenance.md`](../../19_Maintenance.md#51-release-version-and-revision)に従い、実現時の採用済み差分と人間判断から再割当できる。
 
