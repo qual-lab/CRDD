@@ -2,6 +2,10 @@ import {
   snapshotPlainArray,
   snapshotPlainRecord,
 } from "./plain-data-snapshot.ts";
+import {
+  isSha256Hex,
+  parseDockerTaskRecoveryId,
+} from "./docker-recovery-identity.ts";
 
 const RECOVERY_OBSERVATION_KEYS = new Set([
   "status",
@@ -91,6 +95,10 @@ export function publicDockerRecoveryStartReason(reason: unknown) {
   return "docker_process_controller_recovery_unavailable";
 }
 
+export function publicVerifiedDockerRecoveryId(value: unknown) {
+  return parseDockerTaskRecoveryId(value)?.token ?? null;
+}
+
 export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   const observation = snapshotPlainRecord(
     rawObservation,
@@ -105,29 +113,41 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
       dockerRecoveryIds: Object.freeze([] as string[]),
     });
   const idsSnapshot = snapshotPlainArray(observation.dockerRecoveryIds, 256);
+  const parsedIds =
+    idsSnapshot.status === "ok"
+      ? idsSnapshot.value.map(parseDockerTaskRecoveryId)
+      : [];
   const ids =
-    idsSnapshot.status === "ok" &&
-    idsSnapshot.value.every(
-      (value) => typeof value === "string" && value.length > 0,
-    )
-      ? [...new Set(idsSnapshot.value as readonly string[])]
+    idsSnapshot.status === "ok" && parsedIds.every((value) => value !== null)
+      ? parsedIds.map((value) => value?.token as string)
       : null;
   const singleId =
     observation.dockerRecoveryId === null ||
-    (typeof observation.dockerRecoveryId === "string" &&
-      observation.dockerRecoveryId.length > 0)
-      ? observation.dockerRecoveryId
+    publicVerifiedDockerRecoveryId(observation.dockerRecoveryId) !== null
+      ? publicVerifiedDockerRecoveryId(observation.dockerRecoveryId)
       : undefined;
   const hashes = snapshotPlainArray(
     observation.activeStableLogicalHomeBindingHashes,
     256,
   );
+  const hashValues =
+    hashes.status === "ok" && hashes.value.every(isSha256Hex)
+      ? (hashes.value as readonly string[])
+      : null;
+  const idsUnique = ids !== null && new Set(ids).size === ids.length;
+  const hashesUnique =
+    hashValues !== null && new Set(hashValues).size === hashValues.length;
+  const stableHashes = new Set(
+    parsedIds.flatMap((value) =>
+      value ? [value.stableLogicalHomeBindingHash] : [],
+    ),
+  );
   const shapeValid =
     ids !== null &&
-    hashes.status === "ok" &&
-    hashes.value.every(
-      (value) => typeof value === "string" && value.length > 0,
-    ) &&
+    hashValues !== null &&
+    idsUnique &&
+    hashesUnique &&
+    hashValues.every((value) => stableHashes.has(value)) &&
     (observation.status === "completed" || observation.status === "blocked") &&
     typeof observation.reason === "string" &&
     typeof observation.manualRecoveryRequired === "boolean" &&
@@ -143,14 +163,37 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
     });
   const clean =
     observation.status === "completed" &&
+    observation.reason === "docker_task_runtime_state_clean" &&
     observation.manualRecoveryRequired === false &&
     singleId === null &&
-    ids.length === 0;
+    ids.length === 0 &&
+    hashValues.length === 0;
   if (clean)
     return Object.freeze({
       status: "completed" as const,
       reason: "docker_task_runtime_state_clean",
       manualRecoveryRequired: false,
+      dockerRecoveryId: null,
+      dockerRecoveryIds: Object.freeze([] as string[]),
+    });
+  const inventoryReason =
+    ids.length === 1
+      ? "docker_task_recovery_inventory_available"
+      : "docker_task_multiple_recovery_inventory_available";
+  const blockedShape =
+    observation.status === "blocked" &&
+    observation.manualRecoveryRequired === true &&
+    RECOVERY_START_REASON_CLASS.has(observation.reason);
+  const inventoryShape =
+    observation.status === "completed" &&
+    observation.manualRecoveryRequired === true &&
+    ids.length > 0 &&
+    observation.reason === inventoryReason;
+  if (!blockedShape && !inventoryShape)
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: publicDockerRecoveryStartReason(null),
+      manualRecoveryRequired: true,
       dockerRecoveryId: null,
       dockerRecoveryIds: Object.freeze([] as string[]),
     });

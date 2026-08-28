@@ -12,6 +12,7 @@ import {
   inspectRuntimeOwnedWindowsRuntimeState,
 } from "./candidate-store-windows-adapter.ts";
 import { validateDockerHostTransitionLineage } from "./docker-host-transition-state.ts";
+import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 import {
   discoverDockerRecoveryJournalJsonForRecovery,
   dockerRecoveryCommitName,
@@ -1362,22 +1363,6 @@ export function abandonRuntimeOwnedDockerRecovery(recoveryCapability: unknown) {
   const released = record.logicalHomeLease.release();
   if (released) releasedLogicalHomeLeases.add(recoveryCapability as object);
   return released;
-}
-
-function parseDockerTaskRecoveryId(token: unknown) {
-  if (typeof token !== "string") return null;
-  const match =
-    /^docker-task\.([a-f0-9]{64})\.([a-f0-9]{64})\.([a-f0-9]{64})$/u.exec(
-      token,
-    );
-  return match?.[1] && match[2] && match[3]
-    ? Object.freeze({
-        token,
-        stableLogicalHomeBindingHash: match[1],
-        operationNonce: match[2],
-        baseHash: match[3],
-      })
-    : null;
 }
 
 function readExactJson(file: string, logicalKey = path.basename(file)) {

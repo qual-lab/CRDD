@@ -131,6 +131,32 @@ type HostRecoveryRecord = Readonly<{
 }>;
 
 const ownedIdentities = new WeakMap<object, OwnedIdentity>();
+type OwnedOperationDirectoryCreationFailure = Readonly<{
+  cleanupConfirmed: boolean;
+  manualRecoveryRequired: boolean;
+  hostRecoveryId: string | null;
+}>;
+const ownedOperationDirectoryCreationFailures = new WeakMap<
+  object,
+  OwnedOperationDirectoryCreationFailure
+>();
+
+function throwOwnedOperationDirectoryCreationFailure(
+  cause: unknown,
+  details: OwnedOperationDirectoryCreationFailure,
+): never {
+  const error = new Error("owned_operation_directory_creation_failed", {
+    cause,
+  });
+  ownedOperationDirectoryCreationFailures.set(error, Object.freeze(details));
+  throw error;
+}
+
+export function classifyOwnedOperationDirectoryCreationFailure(error: unknown) {
+  return error && typeof error === "object"
+    ? (ownedOperationDirectoryCreationFailures.get(error) ?? null)
+    : null;
+}
 type MountCapabilityIdentity = Readonly<{
   owned: object;
   children: ChildSnapshots;
@@ -774,51 +800,54 @@ export function createOwnedOperationDirectories(
 export function createOwnedOperationDirectories(
   temporaryParent: string = os.tmpdir(),
 ): OwnedOperationDirectories {
-  const parent = fs.realpathSync(temporaryParent);
-  const parentMetadata = fs.lstatSync(parent);
-  if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink()) {
-    throw new Error("temporary_parent_must_be_real_directory");
-  }
-  const root = fs.mkdtempSync(path.join(parent, OWNED_PREFIX));
-  const realRoot = fs.realpathSync(root);
-  if (
-    path.dirname(realRoot) !== parent ||
-    !path.basename(realRoot).startsWith(OWNED_PREFIX)
-  ) {
-    throw new Error("owned_operation_directory_boundary_failed");
-  }
-  const recovery = ensureHostRecoveryDirectory(parent);
-  const nonce = randomUUID();
-  const owned: OwnedOperationDirectories = {
-    parent,
-    root: realRoot,
-    directories: null,
-    hostRecoveryId: null,
-  };
-  ownedIdentities.set(
-    owned,
-    Object.freeze({
-      operationId: createOperationId(),
+  let parent: string | null = null;
+  let realRoot: string | null = null;
+  let owned: OwnedOperationDirectories | null = null;
+  try {
+    parent = fs.realpathSync(temporaryParent);
+    const parentMetadata = fs.lstatSync(parent);
+    if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink()) {
+      throw new Error("temporary_parent_must_be_real_directory");
+    }
+    const root = fs.mkdtempSync(path.join(parent, OWNED_PREFIX));
+    realRoot = fs.realpathSync(root);
+    if (
+      path.dirname(realRoot) !== parent ||
+      !path.basename(realRoot).startsWith(OWNED_PREFIX)
+    ) {
+      throw new Error("owned_operation_directory_boundary_failed");
+    }
+    const recovery = ensureHostRecoveryDirectory(parent);
+    const nonce = randomUUID();
+    owned = {
       parent,
       root: realRoot,
-      prefix: OWNED_PREFIX,
-      filesystem: readFilesystemIdentity(realRoot),
-      createdAt: new Date().toISOString(),
-      hostRecovery: Object.freeze({
-        directory: recovery.directory,
-        directoryIdentity: recovery.identity,
-        record: path.join(
-          recovery.directory,
-          `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
-        ),
-        recordIdentity: null,
-        nonce,
-        state: "initializing",
-        recordHash: null,
+      directories: null,
+      hostRecoveryId: null,
+    };
+    ownedIdentities.set(
+      owned,
+      Object.freeze({
+        operationId: createOperationId(),
+        parent,
+        root: realRoot,
+        prefix: OWNED_PREFIX,
+        filesystem: readFilesystemIdentity(realRoot),
+        createdAt: new Date().toISOString(),
+        hostRecovery: Object.freeze({
+          directory: recovery.directory,
+          directoryIdentity: recovery.identity,
+          record: path.join(
+            recovery.directory,
+            `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
+          ),
+          recordIdentity: null,
+          nonce,
+          state: "initializing",
+          recordHash: null,
+        }),
       }),
-    }),
-  );
-  try {
+    );
     owned.directories = createOperationDirectories(realRoot);
     const identity = requireOwnedIdentity(owned);
     if (!owned.directories)
@@ -867,15 +896,38 @@ export function createOwnedOperationDirectories(
     registerOwnedOperationGeneration(owned, requireOwnedIdentity(owned));
     return owned;
   } catch (error) {
+    let cleanupConfirmed = realRoot === null;
     try {
-      rollbackInitializingOperationDirectories(owned);
+      if (realRoot !== null && owned && ownedIdentity(owned)) {
+        rollbackInitializingOperationDirectories(owned);
+        cleanupConfirmed = true;
+      } else if (realRoot !== null && parent !== null) {
+        const metadata = fs.lstatSync(realRoot);
+        if (
+          metadata.isSymbolicLink() ||
+          !metadata.isDirectory() ||
+          fs.realpathSync(realRoot) !== realRoot ||
+          path.dirname(realRoot) !== parent ||
+          !path.basename(realRoot).startsWith(OWNED_PREFIX)
+        )
+          throw new Error("owned_operation_directory_boundary_failed");
+        fs.rmSync(realRoot, { recursive: true, force: false });
+        try {
+          fs.lstatSync(realRoot);
+          throw new Error("owned_operation_directory_cleanup_incomplete");
+        } catch (observationError) {
+          if (errorCode(observationError) !== "ENOENT") throw observationError;
+        }
+        cleanupConfirmed = true;
+      }
     } catch {
-      throw new Error(
-        "owned_operation_directory_initialization_cleanup_blocked",
-        { cause: error },
-      );
+      cleanupConfirmed = false;
     }
-    throw error;
+    throwOwnedOperationDirectoryCreationFailure(error, {
+      cleanupConfirmed,
+      manualRecoveryRequired: !cleanupConfirmed,
+      hostRecoveryId: !cleanupConfirmed && owned ? owned.hostRecoveryId : null,
+    });
   }
 }
 

@@ -310,7 +310,7 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 - Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、operation／invocation terminal遷移、検証境界、遷移×開始状態×区分、期待終了状態、Effect件数、結果状態、資源後条件、Architecture記載およびtest source上のexact test名を検査する。試験実行結果、品質状態または監査Passは主張しない。
 - Host active bindingのcontent rename直後へ実process killを注入し、同一Lock内でHost previous世代、全submission不存在、exact base、完全commit済みpointer、active binding完全一致およびactive commit不存在の場合だけ明示Recoveryでrollbackして残存0へ収束することを確認した。
 - 同じpartial contentを変更した異常例、期待値の異なるjournal content、完全commit pairでは処置せずEvidenceを保持することを確認した。
-- 最新対象確認はTask／Docker Recovery／Journal／Traceability／公開理由分類を含むCoordinator全1095試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）を対象とする。独立再監査へ渡す固定改訂版で結果を確定する。
+- 最新対象確認はTask／Docker Recovery／Journal／Traceability／公開理由分類を含むCoordinator全1099試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）を通過した。独立再監査へ渡す固定改訂版で結果を確定する。
 
 現在の実Host残存は、新しいsource候補から保護Runtime Stateをproduction Authorityとして直接開けないため、更新した正式署名配布物を固定するまで保持する。これをsource checkout、caller supplied Pathまたは手動削除で回避しない。
 
@@ -368,3 +368,11 @@ FilesystemのAuthority判定は`ENOENT`だけを不存在とし、権限拒否�
 同じ原因をCRDD利用側で再発させないため、Architecture、Implementation、Quality AssuranceおよびAgentの既存条項へ、設計要素から実装symbol、正常・準正常・異常の検証、実観測、終了後条件までの接続閉包を追加した。新工程や固定成果物は増やさず、単純な対象は既存成果物から再構成できればよい一方、複数Process、OS資源、外部実行基盤、Authority、永続EffectまたはRecoveryを含む対象は、未接続・未観測を別実行者が検出できる方法へ具体化する。
 
 本節の処置は`Applied — independent re-audit pending`である。更新後の機械確認、全試験および新固定改訂版の同一監査集合がPassするまで、第四固定候補の結果を流用せず、Runtime完成またはReleaseへ昇格しない。
+
+## 17. 第五固定候補の独立監査と再是正
+
+第五固定候補Commit `9260f0ea48e21e450a167df9b9e2964159497cea`／Tree `8d41befdc88e52e9a5c26891102bf62f205b2e11`に対するArchitecture／Security、Test／UXおよびDocument／Gap／Impact／Conformance確認は、Critical 0、Major 5、Minor 3で`Fail`とした。重複を除いた共通原因は、共有Projectorを導入してもproducerのexact SchemaとID／Hash相関を閉じていなかったこと、本番Operation Directory生成の失敗窓をsynthetic fixtureだけで確認していたこと、Canonical caseの登録を実行済みと同一視したこと、fresh Process fixtureのhandoff前失敗時回収、および方法論変更の移行伝播不足である。
+
+再是正では、Docker Recovery Identityを共有primitiveへ集約し、exact形式、Hash、重複、状態と理由の相関およびcleanの唯一shapeをTask AdmissionとDocker Controllerで共用する。producer欠落、`null`、throw、malformed、重複または不一致を全Operation Effect前に固定理由へ閉じ、内部値を公開しない。Operation Directory生成はroot生成前後を含む単一opaque分類primitiveとし、実Filesystem faultでEffect 0またはexact rollbackを確認する。Trace契約試験はCanonical case集合と実行済みassertion集合を完全一致させ、登録だけのcaseを陽性対照で拒否する。fresh Process fixtureはhandoff前failureでも、返却済みRecovery Identityとnonceから導出したexact markerだけを境界確認後に回収する。移行説明は方法論とRuntime固有処置を分離した。
+
+本節の処置は`Applied — independent re-audit pending`である。全1099試験、型、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）は現在合格しているが、固定Commitおよび同一監査集合のPassまでは現在の品質状態を`Resolved`へ昇格しない。

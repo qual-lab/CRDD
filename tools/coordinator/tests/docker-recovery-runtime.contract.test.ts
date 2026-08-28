@@ -40,6 +40,7 @@ import {
 import {
   acquireHostOperationRecoveryGenerationByIdentity,
   abandonOwnedHostOperationGenerationLock,
+  classifyOwnedOperationDirectoryCreationFailure,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
@@ -68,6 +69,53 @@ const stableHome = "1".repeat(64);
 const operationNonce = "2".repeat(64);
 const baseHash = "3".repeat(64);
 const dockerTaskRecoveryId = `docker-task.${stableHome}.${operationNonce}.${baseHash}`;
+
+test("Operation Directory生成primitiveはEffect前失敗とrollback確認済み失敗をopaque分類する", () => {
+  const missingParent = path.join(
+    os.tmpdir(),
+    `crdd-missing-operation-parent-${Date.now()}-${process.pid}`,
+  );
+  assert.throws(
+    () => createOwnedOperationDirectories(missingParent),
+    (error) => {
+      assert.deepEqual(classifyOwnedOperationDirectoryCreationFailure(error), {
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        hostRecoveryId: null,
+      });
+      return true;
+    },
+  );
+
+  const parent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-operation-creation-failure-test-"),
+  );
+  try {
+    fs.writeFileSync(path.join(parent, "crdd-coordinator-recovery-v1"), "x");
+    assert.throws(
+      () => createOwnedOperationDirectories(parent),
+      (error) => {
+        assert.deepEqual(
+          classifyOwnedOperationDirectoryCreationFailure(error),
+          {
+            cleanupConfirmed: true,
+            manualRecoveryRequired: false,
+            hostRecoveryId: null,
+          },
+        );
+        return true;
+      },
+    );
+    assert.deepEqual(
+      fs
+        .readdirSync(parent)
+        .filter((name) => name.startsWith("crdd-coordinator-doctor-")),
+      [],
+    );
+  } finally {
+    fs.rmSync(parent, { recursive: true, force: true });
+  }
+});
 
 test("公開Recovery Evidence分類はfresh inventoryの存在・不存在・不明を三状態へ固定する", () => {
   assert.equal(
@@ -3297,23 +3345,37 @@ type FreshRecoveryHandoff = {
   root: Readonly<Record<string, string>>;
   hostRoot: string;
   hostMarker: string;
+  hostRecoveryId: string;
   setupPid: number;
 };
 
 function cleanupFreshRecoveryHandoff(handoff: FreshRecoveryHandoff | null) {
   if (!handoff) return;
   const temporaryRoot = fs.realpathSync(os.tmpdir());
+  const parsed = parseHostRecoveryToken(handoff.hostRecoveryId);
+  assert.ok(parsed);
   const hostRoot = path.resolve(handoff.hostRoot);
+  const rootMetadata = fs.existsSync(hostRoot) ? fs.lstatSync(hostRoot) : null;
   if (
     path.dirname(hostRoot) === temporaryRoot &&
-    path.basename(hostRoot).startsWith("crdd-coordinator-doctor-")
+    path.basename(hostRoot) === parsed.rootName &&
+    (!rootMetadata ||
+      (rootMetadata.isDirectory() &&
+        !rootMetadata.isSymbolicLink() &&
+        fs.realpathSync(hostRoot) === hostRoot))
   )
     fs.rmSync(hostRoot, { recursive: true, force: true });
   const hostMarker = path.resolve(handoff.hostMarker);
+  const expectedMarkerName = `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`;
+  const markerMetadata = fs.existsSync(hostMarker)
+    ? fs.lstatSync(hostMarker)
+    : null;
   if (
     path.dirname(hostMarker) ===
       path.join(temporaryRoot, "crdd-coordinator-recovery-v1") &&
-    path.extname(hostMarker) === ".json"
+    path.basename(hostMarker) === expectedMarkerName &&
+    (!markerMetadata ||
+      (markerMetadata.isFile() && !markerMetadata.isSymbolicLink()))
   )
     fs.rmSync(hostMarker, { force: true });
 }

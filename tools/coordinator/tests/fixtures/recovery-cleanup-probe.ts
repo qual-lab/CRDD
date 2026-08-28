@@ -5,6 +5,7 @@ import path from "node:path";
 import { removeCommittedDockerRecoveryJson } from "../../src/security/docker-recovery-journal.ts";
 
 import {
+  abandonRuntimeOwnedDockerRecovery,
   beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver,
   completeRuntimeOwnedDockerRecovery,
   prepareRuntimeOwnedDockerHostCleanup,
@@ -13,6 +14,7 @@ import {
   recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver,
 } from "../../src/security/docker-recovery-runtime-internal.ts";
 import {
+  abandonOwnedHostOperationGenerationLock,
   cleanupOwnedOperationDirectoriesAsync,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -94,6 +96,7 @@ function setupBegunRecovery(rootPath: string) {
     owned,
     management,
     hostMarker,
+    hostRecoveryId,
     recoveryId: begun.recoveryId,
     recoveryCapability: begun.recoveryCapability,
   });
@@ -115,33 +118,79 @@ const [mode, rootPath, encodedRoot] = process.argv.slice(2);
 if (!mode || !rootPath) throw new Error("recovery_cleanup_probe_args_invalid");
 if (mode === "receipt-failure-setup") {
   const setup = setupRecovery(rootPath);
-  assert.equal(
-    typeof prepareRuntimeOwnedDockerHostCleanup(setup.recoveryCapability),
-    "string",
-  );
-  await cleanupOwnedOperationDirectoriesAsync(setup.owned);
-  process.stdout.write(
-    `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, setupPid: process.pid })}\n`,
-  );
+  let handedOff = false;
+  try {
+    assert.equal(
+      typeof prepareRuntimeOwnedDockerHostCleanup(setup.recoveryCapability),
+      "string",
+    );
+    await cleanupOwnedOperationDirectoriesAsync(setup.owned);
+    fs.writeSync(
+      1,
+      `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, hostRecoveryId: setup.hostRecoveryId, setupPid: process.pid })}\n`,
+    );
+    handedOff = true;
+  } finally {
+    if (!handedOff) {
+      try {
+        abandonRuntimeOwnedDockerRecovery(setup.recoveryCapability);
+      } catch {
+        // The child is already failing; continue the remaining exact cleanup attempts.
+      }
+      try {
+        await abandonOwnedHostOperationGenerationLock(setup.management);
+      } catch {
+        // The child is already failing; continue the remaining exact cleanup attempts.
+      }
+      try {
+        await cleanupOwnedOperationDirectoriesAsync(setup.owned);
+      } catch {
+        // The parent test verifies any residue from this failed setup.
+      }
+    }
+  }
 } else if (mode === "active-deleted-pointer-setup") {
   const setup = setupBegunRecovery(rootPath);
-  const activePath = fs
-    .readdirSync(setup.owned.root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) =>
-      path.join(setup.owned.root, entry.name, "active-docker-task-v1.json"),
-    )
-    .find((candidate) => fs.existsSync(candidate));
-  assert.ok(activePath);
-  assert.equal(removeCommittedDockerRecoveryJson(activePath), true);
-  assert.equal(fs.existsSync(activePath), false);
-  assert.equal(
-    fs.readdirSync(rootPath).some((name) => name.startsWith("active-lease-")),
-    true,
-  );
-  process.stdout.write(
-    `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, setupPid: process.pid })}\n`,
-  );
+  let handedOff = false;
+  try {
+    const activePath = fs
+      .readdirSync(setup.owned.root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) =>
+        path.join(setup.owned.root, entry.name, "active-docker-task-v1.json"),
+      )
+      .find((candidate) => fs.existsSync(candidate));
+    assert.ok(activePath);
+    assert.equal(removeCommittedDockerRecoveryJson(activePath), true);
+    assert.equal(fs.existsSync(activePath), false);
+    assert.equal(
+      fs.readdirSync(rootPath).some((name) => name.startsWith("active-lease-")),
+      true,
+    );
+    fs.writeSync(
+      1,
+      `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, hostRecoveryId: setup.hostRecoveryId, setupPid: process.pid })}\n`,
+    );
+    handedOff = true;
+  } finally {
+    if (!handedOff) {
+      try {
+        abandonRuntimeOwnedDockerRecovery(setup.recoveryCapability);
+      } catch {
+        // The child is already failing; continue the remaining exact cleanup attempts.
+      }
+      try {
+        await abandonOwnedHostOperationGenerationLock(setup.management);
+      } catch {
+        // The child is already failing; continue the remaining exact cleanup attempts.
+      }
+      try {
+        await cleanupOwnedOperationDirectoriesAsync(setup.owned);
+      } catch {
+        // The parent test verifies any residue from this failed setup.
+      }
+    }
+  }
 } else if (mode === "fresh-recovery") {
   if (!encodedRoot) throw new Error("recovery_cleanup_probe_root_missing");
   const root = JSON.parse(

@@ -22,7 +22,10 @@ import {
 import { consumeRuntimeOwnedProviderAuthority } from "./provider-authority-runtime.ts";
 import { completeRuntimeOwnedProviderHomeMount } from "./provider-home-mount-grant-runtime.ts";
 import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-runtime.ts";
-import { publicDockerRecoveryStartReason } from "./docker-recovery-public-projection.ts";
+import {
+  publicDockerRecoveryStartReason,
+  publicVerifiedDockerRecoveryId,
+} from "./docker-recovery-public-projection.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
@@ -679,7 +682,7 @@ function start(
     return createBlockedStart(
       publicDockerRecoveryStartReason(recovery?.reason),
       completed.status === "completed",
-      recovery?.recoveryId ?? null,
+      publicVerifiedDockerRecoveryId(recovery?.recoveryId),
       recovery?.manualRecoveryRequired === true,
     );
   }

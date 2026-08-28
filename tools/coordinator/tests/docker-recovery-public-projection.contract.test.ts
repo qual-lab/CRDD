@@ -18,6 +18,9 @@ function observation(overrides: Record<string, unknown> = {}) {
   });
 }
 
+const one = `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`;
+const two = `docker-task.${"4".repeat(64)}.${"5".repeat(64)}.${"6".repeat(64)}`;
+
 test("production Recovery inventory形状はcleanだけをTask Admissionへ通す", () => {
   assert.deepEqual(projectDockerRecoveryAdmission(observation()), {
     status: "completed",
@@ -26,7 +29,6 @@ test("production Recovery inventory形状はcleanだけをTask Admissionへ通�
     dockerRecoveryId: null,
     dockerRecoveryIds: [],
   });
-  const one = "docker.recovery.one";
   assert.deepEqual(
     projectDockerRecoveryAdmission(
       observation({
@@ -44,17 +46,51 @@ test("production Recovery inventory形状はcleanだけをTask Admissionへ通�
       dockerRecoveryIds: [one],
     },
   );
-  const two = ["docker.recovery.one", "docker.recovery.two"];
+  const ids = [one, two];
   assert.deepEqual(
     projectDockerRecoveryAdmission(
       observation({
         reason: "docker_task_multiple_recovery_inventory_available",
         manualRecoveryRequired: true,
-        dockerRecoveryIds: Object.freeze(two),
+        dockerRecoveryIds: Object.freeze(ids),
       }),
     ).dockerRecoveryIds,
-    two,
+    ids,
   );
+});
+
+test("clean、inventory、hashの相関差は値非公開で拒否する", () => {
+  for (const candidate of [
+    observation({ reason: "docker_task_runtime_state_audit_failed" }),
+    observation({ activeStableLogicalHomeBindingHashes: ["1".repeat(64)] }),
+    observation({
+      reason: "docker_task_recovery_inventory_available",
+      manualRecoveryRequired: true,
+      dockerRecoveryId: "C:\\secret",
+      dockerRecoveryIds: ["C:\\secret"],
+    }),
+    observation({
+      reason: "docker_task_multiple_recovery_inventory_available",
+      manualRecoveryRequired: true,
+      dockerRecoveryId: null,
+      dockerRecoveryIds: [one, one],
+    }),
+    observation({
+      reason: "docker_task_recovery_inventory_available",
+      manualRecoveryRequired: true,
+      dockerRecoveryId: one,
+      dockerRecoveryIds: [one],
+      activeStableLogicalHomeBindingHashes: ["f".repeat(64)],
+    }),
+  ]) {
+    assert.deepEqual(projectDockerRecoveryAdmission(candidate), {
+      status: "blocked",
+      reason: "docker_process_controller_recovery_unavailable",
+      manualRecoveryRequired: true,
+      dockerRecoveryId: null,
+      dockerRecoveryIds: [],
+    });
+  }
 });
 
 test("Recovery observation unknownと未登録理由は固定公開分類へ閉じる", () => {
@@ -67,6 +103,24 @@ test("Recovery observation unknownと未登録理由は固定公開分類へ閉�
   assert.equal(
     publicDockerRecoveryStartReason("caller-path:C:\\secret"),
     "docker_process_controller_recovery_unavailable",
+  );
+  assert.deepEqual(
+    projectDockerRecoveryAdmission(
+      observation({
+        status: "blocked",
+        reason: "docker_task_runtime_state_lock_release_unconfirmed",
+        manualRecoveryRequired: true,
+        dockerRecoveryId: one,
+        dockerRecoveryIds: [one],
+      }),
+    ),
+    {
+      status: "blocked",
+      reason: "docker_process_controller_recovery_observation_unknown",
+      manualRecoveryRequired: true,
+      dockerRecoveryId: one,
+      dockerRecoveryIds: [one],
+    },
   );
 });
 

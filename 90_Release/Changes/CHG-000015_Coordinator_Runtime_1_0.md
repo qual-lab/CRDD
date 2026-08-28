@@ -271,7 +271,8 @@ Secret境界の回帰確認では、Task scope内の固定形式Secretと名前�
 
 | 利用側 | 必要な処置 |
 |---|---|
-| CRDD一般採用Repository | Runtimeを使用しない場合は非該当。方法論の既存利用を妨げない |
+| CRDD v0.18方法論を採用するRepository | 基準版の採用時に、状態・遷移・資源・Lock・AuthorityまたはEffectを持つ進行中／未是正の非自明な変更と入口差分を棚卸しし、設計要素から実装、正常・準正常・異常の検証、実観測および終了後条件までを接続する。完了済みの過去作業を機械的に再開しない |
+| Coordinator Runtimeを使用しないRepository | Runtime固有のProvisioning、Provider Home、DockerおよびRecovery移行は非該当。方法論のv0.18移行要否とは分けて判定する |
 | Coordinator Runtime利用者 | 公式v0.18配布物、対応OS／Docker、公式Provider CLI、専用Provider Home、対話認証・送信承認を用意する |
 | CRDD公式保守 | Release鍵、署名Manifest、sequence、配布Root、Windows provisioning、Recovery手順をRelease Gateで確認する |
 | 内部private contract | 同じCandidate内でproducer／consumer／fixtureを一括更新し、旧revision aliasや自動fallbackを残さない |
@@ -291,6 +292,8 @@ Runtime 1.0をReleaseしない場合は、v0.17.xの方法論利用とRuntime非
 Coordinator Reference Architectureと機械可読Traceの初回・第二固定候補に対する独立監査は、宣言したcase IDと実scenarioの完全結合、terminal状態母集団、Effect差分、物理観測境界およびFilesystem不存在判定の不足を検出した。同じ未リリース変更内で、Task Runtimeへ制御権を持たない単調lifecycle observerを置き、Canonical 41 caseを実開始状態、終了状態、遷移差分、結果および資源後条件の完全一致へ接続した。`ENOENT`以外を不存在とせず、Host active binding削除済み・exact pointer残存をfresh Processで残存0へ回復し、観測不能時はEvidence保持へ閉じる。Docker Recovery開始理由は内部情報を出さない固定分類へ分けた。これらは新固定改訂版の再監査前であり、Runtime完成またはRelease根拠へまだ昇格しない。詳細は[`Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md`](Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md)を参照する。
 
 後続監査では、production Docker inventoryの`status=completed`をcleanと誤読するConsumer、Operation取得EffectをAdmissionへ隠す状態欠落、成功時だけTask controlを失効する最終化、および状態名からConsole／Control不存在を作るfixture ledgerを検出した。同一未リリース変更内で、producerとTask／Controllerが共有するexact Projector、`STATE-OPERATION-ACQUIRING`、例外時も保守的な構造化Resultとcontrol失効を保証するfinal settlement、および公開取消receipt／Console cleanup結果から作る資源観測へ是正する。単一・複数・観測不能・malformed inventory、Operation取得cleanup確認済み／不明、final projection例外およびfresh Process失敗時のexact試験資源回収を検証し、新固定版の独立再監査前にResolvedとしない。
+
+第五固定候補`9260f0e`の同一監査集合は、前段のMajorを解消した一方、Docker Recovery producerのclean SchemaとRecovery ID／Hash相関が任意値を通し得ること、Operation Directory初期化失敗が本番primitiveの外側で分類されること、Canonical caseの登録集合と実行集合を一致させていないこと、fresh Process fixtureのhandoff前失敗時回収、および方法論変更の採用Repositoryへの移行説明不足を検出した。同じ未リリース変更内で、Recovery IDを`docker-task.<64hex>.<64hex>.<64hex>`へ固定し、Hash相関、重複、clean／inventory／blockedのexact shapeを共有Projectorで検査する。Operation Directory生成全体をopaque分類primitiveへ収束し、Effect前失敗とroot生成後rollback確認済み／不明を区別する。Trace試験はCanonical登録集合と実assertion実行集合の完全一致および欠落する陽性対照を要求し、fresh Process fixtureはhandoff前にもexact token／Identityへ結合した資源だけを回収する。方法論移行はRuntime非利用の非該当と分け、v0.18採用時の進行中／未是正変更だけを棚卸しする。これらは更新固定版の独立再監査前にResolvedとしない。
 
 この往復の一般原因は、設計要素、実装symbol、検証項目、実観測および終了後条件の閉包を固定候補前Gateが明示的に要求していなかったことにある。特定Runtimeだけの対策へ閉じず、`27_Architecture.md`、`28_Implementation.md`、`16_Quality_Assurance.md`および`10_Agent.md`の既存責務を強化し、状態・遷移・資源・Lock・Authority・Effectについて正常・準正常・異常の接続を全数照合する。状態名、成功結果、試験件数またはcoverage率から資源不存在、Authority失効、Effect 0またはcleanup成立を推定せず、実receipt、ledger、observer、公開結果または独立した終了後観測へ接続する。専用成果物は一律に要求せず、複雑な境界で人の記憶に依存するときだけ機械可読契約等へ具体化する。
 

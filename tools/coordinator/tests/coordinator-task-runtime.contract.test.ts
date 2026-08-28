@@ -26,6 +26,9 @@ type TraceSnapshot = Readonly<{
   resources: Readonly<Record<string, string>>;
 }>;
 
+const ADMISSION_RECOVERY_ONE = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+const ADMISSION_RECOVERY_TWO = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+
 const TRANSITION_BY_EDGE = new Map<string, string>([
   [
     "STATE-ADMISSION>STATE-OPERATION-ACQUIRING",
@@ -261,6 +264,15 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   "CASE-RECOVERY-CANDIDATE-STAGED": assertRuntimeTraceCase,
   "CASE-RECOVERY-HOST-CLEAN": assertRuntimeTraceCase,
 });
+const EXECUTED_TASK_TRACE_CASES = new Set<string>();
+
+function assertExactTaskTraceExecutionCoverage(executed: ReadonlySet<string>) {
+  assert.deepEqual(
+    [...executed].sort(),
+    Object.keys(TASK_TRACE_ASSERTIONS).sort(),
+    "canonical Task Trace case execution mismatch",
+  );
+}
 
 function selectResourcePostconditions(
   snapshot: TraceSnapshot,
@@ -323,6 +335,7 @@ async function assertTerminalRuntimeTraceCase(
   const assertion = TASK_TRACE_ASSERTIONS[caseId];
   assert.ok(assertion, `unregistered trace assertion: ${caseId}`);
   assertion(caseId, observed);
+  EXECUTED_TASK_TRACE_CASES.add(caseId);
 }
 
 async function assertLifecycleRuntimeTraceCases(
@@ -382,6 +395,7 @@ async function assertLifecycleRuntimeTraceCases(
           : {}),
       },
     });
+    EXECUTED_TASK_TRACE_CASES.add(caseId);
   }
 }
 
@@ -461,6 +475,8 @@ function fixture(
     admissionRecoveryReason?: string;
     admissionRecoveryIds?: readonly string[];
     admissionRecoveryObservation?: unknown;
+    admissionRecoveryMissing?: boolean;
+    admissionRecoveryThrows?: boolean;
     lifecycleObserverThrows?: boolean;
     terminalObserver?: (state: string) => void;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
@@ -593,30 +609,39 @@ function fixture(
       if (options.lifecycleObserverThrows)
         throw new Error("fixture_lifecycle_observer_failure");
     },
-    ...(options.admissionRecovery || options.admissionRecoveryObservation
-      ? {
-          prepareDockerRecoveryState: () =>
-            options.admissionRecoveryObservation ??
-            Object.freeze({
-              status: "completed",
-              reason:
-                options.admissionRecoveryReason ??
-                "docker_task_recovery_inventory_available",
-              dockerRecoveryId:
-                (options.admissionRecoveryIds?.length ?? 1) === 1
-                  ? (options.admissionRecoveryIds?.[0] ??
-                    "docker.fixture.admission.recovery")
-                  : null,
-              dockerRecoveryIds: Object.freeze(
-                options.admissionRecoveryIds
-                  ? [...options.admissionRecoveryIds]
-                  : ["docker.fixture.admission.recovery"],
-              ),
-              activeStableLogicalHomeBindingHashes: Object.freeze([]),
-              manualRecoveryRequired: true,
-            }),
-        }
-      : {}),
+    prepareDockerRecoveryState: () => {
+      if (options.admissionRecoveryThrows)
+        throw new Error("fixture_recovery_observation_failed");
+      if (options.admissionRecoveryObservation !== undefined)
+        return options.admissionRecoveryObservation;
+      if (!options.admissionRecovery)
+        return Object.freeze({
+          status: "completed",
+          reason: "docker_task_runtime_state_clean",
+          dockerRecoveryId: null,
+          dockerRecoveryIds: Object.freeze([]),
+          activeStableLogicalHomeBindingHashes: Object.freeze([]),
+          manualRecoveryRequired: false,
+        });
+      const ids = options.admissionRecoveryIds
+        ? [...options.admissionRecoveryIds]
+        : [ADMISSION_RECOVERY_ONE];
+      const reason =
+        options.admissionRecoveryReason ??
+        (ids.length === 1
+          ? "docker_task_recovery_inventory_available"
+          : "docker_task_multiple_recovery_inventory_available");
+      return Object.freeze({
+        status: reason.includes("recovery_inventory_available")
+          ? "completed"
+          : "blocked",
+        reason,
+        dockerRecoveryId: ids.length === 1 ? ids[0] : null,
+        dockerRecoveryIds: Object.freeze(ids),
+        activeStableLogicalHomeBindingHashes: Object.freeze([]),
+        manualRecoveryRequired: true,
+      });
+    },
     isolatedCancellationAckTimeoutMs: 50,
     inspectRepository:
       options.inspectRepository ??
@@ -1133,6 +1158,8 @@ function fixture(
         }
       : {}),
   };
+  if (options.admissionRecoveryMissing)
+    Reflect.deleteProperty(dependencies, "prepareDockerRecoveryState");
   const baseRuntime = createIsolatedCoordinatorTaskRuntimeCandidate(
     dependencies as unknown as Parameters<
       typeof createIsolatedCoordinatorTaskRuntimeCandidate
@@ -1403,6 +1430,7 @@ test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止�
 test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
   const traceCaseIds = [
     "CASE-NORMAL-ADMISSION-TO-OPERATION",
+    "CASE-NORMAL-OPERATION-ACQUIRING-TO-READY",
     "CASE-NORMAL-OPERATION-TO-AUTHORIZED",
     "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN",
     "CASE-NORMAL-EXECUTOR-TO-CANDIDATE",
@@ -2900,7 +2928,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     ).completion;
     assert.equal(result.status, "blocked");
     assert.equal(result.manualRecoveryRequired, true);
-    assert.equal(result.dockerRecoveryId, "docker.fixture.admission.recovery");
+    assert.equal(result.dockerRecoveryId, ADMISSION_RECOVERY_ONE);
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
     assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
@@ -2915,10 +2943,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   await t.test(
     "production複数Recovery在庫を全ID保持してEffect 0へ閉じる",
     async () => {
-      const ids = [
-        "docker.fixture.admission.one",
-        "docker.fixture.admission.two",
-      ];
+      const ids = [ADMISSION_RECOVERY_ONE, ADMISSION_RECOVERY_TWO];
       const harness = fixture({
         admissionRecovery: true,
         admissionRecoveryIds: ids,
@@ -2961,6 +2986,56 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       assert.equal(result.manualRecoveryRequired, true);
       assert.equal(harness.operationCreateCount(), 0);
       assert.equal(harness.processStartCount(), 0);
+    },
+  );
+
+  await t.test(
+    "Recovery producerのmissing／null／throw／invalid ID／重複をEffect 0へ閉じる",
+    async () => {
+      const invalidObservations = [
+        null,
+        Object.freeze({
+          status: "completed",
+          reason: "docker_task_recovery_inventory_available",
+          manualRecoveryRequired: true,
+          dockerRecoveryId: "C:\\secret",
+          dockerRecoveryIds: Object.freeze(["C:\\secret"]),
+          activeStableLogicalHomeBindingHashes: Object.freeze([]),
+        }),
+        Object.freeze({
+          status: "completed",
+          reason: "docker_task_multiple_recovery_inventory_available",
+          manualRecoveryRequired: true,
+          dockerRecoveryId: null,
+          dockerRecoveryIds: Object.freeze([
+            ADMISSION_RECOVERY_ONE,
+            ADMISSION_RECOVERY_ONE,
+          ]),
+          activeStableLogicalHomeBindingHashes: Object.freeze([]),
+        }),
+      ];
+      const harnesses = [
+        fixture({ admissionRecoveryMissing: true }),
+        fixture({ admissionRecoveryThrows: true }),
+        ...invalidObservations.map((admissionRecoveryObservation) =>
+          fixture({ admissionRecoveryObservation }),
+        ),
+      ];
+      for (const harness of harnesses) {
+        const result = await harness.runtime.start(
+          request(),
+          "C:\\repository",
+          "2026-08-25T00:00:00.000Z",
+        ).completion;
+        assert.equal(
+          result.reason,
+          "docker_process_controller_recovery_unavailable",
+        );
+        assert.equal(result.dockerRecoveryId, null);
+        assert.deepEqual(result.dockerRecoveryIds, []);
+        assert.equal(harness.operationCreateCount(), 0);
+        assert.equal(harness.processStartCount(), 0);
+      }
     },
   );
 
@@ -3308,7 +3383,12 @@ test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投�
     assert.equal(result.status, "blocked");
     assert.equal(result.reason, publicReason);
     assert.equal(result.manualRecoveryRequired, true);
-    assert.equal(result.dockerRecoveryId, "docker.fixture.admission.recovery");
+    assert.equal(
+      result.dockerRecoveryId,
+      internalReason === "caller-controlled-secret"
+        ? null
+        : ADMISSION_RECOVERY_ONE,
+    );
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
   }
@@ -3330,4 +3410,14 @@ test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致�
       }),
     );
   }
+});
+
+test("Canonical Task Trace全caseはregistry存在だけでなく実scenarioから実行される", () => {
+  assertExactTaskTraceExecutionCoverage(EXECUTED_TASK_TRACE_CASES);
+  const missing = new Set(EXECUTED_TASK_TRACE_CASES);
+  missing.delete("CASE-NORMAL-OPERATION-ACQUIRING-TO-READY");
+  assert.throws(
+    () => assertExactTaskTraceExecutionCoverage(missing),
+    /canonical Task Trace case execution mismatch/u,
+  );
 });

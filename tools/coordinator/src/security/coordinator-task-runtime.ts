@@ -28,6 +28,7 @@ import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
   cleanupOwnedOperationDirectoriesAsync,
+  classifyOwnedOperationDirectoryCreationFailure,
   confirmOwnedHostOperationGenerationLockReadiness,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
@@ -175,7 +176,7 @@ type Operation = Readonly<{
 type HostCleanupStatus = "completed" | "protocol_failure_cleanup_confirmed";
 type ProductionOperationFailure = Readonly<{
   reason: string;
-  hostRecoveryId: string;
+  hostRecoveryId: string | null;
   cleanupConfirmed: boolean;
   manualRecoveryRequired: boolean;
 }>;
@@ -262,7 +263,7 @@ type RuntimeDependencies = Readonly<{
     repositoryBindingCapability: object,
   ) => RuntimeRecord | null;
   prepareCandidateStore: () => RuntimeRecord;
-  prepareDockerRecoveryState?: () => RuntimeRecord;
+  prepareDockerRecoveryState: () => unknown;
   reportSelectionNotice: (notice: RuntimeRecord) => boolean;
   issueTaskPacket: (
     managementCapability: object,
@@ -1195,21 +1196,24 @@ async function runCoordinatorTaskCore(
   if (repositoryPreflight.runtimeSupported !== true) {
     return blocked("coordinator_task_git_object_format_unsupported");
   }
-  const dockerRecoveryState = state.dependencies.prepareDockerRecoveryState?.();
-  if (dockerRecoveryState) {
-    const admission = projectDockerRecoveryAdmission(dockerRecoveryState);
-    if (admission.status !== "completed") {
-      return blocked(
-        admission.reason,
-        true,
-        null,
-        admission.dockerRecoveryId,
-        null,
-        false,
-        null,
-        admission.dockerRecoveryIds,
-      );
-    }
+  let dockerRecoveryState: unknown;
+  try {
+    dockerRecoveryState = state.dependencies.prepareDockerRecoveryState();
+  } catch {
+    dockerRecoveryState = null;
+  }
+  const admission = projectDockerRecoveryAdmission(dockerRecoveryState);
+  if (admission.status !== "completed") {
+    return blocked(
+      admission.reason,
+      true,
+      null,
+      admission.dockerRecoveryId,
+      null,
+      false,
+      null,
+      admission.dockerRecoveryIds,
+    );
   }
   advanceLifecycleState(state, control, "STATE-OPERATION-ACQUIRING");
   let operation: Operation | null = null;
@@ -1750,7 +1754,24 @@ async function runCoordinatorTask(
 }
 
 async function createProductionOperation() {
-  const owned = createOwnedOperationDirectories();
+  let owned: ReturnType<typeof createOwnedOperationDirectories>;
+  try {
+    owned = createOwnedOperationDirectories();
+  } catch (error) {
+    const creation = classifyOwnedOperationDirectoryCreationFailure(error);
+    if (!creation) throw error;
+    if (!creation.cleanupConfirmed) poisonRuntimeProcessAfterCleanupUnknown();
+    throwProductionOperationFailure(
+      Object.freeze({
+        reason: creation.cleanupConfirmed
+          ? "coordinator_task_operation_initialization_failed_cleanup_confirmed"
+          : "coordinator_task_operation_initialization_cleanup_unknown_process_restart_required",
+        hostRecoveryId: creation.hostRecoveryId,
+        cleanupConfirmed: creation.cleanupConfirmed,
+        manualRecoveryRequired: creation.manualRecoveryRequired,
+      }),
+    );
+  }
   const hostRecoveryId = getOwnedHostRecoveryId(owned);
   let failureReason = "coordinator_task_operation_creation_failed";
   try {
