@@ -111,6 +111,33 @@ test("Architectureまたは実在する試験名に接続できないTraceを拒
   }
 });
 
+test("transition delta宣言とCanonical case完全一致assertionの無いTraceを拒否する", () => {
+  const trace = currentTrace() as Record<string, unknown>;
+  trace.effectObservationScope = "cumulative";
+  const result = inspectCoordinatorRuntimeTraceability(
+    trace,
+    (relativePath) => {
+      const source = repositoryReader(relativePath);
+      return (
+        source?.replaceAll("assertRuntimeTraceCase(", "unusedTraceCase(") ??
+        null
+      );
+    },
+  );
+  assert.equal(result.status, "blocked");
+  if (result.status === "blocked") {
+    assert.ok(result.issues.includes("trace_effect_observation_scope_invalid"));
+    assert.ok(
+      result.issues.includes("VER-TASK-NORMAL:trace_case_assertion_not_found"),
+    );
+    assert.ok(
+      result.issues.includes(
+        "VER-RECOVERY-NORMAL:trace_case_assertion_not_found",
+      ),
+    );
+  }
+});
+
 test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観測境界差を拒否する", () => {
   const trace = currentTrace() as Record<string, unknown>;
   const resources = structuredClone(trace.resources) as Record<

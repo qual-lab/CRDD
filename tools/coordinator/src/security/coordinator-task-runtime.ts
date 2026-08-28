@@ -116,6 +116,20 @@ const INVALID_CONTROL_CANCELLATION_RESULT = Object.freeze({
 
 type Provider = "codex" | "claude";
 type TaskRole = "executor" | "reviewer";
+type RuntimeLifecycleState =
+  | "STATE-ADMISSION"
+  | "STATE-OPERATION-READY"
+  | "STATE-TASK-AUTHORIZED"
+  | "STATE-EXECUTOR-CLEAN"
+  | "STATE-CANDIDATE-CAPTURED"
+  | "STATE-REVIEWER-CLEAN"
+  | "STATE-REMEDIATION-AUTHORIZED"
+  | "STATE-REMEDIATION-EXECUTOR-CLEAN"
+  | "STATE-REMEDIATION-CANDIDATE-CAPTURED"
+  | "STATE-REMEDIATION-REVIEWER-CLEAN"
+  | "STATE-CANDIDATE-STAGED"
+  | "STATE-HOST-CLEAN"
+  | "STATE-RESULT-PUBLISHED";
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 const INTERNAL_TASK_OUTCOME = Symbol("internalTaskOutcome");
 type InternalTaskOutcome = Readonly<{
@@ -180,6 +194,7 @@ function throwProductionOperationFailure(
   throw error;
 }
 type RuntimeDependencies = Readonly<{
+  observeLifecycleState?: (state: RuntimeLifecycleState) => void;
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
   createOperation: () => Operation | Promise<Operation>;
   cleanupOperation: (owned: object) => unknown | Promise<unknown>;
@@ -305,6 +320,7 @@ type RuntimeDependencies = Readonly<{
   isolatedCancellationAckTimeoutMs?: number;
 }>;
 type ControlRecord = {
+  lifecycleState: RuntimeLifecycleState;
   managementCapability: object;
   currentProcessControl: object | null;
   cancellationRequested: boolean;
@@ -341,6 +357,16 @@ type RuntimeState = Readonly<{
   dependencies: RuntimeDependencies;
   controls: WeakMap<object, ControlRecord>;
 }>;
+
+function advanceLifecycleState(
+  state: RuntimeState,
+  control: ControlRecord,
+  next: RuntimeLifecycleState,
+) {
+  if (control.lifecycleState === next) return;
+  control.lifecycleState = next;
+  state.dependencies.observeLifecycleState?.(next);
+}
 
 function createBlocked(
   reason: string,
@@ -1136,6 +1162,7 @@ async function runCoordinatorTaskCore(
     control.ownedOperation = operation.owned;
     control.managementCapability = operation.managementCapability;
     control.hostRecoveryId = operation.hostRecoveryId;
+    advanceLifecycleState(state, control, "STATE-OPERATION-READY");
     if (
       operation.hostGenerationFailureDetected &&
       operation.hostGenerationLoss
@@ -1309,6 +1336,7 @@ async function runCoordinatorTaskCore(
           : "coordinator_task_workspace_materialization_failed",
       );
     }
+    advanceLifecycleState(state, control, "STATE-TASK-AUTHORIZED");
     const executor = await executeStage(
       state,
       operation,
@@ -1327,6 +1355,7 @@ async function runCoordinatorTaskCore(
       shouldRetainOperationRoot = executor.manualRecoveryRequired === true;
       return executor;
     }
+    advanceLifecycleState(state, control, "STATE-EXECUTOR-CLEAN");
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_before_candidate_capture");
     }
@@ -1352,6 +1381,7 @@ async function runCoordinatorTaskCore(
           : "coordinator_task_candidate_revision_invalid",
       );
     }
+    advanceLifecycleState(state, control, "STATE-CANDIDATE-CAPTURED");
     if (control.cancellationRequested) {
       return blocked("coordinator_task_cancelled_before_independent_review");
     }
@@ -1373,9 +1403,11 @@ async function runCoordinatorTaskCore(
       shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
       return reviewer;
     }
+    advanceLifecycleState(state, control, "STATE-REVIEWER-CLEAN");
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     let remediationPerformed = false;
     if (reviewerResult?.decision === "changes_requested") {
+      advanceLifecycleState(state, control, "STATE-REMEDIATION-AUTHORIZED");
       const remediationCapability = objectCapability(
         reviewerResult.remediationCapability,
       );
@@ -1400,6 +1432,7 @@ async function runCoordinatorTaskCore(
         shouldRetainOperationRoot = remediation.manualRecoveryRequired === true;
         return remediation;
       }
+      advanceLifecycleState(state, control, "STATE-REMEDIATION-EXECUTOR-CLEAN");
       remediationPerformed = true;
       finalExecutor = remediation;
       executorResult = remediation.normalizedResult as RuntimeRecord;
@@ -1423,6 +1456,11 @@ async function runCoordinatorTaskCore(
             : "coordinator_task_remediated_candidate_invalid",
         );
       }
+      advanceLifecycleState(
+        state,
+        control,
+        "STATE-REMEDIATION-CANDIDATE-CAPTURED",
+      );
       reviewer = await executeStage(
         state,
         operation,
@@ -1441,6 +1479,7 @@ async function runCoordinatorTaskCore(
         shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
         return reviewer;
       }
+      advanceLifecycleState(state, control, "STATE-REMEDIATION-REVIEWER-CLEAN");
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;
     }
     const verified = state.dependencies.verifyCandidate(
@@ -1480,6 +1519,7 @@ async function runCoordinatorTaskCore(
         candidateStoreRecoveryId,
       );
     }
+    advanceLifecycleState(state, control, "STATE-CANDIDATE-STAGED");
     return Object.freeze({
       status: "completed" as const,
       reason: "coordinator_task_candidate_approved",
@@ -1827,6 +1867,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
     ) => {
       const controlCapability = Object.freeze({});
       const control: ControlRecord = {
+        lifecycleState: "STATE-ADMISSION",
         managementCapability: Object.freeze({}),
         currentProcessControl: null,
         cancellationRequested: false,
@@ -1848,6 +1889,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
         dockerFinalizations: [],
         dockerHandoffs: [],
       };
+      state.dependencies.observeLifecycleState?.("STATE-ADMISSION");
       state.controls.set(controlCapability, control);
       const completion: Promise<TaskCompletionRecord> = runCoordinatorTask(
         state,
@@ -1986,6 +2028,8 @@ function createRuntime(dependencies: RuntimeDependencies) {
               control.hostRecoveryId = null;
               control.ownedOperation = null;
               result = Object.freeze({ ...result, hostRecoveryId: null });
+              if (control.lifecycleState === "STATE-CANDIDATE-STAGED")
+                advanceLifecycleState(state, control, "STATE-HOST-CLEAN");
             }
             const lateHostLoss = await settleObservedHostLoss();
             if (lateHostLoss === "cleanup_unknown") {
@@ -2221,6 +2265,7 @@ function createRuntime(dependencies: RuntimeDependencies) {
                 candidateStoreRecoveryId,
               );
             }
+            advanceLifecycleState(state, control, "STATE-RESULT-PUBLISHED");
             return projectCurrentDockerRecovery(
               Object.freeze({
                 ...result,

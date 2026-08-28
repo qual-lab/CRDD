@@ -148,6 +148,8 @@ Provider child／Docker resource absence
 
 各高リスク遷移は、その遷移に実際に適用可能な正常・準正常・異常区分だけを機械可読Traceへ宣言する。各検証ケースは一意なcase ID、単一開始状態、遷移を実際に通ったか、実終了状態、Provider／Host／cleanup別のEffect観測数、結果状態および観測した資源の後条件を持つ。Checkerは遷移×単一開始状態×区分の一意性、実遷移時の終了状態、case IDの試験source接続および資源後条件がその試験の観測資源に含まれることを照合する。複数開始状態を一ケースへ束ねること、成功遷移を失敗例で通過済みとみなすこと、総Effect件数だけで種類を曖昧にすること、test名の存在だけ、非該当区分の形式的な水増し、試験件数またはcoverage率だけを状態母集団の網羅根拠にしない。
 
+Effect観測数はOperation全体の累積値ではなく、各遷移の開始snapshotから終了snapshotまでの差分（transition delta）である。Task Runtimeは内部状態を単調に進め、試験専用observerはAuthorityや制御を持たず、その実際の状態とEffect差分だけを観測する。検証はcase ID文字列の存在ではなく、Canonical caseの全fieldと実観測objectの完全一致を要求する。Recovery Matrixのように固定workerの契約投影だけを検査する入口を、実Filesystem／Process観測へ昇格させない。
+
 ## 10. 遷移一覧
 
 | 遷移ID | From | To | 主な意味 |
@@ -171,6 +173,8 @@ Provider child／Docker resource absence
 | `TRANS-RECOVERY-TO-RECOVERED` | `STATE-RECOVERY-REQUIRED` | `STATE-RECOVERED` | exact資源回収とEvidence残存0 |
 
 機械可読Traceの`verificationBoundaryByBinding`は、試験が契約投影だけを検査する`contract_projection`か、実Filesystem／実Processを観測する`actual_filesystem_process`かを区別する。将来の公開CLIおよび署名済みE2Eはそれぞれ`public_cli`、`signed_e2e`として追加し、fixtureの自己申告を物理観測済みと表現しない。
+
+回復開始の公開理由は内部Pathや入力文字列を返さず、競合、到達可能partial、identity不一致、観測不能およびその他の利用不能という固定分類へ写像する。分類不能な内部理由をそのまま公開せず、同時に全てを一つの一般理由へ潰して運用処置を失わせない。
 
 ## 11. 変更と検証
 

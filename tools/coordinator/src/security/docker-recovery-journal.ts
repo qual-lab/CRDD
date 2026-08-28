@@ -111,6 +111,10 @@ function observePath(target: string) {
   }
 }
 
+function pathPresent(target: string) {
+  return observePath(target) !== null;
+}
+
 function regularFilePresent(target: string) {
   const metadata = observePath(target);
   if (metadata === null) return false;
@@ -133,8 +137,8 @@ function exactFile(file: string, serialized: string, identity: string) {
 function writeIntentAnchor(anchor: string, value: unknown) {
   const serialized = canonical(value);
   const pending = `${anchor}${INTENT_PENDING_SUFFIX}`;
-  if (fs.existsSync(anchor)) return;
-  if (fs.existsSync(pending)) {
+  if (pathPresent(anchor)) return;
+  if (pathPresent(pending)) {
     const observed = readStableFile(pending);
     if (observed.serialized !== serialized)
       throw new Error("docker_recovery_intent_third_state");
@@ -149,7 +153,7 @@ function writeIntentAnchor(anchor: string, value: unknown) {
     if (readStableFile(pending).serialized !== serialized)
       throw new Error("docker_recovery_record_changed");
   }
-  if (fs.existsSync(anchor))
+  if (pathPresent(anchor))
     throw new Error("docker_recovery_intent_third_state");
   fs.renameSync(pending, anchor);
   if (readStableFile(anchor).serialized !== serialized)
@@ -402,7 +406,7 @@ function resolveRuntimeStateBindingForRecovery(
     path.join(directory, `docker-task-${match[2]}`, "base.json"),
     path.join(directory, `pending-docker-task-${match[2]}.json`),
   ]) {
-    if (!fs.existsSync(file)) continue;
+    if (!pathPresent(file)) continue;
     try {
       const base = readCommittedDockerRecoveryJson(file, "base.json");
       const value = base.value as Record<string, unknown>;
@@ -430,7 +434,7 @@ function resolveRuntimeStateBindingForRecovery(
     `docker-task-${match[2]}`,
     "base.json",
   );
-  if (baseCommitIntentPresent && fs.existsSync(splitBase)) {
+  if (baseCommitIntentPresent && pathPresent(splitBase)) {
     const stable = readStableFile(splitBase);
     const value = JSON.parse(stable.serialized) as Record<string, unknown>;
     if (
@@ -565,21 +569,25 @@ function resumeMoveAnchor(anchor: string) {
     inspected;
   if (state === "move_content") fs.renameSync(sourceTarget, target);
   if (state !== "complete") {
-    if (!fs.existsSync(target) || fs.existsSync(sourceTarget))
+    if (!pathPresent(target) || pathPresent(sourceTarget))
       throw new Error("docker_recovery_move_incomplete");
-    if (fs.existsSync(sourceCommit)) fs.renameSync(sourceCommit, targetCommit);
+    if (pathPresent(sourceCommit)) fs.renameSync(sourceCommit, targetCommit);
   }
-  exactFile(
-    target,
-    String(pair.contentSerialized),
-    String(pair.contentIdentity),
-  );
-  exactFile(
-    targetCommit,
-    String(pair.commitSerialized),
-    String(pair.commitIdentity),
-  );
+  if (
+    !exactFile(
+      target,
+      String(pair.contentSerialized),
+      String(pair.contentIdentity),
+    ) ||
+    !exactFile(
+      targetCommit,
+      String(pair.commitSerialized),
+      String(pair.commitIdentity),
+    )
+  )
+    throw new Error("docker_recovery_move_incomplete");
   fs.rmSync(anchor);
+  if (pathPresent(anchor)) throw new Error("docker_recovery_move_incomplete");
   return readCommittedDockerRecoveryJson(target, String(pair.logicalKey));
 }
 
@@ -664,7 +672,7 @@ function validateIntentSnapshot(anchor: string) {
     throw new Error("docker_recovery_cleanup_intent_invalid");
   validateIntentAnchorName(anchor, value);
   const cleanupDirectory = path.join(path.dirname(anchor), value.cleanupName);
-  if (fs.existsSync(cleanupDirectory)) {
+  if (pathPresent(cleanupDirectory)) {
     if (stableDirectoryIdentity(cleanupDirectory) !== value.cleanupIdentity)
       throw new Error("docker_recovery_cleanup_intent_third_state");
     const expected = new Map(
@@ -726,10 +734,12 @@ function resumeCleanupAnchor(anchor: string) {
     path.dirname(anchor),
     String(intent.cleanupName),
   );
-  if (!fs.existsSync(cleanupDirectory)) {
+  if (!pathPresent(cleanupDirectory)) {
     if (classifyCleanupDirectoryState(false, false, false, 0) !== "complete")
       throw new Error("docker_recovery_cleanup_intent_third_state");
     fs.rmSync(anchor);
+    if (pathPresent(anchor))
+      throw new Error("docker_recovery_cleanup_incomplete");
     return true;
   }
   if (stableDirectoryIdentity(cleanupDirectory) !== intent.cleanupIdentity)
@@ -755,7 +765,7 @@ function resumeCleanupAnchor(anchor: string) {
     throw new Error("docker_recovery_cleanup_intent_third_state");
   for (const entry of expected.values()) {
     const target = path.join(cleanupDirectory, String(entry.name));
-    if (!fs.existsSync(target)) continue;
+    if (!pathPresent(target)) continue;
     const metadata = fs.lstatSync(target, { bigint: true });
     if (identityText(identityOf(metadata)) !== entry.identity)
       throw new Error("docker_recovery_cleanup_intent_third_state");
@@ -768,6 +778,8 @@ function resumeCleanupAnchor(anchor: string) {
       )
         throw new Error("docker_recovery_cleanup_intent_third_state");
       fs.rmdirSync(target);
+      if (pathPresent(target))
+        throw new Error("docker_recovery_cleanup_incomplete");
       continue;
     }
     if (!metadata.isFile() || metadata.isSymbolicLink())
@@ -779,11 +791,17 @@ function resumeCleanupAnchor(anchor: string) {
     )
       throw new Error("docker_recovery_cleanup_intent_third_state");
     fs.rmSync(target);
+    if (pathPresent(target))
+      throw new Error("docker_recovery_cleanup_incomplete");
   }
   if (fs.readdirSync(cleanupDirectory).length !== 0)
     throw new Error("docker_recovery_cleanup_incomplete");
   fs.rmdirSync(cleanupDirectory);
+  if (pathPresent(cleanupDirectory))
+    throw new Error("docker_recovery_cleanup_incomplete");
   fs.rmSync(anchor);
+  if (pathPresent(anchor))
+    throw new Error("docker_recovery_cleanup_incomplete");
   return true;
 }
 
@@ -792,7 +810,7 @@ function writeAtomicFile(
   target: string,
   serialized: string,
 ) {
-  if (fs.existsSync(target))
+  if (pathPresent(target))
     throw new Error("docker_recovery_record_already_exists");
   const temporary = path.join(
     directory,
@@ -808,7 +826,7 @@ function writeAtomicFile(
   const temporaryRecord = readStableFile(temporary);
   if (temporaryRecord.serialized !== serialized)
     throw new Error("docker_recovery_record_changed");
-  if (fs.existsSync(target))
+  if (pathPresent(target))
     throw new Error("docker_recovery_record_already_exists");
   fs.renameSync(temporary, target);
   const finalRecord = readStableFile(target);
@@ -839,7 +857,7 @@ export function writeCommittedDockerRecoveryJson(
 ): CommittedJson {
   const target = path.join(directory, name);
   const commit = path.join(directory, dockerRecoveryCommitName(name));
-  if (fs.existsSync(target) || fs.existsSync(commit))
+  if (pathPresent(target) || pathPresent(commit))
     throw new Error("docker_recovery_record_already_exists");
   const serialized = canonical(value);
   const content = writeAtomicFile(directory, target, serialized);
@@ -875,7 +893,7 @@ export function readCommittedDockerRecoveryJson(
     throw new Error("docker_task_recovery_record_noncanonical");
   const hash = createHash("sha256").update(content.serialized).digest("hex");
   const commit = `${file}${COMMIT_SUFFIX}`;
-  if (!fs.existsSync(commit))
+  if (!pathPresent(commit))
     throw new Error("docker_task_recovery_commit_missing");
   const commitRecord = readStableFile(commit);
   const commitValue = JSON.parse(commitRecord.serialized);
@@ -920,9 +938,9 @@ export function moveCommittedDockerRecoveryJson(
   );
   const anchor = path.join(sourceDirectory, `${MOVE_PREFIX}${digest}.json`);
   if (
-    !fs.existsSync(anchor) &&
-    !fs.existsSync(`${anchor}${INTENT_PENDING_SUFFIX}`) &&
-    (fs.existsSync(target) || fs.existsSync(targetCommit))
+    !pathPresent(anchor) &&
+    !pathPresent(`${anchor}${INTENT_PENDING_SUFFIX}`) &&
+    (pathPresent(target) || pathPresent(targetCommit))
   )
     throw new Error("docker_recovery_record_already_exists");
   writeIntentAnchor(
@@ -1089,7 +1107,7 @@ export function resumeDockerRecoveryJournalDirectory(directory: string) {
         directory,
         name.slice(0, -INTENT_PENDING_SUFFIX.length),
       );
-      if (fs.existsSync(anchor))
+      if (pathPresent(anchor))
         throw new Error("docker_recovery_intent_third_state");
       fs.renameSync(path.join(directory, name), anchor);
     }
@@ -1152,7 +1170,7 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
         : name;
       if (
         name.endsWith(INTENT_PENDING_SUFFIX) &&
-        fs.existsSync(path.join(directory, anchorName))
+        pathPresent(path.join(directory, anchorName))
       )
         throw new Error("docker_recovery_intent_third_state");
       const anchor = path.join(directory, name);
@@ -1182,7 +1200,7 @@ export function resumeDockerRecoveryJournalDirectoryForRecovery(
     let anchor = path.join(directory, snapshot.name);
     if (snapshot.name.endsWith(INTENT_PENDING_SUFFIX)) {
       const finalAnchor = path.join(directory, snapshot.anchorName);
-      if (fs.existsSync(finalAnchor))
+      if (pathPresent(finalAnchor))
         throw new Error("docker_recovery_intent_third_state");
       fs.renameSync(anchor, finalAnchor);
       anchor = finalAnchor;
@@ -1282,7 +1300,7 @@ export function inspectDockerRecoveryJournalDirectory(directory: string) {
       : name;
     if (
       name.endsWith(INTENT_PENDING_SUFFIX) &&
-      fs.existsSync(path.join(directory, anchorName))
+      pathPresent(path.join(directory, anchorName))
     )
       throw new Error("docker_recovery_intent_third_state");
     const value = validateIntentSnapshot(path.join(directory, name));
@@ -1351,7 +1369,7 @@ export function discoverDockerRecoveryJournalJson(
       : name;
     if (
       name.endsWith(INTENT_PENDING_SUFFIX) &&
-      fs.existsSync(path.join(directory, anchorName))
+      pathPresent(path.join(directory, anchorName))
     )
       throw new Error("docker_recovery_intent_third_state");
     const value = validateIntentSnapshot(path.join(directory, name));
@@ -1401,7 +1419,7 @@ export function discoverDockerRecoveryJournalJsonForRecovery(
       : name;
     if (
       name.endsWith(INTENT_PENDING_SUFFIX) &&
-      fs.existsSync(path.join(directory, anchorName))
+      pathPresent(path.join(directory, anchorName))
     )
       throw new Error("docker_recovery_intent_third_state");
     const value = validateIntentSnapshot(path.join(directory, name));

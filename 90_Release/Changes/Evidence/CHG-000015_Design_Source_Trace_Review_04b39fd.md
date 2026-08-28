@@ -306,11 +306,11 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 ## 11. 是正実装結果（2026-08-28）
 
 - `tools/coordinator/architecture/README.md`へ主実行シーケンス、10資源、17状態、Lock順序、耐久pair、cleanup依存順、9不変条件および17遷移を固定した。clean blocked、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
-- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、6検証接続・37の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
+- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、6検証接続・40の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
 - Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、operation／invocation terminal遷移、検証境界、遷移×開始状態×区分、期待終了状態、Effect件数、結果状態、資源後条件、Architecture記載およびtest source上のexact test名を検査する。試験実行結果、品質状態または監査Passは主張しない。
 - Host active bindingのcontent rename直後へ実process killを注入し、同一Lock内でHost previous世代、全submission不存在、exact base、完全commit済みpointer、active binding完全一致およびactive commit不存在の場合だけ明示Recoveryでrollbackして残存0へ収束することを確認した。
 - 同じpartial contentを変更した異常例、期待値の異なるjournal content、完全commit pairでは処置せずEvidenceを保持することを確認した。
-- 最新対象確認はTask／Docker Recovery／Journal／Traceabilityの175試験、Coordinator全1072試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）で合格した。
+- 最新対象確認はTask／Docker Recovery／Journal／Traceability／公開理由分類の196試験、Coordinator全1079試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）を対象とする。独立再監査へ渡す固定改訂版で結果を確定する。
 
 現在の実Host残存は、新しいsource候補から保護Runtime Stateをproduction Authorityとして直接開けないため、更新した正式署名配布物を固定するまで保持する。これをsource checkout、caller supplied Pathまたは手動削除で回避しない。
 
@@ -324,10 +324,10 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 | DSR-02 | Partially resolved | cleanup依存順、clean blocked、Host clean後Recoveryを明示。全実装symbolとの自動照合は将来候補 |
 | DSR-03 | Partially resolved | Lock順、Stageごとのlogical Home lock解放、解放窓後再照合をTraceへ固定。汎用静的解析は追加しない |
 | DSR-04 | Applied — independent re-audit pending | partial／committed active bindingを削除する全5経路へcommitted pointerとの共通closureを適用し、missing／partial／replacementの非削除試験を追加。独立再監査と実Hostの署名Recovery待ち |
-| DSR-05 | Applied — independent re-audit pending | 各caseを単一開始状態、taken遷移、実終了状態、Provider／Host／cleanup別Effect観測、観測資源後条件および試験source上のcase IDへ接続。Checkerは宣言と試験合格そのものを同一視しない |
+| DSR-05 | Applied — independent re-audit pending | Runtimeが単調に記録した実状態と遷移差分からCanonical case全fieldを完全一致比較する。Checkerはcase IDだけでなく共通assertion接続とtransition delta宣言を要求し、宣言と試験合格そのものを同一視しない |
 | DSR-06 | Open | 公開Task入口で実OS lock、Filesystem、child Process、Executor→Reviewerを自動実測する縦結合Harnessが必要 |
 | DSR-07 | Open | 旧Coordinator facadeの撤去または明確な非production化をRelease前に判断する |
-| DSR-08 | Open | 秘密を出さず競合、partial、identity差、unknownを区別する公開reason分類をRelease前に固定する |
+| DSR-08 | Applied — independent re-audit pending | 内部理由を直接公開せず、競合、partial、identity差、観測不能およびその他の利用不能へ固定分類する。caller由来文字列を漏らさない陽性・陰性対照を追加した |
 
 fixture cleanup不備で作られた可能性がある過去Temp領域は、実Runtime資源と混在し得るためglob削除しない。新試験は返却されたexact Host root、marker、親領域だけを`finally`で回収する。過去残骸は保護Runtime参照との照合を持つ別の明示処置として扱う。
 
@@ -340,3 +340,13 @@ fixture cleanup不備で作られた可能性がある過去Temp領域は、実R
 第二固定候補Commit `f6ae23195b1cccdab00dc70fd657faaa6814c192`／Tree `65d18f821a71efc5b333e9a1659346ef82d2e26c`の再監査もCritical 0、Major 3、Minor 2で`Fail`とした。共通原因は、一ケースへ複数開始状態を束ねたため各状態の実scenarioを証明できなかったこと、失敗例を成功遷移の検証として数えたこと、Effect種類と試験assertionの接続が曖昧だったこと、および削除後観測に`existsSync`が残って権限拒否等を不存在へ縮退し得たことである。
 
 Trace Schema revision 4は、case ID、単一`fromState`、`outcome`、実`expectedEndState`、Provider／Host／cleanup別`effectObservations`および観測資源の後条件を必須にした。同じ遷移・開始状態・区分の重複を拒否し、Task terminalの19状態別scenario、正常8遷移、一回是正8遷移、partial pairおよび実Recoveryを37 caseへ接続した。耐久delete primitive、active binding／pointer完了GateおよびHost inventoryは`ENOENT`だけを不存在とし、削除後の観測不能を注入してanchorとRecovery Evidenceが保持されることを確認する。これらは現在`Applied`であり、新しい固定改訂版の独立再監査がPassするまで`Resolved`へ昇格しない。
+
+## 14. 第二固定候補の監査後是正
+
+第二固定候補後の独立監査は、case ID文字列が試験sourceに存在してもCanonical case全体と実挙動が一致する保証にならないこと、Task terminalの開始状態が一部欠けていたこと、Effect観測が累積値にも読めること、契約投影を実Filesystem／Process観測としていたこと、および削除以外の不存在判定に`existsSync`相当の二値化が残っていたことを検出した。
+
+是正後のTraceは`effectObservationScope: transition_delta`を必須とし、Task Runtimeの単調な内部lifecycle observerから開始・終了状態とProvider／Host／cleanupの差分を組み立てる。6検証接続・40 caseは共通`assertRuntimeTraceCase`によりCanonical objectへ完全一致し、case ID文字列だけの接続を拒否する。blocked／Recovery terminalはCandidate Captured、Reviewer Clean、是正各状態およびHost Cleanを別scenarioとして持つ。Recovery Matrixは`contract_projection`へ戻し、直接Runtime試験が所有しないCLI signalおよびLock後条件を除いた。
+
+FilesystemのAuthority判定は`ENOENT`だけを不存在とし、権限拒否、共有競合およびI/O失敗を観測不能へ閉じる。Host active binding削除済み・exact committed pointer残存という非対称状態は、別Processで同一identityを再検証してDocker、Mount、Host、pointerおよびRuntime Evidenceの残存0へ収束する。active binding削除後またはHost Root削除後の再観測が不能な場合は完了へ縮退しない。Docker Recovery開始失敗の公開reasonは競合、partial、identity差、観測不能および一般利用不能の固定分類とし、内部Pathやcaller文字列を返さない。
+
+これらの処置は`Applied — independent re-audit pending`である。DSR-06の公開Task入口を使う自動縦結合とDSR-07の旧facade整理は別のRelease残件として維持する。正式署名Recovery／Route Matrix、Runtime完成、統合またはReleaseは、新しい固定改訂版の独立監査と署名実測なしに成立したとみなさない。

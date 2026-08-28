@@ -106,6 +106,7 @@ type Recovery = Readonly<{
 }>;
 type BlockedRecovery = Readonly<{
   status: "blocked";
+  reason?: string;
   recoveryId: string | null;
   manualRecoveryRequired?: boolean;
 }>;
@@ -172,6 +173,20 @@ type RuntimeDependencies = Readonly<{
     providerEffectAllowed: true;
   }> | null;
 }>;
+
+function publicRecoveryStartReason(reason: unknown) {
+  if (typeof reason !== "string")
+    return "docker_process_controller_recovery_unavailable";
+  if (/(?:generation_active|lock|lease|concurrent)/u.test(reason))
+    return "docker_process_controller_recovery_conflict";
+  if (/(?:partial|orphan|duplicate|incomplete)/u.test(reason))
+    return "docker_process_controller_recovery_partial_state";
+  if (/(?:mismatch|replacement|identity|binding)/u.test(reason))
+    return "docker_process_controller_recovery_identity_mismatch";
+  if (/(?:observation|audit|unknown|unavailable|failed_closed)/u.test(reason))
+    return "docker_process_controller_recovery_observation_unknown";
+  return "docker_process_controller_recovery_unavailable";
+}
 type ExecutionRecord = {
   managementCapability: object;
   cancellationRequested: boolean;
@@ -670,7 +685,7 @@ function start(
       managementCapability,
     );
     return createBlockedStart(
-      "docker_process_controller_recovery_unavailable",
+      publicRecoveryStartReason(recovery?.reason),
       completed.status === "completed",
       recovery?.recoveryId ?? null,
     );

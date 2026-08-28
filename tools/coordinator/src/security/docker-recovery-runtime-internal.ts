@@ -998,7 +998,7 @@ export function inspectRuntimeOwnedDockerResourceReceipts(
           record.operationDirectory,
           `receipt-${purpose}.json`,
         );
-        const submitted = fs.existsSync(submission);
+        const submitted = recoveryPathPresent(submission);
         if (
           submitted &&
           !validateOperationRecord(
@@ -1010,9 +1010,9 @@ export function inspectRuntimeOwnedDockerResourceReceipts(
           )
         )
           return null;
-        if (!submitted && fs.existsSync(receipt)) return null;
+        if (!submitted && recoveryPathPresent(receipt)) return null;
         let dockerId: string | null = null;
-        if (fs.existsSync(receipt)) {
+        if (recoveryPathPresent(receipt)) {
           const value = readExactJson(receipt).value;
           if (
             !validateOperationRecord(
@@ -1251,7 +1251,7 @@ export function prepareRuntimeOwnedDockerHostCleanup(
     const record = durableRecord(recoveryFinalizationCapability);
     if (
       !record ||
-      !fs.existsSync(
+      !recoveryPathPresent(
         path.join(record.operationDirectory, "normal-run-complete.json"),
       )
     )
@@ -1272,7 +1272,7 @@ export function prepareRuntimeOwnedDockerHostCleanup(
       "host-cleanup-intent.json",
     );
     return withFreshHomeAndRuntimeStateLock(record, () => {
-      if (fs.existsSync(intentPath)) {
+      if (recoveryPathPresent(intentPath)) {
         const intent = readExactJson(intentPath).value as Record<
           string,
           unknown
@@ -1308,24 +1308,24 @@ export function recordRuntimeOwnedDockerHostCleanupReceipt(
     const record = durableRecord(recoveryFinalizationCapability);
     if (
       !record ||
-      !fs.existsSync(
+      !recoveryPathPresent(
         path.join(record.operationDirectory, "host-cleanup-intent.json"),
       ) ||
-      fs.existsSync(record.hostRootPath) ||
-      fs.existsSync(record.hostMarkerPath)
+      recoveryPathPresent(record.hostRootPath) ||
+      recoveryPathPresent(record.hostMarkerPath)
     )
       return false;
     return withFreshHomeAndRuntimeStateLock(record, () => {
       if (
-        fs.existsSync(record.hostRootPath) ||
-        fs.existsSync(record.hostMarkerPath)
+        recoveryPathPresent(record.hostRootPath) ||
+        recoveryPathPresent(record.hostMarkerPath)
       )
         throw new Error("docker_task_recovery_host_cleanup_unconfirmed");
       const receiptPath = path.join(
         record.operationDirectory,
         "host-cleanup-receipt.json",
       );
-      if (fs.existsSync(receiptPath)) {
+      if (recoveryPathPresent(receiptPath)) {
         const receipt = readExactJson(receiptPath).value as Record<
           string,
           unknown
@@ -1802,13 +1802,16 @@ function ensureHostCleanupReceipt(
   recoveryId: string,
   hostPaths: Readonly<{ root: string; marker: string }>,
 ) {
-  if (fs.existsSync(hostPaths.root) || fs.existsSync(hostPaths.marker))
+  if (
+    recoveryPathPresent(hostPaths.root) ||
+    recoveryPathPresent(hostPaths.marker)
+  )
     throw new Error("docker_task_recovery_host_cleanup_unconfirmed");
   const receiptPath = path.join(
     operationDirectory,
     "host-cleanup-receipt.json",
   );
-  if (fs.existsSync(receiptPath)) {
+  if (recoveryPathPresent(receiptPath)) {
     const receipt = readExactJson(receiptPath).value;
     if (
       !exactRecordKeys(receipt, [
@@ -1941,17 +1944,26 @@ function validateActiveLeasePointer(
     throw new Error("docker_task_recovery_pointer_mismatch");
 }
 
-function observeRecoveryFile(target: string) {
+function observeRecoveryPath(target: string) {
   try {
-    const metadata = fs.lstatSync(target, { bigint: true });
-    if (!metadata.isFile() || metadata.isSymbolicLink())
-      throw new Error("docker_task_recovery_record_observation_unknown");
-    return true;
+    return fs.lstatSync(target, { bigint: true });
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT")
-      return false;
+      return null;
     throw new Error("docker_task_recovery_record_observation_unknown");
   }
+}
+
+function recoveryPathPresent(target: string) {
+  return observeRecoveryPath(target) !== null;
+}
+
+function observeRecoveryFile(target: string) {
+  const metadata = observeRecoveryPath(target);
+  if (metadata === null) return false;
+  if (!metadata.isFile() || metadata.isSymbolicLink())
+    throw new Error("docker_task_recovery_record_observation_unknown");
+  return true;
 }
 
 function verifyActiveBindingAndPointerClosure(
@@ -2026,7 +2038,7 @@ function removeRecoveryOperationDirectory(
     path.dirname(operationDirectory),
     `cleanup-docker-task-${stableLogicalHomeBindingHash}-${nonce}-${baseHash}`,
   );
-  if (fs.existsSync(cleanupDirectory))
+  if (recoveryPathPresent(cleanupDirectory))
     throw new Error("docker_task_recovery_cleanup_tombstone_conflict");
   const operationMetadata = fs.lstatSync(operationDirectory, { bigint: true });
   const originalEntries = fs
@@ -2273,7 +2285,7 @@ function currentHostRecoveryTokenForInventory(
       continue;
     const directory = path.join(runtimeStateRoot, entry.name);
     const basePath = path.join(directory, "base.json");
-    if (!fs.existsSync(basePath)) continue;
+    if (!recoveryPathPresent(basePath)) continue;
     const base = readExactJson(basePath).value as Record<string, unknown>;
     if (hostPathsFromBase(base).root !== hostRoot) continue;
     for (const [name, key] of [
@@ -2283,7 +2295,7 @@ function currentHostRecoveryTokenForInventory(
       ["host-begin-receipt.json", "observed"],
     ] as const) {
       const file = path.join(directory, name);
-      if (!fs.existsSync(file)) continue;
+      if (!recoveryPathPresent(file)) continue;
       const value = readExactJson(file).value as Record<string, unknown>;
       if (typeof value[key] === "string") candidates.add(String(value[key]));
     }
@@ -2743,7 +2755,7 @@ function discoverRecoveryHostBinding(
     | ReturnType<typeof discoverDockerRecoveryJournalJsonForRecovery>
     | null = null;
   for (const candidate of [operationBase, pendingBase]) {
-    if (!fs.existsSync(candidate)) continue;
+    if (!recoveryPathPresent(candidate)) continue;
     try {
       record = readCommittedDockerRecoveryJson(candidate, "base.json");
       break;
@@ -2793,14 +2805,16 @@ function discoverRecoveryRuntimeStateBinding(
     rootPath,
     `cleanup-docker-task-${parsed.stableLogicalHomeBindingHash}-${parsed.operationNonce}-${parsed.baseHash}`,
   );
-  if (fs.existsSync(cleanupDirectory))
+  if (recoveryPathPresent(cleanupDirectory))
     return verifyRecoveryCleanupManifest(cleanupDirectory, parsed.token)
       .runtimeStateBinding;
   const operationDirectory = path.join(
     rootPath,
     `docker-task-${parsed.operationNonce}`,
   );
-  if (fs.existsSync(path.join(operationDirectory, "cleanup-manifest.json")))
+  if (
+    recoveryPathPresent(path.join(operationDirectory, "cleanup-manifest.json"))
+  )
     return verifyRecoveryCleanupManifest(operationDirectory, parsed.token)
       .runtimeStateBinding;
   const operationBase = path.join(operationDirectory, "base.json");
@@ -2813,7 +2827,7 @@ function discoverRecoveryRuntimeStateBinding(
     | ReturnType<typeof discoverDockerRecoveryJournalJsonForRecovery>
     | null = null;
   for (const candidate of [operationBase, pendingBase]) {
-    if (!fs.existsSync(candidate)) continue;
+    if (!recoveryPathPresent(candidate)) continue;
     try {
       record = readCommittedDockerRecoveryJson(candidate, "base.json");
       break;
@@ -2910,7 +2924,10 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     hostRoot: string;
     hostNonce: string;
   }> | null = null;
-  if (!fs.existsSync(cleanupDirectoryCandidate) && !cleanupIntentPresent) {
+  if (
+    !recoveryPathPresent(cleanupDirectoryCandidate) &&
+    !cleanupIntentPresent
+  ) {
     try {
       const discovered = discoverRecoveryHostBinding(root.rootPath, parsed);
       hostOperationGenerationIdentity = Object.freeze({
@@ -2991,7 +3008,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
   const outsideHostOperationGenerationLock = <T>(effect: () => T) => {
     if (!hostOperationGeneration || !hostOperationGenerationIdentity)
       return effect();
-    const hostRootBefore = fs.existsSync(
+    const hostRootBefore = recoveryPathPresent(
       hostOperationGenerationIdentity.hostRoot,
     )
       ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
@@ -3017,7 +3034,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       throw new Error(
         "docker_task_host_operation_generation_active_or_unknown",
       );
-    const hostRootAfter = fs.existsSync(
+    const hostRootAfter = recoveryPathPresent(
       hostOperationGenerationIdentity.hostRoot,
     )
       ? fs.lstatSync(hostOperationGenerationIdentity.hostRoot, {
@@ -3128,8 +3145,8 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       root.rootPath,
       `cleanup-docker-task-${parsed.stableLogicalHomeBindingHash}-${parsed.operationNonce}-${parsed.baseHash}`,
     );
-    if (fs.existsSync(cleanupDirectory)) {
-      if (fs.existsSync(operationDirectory))
+    if (recoveryPathPresent(cleanupDirectory)) {
+      if (recoveryPathPresent(operationDirectory))
         throw new Error("docker_task_recovery_cleanup_tombstone_conflict");
       removeRecoveryCleanupTombstone(cleanupDirectory, parsed.token);
       commitDirectoryMutationBoundary(root.rootPath);
@@ -3143,12 +3160,12 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "cleanup-manifest.json",
     );
-    if (fs.existsSync(operationCleanupManifest)) {
+    if (recoveryPathPresent(operationCleanupManifest)) {
       const cleanupManifest = verifyRecoveryCleanupManifest(
         operationDirectory,
         parsed.token,
       );
-      if (fs.existsSync(cleanupDirectory))
+      if (recoveryPathPresent(cleanupDirectory))
         throw new Error("docker_task_recovery_cleanup_tombstone_conflict");
       fs.renameSync(operationDirectory, cleanupDirectory);
       commitDirectoryMutationBoundary(root.rootPath);
@@ -3176,9 +3193,9 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     const basePath = path.join(operationDirectory, "base.json");
     const baseCommitPath = path.join(operationDirectory, "base-commit.json");
     if (
-      !fs.existsSync(basePath) &&
-      fs.existsSync(pendingBasePath) &&
-      !fs.existsSync(pendingCommitPath)
+      !recoveryPathPresent(basePath) &&
+      recoveryPathPresent(pendingBasePath) &&
+      !recoveryPathPresent(pendingCommitPath)
     ) {
       const pendingBase = readCommittedDockerRecoveryJson(
         pendingBasePath,
@@ -3215,10 +3232,13 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       )
         throw new Error("docker_task_runtime_state_audit_failed");
     }
-    if (!fs.existsSync(basePath)) {
-      if (!fs.existsSync(pendingBasePath) || !fs.existsSync(pendingCommitPath))
+    if (!recoveryPathPresent(basePath)) {
+      if (
+        !recoveryPathPresent(pendingBasePath) ||
+        !recoveryPathPresent(pendingCommitPath)
+      )
         throw new Error("docker_task_recovery_base_missing");
-      if (!fs.existsSync(operationDirectory))
+      if (!recoveryPathPresent(operationDirectory))
         fs.mkdirSync(operationDirectory, { mode: 0o700 });
       const operationMetadata = fs.lstatSync(operationDirectory);
       if (
@@ -3235,17 +3255,17 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         readCommittedDockerRecoveryJson(pendingCommitPath, "base-commit.json"),
         baseCommitPath,
       );
-    } else if (fs.existsSync(pendingBasePath)) {
+    } else if (recoveryPathPresent(pendingBasePath)) {
       throw new Error("docker_task_recovery_duplicate_base");
     }
-    if (!fs.existsSync(baseCommitPath)) {
-      if (!fs.existsSync(pendingCommitPath))
+    if (!recoveryPathPresent(baseCommitPath)) {
+      if (!recoveryPathPresent(pendingCommitPath))
         throw new Error("docker_task_recovery_base_commit_missing");
       moveCommittedDockerRecoveryJson(
         readCommittedDockerRecoveryJson(pendingCommitPath, "base-commit.json"),
         baseCommitPath,
       );
-    } else if (fs.existsSync(pendingCommitPath)) {
+    } else if (recoveryPathPresent(pendingCommitPath)) {
       throw new Error("docker_task_recovery_duplicate_base_commit");
     }
     const baseFile = readExactJson(basePath);
@@ -3358,7 +3378,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       hostPaths.root,
       managementDirectoryName,
     );
-    if (fs.existsSync(hostManagementDirectory))
+    if (recoveryPathPresent(hostManagementDirectory))
       resumeDockerRecoveryJournalDirectory(hostManagementDirectory);
     inventoryOperationDirectory(
       operationDirectory,
@@ -3502,13 +3522,16 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         operationDirectory,
         "host-cleanup-intent.json",
       );
-      if (!fs.existsSync(cleanupIntentPath))
+      if (!recoveryPathPresent(cleanupIntentPath))
         writeDurableJson(operationDirectory, "host-cleanup-intent.json", {
           schema: "crdd-coordinator-host-cleanup-intent/v1",
           recoveryId: parsed.token,
           currentHostRecoveryId: hostSuccessor,
         });
-      if (fs.existsSync(hostPaths.root) || fs.existsSync(hostPaths.marker)) {
+      if (
+        recoveryPathPresent(hostPaths.root) ||
+        recoveryPathPresent(hostPaths.marker)
+      ) {
         const currentHostToken = currentHostRecoveryTokenForInventory(
           root.rootPath,
           hostPaths.root,
@@ -3543,7 +3566,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "host-crash-absence-receipt.json",
     );
-    if (fs.existsSync(existingCrashReceiptPath)) {
+    if (recoveryPathPresent(existingCrashReceiptPath)) {
       const crashReceipt = readExactJson(existingCrashReceiptPath)
         .value as Record<string, unknown>;
       const dockerAbsentHostToken = String(crashReceipt.observed ?? "");
@@ -3551,7 +3574,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       if (hostIdentity.nonce !== initialHostIdentity.nonce)
         throw new Error("docker_task_recovery_host_transition_mismatch");
       if (
-        !fs.existsSync(
+        !recoveryPathPresent(
           path.join(operationDirectory, "docker-absence-crash.json"),
         )
       )
@@ -3590,7 +3613,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         operationDirectory,
         "mount-crash-absence.json",
       );
-      if (!fs.existsSync(mountCrashPath))
+      if (!recoveryPathPresent(mountCrashPath))
         writeDurableJson(operationDirectory, "mount-crash-absence.json", {
           schema: "crdd-coordinator-provider-home-mount-completion/v1",
           recoveryId: parsed.token,
@@ -3609,7 +3632,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       )
         throw new Error("docker_task_recovery_host_inventory_incomplete");
       if (
-        !fs.existsSync(
+        !recoveryPathPresent(
           path.join(operationDirectory, "host-cleanup-intent.json"),
         )
       )
@@ -3618,7 +3641,10 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           recoveryId: parsed.token,
           currentHostRecoveryId: dockerAbsentHostToken,
         });
-      if (fs.existsSync(hostPaths.root) || fs.existsSync(hostPaths.marker)) {
+      if (
+        recoveryPathPresent(hostPaths.root) ||
+        recoveryPathPresent(hostPaths.marker)
+      ) {
         const currentHostToken = currentHostRecoveryTokenForInventory(
           root.rootPath,
           hostPaths.root,
@@ -3652,7 +3678,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "host-begin-intent.json",
     );
-    if (!fs.existsSync(hostBeginIntentPath))
+    if (!recoveryPathPresent(hostBeginIntentPath))
       writeDurableJson(
         operationDirectory,
         "host-begin-intent.json",
@@ -3675,7 +3701,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     );
     let hostSubmissionStarted = true;
     let hostReceipt: Record<string, string>;
-    if (fs.existsSync(hostBeginReceiptPath)) {
+    if (recoveryPathPresent(hostBeginReceiptPath)) {
       hostReceipt = readExactJson(hostBeginReceiptPath).value as Record<
         string,
         string
@@ -3698,7 +3724,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         );
       } else {
         const hasSubmission = [...CREATE_PURPOSES].some((purpose) =>
-          fs.existsSync(
+          recoveryPathPresent(
             path.join(operationDirectory, `submission-${purpose}.json`),
           ),
         );
@@ -3764,7 +3790,8 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     }
     if (
       activePointerClosure.activeState === "absent" &&
-      hostSubmissionStarted
+      hostSubmissionStarted &&
+      activePointerClosure.pointerState !== "committed"
     ) {
       throw new Error("docker_task_recovery_active_run_missing");
     }
@@ -3829,7 +3856,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         recoveryId: null,
       });
     }
-    if (!fs.existsSync(configDirectory))
+    if (!recoveryPathPresent(configDirectory))
       fs.mkdirSync(configDirectory, { mode: 0o700 });
     const configIdentity = recoveryConfigIdentity(configDirectory);
     const specs = [
@@ -3870,7 +3897,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       ],
     ] as const;
     for (const [purpose, kind, name, image, isInternal] of specs) {
-      const hasSubmissionMarker = fs.existsSync(
+      const hasSubmissionMarker = recoveryPathPresent(
         path.join(operationDirectory, `submission-${purpose}.json`),
       );
       const receiptPath = path.join(
@@ -3878,11 +3905,11 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         `receipt-${purpose}.json`,
       );
       if (!hasSubmissionMarker) {
-        if (fs.existsSync(receiptPath))
+        if (recoveryPathPresent(receiptPath))
           throw new Error("docker_task_recovery_receipt_without_submission");
         continue;
       }
-      if (!fs.existsSync(receiptPath)) {
+      if (!recoveryPathPresent(receiptPath)) {
         const expectedNetworks =
           purpose === "create_subscription_auth_probe"
             ? ["none"]
@@ -3997,7 +4024,9 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       throw new Error("docker_task_recovery_config_untrusted");
     fs.rmdirSync(configDirectory);
     if (
-      !fs.existsSync(path.join(operationDirectory, "docker-absence-crash.json"))
+      !recoveryPathPresent(
+        path.join(operationDirectory, "docker-absence-crash.json"),
+      )
     ) {
       writeDurableJson(operationDirectory, "docker-absence-crash.json", {
         schema: "crdd-coordinator-docker-absence/v1",
@@ -4010,10 +4039,10 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "host-crash-absence-intent.json",
     );
-    const crashIntent = fs.existsSync(crashIntentPath)
+    const crashIntent = recoveryPathPresent(crashIntentPath)
       ? (readExactJson(crashIntentPath).value as Record<string, string>)
       : expectedHostSuccessor(submissionHostToken, "docker_absent_confirmed");
-    if (!fs.existsSync(crashIntentPath))
+    if (!recoveryPathPresent(crashIntentPath))
       writeDurableJson(
         operationDirectory,
         "host-crash-absence-intent.json",
@@ -4037,7 +4066,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "host-crash-absence-receipt.json",
     );
-    if (!fs.existsSync(crashReceiptPath))
+    if (!recoveryPathPresent(crashReceiptPath))
       writeDurableJson(operationDirectory, "host-crash-absence-receipt.json", {
         previous: submissionHostToken,
         observed: dockerAbsentHostToken,
@@ -4062,7 +4091,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       operationDirectory,
       "mount-crash-absence.json",
     );
-    if (!fs.existsSync(mountCrashPath))
+    if (!recoveryPathPresent(mountCrashPath))
       writeDurableJson(operationDirectory, "mount-crash-absence.json", {
         schema: "crdd-coordinator-provider-home-mount-completion/v1",
         recoveryId: parsed.token,
@@ -4074,7 +4103,9 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     )
       throw new Error("docker_task_recovery_host_inventory_incomplete");
     if (
-      !fs.existsSync(path.join(operationDirectory, "host-cleanup-intent.json"))
+      !recoveryPathPresent(
+        path.join(operationDirectory, "host-cleanup-intent.json"),
+      )
     )
       writeDurableJson(operationDirectory, "host-cleanup-intent.json", {
         schema: "crdd-coordinator-host-cleanup-intent/v1",
@@ -4310,7 +4341,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
         return readExactJson(file, logicalKey);
       } catch (error) {
         if (!recoveryId) throw error;
-        if (fs.existsSync(file))
+        if (recoveryPathPresent(file))
           return inspectDockerRecoveryMoveJournalForRecovery(
             rootPath,
             recoveryId,
@@ -4386,8 +4417,8 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           throw new Error("docker_task_runtime_state_base_invalid");
         return Object.freeze({ state: inspected.moveState, hasIntent: true });
       }
-      const targetPresent = fs.existsSync(target);
-      const targetCommitPresent = fs.existsSync(targetCommit);
+      const targetPresent = recoveryPathPresent(target);
+      const targetCommitPresent = recoveryPathPresent(targetCommit);
       if (!targetPresent && !targetCommitPresent)
         return Object.freeze({ state: "absent" as const, hasIntent: false });
       if (!targetPresent || !targetCommitPresent)
@@ -4517,7 +4548,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       let pendingBaseSource: "required" | "absent" | "journal" = "required";
       let pendingCommitSource: "required" | "absent" | "journal" = "required";
       let pointerEligible = false;
-      if (fs.existsSync(directory)) {
+      if (recoveryPathPresent(directory)) {
         const bootstrap = inventoryBootstrapOperationDirectory(
           directory,
           token,
@@ -4532,7 +4563,9 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           bootstrap.pendingBaseSource === "absent" &&
           bootstrap.pendingCommitSource === "absent"
         ) {
-          if (fs.existsSync(path.join(directory, "cleanup-manifest.json")))
+          if (
+            recoveryPathPresent(path.join(directory, "cleanup-manifest.json"))
+          )
             verifyRecoveryCleanupManifest(directory, token);
           else {
             const names = inventoryOperationDirectory(
@@ -4662,10 +4695,10 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
           "base-commit.json",
         );
         addRecord(
-          fs.existsSync(directoryBase)
+          recoveryPathPresent(directoryBase)
             ? directoryBase
             : path.join(rootPath, `pending-docker-task-${match[1]}.json`),
-          fs.existsSync(directoryCommit)
+          recoveryPathPresent(directoryCommit)
             ? directoryCommit
             : path.join(
                 rootPath,
@@ -5144,8 +5177,16 @@ export function beginRuntimeOwnedDockerRecovery(
 ) {
   try {
     return beginProductionRecovery(plan, managementCapability);
-  } catch {
-    return null;
+  } catch (error) {
+    return Object.freeze({
+      status: "blocked" as const,
+      reason: safeRecoveryReason(
+        error,
+        "docker_task_recovery_begin_failed_closed",
+      ),
+      recoveryId: null,
+      manualRecoveryRequired: true,
+    });
   }
 }
 

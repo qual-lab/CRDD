@@ -8,6 +8,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { renderDockerRecoveryDoctorReport } from "../src/core/docker-recovery-command-report.ts";
+import { assertRuntimeTraceCase } from "./runtime-trace-case.ts";
 import {
   dockerRecoveryCommitName,
   inspectDockerRecoveryJournalDirectory,
@@ -2484,7 +2485,6 @@ test("production共有回復engineは空Rootの未発行tokenを完了済みと�
 });
 
 test("production共有回復engineはHost expected世代のprocess killを残存0へ収束する", () => {
-  assert.equal("CASE-RECOVERY-TO-RECOVERED".startsWith("CASE-"), true);
   const fixture = createKilledFullProductionRecoveryRoot();
   const root = verifiedRoot(fixture.root);
   try {
@@ -2503,6 +2503,20 @@ test("production共有回復engineはHost expected世代のprocess killを残存
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
+    assertRuntimeTraceCase("CASE-RECOVERY-TO-RECOVERED", {
+      id: "CASE-RECOVERY-TO-RECOVERED",
+      transitionId: "TRANS-RECOVERY-TO-RECOVERED",
+      fromState: "STATE-RECOVERY-REQUIRED",
+      outcome: "taken",
+      expectedEndState: "STATE-RECOVERED",
+      effectObservations: { provider: 0, host: 1, cleanup: 1 },
+      expectedStatus: "completed",
+      resourcePostconditions: {
+        "RES-HOST-GENERATION": "absent",
+        "RES-DOCKER-OWNED": "absent",
+        "RES-OPERATION-WORKSPACE": "absent",
+      },
+    });
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -2727,7 +2741,6 @@ test("Host active bindingのexact content-onlyをEffect前状態として残存0
 });
 
 test("Host active bindingのcontent-only不一致はEvidenceを保持して停止する", () => {
-  assert.equal("CASE-PARTIAL-PAIR-TO-RECOVERY".startsWith("CASE-"), true);
   const fixture = createKilledFullProductionRecoveryRoot(
     "active_binding_content",
   );
@@ -2768,6 +2781,19 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
     assert.equal(result.recoveryId, fixture.recoveryId);
     assert.equal(fs.existsSync(activePath), true);
     assert.ok(fs.readdirSync(fixture.root).length > 0);
+    assertRuntimeTraceCase("CASE-PARTIAL-PAIR-TO-RECOVERY", {
+      id: "CASE-PARTIAL-PAIR-TO-RECOVERY",
+      transitionId: "TRANS-PARTIAL-PAIR-TO-RECOVERY",
+      fromState: "STATE-DURABLE-PAIR-PARTIAL-PRE-EFFECT",
+      outcome: "taken",
+      expectedEndState: "STATE-RECOVERY-REQUIRED",
+      effectObservations: { provider: 0, host: 0, cleanup: 0 },
+      expectedStatus: "recovery_required",
+      resourcePostconditions: {
+        "RES-HOST-GENERATION": "preserved",
+        "RES-OPERATION-WORKSPACE": "preserved",
+      },
+    });
   } finally {
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
@@ -2897,6 +2923,53 @@ test("active binding削除後の観測不能は不存在にせずRecovery Eviden
       true,
     );
     assert.ok(fs.readdirSync(fixture.root).length > 0);
+  } finally {
+    fs.rmSync = originalRm;
+    Object.defineProperty(fs, "lstatSync", {
+      configurable: true,
+      value: originalLstat,
+    });
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
+test("Host Root削除後の観測不能もRecovery完了へ縮退しない", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("previous");
+  const root = verifiedRoot(fixture.root);
+  const originalRm = fs.rmSync;
+  const originalLstat = fs.lstatSync;
+  let hostRootDeleted = false;
+  try {
+    fs.rmSync = ((target: fs.PathLike, options?: fs.RmOptions) => {
+      const result = originalRm(target, options);
+      if (path.resolve(String(target)) === path.resolve(fixture.hostRoot))
+        hostRootDeleted = true;
+      return result;
+    }) as typeof fs.rmSync;
+    Object.defineProperty(fs, "lstatSync", {
+      configurable: true,
+      value: ((target: fs.PathLike, options?: unknown) => {
+        if (
+          hostRootDeleted &&
+          path.resolve(String(target)) === path.resolve(fixture.hostRoot)
+        ) {
+          const error = new Error("injected observation failure") as Error & {
+            code: string;
+          };
+          error.code = "EACCES";
+          throw error;
+        }
+        return originalLstat(target, options as never);
+      }) as typeof fs.lstatSync,
+    });
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.recoveryId, fixture.recoveryId);
+    assert.notEqual(result.reason, "docker_task_recovery_completed");
   } finally {
     fs.rmSync = originalRm;
     Object.defineProperty(fs, "lstatSync", {
@@ -3165,6 +3238,58 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
     assert.deepEqual(JSON.parse(recovered.stdout), {
       status: "recovered",
       reason: "docker_task_recovery_finalization_completed",
+      recoveryId: null,
+    });
+    assert.deepEqual(fs.readdirSync(runtimeRootPath), []);
+  } finally {
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("active binding削除済み・pointer残存もfresh Processで残存0へ回復する", () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-active-deleted-recovery-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const probe = fileURLToPath(
+    new URL("./fixtures/recovery-cleanup-probe.ts", import.meta.url),
+  );
+  try {
+    const setup = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        probe,
+        "active-deleted-pointer-setup",
+        runtimeRootPath,
+      ],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+    );
+    assert.equal(setup.status, 0, `${setup.stdout}\n${setup.stderr}`);
+    const handoff = JSON.parse(setup.stdout) as {
+      recoveryId: string;
+      root: Readonly<Record<string, string>>;
+    };
+    const recovered = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        probe,
+        "fresh-recovery",
+        handoff.recoveryId,
+        Buffer.from(JSON.stringify(handoff.root), "utf8").toString("base64url"),
+      ],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+    );
+    assert.equal(
+      recovered.status,
+      0,
+      `${recovered.stdout}\n${recovered.stderr}`,
+    );
+    assert.deepEqual(JSON.parse(recovered.stdout), {
+      status: "recovered",
+      reason: "docker_task_recovery_completed",
       recoveryId: null,
     });
     assert.deepEqual(fs.readdirSync(runtimeRootPath), []);

@@ -12,6 +12,146 @@ import {
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
+import {
+  assertRuntimeTraceCase,
+  getRuntimeTraceCase,
+  type RuntimeTraceCase,
+} from "./runtime-trace-case.ts";
+
+function assertTerminalRuntimeTraceCase(
+  caseId: string,
+  harness: ReturnType<typeof fixture>,
+  result: Readonly<Record<string, unknown>>,
+) {
+  const expected = getRuntimeTraceCase(caseId);
+  const source = harness.lifecycleSnapshots.at(-1);
+  assert.ok(source);
+  const final = harness.effectCounts();
+  const recovering =
+    result.manualRecoveryRequired === true ||
+    result.processRestartRequired === true;
+  const dockerIds = Array.isArray(result.dockerRecoveryIds)
+    ? result.dockerRecoveryIds
+    : [];
+  const postconditions: Record<string, string> = {};
+  for (const resource of Object.keys(expected.resourcePostconditions)) {
+    if (!recovering) {
+      postconditions[resource] = "absent";
+      continue;
+    }
+    if (resource === "RES-HOST-GENERATION")
+      postconditions[resource] = result.hostRecoveryId ? "preserved" : "absent";
+    else if (resource === "RES-DOCKER-OWNED")
+      postconditions[resource] =
+        dockerIds.length > 0
+          ? "preserved"
+          : harness.processStartCount() === 0
+            ? "unacquired"
+            : "absent";
+    else if (resource === "RES-OPERATION-WORKSPACE")
+      postconditions[resource] =
+        harness.operationCreateCount() === 0
+          ? "unacquired"
+          : final.host - source.host > 0 || source.state === "STATE-HOST-CLEAN"
+            ? "absent"
+            : "preserved";
+    else if (resource === "RES-CANDIDATE-ENTRY")
+      postconditions[resource] =
+        result.candidateRecoveryId || result.candidateStoreRecoveryId
+          ? "preserved"
+          : source.state === "STATE-CANDIDATE-STAGED" ||
+              source.state === "STATE-HOST-CLEAN"
+            ? "absent"
+            : "unacquired";
+    else postconditions[resource] = "absent";
+  }
+  const observed: RuntimeTraceCase = {
+    id: caseId,
+    transitionId: recovering
+      ? "TRANS-ACTIVE-TO-RECOVERY"
+      : "TRANS-ACTIVE-TO-BLOCKED-CLEAN",
+    fromState: source.state,
+    outcome: "taken",
+    expectedEndState: recovering
+      ? "STATE-RECOVERY-REQUIRED"
+      : "STATE-BLOCKED-CLEAN",
+    effectObservations: {
+      provider: final.provider - source.provider,
+      host: final.host - source.host,
+      cleanup: final.cleanup - source.cleanup,
+    },
+    expectedStatus: recovering ? "recovery_required" : "blocked",
+    resourcePostconditions: postconditions,
+  };
+  assertRuntimeTraceCase(caseId, observed);
+}
+
+function assertLifecycleRuntimeTraceCases(
+  caseIds: readonly string[],
+  harness: ReturnType<typeof fixture>,
+) {
+  for (const caseId of caseIds) {
+    const expected = getRuntimeTraceCase(caseId);
+    const fromIndex = harness.lifecycleSnapshots.findIndex(
+      (snapshot, index) =>
+        snapshot.state === expected.fromState &&
+        harness.lifecycleSnapshots[index + 1]?.state ===
+          expected.expectedEndState,
+    );
+    assert.notEqual(fromIndex, -1, `unobserved lifecycle edge: ${caseId}`);
+    const from = harness.lifecycleSnapshots[fromIndex] as NonNullable<
+      (typeof harness.lifecycleSnapshots)[number]
+    >;
+    const to = harness.lifecycleSnapshots[fromIndex + 1] as typeof from;
+    const postconditions: Record<string, string> = {};
+    for (const resource of Object.keys(expected.resourcePostconditions)) {
+      if (resource === "RES-HOST-GENERATION")
+        postconditions[resource] =
+          to.state === "STATE-OPERATION-READY" ? "present" : "absent";
+      else if (resource === "RES-TASK-CONTROL")
+        postconditions[resource] =
+          to.state === "STATE-RESULT-PUBLISHED" ? "absent" : "present";
+      else if (resource === "RES-INTERACTIVE-CONSOLE")
+        postconditions[resource] = "absent";
+      else if (resource === "RES-OPERATION-WORKSPACE")
+        postconditions[resource] =
+          to.state === "STATE-HOST-CLEAN" ? "absent" : "present";
+      else if (
+        resource === "RES-LOGICAL-HOME-LOCK" ||
+        resource === "RES-RUNTIME-STATE-LOCK" ||
+        resource === "RES-MOUNT-GRANT" ||
+        resource === "RES-DOCKER-OWNED"
+      )
+        postconditions[resource] = "absent";
+      else if (resource === "RES-CANDIDATE-ENTRY")
+        postconditions[resource] =
+          to.state === "STATE-RESULT-PUBLISHED" ? "transferred" : "present";
+      else postconditions[resource] = "absent";
+    }
+    const expectedStatus =
+      to.state === "STATE-OPERATION-READY" ||
+      to.state === "STATE-TASK-AUTHORIZED" ||
+      to.state === "STATE-REMEDIATION-AUTHORIZED"
+        ? "authorized"
+        : to.state === "STATE-CANDIDATE-STAGED"
+          ? "staged"
+          : "completed";
+    assertRuntimeTraceCase(caseId, {
+      id: caseId,
+      transitionId: expected.transitionId,
+      fromState: from.state,
+      outcome: "taken",
+      expectedEndState: to.state,
+      effectObservations: {
+        provider: to.provider - from.provider,
+        host: to.host - from.host,
+        cleanup: to.cleanup - from.cleanup,
+      },
+      expectedStatus,
+      resourcePostconditions: postconditions,
+    });
+  }
+}
 
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -67,6 +207,8 @@ function fixture(
     publishNeedsStoreRecovery?: boolean;
     processStartFailureRole?: "executor" | "reviewer";
     processStartFailureOccurrence?: number;
+    processCleanFailureRole?: "executor" | "reviewer";
+    processCleanFailureOccurrence?: number;
     processCleanupFailureRole?: "executor" | "reviewer";
     processCleanupFailureOccurrence?: number;
     processFailureRecoveryMode?: "canonical" | "missing" | "empty" | "foreign";
@@ -105,7 +247,16 @@ function fixture(
   const selectionNotices: Array<Record<string, unknown>> = [];
   const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
+  const lifecycleStates: string[] = [];
+  const lifecycleSnapshots: Array<{
+    state: string;
+    provider: number;
+    host: number;
+    cleanup: number;
+  }> = [];
   let cleanupCount = 0;
+  let hostCleanupConfirmedCount = 0;
+  let providerCleanupConfirmedCount = 0;
   let selectionCount = 0;
   let discardCount = 0;
   let externalAuthorizationCount = 0;
@@ -133,6 +284,15 @@ function fixture(
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
   const dependencies = {
+    observeLifecycleState: (state: string) => {
+      lifecycleStates.push(state);
+      lifecycleSnapshots.push({
+        state,
+        provider: processStartCount,
+        host: operationCreateCount + hostCleanupConfirmedCount,
+        cleanup: providerCleanupConfirmedCount + hostCleanupConfirmedCount,
+      });
+    },
     isolatedCancellationAckTimeoutMs: 50,
     inspectRepository:
       options.inspectRepository ??
@@ -183,6 +343,7 @@ function fixture(
           releaseOperationCleanup = resolve;
         });
       if (options.cleanupThrows) throw new Error("cleanup_failed");
+      hostCleanupConfirmedCount += 1;
       return options.cleanupProtocolFailure
         ? cleanupProtocolFailure
         : cleanupCompleted;
@@ -429,9 +590,16 @@ function fixture(
       const cleanupFails =
         options.processCleanupFailureRole === role &&
         (options.processCleanupFailureOccurrence ?? 1) === processCount;
+      const cleanFailure =
+        options.processCleanFailureRole === role &&
+        (options.processCleanFailureOccurrence ?? 1) === processCount;
       const completedResultFields: Record<string, unknown> = {
-        status: cleanupFails ? "blocked" : "completed",
-        reason: cleanupFails ? "fixture_cleanup_failed" : "completed",
+        status: cleanupFails || cleanFailure ? "blocked" : "completed",
+        reason: cleanupFails
+          ? "fixture_cleanup_failed"
+          : cleanFailure
+            ? "fixture_provider_failed"
+            : "completed",
         cleanupConfirmed: !cleanupFails,
         recoveryId:
           cleanupFails && options.processFailureRecoveryMode === "empty"
@@ -465,7 +633,7 @@ function fixture(
       if (cleanupFails && options.processFailureRecoveryMode === "missing")
         delete completedResultFields.recoveryId;
       const completedResult = Object.freeze(completedResultFields);
-      const completion =
+      const rawCompletion =
         options.completionRejectRole === role
           ? Promise.reject(new Error("unexpected_completion_rejection"))
           : options.pauseRole === role
@@ -473,6 +641,10 @@ function fixture(
                 releasePausedProcess = () => resolve(completedResult);
               })
             : Promise.resolve(completedResult);
+      const completion = rawCompletion.then((value) => {
+        if (value.cleanupConfirmed === true) providerCleanupConfirmedCount += 1;
+        return value;
+      });
       return Object.freeze({
         status: "started",
         reason: "started",
@@ -604,6 +776,13 @@ function fixture(
     selectionNotices,
     authorizedProviderSets,
     events,
+    lifecycleStates,
+    lifecycleSnapshots,
+    effectCounts: () => ({
+      provider: processStartCount,
+      host: operationCreateCount + hostCleanupConfirmedCount,
+      cleanup: providerCleanupConfirmedCount + hostCleanupConfirmedCount,
+    }),
     cleanupCount: () => cleanupCount,
     discardCount: () => discardCount,
     externalAuthorizationCount: () => externalAuthorizationCount,
@@ -841,19 +1020,16 @@ test("是正Executorが生成した認証秘密も再Reviewerへ渡さず停止�
 });
 
 test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidateへ接続する", async () => {
-  assert.equal(
-    [
-      "CASE-NORMAL-ADMISSION-TO-OPERATION",
-      "CASE-NORMAL-OPERATION-TO-AUTHORIZED",
-      "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN",
-      "CASE-NORMAL-EXECUTOR-TO-CANDIDATE",
-      "CASE-NORMAL-CANDIDATE-TO-REVIEWER-CLEAN",
-      "CASE-NORMAL-REVIEWER-TO-STAGED",
-      "CASE-NORMAL-STAGED-TO-HOST-CLEAN",
-      "CASE-NORMAL-HOST-CLEAN-TO-RESULT",
-    ].length,
-    8,
-  );
+  const traceCaseIds = [
+    "CASE-NORMAL-ADMISSION-TO-OPERATION",
+    "CASE-NORMAL-OPERATION-TO-AUTHORIZED",
+    "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN",
+    "CASE-NORMAL-EXECUTOR-TO-CANDIDATE",
+    "CASE-NORMAL-CANDIDATE-TO-REVIEWER-CLEAN",
+    "CASE-NORMAL-REVIEWER-TO-STAGED",
+    "CASE-NORMAL-STAGED-TO-HOST-CLEAN",
+    "CASE-NORMAL-HOST-CLEAN-TO-RESULT",
+  ] as const;
   const harness = fixture();
   const started = harness.runtime.start(
     request(),
@@ -877,6 +1053,7 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
   assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
   assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
+  assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });
 
 test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続する", async () => {
@@ -1198,19 +1375,16 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
 });
 
 test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewerの再承認へ接続する", async () => {
-  assert.equal(
-    [
-      "CASE-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
-      "CASE-REMEDIATION-EXECUTOR-TO-CANDIDATE",
-      "CASE-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
-      "CASE-REMEDIATION-REVIEWER-TO-AUTHORIZED",
-      "CASE-REMEDIATION-AUTHORIZED-TO-SECOND-EXECUTOR-CLEAN",
-      "CASE-REMEDIATION-SECOND-EXECUTOR-TO-CANDIDATE",
-      "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN",
-      "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED",
-    ].length,
-    8,
-  );
+  const traceCaseIds = [
+    "CASE-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN",
+    "CASE-REMEDIATION-EXECUTOR-TO-CANDIDATE",
+    "CASE-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN",
+    "CASE-REMEDIATION-REVIEWER-TO-AUTHORIZED",
+    "CASE-REMEDIATION-AUTHORIZED-TO-SECOND-EXECUTOR-CLEAN",
+    "CASE-REMEDIATION-SECOND-EXECUTOR-TO-CANDIDATE",
+    "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN",
+    "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED",
+  ] as const;
   const harness = fixture({
     reviewerDecision: "changes_requested",
     finalReviewerDecision: "approved",
@@ -1232,6 +1406,7 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
     "codex",
   );
   assert.equal(harness.selectionNotices.length, 4);
+  assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });
 
 test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止する", async () => {
@@ -2240,6 +2415,8 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
     assert.equal(harness.cleanupCount(), 0);
+    assert.equal(harness.lifecycleStates.at(-1), "STATE-ADMISSION");
+    assertTerminalRuntimeTraceCase("CASE-BLOCKED-ADMISSION", harness, result);
   });
 
   await t.test("CASE-BLOCKED-TASK-AUTHORIZED", async () => {
@@ -2261,6 +2438,12 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.processStartCount(), 1);
     assert.equal(harness.candidateCaptureCount(), 0);
     assert.equal(harness.cleanupCount(), 1);
+    assert.equal(harness.lifecycleStates.at(-1), "STATE-TASK-AUTHORIZED");
+    assertTerminalRuntimeTraceCase(
+      "CASE-BLOCKED-TASK-AUTHORIZED",
+      harness,
+      result,
+    );
   });
 
   const cases = [
@@ -2268,6 +2451,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       id: "CASE-BLOCKED-OPERATION-READY",
       options: { externalSendDenied: true },
       terminal: "clean",
+      source: "STATE-OPERATION-READY",
       process: 0,
       candidate: 0,
     },
@@ -2275,7 +2459,24 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       id: "CASE-BLOCKED-EXECUTOR-CLEAN",
       options: { executorChangedPaths: [] },
       terminal: "clean",
+      source: "STATE-EXECUTOR-CLEAN",
       process: 1,
+      candidate: 1,
+    },
+    {
+      id: "CASE-BLOCKED-CANDIDATE-CAPTURED",
+      options: { processCleanFailureRole: "reviewer" as const },
+      terminal: "clean",
+      source: "STATE-CANDIDATE-CAPTURED",
+      process: 2,
+      candidate: 1,
+    },
+    {
+      id: "CASE-BLOCKED-REVIEWER-CLEAN",
+      options: { candidateVerificationFails: true },
+      terminal: "clean",
+      source: "STATE-REVIEWER-CLEAN",
+      process: 2,
       candidate: 1,
     },
     {
@@ -2285,6 +2486,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         remediationPacketSecretBlocked: true,
       },
       terminal: "clean",
+      source: "STATE-REMEDIATION-AUTHORIZED",
       process: 2,
       candidate: 1,
     },
@@ -2295,6 +2497,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         candidateSecretAtCapture: 2 as const,
       },
       terminal: "clean",
+      source: "STATE-REMEDIATION-EXECUTOR-CLEAN",
       process: 3,
       candidate: 2,
     },
@@ -2302,9 +2505,11 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       id: "CASE-BLOCKED-REMEDIATION-CANDIDATE-CAPTURED",
       options: {
         reviewerDecision: "changes_requested" as const,
-        finalReviewerDecision: "changes_requested" as const,
+        processCleanFailureRole: "reviewer" as const,
+        processCleanFailureOccurrence: 2,
       },
       terminal: "clean",
+      source: "STATE-REMEDIATION-CANDIDATE-CAPTURED",
       process: 4,
       candidate: 2,
     },
@@ -2316,13 +2521,15 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         candidatePersistenceFails: true,
       },
       terminal: "clean",
+      source: "STATE-REMEDIATION-REVIEWER-CLEAN",
       process: 4,
       candidate: 2,
     },
     {
-      id: "CASE-BLOCKED-CANDIDATE-STAGED",
+      id: "CASE-BLOCKED-HOST-CLEAN",
       options: { cleanupProtocolFailure: true },
       terminal: "clean",
+      source: "STATE-HOST-CLEAN",
       process: 2,
       candidate: 1,
     },
@@ -2333,6 +2540,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
           "external_send_confirmation_cleanup_unknown_process_restart_required",
       },
       terminal: "recovery",
+      source: "STATE-OPERATION-READY",
       process: 0,
       candidate: 0,
     },
@@ -2340,6 +2548,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       id: "CASE-RECOVERY-TASK-AUTHORIZED",
       options: { processStartFailureRole: "executor" as const },
       terminal: "recovery",
+      source: "STATE-TASK-AUTHORIZED",
       process: 1,
       candidate: 0,
     },
@@ -2347,6 +2556,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       id: "CASE-RECOVERY-EXECUTOR-CLEAN",
       options: { executorChangedPaths: [], cleanupThrows: true },
       terminal: "recovery",
+      source: "STATE-EXECUTOR-CLEAN",
       process: 1,
       candidate: 1,
     },
@@ -2356,6 +2566,15 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         processCleanupFailureRole: "reviewer" as const,
       },
       terminal: "recovery",
+      source: "STATE-CANDIDATE-CAPTURED",
+      process: 2,
+      candidate: 1,
+    },
+    {
+      id: "CASE-RECOVERY-REVIEWER-CLEAN",
+      options: { candidateVerificationFails: true, cleanupThrows: true },
+      terminal: "recovery",
+      source: "STATE-REVIEWER-CLEAN",
       process: 2,
       candidate: 1,
     },
@@ -2367,6 +2586,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         cleanupThrows: true,
       },
       terminal: "recovery",
+      source: "STATE-REMEDIATION-AUTHORIZED",
       process: 2,
       candidate: 1,
     },
@@ -2378,6 +2598,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         cleanupThrows: true,
       },
       terminal: "recovery",
+      source: "STATE-REMEDIATION-EXECUTOR-CLEAN",
       process: 3,
       candidate: 2,
     },
@@ -2389,6 +2610,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         processCleanupFailureOccurrence: 2,
       },
       terminal: "recovery",
+      source: "STATE-REMEDIATION-CANDIDATE-CAPTURED",
       process: 4,
       candidate: 2,
     },
@@ -2400,6 +2622,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         candidatePersistenceNeedsStoreRecovery: true,
       },
       terminal: "recovery",
+      source: "STATE-REMEDIATION-REVIEWER-CLEAN",
       process: 4,
       candidate: 2,
     },
@@ -2407,6 +2630,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       id: "CASE-RECOVERY-CANDIDATE-STAGED",
       options: { hostCleanupWal: true, dockerIntentFailsAt: 1 },
       terminal: "recovery",
+      source: "STATE-CANDIDATE-STAGED",
       process: 2,
       candidate: 1,
     },
@@ -2414,6 +2638,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       id: "CASE-RECOVERY-HOST-CLEAN",
       options: { publishFails: true },
       terminal: "recovery",
+      source: "STATE-HOST-CLEAN",
       process: 2,
       candidate: 1,
     },
@@ -2431,6 +2656,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       assert.equal(harness.operationCreateCount(), 1);
       assert.equal(harness.processStartCount(), scenario.process);
       assert.equal(harness.candidateCaptureCount(), scenario.candidate);
+      assert.equal(harness.lifecycleStates.at(-1), scenario.source);
       const cleanupUnknown = new Set([
         "CASE-RECOVERY-TASK-AUTHORIZED",
         "CASE-RECOVERY-CANDIDATE-CAPTURED",
@@ -2451,6 +2677,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
           true,
         );
       }
+      assertTerminalRuntimeTraceCase(scenario.id, harness, result);
     });
   }
 });

@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+import { removeCommittedDockerRecoveryJson } from "../../src/security/docker-recovery-journal.ts";
 
 import {
   beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver,
@@ -59,7 +63,7 @@ function home(candidate: ReturnType<typeof plan>) {
   });
 }
 
-function setupRecovery(rootPath: string) {
+function setupBegunRecovery(rootPath: string) {
   const root = verifiedRoot(rootPath);
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
@@ -80,17 +84,25 @@ function setupRecovery(rootPath: string) {
     recordRuntimeOwnedNormalMountCompletion(begun.recoveryCapability),
     true,
   );
-  assert.equal(
-    completeRuntimeOwnedDockerRecovery(begun.recoveryCapability, management)
-      .status,
-    "completed",
-  );
   return Object.freeze({
     root,
     owned,
+    management,
     recoveryId: begun.recoveryId,
     recoveryCapability: begun.recoveryCapability,
   });
+}
+
+function setupRecovery(rootPath: string) {
+  const setup = setupBegunRecovery(rootPath);
+  assert.equal(
+    completeRuntimeOwnedDockerRecovery(
+      setup.recoveryCapability,
+      setup.management,
+    ).status,
+    "completed",
+  );
+  return setup;
 }
 
 const [mode, rootPath, encodedRoot] = process.argv.slice(2);
@@ -102,6 +114,25 @@ if (mode === "receipt-failure-setup") {
     "string",
   );
   await cleanupOwnedOperationDirectoriesAsync(setup.owned);
+  process.stdout.write(
+    `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root })}\n`,
+  );
+} else if (mode === "active-deleted-pointer-setup") {
+  const setup = setupBegunRecovery(rootPath);
+  const activePath = fs
+    .readdirSync(setup.owned.root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) =>
+      path.join(setup.owned.root, entry.name, "active-docker-task-v1.json"),
+    )
+    .find((candidate) => fs.existsSync(candidate));
+  assert.ok(activePath);
+  assert.equal(removeCommittedDockerRecoveryJson(activePath), true);
+  assert.equal(fs.existsSync(activePath), false);
+  assert.equal(
+    fs.readdirSync(rootPath).some((name) => name.startsWith("active-lease-")),
+    true,
+  );
   process.stdout.write(
     `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root })}\n`,
   );

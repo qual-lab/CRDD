@@ -595,6 +595,47 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
   );
 });
 
+test("Recovery開始失敗は秘密を含まない固定分類で公開する", () => {
+  const cases = [
+    [
+      "docker_task_runtime_state_generation_active_or_unknown",
+      "docker_process_controller_recovery_conflict",
+    ],
+    [
+      "docker_task_recovery_partial_pair_incomplete",
+      "docker_process_controller_recovery_partial_state",
+    ],
+    [
+      "docker_task_recovery_binding_mismatch",
+      "docker_process_controller_recovery_identity_mismatch",
+    ],
+    [
+      "docker_task_recovery_path_observation_unknown",
+      "docker_process_controller_recovery_observation_unknown",
+    ],
+    ["caller-secret-value", "docker_process_controller_recovery_unavailable"],
+  ] as const;
+  for (const [lowerReason, expectedReason] of cases) {
+    const fixture = createFixture({
+      beginRecovery: () =>
+        Object.freeze({
+          status: "blocked",
+          reason: lowerReason,
+          recoveryId: null,
+          manualRecoveryRequired: true,
+        }),
+    });
+    const blocked = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.reason, expectedReason);
+    assert.equal(blocked.dockerEffectStarted, false);
+    assert.equal(fixture.getCommandCount(), 0);
+  }
+});
+
 test("起動直前Authority不成立ならMountを返しDocker Effectを開始しない", () => {
   const fixture = createFixture({ consumeProviderAuthority: () => null });
   const blocked = fixture.controller.start(

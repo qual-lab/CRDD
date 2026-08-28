@@ -33,6 +33,7 @@ type JsonRecord = Record<string, unknown>;
 const ROOT_KEYS = Object.freeze([
   "schema",
   "schemaRevision",
+  "effectObservationScope",
   "architectureDocument",
   "resources",
   "states",
@@ -207,6 +208,8 @@ export function inspectCoordinatorRuntimeTraceability(
   if (input.schema !== TRACE_SCHEMA) issues.push("trace_schema_invalid");
   if (input.schemaRevision !== TRACE_SCHEMA_REVISION)
     issues.push("trace_schema_revision_invalid");
+  if (input.effectObservationScope !== "transition_delta")
+    issues.push("trace_effect_observation_scope_invalid");
 
   const resources = addUniqueIds(input.resources, "resource", "RES-", issues);
   const states = addUniqueIds(input.states, "state", "STATE-", issues);
@@ -564,6 +567,8 @@ export function inspectCoordinatorRuntimeTraceability(
       issues.push(`${bindingId}:test_source_unavailable`);
     else if (!quotedTestNameExists(testSource, binding.testName)) {
       issues.push(`${bindingId}:test_name_not_found`);
+    } else if (!testSource.includes("assertRuntimeTraceCase(")) {
+      issues.push(`${bindingId}:trace_case_assertion_not_found`);
     } else if (
       Array.isArray(binding.cases) &&
       binding.cases.some(

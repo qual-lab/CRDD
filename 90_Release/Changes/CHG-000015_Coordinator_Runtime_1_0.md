@@ -286,6 +286,10 @@ Runtime 1.0をReleaseしない場合は、v0.17.xの方法論利用とRuntime非
 
 続く固定版監査では、cleanup settlementのpackage／Policy再計算後にhelper livenessを再確認していない箇所と、自然回復settlement、rename adoption、Process quiescenceおよびrename後stageの永続化が非同期境界前の状態を再利用する伝播漏れを検出した。同じ候補内で、cleanup settlementはhelper喪失時にRecord Effect 0へ閉じ、現在状態を意味へ変換するstage記録はEngine、Process、`run`、staleおよびAuthorityの共通fresh predicateをpersist直前に必須化した。回帰試験は自然回復settlement後のEngine再停止、rename adoption中のstale Identity消失およびpackage再計算中のhelper喪失を既知pending／安全stageへ昇格させず、後続Host Effect 0へ固定する。
 
+### 13.2 設計―実装―検証Traceの監査是正
+
+Coordinator Reference Architectureと機械可読Traceの初回・第二固定候補に対する独立監査は、宣言したcase IDと実scenarioの完全結合、terminal状態母集団、Effect差分、物理観測境界およびFilesystem不存在判定の不足を検出した。同じ未リリース変更内で、Task Runtimeへ制御権を持たない単調lifecycle observerを置き、Canonical 40 caseを実開始状態、終了状態、遷移差分、結果および資源後条件の完全一致へ接続した。`ENOENT`以外を不存在とせず、Host active binding削除済み・exact pointer残存をfresh Processで残存0へ回復し、観測不能時はEvidence保持へ閉じる。Docker Recovery開始理由は内部情報を出さない固定分類へ分けた。これらは新固定改訂版の再監査前であり、Runtime完成またはRelease根拠へまだ昇格しない。詳細は[`Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md`](Evidence/CHG-000015_Design_Source_Trace_Review_04b39fd.md)を参照する。
+
 ## 14. 対象外と残存リスク
 
 対象外:
