@@ -1971,6 +1971,24 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   }
 });
 
+test("非同期の対話・正式Runner entrypointはtop-levelでmain完了を所有する", () => {
+  const asynchronousEntrypoints = [
+    "scripts/generate-release-key.ts",
+    "scripts/sign-release-manifest.ts",
+    "scripts/verify-signed-general-task.ts",
+    "scripts/verify-signed-recovery-matrix.ts",
+    "scripts/verify-signed-route-matrix.ts",
+  ];
+  for (const relative of asynchronousEntrypoints) {
+    const source = fs.readFileSync(
+      path.join(coordinatorRoot, relative),
+      "utf8",
+    );
+    assert.match(source, /\bawait main\(\);/u, relative);
+    assert.equal(/\bmain\(\)\.catch\(/u.test(source), false, relative);
+  }
+});
+
 test("Node版GateはPATHをAuthorityにせずEffect前に停止する", () => {
   assert.deepEqual(describeCoordinatorNodeRuntimeVersionContract(), {
     contract: "crdd-coordinator/node-runtime-version",

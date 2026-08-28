@@ -567,11 +567,13 @@ async function main() {
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
-  main().catch(() => {
+  try {
+    await main();
+  } catch {
     ensureRuntimeProcessPoisoned();
     process.stdout.write(
       `${JSON.stringify(createSignedRouteMatrixCliFailureResult("runner_exception"), null, 2)}\n`,
     );
     process.exitCode = 2;
-  });
+  }
 }

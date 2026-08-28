@@ -159,10 +159,12 @@ async function main() {
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
-  main().catch((error: unknown) => {
+  try {
+    await main();
+  } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "release_key_generation_failed";
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;
-  });
+  }
 }

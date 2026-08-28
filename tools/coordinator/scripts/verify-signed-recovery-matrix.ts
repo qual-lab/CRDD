@@ -456,7 +456,9 @@ async function main() {
 }
 
 if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
-  main().catch((error: unknown) => {
+  try {
+    await main();
+  } catch (error: unknown) {
     process.stdout.write(
       `${JSON.stringify(
         blocked(
@@ -469,5 +471,5 @@ if (path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
       )}\n`,
     );
     process.exitCode = 2;
-  });
+  }
 }

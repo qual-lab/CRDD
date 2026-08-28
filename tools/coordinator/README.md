@@ -178,6 +178,8 @@ Task Runtime contract revision 24は、資源回復の要否と同一Process再�
 
 `--route same-claude`はClaude特性により`requested Claude Code Front → Claude Code Executor → Codex Independent Reviewer`を選ぶ。同一Executor Provider経路でもProvider独立Reviewerを維持し、同一Provider Reviewerを強制しない。4経路Matrixは開始時に既存同意を明示取消し、最初の経路が対話初期同意、残る3経路が同じ境界の再利用であることを含め、各Runnerのcontract revision、要求経路、Executor／Reviewer、Candidate破棄、全Recovery ID空、秘密・Host Path・生Provider出力の非報告およびcanonical Repository無変更を完全一致で検査する。
 
+鍵生成、Release manifest署名、正式General Task、4経路MatrixおよびRecovery Matrixの非同期entrypointは、top-levelで`main`の完了または失敗処置までを所有する。内部lock Workerや子Processが`unref`されていても、exported functionの試験成功から公開script Processの生存を推定しない。公開entrypointが非同期処理、cleanupおよび最終exit codeの確定前に終了できる構造を契約試験で拒否する。
+
 ### 正式署名Recovery Matrixの固定検証
 
 ```powershell
