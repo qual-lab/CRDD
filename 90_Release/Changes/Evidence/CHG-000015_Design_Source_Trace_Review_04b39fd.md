@@ -305,12 +305,12 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 
 ## 11. 是正実装結果（2026-08-28）
 
-- `tools/coordinator/architecture/README.md`へ主実行シーケンス、Architecture上の10資源、Task Traceが直接観測する9資源、17状態、Lock順序、耐久pair、cleanup依存順、9不変条件および17遷移を固定した。clean blocked、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
-- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、6検証接続・41の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
+- `tools/coordinator/architecture/README.md`へ主実行シーケンス、Architecture上の10資源、Task Traceが直接観測する9資源、18状態、Lock順序、耐久pair、cleanup依存順、9不変条件および18遷移を固定した。Operation取得中、clean blocked、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
+- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、6検証接続・44の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
 - Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、operation／invocation terminal遷移、検証境界、遷移×開始状態×区分、期待終了状態、Effect件数、結果状態、資源後条件、Architecture記載およびtest source上のexact test名を検査する。試験実行結果、品質状態または監査Passは主張しない。
 - Host active bindingのcontent rename直後へ実process killを注入し、同一Lock内でHost previous世代、全submission不存在、exact base、完全commit済みpointer、active binding完全一致およびactive commit不存在の場合だけ明示Recoveryでrollbackして残存0へ収束することを確認した。
 - 同じpartial contentを変更した異常例、期待値の異なるjournal content、完全commit pairでは処置せずEvidenceを保持することを確認した。
-- 最新対象確認はTask／Docker Recovery／Journal／Traceability／公開理由分類を含むCoordinator全1085試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）を対象とする。独立再監査へ渡す固定改訂版で結果を確定する。
+- 最新対象確認はTask／Docker Recovery／Journal／Traceability／公開理由分類を含むCoordinator全1095試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）を対象とする。独立再監査へ渡す固定改訂版で結果を確定する。
 
 現在の実Host残存は、新しいsource候補から保護Runtime Stateをproduction Authorityとして直接開けないため、更新した正式署名配布物を固定するまで保持する。これをsource checkout、caller supplied Pathまたは手動削除で回避しない。
 
@@ -358,3 +358,13 @@ FilesystemのAuthority判定は`ENOENT`だけを不存在とし、権限拒否�
 再是正では、Task Runtimeがcontrol失効後に三つのterminal状態を実通知し、observer例外をRuntime制御から分離した。試験は独立fixture ledgerから状態、Effect差分および全9資源の後条件を構成し、caseごとの明示registryでCanonical objectへ完全一致させる。Admission Recovery IDと`manualRecoveryRequired`を結果再包装で失わず、Provider cleanup済み資源を保持中と誤記しない。公開reasonはexact allowlistへ変更し、`active_or_unknown`、Lock解放未確認、監査失敗および観測不能を専用分類へ保つ。fresh Process試験は別PID、Host Root、markerおよびRuntime State残存0を直接確認し、active binding、pointerおよびHost Rootの削除後観測不能をそれぞれ注入する。`RES-CLI-SIGNAL-BINDING`は公開CLI縦結合が成立するまで機械可読Task Traceから除外した。
 
 本節の処置は`Applied — independent re-audit pending`である。機械確認と全試験の完了後に新しい固定改訂版を作り、過去監査結果を流用せず同じ監査集合へ再提示する。
+
+## 16. 第四固定候補の独立監査と再是正
+
+第四固定候補Commit `de7b9086c1841578334d80ed9feafec2edc93dda`／Tree `d9b5260b4f9072c00c83c50fbc46830dd1b6ab43`に対するArchitecture／Security、Test／UXおよびDocument／Gap／Impact確認は、Critical 0、Major 5、Minor 3で`Fail`とした。Conformanceは`Pass / No Impact`である。重複を除いた共通原因は、production Docker inventory producerの`completed + manualRecoveryRequired + ids`形式をTask Admission fixtureが再現していなかったこと、Operation取得途中のHost EffectをAdmissionに含めていたこと、final projection例外時のcontrol失効がfulfilled経路だけだったこと、およびTask control／Interactive Consoleの資源後条件をreceiptではなく状態名から作っていたことである。fresh Process試験の失敗時Host cleanup scopeとThreat Modelの公開理由境界にも伝播漏れがあった。
+
+再是正では、own-data snapshotだけを受理する共有Docker Recovery ProjectorをTask AdmissionとDocker Process Controllerへ接続し、cleanをexact 1形式へ限定した。単一・複数在庫は検証済み全IDを保持し、blocked、lock解放不明、malformed、accessor、Proxyおよび未知理由は全Operation Effect前に固定公開理由で停止する。`STATE-OPERATION-ACQUIRING`を追加して取得成功、cleanup確認済み停止、cleanup不明＋exact Host Recoveryを別caseへ分離した。Task最終化はprojection例外を保守的なtyped blockedへ正規化し、controlを無条件失効してからterminal observerを一回だけ通知する。fixture ledgerはcompletion後の公開取消receiptとExternal Send同意Lifecycleのcleanup結果を使い、状態名だけから不存在を作らない。fresh Process試験は返却されたexact Host root／markerを境界検証後に`finally`で回収する。
+
+同じ原因をCRDD利用側で再発させないため、Architecture、Implementation、Quality AssuranceおよびAgentの既存条項へ、設計要素から実装symbol、正常・準正常・異常の検証、実観測、終了後条件までの接続閉包を追加した。新工程や固定成果物は増やさず、単純な対象は既存成果物から再構成できればよい一方、複数Process、OS資源、外部実行基盤、Authority、永続EffectまたはRecoveryを含む対象は、未接続・未観測を別実行者が検出できる方法へ具体化する。
+
+本節の処置は`Applied — independent re-audit pending`である。更新後の機械確認、全試験および新固定改訂版の同一監査集合がPassするまで、第四固定候補の結果を流用せず、Runtime完成またはReleaseへ昇格しない。

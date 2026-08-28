@@ -14,6 +14,7 @@ import {
 import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
   assertRuntimeTraceCase,
+  getRuntimeTraceCase,
   type RuntimeTraceCase,
 } from "./runtime-trace-case.ts";
 
@@ -26,7 +27,14 @@ type TraceSnapshot = Readonly<{
 }>;
 
 const TRANSITION_BY_EDGE = new Map<string, string>([
-  ["STATE-ADMISSION>STATE-OPERATION-READY", "TRANS-ADMISSION-TO-OPERATION"],
+  [
+    "STATE-ADMISSION>STATE-OPERATION-ACQUIRING",
+    "TRANS-ADMISSION-TO-OPERATION-ACQUIRING",
+  ],
+  [
+    "STATE-OPERATION-ACQUIRING>STATE-OPERATION-READY",
+    "TRANS-OPERATION-ACQUIRING-TO-READY",
+  ],
   [
     "STATE-OPERATION-READY>STATE-TASK-AUTHORIZED",
     "TRANS-OPERATION-TO-AUTHORIZED",
@@ -71,7 +79,11 @@ const TRANSITION_BY_EDGE = new Map<string, string>([
 const EDGE_BY_LIFECYCLE_CASE = new Map<string, string>([
   [
     "CASE-NORMAL-ADMISSION-TO-OPERATION",
-    "STATE-ADMISSION>STATE-OPERATION-READY",
+    "STATE-ADMISSION>STATE-OPERATION-ACQUIRING",
+  ],
+  [
+    "CASE-NORMAL-OPERATION-ACQUIRING-TO-READY",
+    "STATE-OPERATION-ACQUIRING>STATE-OPERATION-READY",
   ],
   [
     "CASE-NORMAL-OPERATION-TO-AUTHORIZED",
@@ -136,7 +148,8 @@ const EDGE_BY_LIFECYCLE_CASE = new Map<string, string>([
 ]);
 
 const RESOURCES_BY_TRANSITION = new Map<string, readonly string[]>([
-  ["TRANS-ADMISSION-TO-OPERATION", ["RES-HOST-GENERATION", "RES-TASK-CONTROL"]],
+  ["TRANS-ADMISSION-TO-OPERATION-ACQUIRING", ["RES-TASK-CONTROL"]],
+  ["TRANS-OPERATION-ACQUIRING-TO-READY", ["RES-HOST-GENERATION"]],
   [
     "TRANS-OPERATION-TO-AUTHORIZED",
     ["RES-INTERACTIVE-CONSOLE", "RES-OPERATION-WORKSPACE"],
@@ -205,6 +218,7 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   Record<string, typeof assertRuntimeTraceCase>
 > = Object.freeze({
   "CASE-NORMAL-ADMISSION-TO-OPERATION": assertRuntimeTraceCase,
+  "CASE-NORMAL-OPERATION-ACQUIRING-TO-READY": assertRuntimeTraceCase,
   "CASE-NORMAL-OPERATION-TO-AUTHORIZED": assertRuntimeTraceCase,
   "CASE-NORMAL-AUTHORIZED-TO-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-NORMAL-EXECUTOR-TO-CANDIDATE": assertRuntimeTraceCase,
@@ -222,6 +236,7 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   "CASE-REMEDIATION-SECOND-CANDIDATE-TO-REVIEWER-CLEAN": assertRuntimeTraceCase,
   "CASE-REMEDIATION-SECOND-REVIEWER-TO-STAGED": assertRuntimeTraceCase,
   "CASE-BLOCKED-ADMISSION": assertRuntimeTraceCase,
+  "CASE-BLOCKED-OPERATION-ACQUIRING": assertRuntimeTraceCase,
   "CASE-BLOCKED-OPERATION-READY": assertRuntimeTraceCase,
   "CASE-BLOCKED-TASK-AUTHORIZED": assertRuntimeTraceCase,
   "CASE-BLOCKED-EXECUTOR-CLEAN": assertRuntimeTraceCase,
@@ -233,6 +248,7 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   "CASE-BLOCKED-REMEDIATION-REVIEWER-CLEAN": assertRuntimeTraceCase,
   "CASE-BLOCKED-HOST-CLEAN": assertRuntimeTraceCase,
   "CASE-RECOVERY-ADMISSION": assertRuntimeTraceCase,
+  "CASE-RECOVERY-OPERATION-ACQUIRING": assertRuntimeTraceCase,
   "CASE-RECOVERY-OPERATION-READY": assertRuntimeTraceCase,
   "CASE-RECOVERY-TASK-AUTHORIZED": assertRuntimeTraceCase,
   "CASE-RECOVERY-EXECUTOR-CLEAN": assertRuntimeTraceCase,
@@ -261,16 +277,26 @@ function selectResourcePostconditions(
   );
 }
 
-function assertTerminalRuntimeTraceCase(
+async function assertTerminalRuntimeTraceCase(
   caseId: string,
   harness: ReturnType<typeof fixture>,
-  _result: Readonly<Record<string, unknown>>,
+  result: Readonly<Record<string, unknown>>,
 ) {
+  assert.deepEqual(await harness.observeLastControlInvalid(), {
+    status: "blocked",
+    reason: "coordinator_task_control_invalid",
+  });
   const terminal = harness.lifecycleSnapshots.at(-1);
   const source = harness.lifecycleSnapshots.at(-2);
   assert.ok(source && terminal);
   assert.match(terminal.state, /^STATE-(?:BLOCKED-CLEAN|RECOVERY-REQUIRED)$/u);
-  const recovering = terminal.state === "STATE-RECOVERY-REQUIRED";
+  const recovering =
+    result.manualRecoveryRequired === true ||
+    result.processRestartRequired === true;
+  assert.equal(
+    terminal.state,
+    recovering ? "STATE-RECOVERY-REQUIRED" : "STATE-BLOCKED-CLEAN",
+  );
   const observed: RuntimeTraceCase = {
     id: caseId,
     transitionId: recovering
@@ -284,21 +310,30 @@ function assertTerminalRuntimeTraceCase(
       host: terminal.host - source.host,
       cleanup: terminal.cleanup - source.cleanup,
     },
-    expectedStatus: recovering ? "recovery_required" : "blocked",
-    resourcePostconditions: selectResourcePostconditions(
-      terminal,
-      TERMINAL_RESOURCES,
-    ),
+    expectedStatus: recovering
+      ? "recovery_required"
+      : String(result.status) === "blocked"
+        ? "blocked"
+        : "completed",
+    resourcePostconditions: {
+      ...selectResourcePostconditions(terminal, TERMINAL_RESOURCES),
+      "RES-TASK-CONTROL": "absent",
+    },
   };
   const assertion = TASK_TRACE_ASSERTIONS[caseId];
   assert.ok(assertion, `unregistered trace assertion: ${caseId}`);
   assertion(caseId, observed);
 }
 
-function assertLifecycleRuntimeTraceCases(
+async function assertLifecycleRuntimeTraceCases(
   caseIds: readonly string[],
   harness: ReturnType<typeof fixture>,
 ) {
+  const controlObservation = await harness.observeLastControlInvalid();
+  assert.deepEqual(controlObservation, {
+    status: "blocked",
+    reason: "coordinator_task_control_invalid",
+  });
   for (const caseId of caseIds) {
     const edge = EDGE_BY_LIFECYCLE_CASE.get(caseId);
     assert.ok(edge, `unregistered lifecycle case: ${caseId}`);
@@ -315,6 +350,7 @@ function assertLifecycleRuntimeTraceCases(
     const transitionId = TRANSITION_BY_EDGE.get(`${from.state}>${to.state}`);
     assert.ok(transitionId, `unknown observed lifecycle edge: ${caseId}`);
     const expectedStatus =
+      to.state === "STATE-OPERATION-ACQUIRING" ||
       to.state === "STATE-OPERATION-READY" ||
       to.state === "STATE-TASK-AUTHORIZED" ||
       to.state === "STATE-REMEDIATION-AUTHORIZED"
@@ -336,10 +372,15 @@ function assertLifecycleRuntimeTraceCases(
         cleanup: to.cleanup - from.cleanup,
       },
       expectedStatus,
-      resourcePostconditions: selectResourcePostconditions(
-        to,
-        RESOURCES_BY_TRANSITION.get(transitionId) ?? [],
-      ),
+      resourcePostconditions: {
+        ...selectResourcePostconditions(
+          to,
+          RESOURCES_BY_TRANSITION.get(transitionId) ?? [],
+        ),
+        ...(to.state === "STATE-RESULT-PUBLISHED"
+          ? { "RES-TASK-CONTROL": "absent" }
+          : {}),
+      },
     });
   }
 }
@@ -384,9 +425,12 @@ function fixture(
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
+    operationCreationFailure?: "cleanup_confirmed" | "cleanup_unknown";
     pauseOperationCleanup?: boolean;
     pauseRole?: "executor" | "reviewer";
     hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
+    releaseDrainThrows?: boolean;
+    isProcessPoisonedThrows?: boolean;
     cancellationTerminationObserved?: boolean;
     cancellationReceiptInvalid?: boolean;
     cancellationReceiptNever?: boolean;
@@ -415,7 +459,10 @@ function fixture(
     slateUnavailable?: boolean;
     admissionRecovery?: boolean;
     admissionRecoveryReason?: string;
+    admissionRecoveryIds?: readonly string[];
+    admissionRecoveryObservation?: unknown;
     lifecycleObserverThrows?: boolean;
+    terminalObserver?: (state: string) => void;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
   } = {},
 ) {
@@ -429,6 +476,7 @@ function fixture(
   const externalSendPolicyCapability = Object.freeze({});
   const cleanupCompleted = Object.freeze({});
   const cleanupProtocolFailure = Object.freeze({});
+  const operationCreationError = new Error("fixture_operation_creation_failed");
   const packetAssignments = new WeakMap<
     object,
     Readonly<{
@@ -475,14 +523,12 @@ function fixture(
   let cancelProcessCount = 0;
   let poisonProcessCount = 0;
   let releaseDrainCount = 0;
+  let consoleResourceState: "unacquired" | "present" | "absent" | "preserved" =
+    "unacquired";
   let externalCancellationSignal: AbortSignal | null = null;
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
   const currentResourceSnapshot = (state: string) => {
-    const terminal =
-      state === "STATE-RESULT-PUBLISHED" ||
-      state === "STATE-BLOCKED-CLEAN" ||
-      state === "STATE-RECOVERY-REQUIRED";
     const recoveryTerminal = state === "STATE-RECOVERY-REQUIRED";
     const outstandingProvider =
       processStartCount > providerCleanupConfirmedCount;
@@ -497,7 +543,7 @@ function fixture(
           ? "preserved"
           : "present"
         : "absent",
-      "RES-INTERACTIVE-CONSOLE": "absent",
+      "RES-INTERACTIVE-CONSOLE": consoleResourceState,
       "RES-LOGICAL-HOME-LOCK": outstandingProvider ? "preserved" : "absent",
       "RES-RUNTIME-STATE-LOCK": outstandingProvider ? "preserved" : "absent",
       "RES-MOUNT-GRANT": outstandingProvider ? "preserved" : "absent",
@@ -525,7 +571,7 @@ function fixture(
           : candidateEntryState === "unacquired" && !recoveryTerminal
             ? "absent"
             : candidateEntryState,
-      "RES-TASK-CONTROL": terminal ? "absent" : "present",
+      "RES-TASK-CONTROL": "present",
     });
   };
   const dependencies = {
@@ -538,18 +584,35 @@ function fixture(
         cleanup: providerCleanupConfirmedCount + hostCleanupConfirmedCount,
         resources: currentResourceSnapshot(state),
       });
+      if (
+        /^STATE-(?:RESULT-PUBLISHED|BLOCKED-CLEAN|RECOVERY-REQUIRED)$/u.test(
+          state,
+        )
+      )
+        options.terminalObserver?.(state);
       if (options.lifecycleObserverThrows)
         throw new Error("fixture_lifecycle_observer_failure");
     },
-    ...(options.admissionRecovery
+    ...(options.admissionRecovery || options.admissionRecoveryObservation
       ? {
           prepareDockerRecoveryState: () =>
+            options.admissionRecoveryObservation ??
             Object.freeze({
-              status: "blocked",
+              status: "completed",
               reason:
                 options.admissionRecoveryReason ??
-                "docker_process_controller_recovery_conflict",
-              dockerRecoveryId: "docker.fixture.admission.recovery",
+                "docker_task_recovery_inventory_available",
+              dockerRecoveryId:
+                (options.admissionRecoveryIds?.length ?? 1) === 1
+                  ? (options.admissionRecoveryIds?.[0] ??
+                    "docker.fixture.admission.recovery")
+                  : null,
+              dockerRecoveryIds: Object.freeze(
+                options.admissionRecoveryIds
+                  ? [...options.admissionRecoveryIds]
+                  : ["docker.fixture.admission.recovery"],
+              ),
+              activeStableLogicalHomeBindingHashes: Object.freeze([]),
               manualRecoveryRequired: true,
             }),
         }
@@ -571,6 +634,13 @@ function fixture(
         await new Promise<void>((resolve) => {
           releaseOperationCreation = resolve;
         });
+      if (options.operationCreationFailure) {
+        if (options.operationCreationFailure === "cleanup_confirmed") {
+          cleanupCount += 1;
+          hostCleanupConfirmedCount += 1;
+        }
+        throw operationCreationError;
+      }
       return Object.freeze({
         owned,
         mountCapability,
@@ -589,12 +659,28 @@ function fixture(
               }),
               releaseHostGenerationDrain: () => {
                 releaseDrainCount += 1;
+                if (options.releaseDrainThrows)
+                  throw new Error("fixture_release_drain_failed");
                 return true;
               },
             }
           : {}),
       });
     },
+    classifyOperationCreationFailure: (error: unknown) =>
+      error === operationCreationError && options.operationCreationFailure
+        ? Object.freeze({
+            reason:
+              options.operationCreationFailure === "cleanup_confirmed"
+                ? "coordinator_task_host_generation_lock_start_failed_cleanup_confirmed"
+                : "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required",
+            hostRecoveryId: "host.fixture.operation.creation.recovery",
+            cleanupConfirmed:
+              options.operationCreationFailure === "cleanup_confirmed",
+            manualRecoveryRequired:
+              options.operationCreationFailure === "cleanup_unknown",
+          })
+        : null,
     cleanupOperation: async (candidate: object) => {
       assert.equal(candidate, owned);
       if (options.hostCleanupWal) events.push("host-cleanup");
@@ -624,7 +710,11 @@ function fixture(
     poisonProcessAfterCleanupUnknown: () => {
       poisonProcessCount += 1;
     },
-    isProcessPoisoned: () => poisonProcessCount > 0,
+    isProcessPoisoned: () => {
+      if (options.isProcessPoisonedThrows)
+        throw new Error("fixture_process_poison_observation_failed");
+      return poisonProcessCount > 0;
+    },
     bindRepository: () =>
       Object.freeze({
         repositoryBound: true,
@@ -730,10 +820,16 @@ function fixture(
       cancellationSignal: AbortSignal,
     ) => {
       externalAuthorizationCount += 1;
+      consoleResourceState = "present";
       authorizedProviderSets.push(Object.freeze([...providers]));
       externalCancellationSignal = cancellationSignal;
       if (options.externalSendReason?.includes("cleanup_unknown"))
         poisonProcessCount += 1;
+      consoleResourceState = options.externalSendReason?.includes(
+        "cleanup_unknown",
+      )
+        ? "preserved"
+        : "absent";
       const authorization = options.externalSendReason
         ? Object.freeze({
             status: "blocked",
@@ -1037,11 +1133,20 @@ function fixture(
         }
       : {}),
   };
-  const runtime = createIsolatedCoordinatorTaskRuntimeCandidate(
-    dependencies as Parameters<
+  const baseRuntime = createIsolatedCoordinatorTaskRuntimeCandidate(
+    dependencies as unknown as Parameters<
       typeof createIsolatedCoordinatorTaskRuntimeCandidate
     >[0],
   );
+  let lastControlCapability: object | null = null;
+  const runtime = Object.freeze({
+    start: (...args: Parameters<typeof baseRuntime.start>) => {
+      const started = baseRuntime.start(...args);
+      lastControlCapability = started.controlCapability;
+      return started;
+    },
+    cancel: baseRuntime.cancel,
+  });
   return {
     runtime,
     selectionRequests,
@@ -1050,6 +1155,10 @@ function fixture(
     events,
     lifecycleStates,
     lifecycleSnapshots,
+    observeLastControlInvalid: () => {
+      assert.ok(lastControlCapability);
+      return runtime.cancel(lastControlCapability);
+    },
     effectCounts: () => ({
       provider: processStartCount,
       host: operationCreateCount + hostCleanupConfirmedCount,
@@ -1325,7 +1434,7 @@ test("Codex frontからClaude Executorと独立Codex Reviewerを隔離Candidate�
   assert.equal(harness.selectionRequests[1]?.role, "independent_reviewer");
   assert.equal(harness.selectionRequests[1]?.subjectProvider, "claude");
   assert.equal(harness.selectionRequests[1]?.requiresIndependentProvider, true);
-  assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
+  await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });
 
 test("lifecycle observer例外はRuntime状態・Authority・Effect・結果を変更しない", async () => {
@@ -1698,7 +1807,7 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
     "codex",
   );
   assert.equal(harness.selectionNotices.length, 4);
-  assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
+  await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
 });
 
 test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止する", async () => {
@@ -2602,6 +2711,72 @@ test("正常completion後の失効controlは追加Effect 0へ閉じる", async (
   );
 });
 
+test("final poison観測例外でもControlを先に失効して保守的なResultへ閉じる", async () => {
+  let controlCapability: object | null = null;
+  let cancellationAtTerminal: Promise<unknown> | null = null;
+  let terminalEffectCounts: ReturnType<
+    ReturnType<typeof fixture>["effectCounts"]
+  > | null = null;
+  const harness = fixture({
+    isProcessPoisonedThrows: true,
+    terminalObserver: () => {
+      assert.ok(controlCapability);
+      terminalEffectCounts = harness.effectCounts();
+      cancellationAtTerminal = harness.runtime.cancel(controlCapability);
+    },
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  controlCapability = started.controlCapability;
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_final_projection_failed_closed",
+  );
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.processRestartRequired, true);
+  assert.deepEqual(await cancellationAtTerminal, {
+    status: "blocked",
+    reason: "coordinator_task_control_invalid",
+  });
+  assert.deepEqual(harness.effectCounts(), terminalEffectCounts);
+});
+
+test("Host drain解放例外でもControlとterminal observerをexactly onceへ閉じる", async () => {
+  let terminalCount = 0;
+  const harness = fixture({
+    hostGenerationLoss: "cleanup_unknown",
+    releaseDrainThrows: true,
+    pauseRole: "executor",
+    terminalObserver: () => {
+      terminalCount += 1;
+    },
+  });
+  const started = harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  while (harness.processStartCount() === 0)
+    await new Promise((resolve) => setImmediate(resolve));
+  harness.triggerHostGenerationLoss();
+  harness.releasePausedProcess();
+  const result = await started.completion;
+  assert.equal(
+    result.reason,
+    "coordinator_task_final_projection_failed_closed",
+  );
+  assert.equal(terminalCount, 1);
+  assert.deepEqual(await harness.runtime.cancel(started.controlCapability), {
+    status: "blocked",
+    reason: "coordinator_task_control_invalid",
+  });
+});
+
 test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanupを妨げない", async () => {
   const harness = fixture({ pauseOperationCleanup: true });
   const started = harness.runtime.start(
@@ -2709,7 +2884,11 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.cleanupCount(), 0);
     assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
     assert.equal(harness.lifecycleStates.at(-1), "STATE-BLOCKED-CLEAN");
-    assertTerminalRuntimeTraceCase("CASE-BLOCKED-ADMISSION", harness, result);
+    await assertTerminalRuntimeTraceCase(
+      "CASE-BLOCKED-ADMISSION",
+      harness,
+      result,
+    );
   });
 
   await t.test("CASE-RECOVERY-ADMISSION", async () => {
@@ -2726,7 +2905,102 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.processStartCount(), 0);
     assert.equal(harness.lifecycleStates.at(-2), "STATE-ADMISSION");
     assert.equal(harness.lifecycleStates.at(-1), "STATE-RECOVERY-REQUIRED");
-    assertTerminalRuntimeTraceCase("CASE-RECOVERY-ADMISSION", harness, result);
+    await assertTerminalRuntimeTraceCase(
+      "CASE-RECOVERY-ADMISSION",
+      harness,
+      result,
+    );
+  });
+
+  await t.test(
+    "production複数Recovery在庫を全ID保持してEffect 0へ閉じる",
+    async () => {
+      const ids = [
+        "docker.fixture.admission.one",
+        "docker.fixture.admission.two",
+      ];
+      const harness = fixture({
+        admissionRecovery: true,
+        admissionRecoveryIds: ids,
+      });
+      const result = await harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion;
+      assert.equal(result.status, "blocked");
+      assert.equal(result.dockerRecoveryId, null);
+      assert.deepEqual(result.dockerRecoveryIds, ids);
+      assert.equal(harness.operationCreateCount(), 0);
+      assert.equal(harness.processStartCount(), 0);
+    },
+  );
+
+  await t.test(
+    "malformed Recovery observationを値非公開でEffect 0へ閉じる",
+    async () => {
+      const harness = fixture({
+        admissionRecoveryObservation: new Proxy(
+          {},
+          {
+            ownKeys: () => {
+              throw new Error("must_not_run");
+            },
+          },
+        ),
+      });
+      const result = await harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion;
+      assert.equal(
+        result.reason,
+        "docker_process_controller_recovery_unavailable",
+      );
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(harness.operationCreateCount(), 0);
+      assert.equal(harness.processStartCount(), 0);
+    },
+  );
+
+  await t.test("CASE-BLOCKED-OPERATION-ACQUIRING", async () => {
+    const harness = fixture({ operationCreationFailure: "cleanup_confirmed" });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.cleanupConfirmed, true);
+    assert.equal(result.manualRecoveryRequired, false);
+    assert.equal(result.hostRecoveryId, null);
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-OPERATION-ACQUIRING");
+    await assertTerminalRuntimeTraceCase(
+      "CASE-BLOCKED-OPERATION-ACQUIRING",
+      harness,
+      result,
+    );
+  });
+
+  await t.test("CASE-RECOVERY-OPERATION-ACQUIRING", async () => {
+    const harness = fixture({ operationCreationFailure: "cleanup_unknown" });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(
+      result.hostRecoveryId,
+      "host.fixture.operation.creation.recovery",
+    );
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-OPERATION-ACQUIRING");
+    await assertTerminalRuntimeTraceCase(
+      "CASE-RECOVERY-OPERATION-ACQUIRING",
+      harness,
+      result,
+    );
   });
 
   await t.test("CASE-BLOCKED-TASK-AUTHORIZED", async () => {
@@ -2750,7 +3024,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     assert.equal(harness.cleanupCount(), 1);
     assert.equal(harness.lifecycleStates.at(-2), "STATE-TASK-AUTHORIZED");
     assert.equal(harness.lifecycleStates.at(-1), "STATE-BLOCKED-CLEAN");
-    assertTerminalRuntimeTraceCase(
+    await assertTerminalRuntimeTraceCase(
       "CASE-BLOCKED-TASK-AUTHORIZED",
       harness,
       result,
@@ -2994,22 +3268,37 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
           true,
         );
       }
-      assertTerminalRuntimeTraceCase(scenario.id, harness, result);
+      await assertTerminalRuntimeTraceCase(scenario.id, harness, result);
     });
   }
 });
 
-test("Docker Recoveryの公開理由分類をTask結果へ変更せず投影する", async () => {
-  for (const reason of [
-    "docker_process_controller_recovery_conflict",
-    "docker_process_controller_recovery_partial_state",
-    "docker_process_controller_recovery_identity_mismatch",
-    "docker_process_controller_recovery_observation_unknown",
-    "docker_process_controller_recovery_unavailable",
-  ]) {
+test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {
+  for (const [internalReason, publicReason] of [
+    [
+      "docker_task_recovery_inventory_available",
+      "docker_process_controller_recovery_conflict",
+    ],
+    [
+      "docker_task_runtime_state_pending_incomplete",
+      "docker_process_controller_recovery_partial_state",
+    ],
+    [
+      "docker_task_runtime_state_binding_changed",
+      "docker_process_controller_recovery_identity_mismatch",
+    ],
+    [
+      "docker_task_runtime_state_lock_release_unconfirmed",
+      "docker_process_controller_recovery_observation_unknown",
+    ],
+    [
+      "caller-controlled-secret",
+      "docker_process_controller_recovery_unavailable",
+    ],
+  ] as const) {
     const harness = fixture({
       admissionRecovery: true,
-      admissionRecoveryReason: reason,
+      admissionRecoveryReason: internalReason,
     });
     const result = await harness.runtime.start(
       request(),
@@ -3017,10 +3306,28 @@ test("Docker Recoveryの公開理由分類をTask結果へ変更せず投影す�
       "2026-08-25T00:00:00.000Z",
     ).completion;
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, reason);
+    assert.equal(result.reason, publicReason);
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(result.dockerRecoveryId, "docker.fixture.admission.recovery");
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
+  }
+});
+
+test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否する", () => {
+  for (const [caseId, resource] of [
+    ["CASE-RECOVERY-OPERATION-READY", "RES-INTERACTIVE-CONSOLE"],
+    ["CASE-BLOCKED-ADMISSION", "RES-TASK-CONTROL"],
+  ] as const) {
+    const canonical = getRuntimeTraceCase(caseId);
+    assert.throws(() =>
+      assertRuntimeTraceCase(caseId, {
+        ...canonical,
+        resourcePostconditions: {
+          ...canonical.resourcePostconditions,
+          [resource]: "present",
+        },
+      }),
+    );
   }
 });

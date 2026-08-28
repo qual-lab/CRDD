@@ -23,6 +23,7 @@ import {
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerHostCleanupReceipt,
 } from "./docker-recovery-runtime.ts";
+import { projectDockerRecoveryAdmission } from "./docker-recovery-public-projection.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -118,6 +119,7 @@ type Provider = "codex" | "claude";
 type TaskRole = "executor" | "reviewer";
 type RuntimeLifecycleState =
   | "STATE-ADMISSION"
+  | "STATE-OPERATION-ACQUIRING"
   | "STATE-OPERATION-READY"
   | "STATE-TASK-AUTHORIZED"
   | "STATE-EXECUTOR-CLEAN"
@@ -199,6 +201,9 @@ type RuntimeDependencies = Readonly<{
   observeLifecycleState?: (state: RuntimeLifecycleState) => void;
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
   createOperation: () => Operation | Promise<Operation>;
+  classifyOperationCreationFailure: (
+    error: unknown,
+  ) => ProductionOperationFailure | null;
   cleanupOperation: (owned: object) => unknown | Promise<unknown>;
   classifyOperationCleanup: (outcome: unknown) => HostCleanupStatus | null;
   abandonOperation: (managementCapability: object) => Promise<unknown>;
@@ -382,6 +387,30 @@ function terminalLifecycleState(result: TaskCompletionRecord) {
   )
     return "STATE-RECOVERY-REQUIRED" as const;
   return "STATE-BLOCKED-CLEAN" as const;
+}
+
+function finalProjectionFailure(
+  result: TaskCompletionRecord,
+  control: ControlRecord,
+) {
+  const dockerRecoveryIds = Object.freeze([
+    ...new Set([
+      ...result.dockerRecoveryIds,
+      ...controlDockerRecoveryIds(control),
+    ]),
+  ]);
+  return Object.freeze({
+    ...result,
+    status: "blocked" as const,
+    reason: "coordinator_task_final_projection_failed_closed",
+    cleanupConfirmed: false,
+    manualRecoveryRequired: true,
+    processRestartRequired: true,
+    hostRecoveryId: result.hostRecoveryId ?? control.hostRecoveryId,
+    dockerRecoveryId:
+      dockerRecoveryIds.length === 1 ? (dockerRecoveryIds[0] ?? null) : null,
+    dockerRecoveryIds,
+  }) as TaskCompletionRecord;
 }
 
 function createBlocked(
@@ -1167,15 +1196,22 @@ async function runCoordinatorTaskCore(
     return blocked("coordinator_task_git_object_format_unsupported");
   }
   const dockerRecoveryState = state.dependencies.prepareDockerRecoveryState?.();
-  if (dockerRecoveryState && dockerRecoveryState.status !== "completed") {
-    return blocked(
-      stringValue(dockerRecoveryState.reason) ??
-        "coordinator_task_docker_recovery_state_unavailable",
-      true,
-      null,
-      stringValue(dockerRecoveryState.dockerRecoveryId),
-    );
+  if (dockerRecoveryState) {
+    const admission = projectDockerRecoveryAdmission(dockerRecoveryState);
+    if (admission.status !== "completed") {
+      return blocked(
+        admission.reason,
+        true,
+        null,
+        admission.dockerRecoveryId,
+        null,
+        false,
+        null,
+        admission.dockerRecoveryIds,
+      );
+    }
   }
+  advanceLifecycleState(state, control, "STATE-OPERATION-ACQUIRING");
   let operation: Operation | null = null;
   let shouldRetainOperationRoot = false;
   try {
@@ -1596,7 +1632,8 @@ async function runCoordinatorTaskCore(
       credentialAbsenceVerified: false,
     });
   } catch (error) {
-    const creationFailure = productionOperationFailure(error);
+    const creationFailure =
+      state.dependencies.classifyOperationCreationFailure(error);
     if (creationFailure) {
       shouldRetainOperationRoot = !creationFailure.cleanupConfirmed;
       return blocked(
@@ -1794,6 +1831,7 @@ async function createProductionOperation() {
 const productionDependencies: RuntimeDependencies = Object.freeze({
   inspectRepository: inspectRepositoryObjectFormatCandidate,
   createOperation: createProductionOperation,
+  classifyOperationCreationFailure: productionOperationFailure,
   cleanupOperation: cleanupOwnedOperationDirectoriesAsync,
   classifyOperationCleanup: verifyOwnedOperationCleanupOutcome,
   abandonOperation: abandonOwnedHostOperationGenerationLock,
@@ -2326,7 +2364,11 @@ function createRuntime(dependencies: RuntimeDependencies) {
           }
         })
         .catch(async () => {
-          await retainRuntimeRecoveryState(state, control);
+          try {
+            await retainRuntimeRecoveryState(state, control);
+          } catch {
+            poisonRuntimeProcess(state, control);
+          }
           return blocked(
             "coordinator_task_operation_cleanup_unconfirmed",
             true,
@@ -2338,39 +2380,44 @@ function createRuntime(dependencies: RuntimeDependencies) {
             controlDockerRecoveryIds(control),
           );
         })
-        .then(async (result): Promise<TaskCompletionRecord> => {
-          if (control.cancellationRequested && control.cancellationSettlement)
-            await control.cancellationSettlement;
-          if (control.hostGenerationFailureObserved) {
-            if (result.manualRecoveryRequired === true)
-              poisonRuntimeProcess(state, control);
-            control.releaseHostGenerationDrain?.();
-            control.releaseHostGenerationDrain = null;
+        .then(async (settledResult): Promise<TaskCompletionRecord> => {
+          let result = settledResult as TaskCompletionRecord;
+          try {
+            if (control.cancellationRequested && control.cancellationSettlement)
+              await control.cancellationSettlement;
+            if (control.hostGenerationFailureObserved) {
+              if (result.manualRecoveryRequired === true)
+                poisonRuntimeProcess(state, control);
+              control.releaseHostGenerationDrain?.();
+              control.releaseHostGenerationDrain = null;
+            }
+            control.processPoisoned ||=
+              state.dependencies.isProcessPoisoned?.() === true;
+            if (control.cancellationProtocolFailure) {
+              const manualRecoveryRequired =
+                result.manualRecoveryRequired === true;
+              result = Object.freeze({
+                ...result,
+                status: "blocked" as const,
+                reason: manualRecoveryRequired
+                  ? "coordinator_task_cancellation_protocol_failed_cleanup_unknown"
+                  : "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
+                cleanupConfirmed:
+                  !manualRecoveryRequired && result.cleanupConfirmed === true,
+                manualRecoveryRequired,
+                processRestartRequired: true,
+              }) as TaskCompletionRecord;
+            } else {
+              result = Object.freeze({
+                ...result,
+                processRestartRequired: control.processPoisoned,
+              }) as TaskCompletionRecord;
+            }
+          } catch {
+            result = finalProjectionFailure(result, control);
+          } finally {
+            state.controls.delete(controlCapability);
           }
-          control.processPoisoned ||=
-            state.dependencies.isProcessPoisoned?.() === true;
-          if (control.cancellationProtocolFailure) {
-            const manualRecoveryRequired =
-              result.manualRecoveryRequired === true;
-            return Object.freeze({
-              ...result,
-              status: "blocked" as const,
-              reason: manualRecoveryRequired
-                ? "coordinator_task_cancellation_protocol_failed_cleanup_unknown"
-                : "coordinator_task_cancellation_protocol_failed_cleanup_confirmed",
-              cleanupConfirmed:
-                !manualRecoveryRequired && result.cleanupConfirmed === true,
-              manualRecoveryRequired,
-              processRestartRequired: true,
-            }) as TaskCompletionRecord;
-          }
-          return Object.freeze({
-            ...result,
-            processRestartRequired: control.processPoisoned,
-          }) as TaskCompletionRecord;
-        })
-        .then((result) => {
-          state.controls.delete(controlCapability);
           advanceLifecycleState(state, control, terminalLifecycleState(result));
           return result;
         });

@@ -3292,6 +3292,32 @@ test("production正常完了もactive bindingをpointer閉包前に削除しな�
   }
 });
 
+type FreshRecoveryHandoff = {
+  recoveryId: string;
+  root: Readonly<Record<string, string>>;
+  hostRoot: string;
+  hostMarker: string;
+  setupPid: number;
+};
+
+function cleanupFreshRecoveryHandoff(handoff: FreshRecoveryHandoff | null) {
+  if (!handoff) return;
+  const temporaryRoot = fs.realpathSync(os.tmpdir());
+  const hostRoot = path.resolve(handoff.hostRoot);
+  if (
+    path.dirname(hostRoot) === temporaryRoot &&
+    path.basename(hostRoot).startsWith("crdd-coordinator-doctor-")
+  )
+    fs.rmSync(hostRoot, { recursive: true, force: true });
+  const hostMarker = path.resolve(handoff.hostMarker);
+  if (
+    path.dirname(hostMarker) ===
+      path.join(temporaryRoot, "crdd-coordinator-recovery-v1") &&
+    path.extname(hostMarker) === ".json"
+  )
+    fs.rmSync(hostMarker, { force: true });
+}
+
 test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回復する", () => {
   const runtimeParent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-production-fresh-recovery-test-"),
@@ -3301,6 +3327,7 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
   const probe = fileURLToPath(
     new URL("./fixtures/recovery-cleanup-probe.ts", import.meta.url),
   );
+  let handoff: FreshRecoveryHandoff | null = null;
   try {
     const setup = spawnSync(
       process.execPath,
@@ -3313,13 +3340,7 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
       { encoding: "utf8", timeout: 15_000, windowsHide: true },
     );
     assert.equal(setup.status, 0, `${setup.stdout}\n${setup.stderr}`);
-    const handoff = JSON.parse(setup.stdout) as {
-      recoveryId: string;
-      root: Readonly<Record<string, string>>;
-      hostRoot: string;
-      hostMarker: string;
-      setupPid: number;
-    };
+    handoff = JSON.parse(setup.stdout) as FreshRecoveryHandoff;
     assert.deepEqual(fs.readdirSync(runtimeRootPath).length > 0, true);
     const recovered = spawnSync(
       process.execPath,
@@ -3352,6 +3373,7 @@ test("receipt失敗後は独立Processがexact Docker IDだけで残存0へ回�
     assert.equal(fs.existsSync(handoff.hostRoot), false);
     assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
+    cleanupFreshRecoveryHandoff(handoff);
     fs.rmSync(runtimeParent, { recursive: true, force: true });
   }
 });
@@ -3365,6 +3387,7 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
   const probe = fileURLToPath(
     new URL("./fixtures/recovery-cleanup-probe.ts", import.meta.url),
   );
+  let handoff: FreshRecoveryHandoff | null = null;
   try {
     const setup = spawnSync(
       process.execPath,
@@ -3377,13 +3400,7 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
       { encoding: "utf8", timeout: 15_000, windowsHide: true },
     );
     assert.equal(setup.status, 0, `${setup.stdout}\n${setup.stderr}`);
-    const handoff = JSON.parse(setup.stdout) as {
-      recoveryId: string;
-      root: Readonly<Record<string, string>>;
-      hostRoot: string;
-      hostMarker: string;
-      setupPid: number;
-    };
+    handoff = JSON.parse(setup.stdout) as FreshRecoveryHandoff;
     const recovered = spawnSync(
       process.execPath,
       [
@@ -3415,6 +3432,7 @@ test("active binding削除済み・pointer残存もfresh Processで残存0へ回
     assert.equal(fs.existsSync(handoff.hostRoot), false);
     assert.equal(fs.existsSync(handoff.hostMarker), false);
   } finally {
+    cleanupFreshRecoveryHandoff(handoff);
     fs.rmSync(runtimeParent, { recursive: true, force: true });
   }
 });

@@ -39,8 +39,8 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     {
       status: "accepted",
       resources: 9,
-      states: 17,
-      transitions: 17,
+      states: 18,
+      transitions: 18,
       invariants: 9,
       verificationBindings: 6,
     },
@@ -82,12 +82,12 @@ test("参照切れ・孤立・必要検証区分の欠落を一括して拒否�
   if (result.status === "blocked") {
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION:resourcesAcquired_unknown:RES-NOT-FOUND",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:resourcesAcquired_unknown:RES-NOT-FOUND",
       ),
     );
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION:verification_missing:abnormal",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:verification_missing:abnormal",
       ),
     );
     assert.ok(result.issues.includes("resource_orphan:RES-ORPHAN"));
@@ -175,12 +175,12 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
     );
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION:transition_shape_invalid",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:transition_shape_invalid",
       ),
     );
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION:same_invocation_from_terminal:STATE-RESULT-PUBLISHED",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:same_invocation_from_terminal:STATE-RESULT-PUBLISHED",
       ),
     );
     assert.ok(
@@ -213,12 +213,12 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
   if (result.status === "blocked") {
     assert.ok(
       result.issues.includes(
-        "VER-TASK-NORMAL:case_from_state_mismatch:TRANS-ADMISSION-TO-OPERATION",
+        "VER-TASK-NORMAL:case_from_state_mismatch:TRANS-ADMISSION-TO-OPERATION-ACQUIRING",
       ),
     );
     assert.ok(
       result.issues.includes(
-        "VER-TASK-NORMAL:case_taken_end_state_mismatch:TRANS-ADMISSION-TO-OPERATION",
+        "VER-TASK-NORMAL:case_taken_end_state_mismatch:TRANS-ADMISSION-TO-OPERATION-ACQUIRING",
       ),
     );
     assert.ok(
@@ -228,7 +228,7 @@ test("検証caseの開始状態・終了状態・資源意味とsource別区分�
     );
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION:verification_case_missing:STATE-ADMISSION:normal",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:verification_case_missing:STATE-ADMISSION:normal",
       ),
     );
   }
@@ -261,12 +261,12 @@ test("検証caseの重複tuple・source未接続・未観測資源・拒否結�
   if (result.status === "blocked") {
     assert.ok(
       result.issues.includes(
-        "VER-TASK-NORMAL:case_rejected_reaches_to:TRANS-ADMISSION-TO-OPERATION",
+        "VER-TASK-NORMAL:case_rejected_reaches_to:TRANS-ADMISSION-TO-OPERATION-ACQUIRING",
       ),
     );
     assert.ok(
       result.issues.includes(
-        "VER-TASK-NORMAL:case_tuple_duplicate:TRANS-ADMISSION-TO-OPERATION:STATE-ADMISSION:normal",
+        "VER-TASK-NORMAL:case_tuple_duplicate:TRANS-ADMISSION-TO-OPERATION-ACQUIRING:STATE-ADMISSION:normal",
       ),
     );
     assert.ok(result.issues.includes("VER-TASK-NORMAL:test_case_id_not_found"));
@@ -324,12 +324,12 @@ test("operation terminalからの遷移と非terminalからのRecovery invocatio
   if (result.status === "blocked") {
     assert.ok(
       result.issues.includes(
-        "TRANS-ADMISSION-TO-OPERATION:from_operation_terminal:STATE-RESULT-PUBLISHED",
+        "TRANS-ADMISSION-TO-OPERATION-ACQUIRING:from_operation_terminal:STATE-RESULT-PUBLISHED",
       ),
     );
     assert.ok(
       result.issues.includes(
-        "TRANS-OPERATION-TO-AUTHORIZED:recovery_from_nonrecoverable:STATE-OPERATION-READY",
+        "TRANS-OPERATION-ACQUIRING-TO-READY:recovery_from_nonrecoverable:STATE-OPERATION-ACQUIRING",
       ),
     );
   }
