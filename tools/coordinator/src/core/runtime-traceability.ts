@@ -1,5 +1,5 @@
 const TRACE_SCHEMA = "crdd-coordinator/runtime-traceability";
-const TRACE_SCHEMA_REVISION = 2;
+const TRACE_SCHEMA_REVISION = 3;
 const VERIFICATION_KINDS = Object.freeze([
   "normal",
   "quasi_normal",
@@ -69,6 +69,29 @@ const BINDING_KEYS = Object.freeze([
   "testPath",
   "testName",
   "observedResources",
+  "cases",
+]);
+const CASE_KEYS = Object.freeze([
+  "transitionId",
+  "fromStates",
+  "expectedToState",
+  "expectedEffectCount",
+  "expectedStatus",
+  "resourcePostconditions",
+]);
+const EXPECTED_STATUSES = new Set([
+  "authorized",
+  "blocked",
+  "completed",
+  "recovery_required",
+  "staged",
+]);
+const RESOURCE_POSTCONDITIONS = new Set([
+  "absent",
+  "present",
+  "preserved",
+  "transferred",
+  "unacquired",
 ]);
 const EVIDENCE_BOUNDARIES = new Set([
   "contract_projection",
@@ -258,9 +281,11 @@ export function inspectCoordinatorRuntimeTraceability(
   const usedStates = new Set<string>();
   const usedInvariants = new Set<string>();
   const requiredKindsByTransition = new Map<string, Set<VerificationKind>>();
+  const transitionsById = new Map<string, JsonRecord>();
   for (const transition of transitions.entries) {
     const transitionId =
       typeof transition.id === "string" ? transition.id : "unknown";
+    transitionsById.set(transitionId, transition);
     if (
       !hasExactKeys(transition, TRANSITION_KEYS) ||
       (transition.invocation !== "same" &&
@@ -276,11 +301,19 @@ export function inspectCoordinatorRuntimeTraceability(
     )) {
       usedStates.add(state);
       const stateDefinition = statesById.get(state);
+      if (stateDefinition?.operationTerminal === true)
+        issues.push(`${transitionId}:from_operation_terminal:${state}`);
       if (
         stateDefinition?.invocationTerminal === true &&
         transition.invocation === "same"
       )
         issues.push(`${transitionId}:same_invocation_from_terminal:${state}`);
+      if (
+        transition.invocation === "recovery" &&
+        (stateDefinition?.invocationTerminal !== true ||
+          stateDefinition?.operationTerminal !== false)
+      )
+        issues.push(`${transitionId}:recovery_from_nonrecoverable:${state}`);
     }
     if (typeof transition.to !== "string" || !states.ids.has(transition.to)) {
       issues.push(`${transitionId}:to_unknown`);
@@ -336,6 +369,10 @@ export function inspectCoordinatorRuntimeTraceability(
   }
 
   const observedKindsByTransition = new Map<string, Set<VerificationKind>>();
+  const observedKindsByTransitionAndState = new Map<
+    string,
+    Set<VerificationKind>
+  >();
   for (const binding of bindings.entries) {
     const bindingId = typeof binding.id === "string" ? binding.id : "unknown";
     if (!hasExactKeys(binding, BINDING_KEYS))
@@ -360,6 +397,89 @@ export function inspectCoordinatorRuntimeTraceability(
       observed.add(kind as VerificationKind);
       observedKindsByTransition.set(transitionId, observed);
     }
+    if (!Array.isArray(binding.cases) || binding.cases.length === 0) {
+      issues.push(`${bindingId}:case_population_invalid`);
+    } else {
+      const caseTransitions = new Set<string>();
+      for (const candidate of binding.cases) {
+        if (!isRecord(candidate) || !hasExactKeys(candidate, CASE_KEYS)) {
+          issues.push(`${bindingId}:case_shape_invalid`);
+          continue;
+        }
+        const transitionId = candidate.transitionId;
+        if (
+          typeof transitionId !== "string" ||
+          !transitionIds.includes(transitionId)
+        ) {
+          issues.push(`${bindingId}:case_transition_invalid`);
+          continue;
+        }
+        caseTransitions.add(transitionId);
+        const transition = transitionsById.get(transitionId);
+        const declaredFrom = new Set(
+          isStringArray(transition?.from) ? transition.from : [],
+        );
+        const fromStates = checkReferences(
+          candidate.fromStates,
+          states.ids,
+          `${bindingId}:case_fromStates`,
+          issues,
+        );
+        if (
+          fromStates.length === 0 ||
+          fromStates.some((state) => !declaredFrom.has(state))
+        )
+          issues.push(`${bindingId}:case_from_state_mismatch:${transitionId}`);
+        if (candidate.expectedToState !== transition?.to)
+          issues.push(`${bindingId}:case_to_state_mismatch:${transitionId}`);
+        if (
+          candidate.expectedEffectCount !== 0 &&
+          candidate.expectedEffectCount !== 1
+        )
+          issues.push(`${bindingId}:case_effect_count_invalid:${transitionId}`);
+        if (!EXPECTED_STATUSES.has(String(candidate.expectedStatus)))
+          issues.push(`${bindingId}:case_status_invalid:${transitionId}`);
+        if (!isRecord(candidate.resourcePostconditions)) {
+          issues.push(`${bindingId}:case_resource_postconditions_invalid`);
+        } else {
+          const transitionResources = new Set([
+            ...(isStringArray(transition?.resourcesAcquired)
+              ? transition.resourcesAcquired
+              : []),
+            ...(isStringArray(transition?.resourcesReleased)
+              ? transition.resourcesReleased
+              : []),
+            ...(isStringArray(transition?.resourcesTransferred)
+              ? transition.resourcesTransferred
+              : []),
+          ]);
+          for (const [resource, postcondition] of Object.entries(
+            candidate.resourcePostconditions,
+          )) {
+            if (!transitionResources.has(resource))
+              issues.push(
+                `${bindingId}:case_resource_not_on_transition:${resource}`,
+              );
+            if (!RESOURCE_POSTCONDITIONS.has(String(postcondition)))
+              issues.push(
+                `${bindingId}:case_resource_postcondition_invalid:${resource}`,
+              );
+          }
+        }
+        for (const fromState of fromStates) {
+          const key = `${transitionId}\u0000${fromState}`;
+          const observed =
+            observedKindsByTransitionAndState.get(key) ??
+            new Set<VerificationKind>();
+          observed.add(kind as VerificationKind);
+          observedKindsByTransitionAndState.set(key, observed);
+        }
+      }
+      if (
+        transitionIds.some((transitionId) => !caseTransitions.has(transitionId))
+      )
+        issues.push(`${bindingId}:case_transition_population_incomplete`);
+    }
     for (const resource of checkReferences(
       binding.observedResources,
       resources.ids,
@@ -367,6 +487,26 @@ export function inspectCoordinatorRuntimeTraceability(
       issues,
     )) {
       usedResources.add(resource);
+      const transitionResources = new Set(
+        transitionIds.flatMap((transitionId) => {
+          const transition = transitionsById.get(transitionId);
+          return [
+            ...(isStringArray(transition?.resourcesAcquired)
+              ? transition.resourcesAcquired
+              : []),
+            ...(isStringArray(transition?.resourcesReleased)
+              ? transition.resourcesReleased
+              : []),
+            ...(isStringArray(transition?.resourcesTransferred)
+              ? transition.resourcesTransferred
+              : []),
+          ];
+        }),
+      );
+      if (!transitionResources.has(resource))
+        issues.push(
+          `${bindingId}:observed_resource_not_on_transition:${resource}`,
+        );
     }
     if (
       typeof binding.testPath !== "string" ||
@@ -394,6 +534,19 @@ export function inspectCoordinatorRuntimeTraceability(
     for (const requiredKind of requiredKinds) {
       if (!observedKinds.has(requiredKind)) {
         issues.push(`${transitionId}:verification_missing:${requiredKind}`);
+      }
+      const transition = transitionsById.get(transitionId);
+      for (const fromState of isStringArray(transition?.from)
+        ? transition.from
+        : []) {
+        const stateKinds =
+          observedKindsByTransitionAndState.get(
+            `${transitionId}\u0000${fromState}`,
+          ) ?? new Set<VerificationKind>();
+        if (!stateKinds.has(requiredKind))
+          issues.push(
+            `${transitionId}:verification_case_missing:${fromState}:${requiredKind}`,
+          );
       }
     }
   }

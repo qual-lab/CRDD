@@ -39,8 +39,8 @@ test("Coordinator Runtime TraceはArchitecture・実在試験・検証区分を�
     {
       status: "accepted",
       resources: 10,
-      states: 14,
-      transitions: 13,
+      states: 17,
+      transitions: 17,
       invariants: 9,
       verificationBindings: 18,
     },
@@ -152,6 +152,82 @@ test("Trace entityの欠落・余分field、risk typo、terminal内遷移と観�
     );
     assert.ok(
       result.issues.includes("VER-TASK-NORMAL:verification_boundary_invalid"),
+    );
+  }
+});
+
+test("検証caseの開始状態・終了状態・資源意味とsource別区分欠落を拒否する", () => {
+  const trace = currentTrace() as Record<string, unknown>;
+  const bindings = structuredClone(trace.verificationBindings) as Record<
+    string,
+    unknown
+  >[];
+  const taskNormal = bindings.find(
+    (binding) => binding.id === "VER-TASK-NORMAL",
+  );
+  assert.ok(taskNormal);
+  const cases = structuredClone(taskNormal.cases) as Record<string, unknown>[];
+  cases[0] = {
+    ...cases[0],
+    fromStates: ["STATE-TASK-AUTHORIZED"],
+    expectedToState: "STATE-RESULT-PUBLISHED",
+    resourcePostconditions: { "RES-CANDIDATE-ENTRY": "present" },
+  };
+  taskNormal.cases = cases;
+  trace.verificationBindings = bindings;
+  const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
+  assert.equal(result.status, "blocked");
+  if (result.status === "blocked") {
+    assert.ok(
+      result.issues.includes(
+        "VER-TASK-NORMAL:case_from_state_mismatch:TRANS-ADMISSION-TO-OPERATION",
+      ),
+    );
+    assert.ok(
+      result.issues.includes(
+        "VER-TASK-NORMAL:case_to_state_mismatch:TRANS-ADMISSION-TO-OPERATION",
+      ),
+    );
+    assert.ok(
+      result.issues.includes(
+        "VER-TASK-NORMAL:case_resource_not_on_transition:RES-CANDIDATE-ENTRY",
+      ),
+    );
+    assert.ok(
+      result.issues.includes(
+        "TRANS-ADMISSION-TO-OPERATION:verification_case_missing:STATE-ADMISSION:normal",
+      ),
+    );
+  }
+});
+
+test("operation terminalからの遷移と非terminalからのRecovery invocationを拒否する", () => {
+  const trace = currentTrace() as Record<string, unknown>;
+  const transitions = structuredClone(trace.transitions) as Record<
+    string,
+    unknown
+  >[];
+  transitions[0] = {
+    ...transitions[0],
+    from: ["STATE-RESULT-PUBLISHED"],
+  };
+  transitions[1] = {
+    ...transitions[1],
+    invocation: "recovery",
+  };
+  trace.transitions = transitions;
+  const result = inspectCoordinatorRuntimeTraceability(trace, repositoryReader);
+  assert.equal(result.status, "blocked");
+  if (result.status === "blocked") {
+    assert.ok(
+      result.issues.includes(
+        "TRANS-ADMISSION-TO-OPERATION:from_operation_terminal:STATE-RESULT-PUBLISHED",
+      ),
+    );
+    assert.ok(
+      result.issues.includes(
+        "TRANS-OPERATION-TO-AUTHORIZED:recovery_from_nonrecoverable:STATE-OPERATION-READY",
+      ),
     );
   }
 });

@@ -43,6 +43,9 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 | Candidate固定 | `STATE-CANDIDATE-CAPTURED` | 実差分、許可Path、開始RevisionからCandidateを固定 | Executor申告と実差分一致 |
 | Reviewer完了 | `STATE-REVIEWER-CLEAN` | 独立ContextでReviewerを実行しcleanup | approvedまたは一回是正へ限定 |
 | 是正許可 | `STATE-REMEDIATION-AUTHORIZED` | 同じExecutorへbounded findingだけを返す | 一回だけ再実行し同じReviewerへ戻る |
+| 是正Executor完了 | `STATE-REMEDIATION-EXECUTOR-CLEAN` | 一回限りの同一Executor是正とStage cleanup | 再Candidateを固定 |
+| 是正Candidate固定 | `STATE-REMEDIATION-CANDIDATE-CAPTURED` | 是正後の実差分からCandidateを固定 | 同じReviewerへ一回だけ返す |
+| 是正Reviewer完了 | `STATE-REMEDIATION-REVIEWER-CLEAN` | 同じ独立Reviewerが是正後Candidateを再評価 | 承認時だけ保存。再是正へ戻らない |
 | Candidate保存 | `STATE-CANDIDATE-STAGED` | 再照合したCandidateを一時Storeへstaged保存 | exact Recovery ID取得 |
 | Host回収 | `STATE-HOST-CLEAN` | 全Docker Host-cleanup intent、Operation cleanup、receipt、finalize | Host／Docker未解決0 |
 | 結果公開 | `STATE-RESULT-PUBLISHED` | Candidateをpublishし安全な構造化結果を返す | cleanupとCandidate再検証済み |
@@ -102,7 +105,7 @@ Runtime State lockを保持したまま、native observation、Docker CLIまた�
 | content／commit不一致 | 異常 | Evidence保持、処置0 |
 | replacement／link／unknown entry | 異常 | Evidence保持、処置0 |
 
-Host側`active-docker-task-v1.json`のcontent-only状態は、同期的なcommit sidecar確定より前、かつHost generation Effectより前の到達可能中間状態である。明示Recoveryは、同一Lock内でHostがprevious世代、全submission不存在、baseが完全一致し、committed pointerのschema／stable Home／operation name／Recovery ID／base hashが完全一致し、active bindingのschema／Recovery ID／base hash／operation nonceが完全一致し、active commit sidecarが不存在の場合だけ当該contentをrollbackする。内容差、pointer欠落・partial、commit存在、Host Effect開始済みまたは観測不明では一切削除せず`STATE-RECOVERY-REQUIRED`を維持する。
+Host側`active-docker-task-v1.json`のcontent-only状態は、同期的なcommit sidecar確定より前、かつHost generation Effectより前の到達可能中間状態である。明示Recoveryは、同一Lock内でHostがprevious世代、全submission不存在、baseが完全一致し、committed pointerのschema／stable Home／operation name／Recovery ID／base hashが完全一致し、active bindingのschema／Recovery ID／base hash／operation nonceが完全一致し、active commit sidecarが不存在の場合だけ当該contentをrollbackする。通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの全削除経路は、同じactive binding／pointer閉包を削除前に検証する。active bindingが存在するのにpointerが欠落・partial・置換、不一致または観測不能なら、どちらも削除せず`STATE-RECOVERY-REQUIRED`を維持する。active bindingが既に不存在でexact committed pointerだけが残る非対称状態は、pointerの完全一致を確認して再開できる。
 
 ## 7. cleanup依存順
 
@@ -143,7 +146,7 @@ Provider child／Docker resource absence
 | 準正常 | 明示拒否、Provider timeout／nonzero／結果不正、duplicate cancel、Lock競合、Effect前の一意なpartial pair | 安全なblockedまたは決定論的回復。未知状態へ誤昇格しない |
 | 異常 | lock解放不明、generation置換、pair不一致、create結果曖昧、親Process消失、cleanup不明、複数Recovery競合 | Result非公開、Evidence保持、exact Recoveryまたはoperator移送 |
 
-各高リスク遷移は、その遷移に適用可能と宣言した正常・準正常・異常区分の検証接続を機械可読Traceで持つ。非該当区分を形式的に水増ししない。試験件数やcoverage率だけを、状態母集団の網羅根拠にしない。
+各高リスク遷移は、その遷移に適用可能と宣言した正常・準正常・異常区分の検証接続を機械可読Traceで持つ。検証ケースは遷移ID、開始状態、期待終了状態、Effect件数、結果状態および資源後条件を宣言し、遷移×開始状態×区分をCheckerが照合する。テスト名の存在だけ、非該当区分の形式的な水増し、試験件数またはcoverage率だけを状態母集団の網羅根拠にしない。
 
 ## 10. 遷移一覧
 
@@ -155,7 +158,11 @@ Provider child／Docker resource absence
 | `TRANS-EXECUTOR-TO-CANDIDATE` | `STATE-EXECUTOR-CLEAN` | `STATE-CANDIDATE-CAPTURED` | 実差分からCandidate固定 |
 | `TRANS-CANDIDATE-TO-REVIEWER-CLEAN` | `STATE-CANDIDATE-CAPTURED` | `STATE-REVIEWER-CLEAN` | 独立ReviewerとStage cleanup |
 | `TRANS-REVIEWER-TO-REMEDIATION` | `STATE-REVIEWER-CLEAN` | `STATE-REMEDIATION-AUTHORIZED` | bounded findingを同じExecutorへ一回だけ返す |
+| `TRANS-REMEDIATION-AUTHORIZED-TO-EXECUTOR-CLEAN` | `STATE-REMEDIATION-AUTHORIZED` | `STATE-REMEDIATION-EXECUTOR-CLEAN` | 一回限りの是正ExecutorとStage cleanup |
+| `TRANS-REMEDIATION-EXECUTOR-TO-CANDIDATE` | `STATE-REMEDIATION-EXECUTOR-CLEAN` | `STATE-REMEDIATION-CANDIDATE-CAPTURED` | 是正後Candidate固定 |
+| `TRANS-REMEDIATION-CANDIDATE-TO-REVIEWER-CLEAN` | `STATE-REMEDIATION-CANDIDATE-CAPTURED` | `STATE-REMEDIATION-REVIEWER-CLEAN` | 同じReviewerによる一回限りの再評価 |
 | `TRANS-REVIEWER-TO-STAGED` | `STATE-REVIEWER-CLEAN` | `STATE-CANDIDATE-STAGED` | 承認Candidateの一時保存 |
+| `TRANS-REMEDIATION-REVIEWER-TO-STAGED` | `STATE-REMEDIATION-REVIEWER-CLEAN` | `STATE-CANDIDATE-STAGED` | 是正後に承認されたCandidateの一時保存。再是正経路なし |
 | `TRANS-STAGED-TO-HOST-CLEAN` | `STATE-CANDIDATE-STAGED` | `STATE-HOST-CLEAN` | Host／Docker finalize |
 | `TRANS-HOST-CLEAN-TO-RESULT` | `STATE-HOST-CLEAN` | `STATE-RESULT-PUBLISHED` | Candidate publishと結果公開 |
 | `TRANS-ACTIVE-TO-BLOCKED-CLEAN` | active state | `STATE-BLOCKED-CLEAN` | cleanup確認済みでRecovery不要の安全な停止 |

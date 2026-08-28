@@ -1128,33 +1128,32 @@ function completeProductionRecovery(
         "host-complete-receipt.json",
         Object.freeze({ previous: current, observed: successor }),
       );
-      const activeHostBinding = readExactJson(record.hostActiveBindingPath)
-        .value as Record<string, unknown>;
-      validateHostActiveBinding(
-        activeHostBinding,
+      const closure = verifyActiveBindingAndPointerClosure(
+        record.hostActiveBindingPath,
+        record.pointerPath,
         expectedHostActiveBinding(
           record.recoveryId,
           record.baseHash,
           record.operationNonce,
         ),
+        {
+          stableLogicalHomeBindingHash: record.stableLogicalHomeBindingHash,
+          operationNonce: record.operationNonce,
+          recoveryId: record.recoveryId,
+          baseHash: record.baseHash,
+        },
       );
+      if (
+        closure.activeState !== "committed" ||
+        closure.pointerRecord === null ||
+        closure.pointerRecord.hash !== record.pointerHash ||
+        closure.pointerRecord.identity !== record.pointerIdentity
+      )
+        throw new Error("docker_task_recovery_active_run_mismatch");
       if (!removeCommittedDockerRecoveryJson(record.hostActiveBindingPath))
         throw new Error("docker_task_recovery_active_run_mismatch");
       if (fs.existsSync(record.hostActiveBindingPath))
         throw new Error("docker_task_recovery_active_run_mismatch");
-      const pointer = readExactJson(record.pointerPath);
-      const pointerValue = pointer.value as Record<string, unknown>;
-      if (
-        pointer.hash !== record.pointerHash ||
-        pointer.identity !== record.pointerIdentity
-      )
-        throw new Error("docker_task_recovery_pointer_invalid");
-      validateActiveLeasePointer(pointerValue, {
-        stableLogicalHomeBindingHash: record.stableLogicalHomeBindingHash,
-        operationNonce: record.operationNonce,
-        recoveryId: record.recoveryId,
-        baseHash: record.baseHash,
-      });
       if (!removeCommittedDockerRecoveryJson(record.pointerPath))
         throw new Error("docker_task_recovery_pointer_invalid");
       commitDirectoryMutationBoundary(record.rootPath);
@@ -1940,6 +1939,78 @@ function validateActiveLeasePointer(
     (value as Record<string, unknown>).baseHash !== expected.baseHash
   )
     throw new Error("docker_task_recovery_pointer_mismatch");
+}
+
+function observeRecoveryFile(target: string) {
+  try {
+    const metadata = fs.lstatSync(target, { bigint: true });
+    if (!metadata.isFile() || metadata.isSymbolicLink())
+      throw new Error("docker_task_recovery_record_observation_unknown");
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return false;
+    throw new Error("docker_task_recovery_record_observation_unknown");
+  }
+}
+
+function verifyActiveBindingAndPointerClosure(
+  activeBindingPath: string,
+  pointerPath: string,
+  expectedActive: ReturnType<typeof expectedHostActiveBinding>,
+  expectedPointer: Readonly<{
+    stableLogicalHomeBindingHash: string;
+    operationNonce: string;
+    recoveryId: string;
+    baseHash: string;
+  }>,
+) {
+  const activeCommitPath = path.join(
+    path.dirname(activeBindingPath),
+    dockerRecoveryCommitName(path.basename(activeBindingPath)),
+  );
+  const pointerCommitPath = path.join(
+    path.dirname(pointerPath),
+    dockerRecoveryCommitName(path.basename(pointerPath)),
+  );
+  const activePresent = observeRecoveryFile(activeBindingPath);
+  const activeCommitPresent = observeRecoveryFile(activeCommitPath);
+  const pointerPresent = observeRecoveryFile(pointerPath);
+  const pointerCommitPresent = observeRecoveryFile(pointerCommitPath);
+  if (!activePresent) {
+    if (activeCommitPresent)
+      throw new Error("docker_task_recovery_active_run_mismatch");
+    if (pointerPresent !== pointerCommitPresent)
+      throw new Error("docker_task_recovery_pointer_mismatch");
+    if (!pointerPresent)
+      return Object.freeze({
+        activeState: "absent" as const,
+        pointerState: "absent" as const,
+        pointerRecord: null,
+      });
+    const pointerRecord = readExactJson(pointerPath);
+    validateActiveLeasePointer(pointerRecord.value, expectedPointer);
+    return Object.freeze({
+      activeState: "absent" as const,
+      pointerState: "committed" as const,
+      pointerRecord,
+    });
+  }
+  if (!pointerPresent || !pointerCommitPresent)
+    throw new Error("docker_task_recovery_pointer_mismatch");
+  const activeValue = activeCommitPresent
+    ? readExactJson(activeBindingPath).value
+    : JSON.parse(fs.readFileSync(activeBindingPath, "utf8"));
+  validateHostActiveBinding(activeValue, expectedActive);
+  const pointerRecord = readExactJson(pointerPath);
+  validateActiveLeasePointer(pointerRecord.value, expectedPointer);
+  return Object.freeze({
+    activeState: activeCommitPresent
+      ? ("committed" as const)
+      : ("uncommitted" as const),
+    pointerState: "committed" as const,
+    pointerRecord,
+  });
 }
 
 function removeRecoveryOperationDirectory(
@@ -3344,37 +3415,32 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         managementDirectoryName,
         "active-docker-task-v1.json",
       );
-      if (fs.existsSync(activeHostBindingPath)) {
-        const active = readExactJson(activeHostBindingPath).value as Record<
-          string,
-          unknown
-        >;
-        validateHostActiveBinding(
-          active,
-          expectedHostActiveBinding(
-            parsed.token,
-            parsed.baseHash,
-            parsed.operationNonce,
-          ),
-        );
-        if (!removeCommittedDockerRecoveryJson(activeHostBindingPath))
-          throw new Error("docker_task_recovery_active_run_mismatch");
-      }
       const pointerPath = path.join(
         root.rootPath,
         `active-lease-${parsed.stableLogicalHomeBindingHash}.json`,
       );
-      if (fs.existsSync(pointerPath)) {
-        const pointer = readExactJson(pointerPath).value as Record<
-          string,
-          unknown
-        >;
-        validateActiveLeasePointer(pointer, {
+      const closure = verifyActiveBindingAndPointerClosure(
+        activeHostBindingPath,
+        pointerPath,
+        expectedHostActiveBinding(
+          parsed.token,
+          parsed.baseHash,
+          parsed.operationNonce,
+        ),
+        {
           stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
           operationNonce: parsed.operationNonce,
           recoveryId: parsed.token,
           baseHash: parsed.baseHash,
-        });
+        },
+      );
+      if (closure.activeState === "committed") {
+        if (!removeCommittedDockerRecoveryJson(activeHostBindingPath))
+          throw new Error("docker_task_recovery_active_run_mismatch");
+      } else if (closure.activeState !== "absent") {
+        throw new Error("docker_task_recovery_active_run_mismatch");
+      }
+      if (closure.pointerState === "committed") {
         if (!removeCommittedDockerRecoveryJson(pointerPath))
           throw new Error("docker_task_recovery_pointer_mismatch");
       }
@@ -3489,21 +3555,30 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         managementDirectoryName,
         "active-docker-task-v1.json",
       );
-      if (fs.existsSync(activeHostBindingPath)) {
-        const active = readExactJson(activeHostBindingPath).value as Record<
-          string,
-          unknown
-        >;
-        validateHostActiveBinding(
-          active,
-          expectedHostActiveBinding(
-            parsed.token,
-            parsed.baseHash,
-            parsed.operationNonce,
-          ),
-        );
+      const pointerPath = path.join(
+        root.rootPath,
+        `active-lease-${parsed.stableLogicalHomeBindingHash}.json`,
+      );
+      const closure = verifyActiveBindingAndPointerClosure(
+        activeHostBindingPath,
+        pointerPath,
+        expectedHostActiveBinding(
+          parsed.token,
+          parsed.baseHash,
+          parsed.operationNonce,
+        ),
+        {
+          stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+          operationNonce: parsed.operationNonce,
+          recoveryId: parsed.token,
+          baseHash: parsed.baseHash,
+        },
+      );
+      if (closure.activeState === "committed") {
         if (!removeCommittedDockerRecoveryJson(activeHostBindingPath))
           throw new Error("docker_task_recovery_active_run_mismatch");
+      } else if (closure.activeState !== "absent") {
+        throw new Error("docker_task_recovery_active_run_mismatch");
       }
       const mountCrashPath = path.join(
         operationDirectory,
@@ -3515,21 +3590,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
           recoveryId: parsed.token,
           evidence: "process_generation_absent_plus_exact_docker_absent",
         });
-      const pointerPath = path.join(
-        root.rootPath,
-        `active-lease-${parsed.stableLogicalHomeBindingHash}.json`,
-      );
-      if (fs.existsSync(pointerPath)) {
-        const pointer = readExactJson(pointerPath).value as Record<
-          string,
-          unknown
-        >;
-        validateActiveLeasePointer(pointer, {
-          stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
-          operationNonce: parsed.operationNonce,
-          recoveryId: parsed.token,
-          baseHash: parsed.baseHash,
-        });
+      if (closure.pointerState === "committed") {
         if (!removeCommittedDockerRecoveryJson(pointerPath))
           throw new Error("docker_task_recovery_pointer_mismatch");
       }
@@ -3672,28 +3733,19 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       recoveryId: parsed.token,
       baseHash: parsed.baseHash,
     });
-    if (!hostSubmissionStarted && fs.existsSync(hostActiveBindingPath)) {
-      const pointerCommitPath = path.join(
-        path.dirname(pointerPath),
-        dockerRecoveryCommitName(path.basename(pointerPath)),
-      );
-      if (!fs.existsSync(pointerPath) || !fs.existsSync(pointerCommitPath))
-        throw new Error("docker_task_recovery_pointer_mismatch");
-      validateActiveLeasePointer(
-        readExactJson(pointerPath).value,
-        expectedPointer,
-      );
-    }
-    if (
-      fs.existsSync(hostActiveBindingPath) &&
-      !fs.existsSync(
-        path.join(
-          path.dirname(hostActiveBindingPath),
-          dockerRecoveryCommitName(path.basename(hostActiveBindingPath)),
-        ),
-      ) &&
-      !hostSubmissionStarted
-    ) {
+    const activePointerClosure = verifyActiveBindingAndPointerClosure(
+      hostActiveBindingPath,
+      pointerPath,
+      expectedHostActiveBinding(
+        parsed.token,
+        parsed.baseHash,
+        parsed.operationNonce,
+      ),
+      expectedPointer,
+    );
+    if (activePointerClosure.activeState === "uncommitted") {
+      if (hostSubmissionStarted)
+        throw new Error("docker_task_recovery_active_run_mismatch");
       removeExactUncommittedDockerRecoveryJson(
         hostActiveBindingPath,
         expectedHostActiveBinding(
@@ -3704,18 +3756,10 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       );
       commitDirectoryMutationBoundary(path.dirname(hostActiveBindingPath));
     }
-    if (fs.existsSync(hostActiveBindingPath)) {
-      const activeBinding = readExactJson(hostActiveBindingPath)
-        .value as Record<string, unknown>;
-      validateHostActiveBinding(
-        activeBinding,
-        expectedHostActiveBinding(
-          parsed.token,
-          parsed.baseHash,
-          parsed.operationNonce,
-        ),
-      );
-    } else if (hostSubmissionStarted) {
+    if (
+      activePointerClosure.activeState === "absent" &&
+      hostSubmissionStarted
+    ) {
       throw new Error("docker_task_recovery_active_run_missing");
     }
     const configDirectory = path.join(
@@ -3723,7 +3767,15 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       "recovery-docker-cli-config",
     );
     const releasePointer = () => {
-      if (!fs.existsSync(pointerPath)) return;
+      if (!observeRecoveryFile(pointerPath)) {
+        const pointerCommitPath = path.join(
+          path.dirname(pointerPath),
+          dockerRecoveryCommitName(path.basename(pointerPath)),
+        );
+        if (observeRecoveryFile(pointerCommitPath))
+          throw new Error("docker_task_recovery_pointer_mismatch");
+        return;
+      }
       const pointer = readExactJson(pointerPath).value as Record<
         string,
         unknown
@@ -3734,7 +3786,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       commitDirectoryMutationBoundary(root.rootPath);
     };
     if (!hostSubmissionStarted) {
-      if (fs.existsSync(hostActiveBindingPath))
+      if (activePointerClosure.activeState === "committed")
         if (!removeCommittedDockerRecoveryJson(hostActiveBindingPath))
           throw new Error("docker_task_recovery_active_run_mismatch");
       releasePointer();
@@ -3984,19 +4036,21 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         previous: submissionHostToken,
         observed: dockerAbsentHostToken,
       });
-    if (fs.existsSync(hostActiveBindingPath)) {
-      const activeBinding = readExactJson(hostActiveBindingPath)
-        .value as Record<string, unknown>;
-      validateHostActiveBinding(
-        activeBinding,
-        expectedHostActiveBinding(
-          parsed.token,
-          parsed.baseHash,
-          parsed.operationNonce,
-        ),
-      );
+    const finalClosure = verifyActiveBindingAndPointerClosure(
+      hostActiveBindingPath,
+      pointerPath,
+      expectedHostActiveBinding(
+        parsed.token,
+        parsed.baseHash,
+        parsed.operationNonce,
+      ),
+      expectedPointer,
+    );
+    if (finalClosure.activeState === "committed") {
       if (!removeCommittedDockerRecoveryJson(hostActiveBindingPath))
         throw new Error("docker_task_recovery_active_run_mismatch");
+    } else if (finalClosure.activeState !== "absent") {
+      throw new Error("docker_task_recovery_active_run_mismatch");
     }
     const mountCrashPath = path.join(
       operationDirectory,

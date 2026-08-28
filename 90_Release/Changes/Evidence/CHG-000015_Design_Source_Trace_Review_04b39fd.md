@@ -305,9 +305,9 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 
 ## 11. 是正実装結果（2026-08-28）
 
-- `tools/coordinator/architecture/README.md`へ主実行シーケンス、10資源、14状態、Lock順序、耐久pair、cleanup依存順、9不変条件および13遷移を固定した。clean blocked、bounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
+- `tools/coordinator/architecture/README.md`へ主実行シーケンス、10資源、17状態、Lock順序、耐久pair、cleanup依存順、9不変条件および17遷移を固定した。clean blocked、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
 - `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、18件の実在試験へ接続した。契約投影と実Filesystem／Process観測を区別した。
-- Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、terminal遷移、検証境界、遷移ごとの適用可能な必要検証区分、Architecture記載およびtest source上のexact test名を検査する。意味判定、試験実行結果、品質状態または監査Passは主張しない。
+- Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、operation／invocation terminal遷移、検証境界、遷移×開始状態×区分、期待終了状態、Effect件数、結果状態、資源後条件、Architecture記載およびtest source上のexact test名を検査する。試験実行結果、品質状態または監査Passは主張しない。
 - Host active bindingのcontent rename直後へ実process killを注入し、同一Lock内でHost previous世代、全submission不存在、exact base、完全commit済みpointer、active binding完全一致およびactive commit不存在の場合だけ明示Recoveryでrollbackして残存0へ収束することを確認した。
 - 同じpartial contentを変更した異常例、期待値の異なるjournal content、完全commit pairでは処置せずEvidenceを保持することを確認した。
 - 対象確認はDocker Recovery／Journal／Traceabilityの84試験、TypeScript strict typecheck、対象LintおよびTrace Checkerで合格した。
@@ -320,13 +320,19 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 
 | Finding | 現在処置 | 根拠／残件 |
 |---|---|---|
-| DSR-01 | Resolved in candidate | Reference Architectureと機械可読Traceを追加し、状態・資源・Lock・Recoveryを分離した。独立再監査待ち |
+| DSR-01 | Applied — independent re-audit pending | Reference Architectureと機械可読Traceを追加し、状態・資源・Lock・Recoveryを分離した。独立再監査のPass前にResolvedとしない |
 | DSR-02 | Partially resolved | cleanup依存順、clean blocked、Host clean後Recoveryを明示。全実装symbolとの自動照合は将来候補 |
 | DSR-03 | Partially resolved | Lock順、Stageごとのlogical Home lock解放、解放窓後再照合をTraceへ固定。汎用静的解析は追加しない |
-| DSR-04 | Resolved in candidate | partial active bindingとcommitted pointerの完全closureを実装し、実process killと差分異常試験を追加。実Hostの署名Recovery待ち |
-| DSR-05 | Partially resolved | 設計遷移から検証区分・試験名・観測境界へ接続。Checkerは試験意味や合格を証明しない |
+| DSR-04 | Applied — independent re-audit pending | partial／committed active bindingを削除する全5経路へcommitted pointerとの共通closureを適用し、missing／partial／replacementの非削除試験を追加。独立再監査と実Hostの署名Recovery待ち |
+| DSR-05 | Applied — independent re-audit pending | 設計遷移から開始状態、終了状態、Effect件数、結果状態、資源後条件、検証区分、試験名および観測境界へ接続。Checkerは宣言と試験合格そのものを同一視しない |
 | DSR-06 | Open | 公開Task入口で実OS lock、Filesystem、child Process、Executor→Reviewerを自動実測する縦結合Harnessが必要 |
 | DSR-07 | Open | 旧Coordinator facadeの撤去または明確な非production化をRelease前に判断する |
 | DSR-08 | Open | 秘密を出さず競合、partial、identity差、unknownを区別する公開reason分類をRelease前に固定する |
 
 fixture cleanup不備で作られた可能性がある過去Temp領域は、実Runtime資源と混在し得るためglob削除しない。新試験は返却されたexact Host root、marker、親領域だけを`finally`で回収する。過去残骸は保護Runtime参照との照合を持つ別の明示処置として扱う。
+
+## 13. 第一固定候補の独立監査と再是正
+
+第一固定候補Commit `7f0fd5c70ec2e0a586d39e566e65169bf6dcc988`／Tree `72f935422a88df28375a8d4c305ec1962f7d6450`に対する独立Architecture／Security、Test／UXおよびDocument／Gap確認は、Critical 0、Major 3、Minor 3で`Fail`とした。共通原因は、設計上のclosureを一部経路だけへ適用したこと、是正loopを単一Reviewer状態へ戻して循環を許したこと、および検証接続がtest名の存在に留まり遷移の開始状態と資源後条件を拘束していなかったことである。
+
+再是正では、active binding／pointerの直接相互結合を通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの削除前共通関数へ集約した。一回是正を初回経路と別のExecutor／Candidate／Reviewer状態へ分離し、再是正への遷移を持たせなかった。Trace Schema revision 3は検証caseを追加し、operation terminalからの全遷移、Recovery invocationの非terminal開始、遷移に属さない資源観測および遷移×開始状態×区分の欠落を拒否する。これらは現在`Applied`であり、新しい固定改訂版の独立再監査がPassするまで`Resolved`へ昇格しない。

@@ -880,6 +880,63 @@ function createKilledFullProductionRecoveryRoot(
   return Object.freeze({ parent, root, ...result });
 }
 
+function productionRecoveryBindingPaths(fixture: {
+  root: string;
+  hostRoot: string;
+}) {
+  const pointerName = fs
+    .readdirSync(fixture.root)
+    .find((name) => name.startsWith("active-lease-"));
+  assert.ok(pointerName);
+  const activePath = fs
+    .readdirSync(fixture.hostRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) =>
+      path.join(fixture.hostRoot, entry.name, "active-docker-task-v1.json"),
+    )
+    .find((candidate) => fs.existsSync(candidate));
+  assert.ok(activePath);
+  return Object.freeze({
+    activePath,
+    pointerPath: path.join(fixture.root, pointerName),
+    pointerCommitPath: path.join(
+      fixture.root,
+      dockerRecoveryCommitName(pointerName),
+    ),
+  });
+}
+
+function breakProductionRecoveryPointer(
+  fixture: {
+    root: string;
+    hostRoot: string;
+    recoveryId: string;
+  },
+  pointerState: "missing" | "partial" | "replacement",
+) {
+  const paths = productionRecoveryBindingPaths(fixture);
+  if (pointerState === "missing") {
+    assert.equal(removeCommittedDockerRecoveryJson(paths.pointerPath), true);
+  } else if (pointerState === "partial") {
+    fs.rmSync(paths.pointerCommitPath);
+  } else {
+    const [stableLogicalHomeBindingHash, operationNonce, baseHash] =
+      fixture.recoveryId.split(".").slice(1);
+    rewriteCommittedRecoveryRecordForTest(
+      paths.pointerPath,
+      path.basename(paths.pointerPath),
+      {
+        schema: "crdd-coordinator-provider-home-active-lease/v1",
+        stableLogicalHomeBindingHash,
+        operationName: `docker-task-${operationNonce}-replacement`,
+        recoveryId: fixture.recoveryId,
+        baseHash,
+      },
+    );
+  }
+  return paths;
+}
+
 function disposeKilledFullProductionRecoveryFixture(
   fixture: Readonly<{
     hostRoot: string;
@@ -2705,7 +2762,7 @@ test("Host active bindingのcontent-only不一致はEvidenceを保持して停�
       () => root,
     );
     assert.equal(result.status, "blocked");
-    assert.equal(result.reason, "docker_task_recovery_failed_closed");
+    assert.equal(result.reason, "docker_task_recovery_active_run_mismatch");
     assert.equal(result.recoveryId, fixture.recoveryId);
     assert.equal(fs.existsSync(activePath), true);
     assert.ok(fs.readdirSync(fixture.root).length > 0);
@@ -2720,39 +2777,11 @@ test("Effect前active bindingはcommitted pointerの完全一致前に削除し�
       "active_binding_content",
     );
     const root = verifiedRoot(fixture.root);
-    const pointerName = fs
-      .readdirSync(fixture.root)
-      .find((name) => name.startsWith("active-lease-"));
-    assert.ok(pointerName);
-    const pointerPath = path.join(fixture.root, pointerName);
-    const pointerCommitPath = path.join(
-      fixture.root,
-      dockerRecoveryCommitName(pointerName),
+    const { activePath } = breakProductionRecoveryPointer(
+      fixture,
+      pointerState,
     );
-    const activePath = fs
-      .readdirSync(fixture.hostRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) =>
-        path.join(fixture.hostRoot, entry.name, "active-docker-task-v1.json"),
-      )
-      .find((candidate) => fs.existsSync(candidate));
-    assert.ok(activePath);
     try {
-      if (pointerState === "missing") {
-        assert.equal(removeCommittedDockerRecoveryJson(pointerPath), true);
-      } else if (pointerState === "partial") {
-        fs.rmSync(pointerCommitPath);
-      } else {
-        const [stableLogicalHomeBindingHash, operationNonce, baseHash] =
-          fixture.recoveryId.split(".").slice(1);
-        rewriteCommittedRecoveryRecordForTest(pointerPath, pointerName, {
-          schema: "crdd-coordinator-provider-home-active-lease/v1",
-          stableLogicalHomeBindingHash,
-          operationName: `docker-task-${operationNonce}-replacement`,
-          recoveryId: fixture.recoveryId,
-          baseHash,
-        });
-      }
       const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         fixture.recoveryId,
         root,
@@ -2765,6 +2794,52 @@ test("Effect前active bindingはcommitted pointerの完全一致前に削除し�
       assert.equal(fs.existsSync(fixture.hostMarker), true);
     } finally {
       disposeKilledFullProductionRecoveryFixture(fixture);
+    }
+  }
+});
+
+test("Effect後Recovery経路もactive bindingをpointer閉包前に削除しない", () => {
+  for (const hostPhase of ["expected", "receipt"] as const) {
+    for (const pointerState of ["missing", "partial", "replacement"] as const) {
+      const fixture = createKilledFullProductionRecoveryRoot(hostPhase);
+      const root = verifiedRoot(fixture.root);
+      const { activePath } = breakProductionRecoveryPointer(
+        fixture,
+        pointerState,
+      );
+      const beforeActive = fs.readFileSync(activePath);
+      try {
+        const result =
+          recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+            fixture.recoveryId,
+            root,
+            () => root,
+            hostPhase === "receipt"
+              ? exactContainerRunner({
+                  Name: "/crdd-claude-0123456789abcdef",
+                  Config: Object.freeze({
+                    User: "65534:65534",
+                    Image: `sha256:${"a".repeat(64)}`,
+                    Labels: Object.freeze({
+                      "crdd.coordinator.runtime": "0123456789abcdef",
+                    }),
+                  }),
+                  NetworkSettings: Object.freeze({
+                    Networks: Object.freeze({
+                      "crdd-internal-0123456789abcdef": Object.freeze({}),
+                    }),
+                  }),
+                }).runDockerCommand
+              : undefined,
+          );
+        assert.equal(result.status, "blocked");
+        assert.equal(result.recoveryId, fixture.recoveryId);
+        assert.deepEqual(fs.readFileSync(activePath), beforeActive);
+        assert.equal(fs.existsSync(fixture.hostRoot), true);
+        assert.equal(fs.existsSync(fixture.hostMarker), true);
+      } finally {
+        disposeKilledFullProductionRecoveryFixture(fixture);
+      }
     }
   }
 });
@@ -2913,6 +2988,72 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
     fs.rmSync(owned.root, { recursive: true, force: true });
     fs.rmSync(initialHost.marker, { force: true });
     fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("production正常完了もactive bindingをpointer閉包前に削除しない", () => {
+  for (const pointerState of ["missing", "partial", "replacement"] as const) {
+    const runtimeParent = fs.mkdtempSync(
+      path.join(os.tmpdir(), "crdd-production-normal-pointer-test-"),
+    );
+    const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+    fs.mkdirSync(runtimeRootPath);
+    const root = verifiedRoot(runtimeRootPath);
+    const owned = createOwnedOperationDirectories();
+    const context = createOwnedOperationContextCapability(owned);
+    const mounts = createOwnedMountCapability(owned);
+    const management = createOwnedOperationManagementCapability(
+      context,
+      mounts,
+    );
+    const operation = verifyOwnedOperationManagementCapability(management);
+    const plan = productionPlan(operation.operationId, "d".repeat(64));
+    const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+    let recoveryCapability: object | null = null;
+    try {
+      const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+        plan,
+        management,
+        providerHomeForPlan(plan),
+        root,
+        () => root,
+      );
+      assert.ok(begun && begun.status === "ready");
+      recoveryCapability = begun.recoveryCapability;
+      assert.equal(recordRuntimeOwnedDockerAbsence(recoveryCapability), true);
+      assert.equal(
+        recordRuntimeOwnedNormalMountCompletion(recoveryCapability),
+        true,
+      );
+      const fixture = {
+        root: runtimeRootPath,
+        hostRoot: owned.root,
+        recoveryId: begun.recoveryId,
+      };
+      const paths = productionRecoveryBindingPaths(fixture);
+      const pointerValue = JSON.parse(
+        fs.readFileSync(paths.pointerPath, "utf8"),
+      );
+      const beforeActive = fs.readFileSync(paths.activePath);
+      breakProductionRecoveryPointer(fixture, pointerState);
+      assert.deepEqual(
+        completeRuntimeOwnedDockerRecovery(recoveryCapability, management),
+        { status: "blocked" },
+      );
+      assert.deepEqual(fs.readFileSync(paths.activePath), beforeActive);
+      rewriteCommittedRecoveryRecordForTest(
+        paths.pointerPath,
+        path.basename(paths.pointerPath),
+        pointerValue,
+      );
+    } finally {
+      if (recoveryCapability)
+        void abandonRuntimeOwnedDockerRecovery(recoveryCapability);
+      void abandonOwnedHostOperationGenerationLock(management);
+      fs.rmSync(owned.root, { recursive: true, force: true });
+      fs.rmSync(initialHost.marker, { force: true });
+      fs.rmSync(runtimeParent, { recursive: true, force: true });
+    }
   }
 });
 
