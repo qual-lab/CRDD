@@ -305,12 +305,12 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 
 ## 11. 是正実装結果（2026-08-28）
 
-- `tools/coordinator/architecture/README.md`へ主実行シーケンス、Architecture上の10資源、Task Traceが直接観測する9資源、20状態、Lock順序、耐久pair、cleanup依存順、9不変条件および20遷移を固定した。Operation取得中、clean blocked、cleanup確認済みのProcess再起動、exact IDを持つRecovery、IDなしoperator transfer、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
-- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、8検証接続・60の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
+- `tools/coordinator/architecture/README.md`へ主実行シーケンス、Architecture上の10資源、Task Traceが直接観測する9資源、20状態、Lock順序、耐久pair、cleanup依存順、9不変条件および21遷移を固定した。Operation取得中、clean blocked、cleanup確認済みのProcess再起動、exact IDを持つRecovery、IDなしoperator transfer、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。Process再起動はProcess scopeとし、Host cleanup前のclean terminalと、公開済み成功結果・Candidateを保持して同一Processの後続Effectだけを禁止するHost Clean専用遷移を分けた。
+- `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、8検証接続・68の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
 - Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、operation／invocation terminal遷移、検証境界、遷移×開始状態×区分、期待終了状態、Effect件数、結果状態、資源後条件、Architecture記載およびtest source上のexact test名を検査する。試験実行結果、品質状態または監査Passは主張しない。
 - Host active bindingのcontent rename直後へ実process killを注入し、同一Lock内でHost previous世代、全submission不存在、exact base、完全commit済みpointer、active binding完全一致およびactive commit不存在の場合だけ明示Recoveryでrollbackして残存0へ収束することを確認した。
 - 同じpartial contentを変更した異常例、期待値の異なるjournal content、完全commit pairでは処置せずEvidenceを保持することを確認した。
-- 最新対象確認はTask／Docker Recovery／Journal／Traceability／公開理由分類を含むCoordinator全1129試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）を通過した。独立再監査へ渡す固定改訂版で結果を確定する。
+- 最新対象確認は68の状態別caseと、Task／Docker Recovery／Journal／Traceability／公開理由分類を含むCoordinator全1137試験、TypeScript strict typecheck、Lint、Formatter、Trace CheckerおよびRepository全体Checker（error 0、warning 0）を通過した。独立再監査へ渡す固定改訂版で結果を確定する。
 
 現在の実Host残存は、新しいsource候補から保護Runtime Stateをproduction Authorityとして直接開けないため、更新した正式署名配布物を固定するまで保持する。これをsource checkout、caller supplied Pathまたは手動削除で回避しない。
 
