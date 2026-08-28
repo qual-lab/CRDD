@@ -17,6 +17,7 @@ import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../src/core/ru
 import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
   cleanupOwnedOperationDirectories,
+  createIsolatedOwnedOperationDirectoryCreationFailureCandidate,
   createOwnedMountCapability,
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
@@ -24,6 +25,7 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
+import { classifyOwnedCoordinatorOperationCreationFailure } from "../src/security/coordinator-operation-creation-internal.ts";
 import {
   assertRuntimeTraceExecutionCoverage,
   assertRuntimeTraceCase,
@@ -561,6 +563,12 @@ function fixture(
       operationId: string;
       hostRecoveryId: string;
     }>;
+    classifyOperationCreationFailureOverride?: (error: unknown) => Readonly<{
+      reason?: string;
+      hostRecoveryId: string | null;
+      cleanupConfirmed: boolean;
+      manualRecoveryRequired: boolean;
+    }> | null;
     cleanupOperationOverride?: (candidate: object) => unknown;
     dockerHostCleanupId?: string;
   } = {},
@@ -786,22 +794,25 @@ function fixture(
       });
     },
     classifyOperationCreationFailure: (error: unknown) =>
-      error === operationCreationError && options.operationCreationFailure
-        ? Object.freeze({
-            reason:
-              options.operationCreationFailure === "cleanup_confirmed"
-                ? "coordinator_task_host_generation_lock_start_failed_cleanup_confirmed"
-                : "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required",
-            hostRecoveryId:
-              options.operationCreationFailure === "cleanup_unknown_without_id"
-                ? null
-                : "host.fixture.operation.creation.recovery",
-            cleanupConfirmed:
-              options.operationCreationFailure === "cleanup_confirmed",
-            manualRecoveryRequired:
-              options.operationCreationFailure !== "cleanup_confirmed",
-          })
-        : null,
+      options.classifyOperationCreationFailureOverride
+        ? options.classifyOperationCreationFailureOverride(error)
+        : error === operationCreationError && options.operationCreationFailure
+          ? Object.freeze({
+              reason:
+                options.operationCreationFailure === "cleanup_confirmed"
+                  ? "coordinator_task_host_generation_lock_start_failed_cleanup_confirmed"
+                  : "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required",
+              hostRecoveryId:
+                options.operationCreationFailure ===
+                "cleanup_unknown_without_id"
+                  ? null
+                  : "host.fixture.operation.creation.recovery",
+              cleanupConfirmed:
+                options.operationCreationFailure === "cleanup_confirmed",
+              manualRecoveryRequired:
+                options.operationCreationFailure !== "cleanup_confirmed",
+            })
+          : null,
     cleanupOperation: async (candidate: object) => {
       if (!options.cleanupOperationOverride) assert.equal(candidate, owned);
       if (options.hostCleanupWal) events.push("host-cleanup");
@@ -3385,6 +3396,45 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       result,
     );
   });
+
+  await t.test(
+    "下位Directory生成のtyped cleanup不明をTask公開結果へ接続する",
+    async () => {
+      const lowerFailure =
+        createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+      const hostRecoveryId = "host.fixture.lower.directory.creation";
+      let error: unknown = null;
+      try {
+        lowerFailure.fail(
+          Object.freeze({
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            hostRecoveryId,
+          }),
+        );
+      } catch (caught) {
+        error = caught;
+      }
+      const harness = fixture({
+        createOperationOverride: () => {
+          throw error;
+        },
+        classifyOperationCreationFailureOverride:
+          classifyOwnedCoordinatorOperationCreationFailure,
+      });
+      const result = await harness.runtime.start(
+        request(),
+        "C:\\repository",
+        "2026-08-25T00:00:00.000Z",
+      ).completion;
+      assert.equal(result.status, "blocked");
+      assert.equal(result.cleanupConfirmed, false);
+      assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.hostRecoveryId, hostRecoveryId);
+      assert.equal(result.canonicalRepositoryChanged, false);
+      assert.equal(harness.processStartCount(), 0);
+    },
+  );
 
   await t.test("CASE-OPERATOR-TRANSFER-OPERATION-ACQUIRING", async () => {
     const harness = fixture({

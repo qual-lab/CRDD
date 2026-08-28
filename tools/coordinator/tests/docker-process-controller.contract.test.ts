@@ -323,6 +323,22 @@ function createSubscriptionAuthOutput(subscriptionType = "max") {
   });
 }
 
+const completionProjectors = [
+  projectDockerProcessControllerCompletionResult,
+  projectRuntimeOwnedDockerProcessCompletionForCoordinator,
+  projectRuntimeOwnedDockerProcessCompletionForTask,
+] as const;
+
+function assertCompletionAcceptedByAll(value: unknown, recoveryId: unknown) {
+  for (const projectCompletion of completionProjectors)
+    assert.ok(projectCompletion(value, recoveryId, "OP-123456"));
+}
+
+function assertCompletionRejectedByAll(value: unknown, recoveryId: unknown) {
+  for (const projectCompletion of completionProjectors)
+    assert.equal(projectCompletion(value, recoveryId, "OP-123456"), null);
+}
+
 function createFixture(
   overrides: Record<string, unknown> = {},
   planOverrides: Record<string, unknown> = {},
@@ -736,6 +752,106 @@ test("取消はactive processへ一度だけ伝えcleanup後にcancelledにな�
   );
 });
 
+test("cleanup待機中の遅延取消はcompletedをcancelledへ再settleする", async () => {
+  let notifyCleanupStarted!: () => void;
+  const cleanupStarted = new Promise<void>((resolve) => {
+    notifyCleanupStarted = resolve;
+  });
+  let releaseCleanup!: () => void;
+  const cleanupGate = new Promise<void>((resolve) => {
+    releaseCleanup = resolve;
+  });
+  const fixture = createFixture({
+    cleanupOwnedResources: async () => {
+      notifyCleanupStarted();
+      await cleanupGate;
+      return Object.freeze({
+        confirmed: true,
+        processTreeTerminated: true,
+        containersAbsent: true,
+        networksAbsent: true,
+      });
+    },
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  await cleanupStarted;
+  const cancellation = await fixture.controller.cancel(
+    started.controlCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(cancellation.status, "requested");
+  releaseCleanup();
+  assert.ok(started.completion);
+  const result = await started.completion;
+  assert.equal(result.status, "cancelled");
+  assert.equal(result.reason, "provider_operation_cancelled");
+  assert.equal(result.cancellationRequested, true);
+  assert.equal(result.normalizedResult, null);
+  assertCompletionAcceptedByAll(result, started.recoveryId);
+});
+
+test("cleanup待機前にblockedなら遅延取消で失敗理由を上書きしない", async () => {
+  let notifyCleanupStarted!: () => void;
+  const cleanupStarted = new Promise<void>((resolve) => {
+    notifyCleanupStarted = resolve;
+  });
+  let releaseCleanup!: () => void;
+  const cleanupGate = new Promise<void>((resolve) => {
+    releaseCleanup = resolve;
+  });
+  const fixture = createFixture({
+    startCommand: (command: { purpose: string }) => ({
+      wait: async () => ({
+        status: 0,
+        signal: null,
+        stdout:
+          command.purpose === "start_provider_attached"
+            ? createProviderOutput({ structured_output: { status: false } })
+            : command.purpose === "start_subscription_auth_probe_attached"
+              ? createSubscriptionAuthOutput()
+              : "",
+        stderr: "",
+        outputExceeded: false,
+      }),
+      terminateAndWait: async () => true,
+    }),
+    cleanupOwnedResources: async () => {
+      notifyCleanupStarted();
+      await cleanupGate;
+      return Object.freeze({
+        confirmed: true,
+        processTreeTerminated: true,
+        containersAbsent: true,
+        networksAbsent: true,
+      });
+    },
+  });
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+  );
+  await cleanupStarted;
+  const cancellation = await fixture.controller.cancel(
+    started.controlCapability,
+    fixture.managementCapability,
+  );
+  assert.equal(cancellation.status, "requested");
+  releaseCleanup();
+  assert.ok(started.completion);
+  const result = await started.completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "provider_result_invalid");
+  assert.equal(result.cancellationRequested, true);
+  assertCompletionAcceptedByAll(result, started.recoveryId);
+  assertCompletionRejectedByAll(
+    Object.freeze({ ...result, reason: "unregistered_blocked_reason" }),
+    started.recoveryId,
+  );
+});
+
 test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", async () => {
   const fixture = createFixture({
     cleanupOwnedResources: async () => ({
@@ -774,6 +890,10 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
     projectRuntimeOwnedDockerProcessCompletionForTask,
   ])
     assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
+  assertCompletionRejectedByAll(
+    Object.freeze({ ...result, reason: "provider_result_invalid" }),
+    started.recoveryId,
+  );
   assert.equal(fixture.getMountCompletionCount(), 0);
   assert.equal(fixture.getRecoveryCompletionCount(), 0);
 });
@@ -820,6 +940,10 @@ test("Provider Result不正時もcleanupし正規化Resultを公開しない", a
     projectRuntimeOwnedDockerProcessCompletionForTask,
   ])
     assert.ok(projectCompletion(result, started.recoveryId, "OP-123456"));
+  assertCompletionRejectedByAll(
+    Object.freeze({ ...result, reason: "unregistered_blocked_reason" }),
+    started.recoveryId,
+  );
 });
 
 test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () => {
@@ -1235,7 +1359,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 19);
+  assert.equal(contract.contractRevision, 20);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);

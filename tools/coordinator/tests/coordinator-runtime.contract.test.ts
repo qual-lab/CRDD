@@ -6,6 +6,7 @@ import {
   describeCoordinatorRuntimeContract,
   startRuntimeOwnedCoordinatorOperation,
 } from "../src/security/coordinator-runtime.ts";
+import { createIsolatedOwnedOperationDirectoryCreationFailureCandidate } from "../src/security/execution-environment.ts";
 
 const DOCKER_RECOVERY_ID = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 
@@ -715,6 +716,40 @@ test("動的入力とsource checkoutのProduction入口はProvider Effect前に�
   assert.equal(production.status, "blocked");
   assert.equal(production.providerEffectStarted, false);
   assert.equal(production.hostPathReported, false);
+});
+
+test("下位Directory生成のtyped cleanup不明を公開facadeのexact Recoveryへ接続する", () => {
+  const lowerFailure =
+    createIsolatedOwnedOperationDirectoryCreationFailureCandidate();
+  const hostRecoveryId = "host.fixture.lower.directory.creation";
+  let error: unknown = null;
+  try {
+    lowerFailure.fail(
+      Object.freeze({
+        cleanupConfirmed: false,
+        manualRecoveryRequired: true,
+        hostRecoveryId,
+      }),
+    );
+  } catch (caught) {
+    error = caught;
+  }
+  const h = fixture({
+    createOperation: () => {
+      throw error;
+    },
+  });
+  const result = h.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_runtime_operation_creation_failed");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, hostRecoveryId);
+  assert.equal(result.providerEffectStarted, false);
 });
 
 test("公開契約はSubscription probeと非canonical Effect境界を固定する", () => {

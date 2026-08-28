@@ -2,7 +2,7 @@
 
 Status: Candidate
 Owner: Qual-Lab
-Last Updated: 2026-08-25
+Last Updated: 2026-08-28
 Scope: `tools/**`と、CRDDが配布正本として所有し`tools/**`から参照する`template/tools/**`の実装
 
 ## 1. 目的と正本

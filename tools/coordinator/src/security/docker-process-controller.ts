@@ -32,7 +32,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 19;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 20;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -56,6 +56,20 @@ const CREATE_PURPOSES = new Set([
   "create_egress_network",
   "create_proxy",
   "create_provider",
+]);
+const BLOCKED_COMPLETION_REASONS = new Set([
+  "provider_deadline_exceeded",
+  "docker_setup_deadline_exceeded",
+  "provider_output_limit_exceeded",
+  "provider_process_signalled",
+  "provider_process_exit_nonzero",
+  "docker_setup_command_failed",
+  "docker_resource_submission_record_unavailable",
+  "docker_resource_receipt_unavailable",
+  "provider_subscription_auth_not_confirmed",
+  "provider_result_invalid",
+  "docker_process_controller_execution_failed_closed",
+  "repository_revision_changed",
 ]);
 const SAFE_IDENTIFIER =
   /^crdd-(?:auth|internal|egress|proxy|claude|codex)-[a-f0-9]{16}$/u;
@@ -485,7 +499,7 @@ export function projectDockerProcessControllerCompletionResult(
         cancellationRequested !== true)) ||
     (status === "blocked" &&
       cleanupConfirmed === true &&
-      cancellationRequested !== false)
+      !BLOCKED_COMPLETION_REASONS.has(reason))
   )
     return null;
   return Object.freeze({ ...record, recoveryId });
@@ -982,6 +996,17 @@ async function executePlan(
       resultBytes = 0;
       normalizedResult = null;
     }
+  }
+  // Cancellation remains live through cleanup. Re-settle after the final await
+  // so a request received during cleanup cannot be published as completed.
+  // A failure that already settled as blocked keeps the more specific failure;
+  // cancellationRequested remains observable without erasing that diagnosis.
+  if (record.cancellationRequested && requestedStatus === "completed") {
+    requestedStatus = "cancelled";
+    reason = "provider_operation_cancelled";
+    resultSha256 = null;
+    resultBytes = 0;
+    normalizedResult = null;
   }
   return createFinalResult(requestedStatus, reason, plan, recovery.recoveryId, {
     providerRequestStarted,
