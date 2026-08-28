@@ -3,7 +3,7 @@
 変更ID: `CHG-000015`
 状態: `Reopened`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-27
+最終更新日: 2026-08-28
 対象系列: Coordinator Runtime 1.x
 対象バージョン: v0.18.0 Candidate / Coordinator Runtime 1.0 Candidate
 変更分類: `normative`
@@ -14,6 +14,7 @@
 概念正本: [エージェント組織](../../04_Agent_Organization.md)
 Architecture正本: [エージェント組織の実行アーキテクチャ](../../04_Agent_Organization.md#12-execution-architecture)
 実装案内: [Coordinator Runtime README](../../tools/coordinator/README.md)
+Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接続](../../tools/coordinator/architecture/README.md)
 脅威境界: [Threat Model](../../tools/coordinator/threat-model.md)
 統合台帳: [未リリース変更トレース統合台帳](README.md)
 
@@ -26,6 +27,10 @@ Architecture正本: [エージェント組織の実行アーキテクチャ](../
 この成功はRuntime 1.0全体、4経路、失敗／取消Recovery、統合、ReleaseまたはT3–T4保証を意味しない。現在の本変更は、未リリースCHG統合による正本再構成と残る経路・Recovery・Release Gateのため`Reopened`である。
 
 後続の現在候補では、両Front×両Executorの4経路、同一Provider例外理由、独立Reviewer、単一Active初期同意、4経路の完全一致Runnerおよび失敗／取消Recovery Matrixをproduction経路と同じ契約へ接続し、全機械試験を通過した。初期同意は全Policy Provider境界を表示し、現在Task／Revision／Scopeを非永続Previewへ分離し、選択ユーザー・保護Runtime State・Policy byteへ結合する。A→B→Aで古いAを復活させず、180日失効、明示取消、部分／破損pairの安全なAuthority除去および判定不能時の手動回復停止を固定した。この段階は正式署名4経路実測またはRuntime完成監査の完了をまだ意味しない。
+
+設計と実装・試験の照合では、主Taskのcleanup DAG、Host／logical Home／Runtime State Lock順序、解放窓後の再照合、content＋commit sidecarの部分状態および結果公開条件が実装内へ分散し、設計状態を一次キーにした網羅性を再構成しにくいGapを確認した。Coordinator固有のReference Architectureを`tools/coordinator/architecture/`へ置き、10資源、12状態、11遷移、7不変条件および17検証接続の最小Traceを追加した。専用CheckerはID、参照、孤立、各遷移が要求する正常・準正常・異常区分、Architecture記載および実在する試験名を検査する。これは試験の意味や合格を自動証明せず、独立レビューと監査を代替しない。
+
+同照合で、正式署名Route Matrix停止後にHost側`active-docker-task-v1.json`のexact contentだけが残りcommit sidecarが未作成となる、Host Effect前の到達可能状態を固定した。明示RecoveryはHost previous世代、Docker submission不存在、base／pointer／Recovery ID一致、exact canonical contentおよびcommit不存在を同時に確認した場合だけ当該contentをrollbackする。内容不一致、完全commit pairまたはEffect開始後へ同処置を流用しない。process killを実際にcontent rename直後へ注入した準正常試験と、内容不一致を保持する異常試験をTraceへ接続した。実Host残存の処置と正式署名再実測は、更新配布物の固定後に行う。
 
 固定候補`29c1a84`への独立Security、Test／UXおよびDocument／Gap監査は、失効・保護不一致後の旧同意復活、観測不能／dangling reparse残存時の取消成功誤報、4経路間のRelease Identity未固定、Runner例外時の未知状態投影、検証済み経路件数の過大表示、およびREADME後段の旧Operation単位同意説明を検出した。これらは採用済み方針を変えず、旧同意世代の不可逆失効、`lstat`による物理残存確認、同一manifest／package／version／sequence／Commit／Tree／対象Pathの固定、例外時の手動回復、検証済み件数だけの集計、および現行初期同意Lifecycleへの文書置換として一括是正した。新固定版の機械確認、独立再レビューおよび正式署名実測までは完了扱いにしない。
 

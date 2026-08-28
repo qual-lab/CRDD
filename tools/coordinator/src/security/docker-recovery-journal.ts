@@ -941,6 +941,31 @@ export function removeCommittedDockerRecoveryJson(
   return resumeDeleteAnchor(anchor);
 }
 
+export function removeExactUncommittedDockerRecoveryJson(
+  file: string,
+  expectedValue: unknown,
+) {
+  const commit = `${file}${COMMIT_SUFFIX}`;
+  if (!fs.existsSync(file) || fs.existsSync(commit))
+    throw new Error("docker_recovery_uncommitted_record_state_invalid");
+  const expectedSerialized = canonical(expectedValue);
+  const before = readStableFile(file);
+  if (before.serialized !== expectedSerialized)
+    throw new Error("docker_recovery_uncommitted_record_mismatch");
+  const beforeIdentity = identityText(before.identity);
+  const immediatelyBeforeRemoval = readStableFile(file);
+  if (
+    immediatelyBeforeRemoval.serialized !== expectedSerialized ||
+    identityText(immediatelyBeforeRemoval.identity) !== beforeIdentity ||
+    fs.existsSync(commit)
+  )
+    throw new Error("docker_recovery_uncommitted_record_changed");
+  fs.unlinkSync(file);
+  if (fs.existsSync(file) || fs.existsSync(commit))
+    throw new Error("docker_recovery_uncommitted_record_removal_unknown");
+  return true;
+}
+
 export function isDockerRecoveryJournalIntentName(name: string) {
   return /^(?:\.crdd-delete-|\.crdd-move-|\.crdd-cleanup-)[a-f0-9]{64}\.json(?:\.pending)?$/u.test(
     name,

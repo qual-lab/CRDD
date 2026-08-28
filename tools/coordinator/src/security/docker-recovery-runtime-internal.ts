@@ -23,6 +23,7 @@ import {
   readCommittedDockerRecoveryJson,
   removeCommittedDockerRecoveryJson,
   removeDockerRecoveryCleanupDirectory,
+  removeExactUncommittedDockerRecoveryJson,
   resumeDockerRecoveryJournalDirectory,
   resumeDockerRecoveryJournalDirectoryForRecovery,
   writeCommittedDockerRecoveryJson,
@@ -3576,6 +3577,27 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       managementName,
       "active-docker-task-v1.json",
     );
+    if (
+      fs.existsSync(hostActiveBindingPath) &&
+      !fs.existsSync(
+        path.join(
+          path.dirname(hostActiveBindingPath),
+          dockerRecoveryCommitName(path.basename(hostActiveBindingPath)),
+        ),
+      ) &&
+      !hostSubmissionStarted
+    ) {
+      removeExactUncommittedDockerRecoveryJson(
+        hostActiveBindingPath,
+        Object.freeze({
+          schema: "crdd-coordinator-host-active-docker-task/v1",
+          recoveryId: parsed.token,
+          baseHash: parsed.baseHash,
+          operationNonce: parsed.operationNonce,
+        }),
+      );
+      commitDirectoryMutationBoundary(path.dirname(hostActiveBindingPath));
+    }
     if (fs.existsSync(hostActiveBindingPath)) {
       const activeBinding = readExactJson(hostActiveBindingPath)
         .value as Record<string, unknown>;

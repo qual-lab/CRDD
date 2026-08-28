@@ -16,6 +16,7 @@ import {
   isDockerRecoveryJournalTemporaryName,
   readCommittedDockerRecoveryJson,
   removeCommittedDockerRecoveryJson,
+  removeExactUncommittedDockerRecoveryJson,
   resumeDockerRecoveryJournalDirectoryForRecovery,
   resumeDockerRecoveryJournalDirectory,
   writeCommittedDockerRecoveryJson,
@@ -386,6 +387,69 @@ test("target rename直後のprocess killは未commit finalを保持してFail Cl
     assert.equal(fs.existsSync(target), true);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Effect前のexact未commit finalだけを決定論的rollbackできる", () => {
+  const directory = temporaryDirectory();
+  try {
+    const child = crashWriter(directory, "rename-1");
+    assert.notEqual(child.status, 0);
+    const target = path.join(directory, "record.json");
+    assert.equal(
+      removeExactUncommittedDockerRecoveryJson(target, {
+        schema: "fixture/v1",
+        value: true,
+      }),
+      true,
+    );
+    assert.deepEqual(fs.readdirSync(directory), []);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("未commit finalの内容不一致と完全commit pairはrollbackしない", () => {
+  const directory = temporaryDirectory();
+  const committedDirectory = temporaryDirectory();
+  try {
+    const child = crashWriter(directory, "rename-1");
+    assert.notEqual(child.status, 0);
+    const target = path.join(directory, "record.json");
+    assert.throws(
+      () =>
+        removeExactUncommittedDockerRecoveryJson(target, {
+          schema: "fixture/v1",
+          value: false,
+        }),
+      /docker_recovery_uncommitted_record_mismatch/u,
+    );
+    assert.equal(fs.existsSync(target), true);
+    const committedTarget = path.join(committedDirectory, "record.json");
+    writeCommittedDockerRecoveryJson(
+      committedDirectory,
+      "record.json",
+      "record.json",
+      {
+        schema: "fixture/v1",
+        value: true,
+      },
+    );
+    assert.throws(
+      () =>
+        removeExactUncommittedDockerRecoveryJson(committedTarget, {
+          schema: "fixture/v1",
+          value: true,
+        }),
+      /docker_recovery_uncommitted_record_state_invalid/u,
+    );
+    assert.equal(
+      readCommittedDockerRecoveryJson(committedTarget).value !== null,
+      true,
+    );
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+    fs.rmSync(committedDirectory, { recursive: true, force: true });
   }
 });
 

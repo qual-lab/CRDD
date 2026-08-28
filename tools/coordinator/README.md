@@ -16,6 +16,7 @@ Status: Implementation Candidate
 - アーキテクチャ: [エージェント／プロバイダー調整](../../04_Agent_Organization.md#12-execution-architecture)
 - 現行規範: [原則](../../01_Principles.md)、[Agent契約](../../10_Agent.md)、[品質保証](../../16_Quality_Assurance.md)
 - 実装: 本README、同Directoryのsource／test、[脅威モデル](threat-model.md)
+- Runtime固有Architecture: [状態・資源・Lock・Recovery・検証接続](architecture/README.md)
 
 本READMEに費用、独立性または決定権限の条件を記す場合、それは上位概念／アーキテクチャ／規範を現在のRuntimeがどう投影・強制するかを示す。実装の変更から上位概念、人間の決定権限、独立レビューまたはCRDD準拠条件の変更を推定しない。
 

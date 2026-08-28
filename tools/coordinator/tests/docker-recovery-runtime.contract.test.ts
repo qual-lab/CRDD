@@ -647,6 +647,7 @@ function spawnLogicalHomeLockHolder(stableHome: string) {
 
 function createKilledFullProductionRecoveryRoot(
   hostPhase:
+    | "active_binding_content"
     | "pending_base"
     | "previous"
     | "expected"
@@ -671,6 +672,7 @@ function createKilledFullProductionRecoveryRoot(
   ).href;
   const source = `
     import fs from "node:fs";
+    import path from "node:path";
     const recovery = await import(${JSON.stringify(dockerRecoveryUrl)});
     const host = await import(${JSON.stringify(executionEnvironmentUrl)});
     const hostRecord = await import(${JSON.stringify(hostRecoveryRecordUrl)});
@@ -697,6 +699,30 @@ function createKilledFullProductionRecoveryRoot(
       localUserBindingHash,
       stableLogicalHomeBindingHash,
     });
+    if (hostPhase === "active_binding_content") {
+      const originalRename = fs.renameSync;
+      fs.renameSync = (...args) => {
+        const result = originalRename(...args);
+        const target = String(args[1]);
+        if (path.basename(target) === "active-docker-task-v1.json") {
+          const active = JSON.parse(fs.readFileSync(target, "utf8"));
+          const currentHostRecoveryId =
+            host.getOwnedHostRecoveryIdByManagementCapability(management);
+          fs.writeFileSync(
+            handoff,
+            JSON.stringify({
+              recoveryId: active.recoveryId,
+              hostRoot: owned.root,
+              hostMarker:
+                hostRecord.loadHostRecoveryRecordByToken(currentHostRecoveryId).marker,
+            }),
+            "utf8",
+          );
+          process.kill(process.pid, "SIGKILL");
+        }
+        return result;
+      };
+    }
     let begun;
     try {
       const plan = Object.freeze({
@@ -2574,6 +2600,78 @@ test("production共有回復engineはHost previous世代のprocess killをEffect
     assert.deepEqual(fs.readdirSync(fixture.root), []);
     assert.equal(fs.existsSync(fixture.hostRoot), false);
     assert.equal(fs.existsSync(fixture.hostMarker), false);
+  } finally {
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("Host active bindingのexact content-onlyをEffect前状態として残存0へ収束する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot(
+    "active_binding_content",
+  );
+  const root = verifiedRoot(fixture.root);
+  try {
+    assert.deepEqual(
+      recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      ),
+      {
+        status: "recovered",
+        reason: "docker_task_recovery_completed_before_submission",
+        recoveryId: null,
+      },
+    );
+    assert.deepEqual(fs.readdirSync(fixture.root), []);
+    assert.equal(fs.existsSync(fixture.hostRoot), false);
+    assert.equal(fs.existsSync(fixture.hostMarker), false);
+  } finally {
+    fs.rmSync(fixture.parent, { recursive: true, force: true });
+  }
+});
+
+test("Host active bindingのcontent-only不一致はEvidenceを保持して停止する", () => {
+  const fixture = createKilledFullProductionRecoveryRoot(
+    "active_binding_content",
+  );
+  const root = verifiedRoot(fixture.root);
+  const managementDirectory = fs
+    .readdirSync(fixture.hostRoot, { withFileTypes: true })
+    .find(
+      (entry) =>
+        entry.isDirectory() &&
+        fs.existsSync(
+          path.join(fixture.hostRoot, entry.name, "active-docker-task-v1.json"),
+        ),
+    );
+  assert.ok(managementDirectory);
+  const activePath = path.join(
+    fixture.hostRoot,
+    managementDirectory.name,
+    "active-docker-task-v1.json",
+  );
+  try {
+    fs.writeFileSync(
+      activePath,
+      JSON.stringify({
+        schema: "crdd-coordinator-host-active-docker-task/v1",
+        recoveryId: fixture.recoveryId,
+        baseHash: "0".repeat(64),
+        operationNonce: "0".repeat(64),
+      }),
+      "utf8",
+    );
+    const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "docker_task_recovery_failed_closed");
+    assert.equal(result.recoveryId, fixture.recoveryId);
+    assert.equal(fs.existsSync(activePath), true);
+    assert.ok(fs.readdirSync(fixture.root).length > 0);
   } finally {
     fs.rmSync(fixture.parent, { recursive: true, force: true });
   }

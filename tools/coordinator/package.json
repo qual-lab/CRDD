@@ -7,7 +7,7 @@
     "./cli": "./bin/coordinator.ts"
   },
   "scripts": {
-    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "check": "npm run runtime-traceability:check && npm run typecheck && npm run lint && npm run format:check",
     "claude-docker-runtime-adapter:coverage": "node --experimental-test-coverage --test ./tests/claude-docker-runtime-adapter.contract.test.ts ./tests/provider-model-selection-runtime.contract.test.ts",
     "claude-execution-plan:coverage": "node --experimental-test-coverage --test ./tests/plain-data-snapshot.contract.test.ts ./tests/claude-execution-plan.contract.test.ts",
     "coordinator-runtime:coverage": "node --experimental-test-coverage --test ./tests/coordinator-runtime.contract.test.ts ./tests/coordinator-claude-delegation.integration.test.ts",
@@ -44,6 +44,7 @@
     "signed-recovery-matrix:verify": "node ./scripts/verify-signed-recovery-matrix.ts",
     "signed-route-matrix:verify": "node ./scripts/verify-signed-route-matrix.ts",
     "repository-operation-runtime:coverage": "node --experimental-test-coverage --test ./tests/repository-operation-runtime.contract.test.ts ./tests/docker-process-controller.contract.test.ts",
+    "runtime-traceability:check": "node ./scripts/check-runtime-traceability.ts",
     "test": "node --test ./tests/*.test.ts",
     "typecheck": "tsc -p ./tsconfig.strict.json && tsc -p ./tsconfig.tests.json"
   },
