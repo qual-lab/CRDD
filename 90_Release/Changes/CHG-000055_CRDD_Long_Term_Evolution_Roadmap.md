@@ -1,9 +1,9 @@
 # 変更トレース: CRDD長期発展方針
 
 変更ID: `CHG-000055`
-- 状態: `Ready for Release Handoff`
+- 状態: `Reopened`
 - 決定権限者: Qual-Lab
-- 判断日: 2026-08-25
+- 判断日: 2026-08-25（初回）／2026-08-28（§6追加）
 - 対象: CRDD標準自身の課題探索・要求形成における長期方向、単一プロダクトRoadmapへの状態投影、および課題探索・要求形成／Roadmap／変更トレースの既存責務境界
 - 対象リリース: `v0.18.0 Candidate`
 - 変更分類: `additive`
@@ -66,10 +66,10 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordina
 
 2026-08-28、Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0の収束過程で得た学びを、既存の第2段階へ追加することを採用した。追加対象は次の三つであり、詳細な意味と保持条件は[`CRDD標準自身の課題探索・要求形成`](../../01_Discovery/01_CRDD_Product_Discovery.md#731-工程接続と意味網羅検証の強化候補)が所有する。
 
-- 振る舞い仕様、アーキテクチャ、検証設計、実装および検証を接続し、正常・準正常・異常・回復を状態、遷移、資源、観測およびFailure Injection Pointへ対応させる。
-- Runtime 1.0完成後、反復Findingと実測EvidenceからOperation Lifecycle、Resource Lifecycle、Platform、ProviderおよびRuntime Interfaceの安定した責務境界だけを抽出する。
+- 振る舞い仕様、アーキテクチャ、検証設計、実装および検証を接続し、正常・準正常・異常・回復を状態、遷移、資源、観測および失敗注入点へ対応させる。
+- Runtime 1.0完成後、反復Findingと実測Evidenceからオペレーション・ライフサイクル、資源ライフサイクル／台帳、外部接続、Repository選択・接続、PlatformおよびProviderの安定した責務境界だけを抽出する。
 - 人間可読文書の意味構造を改善し、新規文書だけでなく現行系列から参照する既存文書と過去CHGも棚卸し対象に含める。
 
-この追加は、Coordinator Runtime 1.0の完成条件、現在の実装Architecture、工程数、固定成果物、共通Trace Schema、Multi-platform対応、MCP、Project RuntimeまたはRelease範囲を変更しない。過去CHGを対象に含めることは公開済みtagまたは履歴事実の書換えを許可せず、変更ID、判断、当時状態、Evidence、参照および時系列を保持した情報欠落のない表現改善に限る。
+この追加は、Coordinator Runtime 1.0の完成条件、現在の実装Architecture、工程数、固定成果物、共通Trace Schema、Multi-platform対応、MCP、Project RuntimeまたはRelease範囲を変更しない。採用したのはRuntime 1.0完成後に実測根拠から安定境界を抽出する作業意図であり、Linux常設Runtime、複数Repository、MCP／HTTP、Self-hosted Provider、Project／Organization Runtime、Adapter名、APIまたは互換性は第4～第6段階の研究候補である。過去CHGを対象に含めることは公開済みtagまたは履歴事実の書換えを許可せず、変更ID、判断、当時状態、Evidence、参照および時系列を保持した情報欠落のない表現改善に限る。
 
 単一Roadmapには三項目の判断状態、対応状態、情報源および次の処置だけを追加した。既存のMCP／協働接続面、Project Runtimeおよび複数プロジェクト／組織実行環境は既に第4～第6段階の研究候補として記録済みであるため、重複項目を追加していない。本追記は`additive`かつ`migration_required=false`を維持する。更新固定版の文書監査、不足／影響監査およびリポジトリ全体Checkerが完了するまで、本節の追加分を確認済みへ昇格しない。

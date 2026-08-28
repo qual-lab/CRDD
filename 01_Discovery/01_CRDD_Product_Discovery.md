@@ -3,8 +3,8 @@
 工程規則: [`21_Discovery.md`](../21_Discovery.md)
 維持責任者: Qual-Lab
 項目の決定権限: Qual-Lab
-対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針
-現在状態: 項目別。§1～§6の上流工程強化は`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、§7.3の実行観測候補と§7.4～§7.8の個別研究候補は`Held / Unscheduled`
+対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用した第2段階の改善意図および記録した将来Runtime Architecture候補
+現在状態: 項目別。§1～§6の上流工程強化と§7.3.1～§7.3.3の改善意図は`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補と§7.4～§7.8の個別研究候補は`Held / Unscheduled`
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本と影響を再確認し、一つの変更意図として`CHG-*`を発行する。
 
@@ -166,6 +166,8 @@ Issue #30の整理、自律オペレーションの参照実証およびv0.18.0�
 
 並行して、課題探索・要求形成、UX、IA、UI、アーキテクチャ、実装、検証および外部コミュニケーション等の専門工程を自己適用する。第1の入口は本書1章から6章に記録した課題探索対話ループと上流工程エージェント強化であり、開始条件はCoordinator Runtime 1.0の正式署名一般タスク実行、完成固定版および人間による着手判断である。ここで得た実績を、後続の計画／能力設計候補の根拠にする。
 
+§7.3.1～§7.3.3では、改善へ着手する作業意図を採用している。個別の観測Schema、工程、Architecture境界、Adapter、実装順または互換性は採用済みではなく、Runtime 1.0の完成後に得る根拠から再評価する。
+
 #### 7.3.1. 工程接続と意味網羅検証の強化候補
 
 Coordinator Runtime 1.0の実装と監査では、実装後にFailure、Recovery、資源所有、cleanup、部分状態、親Process消失および終端状態の不足が見つかり、修正の伝播漏れによる監査往復が発生した。この学びは特定Runtimeの局所修正だけに閉じず、振る舞い仕様、アーキテクチャ、検証設計、実装および検証の接続を強化する候補として第2段階で自己適用する。
@@ -183,7 +185,7 @@ Coordinator Runtime 1.0の実装と監査では、実装後にFailure、Recovery
 実装 → 検証 → 独立レビュー／監査
 ```
 
-候補には、Runtimeの特性に応じた機能、状態、失敗、回復、資源、冪等性、観測および終端の振る舞い契約、Critical Journey単位のSystem Integration Test、ならびにEffect前後、耐久Write前後、Lock解放前後、cleanup途中および結果公開前後のFailure Injection Pointを含む。正常、準正常、異常および回復の意味母集団を、試験件数やcoverage率ではなく設計上の状態・遷移・資源・観測へ接続する。
+候補には、Runtimeの特性に応じた機能、状態、失敗、回復、資源、冪等性、観測および終端の振る舞い契約、重要利用経路（Critical Journey）単位のシステム結合試験（System Integration Test）、ならびにEffect前後、耐久Write前後、Lock解放前後、cleanup途中および結果公開前後の失敗注入点（Failure Injection Point）を含む。正常、準正常、異常および回復の意味母集団を、試験件数やcoverage率ではなく設計上の状態・遷移・資源・観測へ接続する。
 
 これは新しい固定工程または全対象への完全Runtime契約を直ちに追加する判断ではない。既存の振る舞い仕様、アーキテクチャ、品質保証および検証工程の責務を、対象の境界、資源、Authority、Effectおよび失敗影響に比例して強化する。単純なローカル処理へ存在しない回復状態や外部Authorityを作らない。Coordinatorの機械可読Traceは有効性を自己適用で確認するReference Candidateであり、実効性が確認できた要素だけを共通規則へ昇格する。
 
@@ -191,9 +193,30 @@ Coordinator Runtime 1.0の実装と監査では、実装後にFailure、Recovery
 
 Coordinator Runtime 1.0は未知のFailure Modeと回復要件を自己適用しながら成立させたため、一部の責務がCoordinator周辺へ集中している。Runtime 1.0の完成を大規模再設計で遅らせず、完成後の実行、監査、回復およびTraceabilityの根拠から、繰り返し変化した境界だけを抽出して再整理する。
 
-候補は、一つのOperationを安全に終了させるOperation Lifecycle、資源の取得・所有・移譲・解放・回復を扱うResource Lifecycle／Ledger、同じ実装方式ではなく同じ保証を要求するPlatform Runtime Contract、Codex／Claude Code等を分離するProvider Runtime Boundary、およびCLI／MCP／将来APIからRuntime Coreを分離するRuntime Interfaceである。Windows、Linux、macOS、MCPまたはProject Runtimeの将来候補を理由に、実測されていない抽象化を先に固定しない。
+内部責務の候補は、一つのOperationを安全に終了させるオペレーション・ライフサイクル（Operation Lifecycle）と、資源の取得・所有・移譲・解放・回復を扱う資源ライフサイクル／台帳（Resource Lifecycle／Ledger）である。外周では、次の境界候補を評価する。
 
-Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`tools/coordinator/architecture/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。リファクタリングの開始条件はRuntime 1.0の完成固定版と、第2段階の自己適用で責務集中、変更頻度または反復Failure Patternを説明できる根拠が得られることである。
+- 外部接続境界（External Interface Adapter）: CLI、MCP stdio、MCP Streamable HTTPまたは将来API等のTransport固有処理を、Runtimeの意味Interfaceから分離する。
+- リポジトリ選択・接続境界（Repository Router／Binding）: 外部要求を明示登録済みRepositoryのcanonical Identityへ結合し、Project Runtime候補からCoordinatorへ渡す。Repositoryを自動探索せず、利用者ローカルの明示Registryは探索と端末固有Bindingだけを担い、Identity、Policy、CapabilityおよびCoordinator設定はRepository-localを基本候補とする。
+- プラットフォーム境界（Platform Adapter）: Process、隔離、Lock、Filesystem、Console／stdio、Owner Loss、cleanup、RecoveryおよびDocker Host接続をCoordinator Coreから分ける。OS間で同じ機構ではなく、Effect前Authority、分離、回復、Fail ClosedおよびEvidenceという同じ保証を要求する。
+- プロバイダー境界（Provider Adapter）: Codex、Claude Code、将来ProviderまたはSelf-hosted ProviderのInvocation、Capability、認証状態の観測、Output、Cancellation、Failure分類および固有制約を吸収する。CRDDはCredentialを所有・複製せず、各Providerの正式な認証とAuthorityを要求する。
+
+```text
+現在のReference Runtime
+CLI → 単一Repository Binding → Coordinator Core
+                               ├ Windows実装
+                               └ Codex／Claude Code
+
+将来利用側の研究候補（Held）
+MCP／HTTP → Repository Router → Project Runtime → Coordinator Core
+                                              ├ Linux／macOS Adapter
+                                              └ Self-hosted Provider Adapter
+                                                       ↓
+                                              Organization Runtime候補
+```
+
+この図は接続関係の研究範囲であり、将来機能の採用、実装許可、API互換性、Remote接続、待受port、Credential入力、データ送信または課金を許可しない。Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`tools/coordinator/architecture/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。
+
+採用したのは、Runtime 1.0完成後に反復Finding、責務集中、変更頻度、Failure Patternおよび運用Evidenceから安定境界を抽出する作業意図である。上記の境界名、分割方式および将来利用側は候補であり、実測されていない抽象化を先に固定しない。
 
 #### 7.3.3. 人間可読文書の意味構造改善候補
 
@@ -251,11 +274,17 @@ Qual-MTG      → 人間の議論 / 判断の接続面
 
 読み取りと書き込みを同一の決定権限にせず、書き込みはRepositoryを直接変更する経路ではなく、`意図 → 影響分析 → 作業／CHG → Coordinator → 実行`を基本候補とする。Branch／Worktree等をRuntime内部の実行隔離へ隠蔽できるかも、実測後に評価する。
 
+Transportは外部接続境界から同じProject Runtime／Coordinator Contractへ到達させる候補とし、MCP ServerがRepositoryを直接操作する構造へしない。Repositoryは既定拒否と明示登録を基本に、Path文字列だけでなくcanonical Identity、Filesystem Identity、選択利用者およびPolicyを再確認して接続する。置換、symlink／junction、競合または観測不能時はBindingしない。
+
 ### 7.6. 第5段階（Phase 5）— プロジェクトRuntime
 
 到達目標は、プロジェクトが常時作業を受け付けられるプロジェクト実行環境（Project Runtime）を評価することである。候補構成にはCRDDリポジトリ、プロジェクト運営、MCP／Runtime API、Coordinator、キュー／スケジューラー、プロバイダー実行環境、ビルド／テストおよびプロジェクト状態がある。
 
 AI作業者を24時間実行し続けることを要件にせず、24時間待機でき、作業が発生したときだけ必要なAI作業者を起動する構造を候補とする。常駐サービス、スケジューラー、プロバイダー利用、API、追加課金または自律的な外部作用は別の決定権限と人間判断なしに有効化しない。
+
+長期候補には、Linux Server上の常設RuntimeへMCP／Runtime Interfaceから接続し、Repository Routerを介して明示登録済みProjectだけを実行するRemote構成を含む。人間はChatGPT、Qual、Slack、Browserその他のClientを指示・確認Surfaceとして利用し、重要判断だけを返せる状態を評価する。Remote Host、Network、Tenant、認証、暗号化、replay防止、情報保持、監査、取消および運用責任は新しいTrust Boundaryであり、再設計するまで無効とする。
+
+Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。Frontier Modelの置換を目的とせず、Taskの複雑性、情報分類、費用、必要な確信度および運用責任から、Managed Cloud、Private Cloud、社内GPUまたはLocalhostを選択できる可能性を調べる。Host、Model、配布物、更新、保持／削除、Log、学習利用、隔離および外部送信を着手時に再評価し、正式な認証とAuthorityを省略しない。
 
 ### 7.7. 第6段階（Phase 6）— 複数プロジェクト／組織実行環境
 
@@ -263,9 +292,11 @@ AI作業者を24時間実行し続けることを要件にせず、24時間待�
 
 「遅延しそうなプロジェクトはどれか」「人間判断待ちは何か」「どこへAI能力を追加すべきか」「経営会議で扱うTopicは何か」等の横断判断へ根拠を提供できるかを検証する。プロジェクト間の決定権限、情報分類、アクセス、費用および組織の決定権限は未設計であり、この候補から推定しない。
 
+候補構造は`MCP／API → Organization Runtime → Repository Router → Project Runtime → Coordinator`とし、Project単位でContext、Authority、Runtime State、Lock、Capability namespace、EvidenceおよびRecoveryを分離する。`repository_id`、`project_id`および`organization_id`の安定識別を評価するが、上位scopeから下位ProjectへのAuthority、CredentialまたはRecoveryを暗黙継承しない。複数RepositoryにまたがるEffectは、部分成功、取消、再開およびexact recoveryを設計するまで非対応とする。
+
 ### 7.8. 研究候補と保持条件
 
-作業評価、推論経路選択、能力モデル、意味競合検出、意味範囲ロック、自律再計画、キュー／スケジューラーおよびポートフォリオ投影は、各段階を具体化するときの研究・実装候補である。
+作業評価、推論経路選択、能力モデル、Capability Routing、意味競合検出、意味範囲ロック、自律再計画、キュー／スケジューラーおよびポートフォリオ投影は、各段階を具体化するときの研究・実装候補である。Capability Routingはambient authorityを許さず、発行主体、対象Project、操作、期限、単回性、委譲時の減衰、取消および再利用拒否を説明可能にする。
 
 全段階で次を保持する。
 
@@ -275,5 +306,6 @@ AI作業者を24時間実行し続けることを要件にせず、24時間待�
 - 予測より先に実行事実を観測し、根拠から必要なモデルだけを育てる。
 - 各段階の開始時に、現行性、価値、実現性、費用、セキュリティ、プライバシー、決定権限、利用側、移行および人間判断を再確認する。
 - 段階番号または順序だけから、固定作業手順、前段の完全終了、実装着手、スキーマ、API、プロバイダー、課金、T3／T4強化、採用またはリリースを推定しない。
+- Remote Runtime、MCP内容、外部応答またはProvider OutputをAuthorityとして扱わず、Prompt InjectionやTool指示からEffect権限を生成しない。T1～T2のBaselineを超えるTrust Boundaryが必要になれば、Threat Model、変更分類および人間判断へ戻す。
 
 未解決事項は、第2段階で何を最小観測とするか、Qualシリーズの各Repositoryが同じプロジェクト正本へ接続できるか、第3段階以降の利用者価値と成立性、および各段階を独立した変更へ分ける境界である。次の再評価契機は、第1段階の完成固定版と、第2段階の最初の自己適用根拠である。
