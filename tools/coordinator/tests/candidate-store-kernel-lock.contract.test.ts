@@ -601,7 +601,8 @@ test("対話Console専用lockは終了確認済み非取得とcleanup不明を�
 
 test("対話Console専用lockの非同期cleanup契約は共通同期lockの意味を変更しない", () => {
   const contract = describeCandidateStoreKernelLockContract();
-  assert.equal(contract.acquireTimeoutMs, 1_000);
+  assert.equal(contract.acquireTimeoutMs, 5_000);
+  assert.equal(contract.hostSupervisorAcquireTimeoutMs, 1_000);
   assert.equal(contract.releaseTimeoutMs, 5_000);
   assert.equal(contract.interactiveConsoleCleanupTimeoutMs, 1_000);
   assert.equal(contract.hostSupervisorReleaseTimeoutMs, 1_000);

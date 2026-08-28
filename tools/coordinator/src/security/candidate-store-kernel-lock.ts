@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import { createWindowsHostOperationSupervisorEnvironment } from "../core/windows-child-environment.ts";
 
-const LOCK_ACQUIRE_TIMEOUT_MS = 1_000;
+const SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS = 5_000;
+const HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS = 1_000;
 const LOCK_RELEASE_TIMEOUT_MS = 5_000;
 const INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS = 1_000;
 const HOST_SUPERVISOR_RELEASE_TIMEOUT_MS = 1_000;
@@ -75,7 +76,7 @@ function acquireNamedPipeKernelLock(pipeName: string) {
     },
   );
   worker.unref();
-  if (!waitForState(state, 0, LOCK_ACQUIRE_TIMEOUT_MS)) {
+  if (!waitForState(state, 0, SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS)) {
     void worker.terminate();
     return null;
   }
@@ -235,7 +236,7 @@ export async function acquireInteractiveConsoleKernelLockOutcomeUsingFactory(
     return Object.freeze({ status: "cleanup_unknown", lock: null });
   }
   const exit = boundedWorkerExit(worker);
-  if (!waitForState(state, 0, LOCK_ACQUIRE_TIMEOUT_MS)) {
+  if (!waitForState(state, 0, HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS)) {
     await terminateAndConfirmInteractiveConsoleLockWorker(worker, exit);
     return Object.freeze({ status: "cleanup_unknown", lock: null });
   }
@@ -441,7 +442,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
     acquireTimeoutMs: number;
     releaseTimeoutMs: number;
   }> = Object.freeze({
-    acquireTimeoutMs: LOCK_ACQUIRE_TIMEOUT_MS,
+    acquireTimeoutMs: HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS,
     releaseTimeoutMs: HOST_SUPERVISOR_RELEASE_TIMEOUT_MS,
   }),
 ): Promise<HostOperationSupervisorLockOutcome> {
@@ -450,7 +451,7 @@ export async function acquireHostOperationSupervisorLockUsingFactory(
   if (
     !Number.isSafeInteger(timing.acquireTimeoutMs) ||
     timing.acquireTimeoutMs < 1 ||
-    timing.acquireTimeoutMs > LOCK_ACQUIRE_TIMEOUT_MS ||
+    timing.acquireTimeoutMs > HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS ||
     !Number.isSafeInteger(timing.releaseTimeoutMs) ||
     timing.releaseTimeoutMs < 1 ||
     timing.releaseTimeoutMs > LOCK_RELEASE_TIMEOUT_MS
@@ -696,7 +697,8 @@ export function describeCandidateStoreKernelLockContract() {
     staleFileDeletion: false,
     dockerRuntimeStateInventorySerialized: true,
     arbitraryPathAccepted: false,
-    acquireTimeoutMs: LOCK_ACQUIRE_TIMEOUT_MS,
+    acquireTimeoutMs: SYNCHRONOUS_LOCK_ACQUIRE_TIMEOUT_MS,
+    hostSupervisorAcquireTimeoutMs: HOST_SUPERVISOR_ACQUIRE_TIMEOUT_MS,
     releaseTimeoutMs: LOCK_RELEASE_TIMEOUT_MS,
     interactiveConsoleCleanupTimeoutMs: INTERACTIVE_LOCK_CLEANUP_TIMEOUT_MS,
     hostSupervisorReleaseTimeoutMs: HOST_SUPERVISOR_RELEASE_TIMEOUT_MS,
