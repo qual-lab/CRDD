@@ -7,6 +7,8 @@ import {
   startRuntimeOwnedCoordinatorOperation,
 } from "../src/security/coordinator-runtime.ts";
 
+const DOCKER_RECOVERY_ID = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
+
 function request(overrides: Record<string, unknown> = {}) {
   return {
     frontProvider: "codex",
@@ -179,7 +181,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
       assert.equal(management, managementCapability);
       const recoveryCapability = Object.freeze({});
       assert.equal(
-        registerRecoveryHandoff(recoveryCapability, "docker.fixture.probe"),
+        registerRecoveryHandoff(recoveryCapability, DOCKER_RECOVERY_ID),
         true,
       );
       calls.push("start_process");
@@ -360,7 +362,7 @@ test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する"
     ) => {
       const recoveryCapability = Object.freeze({});
       assert.equal(
-        registerRecoveryHandoff(recoveryCapability, "docker.fixture.codex"),
+        registerRecoveryHandoff(recoveryCapability, DOCKER_RECOVERY_ID),
         true,
       );
       return Object.freeze({
@@ -456,6 +458,30 @@ test("Mount Grant consume失敗は未使用Grantを両方失効してEffect前�
   assert.equal(h.getCleanupCount(), 1);
 });
 
+test("Effect前cleanup失敗はexact Host Recoveryを保持する", () => {
+  const h = fixture({
+    consumeMountGrant: () =>
+      Object.freeze({ status: "blocked", mountAuthorizationCapability: null }),
+    cleanupOperation: () => {
+      throw new Error("fixture_cleanup_failed");
+    },
+  });
+  const result = h.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_runtime_pre_effect_cleanup_unconfirmed",
+  );
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.operation");
+  assert.deepEqual(result.dockerRecoveryIds, []);
+});
+
 test("Docker cleanup不明ならOperation Rootを削除せずmanual Recoveryへ保持する", async () => {
   const h = fixture({
     startProcess: () =>
@@ -514,29 +540,24 @@ test("Process Controller起動失敗のcleanupが不明ならOperation Rootを�
 });
 
 test("Process Controller起動失敗がexact Docker Recoveryを返したらHost Rootを削除しない", () => {
-  const recoveryCapability = Object.freeze({});
   const h = fixture({
     startProcess: (
       _prepared: object,
       _management: object,
-      registerRecoveryHandoff: (
-        capability: unknown,
-        recoveryId: unknown,
+      _registerRecoveryHandoff: (
+        _capability: unknown,
+        _recoveryId: unknown,
       ) => boolean,
-    ) => {
-      assert.equal(
-        registerRecoveryHandoff(recoveryCapability, "docker.fixture.start"),
-        true,
-      );
-      return Object.freeze({
+    ) =>
+      Object.freeze({
         status: "blocked",
         reason: "start_failed_after_durable_handoff",
         cleanupConfirmed: true,
         manualRecoveryRequired: true,
+        recoveryId: DOCKER_RECOVERY_ID,
         controlCapability: null,
         completion: null,
-      });
-    },
+      }),
   });
   const result = h.runtime.start(
     request(),
@@ -547,8 +568,35 @@ test("Process Controller起動失敗がexact Docker Recoveryを返したらHost 
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.operation");
-  assert.equal(result.dockerRecoveryId, "docker.fixture.start");
-  assert.deepEqual(result.dockerRecoveryIds, ["docker.fixture.start"]);
+  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
+  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
+  assert.equal(h.getCleanupCount(), 0);
+});
+
+test("Process Controllerの不正Recovery IDは公開せずHost Recoveryだけを保持する", () => {
+  const h = fixture({
+    startProcess: () =>
+      Object.freeze({
+        status: "blocked",
+        reason: "start_failed_after_malformed_recovery",
+        cleanupConfirmed: true,
+        manualRecoveryRequired: false,
+        recoveryId: "docker.invalid",
+        controlCapability: null,
+        completion: null,
+      }),
+  });
+  const result = h.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.manualRecoveryRequired, true);
+  assert.equal(result.hostRecoveryId, "host.fixture.operation");
+  assert.equal(result.dockerRecoveryId, null);
+  assert.deepEqual(result.dockerRecoveryIds, []);
   assert.equal(h.getCleanupCount(), 0);
 });
 
@@ -564,10 +612,7 @@ test("Process completionがmanual Recoveryを返したらcleanup trueでもexact
       ) => boolean,
     ) => {
       assert.equal(
-        registerRecoveryHandoff(
-          recoveryCapability,
-          "docker.fixture.completion",
-        ),
+        registerRecoveryHandoff(recoveryCapability, DOCKER_RECOVERY_ID),
         true,
       );
       return Object.freeze({
@@ -597,9 +642,50 @@ test("Process completionがmanual Recoveryを返したらcleanup trueでもexact
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.operation");
-  assert.equal(result.dockerRecoveryId, "docker.fixture.completion");
-  assert.deepEqual(result.dockerRecoveryIds, ["docker.fixture.completion"]);
+  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
+  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
   assert.equal(h.getCleanupCount(), 0);
+});
+
+test("Host cleanup失敗はHostとDockerのexact Recoveryを保持する", async () => {
+  const h = fixture({
+    cleanupOperation: () => {
+      throw new Error("fixture_host_cleanup_failed");
+    },
+  });
+  const started = h.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  const result = (await started.completion) as Record<string, unknown>;
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_runtime_operation_cleanup_unconfirmed",
+  );
+  assert.equal(result.hostRecoveryId, "host.fixture.operation");
+  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
+  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
+});
+
+test("Host cleanup後のDocker finalize失敗はDocker Recoveryだけを保持する", async () => {
+  const h = fixture({
+    finalizeDockerRecovery: () => Object.freeze({ status: "blocked" }),
+  });
+  const started = h.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  );
+  const result = (await started.completion) as Record<string, unknown>;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_runtime_recovery_finalize_failed");
+  assert.equal(result.operationRootRemoved, true);
+  assert.equal(result.hostRecoveryId, null);
+  assert.equal(result.dockerRecoveryId, DOCKER_RECOVERY_ID);
+  assert.deepEqual(result.dockerRecoveryIds, [DOCKER_RECOVERY_ID]);
+  assert.equal(h.getCleanupCount(), 1);
 });
 
 test("動的入力とsource checkoutのProduction入口はProvider Effect前に閉じる", () => {
@@ -633,7 +719,7 @@ test("動的入力とsource checkoutのProduction入口はProvider Effect前に�
 
 test("公開契約はSubscription probeと非canonical Effect境界を固定する", () => {
   const contract = describeCoordinatorRuntimeContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(
     contract.currentVerticalSlice,
     "codex_and_claude_subscription_boolean_probe",

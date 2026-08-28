@@ -128,6 +128,8 @@ UI                     = 利用者がどう認識・操作・回復できるか
 
 すべてを全対象範囲へ機械的に記載する必要はない。適用しない責務は`Not Applicable`として理由と人間確認を残す。単一図、主要正常パス、技術選定、プロトタイプの完成だけでアーキテクチャ完了としない。
 
+Trust、Authority、Recoveryまたは安全上重要な結果を層間で運ぶAPI、IPC、callback、event、return値、fileまたは永続記録では、producer、搬送、consumerを抽象名だけで示さない。実際のproducer variantとexact shape、順序、変換、全production consumer、公開projection、拒否・判定不能時の処置を設計境界として識別可能にする。後続EffectまたはRecoveryを可能にする耐久intent、receipt、pointer、recordはAuthorityを担う状態として、発行前条件、再開条件、失敗呼出し後の非発行、置換・partial・unknown時の停止を設計する。単純な局所関数等、これらの境界が存在しない対象へ架空のproducer／Authority契約を作らない。
+
 <a id="scope-and-coverage-state"></a>
 
 ## 対象範囲と網羅状態（Scope and Coverage State）
@@ -190,6 +192,7 @@ AIは候補比較、不足、影響、設計案を提示できるが、上位契
 - 境界、決定権限、データ所有関係、正本、インターフェースが判定済みである
 - 内部状態／連番、失敗、並行処理、回復が説明・検証可能である
 - 重要な状態、遷移、資源、ロック、AuthorityおよびEffectについて、所有者、開始／終了条件、正常・準正常・異常の経路、終了後に観測する条件を実装と検証へ渡せる
+- 安全上重要な層間搬送では、実producer variant、exact shape、搬送順序、全production consumerおよび公開projectionを実装と検証へ渡せる
 - セキュリティ / プライバシー / コンプライアンス、品質、操作、可観測性を適用範囲で定義している
 - 適用する品質上の懸念をアーキテクチャ上の品質属性、成立方式、検証義務へ処置している
 - 互換性 / 移行、処理能力 / インフラストラクチャ、依存関係を適用範囲で定義している

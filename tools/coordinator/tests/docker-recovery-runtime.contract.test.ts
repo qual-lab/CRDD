@@ -3894,6 +3894,41 @@ test("旧Host先行削除後もpointer欠落・partial・replacementをEffect前
   }
 });
 
+test("Host begin済みの不正pointer不存在は失敗呼出しからprecleanup intentをmintしない", () => {
+  const fixture = createKilledFullProductionRecoveryRoot("expected");
+  const root = verifiedRoot(fixture.root);
+  breakProductionRecoveryPointer(fixture, "missing");
+  simulateLegacyHostPrecleanupForDocker(fixture);
+  const before = fs
+    .readdirSync(fixture.root, { recursive: true })
+    .map(String)
+    .sort();
+  try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+        fixture.recoveryId,
+        root,
+        () => root,
+      );
+      assert.equal(result.status, "blocked");
+      assert.equal(result.recoveryId, fixture.recoveryId);
+      const after = fs
+        .readdirSync(fixture.root, { recursive: true })
+        .map(String)
+        .sort();
+      assert.deepEqual(after, before);
+      assert.equal(
+        after.some((entry) =>
+          entry.endsWith("host-precleanup-finalization-intent.json"),
+        ),
+        false,
+      );
+    }
+  } finally {
+    disposeKilledFullProductionRecoveryFixture(fixture);
+  }
+});
+
 test("旧Host先行削除のRootまたはmarker片側だけの欠落は完全不在へ縮退しない", () => {
   for (const missing of ["root", "marker"] as const) {
     const fixture = createKilledFullProductionRecoveryRoot(

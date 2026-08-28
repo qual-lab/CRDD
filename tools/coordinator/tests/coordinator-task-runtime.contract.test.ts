@@ -3894,7 +3894,7 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
   });
 });
 
-test("公開Task Runtimeは実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async () => {
+test("Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async () => {
   const owned = createOwnedOperationDirectories();
   const contextCapability = createOwnedOperationContextCapability(owned);
   const mountCapability = createOwnedMountCapability(owned);

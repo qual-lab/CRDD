@@ -3828,7 +3828,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       hostMarkerAbsent: true,
       submissionAbsent: true,
     });
-    const hostPrecleanupFinalizationIntentPresent = recoveryPathPresent(
+    let hostPrecleanupFinalizationIntentPresent = recoveryPathPresent(
       hostPrecleanupFinalizationIntentPath,
     );
     if (hostPrecleanupFinalizationIntentPresent) {
@@ -3843,7 +3843,7 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       )
         throw new Error("docker_task_recovery_host_precleanup_intent_mismatch");
     }
-    const activePointerClosure = verifyActiveBindingAndPointerClosure(
+    let activePointerClosure = verifyActiveBindingAndPointerClosure(
       hostActiveBindingPath,
       pointerPath,
       expectedHostActiveBinding(
@@ -3855,7 +3855,6 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     );
     if (
       hostStateAlreadyClean &&
-      !hostSubmissionStarted &&
       activePointerClosure.pointerState !== "committed" &&
       !(
         hostPrecleanupFinalizationIntentPresent &&
@@ -3863,16 +3862,6 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       )
     )
       throw new Error("docker_task_recovery_pointer_mismatch");
-    if (
-      hostStateAlreadyClean &&
-      !hasSubmission &&
-      !hostPrecleanupFinalizationIntentPresent
-    )
-      writeDurableJson(
-        operationDirectory,
-        "host-precleanup-finalization-intent.json",
-        expectedHostPrecleanupFinalizationIntent,
-      );
     if (activePointerClosure.activeState === "uncommitted") {
       if (hostSubmissionStarted)
         throw new Error("docker_task_recovery_active_run_mismatch");
@@ -3885,6 +3874,33 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
         ),
       );
       commitDirectoryMutationBoundary(path.dirname(hostActiveBindingPath));
+      activePointerClosure = verifyActiveBindingAndPointerClosure(
+        hostActiveBindingPath,
+        pointerPath,
+        expectedHostActiveBinding(
+          parsed.token,
+          parsed.baseHash,
+          parsed.operationNonce,
+        ),
+        expectedPointer,
+      );
+    }
+    if (
+      hostStateAlreadyClean &&
+      !hasSubmission &&
+      !hostPrecleanupFinalizationIntentPresent
+    ) {
+      if (
+        activePointerClosure.activeState !== "absent" ||
+        activePointerClosure.pointerState !== "committed"
+      )
+        throw new Error("docker_task_recovery_host_precleanup_intent_unsafe");
+      writeDurableJson(
+        operationDirectory,
+        "host-precleanup-finalization-intent.json",
+        expectedHostPrecleanupFinalizationIntent,
+      );
+      hostPrecleanupFinalizationIntentPresent = true;
     }
     if (
       activePointerClosure.activeState === "absent" &&

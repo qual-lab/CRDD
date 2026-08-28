@@ -79,7 +79,7 @@
     "VER-TASK-OPERATOR-TRANSFER": "contract_projection",
     "VER-TASK-PROCESS-RESTART": "contract_projection",
     "VER-PARTIAL-PAIR-ABNORMAL": "actual_filesystem_process",
-    "VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL": "actual_filesystem_process",
+    "VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL": "contract_projection",
     "VER-RECOVERY-NORMAL": "actual_filesystem_process",
     "VER-RECOVERY-HOST-PRECLEAN-QUASI": "actual_filesystem_process"
   },
@@ -165,7 +165,7 @@
     {"id":"VER-PARTIAL-PAIR-ABNORMAL","transitionIds":["TRANS-PARTIAL-PAIR-TO-RECOVERY"],"kind":"abnormal","testPath":"tools/coordinator/tests/docker-recovery-runtime.contract.test.ts","testName":"Host active bindingのcontent-only不一致はEvidenceを保持して停止する","observedResources":["RES-HOST-GENERATION","RES-OPERATION-WORKSPACE"], "cases": [
       {"id":"CASE-PARTIAL-PAIR-TO-RECOVERY","transitionId":"TRANS-PARTIAL-PAIR-TO-RECOVERY","fromState":"STATE-DURABLE-PAIR-PARTIAL-PRE-EFFECT","outcome":"taken","expectedEndState":"STATE-RECOVERY-REQUIRED","effectObservations":{"provider":0,"host":0,"cleanup":0},"expectedStatus":"recovery_required","resourcePostconditions":{"RES-HOST-GENERATION":"preserved","RES-OPERATION-WORKSPACE":"preserved"}}
     ]},
-    {"id":"VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL","transitionIds":["TRANS-STAGED-TO-HOST-CLEAN"],"kind":"abnormal","testPath":"tools/coordinator/tests/coordinator-task-runtime.contract.test.ts","testName":"公開Task Runtimeは実Host active binding残存時にcleanupを拒否してexact Recoveryを返す","observedResources":["RES-HOST-GENERATION","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"], "cases": [
+    {"id":"VER-HOST-CLEANUP-ACTIVE-BINDING-ABNORMAL","transitionIds":["TRANS-STAGED-TO-HOST-CLEAN"],"kind":"abnormal","testPath":"tools/coordinator/tests/coordinator-task-runtime.contract.test.ts","testName":"Task Runtime契約は実Host active binding残存時にcleanupを拒否してexact Recoveryを返す","observedResources":["RES-HOST-GENERATION","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"], "cases": [
       {"id":"CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED","transitionId":"TRANS-STAGED-TO-HOST-CLEAN","fromState":"STATE-CANDIDATE-STAGED","outcome":"rejected","expectedEndState":"STATE-RECOVERY-REQUIRED","effectObservations":{"provider":0,"host":0,"cleanup":0},"expectedStatus":"recovery_required","resourcePostconditions":{"RES-HOST-GENERATION":"preserved","RES-DOCKER-OWNED":"preserved","RES-OPERATION-WORKSPACE":"preserved"}}
     ]},
     {"id":"VER-RECOVERY-NORMAL","transitionIds":["TRANS-RECOVERY-TO-RECOVERED"],"kind":"normal","testPath":"tools/coordinator/tests/docker-recovery-runtime.contract.test.ts","testName":"production共有回復engineはHost expected世代のprocess killを残存0へ収束する","observedResources":["RES-HOST-GENERATION","RES-DOCKER-OWNED","RES-OPERATION-WORKSPACE"], "cases": [

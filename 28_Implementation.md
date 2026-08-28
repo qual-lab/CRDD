@@ -256,6 +256,8 @@ AIまたは実装担当は実装案、規則案、テスト、逸脱、影響を
 
 複数層をまたぐ変更では、DB、API、イベント / IPC、UI、外部提供側の実際のデータフローを開発者テストで確認する。特定層の単体テストだけで全体成立を推測しない。
 
+Trust、Authority、Recoveryまたは安全上重要な結果を層間で搬送する実装では、production wiringから実producerと全consumerを列挙し、producerが実際に返すvariant／field／byte列と順序をconsumerの受理・拒否・公開projectionへ対応付ける。肯定試験は実producer出力、またはproductionと共有するCanonical validator／generatorから作る。consumerだけへ手書きした到達不能fixtureはconsumer局所の挙動確認には使えるが、producerとの結合成立根拠にしない。実装中に後続EffectやRecoveryを許可する耐久状態を追加した場合は、単なる補助fileとして閉じず、Authorityの発行・再開・失効・失敗呼出し後の非発行をArchitectureと検証設計へ戻す。
+
 ## 2.5. 移行・互換性・ロールバック
 
 移行はスキーマ / データ変換だけでなく、コード、構成、利用側、デプロイ順序、補完処理、機能フラグ、ロールバックを一つの実行連番として扱う。
@@ -295,6 +297,8 @@ AIまたは実装担当は実装案、規則案、テスト、逸脱、影響を
 | 実行環境 | 対象ビルド / 処理での開発者スモーク確認 |
 
 状態、資源、ロック、AuthorityまたはEffectを含む変更の開発者テストは、正常・準正常・異常の適用経路ごとに、設計要素、実装上の発生／変更点、観測手段、終了後条件を対応づける。状態名や返却値だけから資源解放、Authority失効、Effect 0またはcleanup成立を推定せず、可能な限り実receipt、ledger、observer、公開結果または独立した終了後観測で確認する。対応する検証がない要素は、理由付き非該当または未確認として扱い、実装完了へ暗黙変換しない。
+
+層間契約の結合試験では、production wiringから得たproducer出力とconsumer入力の一致を少なくとも一経路で確認する。手書きfixtureを使う場合は、実producerから生成したもの、共有Canonical契約で生成・検証したもの、consumerだけの局所fixtureを区別し、最後の種類だけからEnd-to-End成立を主張しない。
 
 テストの技術形式だけでは実装と検証を区別できない。同じE2Eや結合テストでも、実装を支える開発者テストと、対象改訂版に対する独立受入条件 / 保証では決定権限と根拠が異なる。
 
