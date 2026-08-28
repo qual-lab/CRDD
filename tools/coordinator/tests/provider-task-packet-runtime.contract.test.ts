@@ -142,6 +142,14 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       consumed?.prompt ?? "",
       /Independently inspect candidate semantics and content through Readable paths/u,
     );
+    assert.match(
+      consumed?.prompt ?? "",
+      /use decision "approved" only with findings \[\]/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /if any finding exists, including info severity, use decision "changes_requested"/u,
+    );
     assert.doesNotMatch(
       consumed?.prompt ?? "",
       /Modify only the allowed paths/u,
@@ -409,7 +417,7 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);
@@ -428,5 +436,9 @@ test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   assert.equal(
     contract.reviewerScopeBoundary,
     "runtime_verified_changed_path_scope_plus_independent_readable_candidate_semantics_without_git_metadata",
+  );
+  assert.equal(
+    contract.reviewerDecisionInvariant,
+    "approved_requires_zero_findings_and_any_finding_requires_changes_requested",
   );
 });

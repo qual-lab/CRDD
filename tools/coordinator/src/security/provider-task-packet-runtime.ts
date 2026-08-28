@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 8;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 9;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -179,6 +179,7 @@ function promptFor(packet: TaskPacket) {
           "Review the candidate in /work without modifying any file. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
           "Before this review, the runtime compared the candidate inventory with the exact base revision and rejected any changed path outside Allowed paths.",
           "Git metadata is intentionally absent. Independently inspect candidate semantics and content through Readable paths; do not report missing Git metadata or inability to re-enumerate out-of-scope paths as a finding.",
+          'Reviewer result invariant: use decision "approved" only with findings []; if any finding exists, including info severity, use decision "changes_requested". Put non-blocking observations in summary rather than findings.',
         ].join(" ");
   return [
     "You are a CRDD isolated provider task.",
@@ -482,6 +483,8 @@ export function describeProviderTaskPacketRuntimeContract() {
       "finding_paths_rejected_before_external_send_grant_consumption_and_packet_issue",
     reviewerScopeBoundary:
       "runtime_verified_changed_path_scope_plus_independent_readable_candidate_semantics_without_git_metadata",
+    reviewerDecisionInvariant:
+      "approved_requires_zero_findings_and_any_finding_requires_changes_requested",
     promptTransport: "provider_stdin_only",
     promptInDockerArgvAllowed: false,
     allowedPaths: "exact_file_or_directory_prefix",
