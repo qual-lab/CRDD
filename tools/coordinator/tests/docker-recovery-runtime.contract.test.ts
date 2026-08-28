@@ -1648,6 +1648,114 @@ function simulateLegacyHostPrecleanupForDocker(
   assert.equal(fs.existsSync(fixture.hostMarker), false);
 }
 
+function crashHostPrecleanupFinalizationInFreshProcess(
+  fixture: Readonly<{
+    root: string;
+    recoveryId: string;
+  }>,
+  crashPoint:
+    | "pointer_content_removed"
+    | "docker_absence_committed"
+    | "mount_absence_committed"
+    | "host_cleanup_receipt_committed",
+) {
+  const moduleUrl = pathToFileURL(
+    path.resolve("src/security/docker-recovery-runtime-internal.ts"),
+  ).href;
+  const handoff = path.join(
+    path.dirname(fixture.root),
+    `precleanup-crash-${crashPoint}.txt`,
+  );
+  const source = `
+    import fs from "node:fs";
+    import path from "node:path";
+    const recovery = await import(${JSON.stringify(moduleUrl)});
+    const rootPath = process.argv[1];
+    const recoveryId = process.argv[2];
+    const crashPoint = process.argv[3];
+    const handoff = process.argv[4];
+    const root = Object.freeze({
+      rootPath,
+      runtimeStateIdentityHash: "4".repeat(64),
+      runtimeStateProtectionHash: "5".repeat(64),
+      localUserBindingHash: "6".repeat(64),
+      stableLogicalHomeBindingHash: "7".repeat(64),
+    });
+    const crash = () => {
+      fs.writeFileSync(handoff, crashPoint, "utf8");
+      throw new Error("simulated_process_termination_after_durable_stage");
+    };
+    const originalRm = fs.rmSync;
+    fs.rmSync = (...args) => {
+      const result = originalRm(...args);
+      const name = path.basename(String(args[0]));
+      if (crashPoint === "pointer_content_removed" && name.startsWith("active-lease-") && name.endsWith(".json")) crash();
+      return result;
+    };
+    const originalRename = fs.renameSync;
+    fs.renameSync = (...args) => {
+      const result = originalRename(...args);
+      const name = path.basename(String(args[1]));
+      const target = {
+        docker_absence_committed: "docker-absence-crash.json.crdd-commit.json",
+        mount_absence_committed: "mount-crash-absence.json.crdd-commit.json",
+        host_cleanup_receipt_committed: "host-cleanup-receipt.json.crdd-commit.json",
+      }[crashPoint];
+      if (target && name === target) crash();
+      return result;
+    };
+    recovery.recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      recoveryId,
+      root,
+      () => root,
+    );
+    process.exit(70);
+  `;
+  const crashed = spawnSync(
+    process.execPath,
+    [
+      "--experimental-strip-types",
+      "-e",
+      source,
+      fixture.root,
+      fixture.recoveryId,
+      crashPoint,
+      handoff,
+    ],
+    { windowsHide: true, encoding: "utf8", timeout: 15_000 },
+  );
+  assert.notEqual(crashed.status, 0, crashed.stderr);
+  assert.equal(fs.readFileSync(handoff, "utf8"), crashPoint, crashed.stderr);
+  fs.rmSync(handoff);
+}
+
+function recoverAfterFreshProcessLockRelease(
+  fixture: Readonly<{ root: string; recoveryId: string }>,
+) {
+  const root = verifiedRoot(fixture.root);
+  const waitState = new Int32Array(new SharedArrayBuffer(4));
+  const deadline = Date.now() + 2_000;
+  let result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+    fixture.recoveryId,
+    root,
+    () => root,
+  );
+  while (
+    result.status === "blocked" &&
+    result.reason ===
+      "docker_task_host_operation_generation_active_or_unknown" &&
+    Date.now() < deadline
+  ) {
+    Atomics.wait(waitState, 0, 0, 20);
+    result = recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
+      fixture.recoveryId,
+      root,
+      () => root,
+    );
+  }
+  return result;
+}
+
 function rewriteCommittedRecoveryRecordForTest(
   target: string,
   logicalKey: string,
@@ -3366,6 +3474,37 @@ test("Host begin前のactive binding content-only crashを旧Host先行削除後
     disposeKilledFullProductionRecoveryFixture(fixture);
   }
 });
+
+for (const crashPoint of [
+  "pointer_content_removed",
+  "docker_absence_committed",
+  "mount_absence_committed",
+  "host_cleanup_receipt_committed",
+] as const) {
+  test(`Host先行回復のfinalizationは${crashPoint}後もfresh processで再開する`, () => {
+    const fixture = createKilledFullProductionRecoveryRoot("expected");
+    try {
+      simulateLegacyHostPrecleanupForDocker(fixture);
+      crashHostPrecleanupFinalizationInFreshProcess(fixture, crashPoint);
+      assert.deepEqual(
+        recoverAfterFreshProcessLockRelease(fixture),
+        {
+          status: "recovered",
+          reason: "docker_task_recovery_completed_after_host_precleanup",
+          recoveryId: null,
+        },
+        JSON.stringify(
+          fs.readdirSync(fixture.root, { recursive: true }).sort(),
+        ),
+      );
+      assert.deepEqual(fs.readdirSync(fixture.root), []);
+      assert.equal(fs.existsSync(fixture.hostRoot), false);
+      assert.equal(fs.existsSync(fixture.hostMarker), false);
+    } finally {
+      disposeKilledFullProductionRecoveryFixture(fixture);
+    }
+  });
+}
 
 test("Hostを先に明示回復してもreceipt済みDockerをexact照合・削除して残存0へ収束する", () => {
   const fixture = createKilledFullProductionRecoveryRoot("receipt");
@@ -5107,7 +5246,7 @@ test("production共有Docker回復はreceipt前照会の失敗・signal・stderr
 test("Docker Recovery contractはEffect前記録とcleanup後完了を固定する", () => {
   assert.deepEqual(describeDockerRecoveryRuntimeContract(), {
     contract: "crdd-coordinator/docker-recovery-runtime",
-    contractRevision: 23,
+    contractRevision: 24,
     durableStateBeforeDockerEffect: "docker_submission_started",
     durableStateAfterCleanup: "host_only",
     capability: "opaque_process_local_single_completion",

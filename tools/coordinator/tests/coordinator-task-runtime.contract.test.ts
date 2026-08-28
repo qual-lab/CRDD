@@ -16,6 +16,15 @@ import {
 import { createIsolatedRuntimeProcessSafetyStateCandidate } from "../src/core/runtime-process-safety-state.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
+  cleanupOwnedOperationDirectories,
+  createOwnedMountCapability,
+  createOwnedOperationContextCapability,
+  createOwnedOperationDirectories,
+  createOwnedOperationManagementCapability,
+  getOwnedHostRecoveryId,
+  verifyOwnedOperationManagementCapability,
+} from "../src/security/execution-environment.ts";
+import {
   assertRuntimeTraceExecutionCoverage,
   assertRuntimeTraceCase,
   getRuntimeTraceCase,
@@ -297,6 +306,7 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   "CASE-RECOVERY-REMEDIATION-REVIEWER-CLEAN": assertRuntimeTraceCase,
   "CASE-RECOVERY-CANDIDATE-STAGED": assertRuntimeTraceCase,
   "CASE-RECOVERY-HOST-CLEAN": assertRuntimeTraceCase,
+  "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED": assertRuntimeTraceCase,
 });
 const EXECUTED_TASK_TRACE_CASES = new Set<string>();
 
@@ -544,6 +554,15 @@ function fixture(
     lifecycleObserverThrows?: boolean;
     terminalObserver?: (state: string) => void;
     inspectRepository?: typeof inspectRepositoryObjectFormatCandidate;
+    createOperationOverride?: () => Readonly<{
+      owned: object;
+      mountCapability: object;
+      managementCapability: object;
+      operationId: string;
+      hostRecoveryId: string;
+    }>;
+    cleanupOperationOverride?: (candidate: object) => unknown;
+    dockerHostCleanupId?: string;
   } = {},
 ) {
   const owned = Object.freeze({});
@@ -614,6 +633,10 @@ function fixture(
       state === "STATE-OPERATOR-TRANSFER-REQUIRED";
     const outstandingProvider =
       processStartCount > providerCleanupConfirmedCount;
+    const outstandingDockerRecovery =
+      outstandingProvider ||
+      (options.hostCleanupWal === true &&
+        dockerFinalizeCount < processStartCount);
     const operationAcquired = operationCreateCount > 0;
     const hostPresent = operationCreateCount > hostCleanupConfirmedCount;
     const workspaceAcquired = workspaceMaterializeCount > 0;
@@ -629,7 +652,7 @@ function fixture(
       "RES-LOGICAL-HOME-LOCK": outstandingProvider ? "preserved" : "absent",
       "RES-RUNTIME-STATE-LOCK": outstandingProvider ? "preserved" : "absent",
       "RES-MOUNT-GRANT": outstandingProvider ? "preserved" : "absent",
-      "RES-DOCKER-OWNED": outstandingProvider
+      "RES-DOCKER-OWNED": outstandingDockerRecovery
         ? "preserved"
         : processStartCount === 0
           ? options.admissionRecovery
@@ -734,6 +757,8 @@ function fixture(
         }
         throw operationCreationError;
       }
+      if (options.createOperationOverride)
+        return options.createOperationOverride();
       return Object.freeze({
         owned,
         mountCapability,
@@ -778,7 +803,7 @@ function fixture(
           })
         : null,
     cleanupOperation: async (candidate: object) => {
-      assert.equal(candidate, owned);
+      if (!options.cleanupOperationOverride) assert.equal(candidate, owned);
       if (options.hostCleanupWal) events.push("host-cleanup");
       cleanupCount += 1;
       if (options.pauseOperationCleanup)
@@ -786,6 +811,8 @@ function fixture(
           releaseOperationCleanup = resolve;
         });
       if (options.cleanupThrows) throw new Error("cleanup_failed");
+      if (options.cleanupOperationOverride)
+        await options.cleanupOperationOverride(candidate);
       hostCleanupConfirmedCount += 1;
       return options.cleanupProtocolFailure
         ? cleanupProtocolFailure
@@ -1215,7 +1242,7 @@ function fixture(
             events.push("docker-host-cleanup-intent");
             dockerIntentCount += 1;
             if (options.dockerIntentFailsAt === dockerIntentCount) return null;
-            return "host.fixture.cleanup.intent";
+            return options.dockerHostCleanupId ?? "host.fixture.cleanup.intent";
           },
           recordDockerHostCleanupReceipt: () => {
             events.push("docker-host-cleanup-receipt");
@@ -3865,6 +3892,99 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       result,
     );
   });
+});
+
+test("公開Task Runtimeは実Host active binding残存時にcleanupを拒否してexact Recoveryを返す", async () => {
+  const owned = createOwnedOperationDirectories();
+  const contextCapability = createOwnedOperationContextCapability(owned);
+  const mountCapability = createOwnedMountCapability(owned);
+  const managementCapability = createOwnedOperationManagementCapability(
+    contextCapability,
+    mountCapability,
+  );
+  const operation =
+    verifyOwnedOperationManagementCapability(managementCapability);
+  const hostRecoveryId = getOwnedHostRecoveryId(owned);
+  const activeBinding = path.join(
+    owned.directories.management,
+    "active-docker-task-v1.json",
+  );
+  fs.writeFileSync(activeBinding, "fixture", "utf8");
+  const harness = fixture({
+    hostCleanupWal: true,
+    dockerHostCleanupId: hostRecoveryId,
+    createOperationOverride: () =>
+      Object.freeze({
+        owned,
+        mountCapability,
+        managementCapability,
+        operationId: operation.operationId,
+        hostRecoveryId,
+      }),
+    cleanupOperationOverride: (candidate) =>
+      cleanupOwnedOperationDirectories(candidate),
+  });
+  try {
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "coordinator_task_operation_cleanup_unconfirmed",
+    );
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.hostRecoveryId, hostRecoveryId);
+    assert.deepEqual(result.dockerRecoveryIds, [
+      fixtureDockerRecoveryId("executor.active"),
+      fixtureDockerRecoveryId("reviewer.active"),
+    ]);
+    assert.equal(harness.cleanupCount(), 1);
+    assert.equal(harness.processStartCount(), 2);
+    assert.equal(harness.dockerIntentCount(), 2);
+    assert.equal(harness.dockerReceiptCount(), 0);
+    assert.equal(harness.dockerFinalizeCount(), 0);
+    assert.equal(fs.existsSync(owned.root), true);
+    assert.equal(fs.existsSync(activeBinding), true);
+
+    assert.deepEqual(await harness.observeLastControlInvalid(), {
+      status: "blocked",
+      reason: "coordinator_task_control_invalid",
+    });
+    const source = harness.lifecycleSnapshots.at(-2);
+    const terminal = harness.lifecycleSnapshots.at(-1);
+    assert.ok(source && terminal);
+    assert.equal(source.state, "STATE-CANDIDATE-STAGED");
+    assert.equal(terminal.state, "STATE-RECOVERY-REQUIRED");
+    TASK_TRACE_ASSERTIONS["CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED"]?.(
+      "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
+      {
+        id: "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
+        transitionId: "TRANS-STAGED-TO-HOST-CLEAN",
+        fromState: source.state,
+        outcome: "rejected",
+        expectedEndState: terminal.state,
+        effectObservations: {
+          provider: terminal.provider - source.provider,
+          host: terminal.host - source.host,
+          cleanup: terminal.cleanup - source.cleanup,
+        },
+        expectedStatus: "recovery_required",
+        resourcePostconditions: selectResourcePostconditions(terminal, [
+          "RES-HOST-GENERATION",
+          "RES-DOCKER-OWNED",
+          "RES-OPERATION-WORKSPACE",
+        ]),
+      },
+    );
+    EXECUTED_TASK_TRACE_CASES.add("CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED");
+  } finally {
+    fs.rmSync(activeBinding, { force: true });
+    cleanupOwnedOperationDirectories(owned);
+  }
 });
 
 test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {

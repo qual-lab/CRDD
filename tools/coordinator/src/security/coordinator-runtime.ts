@@ -22,6 +22,7 @@ import {
   createOwnedOperationContextCapability,
   createOwnedOperationDirectories,
   createOwnedOperationManagementCapability,
+  getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 import {
@@ -36,7 +37,7 @@ import {
 } from "./repository-operation-runtime.ts";
 
 export const COORDINATOR_RUNTIME_CONTRACT = "crdd-coordinator/runtime";
-export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 4;
+export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 5;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -65,6 +66,7 @@ type RuntimeDependencies = Readonly<{
     mountCapability: object;
     managementCapability: object;
     operationId: string;
+    hostRecoveryId: string;
   }>;
   cleanupOperation: (owned: object) => void;
   bindRepository: (
@@ -172,11 +174,29 @@ function blocked(reason: string, manualRecoveryRequired = false) {
     providerEffectStarted: false,
     cleanupConfirmed: !manualRecoveryRequired,
     manualRecoveryRequired,
+    hostRecoveryId: null,
+    dockerRecoveryId: null,
+    dockerRecoveryIds: Object.freeze([]) as readonly string[],
     selectionNotice: null,
     normalizedResult: null,
     rawOutputReported: false,
     hostPathReported: false,
     credentialReported: false,
+  });
+}
+
+function blockedForExactRecovery(
+  reason: string,
+  hostRecoveryId: string,
+  dockerRecoveryId: string | null,
+) {
+  return Object.freeze({
+    ...blocked(reason, true),
+    hostRecoveryId,
+    dockerRecoveryId,
+    dockerRecoveryIds: dockerRecoveryId
+      ? Object.freeze([dockerRecoveryId])
+      : Object.freeze([]),
   });
 }
 
@@ -291,8 +311,13 @@ function start(
   } catch {
     return blocked("coordinator_runtime_operation_creation_failed");
   }
-  const { owned, mountCapability, managementCapability, operationId } =
-    operation;
+  const {
+    owned,
+    mountCapability,
+    managementCapability,
+    operationId,
+    hostRecoveryId,
+  } = operation;
   let selectionControl: object | null = null;
   let mountControl: object | null = null;
   try {
@@ -448,11 +473,15 @@ function start(
       !process.controlCapability ||
       !process.completion
     ) {
+      const exactRecoveryRequired =
+        process.manualRecoveryRequired === true ||
+        process.cleanupConfirmed !== true ||
+        recoveryHandoffId !== null;
       if (recoveryHandoffCapability)
         void state.dependencies.abandonDockerRecovery(
           recoveryHandoffCapability,
         );
-      return process.cleanupConfirmed === true
+      return !exactRecoveryRequired
         ? cleanupBeforeEffect(
             state,
             owned,
@@ -461,9 +490,10 @@ function start(
             managementCapability,
             process.reason || "coordinator_runtime_process_start_failed",
           )
-        : blocked(
+        : blockedForExactRecovery(
             process.reason || "coordinator_runtime_process_start_failed",
-            true,
+            hostRecoveryId,
+            recoveryHandoffId,
           );
     }
     const controlCapability = Object.freeze({});
@@ -483,13 +513,50 @@ function start(
           manualRecoveryRequired?: boolean;
           normalizedResult?: unknown;
           recoveryFinalizationCapability?: object | null;
+          hostRecoveryId?: string | null;
+          dockerRecoveryId?: string | null;
+          dockerRecoveryIds?: readonly string[];
         }>;
-        if (result.cleanupConfirmed !== true) {
+        const reportedDockerRecoveryIds = Object.freeze([
+          ...new Set(
+            [
+              ...(Array.isArray(result.dockerRecoveryIds)
+                ? result.dockerRecoveryIds
+                : []),
+              result.dockerRecoveryId,
+              recoveryHandoffId,
+            ].filter(
+              (value): value is string =>
+                typeof value === "string" && value.length > 0,
+            ),
+          ),
+        ]);
+        if (
+          result.cleanupConfirmed !== true ||
+          result.manualRecoveryRequired === true ||
+          result.hostRecoveryId != null ||
+          result.dockerRecoveryId != null ||
+          (Array.isArray(result.dockerRecoveryIds) &&
+            result.dockerRecoveryIds.length > 0)
+        ) {
           if (recoveryHandoffCapability)
             void state.dependencies.abandonDockerRecovery(
               recoveryHandoffCapability,
             );
-          return result;
+          return Object.freeze({
+            ...result,
+            cleanupConfirmed: false,
+            manualRecoveryRequired: true,
+            hostRecoveryId:
+              typeof result.hostRecoveryId === "string"
+                ? result.hostRecoveryId
+                : hostRecoveryId,
+            dockerRecoveryId:
+              reportedDockerRecoveryIds.length === 1
+                ? (reportedDockerRecoveryIds[0] ?? null)
+                : null,
+            dockerRecoveryIds: reportedDockerRecoveryIds,
+          });
         }
         try {
           if (
@@ -585,6 +652,7 @@ function createProductionOperation() {
     mountCapability,
     managementCapability,
     operationId: operation.operationId,
+    hostRecoveryId: getOwnedHostRecoveryId(owned),
   });
 }
 

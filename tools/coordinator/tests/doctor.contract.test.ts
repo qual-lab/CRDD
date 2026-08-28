@@ -59,13 +59,6 @@ import {
 } from "../src/security/execution-environment.ts";
 import * as hostRecoveryRecord from "../src/security/host-recovery-record.ts";
 import { assertPresent, errorCode } from "./test-support.ts";
-import { assertRuntimeTraceCase } from "./runtime-trace-case.ts";
-
-const DOCTOR_TRACE_ASSERTIONS: Readonly<
-  Record<string, typeof assertRuntimeTraceCase>
-> = Object.freeze({
-  "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED": assertRuntimeTraceCase,
-});
 
 function recordedIdentity(target: string) {
   const metadata = fs.lstatSync(target, { bigint: true });
@@ -3539,23 +3532,6 @@ test("通常Host cleanupはDocker active bindingのcontentまたはcommit sideca
     cleanupOwnedOperationDirectories(owned);
     assert.equal(fs.existsSync(owned.root), false);
   }
-  DOCTOR_TRACE_ASSERTIONS["CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED"]?.(
-    "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
-    {
-      id: "CASE-HOST-CLEANUP-ACTIVE-BINDING-REFUSED",
-      transitionId: "TRANS-STAGED-TO-HOST-CLEAN",
-      fromState: "STATE-CANDIDATE-STAGED",
-      outcome: "rejected",
-      expectedEndState: "STATE-RECOVERY-REQUIRED",
-      effectObservations: { provider: 0, host: 0, cleanup: 0 },
-      expectedStatus: "recovery_required",
-      resourcePostconditions: {
-        "RES-HOST-GENERATION": "preserved",
-        "RES-DOCKER-OWNED": "preserved",
-        "RES-OPERATION-WORKSPACE": "preserved",
-      },
-    },
-  );
 });
 
 test("Host cleanupはprojectionのlink置換を拒否する", (t) => {

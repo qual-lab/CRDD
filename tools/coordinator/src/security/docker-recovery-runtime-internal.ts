@@ -55,7 +55,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 23;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 24;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -1403,7 +1403,7 @@ function exactRecordKeys(value: unknown, keys: readonly string[]) {
 }
 
 const OPERATION_RECORD_NAME =
-  /^(?:base|base-commit|host-(?:begin|complete|crash-absence|cleanup)-(?:intent|receipt)|submission-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|receipt-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|docker-absence(?:-crash)?|mount-(?:completion|crash-absence)|lease-release-receipt|normal-run-complete)\.json$/u;
+  /^(?:base|base-commit|host-(?:begin|complete|crash-absence|cleanup)-(?:intent|receipt)|host-precleanup-finalization-intent|submission-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|receipt-(?:create_subscription_auth_probe|create_internal_network|create_egress_network|create_proxy|create_provider)|docker-absence(?:-crash)?|mount-(?:completion|crash-absence)|lease-release-receipt|normal-run-complete)\.json$/u;
 
 function validateHostSnapshot(value: unknown, initialToken: string) {
   if (
@@ -1680,6 +1680,31 @@ function validateOperationRecord(
       record.schema === "crdd-coordinator-host-cleanup-intent/v1" &&
       record.recoveryId === recoveryId &&
       typeof record.currentHostRecoveryId === "string"
+    );
+  if (name === "host-precleanup-finalization-intent.json")
+    return (
+      exactRecordKeys(value, [
+        "schema",
+        "recoveryId",
+        "operationNonce",
+        "baseHash",
+        "stableLogicalHomeBindingHash",
+        "initialHostRecoveryId",
+        "hostRootAbsent",
+        "hostMarkerAbsent",
+        "submissionAbsent",
+      ]) &&
+      record.schema ===
+        "crdd-coordinator-host-precleanup-finalization-intent/v1" &&
+      record.recoveryId === recoveryId &&
+      record.operationNonce === nonce &&
+      record.baseHash === baseHash &&
+      typeof record.stableLogicalHomeBindingHash === "string" &&
+      HEX64.test(String(record.stableLogicalHomeBindingHash)) &&
+      typeof record.initialHostRecoveryId === "string" &&
+      record.hostRootAbsent === true &&
+      record.hostMarkerAbsent === true &&
+      record.submissionAbsent === true
     );
   if (name === "host-cleanup-receipt.json")
     return (
@@ -3788,6 +3813,36 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
       recoveryId: parsed.token,
       baseHash: parsed.baseHash,
     });
+    const hostPrecleanupFinalizationIntentPath = path.join(
+      operationDirectory,
+      "host-precleanup-finalization-intent.json",
+    );
+    const expectedHostPrecleanupFinalizationIntent = Object.freeze({
+      schema: "crdd-coordinator-host-precleanup-finalization-intent/v1",
+      recoveryId: parsed.token,
+      operationNonce: parsed.operationNonce,
+      baseHash: parsed.baseHash,
+      stableLogicalHomeBindingHash: parsed.stableLogicalHomeBindingHash,
+      initialHostRecoveryId,
+      hostRootAbsent: true,
+      hostMarkerAbsent: true,
+      submissionAbsent: true,
+    });
+    const hostPrecleanupFinalizationIntentPresent = recoveryPathPresent(
+      hostPrecleanupFinalizationIntentPath,
+    );
+    if (hostPrecleanupFinalizationIntentPresent) {
+      const observedIntent = readExactJson(
+        hostPrecleanupFinalizationIntentPath,
+      ).value;
+      if (
+        canonical(observedIntent) !==
+          canonical(expectedHostPrecleanupFinalizationIntent) ||
+        !hostStateAlreadyClean ||
+        hasSubmission
+      )
+        throw new Error("docker_task_recovery_host_precleanup_intent_mismatch");
+    }
     const activePointerClosure = verifyActiveBindingAndPointerClosure(
       hostActiveBindingPath,
       pointerPath,
@@ -3801,9 +3856,23 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     if (
       hostStateAlreadyClean &&
       !hostSubmissionStarted &&
-      activePointerClosure.pointerState !== "committed"
+      activePointerClosure.pointerState !== "committed" &&
+      !(
+        hostPrecleanupFinalizationIntentPresent &&
+        activePointerClosure.pointerState === "absent"
+      )
     )
       throw new Error("docker_task_recovery_pointer_mismatch");
+    if (
+      hostStateAlreadyClean &&
+      !hasSubmission &&
+      !hostPrecleanupFinalizationIntentPresent
+    )
+      writeDurableJson(
+        operationDirectory,
+        "host-precleanup-finalization-intent.json",
+        expectedHostPrecleanupFinalizationIntent,
+      );
     if (activePointerClosure.activeState === "uncommitted") {
       if (hostSubmissionStarted)
         throw new Error("docker_task_recovery_active_run_mismatch");
@@ -3820,7 +3889,11 @@ export function recoverRuntimeOwnedDockerTaskFromVerifiedRootWithObserver(
     if (
       activePointerClosure.activeState === "absent" &&
       hostSubmissionStarted &&
-      activePointerClosure.pointerState !== "committed"
+      activePointerClosure.pointerState !== "committed" &&
+      !(
+        hostPrecleanupFinalizationIntentPresent &&
+        activePointerClosure.pointerState === "absent"
+      )
     ) {
       throw new Error("docker_task_recovery_active_run_missing");
     }
