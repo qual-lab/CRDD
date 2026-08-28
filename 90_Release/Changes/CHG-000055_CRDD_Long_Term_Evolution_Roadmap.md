@@ -3,8 +3,8 @@
 変更ID: `CHG-000055`
 - 状態: `Reopened`
 - 決定権限者: Qual-Lab
-- 判断日: 2026-08-25（初回）／2026-08-28（§6追加）
-- 対象: CRDD標準自身の課題探索・要求形成における長期方向、単一プロダクトRoadmapへの状態投影、および課題探索・要求形成／Roadmap／変更トレースの既存責務境界
+- 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加）
+- 対象: CRDD標準自身の課題探索・要求形成における長期方向と能力到達点、エージェント組織における専門性と共有境界の明確化、単一プロダクトRoadmapへの状態投影、および課題探索・要求形成／Roadmap／変更トレースの既存責務境界
 - 対象リリース: `v0.18.0 Candidate`
 - 変更分類: `additive`
 - `migration_required`: `false`
@@ -73,3 +73,15 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordina
 この追加は、Coordinator Runtime 1.0の完成条件、現在の実装Architecture、工程数、固定成果物、共通Trace Schema、Multi-platform対応、MCP、Project RuntimeまたはRelease範囲を変更しない。採用したのはRuntime 1.0完成後に実測根拠から安定境界を抽出する作業意図であり、Linux常設Runtime、複数Repository、MCP／HTTP、Self-hosted Provider、Project／Organization Runtime、Adapter名、APIまたは互換性は第4～第6段階の研究候補である。過去CHGを対象に含めることは公開済みtagまたは履歴事実の書換えを許可せず、変更ID、判断、当時状態、Evidence、参照および時系列を保持した情報欠落のない表現改善に限る。
 
 単一Roadmapには三項目の判断状態、対応状態、情報源および次の処置だけを追加した。既存のMCP／協働接続面、Project Runtimeおよび複数プロジェクト／組織実行環境は既に第4～第6段階の研究候補として記録済みであるため、重複項目を追加していない。本追記は`additive`かつ`migration_required=false`を維持する。更新固定版の文書監査、不足／影響監査およびリポジトリ全体Checkerが完了するまで、本節の追加分を確認済みへ昇格しない。
+
+## 7. Version Evolutionと専門性の責務分離
+
+2026-08-28、Qual-Labの人間の決定権限者は、長期方向をCRDD v0.18.0 Candidate、将来のCRDD v0.19.0、v1.0.0、v1.x、v2.xおよびFutureという人間可読な能力到達点へ投影し、専門機能を一つのCoreへ増やし続けず、まずProject ContextとRole／Skillによる自己適用で成立性を確認する方向を採用した。
+
+採用したのは、能力到達点の説明投影と、実測から責務境界を抽出する根拠駆動ループである。将来Versionの予約、Release Candidate、収載、期限、互換性、PM／QA／Planner等の具体機能、UI、MCP、Remote Runtime、Linux、Self-hosted Provider、Organization Runtime、Core分割方式またはReleaseを採用していない。Versionは公開差分と互換性を所有する[`19_Maintenance.md`](../../19_Maintenance.md#51-release-version-and-revision)に従い、実現時の採用済み差分と人間判断から再割当できる。
+
+[`04_Agent_Organization.md`](../../04_Agent_Organization.md#41-専門性と共有境界)には、既存の`Role ≠ Specialty ≠ Capability ≠ Authority`を変えず、個別ProjectのCRDD正本成果物、Role／Skill、Runtimeおよび協働接続面の責務を明確化した。これは新しい必須Role、Skill、成果物、固定フローまたは準拠条件ではなく、既存原則の`additive`な明確化である。
+
+利用側母集団として、AgentのRole／Authorityは`10_Agent.md`、Skillの成立性は`11_Skill.md`、品質状態は`16_Quality_Assurance.md`、自律Operationは`05_Autonomous_Operation.md`、準拠判定は`52_Conformance_Audit.md`の既存責務を維持するため本文変更不要と判定した。root／template `AGENTS.md`も、決定権限、専門判断、実行および監査の既存接続を変更しないため非該当である。新しい規範、移行または実装を追加しないため、`additive`、`migration_required=false`、現Runtime、v0.18.0 CandidateのRelease範囲およびT1～T2境界を維持する。
+
+本節と関連正本は監査前の`Reopened`状態である。更新固定版の全体Checker、文書、不足／影響、準拠、Security／ArchitectureおよびTest／UXの確認が完了するまで、確認済みまたはRelease準備完了へ昇格しない。

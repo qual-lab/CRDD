@@ -6,12 +6,13 @@ Version: v0.18.0
 Status: Candidate
 Released Baseline: v0.17.0
 Owner: Qual-Lab
-Last Updated: 2026-08-25
+Last Updated: 2026-08-28
 Related:
 - [01_Principles.md](01_Principles.md)
 - [02_Terminology.md](02_Terminology.md)
 - [05_Autonomous_Operation.md](05_Autonomous_Operation.md)
 - [10_Agent.md](10_Agent.md)
+- [11_Skill.md](11_Skill.md)
 - [16_Quality_Assurance.md](16_Quality_Assurance.md)
 - [51_Document_Audit.md](51_Document_Audit.md)
 - [52_Conformance_Audit.md](52_Conformance_Audit.md)
@@ -89,6 +90,14 @@ AIが有力案を提示し、実装し、独立レビューで`Pass`を返して
 実行者（Executor）という役割からリポジトリ変更の決定権限を推定しない。確認者（Reviewer）という役割から昇格の決定権限を推定しない。特定モデルまたはプロバイダーの名称から専門品質、独立性、能力または決定権限を推定しない。
 
 計画者（Planner）、実行者、確認者、調整役は有力な任意の役割であり、CRDD全体の基本役割や固定フローではない。一つの主体が複数責務を持てる場合も、どの責務を担ったかと、独立性が必要な責務を分ける。
+
+### 4.1. 専門性と共有境界
+
+個別ProjectのCRDD正本成果物は、要求、判断、制約、根拠その他のProject Truthを保持する。役割は責務を示し、Skillは専門実行を支援する手段である。Runtimeは明示されたAuthority内で実行し、MCP、API、UIその他の協働接続面は意図と結果を搬送する。接続面やRuntimeはProject TruthまたはAuthorityの正本にならない。
+
+専門能力を増やすときは、一つの万能なCoreへ個別機能を集積することを前提にしない。責務を分け、複数の役割から共有する必要がある意味または不変条件だけを、それを一意に所有できる共有境界へ置く。Role名、Skillの存在、接続可能性または出力内容は、専門性、能力、Identity、Authority、Credential、Capabilityまたは決定権限の成立証明ではない。
+
+これはCore変更の絶対禁止ではない。横断的なProject Truth、整合性、Authorityまたは安全上の不変条件を一意に所有できず、Role、Skill、Adapterその他の分離境界だけでは成立しないと根拠から確認された場合は、責務を持つ正本の変更候補へ戻す。具体的な専門領域の自己適用順序、製品構成および将来Versionは本書で固定しない。
 
 ---
 

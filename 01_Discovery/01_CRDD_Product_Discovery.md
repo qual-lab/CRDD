@@ -3,8 +3,8 @@
 工程規則: [`21_Discovery.md`](../21_Discovery.md)
 維持責任者: Qual-Lab
 項目の決定権限: Qual-Lab
-対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用した第2段階の改善意図および記録した将来Runtime Architecture候補
-現在状態: 項目別。§1～§6の上流工程強化と§7.3.1～§7.3.3の改善意図は`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補と§7.4～§7.8の個別研究候補は`Held / Unscheduled`
+対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用した第2段階の改善意図、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則
+現在状態: 項目別。§1～§6の上流工程強化、§7.3.1～§7.3.3の改善意図および§7.9の責務分離原則は`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補および§7.9の将来能力地平は`Held / Unscheduled`
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本と影響を再確認し、一つの変更意図として`CHG-*`を発行する。
 
@@ -318,5 +318,42 @@ Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。F
 - 各段階の開始時に、現行性、価値、実現性、費用、セキュリティ、プライバシー、決定権限、利用側、移行および人間判断を再確認する。
 - 段階番号または順序だけから、固定作業手順、前段の完全終了、実装着手、スキーマ、API、プロバイダー、課金、T3／T4強化、採用またはリリースを推定しない。
 - Remote Runtime、MCP内容、外部応答またはProvider OutputをAuthorityとして扱わず、Prompt InjectionやTool指示からEffect権限を生成しない。T1～T2のBaselineを超えるTrust Boundaryが必要になれば、Threat Model、変更分類および人間判断へ戻す。
+
+### 7.9. CRDD Version Evolutionと責務分離
+
+PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠から再評価する順序である。Versionは[`19_Maintenance.md`](../19_Maintenance.md#51-release-version-and-revision)が所有する公開差分、互換性および基準版の識別である。一つのPhaseが複数Versionにまたがることも、一つのVersionが個別に採用された複数Phaseの要素を含むこともある。Phase番号からVersionを、Version表示から収載、期限、互換性、Candidate状態またはReleaseを推定しない。
+
+次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。`CRDD v0.18.0 Candidate`以外は将来の能力地平（Capability Horizon）であり、Release targetの予約ではない。実現時の根拠と採用済み差分に応じ、別のVersionへ再割当できる。
+
+| 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
+|---|---|---|---|---|
+| CRDD v0.18.0 Candidate | MethodologyとCoordinator Runtime 1.0をCRDD自身へ適用し、工程接続、Architecture Traceability、システム結合試験、Repository構成および文書の意味可読性を成熟させる | 項目別。RuntimeとRelease準備は`In Progress`、採用済み第2段階改善は`Planned` | CHG-000015の完成固定、工程強化の自己適用、未終了CHGおよびRelease Readinessの確認 | 現在の未完了項目の完了、Stable化またはRelease |
+| CRDD v0.19.0（将来能力像） | MCP等の協働接続面、Repository Binding／Router、Runtime境界およびCRDDの機械利用性を自己適用し、v1能力到達性を評価するEcosystem dogfooding | `Held / Unscheduled` | v0.18.0の結果と、第2段階で得た最初の自己適用Evidenceを人間が再評価 | v0.19.0への収載予約、Release Candidate、専用PM Systemまたは実装許可 |
+| CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループをHuman × AI Organizationで成立させる | `Held / Unscheduled` | 協働接続面とEcosystem dogfoodingから、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
+| CRDD v1.x（将来能力像） | 単一ProjectのOperating Modelを保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |
+| CRDD v2.x（将来能力像） | 調整と最適化の観測範囲をProjectから複数Project／Organizationへ広げ、依存、優先順位、Capacity、Riskおよび投資判断へ根拠を提供する | `Held / Unscheduled` | 単一Project境界の成熟と、Organization Scopeの価値、情報、安全およびAuthority設計 | Project Authorityの上位継承、横断Effect、予算消費、優先順位変更、Provider起動または外部送信の自動認可 |
+| Future | Product、Development、Operationその他のOrganization Contextを接続し、人間がCodeからFeature、Project、Portfolio、Organizationへ扱う抽象度を上げる | `Held / Unscheduled` | 前段の実測と、人間が新しい責務境界を採用した時点 | One-Person Company OSの製品要件、Release計画または無制限のAI Authority |
+
+v2能力地平でも、Project単位のContext、Policy、Credential、Capability、Runtime State、Recoveryおよび費用を分離する。Organization Runtime候補は、明示委任されたProject、操作、期間および最小情報投影だけを扱う。横断最適化は既定で助言と計画候補に限り、Project Effectまたは費用を自動認可しない。情報分類、目的制限、保持、監査、競合解決および人間判断を実装前に設計する。
+
+専門性はAgent側、Project Truthは個別ProjectのCRDD正本成果物、実行はRuntime、協働接続面は意図と結果の搬送を担う。Project Management、QA、Planning、Architecture、Discoveryその他の能力が必要な場合は、まず既存Contextを整え、Role／Skillを持つAgentで隔離した自己適用を行う。具体的なPM機能、UI、Project Runtime統合等は不採用ではなく§7.4以降の研究候補であり、この能力投影から採用または実装許可を得ない。
+
+責務分離は、次の根拠駆動ループで評価する。
+
+```text
+既存Context + Role／Skillで自己適用
+  ↓
+不足、反復Finding、責務集中および失敗影響を観測
+  ↓
+安定した責務境界の候補を作る
+  ↓
+Authority、安全、Recoveryおよび互換性を契約と試験へ接続
+  ↓
+抽出、既存境界での保持またはCore変更候補を人間が判断
+  ↓
+再観測
+```
+
+Coreを太らせないことは、Core変更の絶対禁止ではない。複数のRole／Skillから共有すべきProject Truth、横断的不変条件、Authorityまたは整合性を一意に所有する必要があり、Role、SkillまたはAdapterでは安全に閉じないとEvidenceから確認された場合だけ、責務を持つ正本のCore変更候補へ戻す。候補化は採用、共通規則化、現Runtime変更またはRelease根拠への自動昇格ではなく、変更分類、利用側、互換性、移行、Recovery、必要な監査および人間判断を別途要求する。
 
 未解決事項は、第2段階で何を最小観測とするか、Qualシリーズの各Repositoryが同じプロジェクト正本へ接続できるか、第3段階以降の利用者価値と成立性、および各段階を独立した変更へ分ける境界である。次の再評価契機は、第1段階の完成固定版と、第2段階の最初の自己適用根拠である。
