@@ -36,6 +36,7 @@ test("production Recovery inventory形状はcleanだけをTask Admissionへ通�
         manualRecoveryRequired: true,
         dockerRecoveryId: one,
         dockerRecoveryIds: Object.freeze([one]),
+        activeStableLogicalHomeBindingHashes: Object.freeze(["1".repeat(64)]),
       }),
     ),
     {
@@ -53,6 +54,10 @@ test("production Recovery inventory形状はcleanだけをTask Admissionへ通�
         reason: "docker_task_multiple_recovery_inventory_available",
         manualRecoveryRequired: true,
         dockerRecoveryIds: Object.freeze(ids),
+        activeStableLogicalHomeBindingHashes: Object.freeze([
+          "1".repeat(64),
+          "4".repeat(64),
+        ]),
       }),
     ).dockerRecoveryIds,
     ids,
@@ -112,6 +117,7 @@ test("Recovery observation unknownと未登録理由は固定公開分類へ閉�
         manualRecoveryRequired: true,
         dockerRecoveryId: one,
         dockerRecoveryIds: [one],
+        activeStableLogicalHomeBindingHashes: ["1".repeat(64)],
       }),
     ),
     {

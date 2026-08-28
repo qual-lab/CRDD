@@ -67,43 +67,71 @@ function home(candidate: ReturnType<typeof plan>) {
   });
 }
 
-function setupBegunRecovery(rootPath: string) {
+async function setupBegunRecovery(rootPath: string) {
   const root = verifiedRoot(rootPath);
   const owned = createOwnedOperationDirectories();
   const context = createOwnedOperationContextCapability(owned);
   const mounts = createOwnedMountCapability(owned);
   const management = createOwnedOperationManagementCapability(context, mounts);
-  const operation = verifyOwnedOperationManagementCapability(management);
-  const hostRecoveryId =
-    getOwnedHostRecoveryIdByManagementCapability(management);
-  const hostMarker = loadHostRecoveryRecordByToken(hostRecoveryId).marker;
-  const candidate = plan(operation.operationId);
-  const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
-    candidate,
-    management,
-    home(candidate),
-    root,
-    () => root,
-  );
-  assert.ok(begun && begun.status === "ready");
-  assert.equal(recordRuntimeOwnedDockerAbsence(begun.recoveryCapability), true);
-  assert.equal(
-    recordRuntimeOwnedNormalMountCompletion(begun.recoveryCapability),
-    true,
-  );
-  return Object.freeze({
-    root,
-    owned,
-    management,
-    hostMarker,
-    hostRecoveryId,
-    recoveryId: begun.recoveryId,
-    recoveryCapability: begun.recoveryCapability,
-  });
+  let recoveryCapability: object | null = null;
+  try {
+    const operation = verifyOwnedOperationManagementCapability(management);
+    const hostRecoveryId =
+      getOwnedHostRecoveryIdByManagementCapability(management);
+    const hostMarker = loadHostRecoveryRecordByToken(hostRecoveryId).marker;
+    const candidate = plan(operation.operationId);
+    const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+      candidate,
+      management,
+      home(candidate),
+      root,
+      () => root,
+    );
+    assert.ok(begun && begun.status === "ready");
+    recoveryCapability = begun.recoveryCapability;
+    assert.equal(recordRuntimeOwnedDockerAbsence(recoveryCapability), true);
+    assert.equal(
+      recordRuntimeOwnedNormalMountCompletion(recoveryCapability),
+      true,
+    );
+    return Object.freeze({
+      root,
+      owned,
+      management,
+      hostMarker,
+      hostRecoveryId,
+      recoveryId: begun.recoveryId,
+      recoveryCapability,
+    });
+  } catch (error) {
+    if (recoveryCapability) {
+      try {
+        completeRuntimeOwnedDockerRecovery(recoveryCapability, management);
+      } catch {
+        // Continue exact fixture cleanup below.
+      }
+      try {
+        abandonRuntimeOwnedDockerRecovery(recoveryCapability);
+      } catch {
+        // Continue exact fixture cleanup below.
+      }
+    }
+    try {
+      await abandonOwnedHostOperationGenerationLock(management);
+    } catch {
+      // Continue exact fixture cleanup below.
+    }
+    try {
+      await cleanupOwnedOperationDirectoriesAsync(owned);
+    } catch {
+      // The parent test treats any remaining fixture state as a failure.
+    }
+    throw error;
+  }
 }
 
-function setupRecovery(rootPath: string) {
-  const setup = setupBegunRecovery(rootPath);
+async function setupRecovery(rootPath: string) {
+  const setup = await setupBegunRecovery(rootPath);
   assert.equal(
     completeRuntimeOwnedDockerRecovery(
       setup.recoveryCapability,
@@ -117,7 +145,7 @@ function setupRecovery(rootPath: string) {
 const [mode, rootPath, encodedRoot] = process.argv.slice(2);
 if (!mode || !rootPath) throw new Error("recovery_cleanup_probe_args_invalid");
 if (mode === "receipt-failure-setup") {
-  const setup = setupRecovery(rootPath);
+  const setup = await setupRecovery(rootPath);
   let handedOff = false;
   try {
     assert.equal(
@@ -125,10 +153,11 @@ if (mode === "receipt-failure-setup") {
       "string",
     );
     await cleanupOwnedOperationDirectoriesAsync(setup.owned);
-    fs.writeSync(
-      1,
+    const handoff = Buffer.from(
       `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, hostRecoveryId: setup.hostRecoveryId, setupPid: process.pid })}\n`,
+      "utf8",
     );
+    assert.equal(fs.writeSync(1, handoff), handoff.byteLength);
     handedOff = true;
   } finally {
     if (!handedOff) {
@@ -150,7 +179,7 @@ if (mode === "receipt-failure-setup") {
     }
   }
 } else if (mode === "active-deleted-pointer-setup") {
-  const setup = setupBegunRecovery(rootPath);
+  const setup = await setupBegunRecovery(rootPath);
   let handedOff = false;
   try {
     const activePath = fs
@@ -167,10 +196,11 @@ if (mode === "receipt-failure-setup") {
       fs.readdirSync(rootPath).some((name) => name.startsWith("active-lease-")),
       true,
     );
-    fs.writeSync(
-      1,
+    const handoff = Buffer.from(
       `${JSON.stringify({ recoveryId: setup.recoveryId, root: setup.root, hostRoot: setup.owned.root, hostMarker: setup.hostMarker, hostRecoveryId: setup.hostRecoveryId, setupPid: process.pid })}\n`,
+      "utf8",
     );
+    assert.equal(fs.writeSync(1, handoff), handoff.byteLength);
     handedOff = true;
   } finally {
     if (!handedOff) {

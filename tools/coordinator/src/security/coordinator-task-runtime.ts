@@ -23,7 +23,10 @@ import {
   prepareRuntimeOwnedDockerHostCleanup,
   recordRuntimeOwnedDockerHostCleanupReceipt,
 } from "./docker-recovery-runtime.ts";
-import { projectDockerRecoveryAdmission } from "./docker-recovery-public-projection.ts";
+import {
+  projectDockerRecoveryAdmission,
+  publicVerifiedDockerRecoveryId,
+} from "./docker-recovery-public-projection.ts";
 import {
   abandonOwnedHostOperationGenerationLock,
   activateOwnedHostOperationGenerationLock,
@@ -1015,7 +1018,7 @@ async function executeStage(
       operation.managementCapability,
       (recoveryCapability, recoveryId) => {
         const capability = objectCapability(recoveryCapability);
-        const id = stringValue(recoveryId);
+        const id = publicVerifiedDockerRecoveryId(recoveryId);
         if (
           !capability ||
           !id ||
@@ -1045,13 +1048,15 @@ async function executeStage(
         process.cleanupConfirmed !== true,
         process.cleanupConfirmed !== true ? operation.hostRecoveryId : null,
         process.cleanupConfirmed !== true
-          ? stringValue(process.recoveryId)
+          ? publicVerifiedDockerRecoveryId(process.recoveryId)
           : null,
       );
     }
     control.currentProcessControl = processControl;
     startedProcessControl = processControl;
-    startedDockerRecoveryId = stringValue(process.recoveryId);
+    startedDockerRecoveryId = publicVerifiedDockerRecoveryId(
+      process.recoveryId,
+    );
     if (control.cancellationRequested) {
       await state.dependencies.cancelProcess(
         processControl,
@@ -1080,7 +1085,7 @@ async function executeStage(
           result.cleanupConfirmed !== true,
           result.cleanupConfirmed !== true ? operation.hostRecoveryId : null,
           result.cleanupConfirmed !== true
-            ? stringValue(result.recoveryId)
+            ? publicVerifiedDockerRecoveryId(result.recoveryId)
             : null,
         ),
       });
@@ -1706,23 +1711,24 @@ async function runCoordinatorTask(
     !singularDescriptor ||
     !("value" in singularDescriptor) ||
     (singularDescriptor.value !== null &&
-      !stringValue(singularDescriptor.value)) ||
+      !publicVerifiedDockerRecoveryId(singularDescriptor.value)) ||
     !pluralDescriptor ||
     !("value" in pluralDescriptor) ||
     plural?.status !== "ok" ||
-    plural.value.some((value) => !stringValue(value)) ||
+    plural.value.some((value) => !publicVerifiedDockerRecoveryId(value)) ||
     new Set(plural.value).size !== plural.value.length;
   const observedIds = Object.freeze([
     ...new Set([
       ...(plural?.status === "ok"
         ? plural.value.filter(
-            (value): value is string => stringValue(value) !== null,
+            (value): value is string =>
+              publicVerifiedDockerRecoveryId(value) !== null,
           )
         : []),
       ...(singularDescriptor &&
       "value" in singularDescriptor &&
-      stringValue(singularDescriptor.value)
-        ? [String(singularDescriptor.value)]
+      publicVerifiedDockerRecoveryId(singularDescriptor.value)
+        ? [publicVerifiedDockerRecoveryId(singularDescriptor.value) as string]
         : []),
     ]),
   ]);

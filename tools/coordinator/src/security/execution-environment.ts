@@ -125,7 +125,7 @@ type HostRecoveryRecord = Readonly<{
   schema: "crdd-coordinator-host-recovery/v1";
   state: RecoveryState;
   rootName: string;
-  rootIdentity: SerializableIdentity;
+  rootIdentity: SerializableIdentity | null;
   childIdentities: Readonly<Record<string, HostRecordChild>>;
   createdAt: string;
 }>;
@@ -512,6 +512,22 @@ function errorMessage(error: unknown): string | null {
   return error instanceof Error ? error.message : ownString(error, "message");
 }
 
+function observeFilesystemEntry(
+  target: string,
+): "present" | "confirmed_absent" | "unknown" {
+  try {
+    fs.lstatSync(target);
+    return "present";
+  } catch (error) {
+    return errorCode(error) === "ENOENT" ? "confirmed_absent" : "unknown";
+  }
+}
+
+function requireConfirmedAbsent(target: string, reason: string): void {
+  if (observeFilesystemEntry(target) !== "confirmed_absent")
+    throw new Error(reason);
+}
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   if (!isObject(value)) return false;
   const prototype = Object.getPrototypeOf(value);
@@ -565,13 +581,23 @@ function normalizeHostRecoveryRecord(value: unknown): HostRecoveryRecord {
       ...normalizeSerializableIdentity(childValue),
     });
   }
+  const state = normalizeRecoveryState(ownValue(value, "state"));
+  const rootIdentityValue = ownValue(value, "rootIdentity");
+  const rootIdentity =
+    rootIdentityValue === null
+      ? null
+      : normalizeSerializableIdentity(rootIdentityValue);
+  if (
+    (state === "initializing" && rootIdentity !== null) ||
+    (state !== "initializing" && rootIdentity === null) ||
+    (state === "initializing" && Object.keys(childIdentities).length !== 0)
+  )
+    throw new Error("host_recovery_record_mismatch");
   return Object.freeze({
     schema,
-    state: normalizeRecoveryState(ownValue(value, "state")),
+    state,
     rootName,
-    rootIdentity: normalizeSerializableIdentity(
-      ownValue(value, "rootIdentity"),
-    ),
+    rootIdentity,
     childIdentities: Object.freeze(childIdentities),
     createdAt,
   });
@@ -744,6 +770,82 @@ function hostRecordContent(
   };
 }
 
+function writeInitializingHostRecoveryRecord(
+  target: string,
+  rootName: string,
+  nonce: string,
+  createdAt: string,
+): Readonly<{
+  recordHash: string;
+  recordIdentity: FilesystemIdentity;
+  token: string;
+}> {
+  const record: HostRecoveryRecord = Object.freeze({
+    schema: "crdd-coordinator-host-recovery/v1",
+    state: "initializing",
+    rootName,
+    rootIdentity: null,
+    childIdentities: Object.freeze({}),
+    createdAt,
+  });
+  const serialized = `${JSON.stringify(record)}\n`;
+  const recordHash = createHash("sha256").update(serialized).digest("hex");
+  let handle: number | null = null;
+  let recordIdentity: FilesystemIdentity | null = null;
+  try {
+    handle = fs.openSync(target, "wx", 0o600);
+    recordIdentity = readFileIdentity(target);
+    fs.writeFileSync(handle, serialized, "utf8");
+    fs.fsyncSync(handle);
+    fs.closeSync(handle);
+    handle = null;
+    if (
+      !sameFilesystemIdentity(readFileIdentity(target), recordIdentity) ||
+      fs.readFileSync(target, "utf8") !== serialized
+    )
+      throw new Error("host_recovery_record_replaced");
+  } catch (error) {
+    let cleanupConfirmed = recordIdentity !== null;
+    if (handle !== null) {
+      try {
+        fs.closeSync(handle);
+      } catch {
+        cleanupConfirmed = false;
+      }
+    }
+    if (recordIdentity) {
+      try {
+        const observation = observeFilesystemEntry(target);
+        if (observation === "present") {
+          if (!sameFilesystemIdentity(readFileIdentity(target), recordIdentity))
+            throw new Error("host_recovery_record_replaced");
+          fs.rmSync(target);
+        } else if (observation === "unknown") {
+          throw new Error("host_recovery_record_observation_unknown");
+        }
+        requireConfirmedAbsent(
+          target,
+          "host_recovery_record_cleanup_unconfirmed",
+        );
+      } catch {
+        cleanupConfirmed = false;
+      }
+    }
+    if (!cleanupConfirmed)
+      throw new Error("host_recovery_record_initialization_cleanup_unknown", {
+        cause: error,
+      });
+    throw error;
+  }
+  if (!recordIdentity)
+    throw new Error("host_recovery_record_identity_unavailable");
+  return Object.freeze({
+    recordHash,
+    recordIdentity,
+    token: `host.${rootName}.${nonce}.${recordHash}`,
+  });
+}
+
 function writeHostRecoveryRecord(
   owned: object,
   identity: OwnedIdentity,
@@ -754,16 +856,64 @@ function writeHostRecoveryRecord(
   const recordHash = createHash("sha256").update(serialized).digest("hex");
   const target = identity.hostRecovery.record;
   const temporary = `${target}.${randomUUID()}.tmp`;
-  const temporaryHandle = fs.openSync(temporary, "wx", 0o600);
+  let temporaryHandle: number | null = null;
+  let temporaryIdentity: FilesystemIdentity | null = null;
+  let renamed = false;
   try {
+    temporaryHandle = fs.openSync(temporary, "wx", 0o600);
+    temporaryIdentity = readFileIdentity(temporary);
     fs.writeFileSync(temporaryHandle, serialized, "utf8");
     fs.fsyncSync(temporaryHandle);
-  } finally {
     fs.closeSync(temporaryHandle);
+    temporaryHandle = null;
+    fs.renameSync(temporary, target);
+    renamed = true;
+    if (
+      !temporaryIdentity ||
+      !sameFilesystemIdentity(readFileIdentity(target), temporaryIdentity)
+    )
+      throw new Error("host_recovery_record_replaced");
+    if (fs.readFileSync(target, "utf8") !== serialized)
+      throw new Error("host_recovery_record_replaced");
+  } catch (error) {
+    let cleanupConfirmed = temporaryIdentity !== null;
+    if (temporaryHandle !== null) {
+      try {
+        fs.closeSync(temporaryHandle);
+      } catch {
+        cleanupConfirmed = false;
+      }
+    }
+    const cleanupTarget = renamed ? target : temporary;
+    if (temporaryIdentity) {
+      try {
+        const observation = observeFilesystemEntry(cleanupTarget);
+        if (observation === "present") {
+          if (
+            !sameFilesystemIdentity(
+              readFileIdentity(cleanupTarget),
+              temporaryIdentity,
+            )
+          )
+            throw new Error("host_recovery_record_replaced");
+          fs.rmSync(cleanupTarget);
+        } else if (observation === "unknown") {
+          throw new Error("host_recovery_record_observation_unknown");
+        }
+        requireConfirmedAbsent(
+          cleanupTarget,
+          "host_recovery_record_cleanup_unconfirmed",
+        );
+      } catch {
+        cleanupConfirmed = false;
+      }
+    }
+    if (!cleanupConfirmed)
+      throw new Error("host_recovery_record_initialization_cleanup_unknown", {
+        cause: error,
+      });
+    throw error;
   }
-  fs.renameSync(temporary, target);
-  if (fs.readFileSync(target, "utf8") !== serialized)
-    throw new Error("host_recovery_record_replaced");
   const updated = Object.freeze({
     ...identity,
     hostRecovery: Object.freeze({
@@ -801,24 +951,51 @@ export function createOwnedOperationDirectories(
   temporaryParent: string = os.tmpdir(),
 ): OwnedOperationDirectories {
   let parent: string | null = null;
+  let createdRoot: string | null = null;
+  let createdRootIdentity: FilesystemIdentity | null = null;
   let realRoot: string | null = null;
   let owned: OwnedOperationDirectories | null = null;
+  let initializingRecord: Readonly<{
+    path: string;
+    identity: FilesystemIdentity;
+    token: string;
+  }> | null = null;
   try {
     parent = fs.realpathSync(temporaryParent);
     const parentMetadata = fs.lstatSync(parent);
     if (!parentMetadata.isDirectory() || parentMetadata.isSymbolicLink()) {
       throw new Error("temporary_parent_must_be_real_directory");
     }
-    const root = fs.mkdtempSync(path.join(parent, OWNED_PREFIX));
-    realRoot = fs.realpathSync(root);
+    const recovery = ensureHostRecoveryDirectory(parent);
+    const nonce = randomUUID();
+    const rootName = `${OWNED_PREFIX}${nonce}`;
+    const createdAt = new Date().toISOString();
+    const recoveryRecord = path.join(
+      recovery.directory,
+      `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
+    );
+    const initializing = writeInitializingHostRecoveryRecord(
+      recoveryRecord,
+      rootName,
+      nonce,
+      createdAt,
+    );
+    initializingRecord = Object.freeze({
+      path: recoveryRecord,
+      identity: initializing.recordIdentity,
+      token: initializing.token,
+    });
+    const candidateRoot = path.join(parent, rootName);
+    fs.mkdirSync(candidateRoot);
+    createdRoot = candidateRoot;
+    createdRootIdentity = readFilesystemIdentity(createdRoot);
+    realRoot = fs.realpathSync(createdRoot);
     if (
       path.dirname(realRoot) !== parent ||
       !path.basename(realRoot).startsWith(OWNED_PREFIX)
     ) {
       throw new Error("owned_operation_directory_boundary_failed");
     }
-    const recovery = ensureHostRecoveryDirectory(parent);
-    const nonce = randomUUID();
     owned = {
       parent,
       root: realRoot,
@@ -833,18 +1010,15 @@ export function createOwnedOperationDirectories(
         root: realRoot,
         prefix: OWNED_PREFIX,
         filesystem: readFilesystemIdentity(realRoot),
-        createdAt: new Date().toISOString(),
+        createdAt,
         hostRecovery: Object.freeze({
           directory: recovery.directory,
           directoryIdentity: recovery.identity,
-          record: path.join(
-            recovery.directory,
-            `host-${createHash("sha256").update(nonce).digest("hex")}.json`,
-          ),
-          recordIdentity: null,
+          record: recoveryRecord,
+          recordIdentity: initializing.recordIdentity,
           nonce,
           state: "initializing",
-          recordHash: null,
+          recordHash: initializing.recordHash,
         }),
       }),
     );
@@ -896,28 +1070,54 @@ export function createOwnedOperationDirectories(
     registerOwnedOperationGeneration(owned, requireOwnedIdentity(owned));
     return owned;
   } catch (error) {
-    let cleanupConfirmed = realRoot === null;
+    let cleanupConfirmed = createdRoot === null;
     try {
       if (realRoot !== null && owned && ownedIdentity(owned)) {
         rollbackInitializingOperationDirectories(owned);
         cleanupConfirmed = true;
-      } else if (realRoot !== null && parent !== null) {
-        const metadata = fs.lstatSync(realRoot);
+      } else if (
+        createdRoot !== null &&
+        createdRootIdentity !== null &&
+        parent !== null
+      ) {
+        const metadata = fs.lstatSync(createdRoot);
         if (
           metadata.isSymbolicLink() ||
           !metadata.isDirectory() ||
-          fs.realpathSync(realRoot) !== realRoot ||
-          path.dirname(realRoot) !== parent ||
-          !path.basename(realRoot).startsWith(OWNED_PREFIX)
+          fs.realpathSync(createdRoot) !== createdRoot ||
+          path.dirname(createdRoot) !== parent ||
+          !path.basename(createdRoot).startsWith(OWNED_PREFIX) ||
+          !sameFilesystemIdentity(
+            readFilesystemIdentity(createdRoot),
+            createdRootIdentity,
+          )
         )
           throw new Error("owned_operation_directory_boundary_failed");
-        fs.rmSync(realRoot, { recursive: true, force: false });
-        try {
-          fs.lstatSync(realRoot);
-          throw new Error("owned_operation_directory_cleanup_incomplete");
-        } catch (observationError) {
-          if (errorCode(observationError) !== "ENOENT") throw observationError;
+        fs.rmSync(createdRoot, { recursive: true, force: false });
+        requireConfirmedAbsent(
+          createdRoot,
+          "owned_operation_directory_cleanup_incomplete",
+        );
+        cleanupConfirmed = true;
+      }
+      if (!owned && initializingRecord) {
+        const observation = observeFilesystemEntry(initializingRecord.path);
+        if (observation === "present") {
+          if (
+            !sameFilesystemIdentity(
+              readFileIdentity(initializingRecord.path),
+              initializingRecord.identity,
+            )
+          )
+            throw new Error("host_recovery_record_replaced");
+          fs.rmSync(initializingRecord.path);
+        } else if (observation === "unknown") {
+          throw new Error("host_recovery_record_observation_unknown");
         }
+        requireConfirmedAbsent(
+          initializingRecord.path,
+          "host_recovery_record_cleanup_unconfirmed",
+        );
         cleanupConfirmed = true;
       }
     } catch {
@@ -926,7 +1126,12 @@ export function createOwnedOperationDirectories(
     throwOwnedOperationDirectoryCreationFailure(error, {
       cleanupConfirmed,
       manualRecoveryRequired: !cleanupConfirmed,
-      hostRecoveryId: !cleanupConfirmed && owned ? owned.hostRecoveryId : null,
+      hostRecoveryId:
+        !cleanupConfirmed && owned
+          ? owned.hostRecoveryId
+          : !cleanupConfirmed
+            ? (initializingRecord?.token ?? null)
+            : null,
     });
   }
 }
@@ -1380,9 +1585,10 @@ export function confirmOwnedDockerAbsenceForRecovery(
   if (operationGenerationByRoot.has(root))
     throw new Error("host_recovery_generation_active");
   if (
-    !fs.existsSync(root) ||
+    observeFilesystemEntry(root) !== "present" ||
     fs.realpathSync(root) !== root ||
     path.dirname(root) !== loaded.parent ||
+    !loaded.record.rootIdentity ||
     !identityMatchesRecord(root, loaded.record.rootIdentity)
   )
     throw new Error("host_recovery_root_replaced");
@@ -1483,7 +1689,10 @@ function validatePrivateHostRecoveryRecord(
   ) {
     throw new Error("host_recovery_record_mismatch");
   }
-  if (!identityMatchesRecord(identity.root, record.rootIdentity))
+  if (
+    !record.rootIdentity ||
+    !identityMatchesRecord(identity.root, record.rootIdentity)
+  )
     throw new Error("host_recovery_record_mismatch");
   for (const [name, snapshot] of Object.entries(identity.children ?? {})) {
     const recorded = record.childIdentities?.[name];
@@ -1535,8 +1744,10 @@ function rollbackInitializingOperationDirectories(owned: unknown): void {
     }
   }
   fs.rmSync(realRoot, { recursive: true, force: false });
-  if (fs.existsSync(realRoot))
-    throw new Error("owned_operation_directory_cleanup_incomplete");
+  requireConfirmedAbsent(
+    realRoot,
+    "owned_operation_directory_cleanup_incomplete",
+  );
   if (isObject(owned)) {
     revokeOwnedOperationContextCapabilities(owned);
     ownedIdentities.delete(owned);
@@ -1545,6 +1756,7 @@ function rollbackInitializingOperationDirectories(owned: unknown): void {
     !revokeOwnedOperationGeneration(identity.root, identity.hostRecovery.nonce)
   )
     throw new Error("owned_operation_generation_release_unconfirmed");
+  removeOwnedOperationRecoveryRecord(identity);
 }
 
 export function createOwnedMountCapability(
@@ -1841,8 +2053,10 @@ function removeOwnedOperationRootForCleanup(owned: unknown) {
   }
   validatePrivateHostRecoveryRecord(identity, "host_only");
   fs.rmSync(identity.root, { recursive: true, force: false });
-  if (fs.existsSync(identity.root))
-    throw new Error("owned_operation_directory_cleanup_incomplete");
+  requireConfirmedAbsent(
+    identity.root,
+    "owned_operation_directory_cleanup_incomplete",
+  );
   return identity;
 }
 
@@ -1860,6 +2074,10 @@ function removeOwnedOperationRecoveryRecord(identity: OwnedIdentity) {
     if (!marker.isFile() || marker.isSymbolicLink())
       throw new Error("host_recovery_record_replaced");
     fs.rmSync(identity.hostRecovery.record);
+    requireConfirmedAbsent(
+      identity.hostRecovery.record,
+      "host_recovery_record_observation_unknown",
+    );
   } catch (error) {
     if (errorCode(error) !== "ENOENT") throw error;
   }
@@ -1962,7 +2180,11 @@ export function recoverOwnedOperationDirectories(
       verifiedRecoveryId = typeof token === "string" ? token : null;
       if (record.state === "docker_submission_started")
         throw new Error("host_recovery_requires_docker_absence");
-      if (!["host_only", "docker_absent_confirmed"].includes(record.state))
+      if (
+        !["initializing", "host_only", "docker_absent_confirmed"].includes(
+          record.state,
+        )
+      )
         throw new Error("host_recovery_state_invalid");
       const root = path.join(parent, parsed.rootName);
       recoveryGeneration = Object.freeze({ root, nonce: parsed.nonce });
@@ -1979,10 +2201,16 @@ export function recoverOwnedOperationDirectories(
       )
         throw new Error("host_recovery_generation_mismatch");
       let reason = "host_root_already_absent";
-      if (fs.existsSync(root)) {
+      const rootObservation = observeFilesystemEntry(root);
+      if (rootObservation === "unknown")
+        throw new Error("host_recovery_root_observation_unknown");
+      if (record.state === "initializing" && rootObservation === "present")
+        throw new Error("host_recovery_initialization_root_identity_unknown");
+      if (rootObservation === "present") {
         if (
           fs.realpathSync(root) !== root ||
           path.dirname(root) !== parent ||
+          !record.rootIdentity ||
           !identityMatchesRecord(root, record.rootIdentity)
         )
           throw new Error("host_recovery_root_replaced");
@@ -2011,8 +2239,7 @@ export function recoverOwnedOperationDirectories(
           }
         }
         fs.rmSync(root, { recursive: true, force: false });
-        if (fs.existsSync(root))
-          throw new Error("host_recovery_cleanup_incomplete");
+        requireConfirmedAbsent(root, "host_recovery_cleanup_incomplete");
         reason = "host_cleanup_recovered";
       }
       if (!revokeOwnedOperationGeneration(root, parsed.nonce))
@@ -2031,6 +2258,8 @@ export function recoverOwnedOperationDirectories(
         "host_recovery_child_replaced",
         "host_recovery_unknown_child",
         "host_recovery_cleanup_incomplete",
+        "host_recovery_root_observation_unknown",
+        "host_recovery_initialization_root_identity_unknown",
         "host_recovery_generation_mismatch",
         "host_recovery_generation_active",
         "host_recovery_generation_release_unconfirmed",
@@ -2066,11 +2295,20 @@ export function recoverOwnedOperationDirectories(
     };
   if (result.status === "recovered" && markerPendingAfterRelease) {
     try {
-      if (fs.existsSync(markerPendingAfterRelease)) {
+      const markerObservation = observeFilesystemEntry(
+        markerPendingAfterRelease,
+      );
+      if (markerObservation === "unknown")
+        throw new Error("host_recovery_record_observation_unknown");
+      if (markerObservation === "present") {
         const loaded = loadHostRecoveryRecord(token);
         if (loaded.marker !== markerPendingAfterRelease)
           throw new Error("host_recovery_record_replaced");
         fs.rmSync(markerPendingAfterRelease);
+        requireConfirmedAbsent(
+          markerPendingAfterRelease,
+          "host_recovery_record_observation_unknown",
+        );
       }
     } catch {
       return {

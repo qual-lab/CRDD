@@ -116,7 +116,7 @@ function createFixture(
     },
     beginRecovery: () =>
       Object.freeze({
-        recoveryId: "docker.runtime.RECOVERY-123456",
+        recoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
         recoveryCapability,
       }),
     startCommand: (command: { purpose: string }) => {
@@ -476,7 +476,10 @@ test("cleanup不明なら成功出力を破棄しmanual Recoveryへ閉じる", a
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "docker_process_controller_cleanup_unconfirmed");
   assert.equal(result.manualRecoveryRequired, true);
-  assert.equal(result.recoveryId, "docker.runtime.RECOVERY-123456");
+  assert.equal(
+    result.recoveryId,
+    `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+  );
   assert.equal(result.resultSha256, null);
   assert.equal(result.resultBytes, 0);
   assert.equal(result.normalizedResult, null);
@@ -593,6 +596,51 @@ test("Recovery記録前と偽造production CapabilityはDocker Effectを開始�
     (await cancelRuntimeOwnedDockerProcessController({}, {})).status,
     "blocked",
   );
+});
+
+test("Recovery開始成功形でもexact ID・Home binding・Capability不一致はEffect 0へ閉じる", () => {
+  const cases = [
+    Object.freeze({
+      recoveryId: "docker-task.invalid",
+      recoveryCapability: Object.freeze({}),
+      abandonExpected: 1,
+    }),
+    Object.freeze({
+      recoveryId: `docker-task.${"a".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+      recoveryCapability: Object.freeze({}),
+      abandonExpected: 1,
+    }),
+    Object.freeze({
+      recoveryId: `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+      recoveryCapability: null,
+      abandonExpected: 0,
+    }),
+  ] as const;
+
+  for (const recovery of cases) {
+    let abandonCount = 0;
+    const fixture = createFixture({
+      beginRecovery: () => recovery,
+      abandonRecovery: () => {
+        abandonCount += 1;
+        return true;
+      },
+    });
+    const blocked = fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    );
+    assert.equal(blocked.status, "blocked");
+    assert.equal(
+      blocked.reason,
+      "docker_process_controller_recovery_identity_invalid",
+    );
+    assert.equal(blocked.dockerEffectStarted, false);
+    assert.equal(blocked.recoveryId, null);
+    assert.equal(fixture.getCommandCount(), 0);
+    assert.equal(fixture.getMountCompletionCount(), 1);
+    assert.equal(abandonCount, recovery.abandonExpected);
+  }
 });
 
 test("Recovery開始失敗は秘密を含まない固定分類で公開する", () => {

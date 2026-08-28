@@ -26,6 +26,7 @@ import {
   publicDockerRecoveryStartReason,
   publicVerifiedDockerRecoveryId,
 } from "./docker-recovery-public-projection.ts";
+import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
@@ -686,18 +687,40 @@ function start(
       recovery?.manualRecoveryRequired === true,
     );
   }
+  const parsedRecoveryId = parseDockerTaskRecoveryId(recovery.recoveryId);
+  if (
+    !parsedRecoveryId ||
+    parsedRecoveryId.stableLogicalHomeBindingHash !==
+      plan.stableLogicalHomeBindingHash ||
+    !recovery.recoveryCapability ||
+    typeof recovery.recoveryCapability !== "object"
+  ) {
+    if (
+      recovery.recoveryCapability &&
+      typeof recovery.recoveryCapability === "object"
+    )
+      void state.dependencies.abandonRecovery?.(recovery.recoveryCapability);
+    const completed = state.dependencies.completeMount(
+      plan.activeMountCapability,
+      managementCapability,
+    );
+    return createBlockedStart(
+      "docker_process_controller_recovery_identity_invalid",
+      completed.status === "completed",
+    );
+  }
   if (
     typeof registerRecoveryHandoff !== "function" ||
     registerRecoveryHandoff(
       recovery.recoveryCapability,
-      recovery.recoveryId,
+      parsedRecoveryId.token,
     ) !== true
   ) {
     void state.dependencies.abandonRecovery?.(recovery.recoveryCapability);
     return createBlockedStart(
       "docker_process_controller_recovery_handoff_unavailable",
       false,
-      recovery.recoveryId,
+      parsedRecoveryId.token,
     );
   }
   const controlCapability = Object.freeze({});
@@ -718,7 +741,7 @@ function start(
     controlCapability,
     completion,
     operationId: plan.operationId,
-    recoveryId: recovery.recoveryId,
+    recoveryId: parsedRecoveryId.token,
     dockerEffectStarted: true,
     providerRequestStarted: false,
     rawOutputReported: false,

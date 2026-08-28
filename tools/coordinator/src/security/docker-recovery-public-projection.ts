@@ -86,6 +86,15 @@ const RECOVERY_START_REASON_CLASS = new Map<string, string>([
       ] as const,
   ),
 ]);
+const INVENTORY_REASONS = new Set([
+  "docker_task_recovery_inventory_available",
+  "docker_task_multiple_recovery_inventory_available",
+]);
+const BLOCKED_REASONS_WITH_INVENTORY = new Set([
+  "docker_task_recovery_home_lock_release_unconfirmed",
+  "docker_task_recovery_host_lock_release_unconfirmed",
+  "docker_task_runtime_state_lock_release_unconfirmed",
+]);
 
 export function publicDockerRecoveryStartReason(reason: unknown) {
   if (typeof reason === "string") {
@@ -147,6 +156,7 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
     hashValues !== null &&
     idsUnique &&
     hashesUnique &&
+    hashValues.length === stableHashes.size &&
     hashValues.every((value) => stableHashes.has(value)) &&
     (observation.status === "completed" || observation.status === "blocked") &&
     typeof observation.reason === "string" &&
@@ -183,7 +193,10 @@ export function projectDockerRecoveryAdmission(rawObservation: unknown) {
   const blockedShape =
     observation.status === "blocked" &&
     observation.manualRecoveryRequired === true &&
-    RECOVERY_START_REASON_CLASS.has(observation.reason);
+    RECOVERY_START_REASON_CLASS.has(observation.reason) &&
+    (ids.length === 0
+      ? !INVENTORY_REASONS.has(observation.reason)
+      : BLOCKED_REASONS_WITH_INVENTORY.has(observation.reason));
   const inventoryShape =
     observation.status === "completed" &&
     observation.manualRecoveryRequired === true &&

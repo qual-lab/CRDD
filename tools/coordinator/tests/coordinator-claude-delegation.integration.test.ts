@@ -224,7 +224,7 @@ test("Codex frontから選定理由付きClaude委譲をcleanup済みResultま�
       adapter.consumeForProcessController(candidate, management),
     beginRecovery: () =>
       Object.freeze({
-        recoveryId: "docker.runtime.RECOVERY-123456",
+        recoveryId: `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`,
         recoveryCapability,
       }),
     startCommand: (command) => {

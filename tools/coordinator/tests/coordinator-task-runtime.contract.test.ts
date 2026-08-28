@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,6 +14,7 @@ import {
 } from "../src/security/coordinator-task-runtime.ts";
 import { inspectRepositoryObjectFormatCandidate } from "../src/security/repository-operation-runtime.ts";
 import {
+  assertRuntimeTraceExecutionCoverage,
   assertRuntimeTraceCase,
   getRuntimeTraceCase,
   type RuntimeTraceCase,
@@ -28,6 +30,11 @@ type TraceSnapshot = Readonly<{
 
 const ADMISSION_RECOVERY_ONE = `docker-task.${"a".repeat(64)}.${"b".repeat(64)}.${"c".repeat(64)}`;
 const ADMISSION_RECOVERY_TWO = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
+
+function fixtureDockerRecoveryId(label: string) {
+  const digest = createHash("sha256").update(label).digest("hex");
+  return `docker-task.${digest}.${"1".repeat(64)}.${"2".repeat(64)}`;
+}
 
 const TRANSITION_BY_EDGE = new Map<string, string>([
   [
@@ -267,10 +274,10 @@ const TASK_TRACE_ASSERTIONS: Readonly<
 const EXECUTED_TASK_TRACE_CASES = new Set<string>();
 
 function assertExactTaskTraceExecutionCoverage(executed: ReadonlySet<string>) {
-  assert.deepEqual(
-    [...executed].sort(),
-    Object.keys(TASK_TRACE_ASSERTIONS).sort(),
-    "canonical Task Trace case execution mismatch",
+  assertRuntimeTraceExecutionCoverage(
+    "tools/coordinator/tests/coordinator-task-runtime.contract.test.ts",
+    Object.keys(TASK_TRACE_ASSERTIONS),
+    executed,
   );
 }
 
@@ -638,7 +645,9 @@ function fixture(
         reason,
         dockerRecoveryId: ids.length === 1 ? ids[0] : null,
         dockerRecoveryIds: Object.freeze(ids),
-        activeStableLogicalHomeBindingHashes: Object.freeze([]),
+        activeStableLogicalHomeBindingHashes: Object.freeze([
+          ...new Set(ids.map((id) => id.split(".")[1] as string)),
+        ]),
         manualRecoveryRequired: true,
       });
     },
@@ -952,14 +961,16 @@ function fixture(
           status: "blocked",
           reason: "fixture_start_failed",
           cleanupConfirmed: false,
-          recoveryId: `docker.fixture.${role}.start`,
+          recoveryId: fixtureDockerRecoveryId(`${role}.start`),
         });
       }
       const reviewerDecision = options.reviewerDecision ?? "approved";
       const recoveryCapability = Object.freeze({ role });
       const processCount = (processCounts.get(role) ?? 0) + 1;
       processCounts.set(role, processCount);
-      const activeRecoveryId = `docker.fixture.${role}.active${processCount === 1 ? "" : `-${processCount}`}`;
+      const activeRecoveryId = fixtureDockerRecoveryId(
+        `${role}.active${processCount === 1 ? "" : `-${processCount}`}`,
+      );
       assert.equal(
         registerRecoveryHandoff(recoveryCapability, activeRecoveryId),
         true,
@@ -987,7 +998,7 @@ function fixture(
           cleanupFails && options.processFailureRecoveryMode === "empty"
             ? ""
             : cleanupFails && options.processFailureRecoveryMode === "foreign"
-              ? "docker.fixture.foreign"
+              ? fixtureDockerRecoveryId("foreign")
               : cleanupFails
                 ? activeRecoveryId
                 : null,
@@ -1645,8 +1656,8 @@ test("managed handoffとraw Docker IDの混在はHost cleanup前に全件保持�
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.deepEqual(result.dockerRecoveryIds, [
-    "docker.fixture.reviewer.start",
-    "docker.fixture.executor.active",
+    fixtureDockerRecoveryId("reviewer.start"),
+    fixtureDockerRecoveryId("executor.active"),
   ]);
   assert.equal(harness.cleanupCount(), 0);
   assert.equal(harness.events.includes("docker-host-cleanup-intent"), false);
@@ -1660,7 +1671,7 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
         processCleanupFailureRole: "executor",
         processFailureRecoveryMode: "missing",
       }),
-      expected: ["docker.fixture.executor.active"],
+      expected: [fixtureDockerRecoveryId("executor.active")],
     },
     {
       harness: fixture({
@@ -1669,8 +1680,8 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
         processFailureRecoveryMode: "empty",
       }),
       expected: [
-        "docker.fixture.executor.active",
-        "docker.fixture.reviewer.active",
+        fixtureDockerRecoveryId("executor.active"),
+        fixtureDockerRecoveryId("reviewer.active"),
       ],
     },
     {
@@ -1683,10 +1694,10 @@ test("各Stageのraw Docker欠落・empty・foreignは表示補完前にcleanup 
         processFailureRecoveryMode: "foreign",
       }),
       expected: [
-        "docker.fixture.foreign",
-        "docker.fixture.executor.active",
-        "docker.fixture.reviewer.active",
-        "docker.fixture.executor.active-2",
+        fixtureDockerRecoveryId("foreign"),
+        fixtureDockerRecoveryId("executor.active"),
+        fixtureDockerRecoveryId("reviewer.active"),
+        fixtureDockerRecoveryId("executor.active-2"),
       ],
     },
   ];
@@ -1719,10 +1730,13 @@ test("複数Docker intentの途中失敗はHost cleanupへ進まず未解決集�
     "coordinator_task_host_cleanup_intent_unconfirmed",
   );
   assert.equal(result.hostRecoveryId, "host.fixture.cleanup.intent");
-  assert.deepEqual([...result.dockerRecoveryIds].sort(), [
-    "docker.fixture.executor.active",
-    "docker.fixture.reviewer.active",
-  ]);
+  assert.deepEqual(
+    [...result.dockerRecoveryIds].sort(),
+    [
+      fixtureDockerRecoveryId("executor.active"),
+      fixtureDockerRecoveryId("reviewer.active"),
+    ].sort(),
+  );
   assert.equal(harness.cleanupCount(), 0);
   assert.equal(
     harness.events.filter((event) => event === "docker-host-cleanup-intent")
@@ -1744,9 +1758,12 @@ test("先にfinalize済みのDocker IDを後続finalize失敗の未解決集合�
     "coordinator_task_docker_recovery_finalization_unconfirmed",
   );
   assert.deepEqual(result.dockerRecoveryIds, [
-    "docker.fixture.reviewer.active",
+    fixtureDockerRecoveryId("reviewer.active"),
   ]);
-  assert.equal(result.dockerRecoveryId, "docker.fixture.reviewer.active");
+  assert.equal(
+    result.dockerRecoveryId,
+    fixtureDockerRecoveryId("reviewer.active"),
+  );
   assert.equal(result.hostRecoveryId, null);
   assert.equal(harness.abandonOperationCount(), 0);
 });
@@ -1765,8 +1782,8 @@ test("Host cleanup後のDocker receipt失敗は無効なHost IDを再公開し�
   );
   assert.equal(result.hostRecoveryId, null);
   assert.deepEqual(result.dockerRecoveryIds, [
-    "docker.fixture.executor.active",
-    "docker.fixture.reviewer.active",
+    fixtureDockerRecoveryId("executor.active"),
+    fixtureDockerRecoveryId("reviewer.active"),
   ]);
   assert.equal(harness.abandonOperationCount(), 0);
 });
@@ -2219,7 +2236,10 @@ test("Provider completion rejectは取消を試みOperation RootをRecovery用�
   );
   assert.equal(result.manualRecoveryRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
-  assert.equal(result.dockerRecoveryId, "docker.fixture.executor.active");
+  assert.equal(
+    result.dockerRecoveryId,
+    fixtureDockerRecoveryId("executor.active"),
+  );
   assert.equal(harness.cleanupCount(), 0);
 });
 
@@ -2227,15 +2247,15 @@ test("Provider start／completion cleanup不明はHostとDockerのRecovery IDを
   for (const [options, expectedIds] of [
     [
       { processStartFailureRole: "executor" as const },
-      ["docker.fixture.executor.start"],
+      [fixtureDockerRecoveryId("executor.start")],
     ],
     [
       { processCleanupFailureRole: "executor" as const },
-      ["docker.fixture.executor.active"],
+      [fixtureDockerRecoveryId("executor.active")],
     ],
     [
       { processCleanupFailureRole: "reviewer" as const },
-      ["docker.fixture.reviewer.active"],
+      [fixtureDockerRecoveryId("reviewer.active")],
     ],
   ] as const) {
     const harness = fixture(options);
@@ -2390,8 +2410,8 @@ test("取消protocol failureと資源cleanup unknownは依存順を守り全acti
   assert.equal(result.processRestartRequired, true);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.deepEqual(result.dockerRecoveryIds, [
-    "docker.fixture.executor.active",
-    "docker.fixture.reviewer.active",
+    fixtureDockerRecoveryId("executor.active"),
+    fixtureDockerRecoveryId("reviewer.active"),
   ]);
   assert.equal(result.candidateRecoveryId, null);
   assert.equal(result.candidateStoreRecoveryId, null);
@@ -2493,7 +2513,7 @@ test("Host confirmedとProvider cleanup unknownの合成は全actionable Recover
   assert.equal(result.cleanupConfirmed, false);
   assert.equal(result.hostRecoveryId, "host.fixture.recovery.record");
   assert.deepEqual(result.dockerRecoveryIds, [
-    "docker.fixture.executor.active",
+    fixtureDockerRecoveryId("executor.active"),
   ]);
   assert.equal(result.processRestartRequired, true);
   assert.ok(harness.poisonProcessCount() >= 1);
@@ -3349,26 +3369,31 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
 });
 
 test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投影する", async () => {
-  for (const [internalReason, publicReason] of [
+  for (const [internalReason, publicReason, preservesId] of [
     [
       "docker_task_recovery_inventory_available",
       "docker_process_controller_recovery_conflict",
+      true,
     ],
     [
       "docker_task_runtime_state_pending_incomplete",
-      "docker_process_controller_recovery_partial_state",
+      "docker_process_controller_recovery_unavailable",
+      false,
     ],
     [
       "docker_task_runtime_state_binding_changed",
-      "docker_process_controller_recovery_identity_mismatch",
+      "docker_process_controller_recovery_unavailable",
+      false,
     ],
     [
       "docker_task_runtime_state_lock_release_unconfirmed",
       "docker_process_controller_recovery_observation_unknown",
+      true,
     ],
     [
       "caller-controlled-secret",
       "docker_process_controller_recovery_unavailable",
+      false,
     ],
   ] as const) {
     const harness = fixture({
@@ -3385,9 +3410,7 @@ test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投�
     assert.equal(result.manualRecoveryRequired, true);
     assert.equal(
       result.dockerRecoveryId,
-      internalReason === "caller-controlled-secret"
-        ? null
-        : ADMISSION_RECOVERY_ONE,
+      preservesId ? ADMISSION_RECOVERY_ONE : null,
     );
     assert.equal(harness.operationCreateCount(), 0);
     assert.equal(harness.processStartCount(), 0);
@@ -3418,6 +3441,15 @@ test("Canonical Task Trace全caseはregistry存在だけでなく実scenarioか�
   missing.delete("CASE-NORMAL-OPERATION-ACQUIRING-TO-READY");
   assert.throws(
     () => assertExactTaskTraceExecutionCoverage(missing),
-    /canonical Task Trace case execution mismatch/u,
+    /trace execution mismatch/u,
+  );
+  assert.throws(() =>
+    assertRuntimeTraceExecutionCoverage(
+      "tools/coordinator/tests/coordinator-task-runtime.contract.test.ts",
+      Object.keys(TASK_TRACE_ASSERTIONS).filter(
+        (id) => id !== "CASE-NORMAL-OPERATION-ACQUIRING-TO-READY",
+      ),
+      EXECUTED_TASK_TRACE_CASES,
+    ),
   );
 });

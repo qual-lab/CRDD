@@ -26,7 +26,10 @@ const runtimeTrace = JSON.parse(
   ),
 ) as {
   effectObservationScope: string;
-  verificationBindings: Array<{ cases: RuntimeTraceCase[] }>;
+  verificationBindings: Array<{
+    testPath: string;
+    cases: RuntimeTraceCase[];
+  }>;
 };
 const traceCases = new Map(
   runtimeTrace.verificationBindings.flatMap((binding) =>
@@ -38,6 +41,29 @@ export function getRuntimeTraceCase(caseId: string) {
   const candidate = traceCases.get(caseId);
   assert.ok(candidate, `missing canonical trace case: ${caseId}`);
   return candidate;
+}
+
+export function getRuntimeTraceCaseIdsForTestPath(testPath: string) {
+  return Object.freeze(
+    runtimeTrace.verificationBindings
+      .filter((binding) => binding.testPath === testPath)
+      .flatMap((binding) => binding.cases.map((candidate) => candidate.id))
+      .sort(),
+  );
+}
+
+export function assertRuntimeTraceExecutionCoverage(
+  testPath: string,
+  registered: readonly string[],
+  executed: ReadonlySet<string>,
+) {
+  const canonical = getRuntimeTraceCaseIdsForTestPath(testPath);
+  assert.deepEqual(
+    [...registered].sort(),
+    canonical,
+    "trace registry mismatch",
+  );
+  assert.deepEqual([...executed].sort(), canonical, "trace execution mismatch");
 }
 
 export function assertRuntimeTraceCase(

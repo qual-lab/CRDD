@@ -73,6 +73,8 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 
 上表は公開CLIを含むArchitecture上の10資源を示す。現在の機械可読Task Traceが直接観測するのは`RES-CLI-SIGNAL-BINDING`を除く9資源である。CLI signal bindingは公開CLI縦結合が成立した時点で`public_cli`境界として追加し、Task Runtime fixtureから観測済みとみなさない。
 
+Host Operation Rootの初期化は、Root生成前に`state=initializing`、選定済みnonceおよびroot名を耐久Host Recovery recordへ確定してから行う。Root生成前にProcessが失われた場合は、同じrecordからRoot不存在を確認してmarkerを回収できる。Root生成後かつFilesystem Identity確定前にProcessが失われた場合は、所有Identityを推測して削除せず、exact recordとRootを保持して手動Recoveryへ移送する。Root、marker、一時領域およびRecovery recordの全てについてIdentityと終了後条件を確認できた場合だけ`host_only`以降へ進み、Task成功またはclean blockedへ昇格する。
+
 ## 5. Lock順序と解放窓
 
 通常TaskとHost状態を扱う明示Recoveryは、次の順序を守る。
@@ -107,6 +109,8 @@ Runtime State lockを保持したまま、native observation、Docker CLIまた�
 | commitだけ存在 | 異常 | Evidence保持、処置0 |
 | content／commit不一致 | 異常 | Evidence保持、処置0 |
 | replacement／link／unknown entry | 異常 | Evidence保持、処置0 |
+
+Host Recoveryの`initializing` recordは、Root生成より前に耐久化する初期化intentである。Rootが不存在なら未発行Effectとしてmarkerを回収できる。Rootが存在してもrecordにIdentityがまだ確定していない場合は、名前やnonceの一致だけを所有証明にせず、Rootとrecordを保持して`STATE-RECOVERY-REQUIRED`へ進む。
 
 Host側`active-docker-task-v1.json`のcontent-only状態は、同期的なcommit sidecar確定より前、かつHost generation Effectより前の到達可能中間状態である。明示Recoveryは、同一Lock内でHostがprevious世代、全submission不存在、baseが完全一致し、committed pointerのschema／stable Home／operation name／Recovery ID／base hashが完全一致し、active bindingのschema／Recovery ID／base hash／operation nonceが完全一致し、active commit sidecarが不存在の場合だけ当該contentをrollbackする。通常完了、通常receipt replay、crash receipt replay、Effect前rollbackおよびfresh crash recoveryの全削除経路は、同じactive binding／pointer閉包を削除前に検証する。存在観測は`ENOENT`だけを不存在へ写像し、権限拒否、共有競合、I/O失敗、非fileまたはsymlinkを観測不能として扱う。削除後のactive binding、pointer、commit sidecar、complete receiptおよびHost inventoryも同じ規則で再観測し、観測不能ならanchorとEvidenceを保持したまま`STATE-RECOVERY-REQUIRED`を維持する。active bindingが存在するのにpointerが欠落・partial・置換、不一致または観測不能なら、どちらも削除しない。active bindingが既に不存在でexact committed pointerだけが残る非対称状態は、pointerの完全一致を確認して再開できる。
 
