@@ -687,6 +687,33 @@ function readOpenFileIdentity(handle: number): FilesystemIdentity {
   });
 }
 
+function exactHostRecoveryTokenFromMarker(
+  target: string,
+  expectedRootName: string,
+  nonce: string,
+): string | null {
+  try {
+    if (observeFilesystemEntry(target) !== "present") return null;
+    const firstIdentity = readFileIdentity(target);
+    const firstSerialized = fs.readFileSync(target, "utf8");
+    const record = normalizeHostRecoveryRecord(JSON.parse(firstSerialized));
+    if (record.rootName !== expectedRootName) return null;
+    const secondIdentity = readFileIdentity(target);
+    const secondSerialized = fs.readFileSync(target, "utf8");
+    if (
+      !sameFilesystemIdentity(firstIdentity, secondIdentity) ||
+      firstSerialized !== secondSerialized
+    )
+      return null;
+    const recordHash = createHash("sha256")
+      .update(firstSerialized)
+      .digest("hex");
+    return `host.${expectedRootName}.${nonce}.${recordHash}`;
+  } catch {
+    return null;
+  }
+}
+
 function sameFilesystemIdentity(
   left: FilesystemIdentity,
   right: FilesystemIdentity,
@@ -924,7 +951,11 @@ function writeInitializingHostRecoveryRecord(
     if (!cleanupConfirmed || !handleSettled)
       throwHostRecoveryInitializationFailure(error, {
         cleanupConfirmed: false,
-        hostRecoveryId: token,
+        hostRecoveryId: exactHostRecoveryTokenFromMarker(
+          target,
+          rootName,
+          nonce,
+        ),
       });
     throw error;
   }
@@ -1005,10 +1036,20 @@ function writeHostRecoveryRecord(
         cleanupConfirmed = false;
       }
     }
-    if (!cleanupConfirmed || !handleSettled)
+    const retainedRecoveryId = exactHostRecoveryTokenFromMarker(
+      target,
+      path.basename(identity.root),
+      identity.hostRecovery.nonce,
+    );
+    const originalRecoveryId = expectedHostRecoveryToken(identity);
+    if (
+      !cleanupConfirmed ||
+      !handleSettled ||
+      retainedRecoveryId !== originalRecoveryId
+    )
       throwHostRecoveryInitializationFailure(error, {
         cleanupConfirmed: false,
-        hostRecoveryId: expectedHostRecoveryToken(identity),
+        hostRecoveryId: retainedRecoveryId,
       });
     throw error;
   }
@@ -1233,12 +1274,16 @@ export function createOwnedOperationDirectories(
     }
     cleanupConfirmed =
       cleanupConfirmed && rootCleanupConfirmed && markerCleanupConfirmed;
-    const retainedRecoveryId =
-      nestedFailure?.hostRecoveryId ??
-      initializingRecord?.token ??
-      (owned && ownedIdentity(owned)
-        ? expectedHostRecoveryToken(requireOwnedIdentity(owned))
-        : null);
+    const retainedRecoveryId = nestedFailure
+      ? nestedFailure.hostRecoveryId
+      : (initializingRecord?.token ??
+        (owned && ownedIdentity(owned)
+          ? exactHostRecoveryTokenFromMarker(
+              requireOwnedIdentity(owned).hostRecovery.record,
+              path.basename(requireOwnedIdentity(owned).root),
+              requireOwnedIdentity(owned).hostRecovery.nonce,
+            )
+          : null));
     throwOwnedOperationDirectoryCreationFailure(error, {
       cleanupConfirmed,
       manualRecoveryRequired: !cleanupConfirmed,

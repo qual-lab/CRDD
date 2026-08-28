@@ -619,15 +619,15 @@ test("Recovery開始成功形でもexact ID・Home binding・Capability不一致
       recoveryCapability: Object.freeze({}),
       abandonExpected: 1,
       expectedRecoveryId: null,
-      expectedCleanupConfirmed: true,
+      expectedCleanupConfirmed: false,
     }),
     Object.freeze({
       status: "ready" as const,
       recoveryId: `docker-task.${"a".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
       recoveryCapability: Object.freeze({}),
       abandonExpected: 1,
-      expectedRecoveryId: null,
-      expectedCleanupConfirmed: true,
+      expectedRecoveryId: `docker-task.${"a".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`,
+      expectedCleanupConfirmed: false,
     }),
     Object.freeze({
       status: "ready" as const,
@@ -670,7 +670,7 @@ test("Recovery開始成功形でもexact ID・Home binding・Capability不一致
   }
 });
 
-test("Recovery成功unionはready exact形とopaque bindingを必須にする", () => {
+test("Recovery成功unionはready exact形とopaque bindingを必須にしdurable IDを保持する", () => {
   const exactId = `docker-task.${"d".repeat(64)}.${"e".repeat(64)}.${"f".repeat(64)}`;
   for (const malformed of [
     Object.freeze({
@@ -707,9 +707,9 @@ test("Recovery成功unionはready exact形とopaque bindingを必須にする", 
       blocked.reason,
       "docker_process_controller_recovery_identity_invalid",
     );
-    assert.equal(blocked.cleanupConfirmed, true);
-    assert.equal(blocked.manualRecoveryRequired, false);
-    assert.equal(blocked.recoveryId, null);
+    assert.equal(blocked.cleanupConfirmed, false);
+    assert.equal(blocked.manualRecoveryRequired, true);
+    assert.equal(blocked.recoveryId, exactId);
     assert.equal(fixture.getCommandCount(), 0);
     assert.equal(abandonCount, 1);
   }

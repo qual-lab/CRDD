@@ -268,32 +268,18 @@ function settleInvalidRecoveryStart(
   recoveryId: string | null,
   reason: string,
 ) {
-  let recoveryAbandoned = false;
   if (recoveryCapability && typeof recoveryCapability === "object") {
     try {
-      recoveryAbandoned =
-        state.dependencies.abandonRecovery?.(recoveryCapability) === true;
-    } catch {
-      recoveryAbandoned = false;
-    }
+      state.dependencies.abandonRecovery?.(recoveryCapability);
+    } catch {}
   }
-  let mountCompleted = false;
   try {
-    mountCompleted =
-      state.dependencies.completeMount(
-        plan.activeMountCapability,
-        managementCapability,
-      ).status === "completed";
-  } catch {
-    mountCompleted = false;
-  }
-  const cleanupConfirmed = recoveryAbandoned && mountCompleted;
-  return createBlockedStart(
-    reason,
-    cleanupConfirmed,
-    cleanupConfirmed ? null : recoveryId,
-    !cleanupConfirmed,
-  );
+    state.dependencies.completeMount(
+      plan.activeMountCapability,
+      managementCapability,
+    );
+  } catch {}
+  return createBlockedStart(reason, false, recoveryId, true);
 }
 
 function createFinalResult(

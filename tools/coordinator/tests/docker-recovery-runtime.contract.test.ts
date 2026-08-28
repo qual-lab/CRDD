@@ -335,6 +335,7 @@ test("Operation初期化の同期I/O不明は全資源閉包をcleanへ戻さな
     const temporaryHandles = new Set<number>();
     let rootCreated = false;
     let initialMarkerHandle: number | null = null;
+    let reportedRecoveryId: string | null = null;
     try {
       mutableFs.openSync = ((target: fs.PathLike, ...args: unknown[]) => {
         const handle = originalOpenSync(
@@ -394,7 +395,7 @@ test("Operation初期化の同期I/O不明は全資源閉包をcleanへ戻さな
           assert.ok(classified);
           assert.equal(classified.cleanupConfirmed, false);
           assert.equal(classified.manualRecoveryRequired, true);
-          assert.match(classified.hostRecoveryId ?? "", /^host\./u);
+          reportedRecoveryId = classified.hostRecoveryId;
           return true;
         },
       );
@@ -406,6 +407,26 @@ test("Operation初期化の同期I/O不明は全資源閉包をcleanへ戻さな
     }
     const recoveryDirectory = path.join(parent, "crdd-coordinator-recovery-v1");
     assert.equal(fs.readdirSync(recoveryDirectory).length > 0, true);
+    if (fault === "initial_marker_identity") {
+      assert.equal(reportedRecoveryId, null);
+    } else {
+      assert.match(reportedRecoveryId ?? "", /^host\./u);
+      const parsed = parseHostRecoveryToken(reportedRecoveryId);
+      assert.ok(parsed);
+      const marker = path.join(
+        recoveryDirectory,
+        `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
+      );
+      const serialized = fs.readFileSync(marker, "utf8");
+      assert.equal(
+        createHash("sha256").update(serialized).digest("hex"),
+        parsed.recordHash,
+      );
+      assert.equal(
+        (JSON.parse(serialized) as { rootName: string }).rootName,
+        parsed.rootName,
+      );
+    }
     if (fault !== "initial_marker_identity")
       assert.equal(
         fs
@@ -425,6 +446,60 @@ test("Operation初期化の同期I/O不明は全資源閉包をcleanへ戻さな
   runFault("initial_marker_identity");
   runFault("root_identity");
   runFault("host_only_temporary_identity");
+});
+
+test("Host Recovery recordのrename後観測失敗は実在するsuccessor IDだけを返す", () => {
+  const parent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-operation-rename-observation-"),
+  );
+  const originalRenameSync = fs.renameSync;
+  const mutableFs = fs as unknown as { renameSync: typeof fs.renameSync };
+  let renamedThenFailed = false;
+  try {
+    mutableFs.renameSync = ((oldPath: fs.PathLike, newPath: fs.PathLike) => {
+      originalRenameSync(oldPath, newPath);
+      if (
+        String(oldPath).endsWith(".tmp") &&
+        /host-[a-f0-9]{64}\.json$/u.test(String(newPath))
+      ) {
+        renamedThenFailed = true;
+        throw new Error("fixture_post_rename_observation_unknown");
+      }
+    }) as typeof fs.renameSync;
+    assert.throws(
+      () => createOwnedOperationDirectories(parent),
+      (error) => {
+        const classified =
+          classifyOwnedOperationDirectoryCreationFailure(error);
+        assert.ok(classified);
+        assert.equal(classified.cleanupConfirmed, false);
+        assert.equal(classified.manualRecoveryRequired, true);
+        assert.match(classified.hostRecoveryId ?? "", /^host\./u);
+        const parsed = parseHostRecoveryToken(classified.hostRecoveryId);
+        assert.ok(parsed);
+        const marker = path.join(
+          parent,
+          "crdd-coordinator-recovery-v1",
+          `host-${createHash("sha256").update(parsed.nonce).digest("hex")}.json`,
+        );
+        const serialized = fs.readFileSync(marker, "utf8");
+        assert.equal(
+          createHash("sha256").update(serialized).digest("hex"),
+          parsed.recordHash,
+        );
+        assert.equal(
+          (JSON.parse(serialized) as { state: string }).state,
+          "host_only",
+        );
+        return true;
+      },
+    );
+    assert.equal(renamedThenFailed, true);
+  } finally {
+    mutableFs.renameSync = originalRenameSync;
+    fs.rmSync(parent, { recursive: true, force: false });
+  }
+  assertPathConfirmedAbsent(parent);
 });
 
 test("公開Recovery Evidence分類はfresh inventoryの存在・不存在・不明を三状態へ固定する", () => {
@@ -3598,6 +3673,47 @@ test("production正常完了経路はHost cleanup receipt後だけfinalizeして
   } finally {
     if (recoveryCapability)
       void abandonRuntimeOwnedDockerRecovery(recoveryCapability);
+    void abandonOwnedHostOperationGenerationLock(management);
+    fs.rmSync(owned.root, { recursive: true, force: true });
+    fs.rmSync(initialHost.marker, { force: true });
+    fs.rmSync(runtimeParent, { recursive: true, force: true });
+  }
+});
+
+test("production abandonはAuthorityを解放してもdurable Recovery inventoryをcleanにしない", () => {
+  const runtimeParent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-production-abandon-recovery-test-"),
+  );
+  const runtimeRootPath = path.join(runtimeParent, "runtime-state");
+  fs.mkdirSync(runtimeRootPath);
+  const root = verifiedRoot(runtimeRootPath);
+  const owned = createOwnedOperationDirectories();
+  const context = createOwnedOperationContextCapability(owned);
+  const mounts = createOwnedMountCapability(owned);
+  const management = createOwnedOperationManagementCapability(context, mounts);
+  const operation = verifyOwnedOperationManagementCapability(management);
+  const plan = productionPlan(operation.operationId, "d".repeat(64));
+  const initialHost = loadHostRecoveryRecordByToken(owned.hostRecoveryId);
+  try {
+    const begun = beginRuntimeOwnedDockerRecoveryWithRuntimeStateObserver(
+      plan,
+      management,
+      providerHomeForPlan(plan),
+      root,
+      () => root,
+    );
+    assert.ok(begun && begun.status === "ready");
+    assert.equal(
+      abandonRuntimeOwnedDockerRecovery(begun.recoveryCapability),
+      true,
+    );
+    assert.deepEqual(
+      inspectDockerRecoveryRootSnapshotWithLock(root, () =>
+        Object.freeze({ release: () => true }),
+      ).dockerRecoveryIds,
+      [begun.recoveryId],
+    );
+  } finally {
     void abandonOwnedHostOperationGenerationLock(management);
     fs.rmSync(owned.root, { recursive: true, force: true });
     fs.rmSync(initialHost.marker, { force: true });
