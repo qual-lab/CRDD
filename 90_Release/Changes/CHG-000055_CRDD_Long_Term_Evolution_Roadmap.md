@@ -1,7 +1,7 @@
 # 変更トレース: CRDD長期発展方針
 
 変更ID: `CHG-000055`
-- 状態: `Ready for Release Handoff`
+- 状態: `Reopened`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加）
 - 対象: CRDD標準自身の課題探索・要求形成における長期方向と能力到達点、エージェント組織における専門性と共有境界の明確化、単一プロダクトRoadmapへの状態投影、および課題探索・要求形成／Roadmap／変更トレースの既存責務境界
@@ -99,3 +99,22 @@ Coordinator Runtimeの完了条件と根拠は[`CHG-000015`](CHG-000015_Coordina
 確認は、現在のv0.18.0 Candidate、版未割当の`Adopted / Planned`改善、将来の`Held / Unscheduled`能力地平、Phase／Versionの直交、専門性と共有責務境界、Authority、現RuntimeおよびRelease非変更を含む。監査で検出したTopology、Credential／Capability所有、情報密度、状態混在、再評価契機およびローカル表示の指摘は全数`Resolved`となり、新規Findingはない。
 
 本変更は`Ready for Release Handoff`である。これはmain統合、Stable化、タグ、公開またはReleaseを意味せず、それらはv0.18.0 Candidate全体の別の人間判断である。
+
+## 9. v0.18.0 Candidateへの収載判断による再開
+
+2026-08-28、Qual-Labの人間の決定権限者は、§6で採用した三つの改善意図、すなわち[`CRDD標準自身の課題探索・要求形成`](../../01_Discovery/01_CRDD_Product_Discovery.md#731-工程接続と意味網羅検証の強化候補)の§7.3.1～§7.3.3を、すべてv0.18.0 Candidateへ収載すると判断した。§7～§8で確認した「版未割当」は当時の有効な判断履歴として保持するが、現在の対象版判断は本節が置き換える。
+
+収載対象は、上流工程エージェント／課題探索対話ループと工程接続・意味網羅検証の強化、Coordinator Reference Runtimeの根拠駆動リファクタリング、既存・過去CHGを含む人間可読文書の意味構造改善である。第2段階に残る未採用の実行観測候補、MCP、Remote Runtime、Linux、Self-hosted Provider、Project／Organization Runtimeおよびv0.19.0以降の能力地平は`Held / Unscheduled`のままであり、本判断から収載または実装許可を得ない。
+
+実行順序は次のとおりとする。
+
+1. [`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)が所有するCoordinator Runtime 1.0の完成条件、正式署名一般Task、4経路E2E、失敗・取消・回復および完成監査を固定する。
+2. 完成固定版を基準に、三つの改善意図について現行正本、利用側、影響、保持する意図および対象外を再確認し、人間の着手判断を得る。
+3. RuntimeをDogfoodingして変更単位ごとに実装、正常・準正常・異常の検証、独立レビューおよび必要監査を完了する。
+4. v0.18.0 Candidate全体のRelease Readiness、CHANGELOG、移行および残存リスクを更新し、人間の統合・Release判断へ渡す。
+
+本判断は対象版への収載であって、実装着手、実装完了、規範採用、Stable化、main統合、タグ、公開またはReleaseではない。本CHGは収載判断と責務伝播を追跡し、各改善の具体的変更は、着手時に再確認した現在状態と影響を所有する一つ以上のCHGへ接続する。
+
+§8の監査結果は「版未割当」を含む旧固定改訂版の履歴であり、現在の収載判断の確認結果へ流用しない。本変更を`Ready for Release Handoff`へ戻す前に、新しい固定改訂版へリポジトリ全体Checker、Security／Architecture、Test／UX、文書、不足／影響および準拠の同じ必須監査集合を再実行する。
+
+README、CHANGELOG、[`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)およびEvidenceは、現時点では完成Capabilityまたは品質状態が変化していないため変更しない。各改善の完成固定時とv0.18.0 Release準備時に再評価し、利用者向け主張、品質状態および根拠を同期する。

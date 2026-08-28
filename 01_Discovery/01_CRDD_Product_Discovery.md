@@ -3,8 +3,8 @@
 工程規則: [`21_Discovery.md`](../21_Discovery.md)
 維持責任者: Qual-Lab
 項目の決定権限: Qual-Lab
-対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用した第2段階の改善意図、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則
-現在状態: 項目別。§1～§6の上流工程強化、§7.3.1～§7.3.3の改善意図および§7.9の責務分離原則は`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補および§7.9の将来能力地平は`Held / Unscheduled`
+対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用し同日v0.18.0 Candidateへ収載した第2段階の改善意図、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則
+現在状態: 項目別。§1～§6の上流工程強化、§7.3.1～§7.3.3の改善意図および§7.9の責務分離原則はv0.18.0 Candidateの`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補および§7.9の将来能力地平は`Held / Unscheduled`
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本と影響を再確認し、一つの変更意図として`CHG-*`を発行する。
 
@@ -17,7 +17,7 @@ Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0の正式署名�
 1. 課題探索・要求形成（Discovery）で、人間の暗黙Contextを発見し、反証し、再確認して収束させる対話Loopを強化する。
 2. UX、IA、UI、Graphic、SPEC、Architectureの各Agentを、同じ「賢いAI」ではなく工程固有の専門家として振る舞わせる。
 
-この採用は実装着手、規範変更、v0.18.0への収載、工程移行またはReleaseを意味しない。
+この時点の採用だけでは、実装着手、規範変更、特定版への収載、工程移行またはReleaseを意味しなかった。その後2026-08-28に、Qual-Labの人間の決定権限者は§7.3.1～§7.3.3を含む本強化をv0.18.0 Candidateへ収載すると判断した。収載判断は実装完了、規範採用、Stable化またはReleaseを意味せず、Coordinator Runtime 1.0の完成固定後に現行正本と影響を再確認して着手する順序を維持する。
 
 ## 2. 保持する意図
 
@@ -323,12 +323,12 @@ Self-hosted LLMもProvider Adapter候補へ接続できるかを評価する。F
 
 PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠から再評価する順序である。Versionは[`19_Maintenance.md`](../19_Maintenance.md#51-release-version-and-revision)が所有する公開差分、互換性および基準版の識別である。一つのPhaseが複数Versionにまたがることも、一つのVersionが個別に採用された複数Phaseの要素を含むこともある。Phase番号からVersionを、Version表示から収載、期限、互換性、Candidate状態またはReleaseを推定しない。
 
-次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。`CRDD v0.18.0 Candidate`は現在のCandidate差分だけを示し、採用済みでも版未割当の改善意図を含めない。版未割当行は§7.3.1～§7.3.3だけを情報源とし、将来版への収載予約ではない。v0.19.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
+次の表は既存§7.2～§7.8を、人間が理解しやすい能力到達点へ投影した対応表である。`CRDD v0.18.0 Candidate`は、現在統合・固定中の差分と、収載を決定したが未着手または未完了の改善を分けて示す。収載済みでも、実装完了、規範採用、Stable化またはReleaseを意味しない。v0.19.0以降は将来の能力地平（Capability Horizon）であってRelease targetの予約ではなく、実現時の根拠と採用済み差分に応じて別のVersionへ再割当できる。
 
 | 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
 |---|---|---|---|---|
-| CRDD v0.18.0 Candidate | 現在のCandidate差分として統合・固定確認中のCRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 項目別。RuntimeとRelease準備は`In Progress` | CHG-000015の完成固定、未終了CHGおよびRelease Readinessの確認 | 版未割当の工程強化、完了、Stable化またはRelease |
-| 版未割当（採用済み改善） | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性を、Runtime完成後の自己適用から成熟させる | `Adopted / Planned` | CHG-000015の完成固定後、現行正本と影響を再確認して着手を人間が判断 | v0.18.0への収載、将来版への収載予約または実装完了 |
+| CRDD v0.18.0 Candidate — 現Candidate差分 | 現在のCandidate差分として統合・固定確認中のCRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 項目別。RuntimeとRelease準備は`In Progress` | CHG-000015の完成固定、未終了CHGおよびRelease Readinessの確認 | 完了、Stable化またはRelease |
+| CRDD v0.18.0 Candidate — 収載決定済み未完了改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性を、Runtime完成後の自己適用から成熟させる | `Adopted / Planned` | CHG-000015の完成固定後、現行正本と影響を再確認して着手し、変更単位ごとの実装・検証・監査を完了 | 実装着手済み、実装完了、規範採用、Stable化、Releaseまたはv0.19.0以降の研究候補の収載 |
 | CRDD v0.19.0（将来能力像） | MCP等の協働接続面、Repository Binding／Router、Runtime境界およびCRDDの機械利用性をエコシステム自己適用（Ecosystem Dogfooding）し、v1能力到達性を評価する | `Held / Unscheduled` | v0.18.0の結果と、第2段階で得た最初の自己適用Evidenceを人間が再評価 | v0.19.0への収載予約、Release Candidate、専用PM Systemまたは実装許可 |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
 | CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |

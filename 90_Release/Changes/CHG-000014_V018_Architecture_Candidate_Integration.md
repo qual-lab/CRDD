@@ -259,3 +259,15 @@ v0.18.0 Candidateへの再基準化は39論理ファイルを対象とする。�
 統合修正ではREADME英日に、v0.17.0を有効な公開基準として維持し、v0.18.0 Candidateを復旧可能な隔離branchまたは検証用Repositoryでだけ評価し、候補Identity、対象能力、許可操作、差分、接続部、既存成果物への影響および結果を記録する案内を追加した。Candidateを完了、準拠、採用またはRelease根拠にせず、非規範Architecture Candidateは別途許可されたRuntimeまたはPoCがない限り設計上のシミュレーションとして扱う。Communication指示例は`17_Communication.md`の入口契約と条件成立時の`21_Discovery.md`参照へ短縮し、対象範囲、許可した処理境界、現在の判断集合、未承認の公開、接触、外部調査、広告および費用執行の停止だけを入力例に残した。処置は`Applied`であり、新固定版の再確認前に`Resolved`または`Pass`と扱わない。
 
 現在状態は引き続き`Ready for Verification`である。修正後の新しいCommit／Tree、全体Checker、Checkerテストおよび必要な独立監査を取り直すまで、利用側再レビューの2件を解消済みとせず、Stable化、対象branch統合、タグ、公開またはReleaseを先取りしない。
+
+## 6. 追加されたv0.18.0収載境界
+
+2026-08-28、Qual-Labの人間の決定権限者は、[`CHG-000055`](CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)が所有する三つの改善意図をv0.18.0 Candidateへ収載すると判断した。§5.1の未終了変更トレース移管スナップショットは作成時点の履歴として変更せず、現在の統合境界へ次を追加する。
+
+- 上流工程エージェント／課題探索対話ループと工程接続・意味網羅検証の強化
+- Coordinator Reference Runtimeの根拠駆動リファクタリング
+- 既存・過去CHGを含む人間可読文書の意味構造改善
+
+これらは[`CHG-000015`](CHG-000015_Coordinator_Runtime_1_0.md)のCoordinator Runtime 1.0完成固定後に、現行正本と影響を再確認した変更単位へ具体化する。収載判断だけでは実装着手、実装完了、規範採用、Stable化、統合またはReleaseを意味しない。v0.18.0 Release Readinessは、Runtime完成と三つの改善の完成固定・必要監査、または対象を外す人間の明示判断が揃うまで成立しない。
+
+本追加により§5までの過去固定改訂版と監査結果は履歴として保持するが、現在のv0.18.0 Candidate全体の合否へ流用しない。新固定改訂版に対する全体Checker、必要な独立レビュー／監査、CHANGELOG、移行内容およびRelease範囲の再確認を要する。
