@@ -448,6 +448,108 @@ test("Operation初期化の同期I/O不明は全資源閉包をcleanへ戻さな
   runFault("host_only_temporary_identity");
 });
 
+test("production TEMPのnonnull初期化失敗IDは公開loaderでexact recordへ解決できる", () => {
+  for (const fault of [
+    "root_identity",
+    "host_only_temporary_identity",
+  ] as const) {
+    const originalOpenSync = fs.openSync;
+    const originalFstatSync = fs.fstatSync;
+    const originalMkdirSync = fs.mkdirSync;
+    const originalLstatSync = fs.lstatSync;
+    const mutableFs = fs as unknown as {
+      openSync: typeof fs.openSync;
+      fstatSync: typeof fs.fstatSync;
+      mkdirSync: typeof fs.mkdirSync;
+      lstatSync: typeof fs.lstatSync;
+    };
+    const temporaryHandles = new Set<number>();
+    let rootCreated = false;
+    let reportedRecoveryId: string | null = null;
+    try {
+      mutableFs.openSync = ((target: fs.PathLike, ...args: unknown[]) => {
+        const handle = originalOpenSync(
+          target,
+          ...(args as Parameters<typeof fs.openSync> extends [
+            unknown,
+            ...infer R,
+          ]
+            ? R
+            : never),
+        );
+        if (String(target).endsWith(".tmp")) temporaryHandles.add(handle);
+        return handle;
+      }) as typeof fs.openSync;
+      mutableFs.fstatSync = ((handle: number, options?: unknown) => {
+        if (
+          fault === "host_only_temporary_identity" &&
+          temporaryHandles.has(handle)
+        )
+          throw Object.assign(
+            new Error("fixture_identity_observation_unknown"),
+            {
+              code: "EACCES",
+            },
+          );
+        return originalFstatSync(handle, options as never);
+      }) as typeof fs.fstatSync;
+      mutableFs.mkdirSync = ((target: fs.PathLike, options?: unknown) => {
+        const result = originalMkdirSync(target, options as never);
+        if (
+          path.basename(String(target)).startsWith("crdd-coordinator-doctor-")
+        )
+          rootCreated = true;
+        return result;
+      }) as typeof fs.mkdirSync;
+      mutableFs.lstatSync = ((target: fs.PathLike, options?: unknown) => {
+        if (
+          fault === "root_identity" &&
+          rootCreated &&
+          path.basename(String(target)).startsWith("crdd-coordinator-doctor-")
+        )
+          throw Object.assign(new Error("fixture_root_observation_unknown"), {
+            code: "EACCES",
+          });
+        return originalLstatSync(target, options as never);
+      }) as typeof fs.lstatSync;
+      assert.throws(
+        () => createOwnedOperationDirectories(),
+        (error) => {
+          const classified =
+            classifyOwnedOperationDirectoryCreationFailure(error);
+          assert.ok(classified);
+          assert.equal(classified.cleanupConfirmed, false);
+          assert.equal(classified.manualRecoveryRequired, true);
+          assert.match(classified.hostRecoveryId ?? "", /^host\./u);
+          reportedRecoveryId = classified.hostRecoveryId;
+          return true;
+        },
+      );
+    } finally {
+      mutableFs.openSync = originalOpenSync;
+      mutableFs.fstatSync = originalFstatSync;
+      mutableFs.mkdirSync = originalMkdirSync;
+      mutableFs.lstatSync = originalLstatSync;
+    }
+    assert.ok(reportedRecoveryId);
+    const loaded = loadHostRecoveryRecordByToken(reportedRecoveryId);
+    assert.equal(
+      loaded.parsed.recordHash,
+      createHash("sha256").update(loaded.serialized).digest("hex"),
+    );
+    fs.rmSync(path.join(os.tmpdir(), loaded.record.rootName), {
+      recursive: true,
+      force: false,
+    });
+    for (const entry of fs.readdirSync(loaded.directory)) {
+      if (entry.startsWith(path.basename(loaded.marker)))
+        fs.rmSync(path.join(loaded.directory, entry), { force: true });
+    }
+    assertPathConfirmedAbsent(path.join(os.tmpdir(), loaded.record.rootName));
+    assertPathConfirmedAbsent(loaded.marker);
+  }
+});
+
 test("Host Recovery recordのrename後観測失敗は実在するsuccessor IDだけを返す", () => {
   const parent = fs.mkdtempSync(
     path.join(os.tmpdir(), "crdd-operation-rename-observation-"),
@@ -500,6 +602,138 @@ test("Host Recovery recordのrename後観測失敗は実在するsuccessor IDだ
     fs.rmSync(parent, { recursive: true, force: false });
   }
   assertPathConfirmedAbsent(parent);
+});
+
+test("Host Recovery recordが同一bytesの別identityへ置換された場合はIDを返さない", () => {
+  const parent = fs.mkdtempSync(
+    path.join(os.tmpdir(), "crdd-operation-rename-replacement-"),
+  );
+  const originalRenameSync = fs.renameSync;
+  const mutableFs = fs as unknown as { renameSync: typeof fs.renameSync };
+  let replacementIssued = false;
+  try {
+    mutableFs.renameSync = ((oldPath: fs.PathLike, newPath: fs.PathLike) => {
+      originalRenameSync(oldPath, newPath);
+      if (
+        !replacementIssued &&
+        String(oldPath).endsWith(".tmp") &&
+        /host-[a-f0-9]{64}\.json$/u.test(String(newPath))
+      ) {
+        replacementIssued = true;
+        const serialized = fs.readFileSync(newPath, "utf8");
+        const replacement = `${String(newPath)}.replacement`;
+        fs.writeFileSync(replacement, serialized, { mode: 0o600 });
+        originalRenameSync(replacement, newPath);
+        throw new Error("fixture_post_rename_identity_replaced");
+      }
+    }) as typeof fs.renameSync;
+    assert.throws(
+      () => createOwnedOperationDirectories(parent),
+      (error) => {
+        const classified =
+          classifyOwnedOperationDirectoryCreationFailure(error);
+        assert.ok(classified);
+        assert.equal(classified.cleanupConfirmed, false);
+        assert.equal(classified.manualRecoveryRequired, true);
+        assert.equal(classified.hostRecoveryId, null);
+        return true;
+      },
+    );
+    assert.equal(replacementIssued, true);
+  } finally {
+    mutableFs.renameSync = originalRenameSync;
+    fs.rmSync(parent, { recursive: true, force: false });
+  }
+  assertPathConfirmedAbsent(parent);
+});
+
+test("outer rollbackは現在のinitial markerを再検証できないとcached IDを返さない", () => {
+  for (const fault of [
+    "delete_then_throw",
+    "identity_replacement",
+    "marker_observation_unknown",
+  ] as const) {
+    const parent = fs.mkdtempSync(
+      path.join(os.tmpdir(), `crdd-operation-outer-${fault}-`),
+    );
+    const originalMkdirSync = fs.mkdirSync;
+    const originalRmSync = fs.rmSync;
+    const originalLstatSync = fs.lstatSync;
+    const originalRenameSync = fs.renameSync;
+    const mutableFs = fs as unknown as {
+      mkdirSync: typeof fs.mkdirSync;
+      rmSync: typeof fs.rmSync;
+      lstatSync: typeof fs.lstatSync;
+    };
+    let rootCreationRejected = false;
+    let markerFaultIssued = false;
+    try {
+      mutableFs.mkdirSync = ((target: fs.PathLike, options?: unknown) => {
+        if (
+          path.basename(String(target)).startsWith("crdd-coordinator-doctor-")
+        ) {
+          rootCreationRejected = true;
+          throw new Error("fixture_root_creation_rejected");
+        }
+        return originalMkdirSync(target, options as never);
+      }) as typeof fs.mkdirSync;
+      mutableFs.rmSync = ((target: fs.PathLike, options?: unknown) => {
+        if (
+          fault === "delete_then_throw" &&
+          rootCreationRejected &&
+          /host-[a-f0-9]{64}\.json$/u.test(String(target))
+        ) {
+          originalRmSync(target, options as never);
+          markerFaultIssued = true;
+          throw new Error("fixture_marker_delete_observation_unknown");
+        }
+        return originalRmSync(target, options as never);
+      }) as typeof fs.rmSync;
+      mutableFs.lstatSync = ((target: fs.PathLike, options?: unknown) => {
+        if (
+          rootCreationRejected &&
+          /host-[a-f0-9]{64}\.json$/u.test(String(target))
+        ) {
+          if (fault === "marker_observation_unknown") {
+            markerFaultIssued = true;
+            throw Object.assign(
+              new Error("fixture_marker_observation_unknown"),
+              {
+                code: "EACCES",
+              },
+            );
+          }
+          if (fault === "identity_replacement" && !markerFaultIssued) {
+            markerFaultIssued = true;
+            const serialized = fs.readFileSync(target, "utf8");
+            const replacement = `${String(target)}.replacement`;
+            fs.writeFileSync(replacement, serialized, { mode: 0o600 });
+            originalRenameSync(replacement, target);
+          }
+        }
+        return originalLstatSync(target, options as never);
+      }) as typeof fs.lstatSync;
+      assert.throws(
+        () => createOwnedOperationDirectories(parent),
+        (error) => {
+          const classified =
+            classifyOwnedOperationDirectoryCreationFailure(error);
+          assert.ok(classified);
+          assert.equal(classified.cleanupConfirmed, false);
+          assert.equal(classified.manualRecoveryRequired, true);
+          assert.equal(classified.hostRecoveryId, null, fault);
+          return true;
+        },
+      );
+      assert.equal(markerFaultIssued, true);
+    } finally {
+      mutableFs.mkdirSync = originalMkdirSync;
+      mutableFs.rmSync = originalRmSync;
+      mutableFs.lstatSync = originalLstatSync;
+      fs.rmSync(parent, { recursive: true, force: false });
+    }
+    assertPathConfirmedAbsent(parent);
+  }
 });
 
 test("公開Recovery Evidence分類はfresh inventoryの存在・不存在・不明を三状態へ固定する", () => {

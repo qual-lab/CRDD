@@ -691,11 +691,23 @@ function exactHostRecoveryTokenFromMarker(
   target: string,
   expectedRootName: string,
   nonce: string,
+  allowed: readonly Readonly<{
+    identity: FilesystemIdentity;
+    serialized: string;
+  }>[],
 ): string | null {
   try {
     if (observeFilesystemEntry(target) !== "present") return null;
     const firstIdentity = readFileIdentity(target);
     const firstSerialized = fs.readFileSync(target, "utf8");
+    if (
+      !allowed.some(
+        (candidate) =>
+          sameFilesystemIdentity(firstIdentity, candidate.identity) &&
+          firstSerialized === candidate.serialized,
+      )
+    )
+      return null;
     const record = normalizeHostRecoveryRecord(JSON.parse(firstSerialized));
     if (record.rootName !== expectedRootName) return null;
     const secondIdentity = readFileIdentity(target);
@@ -888,6 +900,7 @@ function writeInitializingHostRecoveryRecord(
 ): Readonly<{
   recordHash: string;
   recordIdentity: FilesystemIdentity;
+  serialized: string;
   token: string;
 }> {
   const record: HostRecoveryRecord = Object.freeze({
@@ -955,6 +968,9 @@ function writeInitializingHostRecoveryRecord(
           target,
           rootName,
           nonce,
+          recordIdentity
+            ? [Object.freeze({ identity: recordIdentity, serialized })]
+            : [],
         ),
       });
     throw error;
@@ -964,6 +980,7 @@ function writeInitializingHostRecoveryRecord(
   return Object.freeze({
     recordHash,
     recordIdentity,
+    serialized,
     token,
   });
 }
@@ -973,6 +990,14 @@ function writeHostRecoveryRecord(
   identity: OwnedIdentity,
   state: RecoveryState,
 ): string {
+  const previous = readCurrentOwnedHostRecord(identity);
+  if (
+    !identity.hostRecovery.recordIdentity ||
+    createHash("sha256").update(previous.serialized).digest("hex") !==
+      identity.hostRecovery.recordHash ||
+    previous.record.state !== identity.hostRecovery.state
+  )
+    throw new Error("host_recovery_record_mismatch");
   const record = hostRecordContent(identity, state);
   const serialized = `${JSON.stringify(record)}\n`;
   const recordHash = createHash("sha256").update(serialized).digest("hex");
@@ -1040,6 +1065,15 @@ function writeHostRecoveryRecord(
       target,
       path.basename(identity.root),
       identity.hostRecovery.nonce,
+      [
+        Object.freeze({
+          identity: identity.hostRecovery.recordIdentity,
+          serialized: previous.serialized,
+        }),
+        ...(temporaryIdentity
+          ? [Object.freeze({ identity: temporaryIdentity, serialized })]
+          : []),
+      ],
     );
     const originalRecoveryId = expectedHostRecoveryToken(identity);
     if (
@@ -1097,6 +1131,7 @@ export function createOwnedOperationDirectories(
   let initializingRecord: Readonly<{
     path: string;
     identity: FilesystemIdentity;
+    serialized: string;
     token: string;
   }> | null = null;
   try {
@@ -1122,6 +1157,7 @@ export function createOwnedOperationDirectories(
     initializingRecord = Object.freeze({
       path: recoveryRecord,
       identity: initializing.recordIdentity,
+      serialized: initializing.serialized,
       token: initializing.token,
     });
     const candidateRoot = path.join(parent, rootName);
@@ -1274,16 +1310,30 @@ export function createOwnedOperationDirectories(
     }
     cleanupConfirmed =
       cleanupConfirmed && rootCleanupConfirmed && markerCleanupConfirmed;
-    const retainedRecoveryId = nestedFailure
-      ? nestedFailure.hostRecoveryId
-      : (initializingRecord?.token ??
-        (owned && ownedIdentity(owned)
+    let retainedRecoveryId = nestedFailure?.hostRecoveryId ?? null;
+    if (!nestedFailure && initializingRecord) {
+      try {
+        const parsed = parseHostRecoveryToken(initializingRecord.token);
+        retainedRecoveryId = sameFilesystemIdentity(
+          readFileIdentity(initializingRecord.path),
+          initializingRecord.identity,
+        )
           ? exactHostRecoveryTokenFromMarker(
-              requireOwnedIdentity(owned).hostRecovery.record,
-              path.basename(requireOwnedIdentity(owned).root),
-              requireOwnedIdentity(owned).hostRecovery.nonce,
+              initializingRecord.path,
+              parsed.rootName,
+              parsed.nonce,
+              [
+                Object.freeze({
+                  identity: initializingRecord.identity,
+                  serialized: initializingRecord.serialized,
+                }),
+              ],
             )
-          : null));
+          : null;
+      } catch {
+        retainedRecoveryId = null;
+      }
+    }
     throwOwnedOperationDirectoryCreationFailure(error, {
       cleanupConfirmed,
       manualRecoveryRequired: !cleanupConfirmed,

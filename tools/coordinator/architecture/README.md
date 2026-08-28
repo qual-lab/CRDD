@@ -37,7 +37,7 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 | 段階 | 状態ID | 主な処置 | 次へ進む条件 |
 |---|---|---|---|
 | 受付 | `STATE-ADMISSION` | Package、Process poison、Task byte、Repository形式を確認 | 全preflight成立 |
-| Operation取得中 | `STATE-OPERATION-ACQUIRING` | cleanなDocker Recovery inventoryを確認後、Operation RootとHost generationの取得を開始 | 取得成功、cleanup確認済み停止、またはexact Recovery保持 |
+| Operation取得中 | `STATE-OPERATION-ACQUIRING` | cleanなDocker Recovery inventoryを確認後、Operation RootとHost generationの取得を開始 | 取得成功、cleanup確認済み停止、exact Recovery保持、またはIDなしoperator移送 |
 | Operation準備 | `STATE-OPERATION-READY` | Operation Root、Host generation、Repository／Revisionを固定 | Host Supervisor readyと同一generation再確認 |
 | 実行許可 | `STATE-TASK-AUTHORIZED` | Policy、Slate、Candidate Store、External Send Grant、Workspaceを確定 | Authority、Revision、Scopeが一致 |
 | Executor完了 | `STATE-EXECUTOR-CLEAN` | Provider Home、Mount Grant、Task Packet、Docker Recovery、Executor、cleanupを実行 | Docker不存在、mount完了、finalizable handoff |
@@ -52,9 +52,10 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 | 結果公開 | `STATE-RESULT-PUBLISHED` | Candidateをpublishし安全な構造化結果を返す | cleanupとCandidate再検証済み |
 | 安全な停止 | `STATE-BLOCKED-CLEAN` | Resultを公開せず、所有資源不存在とRecovery不要を確認 | Operation終了 |
 | 回復待ち | `STATE-RECOVERY-REQUIRED` | exact Recovery IDとEvidenceを保持して停止 | 明示Recoveryの成立 |
+| Operator移送待ち | `STATE-OPERATOR-TRANSFER-REQUIRED` | cleanup不明だが認証済みのactionable Recovery IDを取得できず停止 | 自動再試行せず、Evidenceを保持して運用者へ移送 |
 | 回復完了 | `STATE-RECOVERED` | 所有資源不存在と耐久Evidence残存0を確認 | 新しいOperationから再評価 |
 
-`invocationTerminal`は現在のCLI／Task呼出しが終了すること、`operationTerminal`は当該Operationに後続処置が残らないことを表す。`STATE-RECOVERY-REQUIRED`は現在の呼出しではterminalだがOperationとしては未完了であり、別の明示Recovery invocationだけが`STATE-RECOVERED`へ進める。
+`invocationTerminal`は現在のCLI／Task呼出しが終了すること、`operationTerminal`は当該Operationに後続処置が残らないことを表す。`STATE-RECOVERY-REQUIRED`は現在の呼出しではterminalだがOperationとしては未完了であり、別の明示Recovery invocationだけが`STATE-RECOVERED`へ進める。`STATE-OPERATOR-TRANSFER-REQUIRED`も呼出しではterminalかつOperationは未完了だが、exact Recovery Authorityを持たないためRecovery遷移へ推測接続せず、運用者へのEvidence移送だけを表す。
 
 ## 4. 資源所有
 
@@ -73,9 +74,9 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 
 上表は公開CLIを含むArchitecture上の10資源を示す。現在の機械可読Task Traceが直接観測するのは`RES-CLI-SIGNAL-BINDING`を除く9資源である。CLI signal bindingは公開CLI縦結合が成立した時点で`public_cli`境界として追加し、Task Runtime fixtureから観測済みとみなさない。
 
-Host Operation Rootの初期化は、Root生成前に`state=initializing`、選定済みnonceおよびroot名を耐久Host Recovery recordへ確定してから行う。Root生成前にProcessが失われた場合は、同じrecordからRoot不存在を確認してmarkerを回収できる。Root生成後かつFilesystem Identity確定前にProcessが失われた場合は、所有Identityを推測して削除せず、exact recordとRootを保持して手動Recoveryへ移送する。Recovery IDは現在markerのexact schema、Root名および実bytesのHashを再読取りで確認できた場合だけ返す。耐久recordがまだ成立していない、部分的である、または観測が一意でない場合は、推測したIDを返さずIDなしのoperator transferへ閉じる。Root、marker、一時領域およびRecovery recordの全てについてIdentityと終了後条件を確認できた場合だけ`host_only`以降へ進み、Task成功またはclean blockedへ昇格する。
+Host Operation Rootの初期化は、Root生成前に`state=initializing`、選定済みnonceおよびroot名を耐久Host Recovery recordへ確定してから行う。Root生成前にProcessが失われた場合は、同じrecordからRoot不存在を確認してmarkerを回収できる。Root生成後かつFilesystem Identity確定前にProcessが失われた場合は、所有Identityを推測して削除せず、exact recordとRootを保持して手動Recoveryへ移送する。Recovery IDは、当該呼出しが捕捉した旧markerのFilesystem Identity＋bytes、または当該writeのtemporary handleから確定したsuccessor Identity＋bytesのいずれかと現在markerが一致し、exact schema、Root名および実bytesのHashを安定再読取りできた場合だけ返す。内容が同じでも無関係なIdentityへ置換されたrecordを再信頼しない。耐久recordがまだ成立していない、部分的である、捕捉済みlineageに属さない、または観測が一意でない場合は、推測したIDを返さずIDなしのoperator transferへ閉じる。Root、marker、一時領域およびRecovery recordの全てについてIdentityと終了後条件を確認できた場合だけ`host_only`以降へ進み、Task成功またはclean blockedへ昇格する。
 
-Docker Recovery開始成功形は、exact `status=ready`、Recovery ID、stable logical Home binding、management bindingおよびRuntime発行のopaque Capabilityを一つのbindingとしてEffect前に再検証する。不正成功形を破棄するときのRecovery abandonとMount settlementは、追加Effectを止めAuthority／Leaseを返すbest-effort処置であり、durable Recovery record、pointerまたはactive bindingのcleanupを証明しない。したがってEffect 0を維持しつつ、構文上正しいexact IDは保持して手動Recoveryへ移し、ID自体が不正または観測不能ならIDなしのoperator transferへ閉じる。Recovery inventoryのactive Home hashは全Recovery IDの集合ではなくactive pointerを持つHomeの部分集合であり、inactive／cleanup中の正当なIDを欠落させる根拠にしない。
+Docker Recovery開始成功形は、exact `status=ready`、Recovery ID、stable logical Home binding、management bindingおよびRuntime発行のopaque Capabilityを一つのbindingとしてEffect前に再検証する。不正成功形を破棄するときのRecovery abandonとMount settlementは、後続Docker／Provider Effectを止めAuthority／Leaseを返すbest-effort処置であり、既に作成したdurable Recovery record、pointerまたはactive bindingのcleanupを証明しない。したがって後続Docker／Provider Effect 0を維持しつつdurable recordを保持し、構文上正しいexact IDは手動Recoveryへ移す。ID自体が不正または観測不能ならIDなしのoperator transferへ閉じる。Recovery inventoryのactive Home hashは全Recovery IDの集合ではなくactive pointerを持つHomeの部分集合であり、inactive／cleanup中の正当なIDを欠落させる根拠にしない。
 
 ## 5. Lock順序と解放窓
 
@@ -159,7 +160,7 @@ Provider child／Docker resource absence
 
 遷移の`resourcesAcquired`／`resourcesReleased`／`resourcesTransferred`は、その遷移が所有状態を変更する資源を示す。検証caseの`resourcePostconditions`は呼出し終了後の閉包を確認するため、当該遷移で変化せず不在のままだった資源も含められる。Checkerは全資源ID、観測bindingおよび少なくとも一つのcaseでの実使用を照合するが、終了後不在の観測を「その遷移が解放した」という虚偽のdeltaへ変換しない。
 
-Effect観測数はOperation全体の累積値ではなく、各遷移の開始snapshotから終了snapshotまでの差分（transition delta）である。Task Runtimeは内部状態を単調に進め、Task controlを失効した後に`STATE-RESULT-PUBLISHED`、`STATE-BLOCKED-CLEAN`または`STATE-RECOVERY-REQUIRED`を観測へ渡す。試験専用observerはAuthorityや制御を持たず、例外を投げてもRuntime状態、Effectまたは結果を変えない。検証はcase ID文字列の存在ではなく、Canonical caseの全fieldと実観測objectの完全一致を要求する。Recovery Matrixのように固定workerの契約投影だけを検査する入口を、実Filesystem／Process観測へ昇格させない。
+Effect観測数はOperation全体の累積値ではなく、各遷移の開始snapshotから終了snapshotまでの差分（transition delta）である。Task Runtimeは内部状態を単調に進め、Task controlを失効した後に`STATE-RESULT-PUBLISHED`、`STATE-BLOCKED-CLEAN`、`STATE-RECOVERY-REQUIRED`または`STATE-OPERATOR-TRANSFER-REQUIRED`を観測へ渡す。試験専用observerはAuthorityや制御を持たず、例外を投げてもRuntime状態、Effectまたは結果を変えない。検証はcase ID文字列の存在ではなく、Canonical caseの全fieldと実観測objectの完全一致を要求する。Recovery Matrixのように固定workerの契約投影だけを検査する入口を、実Filesystem／Process観測へ昇格させない。
 
 ## 10. 遷移一覧
 
@@ -181,6 +182,7 @@ Effect観測数はOperation全体の累積値ではなく、各遷移の開始sn
 | `TRANS-HOST-CLEAN-TO-RESULT` | `STATE-HOST-CLEAN` | `STATE-RESULT-PUBLISHED` | Candidate publishと結果公開 |
 | `TRANS-ACTIVE-TO-BLOCKED-CLEAN` | active state | `STATE-BLOCKED-CLEAN` | cleanup確認済みでRecovery不要の安全な停止 |
 | `TRANS-ACTIVE-TO-RECOVERY` | active state | `STATE-RECOVERY-REQUIRED` | 取消、失敗、Process lossまたはunknownの保持 |
+| `TRANS-ACTIVE-TO-OPERATOR-TRANSFER` | Operation取得中／準備 | `STATE-OPERATOR-TRANSFER-REQUIRED` | cleanup不明かつactionable IDなしのEvidenceを自動再試行せず移送 |
 | `TRANS-PARTIAL-PAIR-TO-RECOVERY` | `STATE-DURABLE-PAIR-PARTIAL-PRE-EFFECT` | `STATE-RECOVERY-REQUIRED` | 未設計のEffect前partialを保持して停止 |
 | `TRANS-RECOVERY-TO-RECOVERED` | `STATE-RECOVERY-REQUIRED` | `STATE-RECOVERED` | exact資源回収とEvidence残存0 |
 

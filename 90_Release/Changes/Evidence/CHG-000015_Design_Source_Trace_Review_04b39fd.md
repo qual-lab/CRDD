@@ -305,7 +305,7 @@ Docker Recovery beginの具体的な失敗は、Process Controllerで`docker_pro
 
 ## 11. 是正実装結果（2026-08-28）
 
-- `tools/coordinator/architecture/README.md`へ主実行シーケンス、Architecture上の10資源、Task Traceが直接観測する9資源、18状態、Lock順序、耐久pair、cleanup依存順、9不変条件および18遷移を固定した。Operation取得中、clean blocked、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
+- `tools/coordinator/architecture/README.md`へ主実行シーケンス、Architecture上の10資源、Task Traceが直接観測する9資源、19状態、Lock順序、耐久pair、cleanup依存順、9不変条件および19遷移を固定した。Operation取得中、clean blocked、exact IDを持つRecovery、IDなしoperator transfer、一回限りで循環しないbounded remediation、Host clean後のRecoveryと別Recovery invocationを分離した。
 - `tools/coordinator/runtime/coordinator-runtime-traceability.json`へ最小機械可読投影を追加し、6検証接続・44の状態別caseへ再構成した。契約投影と実Filesystem／Process観測を区別した。
 - Coordinator専用Checkerはexact entity shape、Schema、ID、参照、孤立、risk、operation／invocation terminal遷移、検証境界、遷移×開始状態×区分、期待終了状態、Effect件数、結果状態、資源後条件、Architecture記載およびtest source上のexact test名を検査する。試験実行結果、品質状態または監査Passは主張しない。
 - Host active bindingのcontent rename直後へ実process killを注入し、同一Lock内でHost previous世代、全submission不存在、exact base、完全commit済みpointer、active binding完全一致およびactive commit不存在の場合だけ明示Recoveryでrollbackして残存0へ収束することを確認した。
@@ -404,3 +404,5 @@ Docker Recovery admissionではactive Home hashを全ID由来hashの重複なし
 再是正では、Host Recovery IDを返す前に現在markerを非linkの通常fileとして読み、exact schema、Root名、Filesystem Identityおよび実bytesを安定再読取りし、実bytes Hashからだけtokenを再構成する。初期markerが空、部分的、置換済み、観測不能または一意でない場合は推測IDを返さず、`cleanupConfirmed=false`、手動RecoveryおよびIDなしのoperator transferへ閉じる。rename後に例外が生じても、現在markerが旧recordなら旧token、successor recordならsuccessor token、どちらとも確定できなければ`null`を返す。
 
 Docker Recoveryの不正成功形では、abandonとMount settlementをbest-effortのAuthority／Lease返却として実行するが、durable record、pointer、active bindingおよびinventoryの削除証明には使わない。したがってControllerは常に`cleanupConfirmed=false`、`manualRecoveryRequired=true`とし、構文上正しいRecovery IDを保持する。production結合試験はabandon成功後にもdurable inventoryが残ることを観測する。更新SourceはCoordinator全1108試験、TypeScript strict typecheck、Lint、Formatter、Trace Checker、Repository全体Checker（error 0、warning 0）およびdiff checkを通過した。これらは更新固定版の同じ監査集合による独立再監査がPassするまで`Resolved`へ昇格しない。
+
+第八固定候補の再監査は、外周rollbackがcached initializing tokenを返す分岐、現在読めるが捕捉済みlineageと無関係な置換recordの再信頼、およびIDなしoperator transferをexact Recovery状態へ畳むTraceを検出した。追加是正では、公開するHost Recovery IDを捕捉済み旧marker Identity＋bytesまたは今回のtemporary handle Identity＋successor bytesのどちらかに限定し、外周返却直前にも同じlineageを再検証する。production既定TEMPのnonnull IDは公開loaderへ通し、空、部分、別Identity、観測不能または不存在は`null`へ閉じる。Task terminalはexact IDを持つ`STATE-RECOVERY-REQUIRED`と、actionable IDを持たない`STATE-OPERATOR-TRANSFER-REQUIRED`へ分離し、後者をRecovery invocationへ推測接続しない。更新SourceはCoordinator全1112試験、TypeScript strict typecheck、Lint、Formatter、Trace Checker、Repository全体Checker（error 0、warning 0）およびdiff checkを通過した。これらは更新固定版の独立再監査前にResolvedとしない。

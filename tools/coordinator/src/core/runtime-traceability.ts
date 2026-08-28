@@ -87,6 +87,7 @@ const EXPECTED_STATUSES = new Set([
   "authorized",
   "blocked",
   "completed",
+  "operator_transfer_required",
   "recovery_required",
   "staged",
 ]);

@@ -259,7 +259,8 @@ const TASK_TRACE_ASSERTIONS: Readonly<
   "CASE-BLOCKED-HOST-CLEAN": assertRuntimeTraceCase,
   "CASE-RECOVERY-ADMISSION": assertRuntimeTraceCase,
   "CASE-RECOVERY-OPERATION-ACQUIRING": assertRuntimeTraceCase,
-  "CASE-RECOVERY-OPERATION-READY": assertRuntimeTraceCase,
+  "CASE-OPERATOR-TRANSFER-OPERATION-ACQUIRING": assertRuntimeTraceCase,
+  "CASE-OPERATOR-TRANSFER-OPERATION-READY": assertRuntimeTraceCase,
   "CASE-RECOVERY-TASK-AUTHORIZED": assertRuntimeTraceCase,
   "CASE-RECOVERY-EXECUTOR-CLEAN": assertRuntimeTraceCase,
   "CASE-RECOVERY-CANDIDATE-CAPTURED": assertRuntimeTraceCase,
@@ -308,19 +309,35 @@ async function assertTerminalRuntimeTraceCase(
   const terminal = harness.lifecycleSnapshots.at(-1);
   const source = harness.lifecycleSnapshots.at(-2);
   assert.ok(source && terminal);
-  assert.match(terminal.state, /^STATE-(?:BLOCKED-CLEAN|RECOVERY-REQUIRED)$/u);
+  assert.match(
+    terminal.state,
+    /^STATE-(?:BLOCKED-CLEAN|RECOVERY-REQUIRED|OPERATOR-TRANSFER-REQUIRED)$/u,
+  );
   const recovering =
     result.manualRecoveryRequired === true ||
     result.processRestartRequired === true;
+  const exactRecoveryAvailable =
+    result.hostRecoveryId !== null ||
+    (Array.isArray(result.dockerRecoveryIds) &&
+      result.dockerRecoveryIds.length > 0) ||
+    result.candidateRecoveryId !== null ||
+    result.candidateStoreRecoveryId !== null;
+  const operatorTransfer = recovering && !exactRecoveryAvailable;
   assert.equal(
     terminal.state,
-    recovering ? "STATE-RECOVERY-REQUIRED" : "STATE-BLOCKED-CLEAN",
+    operatorTransfer
+      ? "STATE-OPERATOR-TRANSFER-REQUIRED"
+      : recovering
+        ? "STATE-RECOVERY-REQUIRED"
+        : "STATE-BLOCKED-CLEAN",
   );
   const observed: RuntimeTraceCase = {
     id: caseId,
-    transitionId: recovering
-      ? "TRANS-ACTIVE-TO-RECOVERY"
-      : "TRANS-ACTIVE-TO-BLOCKED-CLEAN",
+    transitionId: operatorTransfer
+      ? "TRANS-ACTIVE-TO-OPERATOR-TRANSFER"
+      : recovering
+        ? "TRANS-ACTIVE-TO-RECOVERY"
+        : "TRANS-ACTIVE-TO-BLOCKED-CLEAN",
     fromState: source.state,
     outcome: "taken",
     expectedEndState: terminal.state,
@@ -329,11 +346,13 @@ async function assertTerminalRuntimeTraceCase(
       host: terminal.host - source.host,
       cleanup: terminal.cleanup - source.cleanup,
     },
-    expectedStatus: recovering
-      ? "recovery_required"
-      : String(result.status) === "blocked"
-        ? "blocked"
-        : "completed",
+    expectedStatus: operatorTransfer
+      ? "operator_transfer_required"
+      : recovering
+        ? "recovery_required"
+        : String(result.status) === "blocked"
+          ? "blocked"
+          : "completed",
     resourcePostconditions: {
       ...selectResourcePostconditions(terminal, TERMINAL_RESOURCES),
       "RES-TASK-CONTROL": "absent",
@@ -446,7 +465,10 @@ function fixture(
     externalSendReason?: string;
     pauseExternalAuthorization?: boolean;
     pauseOperationCreation?: boolean;
-    operationCreationFailure?: "cleanup_confirmed" | "cleanup_unknown";
+    operationCreationFailure?:
+      | "cleanup_confirmed"
+      | "cleanup_unknown"
+      | "cleanup_unknown_without_id";
     pauseOperationCleanup?: boolean;
     pauseRole?: "executor" | "reviewer";
     hostGenerationLoss?: "cleanup_confirmed_failure" | "cleanup_unknown";
@@ -552,7 +574,9 @@ function fixture(
   const processCounts = new Map<"executor" | "reviewer", number>();
   const processStartCounts = new Map<"executor" | "reviewer", number>();
   const currentResourceSnapshot = (state: string) => {
-    const recoveryTerminal = state === "STATE-RECOVERY-REQUIRED";
+    const recoveryTerminal =
+      state === "STATE-RECOVERY-REQUIRED" ||
+      state === "STATE-OPERATOR-TRANSFER-REQUIRED";
     const outstandingProvider =
       processStartCount > providerCleanupConfirmedCount;
     const operationAcquired = operationCreateCount > 0;
@@ -562,7 +586,7 @@ function fixture(
       workspaceAcquired && hostCleanupConfirmedCount === 0;
     return Object.freeze({
       "RES-HOST-GENERATION": hostPresent
-        ? state === "STATE-RECOVERY-REQUIRED"
+        ? recoveryTerminal
           ? "preserved"
           : "present"
         : "absent",
@@ -580,7 +604,7 @@ function fixture(
               : "absent"
           : "absent",
       "RES-OPERATION-WORKSPACE": workspacePresent
-        ? state === "STATE-RECOVERY-REQUIRED"
+        ? recoveryTerminal
           ? "preserved"
           : "present"
         : workspaceAcquired || operationAcquired
@@ -608,7 +632,7 @@ function fixture(
         resources: currentResourceSnapshot(state),
       });
       if (
-        /^STATE-(?:RESULT-PUBLISHED|BLOCKED-CLEAN|RECOVERY-REQUIRED)$/u.test(
+        /^STATE-(?:RESULT-PUBLISHED|BLOCKED-CLEAN|RECOVERY-REQUIRED|OPERATOR-TRANSFER-REQUIRED)$/u.test(
           state,
         )
       )
@@ -708,11 +732,14 @@ function fixture(
               options.operationCreationFailure === "cleanup_confirmed"
                 ? "coordinator_task_host_generation_lock_start_failed_cleanup_confirmed"
                 : "coordinator_task_host_generation_lock_cleanup_unknown_process_restart_required",
-            hostRecoveryId: "host.fixture.operation.creation.recovery",
+            hostRecoveryId:
+              options.operationCreationFailure === "cleanup_unknown_without_id"
+                ? null
+                : "host.fixture.operation.creation.recovery",
             cleanupConfirmed:
               options.operationCreationFailure === "cleanup_confirmed",
             manualRecoveryRequired:
-              options.operationCreationFailure === "cleanup_unknown",
+              options.operationCreationFailure !== "cleanup_confirmed",
           })
         : null,
     cleanupOperation: async (candidate: object) => {
@@ -3098,6 +3125,33 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
     );
   });
 
+  await t.test("CASE-OPERATOR-TRANSFER-OPERATION-ACQUIRING", async () => {
+    const harness = fixture({
+      operationCreationFailure: "cleanup_unknown_without_id",
+    });
+    const result = await harness.runtime.start(
+      request(),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.cleanupConfirmed, false);
+    assert.equal(result.manualRecoveryRequired, true);
+    assert.equal(result.hostRecoveryId, null);
+    assert.deepEqual(result.dockerRecoveryIds, []);
+    assert.equal(result.candidateRecoveryId, null);
+    assert.equal(result.candidateStoreRecoveryId, null);
+    assert.equal(harness.lifecycleStates.at(-2), "STATE-OPERATION-ACQUIRING");
+    assert.equal(
+      harness.lifecycleStates.at(-1),
+      "STATE-OPERATOR-TRANSFER-REQUIRED",
+    );
+    await assertTerminalRuntimeTraceCase(
+      "CASE-OPERATOR-TRANSFER-OPERATION-ACQUIRING",
+      harness,
+      result,
+    );
+  });
+
   await t.test("CASE-BLOCKED-TASK-AUTHORIZED", async () => {
     const harness = fixture({ pauseRole: "executor" });
     const started = harness.runtime.start(
@@ -3214,12 +3268,12 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       candidate: 1,
     },
     {
-      id: "CASE-RECOVERY-OPERATION-READY",
+      id: "CASE-OPERATOR-TRANSFER-OPERATION-READY",
       options: {
         externalSendReason:
           "external_send_confirmation_cleanup_unknown_process_restart_required",
       },
-      terminal: "recovery",
+      terminal: "operator",
       source: "STATE-OPERATION-READY",
       process: 0,
       candidate: 0,
@@ -3341,7 +3395,9 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         harness.lifecycleStates.at(-1),
         scenario.terminal === "clean"
           ? "STATE-BLOCKED-CLEAN"
-          : "STATE-RECOVERY-REQUIRED",
+          : scenario.terminal === "operator"
+            ? "STATE-OPERATOR-TRANSFER-REQUIRED"
+            : "STATE-RECOVERY-REQUIRED",
       );
       const cleanupUnknown = new Set([
         "CASE-RECOVERY-TASK-AUTHORIZED",
@@ -3419,7 +3475,7 @@ test("Docker Recoveryの内部理由を共有allowlistでTask公開理由へ投�
 
 test("ConsoleまたはControl資源cellの一件差をCanonical Trace不一致として拒否する", () => {
   for (const [caseId, resource] of [
-    ["CASE-RECOVERY-OPERATION-READY", "RES-INTERACTIVE-CONSOLE"],
+    ["CASE-OPERATOR-TRANSFER-OPERATION-READY", "RES-INTERACTIVE-CONSOLE"],
     ["CASE-BLOCKED-ADMISSION", "RES-TASK-CONTROL"],
   ] as const) {
     const canonical = getRuntimeTraceCase(caseId);

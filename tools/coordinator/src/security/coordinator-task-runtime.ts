@@ -137,7 +137,8 @@ type RuntimeLifecycleState =
   | "STATE-HOST-CLEAN"
   | "STATE-RESULT-PUBLISHED"
   | "STATE-BLOCKED-CLEAN"
-  | "STATE-RECOVERY-REQUIRED";
+  | "STATE-RECOVERY-REQUIRED"
+  | "STATE-OPERATOR-TRANSFER-REQUIRED";
 type RuntimeRecord = Readonly<Record<string, unknown>>;
 const INTERNAL_TASK_OUTCOME = Symbol("internalTaskOutcome");
 type InternalTaskOutcome = Readonly<{
@@ -388,8 +389,16 @@ function terminalLifecycleState(result: TaskCompletionRecord) {
   if (
     result.manualRecoveryRequired === true ||
     result.processRestartRequired === true
-  )
+  ) {
+    const exactRecoveryAvailable =
+      result.hostRecoveryId !== null ||
+      result.dockerRecoveryIds.length > 0 ||
+      result.candidateRecoveryId !== null ||
+      result.candidateStoreRecoveryId !== null;
+    if (!exactRecoveryAvailable)
+      return "STATE-OPERATOR-TRANSFER-REQUIRED" as const;
     return "STATE-RECOVERY-REQUIRED" as const;
+  }
   return "STATE-BLOCKED-CLEAN" as const;
 }
 
