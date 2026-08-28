@@ -217,7 +217,15 @@ Client → External Interface → Organization Runtime → Repository Router →
                                                                                                 └ Provider Adapter
 ```
 
-この図はHeld候補を理解するための説明投影であり、採用済みTopology、固定API、実装順または互換性契約ではない。将来機能の採用、実装許可、Remote接続、待受port、Credential入力、データ送信または課金を許可しない。Organization Runtimeを経由してもProject Authority、Credential、CapabilityおよびRecovery権限は暗黙継承せず、Repository Router／Project Runtimeで対象Projectと操作を再認証する。CredentialはProvider／OSのselected-user認証Storeが所有し、CRDDは所有・複製しない。保護Runtime Stateが保持できるのはopaque参照、認証状態の観測、selected-user／Provider／Project binding、発行済Capability、activation／operation stateおよび実行時Recovery recordであり、Repositoryへ保存しない。この制限は、CHG／QAとしてRepositoryへ公開する非秘密のRecovery Evidenceを除外しない。Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`tools/coordinator/architecture/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。
+この図はHeld候補を理解するための説明投影であり、採用済みTopology、固定API、実装順または互換性契約ではない。将来機能の採用、実装許可、Remote接続、待受port、Credential入力、データ送信または課金を許可しない。
+
+このHeld候補でも、Organization Runtimeを経由してProject Authority、Credential、CapabilityまたはRecovery権限を暗黙継承しない。Repository RouterでProject／Repository Identityとbindingを再検証し、Project Runtimeで現行Policyおよび要求操作のAuthority／Capabilityを再検証・認可する。Recovery操作も、現行Policyと専用Capabilityを再検証する対象に含める。不一致、置換、競合または観測不能では既定拒否とし、再検証前にEffectを発生させない。
+
+このHeld候補のCredentialはProvider／OSのselected-user認証Storeが所有し、CRDDは所有・複製しない。保護Runtime Stateが保持できるのはopaque参照、認証状態の観測、selected-user／Provider／Project binding、発行済Capability、activation／operation stateおよび実行時Recovery recordであり、Repositoryへ保存しない。
+
+Repositoryへ別途公開判断済みの非秘密CHG／QA Recovery Evidenceは、この保存禁止の対象外である。ただし、実行時Recovery record、Runtime Authority、CapabilityまたはRecovery入力として再利用しない。
+
+Coordinator固有の状態、Lock、Named Pipe、Dockerおよび回復設計は`tools/coordinator/architecture/`に置き、CRDD全体へ再利用できる原則だけを`04_Agent_Organization.md`その他の責務を持つルート正本へ昇格する。Reference Runtimeの増加を理由に、CRDDルートを実装Component一覧へ変えない。
 
 採用したのは、Runtime 1.0完成後に反復Finding、責務集中、変更頻度、Failure Patternおよび運用Evidenceから安定境界を抽出する作業意図である。上記の境界名、分割方式および将来利用側は候補であり、実測されていない抽象化を先に固定しない。
 
