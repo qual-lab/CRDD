@@ -10,6 +10,7 @@ import { types as utilTypes } from "node:util";
 import {
   classifyCoordinatorTaskTerminalLifecycleState,
   createIsolatedCoordinatorTaskRuntimeCandidate,
+  createIsolatedCoordinatorTaskOperationCreationCandidate,
   describeCoordinatorTaskRuntimeContract,
   startRuntimeOwnedCoordinatorTask,
 } from "../src/security/coordinator-task-runtime.ts";
@@ -25,7 +26,6 @@ import {
   getOwnedHostRecoveryId,
   verifyOwnedOperationManagementCapability,
 } from "../src/security/execution-environment.ts";
-import { classifyOwnedCoordinatorOperationCreationFailure } from "../src/security/coordinator-operation-creation-internal.ts";
 import {
   assertRuntimeTraceExecutionCoverage,
   assertRuntimeTraceCase,
@@ -3415,12 +3415,14 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
       } catch (caught) {
         error = caught;
       }
-      const harness = fixture({
-        createOperationOverride: () => {
+      const productionWrapper =
+        createIsolatedCoordinatorTaskOperationCreationCandidate(() => {
           throw error;
-        },
-        classifyOperationCreationFailureOverride:
-          classifyOwnedCoordinatorOperationCreationFailure,
+        });
+      const harness = fixture({
+        createOperationOverride: productionWrapper.create,
+        classifyOperationCreationFailureOverride: productionWrapper.classify,
+        isProcessPoisoned: productionWrapper.isProcessPoisoned,
       });
       const result = await harness.runtime.start(
         request(),
@@ -3428,8 +3430,13 @@ test("Task terminal Traceは開始状態ごとの実scenarioと資源後条件�
         "2026-08-25T00:00:00.000Z",
       ).completion;
       assert.equal(result.status, "blocked");
+      assert.equal(
+        result.reason,
+        "coordinator_task_operation_initialization_cleanup_unknown_process_restart_required",
+      );
       assert.equal(result.cleanupConfirmed, false);
       assert.equal(result.manualRecoveryRequired, true);
+      assert.equal(result.processRestartRequired, true);
       assert.equal(result.hostRecoveryId, hostRecoveryId);
       assert.equal(result.canonicalRepositoryChanged, false);
       assert.equal(harness.processStartCount(), 0);

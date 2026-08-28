@@ -228,6 +228,47 @@ function throwProductionOperationFailure(
   productionOperationFailures.set(error, Object.freeze(details));
   throw error;
 }
+
+function createProductionOperationRoot(
+  createOperation: () => Operation,
+  poisonAfterCleanupUnknown: () => void,
+) {
+  try {
+    return createOperation();
+  } catch (error) {
+    const creation =
+      classifyOwnedOperationDirectoryCreationFailure(error) ??
+      classifyOwnedCoordinatorOperationCreationFailure(error);
+    if (!creation) throw error;
+    if (!creation.cleanupConfirmed) poisonAfterCleanupUnknown();
+    throwProductionOperationFailure(
+      Object.freeze({
+        reason: creation.cleanupConfirmed
+          ? "coordinator_task_operation_initialization_failed_cleanup_confirmed"
+          : "coordinator_task_operation_initialization_cleanup_unknown_process_restart_required",
+        hostRecoveryId: creation.hostRecoveryId,
+        cleanupConfirmed: creation.cleanupConfirmed,
+        manualRecoveryRequired: creation.manualRecoveryRequired,
+      }),
+    );
+  }
+}
+
+/** Test-only seam for the exact production operation-root failure wrapper. */
+export function createIsolatedCoordinatorTaskOperationCreationCandidate(
+  createOperation: () => Operation,
+) {
+  let poisoned = false;
+  return Object.freeze({
+    productionAuthority: false as const,
+    create: () =>
+      createProductionOperationRoot(createOperation, () => {
+        poisoned = true;
+      }),
+    classify: productionOperationFailure,
+    isProcessPoisoned: () => poisoned,
+  });
+}
 type RuntimeDependencies = Readonly<{
   observeLifecycleState?: (state: RuntimeLifecycleState) => void;
   inspectRepository: (repositoryRoot: string) => RuntimeRecord | null;
@@ -1848,26 +1889,10 @@ async function runCoordinatorTask(
 }
 
 async function createProductionOperation() {
-  let operation: ReturnType<typeof createRuntimeOwnedCoordinatorOperation>;
-  try {
-    operation = createRuntimeOwnedCoordinatorOperation();
-  } catch (error) {
-    const creation =
-      classifyOwnedOperationDirectoryCreationFailure(error) ??
-      classifyOwnedCoordinatorOperationCreationFailure(error);
-    if (!creation) throw error;
-    if (!creation.cleanupConfirmed) poisonRuntimeProcessAfterCleanupUnknown();
-    throwProductionOperationFailure(
-      Object.freeze({
-        reason: creation.cleanupConfirmed
-          ? "coordinator_task_operation_initialization_failed_cleanup_confirmed"
-          : "coordinator_task_operation_initialization_cleanup_unknown_process_restart_required",
-        hostRecoveryId: creation.hostRecoveryId,
-        cleanupConfirmed: creation.cleanupConfirmed,
-        manualRecoveryRequired: creation.manualRecoveryRequired,
-      }),
-    );
-  }
+  const operation = createProductionOperationRoot(
+    createRuntimeOwnedCoordinatorOperation,
+    poisonRuntimeProcessAfterCleanupUnknown,
+  );
   const {
     owned,
     mountCapability,
