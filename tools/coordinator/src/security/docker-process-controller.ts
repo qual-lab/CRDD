@@ -31,7 +31,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 16;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 17;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -198,6 +198,69 @@ type RuntimeState = Readonly<{
 }>;
 type ExecutionResult = ReturnType<typeof createFinalResult>;
 
+const BLOCKED_START_KEYS = Object.freeze([
+  "cleanupConfirmed",
+  "completion",
+  "controlCapability",
+  "credentialAbsenceVerified",
+  "dockerEffectStarted",
+  "hostPathReported",
+  "manualRecoveryRequired",
+  "normalizedResult",
+  "operationId",
+  "providerRequestStarted",
+  "proxyCredentialReported",
+  "rawOutputReported",
+  "reason",
+  "recoveryId",
+  "status",
+  "untrustedProviderTextReported",
+]);
+const STARTED_KEYS = Object.freeze([
+  "completion",
+  "controlCapability",
+  "credentialAbsenceVerified",
+  "dockerEffectStarted",
+  "hostPathReported",
+  "normalizedResult",
+  "normalizedResultReportedAfterCleanupOnly",
+  "operationId",
+  "providerRequestStarted",
+  "proxyCredentialReported",
+  "rawOutputReported",
+  "reason",
+  "recoveryId",
+  "status",
+  "untrustedProviderTextReported",
+]);
+const COMPLETION_KEYS = Object.freeze([
+  "cancellationRequested",
+  "cleanupConfirmed",
+  "containersAbsent",
+  "credentialAbsenceVerified",
+  "dockerEffectStarted",
+  "hostPathReported",
+  "manualRecoveryRequired",
+  "mountLeaseReleased",
+  "networksAbsent",
+  "normalizedResult",
+  "operationId",
+  "processTreeTerminationConfirmed",
+  "providerRequestStarted",
+  "proxyCredentialReported",
+  "rawOutputReported",
+  "reason",
+  "recoveryCompleted",
+  "recoveryFinalizationCapability",
+  "recoveryId",
+  "resultBytes",
+  "resultSha256",
+  "selectionRecordId",
+  "status",
+  "subscriptionAuthConfirmed",
+  "untrustedProviderTextReported",
+]);
+
 function ownDataValue(value: unknown, key: string): unknown {
   if (!value || typeof value !== "object") return undefined;
   try {
@@ -206,6 +269,148 @@ function ownDataValue(value: unknown, key: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+function exactPlainRecord(value: unknown, expectedKeys: readonly string[]) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  try {
+    if (
+      Object.getPrototypeOf(value) !== Object.prototype ||
+      Object.keys(value).sort().join("\0") !==
+        [...expectedKeys].sort().join("\0")
+    )
+      return null;
+    return value as Readonly<Record<string, unknown>>;
+  } catch {
+    return null;
+  }
+}
+
+/** Producer-owned exact projection for the controller's synchronous result. */
+export function projectDockerProcessControllerStartResult(
+  value: unknown,
+  handedOffRecoveryId: unknown,
+): Readonly<Record<string, unknown>> | null {
+  const status = ownDataValue(value, "status");
+  if (status === "blocked") {
+    const record = exactPlainRecord(value, BLOCKED_START_KEYS);
+    const rawRecoveryId = ownDataValue(record, "recoveryId");
+    const recoveryId =
+      rawRecoveryId === null
+        ? null
+        : publicVerifiedDockerRecoveryId(rawRecoveryId);
+    return record &&
+      typeof ownDataValue(record, "reason") === "string" &&
+      ownDataValue(record, "controlCapability") === null &&
+      ownDataValue(record, "completion") === null &&
+      ownDataValue(record, "operationId") === null &&
+      typeof ownDataValue(record, "cleanupConfirmed") === "boolean" &&
+      typeof ownDataValue(record, "manualRecoveryRequired") === "boolean" &&
+      ownDataValue(record, "dockerEffectStarted") === false &&
+      ownDataValue(record, "providerRequestStarted") === false &&
+      ownDataValue(record, "normalizedResult") === null &&
+      ownDataValue(record, "rawOutputReported") === false &&
+      ownDataValue(record, "untrustedProviderTextReported") === false &&
+      ownDataValue(record, "credentialAbsenceVerified") === false &&
+      ownDataValue(record, "hostPathReported") === false &&
+      ownDataValue(record, "proxyCredentialReported") === false &&
+      recoveryId === rawRecoveryId
+      ? Object.freeze({ ...record, recoveryId })
+      : null;
+  }
+  const record = exactPlainRecord(value, STARTED_KEYS);
+  const recoveryId = publicVerifiedDockerRecoveryId(
+    ownDataValue(record, "recoveryId"),
+  );
+  return record &&
+    status === "started" &&
+    typeof ownDataValue(record, "reason") === "string" &&
+    typeof ownDataValue(record, "operationId") === "string" &&
+    ownDataValue(record, "controlCapability") !== null &&
+    typeof ownDataValue(record, "controlCapability") === "object" &&
+    ownDataValue(record, "completion") instanceof Promise &&
+    ownDataValue(record, "dockerEffectStarted") === true &&
+    ownDataValue(record, "providerRequestStarted") === false &&
+    ownDataValue(record, "normalizedResult") === null &&
+    ownDataValue(record, "normalizedResultReportedAfterCleanupOnly") === true &&
+    ownDataValue(record, "rawOutputReported") === false &&
+    ownDataValue(record, "untrustedProviderTextReported") === false &&
+    ownDataValue(record, "credentialAbsenceVerified") === false &&
+    ownDataValue(record, "hostPathReported") === false &&
+    ownDataValue(record, "proxyCredentialReported") === false &&
+    recoveryId !== null &&
+    recoveryId === handedOffRecoveryId
+    ? Object.freeze({ ...record, recoveryId })
+    : null;
+}
+
+/** Producer-owned exact projection for the controller's asynchronous result. */
+export function projectDockerProcessControllerCompletionResult(
+  value: unknown,
+  expectedRecoveryId: unknown,
+): Readonly<Record<string, unknown>> | null {
+  const record = exactPlainRecord(value, COMPLETION_KEYS);
+  if (!record) return null;
+  const status = ownDataValue(record, "status");
+  const cleanupConfirmed = ownDataValue(record, "cleanupConfirmed");
+  const manualRecoveryRequired = ownDataValue(record, "manualRecoveryRequired");
+  const rawRecoveryId = ownDataValue(record, "recoveryId");
+  const recoveryId =
+    rawRecoveryId === null
+      ? null
+      : publicVerifiedDockerRecoveryId(rawRecoveryId);
+  const expected = publicVerifiedDockerRecoveryId(expectedRecoveryId);
+  const processTreeTerminated = ownDataValue(
+    record,
+    "processTreeTerminationConfirmed",
+  );
+  const containersAbsent = ownDataValue(record, "containersAbsent");
+  const networksAbsent = ownDataValue(record, "networksAbsent");
+  const mountLeaseReleased = ownDataValue(record, "mountLeaseReleased");
+  const recoveryCompleted = ownDataValue(record, "recoveryCompleted");
+  const cleanupFromResources =
+    processTreeTerminated === true &&
+    containersAbsent === true &&
+    networksAbsent === true &&
+    mountLeaseReleased === true &&
+    recoveryCompleted === true;
+  if (
+    (status !== "completed" &&
+      status !== "blocked" &&
+      status !== "cancelled") ||
+    typeof ownDataValue(record, "reason") !== "string" ||
+    typeof cleanupConfirmed !== "boolean" ||
+    typeof manualRecoveryRequired !== "boolean" ||
+    typeof ownDataValue(record, "operationId") !== "string" ||
+    typeof ownDataValue(record, "selectionRecordId") !== "string" ||
+    ownDataValue(record, "dockerEffectStarted") !== true ||
+    typeof ownDataValue(record, "providerRequestStarted") !== "boolean" ||
+    typeof ownDataValue(record, "cancellationRequested") !== "boolean" ||
+    typeof processTreeTerminated !== "boolean" ||
+    typeof containersAbsent !== "boolean" ||
+    typeof networksAbsent !== "boolean" ||
+    typeof mountLeaseReleased !== "boolean" ||
+    typeof recoveryCompleted !== "boolean" ||
+    cleanupConfirmed !== cleanupFromResources ||
+    typeof ownDataValue(record, "resultBytes") !== "number" ||
+    (ownDataValue(record, "resultSha256") !== null &&
+      typeof ownDataValue(record, "resultSha256") !== "string") ||
+    (ownDataValue(record, "recoveryFinalizationCapability") !== null &&
+      typeof ownDataValue(record, "recoveryFinalizationCapability") !==
+        "object") ||
+    typeof ownDataValue(record, "subscriptionAuthConfirmed") !== "boolean" ||
+    ownDataValue(record, "rawOutputReported") !== false ||
+    ownDataValue(record, "untrustedProviderTextReported") !== false ||
+    ownDataValue(record, "credentialAbsenceVerified") !== false ||
+    ownDataValue(record, "hostPathReported") !== false ||
+    ownDataValue(record, "proxyCredentialReported") !== false ||
+    !expected ||
+    (cleanupConfirmed === true
+      ? recoveryId !== null || manualRecoveryRequired !== false
+      : recoveryId !== expected || manualRecoveryRequired !== true)
+  )
+    return null;
+  return Object.freeze({ ...record, recoveryId });
 }
 
 function snapshotReadyRecovery(value: unknown): Recovery | null {

@@ -3,11 +3,17 @@ import { types as utilTypes } from "node:util";
 import { prepareRuntimeOwnedClaudeDockerCandidate } from "./claude-docker-runtime-adapter.ts";
 import { prepareRuntimeOwnedCodexDockerCandidate } from "./codex-docker-runtime-adapter.ts";
 import {
+  classifyOwnedCoordinatorOperationCreationFailure,
+  createRuntimeOwnedCoordinatorOperation,
+} from "./coordinator-operation-creation-internal.ts";
+import {
   issueRuntimeOwnedDelegationSelectionGrant,
   revokeRuntimeOwnedDelegationSelectionGrant,
 } from "./delegation-selection-grant-runtime.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
+  projectDockerProcessControllerCompletionResult,
+  projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
 } from "./docker-process-controller.ts";
 import {
@@ -20,12 +26,6 @@ import { publicVerifiedDockerRecoveryId } from "./docker-recovery-public-project
 import {
   classifyOwnedOperationDirectoryCreationFailure,
   cleanupOwnedOperationDirectories,
-  createOwnedMountCapability,
-  createOwnedOperationContextCapability,
-  createOwnedOperationDirectories,
-  createOwnedOperationManagementCapability,
-  getOwnedHostRecoveryId,
-  verifyOwnedOperationManagementCapability,
 } from "./execution-environment.ts";
 import {
   consumeRuntimeOwnedProviderHomeMountGrant,
@@ -39,7 +39,7 @@ import {
 } from "./repository-operation-runtime.ts";
 
 export const COORDINATOR_RUNTIME_CONTRACT = "crdd-coordinator/runtime";
-export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 6;
+export const COORDINATOR_RUNTIME_CONTRACT_REVISION = 7;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
@@ -160,6 +160,16 @@ type RuntimeDependencies = Readonly<{
 type ControlRecord = Readonly<{
   processControlCapability: object;
   managementCapability: object;
+}>;
+type ProcessCompletionResult = Readonly<{
+  status: string;
+  reason: string;
+  cleanupConfirmed: boolean;
+  manualRecoveryRequired: boolean;
+  normalizedResult: unknown;
+  recoveryFinalizationCapability: object | null;
+  recoveryId: unknown;
+  [key: string]: unknown;
 }>;
 
 type RuntimeState = Readonly<{
@@ -325,7 +335,9 @@ function start(
   try {
     operation = state.dependencies.createOperation();
   } catch (error) {
-    const creation = classifyOwnedOperationDirectoryCreationFailure(error);
+    const creation =
+      classifyOwnedOperationDirectoryCreationFailure(error) ??
+      classifyOwnedCoordinatorOperationCreationFailure(error);
     if (!creation)
       return blocked("coordinator_runtime_operation_creation_failed");
     return creation.cleanupConfirmed && !creation.manualRecoveryRequired
@@ -483,7 +495,7 @@ function start(
     }
     let recoveryHandoffCapability: object | null = null;
     let recoveryHandoffId: string | null = null;
-    const process = state.dependencies.startProcess(
+    const rawProcess = state.dependencies.startProcess(
       prepared.preparedCapability,
       managementCapability,
       (recoveryCapability, recoveryId) => {
@@ -499,6 +511,28 @@ function start(
         return true;
       },
     );
+    const productionProcessContract =
+      state.dependencies.startProcess ===
+      startRuntimeOwnedDockerProcessController;
+    const process = (
+      productionProcessContract
+        ? projectDockerProcessControllerStartResult(
+            rawProcess,
+            recoveryHandoffId,
+          )
+        : rawProcess
+    ) as ReturnType<RuntimeDependencies["startProcess"]> | null;
+    if (!process) {
+      if (recoveryHandoffCapability)
+        void state.dependencies.abandonDockerRecovery(
+          recoveryHandoffCapability,
+        );
+      return blockedForExactRecovery(
+        "coordinator_runtime_process_start_contract_invalid",
+        hostRecoveryId,
+        recoveryHandoffId ? [recoveryHandoffId] : [],
+      );
+    }
     if (
       process.status !== "started" ||
       !process.controlCapability ||
@@ -549,15 +583,25 @@ function start(
     );
     const completion = process.completion
       .then((rawResult) => {
-        const result = rawResult as Readonly<{
-          status?: string;
-          reason?: string;
-          cleanupConfirmed?: boolean;
-          manualRecoveryRequired?: boolean;
-          normalizedResult?: unknown;
-          recoveryFinalizationCapability?: object | null;
-          recoveryId?: unknown;
-        }>;
+        const result = (
+          productionProcessContract
+            ? projectDockerProcessControllerCompletionResult(
+                rawResult,
+                recoveryHandoffId,
+              )
+            : rawResult
+        ) as ProcessCompletionResult | null;
+        if (!result) {
+          if (recoveryHandoffCapability)
+            void state.dependencies.abandonDockerRecovery(
+              recoveryHandoffCapability,
+            );
+          return blockedForExactRecovery(
+            "coordinator_runtime_process_completion_contract_invalid",
+            hostRecoveryId,
+            recoveryHandoffId ? [recoveryHandoffId] : [],
+          );
+        }
         const completionRecoveryId = publicVerifiedDockerRecoveryId(
           result.recoveryId,
         );
@@ -693,22 +737,7 @@ function start(
 }
 
 function createProductionOperation() {
-  const owned = createOwnedOperationDirectories();
-  const contextCapability = createOwnedOperationContextCapability(owned);
-  const mountCapability = createOwnedMountCapability(owned);
-  const managementCapability = createOwnedOperationManagementCapability(
-    contextCapability,
-    mountCapability,
-  );
-  const operation =
-    verifyOwnedOperationManagementCapability(managementCapability);
-  return Object.freeze({
-    owned,
-    mountCapability,
-    managementCapability,
-    operationId: operation.operationId,
-    hostRecoveryId: getOwnedHostRecoveryId(owned),
-  });
+  return createRuntimeOwnedCoordinatorOperation();
 }
 
 const productionState: RuntimeState = Object.freeze({

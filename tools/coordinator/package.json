@@ -10,7 +10,7 @@
     "check": "npm run runtime-traceability:check && npm run typecheck && npm run lint && npm run format:check",
     "claude-docker-runtime-adapter:coverage": "node --experimental-test-coverage --test ./tests/claude-docker-runtime-adapter.contract.test.ts ./tests/provider-model-selection-runtime.contract.test.ts",
     "claude-execution-plan:coverage": "node --experimental-test-coverage --test ./tests/plain-data-snapshot.contract.test.ts ./tests/claude-execution-plan.contract.test.ts",
-    "coordinator-runtime:coverage": "node --experimental-test-coverage --test ./tests/coordinator-runtime.contract.test.ts ./tests/coordinator-claude-delegation.integration.test.ts",
+    "coordinator-runtime:coverage": "node --experimental-test-coverage --test ./tests/coordinator-operation-creation-internal.contract.test.ts ./tests/coordinator-runtime.contract.test.ts ./tests/coordinator-claude-delegation.integration.test.ts",
     "coordinator-task-runtime:coverage": "node --experimental-test-coverage --test ./tests/coordinator-task-runtime.contract.test.ts ./tests/provider-task-packet-runtime.contract.test.ts ./tests/provider-task-structured-result.contract.test.ts",
     "dynamic-fake-provider:coverage": "node ./scripts/check-dynamic-fake-provider-coverage.ts",
     "dynamic-fake-provider:verify-cancellation": "node ./scripts/verify-dynamic-fake-provider-cancellation.ts",

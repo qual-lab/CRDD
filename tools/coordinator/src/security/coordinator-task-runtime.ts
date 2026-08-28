@@ -14,6 +14,8 @@ import {
 } from "./delegation-selection-grant-runtime.ts";
 import {
   cancelRuntimeOwnedDockerProcessController,
+  projectDockerProcessControllerCompletionResult,
+  projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
 } from "./docker-process-controller.ts";
 import {
@@ -79,7 +81,7 @@ import { evaluateManagedDockerCleanupEligibility } from "../core/docker-cleanup-
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 22;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 23;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const REQUEST_KEYS = new Set([
@@ -1027,7 +1029,7 @@ async function executeStage(
     if (prepared.status !== "prepared" || !preparedCapability) {
       return blocked("coordinator_task_provider_prepare_failed");
     }
-    const process = state.dependencies.startProcess(
+    const rawProcess = state.dependencies.startProcess(
       preparedCapability,
       operation.managementCapability,
       (recoveryCapability, recoveryId) => {
@@ -1050,6 +1052,25 @@ async function executeStage(
         return true;
       },
     );
+    const productionProcessContract =
+      state.dependencies.startProcess ===
+      startRuntimeOwnedDockerProcessController;
+    const process = (
+      productionProcessContract
+        ? projectDockerProcessControllerStartResult(
+            rawProcess,
+            control.dockerHandoffs.at(-1)?.recoveryId ?? null,
+          )
+        : rawProcess
+    ) as RuntimeRecord | null;
+    if (!process) {
+      return blocked(
+        "coordinator_task_process_start_contract_invalid",
+        true,
+        operation.hostRecoveryId,
+        control.dockerHandoffs.at(-1)?.recoveryId ?? null,
+      );
+    }
     const processControl = objectCapability(process.controlCapability);
     const completion = process.completion;
     if (
@@ -1084,9 +1105,23 @@ async function executeStage(
         operation.managementCapability,
       );
     }
-    const result = (await completion) as RuntimeRecord;
+    const rawResult = await completion;
+    const result = productionProcessContract
+      ? projectDockerProcessControllerCompletionResult(
+          rawResult,
+          startedDockerRecoveryId,
+        )
+      : (rawResult as RuntimeRecord);
     control.currentProcessControl = null;
     startedProcessControl = null;
+    if (!result) {
+      return blocked(
+        "coordinator_task_process_completion_contract_invalid",
+        true,
+        operation.hostRecoveryId,
+        startedDockerRecoveryId,
+      );
+    }
     const completedHandoff = control.dockerHandoffs.find(
       (candidate) => candidate.recoveryId === startedDockerRecoveryId,
     );

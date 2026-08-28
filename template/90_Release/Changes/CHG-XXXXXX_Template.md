@@ -46,7 +46,7 @@ Changes、Evidence、CHG-*という英語識別子は本文言語を指定しな
 - 変更する契約母集団:
 - 既知の利用側母集団と対象別の予定処置:
 - 安全上重要な層間搬送のproducer／transport／consumer／公開projection（該当する場合）:
-- 後続EffectまたはRecoveryを可能にする耐久状態と失敗呼出し後の非発行（該当する場合）:
+- 別の呼出し／processで保護対象EffectまたはRecoveryの十分な根拠／不可欠なAuthority predicateになる耐久状態、発行条件成立前の非発行、exact発行後の同一intent保持、retry時の別・拡大Authority非生成（該当する場合。fresh Authorityへ再結合する通常のqueue／progress／checkpoint／Evidenceは非該当）:
 - 発火する代表例と期待結果:
 - 発火しない代表例と期待結果:
 - 境界となる例と期待結果:

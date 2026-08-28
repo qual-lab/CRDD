@@ -719,7 +719,7 @@ test("動的入力とsource checkoutのProduction入口はProvider Effect前に�
 
 test("公開契約はSubscription probeと非canonical Effect境界を固定する", () => {
   const contract = describeCoordinatorRuntimeContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.equal(
     contract.currentVerticalSlice,
     "codex_and_claude_subscription_boolean_probe",

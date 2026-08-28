@@ -5,6 +5,8 @@ import {
   cancelRuntimeOwnedDockerProcessController,
   createIsolatedDockerProcessControllerCandidate,
   describeDockerProcessControllerContract,
+  projectDockerProcessControllerCompletionResult,
+  projectDockerProcessControllerStartResult,
   startRuntimeOwnedDockerProcessController,
 } from "../src/security/docker-process-controller.ts";
 
@@ -65,6 +67,52 @@ function createPlan(
     ),
   });
 }
+
+test("実Controller出力のstart・handoff・completion相関をproducer所有projectionで固定する", async () => {
+  const fixture = createFixture();
+  let handedOffRecoveryId: unknown = null;
+  const started = fixture.controller.start(
+    fixture.preparedCapability,
+    fixture.managementCapability,
+    (_capability: unknown, recoveryId: unknown) => {
+      handedOffRecoveryId = recoveryId;
+      return true;
+    },
+  );
+  const projectedStart = projectDockerProcessControllerStartResult(
+    started,
+    handedOffRecoveryId,
+  );
+  assert.ok(projectedStart);
+  assert.equal(projectedStart.status, "started");
+  const completion = await (projectedStart.completion as Promise<unknown>);
+  assert.ok(
+    projectDockerProcessControllerCompletionResult(
+      completion,
+      handedOffRecoveryId,
+    ),
+  );
+  assert.equal(
+    projectDockerProcessControllerStartResult(
+      Object.freeze({
+        ...started,
+        recoveryId: `docker-task.${"1".repeat(64)}.${"2".repeat(64)}.${"3".repeat(64)}`,
+      }),
+      handedOffRecoveryId,
+    ),
+    null,
+  );
+  assert.equal(
+    projectDockerProcessControllerCompletionResult(
+      Object.freeze({
+        ...(completion as Readonly<Record<string, unknown>>),
+        recoveryId: handedOffRecoveryId,
+      }),
+      handedOffRecoveryId,
+    ),
+    null,
+  );
+});
 
 function createProviderOutput(overrides: Record<string, unknown> = {}) {
   return `${JSON.stringify({
@@ -945,7 +993,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 16);
+  assert.equal(contract.contractRevision, 17);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
   assert.match(contract.providerAuthority, /consumed_before/u);
