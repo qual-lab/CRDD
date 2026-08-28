@@ -2,7 +2,7 @@
 
 Status: Non-normative Open Work Registry
 Owner: Qual-Lab
-Last Updated: 2026-08-26
+Last Updated: 2026-08-28
 Related:
 - [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_CRDD_Product_Discovery.md)
 - [05_Autonomous_Operation.md](../05_Autonomous_Operation.md)
@@ -22,7 +22,9 @@ Related:
 | Coordinator Runtime 1.0の完成固定 | —（非適用） | In Progress | [CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md) | 成功Vertical SliceをRuntime全体の完成へ読み替えず、未評価の正式署名E2E、現行正本、残存リスクおよび完了条件を再計算する。必要な是正と固定版確認後、人間のPR／統合判断へ渡す |
 | Front Claude Codeを含む逆方向経路の正式署名E2E | Adopted | In Progress | [エージェント組織](../04_Agent_Organization.md)、[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md) | Coordinator仲介Authority Treeと4経路の完全一致Runnerは機械試験済み。最新署名配布物から`Front Claude Code → Codex Executor → Claude Code Independent Reviewer`を含む4経路を実測し、入口Identityは要求Profile、実Executor／Reviewerは観測結果として区別する。Provider同士の直接spawn、循環、API key、従量API、追加購入または有料fallbackは許可しない |
 | v0.18とCoordinator Runtimeの利用者向け入口整理 | Adopted | In Progress | [公開入口](../README.md)、[Runtime実装入口](../tools/coordinator/README.md)、[CHG-000015](../90_Release/Changes/CHG-000015_Coordinator_Runtime_1_0.md) | root READMEの採用者向け変化、Runtime README上部の現在Capability／起動条件／未成立範囲、Threat Modelと後続詳細のTrust／Provisioning／Recoveryへ三層化済み。正式署名実測と完成監査の結果を同期後、本項を正本へ移してRoadmapから除く |
-| 上流工程エージェントと課題探索対話ループの強化 | Adopted | Planned | [CRDD標準自身の課題探索・要求形成](../01_Discovery/01_CRDD_Product_Discovery.md) | Coordinator Runtimeの正式署名一般Task実行と完成固定版確認後、現行正本と影響を再確認して人間の着手判断を得る。その後、このRuntimeを使って一つの主変更意図からCHG、専門探索、実装および独立レビューを行う |
+| 上流工程エージェント、課題探索対話ループおよび工程接続の強化 | Adopted | Planned | [上流工程強化](../01_Discovery/01_CRDD_Product_Discovery.md)、[工程接続と意味網羅検証](../01_Discovery/01_CRDD_Product_Discovery.md#731-工程接続と意味網羅検証の強化候補) | Coordinator Runtimeの正式署名一般Task実行と完成固定版確認後、現行正本と影響を再確認して人間の着手判断を得る。このRuntimeを使い、課題探索から専門工程までの強化に加えて、振る舞い仕様→アーキテクチャ→検証設計→実装→検証を接続し、正常・準正常・異常・回復とFailure Injection Pointを設計上の状態・遷移・資源・観測へ結合する。新しい固定工程や全対象への完全Runtime契約は前提にしない |
+| Coordinator Reference Runtimeの根拠駆動リファクタリング | Adopted | Planned | [リファクタリング候補](../01_Discovery/01_CRDD_Product_Discovery.md#732-coordinator-reference-runtimeの根拠駆動リファクタリング候補) | Runtime 1.0完成固定版と第2段階の自己適用Evidenceを得た後、Operation Lifecycle、Resource Lifecycle／Ledger、Platform、ProviderおよびRuntime Interfaceの責務分離を再評価する。現行Architectureを完成前に作り直さず、反復Finding、変更頻度および責務集中から安定境界だけを抽出する |
+| 既存・過去CHGを含む人間可読文書の意味構造改善 | Adopted | Planned | [人間可読文書の改善候補](../01_Discovery/01_CRDD_Product_Discovery.md#733-人間可読文書の意味構造改善候補)、[文書化](../03_Documentation.md#481-locale-first-display) | 新規文書だけでなく現行系列の既存正本、README、監査文書およびReleasedを含む過去CHGを棚卸しし、人間／AI／Git差分の三軸で優先順位を付ける。公開済みtag、変更ID、判断、当時状態、Evidenceおよび時系列を変えず、意味を欠落させないMarkdown再構成または補助投影として段階実施する |
 | CRDD長期発展の上位方向 | Adopted | Unscheduled | [長期発展方針](../01_Discovery/01_CRDD_Product_Discovery.md#7-crddの長期発展方針) | 第1段階の完成固定版と、第2段階で最初に得た自己適用の根拠を再評価契機とする。段階の順序や個別能力から実装許可を推定しない |
 | 第2～第6段階の個別研究候補 | Held | Unscheduled | [長期発展方針の研究候補](../01_Discovery/01_CRDD_Product_Discovery.md#78-研究候補と保持条件) | 第1段階の完成固定版と第2段階の最初の自己適用結果を得た後、価値、成立性、費用、安全性および責務境界を人間が再評価する |
 | 自律Operationの参照実証 | Exploring | Unscheduled | [参照Operation実証](../05_Autonomous_Operation.md#reference-operation-experiments)、[安全境界](../05_Autonomous_Operation.md#14-pocで確認する境界)、[将来互換性](../05_Autonomous_Operation.md#6-将来互換性の確認候補) | 週次プロダクトレビュー、Communication結果レビュー、Roadmap再評価、Repository Eventのうち判断を変え得る最小の実証を選ぶ。Runtime完成または明示的な人間判断を再評価契機とし、起動数ではなく判断価値、安全性、誤起動、収束、根拠および人間負荷で評価する |
