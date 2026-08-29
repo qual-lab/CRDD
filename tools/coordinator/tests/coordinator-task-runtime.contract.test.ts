@@ -1707,6 +1707,31 @@ test("Docker回復記録はHost cleanup intentと不存在receiptの後だけfin
   ]);
 });
 
+test("清掃済みProvider失敗もHost cleanup後にDocker回復記録をfinalizeする", async () => {
+  const harness = fixture({
+    hostCleanupWal: true,
+    processCleanFailureRole: "executor",
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "fixture_provider_failed");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.dockerRecoveryId, null);
+  assert.deepEqual(result.dockerRecoveryIds, []);
+  assert.equal(harness.cleanupCount(), 1);
+  assert.deepEqual(harness.events.slice(-4), [
+    "docker-host-cleanup-intent",
+    "host-cleanup",
+    "docker-host-cleanup-receipt",
+    "docker-finalize",
+  ]);
+});
+
 test("finalizable Docker handoffは0／1／2件で同じcleanup DAGへ進む", async () => {
   const zero = fixture({ externalSendDenied: true, hostCleanupWal: true });
   const zeroResult = await zero.runtime.start(
@@ -2426,7 +2451,7 @@ test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格
 });
 
 test("実行中取消はProvider完了後もCandidateを公開せずexactly onceに閉じる", async () => {
-  const harness = fixture({ pauseRole: "executor" });
+  const harness = fixture({ pauseRole: "executor", hostCleanupWal: true });
   const started = harness.runtime.start(
     request(),
     "C:\\repository",
@@ -2455,7 +2480,16 @@ test("実行中取消はProvider完了後もCandidateを公開せずexactly once
     "coordinator_task_cancelled_after_provider_cleanup",
   );
   assert.equal(result.candidateRevision, null);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.deepEqual(result.dockerRecoveryIds, []);
   assert.equal(harness.cleanupCount(), 1);
+  assert.deepEqual(harness.events.slice(-4), [
+    "docker-host-cleanup-intent",
+    "host-cleanup",
+    "docker-host-cleanup-receipt",
+    "docker-finalize",
+  ]);
 });
 
 test("不正なlower取消receiptも同じlive Operationでは同じcached rejectionへ閉じる", async () => {

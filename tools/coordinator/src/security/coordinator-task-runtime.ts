@@ -1188,17 +1188,49 @@ async function executeStage(
         startedDockerRecoveryId,
       );
     }
-    const completedHandoff = control.dockerHandoffs.find(
+    const finalizationCapability = objectCapability(
+      result.recoveryFinalizationCapability,
+    );
+    const handoff = control.dockerHandoffs.find(
       (candidate) => candidate.recoveryId === startedDockerRecoveryId,
     );
-    if (
-      result.cleanupConfirmed === true &&
-      (result.status !== "completed" || control.cancellationRequested)
-    ) {
-      if (completedHandoff) completedHandoff.state = "finalized";
+    if (result.cleanupConfirmed === true) {
+      if (
+        state.dependencies.finalizeDockerRecovery &&
+        (!finalizationCapability ||
+          !startedDockerRecoveryId ||
+          !handoff ||
+          handoff.capability !== finalizationCapability)
+      ) {
+        return blocked(
+          "coordinator_task_docker_finalization_capability_missing",
+          true,
+          operation.hostRecoveryId,
+          startedDockerRecoveryId,
+        );
+      }
+      if (finalizationCapability && startedDockerRecoveryId) {
+        if (handoff) handoff.state = "finalizable";
+        control.dockerFinalizations.push(
+          Object.freeze({
+            capability: finalizationCapability,
+            recoveryId: startedDockerRecoveryId,
+          }),
+        );
+      } else if (!state.dependencies.finalizeDockerRecovery && handoff) {
+        handoff.state = "finalized";
+      }
     }
     if (control.cancellationRequested) {
-      return blocked("coordinator_task_cancelled_after_provider_cleanup");
+      const dockerRecoveryIds = controlDockerRecoveryIds(control);
+      return Object.freeze({
+        ...blocked("coordinator_task_cancelled_after_provider_cleanup"),
+        dockerRecoveryId:
+          dockerRecoveryIds.length === 1
+            ? (dockerRecoveryIds[0] ?? null)
+            : null,
+        dockerRecoveryIds,
+      });
     }
     if (result.status !== "completed" || result.cleanupConfirmed !== true) {
       const dockerRecoveryId = publicVerifiedDockerRecoveryId(
@@ -1208,6 +1240,7 @@ async function executeStage(
         result.cleanupConfirmed !== true ||
         result.manualRecoveryRequired === true ||
         dockerRecoveryId !== null;
+      const dockerRecoveryIds = controlDockerRecoveryIds(control);
       return Object.freeze({
         ...blocked(
           stringValue(result.reason) ?? "coordinator_task_provider_failed",
@@ -1217,38 +1250,21 @@ async function executeStage(
           null,
           result.cleanupConfirmed === true,
         ),
+        dockerRecoveryId:
+          manualRecoveryRequired && dockerRecoveryId
+            ? dockerRecoveryId
+            : dockerRecoveryIds.length === 1
+              ? (dockerRecoveryIds[0] ?? null)
+              : null,
+        dockerRecoveryIds: manualRecoveryRequired
+          ? Object.freeze([
+              ...new Set([
+                ...(dockerRecoveryId ? [dockerRecoveryId] : []),
+                ...dockerRecoveryIds,
+              ]),
+            ])
+          : dockerRecoveryIds,
       });
-    }
-    const finalizationCapability = objectCapability(
-      result.recoveryFinalizationCapability,
-    );
-    const handoff = control.dockerHandoffs.find(
-      (candidate) => candidate.recoveryId === startedDockerRecoveryId,
-    );
-    if (
-      state.dependencies.finalizeDockerRecovery &&
-      (!finalizationCapability ||
-        !startedDockerRecoveryId ||
-        !handoff ||
-        handoff.capability !== finalizationCapability)
-    ) {
-      return blocked(
-        "coordinator_task_docker_finalization_capability_missing",
-        true,
-        operation.hostRecoveryId,
-        startedDockerRecoveryId,
-      );
-    }
-    if (finalizationCapability && startedDockerRecoveryId) {
-      if (handoff) handoff.state = "finalizable";
-      control.dockerFinalizations.push(
-        Object.freeze({
-          capability: finalizationCapability,
-          recoveryId: startedDockerRecoveryId,
-        }),
-      );
-    } else if (!state.dependencies.finalizeDockerRecovery && handoff) {
-      handoff.state = "finalized";
     }
     return Object.freeze({
       status: "completed" as const,
