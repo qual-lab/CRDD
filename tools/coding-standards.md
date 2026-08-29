@@ -2,7 +2,7 @@
 
 Status: Candidate
 Owner: Qual-Lab
-Last Updated: 2026-08-28
+Last Updated: 2026-08-29
 Scope: `tools/**`と、CRDDが配布正本として所有し`tools/**`から参照する`template/tools/**`の実装
 
 ## 1. 目的と正本
@@ -113,6 +113,14 @@ Release、署名、Authority、Recoveryその他の保護対象操作は、packa
 
 秘密入力、署名、Authority発行、Recoveryまたは実Provider Effectを開始する保護操作を、裸のRuntime名を含むpackage aliasへ公開してはならない。人間向け手順は、検証済みRuntime実行ファイルとRepository所有entrypointの双方を絶対Pathで指定する。一般の型検査、静的解析、決定論的試験またはbuild orchestrationはpackage scriptを利用できるが、それを保護操作のAuthorityまたはRelease成立根拠へ流用せず、実行版不一致を明示的に検出する。
 
+<a id="release-signing-development-boundary"></a>
+
+Release署名または同等の発行Authorityを使用するToolでは、日常の開発反復と正式な署名済み配布検証を別の入口へ分離しなければならない（MUST）。開発入口は、productionと同じ意味契約、正常・準正常・異常、cleanupおよび利用側を固定fixture、試験専用鍵、Fake Adapter、契約試験または結合試験で再実行可能に検証し、公式Release秘密鍵、公式passphrase、実署名manifest、実Provider送信またはRelease Authorityを要求してはならない（MUST NOT）。署名を使わない通常Toolへ、存在しない鍵、署名段階またはRelease状態を追加しない。
+
+正式署名入口は、[リリース準備状態](../19_Maintenance.md#release-signing-verification-boundary)で固定した候補だけを対象とする。配布Root、Source Root、Commit／Tree、package・artifact Identity、引数、実行Runtime、既存manifestおよび署名前に判定できるFilesystem条件を、秘密入力より前にFail Closedで全て検査しなければならない（MUST）。秘密入力後も同じ対象Identityと改変不在を再確認し、事前検査を署名時の再検査へ流用しない。非秘密条件の不一致、入力誤りまたは署名失敗ではmanifest、Authorityまたは成功状態を発行せず、候補を修正する場合は正式署名を反復デバッグへ使わず開発入口へ戻す。
+
+公式Release秘密鍵またはpassphraseを`.env`、Repository-local `.crdd`、argv、環境変数、標準入力redirect、一時file、logまたは試験fixtureへ保存して反復入力を省略してはならない（MUST NOT）。将来、OS保護の鍵Handle、Hardware-backed鍵または署名Serviceを採用する場合も、値をToolへ公開せず、鍵用途、利用主体、候補Identity、回数、取消および監査を別の保護契約として確認する。採用Repositoryまたは一般利用者は公式Releaseの署名を検証する側であり、公式Release秘密鍵またはpassphraseの保有・入力を要求されない。
+
 Source、fixture、CLIおよび子ProcessのPathは、Repositoryを意図的に現在Directoryへ結合する契約を除き、moduleまたは明示Rootから絶対化する。試験起動Directory、Shell、Node versionまたはsession環境の偶然に依存させない。Process境界を新設・変更する試験は、少なくとも引数の完全一致、Shell非使用、構造化入力byte、未対応Runtime、対話端末不成立、起動Directory差およびEffect前停止を、該当する範囲で確認する。
 
 子Processの環境境界は`spawn`／`spawnSync`等へ渡した`env` objectのshapeだけで確認済みとしない。対象OSが空または非空の環境mapへ補う値を含め、実子から見えるkey／値の集合を秘密値を出力しない限定試験で確認する。親環境の置換が必要な内部Processでは用途別の固定Profileを使い、OS由来で必要な値、固定neutral値、意図して渡すRuntime所有値を区別する。PATH、Home／profile、proxy、Credential helper、tokenおよびRuntime injection設定は、必要性と取得元を個別に立証していない限り実値を渡さない。Windowsでは環境名の大小文字alias、重複、NULおよびOSによる補完を同じ確認母集団へ含める。Provider、Docker、native helper、Worker等の異なる実行基盤を一つの最大環境へ統合せず、用途別に処置または理由付き非該当を示す。
@@ -186,6 +194,7 @@ cleanupの試験は、例外を捕捉したことまたは終了値を返した�
 - CheckerとCoordinatorのprivate packageが所有する`lint`は、Repository rootのBiome設定を`--error-on-warnings`付きで実行し、Warningが1件以上ある場合は各packageの`check`を失敗させる。Infoはこの継続Gateの失敗条件ではなく、固定版ごとの検証結果として区別する。
 - Checker packageの命名contract testは、ファイル／フォルダの検査母集団を`tools/**`と`template/tools/**`の全Pathとし、未知のsubfolderまたは後続packageも同じ規則へ含める。型付き識別子の検査母集団は固定TypeScript 7.0.2で`tools/checker/tsconfig.json`、`tools/coordinator/tsconfig.strict.json`および`tools/coordinator/tsconfig.tests.json`から得たCRDD所有sourceとする。実Pathで重複を除いたproject source集合と両Path配下のTypeScript実ファイル集合を完全一致させ、未所属source、project外実体、symbolic link、取得不能または未分類構文を成功扱いにしない。Checker試験runnerはpackage root以下の`.test.ts`をnested folderまで安全に再帰列挙し、正規化したrelative Pathのordinal順で実行する。root外解決、重複または大文字小文字だけが異なるPath、symbolic link／junction、未対応entryを拒否し、`node_modules`はexact名かつ実Directoryと確認できた場合だけ除外する。runner列挙集合と`tools/checker/tsconfig.json`が所有するChecker試験集合を件数ではなくPathの完全一致で検査し、0件、欠落または余剰を成功扱いにしない。Rust sourceは`tools/platform-access/src/**`と`tools/platform-access/tests/**`の閉集合として別に数え、TypeScript projectへ算入しない。型から完全判定できない動詞句、責務名および自然言語上の妥当性は独立reviewで確認し、機械検査だけを規約全体の完全証明としない。
 - 型検査、Lint、Formatter、Coordinator試験、Checker試験およびRepository全体Checkerを別の合否軸として維持する。
+- Release署名または発行Authorityを持つToolでは、開発入口が公式鍵・passphrase・実署名Effectなしで反復可能なこと、正式署名入口が全非秘密条件を対話入力前に拒否すること、失敗時にmanifestまたはAuthorityを残さないこと、および一般利用者の経路が署名検証だけで成立することを契約試験へ接続する。
 - renameでは、正本、import、package script、設定、試験、文書、AI入口および現在の移設先を同じ変更で更新する。
 - 過去の固定履歴は書き換えず、旧Pathから現在Pathへの移行を後続の変更トレースへ記録する。
 - rename後の最終状態へ、旧名または廃止済み入口を維持する互換shim、alias、wrapperまたは重複実装を残さない。単一の配布正本へ委譲しpackage責務を分離する`tools/checker/crdd-check.ts`のentry adapterは互換wrapperではない。

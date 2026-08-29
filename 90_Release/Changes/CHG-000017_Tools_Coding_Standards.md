@@ -4,7 +4,7 @@
 - 状態: `Reopened`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
-- 最終更新日: 2026-08-26
+- 最終更新日: 2026-08-29
 - 対象: CRDD公式Repositoryの`tools/**`と配布用`template/tools/**`
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`
@@ -34,6 +34,7 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 | 命名 | file、folder、TypeScript identifier、Boolean、array、constant、test kind、machine identifierを`tools/coding-standards.md`へ固定する |
 | 試験発見 | package所有の`.test.ts`を再帰列挙し、型検査の所有試験集合とexact一致させ、0件を失敗する |
 | 互換 | 旧名shim、alias、重複入口を残さず、明示移行または以前の固定Releaseへ戻す |
+| Release署名 | 開発反復を公式鍵・passphrase・実署名Effectから分離し、全非秘密条件を入力前に検査した固定Release Candidateだけを一度署名する |
 
 公開CheckerのCLI、JSON、Schema、reason、status、暗号domainおよび既存machine contractは、命名規則だけを理由に変更しない。単一配布正本へ委譲するpackage entry adapterは責務分離であり、旧入口互換wrapperではない。
 
@@ -67,6 +68,7 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 - `lint` package scriptのWarning GateをChecker契約試験で固定する。
 - 現行のTypeScript sourceとtestを所有集合へexact oneで含め、未所属、余剰、case collision、junction、root外解決、未知entryおよび試験0件をfail closedにする。
 - source identifierのrename時もSchema key、CLI flag、reason、status、protocol、暗号domain、Docker外部fieldおよびmachine contractを保持する。
+- Release署名を持つToolは、productionの意味契約を公式鍵・passphrase・正式manifestなしで反復検証できる開発入口を所有する。正式署名は内容修正中のデバッグ手段にせず、固定候補の非秘密条件を入力前に全数検査し、失敗時にmanifestまたはAuthorityを残さない。一般利用者は署名検証だけを行い、公式鍵またはpassphraseを保有しない。
 
 ## 5. 実装発展と統合した旧CHG
 
@@ -86,7 +88,8 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 3. test discovery集合とTypeScript projectの所有試験集合がexact一致し、0件、nested、欠落、余剰、case collision、junctionおよび未知entryを反証する。
 4. TypeScript所有sourceの未所属／余剰0、命名違反0、廃止Pathの現行利用0を確認する。
 5. Repository全体Checkerと`git diff --check`を実行する。
-6. 最新固定改訂版へArchitecture／Security、Document、Gap／ImpactおよびConformanceを再実行する。
+6. Release署名を持つToolについて、開発入口の公式鍵・passphrase・実署名Effect 0、正式署名入口の対話前非秘密検査、失敗時Effect 0および一般利用者の検証専用経路を契約試験で確認する。
+7. 最新固定改訂版へArchitecture／Security、Document、Gap／ImpactおよびConformanceを再実行する。
 
 過去の固定版`5185946ae8193d7bc305be3152558abd45fde020`および`1ce8cedde4865aeb389047c2d2471b922928092e`に対するPassは当時版の履歴であり、本統合改訂版の現在判定へ流用しない。
 
@@ -98,6 +101,7 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 - Warningを再発させないBiome Gate
 - CRDD所有の命名正本と型付き全数分類
 - nested testを漏らさず0件成功を拒否する試験入口
+- 開発E2Eと正式署名の分離、秘密入力前の完全な非秘密検査、および一般利用者へRelease秘密を要求しない発行／検証境界
 - 採用RepositoryのChecker Path移行とno-shim境界
 
 対象外:
