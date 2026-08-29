@@ -492,6 +492,7 @@ function fixture(
     reviewerDecision?: "approved" | "changes_requested";
     finalReviewerDecision?: "approved" | "changes_requested";
     executorChangedPaths?: readonly string[];
+    remediationExecutorChangedPaths?: readonly string[];
     cleanupThrows?: boolean;
     cleanupProtocolFailure?: boolean;
     completionRejectRole?: "executor" | "reviewer";
@@ -1113,7 +1114,10 @@ function fixture(
             ? Object.freeze({
                 status: "completed",
                 changedPaths: Object.freeze([
-                  ...(options.executorChangedPaths ?? ["fixture.txt"]),
+                  ...(roleStartCount === 2 &&
+                  options.remediationExecutorChangedPaths
+                    ? options.remediationExecutorChangedPaths
+                    : (options.executorChangedPaths ?? ["fixture.txt"])),
                 ]),
                 verificationCount: 1,
               })
@@ -1989,6 +1993,27 @@ test("Reviewer指摘を一回だけ同一Executorへ戻し、同一独立Reviewe
   );
   assert.equal(harness.selectionNotices.length, 4);
   await assertLifecycleRuntimeTraceCases(traceCaseIds, harness);
+});
+
+test("是正ExecutorのchangedPathsはBaseから見た最終Candidate全体と一致しなければ未発行で停止する", async () => {
+  const harness = fixture({
+    reviewerDecision: "changes_requested",
+    finalReviewerDecision: "approved",
+    remediationExecutorChangedPaths: [],
+  });
+  const result = await harness.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "coordinator_task_remediated_candidate_invalid");
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.externalSendAuthorizationMode, "reused_initial_consent");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.equal(result.candidateStoreRecoveryId, null);
 });
 
 test("Reviewer由来Secret Pathは是正Executor Process前に安全な理由で停止する", async () => {

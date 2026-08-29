@@ -394,6 +394,8 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 固定署名版`d3b62ef`のforward経路では、Claude Executor、Codex独立ReviewerおよびReviewer指摘後のClaude是正まで到達し、Codexの限定Proxy経路が成立した。一方、是正Executorはlowの4 turns上限へ到達して安全停止し、cleanup、Recovery ID 0件およびCanonical Repository Effect 0を確認した。一般Taskのturn上限を推論強度だけで決めると、低難易度でも読取・編集・検証を担うExecutorの必要手順を不足させるため、Roleとeffortの二軸へ是正する。Executorはlow／medium／highを8／12／16、読取り専用Reviewerは4／6／8とし、早期完了を妨げない最大値として扱う。Boolean Probeの2 turns・`$0.10`、既存Subscription限定、API key／有料API fallback禁止は変更しない。
 
+役割別turn上限を含む固定署名版`9a3bb54`では、Claude Executor、Codex独立ReviewerおよびClaude是正が上限内に完了したが、是正後CandidateのRuntime照合で停止した。Task PacketはExecutorの`changedPaths`を定義しておらず、Providerが「今回のturnで書いたPath」と「開始Revisionから見た現在Candidateの差分」を区別できない一方、Runtimeは後者との完全一致を要求していた。Executor Result契約を開始Revisionから見た最終Candidate差分へ固定し、一回是正でも先行差分を含める。Runtime所有inventoryとの不一致は成功へ昇格しない。また永続Candidateを発行していない同停止をRunnerが`recovery_required`へ誤投影していたため、外部送信承認後からCandidate永続化前までの全停止へ、観測済み承認modeと`candidateDisposition: not_issued`をRuntimeから明示する。cleanup不明またはRecovery IDがある結果を安全完了へ読み替えず、限定再試行条件も緩和しない。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

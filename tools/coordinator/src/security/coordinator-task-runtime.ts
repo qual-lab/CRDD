@@ -1530,6 +1530,15 @@ async function runCoordinatorTaskCore(
         externalSendGrant?.manualRecoveryRequired === true;
       return blocked(reason, manualRecoveryRequired, null);
     }
+    const candidateNotIssued = (result: RuntimeRecord) =>
+      Object.freeze({
+        ...result,
+        externalSendAuthorizationMode:
+          externalSendGrant.authorizationMode === "interactive_initial_consent"
+            ? ("interactive_initial_consent" as const)
+            : ("reused_initial_consent" as const),
+        candidateDisposition: "not_issued" as const,
+      });
     const workspace = state.dependencies.materializeWorkspace(
       repositoryBinding,
       operation.managementCapability,
@@ -1540,11 +1549,13 @@ async function runCoordinatorTaskCore(
       workspace?.workspaceCapability,
     );
     if (workspace?.status !== "materialized" || !workspaceCapability) {
-      return blocked(
-        workspace?.reason ===
-          "repository_read_projection_recognized_secret_rejected"
-          ? "coordinator_task_read_projection_recognized_secret_rejected"
-          : "coordinator_task_workspace_materialization_failed",
+      return candidateNotIssued(
+        blocked(
+          workspace?.reason ===
+            "repository_read_projection_recognized_secret_rejected"
+            ? "coordinator_task_read_projection_recognized_secret_rejected"
+            : "coordinator_task_workspace_materialization_failed",
+        ),
       );
     }
     advanceLifecycleState(state, control, "STATE-TASK-AUTHORIZED");
@@ -1564,11 +1575,13 @@ async function runCoordinatorTaskCore(
     );
     if (executor.status !== "completed") {
       shouldRetainOperationRoot = executor.manualRecoveryRequired === true;
-      return executor;
+      return candidateNotIssued(executor);
     }
     advanceLifecycleState(state, control, "STATE-EXECUTOR-CLEAN");
     if (control.cancellationRequested) {
-      return blocked("coordinator_task_cancelled_before_candidate_capture");
+      return candidateNotIssued(
+        blocked("coordinator_task_cancelled_before_candidate_capture"),
+      );
     }
     let finalExecutor = executor;
     let executorResult = executor.normalizedResult as RuntimeRecord;
@@ -1586,15 +1599,19 @@ async function runCoordinatorTaskCore(
       executorResult?.status !== "completed" ||
       !samePaths(executorResult.changedPaths, candidate.changedPaths)
     ) {
-      return blocked(
-        candidate?.reason === "candidate_recognized_secret_rejected"
-          ? "coordinator_task_candidate_recognized_secret_rejected"
-          : "coordinator_task_candidate_revision_invalid",
+      return candidateNotIssued(
+        blocked(
+          candidate?.reason === "candidate_recognized_secret_rejected"
+            ? "coordinator_task_candidate_recognized_secret_rejected"
+            : "coordinator_task_candidate_revision_invalid",
+        ),
       );
     }
     advanceLifecycleState(state, control, "STATE-CANDIDATE-CAPTURED");
     if (control.cancellationRequested) {
-      return blocked("coordinator_task_cancelled_before_independent_review");
+      return candidateNotIssued(
+        blocked("coordinator_task_cancelled_before_independent_review"),
+      );
     }
     let reviewer = await executeStage(
       state,
@@ -1612,7 +1629,7 @@ async function runCoordinatorTaskCore(
     );
     if (reviewer.status !== "completed") {
       shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
-      return reviewer;
+      return candidateNotIssued(reviewer);
     }
     advanceLifecycleState(state, control, "STATE-REVIEWER-CLEAN");
     let reviewerResult = reviewer.normalizedResult as RuntimeRecord;
@@ -1623,7 +1640,9 @@ async function runCoordinatorTaskCore(
         reviewerResult.remediationCapability,
       );
       if (!remediationCapability || reviewerResult.findingCount === 0) {
-        return blocked("coordinator_task_review_remediation_invalid");
+        return candidateNotIssued(
+          blocked("coordinator_task_review_remediation_invalid"),
+        );
       }
       const remediation = await executeStage(
         state,
@@ -1641,7 +1660,7 @@ async function runCoordinatorTaskCore(
       );
       if (remediation.status !== "completed") {
         shouldRetainOperationRoot = remediation.manualRecoveryRequired === true;
-        return remediation;
+        return candidateNotIssued(remediation);
       }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-EXECUTOR-CLEAN");
       remediationPerformed = true;
@@ -1661,10 +1680,12 @@ async function runCoordinatorTaskCore(
         executorResult?.status !== "completed" ||
         !samePaths(executorResult.changedPaths, candidate.changedPaths)
       ) {
-        return blocked(
-          candidate?.reason === "candidate_recognized_secret_rejected"
-            ? "coordinator_task_candidate_recognized_secret_rejected"
-            : "coordinator_task_remediated_candidate_invalid",
+        return candidateNotIssued(
+          blocked(
+            candidate?.reason === "candidate_recognized_secret_rejected"
+              ? "coordinator_task_candidate_recognized_secret_rejected"
+              : "coordinator_task_remediated_candidate_invalid",
+          ),
         );
       }
       advanceLifecycleState(
@@ -1688,7 +1709,7 @@ async function runCoordinatorTaskCore(
       );
       if (reviewer.status !== "completed") {
         shouldRetainOperationRoot = reviewer.manualRecoveryRequired === true;
-        return reviewer;
+        return candidateNotIssued(reviewer);
       }
       advanceLifecycleState(state, control, "STATE-REMEDIATION-REVIEWER-CLEAN");
       reviewerResult = reviewer.normalizedResult as RuntimeRecord;

@@ -99,6 +99,14 @@ test("Task PacketをOperationへ結合しPromptを一回だけstdin候補へ渡�
     assert.equal(consumed?.promptTransport, "provider_stdin_only");
     assert.match(consumed?.prompt ?? "", /Allowed paths:/u);
     assert.match(consumed?.prompt ?? "", /Readable paths:/u);
+    assert.match(
+      consumed?.prompt ?? "",
+      /changedPaths is the complete set of paths that differ from the base revision/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /not only paths written during the remediation turn/u,
+    );
     assert.equal(
       isolated.runtime.consume(
         issued?.useCapability,
@@ -541,7 +549,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 11);
+  assert.equal(contract.contractRevision, 12);
   assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);

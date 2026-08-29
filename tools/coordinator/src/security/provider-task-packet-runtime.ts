@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 11;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 12;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -177,7 +177,10 @@ function taskHash(
 function promptFor(packet: TaskPacket) {
   const roleInstruction =
     packet.taskRole === "executor"
-      ? "Work only inside /work. Modify only the allowed paths. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems."
+      ? [
+          "Work only inside /work. Modify only the allowed paths. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
+          "Executor result invariant: changedPaths is the complete set of paths that differ from the base revision after this attempt. During remediation it includes candidate changes already present before this attempt, not only paths written during the remediation turn.",
+        ].join(" ")
       : [
           "Review the candidate in /work without modifying any file. Do not access credentials, Provider Home, network, browser, MCP, plugins, skills, or external systems.",
           "Before this review, the runtime compared the candidate inventory with the exact base revision and rejected any changed path outside Allowed paths.",
