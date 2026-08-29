@@ -196,6 +196,24 @@ Runtime終盤の正式署名E2Eでは、UT、IT、Traceabilityおよび独立監
 - 安全で十分な是正搬送: Reviewer Findingを命令やAuthorityではなく、長さ、Path、Secret、受入条件、単回性およびScopeを検査した信頼しない欠陥主張として同じExecutorへ渡し、Workspace、受入条件およびTestと独立照合する。情報削減により欠陥を一意に復元できない状態も不成立とする。
 - 実結合と外部値の意味: Authority、Recovery、Consent、Security State、Candidate／Release IdentityおよびDurable Intentでは、実Producerから実Transportを通してProduction Consumerへ届く結合を検証母集団へ含める。外部Systemの`cost`、`usage`、`quota`、`limit`、`price`または`budget`は名前から意味を推定せず、Observed Metadata、Operational／Policy Limitおよび実際のBilling／Financial Authorityを分離する。
 
+人間判断境界では、既存の[`判断支援契約`](../11_Skill.md#53-decision-support-contract)を質問文の品質だけで完了としない。AIが既存Rule、AuthorityおよびContextから一意に処理できる事項を先に除外し、本当に人間の決定権限が必要な地点だけで停止する。判断要求から回答後の再開までを、次の一つのHuman Decision Journeyとして評価する。
+
+```text
+現在状態と判断要否の再計算
+  ↓
+承認／選択／確認／情報提供／判断／リスク受容等の要求種別
+  ↓
+推奨、理由、同粒度の代替案、影響、保留時の結果、具体的な回答形式
+  ↓
+人間の短い回答
+  ↓
+正しい正本Context／Authorityへの反映
+  ↓
+回答済み判断を再要求せず、必要な工程を自律再開
+```
+
+すべての問いへ固定Templateまたは長文を要求せず、重要度とリスクに応じた段階的開示を用いる。実質的な承認を選択に見せる等の要求種別混在、推奨案だけ詳細で代替案が比較できない状態、回答方法や保留影響が不明な状態、AIが確認できない事実を人間へ丸投げする状態、および回答後も同じ判断を反復する状態を不成立候補とする。人間が「何を答えるか」「なぜ推奨か」「案の差は何か」「決めないとどうなるか」を追加質問しなければ判断できない場合は、個人の理解不足ではなくInteraction UXのFinding候補として扱う。
+
 自己適用では、設計閉包（Design Closure）、検証閉包（Verification Closure）およびシステムJourney閉包を別々に評価し、一つの合格から残りを推定しない。固定Schemaや新しい巨大工程を先に作らず、今回の反復Findingを事前検出できる最小の正本、ひな型、Checkerまたは契約試験を選び、実際に監査往復、伝播漏れおよび利用者操作を減らせたかをDogfoodingで評価する。
 
 これは新しい固定工程または全対象への完全Runtime契約を直ちに追加する判断ではない。既存の振る舞い仕様、アーキテクチャ、品質保証および検証工程の責務を、対象の境界、資源、Authority、Effectおよび失敗影響に比例して強化する。Security／Authority境界、外部Effect、Durable State、Recovery、Multi-process／取消可能な非同期Runtime、Release／Promotion、Financial EffectおよびAI間Delegationを主対象とし、単純なローカル処理へ存在しない回復状態や外部Authorityを作らない。Coordinatorの機械可読Traceは有効性を自己適用で確認するReference Candidateであり、実効性が確認できた要素だけを共通規則へ昇格する。
