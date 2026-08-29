@@ -1,9 +1,9 @@
 # 変更トレース: CRDD長期発展方針
 
 変更ID: `CHG-000055`
-- 状態: `Ready for Release Handoff`
+- 状態: `Reopened`
 - 決定権限者: Qual-Lab
-- 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加、§9収載判断）
+- 判断日: 2026-08-25（初回）／2026-08-28（§6～§7追加、§9収載判断）／2026-08-29（Runtime終盤E2E学習の具体化）
 - 対象: CRDD標準自身の課題探索・要求形成における長期方向と能力到達点、エージェント組織における専門性と共有境界の明確化、単一プロダクトRoadmapへの状態投影、課題探索・要求形成／Roadmap／変更トレースの既存責務境界、および三つの改善意図のv0.18.0 Candidate収載判断
 - 対象リリース: `v0.18.0 Candidate`
 - 変更分類: `additive`
@@ -144,3 +144,18 @@ README、CHANGELOG、[`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)�
 前回までのFindingは全数`Resolved`であり、新規Findingはない。三つの改善の具体実装、実Dogfooding、実装後のRuntime影響、最終署名Runtime Identity、CHANGELOG、移行、Release Readinessおよび人間の統合／Release判断は本確認の対象外で、Roadmapと§9の後続Gateへ残る。
 
 本変更は`Ready for Release Handoff`である。これは三つの改善の完了、v0.18.0 Candidate全体の完成、Stable化、main統合、タグ、公開またはReleaseを意味しない。
+
+## 12. Runtime終盤E2Eから具体化した工程強化母集団
+
+2026-08-29、Qual-Labの人間の決定権限者は、Coordinator Runtime終盤の正式署名E2Eで反復したComponent間の意味不一致を、§6と§9で収載済みの工程接続・意味網羅検証へ追加してDogfoodingすることを判断した。新しい第四の改善意図や独立Roadmapは作らず、[`CRDD標準自身の課題探索・要求形成` §7.3.1](../../01_Discovery/01_CRDD_Product_Discovery.md#731-工程接続と意味網羅検証の強化候補)へ次の母集団を統合した。
+
+- Human／TriggerからAuthority、Execution、Review、Remediation、Verification、cleanupおよびResult PublicationまでのSystem Journey Closure
+- 重要State／ArtifactのSingle Truth／Single Owner、実Producer、Transport、Production Consumerおよび再所有禁止境界
+- Runtime、AI Reviewer、Machine VerificationおよびHuman AuthorityのProperty別責務と観測可能性
+- 成功、安全な拒否、Recovery、unknown、Process再起動と`null / absent / unknown`を共有する終端母集団
+- 安全境界と具体的是正可能性を両立するbounded Remediation Handoff
+- Subscription／API／費用等の外部metadataとOperational Limit／Policy Limit／Financial Authorityの意味分離
+
+これは既存Runtimeへの追加Capability、固定Schema、全対象への重いTrace、工程追加または監査代替ではない。Security／Authority境界、外部Effect、Durable State、Recovery、Multi-process／取消可能な非同期Runtime、Release／Promotion、Financial EffectおよびAI間Delegation等の高複雑度・高信頼対象を主対象とし、単純なLocal処理へ過剰適用しない。実際に監査往復、伝播漏れ、試験の見逃しおよび利用者操作を減らせる最小の正本・ひな型・Checker・契約試験をRuntime完成後の自己適用で選ぶ。
+
+§11は2026-08-28時点の固定改訂版に対する有効な確認履歴として保持する。本追記により現在状態を`Reopened`へ戻し、具体的な工程強化Dogfooding、変更単位の確認、およびv0.18.0 Candidate最終監査が終わるまで`Ready for Release Handoff`へ再昇格しない。現在、この追記の方向について追加の人間判断は必要ない。
