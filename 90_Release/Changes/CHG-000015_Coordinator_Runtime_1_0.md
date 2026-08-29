@@ -392,6 +392,8 @@ LF固定後の正式署名再実測は基準byte Gate、Executor、独立Reviewe
 
 bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し、reverse経路のCodex Executorが非ゼロ終了した。同じ固定image、専用Home、内部Network、限定Proxyおよび機密でない固定入力を使った分離診断では、Codex `0.149.1`がmodel一覧更新とWebSocket／HTTPS requestで`chatgpt.com`を直接DNS解決し続け、180秒後にtimeoutした。最小`bwrap` probeは成功したため、Sandboxではなく公式CLIのProxy利用設定不足へ原因を縮約した。固定image自身の`features list`で確認した`features.respect_system_proxy=true`をexact argvへ固定し、Linux上で参照される`HTTPS_PROXY`、`HTTP_PROXY`および`ALL_PROXY`を同じOperation専用Proxy URLへ結合し、`NO_PROXY`を空へ固定する。caller由来のProxy環境、直接DNS、直接接続、許可先追加、Claude経路変更、API keyおよび有料API fallbackは許可しない。正常なCodex Proxy利用、設定欠落・置換・迂回候補の拒否、Claude非影響およびEffect Runtimeのexact command再構成を契約試験へ固定し、新しい署名Releaseの4経路E2Eが通るまで完成根拠へ昇格しない。
 
+固定署名版`d3b62ef`のforward経路では、Claude Executor、Codex独立ReviewerおよびReviewer指摘後のClaude是正まで到達し、Codexの限定Proxy経路が成立した。一方、是正Executorはlowの4 turns上限へ到達して安全停止し、cleanup、Recovery ID 0件およびCanonical Repository Effect 0を確認した。一般Taskのturn上限を推論強度だけで決めると、低難易度でも読取・編集・検証を担うExecutorの必要手順を不足させるため、Roleとeffortの二軸へ是正する。Executorはlow／medium／highを8／12／16、読取り専用Reviewerは4／6／8とし、早期完了を妨げない最大値として扱う。Boolean Probeの2 turns・`$0.10`、既存Subscription限定、API key／有料API fallback禁止は変更しない。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。
