@@ -376,6 +376,8 @@ bounded-remediation Runnerを整合した固定署名版`1d6b330`の再実測で
 
 固定署名版`3d4bc10`の実測では、forward経路を安全に最大3回まで再試行し、全試行でcleanup確認済み、Recovery ID 0件、Canonical Repository Effect 0を維持した。最終試行は独立Reviewer不承認でCandidate永続化前に停止したが、Runnerは`candidateDiscarded === false`だけから「破棄未確認」と「永続Candidate未発行」を区別できず、安全に再試行できる終了状態を曖昧化した。理由文字列やID欠落から推定せず、Task Runtimeを状態AuthorityとしてCandidate終了状態を`not_issued`、`discarded`、`recovery_required`の閉集合で公開する。Reviewer不承認がCandidate永続化前に確定した場合だけ`not_issued`、exact破棄後または正常完了は`discarded`、観測・回収不明は`recovery_required`とする。Route Matrixは前二者と残存0を完全一致で確認した場合だけ限定再試行し、第三状態、型欠落、矛盾または汎用失敗を初回停止する。これにより成功条件やRecovery Gateを緩和せず、Candidate lifecycleの正常な非発行と異常な回収不明を機械的に分離する。更新署名Releaseの4経路E2Eが通るまで完成根拠へ昇格しない。
 
+更新固定署名版`365fa64`ではこのCandidate終了状態が実Provider 3試行すべてで成立し、独立Reviewer不承認の`not_issued`、内容不一致後の`discarded`、cleanup確認済み、Recovery ID 0件およびCanonical Effect 0を正しく区別した。一方、専用Windows E2E worktreeの固定基準fileだけがGit checkout時に35-byte LFから36-byte CRLFへ変換され、Providerが見えている改行を保持して限定置換してもRunnerのLF Gateへ一致しない試験基盤差を検出した。固定fixtureへ`text eol=lf`を明示し、Runnerも署名Package／Git Object Format確認後かつTask／Provider Effect前に基準35 bytesを独立検査する。CRLF、欠落、空または読取不能は`base_content_mismatch`へ停止し、Providerへ成立不能な試行を送らない。新規専用worktreeの実byteと更新署名E2Eで解消を確認するまで完成根拠へ昇格しない。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

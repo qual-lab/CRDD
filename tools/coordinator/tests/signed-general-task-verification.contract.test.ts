@@ -214,6 +214,8 @@ function dependencies(
     completionRejects?: boolean;
     readThrows?: boolean;
     discardThrows?: boolean;
+    baseContent?: string | Buffer;
+    readBaseThrows?: boolean;
     cancellationRequested?: boolean;
     cancelDelayMs?: number;
     cancelReceipt?: Readonly<Record<string, unknown>>;
@@ -290,6 +292,12 @@ function dependencies(
         if (options.discardThrows) throw new Error("fixture_discard_failed");
         return options.discard ?? Object.freeze({ status: "discarded" });
       },
+      readBaseContent: () => {
+        if (options.readBaseThrows) throw new Error("fixture_base_read_failed");
+        return Buffer.isBuffer(options.baseContent)
+          ? Buffer.from(options.baseContent)
+          : Buffer.from(options.baseContent ?? BASE_CONTENT, "utf8");
+      },
       now: () => "2026-08-25T00:00:00.000Z",
       runtimeVersion: () => {
         calls.events.push("node");
@@ -324,6 +332,13 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   );
   assert.deepEqual(verificationFixture, Buffer.from(BASE_CONTENT, "utf8"));
   assert.equal(verificationFixture.byteLength, 35);
+  assert.match(
+    fs.readFileSync(
+      path.resolve(coordinatorRoot, "../..", ".gitattributes"),
+      "utf8",
+    ),
+    /^tools\/coordinator\/runtime\/general-task-verification\.txt text eol=lf$/m,
+  );
 
   const request = createSignedGeneralTaskVerificationRequest();
   assert.deepEqual(request, {
@@ -348,7 +363,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 16);
+  assert.equal(contract.contractRevision, 17);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -363,6 +378,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   );
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
+  assert.equal(
+    contract.baseContentPreflight,
+    "exact_tracked_lf_bytes_verified_before_task_or_provider_effect",
+  );
   assert.equal(contract.temporaryRequestFileAllowed, false);
   assert.equal(contract.longShellCommandReconstructionAllowed, false);
   assert.equal(contract.normalTaskStdinContractChanged, false);
@@ -580,6 +599,37 @@ test("SHA-256 CRDD Release Identityはv1能力外としてTask Effect前に明�
   assert.equal(fixture.calls.reads, 0);
   assert.equal(fixture.calls.discards, 0);
   assert.deepEqual(fixture.calls.events, ["node", "package"]);
+});
+
+test("固定基準byteのCRLF変換・欠落・読取失敗はProvider Effect前に停止する", async () => {
+  for (const baseContent of [
+    "CRDD_COORDINATOR_GENERAL_TASK_BASE\r\n",
+    "CRDD_COORDINATOR_GENERAL_TASK_BASE",
+    Buffer.alloc(0),
+  ]) {
+    const fixture = dependencies({ baseContent });
+    const result = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "signed_general_task_base_content_mismatch");
+    assert.equal(fixture.calls.starts, 0);
+    assert.equal(fixture.calls.reads, 0);
+    assert.equal(fixture.calls.discards, 0);
+    assert.deepEqual(fixture.calls.events, ["node", "package"]);
+  }
+  const unreadable = dependencies({ readBaseThrows: true });
+  const unreadableResult = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    unreadable.value,
+  );
+  assert.equal(unreadableResult.status, "blocked");
+  assert.equal(
+    unreadableResult.reason,
+    "signed_general_task_base_content_mismatch",
+  );
+  assert.equal(unreadable.calls.starts, 0);
 });
 
 test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPassへ結合する", async () => {

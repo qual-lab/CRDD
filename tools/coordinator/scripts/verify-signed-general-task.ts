@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { types as utilTypes } from "node:util";
@@ -33,7 +34,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 16;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 17;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
@@ -159,6 +160,7 @@ type VerificationDependencies = Readonly<{
   cancelTask: (controlCapability: object) => unknown;
   readCandidate: (candidateId: string) => RuntimeRecord | null;
   discardCandidate: (candidateId: string) => RuntimeRecord;
+  readBaseContent: (repositoryRoot: string) => Buffer;
   now: () => string;
   runtimeVersion: () => string;
   bindCancellation: (
@@ -235,6 +237,8 @@ const productionDependencies: VerificationDependencies = Object.freeze({
   cancelTask: cancelRuntimeOwnedCoordinatorTask,
   readCandidate: readRuntimeOwnedCandidateBundle,
   discardCandidate: discardRuntimeOwnedCandidateBundle,
+  readBaseContent: (repositoryRoot) =>
+    readFileSync(path.join(repositoryRoot, ...TARGET_PATH.split("/"))),
   now: () => new Date().toISOString(),
   runtimeVersion: () => process.versions.node,
   bindCancellation: (controlCapability, cancel) =>
@@ -954,6 +958,22 @@ export async function runSignedGeneralTaskVerification(
       Object.freeze({ canonicalRepositoryChanged: false }),
     );
   }
+  let baseContentMatches = false;
+  try {
+    const baseContent = dependencies.readBaseContent(repositoryRoot);
+    baseContentMatches =
+      Buffer.isBuffer(baseContent) &&
+      baseContent.equals(Buffer.from(BASE_CONTENT, "utf8"));
+  } catch {
+    // The fixed verification base remains unconfirmed.
+  }
+  if (!baseContentMatches) {
+    return blocked(
+      "signed_general_task_base_content_mismatch",
+      release,
+      Object.freeze({ canonicalRepositoryChanged: false }),
+    );
+  }
   let rawStarted: unknown;
   try {
     rawStarted = dependencies.startTask(
@@ -1359,6 +1379,8 @@ export function describeSignedGeneralTaskVerificationContract() {
       "completed_or_exactly_discarded_candidate_is_discarded_reviewer_rejection_before_persistence_is_not_issued_unknown_cleanup_is_recovery_required",
     verificationFixture:
       "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
+    baseContentPreflight:
+      "exact_tracked_lf_bytes_verified_before_task_or_provider_effect",
     boundedRemediation:
       "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
     resultMismatchDiagnostic:

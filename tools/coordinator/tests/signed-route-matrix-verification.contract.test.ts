@@ -45,7 +45,7 @@ function completed(
   const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 16,
+    contractRevision: 17,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -555,7 +555,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
   assert.equal(
     contract.verificationFixture,
     "same_signed_tracked_base_marker_exact_token_replacement_for_every_route",

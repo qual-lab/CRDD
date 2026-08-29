@@ -8,6 +8,7 @@ import { issueRuntimeOwnedVerifiedCoordinatorPackageCapability } from "../../src
 
 const scenario = process.argv[2] ?? "completed_true";
 const targetPath = "tools/coordinator/runtime/general-task-verification.txt";
+const baseContent = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const expectedContent = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
 const baseCommit = "a".repeat(40);
@@ -305,6 +306,7 @@ const runnerResult = await runSignedGeneralTaskVerification(process.cwd(), {
           candidateStoreRecoveryId: null,
         })
       : Object.freeze({ status: "discarded" }),
+  readBaseContent: () => Buffer.from(baseContent, "utf8"),
   now: () => "2026-08-27T00:00:00.000Z",
   runtimeVersion: () => "24.19.0",
   bindCancellation: () => {

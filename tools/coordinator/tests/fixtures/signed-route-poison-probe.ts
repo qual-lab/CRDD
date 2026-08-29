@@ -40,7 +40,7 @@ function completed(
   const expected = routes[route];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 16,
+    contractRevision: 17,
     status: "completed",
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),

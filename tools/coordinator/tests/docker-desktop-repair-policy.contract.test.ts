@@ -60,7 +60,8 @@ test("exact PolicyはWindows checkoutでもLFを維持する属性へ固定す�
   );
   assert.equal(
     attributes,
-    "tools/coordinator/policies/windows-docker-desktop-4.41.2.policy text eol=lf\n",
+    "tools/coordinator/policies/windows-docker-desktop-4.41.2.policy text eol=lf\n" +
+      "tools/coordinator/runtime/general-task-verification.txt text eol=lf\n",
   );
   const bytes = fs.readFileSync(
     new URL(
