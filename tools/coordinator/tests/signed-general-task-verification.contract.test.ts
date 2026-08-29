@@ -343,6 +343,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   const request = createSignedGeneralTaskVerificationRequest();
   assert.deepEqual(request, {
     frontProvider: "codex",
+    requestedExecutorProvider: "claude",
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: [
@@ -841,6 +842,7 @@ test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約
   });
   const request = createSignedGeneralTaskVerificationRequest("reverse");
   assert.equal(request.frontProvider, "claude");
+  assert.equal(request.requestedExecutorProvider, "codex");
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
     fixture.value,
@@ -873,7 +875,7 @@ test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約
   }
 });
 
-test("Codex特性を選ぶ具体化済み検証はCodex Executorと独立Claude Reviewへ固定する", async () => {
+test("明示Codex制約の検証はCodex Executorと独立Claude Reviewへ固定する", async () => {
   const fixture = dependencies({
     result: taskResult({
       executorProvider: "codex",
@@ -882,6 +884,7 @@ test("Codex特性を選ぶ具体化済み検証はCodex Executorと独立Claude 
   });
   const request = createSignedGeneralTaskVerificationRequest("same-codex");
   assert.equal(request.frontProvider, "codex");
+  assert.equal(request.requestedExecutorProvider, "codex");
   assert.equal(request.workClass, "bounded_verification");
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),
@@ -897,7 +900,7 @@ test("Codex特性を選ぶ具体化済み検証はCodex Executorと独立Claude 
   assert.deepEqual(fixture.calls.passedRequest, request);
 });
 
-test("Claude特性を選ぶ具体化済み検証はClaude Executorと独立Codex Reviewへ固定する", async () => {
+test("明示Claude制約の検証はClaude Executorと独立Codex Reviewへ固定する", async () => {
   const fixture = dependencies({
     result: taskResult({
       executorProvider: "claude",
@@ -906,6 +909,7 @@ test("Claude特性を選ぶ具体化済み検証はClaude Executorと独立Codex
   });
   const request = createSignedGeneralTaskVerificationRequest("same-claude");
   assert.equal(request.frontProvider, "claude");
+  assert.equal(request.requestedExecutorProvider, "claude");
   assert.equal(request.workClass, "bounded_verification");
   const result = await runSignedGeneralTaskVerification(
     path.resolve("."),

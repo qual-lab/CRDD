@@ -104,11 +104,12 @@ export function projectRuntimeOwnedDockerProcessCompletionForTask(
 
 export const COORDINATOR_TASK_RUNTIME_CONTRACT =
   "crdd-coordinator/task-runtime";
-export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 26;
+export const COORDINATOR_TASK_RUNTIME_CONTRACT_REVISION = 27;
 const PRODUCTION_CANCELLATION_ACK_TIMEOUT_MS = 10_000;
 
 const REQUEST_KEYS = new Set([
   "frontProvider",
+  "requestedExecutorProvider",
   "objective",
   "acceptanceCriteria",
   "allowedPaths",
@@ -811,6 +812,10 @@ function snapshotRequest(rawRequest: unknown) {
   if (
     !request ||
     (request.frontProvider !== "codex" && request.frontProvider !== "claude") ||
+    (request.requestedExecutorProvider !== undefined &&
+      request.requestedExecutorProvider !== "auto" &&
+      request.requestedExecutorProvider !== "codex" &&
+      request.requestedExecutorProvider !== "claude") ||
     typeof request.objective !== "string" ||
     request.objective.length === 0 ||
     acceptance?.status !== "ok" ||
@@ -833,6 +838,11 @@ function snapshotRequest(rawRequest: unknown) {
   const normalized = Object.freeze({
     ...request,
     frontProvider: request.frontProvider as Provider,
+    requestedExecutorProvider:
+      request.requestedExecutorProvider === "codex" ||
+      request.requestedExecutorProvider === "claude"
+        ? request.requestedExecutorProvider
+        : "auto",
     objective: request.objective,
     acceptanceCriteria: acceptance.value,
     allowedPaths: paths.value,
@@ -1458,7 +1468,10 @@ async function runCoordinatorTaskCore(
         operation.operationId,
         "executor",
         null,
-        null,
+        request.requestedExecutorProvider === "codex" ||
+          request.requestedExecutorProvider === "claude"
+          ? request.requestedExecutorProvider
+          : null,
         false,
       ),
     );
@@ -1480,6 +1493,9 @@ async function runCoordinatorTaskCore(
       !slateExecutorProvider ||
       !slateReviewerProvider ||
       !reviewerIndependence ||
+      ((request.requestedExecutorProvider === "codex" ||
+        request.requestedExecutorProvider === "claude") &&
+        slateExecutorProvider !== request.requestedExecutorProvider) ||
       slate.providerEffectAllowed !== false
     ) {
       return blocked("coordinator_task_execution_slate_unavailable");
@@ -2687,6 +2703,8 @@ export function describeCoordinatorTaskRuntimeContract() {
       "front_claude__executor_claude",
     ]),
     providerSelection: "explainable_cross_provider_preferred_cost_bounded",
+    executorConstraint:
+      "optional_auto_codex_or_claude_normalized_once_and_enforced_by_the_same_slate_and_selection_gate",
     repositoryObjectFormat:
       "sha1_only_preflight_before_operation_external_send_or_candidate_store",
     selectionNotice:

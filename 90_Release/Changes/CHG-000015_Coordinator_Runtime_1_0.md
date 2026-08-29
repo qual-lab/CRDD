@@ -398,6 +398,8 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 この是正後の固定署名版`b5eadcd`ではforward経路が一回是正を含めて完了し、reverse経路のCodex Executorが非ゼロ終了した。分離診断で、Codex Structured Outputsが`uniqueItems`を非対応keywordとして拒否していることを確認したため、搬送Schemaは公式対応部分集合へ限定し、重複、件数およびbyte上限はRuntime所有validatorで維持した。Schema受理後、同Releaseの公式Linux `codex-code-mode-host`をGitHub Actions署名Identity、Sigstore透明性ログ、archive／binary／bundle Hashおよびbyte長へ照合して実測したが、`gpt-5.6-sol`の`code_mode_only`経路でhostが`SIGTRAP`終了した。hostを無効化しても同modelはshellへfallbackせず安全に変更不能となるため、任意retryやsandbox緩和は不採用とした。固定Compatibility Profileとして`gpt-5.5`、`code_mode_host=false`、stable `shell_tool`／`unified_exec`を選び、内側sandboxへ固定Codex executableのexact readだけを追加した。helperを含まない固定image `sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c`で、許可fileのexact変更、shellによる末尾LF byte検証、構造化Result、Container／Network残存0を同じ診断runで確認した。Solは選好として保持するが、新しい固定Codex Releaseで同じ実Task Gateを通るまで自動復帰せず、実効modelと互換性理由をProvider Effect前の選定表示へ含める。新しい署名Releaseの4経路E2Eが通るまで完成根拠へ昇格しない。
 
+固定署名版`6148b6b`の4経路E2Eでは、forward、reverseおよびsame-codexが同一Release Identity、既存同意再利用、exact Candidate、独立Reviewer、Candidate破棄、cleanup確認済み、Recovery 0およびCanonical Repository Effect 0で完了した。same-claudeだけはRunnerがClaude Executorを期待した一方、一般Task要求にExecutor制約を表現するfieldがなく、Coordinatorが通常のTask特性に従ってCodexを選び、`executor_provider`不一致で安全停止した。Runner専用overrideは追加せず、一般Taskの公開要求へ任意`requestedExecutorProvider`を追加する。既定`auto`は既存の説明可能な自動選定を維持し、`codex`／`claude`の明示値は同じExecution SlateとSelection Gateへ伝播し、不一致または不成立時に暗黙fallbackせずProvider Effect前に停止する。正式Route Matrixもこの公開境界だけを使う。修正後はRelease鍵を使わない`development-e2e:verify`へ戻り、再固定前に正常、auto、明示制約、不正値およびSlate不一致を契約・結合試験で確認する。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

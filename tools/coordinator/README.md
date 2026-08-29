@@ -164,8 +164,10 @@ Task Runtime contract revision 24は、資源回復の要否と同一Process再�
 正式General TaskおよびRoute Matrixは、実行開始後に完了結果、Effect観測または再起動状態を安全に確定できない場合、表示上の推定だけを返さない。共通のProcess安全状態を不可逆poisonへ単調化し、同一ProcessのPackage、TaskおよびExternal Sendを次の非cleanup Effect前に停止してから`processRestartRequired: true`を返す。引数不正や実行開始前の確認済み拒否は新しいpoisonを作らないが、既存poisonを`false`へ降格しない。
 
 ```json
-{"frontProvider":"codex","objective":"Update the bounded fixture.","acceptanceCriteria":["The expected value is present."],"allowedPaths":["fixture.txt"],"readPaths":["fixture.txt","README.md"],"workClass":"bounded_implementation","planState":"complete","risk":"low","difficulty":"low","decisionImpact":"limited","isLocalCandidateOnly":true,"hasUnresolvedDirection":false,"requiresCrossContextAlignment":false}
+{"frontProvider":"codex","requestedExecutorProvider":"auto","objective":"Update the bounded fixture.","acceptanceCriteria":["The expected value is present."],"allowedPaths":["fixture.txt"],"readPaths":["fixture.txt","README.md"],"workClass":"bounded_implementation","planState":"complete","risk":"low","difficulty":"low","decisionImpact":"limited","isLocalCandidateOnly":true,"hasUnresolvedDirection":false,"requiresCrossContextAlignment":false}
 ```
+
+`requestedExecutorProvider`は`auto`を既定とし、Coordinatorが作業特性、独立性および利用可能性から選ぶ。`codex`または`claude`は人間または上位CoordinatorがExecutorを明示制約する場合だけ使用し、指定Providerを含む完遂可能なExecution Slateが成立しなければ別Providerへ暗黙fallbackせずEffect前に停止する。正式Route Matrixの同一Provider例外もこの公開Task fieldを通り、Runner専用の選定裏口を持たない。
 
 取消IPCの完了はcallbackで回収し、子の`close`後に遅延したchannel closureを未処理`EPIPE`として親Processへ再送出しない。成功、取消、timeoutまたはcleanup不明の判定は、子Processとstdoutの両`close`、force-stop fallbackおよび既存のlistener／lock回収条件からだけ行う。
 

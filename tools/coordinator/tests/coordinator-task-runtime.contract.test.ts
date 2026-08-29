@@ -471,6 +471,7 @@ async function assertLifecycleRuntimeTraceCases(
 function request(overrides: Record<string, unknown> = {}) {
   return {
     frontProvider: "codex",
+    requestedExecutorProvider: "auto",
     objective: "Update the bounded fixture.",
     acceptanceCriteria: ["The fixture contains the expected value."],
     allowedPaths: ["fixture.txt"],
@@ -594,6 +595,7 @@ function fixture(
   >();
   const preparedRoles = new WeakMap<object, "executor" | "reviewer">();
   const selectionRequests: Array<Record<string, unknown>> = [];
+  const slateRequests: Array<Record<string, unknown>> = [];
   const selectionNotices: Array<Record<string, unknown>> = [];
   const authorizedProviderSets: Array<readonly ("codex" | "claude")[]> = [];
   const events: string[] = [];
@@ -882,8 +884,12 @@ function fixture(
       events.push(`notice:${String(notice.taskRole)}`);
       return true;
     },
-    preflightSlate: () =>
-      options.slateUnavailable
+    preflightSlate: (
+      _management: object,
+      selection: Record<string, unknown>,
+    ) => {
+      slateRequests.push(selection);
+      return options.slateUnavailable
         ? Object.freeze({
             status: "blocked",
             reason: "delegation_slate_reviewer_unavailable",
@@ -896,7 +902,8 @@ function fixture(
             reviewerIndependence:
               options.reviewerIndependence ?? "provider_independent",
             providerEffectAllowed: false,
-          }),
+          });
+    },
     materializeWorkspace: () => {
       workspaceMaterializeCount += 1;
       return options.workspaceSecretBlocked
@@ -1295,6 +1302,7 @@ function fixture(
   });
   return {
     runtime,
+    slateRequests,
     selectionRequests,
     selectionNotices,
     authorizedProviderSets,
@@ -1642,6 +1650,69 @@ test("両Front×両Executorの4経路をEffect前Slateと独立Reviewerへ接続
       true,
     );
   }
+});
+
+test("任意Executor制約はauto既定と分離して同じSlate・Selection Gateへ伝播する", async () => {
+  for (const provider of ["codex", "claude"] as const) {
+    const reviewer = provider === "codex" ? "claude" : "codex";
+    const harness = fixture({
+      slateExecutorProvider: provider,
+      slateReviewerProvider: reviewer,
+    });
+    const result = await harness.runtime.start(
+      request({
+        frontProvider: provider,
+        requestedExecutorProvider: provider,
+      }),
+      "C:\\repository",
+      "2026-08-25T00:00:00.000Z",
+    ).completion;
+    assert.equal(result.status, "completed");
+    assert.equal(harness.slateRequests[0]?.requestedExecutorProvider, provider);
+    assert.equal(
+      harness.selectionRequests[0]?.requestedExecutorProvider,
+      provider,
+    );
+  }
+
+  const automatic = fixture();
+  const automaticResult = await automatic.runtime.start(
+    request(),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(automaticResult.status, "completed");
+  assert.equal(automatic.slateRequests[0]?.requestedExecutorProvider, "auto");
+
+  const invalid = fixture();
+  const invalidResult = await invalid.runtime.start(
+    request({ requestedExecutorProvider: "future" }),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(invalidResult.status, "blocked");
+  assert.equal(invalidResult.reason, "coordinator_task_request_invalid");
+  assert.deepEqual(invalid.effectCounts(), {
+    provider: 0,
+    host: 0,
+    cleanup: 0,
+  });
+
+  const mismatched = fixture({
+    slateExecutorProvider: "codex",
+    slateReviewerProvider: "claude",
+  });
+  const mismatchedResult = await mismatched.runtime.start(
+    request({ requestedExecutorProvider: "claude" }),
+    "C:\\repository",
+    "2026-08-25T00:00:00.000Z",
+  ).completion;
+  assert.equal(mismatchedResult.status, "blocked");
+  assert.equal(
+    mismatchedResult.reason,
+    "coordinator_task_execution_slate_unavailable",
+  );
+  assert.equal(mismatched.selectionRequests.length, 0);
 });
 
 test("同一Provider Reviewerは低リスクSlateが指定した別実行Contextだけを使う", async () => {
@@ -3048,7 +3119,7 @@ test("外周cleanup中の重複取消はliveな同じPromiseへ収束しcleanup�
 
 test("公開契約は4経路、独立Reviewer、stdin、非canonical Effectを固定する", () => {
   const contract = describeCoordinatorTaskRuntimeContract();
-  assert.equal(contract.contractRevision, 26);
+  assert.equal(contract.contractRevision, 27);
   assert.equal(
     contract.successfulHostRecoveryProjection,
     "explicit_null_never_omitted",

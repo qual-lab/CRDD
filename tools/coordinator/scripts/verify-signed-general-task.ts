@@ -714,6 +714,7 @@ export function createSignedGeneralTaskVerificationRequest(
   const route = ROUTE_EXPECTATIONS[routeProfile];
   return Object.freeze({
     frontProvider: route.frontProvider,
+    requestedExecutorProvider: route.executorProvider,
     objective:
       "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: Object.freeze([

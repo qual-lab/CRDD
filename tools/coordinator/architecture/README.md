@@ -30,6 +30,8 @@ Coordinator cleanup / Result integration
 Human
 ```
 
+Executorは通常`auto`で選定する。人間または上位Coordinatorが公開Task要求の`requestedExecutorProvider`を明示した場合は、同じExecution SlateとSelection Gateがその制約を検証し、不成立時に暗黙fallbackしない。正式検証用Runnerも別の選定経路を持たず、この公開境界を使用する。
+
 Provider同士を直接spawnさせない。Provider出力、Runtime内部Path、Credentialおよび未検証Candidateを結果へ直接公開しない。Canonical Repositoryへのcommit、push、merge、tag、Releaseまたは公開Effectを許可しない。
 
 Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終復旧は別の公開Lifecycleである。`activate`、`disable`および`provision`の未実装Effect前停止を一般Taskの成立経路へ混入させない。
