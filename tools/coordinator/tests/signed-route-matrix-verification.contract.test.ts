@@ -45,7 +45,7 @@ function completed(
   const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 15,
+    contractRevision: 16,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -69,6 +69,7 @@ function completed(
     ]),
     exactCandidateContentVerified: true,
     candidateDiscarded: true,
+    candidateDisposition: "discarded",
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     processRestartRequired: false,
@@ -94,12 +95,14 @@ function safelyRetryable(
     | "coordinator_task_independent_review_not_approved"
     | "signed_general_task_candidate_content_mismatch",
   authorizationMode: "interactive_initial_consent" | "reused_initial_consent",
+  candidateDisposition: "discarded" | "not_issued" = "discarded",
 ) {
   return Object.freeze({
     status: "blocked" as const,
     reason,
     externalSendAuthorizationMode: authorizationMode,
-    candidateDiscarded: true,
+    candidateDiscarded: candidateDisposition === "discarded",
+    candidateDisposition,
     cleanupConfirmed: true,
     manualRecoveryRequired: false,
     processRestartRequired: false,
@@ -194,6 +197,8 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
     ["executorProvider", "codex"],
     ["reviewerProvider", "claude"],
     ["candidateDiscarded", false],
+    ["candidateDisposition", "not_issued"],
+    ["candidateDisposition", undefined],
     ["remediationPerformed", null],
     ["remediationPerformed", "true"],
     ["hostRecoveryIds", ["unexpected"]],
@@ -288,6 +293,7 @@ test("安全な閉集合理由でも3回目は再試行せず全履歴を保持�
     safelyRetryable(
       "coordinator_task_independent_review_not_approved",
       "reused_initial_consent",
+      "not_issued",
     )) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
   assert.equal(result.status, "blocked");
   assert.equal(result.attemptedRouteCount, 3);
@@ -549,7 +555,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.equal(
     contract.verificationFixture,
     "same_signed_tracked_base_marker_exact_token_replacement_for_every_route",

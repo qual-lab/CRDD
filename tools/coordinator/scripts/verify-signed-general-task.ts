@@ -33,7 +33,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 15;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 16;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
@@ -101,6 +101,7 @@ export type SignedGeneralTaskVerificationResult = RuntimeRecord &
     credentialReported: boolean;
     exactCandidateContentVerified?: boolean;
     candidateDiscarded?: boolean;
+    candidateDisposition?: "not_issued" | "discarded" | "recovery_required";
     changedPaths?: readonly string[];
     crddCommit?: string;
     crddTree?: string;
@@ -578,9 +579,43 @@ function blockedAfterExactCandidateDiscard(
     sourceAfterDiscard,
     Object.freeze({
       candidateDiscarded: true,
+      candidateDisposition: "discarded",
       ...(externalSendAuthorizationMode
         ? { externalSendAuthorizationMode }
         : {}),
+      ...extra,
+    }),
+  );
+}
+
+function blockedAfterConfirmedCandidateNotIssued(
+  reason: string,
+  taskResult: RuntimeRecord,
+  extra: RuntimeRecord = Object.freeze({}),
+) {
+  const externalSendAuthorizationMode =
+    taskResult.externalSendAuthorizationMode ===
+      "interactive_initial_consent" ||
+    taskResult.externalSendAuthorizationMode === "reused_initial_consent"
+      ? taskResult.externalSendAuthorizationMode
+      : null;
+  if (
+    taskResult.candidateDisposition !== "not_issued" ||
+    taskResult.candidateId !== null ||
+    taskResult.candidateRecoveryId !== null ||
+    taskResult.candidateStoreRecoveryId !== null ||
+    taskResult.cleanupConfirmed !== true ||
+    taskResult.manualRecoveryRequired !== false ||
+    externalSendAuthorizationMode === null
+  )
+    return null;
+  return blocked(
+    reason,
+    taskResult,
+    Object.freeze({
+      candidateDiscarded: false,
+      candidateDisposition: "not_issued",
+      externalSendAuthorizationMode,
       ...extra,
     }),
   );
@@ -1087,14 +1122,20 @@ export async function runSignedGeneralTaskVerification(
               taskResult,
               Object.freeze({ resultContractMismatch }),
             )
-          : blocked(
+          : (blockedAfterConfirmedCandidateNotIssued(
+              mismatchReason,
+              taskResult,
+              Object.freeze({ resultContractMismatch }),
+            ) ??
+            blocked(
               mismatchReason,
               taskResult,
               Object.freeze({
                 candidateDiscarded: false,
+                candidateDisposition: "recovery_required",
                 resultContractMismatch,
               }),
-            );
+            ));
       } else if (typeof candidateId !== "string") {
         knownOutcome = blocked(
           "signed_general_task_candidate_id_missing",
@@ -1134,6 +1175,7 @@ export async function runSignedGeneralTaskVerification(
           changedPaths: Object.freeze([TARGET_PATH]),
           exactCandidateContentVerified: true,
           candidateDiscarded: true,
+          candidateDisposition: "discarded" as const,
           cleanupConfirmed: true,
           manualRecoveryRequired: false,
           processRestartRequired: false,
@@ -1313,7 +1355,8 @@ export function describeSignedGeneralTaskVerificationContract() {
       "no_arguments_or_exact_--route_reverse_or_--route_same-codex_or_--route_same-claude",
     frontIdentityBinding:
       "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
-    candidateDisposition: "exact_content_verify_then_discard",
+    candidateDisposition:
+      "completed_or_exactly_discarded_candidate_is_discarded_reviewer_rejection_before_persistence_is_not_issued_unknown_cleanup_is_recovery_required",
     verificationFixture:
       "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
     boundedRemediation:

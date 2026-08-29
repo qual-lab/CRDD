@@ -24,7 +24,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 8;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 9;
 
 const MAX_SAFE_ROUTE_ATTEMPTS = 3;
 const SAFE_RETRYABLE_ROUTE_REASONS = new Set([
@@ -342,6 +342,7 @@ export function isExactSignedRouteResult(
     typeof result.remediationPerformed === "boolean" &&
     result.exactCandidateContentVerified === true &&
     result.candidateDiscarded === true &&
+    result.candidateDisposition === "discarded" &&
     result.cleanupConfirmed === true &&
     result.manualRecoveryRequired === false &&
     result.processRestartRequired === false &&
@@ -368,7 +369,10 @@ function isSafeRetryableRouteResult(result: Readonly<Record<string, unknown>>) {
     SAFE_RETRYABLE_ROUTE_REASONS.has(result.reason) &&
     (result.externalSendAuthorizationMode === "interactive_initial_consent" ||
       result.externalSendAuthorizationMode === "reused_initial_consent") &&
-    result.candidateDiscarded === true &&
+    ((result.candidateDisposition === "discarded" &&
+      result.candidateDiscarded === true) ||
+      (result.candidateDisposition === "not_issued" &&
+        result.candidateDiscarded === false)) &&
     result.cleanupConfirmed === true &&
     result.manualRecoveryRequired === false &&
     result.processRestartRequired === false &&
@@ -528,7 +532,7 @@ export function describeSignedRouteMatrixVerificationContract() {
     order: "cross_provider_first_then_same_provider_exceptions",
     stop: "first_nonretryable_nonconforming_route_or_third_safe_nonconforming_attempt",
     safeRetry:
-      "maximum_three_attempts_per_route_only_after_exact_candidate_discard_and_exact_zero_residual_effect_for_closed_business_nonconformance_reasons",
+      "maximum_three_attempts_per_route_only_after_exact_candidate_not_issued_or_discarded_and_exact_zero_residual_effect_for_closed_business_nonconformance_reasons",
     initialConsent:
       "preserve_valid_consent_prompt_only_when_absent_then_require_exact_reuse",
     frontIdentityClaim:

@@ -1704,7 +1704,14 @@ async function runCoordinatorTaskCore(
       reviewerResult?.decision !== "approved" ||
       reviewerResult.findingCount !== 0
     ) {
-      return blocked("coordinator_task_independent_review_not_approved");
+      return Object.freeze({
+        ...blocked("coordinator_task_independent_review_not_approved"),
+        externalSendAuthorizationMode:
+          externalSendGrant.authorizationMode === "interactive_initial_consent"
+            ? "interactive_initial_consent"
+            : "reused_initial_consent",
+        candidateDisposition: "not_issued" as const,
+      });
     }
     const persisted = state.dependencies.persistCandidate(
       candidateCapability,

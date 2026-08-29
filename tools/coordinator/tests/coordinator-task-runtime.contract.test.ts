@@ -1947,6 +1947,11 @@ test("Reviewerがchanges_requestedならCandidateを承認済みResultへ昇格�
     result.reason,
     "coordinator_task_independent_review_not_approved",
   );
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.externalSendAuthorizationMode, "reused_initial_consent");
+  assert.equal(result.candidateId, null);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.equal(result.candidateStoreRecoveryId, null);
   assert.equal(result.candidateRevision, null);
   assert.equal(harness.cleanupCount(), 1);
 });
@@ -2446,6 +2451,8 @@ test("独立Reviewer実行中のCandidate差替えを承認済みResultへ昇格
     result.reason,
     "coordinator_task_independent_review_not_approved",
   );
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(result.candidateId, null);
   assert.equal(result.candidateRevision, null);
   assert.equal(harness.cleanupCount(), 1);
 });

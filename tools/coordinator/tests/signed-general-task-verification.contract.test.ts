@@ -348,7 +348,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 15);
+  assert.equal(contract.contractRevision, 16);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -592,6 +592,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.reason, "signed_general_task_verification_completed");
   assert.equal(result.exactCandidateContentVerified, true);
   assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.candidateDisposition, "discarded");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.remediationPerformed, false);
   assert.deepEqual(fixture.calls.events, ["node", "package", "task"]);
@@ -629,7 +630,8 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
     result: taskResult({
       status: "blocked",
       reason: "coordinator_task_independent_review_not_approved",
-      candidateId: undefined,
+      candidateId: null,
+      candidateDisposition: "not_issued",
     }),
   });
   const result = await runSignedGeneralTaskVerification(
@@ -642,6 +644,12 @@ test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判
     "coordinator_task_independent_review_not_approved",
   );
   assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.candidateDiscarded, false);
+  assert.equal(result.candidateDisposition, "not_issued");
+  assert.equal(
+    result.externalSendAuthorizationMode,
+    "interactive_initial_consent",
+  );
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.processRestartRequired, false);
   assert.equal(result.recoveryIdentityAmbiguous, false);
@@ -667,6 +675,7 @@ test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱い
     "interactive_initial_consent",
   );
   assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.candidateDisposition, "discarded");
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.processRestartRequired, false);
