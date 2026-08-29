@@ -384,6 +384,8 @@ bounded-remediation Runnerを整合した固定署名版`1d6b330`の再実測で
 
 LF固定後の正式署名再実測は基準byte Gate、Executor、独立Reviewer、一回是正、Candidate破棄および限定再試行を通過したが、3試行すべてを同じ`candidate_content_mismatch`へ集約し、bundle metadata差と最終byte差を区別できなかった。自由文、生Candidate bytes、PathまたはProvider出力を公開せず、Candidate verifierの各exact predicateを固定field識別子へする。公開fixtureの内容差だけはCRLF、終端LF欠落、BASE未置換およびその他byte差の閉集合へ分類し、Hash／長さ／bundle Identity差とは分離する。この診断は成功条件、再試行条件、Candidate cleanupまたは情報境界を変更せず、次の署名実測で本質原因を一意に確定するための観測契約である。
 
+固定署名版`fdc0fe4`の独立Clone診断では、3回のforward試行と限定診断のいずれもCandidate Bundleの`changedPaths`が空集合であることを確認した。基準fileは正しいBASE byteであり、許可Path外変更、Reviewer誤判定またはCandidate verifierの誤分類ではなかった。固定Claude Code `2.1.220`の実helpと実行計画を照合すると、Executorへ`Edit,Write`とread-write mountを渡す一方、非対話Permission ModeをReviewerと同じ`dontAsk`へ固定していた。質問不能な書込許可と編集責務が矛盾し、Providerは変更しないまま構造化結果を返していた。Role契約を恒久是正し、Executorだけを`acceptEdits`、Reviewerを`dontAsk`へ固定する。Bash、Web、MCP、Subagent、Provider Home access、親環境継承およびCanonical Repository Effectは禁止したまま、許可Path・Candidate inventory・内容のRuntime検証と不適合時の破棄を維持する。開発用契約試験と`development-e2e:verify`を先に固定し、正式署名は全変更凍結後のRelease Candidateへ一度だけ行う。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

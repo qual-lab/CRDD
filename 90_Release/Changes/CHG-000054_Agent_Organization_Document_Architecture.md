@@ -3,7 +3,7 @@
 変更ID: `CHG-000054`
 - 状態: `Reopened`
 - 決定権限者: Qual-Lab
-- 最終更新日: 2026-08-26
+- 最終更新日: 2026-08-29
 - 対象version: v0.18.0 Candidate
 - 変更分類: `normative`
 - 移行要否: `migration_required: true`
@@ -38,6 +38,8 @@ Human: Idea / value / decision authority / accountability
 
 人間がコードを書くことを開発の前提とせず、AIがUX、UI、Architecture、Implementation、TestおよびReview等の専門性を分担するHuman Coding-less Developmentを目指す。ただし、AIの能力、役割、利用可能性または自己申告から決定権限を推定しない。人間は重要判断、外部Effect、Risk Acceptance、受入および結果への責任を保持する。
 
+この境界の上位目的を[`01_Principles.md`](../../01_Principles.md#2-purpose-and-core-belief)へ統合した。AIへの実行委譲は人間の思考代替ではなく、問い、違和感、仮説、価値判断および学びへ集中する余地を作る。AIは人間が自分の意見を育てる思考支援になり得るが、永続的な依存を目的にしない。個人やProjectで得た学びを、特定の優秀な個人へ依存しない再利用可能な組織能力へ変え、HumanとAIが自ら課題探索・要求形成、判断、実行および学びを回せる状態を成功条件とする。
+
 ## 3. エージェント組織の境界
 
 - Agent Organizationは単純なparent／subagent関係、固定Workflowまたは常時Multi-Agentを意味しない。
@@ -66,6 +68,7 @@ Human: Idea / value / decision authority / accountability
 
 - CRDDは「Context Repositoryを使ったAI Coding」だけでなく、「AIの開発チームを成立させるための開発手法」であることを冒頭で示す。
 - AIは専門性と実行・検証を担い、人間はアイデア、判断、責任へ集中する。
+- AIは人間の思考を置き換えず、人間自身の仮説形成と学びを支援し、個人の学びを組織能力へ接続する。
 - 通常のAI Codingとの差を、Context、判断履歴、専門工程および工程間依存をRepositoryで共有する点として示す。
 - CRDD自身と実Projectでdogfoodingしていることを、将来Visionだけでなく現在の実践として示す。
 - Runtimeの現在利用可能範囲、Trust／Provisioning／Recovery詳細をREADME冒頭へ展開せず、三層の導線で圧縮する。

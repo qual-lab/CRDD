@@ -499,7 +499,7 @@ export function planClaudeIsolatedTask(candidate: unknown) {
       maximumTurns.toString(),
       "--no-session-persistence",
       "--permission-mode",
-      "dontAsk",
+      taskRole === "executor" ? "acceptEdits" : "dontAsk",
       "--tools",
       tools,
       "--disallowedTools",

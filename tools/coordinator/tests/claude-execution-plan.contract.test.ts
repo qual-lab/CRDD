@@ -428,10 +428,26 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
   assert.equal(executor.workspaceMountMode, "read_write");
   assert.equal(executor.maximumTurns, 4);
   assert.equal(executor.maximumBudgetUsd, null);
+  assert.equal(
+    executor.argv[executor.argv.indexOf("--permission-mode") + 1],
+    "acceptEdits",
+  );
+  assert.equal(
+    executor.argv[executor.argv.indexOf("--tools") + 1],
+    "Read,Glob,Grep,Edit,Write",
+  );
   assert.equal(reviewer.status, "candidate");
   assert.equal(reviewer.workspaceMountMode, "read_only");
   assert.equal(reviewer.maximumTurns, 8);
   assert.equal(reviewer.maximumBudgetUsd, null);
+  assert.equal(
+    reviewer.argv[reviewer.argv.indexOf("--permission-mode") + 1],
+    "dontAsk",
+  );
+  assert.equal(
+    reviewer.argv[reviewer.argv.indexOf("--tools") + 1],
+    "Read,Glob,Grep",
+  );
   for (const plan of [executor, reviewer]) {
     assert.equal(plan.taskPromptTransport, "stdin_only");
     assert.equal(plan.taskPromptInArgvAllowed, false);
@@ -444,7 +460,6 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
       true,
     );
     assert.equal(plan.argv.includes("--permission-mode"), true);
-    assert.equal(plan.argv.includes("dontAsk"), true);
     assert.equal(plan.argv.includes("--max-budget-usd"), false);
     assert.equal(
       plan.apiEquivalentUsdBudgetDisposition,

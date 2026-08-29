@@ -25,6 +25,8 @@ CRDD is a project that researches and practices a development methodology for en
 
 AI can divide work across UX, UI, architecture, implementation, verification, and other specialties, then carry out that work within its authorized boundary. Humans provide ideas and value, direct the work, make important decisions, review the artifacts and verification results, and remain accountable for the outcome.
 
+The goal is not to replace Human thought. By delegating bounded execution to AI, CRDD gives Humans more room to notice tensions, ask why, form hypotheses, judge value, learn from results, and develop their own ability to reason with AI. It also connects those lessons so that capability gained by one person or project can become reusable organizational capability instead of remaining dependent on a particular expert. The canonical philosophy is defined in [Principles](01_Principles.md#2-purpose-and-core-belief).
+
 CRDD is not merely a way to ask AI to write code. It keeps product context, decision history, specialist work, and dependencies between activities connected in a repository so that one or more AI agents can share the same purpose, assumptions, and constraints without silently changing their meaning.
 
 AI-assisted development can accelerate implementation while quietly losing a product's Why: the origin of a need, the reasoning behind a decision, rejected alternatives, accepted risks, and design intent often decay in chat logs, tickets, and pull request descriptions. In a Git-based project, the repository can serve as the canonical control plane for preserving and connecting that context. Authoritative external artifacts can remain in their original systems when explicit references connect them to the repository.
@@ -430,6 +432,8 @@ Every version of CRDD is available under the Apache License 2.0, including relea
 CRDDは、AIが専門家チームとして協働できる開発環境を成立させるための開発方法論を研究・実践するプロジェクトである。
 
 UX、UI、アーキテクチャ、実装、検証等、それぞれの専門家がいるかのようにAIが役割を分担し、許可された範囲で開発を進める。人間はアイデアと価値を与え、方向を示し、重要な判断を行い、成果物と検証結果を確認して、その結果に責任を持つ。
+
+目的は、人間の思考をAIで置き換えることではない。境界の定まった実行をAIへ委譲することで、人間が違和感を見つけ、なぜを問い、仮説を持ち、価値を判断し、結果から学び、AIと議論する力を育てられるようにする。さらに、個人や一つのプロジェクトで得た学びを接続し、特定の優秀な人へ依存せず再利用できる組織能力へ変える。根本思想は[原則](01_Principles.md#2-purpose-and-core-belief)を正本とする。
 
 単にAIへコードを書かせるのではない。プロダクトのコンテキスト、判断履歴、専門工程、工程間の依存関係をリポジトリで共有することで、一つまたは複数のAIが同じ目的、前提、制約を理解し、意味を無言で変えずに協働できる環境を構築する。
 
