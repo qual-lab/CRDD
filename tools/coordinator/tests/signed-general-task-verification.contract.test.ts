@@ -339,7 +339,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 11);
+  assert.equal(contract.contractRevision, 12);
   assert.equal(
     contract.resultMismatchDiagnostic,
     "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
@@ -588,6 +588,32 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);
   assert.equal(fixture.calls.unbound, 1);
+});
+
+test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定する", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      candidateRevision: Object.freeze({
+        baseCommit,
+        baseTree,
+        patchHash,
+        contentManifestHash,
+        allowedPathsHash,
+        changedPaths: Object.freeze([]),
+      }),
+      executorResult: Object.freeze({ changedPaths: Object.freeze([]) }),
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.exactCandidateContentVerified, true);
+  assert.deepEqual(result.changedPaths, [TARGET_PATH]);
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(fixture.calls.reads, 1);
+  assert.equal(fixture.calls.discards, 1);
 });
 
 test("正常候補の契約差はProvider本文を出さず固定field名だけで診断する", async () => {

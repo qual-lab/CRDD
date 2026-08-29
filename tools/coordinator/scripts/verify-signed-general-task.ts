@@ -33,7 +33,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 11;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 12;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -694,7 +694,6 @@ function taskResultContractMismatch(
   route: RouteExpectation,
 ) {
   const candidateRevision = plainRecord(result?.candidateRevision);
-  const executorResult = plainRecord(result?.executorResult);
   const reviewerResult = plainRecord(result?.reviewerResult);
   if (result?.status !== "completed") return "status";
   if (result.reason !== "coordinator_task_candidate_approved") return "reason";
@@ -725,10 +724,6 @@ function taskResultContractMismatch(
     return "candidate_content_manifest_hash";
   if (!sha256(candidateRevision.allowedPathsHash))
     return "candidate_allowed_paths_hash";
-  if (!exactStringArray(candidateRevision.changedPaths, [TARGET_PATH]))
-    return "candidate_changed_paths";
-  if (!exactStringArray(executorResult?.changedPaths, [TARGET_PATH]))
-    return "executor_changed_paths";
   if (reviewerResult?.decision !== "approved") return "reviewer_decision";
   if (reviewerResult.findingCount !== 0) return "reviewer_finding_count";
   if (result.canonicalRepositoryChanged !== false)
