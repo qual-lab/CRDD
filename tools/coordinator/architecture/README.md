@@ -14,6 +14,8 @@ Status: Implementation Candidate
 
 現在の実行可能な中心経路は、正式署名配布物から開始するLocal Personal一般Taskである。
 
+開発反復とRelease Trustは別の検証境界とする。Source変更ごとの通常確認は、固定Fake、実Filesystem／子Processを含む契約・結合試験、および公開Runner契約を同じProcess構成で検査する`development-e2e:verify`へ閉じ、Release鍵、passphrase、実Provider送信または正式Release Authorityを使用しない。正式署名4経路E2Eは、機械確認が通った候補Revisionを凍結してから一度だけ実施するRelease Candidate Gateであり、失敗するたびSource修正と再署名を交互に行う開発loopではない。契約試験の成功を署名配布物、実Provider、実OS対話境界またはRelease成立へ昇格させない。
+
 ```text
 Human / Front Agent
   ↓ bounded task request

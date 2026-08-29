@@ -1923,6 +1923,15 @@ test("Executable sourceとpackage commandへShell依存のJSON搬送を再導入
   assert.equal(packageDocument.scripts?.["release-key:generate"], undefined);
   assert.equal(packageDocument.scripts?.["release-manifest:sign"], undefined);
   assert.equal(packageDocument.scripts?.doctor, undefined);
+  const developmentE2e = packageDocument.scripts?.["development-e2e:verify"];
+  assert.equal(
+    developmentE2e,
+    "node --test ./tests/coordinator-task-runtime.contract.test.ts ./tests/signed-general-task-verification.contract.test.ts ./tests/signed-route-matrix-verification.contract.test.ts ./tests/signed-recovery-matrix-verification.contract.test.ts",
+  );
+  assert.equal(
+    /sign-release|release-key|passphrase/u.test(developmentE2e),
+    false,
+  );
 
   for (const relative of [
     "scripts/sign-release-manifest.ts",

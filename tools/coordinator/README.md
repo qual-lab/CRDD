@@ -26,6 +26,8 @@ Status: Implementation Candidate
 
 正式署名4経路行列は、実Providerの自由生成差を無制限に再実行しない。固定fixtureはGit checkoutでもLFを維持し、RunnerがTask開始前に基準35 bytesを完全一致で確認する。CRLF変換、欠落または読取不能なら外部送信前に停止する。Candidate検証差は、生内容ではなくbundle契約fieldまたは公開fixtureのCRLF、終端LF欠落、未置換、その他byte差という固定識別子だけで診断する。同じ経路を再試行できるのは、独立Reviewer不承認またはRunnerによるexact Candidate内容不一致の閉集合理由で停止し、永続Candidateがまだ発行されていないこと、または発行済みCandidateをexactに破棄したことをRuntimeが明示し、全Recovery IDが空、cleanup確認済み、Effect不明なし、正本変更なし、秘密・Host Path・生Provider出力の報告なしを同じ結果で確認できた場合だけである。Candidateの終了状態は`not_issued`、`discarded`、`recovery_required`の閉集合で表し、理由文字列やID欠落から推定しない。上限は一経路3回とし、全試行結果を保持する。Provider非ゼロ終了、timeout、取消、Recovery曖昧、Candidate終了状態不明または観測不能を自動再試行しない。この再試行はRelease Verification Harnessの検証契約であり、通常Taskの失敗を成功へ変更するRuntime fallbackではない。
 
+日常の開発反復ではRelease manifestを作り直さない。`npm run development-e2e:verify --prefix tools/coordinator`が、4経路、一般Task、Candidate、独立Review、一回是正およびRecovery Matrixのproduction契約を固定Fake／契約・結合試験で検査する。この入口はRelease鍵、passphrase、実Provider、Provider Credential、Network EffectまたはRelease Authorityを使わない。正式署名E2Eは、全機械確認を通過して凍結したRelease Candidateに対してだけ一度実施し、失敗ごとに署名を挟むデバッグ手順にしない。一般利用者は発行済み署名配布物を検証して利用するだけであり、Release秘密鍵またはpassphraseの入力・保有を要求されない。公式Release担当者だけが新しい公式配布物を発行するときに署名する。
+
 | 層 | 現在の状態 |
 |---|---|
 | 利用者が準備するもの | Windowsの認証済みローカル対話ユーザー、Docker Desktop Linux Engine、公式Codex／Claude Code CLIの専用Provider HomeでのSubscription OAuth login、真正性を確認した署名済みCRDD配布物、Repository単位の外部送信Policy |
@@ -368,6 +370,7 @@ Root権限の変更主体は全package Trust条件を満たした明示Platform 
 
 ```shell
 npm test --prefix tools/coordinator
+npm run development-e2e:verify --prefix tools/coordinator
 npm run typecheck --prefix tools/coordinator
 ```
 
