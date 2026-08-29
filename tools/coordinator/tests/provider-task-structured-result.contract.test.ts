@@ -173,6 +173,65 @@ test("Provider Result拒否はrawを出さず固定理由で意味分類する",
   }
 });
 
+test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで拒否する", () => {
+  const executorCases = [
+    {
+      status: "completed",
+      summary: "ok",
+      changedPaths: ["fixture.txt", "FIXTURE.TXT"],
+      verification: [],
+    },
+    {
+      status: "completed",
+      summary: "x".repeat(8_193),
+      changedPaths: [],
+      verification: [],
+    },
+    {
+      status: "completed",
+      summary: "ok",
+      changedPaths: Array.from({ length: 1_001 }, (_, index) => `${index}.txt`),
+      verification: [],
+    },
+    {
+      status: "completed",
+      summary: "ok",
+      changedPaths: [],
+      verification: Array.from({ length: 33 }, () => "checked"),
+    },
+  ];
+  for (const value of executorCases) {
+    const result = normalizeProviderTaskStructuredResult(
+      "codex",
+      "executor",
+      "low",
+      JSON.stringify(value),
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, "provider_task_executor_shape_invalid");
+  }
+
+  const reviewer = {
+    decision: "changes_requested",
+    summary: "issue",
+    findings: Array.from({ length: 65 }, () => ({
+      severity: "low",
+      path: "fixture.txt",
+      category: "implementation_defect",
+      criterionNumber: 1,
+      message: "x",
+    })),
+  };
+  const result = normalizeProviderTaskStructuredResult(
+    "codex",
+    "reviewer",
+    "medium",
+    JSON.stringify(reviewer),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "provider_task_reviewer_shape_invalid");
+});
+
 test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
   assert.equal(
     normalizeProviderTaskStructuredResult(

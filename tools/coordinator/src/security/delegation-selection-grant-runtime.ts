@@ -13,13 +13,18 @@ import { verifyRuntimeOwnedRepositoryOperation } from "./repository-operation-ru
 
 export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/delegation-selection-grant-runtime";
-export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 3;
+export const DELEGATION_SELECTION_GRANT_RUNTIME_CONTRACT_REVISION = 4;
 
 const SELECTION_LIFETIME_MS = 30_000;
 const PROFILE_ID = /^PROFILE-[0-9]{6,}$/u;
 const EXACT_MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,127}$/u;
 
 type Provider = "codex" | "claude";
+type SelectionRole =
+  | "coordinator"
+  | "executor"
+  | "independent_reviewer"
+  | "result_integration";
 type CandidateRoute = Extract<
   ReturnType<typeof selectDelegationRouteCandidate>,
   { status: "candidate" }
@@ -29,13 +34,16 @@ type ResolvedModelProfile = Readonly<{
   profileId: string;
   exactModelId: string;
   family: string;
+  selectionRole: string;
   modelTier: string;
   speedMode: "normal";
   billingMode: "subscription_oauth";
+  compatibilityReason: string | null;
 }>;
 type ModelProfileRequest = Readonly<{
   provider: Provider;
   family: string;
+  role: string;
   modelTier: string;
   speedMode: "normal";
   billingMode: "subscription_oauth";
@@ -46,6 +54,7 @@ type SelectionRecord = {
   managementCapability: object;
   route: CandidateRoute;
   profile: ResolvedModelProfile;
+  selectionNotice: string;
   issuedWallClockMs: number;
   issuedMonotonicMs: number;
   controlCapability: object;
@@ -121,6 +130,15 @@ function createBlockedResult(reason: string) {
   });
 }
 
+function isSelectionRole(value: unknown): value is SelectionRole {
+  return (
+    value === "coordinator" ||
+    value === "executor" ||
+    value === "independent_reviewer" ||
+    value === "result_integration"
+  );
+}
+
 function performSafely<T>(reason: string, action: () => T) {
   try {
     return action();
@@ -145,10 +163,24 @@ function isResolvedProfileValid(
     PROFILE_ID.test(profile.profileId) &&
     EXACT_MODEL_ID.test(profile.exactModelId) &&
     profile.family === route.modelSelection.familyPreference &&
+    profile.selectionRole === route.modelSelectionBasis.role &&
     profile.modelTier === route.modelSelection.modelTier &&
     profile.speedMode === "normal" &&
     profile.billingMode === "subscription_oauth"
   );
+}
+
+function describeResolvedSelectionNotice(
+  route: CandidateRoute,
+  profile: ResolvedModelProfile,
+) {
+  return [
+    route.selectionNotice,
+    `実効モデル=${profile.exactModelId}`,
+    profile.compatibilityReason
+      ? `互換性選定理由=${profile.compatibilityReason}`
+      : "互換性選定理由=none",
+  ].join("\n");
 }
 
 function isSelectionFresh(state: RuntimeState, record: SelectionRecord) {
@@ -192,7 +224,8 @@ function issueSelectionGrant(
   });
   if (
     route.status !== "candidate" ||
-    route.operationId !== operation.operationId
+    route.operationId !== operation.operationId ||
+    !isSelectionRole(route.modelSelectionBasis.role)
   ) {
     return createBlockedResult("delegation_selection_route_invalid");
   }
@@ -200,6 +233,7 @@ function issueSelectionGrant(
     Object.freeze({
       provider: route.executorProvider,
       family: route.modelSelection.familyPreference ?? "",
+      role: route.modelSelectionBasis.role,
       modelTier: route.modelSelection.modelTier ?? "",
       speedMode: "normal",
       billingMode: "subscription_oauth",
@@ -229,6 +263,7 @@ function issueSelectionGrant(
     managementCapability,
     route,
     profile,
+    selectionNotice: describeResolvedSelectionNotice(route, profile),
     issuedWallClockMs,
     issuedMonotonicMs,
     controlCapability,
@@ -251,7 +286,7 @@ function issueSelectionGrant(
     selectedModel: profile.exactModelId,
     selectedEffort: route.modelSelection.effort,
     speedMode: profile.speedMode,
-    selectionNotice: route.selectionNotice,
+    selectionNotice: record.selectionNotice,
     expiresInMs: SELECTION_LIFETIME_MS,
     selectionCapabilityIssued: true,
     providerAuthorityIssued: false,
@@ -306,7 +341,7 @@ function consumeSelectionGrant(
     effort: record.route.modelSelection.effort,
     modelTier: record.route.modelSelection.modelTier,
     speedMode: record.profile.speedMode,
-    selectionNotice: record.route.selectionNotice,
+    selectionNotice: record.selectionNotice,
     delegationDepth: record.route.delegationDepth,
   });
 }

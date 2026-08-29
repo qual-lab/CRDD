@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 5;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 6;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -13,6 +13,7 @@ const FIXED_PROMPT =
 const FIXED_SCHEMA_PATH = "/etc/crdd/codex-result-schema.json";
 const EXECUTOR_SCHEMA_PATH = "/etc/crdd/codex-executor-result-schema.json";
 const REVIEWER_SCHEMA_PATH = "/etc/crdd/codex-reviewer-result-schema.json";
+const COMPATIBLE_TASK_MODEL = "gpt-5.5";
 const DISTRIBUTION_IDENTITY = Object.freeze({
   targetPlatform: "linux-x64-musl",
   executablePath: "/opt/crdd/providers/codex/0.149.1/codex",
@@ -43,10 +44,10 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
     "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
   bwrapSigstoreIssuer: "https://token.actions.githubusercontent.com",
   fixedImageDigest:
-    "sha256:36df7b4036f3bf34c6df48ffbb96cbbc162242e9a34b5f2754892cd4f3d57621",
-  fixedImageBytes: 145_299_296,
+    "sha256:e7fefafffd4b96614811b2d51b9704d3280e4995c358ed5e25ec795215dbd45c",
+  fixedImageBytes: 145_299_281,
   executorSchemaSha256:
-    "ac1e1e6c0412a573b8b98eacc7232e98fff1d59d0e29643a8323f94dc5cfd7d4",
+    "daf04adf5282157984b43559298a82f1ab16de837cfb5f6cc929805390f776ce",
   reviewerSchemaSha256:
     "09e8592838b1642f738eee07fb2c1b366dc25d6a3e842dbb0649930c94a25df8",
   imageBuildDefinition: "tools/coordinator/runtime/codex-provider.Dockerfile",
@@ -164,7 +165,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
     taskRole,
     distributionBinding: distributionBinding,
     command: DISTRIBUTION_IDENTITY.executablePath,
-    exactModel: "gpt-5.6-sol",
+    exactModel: COMPATIBLE_TASK_MODEL,
     effort,
     speedMode: "normal" as const,
     argv: Object.freeze([
@@ -174,11 +175,19 @@ export function planCodexIsolatedTask(candidate: unknown) {
       "--ignore-rules",
       "--strict-config",
       "--model",
-      "gpt-5.6-sol",
+      COMPATIBLE_TASK_MODEL,
       "--config",
       `model_reasoning_effort="${effort}"`,
       "--config",
       "features.respect_system_proxy=true",
+      "--config",
+      "features.code_mode=false",
+      "--config",
+      "features.code_mode_host=false",
+      "--config",
+      "features.shell_tool=true",
+      "--config",
+      "features.unified_exec=true",
       "--config",
       'approval_policy="never"',
       "--config",
@@ -198,7 +207,7 @@ export function planCodexIsolatedTask(candidate: unknown) {
       "--config",
       `default_permissions="${permissionProfile}"`,
       "--config",
-      `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"}}`,
+      `permissions.${permissionProfile}.filesystem={":root"="deny",":minimal"="read",":workspace_roots"={"."="${workspaceAccess}"},"${DISTRIBUTION_IDENTITY.executablePath}"="read"}`,
       "--config",
       `permissions.${permissionProfile}.network.enabled=false`,
       "--skip-git-repo-check",
@@ -268,12 +277,23 @@ export function describeCodexExecutionPlanContract() {
       subscriptionBooleanRequestSandbox: "read-only",
       subscriptionBooleanRequestContainerResidue: 0,
       subscriptionBooleanRequestNetworkResidue: 0,
+      isolatedTaskCompatibilityModel: "gpt-5.5",
+      isolatedTaskCodeModeHostDisabled: true,
+      isolatedTaskShellVerificationPassed: true,
+      isolatedTaskExactCandidateContentPassed: true,
+      isolatedTaskContainerResidue: 0,
+      isolatedTaskNetworkResidue: 0,
+      isolatedTaskVerifiedAt: "2026-08-30",
       verifiedAt: "2026-08-25",
     }),
     authentication: "existing_chatgpt_subscription_oauth_only",
     apiKeyAllowed: false,
     paidApiFallbackAllowed: false,
-    exactModel: "gpt-5.6-sol",
+    readOnlyProbeExactModel: "gpt-5.6-sol",
+    isolatedTaskExactModel: COMPATIBLE_TASK_MODEL,
+    preferredModelFamily: "sol",
+    compatibilityReason:
+      "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
     efforts: Object.freeze(["low", "medium", "high"]),
     speedMode: "normal_only",
     outboundProxyPolicy: "official_cli_respect_system_proxy_required",

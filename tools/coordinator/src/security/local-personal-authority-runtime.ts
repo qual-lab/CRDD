@@ -33,6 +33,16 @@ const PROFILE = Object.freeze({
     origin: "https://chatgpt.com",
     suffix: "100002",
   }),
+  "PROFILE-100003": Object.freeze({
+    provider: "codex",
+    origin: "https://chatgpt.com",
+    suffix: "100003",
+  }),
+  "PROFILE-100004": Object.freeze({
+    provider: "codex",
+    origin: "https://chatgpt.com",
+    suffix: "100004",
+  }),
   "PROFILE-200001": Object.freeze({
     provider: "claude",
     origin: "https://claude.ai",

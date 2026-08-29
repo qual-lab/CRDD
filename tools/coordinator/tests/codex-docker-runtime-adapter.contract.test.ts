@@ -36,12 +36,19 @@ const MODEL_SELECTION = Object.freeze({
     "[委譲経路選定] front=codex executor=codex\n選定理由=complete_bounded_local_plan\n高コスト選択=no",
   delegationDepth: 1,
 });
+const TASK_MODEL_SELECTION = Object.freeze({
+  ...MODEL_SELECTION,
+  profileId: "PROFILE-100003",
+  model: "gpt-5.5",
+});
 
 function createFixture(
   overrides: Partial<
     Parameters<typeof createIsolatedCodexDockerRuntimeAdapterCandidate>[0]
   > = {},
+  taskMode = false,
 ) {
+  const profileId = taskMode ? "PROFILE-100003" : "PROFILE-100001";
   const managementCapability = Object.freeze({});
   const mountCapability = Object.freeze({});
   const mountAuthorizationCapability = Object.freeze({});
@@ -79,7 +86,7 @@ function createFixture(
         grant: Object.freeze({
           grantRef: "PHMGRANT-123456",
           provider: "codex",
-          profileId: "PROFILE-100001",
+          profileId,
           operationId: "OP-123456",
           providerHomeIdentityHash: "b".repeat(64),
           providerHomeProtectionHash: "e".repeat(64),
@@ -109,7 +116,7 @@ function createFixture(
     consumeModelSelection: (selection: unknown, management: unknown) => {
       assert.equal(selection, selectionUseCapability);
       assert.equal(management, managementCapability);
-      return MODEL_SELECTION;
+      return taskMode ? TASK_MODEL_SELECTION : MODEL_SELECTION;
     },
     consumeTaskPacket: () =>
       Object.freeze({
@@ -129,7 +136,7 @@ function createFixture(
         controlCapability: authorityControlCapability,
         operationId: "OP-123456",
         provider: "codex",
-        profileId: "PROFILE-100001",
+        profileId,
         providerHomeMountGrantRef: "PHMGRANT-123456",
         runtimeAuthorityIssued: true,
       });
@@ -265,7 +272,7 @@ test("cancelはMount leaseを完了しprepared capabilityを再利用不能に�
 });
 
 test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する", () => {
-  const fixture = createFixture();
+  const fixture = createFixture({}, true);
   const prepared = fixture.adapter.prepareTask(
     fixture.managementCapability,
     fixture.mountCapability,
@@ -274,6 +281,7 @@ test("Task Packetをstdin専用入力と隔離workspace RW mountへ結合する"
     Object.freeze({}),
   );
   assert.equal(prepared.status, "prepared");
+  assert.equal(prepared.selectedModel, "gpt-5.5");
   const plan = fixture.adapter.consumeForProcessController(
     prepared.preparedCapability,
     fixture.managementCapability,
@@ -357,12 +365,15 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
       resolveModelProfile: (request) =>
         Object.freeze({
           provider: request.provider,
-          profileId: "PROFILE-100001",
-          exactModelId: "gpt-5.6-sol",
+          profileId: "PROFILE-100003",
+          exactModelId: "gpt-5.5",
           family: request.family,
+          selectionRole: request.role,
           modelTier: request.modelTier,
           speedMode: "normal",
           billingMode: "subscription_oauth",
+          compatibilityReason:
+            "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
         }),
       wallNow: () => 1_000,
       monotonicNow: () => 2_000,
@@ -371,10 +382,13 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
         return Buffer.alloc(size, randomValue);
       },
     });
-  const fixture = createFixture({
-    consumeModelSelection: (selection, management) =>
-      selectionRuntime.consume(selection, management),
-  });
+  const fixture = createFixture(
+    {
+      consumeModelSelection: (selection, management) =>
+        selectionRuntime.consume(selection, management),
+    },
+    true,
+  );
   const issued = selectionRuntime.issue(fixture.managementCapability, {
     frontProvider: "claude",
     delegationNeed: "beneficial",
@@ -398,11 +412,12 @@ test("Selection Grantのopaque use aliasをCodex adapterへ一回だけ接続す
   });
   assert.equal(issued.status, "issued");
 
-  const prepared = fixture.adapter.prepare(
+  const prepared = fixture.adapter.prepareTask(
     fixture.managementCapability,
     fixture.mountCapability,
     fixture.mountAuthorizationCapability,
     issued.useCapability,
+    Object.freeze({}),
   );
   assert.equal(prepared.status, "prepared");
   assert.equal(prepared.selectionRecordId, issued.selectionRecordId);

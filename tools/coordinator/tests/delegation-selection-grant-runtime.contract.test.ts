@@ -75,9 +75,11 @@ function createFixture(
             ? "claude-opus-test-profile"
             : "codex-sol-test-profile",
         family: request.family,
+        selectionRole: request.role,
         modelTier: request.modelTier,
         speedMode: "normal",
         billingMode: "subscription_oauth",
+        compatibilityReason: null,
       }),
     wallNow: () => wallClockMs,
     monotonicNow: () => monotonicMs,
@@ -215,9 +217,11 @@ test("replacement検証失敗時は旧Grantを保持する", () => {
             profileId: "PROFILE-123456",
             exactModelId: "claude-opus-test-profile",
             family: request.family,
+            selectionRole: request.role,
             modelTier: request.modelTier,
             speedMode: "normal",
             billingMode: "subscription_oauth",
+            compatibilityReason: null,
           })
         : null,
   });
@@ -276,9 +280,11 @@ test("別Operation、利用不能ProviderとProfile差をGrant発行前に拒否
         profileId: "PROFILE-123456",
         exactModelId: "claude-opus-test-profile",
         family: "wrong-family",
+        selectionRole: request.role,
         modelTier: request.modelTier,
         speedMode: "normal",
         billingMode: "subscription_oauth",
+        compatibilityReason: null,
       }),
   });
   assert.equal(
@@ -349,7 +355,7 @@ test("production入口はRuntime-owned Eligibilityでも偽造Capabilityを拒�
 
 test("公開契約は短命Grant、Subscription、通常速度と再選定境界を固定する", () => {
   const contract = describeDelegationSelectionGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(contract.selectionLifetimeMs, 30_000);
   assert.deepEqual(contract.aliases, ["control", "use"]);
   assert.equal(contract.maximumUses, 1);

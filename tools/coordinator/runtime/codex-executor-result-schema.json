@@ -6,7 +6,6 @@
     "changedPaths": {
       "type": "array",
       "maxItems": 1000,
-      "uniqueItems": true,
       "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
     },
     "verification": {

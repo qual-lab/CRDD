@@ -922,7 +922,7 @@ function fixture(
       return Object.freeze({
         status: "issued",
         executorProvider: executor,
-        profileId: executor === "claude" ? "PROFILE-200001" : "PROFILE-100001",
+        profileId: executor === "claude" ? "PROFILE-200001" : "PROFILE-100003",
         selectionNotice: `selection-${selectionCount}`,
         controlCapability: Object.freeze({}),
         useCapability: Object.freeze({}),

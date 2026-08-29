@@ -290,7 +290,7 @@ Candidate本文はPolicyが保存を許可し、唯一の結果配送に必要�
 
 Runtime 1.0はWindows上のDocker DesktopとLinux containerだけを正式対象とする。WindowsネイティブProvider実行、Git Bash直接実行、通常WSLディストリビューション、別Container RuntimeまたはDockerなしのfallbackを互換性要件にしない。Provider CLIを含む固定専用image、最小環境、Provider Home Mount Grantおよび限定EgressはRuntime adapterへ接続済みであり、Host側のCodex／Claude設定またはCredentialを暗黙に再利用しない。source checkoutは署名済みRelease Authorityを欠くためEffect前に停止する。
 
-モデルと推論レベルはProvider任せにせず、CoordinatorがProvider Effect前にOperationの役割と確認済みの作業特性から選定する。具体化済みで低難度・低リスク・限定影響のLocal Candidate実装は`low`、通常のCoordinator、レビュー、診断または方針整合は役割名だけで高コスト化せず`medium`、`high`は高難度、重大影響、高リスク、または未解決方針と複数コンテキスト整合が重なる場合だけ候補にする。Codexは`sol`、Claude Codeは`opus`を既定familyとし、Runtime-owned Profile resolverはCodexを`gpt-5.6-sol`、Claudeを固定CLIが受理する`opus` aliasへ解決する。preferred／upperは同じfamilyとmodelのままProfile IDを分け、推論量だけを既存Gateで切り替える。Fableは公式CLI上のalias候補であっても、利用可能性、費用特性および適用条件を確認するまで自動選定へ入れない。速度は`normal`だけとし、`xhigh`／`max`、高速モード、Provider fallbackおよび実行中の黙示切替は自動選択しない。
+モデルと推論レベルはProvider任せにせず、CoordinatorがProvider Effect前にOperationの役割と確認済みの作業特性から選定する。具体化済みで低難度・低リスク・限定影響のLocal Candidate実装は`low`、通常のCoordinator、レビュー、診断または方針整合は役割名だけで高コスト化せず`medium`、`high`は高難度、重大影響、高リスク、または未解決方針と複数コンテキスト整合が重なる場合だけ候補にする。Codexの既定選好は`sol`、Claude Codeは`opus`とする。ただし固定Codex `0.149.1`では`gpt-5.6`系のmodel metadataがTool利用を`code_mode_only`へ固定し、同Releaseの公式Linux `codex-code-mode-host`が隔離環境で`SIGTRAP`終了することを実測したため、Codexの実Task Profileは互換性を確認した`gpt-5.5`へ固定する。これは実行中の自動fallbackではなく、Profile解決時に理由を表示する固定Compatibility Profileである。新しい固定Codex ReleaseでSolの変更・shell検証・構造化結果・cleanupが同じ境界を通った場合だけ再評価する。preferred／upperは同じ有効modelのままProfile IDを分け、推論量だけを既存Gateで切り替える。Fableは公式CLI上のalias候補であっても、利用可能性、費用特性および適用条件を確認するまで自動選定へ入れない。速度は`normal`だけとし、`xhigh`／`max`、高速モード、任意Provider fallbackおよび実行中の黙示切替は自動選択しない。
 
 選定時はProvider、役割、family、推論レベル、速度、選定理由、高コスト選択の有無および再選定条件をCoordinatorのOperation contextへProvider Effect前に表示する。内部推論全文ではなく、人間と独立Reviewerが検証できる判断要約を保持する。選定理由の欠落、閉集合外の分類、Profile不一致、またはRuntime-owned Selection Grant未接続では実行しない。再選定はProvider内fallbackではなくCoordinatorへ戻り、旧選定をsupersedeする新しいGrantとして扱う。
 
@@ -308,7 +308,7 @@ Claude Docker Runtime Adapter候補は、同じRuntime-owned Operation世代のm
 
 CodexのSubscription認証Probeは、公式CLIのexact成功文と、read-only認証Homeで発生する既知のPATH alias警告だけを、`docker start --attach`が実際に搬送したstdout／stderrの閉じた組合せとして判定する。成功語の部分一致、未知行、重複行または制御文字を認証根拠にしない。ClaudeのJSON認証契約とは混在させず、一方の成功を他方へ流用しない。
 
-Codexの一般TaskはDocker隔離だけを理由にCodex自身のcommand sandboxを無効化しない。固定Codex `0.149.1`と同じ公式Releaseの`bwrap-x86_64-unknown-linux-musl`を、OpenAIのGitHub Actions署名Identity、Sigstore透明性ログ、archive／binary／bundle SHA-256およびbyte長へ照合し、固定image内の`codex-resources/bwrap`へ隣接配置する。image build時だけ組み込み、Runtime時download、PATH探索、OS package fallbackまたは`--dangerously-bypass-approvals-and-sandbox`を許可しない。外側のread-only root、non-root、capability全削除、`no-new-privileges`、限定mount／Egressと、内側のRole別Filesystem／Network permissionを同時に維持する。
+Codexの一般TaskはDocker隔離だけを理由にCodex自身のcommand sandboxを無効化しない。固定Codex `0.149.1`と同じ公式Releaseの`bwrap-x86_64-unknown-linux-musl`を、OpenAIのGitHub Actions署名Identity、Sigstore透明性ログ、archive／binary／bundle SHA-256およびbyte長へ照合し、固定image内の`codex-resources/bwrap`へ隣接配置する。image build時だけ組み込み、Runtime時download、PATH探索、OS package fallbackまたは`--dangerously-bypass-approvals-and-sandbox`を許可しない。内側sandboxが固定Codex executableをcommand wrapperとして再起動できるよう、そのexact Pathだけをminimal readへ追加し、Provider Home、Root全体または任意`/opt`を開かない。互換Profileでは不安定な`code_mode_host`を明示無効化し、公式CLIのstable `shell_tool`／`unified_exec`を使用する。外側のread-only root、non-root、capability全削除、`no-new-privileges`、限定mount／Egressと、内側のRole別Filesystem／Network permissionを同時に維持する。
 
 ## Provider隔離Profile
 

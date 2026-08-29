@@ -329,7 +329,7 @@ test("Front ClaudeからCodex Executorも同じCoordinator仲介で起動する"
       Object.freeze({
         status: "issued",
         executorProvider: "codex",
-        profileId: "PROFILE-100001",
+        profileId: "PROFILE-100003",
         selectionNotice: "cross_provider_route_selected",
         controlCapability: Object.freeze({}),
         useCapability: Object.freeze({}),

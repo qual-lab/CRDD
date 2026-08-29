@@ -546,9 +546,13 @@ function validatePlan(plan: PreparedPlan, tmpSourcePath: string) {
       plan.subscriptionOffering === "claude_max" &&
       plan.selectedModel === "opus") ||
     (plan.provider === "codex" &&
-      /^PROFILE-10000[12]$/u.test(plan.profileId) &&
       plan.subscriptionOffering === "chatgpt_subscription_oauth" &&
-      plan.selectedModel === "gpt-5.6-sol");
+      ((plan.operationMode === "isolated_task" &&
+        /^PROFILE-10000[34]$/u.test(plan.profileId) &&
+        plan.selectedModel === "gpt-5.5") ||
+        (plan.operationMode === "boolean_probe" &&
+          /^PROFILE-10000[12]$/u.test(plan.profileId) &&
+          plan.selectedModel === "gpt-5.6-sol")));
   if (
     !/^OP-[0-9]{6,}$/u.test(plan.operationId) ||
     !/^PHMGRANT-[A-Z0-9-]{6,80}$/u.test(plan.grantRef) ||

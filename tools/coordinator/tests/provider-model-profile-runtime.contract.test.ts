@@ -10,6 +10,7 @@ function createRequest(overrides: Record<string, unknown> = {}) {
   return {
     provider: "codex",
     family: "sol",
+    role: "executor",
     modelTier: "preferred",
     speedMode: "normal",
     billingMode: "subscription_oauth",
@@ -20,18 +21,21 @@ function createRequest(overrides: Record<string, unknown> = {}) {
 test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する", () => {
   assert.deepEqual(resolveRuntimeOwnedProviderModelProfile(createRequest()), {
     provider: "codex",
-    profileId: "PROFILE-100001",
-    exactModelId: "gpt-5.6-sol",
+    profileId: "PROFILE-100003",
+    exactModelId: "gpt-5.5",
     family: "sol",
+    selectionRole: "executor",
     modelTier: "preferred",
     speedMode: "normal",
     billingMode: "subscription_oauth",
+    compatibilityReason:
+      "gpt_5_6_code_mode_only_host_unavailable_in_fixed_linux_runtime",
   });
   assert.equal(
     resolveRuntimeOwnedProviderModelProfile(
       createRequest({ modelTier: "upper_allowed" }),
     )?.profileId,
-    "PROFILE-100002",
+    "PROFILE-100004",
   );
   assert.deepEqual(
     resolveRuntimeOwnedProviderModelProfile(
@@ -42,9 +46,11 @@ test("Codex SolとClaude Opusのpreferred／upper profileを固定解決する",
       profileId: "PROFILE-200001",
       exactModelId: "opus",
       family: "opus",
+      selectionRole: "executor",
       modelTier: "preferred",
       speedMode: "normal",
       billingMode: "subscription_oauth",
+      compatibilityReason: null,
     },
   );
   assert.equal(
@@ -91,7 +97,10 @@ test("accessorとProxyを実行せずProfile解決をfail closedにする", () =
 
 test("公開契約は通常速度、Subscription、同family内effort切替だけを許す", () => {
   const contract = describeProviderModelProfileRuntimeContract();
-  assert.equal(contract.codex.exactModelId, "gpt-5.6-sol");
+  assert.equal(contract.codex.preferredFamily, "sol");
+  assert.equal(contract.codex.toolFreeExactModelId, "gpt-5.6-sol");
+  assert.equal(contract.codex.isolatedTaskExactModelId, "gpt-5.5");
+  assert.equal(contract.compatibilityProfileIsFixed, true);
   assert.equal(contract.claude.exactModelId, "opus");
   assert.deepEqual(contract.codex.verifiedEfforts, ["low", "medium", "high"]);
   assert.equal(contract.upperTierChangesFamily, false);
