@@ -34,7 +34,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 17;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 18;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
@@ -813,7 +813,7 @@ function taskResultContractMismatch(
   return null;
 }
 
-function verifiedCandidate(
+function candidateContractMismatch(
   candidate: RuntimeRecord | null,
   candidateId: string,
   taskResult: RuntimeRecord | null,
@@ -826,31 +826,34 @@ function verifiedCandidate(
       ? plainRecord(entries.value[0])
       : null;
   const contentBase64 = entry?.contentBase64;
-  if (
-    candidate?.status !== "exported" ||
-    candidate.candidateId !== candidateId ||
-    bundle?.schema !== "crdd-coordinator-candidate-bundle/v1" ||
-    !isCanonicalCrddGitObjectId(bundle.baseCommit) ||
-    !isCanonicalCrddGitObjectId(bundle.baseTree) ||
-    !sha256(bundle.baseManifestHash) ||
-    !sha256(bundle.patchHash) ||
-    !sha256(bundle.contentManifestHash) ||
-    !sha256(bundle.allowedPathsHash) ||
-    bundle.baseCommit !== candidateRevision?.baseCommit ||
-    bundle.baseTree !== candidateRevision.baseTree ||
-    bundle.patchHash !== candidateRevision.patchHash ||
-    bundle.contentManifestHash !== candidateRevision.contentManifestHash ||
-    bundle.allowedPathsHash !== candidateRevision.allowedPathsHash ||
-    !exactStringArray(bundle.changedPaths, [TARGET_PATH]) ||
-    !entry ||
-    entry.relativePath !== TARGET_PATH ||
-    entry.operation !== "upsert" ||
-    typeof contentBase64 !== "string" ||
-    typeof entry.byteLength !== "number" ||
-    typeof entry.sha256 !== "string"
-  ) {
-    return false;
-  }
+  if (candidate?.status !== "exported") return "candidate_status";
+  if (candidate.candidateId !== candidateId) return "candidate_id";
+  if (bundle?.schema !== "crdd-coordinator-candidate-bundle/v1")
+    return "bundle_schema";
+  if (!isCanonicalCrddGitObjectId(bundle.baseCommit)) return "base_commit";
+  if (!isCanonicalCrddGitObjectId(bundle.baseTree)) return "base_tree";
+  if (!sha256(bundle.baseManifestHash)) return "base_manifest_hash";
+  if (!sha256(bundle.patchHash)) return "patch_hash_shape";
+  if (!sha256(bundle.contentManifestHash)) return "content_manifest_hash_shape";
+  if (!sha256(bundle.allowedPathsHash)) return "allowed_paths_hash_shape";
+  if (bundle.baseCommit !== candidateRevision?.baseCommit)
+    return "candidate_base_commit";
+  if (bundle.baseTree !== candidateRevision?.baseTree)
+    return "candidate_base_tree";
+  if (bundle.patchHash !== candidateRevision?.patchHash)
+    return "candidate_patch_hash";
+  if (bundle.contentManifestHash !== candidateRevision?.contentManifestHash)
+    return "candidate_content_manifest_hash";
+  if (bundle.allowedPathsHash !== candidateRevision?.allowedPathsHash)
+    return "candidate_allowed_paths_hash";
+  if (!exactStringArray(bundle.changedPaths, [TARGET_PATH]))
+    return "candidate_changed_paths";
+  if (!entry) return "candidate_entry";
+  if (entry.relativePath !== TARGET_PATH) return "candidate_entry_path";
+  if (entry.operation !== "upsert") return "candidate_entry_operation";
+  if (typeof contentBase64 !== "string") return "candidate_content_base64_type";
+  if (typeof entry.byteLength !== "number") return "candidate_byte_length_type";
+  if (typeof entry.sha256 !== "string") return "candidate_sha256_type";
   const expectedPatchHash = createHash("sha256")
     .update("crdd-candidate-revision-v1\0")
     .update(bundle.baseCommit)
@@ -866,13 +869,26 @@ function verifiedCandidate(
     .update(TARGET_PATH)
     .digest("hex");
   const content = Buffer.from(contentBase64, "base64");
-  return (
-    bundle.patchHash === expectedPatchHash &&
-    content.toString("base64") === contentBase64 &&
-    content.equals(Buffer.from(EXPECTED_CONTENT, "utf8")) &&
-    entry.byteLength === content.byteLength &&
-    entry.sha256 === createHash("sha256").update(content).digest("hex")
-  );
+  if (bundle.patchHash !== expectedPatchHash) return "derived_patch_hash";
+  if (content.toString("base64") !== contentBase64)
+    return "candidate_content_base64";
+  if (!content.equals(Buffer.from(EXPECTED_CONTENT, "utf8"))) {
+    if (
+      content.equals(
+        Buffer.from(EXPECTED_CONTENT.replace("\n", "\r\n"), "utf8"),
+      )
+    )
+      return "candidate_content_crlf";
+    if (content.equals(Buffer.from(EXPECTED_CONTENT.trimEnd(), "utf8")))
+      return "candidate_content_missing_lf";
+    if (content.equals(Buffer.from(BASE_CONTENT, "utf8")))
+      return "candidate_content_base_unchanged";
+    return "candidate_content_bytes";
+  }
+  if (entry.byteLength !== content.byteLength) return "candidate_byte_length";
+  if (entry.sha256 !== createHash("sha256").update(content).digest("hex"))
+    return "candidate_sha256";
+  return null;
 }
 
 export async function runSignedGeneralTaskVerification(
@@ -1079,19 +1095,19 @@ export async function runSignedGeneralTaskVerification(
         ensureRuntimeProcessPoisoned();
 
       const candidateId = taskResult.candidateId;
-      let isCandidateVerified = false;
+      let candidateMismatch: string | null = "candidate_not_read";
       if (typeof candidateId === "string") {
         try {
           const candidate = plainRecord(
             dependencies.readCandidate(candidateId),
           );
-          isCandidateVerified = verifiedCandidate(
+          candidateMismatch = candidateContractMismatch(
             candidate,
             candidateId,
             taskResult,
           );
         } catch {
-          isCandidateVerified = false;
+          candidateMismatch = "candidate_read_failed";
         }
         try {
           discarded = plainRecord(dependencies.discardCandidate(candidateId));
@@ -1161,10 +1177,11 @@ export async function runSignedGeneralTaskVerification(
           "signed_general_task_candidate_id_missing",
           taskResult,
         );
-      } else if (!isCandidateVerified) {
+      } else if (candidateMismatch !== null) {
         knownOutcome = blockedAfterExactCandidateDiscard(
           "signed_general_task_candidate_content_mismatch",
           taskResult,
+          Object.freeze({ candidateContractMismatch: candidateMismatch }),
         );
       } else {
         knownOutcome = Object.freeze({
@@ -1385,6 +1402,8 @@ export function describeSignedGeneralTaskVerificationContract() {
       "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
     resultMismatchDiagnostic:
       "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
+    candidateMismatchDiagnostic:
+      "fixed_candidate_contract_or_public_fixture_byte_identifier_only_no_candidate_bytes_provider_text_path_or_credential",
     processRestartProjection:
       "task_started_completion_or_restart_observation_unknown_irreversibly_poisons_shared_process_before_return_and_exact_false_plus_unpoisoned_state_required_for_success",
     cancellationSettlement: Object.freeze({

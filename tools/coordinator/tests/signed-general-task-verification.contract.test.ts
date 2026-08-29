@@ -363,7 +363,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 17);
+  assert.equal(contract.contractRevision, 18);
   assert.equal(
     contract.verificationFixture,
     "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
@@ -375,6 +375,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   assert.equal(
     contract.resultMismatchDiagnostic,
     "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
+  );
+  assert.equal(
+    contract.candidateMismatchDiagnostic,
+    "fixed_candidate_contract_or_public_fixture_byte_identifier_only_no_candidate_bytes_provider_text_path_or_credential",
   );
   assert.equal(contract.requestShellTransportAllowed, false);
   assert.equal(contract.powershellTextPipelineAllowed, false);
@@ -720,6 +724,7 @@ test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱い
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "signed_general_task_candidate_content_mismatch");
+  assert.equal(result.candidateContractMismatch, "candidate_content_bytes");
   assert.equal(
     result.externalSendAuthorizationMode,
     "interactive_initial_consent",
@@ -736,6 +741,28 @@ test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱い
   assert.deepEqual(result.candidateStoreRecoveryIds, []);
   assert.equal(result.effectStateUnknown, false);
   assert.equal(fixture.calls.discards, 1);
+});
+
+test("公開fixtureの改行・終端・未置換差はbyteを出さず固定分類する", async () => {
+  for (const [content, expectedMismatch] of [
+    ["CRDD_COORDINATOR_GENERAL_TASK_OK\r\n", "candidate_content_crlf"],
+    ["CRDD_COORDINATOR_GENERAL_TASK_OK", "candidate_content_missing_lf"],
+    [BASE_CONTENT, "candidate_content_base_unchanged"],
+  ] as const) {
+    const fixture = dependencies({ candidate: candidate(content) });
+    const result = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(
+      result.reason,
+      "signed_general_task_candidate_content_mismatch",
+    );
+    assert.equal(result.candidateContractMismatch, expectedMismatch);
+    assert.equal(result.candidateDiscarded, true);
+    assert.equal(result.rawProviderOutputReported, false);
+  }
 });
 
 test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定する", async () => {

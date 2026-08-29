@@ -378,6 +378,8 @@ bounded-remediation Runnerを整合した固定署名版`1d6b330`の再実測で
 
 更新固定署名版`365fa64`ではこのCandidate終了状態が実Provider 3試行すべてで成立し、独立Reviewer不承認の`not_issued`、内容不一致後の`discarded`、cleanup確認済み、Recovery ID 0件およびCanonical Effect 0を正しく区別した。一方、専用Windows E2E worktreeの固定基準fileだけがGit checkout時に35-byte LFから36-byte CRLFへ変換され、Providerが見えている改行を保持して限定置換してもRunnerのLF Gateへ一致しない試験基盤差を検出した。固定fixtureへ`text eol=lf`を明示し、Runnerも署名Package／Git Object Format確認後かつTask／Provider Effect前に基準35 bytesを独立検査する。CRLF、欠落、空または読取不能は`base_content_mismatch`へ停止し、Providerへ成立不能な試行を送らない。新規専用worktreeの実byteと更新署名E2Eで解消を確認するまで完成根拠へ昇格しない。
 
+LF固定後の正式署名再実測は基準byte Gate、Executor、独立Reviewer、一回是正、Candidate破棄および限定再試行を通過したが、3試行すべてを同じ`candidate_content_mismatch`へ集約し、bundle metadata差と最終byte差を区別できなかった。自由文、生Candidate bytes、PathまたはProvider出力を公開せず、Candidate verifierの各exact predicateを固定field識別子へする。公開fixtureの内容差だけはCRLF、終端LF欠落、BASE未置換およびその他byte差の閉集合へ分類し、Hash／長さ／bundle Identity差とは分離する。この診断は成功条件、再試行条件、Candidate cleanupまたは情報境界を変更せず、次の署名実測で本質原因を一意に確定するための観測契約である。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。
