@@ -32,6 +32,7 @@ import {
 import { createDockerRecoveryRuntimeStateLockController } from "./docker-recovery-lock-controller.ts";
 import { releaseRecoverySynchronizations } from "./docker-recovery-state-machine.ts";
 import { isExactDockerRuntimeStateMutationBoundary } from "./docker-runtime-state-binding.ts";
+import { parseExternalSendConsentActiveEntryName } from "./external-send-consent-record.ts";
 import {
   acquireHostOperationRecoveryGenerationByIdentity,
   beginOwnedDockerSubmissionRecovery,
@@ -55,7 +56,7 @@ import {
 
 export const DOCKER_RECOVERY_RUNTIME_CONTRACT =
   "crdd-coordinator/docker-recovery-runtime";
-export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 24;
+export const DOCKER_RECOVERY_RUNTIME_CONTRACT_REVISION = 25;
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const SAFE_RESOURCE =
@@ -4491,7 +4492,7 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
     const pointers: Array<
       Readonly<{ name: string; value: Record<string, unknown> }>
     > = [];
-    let externalSendConsentRecordCount = 0;
+    const externalSendConsentRecordNames = new Set<string>();
     const journalIntents = inspectDockerRecoveryJournalDirectory(rootPath);
     const journalIntentRecoveryIds = new Set(
       journalIntents
@@ -4825,6 +4826,17 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
       );
     };
     for (const entry of sortedEntries) {
+      const externalSendConsentEntry = parseExternalSendConsentActiveEntryName(
+        entry.name,
+      );
+      if (externalSendConsentEntry) {
+        if (!entry.isFile() || entry.isSymbolicLink())
+          throw new Error("docker_task_runtime_state_entry_replaced");
+        externalSendConsentRecordNames.add(externalSendConsentEntry.recordName);
+        if (externalSendConsentRecordNames.size > 1)
+          throw new Error("docker_task_runtime_state_unknown_entry");
+        continue;
+      }
       if (isDockerRecoveryJournalIntentName(entry.name)) continue;
       if (isDockerRecoveryJournalTemporaryName(entry.name))
         throw new Error("docker_task_runtime_state_orphan_temporary");
@@ -4932,70 +4944,6 @@ function inspectDockerRecoveryRootSnapshot(rootPath: unknown) {
               .value as Record<string, unknown>,
           }),
         );
-        continue;
-      }
-      if (
-        /^external-send-consent-active-v2-[a-f0-9]{64}-[a-f0-9]{16}\.json$/u.test(
-          entry.name,
-        )
-      ) {
-        externalSendConsentRecordCount += 1;
-        if (externalSendConsentRecordCount > 1)
-          throw new Error("docker_task_runtime_state_unknown_entry");
-        if (
-          !entry.isFile() ||
-          entry.isSymbolicLink() ||
-          !entryNames.has(dockerRecoveryCommitName(entry.name))
-        )
-          throw new Error("docker_task_runtime_state_entry_replaced");
-        const consent = readExactJson(
-          path.join(rootPath, entry.name),
-          entry.name,
-        ).value as Record<string, unknown>;
-        const filenameIdentity =
-          /^external-send-consent-active-v2-([a-f0-9]{64})-([a-f0-9]{16})\.json$/u.exec(
-            entry.name,
-          );
-        const filenameHash = filenameIdentity?.[1];
-        if (
-          !filenameHash ||
-          !exactRecordKeys(consent, [
-            "schema",
-            "consentBoundaryHash",
-            "policyId",
-            "sourceFileHash",
-            "informationClassification",
-            "providerBoundaries",
-            "localUserBindingHash",
-            "runtimeStateIdentityHash",
-            "runtimeStateProtectionHash",
-            "runtimeStateBindingHash",
-            "apiKeyFallbackAllowed",
-            "additionalPurchaseAllowed",
-            "generation",
-            "confirmedAtEpochMs",
-            "expiresAtEpochMs",
-          ]) ||
-          consent.schema !== "crdd-coordinator/external-send-consent/v2" ||
-          consent.consentBoundaryHash !== filenameHash ||
-          typeof consent.generation !== "string" ||
-          consent.generation !== filenameIdentity?.[2] ||
-          ![
-            consent.sourceFileHash,
-            consent.localUserBindingHash,
-            consent.runtimeStateIdentityHash,
-            consent.runtimeStateProtectionHash,
-            consent.runtimeStateBindingHash,
-          ].every((value) => typeof value === "string" && HEX64.test(value)) ||
-          consent.apiKeyFallbackAllowed !== false ||
-          consent.additionalPurchaseAllowed !== false ||
-          typeof consent.confirmedAtEpochMs !== "number" ||
-          !Number.isSafeInteger(consent.confirmedAtEpochMs) ||
-          typeof consent.expiresAtEpochMs !== "number" ||
-          !Number.isSafeInteger(consent.expiresAtEpochMs) ||
-          consent.expiresAtEpochMs <= consent.confirmedAtEpochMs
-        )
-          throw new Error("docker_task_runtime_state_entry_replaced");
         continue;
       }
       throw new Error("docker_task_runtime_state_unknown_entry");

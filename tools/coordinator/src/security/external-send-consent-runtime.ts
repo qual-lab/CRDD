@@ -14,18 +14,24 @@ import {
   writeCommittedDockerRecoveryJson,
 } from "./docker-recovery-journal.ts";
 import type { ExternalSendPolicy } from "./external-send-policy-runtime.ts";
+import {
+  externalSendConsentActiveRecordName,
+  EXTERNAL_SEND_CONSENT_LIFETIME_MS,
+  EXTERNAL_SEND_CONSENT_SCHEMA,
+  EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
+  isExternalSendConsentRecordShape,
+  parseExternalSendConsentActiveEntryName,
+} from "./external-send-consent-record.ts";
 
 export const EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-consent-runtime";
 export const EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT_REVISION = 3;
-export const EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX =
-  "external-send-consent-active-v2-";
-export const EXTERNAL_SEND_RUNTIME_SEMANTICS_ID =
-  "bounded-reviewer-defect-claim-transfer-v1";
+export {
+  EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX,
+  EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
+} from "./external-send-consent-record.ts";
 
 const HEX64 = /^[a-f0-9]{64}$/u;
-const CONSENT_SCHEMA = "crdd-coordinator/external-send-consent/v2";
-const CONSENT_LIFETIME_MS = 180 * 24 * 60 * 60 * 1_000;
 
 type VerifiedRoot = NonNullable<
   ReturnType<typeof consumeRuntimeOwnedRuntimeStateRootCapability>
@@ -37,18 +43,6 @@ type ConsentDependencies = Readonly<{
   now: () => number;
   nonce: () => string;
 }>;
-
-function exactKeys(value: unknown, keys: readonly string[]) {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Object.getPrototypeOf(value) === Object.prototype &&
-    Object.keys(value as Record<string, unknown>)
-      .sort()
-      .join("\0") === [...keys].sort().join("\0")
-  );
-}
 
 export function compileExternalSendConsentBoundaryHash(
   policy: ExternalSendPolicy,
@@ -132,11 +126,11 @@ function recordFor(
   generation: string,
 ) {
   return Object.freeze({
-    schema: CONSENT_SCHEMA,
+    schema: EXTERNAL_SEND_CONSENT_SCHEMA,
     ...expectedBoundary(policy, boundaryHash, root),
     generation,
     confirmedAtEpochMs: now,
-    expiresAtEpochMs: now + CONSENT_LIFETIME_MS,
+    expiresAtEpochMs: now + EXTERNAL_SEND_CONSENT_LIFETIME_MS,
   });
 }
 
@@ -145,49 +139,26 @@ function validRecord(
   expected: ReturnType<typeof expectedBoundary>,
   now: number,
 ) {
-  if (
-    !exactKeys(value, [
-      "schema",
-      "consentBoundaryHash",
-      "policyId",
-      "sourceFileHash",
-      "runtimeExternalSendSemanticsId",
-      "informationClassification",
-      "providerBoundaries",
-      "localUserBindingHash",
-      "runtimeStateIdentityHash",
-      "runtimeStateProtectionHash",
-      "runtimeStateBindingHash",
-      "apiKeyFallbackAllowed",
-      "additionalPurchaseAllowed",
-      "generation",
-      "confirmedAtEpochMs",
-      "expiresAtEpochMs",
-    ])
-  )
-    return false;
+  if (!isExternalSendConsentRecordShape(value)) return false;
   const record = value as Record<string, unknown>;
   const boundary = Object.fromEntries(
     Object.keys(expected).map((key) => [key, record[key]]),
   );
   return (
-    record.schema === CONSENT_SCHEMA &&
-    typeof record.generation === "string" &&
-    /^[a-f0-9]{16}$/u.test(record.generation) &&
     JSON.stringify(boundary) === JSON.stringify(expected) &&
     typeof record.confirmedAtEpochMs === "number" &&
     Number.isSafeInteger(record.confirmedAtEpochMs) &&
     typeof record.expiresAtEpochMs === "number" &&
     Number.isSafeInteger(record.expiresAtEpochMs) &&
-    record.expiresAtEpochMs ===
-      record.confirmedAtEpochMs + CONSENT_LIFETIME_MS &&
     record.confirmedAtEpochMs <= now &&
     record.expiresAtEpochMs > now
   );
 }
 
 function consentName(boundaryHash: string, generation: string) {
-  return `${EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX}${boundaryHash}-${generation}.json`;
+  const name = externalSendConsentActiveRecordName(boundaryHash, generation);
+  if (!name) throw new Error("external_send_consent_identity_invalid");
+  return name;
 }
 
 function consentPaths(root: VerifiedRoot, name: string) {
@@ -229,12 +200,10 @@ function pathMissing(file: string) {
 // Removing this one fixed pair only reduces authority. Commit is removed
 // first so a crash cannot leave an old record authoritative.
 function activeNames(root: VerifiedRoot) {
-  const pattern =
-    /^external-send-consent-active-v2-([a-f0-9]{64})-([a-f0-9]{16})\.json(?:\.crdd-commit\.json)?$/u;
   const names = new Set<string>();
   for (const entry of fs.readdirSync(root.rootPath)) {
-    const match = pattern.exec(entry);
-    if (match?.[1] && match[2]) names.add(consentName(match[1], match[2]));
+    const parsed = parseExternalSendConsentActiveEntryName(entry);
+    if (parsed) names.add(parsed.recordName);
   }
   return [...names];
 }
@@ -343,11 +312,9 @@ function createRuntime(dependencies: ConsentDependencies) {
                   boundaryHash,
                 });
           }
-          const currentMatch =
-            /^external-send-consent-active-v2-([a-f0-9]{64})-([a-f0-9]{16})\.json$/u.exec(
-              currentName,
-            );
-          if (currentMatch?.[1] !== boundaryHash)
+          const currentIdentity =
+            parseExternalSendConsentActiveEntryName(currentName);
+          if (currentIdentity?.boundaryHash !== boundaryHash)
             return revokePair(root)
               ? Object.freeze({
                   status: "needs_confirmation" as const,
@@ -358,7 +325,7 @@ function createRuntime(dependencies: ConsentDependencies) {
                   boundaryHash,
                 });
           const isCurrent =
-            currentMatch?.[2] ===
+            currentIdentity?.generation ===
               (record as Record<string, unknown>).generation &&
             validRecord(
               record,
