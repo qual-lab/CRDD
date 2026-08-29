@@ -662,6 +662,10 @@ test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱い
   );
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "signed_general_task_candidate_content_mismatch");
+  assert.equal(
+    result.externalSendAuthorizationMode,
+    "interactive_initial_consent",
+  );
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.cleanupConfirmed, true);
   assert.equal(result.manualRecoveryRequired, false);

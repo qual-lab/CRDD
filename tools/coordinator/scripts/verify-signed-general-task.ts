@@ -562,6 +562,12 @@ function blockedAfterExactCandidateDiscard(
   taskResult: RuntimeRecord,
   extra: RuntimeRecord = Object.freeze({}),
 ) {
+  const externalSendAuthorizationMode =
+    taskResult.externalSendAuthorizationMode ===
+      "interactive_initial_consent" ||
+    taskResult.externalSendAuthorizationMode === "reused_initial_consent"
+      ? taskResult.externalSendAuthorizationMode
+      : null;
   const sourceAfterDiscard = Object.freeze({
     ...taskResult,
     candidateRecoveryId: null,
@@ -570,7 +576,13 @@ function blockedAfterExactCandidateDiscard(
   return blocked(
     reason,
     sourceAfterDiscard,
-    Object.freeze({ candidateDiscarded: true, ...extra }),
+    Object.freeze({
+      candidateDiscarded: true,
+      ...(externalSendAuthorizationMode
+        ? { externalSendAuthorizationMode }
+        : {}),
+      ...extra,
+    }),
   );
 }
 
