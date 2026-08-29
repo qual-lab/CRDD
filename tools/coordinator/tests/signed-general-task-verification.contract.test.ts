@@ -321,11 +321,10 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   const request = createSignedGeneralTaskVerificationRequest();
   assert.deepEqual(request, {
     frontProvider: "codex",
-    objective:
-      "Create the one bounded verification file with the exact required content.",
+    objective: "Create the one bounded verification marker file.",
     acceptanceCriteria: [
       `The only changed path is ${TARGET_PATH}.`,
-      `The file contains exactly ${JSON.stringify(EXPECTED_CONTENT)} as UTF-8 bytes.`,
+      `The visible file content is the single marker ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}; the signed runner separately verifies exact UTF-8 bytes and one trailing LF.`,
     ],
     allowedPaths: [TARGET_PATH],
     readPaths: ["tools/coordinator/README.md", TARGET_PATH],
@@ -340,7 +339,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 10);
+  assert.equal(contract.contractRevision, 11);
   assert.equal(
     contract.resultMismatchDiagnostic,
     "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",

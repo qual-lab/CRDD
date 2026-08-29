@@ -33,7 +33,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 10;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 11;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -646,11 +646,10 @@ export function createSignedGeneralTaskVerificationRequest(
   const route = ROUTE_EXPECTATIONS[routeProfile];
   return Object.freeze({
     frontProvider: route.frontProvider,
-    objective:
-      "Create the one bounded verification file with the exact required content.",
+    objective: "Create the one bounded verification marker file.",
     acceptanceCriteria: Object.freeze([
       `The only changed path is ${TARGET_PATH}.`,
-      `The file contains exactly ${JSON.stringify(EXPECTED_CONTENT)} as UTF-8 bytes.`,
+      `The visible file content is the single marker ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}; the signed runner separately verifies exact UTF-8 bytes and one trailing LF.`,
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze(["tools/coordinator/README.md", TARGET_PATH]),
