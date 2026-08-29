@@ -4,7 +4,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 5;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 6;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -12,11 +12,23 @@ const MAXIMUM_PATHS = 1_000;
 const MAXIMUM_FINDINGS = 64;
 const MAXIMUM_FINDING_MESSAGE_BYTES = 4_096;
 const SEVERITIES = new Set(["critical", "high", "medium", "low", "info"]);
+const FINDING_CATEGORIES = new Set([
+  "acceptance_criterion_not_met",
+  "implementation_defect",
+  "verification_defect",
+  "security_or_authority_defect",
+]);
 const remediationRecords = new WeakMap<
   object,
   readonly Readonly<{
     severity: "critical" | "high" | "medium" | "low" | "info";
     path: string;
+    category:
+      | "acceptance_criterion_not_met"
+      | "implementation_defect"
+      | "verification_defect"
+      | "security_or_authority_defect";
+    criterionNumber: number;
     messageSha256: string;
   }>[]
 >();
@@ -95,10 +107,22 @@ function reviewerResult(value: Record<string, unknown>) {
   const findings = value.findings.map((finding) => {
     if (
       !isRecord(finding) ||
-      !exactKeys(finding, ["severity", "path", "message"]) ||
+      !exactKeys(finding, [
+        "severity",
+        "path",
+        "category",
+        "criterionNumber",
+        "message",
+      ]) ||
       typeof finding.severity !== "string" ||
       !SEVERITIES.has(finding.severity) ||
       !validPath(finding.path) ||
+      typeof finding.category !== "string" ||
+      !FINDING_CATEGORIES.has(finding.category) ||
+      typeof finding.criterionNumber !== "number" ||
+      !Number.isInteger(finding.criterionNumber) ||
+      finding.criterionNumber < 1 ||
+      finding.criterionNumber > 16 ||
       !validString(finding.message, MAXIMUM_FINDING_MESSAGE_BYTES)
     ) {
       return null;
@@ -111,6 +135,12 @@ function reviewerResult(value: Record<string, unknown>) {
         | "low"
         | "info",
       path: finding.path as string,
+      category: finding.category as
+        | "acceptance_criterion_not_met"
+        | "implementation_defect"
+        | "verification_defect"
+        | "security_or_authority_defect",
+      criterionNumber: finding.criterionNumber as number,
       messageSha256: createHash("sha256")
         .update("crdd-review-finding-message-v1\0")
         .update(finding.message as string, "utf8")
@@ -247,7 +277,7 @@ export function describeProviderTaskStructuredResultContract() {
     rawOutputReported: false,
     untrustedProviderTextReported: false,
     boundedRemediationCapability:
-      "opaque_single_use_path_severity_and_message_hash_projection",
+      "opaque_single_use_path_severity_category_criterion_and_message_hash_projection",
     reviewerMessageForwardedToExecutor: false,
     credentialAbsenceVerified: false,
   });

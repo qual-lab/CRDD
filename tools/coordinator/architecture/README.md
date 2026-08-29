@@ -43,7 +43,7 @@ Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終
 | Executor完了 | `STATE-EXECUTOR-CLEAN` | Provider Home、Mount Grant、Task Packet、Docker Recovery、Executor、cleanupを実行 | Docker不存在、mount完了、finalizable handoff |
 | Candidate固定 | `STATE-CANDIDATE-CAPTURED` | 実差分、許可Path、開始RevisionからCandidateを固定 | Executor申告と実差分一致 |
 | Reviewer完了 | `STATE-REVIEWER-CLEAN` | 独立ContextでReviewerを実行しcleanup | approvedまたは一回是正へ限定 |
-| 是正許可 | `STATE-REMEDIATION-AUTHORIZED` | 同じExecutorへbounded findingだけを返す | 一回だけ再実行し同じReviewerへ戻る |
+| 是正許可 | `STATE-REMEDIATION-AUTHORIZED` | 同じExecutorへ`severity`、`path`、閉集合`category`、受入条件の`criterionNumber`および自由文Hashだけを返す | 自由文命令を転送せず、一回だけ再実行して同じReviewerへ戻る |
 | 是正Executor完了 | `STATE-REMEDIATION-EXECUTOR-CLEAN` | 一回限りの同一Executor是正とStage cleanup | 再Candidateを固定 |
 | 是正Candidate固定 | `STATE-REMEDIATION-CANDIDATE-CAPTURED` | 是正後の実差分からCandidateを固定 | 同じReviewerへ一回だけ返す |
 | 是正Reviewer完了 | `STATE-REMEDIATION-REVIEWER-CLEAN` | 同じ独立Reviewerが是正後Candidateを再評価 | 承認時だけ保存。再是正へ戻らない |
@@ -153,7 +153,7 @@ Provider child／Docker resource absence
 | `INV-STAGE-CLEAN-BEFORE-HANDOFF` | Executor／Reviewerの結果を次Stageへ渡す前に、そのStageのchildとDocker cleanupを確認する |
 | `INV-CANDIDATE-EXACT-AND-NONCANONICAL` | Candidateは開始Revisionと許可Pathへ固定し、Canonical Repositoryへ直接適用しない。Runtimeが変更Path範囲を機械検証し、Git metadataを持たないReviewerはRead Projection上の内容・意味を独立検証する |
 | `INV-HOST-CLEANUP-AFTER-DOCKER-CLOSURE` | Host cleanupはactive Docker binding Evidenceがある間は停止し、旧版のHost先行回収状態もexact Docker照合とbinding閉包の後だけ完了する |
-| `INV-BOUNDED-REMEDIATION` | Reviewer findingは一回だけ同じExecutorへ返し、同じReviewerが再評価する |
+| `INV-BOUNDED-REMEDIATION` | Reviewer findingはPath、重要度、閉集合Category、実在する受入条件参照および自由文Hashへ縮約し、一回だけ同じExecutorへ返して同じReviewerが再評価する。自由文本文は別Providerへ転送しない |
 | `INV-RESULT-AFTER-CLEANUP` | Host、Docker、Mount、Candidateおよびsignal cleanup確認後だけ成功結果を公開する |
 | `INV-CLEAN-BLOCK-HAS-NO-RECOVERY` | 安全なblockedは所有資源不存在かつactionable Recovery ID 0の場合だけ成立する |
 | `INV-UNKNOWN-PRESERVES-RECOVERY` | 状態またはcleanupが不明ならEvidenceと全actionable Recovery IDを保持して停止する |

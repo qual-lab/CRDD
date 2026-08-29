@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 2;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 3;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -31,12 +31,12 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
     "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
   sigstoreIssuer: "https://token.actions.githubusercontent.com",
   fixedImageDigest:
-    "sha256:3cfea67579250d38b28ac3324686c210fc73965462f8b4981f449211fc4a1699",
-  fixedImageBytes: 145_027_340,
+    "sha256:04251d8be91bc12bfd487010814ce24577d53ef3ebbcca1dc3695ef06f1fe844",
+  fixedImageBytes: 145_027_460,
   executorSchemaSha256:
     "ac1e1e6c0412a573b8b98eacc7232e98fff1d59d0e29643a8323f94dc5cfd7d4",
   reviewerSchemaSha256:
-    "7eedfb76ae82c938e4de00b2770fedd6d4460a4149175a99bb68151a262dabcf",
+    "09e8592838b1642f738eee07fb2c1b366dc25d6a3e842dbb0649930c94a25df8",
   imageBuildDefinition: "tools/coordinator/runtime/codex-provider.Dockerfile",
   releaseUrl: "https://github.com/openai/codex/releases/tag/rust-v0.149.1",
 });

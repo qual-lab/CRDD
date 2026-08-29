@@ -651,7 +651,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
   assert.equal(
     contract.interactiveConfirmation,
     "first_boundary_only_async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
@@ -689,6 +689,13 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.additionalPurchaseAllowed, false);
   assert.equal(contract.reviewerMessageTextForwarded, false);
+  assert.deepEqual(contract.derivedRemediationTransfer.fields, [
+    "severity",
+    "path",
+    "category",
+    "criterionNumber",
+    "messageSha256",
+  ]);
 });
 
 test("同じRuntime-owned初期同意境界では対話を繰り返さず短命Operation Grantだけを発行する", async () => {

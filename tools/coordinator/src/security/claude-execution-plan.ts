@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 10;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 11;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
@@ -24,7 +24,7 @@ const TASK_SETTINGS_PATH = "/etc/crdd/claude-task-settings.json";
 const EXECUTOR_SCHEMA_ARGUMENT =
   '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1,"maxLength":8192},"changedPaths":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":1024}},"verification":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":1024}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
 const REVIEWER_SCHEMA_ARGUMENT =
-  '{"type":"object","properties":{"decision":{"type":"string","enum":["approved","changes_requested"]},"summary":{"type":"string","minLength":1,"maxLength":8192},"findings":{"type":"array","maxItems":64,"items":{"type":"object","properties":{"severity":{"type":"string","enum":["critical","high","medium","low","info"]},"path":{"type":"string","minLength":1,"maxLength":1024},"message":{"type":"string","minLength":1,"maxLength":4096}},"required":["severity","path","message"],"additionalProperties":false}}},"required":["decision","summary","findings"],"additionalProperties":false}';
+  '{"type":"object","properties":{"decision":{"type":"string","enum":["approved","changes_requested"]},"summary":{"type":"string","minLength":1,"maxLength":8192},"findings":{"type":"array","maxItems":64,"items":{"type":"object","properties":{"severity":{"type":"string","enum":["critical","high","medium","low","info"]},"path":{"type":"string","minLength":1,"maxLength":1024},"category":{"type":"string","enum":["acceptance_criterion_not_met","implementation_defect","verification_defect","security_or_authority_defect"]},"criterionNumber":{"type":"integer","minimum":1,"maximum":16},"message":{"type":"string","minLength":1,"maxLength":4096}},"required":["severity","path","category","criterionNumber","message"],"additionalProperties":false}}},"required":["decision","summary","findings"],"additionalProperties":false}';
 const FIXED_ARGV = Object.freeze([
   "--safe-mode",
   "--setting-sources=",

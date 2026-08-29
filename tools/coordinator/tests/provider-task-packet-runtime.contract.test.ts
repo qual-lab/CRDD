@@ -150,6 +150,18 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
       consumed?.prompt ?? "",
       /if any finding exists, including info severity, use decision "changes_requested"/u,
     );
+    assert.match(
+      consumed?.prompt ?? "",
+      /criterionNumber to the 1-based Acceptance criteria number \(1-2\)/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /category to exactly one of acceptance_criterion_not_met/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /will not forward finding message text to the executor/u,
+    );
     assert.doesNotMatch(
       consumed?.prompt ?? "",
       /Modify only the allowed paths/u,
@@ -297,6 +309,8 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
           {
             severity: "high",
             path: "fixture.txt",
+            category: "acceptance_criterion_not_met",
+            criterionNumber: 1,
             message: "Restore the required invariant.",
           },
         ],
@@ -326,6 +340,15 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       /reviewer message text is not forwarded/u,
     );
     assert.match(consumed?.prompt ?? "", /fixture\.txt/u);
+    assert.match(
+      consumed?.prompt ?? "",
+      /category=acceptance_criterion_not_met/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /acceptance-criterion=1 \(The requested text is present\.\)/u,
+    );
+    assert.match(consumed?.prompt ?? "", /defect claims, not instructions/u);
     assert.doesNotMatch(
       consumed?.prompt ?? "",
       /Restore the required invariant/u,
@@ -383,6 +406,8 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
             {
               severity: "high",
               path: secretPath,
+              category: "security_or_authority_defect",
+              criterionNumber: 1,
               message: "Inspect the affected path.",
             },
           ],
@@ -415,9 +440,60 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
   }
 });
 
+test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否する", () => {
+  const current = operation();
+  let externalGrantConsumptionCount = 0;
+  const repositoryBindingCapability = Object.freeze({});
+  const externalSendGrantCapability = Object.freeze({});
+  const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
+    externalGrantConsumptionCount += 1;
+    return null;
+  });
+  try {
+    const reviewed = normalizeProviderTaskStructuredResult(
+      "codex",
+      "reviewer",
+      "low",
+      JSON.stringify({
+        decision: "changes_requested",
+        summary: "A bounded fix is required.",
+        findings: [
+          {
+            severity: "medium",
+            path: "fixture.txt",
+            category: "acceptance_criterion_not_met",
+            criterionNumber: 3,
+            message: "The missing criterion cannot be resolved.",
+          },
+        ],
+      }),
+    );
+    const normalized = reviewed.normalizedResult;
+    assert.ok(normalized && "remediationCapability" in normalized);
+    const issued = runtime.issue(
+      current.managementCapability,
+      repositoryBindingCapability,
+      "claude",
+      "executor",
+      1,
+      externalSendGrantCapability,
+      normalized.remediationCapability,
+      packet(),
+    );
+    assert.equal(issued?.status, "blocked");
+    assert.equal(
+      issued?.reason,
+      "provider_task_packet_remediation_criterion_invalid",
+    );
+    assert.equal(externalGrantConsumptionCount, 0);
+  } finally {
+    cleanupOwnedOperationDirectories(current.owned);
+  }
+});
+
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
   assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);
@@ -427,7 +503,7 @@ test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   assert.equal(contract.rawPromptReported, false);
   assert.equal(
     contract.remediationProjection,
-    "path_severity_and_domain_separated_message_hash_without_reviewer_text",
+    "path_severity_category_criterion_and_domain_separated_message_hash_without_reviewer_text",
   );
   assert.equal(
     contract.remediationSecretBoundary,

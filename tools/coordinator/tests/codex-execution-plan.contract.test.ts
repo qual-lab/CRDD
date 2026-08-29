@@ -109,13 +109,20 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
     "verification",
   ]);
   assert.deepEqual(reviewer.required, ["decision", "summary", "findings"]);
+  assert.deepEqual(reviewer.properties.findings.items.required, [
+    "severity",
+    "path",
+    "category",
+    "criterionNumber",
+    "message",
+  ]);
   assert.equal(executor.additionalProperties, false);
   assert.equal(reviewer.additionalProperties, false);
 });
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,

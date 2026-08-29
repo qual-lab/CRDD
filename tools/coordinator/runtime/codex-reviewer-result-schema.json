@@ -17,9 +17,29 @@
             "enum": ["critical", "high", "medium", "low", "info"]
           },
           "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+          "category": {
+            "type": "string",
+            "enum": [
+              "acceptance_criterion_not_met",
+              "implementation_defect",
+              "verification_defect",
+              "security_or_authority_defect"
+            ]
+          },
+          "criterionNumber": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
           "message": { "type": "string", "minLength": 1, "maxLength": 4096 }
         },
-        "required": ["severity", "path", "message"],
+        "required": [
+          "severity",
+          "path",
+          "category",
+          "criterionNumber",
+          "message"
+        ],
         "additionalProperties": false
       }
     }

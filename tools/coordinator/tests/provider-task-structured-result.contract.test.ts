@@ -16,7 +16,13 @@ const REVIEWER = JSON.stringify({
   decision: "changes_requested",
   summary: "One issue remains.",
   findings: [
-    { severity: "medium", path: "fixture.txt", message: "Clarify the value." },
+    {
+      severity: "medium",
+      path: "fixture.txt",
+      category: "acceptance_criterion_not_met",
+      criterionNumber: 1,
+      message: "Clarify the value.",
+    },
   ],
 });
 
@@ -66,14 +72,56 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
     {
       decision: "approved",
       summary: "ok",
-      findings: [{ severity: "low", path: "a", message: "x" }],
+      findings: [
+        {
+          severity: "low",
+          path: "a",
+          category: "implementation_defect",
+          criterionNumber: 1,
+          message: "x",
+        },
+      ],
     },
     { decision: "changes_requested", summary: "bad", findings: [] },
     { decision: "approved", summary: "ok", findings: [], extra: true },
     {
       decision: "changes_requested",
       summary: "bad",
-      findings: [{ severity: "high", path: "../auth.json", message: "x" }],
+      findings: [
+        {
+          severity: "high",
+          path: "../auth.json",
+          category: "security_or_authority_defect",
+          criterionNumber: 1,
+          message: "x",
+        },
+      ],
+    },
+    {
+      decision: "changes_requested",
+      summary: "bad",
+      findings: [
+        {
+          severity: "high",
+          path: "fixture.txt",
+          category: "unknown",
+          criterionNumber: 1,
+          message: "x",
+        },
+      ],
+    },
+    {
+      decision: "changes_requested",
+      summary: "bad",
+      findings: [
+        {
+          severity: "high",
+          path: "fixture.txt",
+          category: "acceptance_criterion_not_met",
+          criterionNumber: 0,
+          message: "x",
+        },
+      ],
     },
   ]) {
     assert.equal(
@@ -159,7 +207,7 @@ test("Claude costはSelectionで固定したeffort上限を超えられない", 
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);

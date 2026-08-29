@@ -29,7 +29,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 14;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 15;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -43,7 +43,13 @@ const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
   direction: "independent_reviewer_to_same_executor" as const,
   maximumRounds: 1,
   maximumFindings: 64,
-  fields: Object.freeze(["severity", "path", "messageSha256"]),
+  fields: Object.freeze([
+    "severity",
+    "path",
+    "category",
+    "criterionNumber",
+    "messageSha256",
+  ]),
   reviewerMessageTextForwarded: false,
   informationClassification: "same_as_original_task" as const,
 });
