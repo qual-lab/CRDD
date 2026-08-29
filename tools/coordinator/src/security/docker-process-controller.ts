@@ -32,7 +32,7 @@ import { parseDockerTaskRecoveryId } from "./docker-recovery-identity.ts";
 
 export const DOCKER_PROCESS_CONTROLLER_CONTRACT =
   "crdd-coordinator/docker-process-controller";
-export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 21;
+export const DOCKER_PROCESS_CONTROLLER_CONTRACT_REVISION = 22;
 
 const SETUP_TIMEOUT_MS = 10_000;
 const PROVIDER_TIMEOUT_MS = 300_000;
@@ -63,6 +63,14 @@ const BLOCKED_COMPLETION_REASONS = new Set([
   "provider_output_limit_exceeded",
   "provider_process_signalled",
   "provider_process_exit_nonzero",
+  "provider_subscription_quota_exhausted",
+  "provider_authentication_expired",
+  "provider_operation_budget_exceeded",
+  "provider_turn_limit_exceeded",
+  "provider_structured_output_retry_exhausted",
+  "provider_invocation_rejected",
+  "provider_network_unavailable",
+  "provider_service_unavailable",
   "docker_setup_command_failed",
   "docker_resource_submission_record_unavailable",
   "docker_resource_receipt_unavailable",
@@ -781,6 +789,7 @@ function subscriptionAuthConfirmed(
 function classifyExecution(
   execution: CommandExecution | null,
   isProvider: boolean,
+  provider: "codex" | "claude",
 ) {
   if (execution === null)
     return Object.freeze({
@@ -807,7 +816,7 @@ function classifyExecution(
     return Object.freeze({
       ok: false,
       reason: isProvider
-        ? "provider_process_exit_nonzero"
+        ? classifyProviderNonzeroExit(provider, execution)
         : "docker_setup_command_failed",
     });
   return Object.freeze({
@@ -815,6 +824,68 @@ function classifyExecution(
     reason: "command_completed",
     stdoutBytes,
   });
+}
+
+function classifyProviderNonzeroExit(
+  provider: "codex" | "claude",
+  execution: CommandExecution,
+) {
+  if (provider === "claude") {
+    const envelope = parseUnambiguousJsonDocument(execution.stdout);
+    if (
+      envelope &&
+      typeof envelope === "object" &&
+      !Array.isArray(envelope) &&
+      (envelope as Record<string, unknown>).type === "result"
+    ) {
+      const subtype = (envelope as Record<string, unknown>).subtype;
+      if (subtype === "error_max_budget_usd")
+        return "provider_operation_budget_exceeded";
+      if (subtype === "error_max_turns") return "provider_turn_limit_exceeded";
+      if (subtype === "error_max_structured_output_retries")
+        return "provider_structured_output_retry_exhausted";
+    }
+  }
+  if (
+    execution.stderr.includes("\0") ||
+    Buffer.byteLength(execution.stderr, "utf8") > 8_192
+  )
+    return "provider_process_exit_nonzero";
+  const diagnostic = execution.stderr
+    .replaceAll("\r\n", "\n")
+    .trim()
+    .toLowerCase();
+  if (
+    /(?:usage|rate) limit|quota (?:exceeded|exhausted)|credit balance (?:is )?too low|hit your (?:current )?limit/u.test(
+      diagnostic,
+    )
+  )
+    return "provider_subscription_quota_exhausted";
+  if (
+    /authentication (?:failed|required)|oauth (?:token )?expired|not logged in|please (?:run )?(?:\/login|login)|invalid api key/u.test(
+      diagnostic,
+    )
+  )
+    return "provider_authentication_expired";
+  if (
+    /unknown (?:argument|option)|invalid (?:argument|option)|json schema (?:is )?invalid|unsupported model|model (?:is )?not found/u.test(
+      diagnostic,
+    )
+  )
+    return "provider_invocation_rejected";
+  if (
+    /econn(?:refused|reset)|etimedout|enotfound|network error|connection (?:refused|reset|timed out)|proxy (?:connection )?(?:failed|error)/u.test(
+      diagnostic,
+    )
+  )
+    return "provider_network_unavailable";
+  if (
+    /service unavailable|internal server error|overloaded|temporarily unavailable|(?:http |status (?:code )?)5\d\d/u.test(
+      diagnostic,
+    )
+  )
+    return "provider_service_unavailable";
+  return "provider_process_exit_nonzero";
 }
 
 async function executePlan(
@@ -868,7 +939,11 @@ async function executePlan(
         reason = "provider_operation_cancelled";
         break;
       }
-      const classified = classifyExecution(execution, isProvider);
+      const classified = classifyExecution(
+        execution,
+        isProvider,
+        plan.provider,
+      );
       if (!classified.ok) {
         requestedStatus = "blocked";
         reason = classified.reason;
@@ -1356,6 +1431,8 @@ export function describeDockerProcessControllerContract() {
     cleanupFailure: "manual_recovery_required_fail_closed",
     structuredResult:
       "exact_provider_boolean_or_role_task_result_published_after_cleanup_only",
+    providerFailureClassification:
+      "known_operational_nonzero_output_mapped_to_closed_public_reason_unknown_output_kept_generic",
     providerTextPublication: "validated_then_discarded_not_reported",
     credentialAbsenceVerification: "not_claimed",
     taskPrompt: "runtime_owned_stdin_only_not_reported",

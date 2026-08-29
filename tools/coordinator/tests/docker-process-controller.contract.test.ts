@@ -744,6 +744,113 @@ test("Claude Max以外のSubscription OfferingではProvider request前に停止
   assert.equal(providerStarted, false);
 });
 
+test("Provider非ゼロ終了は生出力を返さず既知の運用原因だけを閉集合へ分類する", async () => {
+  const cases = [
+    [
+      "",
+      "You've hit your current usage limit",
+      "provider_subscription_quota_exhausted",
+    ],
+    [
+      "",
+      "OAuth token expired; please login",
+      "provider_authentication_expired",
+    ],
+    [
+      JSON.stringify({ type: "result", subtype: "error_max_budget_usd" }),
+      "",
+      "provider_operation_budget_exceeded",
+    ],
+    [
+      JSON.stringify({ type: "result", subtype: "error_max_turns" }),
+      "",
+      "provider_turn_limit_exceeded",
+    ],
+    [
+      JSON.stringify({
+        type: "result",
+        subtype: "error_max_structured_output_retries",
+      }),
+      "",
+      "provider_structured_output_retry_exhausted",
+    ],
+    ["", "Unknown option --future-flag", "provider_invocation_rejected"],
+    ["", "proxy connection failed: ECONNRESET", "provider_network_unavailable"],
+    ["", "Service unavailable (HTTP 503)", "provider_service_unavailable"],
+    ["", "unclassified provider failure", "provider_process_exit_nonzero"],
+  ] as const;
+  for (const [stdout, stderr, expectedReason] of cases) {
+    const fixture = createFixture({
+      startCommand: (command: { purpose: string }) => ({
+        wait: async () => ({
+          status: command.purpose === "start_provider_attached" ? 1 : 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_subscription_auth_probe_attached"
+              ? createSubscriptionAuthOutput()
+              : command.purpose === "start_provider_attached"
+                ? stdout
+                : "",
+          stderr: command.purpose === "start_provider_attached" ? stderr : "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => true,
+      }),
+    });
+    const result = await fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    ).completion;
+    assert.ok(result);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, expectedReason);
+    assert.equal(result.rawOutputReported, false);
+    assert.equal(
+      stdout.length === 0 || !JSON.stringify(result).includes(stdout),
+      true,
+    );
+    assert.equal(
+      stderr.length === 0 || !JSON.stringify(result).includes(stderr),
+      true,
+    );
+    assert.equal(result.cleanupConfirmed, true);
+  }
+});
+
+test("Provider非ゼロ分類はTask本文に似たstdoutと過長・制御文字stderrを診断へ昇格しない", async () => {
+  for (const execution of [
+    { stdout: "The task says usage limit and OAuth token expired", stderr: "" },
+    { stdout: "", stderr: `Service unavailable\0` },
+    { stdout: "", stderr: "x".repeat(8_193) },
+  ]) {
+    const fixture = createFixture({
+      startCommand: (command: { purpose: string }) => ({
+        wait: async () => ({
+          status: command.purpose === "start_provider_attached" ? 1 : 0,
+          signal: null,
+          stdout:
+            command.purpose === "start_subscription_auth_probe_attached"
+              ? createSubscriptionAuthOutput()
+              : execution.stdout,
+          stderr:
+            command.purpose === "start_provider_attached"
+              ? execution.stderr
+              : "",
+          outputExceeded: false,
+        }),
+        terminateAndWait: async () => true,
+      }),
+    });
+    const result = await fixture.controller.start(
+      fixture.preparedCapability,
+      fixture.managementCapability,
+    ).completion;
+    assert.equal(result?.reason, "provider_process_exit_nonzero");
+    assert.equal(result?.rawOutputReported, false);
+    assert.equal(result?.cleanupConfirmed, true);
+  }
+});
+
 test("provider timeoutは終了要求後もcleanupを必須にする", async () => {
   let terminationCount = 0;
   const fixture = createFixture({
@@ -1482,7 +1589,7 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
   assert.equal(contract.providerTimeoutMs, 300_000);
   assert.equal(contract.cancellationGraceMs, 5_000);
   assert.equal(contract.recoveryBeforeDockerEffect, true);
-  assert.equal(contract.contractRevision, 21);
+  assert.equal(contract.contractRevision, 22);
   assert.match(contract.subscriptionAuthentication, /required_before/u);
   assert.match(contract.subscriptionAuthentication, /stdout_stderr_shape/u);
   assert.match(contract.subscriptionOffering, /exact_match_required/u);
@@ -1511,4 +1618,8 @@ test("公開契約はtimeout、cancel、cleanup、Recoveryと秘密非出力を�
     "runtime_owned_repository_revision_connected",
   );
   assert.equal(contract.productionEffectExecutor, "fixed_docker_cli_connected");
+  assert.equal(
+    contract.providerFailureClassification,
+    "known_operational_nonzero_output_mapped_to_closed_public_reason_unknown_output_kept_generic",
+  );
 });
