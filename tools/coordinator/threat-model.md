@@ -147,7 +147,7 @@ CLI未導入、認証未確認、Filesystem境界未強制、Credential隔離未
 
 Codex Provider containerは外側のDocker境界に加えて、公式Codex command sandboxを維持する。Codex executableと同じ公式Releaseの署名検証済みbundled `bwrap`を固定imageへ隣接配置し、Runtime時取得、PATH上の任意binaryまたはsandbox bypassへ縮退しない。Provider Homeが認証のためread-write mountであってもcommandの読取りAuthorityへ昇格させず、内側permissionはroot deny、minimal read、Role別workspace access、command network denyへ固定する。bundled helperのIdentity、配置、実行可否またはSandbox初期化を判定できない場合はProvider Effectを成功へ昇格しない。
 
-公式Codex CLIは`features.respect_system_proxies=true`をexact argvへ固定し、`HTTPS_PROXY`、`HTTP_PROXY`および`ALL_PROXY`を同じOperation専用Proxy URLへ、`NO_PROXY`を空へ固定する。親環境またはcaller由来のProxy設定は拒否し、Claude経路へCodex固有設定を伝播しない。送信先やNetwork Authorityを拡張せず、内部Networkからの直接DNS／直接接続を許可先限定Proxyへ強制する。
+固定版Codex CLIが公開する`features.respect_system_proxy=true`をexact argvへ固定し、`HTTPS_PROXY`、`HTTP_PROXY`および`ALL_PROXY`を同じOperation専用Proxy URLへ、`NO_PROXY`を空へ固定する。親環境またはcaller由来のProxy設定は拒否し、Claude経路へCodex固有設定を伝播しない。送信先やNetwork Authorityを拡張せず、内部Networkからの直接DNS／直接接続を許可先限定Proxyへ強制する。
 
 将来のActive Probe Adapterは、Filesystem、Credential、EgressおよびProcess境界を先に強制し、同じ隔離環境内でだけProviderを起動する。Windowsでは発見した`.exe`、`.cmd`または`.bat`の種別、複数候補、空白を含むPathおよび引数境界を決定論的に扱い、shell injectionを許さない。生stdout／stderrは正規化前に永続化しない。現在の受動診断結果をActive Probe、認証または利用可能性の根拠へ流用しない。
 
