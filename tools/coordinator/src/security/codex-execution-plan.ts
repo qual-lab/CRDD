@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 3;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 4;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -30,9 +30,21 @@ const DISTRIBUTION_IDENTITY = Object.freeze({
   sigstoreIdentity:
     "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
   sigstoreIssuer: "https://token.actions.githubusercontent.com",
+  bwrapArchiveSha256:
+    "7b0604dc48a487e25dae35a1f200aaf125666c5c8ef73bc913e915cebc86ce7b",
+  bwrapArchiveBytes: 261_611,
+  bwrapBinaryPath: "/opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
+  bwrapBinarySha256:
+    "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
+  bwrapBinaryBytes: 529_776,
+  bwrapSigstoreBundleSha256:
+    "2c8b6f67a874ecb25e231366302386450775266220c08d98625408171c0d0238",
+  bwrapSigstoreIdentity:
+    "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
+  bwrapSigstoreIssuer: "https://token.actions.githubusercontent.com",
   fixedImageDigest:
-    "sha256:04251d8be91bc12bfd487010814ce24577d53ef3ebbcca1dc3695ef06f1fe844",
-  fixedImageBytes: 145_027_460,
+    "sha256:36df7b4036f3bf34c6df48ffbb96cbbc162242e9a34b5f2754892cd4f3d57621",
+  fixedImageBytes: 145_299_296,
   executorSchemaSha256:
     "ac1e1e6c0412a573b8b98eacc7232e98fff1d59d0e29643a8323f94dc5cfd7d4",
   reviewerSchemaSha256:
@@ -235,7 +247,13 @@ export function describeCodexExecutionPlanContract() {
       extractedBinaryDigestMatchedRekorBody: true,
       sigstoreBlobSignatureVerified: true,
       sigstoreCertificateIdentityMatched: true,
+      bundledBwrapDigestMatchedRekorBody: true,
+      bundledBwrapSigstoreBlobSignatureVerified: true,
+      bundledBwrapCertificateIdentityMatched: true,
       fixedImageBuiltFromExactBinary: true,
+      fixedImageBuiltFromExactBundledBwrap: true,
+      fixedImageBundledBwrapProbePassed: true,
+      fixedImageBundledBwrapSelectedUnderNoNetworkProbe: true,
       fixedImageNoNetworkVersionProbePassed: true,
       fixedImageNonRootSchemaReadPassed: true,
       subscriptionBooleanRequestPassed: true,

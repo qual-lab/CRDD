@@ -388,6 +388,8 @@ LF固定後の正式署名再実測は基準byte Gate、Executor、独立Reviewe
 
 開発E2Eは実行計画だけでなくDocker Adapterが生成する最終Provider argvまでを対象に含め、Executorの`acceptEdits`・RW mount・編集Tool閉集合とReviewerの`dontAsk`・RO mount・読取Tool閉集合を同じGateで検証する。実署名は固定候補まで繰り返さず、この署名不要GateでRoleからProcess境界までの伝播漏れを先に止める。
 
+このRole是正を含む固定署名版`2ff0191`では、forward経路のClaude Executor、Codex独立Reviewer、exact Candidate byte、Candidate破棄、cleanup、Recovery ID 0件およびCanonical Repository Effect 0が初めて完了した。続くreverse経路はCodex Executorのprocess非ゼロへ停止した。固定imageを`--network=none`で分離実測すると、公式Codex `0.149.1`はcommand sandbox初期化時にbundled `codex-resources/bwrap`を要求したが、既存imageはCodex binaryとSchemaだけを含んでいた。外側Docker隔離を理由に`--dangerously-bypass-approvals-and-sandbox`を採用すると、read-write認証Homeをmodel生成commandから保護する内側境界を失うため不採用とした。同じ公式Releaseの`bwrap-x86_64-unknown-linux-musl`をOpenAI GitHub ActionsのSigstore Identity、透明性ログ、archive／binary／bundle Hashおよびbyte長へ照合し、固定imageへ隣接配置する。Runtime時download、PATH fallbackおよびDocker権限緩和は行わない。新imageのnon-root・read-only・network none probeでbundled helper選択とSandbox初期化を確認し、Execution Plan、Dockerfile、契約試験、READMEおよびThreat Modelを同じDistribution Identityへ更新する。署名不要Gateと4経路E2Eが通るまで完成根拠へ昇格しない。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

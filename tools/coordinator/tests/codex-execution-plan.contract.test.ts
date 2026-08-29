@@ -122,13 +122,26 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 3);
+  assert.equal(contract.contractRevision, 4);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,
   );
   assert.equal(
     contract.distributionVerification.sigstoreCertificateIdentityMatched,
+    true,
+  );
+  assert.equal(
+    contract.distributionVerification.bundledBwrapSigstoreBlobSignatureVerified,
+    true,
+  );
+  assert.equal(
+    contract.distributionVerification.bundledBwrapCertificateIdentityMatched,
+    true,
+  );
+  assert.equal(
+    contract.distributionVerification
+      .fixedImageBundledBwrapSelectedUnderNoNetworkProbe,
     true,
   );
   assert.equal(
@@ -147,4 +160,45 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
     contract.distributionVerification.subscriptionBooleanRequestResult,
     { status: true },
   );
+});
+
+test("固定Codex imageは公式署名済みbwrapを隣接配置して内部Sandboxを維持する", () => {
+  const contract = describeCodexExecutionPlanContract();
+  assert.deepEqual(
+    {
+      archiveSha256: contract.distributionIdentity.bwrapArchiveSha256,
+      archiveBytes: contract.distributionIdentity.bwrapArchiveBytes,
+      binaryPath: contract.distributionIdentity.bwrapBinaryPath,
+      binarySha256: contract.distributionIdentity.bwrapBinarySha256,
+      binaryBytes: contract.distributionIdentity.bwrapBinaryBytes,
+      bundleSha256: contract.distributionIdentity.bwrapSigstoreBundleSha256,
+      identity: contract.distributionIdentity.bwrapSigstoreIdentity,
+      issuer: contract.distributionIdentity.bwrapSigstoreIssuer,
+    },
+    {
+      archiveSha256:
+        "7b0604dc48a487e25dae35a1f200aaf125666c5c8ef73bc913e915cebc86ce7b",
+      archiveBytes: 261_611,
+      binaryPath: "/opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
+      binarySha256:
+        "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
+      binaryBytes: 529_776,
+      bundleSha256:
+        "2c8b6f67a874ecb25e231366302386450775266220c08d98625408171c0d0238",
+      identity:
+        "https://github.com/openai/codex/.github/workflows/rust-release.yml@refs/tags/rust-v0.149.1",
+      issuer: "https://token.actions.githubusercontent.com",
+    },
+  );
+  const dockerfile = fs.readFileSync(
+    new URL("../runtime/codex-provider.Dockerfile", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    dockerfile.includes(
+      "COPY --chown=65534:65534 --chmod=0555 bwrap /opt/crdd/providers/codex/0.149.1/codex-resources/bwrap",
+    ),
+    true,
+  );
+  assert.equal(dockerfile.includes("dangerously-bypass"), false);
 });

@@ -306,6 +306,8 @@ Claude Docker Runtime Adapter候補は、同じRuntime-owned Operation世代のm
 
 CodexのSubscription認証Probeは、公式CLIのexact成功文と、read-only認証Homeで発生する既知のPATH alias警告だけを、`docker start --attach`が実際に搬送したstdout／stderrの閉じた組合せとして判定する。成功語の部分一致、未知行、重複行または制御文字を認証根拠にしない。ClaudeのJSON認証契約とは混在させず、一方の成功を他方へ流用しない。
 
+Codexの一般TaskはDocker隔離だけを理由にCodex自身のcommand sandboxを無効化しない。固定Codex `0.149.1`と同じ公式Releaseの`bwrap-x86_64-unknown-linux-musl`を、OpenAIのGitHub Actions署名Identity、Sigstore透明性ログ、archive／binary／bundle SHA-256およびbyte長へ照合し、固定image内の`codex-resources/bwrap`へ隣接配置する。image build時だけ組み込み、Runtime時download、PATH探索、OS package fallbackまたは`--dangerously-bypass-approvals-and-sandbox`を許可しない。外側のread-only root、non-root、capability全削除、`no-new-privileges`、限定mount／Egressと、内側のRole別Filesystem／Network permissionを同時に維持する。
+
 ## Provider隔離Profile
 
 Provider隔離Profile（Provider Isolation Profile）は、実行権限そのものではなく、Runtimeが照合する要求候補である。CRDD版ごとのJSONを作らず、Runtime契約`crdd-coordinator/provider-isolation-profile`の改訂番号だけを持つ。CRDD基準版の変更とRuntime契約の破壊的変更を同じ互換処理へ混在させない。
