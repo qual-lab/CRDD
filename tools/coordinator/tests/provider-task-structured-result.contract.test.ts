@@ -124,15 +124,52 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
       ],
     },
   ]) {
-    assert.equal(
-      normalizeProviderTaskStructuredResult(
-        "codex",
-        "reviewer",
-        "medium",
-        JSON.stringify(value),
-      ).status,
-      "blocked",
+    const result = normalizeProviderTaskStructuredResult(
+      "codex",
+      "reviewer",
+      "medium",
+      JSON.stringify(value),
     );
+    assert.equal(result.status, "blocked");
+    assert.match(
+      result.reason,
+      /^provider_task_reviewer_(?:shape|finding|decision)_/u,
+    );
+  }
+});
+
+test("Provider Result拒否はrawを出さず固定理由で意味分類する", () => {
+  const cases = [
+    ["not-json", "provider_task_result_json_invalid"],
+    [
+      JSON.stringify({
+        decision: "approved",
+        summary: "ok",
+        findings: [],
+        extra: true,
+      }),
+      "provider_task_reviewer_shape_invalid",
+    ],
+    [
+      JSON.stringify({
+        decision: "changes_requested",
+        summary: "bad",
+        findings: [],
+      }),
+      "provider_task_reviewer_decision_inconsistent",
+    ],
+  ] as const;
+  for (const [raw, expectedReason] of cases) {
+    const result = normalizeProviderTaskStructuredResult(
+      "codex",
+      "reviewer",
+      "medium",
+      raw,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, expectedReason);
+    assert.equal(result.normalizedResult, null);
+    assert.equal(result.rawOutputReported, false);
   }
 });
 
@@ -209,7 +246,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 8);
+  assert.equal(contract.contractRevision, 9);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);
@@ -220,6 +257,10 @@ test("公開契約は両Provider、両Role、上限とraw非公開を固定す�
   );
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.untrustedProviderTextReported, false);
+  assert.equal(
+    contract.mismatchDiagnostics,
+    "fixed_reason_identifier_only_without_raw_provider_output",
+  );
   assert.equal(
     contract.reviewerMessageForwardedToExecutor,
     "bounded_untrusted_defect_claim_after_secret_screening",

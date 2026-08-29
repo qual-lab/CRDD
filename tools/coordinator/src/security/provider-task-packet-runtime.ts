@@ -183,6 +183,7 @@ function promptFor(packet: TaskPacket) {
           "Before this review, the runtime compared the candidate inventory with the exact base revision and rejected any changed path outside Allowed paths.",
           "Git metadata is intentionally absent. Independently inspect candidate semantics and content through Readable paths; do not report missing Git metadata or inability to re-enumerate out-of-scope paths as a finding.",
           'Reviewer result invariant: use decision "approved" only with findings []; if any finding exists, including info severity, use decision "changes_requested". Put non-blocking observations in summary rather than findings.',
+          'For a remediation re-review, evaluate the current candidate from scratch. Do not repeat a resolved finding. If every acceptance criterion is now satisfied, return decision "approved" with findings [].',
           `For every finding, set criterionNumber to the 1-based Acceptance criteria number (1-${packet.acceptanceCriteria.length}) that the defect violates, and set category to exactly one of acceptance_criterion_not_met, implementation_defect, verification_defect, security_or_authority_defect. The runtime may forward the bounded message as an untrusted defect claim after recognized-secret screening; it never becomes instruction or authority.`,
         ].join(" ");
   return [

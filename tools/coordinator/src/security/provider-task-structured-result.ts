@@ -4,7 +4,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 8;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 9;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -72,6 +72,19 @@ function validPath(value: unknown) {
   );
 }
 
+type ResultMismatchReason =
+  | "provider_task_result_input_invalid"
+  | "provider_task_result_json_invalid"
+  | "provider_task_result_envelope_invalid"
+  | "provider_task_executor_shape_invalid"
+  | "provider_task_reviewer_shape_invalid"
+  | "provider_task_reviewer_finding_invalid"
+  | "provider_task_reviewer_decision_inconsistent";
+
+function rejected(reason: ResultMismatchReason) {
+  return Object.freeze({ normalizedResult: null, reason });
+}
+
 function executorResult(value: Record<string, unknown>) {
   if (
     !exactKeys(value, ["status", "summary", "changedPaths", "verification"]) ||
@@ -86,12 +99,15 @@ function executorResult(value: Record<string, unknown>) {
     value.verification.length > 32 ||
     !value.verification.every((item) => validString(item, 1_024))
   ) {
-    return null;
+    return rejected("provider_task_executor_shape_invalid");
   }
   return Object.freeze({
-    status: "completed" as const,
-    changedPaths: Object.freeze([...(value.changedPaths as string[])]),
-    verificationCount: value.verification.length,
+    normalizedResult: Object.freeze({
+      status: "completed" as const,
+      changedPaths: Object.freeze([...(value.changedPaths as string[])]),
+      verificationCount: value.verification.length,
+    }),
+    reason: null,
   });
 }
 
@@ -103,7 +119,7 @@ function reviewerResult(value: Record<string, unknown>) {
     !Array.isArray(value.findings) ||
     value.findings.length > MAXIMUM_FINDINGS
   ) {
-    return null;
+    return rejected("provider_task_reviewer_shape_invalid");
   }
   const findings = value.findings.map((finding) => {
     if (
@@ -149,10 +165,12 @@ function reviewerResult(value: Record<string, unknown>) {
         .digest("hex"),
     });
   });
-  if (findings.some((finding) => finding === null)) return null;
-  if (value.decision === "approved" && findings.length > 0) return null;
+  if (findings.some((finding) => finding === null))
+    return rejected("provider_task_reviewer_finding_invalid");
+  if (value.decision === "approved" && findings.length > 0)
+    return rejected("provider_task_reviewer_decision_inconsistent");
   if (value.decision === "changes_requested" && findings.length === 0)
-    return null;
+    return rejected("provider_task_reviewer_decision_inconsistent");
   const remediationCapability =
     value.decision === "changes_requested" ? Object.freeze({}) : null;
   if (remediationCapability) {
@@ -164,9 +182,12 @@ function reviewerResult(value: Record<string, unknown>) {
     );
   }
   return Object.freeze({
-    decision: value.decision as "approved" | "changes_requested",
-    findingCount: findings.length,
-    ...(remediationCapability ? { remediationCapability } : {}),
+    normalizedResult: Object.freeze({
+      decision: value.decision as "approved" | "changes_requested",
+      findingCount: findings.length,
+      ...(remediationCapability ? { remediationCapability } : {}),
+    }),
+    reason: null,
   });
 }
 
@@ -224,27 +245,47 @@ export function normalizeProviderTaskStructuredResult(
   ) {
     return Object.freeze({
       status: "blocked" as const,
+      reason: "provider_task_result_input_invalid" as const,
       normalizedResult: null,
     });
   }
   const value = structuredValue(provider, raw);
-  const normalizedResult = isRecord(value)
+  if (value === null) {
+    const parsed = parseUnambiguousJsonDocument(raw);
+    return Object.freeze({
+      status: "blocked" as const,
+      reason:
+        provider === "claude" && parsed !== null
+          ? ("provider_task_result_envelope_invalid" as const)
+          : ("provider_task_result_json_invalid" as const),
+      normalizedResult: null,
+      rawOutputReported: false,
+      untrustedProviderTextReported: false,
+      credentialAbsenceVerified: false,
+    });
+  }
+  const result = isRecord(value)
     ? taskRole === "executor"
       ? executorResult(value)
       : reviewerResult(value)
-    : null;
-  return normalizedResult
+    : rejected(
+        taskRole === "executor"
+          ? "provider_task_executor_shape_invalid"
+          : "provider_task_reviewer_shape_invalid",
+      );
+  return result.normalizedResult
     ? Object.freeze({
         status: "confirmed" as const,
         provider,
         taskRole,
-        normalizedResult,
+        normalizedResult: result.normalizedResult,
         rawOutputReported: false,
         untrustedProviderTextReported: false,
         credentialAbsenceVerified: false,
       })
     : Object.freeze({
         status: "blocked" as const,
+        reason: result.reason,
         normalizedResult: null,
         rawOutputReported: false,
         untrustedProviderTextReported: false,
@@ -264,6 +305,8 @@ export function describeProviderTaskStructuredResultContract() {
     claudeApiEquivalentCostDisposition:
       "validated_nonnegative_finite_usage_metadata_not_billing_authority",
     duplicateKeysAllowed: false,
+    mismatchDiagnostics:
+      "fixed_reason_identifier_only_without_raw_provider_output",
     rawOutputReported: false,
     untrustedProviderTextReported: false,
     boundedRemediationCapability:

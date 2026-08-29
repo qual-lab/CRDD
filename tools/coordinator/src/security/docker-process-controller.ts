@@ -76,6 +76,13 @@ const BLOCKED_COMPLETION_REASONS = new Set([
   "docker_resource_receipt_unavailable",
   "provider_subscription_auth_not_confirmed",
   "provider_result_invalid",
+  "provider_task_result_input_invalid",
+  "provider_task_result_json_invalid",
+  "provider_task_result_envelope_invalid",
+  "provider_task_executor_shape_invalid",
+  "provider_task_reviewer_shape_invalid",
+  "provider_task_reviewer_finding_invalid",
+  "provider_task_reviewer_decision_inconsistent",
   "docker_process_controller_execution_failed_closed",
   "repository_revision_changed",
 ]);
@@ -997,7 +1004,12 @@ async function executePlan(
               : normalizeClaudeStructuredResult(execution.stdout);
         if (providerResult.status !== "confirmed") {
           requestedStatus = "blocked";
-          reason = "provider_result_invalid";
+          reason =
+            "reason" in providerResult &&
+            typeof providerResult.reason === "string" &&
+            BLOCKED_COMPLETION_REASONS.has(providerResult.reason)
+              ? providerResult.reason
+              : "provider_result_invalid";
           break;
         }
         normalizedResult = providerResult.normalizedResult;
