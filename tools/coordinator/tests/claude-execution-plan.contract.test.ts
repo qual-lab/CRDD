@@ -426,6 +426,8 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     true,
   );
   assert.equal(executor.workspaceMountMode, "read_write");
+  assert.equal(executor.resultTransport, "claude_structured_output");
+  assert.equal(executor.argv.includes("--json-schema"), true);
   assert.equal(executor.maximumTurns, 8);
   assert.equal(
     executor.maximumTurnsBasis,
@@ -442,6 +444,11 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
   );
   assert.equal(reviewer.status, "candidate");
   assert.equal(reviewer.workspaceMountMode, "read_only");
+  assert.equal(
+    reviewer.resultTransport,
+    "claude_json_envelope_result_validated_by_crdd",
+  );
+  assert.equal(reviewer.argv.includes("--json-schema"), false);
   assert.equal(reviewer.maximumTurns, 8);
   assert.equal(
     reviewer.maximumTurnsBasis,

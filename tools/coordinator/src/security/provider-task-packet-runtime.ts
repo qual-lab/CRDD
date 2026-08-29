@@ -17,7 +17,7 @@ import {
 
 export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT =
   "crdd-coordinator/provider-task-packet-runtime";
-export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 12;
+export const PROVIDER_TASK_PACKET_RUNTIME_CONTRACT_REVISION = 13;
 
 const PACKET_KEYS = new Set([
   "objective",
@@ -207,8 +207,8 @@ function promptFor(packet: TaskPacket) {
         ]
       : []),
     packet.taskRole === "executor"
-      ? "Return the required executor JSON only after completing the local candidate."
-      : "Return the required reviewer JSON only after reviewing the exact candidate.",
+      ? 'Return exactly one JSON object and no prose or code fence: {"status":"completed","summary":"non-empty string","changedPaths":["repository/relative/path"],"verification":["non-empty string"]}. changedPaths may be empty only when the candidate is unchanged.'
+      : 'Return exactly one JSON object and no prose or code fence: {"decision":"approved|changes_requested","summary":"non-empty string","findings":[{"severity":"critical|high|medium|low|info","path":"repository/relative/path","category":"acceptance_criterion_not_met|implementation_defect|verification_defect|security_or_authority_defect","criterionNumber":1,"message":"non-empty bounded defect claim"}]}. The runtime, not the provider, performs the authoritative schema validation.',
   ].join("\n\n");
 }
 

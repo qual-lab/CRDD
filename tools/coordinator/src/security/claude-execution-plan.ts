@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 13;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 14;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
@@ -23,8 +23,6 @@ const FIXED_STRUCTURED_OUTPUT_SCHEMA_ARGUMENT =
 const TASK_SETTINGS_PATH = "/etc/crdd/claude-task-settings.json";
 const EXECUTOR_SCHEMA_ARGUMENT =
   '{"type":"object","properties":{"status":{"type":"string","const":"completed"},"summary":{"type":"string","minLength":1,"maxLength":8192},"changedPaths":{"type":"array","maxItems":1000,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":1024}},"verification":{"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":1024}}},"required":["status","summary","changedPaths","verification"],"additionalProperties":false}';
-const REVIEWER_SCHEMA_ARGUMENT =
-  '{"type":"object","properties":{"decision":{"type":"string","enum":["approved","changes_requested"]},"summary":{"type":"string","minLength":1,"maxLength":8192},"findings":{"type":"array","maxItems":64,"items":{"type":"object","properties":{"severity":{"type":"string","enum":["critical","high","medium","low","info"]},"path":{"type":"string","minLength":1,"maxLength":1024},"category":{"type":"string","enum":["acceptance_criterion_not_met","implementation_defect","verification_defect","security_or_authority_defect"]},"criterionNumber":{"type":"integer","minimum":1,"maximum":16},"message":{"type":"string","minLength":1,"maxLength":4096}},"required":["severity","path","category","criterionNumber","message"],"additionalProperties":false}}},"required":["decision","summary","findings"],"additionalProperties":false}';
 const FIXED_ARGV = Object.freeze([
   "--safe-mode",
   "--setting-sources=",
@@ -499,10 +497,9 @@ export function planClaudeIsolatedTask(candidate: unknown) {
       "--mcp-config",
       '{"mcpServers":{}}',
       "--no-chrome",
-      "--json-schema",
-      taskRole === "executor"
-        ? EXECUTOR_SCHEMA_ARGUMENT
-        : REVIEWER_SCHEMA_ARGUMENT,
+      ...(taskRole === "executor"
+        ? ["--json-schema", EXECUTOR_SCHEMA_ARGUMENT]
+        : []),
       "-p",
       "--output-format",
       "json",
@@ -526,6 +523,10 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     workspaceMountRequired: true,
     workspaceMountMode: taskRole === "executor" ? "read_write" : "read_only",
     taskPromptTransport: "stdin_only" as const,
+    resultTransport:
+      taskRole === "executor"
+        ? ("claude_structured_output" as const)
+        : ("claude_json_envelope_result_validated_by_crdd" as const),
     taskPromptInArgvAllowed: false,
     shellAllowed: false,
     commandNetworkAccessAllowed: false,

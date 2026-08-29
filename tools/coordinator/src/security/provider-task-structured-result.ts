@@ -4,7 +4,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 9;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 10;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -76,6 +76,8 @@ type ResultMismatchReason =
   | "provider_task_result_input_invalid"
   | "provider_task_result_json_invalid"
   | "provider_task_result_envelope_invalid"
+  | "provider_turn_limit_exceeded"
+  | "provider_structured_output_retry_exhausted"
   | "provider_task_executor_shape_invalid"
   | "provider_task_reviewer_shape_invalid"
   | "provider_task_reviewer_finding_invalid"
@@ -205,10 +207,32 @@ export function consumeProviderTaskRemediation(remediationCapability: unknown) {
   });
 }
 
-function structuredValue(provider: "codex" | "claude", raw: string) {
+function structuredValue(
+  provider: "codex" | "claude",
+  taskRole: "executor" | "reviewer",
+  raw: string,
+) {
   const parsed = parseUnambiguousJsonDocument(raw);
-  if (provider === "codex") return parsed;
-  if (!isRecord(parsed)) return null;
+  if (provider === "codex")
+    return Object.freeze({ value: parsed, reason: null });
+  if (!isRecord(parsed))
+    return Object.freeze({
+      value: null,
+      reason: "provider_task_result_json_invalid" as const,
+    });
+  if (parsed.type === "result" && parsed.subtype === "error_max_turns")
+    return Object.freeze({
+      value: null,
+      reason: "provider_turn_limit_exceeded" as const,
+    });
+  if (
+    parsed.type === "result" &&
+    parsed.subtype === "error_max_structured_output_retries"
+  )
+    return Object.freeze({
+      value: null,
+      reason: "provider_structured_output_retry_exhausted" as const,
+    });
   const numberOfTurns = parsed.num_turns;
   const cost = parsed.total_cost_usd;
   if (
@@ -223,9 +247,29 @@ function structuredValue(provider: "codex" | "claude", raw: string) {
     !Number.isFinite(cost) ||
     cost < 0
   ) {
-    return null;
+    return Object.freeze({
+      value: null,
+      reason: "provider_task_result_envelope_invalid" as const,
+    });
   }
-  return parsed.structured_output;
+  if (taskRole === "executor")
+    return Object.freeze({ value: parsed.structured_output, reason: null });
+  if (
+    typeof parsed.result !== "string" ||
+    Buffer.byteLength(parsed.result, "utf8") > MAXIMUM_RAW_BYTES
+  )
+    return Object.freeze({
+      value: null,
+      reason: "provider_task_result_envelope_invalid" as const,
+    });
+  const reviewerValue = parseUnambiguousJsonDocument(parsed.result);
+  return Object.freeze({
+    value: reviewerValue,
+    reason:
+      reviewerValue === null
+        ? ("provider_task_result_json_invalid" as const)
+        : null,
+  });
 }
 
 export function normalizeProviderTaskStructuredResult(
@@ -249,21 +293,19 @@ export function normalizeProviderTaskStructuredResult(
       normalizedResult: null,
     });
   }
-  const value = structuredValue(provider, raw);
-  if (value === null) {
-    const parsed = parseUnambiguousJsonDocument(raw);
+  const extracted = structuredValue(provider, taskRole, raw);
+  if (extracted.reason !== null || extracted.value === null) {
     return Object.freeze({
       status: "blocked" as const,
       reason:
-        provider === "claude" && parsed !== null
-          ? ("provider_task_result_envelope_invalid" as const)
-          : ("provider_task_result_json_invalid" as const),
+        extracted.reason ?? ("provider_task_result_json_invalid" as const),
       normalizedResult: null,
       rawOutputReported: false,
       untrustedProviderTextReported: false,
       credentialAbsenceVerified: false,
     });
   }
+  const value = extracted.value;
   const result = isRecord(value)
     ? taskRole === "executor"
       ? executorResult(value)
@@ -307,6 +349,10 @@ export function describeProviderTaskStructuredResultContract() {
     duplicateKeysAllowed: false,
     mismatchDiagnostics:
       "fixed_reason_identifier_only_without_raw_provider_output",
+    claudeResultTransport: Object.freeze({
+      executor: "provider_structured_output_then_crdd_validation",
+      reviewer: "provider_json_envelope_result_then_crdd_validation",
+    }),
     rawOutputReported: false,
     untrustedProviderTextReported: false,
     boundedRemediationCapability:

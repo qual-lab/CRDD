@@ -400,6 +400,8 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 固定署名版`6148b6b`の4経路E2Eでは、forward、reverseおよびsame-codexが同一Release Identity、既存同意再利用、exact Candidate、独立Reviewer、Candidate破棄、cleanup確認済み、Recovery 0およびCanonical Repository Effect 0で完了した。same-claudeだけはRunnerがClaude Executorを期待した一方、一般Task要求にExecutor制約を表現するfieldがなく、Coordinatorが通常のTask特性に従ってCodexを選び、`executor_provider`不一致で安全停止した。Runner専用overrideは追加せず、一般Taskの公開要求へ任意`requestedExecutorProvider`を追加する。既定`auto`は既存の説明可能な自動選定を維持し、`codex`／`claude`の明示値は同じExecution SlateとSelection Gateへ伝播し、不一致または不成立時に暗黙fallbackせずProvider Effect前に停止する。正式Route Matrixもこの公開境界だけを使う。修正後はRelease鍵を使わない`development-e2e:verify`へ戻り、再固定前に正常、auto、明示制約、不正値およびSlate不一致を契約・結合試験で確認する。
 
+公開Executor制約を接続した固定署名版`402454f`では、forwardが同一Release Identity、既存同意再利用、exact Candidate、独立Codex Reviewer、Candidate破棄、cleanup確認済み、Recovery 0およびCanonical Repository Effect 0で完了した。reverseはCodex Executor完了後のClaude Reviewerで二回とも`provider_task_result_envelope_invalid`へ安全停止し、Candidate未発行、cleanup確認済み、Recovery 0およびCanonical Effect 0を維持した。Claude Codeの現行`--json-schema`には、複合object内の配列を別stringへ誤配置してStructured Output再試行を枯渇させる既知のProvider不具合があり、今回の`findings`配列を持つReviewer Schemaと症状が一致した。turn上限追加、自由文fallbackまたはSchema緩和は行わない。Claude ReviewerだけはProvider内蔵Schema再試行をTrust境界から外し、通常JSON Envelopeの`result`にある単一JSON documentを、Codexと同じCRDD所有Reviewer Validatorへ渡す。Code fence、自由文、複数document、重複key、上限超過、型差、decision／finding矛盾は補正せずFail Closedとし、既知のturn上限とStructured Output再試行枯渇を正常終了コードでも固定理由へ分離する。Claude Executor、Codex両Role、Finding閉集合、Remediation Authority、情報非公開、cleanupおよびRecovery契約は変更しない。正式署名を反復デバッグに使わず、契約試験、結合試験、署名不要4経路E2Eおよびドッグフーディングを先に完了し、最終固定候補で一度だけ正式署名E2Eを再実測する。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

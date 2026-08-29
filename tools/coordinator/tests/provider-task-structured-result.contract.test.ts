@@ -38,6 +38,18 @@ function claude(structuredOutput: unknown, overrides = {}) {
   });
 }
 
+function claudeReviewer(result: unknown, overrides = {}) {
+  return JSON.stringify({
+    type: "result",
+    subtype: "success",
+    is_error: false,
+    num_turns: 3,
+    total_cost_usd: 0.12,
+    result: typeof result === "string" ? result : JSON.stringify(result),
+    ...overrides,
+  });
+}
+
 test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => {
   const codex = normalizeProviderTaskStructuredResult(
     "codex",
@@ -55,7 +67,7 @@ test("Codex ExecutorとClaude Reviewerのexact Resultを正規化する", () => 
     "claude",
     "reviewer",
     "medium",
-    claude(JSON.parse(REVIEWER)),
+    claudeReviewer(JSON.parse(REVIEWER)),
   );
   assert.equal(claudeResult.status, "confirmed");
   const normalized = claudeResult.normalizedResult;
@@ -135,6 +147,35 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
       result.reason,
       /^provider_task_reviewer_(?:shape|finding|decision)_/u,
     );
+  }
+});
+
+test("Claude Reviewer本文と既知の終了EnvelopeをCRDD側で分類する", () => {
+  const invalidDocument = normalizeProviderTaskStructuredResult(
+    "claude",
+    "reviewer",
+    "medium",
+    claudeReviewer("```json\n{}\n```"),
+  );
+  assert.equal(invalidDocument.status, "blocked");
+  assert.equal(invalidDocument.reason, "provider_task_result_json_invalid");
+
+  for (const [subtype, reason] of [
+    ["error_max_turns", "provider_turn_limit_exceeded"],
+    [
+      "error_max_structured_output_retries",
+      "provider_structured_output_retry_exhausted",
+    ],
+  ] as const) {
+    const result = normalizeProviderTaskStructuredResult(
+      "claude",
+      "reviewer",
+      "medium",
+      JSON.stringify({ type: "result", subtype }),
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.reason, reason);
+    assert.equal(result.rawOutputReported, false);
   }
 });
 
@@ -305,7 +346,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 9);
+  assert.equal(contract.contractRevision, 10);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);
@@ -320,6 +361,10 @@ test("公開契約は両Provider、両Role、上限とraw非公開を固定す�
     contract.mismatchDiagnostics,
     "fixed_reason_identifier_only_without_raw_provider_output",
   );
+  assert.deepEqual(contract.claudeResultTransport, {
+    executor: "provider_structured_output_then_crdd_validation",
+    reviewer: "provider_json_envelope_result_then_crdd_validation",
+  });
   assert.equal(
     contract.reviewerMessageForwardedToExecutor,
     "bounded_untrusted_defect_claim_after_secret_screening",

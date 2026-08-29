@@ -1183,11 +1183,11 @@ test("隔離TaskのRole別Resultだけをcleanup後に公開する", async () =>
     is_error: false,
     num_turns: 3,
     total_cost_usd: 0.12,
-    structured_output: {
+    result: JSON.stringify({
       decision: "approved",
       summary: "The exact candidate is acceptable.",
       findings: [],
-    },
+    }),
   });
   const fixture = createFixture(
     {
