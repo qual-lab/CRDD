@@ -49,6 +49,8 @@ type ManifestOptions = Readonly<{
   expiresAt: string;
 }>;
 
+type ManifestPreflightOptions = Omit<ManifestOptions, "passphrase">;
+
 function isContainedBy(parent: string, candidate: string) {
   const relative = path.relative(parent, candidate);
   return (
@@ -181,9 +183,7 @@ function assertSupportedReleaseGitObjectFormat(
   }
 }
 
-function assertReleaseManifestStaticOptions(
-  options: Omit<ManifestOptions, "passphrase">,
-) {
+function assertReleaseManifestStaticOptions(options: ManifestPreflightOptions) {
   if (
     !path.isAbsolute(options.distributionRoot) ||
     options.distributionRoot.includes("\0")
@@ -216,7 +216,10 @@ function assertReleaseManifestStaticOptions(
   }
 }
 
-export function signReleaseManifest(options: ManifestOptions) {
+function prepareReleaseManifestCandidate(
+  options: ManifestPreflightOptions,
+  verifyDistributionIdentity: boolean,
+) {
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
   const distributionRoot = externalDistributionRoot(options.distributionRoot);
@@ -251,6 +254,53 @@ export function signReleaseManifest(options: ManifestOptions) {
   if (compiled.status !== "candidate") {
     throw new Error("release_manifest_payload_invalid");
   }
+  if (verifyDistributionIdentity) {
+    const releaseIdentity = inspectPlatformProvisionerReleaseIdentityCandidate(
+      distributionRoot,
+      options.crddTree,
+    );
+    if (
+      releaseIdentity.status !== "candidate" ||
+      releaseIdentity.postCheckoutManifestExcludedFromGitTree !== false ||
+      releaseIdentity.postCheckoutPlatformAccessExecutableExcludedFromGitTree !==
+        true ||
+      releaseIdentity.postCheckoutNativeProvisionSupervisorExecutableExcludedFromGitTree !==
+        true
+    ) {
+      throw new Error("release_manifest_distribution_tree_mismatch");
+    }
+    verifyCommitTreeBinding(options.crddCommit, options.crddTree);
+    if (!verifyReleaseStagingManifestSession(platformAccessObservation.token)) {
+      throw new Error("release_manifest_artifact_changed_before_signing");
+    }
+  }
+  return Object.freeze({
+    distributionRoot,
+    packageObservation,
+    platformAccessObservation,
+    compiled,
+  });
+}
+
+export function preflightReleaseManifest(options: ManifestPreflightOptions) {
+  prepareReleaseManifestCandidate(options, true);
+  return Object.freeze({
+    contract: "crdd-coordinator/release-manifest-preflight-result",
+    contractRevision: 1,
+    status: "candidate" as const,
+    passphraseRead: false,
+    privateKeyRead: false,
+    releaseStagingFilesystemEffectIssued: false,
+  });
+}
+
+export function signReleaseManifest(options: ManifestOptions) {
+  const {
+    distributionRoot,
+    packageObservation,
+    platformAccessObservation,
+    compiled,
+  } = prepareReleaseManifestCandidate(options, false);
   const passphrase = signingPassphrase(options.passphrase);
   let privateKeyBytes: Buffer | null = null;
   try {
@@ -395,6 +445,7 @@ async function main() {
   const options = parseArguments(process.argv.slice(2));
   assertSupportedReleaseGitObjectFormat(options.crddCommit, options.crddTree);
   assertReleaseManifestStaticOptions(options);
+  preflightReleaseManifest(options);
   const passphrase = await readHiddenLine("Release key passphrase: ");
   const result = signReleaseManifest({ ...options, passphrase });
   process.stdout.write(`${JSON.stringify(result)}\n`);

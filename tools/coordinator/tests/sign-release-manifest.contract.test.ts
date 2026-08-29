@@ -231,6 +231,41 @@ test("Release公開引数はpassphrase入力とFilesystem観測より前に完�
   assert.equal(cli.stderr, "release_manifest_time_invalid\n");
 });
 
+test("Release stagingの非秘密検査はpassphrase入力より前に完了する", () => {
+  const cli = spawnSync(
+    process.execPath,
+    [
+      path.join(coordinatorRoot, "scripts", "sign-release-manifest.ts"),
+      "--distribution-root",
+      path.resolve(coordinatorRoot, "../.."),
+      "--private-key",
+      path.resolve("fixture-private-key-must-not-be-read"),
+      "--crdd-version",
+      "v0.18.0",
+      "--release-sequence",
+      "1",
+      "--crdd-commit",
+      "a".repeat(40),
+      "--crdd-tree",
+      "b".repeat(40),
+      "--issued-at",
+      "2026-08-26T02:39:49.000Z",
+      "--expires-at",
+      "2026-08-27T02:39:49.000Z",
+    ],
+    {
+      encoding: "utf8",
+      input: "passphrase-must-not-be-read\n",
+      shell: false,
+      timeout: 2_000,
+      windowsHide: true,
+    },
+  );
+  assert.equal(cli.status, 1);
+  assert.equal(cli.stdout, "");
+  assert.equal(cli.stderr, "release_manifest_distribution_root_invalid\n");
+});
+
 function ephemeralEnvelopeBytes() {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const payload = Buffer.from("CRDD test-only placement envelope", "utf8");
