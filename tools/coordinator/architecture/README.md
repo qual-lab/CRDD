@@ -162,6 +162,8 @@ Subscription認証の観測はProvider CLIの意味出力だけでなく、Docke
 
 Provider Processが非ゼロ終了した場合も、自由文のstdout／stderrを利用者、別Providerまたは公開Resultへ転送しない。RuntimeはClaudeの単一・重複keyなしJSON Envelopeにある閉じた`subtype`から、Operation予算上限、turn上限およびStructured Output再試行枯渇を分類する。認証失効、Subscription上限、固定Invocation拒否、Network不成立およびProvider Service不成立は、Providerのbounded stderrに現れる既知の意味形だけを閉集合Reasonへ写す。Task本文を含み得る任意stdoutの部分一致、過長stderr、NULを含むstderrおよび未知出力は推測分類せず`provider_process_exit_nonzero`へ閉じ、cleanupとRecoveryの判定を終了理由の分類から独立させる。これにより運用上の再認証、待機、設定是正と、実装不具合の調査を区別できる一方、Provider自由文をAuthorityまたは情報公開へ昇格させない。
 
+標準のSubscription-only Profileでは、Providerが報告する`total_cost_usd`を実課金額または課金Authorityとみなさず、有限かつ非負の利用量metadataとしてだけ検証する。一般Taskへ`--max-budget-usd`を暗黙適用しない。Subscription使用量は、Coordinatorが説明可能に選定したmodel／effort、effort別turn上限、Provider timeoutおよび出力上限で制御する。明示的な金額上限は、Provider／account、credential source、spend budgetおよびOperation Authorityを別に結合する将来のopt-in有料API Profileだけが所有できる。標準ProfileはAPI key、有料API fallback、追加購入または自動plan切替を引き続き許可しない。
+
 ## 9. 正常・準正常・異常
 
 | 区分 | 代表条件 | 期待結果 |

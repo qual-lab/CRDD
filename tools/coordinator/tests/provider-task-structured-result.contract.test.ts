@@ -136,7 +136,7 @@ test("Reviewer decisionとfinding件数の矛盾、余分field、path traversal�
   }
 });
 
-test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力を拒否する", () => {
+test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
   assert.equal(
     normalizeProviderTaskStructuredResult(
       "claude",
@@ -146,15 +146,17 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
     ).status,
     "blocked",
   );
-  assert.equal(
-    normalizeProviderTaskStructuredResult(
-      "claude",
-      "executor",
-      "high",
-      claude(JSON.parse(EXECUTOR), { total_cost_usd: 0.51 }),
-    ).status,
-    "blocked",
-  );
+  for (const totalCostUsd of [-0.01, Number.POSITIVE_INFINITY, Number.NaN]) {
+    assert.equal(
+      normalizeProviderTaskStructuredResult(
+        "claude",
+        "executor",
+        "high",
+        claude(JSON.parse(EXECUTOR), { total_cost_usd: totalCostUsd }),
+      ).status,
+      "blocked",
+    );
+  }
   assert.equal(
     normalizeProviderTaskStructuredResult(
       "codex",
@@ -184,7 +186,7 @@ test("Claude turn／cost上限、重複JSON key、複数documentと巨大出力�
   );
 });
 
-test("Claude costはSelectionで固定したeffort上限を超えられない", () => {
+test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負なら受理する", () => {
   assert.equal(
     normalizeProviderTaskStructuredResult(
       "claude",
@@ -192,7 +194,7 @@ test("Claude costはSelectionで固定したeffort上限を超えられない", 
       "low",
       claude(JSON.parse(EXECUTOR), { total_cost_usd: 0.21 }),
     ).status,
-    "blocked",
+    "confirmed",
   );
   assert.equal(
     normalizeProviderTaskStructuredResult(
@@ -201,21 +203,21 @@ test("Claude costはSelectionで固定したeffort上限を超えられない", 
       "medium",
       claude(JSON.parse(EXECUTOR), { total_cost_usd: 0.36 }),
     ).status,
-    "blocked",
+    "confirmed",
   );
 });
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 6);
+  assert.equal(contract.contractRevision, 7);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);
-  assert.deepEqual(contract.claudeMaximumApiEquivalentCostUsdByEffort, {
-    low: 0.2,
-    medium: 0.35,
-    high: 0.5,
-  });
+  assert.equal(contract.claudeMaximumApiEquivalentCostUsdByEffort, null);
+  assert.equal(
+    contract.claudeApiEquivalentCostDisposition,
+    "validated_nonnegative_finite_usage_metadata_not_billing_authority",
+  );
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.untrustedProviderTextReported, false);
   assert.equal(contract.reviewerMessageForwardedToExecutor, false);

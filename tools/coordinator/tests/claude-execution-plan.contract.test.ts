@@ -427,11 +427,11 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
   );
   assert.equal(executor.workspaceMountMode, "read_write");
   assert.equal(executor.maximumTurns, 4);
-  assert.equal(executor.maximumBudgetUsd, 0.2);
+  assert.equal(executor.maximumBudgetUsd, null);
   assert.equal(reviewer.status, "candidate");
   assert.equal(reviewer.workspaceMountMode, "read_only");
   assert.equal(reviewer.maximumTurns, 8);
-  assert.equal(reviewer.maximumBudgetUsd, 0.5);
+  assert.equal(reviewer.maximumBudgetUsd, null);
   for (const plan of [executor, reviewer]) {
     assert.equal(plan.taskPromptTransport, "stdin_only");
     assert.equal(plan.taskPromptInArgvAllowed, false);
@@ -445,6 +445,18 @@ test("一般TaskはRole別built-in tools、stdin、Provider Home denyへ固定�
     );
     assert.equal(plan.argv.includes("--permission-mode"), true);
     assert.equal(plan.argv.includes("dontAsk"), true);
+    assert.equal(plan.argv.includes("--max-budget-usd"), false);
+    assert.equal(
+      plan.apiEquivalentUsdBudgetDisposition,
+      "not_applied_to_subscription_only_execution",
+    );
+    assert.deepEqual(plan.usageControls, [
+      "coordinator_model_and_effort_selection",
+      "maximum_turns",
+      "provider_timeout",
+      "output_limit",
+    ]);
+    assert.equal(plan.explicitSpendBudgetProfileImplemented, false);
   }
 });
 

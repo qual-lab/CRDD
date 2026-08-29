@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
-export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 11;
+export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 12;
 
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
@@ -460,8 +460,6 @@ export function planClaudeIsolatedTask(candidate: unknown) {
   const taskRole = value.taskRole;
   const effort = value.effort;
   const maximumTurns = effort === "low" ? 4 : effort === "medium" ? 6 : 8;
-  const maximumBudgetUsd =
-    effort === "low" ? "0.20" : effort === "medium" ? "0.35" : "0.50";
   const tools =
     taskRole === "executor" ? "Read,Glob,Grep,Edit,Write" : "Read,Glob,Grep";
   return Object.freeze({
@@ -499,8 +497,6 @@ export function planClaudeIsolatedTask(candidate: unknown) {
       "json",
       "--max-turns",
       maximumTurns.toString(),
-      "--max-budget-usd",
-      maximumBudgetUsd,
       "--no-session-persistence",
       "--permission-mode",
       "dontAsk",
@@ -527,7 +523,16 @@ export function planClaudeIsolatedTask(candidate: unknown) {
     subagentAllowed: false,
     providerHomeBuiltInToolAccessAllowed: false,
     maximumTurns,
-    maximumBudgetUsd: Number(maximumBudgetUsd),
+    maximumBudgetUsd: null,
+    apiEquivalentUsdBudgetDisposition:
+      "not_applied_to_subscription_only_execution",
+    usageControls: Object.freeze([
+      "coordinator_model_and_effort_selection",
+      "maximum_turns",
+      "provider_timeout",
+      "output_limit",
+    ]),
+    explicitSpendBudgetProfileImplemented: false,
     sessionPersistenceAllowed: false,
     loginPolicy: "existing_claude_subscription_oauth" as const,
     billingPolicy: billingPolicy,
@@ -657,11 +662,16 @@ export function describeClaudeExecutionPlanContract() {
       taskPromptTransport: "stdin_only",
       promptInArgvAllowed: false,
       maximumTurnsByEffort: Object.freeze({ low: 4, medium: 6, high: 8 }),
-      maximumBudgetUsdByEffort: Object.freeze({
-        low: 0.2,
-        medium: 0.35,
-        high: 0.5,
-      }),
+      maximumBudgetUsdByEffort: null,
+      apiEquivalentUsdBudgetDisposition:
+        "not_applied_to_subscription_only_execution",
+      usageControls: Object.freeze([
+        "coordinator_model_and_effort_selection",
+        "maximum_turns",
+        "provider_timeout",
+        "output_limit",
+      ]),
+      explicitSpendBudgetProfileImplemented: false,
     }),
     fixedPromptRequestAttempt: FIXED_PROMPT_REQUEST_ATTEMPT,
     fixedPromptSchemaRequestAttempt: FIXED_PROMPT_SCHEMA_REQUEST_ATTEMPT,

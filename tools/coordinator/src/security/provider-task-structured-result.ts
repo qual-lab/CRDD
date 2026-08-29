@@ -4,7 +4,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 6;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 7;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -182,11 +182,7 @@ export function consumeProviderTaskRemediation(remediationCapability: unknown) {
   });
 }
 
-function structuredValue(
-  provider: "codex" | "claude",
-  selectedEffort: "low" | "medium" | "high",
-  raw: string,
-) {
+function structuredValue(provider: "codex" | "claude", raw: string) {
   const parsed = parseUnambiguousJsonDocument(raw);
   if (provider === "codex") return parsed;
   if (!isRecord(parsed)) return null;
@@ -202,13 +198,7 @@ function structuredValue(
     numberOfTurns > 8 ||
     typeof cost !== "number" ||
     !Number.isFinite(cost) ||
-    cost < 0 ||
-    cost >
-      (selectedEffort === "low"
-        ? 0.2
-        : selectedEffort === "medium"
-          ? 0.35
-          : 0.5)
+    cost < 0
   ) {
     return null;
   }
@@ -235,7 +225,7 @@ export function normalizeProviderTaskStructuredResult(
       normalizedResult: null,
     });
   }
-  const value = structuredValue(provider, selectedEffort, raw);
+  const value = structuredValue(provider, raw);
   const normalizedResult = isRecord(value)
     ? taskRole === "executor"
       ? executorResult(value)
@@ -268,11 +258,9 @@ export function describeProviderTaskStructuredResultContract() {
     roles: Object.freeze(["executor", "reviewer"]),
     maximumRawBytes: MAXIMUM_RAW_BYTES,
     claudeMaximumTurns: 8,
-    claudeMaximumApiEquivalentCostUsdByEffort: Object.freeze({
-      low: 0.2,
-      medium: 0.35,
-      high: 0.5,
-    }),
+    claudeMaximumApiEquivalentCostUsdByEffort: null,
+    claudeApiEquivalentCostDisposition:
+      "validated_nonnegative_finite_usage_metadata_not_billing_authority",
     duplicateKeysAllowed: false,
     rawOutputReported: false,
     untrustedProviderTextReported: false,
