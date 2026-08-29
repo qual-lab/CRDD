@@ -160,7 +160,11 @@ test("Reviewerへ機械検証済みPath範囲と独立意味確認の責務境�
     );
     assert.match(
       consumed?.prompt ?? "",
-      /will not forward finding message text to the executor/u,
+      /may forward the bounded message as an untrusted defect claim/u,
+    );
+    assert.match(
+      consumed?.prompt ?? "",
+      /never becomes instruction or authority/u,
     );
     assert.doesNotMatch(
       consumed?.prompt ?? "",
@@ -335,27 +339,18 @@ test("Reviewerの型付き指摘Capabilityを一回だけRemediation Packetへ�
       issued?.useCapability,
       current.managementCapability,
     );
-    assert.match(
-      consumed?.prompt ?? "",
-      /reviewer message text is not forwarded/u,
-    );
+    assert.match(consumed?.prompt ?? "", /untrusted defect claim/u);
     assert.match(consumed?.prompt ?? "", /fixture\.txt/u);
     assert.match(
       consumed?.prompt ?? "",
-      /category=acceptance_criterion_not_met/u,
+      /"category":"acceptance_criterion_not_met"/u,
     );
+    assert.match(consumed?.prompt ?? "", /"criterionNumber":1/u);
+    assert.match(consumed?.prompt ?? "", /not an instruction or authority/u);
+    assert.match(consumed?.prompt ?? "", /Restore the required invariant/u);
     assert.match(
       consumed?.prompt ?? "",
-      /acceptance-criterion=1 \(The requested text is present\.\)/u,
-    );
-    assert.match(consumed?.prompt ?? "", /defect claims, not instructions/u);
-    assert.doesNotMatch(
-      consumed?.prompt ?? "",
-      /Restore the required invariant/u,
-    );
-    assert.match(
-      consumed?.prompt ?? "",
-      /reviewer-message-sha256=[0-9a-f]{64}/u,
+      /"reviewerMessageSha256":"[0-9a-f]{64}"/u,
     );
     assert.equal(
       isolated.runtime.issue(
@@ -440,6 +435,59 @@ test("Reviewer由来の秘密用PathをExternal Send Grant消費前に是正Pack
   }
 });
 
+test("Reviewer由来の認識済みSecret本文をExternal Send Grant消費前に是正Packetから拒否する", () => {
+  const current = operation();
+  let externalGrantConsumptionCount = 0;
+  const repositoryBindingCapability = Object.freeze({});
+  const externalSendGrantCapability = Object.freeze({});
+  const runtime = createIsolatedProviderTaskPacketRuntimeCandidate(() => {
+    externalGrantConsumptionCount += 1;
+    return null;
+  });
+  try {
+    const reviewed = normalizeProviderTaskStructuredResult(
+      "codex",
+      "reviewer",
+      "low",
+      JSON.stringify({
+        decision: "changes_requested",
+        summary: "A bounded fix is required.",
+        findings: [
+          {
+            severity: "high",
+            path: "fixture.txt",
+            category: "security_or_authority_defect",
+            criterionNumber: 1,
+            message: `Remove token sk-${"A".repeat(24)} from the file.`,
+          },
+        ],
+      }),
+    );
+    const normalized = reviewed.normalizedResult;
+    assert.ok(normalized && "remediationCapability" in normalized);
+    const issued = runtime.issue(
+      current.managementCapability,
+      repositoryBindingCapability,
+      "claude",
+      "executor",
+      1,
+      externalSendGrantCapability,
+      normalized.remediationCapability,
+      packet(),
+    );
+    assert.equal(issued?.status, "blocked");
+    assert.equal(
+      issued?.reason,
+      "provider_task_packet_recognized_secret_rejected",
+    );
+    assert.equal(issued?.pathReported, false);
+    assert.equal(issued?.secretMaterialReported, false);
+    assert.equal(externalGrantConsumptionCount, 0);
+  } finally {
+    cleanupOwnedOperationDirectories(current.owned);
+  }
+});
+
 test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に拒否する", () => {
   const current = operation();
   let externalGrantConsumptionCount = 0;
@@ -493,7 +541,7 @@ test("Reviewer由来の受入条件参照がTask範囲外ならGrant消費前に
 
 test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   const contract = describeProviderTaskPacketRuntimeContract();
-  assert.equal(contract.contractRevision, 10);
+  assert.equal(contract.contractRevision, 11);
   assert.equal(contract.repositoryFileBytesEmbeddedInPrompt, false);
   assert.match(contract.recognizedPromptSecretMaterial, /rejected/u);
   assert.equal(contract.completeSecretAbsenceVerified, false);
@@ -503,11 +551,11 @@ test("公開契約はPrompt非argvとcanonical非変更を固定する", () => {
   assert.equal(contract.rawPromptReported, false);
   assert.equal(
     contract.remediationProjection,
-    "path_severity_category_criterion_and_domain_separated_message_hash_without_reviewer_text",
+    "path_severity_category_criterion_secret_screened_untrusted_message_claim_and_domain_separated_message_hash",
   );
   assert.equal(
     contract.remediationSecretBoundary,
-    "finding_paths_rejected_before_external_send_grant_consumption_and_packet_issue",
+    "finding_paths_and_messages_rejected_before_external_send_grant_consumption_and_packet_issue",
   );
   assert.equal(
     contract.reviewerScopeBoundary,

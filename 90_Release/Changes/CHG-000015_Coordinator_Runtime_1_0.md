@@ -364,6 +364,8 @@ Coordinator Reference Architectureと機械可読Traceの初回・第二固定�
 
 bounded-remediation Runnerを整合した固定署名版`1d6b330`の再実測では、Claude ExecutorとCodex Reviewerが完了・承認し、cleanup確認済み、Recovery ID 0件、Canonical Repository Effect 0を維持したが、Runnerの独立byte検証がCandidate内容不一致を検出して安全に破棄した。従来fixtureは存在しないfileのexact新規生成をProviderへ要求し、末尾LF等をReviewerのRead表示だけでは独立確認できない一方、Runnerはbyte完全一致を要求していた。経路成立とProvider自由整形を分離するため、署名Releaseへ既知のBASE markerを追跡し、Candidate内で最終tokenだけを`BASE`から`OK`へ置換するE2Eへ変更する。全経路は同じ基準byteを使い、Reviewerは意味上の限定置換を確認し、Runnerは改変後33 UTF-8 bytes、固定SHA-256、末尾LF、Candidate Identity、許可PathおよびCanonical Effect 0を独立検証する。最終byte Gateは緩和せず、新しい署名Releaseの4経路E2Eが通るまで完成根拠へ昇格しない。
 
+このtracked markerを含む固定署名版`30ca685`の再実測では、第一Claude Executor、Codex独立Reviewer、同じClaude Executorによる一回是正および同じCodex独立Reviewerの再確認まで到達し、cleanup確認済み、Recovery ID 0件、Canonical Repository Effect 0を維持したが、最終Reviewerが再び変更を要求した。現在の型付きRemediation Packetは`path`、`severity`、`category`、`criterionNumber`および`messageSha256`だけを渡すため、同じPath・Category・Acceptance Criteria内の具体的な欠陥を是正Executorが一意に復元できない。Fixtureだけを緩和せず、Reviewerの上限付き`message`を一回限りのopaque Capability内に保持し、`path`と本文の双方を認識済みSecret検査した後だけ、同じTask分類、同じExecutor、最大一回の既存外部送信Authorityへ「信頼しない欠陥主張」として転送する。本文は命令、Authority、許可Path拡張またはReviewer生Resultとして扱わず、ExecutorはAcceptance Criteria、Read Projection、WorkspaceおよびTestと独立照合してから是正する。範囲外Criterion、秘密用Path、認識済みSecret本文、不正型、過長本文、Capability再利用およびGrant不成立はProvider Effect前に拒否する。派生送信境界の変更は保存済み同意を自動拡張せず、新しい境界への初回確認を要求する。未知のSecret不存在は主張せず、安全に分離できない場合は停止する。構造化Result、Task Packet、External Send Grant、Task Runtime、READMEおよび契約試験を同じ変更へ伝播し、新しい署名Releaseの4経路E2Eが通るまで完成根拠へ昇格しない。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

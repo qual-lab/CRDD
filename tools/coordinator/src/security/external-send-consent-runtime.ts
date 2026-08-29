@@ -17,9 +17,11 @@ import type { ExternalSendPolicy } from "./external-send-policy-runtime.ts";
 
 export const EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-consent-runtime";
-export const EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT_REVISION = 2;
+export const EXTERNAL_SEND_CONSENT_RUNTIME_CONTRACT_REVISION = 3;
 export const EXTERNAL_SEND_ACTIVE_CONSENT_PREFIX =
   "external-send-consent-active-v2-";
+export const EXTERNAL_SEND_RUNTIME_SEMANTICS_ID =
+  "bounded-reviewer-defect-claim-transfer-v1";
 
 const HEX64 = /^[a-f0-9]{64}$/u;
 const CONSENT_SCHEMA = "crdd-coordinator/external-send-consent/v2";
@@ -57,6 +59,8 @@ export function compileExternalSendConsentBoundaryHash(
         .update(policy.policyId)
         .update("\0")
         .update(policy.sourceFileHash)
+        .update("\0")
+        .update(EXTERNAL_SEND_RUNTIME_SEMANTICS_ID)
         .digest("hex")
     : null;
 }
@@ -98,6 +102,7 @@ function expectedBoundary(
     consentBoundaryHash: boundaryHash,
     policyId: policy.policyId,
     sourceFileHash: policy.sourceFileHash,
+    runtimeExternalSendSemanticsId: EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
     informationClassification: policy.informationClassification,
     providerBoundaries: Object.freeze(
       policy.destinations.map((destination) =>
@@ -146,6 +151,7 @@ function validRecord(
       "consentBoundaryHash",
       "policyId",
       "sourceFileHash",
+      "runtimeExternalSendSemanticsId",
       "informationClassification",
       "providerBoundaries",
       "localUserBindingHash",
@@ -468,6 +474,7 @@ export function describeExternalSendConsentRuntimeContract() {
     binding: Object.freeze([
       "policy_id",
       "policy_source_file_hash",
+      "runtime_external_send_semantics_id",
       "selected_local_user",
       "protected_runtime_state_identity",
       "all_policy_provider_boundaries",
@@ -476,6 +483,7 @@ export function describeExternalSendConsentRuntimeContract() {
       "information_classification",
       "terms_policy_identity",
     ]),
+    runtimeExternalSendSemanticsId: EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
     operationPreviewPersistent: false,
     lifetimeDays: 180,
     reapproval:

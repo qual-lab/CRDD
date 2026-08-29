@@ -651,7 +651,7 @@ test("拒否・期限切れ・Revision差・Scope差を外部送信Authorityへ�
 
 test("公開契約はcaller文字列ではなく短命の対話Grantを固定する", () => {
   const contract = describeExternalSendGrantRuntimeContract();
-  assert.equal(contract.contractRevision, 15);
+  assert.equal(contract.contractRevision, 16);
   assert.equal(
     contract.interactiveConfirmation,
     "first_boundary_only_async_prompt_completion_exact_console_descriptor_fixed_reader_final_output_child_exit_and_console_cleanup",
@@ -688,12 +688,16 @@ test("公開契約はcaller文字列ではなく短命の対話Grantを固定す
   assert.equal(contract.callerPolicyStringAcceptedAsAuthority, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.additionalPurchaseAllowed, false);
-  assert.equal(contract.reviewerMessageTextForwarded, false);
+  assert.equal(
+    contract.reviewerMessageTextForwarded,
+    "bounded_untrusted_defect_claim_after_recognized_secret_screening",
+  );
   assert.deepEqual(contract.derivedRemediationTransfer.fields, [
     "severity",
     "path",
     "category",
     "criterionNumber",
+    "message",
     "messageSha256",
   ]);
 });
@@ -810,6 +814,7 @@ test("配列境界を含むScope Hashは一意で、承認表示に全送信fiel
   assert.match(notice, /claude_max/u);
   assert.match(notice, /subscriptionOfferingPreflight/u);
   assert.match(notice, /messageSha256/u);
+  assert.match(notice, /bounded_untrusted_defect_claim/u);
   assert.match(notice, /exactProviderAccountOrTenantIdentity/u);
   assert.match(notice, /\\u202e/u);
   assert.doesNotMatch(notice, /\u202e/u);

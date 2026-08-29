@@ -209,7 +209,7 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
   assert.equal(contract.claudeMaximumTurns, 8);
@@ -220,6 +220,9 @@ test("公開契約は両Provider、両Role、上限とraw非公開を固定す�
   );
   assert.equal(contract.rawOutputReported, false);
   assert.equal(contract.untrustedProviderTextReported, false);
-  assert.equal(contract.reviewerMessageForwardedToExecutor, false);
+  assert.equal(
+    contract.reviewerMessageForwardedToExecutor,
+    "bounded_untrusted_defect_claim_after_secret_screening",
+  );
   assert.equal(contract.credentialAbsenceVerified, false);
 });

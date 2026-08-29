@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -36,6 +37,17 @@ test("初期同意境界はRepository revisionでなくexact Policy byteとPolic
   const first = compileExternalSendConsentBoundaryHash(policy());
   assert.match(first ?? "", /^[a-f0-9]{64}$/u);
   assert.equal(
+    first,
+    createHash("sha256")
+      .update("crdd-external-send-consent-boundary-v2\0")
+      .update(policy().policyId)
+      .update("\0")
+      .update(policy().sourceFileHash)
+      .update("\0")
+      .update("bounded-reviewer-defect-claim-transfer-v1")
+      .digest("hex"),
+  );
+  assert.equal(
     compileExternalSendConsentBoundaryHash(
       policy({ sourceRevision: "2".repeat(40) }),
     ),
@@ -63,10 +75,15 @@ test("初期同意境界はRepository revisionでなくexact Policy byteとPolic
 
 test("公開契約は選択User・保護Runtime State・Subscription境界と再承認条件を固定する", () => {
   const contract = describeExternalSendConsentRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.match(contract.lifecycle, /one_active_initial_consent/u);
   assert.ok(contract.binding.includes("selected_local_user"));
   assert.ok(contract.binding.includes("subscription_offering"));
+  assert.ok(contract.binding.includes("runtime_external_send_semantics_id"));
+  assert.equal(
+    contract.runtimeExternalSendSemanticsId,
+    "bounded-reviewer-defect-claim-transfer-v1",
+  );
   assert.equal(contract.exactProviderAccountOrTenantIdentityVerified, false);
   assert.equal(contract.apiKeyFallbackAllowed, false);
   assert.equal(contract.additionalPurchaseAllowed, false);

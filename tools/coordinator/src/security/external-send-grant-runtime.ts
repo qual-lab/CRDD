@@ -16,6 +16,7 @@ import {
 import { acquireRuntimeOwnedInteractiveConsoleKernelLockOutcome } from "./candidate-store-kernel-lock.ts";
 import { verifyOwnedOperationManagementCapability } from "./execution-environment.ts";
 import {
+  EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
   persistRuntimeOwnedExternalSendConsent,
   resolveRuntimeOwnedExternalSendConsent,
 } from "./external-send-consent-runtime.ts";
@@ -29,7 +30,7 @@ import { containsRecognizedSecretScope } from "./secret-material-policy.ts";
 
 export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-grant-runtime";
-export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 15;
+export const EXTERNAL_SEND_GRANT_RUNTIME_CONTRACT_REVISION = 16;
 
 const GRANT_LIFETIME_MS = 1_500_000;
 const SCOPE_KEYS = new Set([
@@ -48,9 +49,11 @@ const DERIVED_REMEDIATION_TRANSFER = Object.freeze({
     "path",
     "category",
     "criterionNumber",
+    "message",
     "messageSha256",
   ]),
-  reviewerMessageTextForwarded: false,
+  reviewerMessageTextForwarded:
+    "bounded_untrusted_defect_claim_after_recognized_secret_screening" as const,
   informationClassification: "same_as_original_task" as const,
 });
 
@@ -479,6 +482,8 @@ async function requestGrant(
         physicalDeletion: policy.candidatePhysicalDeletion,
       }),
       consentLifetimeDays: 180,
+      runtimeExternalSendSemanticsId: EXTERNAL_SEND_RUNTIME_SEMANTICS_ID,
+      derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
       apiKeyFallbackAllowed: false,
       additionalPurchaseAllowed: false,
     });
@@ -487,7 +492,6 @@ async function requestGrant(
       requestedProviderDestinations: authorizedDestinations,
       taskPayload: scope,
       scopeHash,
-      derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
       runtimeVerificationBoundary: Object.freeze({
         selectedUserDedicatedProviderHomeSession: true,
         subscriptionOfferingPreflight: true,
@@ -797,7 +801,8 @@ export function describeExternalSendGrantRuntimeContract() {
     ]),
     boundedRemediationRounds: 1,
     derivedRemediationTransfer: DERIVED_REMEDIATION_TRANSFER,
-    reviewerMessageTextForwarded: false,
+    reviewerMessageTextForwarded:
+      "bounded_untrusted_defect_claim_after_recognized_secret_screening",
     exactProviderAccountOrTenantIdentityVerified: false,
     providerTermsContentVerified: false,
     lifetimeMs: GRANT_LIFETIME_MS,

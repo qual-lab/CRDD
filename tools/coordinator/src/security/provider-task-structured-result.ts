@@ -4,7 +4,7 @@ import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 7;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 8;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -29,6 +29,7 @@ const remediationRecords = new WeakMap<
       | "verification_defect"
       | "security_or_authority_defect";
     criterionNumber: number;
+    message: string;
     messageSha256: string;
   }>[]
 >();
@@ -141,6 +142,7 @@ function reviewerResult(value: Record<string, unknown>) {
         | "verification_defect"
         | "security_or_authority_defect",
       criterionNumber: finding.criterionNumber as number,
+      message: finding.message as string,
       messageSha256: createHash("sha256")
         .update("crdd-review-finding-message-v1\0")
         .update(finding.message as string, "utf8")
@@ -265,8 +267,9 @@ export function describeProviderTaskStructuredResultContract() {
     rawOutputReported: false,
     untrustedProviderTextReported: false,
     boundedRemediationCapability:
-      "opaque_single_use_path_severity_category_criterion_and_message_hash_projection",
-    reviewerMessageForwardedToExecutor: false,
+      "opaque_single_use_path_severity_category_criterion_secret_screened_message_claim_and_message_hash_projection",
+    reviewerMessageForwardedToExecutor:
+      "bounded_untrusted_defect_claim_after_secret_screening",
     credentialAbsenceVerified: false,
   });
 }
