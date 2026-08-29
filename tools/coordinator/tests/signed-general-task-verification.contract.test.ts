@@ -323,7 +323,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
     frontProvider: "codex",
     objective: "Create the one bounded verification marker file.",
     acceptanceCriteria: [
-      `The only changed path is ${TARGET_PATH}.`,
+      `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
       `The visible file content is the single marker ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}; the signed runner separately verifies exact UTF-8 bytes and one trailing LF.`,
     ],
     allowedPaths: [TARGET_PATH],
@@ -339,7 +339,7 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 12);
+  assert.equal(contract.contractRevision, 13);
   assert.equal(
     contract.resultMismatchDiagnostic,
     "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",

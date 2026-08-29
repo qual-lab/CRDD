@@ -33,7 +33,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 12;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 13;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -648,7 +648,7 @@ export function createSignedGeneralTaskVerificationRequest(
     frontProvider: route.frontProvider,
     objective: "Create the one bounded verification marker file.",
     acceptanceCriteria: Object.freeze([
-      `The only changed path is ${TARGET_PATH}.`,
+      `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
       `The visible file content is the single marker ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}; the signed runner separately verifies exact UTF-8 bytes and one trailing LF.`,
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
