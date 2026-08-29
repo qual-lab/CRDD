@@ -32,6 +32,22 @@ Provider同士を直接spawnさせない。Provider出力、Runtime内部Path、
 
 Candidate管理、Docker Task明示RecoveryおよびWindows Docker Desktop最終復旧は別の公開Lifecycleである。`activate`、`disable`および`provision`の未実装Effect前停止を一般Taskの成立経路へ混入させない。
 
+### 2.1 Filesystem保存境界
+
+Coordinatorは、論理的なRepository Bindingと物理的な書込みRootを分離する。現在のリポジトリを対象にしたOperationでは、明示的な別Authorityがない限り、Repository外へstaging、worktree、archive、log、probeまたは試験一時物を作らない。読み取れるPath、同じ親Directory、同じLocal Userまたはcaller supplied absolute Pathは書込みAuthorityにならない。
+
+保存先は次の三層へ分ける。
+
+| 層 | 用途 | 境界 |
+|---|---|---|
+| Repository-local `.crdd` | Git管理するRepository Policy／Bindingと、用途別に分離したローカルRuntime補助 | Policy等の正本と未追跡Runtime状態を別subtreeにし、後者をCandidate Revision、Provider mountおよびGit管理対象から除外する |
+| OS管理Runtime Root | selected-user Provider Home、Candidate Store、Recovery、Host／Runtime State | OS Known Folderまたはservice管理Rootから導出し、主体、保護、安定Identityおよび用途をRuntimeが検証する |
+| Operation Root | 一回のOperationが所有するworkspace、staging、temp、logおよびcleanup記録 | 一つのProject BindingとOperation IDへ結合し、成功、失敗、取消および親Process喪失で回収またはexact Recoveryへ移送する |
+
+Repository-localのcanonical namespaceは`<verified-repository-root>/.crdd/`とする。公開CLIと署名E2E入口は、起動Directoryから最寄りの有効なGit worktree Rootを上方解決し、構造とIdentityを検証してからProjectへBindingする。Current Working DirectoryそのものはRepository Authorityではない。途中に存在する`.git`境界が不正または検証不能なら外側のRepositoryへ読み替えずEffect 0で停止する。これにより`tools/coordinator/.crdd`のようなpackage-local複製を許可しない。外部送信PolicyはGit管理する`.crdd/external-send-policy.json`に置く。現行の`<repository>/.crdd-runtime/`候補はローカルRuntime補助の既存実装名であり、将来の`.crdd/runtime/`集約形へ無言で併存させない。移行する場合は、単一のcanonical location、旧位置の検出、競合時停止、Candidate／mount除外、cleanupおよび移行後残存0を一つの変更として固定する。現時点でRepository外overrideを承認するRuntime Capabilityは未実装なので、Path Identity入口とGit local exclude入口はいずれもEffect前に`runtime_root_external_write_authorization_required`で停止する。
+
+将来のMCP／Linux常設／複数Repository構成でも、MCP Serverが任意Pathを直接選ばない。Repository Routerが事前登録された論理Repository IdentityをProject RuntimeへBindingし、OS管理Runtime Rootの`Project Binding × Operation ID`名前空間へ写像する。同じOrganization Runtime上の別Projectは、保存Root、Authority、Provider Home lease、Recoveryおよびcleanupを共有しない。機構はRuntime 1.0の完成条件へ追加せず、Dogfoodingで境界の安定性が確認された後の根拠駆動リファクタリングとして扱う。
+
 ## 3. 主実行シーケンス
 
 | 段階 | 状態ID | 主な処置 | 次へ進む条件 |

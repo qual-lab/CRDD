@@ -47,6 +47,7 @@ import {
 import { recoverOwnedOperationDirectories } from "../src/security/execution-environment.ts";
 import { runPlatformProvisionerEffect } from "../src/security/platform-provisioner-effect.ts";
 import { selectRuntimeRootCandidate } from "../src/security/runtime-root-profile.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 type EffectCommand = "activate" | "disable";
 class UsageError extends Error {
@@ -214,7 +215,7 @@ async function runTaskCommand(args: readonly string[]) {
   try {
     started = startRuntimeOwnedCoordinatorTask(
       taskRequest,
-      process.cwd(),
+      resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
       packageVerification.capability,
     );
   } catch (rawError) {
@@ -411,7 +412,9 @@ function runInactiveEffectCommand(
   let isSelectionValid = false;
   try {
     const runtimeRoot = selectRuntimeRootCandidate({
-      repositoryRoot: process.cwd(),
+      repositoryRoot: resolveVerifiedRepositoryRootFromWorkingDirectory(
+        process.cwd(),
+      ),
       ...plainRecord(parsedValue.runtimeRootRequest),
     });
     const authorityRoot =
@@ -563,7 +566,9 @@ if (!isSupportedCoordinatorNodeRuntime(process.versions.node)) {
           : Object.freeze({
               ...runDoctor({
                 activeIsolation: options.activeIsolation,
-                cwd: process.cwd(),
+                cwd: resolveVerifiedRepositoryRootFromWorkingDirectory(
+                  process.cwd(),
+                ),
                 runtimeRootRequest: options.runtimeRootRequest,
               }),
               dockerTaskRecovery: inspectRuntimeOwnedDockerTaskRecoveryState(),

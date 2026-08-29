@@ -35,6 +35,10 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 
 ### 3.1. 基本形式
 
+Toolの既定書込みRootは現在のリポジトリ内に限定する。現在のリポジトリは、Current Working Directoryではなく、対象Projectと正規化・実体確認した最寄りのVersion Control worktree Rootから解決する。Toolをsubdirectoryから起動しても、そのDirectoryをRepository Rootとして扱わない。Repository-localな非正本状態が必要な場合は、検証済みRoot直下の用途別`.crdd`配下へ集約し、候補Revision、Provider mountおよびGit管理対象から除外する。選択Userに永続するProvider Home、Candidate Store、Recoveryその他のRuntime状態は、OS Known Folderから導出し保護を検証した固定Runtime Rootへ置く。Repository-local状態とUser／Host Runtime状態を混在させない。
+
+親Directory、兄弟Repository、別Repository、OS一時Directoryまたはcaller supplied absolute Pathへ書き込む実装は、現在DirectoryやPath文字列だけから許可しない。用途限定Rootの事前許可またはOperationごとの人間承認、Root Identity、所有主体、保持期間、容量、cleanup／Recoveryおよび残存確認をEffect前に強制する。試験、release staging、Git worktree、archive、logおよび診断物も例外にしない。一時物は一つのOperation所有Rootへ集約し、正常・失敗・取消・親Process喪失の全経路と次回安全入口での回収を試験する。
+
 | 対象 | 必須形式 | 例 |
 |---|---|---|
 | フォルダ | ASCII `kebab-case` | `checker/`, `test-fixtures/` |

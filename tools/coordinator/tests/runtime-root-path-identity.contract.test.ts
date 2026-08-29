@@ -7,6 +7,7 @@ import type { TestContext } from "node:test";
 
 import * as runtimeRootPathIdentityModule from "../src/security/runtime-root-path-identity.ts";
 import {
+  applyGitLocalExcludeWithInitialRootSnapshotCandidate,
   describeRuntimeRootPathIdentityContract,
   inspectPosixRuntimeRootModePrecheckCandidate,
   inspectRuntimeRootPathIdentityCandidate,
@@ -105,7 +106,7 @@ test("Repository既定RootのFilesystem object候補をPath非出力で確認す
   assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
 });
 
-test("CLI内部customと環境外部overrideを実体containmentで分類する", (t) => {
+test("CLI内部customを分類し、外部overrideは人間承認Capabilityなしで拒否する", (t) => {
   const repositoryRoot = temporaryDirectory(t);
   const internal = path.join(repositoryRoot, "runtime-custom");
   fs.mkdirSync(internal);
@@ -126,10 +127,32 @@ test("CLI内部customと環境外部overrideを実体containmentで分類する"
       environmentOverride: external,
     }),
   );
-  assert.equal(externalResult.status, "candidate");
-  assertPresent(externalResult.summary);
-  assert.equal(externalResult.summary.source, "environment_override");
-  assert.equal(externalResult.summary.location, "repository_external_override");
+  assert.equal(externalResult.status, "blocked");
+  assert.equal(
+    externalResult.reason,
+    "runtime_root_external_write_authorization_required",
+  );
+  assert.equal(externalResult.summary, null);
+  assert.equal(externalResult.absolutePathReported, false);
+  assert.equal(externalResult.filesystemIdentityReported, false);
+  assert.equal(externalResult.runtimeCapabilityIssued, false);
+});
+
+test("外部overrideはGit exclude不要候補へ昇格させない", (t) => {
+  const repositoryRoot = temporaryDirectory(t);
+  const external = temporaryDirectory(t, "crdd-external-root-");
+  const result = applyGitLocalExcludeWithInitialRootSnapshotCandidate(
+    input(repositoryRoot, { cliOverride: external }),
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "runtime_root_external_write_authorization_required",
+  );
+  assert.equal(result.plan, null);
+  assert.equal(result.gitMetadataWriteIssued, false);
+  assert.equal(result.gitMetadataWriteVerified, false);
+  assert.equal(result.runtimeCapabilityIssued, false);
 });
 
 test("CLIで既定Root同値を明示しても選択入口と実体位置を分離する", (t) => {
@@ -471,6 +494,10 @@ test("Path Identity Coreは作成・権限・activation・Capabilityを成立さ
   assert.equal(
     contract.localExcludeIntegration,
     "implemented_candidate_initial_snapshot_binding",
+  );
+  assert.equal(
+    contract.repositoryExternalOverride,
+    "blocked_until_runtime_owned_human_authorization_is_implemented",
   );
   assert.equal(contract.activationIntegration, "not_implemented");
   assert.equal(contract.runtimeCapabilityIssued, false);

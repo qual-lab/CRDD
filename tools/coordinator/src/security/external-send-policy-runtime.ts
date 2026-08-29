@@ -14,8 +14,8 @@ import {
 
 export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT =
   "crdd-coordinator/external-send-policy-runtime";
-export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT_REVISION = 2;
-export const EXTERNAL_SEND_POLICY_FILE = ".crdd-external-send-policy.json";
+export const EXTERNAL_SEND_POLICY_RUNTIME_CONTRACT_REVISION = 3;
+export const EXTERNAL_SEND_POLICY_FILE = ".crdd/external-send-policy.json";
 
 const TOP_LEVEL_KEYS = new Set([
   "schema",

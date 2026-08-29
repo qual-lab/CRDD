@@ -75,6 +75,7 @@ Qual-Labの人間の決定権限者は、次を一つのRelease価値として�
 - Runtime 1.0を構成する内部component、Provider別Adapter、個別Gateおよび検証Stepは独立Releaseせず、本CHG内の成立条件とEvidenceとして扱う。
 - Runtimeの独立監査往復から一般化した非同期処理規則の過剰適用是正を、同じ未リリースv0.18変更へ含める。AI入口、外部Runtime、Authority／Effect境界および取消後に残存し得る資源では完全なlifecycle契約を維持し、通常のプロダクト非同期処理は実在する状態とリスクに比例、外部Effect等を伴わない単純なローカル非同期処理は通常の実装・エラー処理・試験へ閉じる。`10_Agent.md`、公式保守入口`AGENTS.md`および配布入口`template/AGENTS.md`へ同時に伝播し、既存の高リスク境界を弱めない。
 - Providerへ渡すTask Promptは目的、受入基準およびPath参照へ限定し、Repository file bytesを埋め込まない。許可した機密ソースは開始Revisionからの明示Read Projectionとして渡せるが、Password、秘密鍵、Session Token、API Keyその他のSecret値は通常の送信許可へ含めない。認識済みSecretはProvider Effect前に拒否し、heuristic合格を未知Secret不存在の証明へ昇格しない。
+- Dogfooding用release staging、Git worktreeおよび試験一時物が親Directory、兄弟RepositoryとOS一時Directoryへ分散した事象を、Filesystem Effect境界の欠陥として同じ未リリース変更内で是正する。現在のリポジトリ外への書込みは既定拒否とし、用途限定Rootの事前許可または表示されたexact Rootへの人間承認なしに実行しない。Repository-local `.crdd`とOS管理Runtime Rootを責務別に分け、Operation一時物は一つのRuntime-owned Rootへ集約し、cleanup不明を成功にしない。開始Commitへ固定する外部送信PolicyはRoot直下の単独fileから`.crdd/external-send-policy.json`へ移し、旧Pathとの暗黙fallbackや二重正本を残さない。既存残留物は所有Identityと削除対象を確定し、人間承認前に推測削除しない。
 
 本判断はProvider login、外部送信、Repository変更、Candidate受入、統合、Releaseまたは費用執行を事前承認しない。それらは各OperationとRelease Gateで別に判定する。
 
@@ -219,6 +220,7 @@ Filesystem Effectは保護Runtime State内のHash chain段階記録と、固定`
 
 ## 9. Repository／Candidate契約
 
+- Repository-local `.crdd`は検証済みProject／Git worktree Rootの直下へだけ配置する。公開CLIと署名E2EはCurrent Working DirectoryをRepository Authorityとして使用せず、subdirectory起動時も最寄りの有効なGit Rootへ結合する。不正または曖昧な中間Git境界は外側へ読み替えず、Filesystem Effect前に停止する。
 - 対応BackendはローカルGitだけとし、`read_only`と`isolated_worktree`を扱う。
 - 書込みOperationは既存dirty変更を自動取込みせず、固定HEAD Commit／Treeから隔離Candidateを作る。
 - Repository Object Formatを確認し、SHA-1／SHA-256のOID幅を推測しない。

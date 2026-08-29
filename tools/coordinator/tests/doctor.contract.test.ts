@@ -1982,7 +1982,11 @@ test("production doctorはpassiveかつ動的Fakeを暗黙実行しない", () =
   );
   assert.equal(
     report.gitLocalExclude.linkedWorktreeExternalOverrideAllowed,
-    true,
+    false,
+  );
+  assert.equal(
+    report.gitLocalExclude.repositoryExternalOverride,
+    "blocked_until_runtime_owned_human_authorization_is_implemented",
   );
   assert.equal(
     report.gitLocalExclude.metadataWriteIntegration,

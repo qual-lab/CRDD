@@ -112,17 +112,20 @@ test("通常Repositoryのcustom Rootをroot相対かつGit pattern安全なentry
   assert.equal(JSON.stringify(result).includes(repositoryRoot), false);
 });
 
-test("Repository外overrideにはGit excludeを要求しない", (t) => {
+test("Repository外overrideはGit exclude候補へ昇格させない", (t) => {
   const repositoryRoot = normalRepository(t);
   const externalRoot = path.resolve(repositoryRoot, "..", "external-runtime");
   const result = compileGitLocalExcludeCandidate(
     input(repositoryRoot, { environmentOverride: externalRoot }),
   );
-  assert.equal(result.status, "candidate");
-  assertPresent(result.plan);
-  assert.equal(result.reason, "repository_external_root_needs_no_git_exclude");
-  assert.equal(result.plan.excludeRequired, false);
-  assert.equal(result.plan.excludeEntry, null);
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "runtime_root_external_write_authorization_required",
+  );
+  assert.equal(result.plan, null);
+  assert.equal(result.gitMetadataWriteIssued, false);
+  assert.equal(result.runtimeCapabilityIssued, false);
 });
 
 test("enable候補でない入力とRepository root自体を拒否する", (t) => {
@@ -198,9 +201,12 @@ test("linked worktreeは既定Rootだけを共有exclude候補にする", (t) =>
       cliOverride: path.join(path.dirname(repositoryRoot), "external-runtime"),
     }),
   );
-  assert.equal(externalResult.status, "candidate");
-  assertPresent(externalResult.plan);
-  assert.equal(externalResult.plan.excludeRequired, false);
+  assert.equal(externalResult.status, "blocked");
+  assert.equal(
+    externalResult.reason,
+    "runtime_root_external_write_authorization_required",
+  );
+  assert.equal(externalResult.plan, null);
 });
 
 test("Repository内RootはGit layout候補を再確認する", (t) => {
@@ -255,7 +261,11 @@ test("local exclude契約はmetadata書込み候補とactivation未実装を分�
     contract.linkedWorktreeRepositoryContainedCustomRootAllowed,
     false,
   );
-  assert.equal(contract.linkedWorktreeExternalOverrideAllowed, true);
+  assert.equal(contract.linkedWorktreeExternalOverrideAllowed, false);
+  assert.equal(
+    contract.repositoryExternalOverride,
+    "blocked_until_runtime_owned_human_authorization_is_implemented",
+  );
   assert.equal(contract.metadataWriteIntegration, "implemented_candidate");
   assert.equal(
     contract.runtimeRootPathIdentityPrePostVerification,
@@ -287,7 +297,7 @@ test("Adapter候補は既存内容を保ち完全一致entryを冪等更新す�
   assert.equal(JSON.stringify(first).includes(repositoryRoot), false);
 });
 
-test("空または未作成excludeを作成し外部overrideではmetadataを書かない", (t) => {
+test("空または未作成excludeを作成し外部overrideはmetadata処置前に拒否する", (t) => {
   const repositoryRoot = normalRepository(t);
   const exclude = path.join(repositoryRoot, ".git", "info", "exclude");
   fs.writeFileSync(exclude, "");
@@ -309,7 +319,11 @@ test("空または未作成excludeを作成し外部overrideではmetadataを書
       cliOverride: path.join(path.dirname(repositoryRoot), "external-runtime"),
     }),
   );
-  assert.equal(external.status, "candidate");
+  assert.equal(external.status, "blocked");
+  assert.equal(
+    external.reason,
+    "runtime_root_external_write_authorization_required",
+  );
   assert.equal(external.gitMetadataWriteIssued, false);
   assert.deepEqual(
     fs.readdirSync(path.join(repositoryRoot, ".git", "info")),
@@ -710,7 +724,7 @@ test("post-write Repository replacement preserves the issued-write fact", (t) =>
   assert.equal(result.gitMetadataWriteVerified, false);
 });
 
-test("外部overrideもPath Identity成立後だけno-exclude候補にする", (t) => {
+test("外部overrideはPath Identity前提も満たせない場合を安全に拒否する", (t) => {
   const repositoryRoot = normalRepository(t);
   const externalRoot = path.join(
     path.dirname(repositoryRoot),

@@ -62,10 +62,21 @@ function repository(t: TestContext, policyText: string | null) {
     "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
   );
   const treeBytes = policyText
-    ? Buffer.concat([
-        Buffer.from(`100644 ${EXTERNAL_SEND_POLICY_FILE}\0`),
-        Buffer.from(writeObject(git, "blob", Buffer.from(policyText)), "hex"),
-      ])
+    ? (() => {
+        const policyBlob = writeObject(git, "blob", Buffer.from(policyText));
+        const crddTree = writeObject(
+          git,
+          "tree",
+          Buffer.concat([
+            Buffer.from("100644 external-send-policy.json\0"),
+            Buffer.from(policyBlob, "hex"),
+          ]),
+        );
+        return Buffer.concat([
+          Buffer.from("40000 .crdd\0"),
+          Buffer.from(crddTree, "hex"),
+        ]);
+      })()
     : Buffer.alloc(0);
   const tree = writeObject(git, "tree", treeBytes);
   const commit = writeObject(
@@ -146,7 +157,7 @@ test("未知field・Provider欠落・不正保持期間・順序差をPolicyへ�
 
 test("公開契約は開始Commitの固定Policy fileと不明時停止を保持する", () => {
   const contract = describeExternalSendPolicyRuntimeContract();
-  assert.equal(contract.contractRevision, 2);
+  assert.equal(contract.contractRevision, 3);
   assert.equal(contract.fixedRepositoryFile, EXTERNAL_SEND_POLICY_FILE);
   assert.equal(contract.source, "exact_bound_repository_commit");
   assert.equal(contract.unknownPolicy, "blocked");

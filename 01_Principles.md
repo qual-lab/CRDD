@@ -428,6 +428,15 @@ AIが「対応済み」と判定し、担当者の「未対応」という報告
 
 決定権限または対象改訂版が不明、承認済みコンテキストが競合、対象範囲外または不可逆な変更が必要、セキュリティ / プライバシー / 互換性 / データの意味へ影響する場合、AIは推測で進めず停止または限定し、必要な人間の決定権限へ戻す。
 
+作業対象のコンテキストリポジトリを現在のリポジトリ（Current Repository）として識別できる場合、別の書込みRootが明示的に許可されていない限り、Filesystem上の作成、変更、移動および削除は現在のリポジトリ内だけを既定のEffect範囲とする。現在のリポジトリは、タスクが対象とするProjectと、正規化・実体確認した最寄りのVersion Control worktree Rootを結合して識別する。ProcessのCurrent Working Directory、Tool／package Directoryまたはcaller supplied PathをそのままProject Rootへ昇格しない。Repository-local `.crdd`は検証済みRootの直下だけをcanonical locationとし、subdirectoryから起動した場合もその場に別の`.crdd`を作らない。親Directory、兄弟Repository、別Repository、OS一時Directoryまたは任意の絶対Pathを、同じローカル環境に存在することだけで書込み可能範囲へ含めない。現在のリポジトリ外を読み取れることは、そこへ書き込むAuthorityを意味しない。
+
+現在のリポジトリ外への書込みが必要な場合は、実行前に正規化・実体確認したexact Root、目的、作成物、所有主体、保持期間、cleanup／Recovery、残存時の影響を示し、次のいずれかを満たす必要がある。
+
+- 採用プロジェクトまたはRuntime契約が事前に許可した、用途を限定したRepository-local `.crdd` RootまたはOS管理のRuntime Rootであり、実行時にそのIdentityとEffect範囲を強制できる。
+- 今回のOperationについて、人間の決定権限者が表示されたexact RootとEffectを明示的に承認している。
+
+いずれも確認できない場合はEffect 0で停止する。外部Rootの一時資源はOperation所有Rootへ集約し、通常完了、失敗、取消およびProcess喪失で回収またはexact Recoveryへ結合する。cleanupを確認できない処理を成功として扱わず、作業Directory、Repositoryの親DirectoryまたはOS一時Directoryへ散在させない。
+
 AIは、古いコンテキスト、判断／判断理由、根拠、安定IDを無言で削除・再利用・上書きしない。状態、置換関係、履歴、改訂版は[文書化](03_Documentation.md)、変更の契機、影響、正本・実装・検証・リリース間のトレースは[変更](12_Change.md)を正本とする。
 
 ---

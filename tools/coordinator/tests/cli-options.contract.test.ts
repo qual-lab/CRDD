@@ -21,6 +21,22 @@ const coordinatorExecutable = path.resolve(
   "../bin/coordinator.ts",
 );
 
+function makeRepositoryRoot(target: string) {
+  const gitDirectory = path.join(target, ".git");
+  fs.mkdirSync(path.join(gitDirectory, "refs", "heads"), { recursive: true });
+  fs.mkdirSync(path.join(gitDirectory, "info"), { recursive: true });
+  fs.writeFileSync(
+    path.join(gitDirectory, "config"),
+    "[core]\n\trepositoryformatversion = 0\n\tbare = false\n",
+    "utf8",
+  );
+  fs.writeFileSync(path.join(gitDirectory, "HEAD"), "ref: refs/heads/main\n");
+  fs.writeFileSync(
+    path.join(gitDirectory, "refs", "heads", "main"),
+    `${"a".repeat(40)}\n`,
+  );
+}
+
 test("doctor CLIはruntime enable要求とCLI優先を一度だけ正規化する", () => {
   const cliRoot = path.resolve("cli-root");
   const environmentRoot = path.resolve("environment-root");
@@ -216,6 +232,7 @@ test("実CLIはenable要求を候補診断へ接続しPathを表示しない", (
     path.join(os.tmpdir(), "crdd-cli-root-"),
   );
   t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+  makeRepositoryRoot(repositoryRoot);
   fs.mkdirSync(path.join(repositoryRoot, ".crdd-runtime"));
   const environment = { ...process.env };
   delete environment.CRDD_COORDINATOR_ROOT;
@@ -248,8 +265,9 @@ test("actual CLI applies environment override and CLI precedence without exposin
   t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
   const repositoryRoot = path.join(fixtureRoot, "repository");
   const environmentRoot = path.join(fixtureRoot, "environment-runtime");
-  const cliRoot = path.join(fixtureRoot, "cli-runtime");
+  const cliRoot = path.join(repositoryRoot, "cli-runtime");
   fs.mkdirSync(repositoryRoot);
+  makeRepositoryRoot(repositoryRoot);
   fs.mkdirSync(environmentRoot);
   fs.mkdirSync(cliRoot);
   const executable = coordinatorExecutable;
@@ -270,14 +288,12 @@ test("actual CLI applies environment override and CLI precedence without exposin
   );
   assert.equal(environmentResult.status, 2);
   const environmentReport = JSON.parse(environmentResult.stdout);
+  assert.equal(environmentReport.runtimeRootEvaluation.status, "blocked");
   assert.equal(
-    environmentReport.runtimeRootEvaluation.summary.source,
-    "environment_override",
+    environmentReport.runtimeRootEvaluation.reason,
+    "runtime_root_external_write_authorization_required",
   );
-  assert.equal(
-    environmentReport.runtimeRootEvaluation.summary.location,
-    "repository_external_override",
-  );
+  assert.equal(environmentReport.runtimeRootEvaluation.summary, null);
 
   const cliResult = spawnSync(
     process.execPath,
@@ -298,10 +314,11 @@ test("actual CLI applies environment override and CLI precedence without exposin
   );
   assert.equal(cliResult.status, 2);
   const cliReport = JSON.parse(cliResult.stdout);
+  assert.equal(cliReport.runtimeRootEvaluation.status, "candidate");
   assert.equal(cliReport.runtimeRootEvaluation.summary.source, "cli_override");
   assert.equal(
     cliReport.runtimeRootEvaluation.summary.location,
-    "repository_external_override",
+    "repository_internal_custom",
   );
   const serializedReports = `${environmentResult.stdout}\n${cliResult.stdout}`;
   assert.equal(serializedReports.includes(environmentRoot), false);

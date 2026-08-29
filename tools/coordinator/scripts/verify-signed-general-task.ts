@@ -31,6 +31,7 @@ import {
   salvageSignedRunnerNullableRecovery,
   salvageSignedRunnerRecoveryPair,
 } from "../src/security/signed-runner-safety-observation.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
@@ -1437,7 +1438,7 @@ async function main() {
   const routeProfile: SignedGeneralTaskRouteProfile =
     args.length === 0 ? "forward" : (args[1] as SignedGeneralTaskRouteProfile);
   const result = await runSignedGeneralTaskVerification(
-    process.cwd(),
+    resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
     productionDependencies,
     routeProfile,
   );

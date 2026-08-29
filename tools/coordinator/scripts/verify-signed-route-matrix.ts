@@ -15,6 +15,7 @@ import {
   evaluateSignedRunnerSafetyObservation,
   salvageSignedRunnerRecoveryPair,
 } from "../src/security/signed-runner-safety-observation.ts";
+import { resolveVerifiedRepositoryRootFromWorkingDirectory } from "../src/security/repository-root-resolution.ts";
 import {
   runSignedGeneralTaskVerification,
   SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT,
@@ -598,7 +599,9 @@ async function main() {
     process.exitCode = 64;
     return;
   }
-  const result = await runSignedRouteMatrixVerification(process.cwd());
+  const result = await runSignedRouteMatrixVerification(
+    resolveVerifiedRepositoryRootFromWorkingDirectory(process.cwd()),
+  );
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   process.exitCode = result.status === "completed" ? 0 : 2;
 }

@@ -12,7 +12,7 @@ import {
 import { applyGitLocalExcludeWithInitialRootSnapshotCandidate } from "./runtime-root-path-identity.ts";
 
 export const GIT_LOCAL_EXCLUDE_CONTRACT = "crdd-coordinator/git-local-exclude";
-export const GIT_LOCAL_EXCLUDE_CONTRACT_REVISION = 1;
+export const GIT_LOCAL_EXCLUDE_CONTRACT_REVISION = 2;
 
 const INPUT_KEYS = new Set([
   "repositoryRoot",
@@ -141,13 +141,8 @@ export function compileGitLocalExcludeCandidate(rawInput: unknown) {
     }
     if (location.kind === "outside") {
       return response(
-        "candidate",
-        "repository_external_root_needs_no_git_exclude",
-        Object.freeze({
-          excludeRequired: false,
-          excludeEntry: null,
-          trackedGitignoreModificationAllowed: false,
-        }),
+        "blocked",
+        "runtime_root_external_write_authorization_required",
       );
     }
 
@@ -205,7 +200,9 @@ export function describeGitLocalExcludeContract() {
     repositoryGitDirectoryResolution: "implemented_candidate",
     linkedWorktreeDefaultRootAllowed: true,
     linkedWorktreeRepositoryContainedCustomRootAllowed: false,
-    linkedWorktreeExternalOverrideAllowed: true,
+    linkedWorktreeExternalOverrideAllowed: false,
+    repositoryExternalOverride:
+      "blocked_until_runtime_owned_human_authorization_is_implemented",
     metadataWriteIntegration: "implemented_candidate",
     runtimeRootPathIdentityPrePostVerification:
       "implemented_candidate_initial_snapshot_binding",

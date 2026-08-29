@@ -56,6 +56,8 @@ Issueまたはタスクが存在する場合は、本文、コメント、状態
 
 整理の処置、実行許可、採用／統合判断、リリース判断を区別する。
 
+別の書込みRootが明示的に許可されていない限り、現在のリポジトリだけをFilesystem上の既定の書込み範囲とする。現在のリポジトリはCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryから起動しても同名Directoryを作らない。Rootを一意に検証できない、または途中のRepository境界が不正・曖昧な場合はEffect 0で停止する。親Directory、兄弟Repository、別Repository、OS一時Directoryまたは任意の絶対Pathを、読み取れることや同じLocal Userが所有することだけで書込み可能範囲へ含めない。現在のリポジトリ外へ作成、変更、移動または削除を行う場合は、事前許可された用途限定のRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで実行時にIdentityと範囲を強制できる場合を除き、exact Root、目的、作成物、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を操作前に表示し、人間の明示承認を得る。Git worktree、release staging、archive、log、試験一時物も同じ境界に従い、確認不能ならEffect 0で停止する。
+
 AIは承認された対象範囲で調査、比較、下書き、編集、検証、指摘事項の提示を行えるが、次を自己決定しない。
 
 - 保護対象変更の採用または最終統合

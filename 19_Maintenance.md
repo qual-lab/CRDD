@@ -252,6 +252,7 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 受付 / タスク参照
 変更分類または未確定であること
 変更可能な範囲 / 対象外
+現在のリポジトリ以外に許可する書込みRoot / 許可しない場合はCurrent Repository only
 基準改訂版 / 基準版
 人間による判断済みの範囲と未決事項
 保持する意図 / 目指さないこと
@@ -264,6 +265,8 @@ Issue、作業、変更トレース等から変更を実行する前に、次を
 ```
 
 実行主体は[エージェント](10_Agent.md)と[スキル](11_Skill.md)の決定権限、停止、独立レビューに従う。Issueや作業が実行可能状態を示していても、それだけで自動実行、対象範囲外変更、保護対象変更承認、最終統合、リリースを許可しない。
+
+保守作業の既定のFilesystem Effect範囲は現在のリポジトリだけとする。現在のリポジトリはタスク対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定し、Current Working DirectoryやTool／package Directoryを代用しない。Repository-local `.crdd`、試験一時物および生成物はこのRootを基準に配置し、subdirectoryから実行しても別のProject-local Rootを生成しない。Release staging、Git worktree、archive、log、試験一時物またはRuntime診断物であっても、親Directory、兄弟Repository、別RepositoryまたはOS一時Directoryへ暗黙に作成しない。リポジトリ外Rootが必要な場合は、[変更の安全性](01_Principles.md#56-change-safety)に従い、事前許可済みの用途限定Rootまたは人間が今回承認したexact Rootへ限定し、Operation所有、保持、cleanup、Recoveryおよび残存確認を同じ実行契約へ含める。
 
 編集計画と変更トレースは、工程、ファイル、コミット、確認者または個別指摘ごとに分解せず、[変更](12_Change.md)が定める変更意図を一次のまとまりとする。同じ未リリース意図に属する不足、回帰または利用側漏れは、原因契約を所有するCHGを再開して同じ検証・移行・切戻し・リリース境界で是正する。公開済み変更の訂正、または独立して採否、移行、切戻しもしくはリリースできる別意図だけを別CHGへ分ける。
 

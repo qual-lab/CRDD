@@ -15,7 +15,7 @@ import {
 
 export const RUNTIME_ROOT_PATH_IDENTITY_CONTRACT =
   "crdd-coordinator/runtime-root-path-identity";
-export const RUNTIME_ROOT_PATH_IDENTITY_CONTRACT_REVISION = 1;
+export const RUNTIME_ROOT_PATH_IDENTITY_CONTRACT_REVISION = 2;
 
 const INPUT_KEYS = new Set([
   "repositoryRoot",
@@ -335,6 +335,12 @@ function localExcludeResponse<T>(
 export function inspectRuntimeRootPathIdentityCandidate(rawInput: unknown) {
   try {
     const session = createIdentitySession(rawInput);
+    if (session.location === "repository_external_override") {
+      return response(
+        "blocked",
+        "runtime_root_external_write_authorization_required",
+      );
+    }
     return response(
       "candidate",
       "runtime_root_path_object_verified_candidate",
@@ -399,14 +405,8 @@ export function applyGitLocalExcludeWithInitialRootSnapshotCandidate(
     if (location.kind === "outside") {
       verifyIdentitySession(session);
       return localExcludeResponse(
-        "candidate",
-        "repository_external_root_needs_no_git_exclude",
-        Object.freeze({
-          excludeRequired: false,
-          excludeEntry: null,
-          trackedGitignoreModificationAllowed: false,
-        }),
-        { gitMetadataWriteVerified: true },
+        "blocked",
+        "runtime_root_external_write_authorization_required",
       );
     }
     const firstSegment = location.relative.split(path.sep)[0];
@@ -515,6 +515,8 @@ export function describeRuntimeRootPathIdentityContract() {
     ownerAclVerification: "not_implemented",
     fullParentChainVerification: "not_implemented",
     localExcludeIntegration: "implemented_candidate_initial_snapshot_binding",
+    repositoryExternalOverride:
+      "blocked_until_runtime_owned_human_authorization_is_implemented",
     activationIntegration: "not_implemented",
     absolutePathReported: false,
     filesystemIdentityReported: false,

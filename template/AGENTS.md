@@ -127,7 +127,7 @@ CRDDのタグ、コミット、サブモジュール参照、`00_CRDD/`の配布
 
 外部AIへの委譲では、ソース本文を指示文へ無条件に貼り付けず、利用可能な実行環境では検証したRepository、Revisionおよび明示した読取り投影として分離する。Password、秘密鍵、Session Token、API Keyその他のシークレット値をPrompt、検索語、Task Packet、添付、ログまたは読取り投影へ直接含めない。認識済みSecretの拒否を未知のSecret不存在証明として扱わず、安全に分離できなければ外部Effect前に停止する。
 
-Coordinator Runtimeを使う場合も、Repository内容やexample Policyだけから外部送信Authorityを推定しない。プロジェクトRootの`.crdd-external-send-policy.json`は、同梱の`.crdd-external-send-policy.example.json`を参考に、人間の決定権限者がRepository固有の情報分類、Provider Session境界、Subscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否、export可能時間および`candidatePhysicalDeletion`が示す物理削除時点を確認してCommit固定し、`enabled: true`へした場合だけ候補になる。期限到達時はexportを拒否するが、常駐serviceを持たないため物理削除は明示discardまたは次回の安全なRuntime／Candidate入口で行い、期限瞬間の削除を保証しない。exampleはfail closedの`enabled: false`であり、CRDD本体または別RepositoryのPolicyを流用しない。各Taskの端末安全な外部送信確認は別Authorityであり、Policyの存在だけでは送信しない。
+Coordinator Runtimeを使う場合も、Repository内容やexample Policyだけから外部送信Authorityを推定しない。`.crdd/external-send-policy.json`は、同梱の`.crdd/external-send-policy.example.json`を参考に、人間の決定権限者がRepository固有の情報分類、Provider Session境界、Subscription、Provider Terms／SettingsをRuntimeが検証できない範囲、Candidate保存可否、export可能時間および`candidatePhysicalDeletion`が示す物理削除時点を確認してCommit固定し、`enabled: true`へした場合だけ候補になる。期限到達時はexportを拒否するが、常駐serviceを持たないため物理削除は明示discardまたは次回の安全なRuntime／Candidate入口で行い、期限瞬間の削除を保証しない。exampleはfail closedの`enabled: false`であり、CRDD本体または別RepositoryのPolicyを流用しない。各Taskの端末安全な外部送信確認は別Authorityであり、Policyの存在だけでは送信しない。
 
 外部向け成果物では、外部向け投影と公開済み記録を分け、主張を現在有効な根拠へ接続する。公開後の反応を要求またはプロダクト上の事実へ直接昇格せず、測定、観察、仮説、学び候補、人間の判断を分ける。依存関係ではコンテキスト依存と成果物依存を分け、`00_CRDD/18_Context_Dependency.md`が定める独立管理利用側間の横断調整または重大リスクにより明示管理する依存について、現在採用している版、上書き、利用側、更新影響、復旧を確認する。通常・推移依存は既存のアーキテクチャやパッケージ管理を正本にでき、外部提供元とのAPI契約、別権限、独立リリース、または利用箇所数だけで完全な依存契約を発火させない。利用可能な新しい版をAIが自動採用せず、事前承認した対象・版範囲・検証・停止・復旧条件の外側は人間判断へ戻す。
 
@@ -171,6 +171,9 @@ UIと振る舞い仕様は直列ではない。`24_UI_Behavior_Specification.md`
 ## 操作と承認の境界
 
 - AIは指定された操作権限と現在の対象範囲内で、分析、下書き、編集、実装、テスト、監査を行える。
+- 別の書込みRootが明示的に許可されていない限り、現在のリポジトリだけをFilesystem上の既定の書込み範囲とする。親Directory、兄弟Repository、別Repository、OS一時Directoryまたは任意の絶対Pathを、読み取れることや同じLocal Userが所有することだけで書込み可能範囲へ含めない。
+- 現在のリポジトリはCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryから起動しても同名Directoryを作らない。Rootを一意に検証できない、または途中のRepository境界が不正・曖昧な場合はEffect 0で停止する。現在のリポジトリ外へ作成、変更、移動または削除を行う場合は、事前許可された用途限定のRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで実行時にIdentityと範囲を強制できる場合を除き、exact Root、目的、作成物、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を操作前に表示し、人間の明示承認を得る。確認不能ならEffect 0で停止する。
+- Git worktree、release staging、archive、log、試験一時物も同じ境界に従う。許可した一時資源は一つのOperation所有Rootへ集約し、通常完了、失敗、取消およびProcess喪失で回収またはexact Recoveryへ結合する。cleanup不明を成功扱いにしない。
 - AIは人間の決定権限が必要な意味、優先順位、対象範囲、リスク受容、工程の引き渡し、リリース、準拠表明を自己承認しない。
 - `00_CRDD`、決定権限、安定コンテキストID体系、承認済み／安定した正本成果物、判断／判断理由、受入条件を変更する場合は、作業前に影響と計画を示し、ユーザーの指示または人間の承認を確認する。
 - 特定フォルダだけを一律に保護対象とみなさない。状態、項目の決定権限、内容、リスク、変更対象範囲で判断する。

@@ -138,6 +138,8 @@ agent_contract:
 
 判断の決定権限だけでなく、読取、編集、実行、外部送信、公開、デプロイ、リリース等の操作権限を区別する。使用できるツール、認証情報、環境、データと、禁止・承認必須の操作を、[文書化の現実的な記録量と十分性](03_Documentation.md#483-realistic-recording-and-sufficiency)に従って示す。
 
+Filesystem操作では、論理的な変更対象と物理的な書込みRootを分けて示す。別の書込みRootが明示的に許可されていない場合、現在のリポジトリだけを既定の書込み範囲とする。現在のリポジトリ外の読取り、利用可能なTool権限、同じ親Directoryまたは同じLocal Userの所有を、書込みAuthorityへ昇格しない。
+
 重要作業では、エージェント契約を維持する担当責任者、作業を開始した依頼者、判断を戻す上位判断への移送先を示す。同一人物が複数責務を持ってもよいが、責務を暗黙にしない。
 
 エージェントまたはサブエージェントへ渡すコンテキストは最小化し、個人情報、シークレット、機密情報、契約上制限されたデータのアクセス制御、墨消し、保持期間を維持する。委譲は元の利用権限を拡張しない。
@@ -311,6 +313,10 @@ Trust、Authority、Recoveryまたは安全上重要な結果を、API、IPC、c
 
 高リスクまたは外部副作用を持つ操作は、対象環境、認証情報、ロールバック、検証、人間の許可を確認する。承認は類似操作へ自動拡張しない。
 
+現在のリポジトリ外へFilesystem Effectを発生させる前に、正規化・実体確認したexact Root、目的、作成・変更・移動・削除する対象、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を一体で確認する。現在のリポジトリはProcessのCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryを暗黙のRootにして同名Directoryを増殖させない。Rootを一意に検証できない、または途中に不正・曖昧なRepository境界がある場合はFilesystem Effect 0で停止する。採用プロジェクトまたはRuntime契約が用途を限定して事前許可したRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで、実行時にIdentityと範囲を強制できる場合を除き、人間の決定権限者による当該Operationの明示承認がなければ実行しない。親Directory、兄弟Repository、別Repository、OS一時Directory、任意の絶対Path、Git worktree、staging、archive、logおよび試験一時物も同じ規則に従う。
+
+外部Rootを許可した場合も、各Operationの資源は一つのRuntime-owned Operation Rootへ集約し、通常完了、失敗、取消およびProcess喪失の全経路で回収またはexact Recoveryへ結合する。Root Identity、所有権またはcleanupを確認できない場合は推測で作成・上書き・移動・削除せず、Effect 0または`manualRecoveryRequired`へ閉じる。
+
 外部検索、ブラウザ、外部AI、API、MCP、生成サービス、分析、Issue、支援窓口その他の外部接続を使う前に、[外部情報境界](01_Principles.md#external-information-boundary)を適用する。送信先、目的・操作、情報分類、利用主体、保持・二次利用および決定権限から許可した処理境界を確認し、境界内では許可された情報だけを目的に必要な最小量で渡す。境界外の調査では、内部に保持する調査目的と、外部へ送る削除・抽象化・最小化した内容を分け、送信先、送信内容、除去した情報、組合せによる再識別可能性、残存開示リスクおよび必要な人間判断を操作前に確認する。境界または安全な分離を確認できない場合は外部操作を実行しない。
 
 外部AIへ実装またはレビューを委譲する場合、ソース本文を指示文へ貼り付けることを既定にしない。利用可能な実行環境では、検証したRepository、Revision、明示した読取り範囲および書込み範囲をTaskの指示と分離して渡す。Password、秘密鍵、Session Token、API Keyその他のシークレット値をPrompt、Task Packet、引き渡し成果物または読取り投影へ直接含めず、安全な注入が必要な実行主体にも値そのものではなく限定されたCredential境界だけを与える。認識済みの秘密値または秘密用Pathを検出した場合は外部Effect前に拒否し、発見的検査の合格だけから未知の秘密値不存在を推定しない。
@@ -335,6 +341,7 @@ Trust、Authority、Recoveryまたは安全上重要な結果を、API、IPC、c
 複数の承認済み改訂版が競合する
 重要な情報源コンテキストがなく推測だけで成果物を作ることになる
 変更境界を越えないと成立しない
+現在のリポジトリ外への書込みRootまたはその承認を確認できない
 重大なリスク、不可逆変更、未承認の外部副作用がある
 必要な専門判断、機密情報、権限、環境が不足する
 情報分類、外部送信可否、安全な抽象化または外部サービスの信頼境界を確認できない
