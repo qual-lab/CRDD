@@ -286,6 +286,72 @@ test("Task Packetをstdin専用入力と隔離workspace RO mountへ結合する"
     ),
     true,
   );
+  const provider = plan.commands.find(
+    (command) => command.purpose === "create_provider",
+  );
+  assert.ok(provider);
+  const permissionModeIndex = provider.argv.indexOf("--permission-mode");
+  const toolsIndex = provider.argv.indexOf("--tools");
+  const disallowedToolsIndex = provider.argv.indexOf("--disallowedTools");
+  assert.equal(provider.argv[permissionModeIndex + 1], "dontAsk");
+  assert.equal(provider.argv[toolsIndex + 1], "Read,Glob,Grep");
+  assert.equal(
+    provider.argv[disallowedToolsIndex + 1],
+    "Bash,WebFetch,WebSearch,Task,NotebookEdit,mcp__*",
+  );
+});
+
+test("Executor Task PacketをacceptEditsと隔離workspace RW mountへ結合する", () => {
+  const fixture = createFixture({
+    consumeTaskPacket: () =>
+      Object.freeze({
+        operationId: "OP-123456",
+        taskPacketRef: "TASKPKT-FFEEDDCCBBAA99887766554433221100",
+        taskRole: "executor" as const,
+        taskPacketHash: "c".repeat(64),
+        prompt: "Create the exact bounded candidate change.",
+        promptTransport: "provider_stdin_only" as const,
+      }),
+  });
+  const prepared = fixture.adapter.prepareTask(
+    fixture.managementCapability,
+    fixture.mountCapability,
+    fixture.mountAuthorizationCapability,
+    fixture.selectionUseCapability,
+    Object.freeze({}),
+  );
+  assert.equal(prepared.status, "prepared");
+  const plan = fixture.adapter.consumeForProcessController(
+    prepared.preparedCapability,
+    fixture.managementCapability,
+  );
+  assert.ok(plan);
+  assert.equal(plan.operationMode, "isolated_task");
+  assert.equal(plan.taskRole, "executor");
+  assert.equal(plan.workspaceMountMode, "read_write");
+  assert.equal(
+    plan.providerInput,
+    "Create the exact bounded candidate change.",
+  );
+  const provider = plan.commands.find(
+    (command) => command.purpose === "create_provider",
+  );
+  assert.ok(provider);
+  const permissionModeIndex = provider.argv.indexOf("--permission-mode");
+  const toolsIndex = provider.argv.indexOf("--tools");
+  const disallowedToolsIndex = provider.argv.indexOf("--disallowedTools");
+  assert.equal(provider.argv[permissionModeIndex + 1], "acceptEdits");
+  assert.equal(provider.argv[toolsIndex + 1], "Read,Glob,Grep,Edit,Write");
+  assert.equal(
+    provider.argv[disallowedToolsIndex + 1],
+    "Bash,WebFetch,WebSearch,Task,NotebookEdit,mcp__*",
+  );
+  const workspaceMount = provider.argv.find((value) =>
+    value.includes("dst=/work"),
+  );
+  assert.ok(workspaceMount);
+  assert.equal(workspaceMount.includes("readonly"), false);
+  assert.equal(provider.argv.includes(plan.providerInput), false);
 });
 
 test("期限切れprepared planはProvider EffectなしでMount leaseを回収する", () => {

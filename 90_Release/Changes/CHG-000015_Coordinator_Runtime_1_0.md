@@ -386,6 +386,8 @@ LF固定後の正式署名再実測は基準byte Gate、Executor、独立Reviewe
 
 固定署名版`fdc0fe4`の独立Clone診断では、3回のforward試行と限定診断のいずれもCandidate Bundleの`changedPaths`が空集合であることを確認した。基準fileは正しいBASE byteであり、許可Path外変更、Reviewer誤判定またはCandidate verifierの誤分類ではなかった。固定Claude Code `2.1.220`の実helpと実行計画を照合すると、Executorへ`Edit,Write`とread-write mountを渡す一方、非対話Permission ModeをReviewerと同じ`dontAsk`へ固定していた。質問不能な書込許可と編集責務が矛盾し、Providerは変更しないまま構造化結果を返していた。Role契約を恒久是正し、Executorだけを`acceptEdits`、Reviewerを`dontAsk`へ固定する。Bash、Web、MCP、Subagent、Provider Home access、親環境継承およびCanonical Repository Effectは禁止したまま、許可Path・Candidate inventory・内容のRuntime検証と不適合時の破棄を維持する。開発用契約試験と`development-e2e:verify`を先に固定し、正式署名は全変更凍結後のRelease Candidateへ一度だけ行う。
 
+開発E2Eは実行計画だけでなくDocker Adapterが生成する最終Provider argvまでを対象に含め、Executorの`acceptEdits`・RW mount・編集Tool閉集合とReviewerの`dontAsk`・RO mount・読取Tool閉集合を同じGateで検証する。実署名は固定候補まで繰り返さず、この署名不要GateでRoleからProcess境界までの伝播漏れを先に止める。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。
