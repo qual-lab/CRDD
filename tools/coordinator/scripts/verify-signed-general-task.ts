@@ -476,13 +476,11 @@ function recoveryProjection(...results: readonly (RuntimeRecord | null)[]) {
     sources,
     "candidateRecoveryId",
     "candidate",
-    "candidateRecoveryIds",
   );
   const candidateStoreRecovery = boundedRecoveryIds(
     sources,
     "candidateStoreRecoveryId",
     "candidate_store",
-    "candidateStoreRecoveryIds",
   );
   const hostRecoveryIds = hostRecovery.ids;
   const dockerRecoveryIds = dockerRecovery.ids;
@@ -557,6 +555,23 @@ function blocked(
     hostPathReported: false,
     credentialReported: false,
   });
+}
+
+function blockedAfterExactCandidateDiscard(
+  reason: string,
+  taskResult: RuntimeRecord,
+  extra: RuntimeRecord = Object.freeze({}),
+) {
+  const sourceAfterDiscard = Object.freeze({
+    ...taskResult,
+    candidateRecoveryId: null,
+    candidateStoreRecoveryId: null,
+  });
+  return blocked(
+    reason,
+    sourceAfterDiscard,
+    Object.freeze({ candidateDiscarded: true, ...extra }),
+  );
 }
 
 function ensureRuntimeProcessPoisoned() {
@@ -1047,29 +1062,36 @@ export async function runSignedGeneralTaskVerification(
           release,
           route,
         );
-        knownOutcome = blocked(
+        const mismatchReason =
           taskResult?.status === "blocked"
             ? safeReason(
                 taskResult.reason,
                 "signed_general_task_result_contract_mismatch",
               )
-            : "signed_general_task_result_contract_mismatch",
-          taskResult,
-          Object.freeze({
-            candidateDiscarded: discarded?.status === "discarded",
-            resultContractMismatch,
-          }),
-        );
+            : "signed_general_task_result_contract_mismatch";
+        knownOutcome = candidateDiscarded
+          ? blockedAfterExactCandidateDiscard(
+              mismatchReason,
+              taskResult,
+              Object.freeze({ resultContractMismatch }),
+            )
+          : blocked(
+              mismatchReason,
+              taskResult,
+              Object.freeze({
+                candidateDiscarded: false,
+                resultContractMismatch,
+              }),
+            );
       } else if (typeof candidateId !== "string") {
         knownOutcome = blocked(
           "signed_general_task_candidate_id_missing",
           taskResult,
         );
       } else if (!isCandidateVerified) {
-        knownOutcome = blocked(
+        knownOutcome = blockedAfterExactCandidateDiscard(
           "signed_general_task_candidate_content_mismatch",
           taskResult,
-          Object.freeze({ candidateDiscarded: true }),
         );
       } else {
         knownOutcome = Object.freeze({

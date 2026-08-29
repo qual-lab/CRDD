@@ -24,7 +24,13 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 7;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 8;
+
+const MAX_SAFE_ROUTE_ATTEMPTS = 3;
+const SAFE_RETRYABLE_ROUTE_REASONS = new Set([
+  "coordinator_task_independent_review_not_approved",
+  "signed_general_task_candidate_content_mismatch",
+]);
 
 const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "forward",
@@ -292,6 +298,7 @@ function processRestartRequiredResult() {
     requestedRoutes: ROUTES,
     attemptedRouteCount: 0,
     completedRouteCount: 0,
+    retryableRouteAttemptCount: 0,
     failedRouteProfile: null,
     validationFailure: "process_restart_required" as const,
     results: Object.freeze([]),
@@ -354,6 +361,34 @@ export function isExactSignedRouteResult(
   );
 }
 
+function isSafeRetryableRouteResult(result: Readonly<Record<string, unknown>>) {
+  return (
+    result.status === "blocked" &&
+    typeof result.reason === "string" &&
+    SAFE_RETRYABLE_ROUTE_REASONS.has(result.reason) &&
+    (result.externalSendAuthorizationMode === "interactive_initial_consent" ||
+      result.externalSendAuthorizationMode === "reused_initial_consent") &&
+    result.candidateDiscarded === true &&
+    result.cleanupConfirmed === true &&
+    result.manualRecoveryRequired === false &&
+    result.processRestartRequired === false &&
+    result.effectStateUnknown === false &&
+    result.hostRecoveryId === null &&
+    emptyArray(result.hostRecoveryIds) &&
+    result.dockerRecoveryId === null &&
+    emptyArray(result.dockerRecoveryIds) &&
+    result.candidateRecoveryId === null &&
+    emptyArray(result.candidateRecoveryIds) &&
+    result.candidateStoreRecoveryId === null &&
+    emptyArray(result.candidateStoreRecoveryIds) &&
+    result.recoveryIdentityAmbiguous === false &&
+    result.canonicalRepositoryChanged === false &&
+    result.rawProviderOutputReported === false &&
+    result.hostPathReported === false &&
+    result.credentialReported === false
+  );
+}
+
 export async function runSignedRouteMatrixVerification(
   repositoryRoot: string,
   run: typeof runSignedGeneralTaskVerification = runSignedGeneralTaskVerification,
@@ -361,6 +396,7 @@ export async function runSignedRouteMatrixVerification(
   if (isRuntimeProcessPoisoned()) return processRestartRequiredResult();
   const results: Array<Readonly<Record<string, unknown>>> = [];
   let verifiedRouteCount = 0;
+  let retryableRouteAttemptCount = 0;
   let baselineReleaseIdentity: string | null = null;
   let initialConsentAuthorizationMode:
     | "interactive_initial_consent"
@@ -372,56 +408,72 @@ export async function runSignedRouteMatrixVerification(
     | "release_identity_mismatch"
     | "runner_exception"
     | null = null;
-  for (const [index, route] of ROUTES.entries()) {
-    let routeSnapshot: Readonly<Record<string, unknown>> | null = null;
-    try {
-      const outcome = await run(repositoryRoot, undefined, route);
-      const result = snapshotRouteRecord(outcome);
-      if (!result) throw new Error("route_result_snapshot_unknown");
-      routeSnapshot = result;
-      const safety = evaluateSignedRunnerSafetyObservation(
-        result,
-        ROUTE_SAFETY_SCHEMA,
-      );
-      if (safety.status !== "exact")
-        throw new Error("route_safety_observation_unknown");
-      if (result.processRestartRequired === true && !isRuntimeProcessPoisoned())
+  routeLoop: for (const [index, route] of ROUTES.entries()) {
+    for (let attempt = 1; attempt <= MAX_SAFE_ROUTE_ATTEMPTS; attempt += 1) {
+      let routeSnapshot: Readonly<Record<string, unknown>> | null = null;
+      try {
+        const outcome = await run(repositoryRoot, undefined, route);
+        const result = snapshotRouteRecord(outcome);
+        if (!result) throw new Error("route_result_snapshot_unknown");
+        routeSnapshot = result;
+        const safety = evaluateSignedRunnerSafetyObservation(
+          result,
+          ROUTE_SAFETY_SCHEMA,
+        );
+        if (safety.status !== "exact")
+          throw new Error("route_safety_observation_unknown");
+        if (
+          result.processRestartRequired === true &&
+          !isRuntimeProcessPoisoned()
+        )
+          ensureRuntimeProcessPoisoned();
+        results.push(result);
+        const observedAuthorizationMode = result.externalSendAuthorizationMode;
+        if (
+          index === 0 &&
+          initialConsentAuthorizationMode === null &&
+          (observedAuthorizationMode === "interactive_initial_consent" ||
+            observedAuthorizationMode === "reused_initial_consent")
+        )
+          initialConsentAuthorizationMode = observedAuthorizationMode;
+        const expectedAuthorizationMode =
+          index === 0 && attempt === 1 && initialConsentAuthorizationMode
+            ? initialConsentAuthorizationMode
+            : "reused_initial_consent";
+        const exact = isExactSignedRouteResult(
+          route,
+          result,
+          expectedAuthorizationMode,
+        );
+        if (!exact) {
+          if (
+            attempt < MAX_SAFE_ROUTE_ATTEMPTS &&
+            isSafeRetryableRouteResult(result)
+          ) {
+            retryableRouteAttemptCount += 1;
+            continue;
+          }
+          failedRouteProfile = route;
+          validationFailure = "route_nonconforming";
+          break routeLoop;
+        }
+        const currentReleaseIdentity = releaseIdentity(result);
+        if (baselineReleaseIdentity === null)
+          baselineReleaseIdentity = currentReleaseIdentity;
+        else if (currentReleaseIdentity !== baselineReleaseIdentity) {
+          failedRouteProfile = route;
+          validationFailure = "release_identity_mismatch";
+          break routeLoop;
+        }
+        verifiedRouteCount += 1;
+        continue routeLoop;
+      } catch {
         ensureRuntimeProcessPoisoned();
-      results.push(result);
-      const observedAuthorizationMode = result.externalSendAuthorizationMode;
-      if (
-        index === 0 &&
-        (observedAuthorizationMode === "interactive_initial_consent" ||
-          observedAuthorizationMode === "reused_initial_consent")
-      )
-        initialConsentAuthorizationMode = observedAuthorizationMode;
-      const exact = isExactSignedRouteResult(
-        route,
-        result,
-        index === 0 && initialConsentAuthorizationMode
-          ? initialConsentAuthorizationMode
-          : "reused_initial_consent",
-      );
-      if (!exact) {
+        results.push(failedRouteResult(route, routeSnapshot));
         failedRouteProfile = route;
-        validationFailure = "route_nonconforming";
-        break;
+        validationFailure = "runner_exception";
+        break routeLoop;
       }
-      const currentReleaseIdentity = releaseIdentity(result);
-      if (baselineReleaseIdentity === null)
-        baselineReleaseIdentity = currentReleaseIdentity;
-      else if (currentReleaseIdentity !== baselineReleaseIdentity) {
-        failedRouteProfile = route;
-        validationFailure = "release_identity_mismatch";
-        break;
-      }
-      verifiedRouteCount += 1;
-    } catch {
-      ensureRuntimeProcessPoisoned();
-      results.push(failedRouteResult(route, routeSnapshot));
-      failedRouteProfile = route;
-      validationFailure = "runner_exception";
-      break;
     }
   }
   const completed = verifiedRouteCount === ROUTES.length;
@@ -439,12 +491,14 @@ export async function runSignedRouteMatrixVerification(
     requestedRoutes: ROUTES,
     attemptedRouteCount: results.length,
     completedRouteCount: verifiedRouteCount,
+    retryableRouteAttemptCount,
     initialConsentAuthorizationMode,
     failedRouteProfile,
     validationFailure,
     results: Object.freeze(results),
     cleanupConfirmed:
-      completed && results.every((result) => result.cleanupConfirmed === true),
+      results.length > 0 &&
+      results.every((result) => result.cleanupConfirmed === true),
     manualRecoveryRequired:
       effectStateUnknown ||
       results.some((result) => result.manualRecoveryRequired !== false),
@@ -472,7 +526,9 @@ export function describeSignedRouteMatrixVerificationContract() {
     contractRevision: SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION,
     routes: ROUTES,
     order: "cross_provider_first_then_same_provider_exceptions",
-    stop: "first_nonconforming_or_noncompleted_route",
+    stop: "first_nonretryable_nonconforming_route_or_third_safe_nonconforming_attempt",
+    safeRetry:
+      "maximum_three_attempts_per_route_only_after_exact_candidate_discard_and_exact_zero_residual_effect_for_closed_business_nonconformance_reasons",
     initialConsent:
       "preserve_valid_consent_prompt_only_when_absent_then_require_exact_reuse",
     frontIdentityClaim:
@@ -514,6 +570,7 @@ export function createSignedRouteMatrixCliFailureResult(
     requestedRoutes: ROUTES,
     attemptedRouteCount: 0,
     completedRouteCount: 0,
+    retryableRouteAttemptCount: 0,
     failedRouteProfile: null,
     validationFailure,
     results: Object.freeze([]),

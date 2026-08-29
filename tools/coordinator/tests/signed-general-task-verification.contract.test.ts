@@ -624,6 +624,57 @@ test("一回是正後の同じ独立Reviewer承認もexact Candidate成功とし
   assert.equal(result.canonicalRepositoryChanged, false);
 });
 
+test("安全な業務拒否は空Recoveryを曖昧化せず再実行可否を判定可能にする", async () => {
+  const fixture = dependencies({
+    result: taskResult({
+      status: "blocked",
+      reason: "coordinator_task_independent_review_not_approved",
+      candidateId: undefined,
+    }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(
+    result.reason,
+    "coordinator_task_independent_review_not_approved",
+  );
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.processRestartRequired, false);
+  assert.equal(result.recoveryIdentityAmbiguous, false);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.deepEqual(result.candidateRecoveryIds, []);
+  assert.equal(result.candidateStoreRecoveryId, null);
+  assert.deepEqual(result.candidateStoreRecoveryIds, []);
+  assert.equal(result.effectStateUnknown, false);
+  assert.equal(fixture.calls.reads, 0);
+  assert.equal(fixture.calls.discards, 0);
+});
+
+test("exact Candidate破棄後の内容不一致は候補Recoveryを残存扱いしない", async () => {
+  const fixture = dependencies({ candidate: candidate("different\n") });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "signed_general_task_candidate_content_mismatch");
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+  assert.equal(result.processRestartRequired, false);
+  assert.equal(result.recoveryIdentityAmbiguous, false);
+  assert.equal(result.candidateRecoveryId, null);
+  assert.deepEqual(result.candidateRecoveryIds, []);
+  assert.equal(result.candidateStoreRecoveryId, null);
+  assert.deepEqual(result.candidateStoreRecoveryIds, []);
+  assert.equal(result.effectStateUnknown, false);
+  assert.equal(fixture.calls.discards, 1);
+});
+
 test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定する", async () => {
   const fixture = dependencies({
     result: taskResult({

@@ -89,6 +89,37 @@ function completed(
   });
 }
 
+function safelyRetryable(
+  reason:
+    | "coordinator_task_independent_review_not_approved"
+    | "signed_general_task_candidate_content_mismatch",
+  authorizationMode: "interactive_initial_consent" | "reused_initial_consent",
+) {
+  return Object.freeze({
+    status: "blocked" as const,
+    reason,
+    externalSendAuthorizationMode: authorizationMode,
+    candidateDiscarded: true,
+    cleanupConfirmed: true,
+    manualRecoveryRequired: false,
+    processRestartRequired: false,
+    effectStateUnknown: false,
+    hostRecoveryId: null,
+    hostRecoveryIds: Object.freeze([]),
+    dockerRecoveryId: null,
+    dockerRecoveryIds: Object.freeze([]),
+    candidateRecoveryId: null,
+    candidateRecoveryIds: Object.freeze([]),
+    candidateStoreRecoveryId: null,
+    candidateStoreRecoveryIds: Object.freeze([]),
+    recoveryIdentityAmbiguous: false,
+    canonicalRepositoryChanged: false,
+    rawProviderOutputReported: false,
+    hostPathReported: false,
+    credentialReported: false,
+  });
+}
+
 test("4経路をcross-provider優先で順番に実測し全cleanup後だけ完了する", async () => {
   const seen: string[] = [];
   const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
@@ -212,6 +243,87 @@ test("保存済み同意は初回からreuseし残りもreuseで閉じる", asyn
     result.initialConsentAuthorizationMode,
     "reused_initial_consent",
   );
+});
+
+test("exact破棄と残存0を確認した閉集合理由だけ同じ経路を最大3回まで再試行する", async () => {
+  const seen: string[] = [];
+  let forwardAttempts = 0;
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    route,
+  ) => {
+    assert.ok(route);
+    seen.push(route);
+    if (route === "forward") {
+      forwardAttempts += 1;
+      if (forwardAttempts === 1)
+        return safelyRetryable(
+          "signed_general_task_candidate_content_mismatch",
+          "interactive_initial_consent",
+        );
+    }
+    return completed(route, "reused_initial_consent");
+  }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  assert.equal(result.status, "completed");
+  assert.deepEqual(seen, [
+    "forward",
+    "forward",
+    "reverse",
+    "same-codex",
+    "same-claude",
+  ]);
+  assert.equal(result.attemptedRouteCount, 5);
+  assert.equal(result.completedRouteCount, 4);
+  assert.equal(result.retryableRouteAttemptCount, 1);
+  assert.equal(result.cleanupConfirmed, true);
+});
+
+test("安全な閉集合理由でも3回目は再試行せず全履歴を保持して停止する", async () => {
+  const result = await runSignedRouteMatrixVerification(process.cwd(), (async (
+    _root,
+    _dependencies,
+    _route,
+  ) =>
+    safelyRetryable(
+      "coordinator_task_independent_review_not_approved",
+      "reused_initial_consent",
+    )) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.attemptedRouteCount, 3);
+  assert.equal(result.completedRouteCount, 0);
+  assert.equal(result.retryableRouteAttemptCount, 2);
+  assert.equal(result.failedRouteProfile, "forward");
+  assert.equal((result.results as readonly unknown[]).length, 3);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.manualRecoveryRequired, false);
+});
+
+test("Recovery曖昧・候補未破棄・汎用失敗は再試行せず初回で停止する", async () => {
+  for (const mutation of [
+    { recoveryIdentityAmbiguous: true },
+    { candidateDiscarded: false },
+    { reason: "provider_process_exit_nonzero" },
+  ]) {
+    let attempts = 0;
+    const result = await runSignedRouteMatrixVerification(
+      process.cwd(),
+      (async () => {
+        attempts += 1;
+        return Object.freeze({
+          ...safelyRetryable(
+            "signed_general_task_candidate_content_mismatch",
+            "reused_initial_consent",
+          ),
+          ...mutation,
+        });
+      }) as typeof import("../scripts/verify-signed-general-task.ts").runSignedGeneralTaskVerification,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(attempts, 1);
+    assert.equal(result.attemptedRouteCount, 1);
+    assert.equal(result.retryableRouteAttemptCount, 0);
+  }
 });
 
 test("4経路は同一Release Identityへ固定し別Releaseを集約しない", async () => {
@@ -397,6 +509,7 @@ test("route salvageは過長IDを公開せず同じfieldのvalid IDだけを保�
 test("CLI最外周は引数不正と実行中未知を別分類し観測事実を捏造しない", () => {
   const unknown = createSignedRouteMatrixCliFailureResult("runner_exception");
   assert.equal(unknown.effectStateUnknown, true);
+  assert.equal(unknown.retryableRouteAttemptCount, 0);
   assert.equal(unknown.manualRecoveryRequired, true);
   assert.equal(unknown.canonicalRepositoryChanged, null);
   assert.equal(unknown.rawProviderOutputReported, null);
@@ -423,6 +536,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
   assert.equal(cli.stdout.includes("unexpected"), false);
   const result = JSON.parse(cli.stdout) as Record<string, unknown>;
   assert.equal(result.validationFailure, "arguments_invalid");
+  assert.equal(result.retryableRouteAttemptCount, 0);
   assert.equal(result.effectStateUnknown, false);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.canonicalRepositoryChanged, false);
@@ -435,7 +549,7 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 7);
+  assert.equal(contract.contractRevision, 8);
   assert.equal(
     contract.verificationFixture,
     "same_signed_tracked_base_marker_exact_token_replacement_for_every_route",

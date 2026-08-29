@@ -24,6 +24,8 @@ Status: Implementation Candidate
 
 現在の実装候補は、CodexまたはClaude Codeを入口として、Coordinatorが理由付きで実行者と独立確認者を選び、公式CLIの既存Subscription OAuth Sessionだけを使って隔離されたローカルCandidateを作成・検証・回収する。4経路の選定・Authority・Candidate・cleanup契約と、失敗／timeout／cancel／親Process消失／cleanup不明のRecovery Matrixは機械試験済みである。正式署名配布物ではCodex入口の1経路だけが実Provider実測済みであり、4経路行列とRecovery Matrixの正式署名実測、最新固定版監査およびRelease判断はまだ完了していない。
 
+正式署名4経路行列は、実Providerの自由生成差を無制限に再実行しない。同じ経路を再試行できるのは、独立Reviewer不承認またはRunnerによるexact Candidate内容不一致の閉集合理由で停止し、そのCandidateをexactに破棄し、全Recovery IDが空、cleanup確認済み、Effect不明なし、正本変更なし、秘密・Host Path・生Provider出力の報告なしを同じ結果で確認できた場合だけである。上限は一経路3回とし、全試行結果を保持する。Provider非ゼロ終了、timeout、取消、Recovery曖昧、候補未破棄または観測不能を自動再試行しない。この再試行はRelease Verification Harnessの検証契約であり、通常Taskの失敗を成功へ変更するRuntime fallbackではない。
+
 | 層 | 現在の状態 |
 |---|---|
 | 利用者が準備するもの | Windowsの認証済みローカル対話ユーザー、Docker Desktop Linux Engine、公式Codex／Claude Code CLIの専用Provider HomeでのSubscription OAuth login、真正性を確認した署名済みCRDD配布物、Repository単位の外部送信Policy |
