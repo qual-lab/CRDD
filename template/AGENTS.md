@@ -173,7 +173,7 @@ UIと振る舞い仕様は直列ではない。`24_UI_Behavior_Specification.md`
 
 - AIは指定された操作権限と現在の対象範囲内で、分析、下書き、編集、実装、テスト、監査を行える。
 - 別の書込みRootが明示的に許可されていない限り、現在のリポジトリだけをFilesystem上の既定の書込み範囲とする。親Directory、兄弟Repository、別Repository、OS一時Directoryまたは任意の絶対Pathを、読み取れることや同じLocal Userが所有することだけで書込み可能範囲へ含めない。
-- 現在のリポジトリはCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryから起動しても同名Directoryを作らない。Rootを一意に検証できない、または途中のRepository境界が不正・曖昧な場合はEffect 0で停止する。現在のリポジトリ外へ作成、変更、移動または削除を行う場合は、事前許可された用途限定のRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで実行時にIdentityと範囲を強制できる場合を除き、exact Root、目的、作成物、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を操作前に表示し、人間の明示承認を得る。確認不能ならEffect 0で停止する。
+- 現在のリポジトリはCurrent Working Directoryではなく、対象Projectと検証済みの最寄りのVersion Control worktree Rootから確定する。Repository-local `.crdd`はそのRootの直下だけに置き、Tool／package等のsubdirectoryから起動しても同名Directoryを作らない。`.crdd`はGit管理から既定で除外し、Runtime状態、候補、log、一時成果物または生成物を追跡しない。Commit固定された内容自体がRuntimeの検証入力になる非秘密のRepository設定だけを、用途を確認した明示allowlistとして追跡できる。Rootを一意に検証できない、または途中のRepository境界が不正・曖昧な場合はEffect 0で停止する。現在のリポジトリ外へ作成、変更、移動または削除を行う場合は、事前許可された用途限定のRepository-local `.crdd` RootもしくはOS管理のRuntime Rootで実行時にIdentityと範囲を強制できる場合を除き、exact Root、目的、作成物、所有主体、保持期間、cleanup／Recoveryおよび残存時の影響を操作前に表示し、人間の明示承認を得る。確認不能ならEffect 0で停止する。
 - Git worktree、release staging、archive、log、試験一時物も同じ境界に従う。許可した一時資源は一つのOperation所有Rootへ集約し、通常完了、失敗、取消およびProcess喪失で回収またはexact Recoveryへ結合する。cleanup不明を成功扱いにしない。
 - AIは人間の決定権限が必要な意味、優先順位、対象範囲、リスク受容、工程の引き渡し、リリース、準拠表明を自己承認しない。
 - `00_CRDD`、決定権限、安定コンテキストID体系、承認済み／安定した正本成果物、判断／判断理由、受入条件を変更する場合は、作業前に影響と計画を示し、ユーザーの指示または人間の承認を確認する。

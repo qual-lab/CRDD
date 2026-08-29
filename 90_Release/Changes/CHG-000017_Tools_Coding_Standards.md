@@ -4,7 +4,7 @@
 - 状態: `Reopened`
 - 決定権限者: Qual-Lab
 - 判断日: 2026-08-16
-- 最終更新日: 2026-08-29
+- 最終更新日: 2026-08-30
 - 対象: CRDD公式Repositoryの`tools/**`と配布用`template/tools/**`
 - 対象version: v0.18.0 Candidate
 - 変更分類: `breaking`
@@ -18,7 +18,7 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 
 旧`CHG-000016`のTypeScript完全移行と旧`CHG-000018`のBiome診断是正は、本変更の途中Stepと完了条件であり、独立した利用者価値またはRelease処置を持たないため本CHGへ統合した。旧`CHG-000016`の「配布Pathは変更しない」という当時判断は、後続の人間判断によってsupersededされ、現在判定へ使用しない。
 
-現在、内部ScriptのTypeScript移行、Node.js 24系でのnative実行、Biome Warning 0 Gate、CRDD所有の命名規則、現行source／testの全数検査、nested testを含む決定論的列挙および旧Checker Pathを残さない移行候補が成立している。本CHG統合と最新改訂版の再確認のため状態を`Reopened`とし、過去固定版のPassを現在判定へ流用しない。
+現在、内部ScriptのTypeScript移行、Node.js 24系でのnative実行、Biome Warning 0 Gate、nested testを含む決定論的列挙および旧Checker Pathを残さない移行候補は成立している。一方、2026-08-30の所有集合再固定で、件数assertionに遮られていた現行source／testの命名違反が全数表示された。命名Baselineは未収束であり、本CHGを`Reopened`のまま維持して過去固定版のPassを現在判定へ流用しない。
 
 ## 2. 採用したBaseline
 
@@ -35,6 +35,7 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 | 試験発見 | package所有の`.test.ts`を再帰列挙し、型検査の所有試験集合とexact一致させ、0件を失敗する |
 | 互換 | 旧名shim、alias、重複入口を残さず、明示移行または以前の固定Releaseへ戻す |
 | Release署名 | 開発反復を公式鍵・passphrase・実署名Effectから分離し、全非秘密条件を入力前に検査した固定Release Candidateだけを一度署名する |
+| Repository-local状態 | Repository rootの`.crdd`はignore-by-defaultとし、Runtime状態、Candidate、log、一時成果物および生成物を追跡しない。内容自体が検証入力になる非秘密のCommit固定Repository設定だけを明示allowlistする |
 
 公開CheckerのCLI、JSON、Schema、reason、status、暗号domainおよび既存machine contractは、命名規則だけを理由に変更しない。単一配布正本へ委譲するpackage entry adapterは責務分離であり、旧入口互換wrapperではない。
 
@@ -89,9 +90,12 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 4. TypeScript所有sourceの未所属／余剰0、命名違反0、廃止Pathの現行利用0を確認する。
 5. Repository全体Checkerと`git diff --check`を実行する。
 6. Release署名を持つToolについて、開発入口の公式鍵・passphrase・実署名Effect 0、正式署名入口の対話前非秘密検査、失敗時Effect 0および一般利用者の検証専用経路を契約試験で確認する。
-7. 最新固定改訂版へArchitecture／Security、Document、Gap／ImpactおよびConformanceを再実行する。
+7. Repository-local `.crdd`の通常生成物がGitに追跡されず、明示allowlistした非秘密のCommit固定Repository設定だけが追跡可能であることを確認する。
+8. 最新固定改訂版へArchitecture／Security、Document、Gap／ImpactおよびConformanceを再実行する。
 
 過去の固定版`5185946ae8193d7bc305be3152558abd45fde020`および`1ce8cedde4865aeb389047c2d2471b922928092e`に対するPassは当時版の履歴であり、本統合改訂版の現在判定へ流用しない。
+
+2026-08-30の再確認では、Repository-local `.crdd`を廃止Path走査から除外し、版固定`.policy`とPlain text成果物の命名規則を正本化した。また、実行時にspawnされる`host-operation-lock-supervisor.ts`をproduction TypeScript projectの所有集合へ追加し、現行所有件数をproduction 142、test 145、TypeScript unique 299、Rust 9へ再固定した。この結果、Checker契約試験は古い件数assertionの先まで進み、現行source／testに243件の命名違反が残ることを検出した。広域抑制、allowlistまたは件数だけの調整は行わない。対象symbolを契約値・外部fieldと分離し、利用側と試験を保った変更単位で是正してから本CHGの全試験を再実行する。
 
 ## 7. 影響と対象外
 
@@ -102,6 +106,7 @@ v0.18では、CRDD内部ツールをNode.js 24.12以上で直接実行できるT
 - CRDD所有の命名正本と型付き全数分類
 - nested testを漏らさず0件成功を拒否する試験入口
 - 開発E2Eと正式署名の分離、秘密入力前の完全な非秘密検査、および一般利用者へRelease秘密を要求しない発行／検証境界
+- Repository-local `.crdd`のignore-by-defaultと、非秘密のCommit固定Repository設定だけを許す明示例外
 - 採用RepositoryのChecker Path移行とno-shim境界
 
 対象外:

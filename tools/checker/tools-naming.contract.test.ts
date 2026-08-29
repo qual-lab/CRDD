@@ -80,10 +80,10 @@ const projectConfigs = Object.freeze([
 ]);
 const EXPECTED_OWNED_SOURCE_COUNTS = Object.freeze({
   checkerAndTemplate: 7,
-  coordinatorProduction: 124,
-  coordinatorTests: 120,
-  rustPlatformAccess: 8,
-  uniqueTotal: 252,
+  coordinatorProduction: 142,
+  coordinatorTests: 145,
+  rustPlatformAccess: 9,
+  uniqueTotal: 299,
 });
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CAMEL_CASE = /^[a-z][A-Za-z0-9]*$/u;
@@ -155,6 +155,8 @@ const RUST_FILE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*\.rs$/u;
 const MARKDOWN_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u;
 const JSON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.json$/u;
 const PYTHON_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.py$/u;
+const TEXT_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.txt$/u;
+const POLICY_FILE = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d+\.\d+\.\d+\.policy$/u;
 const DOCKERFILE = /^[a-z0-9]+(?:-[a-z0-9]+)*\.Dockerfile$/u;
 const RESERVED_FILE_NAMES = new Set([
   ".gitignore",
@@ -337,7 +339,8 @@ function collectReferenceFiles(root: string): string[] {
     if (
       entry.name === ".git" ||
       entry.name === "node_modules" ||
-      entry.name === "Evidence"
+      entry.name === "Evidence" ||
+      (root === repositoryRoot && entry.name === ".crdd")
     )
       continue;
     const target = path.join(root, entry.name);
@@ -408,6 +411,14 @@ function assertFileName(file: string): void {
   }
   if (name.endsWith(".py")) {
     assert.match(name, PYTHON_FILE, `Python filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".txt")) {
+    assert.match(name, TEXT_FILE, `text filename: ${file}`);
+    return;
+  }
+  if (name.endsWith(".policy")) {
+    assert.match(name, POLICY_FILE, `policy filename: ${file}`);
     return;
   }
   if (name.endsWith(".Dockerfile")) {
@@ -1837,6 +1848,8 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
     for (const validArtifactName of [
       "provider-settings.json",
       "provider-egress-proxy.py",
+      "general-task-verification.txt",
+      "windows-docker-desktop-4.41.2.policy",
       "provider-egress-proxy.Dockerfile",
     ]) {
       assert.doesNotThrow(
@@ -1847,6 +1860,8 @@ test("Path classifierは不正folderと不正fileを別々に拒否する", () =
     for (const [invalidArtifactName, expectedRule] of [
       ["provider_settings.json", /JSON filename/u],
       ["provider_egress_proxy.py", /Python filename/u],
+      ["general_task_verification.txt", /text filename/u],
+      ["windows_docker_desktop.policy", /policy filename/u],
       ["provider_egress_proxy.Dockerfile", /Dockerfile name/u],
     ] as const) {
       assert.throws(
@@ -2590,10 +2605,14 @@ test("旧checker実体は現行Treeに残らない", () => {
 });
 
 test("廃止済みPathの参照は固定履歴と移行説明にだけ残る", () => {
+  const actualReferenceCounts = [...collectRetiredReferenceCounts()];
+  assert.equal(
+    actualReferenceCounts.some(([key]) => key.startsWith(".crdd/")),
+    false,
+    "repository-local runtime state must not enter the canonical reference population",
+  );
   assert.deepEqual(
-    [...collectRetiredReferenceCounts()].sort(([left], [right]) =>
-      left.localeCompare(right),
-    ),
+    actualReferenceCounts.sort(([left], [right]) => left.localeCompare(right)),
     [...historicalReferenceCounts].sort(([left], [right]) =>
       left.localeCompare(right),
     ),

@@ -35,7 +35,7 @@ TypeScript／Rustの実行境界、Biome、型検査、Node.jsおよびRust tool
 
 ### 3.1. 基本形式
 
-Toolの既定書込みRootは現在のリポジトリ内に限定する。現在のリポジトリは、Current Working Directoryではなく、対象Projectと正規化・実体確認した最寄りのVersion Control worktree Rootから解決する。Toolをsubdirectoryから起動しても、そのDirectoryをRepository Rootとして扱わない。Repository-localな非正本状態が必要な場合は、検証済みRoot直下の用途別`.crdd`配下へ集約し、候補Revision、Provider mountおよびGit管理対象から除外する。選択Userに永続するProvider Home、Candidate Store、Recoveryその他のRuntime状態は、OS Known Folderから導出し保護を検証した固定Runtime Rootへ置く。Repository-local状態とUser／Host Runtime状態を混在させない。
+Toolの既定書込みRootは現在のリポジトリ内に限定する。現在のリポジトリは、Current Working Directoryではなく、対象Projectと正規化・実体確認した最寄りのVersion Control worktree Rootから解決する。Toolをsubdirectoryから起動しても、そのDirectoryをRepository Rootとして扱わない。Repository-localな非正本状態が必要な場合は、検証済みRoot直下の用途別`.crdd`配下へ集約し、候補Revision、Provider mountおよびGit管理対象から除外する。Repository-local `.crdd`はignore-by-defaultとし、Runtime状態、候補、log、一時成果物または生成物を個別列挙だけで追跡対象から外す設計にしない。Commit固定された内容自体がRuntimeの検証入力になる非秘密のRepository設定だけを、用途と正本性を確認した明示allowlistとして追跡してよい。選択Userに永続するProvider Home、Candidate Store、Recoveryその他のRuntime状態は、OS Known Folderから導出し保護を検証した固定Runtime Rootへ置く。Repository-local状態とUser／Host Runtime状態を混在させない。
 
 親Directory、兄弟Repository、別Repository、OS一時Directoryまたはcaller supplied absolute Pathへ書き込む実装は、現在DirectoryやPath文字列だけから許可しない。用途限定Rootの事前許可またはOperationごとの人間承認、Root Identity、所有主体、保持期間、容量、cleanup／Recoveryおよび残存確認をEffect前に強制する。試験、release staging、Git worktree、archive、logおよび診断物も例外にしない。一時物は一つのOperation所有Rootへ集約し、正常・失敗・取消・親Process喪失の全経路と次回安全入口での回収を試験する。
 
@@ -47,10 +47,12 @@ Toolの既定書込みRootは現在のリポジトリ内に限定する。現在
 | Markdownファイル | ASCII `kebab-case` | `coding-standards.md`, `threat-model.md` |
 | 通常のJSONファイル | ASCII `kebab-case` | `provider-profile.json` |
 | Pythonファイル | ASCII `kebab-case` | `provider-egress-proxy.py` |
+| Plain text成果物 | ASCII `kebab-case` | `general-task-verification.txt` |
+| 版固定Policy成果物 | ASCII `kebab-case`のsubject＋`-<major>.<minor>.<patch>.policy` | `windows-docker-desktop-4.41.2.policy` |
 | Dockerfile | ASCII `kebab-case`のsubject＋`.Dockerfile` | `provider-egress-proxy.Dockerfile` |
 | 試験ファイル | `<subject>.<kind>.test.ts` | `crdd-check.contract.test.ts` |
 
-大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSON／Python／Dockerfile subjectの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。
+大文字小文字の混在、空白、意味を持たない連番、および表で対象別に定めた区切り形式以外を使用する命名は禁止する。TypeScript／Markdown／JSON／Python／Plain text／版固定Policy／Dockerfile subjectの通常名へ`snake_case`を、Rust moduleファイルへ`kebab-case`を適用しない。
 
 ### 3.2. ecosystem予約名
 

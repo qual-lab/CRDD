@@ -53,6 +53,7 @@
     "src/security/egress-proxy-policy.ts",
     "src/security/execution-environment.ts",
     "src/security/git-local-exclude.ts",
+    "src/security/host-operation-lock-supervisor.ts",
     "src/security/host-recovery-record.ts",
     "src/security/initial-enrollment-pure-core.ts",
     "src/security/initial-enrollment-runtime-state.ts",

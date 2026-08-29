@@ -4,7 +4,7 @@
 維持責任者: Qual-Lab
 項目の決定権限: Qual-Lab
 対象改訂版: 2026-08-25に人間が採用した上流工程強化方針および長期発展方針、2026-08-28に追加採用し同日v0.18.0 Candidateへ収載した第2段階の改善意図、2026-08-29にRuntime終盤E2Eの学びから具体化したSystem Journey Closure、将来Runtime Architecture候補、能力到達点の投影および根拠駆動の責務分離原則
-現在状態: 項目別。§1～§6の上流工程強化、§7.3.1～§7.3.3の改善意図および§7.9の責務分離原則はv0.18.0 Candidateの`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補および§7.9の将来能力地平は`Held / Unscheduled`
+現在状態: 項目別。§1～§6の上流工程強化、§7.3.1と§7.3.3の工程接続・判断再開・文書入口改善はv0.18.0 Candidateの`Adopted / In Progress`（CHG-000055）、§7.3.2の根拠駆動Runtimeリファクタリングは`Adopted / Planned`、§7.9の責務分離原則は`Adopted / Planned`、§7.1の上位方向は`Adopted / Unscheduled`、§7.2のCoordinator Runtime 1.0は`In Progress`（CHG-000015）、第2段階に残る未採用の実行観測候補、§7.4～§7.8の個別研究候補および§7.9の将来能力地平は`Held / Unscheduled`
 
 本書はCRDD標準自身について、会話だけへ残すと失われる起点、採用済み意図、保持条件、検証義務および未解決事項を保持する課題探索・要求形成の正本成果物である。標準の規範本文、変更トレースまたは実装指示ではない。着手時は現行正本と影響を再確認し、一つの変更意図として`CHG-*`を発行する。
 
@@ -12,12 +12,12 @@
 
 CRDDは、良質な上流コンテキストが存在する場合の実装、試験、監査および文書整合を高い安定性で進められるようになった。一方、上流工程では、必要項目や文書が揃ったことを理由に、人間の本質的なProblem、Motivation、Value、BehaviorまたはConstraintを十分に発見する前に次工程へ進むおそれがある。誤った上流前提を下流が高精度に具体化することは、下流能力が高まるほど大きな失敗になる。
 
-Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0の正式署名一般Task実行と完成固定版の確認後、そのRuntimeをDogfoodingして次の二つを一つの上流工程強化として進めることを採用した。
+Qual-Labの人間の決定権限者は、Coordinator Runtime 1.0をDogfoodingして次の二つを一つの上流工程強化として進めることを採用した。2026-08-30には、検証済みの署名済み固定Runtimeで工程強化を先に自己適用し、全変更収束後の最終固定版にだけ正式署名E2Eと完成監査を行う順序へ具体化した。
 
 1. 課題探索・要求形成（Discovery）で、人間の暗黙Contextを発見し、反証し、再確認して収束させる対話Loopを強化する。
 2. UX、IA、UI、Graphic、SPEC、Architectureの各Agentを、同じ「賢いAI」ではなく工程固有の専門家として振る舞わせる。
 
-この時点の採用だけでは、実装着手、規範変更、特定版への収載、工程移行またはReleaseを意味しなかった。その後2026-08-28に、Qual-Labの人間の決定権限者は§7.3.1～§7.3.3を含む本強化をv0.18.0 Candidateへ収載すると判断した。判断経緯と実行順序は[`CHG-000055` §9](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)が所有する。収載判断は実装完了、規範採用、Stable化またはReleaseを意味せず、Coordinator Runtime 1.0の完成固定後に現行正本と影響を再確認して着手する順序を維持する。
+この時点の採用だけでは、実装着手、規範変更、特定版への収載、工程移行またはReleaseを意味しなかった。その後2026-08-28に、Qual-Labの人間の決定権限者は§7.3.1～§7.3.3を含む本強化をv0.18.0 Candidateへ収載すると判断した。判断経緯、現在の実行順序および具体的変更は[`CHG-000055` §9](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)と同CHGの最新節が所有する。収載判断や自己適用の開始は、実装完了、規範採用、Stable化またはReleaseを意味しない。
 
 ## 2. 保持する意図
 
@@ -97,7 +97,7 @@ Discovery ⇄ UX ⇄ IA ⇄ UI / Graphic
 5. IAは実運用上の不足に応じて追加強化
 6. SPEC／Architectureは、改善した上流Contextが失われた実例をDogfoodingで観測した場合に重点強化
 
-開始条件は、Coordinator Runtime 1.0の正式署名一般Task実行と完成固定版が確認され、この変更へ人間が着手判断を返すことである。開始時に本書の現行性、対象範囲、専門探索、利用側、変更禁止範囲および必要監査を再確認し、Discovery Loopと工程別Agent強化を一つの主変更意図としてCHGへ接続する。
+開始条件は、検証済み固定Runtimeによる自己適用、人間の着手判断、および現在の正本・対象範囲・専門探索・利用側・変更禁止範囲の再確認である。開始済みの工程接続、判断再開および文書入口改善は一つの主変更意図としてCHG-000055へ接続し、Runtime sourceへ影響しない間は最終固定版まで正式署名と完成監査を反復しない。
 
 ## 4. 目指さないこと
 
@@ -164,9 +164,9 @@ Issue #30の整理、自律オペレーションの参照実証およびv0.18.0�
 
 観測候補には、実行時間、プロバイダー／モデル／推論レベル、エージェント実行、委譲、並列実行、レビュー／指摘、再試行、人間判断、不足／影響範囲、利用枠観測および結果がある。認証情報、内部推論全文または目的に不要なプロバイダー情報を収集する許可にはならない。実行観測の情報分類、保持、送信、費用および決定権限は着手時に別途確認する。
 
-並行して、課題探索・要求形成、UX、IA、UI、アーキテクチャ、実装、検証および外部コミュニケーション等の専門工程を自己適用する。第1の入口は本書1章から6章に記録した課題探索対話ループと上流工程エージェント強化であり、開始条件はCoordinator Runtime 1.0の正式署名一般タスク実行、完成固定版および人間による着手判断である。ここで得た実績を、後続の計画／能力設計候補の根拠にする。
+並行して、課題探索・要求形成、UX、IA、UI、アーキテクチャ、実装、検証および外部コミュニケーション等の専門工程を自己適用する。第1の入口は本書1章から6章に記録した課題探索対話ループと上流工程エージェント強化である。検証済み固定Runtimeと人間による着手判断を開始条件とし、全変更収束後の最終固定版へ正式署名E2Eと完成監査を実施する。ここで得た実績を、後続の計画／能力設計候補の根拠にする。
 
-§7.3.1～§7.3.3では、改善へ着手する作業意図を採用している。個別の観測Schema、工程、Architecture境界、Adapter、実装順または互換性は採用済みではなく、Runtime 1.0の完成後に得る根拠から再評価する。
+§7.3.1～§7.3.3では、改善へ着手する作業意図を採用している。§7.3.1と§7.3.3のうち工程接続、判断再開および文書入口はCHG-000055として自己適用中である。個別の観測Schema、新工程、Architecture境界、Adapterまたは互換性を一括採用したものではなく、自己適用の根拠から変更単位で再評価する。
 
 #### 7.3.1. 工程接続と意味網羅検証の強化候補
 
@@ -365,7 +365,7 @@ PhaseとVersionは直交する。Phaseは価値と能力を探索し、根拠か
 | 表示 | 能力像 | 判断／対応状態 | 再評価契機 | この表示が意味しないこと |
 |---|---|---|---|---|
 | CRDD v0.18.0 Candidate — 現Candidate差分 | 現在のCandidate差分として統合・固定確認中のCRDD Methodology、Agent OrganizationおよびCoordinator Runtime 1.0 | 項目別。RuntimeとRelease準備は`In Progress` | CHG-000015の完成固定、未終了CHGおよびRelease Readinessの確認 | 完了、Stable化またはRelease |
-| CRDD v0.18.0 Candidate — 収載決定済み未完了改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性を、Runtime完成後の自己適用から成熟させる | `Adopted / Planned`（判断経緯は[`CHG-000055` §9](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md#9-v0180-candidateへの収載判断による再開)） | CHG-000015の完成固定後、現行正本と影響を再確認して着手し、変更単位ごとの実装・検証・監査を完了 | 実装着手済み、実装完了、規範採用、Stable化、Releaseまたはv0.19.0以降の研究候補の収載 |
+| CRDD v0.18.0 Candidate — 収載決定済み未完了改善 | §7.3.1～§7.3.3の工程接続、アーキテクチャ追跡可能性（Architecture Traceability）、システム結合試験、Repository構成および文書の意味可読性を、固定Runtimeの自己適用から成熟させる | 項目別。工程接続・判断再開・文書入口は`Adopted / In Progress`（[`CHG-000055`](../90_Release/Changes/CHG-000055_CRDD_Long_Term_Evolution_Roadmap.md)）、根拠駆動Runtimeリファクタリングは`Adopted / Planned` | 変更単位の実装・検証を完了し、全変更収束後の最終固定版へ正式署名E2Eと一括監査を実施 | 実装完了、規範採用、Stable化、Releaseまたはv0.19.0以降の研究候補の収載 |
 | CRDD v0.19.0（将来能力像） | MCP等の協働接続面、Repository Binding／Router、Runtime境界およびCRDDの機械利用性をエコシステム自己適用（Ecosystem Dogfooding）し、v1能力到達性を評価する | `Held / Unscheduled` | v0.18.0の結果と、第2段階で得た最初の自己適用Evidenceを人間が再評価 | v0.19.0への収載予約、Release Candidate、専用PM Systemまたは実装許可 |
 | CRDD v1.0.0（将来能力像） | 単一Projectで`Context → Understanding → Decision → Execution → Verification → Context Update`の閉ループを、人間とAIの組織（Human × AI Organization）で成立させる | `Held / Unscheduled` | 協働接続面とエコシステム自己適用から、単一Projectの成立性、安全性および利用者価値を確認 | 対象版、期限、完全自律、人間のAuthority移譲または固定製品構成 |
 | CRDD v1.x（将来能力像） | 単一Projectの運営モデル（Operating Model）を保ったまま、安全性、速度、費用、Remote利用、Platform／Provider非依存性、Self-hosted Providerおよび専門Skillを成熟させる | `Held / Unscheduled` | v1能力の実利用Evidenceと、個別候補ごとの人間判断 | Linux、Remote、Self-hostedその他の全候補を同じVersionへ収載する約束 |

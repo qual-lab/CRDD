@@ -188,3 +188,25 @@ README、CHANGELOG、[`16_Quality_Assurance.md`](../../16_Quality_Assurance.md)�
 既存の[`判断支援契約`](../../11_Skill.md#53-decision-support-contract)は、判断集合、推奨、影響、短所、保留、不採用および段階的表示をすでに所有する。本追記は同契約を複製せず、自己適用で「質問を表示できた」後のContext反映と再開まで成立したかを評価する。現時点で`11_Skill.md`、`10_Agent.md`、`16_Quality_Assurance.md`、各工程、ひな型またはCheckerを変更する判断ではない。Runtime完成固定後に代表的な承認、選択、情報不足、リスク受容、保留および判断不要ケースでDogfoodingし、追加質問、人間操作、誤った再質問および再開失敗を実際に減らせる最小の変更だけを提案する。
 
 外部の対話AgentやMCPが不明瞭なCRDD判断要求を翻訳することを前提にしない。CRDD単体の判断支援と再開Loopを成立させ、将来の協働接続面は追加分析または横断Contextを提供する補助とする。本節も現在状態`Reopened`の範囲に含まれ、工程強化Dogfoodingとv0.18.0 Candidate最終監査が完了するまで確認済みへ昇格しない。
+
+## 15. 固定Runtimeによる工程強化の先行自己適用
+
+2026-08-30、Qual-Labの人間の決定権限者は、工程強化をCoordinator Runtime 1.0の最終正式署名と完成監査より先に自己適用し、変更が収束した最終固定版だけを正式署名E2Eと一括監査へ渡す順序を採用した。これは§9の完成条件を緩和する判断ではなく、内容変更のたびにRelease鍵入力と監査を反復する非効率を避ける実行順序の具体化である。
+
+先行自己適用には、既にIdentityと隔離境界を検証した署名済み固定Runtime配布物を使用する。各Taskは明示したRepository、Revision、読取りPath、変更可能Pathおよび受入条件へ限定し、Canonical Repositoryを直接変更しない。失敗、結果Envelope不一致、同意境界外またはRecovery不明時はEffect 0で停止し、追加の外部送信や人間入力を自動拡張しない。
+
+自己適用の結果、次の三つの閉包を既存正本へ接続した。
+
+| 閉包 | 反映先と責務 |
+|---|---|
+| 設計閉包 | [`26_Behavior_Specification.md`](../../26_Behavior_Specification.md#phase-process-contract)が正常・準正常・異常・回復の結果母集団と`absent / null / unknown`の意味を所有する。Architecture、Implementation、QAに既に存在する状態、資源、所有、実装symbolおよび検証設計の契約は重複追加せず利用する |
+| 検証閉包 | [`29_Verification.md`](../../29_Verification.md#23-検証妥当性確認保証の意図)が、実producerから本番搬送・変換、本番consumer、結果公開およびcleanup／Recovery後観測までを重要システム経路として確認する |
+| 判断・文書閉包 | [`11_Skill.md`](../../11_Skill.md#53-decision-support-contract)が人間回答の正本反映と条件不変時の自律再開を所有し、[未リリース変更トレース統合台帳](README.md)が現在のCanonical CHG、旧ID復元、機械検証詳細の順で読む入口を持つ |
+
+Runtime自己適用では、複数文書Taskが`provider_turn_limit_exceeded`で安全停止した後、`26_Behavior_Specification.md`へ限定したTaskがClaude Code Executor、Codex独立Reviewerおよび限定是正1回を経て完了した。`29_Verification.md`へ限定したTaskは2回とも`provider_task_result_envelope_invalid`で安全停止し、逆方向Providerへの切替は同意境界外としてEffect前に拒否された。いずれの失敗でもCanonical Repository変更とRecovery残存は0であり、Runtime Stateの選択User結合、保護、安定Identity、Recovery ID 0および手動回復不要を再観測した。同じ失敗を無制限に再試行せず、取得できた根拠から親Agentが正本を更新した。
+
+Repository自己適用で生成物が通常差分へ混入し得ることも確認したため、Repository rootの`.crdd`をignore-by-defaultとし、Runtime状態、Candidate、log、一時成果物および生成物を追跡しない。内容自体が検証入力になる非秘密のCommit固定Repository設定だけを明示allowlistし、現在は`.crdd/external-send-policy.json`だけを例外とする。この境界は[`CHG-000017`](CHG-000017_Tools_Coding_Standards.md)とTool規約が所有する。
+
+Runtime sourceまたは配布Identityへ影響しない変更では正式署名をやり直さず、全変更収束後にCHG-000015の最終固定版へ正式署名4経路E2E、失敗・取消・Recoveryおよび完成監査を一度実行する。Runtimeへ影響する変更を後から行った場合は、その最終Identityを固定して同じ完了条件を再計算する。
+
+本順序変更は、工程強化の規範採用、CHG-000015の完成、Stable化、main統合、タグ、公開またはReleaseを意味しない。最終判断と監査集合は維持する。

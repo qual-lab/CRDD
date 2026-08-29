@@ -2,6 +2,14 @@
 
 この台帳は、v0.18.0未リリース候補44件を、利用者にとって独立した変更意図、Human採否、外部移行およびRelease処置を持つCanonical CHG 7件へ正規化した恒久履歴Resolverである。現在の意味とCurrent Stateは各Canonical CHGが所有し、本台帳は旧IDを現在状態の第二正本にしない。
 
+## まず読む場所
+
+- v0.18.0 Candidateで現在何が変わるかを確認する場合は、次のCanonical CHG一覧から対象を読む。
+- 統合済みの旧CHG IDがどこへ移ったかを確認する場合は、[統合済み旧ID](#統合済み旧id)を読む。旧本文そのものが必要な場合だけ、各entryの固定Commitから`git show`で復元する。
+- SHA-256、固定byte、tag、旧Path等の機械検証情報は、通常利用者向け説明ではなく履歴Trustの検証入力である。現在のCapability、AuthorityまたはRelease状態をそこから推定しない。
+
+この順序は履歴情報を削らず、現在状態、過去判断、機械検証の詳細を段階的に表示するための入口である。
+
 <!-- crdd-change-trace-ledger-schema: 1 -->
 
 本台帳の各`consolidated-chg-*`節と、後述する公開tag固定表・不変歴史参照表はSchema Revision 1の機械所有領域である。機械所有領域のfield欠落、重複、未知field、集合の過不足または順序違反は判定不能としてFail Closedにする。導入説明、既知制約およびCanonicalへの案内は人間可読領域であり、機械所有fieldとして解釈しない。
