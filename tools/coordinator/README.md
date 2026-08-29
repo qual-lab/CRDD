@@ -36,6 +36,8 @@ Status: Implementation Candidate
 
 Task Promptは目的、受入基準、許可Pathおよび役割の搬送だけに使う。Repository本文は許可された読取り投影からだけ渡し、Password、Private Key、Session Token、API Keyその他のSecret値をPromptまたは投影へ含めない。認識可能なSecretをRuntimeが拒否しても未知Secretの不存在までは証明しない。
 
+Codexの外部通信は公式CLIの`features.respect_system_proxies=true`を固定し、`HTTPS_PROXY`、`HTTP_PROXY`および`ALL_PROXY`を同じOperation専用Proxyへ結合し、`NO_PROXY`を空へ固定する。これは送信先を増やす設定ではない。内部Networkからの直接DNS／直接接続を避け、既存のProvider別許可先と認証付きProxyを確実に使わせる経路固定である。親環境またはcaller由来のProxy設定は受理しない。
+
 RecoveryのFilesystem不存在は`ENOENT`だけから判定する。権限拒否、共有競合、I/O失敗、非file、linkまたは削除後の再観測不能を「消えた」と扱わず、Evidenceと処置可能なRecovery IDを保持して停止する。Host active bindingが既に不存在でも、exactかつ完全commit済みのpointerと全identity条件が一致する場合だけfresh Processで回復を継続する。Task AdmissionとDocker Process Controllerは同じexact Projectorを使い、clean以外のproduction inventoryをOperation Effect前に停止する。公開理由は競合、partial、identity不一致、観測不能および一般利用不能の固定分類に限り、内部Pathやcaller文字列を返さない。
 
 利用者向けの要約はRepository直下の[`README.md`](../../README.md)、概念と決定権限は[`04_Agent_Organization.md`](../../04_Agent_Organization.md)、Trust／Provisioning／Recoveryの詳細と残存リスクは本書の後続節および[`threat-model.md`](threat-model.md)を参照する。

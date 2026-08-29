@@ -3,7 +3,7 @@ import { describeProviderBillingPolicyContract } from "./provider-billing-policy
 
 export const CODEX_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/codex-execution-plan";
-export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 4;
+export const CODEX_EXECUTION_PLAN_CONTRACT_REVISION = 5;
 
 const PLAN_KEYS = new Set(["provider", "mode", "effort"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "effort", "taskRole"]);
@@ -106,6 +106,8 @@ export function planCodexReadOnlyProbe(candidate: unknown) {
       "gpt-5.6-sol",
       "--config",
       `model_reasoning_effort="${effort}"`,
+      "--config",
+      "features.respect_system_proxies=true",
       "--sandbox",
       "read-only",
       "--skip-git-repo-check",
@@ -175,6 +177,8 @@ export function planCodexIsolatedTask(candidate: unknown) {
       "gpt-5.6-sol",
       "--config",
       `model_reasoning_effort="${effort}"`,
+      "--config",
+      "features.respect_system_proxies=true",
       "--config",
       'approval_policy="never"',
       "--config",
@@ -272,6 +276,7 @@ export function describeCodexExecutionPlanContract() {
     exactModel: "gpt-5.6-sol",
     efforts: Object.freeze(["low", "medium", "high"]),
     speedMode: "normal_only",
+    outboundProxyPolicy: "official_cli_respect_system_proxies_required",
     isolatedTask: Object.freeze({
       roles: Object.freeze(["executor", "reviewer"]),
       permissionProfile: "root_deny_minimal_read_workspace_role_access",

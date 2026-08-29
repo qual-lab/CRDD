@@ -222,6 +222,19 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   assert.equal(provider.argv[modelIndex + 1], "claude-opus-test-profile");
   assert.equal(provider.argv[effortIndex + 1], "low");
   assert.equal(
+    provider.argv.some((value) => value.startsWith("HTTPS_PROXY=")),
+    true,
+  );
+  assert.equal(
+    provider.argv.some((value) => value.startsWith("HTTP_PROXY=")),
+    false,
+  );
+  assert.equal(
+    provider.argv.some((value) => value.startsWith("ALL_PROXY=")),
+    false,
+  );
+  assert.equal(provider.argv.includes("NO_PROXY="), false);
+  assert.equal(
     provider.argv.some((value) => value.startsWith("ANTHROPIC_API_KEY=")),
     false,
   );

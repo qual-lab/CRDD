@@ -23,6 +23,10 @@ test("公式Codex artifactとSubscription限定のread-only計画を固定する
   assert.equal(plan.argv.includes("--ignore-user-config"), true);
   assert.equal(plan.argv.includes("--ignore-rules"), true);
   assert.equal(plan.argv.includes("danger-full-access"), false);
+  assert.equal(
+    plan.argv.includes("features.respect_system_proxies=true"),
+    true,
+  );
   assert.equal(plan.repositoryMounted, false);
 });
 
@@ -83,6 +87,10 @@ test("一般Taskはroot denyとRole別workspace権限をstdin計画へ固定す�
     assert.equal(plan.argv.at(-1), "-");
     assert.equal(plan.argv.includes("--sandbox"), false);
     assert.equal(
+      plan.argv.includes("features.respect_system_proxies=true"),
+      true,
+    );
+    assert.equal(
       plan.argv.some((value) => value.includes('filesystem={":root"="deny"')),
       true,
     );
@@ -122,7 +130,7 @@ test("一般Task SchemaはExecutorとReviewerのexact出力を分離する", () 
 
 test("公開契約はSigstore検証と通常速度・API課金禁止を明示する", () => {
   const contract = describeCodexExecutionPlanContract();
-  assert.equal(contract.contractRevision, 4);
+  assert.equal(contract.contractRevision, 5);
   assert.equal(
     contract.distributionVerification.sigstoreBlobSignatureVerified,
     true,
@@ -151,6 +159,10 @@ test("公開契約はSigstore検証と通常速度・API課金禁止を明示す
   assert.equal(contract.apiKeyAllowed, false);
   assert.equal(contract.paidApiFallbackAllowed, false);
   assert.equal(contract.speedMode, "normal_only");
+  assert.equal(
+    contract.outboundProxyPolicy,
+    "official_cli_respect_system_proxies_required",
+  );
   assert.deepEqual(contract.efforts, ["low", "medium", "high"]);
   assert.equal(
     contract.distributionVerification.subscriptionBooleanRequestPassed,

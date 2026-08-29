@@ -25,7 +25,7 @@ import { consumeRuntimeOwnedProviderTaskPacket } from "./provider-task-packet-ru
 
 export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT =
   "crdd-coordinator/codex-docker-runtime-adapter";
-export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 5;
+export const CODEX_DOCKER_RUNTIME_ADAPTER_CONTRACT_REVISION = 6;
 
 const PREPARED_LIFETIME_MS = 30_000;
 const PROVIDER_HOME_DESTINATION = "/provider-home";
@@ -39,7 +39,9 @@ const FORBIDDEN_ENVIRONMENT_NAMES = new Set([
   "OPENAI_BASE_URL",
   "OPENAI_ORG_ID",
   "OPENAI_PROJECT_ID",
+  "HTTPS_PROXY",
   "HTTP_PROXY",
+  "ALL_PROXY",
   "NO_PROXY",
 ]);
 
@@ -397,6 +399,12 @@ function buildPlan(
     `TMPDIR=${TMP_DESTINATION}`,
     "--env",
     `HTTPS_PROXY=${proxyUrl}`,
+    "--env",
+    `HTTP_PROXY=${proxyUrl}`,
+    "--env",
+    `ALL_PROXY=${proxyUrl}`,
+    "--env",
+    "NO_PROXY=",
     ...fixedEnvironmentEntries,
   ];
   const commands = Object.freeze([
@@ -960,6 +968,12 @@ export function describeCodexDockerRuntimeAdapterContract() {
     apiKeyEnvironmentAllowed: false,
     providerNetwork: "internal_only",
     providerDirectEgress: false,
+    providerProxyEnvironment: Object.freeze([
+      "HTTPS_PROXY",
+      "HTTP_PROXY",
+      "ALL_PROXY",
+      "NO_PROXY_EMPTY",
+    ]),
     proxyNetworks: Object.freeze(["internal", "egress"]),
     proxyAuthentication: "runtime_random_256_bit_operation_local",
     proxyHostnameAllowlist: Object.freeze(["auth.openai.com", "chatgpt.com"]),

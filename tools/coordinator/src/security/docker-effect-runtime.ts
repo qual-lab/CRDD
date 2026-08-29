@@ -390,6 +390,16 @@ function expectedCommands(
     "TMPDIR=/tmp",
     "--env",
     `HTTPS_PROXY=http://crdd:${proxyToken}@proxy:8080`,
+    ...(plan.provider === "codex"
+      ? [
+          "--env",
+          `HTTP_PROXY=http://crdd:${proxyToken}@proxy:8080`,
+          "--env",
+          `ALL_PROXY=http://crdd:${proxyToken}@proxy:8080`,
+          "--env",
+          "NO_PROXY=",
+        ]
+      : []),
     ...Object.entries(providerPlan.environment).flatMap(([name, value]) => [
       "--env",
       `${name}=${value}`,

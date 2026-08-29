@@ -220,6 +220,13 @@ test("説明可能な低推論選定を固定Docker command planへ一度だけ�
   const modelIndex = provider.argv.indexOf("--model");
   assert.equal(provider.argv[modelIndex + 1], "gpt-5.6-sol");
   assert.equal(provider.argv.includes('model_reasoning_effort="low"'), true);
+  const proxyUrl = provider.argv
+    .find((value) => value.startsWith("HTTPS_PROXY="))
+    ?.slice("HTTPS_PROXY=".length);
+  assert.match(proxyUrl ?? "", /^http:\/\/crdd:[a-f0-9]{64}@proxy:8080$/u);
+  assert.equal(provider.argv.includes(`HTTP_PROXY=${proxyUrl}`), true);
+  assert.equal(provider.argv.includes(`ALL_PROXY=${proxyUrl}`), true);
+  assert.equal(provider.argv.includes("NO_PROXY="), true);
   assert.equal(
     provider.argv.some((value) => value.startsWith("OPENAI_API_KEY=")),
     false,
@@ -515,7 +522,7 @@ test("production adapterは未発行のCapabilityと未接続Selection Grantを�
 
 test("公開契約はCoordinator選定とProvider fallbackを分離する", () => {
   const contract = describeCodexDockerRuntimeAdapterContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
   assert.equal(
     contract.providerHomeCrossProcessLease,
     "docker_global_provider_home_identity_container_name_fail_closed",
@@ -528,6 +535,12 @@ test("公開契約はCoordinator選定とProvider fallbackを分離する", () =
   assert.equal(contract.fallbackModelArgumentAllowed, false);
   assert.equal(contract.subscriptionOffering, "chatgpt_subscription_oauth");
   assert.equal(contract.providerDirectEgress, false);
+  assert.deepEqual(contract.providerProxyEnvironment, [
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY_EMPTY",
+  ]);
   assert.equal(contract.commandPlanReported, false);
   assert.match(contract.providerAuthority, /short_lived/u);
   assert.equal(
