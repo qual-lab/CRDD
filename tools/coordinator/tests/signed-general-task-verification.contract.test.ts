@@ -339,7 +339,11 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 13);
+  assert.equal(contract.contractRevision, 14);
+  assert.equal(
+    contract.boundedRemediation,
+    "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
+  );
   assert.equal(
     contract.resultMismatchDiagnostic,
     "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
@@ -576,6 +580,7 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(result.exactCandidateContentVerified, true);
   assert.equal(result.candidateDiscarded, true);
   assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.remediationPerformed, false);
   assert.deepEqual(fixture.calls.events, ["node", "package", "task"]);
   assert.equal(result.manualRecoveryRequired, false);
   assert.equal(result.canonicalRepositoryChanged, false);
@@ -588,6 +593,22 @@ test("Claude実装、Codex独立Review、exact Candidate、discardを一つのPa
   assert.equal(fixture.calls.discards, 1);
   assert.equal(fixture.calls.bound, 1);
   assert.equal(fixture.calls.unbound, 1);
+});
+
+test("一回是正後の同じ独立Reviewer承認もexact Candidate成功として保持する", async () => {
+  const fixture = dependencies({
+    result: taskResult({ remediationPerformed: true }),
+  });
+  const result = await runSignedGeneralTaskVerification(
+    path.resolve("."),
+    fixture.value,
+  );
+  assert.equal(result.status, "completed");
+  assert.equal(result.remediationPerformed, true);
+  assert.equal(result.exactCandidateContentVerified, true);
+  assert.equal(result.candidateDiscarded, true);
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.canonicalRepositoryChanged, false);
 });
 
 test("変更Pathの最終Authorityは複製Resultでなくexact Candidate Bundleに固定する", async () => {
@@ -640,6 +661,21 @@ test("正常候補の契約差はProvider本文を出さず固定field名だけ�
   assert.equal(result.rawProviderOutputReported, false);
   assert.equal(result.hostPathReported, false);
   assert.equal(result.credentialReported, false);
+});
+
+test("是正履歴の欠落または型差を成功へ昇格しない", async () => {
+  for (const remediationPerformed of [undefined, null, "true", 1]) {
+    const fixture = dependencies({
+      result: taskResult({ remediationPerformed }),
+    });
+    const result = await runSignedGeneralTaskVerification(
+      path.resolve("."),
+      fixture.value,
+    );
+    assert.equal(result.status, "blocked");
+    assert.equal(result.resultContractMismatch, "remediation_performed");
+    assert.equal(result.candidateDiscarded, true);
+  }
 });
 
 test("Claude Front、Codex実装、Claude独立Reviewを同じ署名Runner契約へ結合する", async () => {

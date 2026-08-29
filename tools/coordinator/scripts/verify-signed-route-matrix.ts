@@ -24,7 +24,7 @@ import {
 
 export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-route-matrix-verification";
-export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 5;
+export const SIGNED_ROUTE_MATRIX_VERIFICATION_CONTRACT_REVISION = 6;
 
 const ROUTES: readonly SignedGeneralTaskRouteProfile[] = Object.freeze([
   "forward",
@@ -332,7 +332,7 @@ export function isExactSignedRouteResult(
     result.externalSendAuthorizationMode === expectedAuthorizationMode &&
     validReleaseIdentity(result) &&
     exactChangedPath(result.changedPaths) &&
-    result.remediationPerformed === false &&
+    typeof result.remediationPerformed === "boolean" &&
     result.exactCandidateContentVerified === true &&
     result.candidateDiscarded === true &&
     result.cleanupConfirmed === true &&
@@ -478,6 +478,8 @@ export function describeSignedRouteMatrixVerificationContract() {
     frontIdentityClaim:
       "requested_profile_only_observed_front_identity_not_attested",
     candidateDisposition: "each_route_exact_verify_then_discard",
+    boundedRemediation:
+      "each_route_accepts_zero_or_one_runtime_owned_remediation_only_after_final_independent_approval",
     releaseIdentity:
       "all_routes_same_manifest_package_version_sequence_commit_and_tree",
     failureClassification: Object.freeze([

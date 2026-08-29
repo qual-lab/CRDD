@@ -172,6 +172,8 @@ Provider Processが非ゼロ終了した場合も、自由文のstdout／stderr�
 | 準正常 | 明示拒否、Provider timeout／nonzero／結果不正、duplicate cancel、Lock競合、Effect前の一意なpartial pair | 安全なblockedまたは決定論的回復。未知状態へ誤昇格しない |
 | 異常 | lock解放不明、generation置換、pair不一致、create結果曖昧、親Process消失、cleanup不明、複数Recovery競合 | Result非公開、Evidence保持、exact Recoveryまたはoperator移送 |
 
+正式署名Runnerは`INV-BOUNDED-REMEDIATION`と同じ成功母集団を使用する。是正0回だけでなく、Runtime所有の一回限り是正後に同じ独立Reviewerが`approved`かつfinding 0を返した経路も成功候補である。`remediationPerformed`は厳密なboolean履歴として公開し、欠落・型差、二回目の是正、最終未承認、Candidate不一致、cleanup不明またはCanonical Repository Effectを成功へ昇格しない。
+
 各高リスク遷移は、その遷移に実際に適用可能な正常・準正常・異常区分だけを機械可読Traceへ宣言する。各検証ケースは一意なcase ID、単一開始状態、遷移を実際に通ったか、実終了状態、Provider／Host／cleanup別のEffect観測数、結果状態および観測した資源の後条件を持つ。Task fixtureの資源後条件は実際のproducer／consumer receiptから構成し、Task controlはcompletion後の公開取消が`coordinator_task_control_invalid`かつ追加Effect 0となった観測、Interactive Consoleは同意Lifecycleのcleanup結果から構成する。状態名だけから不存在を推定しない。Checkerは遷移×単一開始状態×区分の一意性、実遷移時の終了状態、case IDの試験source接続および資源後条件がその試験の観測資源に含まれることを照合する。複数開始状態を一ケースへ束ねること、成功遷移を失敗例で通過済みとみなすこと、総Effect件数だけで種類を曖昧にすること、test名の存在だけ、非該当区分の形式的な水増し、試験件数またはcoverage率だけを状態母集団の網羅根拠にしない。
 
 遷移の`resourcesAcquired`／`resourcesReleased`／`resourcesTransferred`は、その遷移が所有状態を変更する資源を示す。検証caseの`resourcePostconditions`は呼出し終了後の閉包を確認するため、当該遷移で変化せず不在のままだった資源も含められる。Checkerは全資源ID、観測bindingおよび少なくとも一つのcaseでの実使用を照合するが、終了後不在の観測を「その遷移が解放した」という虚偽のdeltaへ変換しない。

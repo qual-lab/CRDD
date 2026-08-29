@@ -33,7 +33,7 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 13;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 14;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
@@ -713,7 +713,8 @@ function taskResultContractMismatch(
     result.externalSendAuthorizationMode !== "reused_initial_consent"
   )
     return "external_send_authorization_mode";
-  if (result.remediationPerformed !== false) return "remediation_performed";
+  if (typeof result.remediationPerformed !== "boolean")
+    return "remediation_performed";
   if (!candidateRevision) return "candidate_revision";
   if (candidateRevision.baseCommit !== release.crddCommit)
     return "candidate_base_commit";
@@ -1092,7 +1093,7 @@ export async function runSignedGeneralTaskVerification(
             "interactive_initial_consent"
               ? ("interactive_initial_consent" as const)
               : ("reused_initial_consent" as const),
-          remediationPerformed: false,
+          remediationPerformed: taskResult.remediationPerformed as boolean,
           changedPaths: Object.freeze([TARGET_PATH]),
           exactCandidateContentVerified: true,
           candidateDiscarded: true,
@@ -1276,6 +1277,8 @@ export function describeSignedGeneralTaskVerificationContract() {
     frontIdentityBinding:
       "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
     candidateDisposition: "exact_content_verify_then_discard",
+    boundedRemediation:
+      "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
     resultMismatchDiagnostic:
       "fixed_contract_field_identifier_only_no_provider_text_path_or_credential",
     processRestartProjection:

@@ -40,11 +40,12 @@ const expectations = {
 function completed(
   profile: keyof typeof expectations,
   authorizationMode = "reused_initial_consent",
+  remediationPerformed = false,
 ) {
   const [route, front, executor, reviewer] = expectations[profile];
   return Object.freeze({
     contract: "crdd-coordinator/signed-general-task-verification",
-    contractRevision: 13,
+    contractRevision: 14,
     status: "completed" as const,
     reason: "signed_general_task_verification_completed",
     manifestHash: "a".repeat(64),
@@ -62,7 +63,7 @@ function completed(
     reviewerProvider: reviewer,
     reviewerIndependence: "provider_independent",
     externalSendAuthorizationMode: authorizationMode,
-    remediationPerformed: false,
+    remediationPerformed,
     changedPaths: Object.freeze([
       "tools/coordinator/runtime/general-task-verification.txt",
     ]),
@@ -162,6 +163,8 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
     ["executorProvider", "codex"],
     ["reviewerProvider", "claude"],
     ["candidateDiscarded", false],
+    ["remediationPerformed", null],
+    ["remediationPerformed", "true"],
     ["hostRecoveryIds", ["unexpected"]],
     ["recoveryIdentityAmbiguous", true],
     ["rawProviderOutputReported", true],
@@ -170,6 +173,14 @@ test("全成功fieldの一つでも危険側・経路不一致なら完了判定
   ];
   assert.equal(
     isExactSignedRouteResult("forward", base, "interactive_initial_consent"),
+    true,
+  );
+  assert.equal(
+    isExactSignedRouteResult(
+      "forward",
+      completed("forward", "interactive_initial_consent", true),
+      "interactive_initial_consent",
+    ),
     true,
   );
   for (const [field, value] of mutations) {
@@ -424,7 +435,11 @@ test("CLI最外周は引数不正と実行中未知を別分類し観測事実�
 
 test("公開契約は4経路、初期同意再利用、Candidate破棄と課金禁止を固定する", () => {
   const contract = describeSignedRouteMatrixVerificationContract();
-  assert.equal(contract.contractRevision, 5);
+  assert.equal(contract.contractRevision, 6);
+  assert.equal(
+    contract.boundedRemediation,
+    "each_route_accepts_zero_or_one_runtime_owned_remediation_only_after_final_independent_approval",
+  );
   assert.deepEqual(contract.routes, [
     "forward",
     "reverse",
