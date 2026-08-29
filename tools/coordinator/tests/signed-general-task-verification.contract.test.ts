@@ -15,6 +15,7 @@ import {
 } from "../scripts/verify-signed-general-task.ts";
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
+const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const coordinatorRoot = path.resolve(import.meta.dirname, "..");
 const candidateId = `candidate.${"1".repeat(64)}.${"2".repeat(64)}`;
@@ -318,13 +319,21 @@ function dependencies(
 }
 
 test("固定公開Taskをprocess内で構成しShell搬送を契約から除外する", () => {
+  const verificationFixture = fs.readFileSync(
+    path.join(coordinatorRoot, "runtime/general-task-verification.txt"),
+  );
+  assert.deepEqual(verificationFixture, Buffer.from(BASE_CONTENT, "utf8"));
+  assert.equal(verificationFixture.byteLength, 35);
+
   const request = createSignedGeneralTaskVerificationRequest();
   assert.deepEqual(request, {
     frontProvider: "codex",
-    objective: "Create the one bounded verification marker file.",
+    objective:
+      "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: [
       `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
-      `The visible file content is the single marker ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}; the signed runner separately verifies exact UTF-8 bytes and one trailing LF.`,
+      `The base revision contains exactly ${JSON.stringify(BASE_CONTENT.trimEnd())}; replace only its final BASE token with OK instead of recreating or reformatting the file.`,
+      `The visible file content is exactly ${JSON.stringify(EXPECTED_CONTENT.trimEnd())} followed by one LF: 33 UTF-8 bytes with SHA-256 2384acfa06b66525efb51973114853dbce87836d60c9f97bd2439d6e0854ce77.`,
     ],
     allowedPaths: [TARGET_PATH],
     readPaths: ["tools/coordinator/README.md", TARGET_PATH],
@@ -339,7 +348,11 @@ test("固定公開Taskをprocess内で構成しShell搬送を契約から除外�
   });
 
   const contract = describeSignedGeneralTaskVerificationContract();
-  assert.equal(contract.contractRevision, 14);
+  assert.equal(contract.contractRevision, 15);
+  assert.equal(
+    contract.verificationFixture,
+    "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
+  );
   assert.equal(
     contract.boundedRemediation,
     "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",

@@ -362,6 +362,8 @@ Coordinator Reference Architectureと機械可読Traceの初回・第二固定�
 
 課金境界を是正した固定署名版`0d90e2e`の再実測では、第一Claude Executor、Codex Reviewer、型付きRemediationを受けた第二Claude Executorおよび同じCodex Reviewerの再承認まで初めて通過した。Candidateはexact検証後に破棄され、cleanup確認済み、Recovery ID 0件、Canonical Repository Effect 0を維持した。一方、署名Runnerだけが`remediationPerformed === false`を成功条件としていたため、Runtime正本が許す一回是正済み承認を`result_contract_mismatch`へ誤分類した。Runnerを緩い成功判定へ変えず、`remediationPerformed`をexact boolean履歴として受理し、是正0回またはRuntime所有の最大1回是正後に同じ独立Reviewerが`approved`かつfinding 0を返す既存成功母集団へ一致させる。Candidate Identity／内容、許可Path、cleanup、破棄、非公開情報およびCanonical Effect 0の条件は維持し、欠落・型差、二回目是正、最終未承認または不一致を成功へ昇格しない。4経路の新しい署名E2Eが通るまで完成根拠へ昇格しない。
 
+bounded-remediation Runnerを整合した固定署名版`1d6b330`の再実測では、Claude ExecutorとCodex Reviewerが完了・承認し、cleanup確認済み、Recovery ID 0件、Canonical Repository Effect 0を維持したが、Runnerの独立byte検証がCandidate内容不一致を検出して安全に破棄した。従来fixtureは存在しないfileのexact新規生成をProviderへ要求し、末尾LF等をReviewerのRead表示だけでは独立確認できない一方、Runnerはbyte完全一致を要求していた。経路成立とProvider自由整形を分離するため、署名Releaseへ既知のBASE markerを追跡し、Candidate内で最終tokenだけを`BASE`から`OK`へ置換するE2Eへ変更する。全経路は同じ基準byteを使い、Reviewerは意味上の限定置換を確認し、Runnerは改変後33 UTF-8 bytes、固定SHA-256、末尾LF、Candidate Identity、許可PathおよびCanonical Effect 0を独立検証する。最終byte Gateは緩和せず、新しい署名Releaseの4経路E2Eが通るまで完成根拠へ昇格しない。
+
 ## 15. Release処置
 
 本変更は未リリースである。内部componentの個別完成、旧CHGの統合、固定1経路の成功、PR作成または監査開始を、Runtime 1.0の完成、統合、Stable化またはReleaseとみなさない。

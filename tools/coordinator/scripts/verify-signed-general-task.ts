@@ -33,9 +33,10 @@ import {
 
 export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT =
   "crdd-coordinator/signed-general-task-verification";
-export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 14;
+export const SIGNED_GENERAL_TASK_VERIFICATION_CONTRACT_REVISION = 15;
 
 const TARGET_PATH = "tools/coordinator/runtime/general-task-verification.txt";
+const BASE_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_BASE\n";
 const EXPECTED_CONTENT = "CRDD_COORDINATOR_GENERAL_TASK_OK\n";
 const PRODUCTION_CANCEL_ACK_TIMEOUT_MS = 10_000;
 const PRODUCTION_CANCEL_COMPLETION_TIMEOUT_MS = 240_000;
@@ -646,10 +647,12 @@ export function createSignedGeneralTaskVerificationRequest(
   const route = ROUTE_EXPECTATIONS[routeProfile];
   return Object.freeze({
     frontProvider: route.frontProvider,
-    objective: "Create the one bounded verification marker file.",
+    objective:
+      "Replace the one existing bounded verification marker from BASE to OK.",
     acceptanceCriteria: Object.freeze([
       `The visible candidate marker is located at ${TARGET_PATH}; the runtime and signed runner separately verify that no other path changed.`,
-      `The visible file content is the single marker ${JSON.stringify(EXPECTED_CONTENT.trimEnd())}; the signed runner separately verifies exact UTF-8 bytes and one trailing LF.`,
+      `The base revision contains exactly ${JSON.stringify(BASE_CONTENT.trimEnd())}; replace only its final BASE token with OK instead of recreating or reformatting the file.`,
+      `The visible file content is exactly ${JSON.stringify(EXPECTED_CONTENT.trimEnd())} followed by one LF: 33 UTF-8 bytes with SHA-256 2384acfa06b66525efb51973114853dbce87836d60c9f97bd2439d6e0854ce77.`,
     ]),
     allowedPaths: Object.freeze([TARGET_PATH]),
     readPaths: Object.freeze(["tools/coordinator/README.md", TARGET_PATH]),
@@ -1277,6 +1280,8 @@ export function describeSignedGeneralTaskVerificationContract() {
     frontIdentityBinding:
       "not_claimed_by_runner_result_requires_separate_fixed_run_evidence",
     candidateDisposition: "exact_content_verify_then_discard",
+    verificationFixture:
+      "tracked_base_marker_exact_token_replacement_with_independent_final_byte_verification",
     boundedRemediation:
       "zero_or_one_runtime_owned_remediation_then_same_independent_reviewer_approval_required",
     resultMismatchDiagnostic:
