@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 
+import { CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT } from "./claude-execution-plan.ts";
 import { parseUnambiguousJsonDocument } from "./claude-structured-result.ts";
 
 export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT =
   "crdd-coordinator/provider-task-structured-result";
-export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 10;
+export const PROVIDER_TASK_STRUCTURED_RESULT_CONTRACT_REVISION = 11;
 
 const MAXIMUM_RAW_BYTES = 65_536;
 const MAXIMUM_SUMMARY_BYTES = 8_192;
@@ -210,6 +211,7 @@ export function consumeProviderTaskRemediation(remediationCapability: unknown) {
 function structuredValue(
   provider: "codex" | "claude",
   taskRole: "executor" | "reviewer",
+  selectedEffort: "low" | "medium" | "high",
   raw: string,
 ) {
   const parsed = parseUnambiguousJsonDocument(raw);
@@ -242,7 +244,8 @@ function structuredValue(
     typeof numberOfTurns !== "number" ||
     !Number.isInteger(numberOfTurns) ||
     numberOfTurns < 1 ||
-    numberOfTurns > 8 ||
+    numberOfTurns >
+      CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT[taskRole][selectedEffort] ||
     typeof cost !== "number" ||
     !Number.isFinite(cost) ||
     cost < 0
@@ -293,7 +296,7 @@ export function normalizeProviderTaskStructuredResult(
       normalizedResult: null,
     });
   }
-  const extracted = structuredValue(provider, taskRole, raw);
+  const extracted = structuredValue(provider, taskRole, selectedEffort, raw);
   if (extracted.reason !== null || extracted.value === null) {
     return Object.freeze({
       status: "blocked" as const,
@@ -342,7 +345,10 @@ export function describeProviderTaskStructuredResultContract() {
     providers: Object.freeze(["codex", "claude"]),
     roles: Object.freeze(["executor", "reviewer"]),
     maximumRawBytes: MAXIMUM_RAW_BYTES,
-    claudeMaximumTurns: 8,
+    claudeMaximumTurns:
+      CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT.executor.high,
+    claudeMaximumTurnsByRoleAndEffort:
+      CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT,
     claudeMaximumApiEquivalentCostUsdByEffort: null,
     claudeApiEquivalentCostDisposition:
       "validated_nonnegative_finite_usage_metadata_not_billing_authority",

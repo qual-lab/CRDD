@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { planClaudeIsolatedTask } from "../src/security/claude-execution-plan.ts";
 import {
   describeProviderTaskStructuredResultContract,
   normalizeProviderTaskStructuredResult,
@@ -276,13 +277,57 @@ test("Codex搬送Schemaに委ねない重複・件数・byte上限をRuntimeで�
   assert.equal(result.reason, "provider_task_reviewer_shape_invalid");
 });
 
+test("Claudeの実行計画・argv・結果受理は役割と推論別の同じturn境界に従う", () => {
+  const expectedLimits = {
+    executor: { low: 8, medium: 12, high: 16 },
+    reviewer: { low: 4, medium: 6, high: 8 },
+  };
+  for (const taskRole of ["executor", "reviewer"] as const) {
+    for (const effort of ["low", "medium", "high"] as const) {
+      const plan = planClaudeIsolatedTask({
+        provider: "claude",
+        mode: "isolated_task",
+        taskRole,
+        effort,
+      });
+      assert.equal(plan.status, "candidate");
+      if (plan.status !== "candidate") throw new Error("plan_not_candidate");
+      const limit = expectedLimits[taskRole][effort];
+      assert.equal(plan.maximumTurns, limit);
+      assert.equal(
+        plan.argv[plan.argv.indexOf("--max-turns") + 1],
+        String(limit),
+      );
+      for (const turns of [-1, 0, 1, 1.5, limit - 1, limit, limit + 1, 17]) {
+        const raw =
+          taskRole === "executor"
+            ? claude(JSON.parse(EXECUTOR), { num_turns: turns })
+            : claudeReviewer(JSON.parse(REVIEWER), { num_turns: turns });
+        const result = normalizeProviderTaskStructuredResult(
+          "claude",
+          taskRole,
+          effort,
+          raw,
+        );
+        assert.equal(
+          result.status,
+          Number.isInteger(turns) && turns >= 1 && turns <= limit
+            ? "confirmed"
+            : "blocked",
+          `${taskRole}/${effort}/${turns}`,
+        );
+      }
+    }
+  }
+});
+
 test("Claude turn上限、不正cost、重複JSON key、複数documentと巨大出力を拒否する", () => {
   assert.equal(
     normalizeProviderTaskStructuredResult(
       "claude",
       "executor",
       "high",
-      claude(JSON.parse(EXECUTOR), { num_turns: 9 }),
+      claude(JSON.parse(EXECUTOR), { num_turns: 17 }),
     ).status,
     "blocked",
   );
@@ -349,10 +394,14 @@ test("SubscriptionのAPI相当costは課金Authorityへ昇格せず有限非負�
 
 test("公開契約は両Provider、両Role、上限とraw非公開を固定する", () => {
   const contract = describeProviderTaskStructuredResultContract();
-  assert.equal(contract.contractRevision, 10);
+  assert.equal(contract.contractRevision, 11);
   assert.deepEqual(contract.providers, ["codex", "claude"]);
   assert.deepEqual(contract.roles, ["executor", "reviewer"]);
-  assert.equal(contract.claudeMaximumTurns, 8);
+  assert.equal(contract.claudeMaximumTurns, 16);
+  assert.deepEqual(contract.claudeMaximumTurnsByRoleAndEffort, {
+    executor: { low: 8, medium: 12, high: 16 },
+    reviewer: { low: 4, medium: 6, high: 8 },
+  });
   assert.equal(contract.claudeMaximumApiEquivalentCostUsdByEffort, null);
   assert.equal(
     contract.claudeApiEquivalentCostDisposition,

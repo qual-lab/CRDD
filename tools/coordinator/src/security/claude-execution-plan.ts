@@ -5,6 +5,11 @@ export const CLAUDE_EXECUTION_PLAN_CONTRACT =
   "crdd-coordinator/claude-execution-plan";
 export const CLAUDE_EXECUTION_PLAN_CONTRACT_REVISION = 14;
 
+export const CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT = Object.freeze({
+  executor: Object.freeze({ low: 8, medium: 12, high: 16 }),
+  reviewer: Object.freeze({ low: 4, medium: 6, high: 8 }),
+});
+
 const PLAN_KEYS = new Set(["provider", "mode"]);
 const TASK_PLAN_KEYS = new Set(["provider", "mode", "taskRole", "effort"]);
 const billingPolicy = describeProviderBillingPolicyContract();
@@ -458,17 +463,7 @@ export function planClaudeIsolatedTask(candidate: unknown) {
   const taskRole = value.taskRole;
   const effort = value.effort;
   const maximumTurns =
-    taskRole === "executor"
-      ? effort === "low"
-        ? 8
-        : effort === "medium"
-          ? 12
-          : 16
-      : effort === "low"
-        ? 4
-        : effort === "medium"
-          ? 6
-          : 8;
+    CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT[taskRole][effort];
   const tools =
     taskRole === "executor" ? "Read,Glob,Grep,Edit,Write" : "Read,Glob,Grep";
   return Object.freeze({
@@ -677,10 +672,7 @@ export function describeClaudeExecutionPlanContract() {
       mcpAllowed: false,
       taskPromptTransport: "stdin_only",
       promptInArgvAllowed: false,
-      maximumTurnsByRoleAndEffort: Object.freeze({
-        executor: Object.freeze({ low: 8, medium: 12, high: 16 }),
-        reviewer: Object.freeze({ low: 4, medium: 6, high: 8 }),
-      }),
+      maximumTurnsByRoleAndEffort: CLAUDE_TASK_MAXIMUM_TURNS_BY_ROLE_AND_EFFORT,
       maximumBudgetUsdByEffort: null,
       apiEquivalentUsdBudgetDisposition:
         "not_applied_to_subscription_only_execution",
