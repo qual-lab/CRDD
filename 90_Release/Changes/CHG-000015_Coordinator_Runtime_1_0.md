@@ -432,4 +432,20 @@ bundled `bwrap`を含む固定署名版`16982db`ではforward経路が完了し�
 
 この見積りはDirectory内の実ファイル数や完了予測ではない。既存のSubscription限定、権限、外部送信、timeout、cleanup、CodexおよびBoolean Probeの契約は維持する。実務の上限停止が解消したという主張は、更新版を用いた後続実測まで保留する。親Coordinatorが実務収束時に係数、上限停止率、完成時間、利用量を再評価し、最終固定E2Eと独立監査へ接続する。今回の開発反復では公式鍵、再署名または実Provider送信を行わない。検証結果はCHG-000055の後続記録へ接続する。
 
-全残件と最新固定改訂版の監査を閉じた後、人間の決定権限者がv0.18.0への統合、Issue処置およびReleaseを判断する。現在、このCHG統合方針について追加の人間判断は必要ない。
+### 更新Sourceの実Provider実測入口に関する着手前確認
+
+2026-08-30、基準`3430145`の更新Sourceに対して固定package検証だけを実行し、`platform_provisioner_fixed_manifest_verification_failed`で停止することを確認した。実Provider、鍵、署名、Authority発行は実行していない。読み取り専用の別確認者による着手前照合でも、公式再署名なしで更新Sourceを実Providerへ接続する既存の正規経路は確認できなかった。この照合は最終独立監査ではない。
+
+署名依存はTaskのCapability消費だけでなく、Local Personal Authority、Provider Home観測、Candidate／Runtime State観測、Docker Desktop修復へ存在する。試験用`createIsolated*`へ実Adapterを注入する、固定鍵を試験鍵へ置換する、旧manifestと更新Sourceを混在させる、または一律にRelease確認済みを返す方法は採用しない。旧署名Runtimeが更新Sourceを読取り投影として扱うことと、更新実装自体の実測を区別する。
+
+設計候補は、通常の開発E2Eと正式署名入口を変更せず、固定開発候補に対する用途限定の実測許可を追加することとする。次は未採用の設計条件であり、実行許可ではない。
+
+- 人間が選んだRepository、固定Commit／Tree・成果物Hash、比較Task、読取り・変更範囲、Provider、期限および全呼出し上限に許可を結合する。対象変更・期限・上限・取消・cleanup不明では停止し、再許可を自動生成しない。
+- 開発候補への許可を正式Release Trustと別の型・結果として扱う。通常CLIへの自動fallback、環境変数の署名スキップ、永続的な開発Trust登録または秘密鍵保存を追加しない。
+- Task状態機械、Provider選定、外部送信、秘密拒否、公式Provider、Home分離、隔離、Candidate検証、取消・cleanup・Recoveryは既存契約を共有する。全利用側が開発許可を明示検証できるまでは実Provider Effectを開かない。Docker Desktopの最終修復操作は今回の比較許可へ含めない。
+- native成果物を再署名なしで再利用できるかを先に確認する。`a619545`から`3430145`までのRust source、native成果物観測、Provider Home／Candidate Store adapterにGit差分はなかったが、これは実binaryの同一性・互換性または別Root結合を保証しない。再利用時にも既存署名とexact artifactを検証する。
+- 通常署名の拒否が維持されること、開発許可の偽造・改変・期限切れ・上限超過・再利用の拒否、是正と再レビューを含む呼出し計数、全段階の取消・cleanup・Recoveryを実Providerなしで先に確認する。実測結果には開発候補であることを表示し、正式Releaseの根拠へ流用しない。
+
+現在必要な人間判断は、公式署名を根拠とする通常利用とは別に、人間が明示選択した固定開発候補を限定実測の実行元として信頼する契約を追加してよいか、の一点である。Subscriptionの少数回利用承認を再要求するものではない。未リリースSourceの不具合と、発行元の正式署名ではなく人間の候補選択を信頼根拠とするリスクが加わる。担当は親Coordinator。判断までは実装のGate変更と実測を保留し、承認後に正本、全利用側、検証を同じCHGで設計・是正する。保留の場合は旧署名版の実務または更新Sourceの決定論的試験だけを継続できるが、今回の更新Runtimeの実Provider比較は未実測のまま残る。
+
+全残件と最新固定改訂版の監査を閉じた後、人間の決定権限者がv0.18.0への統合、Issue処置およびReleaseを判断する。CHG統合方針について追加の人間判断はないが、上記の限定実測の信頼境界は判断待ちである。
