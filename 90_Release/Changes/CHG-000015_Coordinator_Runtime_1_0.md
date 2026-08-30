@@ -3,7 +3,7 @@
 変更ID: `CHG-000015`
 状態: `Reopened`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-28
+最終更新日: 2026-08-30
 対象系列: Coordinator Runtime 1.x
 対象バージョン: v0.18.0 Candidate / Coordinator Runtime 1.0 Candidate
 変更分類: `normative`
@@ -21,6 +21,8 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 ## 1. 結論と現在状態
 
 本変更の利用者価値は、Front Agentから直接Providerを相互spawnさせず、Coordinatorを唯一の仲介者としてCodexとClaude Codeへ実行・独立レビューを委譲し、検証済みのローカルCandidateを人間へ返せる`Coordinator Runtime 1.0`を一体として成立させることである。
+
+最新の固定候補`a619545`では、[署名済み4経路と復旧E2E](Evidence/CHG-000015_Signed_E2E_a619545.md)が4/4、7/7で完了した。4経路の再試行・是正は0、既存同意再利用、候補完全一致・破棄、cleanup確認済み、未解決Recovery 0および正本Repository変更なしを確認した。Frontは指定Profileであり実アプリのIdentity認証ではない。以下の過去実測履歴と区別し、実務自己適用の有用性評価、最新固定版の独立監査およびRelease判断は未完了として保持する。
 
 2026-08-26時点で、署名済みCRDD Release Identity、Local PersonalのT1–T2境界、外部送信の対話承認、Claude Code Executor、Codex Independent Reviewer、Candidate検証・破棄およびHost／Docker cleanupを通る固定1経路を実測した。対象Commit `af76f555896d991edb88a6bc2f52b9865c6e9ac5`の正式Runnerは`RUNNER_EXIT=0`を返し、正規Repository、Candidate Store、Runtime State、Docker資源およびRunner Processの残存0を独立照合した。
 
@@ -50,16 +52,16 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 
 | Front | Executor | 独立Reviewer | 現在状態 | 根拠／残件 |
 |---|---|---|---|---|
-| Codex | Claude Code | Codex | 固定1経路で成立確認 | 署名済み一般Task、Candidate exact content、Finding 0、cleanup／残存0を実測 |
-| Codex | Codex | Claude Code | 機械契約成立／正式署名実測待ち | Codex特性または反対Provider不適格の理由とProvider独立Reviewerを固定 |
-| Claude Code | Codex | Claude Code | 機械契約成立／正式署名実測待ち | Coordinator仲介の逆方向経路、Codex ExecutorとClaude Reviewerを固定 |
-| Claude Code | Claude Code | Codex | 機械契約成立／正式署名実測待ち | Claude特性または反対Provider不適格の理由とProvider独立Reviewerを固定 |
+| Codex | Claude Code | Codex | 正式署名固定Taskで実測完了 | `a619545`、独立承認、候補検証・破棄、cleanup確認済み |
+| Codex | Codex | Claude Code | 正式署名固定Taskで実測完了 | `a619545`、明示Executor制約とProvider独立Reviewerを確認 |
+| Claude Code | Codex | Claude Code | 正式署名固定Taskで実測完了 | `a619545`、Coordinator仲介の逆方向経路を確認 |
+| Claude Code | Claude Code | Codex | 正式署名固定Taskで実測完了 | `a619545`、明示Executor制約とProvider独立Reviewerを確認 |
 
 cross-providerを既定とし、同一ProviderまたはFront-onlyは、移譲不要、Provider固有の適性、反対Providerの利用不能または独立レビュー要件から説明できる場合だけ選ぶ。実装の存在、CLIの利用可能性または一経路の成功を、別経路の成立へ一般化しない。
 
 ### 1.2 Releaseまでの主要残件
 
-1. 4経路RunnerとRecovery Matrixを最新の正式署名配布物から実測する。
+1. 4経路と復旧E2Eの固定根拠を保持し、実務自己適用で完成速度、人間負荷、不要Loop、Provider分散および品質を評価する。
 2. 公開Task入口の実OS／Filesystem／Process結合Harness、旧facade整理および安全な公開reason分類を、Reference Architectureの未解決項目として閉じる。
 3. 最新改訂版でArchitecture／Security、Test／UX、Document／Gap／Impact／Conformanceを完了する。
 4. 実測Evidence、README、Roadmap、CHANGELOG、IssueおよびRelease範囲を現在状態へ同期し、人間の統合・Release判断へ渡す。
@@ -342,8 +344,8 @@ Coordinator Reference Architectureと機械可読Traceの初回・第二固定�
 
 残存リスク:
 
-- 固定1経路以外の正式署名E2E実測は未完了だが、4経路のproduction契約と完全一致Runnerは機械試験済みである。
-- 正式署名入口での失敗、取消、親消失、cleanup ambiguityおよびmanual recoveryの全組合せは未完了である。
+- 正式署名4経路は固定Taskで完了したが、任意の実務Taskや実FrontアプリのIdentity認証へ一般化しない。
+- 正式署名復旧Matrixの7シナリオは完了したが、全障害組合せや実Providerの障害注入を網羅した根拠ではない。
 - Providerの規約、保持、学習利用、onward transferおよび正確なaccount／tenant identityをRuntimeは保証しない。
 - Docker Desktop、Provider配布物、OSおよびSubscription offeringの更新時はIdentityとCapabilityを再評価する。
 - 巨大な内部Security契約は利用者向け入口へ露出させず、READMEの現在Capabilityと開発者向けTrust／Provisioning／Recovery詳細を分離する必要がある。
