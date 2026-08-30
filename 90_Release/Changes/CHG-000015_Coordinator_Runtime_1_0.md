@@ -3,7 +3,7 @@
 変更ID: `CHG-000015`
 状態: `Reopened`
 担当責任者: Qual-Lab
-最終更新日: 2026-08-30
+最終更新日: 2026-08-31
 対象系列: Coordinator Runtime 1.x
 対象バージョン: v0.18.0 Candidate / Coordinator Runtime 1.0 Candidate
 変更分類: `normative`
@@ -23,6 +23,8 @@ Reference Runtime Architecture: [状態・資源・Lock・Recovery・検証接�
 本変更の利用者価値は、Front Agentから直接Providerを相互spawnさせず、Coordinatorを唯一の仲介者としてCodexとClaude Codeへ実行・独立レビューを委譲し、検証済みのローカルCandidateを人間へ返せる`Coordinator Runtime 1.0`を一体として成立させることである。
 
 最新の固定候補`a619545`では、[署名済み4経路と復旧E2E](Evidence/CHG-000015_Signed_E2E_a619545.md)が4/4、7/7で完了した。4経路の再試行・是正は0、既存同意再利用、候補完全一致・破棄、cleanup確認済み、未解決Recovery 0および正本Repository変更なしを確認した。Frontは指定Profileであり実アプリのIdentity認証ではない。以下の過去実測履歴と区別し、実務自己適用の有用性評価、最新固定版の独立監査およびRelease判断は未完了として保持する。
+
+その後の固定開発版`c95eb91`では、[既存Subscriptionによる2Task比較](#development-comparison-c95eb91)が両方完了した。Codex実装→Claudeレビュー、Claude実装→Codexレビューを各一回実行し、指摘・是正・Task再試行0、呼出し計4回、今回の候補破棄とcleanup成立を確認した。Release鍵の入力・再署名は不要だった。これは開発版の限定実測であり、上記の署名済み4経路検証とは別の根拠である。所要時間の内訳、有用性評価および最新実装の完成監査は引き続き未完了である。
 
 2026-08-26時点で、署名済みCRDD Release Identity、Local PersonalのT1–T2境界、外部送信の対話承認、Claude Code Executor、Codex Independent Reviewer、Candidate検証・破棄およびHost／Docker cleanupを通る固定1経路を実測した。対象Commit `af76f555896d991edb88a6bc2f52b9865c6e9ac5`の正式Runnerは`RUNNER_EXIT=0`を返し、正規Repository、Candidate Store、Runtime State、Docker資源およびRunner Processの残存0を独立照合した。
 
@@ -491,3 +493,42 @@ Checker自身の全試験も173件合格、失敗・取消・skip 0となった�
 この時点の残件は、最終の機械確認、固定した開発配布からの一回の本人確認、別Rootの署名済みnativeによる実保護観測、承認済み2Taskの実Provider比較である。実比較の成否・所要時間・呼出し数・cleanup結果を取得してから、既定の実務ドッグフーディングと最終一括監査へ戻る。途中の試験合格を実比較完了やRelease成立として扱わない。
 
 同日の最終source確認ではCoordinator全1,297試験が合格し、失敗・取消・skip 0だった。型検査2系統、変更sourceのBiome確認、命名契約7件、既存の設計対応検査（9資源・20状態・21遷移・10不変条件・10検証接続）も合格した。全Repository Checkerは365文書・2,227リンク・687アンカーでError 0／Warning 0。開発sessionの追加検証を既存の機械可読Task Traceへ無条件に算入していない。試験tokenの本番Task・Home・Store・Runtime State拒否も確認した。正式な独立レビュー・監査は未実施であり、実比較と実務収束後に最新固定版で行う。
+
+<a id="development-comparison-c95eb91"></a>
+
+### 固定開発版による2Task比較結果（2026-08-31）
+
+承認済み2Taskの実比較は完了した。実務自己適用へ戻るために必要だった「正式鍵を使わず、固定開発ソースと別Rootの署名済みnativeを結合して実Providerを動かす」経路が、この対象で成立した。通常利用の署名条件、権限、外部送信、隔離またはcleanupを解除したものではない。
+
+| 観測項目 | Codex実装→Claudeレビュー | Claude実装→Codexレビュー |
+|---|---|---|
+| Task開始から結果・候補破棄まで | 448,841.0592 ms（約7分29秒） | 451,244.4714 ms（約7分31秒） |
+| 実効モデル・推論・速度 | GPT-5.5 low→Opus medium、通常速度 | Opus low→GPT-5.5 medium、通常速度 |
+| 結果／独立Reviewer | 完了／承認、指摘0 | 完了／承認、指摘0 |
+| 是正／Task再試行 | 0／0 | 0／0 |
+| 外部送信許可 | 初期同意を再利用 | 初期同意を再利用 |
+| 候補／cleanup | 今回の候補を破棄、確認済み | 今回の候補を破棄、確認済み |
+| 手動復旧／process再起動／正本変更 | 不要／不要／なし | 不要／不要／なし |
+
+- 対象はqual-lab/CRDD、Git Object Format `sha1`、Commit `c95eb912f09c374cd1d5af21a334eb691bdccd2a`、Tree `10786bf7e3ac1b0f02b2d57a012c5f33bc889bd8`。実行前と実行中の親による確認ではworktree clean。開発session自身が開始時および各保護対象の処理前に同じRepository／配布実体を再照合した。実行後も親がcleanを確認してから、この記録編集を開始した。
+- 開発配布のpackage SHA-256は`8d4d928ece8b21484e5d9508d28b5f860847366c2452c20856b7c67d2e574f6e`。nativeは署名済み`a619545`、Release Sequence `2026083005`、manifest SHA-256 `23f917aa8b586b432e3d30051db803f0f80222f3f50c4af3de48e25bc7a884fe`を別Rootから使用した。実行環境はWindows、Node.js 24.19.0。その他の成果物Identityは下記JSONに保持する。
+- 実行は、固定開発配布内の`tools/coordinator/scripts/measure-development-providers.ts`を検証済みNode絶対Pathから起動した。設定はRepository直下の`.crdd/dogfooding/development-measurement-request.json`。二つのTaskは同じ保存境界規則を日本語の3項目へ要約し、検証用text一つだけを変更する。読取り・変更投影と完全なTask指示は下記JSONに保存した。
+- 初回の開始確認は入力期限超過で`providerEffectIssued: false`のまま終了した。同じ固定入力・元の期限を保持して再起動し、人間の入力後に二つのTaskを実行した。実Taskを再試行したものではない。実行結果の保存時刻は2026-08-31 00:31:49 JST。正確なTask別開始時刻・終了時刻は記録しておらず、経過時間だけを観測した。
+- 許可上限8回に対してProvider CLI呼出しは計4回、2Taskとも終了記録済み。最後の`stopReason: cancelled`は比較入口の`finally`によるsession失効であり、Task取消や失敗ではない。CLI内のturn数・API request数・token・quota消費量とは区別する。
+- [入力投影・完全な公開結果・追加の読取り計測](Evidence/CHG-000015_Development_Provider_Comparison_c95eb91.json)のSHA-256は`a957bed5fc9a75278289b60d3875747e27b3d811cbf412fa2182bd4c5c781203`。原結果JSONのSHA-256は`edacef2d9d32c5638ff331bcb7cdb0301d99608cabe7f9d3bc4e8cc1d6a41ae5`。原入力・原結果はignored `.crdd/dogfooding`に保持し、Providerの生出力・秘密値はEvidenceへ保存しない。Consoleの選定表示は独立した原ログとして保存しておらず、公開結果中の選定理由を保持した。
+
+両経路各一回のため、2.4秒の差をProviderの優劣と判定しない。固定Linux環境の互換性選定によりCodexの実効モデルはGPT-5.5であり、Sol自体の比較ではない。両TaskでClaudeの作業回数上限による停止は起きなかったが、実turn数は未観測であるため上限問題一般の解消証明ではない。候補本文は検証後に破棄しており、公開結果の独立Reviewer承認を記録する一方、このEvidenceだけから内容を再レビューすることはできない。機密値不存在の完全証明、人間受入時間、Runtime全体の品質改善率も主張しない。
+
+#### 時間内訳の不足と次の対応
+
+比較後に同じ固定配布の読取りobserverだけを3回ずつ測定した。Repository Identityは15.1～25.6 ms、開発配布の全体照合は298.2～338.1 ms、署名済みnative配布の照合は739.2～993.5 msだった。native／Provider子Process、Dockerまたは外部送信は発生させていない。計測コードと全結果は上記JSONに保持する。
+
+`development-measurement-session.ts`の新規処理確認、native context取得、呼出し予約・消費等は同じ配布照合を繰り返す。そのため共通検証時間は調査候補となるが、後日の単体計測を元実行へ掛け合わせて内訳を推定しない。元実行には実呼出し回数と段階別時間がないため、約7分半の主因は未特定である。
+
+| 後続対象 | 担当・再確認契機 | 保持条件・完了条件 |
+|---|---|---|
+| 実行時間の内訳と進行表示 | Runtime保守。次の実務比較を行う前 | 既存Taskの準備、実装、レビュー、結果検証、cleanupと配布照合について、秘密・Task本文を含まない時間と回数を観測可能にする。停止理由・結果公開・取消を変えず、計測有無で安全判定が変わらないことを試験する。実測前にキャッシュや検査省略を採用しない |
+| 開始確認の期限超過 | Runtime保守。次の対話入口UX確認時 | 今回一回発生。入力できる状態と待機期限を人間が把握できる表示・起動順を確認する。承認自動入力、期限の無断延長、許可の再生成で回避しない |
+| 実務自己適用・有用性評価 | 親Coordinator。上記の計測不足を処置した後 | 既存の[有用性評価](../../01_Discovery/01_CRDD_Product_Discovery.md#runtime-utility-evaluation)へ結果を接続し、採用可能な成果、人間負荷、不要な往復、Provider利用集中を評価する。今回の2Task成功だけで全件完了にしない |
+
+新しいCHG、追加の実Provider再試行、Release鍵入力、Docker修復または無関係な候補清掃は行っていない。正式な独立レビュー・監査は既定どおり実務収束後の最新固定版へまとめる。今回の記録更新自体に追加の人間判断は必要ない。
